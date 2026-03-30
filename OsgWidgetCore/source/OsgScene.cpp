@@ -1,0 +1,1618 @@
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
+#include "OsgScene.h"
+
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <limits>
+#include <queue>
+#include <cmath>
+
+#include <osg/GL>
+#include <osg/BlendFunc>
+#include <osg/Depth>
+#include <osg/Geode>
+#include <osg/Geometry>
+#include <osg/Group>
+#include <osg/LineWidth>
+#include <osg/Matrix>
+#include <osg/NodeCallback>
+#include <osg/PrimitiveSet>
+#include <osg/ShapeDrawable>
+#include <osg/Shape>
+#include <osg/StateSet>
+#include <osg/Transform>
+#include <osg/Drawable>
+#include <osg/NodeVisitor>
+#include <osg/Vec3d>
+#include <osgUtil/IntersectionVisitor>
+#include <osgUtil/LineSegmentIntersector>
+#include <osgViewer/GraphicsWindow>
+#include <osgViewer/Viewer>
+
+namespace {
+
+class WorldAxesHudUpdateCallback : public osg::NodeCallback
+{
+public:
+	explicit WorldAxesHudUpdateCallback(osg::Camera* mainCamera)
+		: m_mainCamera(mainCamera)
+	{
+	}
+
+	void operator()(osg::Node* node, osg::NodeVisitor* nv) override
+	{
+		auto* hud = static_cast<osg::Camera*>(node);
+		if (m_mainCamera.valid())
+		{
+			const osg::Matrix& V = m_mainCamera->getViewMatrix();
+			const osg::Quat q = V.getRotate();
+			hud->setViewMatrix(osg::Matrix::rotate(q));
+		}
+		traverse(node, nv);
+	}
+
+private:
+	osg::observer_ptr<osg::Camera> m_mainCamera;
+};
+
+osg::Node* createWorldAxesHudGeode()
+{
+	const float L = 1.0f;
+	const float arrowH = 0.17f;
+	const float arrowR = 0.07f;
+	const float shaftEnd = L - arrowH;
+
+	osg::ref_ptr<osg::Group> root = new osg::Group;
+
+	const osg::Vec4 cx0(0.98f, 0.28f, 0.28f, 1.0f);
+	const osg::Vec4 cx1(0.98f, 0.52f, 0.48f, 1.0f);
+	const osg::Vec4 cy0(0.28f, 0.96f, 0.38f, 1.0f);
+	const osg::Vec4 cy1(0.48f, 1.0f, 0.58f, 1.0f);
+	const osg::Vec4 cz0(0.32f, 0.52f, 1.0f, 1.0f);
+	const osg::Vec4 cz1(0.55f, 0.72f, 1.0f, 1.0f);
+
+	{
+		osg::ref_ptr<osg::Vec3Array> vLine = new osg::Vec3Array;
+		osg::ref_ptr<osg::Vec4Array> cLine = new osg::Vec4Array;
+		auto shaft = [&](const osg::Vec3& dir, const osg::Vec4& c0, const osg::Vec4& c1) {
+			vLine->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
+			vLine->push_back(osg::Vec3(dir.x() * shaftEnd, dir.y() * shaftEnd, dir.z() * shaftEnd));
+			cLine->push_back(c0);
+			cLine->push_back(c1);
+		};
+		shaft(osg::Vec3(1.0f, 0.0f, 0.0f), cx0, cx1);
+		shaft(osg::Vec3(0.0f, 1.0f, 0.0f), cy0, cy1);
+		shaft(osg::Vec3(0.0f, 0.0f, 1.0f), cz0, cz1);
+
+		osg::ref_ptr<osg::Geometry> gLine = new osg::Geometry;
+		gLine->setVertexArray(vLine.get());
+		gLine->setColorArray(cLine.get(), osg::Array::BIND_PER_VERTEX);
+		gLine->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, static_cast<GLsizei>(vLine->size())));
+
+		osg::ref_ptr<osg::Geode> geodeLines = new osg::Geode;
+		geodeLines->addDrawable(gLine.get());
+		osg::StateSet* ssLine = geodeLines->getOrCreateStateSet();
+		ssLine->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+		ssLine->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+		ssLine->setAttribute(new osg::LineWidth(3.0f));
+		root->addChild(geodeLines.get());
+	}
+
+	{
+		osg::ref_ptr<osg::Vec3Array> vTri = new osg::Vec3Array;
+		osg::ref_ptr<osg::Vec4Array> cTri = new osg::Vec4Array;
+		const float se = shaftEnd;
+		const float r = arrowR;
+
+		auto addPyramidX = [&](const osg::Vec4& col) {
+			const osg::Vec3 apex(L, 0.0f, 0.0f);
+			const osg::Vec3 b0(se, r, r);
+			const osg::Vec3 b1(se, -r, r);
+			const osg::Vec3 b2(se, -r, -r);
+			const osg::Vec3 b3(se, r, -r);
+			auto tri = [&](const osg::Vec3& a, const osg::Vec3& b, const osg::Vec3& c) {
+				vTri->push_back(a);
+				vTri->push_back(b);
+				vTri->push_back(c);
+				cTri->push_back(col);
+				cTri->push_back(col);
+				cTri->push_back(col);
+			};
+			tri(apex, b0, b1);
+			tri(apex, b1, b2);
+			tri(apex, b2, b3);
+			tri(apex, b3, b0);
+		};
+		auto addPyramidY = [&](const osg::Vec4& col) {
+			const osg::Vec3 apex(0.0f, L, 0.0f);
+			const osg::Vec3 b0(r, se, r);
+			const osg::Vec3 b1(-r, se, r);
+			const osg::Vec3 b2(-r, se, -r);
+			const osg::Vec3 b3(r, se, -r);
+			auto tri = [&](const osg::Vec3& a, const osg::Vec3& b, const osg::Vec3& c) {
+				vTri->push_back(a);
+				vTri->push_back(b);
+				vTri->push_back(c);
+				cTri->push_back(col);
+				cTri->push_back(col);
+				cTri->push_back(col);
+			};
+			tri(apex, b0, b1);
+			tri(apex, b1, b2);
+			tri(apex, b2, b3);
+			tri(apex, b3, b0);
+		};
+		auto addPyramidZ = [&](const osg::Vec4& col) {
+			const osg::Vec3 apex(0.0f, 0.0f, L);
+			const osg::Vec3 b0(r, r, se);
+			const osg::Vec3 b1(-r, r, se);
+			const osg::Vec3 b2(-r, -r, se);
+			const osg::Vec3 b3(r, -r, se);
+			auto tri = [&](const osg::Vec3& a, const osg::Vec3& b, const osg::Vec3& c) {
+				vTri->push_back(a);
+				vTri->push_back(b);
+				vTri->push_back(c);
+				cTri->push_back(col);
+				cTri->push_back(col);
+				cTri->push_back(col);
+			};
+			tri(apex, b0, b1);
+			tri(apex, b1, b2);
+			tri(apex, b2, b3);
+			tri(apex, b3, b0);
+		};
+
+		addPyramidX(osg::Vec4(0.95f, 0.22f, 0.22f, 1.0f));
+		addPyramidY(osg::Vec4(0.22f, 0.92f, 0.32f, 1.0f));
+		addPyramidZ(osg::Vec4(0.28f, 0.48f, 0.98f, 1.0f));
+
+		osg::ref_ptr<osg::Geometry> gTri = new osg::Geometry;
+		gTri->setVertexArray(vTri.get());
+		gTri->setColorArray(cTri.get(), osg::Array::BIND_PER_VERTEX);
+		gTri->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vTri->size())));
+
+		osg::ref_ptr<osg::Geode> geodeTri = new osg::Geode;
+		geodeTri->addDrawable(gTri.get());
+		osg::StateSet* ssTri = geodeTri->getOrCreateStateSet();
+		ssTri->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+		ssTri->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+		ssTri->setMode(GL_CULL_FACE, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+		root->addChild(geodeTri.get());
+	}
+
+	{
+		osg::ref_ptr<osg::Sphere> sph = new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.0f), 0.038f);
+		osg::ref_ptr<osg::ShapeDrawable> sd = new osg::ShapeDrawable(sph.get());
+		sd->setColor(osg::Vec4(0.92f, 0.92f, 0.95f, 1.0f));
+		osg::ref_ptr<osg::Geode> geodeS = new osg::Geode;
+		geodeS->addDrawable(sd.get());
+		osg::StateSet* ssS = geodeS->getOrCreateStateSet();
+		ssS->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+		ssS->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+		root->addChild(geodeS.get());
+	}
+
+	return root.release();
+}
+
+} // namespace
+
+OsgScene::OsgScene() = default;
+
+void OsgScene::requestRedraw() const
+{
+	if (m_requestRedraw)
+	{
+		m_requestRedraw();
+	}
+}
+
+void OsgScene::setViewportPixels(int w, int h)
+{
+	m_viewportWidth = (std::max)(1, w);
+	m_viewportHeight = (std::max)(1, h);
+}
+
+void OsgScene::initScene()
+{
+	static const unsigned int kMaskHelper = 0x2u;
+
+	m_root = new osg::Group;
+	m_root->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+
+	m_objectsGroup = new osg::Group;
+	m_objectsGroup->setNodeMask(0xffffffffu);
+	m_objectsGroup->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_stagingGroup = new osg::Group;
+	m_stagingGroup->setNodeMask(0xffffffffu);
+	m_stagingGroup->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_root->addChild(m_objectsGroup.get());
+	m_root->addChild(m_stagingGroup.get());
+
+	m_selectedTransform = new osg::PositionAttitudeTransform;
+	m_root->addChild(m_selectedTransform.get());
+	m_compassTransform = new osg::PositionAttitudeTransform;
+	m_compassTransform->setNodeMask(0u);
+	m_selectedTransform->addChild(m_compassTransform.get());
+	m_annotationGroup = new osg::Group;
+	m_annotationGroup->setNodeMask(0xffffffffu);
+	m_objectsGroup->addChild(m_annotationGroup.get());
+
+	m_meshPickOverlayGroup = new osg::Group;
+	m_meshPickOverlayGroup->setNodeMask(0u);
+	m_root->addChild(m_meshPickOverlayGroup.get());
+
+	m_meshPickedFaceGeom = new osg::Geometry;
+	m_meshPickedFaceVertices = new osg::Vec3Array;
+	m_meshPickedFaceVertices->reserve(3);
+	m_meshPickedFaceVertices->push_back(osg::Vec3f(0.0f, 0.0f, 0.0f));
+	m_meshPickedFaceVertices->push_back(osg::Vec3f(0.0f, 0.0f, 0.0f));
+	m_meshPickedFaceVertices->push_back(osg::Vec3f(0.0f, 0.0f, 0.0f));
+	m_meshPickedFaceGeom->setVertexArray(m_meshPickedFaceVertices.get());
+	m_meshPickedFaceGeom->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, 3));
+	m_meshPickedFaceColors = new osg::Vec4Array;
+	m_meshPickedFaceColors->push_back(osg::Vec4(1.0f, 1.0f, 0.1f, 0.9f));
+	m_meshPickedFaceGeom->setColorArray(m_meshPickedFaceColors.get(), osg::Array::BIND_OVERALL);
+	m_meshPickedFaceGeom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_meshPickedFaceGeom->getOrCreateStateSet()->setMode(GL_CULL_FACE, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_meshPickedFaceGeom->getOrCreateStateSet()->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_meshPickedFaceGeom->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	m_meshPickedFaceGeom->getOrCreateStateSet()->setAttributeAndModes(
+		new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
+	m_meshPickedFaceGeom->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+
+	m_meshPickedEdgeGeom = new osg::Geometry;
+	m_meshPickedEdgeVertices = new osg::Vec3Array;
+	m_meshPickedEdgeVertices->reserve(2);
+	m_meshPickedEdgeVertices->push_back(osg::Vec3f(0.0f, 0.0f, 0.0f));
+	m_meshPickedEdgeVertices->push_back(osg::Vec3f(0.0f, 0.0f, 0.0f));
+	m_meshPickedEdgeGeom->setVertexArray(m_meshPickedEdgeVertices.get());
+	m_meshPickedEdgeGeom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, 2));
+	m_meshPickedEdgeColors = new osg::Vec4Array;
+	m_meshPickedEdgeColors->push_back(osg::Vec4(0.1f, 1.0f, 0.2f, 0.9f));
+	m_meshPickedEdgeGeom->setColorArray(m_meshPickedEdgeColors.get(), osg::Array::BIND_OVERALL);
+	m_meshPickedEdgeGeom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_meshPickedEdgeGeom->getOrCreateStateSet()->setAttribute(new osg::LineWidth(3.0f));
+
+	osg::ref_ptr<osg::Geode> overlayGeode = new osg::Geode;
+	overlayGeode->addDrawable(m_meshPickedFaceGeom.get());
+	overlayGeode->addDrawable(m_meshPickedEdgeGeom.get());
+	overlayGeode->setNodeMask(kMaskHelper);
+	m_meshPickOverlayGroup->addChild(overlayGeode.get());
+
+	m_pickFeedbackTransform = new osg::AutoTransform;
+	m_pickFeedbackTransform->setNodeMask(kMaskHelper);
+	m_pickFeedbackTransform->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_SCREEN);
+	m_pickFeedbackTransform->setAutoScaleToScreen(true);
+	m_selectedTransform->addChild(m_pickFeedbackTransform.get());
+
+	m_selectionActive = false;
+	m_gizmoReferenceDistance = -1.0;
+	m_gizmoReferenceScale = 1.0;
+	m_hasLastSelectionPose = false;
+}
+
+void OsgScene::initWorldAxesHud()
+{
+	if (!m_viewer.valid() || !m_viewer->getCamera() || !m_graphicsWindow.valid() || !m_root.valid())
+	{
+		return;
+	}
+	m_worldAxesHudCamera = new osg::Camera;
+	m_worldAxesHudCamera->setGraphicsContext(m_graphicsWindow.get());
+	m_worldAxesHudCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+	m_worldAxesHudCamera->setRenderOrder(osg::Camera::POST_RENDER);
+	m_worldAxesHudCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
+	m_worldAxesHudCamera->setAllowEventFocus(false);
+	m_worldAxesHudCamera->setProjectionMatrixAsOrtho(-1.2f, 1.2f, -1.2f, 1.2f, -10.0, 10.0);
+	m_worldAxesHudCamera->setCullMask(0xffffffffu);
+	m_worldAxesHudCamera->setUpdateCallback(new WorldAxesHudUpdateCallback(m_viewer->getCamera()));
+	m_worldAxesHudCamera->addChild(createWorldAxesHudGeode());
+	m_root->addChild(m_worldAxesHudCamera.get());
+	updateWorldAxesHudViewport(m_viewportWidth, m_viewportHeight);
+}
+
+void OsgScene::updateWorldAxesHudViewport(int widgetWidth, int widgetHeight)
+{
+	(void)widgetWidth;
+	(void)widgetHeight;
+	if (!m_worldAxesHudCamera.valid())
+	{
+		return;
+	}
+	const int margin = 10;
+	const int sz = 120;
+	m_worldAxesHudCamera->setViewport(margin, margin, sz, sz);
+}
+bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
+{
+	static const unsigned int kMaskContent = 0x1u;
+	if (!m_viewer.valid() || !m_viewer->getCamera() || !m_root.valid())
+	{
+		return false;
+	}
+	const double x = mouseX;
+	const double y = static_cast<double>(viewportHeight()) - mouseY;
+	osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
+		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, x, y);
+	osgUtil::IntersectionVisitor iv(intersector.get());
+	iv.setTraversalMask(kMaskContent);
+	m_viewer->getCamera()->accept(iv);
+	if (!intersector->containsIntersections())
+	{
+		return false;
+	}
+
+	std::unordered_map<const osg::Node*, std::string> nodeToBackendId;
+	nodeToBackendId.reserve(m_backendObjectRoots.size());
+	for (const auto& kv : m_backendObjectRoots)
+	{
+		if (kv.second.valid())
+		{
+			nodeToBackendId.emplace(kv.second.get(), kv.first);
+		}
+	}
+	for (const auto& hit : intersector->getIntersections())
+	{
+		const osg::NodePath& path = hit.nodePath;
+		for (auto it = path.rbegin(); it != path.rend(); ++it)
+		{
+			const osg::Node* n = *it;
+			if (!n)
+			{
+				continue;
+			}
+			const auto idIt = nodeToBackendId.find(n);
+			if (idIt == nodeToBackendId.end())
+			{
+				continue;
+			}
+			const std::string& id = idIt->second;
+			auto rootIt = m_backendObjectRoots.find(id);
+			if (rootIt == m_backendObjectRoots.end() || !rootIt->second.valid())
+			{
+				continue;
+			}
+			m_activeBackendId = id;
+			m_activeBackendOuterPat = rootIt->second;
+			if (m_selectedTransform.valid())
+			{
+				m_selectedTransform->setPosition(rootIt->second->getPosition());
+				m_selectedTransform->setAttitude(rootIt->second->getAttitude());
+			}
+			cacheSelectionPoseFromSelectedTransform();
+			auto cIt = m_backendModelCenters.find(id);
+			m_modelCenter = (cIt != m_backendModelCenters.end()) ? cIt->second : osg::Vec3f(0.0f, 0.0f, 0.0f);
+			return true;
+		}
+	}
+	return false;
+}
+void OsgScene::cachePickablePointsFromNode(osg::Node* node)
+{
+	m_pickablePointsLocal.clear();
+	m_pickablePointsPreviewLocal.clear();
+	m_pickablePointsCenteredLocal.clear();
+	m_kdNodes.clear();
+	m_kdRoot = -1;
+	if (!node)
+	{
+		return;
+	}
+
+	struct PointCollectVisitor : public osg::NodeVisitor
+	{
+		PointCollectVisitor(std::vector<osg::Vec3f>& out)
+			: osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), points(out) {}
+
+		void apply(osg::Geode& geode) override
+		{
+			const osg::Matrixd localToRoot = osg::computeLocalToWorld(this->getNodePath());
+			for (unsigned int i = 0; i < geode.getNumDrawables(); ++i)
+			{
+				osg::Geometry* geom = geode.getDrawable(i) ? geode.getDrawable(i)->asGeometry() : nullptr;
+				if (!geom || !geom->getVertexArray())
+				{
+					continue;
+				}
+				const osg::Vec3Array* vertices = dynamic_cast<const osg::Vec3Array*>(geom->getVertexArray());
+				if (vertices)
+				{
+					points.reserve(points.size() + vertices->size());
+					for (const osg::Vec3& v : *vertices)
+					{
+						const osg::Vec3d p = osg::Vec3d(v.x(), v.y(), v.z()) * localToRoot;
+						points.push_back(osg::Vec3f(static_cast<float>(p.x()), static_cast<float>(p.y()), static_cast<float>(p.z())));
+					}
+					continue;
+				}
+
+				const osg::Vec3dArray* verticesD = dynamic_cast<const osg::Vec3dArray*>(geom->getVertexArray());
+				if (verticesD)
+				{
+					points.reserve(points.size() + verticesD->size());
+					for (const osg::Vec3d& v : *verticesD)
+					{
+						const osg::Vec3d p = v * localToRoot;
+						points.push_back(osg::Vec3f(static_cast<float>(p.x()), static_cast<float>(p.y()), static_cast<float>(p.z())));
+					}
+				}
+			}
+			traverse(geode);
+		}
+
+		std::vector<osg::Vec3f>& points;
+	};
+
+	PointCollectVisitor collector(m_pickablePointsLocal);
+	node->accept(collector);
+
+	if (m_pickablePointsLocal.empty())
+	{
+		return;
+	}
+	const std::size_t targetPreviewCount = 20000;
+	const std::size_t step = std::max<std::size_t>(1, m_pickablePointsLocal.size() / targetPreviewCount);
+	m_pickablePointsPreviewLocal.reserve((m_pickablePointsLocal.size() + step - 1) / step);
+	for (std::size_t i = 0; i < m_pickablePointsLocal.size(); i += step)
+	{
+		m_pickablePointsPreviewLocal.push_back(m_pickablePointsLocal[i]);
+	}
+
+	try
+	{
+		m_pickablePointsCenteredLocal.reserve(m_pickablePointsLocal.size());
+		for (const osg::Vec3f& p : m_pickablePointsLocal)
+		{
+			m_pickablePointsCenteredLocal.push_back(p - m_modelCenter);
+		}
+		rebuildPointKdTree();
+	}
+	catch (...)
+	{
+		// Keep import usable even if KD-tree building fails.
+		m_pickablePointsCenteredLocal.clear();
+		m_kdNodes.clear();
+		m_kdRoot = -1;
+	}
+}
+
+bool OsgScene::pickPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& outPointWorld) const
+{
+	double distancePx = 0.0;
+	if (!pickNearestPointAtScreenPos(mouseX, mouseY, outPointWorld, distancePx, false))
+	{
+		return false;
+	}
+	return distancePx <= 32.0;
+}
+
+bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx, bool previewOnly) const
+{
+	if (!m_viewer.valid() || !m_viewer->getCamera() || !m_selectedTransform.valid())
+	{
+		return false;
+	}
+	// Always try full-scene ray pick first. This keeps hover feedback (red/green circle)
+	// working even when current backend has no point cache (assembly parent selection).
+	{
+		double rayDistPx = 0.0;
+		if (pickPointByRayIntersection(mouseX, mouseY, outPointWorld, rayDistPx))
+		{
+			outDistancePx = rayDistPx;
+			return true;
+		}
+	}
+
+	// For click pick, ray already failed above; continue with point-cache fallback.
+	if (!previewOnly)
+	{
+		// Keep existing non-preview branch semantics below.
+	}
+	const std::vector<osg::Vec3f>& points = previewOnly ? m_pickablePointsPreviewLocal : m_pickablePointsLocal;
+	if (points.empty())
+	{
+		return false;
+	}
+
+	osg::Camera* camera = m_viewer->getCamera();
+	const osg::Matrixd mvp = camera->getViewMatrix() * camera->getProjectionMatrix();
+	const osg::Quat attitude = m_selectedTransform->getAttitude();
+	const osg::Vec3f selectedPos = m_selectedTransform->getPosition();
+
+	if (!previewOnly && m_kdRoot >= 0 && !m_pickablePointsCenteredLocal.empty())
+	{
+		osg::Matrixd proj = camera->getProjectionMatrix();
+		osg::Matrixd view = camera->getViewMatrix();
+		osg::Matrixd inv = osg::Matrixd::inverse(view * proj);
+		const double xNdc = (2.0 * mouseX / static_cast<double>(viewportWidth())) - 1.0;
+		const double yNdc = 1.0 - (2.0 * mouseY / static_cast<double>(viewportHeight()));
+		osg::Vec3d nearPoint = osg::Vec3d(xNdc, yNdc, -1.0) * inv;
+		osg::Vec3d farPoint = osg::Vec3d(xNdc, yNdc, 1.0) * inv;
+		osg::Vec3f rayOriginWorld(static_cast<float>(nearPoint.x()), static_cast<float>(nearPoint.y()), static_cast<float>(nearPoint.z()));
+		osg::Vec3f rayDirWorld(static_cast<float>(farPoint.x() - nearPoint.x()), static_cast<float>(farPoint.y() - nearPoint.y()), static_cast<float>(farPoint.z() - nearPoint.z()));
+		if (rayDirWorld.length2() > 1e-8f)
+		{
+			rayDirWorld.normalize();
+		}
+
+		const osg::Quat invAtt = attitude.inverse();
+		const osg::Vec3f rayOriginLocal = invAtt * (rayOriginWorld - selectedPos);
+		const osg::Vec3f rayDirLocal = invAtt * rayDirWorld;
+		const float t = -(rayOriginLocal * rayDirLocal);
+		const osg::Vec3f queryLocal = rayOriginLocal + rayDirLocal * t;
+
+		std::vector<int> candidateIndices;
+		nearestCandidatesByKdTree(queryLocal, 96, candidateIndices);
+		double bestD2 = (std::numeric_limits<double>::max)();
+		double bestDepth = (std::numeric_limits<double>::max)();
+		bool candidateFound = false;
+		const double screenTiePx2 = 9.0; // 3px tie-break window
+		for (int idx : candidateIndices)
+		{
+			if (idx < 0 || idx >= static_cast<int>(m_pickablePointsCenteredLocal.size()))
+			{
+				continue;
+			}
+			const osg::Vec3f localCentered = m_pickablePointsCenteredLocal[static_cast<std::size_t>(idx)];
+			const osg::Vec3f world = selectedPos + (attitude * localCentered);
+			const osg::Vec3d clip = osg::Vec3d(world) * mvp;
+			if (clip.z() < -1.0 || clip.z() > 1.0)
+			{
+				continue;
+			}
+			const double sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
+			const double sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
+			const double dx = sx - mouseX;
+			const double dy = sy - mouseY;
+			const double d2 = dx * dx + dy * dy;
+			const double depth = clip.z(); // NDC depth: smaller is closer to camera
+			if (d2 + screenTiePx2 < bestD2)
+			{
+				bestD2 = d2;
+				bestDepth = depth;
+				outPointWorld = world;
+				candidateFound = true;
+			}
+			else if (std::abs(d2 - bestD2) <= screenTiePx2 && depth < bestDepth)
+			{
+				bestD2 = d2;
+				bestDepth = depth;
+				outPointWorld = world;
+				candidateFound = true;
+			}
+		}
+		if (candidateFound)
+		{
+			outDistancePx = std::sqrt(bestD2);
+			return true;
+		}
+	}
+
+	
+	double bestDist2 = 1e30;
+	bool found = false;
+	for (const osg::Vec3f& pLocal : points)
+	{
+		const osg::Vec3f world = selectedPos + (attitude * (pLocal - m_modelCenter));
+		const osg::Vec3d clip = osg::Vec3d(world) * mvp;
+		if (clip.z() < -1.0 || clip.z() > 1.0) continue;
+		const double sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
+		const double sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
+		const double dx = sx - mouseX;
+		const double dy = sy - mouseY;
+		const double d2 = dx * dx + dy * dy;
+		if (d2 < bestDist2)
+		{
+			bestDist2 = d2;
+			outPointWorld = world;
+			found = true;
+		}
+	}
+	if (!found) return false;
+	outDistancePx = std::sqrt(bestDist2);
+	return true;
+}
+
+bool OsgScene::pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx) const
+{
+	static const unsigned int kMaskContent = 0x1u;
+	if (!m_viewer.valid() || !m_viewer->getCamera() || !m_root.valid() || !m_selectedTransform.valid())
+	{
+		return false;
+	}
+
+	const double x = mouseX;
+	const double y = static_cast<double>(viewportHeight()) - mouseY;
+	osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
+		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, x, y);
+	osgUtil::IntersectionVisitor iv(intersector.get());
+	iv.setTraversalMask(kMaskContent);
+	m_viewer->getCamera()->accept(iv);
+
+	if (!intersector->containsIntersections())
+	{
+		return false;
+	}
+
+	const osg::Matrixd mvp = m_viewer->getCamera()->getViewMatrix() * m_viewer->getCamera()->getProjectionMatrix();
+	const osg::Quat att = m_selectedTransform->getAttitude();
+	const osg::Quat invAtt = att.inverse();
+	const osg::Vec3f selectedPos = m_selectedTransform->getPosition();
+
+	auto projectToScreen = [&](const osg::Vec3f& world, double& d2, double& depth) -> bool
+	{
+		const osg::Vec3d clip = osg::Vec3d(world) * mvp;
+		if (clip.z() < -1.0 || clip.z() > 1.0)
+		{
+			return false;
+		}
+		const double sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
+		const double sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
+		const double dx = sx - mouseX;
+		const double dy = sy - mouseY;
+		d2 = dx * dx + dy * dy;
+		depth = clip.z(); // smaller => visually closer to camera
+		return true;
+	};
+
+	bool found = false;
+	osg::Vec3f bestWorld(0.0f, 0.0f, 0.0f);
+	double bestD2 = (std::numeric_limits<double>::max)();
+	double bestDepth = (std::numeric_limits<double>::max)();
+	const double kScreenWindowPx = 36.0;
+	const double kScreenWindowPx2 = kScreenWindowPx * kScreenWindowPx;
+	const double kDepthTie = 1e-4;
+	const bool hasKd = (m_kdRoot >= 0 && !m_pickablePointsCenteredLocal.empty());
+
+	for (const auto& hit : intersector->getIntersections())
+	{
+		const osg::Vec3d wp = hit.getWorldIntersectPoint();
+		const osg::Vec3f hitWorld(static_cast<float>(wp.x()), static_cast<float>(wp.y()), static_cast<float>(wp.z()));
+
+		std::vector<int> candidateIndices;
+		if (hasKd)
+		{
+			const osg::Vec3f queryLocalCentered = invAtt * (hitWorld - selectedPos);
+			nearestCandidatesByKdTree(queryLocalCentered, 64, candidateIndices);
+		}
+
+		// Fallback to the exact hit point if no candidate points are available.
+		if (candidateIndices.empty())
+		{
+			double d2 = 0.0;
+			double depth = 0.0;
+			if (projectToScreen(hitWorld, d2, depth))
+			{
+				const bool inWindow = d2 <= kScreenWindowPx2;
+				const bool bestInWindow = bestD2 <= kScreenWindowPx2;
+				const bool better = !found
+					|| (inWindow && !bestInWindow)
+					|| (inWindow == bestInWindow && (depth + kDepthTie < bestDepth
+						|| (std::abs(depth - bestDepth) <= kDepthTie && d2 < bestD2)));
+				if (better)
+				{
+					found = true;
+					bestWorld = hitWorld;
+					bestD2 = d2;
+					bestDepth = depth;
+				}
+			}
+			continue;
+		}
+
+		for (int idx : candidateIndices)
+		{
+			if (idx < 0 || idx >= static_cast<int>(m_pickablePointsCenteredLocal.size()))
+			{
+				continue;
+			}
+			const osg::Vec3f localCentered = m_pickablePointsCenteredLocal[static_cast<std::size_t>(idx)];
+			const osg::Vec3f candidateWorld = selectedPos + (att * localCentered);
+			double d2 = 0.0;
+			double depth = 0.0;
+			if (!projectToScreen(candidateWorld, d2, depth))
+			{
+				continue;
+			}
+			const bool inWindow = d2 <= kScreenWindowPx2;
+			const bool bestInWindow = bestD2 <= kScreenWindowPx2;
+			const bool better = !found
+				|| (inWindow && !bestInWindow)
+				|| (inWindow == bestInWindow && (depth + kDepthTie < bestDepth
+					|| (std::abs(depth - bestDepth) <= kDepthTie && d2 < bestD2)));
+			if (better)
+			{
+				found = true;
+				bestWorld = candidateWorld;
+				bestD2 = d2;
+				bestDepth = depth;
+			}
+		}
+	}
+
+	if (!found)
+	{
+		return false;
+	}
+	outPointWorld = bestWorld;
+	outDistancePx = std::sqrt(bestD2);
+	return true;
+}
+
+namespace {
+
+static inline int64_t quantPickWeld(float v)
+{
+	return static_cast<int64_t>(std::llround(static_cast<double>(v) * 1000000.0));
+}
+
+struct PickWeldKey
+{
+	int64_t x, y, z;
+	bool operator==(const PickWeldKey& o) const { return x == o.x && y == o.y && z == o.z; }
+};
+
+struct PickWeldKeyHash
+{
+	size_t operator()(const PickWeldKey& k) const noexcept
+	{
+		size_t h = 1469598103934665603ull;
+		h ^= static_cast<size_t>(k.x);
+		h *= 1099511628211ull;
+		h ^= static_cast<size_t>(k.y);
+		h *= 1099511628211ull;
+		h ^= static_cast<size_t>(k.z);
+		h *= 1099511628211ull;
+		return h;
+	}
+};
+
+struct PickEdgeKey
+{
+	std::uint32_t lo, hi;
+	bool operator==(const PickEdgeKey& o) const { return lo == o.lo && hi == o.hi; }
+};
+
+struct PickEdgeKeyHash
+{
+	size_t operator()(const PickEdgeKey& k) const noexcept
+	{
+		return (static_cast<size_t>(k.lo) << 32) | static_cast<size_t>(k.hi);
+	}
+};
+
+static osg::Vec3f pickVertexLocalToWorld(const osg::Vec3& vLocal, const osg::Matrixd* m)
+{
+	if (m)
+	{
+		const osg::Vec3d vw = osg::Vec3d(vLocal.x(), vLocal.y(), vLocal.z()) * (*m);
+		return osg::Vec3f(static_cast<float>(vw.x()), static_cast<float>(vw.y()), static_cast<float>(vw.z()));
+	}
+	return osg::Vec3f(vLocal.x(), vLocal.y(), vLocal.z());
+}
+
+/// 浠庡懡涓笁瑙掑嚭鍙戯紝娌垮叡浜竟鍚堝苟涓庣瀛愪笁瑙掑叡闈㈢殑閭绘帴涓夎锛堝鐭╁舰涓や笁瑙掑悎鎴愪竴闈級锛岀敤浜庨潰鎷惧彇/楂樹寒銆?
+static void expandCoplanarTrianglesFromSoupLocal(
+	const std::vector<osg::Vec3>& verts,
+	const osg::Matrixd* m,
+	std::uint32_t seedTri,
+	std::vector<osg::Vec3f>& outVertsWorld)
+{
+	outVertsWorld.clear();
+	const std::uint32_t nTri = static_cast<std::uint32_t>(verts.size() / 3U);
+	if (nTri == 0U || seedTri >= nTri)
+	{
+		return;
+	}
+
+	std::unordered_map<PickWeldKey, std::uint32_t, PickWeldKeyHash> weld;
+	weld.reserve(static_cast<std::size_t>(nTri) * 2U);
+	std::vector<osg::Vec3> welded;
+	welded.reserve(verts.size() / 2U);
+	std::vector<std::array<std::uint32_t, 3>> triIdx(static_cast<std::size_t>(nTri));
+
+	auto addVertex = [&](const osg::Vec3& p) -> std::uint32_t
+	{
+		const PickWeldKey k{ quantPickWeld(p.x()), quantPickWeld(p.y()), quantPickWeld(p.z()) };
+		const auto it = weld.find(k);
+		if (it != weld.end())
+		{
+			return it->second;
+		}
+		const std::uint32_t id = static_cast<std::uint32_t>(welded.size());
+		welded.push_back(p);
+		weld.emplace(k, id);
+		return id;
+	};
+
+	for (std::uint32_t t = 0; t < nTri; ++t)
+	{
+		const std::size_t b = static_cast<std::size_t>(t) * 3U;
+		triIdx[t][0] = addVertex(verts[b + 0]);
+		triIdx[t][1] = addVertex(verts[b + 1]);
+		triIdx[t][2] = addVertex(verts[b + 2]);
+	}
+
+	std::unordered_map<PickEdgeKey, std::vector<std::uint32_t>, PickEdgeKeyHash> edgeTris;
+	edgeTris.reserve(static_cast<std::size_t>(nTri) * 2U);
+
+	auto addEdge = [&](std::uint32_t a, std::uint32_t b, std::uint32_t triId)
+	{
+		if (a == b)
+		{
+			return;
+		}
+		const PickEdgeKey ek{ (std::min)(a, b), (std::max)(a, b) };
+		edgeTris[ek].push_back(triId);
+	};
+
+	for (std::uint32_t t = 0; t < nTri; ++t)
+	{
+		const auto& tr = triIdx[t];
+		const auto tid = t;
+		addEdge(tr[0], tr[1], tid);
+		addEdge(tr[1], tr[2], tid);
+		addEdge(tr[2], tr[0], tid);
+	}
+
+	std::vector<osg::Vec3f> triNor(static_cast<std::size_t>(nTri));
+	float minx = welded[0].x(), maxx = welded[0].x();
+	float miny = welded[0].y(), maxy = welded[0].y();
+	float minz = welded[0].z(), maxz = welded[0].z();
+	for (const osg::Vec3& p : welded)
+	{
+		minx = (std::min)(minx, p.x());
+		maxx = (std::max)(maxx, p.x());
+		miny = (std::min)(miny, p.y());
+		maxy = (std::max)(maxy, p.y());
+		minz = (std::min)(minz, p.z());
+		maxz = (std::max)(maxz, p.z());
+	}
+	const float dx = maxx - minx;
+	const float dy = maxy - miny;
+	const float dz = maxz - minz;
+	const float diag = std::sqrt(dx * dx + dy * dy + dz * dz);
+	const float planeEps = (std::max)(1e-7f, diag * 1e-6f);
+
+	for (std::uint32_t t = 0; t < nTri; ++t)
+	{
+		const osg::Vec3& p0 = welded[triIdx[t][0]];
+		const osg::Vec3& p1 = welded[triIdx[t][1]];
+		const osg::Vec3& p2 = welded[triIdx[t][2]];
+		const osg::Vec3 e1 = p1 - p0;
+		const osg::Vec3 e2 = p2 - p0;
+		osg::Vec3 n = e1 ^ e2;
+		const float len2 = n.length2();
+		if (len2 > 1e-20f)
+		{
+			n.normalize();
+			triNor[t] = osg::Vec3f(n.x(), n.y(), n.z());
+		}
+		else
+		{
+			triNor[t] = osg::Vec3f(0.0f, 0.0f, 1.0f);
+		}
+	}
+
+	const osg::Vec3f& nSeed = triNor[seedTri];
+	const osg::Vec3 p0Seed = welded[triIdx[seedTri][0]];
+
+	auto coplanarWithSeed = [&](std::uint32_t u) -> bool
+	{
+		const osg::Vec3f& nu = triNor[u];
+		if (std::fabs(static_cast<double>(nSeed.x() * nu.x() + nSeed.y() * nu.y() + nSeed.z() * nu.z())) < 0.998)
+		{
+			return false;
+		}
+		for (int k = 0; k < 3; ++k)
+		{
+			const osg::Vec3& v = welded[triIdx[u][static_cast<std::size_t>(k)]];
+			const osg::Vec3 w = v - p0Seed;
+			const float d = std::fabs(
+				nSeed.x() * static_cast<float>(w.x()) + nSeed.y() * static_cast<float>(w.y()) + nSeed.z() * static_cast<float>(w.z()));
+			if (d > planeEps)
+			{
+				return false;
+			}
+		}
+		return true;
+	};
+
+	std::vector<char> vis(static_cast<std::size_t>(nTri), 0);
+	std::queue<std::uint32_t> q;
+	vis[seedTri] = 1;
+	q.push(seedTri);
+
+	while (!q.empty())
+	{
+		const std::uint32_t t = q.front();
+		q.pop();
+		for (int e = 0; e < 3; ++e)
+		{
+			const std::uint32_t a = triIdx[t][static_cast<std::size_t>(e)];
+			const std::uint32_t b = triIdx[t][static_cast<std::size_t>((e + 1) % 3)];
+			const PickEdgeKey ek{ (std::min)(a, b), (std::max)(a, b) };
+			const auto it = edgeTris.find(ek);
+			if (it == edgeTris.end())
+			{
+				continue;
+			}
+			for (const std::uint32_t u : it->second)
+			{
+				if (u >= nTri || vis[u])
+				{
+					continue;
+				}
+				if (coplanarWithSeed(u))
+				{
+					vis[u] = 1;
+					q.push(u);
+				}
+			}
+		}
+	}
+
+	for (std::uint32_t t = 0; t < nTri; ++t)
+	{
+		if (!vis[t])
+		{
+			continue;
+		}
+		for (int k = 0; k < 3; ++k)
+		{
+			const osg::Vec3& v = welded[triIdx[t][static_cast<std::size_t>(k)]];
+			outVertsWorld.push_back(pickVertexLocalToWorld(v, m));
+		}
+	}
+}
+
+} // namespace
+
+bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
+	osg::Vec3f& outPointWorld,
+	osg::Vec3f& outAWorld,
+	osg::Vec3f& outBWorld,
+	osg::Vec3f& outCWorld,
+	osg::Vec3f& outNormalWorld,
+	std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld) const
+{
+	static const unsigned int kMaskContent = 0x1u;
+	if (!m_viewer.valid() || !m_viewer->getCamera() || !m_root.valid())
+	{
+		return false;
+	}
+
+	const double x = mouseX;
+	const double y = static_cast<double>(viewportHeight()) - mouseY;
+	osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
+		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, x, y);
+	intersector->setIntersectionLimit(osgUtil::Intersector::LIMIT_NEAREST);
+	osgUtil::IntersectionVisitor iv(intersector.get());
+	iv.setTraversalMask(kMaskContent);
+	m_viewer->getCamera()->accept(iv);
+
+	if (!intersector->containsIntersections())
+	{
+		return false;
+	}
+
+	const auto hit = intersector->getFirstIntersection();
+	const osg::Vec3d wp = hit.getWorldIntersectPoint();
+	outPointWorld = osg::Vec3f(static_cast<float>(wp.x()), static_cast<float>(wp.y()), static_cast<float>(wp.z()));
+
+	// Extract triangle vertices from hit drawable.
+	const osg::Drawable* d = hit.drawable.get();
+	const osg::Geometry* geom = d ? d->asGeometry() : nullptr;
+	if (!geom)
+	{
+		return false;
+	}
+
+	const osg::RefMatrix* m = hit.matrix.valid() ? hit.matrix.get() : nullptr;
+
+	// Validate in a consistent coordinate space:
+	// - Vertex indices are read in the geometry's local space.
+	// - The intersector gives us `outPointWorld`.
+	// Convert the world hit point to local if we have the intersection matrix.
+	osg::Vec3f outPointLocal = outPointWorld;
+	if (m)
+	{
+		const osg::Matrixd invM = osg::Matrixd::inverse(*m);
+		const osg::Vec3d lp = osg::Vec3d(outPointWorld.x(), outPointWorld.y(), outPointWorld.z()) * invM;
+		outPointLocal = osg::Vec3f(static_cast<float>(lp.x()), static_cast<float>(lp.y()), static_cast<float>(lp.z()));
+	}
+	auto pointInTriangle = [&](const osg::Vec3f& A, const osg::Vec3f& B, const osg::Vec3f& C, const osg::Vec3f& P) -> bool {
+		const osg::Vec3f v0 = B - A;
+		const osg::Vec3f v1 = C - A;
+		const osg::Vec3f v2 = P - A;
+
+		const double d00 = static_cast<double>(v0 * v0);
+		const double d01 = static_cast<double>(v0 * v1);
+		const double d11 = static_cast<double>(v1 * v1);
+		const double d20 = static_cast<double>(v2 * v0);
+		const double d21 = static_cast<double>(v2 * v1);
+		const double denom = d00 * d11 - d01 * d01;
+		if (std::abs(denom) < 1e-12)
+		{
+			return false;
+		}
+
+		const double v = (d11 * d20 - d01 * d21) / denom;
+		const double w = (d00 * d21 - d01 * d20) / denom;
+		const double u = 1.0 - v - w;
+
+		// For float-heavy geometry (or ambiguous indices) the barycentric values can drift a bit.
+		const double eps = 0.05;
+		return u >= -eps && v >= -eps && w >= -eps;
+	};
+
+	struct TriIdx { unsigned int i0; unsigned int i1; unsigned int i2; };
+	std::vector<TriIdx> candidates;
+
+	// 1) If intersection provides per-vertex indices, try them directly.
+	if (hit.indexList.size() >= 3U)
+	{
+		candidates.push_back({ hit.indexList[0], hit.indexList[1], hit.indexList[2] });
+	}
+
+	// 2) Try primitiveIndex as triangle index => base = pi * 3
+	{
+		const unsigned int pi = static_cast<unsigned int>(hit.primitiveIndex);
+		candidates.push_back({ pi * 3u, pi * 3u + 1u, pi * 3u + 2u });
+	}
+
+	// 3) Try primitiveIndex as vertex base => base = pi
+	{
+		const unsigned int pi = static_cast<unsigned int>(hit.primitiveIndex);
+		candidates.push_back({ pi, pi + 1u, pi + 2u });
+	}
+
+	unsigned int hitTriIndex = 0;
+	bool haveHitTriIndex = false;
+
+	auto extractAndValidate = [&](auto* vertices) -> bool {
+		bool haveFallback = false;
+		unsigned int triIdxFallback = 0;
+		osg::Vec3f fallbackAWorld, fallbackBWorld, fallbackCWorld;
+
+		for (const TriIdx& t : candidates)
+		{
+			const unsigned int sz = static_cast<unsigned int>(vertices->size());
+			if (t.i0 >= sz || t.i1 >= sz || t.i2 >= sz)
+			{
+				continue;
+			}
+
+			const osg::Vec3& aLocal = (*vertices)[t.i0];
+			const osg::Vec3& bLocal = (*vertices)[t.i1];
+			const osg::Vec3& cLocal = (*vertices)[t.i2];
+
+			const auto toWorld = [&](const osg::Vec3& vLocal) -> osg::Vec3f {
+				if (m)
+				{
+					const osg::Vec3d vw = osg::Vec3d(vLocal.x(), vLocal.y(), vLocal.z()) * (*m);
+					return osg::Vec3f(static_cast<float>(vw.x()), static_cast<float>(vw.y()), static_cast<float>(vw.z()));
+				}
+				return osg::Vec3f(vLocal.x(), vLocal.y(), vLocal.z());
+			};
+
+			// Cache first in-bounds triangle as fallback.
+			if (!haveFallback)
+			{
+				triIdxFallback = t.i0 / 3u;
+				fallbackAWorld = toWorld(aLocal);
+				fallbackBWorld = toWorld(bLocal);
+				fallbackCWorld = toWorld(cLocal);
+				haveFallback = true;
+			}
+
+			// If we don't have an intersection matrix, local validation may be inconsistent.
+			// In that case, accept the first in-bounds triangle to enable visible feedback.
+			if (!m)
+			{
+				outAWorld = fallbackAWorld;
+				outBWorld = fallbackBWorld;
+				outCWorld = fallbackCWorld;
+				hitTriIndex = triIdxFallback;
+				haveHitTriIndex = true;
+				return true;
+			}
+
+			// Validate using LOCAL coordinates to avoid relying on `hit.matrix` correctness.
+			const osg::Vec3f A(aLocal.x(), aLocal.y(), aLocal.z());
+			const osg::Vec3f B(bLocal.x(), bLocal.y(), bLocal.z());
+			const osg::Vec3f C(cLocal.x(), cLocal.y(), cLocal.z());
+			if (pointInTriangle(A, B, C, outPointLocal))
+			{
+				outAWorld = toWorld(aLocal);
+				outBWorld = toWorld(bLocal);
+				outCWorld = toWorld(cLocal);
+				hitTriIndex = t.i0 / 3u;
+				haveHitTriIndex = true;
+				return true;
+			}
+		}
+
+		// Last resort: if nothing passes barycentric validation, still return the first in-bounds triangle.
+		if (haveFallback)
+		{
+			outAWorld = fallbackAWorld;
+			outBWorld = fallbackBWorld;
+			outCWorld = fallbackCWorld;
+			hitTriIndex = triIdxFallback;
+			haveHitTriIndex = true;
+			return true;
+		}
+
+		return false;
+	};
+
+	if (const auto* va = dynamic_cast<const osg::Vec3Array*>(geom->getVertexArray()))
+	{
+		if (!extractAndValidate(const_cast<osg::Vec3Array*>(va)))
+		{
+			return false;
+		}
+	}
+	else if (const auto* vda = dynamic_cast<const osg::Vec3dArray*>(geom->getVertexArray()))
+	{
+		// For Vec3dArray, adapt extraction without changing math.
+		// Validate using LOCAL coordinates; output WORLD coordinates for highlights.
+		const auto toLocal = [&](const osg::Vec3d& vLocal) -> osg::Vec3f {
+			return osg::Vec3f(static_cast<float>(vLocal.x()), static_cast<float>(vLocal.y()), static_cast<float>(vLocal.z()));
+		};
+		const auto toWorld = [&](const osg::Vec3d& vLocal) -> osg::Vec3f {
+			if (m)
+			{
+				const osg::Vec3d vw = vLocal * (*m);
+				return osg::Vec3f(static_cast<float>(vw.x()), static_cast<float>(vw.y()), static_cast<float>(vw.z()));
+			}
+			return osg::Vec3f(static_cast<float>(vLocal.x()), static_cast<float>(vLocal.y()), static_cast<float>(vLocal.z()));
+		};
+
+		bool extracted = false;
+		bool haveFallback = false;
+		unsigned int triIdxFallbackVd = 0;
+		osg::Vec3f fallbackAWorld, fallbackBWorld, fallbackCWorld;
+
+		for (const TriIdx& t : candidates)
+		{
+			const unsigned int sz = static_cast<unsigned int>(vda->size());
+			if (t.i0 >= sz || t.i1 >= sz || t.i2 >= sz)
+			{
+				continue;
+			}
+
+			const osg::Vec3f A = toLocal((*vda)[t.i0]);
+			const osg::Vec3f B = toLocal((*vda)[t.i1]);
+			const osg::Vec3f C = toLocal((*vda)[t.i2]);
+
+			// Cache first in-bounds triangle as fallback.
+			if (!haveFallback)
+			{
+				triIdxFallbackVd = t.i0 / 3u;
+				fallbackAWorld = toWorld((*vda)[t.i0]);
+				fallbackBWorld = toWorld((*vda)[t.i1]);
+				fallbackCWorld = toWorld((*vda)[t.i2]);
+				haveFallback = true;
+			}
+
+			if (!m)
+			{
+				outAWorld = fallbackAWorld;
+				outBWorld = fallbackBWorld;
+				outCWorld = fallbackCWorld;
+				hitTriIndex = triIdxFallbackVd;
+				haveHitTriIndex = true;
+				extracted = true;
+				break;
+			}
+
+			if (pointInTriangle(A, B, C, outPointLocal))
+			{
+				outAWorld = toWorld((*vda)[t.i0]);
+				outBWorld = toWorld((*vda)[t.i1]);
+				outCWorld = toWorld((*vda)[t.i2]);
+				hitTriIndex = t.i0 / 3u;
+				haveHitTriIndex = true;
+				extracted = true;
+				break;
+			}
+		}
+		if (!extracted)
+		{
+			// Last resort fallback.
+			if (haveFallback)
+			{
+				outAWorld = fallbackAWorld;
+				outBWorld = fallbackBWorld;
+				outCWorld = fallbackCWorld;
+				hitTriIndex = triIdxFallbackVd;
+				haveHitTriIndex = true;
+				extracted = true;
+			}
+			if (!extracted)
+			{
+				return false;
+			}
+		}
+	}
+	else
+	{
+		return false;
+	}
+
+	if (outMergedCoplanarVertsWorld)
+	{
+		outMergedCoplanarVertsWorld->clear();
+		std::vector<osg::Vec3> soup;
+		if (const auto* va = dynamic_cast<const osg::Vec3Array*>(geom->getVertexArray()))
+		{
+			soup.reserve(va->size());
+			for (unsigned int i = 0; i < static_cast<unsigned int>(va->size()); ++i)
+			{
+				soup.push_back((*va)[i]);
+			}
+		}
+		else if (const auto* vda = dynamic_cast<const osg::Vec3dArray*>(geom->getVertexArray()))
+		{
+			soup.reserve(vda->size());
+			for (unsigned int i = 0; i < static_cast<unsigned int>(vda->size()); ++i)
+			{
+				const osg::Vec3d& v = (*vda)[i];
+				soup.push_back(osg::Vec3(
+					static_cast<float>(v.x()), static_cast<float>(v.y()), static_cast<float>(v.z())));
+			}
+		}
+		const std::uint32_t nTriSoup = static_cast<std::uint32_t>(soup.size() / 3U);
+		if (soup.size() >= 9U && (soup.size() % 3U) == 0U && haveHitTriIndex && hitTriIndex < nTriSoup)
+		{
+			expandCoplanarTrianglesFromSoupLocal(soup, m, static_cast<std::uint32_t>(hitTriIndex), *outMergedCoplanarVertsWorld);
+		}
+		if (outMergedCoplanarVertsWorld->empty())
+		{
+			outMergedCoplanarVertsWorld->push_back(outAWorld);
+			outMergedCoplanarVertsWorld->push_back(outBWorld);
+			outMergedCoplanarVertsWorld->push_back(outCWorld);
+		}
+	}
+
+	const osg::Vec3f ab = outBWorld - outAWorld;
+	const osg::Vec3f ac = outCWorld - outAWorld;
+	osg::Vec3f n = ab ^ ac;
+	if (n.length2() > 1e-12f)
+	{
+		n.normalize();
+	}
+	else
+	{
+		n.set(0.0f, 0.0f, 1.0f);
+	}
+	outNormalWorld = n;
+	return true;
+}
+
+bool OsgScene::pickMeshEdgeByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, osg::Vec3f& outEdgeAWorld, osg::Vec3f& outEdgeBWorld) const
+{
+	osg::Vec3f p, a, b, c, n;
+	if (!pickMeshFaceByRayIntersection(mouseX, mouseY, p, a, b, c, n))
+	{
+		return false;
+	}
+
+	// Choose the closest edge in screen space around mouse point.
+	if (!m_viewer.valid() || !m_viewer->getCamera())
+	{
+		return false;
+	}
+	const osg::Matrixd mvp = m_viewer->getCamera()->getViewMatrix() * m_viewer->getCamera()->getProjectionMatrix();
+	const auto toScreen = [&](const osg::Vec3f& world, double& sx, double& sy) {
+		const osg::Vec3d clip = osg::Vec3d(world) * mvp;
+		sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
+		sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
+	};
+	const double qx = mouseX;
+	const double qy = mouseY;
+
+	struct EdgeCand
+	{
+		osg::Vec3f a;
+		osg::Vec3f b;
+		double distPx = (std::numeric_limits<double>::max)();
+	};
+
+	auto edgeDistancePx = [&](const osg::Vec3f& ea, const osg::Vec3f& eb) -> double {
+		double s0x = 0, s0y = 0, s1x = 0, s1y = 0;
+		toScreen(ea, s0x, s0y);
+		toScreen(eb, s1x, s1y);
+		const double segVx = s1x - s0x;
+		const double segVy = s1y - s0y;
+		const double offVx = qx - s0x;
+		const double offVy = qy - s0y;
+		const double len2Seg = segVx * segVx + segVy * segVy;
+		if (len2Seg <= 1e-9)
+		{
+			return std::hypot(qx - s0x, qy - s0y);
+		}
+		const double dot = offVx * segVx + offVy * segVy;
+		const double t = (std::max)(0.0, (std::min)(1.0, dot / len2Seg));
+		const double projx = s0x + segVx * t;
+		const double projy = s0y + segVy * t;
+		return std::hypot(qx - projx, qy - projy);
+	};
+
+	EdgeCand best;
+	const EdgeCand cands[3] = {
+		{ a, b, edgeDistancePx(a, b) },
+		{ b, c, edgeDistancePx(b, c) },
+		{ c, a, edgeDistancePx(c, a) }
+	};
+	for (const EdgeCand& e : cands)
+	{
+		if (e.distPx < best.distPx)
+		{
+			best = e;
+		}
+	}
+
+	if (best.distPx > 14.0)
+	{
+		return false;
+	}
+	outPointWorld = p;
+	outEdgeAWorld = best.a;
+	outEdgeBWorld = best.b;
+	return true;
+}
+void OsgScene::showMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld)
+{
+	if (vertsWorld.size() < 3U || (vertsWorld.size() % 3U) != 0U)
+	{
+		return;
+	}
+	if (!m_meshPickOverlayGroup.valid() || !m_meshPickedFaceVertices.valid() || !m_meshPickedEdgeVertices.valid())
+	{
+		return;
+	}
+
+	constexpr unsigned int kMaskHelper = 0x2u;
+	m_meshPickOverlayGroup->setNodeMask(kMaskHelper);
+
+	m_meshPickedFaceVertices->clear();
+	m_meshPickedFaceVertices->reserve(vertsWorld.size());
+	for (const osg::Vec3f& v : vertsWorld)
+	{
+		m_meshPickedFaceVertices->push_back(osg::Vec3(v.x(), v.y(), v.z()));
+	}
+
+	if (m_meshPickedFaceGeom->getNumPrimitiveSets() > 0)
+	{
+		osg::DrawArrays* da = dynamic_cast<osg::DrawArrays*>(m_meshPickedFaceGeom->getPrimitiveSet(0));
+		if (da)
+		{
+			da->setFirst(0);
+			da->setCount(static_cast<GLsizei>(vertsWorld.size()));
+		}
+		else
+		{
+			m_meshPickedFaceGeom->removePrimitiveSet(0u, 1u);
+			m_meshPickedFaceGeom->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertsWorld.size())));
+		}
+	}
+	else
+	{
+		m_meshPickedFaceGeom->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertsWorld.size())));
+	}
+
+	m_meshPickedEdgeVertices->at(0) = osg::Vec3f(0.0f, 0.0f, 0.0f);
+	m_meshPickedEdgeVertices->at(1) = osg::Vec3f(0.0f, 0.0f, 0.0f);
+
+	if (m_meshPickedFaceGeom.valid())
+	{
+		m_meshPickedFaceGeom->dirtyDisplayList();
+		m_meshPickedFaceGeom->dirtyBound();
+	}
+	if (m_meshPickedEdgeGeom.valid())
+	{
+		m_meshPickedEdgeGeom->dirtyDisplayList();
+		m_meshPickedEdgeGeom->dirtyBound();
+	}
+}
+
+void OsgScene::showMeshFaceHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld, const osg::Vec3f& cWorld)
+{
+	std::vector<osg::Vec3f> tri;
+	tri.reserve(3);
+	tri.push_back(aWorld);
+	tri.push_back(bWorld);
+	tri.push_back(cWorld);
+	showMeshFaceHighlight(tri);
+}
+
+void OsgScene::showMeshEdgeHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld)
+{
+	if (!m_meshPickOverlayGroup.valid() || !m_meshPickedFaceVertices.valid() || !m_meshPickedEdgeVertices.valid())
+	{
+		return;
+	}
+
+	constexpr unsigned int kMaskHelper = 0x2u;
+	m_meshPickOverlayGroup->setNodeMask(kMaskHelper);
+
+	// Overlay vertices are set in world space, because m_meshPickOverlayGroup is attached to m_root.
+	m_meshPickedEdgeVertices->at(0) = aWorld;
+	m_meshPickedEdgeVertices->at(1) = bWorld;
+
+	// Degenerate face to avoid stale rendering when in edge mode.
+	m_meshPickedFaceVertices->at(0) = osg::Vec3f(0.0f, 0.0f, 0.0f);
+	m_meshPickedFaceVertices->at(1) = osg::Vec3f(0.0f, 0.0f, 0.0f);
+	m_meshPickedFaceVertices->at(2) = osg::Vec3f(0.0f, 0.0f, 0.0f);
+
+	if (m_meshPickedFaceGeom.valid())
+	{
+		m_meshPickedFaceGeom->dirtyDisplayList();
+		m_meshPickedFaceGeom->dirtyBound();
+	}
+	if (m_meshPickedEdgeGeom.valid())
+	{
+		m_meshPickedEdgeGeom->dirtyDisplayList();
+		m_meshPickedEdgeGeom->dirtyBound();
+	}
+}
+
+void OsgScene::hideMeshElementHighlight()
+{
+	if (!m_meshPickOverlayGroup.valid())
+	{
+		return;
+	}
+	m_meshPickOverlayGroup->setNodeMask(0u);
+}
+void OsgScene::rebuildPointKdTree()
+{
+	m_kdNodes.clear();
+	m_kdRoot = -1;
+	if (m_pickablePointsCenteredLocal.empty())
+	{
+		return;
+	}
+	// Avoid excessive memory usage on huge clouds; fallback path remains available.
+	static const std::size_t kMaxKdPoints = 1500000;
+	if (m_pickablePointsCenteredLocal.size() > kMaxKdPoints)
+	{
+		return;
+	}
+
+	std::vector<int> indices(m_pickablePointsCenteredLocal.size());
+	for (std::size_t i = 0; i < indices.size(); ++i)
+	{
+		indices[i] = static_cast<int>(i);
+	}
+	m_kdNodes.reserve(m_pickablePointsCenteredLocal.size());
+	m_kdRoot = buildKdNode(indices, 0, static_cast<int>(indices.size()), 0);
+}
+
+int OsgScene::buildKdNode(std::vector<int>& indices, int begin, int end, int depth)
+{
+	if (begin >= end)
+	{
+		return -1;
+	}
+	const int axis = depth % 3;
+	const int mid = begin + (end - begin) / 2;
+	std::nth_element(indices.begin() + begin, indices.begin() + mid, indices.begin() + end,
+		[this, axis](int a, int b) {
+			const osg::Vec3f& pa = m_pickablePointsCenteredLocal[static_cast<std::size_t>(a)];
+			const osg::Vec3f& pb = m_pickablePointsCenteredLocal[static_cast<std::size_t>(b)];
+			if (axis == 0) return pa.x() < pb.x();
+			if (axis == 1) return pa.y() < pb.y();
+			return pa.z() < pb.z();
+		});
+
+	const int nodeIndex = static_cast<int>(m_kdNodes.size());
+	m_kdNodes.emplace_back();
+	m_kdNodes[static_cast<std::size_t>(nodeIndex)].pointIndex = indices[static_cast<std::size_t>(mid)];
+	m_kdNodes[static_cast<std::size_t>(nodeIndex)].axis = axis;
+	m_kdNodes[static_cast<std::size_t>(nodeIndex)].left = buildKdNode(indices, begin, mid, depth + 1);
+	m_kdNodes[static_cast<std::size_t>(nodeIndex)].right = buildKdNode(indices, mid + 1, end, depth + 1);
+	return nodeIndex;
+}
+
+int OsgScene::nearestPointByKdTree(const osg::Vec3f& queryLocalCentered) const
+{
+	if (m_kdRoot < 0 || m_kdNodes.empty() || m_pickablePointsCenteredLocal.empty())
+	{
+		return -1;
+	}
+
+	int bestIdx = -1;
+	float bestDist2 = (std::numeric_limits<float>::max)();
+
+	std::function<void(int)> dfs = [&](int nodeIndex) {
+		if (nodeIndex < 0) return;
+		const KdNode& node = m_kdNodes[static_cast<std::size_t>(nodeIndex)];
+		const osg::Vec3f& p = m_pickablePointsCenteredLocal[static_cast<std::size_t>(node.pointIndex)];
+		const osg::Vec3f d = p - queryLocalCentered;
+		const float dist2 = d.length2();
+		if (dist2 < bestDist2)
+		{
+			bestDist2 = dist2;
+			bestIdx = node.pointIndex;
+		}
+
+		float diff = 0.0f;
+		if (node.axis == 0) diff = queryLocalCentered.x() - p.x();
+		else if (node.axis == 1) diff = queryLocalCentered.y() - p.y();
+		else diff = queryLocalCentered.z() - p.z();
+
+		const int nearChild = diff <= 0.0f ? node.left : node.right;
+		const int farChild = diff <= 0.0f ? node.right : node.left;
+		dfs(nearChild);
+		if (diff * diff < bestDist2)
+		{
+			dfs(farChild);
+		}
+	};
+	dfs(m_kdRoot);
+	return bestIdx;
+}
+
+void OsgScene::nearestCandidatesByKdTree(const osg::Vec3f& queryLocalCentered, int k, std::vector<int>& outIndices) const
+{
+	outIndices.clear();
+	if (m_kdRoot < 0 || m_kdNodes.empty() || m_pickablePointsCenteredLocal.empty() || k <= 0)
+	{
+		return;
+	}
+
+	using DistIndex = std::pair<float, int>;
+	std::priority_queue<DistIndex> best; // max-heap by distance
+
+	std::function<void(int)> dfs = [&](int nodeIndex) {
+		if (nodeIndex < 0) return;
+		const KdNode& node = m_kdNodes[static_cast<std::size_t>(nodeIndex)];
+		const osg::Vec3f& p = m_pickablePointsCenteredLocal[static_cast<std::size_t>(node.pointIndex)];
+		const osg::Vec3f d = p - queryLocalCentered;
+		const float dist2 = d.length2();
+
+		if (static_cast<int>(best.size()) < k)
+		{
+			best.push({ dist2, node.pointIndex });
+		}
+		else if (dist2 < best.top().first)
+		{
+			best.pop();
+			best.push({ dist2, node.pointIndex });
+		}
+
+		float diff = 0.0f;
+		if (node.axis == 0) diff = queryLocalCentered.x() - p.x();
+		else if (node.axis == 1) diff = queryLocalCentered.y() - p.y();
+		else diff = queryLocalCentered.z() - p.z();
+
+		const int nearChild = diff <= 0.0f ? node.left : node.right;
+		const int farChild = diff <= 0.0f ? node.right : node.left;
+		dfs(nearChild);
+		const float worst = (static_cast<int>(best.size()) < k) ? (std::numeric_limits<float>::max)() : best.top().first;
+		if (diff * diff < worst)
+		{
+			dfs(farChild);
+		}
+	};
+	dfs(m_kdRoot);
+
+	outIndices.reserve(best.size());
+	while (!best.empty())
+	{
+		outIndices.push_back(best.top().second);
+		best.pop();
+	}
+}

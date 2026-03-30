@@ -1,0 +1,30 @@
+#pragma once
+
+#include <QWidget>
+
+#include "widget_global.h"
+
+class QPlainTextEdit;
+class QPushButton;
+
+/// 运行信息页：以只读文本显示日志、警告与错误，供用户查看处理过程输出。
+class WIDGET_EXPORT RunInfoPage : public QWidget
+{
+	Q_OBJECT
+
+public:
+	explicit RunInfoPage(QWidget* parent = nullptr);
+
+	void appendInfo(const QString& text);
+	void appendWarning(const QString& text);
+	void appendError(const QString& text);
+	void clearLogs();
+	void setUiLanguage(bool useChinese);
+
+private:
+	void appendLine(const QString& level, const QString& text);
+
+private:
+	QPlainTextEdit* m_logEdit = nullptr;
+	QPushButton* m_clearBtn = nullptr;
+};

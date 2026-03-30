@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Header">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Source">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Source\MainWindow">
+      <UniqueIdentifier>{c2f8a1b3-4d5e-6f70-8192-a3b4c5d6e7f8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source\qtpropertybrowser">
+      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567890}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\ApplicationStyle.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\widget_global.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\GraphicsWindowQt1.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\QtKeyboardMap.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SelectionOperation.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PointPickOperation.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ObjectTransformOperation.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshEdgeFacePickOperation.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgWidgetBackendLoadController.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgWidgetImportController.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgWidgetCaptureController.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MainWindowImportCaptureRenderController.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgWidgetPickAnnotationController.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgWidgetColorController.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgWidgetCameraFocusController.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgWidgetGizmoController.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgWidgetTransformHierarchyController.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MainWindow_p.h">
+      <Filter>Source\MainWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ProjectPackageZip.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\QWidgetViewer.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ApplicationStyle.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\GraphicsWindowQt1.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgWidget.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgWidgetImportController.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgWidgetCaptureController.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgWidgetBackendLoadController.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowImportCaptureRenderController.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgWidgetPickAnnotationController.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgWidgetColorController.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgWidgetCameraFocusController.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgWidgetGizmoController.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgWidgetTransformHierarchyController.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PointPickOperation.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ObjectTransformOperation.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshEdgeFacePickOperation.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindow.cpp">
+      <Filter>Source\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowBackendTree.cpp">
+      <Filter>Source\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowFileImport.cpp">
+      <Filter>Source\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowProjectIo.cpp">
+      <Filter>Source\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProjectPackageZip.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowPropertyPanel.cpp">
+      <Filter>Source\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RunInfoPage.cpp">
+      <Filter>Source\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\qtpropertybrowser.cpp">
+      <Filter>Source\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\qtpropertybrowserutils.cpp">
+      <Filter>Source\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\qtpropertymanager.cpp">
+      <Filter>Source\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\qteditorfactory.cpp">
+      <Filter>Source\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\qtvariantproperty.cpp">
+      <Filter>Source\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\qttreepropertybrowser.cpp">
+      <Filter>Source\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\qrc_qtpropertybrowser.cpp">
+      <Filter>Source\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\moc_qtpropertybrowserutils_p.cpp">
+      <Filter>Source\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DocumentPage.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="inc\DocumentPage.h">
+      <Filter>Header</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\OsgWidget.h">
+      <Filter>Header</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\QWidgetViewer.h">
+      <Filter>Header</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\MainWindow.h">
+      <Filter>Source\MainWindow</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\RunInfoPage.h">
+      <Filter>Source\MainWindow</Filter>
+    </QtMoc>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,833 @@
+#include "UrdfRobotLoader.h"
+
+#include <QDateTime>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QHash>
+#include <QMutex>
+#include <QMutexLocker>
+#include <QStringList>
+#include <QRegularExpression>
+#include <QVector>
+#include <QXmlStreamReader>
+
+#include <osg/Matrixd>
+#include <osg/Quat>
+
+#include <algorithm>
+#include <cmath>
+#include <memory>
+#include <queue>
+#include <unordered_map>
+#include <unordered_set>
+
+namespace
+{
+
+// Set to false to debug: joints stay in ROS Z-up; use if meshes + RViz agree but viewer looks wrong.
+constexpr bool kApplyRosZUpToOsgYUp = true;
+
+struct Mat4
+{
+	double m[16]{}; // column-major
+};
+
+Mat4 matIdentity()
+{
+	Mat4 r{};
+	r.m[0] = r.m[5] = r.m[10] = r.m[15] = 1.0;
+	return r;
+}
+
+Mat4 matTranslate(double x, double y, double z)
+{
+	Mat4 r = matIdentity();
+	r.m[12] = x;
+	r.m[13] = y;
+	r.m[14] = z;
+	return r;
+}
+
+// R = Rz(yaw) * Ry(pitch) * Rx(roll), matching common ROS / URDF fixed-axis RPY.
+Mat4 matFromRpy(double roll, double pitch, double yaw)
+{
+	const double cr = std::cos(roll);
+	const double sr = std::sin(roll);
+	const double cp = std::cos(pitch);
+	const double sp = std::sin(pitch);
+	const double cy = std::cos(yaw);
+	const double sy = std::sin(yaw);
+
+	Mat4 r = matIdentity();
+	// R = Rz * Ry * Rx
+	r.m[0] = cy * cp;
+	r.m[1] = cy * sp * sr - sy * cr;
+	r.m[2] = cy * sp * cr + sy * sr;
+	r.m[4] = sy * cp;
+	r.m[5] = sy * sp * sr + cy * cr;
+	r.m[6] = sy * sp * cr - cy * sr;
+	r.m[8] = -sp;
+	r.m[9] = cp * sr;
+	r.m[10] = cp * cr;
+	return r;
+}
+
+Mat4 matMul(const Mat4& a, const Mat4& b)
+{
+	Mat4 r{};
+	for (int col = 0; col < 4; ++col)
+	{
+		for (int row = 0; row < 4; ++row)
+		{
+			r.m[col * 4 + row] = a.m[0 * 4 + row] * b.m[col * 4 + 0] + a.m[1 * 4 + row] * b.m[col * 4 + 1]
+				+ a.m[2 * 4 + row] * b.m[col * 4 + 2] + a.m[3 * 4 + row] * b.m[col * 4 + 3];
+		}
+	}
+	return r;
+}
+
+void transformPoint(const Mat4& t, double& x, double& y, double& z)
+{
+	const double nx = t.m[0] * x + t.m[4] * y + t.m[8] * z + t.m[12];
+	const double ny = t.m[1] * x + t.m[5] * y + t.m[9] * z + t.m[13];
+	const double nz = t.m[2] * x + t.m[6] * y + t.m[10] * z + t.m[14];
+	x = nx;
+	y = ny;
+	z = nz;
+}
+
+Mat4 matFromXyzRpy(double x, double y, double z, double roll, double pitch, double yaw)
+{
+	return matMul(matTranslate(x, y, z), matFromRpy(roll, pitch, yaw));
+}
+
+// ROS / URDF uses a right-handed frame with Z up (REP-103). OSG / typical viewer uses Y up.
+// Apply once at the end: p_osg = R * p_urdf with R = Rx(-90°) so URDF +Z maps to viewer +Y.
+Mat4 matRosWorldToOsgWorld()
+{
+	static const double kHalfPi = 1.57079632679489661923;
+	return matFromRpy(-kHalfPi, 0.0, 0.0);
+}
+
+bool parseThreeDoubles(const QString& s, double& a, double& b, double& c)
+{
+	const QString t = s.trimmed();
+	if (t.isEmpty())
+	{
+		a = b = c = 0.0;
+		return true;
+	}
+	const QStringList parts = t.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+	if (parts.size() < 3)
+	{
+		return false;
+	}
+	bool ok = false;
+	a = parts[0].toDouble(&ok);
+	if (!ok)
+	{
+		return false;
+	}
+	b = parts[1].toDouble(&ok);
+	if (!ok)
+	{
+		return false;
+	}
+	c = parts[2].toDouble(&ok);
+	return ok;
+}
+
+struct UrdfLinkVisual
+{
+	bool hasMesh = false;
+	QString meshUri;
+	double vx = 0.0;
+	double vy = 0.0;
+	double vz = 0.0;
+	double vr = 0.0;
+	double vp = 0.0;
+	double vw = 0.0;
+};
+
+struct UrdfJoint
+{
+	QString name;
+	QString type;
+	QString parent;
+	QString child;
+	double x = 0.0;
+	double y = 0.0;
+	double z = 0.0;
+	double roll = 0.0;
+	double pitch = 0.0;
+	double yaw = 0.0;
+	/// Joint axis (revolute / continuous), joint frame; default URDF Z.
+	double ax = 0.0;
+	double ay = 0.0;
+	double az = 1.0;
+	/// From &lt;limit lower="..." upper="..."/&gt; (radians for revolute).
+	bool hasLimit = false;
+	double limitLower = 0.0;
+	double limitUpper = 0.0;
+};
+
+void readVisualBlock(QXmlStreamReader& xml, UrdfLinkVisual& out)
+{
+	out = UrdfLinkVisual{};
+	while (xml.readNextStartElement())
+	{
+		if (xml.name() == QLatin1String("origin"))
+		{
+			const QString xyz = xml.attributes().value(QStringLiteral("xyz")).toString();
+			const QString rpy = xml.attributes().value(QStringLiteral("rpy")).toString();
+			(void)parseThreeDoubles(xyz, out.vx, out.vy, out.vz);
+			(void)parseThreeDoubles(rpy, out.vr, out.vp, out.vw);
+			xml.skipCurrentElement();
+		}
+		else if (xml.name() == QLatin1String("geometry"))
+		{
+			while (xml.readNextStartElement())
+			{
+				if (xml.name() == QLatin1String("mesh"))
+				{
+					const QString fn = xml.attributes().value(QStringLiteral("filename")).toString();
+					if (!fn.isEmpty())
+					{
+						out.meshUri = fn;
+						out.hasMesh = true;
+					}
+					xml.skipCurrentElement();
+				}
+				else
+				{
+					xml.skipCurrentElement();
+				}
+			}
+		}
+		else
+		{
+			xml.skipCurrentElement();
+		}
+	}
+}
+
+void readJointBlock(QXmlStreamReader& xml, UrdfJoint& j)
+{
+	while (xml.readNextStartElement())
+	{
+		if (xml.name() == QLatin1String("origin"))
+		{
+			const QString xyz = xml.attributes().value(QStringLiteral("xyz")).toString();
+			const QString rpy = xml.attributes().value(QStringLiteral("rpy")).toString();
+			(void)parseThreeDoubles(xyz, j.x, j.y, j.z);
+			(void)parseThreeDoubles(rpy, j.roll, j.pitch, j.yaw);
+			xml.skipCurrentElement();
+		}
+		else if (xml.name() == QLatin1String("parent"))
+		{
+			j.parent = xml.attributes().value(QStringLiteral("link")).toString();
+			xml.skipCurrentElement();
+		}
+		else if (xml.name() == QLatin1String("child"))
+		{
+			j.child = xml.attributes().value(QStringLiteral("link")).toString();
+			xml.skipCurrentElement();
+		}
+		else if (xml.name() == QLatin1String("axis"))
+		{
+			const QString xyz = xml.attributes().value(QStringLiteral("xyz")).toString();
+			(void)parseThreeDoubles(xyz, j.ax, j.ay, j.az);
+			xml.skipCurrentElement();
+		}
+		else if (xml.name() == QLatin1String("limit"))
+		{
+			const QString lo = xml.attributes().value(QStringLiteral("lower")).toString();
+			const QString hi = xml.attributes().value(QStringLiteral("upper")).toString();
+			bool okLo = false;
+			bool okHi = false;
+			j.limitLower = lo.toDouble(&okLo);
+			j.limitUpper = hi.toDouble(&okHi);
+			j.hasLimit = okLo && okHi;
+			xml.skipCurrentElement();
+		}
+		else
+		{
+			xml.skipCurrentElement();
+		}
+	}
+}
+
+QString resolveMeshFilename(const QString& uri, const QString& packageRoot, const QString& urdfDirPath)
+{
+	if (uri.startsWith(QStringLiteral("package://")))
+	{
+		QString rest = uri.mid(QStringLiteral("package://").length());
+		const int slash = rest.indexOf(QLatin1Char('/'));
+		if (slash >= 0)
+		{
+			const QString tail = rest.mid(slash + 1);
+			return QDir(packageRoot).absoluteFilePath(tail);
+		}
+		return QString();
+	}
+	if (uri.startsWith(QStringLiteral("model://")))
+	{
+		QString rest = uri.mid(QStringLiteral("model://").length());
+		const int slash = rest.indexOf(QLatin1Char('/'));
+		if (slash >= 0)
+		{
+			const QString tail = rest.mid(slash + 1);
+			return QDir(packageRoot).absoluteFilePath(tail);
+		}
+		return QString();
+	}
+	QFileInfo fi(uri);
+	if (fi.isAbsolute())
+	{
+		return fi.absoluteFilePath();
+	}
+	return QDir(urdfDirPath).absoluteFilePath(uri);
+}
+
+void transformTriangleSoup(std::vector<float>& soup, const Mat4& t)
+{
+	for (std::size_t i = 0; i + 2 < soup.size(); i += 3)
+	{
+		double x = soup[i];
+		double y = soup[i + 1];
+		double z = soup[i + 2];
+		transformPoint(t, x, y, z);
+		soup[i] = static_cast<float>(x);
+		soup[i + 1] = static_cast<float>(y);
+		soup[i + 2] = static_cast<float>(z);
+	}
+}
+
+osg::Matrixd mat4ToOsg(const Mat4& m)
+{
+	osg::Matrixd o;
+	for (int c = 0; c < 4; ++c)
+	{
+		for (int r = 0; r < 4; ++r)
+		{
+			o(r, c) = m.m[c * 4 + r];
+		}
+	}
+	return o;
+}
+
+Mat4 matAxisAngleRad(double ax, double ay, double az, double angle)
+{
+	osg::Quat q;
+	q.makeRotate(angle, ax, ay, az);
+	const osg::Matrixd R = osg::Matrixd::rotate(q);
+	Mat4 out{};
+	for (int c = 0; c < 4; ++c)
+	{
+		for (int r = 0; r < 4; ++r)
+		{
+			out.m[c * 4 + r] = R(r, c);
+		}
+	}
+	return out;
+}
+
+Mat4 jointChildTransformForFk(const UrdfJoint& j, const QVector<double>& jointAnglesRad, int& qIndex)
+{
+	const Mat4 T_origin = matFromXyzRpy(j.x, j.y, j.z, j.roll, j.pitch, j.yaw);
+	const QString jt = j.type.toLower();
+	if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
+	{
+		double q = 0.0;
+		if (qIndex < jointAnglesRad.size())
+		{
+			q = jointAnglesRad[qIndex];
+		}
+		++qIndex;
+		double ax = j.ax;
+		double ay = j.ay;
+		double az = j.az;
+		const double len = std::sqrt(ax * ax + ay * ay + az * az);
+		if (len > 1e-9)
+		{
+			ax /= len;
+			ay /= len;
+			az /= len;
+		}
+		else
+		{
+			ax = 0.0;
+			ay = 0.0;
+			az = 1.0;
+		}
+		return matMul(T_origin, matAxisAngleRad(ax, ay, az, q));
+	}
+	return T_origin;
+}
+
+bool parseUrdfModel(
+	const QString& urdfFilePath,
+	std::unordered_map<QString, UrdfLinkVisual>& linkVisuals,
+	std::vector<UrdfJoint>& joints,
+	QString& rootLink,
+	QString& urdfDirOut,
+	QString& packageRootOut,
+	QString* errorMessage)
+{
+	linkVisuals.clear();
+	joints.clear();
+	QFile f(urdfFilePath);
+	if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("Cannot open URDF: %1").arg(urdfFilePath);
+		}
+		return false;
+	}
+
+	const QFileInfo urdfFi(urdfFilePath);
+	urdfDirOut = urdfFi.absolutePath();
+	packageRootOut = QDir(urdfDirOut).absoluteFilePath(QStringLiteral(".."));
+
+	QXmlStreamReader xml(&f);
+	while (!xml.atEnd())
+	{
+		xml.readNext();
+		if (!xml.isStartElement())
+		{
+			continue;
+		}
+		if (xml.name() == QLatin1String("link"))
+		{
+			const QString linkName = xml.attributes().value(QStringLiteral("name")).toString();
+			UrdfLinkVisual vis;
+			bool gotVisual = false;
+			while (xml.readNextStartElement())
+			{
+				if (xml.name() == QLatin1String("visual") && !gotVisual)
+				{
+					readVisualBlock(xml, vis);
+					gotVisual = true;
+				}
+				else
+				{
+					xml.skipCurrentElement();
+				}
+			}
+			if (!linkName.isEmpty())
+			{
+				linkVisuals[linkName] = vis;
+			}
+		}
+		else if (xml.name() == QLatin1String("joint"))
+		{
+			UrdfJoint j;
+			j.name = xml.attributes().value(QStringLiteral("name")).toString();
+			j.type = xml.attributes().value(QStringLiteral("type")).toString();
+			readJointBlock(xml, j);
+			if (!j.parent.isEmpty() && !j.child.isEmpty())
+			{
+				joints.push_back(std::move(j));
+			}
+		}
+	}
+	if (xml.hasError())
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("URDF XML error: %1").arg(xml.errorString());
+		}
+		return false;
+	}
+
+	std::unordered_set<QString> childNames;
+	for (const UrdfJoint& j : joints)
+	{
+		childNames.insert(j.child);
+	}
+
+	auto pickRootLink = [&]() -> QString {
+		const QStringList preferred{
+			QStringLiteral("base_link"),
+			QStringLiteral("world"),
+			QStringLiteral("odom"),
+			QStringLiteral("base"),
+		};
+		for (const QString& want : preferred)
+		{
+			for (const auto& kv : linkVisuals)
+			{
+				if (kv.first.compare(want, Qt::CaseInsensitive) == 0 && !childNames.count(kv.first))
+				{
+					return kv.first;
+				}
+			}
+		}
+		for (const auto& kv : linkVisuals)
+		{
+			if (!childNames.count(kv.first))
+			{
+				return kv.first;
+			}
+		}
+		return QString();
+	};
+
+	rootLink = pickRootLink();
+	if (rootLink.isEmpty() && !linkVisuals.empty())
+	{
+		rootLink = linkVisuals.begin()->first;
+	}
+	if (rootLink.isEmpty())
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("URDF contains no links.");
+		}
+		return false;
+	}
+	return true;
+}
+
+/// Parsed URDF shared by FK, joint meta, and mesh import (jointsByParent built once).
+struct UrdfFkModelData
+{
+	std::unordered_map<QString, UrdfLinkVisual> linkVisuals;
+	std::vector<UrdfJoint> joints;
+	QString rootLink;
+	QString urdfDir;
+	QString packageRoot;
+	std::unordered_map<QString, std::vector<UrdfJoint>> jointsByParent;
+};
+
+struct UrdfModelCacheEntry
+{
+	std::shared_ptr<const UrdfFkModelData> model;
+	qint64 lastModifiedMs = -1;
+};
+
+static QMutex g_urdfModelCacheMutex;
+static QHash<QString, UrdfModelCacheEntry> g_urdfModelCache;
+
+static QString urdfCacheKey(const QString& urdfFilePath)
+{
+	const QFileInfo fi(urdfFilePath);
+	if (!fi.exists())
+	{
+		return fi.absoluteFilePath();
+	}
+	const QString c = fi.canonicalFilePath();
+	return c.isEmpty() ? fi.absoluteFilePath() : c;
+}
+
+bool getOrCreateUrdfModel(const QString& urdfFilePath, std::shared_ptr<const UrdfFkModelData>& out, QString* errorMessage)
+{
+	const QString key = urdfCacheKey(urdfFilePath);
+	const QFileInfo fi(urdfFilePath);
+	const qint64 mtime = fi.exists() ? fi.lastModified().toMSecsSinceEpoch() : -1;
+
+	QMutexLocker lock(&g_urdfModelCacheMutex);
+	const auto it = g_urdfModelCache.find(key);
+	if (it != g_urdfModelCache.end() && it->model && it->lastModifiedMs == mtime)
+	{
+		out = it->model;
+		return true;
+	}
+
+	std::unordered_map<QString, UrdfLinkVisual> linkVisuals;
+	std::vector<UrdfJoint> joints;
+	QString rootLink;
+	QString urdfDir;
+	QString packageRoot;
+	if (!parseUrdfModel(urdfFilePath, linkVisuals, joints, rootLink, urdfDir, packageRoot, errorMessage))
+	{
+		return false;
+	}
+
+	auto data = std::make_shared<UrdfFkModelData>();
+	data->linkVisuals = std::move(linkVisuals);
+	data->joints = std::move(joints);
+	data->rootLink = rootLink;
+	data->urdfDir = urdfDir;
+	data->packageRoot = packageRoot;
+	for (const UrdfJoint& j : data->joints)
+	{
+		data->jointsByParent[j.parent].push_back(j);
+	}
+
+	out = data;
+	UrdfModelCacheEntry ent;
+	ent.model = data;
+	ent.lastModifiedMs = mtime;
+	g_urdfModelCache.insert(key, std::move(ent));
+	return true;
+}
+
+void computeMeshWorldMatricesFromModel(
+	const UrdfFkModelData& model,
+	const QVector<double>& jointAnglesRad,
+	QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld)
+{
+	outLinkNameToMeshWorld.clear();
+	const QVector<double>& angles = jointAnglesRad;
+
+	struct QueueItem
+	{
+		QString link;
+		Mat4 worldFromLink;
+	};
+	std::queue<QueueItem> q;
+	QueueItem start{};
+	start.link = model.rootLink;
+	start.worldFromLink = matIdentity();
+	q.push(start);
+	int qIndex = 0;
+	while (!q.empty())
+	{
+		const QueueItem cur = q.front();
+		q.pop();
+
+		auto visIt = model.linkVisuals.find(cur.link);
+		if (visIt != model.linkVisuals.end() && visIt->second.hasMesh)
+		{
+			const UrdfLinkVisual& vis = visIt->second;
+			const Mat4 visualInLink = matFromXyzRpy(vis.vx, vis.vy, vis.vz, vis.vr, vis.vp, vis.vw);
+			const Mat4 urdfWorldFromMesh = matMul(cur.worldFromLink, visualInLink);
+			const Mat4 osgWorldFromMesh = kApplyRosZUpToOsgYUp
+				? matMul(matRosWorldToOsgWorld(), urdfWorldFromMesh)
+				: urdfWorldFromMesh;
+			outLinkNameToMeshWorld.insert(cur.link, mat4ToOsg(osgWorldFromMesh));
+		}
+
+		const auto jit = model.jointsByParent.find(cur.link);
+		if (jit == model.jointsByParent.end())
+		{
+			continue;
+		}
+		for (const UrdfJoint& j : jit->second)
+		{
+			const Mat4 jointFromChild = jointChildTransformForFk(j, angles, qIndex);
+			QueueItem nxt{};
+			nxt.link = j.child;
+			nxt.worldFromLink = matMul(cur.worldFromLink, jointFromChild);
+			q.push(nxt);
+		}
+	}
+}
+
+} // namespace
+
+bool UrdfRobotLoader::loadMeshHierarchyParts(
+	const QString& urdfFilePath,
+	std::vector<MeshHierarchyPart>& outParts,
+	QString* errorMessage)
+{
+	outParts.clear();
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		return false;
+	}
+	const UrdfFkModelData& m = *model;
+	const std::unordered_map<QString, UrdfLinkVisual>& linkVisuals = m.linkVisuals;
+	const std::unordered_map<QString, std::vector<UrdfJoint>>& jointsByParent = m.jointsByParent;
+	const QString& rootLink = m.rootLink;
+	const QString& urdfDir = m.urdfDir;
+	const QString& packageRoot = m.packageRoot;
+
+	struct QueueItem
+	{
+		QString link;
+		Mat4 worldFromLink;
+		QString parentLinkName;
+	};
+	std::queue<QueueItem> q;
+	QueueItem start{};
+	start.link = rootLink;
+	start.worldFromLink = matIdentity();
+	start.parentLinkName = QString();
+	q.push(start);
+
+	QVector<double> zeroAngles(2048, 0.0);
+	int qIndex = 0;
+
+	while (!q.empty())
+	{
+		const QueueItem cur = q.front();
+		q.pop();
+
+		auto visIt = linkVisuals.find(cur.link);
+		if (visIt != linkVisuals.end() && visIt->second.hasMesh)
+		{
+			const UrdfLinkVisual& vis = visIt->second;
+			const QString absMesh = resolveMeshFilename(vis.meshUri, packageRoot, urdfDir);
+			if (absMesh.isEmpty() || !QFile::exists(absMesh))
+			{
+				if (errorMessage)
+				{
+					*errorMessage = QStringLiteral("Mesh not found for link '%1': %2")
+						.arg(cur.link, vis.meshUri);
+				}
+				return false;
+			}
+			MeshBackendData mesh;
+			const QByteArray nativeEnc = QFile::encodeName(absMesh);
+			const std::string nativePath(nativeEnc.constData(), static_cast<std::size_t>(nativeEnc.size()));
+			std::string loadErr;
+			if (!mesh.loadFromFile(nativePath, &loadErr))
+			{
+				if (errorMessage)
+				{
+					*errorMessage = QStringLiteral("Failed to load mesh '%1': %2")
+						.arg(absMesh, QString::fromStdString(loadErr));
+				}
+				return false;
+			}
+			std::vector<float> soup = mesh.triangleSoup();
+			const Mat4 visualInLink = matFromXyzRpy(vis.vx, vis.vy, vis.vz, vis.vr, vis.vp, vis.vw);
+			const Mat4 urdfWorldFromMesh = matMul(cur.worldFromLink, visualInLink);
+			const Mat4 osgWorldFromMesh = kApplyRosZUpToOsgYUp
+				? matMul(matRosWorldToOsgWorld(), urdfWorldFromMesh)
+				: urdfWorldFromMesh;
+			transformTriangleSoup(soup, osgWorldFromMesh);
+
+			MeshHierarchyPart part;
+			part.displayName = cur.link.toStdString();
+			part.partPath = cur.link.toStdString();
+			part.parentPartPath = cur.parentLinkName.isEmpty() ? std::string() : cur.parentLinkName.toStdString();
+			part.triangleSoup = std::move(soup);
+			outParts.push_back(std::move(part));
+		}
+
+		const auto jit = jointsByParent.find(cur.link);
+		if (jit == jointsByParent.end())
+		{
+			continue;
+		}
+		for (const UrdfJoint& j : jit->second)
+		{
+			const Mat4 jointFromChild = jointChildTransformForFk(j, zeroAngles, qIndex);
+			QueueItem nxt{};
+			nxt.link = j.child;
+			nxt.worldFromLink = matMul(cur.worldFromLink, jointFromChild);
+			nxt.parentLinkName = cur.link;
+			q.push(nxt);
+		}
+	}
+
+	if (outParts.empty())
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("URDF produced no mesh geometry (missing visual meshes?).");
+		}
+		return false;
+	}
+	return true;
+}
+
+bool UrdfRobotLoader::loadRevoluteJointMeta(
+	const QString& urdfFilePath,
+	QStringList& outJointNames,
+	QVector<double>& outLowerRad,
+	QVector<double>& outUpperRad,
+	QString* errorMessage)
+{
+	outJointNames.clear();
+	outLowerRad.clear();
+	outUpperRad.clear();
+	static constexpr double kPi = 3.14159265358979323846;
+	static constexpr double kTwoPi = 6.2831853071795864769;
+
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		return false;
+	}
+	const UrdfFkModelData& m = *model;
+	const std::unordered_map<QString, std::vector<UrdfJoint>>& jointsByParent = m.jointsByParent;
+
+	struct QueueItem
+	{
+		QString link;
+	};
+	std::queue<QueueItem> qq;
+	qq.push(QueueItem{m.rootLink});
+	while (!qq.empty())
+	{
+		const QueueItem cur = qq.front();
+		qq.pop();
+		const auto jit = jointsByParent.find(cur.link);
+		if (jit == jointsByParent.end())
+		{
+			continue;
+		}
+		for (const UrdfJoint& j : jit->second)
+		{
+			const QString jt = j.type.toLower();
+			if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
+			{
+				const QString label = !j.name.isEmpty() ? j.name : QStringLiteral("joint_%1").arg(j.child);
+				outJointNames.append(label);
+				double lo = -kPi;
+				double hi = kPi;
+				if (j.hasLimit)
+				{
+					lo = j.limitLower;
+					hi = j.limitUpper;
+				}
+				else if (jt == QLatin1String("continuous"))
+				{
+					lo = -kTwoPi;
+					hi = kTwoPi;
+				}
+				if (lo > hi)
+				{
+					std::swap(lo, hi);
+				}
+				if (std::abs(hi - lo) < 1e-9)
+				{
+					hi = lo + 1e-3;
+				}
+				outLowerRad.append(lo);
+				outUpperRad.append(hi);
+			}
+			qq.push(QueueItem{j.child});
+		}
+	}
+	return true;
+}
+
+bool UrdfRobotLoader::loadRevoluteJointNamesInOrder(
+	const QString& urdfFilePath,
+	QStringList& outJointNames,
+	QString* errorMessage)
+{
+	QVector<double> lo;
+	QVector<double> hi;
+	return loadRevoluteJointMeta(urdfFilePath, outJointNames, lo, hi, errorMessage);
+}
+
+bool UrdfRobotLoader::computeMeshWorldMatrices(
+	const QString& urdfFilePath,
+	const QVector<double>& jointAnglesRad,
+	QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
+	QString* errorMessage)
+{
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		outLinkNameToMeshWorld.clear();
+		return false;
+	}
+	computeMeshWorldMatricesFromModel(*model, jointAnglesRad, outLinkNameToMeshWorld);
+	return true;
+}
+
+void UrdfRobotLoader::clearUrdfModelCache()
+{
+	QMutexLocker lock(&g_urdfModelCacheMutex);
+	g_urdfModelCache.clear();
+}

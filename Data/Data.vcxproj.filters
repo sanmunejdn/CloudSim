@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Header">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Source">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\BackendDataBase.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendObjectAttribute.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendPropertyRow.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendDataManager.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\data_global.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\geometry_base64.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PointCloudBackendData.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshBackendData.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\BackendDataBase.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendObjectAttribute.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendDataManager.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\geometry_base64.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PointCloudBackendData.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBackendData.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
