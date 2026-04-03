@@ -15,7 +15,7 @@ bool OsgWidgetBackendLoadController::loadPointCloudFromBackendData(
 	{
 		return false;
 	}
-	self.syncGizmoAndPickFromPointCloudBackend(data);
+	self.syncGizmoAndPickFromBackend(data);
 	self.syncCompassGizmoOrientation();
 	self.clearPointAnnotations();
 	self.clearPointPickMarker();
@@ -44,7 +44,7 @@ bool OsgWidgetBackendLoadController::loadMeshFromBackendData(
 	{
 		return false;
 	}
-	self.syncGizmoAndPickFromMeshBackend(data);
+	self.syncGizmoAndPickFromBackend(data);
 	self.syncCompassGizmoOrientation();
 	self.clearPointAnnotations();
 	self.clearPointPickMarker();

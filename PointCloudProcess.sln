@@ -22,6 +22,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Widget", "Widget\Widget.vcx
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Data", "Data\Data.vcxproj", "{50119EDF-918F-4BC8-A201-7AC6F0FE82A1}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BackendVisual", "BackendVisual\BackendVisual.vcxproj", "{F1E2D3C4-B5A6-4789-0123-456789ABCDEF}"
+	ProjectSection(ProjectDependencies) = postProject
+		{50119EDF-918F-4BC8-A201-7AC6F0FE82A1} = {50119EDF-918F-4BC8-A201-7AC6F0FE82A1}
+	EndProjectSection
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RobotKinematics", "RobotKinematics\RobotKinematics.vcxproj", "{8F4E2C1A-9D3B-4E7F-8A1C-2B6D4E8F0A1C}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RobotUrdf", "RobotUrdf\RobotUrdf.vcxproj", "{7A3E9B2C-4D1F-4E8A-B5C6-1D2E3F4A5B6C}"
@@ -74,6 +79,14 @@ Global
 		{50119EDF-918F-4BC8-A201-7AC6F0FE82A1}.Release|x64.Build.0 = Release|x64
 		{50119EDF-918F-4BC8-A201-7AC6F0FE82A1}.Release|x86.ActiveCfg = Release|Win32
 		{50119EDF-918F-4BC8-A201-7AC6F0FE82A1}.Release|x86.Build.0 = Release|Win32
+		{F1E2D3C4-B5A6-4789-0123-456789ABCDEF}.Debug|x64.ActiveCfg = Debug|x64
+		{F1E2D3C4-B5A6-4789-0123-456789ABCDEF}.Debug|x64.Build.0 = Debug|x64
+		{F1E2D3C4-B5A6-4789-0123-456789ABCDEF}.Debug|x86.ActiveCfg = Debug|Win32
+		{F1E2D3C4-B5A6-4789-0123-456789ABCDEF}.Debug|x86.Build.0 = Debug|Win32
+		{F1E2D3C4-B5A6-4789-0123-456789ABCDEF}.Release|x64.ActiveCfg = Release|x64
+		{F1E2D3C4-B5A6-4789-0123-456789ABCDEF}.Release|x64.Build.0 = Release|x64
+		{F1E2D3C4-B5A6-4789-0123-456789ABCDEF}.Release|x86.ActiveCfg = Release|Win32
+		{F1E2D3C4-B5A6-4789-0123-456789ABCDEF}.Release|x86.Build.0 = Release|Win32
 		{8F4E2C1A-9D3B-4E7F-8A1C-2B6D4E8F0A1C}.Debug|x64.ActiveCfg = Debug|x64
 		{8F4E2C1A-9D3B-4E7F-8A1C-2B6D4E8F0A1C}.Debug|x64.Build.0 = Debug|x64
 		{8F4E2C1A-9D3B-4E7F-8A1C-2B6D4E8F0A1C}.Debug|x86.ActiveCfg = Debug|Win32

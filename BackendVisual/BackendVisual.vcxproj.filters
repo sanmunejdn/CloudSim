@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="source\PointCloudBackendVisual.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBackendVisual.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendVisualRegistry.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendVisualMath.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendIdUserData.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendGeometryMetrics.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\BackendGeometryMetrics.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendIdUserData.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\backendvisual_global.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendVisualMath.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendVisualRegistry.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IBackendVisual.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshBackendVisual.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PointCloudBackendVisual.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{8e21e9fe-9d86-49e4-ad8e-814c22d8c657}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{1c48294e-72e0-466c-a658-1b45145528ad}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="source\MeshWireGeometry.inc">
+      <Filter>inc</Filter>
+    </None>
+  </ItemGroup>
+</Project>

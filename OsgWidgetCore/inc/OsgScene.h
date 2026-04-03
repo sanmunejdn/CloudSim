@@ -36,8 +36,7 @@ class Viewer;
 class GraphicsWindow;
 }
 
-class PointCloudBackendData;
-class MeshBackendData;
+class BackendDataBase;
 
 /// OSG 场景图与相机状态（无 Qt）。重绘通过 \ref setRequestRedraw 注入；视口像素通过 \ref setViewportPixels 同步。
 class OSGWIDGETCORE_EXPORT OsgScene
@@ -94,8 +93,7 @@ public:
 	void cacheSelectionPoseFromSelectedTransform();
 	void syncActiveBackendRootFromSelectedTransform();
 
-	void syncGizmoAndPickFromPointCloudBackend(const PointCloudBackendData& data);
-	void syncGizmoAndPickFromMeshBackend(const MeshBackendData& data);
+	void syncGizmoAndPickFromBackend(const BackendDataBase& data);
 
 	osg::Vec3f computePointCloudCenterFromXyz(const std::vector<float>& xyz) const;
 	float computePointCloudDiagonalFromXyz(const std::vector<float>& xyz) const;

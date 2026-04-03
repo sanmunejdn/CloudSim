@@ -7,6 +7,8 @@
 
 #include "OsgScene.h"
 
+#include "BackendIdUserData.h"
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -386,6 +388,27 @@ bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
 	for (const auto& hit : intersector->getIntersections())
 	{
 		const osg::NodePath& path = hit.nodePath;
+		const BackendIdUserData* userId = BackendIdUserData::findInNodePath(path);
+		if (userId)
+		{
+			const std::string& id = userId->backendId();
+			auto rootIt = m_backendObjectRoots.find(id);
+			if (rootIt != m_backendObjectRoots.end() && rootIt->second.valid())
+			{
+				m_activeBackendId = id;
+				m_activeBackendOuterPat = rootIt->second;
+				if (m_selectedTransform.valid())
+				{
+					m_selectedTransform->setPosition(rootIt->second->getPosition());
+					m_selectedTransform->setAttitude(rootIt->second->getAttitude());
+				}
+				cacheSelectionPoseFromSelectedTransform();
+				auto cIt = m_backendModelCenters.find(id);
+				m_modelCenter = (cIt != m_backendModelCenters.end()) ? cIt->second : osg::Vec3f(0.0f, 0.0f, 0.0f);
+				updateCompassLocalOffsetForModelOrigin();
+				return true;
+			}
+		}
 		for (auto it = path.rbegin(); it != path.rend(); ++it)
 		{
 			const osg::Node* n = *it;
