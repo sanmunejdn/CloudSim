@@ -1,4 +1,5 @@
 #include "OsgWidget.h"
+#include "LitMeshMaterial.h"
 
 #include <algorithm>
 #include <array>
@@ -310,6 +311,7 @@ void OsgWidget::syncSelectionFromBackend(const PointCloudBackendData& data)
 {
 	OsgScene::syncGizmoAndPickFromPointCloudBackend(data);
 	cacheSelectionPoseFromSelectedTransform();
+	syncCompassGizmoOrientation();
 	OsgWidgetTransformHierarchyController::finalizeSelectionSync(*this);
 }
 
@@ -317,6 +319,7 @@ void OsgWidget::syncSelectionFromBackend(const MeshBackendData& data)
 {
 	OsgScene::syncGizmoAndPickFromMeshBackend(data);
 	cacheSelectionPoseFromSelectedTransform();
+	syncCompassGizmoOrientation();
 	OsgWidgetTransformHierarchyController::finalizeSelectionSync(*this);
 }
 
@@ -460,6 +463,138 @@ struct EdgeIdxKeyHash
 		return (static_cast<size_t>(k.lo) << 32) | static_cast<size_t>(k.hi);
 	}
 };
+
+/// Boundary edges plus creases where adjacent triangle normals differ by more than \a creaseAngleDeg.
+osg::ref_ptr<osg::Geometry> buildMeshFeatureEdgeGeometry(const std::vector<float>& soup, const osg::Vec4& fillColor,
+	float creaseAngleDeg)
+{
+	const std::size_t nTri = soup.size() / 9U;
+	if (nTri == 0U)
+	{
+		return nullptr;
+	}
+	std::unordered_map<WeldKey, std::uint32_t, WeldKeyHash> weld;
+	weld.reserve(nTri * 2U);
+	std::vector<osg::Vec3> verts;
+	verts.reserve(nTri * 2U);
+	std::vector<std::array<std::uint32_t, 3>> triIdx(nTri);
+
+	auto addVertex = [&](float px, float py, float pz) -> std::uint32_t
+	{
+		const WeldKey k{ quantVertexCoord(px), quantVertexCoord(py), quantVertexCoord(pz) };
+		const auto it = weld.find(k);
+		if (it != weld.end())
+		{
+			return it->second;
+		}
+		const std::uint32_t id = static_cast<std::uint32_t>(verts.size());
+		verts.emplace_back(px, py, pz);
+		weld.emplace(k, id);
+		return id;
+	};
+
+	for (std::size_t t = 0; t < nTri; ++t)
+	{
+		const std::size_t b = t * 9U;
+		triIdx[t][0] = addVertex(soup[b + 0], soup[b + 1], soup[b + 2]);
+		triIdx[t][1] = addVertex(soup[b + 3], soup[b + 4], soup[b + 5]);
+		triIdx[t][2] = addVertex(soup[b + 6], soup[b + 7], soup[b + 8]);
+	}
+
+	std::unordered_map<EdgeIdxKey, std::vector<std::uint32_t>, EdgeIdxKeyHash> edgeTris;
+	edgeTris.reserve(nTri * 2U);
+
+	auto addEdge = [&](std::uint32_t a, std::uint32_t b, std::uint32_t triId)
+	{
+		if (a == b)
+		{
+			return;
+		}
+		const EdgeIdxKey ek{ std::min(a, b), std::max(a, b) };
+		edgeTris[ek].push_back(triId);
+	};
+
+	for (std::size_t t = 0; t < nTri; ++t)
+	{
+		const auto& tr = triIdx[t];
+		const auto tid = static_cast<std::uint32_t>(t);
+		addEdge(tr[0], tr[1], tid);
+		addEdge(tr[1], tr[2], tid);
+		addEdge(tr[2], tr[0], tid);
+	}
+
+	std::vector<osg::Vec3f> triNor(nTri);
+	for (std::size_t t = 0; t < nTri; ++t)
+	{
+		const osg::Vec3& p0 = verts[triIdx[t][0]];
+		const osg::Vec3& p1 = verts[triIdx[t][1]];
+		const osg::Vec3& p2 = verts[triIdx[t][2]];
+		const osg::Vec3 e1 = p1 - p0;
+		const osg::Vec3 e2 = p2 - p0;
+		osg::Vec3 n = e1 ^ e2;
+		const float len2 = n.length2();
+		if (len2 > 1e-20f)
+		{
+			n.normalize();
+			triNor[t] = osg::Vec3f(n.x(), n.y(), n.z());
+		}
+		else
+		{
+			triNor[t] = osg::Vec3f(0.0f, 0.0f, 1.0f);
+		}
+	}
+
+	const float cosThreshold = static_cast<float>(
+		std::cos(static_cast<double>(creaseAngleDeg) * 3.14159265358979323846 / 180.0));
+
+	osg::ref_ptr<osg::Vec3Array> lineVerts = new osg::Vec3Array;
+
+	for (const auto& ep : edgeTris)
+	{
+		const std::vector<std::uint32_t>& triList = ep.second;
+		const std::size_t cnt = triList.size();
+		if (cnt == 1U)
+		{
+			lineVerts->push_back(verts[ep.first.lo]);
+			lineVerts->push_back(verts[ep.first.hi]);
+		}
+		else if (cnt == 2U)
+		{
+			const std::uint32_t t0 = triList[0];
+			const std::uint32_t t1 = triList[1];
+			const osg::Vec3f& n0 = triNor[t0];
+			const osg::Vec3f& n1 = triNor[t1];
+			const float dot = n0.x() * n1.x() + n0.y() * n1.y() + n0.z() * n1.z();
+			if (dot < cosThreshold)
+			{
+				lineVerts->push_back(verts[ep.first.lo]);
+				lineVerts->push_back(verts[ep.first.hi]);
+			}
+		}
+		else if (cnt > 2U)
+		{
+			lineVerts->push_back(verts[ep.first.lo]);
+			lineVerts->push_back(verts[ep.first.hi]);
+		}
+	}
+
+	if (lineVerts->empty())
+	{
+		return nullptr;
+	}
+
+	osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+	geom->setVertexArray(lineVerts.get());
+	geom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, static_cast<GLsizei>(lineVerts->size())));
+	osg::ref_ptr<osg::Vec4Array> mcWire = new osg::Vec4Array;
+	mcWire->push_back(osg::Vec4(
+		std::max(0.12f, fillColor.r() * 0.38f),
+		std::max(0.12f, fillColor.g() * 0.38f),
+		std::max(0.12f, fillColor.b() * 0.38f),
+		fillColor.a()));
+	geom->setColorArray(mcWire.get(), osg::Array::BIND_OVERALL);
+	return geom;
+}
 
 /// 按「共面连通面片」建外轮廓：同一面片内三角共享边出现 2 次（内部剖分线）不画；仅出现 1 次的边为该片外边界（含与邻面/网格开口的边）。
 osg::ref_ptr<osg::Geometry> buildMeshOutlineWireGeometry(const std::vector<float>& soup, const osg::Vec4& fillColor)
@@ -681,7 +816,8 @@ osg::ref_ptr<osg::Geometry> buildMeshOutlineWireGeometry(const std::vector<float
 
 } // namespace
 
-osg::ref_ptr<osg::Node> OsgWidget::buildMeshGeode(const MeshBackendData& data, QString* errorMessage) const
+osg::ref_ptr<osg::Node> OsgWidget::buildMeshGeode(const MeshBackendData& data, QString* errorMessage,
+	bool showWireOutline, bool useSceneLighting) const
 {
 	const std::vector<float>& soup = data.triangleSoup();
 	if (soup.size() < 9U || (soup.size() % 9U) != 0U)
@@ -701,6 +837,34 @@ osg::ref_ptr<osg::Node> OsgWidget::buildMeshGeode(const MeshBackendData& data, Q
 	osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry;
 	geometry->setVertexArray(va.get());
 	geometry->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(va->size())));
+	if (useSceneLighting)
+	{
+		osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array;
+		na->reserve(va->size());
+		for (std::size_t i = 0; i + 2 < va->size(); i += 3)
+		{
+			const osg::Vec3& p0 = (*va)[i];
+			const osg::Vec3& p1 = (*va)[i + 1];
+			const osg::Vec3& p2 = (*va)[i + 2];
+			osg::Vec3 e1 = p1 - p0;
+			osg::Vec3 e2 = p2 - p0;
+			osg::Vec3 n = e1 ^ e2;
+			const float len2 = n.length2();
+			if (len2 > 1e-20f)
+			{
+				n.normalize();
+			}
+			else
+			{
+				n.set(0.0f, 0.0f, 1.0f);
+			}
+			const osg::Vec3f nf(static_cast<float>(n.x()), static_cast<float>(n.y()), static_cast<float>(n.z()));
+			na->push_back(nf);
+			na->push_back(nf);
+			na->push_back(nf);
+		}
+		geometry->setNormalArray(na.get(), osg::Array::BIND_PER_VERTEX);
+	}
 	osg::ref_ptr<osg::Vec4Array> mc = new osg::Vec4Array;
 	const BackendColor c = data.color();
 	const osg::Vec4 fillColor(c.r, c.g, c.b, c.a);
@@ -708,32 +872,68 @@ osg::ref_ptr<osg::Node> OsgWidget::buildMeshGeode(const MeshBackendData& data, Q
 	geometry->setColorArray(mc.get(), osg::Array::BIND_OVERALL);
 	osg::ref_ptr<osg::Geode> geodeFill = new osg::Geode;
 	geodeFill->addDrawable(geometry.get());
+	if (useSceneLighting)
+	{
+		osg::ref_ptr<osg::Material> mat = new osg::Material;
+		LitMeshMaterial::applyPlastic(*mat, fillColor);
+		osg::StateSet* ssFill = geodeFill->getOrCreateStateSet();
+		ssFill->setAttributeAndModes(mat.get(), osg::StateAttribute::ON);
+		// 顶点色 + 默认 ColorMaterial 会让漫反射跟踪 glColor，观感偏平；关闭后由 Material 参与 Phong，明暗更明显。
+		ssFill->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+		ssFill->setMode(GL_LIGHTING, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+		ssFill->setMode(GL_LIGHT0, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+		ssFill->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
+	}
 
 	osg::ref_ptr<osg::Group> grp = new osg::Group;
 	grp->addChild(geodeFill.get());
-	osg::ref_ptr<osg::Geometry> geometryWire = buildMeshOutlineWireGeometry(soup, fillColor);
-	if (geometryWire.valid())
+	if (showWireOutline)
 	{
-		osg::ref_ptr<osg::Geode> geodeWire = new osg::Geode;
-		geodeWire->setName("meshWireOverlay");
-		geodeWire->addDrawable(geometryWire.get());
-		osg::StateSet* ssWire = geodeWire->getOrCreateStateSet();
-		ssWire->setAttributeAndModes(new osg::PolygonOffset(-1.0f, -1.0f), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-		ssWire->setAttributeAndModes(new osg::LineWidth(1.0f));
-		ssWire->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-		grp->addChild(geodeWire.get());
+		osg::ref_ptr<osg::Geometry> geometryWire;
+		if (useSceneLighting)
+		{
+			geometryWire = buildMeshFeatureEdgeGeometry(soup, fillColor, 28.0f);
+			if (!geometryWire.valid())
+			{
+				geometryWire = buildMeshOutlineWireGeometry(soup, fillColor);
+			}
+		}
+		else
+		{
+			geometryWire = buildMeshOutlineWireGeometry(soup, fillColor);
+		}
+		if (geometryWire.valid())
+		{
+			osg::ref_ptr<osg::Geode> geodeWire = new osg::Geode;
+			geodeWire->setName("meshWireOverlay");
+			geodeWire->addDrawable(geometryWire.get());
+			osg::StateSet* ssWire = geodeWire->getOrCreateStateSet();
+			ssWire->setAttributeAndModes(new osg::PolygonOffset(-1.0f, -1.0f), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+			ssWire->setAttributeAndModes(new osg::LineWidth(1.0f));
+			ssWire->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+			grp->addChild(geodeWire.get());
+		}
 	}
 	return grp;
 }
 
-bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome)
+bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
+	bool showWireOutline, bool useSceneLighting)
 {
-	osg::ref_ptr<osg::Node> meshRoot = buildMeshGeode(data, errorMessage);
+	osg::ref_ptr<osg::Node> meshRoot = buildMeshGeode(data, errorMessage, showWireOutline, useSceneLighting);
 	if (!meshRoot)
 	{
 		return false;
 	}
 	const std::string id = data.id();
+	if (useSceneLighting)
+	{
+		m_litMeshBackendIds.insert(id);
+	}
+	else
+	{
+		m_litMeshBackendIds.erase(id);
+	}
 	const osg::Vec3f center = computeMeshCenterFromSoup(data.triangleSoup());
 	const float diagonal = computeMeshDiagonalFromSoup(data.triangleSoup());
 	osg::ref_ptr<osg::PositionAttitudeTransform> inner = new osg::PositionAttitudeTransform;
@@ -747,7 +947,14 @@ bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* er
 	outer->setAttitude(OsgScene::eulerDegToQuat(osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z))));
 	outer->addChild(inner.get());
 	osg::StateSet* oss = outer->getOrCreateStateSet();
-	oss->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	if (useSceneLighting)
+	{
+		oss->setMode(GL_LIGHTING, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	}
+	else
+	{
+		oss->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	}
 	auto it = m_backendObjectRoots.find(id);
 	if (it != m_backendObjectRoots.end() && it->second.valid() && m_objectsGroup.valid())
 	{
@@ -958,6 +1165,7 @@ void OsgWidget::initViewer()
 	m_viewer = new osgViewer::Viewer;
 	m_viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
 	m_viewer->setRunFrameScheme(osgViewer::Viewer::CONTINUOUS);
+	applyHeadlightToViewer(m_viewer.get());
 	m_viewer->setSceneData(m_root.get());
 	m_viewer->addEventHandler(new osgGA::StateSetManipulator(m_viewer->getCamera()->getOrCreateStateSet()));
 
@@ -1039,9 +1247,29 @@ void OsgWidget::detachCompassGraphics()
 	OsgScene::detachCompassGraphics();
 }
 
+void OsgWidget::syncCompassGizmoOrientation()
+{
+	if (!m_compassTransform.valid() || !m_selectedTransform.valid())
+	{
+		return;
+	}
+	// Model origin in outer local frame is -m_modelCenter; compass offset matches. World mode: draw axes in world
+	// directions while pivot stays on parent (inverse cancels object rotation on child attitude).
+	if (m_transformGizmoFrame == TransformGizmoFrame::World)
+	{
+		const osg::Quat q = m_selectedTransform->getAttitude();
+		m_compassTransform->setAttitude(q.inverse());
+	}
+	else
+	{
+		m_compassTransform->setAttitude(osg::Quat());
+	}
+}
+
 void OsgWidget::refreshCompassDrawVisibility()
 {
 	OsgScene::refreshCompassDrawVisibility();
+	syncCompassGizmoOrientation();
 }
 
 void OsgWidget::syncCameraManipulatorForModes()
@@ -1080,6 +1308,7 @@ bool OsgWidget::pickAndActivateBackendAtScreenPos(const QPoint& mousePos)
 	{
 		refreshAnnotationTexts();
 		setSelectionActive(true);
+		syncCompassGizmoOrientation();
 	}
 	return ok;
 }
@@ -1110,6 +1339,12 @@ void OsgWidget::setObjectSelectionMode(bool enabled)
 bool OsgWidget::objectSelectionMode() const
 {
 	return m_objectSelectionMode;
+}
+
+void OsgWidget::setTransformGizmoFrame(TransformGizmoFrame frame)
+{
+	m_transformGizmoFrame = frame;
+	syncCompassGizmoOrientation();
 }
 
 void OsgWidget::setPointPickMode(bool enabled)
@@ -1237,6 +1472,7 @@ void OsgWidget::setSelectedPosition(const osg::Vec3f& position)
 	m_selectedTransform->setPosition(m_modelCenter + position);
 	syncActiveBackendRootFromSelectedTransform();
 	refreshAnnotationTexts();
+	syncCompassGizmoOrientation();
 	emit selectedObjectPoseChanged(position.x(), position.y(), position.z());
 }
 
@@ -1258,6 +1494,7 @@ void OsgWidget::setSelectedRotationEulerDeg(const osg::Vec3f& eulerDeg)
 	m_selectedTransform->setAttitude(OsgScene::eulerDegToQuat(eulerDeg));
 	syncActiveBackendRootFromSelectedTransform();
 	refreshAnnotationTexts();
+	syncCompassGizmoOrientation();
 	emit selectedObjectRotationChanged(eulerDeg.x(), eulerDeg.y(), eulerDeg.z());
 }
 
@@ -1519,6 +1756,7 @@ void OsgWidget::clearImportedContent()
 	{
 		m_objectsGroup->removeChildren(0, m_objectsGroup->getNumChildren());
 	}
+	m_litMeshBackendIds.clear();
 	m_backendObjectRoots.clear();
 	m_backendParentIds.clear();
 	m_backendModelCenters.clear();
@@ -1565,10 +1803,17 @@ bool OsgWidget::loadPointCloudFromBackendData(const PointCloudBackendData& data,
 		: false;
 }
 
-bool OsgWidget::loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome)
+bool OsgWidget::loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
+	bool showWireOutline, bool useSceneLighting)
 {
 	return m_backendLoadController
-		? m_backendLoadController->loadMeshFromBackendData(*this, data, errorMessage, resetViewToHome)
+		? m_backendLoadController->loadMeshFromBackendData(*this, data, errorMessage, resetViewToHome, showWireOutline,
+			  useSceneLighting)
 		: false;
+}
+
+bool OsgWidget::isBackendMeshLit(const std::string& backendId) const
+{
+	return m_litMeshBackendIds.find(backendId) != m_litMeshBackendIds.end();
 }
 

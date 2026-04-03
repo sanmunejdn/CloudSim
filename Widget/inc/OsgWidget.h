@@ -11,6 +11,7 @@
 #include <utility>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <QList>
 #include <osgGA/TrackballManipulator>
@@ -99,13 +100,20 @@ public:
 	bool captureImportedMeshBackendHierarchy(std::vector<MeshCapturedPart>& outParts, QString* errorMessage = nullptr);
 	bool loadPointCloudFromBackendData(const PointCloudBackendData& data, QString* errorMessage = nullptr,
 		bool resetViewToHome = true);
-	bool loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage = nullptr, bool resetViewToHome = true);
+	bool loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage = nullptr, bool resetViewToHome = true,
+		bool showWireOutline = true, bool useSceneLighting = true);
+	/// 该后端网格是否以场景光照渲染（如 URDF 连杆），用于改色时保留光照材质。
+	bool isBackendMeshLit(const std::string& backendId) const;
 	void clearImportedContent();
 	/// Clears import preview only (keeps already registered backend visuals).
 	void clearStagingGeometry();
 	void setSelectionActive(bool active);
 	void setObjectSelectionMode(bool enabled);
 	bool objectSelectionMode() const;
+	/// 物体变换罗盘：物体系沿当前罗盘轴（与模型姿态一致）；世界系沿世界 X/Y/Z。
+	using TransformGizmoFrame = OsgScene::TransformGizmoFrame;
+	void setTransformGizmoFrame(TransformGizmoFrame frame);
+	TransformGizmoFrame transformGizmoFrame() const { return m_transformGizmoFrame; }
 	void setPointPickMode(bool enabled);
 	bool pointPickMode() const;
 	void setMeshLinePickMode(bool enabled);
@@ -173,14 +181,18 @@ private:
 	void syncActiveBackendRootFromSelectedTransform();
 	osg::ref_ptr<osg::Geode> buildPointCloudGeode(const PointCloudBackendData& data, QString* errorMessage) const;
 	bool upsertPointCloudBranchInScene(const PointCloudBackendData& data, QString* errorMessage, bool resetViewToHome);
-	osg::ref_ptr<osg::Node> buildMeshGeode(const MeshBackendData& data, QString* errorMessage) const;
-	bool upsertMeshBranchInScene(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome);
+	osg::ref_ptr<osg::Node> buildMeshGeode(const MeshBackendData& data, QString* errorMessage,
+		bool showWireOutline = true, bool useSceneLighting = false) const;
+	bool upsertMeshBranchInScene(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
+		bool showWireOutline = true, bool useSceneLighting = false);
 	osg::Node* stagingGeometryRoot() const;
 	void applyVisibilityMaskForBackend(const std::string& backendId);
 	void updateCompassHighlight(DragAxis axis);
 	QString axisToString(DragAxis axis) const;
 	void updateCompassScale();
 	void refreshCompassDrawVisibility();
+	/// World: gizmo axes align with world X/Y/Z; Local: axes follow object. Pivot stays at model origin (compass).
+	void syncCompassGizmoOrientation();
 	void attachCompassGraphics();
 	void detachCompassGraphics();
 	void syncCameraManipulatorForModes();
@@ -206,6 +218,8 @@ private:
 	std::unique_ptr<SelectionOperation> m_pointPickOperation;
 	std::unique_ptr<SelectionOperation> m_objectTransformOperation;
 	std::unique_ptr<SelectionOperation> m_meshElementPickOperation;
+	/// 使用场景光照加载的网格后端（如 URDF 连杆），改色时保留 Material+LIGHTING。
+	std::unordered_set<std::string> m_litMeshBackendIds;
 
 	bool pickMeshFaceByRayIntersection(const QPoint& mousePos,
 		osg::Vec3f& outPointWorld,

@@ -16,6 +16,7 @@ bool OsgWidgetBackendLoadController::loadPointCloudFromBackendData(
 		return false;
 	}
 	self.syncGizmoAndPickFromPointCloudBackend(data);
+	self.syncCompassGizmoOrientation();
 	self.clearPointAnnotations();
 	self.clearPointPickMarker();
 	self.setSelectionActive(true);
@@ -34,14 +35,17 @@ bool OsgWidgetBackendLoadController::loadMeshFromBackendData(
 	OsgWidget& self,
 	const MeshBackendData& data,
 	QString* errorMessage,
-	bool resetViewToHome)
+	bool resetViewToHome,
+	bool showWireOutline,
+	bool useSceneLighting)
 {
 	self.clearStagingGeometry();
-	if (!self.upsertMeshBranchInScene(data, errorMessage, resetViewToHome))
+	if (!self.upsertMeshBranchInScene(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting))
 	{
 		return false;
 	}
 	self.syncGizmoAndPickFromMeshBackend(data);
+	self.syncCompassGizmoOrientation();
 	self.clearPointAnnotations();
 	self.clearPointPickMarker();
 	self.setSelectionActive(true);

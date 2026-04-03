@@ -124,6 +124,9 @@ private:
 	QAction* m_meshLinePickModeAction = nullptr;
 	QAction* m_meshFacePickModeAction = nullptr;
 	QActionGroup* m_interactionModeGroup = nullptr;
+	QAction* m_gizmoLocalFrameAction = nullptr;
+	QAction* m_gizmoWorldFrameAction = nullptr;
+	QActionGroup* m_gizmoFrameGroup = nullptr;
 	QAction* m_newDocumentAction = nullptr;
 	QAction* m_openModelAction = nullptr;
 	QAction* m_openPointCloudAction = nullptr;

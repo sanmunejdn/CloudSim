@@ -20,6 +20,8 @@
 #include <osg/Geode>
 #include <osg/Geometry>
 #include <osg/Group>
+#include <osg/Light>
+#include <osg/View>
 #include <osg/LineWidth>
 #include <osg/Matrix>
 #include <osg/NodeCallback>
@@ -220,6 +222,16 @@ void OsgScene::setViewportPixels(int w, int h)
 	m_viewportHeight = (std::max)(1, h);
 }
 
+void OsgScene::applyHeadlightToViewer(osgViewer::Viewer* viewer)
+{
+	if (!viewer || !m_headlight.valid())
+	{
+		return;
+	}
+	viewer->setLight(m_headlight.get());
+	viewer->setLightingMode(osg::View::HEADLIGHT);
+}
+
 void OsgScene::initScene()
 {
 	static const unsigned int kMaskHelper = 0x2u;
@@ -227,9 +239,20 @@ void OsgScene::initScene()
 	m_root = new osg::Group;
 	m_root->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 
+	// 光源 0：在 initViewer 里通过 applyHeadlightToViewer 设为 View::HEADLIGHT，随主相机视点移动（固定管线头灯）。
+	// 主场景由 Viewer::setSceneData 挂接，不在 Camera 子图下；用 View 的头灯而非把 LightSource 挂到 Camera 上。
+	{
+		m_headlight = new osg::Light;
+		m_headlight->setLightNum(0);
+		m_headlight->setAmbient(osg::Vec4(0.14f, 0.14f, 0.15f, 1.0f));
+		m_headlight->setDiffuse(osg::Vec4(0.98f, 0.97f, 0.94f, 1.0f));
+		m_headlight->setSpecular(osg::Vec4(0.45f, 0.45f, 0.42f, 1.0f));
+	}
+
 	m_objectsGroup = new osg::Group;
 	m_objectsGroup->setNodeMask(0xffffffffu);
-	m_objectsGroup->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	// 不在此组上强制 GL_LIGHTING OFF：父级 OVERRIDE 会压过子节点「开启光照」，导致受光网格始终走无光照着色。
+	// 需要无光照的分支（点云、标注等）在各自节点上设置 OFF | OVERRIDE。
 	m_stagingGroup = new osg::Group;
 	m_stagingGroup->setNodeMask(0xffffffffu);
 	m_stagingGroup->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
@@ -243,6 +266,7 @@ void OsgScene::initScene()
 	m_selectedTransform->addChild(m_compassTransform.get());
 	m_annotationGroup = new osg::Group;
 	m_annotationGroup->setNodeMask(0xffffffffu);
+	m_annotationGroup->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 	m_objectsGroup->addChild(m_annotationGroup.get());
 
 	m_meshPickOverlayGroup = new osg::Group;
@@ -390,6 +414,7 @@ bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
 			cacheSelectionPoseFromSelectedTransform();
 			auto cIt = m_backendModelCenters.find(id);
 			m_modelCenter = (cIt != m_backendModelCenters.end()) ? cIt->second : osg::Vec3f(0.0f, 0.0f, 0.0f);
+			updateCompassLocalOffsetForModelOrigin();
 			return true;
 		}
 	}

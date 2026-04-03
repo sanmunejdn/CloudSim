@@ -6,6 +6,7 @@
 
 #include <QAction>
 #include <QActionGroup>
+#include <QSignalBlocker>
 #include <QApplication>
 #include <QDockWidget>
 #include <QMessageBox>
@@ -13,7 +14,6 @@
 #include <QList>
 #include <QMenu>
 #include <QMenuBar>
-#include <QSignalBlocker>
 #include <QStringList>
 #include <QStatusBar>
 #include <QTreeWidget>
@@ -140,6 +140,37 @@ void MainWindow::setupMenuBar()
 	connect(m_pointPickModeAction, &QAction::triggered, this, &MainWindow::onPointPickModeTriggered);
 	connect(m_meshLinePickModeAction, &QAction::triggered, this, &MainWindow::onMeshLinePickModeTriggered);
 	connect(m_meshFacePickModeAction, &QAction::triggered, this, &MainWindow::onMeshFacePickModeTriggered);
+	m_viewMenu->addSeparator();
+	m_gizmoFrameGroup = new QActionGroup(this);
+	m_gizmoFrameGroup->setExclusive(true);
+	m_gizmoLocalFrameAction = m_viewMenu->addAction(QStringLiteral("Transform: Local (object axes)"));
+	m_gizmoLocalFrameAction->setCheckable(true);
+	m_gizmoFrameGroup->addAction(m_gizmoLocalFrameAction);
+	m_gizmoWorldFrameAction = m_viewMenu->addAction(QStringLiteral("Transform: World"));
+	m_gizmoWorldFrameAction->setCheckable(true);
+	m_gizmoFrameGroup->addAction(m_gizmoWorldFrameAction);
+	m_gizmoLocalFrameAction->setChecked(true);
+	// Only react when an action becomes checked; ignore triggered(false) when exclusivity unchecks the other item.
+	connect(m_gizmoLocalFrameAction, &QAction::triggered, this, [this](bool checked) {
+		if (!checked)
+		{
+			return;
+		}
+		if (OsgWidget* osg = currentOsgWidget())
+		{
+			osg->setTransformGizmoFrame(OsgWidget::TransformGizmoFrame::Local);
+		}
+	});
+	connect(m_gizmoWorldFrameAction, &QAction::triggered, this, [this](bool checked) {
+		if (!checked)
+		{
+			return;
+		}
+		if (OsgWidget* osg = currentOsgWidget())
+		{
+			osg->setTransformGizmoFrame(OsgWidget::TransformGizmoFrame::World);
+		}
+	});
 	m_viewMenu->addSeparator();
 	m_simulationStartAction = m_viewMenu->addAction(QStringLiteral("Start Simulation"), this, &MainWindow::onSimulationStartTriggered);
 
@@ -328,6 +359,15 @@ void MainWindow::applyLanguage()
 	if (m_pointPickModeAction) m_pointPickModeAction->setText(i18n(QStringLiteral("Point Pick"), QStringLiteral("\u70B9\u9009\u6A21\u5F0F")));
 	if (m_meshLinePickModeAction) m_meshLinePickModeAction->setText(i18n(QStringLiteral("Line Pick"), QStringLiteral("\u7EBF\u9009\u62E9\u6A21\u5F0F")));
 	if (m_meshFacePickModeAction) m_meshFacePickModeAction->setText(i18n(QStringLiteral("Face Pick"), QStringLiteral("\u9762\u9009\u62E9\u6A21\u5F0F")));
+	if (m_gizmoLocalFrameAction)
+	{
+		m_gizmoLocalFrameAction->setText(i18n(QStringLiteral("Transform: Local (object axes)"),
+			QStringLiteral("\u53D8\u6362\uFF1A\u7269\u4F53\u7CFB\uFF08\u7F57\u76D8\u8F74\uFF09")));
+	}
+	if (m_gizmoWorldFrameAction)
+	{
+		m_gizmoWorldFrameAction->setText(i18n(QStringLiteral("Transform: World"), QStringLiteral("\u53D8\u6362\uFF1A\u4E16\u754C\u7CFB")));
+	}
 	if (m_simulationStartAction)
 	{
 		m_simulationStartAction->setText(i18n(QStringLiteral("Start Simulation"), QStringLiteral("\u5F00\u59CB\u4EFF\u771F")));
@@ -790,6 +830,14 @@ void MainWindow::syncViewModeActionsFromCurrentOsg()
 		m_pointPickModeAction->setChecked(false);
 		m_meshLinePickModeAction->setChecked(false);
 		m_meshFacePickModeAction->setChecked(false);
+		if (m_gizmoFrameGroup && m_gizmoLocalFrameAction && m_gizmoWorldFrameAction)
+		{
+			const QSignalBlocker bg(m_gizmoFrameGroup);
+			const QSignalBlocker b1(m_gizmoLocalFrameAction);
+			const QSignalBlocker b2(m_gizmoWorldFrameAction);
+			m_gizmoLocalFrameAction->setChecked(true);
+			m_gizmoWorldFrameAction->setChecked(false);
+		}
 		return;
 	}
 	const bool view = !o->objectSelectionMode() && !o->pointPickMode() && !o->meshLinePickMode() && !o->meshFacePickMode();
@@ -798,6 +846,22 @@ void MainWindow::syncViewModeActionsFromCurrentOsg()
 	m_pointPickModeAction->setChecked(o->pointPickMode());
 	m_meshLinePickModeAction->setChecked(o->meshLinePickMode());
 	m_meshFacePickModeAction->setChecked(o->meshFacePickMode());
+	if (m_gizmoFrameGroup && m_gizmoLocalFrameAction && m_gizmoWorldFrameAction)
+	{
+		const QSignalBlocker bg(m_gizmoFrameGroup);
+		const QSignalBlocker b1(m_gizmoLocalFrameAction);
+		const QSignalBlocker b2(m_gizmoWorldFrameAction);
+		if (o->transformGizmoFrame() == OsgWidget::TransformGizmoFrame::Local)
+		{
+			m_gizmoLocalFrameAction->setChecked(true);
+			m_gizmoWorldFrameAction->setChecked(false);
+		}
+		else
+		{
+			m_gizmoLocalFrameAction->setChecked(false);
+			m_gizmoWorldFrameAction->setChecked(true);
+		}
+	}
 }
 
 void MainWindow::onPointPickFeedback(const QString& text)

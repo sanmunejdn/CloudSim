@@ -504,7 +504,8 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 		if (osg)
 		{
 			QString sceneErr;
-			if (!osg->loadMeshFromBackendData(*partMesh, &sceneErr, false) && mw.m_runInfoPage)
+			// Robot links: feature-edge wire overlay + scene lighting (matches lit mesh display).
+			if (!osg->loadMeshFromBackendData(*partMesh, &sceneErr, false, true, true) && mw.m_runInfoPage)
 			{
 				mw.m_runInfoPage->appendWarning(QStringLiteral("Mesh display: %1").arg(sceneErr));
 			}
@@ -566,7 +567,7 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 		if (osg && lastLoadedMesh)
 		{
 			QString homeErr;
-			(void)osg->loadMeshFromBackendData(*lastLoadedMesh, &homeErr, true);
+			(void)osg->loadMeshFromBackendData(*lastLoadedMesh, &homeErr, true, true, true);
 		}
 		mw.refreshBackendTree();
 		mw.focusBackendInTree(importParent);

@@ -165,6 +165,7 @@ void OsgScene::syncGizmoAndPickFromPointCloudBackend(const PointCloudBackendData
 	{
 		cachePickablePointsFromNode(pickNode);
 	}
+	updateCompassLocalOffsetForModelOrigin();
 }
 
 void OsgScene::syncGizmoAndPickFromMeshBackend(const MeshBackendData& data)
@@ -222,4 +223,5 @@ void OsgScene::syncGizmoAndPickFromMeshBackend(const MeshBackendData& data)
 	{
 		cachePickablePointsFromNode(pickNode);
 	}
+	updateCompassLocalOffsetForModelOrigin();
 }

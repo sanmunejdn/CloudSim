@@ -55,5 +55,11 @@
     <ClCompile Include="source\MeshBackendData.cpp">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\bin\SDK\dxfSolution\dxflib\Source\dl_dxf.cpp">
+      <Filter>Header</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\bin\SDK\dxfSolution\dxflib\Source\dl_writer_ascii.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

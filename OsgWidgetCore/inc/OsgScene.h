@@ -12,6 +12,7 @@
 
 #include <osgGA/TrackballManipulator>
 #include <osg/Camera>
+#include <osg/Light>
 #include <osg/Array>
 #include <osg/AutoTransform>
 #include <osg/Matrixd>
@@ -43,6 +44,8 @@ class OSGWIDGETCORE_EXPORT OsgScene
 {
 public:
 	enum class DragAxis { None, X, Y, Z };
+	/// Gizmo axes: Local = object/body; World = world-aligned at pivot (see syncCompassGizmoOrientation).
+	enum class TransformGizmoFrame { World, Local };
 
 	// Gizmo 轴编号（与历史 OsgWidgetGizmoController 一致）：0=None,1=X,2=Y,3=Z
 	static constexpr int kGizmoAxisNone = 0;
@@ -76,6 +79,8 @@ public:
 	double devicePixelRatio() const { return m_devicePixelRatio; }
 
 	void initScene();
+	/// 将头灯绑定到 Viewer（osg::View::HEADLIGHT，每帧随主相机视点更新；主场景由 setSceneData 提供，不宜把 LightSource 直接挂到 Camera 子图）。
+	void applyHeadlightToViewer(osgViewer::Viewer* viewer);
 	void initWorldAxesHud();
 	void updateWorldAxesHudViewport(int widgetWidth, int widgetHeight);
 
@@ -102,6 +107,8 @@ public:
 	void detachCompassGraphics();
 	void refreshCompassDrawVisibility();
 	void updateCompassHighlight(int axis);
+	/// Places the compass at mesh/point model origin (file 0,0,0), not bbox center, when geometry uses inner PAT at -m_modelCenter.
+	void updateCompassLocalOffsetForModelOrigin();
 	void updateCompassScale();
 	int pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing) const;
 
@@ -127,6 +134,8 @@ public:
 	void nearestCandidatesByKdTree(const osg::Vec3f& queryLocalCentered, int k, std::vector<int>& outIndices) const;
 
 	osg::ref_ptr<osgViewer::Viewer> m_viewer;
+	/// 与 GL_LIGHT0 对应；通过 View::HEADLIGHT 随相机移动（等价于头灯挂在视点）。
+	osg::ref_ptr<osg::Light> m_headlight;
 	osg::ref_ptr<osgGA::TrackballManipulator> m_trackballManipulator;
 	osg::ref_ptr<osgViewer::GraphicsWindow> m_graphicsWindow;
 
@@ -200,4 +209,5 @@ protected:
 	int m_viewportWidth = 640;
 	int m_viewportHeight = 480;
 	double m_devicePixelRatio = 1.0;
+	TransformGizmoFrame m_transformGizmoFrame = TransformGizmoFrame::Local;
 };

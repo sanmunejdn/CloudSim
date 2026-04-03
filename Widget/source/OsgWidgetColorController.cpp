@@ -1,6 +1,7 @@
 #include "OsgWidgetColorController.h"
 
 #include "OsgWidget.h"
+#include "LitMeshMaterial.h"
 
 #include <algorithm>
 
@@ -13,7 +14,7 @@
 
 namespace {
 
-void paintOverallColorOnNode(osg::Node* root, const osg::Vec4& color)
+void paintOverallColorOnNode(osg::Node* root, const osg::Vec4& color, bool useSceneLighting)
 {
 	if (!root)
 	{
@@ -57,10 +58,22 @@ void paintOverallColorOnNode(osg::Node* root, const osg::Vec4& color)
 	root->accept(visitor);
 	osg::StateSet* ss = root->getOrCreateStateSet();
 	osg::ref_ptr<osg::Material> material = new osg::Material;
-	material->setDiffuse(osg::Material::FRONT_AND_BACK, color);
-	material->setAmbient(osg::Material::FRONT_AND_BACK, color * 0.3f);
-	ss->setAttributeAndModes(material.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	if (useSceneLighting)
+	{
+		LitMeshMaterial::applyPlastic(*material, color);
+		ss->setAttributeAndModes(material.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+		ss->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+		ss->setMode(GL_LIGHTING, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+		ss->setMode(GL_LIGHT0, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+		ss->setMode(GL_NORMALIZE, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	}
+	else
+	{
+		material->setDiffuse(osg::Material::FRONT_AND_BACK, color);
+		material->setAmbient(osg::Material::FRONT_AND_BACK, color * 0.3f);
+		ss->setAttributeAndModes(material.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+		ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	}
 }
 
 } // namespace
@@ -70,7 +83,7 @@ void OsgWidgetColorController::applyColorToStagingGeometry(OsgWidget& self, cons
 	osg::Node* n = self.stagingGeometryRoot();
 	if (n)
 	{
-		paintOverallColorOnNode(n, color);
+		paintOverallColorOnNode(n, color, false);
 	}
 }
 
@@ -100,7 +113,7 @@ void OsgWidgetColorController::applyColorToBackendObject(OsgWidget& self, const 
 		{
 			continue;
 		}
-		paintOverallColorOnNode(inner->getChild(0), color);
+		paintOverallColorOnNode(inner->getChild(0), color, self.isBackendMeshLit(kv.first));
 	}
 }
 

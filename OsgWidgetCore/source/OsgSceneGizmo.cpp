@@ -124,6 +124,19 @@ osg::Node* OsgScene::createCompassNode()
 	return geode.release();
 }
 
+void OsgScene::updateCompassLocalOffsetForModelOrigin()
+{
+	if (!m_compassTransform.valid())
+	{
+		return;
+	}
+	// Outer PAT at center+pose; inner at -center → file origin maps to parent local -center under same attitude as outer.
+	m_compassTransform->setPosition(osg::Vec3d(
+		static_cast<double>(-m_modelCenter.x()),
+		static_cast<double>(-m_modelCenter.y()),
+		static_cast<double>(-m_modelCenter.z())));
+}
+
 void OsgScene::attachCompassGraphics()
 {
 	static const unsigned int kMaskHelper = 0x2u;
@@ -139,6 +152,7 @@ void OsgScene::attachCompassGraphics()
 	m_compassNode = createCompassNode();
 	m_compassTransform->addChild(m_compassNode.get());
 	m_compassTransform->setNodeMask(kMaskHelper);
+	updateCompassLocalOffsetForModelOrigin();
 }
 
 void OsgScene::detachCompassGraphics()
@@ -156,6 +170,8 @@ void OsgScene::detachCompassGraphics()
 	{
 		m_compassTransform->setNodeMask(0u);
 		m_compassTransform->setScale(osg::Vec3d(1.0, 1.0, 1.0));
+		m_compassTransform->setPosition(osg::Vec3d(0.0, 0.0, 0.0));
+		m_compassTransform->setAttitude(osg::Quat());
 	}
 	m_gizmoReferenceDistance = -1.0;
 	m_gizmoReferenceScale = 1.0;
@@ -264,11 +280,22 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing)
 
 	osg::Camera* camera = m_viewer->getCamera();
 	const osg::Matrixd mvp = camera->getViewMatrix() * camera->getProjectionMatrix();
-	const osg::Vec3f origin = m_selectedTransform->getPosition();
+	const osg::Vec3f outerPos = m_selectedTransform->getPosition();
 	const osg::Quat attitude = m_selectedTransform->getAttitude();
-
+	// Match rendered gizmo: compass is child PAT with position -m_modelCenter and attitude C (see syncCompassGizmoOrientation).
+	const osg::Vec3f compassPosLocal(-m_modelCenter.x(), -m_modelCenter.y(), -m_modelCenter.z());
+	const osg::Vec3f origin = outerPos + attitude * compassPosLocal;
+	osg::Quat compassAtt;
+	if (m_transformGizmoFrame == TransformGizmoFrame::World)
+	{
+		compassAtt = attitude.inverse();
+	}
+	else
+	{
+		compassAtt = osg::Quat();
+	}
 	auto toWorld = [&](const osg::Vec3f& local) -> osg::Vec3f {
-		return origin + (attitude * local);
+		return origin + attitude * (compassAtt * local);
 	};
 
 	auto projectToScreen = [&](const osg::Vec3f& world, double& sx, double& sy) {

@@ -154,6 +154,8 @@ void MainWindow::onBackendTreeSelectionChanged()
 	const QString id = current->data(0, kRoleBackendId).toString();
 	const auto data = activeBackend().getData(id.toStdString());
 	const bool rowVisible = current->checkState(0) != Qt::Unchecked;
+	DocumentPage* doc = currentPage();
+	const bool urdfLinkMesh = doc && doc->hasRobotSimulationContext() && doc->robotLinkBackendIds().contains(id);
 
 	if (osg)
 	{
@@ -187,7 +189,14 @@ void MainWindow::onBackendTreeSelectionChanged()
 					else
 					{
 						QString geomErr;
-						osg->loadMeshFromBackendData(*mesh, &geomErr, false);
+						if (urdfLinkMesh)
+						{
+							osg->loadMeshFromBackendData(*mesh, &geomErr, false, true, true);
+						}
+						else
+						{
+							osg->loadMeshFromBackendData(*mesh, &geomErr, false);
+						}
 					}
 				}
 				else

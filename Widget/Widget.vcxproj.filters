@@ -172,6 +172,15 @@
     <ClCompile Include="source\DocumentPage.cpp">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="source\DevicePageWidget.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotAxisControlWidget.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SimulationCommandWidget.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="inc\DocumentPage.h">
@@ -188,6 +197,15 @@
     </QtMoc>
     <QtMoc Include="inc\RunInfoPage.h">
       <Filter>Source\MainWindow</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\DevicePageWidget.h">
+      <Filter>Header</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\RobotAxisControlWidget.h">
+      <Filter>Header</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\SimulationCommandWidget.h">
+      <Filter>Header</Filter>
     </QtMoc>
   </ItemGroup>
 </Project>

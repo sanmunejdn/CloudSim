@@ -25,12 +25,34 @@
 namespace
 {
 
-// Set to false to debug: joints stay in ROS Z-up; use if meshes + RViz agree but viewer looks wrong.
+// ---------------------------------------------------------------------------
+// URDF 导入与网格烘焙说明（本匿名命名空间内实现）
+//
+// 坐标约定：URDF 遵循 ROS 右手系、Z 向上（REP-103）。本模块用齐次矩阵将「网格文件顶点」
+// 变到「用于显示的世界坐标」。标准假设是：每个 link 的 mesh 顶点在该 link 的局部系中定义，
+// 再通过 <joint><origin> 链从根连杆累积到世界；<visual><origin> 表示「视觉几何系相对连杆系」
+// 的位姿，即 worldFromMesh = worldFromLink * visualInLink * p_mesh。
+//
+// 若实际 OBJ 等文件把全部几何都放在「整机/基座」同一坐标系中，则与上述假设不符，仅靠 <visual>
+// 的小幅 xyz/rpy 往往无法对齐，需在资源侧按连杆重导出或调整 URDF。
+// ---------------------------------------------------------------------------
+
+// 若为 true：在输出到 OSG 前对整条链再乘 Rx(-90°)，使 URDF 的 +Z 对齐常见视窗的 +Y。
+// 调试时可关：保持 ROS Z 向上，便于与 RViz 对比；若 mesh 已与当前视窗约定一致也可关。
 constexpr bool kApplyRosZUpToOsgYUp = true;
+
+// 为 true（默认）：导入时将「从根到当前连杆的关节链」×「<visual><origin>」烘焙进顶点，
+// 使静态显示与 URDF 一致，并与 computeMeshWorldMatrices / 关节滑条所用 FK 一致。
+// 仅当 mesh 已在单一装配坐标系中预摆好时再设为 false（详见 UrdfRobotLoader.h）。
+constexpr bool kUrdfBakeJointChainIntoMesh = true;
+
+// 为 true（默认）：把 <visual><origin> 烘焙进顶点；适用于按连杆导出的 CAD mesh、位姿由 URDF 描述。
+// 当 kUrdfBakeJointChainIntoMesh 为 false 时：true 仍只应用 visual；false 则保持文件顶点不动。
+constexpr bool kUrdfBakeVisualOriginIntoMesh = true;
 
 struct Mat4
 {
-	double m[16]{}; // column-major
+	double m[16]{}; // 列主序（column-major），与 OpenGL/OSG 一致
 };
 
 Mat4 matIdentity()
@@ -49,7 +71,7 @@ Mat4 matTranslate(double x, double y, double z)
 	return r;
 }
 
-// R = Rz(yaw) * Ry(pitch) * Rx(roll), matching common ROS / URDF fixed-axis RPY.
+// URDF 中 rpy 的固定轴旋转：R = Rz(yaw) * Ry(pitch) * Rx(roll)，与常见 ROS/URDF 解析一致。
 Mat4 matFromRpy(double roll, double pitch, double yaw)
 {
 	const double cr = std::cos(roll);
@@ -97,19 +119,42 @@ void transformPoint(const Mat4& t, double& x, double& y, double& z)
 	z = nz;
 }
 
+// <origin xyz="..." rpy="..."/> 的齐次变换：先平移再旋转，即 T = Translate(xyz) * R(rpy)，
+// 对列向量 p 有 p' = R*p + xyz（与 URDF 常用实现一致）。
 Mat4 matFromXyzRpy(double x, double y, double z, double roll, double pitch, double yaw)
 {
 	return matMul(matTranslate(x, y, z), matFromRpy(roll, pitch, yaw));
 }
 
-// ROS / URDF uses a right-handed frame with Z up (REP-103). OSG / typical viewer uses Y up.
-// Apply once at the end: p_osg = R * p_urdf with R = Rx(-90°) so URDF +Z maps to viewer +Y.
+// ROS/URDF 世界为 Z 上；许多 OSG 视窗为 Y 上。在管线末端可选乘 Rx(-90°)，使 URDF +Z 映射到视窗 +Y。
 Mat4 matRosWorldToOsgWorld()
 {
 	static const double kHalfPi = 1.57079632679489661923;
 	return matFromRpy(-kHalfPi, 0.0, 0.0);
 }
 
+// 根据 kUrdfBake* 开关，决定导入时烘焙到顶点上的「从 mesh 文件系到 URDF 世界」变换。
+// worldFromLink：根经关节链到当前连杆；visualInLink：<visual><origin>。
+Mat4 urdfWorldFromMeshVertices(const Mat4& worldFromLink, const Mat4& visualInLink)
+{
+	if (kUrdfBakeJointChainIntoMesh)
+	{
+		return matMul(worldFromLink, visualInLink);
+	}
+	if (kUrdfBakeVisualOriginIntoMesh)
+	{
+		return visualInLink;
+	}
+	return matIdentity();
+}
+
+// 在 URDF 世界系结果上可选施加 ROS→OSG 轴向修正（见 kApplyRosZUpToOsgYUp）。
+Mat4 osgWorldFromUrdfMeshFrame(const Mat4& urdfWorldFromMesh)
+{
+	return kApplyRosZUpToOsgYUp ? matMul(matRosWorldToOsgWorld(), urdfWorldFromMesh) : urdfWorldFromMesh;
+}
+
+// 解析空格分隔的三个浮点数（用于 xyz、rpy）；空串视为 0,0,0。
 bool parseThreeDoubles(const QString& s, double& a, double& b, double& c)
 {
 	const QString t = s.trimmed();
@@ -138,18 +183,20 @@ bool parseThreeDoubles(const QString& s, double& a, double& b, double& c)
 	return ok;
 }
 
+// 每个 link 仅解析第一个 <visual>：mesh 路径与 <visual><origin>（无则视为 0）。
 struct UrdfLinkVisual
 {
 	bool hasMesh = false;
-	QString meshUri;
+	QString meshUri; // package:// 或相对 urdf 目录的路径，后续由 resolveMeshFilename 解析
 	double vx = 0.0;
 	double vy = 0.0;
 	double vz = 0.0;
-	double vr = 0.0;
-	double vp = 0.0;
-	double vw = 0.0;
+	double vr = 0.0; // rpy：roll
+	double vp = 0.0; // pitch
+	double vw = 0.0; // yaw
 };
 
+// <joint>：父连杆名、子连杆名、类型，以及 <joint><origin> 与转动轴、限位。
 struct UrdfJoint
 {
 	QString name;
@@ -162,16 +209,17 @@ struct UrdfJoint
 	double roll = 0.0;
 	double pitch = 0.0;
 	double yaw = 0.0;
-	/// Joint axis (revolute / continuous), joint frame; default URDF Z.
+	// 转动/连续关节的 axis（在关节坐标系中，默认 0,0,1）
 	double ax = 0.0;
 	double ay = 0.0;
 	double az = 1.0;
-	/// From &lt;limit lower="..." upper="..."/&gt; (radians for revolute).
+	// <limit lower upper/>，revolute 单位为弧度
 	bool hasLimit = false;
 	double limitLower = 0.0;
 	double limitUpper = 0.0;
 };
 
+// 读取单个 <visual> 内的 <origin xyz rpy> 与 <geometry><mesh filename="..."/>。
 void readVisualBlock(QXmlStreamReader& xml, UrdfLinkVisual& out)
 {
 	out = UrdfLinkVisual{};
@@ -212,6 +260,7 @@ void readVisualBlock(QXmlStreamReader& xml, UrdfLinkVisual& out)
 	}
 }
 
+// 读取 <joint> 子元素：origin、parent、child、axis、limit。
 void readJointBlock(QXmlStreamReader& xml, UrdfJoint& j)
 {
 	while (xml.readNextStartElement())
@@ -258,6 +307,8 @@ void readJointBlock(QXmlStreamReader& xml, UrdfJoint& j)
 	}
 }
 
+// 将 URDF 中的 mesh 引用解析为本地绝对路径：package:// 与 model:// 映射到 packageRoot 下相对路径，
+// 其余相对路径相对 urdf 所在目录，绝对路径直接使用。
 QString resolveMeshFilename(const QString& uri, const QString& packageRoot, const QString& urdfDirPath)
 {
 	if (uri.startsWith(QStringLiteral("package://")))
@@ -290,6 +341,7 @@ QString resolveMeshFilename(const QString& uri, const QString& packageRoot, cons
 	return QDir(urdfDirPath).absoluteFilePath(uri);
 }
 
+// 三角网顶点缓冲：每连续三个 float 为 (x,y,z)，左乘齐次矩阵 t 烘焙到世界（或当前选定的目标系）。
 void transformTriangleSoup(std::vector<float>& soup, const Mat4& t)
 {
 	for (std::size_t i = 0; i + 2 < soup.size(); i += 3)
@@ -304,6 +356,7 @@ void transformTriangleSoup(std::vector<float>& soup, const Mat4& t)
 	}
 }
 
+// 内部 Mat4（列主序）转为 osg::Matrixd，供返回给 OSG 场景使用。
 osg::Matrixd mat4ToOsg(const Mat4& m)
 {
 	osg::Matrixd o;
@@ -333,6 +386,8 @@ Mat4 matAxisAngleRad(double ax, double ay, double az, double angle)
 	return out;
 }
 
+// 正运动学用：子连杆相对父连杆的变换，即 parent_T_child = <joint><origin> * 绕 axis 的 q 角旋转（若为转动关节）。
+// jointAnglesRad 与 qIndex 须与树遍历顺序一致（见 computeMeshWorldMatricesFromModel / loadMeshHierarchyParts）。
 Mat4 jointChildTransformForFk(const UrdfJoint& j, const QVector<double>& jointAnglesRad, int& qIndex)
 {
 	const Mat4 T_origin = matFromXyzRpy(j.x, j.y, j.z, j.roll, j.pitch, j.yaw);
@@ -363,9 +418,13 @@ Mat4 jointChildTransformForFk(const UrdfJoint& j, const QVector<double>& jointAn
 		}
 		return matMul(T_origin, matAxisAngleRad(ax, ay, az, q));
 	}
+	// 只有转动关节才递增qIndex，否则保持不变
 	return T_origin;
 }
 
+// 解析 URDF：收集各 link 的首个 visual、全部 joint；urdfDirOut 为 urdf 文件目录；
+// packageRootOut 默认为 urdf 的上一级目录（用于 package:// 解析）。
+// 根连杆：优先在「从未作为 child 出现」的 link 中取 base_link / world / odom / base（不区分大小写），否则取任意非 child。
 bool parseUrdfModel(
 	const QString& urdfFilePath,
 	std::unordered_map<QString, UrdfLinkVisual>& linkVisuals,
@@ -403,7 +462,7 @@ bool parseUrdfModel(
 		{
 			const QString linkName = xml.attributes().value(QStringLiteral("name")).toString();
 			UrdfLinkVisual vis;
-			bool gotVisual = false;
+			bool gotVisual = false; // 仅第一个 <visual> 生效，其余跳过（与多 visual 的 URDF 需注意）
 			while (xml.readNextStartElement())
 			{
 				if (xml.name() == QLatin1String("visual") && !gotVisual)
@@ -491,7 +550,7 @@ bool parseUrdfModel(
 	return true;
 }
 
-/// Parsed URDF shared by FK, joint meta, and mesh import (jointsByParent built once).
+// 解析结果缓存：供 FK、关节元数据、网格导入共用；jointsByParent 在首次构建时按父连杆名索引子关节列表。
 struct UrdfFkModelData
 {
 	std::unordered_map<QString, UrdfLinkVisual> linkVisuals;
@@ -505,12 +564,13 @@ struct UrdfFkModelData
 struct UrdfModelCacheEntry
 {
 	std::shared_ptr<const UrdfFkModelData> model;
-	qint64 lastModifiedMs = -1;
+	qint64 lastModifiedMs = -1; // 与磁盘 mtime 一致则命中缓存，避免重复解析
 };
 
 static QMutex g_urdfModelCacheMutex;
 static QHash<QString, UrdfModelCacheEntry> g_urdfModelCache;
 
+// 缓存键：优先规范路径，减少同文件不同路径写法导致的重复解析。
 static QString urdfCacheKey(const QString& urdfFilePath)
 {
 	const QFileInfo fi(urdfFilePath);
@@ -522,6 +582,7 @@ static QString urdfCacheKey(const QString& urdfFilePath)
 	return c.isEmpty() ? fi.absoluteFilePath() : c;
 }
 
+// 线程安全：按路径 + 修改时间缓存解析结果；未命中则 parseUrdfModel 并填充 jointsByParent。
 bool getOrCreateUrdfModel(const QString& urdfFilePath, std::shared_ptr<const UrdfFkModelData>& out, QString* errorMessage)
 {
 	const QString key = urdfCacheKey(urdfFilePath);
@@ -565,6 +626,9 @@ bool getOrCreateUrdfModel(const QString& urdfFilePath, std::shared_ptr<const Urd
 	return true;
 }
 
+// 按与导入时相同的 BFS 顺序遍历连杆树，用 jointAnglesRad 做正解；对每个带 mesh 的 link 输出
+// 「从 mesh 文件系到当前显示世界」的 osg::Matrixd。此处始终使用完整 FK（关节链 × visual），
+// 与 loadMeshHierarchyParts 里 kUrdfBake* 烘焙顶点无关；用于关节角变化时更新位姿（如 RobotSceneKinematics）。
 void computeMeshWorldMatricesFromModel(
 	const UrdfFkModelData& model,
 	const QVector<double>& jointAnglesRad,
@@ -595,9 +659,7 @@ void computeMeshWorldMatricesFromModel(
 			const UrdfLinkVisual& vis = visIt->second;
 			const Mat4 visualInLink = matFromXyzRpy(vis.vx, vis.vy, vis.vz, vis.vr, vis.vp, vis.vw);
 			const Mat4 urdfWorldFromMesh = matMul(cur.worldFromLink, visualInLink);
-			const Mat4 osgWorldFromMesh = kApplyRosZUpToOsgYUp
-				? matMul(matRosWorldToOsgWorld(), urdfWorldFromMesh)
-				: urdfWorldFromMesh;
+			const Mat4 osgWorldFromMesh = osgWorldFromUrdfMeshFrame(urdfWorldFromMesh);
 			outLinkNameToMeshWorld.insert(cur.link, mat4ToOsg(osgWorldFromMesh));
 		}
 
@@ -619,6 +681,8 @@ void computeMeshWorldMatricesFromModel(
 
 } // namespace
 
+// 从 URDF 加载层次化三角网：关节角固定为 0；将 worldFromLink×visual 烘焙进顶点（受 kUrdfBake* 控制），
+// 并记录父子 part 路径供场景图使用。遍历顺序与 jointChildTransformForFk 的 qIndex 递增顺序一致。
 bool UrdfRobotLoader::loadMeshHierarchyParts(
 	const QString& urdfFilePath,
 	std::vector<MeshHierarchyPart>& outParts,
@@ -650,7 +714,7 @@ bool UrdfRobotLoader::loadMeshHierarchyParts(
 	start.parentLinkName = QString();
 	q.push(start);
 
-	QVector<double> zeroAngles(2048, 0.0);
+	QVector<double> zeroAngles(2048, 0.0); // 全零关节角：静态零位姿
 	int qIndex = 0;
 
 	while (!q.empty())
@@ -661,6 +725,7 @@ bool UrdfRobotLoader::loadMeshHierarchyParts(
 		auto visIt = linkVisuals.find(cur.link);
 		if (visIt != linkVisuals.end() && visIt->second.hasMesh)
 		{
+			// 加载网格 → 三角 soup → 乘 urdfWorldFromMeshVertices × osgWorldFromUrdfMeshFrame 写入顶点
 			const UrdfLinkVisual& vis = visIt->second;
 			const QString absMesh = resolveMeshFilename(vis.meshUri, packageRoot, urdfDir);
 			if (absMesh.isEmpty() || !QFile::exists(absMesh))
@@ -687,10 +752,8 @@ bool UrdfRobotLoader::loadMeshHierarchyParts(
 			}
 			std::vector<float> soup = mesh.triangleSoup();
 			const Mat4 visualInLink = matFromXyzRpy(vis.vx, vis.vy, vis.vz, vis.vr, vis.vp, vis.vw);
-			const Mat4 urdfWorldFromMesh = matMul(cur.worldFromLink, visualInLink);
-			const Mat4 osgWorldFromMesh = kApplyRosZUpToOsgYUp
-				? matMul(matRosWorldToOsgWorld(), urdfWorldFromMesh)
-				: urdfWorldFromMesh;
+			const Mat4 urdfWorldFromMesh = urdfWorldFromMeshVertices(cur.worldFromLink, visualInLink);
+			const Mat4 osgWorldFromMesh = osgWorldFromUrdfMeshFrame(urdfWorldFromMesh);
 			transformTriangleSoup(soup, osgWorldFromMesh);
 
 			MeshHierarchyPart part;
@@ -728,6 +791,7 @@ bool UrdfRobotLoader::loadMeshHierarchyParts(
 	return true;
 }
 
+// 按树遍历顺序列出 revolute/continuous 关节名及弧度上下限（无 limit 时 revolute 默认 ±π，continuous ±2π）。
 bool UrdfRobotLoader::loadRevoluteJointMeta(
 	const QString& urdfFilePath,
 	QStringList& outJointNames,
@@ -800,6 +864,7 @@ bool UrdfRobotLoader::loadRevoluteJointMeta(
 	return true;
 }
 
+// 仅关节名列表，顺序与 loadRevoluteJointMeta 一致，供与 jointAnglesRad 对齐。
 bool UrdfRobotLoader::loadRevoluteJointNamesInOrder(
 	const QString& urdfFilePath,
 	QStringList& outJointNames,
@@ -810,6 +875,7 @@ bool UrdfRobotLoader::loadRevoluteJointNamesInOrder(
 	return loadRevoluteJointMeta(urdfFilePath, outJointNames, lo, hi, errorMessage);
 }
 
+// 给定与各转动关节顺序一致的 jointAnglesRad（弧度），计算每个带 mesh 的连杆对应的 mesh→世界矩阵。
 bool UrdfRobotLoader::computeMeshWorldMatrices(
 	const QString& urdfFilePath,
 	const QVector<double>& jointAnglesRad,
@@ -826,6 +892,7 @@ bool UrdfRobotLoader::computeMeshWorldMatrices(
 	return true;
 }
 
+// 强制丢弃已缓存的解析结果（例如 URDF 在磁盘上被替换但路径与 mtime 处理异常时）。
 void UrdfRobotLoader::clearUrdfModelCache()
 {
 	QMutexLocker lock(&g_urdfModelCacheMutex);

@@ -47,6 +47,7 @@ void OsgWidgetTransformHierarchyController::removeBackendObjectVisual(
 	}
 	self.m_backendModelCenters.erase(backendId);
 	self.m_backendVisibility.erase(backendId);
+	self.m_litMeshBackendIds.erase(backendId);
 	if (self.m_activeBackendId == backendId)
 	{
 		self.m_activeBackendId.clear();
@@ -90,11 +91,18 @@ void OsgWidgetTransformHierarchyController::syncSelectionForBackendId(
 	if (it != self.m_backendObjectRoots.end() && it->second.valid())
 	{
 		self.m_activeBackendOuterPat = it->second;
+		const auto cIt = self.m_backendModelCenters.find(backendId);
+		if (cIt != self.m_backendModelCenters.end())
+		{
+			self.m_modelCenter = cIt->second;
+		}
 		if (self.m_selectedTransform.valid())
 		{
 			self.m_selectedTransform->setPosition(it->second->getPosition());
 			self.m_selectedTransform->setAttitude(it->second->getAttitude());
 		}
+		self.updateCompassLocalOffsetForModelOrigin();
+		self.syncCompassGizmoOrientation();
 	}
 	else
 	{

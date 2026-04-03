@@ -50,6 +50,8 @@ bool OsgWidgetImportController::importModelFile(OsgWidget& self, const QString& 
 	self.m_modelCenter = modelNode->getBound().center();
 	self.m_selectedTransform->setPosition(self.m_modelCenter);
 	self.m_selectedTransform->setAttitude(osg::Quat());
+	self.updateCompassLocalOffsetForModelOrigin();
+	self.syncCompassGizmoOrientation();
 	self.cachePickablePointsFromNode(modelNode.get());
 	self.clearPointAnnotations();
 	self.clearPointPickMarker();
@@ -118,6 +120,8 @@ bool OsgWidgetImportController::importPointCloudFile(OsgWidget& self, const QStr
 			self.m_modelCenter = self.computePointCloudCenterFromXyz(plyBackend.pointPositionsXyz());
 			self.m_selectedTransform->setPosition(self.m_modelCenter);
 			self.m_selectedTransform->setAttitude(osg::Quat());
+			self.updateCompassLocalOffsetForModelOrigin();
+			self.syncCompassGizmoOrientation();
 			self.cachePickablePointsFromNode(g.get());
 			self.clearPointAnnotations();
 			self.clearPointPickMarker();
@@ -199,6 +203,8 @@ bool OsgWidgetImportController::importPointCloudFile(OsgWidget& self, const QStr
 	self.m_modelCenter = cloudNode->getBound().center();
 	self.m_selectedTransform->setPosition(self.m_modelCenter);
 	self.m_selectedTransform->setAttitude(osg::Quat());
+	self.updateCompassLocalOffsetForModelOrigin();
+	self.syncCompassGizmoOrientation();
 	self.cachePickablePointsFromNode(cloudNode.get());
 	self.clearPointAnnotations();
 	self.clearPointPickMarker();
