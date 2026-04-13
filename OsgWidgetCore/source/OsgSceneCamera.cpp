@@ -30,6 +30,7 @@ osg::BoundingSphere worldBoundOfPat(osg::Node* sceneRoot, osg::Node* objectsGrou
 	{
 		return osg::BoundingSphere();
 	}
+	pat->dirtyBound();
 	const osg::BoundingSphere loc = pat->getBound();
 	if (!loc.valid())
 	{
@@ -93,12 +94,35 @@ void OsgScene::focusCameraOnBackend(const std::string& backendId)
 			merged.expandBy(w);
 		}
 	}
+	// PAT 刚挂到场景时 getBound 可能尚未就绪；用后端缓存的中心作兜底（与 upsert 写入的 modelCenter 一致）
+	if (!any || !merged.valid())
+	{
+		const auto cIt = m_backendModelCenters.find(backendId);
+		if (cIt != m_backendModelCenters.end())
+		{
+			const osg::Vec3f& mc = cIt->second;
+			merged = osg::BoundingSphere(osg::Vec3(mc.x(), mc.y(), mc.z()), 5000.f);
+			any = merged.valid();
+		}
+	}
 	if (!any || !merged.valid())
 	{
 		return;
 	}
 	osg::Vec3d center(merged.center());
 	double radius = static_cast<double>(merged.radius());
+	// URDF 连杆容器 setCullingActive(false) 时 OSG 包围球常异常偏大；Trackball::home() 也会按「整场景」拟合，
+	// 相机会被拉到极远，其它后端几何落在视锥外或远裁剪外，表现为「导入后全黑，删掉机器人才看见」。
+	static constexpr double kMaxFocusRadius = 5.0e5;
+	static constexpr double kMaxEyeDistance = 2.0e6;
+	if (!std::isfinite(center.x()) || !std::isfinite(center.y()) || !std::isfinite(center.z()) || !std::isfinite(radius))
+	{
+		return;
+	}
+	if (radius > kMaxFocusRadius)
+	{
+		radius = kMaxFocusRadius;
+	}
 	if (radius < 1e-3)
 	{
 		radius = 1.0;
@@ -127,8 +151,7 @@ void OsgScene::focusCameraOnBackend(const std::string& backendId)
 	double distX = radius / std::max(1e-8, tanHalfX);
 	double dist = std::max(distY, distX) * 1.12;
 	dist = std::max(dist, kNearPlane * 2.0 + radius);
-	const double maxDist = std::max(radius * 50.0, 1e7);
-	dist = std::min(dist, maxDist);
+	dist = std::min(dist, kMaxEyeDistance);
 
 	osg::Vec3d dir(1.0, 1.0, 1.05);
 	dir.normalize();
@@ -145,6 +168,19 @@ void OsgScene::focusCameraOnBackend(const std::string& backendId)
 		up = osg::Vec3d(0.0, 1.0, 0.0);
 	}
 	m_trackballManipulator->setTransformation(eye, center, up);
+
+	// 世界单位为毫米时：需要足够大的 zFar；同时 zNear 过小 + zFar 极大 → 深度缓冲精度崩溃，表现为「全黑」。
+	{
+		const double surfaceDist = std::max(1.0, dist - radius);
+		double zNearProj = std::max(10.0, surfaceDist * 0.02);
+		zNearProj = std::min(zNearProj, std::max(10.0, dist * 0.45));
+		double zFarNeeded = std::min(1e9, std::max(1e4, (dist + radius * 8.0) * 1.25));
+		if (zNearProj >= zFarNeeded * 0.5)
+		{
+			zNearProj = std::max(1.0, zFarNeeded * 1e-4);
+		}
+		cam->setProjectionMatrixAsPerspective(kFocusFovyDeg, aspect, zNearProj, zFarNeeded);
+	}
 
 	updateCompassScale();
 	requestRedraw();

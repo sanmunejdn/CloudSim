@@ -1,3 +1,8 @@
+// UrdfRobotLoader.cpp — URDF 解析、模型缓存、正运动学矩阵与 OSG 层级场景构建。
+// 多机器人实例由上层用「场景 backendId + "::" + 关节名」区分；本模块不持有实例 ID。
+//
+// 分段：模型缓存与 XML 解析 → FK 辅助 → 场景构建（buildHierarchicalRobotScene）→ 对外 API 包装。
+
 #include "UrdfRobotLoader.h"
 
 #include <QDateTime>
@@ -11,9 +16,24 @@
 #include <QRegularExpression>
 #include <QVector>
 #include <QXmlStreamReader>
+#include <QDebug>
 
+#include <osg/Array>
+#include <osg/Geode>
+#include <osg/Geometry>
+#include <osg/Group>
+#include <osg/Material>
+#include <osg/Math>
 #include <osg/Matrixd>
+#include <osg/MatrixTransform>
+#include <osg/NodeVisitor>
 #include <osg/Quat>
+#include <osg/StateSet>
+#include <osg/ref_ptr>
+#include <osg/Vec3>
+#include <osg/Vec4>
+#include <osgDB/ReadFile>
+#include <osgUtil/SmoothingVisitor>
 
 #include <algorithm>
 #include <cmath>
@@ -21,6 +41,7 @@
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace
 {
@@ -28,10 +49,11 @@ namespace
 // ---------------------------------------------------------------------------
 // URDF 导入与网格烘焙说明（本匿名命名空间内实现）
 //
-// 坐标约定：URDF 遵循 ROS 右手系、Z 向上（REP-103）。本模块用齐次矩阵将「网格文件顶点」
-// 变到「用于显示的世界坐标」。标准假设是：每个 link 的 mesh 顶点在该 link 的局部系中定义，
-// 再通过 <joint><origin> 链从根连杆累积到世界；<visual><origin> 表示「视觉几何系相对连杆系」
-// 的位姿，即 worldFromMesh = worldFromLink * visualInLink * p_mesh。
+// 坐标约定：URDF 遵循 ROS 右手系、Z 向上（REP-103）。本模块内部长度统一为毫米（全局 mm）：
+// URDF 文件中 origin 的 xyz 为米，读入后换算为 mm；网格顶点默认按毫米文件坐标进入 mm 连杆系。
+// 齐次矩阵将「网格文件顶点」变到「用于显示的世界坐标」。每个 link 的 mesh 顶点在该 link 局部系中定义，
+// 经 <joint><origin> 链从根连杆累积到世界；<visual><origin> 为「视觉几何系相对连杆系」位姿，
+// 即 worldFromMesh = worldFromLink * visualInLink * p_mesh（各量均为 mm）。
 //
 // 若实际 OBJ 等文件把全部几何都放在「整机/基座」同一坐标系中，则与上述假设不符，仅靠 <visual>
 // 的小幅 xyz/rpy 往往无法对齐，需在资源侧按连杆重导出或调整 URDF。
@@ -39,7 +61,12 @@ namespace
 
 // 若为 true：在输出到 OSG 前对整条链再乘 Rx(-90°)，使 URDF 的 +Z 对齐常见视窗的 +Y。
 // 调试时可关：保持 ROS Z 向上，便于与 RViz 对比；若 mesh 已与当前视窗约定一致也可关。
-constexpr bool kApplyRosZUpToOsgYUp = true;
+//
+// 与层级场景 buildHierarchicalRobotScene 的关系：此处若启用，仅在 RobotAssembly 下增加一层
+// MatrixTransform（matRosWorldToOsgWorld），关节与 mesh 矩阵仍在 ROS/mm 系中计算，不会与
+// urdfWorldFromMeshVertices / kUrdfBake* 叠加——后者用于 computeMeshWorldMatrices 等「矩阵导出」
+// 路径；本函数不在层级构建里烘焙顶点，故不会出现「根旋转乘两次」。
+constexpr bool kApplyRosZUpToOsgYUp = false;
 
 // 为 true（默认）：导入时将「从根到当前连杆的关节链」×「<visual><origin>」烘焙进顶点，
 // 使静态显示与 URDF 一致，并与 computeMeshWorldMatrices / 关节滑条所用 FK 一致。
@@ -49,6 +76,15 @@ constexpr bool kUrdfBakeJointChainIntoMesh = true;
 // 为 true（默认）：把 <visual><origin> 烘焙进顶点；适用于按连杆导出的 CAD mesh、位姿由 URDF 描述。
 // 当 kUrdfBakeJointChainIntoMesh 为 false 时：true 仍只应用 visual；false 则保持文件顶点不动。
 constexpr bool kUrdfBakeVisualOriginIntoMesh = true;
+
+// URDF 文件中 \<joint\>\<visual\> 的 \<origin xyz\> 为米（REP-103）→ 内部毫米。
+constexpr double kUrdfOriginXyzMetersToInternalMm = 1000.0;
+// 网格顶点文件单位 → 内部毫米：STL 多为毫米时用 1.0；若网格文件已是米则用 1000.0（不读 URDF mesh scale 属性）。
+constexpr double kMeshFileVertexUnitsToInternalMm = 1.0;
+
+// OSG SmoothingVisitor 会对已三角化的 STL/STEP 导出网格合并顶点并重算法线，工业网格上易出现「斑马纹 / 条纹状」错误着色。
+// 插件读入的网格通常已带法线；需要更圆滑外观时可改为 true。
+constexpr bool kUrdfMeshUseSmoothingVisitor = false;
 
 struct Mat4
 {
@@ -68,6 +104,15 @@ Mat4 matTranslate(double x, double y, double z)
 	r.m[12] = x;
 	r.m[13] = y;
 	r.m[14] = z;
+	return r;
+}
+
+Mat4 matScale(double sx, double sy, double sz)
+{
+	Mat4 r = matIdentity();
+	r.m[0] = sx;
+	r.m[5] = sy;
+	r.m[10] = sz;
 	return r;
 }
 
@@ -196,6 +241,22 @@ struct UrdfLinkVisual
 	double vw = 0.0; // yaw
 };
 
+// 网格文件顶点 → 连杆系（内部 mm）：p_link = V * S * p_file。S 将文件顶点变到 mm；V 的平移来自 URDF 米（乘 kUrdfOriginXyzMetersToInternalMm）。
+// 例：xyz="-0.075 0 0"（米）→ 平移 -75 mm。
+Mat4 meshFileToLinkFrameFromVisual(const UrdfLinkVisual& vis)
+{
+	const Mat4 scaleM = matScale(kMeshFileVertexUnitsToInternalMm, kMeshFileVertexUnitsToInternalMm, kMeshFileVertexUnitsToInternalMm);
+	return matMul(
+		matFromXyzRpy(
+			vis.vx * kUrdfOriginXyzMetersToInternalMm,
+			vis.vy * kUrdfOriginXyzMetersToInternalMm,
+			vis.vz * kUrdfOriginXyzMetersToInternalMm,
+			vis.vr,
+			vis.vp,
+			vis.vw),
+		scaleM);
+}
+
 // <joint>：父连杆名、子连杆名、类型，以及 <joint><origin> 与转动轴、限位。
 struct UrdfJoint
 {
@@ -260,6 +321,13 @@ void readVisualBlock(QXmlStreamReader& xml, UrdfLinkVisual& out)
 	}
 }
 
+// SolidWorks / 手改 URDF 常在 name、link 属性上带首尾空白；与 <link name="..."> 键统一 trim，避免
+//「parent/child 字符串看似不同却映射到同一 QHash 键」或相反导致查找失败。
+QString normalizedUrdfName(const QString& s)
+{
+	return s.trimmed();
+}
+
 // 读取 <joint> 子元素：origin、parent、child、axis、limit。
 void readJointBlock(QXmlStreamReader& xml, UrdfJoint& j)
 {
@@ -275,12 +343,12 @@ void readJointBlock(QXmlStreamReader& xml, UrdfJoint& j)
 		}
 		else if (xml.name() == QLatin1String("parent"))
 		{
-			j.parent = xml.attributes().value(QStringLiteral("link")).toString();
+			j.parent = normalizedUrdfName(xml.attributes().value(QStringLiteral("link")).toString());
 			xml.skipCurrentElement();
 		}
 		else if (xml.name() == QLatin1String("child"))
 		{
-			j.child = xml.attributes().value(QStringLiteral("link")).toString();
+			j.child = normalizedUrdfName(xml.attributes().value(QStringLiteral("link")).toString());
 			xml.skipCurrentElement();
 		}
 		else if (xml.name() == QLatin1String("axis"))
@@ -387,10 +455,17 @@ Mat4 matAxisAngleRad(double ax, double ay, double az, double angle)
 }
 
 // 正运动学用：子连杆相对父连杆的变换，即 parent_T_child = <joint><origin> * 绕 axis 的 q 角旋转（若为转动关节）。
+// \<joint\>\<origin\> xyz 按 REP-103 为米：乘 kUrdfOriginXyzMetersToInternalMm 得到内部 mm，与 visual、网格一致。axis 与 rpy 不缩放。
 // jointAnglesRad 与 qIndex 须与树遍历顺序一致（见 computeMeshWorldMatricesFromModel / loadMeshHierarchyParts）。
 Mat4 jointChildTransformForFk(const UrdfJoint& j, const QVector<double>& jointAnglesRad, int& qIndex)
 {
-	const Mat4 T_origin = matFromXyzRpy(j.x, j.y, j.z, j.roll, j.pitch, j.yaw);
+	const Mat4 T_origin = matFromXyzRpy(
+		j.x * kUrdfOriginXyzMetersToInternalMm,
+		j.y * kUrdfOriginXyzMetersToInternalMm,
+		j.z * kUrdfOriginXyzMetersToInternalMm,
+		j.roll,
+		j.pitch,
+		j.yaw);
 	const QString jt = j.type.toLower();
 	if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
 	{
@@ -420,6 +495,47 @@ Mat4 jointChildTransformForFk(const UrdfJoint& j, const QVector<double>& jointAn
 	}
 	// 只有转动关节才递增qIndex，否则保持不变
 	return T_origin;
+}
+
+/// 零位姿（q=0）下的 parent_T_child，仅由该关节的 URDF 决定，不依赖 jointAnglesRad 下标顺序。
+/// 用于 buildHierarchicalRobotScene 静态挂接；动态 FK 仍用 jointChildTransformForFk + 与 BFS 一致的 qIndex。
+static Mat4 jointChildTransformAtZeroConfiguration(const UrdfJoint& j)
+{
+	const Mat4 T_origin = matFromXyzRpy(
+		j.x * kUrdfOriginXyzMetersToInternalMm,
+		j.y * kUrdfOriginXyzMetersToInternalMm,
+		j.z * kUrdfOriginXyzMetersToInternalMm,
+		j.roll,
+		j.pitch,
+		j.yaw);
+	const QString jt = j.type.toLower();
+	if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
+	{
+		double ax = j.ax;
+		double ay = j.ay;
+		double az = j.az;
+		const double len = std::sqrt(ax * ax + ay * ay + az * az);
+		if (len > 1e-9)
+		{
+			ax /= len;
+			ay /= len;
+			az /= len;
+		}
+		else
+		{
+			ax = 0.0;
+			ay = 0.0;
+			az = 1.0;
+		}
+		return matMul(T_origin, matAxisAngleRad(ax, ay, az, 0.0));
+	}
+	return T_origin;
+}
+
+/// parent link 与 child link 必须为不同名称；相同则父/子对应同一 OSG 容器，无法挂接（自环关节）。
+bool jointConnectsDistinctLinks(const UrdfJoint& j)
+{
+	return j.parent != j.child;
 }
 
 // 解析 URDF：收集各 link 的首个 visual、全部 joint；urdfDirOut 为 urdf 文件目录；
@@ -460,7 +576,7 @@ bool parseUrdfModel(
 		}
 		if (xml.name() == QLatin1String("link"))
 		{
-			const QString linkName = xml.attributes().value(QStringLiteral("name")).toString();
+			const QString linkName = normalizedUrdfName(xml.attributes().value(QStringLiteral("name")).toString());
 			UrdfLinkVisual vis;
 			bool gotVisual = false; // 仅第一个 <visual> 生效，其余跳过（与多 visual 的 URDF 需注意）
 			while (xml.readNextStartElement())
@@ -483,7 +599,7 @@ bool parseUrdfModel(
 		else if (xml.name() == QLatin1String("joint"))
 		{
 			UrdfJoint j;
-			j.name = xml.attributes().value(QStringLiteral("name")).toString();
+			j.name = normalizedUrdfName(xml.attributes().value(QStringLiteral("name")).toString());
 			j.type = xml.attributes().value(QStringLiteral("type")).toString();
 			readJointBlock(xml, j);
 			if (!j.parent.isEmpty() && !j.child.isEmpty())
@@ -657,7 +773,7 @@ void computeMeshWorldMatricesFromModel(
 		if (visIt != model.linkVisuals.end() && visIt->second.hasMesh)
 		{
 			const UrdfLinkVisual& vis = visIt->second;
-			const Mat4 visualInLink = matFromXyzRpy(vis.vx, vis.vy, vis.vz, vis.vr, vis.vp, vis.vw);
+			const Mat4 visualInLink = meshFileToLinkFrameFromVisual(vis);
 			const Mat4 urdfWorldFromMesh = matMul(cur.worldFromLink, visualInLink);
 			const Mat4 osgWorldFromMesh = osgWorldFromUrdfMeshFrame(urdfWorldFromMesh);
 			outLinkNameToMeshWorld.insert(cur.link, mat4ToOsg(osgWorldFromMesh));
@@ -670,6 +786,10 @@ void computeMeshWorldMatricesFromModel(
 		}
 		for (const UrdfJoint& j : jit->second)
 		{
+			if (!jointConnectsDistinctLinks(j))
+			{
+				continue;
+			}
 			const Mat4 jointFromChild = jointChildTransformForFk(j, angles, qIndex);
 			QueueItem nxt{};
 			nxt.link = j.child;
@@ -680,116 +800,6 @@ void computeMeshWorldMatricesFromModel(
 }
 
 } // namespace
-
-// 从 URDF 加载层次化三角网：关节角固定为 0；将 worldFromLink×visual 烘焙进顶点（受 kUrdfBake* 控制），
-// 并记录父子 part 路径供场景图使用。遍历顺序与 jointChildTransformForFk 的 qIndex 递增顺序一致。
-bool UrdfRobotLoader::loadMeshHierarchyParts(
-	const QString& urdfFilePath,
-	std::vector<MeshHierarchyPart>& outParts,
-	QString* errorMessage)
-{
-	outParts.clear();
-	std::shared_ptr<const UrdfFkModelData> model;
-	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
-	{
-		return false;
-	}
-	const UrdfFkModelData& m = *model;
-	const std::unordered_map<QString, UrdfLinkVisual>& linkVisuals = m.linkVisuals;
-	const std::unordered_map<QString, std::vector<UrdfJoint>>& jointsByParent = m.jointsByParent;
-	const QString& rootLink = m.rootLink;
-	const QString& urdfDir = m.urdfDir;
-	const QString& packageRoot = m.packageRoot;
-
-	struct QueueItem
-	{
-		QString link;
-		Mat4 worldFromLink;
-		QString parentLinkName;
-	};
-	std::queue<QueueItem> q;
-	QueueItem start{};
-	start.link = rootLink;
-	start.worldFromLink = matIdentity();
-	start.parentLinkName = QString();
-	q.push(start);
-
-	QVector<double> zeroAngles(2048, 0.0); // 全零关节角：静态零位姿
-	int qIndex = 0;
-
-	while (!q.empty())
-	{
-		const QueueItem cur = q.front();
-		q.pop();
-
-		auto visIt = linkVisuals.find(cur.link);
-		if (visIt != linkVisuals.end() && visIt->second.hasMesh)
-		{
-			// 加载网格 → 三角 soup → 乘 urdfWorldFromMeshVertices × osgWorldFromUrdfMeshFrame 写入顶点
-			const UrdfLinkVisual& vis = visIt->second;
-			const QString absMesh = resolveMeshFilename(vis.meshUri, packageRoot, urdfDir);
-			if (absMesh.isEmpty() || !QFile::exists(absMesh))
-			{
-				if (errorMessage)
-				{
-					*errorMessage = QStringLiteral("Mesh not found for link '%1': %2")
-						.arg(cur.link, vis.meshUri);
-				}
-				return false;
-			}
-			MeshBackendData mesh;
-			const QByteArray nativeEnc = QFile::encodeName(absMesh);
-			const std::string nativePath(nativeEnc.constData(), static_cast<std::size_t>(nativeEnc.size()));
-			std::string loadErr;
-			if (!mesh.loadFromFile(nativePath, &loadErr))
-			{
-				if (errorMessage)
-				{
-					*errorMessage = QStringLiteral("Failed to load mesh '%1': %2")
-						.arg(absMesh, QString::fromStdString(loadErr));
-				}
-				return false;
-			}
-			std::vector<float> soup = mesh.triangleSoup();
-			const Mat4 visualInLink = matFromXyzRpy(vis.vx, vis.vy, vis.vz, vis.vr, vis.vp, vis.vw);
-			const Mat4 urdfWorldFromMesh = urdfWorldFromMeshVertices(cur.worldFromLink, visualInLink);
-			const Mat4 osgWorldFromMesh = osgWorldFromUrdfMeshFrame(urdfWorldFromMesh);
-			transformTriangleSoup(soup, osgWorldFromMesh);
-
-			MeshHierarchyPart part;
-			part.displayName = cur.link.toStdString();
-			part.partPath = cur.link.toStdString();
-			part.parentPartPath = cur.parentLinkName.isEmpty() ? std::string() : cur.parentLinkName.toStdString();
-			part.triangleSoup = std::move(soup);
-			outParts.push_back(std::move(part));
-		}
-
-		const auto jit = jointsByParent.find(cur.link);
-		if (jit == jointsByParent.end())
-		{
-			continue;
-		}
-		for (const UrdfJoint& j : jit->second)
-		{
-			const Mat4 jointFromChild = jointChildTransformForFk(j, zeroAngles, qIndex);
-			QueueItem nxt{};
-			nxt.link = j.child;
-			nxt.worldFromLink = matMul(cur.worldFromLink, jointFromChild);
-			nxt.parentLinkName = cur.link;
-			q.push(nxt);
-		}
-	}
-
-	if (outParts.empty())
-	{
-		if (errorMessage)
-		{
-			*errorMessage = QStringLiteral("URDF produced no mesh geometry (missing visual meshes?).");
-		}
-		return false;
-	}
-	return true;
-}
 
 // 按树遍历顺序列出 revolute/continuous 关节名及弧度上下限（无 limit 时 revolute 默认 ±π，continuous ±2π）。
 bool UrdfRobotLoader::loadRevoluteJointMeta(
@@ -830,6 +840,10 @@ bool UrdfRobotLoader::loadRevoluteJointMeta(
 		}
 		for (const UrdfJoint& j : jit->second)
 		{
+			if (!jointConnectsDistinctLinks(j))
+			{
+				continue;
+			}
 			const QString jt = j.type.toLower();
 			if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
 			{
@@ -897,4 +911,541 @@ void UrdfRobotLoader::clearUrdfModelCache()
 {
 	QMutexLocker lock(&g_urdfModelCacheMutex);
 	g_urdfModelCache.clear();
+}
+
+// 【中文】计算给定关节角度下的所有 Joint 变换矩阵（parent_T_child）。
+// 用于动态层级法：关节角度更新时，直接获取新的矩阵并设置到对应的 MatrixTransform。
+bool UrdfRobotLoader::computeJointTransformMatrices(
+	const QString& urdfFilePath,
+	const QVector<double>& jointAnglesRad,
+	QHash<QString, osg::Matrixd>& outJointMatrices,
+	QString* errorMessage)
+{
+	outJointMatrices.clear();
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		return false;
+	}
+
+	const UrdfFkModelData& m = *model;
+	const std::unordered_map<QString, std::vector<UrdfJoint>>& jointsByParent = m.jointsByParent;
+	const QString& rootLink = m.rootLink;
+
+	struct QueueItem
+	{
+		QString link;
+		Mat4 worldFromLink;
+	};
+	std::queue<QueueItem> q;
+	QueueItem start{};
+	start.link = rootLink;
+	start.worldFromLink = matIdentity();
+	q.push(start);
+
+	int qIndex = 0;
+
+	while (!q.empty())
+	{
+		const QueueItem cur = q.front();
+		q.pop();
+
+		const auto jit = jointsByParent.find(cur.link);
+		if (jit == jointsByParent.end())
+		{
+			continue;
+		}
+
+		for (const UrdfJoint& j : jit->second)
+		{
+			if (!jointConnectsDistinctLinks(j))
+			{
+				continue;
+			}
+			// 计算 Joint 的 parent_T_child 矩阵（包含关节角度）
+			const Mat4 parent_T_child = jointChildTransformForFk(j, jointAnglesRad, qIndex);
+
+			// 转换为 osg::Matrixd 并保存
+			osg::Matrixd osgMatrix = mat4ToOsg(parent_T_child);
+			outJointMatrices[j.name] = osgMatrix;
+
+			// 计算子 Link 的世界矩阵，继续 BFS
+			Mat4 childWorldFromLink = matMul(cur.worldFromLink, parent_T_child);
+
+			QueueItem nxt{};
+			nxt.link = j.child;
+			nxt.worldFromLink = childWorldFromLink;
+			q.push(nxt);
+		}
+	}
+
+	return !outJointMatrices.isEmpty();
+}
+
+// ============================================================================
+// 【中文】三层分离模型场景图构建 - 核心实现
+// 实现四阶段流程：资源预加载 -> 容器化场景图 -> 根节点组装 -> 状态重置
+// ============================================================================
+
+/// 【中文】辅助：将 URDF Mat4 内部格式转为 osg::Matrixd (已在匿名命名空间有 mat4ToOsg，这里复用)
+
+// OSG 读入的 STL/OBJ 常无法线且默认不参与光照，与 BackendVisual 中 lit mesh 对齐：材质 + LIGHT0。
+// Geode 与独立 Geometry（如部分 DAE 直接挂 Group）共用同一 StateSet 设置。
+static void applyLitPlasticToStateSet(osg::StateSet* ss, const osg::Vec4& baseColor)
+{
+	if (!ss)
+	{
+		return;
+	}
+	osg::ref_ptr<osg::Material> mat = new osg::Material;
+	const float amb = 0.22f;
+	mat->setAmbient(osg::Material::FRONT_AND_BACK,
+		osg::Vec4(baseColor.r() * amb, baseColor.g() * amb, baseColor.b() * amb, baseColor.a()));
+	mat->setDiffuse(osg::Material::FRONT_AND_BACK, baseColor);
+	mat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0.62f, 0.62f, 0.58f, 1.0f));
+	mat->setShininess(osg::Material::FRONT_AND_BACK, 64.0f);
+	const float em = 0.014f;
+	mat->setEmission(osg::Material::FRONT_AND_BACK,
+		osg::Vec4(baseColor.r() * em, baseColor.g() * em, baseColor.b() * em, baseColor.a()));
+
+	ss->setAttributeAndModes(mat.get(), osg::StateAttribute::ON);
+	ss->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	ss->setMode(GL_LIGHTING, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	ss->setMode(GL_LIGHT0, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	ss->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
+}
+
+class UrdfMeshLightingVisitor : public osg::NodeVisitor
+{
+public:
+	UrdfMeshLightingVisitor()
+		: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
+	{
+	}
+
+	void apply(osg::Geometry& geometry) override
+	{
+		osg::Array* va = geometry.getVertexArray();
+		if (va && va->getNumElements() >= 3U)
+		{
+			osg::Vec4 baseColor(0.65f, 0.82f, 0.95f, 1.0f);
+			osg::Vec4Array* ca = dynamic_cast<osg::Vec4Array*>(geometry.getColorArray());
+			if (ca && !ca->empty() && osg::getBinding(ca) == osg::Array::BIND_OVERALL)
+			{
+				baseColor = ca->front();
+			}
+			applyLitPlasticToStateSet(geometry.getOrCreateStateSet(), baseColor);
+		}
+		traverse(geometry);
+	}
+
+	// 仅向下遍历到 Drawable；实际材质在 apply(Geometry) 中设置，避免与 Geode 上整包材质重复叠加。
+	void apply(osg::Geode& geode) override
+	{
+		traverse(geode);
+	}
+};
+
+static void finalizeUrdfImportedMeshRendering(osg::Node* root)
+{
+	if (!root)
+	{
+		return;
+	}
+	if (kUrdfMeshUseSmoothingVisitor)
+	{
+		osgUtil::SmoothingVisitor smoother;
+		smoother.setCreaseAngle(osg::DegreesToRadians(60.0));
+		root->accept(smoother);
+	}
+	UrdfMeshLightingVisitor lighter;
+	root->accept(lighter);
+}
+
+/// 【中文】辅助：加载 Mesh 文件为 OSG 节点
+static osg::ref_ptr<osg::Node> loadMeshNode(const QString& filePath, QString* errorMessage)
+{
+	const QByteArray nativeEnc = QFile::encodeName(filePath);
+	const std::string nativePath(nativeEnc.constData(), static_cast<std::size_t>(nativeEnc.size()));
+	osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(nativePath);
+	if (!node)
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("OSG failed to load mesh: %1").arg(filePath);
+		}
+		return nullptr;
+	}
+	return node;
+}
+
+/// mesh 文件系 -> 连杆系（内部 mm）：\<visual\>\<origin\>（米→mm）× 顶点尺度（与 FK / computeMeshWorldMatrices 一致；不读 URDF mesh scale）
+static osg::ref_ptr<osg::MatrixTransform> createLinkVisualFromMesh(
+	const QString& linkName,
+	const UrdfLinkVisual& vis,
+	osg::ref_ptr<osg::Node> meshNode)
+{
+	finalizeUrdfImportedMeshRendering(meshNode.get());
+	const Mat4 meshToLink = meshFileToLinkFrameFromVisual(vis);
+	osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
+	mt->setName(linkName.toStdString() + "_Geometry");
+	mt->setMatrix(mat4ToOsg(meshToLink));
+	mt->addChild(meshNode.get());
+	return mt;
+}
+
+/// 【中文】辅助：创建 Link 的视觉容器层 (Group)
+/// 保持裁剪开启，使包围盒与真实几何一致；关闭裁剪曾导致父级包围球膨胀、相机极远 + 默认 zFar 裁掉整场景（表现为全黑）。
+static osg::ref_ptr<osg::Group> createContainerLayer(const QString& linkName)
+{
+	osg::ref_ptr<osg::Group> container = new osg::Group;
+	container->setName(linkName.toStdString() + "_Container");
+	container->setCullingActive(true);
+	container->getOrCreateStateSet()->setMode(GL_RESCALE_NORMAL, osg::StateAttribute::ON);
+	return container;
+}
+
+/// 【中文】辅助：创建 Joint 的运动学层 (MatrixTransform)
+/// 运动学层：存储 parent_T_child 矩阵
+static osg::ref_ptr<osg::MatrixTransform> createJointTransform(
+	const QString& jointName,
+	const Mat4& parent_T_child)
+{
+	osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
+	mt->setName(jointName.toStdString());
+	mt->setMatrix(mat4ToOsg(parent_T_child));
+	return mt;
+}
+
+/// 从所有父 Group 上摘除节点。
+/// 注意：removeChild 会对子节点 unref；若调用方仅用裸指针保存且场景是唯一引用，必须在调用本函数前用 osg::ref_ptr 先接住节点，否则会析构子节点并在循环内崩溃。
+static void detachNodeFromAllParents(osg::Node* node)
+{
+	if (!node)
+	{
+		return;
+	}
+	while (node->getNumParents() > 0)
+	{
+		osg::Group* p = node->getParent(0);
+		if (!p)
+		{
+			break;
+		}
+		p->removeChild(node);
+	}
+}
+
+/// Parent_Link_Container -> Joint(MatrixTransform) -> Child_Link_Container。
+/// 仅使用 osg::Group::addChild(Node*)；子连杆容器若已有父节点（重复 joint / 重入），先 detach 再挂，避免 getNumParents/addChild 失败。
+/// 注意：detach 期间若多线程 Viewer 正在遍历场景，可能竞态；本函数仅在导入构建阶段、主线程调用时安全。
+static bool attachLinkJointLink(
+	osg::Group* parentLinkContainer,
+	osg::MatrixTransform* jointMt,
+	osg::Group* childLinkContainer,
+	const QString& jointName,
+	const QString& parentLinkName,
+	const QString& childLinkName,
+	QString* errorMessage)
+{
+	if (!parentLinkContainer || !jointMt || !childLinkContainer)
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("Internal: null OSG node while building joint '%1'.").arg(jointName);
+		}
+		return false;
+	}
+	if (parentLinkContainer == childLinkContainer)
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral(
+				"Invalid URDF: joint '%1' parent link '%2' and child link '%3' map to the same scene node. "
+				"Use two different link names for parent and child (self-loop joints are not supported).")
+				.arg(jointName, parentLinkName, childLinkName);
+		}
+		return false;
+	}
+
+	// 子连杆 Group 仅由 QHash 裸指针引用；removeChild 会 unref，引用归零会析构节点。detach 期间必须用 ref_ptr 保持存活。
+	osg::ref_ptr<osg::Group> keepChildAlive(childLinkContainer);
+	// 关节 MatrixTransform 由上层 jointMT ref_ptr 持有，detach 安全
+	detachNodeFromAllParents(jointMt);
+	detachNodeFromAllParents(childLinkContainer);
+
+	if (!parentLinkContainer->addChild(jointMt))
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral(
+				"OSG addChild failed: parent link container -> joint '%1'. "
+				"If OSG was built with ENSURE_CHILD_IS_UNIQUE, the joint node may already be under this parent.")
+				.arg(jointName);
+		}
+		return false;
+	}
+	if (!jointMt->addChild(childLinkContainer))
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral(
+				"OSG addChild failed: joint '%1' -> child link '%2' (duplicate child under same joint?)")
+				.arg(jointName, childLinkName);
+		}
+		parentLinkContainer->removeChild(jointMt);
+		return false;
+	}
+	return true;
+}
+
+/// 【中文】构建层级化 URDF 机器人场景图（三层分离架构）
+/// 【English】Build hierarchical URDF robot scene graph with three-layer separation
+osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
+	const QString& urdfFilePath,
+	QHash<QString, osg::Node*>& outLinkToGeometry,
+	QHash<QString, osg::Group*>& outLinkToContainer,
+	QHash<QString, osg::MatrixTransform*>& outJointTransforms,
+	QString* errorMessage)
+{
+	// 清空输出参数
+	outLinkToGeometry.clear();
+	outLinkToContainer.clear();
+	outJointTransforms.clear();
+
+	// ========================================================================
+	// 【第一阶段】资源预加载与标准化
+	// ========================================================================
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		return nullptr;
+	}
+
+	const UrdfFkModelData& m = *model;
+	const std::unordered_map<QString, UrdfLinkVisual>& linkVisuals = m.linkVisuals;
+	const std::unordered_map<QString, std::vector<UrdfJoint>>& jointsByParent = m.jointsByParent;
+	const QString& rootLink = m.rootLink;
+	const QString& urdfDir = m.urdfDir;
+	const QString& packageRoot = m.packageRoot;
+
+	// 阶段 1 里若仅用局部 ref_ptr<Group>，循环末尾析构后连杆容器 refcount 归零会被 delete；
+	// outLinkToContainer 存裸指针会悬空，后续 detach/addChild 在 osg 内崩溃。整段构建期间保持引用。
+	std::vector<osg::ref_ptr<osg::Group>> keepLinkContainersAlive;
+	keepLinkContainersAlive.reserve(static_cast<size_t>(linkVisuals.size()));
+
+	// 预加载所有 Mesh 并创建几何体层和容器层
+	for (const auto& kv : linkVisuals)
+	{
+		const QString& linkName = kv.first;
+		const UrdfLinkVisual& vis = kv.second;
+
+		if (!vis.hasMesh)
+		{
+			// 创建空容器（无几何体的 Link）
+			osg::ref_ptr<osg::Group> container = createContainerLayer(linkName);
+			keepLinkContainersAlive.push_back(container);
+			outLinkToContainer[linkName] = container.get();
+			continue;
+		}
+
+		// 解析 Mesh 文件路径
+		const QString absMesh = resolveMeshFilename(vis.meshUri, packageRoot, urdfDir);
+		if (absMesh.isEmpty() || !QFile::exists(absMesh))
+		{
+			if (errorMessage)
+			{
+				*errorMessage = QStringLiteral("Mesh not found for link '%1': %2")
+					.arg(linkName, vis.meshUri);
+			}
+			return nullptr;
+		}
+
+		// 加载 Mesh 文件为 OSG 节点
+		osg::ref_ptr<osg::Node> meshNode = loadMeshNode(absMesh, errorMessage);
+		if (!meshNode)
+		{
+			return nullptr; // errorMessage 已由 loadMeshNode 填充
+		}
+
+		// 【第二阶段】创建视觉容器层 (Container)
+		osg::ref_ptr<osg::Group> container = createContainerLayer(linkName);
+
+		// 几何层：仅 visual origin + 法线/光照（与关节 MatrixTransform 分工；不读 mesh scale）
+		osg::ref_ptr<osg::MatrixTransform> geometryXf = createLinkVisualFromMesh(linkName, vis, meshNode);
+		container->addChild(geometryXf.get());
+
+		keepLinkContainersAlive.push_back(container);
+
+		// 记录输出（存储原始指针，所有权由 keepLinkContainersAlive 与后续场景图保持）
+		outLinkToGeometry[linkName] = geometryXf.get();
+		outLinkToContainer[linkName] = container.get();
+	}
+
+	// ========================================================================
+	// 【第二阶段】构建关节链（运动学层）
+	// ========================================================================
+	struct BfsItem
+	{
+		QString link;
+		osg::Group* container = nullptr;
+		Mat4 worldFromLink;
+	};
+	std::queue<BfsItem> q;
+
+	// 初始化 BFS：根 Link
+	auto rootIt = outLinkToContainer.find(rootLink);
+	if (rootIt == outLinkToContainer.end())
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("Root link container not found: %1").arg(rootLink);
+		}
+		return nullptr;
+	}
+
+	BfsItem start;
+	start.link = rootLink;
+	start.container = rootIt.value();
+	start.worldFromLink = matIdentity();
+	q.push(start);
+
+	while (!q.empty())
+	{
+		const BfsItem cur = q.front();
+		q.pop();
+
+		// 查找从当前 Link 出发的 Joints
+		const auto jit = jointsByParent.find(cur.link);
+		if (jit == jointsByParent.end())
+		{
+			continue;
+		}
+
+		for (const UrdfJoint& j : jit->second)
+		{
+			if (!jointConnectsDistinctLinks(j))
+			{
+				continue;
+			}
+			// 静态零位姿：矩阵仅依赖该关节 URDF，不依赖 jointAnglesRad 下标（与 jointChildTransformForFk(q=0) 等价）
+			const Mat4 parent_T_child = jointChildTransformAtZeroConfiguration(j);
+
+			// 查找子级 Container（关节引用的 link 未在 URDF 中出现为 <link> 时无条目，禁止解引用 end()）
+			auto childIt = outLinkToContainer.find(j.child);
+			if (childIt == outLinkToContainer.end())
+			{
+				qWarning() << "UrdfRobotLoader: skipping joint" << j.name << "- child link container not found for"
+						   << j.child << "(missing <link> or not in model?)";
+				continue;
+			}
+
+			auto parentIt = outLinkToContainer.find(j.parent);
+			if (parentIt == outLinkToContainer.end())
+			{
+				qWarning() << "UrdfRobotLoader: skipping joint" << j.name << "- parent link container not found for"
+						   << j.parent;
+				continue;
+			}
+
+			// 【关键】创建运动学层：Joint MatrixTransform
+			// 矩阵直接存储 parent_T_child（在父 Link 系中，子 Link 的位姿）
+			osg::ref_ptr<osg::MatrixTransform> jointMT = createJointTransform(j.name, parent_T_child);
+			osg::Group* parentContainer = parentIt.value();
+			osg::MatrixTransform* jointNode = jointMT.get();
+			osg::Group* childContainer = childIt.value();
+			if (!parentContainer || !jointNode || !childContainer)
+			{
+				continue;
+			}
+
+			if (!attachLinkJointLink(parentContainer, jointNode, childContainer, j.name, j.parent, j.child, errorMessage))
+			{
+				return nullptr;
+			}
+
+			// 记录 Joint 变换节点（存储原始指针，所有权由场景图保持）
+			outJointTransforms[j.name] = jointNode;
+
+			// 计算子 Link 的世界矩阵，继续 BFS
+			Mat4 childWorldFromLink = matMul(cur.worldFromLink, parent_T_child);
+
+			BfsItem nxt;
+			nxt.link = j.child;
+			nxt.container = childIt.value();
+			nxt.worldFromLink = childWorldFromLink;
+			q.push(nxt);
+		}
+	}
+
+	// ========================================================================
+	// 【第三阶段】根节点组装与场景注入
+	// ========================================================================
+	osg::ref_ptr<osg::Group> robotAssembly = new osg::Group;
+	robotAssembly->setName("RobotAssembly");
+
+	// 坐标系转换：如果启用 ROS Z-up -> OSG Y-up，在根级应用一次转换
+	// 这样所有关节矩阵保持在 ROS 坐标系，总根节点统一转换到 OSG 坐标系
+	if (kApplyRosZUpToOsgYUp)
+	{
+		osg::ref_ptr<osg::MatrixTransform> coordTransform = new osg::MatrixTransform;
+		coordTransform->setName("RosZUp_to_OsgYUp");
+		coordTransform->setMatrix(mat4ToOsg(matRosWorldToOsgWorld()));
+		robotAssembly->addChild(coordTransform);
+
+		// 挂载根 Container 到坐标系转换节点下
+		if (rootIt.value())
+		{
+			coordTransform->addChild(rootIt.value());
+		}
+	}
+	else
+	{
+		// 无坐标系转换：直接挂载根 Container
+		if (rootIt.value())
+		{
+			robotAssembly->addChild(rootIt.value());
+		}
+	}
+
+	// ========================================================================
+	// 【第四阶段】状态重置与刷新
+	// ========================================================================
+	// 同步几何层矩阵（与缓存的 linkVisuals 一致，便于后续若扩展热重载）
+	for (auto it = outLinkToGeometry.begin(); it != outLinkToGeometry.end(); ++it)
+	{
+		osg::MatrixTransform* mt = dynamic_cast<osg::MatrixTransform*>(it.value());
+		if (!mt)
+		{
+			continue;
+		}
+		const QString linkName = it.key();
+		auto vit = linkVisuals.find(linkName);
+		if (vit != linkVisuals.end() && vit->second.hasMesh)
+		{
+			const UrdfLinkVisual& vis = vit->second;
+			const Mat4 meshToLink = meshFileToLinkFrameFromVisual(vis);
+			mt->setMatrix(mat4ToOsg(meshToLink));
+		}
+		else
+		{
+			mt->setMatrix(osg::Matrixd::identity());
+		}
+		mt->dirtyBound();
+	}
+
+	// 强制刷新所有容器的包围盒
+	for (auto it = outLinkToContainer.begin(); it != outLinkToContainer.end(); ++it)
+	{
+		if (it.value())
+		{
+			it.value()->dirtyBound();
+		}
+	}
+
+	// RobotAssembly 本身也刷新
+	robotAssembly->dirtyBound();
+
+	// 转移所有权：release() 使裸指针引用计数仍为 1，由调用方 addChild 或 osg::ref_ptr 承接；禁止手动 ref()+get()。
+	return robotAssembly.release();
 }

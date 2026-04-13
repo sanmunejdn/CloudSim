@@ -47,6 +47,7 @@
 #include <osg/NodeVisitor>
 #include <osg/NodeCallback>
 #include <osg/AutoTransform>
+#include <osg/BoundingSphere>
 #include <osgDB/Options>
 #include <osgDB/ReadFile>
 #include <osgDB/Registry>
@@ -362,7 +363,9 @@ bool OsgWidget::upsertPointCloudBranchInScene(const PointCloudBackendData& data,
 	{
 		m_objectsGroup->removeChild(it->second.get());
 	}
-	m_backendObjectRoots[id] = outer;
+	m_backendObjectRoots.erase(id);
+	m_objectsGroup->addChild(outer.get());
+	m_backendObjectRoots.insert(std::make_pair(id, std::move(outer)));
 	m_backendModelCenters[id] = center;
 	if (m_activeBackendId == id || m_activeBackendId.empty())
 	{
@@ -373,13 +376,13 @@ bool OsgWidget::upsertPointCloudBranchInScene(const PointCloudBackendData& data,
 		m_backendVisibility[id] = true;
 	}
 	applyVisibilityMaskForBackend(id);
-	m_objectsGroup->addChild(outer.get());
 	if (m_viewer.valid())
 	{
 		m_viewer->setSceneData(m_root.get());
 		if (resetViewToHome)
 		{
-			m_viewer->home();
+			outer->dirtyBound();
+			focusCameraOnBackend(id);
 		}
 	}
 	return true;
@@ -433,7 +436,9 @@ bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* er
 	{
 		m_objectsGroup->removeChild(it->second.get());
 	}
-	m_backendObjectRoots[id] = outer;
+	m_backendObjectRoots.erase(id);
+	m_objectsGroup->addChild(outer.get());
+	m_backendObjectRoots.insert(std::make_pair(id, std::move(outer)));
 	m_backendModelCenters[id] = center;
 	if (m_activeBackendId == id || m_activeBackendId.empty())
 	{
@@ -444,13 +449,13 @@ bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* er
 		m_backendVisibility[id] = true;
 	}
 	applyVisibilityMaskForBackend(id);
-	m_objectsGroup->addChild(outer.get());
 	if (m_viewer.valid())
 	{
 		m_viewer->setSceneData(m_root.get());
 		if (resetViewToHome)
 		{
-			m_viewer->home();
+			outer->dirtyBound();
+			focusCameraOnBackend(id);
 		}
 	}
 	return true;
@@ -672,6 +677,11 @@ void OsgWidget::initViewer()
 	m_viewer->getCamera()->setGraphicsContext(m_graphicsWindow.get());
 	m_viewer->getCamera()->setViewport(0, 0, m_glWidget->width(), m_glWidget->height());
 	m_viewer->getCamera()->setCullMask(0xffffffffu);
+	{
+		const double aspect = static_cast<double>((std::max)(1, m_glWidget->width()))
+			/ static_cast<double>((std::max)(1, m_glWidget->height()));
+		m_viewer->getCamera()->setProjectionMatrixAsPerspective(30.0, aspect, 10.0, 1e8);
+	}
 	setViewerBackgroundForDarkUi(false);
 	m_viewer->getCamera()->setViewMatrixAsLookAt(
 		osg::Vec3(3, 3, 3),
@@ -1288,5 +1298,87 @@ bool OsgWidget::loadMeshFromBackendData(const MeshBackendData& data, QString* er
 bool OsgWidget::isBackendMeshLit(const std::string& backendId) const
 {
 	return m_litMeshBackendIds.find(backendId) != m_litMeshBackendIds.end();
+}
+
+// 【中文】添加层级化机器人场景图（动态层级法）
+QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QString& displayName)
+{
+	if (!robotAssembly || !m_objectsGroup.valid())
+	{
+		return QString();
+	}
+
+	// 【中文】生成唯一的后端 ID
+	static int s_robotSceneCounter = 0;
+	const QString backendId = QStringLiteral("RobotScene_%1_%2")
+		.arg(displayName.isEmpty() ? QStringLiteral("URDF") : displayName)
+		.arg(++s_robotSceneCounter);
+	const std::string stdId = backendId.toStdString();
+
+	// 【中文】与其它后端一致：用 PAT 包裹根节点，便于 m_backendObjectRoots 类型统一及变换/可见性
+	osg::ref_ptr<osg::PositionAttitudeTransform> outer = new osg::PositionAttitudeTransform;
+	outer->setName(displayName.isEmpty() ? "RobotHierarchy" : displayName.toStdString());
+	robotAssembly->dirtyBound();
+	outer->addChild(robotAssembly);
+	m_objectsGroup->addChild(outer.get());
+	outer->dirtyBound();
+	const osg::BoundingSphere bs = outer->getBound();
+	if (bs.valid())
+	{
+		m_backendModelCenters[stdId] = osg::Vec3f(bs.center());
+		if (m_activeBackendId.empty())
+		{
+			m_activeModelDiagonal = (std::max)(1.0f, bs.radius() * 2.0f);
+		}
+	}
+	else
+	{
+		m_backendModelCenters[stdId] = osg::Vec3f(0.0f, 0.0f, 0.0f);
+	}
+	if (m_backendVisibility.find(stdId) == m_backendVisibility.end())
+	{
+		m_backendVisibility[stdId] = true;
+	}
+	applyVisibilityMaskForBackend(stdId);
+
+	// 【中文】禁止对 map 使用 operator[] 赋值 ref_ptr（MSVC + OSG 3.6.5 在 ref_ptr::assign 上 C2440）
+	m_backendObjectRoots.insert(std::make_pair(stdId, std::move(outer)));
+	m_litMeshBackendIds.insert(stdId);
+
+	// 【中文】刷新场景并对准相机（与 upsertMeshBranchInScene 一致，否则易停留在默认视角看不到模型）
+	if (m_viewer.valid())
+	{
+		m_viewer->setSceneData(m_root.get());
+		focusCameraOnBackend(stdId);
+	}
+	if (m_glWidget)
+	{
+		m_glWidget->update();
+	}
+
+	return backendId;
+}
+
+// 【中文】移除层级化机器人场景图
+void OsgWidget::removeHierarchicalRobotScene(const QString& backendId)
+{
+	if (backendId.isEmpty())
+	{
+		return;
+	}
+	const std::string stdId = backendId.toStdString();
+
+	auto it = m_backendObjectRoots.find(stdId);
+	if (it != m_backendObjectRoots.end() && it->second.valid() && m_objectsGroup.valid())
+	{
+		m_objectsGroup->removeChild(it->second.get());
+		m_backendObjectRoots.erase(it);
+	}
+	m_litMeshBackendIds.erase(stdId);
+
+	if (m_viewer.valid())
+	{
+		m_viewer->setSceneData(m_root.get());
+	}
 }
 

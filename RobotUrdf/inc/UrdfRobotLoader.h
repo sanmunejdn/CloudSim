@@ -7,36 +7,28 @@
 #include <vector>
 
 #include <osg/Matrixd>
-
-#include "MeshBackendData.h"
+#include <osg/Group>
+#include <osg/MatrixTransform>
+#include <osg/Node>
 
 #include "robot_urdf_global.h"
 
-/// Parses a URDF file, resolves mesh paths under the package root, and fills MeshHierarchyPart
-/// with triangle soups in one world frame (revolute joints at zero angle).
+/// 【中文】URDF 机器人层级场景图加载：解析 URDF，构建三层分离的动态层级场景图。
 ///
-/// Conventions (ROS URDF):
-/// - Joint origin is the rigid transform from child link frame to parent link frame:
-///   p_parent = R(rpy) * p_child + xyz, with R = Rz(yaw)*Ry(pitch)*Rx(roll) on column vectors.
-/// - Link visual origin: p_link = R_vis * p_mesh (mesh vertices in visual / mesh file frame).
-/// - Revolute / continuous: child pose includes origin * rotation about axis (axis in joint frame).
-/// - After the kinematic chain, an optional fixed rotation maps ROS Z-up (REP-103) to the viewer Y-up
-///   (see kApplyRosZUpToOsgYUp in UrdfRobotLoader.cpp). Disable if your meshes already match the viewer.
-/// - By default, kUrdfBakeJointChainIntoMesh and kUrdfBakeVisualOriginIntoMesh are true: joint chain and \<visual\>\<origin\>
-///   are baked into triangle soup so import agrees with URDF kinematics and axis control. For pre-assembled world-frame
-///   meshes only, you may set those to false in UrdfRobotLoader.cpp (FK may then disagree with geometry).
+/// 新架构（动态层级法）：
+/// - 停止修改顶点，改为移动节点
+/// - osg::MatrixTransform 节点 = URDF 中的 <joint>
+/// - osg::Geode/PAT = URDF 中的 Link 几何体
+/// - 层级结构：Parent_Container -> Joint_MT -> Child_Container -> Geometry
 ///
-/// 【中文】URDF 导入约定：解析 package 下 mesh、按零位角烘焙三角网到统一世界系。
-/// - 关节 \<origin\>：子连杆相对父连杆，列向量下 p_parent = R(rpy)*p_child + xyz，R 为固定轴 rpy。
-/// - \<visual\>\<origin\>：视觉几何相对连杆系；网格顶点应在「视觉/文件」坐标系中。
-/// - 转动/连续关节：在 origin 之后绕 \<axis\> 旋转。
-/// - 可选 ROS(Z 上)→视窗(Y 上) 固定旋转见 cpp 中 kApplyRosZUpToOsgYUp。
-/// - 默认将关节链与 visual 烘焙进顶点；若 mesh 已是整机世界系装配，可在 cpp 中关闭 kUrdfBake*（FK 可能与几何不一致）。
+/// 坐标约定 (ROS URDF)：
+/// - 内部长度单位为毫米：URDF 文件中 origin 的 xyz 为米（REP-103），加载后换算为 mm；网格顶点默认按 mm 文件坐标。
+/// - Joint origin 是子连杆系到父连杆系的刚体变换：p_parent = R(rpy) * p_child + xyz
+/// - Link visual origin：p_link = R_vis * p_mesh
+/// - Revolute / continuous：绕 axis 旋转（axis 定义在 joint 坐标系中）
+/// - 可选 ROS Z-up → OSG Y-up 坐标系转换
 namespace UrdfRobotLoader
 {
-	/// 【中文】加载 URDF，解析 mesh 路径，输出各连杆三角网（关节角为 0，顶点已乘变换链）。
-	ROBOT_URDF_API bool loadMeshHierarchyParts(const QString& urdfFilePath, std::vector<MeshHierarchyPart>& outParts, QString* errorMessage);
-
 	/// Revolute + continuous joints in BFS traversal order (matches jointAnglesRad indices in computeMeshWorldMatrices).
 	/// 【中文】按 BFS 顺序列出转动/连续关节名，与 computeMeshWorldMatrices 的 jointAnglesRad 下标一致。
 	ROBOT_URDF_API bool loadRevoluteJointNamesInOrder(const QString& urdfFilePath, QStringList& outJointNames, QString* errorMessage = nullptr);
@@ -50,12 +42,10 @@ namespace UrdfRobotLoader
 		QVector<double>& outUpperRad,
 		QString* errorMessage = nullptr);
 
-	/// Forward kinematics: OSG world matrix from mesh file frame to viewer frame. Uses full URDF (joint chain ×
-	/// visual × optional ROS→OSG), matching the kinematic convention used for axis sliders.
-	/// \a jointAnglesRad must align with loadRevoluteJointNamesInOrder; if shorter, missing entries are treated as 0.
-	/// Uses an in-memory cache of the parsed URDF (keyed by canonical path + mtime); only the FK walk runs per call.
-	/// 【中文】正解：每个带 mesh 的连杆输出 mesh 系到视窗世界系的 osg::Matrixd；关节向量须与 loadRevoluteJointNamesInOrder
-	/// 对齐；偏短则缺省为 0。URDF 解析结果按路径+mtime 缓存，每次调用主要做 FK 遍历。
+	/// 【中文】给定关节角度，计算各连杆的世界变换矩阵（用于参考/调试）。
+	/// 新架构推荐使用 buildHierarchicalRobotScene + 直接修改 Joint MatrixTransform，无需调用此函数。
+	///
+	/// 此函数保持向后兼容，用于需要显式获取连杆世界矩阵的场景。
 	ROBOT_URDF_API bool computeMeshWorldMatrices(
 		const QString& urdfFilePath,
 		const QVector<double>& jointAnglesRad,
@@ -65,4 +55,65 @@ namespace UrdfRobotLoader
 	/// Drops cached parse trees (e.g. after replacing URDF on disk in edge cases). Normally unnecessary: cache keys include mtime.
 	/// 【中文】清空已缓存的 URDF 解析树；一般依赖 mtime 自动失效即可。
 	ROBOT_URDF_API void clearUrdfModelCache();
+
+	/// 【中文】计算给定关节角度下的所有 Joint 变换矩阵（parent_T_child）。
+	/// 用于动态层级法：关节角度更新时，直接获取新的矩阵并设置到对应的 MatrixTransform。
+	///
+	/// @param urdfFilePath URDF 文件路径
+	/// @param jointAnglesRad 关节角度（弧度），顺序与 loadRevoluteJointNamesInOrder 一致
+	/// @param outJointMatrices 输出：JointName -> parent_T_child 矩阵（osg::Matrixd）
+	/// @param errorMessage 可选错误输出
+	/// @return true 成功，false 失败
+	ROBOT_URDF_API bool computeJointTransformMatrices(
+		const QString& urdfFilePath,
+		const QVector<double>& jointAnglesRad,
+		QHash<QString, osg::Matrixd>& outJointMatrices,
+		QString* errorMessage = nullptr);
+
+	/// 【中文】构建层级化 URDF 机器人场景图（三层分离架构）。
+	/// 执行完整的四阶段流程：
+	/// 1. 资源预加载：解析 URDF，加载所有 Link 的 Mesh 文件到 OSG 节点
+	/// 2. 构建容器化场景图：创建 Link 容器 (osg::Group, setCullingActive(false)) 和 Joint MatrixTransform
+	/// 3. 组装根节点：创建 RobotAssembly 总根节点并连接层级
+	/// 4. 状态重置：重置几何体 PAT 矩阵为单位阵，刷新包围盒
+	///
+	/// 架构说明（三层分离模型）：
+	/// - 几何体层：原始 Mesh 数据，使用 PAT/Geode，矩阵固定为单位阵 (位置=0,0,0)
+	/// - 视觉容器层：osg::Group 包裹几何体，setCullingActive(false) 防止裁剪问题
+	/// - 运动学层：osg::MatrixTransform 代表 URDF 中的 <joint>，存储 parent_T_child 矩阵
+	///
+	/// 层级结构：
+	///   RobotAssembly (Group)
+	///    └── Link_A_Container (Group, culling=false)
+	///         └── Link_A_Geometry (PAT, 矩阵=I)
+	///         └── Joint_A_to_B (MatrixTransform, 矩阵=parent_T_child)
+	///              └── Link_B_Container (Group)
+	///                   └── Link_B_Geometry (PAT)
+	///
+	/// 【English】Build hierarchical URDF robot scene graph with three-layer separation.
+	/// Geometry layer (PAT with identity matrix), Visual Container layer (Group with culling off),
+	/// Kinematic layer (MatrixTransform storing joint parent_T_child).
+	///
+	/// @param urdfFilePath URDF file absolute path
+	/// @param outLinkToGeometry Output: LinkName -> Geometry layer root (MatrixTransform: visual origin × mesh)
+	/// @param outLinkToContainer Output: LinkName -> Visual container layer Group node
+	/// @param outJointTransforms Output: JointName -> Kinematic layer MatrixTransform node
+	/// @param errorMessage Optional error output (non-empty on failure)
+	/// @return RobotAssembly root node (osg::Group), nullptr on failure
+	///
+	/// Caller responsibilities:
+	/// - Add returned RobotAssembly to m_objectsGroup for display
+	/// - Preserve outLinkToGeometry/outJointTransforms for runtime joint updates
+	/// - To update joint angles: modify outJointTransforms[jointName]->setMatrix(newMatrix)
+	/// - Multiple robots: prefix keys when merging into a document (e.g. backendId + "::" + jointName) so names do not collide.
+	///
+	/// Ownership: returns a raw pointer with reference count 1 (transferred from an internal ref_ptr via release()).
+	/// The caller must attach the node to the scene graph (e.g. addChild) or store an osg::ref_ptr immediately;
+	/// do not use manual ref() before return on the caller side to "fix" lifetime.
+	ROBOT_URDF_API osg::Group* buildHierarchicalRobotScene(
+		const QString& urdfFilePath,
+		QHash<QString, osg::Node*>& outLinkToGeometry,
+		QHash<QString, osg::Group*>& outLinkToContainer,
+		QHash<QString, osg::MatrixTransform*>& outJointTransforms,
+		QString* errorMessage = nullptr);
 }

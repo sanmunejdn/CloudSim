@@ -19,6 +19,8 @@
 #include <QVector>
 
 #include <osg/Matrixd>
+#include <osg/Group>
+#include <osg/MatrixTransform>
 
 #include <vector>
 
@@ -444,135 +446,107 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 		return false;
 	};
 
-	std::vector<MeshHierarchyPart> parts;
+	// 【中文】新架构：使用动态层级法构建 URDF 场景图
+	// 1. 构建层级化场景图（三层分离模型）
+	QHash<QString, osg::Node*> linkToGeometry;
+	QHash<QString, osg::Group*> linkToContainer;
+	QHash<QString, osg::MatrixTransform*> jointTransforms;
 	QString urdfErr;
-	if (!UrdfRobotLoader::loadMeshHierarchyParts(urdfFilePath, parts, &urdfErr))
+
+	osg::Group* robotAssembly = UrdfRobotLoader::buildHierarchicalRobotScene(
+		urdfFilePath, linkToGeometry, linkToContainer, jointTransforms, &urdfErr);
+
+	if (!robotAssembly)
 	{
 		return reportFail(QStringLiteral("URDF"),
-			urdfErr.isEmpty() ? QStringLiteral("Failed to parse URDF.") : urdfErr);
-	}
-	if (parts.empty())
-	{
-		return reportFail(QStringLiteral("URDF"), QStringLiteral("No mesh parts produced from URDF."));
+			urdfErr.isEmpty() ? QStringLiteral("Failed to build hierarchical robot scene.") : urdfErr);
 	}
 
-	auto createImportedFileParent = [&](std::shared_ptr<MeshBackendData>& parentOut) -> bool {
-		parentOut = std::make_shared<MeshBackendData>();
-		parentOut->setName(fileInfo.fileName().toStdString());
-		if (!mw.registerExistingBackendObject(parentOut, urdfFilePath, QStringLiteral("Robot"), QString(), false, QString()))
-		{
-			return false;
-		}
-		return true;
-	};
-
-	std::shared_ptr<MeshBackendData> importParent;
-	if (!createImportedFileParent(importParent))
+	// 无 <visual> mesh 的连杆不会进入 linkToGeometry，但仍会有容器与场景图；不得以「无几何」为由拒绝导入。
+	if (linkToContainer.isEmpty())
 	{
-		return reportFail(QStringLiteral("Backend Register"),
-			QStringLiteral("Failed to register URDF import parent object."));
+		return reportFail(QStringLiteral("URDF"), QStringLiteral("No link containers built from URDF."));
 	}
-	const QString importParentId = QString::fromStdString(importParent->id());
-	std::shared_ptr<BackendDataBase> firstRegistered;
-	std::shared_ptr<MeshBackendData> lastLoadedMesh;
-	QHash<QString, QString> linkNameToBackendId;
 
-	// Geometry is already baked in a single world frame per link; do NOT chain backend parents link->link.
-	// OsgWidget propagates gizmo deltas to backend descendants — a URDF chain would double-transform PATs and
-	// break poses after visibility/selection changes. All links hang flat under the import parent.
-	for (const MeshHierarchyPart& p : parts)
-	{
-		if (p.triangleSoup.empty())
-		{
-			continue;
-		}
-		auto partMesh = std::make_shared<MeshBackendData>();
-		partMesh->setTriangleSoup(p.triangleSoup);
-		const QString displayName =
-			p.displayName.empty() ? fileInfo.completeBaseName() : QString::fromStdString(p.displayName);
-		partMesh->setName(displayName.toStdString());
-		if (!mw.registerExistingBackendObject(partMesh, urdfFilePath, QStringLiteral("Robot"), QString(), false, importParentId))
-		{
-			return reportFail(QStringLiteral("Backend Register"),
-				QStringLiteral("Failed to register URDF link mesh."));
-		}
-		linkNameToBackendId.insert(displayName, QString::fromStdString(partMesh->id()));
-		if (!firstRegistered)
-		{
-			firstRegistered = partMesh;
-		}
-		if (osg)
-		{
-			QString sceneErr;
-			// Robot links: feature-edge wire overlay + scene lighting (matches lit mesh display).
-			if (!osg->loadMeshFromBackendData(*partMesh, &sceneErr, false, true, true) && mw.m_runInfoPage)
-			{
-				mw.m_runInfoPage->appendWarning(QStringLiteral("Mesh display: %1").arg(sceneErr));
-			}
-			else
-			{
-				lastLoadedMesh = partMesh;
-			}
-		}
-	}
+	// 【中文】2. 将机器人场景添加到 OSG
+	QString robotBackendId;
 	if (osg)
 	{
+		robotBackendId = osg->addHierarchicalRobotScene(robotAssembly, fileInfo.fileName());
+		if (robotBackendId.isEmpty())
+		{
+			return reportFail(QStringLiteral("URDF"), QStringLiteral("Failed to add robot scene to OSG."));
+		}
 		osg->clearStagingGeometry();
+
+		// Units 树与属性面板依赖 backend().listData()；无三角形 soup 的占位 Model 与 OSG 分支 id 一致
+		auto robotBackend = std::make_shared<MeshBackendData>();
+		robotBackend->setId(robotBackendId.toStdString());
+		robotBackend->setName((fileInfo.completeBaseName() + QStringLiteral(" (URDF)")).toStdString());
+		if (!doc->backend().registerData(robotBackend))
+		{
+			osg->removeBackendObjectVisual(robotBackendId.toStdString());
+			return reportFail(QStringLiteral("URDF"),
+				QStringLiteral("Failed to register robot in backend list (id collision)."));
+		}
+		doc->backendSourcePath()[robotBackendId] = fileInfo.absoluteFilePath();
+		doc->backendSourceType()[robotBackendId] = QStringLiteral("URDF");
+		doc->backendParentId()[robotBackendId] = QString();
 	}
-	if (firstRegistered)
+	if (robotBackendId.isEmpty())
 	{
-		QStringList revoluteJointNames;
-		QVector<double> jointLowerRad;
-		QVector<double> jointUpperRad;
-		QString jointListErr;
-		if (!UrdfRobotLoader::loadRevoluteJointMeta(
-				fileInfo.absoluteFilePath(), revoluteJointNames, jointLowerRad, jointUpperRad, &jointListErr))
-		{
-			if (mw.m_runInfoPage && !jointListErr.isEmpty())
-			{
-				mw.m_runInfoPage->appendWarning(QStringLiteral("URDF joint list: %1").arg(jointListErr));
-			}
-		}
-		doc->setRobotSimulationContext(
-			importParentId, fileInfo.absoluteFilePath(), linkNameToBackendId, revoluteJointNames, jointLowerRad, jointUpperRad);
-		// Sync axis sliders before kinematics bind so jointAnglesChanged cannot run with new URDF + old bind/sliders.
-		mw.refreshSimulationJointListFromCurrentDoc();
-		if (osg && !revoluteJointNames.isEmpty())
-		{
-			QVector<double> zeros(revoluteJointNames.size(), 0.0);
-			QHash<QString, osg::Matrixd> fkT0;
-			QString fkErr;
-			if (UrdfRobotLoader::computeMeshWorldMatrices(fileInfo.absoluteFilePath(), zeros, fkT0, &fkErr))
-			{
-				QHash<QString, osg::Matrixd> outerByBackendId;
-				for (auto it = linkNameToBackendId.constBegin(); it != linkNameToBackendId.constEnd(); ++it)
-				{
-					osg::Matrixd M;
-					if (osg->getBackendRootWorldMatrix(it.value().toStdString(), M))
-					{
-						outerByBackendId.insert(it.value(), M);
-					}
-				}
-				doc->setRobotKinematicsBind(fkT0, outerByBackendId);
-			}
-			else if (mw.m_runInfoPage && !fkErr.isEmpty())
-			{
-				mw.m_runInfoPage->appendWarning(QStringLiteral("URDF FK bind: %1").arg(fkErr));
-			}
-		}
-		if (mw.m_runInfoPage && !quietUi)
-		{
-			mw.m_runInfoPage->appendInfo(QStringLiteral("URDF robot loaded: %1").arg(fileInfo.fileName()));
-		}
-		if (osg && lastLoadedMesh)
-		{
-			QString homeErr;
-			(void)osg->loadMeshFromBackendData(*lastLoadedMesh, &homeErr, true, true, true);
-		}
-		mw.refreshBackendTree();
-		mw.focusBackendInTree(importParent);
-		return true;
+		// 无 OSG 时仍需唯一 backendId，避免多实例关节前缀 "::" 冲突
+		robotBackendId =
+			QStringLiteral("RobotScene_headless_%1").arg(reinterpret_cast<quintptr>(robotAssembly), 0, 16);
 	}
-	return reportFail(QStringLiteral("URDF"), QStringLiteral("URDF contained no triangle geometry."));
+
+	// 【中文】3. 获取关节信息并设置仿真上下文
+	QStringList revoluteJointNames;
+	QVector<double> jointLowerRad;
+	QVector<double> jointUpperRad;
+	QString jointListErr;
+	if (!UrdfRobotLoader::loadRevoluteJointMeta(
+			fileInfo.absoluteFilePath(), revoluteJointNames, jointLowerRad, jointUpperRad, &jointListErr))
+	{
+		if (mw.m_runInfoPage && !jointListErr.isEmpty())
+		{
+			mw.m_runInfoPage->appendWarning(QStringLiteral("URDF joint list: %1").arg(jointListErr));
+		}
+	}
+
+	// 【中文】4. 追加层级化仿真上下文（多台机器人并存；关节键 = 场景 backendId + "::" + URDF 关节名）
+	const QString jkPrefix = robotBackendId + QStringLiteral("::");
+	QHash<QString, osg::MatrixTransform*> prefixedJoints;
+	prefixedJoints.reserve(jointTransforms.size());
+	for (auto it = jointTransforms.constBegin(); it != jointTransforms.constEnd(); ++it)
+	{
+		prefixedJoints.insert(jkPrefix + it.key(), it.value());
+	}
+	doc->appendHierarchicalRobotSimulationContext(
+		fileInfo.absoluteFilePath(),
+		revoluteJointNames,
+		jointLowerRad,
+		jointUpperRad,
+		prefixedJoints,
+		robotBackendId);
+
+	// 【中文】同步关节滑块列表
+	mw.refreshSimulationJointListFromCurrentDoc();
+
+	if (mw.m_runInfoPage && !quietUi)
+	{
+		mw.m_runInfoPage->appendInfo(
+			QStringLiteral("URDF robot added (hierarchical): %1, Links: %2, Mesh parts: %3, Joints: %4 (instance %5)")
+				.arg(fileInfo.fileName())
+				.arg(linkToContainer.size())
+				.arg(linkToGeometry.size())
+				.arg(jointTransforms.size())
+				.arg(robotBackendId));
+	}
+
+	// 【中文】刷新后端树
+	mw.refreshBackendTree();
+
+	return true;
 }
 

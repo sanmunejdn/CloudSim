@@ -6,6 +6,8 @@
 #include <QFileInfo>
 #include <QFile>
 
+#include <osg/Camera>
+#include <osg/Viewport>
 #include <osgDB/Options>
 #include <osgDB/ReadFile>
 
@@ -65,6 +67,16 @@ bool OsgWidgetImportController::importModelFile(OsgWidget& self, const QString& 
 		if (self.m_backendObjectRoots.empty())
 		{
 			self.m_viewer->home();
+			if (osg::Camera* cam = self.m_viewer->getCamera())
+			{
+				double aspect = 1.0;
+				const osg::Viewport* vp = cam->getViewport();
+				if (vp && vp->width() > 0 && vp->height() > 0)
+				{
+					aspect = static_cast<double>(vp->width()) / static_cast<double>(vp->height());
+				}
+				cam->setProjectionMatrixAsPerspective(30.0, aspect, 10.0, 1e8);
+			}
 		}
 	}
 	return true;
@@ -135,6 +147,16 @@ bool OsgWidgetImportController::importPointCloudFile(OsgWidget& self, const QStr
 				if (self.m_backendObjectRoots.empty())
 				{
 					self.m_viewer->home();
+					if (osg::Camera* cam = self.m_viewer->getCamera())
+					{
+						double aspect = 1.0;
+						const osg::Viewport* vp = cam->getViewport();
+						if (vp && vp->width() > 0 && vp->height() > 0)
+						{
+							aspect = static_cast<double>(vp->width()) / static_cast<double>(vp->height());
+						}
+						cam->setProjectionMatrixAsPerspective(30.0, aspect, 10.0, 1e8);
+					}
 				}
 			}
 			return true;
@@ -218,6 +240,16 @@ bool OsgWidgetImportController::importPointCloudFile(OsgWidget& self, const QStr
 		if (self.m_backendObjectRoots.empty())
 		{
 			self.m_viewer->home();
+			if (osg::Camera* cam = self.m_viewer->getCamera())
+			{
+				double aspect = 1.0;
+				const osg::Viewport* vp = cam->getViewport();
+				if (vp && vp->width() > 0 && vp->height() > 0)
+				{
+					aspect = static_cast<double>(vp->width()) / static_cast<double>(vp->height());
+				}
+				cam->setProjectionMatrixAsPerspective(30.0, aspect, 10.0, 1e8);
+			}
 		}
 	}
 	return true;

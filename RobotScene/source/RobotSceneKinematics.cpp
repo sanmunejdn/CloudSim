@@ -6,6 +6,7 @@
 #include "UrdfRobotLoader.h"
 
 #include <osg/Matrixd>
+#include <osg/MatrixTransform>
 
 #include <QHash>
 #include <QString>
@@ -15,11 +16,102 @@ namespace RobotSceneKinematics
 
 bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg, const QVector<double>& anglesRad)
 {
-	if (!doc || !osg || !doc->hasRobotKinematicsBind())
+	(void)osg;
+	if (!doc || !doc->hasRobotSimulationContext())
 	{
 		return false;
 	}
+
+	const int nInst = doc->robotKinematicInstanceCount();
+	int offset = 0;
+	bool appliedHierarchy = false;
+	for (int i = 0; i < nInst; ++i)
+	{
+		const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(i);
+		const int nj = doc->robotRevoluteJointCountForInstance(i);
+		if (nj <= 0)
+		{
+			continue;
+		}
+		if (offset + nj > anglesRad.size())
+		{
+			return false;
+		}
+		const QVector<double> slice = anglesRad.mid(offset, nj);
+		offset += nj;
+		if (urdfPath.isEmpty())
+		{
+			continue;
+		}
+
+		QHash<QString, osg::Matrixd> newJointMatrices;
+		if (!UrdfRobotLoader::computeJointTransformMatrices(urdfPath, slice, newJointMatrices, nullptr))
+		{
+			return false;
+		}
+
+		const QString prefix = doc->robotJointKeyPrefixForInstance(i);
+		for (auto it = newJointMatrices.constBegin(); it != newJointMatrices.constEnd(); ++it)
+		{
+			const QString key = prefix + it.key();
+			osg::MatrixTransform* jointMT = doc->robotJointMatrixTransform(key);
+			if (jointMT)
+			{
+				jointMT->setMatrix(it.value());
+				appliedHierarchy = true;
+			}
+		}
+	}
+
+	if (appliedHierarchy)
+	{
+		return true;
+	}
+	// 已按多实例语义遍历过但未写入任何 MatrixTransform：视为失败（避免用错误的全向量再算一遍 FK）
+	if (nInst > 0)
+	{
+		return false;
+	}
+
+	// nInst==0（例如仅传统烘焙数据）：回退到旧单 URDF 路径（无前缀键）
 	const QString urdfPath = doc->robotUrdfAbsolutePath();
+	QHash<QString, osg::Matrixd> newJointMatrices;
+	if (urdfPath.isEmpty() ||
+		!UrdfRobotLoader::computeJointTransformMatrices(urdfPath, anglesRad, newJointMatrices, nullptr))
+	{
+		return false;
+	}
+
+	bool hasJointTransforms = false;
+	const QStringList jointNames = doc->robotRevoluteJointNames();
+	for (const QString& jointName : jointNames)
+	{
+		if (doc->robotJointMatrixTransform(jointName))
+		{
+			hasJointTransforms = true;
+			break;
+		}
+	}
+
+	if (hasJointTransforms)
+	{
+		for (auto it = newJointMatrices.constBegin(); it != newJointMatrices.constEnd(); ++it)
+		{
+			osg::MatrixTransform* jointMT = doc->robotJointMatrixTransform(it.key());
+			if (jointMT)
+			{
+				jointMT->setMatrix(it.value());
+			}
+		}
+		return true;
+	}
+
+	// 【中文】回退到旧架构（传统烘焙法）
+	if (!doc->hasRobotKinematicsBind())
+	{
+		return false;
+	}
+
 	QHash<QString, osg::Matrixd> Tq;
 	if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, anglesRad, Tq, nullptr))
 	{

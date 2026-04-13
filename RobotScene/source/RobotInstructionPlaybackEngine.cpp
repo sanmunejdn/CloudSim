@@ -175,17 +175,29 @@ RobotInstructionPlaybackTickResult RobotInstructionPlaybackEngine::tick(IRobotSi
 	const double angleRad = m_segAngleStartRad + u * (m_segAngleTargetRad - m_segAngleStartRad);
 	m_jointAnglesRad[jidx] = angleRad;
 
-	const QString urdfPath = doc->robotUrdfAbsolutePath();
-	QHash<QString, osg::Matrixd> Tq;
-	QString fkErr;
-	if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, m_jointAnglesRad, Tq, &fkErr))
+	// 动态层级 / 多机器人：无 link→backend 烘焙映射时，直接按关节角更新 MatrixTransform
+	if (doc->robotLinkNameToBackendId().isEmpty())
 	{
-		stop();
-		return RobotInstructionPlaybackTickResult::Aborted;
+		if (!RobotSceneKinematics::applyJointAnglesFromDocument(doc, osg, m_jointAnglesRad))
+		{
+			stop();
+			return RobotInstructionPlaybackTickResult::Aborted;
+		}
 	}
+	else
+	{
+		const QString urdfPath = doc->robotUrdfAbsolutePath();
+		QHash<QString, osg::Matrixd> Tq;
+		QString fkErr;
+		if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, m_jointAnglesRad, Tq, &fkErr))
+		{
+			stop();
+			return RobotInstructionPlaybackTickResult::Aborted;
+		}
 
-	RobotSceneKinematics::applyMeshWorldMatricesRelativeToBind(
-		osg, Tq, m_fkMeshWorldT0, doc->robotLinkNameToBackendId(), m_outerWorldAtStart);
+		RobotSceneKinematics::applyMeshWorldMatricesRelativeToBind(
+			osg, Tq, m_fkMeshWorldT0, doc->robotLinkNameToBackendId(), m_outerWorldAtStart);
+	}
 
 	if (u >= 1.0 - 1e-9)
 	{

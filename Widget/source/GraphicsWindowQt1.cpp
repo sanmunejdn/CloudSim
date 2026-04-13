@@ -25,13 +25,13 @@ GraphicsWindowQt1::GraphicsWindowQt1(QWidgetViewer* widget)
 
 GraphicsWindowQt1::~GraphicsWindowQt1()
 {
-	// ÏÈ¶Ï¿ªÓëQWidgetViewerµÄÁ¬½Ó
+	// ï¿½È¶Ï¿ï¿½ï¿½ï¿½QWidgetViewerï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	if (_widget) {
 		_widget->_gw = nullptr;
-		_widget = nullptr;  // ·ÀÖ¹Ò°Ö¸Õë
+		_widget = nullptr;  // ï¿½ï¿½Ö¹Ò°Ö¸ï¿½ï¿½
 	}
 
-	// °²È«¹Ø±Õ£¨¼ì²éÊÇ·ñÒÑ¹Ø±Õ£©
+	// ï¿½ï¿½È«ï¿½Ø±Õ£ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Ñ¹Ø±Õ£ï¿½
 	if (isRealized()) {
 		releaseContext();
 		closeImplementation();
@@ -377,7 +377,7 @@ bool GraphicsWindowQt1::makeCurrentImplementation()
 bool GraphicsWindowQt1::releaseContextImplementation()
 {
 	if (!_widget) {
-		return false; // ·µ»ØÊ§°Ü×´Ì¬
+		return false; // ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½×´Ì¬
 	}
 
 	_widget->doneCurrent();

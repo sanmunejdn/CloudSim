@@ -156,6 +156,16 @@ public:
 	/// Sets outer PAT pose so its world matrix equals \a worldMat (respects parent chain).
 	void setBackendRootWorldMatrixFromWorld(const std::string& backendId, const osg::Matrixd& worldMat) override;
 
+	/// 【中文】添加层级化机器人场景图（动态层级法），返回场景节点的 ID 用于后续管理。
+	/// 【English】Add hierarchical robot scene graph (dynamic hierarchy method).
+	/// @param robotAssembly The root node of the robot scene (e.g., from UrdfRobotLoader::buildHierarchicalRobotScene)
+	/// @param displayName Display name for the robot in the backend tree
+	/// @return Backend ID assigned to the robot scene, empty if failed
+	QString addHierarchicalRobotScene(osg::Group* robotAssembly, const QString& displayName);
+
+	/// 【中文】移除层级化机器人场景图。
+	void removeHierarchicalRobotScene(const QString& backendId);
+
 signals:
 	void selectedObjectPoseChanged(float x, float y, float z);
 	void selectedObjectRotationChanged(float rx, float ry, float rz);
