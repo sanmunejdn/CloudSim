@@ -31,13 +31,13 @@
 #include <osg/Matrixd>
 #include <osg/MatrixTransform>
 #include <osg/NodeVisitor>
-#include <osg/Quat>
 #include <osg/StateSet>
 #include <osg/ref_ptr>
 #include <osg/Vec3>
 #include <osg/Vec4>
 #include <osgDB/ReadFile>
 #include <osgUtil/SmoothingVisitor>
+#include <osgText/Text>
 
 #include <algorithm>
 #include <cmath>
@@ -476,19 +476,39 @@ static Mat4 mat4RigidInverse(const Mat4& t)
 	return r;
 }
 
+// 右手系：单位轴 (ax,ay,az)、转角 angle（弧度），列向量 v' = R*v。
+// 使用 Rodrigues 显式式，避免经 osg::Matrixd::rotate 再拷贝时与列主序/约定不一致导致深层关节绕错轴。
 Mat4 matAxisAngleRad(double ax, double ay, double az, double angle)
 {
-	osg::Quat q;
-	q.makeRotate(angle, ax, ay, az);
-	const osg::Matrixd R = osg::Matrixd::rotate(q);
-	Mat4 out{};
-	for (int c = 0; c < 4; ++c)
+	const double len = std::sqrt(ax * ax + ay * ay + az * az);
+	if (len > 1e-9)
 	{
-		for (int r = 0; r < 4; ++r)
-		{
-			out.m[c * 4 + r] = R(r, c);
-		}
+		ax /= len;
+		ay /= len;
+		az /= len;
 	}
+	else
+	{
+		ax = 0.0;
+		ay = 0.0;
+		az = 1.0;
+	}
+	const double c = std::cos(angle);
+	const double s = std::sin(angle);
+	const double t = 1.0 - c;
+	const double tx = t * ax;
+	const double ty = t * ay;
+	const double tz = t * az;
+	Mat4 out = matIdentity();
+	out.m[0] = tx * ax + c;
+	out.m[1] = tx * ay - s * az;
+	out.m[2] = tx * az + s * ay;
+	out.m[4] = ty * ax + s * az;
+	out.m[5] = ty * ay + c;
+	out.m[6] = ty * az - s * ax;
+	out.m[8] = tz * ax - s * ay;
+	out.m[9] = tz * ay + s * ax;
+	out.m[10] = tz * az + c;
 	return out;
 }
 
@@ -569,6 +589,18 @@ static Mat4 jointChildTransformAtZeroConfiguration(const UrdfJoint& j)
 		return matMul(T_origin, matAxisAngleRad(ax, ay, az, 0.0));
 	}
 	return T_origin;
+}
+
+/// 仅 \<joint\>\<origin\> xyz+rpy（米→mm），不含绕 axis 的 q；与 FK 中 T_origin 一致，用于关节坐标系可视化。
+static Mat4 jointOriginFixedTransform(const UrdfJoint& j)
+{
+	return matFromXyzRpy(
+		j.x * kUrdfOriginXyzMetersToInternalMm,
+		j.y * kUrdfOriginXyzMetersToInternalMm,
+		j.z * kUrdfOriginXyzMetersToInternalMm,
+		j.roll,
+		j.pitch,
+		j.yaw);
 }
 
 /// parent link 与 child link 必须为不同名称；相同则父/子对应同一 OSG 容器，无法挂接（自环关节）。
@@ -952,8 +984,9 @@ void UrdfRobotLoader::clearUrdfModelCache()
 	g_urdfModelCache.clear();
 }
 
-// 【中文】计算给定关节角度下的 Joint 矩阵：与 OSG MatrixTransform 一致，v_parent = M * v_child，故 M = parent_T_child（非逆矩阵）。
-// buildHierarchicalRobotScene 中 createJointTransform 亦使用 parent_T_child；此前若误写 inv，在 joint origin 为单位阵时不暴露，一旦有平移/旋转则子树与坐标轴会错位或看似「不显示」。
+// 【中文】计算给定关节角度下的 Joint 矩阵（与 buildHierarchicalRobotScene 中可 setMatrix 的节点一致）。
+// - revolute/continuous：输出仅绕 \<axis\> 的 R(q)（关节 MatrixTransform 无平移，\<origin\> 由 JointOrigin 节点承担）
+// - 其他类型：输出完整 parent_T_child
 bool UrdfRobotLoader::computeJointTransformMatrices(
 	const QString& urdfFilePath,
 	const QVector<double>& jointAnglesRad,
@@ -1002,7 +1035,19 @@ bool UrdfRobotLoader::computeJointTransformMatrices(
 				continue;
 			}
 			const Mat4 parent_T_child = jointChildTransformForFk(j, jointAnglesRad, qIndex);
-			outJointMatrices[j.name] = mat4ToOsg(parent_T_child);
+			const QString jtLower = j.type.toLower();
+			// 转动/连续关节：场景图中关节 MatrixTransform 仅存 R(q)，T_origin 由上层 JointOrigin 节点承担；
+			// 此处输出与 setMatrix 一致：R(q) = T_origin^{-1} * (T_origin * R(q))。
+			if (jtLower == QLatin1String("revolute") || jtLower == QLatin1String("continuous"))
+			{
+				const Mat4 T_origin = jointOriginFixedTransform(j);
+				const Mat4 Rq = matMul(mat4RigidInverse(T_origin), parent_T_child);
+				outJointMatrices[j.name] = mat4ToOsg(Rq);
+			}
+			else
+			{
+				outJointMatrices[j.name] = mat4ToOsg(parent_T_child);
+			}
 
 			// 计算子 Link 的世界矩阵，继续 BFS
 			Mat4 childWorldFromLink = matMul(cur.worldFromLink, parent_T_child);
@@ -1182,6 +1227,85 @@ static osg::ref_ptr<osg::Geode> createLinkFrameAxesGeode(double axisLengthMm, co
 	return geode;
 }
 
+/// 在 \<joint\>\<origin\> 关节系下仅画 URDF \<axis\> 方向黄线（与 FK 转动轴一致）；可选在轴线端旁加文字标签。
+static osg::ref_ptr<osg::Geode> createJointRotationAxisLineGeode(
+	double axisLengthMm,
+	double jax,
+	double jay,
+	double jaz,
+	const std::string& nodeName,
+	const QString& axisLabelText = QString())
+{
+	const float L = static_cast<float>(std::max(1.0, axisLengthMm));
+	double nx = jax;
+	double ny = jay;
+	double nz = jaz;
+	const double alen = std::sqrt(nx * nx + ny * ny + nz * nz);
+	if (alen > 1e-9)
+	{
+		nx /= alen;
+		ny /= alen;
+		nz /= alen;
+	}
+	else
+	{
+		nx = 0.0;
+		ny = 0.0;
+		nz = 1.0;
+	}
+
+	osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
+	vertices->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
+	vertices->push_back(osg::Vec3(static_cast<float>(nx * L), static_cast<float>(ny * L), static_cast<float>(nz * L)));
+
+	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+	colors->push_back(osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f));
+
+	osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+	geom->setVertexArray(vertices.get());
+	geom->setColorArray(colors.get(), osg::Array::BIND_PER_PRIMITIVE_SET);
+	geom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, 2));
+
+	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+	geode->setName(nodeName.empty() ? "JointRotationAxis" : nodeName);
+	geode->addDrawable(geom.get());
+
+	if (!axisLabelText.isEmpty())
+	{
+		osg::ref_ptr<osgText::Text> label = new osgText::Text;
+#ifdef Q_OS_WIN
+		label->setFont("C:/Windows/Fonts/msyh.ttc");
+#endif
+		const float charSize = static_cast<float>(std::max(12.0, axisLengthMm * 0.22));
+		label->setCharacterSize(charSize);
+		label->setFontResolution(48, 48);
+		label->setColor(osg::Vec4(1.0f, 1.0f, 0.35f, 1.0f));
+		label->setBackdropType(osgText::Text::NONE);
+		label->setAxisAlignment(osgText::TextBase::SCREEN);
+		label->setAlignment(osgText::TextBase::LEFT_CENTER);
+		const float pad = static_cast<float>(std::max(8.0, axisLengthMm * 0.08));
+		label->setPosition(osg::Vec3(
+			static_cast<float>(nx * (static_cast<double>(L) + pad)),
+			static_cast<float>(ny * (static_cast<double>(L) + pad)),
+			static_cast<float>(nz * (static_cast<double>(L) + pad))));
+		label->setText(axisLabelText.toStdString());
+		geode->addDrawable(label.get());
+	}
+
+	osg::StateSet* ss = geode->getOrCreateStateSet();
+	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	ss->setAttribute(new osg::LineWidth(2.5f));
+	ss->setAttributeAndModes(new osg::PolygonOffset(-1.0f, -1.0f), osg::StateAttribute::ON);
+	ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+	osg::ref_ptr<osg::Depth> depth = new osg::Depth;
+	depth->setFunction(osg::Depth::ALWAYS);
+	depth->setWriteMask(false);
+	ss->setAttributeAndModes(depth.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+	return geode;
+}
+
 static double linkFrameAxisLengthMmFromMesh(osg::Node* meshNode)
 {
 	if (!meshNode)
@@ -1211,7 +1335,7 @@ static double linkFrameAxisLengthMmFromMesh(osg::Node* meshNode)
 }
 
 /// 【中文】辅助：创建 Joint 的运动学层 (MatrixTransform)
-/// OSG：子节点局部坐标到父节点局部坐标为 v_parent = M * v_child，故 M = URDF 的 parent_T_child。
+/// 非转动关节：矩阵为完整 parent_T_child。转动/连续关节：矩阵仅为 R(q)，与 computeJointTransformMatrices 一致。
 static osg::ref_ptr<osg::MatrixTransform> createJointTransform(
 	const QString& jointName,
 	const Mat4& parent_T_child)
@@ -1304,6 +1428,80 @@ static bool attachLinkJointLink(
 	return true;
 }
 
+/// Parent_Link_Container -> JointOrigin(T_origin) -> JointRotation(R(q)) -> Child_Link_Container。
+/// 仅用于 revolute/continuous：与 URDF 分解 T_origin * R(q) 一致，避免「整段 parent_T_child 乘在一个节点上」与黄线 \<origin\> 语义不一致。
+static bool attachRevoluteJointDecomposed(
+	osg::Group* parentLinkContainer,
+	osg::MatrixTransform* jointOriginMt,
+	osg::MatrixTransform* jointRotationMt,
+	osg::Group* childLinkContainer,
+	const QString& jointName,
+	const QString& parentLinkName,
+	const QString& childLinkName,
+	QString* errorMessage)
+{
+	if (!parentLinkContainer || !jointOriginMt || !jointRotationMt || !childLinkContainer)
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("Internal: null OSG node while building revolute joint '%1'.").arg(jointName);
+		}
+		return false;
+	}
+	if (parentLinkContainer == childLinkContainer)
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral(
+				"Invalid URDF: joint '%1' parent link '%2' and child link '%3' map to the same scene node. "
+				"Use two different link names for parent and child (self-loop joints are not supported).")
+				.arg(jointName, parentLinkName, childLinkName);
+		}
+		return false;
+	}
+
+	osg::ref_ptr<osg::Group> keepChildAlive(childLinkContainer);
+	detachNodeFromAllParents(jointOriginMt);
+	detachNodeFromAllParents(jointRotationMt);
+	detachNodeFromAllParents(childLinkContainer);
+
+	if (!parentLinkContainer->addChild(jointOriginMt))
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral(
+				"OSG addChild failed: parent link container -> joint origin '%1'. "
+				"If OSG was built with ENSURE_CHILD_IS_UNIQUE, the joint origin node may already exist under this parent.")
+				.arg(jointName);
+		}
+		return false;
+	}
+	if (!jointOriginMt->addChild(jointRotationMt))
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral(
+				"OSG addChild failed: joint origin '%1' -> joint rotation (duplicate child under same origin?)")
+				.arg(jointName);
+		}
+		parentLinkContainer->removeChild(jointOriginMt);
+		return false;
+	}
+	if (!jointRotationMt->addChild(childLinkContainer))
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral(
+				"OSG addChild failed: joint '%1' -> child link '%2' (duplicate child under same joint?)")
+				.arg(jointName, childLinkName);
+		}
+		jointOriginMt->removeChild(jointRotationMt);
+		parentLinkContainer->removeChild(jointOriginMt);
+		return false;
+	}
+	return true;
+}
+
 /// 【中文】构建层级化 URDF 机器人场景图（三层分离架构）
 /// 【English】Build hierarchical URDF robot scene graph with three-layer separation
 osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
@@ -1349,8 +1547,9 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 		{
 			// 创建空容器（无几何体的 Link）
 			osg::ref_ptr<osg::Group> container = createContainerLayer(linkName);
-			container->addChild(createLinkFrameAxesGeode(
-				kUrdfLinkFrameAxisMmDefault, linkName.toStdString() + "_LinkFrameAxes").get());
+			// 连杆系原点坐标轴（暂时关闭，改用关节坐标系可视化）
+			// container->addChild(createLinkFrameAxesGeode(
+			//	kUrdfLinkFrameAxisMmDefault, linkName.toStdString() + "_LinkFrameAxes").get());
 			keepLinkContainersAlive.push_back(container);
 			outLinkToContainer[linkName] = container.get();
 			continue;
@@ -1381,10 +1580,10 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 		// 几何层：仅 visual origin + 法线/光照（与关节 MatrixTransform 分工；不读 mesh scale）
 		osg::ref_ptr<osg::MatrixTransform> geometryXf = createLinkVisualFromMesh(linkName, vis, meshNode);
 		container->addChild(geometryXf.get());
-		// 连杆系原点坐标轴（X 红 / Y 绿 / Z 蓝）；StateSet 关闭深度测试，不被网格遮挡。挂在几何之后便于同深度下后画。
-		container->addChild(createLinkFrameAxesGeode(
-			linkFrameAxisLengthMmFromMesh(meshNode.get()), linkName.toStdString() + "_LinkFrameAxes")
-			.get());
+		// 连杆系原点坐标轴（暂时关闭，改用关节坐标系可视化）
+		// container->addChild(createLinkFrameAxesGeode(
+		//	linkFrameAxisLengthMmFromMesh(meshNode.get()), linkName.toStdString() + "_LinkFrameAxes")
+		//	.get());
 
 		keepLinkContainersAlive.push_back(container);
 
@@ -1420,6 +1619,9 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 	start.container = rootIt.value();
 	start.worldFromLink = matIdentity();
 	q.push(start);
+
+	// BFS 中第几个「转动/连续关节」轴线可视化（与 loadRevoluteJointMeta / 滑块顺序一致，每个旁标注「第 N 个关节的旋转轴」）
+	int revoluteJointAxisVisualIndex = 0;
 
 	while (!q.empty())
 	{
@@ -1459,23 +1661,59 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 				continue;
 			}
 
-			// 【关键】Joint MatrixTransform：存 parent_T_child（与 computeJointTransformMatrices / setMatrix 一致）
-			osg::ref_ptr<osg::MatrixTransform> jointMT = createJointTransform(j.name, parent_T_child);
 			osg::Group* parentContainer = parentIt.value();
-			osg::MatrixTransform* jointNode = jointMT.get();
 			osg::Group* childContainer = childIt.value();
-			if (!parentContainer || !jointNode || !childContainer)
+			if (!parentContainer || !childContainer)
 			{
 				continue;
 			}
 
-			if (!attachLinkJointLink(parentContainer, jointNode, childContainer, j.name, j.parent, j.child, errorMessage))
-			{
-				return nullptr;
-			}
+			const QString jtLower = j.type.toLower();
+			const bool isRevolute =
+				(jtLower == QLatin1String("revolute") || jtLower == QLatin1String("continuous"));
 
-			// 记录 Joint 变换节点（存储原始指针，所有权由场景图保持）
-			outJointTransforms[j.name] = jointNode;
+			// 转动/连续：Parent -> JointOrigin(T_origin) -> [黄线+标签, JointRotation(R(q))] -> Child。
+			// 与 URDF 分解 parent_T_child = T_origin * R(q) 一致；动态更新只写 R(q) 到关节名节点（与 computeJointTransformMatrices 一致）。
+			if (isRevolute)
+			{
+				const QString axisLabel =
+					QStringLiteral("第%1个关节的旋转轴").arg(revoluteJointAxisVisualIndex + 1);
+				++revoluteJointAxisVisualIndex;
+
+				const Mat4 T_origin = jointOriginFixedTransform(j);
+				osg::ref_ptr<osg::MatrixTransform> jointOriginMt = new osg::MatrixTransform;
+				jointOriginMt->setName((j.name + QStringLiteral("_JointOrigin")).toStdString());
+				jointOriginMt->setMatrix(mat4ToOsg(T_origin));
+				jointOriginMt->addChild(createJointRotationAxisLineGeode(kUrdfLinkFrameAxisMmDefault, j.ax, j.ay, j.az,
+						(j.name + QStringLiteral("_JointAxis")).toStdString(), axisLabel)
+					.get());
+
+				osg::ref_ptr<osg::MatrixTransform> jointMT = createJointTransform(j.name, matIdentity());
+				osg::MatrixTransform* jointNode = jointMT.get();
+				if (!attachRevoluteJointDecomposed(
+						parentContainer,
+						jointOriginMt.get(),
+						jointNode,
+						childContainer,
+						j.name,
+						j.parent,
+						j.child,
+						errorMessage))
+				{
+					return nullptr;
+				}
+				outJointTransforms[j.name] = jointNode;
+			}
+			else
+			{
+				osg::ref_ptr<osg::MatrixTransform> jointMT = createJointTransform(j.name, parent_T_child);
+				osg::MatrixTransform* jointNode = jointMT.get();
+				if (!attachLinkJointLink(parentContainer, jointNode, childContainer, j.name, j.parent, j.child, errorMessage))
+				{
+					return nullptr;
+				}
+				outJointTransforms[j.name] = jointNode;
+			}
 
 			// 计算子 Link 的世界矩阵，继续 BFS
 			Mat4 childWorldFromLink = matMul(cur.worldFromLink, parent_T_child);
