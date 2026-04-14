@@ -140,7 +140,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIDGET_LIB;BACKENDVISUAL_STATIC;ROBOT_URDF_STATIC;ROBOT_SCENE_STATIC</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIDGET_LIB;BACKENDVISUAL_STATIC;ROBOT_URDF_STATIC;ROBOT_SCENE_STATIC;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>

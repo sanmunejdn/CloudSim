@@ -138,7 +138,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>ROBOT_SCENE_STATIC;ROBOT_URDF_STATIC;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ROBOT_SCENE_STATIC;ROBOT_URDF_STATIC;_DEBUG;_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>inc;../RobotUrdf/inc;../Data/inc;../../bin/SDK/JSON;../../OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>

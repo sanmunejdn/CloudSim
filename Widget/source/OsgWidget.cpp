@@ -643,15 +643,9 @@ void OsgWidget::initViewer()
 	m_viewer = new osgViewer::Viewer;
 	m_viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
 	m_viewer->setRunFrameScheme(osgViewer::Viewer::CONTINUOUS);
-	applyHeadlightToViewer(m_viewer.get());
-	m_viewer->setSceneData(m_root.get());
-	m_viewer->addEventHandler(new osgGA::StateSetManipulator(m_viewer->getCamera()->getOrCreateStateSet()));
 
-	m_trackballManipulator = new osgGA::TrackballManipulator;
-	m_trackballManipulator->setAllowThrow(false);
-	m_viewer->setCameraManipulator(m_trackballManipulator.get());
-	m_viewer->getEventQueue()->syncWindowRectangleWithGraphicsContext();
-
+	// GraphicsContext must be attached to the main camera before setSceneData, otherwise OSG can
+	// touch invalid viewer/GC state during scene compile (often Debug-only access violations).
 	auto* gwQt = new GraphicsWindowQt1(m_glWidget);
 	m_graphicsWindow = gwQt;
 	gwQt->setViewer(m_viewer.get());
@@ -670,18 +664,34 @@ void OsgWidget::initViewer()
 		if (m_viewer.valid() && m_viewer->getCamera())
 		{
 			m_viewer->getCamera()->setViewport(0, 0, w, h);
+			const double aspect = static_cast<double>((std::max)(1, w))
+				/ static_cast<double>((std::max)(1, h));
+			m_viewer->getCamera()->setProjectionMatrixAsPerspective(30.0, aspect, 10.0, 1e8);
 		}
 		updateWorldAxesHudViewport(w, h);
 	});
 
 	m_viewer->getCamera()->setGraphicsContext(m_graphicsWindow.get());
-	m_viewer->getCamera()->setViewport(0, 0, m_glWidget->width(), m_glWidget->height());
 	m_viewer->getCamera()->setCullMask(0xffffffffu);
+	// Some OSG builds crash in Debug when viewport/projection are set before the graphics context is fully valid.
+	// Defer these calls unless the context reports valid; resize callback will configure them again.
+	if (m_graphicsWindow.valid() && m_graphicsWindow->valid())
 	{
+		m_viewer->getCamera()->setViewport(0, 0, m_glWidget->width(), m_glWidget->height());
 		const double aspect = static_cast<double>((std::max)(1, m_glWidget->width()))
 			/ static_cast<double>((std::max)(1, m_glWidget->height()));
 		m_viewer->getCamera()->setProjectionMatrixAsPerspective(30.0, aspect, 10.0, 1e8);
 	}
+
+	applyHeadlightToViewer(m_viewer.get());
+	m_viewer->setSceneData(m_root.get());
+	m_viewer->addEventHandler(new osgGA::StateSetManipulator(m_viewer->getCamera()->getOrCreateStateSet()));
+
+	m_trackballManipulator = new osgGA::TrackballManipulator;
+	m_trackballManipulator->setAllowThrow(false);
+	m_viewer->setCameraManipulator(m_trackballManipulator.get());
+	m_viewer->getEventQueue()->syncWindowRectangleWithGraphicsContext();
+
 	setViewerBackgroundForDarkUi(false);
 	m_viewer->getCamera()->setViewMatrixAsLookAt(
 		osg::Vec3(3, 3, 3),

@@ -118,7 +118,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>DATA_LIB</PreprocessorDefinitions>
+      <PreprocessorDefinitions>DATA_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>inc;../../bin/SDK/JSON;../../bin/SDK/opencascade-7.9.3-vc14-64/inc;../../bin/SDK/dxfSolution/dxflib/inc;../../boost_1_79_0;../../CGAL5.5.2/auxiliary/gmp/include;../../CGAL5.5.2/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>

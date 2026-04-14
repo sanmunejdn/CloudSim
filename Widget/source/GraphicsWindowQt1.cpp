@@ -41,7 +41,13 @@ GraphicsWindowQt1::~GraphicsWindowQt1()
 bool GraphicsWindowQt1::init(QWidget* parent, const QGLWidget* shareWidget, Qt::WindowFlags f)
 {
 	// update _widget and parent by WindowData
-	WindowData* windowData = _traits.get() ? dynamic_cast<WindowData*>(_traits->inheritedWindowData.get()) : 0;
+	WindowData* windowData = nullptr;
+	// When _widget is already provided (our common embedding path), we do not need inheritedWindowData.
+	// This avoids touching RTTI on external inherited data and prevents debug crashes on invalid metadata.
+	if (!_widget && _traits.get())
+	{
+		windowData = dynamic_cast<WindowData*>(_traits->inheritedWindowData.get());
+	}
 	if (!_widget)
 		_widget = windowData ? windowData->_widget : NULL;
 	if (!parent)
@@ -154,7 +160,8 @@ void GraphicsWindowQt1::qglFormat2traits(const QGLFormat& format, osg::GraphicsC
 
 osg::GraphicsContext::Traits* GraphicsWindowQt1::createTraits(const QGLWidget* widget)
 {
-	osg::GraphicsContext::Traits* traits = new osg::GraphicsContext::Traits;
+	// Value-initialize so std::string and other members have deterministic state before we write fields.
+	osg::GraphicsContext::Traits* traits = new osg::GraphicsContext::Traits{};
 
 	qglFormat2traits(widget->format(), traits);
 
@@ -164,7 +171,19 @@ osg::GraphicsContext::Traits* GraphicsWindowQt1::createTraits(const QGLWidget* w
 	traits->width = r.width();
 	traits->height = r.height();
 
-	traits->windowName = widget->windowTitle().toLocal8Bit().data();
+	// Do not assign QString::toStdString() into traits->windowName: MSVC Debug can crash in
+	// string move-assignment (_Tidy_deallocate) when the temporary string's allocator/heap
+	// does not match this module's std::string (Qt vs app CRT / iterator debug settings).
+	// Copy UTF-8 bytes only when non-empty so constData() is never nullptr for assign().
+	{
+		const QByteArray titleUtf8 = widget->windowTitle().toUtf8();
+		if (!titleUtf8.isEmpty())
+		{
+			traits->windowName.assign(
+				titleUtf8.constData(),
+				static_cast<size_t>(titleUtf8.size()));
+		}
+	}
 	Qt::WindowFlags f = widget->windowFlags();
 	traits->windowDecoration = (f & Qt::WindowTitleHint) &&
 		(f & Qt::WindowMinMaxButtonsHint) &&
