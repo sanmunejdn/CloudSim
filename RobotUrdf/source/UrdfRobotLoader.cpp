@@ -19,9 +19,13 @@
 #include <QDebug>
 
 #include <osg/Array>
+#include <osg/Depth>
+#include <osg/GL>
 #include <osg/Geode>
 #include <osg/Geometry>
 #include <osg/Group>
+#include <osg/LineWidth>
+#include <osg/PolygonOffset>
 #include <osg/Material>
 #include <osg/Math>
 #include <osg/Matrixd>
@@ -85,6 +89,11 @@ constexpr double kMeshFileVertexUnitsToInternalMm = 1.0;
 // OSG SmoothingVisitor 会对已三角化的 STL/STEP 导出网格合并顶点并重算法线，工业网格上易出现「斑马纹 / 条纹状」错误着色。
 // 插件读入的网格通常已带法线；需要更圆滑外观时可改为 true。
 constexpr bool kUrdfMeshUseSmoothingVisitor = false;
+
+// 连杆系原点处 RGB 坐标轴长度（mm）：无网格时用默认；有网格时按包围球半径比例缩放。
+constexpr double kUrdfLinkFrameAxisMmDefault = 100.0;
+constexpr double kUrdfLinkFrameAxisMmMin = 25.0;
+constexpr double kUrdfLinkFrameAxisMmMax = 500.0;
 
 struct Mat4
 {
@@ -438,6 +447,35 @@ osg::Matrixd mat4ToOsg(const Mat4& m)
 	return o;
 }
 
+// 刚体齐次矩阵的逆：T = [R|t; 0 0 0 1] 时 T^{-1} = [R^T | -R^T t; 0 0 0 1]（列向量左乘）。
+static Mat4 mat4RigidInverse(const Mat4& t)
+{
+	const double tx = t.m[12];
+	const double ty = t.m[13];
+	const double tz = t.m[14];
+	const double dot0 = t.m[0] * tx + t.m[4] * ty + t.m[8] * tz;
+	const double dot1 = t.m[1] * tx + t.m[5] * ty + t.m[9] * tz;
+	const double dot2 = t.m[2] * tx + t.m[6] * ty + t.m[10] * tz;
+	Mat4 r{};
+	r.m[0] = t.m[0];
+	r.m[1] = t.m[4];
+	r.m[2] = t.m[8];
+	r.m[3] = 0.0;
+	r.m[4] = t.m[1];
+	r.m[5] = t.m[5];
+	r.m[6] = t.m[9];
+	r.m[7] = 0.0;
+	r.m[8] = t.m[2];
+	r.m[9] = t.m[6];
+	r.m[10] = t.m[10];
+	r.m[11] = 0.0;
+	r.m[12] = -dot0;
+	r.m[13] = -dot1;
+	r.m[14] = -dot2;
+	r.m[15] = 1.0;
+	return r;
+}
+
 Mat4 matAxisAngleRad(double ax, double ay, double az, double angle)
 {
 	osg::Quat q;
@@ -508,6 +546,7 @@ static Mat4 jointChildTransformAtZeroConfiguration(const UrdfJoint& j)
 		j.roll,
 		j.pitch,
 		j.yaw);
+
 	const QString jt = j.type.toLower();
 	if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
 	{
@@ -913,8 +952,8 @@ void UrdfRobotLoader::clearUrdfModelCache()
 	g_urdfModelCache.clear();
 }
 
-// 【中文】计算给定关节角度下的所有 Joint 变换矩阵（parent_T_child）。
-// 用于动态层级法：关节角度更新时，直接获取新的矩阵并设置到对应的 MatrixTransform。
+// 【中文】计算给定关节角度下的 Joint 矩阵：与 OSG MatrixTransform 一致，v_parent = M * v_child，故 M = parent_T_child（非逆矩阵）。
+// buildHierarchicalRobotScene 中 createJointTransform 亦使用 parent_T_child；此前若误写 inv，在 joint origin 为单位阵时不暴露，一旦有平移/旋转则子树与坐标轴会错位或看似「不显示」。
 bool UrdfRobotLoader::computeJointTransformMatrices(
 	const QString& urdfFilePath,
 	const QVector<double>& jointAnglesRad,
@@ -962,12 +1001,8 @@ bool UrdfRobotLoader::computeJointTransformMatrices(
 			{
 				continue;
 			}
-			// 计算 Joint 的 parent_T_child 矩阵（包含关节角度）
 			const Mat4 parent_T_child = jointChildTransformForFk(j, jointAnglesRad, qIndex);
-
-			// 转换为 osg::Matrixd 并保存
-			osg::Matrixd osgMatrix = mat4ToOsg(parent_T_child);
-			outJointMatrices[j.name] = osgMatrix;
+			outJointMatrices[j.name] = mat4ToOsg(parent_T_child);
 
 			// 计算子 Link 的世界矩阵，继续 BFS
 			Mat4 childWorldFromLink = matMul(cur.worldFromLink, parent_T_child);
@@ -1105,8 +1140,78 @@ static osg::ref_ptr<osg::Group> createContainerLayer(const QString& linkName)
 	return container;
 }
 
+/// 连杆坐标系原点：X 红、Y 绿、Z 蓝（与 ROS / RViz 常见约定一致）；长度单位为 mm。
+/// 渲染状态与视图 compass 一致：关闭深度测试 / 深度始终通过，避免被三角网格遮挡。
+static osg::ref_ptr<osg::Geode> createLinkFrameAxesGeode(double axisLengthMm, const std::string& nodeName)
+{
+	const float L = static_cast<float>(std::max(1.0, axisLengthMm));
+	osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
+	vertices->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
+	vertices->push_back(osg::Vec3(L, 0.0f, 0.0f));
+	vertices->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
+	vertices->push_back(osg::Vec3(0.0f, L, 0.0f));
+	vertices->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
+	vertices->push_back(osg::Vec3(0.0f, 0.0f, L));
+
+	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+	colors->push_back(osg::Vec4(1.0f, 0.15f, 0.15f, 1.0f));
+	colors->push_back(osg::Vec4(0.15f, 1.0f, 0.15f, 1.0f));
+	colors->push_back(osg::Vec4(0.15f, 0.35f, 1.0f, 1.0f));
+
+	osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+	geom->setVertexArray(vertices.get());
+	geom->setColorArray(colors.get(), osg::Array::BIND_PER_PRIMITIVE_SET);
+	geom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, 2));
+	geom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 2, 2));
+	geom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 4, 2));
+
+	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+	geode->setName(nodeName.empty() ? "LinkFrameAxes" : nodeName);
+	geode->addDrawable(geom.get());
+	osg::StateSet* ss = geode->getOrCreateStateSet();
+	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	ss->setAttribute(new osg::LineWidth(2.5f));
+	ss->setAttributeAndModes(new osg::PolygonOffset(-1.0f, -1.0f), osg::StateAttribute::ON);
+	ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+	osg::ref_ptr<osg::Depth> depth = new osg::Depth;
+	depth->setFunction(osg::Depth::ALWAYS);
+	depth->setWriteMask(false);
+	ss->setAttributeAndModes(depth.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+	return geode;
+}
+
+static double linkFrameAxisLengthMmFromMesh(osg::Node* meshNode)
+{
+	if (!meshNode)
+	{
+		return kUrdfLinkFrameAxisMmDefault;
+	}
+	const osg::BoundingSphere& bs = meshNode->getBound();
+	if (!bs.valid())
+	{
+		return kUrdfLinkFrameAxisMmDefault;
+	}
+	const double r = static_cast<double>(bs.radius());
+	if (!(r > 1e-9))
+	{
+		return kUrdfLinkFrameAxisMmDefault;
+	}
+	double len = r * 0.2;
+	if (len < kUrdfLinkFrameAxisMmMin)
+	{
+		len = kUrdfLinkFrameAxisMmMin;
+	}
+	if (len > kUrdfLinkFrameAxisMmMax)
+	{
+		len = kUrdfLinkFrameAxisMmMax;
+	}
+	return len;
+}
+
 /// 【中文】辅助：创建 Joint 的运动学层 (MatrixTransform)
-/// 运动学层：存储 parent_T_child 矩阵
+/// OSG：子节点局部坐标到父节点局部坐标为 v_parent = M * v_child，故 M = URDF 的 parent_T_child。
 static osg::ref_ptr<osg::MatrixTransform> createJointTransform(
 	const QString& jointName,
 	const Mat4& parent_T_child)
@@ -1244,6 +1349,8 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 		{
 			// 创建空容器（无几何体的 Link）
 			osg::ref_ptr<osg::Group> container = createContainerLayer(linkName);
+			container->addChild(createLinkFrameAxesGeode(
+				kUrdfLinkFrameAxisMmDefault, linkName.toStdString() + "_LinkFrameAxes").get());
 			keepLinkContainersAlive.push_back(container);
 			outLinkToContainer[linkName] = container.get();
 			continue;
@@ -1274,6 +1381,10 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 		// 几何层：仅 visual origin + 法线/光照（与关节 MatrixTransform 分工；不读 mesh scale）
 		osg::ref_ptr<osg::MatrixTransform> geometryXf = createLinkVisualFromMesh(linkName, vis, meshNode);
 		container->addChild(geometryXf.get());
+		// 连杆系原点坐标轴（X 红 / Y 绿 / Z 蓝）；StateSet 关闭深度测试，不被网格遮挡。挂在几何之后便于同深度下后画。
+		container->addChild(createLinkFrameAxesGeode(
+			linkFrameAxisLengthMmFromMesh(meshNode.get()), linkName.toStdString() + "_LinkFrameAxes")
+			.get());
 
 		keepLinkContainersAlive.push_back(container);
 
@@ -1348,8 +1459,7 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 				continue;
 			}
 
-			// 【关键】创建运动学层：Joint MatrixTransform
-			// 矩阵直接存储 parent_T_child（在父 Link 系中，子 Link 的位姿）
+			// 【关键】Joint MatrixTransform：存 parent_T_child（与 computeJointTransformMatrices / setMatrix 一致）
 			osg::ref_ptr<osg::MatrixTransform> jointMT = createJointTransform(j.name, parent_T_child);
 			osg::Group* parentContainer = parentIt.value();
 			osg::MatrixTransform* jointNode = jointMT.get();

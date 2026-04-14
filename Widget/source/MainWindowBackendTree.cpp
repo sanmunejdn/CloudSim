@@ -19,9 +19,138 @@
 #include "PointCloudBackendData.h"
 #include "RunInfoPage.h"
 
+#include <osg/AutoTransform>
+#include <osg/Camera>
+#include <osg/Drawable>
+#include <osg/Geode>
+#include <osg/Group>
+#include <osg/MatrixTransform>
+#include <osg/Matrixd>
+#include <osg/Node>
+#include <osg/PositionAttitudeTransform>
 #include <osg/Vec3f>
 
 using namespace mainwindow_detail;
+
+namespace
+{
+
+QString osgNodeLine(const osg::Node* node)
+{
+	if (!node)
+	{
+		return QStringLiteral("(null)");
+	}
+	const QString cls = QString::fromLatin1(node->className());
+	const std::string& nm = node->getName();
+	if (nm.empty())
+	{
+		return cls;
+	}
+	return cls + QStringLiteral(" \u2014 ") + QString::fromStdString(nm);
+}
+
+QString formatMatrix4(const osg::Matrixd& m)
+{
+	QString s;
+	for (int r = 0; r < 4; ++r)
+	{
+		QString row;
+		for (int c = 0; c < 4; ++c)
+		{
+			if (c)
+			{
+				row += QLatin1Char(' ');
+			}
+			row += QString::number(m(r, c), 'g', 6);
+		}
+		if (r)
+		{
+			s += QLatin1Char('\n');
+		}
+		s += row;
+	}
+	return s;
+}
+
+/// Local transform stored on this node (not accumulated world matrix). Non-transform nodes: em dash.
+QString localMatrixSummary(const osg::Node* node)
+{
+	if (!node)
+	{
+		return QStringLiteral("\u2014");
+	}
+	if (const auto* cam = dynamic_cast<const osg::Camera*>(node))
+	{
+		return QStringLiteral("View:\n%1\nProj:\n%2")
+			.arg(formatMatrix4(cam->getViewMatrix()))
+			.arg(formatMatrix4(cam->getProjectionMatrix()));
+	}
+	if (const auto* mt = dynamic_cast<const osg::MatrixTransform*>(node))
+	{
+		return formatMatrix4(mt->getMatrix());
+	}
+	if (const auto* pat = dynamic_cast<const osg::PositionAttitudeTransform*>(node))
+	{
+		const osg::Matrixd m = osg::Matrixd::translate(pat->getPosition()) * osg::Matrixd::rotate(pat->getAttitude())
+			* osg::Matrixd::scale(pat->getScale());
+		return formatMatrix4(m);
+	}
+	if (const auto* at = dynamic_cast<const osg::AutoTransform*>(node))
+	{
+		const osg::Matrixd m = osg::Matrixd::translate(at->getPosition()) * osg::Matrixd::rotate(at->getRotation())
+			* osg::Matrixd::scale(at->getScale());
+		return formatMatrix4(m);
+	}
+	return QStringLiteral("\u2014");
+}
+
+void appendOsgNodeRecursive(QTreeWidgetItem* parent, osg::Node* node, int depthLeft)
+{
+	if (!node || depthLeft <= 0)
+	{
+		return;
+	}
+	auto* item = new QTreeWidgetItem(QStringList() << osgNodeLine(node) << localMatrixSummary(node));
+	parent->addChild(item);
+
+	if (osg::Group* g = node->asGroup())
+	{
+		for (unsigned i = 0; i < g->getNumChildren(); ++i)
+		{
+			appendOsgNodeRecursive(item, g->getChild(i), depthLeft - 1);
+		}
+		return;
+	}
+
+	auto* geode = dynamic_cast<osg::Geode*>(node);
+	if (!geode)
+	{
+		return;
+	}
+	for (unsigned i = 0; i < geode->getNumDrawables(); ++i)
+	{
+		osg::Drawable* d = geode->getDrawable(i);
+		QString line = QStringLiteral("Drawable: ");
+		if (d)
+		{
+			line += QString::fromLatin1(d->className());
+			const std::string& dn = d->getName();
+			if (!dn.empty())
+			{
+				line += QStringLiteral(" \u2014 ") + QString::fromStdString(dn);
+			}
+		}
+		else
+		{
+			line += QStringLiteral("(null)");
+		}
+		item->addChild(new QTreeWidgetItem(QStringList()
+			<< line << QStringLiteral("\u2014")));
+	}
+}
+
+} // namespace
 
 void MainWindow::refreshBackendTree()
 {
@@ -119,6 +248,34 @@ void MainWindow::refreshBackendTree()
 			}
 		}
 	}
+
+	refreshOsgSceneTree();
+}
+
+void MainWindow::refreshOsgSceneTree()
+{
+	if (!m_osgSceneTree)
+	{
+		return;
+	}
+	m_osgSceneTree->clear();
+	OsgWidget* osg = currentOsgWidget();
+	const osg::Group* root = osg ? osg->sceneGraphRoot() : nullptr;
+	if (!root)
+	{
+		m_osgSceneTree->addTopLevelItem(new QTreeWidgetItem(QStringList()
+			<< i18n(QStringLiteral("No scene"), QStringLiteral("\u65E0\u573A\u666F")) << QString()));
+		return;
+	}
+
+	auto* rootItem = new QTreeWidgetItem(QStringList() << osgNodeLine(root) << localMatrixSummary(root));
+	m_osgSceneTree->addTopLevelItem(rootItem);
+	osg::Group* rootRw = const_cast<osg::Group*>(root);
+	for (unsigned i = 0; i < rootRw->getNumChildren(); ++i)
+	{
+		appendOsgNodeRecursive(rootItem, rootRw->getChild(i), 256);
+	}
+	rootItem->setExpanded(true);
 }
 
 void MainWindow::onBackendTreeSelectionChanged()
@@ -228,6 +385,7 @@ void MainWindow::onAnnotationCreated(const QString& annotationId, const QString&
 	item->setCheckState(0, Qt::Checked);
 	m_annotationRootItem->addChild(item);
 	m_annotationRootItem->setExpanded(true);
+	refreshOsgSceneTree();
 }
 
 void MainWindow::onAnnotationRemoved(const QString& annotationId)
@@ -242,6 +400,7 @@ void MainWindow::onAnnotationRemoved(const QString& annotationId)
 		if (child && child->data(0, kRoleAnnotationId).toString() == annotationId)
 		{
 			delete m_annotationRootItem->takeChild(i);
+			refreshOsgSceneTree();
 			return;
 		}
 	}
@@ -285,6 +444,7 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 		if (action == clearAll)
 		{
 			osg->clearAllAnnotations();
+			refreshOsgSceneTree();
 			if (m_runInfoPage)
 			{
 				m_runInfoPage->appendInfo(QStringLiteral("All annotations cleared."));

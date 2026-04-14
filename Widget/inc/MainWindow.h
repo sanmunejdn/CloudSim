@@ -53,6 +53,7 @@ private:
 	void applyLanguage();
 	QString i18n(const QString& en, const QString& zh) const;
 	void refreshBackendTree();
+	void refreshOsgSceneTree();
 	/** Selects the tree row for this backend id and refreshes the property panel (import / project load). */
 	void focusBackendInTree(const std::shared_ptr<BackendDataBase>& backendObject);
 	/** Load geometry via Data (CGAL) when possible; LAS/LAZ and exotic mesh formats fall back to OSG. */
@@ -111,6 +112,7 @@ private:
 
 	QTabWidget* m_documentTabs = nullptr;
 	QTreeWidget* m_backendTree = nullptr;
+	QTreeWidget* m_osgSceneTree = nullptr;
 	QTreeWidgetItem* m_backendRootItem = nullptr;
 	QTreeWidgetItem* m_annotationRootItem = nullptr;
 	QtTreePropertyBrowser* m_propertyBrowser = nullptr;

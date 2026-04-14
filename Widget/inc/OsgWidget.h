@@ -147,6 +147,8 @@ public:
 	void setViewerBackgroundForDarkUi(bool dark);
 	/// True when at least one backend object has scene geometry (or import staging is present).
 	bool hasImportedContent() const;
+	/// Root passed to the viewer (\c setSceneData); use for scene-graph hierarchy UI / debugging.
+	const osg::Group* sceneGraphRoot() const { return m_root.get(); }
 	/// Rigid-body rotation: each backend root rotates about \a pivotWorld by \a deltaRotation (left-multiply attitude).
 	void applyRigidRotationAboutWorldPivot(const std::vector<std::string>& backendIds, const osg::Vec3f& pivotWorld,
 		const osg::Quat& deltaRotation);

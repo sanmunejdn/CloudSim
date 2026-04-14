@@ -56,12 +56,12 @@ namespace UrdfRobotLoader
 	/// 【中文】清空已缓存的 URDF 解析树；一般依赖 mtime 自动失效即可。
 	ROBOT_URDF_API void clearUrdfModelCache();
 
-	/// 【中文】计算给定关节角度下的所有 Joint 变换矩阵（parent_T_child）。
-	/// 用于动态层级法：关节角度更新时，直接获取新的矩阵并设置到对应的 MatrixTransform。
+	/// 【中文】计算给定关节角度下的 Joint 矩阵：与 OSG MatrixTransform 一致，v_parent = M * v_child，故 M = parent_T_child。
+	/// 用于动态层级法：关节角度更新时写入关节节点；须与 buildHierarchicalRobotScene 中矩阵语义一致（误用 inv 时，joint origin 为单位阵不暴露，有平移时子树会错位）。
 	///
 	/// @param urdfFilePath URDF 文件路径
 	/// @param jointAnglesRad 关节角度（弧度），顺序与 loadRevoluteJointNamesInOrder 一致
-	/// @param outJointMatrices 输出：JointName -> parent_T_child 矩阵（osg::Matrixd）
+	/// @param outJointMatrices 输出：JointName -> parent_T_child（osg::Matrixd）
 	/// @param errorMessage 可选错误输出
 	/// @return true 成功，false 失败
 	ROBOT_URDF_API bool computeJointTransformMatrices(
@@ -80,7 +80,7 @@ namespace UrdfRobotLoader
 	/// 架构说明（三层分离模型）：
 	/// - 几何体层：原始 Mesh 数据，使用 PAT/Geode，矩阵固定为单位阵 (位置=0,0,0)
 	/// - 视觉容器层：osg::Group 包裹几何体，setCullingActive(false) 防止裁剪问题
-	/// - 运动学层：osg::MatrixTransform 代表 URDF 中的 <joint>，存储 parent_T_child 矩阵
+	/// - 运动学层：osg::MatrixTransform 代表 URDF 中的 <joint>，存储 parent_T_child（子连杆系相对父连杆系）
 	///
 	/// 层级结构：
 	///   RobotAssembly (Group)

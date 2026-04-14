@@ -298,6 +298,16 @@ void MainWindow::setupDockWidgets()
 	m_simulationDockTabs->addTab(m_robotAxisControlPage, QStringLiteral("Axis control"));
 	m_unitDockTabs->addTab(m_backendTree, QStringLiteral("Units"));
 	m_unitDockTabs->addTab(m_simulationDockTabs, QStringLiteral("Simulation"));
+	m_osgSceneTree = new QTreeWidget();
+	m_osgSceneTree->setColumnCount(2);
+	m_osgSceneTree->setHeaderHidden(false);
+	m_osgSceneTree->header()->setStretchLastSection(true);
+	m_osgSceneTree->setColumnWidth(0, 260);
+	m_osgSceneTree->setUniformRowHeights(false);
+	m_osgSceneTree->setWordWrap(true);
+	m_osgSceneTree->setAnimated(false);
+	m_osgSceneTree->setHeaderLabels(QStringList() << QStringLiteral("Node") << QStringLiteral("Local transform"));
+	m_unitDockTabs->addTab(m_osgSceneTree, QStringLiteral("Scene"));
 	m_unitDock->setWidget(m_unitDockTabs);
 	connect(m_simulationCommandPage, &SimulationCommandWidget::runRequested, this, &MainWindow::onSimulationRunRequested);
 	connect(m_simulationCommandPage, &SimulationCommandWidget::stopRequested, this, &MainWindow::onSimulationStopRequested);
@@ -379,11 +389,16 @@ void MainWindow::applyLanguage()
 		m_propertyDockTabs->setTabText(0, i18n(QStringLiteral("Property"), QStringLiteral("\u5C5E\u6027")));
 		m_propertyDockTabs->setTabText(1, i18n(QStringLiteral("Devices"), QStringLiteral("\u8BBE\u5907")));
 	}
-	if (m_unitDock) m_unitDock->setWindowTitle(i18n(QStringLiteral("Unit / Simulation"), QStringLiteral("\u5355\u5143 / \u4EFF\u7711")));
-	if (m_unitDockTabs && m_unitDockTabs->count() >= 2)
+	if (m_unitDock)
+	{
+		m_unitDock->setWindowTitle(i18n(QStringLiteral("Units / Simulation / Scene"),
+			QStringLiteral("\u5355\u5143 / \u4EFF\u7711 / \u573A\u666F")));
+	}
+	if (m_unitDockTabs && m_unitDockTabs->count() >= 3)
 	{
 		m_unitDockTabs->setTabText(0, i18n(QStringLiteral("Units"), QStringLiteral("\u5355\u5143\u90E8\u4EF6")));
 		m_unitDockTabs->setTabText(1, i18n(QStringLiteral("Simulation"), QStringLiteral("\u6307\u4EE4\u4EFF\u7711")));
+		m_unitDockTabs->setTabText(2, i18n(QStringLiteral("Scene graph"), QStringLiteral("\u573A\u666F\u5C42\u7EA7")));
 	}
 	if (m_simulationCommandPage)
 	{
@@ -410,6 +425,12 @@ void MainWindow::applyLanguage()
 				<< i18n(QStringLiteral("Property"), QStringLiteral("\u5C5E\u6027"))
 				<< i18n(QStringLiteral("Value"), QStringLiteral("\u503C")));
 		}
+	}
+	if (m_osgSceneTree)
+	{
+		m_osgSceneTree->setHeaderLabels(QStringList()
+			<< i18n(QStringLiteral("Node"), QStringLiteral("\u8282\u70B9"))
+			<< i18n(QStringLiteral("Local transform"), QStringLiteral("\u672C\u5730\u53D8\u6362\u77E9\u9635")));
 	}
 	if (m_backendRootItem)
 	{
