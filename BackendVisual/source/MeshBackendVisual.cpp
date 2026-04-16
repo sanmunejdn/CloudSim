@@ -112,7 +112,7 @@ osg::ref_ptr<osg::Node> buildMeshDisplayNodeImpl(const MeshBackendData& data, co
 		applyLitPlastic(*mat, fillColor);
 		osg::StateSet* ssFill = geodeFill->getOrCreateStateSet();
 		ssFill->setAttributeAndModes(mat.get(), osg::StateAttribute::ON);
-		ssFill->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+		//ssFill->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 		ssFill->setMode(GL_LIGHTING, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 		ssFill->setMode(GL_LIGHT0, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 		ssFill->setMode(GL_NORMALIZE, osg::StateAttribute::ON);

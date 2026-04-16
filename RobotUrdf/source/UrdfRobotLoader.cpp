@@ -84,11 +84,14 @@ constexpr bool kUrdfBakeVisualOriginIntoMesh = true;
 // URDF 文件中 \<joint\>\<visual\> 的 \<origin xyz\> 为米（REP-103）→ 内部毫米。
 constexpr double kUrdfOriginXyzMetersToInternalMm = 1000.0;
 // 网格顶点文件单位 → 内部毫米：STL 多为毫米时用 1.0；若网格文件已是米则用 1000.0（不读 URDF mesh scale 属性）。
-constexpr double kMeshFileVertexUnitsToInternalMm = 1.0;
+constexpr double kMeshFileVertexUnitsToInternalMm = 1;
 
 // OSG SmoothingVisitor 会对已三角化的 STL/STEP 导出网格合并顶点并重算法线，工业网格上易出现「斑马纹 / 条纹状」错误着色。
 // 插件读入的网格通常已带法线；需要更圆滑外观时可改为 true。
 constexpr bool kUrdfMeshUseSmoothingVisitor = false;
+
+// 为 true 时 urdfDebugLogRevoluteJointSubtree 打印各关节子树包围球（默认关）。
+constexpr bool kUrdfDebugJointSubtreeDiagnostics = false;
 
 // 连杆系原点处 RGB 坐标轴长度（mm）：无网格时用默认；有网格时按包围球半径比例缩放。
 constexpr double kUrdfLinkFrameAxisMmDefault = 100.0;
@@ -985,7 +988,7 @@ void UrdfRobotLoader::clearUrdfModelCache()
 }
 
 // 【中文】计算给定关节角度下的 Joint 矩阵（与 buildHierarchicalRobotScene 中可 setMatrix 的节点一致）。
-// - revolute/continuous：输出仅绕 \<axis\> 的 R(q)（关节 MatrixTransform 无平移，\<origin\> 由 JointOrigin 节点承担）
+// - revolute/continuous：输出仅绕 \<axis\> 的 R(q)（关节 MatrixTransform 无平移，\<origin\> 由 JointN 节点承担）
 // - 其他类型：输出完整 parent_T_child
 bool UrdfRobotLoader::computeJointTransformMatrices(
 	const QString& urdfFilePath,
@@ -1036,7 +1039,7 @@ bool UrdfRobotLoader::computeJointTransformMatrices(
 			}
 			const Mat4 parent_T_child = jointChildTransformForFk(j, jointAnglesRad, qIndex);
 			const QString jtLower = j.type.toLower();
-			// 转动/连续关节：场景图中关节 MatrixTransform 仅存 R(q)，T_origin 由上层 JointOrigin 节点承担；
+			// 转动/连续关节：场景图中关节 MatrixTransform 仅存 R(q)，T_origin 由上层 JointN 节点承担；
 			// 此处输出与 setMatrix 一致：R(q) = T_origin^{-1} * (T_origin * R(q))。
 			if (jtLower == QLatin1String("revolute") || jtLower == QLatin1String("continuous"))
 			{
@@ -1089,7 +1092,7 @@ static void applyLitPlasticToStateSet(osg::StateSet* ss, const osg::Vec4& baseCo
 		osg::Vec4(baseColor.r() * em, baseColor.g() * em, baseColor.b() * em, baseColor.a()));
 
 	ss->setAttributeAndModes(mat.get(), osg::StateAttribute::ON);
-	ss->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	//ss->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 	ss->setMode(GL_LIGHTING, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 	ss->setMode(GL_LIGHT0, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 	ss->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
@@ -1180,7 +1183,7 @@ static osg::ref_ptr<osg::Group> createContainerLayer(const QString& linkName)
 {
 	osg::ref_ptr<osg::Group> container = new osg::Group;
 	container->setName(linkName.toStdString() + "_Container");
-	container->setCullingActive(true);
+	//container->setCullingActive(true);
 	container->getOrCreateStateSet()->setMode(GL_RESCALE_NORMAL, osg::StateAttribute::ON);
 	return container;
 }
@@ -1273,9 +1276,7 @@ static osg::ref_ptr<osg::Geode> createJointRotationAxisLineGeode(
 	if (!axisLabelText.isEmpty())
 	{
 		osg::ref_ptr<osgText::Text> label = new osgText::Text;
-#ifdef Q_OS_WIN
-		label->setFont("C:/Windows/Fonts/msyh.ttc");
-#endif
+		// 不显式 setFont(磁盘路径)：无 osgdb_freetype 或路径经 osgDB 时会反复 “file not handled”；用 osgText 默认字体即可。
 		const float charSize = static_cast<float>(std::max(12.0, axisLengthMm * 0.22));
 		label->setCharacterSize(charSize);
 		label->setFontResolution(48, 48);
@@ -1428,19 +1429,59 @@ static bool attachLinkJointLink(
 	return true;
 }
 
-/// Parent_Link_Container -> JointOrigin(T_origin) -> JointRotation(R(q)) -> Child_Link_Container。
-/// 仅用于 revolute/continuous：与 URDF 分解 T_origin * R(q) 一致，避免「整段 parent_T_child 乘在一个节点上」与黄线 \<origin\> 语义不一致。
+static void urdfDebugLogRevoluteJointSubtree(
+	const QString& jointName,
+	const Mat4& T_origin,
+	osg::MatrixTransform* jointOriginMt,
+	osg::MatrixTransform* jointRotationMt,
+	osg::Group* linkShell,
+	osg::Group* childLinkContainer,
+	osg::Node* linkGeometryOptional)
+{
+	if (!kUrdfDebugJointSubtreeDiagnostics)
+	{
+		return;
+	}
+	const double tx = T_origin.m[12];
+	const double ty = T_origin.m[13];
+	const double tz = T_origin.m[14];
+	const double tlen = std::sqrt(tx * tx + ty * ty + tz * tz);
+	qDebug().nospace() << "[UrdfJointDiag] joint " << jointName << " T_origin translation(mm) xyz=(" << tx << ","
+					   << ty << "," << tz << ") len=" << tlen;
+
+	auto logBound = [&](const char* tag, osg::Node* n) {
+		if (!n)
+		{
+			qDebug() << "[UrdfJointDiag]" << tag << ": null";
+			return;
+		}
+		n->dirtyBound();
+		const osg::BoundingSphere& bs = n->getBound();
+		qDebug().nospace() << "[UrdfJointDiag]" << tag << ": valid=" << bs.valid() << " cullingActive=" << n->getCullingActive()
+						   << " center=(" << bs.center().x() << "," << bs.center().y() << "," << bs.center().z() << ") radius=" << bs.radius();
+	};
+	logBound("JointN(jointOriginMt)", jointOriginMt);
+	logBound("jointRotation(URDF name)", jointRotationMt);
+	logBound("LinkN(linkShell)", linkShell);
+	logBound("child link_Container", childLinkContainer);
+	logBound("child link_Geometry", linkGeometryOptional);
+}
+
+/// Parent_Link_Container -> JointN(T_origin) -> JointContent(Group) -> { Axis_Visual, jointRotation(R) -> Link壳 -> child }。
+/// JointContent 避免 JointN(MatrixTransform) 直接多子节点时部分 OSG 父包围球合并错误；运动学仍为 T_origin*R(q)。
 static bool attachRevoluteJointDecomposed(
 	osg::Group* parentLinkContainer,
 	osg::MatrixTransform* jointOriginMt,
+	osg::Node* axisVisualRoot,
 	osg::MatrixTransform* jointRotationMt,
+	osg::Group* linkShell,
 	osg::Group* childLinkContainer,
 	const QString& jointName,
 	const QString& parentLinkName,
 	const QString& childLinkName,
 	QString* errorMessage)
 {
-	if (!parentLinkContainer || !jointOriginMt || !jointRotationMt || !childLinkContainer)
+	if (!parentLinkContainer || !jointOriginMt || !jointRotationMt || !linkShell || !childLinkContainer)
 	{
 		if (errorMessage)
 		{
@@ -1463,6 +1504,7 @@ static bool attachRevoluteJointDecomposed(
 	osg::ref_ptr<osg::Group> keepChildAlive(childLinkContainer);
 	detachNodeFromAllParents(jointOriginMt);
 	detachNodeFromAllParents(jointRotationMt);
+	detachNodeFromAllParents(linkShell);
 	detachNodeFromAllParents(childLinkContainer);
 
 	if (!parentLinkContainer->addChild(jointOriginMt))
@@ -1470,35 +1512,77 @@ static bool attachRevoluteJointDecomposed(
 		if (errorMessage)
 		{
 			*errorMessage = QStringLiteral(
-				"OSG addChild failed: parent link container -> joint origin '%1'. "
-				"If OSG was built with ENSURE_CHILD_IS_UNIQUE, the joint origin node may already exist under this parent.")
+				"OSG addChild failed: parent link container -> joint '%1'. "
+				"If OSG was built with ENSURE_CHILD_IS_UNIQUE, the joint node may already exist under this parent.")
 				.arg(jointName);
 		}
 		return false;
 	}
-	if (!jointOriginMt->addChild(jointRotationMt))
+	if (!linkShell->addChild(childLinkContainer))
 	{
 		if (errorMessage)
 		{
 			*errorMessage = QStringLiteral(
-				"OSG addChild failed: joint origin '%1' -> joint rotation (duplicate child under same origin?)")
+				"OSG addChild failed: link shell -> child link '%1' (duplicate child under same shell?)")
+				.arg(childLinkName);
+		}
+		parentLinkContainer->removeChild(jointOriginMt);
+		return false;
+	}
+	if (!jointRotationMt->addChild(linkShell))
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral(
+				"OSG addChild failed: joint rotation '%1' -> link shell (duplicate child under same rotation node?)")
 				.arg(jointName);
 		}
+		linkShell->removeChild(childLinkContainer);
 		parentLinkContainer->removeChild(jointOriginMt);
 		return false;
 	}
-	if (!jointRotationMt->addChild(childLinkContainer))
+
+	osg::ref_ptr<osg::Group> jointContent = new osg::Group;
+	jointContent->setName((jointName + QStringLiteral("_JointContent")).toStdString());
+	if (axisVisualRoot && !jointContent->addChild(axisVisualRoot))
 	{
 		if (errorMessage)
 		{
 			*errorMessage = QStringLiteral(
-				"OSG addChild failed: joint '%1' -> child link '%2' (duplicate child under same joint?)")
-				.arg(jointName, childLinkName);
+				"OSG addChild failed: joint '%1' -> axis visual under JointContent").arg(jointName);
 		}
-		jointOriginMt->removeChild(jointRotationMt);
 		parentLinkContainer->removeChild(jointOriginMt);
 		return false;
 	}
+	if (!jointContent->addChild(jointRotationMt))
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral(
+				"OSG addChild failed: joint '%1' -> joint rotation under JointContent").arg(jointName);
+		}
+		parentLinkContainer->removeChild(jointOriginMt);
+		return false;
+	}
+	if (!jointOriginMt->addChild(jointContent.get()))
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("OSG addChild failed: joint '%1' -> JointContent group").arg(jointName);
+		}
+		parentLinkContainer->removeChild(jointOriginMt);
+		return false;
+	}
+
+	jointOriginMt->dirtyBound();
+	jointContent->dirtyBound();
+	jointRotationMt->dirtyBound();
+	linkShell->dirtyBound();
+	childLinkContainer->dirtyBound();
+	parentLinkContainer->dirtyBound();
+
+	jointOriginMt->setCullingActive(true);
+	jointRotationMt->setCullingActive(true);
 	return true;
 }
 
@@ -1594,6 +1678,12 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 
 	// ========================================================================
 	// 【第二阶段】构建关节链（运动学层）
+	//
+	// URDF / RViz 约定：关节 j 连接 parent_link → child_link。场景图必须是
+	//   parent_link 的 Container → Joint（子树根）→ child_link 的 Container。
+	// 因此「link_1 下挂 joint_2（若 joint_2 的 parent 为 link_1）」是正确的，不是挂反。
+	// 父连杆的 Geometry 在阶段一已作为兄弟挂在同一 Container 下；转动关节只变换子连杆子树，
+	// 不会绕错成「转 Joint 2 却转了 Link 1 的 mesh」——除非把父 mesh 误挂在关节节点之下。
 	// ========================================================================
 	struct BfsItem
 	{
@@ -1661,39 +1751,80 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 				continue;
 			}
 
-			osg::Group* parentContainer = parentIt.value();
+			// jointsByParent[cur.link] 内关节必有 j.parent == cur.link；父容器以 BFS 当前连杆为准。
+			if (j.parent != cur.link)
+			{
+				qWarning() << "UrdfRobotLoader: joint" << j.name << "parent" << j.parent << "!= BFS link" << cur.link;
+				continue;
+			}
+			osg::Group* parentContainer = cur.container;
 			osg::Group* childContainer = childIt.value();
+
+			// 获取包围盒中心
+			osg::Vec3d parentCenter = parentContainer->getBound().center();
+			osg::Vec3d childCenter = childContainer->getBound().center();
+
+			// 分别打印 x, y, z
+			qWarning() << "Parent Center:" << parentCenter.x() << parentCenter.y() << parentCenter.z();
+			qWarning() << "Child Center:" << childCenter.x() << childCenter.y() << childCenter.z();
+
 			if (!parentContainer || !childContainer)
 			{
 				continue;
+			}
+			if (parentIt.value() != parentContainer)
+			{
+				qWarning() << "UrdfRobotLoader: joint" << j.name << "parent container map vs BFS mismatch.";
 			}
 
 			const QString jtLower = j.type.toLower();
 			const bool isRevolute =
 				(jtLower == QLatin1String("revolute") || jtLower == QLatin1String("continuous"));
 
-			// 转动/连续：Parent -> JointOrigin(T_origin) -> [黄线+标签, JointRotation(R(q))] -> Child。
-			// 与 URDF 分解 parent_T_child = T_origin * R(q) 一致；动态更新只写 R(q) 到关节名节点（与 computeJointTransformMatrices 一致）。
+			// 转动/连续：Parent -> JointN(T_origin) -> JointContent -> { Axis_Visual_N, JointRotation(R(q)) } -> LinkN -> Child_Container。
+			// 与 URDF parent_T_child = T_origin * R(q) 一致；动态更新只写 R(q) 到 URDF 关节名 MatrixTransform（与 computeJointTransformMatrices 一致）。
 			if (isRevolute)
 			{
-				const QString axisLabel =
-					QStringLiteral("第%1个关节的旋转轴").arg(revoluteJointAxisVisualIndex + 1);
+				const int jointVisIndex = revoluteJointAxisVisualIndex + 1;
+				const QString axisLabel = QStringLiteral("第%1个关节的旋转轴").arg(jointVisIndex);
 				++revoluteJointAxisVisualIndex;
 
 				const Mat4 T_origin = jointOriginFixedTransform(j);
+
 				osg::ref_ptr<osg::MatrixTransform> jointOriginMt = new osg::MatrixTransform;
-				jointOriginMt->setName((j.name + QStringLiteral("_JointOrigin")).toStdString());
+				jointOriginMt->setName(QStringLiteral("Joint%1").arg(jointVisIndex).toStdString());
 				jointOriginMt->setMatrix(mat4ToOsg(T_origin));
-				jointOriginMt->addChild(createJointRotationAxisLineGeode(kUrdfLinkFrameAxisMmDefault, j.ax, j.ay, j.az,
-						(j.name + QStringLiteral("_JointAxis")).toStdString(), axisLabel)
+
+				osg::ref_ptr<osg::Group> axisShell = new osg::Group;
+				axisShell->setName(QStringLiteral("Axis_Visual_%1").arg(jointVisIndex).toStdString());
+				axisShell->addChild(createJointRotationAxisLineGeode(
+					kUrdfLinkFrameAxisMmDefault, j.ax, j.ay, j.az,
+					(j.name + QStringLiteral("_JointAxis")).toStdString(), axisLabel)
 					.get());
+
+				// 1. 获取或创建独立的状态集
+				osg::ref_ptr<osg::StateSet> meshSS = childContainer->getOrCreateStateSet();
+
+				// 2. 【关键】强制开启深度测试（防止拉丝/长条）
+				meshSS->setMode(GL_DEPTH_TEST, osg::StateAttribute::ON);
+				meshSS->setRenderingHint(osg::StateSet::OPAQUE_BIN);
+
+				// 3. 【关键】强制开启光照（防止变黑或像线条）
+				meshSS->setMode(GL_LIGHTING, osg::StateAttribute::ON);
+				meshSS->setMode(GL_LIGHT0, osg::StateAttribute::ON);
+
+				osg::ref_ptr<osg::Group> linkShell = new osg::Group;
+				linkShell->setName(QStringLiteral("Link%1").arg(jointVisIndex).toStdString());
 
 				osg::ref_ptr<osg::MatrixTransform> jointMT = createJointTransform(j.name, matIdentity());
 				osg::MatrixTransform* jointNode = jointMT.get();
+
 				if (!attachRevoluteJointDecomposed(
 						parentContainer,
 						jointOriginMt.get(),
+						axisShell.get(),
 						jointNode,
+						linkShell.get(),
 						childContainer,
 						j.name,
 						j.parent,
@@ -1702,6 +1833,18 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 				{
 					return nullptr;
 				}
+
+				{
+					osg::Node* childGeom = nullptr;
+					const auto gIt = outLinkToGeometry.find(j.child);
+					if (gIt != outLinkToGeometry.end())
+					{
+						childGeom = gIt.value();
+					}
+					urdfDebugLogRevoluteJointSubtree(
+						j.name, T_origin, jointOriginMt.get(), jointNode, linkShell.get(), childContainer, childGeom);
+				}
+
 				outJointTransforms[j.name] = jointNode;
 			}
 			else
@@ -1741,7 +1884,6 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 		coordTransform->setMatrix(mat4ToOsg(matRosWorldToOsgWorld()));
 		robotAssembly->addChild(coordTransform);
 
-		// 挂载根 Container 到坐标系转换节点下
 		if (rootIt.value())
 		{
 			coordTransform->addChild(rootIt.value());
@@ -1749,7 +1891,6 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 	}
 	else
 	{
-		// 无坐标系转换：直接挂载根 Container
 		if (rootIt.value())
 		{
 			robotAssembly->addChild(rootIt.value());
@@ -1788,11 +1929,16 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 		if (it.value())
 		{
 			it.value()->dirtyBound();
+			it.value()->getBound();
 		}
 	}
 
 	// RobotAssembly 本身也刷新
 	robotAssembly->dirtyBound();
+
+	const osg::BoundingSphere& rbs = robotAssembly->getBound();
+	qDebug().nospace() << "[UrdfJointDiag] RobotAssembly: valid=" << rbs.valid() << " center=(" << rbs.center().x() << ","
+					   << rbs.center().y() << "," << rbs.center().z() << ") radius=" << rbs.radius();
 
 	// 转移所有权：release() 使裸指针引用计数仍为 1，由调用方 addChild 或 osg::ref_ptr 承接；禁止手动 ref()+get()。
 	return robotAssembly.release();

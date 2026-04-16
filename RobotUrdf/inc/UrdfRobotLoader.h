@@ -57,7 +57,7 @@ namespace UrdfRobotLoader
 	ROBOT_URDF_API void clearUrdfModelCache();
 
 	/// 【中文】计算给定关节角度下、与场景中可 setMatrix 的关节节点一致的矩阵。
-	/// - revolute/continuous：输出仅 R(q)（\<origin\> 由场景中的 JointOrigin 节点承担）
+	/// - revolute/continuous：输出仅 R(q)（\<origin\> 由场景中 JointN(T_origin) 节点承担）
 	/// - 其他关节类型：输出完整 parent_T_child
 	///
 	/// @param urdfFilePath URDF 文件路径
@@ -81,16 +81,19 @@ namespace UrdfRobotLoader
 	/// 架构说明（三层分离模型）：
 	/// - 几何体层：原始 Mesh 数据，使用 PAT/Geode，矩阵固定为单位阵 (位置=0,0,0)
 	/// - 视觉容器层：osg::Group 包裹几何体，setCullingActive(false) 防止裁剪问题
-	/// - 运动学层：转动关节为 JointOrigin(T_origin) + JointRotation(R(q))；非转动关节为单节点 parent_T_child
+	/// - 运动学层：转动关节为 JointN(T_origin) -> JointContent(Group) -> { Axis_Visual_N, JointRotation(R(q)) } -> LinkN 壳；非转动关节为单节点 parent_T_child
 	///
-	/// 层级结构（转动关节示意）：
+	/// 层级结构（转动关节示意，N 为第 N 个转动关节序号）：
 	///   RobotAssembly (Group)
-	///    └── Link_A_Container (Group, culling=false)
+	///    └── Link_A_Container (Group)
 	///         └── Link_A_Geometry (MatrixTransform, visual origin × mesh)
-	///         └── JointOrigin (MatrixTransform, T_origin；黄线为 \<axis\>)
-	///              └── JointRotation (MatrixTransform, R(q) — 滑条更新此节点)
-	///                   └── Link_B_Container (Group)
-	///                        └── Link_B_Geometry (...)
+	///         └── JointN (MatrixTransform, T_origin)
+	///              └── JointContent (Group：合并轴线与旋转子树包围球)
+	///                   ├── Axis_Visual_N (Group：关节系 \<axis\> 黄线)
+	///                   └── \<URDF关节名\> (MatrixTransform, R(q) — 滑条更新此节点)
+	///                   └── LinkN (Group)
+	///                        └── Link_B_Container (Group)
+	///                             └── Link_B_Geometry (...)
 	///
 	/// 【English】Build hierarchical URDF robot scene graph with three-layer separation.
 	/// Geometry layer (PAT with identity matrix), Visual Container layer (Group with culling off),
