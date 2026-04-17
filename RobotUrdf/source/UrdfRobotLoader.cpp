@@ -98,7 +98,7 @@ constexpr double kMeshFileVertexUnitsToInternalMm = 1;
 constexpr bool kUrdfMeshUseSmoothingVisitor = false;
 
 // 为 true 时 urdfDebugLogRevoluteJointSubtree 打印各关节子树包围球（默认关）。
-constexpr bool kUrdfDebugJointSubtreeDiagnostics = true;
+constexpr bool kUrdfDebugJointSubtreeDiagnostics = false;
 
 // 【中文】为 true 时使用 MeshBackendData 后端对象加载连杆几何（推荐，更快且支持属性编辑）
 // 为 false 时回退到旧的 osgDB::readNodeFile 直接读取
@@ -477,35 +477,6 @@ osg::Matrixd mat4ToOsg(const Mat4& m)
 	return o;
 }
 
-// 刚体齐次矩阵的逆：T = [R|t; 0 0 0 1] 时 T^{-1} = [R^T | -R^T t; 0 0 0 1]（列向量左乘）。
-static Mat4 mat4RigidInverse(const Mat4& t)
-{
-	const double tx = t.m[12];
-	const double ty = t.m[13];
-	const double tz = t.m[14];
-	const double dot0 = t.m[0] * tx + t.m[4] * ty + t.m[8] * tz;
-	const double dot1 = t.m[1] * tx + t.m[5] * ty + t.m[9] * tz;
-	const double dot2 = t.m[2] * tx + t.m[6] * ty + t.m[10] * tz;
-	Mat4 r{};
-	r.m[0] = t.m[0];
-	r.m[1] = t.m[4];
-	r.m[2] = t.m[8];
-	r.m[3] = 0.0;
-	r.m[4] = t.m[1];
-	r.m[5] = t.m[5];
-	r.m[6] = t.m[9];
-	r.m[7] = 0.0;
-	r.m[8] = t.m[2];
-	r.m[9] = t.m[6];
-	r.m[10] = t.m[10];
-	r.m[11] = 0.0;
-	r.m[12] = -dot0;
-	r.m[13] = -dot1;
-	r.m[14] = -dot2;
-	r.m[15] = 1.0;
-	return r;
-}
-
 // 右手系：单位轴 (ax,ay,az)、转角 angle（弧度），列向量 v' = R*v。
 // 使用 Rodrigues 显式式，避免经 osg::Matrixd::rotate 再拷贝时与列主序/约定不一致导致深层关节绕错轴。
 Mat4 matAxisAngleRad(double ax, double ay, double az, double angle)
@@ -542,6 +513,29 @@ Mat4 matAxisAngleRad(double ax, double ay, double az, double angle)
 	return out;
 }
 
+// 仅绕 URDF \<joint\>\<axis\> 的 R(q)，与场景图中 JointRotationMt 一致；不含 \<origin\>（平移/rpy 由 JointN 承担）。
+// 与 jointChildTransformForFk 中转动部分、computeJointTransformMatrices 输出共用，避免「先算整条 FK 再逆解剥离」。
+static Mat4 jointRevoluteRotationOnly(const UrdfJoint& j, double qRad)
+{
+	double ax = j.ax;
+	double ay = j.ay;
+	double az = j.az;
+	const double len = std::sqrt(ax * ax + ay * ay + az * az);
+	if (len > 1e-9)
+	{
+		ax /= len;
+		ay /= len;
+		az /= len;
+	}
+	else
+	{
+		ax = 0.0;
+		ay = 0.0;
+		az = 1.0;
+	}
+	return matAxisAngleRad(ax, ay, az, qRad);
+}
+
 // 正运动学用：子连杆相对父连杆的变换，即 parent_T_child = <joint><origin> * 绕 axis 的 q 角旋转（若为转动关节）。
 // \<joint\>\<origin\> xyz 按 REP-103 为米：乘 kUrdfOriginXyzMetersToInternalMm 得到内部 mm，与 visual、网格一致。axis 与 rpy 不缩放。
 // jointAnglesRad 与 qIndex 须与树遍历顺序一致（见 computeMeshWorldMatricesFromModel / loadMeshHierarchyParts）。
@@ -563,23 +557,7 @@ Mat4 jointChildTransformForFk(const UrdfJoint& j, const QVector<double>& jointAn
 			q = jointAnglesRad[qIndex];
 		}
 		++qIndex;
-		double ax = j.ax;
-		double ay = j.ay;
-		double az = j.az;
-		const double len = std::sqrt(ax * ax + ay * ay + az * az);
-		if (len > 1e-9)
-		{
-			ax /= len;
-			ay /= len;
-			az /= len;
-		}
-		else
-		{
-			ax = 0.0;
-			ay = 0.0;
-			az = 1.0;
-		}
-		return matMul(T_origin, matAxisAngleRad(ax, ay, az, q));
+		return matMul(T_origin, jointRevoluteRotationOnly(j, q));
 	}
 	// 只有转动关节才递增qIndex，否则保持不变
 	return T_origin;
@@ -600,23 +578,7 @@ static Mat4 jointChildTransformAtZeroConfiguration(const UrdfJoint& j)
 	const QString jt = j.type.toLower();
 	if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
 	{
-		double ax = j.ax;
-		double ay = j.ay;
-		double az = j.az;
-		const double len = std::sqrt(ax * ax + ay * ay + az * az);
-		if (len > 1e-9)
-		{
-			ax /= len;
-			ay /= len;
-			az /= len;
-		}
-		else
-		{
-			ax = 0.0;
-			ay = 0.0;
-			az = 1.0;
-		}
-		return matMul(T_origin, matAxisAngleRad(ax, ay, az, 0.0));
+		return matMul(T_origin, jointRevoluteRotationOnly(j, 0.0));
 	}
 	return T_origin;
 }
@@ -844,8 +806,9 @@ bool getOrCreateUrdfModel(const QString& urdfFilePath, std::shared_ptr<const Urd
 }
 
 // 按与导入时相同的 BFS 顺序遍历连杆树，用 jointAnglesRad 做正解；对每个带 mesh 的 link 输出
-// 「从 mesh 文件系到当前显示世界」的 osg::Matrixd。此处始终使用完整 FK（关节链 × visual），
-// 与 loadMeshHierarchyParts 里 kUrdfBake* 烘焙顶点无关；用于关节角变化时更新位姿（如 RobotSceneKinematics）。
+// 「从 mesh 文件系到当前显示世界」的 osg::Matrixd（完整累积位姿）。用于烘焙/相对绑定/旧后端根矩阵等。
+// 关节滑条对应的 JointRotationMt 只应写入 R(q)：请用 computeJointTransformMatrices，勿把本函数的连杆世界矩阵当作关节旋转节点矩阵。
+// 与 loadMeshHierarchyParts 里 kUrdfBake* 烘焙顶点无关。
 void computeMeshWorldMatricesFromModel(
 	const UrdfFkModelData& model,
 	const QVector<double>& jointAnglesRad,
@@ -1064,18 +1027,24 @@ bool UrdfRobotLoader::computeJointTransformMatrices(
 			{
 				continue;
 			}
-			const Mat4 parent_T_child = jointChildTransformForFk(j, jointAnglesRad, qIndex);
 			const QString jtLower = j.type.toLower();
-			// 转动/连续关节：场景图中关节 MatrixTransform 仅存 R(q)，T_origin 由上层 JointN 节点承担；
-			// 此处输出与 setMatrix 一致：R(q) = T_origin^{-1} * (T_origin * R(q))。
+			Mat4 parent_T_child;
 			if (jtLower == QLatin1String("revolute") || jtLower == QLatin1String("continuous"))
 			{
-				const Mat4 T_origin = jointOriginFixedTransform(j);
-				const Mat4 Rq = matMul(mat4RigidInverse(T_origin), parent_T_child);
+				double q = 0.0;
+				if (qIndex < jointAnglesRad.size())
+				{
+					q = jointAnglesRad[qIndex];
+				}
+				++qIndex;
+				const Mat4 Rq = jointRevoluteRotationOnly(j, q);
 				outJointMatrices[j.name] = mat4ToOsg(Rq);
+				const Mat4 T_origin = jointOriginFixedTransform(j);
+				parent_T_child = matMul(T_origin, Rq);
 			}
 			else
 			{
+				parent_T_child = jointChildTransformForFk(j, jointAnglesRad, qIndex);
 				outJointMatrices[j.name] = mat4ToOsg(parent_T_child);
 			}
 
