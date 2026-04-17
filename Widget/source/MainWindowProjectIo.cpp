@@ -172,7 +172,7 @@ void MainWindow::onSaveProject()
 	}
 	const QString savePath = QFileDialog::getSaveFileName(
 		this,
-		i18n(QStringLiteral("Save Project"), QStringLiteral("\u4FDD\u5B58\u5DE5\u7A0B")),
+		i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
 		QString(),
 		QStringLiteral("Point Cloud Package (*.pcp);;PointCloud Project (*.pcproj.json);;JSON Files (*.json);;All Files (*.*)"));
 	if (savePath.isEmpty())
@@ -186,9 +186,9 @@ void MainWindow::onSaveProject()
 	const QString workRoot = packageMode ? packageTemp.path() : saveFileInfo.absolutePath();
 	if (packageMode && !packageTemp.isValid())
 	{
-		QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("\u4FDD\u5B58\u5DE5\u7A0B")),
+		QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
 			i18n(QStringLiteral("Cannot create a temporary folder to build the package."),
-				QStringLiteral("\u65E0\u6CD5\u521B\u5EFA\u4E34\u65F6\u76EE\u5F55\u4EE5\u6253\u5305\u5DE5\u7A0B\u3002")));
+				QStringLiteral("无法创建临时目录以打包工程。")));
 		return;
 	}
 	const QString jsonWritePath = packageMode ? QDir(workRoot).filePath(QStringLiteral("project.json")) : savePath;
@@ -244,9 +244,9 @@ void MainWindow::onSaveProject()
 			obj.insert(QStringLiteral("color"), col);
 			if (pc->pointPositionsXyz().empty())
 			{
-				QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("\u4FDD\u5B58\u5DE5\u7A0B")),
+				QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
 					i18n(QStringLiteral("Point cloud has no coordinates in the backend; cannot save. Re-import the file while it still exists on disk."),
-						QStringLiteral("\u540E\u7AEF\u6CA1\u6709\u70B9\u4E91\u5750\u6807\uFF0C\u65E0\u6CD5\u4FDD\u5B58\u3002\u8BF7\u5728\u6E90\u6587\u4EF6\u4ECD\u5728\u78C1\u76D8\u4E0A\u65F6\u91CD\u65B0\u5BFC\u5165\u3002")));
+						QStringLiteral("后端没有点云坐标，无法保存。请在源文件仍在磁盘上时重新导入。")));
 				return;
 			}
 			QString sidecarRelative;
@@ -269,9 +269,9 @@ void MainWindow::onSaveProject()
 			if (!pc->writePointCloudPlySidecar(qStringToUtf8StdString(sidecarAbs), &plyErr))
 			{
 				const QString blobErr = QString::fromStdString(plyErr);
-				QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("\u4FDD\u5B58\u5DE5\u7A0B")),
+				QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
 					i18n(QStringLiteral("Failed to write point cloud data file: %1").arg(blobErr),
-						QStringLiteral("\u5199\u70B9\u4E91\u6570\u636E\u6587\u4EF6\u5931\u8D25\uFF1A%1").arg(blobErr)));
+						QStringLiteral("写点云数据文件失败：%1").arg(blobErr)));
 				return;
 			}
 			const std::size_t npts = pc->pointPositionsXyz().size() / 3U;
@@ -330,8 +330,8 @@ void MainWindow::onSaveProject()
 	QFile file(jsonWritePath);
 	if (!file.open(QIODevice::WriteOnly))
 	{
-		QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("\u4FDD\u5B58\u5DE5\u7A0B")),
-			i18n(QStringLiteral("Failed to write project file."), QStringLiteral("\u5199\u5165\u5DE5\u7A0B\u6587\u4EF6\u5931\u8D25\u3002")));
+		QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
+			i18n(QStringLiteral("Failed to write project file."), QStringLiteral("写入工程文件失败。")));
 		return;
 	}
 	file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
@@ -342,9 +342,9 @@ void MainWindow::onSaveProject()
 		QString zipErr;
 		if (!project_package_zip::zipDirectoryTree(savePath, workRoot, &zipErr))
 		{
-			QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("\u4FDD\u5B58\u5DE5\u7A0B")),
+			QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
 				i18n(QStringLiteral("Failed to write package (.pcp): %1").arg(zipErr),
-					QStringLiteral("\u5199\u5165\u6253\u5305\u6587\u4EF6 (.pcp) \u5931\u8D25\uFF1A%1").arg(zipErr)));
+					QStringLiteral("写入打包文件 (.pcp) 失败：%1").arg(zipErr)));
 			return;
 		}
 	}
@@ -370,7 +370,7 @@ void MainWindow::onOpenProjectFile()
 	}
 	const QString openPath = QFileDialog::getOpenFileName(
 		this,
-		i18n(QStringLiteral("Open Project"), QStringLiteral("\u6253\u5F00\u5DE5\u7A0B")),
+		i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
 		QString(),
 		QStringLiteral("Point Cloud Package (*.pcp);;PointCloud Project (*.pcproj.json);;JSON Files (*.json);;All Files (*.*)"));
 	if (openPath.isEmpty())
@@ -385,24 +385,24 @@ void MainWindow::onOpenProjectFile()
 	{
 		if (!zipExtractDir.isValid())
 		{
-			QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("\u6253\u5F00\u5DE5\u7A0B")),
+			QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
 				i18n(QStringLiteral("Cannot create a temporary folder to unpack the project."),
-					QStringLiteral("\u65E0\u6CD5\u521B\u5EFA\u4E34\u65F6\u76EE\u5F55\u89E3\u538B\u5DE5\u7A0B\u3002")));
+					QStringLiteral("无法创建临时目录解压工程。")));
 			return;
 		}
 		QString unpackErr;
 		if (!project_package_zip::extractZipArchive(openPath, zipExtractDir.path(), &unpackErr))
 		{
-			QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("\u6253\u5F00\u5DE5\u7A0B")), unpackErr);
+			QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")), unpackErr);
 			return;
 		}
 		projectJsonPath = QDir(zipExtractDir.path()).filePath(QStringLiteral("project.json"));
 		projectDir = zipExtractDir.path();
 		if (!QFileInfo::exists(projectJsonPath))
 		{
-			QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("\u6253\u5F00\u5DE5\u7A0B")),
+			QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
 				i18n(QStringLiteral("The archive does not contain project.json."),
-					QStringLiteral("\u538B\u7F29\u5305\u4E2D\u6CA1\u6709 project.json\u3002")));
+					QStringLiteral("压缩包中没有 project.json。")));
 			return;
 		}
 	}
@@ -410,16 +410,16 @@ void MainWindow::onOpenProjectFile()
 	QFile file(projectJsonPath);
 	if (!file.open(QIODevice::ReadOnly))
 	{
-		QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("\u6253\u5F00\u5DE5\u7A0B")),
-			i18n(QStringLiteral("Failed to open project file."), QStringLiteral("\u6253\u5F00\u5DE5\u7A0B\u6587\u4EF6\u5931\u8D25\u3002")));
+		QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
+			i18n(QStringLiteral("Failed to open project file."), QStringLiteral("打开工程文件失败。")));
 		return;
 	}
 	const QJsonDocument jsonDoc = QJsonDocument::fromJson(file.readAll());
 	file.close();
 	if (!jsonDoc.isObject())
 	{
-		QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("\u6253\u5F00\u5DE5\u7A0B")),
-			i18n(QStringLiteral("Invalid project format."), QStringLiteral("\u5DE5\u7A0B\u6587\u4EF6\u683C\u5F0F\u65E0\u6548\u3002")));
+		QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
+			i18n(QStringLiteral("Invalid project format."), QStringLiteral("工程文件格式无效。")));
 		return;
 	}
 

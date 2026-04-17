@@ -151,7 +151,7 @@ void classifyPackagePath(const QString& packageRoot, const QString& modelsRoot, 
 	const QDir base(modelsRoot);
 	const QString rel = QDir::cleanPath(base.relativeFilePath(packageRoot));
 	// "未分类" — avoid u8 inside QStringLiteral for MSVC
-	static const QString kNoBrand = QStringLiteral("\u672a\u5206\u7c7b");
+	static const QString kNoBrand = QStringLiteral("未分类");
 	if (rel == QLatin1String(".") || rel.isEmpty())
 	{
 		outType = QStringLiteral("?");
@@ -210,7 +210,7 @@ DevicePageWidget::DevicePageWidget(QWidget* parent)
 	auto* root = new QVBoxLayout(this);
 	root->setContentsMargins(4, 4, 4, 4);
 	auto* hint = new QLabel(QStringLiteral(
-		"\u4ece resource/models \u626b\u63cf\u8bbe\u5907\u5305\u3002\u5de6\u4fa7\u9009\u62e9\u8bbe\u5907\u7c7b\u578b\u4e0e\u54c1\u724c\uff0c\u53f3\u4fa7\u70b9\u51fb\u578b\u53f7\u7f29\u7565\u56fe\u5bfc\u5165 URDF\u3002"));
+		"从 resource/models 扫描设备包。左侧选择设备类型与品牌，右侧点击型号缩略图导入 URDF。"));
 	hint->setWordWrap(true);
 	hint->setStyleSheet(QStringLiteral("color: palette(mid); font-size: 11px;"));
 	root->addWidget(hint);
@@ -239,9 +239,9 @@ void DevicePageWidget::setupDeviceColumns(QVBoxLayout* rootLayout)
 		return col;
 	};
 
-	auto* colType = makeColumn(QStringLiteral("\u8bbe\u5907\u7c7b\u578b"), 1);
-	auto* colBrand = makeColumn(QStringLiteral("\u8bbe\u5907\u54c1\u724c"), 1);
-	auto* colModel = makeColumn(QStringLiteral("\u5177\u4f53\u578b\u53f7"), 3);
+	auto* colType = makeColumn(QStringLiteral("设备类型"), 1);
+	auto* colBrand = makeColumn(QStringLiteral("设备品牌"), 1);
+	auto* colModel = makeColumn(QStringLiteral("具体型号"), 3);
 
 	m_listType = new QListWidget;
 	m_listType->setMinimumWidth(120);
@@ -341,7 +341,7 @@ void DevicePageWidget::rescanPackagesAndRefreshUi()
 			delete lit;
 		}
 		auto* empty = new QLabel(
-			QStringLiteral("\u672a\u627e\u5230\u542b URDF \u7684\u8bbe\u5907\u5305\u3002\n%1").arg(m_modelsRoot));
+			QStringLiteral("未找到含 URDF 的设备包。\n%1").arg(m_modelsRoot));
 		empty->setWordWrap(true);
 		m_modelsLayout->addWidget(empty);
 	}
@@ -503,7 +503,7 @@ void DevicePageWidget::fillModelGridForSelection()
 
 	if (totalButtons == 0)
 	{
-		auto* empty = new QLabel(QStringLiteral("\u6b64\u54c1\u724c\u4e0b\u6682\u65e0\u53ef\u7528\u578b\u53f7\u3002"));
+		auto* empty = new QLabel(QStringLiteral("此品牌下暂无可用型号。"));
 		m_modelsLayout->addWidget(empty);
 	}
 	else

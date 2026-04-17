@@ -88,7 +88,7 @@ MainWindow::MainWindow(QWidget* parent)
 	if (m_runInfoPage)
 	{
 		m_runInfoPage->appendInfo(i18n(QStringLiteral("Application started."),
-			QStringLiteral("\u5E94\u7528\u7A0B\u5E8F\u5DF2\u542F\u52A8\u3002")));
+			QStringLiteral("应用程序已启动。")));
 		m_runInfoPage->appendInfo(pluginReport);
 	}
 	onDocumentTabChanged(m_documentTabs ? m_documentTabs->currentIndex() : -1);
@@ -329,76 +329,76 @@ QString MainWindow::i18n(const QString& en, const QString& zh) const
 
 void MainWindow::applyLanguage()
 {
-	setWindowTitle(i18n(QStringLiteral("PointCloudProcess - MainWindow"), QStringLiteral("\u70B9\u4E91\u5904\u7406 - \u4E3B\u7A97\u53E3")));
-	if (m_fileMenu) m_fileMenu->setTitle(i18n(QStringLiteral("File"), QStringLiteral("\u6587\u4EF6")));
+	setWindowTitle(i18n(QStringLiteral("PointCloudProcess - MainWindow"), QStringLiteral("点云处理 - 主窗口")));
+	if (m_fileMenu) m_fileMenu->setTitle(i18n(QStringLiteral("File"), QStringLiteral("文件")));
 	if (m_newDocumentAction)
 	{
-		m_newDocumentAction->setText(i18n(QStringLiteral("New"), QStringLiteral("\u65B0\u5EFA")));
+		m_newDocumentAction->setText(i18n(QStringLiteral("New"), QStringLiteral("新建")));
 	}
-	if (m_openModelAction) m_openModelAction->setText(i18n(QStringLiteral("Open Model..."), QStringLiteral("\u6253\u5F00\u6A21\u578B...")));
-	if (m_openPointCloudAction) m_openPointCloudAction->setText(i18n(QStringLiteral("Open Point Cloud..."), QStringLiteral("\u6253\u5F00\u70B9\u4E91...")));
-	if (m_openProjectAction) m_openProjectAction->setText(i18n(QStringLiteral("Open Project..."), QStringLiteral("\u6253\u5F00\u5DE5\u7A0B...")));
-	if (m_saveAction) m_saveAction->setText(i18n(QStringLiteral("Save Project..."), QStringLiteral("\u4FDD\u5B58\u5DE5\u7A0B...")));
-	if (m_exitAction) m_exitAction->setText(i18n(QStringLiteral("Exit"), QStringLiteral("\u9000\u51FA")));
-	if (m_viewMenu) m_viewMenu->setTitle(i18n(QStringLiteral("View"), QStringLiteral("\u89C6\u56FE")));
+	if (m_openModelAction) m_openModelAction->setText(i18n(QStringLiteral("Open Model..."), QStringLiteral("打开模型...")));
+	if (m_openPointCloudAction) m_openPointCloudAction->setText(i18n(QStringLiteral("Open Point Cloud..."), QStringLiteral("打开点云...")));
+	if (m_openProjectAction) m_openProjectAction->setText(i18n(QStringLiteral("Open Project..."), QStringLiteral("打开工程...")));
+	if (m_saveAction) m_saveAction->setText(i18n(QStringLiteral("Save Project..."), QStringLiteral("保存工程...")));
+	if (m_exitAction) m_exitAction->setText(i18n(QStringLiteral("Exit"), QStringLiteral("退出")));
+	if (m_viewMenu) m_viewMenu->setTitle(i18n(QStringLiteral("View"), QStringLiteral("视图")));
 	if (m_resetLayoutAction)
 	{
-		m_resetLayoutAction->setText(i18n(QStringLiteral("Reset Layout"), QStringLiteral("\u91CD\u7F6E\u5E03\u5C40")));
+		m_resetLayoutAction->setText(i18n(QStringLiteral("Reset Layout"), QStringLiteral("重置布局")));
 	}
-	if (m_settingsMenu) m_settingsMenu->setTitle(i18n(QStringLiteral("Settings"), QStringLiteral("\u8BBE\u7F6E")));
+	if (m_settingsMenu) m_settingsMenu->setTitle(i18n(QStringLiteral("Settings"), QStringLiteral("设置")));
 	if (m_appearanceMenu)
 	{
-		m_appearanceMenu->setTitle(i18n(QStringLiteral("Theme"), QStringLiteral("\u98CE\u683C")));
+		m_appearanceMenu->setTitle(i18n(QStringLiteral("Theme"), QStringLiteral("风格")));
 	}
 	if (m_lightThemeAction)
 	{
-		m_lightThemeAction->setText(i18n(QStringLiteral("Light"), QStringLiteral("\u6D45\u8272")));
+		m_lightThemeAction->setText(i18n(QStringLiteral("Light"), QStringLiteral("浅色")));
 	}
 	if (m_darkThemeAction)
 	{
-		m_darkThemeAction->setText(i18n(QStringLiteral("Dark"), QStringLiteral("\u6DF1\u8272")));
+		m_darkThemeAction->setText(i18n(QStringLiteral("Dark"), QStringLiteral("深色")));
 	}
-	if (m_languageMenu) m_languageMenu->setTitle(i18n(QStringLiteral("Language"), QStringLiteral("\u8BED\u8A00")));
+	if (m_languageMenu) m_languageMenu->setTitle(i18n(QStringLiteral("Language"), QStringLiteral("语言")));
 	if (m_languageEnglishAction) m_languageEnglishAction->setText(QStringLiteral("English"));
-	if (m_languageChineseAction) m_languageChineseAction->setText(QStringLiteral("\u4E2D\u6587"));
+	if (m_languageChineseAction) m_languageChineseAction->setText(QStringLiteral("中文"));
 	if (m_languageEnglishAction) m_languageEnglishAction->setChecked(!m_useChinese);
 	if (m_languageChineseAction) m_languageChineseAction->setChecked(m_useChinese);
 
-	if (m_viewModeAction) m_viewModeAction->setText(i18n(QStringLiteral("View Mode"), QStringLiteral("\u89C6\u56FE\u6A21\u5F0F")));
-	if (m_objectModeAction) m_objectModeAction->setText(i18n(QStringLiteral("Object Select"), QStringLiteral("\u5BF9\u8C61\u9009\u62E9")));
-	if (m_pointPickModeAction) m_pointPickModeAction->setText(i18n(QStringLiteral("Point Pick"), QStringLiteral("\u70B9\u9009\u6A21\u5F0F")));
-	if (m_meshLinePickModeAction) m_meshLinePickModeAction->setText(i18n(QStringLiteral("Line Pick"), QStringLiteral("\u7EBF\u9009\u62E9\u6A21\u5F0F")));
-	if (m_meshFacePickModeAction) m_meshFacePickModeAction->setText(i18n(QStringLiteral("Face Pick"), QStringLiteral("\u9762\u9009\u62E9\u6A21\u5F0F")));
+	if (m_viewModeAction) m_viewModeAction->setText(i18n(QStringLiteral("View Mode"), QStringLiteral("视图模式")));
+	if (m_objectModeAction) m_objectModeAction->setText(i18n(QStringLiteral("Object Select"), QStringLiteral("对象选择")));
+	if (m_pointPickModeAction) m_pointPickModeAction->setText(i18n(QStringLiteral("Point Pick"), QStringLiteral("点选模式")));
+	if (m_meshLinePickModeAction) m_meshLinePickModeAction->setText(i18n(QStringLiteral("Line Pick"), QStringLiteral("线选择模式")));
+	if (m_meshFacePickModeAction) m_meshFacePickModeAction->setText(i18n(QStringLiteral("Face Pick"), QStringLiteral("面选择模式")));
 	if (m_gizmoLocalFrameAction)
 	{
 		m_gizmoLocalFrameAction->setText(i18n(QStringLiteral("Transform: Local (object axes)"),
-			QStringLiteral("\u53D8\u6362\uFF1A\u7269\u4F53\u7CFB\uFF08\u7F57\u76D8\u8F74\uFF09")));
+			QStringLiteral("变换：物体系（罗盘轴）")));
 	}
 	if (m_gizmoWorldFrameAction)
 	{
-		m_gizmoWorldFrameAction->setText(i18n(QStringLiteral("Transform: World"), QStringLiteral("\u53D8\u6362\uFF1A\u4E16\u754C\u7CFB")));
+		m_gizmoWorldFrameAction->setText(i18n(QStringLiteral("Transform: World"), QStringLiteral("变换：世界系")));
 	}
 	if (m_simulationStartAction)
 	{
-		m_simulationStartAction->setText(i18n(QStringLiteral("Start Simulation"), QStringLiteral("\u5F00\u59CB\u4EFF\u771F")));
+		m_simulationStartAction->setText(i18n(QStringLiteral("Start Simulation"), QStringLiteral("开始仿真")));
 	}
 
-	if (m_propertyDock) m_propertyDock->setWindowTitle(i18n(QStringLiteral("Property / Devices"), QStringLiteral("\u5C5E\u6027 / \u8BBE\u5907")));
+	if (m_propertyDock) m_propertyDock->setWindowTitle(i18n(QStringLiteral("Property / Devices"), QStringLiteral("属性 / 设备")));
 	if (m_propertyDockTabs && m_propertyDockTabs->count() >= 2)
 	{
-		m_propertyDockTabs->setTabText(0, i18n(QStringLiteral("Property"), QStringLiteral("\u5C5E\u6027")));
-		m_propertyDockTabs->setTabText(1, i18n(QStringLiteral("Devices"), QStringLiteral("\u8BBE\u5907")));
+		m_propertyDockTabs->setTabText(0, i18n(QStringLiteral("Property"), QStringLiteral("属性")));
+		m_propertyDockTabs->setTabText(1, i18n(QStringLiteral("Devices"), QStringLiteral("设备")));
 	}
 	if (m_unitDock)
 	{
 		m_unitDock->setWindowTitle(i18n(QStringLiteral("Units / Simulation / Scene"),
-			QStringLiteral("\u5355\u5143 / \u4EFF\u7711 / \u573A\u666F")));
+			QStringLiteral("单元 / 仿真 / 场景")));
 	}
 	if (m_unitDockTabs && m_unitDockTabs->count() >= 3)
 	{
-		m_unitDockTabs->setTabText(0, i18n(QStringLiteral("Units"), QStringLiteral("\u5355\u5143\u90E8\u4EF6")));
-		m_unitDockTabs->setTabText(1, i18n(QStringLiteral("Simulation"), QStringLiteral("\u6307\u4EE4\u4EFF\u7711")));
-		m_unitDockTabs->setTabText(2, i18n(QStringLiteral("Scene graph"), QStringLiteral("\u573A\u666F\u5C42\u7EA7")));
+		m_unitDockTabs->setTabText(0, i18n(QStringLiteral("Units"), QStringLiteral("单元部件")));
+		m_unitDockTabs->setTabText(1, i18n(QStringLiteral("Simulation"), QStringLiteral("指令仿真")));
+		m_unitDockTabs->setTabText(2, i18n(QStringLiteral("Scene graph"), QStringLiteral("场景层级")));
 	}
 	if (m_simulationCommandPage)
 	{
@@ -410,11 +410,11 @@ void MainWindow::applyLanguage()
 	}
 	if (m_simulationDockTabs && m_simulationDockTabs->count() >= 2)
 	{
-		m_simulationDockTabs->setTabText(0, i18n(QStringLiteral("Instructions"), QStringLiteral("\u6307\u4EE4")));
-		m_simulationDockTabs->setTabText(1, i18n(QStringLiteral("Axis control"), QStringLiteral("\u8F74\u63A7\u5236")));
+		m_simulationDockTabs->setTabText(0, i18n(QStringLiteral("Instructions"), QStringLiteral("指令")));
+		m_simulationDockTabs->setTabText(1, i18n(QStringLiteral("Axis control"), QStringLiteral("轴控制")));
 	}
 	refreshSimulationJointListFromCurrentDoc();
-	if (m_runDock) m_runDock->setWindowTitle(i18n(QStringLiteral("Runtime Output"), QStringLiteral("\u8FD0\u884C\u4FE1\u606F")));
+	if (m_runDock) m_runDock->setWindowTitle(i18n(QStringLiteral("Runtime Output"), QStringLiteral("运行信息")));
 	if (m_runInfoPage) m_runInfoPage->setUiLanguage(m_useChinese);
 
 	if (m_propertyBrowser)
@@ -422,23 +422,23 @@ void MainWindow::applyLanguage()
 		if (QTreeWidget* tw = m_propertyBrowser->findChild<QTreeWidget*>())
 		{
 			tw->setHeaderLabels(QStringList()
-				<< i18n(QStringLiteral("Property"), QStringLiteral("\u5C5E\u6027"))
-				<< i18n(QStringLiteral("Value"), QStringLiteral("\u503C")));
+				<< i18n(QStringLiteral("Property"), QStringLiteral("属性"))
+				<< i18n(QStringLiteral("Value"), QStringLiteral("值")));
 		}
 	}
 	if (m_osgSceneTree)
 	{
 		m_osgSceneTree->setHeaderLabels(QStringList()
-			<< i18n(QStringLiteral("Node"), QStringLiteral("\u8282\u70B9"))
-			<< i18n(QStringLiteral("Local transform"), QStringLiteral("\u672C\u5730\u53D8\u6362\u77E9\u9635")));
+			<< i18n(QStringLiteral("Node"), QStringLiteral("节点"))
+			<< i18n(QStringLiteral("Local transform"), QStringLiteral("本地变换矩阵")));
 	}
 	if (m_backendRootItem)
 	{
-		m_backendRootItem->setText(0, i18n(QStringLiteral("BackendDataManager"), QStringLiteral("\u540E\u7AEF\u6570\u636E\u7BA1\u7406\u5668")));
+		m_backendRootItem->setText(0, i18n(QStringLiteral("BackendDataManager"), QStringLiteral("后端数据管理器")));
 	}
 	if (m_annotationRootItem)
 	{
-		m_annotationRootItem->setText(0, i18n(QStringLiteral("Annotations"), QStringLiteral("\u6CE8\u91CA")));
+		m_annotationRootItem->setText(0, i18n(QStringLiteral("Annotations"), QStringLiteral("注释")));
 	}
 	refreshBackendTree();
 }
@@ -717,7 +717,7 @@ void MainWindow::onLanguageChineseTriggered()
 	applyLanguage();
 	if (m_runInfoPage)
 	{
-		m_runInfoPage->appendInfo(QStringLiteral("\u754C\u9762\u8BED\u8A00\u5DF2\u5207\u6362\u4E3A\u4E2D\u6587\u3002"));
+		m_runInfoPage->appendInfo(QStringLiteral("界面语言已切换为中文。"));
 	}
 }
 
@@ -818,12 +818,12 @@ void MainWindow::onNewDocument()
 	{
 		osg->setViewerBackgroundForDarkUi(viewerUsesDarkBackground());
 	}
-	const QString title = i18n(QStringLiteral("Untitled"), QStringLiteral("\u672A\u547D\u540D"));
+	const QString title = i18n(QStringLiteral("Untitled"), QStringLiteral("未命名"));
 	m_documentTabs->addTab(page, title);
 	m_documentTabs->setCurrentWidget(page);
 	if (m_runInfoPage)
 	{
-		m_runInfoPage->appendInfo(i18n(QStringLiteral("New document."), QStringLiteral("\u65B0\u5EFA\u6587\u6863\u3002")));
+		m_runInfoPage->appendInfo(i18n(QStringLiteral("New document."), QStringLiteral("新建文档。")));
 	}
 	onDocumentTabChanged(m_documentTabs->currentIndex());
 }
@@ -965,7 +965,7 @@ void MainWindow::onSimulationStopRequested()
 	stopRobotSimulation();
 	if (m_runInfoPage)
 	{
-		m_runInfoPage->appendInfo(i18n(QStringLiteral("Simulation stopped."), QStringLiteral("\u4EFF\u7711\u5DF2\u505C\u6B62\u3002")));
+		m_runInfoPage->appendInfo(i18n(QStringLiteral("Simulation stopped."), QStringLiteral("仿真已停止。")));
 	}
 }
 
@@ -992,7 +992,7 @@ void MainWindow::onSimulationStartTriggered()
 		{
 			m_runInfoPage->appendWarning(i18n(
 				QStringLiteral("Import a robot (URDF) first, then add simulation commands."),
-				QStringLiteral("\u8BF7\u5148\u5BFC\u5165\u673A\u5668\u4EBA(URDF)\uFF0C\u518D\u6DFB\u52A0\u4EFF\u7711\u6307\u4EE4\u3002")));
+				QStringLiteral("请先导入机器人(URDF)，再添加仿真指令。")));
 		}
 		return;
 	}
@@ -1006,7 +1006,7 @@ void MainWindow::onSimulationStartTriggered()
 		{
 			m_runInfoPage->appendWarning(i18n(
 				QStringLiteral("No revolute joints in URDF (joints need type=\"revolute\" or \"continuous\" and an axis)."),
-				QStringLiteral("URDF\u4E2D\u65E0\u53EF\u65CB\u8F6C\u5173\u8282\uFF08\u9700 type=\u201Crevolute/continuous\u201D \u53CA axis\uFF09\u3002")));
+				QStringLiteral("URDF中无可旋转关节（需 type=“revolute/continuous” 及 axis）。")));
 		}
 		return;
 	}
@@ -1016,7 +1016,7 @@ void MainWindow::onSimulationStartTriggered()
 		if (m_runInfoPage)
 		{
 			m_runInfoPage->appendWarning(i18n(QStringLiteral("Add at least one instruction row."),
-				QStringLiteral("\u8BF7\u81F3\u5C11\u6DFB\u52A0\u4E00\u6761\u6307\u4EE4\u3002")));
+				QStringLiteral("请至少添加一条指令。")));
 		}
 		return;
 	}
@@ -1038,7 +1038,7 @@ void MainWindow::onSimulationStartTriggered()
 			if (err.contains(QLatin1String("Invalid joint index")))
 			{
 				m_runInfoPage->appendWarning(i18n(QStringLiteral("Invalid joint index in simulation command."),
-					QStringLiteral("\u4EFF\u7711\u6307\u4EE4\u5173\u8282\u7D22\u5F15\u65E0\u6548\u3002")));
+					QStringLiteral("仿真指令关节索引无效。")));
 			}
 			else if (!err.isEmpty())
 			{
@@ -1055,7 +1055,7 @@ void MainWindow::onSimulationStartTriggered()
 	m_robotSimTimer.start();
 	if (m_runInfoPage)
 	{
-		m_runInfoPage->appendInfo(i18n(QStringLiteral("Simulation started."), QStringLiteral("\u4EFF\u7711\u5DF2\u5F00\u59CB\u3002")));
+		m_runInfoPage->appendInfo(i18n(QStringLiteral("Simulation started."), QStringLiteral("仿真已开始。")));
 	}
 }
 
@@ -1078,7 +1078,7 @@ void MainWindow::onRobotSimulationTick()
 		if (m_runInfoPage)
 		{
 			m_runInfoPage->appendInfo(
-				i18n(QStringLiteral("Simulation finished."), QStringLiteral("\u4EFF\u7711\u5DF2\u7ED3\u675F\u3002")));
+				i18n(QStringLiteral("Simulation finished."), QStringLiteral("仿真已结束。")));
 		}
 		break;
 	case RobotInstructionPlaybackTickResult::Aborted:

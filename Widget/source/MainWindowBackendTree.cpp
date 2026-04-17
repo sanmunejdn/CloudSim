@@ -47,7 +47,7 @@ QString osgNodeLine(const osg::Node* node)
 	{
 		return cls;
 	}
-	return cls + QStringLiteral(" \u2014 ") + QString::fromStdString(nm);
+	return cls + QStringLiteral(" — ") + QString::fromStdString(nm);
 }
 
 QString formatMatrix4(const osg::Matrixd& m)
@@ -78,7 +78,7 @@ QString localMatrixSummary(const osg::Node* node)
 {
 	if (!node)
 	{
-		return QStringLiteral("\u2014");
+		return QStringLiteral("—");
 	}
 	if (const auto* cam = dynamic_cast<const osg::Camera*>(node))
 	{
@@ -102,7 +102,7 @@ QString localMatrixSummary(const osg::Node* node)
 			* osg::Matrixd::scale(at->getScale());
 		return formatMatrix4(m);
 	}
-	return QStringLiteral("\u2014");
+	return QStringLiteral("—");
 }
 
 void appendOsgNodeRecursive(QTreeWidgetItem* parent, osg::Node* node, int depthLeft)
@@ -138,7 +138,7 @@ void appendOsgNodeRecursive(QTreeWidgetItem* parent, osg::Node* node, int depthL
 			const std::string& dn = d->getName();
 			if (!dn.empty())
 			{
-				line += QStringLiteral(" \u2014 ") + QString::fromStdString(dn);
+				line += QStringLiteral(" — ") + QString::fromStdString(dn);
 			}
 		}
 		else
@@ -146,7 +146,7 @@ void appendOsgNodeRecursive(QTreeWidgetItem* parent, osg::Node* node, int depthL
 			line += QStringLiteral("(null)");
 		}
 		item->addChild(new QTreeWidgetItem(QStringList()
-			<< line << QStringLiteral("\u2014")));
+			<< line << QStringLiteral("—")));
 	}
 }
 
@@ -172,7 +172,7 @@ void MainWindow::refreshBackendTree()
 
 	m_backendRootItem->takeChildren();
 	m_annotationRootItem = new QTreeWidgetItem(QStringList()
-		<< i18n(QStringLiteral("Annotations"), QStringLiteral("\u6CE8\u91CA")));
+		<< i18n(QStringLiteral("Annotations"), QStringLiteral("注释")));
 	m_backendRootItem->addChild(m_annotationRootItem);
 	m_annotationRootItem->setExpanded(true);
 	const auto dataList = activeBackend().listData();
@@ -264,7 +264,7 @@ void MainWindow::refreshOsgSceneTree()
 	if (!root)
 	{
 		m_osgSceneTree->addTopLevelItem(new QTreeWidgetItem(QStringList()
-			<< i18n(QStringLiteral("No scene"), QStringLiteral("\u65E0\u573A\u666F")) << QString()));
+			<< i18n(QStringLiteral("No scene"), QStringLiteral("无场景")) << QString()));
 		return;
 	}
 
@@ -439,7 +439,7 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 	if (item == m_annotationRootItem)
 	{
 		QMenu menu(this);
-		QAction* clearAll = menu.addAction(i18n(QStringLiteral("Clear All Annotations"), QStringLiteral("\u6E05\u7A7A\u5168\u90E8\u6CE8\u91CA")));
+		QAction* clearAll = menu.addAction(i18n(QStringLiteral("Clear All Annotations"), QStringLiteral("清空全部注释")));
 		QAction* action = menu.exec(m_backendTree->viewport()->mapToGlobal(pos));
 		if (action == clearAll)
 		{
@@ -460,10 +460,10 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 			const bool visible = item->checkState(0) == Qt::Checked;
 			QMenu menu(this);
 			QAction* toggle = menu.addAction(visible
-				? i18n(QStringLiteral("Hide Object"), QStringLiteral("\u9690\u85CF\u5BF9\u8C61"))
-				: i18n(QStringLiteral("Show Object"), QStringLiteral("\u663E\u793A\u5BF9\u8C61")));
-			QAction* focusView = menu.addAction(i18n(QStringLiteral("Focus View"), QStringLiteral("\u805A\u7126\u663E\u793A")));
-			QAction* deleteObj = menu.addAction(i18n(QStringLiteral("Delete"), QStringLiteral("\u5220\u9664")));
+				? i18n(QStringLiteral("Hide Object"), QStringLiteral("隐藏对象"))
+				: i18n(QStringLiteral("Show Object"), QStringLiteral("显示对象")));
+			QAction* focusView = menu.addAction(i18n(QStringLiteral("Focus View"), QStringLiteral("聚焦显示")));
+			QAction* deleteObj = menu.addAction(i18n(QStringLiteral("Delete"), QStringLiteral("删除")));
 			QAction* action = menu.exec(m_backendTree->viewport()->mapToGlobal(pos));
 			if (action == toggle)
 			{
@@ -479,10 +479,10 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 				const QString id = item->data(0, kRoleBackendId).toString();
 				const QMessageBox::StandardButton r = QMessageBox::question(
 					this,
-					i18n(QStringLiteral("Delete object"), QStringLiteral("\u5220\u9664\u5BF9\u8C61")),
+					i18n(QStringLiteral("Delete object"), QStringLiteral("删除对象")),
 					i18n(QStringLiteral("Delete this object and all child parts? This cannot be undone."),
 						QStringLiteral(
-							"\u5220\u9664\u8BE5\u5BF9\u8C61\u53CA\u5176\u5B50\u90E8\u4EF6\uFF1F\u6B64\u64CD\u4F5C\u65E0\u6CD5\u64A4\u9500\u3002")),
+							"删除该对象及其子部件？此操作无法撤销。")),
 					QMessageBox::Yes | QMessageBox::No,
 					QMessageBox::No);
 				if (r == QMessageBox::Yes)
@@ -498,9 +498,9 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 
 	QMenu menu(this);
 	QAction* toggle = menu.addAction(visible
-		? i18n(QStringLiteral("Hide Annotation"), QStringLiteral("\u9690\u85CF\u6CE8\u91CA"))
-		: i18n(QStringLiteral("Show Annotation"), QStringLiteral("\u663E\u793A\u6CE8\u91CA")));
-	QAction* remove = menu.addAction(i18n(QStringLiteral("Delete Annotation"), QStringLiteral("\u5220\u9664\u6CE8\u91CA")));
+		? i18n(QStringLiteral("Hide Annotation"), QStringLiteral("隐藏注释"))
+		: i18n(QStringLiteral("Show Annotation"), QStringLiteral("显示注释")));
+	QAction* remove = menu.addAction(i18n(QStringLiteral("Delete Annotation"), QStringLiteral("删除注释")));
 	QAction* action = menu.exec(m_backendTree->viewport()->mapToGlobal(pos));
 	if (!action)
 	{
@@ -553,7 +553,7 @@ void MainWindow::removeBackendObjectFromDocument(const QString& backendId)
 	{
 		m_runInfoPage->appendInfo(
 			i18n(QStringLiteral("Removed backend object(s): %1").arg(removed.join(QStringLiteral(", "))),
-				QStringLiteral("\u5DF2\u5220\u9664\u540E\u7AEF\u5BF9\u8C61: %1").arg(removed.join(QStringLiteral(", ")))));
+				QStringLiteral("已删除后端对象: %1").arg(removed.join(QStringLiteral(", ")))));
 	}
 	refreshSimulationJointListFromCurrentDoc();
 }

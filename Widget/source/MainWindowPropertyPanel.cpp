@@ -69,63 +69,63 @@ QString MainWindow::propertyDisplayLabelForKey(const QString& key, const QString
 
 	if (key == QStringLiteral("core.id"))
 	{
-		return tr(QStringLiteral("ID"), QStringLiteral("\u6807\u8BC6"));
+		return tr(QStringLiteral("ID"), QStringLiteral("标识"));
 	}
 	if (key == QStringLiteral("core.name"))
 	{
-		return tr(QStringLiteral("Name"), QStringLiteral("\u540D\u79F0"));
+		return tr(QStringLiteral("Name"), QStringLiteral("名称"));
 	}
 	if (key == QStringLiteral("core.class"))
 	{
-		return tr(QStringLiteral("Class"), QStringLiteral("\u7C7B\u578B"));
+		return tr(QStringLiteral("Class"), QStringLiteral("类型"));
 	}
 	if (key == QStringLiteral("ui.active_axis"))
 	{
-		return tr(QStringLiteral("Active axis"), QStringLiteral("\u6D3B\u52A8\u8F74"));
+		return tr(QStringLiteral("Active axis"), QStringLiteral("活动轴"));
 	}
 	if (key == QStringLiteral("pose.x"))
 	{
-		return tr(QStringLiteral("Position X"), QStringLiteral("\u4F4D\u7F6E X"));
+		return tr(QStringLiteral("Position X"), QStringLiteral("位置 X"));
 	}
 	if (key == QStringLiteral("pose.y"))
 	{
-		return tr(QStringLiteral("Position Y"), QStringLiteral("\u4F4D\u7F6E Y"));
+		return tr(QStringLiteral("Position Y"), QStringLiteral("位置 Y"));
 	}
 	if (key == QStringLiteral("pose.z"))
 	{
-		return tr(QStringLiteral("Position Z"), QStringLiteral("\u4F4D\u7F6E Z"));
+		return tr(QStringLiteral("Position Z"), QStringLiteral("位置 Z"));
 	}
 	if (key == QStringLiteral("rotation.x"))
 	{
-		return tr(QStringLiteral("Rotation X (\u00B0)"), QStringLiteral("\u65CB\u8F6C X (\u00B0)"));
+		return tr(QStringLiteral("Rotation X (°)"), QStringLiteral("旋转 X (°)"));
 	}
 	if (key == QStringLiteral("rotation.y"))
 	{
-		return tr(QStringLiteral("Rotation Y (\u00B0)"), QStringLiteral("\u65CB\u8F6C Y (\u00B0)"));
+		return tr(QStringLiteral("Rotation Y (°)"), QStringLiteral("旋转 Y (°)"));
 	}
 	if (key == QStringLiteral("rotation.z"))
 	{
-		return tr(QStringLiteral("Rotation Z (\u00B0)"), QStringLiteral("\u65CB\u8F6C Z (\u00B0)"));
+		return tr(QStringLiteral("Rotation Z (°)"), QStringLiteral("旋转 Z (°)"));
 	}
 	if (key == QStringLiteral("color.r"))
 	{
-		return tr(QStringLiteral("Color R"), QStringLiteral("\u989C\u8272 R"));
+		return tr(QStringLiteral("Color R"), QStringLiteral("颜色 R"));
 	}
 	if (key == QStringLiteral("color.g"))
 	{
-		return tr(QStringLiteral("Color G"), QStringLiteral("\u989C\u8272 G"));
+		return tr(QStringLiteral("Color G"), QStringLiteral("颜色 G"));
 	}
 	if (key == QStringLiteral("color.b"))
 	{
-		return tr(QStringLiteral("Color B"), QStringLiteral("\u989C\u8272 B"));
+		return tr(QStringLiteral("Color B"), QStringLiteral("颜色 B"));
 	}
 	if (key == QStringLiteral("color.a"))
 	{
-		return tr(QStringLiteral("Color A"), QStringLiteral("\u989C\u8272 A"));
+		return tr(QStringLiteral("Color A"), QStringLiteral("颜色 A"));
 	}
 	if (key == QStringLiteral("mesh.triangle_count"))
 	{
-		return tr(QStringLiteral("Triangle count"), QStringLiteral("\u4E09\u89D2\u5F62\u6570"));
+		return tr(QStringLiteral("Triangle count"), QStringLiteral("三角形数"));
 	}
 
 	// Unknown keys: show backend English label

@@ -83,7 +83,7 @@ void RunInfoPage::setUiLanguage(bool useChinese)
 	{
 		return;
 	}
-	m_clearBtn->setText(useChinese ? QStringLiteral("\u6E05\u7A7A") : QStringLiteral("Clear"));
+	m_clearBtn->setText(useChinese ? QStringLiteral("清空") : QStringLiteral("Clear"));
 }
 
 void RunInfoPage::appendLine(const QString& level, const QString& text)

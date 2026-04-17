@@ -42,7 +42,7 @@ void RobotAxisControlWidget::setUseChinese(bool chinese)
 	m_useChinese = chinese;
 	if (m_hintLabel)
 	{
-		m_hintLabel->setText(chinese ? QStringLiteral("\u62D6\u52A8\u6ED1\u5757\u63A7\u5236\u5404\u8F74\uFF08\u8303\u56F4\u6765\u81EA URDF limit\uFF09\u3002")
+		m_hintLabel->setText(chinese ? QStringLiteral("拖动滑块控制各轴（范围来自 URDF limit）。")
 									 : QStringLiteral("Drag sliders to move joints (uses URDF limits)."));
 	}
 }
@@ -106,7 +106,7 @@ void RobotAxisControlWidget::setJoints(const QStringList& jointNames, const QVec
 			const QSignalBlocker blocker(slider);
 			slider->setValue(radToSliderValue(i, 0.0));
 		}
-		auto* valLab = new QLabel(QStringLiteral("0.0\u00B0"));
+		auto* valLab = new QLabel(QStringLiteral("0.0°"));
 		valLab->setMinimumWidth(72);
 		valLab->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
 		m_sliders.append(slider);
@@ -161,7 +161,7 @@ void RobotAxisControlWidget::onSliderValueChanged(int which)
 	if (which < m_valueLabels.size())
 	{
 		const double deg = rad * kRadToDeg;
-		m_valueLabels[which]->setText(QString::number(deg, 'f', 1) + QStringLiteral("\u00B0"));
+		m_valueLabels[which]->setText(QString::number(deg, 'f', 1) + QStringLiteral("°"));
 	}
 	emitAnglesFromSliders();
 }
@@ -186,7 +186,7 @@ void RobotAxisControlWidget::setJointAnglesRad(const QVector<double>& rad)
 		m_anglesRad[i] = rad[i];
 		if (i < m_valueLabels.size())
 		{
-			m_valueLabels[i]->setText(QString::number(rad[i] * kRadToDeg, 'f', 1) + QStringLiteral("\u00B0"));
+			m_valueLabels[i]->setText(QString::number(rad[i] * kRadToDeg, 'f', 1) + QStringLiteral("°"));
 		}
 	}
 }

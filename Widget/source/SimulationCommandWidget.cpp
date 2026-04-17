@@ -19,7 +19,7 @@ QString cmdLabel(const RobotSimulationCommand& c, const QStringList& jointNames,
 																				 : QStringLiteral("?");
 	if (zh)
 	{
-		return QStringLiteral("%1  %2\u00B0 / %3 s").arg(jn).arg(c.angleDeg, 0, 'f', 1).arg(c.durationSec, 0, 'f', 1);
+		return QStringLiteral("%1  %2° / %3 s").arg(jn).arg(c.angleDeg, 0, 'f', 1).arg(c.durationSec, 0, 'f', 1);
 	}
 	return QStringLiteral("%1  %2 deg / %3 s").arg(jn).arg(c.angleDeg, 0, 'f', 1).arg(c.durationSec, 0, 'f', 1);
 }
@@ -118,14 +118,14 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 	if (m_hintLabel)
 	{
 		m_hintLabel->setText(chinese ? QStringLiteral(
-								 "\u4E3A\u5DF2\u5BFC\u5165\u7684\u673A\u5668\u4EBA(URDF)\u6DFB\u52A0\u5173\u8282\u65CB\u8F6C\u6307\u4EE4\u3002")
+								 "为已导入的机器人(URDF)添加关节旋转指令。")
 							   : QStringLiteral("Add joint rotation segments for the imported robot (URDF)."));
 	}
-	m_addBtn->setText(chinese ? QStringLiteral("\u6DFB\u52A0") : QStringLiteral("Add"));
-	m_removeBtn->setText(chinese ? QStringLiteral("\u5220\u9664") : QStringLiteral("Remove"));
-	m_clearBtn->setText(chinese ? QStringLiteral("\u6E05\u7A7A") : QStringLiteral("Clear"));
-	m_runBtn->setText(chinese ? QStringLiteral("\u8FD0\u884C") : QStringLiteral("Run"));
-	m_stopBtn->setText(chinese ? QStringLiteral("\u505C\u6B62") : QStringLiteral("Stop"));
+	m_addBtn->setText(chinese ? QStringLiteral("添加") : QStringLiteral("Add"));
+	m_removeBtn->setText(chinese ? QStringLiteral("删除") : QStringLiteral("Remove"));
+	m_clearBtn->setText(chinese ? QStringLiteral("清空") : QStringLiteral("Clear"));
+	m_runBtn->setText(chinese ? QStringLiteral("运行") : QStringLiteral("Run"));
+	m_stopBtn->setText(chinese ? QStringLiteral("停止") : QStringLiteral("Stop"));
 	rebuildCommandListWidget();
 }
 
