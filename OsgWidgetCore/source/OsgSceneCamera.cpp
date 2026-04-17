@@ -24,9 +24,9 @@
 
 namespace {
 
-osg::BoundingSphere worldBoundOfPat(osg::Node* sceneRoot, osg::Node* objectsGroup, osg::PositionAttitudeTransform* pat)
+osg::BoundingSphere worldBoundOfPat(osg::PositionAttitudeTransform* pat)
 {
-	if (!sceneRoot || !objectsGroup || !pat)
+	if (!pat)
 	{
 		return osg::BoundingSphere();
 	}
@@ -37,9 +37,10 @@ osg::BoundingSphere worldBoundOfPat(osg::Node* sceneRoot, osg::Node* objectsGrou
 		return osg::BoundingSphere();
 	}
 	osg::NodePath path;
-	path.push_back(sceneRoot);
-	path.push_back(objectsGroup);
-	path.push_back(pat);
+	for (osg::Node* n = pat; n != nullptr; n = n->getNumParents() > 0 ? n->getParent(0) : nullptr)
+	{
+		path.insert(path.begin(), n);
+	}
 	const osg::Matrix worldMat = osg::computeLocalToWorld(path);
 	const osg::Vec4d lp(static_cast<double>(loc.center().x()), static_cast<double>(loc.center().y()),
 		static_cast<double>(loc.center().z()), 1.0);
@@ -79,7 +80,7 @@ void OsgScene::focusCameraOnBackend(const std::string& backendId)
 		{
 			continue;
 		}
-		const osg::BoundingSphere w = worldBoundOfPat(m_root.get(), m_objectsGroup.get(), kv.second.get());
+		const osg::BoundingSphere w = worldBoundOfPat(kv.second.get());
 		if (!w.valid())
 		{
 			continue;

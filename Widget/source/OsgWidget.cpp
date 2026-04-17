@@ -359,12 +359,12 @@ bool OsgWidget::upsertPointCloudBranchInScene(const PointCloudBackendData& data,
 	const osg::Vec3f center = built.modelCenter;
 	const float diagonal = built.diagonal;
 	auto it = m_backendObjectRoots.find(id);
-	if (it != m_backendObjectRoots.end() && it->second.valid() && m_objectsGroup.valid())
+	if (it != m_backendObjectRoots.end() && it->second.valid() && m_backendObjectsGroup.valid())
 	{
-		m_objectsGroup->removeChild(it->second.get());
+		m_backendObjectsGroup->removeChild(it->second.get());
 	}
 	m_backendObjectRoots.erase(id);
-	m_objectsGroup->addChild(outer.get());
+	m_backendObjectsGroup->addChild(outer.get());
 	m_backendObjectRoots.insert(std::make_pair(id, std::move(outer)));
 	m_backendModelCenters[id] = center;
 	if (m_activeBackendId == id || m_activeBackendId.empty())
@@ -432,12 +432,12 @@ bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* er
 	const osg::Vec3f center = built.modelCenter;
 	const float diagonal = built.diagonal;
 	auto it = m_backendObjectRoots.find(id);
-	if (it != m_backendObjectRoots.end() && it->second.valid() && m_objectsGroup.valid())
+	if (it != m_backendObjectRoots.end() && it->second.valid() && m_backendObjectsGroup.valid())
 	{
-		m_objectsGroup->removeChild(it->second.get());
+		m_backendObjectsGroup->removeChild(it->second.get());
 	}
 	m_backendObjectRoots.erase(id);
-	m_objectsGroup->addChild(outer.get());
+	m_backendObjectsGroup->addChild(outer.get());
 	m_backendObjectRoots.insert(std::make_pair(id, std::move(outer)));
 	m_backendModelCenters[id] = center;
 	if (m_activeBackendId == id || m_activeBackendId.empty())
@@ -1245,10 +1245,19 @@ void OsgWidget::clearImportedContent()
 {
 	clearStagingGeometry();
 	hideMeshElementHighlight();
-	if (m_objectsGroup.valid())
+	if (m_backendObjectsGroup.valid())
 	{
-		m_objectsGroup->removeChildren(0, m_objectsGroup->getNumChildren());
+		m_backendObjectsGroup->removeChildren(0, m_backendObjectsGroup->getNumChildren());
 	}
+	if (m_robotAssemblyGroup.valid())
+	{
+		m_robotAssemblyGroup->removeChildren(0, m_robotAssemblyGroup->getNumChildren());
+	}
+	if (m_trajectoryOverlayGroup.valid())
+	{
+		m_trajectoryOverlayGroup->removeChildren(0, m_trajectoryOverlayGroup->getNumChildren());
+	}
+	clearPointAnnotations();
 	m_litMeshBackendIds.clear();
 	m_backendObjectRoots.clear();
 	m_backendParentIds.clear();
@@ -1313,7 +1322,7 @@ bool OsgWidget::isBackendMeshLit(const std::string& backendId) const
 // 【中文】添加层级化机器人场景图（动态层级法）
 QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QString& displayName)
 {
-	if (!robotAssembly || !m_objectsGroup.valid())
+	if (!robotAssembly || !m_robotAssemblyGroup.valid())
 	{
 		return QString();
 	}
@@ -1330,7 +1339,7 @@ QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QS
 	outer->setName(displayName.isEmpty() ? "RobotHierarchy" : displayName.toStdString());
 	robotAssembly->dirtyBound();
 	outer->addChild(robotAssembly);
-	m_objectsGroup->addChild(outer.get());
+	m_robotAssemblyGroup->addChild(outer.get());
 	outer->dirtyBound();
 	const osg::BoundingSphere bs = outer->getBound();
 	if (bs.valid())
@@ -1379,9 +1388,9 @@ void OsgWidget::removeHierarchicalRobotScene(const QString& backendId)
 	const std::string stdId = backendId.toStdString();
 
 	auto it = m_backendObjectRoots.find(stdId);
-	if (it != m_backendObjectRoots.end() && it->second.valid() && m_objectsGroup.valid())
+	if (it != m_backendObjectRoots.end() && it->second.valid() && m_robotAssemblyGroup.valid())
 	{
-		m_objectsGroup->removeChild(it->second.get());
+		m_robotAssemblyGroup->removeChild(it->second.get());
 		m_backendObjectRoots.erase(it);
 	}
 	m_litMeshBackendIds.erase(stdId);

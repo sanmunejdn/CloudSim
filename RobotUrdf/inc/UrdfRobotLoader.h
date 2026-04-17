@@ -107,7 +107,7 @@ namespace UrdfRobotLoader
 	/// @return RobotAssembly root node (osg::Group), nullptr on failure
 	///
 	/// Caller responsibilities:
-	/// - Add returned RobotAssembly to m_objectsGroup for display
+	/// - Add returned RobotAssembly via OsgWidget::addHierarchicalRobotScene (挂到 m_robotAssemblyGroup)
 	/// - Preserve outLinkToGeometry/outJointTransforms for runtime joint updates
 	/// - To update joint angles: modify outJointTransforms[jointName]->setMatrix(newMatrix)
 	/// - Multiple robots: prefix keys when merging into a document (e.g. backendId + "::" + jointName) so names do not collide.

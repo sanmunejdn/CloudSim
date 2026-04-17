@@ -28,9 +28,13 @@ void OsgWidgetTransformHierarchyController::removeBackendObjectVisual(
 	const std::string& backendId)
 {
 	auto it = self.m_backendObjectRoots.find(backendId);
-	if (it != self.m_backendObjectRoots.end() && it->second.valid() && self.m_objectsGroup.valid())
+	if (it != self.m_backendObjectRoots.end() && it->second.valid())
 	{
-		self.m_objectsGroup->removeChild(it->second.get());
+		osg::Node* const pat = it->second.get();
+		if (pat->getNumParents() > 0)
+		{
+			pat->getParent(0)->removeChild(pat);
+		}
 	}
 	self.m_backendObjectRoots.erase(backendId);
 	self.m_backendParentIds.erase(backendId);

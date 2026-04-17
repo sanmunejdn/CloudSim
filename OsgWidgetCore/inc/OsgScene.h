@@ -78,6 +78,10 @@ public:
 	double devicePixelRatio() const { return m_devicePixelRatio; }
 
 	void initScene();
+	osg::Group* sceneContentRoot() const { return m_sceneContentGroup.get(); }
+	osg::Group* backendObjectsRoot() const { return m_backendObjectsGroup.get(); }
+	osg::Group* robotAssemblyRoot() const { return m_robotAssemblyGroup.get(); }
+	osg::Group* trajectoryOverlayRoot() const { return m_trajectoryOverlayGroup.get(); }
 	/// 将头灯绑定到 Viewer（osg::View::HEADLIGHT，每帧随主相机视点更新；主场景由 setSceneData 提供，不宜把 LightSource 直接挂到 Camera 子图）。
 	void applyHeadlightToViewer(osgViewer::Viewer* viewer);
 	void initWorldAxesHud();
@@ -138,7 +142,14 @@ public:
 	osg::ref_ptr<osgViewer::GraphicsWindow> m_graphicsWindow;
 
 	osg::ref_ptr<osg::Group> m_root;
-	osg::ref_ptr<osg::Group> m_objectsGroup;
+	/// 主场景内容分层父节点（标注、导入物、机器人、轨迹等），子节点顺序影响默认绘制先后。
+	osg::ref_ptr<osg::Group> m_sceneContentGroup;
+	/// 导入网格/点云对应的后端根 PAT 挂接于此（与机器人装配分离，便于仿真与资源管理）。
+	osg::ref_ptr<osg::Group> m_backendObjectsGroup;
+	/// URDF / 关节层级机器人场景（参见 OsgWidget::addHierarchicalRobotScene）。
+	osg::ref_ptr<osg::Group> m_robotAssemblyGroup;
+	/// 预留：轨迹、路径、调试曲线等覆盖几何。
+	osg::ref_ptr<osg::Group> m_trajectoryOverlayGroup;
 	osg::ref_ptr<osg::Group> m_stagingGroup;
 	std::unordered_map<std::string, osg::ref_ptr<osg::PositionAttitudeTransform>> m_backendObjectRoots;
 	std::unordered_map<std::string, std::string> m_backendParentIds;

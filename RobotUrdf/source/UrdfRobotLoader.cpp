@@ -17,6 +17,11 @@
 #include <QVector>
 #include <QXmlStreamReader>
 #include <QDebug>
+#include <QElapsedTimer>
+
+// 【中文】后端视觉系统头文件（用于优化版连杆几何加载）
+#include "BackendVisualRegistry.h"
+#include "MeshBackendData.h"
 
 #include <osg/Array>
 #include <osg/Depth>
@@ -31,6 +36,8 @@
 #include <osg/Matrixd>
 #include <osg/MatrixTransform>
 #include <osg/NodeVisitor>
+#include <osg/Shape>
+#include <osg/ShapeDrawable>
 #include <osg/StateSet>
 #include <osg/ref_ptr>
 #include <osg/Vec3>
@@ -91,7 +98,15 @@ constexpr double kMeshFileVertexUnitsToInternalMm = 1;
 constexpr bool kUrdfMeshUseSmoothingVisitor = false;
 
 // 为 true 时 urdfDebugLogRevoluteJointSubtree 打印各关节子树包围球（默认关）。
-constexpr bool kUrdfDebugJointSubtreeDiagnostics = false;
+constexpr bool kUrdfDebugJointSubtreeDiagnostics = true;
+
+// 【中文】为 true 时使用 MeshBackendData 后端对象加载连杆几何（推荐，更快且支持属性编辑）
+// 为 false 时回退到旧的 osgDB::readNodeFile 直接读取
+constexpr bool kUseMeshBackendForLinks = true;
+// 关节结构节点（JointOrigin/JointRotation/LinkShell）在非零 origin + 动态旋转时，
+// 个别 OSG 版本会出现父包围球低估，导致整段子树被误剔除。关闭结构层裁剪可避免“子连杆消失”。
+// 几何节点仍保留裁剪，开销主要是层级遍历，不会禁用整机裁剪。
+constexpr bool kDisableCullingOnJointStructuralNodes = true;
 
 // 连杆系原点处 RGB 坐标轴长度（mm）：无网格时用默认；有网格时按包围球半径比例缩放。
 constexpr double kUrdfLinkFrameAxisMmDefault = 100.0;
@@ -436,15 +451,27 @@ void transformTriangleSoup(std::vector<float>& soup, const Mat4& t)
 	}
 }
 
-// 内部 Mat4（列主序）转为 osg::Matrixd，供返回给 OSG 场景使用。
+// 内部 Mat4（列主序，列向量左乘 M*v）转为 osg::Matrixd。
+// OSG 使用行主序存储，数学上是行向量右乘 v*M。
+// 需要对矩阵进行转置，以匹配不同的向量乘法约定。
 osg::Matrixd mat4ToOsg(const Mat4& m)
 {
 	osg::Matrixd o;
-	for (int c = 0; c < 4; ++c)
+	// 【关键】部分转置：旋转不转置，位移转置
+	for (int r = 0; r < 4; ++r)
 	{
-		for (int r = 0; r < 4; ++r)
+		for (int c = 0; c < 4; ++c)
 		{
-			o(r, c) = m.m[c * 4 + r];
+			if (r == 3 || c == 3)
+			{
+				// 第4行或第4列：位移需要转置
+				o(r, c) = m.m[r * 4 + c];
+			}
+			else
+			{
+				// 3x3旋转部分：不转置
+				o(r, c) = m.m[c * 4 + r];
+			}
 		}
 	}
 	return o;
@@ -1188,6 +1215,123 @@ static osg::ref_ptr<osg::Group> createContainerLayer(const QString& linkName)
 	return container;
 }
 
+/// 【中文】辅助：使用 MeshBackendData 后端对象创建 Link 的视觉几何（优化版）
+/// 替代 createLinkVisualFromMesh()，使用 BackendVisualRegistry 统一管理
+/// 优势：
+/// 1. 加载更快（CGAL/OCC专用解析器 vs OSG通用插件）
+/// 2. 支持属性编辑（颜色、位置）
+/// 3. 支持项目序列化（保存/加载）
+/// 4. 统一后端管理接口
+///
+/// 【重要】坐标系约定：
+/// - MeshBackendData::loadFromFile 读取的顶点是文件原始坐标（假设为mm）
+/// - URDF <visual><origin> 提供 visual系相对link系的变换
+/// - meshFileToLinkFrameFromVisual() 返回的矩阵：p_link = M * p_file
+/// - 本函数直接应用该矩阵，与旧方案 createLinkVisualFromMesh 行为一致
+///
+/// @param linkName 连杆名称
+/// @param vis URDF visual配置（包含mesh路径和origin变换）
+/// @param packageRoot 包根目录（用于解析package://）
+/// @param urdfDir URDF所在目录
+/// @param errorMessage 错误信息输出
+/// @return OSG节点（来自BackendVisualRegistry），失败返回nullptr
+static osg::ref_ptr<osg::Node> createLinkVisualFromBackend(
+	const QString& linkName,
+	const UrdfLinkVisual& vis,
+	const QString& packageRoot,
+	const QString& urdfDir,
+	QString* errorMessage)
+{
+	if (!vis.hasMesh) {
+		return nullptr;
+	}
+
+	// 解析mesh文件路径
+	const QString absMesh = resolveMeshFilename(vis.meshUri, packageRoot, urdfDir);
+	if (absMesh.isEmpty() || !QFile::exists(absMesh)) {
+		if (errorMessage) {
+			*errorMessage = QStringLiteral("Mesh not found for link '%1': %2")
+				.arg(linkName, vis.meshUri);
+		}
+		return nullptr;
+	}
+
+	// 创建MeshBackendData后端对象
+	auto backend = std::make_shared<MeshBackendData>();
+	backend->setName(linkName.toStdString());
+
+	// 加载mesh文件（使用快速后端读取）
+	QElapsedTimer timer;
+	timer.start();
+
+	std::string nativePath = absMesh.toStdString();
+	std::string loadErr;
+	bool loaded = backend->loadFromFile(nativePath, &loadErr);
+
+	if (!loaded) {
+		if (errorMessage) {
+			*errorMessage = QStringLiteral("Failed to load mesh for link '%1': %2")
+				.arg(linkName).arg(QString::fromStdString(loadErr));
+		}
+		qWarning() << "[UrdfRobotLoader] Backend load failed for link:" << linkName
+				   << "Mesh:" << absMesh << "Error:" << QString::fromStdString(loadErr);
+		return nullptr;
+	}
+
+	qDebug().nospace() << "[UrdfRobotLoader] Backend loaded link: " << linkName
+					   << " Triangles: " << backend->geometryElementCount()
+					   << " Time: " << timer.elapsed() << "ms";
+
+	// 【关键】设置颜色（与旧方案 finalizeUrdfImportedMeshRendering 一致）
+	BackendColor color;
+	color.r = 0.65f; color.g = 0.82f; color.b = 0.95f; color.a = 1.0f;
+	backend->setColor(color);
+
+	// 【关键】清零pose/rotation，避免与meshToLink矩阵重复应用
+	// 旧方案中MeshBackendData不参与URDF连杆加载，所以没有这个字段
+	// 但在buildOuterBranch中会应用pose，这里需要清零
+	BackendVec3 zeroPose{0.0f, 0.0f, 0.0f};
+	BackendVec3 zeroRot{0.0f, 0.0f, 0.0f};
+	backend->setPose(zeroPose);
+	backend->setRotation(zeroRot);
+
+	// 计算visual origin变换矩阵（与旧方案完全一致）
+	// p_link = meshToLink * p_file
+	const Mat4 meshToLink = meshFileToLinkFrameFromVisual(vis);
+
+	// 【调试输出】检查矩阵是否有异常值
+	if (kUrdfDebugJointSubtreeDiagnostics) {
+		qDebug().nospace() << "[UrdfBackendDiag] link " << linkName
+						   << " meshToLink[0,0]=" << meshToLink.m[0]
+						   << " [1,1]=" << meshToLink.m[5]
+						   << " [2,2]=" << meshToLink.m[10]
+						   << " translate=(" << meshToLink.m[12] << "," << meshToLink.m[13] << "," << meshToLink.m[14] << ")";
+	}
+
+	// 使用BackendVisualRegistry创建OSG节点
+	MeshVisualOptions options;
+	options.showWireOutline = false;
+	options.useSceneLighting = true;
+
+	std::string err;
+	osg::ref_ptr<osg::Node> visualNode = BackendVisualRegistry::buildMeshDisplayNode(
+		*backend, options, &err);
+
+	if (!visualNode) {
+		if (errorMessage) *errorMessage = QString::fromStdString(err);
+		return nullptr;
+	}
+
+	visualNode->setName(linkName.toStdString() + "_BackendVisual");
+
+	osg::ref_ptr<osg::MatrixTransform> geometryXf = new osg::MatrixTransform;
+	geometryXf->setName(linkName.toStdString() + "_Geometry");
+	geometryXf->setMatrix(mat4ToOsg(meshToLink));
+	geometryXf->addChild(visualNode.get());
+
+	return geometryXf;
+}
+
 /// 连杆坐标系原点：X 红、Y 绿、Z 蓝（与 ROS / RViz 常见约定一致）；长度单位为 mm。
 /// 渲染状态与视图 compass 一致：关闭深度测试 / 深度始终通过，避免被三角网格遮挡。
 static osg::ref_ptr<osg::Geode> createLinkFrameAxesGeode(double axisLengthMm, const std::string& nodeName)
@@ -1426,6 +1570,10 @@ static bool attachLinkJointLink(
 		parentLinkContainer->removeChild(jointMt);
 		return false;
 	}
+	if (kDisableCullingOnJointStructuralNodes)
+	{
+		jointMt->setCullingActive(false);
+	}
 	return true;
 }
 
@@ -1436,7 +1584,8 @@ static void urdfDebugLogRevoluteJointSubtree(
 	osg::MatrixTransform* jointRotationMt,
 	osg::Group* linkShell,
 	osg::Group* childLinkContainer,
-	osg::Node* linkGeometryOptional)
+	osg::Node* linkGeometryOptional,
+	osg::Node* axisVisual = nullptr)
 {
 	if (!kUrdfDebugJointSubtreeDiagnostics)
 	{
@@ -1449,7 +1598,7 @@ static void urdfDebugLogRevoluteJointSubtree(
 	qDebug().nospace() << "[UrdfJointDiag] joint " << jointName << " T_origin translation(mm) xyz=(" << tx << ","
 					   << ty << "," << tz << ") len=" << tlen;
 
-	auto logBound = [&](const char* tag, osg::Node* n) {
+	auto logBound = [&](const char* tag, osg::Node* n, bool checkParent = false) {
 		if (!n)
 		{
 			qDebug() << "[UrdfJointDiag]" << tag << ": null";
@@ -1459,12 +1608,26 @@ static void urdfDebugLogRevoluteJointSubtree(
 		const osg::BoundingSphere& bs = n->getBound();
 		qDebug().nospace() << "[UrdfJointDiag]" << tag << ": valid=" << bs.valid() << " cullingActive=" << n->getCullingActive()
 						   << " center=(" << bs.center().x() << "," << bs.center().y() << "," << bs.center().z() << ") radius=" << bs.radius();
+		
+		if (checkParent && n->getNumParents() > 0)
+		{
+			qDebug().nospace() << "[UrdfJointDiag]" << tag << " parent=" << n->getParent(0)->getName().c_str();
+		}
 	};
-	logBound("JointN(jointOriginMt)", jointOriginMt);
-	logBound("jointRotation(URDF name)", jointRotationMt);
-	logBound("LinkN(linkShell)", linkShell);
-	logBound("child link_Container", childLinkContainer);
-	logBound("child link_Geometry", linkGeometryOptional);
+	logBound("JointN(jointOriginMt)", jointOriginMt, true);
+	logBound("jointRotation(URDF name)", jointRotationMt, true);
+	logBound("LinkN(linkShell)", linkShell, true);
+	logBound("child link_Container", childLinkContainer, true);
+	logBound("child link_Geometry", linkGeometryOptional, true);
+	logBound("Axis_Visual", axisVisual, true);
+	
+	// 【关键调试】检查 jointOriginMt 的矩阵值
+	if (jointOriginMt)
+	{
+		osg::Matrix m = jointOriginMt->getMatrix();
+		qDebug().nospace() << "[UrdfJointDiag]JointN(jointOriginMt) matrix:"
+						   << " [3,0]=" << m(3,0) << " [3,1]=" << m(3,1) << " [3,2]=" << m(3,2);
+	}
 }
 
 /// Parent_Link_Container -> JointN(T_origin) -> JointContent(Group) -> { Axis_Visual, jointRotation(R) -> Link壳 -> child }。
@@ -1574,6 +1737,10 @@ static bool attachRevoluteJointDecomposed(
 		return false;
 	}
 
+	if (axisVisualRoot)
+	{
+		axisVisualRoot->dirtyBound();
+	}
 	jointOriginMt->dirtyBound();
 	jointContent->dirtyBound();
 	jointRotationMt->dirtyBound();
@@ -1581,8 +1748,18 @@ static bool attachRevoluteJointDecomposed(
 	childLinkContainer->dirtyBound();
 	parentLinkContainer->dirtyBound();
 
-	jointOriginMt->setCullingActive(true);
-	jointRotationMt->setCullingActive(true);
+	if (kDisableCullingOnJointStructuralNodes)
+	{
+		jointOriginMt->setCullingActive(false);
+		jointContent->setCullingActive(false);
+		jointRotationMt->setCullingActive(false);
+		linkShell->setCullingActive(false);
+	}
+	else
+	{
+		jointOriginMt->setCullingActive(true);
+		jointRotationMt->setCullingActive(true);
+	}
 	return true;
 }
 
@@ -1651,28 +1828,48 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 			return nullptr;
 		}
 
-		// 加载 Mesh 文件为 OSG 节点
-		osg::ref_ptr<osg::Node> meshNode = loadMeshNode(absMesh, errorMessage);
-		if (!meshNode)
-		{
-			return nullptr; // errorMessage 已由 loadMeshNode 填充
-		}
-
 		// 【第二阶段】创建视觉容器层 (Container)
 		osg::ref_ptr<osg::Group> container = createContainerLayer(linkName);
 
-		// 几何层：仅 visual origin + 法线/光照（与关节 MatrixTransform 分工；不读 mesh scale）
-		osg::ref_ptr<osg::MatrixTransform> geometryXf = createLinkVisualFromMesh(linkName, vis, meshNode);
-		container->addChild(geometryXf.get());
-		// 连杆系原点坐标轴（暂时关闭，改用关节坐标系可视化）
-		// container->addChild(createLinkFrameAxesGeode(
-		//	linkFrameAxisLengthMmFromMesh(meshNode.get()), linkName.toStdString() + "_LinkFrameAxes")
-		//	.get());
+		// 几何层：根据开关选择后端加载或OSG直接加载
+		osg::ref_ptr<osg::Node> geometryNode;
+		if (kUseMeshBackendForLinks)
+		{
+			// 【优化方案】使用 MeshBackendData 后端对象加载
+			// 优势：更快加载、支持属性编辑、可序列化
+			QString backendErr;
+			geometryNode = createLinkVisualFromBackend(linkName, vis, packageRoot, urdfDir, &backendErr);
+			if (!geometryNode)
+			{
+				qWarning() << "[UrdfRobotLoader] Backend loading failed for link:" << linkName
+						   << "Error:" << backendErr;
+				// 可选：回退到OSG直接读取
+				qDebug() << "[UrdfRobotLoader] Falling back to OSG loading for link:" << linkName;
+			}
+		}
+
+		if (!geometryNode)
+		{
+			// 【旧方案】OSG 直接读取（回退方案）
+			osg::ref_ptr<osg::Node> meshNode = loadMeshNode(absMesh, errorMessage);
+			if (!meshNode)
+			{
+				return nullptr; // errorMessage 已由 loadMeshNode 填充
+			}
+			// 几何层：仅 visual origin + 法线/光照
+			osg::ref_ptr<osg::MatrixTransform> geometryXf = createLinkVisualFromMesh(linkName, vis, meshNode);
+			geometryNode = geometryXf;
+		}
+
+		container->addChild(geometryNode.get());
+
+		// 记录几何节点（用于后续更新输出）
+		osg::MatrixTransform* geometryXf = dynamic_cast<osg::MatrixTransform*>(geometryNode.get());
 
 		keepLinkContainersAlive.push_back(container);
 
 		// 记录输出（存储原始指针，所有权由 keepLinkContainersAlive 与后续场景图保持）
-		outLinkToGeometry[linkName] = geometryXf.get();
+		outLinkToGeometry[linkName] = geometryXf;  // 可能为nullptr（如果是非MatrixTransform）
 		outLinkToContainer[linkName] = container.get();
 	}
 
@@ -1760,13 +1957,13 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 			osg::Group* parentContainer = cur.container;
 			osg::Group* childContainer = childIt.value();
 
-			// 获取包围盒中心
-			osg::Vec3d parentCenter = parentContainer->getBound().center();
-			osg::Vec3d childCenter = childContainer->getBound().center();
+			//// 获取包围盒中心
+			//osg::Vec3d parentCenter = parentContainer->getBound().center();
+			//osg::Vec3d childCenter = childContainer->getBound().center();
 
-			// 分别打印 x, y, z
-			qWarning() << "Parent Center:" << parentCenter.x() << parentCenter.y() << parentCenter.z();
-			qWarning() << "Child Center:" << childCenter.x() << childCenter.y() << childCenter.z();
+			//// 分别打印 x, y, z
+			//qWarning() << "Parent Center:" << parentCenter.x() << parentCenter.y() << parentCenter.z();
+			//qWarning() << "Child Center:" << childCenter.x() << childCenter.y() << childCenter.z();
 
 			if (!parentContainer || !childContainer)
 			{
@@ -1794,6 +1991,7 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 				osg::ref_ptr<osg::MatrixTransform> jointOriginMt = new osg::MatrixTransform;
 				jointOriginMt->setName(QStringLiteral("Joint%1").arg(jointVisIndex).toStdString());
 				jointOriginMt->setMatrix(mat4ToOsg(T_origin));
+				
 
 				osg::ref_ptr<osg::Group> axisShell = new osg::Group;
 				axisShell->setName(QStringLiteral("Axis_Visual_%1").arg(jointVisIndex).toStdString());
@@ -1801,6 +1999,20 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 					kUrdfLinkFrameAxisMmDefault, j.ax, j.ay, j.az,
 					(j.name + QStringLiteral("_JointAxis")).toStdString(), axisLabel)
 					.get());
+				
+				// 【调试】在关节原点添加可见标记（小红球）
+				if (kUrdfDebugJointSubtreeDiagnostics)
+				{
+					osg::ref_ptr<osg::Sphere> sphere = new osg::Sphere(osg::Vec3(0,0,0), 5.0f);  // 5mm半径红球在原点
+					osg::ref_ptr<osg::ShapeDrawable> sd = new osg::ShapeDrawable(sphere.get());
+					sd->setColor(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
+					osg::ref_ptr<osg::Geode> marker = new osg::Geode;
+					marker->setName((j.name + "_OriginMarker").toStdString());
+					marker->addDrawable(sd.get());
+					// 关闭光照使颜色更鲜艳
+					marker->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+					axisShell->addChild(marker.get());
+				}
 
 				// 1. 获取或创建独立的状态集
 				osg::ref_ptr<osg::StateSet> meshSS = childContainer->getOrCreateStateSet();
@@ -1842,7 +2054,7 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 						childGeom = gIt.value();
 					}
 					urdfDebugLogRevoluteJointSubtree(
-						j.name, T_origin, jointOriginMt.get(), jointNode, linkShell.get(), childContainer, childGeom);
+						j.name, T_origin, jointOriginMt.get(), jointNode, linkShell.get(), childContainer, childGeom, axisShell.get());
 				}
 
 				outJointTransforms[j.name] = jointNode;

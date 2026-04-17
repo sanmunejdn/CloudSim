@@ -251,14 +251,28 @@ void OsgScene::initScene()
 		m_headlight->setSpecular(osg::Vec4(0.45f, 0.45f, 0.42f, 1.0f));
 	}
 
-	m_objectsGroup = new osg::Group;
-	m_objectsGroup->setNodeMask(0xffffffffu);
+	m_sceneContentGroup = new osg::Group;
+	m_sceneContentGroup->setName("SceneContent");
+	m_sceneContentGroup->setNodeMask(0xffffffffu);
+
+	m_backendObjectsGroup = new osg::Group;
+	m_backendObjectsGroup->setName("BackendObjects");
+	m_backendObjectsGroup->setNodeMask(0xffffffffu);
 	// 不在此组上强制 GL_LIGHTING OFF：父级 OVERRIDE 会压过子节点「开启光照」，导致受光网格始终走无光照着色。
 	// 需要无光照的分支（点云、标注等）在各自节点上设置 OFF | OVERRIDE。
+
+	m_robotAssemblyGroup = new osg::Group;
+	m_robotAssemblyGroup->setName("RobotAssembly");
+	m_robotAssemblyGroup->setNodeMask(0xffffffffu);
+
+	m_trajectoryOverlayGroup = new osg::Group;
+	m_trajectoryOverlayGroup->setName("TrajectoryOverlay");
+	m_trajectoryOverlayGroup->setNodeMask(0xffffffffu);
+
 	m_stagingGroup = new osg::Group;
 	m_stagingGroup->setNodeMask(0xffffffffu);
 	m_stagingGroup->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-	m_root->addChild(m_objectsGroup.get());
+	m_root->addChild(m_sceneContentGroup.get());
 	m_root->addChild(m_stagingGroup.get());
 
 	m_selectedTransform = new osg::PositionAttitudeTransform;
@@ -267,9 +281,14 @@ void OsgScene::initScene()
 	m_compassTransform->setNodeMask(0u);
 	m_selectedTransform->addChild(m_compassTransform.get());
 	m_annotationGroup = new osg::Group;
+	m_annotationGroup->setName("Annotations");
 	m_annotationGroup->setNodeMask(0xffffffffu);
 	m_annotationGroup->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-	m_objectsGroup->addChild(m_annotationGroup.get());
+	// 顺序：标注 → 导入物 → 机器人 → 轨迹 overlay（后者后绘制，便于覆盖在场景几何之上）。
+	m_sceneContentGroup->addChild(m_annotationGroup.get());
+	m_sceneContentGroup->addChild(m_backendObjectsGroup.get());
+	m_sceneContentGroup->addChild(m_robotAssemblyGroup.get());
+	m_sceneContentGroup->addChild(m_trajectoryOverlayGroup.get());
 
 	m_meshPickOverlayGroup = new osg::Group;
 	m_meshPickOverlayGroup->setNodeMask(0u);
