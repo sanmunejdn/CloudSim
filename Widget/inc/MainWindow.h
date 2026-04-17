@@ -18,6 +18,7 @@
 class QWidget;
 class OsgWidget;
 class DocumentPage;
+namespace osg { class Matrixd; }
 class QTabWidget;
 class QTreeWidget;
 class QTreeWidgetItem;
@@ -66,7 +67,12 @@ private:
 	void updateInstructionPropertyPanel(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void appendPropertyBrowserRow(const QString& propertyKey, const QString& displayLabel, const QString& value, bool editable);
 	QString propertyDisplayLabelForKey(const QString& key, const QString& labelEnFallback) const;
-	bool tryCaptureCurrentRobotTcpPose(RobotInstruction::Vec3& outPoseMm, RobotInstruction::Vec3& outEulerDeg, QString* errMsg) const;
+	bool tryCaptureCurrentRobotTcpPose(
+		RobotInstruction::Vec3& outPoseMm,
+		RobotInstruction::Vec3& outEulerDeg,
+		osg::Matrixd* outTcpLocalMat,
+		QString* outTcpLinkName,
+		QString* errMsg) const;
 	void syncOsgViewerFromPointCloudBackend(const std::shared_ptr<PointCloudBackendData>& pc);
 	void syncOsgViewerFromMeshBackend(const std::shared_ptr<MeshBackendData>& mesh);
 	void onSaveProject();
@@ -104,6 +110,7 @@ private:
 	void onSimulationInstructionSelectionChanged(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void onRobotSimulationTick();
 	void stopRobotSimulation();
+	void refreshInstructionPoseAxes();
 	void refreshSimulationJointListFromCurrentDoc();
 	void onRobotAxisJointAnglesChanged(const QVector<double>& jointAnglesRad);
 

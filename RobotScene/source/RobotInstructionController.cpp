@@ -237,7 +237,7 @@ bool tcpPositionFromUrdf(
 		qQt.push_back(v);
 	}
 	QHash<QString, osg::Matrixd> linkWorldByName;
-	if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, qQt, linkWorldByName, nullptr))
+	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, qQt, linkWorldByName, nullptr))
 	{
 		return false;
 	}

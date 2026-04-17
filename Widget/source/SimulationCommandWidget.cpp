@@ -72,6 +72,8 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 	m_typeCombo->addItem(QStringLiteral("PTP"));
 	m_typeCombo->addItem(QStringLiteral("LINE"));
 	form->addWidget(m_typeCombo);
+	m_tcpLinkCombo = new QComboBox(this);
+	form->addWidget(m_tcpLinkCombo, 1);
 	root->addLayout(form);
 
 	auto* rowBtns = new QHBoxLayout;
@@ -123,9 +125,54 @@ void SimulationCommandWidget::setRevoluteJointNames(const QStringList& names)
 {
 	m_hasRobotContext = !names.isEmpty();
 	m_typeCombo->setEnabled(m_hasRobotContext);
+	if (m_tcpLinkCombo)
+	{
+		m_tcpLinkCombo->setEnabled(m_hasRobotContext);
+	}
 	m_addBtn->setEnabled(m_hasRobotContext);
 	rebuildCommandListWidget();
 	updateRunStopButtons();
+}
+
+void SimulationCommandWidget::setTcpLinkOptions(const QStringList& linkNames, const QString& preferredLink)
+{
+	if (!m_tcpLinkCombo)
+	{
+		return;
+	}
+	const QString prev = selectedTcpLink();
+	m_tcpLinkCombo->clear();
+	for (const QString& n : linkNames)
+	{
+		m_tcpLinkCombo->addItem(n);
+	}
+	if (m_tcpLinkCombo->count() <= 0)
+	{
+		return;
+	}
+	int idx = -1;
+	if (!preferredLink.isEmpty())
+	{
+		idx = m_tcpLinkCombo->findText(preferredLink);
+	}
+	if (idx < 0 && !prev.isEmpty())
+	{
+		idx = m_tcpLinkCombo->findText(prev);
+	}
+	if (idx < 0)
+	{
+		idx = 0;
+	}
+	m_tcpLinkCombo->setCurrentIndex(idx);
+}
+
+QString SimulationCommandWidget::selectedTcpLink() const
+{
+	if (!m_tcpLinkCombo || m_tcpLinkCombo->currentIndex() < 0)
+	{
+		return QString();
+	}
+	return m_tcpLinkCombo->currentText();
 }
 
 void SimulationCommandWidget::setUseChinese(bool chinese)
@@ -146,6 +193,11 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 	{
 		m_typeCombo->setItemText(0, chinese ? QStringLiteral("点到点") : QStringLiteral("PTP"));
 		m_typeCombo->setItemText(1, chinese ? QStringLiteral("直线") : QStringLiteral("LINE"));
+	}
+	if (m_tcpLinkCombo)
+	{
+		m_tcpLinkCombo->setToolTip(chinese ? QStringLiteral("TCP连杆（用于位姿抓取与规划）")
+										 : QStringLiteral("TCP link for pose capture/planning"));
 	}
 	rebuildCommandListWidget();
 }
@@ -238,7 +290,12 @@ std::vector<std::shared_ptr<RobotInstruction::Base>> SimulationCommandWidget::in
 	return out;
 }
 
-void SimulationCommandWidget::appendInstructionFromCurrentPose(
+std::vector<std::shared_ptr<RobotInstruction::Base>> SimulationCommandWidget::instructionList() const
+{
+	return m_instructions;
+}
+
+std::shared_ptr<RobotInstruction::Base> SimulationCommandWidget::appendInstructionFromCurrentPose(
 	RobotInstruction::Type type,
 	const RobotInstruction::Vec3& poseMm,
 	const RobotInstruction::Vec3& eulerDeg)
@@ -258,7 +315,7 @@ void SimulationCommandWidget::appendInstructionFromCurrentPose(
 	}
 	if (!ins)
 	{
-		return;
+		return nullptr;
 	}
 	ins->setPose(poseMm);
 	ins->setEulerDeg(eulerDeg);
@@ -266,6 +323,7 @@ void SimulationCommandWidget::appendInstructionFromCurrentPose(
 	rebuildCommandListWidget();
 	m_list->setCurrentRow(static_cast<int>(m_instructions.size()) - 1);
 	updateRunStopButtons();
+	return ins;
 }
 
 void SimulationCommandWidget::refreshInstructionList()

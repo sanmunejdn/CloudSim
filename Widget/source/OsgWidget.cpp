@@ -177,6 +177,129 @@ osg::NodePath nodePathToSceneRoot(osg::Node* leaf)
 	return path;
 }
 
+struct PoseMat
+{
+	double m[16]{};
+};
+
+PoseMat poseMatIdentity()
+{
+	PoseMat r{};
+	r.m[0] = r.m[5] = r.m[10] = r.m[15] = 1.0;
+	return r;
+}
+
+PoseMat poseMatMul(const PoseMat& a, const PoseMat& b)
+{
+	PoseMat r{};
+	for (int col = 0; col < 4; ++col)
+	{
+		for (int row = 0; row < 4; ++row)
+		{
+			r.m[col * 4 + row] = a.m[0 * 4 + row] * b.m[col * 4 + 0]
+				+ a.m[1 * 4 + row] * b.m[col * 4 + 1]
+				+ a.m[2 * 4 + row] * b.m[col * 4 + 2]
+				+ a.m[3 * 4 + row] * b.m[col * 4 + 3];
+		}
+	}
+	return r;
+}
+
+PoseMat poseMatTranslate(double x, double y, double z)
+{
+	PoseMat r = poseMatIdentity();
+	r.m[12] = x;
+	r.m[13] = y;
+	r.m[14] = z;
+	return r;
+}
+
+PoseMat poseMatFromRpy(double roll, double pitch, double yaw)
+{
+	const double cr = std::cos(roll);
+	const double sr = std::sin(roll);
+	const double cp = std::cos(pitch);
+	const double sp = std::sin(pitch);
+	const double cy = std::cos(yaw);
+	const double sy = std::sin(yaw);
+	PoseMat r = poseMatIdentity();
+	r.m[0] = cy * cp;
+	r.m[1] = cy * sp * sr - sy * cr;
+	r.m[2] = cy * sp * cr + sy * sr;
+	r.m[4] = sy * cp;
+	r.m[5] = sy * sp * sr + cy * cr;
+	r.m[6] = sy * sp * cr - cy * sr;
+	r.m[8] = -sp;
+	r.m[9] = cp * sr;
+	r.m[10] = cp * cr;
+	return r;
+}
+
+PoseMat poseMatFromXyzRpy(double x, double y, double z, double roll, double pitch, double yaw)
+{
+	return poseMatMul(poseMatTranslate(x, y, z), poseMatFromRpy(roll, pitch, yaw));
+}
+
+osg::Matrixd poseMatToOsgLikeUrdf(const PoseMat& m)
+{
+	osg::Matrixd o;
+	for (int r = 0; r < 4; ++r)
+	{
+		for (int c = 0; c < 4; ++c)
+		{
+			if (r == 3 || c == 3)
+			{
+				o(r, c) = m.m[r * 4 + c];
+			}
+			else
+			{
+				o(r, c) = m.m[c * 4 + r];
+			}
+		}
+	}
+	return o;
+}
+
+osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(float axisLengthMm, bool lineMotion)
+{
+	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
+	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+	const osg::Vec4 xColor = lineMotion ? osg::Vec4(1.0f, 0.4f, 0.4f, 1.0f) : osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f);
+	const osg::Vec4 yColor = lineMotion ? osg::Vec4(0.4f, 1.0f, 0.4f, 1.0f) : osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
+	const osg::Vec4 zColor = lineMotion ? osg::Vec4(0.4f, 0.6f, 1.0f, 1.0f) : osg::Vec4(0.1f, 0.3f, 1.0f, 1.0f);
+
+	verts->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
+	verts->push_back(osg::Vec3(axisLengthMm, 0.0f, 0.0f));
+	colors->push_back(xColor);
+	colors->push_back(xColor);
+
+	verts->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
+	verts->push_back(osg::Vec3(0.0f, axisLengthMm, 0.0f));
+	colors->push_back(yColor);
+	colors->push_back(yColor);
+
+	verts->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
+	verts->push_back(osg::Vec3(0.0f, 0.0f, axisLengthMm));
+	colors->push_back(zColor);
+	colors->push_back(zColor);
+
+	osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+	geom->setVertexArray(verts.get());
+	geom->setColorArray(colors.get(), osg::Array::BIND_PER_VERTEX);
+	geom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::LINES, 0, static_cast<GLsizei>(verts->size())));
+
+	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+	geode->addDrawable(geom.get());
+
+	osg::StateSet* ss = geode->getOrCreateStateSet();
+	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+	ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::ON);
+	ss->setMode(GL_BLEND, osg::StateAttribute::ON);
+	osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth(lineMotion ? 3.0f : 2.5f);
+	ss->setAttributeAndModes(lw.get(), osg::StateAttribute::ON);
+	return geode;
+}
+
 } // namespace
 
 bool OsgWidget::getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const
@@ -221,6 +344,99 @@ void OsgWidget::setBackendRootWorldMatrixFromWorld(const std::string& backendId,
 	if (m_viewer.valid())
 	{
 		m_viewer->setSceneData(m_root.get());
+	}
+	if (m_glWidget)
+	{
+		m_glWidget->update();
+	}
+}
+
+void OsgWidget::setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& axes)
+{
+	if (!m_trajectoryOverlayGroup.valid())
+	{
+		return;
+	}
+	if (!m_instructionPoseAxesGroup.valid())
+	{
+		m_instructionPoseAxesGroup = new osg::Group;
+		m_instructionPoseAxesGroup->setName("InstructionPoseAxes");
+	}
+	osg::Group* parentGroup = m_trajectoryOverlayGroup.get();
+	if (!axes.empty() && !axes.front().robotBackendId.empty())
+	{
+		const auto it = m_backendObjectRoots.find(axes.front().robotBackendId);
+		if (it != m_backendObjectRoots.end() && it->second.valid())
+		{
+			// Prefer attaching under robot assembly root (PAT child) so axis local matrix
+			// uses the same local frame as URDF joint/link hierarchy.
+			osg::Group* robotLocalRoot = nullptr;
+			if (it->second->getNumChildren() > 0)
+			{
+				robotLocalRoot = dynamic_cast<osg::Group*>(it->second->getChild(0));
+			}
+			parentGroup = robotLocalRoot ? robotLocalRoot : static_cast<osg::Group*>(it->second.get());
+		}
+	}
+	while (m_instructionPoseAxesGroup->getNumParents() > 0)
+	{
+		osg::Group* p = m_instructionPoseAxesGroup->getParent(0);
+		if (!p)
+		{
+			break;
+		}
+		p->removeChild(m_instructionPoseAxesGroup.get());
+	}
+	if (parentGroup)
+	{
+		parentGroup->addChild(m_instructionPoseAxesGroup.get());
+	}
+	m_instructionPoseAxesGroup->removeChildren(0, m_instructionPoseAxesGroup->getNumChildren());
+
+	for (const InstructionPoseAxis& a : axes)
+	{
+		osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
+		mt->setName(a.lineMotion ? "LINE_TargetAxis" : "PTP_TargetAxis");
+		const osg::Vec3f p = a.positionMm;
+		osg::Matrixd m;
+		if (a.hasLocalMatrix)
+		{
+			for (int r = 0; r < 4; ++r)
+			{
+				for (int c = 0; c < 4; ++c)
+				{
+					m(r, c) = a.localMatrix[r * 4 + c];
+				}
+			}
+		}
+		else
+		{
+			static constexpr double kPi = 3.14159265358979323846;
+			const double rr = static_cast<double>(a.eulerDeg.x()) * kPi / 180.0;
+			const double rp = static_cast<double>(a.eulerDeg.y()) * kPi / 180.0;
+			const double ry = static_cast<double>(a.eulerDeg.z()) * kPi / 180.0;
+			const PoseMat mLocal = poseMatFromXyzRpy(
+				static_cast<double>(p.x()),
+				static_cast<double>(p.y()),
+				static_cast<double>(p.z()),
+				rr, rp, ry);
+			m = poseMatToOsgLikeUrdf(mLocal);
+		}
+		mt->setMatrix(m);
+		mt->addChild(createInstructionPoseAxisGeode(a.lineMotion ? 100.0f : 80.0f, a.lineMotion).get());
+		m_instructionPoseAxesGroup->addChild(mt.get());
+	}
+	if (m_glWidget)
+	{
+		m_glWidget->update();
+	}
+}
+
+void OsgWidget::clearInstructionPoseAxes()
+{
+	if (m_instructionPoseAxesGroup.valid())
+	{
+		m_instructionPoseAxesGroup->removeChildren(0, m_instructionPoseAxesGroup->getNumChildren());
 	}
 	if (m_glWidget)
 	{

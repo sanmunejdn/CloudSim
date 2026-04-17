@@ -873,6 +873,52 @@ void computeMeshWorldMatricesFromModel(
 	}
 }
 
+void computeLinkWorldMatricesFromModel(
+	const UrdfFkModelData& model,
+	const QVector<double>& jointAnglesRad,
+	QHash<QString, osg::Matrixd>& outLinkNameToLinkWorld)
+{
+	outLinkNameToLinkWorld.clear();
+	const QVector<double>& angles = jointAnglesRad;
+
+	struct QueueItem
+	{
+		QString link;
+		Mat4 worldFromLink;
+	};
+	std::queue<QueueItem> q;
+	QueueItem start{};
+	start.link = model.rootLink;
+	start.worldFromLink = matIdentity();
+	q.push(start);
+	int qIndex = 0;
+	while (!q.empty())
+	{
+		const QueueItem cur = q.front();
+		q.pop();
+		const Mat4 osgWorldFromLink = osgWorldFromUrdfMeshFrame(cur.worldFromLink);
+		outLinkNameToLinkWorld.insert(cur.link, mat4ToOsg(osgWorldFromLink));
+
+		const auto jit = model.jointsByParent.find(cur.link);
+		if (jit == model.jointsByParent.end())
+		{
+			continue;
+		}
+		for (const UrdfJoint& j : jit->second)
+		{
+			if (!jointConnectsDistinctLinks(j))
+			{
+				continue;
+			}
+			const Mat4 jointFromChild = jointChildTransformForFk(j, angles, qIndex);
+			QueueItem nxt{};
+			nxt.link = j.child;
+			nxt.worldFromLink = matMul(cur.worldFromLink, jointFromChild);
+			q.push(nxt);
+		}
+	}
+}
+
 // loadRevoluteJointMeta 与 BFS 遍历共用：追加单个 revolute/continuous 关节的名称与弧度限位。
 static void appendRevoluteJointMetaForJoint(
 	const UrdfJoint& j,
@@ -1021,6 +1067,81 @@ bool UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(
 	return true;
 }
 
+bool UrdfRobotLoader::loadPrimaryTerminalLinkName(
+	const QString& urdfFilePath,
+	QString& outLinkName,
+	QString* errorMessage)
+{
+	outLinkName.clear();
+
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		return false;
+	}
+
+	const UrdfFkModelData& m = *model;
+	const std::unordered_map<QString, std::vector<UrdfJoint>>& jointsByParent = m.jointsByParent;
+
+	struct QueueItem
+	{
+		QString link;
+		int depth = 0;
+	};
+
+	std::queue<QueueItem> qq;
+	qq.push(QueueItem{m.rootLink, 0});
+	int bestDepth = -1;
+	QString bestLeaf;
+	while (!qq.empty())
+	{
+		const QueueItem cur = qq.front();
+		qq.pop();
+
+		const auto jit = jointsByParent.find(cur.link);
+		if (jit == jointsByParent.end() || jit->second.empty())
+		{
+			if (cur.depth > bestDepth)
+			{
+				bestDepth = cur.depth;
+				bestLeaf = cur.link;
+			}
+			continue;
+		}
+
+		bool pushed = false;
+		for (const UrdfJoint& j : jit->second)
+		{
+			if (!jointConnectsDistinctLinks(j))
+			{
+				continue;
+			}
+			qq.push(QueueItem{j.child, cur.depth + 1});
+			pushed = true;
+		}
+		if (!pushed && cur.depth > bestDepth)
+		{
+			bestDepth = cur.depth;
+			bestLeaf = cur.link;
+		}
+	}
+
+	if (bestLeaf.isEmpty())
+	{
+		bestLeaf = m.rootLink;
+	}
+	if (bestLeaf.isEmpty())
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("URDF terminal link is empty.");
+		}
+		return false;
+	}
+	outLinkName = bestLeaf;
+	return true;
+}
+
 // 仅关节名列表，顺序与 loadRevoluteJointMeta 一致，供与 jointAnglesRad 对齐。
 bool UrdfRobotLoader::loadRevoluteJointNamesInOrder(
 	const QString& urdfFilePath,
@@ -1046,6 +1167,22 @@ bool UrdfRobotLoader::computeMeshWorldMatrices(
 		return false;
 	}
 	computeMeshWorldMatricesFromModel(*model, jointAnglesRad, outLinkNameToMeshWorld);
+	return true;
+}
+
+bool UrdfRobotLoader::computeLinkWorldMatrices(
+	const QString& urdfFilePath,
+	const QVector<double>& jointAnglesRad,
+	QHash<QString, osg::Matrixd>& outLinkNameToLinkWorld,
+	QString* errorMessage)
+{
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		outLinkNameToLinkWorld.clear();
+		return false;
+	}
+	computeLinkWorldMatricesFromModel(*model, jointAnglesRad, outLinkNameToLinkWorld);
 	return true;
 }
 

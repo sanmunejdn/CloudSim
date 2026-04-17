@@ -77,6 +77,16 @@ public:
 	using AnnotationEntry = OsgScene::AnnotationEntry;
 
 public:
+	struct InstructionPoseAxis
+	{
+		osg::Vec3f positionMm;
+		osg::Vec3f eulerDeg;
+		bool lineMotion = false;
+		std::string robotBackendId; // Local frame parent. Empty means world overlay.
+		bool hasLocalMatrix = false;
+		double localMatrix[16]{};
+	};
+
 	struct AnnotationSnapshot
 	{
 		QString id;
@@ -167,6 +177,8 @@ public:
 
 	/// 【中文】移除层级化机器人场景图。
 	void removeHierarchicalRobotScene(const QString& backendId);
+	void setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& axes);
+	void clearInstructionPoseAxes();
 
 signals:
 	void selectedObjectPoseChanged(float x, float y, float z);
@@ -232,6 +244,7 @@ private:
 	std::unique_ptr<SelectionOperation> m_meshElementPickOperation;
 	/// 使用场景光照加载的网格后端（如 URDF 连杆），改色时保留 Material+LIGHTING。
 	std::unordered_set<std::string> m_litMeshBackendIds;
+	osg::ref_ptr<osg::Group> m_instructionPoseAxesGroup;
 
 	bool pickMeshFaceByRayIntersection(const QPoint& mousePos,
 		osg::Vec3f& outPointWorld,

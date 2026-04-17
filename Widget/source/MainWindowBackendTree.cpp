@@ -289,6 +289,10 @@ void MainWindow::onBackendTreeSelectionChanged()
 	{
 		m_simulationCommandPage->clearInstructionSelection();
 	}
+	if (OsgWidget* osg = currentOsgWidget())
+	{
+		osg->clearInstructionPoseAxes();
+	}
 
 	OsgWidget* osg = currentOsgWidget();
 

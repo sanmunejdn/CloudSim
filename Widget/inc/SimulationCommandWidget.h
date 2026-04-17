@@ -30,11 +30,14 @@ public:
 
 	/// URDF revolute joint names (same order as joint indices). Empty disables Add/Run.
 	void setRevoluteJointNames(const QStringList& names);
+	void setTcpLinkOptions(const QStringList& linkNames, const QString& preferredLink);
+	QString selectedTcpLink() const;
 
 	/// Current instruction rows (in order).
 	QVector<RobotSimulationCommand> commands() const;
 	std::vector<std::shared_ptr<RobotInstruction::Base>> instructions(const QString& controllerId) const;
-	void appendInstructionFromCurrentPose(
+	std::vector<std::shared_ptr<RobotInstruction::Base>> instructionList() const;
+	std::shared_ptr<RobotInstruction::Base> appendInstructionFromCurrentPose(
 		RobotInstruction::Type type,
 		const RobotInstruction::Vec3& poseMm,
 		const RobotInstruction::Vec3& eulerDeg);
@@ -66,6 +69,7 @@ private:
 	bool m_hasRobotContext = false;
 	QLabel* m_hintLabel = nullptr;
 	QComboBox* m_typeCombo = nullptr;
+	QComboBox* m_tcpLinkCombo = nullptr;
 
 	QListWidget* m_list = nullptr;
 

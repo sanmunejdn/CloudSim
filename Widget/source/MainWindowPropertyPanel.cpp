@@ -351,6 +351,7 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 		{
 			m_simulationCommandPage->refreshInstructionList();
 		}
+		refreshInstructionPoseAxes();
 		updateInstructionPropertyPanel(m_activeInstructionForProperty);
 		return;
 	}

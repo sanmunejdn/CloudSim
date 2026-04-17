@@ -48,6 +48,12 @@ namespace UrdfRobotLoader
 		QStringList& outChildLinkNames,
 		QString* errorMessage = nullptr);
 
+	/// Select primary terminal (leaf) link in the URDF kinematic tree (deepest leaf by BFS depth).
+	ROBOT_URDF_API bool loadPrimaryTerminalLinkName(
+		const QString& urdfFilePath,
+		QString& outLinkName,
+		QString* errorMessage = nullptr);
+
 	/// 【中文】给定关节角度，计算各连杆的世界变换矩阵（用于参考/调试）。
 	/// 新架构推荐使用 buildHierarchicalRobotScene + 直接修改 Joint MatrixTransform，无需调用此函数。
 	///
@@ -56,6 +62,13 @@ namespace UrdfRobotLoader
 		const QString& urdfFilePath,
 		const QVector<double>& jointAnglesRad,
 		QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
+		QString* errorMessage = nullptr);
+
+	/// Compute per-link frame world transforms (link coordinate frame, not visual mesh frame).
+	ROBOT_URDF_API bool computeLinkWorldMatrices(
+		const QString& urdfFilePath,
+		const QVector<double>& jointAnglesRad,
+		QHash<QString, osg::Matrixd>& outLinkNameToLinkWorld,
 		QString* errorMessage = nullptr);
 
 	/// Drops cached parse trees (e.g. after replacing URDF on disk in edge cases). Normally unnecessary: cache keys include mtime.

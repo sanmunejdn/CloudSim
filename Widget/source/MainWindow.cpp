@@ -5,6 +5,7 @@
 #include <functional>
 #include <memory>
 #include <sstream>
+#include <locale>
 
 #include <QAction>
 #include <QActionGroup>
@@ -407,6 +408,108 @@ bool buildDhRowsFromUrdf(
 	}
 	return true;
 }
+
+double matrixTranslationErrorMm(const osg::Matrixd& a, const osg::Matrixd& b)
+{
+	const osg::Vec3d ta = a.getTrans();
+	const osg::Vec3d tb = b.getTrans();
+	const osg::Vec3d d = ta - tb;
+	return std::sqrt(d.x() * d.x() + d.y() * d.y() + d.z() * d.z());
+}
+
+double quaternionAngularErrorDeg(const osg::Quat& qaIn, const osg::Quat& qbIn)
+{
+	osg::Quat qa = qaIn;
+	osg::Quat qb = qbIn;
+	auto normalizeQuat = [](osg::Quat& q) {
+		const double n = std::sqrt(q.x() * q.x() + q.y() * q.y() + q.z() * q.z() + q.w() * q.w());
+		if (n <= 1e-12)
+		{
+			q.set(0.0, 0.0, 0.0, 1.0);
+			return;
+		}
+		const double inv = 1.0 / n;
+		q.set(q.x() * inv, q.y() * inv, q.z() * inv, q.w() * inv);
+	};
+	normalizeQuat(qa);
+	normalizeQuat(qb);
+	double dot = qa.x() * qb.x() + qa.y() * qb.y() + qa.z() * qb.z() + qa.w() * qb.w();
+	dot = std::max(-1.0, std::min(1.0, std::abs(dot)));
+	const double angleRad = 2.0 * std::acos(dot);
+	return angleRad * 180.0 / RobotSimulation::kPi;
+}
+
+QString matrix4ToLog(const osg::Matrixd& m)
+{
+	QString out;
+	for (int r = 0; r < 4; ++r)
+	{
+		if (r > 0)
+		{
+			out += QStringLiteral(" | ");
+		}
+		out += QStringLiteral("[%1,%2,%3,%4]")
+				   .arg(m(r, 0), 0, 'f', 3)
+				   .arg(m(r, 1), 0, 'f', 3)
+				   .arg(m(r, 2), 0, 'f', 3)
+				   .arg(m(r, 3), 0, 'f', 3);
+	}
+	return out;
+}
+
+std::string encodeMatrix4Csv(const osg::Matrixd& m)
+{
+	std::ostringstream oss;
+	oss.imbue(std::locale::classic());
+	for (int r = 0; r < 4; ++r)
+	{
+		for (int c = 0; c < 4; ++c)
+		{
+			if (r != 0 || c != 0)
+			{
+				oss << ",";
+			}
+			oss << m(r, c);
+		}
+	}
+	return oss.str();
+}
+
+bool decodeMatrix4Csv(const std::string& text, osg::Matrixd& out)
+{
+	std::stringstream ss(text);
+	ss.imbue(std::locale::classic());
+	std::string token;
+	double values[16]{};
+	int n = 0;
+	while (std::getline(ss, token, ','))
+	{
+		if (n >= 16)
+		{
+			return false;
+		}
+		try
+		{
+			values[n++] = std::stod(token);
+		}
+		catch (...)
+		{
+			return false;
+		}
+	}
+	if (n != 16)
+	{
+		return false;
+	}
+	for (int r = 0; r < 4; ++r)
+	{
+		for (int c = 0; c < 4; ++c)
+		{
+			out(r, c) = values[r * 4 + c];
+		}
+	}
+	return true;
+}
 } // namespace
 
 MainWindow::MainWindow(QWidget* parent)
@@ -678,7 +781,8 @@ void MainWindow::setupDockWidgets()
 		this, &MainWindow::onSimulationAddInstructionRequested);
 	connect(m_simulationCommandPage, &SimulationCommandWidget::instructionSelectionChanged,
 		this, &MainWindow::onSimulationInstructionSelectionChanged);
-	connect(m_robotAxisControlPage, &RobotAxisControlWidget::jointAnglesChanged, this, &MainWindow::onRobotAxisJointAnglesChanged);
+	connect(m_robotAxisControlPage, &RobotAxisControlWidget::allJointAnglesChanged,
+		this, &MainWindow::onRobotAxisJointAnglesChanged);
 	addDockWidget(Qt::RightDockWidgetArea, m_unitDock);
 
 	m_runDock = new QDockWidget(QStringLiteral("Runtime Output"), this);
@@ -1299,6 +1403,27 @@ void MainWindow::refreshSimulationJointListFromCurrentDoc()
 	if (doc && doc->hasRobotSimulationContext())
 	{
 		m_simulationCommandPage->setRevoluteJointNames(doc->robotRevoluteJointNames());
+		QStringList tcpLinks;
+		QString preferredTcp;
+		(void)UrdfRobotLoader::loadPrimaryTerminalLinkName(doc->robotUrdfAbsolutePath(), preferredTcp, nullptr);
+		QStringList childLinks;
+		(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(doc->robotUrdfAbsolutePath(), childLinks, nullptr);
+		QSet<QString> uniq;
+		if (!preferredTcp.isEmpty())
+		{
+			uniq.insert(preferredTcp);
+			tcpLinks.push_back(preferredTcp);
+		}
+		for (const QString& l : childLinks)
+		{
+			if (l.isEmpty() || uniq.contains(l))
+			{
+				continue;
+			}
+			uniq.insert(l);
+			tcpLinks.push_back(l);
+		}
+		m_simulationCommandPage->setTcpLinkOptions(tcpLinks, preferredTcp);
 		const QStringList& jn = doc->robotRevoluteJointNames();
 		if (!jn.isEmpty() && doc->robotJointLowerRad().size() == jn.size() && doc->robotJointUpperRad().size() == jn.size())
 		{
@@ -1312,6 +1437,7 @@ void MainWindow::refreshSimulationJointListFromCurrentDoc()
 	else
 	{
 		m_simulationCommandPage->setRevoluteJointNames(QStringList());
+		m_simulationCommandPage->setTcpLinkOptions(QStringList(), QString());
 		m_robotAxisControlPage->clearJoints();
 	}
 }
@@ -1342,7 +1468,11 @@ void MainWindow::onSimulationRunRequested()
 }
 
 bool MainWindow::tryCaptureCurrentRobotTcpPose(
-	RobotInstruction::Vec3& outPoseMm, RobotInstruction::Vec3& outEulerDeg, QString* errMsg) const
+	RobotInstruction::Vec3& outPoseMm,
+	RobotInstruction::Vec3& outEulerDeg,
+	osg::Matrixd* outTcpLocalMat,
+	QString* outTcpLinkName,
+	QString* errMsg) const
 {
 	DocumentPage* doc = currentPage();
 	if (!doc || !doc->hasRobotSimulationContext())
@@ -1366,13 +1496,15 @@ bool MainWindow::tryCaptureCurrentRobotTcpPose(
 	}
 	const QStringList joints = doc->robotRevoluteJointNames();
 	QVector<double> q(joints.size(), 0.0);
+	QString qSource = QStringLiteral("zero-fallback");
 	if (m_robotAxisControlPage && m_robotAxisControlPage->jointCount() == joints.size())
 	{
 		q = m_robotAxisControlPage->jointAnglesRad();
+		qSource = QStringLiteral("slider");
 	}
 	QHash<QString, osg::Matrixd> linkWorldByName;
 	QString computeErr;
-	if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, q, linkWorldByName, &computeErr))
+	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, q, linkWorldByName, &computeErr))
 	{
 		if (errMsg)
 		{
@@ -1384,24 +1516,41 @@ bool MainWindow::tryCaptureCurrentRobotTcpPose(
 		return false;
 	}
 
-	QString tcpLinkName;
-	QStringList revoluteChildLinks;
-	(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, revoluteChildLinks, nullptr);
-	if (!revoluteChildLinks.isEmpty())
+	QString tcpLinkName = m_simulationCommandPage ? m_simulationCommandPage->selectedTcpLink() : QString();
+	if (tcpLinkName.isEmpty())
 	{
-		tcpLinkName = revoluteChildLinks.back();
+		(void)UrdfRobotLoader::loadPrimaryTerminalLinkName(urdfPath, tcpLinkName, nullptr);
 	}
-	osg::Matrixd tcpWorld;
+	if (tcpLinkName.isEmpty())
+	{
+		QStringList revoluteChildLinks;
+		(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, revoluteChildLinks, nullptr);
+		if (!revoluteChildLinks.isEmpty())
+		{
+			tcpLinkName = revoluteChildLinks.back();
+		}
+	}
+	osg::Matrixd tcpLocal;
+	bool hasTcpLocal = false;
+	bool tcpFromMeshFk = false;
+	QString tcpSource = QStringLiteral("None");
 	if (!tcpLinkName.isEmpty() && linkWorldByName.contains(tcpLinkName))
 	{
-		tcpWorld = linkWorldByName.value(tcpLinkName);
+		// computeLinkWorldMatrices outputs link-frame pose in robot-local (URDF base) coordinates.
+		tcpLocal = linkWorldByName.value(tcpLinkName);
+		hasTcpLocal = true;
+		tcpFromMeshFk = true;
+		tcpSource = QStringLiteral("LinkFK");
 	}
-	else if (!joints.isEmpty())
+	osg::Matrixd tcpLocalFromHierarchy;
+	bool hasHierarchyLocal = false;
+	if (!hasTcpLocal && !joints.isEmpty())
 	{
 		const QString lastJoint = joints.back();
 		if (osg::MatrixTransform* jointMt = doc->robotJointMatrixTransform(lastJoint))
 		{
-			if (!matrixFromNodeWorld(jointMt, tcpWorld))
+			osg::Matrixd jointWorld;
+			if (!matrixFromNodeWorld(jointMt, jointWorld))
 			{
 				if (errMsg)
 				{
@@ -1410,13 +1559,118 @@ bool MainWindow::tryCaptureCurrentRobotTcpPose(
 				}
 				return false;
 			}
+			osg::Matrixd robotRootWorld;
+			robotRootWorld.makeIdentity();
+			if (OsgWidget* osg = currentOsgWidget())
+			{
+				const QString robotRootId = doc->robotSceneBackendId();
+				if (!robotRootId.isEmpty())
+				{
+					osg::Matrixd m;
+					if (osg->getBackendRootWorldMatrix(robotRootId.toStdString(), m))
+					{
+						robotRootWorld = m;
+					}
+				}
+			}
+			// Keep instruction pose in robot-local frame for IK/planning consistency.
+			tcpLocal = osg::Matrixd::inverse(robotRootWorld) * jointWorld;
+			hasTcpLocal = true;
+			tcpLocalFromHierarchy = tcpLocal;
+			hasHierarchyLocal = true;
+			tcpSource = QStringLiteral("HierarchyJoint");
 		}
 	}
-	else if (!linkWorldByName.isEmpty())
+	if (!tcpFromMeshFk && !joints.isEmpty())
 	{
-		tcpWorld = linkWorldByName.constBegin().value();
+		const QString lastJoint = joints.back();
+		if (osg::MatrixTransform* jointMt = doc->robotJointMatrixTransform(lastJoint))
+		{
+			osg::Matrixd jointWorld;
+			if (matrixFromNodeWorld(jointMt, jointWorld))
+			{
+				osg::Matrixd robotRootWorld;
+				robotRootWorld.makeIdentity();
+				if (OsgWidget* osg = currentOsgWidget())
+				{
+					const QString robotRootId = doc->robotSceneBackendId();
+					if (!robotRootId.isEmpty())
+					{
+						osg::Matrixd m;
+						if (osg->getBackendRootWorldMatrix(robotRootId.toStdString(), m))
+						{
+							robotRootWorld = m;
+						}
+					}
+				}
+				tcpLocalFromHierarchy = osg::Matrixd::inverse(robotRootWorld) * jointWorld;
+				hasHierarchyLocal = true;
+			}
+		}
 	}
-	else
+	if (m_runInfoPage)
+	{
+		QString qPreview;
+		const int previewN = std::min(6, q.size());
+		for (int i = 0; i < previewN; ++i)
+		{
+			if (i > 0)
+			{
+				qPreview += QStringLiteral(", ");
+			}
+			qPreview += QString::number(q[i], 'f', 4);
+		}
+		if (q.size() > previewN)
+		{
+			qPreview += QStringLiteral(", ...");
+		}
+		m_runInfoPage->appendInfo(
+			QStringLiteral("[TCP测试] tcpLink=%1, qSource=%2, q[0..]=[%3]")
+				.arg(tcpLinkName.isEmpty() ? QStringLiteral("<empty>") : tcpLinkName)
+				.arg(qSource)
+				.arg(qPreview));
+		m_runInfoPage->appendInfo(
+			QStringLiteral("[TCP测试] tcpLink=%1, source=%2, hasLocal=%3, hasHierarchyRef=%4")
+				.arg(tcpLinkName.isEmpty() ? QStringLiteral("<empty>") : tcpLinkName)
+				.arg(tcpSource)
+				.arg(hasTcpLocal ? QStringLiteral("true") : QStringLiteral("false"))
+				.arg(hasHierarchyLocal ? QStringLiteral("true") : QStringLiteral("false")));
+		if (hasTcpLocal)
+		{
+			const osg::Vec3d t = tcpLocal.getTrans();
+			const osg::Vec3f eul = OsgScene::quatToEulerDeg(tcpLocal.getRotate());
+			m_runInfoPage->appendInfo(
+				QStringLiteral("[TCP测试] tcpLocal pose: xyz=(%1, %2, %3), euler=(%4, %5, %6)")
+					.arg(t.x(), 0, 'f', 3)
+					.arg(t.y(), 0, 'f', 3)
+					.arg(t.z(), 0, 'f', 3)
+					.arg(eul.x(), 0, 'f', 3)
+					.arg(eul.y(), 0, 'f', 3)
+					.arg(eul.z(), 0, 'f', 3));
+			m_runInfoPage->appendInfo(QStringLiteral("[TCP测试] tcpLocalMat4=%1").arg(matrix4ToLog(tcpLocal)));
+			m_runInfoPage->appendInfo(QStringLiteral("[TCP测试] axisLocalMat4=%1").arg(matrix4ToLog(tcpLocal)));
+		}
+		if (hasTcpLocal && hasHierarchyLocal)
+		{
+			const double posErrMm = matrixTranslationErrorMm(tcpLocal, tcpLocalFromHierarchy);
+			const double rotErrDeg = quaternionAngularErrorDeg(tcpLocal.getRotate(), tcpLocalFromHierarchy.getRotate());
+			m_runInfoPage->appendInfo(
+				QStringLiteral("[TCP测试] FK(local) vs Hierarchy(local): posErr=%1 mm, rotErr=%2 deg")
+					.arg(posErrMm, 0, 'f', 3)
+					.arg(rotErrDeg, 0, 'f', 3));
+			if (posErrMm > 2.0 || rotErrDeg > 2.0)
+			{
+				m_runInfoPage->appendWarning(
+					QStringLiteral("[TCP测试] 末端位姿来源不一致，可能存在坐标系或链路定义问题。"));
+			}
+		}
+		else
+		{
+			m_runInfoPage->appendInfo(
+				QStringLiteral("[TCP测试] 对比跳过：缺少可比的Hierarchy参考位姿（当前路径未提供）。"));
+		}
+	}
+	if (!hasTcpLocal)
 	{
 		if (errMsg)
 		{
@@ -1426,14 +1680,22 @@ bool MainWindow::tryCaptureCurrentRobotTcpPose(
 		return false;
 	}
 
-	const osg::Vec3d t = tcpWorld.getTrans();
-	const osg::Vec3f euler = OsgScene::quatToEulerDeg(tcpWorld.getRotate());
+	const osg::Vec3d t = tcpLocal.getTrans();
+	const osg::Vec3f euler = OsgScene::quatToEulerDeg(tcpLocal.getRotate());
 	outPoseMm.x = t.x();
 	outPoseMm.y = t.y();
 	outPoseMm.z = t.z();
 	outEulerDeg.x = euler.x();
 	outEulerDeg.y = euler.y();
 	outEulerDeg.z = euler.z();
+	if (outTcpLocalMat)
+	{
+		*outTcpLocalMat = tcpLocal;
+	}
+	if (outTcpLinkName)
+	{
+		*outTcpLinkName = tcpLinkName;
+	}
 	return true;
 }
 
@@ -1445,8 +1707,10 @@ void MainWindow::onSimulationAddInstructionRequested(RobotInstruction::Type type
 	}
 	RobotInstruction::Vec3 pose{};
 	RobotInstruction::Vec3 euler{};
+	osg::Matrixd tcpLocalMat;
+	QString tcpLinkName;
 	QString err;
-	if (!tryCaptureCurrentRobotTcpPose(pose, euler, &err))
+	if (!tryCaptureCurrentRobotTcpPose(pose, euler, &tcpLocalMat, &tcpLinkName, &err))
 	{
 		if (m_runInfoPage)
 		{
@@ -1454,7 +1718,27 @@ void MainWindow::onSimulationAddInstructionRequested(RobotInstruction::Type type
 		}
 		return;
 	}
-	m_simulationCommandPage->appendInstructionFromCurrentPose(type, pose, euler);
+	const std::shared_ptr<RobotInstruction::Base> ins = m_simulationCommandPage->appendInstructionFromCurrentPose(type, pose, euler);
+	if (ins)
+	{
+		const std::string matCsv = encodeMatrix4Csv(tcpLocalMat);
+		ins->setExtensionProperty("render.tcpLocalMat4", matCsv);
+		ins->setExtensionProperty("render.tcpLinkName", tcpLinkName.toStdString());
+		if (m_runInfoPage)
+		{
+			osg::Matrixd decoded;
+			if (decodeMatrix4Csv(matCsv, decoded))
+			{
+				m_runInfoPage->appendInfo(
+					QStringLiteral("[TCP测试] axisRenderMat4(stored)=%1").arg(matrix4ToLog(decoded)));
+			}
+			else
+			{
+				m_runInfoPage->appendWarning(QStringLiteral("[TCP测试] axisRenderMat4 解析失败，将回退到 pose/euler 渲染。"));
+			}
+		}
+	}
+	refreshInstructionPoseAxes();
 }
 
 void MainWindow::onSimulationInstructionSelectionChanged(const std::shared_ptr<RobotInstruction::Base>& instruction)
@@ -1466,6 +1750,73 @@ void MainWindow::onSimulationInstructionSelectionChanged(const std::shared_ptr<R
 		m_backendTree->clearSelection();
 	}
 	updateInstructionPropertyPanel(instruction);
+	refreshInstructionPoseAxes();
+}
+
+void MainWindow::refreshInstructionPoseAxes()
+{
+	OsgWidget* osg = currentOsgWidget();
+	DocumentPage* doc = currentPage();
+	if (!osg || !m_simulationCommandPage)
+	{
+		if (osg)
+		{
+			osg->clearInstructionPoseAxes();
+		}
+		return;
+	}
+	const std::vector<std::shared_ptr<RobotInstruction::Base>> insList = m_simulationCommandPage->instructionList();
+	std::vector<OsgWidget::InstructionPoseAxis> axes;
+	axes.reserve(insList.size());
+	std::string robotBackendId;
+	osg::Matrixd robotRootWorld;
+	bool hasRobotRootWorld = false;
+	if (doc && !doc->robotSceneBackendId().isEmpty())
+	{
+		robotBackendId = doc->robotSceneBackendId().toStdString();
+		hasRobotRootWorld = osg->getBackendRootWorldMatrix(robotBackendId, robotRootWorld);
+	}
+	for (const auto& ins : insList)
+	{
+		if (!ins || !ins->hasPoseProperty() || !ins->hasEulerProperty())
+		{
+			continue;
+		}
+		const RobotInstruction::Vec3 p = ins->pose();
+		const RobotInstruction::Vec3 e = ins->eulerDeg();
+		OsgWidget::InstructionPoseAxis a;
+		a.positionMm = osg::Vec3f(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
+		a.eulerDeg = osg::Vec3f(static_cast<float>(e.x), static_cast<float>(e.y), static_cast<float>(e.z));
+		a.lineMotion = (ins->type() == RobotInstruction::Type::LINE);
+		a.robotBackendId = robotBackendId;
+		const auto& ext = ins->extensionProperties();
+		const auto itMat = ext.find("render.tcpLocalMat4");
+		if (itMat != ext.end())
+		{
+			osg::Matrixd m;
+			if (decodeMatrix4Csv(itMat->second, m))
+			{
+				a.hasLocalMatrix = true;
+				// Render by world matrix to avoid any mismatch in parent local-frame assumptions.
+				const osg::Matrixd renderM = hasRobotRootWorld ? (robotRootWorld * m) : m;
+				for (int r = 0; r < 4; ++r)
+				{
+					for (int c = 0; c < 4; ++c)
+					{
+						a.localMatrix[r * 4 + c] = renderM(r, c);
+					}
+				}
+				a.robotBackendId.clear();
+			}
+		}
+		axes.push_back(a);
+	}
+	if (axes.empty())
+	{
+		osg->clearInstructionPoseAxes();
+		return;
+	}
+	osg->setInstructionPoseAxes(axes);
 }
 
 void MainWindow::onSimulationStartTriggered()
@@ -1546,7 +1897,12 @@ void MainWindow::onSimulationStartTriggered()
 	}
 	const QStringList jnames = doc->robotRevoluteJointNames();
 	const QString urdfPath = doc->robotUrdfAbsolutePath();
-	QString tcpLinkName;
+	QString tcpLinkName = m_simulationCommandPage ? m_simulationCommandPage->selectedTcpLink() : QString();
+	if (tcpLinkName.isEmpty())
+	{
+		(void)UrdfRobotLoader::loadPrimaryTerminalLinkName(urdfPath, tcpLinkName, nullptr);
+	}
+	if (tcpLinkName.isEmpty())
 	{
 		QStringList childLinks;
 		(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, childLinks, nullptr);
