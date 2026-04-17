@@ -14,6 +14,7 @@ class WIDGET_EXPORT RunInfoPage : public QWidget
 
 public:
 	explicit RunInfoPage(QWidget* parent = nullptr);
+	~RunInfoPage() override;
 
 	void appendInfo(const QString& text);
 	void appendWarning(const QString& text);

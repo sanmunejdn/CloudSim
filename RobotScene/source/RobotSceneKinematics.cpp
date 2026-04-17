@@ -4,12 +4,23 @@
 #include "IRobotSimulationDocument.h"
 
 #include "UrdfRobotLoader.h"
+#include "RunLogger.h"
 
 #include <osg/Matrixd>
 #include <osg/MatrixTransform>
 
+#include <QByteArray>
 #include <QHash>
 #include <QString>
+
+namespace
+{
+std::string qToUtf8Std(const QString& s)
+{
+	const QByteArray utf8 = s.toUtf8();
+	return std::string(utf8.constData(), static_cast<size_t>(utf8.size()));
+}
+} // namespace
 
 namespace RobotSceneKinematics
 {
@@ -19,6 +30,7 @@ bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPo
 	(void)osg;
 	if (!doc || !doc->hasRobotSimulationContext())
 	{
+		RunLogger::warn("RobotSceneKinematics::applyJointAnglesFromDocument invalid document or missing simulation context.");
 		return false;
 	}
 
@@ -35,6 +47,7 @@ bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPo
 		}
 		if (offset + nj > anglesRad.size())
 		{
+			RunLogger::warn("RobotSceneKinematics::applyJointAnglesFromDocument angle vector size does not match joint count.");
 			return false;
 		}
 		const QVector<double> slice = anglesRad.mid(offset, nj);
@@ -47,6 +60,7 @@ bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPo
 		QHash<QString, osg::Matrixd> newJointMatrices;
 		if (!UrdfRobotLoader::computeJointTransformMatrices(urdfPath, slice, newJointMatrices, nullptr))
 		{
+			RunLogger::warn(qToUtf8Std(QStringLiteral("RobotSceneKinematics: computeJointTransformMatrices failed for URDF '%1'").arg(urdfPath)));
 			return false;
 		}
 
@@ -70,6 +84,7 @@ bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPo
 	// 已按多实例语义遍历过但未写入任何 MatrixTransform：视为失败（避免用错误的全向量再算一遍 FK）
 	if (nInst > 0)
 	{
+		RunLogger::warn("RobotSceneKinematics::applyJointAnglesFromDocument no joint matrix written for multi-instance context.");
 		return false;
 	}
 
@@ -79,6 +94,7 @@ bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPo
 	if (urdfPath.isEmpty() ||
 		!UrdfRobotLoader::computeJointTransformMatrices(urdfPath, anglesRad, newJointMatrices, nullptr))
 	{
+		RunLogger::warn(qToUtf8Std(QStringLiteral("RobotSceneKinematics: fallback computeJointTransformMatrices failed for URDF '%1'").arg(urdfPath)));
 		return false;
 	}
 
@@ -109,12 +125,14 @@ bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPo
 	// 【中文】回退到旧架构（传统烘焙法）
 	if (!doc->hasRobotKinematicsBind())
 	{
+		RunLogger::warn("RobotSceneKinematics: fallback path requires RobotKinematicsBind but it is missing.");
 		return false;
 	}
 
 	QHash<QString, osg::Matrixd> Tq;
 	if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, anglesRad, Tq, nullptr))
 	{
+		RunLogger::warn(qToUtf8Std(QStringLiteral("RobotSceneKinematics: computeMeshWorldMatrices failed for URDF '%1'").arg(urdfPath)));
 		return false;
 	}
 	const QHash<QString, osg::Matrixd>& T0 = doc->robotFkMeshWorldT0();

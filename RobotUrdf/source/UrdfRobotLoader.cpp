@@ -6,6 +6,7 @@
 #include "UrdfRobotLoader.h"
 
 #include <QDateTime>
+#include <QByteArray>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -22,6 +23,7 @@
 // 【中文】后端视觉系统头文件（用于优化版连杆几何加载）
 #include "BackendVisualRegistry.h"
 #include "MeshBackendData.h"
+#include "RunLogger.h"
 
 #include <osg/Array>
 #include <osg/Depth>
@@ -56,6 +58,11 @@
 
 namespace
 {
+std::string qstrToUtf8Std(const QString& s)
+{
+	const QByteArray utf8 = s.toUtf8();
+	return std::string(utf8.constData(), static_cast<size_t>(utf8.size()));
+}
 
 // ---------------------------------------------------------------------------
 // URDF 导入与网格烘焙说明（本匿名命名空间内实现）
@@ -99,6 +106,9 @@ constexpr bool kUrdfMeshUseSmoothingVisitor = false;
 
 // 为 true 时 urdfDebugLogRevoluteJointSubtree 打印各关节子树包围球（默认关）。
 constexpr bool kUrdfDebugJointSubtreeDiagnostics = false;
+
+// 为 true 时在转动关节处绘制旋转轴线（黄线）与关节原点标记（红球）；默认关，与层级运动学无关。
+constexpr bool kUrdfShowRevoluteJointDebugVisuals = false;
 
 // 【中文】为 true 时使用 MeshBackendData 后端对象加载连杆几何（推荐，更快且支持属性编辑）
 // 为 false 时回退到旧的 osgDB::readNodeFile 直接读取
@@ -863,6 +873,44 @@ void computeMeshWorldMatricesFromModel(
 	}
 }
 
+// loadRevoluteJointMeta 与 BFS 遍历共用：追加单个 revolute/continuous 关节的名称与弧度限位。
+static void appendRevoluteJointMetaForJoint(
+	const UrdfJoint& j,
+	const QString& jtLower,
+	QStringList& outJointNames,
+	QVector<double>& outLowerRad,
+	QVector<double>& outUpperRad)
+{
+	static constexpr double kPi = 3.14159265358979323846;
+	static constexpr double kTwoPi = 6.2831853071795864769;
+
+	const QString label = !j.name.isEmpty() ? j.name : QStringLiteral("joint_%1").arg(j.child);
+	outJointNames.append(label);
+
+	double lo = -kPi;
+	double hi = kPi;
+	if (j.hasLimit)
+	{
+		lo = j.limitLower;
+		hi = j.limitUpper;
+	}
+	else if (jtLower == QLatin1String("continuous"))
+	{
+		lo = -kTwoPi;
+		hi = kTwoPi;
+	}
+	if (lo > hi)
+	{
+		std::swap(lo, hi);
+	}
+	if (std::abs(hi - lo) < 1e-9)
+	{
+		hi = lo + 1e-3;
+	}
+	outLowerRad.append(lo);
+	outUpperRad.append(hi);
+}
+
 } // namespace
 
 // 按树遍历顺序列出 revolute/continuous 关节名及弧度上下限（无 limit 时 revolute 默认 ±π，continuous ±2π）。
@@ -876,14 +924,13 @@ bool UrdfRobotLoader::loadRevoluteJointMeta(
 	outJointNames.clear();
 	outLowerRad.clear();
 	outUpperRad.clear();
-	static constexpr double kPi = 3.14159265358979323846;
-	static constexpr double kTwoPi = 6.2831853071795864769;
 
 	std::shared_ptr<const UrdfFkModelData> model;
 	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
 	{
 		return false;
 	}
+
 	const UrdfFkModelData& m = *model;
 	const std::unordered_map<QString, std::vector<UrdfJoint>>& jointsByParent = m.jointsByParent;
 
@@ -893,48 +940,29 @@ bool UrdfRobotLoader::loadRevoluteJointMeta(
 	};
 	std::queue<QueueItem> qq;
 	qq.push(QueueItem{m.rootLink});
+
 	while (!qq.empty())
 	{
 		const QueueItem cur = qq.front();
 		qq.pop();
+
 		const auto jit = jointsByParent.find(cur.link);
 		if (jit == jointsByParent.end())
 		{
 			continue;
 		}
+
 		for (const UrdfJoint& j : jit->second)
 		{
 			if (!jointConnectsDistinctLinks(j))
 			{
 				continue;
 			}
+
 			const QString jt = j.type.toLower();
 			if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
 			{
-				const QString label = !j.name.isEmpty() ? j.name : QStringLiteral("joint_%1").arg(j.child);
-				outJointNames.append(label);
-				double lo = -kPi;
-				double hi = kPi;
-				if (j.hasLimit)
-				{
-					lo = j.limitLower;
-					hi = j.limitUpper;
-				}
-				else if (jt == QLatin1String("continuous"))
-				{
-					lo = -kTwoPi;
-					hi = kTwoPi;
-				}
-				if (lo > hi)
-				{
-					std::swap(lo, hi);
-				}
-				if (std::abs(hi - lo) < 1e-9)
-				{
-					hi = lo + 1e-3;
-				}
-				outLowerRad.append(lo);
-				outUpperRad.append(hi);
+				appendRevoluteJointMetaForJoint(j, jt, outJointNames, outLowerRad, outUpperRad);
 			}
 			qq.push(QueueItem{j.child});
 		}
@@ -1242,14 +1270,15 @@ static osg::ref_ptr<osg::Node> createLinkVisualFromBackend(
 			*errorMessage = QStringLiteral("Failed to load mesh for link '%1': %2")
 				.arg(linkName).arg(QString::fromStdString(loadErr));
 		}
-		qWarning() << "[UrdfRobotLoader] Backend load failed for link:" << linkName
-				   << "Mesh:" << absMesh << "Error:" << QString::fromStdString(loadErr);
+		RunLogger::warn(qstrToUtf8Std(QStringLiteral("[UrdfRobotLoader] Backend load failed for link='%1' mesh='%2' error='%3'")
+			.arg(linkName, absMesh, QString::fromStdString(loadErr))));
 		return nullptr;
 	}
 
-	qDebug().nospace() << "[UrdfRobotLoader] Backend loaded link: " << linkName
-					   << " Triangles: " << backend->geometryElementCount()
-					   << " Time: " << timer.elapsed() << "ms";
+	RunLogger::info(qstrToUtf8Std(QStringLiteral("[UrdfRobotLoader] Backend loaded link='%1' triangles=%2 timeMs=%3")
+		.arg(linkName)
+		.arg(static_cast<qulonglong>(backend->geometryElementCount()))
+		.arg(timer.elapsed())));
 
 	// 【关键】设置颜色（与旧方案 finalizeUrdfImportedMeshRendering 一致）
 	BackendColor color;
@@ -1810,10 +1839,11 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 			geometryNode = createLinkVisualFromBackend(linkName, vis, packageRoot, urdfDir, &backendErr);
 			if (!geometryNode)
 			{
-				qWarning() << "[UrdfRobotLoader] Backend loading failed for link:" << linkName
-						   << "Error:" << backendErr;
+				RunLogger::warn(qstrToUtf8Std(QStringLiteral("[UrdfRobotLoader] Backend loading failed for link='%1' error='%2'")
+					.arg(linkName, backendErr)));
 				// 可选：回退到OSG直接读取
-				qDebug() << "[UrdfRobotLoader] Falling back to OSG loading for link:" << linkName;
+				RunLogger::info(qstrToUtf8Std(QStringLiteral("[UrdfRobotLoader] Falling back to OSG loading for link='%1'")
+					.arg(linkName)));
 			}
 		}
 
@@ -1904,23 +1934,24 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 			auto childIt = outLinkToContainer.find(j.child);
 			if (childIt == outLinkToContainer.end())
 			{
-				qWarning() << "UrdfRobotLoader: skipping joint" << j.name << "- child link container not found for"
-						   << j.child << "(missing <link> or not in model?)";
+				RunLogger::warn(qstrToUtf8Std(QStringLiteral("UrdfRobotLoader: skipping joint '%1' - child link container missing for '%2'")
+					.arg(j.name, j.child)));
 				continue;
 			}
 
 			auto parentIt = outLinkToContainer.find(j.parent);
 			if (parentIt == outLinkToContainer.end())
 			{
-				qWarning() << "UrdfRobotLoader: skipping joint" << j.name << "- parent link container not found for"
-						   << j.parent;
+				RunLogger::warn(qstrToUtf8Std(QStringLiteral("UrdfRobotLoader: skipping joint '%1' - parent link container missing for '%2'")
+					.arg(j.name, j.parent)));
 				continue;
 			}
 
 			// jointsByParent[cur.link] 内关节必有 j.parent == cur.link；父容器以 BFS 当前连杆为准。
 			if (j.parent != cur.link)
 			{
-				qWarning() << "UrdfRobotLoader: joint" << j.name << "parent" << j.parent << "!= BFS link" << cur.link;
+				RunLogger::warn(qstrToUtf8Std(QStringLiteral("UrdfRobotLoader: joint '%1' parent '%2' != BFS link '%3'")
+					.arg(j.name, j.parent, cur.link)));
 				continue;
 			}
 			osg::Group* parentContainer = cur.container;
@@ -1940,7 +1971,8 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 			}
 			if (parentIt.value() != parentContainer)
 			{
-				qWarning() << "UrdfRobotLoader: joint" << j.name << "parent container map vs BFS mismatch.";
+				RunLogger::warn(qstrToUtf8Std(QStringLiteral("UrdfRobotLoader: joint '%1' parent container map vs BFS mismatch.")
+					.arg(j.name)));
 			}
 
 			const QString jtLower = j.type.toLower();
@@ -1960,25 +1992,22 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 				osg::ref_ptr<osg::MatrixTransform> jointOriginMt = new osg::MatrixTransform;
 				jointOriginMt->setName(QStringLiteral("Joint%1").arg(jointVisIndex).toStdString());
 				jointOriginMt->setMatrix(mat4ToOsg(T_origin));
-				
 
-				osg::ref_ptr<osg::Group> axisShell = new osg::Group;
-				axisShell->setName(QStringLiteral("Axis_Visual_%1").arg(jointVisIndex).toStdString());
-				axisShell->addChild(createJointRotationAxisLineGeode(
-					kUrdfLinkFrameAxisMmDefault, j.ax, j.ay, j.az,
-					(j.name + QStringLiteral("_JointAxis")).toStdString(), axisLabel)
-					.get());
-				
-				// 【调试】在关节原点添加可见标记（小红球）
-				if (kUrdfDebugJointSubtreeDiagnostics)
+				osg::ref_ptr<osg::Group> axisShell;
+				if (kUrdfShowRevoluteJointDebugVisuals)
 				{
-					osg::ref_ptr<osg::Sphere> sphere = new osg::Sphere(osg::Vec3(0,0,0), 5.0f);  // 5mm半径红球在原点
+					axisShell = new osg::Group;
+					axisShell->setName(QStringLiteral("Axis_Visual_%1").arg(jointVisIndex).toStdString());
+					axisShell->addChild(createJointRotationAxisLineGeode(
+						kUrdfLinkFrameAxisMmDefault, j.ax, j.ay, j.az,
+						(j.name + QStringLiteral("_JointAxis")).toStdString(), axisLabel)
+						.get());
+					osg::ref_ptr<osg::Sphere> sphere = new osg::Sphere(osg::Vec3(0, 0, 0), 5.0f);
 					osg::ref_ptr<osg::ShapeDrawable> sd = new osg::ShapeDrawable(sphere.get());
 					sd->setColor(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
 					osg::ref_ptr<osg::Geode> marker = new osg::Geode;
-					marker->setName((j.name + "_OriginMarker").toStdString());
+					marker->setName((j.name + QStringLiteral("_OriginMarker")).toStdString());
 					marker->addDrawable(sd.get());
-					// 关闭光照使颜色更鲜艳
 					marker->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 					axisShell->addChild(marker.get());
 				}
@@ -2023,7 +2052,14 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 						childGeom = gIt.value();
 					}
 					urdfDebugLogRevoluteJointSubtree(
-						j.name, T_origin, jointOriginMt.get(), jointNode, linkShell.get(), childContainer, childGeom, axisShell.get());
+						j.name,
+						T_origin,
+						jointOriginMt.get(),
+						jointNode,
+						linkShell.get(),
+						childContainer,
+						childGeom,
+						axisShell.get());
 				}
 
 				outJointTransforms[j.name] = jointNode;

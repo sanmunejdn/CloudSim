@@ -4,8 +4,10 @@
 #include "IRobotSimulationDocument.h"
 #include "RobotSceneKinematics.h"
 
+#include "RunLogger.h"
 #include "UrdfRobotLoader.h"
 
+#include <QByteArray>
 #include <QHash>
 #include <QString>
 
@@ -13,6 +15,15 @@
 #include <cmath>
 
 using namespace RobotSimulation;
+
+namespace
+{
+std::string qToUtf8Std(const QString& s)
+{
+	const QByteArray utf8 = s.toUtf8();
+	return std::string(utf8.constData(), static_cast<size_t>(utf8.size()));
+}
+} // namespace
 
 void RobotInstructionPlaybackEngine::stop()
 {
@@ -36,6 +47,7 @@ bool RobotInstructionPlaybackEngine::tryStart(
 	stop();
 	if (!doc || !osg)
 	{
+		RunLogger::warn("RobotInstructionPlaybackEngine::tryStart failed: null document or viewer.");
 		if (errorOut)
 		{
 			*errorOut = QStringLiteral("No document or viewer.");
@@ -44,6 +56,7 @@ bool RobotInstructionPlaybackEngine::tryStart(
 	}
 	if (!doc->hasRobotSimulationContext())
 	{
+		RunLogger::warn("RobotInstructionPlaybackEngine::tryStart failed: no robot simulation context.");
 		if (errorOut)
 		{
 			*errorOut = QStringLiteral("No robot context.");
@@ -53,6 +66,7 @@ bool RobotInstructionPlaybackEngine::tryStart(
 	const QString urdfPath = doc->robotUrdfAbsolutePath();
 	if (urdfPath.isEmpty())
 	{
+		RunLogger::warn("RobotInstructionPlaybackEngine::tryStart failed: empty URDF path.");
 		if (errorOut)
 		{
 			*errorOut = QStringLiteral("Empty URDF path.");
@@ -62,6 +76,7 @@ bool RobotInstructionPlaybackEngine::tryStart(
 	const QStringList jnames = doc->robotRevoluteJointNames();
 	if (jnames.isEmpty())
 	{
+		RunLogger::warn("RobotInstructionPlaybackEngine::tryStart failed: no revolute joints.");
 		if (errorOut)
 		{
 			*errorOut = QStringLiteral("No revolute joints.");
@@ -70,6 +85,7 @@ bool RobotInstructionPlaybackEngine::tryStart(
 	}
 	if (queue.isEmpty())
 	{
+		RunLogger::warn("RobotInstructionPlaybackEngine::tryStart failed: empty command queue.");
 		if (errorOut)
 		{
 			*errorOut = QStringLiteral("Empty command queue.");
@@ -102,6 +118,8 @@ bool RobotInstructionPlaybackEngine::tryStart(
 		const QVector<double> zeros = QVector<double>(jnames.size(), 0.0);
 		if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, zeros, m_fkMeshWorldT0, &fkErr))
 		{
+			RunLogger::warn(qToUtf8Std(QStringLiteral("RobotInstructionPlaybackEngine::tryStart FK init failed: %1")
+				.arg(fkErr.isEmpty() ? QStringLiteral("Forward kinematics failed.") : fkErr)));
 			if (errorOut)
 			{
 				*errorOut = fkErr.isEmpty() ? QStringLiteral("Forward kinematics failed.") : fkErr;
@@ -125,6 +143,7 @@ bool RobotInstructionPlaybackEngine::tryStart(
 	const RobotSimulationCommand& c0 = m_queue[0];
 	if (c0.jointIndex < 0 || c0.jointIndex >= m_jointAnglesRad.size())
 	{
+		RunLogger::warn("RobotInstructionPlaybackEngine::tryStart failed: invalid joint index in first command.");
 		if (errorOut)
 		{
 			*errorOut = QStringLiteral("Invalid joint index in first command.");
@@ -137,6 +156,7 @@ bool RobotInstructionPlaybackEngine::tryStart(
 	m_segAngleTargetRad = m_segAngleStartRad + c0.angleDeg * (kPi / 180.0);
 	m_segmentTimer.restart();
 	m_running = true;
+	RunLogger::info("RobotInstructionPlaybackEngine started.");
 	return true;
 }
 
@@ -148,16 +168,19 @@ RobotInstructionPlaybackTickResult RobotInstructionPlaybackEngine::tick(IRobotSi
 	}
 	if (!osg || !doc || !doc->hasRobotSimulationContext())
 	{
+		RunLogger::warn("RobotInstructionPlaybackEngine aborted: invalid runtime context.");
 		stop();
 		return RobotInstructionPlaybackTickResult::Aborted;
 	}
 	if (doc->robotRevoluteJointNames().isEmpty())
 	{
+		RunLogger::warn("RobotInstructionPlaybackEngine aborted: robot has no revolute joints.");
 		stop();
 		return RobotInstructionPlaybackTickResult::Aborted;
 	}
 	if (m_segmentIndex < 0 || m_segmentIndex >= m_queue.size())
 	{
+		RunLogger::warn("RobotInstructionPlaybackEngine aborted: segment index out of range.");
 		stop();
 		return RobotInstructionPlaybackTickResult::Aborted;
 	}
@@ -166,6 +189,7 @@ RobotInstructionPlaybackTickResult RobotInstructionPlaybackEngine::tick(IRobotSi
 	const int jidx = cmd.jointIndex;
 	if (jidx < 0 || jidx >= m_jointAnglesRad.size())
 	{
+		RunLogger::warn("RobotInstructionPlaybackEngine aborted: command joint index out of range.");
 		stop();
 		return RobotInstructionPlaybackTickResult::Aborted;
 	}
@@ -180,6 +204,7 @@ RobotInstructionPlaybackTickResult RobotInstructionPlaybackEngine::tick(IRobotSi
 	{
 		if (!RobotSceneKinematics::applyJointAnglesFromDocument(doc, osg, m_jointAnglesRad))
 		{
+			RunLogger::warn("RobotInstructionPlaybackEngine aborted: applyJointAnglesFromDocument failed.");
 			stop();
 			return RobotInstructionPlaybackTickResult::Aborted;
 		}
@@ -191,6 +216,8 @@ RobotInstructionPlaybackTickResult RobotInstructionPlaybackEngine::tick(IRobotSi
 		QString fkErr;
 		if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, m_jointAnglesRad, Tq, &fkErr))
 		{
+			RunLogger::warn(qToUtf8Std(QStringLiteral("RobotInstructionPlaybackEngine aborted: computeMeshWorldMatrices failed: %1")
+				.arg(fkErr)));
 			stop();
 			return RobotInstructionPlaybackTickResult::Aborted;
 		}
@@ -206,12 +233,14 @@ RobotInstructionPlaybackTickResult RobotInstructionPlaybackEngine::tick(IRobotSi
 		if (m_segmentIndex >= m_queue.size())
 		{
 			m_running = false;
+			RunLogger::info("RobotInstructionPlaybackEngine finished all commands.");
 			return RobotInstructionPlaybackTickResult::Finished;
 		}
 		const RobotSimulationCommand& next = m_queue[m_segmentIndex];
 		const int nj = next.jointIndex;
 		if (nj < 0 || nj >= m_jointAnglesRad.size())
 		{
+			RunLogger::warn("RobotInstructionPlaybackEngine aborted: next command joint index out of range.");
 			stop();
 			return RobotInstructionPlaybackTickResult::Aborted;
 		}

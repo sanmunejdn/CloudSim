@@ -2,6 +2,7 @@
 
 #include "BackendObjectAttribute.h"
 #include "BackendPropertyRow.h"
+#include "RunLogger.h"
 #include "geometry_base64.h"
 
 #include <algorithm>
@@ -213,6 +214,7 @@ void meshLoadErr(std::string* errMsg, const char* text)
 	{
 		*errMsg = text;
 	}
+	RunLogger::error(std::string("[MeshBackendData] ") + text);
 }
 
 std::string meshLowerExtension(const std::string& path)
@@ -845,6 +847,7 @@ bool MeshBackendData::loadStepHierarchyFromFile(const std::string& path, std::ve
 		meshLoadErr(errMsg, "OCCT STEP hierarchy triangulation produced no mesh parts.");
 		return false;
 	}
+	RunLogger::info("[MeshBackendData] STEP hierarchy loaded successfully.");
 	return true;
 }
 
@@ -940,6 +943,7 @@ bool MeshBackendData::loadDxfHierarchyFromFile(const std::string& path, std::vec
 		meshLoadErr(errMsg, "DXF contained no triangulatable geometry.");
 		return false;
 	}
+	RunLogger::info("[MeshBackendData] DXF hierarchy loaded successfully.");
 	return true;
 }
 
@@ -1034,6 +1038,7 @@ bool MeshBackendData::loadFromFile(const std::string& path, std::string* errMsg)
 		}
 
 		setTriangleSoup(std::move(soup));
+		RunLogger::info("[MeshBackendData] STEP mesh loaded successfully.");
 		return !m_triangleSoup.empty();
 	}
 
@@ -1053,6 +1058,7 @@ bool MeshBackendData::loadFromFile(const std::string& path, std::string* errMsg)
 			return false;
 		}
 		setTriangleSoup(std::move(collector.soup));
+		RunLogger::info("[MeshBackendData] DXF mesh loaded successfully.");
 		return true;
 	}
 
@@ -1114,5 +1120,6 @@ bool MeshBackendData::loadFromFile(const std::string& path, std::string* errMsg)
 		return false;
 	}
 	setTriangleSoup(std::move(soup));
+	RunLogger::info("[MeshBackendData] Polygon-soup mesh loaded successfully.");
 	return true;
 }

@@ -1,10 +1,23 @@
 #include "RunInfoPage.h"
 
+#include "RunLogger.h"
+
+#include <QByteArray>
 #include <QDateTime>
 #include <QHBoxLayout>
+#include <QMetaObject>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
+
+namespace
+{
+std::string toUtf8StdString(const QString& text)
+{
+	const QByteArray utf8 = text.toUtf8();
+	return std::string(utf8.constData(), static_cast<size_t>(utf8.size()));
+}
+} // namespace
 
 RunInfoPage::RunInfoPage(QWidget* parent)
 	: QWidget(parent)
@@ -25,21 +38,35 @@ RunInfoPage::RunInfoPage(QWidget* parent)
 	root->addWidget(m_logEdit, 1);
 
 	connect(m_clearBtn, &QPushButton::clicked, this, &RunInfoPage::clearLogs);
+
+	RunLogger::setUiSink([this](RunLogger::LogLevel level, const std::string& message) {
+		const QString levelText = QString::fromLatin1(RunLogger::levelName(level));
+		const QString text = QString::fromUtf8(message.c_str());
+		QMetaObject::invokeMethod(
+			this,
+			[this, levelText, text]() { appendLine(levelText, text); },
+			Qt::QueuedConnection);
+	});
+}
+
+RunInfoPage::~RunInfoPage()
+{
+	RunLogger::clearUiSink();
 }
 
 void RunInfoPage::appendInfo(const QString& text)
 {
-	appendLine(QStringLiteral("INFO"), text);
+	RunLogger::info(toUtf8StdString(text));
 }
 
 void RunInfoPage::appendWarning(const QString& text)
 {
-	appendLine(QStringLiteral("WARN"), text);
+	RunLogger::warn(toUtf8StdString(text));
 }
 
 void RunInfoPage::appendError(const QString& text)
 {
-	appendLine(QStringLiteral("ERROR"), text);
+	RunLogger::error(toUtf8StdString(text));
 }
 
 void RunInfoPage::clearLogs()
