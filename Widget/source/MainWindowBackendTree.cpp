@@ -284,6 +284,11 @@ void MainWindow::onBackendTreeSelectionChanged()
 	{
 		return;
 	}
+	m_activeInstructionForProperty.reset();
+	if (m_simulationCommandPage)
+	{
+		m_simulationCommandPage->clearInstructionSelection();
+	}
 
 	OsgWidget* osg = currentOsgWidget();
 

@@ -970,6 +970,57 @@ bool UrdfRobotLoader::loadRevoluteJointMeta(
 	return true;
 }
 
+bool UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(
+	const QString& urdfFilePath,
+	QStringList& outChildLinkNames,
+	QString* errorMessage)
+{
+	outChildLinkNames.clear();
+
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		return false;
+	}
+
+	const UrdfFkModelData& m = *model;
+	const std::unordered_map<QString, std::vector<UrdfJoint>>& jointsByParent = m.jointsByParent;
+
+	struct QueueItem
+	{
+		QString link;
+	};
+	std::queue<QueueItem> qq;
+	qq.push(QueueItem{m.rootLink});
+
+	while (!qq.empty())
+	{
+		const QueueItem cur = qq.front();
+		qq.pop();
+
+		const auto jit = jointsByParent.find(cur.link);
+		if (jit == jointsByParent.end())
+		{
+			continue;
+		}
+
+		for (const UrdfJoint& j : jit->second)
+		{
+			if (!jointConnectsDistinctLinks(j))
+			{
+				continue;
+			}
+			const QString jt = j.type.toLower();
+			if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
+			{
+				outChildLinkNames.append(j.child);
+			}
+			qq.push(QueueItem{j.child});
+		}
+	}
+	return true;
+}
+
 // 仅关节名列表，顺序与 loadRevoluteJointMeta 一致，供与 jointAnglesRad 对齐。
 bool UrdfRobotLoader::loadRevoluteJointNamesInOrder(
 	const QString& urdfFilePath,
@@ -2152,10 +2203,6 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 
 	// RobotAssembly 本身也刷新
 	robotAssembly->dirtyBound();
-
-	const osg::BoundingSphere& rbs = robotAssembly->getBound();
-	qDebug().nospace() << "[UrdfJointDiag] RobotAssembly: valid=" << rbs.valid() << " center=(" << rbs.center().x() << ","
-					   << rbs.center().y() << "," << rbs.center().z() << ") radius=" << rbs.radius();
 
 	// 转移所有权：release() 使裸指针引用计数仍为 1，由调用方 addChild 或 osg::ref_ptr 承接；禁止手动 ref()+get()。
 	return robotAssembly.release();

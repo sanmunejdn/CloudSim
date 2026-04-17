@@ -42,6 +42,12 @@ namespace UrdfRobotLoader
 		QVector<double>& outUpperRad,
 		QString* errorMessage = nullptr);
 
+	/// Child link names of revolute/continuous joints in the same BFS order as loadRevoluteJointNamesInOrder.
+	ROBOT_URDF_API bool loadRevoluteJointChildLinksInOrder(
+		const QString& urdfFilePath,
+		QStringList& outChildLinkNames,
+		QString* errorMessage = nullptr);
+
 	/// 【中文】给定关节角度，计算各连杆的世界变换矩阵（用于参考/调试）。
 	/// 新架构推荐使用 buildHierarchicalRobotScene + 直接修改 Joint MatrixTransform，无需调用此函数。
 	///

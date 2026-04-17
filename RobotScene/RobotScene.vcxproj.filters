@@ -7,6 +7,15 @@
     <ClCompile Include="source\RobotInstructionPlaybackEngine.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="source\RobotInstructionAttribute.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionController.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionModel.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\IRobotBackendPoseSink.h">
@@ -22,6 +31,15 @@
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotSceneKinematics.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionAttribute.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionController.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionModel.h">
       <Filter>inc</Filter>
     </ClInclude>
   </ItemGroup>

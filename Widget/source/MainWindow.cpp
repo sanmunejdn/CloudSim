@@ -1,19 +1,24 @@
 #include "MainWindow.h"
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <memory>
+#include <sstream>
 
 #include <QAction>
 #include <QActionGroup>
-#include <QSignalBlocker>
 #include <QApplication>
 #include <QDockWidget>
-#include <QMessageBox>
+#include <QFile>
 #include <QHeaderView>
 #include <QList>
+#include <QMessageBox>
 #include <QMenu>
 #include <QMenuBar>
+#include <QRegularExpression>
+#include <QSet>
+#include <QSignalBlocker>
 #include <QStringList>
 #include <QStatusBar>
 #include <QTreeWidget>
@@ -22,6 +27,7 @@
 #include <QVector>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QXmlStreamReader>
 
 #include <osg/Vec3f>
 
@@ -35,9 +41,12 @@
 #include "PointCloudBackendData.h"
 #include "OsgWidget.h"
 #include "RobotSceneKinematics.h"
+#include "UrdfRobotLoader.h"
 #include "RunInfoPage.h"
 #include "SimulationCommandWidget.h"
 
+#include <osg/MatrixTransform>
+#include <osg/NodeVisitor>
 #include <osg/Quat>
 
 #include "qteditorfactory.h"
@@ -47,9 +56,363 @@
 using namespace mainwindow_detail;
 using namespace RobotSimulation;
 
+namespace
+{
+bool matrixFromNodeWorld(osg::Node* node, osg::Matrixd& outWorld)
+{
+	if (!node)
+	{
+		return false;
+	}
+	osg::NodePathList paths = node->getParentalNodePaths();
+	if (paths.empty())
+	{
+		return false;
+	}
+	const osg::NodePath& path = paths.front();
+	outWorld = osg::computeLocalToWorld(path);
+	if (path.empty() || path.back() != node)
+	{
+		if (const auto* mt = dynamic_cast<osg::MatrixTransform*>(node))
+		{
+			outWorld = outWorld * mt->getMatrix();
+		}
+	}
+	return true;
+}
+
+struct ParsedUrdfJoint
+{
+	QString name;
+	QString type;
+	QString parent;
+	QString child;
+	double x = 0.0; // meters in URDF
+	double y = 0.0;
+	double z = 0.0;
+	double roll = 0.0; // radians
+	double pitch = 0.0;
+	double yaw = 0.0;
+	double ax = 0.0;
+	double ay = 0.0;
+	double az = 1.0;
+};
+
+bool parseThreeDoubles(const QString& src, double& a, double& b, double& c)
+{
+	const QString text = src.trimmed();
+	if (text.isEmpty())
+	{
+		a = b = c = 0.0;
+		return true;
+	}
+	const QStringList parts = text.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+	if (parts.size() < 3)
+	{
+		return false;
+	}
+	bool ok = false;
+	a = parts[0].toDouble(&ok);
+	if (!ok) return false;
+	b = parts[1].toDouble(&ok);
+	if (!ok) return false;
+	c = parts[2].toDouble(&ok);
+	return ok;
+}
+
+bool loadUrdfJointList(const QString& urdfPath, QVector<ParsedUrdfJoint>& outJoints, QString* errMsg)
+{
+	outJoints.clear();
+	QFile file(urdfPath);
+	if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+	{
+		if (errMsg)
+		{
+			*errMsg = QStringLiteral("无法打开URDF文件：%1").arg(urdfPath);
+		}
+		return false;
+	}
+	QXmlStreamReader xml(&file);
+	while (!xml.atEnd())
+	{
+		xml.readNext();
+		if (!xml.isStartElement() || xml.name() != QLatin1String("joint"))
+		{
+			continue;
+		}
+		ParsedUrdfJoint joint;
+		joint.name = xml.attributes().value(QStringLiteral("name")).toString().trimmed();
+		joint.type = xml.attributes().value(QStringLiteral("type")).toString().trimmed().toLower();
+		while (xml.readNextStartElement())
+		{
+			if (xml.name() == QLatin1String("origin"))
+			{
+				(void)parseThreeDoubles(xml.attributes().value(QStringLiteral("xyz")).toString(), joint.x, joint.y, joint.z);
+				(void)parseThreeDoubles(
+					xml.attributes().value(QStringLiteral("rpy")).toString(), joint.roll, joint.pitch, joint.yaw);
+				xml.skipCurrentElement();
+			}
+			else if (xml.name() == QLatin1String("parent"))
+			{
+				joint.parent = xml.attributes().value(QStringLiteral("link")).toString().trimmed();
+				xml.skipCurrentElement();
+			}
+			else if (xml.name() == QLatin1String("child"))
+			{
+				joint.child = xml.attributes().value(QStringLiteral("link")).toString().trimmed();
+				xml.skipCurrentElement();
+			}
+			else if (xml.name() == QLatin1String("axis"))
+			{
+				(void)parseThreeDoubles(
+					xml.attributes().value(QStringLiteral("xyz")).toString(), joint.ax, joint.ay, joint.az);
+				xml.skipCurrentElement();
+			}
+			else
+			{
+				xml.skipCurrentElement();
+			}
+		}
+		if (!joint.parent.isEmpty() && !joint.child.isEmpty())
+		{
+			outJoints.push_back(joint);
+		}
+	}
+	if (xml.hasError())
+	{
+		if (errMsg)
+		{
+			*errMsg = QStringLiteral("解析URDF失败：%1").arg(xml.errorString());
+		}
+		return false;
+	}
+	if (outJoints.isEmpty())
+	{
+		if (errMsg)
+		{
+			*errMsg = QStringLiteral("URDF中没有可用的joint定义。");
+		}
+		return false;
+	}
+	return true;
+}
+
+bool decomposeDhFromOriginXyzRpy(
+	double txMm,
+	double tyMm,
+	double tzMm,
+	double roll,
+	double pitch,
+	double yaw,
+	robot_kinematics::DhRow& out,
+	QString* errMsg)
+{
+	const double cr = std::cos(roll);
+	const double sr = std::sin(roll);
+	const double cp = std::cos(pitch);
+	const double sp = std::sin(pitch);
+	const double cy = std::cos(yaw);
+	const double sy = std::sin(yaw);
+
+	const double r00 = cy * cp;
+	const double r01 = cy * sp * sr - sy * cr;
+	const double r02 = cy * sp * cr + sy * sr;
+	const double r10 = sy * cp;
+	const double r11 = sy * sp * sr + cy * cr;
+	const double r12 = sy * sp * cr - cy * sr;
+	const double r20 = -sp;
+	const double r21 = cp * sr;
+	const double r22 = cp * cr;
+
+	if (std::abs(r20) > 1e-3)
+	{
+		if (errMsg)
+		{
+			*errMsg = QStringLiteral("关节origin不满足DH可分解条件（pitch过大，r20=%1）。").arg(r20, 0, 'g', 6);
+		}
+		return false;
+	}
+
+	const double theta = std::atan2(r10, r00);
+	const double alpha = std::atan2(r21, r22);
+	const double ct = std::cos(theta);
+	const double st = std::sin(theta);
+
+	double a = 0.0;
+	if (std::abs(ct) >= std::abs(st) && std::abs(ct) > 1e-6)
+	{
+		a = txMm / ct;
+	}
+	else if (std::abs(st) > 1e-6)
+	{
+		a = tyMm / st;
+	}
+	else
+	{
+		a = std::sqrt(txMm * txMm + tyMm * tyMm);
+	}
+	const double d = tzMm;
+
+	const double txFit = a * ct;
+	const double tyFit = a * st;
+	if (std::abs(txMm - txFit) > 1e-2 || std::abs(tyMm - tyFit) > 1e-2)
+	{
+		if (errMsg)
+		{
+			*errMsg = QStringLiteral("joint origin平移项与DH模型不一致（可能不是标准串联DH链）。");
+		}
+		return false;
+	}
+
+	out.a = a;
+	out.alpha = alpha;
+	out.d = d;
+	out.thetaOffset = theta;
+	return true;
+}
+
+bool buildDhRowsFromUrdf(
+	const QString& urdfPath,
+	std::vector<robot_kinematics::DhRow>& outRows,
+	QString* errMsg)
+{
+	outRows.clear();
+	QVector<ParsedUrdfJoint> joints;
+	if (!loadUrdfJointList(urdfPath, joints, errMsg))
+	{
+		return false;
+	}
+
+	QHash<QString, QVector<int>> parentToJointIdx;
+	QSet<QString> allLinks;
+	QSet<QString> childLinks;
+	for (int i = 0; i < joints.size(); ++i)
+	{
+		const ParsedUrdfJoint& j = joints[i];
+		parentToJointIdx[j.parent].push_back(i);
+		allLinks.insert(j.parent);
+		allLinks.insert(j.child);
+		childLinks.insert(j.child);
+	}
+	QSet<QString> rootCandidates = allLinks;
+	for (const QString& c : childLinks)
+	{
+		rootCandidates.remove(c);
+	}
+	if (rootCandidates.size() != 1)
+	{
+		if (errMsg)
+		{
+			*errMsg = QStringLiteral("URDF不是单根串联结构（root候选=%1）。").arg(rootCandidates.size());
+		}
+		return false;
+	}
+
+	QString curLink = *rootCandidates.constBegin();
+	QSet<QString> visitedLinks;
+	QVector<ParsedUrdfJoint> serialChain;
+	while (true)
+	{
+		if (visitedLinks.contains(curLink))
+		{
+			if (errMsg)
+			{
+				*errMsg = QStringLiteral("URDF关节链存在环路。");
+			}
+			return false;
+		}
+		visitedLinks.insert(curLink);
+		const QVector<int> children = parentToJointIdx.value(curLink);
+		if (children.isEmpty())
+		{
+			break;
+		}
+		if (children.size() != 1)
+		{
+			if (errMsg)
+			{
+				*errMsg = QStringLiteral("URDF存在分支，当前版本仅支持单链机器人。");
+			}
+			return false;
+		}
+		const ParsedUrdfJoint& j = joints[children.front()];
+		serialChain.push_back(j);
+		curLink = j.child;
+	}
+	if (serialChain.isEmpty())
+	{
+		if (errMsg)
+		{
+			*errMsg = QStringLiteral("没有可用于构建DH的关节链。");
+		}
+		return false;
+	}
+
+	int revoluteIndex = 0;
+	for (const ParsedUrdfJoint& j : serialChain)
+	{
+		robot_kinematics::DhRow row{};
+		QString rowErr;
+		if (!decomposeDhFromOriginXyzRpy(
+				j.x * 1000.0, j.y * 1000.0, j.z * 1000.0, j.roll, j.pitch, j.yaw, row, &rowErr))
+		{
+			if (errMsg)
+			{
+				*errMsg = QStringLiteral("joint '%1' 无法转换为DH：%2").arg(j.name, rowErr);
+			}
+			return false;
+		}
+		if (j.type == QLatin1String("revolute") || j.type == QLatin1String("continuous"))
+		{
+			const double norm = std::sqrt(j.ax * j.ax + j.ay * j.ay + j.az * j.az);
+			const double nx = (norm > 1e-9) ? (j.ax / norm) : 0.0;
+			const double ny = (norm > 1e-9) ? (j.ay / norm) : 0.0;
+			const double nz = (norm > 1e-9) ? (j.az / norm) : 1.0;
+			if (norm <= 1e-9 || std::abs(nx) > 1e-3 || std::abs(ny) > 1e-3 || nz < 0.999)
+			{
+				if (errMsg)
+				{
+					*errMsg = QStringLiteral(
+						"joint '%1' 旋转轴不是 +Z（axis=%2,%3,%4），当前DH求解链不支持。")
+								  .arg(j.name)
+								  .arg(nx, 0, 'g', 6)
+								  .arg(ny, 0, 'g', 6)
+								  .arg(nz, 0, 'g', 6);
+				}
+				return false;
+			}
+			row.jointIndex = revoluteIndex++;
+		}
+		else if (j.type == QLatin1String("fixed"))
+		{
+			row.jointIndex = -1;
+		}
+		else
+		{
+			if (errMsg)
+			{
+				*errMsg = QStringLiteral("joint '%1' 类型 '%2' 暂不支持DH自动建链。").arg(j.name, j.type);
+			}
+			return false;
+		}
+		outRows.push_back(row);
+	}
+	if (revoluteIndex <= 0)
+	{
+		if (errMsg)
+		{
+			*errMsg = QStringLiteral("未找到可运动关节，无法进行IK。");
+		}
+		return false;
+	}
+	return true;
+}
+} // namespace
+
 MainWindow::MainWindow(QWidget* parent)
 	: QMainWindow(parent)
 {
+	m_robotInstructionController.buildDefaultPlanners();
 	setupMenuBar();
 
 	auto* central = new QWidget(this);
@@ -311,6 +674,10 @@ void MainWindow::setupDockWidgets()
 	m_unitDock->setWidget(m_unitDockTabs);
 	connect(m_simulationCommandPage, &SimulationCommandWidget::runRequested, this, &MainWindow::onSimulationRunRequested);
 	connect(m_simulationCommandPage, &SimulationCommandWidget::stopRequested, this, &MainWindow::onSimulationStopRequested);
+	connect(m_simulationCommandPage, &SimulationCommandWidget::addInstructionRequested,
+		this, &MainWindow::onSimulationAddInstructionRequested);
+	connect(m_simulationCommandPage, &SimulationCommandWidget::instructionSelectionChanged,
+		this, &MainWindow::onSimulationInstructionSelectionChanged);
 	connect(m_robotAxisControlPage, &RobotAxisControlWidget::jointAnglesChanged, this, &MainWindow::onRobotAxisJointAnglesChanged);
 	addDockWidget(Qt::RightDockWidgetArea, m_unitDock);
 
@@ -974,6 +1341,133 @@ void MainWindow::onSimulationRunRequested()
 	onSimulationStartTriggered();
 }
 
+bool MainWindow::tryCaptureCurrentRobotTcpPose(
+	RobotInstruction::Vec3& outPoseMm, RobotInstruction::Vec3& outEulerDeg, QString* errMsg) const
+{
+	DocumentPage* doc = currentPage();
+	if (!doc || !doc->hasRobotSimulationContext())
+	{
+		if (errMsg)
+		{
+			*errMsg = i18n(QStringLiteral("Robot simulation context is not ready."),
+				QStringLiteral("机器人仿真上下文尚未就绪。"));
+		}
+		return false;
+	}
+	const QString urdfPath = doc->robotUrdfAbsolutePath();
+	if (urdfPath.isEmpty())
+	{
+		if (errMsg)
+		{
+			*errMsg = i18n(QStringLiteral("URDF path is empty."),
+				QStringLiteral("URDF 路径为空。"));
+		}
+		return false;
+	}
+	const QStringList joints = doc->robotRevoluteJointNames();
+	QVector<double> q(joints.size(), 0.0);
+	if (m_robotAxisControlPage && m_robotAxisControlPage->jointCount() == joints.size())
+	{
+		q = m_robotAxisControlPage->jointAnglesRad();
+	}
+	QHash<QString, osg::Matrixd> linkWorldByName;
+	QString computeErr;
+	if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, q, linkWorldByName, &computeErr))
+	{
+		if (errMsg)
+		{
+			*errMsg = computeErr.isEmpty()
+				? i18n(QStringLiteral("Failed to compute robot TCP pose."),
+					QStringLiteral("计算机器人末端位姿失败。"))
+				: computeErr;
+		}
+		return false;
+	}
+
+	QString tcpLinkName;
+	QStringList revoluteChildLinks;
+	(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, revoluteChildLinks, nullptr);
+	if (!revoluteChildLinks.isEmpty())
+	{
+		tcpLinkName = revoluteChildLinks.back();
+	}
+	osg::Matrixd tcpWorld;
+	if (!tcpLinkName.isEmpty() && linkWorldByName.contains(tcpLinkName))
+	{
+		tcpWorld = linkWorldByName.value(tcpLinkName);
+	}
+	else if (!joints.isEmpty())
+	{
+		const QString lastJoint = joints.back();
+		if (osg::MatrixTransform* jointMt = doc->robotJointMatrixTransform(lastJoint))
+		{
+			if (!matrixFromNodeWorld(jointMt, tcpWorld))
+			{
+				if (errMsg)
+				{
+					*errMsg = i18n(QStringLiteral("Cannot evaluate TCP world transform."),
+						QStringLiteral("无法获取末端世界坐标。"));
+				}
+				return false;
+			}
+		}
+	}
+	else if (!linkWorldByName.isEmpty())
+	{
+		tcpWorld = linkWorldByName.constBegin().value();
+	}
+	else
+	{
+		if (errMsg)
+		{
+			*errMsg = i18n(QStringLiteral("No link transform is available for TCP."),
+				QStringLiteral("当前没有可用的末端连杆位姿。"));
+		}
+		return false;
+	}
+
+	const osg::Vec3d t = tcpWorld.getTrans();
+	const osg::Vec3f euler = OsgScene::quatToEulerDeg(tcpWorld.getRotate());
+	outPoseMm.x = t.x();
+	outPoseMm.y = t.y();
+	outPoseMm.z = t.z();
+	outEulerDeg.x = euler.x();
+	outEulerDeg.y = euler.y();
+	outEulerDeg.z = euler.z();
+	return true;
+}
+
+void MainWindow::onSimulationAddInstructionRequested(RobotInstruction::Type type)
+{
+	if (!m_simulationCommandPage)
+	{
+		return;
+	}
+	RobotInstruction::Vec3 pose{};
+	RobotInstruction::Vec3 euler{};
+	QString err;
+	if (!tryCaptureCurrentRobotTcpPose(pose, euler, &err))
+	{
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendWarning(err);
+		}
+		return;
+	}
+	m_simulationCommandPage->appendInstructionFromCurrentPose(type, pose, euler);
+}
+
+void MainWindow::onSimulationInstructionSelectionChanged(const std::shared_ptr<RobotInstruction::Base>& instruction)
+{
+	m_activeInstructionForProperty = instruction;
+	if (instruction && m_backendTree)
+	{
+		const QSignalBlocker blocker(m_backendTree);
+		m_backendTree->clearSelection();
+	}
+	updateInstructionPropertyPanel(instruction);
+}
+
 void MainWindow::onSimulationStartTriggered()
 {
 	if (m_robotInstructionPlayback.isRunning())
@@ -1000,6 +1494,24 @@ void MainWindow::onSimulationStartTriggered()
 	{
 		return;
 	}
+	{
+		std::vector<robot_kinematics::DhRow> dhRows;
+		QString dhErr;
+		if (buildDhRowsFromUrdf(doc->robotUrdfAbsolutePath(), dhRows, &dhErr))
+		{
+			m_robotInstructionController.setDhRows(dhRows);
+		}
+		else
+		{
+			m_robotInstructionController.clearDhRows();
+			if (m_runInfoPage)
+			{
+				m_runInfoPage->appendInfo(i18n(
+					QStringLiteral("无DH上下文（切换URDF等效运动学求解）：%1").arg(dhErr),
+					QStringLiteral("无DH上下文（切换URDF等效运动学求解）：%1").arg(dhErr)));
+			}
+		}
+	}
 	if (doc->robotRevoluteJointNames().isEmpty())
 	{
 		if (m_runInfoPage)
@@ -1020,7 +1532,29 @@ void MainWindow::onSimulationStartTriggered()
 		}
 		return;
 	}
+	const std::vector<std::shared_ptr<RobotInstruction::Base>> instructions =
+		m_simulationCommandPage->instructions(QStringLiteral("MainController"));
+	if (instructions.size() != static_cast<size_t>(queue.size()))
+	{
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendWarning(i18n(
+				QStringLiteral("Instruction conversion failed."),
+				QStringLiteral("指令转换失败。")));
+		}
+		return;
+	}
 	const QStringList jnames = doc->robotRevoluteJointNames();
+	const QString urdfPath = doc->robotUrdfAbsolutePath();
+	QString tcpLinkName;
+	{
+		QStringList childLinks;
+		(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, childLinks, nullptr);
+		if (!childLinks.isEmpty())
+		{
+			tcpLinkName = childLinks.back();
+		}
+	}
 	QVector<double> initialAngles(jnames.size());
 	if (m_robotAxisControlPage && m_robotAxisControlPage->jointCount() == jnames.size())
 	{
@@ -1030,8 +1564,83 @@ void MainWindow::onSimulationStartTriggered()
 	{
 		initialAngles.fill(0.0);
 	}
+
+	auto encodeJointCsv = [](const QVector<double>& q) {
+		std::ostringstream oss;
+		for (int i = 0; i < q.size(); ++i)
+		{
+			if (i > 0)
+			{
+				oss << ",";
+			}
+			oss << q[i];
+		}
+		return oss.str();
+	};
+
+	std::vector<RobotInstruction::PlanResult> planResults;
+	planResults.reserve(instructions.size());
+	QVector<double> rollingQ = initialAngles;
+	for (size_t i = 0; i < instructions.size(); ++i)
+	{
+		if (!instructions[i])
+		{
+			if (m_runInfoPage)
+			{
+				m_runInfoPage->appendWarning(i18n(
+					QStringLiteral("Instruction row is invalid."),
+					QStringLiteral("存在无效指令行。")));
+			}
+			return;
+		}
+		instructions[i]->setExtensionProperty("context.currentJointRadCsv", encodeJointCsv(rollingQ));
+		instructions[i]->setExtensionProperty("context.urdfPath", urdfPath.toStdString());
+		instructions[i]->setExtensionProperty("context.tcpLinkName", tcpLinkName.toStdString());
+		std::string planErr;
+		if (!m_robotInstructionController.validate(*instructions[i], &planErr))
+		{
+			if (m_runInfoPage)
+			{
+				const QString msg = !planErr.empty() ? QString::fromStdString(planErr)
+													 : i18n(QStringLiteral("Instruction validation failed."),
+														 QStringLiteral("指令校验失败。"));
+				m_runInfoPage->appendWarning(msg);
+			}
+			return;
+		}
+		RobotInstruction::PlanResult plan{};
+		if (!m_robotInstructionController.plan(*instructions[i], plan, &planErr))
+		{
+			if (m_runInfoPage)
+			{
+				const QString msg = !planErr.empty() ? QString::fromStdString(planErr)
+													 : i18n(QStringLiteral("Instruction planning failed."),
+														 QStringLiteral("指令规划失败。"));
+				m_runInfoPage->appendWarning(msg);
+			}
+			return;
+		}
+		if (plan.durationSec > 1e-6)
+		{
+			instructions[i]->setExtensionProperty(
+				"motion.durationSec",
+				QString::number(plan.durationSec, 'f', 3).toStdString());
+		}
+		if (!plan.jointTargetsRad.empty() && plan.jointTargetsRad.size() == static_cast<size_t>(rollingQ.size()))
+		{
+			for (int j = 0; j < rollingQ.size(); ++j)
+			{
+				rollingQ[j] = plan.jointTargetsRad[static_cast<size_t>(j)];
+			}
+		}
+		planResults.push_back(std::move(plan));
+	}
+	if (m_simulationCommandPage)
+	{
+		m_simulationCommandPage->refreshInstructionList();
+	}
 	QString err;
-	if (!m_robotInstructionPlayback.tryStart(doc, osg, queue, initialAngles, &err))
+	if (!m_robotInstructionPlayback.tryStartFromPlanResults(doc, osg, queue, planResults, initialAngles, &err))
 	{
 		if (m_runInfoPage)
 		{

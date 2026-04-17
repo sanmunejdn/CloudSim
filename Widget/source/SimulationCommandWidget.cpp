@@ -1,29 +1,58 @@
 #include "SimulationCommandWidget.h"
 
 #include <QComboBox>
-#include <QDoubleSpinBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
-
 #include <QPushButton>
-
 #include <QVBoxLayout>
+
+#include <algorithm>
+#include <string>
 
 namespace
 {
-
-QString cmdLabel(const RobotSimulationCommand& c, const QStringList& jointNames, bool zh)
+QString instructionTypeLabel(RobotInstruction::Type t, bool zh)
 {
-	const QString jn = (c.jointIndex >= 0 && c.jointIndex < jointNames.size()) ? jointNames[c.jointIndex]
-																				 : QStringLiteral("?");
-	if (zh)
+	if (t == RobotInstruction::Type::LINE)
 	{
-		return QStringLiteral("%1  %2° / %3 s").arg(jn).arg(c.angleDeg, 0, 'f', 1).arg(c.durationSec, 0, 'f', 1);
+		return zh ? QStringLiteral("直线") : QStringLiteral("LINE");
 	}
-	return QStringLiteral("%1  %2 deg / %3 s").arg(jn).arg(c.angleDeg, 0, 'f', 1).arg(c.durationSec, 0, 'f', 1);
+	return zh ? QStringLiteral("点到点") : QStringLiteral("PTP");
 }
 
+double parseDurationSecFromExtension(const RobotInstruction::Base& ins, double fallbackSec)
+{
+	const auto& ext = ins.extensionProperties();
+	const auto it = ext.find("motion.durationSec");
+	if (it == ext.end())
+	{
+		return fallbackSec;
+	}
+	bool ok = false;
+	const double v = QString::fromStdString(it->second).toDouble(&ok);
+	return (ok && v > 1e-6) ? v : fallbackSec;
+}
+
+QString instructionSummary(const RobotInstruction::Base& ins, bool zh)
+{
+	const RobotInstruction::Vec3 p = ins.pose();
+	const double durationSec = parseDurationSecFromExtension(ins, 0.0);
+	const QString durationText = durationSec > 1e-6
+		? QString::number(durationSec, 'f', 2)
+		: (zh ? QStringLiteral("求解") : QStringLiteral("Solved"));
+	return zh
+		? QStringLiteral("目标(XYZ): %1, %2, %3 / 时长 %4")
+			.arg(p.x, 0, 'f', 1)
+			.arg(p.y, 0, 'f', 1)
+			.arg(p.z, 0, 'f', 1)
+			.arg(durationSec > 1e-6 ? (durationText + QStringLiteral(" s")) : durationText)
+		: QStringLiteral("Target(XYZ): %1, %2, %3 / %4")
+			.arg(p.x, 0, 'f', 1)
+			.arg(p.y, 0, 'f', 1)
+			.arg(p.z, 0, 'f', 1)
+			.arg(durationSec > 1e-6 ? (durationText + QStringLiteral(" s")) : durationText);
+}
 } // namespace
 
 SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
@@ -33,33 +62,20 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 	root->setContentsMargins(6, 6, 6, 6);
 	root->setSpacing(6);
 
-	auto* hint = new QLabel(QStringLiteral("Add joint rotation segments for the imported robot (URDF)."));
+	auto* hint = new QLabel(QStringLiteral("Add PTP/LINE instruction from current robot TCP pose."));
 	hint->setWordWrap(true);
 	root->addWidget(hint);
 	m_hintLabel = hint;
 
 	auto* form = new QHBoxLayout;
-	m_jointCombo = new QComboBox(this);
-	form->addWidget(m_jointCombo);
-
-	m_angleSpin = new QDoubleSpinBox(this);
-	m_angleSpin->setRange(-360.0, 720.0);
-	m_angleSpin->setDecimals(1);
-	m_angleSpin->setValue(45.0);
-	m_angleSpin->setSuffix(QStringLiteral(" deg"));
-	form->addWidget(m_angleSpin);
-
-	m_durationSpin = new QDoubleSpinBox(this);
-	m_durationSpin->setRange(0.05, 120.0);
-	m_durationSpin->setDecimals(2);
-	m_durationSpin->setValue(2.0);
-	m_durationSpin->setSuffix(QStringLiteral(" s"));
-	form->addWidget(m_durationSpin);
-
+	m_typeCombo = new QComboBox(this);
+	m_typeCombo->addItem(QStringLiteral("PTP"));
+	m_typeCombo->addItem(QStringLiteral("LINE"));
+	form->addWidget(m_typeCombo);
 	root->addLayout(form);
 
 	auto* rowBtns = new QHBoxLayout;
-	m_addBtn = new QPushButton(QStringLiteral("Add"));
+	m_addBtn = new QPushButton(QStringLiteral("Add Instruction"));
 	m_removeBtn = new QPushButton(QStringLiteral("Remove"));
 	m_clearBtn = new QPushButton(QStringLiteral("Clear"));
 	rowBtns->addWidget(m_addBtn);
@@ -82,6 +98,14 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 	connect(m_addBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onAddClicked);
 	connect(m_removeBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onRemoveClicked);
 	connect(m_clearBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onClearClicked);
+	connect(m_list, &QListWidget::currentRowChanged, this, [this](int row) {
+		if (row < 0 || row >= static_cast<int>(m_instructions.size()))
+		{
+			emit instructionSelectionChanged(nullptr);
+			return;
+		}
+		emit instructionSelectionChanged(m_instructions[static_cast<size_t>(row)]);
+	});
 	connect(m_runBtn, &QPushButton::clicked, this, &SimulationCommandWidget::runRequested);
 	connect(m_stopBtn, &QPushButton::clicked, this, &SimulationCommandWidget::stopRequested);
 
@@ -90,24 +114,16 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 
 void SimulationCommandWidget::updateRunStopButtons()
 {
-	const bool canRun = !m_jointNames.isEmpty() && !m_commands.isEmpty();
+	const bool canRun = m_hasRobotContext && !m_instructions.empty();
 	m_runBtn->setEnabled(!m_simulationRunning && canRun);
 	m_stopBtn->setEnabled(m_simulationRunning);
 }
 
 void SimulationCommandWidget::setRevoluteJointNames(const QStringList& names)
 {
-	m_jointNames = names;
-	m_jointCombo->clear();
-	for (const QString& n : names)
-	{
-		m_jointCombo->addItem(n);
-	}
-	const bool ok = !names.isEmpty();
-	m_jointCombo->setEnabled(ok);
-	m_angleSpin->setEnabled(ok);
-	m_durationSpin->setEnabled(ok);
-	m_addBtn->setEnabled(ok);
+	m_hasRobotContext = !names.isEmpty();
+	m_typeCombo->setEnabled(m_hasRobotContext);
+	m_addBtn->setEnabled(m_hasRobotContext);
 	rebuildCommandListWidget();
 	updateRunStopButtons();
 }
@@ -118,14 +134,19 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 	if (m_hintLabel)
 	{
 		m_hintLabel->setText(chinese ? QStringLiteral(
-								 "为已导入的机器人(URDF)添加关节旋转指令。")
-							   : QStringLiteral("Add joint rotation segments for the imported robot (URDF)."));
+								 "点击添加 PTP/LINE，自动读取当前机器人末端位姿。")
+							   : QStringLiteral("Add PTP/LINE from current robot TCP pose."));
 	}
-	m_addBtn->setText(chinese ? QStringLiteral("添加") : QStringLiteral("Add"));
+	m_addBtn->setText(chinese ? QStringLiteral("添加指令") : QStringLiteral("Add Instruction"));
 	m_removeBtn->setText(chinese ? QStringLiteral("删除") : QStringLiteral("Remove"));
 	m_clearBtn->setText(chinese ? QStringLiteral("清空") : QStringLiteral("Clear"));
 	m_runBtn->setText(chinese ? QStringLiteral("运行") : QStringLiteral("Run"));
 	m_stopBtn->setText(chinese ? QStringLiteral("停止") : QStringLiteral("Stop"));
+	if (m_typeCombo)
+	{
+		m_typeCombo->setItemText(0, chinese ? QStringLiteral("点到点") : QStringLiteral("PTP"));
+		m_typeCombo->setItemText(1, chinese ? QStringLiteral("直线") : QStringLiteral("LINE"));
+	}
 	rebuildCommandListWidget();
 }
 
@@ -138,50 +159,130 @@ void SimulationCommandWidget::setSimulationRunning(bool running)
 void SimulationCommandWidget::rebuildCommandListWidget()
 {
 	m_list->clear();
-	for (const RobotSimulationCommand& c : m_commands)
+	for (size_t i = 0; i < m_instructions.size(); ++i)
 	{
-		m_list->addItem(cmdLabel(c, m_jointNames, m_useChinese));
+		const auto& ins = m_instructions[i];
+		if (!ins)
+		{
+			continue;
+		}
+		m_list->addItem(QStringLiteral("[%1] %2")
+			.arg(instructionTypeLabel(ins->type(), m_useChinese), instructionSummary(*ins, m_useChinese)));
 	}
 }
 
 void SimulationCommandWidget::onAddClicked()
 {
-	if (m_jointNames.isEmpty())
+	if (!m_hasRobotContext)
 	{
 		return;
 	}
-	RobotSimulationCommand c;
-	c.jointIndex = m_jointCombo->currentIndex();
-	if (c.jointIndex < 0 || c.jointIndex >= m_jointNames.size())
-	{
-		c.jointIndex = 0;
-	}
-	c.angleDeg = m_angleSpin->value();
-	c.durationSec = m_durationSpin->value();
-	m_commands.push_back(c);
-	m_list->addItem(cmdLabel(c, m_jointNames, m_useChinese));
-	updateRunStopButtons();
+	const RobotInstruction::Type t = (m_typeCombo->currentIndex() == 1)
+		? RobotInstruction::Type::LINE
+		: RobotInstruction::Type::PTP;
+	emit addInstructionRequested(t);
 }
 
 void SimulationCommandWidget::onRemoveClicked()
 {
 	const int row = m_list->currentRow();
-	if (row >= 0 && row < m_commands.size())
+	if (row >= 0 && row < static_cast<int>(m_instructions.size()))
 	{
-		m_commands.removeAt(row);
+		m_instructions.erase(m_instructions.begin() + row);
 		delete m_list->takeItem(row);
+		emit instructionSelectionChanged(nullptr);
 		updateRunStopButtons();
 	}
 }
 
 void SimulationCommandWidget::onClearClicked()
 {
-	m_commands.clear();
+	m_instructions.clear();
 	m_list->clear();
+	emit instructionSelectionChanged(nullptr);
 	updateRunStopButtons();
 }
 
 QVector<RobotSimulationCommand> SimulationCommandWidget::commands() const
 {
-	return m_commands;
+	QVector<RobotSimulationCommand> out;
+	out.reserve(static_cast<int>(m_instructions.size()));
+	for (const auto& ins : m_instructions)
+	{
+		if (!ins)
+		{
+			continue;
+		}
+		RobotSimulationCommand c{};
+		c.jointIndex = 0;
+		c.angleDeg = 0.0;
+		c.durationSec = instructionDurationSec(*ins);
+		out.push_back(c);
+	}
+	return out;
+}
+
+std::vector<std::shared_ptr<RobotInstruction::Base>> SimulationCommandWidget::instructions(const QString& controllerId) const
+{
+	std::vector<std::shared_ptr<RobotInstruction::Base>> out;
+	out.reserve(m_instructions.size());
+	for (const auto& ins : m_instructions)
+	{
+		if (!ins)
+		{
+			continue;
+		}
+		ins->setControllerId(controllerId.toStdString());
+		out.push_back(ins);
+	}
+	return out;
+}
+
+void SimulationCommandWidget::appendInstructionFromCurrentPose(
+	RobotInstruction::Type type,
+	const RobotInstruction::Vec3& poseMm,
+	const RobotInstruction::Vec3& eulerDeg)
+{
+	std::shared_ptr<RobotInstruction::Base> ins;
+	if (type == RobotInstruction::Type::LINE)
+	{
+		auto line = std::make_shared<RobotInstruction::LineInstruction>();
+		line->setBlendRadius(0.0);
+		ins = line;
+	}
+	else
+	{
+		auto ptp = std::make_shared<RobotInstruction::PtpInstruction>();
+		ptp->setAxisConfig("AUTO");
+		ins = ptp;
+	}
+	if (!ins)
+	{
+		return;
+	}
+	ins->setPose(poseMm);
+	ins->setEulerDeg(eulerDeg);
+	m_instructions.push_back(ins);
+	rebuildCommandListWidget();
+	m_list->setCurrentRow(static_cast<int>(m_instructions.size()) - 1);
+	updateRunStopButtons();
+}
+
+void SimulationCommandWidget::refreshInstructionList()
+{
+	rebuildCommandListWidget();
+}
+
+void SimulationCommandWidget::clearInstructionSelection()
+{
+	if (m_list)
+	{
+		m_list->setCurrentRow(-1);
+	}
+	emit instructionSelectionChanged(nullptr);
+}
+
+double SimulationCommandWidget::instructionDurationSec(const RobotInstruction::Base& ins) const
+{
+	return parseDurationSecFromExtension(ins, 0.0);
 }

@@ -27,7 +27,12 @@ bool propertyKeyUsesDoubleEditor(const QString& key)
 {
 	return key.startsWith(QStringLiteral("pose."))
 		|| key.startsWith(QStringLiteral("rotation."))
-		|| key.startsWith(QStringLiteral("color."));
+		|| key.startsWith(QStringLiteral("color."))
+		|| key.startsWith(QStringLiteral("motion.target.pose."))
+		|| key.startsWith(QStringLiteral("motion.target.euler."))
+		|| key == QStringLiteral("motion.speed")
+		|| key == QStringLiteral("motion.acc")
+		|| key == QStringLiteral("motion.blendRadius");
 }
 } // namespace
 
@@ -127,9 +132,97 @@ QString MainWindow::propertyDisplayLabelForKey(const QString& key, const QString
 	{
 		return tr(QStringLiteral("Triangle count"), QStringLiteral("三角形数"));
 	}
-
+	if (key == QStringLiteral("motion.target.pose.x"))
+	{
+		return tr(QStringLiteral("Target X (mm)"), QStringLiteral("目标 X (mm)"));
+	}
+	if (key == QStringLiteral("motion.target.pose.y"))
+	{
+		return tr(QStringLiteral("Target Y (mm)"), QStringLiteral("目标 Y (mm)"));
+	}
+	if (key == QStringLiteral("motion.target.pose.z"))
+	{
+		return tr(QStringLiteral("Target Z (mm)"), QStringLiteral("目标 Z (mm)"));
+	}
+	if (key == QStringLiteral("motion.target.euler.rx"))
+	{
+		return tr(QStringLiteral("Euler RX (deg)"), QStringLiteral("欧拉角 RX (deg)"));
+	}
+	if (key == QStringLiteral("motion.target.euler.ry"))
+	{
+		return tr(QStringLiteral("Euler RY (deg)"), QStringLiteral("欧拉角 RY (deg)"));
+	}
+	if (key == QStringLiteral("motion.target.euler.rz"))
+	{
+		return tr(QStringLiteral("Euler RZ (deg)"), QStringLiteral("欧拉角 RZ (deg)"));
+	}
+	if (key == QStringLiteral("motion.speed"))
+	{
+		return tr(QStringLiteral("Speed"), QStringLiteral("速度"));
+	}
+	if (key == QStringLiteral("motion.acc"))
+	{
+		return tr(QStringLiteral("Acceleration"), QStringLiteral("加速度"));
+	}
+	if (key == QStringLiteral("motion.axisConfig"))
+	{
+		return tr(QStringLiteral("Axis Configuration"), QStringLiteral("轴配置"));
+	}
+	if (key == QStringLiteral("motion.blendRadius"))
+	{
+		return tr(QStringLiteral("Blend Radius (mm)"), QStringLiteral("平滑半径 (mm)"));
+	}
 	// Unknown keys: show backend English label
 	return labelEnFallback;
+}
+
+void MainWindow::updateInstructionPropertyPanel(const std::shared_ptr<RobotInstruction::Base>& instruction)
+{
+	if (!m_propertyBrowser || !m_variantManager)
+	{
+		return;
+	}
+	m_updatingPropertyBrowser = true;
+	m_variantManager->clear();
+	if (!instruction)
+	{
+		m_updatingPropertyBrowser = false;
+		return;
+	}
+
+	appendPropertyBrowserRow(QStringLiteral("core.id"),
+		propertyDisplayLabelForKey(QStringLiteral("core.id"), QStringLiteral("ID")),
+		QString::fromStdString(instruction->id()), false);
+	appendPropertyBrowserRow(QStringLiteral("core.name"),
+		propertyDisplayLabelForKey(QStringLiteral("core.name"), QStringLiteral("Name")),
+		QString::fromStdString(instruction->name()), false);
+
+	const nlohmann::json rows = instruction->snapshotPropertyRows();
+	if (rows.is_array())
+	{
+		for (const auto& r : rows)
+		{
+			if (!r.is_object())
+			{
+				continue;
+			}
+			const std::string keyStr = r.value(backend_property_json::kKey, std::string());
+			if (keyStr.rfind("context.", 0) == 0
+				|| keyStr.rfind("legacy.", 0) == 0
+				|| keyStr == "motion.durationSec")
+			{
+				continue;
+			}
+			const std::string labelStr = r.value(backend_property_json::kLabelEn, std::string());
+			const bool editable = r.value(backend_property_json::kEditable, false);
+			const std::string valueStr = r.value(backend_property_json::kValue, std::string());
+			const QString key = QString::fromStdString(keyStr);
+			const QString label = propertyDisplayLabelForKey(key, QString::fromStdString(labelStr));
+			appendPropertyBrowserRow(key, label, QString::fromStdString(valueStr), editable);
+		}
+	}
+
+	m_updatingPropertyBrowser = false;
 }
 
 void MainWindow::syncOsgViewerFromPointCloudBackend(const std::shared_ptr<PointCloudBackendData>& pc)
@@ -228,7 +321,40 @@ void MainWindow::updatePropertyPanel(const std::shared_ptr<BackendDataBase>& dat
 
 void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVariant& value)
 {
-	if (m_updatingPropertyBrowser || !property || !m_backendTree || !currentOsgWidget())
+	if (m_updatingPropertyBrowser || !property)
+	{
+		return;
+	}
+	if (m_activeInstructionForProperty)
+	{
+		const QString propertyKey = property->whatsThis();
+		if (propertyKey.isEmpty() || propertyKey.startsWith(QStringLiteral("core.")))
+		{
+			return;
+		}
+		QString valueText;
+		if (value.type() == QVariant::Double)
+		{
+			valueText = QString::number(value.toDouble(), 'g', 12);
+		}
+		else
+		{
+			valueText = value.toString();
+		}
+		std::string err;
+		if (!m_activeInstructionForProperty->applyPropertyChange(propertyKey.toStdString(), valueText.toStdString(), &err))
+		{
+			updateInstructionPropertyPanel(m_activeInstructionForProperty);
+			return;
+		}
+		if (m_simulationCommandPage)
+		{
+			m_simulationCommandPage->refreshInstructionList();
+		}
+		updateInstructionPropertyPanel(m_activeInstructionForProperty);
+		return;
+	}
+	if (!m_backendTree || !currentOsgWidget())
 	{
 		return;
 	}

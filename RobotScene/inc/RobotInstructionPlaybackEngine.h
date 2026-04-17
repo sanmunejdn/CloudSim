@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RobotSimulationTypes.h"
+#include "RobotInstructionController.h"
 
 #include "robot_scene_global.h"
 
@@ -40,18 +41,36 @@ public:
 		const QVector<double>& initialJointAnglesRad,
 		QString* errorOut);
 
+	/// Adapter path: start playback from controller plan results while reusing legacy joint interpolation executor.
+	bool tryStartFromPlanResults(
+		IRobotSimulationDocument* doc,
+		IRobotBackendPoseSink* osg,
+		const QVector<RobotSimulationCommand>& legacyQueue,
+		const std::vector<RobotInstruction::PlanResult>& planResults,
+		const QVector<double>& initialJointAnglesRad,
+		QString* errorOut);
+
 	RobotInstructionPlaybackTickResult tick(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg);
 
 	const QVector<double>& jointAnglesRad() const { return m_jointAnglesRad; }
 
 private:
+	bool applyPlannedJointStateAtProgress(double u);
+	void startNewSegmentFromCurrentState();
+	double resolveSegmentTargetRad(int segmentIndex, double defaultTargetRad) const;
+	const RobotInstruction::PlanResult* currentPlanResult() const;
+
+private:
 	bool m_running = false;
 	QVector<RobotSimulationCommand> m_queue;
+	std::vector<RobotInstruction::PlanResult> m_planResults;
 	int m_segmentIndex = 0;
 	QVector<double> m_jointAnglesRad;
 	QHash<QString, osg::Matrixd> m_fkMeshWorldT0;
 	std::unordered_map<std::string, osg::Matrixd> m_outerWorldAtStart;
+	QVector<double> m_segStartJointAngles;
 	double m_segAngleStartRad = 0.0;
 	double m_segAngleTargetRad = 0.0;
+	double m_segDurationSec = 0.0;
 	QElapsedTimer m_segmentTimer;
 };

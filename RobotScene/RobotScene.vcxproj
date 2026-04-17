@@ -114,10 +114,10 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>ROBOT_SCENE_STATIC;ROBOT_URDF_STATIC;RUN_LOGGER_STATIC;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ROBOT_SCENE_STATIC;ROBOT_URDF_STATIC;ROBOT_KINEMATICS_STATIC;RUN_LOGGER_STATIC;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../RobotUrdf/inc;../Data/inc;../RunLogger/inc;../../bin/SDK/JSON;../../OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../RobotUrdf/inc;../Data/inc;../RobotKinematics/inc;../RunLogger/inc;../../bin/SDK/JSON;../../OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -127,10 +127,10 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>ROBOT_SCENE_STATIC;ROBOT_URDF_STATIC;RUN_LOGGER_STATIC;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ROBOT_SCENE_STATIC;ROBOT_URDF_STATIC;ROBOT_KINEMATICS_STATIC;RUN_LOGGER_STATIC;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../RobotUrdf/inc;../Data/inc;../RunLogger/inc;../../bin/SDK/JSON;../../OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../RobotUrdf/inc;../Data/inc;../RobotKinematics/inc;../RunLogger/inc;../../bin/SDK/JSON;../../OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -138,10 +138,10 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>ROBOT_SCENE_STATIC;ROBOT_URDF_STATIC;RUN_LOGGER_STATIC;_DEBUG;_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ROBOT_SCENE_STATIC;ROBOT_URDF_STATIC;ROBOT_KINEMATICS_STATIC;RUN_LOGGER_STATIC;_DEBUG;_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../RobotUrdf/inc;../Data/inc;../RunLogger/inc;../../bin/SDK/JSON;../../OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../RobotUrdf/inc;../Data/inc;../RobotKinematics/inc;../RunLogger/inc;../../bin/SDK/JSON;../../OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -151,27 +151,36 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>ROBOT_SCENE_STATIC;ROBOT_URDF_STATIC;RUN_LOGGER_STATIC;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ROBOT_SCENE_STATIC;ROBOT_URDF_STATIC;ROBOT_KINEMATICS_STATIC;RUN_LOGGER_STATIC;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../RobotUrdf/inc;../Data/inc;../RunLogger/inc;../../bin/SDK/JSON;../../OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../RobotUrdf/inc;../Data/inc;../RobotKinematics/inc;../RunLogger/inc;../../bin/SDK/JSON;../../OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="inc\IRobotBackendPoseSink.h" />
     <ClInclude Include="inc\IRobotSimulationDocument.h" />
+    <ClInclude Include="inc\RobotInstructionAttribute.h" />
+    <ClInclude Include="inc\RobotInstructionController.h" />
+    <ClInclude Include="inc\RobotInstructionModel.h" />
     <ClInclude Include="inc\robot_scene_global.h" />
     <ClInclude Include="inc\RobotInstructionPlaybackEngine.h" />
     <ClInclude Include="inc\RobotSceneKinematics.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\RobotInstructionAttribute.cpp" />
+    <ClCompile Include="source\RobotInstructionController.cpp" />
+    <ClCompile Include="source\RobotInstructionModel.cpp" />
     <ClCompile Include="source\RobotInstructionPlaybackEngine.cpp" />
     <ClCompile Include="source\RobotSceneKinematics.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\RobotUrdf\RobotUrdf.vcxproj">
       <Project>{7a3e9b2c-4d1f-4e8a-b5c6-1d2e3f4a5b6c}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\RobotKinematics\RobotKinematics.vcxproj">
+      <Project>{8f4e2c1a-9d3b-4e7f-8a1c-2b6d4e8f0a1c}</Project>
     </ProjectReference>
     <ProjectReference Include="..\RunLogger\RunLogger.vcxproj">
       <Project>{35f6e3c1-7f9a-4d93-9faf-74bae4a0c2d1}</Project>

@@ -11,6 +11,7 @@
 
 #include "widget_global.h"
 #include "RobotAxisControlWidget.h"
+#include "RobotInstructionController.h"
 #include "RobotInstructionPlaybackEngine.h"
 #include "SimulationCommandWidget.h"
 
@@ -62,8 +63,10 @@ private:
 		const QString& typeName, const QString& persistedId = QString(), bool selectInTree = true,
 		const QString& parentId = QString());
 	void updatePropertyPanel(const std::shared_ptr<BackendDataBase>& data);
+	void updateInstructionPropertyPanel(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void appendPropertyBrowserRow(const QString& propertyKey, const QString& displayLabel, const QString& value, bool editable);
 	QString propertyDisplayLabelForKey(const QString& key, const QString& labelEnFallback) const;
+	bool tryCaptureCurrentRobotTcpPose(RobotInstruction::Vec3& outPoseMm, RobotInstruction::Vec3& outEulerDeg, QString* errMsg) const;
 	void syncOsgViewerFromPointCloudBackend(const std::shared_ptr<PointCloudBackendData>& pc);
 	void syncOsgViewerFromMeshBackend(const std::shared_ptr<MeshBackendData>& mesh);
 	void onSaveProject();
@@ -97,6 +100,8 @@ private:
 	void onSimulationStartTriggered();
 	void onSimulationRunRequested();
 	void onSimulationStopRequested();
+	void onSimulationAddInstructionRequested(RobotInstruction::Type type);
+	void onSimulationInstructionSelectionChanged(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void onRobotSimulationTick();
 	void stopRobotSimulation();
 	void refreshSimulationJointListFromCurrentDoc();
@@ -155,10 +160,12 @@ private:
 	SimulationCommandWidget* m_simulationCommandPage = nullptr;
 	RobotAxisControlWidget* m_robotAxisControlPage = nullptr;
 	QTimer m_robotSimTimer;
+	RobotInstruction::Controller m_robotInstructionController;
 	RobotInstructionPlaybackEngine m_robotInstructionPlayback;
 	QDockWidget* m_runDock = nullptr;
 	QAction* m_simulationStartAction = nullptr;
 	bool m_useChinese = true;
 	bool m_updatingPropertyBrowser = false;
 	QString m_activeAxisName = QStringLiteral("None");
+	std::shared_ptr<RobotInstruction::Base> m_activeInstructionForProperty;
 };

@@ -4,14 +4,16 @@
 
 #include <QWidget>
 
+#include "RobotInstructionModel.h"
 #include "RobotSimulationTypes.h"
 #include "widget_global.h"
+
+#include <memory>
+#include <vector>
 
 class QListWidget;
 
 class QComboBox;
-
-class QDoubleSpinBox;
 
 class QPushButton;
 class QLabel;
@@ -31,8 +33,17 @@ public:
 
 	/// Current instruction rows (in order).
 	QVector<RobotSimulationCommand> commands() const;
+	std::vector<std::shared_ptr<RobotInstruction::Base>> instructions(const QString& controllerId) const;
+	void appendInstructionFromCurrentPose(
+		RobotInstruction::Type type,
+		const RobotInstruction::Vec3& poseMm,
+		const RobotInstruction::Vec3& eulerDeg);
+	void refreshInstructionList();
+	void clearInstructionSelection();
 
 signals:
+	void addInstructionRequested(RobotInstruction::Type type);
+	void instructionSelectionChanged(std::shared_ptr<RobotInstruction::Base> instruction);
 
 	void runRequested();
 
@@ -48,15 +59,13 @@ private:
 	void onClearClicked();
 
 	void updateRunStopButtons();
+	double instructionDurationSec(const RobotInstruction::Base& ins) const;
 
 	bool m_useChinese = false;
 	bool m_simulationRunning = false;
+	bool m_hasRobotContext = false;
 	QLabel* m_hintLabel = nullptr;
-	QComboBox* m_jointCombo = nullptr;
-
-	QDoubleSpinBox* m_angleSpin = nullptr;
-
-	QDoubleSpinBox* m_durationSpin = nullptr;
+	QComboBox* m_typeCombo = nullptr;
 
 	QListWidget* m_list = nullptr;
 
@@ -70,6 +79,5 @@ private:
 
 	QPushButton* m_stopBtn = nullptr;
 
-	QStringList m_jointNames;
-	QVector<RobotSimulationCommand> m_commands;
+	std::vector<std::shared_ptr<RobotInstruction::Base>> m_instructions;
 };
