@@ -197,6 +197,10 @@
     <ClInclude Include="inc\OsgWidgetImportController.h" />
     <ClInclude Include="inc\OsgWidgetCaptureController.h" />
     <ClInclude Include="inc\MainWindowImportCaptureRenderController.h" />
+    <ClInclude Include="inc\MainWindowObjectGraph.h" />
+    <ClInclude Include="inc\MainWindowObjectRepository.h" />
+    <ClInclude Include="inc\MainWindowSelectionService.h" />
+    <ClInclude Include="inc\MainWindowSelectionState.h" />
     <ClInclude Include="inc\OsgWidgetPickAnnotationController.h" />
     <ClInclude Include="inc\OsgWidgetColorController.h" />
     <ClInclude Include="inc\OsgWidgetCameraFocusController.h" />
@@ -219,7 +223,11 @@
     <ClCompile Include="source\DocumentPage.cpp" />
     <ClCompile Include="source\GraphicsWindowQt1.cpp" />
     <ClCompile Include="source\MainWindow.cpp" />
+    <ClCompile Include="source\MainWindowUiSetup.cpp" />
     <ClCompile Include="source\MainWindowBackendTree.cpp" />
+    <ClCompile Include="source\MainWindowObjectGraph.cpp" />
+    <ClCompile Include="source\MainWindowObjectRepository.cpp" />
+    <ClCompile Include="source\MainWindowSelectionService.cpp" />
     <ClCompile Include="source\MainWindowFileImport.cpp" />
     <ClCompile Include="source\MainWindowProjectIo.cpp" />
     <ClCompile Include="source\ProjectPackageZip.cpp" />

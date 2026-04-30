@@ -1,6 +1,7 @@
 #pragma once
 
 #include "osgwidgetcore_global.h"
+#include "BackendVisualBindingIndex.h"
 
 #include <cstddef>
 #include <functional>
@@ -131,6 +132,10 @@ public:
 	void showMeshFaceHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld, const osg::Vec3f& cWorld);
 	void showMeshEdgeHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld);
 	void hideMeshElementHighlight();
+	void bindBackendVisualRoot(const std::string& backendId, osg::Node* rootNode);
+	void unbindBackendVisualRoot(const std::string& backendId);
+	void clearBackendVisualBindings();
+	bool resolveBackendIdFromPickedPath(const osg::NodePath& path, std::string& outBackendId) const;
 
 	void rebuildPointKdTree();
 	void nearestCandidatesByKdTree(const osg::Vec3f& queryLocalCentered, int k, std::vector<int>& outIndices) const;
@@ -155,6 +160,7 @@ public:
 	std::unordered_map<std::string, std::string> m_backendParentIds;
 	std::unordered_map<std::string, osg::Vec3f> m_backendModelCenters;
 	std::unordered_map<std::string, bool> m_backendVisibility;
+	BackendVisualBindingIndex m_backendVisualBindings;
 	std::string m_activeBackendId;
 	osg::ref_ptr<osg::PositionAttitudeTransform> m_activeBackendOuterPat;
 	osg::ref_ptr<osg::PositionAttitudeTransform> m_selectedTransform;

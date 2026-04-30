@@ -37,6 +37,7 @@ void OsgWidgetTransformHierarchyController::removeBackendObjectVisual(
 		}
 	}
 	self.m_backendObjectRoots.erase(backendId);
+	self.unbindBackendVisualRoot(backendId);
 	self.m_backendParentIds.erase(backendId);
 	for (auto itp = self.m_backendParentIds.begin(); itp != self.m_backendParentIds.end(); )
 	{

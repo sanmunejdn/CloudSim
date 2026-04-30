@@ -13,6 +13,7 @@
 #include "BackendDataManager.h"
 #include "DocumentPage.h"
 #include "MainWindow_p.h"
+#include "MainWindowSelectionService.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
@@ -28,20 +29,7 @@ void MainWindow::focusBackendInTree(const std::shared_ptr<BackendDataBase>& back
 		return;
 	}
 	const QString idQs = QString::fromStdString(backendObject->id());
-	QList<QTreeWidgetItem*> all = m_backendTree->findItems(QStringLiteral("*"), Qt::MatchWildcard | Qt::MatchRecursive, 0);
-	for (QTreeWidgetItem* c : all)
-	{
-		if (!c || c == m_annotationRootItem || c == m_backendRootItem)
-		{
-			continue;
-		}
-		if (c->data(0, kRoleItemType).toInt() == kItemTypeBackend
-			&& c->data(0, kRoleBackendId).toString() == idQs)
-		{
-			m_backendTree->setCurrentItem(c);
-			break;
-		}
-	}
+	(void)MainWindowSelectionService::selectBackendById(*this, idQs, true);
 	updatePropertyPanel(backendObject);
 }
 

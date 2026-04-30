@@ -53,6 +53,12 @@
     <ClInclude Include="inc\MainWindowImportCaptureRenderController.h">
       <Filter>Header</Filter>
     </ClInclude>
+    <ClInclude Include="inc\MainWindowObjectGraph.h">
+      <Filter>Source\MainWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MainWindowObjectRepository.h">
+      <Filter>Source\MainWindow</Filter>
+    </ClInclude>
     <ClInclude Include="inc\OsgWidgetPickAnnotationController.h">
       <Filter>Header</Filter>
     </ClInclude>
@@ -69,6 +75,12 @@
       <Filter>Header</Filter>
     </ClInclude>
     <ClInclude Include="inc\MainWindow_p.h">
+      <Filter>Source\MainWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MainWindowSelectionService.h">
+      <Filter>Source\MainWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MainWindowSelectionState.h">
       <Filter>Source\MainWindow</Filter>
     </ClInclude>
     <ClInclude Include="inc\ProjectPackageZip.h">
@@ -127,7 +139,19 @@
     <ClCompile Include="source\MainWindow.cpp">
       <Filter>Source\MainWindow</Filter>
     </ClCompile>
+    <ClCompile Include="source\MainWindowUiSetup.cpp">
+      <Filter>Source\MainWindow</Filter>
+    </ClCompile>
     <ClCompile Include="source\MainWindowBackendTree.cpp">
+      <Filter>Source\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowObjectGraph.cpp">
+      <Filter>Source\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowObjectRepository.cpp">
+      <Filter>Source\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowSelectionService.cpp">
       <Filter>Source\MainWindow</Filter>
     </ClCompile>
     <ClCompile Include="source\MainWindowFileImport.cpp">

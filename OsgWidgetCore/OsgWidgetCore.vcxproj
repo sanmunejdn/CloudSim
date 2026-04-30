@@ -133,10 +133,12 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="inc\BackendVisualBindingIndex.h" />
     <ClInclude Include="inc\OsgScene.h" />
     <ClInclude Include="inc\osgwidgetcore_global.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\BackendVisualBindingIndex.cpp" />
     <ClCompile Include="source\OsgScene.cpp" />
     <ClCompile Include="source\OsgSceneMath.cpp" />
     <ClCompile Include="source\OsgSceneNavigation.cpp" />

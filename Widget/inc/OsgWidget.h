@@ -187,6 +187,7 @@ signals:
 	void selectedObjectPoseChanged(float x, float y, float z);
 	void selectedObjectRotationChanged(float rx, float ry, float rz);
 	void selectedObjectColorChanged(float r, float g, float b, float a);
+	void backendObjectPicked(const QString& backendId);
 	void activeAxisChanged(const QString& axisName);
 	void selectionCanceledByEsc();
 	void pointPickFeedback(const QString& text);

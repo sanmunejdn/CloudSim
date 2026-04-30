@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QHash>
 #include <QTimer>
 #include <QTabWidget>
 #include <QVariant>
@@ -10,6 +11,7 @@
 #include <vector>
 
 #include "widget_global.h"
+#include "MainWindowSelectionState.h"
 #include "RobotAxisControlWidget.h"
 #include "RobotInstructionController.h"
 #include "RobotInstructionPlaybackEngine.h"
@@ -38,6 +40,8 @@ class QDockWidget;
 class QActionGroup;
 class MainWindowImportCaptureRenderController;
 class DevicePageWidget;
+class MainWindowSelectionService;
+class MainWindowObjectRepository;
 
 /// 应用程序主窗口：菜单、停靠栏、文档页、属性面板与 OsgWidget 的协调入口。
 class WIDGET_EXPORT MainWindow : public QMainWindow
@@ -50,6 +54,8 @@ public:
 
 private:
 	friend class MainWindowImportCaptureRenderController;
+	friend class MainWindowSelectionService;
+	friend class MainWindowObjectRepository;
 	void setupMenuBar();
 	void setupDockWidgets();
 	void applyLanguage();
@@ -103,6 +109,7 @@ private:
 	void onNewDocument();
 	void onDocumentTabChanged(int index);
 	void onPointPickFeedback(const QString& text);
+	void onOsgBackendObjectPicked(const QString& backendId);
 	void onUrdfImportRequested(const QString& urdfPath);
 	void onSimulationStartTriggered();
 	void onSimulationRunRequested();
@@ -127,6 +134,7 @@ private:
 	QTabWidget* m_documentTabs = nullptr;
 	QTreeWidget* m_backendTree = nullptr;
 	QTreeWidget* m_osgSceneTree = nullptr;
+	QHash<QString, QTreeWidgetItem*> m_backendTreeItemsById;
 	QTreeWidgetItem* m_backendRootItem = nullptr;
 	QTreeWidgetItem* m_annotationRootItem = nullptr;
 	QtTreePropertyBrowser* m_propertyBrowser = nullptr;
@@ -175,6 +183,7 @@ private:
 	QAction* m_simulationStartAction = nullptr;
 	bool m_useChinese = true;
 	bool m_updatingPropertyBrowser = false;
+	MainWindowSelectionState m_selectionState;
 	QString m_activeAxisName = QStringLiteral("None");
 	std::shared_ptr<RobotInstruction::Base> m_activeInstructionForProperty;
 };

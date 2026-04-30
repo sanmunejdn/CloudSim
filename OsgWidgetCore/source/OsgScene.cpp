@@ -7,8 +7,6 @@
 
 #include "OsgScene.h"
 
-#include "BackendIdUserData.h"
-
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -376,6 +374,27 @@ void OsgScene::updateWorldAxesHudViewport(int widgetWidth, int widgetHeight)
 	const int sz = 120;
 	m_worldAxesHudCamera->setViewport(margin, margin, sz, sz);
 }
+
+void OsgScene::bindBackendVisualRoot(const std::string& backendId, osg::Node* rootNode)
+{
+	m_backendVisualBindings.bindBackendRoot(backendId, rootNode);
+}
+
+void OsgScene::unbindBackendVisualRoot(const std::string& backendId)
+{
+	m_backendVisualBindings.unbindBackend(backendId);
+}
+
+void OsgScene::clearBackendVisualBindings()
+{
+	m_backendVisualBindings.clear();
+}
+
+bool OsgScene::resolveBackendIdFromPickedPath(const osg::NodePath& path, std::string& outBackendId) const
+{
+	return m_backendVisualBindings.resolveBackendIdFromNodePath(path, outBackendId);
+}
+
 bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
 {
 	static const unsigned int kMaskContent = 0x1u;
@@ -394,71 +413,31 @@ bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
 	{
 		return false;
 	}
-
-	std::unordered_map<const osg::Node*, std::string> nodeToBackendId;
-	nodeToBackendId.reserve(m_backendObjectRoots.size());
-	for (const auto& kv : m_backendObjectRoots)
-	{
-		if (kv.second.valid())
-		{
-			nodeToBackendId.emplace(kv.second.get(), kv.first);
-		}
-	}
 	for (const auto& hit : intersector->getIntersections())
 	{
 		const osg::NodePath& path = hit.nodePath;
-		const BackendIdUserData* userId = BackendIdUserData::findInNodePath(path);
-		if (userId)
+		std::string id;
+		if (!resolveBackendIdFromPickedPath(path, id))
 		{
-			const std::string& id = userId->backendId();
-			auto rootIt = m_backendObjectRoots.find(id);
-			if (rootIt != m_backendObjectRoots.end() && rootIt->second.valid())
-			{
-				m_activeBackendId = id;
-				m_activeBackendOuterPat = rootIt->second;
-				if (m_selectedTransform.valid())
-				{
-					m_selectedTransform->setPosition(rootIt->second->getPosition());
-					m_selectedTransform->setAttitude(rootIt->second->getAttitude());
-				}
-				cacheSelectionPoseFromSelectedTransform();
-				auto cIt = m_backendModelCenters.find(id);
-				m_modelCenter = (cIt != m_backendModelCenters.end()) ? cIt->second : osg::Vec3f(0.0f, 0.0f, 0.0f);
-				updateCompassLocalOffsetForModelOrigin();
-				return true;
-			}
+			continue;
 		}
-		for (auto it = path.rbegin(); it != path.rend(); ++it)
+		auto rootIt = m_backendObjectRoots.find(id);
+		if (rootIt == m_backendObjectRoots.end() || !rootIt->second.valid())
 		{
-			const osg::Node* n = *it;
-			if (!n)
-			{
-				continue;
-			}
-			const auto idIt = nodeToBackendId.find(n);
-			if (idIt == nodeToBackendId.end())
-			{
-				continue;
-			}
-			const std::string& id = idIt->second;
-			auto rootIt = m_backendObjectRoots.find(id);
-			if (rootIt == m_backendObjectRoots.end() || !rootIt->second.valid())
-			{
-				continue;
-			}
-			m_activeBackendId = id;
-			m_activeBackendOuterPat = rootIt->second;
-			if (m_selectedTransform.valid())
-			{
-				m_selectedTransform->setPosition(rootIt->second->getPosition());
-				m_selectedTransform->setAttitude(rootIt->second->getAttitude());
-			}
-			cacheSelectionPoseFromSelectedTransform();
-			auto cIt = m_backendModelCenters.find(id);
-			m_modelCenter = (cIt != m_backendModelCenters.end()) ? cIt->second : osg::Vec3f(0.0f, 0.0f, 0.0f);
-			updateCompassLocalOffsetForModelOrigin();
-			return true;
+			continue;
 		}
+		m_activeBackendId = id;
+		m_activeBackendOuterPat = rootIt->second;
+		if (m_selectedTransform.valid())
+		{
+			m_selectedTransform->setPosition(rootIt->second->getPosition());
+			m_selectedTransform->setAttitude(rootIt->second->getAttitude());
+		}
+		cacheSelectionPoseFromSelectedTransform();
+		auto cIt = m_backendModelCenters.find(id);
+		m_modelCenter = (cIt != m_backendModelCenters.end()) ? cIt->second : osg::Vec3f(0.0f, 0.0f, 0.0f);
+		updateCompassLocalOffsetForModelOrigin();
+		return true;
 	}
 	return false;
 }

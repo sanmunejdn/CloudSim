@@ -12,6 +12,7 @@
 #include "BackendDataManager.h"
 #include "BackendPropertyRow.h"
 #include "MainWindow_p.h"
+#include "MainWindowSelectionService.h"
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 #include "OsgWidget.h"
@@ -359,19 +360,11 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	{
 		return;
 	}
-
-	const QList<QTreeWidgetItem*> selected = m_backendTree->selectedItems();
-	if (selected.isEmpty() || selected.first() == m_backendRootItem)
+	if (!m_selectionState.hasBackendSelection())
 	{
 		return;
 	}
-
-	if (selected.first()->data(0, kRoleItemType).toInt() != kItemTypeBackend)
-	{
-		return;
-	}
-	const QString id = selected.first()->data(0, kRoleBackendId).toString();
-	const auto data = activeBackend().getData(id.toStdString());
+	const std::shared_ptr<BackendDataBase> data = MainWindowSelectionService::selectedBackendData(*this);
 	if (!data)
 	{
 		return;

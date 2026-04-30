@@ -583,9 +583,14 @@ bool OsgWidget::upsertPointCloudBranchInScene(const PointCloudBackendData& data,
 	{
 		m_backendObjectsGroup->removeChild(it->second.get());
 	}
+	unbindBackendVisualRoot(id);
 	m_backendObjectRoots.erase(id);
 	m_backendObjectsGroup->addChild(outer.get());
-	m_backendObjectRoots.insert(std::make_pair(id, std::move(outer)));
+	const auto inserted = m_backendObjectRoots.insert(std::make_pair(id, std::move(outer)));
+	if (inserted.second && inserted.first->second.valid())
+	{
+		bindBackendVisualRoot(id, inserted.first->second.get());
+	}
 	m_backendModelCenters[id] = center;
 	if (m_activeBackendId == id || m_activeBackendId.empty())
 	{
@@ -656,9 +661,14 @@ bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* er
 	{
 		m_backendObjectsGroup->removeChild(it->second.get());
 	}
+	unbindBackendVisualRoot(id);
 	m_backendObjectRoots.erase(id);
 	m_backendObjectsGroup->addChild(outer.get());
-	m_backendObjectRoots.insert(std::make_pair(id, std::move(outer)));
+	const auto inserted = m_backendObjectRoots.insert(std::make_pair(id, std::move(outer)));
+	if (inserted.second && inserted.first->second.valid())
+	{
+		bindBackendVisualRoot(id, inserted.first->second.get());
+	}
 	m_backendModelCenters[id] = center;
 	if (m_activeBackendId == id || m_activeBackendId.empty())
 	{
@@ -1022,6 +1032,10 @@ bool OsgWidget::pickAndActivateBackendAtScreenPos(const QPoint& mousePos)
 		refreshAnnotationTexts();
 		setSelectionActive(true);
 		syncCompassGizmoOrientation();
+		if (!m_activeBackendId.empty())
+		{
+			emit backendObjectPicked(QString::fromStdString(m_activeBackendId));
+		}
 	}
 	return ok;
 }
@@ -1481,6 +1495,7 @@ void OsgWidget::clearImportedContent()
 	clearPointAnnotations();
 	m_litMeshBackendIds.clear();
 	m_backendObjectRoots.clear();
+	clearBackendVisualBindings();
 	m_backendParentIds.clear();
 	m_backendModelCenters.clear();
 	m_backendVisibility.clear();
@@ -1582,7 +1597,11 @@ QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QS
 	applyVisibilityMaskForBackend(stdId);
 
 	// 【中文】禁止对 map 使用 operator[] 赋值 ref_ptr（MSVC + OSG 3.6.5 在 ref_ptr::assign 上 C2440）
-	m_backendObjectRoots.insert(std::make_pair(stdId, std::move(outer)));
+	const auto inserted = m_backendObjectRoots.insert(std::make_pair(stdId, std::move(outer)));
+	if (inserted.second && inserted.first->second.valid())
+	{
+		bindBackendVisualRoot(stdId, inserted.first->second.get());
+	}
 	m_litMeshBackendIds.insert(stdId);
 
 	// 【中文】刷新场景并对准相机（与 upsertMeshBranchInScene 一致，否则易停留在默认视角看不到模型）
@@ -1614,6 +1633,7 @@ void OsgWidget::removeHierarchicalRobotScene(const QString& backendId)
 		m_robotAssemblyGroup->removeChild(it->second.get());
 		m_backendObjectRoots.erase(it);
 	}
+	unbindBackendVisualRoot(stdId);
 	m_litMeshBackendIds.erase(stdId);
 
 	if (m_viewer.valid())

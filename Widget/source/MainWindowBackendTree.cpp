@@ -13,7 +13,9 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "DocumentPage.h"
+#include "MainWindowObjectRepository.h"
 #include "MainWindow_p.h"
+#include "MainWindowSelectionService.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
@@ -159,50 +161,45 @@ void MainWindow::refreshBackendTree()
 		return;
 	}
 
-	QString selectedBackendId;
-	const QList<QTreeWidgetItem*> prevSel = m_backendTree->selectedItems();
-	if (!prevSel.isEmpty())
-	{
-		QTreeWidgetItem* cur = prevSel.first();
-		if (cur && cur->data(0, kRoleItemType).toInt() == kItemTypeBackend)
-		{
-			selectedBackendId = cur->data(0, kRoleBackendId).toString();
-		}
-	}
+	const QString selectedBackendId = m_selectionState.selectedBackendId();
 
+	m_backendTreeItemsById.clear();
 	m_backendRootItem->takeChildren();
 	m_annotationRootItem = new QTreeWidgetItem(QStringList()
 		<< i18n(QStringLiteral("Annotations"), QStringLiteral("注释")));
 	m_backendRootItem->addChild(m_annotationRootItem);
 	m_annotationRootItem->setExpanded(true);
-	const auto dataList = activeBackend().listData();
+	const MainWindowObjectGraph objectGraph = MainWindowObjectRepository::buildGraph(*this);
 	QHash<QString, QTreeWidgetItem*> idToItem;
-	QHash<QString, QString> idToParent;
-	DocumentPage* page = currentPage();
-	for (const auto& data : dataList)
+	idToItem.reserve(objectGraph.nodeOrder().size());
+	for (const QString& id : objectGraph.nodeOrder())
 	{
-		if (!data)
+		const MainWindowObjectGraph::Node* const node = objectGraph.node(id);
+		if (!node || !node->data)
 		{
 			continue;
 		}
 
 		const QString nodeText = QStringLiteral("%1 [%2]")
-			.arg(QString::fromStdString(data->name()))
-			.arg(QString::fromStdString(data->id()));
+			.arg(QString::fromStdString(node->data->name()))
+			.arg(QString::fromStdString(node->data->id()));
 		auto* child = new QTreeWidgetItem(QStringList() << nodeText);
 		child->setFlags(child->flags() | Qt::ItemIsUserCheckable);
 		child->setData(0, kRoleItemType, kItemTypeBackend);
-		child->setData(0, kRoleBackendId, QString::fromStdString(data->id()));
+		child->setData(0, kRoleBackendId, id);
 		child->setCheckState(0, Qt::Checked);
-		const QString id = QString::fromStdString(data->id());
 		idToItem.insert(id, child);
-		idToParent.insert(id, page ? page->backendParentId().value(id) : QString());
+		m_backendTreeItemsById.insert(id, child);
 	}
-	for (auto it = idToItem.begin(); it != idToItem.end(); ++it)
+	for (const QString& id : objectGraph.nodeOrder())
 	{
-		const QString id = it.key();
-		QTreeWidgetItem* item = it.value();
-		const QString parentId = idToParent.value(id);
+		const MainWindowObjectGraph::Node* const node = objectGraph.node(id);
+		QTreeWidgetItem* const item = idToItem.value(id, nullptr);
+		if (!node || !item)
+		{
+			continue;
+		}
+		const QString parentId = node->parentId;
 		QTreeWidgetItem* parentItem = idToItem.value(parentId, m_backendRootItem);
 		if (!parentItem)
 		{
@@ -233,19 +230,10 @@ void MainWindow::refreshBackendTree()
 
 	if (!selectedBackendId.isEmpty())
 	{
-		for (int i = 0; i < m_backendRootItem->childCount(); ++i)
+		QTreeWidgetItem* const item = m_backendTreeItemsById.value(selectedBackendId, nullptr);
+		if (item)
 		{
-			QTreeWidgetItem* c = m_backendRootItem->child(i);
-			if (!c || c == m_annotationRootItem)
-			{
-				continue;
-			}
-			if (c->data(0, kRoleItemType).toInt() == kItemTypeBackend
-				&& c->data(0, kRoleBackendId).toString() == selectedBackendId)
-			{
-				m_backendTree->setCurrentItem(c);
-				break;
-			}
+			m_backendTree->setCurrentItem(item);
 		}
 	}
 
@@ -280,106 +268,12 @@ void MainWindow::refreshOsgSceneTree()
 
 void MainWindow::onBackendTreeSelectionChanged()
 {
-	if (!m_backendTree)
-	{
-		return;
-	}
-	m_activeInstructionForProperty.reset();
-	if (m_simulationCommandPage)
-	{
-		m_simulationCommandPage->clearInstructionSelection();
-	}
-	if (OsgWidget* osg = currentOsgWidget())
-	{
-		osg->clearInstructionPoseAxes();
-	}
+	MainWindowSelectionService::handleBackendTreeSelectionChanged(*this);
+}
 
-	OsgWidget* osg = currentOsgWidget();
-
-	const QList<QTreeWidgetItem*> selected = m_backendTree->selectedItems();
-	if (selected.isEmpty() || selected.first() == m_backendRootItem)
-	{
-		if (osg)
-		{
-			osg->setSelectionActive(false);
-		}
-		updatePropertyPanel(nullptr);
-		return;
-	}
-
-	const QTreeWidgetItem* current = selected.first();
-	if (current->data(0, kRoleItemType).toInt() != kItemTypeBackend)
-	{
-		if (osg)
-		{
-			osg->setSelectionActive(false);
-		}
-		updatePropertyPanel(nullptr);
-		return;
-	}
-	const QString id = current->data(0, kRoleBackendId).toString();
-	const auto data = activeBackend().getData(id.toStdString());
-	const bool rowVisible = current->checkState(0) != Qt::Unchecked;
-	DocumentPage* doc = currentPage();
-	const bool urdfLinkMesh = doc && doc->hasRobotSimulationContext() && doc->robotLinkBackendIds().contains(id);
-
-	if (osg)
-	{
-		const std::string idStd = id.toStdString();
-		osg->setBackendObjectVisible(idStd, rowVisible);
-		osg->setSelectionActive(data != nullptr);
-		if (data)
-		{
-			auto pointCloud = std::dynamic_pointer_cast<PointCloudBackendData>(data);
-			if (pointCloud && !pointCloud->pointPositionsXyz().empty())
-			{
-				// Full load clears point annotations; only reload when the branch is missing.
-				if (osg->hasBackendObjectBranch(idStd))
-				{
-					osg->syncSelectionFromBackend(*pointCloud);
-				}
-				else
-				{
-					QString geomErr;
-					osg->loadPointCloudFromBackendData(*pointCloud, &geomErr, false);
-				}
-			}
-			else if (auto mesh = std::dynamic_pointer_cast<MeshBackendData>(data))
-			{
-				if (!mesh->triangleSoup().empty())
-				{
-					if (osg->hasBackendObjectBranch(idStd))
-					{
-						osg->syncSelectionFromBackend(*mesh);
-					}
-					else
-					{
-						QString geomErr;
-						if (urdfLinkMesh)
-						{
-							osg->loadMeshFromBackendData(*mesh, &geomErr, false, true, true);
-						}
-						else
-						{
-							osg->loadMeshFromBackendData(*mesh, &geomErr, false);
-						}
-					}
-				}
-				else
-				{
-					// Parent/group node without direct geometry: keep this backend as active
-					// and allow picking across all visible children.
-					osg->syncSelectionForBackendId(idStd);
-				}
-			}
-			else
-			{
-				// Generic backend with no direct render branch (e.g. assembly parent).
-				osg->syncSelectionForBackendId(idStd);
-			}
-		}
-	}
-	updatePropertyPanel(data);
+void MainWindow::onOsgBackendObjectPicked(const QString& backendId)
+{
+	MainWindowSelectionService::handleOsgBackendObjectPicked(*this, backendId);
 }
 
 void MainWindow::onAnnotationCreated(const QString& annotationId, const QString& displayText)
@@ -556,7 +450,7 @@ void MainWindow::removeBackendObjectFromDocument(const QString& backendId)
 			osg->removeBackendObjectVisual(id.toStdString());
 		}
 	}
-	updatePropertyPanel(nullptr);
+	MainWindowSelectionService::clearSelection(*this, true);
 	refreshBackendTree();
 	if (m_runInfoPage)
 	{
