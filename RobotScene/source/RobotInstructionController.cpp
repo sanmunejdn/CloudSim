@@ -11,10 +11,150 @@
 #include <QStringList>
 
 #include <osg/Matrixd>
+#include <osg/Quat>
 
 namespace
 {
 constexpr double kDegToRad = 3.14159265358979323846 / 180.0;
+
+bool solveLinearSystem(std::vector<double>& a, std::vector<double>& b, int n)
+{
+	if (n <= 0 || static_cast<int>(a.size()) != n * n || static_cast<int>(b.size()) != n)
+	{
+		return false;
+	}
+	for (int col = 0; col < n; ++col)
+	{
+		int pivot = col;
+		double maxAbs = std::abs(a[col * n + col]);
+		for (int r = col + 1; r < n; ++r)
+		{
+			const double v = std::abs(a[r * n + col]);
+			if (v > maxAbs)
+			{
+				maxAbs = v;
+				pivot = r;
+			}
+		}
+		if (maxAbs < 1e-12)
+		{
+			return false;
+		}
+		if (pivot != col)
+		{
+			for (int c = col; c < n; ++c)
+			{
+				std::swap(a[col * n + c], a[pivot * n + c]);
+			}
+			std::swap(b[col], b[pivot]);
+		}
+		const double diag = a[col * n + col];
+		for (int c = col; c < n; ++c)
+		{
+			a[col * n + c] /= diag;
+		}
+		b[col] /= diag;
+		for (int r = 0; r < n; ++r)
+		{
+			if (r == col)
+			{
+				continue;
+			}
+			const double f = a[r * n + col];
+			if (std::abs(f) < 1e-15)
+			{
+				continue;
+			}
+			for (int c = col; c < n; ++c)
+			{
+				a[r * n + c] -= f * a[col * n + c];
+			}
+			b[r] -= f * b[col];
+		}
+	}
+	return true;
+}
+
+void normalizeQuatSafe(osg::Quat& q)
+{
+	const double n2 = q.x() * q.x() + q.y() * q.y() + q.z() * q.z() + q.w() * q.w();
+	if (n2 <= 1e-24)
+	{
+		q.set(0.0, 0.0, 0.0, 1.0);
+		return;
+	}
+	const double invN = 1.0 / std::sqrt(n2);
+	q.set(q.x() * invN, q.y() * invN, q.z() * invN, q.w() * invN);
+}
+
+osg::Quat eulerDegToQuat(const RobotInstruction::Vec3& eulerDeg)
+{
+	const double rx = eulerDeg.x * kDegToRad;
+	const double ry = eulerDeg.y * kDegToRad;
+	const double rz = eulerDeg.z * kDegToRad;
+	const double cx = std::cos(rx);
+	const double sx = std::sin(rx);
+	const double cy = std::cos(ry);
+	const double sy = std::sin(ry);
+	const double cz = std::cos(rz);
+	const double sz = std::sin(rz);
+	// Keep exactly the same convention as backendvisual_math::eulerDegToQuat:
+	// R = Rz(rz) * Ry(ry) * Rx(rx), then extract quaternion from rotation matrix.
+	osg::Matrixd m;
+	m(0, 0) = cy * cz;
+	m(0, 1) = cz * sx * sy - cx * sz;
+	m(0, 2) = sx * sz + cx * cz * sy;
+	m(1, 0) = cy * sz;
+	m(1, 1) = cx * cz + sx * sy * sz;
+	m(1, 2) = cx * sy * sz - cz * sx;
+	m(2, 0) = -sy;
+	m(2, 1) = cy * sx;
+	m(2, 2) = cx * cy;
+	m(0, 3) = 0.0;
+	m(1, 3) = 0.0;
+	m(2, 3) = 0.0;
+	m(3, 0) = 0.0;
+	m(3, 1) = 0.0;
+	m(3, 2) = 0.0;
+	m(3, 3) = 1.0;
+	osg::Quat q = m.getRotate();
+	normalizeQuatSafe(q);
+	return q;
+}
+
+bool quatErrorAxisAngle(const osg::Quat& from, const osg::Quat& to, double outErrRad[3])
+{
+	if (!outErrRad)
+	{
+		return false;
+	}
+	osg::Quat qFrom = from;
+	osg::Quat qTo = to;
+	normalizeQuatSafe(qFrom);
+	normalizeQuatSafe(qTo);
+	osg::Quat qErr = qFrom.inverse() * qTo;
+	if (qErr.w() < 0.0)
+	{
+		qErr.set(-qErr.x(), -qErr.y(), -qErr.z(), -qErr.w());
+	}
+	const double vx = qErr.x();
+	const double vy = qErr.y();
+	const double vz = qErr.z();
+	const double vNorm = std::sqrt(vx * vx + vy * vy + vz * vz);
+	if (vNorm < 1e-12)
+	{
+		outErrRad[0] = 0.0;
+		outErrRad[1] = 0.0;
+		outErrRad[2] = 0.0;
+		return true;
+	}
+	const double angle = 2.0 * std::atan2(vNorm, std::max(1e-12, qErr.w()));
+	const double inv = 1.0 / vNorm;
+	outErrRad[0] = vx * inv * angle;
+	outErrRad[1] = vy * inv * angle;
+	outErrRad[2] = vz * inv * angle;
+	return true;
+}
 
 double trapezoidDuration(double distance, double vmax, double amax)
 {
@@ -203,40 +343,12 @@ std::vector<double> solveTargetByIkIfPossible(
 	return qSolved;
 }
 
-bool invert3x3(const double m[9], double invOut[9])
-{
-	const double c00 = m[4] * m[8] - m[5] * m[7];
-	const double c01 = -(m[3] * m[8] - m[5] * m[6]);
-	const double c02 = m[3] * m[7] - m[4] * m[6];
-	const double c10 = -(m[1] * m[8] - m[2] * m[7]);
-	const double c11 = m[0] * m[8] - m[2] * m[6];
-	const double c12 = -(m[0] * m[7] - m[1] * m[6]);
-	const double c20 = m[1] * m[5] - m[2] * m[4];
-	const double c21 = -(m[0] * m[5] - m[2] * m[3]);
-	const double c22 = m[0] * m[4] - m[1] * m[3];
-	const double det = m[0] * c00 + m[1] * c01 + m[2] * c02;
-	if (std::abs(det) < 1e-12)
-	{
-		return false;
-	}
-	const double invDet = 1.0 / det;
-	invOut[0] = c00 * invDet;
-	invOut[1] = c10 * invDet;
-	invOut[2] = c20 * invDet;
-	invOut[3] = c01 * invDet;
-	invOut[4] = c11 * invDet;
-	invOut[5] = c21 * invDet;
-	invOut[6] = c02 * invDet;
-	invOut[7] = c12 * invDet;
-	invOut[8] = c22 * invDet;
-	return true;
-}
-
 bool tcpPositionFromUrdf(
 	const QString& urdfPath,
 	const QString& tcpLink,
 	const std::vector<double>& q,
-	double outPos[3])
+	double outPos[3],
+	osg::Quat* outRot = nullptr)
 {
 	QVector<double> qQt;
 	qQt.reserve(static_cast<int>(q.size()));
@@ -257,6 +369,11 @@ bool tcpPositionFromUrdf(
 	outPos[0] = t.x();
 	outPos[1] = t.y();
 	outPos[2] = t.z();
+	if (outRot)
+	{
+		*outRot = linkWorldByName.value(tcpLink).getRotate();
+		normalizeQuatSafe(*outRot);
+	}
 	return true;
 }
 
@@ -296,8 +413,10 @@ void logIkSolveResidual(
 	const QString urdfPath = QString::fromStdString(itUrdf->second);
 	const QString tcpLink = QString::fromStdString(itTcp->second);
 	const RobotInstruction::Vec3 target = cmd.pose();
+	const bool hasTargetEuler = cmd.hasEulerProperty();
 	double fkPos[3] = { 0.0, 0.0, 0.0 };
-	if (!tcpPositionFromUrdf(urdfPath, tcpLink, qSolved, fkPos))
+	osg::Quat fkRot;
+	if (!tcpPositionFromUrdf(urdfPath, tcpLink, qSolved, fkPos, &fkRot))
 	{
 		std::ostringstream os;
 		os << "[IK残差] planner=" << (plannerName ? plannerName : "Unknown")
@@ -326,6 +445,15 @@ void logIkSolveResidual(
 	const double dy = fkPos[1] - target.y;
 	const double dz = fkPos[2] - target.z;
 	const double errMm = std::sqrt(dx * dx + dy * dy + dz * dz);
+	double errRotDeg = 0.0;
+	if (hasTargetEuler)
+	{
+		const osg::Quat targetQuat = eulerDegToQuat(cmd.eulerDeg());
+		double eRot[3] = { 0.0, 0.0, 0.0 };
+		quatErrorAxisAngle(fkRot, targetQuat, eRot);
+		const double errRotRad = std::sqrt(eRot[0] * eRot[0] + eRot[1] * eRot[1] + eRot[2] * eRot[2]);
+		errRotDeg = errRotRad * (180.0 / 3.14159265358979323846);
+	}
 
 	std::ostringstream os;
 	os << "[IK残差] planner=" << (plannerName ? plannerName : "Unknown")
@@ -334,6 +462,10 @@ void logIkSolveResidual(
 	   << ", solvedQ[0..]=[" << qPreview.str() << "]"
 	   << ", fkTcp=(" << fkPos[0] << ", " << fkPos[1] << ", " << fkPos[2] << ")"
 	   << ", errMm=" << errMm;
+	if (hasTargetEuler)
+	{
+		os << ", errRotDeg=" << errRotDeg;
+	}
 	RunLogger::info(os.str());
 }
 
@@ -379,6 +511,8 @@ std::vector<double> solveTargetByUrdfNumericalIkIfPossible(const RobotInstructio
 	const QString tcpLink = QString::fromStdString(itTcp->second);
 	const RobotInstruction::Vec3 p = cmd.pose();
 	const double target[3] = { p.x, p.y, p.z };
+	const bool useOrientation = cmd.hasEulerProperty();
+	const osg::Quat targetQuat = useOrientation ? eulerDegToQuat(cmd.eulerDeg()) : osg::Quat();
 	const double targetNormMm = std::sqrt(target[0] * target[0] + target[1] * target[1] + target[2] * target[2]);
 	if (targetNormMm > 50000.0)
 	{
@@ -390,7 +524,8 @@ std::vector<double> solveTargetByUrdfNumericalIkIfPossible(const RobotInstructio
 	}
 
 	double pos[3] = { 0.0, 0.0, 0.0 };
-	if (!tcpPositionFromUrdf(urdfPath, tcpLink, q, pos))
+	osg::Quat curQuat;
+	if (!tcpPositionFromUrdf(urdfPath, tcpLink, q, pos, useOrientation ? &curQuat : nullptr))
 	{
 		if (failReason)
 		{
@@ -413,10 +548,14 @@ std::vector<double> solveTargetByUrdfNumericalIkIfPossible(const RobotInstructio
 
 	const double eps = 1e-4;
 	const double lambda = 1e-2;
-	const int maxIters = 140;
+	const int maxIters = 180;
+	const int taskDim = useOrientation ? 6 : 3;
+	// Unit balancing for 6D IK: translation is in mm, rotation is in rad.
+	// Without scaling, orientation residual is numerically too small.
+	const double orientationWeight = useOrientation ? 300.0 : 1.0;
 	for (int iter = 0; iter < maxIters; ++iter)
 	{
-		if (!tcpPositionFromUrdf(urdfPath, tcpLink, q, pos))
+		if (!tcpPositionFromUrdf(urdfPath, tcpLink, q, pos, useOrientation ? &curQuat : nullptr))
 		{
 			if (failReason)
 			{
@@ -424,21 +563,35 @@ std::vector<double> solveTargetByUrdfNumericalIkIfPossible(const RobotInstructio
 			}
 			return {};
 		}
-		const double e[3] = { target[0] - pos[0], target[1] - pos[1], target[2] - pos[2] };
-		const double errNorm = std::sqrt(e[0] * e[0] + e[1] * e[1] + e[2] * e[2]);
-		if (errNorm < 1e-2)
+		std::vector<double> e(static_cast<size_t>(taskDim), 0.0);
+		e[0] = target[0] - pos[0];
+		e[1] = target[1] - pos[1];
+		e[2] = target[2] - pos[2];
+		double posErr = std::sqrt(e[0] * e[0] + e[1] * e[1] + e[2] * e[2]);
+		double rotErr = 0.0;
+		if (useOrientation)
+		{
+			double eRot[3] = { 0.0, 0.0, 0.0 };
+			quatErrorAxisAngle(curQuat, targetQuat, eRot);
+			e[3] = eRot[0] * orientationWeight;
+			e[4] = eRot[1] * orientationWeight;
+			e[5] = eRot[2] * orientationWeight;
+			rotErr = std::sqrt(eRot[0] * eRot[0] + eRot[1] * eRot[1] + eRot[2] * eRot[2]);
+		}
+		if (posErr < 1e-2 && (!useOrientation || rotErr < 0.1 * kDegToRad))
 		{
 			return q;
 		}
 
 		const int n = static_cast<int>(q.size());
-		std::vector<double> J(3 * n, 0.0);
+		std::vector<double> J(static_cast<size_t>(taskDim * n), 0.0);
 		for (int j = 0; j < n; ++j)
 		{
 			std::vector<double> qPert = q;
 			qPert[static_cast<size_t>(j)] += eps;
 			double p2[3] = { 0.0, 0.0, 0.0 };
-			if (!tcpPositionFromUrdf(urdfPath, tcpLink, qPert, p2))
+			osg::Quat q2;
+			if (!tcpPositionFromUrdf(urdfPath, tcpLink, qPert, p2, useOrientation ? &q2 : nullptr))
 			{
 				if (failReason)
 				{
@@ -449,26 +602,42 @@ std::vector<double> solveTargetByUrdfNumericalIkIfPossible(const RobotInstructio
 			J[0 * n + j] = (p2[0] - pos[0]) / eps;
 			J[1 * n + j] = (p2[1] - pos[1]) / eps;
 			J[2 * n + j] = (p2[2] - pos[2]) / eps;
-		}
-
-		double jjt[9] = { 0.0 };
-		for (int r = 0; r < 3; ++r)
-		{
-			for (int c = 0; c < 3; ++c)
+			if (useOrientation)
 			{
-				double s = 0.0;
-				for (int k = 0; k < n; ++k)
-				{
-					s += J[r * n + k] * J[c * n + k];
-				}
-				jjt[r * 3 + c] = s;
+				double dRot[3] = { 0.0, 0.0, 0.0 };
+				quatErrorAxisAngle(curQuat, q2, dRot);
+				J[3 * n + j] = (dRot[0] / eps) * orientationWeight;
+				J[4 * n + j] = (dRot[1] / eps) * orientationWeight;
+				J[5 * n + j] = (dRot[2] / eps) * orientationWeight;
 			}
 		}
-		jjt[0] += lambda * lambda;
-		jjt[4] += lambda * lambda;
-		jjt[8] += lambda * lambda;
-		double inv[9] = { 0.0 };
-		if (!invert3x3(jjt, inv))
+
+		std::vector<double> jtj(static_cast<size_t>(n * n), 0.0);
+		std::vector<double> jte(static_cast<size_t>(n), 0.0);
+		for (int r = 0; r < taskDim; ++r)
+		{
+			for (int c = 0; c < n; ++c)
+			{
+				jte[static_cast<size_t>(c)] += J[static_cast<size_t>(r * n + c)] * e[static_cast<size_t>(r)];
+			}
+		}
+		for (int r = 0; r < n; ++r)
+		{
+			for (int c = 0; c < n; ++c)
+			{
+				double s = 0.0;
+				for (int k = 0; k < taskDim; ++k)
+				{
+					s += J[static_cast<size_t>(k * n + r)] * J[static_cast<size_t>(k * n + c)];
+				}
+				jtj[static_cast<size_t>(r * n + c)] = s;
+			}
+		}
+		for (int i = 0; i < n; ++i)
+		{
+			jtj[static_cast<size_t>(i * n + i)] += lambda * lambda;
+		}
+		if (!solveLinearSystem(jtj, jte, n))
 		{
 			if (failReason)
 			{
@@ -476,21 +645,10 @@ std::vector<double> solveTargetByUrdfNumericalIkIfPossible(const RobotInstructio
 			}
 			return {};
 		}
-
-		double y[3] = { 0.0, 0.0, 0.0 };
-		for (int r = 0; r < 3; ++r)
-		{
-			y[r] = inv[r * 3 + 0] * e[0] + inv[r * 3 + 1] * e[1] + inv[r * 3 + 2] * e[2];
-		}
-		std::vector<double> dq(static_cast<size_t>(n), 0.0);
 		for (int j = 0; j < n; ++j)
 		{
-			dq[static_cast<size_t>(j)] = J[0 * n + j] * y[0] + J[1 * n + j] * y[1] + J[2 * n + j] * y[2];
-		}
-		for (int j = 0; j < n; ++j)
-		{
-			dq[static_cast<size_t>(j)] = std::max(-0.2, std::min(0.2, dq[static_cast<size_t>(j)]));
-			q[static_cast<size_t>(j)] += dq[static_cast<size_t>(j)];
+			jte[static_cast<size_t>(j)] = std::max(-0.2, std::min(0.2, jte[static_cast<size_t>(j)]));
+			q[static_cast<size_t>(j)] += jte[static_cast<size_t>(j)];
 		}
 	}
 

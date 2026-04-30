@@ -1737,24 +1737,6 @@ void MainWindow::refreshInstructionPoseAxes()
 		}
 		const RobotInstruction::Vec3 p = ins->pose();
 		const RobotInstruction::Vec3 e = ins->eulerDeg();
-		const auto& extIns = ins->extensionProperties();
-		bool usingRenderWorldMat = false;
-		auto itStoredMat = extIns.find("render.tcpWorldMat4");
-		if (itStoredMat == extIns.end() || itStoredMat->second.empty())
-		{
-			itStoredMat = extIns.find("render.tcpLocalMat4");
-		}
-		else
-		{
-			usingRenderWorldMat = true;
-		}
-		osg::Matrixd mDecoded;
-		bool hasDecodedTcpMat = false;
-		if (itStoredMat != extIns.end() && !itStoredMat->second.empty()
-			&& decodeMatrix4Csv(itStoredMat->second, mDecoded))
-		{
-			hasDecodedTcpMat = true;
-		}
 		OsgWidget::InstructionPoseAxis a;
 		a.positionMm = osg::Vec3f(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
 		a.eulerDeg = osg::Vec3f(static_cast<float>(e.x), static_cast<float>(e.y), static_cast<float>(e.z));
@@ -1762,26 +1744,9 @@ void MainWindow::refreshInstructionPoseAxes()
 		// Keep instruction markers in world frame and parent under overlay root.
 		a.robotBackendId.clear();
 		a.urdfTcpAttachLinkName.clear();
-		if (hasDecodedTcpMat)
-		{
-			if (!usingRenderWorldMat)
-			{
-				// Legacy/local stored matrix path: keep editable pose translation in sync.
-				mDecoded.setTrans(p.x, p.y, p.z);
-			}
-			a.hasLocalMatrix = true;
-			for (int r = 0; r < 4; ++r)
-			{
-				for (int c = 0; c < 4; ++c)
-				{
-					a.localMatrix[r * 4 + c] = mDecoded(r, c);
-				}
-			}
-		}
-		else
-		{
-			a.hasLocalMatrix = false;
-		}
+		// Render target axes from current editable pose/euler to keep display
+		// consistent with what planner/IK receives.
+		a.hasLocalMatrix = false;
 		axes.push_back(a);
 	}
 	if (axes.empty())
@@ -1949,43 +1914,14 @@ void MainWindow::onSimulationStartTriggered()
 			restoreGuard.euler = restoreGuard.ins->eulerDeg();
 			restoreGuard.active = true;
 			const auto& extMap = restoreGuard.ins->extensionProperties();
-			const auto itDeltaPos = extMap.find("context.renderToFkDeltaPosMmCsv");
-			if (itDeltaPos != extMap.end() && !itDeltaPos->second.empty())
-			{
-				std::stringstream dss(itDeltaPos->second);
-				dss.imbue(std::locale::classic());
-				std::string tok;
-				double dv[3] = { 0.0, 0.0, 0.0 };
-				int dn = 0;
-				while (std::getline(dss, tok, ',') && dn < 3)
-				{
-					try
-					{
-						dv[dn++] = std::stod(tok);
-					}
-					catch (...)
-					{
-						dn = 0;
-						break;
-					}
-				}
-				if (dn == 3)
-				{
-					restoreGuard.ins->setPose(RobotInstruction::Vec3{
-						restoreGuard.pose.x + dv[0],
-						restoreGuard.pose.y + dv[1],
-						restoreGuard.pose.z + dv[2] });
-				}
-			}
 			const auto itRenderToFk = extMap.find("context.renderWorldToFkMat4");
-			if ((itDeltaPos == extMap.end() || itDeltaPos->second.empty())
-				&& itRenderToFk != extMap.end() && !itRenderToFk->second.empty())
+			bool mappedByMatrix = false;
+			if (itRenderToFk != extMap.end() && !itRenderToFk->second.empty())
 			{
 				osg::Matrixd renderToFk;
 				if (decodeMatrix4Csv(itRenderToFk->second, renderToFk))
 				{
-					bool leftMultiply = true; // fk = A * render
-					bool haveCapturedPair = false;
+					bool shouldMapRenderToFk = true;
 					osg::Matrixd capRender;
 					osg::Matrixd capFk;
 					const auto itCapturedRender = extMap.find("render.tcpWorldMat4");
@@ -1996,12 +1932,24 @@ void MainWindow::onSimulationStartTriggered()
 						if (decodeMatrix4Csv(itCapturedRender->second, capRender)
 							&& decodeMatrix4Csv(itCapturedFk->second, capFk))
 						{
-							haveCapturedPair = true;
-							const osg::Matrixd recL = renderToFk * capRender;
-							const osg::Matrixd recR = capRender * renderToFk;
-							const double errL = matrixTranslationErrorMm(recL, capFk);
-							const double errR = matrixTranslationErrorMm(recR, capFk);
-							leftMultiply = (errL <= errR);
+							osg::Matrixd currentPoseMat;
+							currentPoseMat.makeRotate(OsgScene::eulerDegToQuat(osg::Vec3f(
+								static_cast<float>(restoreGuard.euler.x),
+								static_cast<float>(restoreGuard.euler.y),
+								static_cast<float>(restoreGuard.euler.z))));
+							currentPoseMat.setTrans(restoreGuard.pose.x, restoreGuard.pose.y, restoreGuard.pose.z);
+							const double curToFkPosErr = matrixTranslationErrorMm(currentPoseMat, capFk);
+							const double curToFkRotErr = quaternionAngularErrorDeg(
+								currentPoseMat.getRotate(),
+								capFk.getRotate());
+							const double curToRenderPosErr = matrixTranslationErrorMm(currentPoseMat, capRender);
+							const double curToRenderRotErr = quaternionAngularErrorDeg(
+								currentPoseMat.getRotate(),
+								capRender.getRotate());
+							// If pose/euler is already expressed in FK frame, skip remapping to avoid orientation offset.
+							const double fkScore = curToFkPosErr + curToFkRotErr;
+							const double renderScore = curToRenderPosErr + curToRenderRotErr;
+							shouldMapRenderToFk = (renderScore + 1e-6 < fkScore);
 						}
 					}
 					osg::Matrixd targetRender;
@@ -2010,21 +1958,48 @@ void MainWindow::onSimulationStartTriggered()
 						static_cast<float>(restoreGuard.euler.y),
 						static_cast<float>(restoreGuard.euler.z))));
 					targetRender.setTrans(restoreGuard.pose.x, restoreGuard.pose.y, restoreGuard.pose.z);
-					// IK in current URDF fallback is position-only; use translation mapping first for robustness.
-					osg::Vec3d mappedPos;
-					if (haveCapturedPair)
-					{
-						const osg::Vec3d delta = capFk.getTrans() - capRender.getTrans();
-						mappedPos = targetRender.getTrans() + delta;
-					}
-					else
-					{
-						const osg::Matrixd targetFk = leftMultiply
-							? (renderToFk * targetRender)
-							: (targetRender * renderToFk);
-						mappedPos = targetFk.getTrans();
-					}
+					const osg::Matrixd targetFk = shouldMapRenderToFk
+						? (renderToFk * targetRender)
+						: targetRender;
+					const osg::Vec3d mappedPos = targetFk.getTrans();
+					const osg::Vec3f mappedEuler = OsgScene::quatToEulerDeg(targetFk.getRotate());
 					restoreGuard.ins->setPose(RobotInstruction::Vec3{ mappedPos.x(), mappedPos.y(), mappedPos.z() });
+					restoreGuard.ins->setEulerDeg(RobotInstruction::Vec3{
+						static_cast<double>(mappedEuler.x()),
+						static_cast<double>(mappedEuler.y()),
+						static_cast<double>(mappedEuler.z()) });
+					mappedByMatrix = true;
+				}
+			}
+			if (!mappedByMatrix)
+			{
+				const auto itDeltaPos = extMap.find("context.renderToFkDeltaPosMmCsv");
+				if (itDeltaPos != extMap.end() && !itDeltaPos->second.empty())
+				{
+					std::stringstream dss(itDeltaPos->second);
+					dss.imbue(std::locale::classic());
+					std::string tok;
+					double dv[3] = { 0.0, 0.0, 0.0 };
+					int dn = 0;
+					while (std::getline(dss, tok, ',') && dn < 3)
+					{
+						try
+						{
+							dv[dn++] = std::stod(tok);
+						}
+						catch (...)
+						{
+							dn = 0;
+							break;
+						}
+					}
+					if (dn == 3)
+					{
+						restoreGuard.ins->setPose(RobotInstruction::Vec3{
+							restoreGuard.pose.x + dv[0],
+							restoreGuard.pose.y + dv[1],
+							restoreGuard.pose.z + dv[2] });
+					}
 				}
 			}
 		}
