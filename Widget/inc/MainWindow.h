@@ -71,6 +71,7 @@ private:
 		RobotInstruction::Vec3& outPoseMm,
 		RobotInstruction::Vec3& outEulerDeg,
 		osg::Matrixd* outTcpLocalMat,
+		osg::Matrixd* outTcpRenderWorldMat,
 		QString* outTcpLinkName,
 		QString* errMsg) const;
 	void syncOsgViewerFromPointCloudBackend(const std::shared_ptr<PointCloudBackendData>& pc);
@@ -110,6 +111,7 @@ private:
 	void onSimulationInstructionSelectionChanged(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void onRobotSimulationTick();
 	void stopRobotSimulation();
+	void logPlaybackFrameComparison(const QVector<double>& finalJointAnglesRad);
 	void refreshInstructionPoseAxes();
 	void refreshSimulationJointListFromCurrentDoc();
 	void onRobotAxisJointAnglesChanged(const QVector<double>& jointAnglesRad);

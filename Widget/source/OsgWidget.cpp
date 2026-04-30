@@ -177,87 +177,38 @@ osg::NodePath nodePathToSceneRoot(osg::Node* leaf)
 	return path;
 }
 
-struct PoseMat
+osg::Group* findUrdfLinkContainer(osg::Group* sceneSubtree, const std::string& urdfLinkName)
 {
-	double m[16]{};
-};
-
-PoseMat poseMatIdentity()
-{
-	PoseMat r{};
-	r.m[0] = r.m[5] = r.m[10] = r.m[15] = 1.0;
-	return r;
-}
-
-PoseMat poseMatMul(const PoseMat& a, const PoseMat& b)
-{
-	PoseMat r{};
-	for (int col = 0; col < 4; ++col)
+	if (!sceneSubtree || urdfLinkName.empty())
 	{
-		for (int row = 0; row < 4; ++row)
-		{
-			r.m[col * 4 + row] = a.m[0 * 4 + row] * b.m[col * 4 + 0]
-				+ a.m[1 * 4 + row] * b.m[col * 4 + 1]
-				+ a.m[2 * 4 + row] * b.m[col * 4 + 2]
-				+ a.m[3 * 4 + row] * b.m[col * 4 + 3];
-		}
+		return nullptr;
 	}
-	return r;
-}
-
-PoseMat poseMatTranslate(double x, double y, double z)
-{
-	PoseMat r = poseMatIdentity();
-	r.m[12] = x;
-	r.m[13] = y;
-	r.m[14] = z;
-	return r;
-}
-
-PoseMat poseMatFromRpy(double roll, double pitch, double yaw)
-{
-	const double cr = std::cos(roll);
-	const double sr = std::sin(roll);
-	const double cp = std::cos(pitch);
-	const double sp = std::sin(pitch);
-	const double cy = std::cos(yaw);
-	const double sy = std::sin(yaw);
-	PoseMat r = poseMatIdentity();
-	r.m[0] = cy * cp;
-	r.m[1] = cy * sp * sr - sy * cr;
-	r.m[2] = cy * sp * cr + sy * sr;
-	r.m[4] = sy * cp;
-	r.m[5] = sy * sp * sr + cy * cr;
-	r.m[6] = sy * sp * cr - cy * sr;
-	r.m[8] = -sp;
-	r.m[9] = cp * sr;
-	r.m[10] = cp * cr;
-	return r;
-}
-
-PoseMat poseMatFromXyzRpy(double x, double y, double z, double roll, double pitch, double yaw)
-{
-	return poseMatMul(poseMatTranslate(x, y, z), poseMatFromRpy(roll, pitch, yaw));
-}
-
-osg::Matrixd poseMatToOsgLikeUrdf(const PoseMat& m)
-{
-	osg::Matrixd o;
-	for (int r = 0; r < 4; ++r)
+	const std::string want = urdfLinkName + "_Container";
+	struct FindLinkContainer final : osg::NodeVisitor
 	{
-		for (int c = 0; c < 4; ++c)
+		std::string wantName;
+		osg::Group* found = nullptr;
+		explicit FindLinkContainer(std::string w)
+			: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
+			, wantName(std::move(w))
 		{
-			if (r == 3 || c == 3)
-			{
-				o(r, c) = m.m[r * 4 + c];
-			}
-			else
-			{
-				o(r, c) = m.m[c * 4 + r];
-			}
 		}
-	}
-	return o;
+		void apply(osg::Group& g) override
+		{
+			if (found)
+			{
+				return;
+			}
+			if (g.getName() == wantName)
+			{
+				found = &g;
+				return;
+			}
+			traverse(g);
+		}
+	} vis(want);
+	sceneSubtree->accept(vis);
+	return vis.found;
 }
 
 osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(float axisLengthMm, bool lineMotion)
@@ -357,25 +308,40 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& a
 	{
 		return;
 	}
+	for (const osg::ref_ptr<osg::MatrixTransform>& t : m_instructionPoseAxisNodes)
+	{
+		if (!t.valid())
+		{
+			continue;
+		}
+		while (t->getNumParents() > 0)
+		{
+			t->getParent(0)->removeChild(t.get());
+		}
+	}
+	m_instructionPoseAxisNodes.clear();
+
 	if (!m_instructionPoseAxesGroup.valid())
 	{
 		m_instructionPoseAxesGroup = new osg::Group;
 		m_instructionPoseAxesGroup->setName("InstructionPoseAxes");
 	}
+	// FK / render.tcpLocalMat4 are authored in the robot assembly local frame (same subtree as link_6).
+	// Parent axes under that assembly so we do not compose PAT world here (avoids ~1m+ overlay offset bugs).
 	osg::Group* parentGroup = m_trajectoryOverlayGroup.get();
+	bool axesInRobotAssemblyLocal = false;
+	osg::Group* robotAsmRoot = nullptr;
 	if (!axes.empty() && !axes.front().robotBackendId.empty())
 	{
-		const auto it = m_backendObjectRoots.find(axes.front().robotBackendId);
-		if (it != m_backendObjectRoots.end() && it->second.valid())
+		const auto itPat = m_backendObjectRoots.find(axes.front().robotBackendId);
+		if (itPat != m_backendObjectRoots.end() && itPat->second.valid() && itPat->second->getNumChildren() > 0)
 		{
-			// Prefer attaching under robot assembly root (PAT child) so axis local matrix
-			// uses the same local frame as URDF joint/link hierarchy.
-			osg::Group* robotLocalRoot = nullptr;
-			if (it->second->getNumChildren() > 0)
+			if (osg::Group* asmRoot = dynamic_cast<osg::Group*>(itPat->second->getChild(0)))
 			{
-				robotLocalRoot = dynamic_cast<osg::Group*>(it->second->getChild(0));
+				parentGroup = asmRoot;
+				axesInRobotAssemblyLocal = true;
+				robotAsmRoot = asmRoot;
 			}
-			parentGroup = robotLocalRoot ? robotLocalRoot : static_cast<osg::Group*>(it->second.get());
 		}
 	}
 	while (m_instructionPoseAxesGroup->getNumParents() > 0)
@@ -398,6 +364,7 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& a
 		osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
 		mt->setName(a.lineMotion ? "LINE_TargetAxis" : "PTP_TargetAxis");
 		const osg::Vec3f p = a.positionMm;
+		const bool linkLocalMatrix = !a.urdfTcpAttachLinkName.empty();
 		osg::Matrixd m;
 		if (a.hasLocalMatrix)
 		{
@@ -408,23 +375,48 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& a
 					m(r, c) = a.localMatrix[r * 4 + c];
 				}
 			}
+			if (!linkLocalMatrix && !axesInRobotAssemblyLocal && !a.robotBackendId.empty())
+			{
+				osg::Matrixd rootWorld;
+				if (getBackendRootWorldMatrix(a.robotBackendId, rootWorld))
+				{
+					m = rootWorld * m;
+				}
+			}
 		}
 		else
 		{
-			static constexpr double kPi = 3.14159265358979323846;
-			const double rr = static_cast<double>(a.eulerDeg.x()) * kPi / 180.0;
-			const double rp = static_cast<double>(a.eulerDeg.y()) * kPi / 180.0;
-			const double ry = static_cast<double>(a.eulerDeg.z()) * kPi / 180.0;
-			const PoseMat mLocal = poseMatFromXyzRpy(
-				static_cast<double>(p.x()),
-				static_cast<double>(p.y()),
-				static_cast<double>(p.z()),
-				rr, rp, ry);
-			m = poseMatToOsgLikeUrdf(mLocal);
+			// Same convention as capture / URDF FK: makeRotate then setTrans (not translate*rotate).
+			const osg::Quat q = OsgScene::eulerDegToQuat(a.eulerDeg);
+			m.makeRotate(q);
+			m.setTrans(static_cast<double>(p.x()), static_cast<double>(p.y()), static_cast<double>(p.z()));
+			if (!axesInRobotAssemblyLocal && !a.robotBackendId.empty())
+			{
+				osg::Matrixd rootWorld;
+				if (getBackendRootWorldMatrix(a.robotBackendId, rootWorld))
+				{
+					m = rootWorld * m;
+				}
+			}
 		}
 		mt->setMatrix(m);
 		mt->addChild(createInstructionPoseAxisGeode(a.lineMotion ? 100.0f : 80.0f, a.lineMotion).get());
-		m_instructionPoseAxesGroup->addChild(mt.get());
+
+		bool mountedUnderLink = false;
+		if (linkLocalMatrix && robotAsmRoot)
+		{
+			if (osg::Group* linkC = findUrdfLinkContainer(robotAsmRoot, a.urdfTcpAttachLinkName))
+			{
+				linkC->addChild(mt.get());
+				m_instructionPoseAxisNodes.push_back(mt);
+				mountedUnderLink = true;
+			}
+		}
+		if (!mountedUnderLink)
+		{
+			m_instructionPoseAxesGroup->addChild(mt.get());
+			m_instructionPoseAxisNodes.push_back(mt);
+		}
 	}
 	if (m_glWidget)
 	{
@@ -434,6 +426,18 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& a
 
 void OsgWidget::clearInstructionPoseAxes()
 {
+	for (const osg::ref_ptr<osg::MatrixTransform>& t : m_instructionPoseAxisNodes)
+	{
+		if (!t.valid())
+		{
+			continue;
+		}
+		while (t->getNumParents() > 0)
+		{
+			t->getParent(0)->removeChild(t.get());
+		}
+	}
+	m_instructionPoseAxisNodes.clear();
 	if (m_instructionPoseAxesGroup.valid())
 	{
 		m_instructionPoseAxesGroup->removeChildren(0, m_instructionPoseAxesGroup->getNumChildren());
@@ -1459,6 +1463,7 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 
 void OsgWidget::clearImportedContent()
 {
+	clearInstructionPoseAxes();
 	clearStagingGeometry();
 	hideMeshElementHighlight();
 	if (m_backendObjectsGroup.valid())

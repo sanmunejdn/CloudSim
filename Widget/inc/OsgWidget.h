@@ -85,6 +85,9 @@ public:
 		std::string robotBackendId; // Local frame parent. Empty means world overlay.
 		bool hasLocalMatrix = false;
 		double localMatrix[16]{};
+		/// URDF link name (e.g. "link_6"). When set, \a localMatrix is inv(T_link)*T_tcp in that link's
+		/// container frame and the axis is parented under \c "{name}_Container" in the robot scene graph.
+		std::string urdfTcpAttachLinkName;
 	};
 
 	struct AnnotationSnapshot
@@ -245,6 +248,8 @@ private:
 	/// 使用场景光照加载的网格后端（如 URDF 连杆），改色时保留 Material+LIGHTING。
 	std::unordered_set<std::string> m_litMeshBackendIds;
 	osg::ref_ptr<osg::Group> m_instructionPoseAxesGroup;
+	/// Instruction TCP axes parented directly under link containers (must detach before rebuild/clear).
+	std::vector<osg::ref_ptr<osg::MatrixTransform>> m_instructionPoseAxisNodes;
 
 	bool pickMeshFaceByRayIntersection(const QPoint& mousePos,
 		osg::Vec3f& outPointWorld,

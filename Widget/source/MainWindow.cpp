@@ -459,6 +459,24 @@ QString matrix4ToLog(const osg::Matrixd& m)
 
 std::string encodeMatrix4Csv(const osg::Matrixd& m)
 {
+	osg::Matrixd o;
+	// Keep translation terms in-place, but map 3x3 rotation with swapped indices.
+	// This matches the legacy matrix convention used by instruction render metadata.
+	for (int r = 0; r < 4; ++r)
+	{
+		for (int c = 0; c < 4; ++c)
+		{
+			if (r == 3 || c == 3)
+			{
+				o(r, c) = m(r, c);
+			}
+			else
+			{
+				o(r, c) = m(c, r);
+			}
+		}
+	}
+
 	std::ostringstream oss;
 	oss.imbue(std::locale::classic());
 	for (int r = 0; r < 4; ++r)
@@ -469,7 +487,7 @@ std::string encodeMatrix4Csv(const osg::Matrixd& m)
 			{
 				oss << ",";
 			}
-			oss << m(r, c);
+			oss << o(r, c);
 		}
 	}
 	return oss.str();
@@ -501,11 +519,27 @@ bool decodeMatrix4Csv(const std::string& text, osg::Matrixd& out)
 	{
 		return false;
 	}
+	osg::Matrixd in;
 	for (int r = 0; r < 4; ++r)
 	{
 		for (int c = 0; c < 4; ++c)
 		{
-			out(r, c) = values[r * 4 + c];
+			in(r, c) = values[r * 4 + c];
+		}
+	}
+	// Inverse of encodeMatrix4Csv mapping (same operation: involution).
+	for (int r = 0; r < 4; ++r)
+	{
+		for (int c = 0; c < 4; ++c)
+		{
+			if (r == 3 || c == 3)
+			{
+				out(r, c) = in(r, c);
+			}
+			else
+			{
+				out(r, c) = in(c, r);
+			}
 		}
 	}
 	return true;
@@ -1471,6 +1505,7 @@ bool MainWindow::tryCaptureCurrentRobotTcpPose(
 	RobotInstruction::Vec3& outPoseMm,
 	RobotInstruction::Vec3& outEulerDeg,
 	osg::Matrixd* outTcpLocalMat,
+	osg::Matrixd* outTcpRenderWorldMat,
 	QString* outTcpLinkName,
 	QString* errMsg) const
 {
@@ -1497,6 +1532,20 @@ bool MainWindow::tryCaptureCurrentRobotTcpPose(
 	const QStringList joints = doc->robotRevoluteJointNames();
 	QVector<double> q(joints.size(), 0.0);
 	QString qSource = QStringLiteral("zero-fallback");
+	osg::Matrixd robotRootWorld;
+	robotRootWorld.makeIdentity();
+	if (OsgWidget* osg = currentOsgWidget())
+	{
+		const QString robotRootId = doc->robotSceneBackendId();
+		if (!robotRootId.isEmpty())
+		{
+			osg::Matrixd m;
+			if (osg->getBackendRootWorldMatrix(robotRootId.toStdString(), m))
+			{
+				robotRootWorld = m;
+			}
+		}
+	}
 	if (m_robotAxisControlPage && m_robotAxisControlPage->jointCount() == joints.size())
 	{
 		q = m_robotAxisControlPage->jointAnglesRad();
@@ -1504,25 +1553,12 @@ bool MainWindow::tryCaptureCurrentRobotTcpPose(
 	}
 	QHash<QString, osg::Matrixd> linkWorldByName;
 	QString computeErr;
-	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, q, linkWorldByName, &computeErr))
-	{
-		if (errMsg)
-		{
-			*errMsg = computeErr.isEmpty()
-				? i18n(QStringLiteral("Failed to compute robot TCP pose."),
-					QStringLiteral("计算机器人末端位姿失败。"))
-				: computeErr;
-		}
-		return false;
-	}
+	const bool hasLinkFk = UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, q, linkWorldByName, &computeErr);
 
-	QString tcpLinkName = m_simulationCommandPage ? m_simulationCommandPage->selectedTcpLink() : QString();
-	if (tcpLinkName.isEmpty())
+	const QString lastJointName = joints.isEmpty() ? QString() : joints.back();
+	QString tcpLinkName;
 	{
-		(void)UrdfRobotLoader::loadPrimaryTerminalLinkName(urdfPath, tcpLinkName, nullptr);
-	}
-	if (tcpLinkName.isEmpty())
-	{
+		// Link frame fallback only (primary path uses last revolute joint frame).
 		QStringList revoluteChildLinks;
 		(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, revoluteChildLinks, nullptr);
 		if (!revoluteChildLinks.isEmpty())
@@ -1530,158 +1566,74 @@ bool MainWindow::tryCaptureCurrentRobotTcpPose(
 			tcpLinkName = revoluteChildLinks.back();
 		}
 	}
+	if (tcpLinkName.isEmpty() && m_simulationCommandPage)
+	{
+		// Fallback only when URDF does not expose revolute child links.
+		tcpLinkName = m_simulationCommandPage->selectedTcpLink();
+	}
 	osg::Matrixd tcpLocal;
 	bool hasTcpLocal = false;
-	bool tcpFromMeshFk = false;
 	QString tcpSource = QStringLiteral("None");
-	if (!tcpLinkName.isEmpty() && linkWorldByName.contains(tcpLinkName))
-	{
-		// computeLinkWorldMatrices outputs link-frame pose in robot-local (URDF base) coordinates.
-		tcpLocal = linkWorldByName.value(tcpLinkName);
-		hasTcpLocal = true;
-		tcpFromMeshFk = true;
-		tcpSource = QStringLiteral("LinkFK");
-	}
+	// Hierarchy pose of last revolute joint (OSG scene graph); may differ from URDF child link frame.
 	osg::Matrixd tcpLocalFromHierarchy;
 	bool hasHierarchyLocal = false;
-	if (!hasTcpLocal && !joints.isEmpty())
+	if (!lastJointName.isEmpty())
 	{
-		const QString lastJoint = joints.back();
-		if (osg::MatrixTransform* jointMt = doc->robotJointMatrixTransform(lastJoint))
-		{
-			osg::Matrixd jointWorld;
-			if (!matrixFromNodeWorld(jointMt, jointWorld))
-			{
-				if (errMsg)
-				{
-					*errMsg = i18n(QStringLiteral("Cannot evaluate TCP world transform."),
-						QStringLiteral("无法获取末端世界坐标。"));
-				}
-				return false;
-			}
-			osg::Matrixd robotRootWorld;
-			robotRootWorld.makeIdentity();
-			if (OsgWidget* osg = currentOsgWidget())
-			{
-				const QString robotRootId = doc->robotSceneBackendId();
-				if (!robotRootId.isEmpty())
-				{
-					osg::Matrixd m;
-					if (osg->getBackendRootWorldMatrix(robotRootId.toStdString(), m))
-					{
-						robotRootWorld = m;
-					}
-				}
-			}
-			// Keep instruction pose in robot-local frame for IK/planning consistency.
-			tcpLocal = osg::Matrixd::inverse(robotRootWorld) * jointWorld;
-			hasTcpLocal = true;
-			tcpLocalFromHierarchy = tcpLocal;
-			hasHierarchyLocal = true;
-			tcpSource = QStringLiteral("HierarchyJoint");
-		}
-	}
-	if (!tcpFromMeshFk && !joints.isEmpty())
-	{
-		const QString lastJoint = joints.back();
-		if (osg::MatrixTransform* jointMt = doc->robotJointMatrixTransform(lastJoint))
+		if (osg::MatrixTransform* jointMt = doc->robotJointMatrixTransform(lastJointName))
 		{
 			osg::Matrixd jointWorld;
 			if (matrixFromNodeWorld(jointMt, jointWorld))
 			{
-				osg::Matrixd robotRootWorld;
-				robotRootWorld.makeIdentity();
-				if (OsgWidget* osg = currentOsgWidget())
-				{
-					const QString robotRootId = doc->robotSceneBackendId();
-					if (!robotRootId.isEmpty())
-					{
-						osg::Matrixd m;
-						if (osg->getBackendRootWorldMatrix(robotRootId.toStdString(), m))
-						{
-							robotRootWorld = m;
-						}
-					}
-				}
 				tcpLocalFromHierarchy = osg::Matrixd::inverse(robotRootWorld) * jointWorld;
 				hasHierarchyLocal = true;
 			}
 		}
 	}
-	if (m_runInfoPage)
+	// Primary: URDF link FK for tcpLinkName — same frame as RobotInstructionController URDF IK / FK.
+	// Using the joint MatrixTransform first caused "add at current pose then run moves" when joint ≠ link frame.
+	if (hasLinkFk && !tcpLinkName.isEmpty() && linkWorldByName.contains(tcpLinkName))
 	{
-		QString qPreview;
-		const int previewN = std::min(6, q.size());
-		for (int i = 0; i < previewN; ++i)
+		tcpLocal = linkWorldByName.value(tcpLinkName);
+		hasTcpLocal = true;
+		tcpSource = QStringLiteral("LinkFK");
+	}
+	else if (hasHierarchyLocal)
+	{
+		tcpLocal = tcpLocalFromHierarchy;
+		hasTcpLocal = true;
+		tcpSource = QStringLiteral("HierarchyJoint");
+	}
+	else if (!lastJointName.isEmpty())
+	{
+		if (errMsg)
 		{
-			if (i > 0)
-			{
-				qPreview += QStringLiteral(", ");
-			}
-			qPreview += QString::number(q[i], 'f', 4);
+			*errMsg = i18n(QStringLiteral("Cannot evaluate TCP world transform."),
+				QStringLiteral("无法获取末端世界坐标。"));
 		}
-		if (q.size() > previewN)
-		{
-			qPreview += QStringLiteral(", ...");
-		}
-		m_runInfoPage->appendInfo(
-			QStringLiteral("[TCP测试] tcpLink=%1, qSource=%2, q[0..]=[%3]")
-				.arg(tcpLinkName.isEmpty() ? QStringLiteral("<empty>") : tcpLinkName)
-				.arg(qSource)
-				.arg(qPreview));
-		m_runInfoPage->appendInfo(
-			QStringLiteral("[TCP测试] tcpLink=%1, source=%2, hasLocal=%3, hasHierarchyRef=%4")
-				.arg(tcpLinkName.isEmpty() ? QStringLiteral("<empty>") : tcpLinkName)
-				.arg(tcpSource)
-				.arg(hasTcpLocal ? QStringLiteral("true") : QStringLiteral("false"))
-				.arg(hasHierarchyLocal ? QStringLiteral("true") : QStringLiteral("false")));
-		if (hasTcpLocal)
-		{
-			const osg::Vec3d t = tcpLocal.getTrans();
-			const osg::Vec3f eul = OsgScene::quatToEulerDeg(tcpLocal.getRotate());
-			m_runInfoPage->appendInfo(
-				QStringLiteral("[TCP测试] tcpLocal pose: xyz=(%1, %2, %3), euler=(%4, %5, %6)")
-					.arg(t.x(), 0, 'f', 3)
-					.arg(t.y(), 0, 'f', 3)
-					.arg(t.z(), 0, 'f', 3)
-					.arg(eul.x(), 0, 'f', 3)
-					.arg(eul.y(), 0, 'f', 3)
-					.arg(eul.z(), 0, 'f', 3));
-			m_runInfoPage->appendInfo(QStringLiteral("[TCP测试] tcpLocalMat4=%1").arg(matrix4ToLog(tcpLocal)));
-			m_runInfoPage->appendInfo(QStringLiteral("[TCP测试] axisLocalMat4=%1").arg(matrix4ToLog(tcpLocal)));
-		}
-		if (hasTcpLocal && hasHierarchyLocal)
-		{
-			const double posErrMm = matrixTranslationErrorMm(tcpLocal, tcpLocalFromHierarchy);
-			const double rotErrDeg = quaternionAngularErrorDeg(tcpLocal.getRotate(), tcpLocalFromHierarchy.getRotate());
-			m_runInfoPage->appendInfo(
-				QStringLiteral("[TCP测试] FK(local) vs Hierarchy(local): posErr=%1 mm, rotErr=%2 deg")
-					.arg(posErrMm, 0, 'f', 3)
-					.arg(rotErrDeg, 0, 'f', 3));
-			if (posErrMm > 2.0 || rotErrDeg > 2.0)
-			{
-				m_runInfoPage->appendWarning(
-					QStringLiteral("[TCP测试] 末端位姿来源不一致，可能存在坐标系或链路定义问题。"));
-			}
-		}
-		else
-		{
-			m_runInfoPage->appendInfo(
-				QStringLiteral("[TCP测试] 对比跳过：缺少可比的Hierarchy参考位姿（当前路径未提供）。"));
-		}
+		return false;
 	}
 	if (!hasTcpLocal)
 	{
 		if (errMsg)
 		{
 			*errMsg = i18n(QStringLiteral("No link transform is available for TCP."),
-				QStringLiteral("当前没有可用的末端连杆位姿。"));
+				QStringLiteral("当前没有可用的末端关节/连杆位姿。"));
 		}
 		return false;
 	}
 
-	const osg::Vec3d t = tcpLocal.getTrans();
-	const osg::Vec3f euler = OsgScene::quatToEulerDeg(tcpLocal.getRotate());
+	// Keep captured TCP matrix directly. In current URDF->OSG pipeline this matrix is already
+	// in the same scene frame used by FK comparison and overlay rendering; multiplying rootWorld
+	// here introduces an extra transform and shifts the marker.
+	const osg::Matrixd tcpWorld = tcpLocal;
+	osg::Matrixd renderWorld = tcpWorld;
+	if (hasHierarchyLocal)
+	{
+		// Rendering should align with the visible robot scene graph in world space.
+		renderWorld = robotRootWorld * tcpLocalFromHierarchy;
+	}
+	const osg::Vec3d t = tcpWorld.getTrans();
+	const osg::Vec3f euler = OsgScene::quatToEulerDeg(tcpWorld.getRotate());
 	outPoseMm.x = t.x();
 	outPoseMm.y = t.y();
 	outPoseMm.z = t.z();
@@ -1690,10 +1642,15 @@ bool MainWindow::tryCaptureCurrentRobotTcpPose(
 	outEulerDeg.z = euler.z();
 	if (outTcpLocalMat)
 	{
-		*outTcpLocalMat = tcpLocal;
+		*outTcpLocalMat = tcpWorld;
+	}
+	if (outTcpRenderWorldMat)
+	{
+		*outTcpRenderWorldMat = renderWorld;
 	}
 	if (outTcpLinkName)
 	{
+		// Planning/IK reference should be a link name (URDF link frame key).
 		*outTcpLinkName = tcpLinkName;
 	}
 	return true;
@@ -1708,9 +1665,10 @@ void MainWindow::onSimulationAddInstructionRequested(RobotInstruction::Type type
 	RobotInstruction::Vec3 pose{};
 	RobotInstruction::Vec3 euler{};
 	osg::Matrixd tcpLocalMat;
+	osg::Matrixd tcpRenderWorldMat;
 	QString tcpLinkName;
 	QString err;
-	if (!tryCaptureCurrentRobotTcpPose(pose, euler, &tcpLocalMat, &tcpLinkName, &err))
+	if (!tryCaptureCurrentRobotTcpPose(pose, euler, &tcpLocalMat, &tcpRenderWorldMat, &tcpLinkName, &err))
 	{
 		if (m_runInfoPage)
 		{
@@ -1722,21 +1680,19 @@ void MainWindow::onSimulationAddInstructionRequested(RobotInstruction::Type type
 	if (ins)
 	{
 		const std::string matCsv = encodeMatrix4Csv(tcpLocalMat);
+		const std::string renderMatCsv = encodeMatrix4Csv(tcpRenderWorldMat);
+		const osg::Matrixd renderWorldToFk = tcpLocalMat * osg::Matrixd::inverse(tcpRenderWorldMat);
+		const std::string renderToFkCsv = encodeMatrix4Csv(renderWorldToFk);
+		const osg::Vec3d deltaPosMm = tcpLocalMat.getTrans() - tcpRenderWorldMat.getTrans();
+		std::ostringstream deltaOss;
+		deltaOss.imbue(std::locale::classic());
+		deltaOss << deltaPosMm.x() << "," << deltaPosMm.y() << "," << deltaPosMm.z();
+		ins->setExtensionProperty("render.tcpWorldMat4", renderMatCsv);
 		ins->setExtensionProperty("render.tcpLocalMat4", matCsv);
 		ins->setExtensionProperty("render.tcpLinkName", tcpLinkName.toStdString());
-		if (m_runInfoPage)
-		{
-			osg::Matrixd decoded;
-			if (decodeMatrix4Csv(matCsv, decoded))
-			{
-				m_runInfoPage->appendInfo(
-					QStringLiteral("[TCP测试] axisRenderMat4(stored)=%1").arg(matrix4ToLog(decoded)));
-			}
-			else
-			{
-				m_runInfoPage->appendWarning(QStringLiteral("[TCP测试] axisRenderMat4 解析失败，将回退到 pose/euler 渲染。"));
-			}
-		}
+		ins->setExtensionProperty("context.renderWorldToFkMat4", renderToFkCsv);
+		ins->setExtensionProperty("context.renderToFkDeltaPosMmCsv", deltaOss.str());
+		ins->setExtensionProperty("context.capturedTcpLinkName", tcpLinkName.toStdString());
 	}
 	refreshInstructionPoseAxes();
 }
@@ -1769,12 +1725,9 @@ void MainWindow::refreshInstructionPoseAxes()
 	std::vector<OsgWidget::InstructionPoseAxis> axes;
 	axes.reserve(insList.size());
 	std::string robotBackendId;
-	osg::Matrixd robotRootWorld;
-	bool hasRobotRootWorld = false;
 	if (doc && !doc->robotSceneBackendId().isEmpty())
 	{
 		robotBackendId = doc->robotSceneBackendId().toStdString();
-		hasRobotRootWorld = osg->getBackendRootWorldMatrix(robotBackendId, robotRootWorld);
 	}
 	for (const auto& ins : insList)
 	{
@@ -1784,30 +1737,50 @@ void MainWindow::refreshInstructionPoseAxes()
 		}
 		const RobotInstruction::Vec3 p = ins->pose();
 		const RobotInstruction::Vec3 e = ins->eulerDeg();
+		const auto& extIns = ins->extensionProperties();
+		bool usingRenderWorldMat = false;
+		auto itStoredMat = extIns.find("render.tcpWorldMat4");
+		if (itStoredMat == extIns.end() || itStoredMat->second.empty())
+		{
+			itStoredMat = extIns.find("render.tcpLocalMat4");
+		}
+		else
+		{
+			usingRenderWorldMat = true;
+		}
+		osg::Matrixd mDecoded;
+		bool hasDecodedTcpMat = false;
+		if (itStoredMat != extIns.end() && !itStoredMat->second.empty()
+			&& decodeMatrix4Csv(itStoredMat->second, mDecoded))
+		{
+			hasDecodedTcpMat = true;
+		}
 		OsgWidget::InstructionPoseAxis a;
 		a.positionMm = osg::Vec3f(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
 		a.eulerDeg = osg::Vec3f(static_cast<float>(e.x), static_cast<float>(e.y), static_cast<float>(e.z));
 		a.lineMotion = (ins->type() == RobotInstruction::Type::LINE);
-		a.robotBackendId = robotBackendId;
-		const auto& ext = ins->extensionProperties();
-		const auto itMat = ext.find("render.tcpLocalMat4");
-		if (itMat != ext.end())
+		// Keep instruction markers in world frame and parent under overlay root.
+		a.robotBackendId.clear();
+		a.urdfTcpAttachLinkName.clear();
+		if (hasDecodedTcpMat)
 		{
-			osg::Matrixd m;
-			if (decodeMatrix4Csv(itMat->second, m))
+			if (!usingRenderWorldMat)
 			{
-				a.hasLocalMatrix = true;
-				// Render by world matrix to avoid any mismatch in parent local-frame assumptions.
-				const osg::Matrixd renderM = hasRobotRootWorld ? (robotRootWorld * m) : m;
-				for (int r = 0; r < 4; ++r)
-				{
-					for (int c = 0; c < 4; ++c)
-					{
-						a.localMatrix[r * 4 + c] = renderM(r, c);
-					}
-				}
-				a.robotBackendId.clear();
+				// Legacy/local stored matrix path: keep editable pose translation in sync.
+				mDecoded.setTrans(p.x, p.y, p.z);
 			}
+			a.hasLocalMatrix = true;
+			for (int r = 0; r < 4; ++r)
+			{
+				for (int c = 0; c < 4; ++c)
+				{
+					a.localMatrix[r * 4 + c] = mDecoded(r, c);
+				}
+			}
+		}
+		else
+		{
+			a.hasLocalMatrix = false;
 		}
 		axes.push_back(a);
 	}
@@ -1897,19 +1870,24 @@ void MainWindow::onSimulationStartTriggered()
 	}
 	const QStringList jnames = doc->robotRevoluteJointNames();
 	const QString urdfPath = doc->robotUrdfAbsolutePath();
-	QString tcpLinkName = m_simulationCommandPage ? m_simulationCommandPage->selectedTcpLink() : QString();
-	if (tcpLinkName.isEmpty())
+	QString defaultTcpLinkName;
 	{
-		(void)UrdfRobotLoader::loadPrimaryTerminalLinkName(urdfPath, tcpLinkName, nullptr);
-	}
-	if (tcpLinkName.isEmpty())
-	{
+		// Keep planner TCP reference consistent with capture path:
+		// use child link of the last revolute joint by default.
 		QStringList childLinks;
 		(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, childLinks, nullptr);
 		if (!childLinks.isEmpty())
 		{
-			tcpLinkName = childLinks.back();
+			defaultTcpLinkName = childLinks.back();
 		}
+	}
+	if (defaultTcpLinkName.isEmpty() && m_simulationCommandPage)
+	{
+		defaultTcpLinkName = m_simulationCommandPage->selectedTcpLink();
+	}
+	if (defaultTcpLinkName.isEmpty())
+	{
+		(void)UrdfRobotLoader::loadPrimaryTerminalLinkName(urdfPath, defaultTcpLinkName, nullptr);
 	}
 	QVector<double> initialAngles(jnames.size());
 	if (m_robotAxisControlPage && m_robotAxisControlPage->jointCount() == jnames.size())
@@ -1949,9 +1927,117 @@ void MainWindow::onSimulationStartTriggered()
 			}
 			return;
 		}
+		struct PoseRestoreGuard
+		{
+			RobotInstruction::Base* ins = nullptr;
+			RobotInstruction::Vec3 pose{};
+			RobotInstruction::Vec3 euler{};
+			bool active = false;
+			~PoseRestoreGuard()
+			{
+				if (active && ins)
+				{
+					ins->setPose(pose);
+					ins->setEulerDeg(euler);
+				}
+			}
+		} restoreGuard;
+		restoreGuard.ins = instructions[i].get();
+		if (restoreGuard.ins && restoreGuard.ins->hasPoseProperty() && restoreGuard.ins->hasEulerProperty())
+		{
+			restoreGuard.pose = restoreGuard.ins->pose();
+			restoreGuard.euler = restoreGuard.ins->eulerDeg();
+			restoreGuard.active = true;
+			const auto& extMap = restoreGuard.ins->extensionProperties();
+			const auto itDeltaPos = extMap.find("context.renderToFkDeltaPosMmCsv");
+			if (itDeltaPos != extMap.end() && !itDeltaPos->second.empty())
+			{
+				std::stringstream dss(itDeltaPos->second);
+				dss.imbue(std::locale::classic());
+				std::string tok;
+				double dv[3] = { 0.0, 0.0, 0.0 };
+				int dn = 0;
+				while (std::getline(dss, tok, ',') && dn < 3)
+				{
+					try
+					{
+						dv[dn++] = std::stod(tok);
+					}
+					catch (...)
+					{
+						dn = 0;
+						break;
+					}
+				}
+				if (dn == 3)
+				{
+					restoreGuard.ins->setPose(RobotInstruction::Vec3{
+						restoreGuard.pose.x + dv[0],
+						restoreGuard.pose.y + dv[1],
+						restoreGuard.pose.z + dv[2] });
+				}
+			}
+			const auto itRenderToFk = extMap.find("context.renderWorldToFkMat4");
+			if ((itDeltaPos == extMap.end() || itDeltaPos->second.empty())
+				&& itRenderToFk != extMap.end() && !itRenderToFk->second.empty())
+			{
+				osg::Matrixd renderToFk;
+				if (decodeMatrix4Csv(itRenderToFk->second, renderToFk))
+				{
+					bool leftMultiply = true; // fk = A * render
+					bool haveCapturedPair = false;
+					osg::Matrixd capRender;
+					osg::Matrixd capFk;
+					const auto itCapturedRender = extMap.find("render.tcpWorldMat4");
+					const auto itCapturedFk = extMap.find("render.tcpLocalMat4");
+					if (itCapturedRender != extMap.end() && !itCapturedRender->second.empty()
+						&& itCapturedFk != extMap.end() && !itCapturedFk->second.empty())
+					{
+						if (decodeMatrix4Csv(itCapturedRender->second, capRender)
+							&& decodeMatrix4Csv(itCapturedFk->second, capFk))
+						{
+							haveCapturedPair = true;
+							const osg::Matrixd recL = renderToFk * capRender;
+							const osg::Matrixd recR = capRender * renderToFk;
+							const double errL = matrixTranslationErrorMm(recL, capFk);
+							const double errR = matrixTranslationErrorMm(recR, capFk);
+							leftMultiply = (errL <= errR);
+						}
+					}
+					osg::Matrixd targetRender;
+					targetRender.makeRotate(OsgScene::eulerDegToQuat(osg::Vec3f(
+						static_cast<float>(restoreGuard.euler.x),
+						static_cast<float>(restoreGuard.euler.y),
+						static_cast<float>(restoreGuard.euler.z))));
+					targetRender.setTrans(restoreGuard.pose.x, restoreGuard.pose.y, restoreGuard.pose.z);
+					// IK in current URDF fallback is position-only; use translation mapping first for robustness.
+					osg::Vec3d mappedPos;
+					if (haveCapturedPair)
+					{
+						const osg::Vec3d delta = capFk.getTrans() - capRender.getTrans();
+						mappedPos = targetRender.getTrans() + delta;
+					}
+					else
+					{
+						const osg::Matrixd targetFk = leftMultiply
+							? (renderToFk * targetRender)
+							: (targetRender * renderToFk);
+						mappedPos = targetFk.getTrans();
+					}
+					restoreGuard.ins->setPose(RobotInstruction::Vec3{ mappedPos.x(), mappedPos.y(), mappedPos.z() });
+				}
+			}
+		}
 		instructions[i]->setExtensionProperty("context.currentJointRadCsv", encodeJointCsv(rollingQ));
 		instructions[i]->setExtensionProperty("context.urdfPath", urdfPath.toStdString());
-		instructions[i]->setExtensionProperty("context.tcpLinkName", tcpLinkName.toStdString());
+		std::string tcpRef = defaultTcpLinkName.toStdString();
+		const auto& ext = instructions[i]->extensionProperties();
+		const auto itCapturedTcp = ext.find("context.capturedTcpLinkName");
+		if (itCapturedTcp != ext.end() && !itCapturedTcp->second.empty())
+		{
+			tcpRef = itCapturedTcp->second;
+		}
+		instructions[i]->setExtensionProperty("context.tcpLinkName", tcpRef);
 		std::string planErr;
 		if (!m_robotInstructionController.validate(*instructions[i], &planErr))
 		{
@@ -2024,6 +2110,138 @@ void MainWindow::onSimulationStartTriggered()
 	}
 }
 
+void MainWindow::logPlaybackFrameComparison(const QVector<double>& finalJointAnglesRad)
+{
+	if (!m_runInfoPage)
+	{
+		return;
+	}
+	DocumentPage* doc = currentPage();
+	OsgWidget* osg = currentOsgWidget();
+	if (!doc || !osg || !m_simulationCommandPage || finalJointAnglesRad.isEmpty())
+	{
+		return;
+	}
+	const auto insList = m_simulationCommandPage->instructionList();
+	std::shared_ptr<RobotInstruction::Base> targetIns;
+	for (auto it = insList.rbegin(); it != insList.rend(); ++it)
+	{
+		if (*it && (*it)->hasPoseProperty())
+		{
+			targetIns = *it;
+			break;
+		}
+	}
+	if (!targetIns)
+	{
+		return;
+	}
+
+	const RobotInstruction::Vec3 targetPose = targetIns->pose();
+	QString tcpLinkName;
+	{
+		const auto& ext = targetIns->extensionProperties();
+		const auto itCaptured = ext.find("context.capturedTcpLinkName");
+		if (itCaptured != ext.end() && !itCaptured->second.empty())
+		{
+			tcpLinkName = QString::fromStdString(itCaptured->second);
+		}
+		if (tcpLinkName.isEmpty())
+		{
+			const auto itTcp = ext.find("context.tcpLinkName");
+			if (itTcp != ext.end() && !itTcp->second.empty())
+			{
+				tcpLinkName = QString::fromStdString(itTcp->second);
+			}
+		}
+	}
+
+	const auto distToTarget = [&](double x, double y, double z) {
+		const double dx = x - targetPose.x;
+		const double dy = y - targetPose.y;
+		const double dz = z - targetPose.z;
+		return std::sqrt(dx * dx + dy * dy + dz * dz);
+	};
+	const auto fmtPos = [](double x, double y, double z) {
+		return QStringLiteral("(%1, %2, %3)")
+			.arg(x, 0, 'f', 3)
+			.arg(y, 0, 'f', 3)
+			.arg(z, 0, 'f', 3);
+	};
+
+	const QString urdfPath = doc->robotUrdfAbsolutePath();
+	QHash<QString, osg::Matrixd> linkWorldByName;
+	QString fkErr;
+	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, finalJointAnglesRad, linkWorldByName, &fkErr))
+	{
+		m_runInfoPage->appendWarning(QStringLiteral("[Playback对比] FK计算失败：%1").arg(fkErr));
+		return;
+	}
+
+	m_runInfoPage->appendInfo(
+		QStringLiteral("[Playback对比] targetPose=%1")
+			.arg(fmtPos(targetPose.x, targetPose.y, targetPose.z)));
+
+	if (!tcpLinkName.isEmpty() && linkWorldByName.contains(tcpLinkName))
+	{
+		const osg::Vec3d t = linkWorldByName.value(tcpLinkName).getTrans();
+		m_runInfoPage->appendInfo(
+			QStringLiteral("[Playback对比] FK(tcpLink=%1)=%2, errMm=%3")
+				.arg(tcpLinkName)
+				.arg(fmtPos(t.x(), t.y(), t.z()))
+				.arg(distToTarget(t.x(), t.y(), t.z()), 0, 'f', 6));
+	}
+	else
+	{
+		m_runInfoPage->appendInfo(
+			QStringLiteral("[Playback对比] FK(tcpLink=%1)不可用")
+				.arg(tcpLinkName.isEmpty() ? QStringLiteral("<empty>") : tcpLinkName));
+	}
+
+	QString primaryLink;
+	(void)UrdfRobotLoader::loadPrimaryTerminalLinkName(urdfPath, primaryLink, nullptr);
+	if (!primaryLink.isEmpty() && linkWorldByName.contains(primaryLink))
+	{
+		const osg::Vec3d t = linkWorldByName.value(primaryLink).getTrans();
+		m_runInfoPage->appendInfo(
+			QStringLiteral("[Playback对比] FK(primaryLink=%1)=%2, errMm=%3")
+				.arg(primaryLink)
+				.arg(fmtPos(t.x(), t.y(), t.z()))
+				.arg(distToTarget(t.x(), t.y(), t.z()), 0, 'f', 6));
+	}
+
+	const QStringList joints = doc->robotRevoluteJointNames();
+	if (!joints.isEmpty())
+	{
+		const QString lastJoint = joints.back();
+		if (osg::MatrixTransform* jointMt = doc->robotJointMatrixTransform(lastJoint))
+		{
+			osg::Matrixd jointWorld;
+			if (matrixFromNodeWorld(jointMt, jointWorld))
+			{
+				osg::Matrixd robotRootWorld;
+				robotRootWorld.makeIdentity();
+				const QString robotRootId = doc->robotSceneBackendId();
+				if (!robotRootId.isEmpty())
+				{
+					osg::Matrixd m;
+					if (osg->getBackendRootWorldMatrix(robotRootId.toStdString(), m))
+					{
+						robotRootWorld = m;
+					}
+				}
+				const osg::Matrixd jointLocal = osg::Matrixd::inverse(robotRootWorld) * jointWorld;
+				const osg::Vec3d jt = jointLocal.getTrans();
+				m_runInfoPage->appendInfo(
+					QStringLiteral("[Playback对比] Hierarchy(lastJoint=%1)=%2, errMm=%3")
+						.arg(lastJoint)
+						.arg(fmtPos(jt.x(), jt.y(), jt.z()))
+						.arg(distToTarget(jt.x(), jt.y(), jt.z()), 0, 'f', 6));
+			}
+		}
+	}
+}
+
 void MainWindow::onRobotSimulationTick()
 {
 	if (!m_robotInstructionPlayback.isRunning())
@@ -2039,6 +2257,7 @@ void MainWindow::onRobotSimulationTick()
 	case RobotInstructionPlaybackTickResult::Continue:
 		break;
 	case RobotInstructionPlaybackTickResult::Finished:
+		logPlaybackFrameComparison(m_robotInstructionPlayback.jointAnglesRad());
 		stopRobotSimulation();
 		if (m_runInfoPage)
 		{

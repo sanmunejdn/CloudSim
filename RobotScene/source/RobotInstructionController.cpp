@@ -1,4 +1,5 @@
 #include "RobotInstructionController.h"
+#include "RunLogger.h"
 #include "UrdfRobotLoader.h"
 
 #include <algorithm>
@@ -70,6 +71,13 @@ std::vector<double> currentJointVectorFromInstruction(const RobotInstruction::Ba
 		return {};
 	}
 	return parseCsvDoubles(it->second);
+}
+
+bool hasTcpLinkContext(const RobotInstruction::Base& cmd)
+{
+	const auto& ext = cmd.extensionProperties();
+	const auto it = ext.find("context.tcpLinkName");
+	return it != ext.end() && !it->second.empty();
 }
 
 bool legacyJointDeltaFromInstruction(const RobotInstruction::Base& cmd, int& outJointIndex, double& outDeltaRad)
@@ -267,6 +275,66 @@ bool currentTcpPositionFromInstruction(const RobotInstruction::Base& cmd, double
 		return false;
 	}
 	return tcpPositionFromUrdf(QString::fromStdString(itUrdf->second), QString::fromStdString(itTcp->second), q, outPos);
+}
+
+void logIkSolveResidual(
+	const RobotInstruction::Base& cmd,
+	const std::vector<double>& qSolved,
+	const char* plannerName)
+{
+	const auto& ext = cmd.extensionProperties();
+	const auto itUrdf = ext.find("context.urdfPath");
+	const auto itTcp = ext.find("context.tcpLinkName");
+	if (itUrdf == ext.end() || itTcp == ext.end() || itUrdf->second.empty() || itTcp->second.empty())
+	{
+		return;
+	}
+	if (qSolved.empty() || !cmd.hasPoseProperty())
+	{
+		return;
+	}
+	const QString urdfPath = QString::fromStdString(itUrdf->second);
+	const QString tcpLink = QString::fromStdString(itTcp->second);
+	const RobotInstruction::Vec3 target = cmd.pose();
+	double fkPos[3] = { 0.0, 0.0, 0.0 };
+	if (!tcpPositionFromUrdf(urdfPath, tcpLink, qSolved, fkPos))
+	{
+		std::ostringstream os;
+		os << "[IK残差] planner=" << (plannerName ? plannerName : "Unknown")
+		   << ", tcpLink=" << tcpLink.toStdString()
+		   << ", FK检查失败（无法基于q重算tcp位置）";
+		RunLogger::warn(os.str());
+		return;
+	}
+
+	std::ostringstream qPreview;
+	const int previewN = std::min(6, static_cast<int>(qSolved.size()));
+	for (int i = 0; i < previewN; ++i)
+	{
+		if (i > 0)
+		{
+			qPreview << ", ";
+		}
+		qPreview << qSolved[static_cast<size_t>(i)];
+	}
+	if (static_cast<int>(qSolved.size()) > previewN)
+	{
+		qPreview << ", ...";
+	}
+
+	const double dx = fkPos[0] - target.x;
+	const double dy = fkPos[1] - target.y;
+	const double dz = fkPos[2] - target.z;
+	const double errMm = std::sqrt(dx * dx + dy * dy + dz * dz);
+
+	std::ostringstream os;
+	os << "[IK残差] planner=" << (plannerName ? plannerName : "Unknown")
+	   << ", tcpLink=" << tcpLink.toStdString()
+	   << ", targetPose=(" << target.x << ", " << target.y << ", " << target.z << ")"
+	   << ", solvedQ[0..]=[" << qPreview.str() << "]"
+	   << ", fkTcp=(" << fkPos[0] << ", " << fkPos[1] << ", " << fkPos[2] << ")"
+	   << ", errMm=" << errMm;
+	RunLogger::info(os.str());
 }
 
 std::vector<double> solveTargetByUrdfNumericalIkIfPossible(const RobotInstruction::Base& cmd, std::string* failReason)
@@ -477,11 +545,16 @@ public:
 		}
 		std::vector<double> targetQ;
 		std::string ikFailReason;
-		if (m_dhRows && !m_dhRows->empty())
+		const bool preferUrdfIk = hasTcpLinkContext(cmd);
+		if (preferUrdfIk)
+		{
+			targetQ = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+		}
+		if (targetQ.empty() && m_dhRows && !m_dhRows->empty())
 		{
 			targetQ = solveTargetByIkIfPossible(cmd, *m_dhRows, &ikFailReason);
 		}
-		if (targetQ.empty())
+		if (targetQ.empty() && !preferUrdfIk)
 		{
 			targetQ = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
 		}
@@ -520,6 +593,7 @@ public:
 		out.durationSec = durationSec;
 		out.jointTargetsRad = targetQ;
 		out.jointTrajectoryRad = { targetQ };
+		logIkSolveResidual(cmd, targetQ, "PtpPlanner");
 		return true;
 	}
 
@@ -583,11 +657,16 @@ public:
 
 		std::vector<double> qTarget;
 		std::string ikFailReason;
-		if (m_dhRows && !m_dhRows->empty())
+		const bool preferUrdfIk = hasTcpLinkContext(cmd);
+		if (preferUrdfIk)
+		{
+			qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+		}
+		if (qTarget.empty() && m_dhRows && !m_dhRows->empty())
 		{
 			qTarget = solveTargetByIkIfPossible(cmd, *m_dhRows, &ikFailReason);
 		}
-		if (qTarget.empty())
+		if (qTarget.empty() && !preferUrdfIk)
 		{
 			qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
 		}
@@ -647,6 +726,7 @@ public:
 		out.summary = "LINE solved with joint trajectory output.";
 		out.durationSec = durationSec;
 		out.jointTargetsRad = qTarget;
+		logIkSolveResidual(cmd, qTarget, "LinePlanner");
 		return true;
 	}
 

@@ -163,17 +163,27 @@ Mat4 matFromRpy(double roll, double pitch, double yaw)
 	const double cy = std::cos(yaw);
 	const double sy = std::sin(yaw);
 
+	// R = Rz * Ry * Rx, stored as column-major m[col*4 + row].
+	const double r00 = cy * cp;
+	const double r01 = cy * sp * sr - sy * cr;
+	const double r02 = cy * sp * cr + sy * sr;
+	const double r10 = sy * cp;
+	const double r11 = sy * sp * sr + cy * cr;
+	const double r12 = sy * sp * cr - cy * sr;
+	const double r20 = -sp;
+	const double r21 = cp * sr;
+	const double r22 = cp * cr;
+
 	Mat4 r = matIdentity();
-	// R = Rz * Ry * Rx
-	r.m[0] = cy * cp;
-	r.m[1] = cy * sp * sr - sy * cr;
-	r.m[2] = cy * sp * cr + sy * sr;
-	r.m[4] = sy * cp;
-	r.m[5] = sy * sp * sr + cy * cr;
-	r.m[6] = sy * sp * cr - cy * sr;
-	r.m[8] = -sp;
-	r.m[9] = cp * sr;
-	r.m[10] = cp * cr;
+	r.m[0] = r00;
+	r.m[4] = r01;
+	r.m[8] = r02;
+	r.m[1] = r10;
+	r.m[5] = r11;
+	r.m[9] = r12;
+	r.m[2] = r20;
+	r.m[6] = r21;
+	r.m[10] = r22;
 	return r;
 }
 
@@ -461,27 +471,18 @@ void transformTriangleSoup(std::vector<float>& soup, const Mat4& t)
 	}
 }
 
-// 内部 Mat4（列主序，列向量左乘 M*v）转为 osg::Matrixd。
-// OSG 使用行主序存储，数学上是行向量右乘 v*M。
-// 需要对矩阵进行转置，以匹配不同的向量乘法约定。
+// 内部 Mat4（列主序，列向量左乘 M*v）转为 osg::Matrixd（行向量右乘 v*M）。
+// 使用一致转置映射：C(M)=M^T，即 o(r,c)=M(c,r)=m[r*4+c]。
+// 在该映射下组合满足 C(A*B)=C(B)*C(A)（顺序反转）。
 osg::Matrixd mat4ToOsg(const Mat4& m)
 {
 	osg::Matrixd o;
-	// 【关键】部分转置：旋转不转置，位移转置
+	// Consistent transpose mapping.
 	for (int r = 0; r < 4; ++r)
 	{
 		for (int c = 0; c < 4; ++c)
 		{
-			if (r == 3 || c == 3)
-			{
-				// 第4行或第4列：位移需要转置
-				o(r, c) = m.m[r * 4 + c];
-			}
-			else
-			{
-				// 3x3旋转部分：不转置
-				o(r, c) = m.m[c * 4 + r];
-			}
+			o(r, c) = m.m[r * 4 + c];
 		}
 	}
 	return o;
@@ -511,15 +512,24 @@ Mat4 matAxisAngleRad(double ax, double ay, double az, double angle)
 	const double ty = t * ay;
 	const double tz = t * az;
 	Mat4 out = matIdentity();
-	out.m[0] = tx * ax + c;
-	out.m[1] = tx * ay - s * az;
-	out.m[2] = tx * az + s * ay;
-	out.m[4] = ty * ax + s * az;
-	out.m[5] = ty * ay + c;
-	out.m[6] = ty * az - s * ax;
-	out.m[8] = tz * ax - s * ay;
-	out.m[9] = tz * ay + s * ax;
-	out.m[10] = tz * az + c;
+	const double r00 = tx * ax + c;
+	const double r01 = tx * ay - s * az;
+	const double r02 = tx * az + s * ay;
+	const double r10 = ty * ax + s * az;
+	const double r11 = ty * ay + c;
+	const double r12 = ty * az - s * ax;
+	const double r20 = tz * ax - s * ay;
+	const double r21 = tz * ay + s * ax;
+	const double r22 = tz * az + c;
+	out.m[0] = r00;
+	out.m[4] = r01;
+	out.m[8] = r02;
+	out.m[1] = r10;
+	out.m[5] = r11;
+	out.m[9] = r12;
+	out.m[2] = r20;
+	out.m[6] = r21;
+	out.m[10] = r22;
 	return out;
 }
 
@@ -1793,7 +1803,7 @@ static void urdfDebugLogRevoluteJointSubtree(
 		n->dirtyBound();
 		const osg::BoundingSphere& bs = n->getBound();
 		qDebug().nospace() << "[UrdfJointDiag]" << tag << ": valid=" << bs.valid() << " cullingActive=" << n->getCullingActive()
-						   << " center=(" << bs.center().x() << "," << bs.center().y() << "," << bs.center().z() << ") radius=" << bs.radius();
+						   << " radius=" << bs.radius();
 		
 		if (checkParent && n->getNumParents() > 0)
 		{
@@ -2166,6 +2176,7 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 			const QString jtLower = j.type.toLower();
 			const bool isRevolute =
 				(jtLower == QLatin1String("revolute") || jtLower == QLatin1String("continuous"));
+			const Mat4 T_origin_anchor = jointOriginFixedTransform(j);
 
 			// 转动/连续：Parent -> JointN(T_origin) -> JointContent -> { Axis_Visual_N, JointRotation(R(q)) } -> LinkN -> Child_Container。
 			// 与 URDF parent_T_child = T_origin * R(q) 一致；动态更新只写 R(q) 到 URDF 关节名 MatrixTransform（与 computeJointTransformMatrices 一致）。
@@ -2175,7 +2186,7 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 				const QString axisLabel = QStringLiteral("第%1个关节的旋转轴").arg(jointVisIndex);
 				++revoluteJointAxisVisualIndex;
 
-				const Mat4 T_origin = jointOriginFixedTransform(j);
+				const Mat4 T_origin = T_origin_anchor;
 
 				osg::ref_ptr<osg::MatrixTransform> jointOriginMt = new osg::MatrixTransform;
 				jointOriginMt->setName(QStringLiteral("Joint%1").arg(jointVisIndex).toStdString());
@@ -2265,7 +2276,6 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 
 			// 计算子 Link 的世界矩阵，继续 BFS
 			Mat4 childWorldFromLink = matMul(cur.worldFromLink, parent_T_child);
-
 			BfsItem nxt;
 			nxt.link = j.child;
 			nxt.container = childIt.value();
@@ -2319,7 +2329,8 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 		{
 			const UrdfLinkVisual& vis = vit->second;
 			const Mat4 meshToLink = meshFileToLinkFrameFromVisual(vis);
-			mt->setMatrix(mat4ToOsg(meshToLink));
+			const osg::Matrixd expectedLocal = mat4ToOsg(meshToLink);
+			mt->setMatrix(expectedLocal);
 		}
 		else
 		{

@@ -21,13 +21,33 @@ osg::Quat eulerDegToQuat(const osg::Vec3f& eulerDeg)
 	const double ex = osg::DegreesToRadians(static_cast<double>(eulerDeg.x()));
 	const double ey = osg::DegreesToRadians(static_cast<double>(eulerDeg.y()));
 	const double ez = osg::DegreesToRadians(static_cast<double>(eulerDeg.z()));
-	osg::Quat qx;
-	qx.makeRotate(ex, osg::Vec3d(1.0, 0.0, 0.0));
-	osg::Quat qy;
-	qy.makeRotate(ey, osg::Vec3d(0.0, 1.0, 0.0));
-	osg::Quat qz;
-	qz.makeRotate(ez, osg::Vec3d(0.0, 0.0, 1.0));
-	return qz * qy * qx;
+	const double cx = std::cos(ex);
+	const double sx = std::sin(ex);
+	const double cy = std::cos(ey);
+	const double sy = std::sin(ey);
+	const double cz = std::cos(ez);
+	const double sz = std::sin(ez);
+	// Closed form for R = Rz(ez)*Ry(ey)*Rx(ex) (column vectors). This is the inverse of the
+	// atan2/asin extraction used in quatToEulerDeg below; do not use Matrixd::rotate(axis)^n
+	// composition here — OSG multiply order vs. this convention caused 180° Z errors.
+	osg::Matrixd m;
+	m(0, 0) = cy * cz;
+	m(0, 1) = cz * sx * sy - cx * sz;
+	m(0, 2) = sx * sz + cx * cz * sy;
+	m(1, 0) = cy * sz;
+	m(1, 1) = cx * cz + sx * sy * sz;
+	m(1, 2) = cx * sy * sz - cz * sx;
+	m(2, 0) = -sy;
+	m(2, 1) = cy * sx;
+	m(2, 2) = cx * cy;
+	m(0, 3) = 0.0;
+	m(1, 3) = 0.0;
+	m(2, 3) = 0.0;
+	m(3, 0) = 0.0;
+	m(3, 1) = 0.0;
+	m(3, 2) = 0.0;
+	m(3, 3) = 1.0;
+	return m.getRotate();
 }
 
 osg::Vec3f quatToEulerDeg(const osg::Quat& q)
