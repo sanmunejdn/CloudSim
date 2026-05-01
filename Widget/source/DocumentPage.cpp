@@ -5,39 +5,8 @@
 #include <QVBoxLayout>
 
 #include "BackendDataManager.h"
+#include "BackendRelations.h"
 #include "OsgWidget.h"
-
-namespace
-{
-
-QStringList collectBackendSubtreeIds(const QString& rootId, const QMap<QString, QString>& parentMap)
-{
-	QStringList out;
-	QStringList queue;
-	QSet<QString> queued;
-	queue.append(rootId);
-	queued.insert(rootId);
-	while (!queue.isEmpty())
-	{
-		const QString id = queue.takeFirst();
-		out.append(id);
-		for (auto it = parentMap.constBegin(); it != parentMap.constEnd(); ++it)
-		{
-			if (it.value() == id)
-			{
-				const QString child = it.key();
-				if (!queued.contains(child))
-				{
-					queued.insert(child);
-					queue.append(child);
-				}
-			}
-		}
-	}
-	return out;
-}
-
-} // namespace
 
 QStringList DocumentPage::removeBackendSubtree(const QString& rootBackendId)
 {
@@ -45,7 +14,16 @@ QStringList DocumentPage::removeBackendSubtree(const QString& rootBackendId)
 	{
 		return {};
 	}
-	const QStringList ids = collectBackendSubtreeIds(rootBackendId, m_backendParentId);
+	QStringList ids;
+	ids.append(rootBackendId);
+	const std::shared_ptr<BackendDataBase> rootObject = m_backend.getData(rootBackendId.toStdString());
+	const std::vector<std::string> descendantIds = rootObject
+		? backend_relations::descendantIds(*rootObject, m_backend)
+		: std::vector<std::string>{};
+	for (const std::string& descId : descendantIds)
+	{
+		ids.append(QString::fromStdString(descId));
+	}
 	for (const QString& id : ids)
 	{
 		m_backend.unregisterData(id.toStdString());

@@ -1,5 +1,6 @@
 #include "MainWindowObjectGraph.h"
 
+#include <algorithm>
 #include <QSet>
 
 #include "BackendDataBase.h"
@@ -12,34 +13,47 @@ bool wouldCreateCycle(
 	const QString& parentId,
 	const QHash<QString, MainWindowObjectGraph::Node>& nodes)
 {
-	QString cursor = parentId;
+	QVector<QString> queue;
 	QSet<QString> visited;
-	while (!cursor.isEmpty())
+	queue.append(childId);
+	visited.insert(childId);
+	for (int i = 0; i < queue.size(); ++i)
 	{
-		if (cursor == childId)
+		const QString cursor = queue[i];
+		if (cursor == parentId)
 		{
 			return true;
 		}
-		if (visited.contains(cursor))
-		{
-			return true;
-		}
-		visited.insert(cursor);
 		auto it = nodes.constFind(cursor);
 		if (it == nodes.constEnd())
 		{
-			return false;
+			continue;
 		}
-		cursor = it->parentId;
+		for (const QString& next : it->childIds)
+		{
+			if (!visited.contains(next))
+			{
+				visited.insert(next);
+				queue.append(next);
+			}
+		}
 	}
 	return false;
+}
+
+void appendUniqueId(QVector<QString>& out, const QString& id)
+{
+	if (!out.contains(id))
+	{
+		out.append(id);
+	}
 }
 
 } // namespace
 
 MainWindowObjectGraph MainWindowObjectGraph::build(
 	const std::vector<std::shared_ptr<BackendDataBase>>& objects,
-	const QMap<QString, QString>& parentById)
+	const std::vector<std::pair<QString, QString>>& edges)
 {
 	MainWindowObjectGraph graph;
 	graph.m_nodes.reserve(static_cast<int>(objects.size()));
@@ -58,31 +72,42 @@ MainWindowObjectGraph MainWindowObjectGraph::build(
 		}
 		Node node;
 		node.id = id;
-		node.parentId = parentById.value(id);
 		node.data = data;
 		graph.m_nodes.insert(id, std::move(node));
 		graph.m_nodeOrder.append(id);
 	}
 
-	for (const QString& id : graph.m_nodeOrder)
+	for (const auto& edge : edges)
 	{
-		auto it = graph.m_nodes.find(id);
-		if (it == graph.m_nodes.end())
+		const QString parentId = edge.first;
+		const QString childId = edge.second;
+		if (parentId.isEmpty() || childId.isEmpty() || parentId == childId)
 		{
 			continue;
 		}
-		QString parentId = it->parentId;
-		if (parentId.isEmpty() || parentId == id || !graph.m_nodes.contains(parentId))
+		if (!graph.m_nodes.contains(parentId) || !graph.m_nodes.contains(childId))
 		{
-			it->parentId.clear();
 			continue;
 		}
-		if (wouldCreateCycle(id, parentId, graph.m_nodes))
+		auto childIt = graph.m_nodes.find(childId);
+		if (childIt == graph.m_nodes.end())
 		{
-			it->parentId.clear();
 			continue;
 		}
-		graph.m_nodes[parentId].childIds.append(id);
+		appendUniqueId(graph.m_nodes[parentId].childIds, childId);
+		appendUniqueId(childIt->parentIds, parentId);
+		if (wouldCreateCycle(childId, parentId, graph.m_nodes))
+		{
+			graph.m_nodes[parentId].childIds.removeAll(childId);
+			childIt->parentIds.removeAll(parentId);
+		}
+	}
+
+	for (auto it = graph.m_nodes.begin(); it != graph.m_nodes.end(); ++it)
+	{
+		std::sort(it->parentIds.begin(), it->parentIds.end());
+		std::sort(it->childIds.begin(), it->childIds.end());
+		it->primaryParentId = it->parentIds.isEmpty() ? QString() : it->parentIds.front();
 	}
 
 	return graph;
@@ -106,7 +131,9 @@ QVector<QString> MainWindowObjectGraph::subtreeIds(const QString& rootId) const
 		return out;
 	}
 	QVector<QString> queue;
+	QSet<QString> visited;
 	queue.append(rootId);
+	visited.insert(rootId);
 	for (int index = 0; index < queue.size(); ++index)
 	{
 		const QString id = queue[index];
@@ -118,7 +145,11 @@ QVector<QString> MainWindowObjectGraph::subtreeIds(const QString& rootId) const
 		}
 		for (const QString& childId : current->childIds)
 		{
-			queue.append(childId);
+			if (!visited.contains(childId))
+			{
+				visited.insert(childId);
+				queue.append(childId);
+			}
 		}
 	}
 	return out;

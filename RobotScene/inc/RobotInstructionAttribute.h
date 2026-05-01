@@ -1,71 +1,60 @@
 #pragma once
 
 #include "robot_scene_global.h"
+#include "../../PropertyCore/inc/PropertyAttribute.h"
+#include "../../PropertyCore/inc/PropertyEnumAttribute.h"
+#include "../../PropertyCore/inc/PropertyScalarAttribute.h"
+#include "../../PropertyCore/inc/PropertyVec3Attribute.h"
 
 #include <json.hpp>
 
+#include <memory>
 #include <string>
 
 namespace RobotInstruction
 {
 class Base;
+struct Vec3;
 
-class ROBOT_SCENE_API AttributeBase
+class ROBOT_SCENE_API AttributeBase : public property_core::PropertyAttribute<Base>
 {
 public:
 	virtual ~AttributeBase() = default;
-
-	virtual void appendRows(const Base& cmd, nlohmann::json& rows) const = 0;
-	virtual bool handlesKey(const Base& cmd, const std::string& key) const = 0;
-	virtual bool apply(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg) const = 0;
 };
 
-class ROBOT_SCENE_API PoseAttribute final : public AttributeBase
+class ROBOT_SCENE_API PoseAttribute final
+	: public property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>
 {
 public:
-	void appendRows(const Base& cmd, nlohmann::json& rows) const override;
-	bool handlesKey(const Base& cmd, const std::string& key) const override;
-	bool apply(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg) const override;
+	PoseAttribute();
 };
 
-class ROBOT_SCENE_API EulerAttribute final : public AttributeBase
+class ROBOT_SCENE_API EulerAttribute final
+	: public property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>
 {
 public:
-	void appendRows(const Base& cmd, nlohmann::json& rows) const override;
-	bool handlesKey(const Base& cmd, const std::string& key) const override;
-	bool apply(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg) const override;
+	EulerAttribute();
 };
 
-class ROBOT_SCENE_API SpeedAttribute final : public AttributeBase
-{
-public:
-	void appendRows(const Base& cmd, nlohmann::json& rows) const override;
-	bool handlesKey(const Base& cmd, const std::string& key) const override;
-	bool apply(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg) const override;
-};
+using AttributePtr = std::shared_ptr<AttributeBase>;
 
-class ROBOT_SCENE_API AccelAttribute final : public AttributeBase
-{
-public:
-	void appendRows(const Base& cmd, nlohmann::json& rows) const override;
-	bool handlesKey(const Base& cmd, const std::string& key) const override;
-	bool apply(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg) const override;
-};
+ROBOT_SCENE_API AttributePtr makeScalarDoubleAttribute(
+	bool (*hasProperty)(const Base&),
+	double (*getter)(const Base&),
+	void (*setter)(Base&, const double&),
+	const char* key,
+	const char* label);
 
-class ROBOT_SCENE_API AxisConfigAttribute final : public AttributeBase
-{
-public:
-	void appendRows(const Base& cmd, nlohmann::json& rows) const override;
-	bool handlesKey(const Base& cmd, const std::string& key) const override;
-	bool apply(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg) const override;
-};
+ROBOT_SCENE_API AttributePtr makeEnumAttribute(
+	bool (*hasProperty)(const Base&),
+	std::string (*getter)(const Base&),
+	void (*setter)(Base&, const std::string&),
+	const char* key,
+	const char* label);
 
-class ROBOT_SCENE_API BlendRadiusAttribute final : public AttributeBase
-{
-public:
-	void appendRows(const Base& cmd, nlohmann::json& rows) const override;
-	bool handlesKey(const Base& cmd, const std::string& key) const override;
-	bool apply(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg) const override;
-};
+ROBOT_SCENE_API AttributePtr makeSpeedAttribute();
+ROBOT_SCENE_API AttributePtr makeAccelAttribute();
+ROBOT_SCENE_API AttributePtr makeAxisConfigAttribute();
+ROBOT_SCENE_API AttributePtr makeBlendRadiusAttribute();
 
 } // namespace RobotInstruction

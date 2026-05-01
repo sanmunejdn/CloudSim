@@ -1,6 +1,7 @@
 #include "PointCloudBackendData.h"
 
 #include "geometry_base64.h"
+#include "../../PropertyCore/inc/PropertyAttribute.h"
 
 #include <CGAL/IO/io.h>
 #include <CGAL/IO/read_ply_points.h>
@@ -27,9 +28,9 @@ PointCloudBackendData::PointCloudBackendData()
 	c.b = 0.95f;
 	c.a = 1.0f;
 	m_color = c;
-	m_attributes.push_back(std::make_shared<BackendPoseAttribute>());
-	m_attributes.push_back(std::make_shared<BackendRotationAttribute>());
-	m_attributes.push_back(std::make_shared<BackendDisplayColorAttribute>());
+	m_attributes.push_back(makeBackendPoseAttribute());
+	m_attributes.push_back(makeBackendRotationAttribute());
+	m_attributes.push_back(makeBackendDisplayColorAttribute());
 }
 
 std::string PointCloudBackendData::className() const
@@ -758,26 +759,16 @@ bool PointCloudBackendData::readPointCloudPlySidecar(const std::string& utf8Path
 nlohmann::json PointCloudBackendData::snapshotPropertyRows() const
 {
 	nlohmann::json rows = BackendDataBase::snapshotPropertyRows();
-	for (const auto& attr : m_attributes)
-	{
-		attr->appendRows(*this, rows);
-	}
+	property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::appendRows(m_attributes, *this, rows);
 	return rows;
 }
 
 bool PointCloudBackendData::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg)
 {
-	for (auto& attr : m_attributes)
+	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(
+			m_attributes, *this, key, value, errMsg))
 	{
-		if (!attr->handlesKey(*this, key))
-		{
-			continue;
-		}
-		if (attr->apply(*this, key, value, errMsg))
-		{
-			return true;
-		}
-		return false;
+		return true;
 	}
 	return BackendDataBase::applyPropertyChange(key, value, errMsg);
 }

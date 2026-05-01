@@ -13,7 +13,6 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "DocumentPage.h"
-#include "MainWindowObjectRepository.h"
 #include "MainWindow_p.h"
 #include "MainWindowSelectionService.h"
 #include "MeshBackendData.h"
@@ -169,20 +168,34 @@ void MainWindow::refreshBackendTree()
 		<< i18n(QStringLiteral("Annotations"), QStringLiteral("注释")));
 	m_backendRootItem->addChild(m_annotationRootItem);
 	m_annotationRootItem->setExpanded(true);
-	const MainWindowObjectGraph objectGraph = MainWindowObjectRepository::buildGraph(*this);
-	QHash<QString, QTreeWidgetItem*> idToItem;
-	idToItem.reserve(objectGraph.nodeOrder().size());
-	for (const QString& id : objectGraph.nodeOrder())
+	std::vector<std::shared_ptr<BackendDataBase>> objects;
+	const std::vector<std::string> topoIds = activeBackend().topoOrder();
+	objects.reserve(topoIds.size());
+	for (const std::string& id : topoIds)
 	{
-		const MainWindowObjectGraph::Node* const node = objectGraph.node(id);
-		if (!node || !node->data)
+		std::shared_ptr<BackendDataBase> data = activeBackend().getData(id);
+		if (data)
+		{
+			objects.push_back(std::move(data));
+		}
+	}
+	QHash<QString, QTreeWidgetItem*> idToItem;
+	idToItem.reserve(static_cast<int>(objects.size()));
+	for (const std::shared_ptr<BackendDataBase>& data : objects)
+	{
+		if (!data)
+		{
+			continue;
+		}
+		const QString id = QString::fromStdString(data->id());
+		if (id.isEmpty())
 		{
 			continue;
 		}
 
 		const QString nodeText = QStringLiteral("%1 [%2]")
-			.arg(QString::fromStdString(node->data->name()))
-			.arg(QString::fromStdString(node->data->id()));
+			.arg(QString::fromStdString(data->name()))
+			.arg(QString::fromStdString(data->id()));
 		auto* child = new QTreeWidgetItem(QStringList() << nodeText);
 		child->setFlags(child->flags() | Qt::ItemIsUserCheckable);
 		child->setData(0, kRoleItemType, kItemTypeBackend);
@@ -191,21 +204,48 @@ void MainWindow::refreshBackendTree()
 		idToItem.insert(id, child);
 		m_backendTreeItemsById.insert(id, child);
 	}
-	for (const QString& id : objectGraph.nodeOrder())
+	for (const std::shared_ptr<BackendDataBase>& data : objects)
 	{
-		const MainWindowObjectGraph::Node* const node = objectGraph.node(id);
-		QTreeWidgetItem* const item = idToItem.value(id, nullptr);
-		if (!node || !item)
+		if (!data)
 		{
 			continue;
 		}
-		const QString parentId = node->parentId;
+		const QString id = QString::fromStdString(data->id());
+		QTreeWidgetItem* const item = idToItem.value(id, nullptr);
+		if (!item)
+		{
+			continue;
+		}
+		const std::vector<std::string> parentIdsStd = activeBackend().parentsOf(data->id());
+		const QString parentId = parentIdsStd.empty() ? QString() : QString::fromStdString(parentIdsStd.front());
 		QTreeWidgetItem* parentItem = idToItem.value(parentId, m_backendRootItem);
 		if (!parentItem)
 		{
 			parentItem = m_backendRootItem;
 		}
 		parentItem->addChild(item);
+
+		// DAG support: additional parents render as reference nodes.
+		for (std::size_t index = 1; index < parentIdsStd.size(); ++index)
+		{
+			const QString extraParentId = QString::fromStdString(parentIdsStd[index]);
+			if (extraParentId.isEmpty() || extraParentId == parentId)
+			{
+				continue;
+			}
+			QTreeWidgetItem* extraParentItem = idToItem.value(extraParentId, m_backendRootItem);
+			if (!extraParentItem)
+			{
+				extraParentItem = m_backendRootItem;
+			}
+			const QString refText = item->text(0) + QStringLiteral(" (ref)");
+			auto* refItem = new QTreeWidgetItem(QStringList() << refText);
+			refItem->setFlags(refItem->flags() | Qt::ItemIsUserCheckable);
+			refItem->setData(0, kRoleItemType, kItemTypeBackend);
+			refItem->setData(0, kRoleBackendId, id);
+			refItem->setCheckState(0, item->checkState(0));
+			extraParentItem->addChild(refItem);
+		}
 	}
 
 	if (OsgWidget* osg = currentOsgWidget())

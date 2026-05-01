@@ -129,6 +129,32 @@ QString sanitizedArchiveBase(const QString& base)
 	return s;
 }
 
+void rebuildLegacyParentMirror(DocumentPage* page)
+{
+	if (!page)
+	{
+		return;
+	}
+	QMap<QString, QString>& parentMap = page->backendParentId();
+	parentMap.clear();
+	const auto all = page->backend().listData();
+	for (const auto& data : all)
+	{
+		if (!data)
+		{
+			continue;
+		}
+		const QString id = QString::fromStdString(data->id());
+		const std::vector<std::string> parents = page->backend().parentsOf(data->id());
+		if (parents.empty())
+		{
+			parentMap[id] = QString();
+			continue;
+		}
+		parentMap[id] = QString::fromStdString(parents.front());
+	}
+}
+
 void applyPointCloudPoseFromJson(PointCloudBackendData& pc, OsgWidget* osgWidget, const QJsonObject& obj)
 {
 	const QJsonObject pose = obj.value(QStringLiteral("pose")).toObject();
@@ -221,7 +247,8 @@ void MainWindow::onSaveProject()
 		const QString srcPath = doc->backendSourcePath().count(idQs) ? doc->backendSourcePath()[idQs] : QString();
 		obj.insert(QStringLiteral("sourcePath"), srcPath);
 		obj.insert(QStringLiteral("sourceType"), doc->backendSourceType().count(idQs) ? doc->backendSourceType()[idQs] : QString());
-		obj.insert(QStringLiteral("parentId"), doc->backendParentId().count(idQs) ? doc->backendParentId()[idQs] : QString());
+		const std::vector<std::string> parentIds = doc->backend().parentsOf(id);
+		obj.insert(QStringLiteral("parentId"), parentIds.empty() ? QString() : QString::fromStdString(parentIds.front()));
 
 		if (auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(data))
 		{
@@ -297,6 +324,15 @@ void MainWindow::onSaveProject()
 		objects.push_back(obj);
 	}
 	root.insert(QStringLiteral("objects"), objects);
+	QJsonArray edgeArray;
+	for (const auto& edge : doc->backend().listEdges())
+	{
+		QJsonObject edgeObj;
+		edgeObj.insert(QStringLiteral("parentId"), QString::fromStdString(edge.first));
+		edgeObj.insert(QStringLiteral("childId"), QString::fromStdString(edge.second));
+		edgeArray.push_back(edgeObj);
+	}
+	root.insert(QStringLiteral("edges"), edgeArray);
 
 	QJsonArray annArray;
 	if (OsgWidget* w = doc->osgWidget())
@@ -435,6 +471,25 @@ void MainWindow::onOpenProjectFile()
 	OsgWidget* osg = page->osgWidget();
 
 	const QJsonObject root = jsonDoc.object();
+	const QJsonArray edgesJson = root.value(QStringLiteral("edges")).toArray();
+	std::vector<std::pair<QString, QString>> pendingEdges;
+	pendingEdges.reserve(static_cast<std::size_t>(edgesJson.size()));
+	for (const QJsonValue& v : edgesJson)
+	{
+		if (!v.isObject())
+		{
+			continue;
+		}
+		const QJsonObject edgeObj = v.toObject();
+		const QString parentId = edgeObj.value(QStringLiteral("parentId")).toString();
+		const QString childId = edgeObj.value(QStringLiteral("childId")).toString();
+		if (parentId.isEmpty() || childId.isEmpty() || parentId == childId)
+		{
+			continue;
+		}
+		pendingEdges.emplace_back(parentId, childId);
+	}
+	const bool useEdgesRelation = !pendingEdges.empty();
 	const QJsonArray objects = root.value(QStringLiteral("objects")).toArray();
 	for (const auto& v : objects)
 	{
@@ -443,7 +498,7 @@ void MainWindow::onOpenProjectFile()
 		const QString sourcePath = obj.value(QStringLiteral("sourcePath")).toString();
 		const QString assetRelativePath = obj.value(QStringLiteral("assetRelativePath")).toString();
 		const QString sourceType = obj.value(QStringLiteral("sourceType")).toString();
-		const QString parentId = obj.value(QStringLiteral("parentId")).toString();
+		const QString legacyParentId = obj.value(QStringLiteral("parentId")).toString();
 		const QString persistedId = obj.value(QStringLiteral("id")).toString();
 		const QString classNameVal = obj.value(QStringLiteral("className")).toString();
 		const QJsonObject emb = obj.value(QStringLiteral("embeddedGeometry")).toObject();
@@ -512,7 +567,13 @@ void MainWindow::onOpenProjectFile()
 			{
 				QString err;
 				if (osg && osg->loadPointCloudFromBackendData(*pc, &err)
-					&& registerExistingBackendObject(pc, sourcePath, QStringLiteral("PointCloud"), persistedId, false, parentId))
+					&& registerExistingBackendObject(
+						pc,
+						sourcePath,
+						QStringLiteral("PointCloud"),
+						persistedId,
+						false,
+						useEdgesRelation ? QString() : legacyParentId))
 				{
 					loaded = true;
 				}
@@ -539,7 +600,13 @@ void MainWindow::onOpenProjectFile()
 			{
 				QString err;
 				if (osg && osg->loadMeshFromBackendData(*mesh, &err)
-					&& registerExistingBackendObject(mesh, sourcePath, QStringLiteral("Model"), persistedId, false, parentId))
+					&& registerExistingBackendObject(
+						mesh,
+						sourcePath,
+						QStringLiteral("Model"),
+						persistedId,
+						false,
+						useEdgesRelation ? QString() : legacyParentId))
 				{
 					loaded = true;
 				}
@@ -604,6 +671,43 @@ void MainWindow::onOpenProjectFile()
 			{
 				applyPointCloudPoseFromJson(*pc, osg, obj);
 			}
+		}
+	}
+
+	if (useEdgesRelation)
+	{
+		for (const auto& edge : pendingEdges)
+		{
+			const std::string parentId = edge.first.toStdString();
+			const std::string childId = edge.second.toStdString();
+			if (!page->backend().contains(parentId) || !page->backend().contains(childId))
+			{
+				if (m_runInfoPage)
+				{
+					m_runInfoPage->appendWarning(
+						QStringLiteral("Skip dangling edge: %1 -> %2").arg(edge.first, edge.second));
+				}
+				continue;
+			}
+			if (!page->backend().attachChild(parentId, childId) && m_runInfoPage)
+			{
+				m_runInfoPage->appendWarning(
+					QStringLiteral("Skip invalid edge (cycle or duplicate): %1 -> %2").arg(edge.first, edge.second));
+			}
+		}
+	}
+	rebuildLegacyParentMirror(page);
+	if (osg)
+	{
+		for (const auto& data : page->backend().listData())
+		{
+			if (!data)
+			{
+				continue;
+			}
+			const std::vector<std::string> parents = page->backend().parentsOf(data->id());
+			const std::string parent = parents.empty() ? std::string() : parents.front();
+			osg->setBackendParent(data->id(), parent);
 		}
 	}
 

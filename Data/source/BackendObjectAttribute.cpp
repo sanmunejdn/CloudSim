@@ -3,213 +3,107 @@
 #include "BackendDataBase.h"
 
 #include "BackendPropertyRow.h"
+#include "../../PropertyCore/inc/PropertyAttributeHelpers.h"
+#include "../../PropertyCore/inc/PropertyRgbaAttribute.h"
+#include "../../PropertyCore/inc/PropertyVec3Attribute.h"
 
-#include <sstream>
+#include <array>
 
 namespace {
 
-std::string formatDouble(double v)
+void appendBackendRow(
+	nlohmann::json& rows,
+	const char* key,
+	const char* label,
+	bool editable,
+	const std::string& value)
 {
-	std::ostringstream oss;
-	oss.setf(std::ios::fixed);
-	oss.precision(3);
-	oss << v;
-	return oss.str();
+	backend_property_json::appendRow(rows, key, label, editable, value);
 }
 
-bool parseDouble(const std::string& s, double& out, std::string* errMsg)
+bool hasPoseProperty(const BackendDataBase& data)
 {
-	try
-	{
-		size_t idx = 0;
-		out = std::stod(s, &idx);
-		while (idx < s.size() && (s[idx] == ' ' || s[idx] == '\t'))
-		{
-			++idx;
-		}
-		if (idx != s.size())
-		{
-			if (errMsg)
-			{
-				*errMsg = "Invalid number.";
-			}
-			return false;
-		}
-		return true;
-	}
-	catch (...)
-	{
-		if (errMsg)
-		{
-			*errMsg = "Invalid number.";
-		}
-		return false;
-	}
+	return data.hasPoseProperty();
+}
+
+BackendVec3 getPose(const BackendDataBase& data)
+{
+	return data.pose();
+}
+
+void setPose(BackendDataBase& data, const BackendVec3& pose)
+{
+	data.setPose(pose);
+}
+
+bool hasRotationProperty(const BackendDataBase& data)
+{
+	return data.hasRotationProperty();
+}
+
+BackendVec3 getRotation(const BackendDataBase& data)
+{
+	return data.rotation();
+}
+
+void setRotation(BackendDataBase& data, const BackendVec3& rotation)
+{
+	data.setRotation(rotation);
+}
+
+bool hasColorProperty(const BackendDataBase& data)
+{
+	return data.hasColorProperty();
+}
+
+BackendColor getColor(const BackendDataBase& data)
+{
+	return data.color();
+}
+
+void setColor(BackendDataBase& data, const BackendColor& color)
+{
+	data.setColor(color);
 }
 
 } // namespace
 
-void BackendPoseAttribute::appendRows(const BackendDataBase& data, nlohmann::json& rows) const
+namespace
 {
-	if (!data.hasPoseProperty())
-	{
-		return;
-	}
-	const auto p = data.pose();
-	backend_property_json::appendRow(rows, "pose.x", "Pose X", true, formatDouble(p.x));
-	backend_property_json::appendRow(rows, "pose.y", "Pose Y", true, formatDouble(p.y));
-	backend_property_json::appendRow(rows, "pose.z", "Pose Z", true, formatDouble(p.z));
+using Vec3AttributeImpl = property_core::PropertyVec3Attribute<BackendDataBase, BackendVec3, BackendAttributeBase>;
+using RgbaAttributeImpl = property_core::PropertyRgbaAttribute<BackendDataBase, BackendColor, BackendAttributeBase>;
 }
 
-bool BackendPoseAttribute::handlesKey(const BackendDataBase& data, const std::string& key) const
+BackendAttributePtr makeBackendPoseAttribute()
 {
-	if (!data.hasPoseProperty())
-	{
-		return false;
-	}
-	return key == "pose.x" || key == "pose.y" || key == "pose.z";
+	return std::make_shared<Vec3AttributeImpl>(
+		hasPoseProperty,
+		getPose,
+		setPose,
+		std::array<const char*, 3>{ "pose.x", "pose.y", "pose.z" },
+		std::array<const char*, 3>{ "Pose X", "Pose Y", "Pose Z" },
+		appendBackendRow);
 }
 
-bool BackendPoseAttribute::apply(BackendDataBase& data, const std::string& key, const std::string& value, std::string* errMsg) const
+BackendAttributePtr makeBackendRotationAttribute()
 {
-	if (!handlesKey(data, key))
-	{
-		return false;
-	}
-	double v = 0.0;
-	if (!parseDouble(value, v, errMsg))
-	{
-		return false;
-	}
-	BackendVec3 p = data.pose();
-	if (key == "pose.x")
-	{
-		p.x = v;
-	}
-	else if (key == "pose.y")
-	{
-		p.y = v;
-	}
-	else if (key == "pose.z")
-	{
-		p.z = v;
-	}
-	else
-	{
-		return false;
-	}
-	data.setPose(p);
-	return true;
+	return std::make_shared<Vec3AttributeImpl>(
+		hasRotationProperty,
+		getRotation,
+		setRotation,
+		std::array<const char*, 3>{ "rotation.x", "rotation.y", "rotation.z" },
+		std::array<const char*, 3>{ "Rotation X (deg)", "Rotation Y (deg)", "Rotation Z (deg)" },
+		appendBackendRow);
 }
 
-void BackendRotationAttribute::appendRows(const BackendDataBase& data, nlohmann::json& rows) const
+BackendAttributePtr makeBackendDisplayColorAttribute()
 {
-	if (!data.hasRotationProperty())
-	{
-		return;
-	}
-	const auto r = data.rotation();
-	backend_property_json::appendRow(rows, "rotation.x", "Rotation X (deg)", true, formatDouble(r.x));
-	backend_property_json::appendRow(rows, "rotation.y", "Rotation Y (deg)", true, formatDouble(r.y));
-	backend_property_json::appendRow(rows, "rotation.z", "Rotation Z (deg)", true, formatDouble(r.z));
-}
-
-bool BackendRotationAttribute::handlesKey(const BackendDataBase& data, const std::string& key) const
-{
-	if (!data.hasRotationProperty())
-	{
-		return false;
-	}
-	return key == "rotation.x" || key == "rotation.y" || key == "rotation.z";
-}
-
-bool BackendRotationAttribute::apply(BackendDataBase& data, const std::string& key, const std::string& value, std::string* errMsg) const
-{
-	if (!handlesKey(data, key))
-	{
-		return false;
-	}
-	double v = 0.0;
-	if (!parseDouble(value, v, errMsg))
-	{
-		return false;
-	}
-	BackendVec3 r = data.rotation();
-	if (key == "rotation.x")
-	{
-		r.x = v;
-	}
-	else if (key == "rotation.y")
-	{
-		r.y = v;
-	}
-	else if (key == "rotation.z")
-	{
-		r.z = v;
-	}
-	else
-	{
-		return false;
-	}
-	data.setRotation(r);
-	return true;
-}
-
-void BackendDisplayColorAttribute::appendRows(const BackendDataBase& data, nlohmann::json& rows) const
-{
-	if (!data.hasColorProperty())
-	{
-		return;
-	}
-	const BackendColor c = data.color();
-	backend_property_json::appendRow(rows, "color.r", "Color R", true, formatDouble(static_cast<double>(c.r)));
-	backend_property_json::appendRow(rows, "color.g", "Color G", true, formatDouble(static_cast<double>(c.g)));
-	backend_property_json::appendRow(rows, "color.b", "Color B", true, formatDouble(static_cast<double>(c.b)));
-	backend_property_json::appendRow(rows, "color.a", "Color A", true, formatDouble(static_cast<double>(c.a)));
-}
-
-bool BackendDisplayColorAttribute::handlesKey(const BackendDataBase& data, const std::string& key) const
-{
-	if (!data.hasColorProperty())
-	{
-		return false;
-	}
-	return key == "color.r" || key == "color.g" || key == "color.b" || key == "color.a";
-}
-
-bool BackendDisplayColorAttribute::apply(BackendDataBase& data, const std::string& key, const std::string& value, std::string* errMsg) const
-{
-	if (!handlesKey(data, key))
-	{
-		return false;
-	}
-	double v = 0.0;
-	if (!parseDouble(value, v, errMsg))
-	{
-		return false;
-	}
-	BackendColor c = data.color();
-	if (key == "color.r")
-	{
-		c.r = static_cast<float>(v);
-	}
-	else if (key == "color.g")
-	{
-		c.g = static_cast<float>(v);
-	}
-	else if (key == "color.b")
-	{
-		c.b = static_cast<float>(v);
-	}
-	else if (key == "color.a")
-	{
-		c.a = static_cast<float>(v);
-	}
-	else
-	{
-		return false;
-	}
-	data.setColor(c);
-	return true;
+	return std::make_shared<RgbaAttributeImpl>(
+		hasColorProperty,
+		getColor,
+		setColor,
+		std::array<const char*, 4>{ "color.r", "color.g", "color.b", "color.a" },
+		std::array<const char*, 4>{ "Color R", "Color G", "Color B", "Color A" },
+		appendBackendRow);
 }
 

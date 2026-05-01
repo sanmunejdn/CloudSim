@@ -2,13 +2,18 @@
 
 #include <cstddef>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <json.hpp>
 
 #include "data_global.h"
+#include "BackendComponent.h"
 #include "BackendObjectAttribute.h"
+
+class BackendDataManager;
 
 // 3D vector (double) for pose, bounds, etc.
 struct BackendVec3
@@ -70,6 +75,16 @@ public:
 	virtual nlohmann::json snapshotPropertyRows() const;
 	virtual bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg);
 
+	bool addComponent(const BackendComponentPtr& component);
+	bool removeComponent(const std::string& componentType);
+	BackendComponentPtr getComponent(const std::string& componentType) const;
+	std::vector<BackendComponentPtr> listComponents() const;
+	bool hasComponent(const std::string& componentType) const;
+
+	std::vector<std::shared_ptr<BackendDataBase>> parentObjects(const BackendDataManager& manager) const;
+	std::vector<std::shared_ptr<BackendDataBase>> childObjects(const BackendDataManager& manager) const;
+	std::vector<std::shared_ptr<BackendDataBase>> descendantObjects(const BackendDataManager& manager) const;
+
 protected:
 	static std::string generateId();
 
@@ -78,4 +93,6 @@ protected:
 private:
 	std::string m_id;
 	std::string m_name;
+	mutable std::mutex m_componentMutex;
+	std::unordered_map<std::string, BackendComponentPtr> m_components;
 };

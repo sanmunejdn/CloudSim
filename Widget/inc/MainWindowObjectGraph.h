@@ -1,10 +1,10 @@
 #pragma once
 
 #include <QHash>
-#include <QMap>
 #include <QString>
 #include <QVector>
 #include <memory>
+#include <utility>
 #include <vector>
 
 class BackendDataBase;
@@ -16,14 +16,15 @@ public:
 	struct Node
 	{
 		QString id;
-		QString parentId;
+		QVector<QString> parentIds;
+		QString primaryParentId;
 		std::shared_ptr<BackendDataBase> data;
 		QVector<QString> childIds;
 	};
 
 	static MainWindowObjectGraph build(
 		const std::vector<std::shared_ptr<BackendDataBase>>& objects,
-		const QMap<QString, QString>& parentById);
+		const std::vector<std::pair<QString, QString>>& edges);
 
 	const Node* node(const QString& id) const;
 	const QVector<QString>& nodeOrder() const { return m_nodeOrder; }

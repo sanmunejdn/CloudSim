@@ -1,8 +1,10 @@
 #include "BackendDataBase.h"
 
+#include "BackendDataManager.h"
 #include "BackendPropertyRow.h"
 
 #include <atomic>
+#include <mutex>
 
 namespace
 {
@@ -63,5 +65,116 @@ bool BackendDataBase::applyPropertyChange(const std::string& /*key*/, const std:
 		*errMsg = "Property is read-only for this object type.";
 	}
 	return false;
+}
+
+bool BackendDataBase::addComponent(const BackendComponentPtr& component)
+{
+	if (!component)
+	{
+		return false;
+	}
+	const std::string type = component->componentType();
+	if (type.empty())
+	{
+		return false;
+	}
+	std::lock_guard<std::mutex> lock(m_componentMutex);
+	m_components[type] = component;
+	return true;
+}
+
+bool BackendDataBase::removeComponent(const std::string& componentType)
+{
+	if (componentType.empty())
+	{
+		return false;
+	}
+	std::lock_guard<std::mutex> lock(m_componentMutex);
+	return m_components.erase(componentType) > 0;
+}
+
+BackendComponentPtr BackendDataBase::getComponent(const std::string& componentType) const
+{
+	if (componentType.empty())
+	{
+		return nullptr;
+	}
+	std::lock_guard<std::mutex> lock(m_componentMutex);
+	const auto it = m_components.find(componentType);
+	if (it == m_components.end())
+	{
+		return nullptr;
+	}
+	return it->second;
+}
+
+std::vector<BackendComponentPtr> BackendDataBase::listComponents() const
+{
+	std::lock_guard<std::mutex> lock(m_componentMutex);
+	std::vector<BackendComponentPtr> components;
+	components.reserve(m_components.size());
+	for (const auto& item : m_components)
+	{
+		components.push_back(item.second);
+	}
+	return components;
+}
+
+bool BackendDataBase::hasComponent(const std::string& componentType) const
+{
+	if (componentType.empty())
+	{
+		return false;
+	}
+	std::lock_guard<std::mutex> lock(m_componentMutex);
+	return m_components.find(componentType) != m_components.end();
+}
+
+std::vector<std::shared_ptr<BackendDataBase>> BackendDataBase::parentObjects(const BackendDataManager& manager) const
+{
+	std::vector<std::shared_ptr<BackendDataBase>> out;
+	const std::vector<std::string> ids = manager.parentsOf(id());
+	out.reserve(ids.size());
+	for (const std::string& parentId : ids)
+	{
+		std::shared_ptr<BackendDataBase> obj = manager.getData(parentId);
+		if (obj)
+		{
+			out.push_back(std::move(obj));
+		}
+	}
+	return out;
+}
+
+std::vector<std::shared_ptr<BackendDataBase>> BackendDataBase::childObjects(const BackendDataManager& manager) const
+{
+	std::vector<std::shared_ptr<BackendDataBase>> out;
+	const std::vector<std::string> ids = manager.childrenOf(id());
+	out.reserve(ids.size());
+	for (const std::string& childId : ids)
+	{
+		std::shared_ptr<BackendDataBase> obj = manager.getData(childId);
+		if (obj)
+		{
+			out.push_back(std::move(obj));
+		}
+	}
+	return out;
+}
+
+std::vector<std::shared_ptr<BackendDataBase>> BackendDataBase::descendantObjects(const BackendDataManager& manager) const
+{
+	std::vector<std::shared_ptr<BackendDataBase>> out;
+	const std::vector<std::string> ids = manager.descendantsOf(id());
+	out.reserve(ids.size());
+	for (const std::string& childId : ids)
+	{
+		std::shared_ptr<BackendDataBase> obj = manager.getData(childId);
+		if (obj)
+		{
+			out.push_back(std::move(obj));
+		}
+	}
+	return out;
 }
 

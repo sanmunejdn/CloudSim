@@ -64,6 +64,16 @@ bool MainWindow::registerExistingBackendObject(std::shared_ptr<BackendDataBase> 
 	const QString id = QString::fromStdString(backendObject->id());
 	doc->backendSourcePath()[id] = sourcePath;
 	doc->backendSourceType()[id] = typeName;
+	if (!parentId.isEmpty())
+	{
+		if (!doc->backend().attachChild(parentId.toStdString(), id.toStdString()))
+		{
+			doc->backend().unregisterData(id.toStdString());
+			QMessageBox::warning(this, QStringLiteral("Backend Relation"),
+				QStringLiteral("Failed to link backend relation (cycle or invalid parent)."));
+			return false;
+		}
+	}
 	doc->backendParentId()[id] = parentId;
 	if (OsgWidget* osg = doc->osgWidget())
 	{

@@ -1,50 +1,12 @@
 #include "RobotInstructionAttribute.h"
 
 #include "RobotInstructionModel.h"
+#include "RobotInstructionPropertySchema.h"
 
-#include <sstream>
+#include <array>
 
 namespace
 {
-std::string fmt(double v)
-{
-	std::ostringstream oss;
-	oss.setf(std::ios::fixed);
-	oss.precision(3);
-	oss << v;
-	return oss.str();
-}
-
-bool parseDouble(const std::string& text, double& out, std::string* errMsg)
-{
-	try
-	{
-		size_t idx = 0;
-		out = std::stod(text, &idx);
-		while (idx < text.size() && (text[idx] == ' ' || text[idx] == '\t'))
-		{
-			++idx;
-		}
-		if (idx != text.size())
-		{
-			if (errMsg)
-			{
-				*errMsg = "Invalid number.";
-			}
-			return false;
-		}
-		return true;
-	}
-	catch (...)
-	{
-		if (errMsg)
-		{
-			*errMsg = "Invalid number.";
-		}
-		return false;
-	}
-}
-
 void appendRow(nlohmann::json& rows, const char* key, const char* label, bool editable, const std::string& value)
 {
 	nlohmann::json row;
@@ -54,217 +16,216 @@ void appendRow(nlohmann::json& rows, const char* key, const char* label, bool ed
 	row["value"] = value;
 	rows.push_back(std::move(row));
 }
+
+const char* labelForKey(const char* key, const char* fallback)
+{
+	const property_core::PropertyDescriptor* descriptor = RobotInstruction::findInstructionPropertyDescriptor(key);
+	return descriptor ? descriptor->label.c_str() : fallback;
+}
+
+bool hasPoseProperty(const RobotInstruction::Base& cmd)
+{
+	return cmd.hasPoseProperty();
+}
+
+RobotInstruction::Vec3 getPose(const RobotInstruction::Base& cmd)
+{
+	return cmd.pose();
+}
+
+void setPose(RobotInstruction::Base& cmd, const RobotInstruction::Vec3& pose)
+{
+	cmd.setPose(pose);
+}
+
+bool hasEulerProperty(const RobotInstruction::Base& cmd)
+{
+	return cmd.hasEulerProperty();
+}
+
+RobotInstruction::Vec3 getEuler(const RobotInstruction::Base& cmd)
+{
+	return cmd.eulerDeg();
+}
+
+void setEuler(RobotInstruction::Base& cmd, const RobotInstruction::Vec3& value)
+{
+	cmd.setEulerDeg(value);
+}
+
+bool hasSpeedProperty(const RobotInstruction::Base& cmd)
+{
+	return cmd.hasSpeedProperty();
+}
+
+double getSpeed(const RobotInstruction::Base& cmd)
+{
+	return cmd.speed();
+}
+
+void setSpeed(RobotInstruction::Base& cmd, const double& value)
+{
+	cmd.setSpeed(value);
+}
+
+bool hasAccelProperty(const RobotInstruction::Base& cmd)
+{
+	return cmd.hasAccelProperty();
+}
+
+double getAccel(const RobotInstruction::Base& cmd)
+{
+	return cmd.accel();
+}
+
+void setAccel(RobotInstruction::Base& cmd, const double& value)
+{
+	cmd.setAccel(value);
+}
+
+bool hasBlendRadiusProperty(const RobotInstruction::Base& cmd)
+{
+	return cmd.hasBlendRadiusProperty();
+}
+
+double getBlendRadius(const RobotInstruction::Base& cmd)
+{
+	return cmd.blendRadius();
+}
+
+void setBlendRadius(RobotInstruction::Base& cmd, const double& value)
+{
+	cmd.setBlendRadius(value);
+}
+
+bool hasAxisConfigProperty(const RobotInstruction::Base& cmd)
+{
+	return cmd.hasAxisConfigProperty();
+}
+
+std::string getAxisConfig(const RobotInstruction::Base& cmd)
+{
+	return cmd.axisConfig();
+}
+
+void setAxisConfig(RobotInstruction::Base& cmd, const std::string& value)
+{
+	cmd.setAxisConfig(value);
+}
 } // namespace
 
 namespace RobotInstruction
 {
-void PoseAttribute::appendRows(const Base& cmd, nlohmann::json& rows) const
+using DoubleScalarAttributeImpl = property_core::PropertyScalarAttribute<Base, double, AttributeBase>;
+using EnumAttributeImpl = property_core::PropertyEnumAttribute<Base, AttributeBase>;
+
+PoseAttribute::PoseAttribute()
+	: property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>(
+		hasPoseProperty,
+		getPose,
+		setPose,
+		std::array<const char*, 3>{
+			"motion.target.pose.x",
+			"motion.target.pose.y",
+			"motion.target.pose.z"
+		},
+		std::array<const char*, 3>{
+			labelForKey("motion.target.pose.x", "Target X (mm)"),
+			labelForKey("motion.target.pose.y", "Target Y (mm)"),
+			labelForKey("motion.target.pose.z", "Target Z (mm)")
+		},
+		appendRow)
 {
-	if (!cmd.hasPoseProperty())
-	{
-		return;
-	}
-	const Vec3 p = cmd.pose();
-	appendRow(rows, "motion.target.pose.x", "Target X (mm)", true, fmt(p.x));
-	appendRow(rows, "motion.target.pose.y", "Target Y (mm)", true, fmt(p.y));
-	appendRow(rows, "motion.target.pose.z", "Target Z (mm)", true, fmt(p.z));
 }
 
-bool PoseAttribute::handlesKey(const Base& cmd, const std::string& key) const
+EulerAttribute::EulerAttribute()
+	: property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>(
+		hasEulerProperty,
+		getEuler,
+		setEuler,
+		std::array<const char*, 3>{
+			"motion.target.euler.rx",
+			"motion.target.euler.ry",
+			"motion.target.euler.rz"
+		},
+		std::array<const char*, 3>{
+			labelForKey("motion.target.euler.rx", "Euler RX (deg)"),
+			labelForKey("motion.target.euler.ry", "Euler RY (deg)"),
+			labelForKey("motion.target.euler.rz", "Euler RZ (deg)")
+		},
+		appendRow)
 {
-	if (!cmd.hasPoseProperty())
-	{
-		return false;
-	}
-	return key == "motion.target.pose.x" || key == "motion.target.pose.y" || key == "motion.target.pose.z";
 }
 
-bool PoseAttribute::apply(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg) const
+AttributePtr makeScalarDoubleAttribute(
+	bool (*hasProperty)(const Base&),
+	double (*getter)(const Base&),
+	void (*setter)(Base&, const double&),
+	const char* key,
+	const char* label)
 {
-	if (!handlesKey(cmd, key))
-	{
-		return false;
-	}
-	double v = 0.0;
-	if (!parseDouble(value, v, errMsg))
-	{
-		return false;
-	}
-	Vec3 p = cmd.pose();
-	if (key == "motion.target.pose.x")
-	{
-		p.x = v;
-	}
-	else if (key == "motion.target.pose.y")
-	{
-		p.y = v;
-	}
-	else
-	{
-		p.z = v;
-	}
-	cmd.setPose(p);
-	return true;
+	return std::make_shared<DoubleScalarAttributeImpl>(
+		hasProperty,
+		getter,
+		setter,
+		key,
+		label,
+		appendRow);
 }
 
-void EulerAttribute::appendRows(const Base& cmd, nlohmann::json& rows) const
+AttributePtr makeEnumAttribute(
+	bool (*hasProperty)(const Base&),
+	std::string (*getter)(const Base&),
+	void (*setter)(Base&, const std::string&),
+	const char* key,
+	const char* label)
 {
-	if (!cmd.hasEulerProperty())
-	{
-		return;
-	}
-	const Vec3 r = cmd.eulerDeg();
-	appendRow(rows, "motion.target.euler.rx", "Euler RX (deg)", true, fmt(r.x));
-	appendRow(rows, "motion.target.euler.ry", "Euler RY (deg)", true, fmt(r.y));
-	appendRow(rows, "motion.target.euler.rz", "Euler RZ (deg)", true, fmt(r.z));
+	return std::make_shared<EnumAttributeImpl>(
+		hasProperty,
+		getter,
+		setter,
+		key,
+		label,
+		appendRow);
 }
 
-bool EulerAttribute::handlesKey(const Base& cmd, const std::string& key) const
+AttributePtr makeSpeedAttribute()
 {
-	if (!cmd.hasEulerProperty())
-	{
-		return false;
-	}
-	return key == "motion.target.euler.rx" || key == "motion.target.euler.ry" || key == "motion.target.euler.rz";
+	return makeScalarDoubleAttribute(
+		hasSpeedProperty,
+		getSpeed,
+		setSpeed,
+		"motion.speed",
+		labelForKey("motion.speed", "Speed"));
 }
 
-bool EulerAttribute::apply(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg) const
+AttributePtr makeAccelAttribute()
 {
-	if (!handlesKey(cmd, key))
-	{
-		return false;
-	}
-	double v = 0.0;
-	if (!parseDouble(value, v, errMsg))
-	{
-		return false;
-	}
-	Vec3 r = cmd.eulerDeg();
-	if (key == "motion.target.euler.rx")
-	{
-		r.x = v;
-	}
-	else if (key == "motion.target.euler.ry")
-	{
-		r.y = v;
-	}
-	else
-	{
-		r.z = v;
-	}
-	cmd.setEulerDeg(r);
-	return true;
+	return makeScalarDoubleAttribute(
+		hasAccelProperty,
+		getAccel,
+		setAccel,
+		"motion.acc",
+		labelForKey("motion.acc", "Acceleration"));
 }
 
-void SpeedAttribute::appendRows(const Base& cmd, nlohmann::json& rows) const
+AttributePtr makeAxisConfigAttribute()
 {
-	if (!cmd.hasSpeedProperty())
-	{
-		return;
-	}
-	appendRow(rows, "motion.speed", "Speed", true, fmt(cmd.speed()));
+	return makeEnumAttribute(
+		hasAxisConfigProperty,
+		getAxisConfig,
+		setAxisConfig,
+		"motion.axisConfig",
+		labelForKey("motion.axisConfig", "Axis Configuration"));
 }
 
-bool SpeedAttribute::handlesKey(const Base& cmd, const std::string& key) const
+AttributePtr makeBlendRadiusAttribute()
 {
-	return cmd.hasSpeedProperty() && key == "motion.speed";
-}
-
-bool SpeedAttribute::apply(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg) const
-{
-	if (!handlesKey(cmd, key))
-	{
-		return false;
-	}
-	double v = 0.0;
-	if (!parseDouble(value, v, errMsg))
-	{
-		return false;
-	}
-	cmd.setSpeed(v);
-	return true;
-}
-
-void AccelAttribute::appendRows(const Base& cmd, nlohmann::json& rows) const
-{
-	if (!cmd.hasAccelProperty())
-	{
-		return;
-	}
-	appendRow(rows, "motion.acc", "Acceleration", true, fmt(cmd.accel()));
-}
-
-bool AccelAttribute::handlesKey(const Base& cmd, const std::string& key) const
-{
-	return cmd.hasAccelProperty() && key == "motion.acc";
-}
-
-bool AccelAttribute::apply(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg) const
-{
-	if (!handlesKey(cmd, key))
-	{
-		return false;
-	}
-	double v = 0.0;
-	if (!parseDouble(value, v, errMsg))
-	{
-		return false;
-	}
-	cmd.setAccel(v);
-	return true;
-}
-
-void AxisConfigAttribute::appendRows(const Base& cmd, nlohmann::json& rows) const
-{
-	if (!cmd.hasAxisConfigProperty())
-	{
-		return;
-	}
-	appendRow(rows, "motion.axisConfig", "Axis Configuration", true, cmd.axisConfig());
-}
-
-bool AxisConfigAttribute::handlesKey(const Base& cmd, const std::string& key) const
-{
-	return cmd.hasAxisConfigProperty() && key == "motion.axisConfig";
-}
-
-bool AxisConfigAttribute::apply(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg) const
-{
-	(void)errMsg;
-	if (!handlesKey(cmd, key))
-	{
-		return false;
-	}
-	cmd.setAxisConfig(value);
-	return true;
-}
-
-void BlendRadiusAttribute::appendRows(const Base& cmd, nlohmann::json& rows) const
-{
-	if (!cmd.hasBlendRadiusProperty())
-	{
-		return;
-	}
-	appendRow(rows, "motion.blendRadius", "Blend Radius (mm)", true, fmt(cmd.blendRadius()));
-}
-
-bool BlendRadiusAttribute::handlesKey(const Base& cmd, const std::string& key) const
-{
-	return cmd.hasBlendRadiusProperty() && key == "motion.blendRadius";
-}
-
-bool BlendRadiusAttribute::apply(Base& cmd, const std::string& key, const std::string& value, std::string* errMsg) const
-{
-	if (!handlesKey(cmd, key))
-	{
-		return false;
-	}
-	double v = 0.0;
-	if (!parseDouble(value, v, errMsg))
-	{
-		return false;
-	}
-	cmd.setBlendRadius(v);
-	return true;
+	return makeScalarDoubleAttribute(
+		hasBlendRadiusProperty,
+		getBlendRadius,
+		setBlendRadius,
+		"motion.blendRadius",
+		labelForKey("motion.blendRadius", "Blend Radius (mm)"));
 }
 } // namespace RobotInstruction

@@ -34,6 +34,7 @@ public:
 
 	QMap<QString, QString>& backendSourcePath() { return m_backendSourcePath; }
 	QMap<QString, QString>& backendSourceType() { return m_backendSourceType; }
+	/// Legacy compatibility mirror for single-parent UI/IO paths. Prefer BackendDataManager DAG APIs.
 	QMap<QString, QString>& backendParentId() { return m_backendParentId; }
 
 	/// Unregisters \a rootBackendId and all descendants in the parent map from \ref backend(),

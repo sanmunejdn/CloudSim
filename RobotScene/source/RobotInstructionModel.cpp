@@ -1,6 +1,7 @@
 #include "RobotInstructionModel.h"
 
 #include "RobotInstructionAttribute.h"
+#include "../../PropertyCore/inc/PropertyAttribute.h"
 
 #include <atomic>
 
@@ -24,13 +25,7 @@ Base::Base()
 nlohmann::json Base::snapshotPropertyRows() const
 {
 	nlohmann::json rows = nlohmann::json::array();
-	for (const auto& attr : m_attributes)
-	{
-		if (attr)
-		{
-			attr->appendRows(*this, rows);
-		}
-	}
+	property_core::PropertyPipeline<Base, AttributeBase>::appendRows(m_attributes, *this, rows);
 	for (const auto& kv : m_extensionProperties)
 	{
 		nlohmann::json row;
@@ -45,17 +40,9 @@ nlohmann::json Base::snapshotPropertyRows() const
 
 bool Base::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg)
 {
-	for (const auto& attr : m_attributes)
+	if (property_core::PropertyPipeline<Base, AttributeBase>::apply(m_attributes, *this, key, value, errMsg))
 	{
-		if (!attr || !attr->handlesKey(*this, key))
-		{
-			continue;
-		}
-		if (attr->apply(*this, key, value, errMsg))
-		{
-			return true;
-		}
-		return false;
+		return true;
 	}
 	m_extensionProperties[key] = value;
 	return true;
@@ -75,9 +62,9 @@ PtpInstruction::PtpInstruction()
 	setName("PTP");
 	addAttribute(std::make_shared<PoseAttribute>());
 	addAttribute(std::make_shared<EulerAttribute>());
-	addAttribute(std::make_shared<SpeedAttribute>());
-	addAttribute(std::make_shared<AccelAttribute>());
-	addAttribute(std::make_shared<AxisConfigAttribute>());
+	addAttribute(makeSpeedAttribute());
+	addAttribute(makeAccelAttribute());
+	addAttribute(makeAxisConfigAttribute());
 }
 
 LineInstruction::LineInstruction()
@@ -86,9 +73,9 @@ LineInstruction::LineInstruction()
 	setName("LINE");
 	addAttribute(std::make_shared<PoseAttribute>());
 	addAttribute(std::make_shared<EulerAttribute>());
-	addAttribute(std::make_shared<SpeedAttribute>());
-	addAttribute(std::make_shared<AccelAttribute>());
-	addAttribute(std::make_shared<BlendRadiusAttribute>());
+	addAttribute(makeSpeedAttribute());
+	addAttribute(makeAccelAttribute());
+	addAttribute(makeBlendRadiusAttribute());
 }
 
 } // namespace RobotInstruction

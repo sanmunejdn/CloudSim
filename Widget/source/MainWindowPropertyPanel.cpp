@@ -11,11 +11,13 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendPropertyRow.h"
+#include "BackendPropertySchema.h"
 #include "MainWindow_p.h"
 #include "MainWindowSelectionService.h"
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 #include "OsgWidget.h"
+#include "RobotInstructionPropertySchema.h"
 
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
@@ -24,16 +26,60 @@ using namespace mainwindow_detail;
 
 namespace
 {
-bool propertyKeyUsesDoubleEditor(const QString& key)
+const property_core::PropertyDescriptor* instructionPropertyDescriptorForKey(const QString& key)
 {
-	return key.startsWith(QStringLiteral("pose."))
-		|| key.startsWith(QStringLiteral("rotation."))
-		|| key.startsWith(QStringLiteral("color."))
-		|| key.startsWith(QStringLiteral("motion.target.pose."))
-		|| key.startsWith(QStringLiteral("motion.target.euler."))
-		|| key == QStringLiteral("motion.speed")
-		|| key == QStringLiteral("motion.acc")
-		|| key == QStringLiteral("motion.blendRadius");
+	const std::string keyStd = key.toStdString();
+	return RobotInstruction::findInstructionPropertyDescriptor(keyStd);
+}
+
+const property_core::PropertyDescriptor* backendPropertyDescriptorForKey(const QString& key)
+{
+	const std::string keyStd = key.toStdString();
+	return backend_property_schema::findAnyBackendPropertyDescriptor(keyStd);
+}
+
+int propertyEditorTypeForKey(const QString& key, bool editable)
+{
+	if (!editable)
+	{
+		return QVariant::String;
+	}
+	if (const property_core::PropertyDescriptor* descriptor = instructionPropertyDescriptorForKey(key))
+	{
+		switch (descriptor->type)
+		{
+		case property_core::PropertyType::Bool: return QVariant::Bool;
+		case property_core::PropertyType::Int: return QVariant::Int;
+		case property_core::PropertyType::Double: return QVariant::Double;
+		default: return QVariant::String;
+		}
+	}
+	if (const property_core::PropertyDescriptor* descriptor = backendPropertyDescriptorForKey(key))
+	{
+		switch (descriptor->type)
+		{
+		case property_core::PropertyType::Bool: return QVariant::Bool;
+		case property_core::PropertyType::Int: return QVariant::Int;
+		case property_core::PropertyType::Double: return QVariant::Double;
+		default: return QVariant::String;
+		}
+	}
+	return QVariant::String;
+}
+
+QString variantValueToString(const QVariant& value)
+{
+	switch (value.type())
+	{
+	case QVariant::Double:
+		return QString::number(value.toDouble(), 'g', 12);
+	case QVariant::Int:
+		return QString::number(value.toInt());
+	case QVariant::Bool:
+		return value.toBool() ? QStringLiteral("true") : QStringLiteral("false");
+	default:
+		return value.toString();
+	}
 }
 } // namespace
 
@@ -44,8 +90,8 @@ void MainWindow::appendPropertyBrowserRow(const QString& propertyKey, const QStr
 		return;
 	}
 	QtVariantProperty* prop = nullptr;
-	const bool wantDouble = editable && propertyKeyUsesDoubleEditor(propertyKey);
-	if (wantDouble)
+	const int editorType = propertyEditorTypeForKey(propertyKey, editable);
+	if (editorType == QVariant::Double)
 	{
 		bool ok = false;
 		const double dv = value.toDouble(&ok);
@@ -54,6 +100,28 @@ void MainWindow::appendPropertyBrowserRow(const QString& propertyKey, const QStr
 			prop = m_variantManager->addProperty(QVariant::Double, displayLabel);
 			m_variantManager->setAttribute(prop, QStringLiteral("decimals"), 6);
 			m_variantManager->setValue(prop, dv);
+		}
+	}
+	else if (editorType == QVariant::Int)
+	{
+		bool ok = false;
+		const int iv = value.toInt(&ok);
+		if (ok)
+		{
+			prop = m_variantManager->addProperty(QVariant::Int, displayLabel);
+			m_variantManager->setValue(prop, iv);
+		}
+	}
+	else if (editorType == QVariant::Bool)
+	{
+		const QString lower = value.trimmed().toLower();
+		if (lower == QStringLiteral("true")
+			|| lower == QStringLiteral("false")
+			|| lower == QStringLiteral("1")
+			|| lower == QStringLiteral("0"))
+		{
+			prop = m_variantManager->addProperty(QVariant::Bool, displayLabel);
+			m_variantManager->setValue(prop, lower == QStringLiteral("true") || lower == QStringLiteral("1"));
 		}
 	}
 	if (!prop)
@@ -132,6 +200,14 @@ QString MainWindow::propertyDisplayLabelForKey(const QString& key, const QString
 	if (key == QStringLiteral("mesh.triangle_count"))
 	{
 		return tr(QStringLiteral("Triangle count"), QStringLiteral("三角形数"));
+	}
+	if (const property_core::PropertyDescriptor* descriptor = instructionPropertyDescriptorForKey(key))
+	{
+		return QString::fromStdString(descriptor->label);
+	}
+	if (const property_core::PropertyDescriptor* descriptor = backendPropertyDescriptorForKey(key))
+	{
+		return QString::fromStdString(descriptor->label);
 	}
 	if (key == QStringLiteral("motion.target.pose.x"))
 	{
@@ -333,15 +409,7 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 		{
 			return;
 		}
-		QString valueText;
-		if (value.type() == QVariant::Double)
-		{
-			valueText = QString::number(value.toDouble(), 'g', 12);
-		}
-		else
-		{
-			valueText = value.toString();
-		}
+		const QString valueText = variantValueToString(value);
 		std::string err;
 		if (!m_activeInstructionForProperty->applyPropertyChange(propertyKey.toStdString(), valueText.toStdString(), &err))
 		{
@@ -375,16 +443,7 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	{
 		return;
 	}
-
-	QString valueText;
-	if (value.type() == QVariant::Double)
-	{
-		valueText = QString::number(value.toDouble(), 'g', 12);
-	}
-	else
-	{
-		valueText = value.toString();
-	}
+	const QString valueText = variantValueToString(value);
 
 	const QByteArray keyBytes = propertyKey.toUtf8();
 	const std::string keyUtf8(keyBytes.constData(), static_cast<std::size_t>(keyBytes.size()));

@@ -9,6 +9,7 @@
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BackendRelations.h"
 #include "DocumentPage.h"
 #include "MainWindow.h"
 #include "MainWindowObjectRepository.h"
@@ -242,8 +243,16 @@ void MainWindowSelectionService::handleBackendTreeItemChanged(
 	if (itemType == kItemTypeBackend)
 	{
 		const QString backendId = item->data(0, kRoleBackendId).toString();
-		const MainWindowObjectGraph graph = MainWindowObjectRepository::buildGraph(mainWindow);
-		const QVector<QString> idsToUpdate = graph.subtreeIds(backendId);
+		QVector<QString> idsToUpdate;
+		idsToUpdate.append(backendId);
+		const std::shared_ptr<BackendDataBase> rootObject = mainWindow.activeBackend().getData(backendId.toStdString());
+		if (rootObject)
+		{
+			for (const std::string& descId : backend_relations::descendantIds(*rootObject, mainWindow.activeBackend()))
+			{
+				idsToUpdate.append(QString::fromStdString(descId));
+			}
+		}
 		if (idsToUpdate.isEmpty())
 		{
 			return;
