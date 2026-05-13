@@ -127,14 +127,14 @@
       <PreprocessorDefinitions>DATA_LIB;RUN_LOGGER_STATIC;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/opencascade-7.9.3-vc14-64/inc;../../bin/SDK/dxfSolution/dxflib/inc;../../boost_1_79_0;../../CGAL5.5.2/auxiliary/gmp/include;../../CGAL5.5.2/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/opencascade-7.9.3-vc14-64/inc;../../bin/SDK/dxfSolution/dxflib/inc;../../bin/SDK/boost_1_79_0;../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../bin/SDK/CGAL5.5.2/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>RunLogger.lib;libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-gd-x64-1_79.lib;boost_date_time-vc142-mt-gd-x64-1_79.lib;libboost_exception-vc142-mt-gd-x64-1_79.lib;boost_filesystem-vc142-mt-gd-x64-1_79.lib;boost_graph-vc142-mt-gd-x64-1_79.lib;boost_iostreams-vc142-mt-gd-x64-1_79.lib;boost_locale-vc142-mt-gd-x64-1_79.lib;boost_math_c99-vc142-mt-gd-x64-1_79.lib;boost_math_c99f-vc142-mt-gd-x64-1_79.lib;boost_math_c99l-vc142-mt-gd-x64-1_79.lib;boost_math_tr1-vc142-mt-gd-x64-1_79.lib;boost_math_tr1f-vc142-mt-gd-x64-1_79.lib;boost_math_tr1l-vc142-mt-gd-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_random-vc142-mt-gd-x64-1_79.lib;boost_regex-vc142-mt-gd-x64-1_79.lib;boost_serialization-vc142-mt-gd-x64-1_79.lib;boost_system-vc142-mt-gd-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_thread-vc142-mt-gd-x64-1_79.lib;boost_unit_test_framework-vc142-mt-gd-x64-1_79.lib;boost_wserialization-vc142-mt-gd-x64-1_79.lib;TKernel.lib;TKMath.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKMesh.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXSDRAWSTEP.lib;TKXml.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir);../../CGAL5.5.2/auxiliary/gmp/lib;../../boost_1_79_0/lib64-msvc-14.2;../../bin/SDK/opencascade-7.9.3-vc14-64/win64/vc14/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir);../../bin/SDK/CGAL5.5.2/auxiliary/gmp/lib;../../bin/SDK/boost_1_79_0/lib64-msvc-14.2;../../bin/SDK/opencascade-7.9.3-vc14-64/win64/vc14/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -146,7 +146,7 @@
       <PreprocessorDefinitions>DATA_LIB;RUN_LOGGER_STATIC</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/opencascade-7.9.3-vc14-64/inc;../../bin/SDK/dxfSolution/dxflib/inc;../../boost_1_79_0;../../CGAL5.5.2/auxiliary/gmp/include;../../CGAL5.5.2/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/opencascade-7.9.3-vc14-64/inc;../../bin/SDK/dxfSolution/dxflib/inc;../../bin/SDK/boost_1_79_0;../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../bin/SDK/CGAL5.5.2/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -154,7 +154,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(OutDir);../../CGAL5.5.2/auxiliary/gmp/lib;../../boost_1_79_0/lib64-msvc-14.2;../../bin/SDK/opencascade-7.9.3-vc14-64/win64/vc14/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir);../../bin/SDK/CGAL5.5.2/auxiliary/gmp/lib;../../bin/SDK/boost_1_79_0/lib64-msvc-14.2;../../bin/SDK/opencascade-7.9.3-vc14-64/win64/vc14/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>RunLogger.lib;libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-gd-x64-1_79.lib;boost_date_time-vc142-mt-gd-x64-1_79.lib;libboost_exception-vc142-mt-gd-x64-1_79.lib;boost_filesystem-vc142-mt-gd-x64-1_79.lib;boost_graph-vc142-mt-gd-x64-1_79.lib;boost_iostreams-vc142-mt-gd-x64-1_79.lib;boost_locale-vc142-mt-gd-x64-1_79.lib;boost_math_c99-vc142-mt-gd-x64-1_79.lib;boost_math_c99f-vc142-mt-gd-x64-1_79.lib;boost_math_c99l-vc142-mt-gd-x64-1_79.lib;boost_math_tr1-vc142-mt-gd-x64-1_79.lib;boost_math_tr1f-vc142-mt-gd-x64-1_79.lib;boost_math_tr1l-vc142-mt-gd-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_random-vc142-mt-gd-x64-1_79.lib;boost_regex-vc142-mt-gd-x64-1_79.lib;boost_serialization-vc142-mt-gd-x64-1_79.lib;boost_system-vc142-mt-gd-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_thread-vc142-mt-gd-x64-1_79.lib;boost_unit_test_framework-vc142-mt-gd-x64-1_79.lib;boost_wserialization-vc142-mt-gd-x64-1_79.lib;TKernel.lib;TKMath.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKMesh.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXml.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
