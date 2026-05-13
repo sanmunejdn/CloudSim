@@ -43,7 +43,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
+    <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -61,6 +61,7 @@
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <QtModules>core;opengl;gui;widgets;3dcore;3danimation;3dextras;3dinput;3dlogic;3drender</QtModules>
     <QtInstall>5.14.2_msvc2017_64</QtInstall>
+    <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <QtModules>core;opengl;gui;widgets;3dcore;3danimation;3dextras;3dinput;3dlogic;3drender;openglextensions</QtModules>
@@ -146,6 +147,9 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <UndefinePreprocessorDefinitions>_DEBUG</UndefinePreprocessorDefinitions>
       <PreprocessorDefinitions>WIDGET_LIB;BACKENDVISUAL_STATIC;ROBOT_URDF_STATIC;ROBOT_SCENE_STATIC;ROBOT_KINEMATICS_STATIC;RUN_LOGGER_STATIC;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -156,7 +160,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>OsgWidgetCore.lib;BackendVisual.lib;RunLogger.lib;osgViewerd.lib;osgd.lib;osgDBd.lib;osgWidgetd.lib;osgVolumed.lib;osgUtild.lib;osgUId.lib;osgTextd.lib;osgTerraind.lib;osgSimd.lib;osgShadowd.lib;osgPresentationd.lib;osgParticled.lib;osgManipulatord.lib;osgGAd.lib;osgFXd.lib;osgAnimationd.lib;OpenThreads.lib;Data.lib;RobotKinematics.lib;RobotUrdf.lib;RobotScene.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>OsgWidgetCore.lib;BackendVisual.lib;RunLogger.lib;osgViewer.lib;osg.lib;osgDB.lib;osgWidget.lib;osgVolume.lib;osgUtil.lib;osgUI.lib;osgText.lib;osgTerrain.lib;osgSim.lib;osgShadow.lib;osgPresentation.lib;osgParticle.lib;osgManipulator.lib;osgGA.lib;osgFX.lib;osgAnimation.lib;OpenThreads.lib;Data.lib;RobotKinematics.lib;RobotUrdf.lib;RobotScene.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>

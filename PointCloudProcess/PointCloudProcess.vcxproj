@@ -43,7 +43,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
+    <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -61,6 +61,7 @@
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <QtInstall>5.14.2_msvc2017_64</QtInstall>
     <QtModules>core;opengl;gui;widgets;3dcore;3danimation;3dextras;3dinput;3dlogic;3drender;openglextensions</QtModules>
+    <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <QtInstall>5.14.2_msvc2017_64</QtInstall>
@@ -146,7 +147,10 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;ROBOT_URDF_STATIC;ROBOT_SCENE_STATIC;ROBOT_KINEMATICS_STATIC;RUN_LOGGER_STATIC;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <UndefinePreprocessorDefinitions>_DEBUG</UndefinePreprocessorDefinitions>
+      <PreprocessorDefinitions>_CONSOLE;ROBOT_URDF_STATIC;ROBOT_SCENE_STATIC;ROBOT_KINEMATICS_STATIC;RUN_LOGGER_STATIC;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -157,7 +161,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(OutDir);../../bin/SDK/OSG3.6.5/lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Widget.lib;RunLogger.lib;Data.lib;osgViewerd.lib;osgd.lib;osgDBd.lib;osgWidgetd.lib;osgVolumed.lib;osgUtild.lib;osgUId.lib;osgTextd.lib;osgTerraind.lib;osgSimd.lib;osgShadowd.lib;osgPresentationd.lib;osgParticled.lib;osgManipulatord.lib;osgGAd.lib;osgFXd.lib;osgAnimationd.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Widget.lib;RunLogger.lib;Data.lib;osgViewer.lib;osg.lib;osgDB.lib;osgWidget.lib;osgVolume.lib;osgUtil.lib;osgUI.lib;osgText.lib;osgTerrain.lib;osgSim.lib;osgShadow.lib;osgPresentation.lib;osgParticle.lib;osgManipulator.lib;osgGA.lib;osgFX.lib;osgAnimation.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>powershell -NoProfile -ExecutionPolicy Bypass -Command "$occtRoot = Join-Path '$(SolutionDir)' '..\bin\SDK\opencascade-7.9.3-vc14-64'; $tp = Join-Path $occtRoot '3rdparty-vc14-64'; $dst = '$(OutDir)'; Copy-Item (Join-Path $occtRoot 'win64\vc14\bin\*.dll') -Destination $dst -Force; $files = @('jemalloc-vc14-64\bin\jemalloc.dll','tbb-2021.13.0-x64\bin\tbb12.dll','tbb-2021.13.0-x64\bin\tbbmalloc.dll','tbb-2021.13.0-x64\bin\tbbmalloc_proxy.dll','freeimage-3.18.0-x64\bin\FreeImage.dll','openvr-1.14.15-64\bin\win64\openvr_api.dll','freetype-2.13.3-x64\bin\freetype.dll','ffmpeg-3.3.4-64\bin\avcodec-57.dll','ffmpeg-3.3.4-64\bin\avformat-57.dll','ffmpeg-3.3.4-64\bin\avutil-55.dll','ffmpeg-3.3.4-64\bin\swscale-4.dll'); foreach ($rel in $files) { $p = Join-Path $tp $rel; if (Test-Path $p) { Copy-Item $p -Destination $dst -Force } }"</Command>
