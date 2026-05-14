@@ -19,7 +19,10 @@
 #include "BackendVisualRegistry.h"
 
 #include <osg/Node>
-#include <osg/PositionAttitudeTransform>
+#include <osg/Matrixd>
+#include <osg/MatrixTransform>
+#include <osg/Quat>
+#include <osg/Vec3d>
 
 osg::Vec3f OsgScene::computePointCloudCenterFromXyz(const std::vector<float>& xyz) const
 {
@@ -72,9 +75,15 @@ void OsgScene::syncGizmoAndPickFromBackend(const BackendDataBase& data)
 	{
 		if (it != m_backendObjectRoots.end() && it->second.valid())
 		{
-			osg::PositionAttitudeTransform* outer = it->second.get();
-			m_selectedTransform->setPosition(outer->getPosition());
-			m_selectedTransform->setAttitude(outer->getAttitude());
+			osg::MatrixTransform* outer = it->second.get();
+			osg::Vec3d t;
+			osg::Quat r;
+			osg::Vec3d s;
+			osg::Quat so;
+			outer->getMatrix().decompose(t, r, s, so);
+			m_selectedTransform->setPosition(osg::Vec3f(static_cast<float>(t.x()), static_cast<float>(t.y()),
+				static_cast<float>(t.z())));
+			m_selectedTransform->setAttitude(r);
 		}
 		else
 		{

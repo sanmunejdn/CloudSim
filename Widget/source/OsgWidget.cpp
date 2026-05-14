@@ -1,5 +1,6 @@
 #include "OsgWidget.h"
 
+#include "BackendDataBase.h"
 #include "BackendVisualRegistry.h"
 
 #include <algorithm>
@@ -76,6 +77,24 @@
 #include "MeshEdgeFacePickOperation.h"
 #include "QWidgetViewer.h"
 
+#include "BackendFollowMath.h"
+
+namespace
+{
+osg::Matrixd backendColMajorToOsgMat(const BackendMat4& b)
+{
+	osg::Matrixd m;
+	for (int c = 0; c < 4; ++c)
+	{
+		for (int r = 0; r < 4; ++r)
+		{
+			m(r, c) = b.v[c * 4 + r];
+		}
+	}
+	return m;
+}
+} // namespace
+
 OsgWidget::OsgWidget(QWidget* parent)
 	: QWidget(parent)
 {
@@ -124,14 +143,17 @@ void OsgWidget::applyRigidRotationAboutWorldPivot(const std::vector<std::string>
 		{
 			continue;
 		}
-		osg::PositionAttitudeTransform* pat = it->second.get();
-		const osg::Vec3f p = pat->getPosition();
-		const osg::Quat q = pat->getAttitude();
+		osg::MatrixTransform* mt = it->second.get();
+		osg::Vec3d t;
+		osg::Quat q;
+		osg::Vec3d s;
+		osg::Quat so;
+		mt->getMatrix().decompose(t, q, s, so);
+		const osg::Vec3f p(static_cast<float>(t.x()), static_cast<float>(t.y()), static_cast<float>(t.z()));
 		const osg::Vec3f rel = p - pivotWorld;
 		const osg::Vec3f pNew = deltaRotation * rel + pivotWorld;
 		const osg::Quat qNew = deltaRotation * q;
-		pat->setPosition(pNew);
-		pat->setAttitude(qNew);
+		mt->setMatrix(osg::Matrixd::translate(osg::Vec3d(pNew.x(), pNew.y(), pNew.z())) * osg::Matrixd::rotate(qNew));
 	}
 	if (m_viewer.valid())
 	{
@@ -154,7 +176,14 @@ osg::Vec3f OsgWidget::averageBackendRootPositionWorld(const std::vector<std::str
 		{
 			continue;
 		}
-		sum += it->second->getPosition();
+		osg::NodePath path;
+		for (osg::Node* n = it->second.get(); n != nullptr; n = n->getNumParents() > 0 ? n->getParent(0) : nullptr)
+		{
+			path.insert(path.begin(), n);
+		}
+		const osg::Matrixd w = osg::computeLocalToWorld(path);
+		const osg::Vec3d tr = w.getTrans();
+		sum += osg::Vec3f(static_cast<float>(tr.x()), static_cast<float>(tr.y()), static_cast<float>(tr.z()));
 		++n;
 	}
 	if (n <= 0)
@@ -167,14 +196,31 @@ osg::Vec3f OsgWidget::averageBackendRootPositionWorld(const std::vector<std::str
 namespace
 {
 
-osg::NodePath nodePathToSceneRoot(osg::Node* leaf)
+osg::NodePath nodePathToSceneRoot(const osg::Node* leaf)
 {
 	osg::NodePath path;
-	for (osg::Node* n = leaf; n != nullptr; n = n->getNumParents() > 0 ? n->getParent(0) : nullptr)
+	for (const osg::Node* n = leaf; n != nullptr; n = n->getNumParents() > 0 ? n->getParent(0) : nullptr)
 	{
-		path.insert(path.begin(), n);
+		path.insert(path.begin(), const_cast<osg::Node*>(n));
 	}
 	return path;
+}
+
+double matMaxAbsDiff(const osg::Matrixd& a, const osg::Matrixd& b)
+{
+	double m = 0.0;
+	for (int r = 0; r < 4; ++r)
+	{
+		for (int c = 0; c < 4; ++c)
+		{
+			const double d = std::abs(static_cast<double>(a(r, c)) - static_cast<double>(b(r, c)));
+			if (d > m)
+			{
+				m = d;
+			}
+		}
+	}
+	return m;
 }
 
 osg::Group* findUrdfLinkContainer(osg::Group* sceneSubtree, const std::string& urdfLinkName)
@@ -253,6 +299,68 @@ osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(float axisLengthMm, bool
 
 } // namespace
 
+void OsgWidget::setPerFrameHook(std::function<void(OsgWidget*)> fn)
+{
+	m_perFrameHook = std::move(fn);
+}
+
+bool OsgWidget::isTransformGizmoDragging() const
+{
+	return m_dragging || m_rotating;
+}
+
+bool OsgWidget::syncOuterPatFromBackend(const BackendDataBase& data)
+{
+	if (!data.hasPoseProperty())
+	{
+		return false;
+	}
+	const std::string id = data.id();
+	auto it = m_backendObjectRoots.find(id);
+	if (it == m_backendObjectRoots.end() || !it->second.valid())
+	{
+		return false;
+	}
+	const auto cIt = m_backendModelCenters.find(id);
+	if (cIt == m_backendModelCenters.end())
+	{
+		return false;
+	}
+	const osg::Vec3f center = cIt->second;
+	const BackendVec3 p = data.pose();
+	const BackendVec3 r = data.rotation();
+	const BackendVec3 centerB{ static_cast<double>(center.x()), static_cast<double>(center.y()),
+		static_cast<double>(center.z()) };
+	const BackendMat4 worldB = backend_world_mat_from_pose(centerB, p, r);
+	const osg::Matrixd worldOsg = backendColMajorToOsgMat(worldB);
+	setBackendRootWorldMatrixFromWorld(id, worldOsg);
+	return true;
+}
+
+void OsgWidget::setCameraFollowBackendId(std::string backendId)
+{
+	m_cameraFollowBackendId = std::move(backendId);
+}
+
+void OsgWidget::clearCameraFollowBackendId()
+{
+	m_cameraFollowBackendId.clear();
+}
+
+void OsgWidget::updateCameraFollowCenter()
+{
+	if (m_cameraFollowBackendId.empty() || !m_trackballManipulator.valid())
+	{
+		return;
+	}
+	osg::Matrixd w;
+	if (!getBackendRootWorldMatrix(m_cameraFollowBackendId, w))
+	{
+		return;
+	}
+	m_trackballManipulator->setCenter(w.getTrans());
+}
+
 bool OsgWidget::getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const
 {
 	const auto it = m_backendObjectRoots.find(backendId);
@@ -260,8 +368,8 @@ bool OsgWidget::getBackendRootWorldMatrix(const std::string& backendId, osg::Mat
 	{
 		return false;
 	}
-	osg::PositionAttitudeTransform* pat = it->second.get();
-	outWorld = osg::computeLocalToWorld(nodePathToSceneRoot(pat));
+	const osg::MatrixTransform* mt = it->second.get();
+	outWorld = osg::computeLocalToWorld(nodePathToSceneRoot(mt));
 	return true;
 }
 
@@ -272,26 +380,41 @@ void OsgWidget::setBackendRootWorldMatrixFromWorld(const std::string& backendId,
 	{
 		return;
 	}
-	osg::PositionAttitudeTransform* pat = it->second.get();
-	osg::Node* parent = pat->getNumParents() > 0 ? pat->getParent(0) : nullptr;
+	osg::MatrixTransform* mt = it->second.get();
+	const osg::NodePath fullPath = nodePathToSceneRoot(mt);
 	osg::Matrixd parentWorld;
-	if (!parent)
+	if (fullPath.size() < 2U)
 	{
 		parentWorld.makeIdentity();
 	}
 	else
 	{
-		parentWorld = osg::computeLocalToWorld(nodePathToSceneRoot(parent));
+		osg::NodePath parentPath;
+		parentPath.reserve(fullPath.size() - 1U);
+		for (unsigned i = 0; i + 1U < fullPath.size(); ++i)
+		{
+			parentPath.push_back(fullPath[i]);
+		}
+		parentWorld = osg::computeLocalToWorld(parentPath);
 	}
-	const osg::Matrixd local = osg::Matrixd::inverse(parentWorld) * worldMat;
-	osg::Vec3d trans;
-	osg::Quat rot;
-	osg::Vec3d scale;
-	osg::Quat so;
-	local.decompose(trans, rot, scale, so);
-	pat->setPosition(osg::Vec3f(static_cast<float>(trans.x()), static_cast<float>(trans.y()),
-		static_cast<float>(trans.z())));
-	pat->setAttitude(rot);
+	const osg::Matrixd invPw = osg::Matrixd::inverse(parentWorld);
+	const osg::Matrixd candLeft = invPw * worldMat;
+	const osg::Matrixd candRight = worldMat * invPw;
+	osg::Matrixd bestLocal = candLeft;
+	double bestErr = 1e100;
+	const osg::Matrixd cands[2] = { candLeft, candRight };
+	for (int ci = 0; ci < 2; ++ci)
+	{
+		mt->setMatrix(cands[ci]);
+		const osg::Matrixd chk = osg::computeLocalToWorld(nodePathToSceneRoot(mt));
+		const double err = matMaxAbsDiff(chk, worldMat);
+		if (err < bestErr)
+		{
+			bestErr = err;
+			bestLocal = cands[ci];
+		}
+	}
+	mt->setMatrix(bestLocal);
 	if (m_viewer.valid())
 	{
 		m_viewer->setSceneData(m_root.get());
@@ -299,6 +422,27 @@ void OsgWidget::setBackendRootWorldMatrixFromWorld(const std::string& backendId,
 	if (m_glWidget)
 	{
 		m_glWidget->update();
+	}
+}
+
+bool OsgWidget::tryGetBackendModelCenterMm(const std::string& backendId, double& outCx, double& outCy, double& outCz) const
+{
+	const auto it = m_backendModelCenters.find(backendId);
+	if (it == m_backendModelCenters.end())
+	{
+		return false;
+	}
+	outCx = static_cast<double>(it->second.x());
+	outCy = static_cast<double>(it->second.y());
+	outCz = static_cast<double>(it->second.z());
+	return true;
+}
+
+void OsgWidget::syncRobotMeshBackendPoseAfterKinematics(const BackendDataBase& mesh)
+{
+	if (const auto* m = dynamic_cast<const MeshBackendData*>(&mesh))
+	{
+		(void)syncOuterPatFromBackend(*m);
 	}
 }
 
@@ -574,7 +718,7 @@ bool OsgWidget::upsertPointCloudBranchInScene(const PointCloudBackendData& data,
 		}
 		return false;
 	}
-	osg::ref_ptr<osg::PositionAttitudeTransform> outer = built.outer;
+	osg::ref_ptr<osg::MatrixTransform> outer = built.outer;
 	const std::string id = data.id();
 	const osg::Vec3f center = built.modelCenter;
 	const float diagonal = built.diagonal;
@@ -629,11 +773,12 @@ osg::ref_ptr<osg::Node> OsgWidget::buildMeshGeode(const MeshBackendData& data, Q
 }
 
 bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
-	bool showWireOutline, bool useSceneLighting)
+	bool showWireOutline, bool useSceneLighting, bool skipInnerModelCenterRebase)
 {
 	MeshVisualOptions meshOpts;
 	meshOpts.showWireOutline = showWireOutline;
 	meshOpts.useSceneLighting = useSceneLighting;
+	meshOpts.skipInnerModelCenterRebase = skipInnerModelCenterRebase;
 	BranchBuildResult built;
 	std::string err;
 	if (!BackendVisualRegistry::buildOuterBranch(data, meshOpts, built, errorMessage ? &err : nullptr))
@@ -644,7 +789,7 @@ bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* er
 		}
 		return false;
 	}
-	osg::ref_ptr<osg::PositionAttitudeTransform> outer = built.outer;
+	osg::ref_ptr<osg::MatrixTransform> outer = built.outer;
 	const std::string id = data.id();
 	if (useSceneLighting)
 	{
@@ -929,6 +1074,11 @@ void OsgWidget::initViewer()
 		osg::Vec3(0, 0, 1));
 
 	connect(&m_frameTimer, &QTimer::timeout, this, [this]() {
+		if (m_perFrameHook)
+		{
+			m_perFrameHook(this);
+		}
+		updateCameraFollowCenter();
 		updateCompassScale();
 		if (m_pickAnnotationController)
 		{
@@ -1542,11 +1692,11 @@ bool OsgWidget::loadPointCloudFromBackendData(const PointCloudBackendData& data,
 }
 
 bool OsgWidget::loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
-	bool showWireOutline, bool useSceneLighting)
+	bool showWireOutline, bool useSceneLighting, bool skipInnerModelCenterRebase)
 {
 	return m_backendLoadController
 		? m_backendLoadController->loadMeshFromBackendData(*this, data, errorMessage, resetViewToHome, showWireOutline,
-			  useSceneLighting)
+			  useSceneLighting, skipInnerModelCenterRebase)
 		: false;
 }
 
@@ -1570,25 +1720,23 @@ QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QS
 		.arg(++s_robotSceneCounter);
 	const std::string stdId = backendId.toStdString();
 
-	// 【中文】与其它后端一致：用 PAT 包裹根节点，便于 m_backendObjectRoots 类型统一及变换/可见性
-	osg::ref_ptr<osg::PositionAttitudeTransform> outer = new osg::PositionAttitudeTransform;
+	// 【中文】与其它后端一致：外层 MatrixTransform 存完整局部刚体矩阵，FK / setBackendRootWorldMatrixFromWorld 无 TRS 分解损失
+	osg::ref_ptr<osg::MatrixTransform> outer = new osg::MatrixTransform;
+	outer->setMatrix(osg::Matrixd::identity());
 	outer->setName(displayName.isEmpty() ? "RobotHierarchy" : displayName.toStdString());
 	robotAssembly->dirtyBound();
 	outer->addChild(robotAssembly);
 	m_robotAssemblyGroup->addChild(outer.get());
 	outer->dirtyBound();
 	const osg::BoundingSphere bs = outer->getBound();
-	if (bs.valid())
+	// Gizmo / pose pivot use m_modelCenter as the "file origin" in outer local space (see
+	// computeGizmoPivotWorld + updateCompassLocalOffsetForModelOrigin). URDF assembly is rooted at
+	// the base link frame under this PAT — not at the meshes' bounding-sphere center (which would
+	// shift the compass off the pedestal for typical arms).
+	m_backendModelCenters[stdId] = osg::Vec3f(0.0f, 0.0f, 0.0f);
+	if (bs.valid() && m_activeBackendId.empty())
 	{
-		m_backendModelCenters[stdId] = osg::Vec3f(bs.center());
-		if (m_activeBackendId.empty())
-		{
-			m_activeModelDiagonal = (std::max)(1.0f, bs.radius() * 2.0f);
-		}
-	}
-	else
-	{
-		m_backendModelCenters[stdId] = osg::Vec3f(0.0f, 0.0f, 0.0f);
+		m_activeModelDiagonal = (std::max)(1.0f, bs.radius() * 2.0f);
 	}
 	if (m_backendVisibility.find(stdId) == m_backendVisibility.end())
 	{

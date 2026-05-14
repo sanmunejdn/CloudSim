@@ -54,6 +54,13 @@ namespace UrdfRobotLoader
 		QString& outLinkName,
 		QString* errorMessage = nullptr);
 
+	/// For each URDF link that appears as a \<joint\> child, maps child link name -> parent link name (kinematic tree).
+	/// Includes fixed/prismatic/etc. joints, not only revolute; used to group mesh backends by chain.
+	ROBOT_URDF_API bool loadLinkChildToParentMap(
+		const QString& urdfFilePath,
+		QHash<QString, QString>& outChildLinkToParentLinkName,
+		QString* errorMessage = nullptr);
+
 	/// 【中文】给定关节角度，计算各连杆的世界变换矩阵（用于参考/调试）。
 	/// 新架构推荐使用 buildHierarchicalRobotScene + 直接修改 Joint MatrixTransform，无需调用此函数。
 	///
@@ -62,7 +69,13 @@ namespace UrdfRobotLoader
 		const QString& urdfFilePath,
 		const QVector<double>& jointAnglesRad,
 		QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
-		QString* errorMessage = nullptr);
+		QString* errorMessage = nullptr,
+		bool meshVerticesAlreadyInLinkFrame = false);
+
+	/// Column-major 4x4 (same layout as \c osg::Matrixd): mesh file frame → link frame for the first \<visual\> of \a linkName
+	/// (origin+rpy in metres→mm × vertex unit scale). Used when baking STL vertices into link frame before \c computeMeshWorldMatrices(..., true).
+	ROBOT_URDF_API bool linkMeshFileToLinkColumnMajor16(
+		const QString& urdfFilePath, const QString& linkName, double outColumnMajor16[16], QString* errorMessage = nullptr);
 
 	/// Compute per-link frame world transforms (link coordinate frame, not visual mesh frame).
 	ROBOT_URDF_API bool computeLinkWorldMatrices(
@@ -74,6 +87,15 @@ namespace UrdfRobotLoader
 	/// Drops cached parse trees (e.g. after replacing URDF on disk in edge cases). Normally unnecessary: cache keys include mtime.
 	/// 【中文】清空已缓存的 URDF 解析树；一般依赖 mtime 自动失效即可。
 	ROBOT_URDF_API void clearUrdfModelCache();
+
+	/// Lists each link that has a \<visual\>\<geometry\>\<mesh\> with an existing absolute file path (same resolution as scene build).
+	/// @param outRootLink URDF root link name
+	/// @param outLinkNameToAbsoluteMeshPath Link name -> resolved mesh path on disk
+	ROBOT_URDF_API bool enumerateLinkVisualMeshes(
+		const QString& urdfFilePath,
+		QString& outRootLink,
+		QHash<QString, QString>& outLinkNameToAbsoluteMeshPath,
+		QString* errorMessage = nullptr);
 
 	/// 【中文】计算给定关节角度下、与场景中可 setMatrix 的关节节点一致的矩阵。
 	/// - revolute/continuous：输出仅 R(q)（\<origin\> 由场景中 JointN(T_origin) 节点承担）

@@ -15,8 +15,12 @@
 
 #include "IRobotSimulationDocument.h"
 
+#include <string>
+#include <unordered_set>
+
 class QTabWidget;
 class OsgWidget;
+
 #include "BackendDataManager.h"
 
 /// 单个文档标签页：包含一个 OsgWidget 与对应的后端数据管理器，表示一个独立编辑单元。
@@ -31,6 +35,16 @@ public:
 
 	OsgWidget* osgWidget() const { return m_osgWidget; }
 	BackendDataManager& backend() { return m_backend; }
+
+	/// Follow-attachment graph: mark \a seedBackendId, all transitive followers, and backend children for a follow solve pass.
+	void markFollowAttachmentDirtyFromBackendMove(const BackendDataManager& mgr, const std::string& seedBackendId);
+	std::unordered_set<std::string>& followDirtyBackendIds() { return m_followDirtyBackendIds; }
+	const std::unordered_set<std::string>& followDirtyBackendIds() const { return m_followDirtyBackendIds; }
+	void clearFollowDirtyBackendIds() { m_followDirtyBackendIds.clear(); }
+	/// Next \ref MainWindow::runBackendFollowSolveAndSync runs a full follow pass (e.g. robot tick, project load).
+	void requestFollowSolveForced() { m_followSolveForced = true; }
+	bool takeFollowSolveForced();
+	bool followSolveForcedPending() const { return m_followSolveForced; }
 
 	QMap<QString, QString>& backendSourcePath() { return m_backendSourcePath; }
 	QMap<QString, QString>& backendSourceType() { return m_backendSourceType; }
@@ -58,13 +72,16 @@ public:
 
 	/// 【中文】追加一台层级化机器人（不清除已有实例）；关节键为 \a jointTransformsPrefixedKeys（已含前缀）。
 	/// 机器人网格已由 OsgWidget::addHierarchicalRobotScene 挂入场景；此处只登记运动学元数据，不持有 RobotAssembly ref_ptr。
+	/// @param robotSceneBackendId 用于 \ref robotSceneBackendId()（如 TCP 世界根）；可与关节前缀根不同（每连杆后端模式下传末端连杆或基座 backend id）。
+	/// @param jointPrefixRootOverride 若非空，关节展平键前缀为 \a jointPrefixRootOverride + "::"；否则为 \a robotSceneBackendId + "::"。
 	void appendHierarchicalRobotSimulationContext(
 		const QString& urdfAbsolutePath,
 		const QStringList& revoluteJointNamesUnprefixed,
 		const QVector<double>& jointLowerRad,
 		const QVector<double>& jointUpperRad,
 		const QHash<QString, osg::MatrixTransform*>& jointTransformsPrefixedKeys,
-		const QString& robotBackendId);
+		const QString& robotSceneBackendId,
+		const QString& jointPrefixRootOverride = QString());
 
 	/// 【中文】动态层级法：获取关节的 MatrixTransform 节点，用于直接设置关节角度。
 	osg::MatrixTransform* robotJointMatrixTransform(const QString& jointName) const override;
@@ -87,16 +104,30 @@ public:
 	const QString& robotUrdfAbsolutePath() const override { return m_robotUrdfAbsolutePath; }
 	const QStringList& robotRevoluteJointNames() const override { return m_robotRevoluteJointNames; }
 
-	/// 【中文】传统烘焙法的接口（返回空，新架构不使用）。
+	/// 【中文】每连杆模式：link 名 → mesh 后端 id；传统层级模式可为空。
 	const QHash<QString, QString>& robotLinkNameToBackendId() const override;
 	const QHash<QString, osg::Matrixd>& robotFkMeshWorldT0() const override;
 	const QHash<QString, osg::Matrixd>& robotOuterWorldAtBind() const override;
+	bool robotUrdfMeshVerticesInLinkFrame() const override;
 
 	/// 【中文】传统接口（返回空，新架构不使用）。
 	QString robotImportParentId() const;
 	QStringList robotLinkBackendIds() const;
+	/// Strip trailing "::" from the first instance joint key prefix (used when saving robotKinematics).
+	QString robotJointPrefixRoot() const;
 	const QVector<double>& robotJointLowerRad() const { return m_robotJointLowerRad; }
 	const QVector<double>& robotJointUpperRad() const { return m_robotJointUpperRad; }
+
+	BackendDataManager* robotBackendManagerForKinematics() override { return &m_backend; }
+
+	void notifyRobotKinematicsAppliedToScene() override;
+
+	/// Per-link URDF kinematics: link name -> mesh backend id, FK mesh world at bind, outer PAT world at bind (keys = backend id).
+	void setRobotPerLinkKinematicsBinding(const QString& importKey,
+		const QHash<QString, QString>& linkNameToBackendId,
+		const QHash<QString, osg::Matrixd>& fkMeshWorldT0,
+		const QHash<QString, osg::Matrixd>& outerWorldAtBindByBackendId,
+		bool meshVerticesInLinkFrame = false);
 
 private:
 	struct HierarchicalRobotInstance
@@ -124,6 +155,7 @@ private:
 	QHash<QString, QString> m_robotLinkNameToBackendId;
 	QHash<QString, osg::Matrixd> m_robotFkMeshWorldT0;
 	QHash<QString, osg::Matrixd> m_robotOuterWorldAtBind;
+	bool m_robotUrdfMeshVerticesInLinkFrame = false;
 
 	// 【中文】动态层级法：可有多台机器人实例。
 	QVector<HierarchicalRobotInstance> m_hierarchicalRobots;
@@ -137,4 +169,7 @@ private:
 	QHash<QString, osg::MatrixTransform*> m_robotJointTransforms;
 	/// 【中文】兼容：第一台机器人场景的后端 ID。
 	QString m_robotSceneBackendId;
+
+	std::unordered_set<std::string> m_followDirtyBackendIds;
+	bool m_followSolveForced = false;
 };

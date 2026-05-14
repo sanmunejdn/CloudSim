@@ -37,10 +37,12 @@ bool OsgWidgetBackendLoadController::loadMeshFromBackendData(
 	QString* errorMessage,
 	bool resetViewToHome,
 	bool showWireOutline,
-	bool useSceneLighting)
+	bool useSceneLighting,
+	bool skipInnerModelCenterRebase)
 {
 	self.clearStagingGeometry();
-	if (!self.upsertMeshBranchInScene(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting))
+	if (!self.upsertMeshBranchInScene(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting,
+			skipInnerModelCenterRebase))
 	{
 		return false;
 	}

@@ -33,6 +33,9 @@ public:
 	void setTriangleSoup(std::vector<float> xyzPerTriangleVertex);
 	const std::vector<float>& triangleSoup() const { return m_triangleSoup; }
 
+	/// Apply column-major rigid 4x4 (mesh-file → link frame) to every triangle vertex xyz in \c m_triangleSoup; recomputes bounds.
+	void transformVerticesColumnMajorHomogeneous4x4(const double colMajor16[16]);
+
 	void setPose(const BackendVec3& position) override;
 	BackendVec3 pose() const override;
 	void setRotation(const BackendVec3& eulerDeg) override;
@@ -53,8 +56,9 @@ public:
 	static bool loadStepHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts, std::string* errMsg = nullptr);
 	static bool loadDxfHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts, std::string* errMsg = nullptr);
 
-	nlohmann::json snapshotPropertyRows() const override;
-	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg) override;
+	nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const override;
+	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
+		const BackendDataManager* mgr = nullptr) override;
 
 private:
 	void recomputeBounds();

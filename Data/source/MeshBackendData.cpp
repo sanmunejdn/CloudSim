@@ -110,9 +110,9 @@ BackendColor MeshBackendData::color() const
 	return m_color;
 }
 
-nlohmann::json MeshBackendData::snapshotPropertyRows() const
+nlohmann::json MeshBackendData::snapshotPropertyRows(const BackendDataManager* mgr) const
 {
-	nlohmann::json rows = BackendDataBase::snapshotPropertyRows();
+	nlohmann::json rows = BackendDataBase::snapshotPropertyRows(mgr);
 	property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::appendRows(m_attributes, *this, rows);
 
 	backend_property_json::appendRow(
@@ -120,14 +120,15 @@ nlohmann::json MeshBackendData::snapshotPropertyRows() const
 	return rows;
 }
 
-bool MeshBackendData::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg)
+bool MeshBackendData::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
+	const BackendDataManager* mgr)
 {
 	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(
 			m_attributes, *this, key, value, errMsg))
 	{
 		return true;
 	}
-	return BackendDataBase::applyPropertyChange(key, value, errMsg);
+	return BackendDataBase::applyPropertyChange(key, value, errMsg, mgr);
 }
 
 void MeshBackendData::setTriangleSoup(std::vector<float> xyzPerTriangleVertex)
@@ -138,6 +139,27 @@ void MeshBackendData::setTriangleSoup(std::vector<float> xyzPerTriangleVertex)
 		return;
 	}
 	m_triangleSoup = std::move(xyzPerTriangleVertex);
+	recomputeBounds();
+}
+
+void MeshBackendData::transformVerticesColumnMajorHomogeneous4x4(const double M[16])
+{
+	if (m_triangleSoup.size() < 3U || (m_triangleSoup.size() % 3U) != 0U)
+	{
+		return;
+	}
+	for (std::size_t i = 0; i + 2 < m_triangleSoup.size(); i += 3U)
+	{
+		const double x = static_cast<double>(m_triangleSoup[i]);
+		const double y = static_cast<double>(m_triangleSoup[i + 1]);
+		const double z = static_cast<double>(m_triangleSoup[i + 2]);
+		const double nx = M[0] * x + M[4] * y + M[8] * z + M[12];
+		const double ny = M[1] * x + M[5] * y + M[9] * z + M[13];
+		const double nz = M[2] * x + M[6] * y + M[10] * z + M[14];
+		m_triangleSoup[i] = static_cast<float>(nx);
+		m_triangleSoup[i + 1] = static_cast<float>(ny);
+		m_triangleSoup[i + 2] = static_cast<float>(nz);
+	}
 	recomputeBounds();
 }
 

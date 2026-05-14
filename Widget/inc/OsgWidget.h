@@ -14,6 +14,7 @@
 #include <unordered_set>
 #include <vector>
 #include <QList>
+#include <functional>
 #include <osgGA/TrackballManipulator>
 #include <osg/Camera>
 #include <osg/Array>
@@ -48,6 +49,7 @@ class SelectionOperation;
 class PointPickOperation;
 class ObjectTransformOperation;
 class MeshEdgeFacePickOperation;
+class BackendDataBase;
 class PointCloudBackendData;
 class MeshBackendData;
 class OsgWidgetImportController;
@@ -114,7 +116,7 @@ public:
 	bool loadPointCloudFromBackendData(const PointCloudBackendData& data, QString* errorMessage = nullptr,
 		bool resetViewToHome = true);
 	bool loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage = nullptr, bool resetViewToHome = true,
-		bool showWireOutline = true, bool useSceneLighting = true);
+		bool showWireOutline = true, bool useSceneLighting = true, bool skipInnerModelCenterRebase = false);
 	/// 该后端网格是否以场景光照渲染（如 URDF 连杆），用于改色时保留光照材质。
 	bool isBackendMeshLit(const std::string& backendId) const;
 	void clearImportedContent();
@@ -170,6 +172,8 @@ public:
 	bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const override;
 	/// Sets outer PAT pose so its world matrix equals \a worldMat (respects parent chain).
 	void setBackendRootWorldMatrixFromWorld(const std::string& backendId, const osg::Matrixd& worldMat) override;
+	bool tryGetBackendModelCenterMm(const std::string& backendId, double& outCx, double& outCy, double& outCz) const override;
+	void syncRobotMeshBackendPoseAfterKinematics(const BackendDataBase& mesh) override;
 
 	/// 【中文】添加层级化机器人场景图（动态层级法），返回场景节点的 ID 用于后续管理。
 	/// 【English】Add hierarchical robot scene graph (dynamic hierarchy method).
@@ -183,10 +187,23 @@ public:
 	void setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& axes);
 	void clearInstructionPoseAxes();
 
+	/// Optional per-frame callback (e.g. follow-attachment solve); runs on the viewer frame timer.
+	void setPerFrameHook(std::function<void(OsgWidget*)> fn);
+	/// True while object gizmo translate/rotate drag is active (skip automatic follower pose overwrite).
+	bool isTransformGizmoDragging() const;
+	/// Apply \a data pose/rotation to the outer PAT using cached model center (backend as pose authority).
+	bool syncOuterPatFromBackend(const BackendDataBase& data);
+	/// Orbit manipulator center tracks the world origin of this backend (empty disables).
+	void setCameraFollowBackendId(std::string backendId);
+	void clearCameraFollowBackendId();
+	const std::string& cameraFollowBackendId() const { return m_cameraFollowBackendId; }
+
 signals:
 	void selectedObjectPoseChanged(float x, float y, float z);
 	void selectedObjectRotationChanged(float rx, float ry, float rz);
 	void selectedObjectColorChanged(float r, float g, float b, float a);
+	/// Emitted once when translate/rotate gizmo drag ends (left/right release after an active drag).
+	void transformGizmoCommitted();
 	void backendObjectPicked(const QString& backendId);
 	void activeAxisChanged(const QString& axisName);
 	void selectionCanceledByEsc();
@@ -212,7 +229,7 @@ private:
 	osg::ref_ptr<osg::Node> buildMeshGeode(const MeshBackendData& data, QString* errorMessage,
 		bool showWireOutline = true, bool useSceneLighting = false) const;
 	bool upsertMeshBranchInScene(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
-		bool showWireOutline = true, bool useSceneLighting = false);
+		bool showWireOutline = true, bool useSceneLighting = false, bool skipInnerModelCenterRebase = false);
 	osg::Node* stagingGeometryRoot() const;
 	void applyVisibilityMaskForBackend(const std::string& backendId);
 	void updateCompassHighlight(DragAxis axis);
@@ -251,6 +268,10 @@ private:
 	osg::ref_ptr<osg::Group> m_instructionPoseAxesGroup;
 	/// Instruction TCP axes parented directly under link containers (must detach before rebuild/clear).
 	std::vector<osg::ref_ptr<osg::MatrixTransform>> m_instructionPoseAxisNodes;
+	std::function<void(OsgWidget*)> m_perFrameHook;
+	std::string m_cameraFollowBackendId;
+
+	void updateCameraFollowCenter();
 
 	bool pickMeshFaceByRayIntersection(const QPoint& mousePos,
 		osg::Vec3f& outPointWorld,

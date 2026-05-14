@@ -832,7 +832,8 @@ bool getOrCreateUrdfModel(const QString& urdfFilePath, std::shared_ptr<const Urd
 void computeMeshWorldMatricesFromModel(
 	const UrdfFkModelData& model,
 	const QVector<double>& jointAnglesRad,
-	QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld)
+	QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
+	bool meshVerticesAlreadyInLinkFrame)
 {
 	outLinkNameToMeshWorld.clear();
 	const QVector<double>& angles = jointAnglesRad;
@@ -857,7 +858,8 @@ void computeMeshWorldMatricesFromModel(
 		if (visIt != model.linkVisuals.end() && visIt->second.hasMesh)
 		{
 			const UrdfLinkVisual& vis = visIt->second;
-			const Mat4 visualInLink = meshFileToLinkFrameFromVisual(vis);
+			const Mat4 visualInLink =
+				meshVerticesAlreadyInLinkFrame ? matIdentity() : meshFileToLinkFrameFromVisual(vis);
 			const Mat4 urdfWorldFromMesh = matMul(cur.worldFromLink, visualInLink);
 			const Mat4 osgWorldFromMesh = osgWorldFromUrdfMeshFrame(urdfWorldFromMesh);
 			outLinkNameToMeshWorld.insert(cur.link, mat4ToOsg(osgWorldFromMesh));
@@ -1152,6 +1154,34 @@ bool UrdfRobotLoader::loadPrimaryTerminalLinkName(
 	return true;
 }
 
+bool UrdfRobotLoader::loadLinkChildToParentMap(
+	const QString& urdfFilePath,
+	QHash<QString, QString>& outChildLinkToParentLinkName,
+	QString* errorMessage)
+{
+	outChildLinkToParentLinkName.clear();
+
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		return false;
+	}
+
+	for (const UrdfJoint& j : model->joints)
+	{
+		if (!jointConnectsDistinctLinks(j))
+		{
+			continue;
+		}
+		if (j.parent.isEmpty() || j.child.isEmpty())
+		{
+			continue;
+		}
+		outChildLinkToParentLinkName.insert(j.child, j.parent);
+	}
+	return true;
+}
+
 // 仅关节名列表，顺序与 loadRevoluteJointMeta 一致，供与 jointAnglesRad 对齐。
 bool UrdfRobotLoader::loadRevoluteJointNamesInOrder(
 	const QString& urdfFilePath,
@@ -1168,7 +1198,8 @@ bool UrdfRobotLoader::computeMeshWorldMatrices(
 	const QString& urdfFilePath,
 	const QVector<double>& jointAnglesRad,
 	QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
-	QString* errorMessage)
+	QString* errorMessage,
+	bool meshVerticesAlreadyInLinkFrame)
 {
 	std::shared_ptr<const UrdfFkModelData> model;
 	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
@@ -1176,7 +1207,32 @@ bool UrdfRobotLoader::computeMeshWorldMatrices(
 		outLinkNameToMeshWorld.clear();
 		return false;
 	}
-	computeMeshWorldMatricesFromModel(*model, jointAnglesRad, outLinkNameToMeshWorld);
+	computeMeshWorldMatricesFromModel(*model, jointAnglesRad, outLinkNameToMeshWorld, meshVerticesAlreadyInLinkFrame);
+	return true;
+}
+
+bool UrdfRobotLoader::linkMeshFileToLinkColumnMajor16(
+	const QString& urdfFilePath, const QString& linkName, double outColumnMajor16[16], QString* errorMessage)
+{
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		return false;
+	}
+	const auto it = model->linkVisuals.find(linkName);
+	if (it == model->linkVisuals.end() || !it->second.hasMesh)
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("URDF has no mesh visual for link '%1'.").arg(linkName);
+		}
+		return false;
+	}
+	const Mat4 m = meshFileToLinkFrameFromVisual(it->second);
+	for (int i = 0; i < 16; ++i)
+	{
+		outColumnMajor16[i] = m.m[i];
+	}
 	return true;
 }
 
@@ -1201,6 +1257,44 @@ void UrdfRobotLoader::clearUrdfModelCache()
 {
 	QMutexLocker lock(&g_urdfModelCacheMutex);
 	g_urdfModelCache.clear();
+}
+
+bool UrdfRobotLoader::enumerateLinkVisualMeshes(
+	const QString& urdfFilePath,
+	QString& outRootLink,
+	QHash<QString, QString>& outLinkNameToAbsoluteMeshPath,
+	QString* errorMessage)
+{
+	outRootLink.clear();
+	outLinkNameToAbsoluteMeshPath.clear();
+
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		return false;
+	}
+	const UrdfFkModelData& m = *model;
+	outRootLink = m.rootLink;
+	for (const auto& kv : m.linkVisuals)
+	{
+		const QString& linkName = kv.first;
+		const UrdfLinkVisual& vis = kv.second;
+		if (!vis.hasMesh)
+		{
+			continue;
+		}
+		const QString absMesh = resolveMeshFilename(vis.meshUri, m.packageRoot, m.urdfDir);
+		if (absMesh.isEmpty() || !QFile::exists(absMesh))
+		{
+			if (errorMessage)
+			{
+				*errorMessage = QStringLiteral("Mesh not found for link '%1': %2").arg(linkName, vis.meshUri);
+			}
+			return false;
+		}
+		outLinkNameToAbsoluteMeshPath.insert(linkName, absMesh);
+	}
+	return true;
 }
 
 // 【中文】计算给定关节角度下的 Joint 矩阵（与 buildHierarchicalRobotScene 中可 setMatrix 的节点一致）。

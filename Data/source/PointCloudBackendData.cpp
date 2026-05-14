@@ -756,20 +756,21 @@ bool PointCloudBackendData::readPointCloudPlySidecar(const std::string& utf8Path
 	return readPointCloudFromPlyFile(utf8Path, errMsg);
 }
 
-nlohmann::json PointCloudBackendData::snapshotPropertyRows() const
+nlohmann::json PointCloudBackendData::snapshotPropertyRows(const BackendDataManager* mgr) const
 {
-	nlohmann::json rows = BackendDataBase::snapshotPropertyRows();
+	nlohmann::json rows = BackendDataBase::snapshotPropertyRows(mgr);
 	property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::appendRows(m_attributes, *this, rows);
 	return rows;
 }
 
-bool PointCloudBackendData::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg)
+bool PointCloudBackendData::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
+	const BackendDataManager* mgr)
 {
 	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(
 			m_attributes, *this, key, value, errMsg))
 	{
 		return true;
 	}
-	return BackendDataBase::applyPropertyChange(key, value, errMsg);
+	return BackendDataBase::applyPropertyChange(key, value, errMsg, mgr);
 }
 

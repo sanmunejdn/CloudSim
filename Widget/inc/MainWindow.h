@@ -52,6 +52,11 @@ public:
 	explicit MainWindow(QWidget* parent = nullptr);
 	~MainWindow() override = default;
 
+	/// Call once after \c QApplication::exec() returns (same RunLogger module as \ref RunInfoPage).
+	static void shutdownApplicationLogging();
+
+	void afterBackendFollowPropertyEdited(const QString& propertyKey, const QString& valueText);
+
 private:
 	friend class MainWindowImportCaptureRenderController;
 	friend class MainWindowSelectionService;
@@ -90,6 +95,8 @@ private:
 	void onSelectedObjectPoseChanged(float x, float y, float z);
 	void onSelectedObjectRotationChanged(float rx, float ry, float rz);
 	void onSelectedObjectColorChanged(float r, float g, float b, float a);
+	void onTransformGizmoCommitted();
+	void onPropertyPanelCommitTimer();
 	void onActiveAxisChanged(const QString& axisName);
 	void onVariantPropertyValueChanged(QtProperty* property, const QVariant& value);
 	void onViewModeTriggered();
@@ -127,6 +134,16 @@ private:
 	BackendDataManager& activeBackend();
 	OsgWidget* currentOsgWidget() const;
 	void wireDocumentPageSignals(DocumentPage* page);
+	void installBackendFollowFrameHook(DocumentPage* page);
+	void runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg);
+	/// Debounced full property browser rebuild after variant edits (avoids clear() on every spin step).
+	void schedulePropertyPanelCommitRefresh(const std::shared_ptr<BackendDataBase>& data);
+	/// After OSG gizmo writes pose/rotation/color to backend: follow solve + property panel (runs on each mouse move, not only the 16ms frame timer).
+	void refreshFollowSolveAndPropertyPanelFromOsgWrite(const std::shared_ptr<BackendDataBase>& data);
+	/// Sync FollowAttachment from backend parent edge (append under parent): child world = parent * local.
+	void applyHierarchyFollowBinding(DocumentPage* page, const std::string& childId, const std::string& parentId);
+	/// Apply debounced follow.targetName (line edit emits per keystroke; avoid clear() while typing).
+	void flushFollowTargetNamePropertyEdit();
 	void syncViewModeActionsFromCurrentOsg();
 	void setAllDocumentViewerDarkBackground(bool dark);
 	bool viewerUsesDarkBackground() const;
@@ -177,6 +194,11 @@ private:
 	SimulationCommandWidget* m_simulationCommandPage = nullptr;
 	RobotAxisControlWidget* m_robotAxisControlPage = nullptr;
 	QTimer m_robotSimTimer;
+	QTimer m_followTargetNameDebounceTimer;
+	QTimer m_propertyPanelCommitTimer;
+	QString m_propertyPanelCommitPendingBackendId;
+	QString m_followTargetNameDebounceBackendId;
+	QString m_followTargetNameDebounceText;
 	RobotInstruction::Controller m_robotInstructionController;
 	RobotInstructionPlaybackEngine m_robotInstructionPlayback;
 	QDockWidget* m_runDock = nullptr;

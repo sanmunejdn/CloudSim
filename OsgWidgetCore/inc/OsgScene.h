@@ -95,6 +95,9 @@ public:
 	void resetNavigationInputQueues();
 
 	bool isBackendDescendantOf(const std::string& backendId, const std::string& ancestorId) const;
+	/// True if \a childBackendId outer PAT is a descendant in the OSG scene graph of \a ancestorBackendId outer PAT
+	/// (walks real parents; used to avoid double-applying gizmo deltas when logical and visual hierarchy match).
+	bool backendOuterPatIsUnderOuterPatInSceneGraph(const std::string& childBackendId, const std::string& ancestorBackendId) const;
 	void cacheSelectionPoseFromSelectedTransform();
 	void syncActiveBackendRootFromSelectedTransform();
 
@@ -114,6 +117,9 @@ public:
 	void updateCompassLocalOffsetForModelOrigin();
 	void updateCompassScale();
 	int pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing) const;
+	/// Qt widget pixel coords (logical); multiplied internally by \ref devicePixelRatio to match OSG viewport.
+	bool computeCameraScreenRayWorld(double mouseX, double mouseY, osg::Vec3d& outRayOriginWorld, osg::Vec3d& outRayDirUnitWorld) const;
+	void computeGizmoPivotWorld(osg::Vec3f& outPivotWorld) const;
 
 	void focusCameraOnBackend(const std::string& backendId);
 
@@ -149,20 +155,20 @@ public:
 	osg::ref_ptr<osg::Group> m_root;
 	/// 主场景内容分层父节点（标注、导入物、机器人、轨迹等），子节点顺序影响默认绘制先后。
 	osg::ref_ptr<osg::Group> m_sceneContentGroup;
-	/// 导入网格/点云对应的后端根 PAT 挂接于此（与机器人装配分离，便于仿真与资源管理）。
+	/// 导入网格/点云对应的后端根 \c osg::MatrixTransform 挂接于此（与机器人装配分离，便于仿真与资源管理）。
 	osg::ref_ptr<osg::Group> m_backendObjectsGroup;
 	/// URDF / 关节层级机器人场景（参见 OsgWidget::addHierarchicalRobotScene）。
 	osg::ref_ptr<osg::Group> m_robotAssemblyGroup;
 	/// 预留：轨迹、路径、调试曲线等覆盖几何。
 	osg::ref_ptr<osg::Group> m_trajectoryOverlayGroup;
 	osg::ref_ptr<osg::Group> m_stagingGroup;
-	std::unordered_map<std::string, osg::ref_ptr<osg::PositionAttitudeTransform>> m_backendObjectRoots;
+	std::unordered_map<std::string, osg::ref_ptr<osg::MatrixTransform>> m_backendObjectRoots;
 	std::unordered_map<std::string, std::string> m_backendParentIds;
 	std::unordered_map<std::string, osg::Vec3f> m_backendModelCenters;
 	std::unordered_map<std::string, bool> m_backendVisibility;
 	BackendVisualBindingIndex m_backendVisualBindings;
 	std::string m_activeBackendId;
-	osg::ref_ptr<osg::PositionAttitudeTransform> m_activeBackendOuterPat;
+	osg::ref_ptr<osg::MatrixTransform> m_activeBackendOuterPat;
 	osg::ref_ptr<osg::PositionAttitudeTransform> m_selectedTransform;
 	osg::ref_ptr<osg::PositionAttitudeTransform> m_compassTransform;
 	osg::ref_ptr<osg::Group> m_annotationGroup;
@@ -184,6 +190,11 @@ public:
 	bool m_rotating = false;
 	DragAxis m_dragAxis = DragAxis::None;
 	DragAxis m_hoverAxis = DragAxis::None;
+	/// Frozen translate drag plane (pivot-centered, contains the dragged axis, faces the camera at press time).
+	osg::Vec3d m_gizmoTransDragPlaneO{};
+	osg::Vec3d m_gizmoTransDragPlaneN{};
+	osg::Vec3d m_gizmoDragLastHitWorld{};
+	bool m_gizmoTransDragPlaneActive = false;
 	osg::Vec3f m_modelCenter = osg::Vec3f(0.0f, 0.0f, 0.0f);
 	double m_gizmoReferenceDistance = -1.0;
 	double m_gizmoReferenceScale = 1.0;

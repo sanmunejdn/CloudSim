@@ -11,6 +11,15 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="inc\BackendFollowMath.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendFollowTransformSolver.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FollowAttachmentComponent.h">
+      <Filter>Header</Filter>
+    </ClInclude>
     <ClInclude Include="inc\BackendDataBase.h">
       <Filter>Header</Filter>
     </ClInclude>
@@ -37,6 +46,15 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\BackendFollowMath.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendFollowTransformSolver.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FollowAttachmentComponent.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
     <ClCompile Include="source\BackendDataBase.cpp">
       <Filter>Source</Filter>
     </ClCompile>

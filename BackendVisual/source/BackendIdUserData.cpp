@@ -10,6 +10,7 @@
 
 #include "BackendIdUserData.h"
 
+#include <osg/Group>
 #include <osg/PositionAttitudeTransform>
 
 BackendIdUserData::BackendIdUserData(std::string id)
@@ -48,13 +49,13 @@ const BackendIdUserData* BackendIdUserData::findInNodePath(const osg::NodePath& 
 	return nullptr;
 }
 
-osg::Node* backendVisualResolvePickNode(osg::PositionAttitudeTransform* outerPat)
+osg::Node* backendVisualResolvePickNode(osg::Group* outerBranchRoot)
 {
-	if (!outerPat || outerPat->getNumChildren() == 0)
+	if (!outerBranchRoot || outerBranchRoot->getNumChildren() == 0)
 	{
 		return nullptr;
 	}
-	auto* inner = dynamic_cast<osg::PositionAttitudeTransform*>(outerPat->getChild(0));
+	auto* inner = dynamic_cast<osg::PositionAttitudeTransform*>(outerBranchRoot->getChild(0));
 	if (!inner || inner->getNumChildren() == 0)
 	{
 		return nullptr;

@@ -225,6 +225,18 @@ flowchart LR
 3. `OsgWidget/OsgScene` 同步更新对应场景节点。  
 4. 树、属性、场景共享同一选择真源（`SelectionState`）。  
 
+## 6.2.1 跟随附着与变换真源（FollowAttachment）
+
+1. 可选组件 `FollowAttachmentComponent`（`BackendDataBase` 组件，`componentType` = `FollowAttachment`）描述 follower 相对 target 的刚体局部位姿；`BackendFollowTransformSolver` 按 DAG 拓扑更新 follower 的 `pose/rotation`（与点云/网格外分支约定一致）。  
+2. 目标世界矩阵优先取自 `OsgWidget::getBackendRootWorldMatrix`（与机器人 FK、gizmo 拖动一致），否则回退为几何中心 + 后端位姿构成的矩阵。  
+3. `OsgWidget` 帧回调中**仅当**存在待处理跟随（`DocumentPage::followDirtyBackendIds` 非空）、已请求强制整图求解（`requestFollowSolveForced`，用于机器人 tick / 工程加载后首帧等）、或正在拖动对象 gizmo 时，才调用 `MainWindow::runBackendFollowSolveAndSync`；静止且无上述条件时跳过求解以降低 CPU。求解后按脏集子集（若启用）将结果写回外层 `PAT`（`syncOuterPatFromBackend`）。子集模式下求解器仍会为拓扑中的 follower 维护世界矩阵缓存，仅对脏 id 写回后端位姿，避免链式 follower 矩阵陈旧。用户用 gizmo 拖动**已启用跟随的选中物体**时跳过该 follower 的自动写回，避免与手动拖拽冲突。  
+4. 工程 `project.json` 中每对象可含 `followAttachment`（含可选 `hierarchyDriven`）；根级可选 `cameraFollowBackendId` 驱动轨道相机 `setCenter` 跟踪目标世界原点。  
+5. 属性面板仅暴露一项 **`follow.targetName`**（跟随目标的 **对象名称**，与 `BackendDataBase::name()` 精确匹配）；`BackendDataManager::findByName` 解析为 `targetId` 后绑定；名称留空则移除跟随组件。内部仍存 `targetId` 与局部刚体偏移；`follow.targetId` 等键仍可在程序化/旧脚本中 `applyPropertyChange`，但不再出现在默认属性行中。  
+6. 当 `BackendDataManager::attachChild` / 工程 `edges` 建立父子关系时，`MainWindow::applyHierarchyFollowBinding` 会为子对象自动启用跟随（`hierarchyDriven=true`）并按当前世界位姿计算局部偏移；若该对象 JSON 中已有非空的 `followAttachment`，则以文件中的跟随配置为准而不被边覆盖。用户通过名称显式指定跟随目标会清除 `hierarchyDriven`。  
+7. **属性提交刷新**：gizmo 平移/旋转在 `MouseButtonRelease` 时发出 `OsgWidget::transformGizmoCommitted`，由 `MainWindow` 单次 `updatePropertyPanel`；拖动过程中 `selectedObjectPoseChanged` / `Rotation` / `Color` 只写后端与 OSG，不重建属性浏览器。属性行编辑通过 `schedulePropertyPanelCommitRefresh` 防抖后统一刷新（`follow.targetName` 仍走原有独立防抖提交）。  
+8. **脏集传播**：`DocumentPage::markFollowAttachmentDirtyFromBackendMove` 将种子 id、沿「target→followers」可达的 follower、以及 `BackendDataManager::childrenOf` 链上的子 id 并入脏集；属性提交、gizmo 释放、`applyHierarchyFollowBinding`、非 `follow.*` 的属性变更等路径置脏。显式 `FollowAttachment` 与层级边并存时，仍以组件与求解器为位姿真源；层级边通过 `applyHierarchyFollowBinding` 写入/清除 `hierarchyDriven` 跟随。  
+9. **Transform 多态**：`BackendDataBase::supportsBackendTransform` / `applyBackendWorldPose` 为窄接口（默认 `hasPoseProperty()` 为真时委托 `setPose`+`setRotation`）。`MainWindow` 在 OSG 位姿写回点云/网格时使用该接口，便于后续在子类中扩展变换副作用而不散落 `setPose` 调用。
+
 ## 6.3 选择与可见性闭环（当前重构重点）
 
 1. OSG 拾取发生后，`OsgScene` 通过 `BackendVisualBindingIndex` 解析 `backendId`。  

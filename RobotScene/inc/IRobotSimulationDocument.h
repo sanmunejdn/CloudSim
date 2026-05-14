@@ -11,6 +11,8 @@
 #include <osg/MatrixTransform>
 #include <osg/ref_ptr>
 
+class BackendDataManager;
+
 /// Read-only robot simulation state exposed by a document (implemented by \ref DocumentPage in Widget).
 /// 【中文】支持动态层级法：存储关节 MatrixTransform 节点，用于直接修改关节角度。
 class ROBOT_SCENE_API IRobotSimulationDocument
@@ -55,4 +57,13 @@ public:
 	/// 【中文】传统烘焙法的绑定数据（可选保留用于向后兼容）。
 	virtual const QHash<QString, osg::Matrixd>& robotFkMeshWorldT0() const = 0;
 	virtual const QHash<QString, osg::Matrixd>& robotOuterWorldAtBind() const = 0;
+
+	/// True when per-link mesh vertices were transformed from URDF mesh-file frame into link frame (must match FK with identity visual).
+	virtual bool robotUrdfMeshVerticesInLinkFrame() const { return false; }
+
+	/// When non-null, \ref RobotSceneKinematics can write per-link \ref MeshBackendData poses for URDF playback.
+	virtual BackendDataManager* robotBackendManagerForKinematics() { return nullptr; }
+
+	/// Called after FK has been applied to the scene (per-link backends or hierarchy). Used to propagate follow-attachment dirties.
+	virtual void notifyRobotKinematicsAppliedToScene() {}
 };

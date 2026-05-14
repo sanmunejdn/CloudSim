@@ -10,9 +10,19 @@
 
 #include "OsgScene.h"
 
-#include <osg/PositionAttitudeTransform>
+#include <osg/Matrixd>
+#include <osg/MatrixTransform>
 #include <osg/Quat>
 #include <osg/Vec3>
+#include <osg/Vec3d>
+
+namespace
+{
+osg::Matrixd outerLocalFromPosQuat(const osg::Vec3f& pos, const osg::Quat& q)
+{
+	return osg::Matrixd::translate(osg::Vec3d(pos.x(), pos.y(), pos.z())) * osg::Matrixd::rotate(q);
+}
+} // namespace
 
 bool OsgScene::isBackendDescendantOf(const std::string& backendId, const std::string& ancestorId) const
 {
@@ -33,6 +43,35 @@ bool OsgScene::isBackendDescendantOf(const std::string& backendId, const std::st
 			return false;
 		}
 		cur = it->second;
+	}
+	return false;
+}
+
+bool OsgScene::backendOuterPatIsUnderOuterPatInSceneGraph(const std::string& childBackendId, const std::string& ancestorBackendId) const
+{
+	if (childBackendId.empty() || ancestorBackendId.empty() || childBackendId == ancestorBackendId)
+	{
+		return false;
+	}
+	const auto cIt = m_backendObjectRoots.find(childBackendId);
+	const auto aIt = m_backendObjectRoots.find(ancestorBackendId);
+	if (cIt == m_backendObjectRoots.end() || aIt == m_backendObjectRoots.end() || !cIt->second.valid() || !aIt->second.valid())
+	{
+		return false;
+	}
+	osg::MatrixTransform* const ancestorMt = aIt->second.get();
+	osg::Node* p = cIt->second->getNumParents() > 0 ? cIt->second->getParent(0) : nullptr;
+	while (p)
+	{
+		if (p == ancestorMt)
+		{
+			return true;
+		}
+		if (p == m_backendObjectsGroup.get())
+		{
+			return false;
+		}
+		p = p->getNumParents() > 0 ? p->getParent(0) : nullptr;
 	}
 	return false;
 }
@@ -67,8 +106,7 @@ void OsgScene::syncActiveBackendRootFromSelectedTransform()
 		m_hasLastSelectionPose = true;
 		if (m_activeBackendOuterPat.valid())
 		{
-			m_activeBackendOuterPat->setPosition(curPos);
-			m_activeBackendOuterPat->setAttitude(curAtt);
+			m_activeBackendOuterPat->setMatrix(outerLocalFromPosQuat(curPos, curAtt));
 		}
 		return;
 	}
@@ -89,15 +127,24 @@ void OsgScene::syncActiveBackendRootFromSelectedTransform()
 		}
 		if (kv.first == m_activeBackendId)
 		{
-			kv.second->setPosition(curPos);
-			kv.second->setAttitude(curAtt);
+			kv.second->setMatrix(outerLocalFromPosQuat(curPos, curAtt));
 			continue;
 		}
-		const osg::Vec3f oldPos = kv.second->getPosition();
-		const osg::Quat oldAtt = kv.second->getAttitude();
+		// When the outer PAT is already nested under the active object's PAT in OSG, the parent transform
+		// carries the child; do not apply the legacy flat-sibling delta (would double-move / corrupt pose).
+		if (backendOuterPatIsUnderOuterPatInSceneGraph(kv.first, m_activeBackendId))
+		{
+			continue;
+		}
+		osg::Vec3d ot;
+		osg::Quat oq;
+		osg::Vec3d os;
+		osg::Quat oso;
+		kv.second->getMatrix().decompose(ot, oq, os, oso);
+		const osg::Vec3f oldPos(static_cast<float>(ot.x()), static_cast<float>(ot.y()), static_cast<float>(ot.z()));
+		const osg::Quat oldAtt = oq;
 		const osg::Vec3f newPos = curPos + (deltaAtt * (oldPos - prevPos));
-		kv.second->setPosition(newPos);
-		kv.second->setAttitude(deltaAtt * oldAtt);
+		kv.second->setMatrix(outerLocalFromPosQuat(newPos, deltaAtt * oldAtt));
 	}
 	m_lastSelectionPos = curPos;
 	m_lastSelectionAtt = curAtt;

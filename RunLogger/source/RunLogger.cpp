@@ -152,6 +152,19 @@ void critical(const std::string& message)
 	log(LogLevel::Critical, message);
 }
 
+void flush()
+{
+	std::shared_ptr<spdlog::logger> loggerCopy;
+	{
+		std::lock_guard<std::mutex> lock(gMutex);
+		loggerCopy = gLogger;
+	}
+	if (loggerCopy)
+	{
+		loggerCopy->flush();
+	}
+}
+
 const char* levelName(LogLevel level)
 {
 	switch (level)

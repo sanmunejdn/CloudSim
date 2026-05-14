@@ -57,8 +57,9 @@ public:
 	bool writePointCloudPlySidecar(const std::string& utf8Path, std::string* errMsg) const;
 	bool readPointCloudPlySidecar(const std::string& utf8Path, std::string* errMsg);
 
-	nlohmann::json snapshotPropertyRows() const override;
-	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg) override;
+	nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const override;
+	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
+		const BackendDataManager* mgr = nullptr) override;
 
 private:
 	void recomputeBoundsFromPoints();

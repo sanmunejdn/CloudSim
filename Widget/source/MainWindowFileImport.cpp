@@ -79,6 +79,7 @@ bool MainWindow::registerExistingBackendObject(std::shared_ptr<BackendDataBase> 
 	{
 		osg->setBackendParent(id.toStdString(), parentId.toStdString());
 	}
+	applyHierarchyFollowBinding(doc, id.toStdString(), parentId.toStdString());
 	if (m_runInfoPage)
 	{
 		m_runInfoPage->appendInfo(QStringLiteral("Backend object registered: %1").arg(QString::fromStdString(backendObject->name())));

@@ -27,9 +27,11 @@
 #include <osg/Shape>
 #include <osg/StateSet>
 #include <osg/StateAttribute>
+#include <osg/Matrixd>
 #include <osg/Vec3>
 #include <osg/Vec3d>
 #include <osg/Vec4>
+#include <osg/Vec4d>
 #include <osgViewer/Viewer>
 
 osg::Node* OsgScene::createCompassNode()
@@ -62,7 +64,29 @@ osg::Node* OsgScene::createCompassNode()
 
 	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 	geode->addDrawable(axisGeom.get());
-	geode->getOrCreateStateSet()->setAttribute(new osg::LineWidth(5.0f));
+	// Flat triangular arrowheads at +X/+Y/+Z (clear positive direction vs line-only).
+	const float triTip = axisLen + 16.0f;
+	const float triBase = axisLen - 9.0f;
+	const float triSpan = 12.0f;
+	auto addAxisTriPointer = [&](const osg::Vec3& p0, const osg::Vec3& p1, const osg::Vec3& p2, const osg::Vec4& col) {
+		osg::ref_ptr<osg::Vec3Array> v = new osg::Vec3Array;
+		v->push_back(p0);
+		v->push_back(p1);
+		v->push_back(p2);
+		osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array;
+		ca->push_back(col);
+		osg::ref_ptr<osg::Geometry> g = new osg::Geometry;
+		g->setVertexArray(v.get());
+		g->setColorArray(ca.get(), osg::Array::BIND_OVERALL);
+		g->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, 3));
+		g->getOrCreateStateSet()->setAttributeAndModes(new osg::PolygonOffset(-1.5f, -1.5f), osg::StateAttribute::ON);
+		geode->addDrawable(g.get());
+	};
+	addAxisTriPointer(osg::Vec3(triTip, 0.0f, 0.0f), osg::Vec3(triBase, triSpan, 0.0f), osg::Vec3(triBase, -triSpan, 0.0f), osg::Vec4(1.0f, 0.12f, 0.12f, 0.96f));
+	addAxisTriPointer(osg::Vec3(0.0f, triTip, 0.0f), osg::Vec3(triSpan, triBase, 0.0f), osg::Vec3(-triSpan, triBase, 0.0f), osg::Vec4(0.12f, 1.0f, 0.12f, 0.96f));
+	addAxisTriPointer(osg::Vec3(0.0f, 0.0f, triTip), osg::Vec3(triSpan, 0.0f, triBase), osg::Vec3(-triSpan, 0.0f, triBase), osg::Vec4(0.12f, 0.35f, 1.0f, 0.96f));
+
+	geode->getOrCreateStateSet()->setAttribute(new osg::LineWidth(6.0f));
 
 	auto addArrow = [&](const osg::Vec3& center, const osg::Vec3& dir, const osg::Vec4& color) {
 		osg::ref_ptr<osg::Cone> cone = new osg::Cone(center, headRadius, headLen);
@@ -74,9 +98,9 @@ osg::Node* OsgScene::createCompassNode()
 		geode->addDrawable(shape.get());
 	};
 
-	addArrow(osg::Vec3(axisLen + headLen * 0.5f, 0.0f, 0.0f), osg::Vec3(1.0f, 0.0f, 0.0f), osg::Vec4(1.0f, 0.2f, 0.2f, 1.0f));
-	addArrow(osg::Vec3(0.0f, axisLen + headLen * 0.5f, 0.0f), osg::Vec3(0.0f, 1.0f, 0.0f), osg::Vec4(0.2f, 1.0f, 0.2f, 1.0f));
-	addArrow(osg::Vec3(0.0f, 0.0f, axisLen + headLen * 0.5f), osg::Vec3(0.0f, 0.0f, 1.0f), osg::Vec4(0.2f, 0.4f, 1.0f, 1.0f));
+	addArrow(osg::Vec3(axisLen + headLen * 0.5f + 18.0f, 0.0f, 0.0f), osg::Vec3(1.0f, 0.0f, 0.0f), osg::Vec4(1.0f, 0.2f, 0.2f, 1.0f));
+	addArrow(osg::Vec3(0.0f, axisLen + headLen * 0.5f + 18.0f, 0.0f), osg::Vec3(0.0f, 1.0f, 0.0f), osg::Vec4(0.2f, 1.0f, 0.2f, 1.0f));
+	addArrow(osg::Vec3(0.0f, 0.0f, axisLen + headLen * 0.5f + 18.0f), osg::Vec3(0.0f, 0.0f, 1.0f), osg::Vec4(0.2f, 0.4f, 1.0f, 1.0f));
 
 	auto addRing = [&](int plane, const osg::Vec4& color) {
 		osg::ref_ptr<osg::Vec3Array> ringVertices = new osg::Vec3Array;
@@ -115,6 +139,8 @@ osg::Node* OsgScene::createCompassNode()
 	ss->setAttributeAndModes(new osg::PolygonOffset(-1.0f, -1.0f), osg::StateAttribute::ON);
 	ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
 	ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+	ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
 	osg::ref_ptr<osg::Depth> depth = new osg::Depth;
 	depth->setFunction(osg::Depth::ALWAYS);
 	depth->setWriteMask(false);
@@ -264,6 +290,10 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing)
 	{
 		return kGizmoAxisNone;
 	}
+	// Viewport is device pixels (see QWidgetViewer::windowResized); Qt mouse is logical — match OSG.
+	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
+	const double mx = mouseX * dpr;
+	const double my = mouseY * dpr;
 
 	float gizmoScale = 1.0f;
 	if (m_compassTransform.valid())
@@ -280,11 +310,9 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing)
 
 	osg::Camera* camera = m_viewer->getCamera();
 	const osg::Matrixd mvp = camera->getViewMatrix() * camera->getProjectionMatrix();
-	const osg::Vec3f outerPos = m_selectedTransform->getPosition();
 	const osg::Quat attitude = m_selectedTransform->getAttitude();
-	// Match rendered gizmo: compass is child PAT with position -m_modelCenter and attitude C (see syncCompassGizmoOrientation).
-	const osg::Vec3f compassPosLocal(-m_modelCenter.x(), -m_modelCenter.y(), -m_modelCenter.z());
-	const osg::Vec3f origin = outerPos + attitude * compassPosLocal;
+	osg::Vec3f origin;
+	computeGizmoPivotWorld(origin);
 	osg::Quat compassAtt;
 	if (m_transformGizmoFrame == TransformGizmoFrame::World)
 	{
@@ -323,12 +351,16 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing)
 		return std::hypot(qx - projx, qy - projy);
 	};
 
-	const double dx = distanceToSegment(ox, oy, pxx, pxy, mouseX, mouseY);
-	const double dy = distanceToSegment(ox, oy, pyx, pyy, mouseX, mouseY);
-	const double dz = distanceToSegment(ox, oy, pzx, pzy, mouseX, mouseY);
+	const double dx = distanceToSegment(ox, oy, pxx, pxy, mx, my);
+	const double dy = distanceToSegment(ox, oy, pyx, pyy, mx, my);
+	const double dz = distanceToSegment(ox, oy, pzx, pzy, mx, my);
 
-	const double threshold = 24.0;
-	const double ringThreshold = 18.0;
+	const double axisPx0 = std::hypot(pxx - ox, pxy - oy);
+	const double axisPx1 = std::hypot(pyx - ox, pyy - oy);
+	const double axisPx2 = std::hypot(pzx - ox, pzy - oy);
+	const double axisLenPx = std::max({axisPx0, axisPx1, axisPx2, 1.0});
+	const double threshold = std::clamp(0.22 * axisLenPx, 14.0, 44.0);
+	const double ringThreshold = std::clamp(0.14 * axisLenPx, 10.0, 36.0);
 
 	auto minDistanceToProjectedRing = [&](int axis) -> double {
 		const int segments = 72;
@@ -345,7 +377,7 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing)
 			double s0x = 0, s0y = 0, s1x = 0, s1y = 0;
 			projectToScreen(w0, s0x, s0y);
 			projectToScreen(w1, s1x, s1y);
-			const double d = distanceToSegment(s0x, s0y, s1x, s1y, mouseX, mouseY);
+			const double d = distanceToSegment(s0x, s0y, s1x, s1y, mx, my);
 			if (d < minDist) minDist = d;
 		}
 		return minDist;
@@ -371,4 +403,59 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing)
 	if (dy < minDist) { minDist = dy; axis = kGizmoAxisY; }
 	if (dz < minDist) { minDist = dz; axis = kGizmoAxisZ; }
 	return axis;
+}
+
+void OsgScene::computeGizmoPivotWorld(osg::Vec3f& outPivotWorld) const
+{
+	outPivotWorld.set(0.0f, 0.0f, 0.0f);
+	if (!m_selectedTransform.valid())
+	{
+		return;
+	}
+	const osg::Vec3f outerPos = m_selectedTransform->getPosition();
+	const osg::Quat attitude = m_selectedTransform->getAttitude();
+	const osg::Vec3f compassPosLocal(-m_modelCenter.x(), -m_modelCenter.y(), -m_modelCenter.z());
+	outPivotWorld = outerPos + attitude * compassPosLocal;
+}
+
+bool OsgScene::computeCameraScreenRayWorld(double mouseX, double mouseY, osg::Vec3d& outRayOriginWorld, osg::Vec3d& outRayDirUnitWorld) const
+{
+	if (!m_viewer.valid() || !m_viewer->getCamera())
+	{
+		return false;
+	}
+	const osg::Camera* camera = m_viewer->getCamera();
+	const int W = viewportWidth();
+	const int H = viewportHeight();
+	if (W <= 0 || H <= 0)
+	{
+		return false;
+	}
+	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
+	const double mx = mouseX * dpr;
+	const double my = mouseY * dpr;
+	const osg::Matrixd invVP = osg::Matrixd::inverse(camera->getViewMatrix() * camera->getProjectionMatrix());
+	const double clipX = 2.0 * mx / static_cast<double>(W) - 1.0;
+	const double clipY = 1.0 - 2.0 * my / static_cast<double>(H);
+	const osg::Vec4d n4(clipX, clipY, -1.0, 1.0);
+	const osg::Vec4d f4(clipX, clipY, 1.0, 1.0);
+	osg::Vec4d nw = n4 * invVP;
+	osg::Vec4d fw = f4 * invVP;
+	if (std::abs(nw.w()) < 1e-12 || std::abs(fw.w()) < 1e-12)
+	{
+		return false;
+	}
+	nw /= nw.w();
+	fw /= fw.w();
+	const osg::Vec3d nearP(nw.x(), nw.y(), nw.z());
+	const osg::Vec3d farP(fw.x(), fw.y(), fw.z());
+	osg::Vec3d dir = farP - nearP;
+	const double len = dir.length();
+	if (len < 1e-12)
+	{
+		return false;
+	}
+	outRayOriginWorld = nearP;
+	outRayDirUnitWorld = dir / len;
+	return true;
 }

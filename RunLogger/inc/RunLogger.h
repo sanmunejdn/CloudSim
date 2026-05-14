@@ -33,5 +33,8 @@ RUN_LOGGER_API void warn(const std::string& message);
 RUN_LOGGER_API void error(const std::string& message);
 RUN_LOGGER_API void critical(const std::string& message);
 
+/// Flush file/console sinks (debug/info are not flushed automatically; see \c flush_on in RunLogger.cpp).
+RUN_LOGGER_API void flush();
+
 RUN_LOGGER_API const char* levelName(LogLevel level);
 } // namespace RunLogger

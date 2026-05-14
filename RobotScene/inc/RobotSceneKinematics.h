@@ -13,6 +13,7 @@
 
 class IRobotSimulationDocument;
 class IRobotBackendPoseSink;
+class BackendDataManager;
 
 namespace RobotSceneKinematics
 {
@@ -20,6 +21,11 @@ namespace RobotSceneKinematics
 /// Uses bind pose from the document (T0, outer PAT world matrices) to apply joint angles to the OSG scene.
 ROBOT_SCENE_API bool applyJointAnglesFromDocument(
 	IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg, const QVector<double>& anglesRad);
+
+/// Per-link URDF: FK → \ref IRobotBackendPoseSink::setBackendRootWorldMatrixFromWorld + \ref MeshBackendData pose/rotation.
+/// Link updates run in backend-parent order so nested OSG parents already match FK before children are written.
+ROBOT_SCENE_API bool applyJointAnglesViaLinkBackends(
+	IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg, BackendDataManager& mgr, const QVector<double>& anglesRad);
 
 /// Given per-link mesh world matrices Tq, zero bind FK T0, and bind-time outer PAT matrices, updates the scene.
 ROBOT_SCENE_API void applyMeshWorldMatricesRelativeToBind(

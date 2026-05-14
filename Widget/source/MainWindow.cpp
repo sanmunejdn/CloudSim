@@ -6,7 +6,9 @@
 #include <memory>
 #include <sstream>
 #include <locale>
+#include <unordered_set>
 
+#include <QAbstractItemView>
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
@@ -35,7 +37,10 @@
 #include "ApplicationStyle.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BackendFollowMath.h"
+#include "BackendFollowTransformSolver.h"
 #include "DocumentPage.h"
+#include "FollowAttachmentComponent.h"
 #include "DevicePageWidget.h"
 #include "MainWindow_p.h"
 #include "MainWindowSelectionService.h"
@@ -649,6 +654,8 @@ void MainWindow::applyLanguage()
 			tw->setHeaderLabels(QStringList()
 				<< i18n(QStringLiteral("Property"), QStringLiteral("属性"))
 				<< i18n(QStringLiteral("Value"), QStringLiteral("值")));
+			tw->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::SelectedClicked
+				| QAbstractItemView::EditKeyPressed | QAbstractItemView::AnyKeyPressed);
 		}
 	}
 	if (m_osgSceneTree)
@@ -691,8 +698,16 @@ void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
 		pose.x = x;
 		pose.y = y;
 		pose.z = z;
-		pointCloud->setPose(pose);
-		updatePropertyPanel(pointCloud);
+		const BackendVec3 euler = pointCloud->rotation();
+		if (pointCloud->supportsBackendTransform())
+		{
+			pointCloud->applyBackendWorldPose(pose, euler);
+		}
+		else
+		{
+			pointCloud->setPose(pose);
+		}
+		refreshFollowSolveAndPropertyPanelFromOsgWrite(pointCloud);
 		return;
 	}
 	auto mesh = std::dynamic_pointer_cast<MeshBackendData>(snapshot.data);
@@ -702,8 +717,16 @@ void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
 		pose.x = x;
 		pose.y = y;
 		pose.z = z;
-		mesh->setPose(pose);
-		updatePropertyPanel(mesh);
+		const BackendVec3 euler = mesh->rotation();
+		if (mesh->supportsBackendTransform())
+		{
+			mesh->applyBackendWorldPose(pose, euler);
+		}
+		else
+		{
+			mesh->setPose(pose);
+		}
+		refreshFollowSolveAndPropertyPanelFromOsgWrite(mesh);
 	}
 }
 
@@ -730,8 +753,16 @@ void MainWindow::onSelectedObjectRotationChanged(float rx, float ry, float rz)
 		rot.x = rx;
 		rot.y = ry;
 		rot.z = rz;
-		pointCloud->setRotation(rot);
-		updatePropertyPanel(pointCloud);
+		const BackendVec3 pos = pointCloud->pose();
+		if (pointCloud->supportsBackendTransform())
+		{
+			pointCloud->applyBackendWorldPose(pos, rot);
+		}
+		else
+		{
+			pointCloud->setRotation(rot);
+		}
+		refreshFollowSolveAndPropertyPanelFromOsgWrite(pointCloud);
 		return;
 	}
 	auto mesh = std::dynamic_pointer_cast<MeshBackendData>(snapshot.data);
@@ -741,8 +772,16 @@ void MainWindow::onSelectedObjectRotationChanged(float rx, float ry, float rz)
 		rot.x = rx;
 		rot.y = ry;
 		rot.z = rz;
-		mesh->setRotation(rot);
-		updatePropertyPanel(mesh);
+		const BackendVec3 pos = mesh->pose();
+		if (mesh->supportsBackendTransform())
+		{
+			mesh->applyBackendWorldPose(pos, rot);
+		}
+		else
+		{
+			mesh->setRotation(rot);
+		}
+		refreshFollowSolveAndPropertyPanelFromOsgWrite(mesh);
 	}
 }
 
@@ -767,7 +806,7 @@ void MainWindow::onSelectedObjectColorChanged(float r, float g, float b, float a
 		BackendColor c;
 		c.r = r; c.g = g; c.b = b; c.a = a;
 		pc->setColor(c);
-		updatePropertyPanel(pc);
+		refreshFollowSolveAndPropertyPanelFromOsgWrite(pc);
 		return;
 	}
 	if (auto mesh = std::dynamic_pointer_cast<MeshBackendData>(snapshot.data))
@@ -775,8 +814,72 @@ void MainWindow::onSelectedObjectColorChanged(float r, float g, float b, float a
 		BackendColor c;
 		c.r = r; c.g = g; c.b = b; c.a = a;
 		mesh->setColor(c);
-		updatePropertyPanel(mesh);
+		refreshFollowSolveAndPropertyPanelFromOsgWrite(mesh);
 	}
+}
+
+void MainWindow::onTransformGizmoCommitted()
+{
+	if (sender() != currentOsgWidget())
+	{
+		return;
+	}
+	if (!m_selectionState.hasBackendSelection())
+	{
+		return;
+	}
+	const std::shared_ptr<BackendDataBase> data = MainWindowSelectionService::selectedBackendData(*this);
+	if (!data)
+	{
+		return;
+	}
+	refreshFollowSolveAndPropertyPanelFromOsgWrite(data);
+}
+
+void MainWindow::refreshFollowSolveAndPropertyPanelFromOsgWrite(const std::shared_ptr<BackendDataBase>& data)
+{
+	if (!data)
+	{
+		return;
+	}
+	DocumentPage* doc = currentPage();
+	OsgWidget* osg = doc ? doc->osgWidget() : nullptr;
+	if (doc && osg)
+	{
+		doc->markFollowAttachmentDirtyFromBackendMove(doc->backend(), data->id());
+		runBackendFollowSolveAndSync(*doc, *osg);
+	}
+	updatePropertyPanel(data);
+}
+
+void MainWindow::schedulePropertyPanelCommitRefresh(const std::shared_ptr<BackendDataBase>& data)
+{
+	if (!data)
+	{
+		return;
+	}
+	m_propertyPanelCommitPendingBackendId = QString::fromStdString(data->id());
+	m_propertyPanelCommitTimer.start(220);
+}
+
+void MainWindow::onPropertyPanelCommitTimer()
+{
+	const QString want = m_propertyPanelCommitPendingBackendId;
+	m_propertyPanelCommitPendingBackendId.clear();
+	if (want.isEmpty())
+	{
+		return;
+	}
+	if (!m_selectionState.hasBackendSelection() || m_selectionState.selectedBackendId() != want)
+	{
+		return;
+	}
+	const std::shared_ptr<BackendDataBase> d = MainWindowSelectionService::selectedBackendData(*this);
+	if (!d || QString::fromStdString(d->id()) != want)
+	{
+		return;
+	}
+	updatePropertyPanel(d);
 }
 
 void MainWindow::onActiveAxisChanged(const QString& axisName)
@@ -1011,6 +1114,7 @@ void MainWindow::wireDocumentPageSignals(DocumentPage* page)
 	connect(o, &OsgWidget::selectedObjectPoseChanged, this, &MainWindow::onSelectedObjectPoseChanged);
 	connect(o, &OsgWidget::selectedObjectRotationChanged, this, &MainWindow::onSelectedObjectRotationChanged);
 	connect(o, &OsgWidget::selectedObjectColorChanged, this, &MainWindow::onSelectedObjectColorChanged);
+	connect(o, &OsgWidget::transformGizmoCommitted, this, &MainWindow::onTransformGizmoCommitted);
 	connect(o, &OsgWidget::activeAxisChanged, this, &MainWindow::onActiveAxisChanged);
 	connect(o, &OsgWidget::selectionCanceledByEsc, this, &MainWindow::onSelectionCanceledByEsc);
 	connect(o, &OsgWidget::annotationCreated, this, &MainWindow::onAnnotationCreated);
@@ -1018,6 +1122,203 @@ void MainWindow::wireDocumentPageSignals(DocumentPage* page)
 	connect(o, &OsgWidget::annotationVisibilityChanged, this, &MainWindow::onAnnotationVisibilityChanged);
 	connect(o, &OsgWidget::pointPickFeedback, this, &MainWindow::onPointPickFeedback);
 	connect(o, &OsgWidget::backendObjectPicked, this, &MainWindow::onOsgBackendObjectPicked);
+	installBackendFollowFrameHook(page);
+}
+
+void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
+{
+	if (!page || !page->osgWidget())
+	{
+		return;
+	}
+	OsgWidget* osg = page->osgWidget();
+	osg->setPerFrameHook([this, page](OsgWidget* o) {
+		if (!page || !o || !m_documentTabs || m_documentTabs->currentWidget() != page)
+		{
+			return;
+		}
+		if (page->followDirtyBackendIds().empty() && !page->followSolveForcedPending() && !o->isTransformGizmoDragging())
+		{
+			return;
+		}
+		runBackendFollowSolveAndSync(*page, *o);
+	});
+}
+
+void MainWindow::runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg)
+{
+	BackendDataManager& mgr = page.backend();
+	const bool forced = page.takeFollowSolveForced();
+	auto& dirty = page.followDirtyBackendIds();
+	const bool gizmoDrag = osg.isTransformGizmoDragging();
+	if (!forced && dirty.empty() && !gizmoDrag)
+	{
+		return;
+	}
+	std::string skipId;
+	if (osg.isTransformGizmoDragging() && m_selectionState.hasBackendSelection())
+	{
+		const std::string sel = m_selectionState.selectedBackendId().toStdString();
+		if (const auto d = mgr.getData(sel))
+		{
+			auto c = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+				d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
+			if (c && c->enabled() && !c->targetBackendId().empty())
+			{
+				skipId = sel;
+			}
+		}
+	}
+	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&osg](const std::string& bid, BackendMat4& out) -> bool {
+		osg::Matrixd om;
+		if (!osg.getBackendRootWorldMatrix(bid, om))
+		{
+			return false;
+		}
+		for (int c = 0; c < 4; ++c)
+		{
+			for (int r = 0; r < 4; ++r)
+			{
+				out.v[c * 4 + r] = om(r, c);
+			}
+		}
+		return true;
+	};
+	const bool usePoseLimit = !forced && !gizmoDrag && !dirty.empty();
+	const std::unordered_set<std::string>* limitPtr = usePoseLimit ? &dirty : nullptr;
+	BackendFollowTransformSolver::solve(mgr, worldQuery, skipId, limitPtr);
+	for (const auto& d : mgr.listData())
+	{
+		if (!d)
+		{
+			continue;
+		}
+		auto comp = std::dynamic_pointer_cast<FollowAttachmentComponent>(d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
+		if (!comp || !comp->enabled() || comp->targetBackendId().empty())
+		{
+			continue;
+		}
+		const std::string fid = d->id();
+		if (usePoseLimit && !dirty.count(fid))
+		{
+			continue;
+		}
+		osg.syncOuterPatFromBackend(*d);
+	}
+	dirty.clear();
+}
+
+void MainWindow::applyHierarchyFollowBinding(DocumentPage* doc, const std::string& childId, const std::string& parentId)
+{
+	if (!doc)
+	{
+		return;
+	}
+	OsgWidget* osg = doc->osgWidget();
+	const std::shared_ptr<BackendDataBase> child = doc->backend().getData(childId);
+	if (!child || !child->hasPoseProperty())
+	{
+		return;
+	}
+	if (parentId.empty())
+	{
+		const auto f = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+			child->getComponent(FollowAttachmentComponent::typeKeyStatic()));
+		if (f && f->hierarchyDriven())
+		{
+			child->removeComponent(FollowAttachmentComponent::typeKeyStatic());
+		}
+		if (osg)
+		{
+			doc->markFollowAttachmentDirtyFromBackendMove(doc->backend(), childId);
+			runBackendFollowSolveAndSync(*doc, *osg);
+		}
+		return;
+	}
+	if (!doc->backend().contains(parentId))
+	{
+		return;
+	}
+	if (const auto f0 = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+			child->getComponent(FollowAttachmentComponent::typeKeyStatic())))
+	{
+		if (f0->enabled() && !f0->hierarchyDriven() && !f0->targetBackendId().empty())
+		{
+			return;
+		}
+	}
+	if (!child->getComponent(FollowAttachmentComponent::typeKeyStatic()))
+	{
+		child->addComponent(std::make_shared<FollowAttachmentComponent>());
+	}
+	const auto f = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+		child->getComponent(FollowAttachmentComponent::typeKeyStatic()));
+	f->setHierarchyDriven(true);
+	f->setEnabled(true);
+	f->setTargetBackendId(parentId);
+	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [osg](const std::string& bid, BackendMat4& out) -> bool {
+		if (osg)
+		{
+			osg::Matrixd om;
+			if (osg->getBackendRootWorldMatrix(bid, om))
+			{
+				for (int c = 0; c < 4; ++c)
+				{
+					for (int r = 0; r < 4; ++r)
+					{
+						out.v[c * 4 + r] = om(r, c);
+					}
+				}
+				return true;
+			}
+		}
+		return false;
+	};
+	(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(doc->backend(), worldQuery, *child, nullptr);
+	if (osg)
+	{
+		doc->markFollowAttachmentDirtyFromBackendMove(doc->backend(), childId);
+		runBackendFollowSolveAndSync(*doc, *osg);
+	}
+}
+
+void MainWindow::afterBackendFollowPropertyEdited(const QString& propertyKey, const QString& valueText)
+{
+	DocumentPage* doc = currentPage();
+	OsgWidget* osg = currentOsgWidget();
+	if (!doc || !osg || !m_selectionState.hasBackendSelection())
+	{
+		return;
+	}
+	const std::shared_ptr<BackendDataBase> data = MainWindowSelectionService::selectedBackendData(*this);
+	if (!data)
+	{
+		return;
+	}
+	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [osg](const std::string& bid, BackendMat4& out) -> bool {
+		osg::Matrixd om;
+		if (!osg->getBackendRootWorldMatrix(bid, om))
+		{
+			return false;
+		}
+		for (int c = 0; c < 4; ++c)
+		{
+			for (int r = 0; r < 4; ++r)
+			{
+				out.v[c * 4 + r] = om(r, c);
+			}
+		}
+		return true;
+	};
+	if (propertyKey == QStringLiteral("follow.targetId")
+		|| propertyKey == QStringLiteral("follow.targetName")
+		|| (propertyKey == QStringLiteral("follow.enabled")
+			&& (valueText == QStringLiteral("1") || valueText.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0)))
+	{
+		(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(doc->backend(), worldQuery, *data, nullptr);
+	}
+	doc->markFollowAttachmentDirtyFromBackendMove(doc->backend(), data->id());
+	runBackendFollowSolveAndSync(*doc, *osg);
 }
 
 void MainWindow::onNewDocument()
@@ -1935,6 +2236,11 @@ void MainWindow::onRobotSimulationTick()
 	DocumentPage* doc = currentPage();
 	OsgWidget* osg = currentOsgWidget();
 	const RobotInstructionPlaybackTickResult r = m_robotInstructionPlayback.tick(doc, osg);
+	if (doc && osg)
+	{
+		doc->requestFollowSolveForced();
+		runBackendFollowSolveAndSync(*doc, *osg);
+	}
 	switch (r)
 	{
 	case RobotInstructionPlaybackTickResult::Continue:

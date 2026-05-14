@@ -16,18 +16,23 @@
 #include <QJsonObject>
 #include <QList>
 #include <QMessageBox>
+#include <QSet>
 #include <QTemporaryDir>
 
+#include <osg/Matrixd>
 #include <osg/Vec3f>
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "DocumentPage.h"
+#include "FollowAttachmentComponent.h"
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 #include "OsgWidget.h"
 #include "ProjectPackageZip.h"
+#include "RobotSceneKinematics.h"
 #include "RunInfoPage.h"
+#include "UrdfRobotLoader.h"
 
 namespace {
 
@@ -187,6 +192,64 @@ void applyPointCloudPoseFromJson(PointCloudBackendData& pc, OsgWidget* osgWidget
 	}
 }
 
+void appendFollowAttachmentJson(const std::shared_ptr<BackendDataBase>& data, QJsonObject& obj)
+{
+	if (!data)
+	{
+		return;
+	}
+	const auto c = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+		data->getComponent(FollowAttachmentComponent::typeKeyStatic()));
+	if (!c)
+	{
+		return;
+	}
+	QJsonObject fa;
+	fa.insert(QStringLiteral("enabled"), c->enabled());
+	fa.insert(QStringLiteral("targetId"), QString::fromStdString(c->targetBackendId()));
+	const BackendVec3 lp = c->localPosition();
+	QJsonObject lpj;
+	lpj.insert(QStringLiteral("x"), lp.x);
+	lpj.insert(QStringLiteral("y"), lp.y);
+	lpj.insert(QStringLiteral("z"), lp.z);
+	fa.insert(QStringLiteral("localPosition"), lpj);
+	const BackendVec3 le = c->localEulerDeg();
+	QJsonObject lej;
+	lej.insert(QStringLiteral("x"), le.x);
+	lej.insert(QStringLiteral("y"), le.y);
+	lej.insert(QStringLiteral("z"), le.z);
+	fa.insert(QStringLiteral("localEulerDeg"), lej);
+	fa.insert(QStringLiteral("solverPaused"), c->solverPaused());
+	fa.insert(QStringLiteral("hierarchyDriven"), c->hierarchyDriven());
+	obj.insert(QStringLiteral("followAttachment"), fa);
+}
+
+void applyFollowAttachmentFromObjectJson(const std::shared_ptr<BackendDataBase>& data, const QJsonObject& obj)
+{
+	if (!data)
+	{
+		return;
+	}
+	const QJsonObject fa = obj.value(QStringLiteral("followAttachment")).toObject();
+	if (fa.isEmpty())
+	{
+		return;
+	}
+	data->removeComponent(FollowAttachmentComponent::typeKeyStatic());
+	auto comp = std::make_shared<FollowAttachmentComponent>();
+	comp->setEnabled(fa.value(QStringLiteral("enabled")).toBool());
+	comp->setTargetBackendId(fa.value(QStringLiteral("targetId")).toString().toStdString());
+	const QJsonObject lpj = fa.value(QStringLiteral("localPosition")).toObject();
+	comp->setLocalPosition(BackendVec3{ lpj.value(QStringLiteral("x")).toDouble(), lpj.value(QStringLiteral("y")).toDouble(),
+		lpj.value(QStringLiteral("z")).toDouble() });
+	const QJsonObject lej = fa.value(QStringLiteral("localEulerDeg")).toObject();
+	comp->setLocalEulerDeg(BackendVec3{ lej.value(QStringLiteral("x")).toDouble(), lej.value(QStringLiteral("y")).toDouble(),
+		lej.value(QStringLiteral("z")).toDouble() });
+	comp->setSolverPaused(fa.value(QStringLiteral("solverPaused")).toBool());
+	comp->setHierarchyDriven(fa.value(QStringLiteral("hierarchyDriven")).toBool());
+	data->addComponent(comp);
+}
+
 } // namespace
 
 void MainWindow::onSaveProject()
@@ -321,6 +384,7 @@ void MainWindow::onSaveProject()
 				obj.insert(QStringLiteral("embeddedGeometry"), emb);
 			}
 		}
+		appendFollowAttachmentJson(data, obj);
 		objects.push_back(obj);
 	}
 	root.insert(QStringLiteral("objects"), objects);
@@ -333,6 +397,28 @@ void MainWindow::onSaveProject()
 		edgeArray.push_back(edgeObj);
 	}
 	root.insert(QStringLiteral("edges"), edgeArray);
+
+	if (!doc->robotLinkNameToBackendId().isEmpty())
+	{
+		QJsonObject rk;
+		rk.insert(QStringLiteral("mode"), QStringLiteral("perLink"));
+		rk.insert(QStringLiteral("urdf"), doc->robotUrdfAbsolutePath());
+		rk.insert(QStringLiteral("sceneRootBackendId"), doc->robotSceneBackendId());
+		rk.insert(QStringLiteral("importKey"), doc->robotImportParentId());
+		rk.insert(QStringLiteral("jointPrefixRoot"), doc->robotJointPrefixRoot());
+		QJsonObject linksObj;
+		for (auto it = doc->robotLinkNameToBackendId().constBegin(); it != doc->robotLinkNameToBackendId().constEnd();
+			 ++it)
+		{
+			linksObj.insert(it.key(), it.value());
+		}
+		rk.insert(QStringLiteral("links"), linksObj);
+		if (doc->robotUrdfMeshVerticesInLinkFrame())
+		{
+			rk.insert(QStringLiteral("meshInLinkFrame"), true);
+		}
+		root.insert(QStringLiteral("robotKinematics"), rk);
+	}
 
 	QJsonArray annArray;
 	if (OsgWidget* w = doc->osgWidget())
@@ -362,6 +448,10 @@ void MainWindow::onSaveProject()
 		}
 	}
 	root.insert(QStringLiteral("annotations"), annArray);
+	if (OsgWidget* camW = doc->osgWidget())
+	{
+		root.insert(QStringLiteral("cameraFollowBackendId"), QString::fromStdString(camW->cameraFollowBackendId()));
+	}
 
 	QFile file(jsonWritePath);
 	if (!file.open(QIODevice::WriteOnly))
@@ -460,12 +550,14 @@ void MainWindow::onOpenProjectFile()
 	}
 
 	page->backend().clear();
+	page->clearRobotSimulationContext();
 	page->backendSourcePath().clear();
 	page->backendSourceType().clear();
 	page->backendParentId().clear();
 	if (OsgWidget* wClear = page->osgWidget())
 	{
 		wClear->clearAllAnnotations();
+		wClear->clearCameraFollowBackendId();
 	}
 
 	OsgWidget* osg = page->osgWidget();
@@ -490,6 +582,19 @@ void MainWindow::onOpenProjectFile()
 		pendingEdges.emplace_back(parentId, childId);
 	}
 	const bool useEdgesRelation = !pendingEdges.empty();
+	const QJsonObject rk = root.value(QStringLiteral("robotKinematics")).toObject();
+	const bool meshInLinkFrameHint =
+		!rk.isEmpty() && rk.value(QStringLiteral("mode")).toString() == QStringLiteral("perLink")
+		&& rk.value(QStringLiteral("meshInLinkFrame")).toBool();
+	QSet<QString> robotLinkMeshBackendIds;
+	if (meshInLinkFrameHint)
+	{
+		const QJsonObject linksHint = rk.value(QStringLiteral("links")).toObject();
+		for (auto it = linksHint.constBegin(); it != linksHint.constEnd(); ++it)
+		{
+			robotLinkMeshBackendIds.insert(it.value().toString());
+		}
+	}
 	const QJsonArray objects = root.value(QStringLiteral("objects")).toArray();
 	for (const auto& v : objects)
 	{
@@ -599,7 +704,7 @@ void MainWindow::onOpenProjectFile()
 			if (mesh->readProjectEmbeddedGeometry(soupB64))
 			{
 				QString err;
-				if (osg && osg->loadMeshFromBackendData(*mesh, &err)
+				if (osg && osg->loadMeshFromBackendData(*mesh, &err, true, true, true, robotLinkMeshBackendIds.contains(persistedId))
 					&& registerExistingBackendObject(
 						mesh,
 						sourcePath,
@@ -697,6 +802,92 @@ void MainWindow::onOpenProjectFile()
 		}
 	}
 	rebuildLegacyParentMirror(page);
+
+	if (!rk.isEmpty() && rk.value(QStringLiteral("mode")).toString() == QStringLiteral("perLink") && osg)
+	{
+		const QString urdf = rk.value(QStringLiteral("urdf")).toString();
+		const QString sceneRoot = rk.value(QStringLiteral("sceneRootBackendId")).toString();
+		const QString jointRoot = rk.value(QStringLiteral("jointPrefixRoot")).toString();
+		const QString importKey = rk.value(QStringLiteral("importKey")).toString();
+		const QJsonObject linksJ = rk.value(QStringLiteral("links")).toObject();
+		QHash<QString, QString> linkMap;
+		for (auto it = linksJ.constBegin(); it != linksJ.constEnd(); ++it)
+		{
+			linkMap.insert(it.key(), it.value().toString());
+		}
+		bool allIds = true;
+		for (auto it = linkMap.constBegin(); it != linkMap.constEnd(); ++it)
+		{
+			if (!page->backend().contains(it.value().toStdString()))
+			{
+				allIds = false;
+				break;
+			}
+		}
+		if (allIds && !urdf.isEmpty() && QFileInfo::exists(urdf) && !sceneRoot.isEmpty() && !jointRoot.isEmpty()
+			&& !linkMap.isEmpty())
+		{
+			const bool meshInLinkFrame = rk.value(QStringLiteral("meshInLinkFrame")).toBool();
+			QStringList jn;
+			QVector<double> lo;
+			QVector<double> hi;
+			(void)UrdfRobotLoader::loadRevoluteJointMeta(urdf, jn, lo, hi, nullptr);
+			QVector<double> q0(jn.size(), 0.0);
+			QHash<QString, osg::Matrixd> Tq;
+			QString fkErr;
+			if (UrdfRobotLoader::computeMeshWorldMatrices(urdf, q0, Tq, &fkErr, meshInLinkFrame))
+			{
+				QHash<QString, osg::Matrixd> fkT0;
+				QHash<QString, osg::Matrixd> outer;
+				for (auto it = linkMap.constBegin(); it != linkMap.constEnd(); ++it)
+				{
+					const QString& lname = it.key();
+					if (Tq.contains(lname))
+					{
+						const osg::Matrixd& meshWorld0 = Tq[lname];
+						fkT0.insert(lname, meshWorld0);
+						// Same as fresh URDF import: bind snapshot must be FK mesh world at q0, not the OSG PAT
+						// before kinematics sync (otherwise links pile at the origin).
+						outer.insert(it.value(), meshWorld0);
+					}
+				}
+				page->appendHierarchicalRobotSimulationContext(urdf, jn, lo, hi, QHash<QString, osg::MatrixTransform*>(),
+					sceneRoot, jointRoot);
+				page->setRobotPerLinkKinematicsBinding(importKey, linkMap, fkT0, outer, meshInLinkFrame);
+				(void)RobotSceneKinematics::applyJointAnglesFromDocument(page, osg, q0);
+				refreshSimulationJointListFromCurrentDoc();
+			}
+			else if (m_runInfoPage)
+			{
+				m_runInfoPage->appendWarning(QStringLiteral("robotKinematics: FK restore failed: %1").arg(fkErr));
+			}
+		}
+		else if (m_runInfoPage && !linkMap.isEmpty())
+		{
+			m_runInfoPage->appendWarning(QStringLiteral("robotKinematics: skipped restore (missing URDF, backends, or metadata)."));
+		}
+	}
+
+	QSet<QString> idsWithFollowAttachmentJson;
+	for (const QJsonValue& vObj : objects)
+	{
+		if (!vObj.isObject())
+		{
+			continue;
+		}
+		const QJsonObject objEnt = vObj.toObject();
+		const QString oid = objEnt.value(QStringLiteral("id")).toString();
+		const QJsonObject faEnt = objEnt.value(QStringLiteral("followAttachment")).toObject();
+		if (!faEnt.isEmpty())
+		{
+			idsWithFollowAttachmentJson.insert(oid);
+		}
+		const std::shared_ptr<BackendDataBase> dataEnt = page->backend().getData(oid.toStdString());
+		if (dataEnt)
+		{
+			applyFollowAttachmentFromObjectJson(dataEnt, objEnt);
+		}
+	}
 	if (osg)
 	{
 		for (const auto& data : page->backend().listData())
@@ -708,6 +899,18 @@ void MainWindow::onOpenProjectFile()
 			const std::vector<std::string> parents = page->backend().parentsOf(data->id());
 			const std::string parent = parents.empty() ? std::string() : parents.front();
 			osg->setBackendParent(data->id(), parent);
+		}
+	}
+	if (useEdgesRelation)
+	{
+		for (const auto& edge : pendingEdges)
+		{
+			const QString childQ = edge.second;
+			if (idsWithFollowAttachmentJson.contains(childQ))
+			{
+				continue;
+			}
+			applyHierarchyFollowBinding(page, childQ.toStdString(), edge.first.toStdString());
 		}
 	}
 
@@ -741,6 +944,13 @@ void MainWindow::onOpenProjectFile()
 	if (osg)
 	{
 		osg->restoreAnnotations(snapshots);
+		osg->setCameraFollowBackendId(root.value(QStringLiteral("cameraFollowBackendId")).toString().toStdString());
+	}
+
+	if (page && osg)
+	{
+		page->requestFollowSolveForced();
+		runBackendFollowSolveAndSync(*page, *osg);
 	}
 
 	refreshBackendTree();

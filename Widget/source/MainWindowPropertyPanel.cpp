@@ -11,6 +11,7 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendPropertyRow.h"
+#include "DocumentPage.h"
 #include "BackendPropertySchema.h"
 #include "MainWindow_p.h"
 #include "MainWindowSelectionService.h"
@@ -197,6 +198,10 @@ QString MainWindow::propertyDisplayLabelForKey(const QString& key, const QString
 	{
 		return tr(QStringLiteral("Color A"), QStringLiteral("颜色 A"));
 	}
+	if (key == QStringLiteral("follow.targetName"))
+	{
+		return tr(QStringLiteral("Follow target (object name)"), QStringLiteral("跟随目标（对象名称）"));
+	}
 	if (key == QStringLiteral("mesh.triangle_count"))
 	{
 		return tr(QStringLiteral("Triangle count"), QStringLiteral("三角形数"));
@@ -352,6 +357,24 @@ void MainWindow::updatePropertyPanel(const std::shared_ptr<BackendDataBase>& dat
 	{
 		return;
 	}
+	if (data && m_followTargetNameDebounceTimer.isActive()
+		&& QString::fromStdString(data->id()) == m_followTargetNameDebounceBackendId)
+	{
+		return;
+	}
+	if (!data)
+	{
+		m_followTargetNameDebounceTimer.stop();
+		m_followTargetNameDebounceBackendId.clear();
+		m_followTargetNameDebounceText.clear();
+	}
+	else if (!m_followTargetNameDebounceBackendId.isEmpty()
+		&& QString::fromStdString(data->id()) != m_followTargetNameDebounceBackendId)
+	{
+		m_followTargetNameDebounceTimer.stop();
+		m_followTargetNameDebounceBackendId.clear();
+		m_followTargetNameDebounceText.clear();
+	}
 	m_updatingPropertyBrowser = true;
 	m_variantManager->clear();
 	if (!data)
@@ -360,7 +383,9 @@ void MainWindow::updatePropertyPanel(const std::shared_ptr<BackendDataBase>& dat
 		return;
 	}
 
-	const nlohmann::json rows = data->snapshotPropertyRows();
+	DocumentPage* docPage = currentPage();
+	const BackendDataManager* propMgr = docPage ? &docPage->backend() : nullptr;
+	const nlohmann::json rows = data->snapshotPropertyRows(propMgr);
 	if (!rows.is_array())
 	{
 		m_updatingPropertyBrowser = false;
@@ -374,7 +399,22 @@ void MainWindow::updatePropertyPanel(const std::shared_ptr<BackendDataBase>& dat
 		}
 		const std::string keyStr = r.value(backend_property_json::kKey, std::string());
 		const std::string labelStr = r.value(backend_property_json::kLabelEn, std::string());
-		const bool editable = r.value(backend_property_json::kEditable, false);
+		bool editable = false;
+		if (const auto itEd = r.find(backend_property_json::kEditable); itEd != r.end())
+		{
+			if (itEd->is_boolean())
+			{
+				editable = itEd->get<bool>();
+			}
+			else if (itEd->is_number_integer())
+			{
+				editable = (itEd->get<int>() != 0);
+			}
+		}
+		if (keyStr == "follow.targetName")
+		{
+			editable = true;
+		}
 		const std::string valueStr = r.value(backend_property_json::kValue, std::string());
 		const QString key = QString::fromStdString(keyStr);
 		const QString label = propertyDisplayLabelForKey(key, QString::fromStdString(labelStr));
@@ -439,6 +479,13 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	}
 
 	const QString propertyKey = property->whatsThis();
+	if (propertyKey == QStringLiteral("follow.targetName"))
+	{
+		m_followTargetNameDebounceBackendId = QString::fromStdString(data->id());
+		m_followTargetNameDebounceText = variantValueToString(value);
+		m_followTargetNameDebounceTimer.start(400);
+		return;
+	}
 	if (propertyKey.isEmpty() || propertyKey.startsWith(QStringLiteral("ui.")))
 	{
 		return;
@@ -450,11 +497,23 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	const QByteArray valueBytes = valueText.toUtf8();
 	const std::string valueUtf8(valueBytes.constData(), static_cast<std::size_t>(valueBytes.size()));
 
+	DocumentPage* docPage = currentPage();
+	BackendDataManager* propMgr = docPage ? &docPage->backend() : nullptr;
+
 	std::string err;
-	if (!data->applyPropertyChange(keyUtf8, valueUtf8, &err))
+	if (!data->applyPropertyChange(keyUtf8, valueUtf8, &err, propMgr))
 	{
 		updatePropertyPanel(data);
 		return;
+	}
+
+	if (propertyKey.startsWith(QStringLiteral("follow.")))
+	{
+		afterBackendFollowPropertyEdited(propertyKey, valueText);
+	}
+	else if (docPage && propMgr)
+	{
+		docPage->markFollowAttachmentDirtyFromBackendMove(*propMgr, data->id());
 	}
 
 	if (auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(data))
@@ -466,5 +525,60 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 		syncOsgViewerFromMeshBackend(mesh);
 	}
 
+	schedulePropertyPanelCommitRefresh(data);
+}
+
+void MainWindow::flushFollowTargetNamePropertyEdit()
+{
+	if (!m_backendTree || !currentOsgWidget() || !m_selectionState.hasBackendSelection())
+	{
+		m_followTargetNameDebounceBackendId.clear();
+		m_followTargetNameDebounceText.clear();
+		return;
+	}
+	const QString selId = m_selectionState.selectedBackendId();
+	if (selId != m_followTargetNameDebounceBackendId)
+	{
+		m_followTargetNameDebounceBackendId.clear();
+		m_followTargetNameDebounceText.clear();
+		return;
+	}
+	const std::shared_ptr<BackendDataBase> data = MainWindowSelectionService::selectedBackendData(*this);
+	if (!data || QString::fromStdString(data->id()) != m_followTargetNameDebounceBackendId)
+	{
+		m_followTargetNameDebounceBackendId.clear();
+		m_followTargetNameDebounceText.clear();
+		return;
+	}
+
+	DocumentPage* docPage = currentPage();
+	BackendDataManager* propMgr = docPage ? &docPage->backend() : nullptr;
+
+	const QByteArray keyBytes = QStringLiteral("follow.targetName").toUtf8();
+	const std::string keyUtf8(keyBytes.constData(), static_cast<std::size_t>(keyBytes.size()));
+	const QByteArray valueBytes = m_followTargetNameDebounceText.toUtf8();
+	const std::string valueUtf8(valueBytes.constData(), static_cast<std::size_t>(valueBytes.size()));
+
+	std::string err;
+	if (!data->applyPropertyChange(keyUtf8, valueUtf8, &err, propMgr))
+	{
+		m_followTargetNameDebounceBackendId.clear();
+		updatePropertyPanel(data);
+		return;
+	}
+
+	const QString propertyKey = QStringLiteral("follow.targetName");
+	afterBackendFollowPropertyEdited(propertyKey, m_followTargetNameDebounceText);
+	if (auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(data))
+	{
+		syncOsgViewerFromPointCloudBackend(pc);
+	}
+	else if (auto mesh = std::dynamic_pointer_cast<MeshBackendData>(data))
+	{
+		syncOsgViewerFromMeshBackend(mesh);
+	}
+
+	m_followTargetNameDebounceBackendId.clear();
+	m_followTargetNameDebounceText.clear();
 	updatePropertyPanel(data);
 }

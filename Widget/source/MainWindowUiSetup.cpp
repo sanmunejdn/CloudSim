@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 
+#include <QAbstractItemView>
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
@@ -21,7 +22,15 @@
 #include "MainWindow_p.h"
 #include "OsgWidget.h"
 #include "RunInfoPage.h"
+#include "RunLogger.h"
 #include "SimulationCommandWidget.h"
+
+#include <QByteArray>
+#include <QCoreApplication>
+#include <QDir>
+
+#include <mutex>
+#include <string>
 
 #include "qteditorfactory.h"
 #include "qttreepropertybrowser.h"
@@ -33,6 +42,23 @@ using namespace RobotSimulation;
 MainWindow::MainWindow(QWidget* parent)
 	: QMainWindow(parent)
 {
+	// RunLogger must live in this DLL (same TU as RunInfoPage::setUiSink). The exe used to link RunLogger.lib
+	// separately, which duplicated globals so file logging initialized in main never matched UI / RobotScene.
+	static std::once_flag s_runLoggerOnce;
+	std::call_once(s_runLoggerOnce, []() {
+		const QString logDir =
+			QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("logs"));
+		(void)RunLogger::initialize(logDir.toStdString(), "PointCloudProcess");
+		RunLogger::info("Application bootstrap started.");
+		const QByteArray kd = qgetenv("ROBOT_KINEMATICS_DEBUG");
+		if (!kd.isEmpty() && kd != QByteArray("0"))
+		{
+			RunLogger::info(std::string("[RobotKinematicsDBG] ROBOT_KINEMATICS_DEBUG=") + kd.constData()
+				+ " — FK dumps: 1=compact 2|full=4x4; use --robot-kinematics-debug 1");
+			RunLogger::flush();
+		}
+	});
+
 	m_robotInstructionController.buildDefaultPlanners();
 	setupMenuBar();
 
@@ -54,6 +80,10 @@ MainWindow::MainWindow(QWidget* parent)
 	setupDockWidgets();
 	m_robotSimTimer.setInterval(kPlaybackTimerIntervalMs);
 	connect(&m_robotSimTimer, &QTimer::timeout, this, &MainWindow::onRobotSimulationTick);
+	m_followTargetNameDebounceTimer.setSingleShot(true);
+	connect(&m_followTargetNameDebounceTimer, &QTimer::timeout, this, &MainWindow::flushFollowTargetNamePropertyEdit);
+	m_propertyPanelCommitTimer.setSingleShot(true);
+	connect(&m_propertyPanelCommitTimer, &QTimer::timeout, this, &MainWindow::onPropertyPanelCommitTimer);
 	applyLanguage();
 	const ApplicationStyle::Theme savedTheme = ApplicationStyle::loadSavedTheme();
 	ApplicationStyle::applyTheme(qApp, savedTheme);
@@ -199,6 +229,11 @@ void MainWindow::setupDockWidgets()
 	m_propertyBrowser->setHeaderVisible(true);
 	m_propertyBrowser->setRootIsDecorated(false);
 	m_propertyBrowser->setSplitterPosition(160);
+	if (QTreeWidget* propTree = m_propertyBrowser->findChild<QTreeWidget*>())
+	{
+		propTree->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::SelectedClicked
+			| QAbstractItemView::EditKeyPressed | QAbstractItemView::AnyKeyPressed);
+	}
 	connect(m_variantManager, &QtVariantPropertyManager::valueChanged, this, &MainWindow::onVariantPropertyValueChanged);
 	m_propertyDockTabs = new QTabWidget(m_propertyDock);
 	m_propertyDockTabs->setDocumentMode(true);
@@ -262,4 +297,10 @@ void MainWindow::setupDockWidgets()
 	m_runDock->setWidget(m_runInfoPage);
 	addDockWidget(Qt::BottomDockWidgetArea, m_runDock);
 	m_runDock->setMinimumHeight(140);
+}
+
+void MainWindow::shutdownApplicationLogging()
+{
+	RunLogger::info("Application shutdown.");
+	RunLogger::shutdown();
 }

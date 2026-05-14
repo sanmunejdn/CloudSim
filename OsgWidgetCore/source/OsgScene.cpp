@@ -24,6 +24,7 @@
 #include <osg/View>
 #include <osg/LineWidth>
 #include <osg/Matrix>
+#include <osg/MatrixTransform>
 #include <osg/NodeCallback>
 #include <osg/PrimitiveSet>
 #include <osg/ShapeDrawable>
@@ -430,8 +431,14 @@ bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
 		m_activeBackendOuterPat = rootIt->second;
 		if (m_selectedTransform.valid())
 		{
-			m_selectedTransform->setPosition(rootIt->second->getPosition());
-			m_selectedTransform->setAttitude(rootIt->second->getAttitude());
+			osg::Vec3d t;
+			osg::Quat r;
+			osg::Vec3d s;
+			osg::Quat so;
+			rootIt->second->getMatrix().decompose(t, r, s, so);
+			m_selectedTransform->setPosition(osg::Vec3f(static_cast<float>(t.x()), static_cast<float>(t.y()),
+				static_cast<float>(t.z())));
+			m_selectedTransform->setAttitude(r);
 		}
 		cacheSelectionPoseFromSelectedTransform();
 		auto cIt = m_backendModelCenters.find(id);

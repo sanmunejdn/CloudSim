@@ -1,10 +1,21 @@
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 #include "OsgWidgetTransformHierarchyController.h"
 
 #include "OsgWidget.h"
 
-#include <osg/PositionAttitudeTransform>
+#include <osg/MatrixTransform>
 #include <osg/Quat>
 #include <osg/Vec3>
+#include <osg/Vec3d>
 
 void OsgWidgetTransformHierarchyController::setBackendParent(
 	OsgWidget& self,
@@ -15,12 +26,73 @@ void OsgWidgetTransformHierarchyController::setBackendParent(
 	{
 		return;
 	}
+
+	osg::Matrixd savedWorld;
+	const bool haveWorld = self.getBackendRootWorldMatrix(backendId, savedWorld);
+
+	auto childIt = self.m_backendObjectRoots.find(backendId);
+	const bool haveChildPat = (childIt != self.m_backendObjectRoots.end() && childIt->second.valid());
+
 	if (parentBackendId.empty())
 	{
 		self.m_backendParentIds.erase(backendId);
+		if (haveChildPat)
+		{
+			osg::MatrixTransform* childMt = childIt->second.get();
+			while (childMt->getNumParents() > 0)
+			{
+				childMt->getParent(0)->removeChild(childMt);
+			}
+			if (self.m_backendObjectsGroup.valid())
+			{
+				self.m_backendObjectsGroup->addChild(childMt);
+			}
+		}
+		if (haveWorld && haveChildPat)
+		{
+			self.setBackendRootWorldMatrixFromWorld(backendId, savedWorld);
+		}
 		return;
 	}
+
+	if (parentBackendId == backendId)
+	{
+		return;
+	}
+	if (self.isBackendDescendantOf(parentBackendId, backendId))
+	{
+		return;
+	}
+
 	self.m_backendParentIds[backendId] = parentBackendId;
+
+	if (!haveChildPat)
+	{
+		return;
+	}
+	osg::MatrixTransform* childMt = childIt->second.get();
+
+	auto parentIt = self.m_backendObjectRoots.find(parentBackendId);
+	if (parentIt == self.m_backendObjectRoots.end() || !parentIt->second.valid())
+	{
+		if (haveWorld)
+		{
+			self.setBackendRootWorldMatrixFromWorld(backendId, savedWorld);
+		}
+		return;
+	}
+
+	osg::MatrixTransform* parentMt = parentIt->second.get();
+	while (childMt->getNumParents() > 0)
+	{
+		childMt->getParent(0)->removeChild(childMt);
+	}
+	parentMt->addChild(childMt);
+
+	if (haveWorld)
+	{
+		self.setBackendRootWorldMatrixFromWorld(backendId, savedWorld);
+	}
 }
 
 void OsgWidgetTransformHierarchyController::removeBackendObjectVisual(
@@ -103,8 +175,14 @@ void OsgWidgetTransformHierarchyController::syncSelectionForBackendId(
 		}
 		if (self.m_selectedTransform.valid())
 		{
-			self.m_selectedTransform->setPosition(it->second->getPosition());
-			self.m_selectedTransform->setAttitude(it->second->getAttitude());
+			osg::Vec3d t;
+			osg::Quat r;
+			osg::Vec3d s;
+			osg::Quat so;
+			it->second->getMatrix().decompose(t, r, s, so);
+			self.m_selectedTransform->setPosition(osg::Vec3f(static_cast<float>(t.x()), static_cast<float>(t.y()),
+				static_cast<float>(t.z())));
+			self.m_selectedTransform->setAttitude(r);
 		}
 		self.updateCompassLocalOffsetForModelOrigin();
 		self.syncCompassGizmoOrientation();

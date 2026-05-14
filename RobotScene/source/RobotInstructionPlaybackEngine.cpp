@@ -119,7 +119,7 @@ bool RobotInstructionPlaybackEngine::tryStart(
 	else
 	{
 		const QVector<double> zeros = QVector<double>(jnames.size(), 0.0);
-		if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, zeros, m_fkMeshWorldT0, &fkErr))
+		if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, zeros, m_fkMeshWorldT0, &fkErr, doc->robotUrdfMeshVerticesInLinkFrame()))
 		{
 			RunLogger::warn(qToUtf8Std(QStringLiteral("RobotInstructionPlaybackEngine::tryStart FK init failed: %1")
 				.arg(fkErr.isEmpty() ? QStringLiteral("Forward kinematics failed.") : fkErr)));
@@ -236,31 +236,11 @@ RobotInstructionPlaybackTickResult RobotInstructionPlaybackEngine::tick(IRobotSi
 		m_jointAnglesRad[jidx] = angleRad;
 	}
 
-	// 动态层级 / 多机器人：无 link→backend 烘焙映射时，直接按关节角更新 MatrixTransform
-	if (doc->robotLinkNameToBackendId().isEmpty())
+	if (!RobotSceneKinematics::applyJointAnglesFromDocument(doc, osg, m_jointAnglesRad))
 	{
-		if (!RobotSceneKinematics::applyJointAnglesFromDocument(doc, osg, m_jointAnglesRad))
-		{
-			RunLogger::warn("RobotInstructionPlaybackEngine aborted: applyJointAnglesFromDocument failed.");
-			stop();
-			return RobotInstructionPlaybackTickResult::Aborted;
-		}
-	}
-	else
-	{
-		const QString urdfPath = doc->robotUrdfAbsolutePath();
-		QHash<QString, osg::Matrixd> Tq;
-		QString fkErr;
-		if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, m_jointAnglesRad, Tq, &fkErr))
-		{
-			RunLogger::warn(qToUtf8Std(QStringLiteral("RobotInstructionPlaybackEngine aborted: computeMeshWorldMatrices failed: %1")
-				.arg(fkErr)));
-			stop();
-			return RobotInstructionPlaybackTickResult::Aborted;
-		}
-
-		RobotSceneKinematics::applyMeshWorldMatricesRelativeToBind(
-			osg, Tq, m_fkMeshWorldT0, doc->robotLinkNameToBackendId(), m_outerWorldAtStart);
+		RunLogger::warn("RobotInstructionPlaybackEngine aborted: applyJointAnglesFromDocument failed.");
+		stop();
+		return RobotInstructionPlaybackTickResult::Aborted;
 	}
 
 	if (u >= 1.0 - 1e-9)

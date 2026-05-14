@@ -15,8 +15,8 @@
 
 #include <osg/BoundingSphere>
 #include <osg/Camera>
+#include <osg/MatrixTransform>
 #include <osg/Node>
-#include <osg/PositionAttitudeTransform>
 #include <osg/Transform>
 #include <osg/Viewport>
 #include <osgGA/TrackballManipulator>
@@ -24,20 +24,20 @@
 
 namespace {
 
-osg::BoundingSphere worldBoundOfPat(osg::PositionAttitudeTransform* pat)
+osg::BoundingSphere worldBoundOfBackendRoot(osg::MatrixTransform* root)
 {
-	if (!pat)
+	if (!root)
 	{
 		return osg::BoundingSphere();
 	}
-	pat->dirtyBound();
-	const osg::BoundingSphere loc = pat->getBound();
+	root->dirtyBound();
+	const osg::BoundingSphere loc = root->getBound();
 	if (!loc.valid())
 	{
 		return osg::BoundingSphere();
 	}
 	osg::NodePath path;
-	for (osg::Node* n = pat; n != nullptr; n = n->getNumParents() > 0 ? n->getParent(0) : nullptr)
+	for (osg::Node* n = root; n != nullptr; n = n->getNumParents() > 0 ? n->getParent(0) : nullptr)
 	{
 		path.insert(path.begin(), n);
 	}
@@ -80,7 +80,7 @@ void OsgScene::focusCameraOnBackend(const std::string& backendId)
 		{
 			continue;
 		}
-		const osg::BoundingSphere w = worldBoundOfPat(kv.second.get());
+		const osg::BoundingSphere w = worldBoundOfBackendRoot(kv.second.get());
 		if (!w.valid())
 		{
 			continue;

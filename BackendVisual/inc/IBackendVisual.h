@@ -3,7 +3,7 @@
 #include "backendvisual_global.h"
 
 #include <memory>
-#include <osg/PositionAttitudeTransform>
+#include <osg/MatrixTransform>
 #include <osg/ref_ptr>
 #include <osg/Vec3f>
 #include <string>
@@ -15,11 +15,16 @@ struct MeshVisualOptions
 {
 	bool showWireOutline = true;
 	bool useSceneLighting = false;
+	/// When true, skip the inner PAT \c -modelCenter rebase and omit adding model bbox to the outer translate.
+	/// Use for URDF per-link imports where vertices are already in link frame and FK sets the outer world matrix.
+	bool skipInnerModelCenterRebase = false;
 };
 
 struct BranchBuildResult
 {
-	osg::ref_ptr<osg::PositionAttitudeTransform> outer;
+	/// Outer scene root for backend objects: \c osg::MatrixTransform stores the full rigid local matrix
+	/// (translation × rotation), so world pose updates avoid PAT TRS decomposition loss.
+	osg::ref_ptr<osg::MatrixTransform> outer;
 	osg::Vec3f modelCenter{};
 	float diagonal = 1.0f;
 };

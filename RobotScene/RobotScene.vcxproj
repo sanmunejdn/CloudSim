@@ -180,6 +180,9 @@
     <ClCompile Include="source\RobotSceneKinematics.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Data\Data.vcxproj">
+      <Project>{50119edf-918f-4bc8-a201-7ac6f0fe82a1}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\RobotUrdf\RobotUrdf.vcxproj">
       <Project>{7a3e9b2c-4d1f-4e8a-b5c6-1d2e3f4a5b6c}</Project>
     </ProjectReference>

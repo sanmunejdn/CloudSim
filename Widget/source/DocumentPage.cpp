@@ -5,8 +5,14 @@
 #include <QVBoxLayout>
 
 #include "BackendDataManager.h"
+#include "BackendDataBase.h"
 #include "BackendRelations.h"
+#include "FollowAttachmentComponent.h"
 #include "OsgWidget.h"
+
+#include <memory>
+#include <unordered_map>
+#include <vector>
 
 QStringList DocumentPage::removeBackendSubtree(const QString& rootBackendId)
 {
@@ -76,18 +82,34 @@ void DocumentPage::appendHierarchicalRobotSimulationContext(
 	const QVector<double>& jointLowerRad,
 	const QVector<double>& jointUpperRad,
 	const QHash<QString, osg::MatrixTransform*>& jointTransformsPrefixedKeys,
-	const QString& robotBackendId)
+	const QString& robotSceneBackendId,
+	const QString& jointPrefixRootOverride)
 {
 	HierarchicalRobotInstance ri;
 	ri.urdfAbsolutePath = urdfAbsolutePath;
-	ri.sceneBackendId = robotBackendId;
-	ri.jointKeyPrefix = robotBackendId + QStringLiteral("::");
+	ri.sceneBackendId = robotSceneBackendId;
+	ri.jointKeyPrefix = jointPrefixRootOverride.isEmpty()
+		? (robotSceneBackendId + QStringLiteral("::"))
+		: (jointPrefixRootOverride + QStringLiteral("::"));
 	ri.revoluteJointNamesUnprefixed = revoluteJointNamesUnprefixed;
 	ri.jointLowerRad = jointLowerRad;
 	ri.jointUpperRad = jointUpperRad;
 	ri.jointTransformsByPrefixedKey = jointTransformsPrefixedKeys;
 	m_hierarchicalRobots.append(std::move(ri));
 	rebuildHierarchicalRobotAggregates();
+}
+
+void DocumentPage::setRobotPerLinkKinematicsBinding(const QString& importKey,
+	const QHash<QString, QString>& linkNameToBackendId,
+	const QHash<QString, osg::Matrixd>& fkMeshWorldT0,
+	const QHash<QString, osg::Matrixd>& outerWorldAtBindByBackendId,
+	bool meshVerticesInLinkFrame)
+{
+	m_robotImportParentId = importKey;
+	m_robotLinkNameToBackendId = linkNameToBackendId;
+	m_robotFkMeshWorldT0 = fkMeshWorldT0;
+	m_robotOuterWorldAtBind = outerWorldAtBindByBackendId;
+	m_robotUrdfMeshVerticesInLinkFrame = meshVerticesInLinkFrame;
 }
 
 void DocumentPage::setHierarchicalRobotSimulationContext(
@@ -109,7 +131,7 @@ void DocumentPage::setHierarchicalRobotSimulationContext(
 		prefixed.insert(prefix + it.key(), it.value());
 	}
 	appendHierarchicalRobotSimulationContext(
-		urdfAbsolutePath, revoluteJointNames, jointLowerRad, jointUpperRad, prefixed, robotBackendId);
+		urdfAbsolutePath, revoluteJointNames, jointLowerRad, jointUpperRad, prefixed, robotBackendId, QString());
 }
 
 osg::MatrixTransform* DocumentPage::robotJointMatrixTransform(const QString& jointName) const
@@ -150,6 +172,7 @@ void DocumentPage::clearRobotSimulationContext()
 	m_robotLinkNameToBackendId.clear();
 	m_robotFkMeshWorldT0.clear();
 	m_robotOuterWorldAtBind.clear();
+	m_robotUrdfMeshVerticesInLinkFrame = false;
 
 	m_hierarchicalRobots.clear();
 	rebuildHierarchicalRobotAggregates();
@@ -157,22 +180,20 @@ void DocumentPage::clearRobotSimulationContext()
 
 void DocumentPage::clearRobotSimulationIfContains(const QString& removedBackendId)
 {
-	// 【中文】检查传统成员
-	if (!m_robotImportParentId.isEmpty())
+	// 【中文】每连杆后端：任一 link 的 mesh 后端被删则清除整台机器人仿真元数据（与 removeBackendSubtree 行为一致）。
+	for (auto it = m_robotLinkNameToBackendId.constBegin(); it != m_robotLinkNameToBackendId.constEnd(); ++it)
 	{
-		if (removedBackendId == m_robotImportParentId)
+		if (it.value() == removedBackendId)
 		{
 			clearRobotSimulationContext();
 			return;
 		}
-		for (auto it = m_robotLinkNameToBackendId.constBegin(); it != m_robotLinkNameToBackendId.constEnd(); ++it)
-		{
-			if (it.value() == removedBackendId)
-			{
-				clearRobotSimulationContext();
-				return;
-			}
-		}
+	}
+
+	if (!m_robotImportParentId.isEmpty() && removedBackendId == m_robotImportParentId)
+	{
+		clearRobotSimulationContext();
+		return;
 	}
 
 	// 【中文】多机器人：按场景后端 ID 移除对应实例
@@ -196,9 +217,7 @@ void DocumentPage::clearRobotSimulationIfContains(const QString& removedBackendI
 
 bool DocumentPage::hasRobotSimulationContext() const
 {
-	// 【中文】新架构：存在层级机器人实例或 URDF 路径；传统架构：检查 link->backend 映射
-	return !m_hierarchicalRobots.isEmpty() || !m_robotUrdfAbsolutePath.isEmpty() ||
-		(!m_robotLinkNameToBackendId.isEmpty() && !m_robotImportParentId.isEmpty());
+	return !m_hierarchicalRobots.isEmpty() || !m_robotUrdfAbsolutePath.isEmpty() || !m_robotLinkNameToBackendId.isEmpty();
 }
 
 bool DocumentPage::hasRobotKinematicsBind() const
@@ -208,7 +227,7 @@ bool DocumentPage::hasRobotKinematicsBind() const
 		(!m_robotFkMeshWorldT0.isEmpty() && !m_robotOuterWorldAtBind.isEmpty());
 }
 
-// 【中文】遗留接口实现（返回空数据，新架构不使用）
+// 【中文】每连杆 URDF：link → mesh 后端 id（层级导入时为空）。
 const QHash<QString, QString>& DocumentPage::robotLinkNameToBackendId() const
 {
 	return m_robotLinkNameToBackendId;
@@ -222,6 +241,11 @@ const QHash<QString, osg::Matrixd>& DocumentPage::robotFkMeshWorldT0() const
 const QHash<QString, osg::Matrixd>& DocumentPage::robotOuterWorldAtBind() const
 {
 	return m_robotOuterWorldAtBind;
+}
+
+bool DocumentPage::robotUrdfMeshVerticesInLinkFrame() const
+{
+	return m_robotUrdfMeshVerticesInLinkFrame;
 }
 
 QString DocumentPage::robotImportParentId() const
@@ -238,5 +262,97 @@ QStringList DocumentPage::robotLinkBackendIds() const
 		out.append(it.value());
 	}
 	return out;
+}
+
+QString DocumentPage::robotJointPrefixRoot() const
+{
+	if (m_hierarchicalRobots.isEmpty())
+	{
+		return QString();
+	}
+	QString p = m_hierarchicalRobots.first().jointKeyPrefix;
+	if (p.endsWith(QStringLiteral("::")))
+	{
+		p.chop(2);
+	}
+	return p;
+}
+
+bool DocumentPage::takeFollowSolveForced()
+{
+	const bool v = m_followSolveForced;
+	m_followSolveForced = false;
+	return v;
+}
+
+void DocumentPage::notifyRobotKinematicsAppliedToScene()
+{
+	if (m_robotLinkNameToBackendId.isEmpty())
+	{
+		return;
+	}
+	const QString seed = robotSceneBackendId();
+	if (!seed.isEmpty())
+	{
+		markFollowAttachmentDirtyFromBackendMove(m_backend, seed.toStdString());
+	}
+}
+
+void DocumentPage::markFollowAttachmentDirtyFromBackendMove(const BackendDataManager& mgr, const std::string& seed)
+{
+	if (seed.empty())
+	{
+		return;
+	}
+	std::unordered_map<std::string, std::vector<std::string>> targetToFollowers;
+	for (const auto& d : mgr.listData())
+	{
+		if (!d)
+		{
+			continue;
+		}
+		auto comp = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+			d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
+		if (!comp || !comp->enabled())
+		{
+			continue;
+		}
+		const std::string tid = comp->targetBackendId();
+		if (tid.empty() || tid == d->id())
+		{
+			continue;
+		}
+		if (!mgr.contains(tid))
+		{
+			continue;
+		}
+		targetToFollowers[tid].push_back(d->id());
+	}
+
+	std::vector<std::string> stack;
+	stack.push_back(seed);
+	std::unordered_set<std::string> visited;
+	while (!stack.empty())
+	{
+		const std::string u = stack.back();
+		stack.pop_back();
+		if (!visited.insert(u).second)
+		{
+			continue;
+		}
+		m_followDirtyBackendIds.insert(u);
+		const auto itF = targetToFollowers.find(u);
+		if (itF != targetToFollowers.end())
+		{
+			for (const std::string& f : itF->second)
+			{
+				stack.push_back(f);
+			}
+		}
+		for (const std::string& c : mgr.childrenOf(u))
+		{
+			stack.push_back(c);
+		}
+	}
 }
 

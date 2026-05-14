@@ -71,9 +71,15 @@ public:
 	virtual bool hasRotationProperty() const { return false; }
 	virtual bool hasColorProperty() const { return false; }
 
+	/// Narrow transform API: world-space pose authority for types that expose pose/rotation (see ARCHITECTURE §6.2.1).
+	virtual bool supportsBackendTransform() const { return hasPoseProperty(); }
+	virtual void applyBackendWorldPose(const BackendVec3& centerWorld, const BackendVec3& eulerDegWorld);
+
 	// Property panel: JSON array; row shape in BackendPropertyRow.h (backend_property_json).
-	virtual nlohmann::json snapshotPropertyRows() const;
-	virtual bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg);
+	// \a mgr resolves follow target id to display name when present.
+	virtual nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const;
+	virtual bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
+		const BackendDataManager* mgr = nullptr);
 
 	bool addComponent(const BackendComponentPtr& component);
 	bool removeComponent(const std::string& componentType);

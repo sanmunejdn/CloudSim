@@ -7,7 +7,7 @@
 #include <string>
 
 namespace osg {
-class PositionAttitudeTransform;
+class Group;
 }
 
 /// Attached to backend root scene nodes so picking can resolve \ref backendId() without a parallel map.
@@ -26,5 +26,5 @@ private:
 	std::string m_id;
 };
 
-/// Same hierarchy convention as legacy OsgWidget upsert: outer PAT → inner PAT → geometry root.
-BACKENDVISUAL_EXPORT osg::Node* backendVisualResolvePickNode(osg::PositionAttitudeTransform* outerPat);
+/// Same hierarchy convention as OsgWidget upsert: outer transform (\c osg::MatrixTransform) → inner PAT → geometry root.
+BACKENDVISUAL_EXPORT osg::Node* backendVisualResolvePickNode(osg::Group* outerBranchRoot);

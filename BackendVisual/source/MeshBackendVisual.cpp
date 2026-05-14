@@ -19,10 +19,14 @@
 #include <osg/Geode>
 #include <osg/Geometry>
 #include <osg/Group>
+#include <osg/Matrixd>
+#include <osg/MatrixTransform>
 #include <osg/LineWidth>
 #include <osg/Material>
 #include <osg/PolygonOffset>
+#include <osg/PositionAttitudeTransform>
 #include <osg/PrimitiveSet>
+#include <osg/Quat>
 #include <osg/StateSet>
 #include <osg/Vec3>
 #include <osg/Vec4>
@@ -180,18 +184,22 @@ bool MeshBackendVisual::buildOuterBranch(const BackendDataBase& data, const Mesh
 	{
 		return false;
 	}
-	const osg::Vec3f center = backend_geometry_metrics::meshCenterFromSoup(mesh->triangleSoup());
+	const bool skipCenter = meshOptions.skipInnerModelCenterRebase;
+	const osg::Vec3f center =
+		skipCenter ? osg::Vec3f(0.0f, 0.0f, 0.0f) : backend_geometry_metrics::meshCenterFromSoup(mesh->triangleSoup());
 	const float diagonal = backend_geometry_metrics::meshDiagonalFromSoup(mesh->triangleSoup());
 	osg::ref_ptr<osg::PositionAttitudeTransform> inner = new osg::PositionAttitudeTransform;
-	inner->setPosition(-center);
+	inner->setPosition(skipCenter ? osg::Vec3f(0.0f, 0.0f, 0.0f) : -center);
 	inner->addChild(meshRoot.get());
-	osg::ref_ptr<osg::PositionAttitudeTransform> outer = new osg::PositionAttitudeTransform;
+	osg::ref_ptr<osg::MatrixTransform> outer = new osg::MatrixTransform;
 	const BackendVec3 p = mesh->pose();
 	const BackendVec3 r = mesh->rotation();
-	const osg::Vec3f pose(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
-	outer->setPosition(center + pose);
-	outer->setAttitude(backendvisual_math::eulerDegToQuat(
-		osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z))));
+	const osg::Vec3d trans(skipCenter ? static_cast<double>(p.x) : static_cast<double>(center.x()) + static_cast<double>(p.x),
+		skipCenter ? static_cast<double>(p.y) : static_cast<double>(center.y()) + static_cast<double>(p.y),
+		skipCenter ? static_cast<double>(p.z) : static_cast<double>(center.z()) + static_cast<double>(p.z));
+	const osg::Quat q = backendvisual_math::eulerDegToQuat(
+		osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
+	outer->setMatrix(osg::Matrixd::translate(trans) * osg::Matrixd::rotate(q));
 	outer->addChild(inner.get());
 	osg::StateSet* oss = outer->getOrCreateStateSet();
 	if (meshOptions.useSceneLighting)

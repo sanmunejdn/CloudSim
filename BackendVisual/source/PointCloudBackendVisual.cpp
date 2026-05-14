@@ -18,8 +18,12 @@
 
 #include <osg/Geode>
 #include <osg/Geometry>
+#include <osg/Matrixd>
+#include <osg/MatrixTransform>
 #include <osg/Point>
+#include <osg/PositionAttitudeTransform>
 #include <osg/PrimitiveSet>
+#include <osg/Quat>
 #include <osg/StateSet>
 #include <osg/Vec3>
 #include <osg/Vec4>
@@ -107,11 +111,14 @@ bool PointCloudBackendVisual::buildOuterBranch(const BackendDataBase& data, cons
 	inner->addChild(geode.get());
 	const BackendVec3 p = pc->pose();
 	const BackendVec3 r = pc->rotation();
-	osg::ref_ptr<osg::PositionAttitudeTransform> outer = new osg::PositionAttitudeTransform;
-	const osg::Vec3f pose(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
-	outer->setPosition(center + pose);
-	outer->setAttitude(backendvisual_math::eulerDegToQuat(
-		osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z))));
+	osg::ref_ptr<osg::MatrixTransform> outer = new osg::MatrixTransform;
+	const osg::Vec3d trans(
+		static_cast<double>(center.x()) + static_cast<double>(p.x),
+		static_cast<double>(center.y()) + static_cast<double>(p.y),
+		static_cast<double>(center.z()) + static_cast<double>(p.z));
+	const osg::Quat q = backendvisual_math::eulerDegToQuat(
+		osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
+	outer->setMatrix(osg::Matrixd::translate(trans) * osg::Matrixd::rotate(q));
 	outer->addChild(inner.get());
 	osg::StateSet* oss = outer->getOrCreateStateSet();
 	oss->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);

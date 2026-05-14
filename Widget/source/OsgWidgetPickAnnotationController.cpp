@@ -23,6 +23,15 @@
 
 namespace {
 
+static void backendOuterLocalPosQuat(const osg::MatrixTransform* mt, osg::Vec3f& pos, osg::Quat& q)
+{
+	osg::Vec3d t;
+	osg::Vec3d s;
+	osg::Quat so;
+	mt->getMatrix().decompose(t, q, s, so);
+	pos.set(static_cast<float>(t.x()), static_cast<float>(t.y()), static_cast<float>(t.z()));
+}
+
 /// Smaller than compass gizmo. Pure linear-in-diagonal matches large scenes; the old
 /// max(12, diagonal*k)/220 collapsed almost all small diagonals to the same tiny min clamp.
 float annotationScaleForDiagonal(float diagonal)
@@ -181,7 +190,7 @@ void OsgWidgetPickAnnotationController::addPointAnnotationForBackend(
 	};
 
 	const QString trackedBackendId = resolveTopVisualBackendId(backendId);
-	osg::PositionAttitudeTransform* trackedOuter = nullptr;
+	osg::MatrixTransform* trackedOuter = nullptr;
 	if (!trackedBackendId.isEmpty())
 	{
 		auto it = self.m_backendObjectRoots.find(trackedBackendId.toStdString());
@@ -243,9 +252,10 @@ void OsgWidgetPickAnnotationController::addPointAnnotationForBackend(
 	osg::Vec3f localAnchor = pointWorld;
 	if (trackedOuter)
 	{
-		const osg::Vec3d bp = trackedOuter->getPosition();
-		const osg::Vec3f backendPos(static_cast<float>(bp.x()), static_cast<float>(bp.y()), static_cast<float>(bp.z()));
-		const osg::Quat invAtt = trackedOuter->getAttitude().inverse();
+		osg::Vec3f backendPos;
+		osg::Quat backendAtt;
+		backendOuterLocalPosQuat(trackedOuter, backendPos, backendAtt);
+		const osg::Quat invAtt = backendAtt.inverse();
 		localAnchor = invAtt * (pointWorld - backendPos);
 	}
 
@@ -326,9 +336,9 @@ void OsgWidgetPickAnnotationController::refreshAnnotationTexts(OsgWidget& self)
 			auto it = self.m_backendObjectRoots.find(backendStd);
 			if (it != self.m_backendObjectRoots.end() && it->second.valid())
 			{
-				const osg::Vec3d bp = it->second->getPosition();
-				const osg::Vec3f backendPos(static_cast<float>(bp.x()), static_cast<float>(bp.y()), static_cast<float>(bp.z()));
-				const osg::Quat backendAtt = it->second->getAttitude();
+				osg::Vec3f backendPos;
+				osg::Quat backendAtt;
+				backendOuterLocalPosQuat(it->second.get(), backendPos, backendAtt);
 				world = backendPos + (backendAtt * a.localCentered);
 			}
 			else if (a.hasWorldAnchor)
@@ -464,9 +474,9 @@ void OsgWidgetPickAnnotationController::restoreAnnotations(OsgWidget& self, cons
 			auto it = self.m_backendObjectRoots.find(backendStd);
 			if (it != self.m_backendObjectRoots.end() && it->second.valid())
 			{
-				const osg::Vec3d bp = it->second->getPosition();
-				const osg::Vec3f backendPos(static_cast<float>(bp.x()), static_cast<float>(bp.y()), static_cast<float>(bp.z()));
-				const osg::Quat backendAtt = it->second->getAttitude();
+				osg::Vec3f backendPos;
+				osg::Quat backendAtt;
+				backendOuterLocalPosQuat(it->second.get(), backendPos, backendAtt);
 				if (s.hasWorldAnchor)
 				{
 					world = s.worldAnchor;

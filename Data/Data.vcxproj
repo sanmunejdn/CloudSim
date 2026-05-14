@@ -162,6 +162,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="inc\BackendFollowMath.h" />
+    <ClInclude Include="inc\BackendFollowTransformSolver.h" />
+    <ClInclude Include="inc\FollowAttachmentComponent.h" />
     <ClInclude Include="inc\BackendDataBase.h" />
     <ClInclude Include="inc\BackendObjectAttribute.h" />
     <ClInclude Include="inc\BackendPropertyRow.h" />
@@ -172,6 +175,9 @@
     <ClInclude Include="inc\PointCloudBackendData.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\BackendFollowMath.cpp" />
+    <ClCompile Include="source\BackendFollowTransformSolver.cpp" />
+    <ClCompile Include="source\FollowAttachmentComponent.cpp" />
     <ClCompile Include="source\BackendDataBase.cpp" />
     <ClCompile Include="source\BackendObjectAttribute.cpp" />
     <ClCompile Include="source\BackendDataManager.cpp" />

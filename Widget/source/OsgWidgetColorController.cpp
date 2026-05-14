@@ -7,6 +7,7 @@
 
 #include <osg/Geode>
 #include <osg/Geometry>
+#include <osg/Group>
 #include <osg/Material>
 #include <osg/NodeVisitor>
 #include <osg/StateSet>
@@ -103,7 +104,7 @@ void OsgWidgetColorController::applyColorToBackendObject(OsgWidget& self, const 
 		{
 			continue;
 		}
-		osg::PositionAttitudeTransform* outer = kv.second.get();
+		osg::Group* outer = kv.second.get();
 		if (!outer || outer->getNumChildren() < 1)
 		{
 			continue;
