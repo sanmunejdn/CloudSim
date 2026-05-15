@@ -31,6 +31,28 @@
 
 #include <memory>
 
+namespace
+{
+
+QString makeUniqueBackendId(BackendDataManager& mgr, const QString& baseId)
+{
+	if (!mgr.contains(baseId.toStdString()))
+	{
+		return baseId;
+	}
+	for (int n = 2; n < 10000; ++n)
+	{
+		const QString candidate = baseId + QStringLiteral("_") + QString::number(n);
+		if (!mgr.contains(candidate.toStdString()))
+		{
+			return candidate;
+		}
+	}
+	return baseId + QStringLiteral("_") + QString::number(QDateTime::currentMSecsSinceEpoch());
+}
+
+} // namespace
+
 bool MainWindowImportCaptureRenderController::registerBackendObject(
 	MainWindow& mw,
 	const QString& filePath,
@@ -566,8 +588,19 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 		}
 	}
 
-	const QString sceneKey =
-		QStringLiteral("RobotURDF_%1_%2").arg(fileInfo.completeBaseName()).arg(QDateTime::currentMSecsSinceEpoch());
+	const QString robotDisplayName = fileInfo.completeBaseName();
+	const QString robotRootId = makeUniqueBackendId(
+		doc->backend(), QStringLiteral("RobotURDF_%1").arg(robotDisplayName));
+
+	auto robotRoot = std::make_shared<MeshBackendData>();
+	robotRoot->setId(robotRootId.toStdString());
+	robotRoot->setName(robotDisplayName.toStdString());
+	if (!doc->backend().registerData(robotRoot))
+	{
+		return reportFail(QStringLiteral("URDF"), QStringLiteral("Failed to register robot root backend."));
+	}
+	doc->backendSourcePath()[robotRootId] = fileInfo.absoluteFilePath();
+	doc->backendSourceType()[robotRootId] = QStringLiteral("URDF");
 
 	QVector<double> q0(revoluteJointNames.size(), 0.0);
 
@@ -579,7 +612,7 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 	{
 		const QString& linkName = it.key();
 		const QString& absMesh = it.value();
-		const QString bid = sceneKey + QStringLiteral("_link_") + linkName;
+		const QString bid = robotRootId + QStringLiteral("_") + linkName;
 
 		auto mesh = std::make_shared<MeshBackendData>();
 		mesh->setId(bid.toStdString());
@@ -663,11 +696,8 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 		{
 			const QString& linkName = it.key();
 			const QString parentLink = nearestMeshedAncestor(linkName);
-			if (parentLink.isEmpty())
-			{
-				continue;
-			}
-			const QString parentBid = linkToBackend.value(parentLink);
+			const QString parentBid =
+				parentLink.isEmpty() ? robotRootId : linkToBackend.value(parentLink);
 			const QString& childBid = it.value();
 			if (parentBid.isEmpty() || parentBid == childBid)
 			{
@@ -788,10 +818,10 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 		}
 	}
 
-	QString sceneRootBackendId = linkToBackend.value(rootLink);
-	if (sceneRootBackendId.isEmpty() && !linkToBackend.isEmpty())
+	QString focusBackendId = linkToBackend.value(rootLink);
+	if (focusBackendId.isEmpty() && !linkToBackend.isEmpty())
 	{
-		sceneRootBackendId = linkToBackend.begin().value();
+		focusBackendId = linkToBackend.begin().value();
 	}
 
 	doc->appendHierarchicalRobotSimulationContext(
@@ -800,10 +830,10 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 		jointLowerRad,
 		jointUpperRad,
 		QHash<QString, osg::MatrixTransform*>(),
-		sceneRootBackendId,
-		sceneKey);
+		robotRootId,
+		robotRootId);
 
-	doc->setRobotPerLinkKinematicsBinding(sceneKey + QStringLiteral("_ctx"), linkToBackend, fkT0, outerBind, true);
+	doc->setRobotPerLinkKinematicsBinding(robotRootId + QStringLiteral("_ctx"), linkToBackend, fkT0, outerBind, true);
 
 	if (!RobotSceneKinematics::applyJointAnglesFromDocument(doc, doc ? doc->sceneFacade().poseSink() : nullptr, q0))
 	{
@@ -816,9 +846,9 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 	if (osg)
 	{
 		osg->clearStagingGeometry();
-		if (!sceneRootBackendId.isEmpty())
+		if (!focusBackendId.isEmpty())
 		{
-			osg->focusCameraOnBackend(sceneRootBackendId.toStdString());
+			osg->focusCameraOnBackend(focusBackendId.toStdString());
 		}
 	}
 
@@ -827,11 +857,11 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 	if (mw.m_runInfoPage && !quietUi)
 	{
 		mw.m_runInfoPage->appendInfo(
-			QStringLiteral("URDF robot added (per-link backends): %1, Links: %2, Joints: %3, Key=%4")
+			QStringLiteral("URDF robot added (per-link backends): %1, Links: %2, Joints: %3, Root=%4")
 				.arg(fileInfo.fileName())
 				.arg(linkMeshes.size())
 				.arg(revoluteJointNames.size())
-				.arg(sceneKey));
+				.arg(robotRootId));
 		const QByteArray kd = qgetenv("ROBOT_KINEMATICS_DEBUG");
 		if (kd.isEmpty() || kd == QByteArray("0"))
 		{

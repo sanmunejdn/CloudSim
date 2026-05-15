@@ -122,15 +122,29 @@ void OsgScene::syncGizmoAndPickFromBackend(const BackendDataBase& data)
 	ObjectGizmoFrame frame;
 	if (it != m_backendObjectRoots.end() && it->second.valid())
 	{
-		const BackendVec3 p = data.pose();
-		const BackendVec3 r = data.rotation();
-		const osg::Vec3f pose(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
-		const osg::Quat q = eulerDegToQuat(osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
-		frame.setFromBackend(pose, q, m_modelCenter);
-		frame.applyToOuter(it->second.get());
-		attachGizmoOverlayToActiveBackend();
-		syncActiveBackendRootFromObjectFrame(frame, false);
-		cacheSelectionGizmoPose();
+		osg::MatrixTransform* const outer = it->second.get();
+		const auto parentRel = m_backendParentIds.find(id);
+		const bool hasBackendParent =
+			parentRel != m_backendParentIds.end() && !parentRel->second.empty();
+		// Hierarchical children (URDF links, STEP/DXF children): backend pose() is decomposed
+		// world values; applyToOuter would treat them as root-local and jump the mesh on select.
+		if (hasBackendParent && ObjectGizmoFrame::fromOuter(outer, m_modelCenter, frame))
+		{
+			attachGizmoOverlayToActiveBackend();
+			cacheSelectionGizmoPose();
+		}
+		else
+		{
+			const BackendVec3 p = data.pose();
+			const BackendVec3 r = data.rotation();
+			const osg::Vec3f pose(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
+			const osg::Quat q = eulerDegToQuat(osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
+			frame.setFromBackend(pose, q, m_modelCenter);
+			frame.applyToOuter(outer);
+			attachGizmoOverlayToActiveBackend();
+			syncActiveBackendRootFromObjectFrame(frame, false);
+			cacheSelectionGizmoPose();
+		}
 	}
 	else
 	{

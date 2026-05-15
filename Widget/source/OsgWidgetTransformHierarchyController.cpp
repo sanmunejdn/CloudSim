@@ -10,6 +10,7 @@
 
 #include "OsgWidgetTransformHierarchyController.h"
 
+#include "BackendIdUserData.h"
 #include "OsgWidget.h"
 
 #include <osg/MatrixTransform>
@@ -173,6 +174,11 @@ void OsgWidgetTransformHierarchyController::syncSelectionForBackendId(
 		self.attachGizmoOverlayToActiveBackend();
 		self.cacheSelectionGizmoPose();
 		self.syncCompassGizmoOrientation();
+		osg::Node* pickNode = backendVisualResolvePickNode(self.m_activeBackendOuterPat.get());
+		if (pickNode)
+		{
+			self.cachePickablePointsFromNode(pickNode);
+		}
 	}
 	else
 	{
