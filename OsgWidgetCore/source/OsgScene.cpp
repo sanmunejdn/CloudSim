@@ -2,6 +2,9 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #endif
 
@@ -274,11 +277,21 @@ void OsgScene::initScene()
 	m_root->addChild(m_sceneContentGroup.get());
 	m_root->addChild(m_stagingGroup.get());
 
-	m_selectedTransform = new osg::PositionAttitudeTransform;
-	m_root->addChild(m_selectedTransform.get());
+	m_gizmoOverlayGroup = new osg::Group;
+	m_gizmoOverlayGroup->setName("GizmoOverlay");
+	m_gizmoOverlayGroup->setNodeMask(0xffffffffu);
+
 	m_compassTransform = new osg::PositionAttitudeTransform;
+	m_compassTransform->setPosition(osg::Vec3d(0.0, 0.0, 0.0));
 	m_compassTransform->setNodeMask(0u);
-	m_selectedTransform->addChild(m_compassTransform.get());
+	m_gizmoOverlayGroup->addChild(m_compassTransform.get());
+
+	m_pickFeedbackTransform = new osg::AutoTransform;
+	m_pickFeedbackTransform->setNodeMask(kMaskHelper);
+	m_pickFeedbackTransform->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_SCREEN);
+	m_pickFeedbackTransform->setAutoScaleToScreen(true);
+	m_gizmoOverlayGroup->addChild(m_pickFeedbackTransform.get());
+
 	m_annotationGroup = new osg::Group;
 	m_annotationGroup->setName("Annotations");
 	m_annotationGroup->setNodeMask(0xffffffffu);
@@ -330,12 +343,6 @@ void OsgScene::initScene()
 	overlayGeode->addDrawable(m_meshPickedEdgeGeom.get());
 	overlayGeode->setNodeMask(kMaskHelper);
 	m_meshPickOverlayGroup->addChild(overlayGeode.get());
-
-	m_pickFeedbackTransform = new osg::AutoTransform;
-	m_pickFeedbackTransform->setNodeMask(kMaskHelper);
-	m_pickFeedbackTransform->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_SCREEN);
-	m_pickFeedbackTransform->setAutoScaleToScreen(true);
-	m_selectedTransform->addChild(m_pickFeedbackTransform.get());
 
 	m_selectionActive = false;
 	m_gizmoReferenceDistance = -1.0;
@@ -429,21 +436,10 @@ bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
 		}
 		m_activeBackendId = id;
 		m_activeBackendOuterPat = rootIt->second;
-		if (m_selectedTransform.valid())
-		{
-			osg::Vec3d t;
-			osg::Quat r;
-			osg::Vec3d s;
-			osg::Quat so;
-			rootIt->second->getMatrix().decompose(t, r, s, so);
-			m_selectedTransform->setPosition(osg::Vec3f(static_cast<float>(t.x()), static_cast<float>(t.y()),
-				static_cast<float>(t.z())));
-			m_selectedTransform->setAttitude(r);
-		}
-		cacheSelectionPoseFromSelectedTransform();
+		attachGizmoOverlayToActiveBackend();
+		cacheSelectionGizmoPose();
 		auto cIt = m_backendModelCenters.find(id);
 		m_modelCenter = (cIt != m_backendModelCenters.end()) ? cIt->second : osg::Vec3f(0.0f, 0.0f, 0.0f);
-		updateCompassLocalOffsetForModelOrigin();
 		return true;
 	}
 	return false;
@@ -549,7 +545,12 @@ bool OsgScene::pickPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& ou
 
 bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx, bool previewOnly) const
 {
-	if (!m_viewer.valid() || !m_viewer->getCamera() || !m_selectedTransform.valid())
+	ObjectGizmoFrame gizmoFrame;
+	if (!readActiveObjectGizmoFrame(gizmoFrame))
+	{
+		return false;
+	}
+	if (!m_viewer.valid() || !m_viewer->getCamera())
 	{
 		return false;
 	}
@@ -577,8 +578,8 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 
 	osg::Camera* camera = m_viewer->getCamera();
 	const osg::Matrixd mvp = camera->getViewMatrix() * camera->getProjectionMatrix();
-	const osg::Quat attitude = m_selectedTransform->getAttitude();
-	const osg::Vec3f selectedPos = m_selectedTransform->getPosition();
+	const osg::Quat attitude = gizmoFrame.attitude();
+	const osg::Vec3f selectedPos = gizmoFrame.centerPlusPose();
 
 	if (!previewOnly && m_kdRoot >= 0 && !m_pickablePointsCenteredLocal.empty())
 	{
@@ -587,10 +588,10 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 		osg::Matrixd inv = osg::Matrixd::inverse(view * proj);
 		const double xNdc = (2.0 * mouseX / static_cast<double>(viewportWidth())) - 1.0;
 		const double yNdc = 1.0 - (2.0 * mouseY / static_cast<double>(viewportHeight()));
-		osg::Vec3d nearPoint = osg::Vec3d(xNdc, yNdc, -1.0) * inv;
-		osg::Vec3d farPoint = osg::Vec3d(xNdc, yNdc, 1.0) * inv;
-		osg::Vec3f rayOriginWorld(static_cast<float>(nearPoint.x()), static_cast<float>(nearPoint.y()), static_cast<float>(nearPoint.z()));
-		osg::Vec3f rayDirWorld(static_cast<float>(farPoint.x() - nearPoint.x()), static_cast<float>(farPoint.y() - nearPoint.y()), static_cast<float>(farPoint.z() - nearPoint.z()));
+		osg::Vec3d clipNearW = osg::Vec3d(xNdc, yNdc, -1.0) * inv;
+		osg::Vec3d clipFarW = osg::Vec3d(xNdc, yNdc, 1.0) * inv;
+		osg::Vec3f rayOriginWorld(static_cast<float>(clipNearW.x()), static_cast<float>(clipNearW.y()), static_cast<float>(clipNearW.z()));
+		osg::Vec3f rayDirWorld(static_cast<float>(clipFarW.x() - clipNearW.x()), static_cast<float>(clipFarW.y() - clipNearW.y()), static_cast<float>(clipFarW.z() - clipNearW.z()));
 		if (rayDirWorld.length2() > 1e-8f)
 		{
 			rayDirWorld.normalize();
@@ -677,7 +678,9 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 bool OsgScene::pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx) const
 {
 	static const unsigned int kMaskContent = 0x1u;
-	if (!m_viewer.valid() || !m_viewer->getCamera() || !m_root.valid() || !m_selectedTransform.valid())
+	ObjectGizmoFrame gizmoFrame;
+	const bool haveGizmoFrame = readActiveObjectGizmoFrame(gizmoFrame);
+	if (!m_viewer.valid() || !m_viewer->getCamera() || !m_root.valid())
 	{
 		return false;
 	}
@@ -696,9 +699,9 @@ bool OsgScene::pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec
 	}
 
 	const osg::Matrixd mvp = m_viewer->getCamera()->getViewMatrix() * m_viewer->getCamera()->getProjectionMatrix();
-	const osg::Quat att = m_selectedTransform->getAttitude();
+	const osg::Quat att = haveGizmoFrame ? gizmoFrame.attitude() : osg::Quat();
 	const osg::Quat invAtt = att.inverse();
-	const osg::Vec3f selectedPos = m_selectedTransform->getPosition();
+	const osg::Vec3f selectedPos = haveGizmoFrame ? gizmoFrame.centerPlusPose() : osg::Vec3f(0.0f, 0.0f, 0.0f);
 
 	auto projectToScreen = [&](const osg::Vec3f& world, double& d2, double& depth) -> bool
 	{
@@ -724,6 +727,7 @@ bool OsgScene::pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec
 	const double kScreenWindowPx2 = kScreenWindowPx * kScreenWindowPx;
 	const double kDepthTie = 1e-4;
 	const bool hasKd = (m_kdRoot >= 0 && !m_pickablePointsCenteredLocal.empty());
+	const bool useKdBody = haveGizmoFrame && hasKd;
 
 	for (const auto& hit : intersector->getIntersections())
 	{
@@ -731,7 +735,7 @@ bool OsgScene::pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec
 		const osg::Vec3f hitWorld(static_cast<float>(wp.x()), static_cast<float>(wp.y()), static_cast<float>(wp.z()));
 
 		std::vector<int> candidateIndices;
-		if (hasKd)
+		if (useKdBody)
 		{
 			const osg::Vec3f queryLocalCentered = invAtt * (hitWorld - selectedPos);
 			nearestCandidatesByKdTree(queryLocalCentered, 64, candidateIndices);

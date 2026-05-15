@@ -84,7 +84,7 @@ int main(int argc, char* argv[])
 	// or e.g. --robot-kinematics-debug 0 before other args consume the value.
 	if (qgetenv("ROBOT_KINEMATICS_DEBUG").isEmpty())
 	{
-		(void)qputenv("ROBOT_KINEMATICS_DEBUG", QByteArray("1"));
+		(void)qputenv("ROBOT_KINEMATICS_DEBUG", QByteArray("0"));
 	}
 	QApplication a(argc, argv);
 #ifdef Q_OS_WIN

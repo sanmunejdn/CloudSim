@@ -78,22 +78,8 @@
 #include "QWidgetViewer.h"
 
 #include "BackendFollowMath.h"
-
-namespace
-{
-osg::Matrixd backendColMajorToOsgMat(const BackendMat4& b)
-{
-	osg::Matrixd m;
-	for (int c = 0; c < 4; ++c)
-	{
-		for (int r = 0; r < 4; ++r)
-		{
-			m(r, c) = b.v[c * 4 + r];
-		}
-	}
-	return m;
-}
-} // namespace
+#include "BackendVisualMath.h"
+#include "ObjectGizmoFrame.h"
 
 OsgWidget::OsgWidget(QWidget* parent)
 	: QWidget(parent)
@@ -109,6 +95,7 @@ OsgWidget::OsgWidget(QWidget* parent)
 	initScene();
 	initUi();
 	setRequestRedraw([this]() {
+		emit sceneRedrawRequested();
 		if (m_glWidget)
 		{
 			m_glWidget->update();
@@ -159,10 +146,7 @@ void OsgWidget::applyRigidRotationAboutWorldPivot(const std::vector<std::string>
 	{
 		m_viewer->setSceneData(m_root.get());
 	}
-	if (m_glWidget)
-	{
-		m_glWidget->update();
-	}
+	requestRedraw();
 }
 
 osg::Vec3f OsgWidget::averageBackendRootPositionWorld(const std::vector<std::string>& backendIds) const
@@ -329,11 +313,20 @@ bool OsgWidget::syncOuterPatFromBackend(const BackendDataBase& data)
 	const osg::Vec3f center = cIt->second;
 	const BackendVec3 p = data.pose();
 	const BackendVec3 r = data.rotation();
-	const BackendVec3 centerB{ static_cast<double>(center.x()), static_cast<double>(center.y()),
-		static_cast<double>(center.z()) };
-	const BackendMat4 worldB = backend_world_mat_from_pose(centerB, p, r);
-	const osg::Matrixd worldOsg = backendColMajorToOsgMat(worldB);
-	setBackendRootWorldMatrixFromWorld(id, worldOsg);
+	const osg::Vec3d centerPlusPose(
+		static_cast<double>(center.x()) + p.x,
+		static_cast<double>(center.y()) + p.y,
+		static_cast<double>(center.z()) + p.z);
+	const osg::Quat q = backendvisual_math::eulerDegToQuat(
+		osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
+	// Same row-vector convention as ObjectGizmoFrame / MeshBackendVisual::buildOuterBranch.
+	const osg::Matrixd targetWorld =
+		ObjectGizmoFrame::outerLocalMatrix(
+			osg::Vec3f(static_cast<float>(centerPlusPose.x()), static_cast<float>(centerPlusPose.y()),
+				static_cast<float>(centerPlusPose.z())),
+			q);
+	setBackendRootWorldMatrixFromWorld(id, targetWorld);
+	requestRedraw();
 	return true;
 }
 
@@ -381,48 +374,41 @@ void OsgWidget::setBackendRootWorldMatrixFromWorld(const std::string& backendId,
 		return;
 	}
 	osg::MatrixTransform* mt = it->second.get();
-	const osg::NodePath fullPath = nodePathToSceneRoot(mt);
 	osg::Matrixd parentWorld;
-	if (fullPath.size() < 2U)
+	parentWorld.makeIdentity();
+	// Prefer backend hierarchy parent world (matches FK / RobotKinematicsDBG parentBackendId).
+	// Scene-node parent paths can disagree after reparent (flat group vs per-link outer PAT chain).
+	const auto parentRel = m_backendParentIds.find(backendId);
+	if (parentRel != m_backendParentIds.end() && !parentRel->second.empty())
 	{
-		parentWorld.makeIdentity();
+		if (!getBackendRootWorldMatrix(parentRel->second, parentWorld))
+		{
+			parentWorld.makeIdentity();
+		}
 	}
 	else
 	{
-		osg::NodePath parentPath;
-		parentPath.reserve(fullPath.size() - 1U);
-		for (unsigned i = 0; i + 1U < fullPath.size(); ++i)
+		const osg::NodePath fullPath = nodePathToSceneRoot(mt);
+		if (fullPath.size() >= 2U)
 		{
-			parentPath.push_back(fullPath[i]);
+			osg::NodePath parentPath;
+			parentPath.reserve(fullPath.size() - 1U);
+			for (unsigned i = 0; i + 1U < fullPath.size(); ++i)
+			{
+				parentPath.push_back(fullPath[i]);
+			}
+			parentWorld = osg::computeLocalToWorld(parentPath);
 		}
-		parentWorld = osg::computeLocalToWorld(parentPath);
 	}
 	const osg::Matrixd invPw = osg::Matrixd::inverse(parentWorld);
-	const osg::Matrixd candLeft = invPw * worldMat;
-	const osg::Matrixd candRight = worldMat * invPw;
-	osg::Matrixd bestLocal = candLeft;
-	double bestErr = 1e100;
-	const osg::Matrixd cands[2] = { candLeft, candRight };
-	for (int ci = 0; ci < 2; ++ci)
-	{
-		mt->setMatrix(cands[ci]);
-		const osg::Matrixd chk = osg::computeLocalToWorld(nodePathToSceneRoot(mt));
-		const double err = matMaxAbsDiff(chk, worldMat);
-		if (err < bestErr)
-		{
-			bestErr = err;
-			bestLocal = cands[ci];
-		}
-	}
-	mt->setMatrix(bestLocal);
+	// Row-vector OSG convention (see ObjectGizmoFrame): p_world = p_local * local * parentWorld.
+	// Hence local = worldMat * inv(parentWorld). Column-order inv(P)*W only matches when P is identity.
+	mt->setMatrix(worldMat * invPw);
 	if (m_viewer.valid())
 	{
 		m_viewer->setSceneData(m_root.get());
 	}
-	if (m_glWidget)
-	{
-		m_glWidget->update();
-	}
+	requestRedraw();
 }
 
 bool OsgWidget::tryGetBackendModelCenterMm(const std::string& backendId, double& outCx, double& outCy, double& outCz) const
@@ -562,10 +548,7 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& a
 			m_instructionPoseAxisNodes.push_back(mt);
 		}
 	}
-	if (m_glWidget)
-	{
-		m_glWidget->update();
-	}
+	requestRedraw();
 }
 
 void OsgWidget::clearInstructionPoseAxes()
@@ -586,10 +569,7 @@ void OsgWidget::clearInstructionPoseAxes()
 	{
 		m_instructionPoseAxesGroup->removeChildren(0, m_instructionPoseAxesGroup->getNumChildren());
 	}
-	if (m_glWidget)
-	{
-		m_glWidget->update();
-	}
+	requestRedraw();
 }
 
 void OsgWidget::setViewerBackgroundForDarkUi(bool dark)
@@ -612,10 +592,7 @@ void OsgWidget::setViewerBackgroundForDarkUi(bool dark)
 			a.textDrawable->setColor(annotationTextColor);
 		}
 	}
-	if (m_glWidget)
-	{
-		m_glWidget->update();
-	}
+	requestRedraw();
 }
 
 void OsgWidget::clearStagingGeometry()
@@ -655,6 +632,7 @@ void OsgWidget::setBackendObjectVisible(const std::string& backendId, bool visib
 {
 	m_backendVisibility[backendId] = visible;
 	applyVisibilityMaskForBackend(backendId);
+	requestRedraw();
 }
 
 void OsgWidget::setBackendParent(const std::string& backendId, const std::string& parentBackendId)
@@ -676,7 +654,6 @@ bool OsgWidget::hasBackendObjectBranch(const std::string& backendId) const
 void OsgWidget::syncSelectionFromBackend(const PointCloudBackendData& data)
 {
 	OsgScene::syncGizmoAndPickFromBackend(data);
-	cacheSelectionPoseFromSelectedTransform();
 	syncCompassGizmoOrientation();
 	OsgWidgetTransformHierarchyController::finalizeSelectionSync(*this);
 }
@@ -684,7 +661,6 @@ void OsgWidget::syncSelectionFromBackend(const PointCloudBackendData& data)
 void OsgWidget::syncSelectionFromBackend(const MeshBackendData& data)
 {
 	OsgScene::syncGizmoAndPickFromBackend(data);
-	cacheSelectionPoseFromSelectedTransform();
 	syncCompassGizmoOrientation();
 	OsgWidgetTransformHierarchyController::finalizeSelectionSync(*this);
 }
@@ -1044,6 +1020,7 @@ void OsgWidget::initViewer()
 			m_viewer->getCamera()->setProjectionMatrixAsPerspective(30.0, aspect, 10.0, 1e8);
 		}
 		updateWorldAxesHudViewport(w, h);
+		requestRedraw();
 	});
 
 	m_viewer->getCamera()->setGraphicsContext(m_graphicsWindow.get());
@@ -1084,7 +1061,11 @@ void OsgWidget::initViewer()
 		{
 			m_pickAnnotationController->updateAnnotationScales(*this);
 		}
-		if (m_glWidget) m_glWidget->update();
+		const bool timerDrivenVisuals = !cameraFollowBackendId().empty() || hasPointAnnotations();
+		if (timerDrivenVisuals)
+		{
+			requestRedraw();
+		}
 	});
 	m_frameTimer.start(16);
 
@@ -1101,6 +1082,7 @@ void OsgWidget::setSelectionActive(bool active)
 	m_selectionActive = active;
 	if (!active)
 	{
+		detachGizmoOverlay();
 		m_gizmoReferenceDistance = -1.0;
 		m_gizmoReferenceScale = 1.0;
 		m_hasLastSelectionPose = false;
@@ -1122,21 +1104,12 @@ void OsgWidget::detachCompassGraphics()
 
 void OsgWidget::syncCompassGizmoOrientation()
 {
-	if (!m_compassTransform.valid() || !m_selectedTransform.valid())
-	{
-		return;
-	}
-	// Model origin in outer local frame is -m_modelCenter; compass offset matches. World mode: draw axes in world
-	// directions while pivot stays on parent (inverse cancels object rotation on child attitude).
-	if (m_transformGizmoFrame == TransformGizmoFrame::World)
-	{
-		const osg::Quat q = m_selectedTransform->getAttitude();
-		m_compassTransform->setAttitude(q.inverse());
-	}
-	else
-	{
-		m_compassTransform->setAttitude(osg::Quat());
-	}
+	OsgScene::syncCompassGizmoOrientation();
+}
+
+void OsgWidget::logGizmoPivotDiagnostics(const char* reasonTag) const
+{
+	OsgScene::logGizmoPivotDiagnostics(reasonTag);
 }
 
 void OsgWidget::refreshCompassDrawVisibility()
@@ -1165,7 +1138,7 @@ void OsgWidget::syncCameraManipulatorForModes()
 		if (m_glWidget)
 		{
 			m_glWidget->setFocus(Qt::OtherFocusReason);
-			m_glWidget->update();
+			requestRedraw();
 		}
 	}
 }
@@ -1333,21 +1306,28 @@ QString OsgWidget::pointCloudPluginReport() const
 
 osg::Vec3f OsgWidget::selectedPosition() const
 {
-	if (!m_selectedTransform.valid())
+	ObjectGizmoFrame f;
+	if (!readActiveObjectGizmoFrame(f))
 	{
 		return osg::Vec3f(0.0f, 0.0f, 0.0f);
 	}
-	return m_selectedTransform->getPosition() - m_modelCenter;
+	return f.backendPoseRelativeToCenter();
 }
 
 void OsgWidget::setSelectedPosition(const osg::Vec3f& position)
 {
-	if (!m_selectedTransform.valid())
+	if (!m_activeBackendOuterPat.valid())
 	{
 		return;
 	}
-	m_selectedTransform->setPosition(m_modelCenter + position);
-	syncActiveBackendRootFromSelectedTransform();
+	ObjectGizmoFrame f;
+	if (!readActiveObjectGizmoFrame(f))
+	{
+		return;
+	}
+	f.setFromBackend(position, f.attitude(), m_modelCenter);
+	f.applyToOuter(m_activeBackendOuterPat.get());
+	syncActiveBackendRootFromObjectFrame(f, false);
 	refreshAnnotationTexts();
 	syncCompassGizmoOrientation();
 	emit selectedObjectPoseChanged(position.x(), position.y(), position.z());
@@ -1355,21 +1335,31 @@ void OsgWidget::setSelectedPosition(const osg::Vec3f& position)
 
 osg::Vec3f OsgWidget::selectedRotationEulerDeg() const
 {
-	if (!m_selectedTransform.valid())
+	ObjectGizmoFrame f;
+	if (!readActiveObjectGizmoFrame(f))
 	{
 		return osg::Vec3f(0.0f, 0.0f, 0.0f);
 	}
-	return OsgScene::quatToEulerDeg(m_selectedTransform->getAttitude());
+	return OsgScene::quatToEulerDeg(f.attitude());
 }
 
 void OsgWidget::setSelectedRotationEulerDeg(const osg::Vec3f& eulerDeg)
 {
-	if (!m_selectedTransform.valid())
+	if (!m_activeBackendOuterPat.valid())
 	{
 		return;
 	}
-	m_selectedTransform->setAttitude(OsgScene::eulerDegToQuat(eulerDeg));
-	syncActiveBackendRootFromSelectedTransform();
+	ObjectGizmoFrame f;
+	if (!readActiveObjectGizmoFrame(f))
+	{
+		return;
+	}
+	const osg::Quat q = OsgScene::eulerDegToQuat(eulerDeg);
+	const osg::Vec3d pivotInParent = ObjectGizmoFrame::pivotInOuterParentFromOuter(
+		m_activeBackendOuterPat.get(), f.modelCenter());
+	f.setRotationKeepingPivotInOuterParent(pivotInParent, q);
+	f.applyToOuter(m_activeBackendOuterPat.get());
+	syncActiveBackendRootFromObjectFrame(f, false);
 	refreshAnnotationTexts();
 	syncCompassGizmoOrientation();
 	emit selectedObjectRotationChanged(eulerDeg.x(), eulerDeg.y(), eulerDeg.z());
@@ -1377,7 +1367,39 @@ void OsgWidget::setSelectedRotationEulerDeg(const osg::Vec3f& eulerDeg)
 
 void OsgWidget::syncActiveBackendRootFromSelectedTransform()
 {
-	OsgScene::syncActiveBackendRootFromSelectedTransform();
+	ObjectGizmoFrame f;
+	if (!readActiveObjectGizmoFrame(f))
+	{
+		return;
+	}
+	syncActiveBackendRootFromObjectFrame(f, false);
+}
+
+bool OsgWidget::writeActiveBackendPoseFromOsg(BackendDataBase& data)
+{
+	if (!data.hasPoseProperty() || data.id() != m_activeBackendId || !m_activeBackendOuterPat.valid())
+	{
+		return false;
+	}
+	const osg::Vec3f pose = selectedPosition();
+	const osg::Vec3f euler = selectedRotationEulerDeg();
+	const BackendVec3 poseB{
+		static_cast<double>(pose.x()),
+		static_cast<double>(pose.y()),
+		static_cast<double>(pose.z())};
+	const BackendVec3 eulerB{
+		static_cast<double>(euler.x()),
+		static_cast<double>(euler.y()),
+		static_cast<double>(euler.z())};
+	if (data.supportsBackendTransform())
+	{
+		data.applyBackendWorldPose(poseB, eulerB);
+	}
+	else
+	{
+		data.setPose(poseB);
+	}
+	return true;
 }
 
 void OsgWidget::setSelectedColor(float r, float g, float b, float a)
@@ -1386,15 +1408,15 @@ void OsgWidget::setSelectedColor(float r, float g, float b, float a)
 	emit selectedObjectColorChanged(r, g, b, a);
 }
 
-OsgWidget::DragAxis OsgWidget::pickAxisAtScreenPos(const QPoint& mousePos, bool preferRing) const
+OsgWidget::DragAxis OsgWidget::pickAxisAtScreenPos(const QPoint& mousePos, bool preferRing, bool* outPickedRing) const
 {
-	const int axis = OsgScene::pickAxisAtScreenPos(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()), preferRing);
+	const int axis = OsgScene::pickAxisAtScreenPos(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()), preferRing, outPickedRing);
 	return static_cast<DragAxis>(axis);
 }
 
-void OsgWidget::updateCompassHighlight(DragAxis axis)
+void OsgWidget::updateCompassHighlight(DragAxis axis, bool highlightRing)
 {
-	OsgScene::updateCompassHighlight(static_cast<int>(axis));
+	OsgScene::updateCompassHighlight(static_cast<int>(axis), highlightRing);
 }
 
 QString OsgWidget::axisToString(DragAxis axis) const
@@ -1575,19 +1597,13 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 					setSelectionActive(false);
 					setObjectSelectionMode(false);
 					emit selectionCanceledByEsc();
-					if (m_glWidget)
-					{
-						m_glWidget->update();
-					}
+					requestRedraw();
 					return true;
 				}
 				if (m_pointPickMode)
 				{
 					emit selectionCanceledByEsc();
-					if (m_glWidget)
-					{
-						m_glWidget->update();
-					}
+					requestRedraw();
 					return true;
 				}
 				if (m_meshLinePickMode || m_meshFacePickMode)
@@ -1596,10 +1612,7 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 					m_meshFacePickMode = false;
 					hideMeshElementHighlight();
 					emit selectionCanceledByEsc();
-					if (m_glWidget)
-					{
-						m_glWidget->update();
-					}
+					requestRedraw();
 					return true;
 				}
 			}
@@ -1730,7 +1743,7 @@ QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QS
 	outer->dirtyBound();
 	const osg::BoundingSphere bs = outer->getBound();
 	// Gizmo / pose pivot use m_modelCenter as the "file origin" in outer local space (see
-	// computeGizmoPivotWorld + updateCompassLocalOffsetForModelOrigin). URDF assembly is rooted at
+	// computeGizmoPivotWorld from inner PAT). URDF assembly is rooted at
 	// the base link frame under this PAT — not at the meshes' bounding-sphere center (which would
 	// shift the compass off the pedestal for typical arms).
 	m_backendModelCenters[stdId] = osg::Vec3f(0.0f, 0.0f, 0.0f);
@@ -1758,10 +1771,7 @@ QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QS
 		m_viewer->setSceneData(m_root.get());
 		focusCameraOnBackend(stdId);
 	}
-	if (m_glWidget)
-	{
-		m_glWidget->update();
-	}
+	requestRedraw();
 
 	return backendId;
 }

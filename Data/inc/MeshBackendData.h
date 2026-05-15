@@ -60,6 +60,10 @@ public:
 	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
 		const BackendDataManager* mgr = nullptr) override;
 
+	/// When true, pose/rotation/worldMatrix use mesh origin as pivot (URDF link-frame meshes), not bbox center.
+	void setTransformPivotAtOrigin(bool atOrigin) { m_transformPivotAtOrigin = atOrigin; }
+	bool transformPivotAtOrigin() const { return m_transformPivotAtOrigin; }
+
 private:
 	void recomputeBounds();
 
@@ -68,4 +72,5 @@ private:
 	BackendVec3 m_position;
 	BackendVec3 m_rotation;
 	BackendColor m_color;
+	bool m_transformPivotAtOrigin = false;
 };

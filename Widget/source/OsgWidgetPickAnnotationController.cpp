@@ -1,6 +1,7 @@
 #include "OsgWidgetPickAnnotationController.h"
 
 #include "OsgWidget.h"
+#include "ObjectGizmoFrame.h"
 
 #include <osg/Array>
 #include <osg/Geode>
@@ -93,10 +94,11 @@ void OsgWidgetPickAnnotationController::updatePointPickMarker(OsgWidget& self, c
 		}
 	}
 
-	const osg::Quat invAtt = self.m_selectedTransform.valid()
-		? self.m_selectedTransform->getAttitude().inverse()
-		: osg::Quat();
-	const osg::Vec3f localPos = invAtt * (pointWorld - self.m_selectedTransform->getPosition());
+	osg::Vec3f pivotW(0.0f, 0.0f, 0.0f);
+	self.computeGizmoPivotWorld(pivotW);
+	ObjectGizmoFrame gf;
+	const osg::Quat invAtt = self.readActiveObjectGizmoFrame(gf) ? gf.attitude().inverse() : osg::Quat();
+	const osg::Vec3f localPos = invAtt * (pointWorld - pivotW);
 	self.m_pickFeedbackTransform->setPosition(localPos);
 	self.m_pickFeedbackTransform->setNodeMask(0xffffffffu);
 }
@@ -352,12 +354,10 @@ void OsgWidgetPickAnnotationController::refreshAnnotationTexts(OsgWidget& self)
 			{
 				world = a.worldAnchor;
 			}
-			// Legacy fallback: localCentered was stored in gizmo space at save time.
-			else if (self.m_selectedTransform.valid())
+			// Legacy fallback: localCentered was stored in gizmo (center+pose) space at save time.
+			else if (ObjectGizmoFrame gf; self.readActiveObjectGizmoFrame(gf))
 			{
-				const osg::Vec3f selectedPos = self.m_selectedTransform->getPosition();
-				const osg::Quat attitude = self.m_selectedTransform->getAttitude();
-				world = selectedPos + (attitude * a.localCentered);
+				world = gf.centerPlusPose() + (gf.attitude() * a.localCentered);
 			}
 		}
 
@@ -495,10 +495,9 @@ void OsgWidgetPickAnnotationController::restoreAnnotations(OsgWidget& self, cons
 			{
 				world = s.worldAnchor;
 			}
-			else if (self.m_selectedTransform.valid())
+			else if (ObjectGizmoFrame gf; self.readActiveObjectGizmoFrame(gf))
 			{
-				world = self.m_selectedTransform->getPosition()
-					+ (self.m_selectedTransform->getAttitude() * s.localCentered);
+				world = gf.centerPlusPose() + (gf.attitude() * s.localCentered);
 			}
 			else
 			{

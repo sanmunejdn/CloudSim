@@ -18,8 +18,8 @@ text = text.replace(
     "bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)",
 )
 text = text.replace(
-    "OsgWidgetTransformHierarchyController::cacheSelectionPoseFromSelectedTransform(*this);",
-    "cacheSelectionPoseFromSelectedTransform();",
+    "OsgWidgetTransformHierarchyController::cacheSelectionGizmoPose(*this);",
+    "cacheSelectionGizmoPose();",
 )
 text = re.sub(r"\s*refreshAnnotationTexts\(\);\s*\n", "\n", text)
 text = re.sub(r"\s*setSelectionActive\(true\);\s*\n", "\n", text)

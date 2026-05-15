@@ -1,10 +1,17 @@
 #include "BackendDataBase.h"
 
 #include "BackendDataManager.h"
+#include "BackendFollowMath.h"
 #include "BackendPropertyRow.h"
 #include "FollowAttachmentComponent.h"
+#include "MeshBackendData.h"
+#include "PointCloudBackendData.h"
+#include "PropertyRowsCompatAdapter.h"
 
+#include <algorithm>
 #include <atomic>
+#include <cctype>
+#include <cmath>
 #include <mutex>
 
 namespace
@@ -24,6 +31,120 @@ std::string trimUtf8Whitespace(const std::string& s)
 		--b;
 	}
 	return s.substr(a, b - a);
+}
+
+std::string toLowerAscii(std::string s)
+{
+	for (char& ch : s)
+	{
+		ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+	}
+	return s;
+}
+
+BackendVec3 modelCenterForData(const BackendDataBase& data)
+{
+	if (const auto* pc = dynamic_cast<const PointCloudBackendData*>(&data))
+	{
+		const auto& xyz = pc->pointPositionsXyz();
+		if (xyz.size() < 3U || (xyz.size() % 3U) != 0U)
+		{
+			return BackendVec3{};
+		}
+		float minx = xyz[0], maxx = xyz[0], miny = xyz[1], maxy = xyz[1], minz = xyz[2], maxz = xyz[2];
+		for (std::size_t i = 0; i + 2 < xyz.size(); i += 3U)
+		{
+			const float x = xyz[i], y = xyz[i + 1], z = xyz[i + 2];
+			minx = std::min(minx, x);
+			maxx = std::max(maxx, x);
+			miny = std::min(miny, y);
+			maxy = std::max(maxy, y);
+			minz = std::min(minz, z);
+			maxz = std::max(maxz, z);
+		}
+		return BackendVec3{ 0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
+			0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
+			0.5 * (static_cast<double>(minz) + static_cast<double>(maxz)) };
+	}
+	if (const auto* mesh = dynamic_cast<const MeshBackendData*>(&data))
+	{
+		if (mesh->transformPivotAtOrigin())
+		{
+			return BackendVec3{};
+		}
+		const auto& soup = mesh->triangleSoup();
+		if (soup.size() < 3U || (soup.size() % 3U) != 0U)
+		{
+			return BackendVec3{};
+		}
+		float minx = soup[0], maxx = soup[0], miny = soup[1], maxy = soup[1], minz = soup[2], maxz = soup[2];
+		for (std::size_t i = 0; i + 2 < soup.size(); i += 3U)
+		{
+			const float x = soup[i], y = soup[i + 1], z = soup[i + 2];
+			minx = std::min(minx, x);
+			maxx = std::max(maxx, x);
+			miny = std::min(miny, y);
+			maxy = std::max(maxy, y);
+			minz = std::min(minz, z);
+			maxz = std::max(maxz, z);
+		}
+		return BackendVec3{ 0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
+			0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
+			0.5 * (static_cast<double>(minz) + static_cast<double>(maxz)) };
+	}
+	return BackendVec3{};
+}
+
+bool buildWorldPoseInFrame(
+	const BackendDataBase& owner,
+	const BackendVec3& poseFrame,
+	const BackendVec3& rotFrame,
+	BackendPoseReferenceFrame frame,
+	const BackendDataManager* mgr,
+	BackendVec3& outWorldPose,
+	BackendVec3& outWorldEuler)
+{
+	const BackendVec3 center = modelCenterForData(owner);
+	if (frame == BackendPoseReferenceFrame::World || mgr == nullptr)
+	{
+		outWorldPose = poseFrame;
+		outWorldEuler = rotFrame;
+		return true;
+	}
+
+	const std::vector<std::string> parents = mgr->parentsOf(owner.id());
+	if (parents.empty())
+	{
+		outWorldPose = poseFrame;
+		outWorldEuler = rotFrame;
+		return true;
+	}
+	const auto parent = mgr->getData(parents.front());
+	if (!parent || !parent->hasPoseProperty())
+	{
+		outWorldPose = poseFrame;
+		outWorldEuler = rotFrame;
+		return true;
+	}
+
+	const BackendVec3 parentCenter = modelCenterForData(*parent);
+	const BackendMat4 parentWorld = backend_world_mat_from_pose(parentCenter, parent->pose(), parent->rotation());
+	const BackendMat4 local = backend_world_mat_from_pose(center, poseFrame, rotFrame);
+	BackendMat4 world{};
+	backend_mat4_multiply(parentWorld, local, world);
+	backend_pose_euler_from_world_mat(world, center, outWorldPose, outWorldEuler);
+	return true;
+}
+
+double maxAbsVec3Diff(const BackendVec3& a, const BackendVec3& b)
+{
+	return std::max({ std::abs(a.x - b.x), std::abs(a.y - b.y), std::abs(a.z - b.z) });
+}
+
+BackendMat4 worldMatrixFromData(const BackendDataBase& data)
+{
+	const BackendVec3 center = modelCenterForData(data);
+	return backend_world_mat_from_pose(center, data.pose(), data.rotation());
 }
 } // namespace
 
@@ -63,6 +184,208 @@ void BackendDataBase::applyBackendWorldPose(const BackendVec3& centerWorld, cons
 {
 	setPose(centerWorld);
 	setRotation(eulerDegWorld);
+	std::unique_lock<std::shared_mutex> lock(m_worldMatrixMutex);
+	m_worldMatrixDirty = true;
+}
+
+BackendPoseReferenceFrame BackendDataBase::poseReferenceFrame() const
+{
+	return m_poseReferenceFrame;
+}
+
+void BackendDataBase::setPoseReferenceFrame(BackendPoseReferenceFrame frame)
+{
+	m_poseReferenceFrame = frame;
+}
+
+BackendVec3 BackendDataBase::poseInFrame(BackendPoseReferenceFrame frame, const BackendDataManager* mgr) const
+{
+	if (!hasPoseProperty())
+	{
+		return BackendVec3{};
+	}
+	if (frame == BackendPoseReferenceFrame::World || mgr == nullptr)
+	{
+		return pose();
+	}
+	const std::vector<std::string> parents = mgr->parentsOf(id());
+	if (parents.empty())
+	{
+		return pose();
+	}
+	const auto parent = mgr->getData(parents.front());
+	if (!parent || !parent->hasPoseProperty())
+	{
+		return pose();
+	}
+
+	const BackendVec3 selfCenter = modelCenterForData(*this);
+	const BackendVec3 parentCenter = modelCenterForData(*parent);
+	const BackendMat4 selfWorld = backend_world_mat_from_pose(selfCenter, pose(), rotation());
+	const BackendMat4 parentWorld = backend_world_mat_from_pose(parentCenter, parent->pose(), parent->rotation());
+	BackendMat4 invParent{};
+	backend_mat4_invert_rigid(parentWorld, invParent);
+	BackendMat4 selfLocal{};
+	backend_mat4_multiply(invParent, selfWorld, selfLocal);
+	BackendVec3 localPose{};
+	BackendVec3 localEuler{};
+	backend_pose_euler_from_world_mat(selfLocal, selfCenter, localPose, localEuler);
+	return localPose;
+}
+
+BackendVec3 BackendDataBase::rotationInFrame(BackendPoseReferenceFrame frame, const BackendDataManager* mgr) const
+{
+	if (!hasRotationProperty())
+	{
+		return BackendVec3{};
+	}
+	if (frame == BackendPoseReferenceFrame::World || mgr == nullptr)
+	{
+		return rotation();
+	}
+	const std::vector<std::string> parents = mgr->parentsOf(id());
+	if (parents.empty())
+	{
+		return rotation();
+	}
+	const auto parent = mgr->getData(parents.front());
+	if (!parent || !parent->hasPoseProperty())
+	{
+		return rotation();
+	}
+
+	const BackendVec3 selfCenter = modelCenterForData(*this);
+	const BackendVec3 parentCenter = modelCenterForData(*parent);
+	const BackendMat4 selfWorld = backend_world_mat_from_pose(selfCenter, pose(), rotation());
+	const BackendMat4 parentWorld = backend_world_mat_from_pose(parentCenter, parent->pose(), parent->rotation());
+	BackendMat4 invParent{};
+	backend_mat4_invert_rigid(parentWorld, invParent);
+	BackendMat4 selfLocal{};
+	backend_mat4_multiply(invParent, selfWorld, selfLocal);
+	BackendVec3 localPose{};
+	BackendVec3 localEuler{};
+	backend_pose_euler_from_world_mat(selfLocal, selfCenter, localPose, localEuler);
+	return localEuler;
+}
+
+void BackendDataBase::setPoseInFrame(const BackendVec3& value, BackendPoseReferenceFrame frame, const BackendDataManager* mgr)
+{
+	if (!hasPoseProperty())
+	{
+		return;
+	}
+	BackendVec3 worldPose{};
+	BackendVec3 worldEuler{};
+	buildWorldPoseInFrame(*this, value, rotationInFrame(frame, mgr), frame, mgr, worldPose, worldEuler);
+	setPose(worldPose);
+	if (hasRotationProperty())
+	{
+		setRotation(worldEuler);
+	}
+	{
+		std::unique_lock<std::shared_mutex> lock(m_worldMatrixMutex);
+		m_worldMatrixDirty = true;
+	}
+}
+
+void BackendDataBase::setRotationInFrame(const BackendVec3& value, BackendPoseReferenceFrame frame, const BackendDataManager* mgr)
+{
+	if (!hasRotationProperty())
+	{
+		return;
+	}
+	BackendVec3 worldPose{};
+	BackendVec3 worldEuler{};
+	buildWorldPoseInFrame(*this, poseInFrame(frame, mgr), value, frame, mgr, worldPose, worldEuler);
+	if (hasPoseProperty())
+	{
+		setPose(worldPose);
+	}
+	setRotation(worldEuler);
+	{
+		std::unique_lock<std::shared_mutex> lock(m_worldMatrixMutex);
+		m_worldMatrixDirty = true;
+	}
+}
+
+BackendPoseValue BackendDataBase::poseValue(BackendPoseReferenceFrame frame, const BackendDataManager* mgr) const
+{
+	BackendPoseValue out;
+	out.position = poseInFrame(frame, mgr);
+	out.eulerDeg = rotationInFrame(frame, mgr);
+	return out;
+}
+
+void BackendDataBase::setPoseValue(const BackendPoseValue& value, BackendPoseReferenceFrame frame, const BackendDataManager* mgr)
+{
+	BackendVec3 worldPose{};
+	BackendVec3 worldEuler{};
+	buildWorldPoseInFrame(*this, value.position, value.eulerDeg, frame, mgr, worldPose, worldEuler);
+	if (hasPoseProperty())
+	{
+		setPose(worldPose);
+	}
+	if (hasRotationProperty())
+	{
+		setRotation(worldEuler);
+	}
+	std::unique_lock<std::shared_mutex> lock(m_worldMatrixMutex);
+	m_worldMatrixDirty = true;
+}
+
+BackendMat4 BackendDataBase::worldMatrix(const BackendDataManager* mgr) const
+{
+	(void)mgr;
+	{
+		std::shared_lock<std::shared_mutex> lock(m_worldMatrixMutex);
+		if (!m_worldMatrixDirty)
+		{
+			return m_worldMatrixCache;
+		}
+	}
+	const BackendMat4 computed = worldMatrixFromData(*this);
+	{
+		std::unique_lock<std::shared_mutex> lock(m_worldMatrixMutex);
+		m_worldMatrixCache = computed;
+		m_worldMatrixDirty = false;
+		return m_worldMatrixCache;
+	}
+}
+
+void BackendDataBase::setWorldMatrix(const BackendMat4& world, const BackendDataManager* mgr)
+{
+	(void)mgr;
+	const BackendVec3 center = modelCenterForData(*this);
+	BackendVec3 poseWorld{};
+	BackendVec3 rotWorld{};
+	backend_pose_euler_from_world_mat(world, center, poseWorld, rotWorld);
+	if (hasPoseProperty())
+	{
+		setPose(poseWorld);
+	}
+	if (hasRotationProperty())
+	{
+		setRotation(rotWorld);
+	}
+	std::unique_lock<std::shared_mutex> lock(m_worldMatrixMutex);
+	m_worldMatrixCache = world;
+	m_worldMatrixDirty = false;
+}
+
+bool BackendDataBase::validatePoseFrameRoundTrip(const BackendDataManager* mgr, double epsilon) const
+{
+	if (!hasPoseProperty() || !hasRotationProperty())
+	{
+		return true;
+	}
+	const BackendPoseValue world0 = poseValue(BackendPoseReferenceFrame::World, mgr);
+	const BackendPoseValue local = poseValue(BackendPoseReferenceFrame::Parent, mgr);
+	BackendVec3 worldPoseRebuilt{};
+	BackendVec3 worldEulerRebuilt{};
+	buildWorldPoseInFrame(*this, local.position, local.eulerDeg, BackendPoseReferenceFrame::Parent, mgr, worldPoseRebuilt,
+		worldEulerRebuilt);
+	return maxAbsVec3Diff(world0.position, worldPoseRebuilt) <= epsilon
+		&& maxAbsVec3Diff(world0.eulerDeg, worldEulerRebuilt) <= epsilon;
 }
 
 std::string BackendDataBase::generateId()
@@ -77,8 +400,22 @@ nlohmann::json BackendDataBase::snapshotPropertyRows(const BackendDataManager* m
 	backend_property_json::appendRow(rows, "core.id", "ID", false, m_id);
 	backend_property_json::appendRow(rows, "core.name", "Name", false, m_name);
 	backend_property_json::appendRow(rows, "core.class", "Class", false, className());
+	if (hasPoseProperty())
+	{
+		const std::string frameText =
+			(m_poseReferenceFrame == BackendPoseReferenceFrame::Parent) ? "parent" : "world";
+		property_rows_compat::syncTransformColorToBag(m_propertyBag, *this);
+		backend_property_json::appendRow(rows, "pose.frame", "Pose frame (world|parent)", true, frameText);
+	}
 	if (const auto f = std::dynamic_pointer_cast<FollowAttachmentComponent>(getComponent(FollowAttachmentComponent::typeKeyStatic())))
 	{
+		if (mgr)
+		{
+			if (const auto target = mgr->getData(f->targetBackendId()))
+			{
+				m_propertyBag.set<std::string>("follow.targetName", target->name());
+			}
+		}
 		f->appendPropertyRows(rows, mgr);
 	}
 	else if (hasPoseProperty())
@@ -92,6 +429,27 @@ nlohmann::json BackendDataBase::snapshotPropertyRows(const BackendDataManager* m
 bool BackendDataBase::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
 	const BackendDataManager* mgr)
 {
+	if (key == "pose.frame")
+	{
+		const std::string frame = toLowerAscii(trimUtf8Whitespace(value));
+		if (frame == "world")
+		{
+			m_poseReferenceFrame = BackendPoseReferenceFrame::World;
+			m_propertyBag.set<std::string>("pose.frame", "world");
+			return true;
+		}
+		if (frame == "parent")
+		{
+			m_poseReferenceFrame = BackendPoseReferenceFrame::Parent;
+			m_propertyBag.set<std::string>("pose.frame", "parent");
+			return true;
+		}
+		if (errMsg)
+		{
+			*errMsg = "pose.frame only supports 'world' or 'parent'.";
+		}
+		return false;
+	}
 	const auto ensureFollow = [&]() {
 		if (!getComponent(FollowAttachmentComponent::typeKeyStatic()))
 		{
@@ -104,8 +462,10 @@ bool BackendDataBase::applyPropertyChange(const std::string& key, const std::str
 		if (trimmed.empty())
 		{
 			removeComponent(FollowAttachmentComponent::typeKeyStatic());
+			m_propertyBag.set<std::string>("follow.targetName", std::string());
 			return true;
 		}
+		m_propertyBag.set<std::string>("follow.targetName", trimmed);
 	}
 	if (key.rfind("follow.", 0) == 0)
 	{
@@ -135,6 +495,7 @@ bool BackendDataBase::addComponent(const BackendComponentPtr& component)
 	}
 	std::lock_guard<std::mutex> lock(m_componentMutex);
 	m_components[type] = component;
+	m_componentsByType[std::type_index(typeid(*component))] = component;
 	return true;
 }
 
@@ -145,7 +506,17 @@ bool BackendDataBase::removeComponent(const std::string& componentType)
 		return false;
 	}
 	std::lock_guard<std::mutex> lock(m_componentMutex);
-	return m_components.erase(componentType) > 0;
+	const auto it = m_components.find(componentType);
+	if (it == m_components.end())
+	{
+		return false;
+	}
+	if (it->second)
+	{
+		m_componentsByType.erase(std::type_index(typeid(*it->second)));
+	}
+	m_components.erase(it);
+	return true;
 }
 
 BackendComponentPtr BackendDataBase::getComponent(const std::string& componentType) const
@@ -167,8 +538,8 @@ std::vector<BackendComponentPtr> BackendDataBase::listComponents() const
 {
 	std::lock_guard<std::mutex> lock(m_componentMutex);
 	std::vector<BackendComponentPtr> components;
-	components.reserve(m_components.size());
-	for (const auto& item : m_components)
+	components.reserve(m_componentsByType.size());
+	for (const auto& item : m_componentsByType)
 	{
 		components.push_back(item.second);
 	}

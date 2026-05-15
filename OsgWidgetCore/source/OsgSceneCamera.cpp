@@ -42,10 +42,17 @@ osg::BoundingSphere worldBoundOfBackendRoot(osg::MatrixTransform* root)
 		path.insert(path.begin(), n);
 	}
 	const osg::Matrix worldMat = osg::computeLocalToWorld(path);
-	const osg::Vec4d lp(static_cast<double>(loc.center().x()), static_cast<double>(loc.center().y()),
+	// The correct world centre is the outer MT's world translation, because the inner PAT
+	// rebases the geometry centre to origin in the outer MT's local frame.
+	// Using loc.center() (the file-coordinate centre) would double-count the centre offset
+	// that is already encoded in the outer MT's _matrix (translate(centre + pose)).
+	const osg::Vec3d wc(worldMat(3, 0), worldMat(3, 1), worldMat(3, 2));
+	// Compute the old (pre-centre-correction) world centre to measure the shift distance.
+	const osg::Vec4d oldWp4 = worldMat * osg::Vec4d(
+		static_cast<double>(loc.center().x()),
+		static_cast<double>(loc.center().y()),
 		static_cast<double>(loc.center().z()), 1.0);
-	const osg::Vec4d wp = worldMat * lp;
-	const osg::Vec3d wc(wp.x(), wp.y(), wp.z());
+	const osg::Vec3d oldWc(oldWp4.x(), oldWp4.y(), oldWp4.z());
 	double maxS = 0.0;
 	for (int c = 0; c < 3; ++c)
 	{
@@ -56,7 +63,9 @@ osg::BoundingSphere worldBoundOfBackendRoot(osg::MatrixTransform* root)
 	{
 		maxS = 1.0;
 	}
-	const float r = static_cast<float>(static_cast<double>(loc.radius()) * maxS);
+	const double rWorld = static_cast<double>(loc.radius()) * maxS;
+	const double centerShift = (oldWc - wc).length();
+	const float r = static_cast<float>(rWorld + centerShift);
 	return osg::BoundingSphere(osg::Vec3(wc.x(), wc.y(), wc.z()), r);
 }
 
@@ -95,15 +104,33 @@ void OsgScene::focusCameraOnBackend(const std::string& backendId)
 			merged.expandBy(w);
 		}
 	}
-	// PAT 刚挂到场景时 getBound 可能尚未就绪；用后端缓存的中心作兜底（与 upsert 写入的 modelCenter 一致）
+	// getBound may not be ready immediately after the node is added to the scene.
+	// Compute the world centre from the outer MT's current matrix (which is updated on move)
+	// rather than the stale file-coordinate centre in m_backendModelCenters.
 	if (!any || !merged.valid())
 	{
-		const auto cIt = m_backendModelCenters.find(backendId);
-		if (cIt != m_backendModelCenters.end())
+		auto it = m_backendObjectRoots.find(backendId);
+		if (it != m_backendObjectRoots.end() && it->second.valid())
 		{
-			const osg::Vec3f& mc = cIt->second;
-			merged = osg::BoundingSphere(osg::Vec3(mc.x(), mc.y(), mc.z()), 5000.f);
+			osg::NodePath path;
+			for (osg::Node* n = it->second.get(); n != nullptr; n = n->getNumParents() > 0 ? n->getParent(0) : nullptr)
+			{
+				path.insert(path.begin(), n);
+			}
+			const osg::Matrix worldMat = osg::computeLocalToWorld(path);
+			const osg::Vec3d wc(worldMat(3, 0), worldMat(3, 1), worldMat(3, 2));
+			merged = osg::BoundingSphere(osg::Vec3(wc.x(), wc.y(), wc.z()), 5000.f);
 			any = merged.valid();
+		}
+		else
+		{
+			const auto cIt = m_backendModelCenters.find(backendId);
+			if (cIt != m_backendModelCenters.end())
+			{
+				const osg::Vec3f& mc = cIt->second;
+				merged = osg::BoundingSphere(osg::Vec3(mc.x(), mc.y(), mc.z()), 5000.f);
+				any = merged.valid();
+			}
 		}
 	}
 	if (!any || !merged.valid())

@@ -1,5 +1,6 @@
 #include "MainWindowImportCaptureRenderController.h"
 
+#include "JobSystem.h"
 #include "MainWindow.h"
 
 #include "BackendDataBase.h"
@@ -19,6 +20,7 @@
 #include <QFileInfo>
 #include <QHash>
 #include <QMessageBox>
+#include <QPointer>
 #include <QVector>
 
 #include <osg/Matrixd>
@@ -26,6 +28,8 @@
 #include <osg/MatrixTransform>
 
 #include <vector>
+
+#include <memory>
 
 bool MainWindowImportCaptureRenderController::registerBackendObject(
 	MainWindow& mw,
@@ -84,25 +88,113 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 
 	if (isPointCloud)
 	{
-		auto pc = std::make_shared<PointCloudBackendData>();
-		pc->setName(fileInfo.fileName().toStdString());
-		BackendColor color;
-		color.r = 0.65f;
-		color.g = 0.82f;
-		color.b = 0.95f;
-		color.a = 1.0f;
-		pc->setColor(color);
-		BackendVec3 pose{};
-		pc->setPose(pose);
-		BackendVec3 rot{};
-		pc->setRotation(rot);
+		const QString extLower = fileInfo.suffix().toLower();
+		const bool isLasLaz = (extLower == QLatin1String("las") || extLower == QLatin1String("laz"));
 
+		// Capture QFileInfo by value: async job may run after this function returns (stack frame gone).
+		const auto makeConfiguredPointCloud = [fileInfo]() {
+			auto p = std::make_shared<PointCloudBackendData>();
+			p->setName(fileInfo.fileName().toStdString());
+			BackendColor color;
+			color.r = 0.65f;
+			color.g = 0.82f;
+			color.b = 0.95f;
+			color.a = 1.0f;
+			p->setColor(color);
+			BackendVec3 pose{};
+			p->setPose(pose);
+			BackendVec3 rot{};
+			p->setRotation(rot);
+			return p;
+		};
+
+		if (!isLasLaz && mw.jobSystem())
+		{
+			struct CgalPcPayload
+			{
+				bool ok = false;
+				std::string err;
+				std::shared_ptr<PointCloudBackendData> pc;
+			};
+			const auto payload = std::make_shared<CgalPcPayload>();
+			const QPointer<MainWindow> mwPtr(&mw);
+			const QPointer<DocumentPage> docPtr(doc);
+
+			mw.jobSystem()->enqueue(
+				QStringLiteral("Point cloud: %1").arg(fileInfo.fileName()),
+				[payload, nativePath, makeConfiguredPointCloud](const JobProgressSink& sink) {
+					sink(0.05, QStringLiteral("CGAL read / decode..."));
+					payload->pc = makeConfiguredPointCloud();
+					payload->ok = payload->pc->loadFromFile(nativePath, &payload->err);
+					sink(1.0, QString());
+				},
+				[payload, mwPtr, docPtr, filePath, typeName, quietUi, fileInfo](bool threw, const QString& throwMsg) {
+					if (!mwPtr || !docPtr)
+					{
+						return;
+					}
+					MainWindow& mwRef = *mwPtr;
+					DocumentPage& docRef = *docPtr;
+					const auto uiFail = [&](const QString& title, const QString& msg) {
+						if (quietUi)
+						{
+							if (mwRef.m_runInfoPage)
+							{
+								mwRef.m_runInfoPage->appendWarning(title + QStringLiteral(": ") + msg);
+							}
+						}
+						else
+						{
+							QMessageBox::warning(&mwRef, title, msg);
+						}
+					};
+					if (threw)
+					{
+						uiFail(QStringLiteral("Point cloud"),
+							throwMsg.isEmpty() ? QStringLiteral("Background import failed.") : throwMsg);
+						return;
+					}
+					if (!payload->ok)
+					{
+						uiFail(QStringLiteral("Point cloud"),
+							QString::fromStdString(payload->err.empty() ? std::string("Failed to load point cloud.") : payload->err));
+						return;
+					}
+					const std::shared_ptr<PointCloudBackendData> pc = payload->pc;
+					if (!docRef.backend().registerData(pc))
+					{
+						uiFail(QStringLiteral("Backend Register"), QStringLiteral("Failed to register backend object."));
+						return;
+					}
+					if (OsgWidget* osgW = docRef.osgWidget())
+					{
+						QString sceneErr;
+						if (!osgW->loadPointCloudFromBackendData(*pc, &sceneErr, true) && mwRef.m_runInfoPage)
+						{
+							mwRef.m_runInfoPage->appendWarning(QStringLiteral("Point cloud display: %1").arg(sceneErr));
+						}
+					}
+					const QString id = QString::fromStdString(pc->id());
+					docRef.backendSourcePath()[id] = filePath;
+					docRef.backendSourceType()[id] = typeName;
+					docRef.backendParentId()[id] = QString();
+					if (mwRef.m_runInfoPage && !quietUi)
+					{
+						mwRef.m_runInfoPage->appendInfo(
+							QStringLiteral("Backend object registered: %1").arg(fileInfo.fileName()));
+					}
+					mwRef.refreshBackendTree();
+					mwRef.focusBackendInTree(pc);
+				});
+			return true;
+		}
+
+		auto pc = makeConfiguredPointCloud();
 		std::string backendErr;
 		const bool cgalOk = pc->loadFromFile(nativePath, &backendErr);
 		if (!cgalOk)
 		{
-			const QString ext = fileInfo.suffix().toLower();
-			if ((ext == QLatin1String("las") || ext == QLatin1String("laz")) && osg)
+			if (isLasLaz && osg)
 			{
 				QString importErr;
 				if (!osg->importPointCloudFile(filePath, &importErr))
@@ -449,21 +541,6 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 		return false;
 	};
 
-	// Remove any prior per-link robot backends from this document.
-	const QStringList prevLinkIds = doc->robotLinkBackendIds();
-	for (const QString& id : prevLinkIds)
-	{
-		if (osg)
-		{
-			osg->removeBackendObjectVisual(id.toStdString());
-		}
-		doc->backend().unregisterData(id.toStdString());
-		doc->backendSourcePath().remove(id);
-		doc->backendSourceType().remove(id);
-		doc->backendParentId().remove(id);
-	}
-	doc->clearRobotSimulationContext();
-
 	QString urdfErr;
 	QString rootLink;
 	QHash<QString, QString> linkMeshes;
@@ -523,6 +600,7 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 					: urdfErr);
 		}
 		mesh->transformVerticesColumnMajorHomogeneous4x4(fileToLink16);
+		mesh->setTransformPivotAtOrigin(true);
 		if (!doc->backend().registerData(mesh))
 		{
 			return reportFail(QStringLiteral("URDF"), QStringLiteral("Backend id collision for link '%1'.").arg(linkName));
@@ -560,7 +638,6 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 		}
 		const osg::Matrixd& meshWorld0 = Tq[linkName];
 		fkT0.insert(linkName, meshWorld0);
-		outerBind.insert(bid, meshWorld0);
 	}
 
 	// Kinematic tree in BackendDataManager + UI mirror so the backend tree shows one assembled robot.
@@ -617,16 +694,97 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 		}
 		if (osg)
 		{
-			for (const auto& d : doc->backend().listData())
+			QHash<QString, QString> backendIdToLink;
+			for (auto lit = linkToBackend.constBegin(); lit != linkToBackend.constEnd(); ++lit)
 			{
-				if (!d)
+				backendIdToLink.insert(lit.value(), lit.key());
+			}
+			const std::vector<std::string> topoIds = doc->backend().topoOrder();
+			for (const std::string& bidStd : topoIds)
+			{
+				const QString bid = QString::fromStdString(bidStd);
+				if (!backendIdToLink.contains(bid))
 				{
 					continue;
 				}
-				const std::vector<std::string> ps = doc->backend().parentsOf(d->id());
+				const std::vector<std::string> ps = doc->backend().parentsOf(bidStd);
 				const std::string pp = ps.empty() ? std::string() : ps.front();
-				osg->setBackendParent(d->id(), pp);
+				osg->setBackendParent(bidStd, pp);
 			}
+		}
+	}
+
+	// Reapply bind FK world transforms after hierarchy is in place so each link's local matrix is solved
+	// against its parent world correctly (q0 bind pose in hierarchical scene).
+	if (osg)
+	{
+		QHash<QString, QString> backendIdToLink;
+		for (auto it = linkToBackend.constBegin(); it != linkToBackend.constEnd(); ++it)
+		{
+			backendIdToLink.insert(it.value(), it.key());
+		}
+		const std::vector<std::string> topoIds = doc->backend().topoOrder();
+		for (const std::string& bidStd : topoIds)
+		{
+			const QString bid = QString::fromStdString(bidStd);
+			const QString linkName = backendIdToLink.value(bid);
+			if (linkName.isEmpty() || !Tq.contains(linkName))
+			{
+				continue;
+			}
+			osg->setBackendRootWorldMatrixFromWorld(bidStd, Tq[linkName]);
+		}
+	}
+
+	// Capture bind outer world AFTER hierarchy is applied.
+	// Otherwise child links store pre-parent local-as-world values and FK updates will double-apply parent transforms.
+	outerBind.clear();
+	auto maxMatAbsDiff = [](const osg::Matrixd& a, const osg::Matrixd& b) -> double {
+		double m = 0.0;
+		for (int r = 0; r < 4; ++r)
+		{
+			for (int c = 0; c < 4; ++c)
+			{
+				const double d = std::abs(static_cast<double>(a(r, c)) - static_cast<double>(b(r, c)));
+				if (d > m)
+				{
+					m = d;
+				}
+			}
+		}
+		return m;
+	};
+	for (auto it = linkToBackend.constBegin(); it != linkToBackend.constEnd(); ++it)
+	{
+		const QString& linkName = it.key();
+		const QString& bid = it.value();
+		const osg::Matrixd* fkMeshWorld = Tq.contains(linkName) ? &Tq[linkName] : nullptr;
+		if (osg)
+		{
+			osg::Matrixd worldAtBind;
+			if (osg->getBackendRootWorldMatrix(bid.toStdString(), worldAtBind))
+			{
+				if (fkMeshWorld && maxMatAbsDiff(worldAtBind, *fkMeshWorld) > 0.5)
+				{
+					if (mw.m_runInfoPage)
+					{
+						mw.m_runInfoPage->appendWarning(
+							QStringLiteral("URDF bind: OSG outer world for '%1' diverged from FK mesh world; using FK.")
+								.arg(linkName));
+					}
+					outerBind.insert(bid, *fkMeshWorld);
+				}
+				else
+				{
+					outerBind.insert(bid, worldAtBind);
+				}
+				continue;
+			}
+		}
+		// Fallback for non-OSG contexts keeps previous behavior.
+		if (fkMeshWorld)
+		{
+			outerBind.insert(bid, *fkMeshWorld);
 		}
 	}
 
@@ -647,7 +805,7 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 
 	doc->setRobotPerLinkKinematicsBinding(sceneKey + QStringLiteral("_ctx"), linkToBackend, fkT0, outerBind, true);
 
-	if (osg && !RobotSceneKinematics::applyJointAnglesFromDocument(doc, osg, q0))
+	if (!RobotSceneKinematics::applyJointAnglesFromDocument(doc, doc ? doc->sceneFacade().poseSink() : nullptr, q0))
 	{
 		if (mw.m_runInfoPage)
 		{

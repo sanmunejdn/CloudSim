@@ -8,5 +8,15 @@ class ObjectTransformOperation : public SelectionOperation
 public:
 	explicit ObjectTransformOperation(OsgWidget* owner);
 	bool handleEvent(QObject* watched, QEvent* event) override;
+
+private:
+	void beginGizmoDragSession();
+	void markGizmoSessionModified();
+
+	/// 与 \ref OsgScene::kGizmoAxis* 一致；\c -1 表示尚未发出过悬停，用于避免重复 \c activeAxisChanged。
+	int m_lastEmittedHoverAxis = -1;
+	bool m_lastEmittedHoverRing = false;
+	/// 本次按下到松开之间是否实际改过 outer 位姿（避免右键点按触发 commit / 子树传播）。
+	bool m_gizmoSessionModified = false;
 };
 

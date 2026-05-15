@@ -18,9 +18,11 @@
 #include "ApplicationStyle.h"
 #include "DocumentPage.h"
 #include "DevicePageWidget.h"
+#include "JobSystem.h"
 #include "MainWindowSelectionService.h"
 #include "MainWindow_p.h"
 #include "OsgWidget.h"
+#include "ProgressManager.h"
 #include "RunInfoPage.h"
 #include "RunLogger.h"
 #include "SimulationCommandWidget.h"
@@ -57,6 +59,13 @@ MainWindow::MainWindow(QWidget* parent)
 				+ " — FK dumps: 1=compact 2|full=4x4; use --robot-kinematics-debug 1");
 			RunLogger::flush();
 		}
+		const QByteArray gpd = qgetenv("POINTCLOUD_GIZMO_PIVOT_DIAG");
+		if (!gpd.isEmpty() && gpd != QByteArray("0"))
+		{
+			RunLogger::info(std::string("[GizmoPivotDiag] POINTCLOUD_GIZMO_PIVOT_DIAG=") + gpd.constData()
+				+ " — pivot vs file-origin dumps on selection sync and gizmo drag release");
+			RunLogger::flush();
+		}
 	});
 
 	m_robotInstructionController.buildDefaultPlanners();
@@ -84,6 +93,17 @@ MainWindow::MainWindow(QWidget* parent)
 	connect(&m_followTargetNameDebounceTimer, &QTimer::timeout, this, &MainWindow::flushFollowTargetNamePropertyEdit);
 	m_propertyPanelCommitTimer.setSingleShot(true);
 	connect(&m_propertyPanelCommitTimer, &QTimer::timeout, this, &MainWindow::onPropertyPanelCommitTimer);
+	m_jobSystem = new JobSystem(this);
+	if (m_jobSystem->progressManager())
+	{
+		connect(m_jobSystem->progressManager(), &ProgressManager::jobProgress, this,
+			[this](quint64 /*jobId*/, double /*fraction*/, const QString& message) {
+				if (!message.isEmpty() && m_runInfoPage)
+				{
+					m_runInfoPage->appendInfo(message);
+				}
+			});
+	}
 	applyLanguage();
 	const ApplicationStyle::Theme savedTheme = ApplicationStyle::loadSavedTheme();
 	ApplicationStyle::applyTheme(qApp, savedTheme);

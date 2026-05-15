@@ -11,7 +11,7 @@ public:
 	static void setBackendParent(OsgWidget& self, const std::string& backendId, const std::string& parentBackendId);
 	static void removeBackendObjectVisual(OsgWidget& self, const std::string& backendId);
 	static bool isBackendDescendantOf(const OsgWidget& self, const std::string& backendId, const std::string& ancestorId);
-	static void cacheSelectionPoseFromSelectedTransform(OsgWidget& self);
+	static void cacheSelectionGizmoPose(OsgWidget& self);
 	static void finalizeSelectionSync(OsgWidget& self);
 	static void syncSelectionForBackendId(OsgWidget& self, const std::string& backendId);
 	static void syncActiveBackendRootFromSelectedTransform(OsgWidget& self);

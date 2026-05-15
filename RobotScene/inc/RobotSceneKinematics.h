@@ -2,6 +2,8 @@
 
 #include "robot_scene_global.h"
 
+#include "IRobotSimulationDocument.h"
+
 #include <QHash>
 #include <QString>
 #include <QVector>
@@ -25,7 +27,11 @@ ROBOT_SCENE_API bool applyJointAnglesFromDocument(
 /// Per-link URDF: FK → \ref IRobotBackendPoseSink::setBackendRootWorldMatrixFromWorld + \ref MeshBackendData pose/rotation.
 /// Link updates run in backend-parent order so nested OSG parents already match FK before children are written.
 ROBOT_SCENE_API bool applyJointAnglesViaLinkBackends(
-	IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg, BackendDataManager& mgr, const QVector<double>& anglesRad);
+	IRobotSimulationDocument* doc,
+	IRobotBackendPoseSink* osg,
+	BackendDataManager& mgr,
+	const QVector<double>& anglesRad,
+	const RobotPerLinkKinematicsSlice& slice);
 
 /// Given per-link mesh world matrices Tq, zero bind FK T0, and bind-time outer PAT matrices, updates the scene.
 ROBOT_SCENE_API void applyMeshWorldMatricesRelativeToBind(

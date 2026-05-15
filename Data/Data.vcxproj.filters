@@ -32,6 +32,12 @@
     <ClInclude Include="inc\BackendDataManager.h">
       <Filter>Header</Filter>
     </ClInclude>
+    <ClInclude Include="inc\BackendHierarchyChange.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendHierarchyModel.h">
+      <Filter>Header</Filter>
+    </ClInclude>
     <ClInclude Include="inc\data_global.h">
       <Filter>Header</Filter>
     </ClInclude>
@@ -62,6 +68,9 @@
       <Filter>Source</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendDataManager.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendHierarchyModel.cpp">
       <Filter>Source</Filter>
     </ClCompile>
     <ClCompile Include="source\geometry_base64.cpp">

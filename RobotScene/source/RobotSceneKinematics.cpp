@@ -101,20 +101,6 @@ BackendMat4 osgMatToBackendColMajor(const osg::Matrixd& m)
 	return b;
 }
 
-BackendVec3 meshBoundsCenterMm(const MeshBackendData& mesh)
-{
-	const BackendBoundingBox bb = mesh.geometryBounds();
-	if (!bb.valid)
-	{
-		return BackendVec3{};
-	}
-	BackendVec3 c{};
-	c.x = (bb.min.x + bb.max.x) * 0.5;
-	c.y = (bb.min.y + bb.max.y) * 0.5;
-	c.z = (bb.min.z + bb.max.z) * 0.5;
-	return c;
-}
-
 /// When link meshes are parented in OSG, \ref IRobotBackendPoseSink::setBackendRootWorldMatrixFromWorld uses each
 /// node's current parent world matrix. Updates must run **parent link before child link**; arbitrary QHash iteration
 /// was valid only while every outer PAT hung directly under the same scene group (identical parent world).
@@ -220,13 +206,6 @@ void resolveRobotLinkUpdateOrder(
 		outLinkNames += tail;
 	}
 }
-struct PendingLinkBackendPose
-{
-	std::shared_ptr<MeshBackendData> mesh;
-	BackendVec3 pose{};
-	BackendVec3 euler{};
-};
-
 } // namespace
 
 namespace RobotSceneKinematics
@@ -236,43 +215,33 @@ bool applyJointAnglesViaLinkBackends(
 	IRobotSimulationDocument* doc,
 	IRobotBackendPoseSink* osg,
 	BackendDataManager& mgr,
-	const QVector<double>& anglesRad)
+	const QVector<double>& anglesRad,
+	const RobotPerLinkKinematicsSlice& slice)
 {
 	if (!doc || !osg)
 	{
 		return false;
 	}
-	const QHash<QString, QString>& linkToId = doc->robotLinkNameToBackendId();
+	const QHash<QString, QString>& linkToId = slice.linkNameToBackendId;
 	if (linkToId.isEmpty())
 	{
 		return false;
 	}
-	if (doc->robotKinematicInstanceCount() != 1)
-	{
-		RunLogger::warn("RobotSceneKinematics::applyJointAnglesViaLinkBackends: only a single robot instance is supported.");
-		return false;
-	}
-	const int nj = doc->robotRevoluteJointCountForInstance(0);
-	if (nj < 0 || anglesRad.size() < nj)
-	{
-		RunLogger::warn("RobotSceneKinematics::applyJointAnglesViaLinkBackends: invalid joint vector size.");
-		return false;
-	}
-	const QVector<double> slice = anglesRad.mid(0, nj);
-	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(0);
+	const QString urdfPath = slice.urdfAbsolutePath;
 	if (urdfPath.isEmpty())
 	{
 		return false;
 	}
 	QHash<QString, osg::Matrixd> Tq;
 	QString fkErr;
-	if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, slice, Tq, &fkErr, doc->robotUrdfMeshVerticesInLinkFrame()))
+	if (!UrdfRobotLoader::computeMeshWorldMatrices(
+			urdfPath, anglesRad, Tq, &fkErr, slice.meshVerticesInLinkFrame))
 	{
 		RunLogger::warn(qToUtf8Std(QStringLiteral("RobotSceneKinematics::applyJointAnglesViaLinkBackends FK failed: %1").arg(fkErr)));
 		return false;
 	}
-	const QHash<QString, osg::Matrixd>& T0 = doc->robotFkMeshWorldT0();
-	const QHash<QString, osg::Matrixd>& m0bind = doc->robotOuterWorldAtBind();
+	const QHash<QString, osg::Matrixd>& T0 = slice.fkMeshWorldT0;
+	const QHash<QString, osg::Matrixd>& m0bind = slice.outerWorldAtBindByBackendId;
 
 	QVector<QString> linkOrder;
 	resolveRobotLinkUpdateOrder(&mgr, linkToId, linkOrder);
@@ -281,25 +250,18 @@ bool applyJointAnglesViaLinkBackends(
 	if (dbg > 0)
 	{
 		std::ostringstream hdr;
+		const int nj = anglesRad.size();
 		hdr << "[RobotKinematicsDBG] applyJointAnglesViaLinkBackends urdf=" << qToUtf8Std(urdfPath) << " nj=" << nj
 			<< " linkUpdateOrder=[" << joinUtf8List(linkOrder) << "]\n";
 		hdr << "  jointAnglesRad (index : rad : deg):";
-		const QStringList jnames = doc->robotRevoluteJointNames();
 		for (int ji = 0; ji < nj; ++ji)
 		{
-			const double rad = slice[ji];
+			const double rad = anglesRad[ji];
 			const double deg = rad * (180.0 / 3.14159265358979323846);
 			hdr << "\n    [" << ji << "] " << std::setprecision(9) << rad << " rad (" << deg << " deg)";
-			if (ji < jnames.size())
-			{
-				hdr << "  jointKey=" << qToUtf8Std(jnames[ji]);
-			}
 		}
 		RunLogger::info(hdr.str());
 	}
-
-	std::vector<PendingLinkBackendPose> pendingBackendPose;
-	pendingBackendPose.reserve(static_cast<size_t>(linkOrder.size()));
 
 	for (const QString& linkName : linkOrder)
 	{
@@ -356,21 +318,6 @@ bool applyJointAnglesViaLinkBackends(
 			RunLogger::info(line.str());
 		}
 
-		double cx = 0.0;
-		double cy = 0.0;
-		double cz = 0.0;
-		BackendVec3 center{};
-		if (osg->tryGetBackendModelCenterMm(bid, cx, cy, cz))
-		{
-			center.x = cx;
-			center.y = cy;
-			center.z = cz;
-		}
-		else
-		{
-			center = meshBoundsCenterMm(*meshPtr);
-		}
-
 		osg->setBackendRootWorldMatrixFromWorld(bid, Mnew);
 
 		if (dbg > 0)
@@ -381,6 +328,20 @@ bool applyJointAnglesViaLinkBackends(
 				std::ostringstream ver;
 				ver << "[RobotKinematicsDBG] link=" << qToUtf8Std(linkName) << " backendId=" << bid;
 				appendOsgMatrixBlock(ver, "outerWorld(OSG,after)", worldAfter, dbg);
+				double maxDiff = 0.0;
+				for (int r = 0; r < 4; ++r)
+				{
+					for (int c = 0; c < 4; ++c)
+					{
+						const double d =
+							std::abs(static_cast<double>(worldAfter(r, c)) - static_cast<double>(Mnew(r, c)));
+						if (d > maxDiff)
+						{
+							maxDiff = d;
+						}
+					}
+				}
+				ver << " maxAbsDiff(Mnew,after)=" << std::setprecision(6) << maxDiff;
 				RunLogger::info(ver.str());
 			}
 			else
@@ -390,23 +351,11 @@ bool applyJointAnglesViaLinkBackends(
 			}
 		}
 
-		const BackendMat4 Wb = osgMatToBackendColMajor(Mnew);
-		BackendVec3 pose{};
-		BackendVec3 euler{};
-		backend_pose_euler_from_world_mat(Wb, center, pose, euler);
-		pendingBackendPose.push_back(PendingLinkBackendPose{meshPtr, pose, euler});
+		osg::Matrixd worldAfter = Mnew;
+		(void)osg->getBackendRootWorldMatrix(bid, worldAfter);
+		meshPtr->setWorldMatrix(osgMatToBackendColMajor(worldAfter), &mgr);
 	}
 
-	for (const PendingLinkBackendPose& pb : pendingBackendPose)
-	{
-		if (!pb.mesh)
-		{
-			continue;
-		}
-		pb.mesh->setPose(pb.pose);
-		pb.mesh->setRotation(pb.euler);
-	}
-	doc->notifyRobotKinematicsAppliedToScene();
 	if (dbg > 0)
 	{
 		RunLogger::info("[RobotKinematicsDBG] applyJointAnglesViaLinkBackends complete.");
@@ -423,72 +372,85 @@ bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPo
 		return false;
 	}
 
-	if (!doc->robotLinkNameToBackendId().isEmpty())
+	BackendDataManager* mgr = doc->robotBackendManagerForKinematics();
+	const int nInst = doc->robotKinematicInstanceCount();
+	if (nInst > 0)
 	{
-		if (BackendDataManager* mgr = doc->robotBackendManagerForKinematics())
+		int offset = 0;
+		bool applied = false;
+		for (int i = 0; i < nInst; ++i)
 		{
-			return applyJointAnglesViaLinkBackends(doc, osg, *mgr, anglesRad);
+			const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(i);
+			const int nj = doc->robotRevoluteJointCountForInstance(i);
+			if (nj <= 0)
+			{
+				continue;
+			}
+			if (offset + nj > anglesRad.size())
+			{
+				RunLogger::warn("RobotSceneKinematics::applyJointAnglesFromDocument angle vector size does not match joint count.");
+				return false;
+			}
+			const QVector<double> jointSlice = anglesRad.mid(offset, nj);
+			offset += nj;
+			if (urdfPath.isEmpty())
+			{
+				continue;
+			}
+
+			RobotPerLinkKinematicsSlice plSlice;
+			if (doc->robotPerLinkKinematicsForInstance(i, plSlice))
+			{
+				if (!mgr || !osg)
+				{
+					RunLogger::warn(
+						"RobotSceneKinematics::applyJointAnglesFromDocument per-link robot requires BackendDataManager and OSG.");
+					return false;
+				}
+				if (!applyJointAnglesViaLinkBackends(doc, osg, *mgr, jointSlice, plSlice))
+				{
+					return false;
+				}
+				applied = true;
+				continue;
+			}
+
+			if (!osg)
+			{
+				continue;
+			}
+			QHash<QString, osg::Matrixd> newJointMatrices;
+			if (!UrdfRobotLoader::computeJointTransformMatrices(urdfPath, jointSlice, newJointMatrices, nullptr))
+			{
+				RunLogger::warn(qToUtf8Std(QStringLiteral("RobotSceneKinematics: computeJointTransformMatrices failed for URDF '%1'").arg(urdfPath)));
+				return false;
+			}
+			const QString prefix = doc->robotJointKeyPrefixForInstance(i);
+			for (auto it = newJointMatrices.constBegin(); it != newJointMatrices.constEnd(); ++it)
+			{
+				const QString key = prefix + it.key();
+				osg::MatrixTransform* jointMT = doc->robotJointMatrixTransform(key);
+				if (jointMT)
+				{
+					jointMT->setMatrix(it.value());
+					applied = true;
+				}
+			}
 		}
-		RunLogger::warn(
-			"RobotSceneKinematics::applyJointAnglesFromDocument per-link robot requires BackendDataManager access.");
-		return false;
+		if (applied)
+		{
+			doc->notifyRobotKinematicsAppliedToScene();
+			return true;
+		}
+		if (nInst > 0)
+		{
+			RunLogger::warn("RobotSceneKinematics::applyJointAnglesFromDocument no joint matrix written for multi-instance context.");
+			return false;
+		}
 	}
 
 	if (!osg)
 	{
-		return false;
-	}
-	const int nInst = doc->robotKinematicInstanceCount();
-	int offset = 0;
-	bool appliedHierarchy = false;
-	for (int i = 0; i < nInst; ++i)
-	{
-		const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(i);
-		const int nj = doc->robotRevoluteJointCountForInstance(i);
-		if (nj <= 0)
-		{
-			continue;
-		}
-		if (offset + nj > anglesRad.size())
-		{
-			RunLogger::warn("RobotSceneKinematics::applyJointAnglesFromDocument angle vector size does not match joint count.");
-			return false;
-		}
-		const QVector<double> slice = anglesRad.mid(offset, nj);
-		offset += nj;
-		if (urdfPath.isEmpty())
-		{
-			continue;
-		}
-
-		QHash<QString, osg::Matrixd> newJointMatrices;
-		if (!UrdfRobotLoader::computeJointTransformMatrices(urdfPath, slice, newJointMatrices, nullptr))
-		{
-			RunLogger::warn(qToUtf8Std(QStringLiteral("RobotSceneKinematics: computeJointTransformMatrices failed for URDF '%1'").arg(urdfPath)));
-			return false;
-		}
-
-		const QString prefix = doc->robotJointKeyPrefixForInstance(i);
-		for (auto it = newJointMatrices.constBegin(); it != newJointMatrices.constEnd(); ++it)
-		{
-			const QString key = prefix + it.key();
-			osg::MatrixTransform* jointMT = doc->robotJointMatrixTransform(key);
-			if (jointMT)
-			{
-				jointMT->setMatrix(it.value());
-				appliedHierarchy = true;
-			}
-		}
-	}
-
-	if (appliedHierarchy)
-	{
-		return true;
-	}
-	// 已按多实例语义遍历过但未写入任何 MatrixTransform：视为失败（避免用错误的全向量再算一遍 FK）
-	if (nInst > 0)
-	{
-		RunLogger::warn("RobotSceneKinematics::applyJointAnglesFromDocument no joint matrix written for multi-instance context.");
 		return false;
 	}
 
@@ -542,7 +504,6 @@ bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPo
 	const QHash<QString, osg::Matrixd>& T0 = doc->robotFkMeshWorldT0();
 	const QHash<QString, osg::Matrixd>& M0 = doc->robotOuterWorldAtBind();
 	const QHash<QString, QString>& linkToId = doc->robotLinkNameToBackendId();
-	BackendDataManager* mgr = doc->robotBackendManagerForKinematics();
 	QVector<QString> linkOrder;
 	resolveRobotLinkUpdateOrder(mgr, linkToId, linkOrder);
 	for (const QString& linkName : linkOrder)

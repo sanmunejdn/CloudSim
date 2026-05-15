@@ -102,7 +102,7 @@ bool MeshEdgeFacePickOperation::onMouseMove(QMouseEvent* mouseEvent)
 	}
 
 	m_owner->m_feedbackTimer.restart();
-	if (m_owner->m_glWidget) m_owner->m_glWidget->update();
+	m_owner->requestRedraw();
 	return true; // consume hover moves to keep UI smooth
 }
 
@@ -134,7 +134,7 @@ bool MeshEdgeFacePickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 			}
 
 			m_clickHoldTimer.restart();
-			if (m_owner->m_glWidget) m_owner->m_glWidget->update();
+			m_owner->requestRedraw();
 		}
 
 		m_leftPressed = false;

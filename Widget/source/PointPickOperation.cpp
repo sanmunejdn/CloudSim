@@ -69,10 +69,7 @@ bool PointPickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 			if (hit)
 			{
 				m_owner->addPointAnnotation(worldPoint);
-				if (m_owner->m_glWidget)
-				{
-					m_owner->m_glWidget->update();
-				}
+				m_owner->requestRedraw();
 			}
 		}
 
@@ -137,7 +134,7 @@ bool PointPickOperation::onMouseMove(QMouseEvent* mouseEvent)
 		.arg(m_owner->m_pickablePointsPreviewLocal.size())
 		.arg(m_owner->m_pickablePointsLocal.size()));
 	m_owner->m_feedbackTimer.restart();
-	if (m_owner->m_glWidget) m_owner->m_glWidget->update();
+	m_owner->requestRedraw();
 	return true; // hover preview
 }
 

@@ -71,8 +71,7 @@ bool tryWorldMatForData(const BackendDataBase& data, const BackendFollowTransfor
 	{
 		return false;
 	}
-	const BackendVec3 c = modelCenterForData(data);
-	outWorld = backend_world_mat_from_pose(c, data.pose(), data.rotation());
+	outWorld = data.worldMatrix();
 	return true;
 }
 

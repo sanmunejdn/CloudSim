@@ -22,6 +22,10 @@ class QTabWidget;
 class OsgWidget;
 
 #include "BackendDataManager.h"
+#include "BackendFollowReverseIndex.h"
+#include "BackendHierarchyModel.h"
+#include "BackendSceneDocumentFacade.h"
+#include "OsgWidgetSceneBridge.h"
 
 /// 单个文档标签页：包含一个 OsgWidget 与对应的后端数据管理器，表示一个独立编辑单元。
 /// 【中文】支持动态层级法：存储层级化机器人场景图的关节 MatrixTransform 节点。
@@ -35,6 +39,16 @@ public:
 
 	OsgWidget* osgWidget() const { return m_osgWidget; }
 	BackendDataManager& backend() { return m_backend; }
+	BackendHierarchyModel& hierarchyModel() { return m_hierarchyModel; }
+	const BackendHierarchyModel& hierarchyModel() const { return m_hierarchyModel; }
+
+	/// Backend data + OSG scene operations for this tab (single entry for visibility/transform/remove, etc.).
+	BackendSceneDocumentFacade sceneFacade()
+	{
+		return BackendSceneDocumentFacade(m_backend, m_sceneBridge, m_followReverseIndex, m_osgWidget);
+	}
+	/// Invalidate cached follow-target → followers map (call after follow bindings or subtree removal).
+	void invalidateFollowReverseIndex() { m_followReverseIndex.invalidate(); }
 
 	/// Follow-attachment graph: mark \a seedBackendId, all transitive followers, and backend children for a follow solve pass.
 	void markFollowAttachmentDirtyFromBackendMove(const BackendDataManager& mgr, const std::string& seedBackendId);
@@ -90,6 +104,8 @@ public:
 	QString robotUrdfAbsolutePathForInstance(int instanceIndex) const override;
 	int robotRevoluteJointCountForInstance(int instanceIndex) const override;
 	QString robotJointKeyPrefixForInstance(int instanceIndex) const override;
+	bool robotUsesPerLinkBackendsForInstance(int instanceIndex) const override;
+	bool robotPerLinkKinematicsForInstance(int instanceIndex, RobotPerLinkKinematicsSlice& out) const override;
 
 	/// 【中文】获取机器人场景的后端 ID（用于移除场景）。
 	QString robotSceneBackendId() const { return m_robotSceneBackendId; }
@@ -139,14 +155,24 @@ private:
 		QVector<double> jointLowerRad;
 		QVector<double> jointUpperRad;
 		QHash<QString, osg::MatrixTransform*> jointTransformsByPrefixedKey;
+		bool perLinkBackends = false;
+		QString perLinkImportKey;
+		QHash<QString, QString> linkNameToBackendId;
+		QHash<QString, osg::Matrixd> fkMeshWorldT0;
+		QHash<QString, osg::Matrixd> outerWorldAtBindByBackendId;
+		bool meshVerticesInLinkFrame = false;
 	};
 
 	void rebuildHierarchicalRobotAggregates();
+	void rebuildPerLinkLegacyAggregates();
 
 	QMap<QString, QString> m_backendSourcePath;
 	QMap<QString, QString> m_backendSourceType;
 	QMap<QString, QString> m_backendParentId;
 	BackendDataManager m_backend;
+	BackendHierarchyModel m_hierarchyModel{m_backend};
+	OsgWidgetSceneBridge m_sceneBridge;
+	BackendFollowReverseIndex m_followReverseIndex;
 	OsgWidget* m_osgWidget = nullptr;
 	QString m_projectFilePath;
 

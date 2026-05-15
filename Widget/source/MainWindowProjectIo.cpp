@@ -114,6 +114,73 @@ QString mergeBase64Shards(const QJsonObject& emb, const QString& singleKey, cons
 	return merged;
 }
 
+bool restorePerLinkRobotKinematicsFromJson(
+	DocumentPage* page,
+	OsgWidget* osg,
+	RunInfoPage* runInfo,
+	const QJsonObject& rk,
+	QVector<double>& outAllJointAnglesRad)
+{
+	if (!page || !osg || rk.value(QStringLiteral("mode")).toString() != QStringLiteral("perLink"))
+	{
+		return false;
+	}
+	const QString urdf = rk.value(QStringLiteral("urdf")).toString();
+	const QString sceneRoot = rk.value(QStringLiteral("sceneRootBackendId")).toString();
+	const QString jointRoot = rk.value(QStringLiteral("jointPrefixRoot")).toString();
+	const QString importKey = rk.value(QStringLiteral("importKey")).toString();
+	const QJsonObject linksJ = rk.value(QStringLiteral("links")).toObject();
+	QHash<QString, QString> linkMap;
+	for (auto it = linksJ.constBegin(); it != linksJ.constEnd(); ++it)
+	{
+		linkMap.insert(it.key(), it.value().toString());
+	}
+	for (auto it = linkMap.constBegin(); it != linkMap.constEnd(); ++it)
+	{
+		if (!page->backend().contains(it.value().toStdString()))
+		{
+			return false;
+		}
+	}
+	if (urdf.isEmpty() || !QFileInfo::exists(urdf) || sceneRoot.isEmpty() || jointRoot.isEmpty() || linkMap.isEmpty())
+	{
+		return false;
+	}
+	const bool meshInLinkFrame = rk.value(QStringLiteral("meshInLinkFrame")).toBool();
+	QStringList jn;
+	QVector<double> lo;
+	QVector<double> hi;
+	(void)UrdfRobotLoader::loadRevoluteJointMeta(urdf, jn, lo, hi, nullptr);
+	QVector<double> q0(jn.size(), 0.0);
+	QHash<QString, osg::Matrixd> Tq;
+	QString fkErr;
+	if (!UrdfRobotLoader::computeMeshWorldMatrices(urdf, q0, Tq, &fkErr, meshInLinkFrame))
+	{
+		if (runInfo)
+		{
+			runInfo->appendWarning(QStringLiteral("robotKinematics: FK restore failed: %1").arg(fkErr));
+		}
+		return false;
+	}
+	QHash<QString, osg::Matrixd> fkT0;
+	QHash<QString, osg::Matrixd> outer;
+	for (auto it = linkMap.constBegin(); it != linkMap.constEnd(); ++it)
+	{
+		const QString& lname = it.key();
+		if (Tq.contains(lname))
+		{
+			const osg::Matrixd& meshWorld0 = Tq[lname];
+			fkT0.insert(lname, meshWorld0);
+			outer.insert(it.value(), meshWorld0);
+		}
+	}
+	page->appendHierarchicalRobotSimulationContext(
+		urdf, jn, lo, hi, QHash<QString, osg::MatrixTransform*>(), sceneRoot, jointRoot);
+	page->setRobotPerLinkKinematicsBinding(importKey, linkMap, fkT0, outer, meshInLinkFrame);
+	outAllJointAnglesRad += q0;
+	return true;
+}
+
 QString sanitizedArchiveBase(const QString& base)
 {
 	QString s = base.trimmed();
@@ -398,7 +465,47 @@ void MainWindow::onSaveProject()
 	}
 	root.insert(QStringLiteral("edges"), edgeArray);
 
-	if (!doc->robotLinkNameToBackendId().isEmpty())
+	if (doc->robotKinematicInstanceCount() > 0)
+	{
+		QJsonArray robotsArr;
+		for (int ri = 0; ri < doc->robotKinematicInstanceCount(); ++ri)
+		{
+			RobotPerLinkKinematicsSlice pl;
+			if (!doc->robotPerLinkKinematicsForInstance(ri, pl))
+			{
+				continue;
+			}
+			QJsonObject rk;
+			rk.insert(QStringLiteral("mode"), QStringLiteral("perLink"));
+			rk.insert(QStringLiteral("urdf"), pl.urdfAbsolutePath);
+			rk.insert(QStringLiteral("sceneRootBackendId"), pl.sceneRootBackendId);
+			const QString prefix = doc->robotJointKeyPrefixForInstance(ri);
+			QString jointRoot = prefix;
+			if (jointRoot.endsWith(QStringLiteral("::")))
+			{
+				jointRoot.chop(2);
+			}
+			rk.insert(QStringLiteral("jointPrefixRoot"), jointRoot);
+			rk.insert(QStringLiteral("importKey"), jointRoot + QStringLiteral("_ctx"));
+			QJsonObject linksObj;
+			for (auto it = pl.linkNameToBackendId.constBegin(); it != pl.linkNameToBackendId.constEnd(); ++it)
+			{
+				linksObj.insert(it.key(), it.value());
+			}
+			rk.insert(QStringLiteral("links"), linksObj);
+			if (pl.meshVerticesInLinkFrame)
+			{
+				rk.insert(QStringLiteral("meshInLinkFrame"), true);
+			}
+			robotsArr.push_back(rk);
+		}
+		if (!robotsArr.isEmpty())
+		{
+			root.insert(QStringLiteral("robotKinematicsInstances"), robotsArr);
+		}
+	}
+	if (root.value(QStringLiteral("robotKinematicsInstances")).isUndefined()
+		&& !doc->robotLinkNameToBackendId().isEmpty())
 	{
 		QJsonObject rk;
 		rk.insert(QStringLiteral("mode"), QStringLiteral("perLink"));
@@ -583,18 +690,32 @@ void MainWindow::onOpenProjectFile()
 	}
 	const bool useEdgesRelation = !pendingEdges.empty();
 	const QJsonObject rk = root.value(QStringLiteral("robotKinematics")).toObject();
-	const bool meshInLinkFrameHint =
-		!rk.isEmpty() && rk.value(QStringLiteral("mode")).toString() == QStringLiteral("perLink")
-		&& rk.value(QStringLiteral("meshInLinkFrame")).toBool();
+	const QJsonArray robotKinematicsInstances = root.value(QStringLiteral("robotKinematicsInstances")).toArray();
 	QSet<QString> robotLinkMeshBackendIds;
-	if (meshInLinkFrameHint)
-	{
-		const QJsonObject linksHint = rk.value(QStringLiteral("links")).toObject();
+	const auto collectRobotLinkIds = [&](const QJsonObject& rkObj) {
+		if (rkObj.value(QStringLiteral("mode")).toString() != QStringLiteral("perLink")
+			|| !rkObj.value(QStringLiteral("meshInLinkFrame")).toBool())
+		{
+			return;
+		}
+		const QJsonObject linksHint = rkObj.value(QStringLiteral("links")).toObject();
 		for (auto it = linksHint.constBegin(); it != linksHint.constEnd(); ++it)
 		{
 			robotLinkMeshBackendIds.insert(it.value().toString());
 		}
+	};
+	for (const QJsonValue& rv : robotKinematicsInstances)
+	{
+		if (rv.isObject())
+		{
+			collectRobotLinkIds(rv.toObject());
+		}
 	}
+	if (!rk.isEmpty())
+	{
+		collectRobotLinkIds(rk);
+	}
+	const bool meshInLinkFrameHint = !robotLinkMeshBackendIds.isEmpty();
 	const QJsonArray objects = root.value(QStringLiteral("objects")).toArray();
 	for (const auto& v : objects)
 	{
@@ -803,68 +924,37 @@ void MainWindow::onOpenProjectFile()
 	}
 	rebuildLegacyParentMirror(page);
 
-	if (!rk.isEmpty() && rk.value(QStringLiteral("mode")).toString() == QStringLiteral("perLink") && osg)
+	if (osg)
 	{
-		const QString urdf = rk.value(QStringLiteral("urdf")).toString();
-		const QString sceneRoot = rk.value(QStringLiteral("sceneRootBackendId")).toString();
-		const QString jointRoot = rk.value(QStringLiteral("jointPrefixRoot")).toString();
-		const QString importKey = rk.value(QStringLiteral("importKey")).toString();
-		const QJsonObject linksJ = rk.value(QStringLiteral("links")).toObject();
-		QHash<QString, QString> linkMap;
-		for (auto it = linksJ.constBegin(); it != linksJ.constEnd(); ++it)
+		QVector<double> allQ0;
+		int restored = 0;
+		for (const QJsonValue& rv : robotKinematicsInstances)
 		{
-			linkMap.insert(it.key(), it.value().toString());
-		}
-		bool allIds = true;
-		for (auto it = linkMap.constBegin(); it != linkMap.constEnd(); ++it)
-		{
-			if (!page->backend().contains(it.value().toStdString()))
+			if (!rv.isObject())
 			{
-				allIds = false;
-				break;
+				continue;
+			}
+			if (restorePerLinkRobotKinematicsFromJson(page, osg, m_runInfoPage, rv.toObject(), allQ0))
+			{
+				++restored;
 			}
 		}
-		if (allIds && !urdf.isEmpty() && QFileInfo::exists(urdf) && !sceneRoot.isEmpty() && !jointRoot.isEmpty()
-			&& !linkMap.isEmpty())
+		if (restored == 0 && !rk.isEmpty())
 		{
-			const bool meshInLinkFrame = rk.value(QStringLiteral("meshInLinkFrame")).toBool();
-			QStringList jn;
-			QVector<double> lo;
-			QVector<double> hi;
-			(void)UrdfRobotLoader::loadRevoluteJointMeta(urdf, jn, lo, hi, nullptr);
-			QVector<double> q0(jn.size(), 0.0);
-			QHash<QString, osg::Matrixd> Tq;
-			QString fkErr;
-			if (UrdfRobotLoader::computeMeshWorldMatrices(urdf, q0, Tq, &fkErr, meshInLinkFrame))
+			if (restorePerLinkRobotKinematicsFromJson(page, osg, m_runInfoPage, rk, allQ0))
 			{
-				QHash<QString, osg::Matrixd> fkT0;
-				QHash<QString, osg::Matrixd> outer;
-				for (auto it = linkMap.constBegin(); it != linkMap.constEnd(); ++it)
-				{
-					const QString& lname = it.key();
-					if (Tq.contains(lname))
-					{
-						const osg::Matrixd& meshWorld0 = Tq[lname];
-						fkT0.insert(lname, meshWorld0);
-						// Same as fresh URDF import: bind snapshot must be FK mesh world at q0, not the OSG PAT
-						// before kinematics sync (otherwise links pile at the origin).
-						outer.insert(it.value(), meshWorld0);
-					}
-				}
-				page->appendHierarchicalRobotSimulationContext(urdf, jn, lo, hi, QHash<QString, osg::MatrixTransform*>(),
-					sceneRoot, jointRoot);
-				page->setRobotPerLinkKinematicsBinding(importKey, linkMap, fkT0, outer, meshInLinkFrame);
-				(void)RobotSceneKinematics::applyJointAnglesFromDocument(page, osg, q0);
-				refreshSimulationJointListFromCurrentDoc();
+				restored = 1;
 			}
 			else if (m_runInfoPage)
 			{
-				m_runInfoPage->appendWarning(QStringLiteral("robotKinematics: FK restore failed: %1").arg(fkErr));
+				m_runInfoPage->appendWarning(
+					QStringLiteral("robotKinematics: skipped restore (missing URDF, backends, or metadata)."));
 			}
 		}
-		else if (m_runInfoPage && !linkMap.isEmpty())
+		if (restored > 0 && !allQ0.isEmpty())
 		{
-			m_runInfoPage->appendWarning(QStringLiteral("robotKinematics: skipped restore (missing URDF, backends, or metadata)."));
+			(void)RobotSceneKinematics::applyJointAnglesFromDocument(page, page->sceneFacade().poseSink(), allQ0);
+			refreshSimulationJointListFromCurrentDoc();
 		}
 	}
 
@@ -913,6 +1003,8 @@ void MainWindow::onOpenProjectFile()
 			applyHierarchyFollowBinding(page, childQ.toStdString(), edge.first.toStdString());
 		}
 	}
+
+	page->invalidateFollowReverseIndex();
 
 	QList<OsgWidget::AnnotationSnapshot> snapshots;
 	const QJsonArray annArray = root.value(QStringLiteral("annotations")).toArray();

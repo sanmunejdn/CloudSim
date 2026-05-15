@@ -1,17 +1,42 @@
 #pragma once
 
-#include <mutex>
+#include <shared_mutex>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
+#include "BackendDataBase.h"
+#include "BackendHierarchyChange.h"
+#include "BackendFollowMath.h"
 #include "data_global.h"
 
-class BackendDataBase;
+struct BackendSnapshot
+{
+	std::string id;
+	std::string name;
+	std::string className;
+	BackendVec3 pose{};
+	BackendVec3 rotation{};
+	BackendColor color{};
+	BackendMat4 worldMatrix = BackendMat4::identity();
+	std::vector<std::string> parents;
+	std::vector<std::string> children;
+};
 
-/// 后端数据注册表（单例）：按 id 管理共享的 BackendDataBase，线程安全增删查。
+struct BackendBaselineMetrics
+{
+	std::size_t objectCount = 0U;
+	std::size_t edgeCount = 0U;
+	double listDataMs = 0.0;
+	double descendantsMs = 0.0;
+	double followLookupMs = 0.0;
+	double snapshotMs = 0.0;
+};
+
+/// 后端数据注册表（单例）：按 id 管理共享的 BackendDataBase；读写锁保护索引与层级图，多读并发友好。
 class DATA_EXPORT BackendDataManager
 {
 public:
@@ -29,27 +54,40 @@ public:
 	std::vector<std::shared_ptr<BackendDataBase>> findByComponent(const std::string& componentType) const;
 
 	bool attachChild(const std::string& parentId, const std::string& childId);
+	bool setParent(const std::string& childId, const std::string& parentId);
 	bool detachChild(const std::string& parentId, const std::string& childId);
 	bool detachAllParents(const std::string& childId);
 	std::vector<std::string> parentsOf(const std::string& id) const;
 	std::vector<std::string> childrenOf(const std::string& id) const;
 	std::vector<std::string> ancestorsOf(const std::string& id) const;
 	std::vector<std::string> descendantsOf(const std::string& id) const;
+	const std::vector<std::string>& subtreeIds(const std::string& rootId) const;
 	std::vector<std::string> rootIds() const;
 	std::vector<std::string> topoOrder() const;
 	std::vector<std::pair<std::string, std::string>> listEdges() const;
 	bool wouldCreateCycle(const std::string& parentId, const std::string& childId) const;
 	bool validateGraph(std::string* errMsg = nullptr) const;
+	std::vector<BackendSnapshot> takeSnapshot() const;
+	BackendBaselineMetrics collectBaselineMetrics(const std::string& sampleRootId = std::string()) const;
 	void clear();
+
+	/// Observers are invoked while the manager's write lock is held; they must not call
+	/// other \c BackendDataManager APIs that take \c m_mutex (deadlock risk).
+	void addHierarchyObserver(void* key, BackendHierarchyObserver observer);
+	void removeHierarchyObserver(void* key);
 
 private:
 	BackendDataManager(const BackendDataManager&) = delete;
 	BackendDataManager& operator=(const BackendDataManager&) = delete;
 
-private:
-	mutable std::mutex m_mutex;
+	void notifyHierarchyObserversLocked(const BackendHierarchyChangeEvent& event);
+
+	mutable std::shared_mutex m_mutex;
 	std::unordered_map<std::string, std::shared_ptr<BackendDataBase>> m_records;
 	std::unordered_map<std::string, std::unordered_set<std::string>> m_childrenByParent;
 	std::unordered_map<std::string, std::unordered_set<std::string>> m_parentsByChild;
+	mutable std::unordered_map<std::string, std::vector<std::string>> m_subtreeCache;
+	mutable std::vector<std::string> m_emptySubtree;
+	std::vector<std::pair<void*, BackendHierarchyObserver>> m_hierarchyObservers;
 };
 

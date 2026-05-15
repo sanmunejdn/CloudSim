@@ -3,8 +3,12 @@
 #include <cstddef>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
+#include <typeindex>
+#include <type_traits>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <json.hpp>
@@ -12,6 +16,8 @@
 #include "data_global.h"
 #include "BackendComponent.h"
 #include "BackendObjectAttribute.h"
+#include "BackendFollowMath.h"
+#include "PropertyBag.h"
 
 class BackendDataManager;
 
@@ -38,6 +44,18 @@ struct BackendColor
 	float g = 1.0f;
 	float b = 1.0f;
 	float a = 1.0f;
+};
+
+struct BackendPoseValue
+{
+	BackendVec3 position{};
+	BackendVec3 eulerDeg{};
+};
+
+enum class BackendPoseReferenceFrame
+{
+	World = 0,
+	Parent = 1
 };
 
 // Abstract backend: id, name, geometry bounds, property panel JSON, pose/color hooks.
@@ -75,6 +93,21 @@ public:
 	virtual bool supportsBackendTransform() const { return hasPoseProperty(); }
 	virtual void applyBackendWorldPose(const BackendVec3& centerWorld, const BackendVec3& eulerDegWorld);
 
+	BackendPoseReferenceFrame poseReferenceFrame() const;
+	void setPoseReferenceFrame(BackendPoseReferenceFrame frame);
+	BackendVec3 poseInFrame(BackendPoseReferenceFrame frame, const BackendDataManager* mgr = nullptr) const;
+	BackendVec3 rotationInFrame(BackendPoseReferenceFrame frame, const BackendDataManager* mgr = nullptr) const;
+	void setPoseInFrame(const BackendVec3& value, BackendPoseReferenceFrame frame, const BackendDataManager* mgr = nullptr);
+	void setRotationInFrame(const BackendVec3& value, BackendPoseReferenceFrame frame, const BackendDataManager* mgr = nullptr);
+	BackendPoseValue poseValue(BackendPoseReferenceFrame frame, const BackendDataManager* mgr = nullptr) const;
+	void setPoseValue(const BackendPoseValue& value, BackendPoseReferenceFrame frame, const BackendDataManager* mgr = nullptr);
+	BackendMat4 worldMatrix(const BackendDataManager* mgr = nullptr) const;
+	void setWorldMatrix(const BackendMat4& world, const BackendDataManager* mgr = nullptr);
+	bool validatePoseFrameRoundTrip(const BackendDataManager* mgr, double epsilon = 1e-6) const;
+
+	PropertyBag& propertyBag() { return m_propertyBag; }
+	const PropertyBag& propertyBag() const { return m_propertyBag; }
+
 	// Property panel: JSON array; row shape in BackendPropertyRow.h (backend_property_json).
 	// \a mgr resolves follow target id to display name when present.
 	virtual nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const;
@@ -84,6 +117,30 @@ public:
 	bool addComponent(const BackendComponentPtr& component);
 	bool removeComponent(const std::string& componentType);
 	BackendComponentPtr getComponent(const std::string& componentType) const;
+	template <typename T>
+	std::shared_ptr<T> getComponent() const
+	{
+		static_assert(std::is_base_of<IBackendComponent, T>::value, "T must derive from IBackendComponent");
+		std::lock_guard<std::mutex> lock(m_componentMutex);
+		const auto it = m_componentsByType.find(std::type_index(typeid(T)));
+		if (it == m_componentsByType.end())
+		{
+			return nullptr;
+		}
+		return std::dynamic_pointer_cast<T>(it->second);
+	}
+
+	template <typename T, typename... Args>
+	std::shared_ptr<T> emplaceComponent(Args&&... args)
+	{
+		static_assert(std::is_base_of<IBackendComponent, T>::value, "T must derive from IBackendComponent");
+		const std::shared_ptr<T> comp = std::make_shared<T>(std::forward<Args>(args)...);
+		if (!addComponent(comp))
+		{
+			return nullptr;
+		}
+		return comp;
+	}
 	std::vector<BackendComponentPtr> listComponents() const;
 	bool hasComponent(const std::string& componentType) const;
 
@@ -99,6 +156,12 @@ protected:
 private:
 	std::string m_id;
 	std::string m_name;
+	BackendPoseReferenceFrame m_poseReferenceFrame = BackendPoseReferenceFrame::World;
+	mutable std::shared_mutex m_worldMatrixMutex;
+	mutable bool m_worldMatrixDirty = true;
+	mutable BackendMat4 m_worldMatrixCache = BackendMat4::identity();
+	mutable PropertyBag m_propertyBag;
 	mutable std::mutex m_componentMutex;
 	std::unordered_map<std::string, BackendComponentPtr> m_components;
+	std::unordered_map<std::type_index, BackendComponentPtr> m_componentsByType;
 };

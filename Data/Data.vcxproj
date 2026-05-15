@@ -169,6 +169,8 @@
     <ClInclude Include="inc\BackendObjectAttribute.h" />
     <ClInclude Include="inc\BackendPropertyRow.h" />
     <ClInclude Include="inc\BackendDataManager.h" />
+    <ClInclude Include="inc\BackendHierarchyChange.h" />
+    <ClInclude Include="inc\BackendHierarchyModel.h" />
     <ClInclude Include="inc\data_global.h" />
     <ClInclude Include="inc\geometry_base64.h" />
     <ClInclude Include="inc\MeshBackendData.h" />
@@ -181,6 +183,7 @@
     <ClCompile Include="source\BackendDataBase.cpp" />
     <ClCompile Include="source\BackendObjectAttribute.cpp" />
     <ClCompile Include="source\BackendDataManager.cpp" />
+    <ClCompile Include="source\BackendHierarchyModel.cpp" />
     <ClCompile Include="source\geometry_base64.cpp" />
     <ClCompile Include="source\MeshBackendData.cpp" />
     <ClCompile Include="source\PointCloudBackendData.cpp" />

@@ -6,7 +6,6 @@
 
 #include "BackendDataManager.h"
 #include "BackendDataBase.h"
-#include "BackendRelations.h"
 #include "FollowAttachmentComponent.h"
 #include "OsgWidget.h"
 
@@ -21,14 +20,18 @@ QStringList DocumentPage::removeBackendSubtree(const QString& rootBackendId)
 		return {};
 	}
 	QStringList ids;
-	ids.append(rootBackendId);
-	const std::shared_ptr<BackendDataBase> rootObject = m_backend.getData(rootBackendId.toStdString());
-	const std::vector<std::string> descendantIds = rootObject
-		? backend_relations::descendantIds(*rootObject, m_backend)
-		: std::vector<std::string>{};
-	for (const std::string& descId : descendantIds)
+	const std::string rootStd = rootBackendId.toStdString();
+	const std::vector<std::string>& subtree = m_hierarchyModel.subtreeIds(rootStd);
+	if (subtree.empty() && m_backend.contains(rootStd))
 	{
-		ids.append(QString::fromStdString(descId));
+		ids.append(rootBackendId);
+	}
+	else
+	{
+		for (const std::string& id : subtree)
+		{
+			ids.append(QString::fromStdString(id));
+		}
 	}
 	for (const QString& id : ids)
 	{
@@ -37,6 +40,7 @@ QStringList DocumentPage::removeBackendSubtree(const QString& rootBackendId)
 		m_backendSourcePath.remove(id);
 		m_backendSourceType.remove(id);
 	}
+	m_followReverseIndex.invalidate();
 	return ids;
 }
 
@@ -49,6 +53,7 @@ DocumentPage::DocumentPage(QTabWidget* parentTabs)
 	layout->setSpacing(0);
 
 	m_osgWidget = new OsgWidget(this);
+	m_sceneBridge.setOsgWidget(m_osgWidget);
 	layout->addWidget(m_osgWidget);
 }
 
@@ -74,6 +79,32 @@ void DocumentPage::rebuildHierarchicalRobotAggregates()
 	}
 	m_robotUrdfAbsolutePath = m_hierarchicalRobots.isEmpty() ? QString() : m_hierarchicalRobots.first().urdfAbsolutePath;
 	m_robotSceneBackendId = m_hierarchicalRobots.isEmpty() ? QString() : m_hierarchicalRobots.first().sceneBackendId;
+	rebuildPerLinkLegacyAggregates();
+}
+
+void DocumentPage::rebuildPerLinkLegacyAggregates()
+{
+	m_robotLinkNameToBackendId.clear();
+	m_robotFkMeshWorldT0.clear();
+	m_robotOuterWorldAtBind.clear();
+	m_robotUrdfMeshVerticesInLinkFrame = false;
+	int perLinkCount = 0;
+	for (const HierarchicalRobotInstance& ri : m_hierarchicalRobots)
+	{
+		if (!ri.perLinkBackends)
+		{
+			continue;
+		}
+		++perLinkCount;
+		if (perLinkCount == 1)
+		{
+			m_robotLinkNameToBackendId = ri.linkNameToBackendId;
+			m_robotFkMeshWorldT0 = ri.fkMeshWorldT0;
+			m_robotOuterWorldAtBind = ri.outerWorldAtBindByBackendId;
+			m_robotUrdfMeshVerticesInLinkFrame = ri.meshVerticesInLinkFrame;
+			m_robotImportParentId = ri.perLinkImportKey;
+		}
+	}
 }
 
 void DocumentPage::appendHierarchicalRobotSimulationContext(
@@ -105,11 +136,37 @@ void DocumentPage::setRobotPerLinkKinematicsBinding(const QString& importKey,
 	const QHash<QString, osg::Matrixd>& outerWorldAtBindByBackendId,
 	bool meshVerticesInLinkFrame)
 {
-	m_robotImportParentId = importKey;
-	m_robotLinkNameToBackendId = linkNameToBackendId;
-	m_robotFkMeshWorldT0 = fkMeshWorldT0;
-	m_robotOuterWorldAtBind = outerWorldAtBindByBackendId;
-	m_robotUrdfMeshVerticesInLinkFrame = meshVerticesInLinkFrame;
+	QString jointPrefix = importKey;
+	if (jointPrefix.endsWith(QStringLiteral("_ctx")))
+	{
+		jointPrefix.chop(4);
+	}
+	jointPrefix += QStringLiteral("::");
+
+	HierarchicalRobotInstance* target = nullptr;
+	for (int i = m_hierarchicalRobots.size() - 1; i >= 0; --i)
+	{
+		if (m_hierarchicalRobots[i].jointKeyPrefix == jointPrefix)
+		{
+			target = &m_hierarchicalRobots[i];
+			break;
+		}
+	}
+	if (!target && !m_hierarchicalRobots.isEmpty())
+	{
+		target = &m_hierarchicalRobots.last();
+	}
+	if (!target)
+	{
+		return;
+	}
+	target->perLinkBackends = true;
+	target->perLinkImportKey = importKey;
+	target->linkNameToBackendId = linkNameToBackendId;
+	target->fkMeshWorldT0 = fkMeshWorldT0;
+	target->outerWorldAtBindByBackendId = outerWorldAtBindByBackendId;
+	target->meshVerticesInLinkFrame = meshVerticesInLinkFrame;
+	rebuildPerLinkLegacyAggregates();
 }
 
 void DocumentPage::setHierarchicalRobotSimulationContext(
@@ -165,6 +222,32 @@ QString DocumentPage::robotJointKeyPrefixForInstance(int instanceIndex) const
 		: QString();
 }
 
+bool DocumentPage::robotUsesPerLinkBackendsForInstance(int instanceIndex) const
+{
+	return instanceIndex >= 0 && instanceIndex < m_hierarchicalRobots.size()
+		&& m_hierarchicalRobots[instanceIndex].perLinkBackends;
+}
+
+bool DocumentPage::robotPerLinkKinematicsForInstance(int instanceIndex, RobotPerLinkKinematicsSlice& out) const
+{
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
+	{
+		return false;
+	}
+	const HierarchicalRobotInstance& ri = m_hierarchicalRobots[instanceIndex];
+	if (!ri.perLinkBackends || ri.linkNameToBackendId.isEmpty())
+	{
+		return false;
+	}
+	out.urdfAbsolutePath = ri.urdfAbsolutePath;
+	out.sceneRootBackendId = ri.sceneBackendId;
+	out.linkNameToBackendId = ri.linkNameToBackendId;
+	out.fkMeshWorldT0 = ri.fkMeshWorldT0;
+	out.outerWorldAtBindByBackendId = ri.outerWorldAtBindByBackendId;
+	out.meshVerticesInLinkFrame = ri.meshVerticesInLinkFrame;
+	return true;
+}
+
 void DocumentPage::clearRobotSimulationContext()
 {
 	// 【中文】清除传统成员
@@ -180,38 +263,32 @@ void DocumentPage::clearRobotSimulationContext()
 
 void DocumentPage::clearRobotSimulationIfContains(const QString& removedBackendId)
 {
-	// 【中文】每连杆后端：任一 link 的 mesh 后端被删则清除整台机器人仿真元数据（与 removeBackendSubtree 行为一致）。
-	for (auto it = m_robotLinkNameToBackendId.constBegin(); it != m_robotLinkNameToBackendId.constEnd(); ++it)
-	{
-		if (it.value() == removedBackendId)
-		{
-			clearRobotSimulationContext();
-			return;
-		}
-	}
-
-	if (!m_robotImportParentId.isEmpty() && removedBackendId == m_robotImportParentId)
-	{
-		clearRobotSimulationContext();
-		return;
-	}
-
-	// 【中文】多机器人：按场景后端 ID 移除对应实例
 	for (int i = 0; i < m_hierarchicalRobots.size(); ++i)
 	{
-		if (m_hierarchicalRobots[i].sceneBackendId == removedBackendId)
+		const HierarchicalRobotInstance& ri = m_hierarchicalRobots[i];
+		if (ri.sceneBackendId == removedBackendId)
 		{
 			m_hierarchicalRobots.removeAt(i);
 			rebuildHierarchicalRobotAggregates();
 			return;
 		}
+		if (ri.perLinkBackends)
+		{
+			for (auto it = ri.linkNameToBackendId.constBegin(); it != ri.linkNameToBackendId.constEnd(); ++it)
+			{
+				if (it.value() == removedBackendId)
+				{
+					m_hierarchicalRobots.removeAt(i);
+					rebuildHierarchicalRobotAggregates();
+					return;
+				}
+			}
+		}
 	}
 
-	// 【中文】检查新架构的机器人场景 ID（兼容旧单实例字段）
 	if (!m_robotSceneBackendId.isEmpty() && removedBackendId == m_robotSceneBackendId)
 	{
 		clearRobotSimulationContext();
-		return;
 	}
 }
 
@@ -222,7 +299,13 @@ bool DocumentPage::hasRobotSimulationContext() const
 
 bool DocumentPage::hasRobotKinematicsBind() const
 {
-	// 【中文】新架构：有关节变换节点即可；传统架构：检查 FK 数据
+	for (const HierarchicalRobotInstance& ri : m_hierarchicalRobots)
+	{
+		if (ri.perLinkBackends && !ri.fkMeshWorldT0.isEmpty() && !ri.outerWorldAtBindByBackendId.isEmpty())
+		{
+			return true;
+		}
+	}
 	return !m_robotJointTransforms.isEmpty() ||
 		(!m_robotFkMeshWorldT0.isEmpty() && !m_robotOuterWorldAtBind.isEmpty());
 }
@@ -256,10 +339,16 @@ QString DocumentPage::robotImportParentId() const
 QStringList DocumentPage::robotLinkBackendIds() const
 {
 	QStringList out;
-	out.reserve(m_robotLinkNameToBackendId.size());
-	for (auto it = m_robotLinkNameToBackendId.constBegin(); it != m_robotLinkNameToBackendId.constEnd(); ++it)
+	for (const HierarchicalRobotInstance& ri : m_hierarchicalRobots)
 	{
-		out.append(it.value());
+		if (!ri.perLinkBackends)
+		{
+			continue;
+		}
+		for (auto it = ri.linkNameToBackendId.constBegin(); it != ri.linkNameToBackendId.constEnd(); ++it)
+		{
+			out.append(it.value());
+		}
 	}
 	return out;
 }
@@ -287,14 +376,12 @@ bool DocumentPage::takeFollowSolveForced()
 
 void DocumentPage::notifyRobotKinematicsAppliedToScene()
 {
-	if (m_robotLinkNameToBackendId.isEmpty())
+	for (const HierarchicalRobotInstance& ri : m_hierarchicalRobots)
 	{
-		return;
-	}
-	const QString seed = robotSceneBackendId();
-	if (!seed.isEmpty())
-	{
-		markFollowAttachmentDirtyFromBackendMove(m_backend, seed.toStdString());
+		if (!ri.sceneBackendId.isEmpty())
+		{
+			markFollowAttachmentDirtyFromBackendMove(m_backend, ri.sceneBackendId.toStdString());
+		}
 	}
 }
 

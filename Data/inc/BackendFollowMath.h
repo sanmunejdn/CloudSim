@@ -1,9 +1,10 @@
 #pragma once
 
-#include "BackendDataBase.h"
 #include "data_global.h"
 
 #include <cmath>
+
+struct BackendVec3;
 
 /// Column-major 4x4 (same storage order as \c osg::Matrixd): transforms column vectors \(p' = M p\).
 struct DATA_EXPORT BackendMat4

@@ -15,19 +15,16 @@ bool OsgWidgetBackendLoadController::loadPointCloudFromBackendData(
 	{
 		return false;
 	}
+	self.setSelectionActive(true);
 	self.syncGizmoAndPickFromBackend(data);
 	self.syncCompassGizmoOrientation();
 	self.clearPointAnnotations();
 	self.clearPointPickMarker();
-	self.setSelectionActive(true);
 	if (self.m_viewer.valid())
 	{
 		self.m_viewer->setSceneData(self.m_root.get());
 	}
-	if (self.m_glWidget)
-	{
-		self.m_glWidget->update();
-	}
+	self.requestRedraw();
 	return true;
 }
 
@@ -46,19 +43,16 @@ bool OsgWidgetBackendLoadController::loadMeshFromBackendData(
 	{
 		return false;
 	}
+	self.setSelectionActive(true);
 	self.syncGizmoAndPickFromBackend(data);
 	self.syncCompassGizmoOrientation();
 	self.clearPointAnnotations();
 	self.clearPointPickMarker();
-	self.setSelectionActive(true);
 	if (self.m_viewer.valid())
 	{
 		self.m_viewer->setSceneData(self.m_root.get());
 	}
-	if (self.m_glWidget)
-	{
-		self.m_glWidget->update();
-	}
+	self.requestRedraw();
 	return true;
 }
 

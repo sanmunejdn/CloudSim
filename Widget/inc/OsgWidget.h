@@ -97,7 +97,7 @@ public:
 		QString id;
 		QString displayText;
 		QString backendId; // empty => legacy/unknown
-		/// Legacy: offset in m_selectedTransform space at save time (older projects only).
+		/// Legacy: offset in object gizmo (center+pose) space at save time (older projects only).
 		osg::Vec3f localCentered;
 		/// Authoritative world-space anchor; when set, position survives switching backend objects.
 		osg::Vec3f worldAnchor{};
@@ -193,6 +193,10 @@ public:
 	bool isTransformGizmoDragging() const;
 	/// Apply \a data pose/rotation to the outer PAT using cached model center (backend as pose authority).
 	bool syncOuterPatFromBackend(const BackendDataBase& data);
+	/// Push current \c ObjectGizmoFrame (from active outer PAT) through \c syncActiveBackendRootFromObjectFrame (non-drag).
+	void syncActiveBackendRootFromSelectedTransform();
+	/// Read active backend outer world matrix into backend pose/rotation (OSG authority before follow solve).
+	bool writeActiveBackendPoseFromOsg(BackendDataBase& data);
 	/// Orbit manipulator center tracks the world origin of this backend (empty disables).
 	void setCameraFollowBackendId(std::string backendId);
 	void clearCameraFollowBackendId();
@@ -211,6 +215,8 @@ signals:
 	void annotationCreated(const QString& annotationId, const QString& displayText);
 	void annotationRemoved(const QString& annotationId);
 	void annotationVisibilityChanged(const QString& annotationId, bool visible);
+	/// Emitted together with each \ref OsgScene::requestRedraw (scene graph or camera changed).
+	void sceneRedrawRequested();
 
 private:
 	void initViewer();
@@ -219,11 +225,11 @@ private:
 	osg::Node* loadAsciiPlyPointCloud(const QString& filePath, QString* errorMessage);
 	osg::Node* createCompassNode();
 	bool eventFilter(QObject* watched, QEvent* event) override;
-	DragAxis pickAxisAtScreenPos(const QPoint& mousePos, bool preferRing) const;
+	/// \param outPickedRing 若非空：命中旋转环时为 true，命中轴线段时为 false。
+	DragAxis pickAxisAtScreenPos(const QPoint& mousePos, bool preferRing, bool* outPickedRing = nullptr) const;
 	void applyColorToActiveBackendObject(const osg::Vec4& color);
 	void applyColorToBackendObject(const std::string& backendId, const osg::Vec4& color);
 	void applyColorToStagingGeometry(const osg::Vec4& color);
-	void syncActiveBackendRootFromSelectedTransform();
 	osg::ref_ptr<osg::Geode> buildPointCloudGeode(const PointCloudBackendData& data, QString* errorMessage) const;
 	bool upsertPointCloudBranchInScene(const PointCloudBackendData& data, QString* errorMessage, bool resetViewToHome);
 	osg::ref_ptr<osg::Node> buildMeshGeode(const MeshBackendData& data, QString* errorMessage,
@@ -232,12 +238,14 @@ private:
 		bool showWireOutline = true, bool useSceneLighting = false, bool skipInnerModelCenterRebase = false);
 	osg::Node* stagingGeometryRoot() const;
 	void applyVisibilityMaskForBackend(const std::string& backendId);
-	void updateCompassHighlight(DragAxis axis);
+	void updateCompassHighlight(DragAxis axis, bool highlightRing = false);
 	QString axisToString(DragAxis axis) const;
 	void updateCompassScale();
 	void refreshCompassDrawVisibility();
 	/// World: gizmo axes align with world X/Y/Z; Local: axes follow object. Pivot stays at model origin (compass).
 	void syncCompassGizmoOrientation();
+	/// 环境变量 \c POINTCLOUD_GIZMO_PIVOT_DIAG 非空且不为 \c "0" 时：经 RunLogger 输出枢轴与场景图文件原点对比（调试用）。
+	void logGizmoPivotDiagnostics(const char* reasonTag) const;
 	void attachCompassGraphics();
 	void detachCompassGraphics();
 	void syncCameraManipulatorForModes();

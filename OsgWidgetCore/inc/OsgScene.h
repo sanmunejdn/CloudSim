@@ -2,6 +2,7 @@
 
 #include "osgwidgetcore_global.h"
 #include "BackendVisualBindingIndex.h"
+#include "ObjectGizmoFrame.h"
 
 #include <cstddef>
 #include <functional>
@@ -94,12 +95,19 @@ public:
 	/// 清除 osgGA 事件队列中卡住的按键/按钮状态（相机漫游恢复）。
 	void resetNavigationInputQueues();
 
+	/// Used by the viewer frame timer: non-empty annotations get per-frame scale tweaks.
+	bool hasPointAnnotations() const { return !m_annotations.empty(); }
+
 	bool isBackendDescendantOf(const std::string& backendId, const std::string& ancestorId) const;
 	/// True if \a childBackendId outer PAT is a descendant in the OSG scene graph of \a ancestorBackendId outer PAT
 	/// (walks real parents; used to avoid double-applying gizmo deltas when logical and visual hierarchy match).
 	bool backendOuterPatIsUnderOuterPatInSceneGraph(const std::string& childBackendId, const std::string& ancestorBackendId) const;
-	void cacheSelectionPoseFromSelectedTransform();
-	void syncActiveBackendRootFromSelectedTransform();
+	void cacheSelectionGizmoPose();
+	/// Apply \a cur to active outer PAT; when not dragging, propagate rotation delta to descendant backend roots.
+	void syncActiveBackendRootFromObjectFrame(const ObjectGizmoFrame& cur, bool dragging);
+	bool readActiveObjectGizmoFrame(ObjectGizmoFrame& out) const;
+	void attachGizmoOverlayToActiveBackend();
+	void detachGizmoOverlay();
 
 	void syncGizmoAndPickFromBackend(const BackendDataBase& data);
 
@@ -112,14 +120,17 @@ public:
 	void attachCompassGraphics();
 	void detachCompassGraphics();
 	void refreshCompassDrawVisibility();
-	void updateCompassHighlight(int axis);
-	/// Places the compass at mesh/point model origin (file 0,0,0), not bbox center, when geometry uses inner PAT at -m_modelCenter.
-	void updateCompassLocalOffsetForModelOrigin();
+	/// \param highlightRing 为 true 时仅放大对应旋转环；为 false 时放大对应正半轴（平移拾取）。
+	void updateCompassHighlight(int axis, bool highlightRing = false);
+	void syncCompassGizmoOrientation();
 	void updateCompassScale();
-	int pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing) const;
+	/// \param outPickedRing 若非空：命中旋转环时为 true，命中轴线段时为 false。
+	int pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing, bool* outPickedRing = nullptr) const;
 	/// Qt widget pixel coords (logical); multiplied internally by \ref devicePixelRatio to match OSG viewport.
 	bool computeCameraScreenRayWorld(double mouseX, double mouseY, osg::Vec3d& outRayOriginWorld, osg::Vec3d& outRayDirUnitWorld) const;
 	void computeGizmoPivotWorld(osg::Vec3f& outPivotWorld) const;
+	/// 若环境变量 \c POINTCLOUD_GIZMO_PIVOT_DIAG 非空且不为 \c "0"：经 RunLogger 输出枢轴与场景图文件原点的对比（用于排查罗盘/几何不一致）。
+	void logGizmoPivotDiagnostics(const char* reasonTag) const;
 
 	void focusCameraOnBackend(const std::string& backendId);
 
@@ -169,16 +180,19 @@ public:
 	BackendVisualBindingIndex m_backendVisualBindings;
 	std::string m_activeBackendId;
 	osg::ref_ptr<osg::MatrixTransform> m_activeBackendOuterPat;
-	osg::ref_ptr<osg::PositionAttitudeTransform> m_selectedTransform;
+	/// Gizmo overlay (compass + pick feedback) parented under inner PAT at file origin; not in scene until attach.
+	osg::ref_ptr<osg::Group> m_gizmoOverlayGroup;
+	osg::ref_ptr<osg::Node> m_gizmoAttachedInner;
 	osg::ref_ptr<osg::PositionAttitudeTransform> m_compassTransform;
+	/// 仅缩放罗盘几何；挂在 \c m_compassTransform 下，避免 PAT 的 scale 与 position 组合把枢轴拉离模型原点。
+	osg::ref_ptr<osg::MatrixTransform> m_compassScaleTransform;
 	osg::ref_ptr<osg::Group> m_annotationGroup;
 	osg::ref_ptr<osg::AutoTransform> m_pickFeedbackTransform;
 	osg::ref_ptr<osg::Node> m_compassNode;
 	osg::ref_ptr<osg::Node> m_pickFeedbackNode;
-	osg::ref_ptr<osg::Vec4Array> m_compassColors;
-	osg::ref_ptr<osg::Vec4Array> m_ringColorX;
-	osg::ref_ptr<osg::Vec4Array> m_ringColorY;
-	osg::ref_ptr<osg::Vec4Array> m_ringColorZ;
+	/// 各轴正方向（轴线 + 锥体箭头）与旋转环分支，用于悬停/拖拽时的局部缩放高亮。
+	osg::ref_ptr<osg::MatrixTransform> m_compassAxisBranch[3];
+	osg::ref_ptr<osg::MatrixTransform> m_compassRingBranch[3];
 	osg::ref_ptr<osg::Camera> m_worldAxesHudCamera;
 
 	bool m_selectionActive = false;
@@ -195,14 +209,19 @@ public:
 	osg::Vec3d m_gizmoTransDragPlaneN{};
 	osg::Vec3d m_gizmoDragLastHitWorld{};
 	bool m_gizmoTransDragPlaneActive = false;
-	osg::Vec3f m_modelCenter = osg::Vec3f(0.0f, 0.0f, 0.0f);
+	/// 旋转拖拽开始时缓存的文件原点（外层父节点局部坐标），用于 \c a = pivot - (-center)*R 保枢轴。
+	bool m_gizmoRotatePivotActive = false;
+	osg::Vec3d m_gizmoRotatePivotInParent{};
+	osg::Vec3d m_gizmoRotatePivotWorld{};
+	mutable osg::Vec3f m_modelCenter = osg::Vec3f(0.0f, 0.0f, 0.0f);
 	double m_gizmoReferenceDistance = -1.0;
 	double m_gizmoReferenceScale = 1.0;
 	float m_activeModelDiagonal = 1.0f;
 	bool m_darkUiTheme = false;
 	bool m_hasLastSelectionPose = false;
-	osg::Vec3f m_lastSelectionPos = osg::Vec3f(0.0f, 0.0f, 0.0f);
-	osg::Quat m_lastSelectionAtt;
+	/// Last committed center+pose (outer translate) and attitude for descendant propagation.
+	osg::Vec3f m_lastGizmoCenterPlusPose = osg::Vec3f(0.0f, 0.0f, 0.0f);
+	osg::Quat m_lastGizmoAttitude;
 	std::vector<osg::Vec3f> m_pickablePointsLocal;
 	std::vector<osg::Vec3f> m_pickablePointsPreviewLocal;
 	struct KdNode

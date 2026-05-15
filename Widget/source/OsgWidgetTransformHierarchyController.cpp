@@ -89,10 +89,10 @@ void OsgWidgetTransformHierarchyController::setBackendParent(
 	}
 	parentMt->addChild(childMt);
 
-	if (haveWorld)
-	{
-		self.setBackendRootWorldMatrixFromWorld(backendId, savedWorld);
-	}
+	// Do not restore pre-reparent world here: flat layout world != hierarchical local.
+	// URDF / FK callers reapply mesh-world transforms in topo order after parenting.
+	(void)haveWorld;
+	(void)savedWorld;
 }
 
 void OsgWidgetTransformHierarchyController::removeBackendObjectVisual(
@@ -140,9 +140,9 @@ bool OsgWidgetTransformHierarchyController::isBackendDescendantOf(
 	return self.OsgScene::isBackendDescendantOf(backendId, ancestorId);
 }
 
-void OsgWidgetTransformHierarchyController::cacheSelectionPoseFromSelectedTransform(OsgWidget& self)
+void OsgWidgetTransformHierarchyController::cacheSelectionGizmoPose(OsgWidget& self)
 {
-	self.OsgScene::cacheSelectionPoseFromSelectedTransform();
+	self.cacheSelectionGizmoPose();
 }
 
 void OsgWidgetTransformHierarchyController::finalizeSelectionSync(OsgWidget& self)
@@ -153,10 +153,7 @@ void OsgWidgetTransformHierarchyController::finalizeSelectionSync(OsgWidget& sel
 	{
 		self.m_viewer->setSceneData(self.m_root.get());
 	}
-	if (self.m_glWidget)
-	{
-		self.m_glWidget->update();
-	}
+	self.requestRedraw();
 }
 
 void OsgWidgetTransformHierarchyController::syncSelectionForBackendId(
@@ -173,18 +170,8 @@ void OsgWidgetTransformHierarchyController::syncSelectionForBackendId(
 		{
 			self.m_modelCenter = cIt->second;
 		}
-		if (self.m_selectedTransform.valid())
-		{
-			osg::Vec3d t;
-			osg::Quat r;
-			osg::Vec3d s;
-			osg::Quat so;
-			it->second->getMatrix().decompose(t, r, s, so);
-			self.m_selectedTransform->setPosition(osg::Vec3f(static_cast<float>(t.x()), static_cast<float>(t.y()),
-				static_cast<float>(t.z())));
-			self.m_selectedTransform->setAttitude(r);
-		}
-		self.updateCompassLocalOffsetForModelOrigin();
+		self.attachGizmoOverlayToActiveBackend();
+		self.cacheSelectionGizmoPose();
 		self.syncCompassGizmoOrientation();
 	}
 	else
@@ -199,11 +186,11 @@ void OsgWidgetTransformHierarchyController::syncSelectionForBackendId(
 		self.m_kdRoot = -1;
 	}
 
-	cacheSelectionPoseFromSelectedTransform(self);
+	cacheSelectionGizmoPose(self);
 	finalizeSelectionSync(self);
 }
 
 void OsgWidgetTransformHierarchyController::syncActiveBackendRootFromSelectedTransform(OsgWidget& self)
 {
-	self.OsgScene::syncActiveBackendRootFromSelectedTransform();
+	self.syncActiveBackendRootFromSelectedTransform();
 }

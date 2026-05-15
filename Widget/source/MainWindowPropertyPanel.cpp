@@ -1,12 +1,16 @@
 #include "MainWindow.h"
 
 #include <memory>
+#include <sstream>
+#include <iomanip>
+#include <cmath>
 
 #include <QList>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 
 #include <osg/Vec3f>
+#include <osg/Matrixd>
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
@@ -19,6 +23,9 @@
 #include "PointCloudBackendData.h"
 #include "OsgWidget.h"
 #include "RobotInstructionPropertySchema.h"
+#include "RunLogger.h"
+
+#include "../../PropertyCore/inc/PropertyTypes.h"
 
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
@@ -37,6 +44,36 @@ const property_core::PropertyDescriptor* backendPropertyDescriptorForKey(const Q
 {
 	const std::string keyStd = key.toStdString();
 	return backend_property_schema::findAnyBackendPropertyDescriptor(keyStd);
+}
+
+const property_core::PropertyDescriptor* panelPropertyDescriptorForKey(const QString& key)
+{
+	if (const property_core::PropertyDescriptor* d = instructionPropertyDescriptorForKey(key))
+	{
+		return d;
+	}
+	return backendPropertyDescriptorForKey(key);
+}
+
+QString snapshotPropertyValueForKey(const nlohmann::json& rows, const QString& key)
+{
+	if (!rows.is_array() || key.isEmpty())
+	{
+		return {};
+	}
+	const std::string want = key.toStdString();
+	for (const auto& r : rows)
+	{
+		if (!r.is_object())
+		{
+			continue;
+		}
+		if (r.value(backend_property_json::kKey, std::string()) == want)
+		{
+			return QString::fromStdString(r.value(backend_property_json::kValue, std::string()));
+		}
+	}
+	return {};
 }
 
 int propertyEditorTypeForKey(const QString& key, bool editable)
@@ -82,6 +119,121 @@ QString variantValueToString(const QVariant& value)
 		return value.toString();
 	}
 }
+
+bool isPoseComponentKey(const QString& key)
+{
+	return key == QStringLiteral("pose.x") || key == QStringLiteral("pose.y") || key == QStringLiteral("pose.z");
+}
+
+bool isRotationComponentKey(const QString& key)
+{
+	return key == QStringLiteral("rotation.x") || key == QStringLiteral("rotation.y") || key == QStringLiteral("rotation.z");
+}
+
+bool updateVec3ComponentFromKey(const QString& key, const QString& valueText, BackendVec3& ioVec)
+{
+	bool ok = false;
+	const double v = valueText.toDouble(&ok);
+	if (!ok)
+	{
+		return false;
+	}
+	if (key.endsWith(QStringLiteral(".x")))
+	{
+		ioVec.x = v;
+		return true;
+	}
+	if (key.endsWith(QStringLiteral(".y")))
+	{
+		ioVec.y = v;
+		return true;
+	}
+	if (key.endsWith(QStringLiteral(".z")))
+	{
+		ioVec.z = v;
+		return true;
+	}
+	return false;
+}
+
+std::string formatWorldMatrixCompact(const osg::Matrixd& m)
+{
+	std::ostringstream oss;
+	oss << std::fixed << std::setprecision(6);
+	for (int r = 0; r < 4; ++r)
+	{
+		oss << '[';
+		for (int c = 0; c < 4; ++c)
+		{
+			if (c != 0)
+			{
+				oss << ", ";
+			}
+			oss << m(r, c);
+		}
+		oss << ']';
+		if (r != 3)
+		{
+			oss << ' ';
+		}
+	}
+	return oss.str();
+}
+
+bool matrixHasInvalidNumber(const osg::Matrixd& m)
+{
+	for (int r = 0; r < 4; ++r)
+	{
+		for (int c = 0; c < 4; ++c)
+		{
+			const double v = m(r, c);
+			if (!std::isfinite(v))
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+void logBackendWorldMatrixAfterPropertyWrite(
+	const char* sourceTag,
+	const std::string& propertyKey,
+	const std::string& propertyValue,
+	OsgWidget* osg,
+	const BackendDataBase& data,
+	bool syncApplied)
+{
+	if (!osg)
+	{
+		return;
+	}
+	osg::Matrixd world;
+	if (!osg->getBackendRootWorldMatrix(data.id(), world))
+	{
+		RunLogger::debug(std::string("[PropertySyncDBG] ") + sourceTag + " id=" + data.id()
+			+ " key=" + propertyKey + " value=" + propertyValue
+			+ " getBackendRootWorldMatrix failed; hasBranch="
+			+ (osg->hasBackendObjectBranch(data.id()) ? "true" : "false")
+			+ " syncApplied=" + (syncApplied ? "true" : "false"));
+		RunLogger::flush();
+		return;
+	}
+	const BackendVec3 p = data.pose();
+	const BackendVec3 r = data.rotation();
+	RunLogger::debug(std::string("[PropertySyncDBG] ") + sourceTag + " id=" + data.id()
+		+ " key=" + propertyKey + " value=" + propertyValue
+		+ " syncApplied=" + (syncApplied ? "true" : "false")
+		+ " pose=(" + std::to_string(p.x) + "," + std::to_string(p.y) + "," + std::to_string(p.z) + ")"
+		+ " euler=(" + std::to_string(r.x) + "," + std::to_string(r.y) + "," + std::to_string(r.z) + ")"
+		+ " world=" + formatWorldMatrixCompact(world));
+	if (matrixHasInvalidNumber(world))
+	{
+		RunLogger::error(std::string("[PropertySyncDBG] ") + sourceTag + " id=" + data.id()
+			+ " world matrix contains NaN/Inf");
+	}
+	RunLogger::flush();
+}
 } // namespace
 
 void MainWindow::appendPropertyBrowserRow(const QString& propertyKey, const QString& displayLabel, const QString& value, bool editable)
@@ -101,6 +253,14 @@ void MainWindow::appendPropertyBrowserRow(const QString& propertyKey, const QStr
 			prop = m_variantManager->addProperty(QVariant::Double, displayLabel);
 			m_variantManager->setAttribute(prop, QStringLiteral("decimals"), 6);
 			m_variantManager->setValue(prop, dv);
+			if (const property_core::PropertyDescriptor* d = panelPropertyDescriptorForKey(propertyKey))
+			{
+				if (d->constraints.rangeDouble.enabled)
+				{
+					m_variantManager->setAttribute(prop, QStringLiteral("minimum"), d->constraints.rangeDouble.minValue);
+					m_variantManager->setAttribute(prop, QStringLiteral("maximum"), d->constraints.rangeDouble.maxValue);
+				}
+			}
 		}
 	}
 	else if (editorType == QVariant::Int)
@@ -182,6 +342,10 @@ QString MainWindow::propertyDisplayLabelForKey(const QString& key, const QString
 	{
 		return tr(QStringLiteral("Rotation Z (°)"), QStringLiteral("旋转 Z (°)"));
 	}
+	if (key == QStringLiteral("pose.frame"))
+	{
+		return tr(QStringLiteral("Pose reference frame"), QStringLiteral("位姿参考系"));
+	}
 	if (key == QStringLiteral("color.r"))
 	{
 		return tr(QStringLiteral("Color R"), QStringLiteral("颜色 R"));
@@ -205,14 +369,6 @@ QString MainWindow::propertyDisplayLabelForKey(const QString& key, const QString
 	if (key == QStringLiteral("mesh.triangle_count"))
 	{
 		return tr(QStringLiteral("Triangle count"), QStringLiteral("三角形数"));
-	}
-	if (const property_core::PropertyDescriptor* descriptor = instructionPropertyDescriptorForKey(key))
-	{
-		return QString::fromStdString(descriptor->label);
-	}
-	if (const property_core::PropertyDescriptor* descriptor = backendPropertyDescriptorForKey(key))
-	{
-		return QString::fromStdString(descriptor->label);
 	}
 	if (key == QStringLiteral("motion.target.pose.x"))
 	{
@@ -254,7 +410,10 @@ QString MainWindow::propertyDisplayLabelForKey(const QString& key, const QString
 	{
 		return tr(QStringLiteral("Blend Radius (mm)"), QStringLiteral("平滑半径 (mm)"));
 	}
-	// Unknown keys: show backend English label
+	if (const property_core::PropertyDescriptor* descriptor = panelPropertyDescriptorForKey(key))
+	{
+		return QString::fromStdString(descriptor->label);
+	}
 	return labelEnFallback;
 }
 
@@ -307,48 +466,64 @@ void MainWindow::updateInstructionPropertyPanel(const std::shared_ptr<RobotInstr
 	m_updatingPropertyBrowser = false;
 }
 
-void MainWindow::syncOsgViewerFromPointCloudBackend(const std::shared_ptr<PointCloudBackendData>& pc)
+void MainWindow::syncOsgViewerFromPointCloudBackend(const std::shared_ptr<PointCloudBackendData>& pc, bool applyColor)
 {
 	OsgWidget* osg = currentOsgWidget();
 	if (!osg || !pc)
 	{
 		return;
 	}
-	const BackendVec3 pose = pc->pose();
-	const BackendVec3 rot = pc->rotation();
-	const BackendColor color = pc->color();
-	osg->setSelectedPosition(osg::Vec3f(
-		static_cast<float>(pose.x),
-		static_cast<float>(pose.y),
-		static_cast<float>(pose.z)));
-	osg->setSelectedRotationEulerDeg(osg::Vec3f(
-		static_cast<float>(rot.x),
-		static_cast<float>(rot.y),
-		static_cast<float>(rot.z)));
-	osg->setSelectedColor(color.r, color.g, color.b, color.a);
-	osg->update();
+	const std::string backendId = pc->id();
+	osg->syncSelectionForBackendId(backendId);
+	if (!osg->hasBackendObjectBranch(backendId))
+	{
+		return;
+	}
+	// Use backend pose authority to avoid gizmo-frame side effects on nested branches.
+	const bool synced = osg->syncOuterPatFromBackend(*pc);
+	if (!synced)
+	{
+		RunLogger::debug(std::string("[PropertySyncDBG] PointCloud id=") + pc->id()
+			+ " syncOuterPatFromBackend returned false");
+		RunLogger::flush();
+	}
+	if (applyColor)
+	{
+		const BackendColor color = pc->color();
+		osg->setSelectedColor(color.r, color.g, color.b, color.a);
+	}
+	osg->requestRedraw();
+	logBackendWorldMatrixAfterPropertyWrite("PointCloud", "n/a", "n/a", osg, *pc, synced);
 }
 
-void MainWindow::syncOsgViewerFromMeshBackend(const std::shared_ptr<MeshBackendData>& mesh)
+void MainWindow::syncOsgViewerFromMeshBackend(const std::shared_ptr<MeshBackendData>& mesh, bool applyColor)
 {
 	OsgWidget* osg = currentOsgWidget();
 	if (!osg || !mesh)
 	{
 		return;
 	}
-	const BackendVec3 pose = mesh->pose();
-	const BackendVec3 rot = mesh->rotation();
-	const BackendColor color = mesh->color();
-	osg->setSelectedPosition(osg::Vec3f(
-		static_cast<float>(pose.x),
-		static_cast<float>(pose.y),
-		static_cast<float>(pose.z)));
-	osg->setSelectedRotationEulerDeg(osg::Vec3f(
-		static_cast<float>(rot.x),
-		static_cast<float>(rot.y),
-		static_cast<float>(rot.z)));
-	osg->setSelectedColor(color.r, color.g, color.b, color.a);
-	osg->update();
+	const std::string backendId = mesh->id();
+	osg->syncSelectionForBackendId(backendId);
+	if (!osg->hasBackendObjectBranch(backendId))
+	{
+		return;
+	}
+	// Keep world-matrix sync path consistent with follow/kinematics updates.
+	const bool synced = osg->syncOuterPatFromBackend(*mesh);
+	if (!synced)
+	{
+		RunLogger::debug(std::string("[PropertySyncDBG] Mesh id=") + mesh->id()
+			+ " syncOuterPatFromBackend returned false");
+		RunLogger::flush();
+	}
+	if (applyColor)
+	{
+		const BackendColor color = mesh->color();
+		osg->setSelectedColor(color.r, color.g, color.b, color.a);
+	}
+	osg->requestRedraw();
+	logBackendWorldMatrixAfterPropertyWrite("Mesh", "n/a", "n/a", osg, *mesh, synced);
 }
 
 void MainWindow::updatePropertyPanel(const std::shared_ptr<BackendDataBase>& data)
@@ -418,7 +593,21 @@ void MainWindow::updatePropertyPanel(const std::shared_ptr<BackendDataBase>& dat
 		const std::string valueStr = r.value(backend_property_json::kValue, std::string());
 		const QString key = QString::fromStdString(keyStr);
 		const QString label = propertyDisplayLabelForKey(key, QString::fromStdString(labelStr));
-		const QString val = QString::fromStdString(valueStr);
+		QString val = QString::fromStdString(valueStr);
+		if (isPoseComponentKey(key))
+		{
+			const BackendVec3 p = data->poseInFrame(data->poseReferenceFrame(), propMgr);
+			if (key == QStringLiteral("pose.x")) val = QString::number(p.x, 'g', 12);
+			if (key == QStringLiteral("pose.y")) val = QString::number(p.y, 'g', 12);
+			if (key == QStringLiteral("pose.z")) val = QString::number(p.z, 'g', 12);
+		}
+		else if (isRotationComponentKey(key))
+		{
+			const BackendVec3 rFrame = data->rotationInFrame(data->poseReferenceFrame(), propMgr);
+			if (key == QStringLiteral("rotation.x")) val = QString::number(rFrame.x, 'g', 12);
+			if (key == QStringLiteral("rotation.y")) val = QString::number(rFrame.y, 'g', 12);
+			if (key == QStringLiteral("rotation.z")) val = QString::number(rFrame.z, 'g', 12);
+		}
 		appendPropertyBrowserRow(key, label, val, editable);
 	}
 
@@ -500,14 +689,79 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	DocumentPage* docPage = currentPage();
 	BackendDataManager* propMgr = docPage ? &docPage->backend() : nullptr;
 
+	const nlohmann::json rowsBefore = data->snapshotPropertyRows(propMgr);
+	const QString oldValue = snapshotPropertyValueForKey(rowsBefore, propertyKey);
+
 	std::string err;
-	if (!data->applyPropertyChange(keyUtf8, valueUtf8, &err, propMgr))
+	bool applyOk = false;
+	if (isPoseComponentKey(propertyKey))
 	{
+		const BackendPoseReferenceFrame frame = data->poseReferenceFrame();
+		BackendVec3 poseFrame = data->poseInFrame(frame, propMgr);
+		if (!updateVec3ComponentFromKey(propertyKey, valueText, poseFrame))
+		{
+			updatePropertyPanel(data);
+			return;
+		}
+		data->setPoseInFrame(poseFrame, frame, propMgr);
+		applyOk = true;
+	}
+	else if (isRotationComponentKey(propertyKey))
+	{
+		const BackendPoseReferenceFrame frame = data->poseReferenceFrame();
+		BackendVec3 rotFrame = data->rotationInFrame(frame, propMgr);
+		if (!updateVec3ComponentFromKey(propertyKey, valueText, rotFrame))
+		{
+			updatePropertyPanel(data);
+			return;
+		}
+		data->setRotationInFrame(rotFrame, frame, propMgr);
+		applyOk = true;
+	}
+	else
+	{
+		applyOk = data->applyPropertyChange(keyUtf8, valueUtf8, &err, propMgr);
+	}
+	if (!applyOk)
+	{
+		RunLogger::debug(std::string("[PropertyCommitDBG] apply failed id=") + data->id()
+			+ " key=" + keyUtf8
+			+ " old=" + oldValue.toStdString()
+			+ " new=" + valueUtf8
+			+ " err=" + err);
+		RunLogger::flush();
 		updatePropertyPanel(data);
 		return;
 	}
+	RunLogger::debug(std::string("[PropertyCommitDBG] apply ok id=") + data->id()
+		+ " key=" + keyUtf8
+		+ " old=" + oldValue.toStdString()
+		+ " new=" + valueUtf8);
+	RunLogger::flush();
 
-	if (propertyKey.startsWith(QStringLiteral("follow.")))
+	const property_core::PropertyDescriptor* backendDesc = backendPropertyDescriptorForKey(propertyKey);
+	const quint32 semanticU = backendDesc != nullptr
+		? property_core::semanticFlagsBits(backendDesc->semanticFlags)
+		: property_core::semanticFlagsBits(property_core::PropertySemanticFlags::LegacyFullCommitBehavior);
+
+	const bool followKey = propertyKey.startsWith(QStringLiteral("follow."));
+	const bool legacy = (semanticU
+			& property_core::semanticFlagsBits(property_core::PropertySemanticFlags::LegacyFullCommitBehavior))
+		!= 0U;
+	const bool needOsgSync = followKey || legacy
+		|| (semanticU
+			& property_core::semanticFlagsBits(property_core::PropertySemanticFlags::AffectsBackendRootWorldXform))
+			!= 0U
+		|| (semanticU & property_core::semanticFlagsBits(property_core::PropertySemanticFlags::AffectsColorOnly)) != 0U;
+	RunLogger::debug(std::string("[PropertyCommitDBG] semantics id=") + data->id()
+		+ " key=" + keyUtf8
+		+ " semanticBits=" + std::to_string(static_cast<unsigned long long>(semanticU))
+		+ " needOsgSync=" + (needOsgSync ? "true" : "false")
+		+ " followKey=" + (followKey ? "true" : "false")
+		+ " legacy=" + (legacy ? "true" : "false"));
+	RunLogger::flush();
+
+	if (followKey)
 	{
 		afterBackendFollowPropertyEdited(propertyKey, valueText);
 	}
@@ -516,16 +770,28 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 		docPage->markFollowAttachmentDirtyFromBackendMove(*propMgr, data->id());
 	}
 
-	if (auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(data))
+	if (needOsgSync)
 	{
-		syncOsgViewerFromPointCloudBackend(pc);
-	}
-	else if (auto mesh = std::dynamic_pointer_cast<MeshBackendData>(data))
-	{
-		syncOsgViewerFromMeshBackend(mesh);
+		RunLogger::debug(std::string("[PropertySyncDBG] commit id=") + data->id()
+			+ " key=" + keyUtf8 + " value=" + valueUtf8
+			+ " needOsgSync=true followKey=" + (followKey ? "true" : "false"));
+		RunLogger::flush();
+		const bool applyColor = (semanticU
+				& property_core::semanticFlagsBits(property_core::PropertySemanticFlags::AffectsColorOnly))
+			!= 0U;
+		if (auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(data))
+		{
+			syncOsgViewerFromPointCloudBackend(pc, applyColor);
+		}
+		else if (auto mesh = std::dynamic_pointer_cast<MeshBackendData>(data))
+		{
+			syncOsgViewerFromMeshBackend(mesh, applyColor);
+		}
 	}
 
 	schedulePropertyPanelCommitRefresh(data);
+
+	emit backendPropertyCommitted(QString::fromStdString(data->id()), propertyKey, oldValue, valueText, semanticU);
 }
 
 void MainWindow::flushFollowTargetNamePropertyEdit()
@@ -554,7 +820,11 @@ void MainWindow::flushFollowTargetNamePropertyEdit()
 	DocumentPage* docPage = currentPage();
 	BackendDataManager* propMgr = docPage ? &docPage->backend() : nullptr;
 
-	const QByteArray keyBytes = QStringLiteral("follow.targetName").toUtf8();
+	const nlohmann::json rowsBefore = data->snapshotPropertyRows(propMgr);
+	const QString propertyKey = QStringLiteral("follow.targetName");
+	const QString oldValue = snapshotPropertyValueForKey(rowsBefore, propertyKey);
+
+	const QByteArray keyBytes = propertyKey.toUtf8();
 	const std::string keyUtf8(keyBytes.constData(), static_cast<std::size_t>(keyBytes.size()));
 	const QByteArray valueBytes = m_followTargetNameDebounceText.toUtf8();
 	const std::string valueUtf8(valueBytes.constData(), static_cast<std::size_t>(valueBytes.size()));
@@ -567,16 +837,22 @@ void MainWindow::flushFollowTargetNamePropertyEdit()
 		return;
 	}
 
-	const QString propertyKey = QStringLiteral("follow.targetName");
+	const property_core::PropertyDescriptor* backendDesc = backendPropertyDescriptorForKey(propertyKey);
+	const quint32 semanticU = backendDesc != nullptr
+		? property_core::semanticFlagsBits(backendDesc->semanticFlags)
+		: property_core::semanticFlagsBits(property_core::PropertySemanticFlags::LegacyFullCommitBehavior);
+
 	afterBackendFollowPropertyEdited(propertyKey, m_followTargetNameDebounceText);
 	if (auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(data))
 	{
-		syncOsgViewerFromPointCloudBackend(pc);
+		syncOsgViewerFromPointCloudBackend(pc, false);
 	}
 	else if (auto mesh = std::dynamic_pointer_cast<MeshBackendData>(data))
 	{
-		syncOsgViewerFromMeshBackend(mesh);
+		syncOsgViewerFromMeshBackend(mesh, false);
 	}
+
+	emit backendPropertyCommitted(QString::fromStdString(data->id()), propertyKey, oldValue, m_followTargetNameDebounceText, semanticU);
 
 	m_followTargetNameDebounceBackendId.clear();
 	m_followTargetNameDebounceText.clear();

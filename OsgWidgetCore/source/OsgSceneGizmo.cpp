@@ -10,8 +10,17 @@
 
 #include "OsgScene.h"
 
+#include "ObjectGizmoFrame.h"
+
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <iomanip>
+#include <sstream>
+#include <string>
+
+#include "RunLogger.h"
 
 #include <osg/GL>
 #include <osg/BlendFunc>
@@ -19,12 +28,14 @@
 #include <osg/Depth>
 #include <osg/Geode>
 #include <osg/Geometry>
+#include <osg/Group>
 #include <osg/LineWidth>
+#include <osg/MatrixTransform>
 #include <osg/Node>
 #include <osg/PolygonOffset>
 #include <osg/PositionAttitudeTransform>
-#include <osg/ShapeDrawable>
 #include <osg/Shape>
+#include <osg/ShapeDrawable>
 #include <osg/StateSet>
 #include <osg/StateAttribute>
 #include <osg/Matrixd>
@@ -34,133 +45,181 @@
 #include <osg/Vec4d>
 #include <osgViewer/Viewer>
 
-osg::Node* OsgScene::createCompassNode()
+namespace
 {
-	const float axisLen = 120.0f;
-	const float headLen = 16.0f;
-	const float headRadius = 6.0f;
-	const float ringRadius = 65.0f;
-	const int ringSegments = 72;
-
-	osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
-	vertices->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
-	vertices->push_back(osg::Vec3(axisLen, 0.0f, 0.0f));
-	vertices->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
-	vertices->push_back(osg::Vec3(0.0f, axisLen, 0.0f));
-	vertices->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
-	vertices->push_back(osg::Vec3(0.0f, 0.0f, axisLen));
-
-	m_compassColors = new osg::Vec4Array;
-	m_compassColors->push_back(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
-	m_compassColors->push_back(osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f));
-	m_compassColors->push_back(osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f));
-
-	osg::ref_ptr<osg::Geometry> axisGeom = new osg::Geometry;
-	axisGeom->setVertexArray(vertices.get());
-	axisGeom->setColorArray(m_compassColors.get(), osg::Array::BIND_PER_PRIMITIVE_SET);
-	axisGeom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, 2));
-	axisGeom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 2, 2));
-	axisGeom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 4, 2));
-
-	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-	geode->addDrawable(axisGeom.get());
-	// Flat triangular arrowheads at +X/+Y/+Z (clear positive direction vs line-only).
-	const float triTip = axisLen + 16.0f;
-	const float triBase = axisLen - 9.0f;
-	const float triSpan = 12.0f;
-	auto addAxisTriPointer = [&](const osg::Vec3& p0, const osg::Vec3& p1, const osg::Vec3& p2, const osg::Vec4& col) {
-		osg::ref_ptr<osg::Vec3Array> v = new osg::Vec3Array;
-		v->push_back(p0);
-		v->push_back(p1);
-		v->push_back(p2);
-		osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array;
-		ca->push_back(col);
-		osg::ref_ptr<osg::Geometry> g = new osg::Geometry;
-		g->setVertexArray(v.get());
-		g->setColorArray(ca.get(), osg::Array::BIND_OVERALL);
-		g->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, 3));
-		g->getOrCreateStateSet()->setAttributeAndModes(new osg::PolygonOffset(-1.5f, -1.5f), osg::StateAttribute::ON);
-		geode->addDrawable(g.get());
-	};
-	addAxisTriPointer(osg::Vec3(triTip, 0.0f, 0.0f), osg::Vec3(triBase, triSpan, 0.0f), osg::Vec3(triBase, -triSpan, 0.0f), osg::Vec4(1.0f, 0.12f, 0.12f, 0.96f));
-	addAxisTriPointer(osg::Vec3(0.0f, triTip, 0.0f), osg::Vec3(triSpan, triBase, 0.0f), osg::Vec3(-triSpan, triBase, 0.0f), osg::Vec4(0.12f, 1.0f, 0.12f, 0.96f));
-	addAxisTriPointer(osg::Vec3(0.0f, 0.0f, triTip), osg::Vec3(triSpan, 0.0f, triBase), osg::Vec3(-triSpan, 0.0f, triBase), osg::Vec4(0.12f, 0.35f, 1.0f, 0.96f));
-
-	geode->getOrCreateStateSet()->setAttribute(new osg::LineWidth(6.0f));
-
-	auto addArrow = [&](const osg::Vec3& center, const osg::Vec3& dir, const osg::Vec4& color) {
-		osg::ref_ptr<osg::Cone> cone = new osg::Cone(center, headRadius, headLen);
-		osg::Quat rot;
-		rot.makeRotate(osg::Vec3(0.0f, 0.0f, 1.0f), dir);
-		cone->setRotation(rot);
-		osg::ref_ptr<osg::ShapeDrawable> shape = new osg::ShapeDrawable(cone.get());
-		shape->setColor(color);
-		geode->addDrawable(shape.get());
-	};
-
-	addArrow(osg::Vec3(axisLen + headLen * 0.5f + 18.0f, 0.0f, 0.0f), osg::Vec3(1.0f, 0.0f, 0.0f), osg::Vec4(1.0f, 0.2f, 0.2f, 1.0f));
-	addArrow(osg::Vec3(0.0f, axisLen + headLen * 0.5f + 18.0f, 0.0f), osg::Vec3(0.0f, 1.0f, 0.0f), osg::Vec4(0.2f, 1.0f, 0.2f, 1.0f));
-	addArrow(osg::Vec3(0.0f, 0.0f, axisLen + headLen * 0.5f + 18.0f), osg::Vec3(0.0f, 0.0f, 1.0f), osg::Vec4(0.2f, 0.4f, 1.0f, 1.0f));
-
-	auto addRing = [&](int plane, const osg::Vec4& color) {
-		osg::ref_ptr<osg::Vec3Array> ringVertices = new osg::Vec3Array;
-		for (int i = 0; i <= ringSegments; ++i)
-		{
-			const float a = osg::PI * 2.0f * static_cast<float>(i) / static_cast<float>(ringSegments);
-			const float c = std::cos(a) * ringRadius;
-			const float s = std::sin(a) * ringRadius;
-			if (plane == 0) ringVertices->push_back(osg::Vec3(0.0f, c, s));
-			if (plane == 1) ringVertices->push_back(osg::Vec3(c, 0.0f, s));
-			if (plane == 2) ringVertices->push_back(osg::Vec3(c, s, 0.0f));
-		}
-
-		osg::ref_ptr<osg::Geometry> ringGeom = new osg::Geometry;
-		ringGeom->setVertexArray(ringVertices.get());
-		osg::ref_ptr<osg::Vec4Array> ringColor = new osg::Vec4Array;
-		ringColor->push_back(color);
-		ringGeom->setColorArray(ringColor.get(), osg::Array::BIND_OVERALL);
-		if (plane == 0) m_ringColorX = ringColor;
-		if (plane == 1) m_ringColorY = ringColor;
-		if (plane == 2) m_ringColorZ = ringColor;
-		ringGeom->addPrimitiveSet(new osg::DrawArrays(GL_LINE_STRIP, 0, static_cast<GLsizei>(ringVertices->size())));
-		geode->addDrawable(ringGeom.get());
-	};
-
-	addRing(0, osg::Vec4(1.0f, 0.35f, 0.35f, 0.9f));
-	addRing(1, osg::Vec4(0.35f, 1.0f, 0.35f, 0.9f));
-	addRing(2, osg::Vec4(0.35f, 0.55f, 1.0f, 0.9f));
-
-	osg::ref_ptr<osg::Sphere> sphere = new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.0f), 7.0f);
-	osg::ref_ptr<osg::ShapeDrawable> center = new osg::ShapeDrawable(sphere.get());
-	center->setColor(osg::Vec4(1.0f, 1.0f, 1.0f, 0.45f));
-	geode->addDrawable(center.get());
-
-	osg::StateSet* ss = geode->getOrCreateStateSet();
-	ss->setAttributeAndModes(new osg::PolygonOffset(-1.0f, -1.0f), osg::StateAttribute::ON);
-	ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
-	ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-	ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
-	osg::ref_ptr<osg::Depth> depth = new osg::Depth;
-	depth->setFunction(osg::Depth::ALWAYS);
-	depth->setWriteMask(false);
-	ss->setAttributeAndModes(depth.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-	ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-
-	return geode.release();
+bool gizmoPivotDiagEnabled()
+{
+	const char* const e = std::getenv("POINTCLOUD_GIZMO_PIVOT_DIAG");
+	return e != nullptr && e[0] != '\0' && std::strcmp(e, "0") != 0;
 }
 
-void OsgScene::updateCompassLocalOffsetForModelOrigin()
+osg::NodePath nodePathToSceneRootFromLeaf(const osg::Node* leaf)
+{
+	osg::NodePath path;
+	for (const osg::Node* n = leaf; n != nullptr; n = n->getNumParents() > 0 ? n->getParent(0) : nullptr)
+	{
+		path.insert(path.begin(), const_cast<osg::Node*>(n));
+	}
+	return path;
+}
+} // namespace
+
+osg::Node* OsgScene::createCompassNode()
+{
+	for (int i = 0; i < 3; ++i)
+	{
+		m_compassAxisBranch[i] = nullptr;
+		m_compassRingBranch[i] = nullptr;
+	}
+
+	const float axisLen = 120.0f;
+	const float coneH = 20.0f;
+	const float coneR = 7.0f;
+	const float shaftEnd = axisLen - 12.0f;
+	const float tipExtension = 6.0f;
+	const float ringRadius = 65.0f;
+	const float tubeR = 2.85f;
+	const int ringSegments = 36;
+
+	auto applyCompassStateSet = [](osg::StateSet* ss) {
+		ss->setAttributeAndModes(new osg::PolygonOffset(-1.0f, -1.0f), osg::StateAttribute::ON);
+		ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
+		ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+		ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+		ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
+		osg::ref_ptr<osg::Depth> depth = new osg::Depth;
+		depth->setFunction(osg::Depth::ALWAYS);
+		depth->setWriteMask(false);
+		ss->setAttributeAndModes(depth.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+		ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	};
+
+	auto addPositiveAxis = [&](const osg::Vec3& p1, const osg::Vec3& coneDir, const osg::Vec4& col) -> osg::ref_ptr<osg::Geode> {
+		osg::ref_ptr<osg::Geode> g = new osg::Geode;
+		osg::ref_ptr<osg::Vec3Array> v = new osg::Vec3Array;
+		v->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
+		v->push_back(p1);
+		osg::ref_ptr<osg::Vec4Array> ca = new osg::Vec4Array;
+		ca->push_back(col);
+		osg::ref_ptr<osg::Geometry> lineGeom = new osg::Geometry;
+		lineGeom->setVertexArray(v.get());
+		lineGeom->setColorArray(ca.get(), osg::Array::BIND_OVERALL);
+		lineGeom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, 2));
+		g->addDrawable(lineGeom.get());
+		g->getOrCreateStateSet()->setAttribute(new osg::LineWidth(6.0f));
+
+		const osg::Vec3 tip = coneDir * (axisLen + tipExtension);
+		const osg::Vec3 coneCenter = tip - coneDir * (coneH * 0.5f);
+		osg::ref_ptr<osg::Cone> cone = new osg::Cone(osg::Vec3(0.0f, 0.0f, 0.0f), coneR, coneH);
+		osg::Quat rot;
+		rot.makeRotate(osg::Vec3(0.0f, 0.0f, 1.0f), coneDir);
+		cone->setRotation(rot);
+		cone->setCenter(coneCenter);
+		osg::ref_ptr<osg::ShapeDrawable> coneDraw = new osg::ShapeDrawable(cone.get());
+		coneDraw->setColor(col);
+		g->addDrawable(coneDraw.get());
+		return g;
+	};
+
+	auto addTubeRing = [&](int plane, const osg::Vec4& color) -> osg::ref_ptr<osg::Group> {
+		osg::ref_ptr<osg::Group> ringGroup = new osg::Group;
+		const float h = (osg::PI * 2.0f * ringRadius / static_cast<float>(ringSegments)) * 1.18f;
+		for (int i = 0; i < ringSegments; ++i)
+		{
+			const float am = osg::PI * 2.0f * (static_cast<float>(i) + 0.5f) / static_cast<float>(ringSegments);
+			osg::Vec3 p;
+			osg::Vec3 tangent;
+			if (plane == 0)
+			{
+				p.set(0.0f, std::cos(am) * ringRadius, std::sin(am) * ringRadius);
+				tangent.set(0.0f, -std::sin(am), std::cos(am));
+			}
+			else if (plane == 1)
+			{
+				p.set(std::cos(am) * ringRadius, 0.0f, std::sin(am) * ringRadius);
+				tangent.set(-std::sin(am), 0.0f, std::cos(am));
+			}
+			else
+			{
+				p.set(std::cos(am) * ringRadius, std::sin(am) * ringRadius, 0.0f);
+				tangent.set(-std::sin(am), std::cos(am), 0.0f);
+			}
+			osg::Quat rot;
+			rot.makeRotate(osg::Vec3(0.0f, 0.0f, 1.0f), tangent);
+			osg::ref_ptr<osg::Cylinder> cyl = new osg::Cylinder(osg::Vec3(0.0f, 0.0f, 0.0f), tubeR, h);
+			cyl->setRotation(rot);
+			osg::ref_ptr<osg::MatrixTransform> seg = new osg::MatrixTransform;
+			seg->setMatrix(osg::Matrix::translate(p));
+			osg::ref_ptr<osg::ShapeDrawable> sd = new osg::ShapeDrawable(cyl.get());
+			sd->setColor(color);
+			osg::ref_ptr<osg::Geode> segGeode = new osg::Geode;
+			segGeode->addDrawable(sd.get());
+			seg->addChild(segGeode.get());
+			ringGroup->addChild(seg.get());
+		}
+		return ringGroup;
+	};
+
+	osg::ref_ptr<osg::Group> root = new osg::Group;
+	applyCompassStateSet(root->getOrCreateStateSet());
+
+	const osg::Vec4 red(1.0f, 0.15f, 0.15f, 1.0f);
+	const osg::Vec4 green(0.15f, 1.0f, 0.15f, 1.0f);
+	const osg::Vec4 blue(0.15f, 0.45f, 1.0f, 1.0f);
+
+	osg::ref_ptr<osg::MatrixTransform> ax = new osg::MatrixTransform;
+	ax->addChild(addPositiveAxis(osg::Vec3(shaftEnd, 0.0f, 0.0f), osg::Vec3(1.0f, 0.0f, 0.0f), red).get());
+	m_compassAxisBranch[0] = ax;
+	root->addChild(ax.get());
+
+	osg::ref_ptr<osg::MatrixTransform> ay = new osg::MatrixTransform;
+	ay->addChild(addPositiveAxis(osg::Vec3(0.0f, shaftEnd, 0.0f), osg::Vec3(0.0f, 1.0f, 0.0f), green).get());
+	m_compassAxisBranch[1] = ay;
+	root->addChild(ay.get());
+
+	osg::ref_ptr<osg::MatrixTransform> az = new osg::MatrixTransform;
+	az->addChild(addPositiveAxis(osg::Vec3(0.0f, 0.0f, shaftEnd), osg::Vec3(0.0f, 0.0f, 1.0f), blue).get());
+	m_compassAxisBranch[2] = az;
+	root->addChild(az.get());
+
+	osg::ref_ptr<osg::MatrixTransform> rx = new osg::MatrixTransform;
+	rx->addChild(addTubeRing(0, osg::Vec4(1.0f, 0.35f, 0.35f, 0.92f)).get());
+	m_compassRingBranch[0] = rx;
+	root->addChild(rx.get());
+
+	osg::ref_ptr<osg::MatrixTransform> ry = new osg::MatrixTransform;
+	ry->addChild(addTubeRing(1, osg::Vec4(0.35f, 1.0f, 0.35f, 0.92f)).get());
+	m_compassRingBranch[1] = ry;
+	root->addChild(ry.get());
+
+	osg::ref_ptr<osg::MatrixTransform> rz = new osg::MatrixTransform;
+	rz->addChild(addTubeRing(2, osg::Vec4(0.35f, 0.55f, 1.0f, 0.92f)).get());
+	m_compassRingBranch[2] = rz;
+	root->addChild(rz.get());
+
+	return root.release();
+}
+
+void OsgScene::syncCompassGizmoOrientation()
 {
 	if (!m_compassTransform.valid())
 	{
 		return;
 	}
-	// Outer PAT at center+pose; inner at -center → file origin maps to parent local -center under same attitude as outer.
-	m_compassTransform->setPosition(osg::Vec3d(
-		static_cast<double>(-m_modelCenter.x()),
-		static_cast<double>(-m_modelCenter.y()),
-		static_cast<double>(-m_modelCenter.z())));
+	ObjectGizmoFrame gf;
+	if (!readActiveObjectGizmoFrame(gf))
+	{
+		m_compassTransform->setAttitude(osg::Quat());
+		return;
+	}
+	if (m_transformGizmoFrame == TransformGizmoFrame::World)
+	{
+		m_compassTransform->setAttitude(gf.attitude().inverse());
+	}
+	else
+	{
+		m_compassTransform->setAttitude(osg::Quat());
+	}
 }
 
 void OsgScene::attachCompassGraphics()
@@ -170,28 +229,57 @@ void OsgScene::attachCompassGraphics()
 	{
 		return;
 	}
-	if (m_compassNode.valid())
+	// Old layout: compass geode was a direct child of PAT; screen scale on PAT skewed the pivot away from model origin.
+	if (m_compassNode.valid() && !m_compassScaleTransform.valid())
+	{
+		m_compassTransform->removeChild(m_compassNode.get());
+		m_compassNode = nullptr;
+		for (int i = 0; i < 3; ++i)
+		{
+			m_compassAxisBranch[i] = nullptr;
+			m_compassRingBranch[i] = nullptr;
+		}
+	}
+	if (m_compassScaleTransform.valid() && !m_compassNode.valid())
+	{
+		m_compassTransform->removeChild(m_compassScaleTransform.get());
+		m_compassScaleTransform = nullptr;
+	}
+	if (m_compassNode.valid() && m_compassScaleTransform.valid())
 	{
 		m_compassTransform->setNodeMask(kMaskHelper);
 		return;
 	}
+	m_compassScaleTransform = new osg::MatrixTransform;
+	m_compassScaleTransform->setMatrix(osg::Matrix::identity());
 	m_compassNode = createCompassNode();
-	m_compassTransform->addChild(m_compassNode.get());
+	m_compassScaleTransform->addChild(m_compassNode.get());
+	m_compassTransform->addChild(m_compassScaleTransform.get());
 	m_compassTransform->setNodeMask(kMaskHelper);
-	updateCompassLocalOffsetForModelOrigin();
+	m_compassTransform->setPosition(osg::Vec3d(0.0, 0.0, 0.0));
 }
 
 void OsgScene::detachCompassGraphics()
 {
-	if (m_compassTransform.valid() && m_compassNode.valid())
+	if (m_compassTransform.valid())
 	{
-		m_compassTransform->removeChild(m_compassNode.get());
+		if (m_compassScaleTransform.valid())
+		{
+			m_compassScaleTransform->setMatrix(osg::Matrix::identity());
+			m_compassTransform->removeChild(m_compassScaleTransform.get());
+		}
+		else if (m_compassNode.valid())
+		{
+			m_compassTransform->removeChild(m_compassNode.get());
+		}
 	}
 	m_compassNode = nullptr;
-	m_compassColors = nullptr;
-	m_ringColorX = nullptr;
-	m_ringColorY = nullptr;
-	m_ringColorZ = nullptr;
+	m_compassScaleTransform = nullptr;
+	for (int i = 0; i < 3; ++i)
+	{
+		m_compassAxisBranch[i] = nullptr;
+		m_compassRingBranch[i] = nullptr;
+	}
 	if (m_compassTransform.valid())
 	{
 		m_compassTransform->setNodeMask(0u);
@@ -215,57 +303,66 @@ void OsgScene::refreshCompassDrawVisibility()
 	}
 }
 
-void OsgScene::updateCompassHighlight(int axis)
+void OsgScene::updateCompassHighlight(int axis, bool highlightRing)
 {
-	if (!m_compassColors.valid() || m_compassColors->size() < 3)
+	for (int i = 0; i < 3; ++i)
+	{
+		if (m_compassAxisBranch[i].valid())
+		{
+			m_compassAxisBranch[i]->setMatrix(osg::Matrix::identity());
+		}
+		if (m_compassRingBranch[i].valid())
+		{
+			m_compassRingBranch[i]->setMatrix(osg::Matrix::identity());
+		}
+	}
+	if (axis == kGizmoAxisNone)
 	{
 		return;
 	}
-
-	(*m_compassColors)[0] = osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f);
-	(*m_compassColors)[1] = osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
-	(*m_compassColors)[2] = osg::Vec4(0.0f, 0.0f, 1.0f, 1.0f);
-	if (axis == kGizmoAxisX) (*m_compassColors)[0] = osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f);
-	if (axis == kGizmoAxisY) (*m_compassColors)[1] = osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f);
-	if (axis == kGizmoAxisZ) (*m_compassColors)[2] = osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f);
-	m_compassColors->dirty();
-
-	if (m_ringColorX.valid()) { (*m_ringColorX)[0] = osg::Vec4(1.0f, 0.35f, 0.35f, 0.9f); m_ringColorX->dirty(); }
-	if (m_ringColorY.valid()) { (*m_ringColorY)[0] = osg::Vec4(0.35f, 1.0f, 0.35f, 0.9f); m_ringColorY->dirty(); }
-	if (m_ringColorZ.valid()) { (*m_ringColorZ)[0] = osg::Vec4(0.35f, 0.55f, 1.0f, 0.9f); m_ringColorZ->dirty(); }
-
-	if (axis == kGizmoAxisX && m_ringColorX.valid()) { (*m_ringColorX)[0] = osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f); m_ringColorX->dirty(); }
-	if (axis == kGizmoAxisY && m_ringColorY.valid()) { (*m_ringColorY)[0] = osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f); m_ringColorY->dirty(); }
-	if (axis == kGizmoAxisZ && m_ringColorZ.valid()) { (*m_ringColorZ)[0] = osg::Vec4(1.0f, 1.0f, 0.0f, 1.0f); m_ringColorZ->dirty(); }
-
-	if (m_compassNode.valid())
+	const int idx = axis - 1;
+	if (idx < 0 || idx > 2)
 	{
-		osg::Geode* geode = dynamic_cast<osg::Geode*>(m_compassNode.get());
-		if (geode && geode->getNumDrawables() > 0)
+		return;
+	}
+	const float s = 1.28f;
+	const osg::Matrix hi = osg::Matrix::scale(s, s, s);
+	if (highlightRing)
+	{
+		if (m_compassRingBranch[idx].valid())
 		{
-			osg::Drawable* drawable = geode->getDrawable(0);
-			if (drawable)
-			{
-				drawable->dirtyDisplayList();
-				drawable->dirtyBound();
-			}
+			m_compassRingBranch[idx]->setMatrix(hi);
+		}
+	}
+	else
+	{
+		if (m_compassAxisBranch[idx].valid())
+		{
+			m_compassAxisBranch[idx]->setMatrix(hi);
 		}
 	}
 }
 
 void OsgScene::updateCompassScale()
 {
-	if (!m_compassTransform.valid() || !m_viewer.valid() || !m_viewer->getCamera() || !m_selectionActive
-		|| !m_objectSelectionMode || !m_compassNode.valid())
+	if (!m_compassTransform.valid() || !m_compassScaleTransform.valid() || !m_viewer.valid() || !m_viewer->getCamera()
+		|| !m_selectionActive || !m_objectSelectionMode || !m_compassNode.valid())
 	{
 		return;
 	}
 
 	osg::Vec3d eye, center, up;
 	m_viewer->getCamera()->getViewMatrixAsLookAt(eye, center, up);
-	const osg::Vec3d anchor = m_selectedTransform.valid()
-		? osg::Vec3d(m_selectedTransform->getPosition())
-		: center;
+	const osg::Vec3d anchor = [&]() {
+		osg::Vec3f pivotF;
+		computeGizmoPivotWorld(pivotF);
+		if (m_activeBackendOuterPat.valid())
+		{
+			return osg::Vec3d(static_cast<double>(pivotF.x()), static_cast<double>(pivotF.y()),
+				static_cast<double>(pivotF.z()));
+		}
+		return center;
+	}();
 	const double distance = (eye - anchor).length();
 
 	if (m_gizmoReferenceDistance < 0.0 || m_gizmoReferenceDistance <= 1e-6)
@@ -276,12 +373,18 @@ void OsgScene::updateCompassScale()
 	}
 	double scale = m_gizmoReferenceScale * (distance / m_gizmoReferenceDistance);
 	scale = std::max(0.3, std::min(1200.0, scale));
-	m_compassTransform->setScale(osg::Vec3d(scale, scale, scale));
+	m_compassScaleTransform->setMatrix(osg::Matrixd::scale(scale, scale, scale));
 }
 
-int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing) const
+int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing, bool* outPickedRing) const
 {
-	if (!m_selectedTransform.valid() || !m_viewer.valid() || !m_viewer->getCamera()
+	if (outPickedRing)
+	{
+		*outPickedRing = false;
+	}
+	ObjectGizmoFrame gizmoFrame;
+	const bool haveFrame = readActiveObjectGizmoFrame(gizmoFrame);
+	if (!haveFrame || !m_viewer.valid() || !m_viewer->getCamera()
 		|| viewportWidth() <= 0 || viewportHeight() <= 0)
 	{
 		return kGizmoAxisNone;
@@ -296,10 +399,13 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing)
 	const double my = mouseY * dpr;
 
 	float gizmoScale = 1.0f;
-	if (m_compassTransform.valid())
+	if (m_compassScaleTransform.valid())
 	{
-		const osg::Vec3d& sc = m_compassTransform->getScale();
-		gizmoScale = static_cast<float>(std::max(sc.x(), std::max(sc.y(), sc.z())));
+		const osg::Matrixd& sm = m_compassScaleTransform->getMatrix();
+		const double sx = std::abs(sm(0, 0));
+		const double sy = std::abs(sm(1, 1));
+		const double sz = std::abs(sm(2, 2));
+		gizmoScale = static_cast<float>(std::max(sx, std::max(sy, sz)));
 		if (gizmoScale < 1e-6f)
 		{
 			gizmoScale = 1.0f;
@@ -310,7 +416,7 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing)
 
 	osg::Camera* camera = m_viewer->getCamera();
 	const osg::Matrixd mvp = camera->getViewMatrix() * camera->getProjectionMatrix();
-	const osg::Quat attitude = m_selectedTransform->getAttitude();
+	const osg::Quat attitude = gizmoFrame.attitude();
 	osg::Vec3f origin;
 	computeGizmoPivotWorld(origin);
 	osg::Quat compassAtt;
@@ -394,7 +500,14 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing)
 		if (drx < best) { best = drx; ringAxis = kGizmoAxisX; }
 		if (dry < best) { best = dry; ringAxis = kGizmoAxisY; }
 		if (drz < best) { best = drz; ringAxis = kGizmoAxisZ; }
-		if (ringAxis != kGizmoAxisNone) return ringAxis;
+		if (ringAxis != kGizmoAxisNone)
+		{
+			if (outPickedRing)
+			{
+				*outPickedRing = true;
+			}
+			return ringAxis;
+		}
 	}
 
 	double minDist = threshold;
@@ -408,14 +521,215 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing)
 void OsgScene::computeGizmoPivotWorld(osg::Vec3f& outPivotWorld) const
 {
 	outPivotWorld.set(0.0f, 0.0f, 0.0f);
-	if (!m_selectedTransform.valid())
+	if (m_activeBackendOuterPat.valid() && m_activeBackendOuterPat->getNumChildren() >= 1)
+	{
+		osg::NodePath path = nodePathToSceneRootFromLeaf(m_activeBackendOuterPat.get());
+		path.push_back(m_activeBackendOuterPat->getChild(0));
+		const osg::Vec3d w = osg::Vec3d(0.0, 0.0, 0.0) * osg::computeLocalToWorld(path);
+		outPivotWorld.set(static_cast<float>(w.x()), static_cast<float>(w.y()), static_cast<float>(w.z()));
+		return;
+	}
+}
+
+void OsgScene::logGizmoPivotDiagnostics(const char* reasonTag) const
+{
+	if (!gizmoPivotDiagEnabled())
 	{
 		return;
 	}
-	const osg::Vec3f outerPos = m_selectedTransform->getPosition();
-	const osg::Quat attitude = m_selectedTransform->getAttitude();
-	const osg::Vec3f compassPosLocal(-m_modelCenter.x(), -m_modelCenter.y(), -m_modelCenter.z());
-	outPivotWorld = outerPos + attitude * compassPosLocal;
+	const char* const tag = (reasonTag && reasonTag[0] != '\0') ? reasonTag : "?";
+
+	auto logLine = [](const std::string& line) {
+		RunLogger::debug(line);
+	};
+
+	osg::Vec3f pivot{};
+	computeGizmoPivotWorld(pivot);
+
+	{
+		std::ostringstream oss;
+		oss << "[GizmoPivotDiag][" << tag << "] activeBackendId=" << m_activeBackendId << " transformGizmoFrame="
+			<< (m_transformGizmoFrame == TransformGizmoFrame::World ? "World" : "Local");
+		logLine(oss.str());
+	}
+	{
+		std::ostringstream oss;
+		oss << std::setprecision(8) << "  m_modelCenter=(" << m_modelCenter.x() << ',' << m_modelCenter.y() << ','
+			<< m_modelCenter.z() << ')';
+		logLine(oss.str());
+	}
+	{
+		std::ostringstream oss;
+		oss << std::setprecision(8) << "  pivotWorld(scene/file origin)=(" << pivot.x() << ',' << pivot.y()
+			<< ',' << pivot.z() << ')';
+		logLine(oss.str());
+	}
+
+	ObjectGizmoFrame gf;
+	const bool haveGizmoFrame = readActiveObjectGizmoFrame(gf);
+	if (haveGizmoFrame)
+	{
+		const osg::Vec3f cpp = gf.centerPlusPose();
+		const osg::Quat sa = gf.attitude();
+		std::ostringstream oss;
+		oss << std::setprecision(8) << "  ObjectGizmoFrame center+pose=(" << cpp.x() << ',' << cpp.y() << ',' << cpp.z()
+			<< ") quat=(" << sa.x() << ',' << sa.y() << ',' << sa.z() << ',' << sa.w() << ')';
+		logLine(oss.str());
+	}
+	else
+	{
+		logLine("  ObjectGizmoFrame unreadable (no active outer or invalid inner branch)");
+	}
+
+	if (!m_activeBackendOuterPat.valid())
+	{
+		logLine("  m_activeBackendOuterPat=null (skip scene-graph file origin)");
+		RunLogger::flush();
+		return;
+	}
+
+	osg::MatrixTransform* const outer = m_activeBackendOuterPat.get();
+	osg::Vec3d ot;
+	osg::Quat oq;
+	osg::Vec3d os;
+	osg::Quat oso;
+	outer->getMatrix().decompose(ot, oq, os, oso);
+	{
+		std::ostringstream oss;
+		oss << std::setprecision(8) << "  outerLocal decompose t=(" << ot.x() << ',' << ot.y() << ',' << ot.z()
+			<< ") quat=(" << oq.x() << ',' << oq.y() << ',' << oq.z() << ',' << oq.w() << ") scale=(" << os.x() << ','
+			<< os.y() << ',' << os.z() << ")  (decompose t != center+pose when R≠I)";
+		logLine(oss.str());
+	}
+
+	{
+		osg::Quat oqDiag;
+		osg::Vec3d otDiag;
+		osg::Vec3d osDiag;
+		osg::Quat osoDiag;
+		outer->getMatrix().decompose(otDiag, oqDiag, osDiag, osoDiag);
+		osg::Node* const innerForDiag = outer->getChild(0);
+		osg::NodePath pathToInnerDiag = nodePathToSceneRootFromLeaf(outer);
+		pathToInnerDiag.push_back(innerForDiag);
+		const osg::Vec3d fileOriginDiag = osg::Vec3d(0.0, 0.0, 0.0) * osg::computeLocalToWorld(pathToInnerDiag);
+		osg::NodePath pathOuterDiag = nodePathToSceneRootFromLeaf(outer);
+		osg::Matrixd parentWorldDiag;
+		if (pathOuterDiag.size() >= 2U)
+		{
+			osg::NodePath parentPath;
+			parentPath.reserve(pathOuterDiag.size() - 1U);
+			for (unsigned i = 0; i + 1U < pathOuterDiag.size(); ++i)
+			{
+				parentPath.push_back(pathOuterDiag[i]);
+			}
+			parentWorldDiag = osg::computeLocalToWorld(parentPath);
+		}
+		else
+		{
+			parentWorldDiag.makeIdentity();
+		}
+		const osg::Vec3d fileInOuterParentDiag = fileOriginDiag * osg::Matrixd::inverse(parentWorldDiag);
+		const osg::Vec3d innerOffsetDiag(
+			static_cast<double>(-m_modelCenter.x()),
+			static_cast<double>(-m_modelCenter.y()),
+			static_cast<double>(-m_modelCenter.z()));
+		const osg::Vec3d rotatedOffDiag = innerOffsetDiag * osg::Matrixd::rotate(oqDiag);
+		const osg::Vec3d centerPlusPoseDiag = fileInOuterParentDiag - rotatedOffDiag;
+		std::ostringstream oss;
+		oss << std::setprecision(8) << "  outer center+pose(recovered)=(" << centerPlusPoseDiag.x() << ','
+			<< centerPlusPoseDiag.y() << ',' << centerPlusPoseDiag.z() << ')';
+		logLine(oss.str());
+		if (haveGizmoFrame)
+		{
+			const osg::Vec3f sp = gf.centerPlusPose();
+			const double dcp = std::hypot(static_cast<double>(sp.x()) - centerPlusPoseDiag.x(),
+				std::hypot(static_cast<double>(sp.y()) - centerPlusPoseDiag.y(),
+					static_cast<double>(sp.z()) - centerPlusPoseDiag.z()));
+			std::ostringstream oss2;
+			oss2 << std::setprecision(8) << "  |frame.center+pose - outer center+pose(recovered)|=" << dcp;
+			logLine(oss2.str());
+		}
+	}
+
+	if (haveGizmoFrame)
+	{
+		const osg::Vec3f sp = gf.centerPlusPose();
+		const osg::Quat sa = gf.attitude();
+		const double dtp = std::hypot(static_cast<double>(sp.x()) - ot.x(),
+			std::hypot(static_cast<double>(sp.y()) - ot.y(), static_cast<double>(sp.z()) - ot.z()));
+		const double dq = std::abs(static_cast<double>(sa.x()) - oq.x()) + std::abs(static_cast<double>(sa.y()) - oq.y())
+			+ std::abs(static_cast<double>(sa.z()) - oq.z()) + std::abs(static_cast<double>(sa.w()) - oq.w());
+		std::ostringstream oss;
+		oss << std::setprecision(8) << "  |frame.center+pose - outer.decompose.t|=" << dtp << "  quatL1diff=" << dq;
+		logLine(oss.str());
+	}
+
+	if (outer->getNumChildren() < 1)
+	{
+		logLine("  outer has no children (skip file origin)");
+		RunLogger::flush();
+		return;
+	}
+
+	osg::Node* const inner0 = outer->getChild(0);
+	osg::NodePath pathToInner = nodePathToSceneRootFromLeaf(outer);
+	pathToInner.push_back(inner0);
+	const osg::Matrixd innerToWorld = osg::computeLocalToWorld(pathToInner);
+	const osg::Vec3d fileOriginWorld = osg::Vec3d(0.0, 0.0, 0.0) * innerToWorld;
+	{
+		std::ostringstream oss;
+		oss << std::setprecision(8) << "  fileOriginWorld(inner local 0,0,0 -> world)=(" << fileOriginWorld.x() << ','
+			<< fileOriginWorld.y() << ',' << fileOriginWorld.z() << ')';
+		logLine(oss.str());
+	}
+
+	const osg::Vec3d pv(static_cast<double>(pivot.x()), static_cast<double>(pivot.y()), static_cast<double>(pivot.z()));
+	const osg::Vec3d delta = pv - fileOriginWorld;
+	{
+		std::ostringstream oss;
+		oss << std::setprecision(8) << "  delta pivot_minus_fileOrigin=(" << delta.x() << ',' << delta.y() << ','
+			<< delta.z() << ") len=" << delta.length();
+		logLine(oss.str());
+	}
+
+	if (osg::PositionAttitudeTransform* const innerPat = dynamic_cast<osg::PositionAttitudeTransform*>(inner0))
+	{
+		const osg::Vec3d ip(innerPat->getPosition().x(), innerPat->getPosition().y(), innerPat->getPosition().z());
+		const osg::Vec3d negCenter(-static_cast<double>(m_modelCenter.x()), -static_cast<double>(m_modelCenter.y()),
+			-static_cast<double>(m_modelCenter.z()));
+		const osg::Vec3d innerMinusNegC = ip - negCenter;
+		std::ostringstream oss;
+		oss << std::setprecision(8) << "  innerPAT.position=(" << ip.x() << ',' << ip.y() << ',' << ip.z()
+			<< ")  -m_modelCenter=(" << negCenter.x() << ',' << negCenter.y() << ',' << negCenter.z()
+			<< ")  diff len=" << innerMinusNegC.length();
+		logLine(oss.str());
+	}
+	else
+	{
+		std::ostringstream oss;
+		oss << "  inner child[0] class=" << inner0->className()
+			<< " (expected PositionAttitudeTransform for mesh center rebase)";
+		logLine(oss.str());
+	}
+
+	if (m_compassTransform.valid())
+	{
+		const osg::NodePath pathComp = nodePathToSceneRootFromLeaf(m_compassTransform.get());
+		const osg::Matrixd compassToWorld = osg::computeLocalToWorld(pathComp);
+		const osg::Vec3d compassPatOriginWorld = osg::Vec3d(0.0, 0.0, 0.0) * compassToWorld;
+		const osg::Vec3d dcp = compassPatOriginWorld - pv;
+		std::ostringstream oss;
+		oss << std::setprecision(8) << "  compassPAT_world_origin=(" << compassPatOriginWorld.x() << ','
+			<< compassPatOriginWorld.y() << ',' << compassPatOriginWorld.z()
+			<< ")  |compassOrigin - pivot|=" << dcp.length();
+		logLine(oss.str());
+	}
+	else
+	{
+		logLine("  m_compassTransform=null");
+	}
+
+	RunLogger::flush();
 }
 
 bool OsgScene::computeCameraScreenRayWorld(double mouseX, double mouseY, osg::Vec3d& outRayOriginWorld, osg::Vec3d& outRayDirUnitWorld) const
@@ -447,15 +761,15 @@ bool OsgScene::computeCameraScreenRayWorld(double mouseX, double mouseY, osg::Ve
 	}
 	nw /= nw.w();
 	fw /= fw.w();
-	const osg::Vec3d nearP(nw.x(), nw.y(), nw.z());
-	const osg::Vec3d farP(fw.x(), fw.y(), fw.z());
-	osg::Vec3d dir = farP - nearP;
+	const osg::Vec3d rayNearW(nw.x(), nw.y(), nw.z());
+	const osg::Vec3d rayFarW(fw.x(), fw.y(), fw.z());
+	osg::Vec3d dir = rayFarW - rayNearW;
 	const double len = dir.length();
 	if (len < 1e-12)
 	{
 		return false;
 	}
-	outRayOriginWorld = nearP;
+	outRayOriginWorld = rayNearW;
 	outRayDirUnitWorld = dir / len;
 	return true;
 }

@@ -53,9 +53,6 @@
     <ClInclude Include="inc\MainWindowImportCaptureRenderController.h">
       <Filter>Header</Filter>
     </ClInclude>
-    <ClInclude Include="inc\MainWindowObjectGraph.h">
-      <Filter>Source\MainWindow</Filter>
-    </ClInclude>
     <ClInclude Include="inc\MainWindowObjectRepository.h">
       <Filter>Source\MainWindow</Filter>
     </ClInclude>
@@ -71,6 +68,9 @@
     <ClInclude Include="inc\OsgWidgetGizmoController.h">
       <Filter>Header</Filter>
     </ClInclude>
+    <ClInclude Include="inc\OsgWidgetSceneBridge.h">
+      <Filter>Header</Filter>
+    </ClInclude>
     <ClInclude Include="inc\OsgWidgetTransformHierarchyController.h">
       <Filter>Header</Filter>
     </ClInclude>
@@ -79,6 +79,15 @@
     </ClInclude>
     <ClInclude Include="inc\MainWindowSelectionService.h">
       <Filter>Source\MainWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendFollowReverseIndex.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendSceneDocumentFacade.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IBackendSceneBridge.h">
+      <Filter>Header</Filter>
     </ClInclude>
     <ClInclude Include="inc\MainWindowSelectionState.h">
       <Filter>Source\MainWindow</Filter>
@@ -124,6 +133,15 @@
     <ClCompile Include="source\OsgWidgetGizmoController.cpp">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="source\BackendFollowReverseIndex.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendSceneDocumentFacade.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgWidgetSceneBridge.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
     <ClCompile Include="source\OsgWidgetTransformHierarchyController.cpp">
       <Filter>Source</Filter>
     </ClCompile>
@@ -143,9 +161,6 @@
       <Filter>Source\MainWindow</Filter>
     </ClCompile>
     <ClCompile Include="source\MainWindowBackendTree.cpp">
-      <Filter>Source\MainWindow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MainWindowObjectGraph.cpp">
       <Filter>Source\MainWindow</Filter>
     </ClCompile>
     <ClCompile Include="source\MainWindowObjectRepository.cpp">

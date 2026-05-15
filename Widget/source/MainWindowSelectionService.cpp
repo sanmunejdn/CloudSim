@@ -1,6 +1,7 @@
 #include "MainWindowSelectionService.h"
 
 #include <memory>
+#include <vector>
 
 #include <QList>
 #include <QSignalBlocker>
@@ -9,7 +10,6 @@
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
-#include "BackendRelations.h"
 #include "DocumentPage.h"
 #include "MainWindow.h"
 #include "MainWindowObjectRepository.h"
@@ -172,7 +172,14 @@ void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& m
 	if (osg)
 	{
 		const std::string idStd = id.toStdString();
-		osg->setBackendObjectVisible(idStd, rowVisible);
+		if (doc)
+		{
+			doc->sceneFacade().entity(idStd).setVisible(rowVisible);
+		}
+		else
+		{
+			osg->setBackendObjectVisible(idStd, rowVisible);
+		}
 		osg->setSelectionActive(data != nullptr);
 		if (data)
 		{
@@ -234,6 +241,7 @@ void MainWindowSelectionService::handleBackendTreeItemChanged(
 	int column)
 {
 	OsgWidget* const osg = mainWindow.currentOsgWidget();
+	DocumentPage* const doc = mainWindow.currentPage();
 	if (!item || column != 0 || !osg)
 	{
 		return;
@@ -244,14 +252,25 @@ void MainWindowSelectionService::handleBackendTreeItemChanged(
 	{
 		const QString backendId = item->data(0, kRoleBackendId).toString();
 		QVector<QString> idsToUpdate;
-		idsToUpdate.append(backendId);
-		const std::shared_ptr<BackendDataBase> rootObject = mainWindow.activeBackend().getData(backendId.toStdString());
-		if (rootObject)
+		if (doc)
 		{
-			for (const std::string& descId : backend_relations::descendantIds(*rootObject, mainWindow.activeBackend()))
+			const std::vector<std::string>& sub = doc->hierarchyModel().subtreeIds(backendId.toStdString());
+			if (sub.empty())
 			{
-				idsToUpdate.append(QString::fromStdString(descId));
+				idsToUpdate.append(backendId);
 			}
+			else
+			{
+				idsToUpdate.reserve(static_cast<int>(sub.size()));
+				for (const std::string& id : sub)
+				{
+					idsToUpdate.append(QString::fromStdString(id));
+				}
+			}
+		}
+		else
+		{
+			idsToUpdate.append(backendId);
 		}
 		if (idsToUpdate.isEmpty())
 		{
@@ -259,9 +278,25 @@ void MainWindowSelectionService::handleBackendTreeItemChanged(
 		}
 		const bool visible = item->checkState(0) != Qt::Unchecked;
 		const QSignalBlocker guard(mainWindow.m_backendTree);
+		if (doc)
+		{
+			std::vector<std::string> idsStd;
+			idsStd.reserve(static_cast<std::size_t>(idsToUpdate.size()));
+			for (const QString& id : idsToUpdate)
+			{
+				idsStd.push_back(id.toStdString());
+			}
+			doc->sceneFacade().setBackendsVisible(idsStd, visible);
+		}
+		else
+		{
+			for (const QString& id : idsToUpdate)
+			{
+				osg->setBackendObjectVisible(id.toStdString(), visible);
+			}
+		}
 		for (const QString& id : idsToUpdate)
 		{
-			osg->setBackendObjectVisible(id.toStdString(), visible);
 			if (id == backendId)
 			{
 				continue;

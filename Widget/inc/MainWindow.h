@@ -30,6 +30,7 @@ class QtVariantEditorFactory;
 class QtVariantPropertyManager;
 class BackendDataBase;
 class BackendDataManager;
+class BackendHierarchyModel;
 class PointCloudBackendData;
 class MeshBackendData;
 class QAction;
@@ -39,6 +40,7 @@ class QMenu;
 class QDockWidget;
 class QActionGroup;
 class MainWindowImportCaptureRenderController;
+class JobSystem;
 class DevicePageWidget;
 class MainWindowSelectionService;
 class MainWindowObjectRepository;
@@ -56,6 +58,11 @@ public:
 	static void shutdownApplicationLogging();
 
 	void afterBackendFollowPropertyEdited(const QString& propertyKey, const QString& valueText);
+
+signals:
+	/// Emitted after a backend property row is successfully committed (panel or debounced follow name).
+	void backendPropertyCommitted(const QString& backendId, const QString& propertyKey, const QString& oldValue,
+		const QString& newValue, quint32 semanticFlags);
 
 private:
 	friend class MainWindowImportCaptureRenderController;
@@ -85,8 +92,8 @@ private:
 		osg::Matrixd* outTcpRenderWorldMat,
 		QString* outTcpLinkName,
 		QString* errMsg) const;
-	void syncOsgViewerFromPointCloudBackend(const std::shared_ptr<PointCloudBackendData>& pc);
-	void syncOsgViewerFromMeshBackend(const std::shared_ptr<MeshBackendData>& mesh);
+	void syncOsgViewerFromPointCloudBackend(const std::shared_ptr<PointCloudBackendData>& pc, bool applyColor);
+	void syncOsgViewerFromMeshBackend(const std::shared_ptr<MeshBackendData>& mesh, bool applyColor);
 	void onSaveProject();
 	void onOpenProjectFile();
 	void onOpenModel();
@@ -132,10 +139,14 @@ private:
 
 	DocumentPage* currentPage() const;
 	BackendDataManager& activeBackend();
+	BackendHierarchyModel* activeHierarchyModel();
+	const BackendHierarchyModel* activeHierarchyModel() const;
 	OsgWidget* currentOsgWidget() const;
+	JobSystem* jobSystem() const { return m_jobSystem; }
 	void wireDocumentPageSignals(DocumentPage* page);
 	void installBackendFollowFrameHook(DocumentPage* page);
-	void runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg);
+	void runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg,
+		const std::string* manualPoseAuthorityBackendId = nullptr);
 	/// Debounced full property browser rebuild after variant edits (avoids clear() on every spin step).
 	void schedulePropertyPanelCommitRefresh(const std::shared_ptr<BackendDataBase>& data);
 	/// After OSG gizmo writes pose/rotation/color to backend: follow solve + property panel (runs on each mouse move, not only the 16ms frame timer).
@@ -206,6 +217,7 @@ private:
 	bool m_useChinese = true;
 	bool m_updatingPropertyBrowser = false;
 	MainWindowSelectionState m_selectionState;
+	JobSystem* m_jobSystem = nullptr;
 	QString m_activeAxisName = QStringLiteral("None");
 	std::shared_ptr<RobotInstruction::Base> m_activeInstructionForProperty;
 };

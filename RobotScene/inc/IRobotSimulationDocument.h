@@ -13,6 +13,17 @@
 
 class BackendDataManager;
 
+/// Per-link URDF kinematics for one robot instance (mesh backend per link).
+struct RobotPerLinkKinematicsSlice
+{
+	QString urdfAbsolutePath;
+	QString sceneRootBackendId;
+	QHash<QString, QString> linkNameToBackendId;
+	QHash<QString, osg::Matrixd> fkMeshWorldT0;
+	QHash<QString, osg::Matrixd> outerWorldAtBindByBackendId;
+	bool meshVerticesInLinkFrame = false;
+};
+
 /// Read-only robot simulation state exposed by a document (implemented by \ref DocumentPage in Widget).
 /// 【中文】支持动态层级法：存储关节 MatrixTransform 节点，用于直接修改关节角度。
 class ROBOT_SCENE_API IRobotSimulationDocument
@@ -46,6 +57,21 @@ public:
 	{
 		(void)instanceIndex;
 		return QString();
+	}
+
+	/// True when \a instanceIndex uses per-link mesh backends (see \ref robotPerLinkKinematicsForInstance).
+	virtual bool robotUsesPerLinkBackendsForInstance(int instanceIndex) const
+	{
+		(void)instanceIndex;
+		return !robotLinkNameToBackendId().isEmpty();
+	}
+
+	/// Fill per-link FK bind data for one robot instance. Returns false if instance is hierarchy-only (joint PATs).
+	virtual bool robotPerLinkKinematicsForInstance(int instanceIndex, RobotPerLinkKinematicsSlice& out) const
+	{
+		(void)instanceIndex;
+		(void)out;
+		return false;
 	}
 
 	/// 【中文】动态层级法：获取关节的 MatrixTransform 节点，用于直接设置关节角度。

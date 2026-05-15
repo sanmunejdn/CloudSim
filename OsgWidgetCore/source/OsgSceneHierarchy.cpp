@@ -10,19 +10,88 @@
 
 #include "OsgScene.h"
 
+#include "ObjectGizmoFrame.h"
+
 #include <osg/Matrixd>
 #include <osg/MatrixTransform>
 #include <osg/Quat>
 #include <osg/Vec3>
 #include <osg/Vec3d>
 
-namespace
+void OsgScene::cacheSelectionGizmoPose()
 {
-osg::Matrixd outerLocalFromPosQuat(const osg::Vec3f& pos, const osg::Quat& q)
-{
-	return osg::Matrixd::translate(osg::Vec3d(pos.x(), pos.y(), pos.z())) * osg::Matrixd::rotate(q);
+	ObjectGizmoFrame f;
+	if (!readActiveObjectGizmoFrame(f))
+	{
+		return;
+	}
+	m_lastGizmoCenterPlusPose = f.centerPlusPose();
+	m_lastGizmoAttitude = f.attitude();
+	m_hasLastSelectionPose = true;
 }
-} // namespace
+
+void OsgScene::syncActiveBackendRootFromObjectFrame(const ObjectGizmoFrame& cur, bool dragging)
+{
+	if (m_activeBackendId.empty() || !m_activeBackendOuterPat.valid())
+	{
+		return;
+	}
+	if (dragging)
+	{
+		m_activeBackendOuterPat->setMatrix(ObjectGizmoFrame::outerLocalMatrix(cur.centerPlusPose(), cur.attitude()));
+		m_lastGizmoCenterPlusPose = cur.centerPlusPose();
+		m_lastGizmoAttitude = cur.attitude();
+		m_hasLastSelectionPose = true;
+		return;
+	}
+	if (!m_hasLastSelectionPose)
+	{
+		m_lastGizmoCenterPlusPose = cur.centerPlusPose();
+		m_lastGizmoAttitude = cur.attitude();
+		m_hasLastSelectionPose = true;
+		m_activeBackendOuterPat->setMatrix(ObjectGizmoFrame::outerLocalMatrix(cur.centerPlusPose(), cur.attitude()));
+		return;
+	}
+
+	const osg::Vec3f prevPos = m_lastGizmoCenterPlusPose;
+	const osg::Quat prevAtt = m_lastGizmoAttitude;
+	const osg::Quat deltaAtt = cur.attitude() * prevAtt.inverse();
+	const osg::Vec3f curPos = cur.centerPlusPose();
+	const osg::Quat curAtt = cur.attitude();
+
+	for (auto& kv : m_backendObjectRoots)
+	{
+		if (!kv.second.valid())
+		{
+			continue;
+		}
+		if (!isBackendDescendantOf(kv.first, m_activeBackendId))
+		{
+			continue;
+		}
+		if (kv.first == m_activeBackendId)
+		{
+			kv.second->setMatrix(ObjectGizmoFrame::outerLocalMatrix(curPos, curAtt));
+			continue;
+		}
+		if (backendOuterPatIsUnderOuterPatInSceneGraph(kv.first, m_activeBackendId))
+		{
+			continue;
+		}
+		osg::Vec3d ot;
+		osg::Quat oq;
+		osg::Vec3d os;
+		osg::Quat oso;
+		kv.second->getMatrix().decompose(ot, oq, os, oso);
+		const osg::Vec3f oldPos(static_cast<float>(ot.x()), static_cast<float>(ot.y()), static_cast<float>(ot.z()));
+		const osg::Quat oldAtt = oq;
+		const osg::Vec3f newPos = curPos + (deltaAtt * (oldPos - prevPos));
+		kv.second->setMatrix(ObjectGizmoFrame::outerLocalMatrix(newPos, deltaAtt * oldAtt));
+	}
+	m_lastGizmoCenterPlusPose = curPos;
+	m_lastGizmoAttitude = curAtt;
+	m_hasLastSelectionPose = true;
+}
 
 bool OsgScene::isBackendDescendantOf(const std::string& backendId, const std::string& ancestorId) const
 {
@@ -74,79 +143,4 @@ bool OsgScene::backendOuterPatIsUnderOuterPatInSceneGraph(const std::string& chi
 		p = p->getNumParents() > 0 ? p->getParent(0) : nullptr;
 	}
 	return false;
-}
-
-void OsgScene::cacheSelectionPoseFromSelectedTransform()
-{
-	if (!m_selectedTransform.valid())
-	{
-		return;
-	}
-	m_lastSelectionPos = m_selectedTransform->getPosition();
-	m_lastSelectionAtt = m_selectedTransform->getAttitude();
-	m_hasLastSelectionPose = true;
-}
-
-void OsgScene::syncActiveBackendRootFromSelectedTransform()
-{
-	if (!m_selectedTransform.valid())
-	{
-		return;
-	}
-	if (m_activeBackendId.empty())
-	{
-		return;
-	}
-	const osg::Vec3f curPos = m_selectedTransform->getPosition();
-	const osg::Quat curAtt = m_selectedTransform->getAttitude();
-	if (!m_hasLastSelectionPose)
-	{
-		m_lastSelectionPos = curPos;
-		m_lastSelectionAtt = curAtt;
-		m_hasLastSelectionPose = true;
-		if (m_activeBackendOuterPat.valid())
-		{
-			m_activeBackendOuterPat->setMatrix(outerLocalFromPosQuat(curPos, curAtt));
-		}
-		return;
-	}
-
-	const osg::Vec3f prevPos = m_lastSelectionPos;
-	const osg::Quat prevAtt = m_lastSelectionAtt;
-	const osg::Quat deltaAtt = curAtt * prevAtt.inverse();
-
-	for (auto& kv : m_backendObjectRoots)
-	{
-		if (!kv.second.valid())
-		{
-			continue;
-		}
-		if (!isBackendDescendantOf(kv.first, m_activeBackendId))
-		{
-			continue;
-		}
-		if (kv.first == m_activeBackendId)
-		{
-			kv.second->setMatrix(outerLocalFromPosQuat(curPos, curAtt));
-			continue;
-		}
-		// When the outer PAT is already nested under the active object's PAT in OSG, the parent transform
-		// carries the child; do not apply the legacy flat-sibling delta (would double-move / corrupt pose).
-		if (backendOuterPatIsUnderOuterPatInSceneGraph(kv.first, m_activeBackendId))
-		{
-			continue;
-		}
-		osg::Vec3d ot;
-		osg::Quat oq;
-		osg::Vec3d os;
-		osg::Quat oso;
-		kv.second->getMatrix().decompose(ot, oq, os, oso);
-		const osg::Vec3f oldPos(static_cast<float>(ot.x()), static_cast<float>(ot.y()), static_cast<float>(ot.z()));
-		const osg::Quat oldAtt = oq;
-		const osg::Vec3f newPos = curPos + (deltaAtt * (oldPos - prevPos));
-		kv.second->setMatrix(outerLocalFromPosQuat(newPos, deltaAtt * oldAtt));
-	}
-	m_lastSelectionPos = curPos;
-	m_lastSelectionAtt = curAtt;
-	m_hasLastSelectionPose = true;
 }

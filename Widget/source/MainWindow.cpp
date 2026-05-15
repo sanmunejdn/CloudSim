@@ -37,6 +37,7 @@
 #include "ApplicationStyle.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BackendHierarchyModel.h"
 #include "BackendFollowMath.h"
 #include "BackendFollowTransformSolver.h"
 #include "DocumentPage.h"
@@ -47,6 +48,7 @@
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 #include "OsgWidget.h"
+#include "IRobotBackendPoseSink.h"
 #include "RobotSceneKinematics.h"
 #include "UrdfRobotLoader.h"
 #include "RunInfoPage.h"
@@ -691,6 +693,15 @@ void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
 	{
 		return;
 	}
+	OsgWidget* osgW = currentOsgWidget();
+	BackendVec3 euler{};
+	if (osgW)
+	{
+		const osg::Vec3f er = osgW->selectedRotationEulerDeg();
+		euler.x = static_cast<double>(er.x());
+		euler.y = static_cast<double>(er.y());
+		euler.z = static_cast<double>(er.z());
+	}
 	auto pointCloud = std::dynamic_pointer_cast<PointCloudBackendData>(snapshot.data);
 	if (pointCloud)
 	{
@@ -698,7 +709,10 @@ void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
 		pose.x = x;
 		pose.y = y;
 		pose.z = z;
-		const BackendVec3 euler = pointCloud->rotation();
+		if (!osgW)
+		{
+			euler = pointCloud->rotation();
+		}
 		if (pointCloud->supportsBackendTransform())
 		{
 			pointCloud->applyBackendWorldPose(pose, euler);
@@ -717,7 +731,10 @@ void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
 		pose.x = x;
 		pose.y = y;
 		pose.z = z;
-		const BackendVec3 euler = mesh->rotation();
+		if (!osgW)
+		{
+			euler = mesh->rotation();
+		}
 		if (mesh->supportsBackendTransform())
 		{
 			mesh->applyBackendWorldPose(pose, euler);
@@ -746,6 +763,15 @@ void MainWindow::onSelectedObjectRotationChanged(float rx, float ry, float rz)
 	{
 		return;
 	}
+	OsgWidget* osgW = currentOsgWidget();
+	BackendVec3 pos{};
+	if (osgW)
+	{
+		const osg::Vec3f p = osgW->selectedPosition();
+		pos.x = static_cast<double>(p.x());
+		pos.y = static_cast<double>(p.y());
+		pos.z = static_cast<double>(p.z());
+	}
 	auto pointCloud = std::dynamic_pointer_cast<PointCloudBackendData>(snapshot.data);
 	if (pointCloud)
 	{
@@ -753,13 +779,17 @@ void MainWindow::onSelectedObjectRotationChanged(float rx, float ry, float rz)
 		rot.x = rx;
 		rot.y = ry;
 		rot.z = rz;
-		const BackendVec3 pos = pointCloud->pose();
+		if (!osgW)
+		{
+			pos = pointCloud->pose();
+		}
 		if (pointCloud->supportsBackendTransform())
 		{
 			pointCloud->applyBackendWorldPose(pos, rot);
 		}
 		else
 		{
+			pointCloud->setPose(pos);
 			pointCloud->setRotation(rot);
 		}
 		refreshFollowSolveAndPropertyPanelFromOsgWrite(pointCloud);
@@ -772,13 +802,17 @@ void MainWindow::onSelectedObjectRotationChanged(float rx, float ry, float rz)
 		rot.x = rx;
 		rot.y = ry;
 		rot.z = rz;
-		const BackendVec3 pos = mesh->pose();
+		if (!osgW)
+		{
+			pos = mesh->pose();
+		}
 		if (mesh->supportsBackendTransform())
 		{
 			mesh->applyBackendWorldPose(pos, rot);
 		}
 		else
 		{
+			mesh->setPose(pos);
 			mesh->setRotation(rot);
 		}
 		refreshFollowSolveAndPropertyPanelFromOsgWrite(mesh);
@@ -833,7 +867,17 @@ void MainWindow::onTransformGizmoCommitted()
 	{
 		return;
 	}
-	refreshFollowSolveAndPropertyPanelFromOsgWrite(data);
+	OsgWidget* osgW = currentOsgWidget();
+	if (osgW)
+	{
+		(void)osgW->writeActiveBackendPoseFromOsg(*data);
+	}
+	DocumentPage* doc = currentPage();
+	if (doc)
+	{
+		doc->markFollowAttachmentDirtyFromBackendMove(doc->backend(), data->id());
+	}
+	updatePropertyPanel(data);
 }
 
 void MainWindow::refreshFollowSolveAndPropertyPanelFromOsgWrite(const std::shared_ptr<BackendDataBase>& data)
@@ -847,9 +891,15 @@ void MainWindow::refreshFollowSolveAndPropertyPanelFromOsgWrite(const std::share
 	if (doc && osg)
 	{
 		doc->markFollowAttachmentDirtyFromBackendMove(doc->backend(), data->id());
-		runBackendFollowSolveAndSync(*doc, *osg);
+		if (!osg->isTransformGizmoDragging())
+		{
+			runBackendFollowSolveAndSync(*doc, *osg);
+		}
 	}
-	updatePropertyPanel(data);
+	if (!osg || !osg->isTransformGizmoDragging())
+	{
+		updatePropertyPanel(data);
+	}
 }
 
 void MainWindow::schedulePropertyPanelCommitRefresh(const std::shared_ptr<BackendDataBase>& data)
@@ -1104,6 +1154,18 @@ BackendDataManager& MainWindow::activeBackend()
 	return p ? p->backend() : s_unused;
 }
 
+BackendHierarchyModel* MainWindow::activeHierarchyModel()
+{
+	DocumentPage* p = currentPage();
+	return p ? &p->hierarchyModel() : nullptr;
+}
+
+const BackendHierarchyModel* MainWindow::activeHierarchyModel() const
+{
+	DocumentPage* p = currentPage();
+	return p ? &p->hierarchyModel() : nullptr;
+}
+
 void MainWindow::wireDocumentPageSignals(DocumentPage* page)
 {
 	if (!page || !page->osgWidget())
@@ -1145,7 +1207,8 @@ void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 	});
 }
 
-void MainWindow::runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg)
+void MainWindow::runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg,
+	const std::string* manualPoseAuthorityBackendId)
 {
 	BackendDataManager& mgr = page.backend();
 	const bool forced = page.takeFollowSolveForced();
@@ -1156,18 +1219,17 @@ void MainWindow::runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg
 		return;
 	}
 	std::string skipId;
-	if (osg.isTransformGizmoDragging() && m_selectionState.hasBackendSelection())
+	std::string gizmoDragSelectedId;
+	std::string manualAuthorityId;
+	if (manualPoseAuthorityBackendId && !manualPoseAuthorityBackendId->empty())
 	{
-		const std::string sel = m_selectionState.selectedBackendId().toStdString();
-		if (const auto d = mgr.getData(sel))
-		{
-			auto c = std::dynamic_pointer_cast<FollowAttachmentComponent>(
-				d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
-			if (c && c->enabled() && !c->targetBackendId().empty())
-			{
-				skipId = sel;
-			}
-		}
+		manualAuthorityId = *manualPoseAuthorityBackendId;
+		skipId = manualAuthorityId;
+	}
+	if (gizmoDrag && m_selectionState.hasBackendSelection())
+	{
+		gizmoDragSelectedId = m_selectionState.selectedBackendId().toStdString();
+		skipId = gizmoDragSelectedId;
 	}
 	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&osg](const std::string& bid, BackendMat4& out) -> bool {
 		osg::Matrixd om;
@@ -1199,11 +1261,19 @@ void MainWindow::runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg
 			continue;
 		}
 		const std::string fid = d->id();
+		if (!gizmoDragSelectedId.empty() && fid == gizmoDragSelectedId)
+		{
+			continue;
+		}
+		if (!manualAuthorityId.empty() && fid == manualAuthorityId)
+		{
+			continue;
+		}
 		if (usePoseLimit && !dirty.count(fid))
 		{
 			continue;
 		}
-		osg.syncOuterPatFromBackend(*d);
+		page.sceneFacade().bridge().syncOuterPatFromBackend(*d);
 	}
 	dirty.clear();
 }
@@ -1233,6 +1303,7 @@ void MainWindow::applyHierarchyFollowBinding(DocumentPage* doc, const std::strin
 			doc->markFollowAttachmentDirtyFromBackendMove(doc->backend(), childId);
 			runBackendFollowSolveAndSync(*doc, *osg);
 		}
+		doc->invalidateFollowReverseIndex();
 		return;
 	}
 	if (!doc->backend().contains(parentId))
@@ -1280,6 +1351,7 @@ void MainWindow::applyHierarchyFollowBinding(DocumentPage* doc, const std::strin
 		doc->markFollowAttachmentDirtyFromBackendMove(doc->backend(), childId);
 		runBackendFollowSolveAndSync(*doc, *osg);
 	}
+	doc->invalidateFollowReverseIndex();
 }
 
 void MainWindow::afterBackendFollowPropertyEdited(const QString& propertyKey, const QString& valueText)
@@ -1319,6 +1391,7 @@ void MainWindow::afterBackendFollowPropertyEdited(const QString& propertyKey, co
 	}
 	doc->markFollowAttachmentDirtyFromBackendMove(doc->backend(), data->id());
 	runBackendFollowSolveAndSync(*doc, *osg);
+	doc->invalidateFollowReverseIndex();
 }
 
 void MainWindow::onNewDocument()
@@ -1493,8 +1566,8 @@ void MainWindow::onRobotAxisJointAnglesChanged(const QVector<double>& jointAngle
 		return;
 	}
 	DocumentPage* doc = currentPage();
-	OsgWidget* osg = currentOsgWidget();
-	(void)RobotSceneKinematics::applyJointAnglesFromDocument(doc, osg, jointAnglesRad);
+	IRobotBackendPoseSink* poseSink = doc ? doc->sceneFacade().poseSink() : nullptr;
+	(void)RobotSceneKinematics::applyJointAnglesFromDocument(doc, poseSink, jointAnglesRad);
 }
 
 void MainWindow::onSimulationStopRequested()
@@ -2235,7 +2308,8 @@ void MainWindow::onRobotSimulationTick()
 	}
 	DocumentPage* doc = currentPage();
 	OsgWidget* osg = currentOsgWidget();
-	const RobotInstructionPlaybackTickResult r = m_robotInstructionPlayback.tick(doc, osg);
+	IRobotBackendPoseSink* poseSink = doc ? doc->sceneFacade().poseSink() : nullptr;
+	const RobotInstructionPlaybackTickResult r = m_robotInstructionPlayback.tick(doc, poseSink);
 	if (doc && osg)
 	{
 		doc->requestFollowSolveForced();

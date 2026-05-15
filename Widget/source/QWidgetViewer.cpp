@@ -163,25 +163,25 @@ void QWidgetViewer::resizeEvent(QResizeEvent* event)
 {
 	QGLWidget::resizeEvent(event);
 
-	// 获取缩放后的尺寸（考虑高DPI缩放）
+	// ????????????????DPI?????
 	qreal dpr = devicePixelRatio();
 	int scaledWidth = static_cast<int>(width() * dpr);
 	int scaledHeight = static_cast<int>(height() * dpr);
 
-	// 通知GraphicsWindow尺寸变化
+	// ??GraphicsWindow?????
 	if (_gw) {
 		_gw->resized(x(), y(), scaledWidth, scaledHeight);
 		_gw->getEventQueue()->windowResize(x(), y(), scaledWidth, scaledHeight);
 	}
 
-	// 发射信号
+	// ???????
 	emit windowResized(scaledWidth, scaledHeight);
 }
 
 void QWidgetViewer::moveEvent(QMoveEvent* event)
 {
 
-	//写上自己的事件处理
+	//????????????????
 #if 1
 	const QPoint& pos = event->pos();
 	int scaled_width = static_cast<int>(width() * _devicePixelRatio);
@@ -200,7 +200,7 @@ void QWidgetViewer::glDraw()
 }
 void QWidgetViewer::keyPressEvent(QKeyEvent* event)
 {
-	//写上自己的事件处理
+	//????????????????
 
 #if 1
 	setKeyboardModifiers(event);
@@ -217,7 +217,7 @@ void QWidgetViewer::keyPressEvent(QKeyEvent* event)
 
 void QWidgetViewer::keyReleaseEvent(QKeyEvent* event)
 {
-	//写上自己的事件处理
+	//????????????????
 
 #if 1
 	if (event->isAutoRepeat())
@@ -257,8 +257,9 @@ void QWidgetViewer::mousePressEvent(QMouseEvent* event)
 		button
 	);
 
-	// 确保事件被处理
+	// ????????????
 	event->accept();
+	update();
 }
 
 
@@ -282,12 +283,13 @@ void QWidgetViewer::mouseReleaseEvent(QMouseEvent* event)
 	);
 
 	event->accept();
+	update();
 }
 
 void QWidgetViewer::mouseDoubleClickEvent(QMouseEvent* event)
 {
 
-	//写上自己的事件处理
+	//????????????????
 
 #if 1
 	int button = 0;
@@ -315,12 +317,12 @@ void QWidgetViewer::mouseMoveEvent(QMouseEvent* event)
 	);
 
 	event->accept();
-	update(); // 强制重绘
+	update(); // ??????
 }
 
 void QWidgetViewer::wheelEvent(QWheelEvent* event)
 {
-	//写上自己的事件处理
+	//????????????????
 
 #if 1
 	setKeyboardModifiers(event);
@@ -329,6 +331,7 @@ void QWidgetViewer::wheelEvent(QWheelEvent* event)
 		(event->delta() > 0 ? osgGA::GUIEventAdapter::SCROLL_UP : osgGA::GUIEventAdapter::SCROLL_DOWN) :
 		(event->delta() > 0 ? osgGA::GUIEventAdapter::SCROLL_LEFT : osgGA::GUIEventAdapter::SCROLL_RIGHT));
 #endif
+	update();
 }
 
 #ifdef USE_GESTURES

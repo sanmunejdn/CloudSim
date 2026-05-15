@@ -52,6 +52,9 @@ struct PropertyDescriptor
 	bool editable = true;
 	PropertyConstraints constraints;
 	PropertyUiHint uiHint;
+	PropertySemanticFlags semanticFlags = PropertySemanticFlags::None;
+	/// Display-only unit (e.g. mm, deg); numeric validation uses constraints when set.
+	std::string unit;
 };
 
 } // namespace property_core

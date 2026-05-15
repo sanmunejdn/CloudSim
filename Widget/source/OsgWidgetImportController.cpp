@@ -50,9 +50,7 @@ bool OsgWidgetImportController::importModelFile(OsgWidget& self, const QString& 
 	self.clearStagingGeometry();
 	self.m_stagingGroup->addChild(modelNode.get());
 	self.m_modelCenter = modelNode->getBound().center();
-	self.m_selectedTransform->setPosition(self.m_modelCenter);
-	self.m_selectedTransform->setAttitude(osg::Quat());
-	self.updateCompassLocalOffsetForModelOrigin();
+	self.detachGizmoOverlay();
 	self.syncCompassGizmoOrientation();
 	self.cachePickablePointsFromNode(modelNode.get());
 	self.clearPointAnnotations();
@@ -130,9 +128,7 @@ bool OsgWidgetImportController::importPointCloudFile(OsgWidget& self, const QStr
 			self.clearStagingGeometry();
 			self.m_stagingGroup->addChild(g.get());
 			self.m_modelCenter = self.computePointCloudCenterFromXyz(plyBackend.pointPositionsXyz());
-			self.m_selectedTransform->setPosition(self.m_modelCenter);
-			self.m_selectedTransform->setAttitude(osg::Quat());
-			self.updateCompassLocalOffsetForModelOrigin();
+			self.detachGizmoOverlay();
 			self.syncCompassGizmoOrientation();
 			self.cachePickablePointsFromNode(g.get());
 			self.clearPointAnnotations();
@@ -223,9 +219,7 @@ bool OsgWidgetImportController::importPointCloudFile(OsgWidget& self, const QStr
 	self.clearStagingGeometry();
 	self.m_stagingGroup->addChild(cloudNode.get());
 	self.m_modelCenter = cloudNode->getBound().center();
-	self.m_selectedTransform->setPosition(self.m_modelCenter);
-	self.m_selectedTransform->setAttitude(osg::Quat());
-	self.updateCompassLocalOffsetForModelOrigin();
+	self.detachGizmoOverlay();
 	self.syncCompassGizmoOrientation();
 	self.cachePickablePointsFromNode(cloudNode.get());
 	self.clearPointAnnotations();

@@ -10,6 +10,8 @@
 
 #include "OsgScene.h"
 
+#include "ObjectGizmoFrame.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -18,11 +20,56 @@
 #include "BackendIdUserData.h"
 #include "BackendVisualRegistry.h"
 
+#include <osg/Group>
 #include <osg/Node>
 #include <osg/Matrixd>
 #include <osg/MatrixTransform>
 #include <osg/Quat>
 #include <osg/Vec3d>
+
+bool OsgScene::readActiveObjectGizmoFrame(ObjectGizmoFrame& out) const
+{
+	if (!m_activeBackendOuterPat.valid())
+	{
+		return false;
+	}
+	if (!ObjectGizmoFrame::fromOuter(m_activeBackendOuterPat.get(), m_modelCenter, out))
+	{
+		return false;
+	}
+	m_modelCenter = out.modelCenter();
+	return true;
+}
+
+void OsgScene::detachGizmoOverlay()
+{
+	if (m_gizmoOverlayGroup.valid() && m_gizmoAttachedInner.valid())
+	{
+		osg::Group* innerG = m_gizmoAttachedInner->asGroup();
+		if (innerG)
+		{
+			innerG->removeChild(m_gizmoOverlayGroup.get());
+		}
+		m_gizmoAttachedInner = nullptr;
+	}
+}
+
+void OsgScene::attachGizmoOverlayToActiveBackend()
+{
+	detachGizmoOverlay();
+	if (!m_gizmoOverlayGroup.valid() || !m_activeBackendOuterPat.valid() || m_activeBackendOuterPat->getNumChildren() < 1)
+	{
+		return;
+	}
+	osg::Node* inner = m_activeBackendOuterPat->getChild(0);
+	osg::Group* innerG = inner ? inner->asGroup() : nullptr;
+	if (!innerG)
+	{
+		return;
+	}
+	innerG->addChild(m_gizmoOverlayGroup.get());
+	m_gizmoAttachedInner = inner;
+}
 
 osg::Vec3f OsgScene::computePointCloudCenterFromXyz(const std::vector<float>& xyz) const
 {
@@ -71,30 +118,25 @@ void OsgScene::syncGizmoAndPickFromBackend(const BackendDataBase& data)
 		m_backendModelCenters[id] = m_modelCenter;
 	}
 	m_activeModelDiagonal = computedDiagonal;
-	if (m_selectedTransform.valid())
+
+	ObjectGizmoFrame frame;
+	if (it != m_backendObjectRoots.end() && it->second.valid())
 	{
-		if (it != m_backendObjectRoots.end() && it->second.valid())
-		{
-			osg::MatrixTransform* outer = it->second.get();
-			osg::Vec3d t;
-			osg::Quat r;
-			osg::Vec3d s;
-			osg::Quat so;
-			outer->getMatrix().decompose(t, r, s, so);
-			m_selectedTransform->setPosition(osg::Vec3f(static_cast<float>(t.x()), static_cast<float>(t.y()),
-				static_cast<float>(t.z())));
-			m_selectedTransform->setAttitude(r);
-		}
-		else
-		{
-			const BackendVec3 p = data.pose();
-			const BackendVec3 r = data.rotation();
-			const osg::Vec3f pose(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
-			m_selectedTransform->setPosition(m_modelCenter + pose);
-			m_selectedTransform->setAttitude(eulerDegToQuat(osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z))));
-		}
+		const BackendVec3 p = data.pose();
+		const BackendVec3 r = data.rotation();
+		const osg::Vec3f pose(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
+		const osg::Quat q = eulerDegToQuat(osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
+		frame.setFromBackend(pose, q, m_modelCenter);
+		frame.applyToOuter(it->second.get());
+		attachGizmoOverlayToActiveBackend();
+		syncActiveBackendRootFromObjectFrame(frame, false);
+		cacheSelectionGizmoPose();
 	}
-	syncActiveBackendRootFromSelectedTransform();
+	else
+	{
+		detachGizmoOverlay();
+	}
+
 	osg::Node* pickNode = nullptr;
 	if (m_activeBackendOuterPat.valid())
 	{
@@ -104,5 +146,10 @@ void OsgScene::syncGizmoAndPickFromBackend(const BackendDataBase& data)
 	{
 		cachePickablePointsFromNode(pickNode);
 	}
-	updateCompassLocalOffsetForModelOrigin();
+	if (m_selectionActive && m_objectSelectionMode)
+	{
+		attachCompassGraphics();
+	}
+	syncCompassGizmoOrientation();
+	logGizmoPivotDiagnostics("syncGizmoAndPickFromBackend");
 }
