@@ -26,6 +26,8 @@
 #include "RunInfoPage.h"
 #include "RunLogger.h"
 #include "SimulationCommandWidget.h"
+#include "AiAssistantDockWidget.h"
+#include "AiAssistantCoordinator.h"
 
 #include <QByteArray>
 #include <QCoreApplication>
@@ -56,14 +58,14 @@ MainWindow::MainWindow(QWidget* parent)
 		if (!kd.isEmpty() && kd != QByteArray("0"))
 		{
 			RunLogger::info(std::string("[RobotKinematicsDBG] ROBOT_KINEMATICS_DEBUG=") + kd.constData()
-				+ " — FK dumps: 1=compact 2|full=4x4; use --robot-kinematics-debug 1");
+				+ " 鈥?FK dumps: 1=compact 2|full=4x4; use --robot-kinematics-debug 1");
 			RunLogger::flush();
 		}
 		const QByteArray gpd = qgetenv("POINTCLOUD_GIZMO_PIVOT_DIAG");
 		if (!gpd.isEmpty() && gpd != QByteArray("0"))
 		{
 			RunLogger::info(std::string("[GizmoPivotDiag] POINTCLOUD_GIZMO_PIVOT_DIAG=") + gpd.constData()
-				+ " — pivot vs file-origin dumps on selection sync and gizmo drag release");
+				+ " 鈥?pivot vs file-origin dumps on selection sync and gizmo drag release");
 			RunLogger::flush();
 		}
 	});
@@ -122,7 +124,7 @@ MainWindow::MainWindow(QWidget* parent)
 	if (m_runInfoPage)
 	{
 		m_runInfoPage->appendInfo(i18n(QStringLiteral("Application started."),
-			QStringLiteral("应用程序已启动。")));
+			QStringLiteral("\u5e94\u7528\u7a0b\u5e8f\u5df2\u542f\u52a8\u3002")));
 		m_runInfoPage->appendInfo(pluginReport);
 	}
 	onDocumentTabChanged(m_documentTabs ? m_documentTabs->currentIndex() : -1);
@@ -205,8 +207,8 @@ void MainWindow::setupMenuBar()
 			osg->setTransformGizmoFrame(OsgWidget::TransformGizmoFrame::World);
 		}
 	});
-	m_viewMenu->addSeparator();
-	m_simulationStartAction = m_viewMenu->addAction(QStringLiteral("Start Simulation"), this, &MainWindow::onSimulationStartTriggered);
+	 m_viewMenu->addSeparator();
+	 m_simulationStartAction = m_viewMenu->addAction(QStringLiteral("Start Simulation"), this, &MainWindow::onSimulationStartTriggered);
 
 	// --- Settings: appearance + language ---
 	m_settingsMenu = menuBar()->addMenu(QStringLiteral("Settings"));
@@ -228,7 +230,7 @@ void MainWindow::setupMenuBar()
 	m_languageEnglishAction = m_languageMenu->addAction(QStringLiteral("English"));
 	m_languageEnglishAction->setCheckable(true);
 	m_languageActionGroup->addAction(m_languageEnglishAction);
-	m_languageChineseAction = m_languageMenu->addAction(QStringLiteral("中文"));
+	m_languageChineseAction = m_languageMenu->addAction(QStringLiteral("涓枃"));
 	m_languageChineseAction->setCheckable(true);
 	m_languageActionGroup->addAction(m_languageChineseAction);
 	m_languageChineseAction->setChecked(true);
@@ -318,6 +320,21 @@ void MainWindow::setupDockWidgets()
 	m_runInfoPage = new RunInfoPage(m_runDock);
 	m_runDock->setWidget(m_runInfoPage);
 	addDockWidget(Qt::BottomDockWidgetArea, m_runDock);
+	
+	m_aiDock = new QDockWidget(QStringLiteral("AI Assistant"), this);
+	m_aiDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
+	m_aiAssistantPage = new AiAssistantDockWidget(m_aiDock);
+	m_aiDock->setWidget(m_aiAssistantPage);
+	addDockWidget(Qt::RightDockWidgetArea, m_aiDock);
+	tabifyDockWidget(m_unitDock, m_aiDock);
+	m_aiDock->raise();
+	setupAiAssistantCoordinator();
+
+	m_toggleAiAssistantAction = m_viewMenu->addAction(QStringLiteral("AI Assistant"));
+	 m_toggleAiAssistantAction->setCheckable(true);
+	 m_toggleAiAssistantAction->setChecked(true);
+	 connect(m_toggleAiAssistantAction, &QAction::toggled, m_aiDock, &QWidget::setVisible);
+
 	m_runDock->setMinimumHeight(140);
 }
 

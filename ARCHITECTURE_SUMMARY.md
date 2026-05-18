@@ -78,6 +78,7 @@ flowchart TD
 - `MainWindowFileImport.cpp`：模型/点云/URDF 导入。
 - `MainWindowProjectIo.cpp`：项目保存与恢复（含 sidecar/zip 打包）。
 - `MainWindowImportCaptureRenderController.*`：导入捕获渲染协作控制器。
+- `MainWindowAiAssistant.cpp`：AI 助手 Dock 消息入口（自然语言 → 创建网格）。
 - `MainWindowSelectionService.*`：统一树选中、OSG 拾取回填、清理选择、可见性勾选传播。
 - `MainWindowSelectionState.h`：`MainWindow` 侧选择状态容器（当前以 `selectedBackendId` 为真源）。
 - `MainWindowObjectRepository.*`：后端对象查询门面（收敛 `activeBackend()` 调用）。
@@ -86,6 +87,11 @@ flowchart TD
 - **`ObjectTransformOperation`**：对象选择模式下罗盘平移/旋转的鼠标事件处理；读写路径统一为 `readActiveObjectGizmoFrame` → 修改 `ObjectGizmoFrame` → `applyToOuter` → `syncActiveBackendRootFromObjectFrame(..., dragging)`；`MouseButtonRelease` 时 `cacheSelectionGizmoPose` 并发出 `transformGizmoCommitted`。
 - **`OsgWidgetTransformHierarchyController`**：选中 backend 时 `syncSelectionForBackendId` 内调用 `attachGizmoOverlayToActiveBackend` / `cacheSelectionGizmoPose`；层级变更后与 `OsgScene` 传播逻辑配合。
 - **`OsgWidgetGizmoController`**：罗盘几何创建、高亮、屏幕轴拾取等对 `OsgScene` 的薄封装。
+- **AI 助手（独立子系统，见 `AiBackend` + `AiWidget`）**：
+  - **`AiBackend`（后端）**：`AiLlmConfig`、`AiIntentParser`、`AiCommandSchema`、`AiLlmClient`、`AiHttpsPost`（Windows WinHTTP HTTPS）；依赖 `Data`（`BackendPrimitiveGeometry`）。
+  - **`AiWidget`（前端）**：`AiAssistantDockWidget`、`AiLlmSettingsDialog`、`AiAssistantCoordinator`（规则/LLM 编排、解析来源提示）。
+  - **`Widget` 集成**：`AiCreateMeshRunner`（`AiCommandExecutor`）将解析结果注册为 `MeshBackendData` 并加载 OSG；`MainWindow::setupAiAssistantCoordinator` 注入 `JobSystem` 后台队列。
+  - 配置：`ai_config.json`（exe 同目录）；默认 **LLM 优先**（`rule_parser_first=false`）。
 
 当前 `Widget` 的关键演进点：
 
@@ -102,6 +108,7 @@ flowchart TD
 - `BackendDataBase` 抽象统一对象：`id/name/className/pose/rotation/color/propertyRows`。
 - `PointCloudBackendData`、`MeshBackendData` 提供具体几何与属性实现。  
   - **URDF 每连杆导入**：在写入 `MeshBackendData` 后、挂 OSG 前，可对三角顶点执行 `transformVerticesColumnMajorHomogeneous4x4`（与 `RobotUrdf::meshFileToLinkFrameFromVisual` 同源的列主序 4×4），将顶点从 **mesh 文件系** 变换到 **连杆系**；并 `setTransformPivotAtOrigin(true)`，使 `modelCenterForData` 为 **(0,0,0)**，与 `skipInnerModelCenterRebase` 及 FK 写回一致。
+- **`BackendPrimitiveGeometry`（程序生成基本体）**：`Data` 模块内将 box / cylinder / cone / sphere 参数化为 **三角 soup**（每三角 9 个 float：xyz×3），单位 **mm**，默认几何中心在原点，**Z 轴为高度方向**（圆柱/圆锥/长方体高度沿 Z）。`makePrimitiveTriangleSoup` 为统一入口；细分由 `PrimitiveMeshQuality`（`segments`、`rings`）控制。三角绕序按 **从外侧 CCW** 写入，与 `MeshBackendVisual` 中 `n = (p1-p0) × (p2-p0)` 及 OSG 正面一致，避免开启场景光照后整面发黑。
 - `BackendDataManager` 管理对象注册/查询/删除（`std::shared_mutex`：只读查询共享锁，结构变更独占锁）。
 - 属性编辑协议通过 JSON 行快照 + key/value 更新（便于 UI 解耦）。
 
@@ -127,6 +134,7 @@ flowchart TD
 - `BackendVisualRegistry` 按 `className` 注册/创建视觉构建器。
 - 输出统一 `BranchBuildResult`（**外层 `osg::MatrixTransform`**、内层 `PositionAttitudeTransform`、模型中心、对角线尺度）供交互层复用；外层存完整刚体局部矩阵，便于 FK / `setBackendRootWorldMatrixFromWorld` 避免 PAT 的 TRS 分解误差。
 - `MeshVisualOptions`：`showWireOutline`、`useSceneLighting`；**`skipInnerModelCenterRebase`** 为真时不再做「外包络中心 + 内层 `-bboxCenter`」的通用网格去心（用于 **URDF 每连杆**：顶点已在连杆系且由 FK 写外层世界矩阵，与层级导入「仅 `meshToLink`、无去心 PAT」语义对齐）。
+- **程序生成网格**：`MeshBackendData` 默认浅蓝材质色；`useSceneLighting=true` 时按 per-vertex 法线 + `applyLitPlastic` 渲染。若 soup 绕序与外侧 CCW 不一致，会出现「几何正确但全黑」——基本体由 `BackendPrimitiveGeometry` 保证绕序，CGAL/文件导入路径沿用各自约定。
 
 模块定位：
 
@@ -266,6 +274,9 @@ flowchart LR
     Widget --> RobotUrdf
     Widget --> RobotScene
     Widget --> RunLogger
+    Widget --> AiWidget
+    AiWidget --> AiBackend
+    AiBackend --> Data
 
     OsgWidgetCore --> BackendVisual
     OsgWidgetCore --> Data
@@ -311,6 +322,57 @@ flowchart LR
 3. `BackendDataManager::attachChild`：无网格 URDF 父 link 挂到 **robotRootId**；有网格父 link 挂到对应 link backend。`OsgWidget::setBackendParent` 按拓扑序同步 OSG 父链；**不在** reparent 时强行恢复扁平布局世界（由后续 FK 拓扑写回）。  
 4. 拓扑序 `setBackendRootWorldMatrixFromWorld` 写 bind 姿态，采集 `outerBind`（与 FK `Tq` 校验，`maxAbsDiff` 应 ≈0）。  
 5. `appendHierarchicalRobotSimulationContext(..., robotRootId, robotRootId)`；`setRobotPerLinkKinematicsBinding(robotRootId + "_ctx", ...)`；`applyJointAnglesFromDocument` 首帧同步。相机 `focusCameraOnBackend` 仍对准 **根 link 网格** id，非 robot root。  
+
+## 6.1.1 AI 助手创建基本体流程（Phase 1 + Phase 2）
+
+1. 用户在 **AI Assistant** Dock 输入自然语言（如「生成长方体，长 100mm，宽 50mm，高 100mm」或「圆柱 半径 30 高 80」）。  
+2. **LLM 路径（默认）**：`rule_parser_first=false` 且 `enabled=true` 时，由 `JobSystem` 调用 `AiLlmClient::parseUserTextWithLlm` → `AiCommandSchema::tryParseCreateMeshCommandJson` 提取 JSON。  
+3. **规则路径（可选）**：`rule_parser_first=true` 时先 `AiIntentParser::tryParseUserText`，成功则不调 LLM；LLM 未启用或失败时可作回退（需 `enabled=false` 时仅规则）。  
+4. `AiCommandSchema::parseCreateMeshCommand` 校验 `primitive`、`dimensions_mm` 等，填充 `PrimitiveMeshParams` / `PrimitiveMeshQuality`。  
+5. `BackendPrimitiveGeometry::makePrimitiveTriangleSoup` 生成 soup → 新建 `MeshBackendData`（可选 `pose_mm` / `rotation_deg`）→ `MainWindow::registerExistingBackendObject`（`Model` 类，树可见）。  
+6. `OsgWidget::loadMeshFromBackendData(*mesh, err, resetViewToHome=true, showWireOutline=true, useSceneLighting=true)`；`BackendVisual` 构建外层分支并更新拾取索引。  
+7. 助手回复与 `RunInfoPage` 同步成功/失败信息。
+
+**`ai_config.json`（与 exe 同目录）主要字段：**
+
+| 字段 | 说明 |
+|------|------|
+| `enabled` | 为 true 时规则失败后可走 LLM |
+| `rule_parser_first` | 默认 false（先 LLM）；为 true 时先规则、成功则不调 LLM |
+| `base_url` | OpenAI 兼容 API 根，如 `https://api.openai.com/v1` |
+| `api_key` / `api_key_env` | 密钥或环境变量名（如 `OPENAI_API_KEY`） |
+| `model` | 模型名，如 `gpt-4o-mini` |
+| `timeout_ms` | HTTP 超时 |
+
+**支持的基本体与尺寸语义：**
+
+| `primitive` | 主要尺寸字段 | 备注 |
+|-------------|--------------|------|
+| `box` | `length_mm`, `width_mm`, `height_mm` | 中心在原点，X/Y/Z 对应长/宽/高 |
+| `cylinder` | `radius_mm`, `height_mm` | 轴沿 Z，底面在 z = -h/2 |
+| `cone` | `radius_mm`（底）, `radius_top_mm`, `height_mm` | `radius_top_mm≈0` 为尖顶 |
+| `sphere` | `radius_mm` | `segments` / `rings` 控制网格密度 |
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant Dock as AiAssistantDockWidget
+    participant MW as MainWindow
+    participant Parse as AiIntentParser
+    participant Run as AiCreateMeshRunner
+    participant Geo as BackendPrimitiveGeometry
+    participant OSG as OsgWidget
+
+    User->>Dock: 输入自然语言
+    Dock->>MW: messageSubmitted(text)
+    MW->>Parse: tryParseUserText
+    Parse-->>MW: create_mesh JSON
+    MW->>Run: executeFromJson
+    Run->>Geo: makePrimitiveTriangleSoup
+    Run->>MW: registerExistingBackendObject(MeshBackendData)
+    Run->>OSG: loadMeshFromBackendData
+    MW->>Dock: appendAssistantMessage
+```
 
 ## 6.2 属性编辑与场景同步
 
@@ -543,18 +605,19 @@ flowchart LR
 - `ObjectGraph` 当前是按需构建的只读快照，后续可评估增量更新/缓存策略以降低大场景重建成本。
 - `Widget/MainWindow` 仍是高复杂度协调中心，继续按“功能域”拆分有收益。
 - 项目 I/O 已有独立文件，后续可再抽象版本迁移与格式兼容层。
+- **AI 助手**：Phase 2 已接 LLM；后续可扩展「修改已有对象 / 布尔 / 导入」等命令 schema。
 
 ## 9. 异步任务与数据并发（演进）
 
 - **JobSystem + ProgressManager（Widget）**：耗时 CPU 工作（首批接入：非 LAS/LAZ 点云的 CGAL `loadFromFile`）提交到 `QThreadPool`；`ProgressManager` 通过 `QMetaObject::invokeMethod` 将 `jobStarted` / `jobProgress` / `jobFinished` 投递到 UI 线程，避免在工作线程直接操作 `QWidget`/OSG。
 - **主线程边界**：`BackendDataManager` 注册、`OsgWidget::loadPointCloudFromBackendData`、树与属性刷新仍在 **UI 线程** 完成；后台仅做几何解码与填充 `PointCloudBackendData`（与 ARCHITECTURE 中「Data 不碰 UI」一致）。
 - **BackendDataManager**：容器与层级图由 `std::shared_mutex` 保护；只读查询使用 `std::shared_lock`，注册/注销/边变更/ `clear` 使用 `std::unique_lock`，提升多读场景下的并发度。**注意**：返回的 `std::shared_ptr<BackendDataBase>` 所指对象本身的字段并非每字段加锁；跨线程写同一后端对象仍需调用方序列化或由单线程（通常为 UI）修改。
-- **后续可接 Job 的类型**：网格 CGAL/OCCT 管线、布尔、法线、机器人规划/IK 等可复用同一 `enqueue(title, work, onFinished)` 模式；**可行轴配置探测**（`queryFeasibleMotionAxisConfigurationOptions`）与长程序链式预览亦可迁入后台线程，结果回 UI 写缓存；LAS/LAZ 仍走 OSG 导入路径，保持同步直至确认 OSG 上下文可安全离屏。
+- **后续可接 Job 的类型**：网格 CGAL/OCCT 管线、布尔、法线、机器人规划/IK 等可复用同一 `enqueue(title, work, onFinished)` 模式；**可行轴配置探测**（`queryFeasibleMotionAxisConfigurationOptions`）与长程序链式预览亦可迁入后台线程，结果回 UI 写缓存；**AI 助手 LLM 调用**（Phase 2）宜在 Job 中请求、UI 线程仅执行 `executeFromJson`；LAS/LAZ 仍走 OSG 导入路径，保持同步直至确认 OSG 上下文可安全离屏。
 
 ---
 
 ## 8. 一句话结论
 
 `PointCloudProcess` 当前属于 **“Qt 桌面前端 + 本地 C++ 后端引擎”** 的模块化架构，并已完成一轮关键闭环重构：  
-以 `ObjectGraph` 定义结构语义、以 `BackendVisualBindingIndex` 保障拾取映射、以 `SelectionService + SelectionState` 统一选择与可见性传播；对象 **Gizmo/罗盘** 以 **`ObjectGizmoFrame` + active outer PAT** 为唯一位姿真源，层级子对象选中时 **从 OSG 读帧** 而非把世界 `pose` 当作 root-local 写入；**URDF** 支持 **多机 per-link**（`HierarchicalRobotInstance` + `robotKinematicsInstances`）、**无几何 robot root** 与稳定 backend 命名，FK/`setBackendRootWorldMatrixFromWorld`/`syncOuterPatFromBackend` 共用行向量父链约定；**运动指令轴配置**在属性/UI/规划/JSON 四层对齐（可行枚举过滤、显式构型约束规划、种子构型默认 preset），在不改变核心业务能力的前提下显著提升了可维护性与状态一致性。
+以 `ObjectGraph` 定义结构语义、以 `BackendVisualBindingIndex` 保障拾取映射、以 `SelectionService + SelectionState` 统一选择与可见性传播；对象 **Gizmo/罗盘** 以 **`ObjectGizmoFrame` + active outer PAT** 为唯一位姿真源，层级子对象选中时 **从 OSG 读帧** 而非把世界 `pose` 当作 root-local 写入；**URDF** 支持 **多机 per-link**（`HierarchicalRobotInstance` + `robotKinematicsInstances`）、**无几何 robot root** 与稳定 backend 命名，FK/`setBackendRootWorldMatrixFromWorld`/`syncOuterPatFromBackend` 共用行向量父链约定；**运动指令轴配置**在属性/UI/规划/JSON 四层对齐（可行枚举过滤、显式构型约束规划、种子构型默认 preset）；**AI 助手** 经规则解析或 OpenAI 兼容 LLM + `BackendPrimitiveGeometry` 在文档内创建 box/cylinder/cone/sphere 网格并走与导入一致的 OSG 光照显示，在不改变核心业务能力的前提下显著提升了可维护性与状态一致性。
 

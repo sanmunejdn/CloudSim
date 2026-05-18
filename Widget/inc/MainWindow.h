@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QByteArray>
 #include <QMainWindow>
 #include <QHash>
 #include <QTimer>
@@ -12,6 +13,8 @@
 
 #include "widget_global.h"
 #include "MainWindowSelectionState.h"
+
+#include <json.hpp>
 #include "RobotAxisControlWidget.h"
 #include "RobotInstructionController.h"
 #include "RobotProgramExecutor.h"
@@ -45,8 +48,10 @@ class JobSystem;
 class DevicePageWidget;
 class MainWindowSelectionService;
 class MainWindowObjectRepository;
+class AiAssistantDockWidget;
+class AiAssistantCoordinator;
 
-/// 应用程序主窗口：菜单、停靠栏、文档页、属性面板与 OsgWidget 的协调入口。
+/// 搴旂敤绋嬪簭涓荤獥鍙ｏ細鑿滃崟銆佸仠闈犳爮銆佹枃妗ｉ〉銆佸睘鎬ч潰鏉夸笌 OsgWidget 鐨勫崗璋冨叆鍙ｃ€?
 class WIDGET_EXPORT MainWindow : public QMainWindow
 {
 	Q_OBJECT
@@ -57,6 +62,11 @@ public:
 
 	/// Call once after \c QApplication::exec() returns (same RunLogger module as \ref RunInfoPage).
 	static void shutdownApplicationLogging();
+
+	DocumentPage* currentPage() const;
+	bool registerExistingBackendObject(std::shared_ptr<BackendDataBase> backendObject, const QString& sourcePath,
+		const QString& typeName, const QString& persistedId = QString(), bool selectInTree = true,
+		const QString& parentId = QString());
 
 	void afterBackendFollowPropertyEdited(const QString& propertyKey, const QString& valueText);
 
@@ -79,9 +89,6 @@ private:
 	void focusBackendInTree(const std::shared_ptr<BackendDataBase>& backendObject);
 	/** Load geometry via Data (CGAL) when possible; LAS/LAZ and exotic mesh formats fall back to OSG. */
 	bool registerBackendObject(const QString& filePath, const QString& typeName, bool isPointCloud, bool quietUi = false);
-	bool registerExistingBackendObject(std::shared_ptr<BackendDataBase> backendObject, const QString& sourcePath,
-		const QString& typeName, const QString& persistedId = QString(), bool selectInTree = true,
-		const QString& parentId = QString());
 	void updatePropertyPanel(const std::shared_ptr<BackendDataBase>& data);
 	void updateInstructionPropertyPanel(
 		const std::shared_ptr<RobotInstruction::Base>& instruction,
@@ -157,8 +164,12 @@ private:
 	void refreshSimulationJointListFromCurrentDoc();
 	void onSimulationRobotSelectionChanged(int instanceIndex, const QString& sceneBackendId);
 	void onRobotAxisJointAnglesChanged(const QVector<double>& jointAnglesRad);
+	void setupAiAssistantCoordinator();
+	void onAiCreateMeshCommandReady(const QByteArray& commandJsonUtf8, const QString& parserVia);
+	void onAiParseFailed(const QString& message, const QString& parserVia);
+	void finishAiAssistantReply(const QString& reply, bool isError, const QString& parserVia = QString());
+	void executeAiCreateMeshCommand(const nlohmann::json& cmd, const QString& parserVia);
 
-	DocumentPage* currentPage() const;
 	BackendDataManager& activeBackend();
 	BackendHierarchyModel* activeHierarchyModel();
 	const BackendHierarchyModel* activeHierarchyModel() const;
@@ -239,6 +250,10 @@ private:
 	QVector<double> m_motionPreviewProgramStartJointRad;
 	bool m_suppressMotionPreviewStartCapture = false;
 	QDockWidget* m_runDock = nullptr;
+	QDockWidget* m_aiDock = nullptr;
+	AiAssistantDockWidget* m_aiAssistantPage = nullptr;
+	AiAssistantCoordinator* m_aiCoordinator = nullptr;
+	QAction* m_toggleAiAssistantAction = nullptr;
 	QAction* m_simulationStartAction = nullptr;
 	bool m_useChinese = true;
 	bool m_updatingPropertyBrowser = false;

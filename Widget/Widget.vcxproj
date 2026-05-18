@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -59,12 +59,12 @@
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <QtModules>core;opengl;gui;widgets;3dcore;3danimation;3dextras;3dinput;3dlogic;3drender</QtModules>
+    <QtModules>core;network;opengl;gui;widgets;3dcore;3danimation;3dextras;3dinput;3dlogic;3drender</QtModules>
     <QtInstall>5.14.2_msvc2017_64</QtInstall>
     <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <QtModules>core;opengl;gui;widgets;3dcore;3danimation;3dextras;3dinput;3dlogic;3drender;openglextensions</QtModules>
+    <QtModules>core;network;opengl;gui;widgets;3dcore;3danimation;3dextras;3dinput;3dlogic;3drender;openglextensions</QtModules>
     <QtInstall>5.14.2_msvc2017_64</QtInstall>
   </PropertyGroup>
   <Target Name="QtMsBuildNotFound" BeforeTargets="CustomBuild;ClCompile" Condition="!Exists('$(QtMsBuild)\qt.targets') OR !Exists('$(QtMsBuild)\Qt.props')">
@@ -154,13 +154,13 @@
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../OsgWidgetCore/inc;../BackendVisual/inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/qtpropertybrowser;../../bin/SDK/OSG3.6.5/include;../Data/inc;../RobotKinematics/inc;../RobotUrdf/inc;../RobotScene/inc</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../AiBackend/inc;../AiWidget/inc;../OsgWidgetCore/inc;../BackendVisual/inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/qtpropertybrowser;../../bin/SDK/OSG3.6.5/include;../Data/inc;../RobotKinematics/inc;../RobotUrdf/inc;../RobotScene/inc</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>OsgWidgetCore.lib;BackendVisual.lib;RunLogger.lib;osgViewer.lib;osg.lib;osgDB.lib;osgWidget.lib;osgVolume.lib;osgUtil.lib;osgUI.lib;osgText.lib;osgTerrain.lib;osgSim.lib;osgShadow.lib;osgPresentation.lib;osgParticle.lib;osgManipulator.lib;osgGA.lib;osgFX.lib;osgAnimation.lib;OpenThreads.lib;Data.lib;RobotKinematics.lib;RobotUrdf.lib;RobotScene.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>OsgWidgetCore.lib;BackendVisual.lib;RunLogger.lib;osgViewer.lib;osg.lib;osgDB.lib;osgWidget.lib;osgVolume.lib;osgUtil.lib;osgUI.lib;osgText.lib;osgTerrain.lib;osgSim.lib;osgShadow.lib;osgPresentation.lib;osgParticle.lib;osgManipulator.lib;osgGA.lib;osgFX.lib;osgAnimation.lib;OpenThreads.lib;Data.lib;RobotKinematics.lib;RobotUrdf.lib;RobotScene.lib;AiWidget.lib;AiBackend.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -174,7 +174,7 @@
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../OsgWidgetCore/inc;../BackendVisual/inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/qtpropertybrowser;../../bin/SDK/OSG3.6.5/include;../Data/inc;../RobotKinematics/inc;../RobotUrdf/inc;../RobotScene/inc</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../AiBackend/inc;../AiWidget/inc;../OsgWidgetCore/inc;../BackendVisual/inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/qtpropertybrowser;../../bin/SDK/OSG3.6.5/include;../Data/inc;../RobotKinematics/inc;../RobotUrdf/inc;../RobotScene/inc</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -182,11 +182,12 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>OsgWidgetCore.lib;BackendVisual.lib;RunLogger.lib;osgViewer.lib;osg.lib;osgDB.lib;osgWidget.lib;osgVolume.lib;osgUtil.lib;osgUI.lib;osgText.lib;osgTerrain.lib;osgSim.lib;osgShadow.lib;osgPresentation.lib;osgParticle.lib;osgManipulator.lib;osgGA.lib;osgFX.lib;osgAnimation.lib;OpenThreads.lib;Data.lib;RobotKinematics.lib;RobotUrdf.lib;RobotScene.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>OsgWidgetCore.lib;BackendVisual.lib;RunLogger.lib;osgViewer.lib;osg.lib;osgDB.lib;osgWidget.lib;osgVolume.lib;osgUtil.lib;osgUI.lib;osgText.lib;osgTerrain.lib;osgSim.lib;osgShadow.lib;osgPresentation.lib;osgParticle.lib;osgManipulator.lib;osgGA.lib;osgFX.lib;osgAnimation.lib;OpenThreads.lib;Data.lib;RobotKinematics.lib;RobotUrdf.lib;RobotScene.lib;AiWidget.lib;AiBackend.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="inc\AiCommandExecutor.h" />
     <ClInclude Include="inc\ApplicationStyle.h" />
     <ClInclude Include="inc\GraphicsWindowQt1.h" />
     <ClInclude Include="inc\MainWindow_p.h" />
@@ -228,6 +229,7 @@
     <ClInclude Include="inc\ProjectPackageZip.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\AiCommandExecutor.cpp" />
     <ClCompile Include="source\ApplicationStyle.cpp" />
     <ClCompile Include="source\DevicePageWidget.cpp" />
     <ClCompile Include="source\SimulationCommandWidget.cpp" />
@@ -240,6 +242,7 @@
     <ClCompile Include="source\DocumentPage.cpp" />
     <ClCompile Include="source\GraphicsWindowQt1.cpp" />
     <ClCompile Include="source\MainWindow.cpp" />
+    <ClCompile Include="source\MainWindowAiAssistant.cpp" />
     <ClCompile Include="source\MainWindowUiSetup.cpp" />
     <ClCompile Include="source\MainWindowBackendTree.cpp" />
     <ClCompile Include="source\MainWindowObjectRepository.cpp" />
@@ -293,6 +296,12 @@
     </ProjectReference>
     <ProjectReference Include="..\RunLogger\RunLogger.vcxproj">
       <Project>{35f6e3c1-7f9a-4d93-9faf-74bae4a0c2d1}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\AiBackend\AiBackend.vcxproj">
+      <Project>{a1b2c3d4-e5f6-7890-abcd-ef1234567890}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\AiWidget\AiWidget.vcxproj">
+      <Project>{b2c3d4e5-f6a7-8901-bcde-f12345678901}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

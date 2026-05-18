@@ -47,6 +47,7 @@
     <ClInclude Include="inc\PointCloudBackendData.h">
       <Filter>Header</Filter>
     </ClInclude>
+    <ClInclude Include="inc\BackendPrimitiveGeometry.h"><Filter>inc</Filter></ClInclude>
     <ClInclude Include="inc\MeshBackendData.h">
       <Filter>Header</Filter>
     </ClInclude>
@@ -79,6 +80,7 @@
     <ClCompile Include="source\PointCloudBackendData.cpp">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="source\BackendPrimitiveGeometry.cpp"><Filter>source</Filter></ClCompile>
     <ClCompile Include="source\MeshBackendData.cpp">
       <Filter>Source</Filter>
     </ClCompile>
