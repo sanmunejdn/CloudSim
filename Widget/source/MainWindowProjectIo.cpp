@@ -30,6 +30,8 @@
 #include "PointCloudBackendData.h"
 #include "OsgWidget.h"
 #include "ProjectPackageZip.h"
+#include "RobotInstructionFactory.h"
+#include "RobotProgramStore.h"
 #include "RobotSceneKinematics.h"
 #include "RunInfoPage.h"
 #include "UrdfRobotLoader.h"
@@ -527,6 +529,42 @@ void MainWindow::onSaveProject()
 		root.insert(QStringLiteral("robotKinematics"), rk);
 	}
 
+	{
+		QJsonArray programsArr;
+		for (auto it = doc->robotProgramStore().allPrograms().constBegin();
+			 it != doc->robotProgramStore().allPrograms().constEnd();
+			 ++it)
+		{
+			if (it.value().empty())
+			{
+				continue;
+			}
+			QJsonObject entry;
+			entry.insert(QStringLiteral("sceneBackendId"), it.key());
+			QJsonArray insArr;
+			for (const auto& ins : it.value())
+			{
+				if (!ins)
+				{
+					continue;
+				}
+				const nlohmann::json j = RobotInstruction::toJson(*ins);
+				const QByteArray raw = QByteArray::fromStdString(j.dump());
+				const QJsonDocument doc = QJsonDocument::fromJson(raw);
+				if (doc.isObject())
+				{
+					insArr.append(doc.object());
+				}
+			}
+			entry.insert(QStringLiteral("instructions"), insArr);
+			programsArr.append(entry);
+		}
+		if (!programsArr.isEmpty())
+		{
+			root.insert(QStringLiteral("robotPrograms"), programsArr);
+		}
+	}
+
 	QJsonArray annArray;
 	if (OsgWidget* w = doc->osgWidget())
 	{
@@ -955,6 +993,57 @@ void MainWindow::onOpenProjectFile()
 		{
 			(void)RobotSceneKinematics::applyJointAnglesFromDocument(page, page->sceneFacade().poseSink(), allQ0);
 			refreshSimulationJointListFromCurrentDoc();
+		}
+	}
+
+	const QJsonArray robotPrograms = root.value(QStringLiteral("robotPrograms")).toArray();
+	for (const QJsonValue& pv : robotPrograms)
+	{
+		if (!pv.isObject())
+		{
+			continue;
+		}
+		const QJsonObject progObj = pv.toObject();
+		const QString sceneBackendId = progObj.value(QStringLiteral("sceneBackendId")).toString();
+		if (sceneBackendId.isEmpty())
+		{
+			continue;
+		}
+		if (page->robotInstanceIndexForSceneBackendId(sceneBackendId) < 0)
+		{
+			if (m_runInfoPage)
+			{
+				m_runInfoPage->appendWarning(
+					QStringLiteral("robotPrograms: unknown sceneBackendId %1").arg(sceneBackendId));
+			}
+			continue;
+		}
+		const QJsonArray insArr = progObj.value(QStringLiteral("instructions")).toArray();
+		nlohmann::json arr = nlohmann::json::array();
+		for (const QJsonValue& iv : insArr)
+		{
+			if (!iv.isObject())
+			{
+				continue;
+			}
+			const QByteArray raw = QJsonDocument(iv.toObject()).toJson(QJsonDocument::Compact);
+			arr.push_back(nlohmann::json::parse(std::string(raw.constData(), static_cast<size_t>(raw.size()))));
+		}
+		std::string parseErr;
+		std::vector<std::shared_ptr<RobotInstruction::Base>> program =
+			RobotInstruction::createListFromJson(arr, &parseErr);
+		if (!parseErr.empty() && m_runInfoPage)
+		{
+			m_runInfoPage->appendWarning(QString::fromStdString(parseErr));
+		}
+		page->robotProgramStore().setProgramFor(sceneBackendId, std::move(program));
+	}
+	if (!robotPrograms.isEmpty())
+	{
+		refreshSimulationJointListFromCurrentDoc();
+		if (m_simulationCommandPage)
+		{
+			m_simulationCommandPage->refreshInstructionList();
 		}
 	}
 

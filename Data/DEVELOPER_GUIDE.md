@@ -1,0 +1,264 @@
+# Data 模块开发文档
+
+## 1. 模块定位
+
+`Data` 是应用内 **后端数据真源（Single Source of Truth）**：统一描述场景中的点云/网格对象、属性面板协议、DAG 父子关系、可选跟随约束组件。不处理 Qt 事件、不持有 OSG 节点。
+
+| 属性 | 说明 |
+|------|------|
+| 并发 | `BackendDataManager` 容器与边由 `std::shared_mutex` 保护；**单个 `BackendDataBase` 字段**无细粒度锁，跨线程写需调用方序列化（通常 UI 线程） |
+| 序列化 | `nlohmann::json` 属性行 + 工程 `project.json` 嵌入几何 Base64 |
+| 导出 | `DATA_EXPORT` |
+
+---
+
+## 2. 基础值类型（`BackendDataBase.h` / `BackendFollowMath.h`）
+
+| 类型 | 字段 / 说明 |
+|------|-------------|
+| `BackendVec3` | `x,y,z` double |
+| `BackendBoundingBox` | `min`, `max`, `valid` |
+| `BackendColor` | `r,g,b,a` float 0..1 |
+| `BackendPoseValue` | `position` + `eulerDeg` |
+| `BackendPoseReferenceFrame` | `World` / `Parent` |
+| `BackendMat4` | `v[16]` 列主序；`identity()`, `translate()`, `rotateEulerDeg()` |
+| `backend_world_mat_from_pose` 等 | 与 Visual 外层矩阵 `T(center+pose)*R` 一致 |
+
+---
+
+## 3. `class BackendDataBase`（抽象根）
+
+### 3.1 身份与类型
+
+| 方法 | 说明 |
+|------|------|
+| `id()` / `setId` | 稳定 UUID 风格 id |
+| `name()` / `setName` | 显示名（跟随 `follow.targetName` 匹配用） |
+| `className()` | **纯虚**；如 `"PointCloudBackendData"`, `"Model"` |
+
+### 3.2 几何契约（纯虚）
+
+| 方法 | 说明 |
+|------|------|
+| `hasGeometry()` | 是否可渲染 |
+| `geometryBounds()` | 模型空间 AABB |
+| `geometryElementCount()` | 点数或三角数 |
+| `clearGeometry()` | 清空缓冲 |
+
+### 3.3 位姿与颜色（可覆盖）
+
+| 方法 | 默认 |
+|------|------|
+| `pose` / `setPose`, `rotation` / `setRotation`, `color` / `setColor` | 零/白 |
+| `hasPoseProperty()` 等 | `false` |
+| `supportsBackendTransform()` | `hasPoseProperty()` |
+| `applyBackendWorldPose(centerWorld, eulerDegWorld)` | 世界系写回窄接口 |
+
+### 3.4 参考系与 4×4 矩阵
+
+| 方法 | 说明 |
+|------|------|
+| `poseReferenceFrame()` / `setPoseReferenceFrame` | World / Parent |
+| `poseInFrame` / `setPoseInFrame`（含 rotation） | 需 `BackendDataManager` 做父链变换 |
+| `poseValue` / `setPoseValue` | `BackendPoseValue` 原子读写 |
+| `worldMatrix(mgr)` / `setWorldMatrix(world, mgr)` | 缓存世界矩阵（实现内带锁） |
+| `validatePoseFrameRoundTrip(mgr, epsilon)` | 帧转换自检 |
+
+### 3.5 属性系统
+
+| 方法 | 说明 |
+|------|------|
+| `propertyBag()` | `PropertyBag` 键值（类型安全 variant） |
+| `snapshotPropertyRows(mgr)` | 属性面板 JSON 行数组 |
+| `applyPropertyChange(key, value, errMsg, mgr)` | 单行提交 |
+
+### 3.6 组件（Component）
+
+| 方法 | 说明 |
+|------|------|
+| `addComponent` / `removeComponent` / `getComponent` / `hasComponent` | 按 `componentType()` 字符串 |
+| `getComponent<T>()` / `emplaceComponent<T>(...)` | 类型安全 |
+| `listComponents()` | 全部组件 |
+
+### 3.7 层级（经 Manager 图）
+
+| 方法 | 说明 |
+|------|------|
+| `parentObjects(manager)` | 直接父对象 shared_ptr 列表 |
+| `childObjects(manager)` | 直接子对象 |
+| `descendantObjects(manager)` | 可达后代（DAG） |
+
+---
+
+## 4. 具体后端类型
+
+### 4.1 `PointCloudBackendData`
+
+| 注册名 | `className()` = `"PointCloudBackendData"` |
+|--------|-------------------------------------------|
+
+| 方法 | 说明 |
+|------|------|
+| `setPointBuffers(xyz, rgbaPerVertex)` | `3*N` float + 可选 `4*N` RGBA |
+| `pointPositionsXyz()` / `pointVertexRgba()` | 只读缓冲 |
+| `loadFromFile` | `.ply`, `.xyz`（CGAL） |
+| `readPointCloudFromPlyFile` / `writePointCloudPlySidecar` | PLY 专用 |
+| `writeProjectEmbeddedGeometry` / `readProjectEmbeddedGeometry` | 工程内嵌 Base64 |
+
+位姿/颜色/属性：`hasPoseProperty` 等均为 `true`。
+
+### 4.2 `MeshBackendData`
+
+| 注册名 | `className()` = **`"Model"`**（显示名 Mesh） |
+|--------|-----------------------------------------------|
+
+| 方法 | 说明 |
+|------|------|
+| `setTriangleSoup` / `triangleSoup()` | 每三角 9 float |
+| `transformVerticesColumnMajorHomogeneous4x4(colMajor16)` | URDF：mesh 文件系 → 连杆系 |
+| `setTransformPivotAtOrigin(true)` | 枢轴在原点；`modelCenter` 为 (0,0,0) |
+| `loadFromFile` | `.obj`, `.stl`, `.ply`, `.off` |
+| `loadStepHierarchyFromFile` / `loadDxfHierarchyFromFile` | 静态，输出 `MeshHierarchyPart` 列表 |
+
+### 4.3 `struct MeshHierarchyPart`
+
+STEP/DXF 层级导入中间结构：`partPath`, `parentPartPath`, `displayName`, `triangleSoup`。
+
+---
+
+## 5. 属性基础设施
+
+### 5.1 `PropertyBag`
+
+| API | 说明 |
+|-----|------|
+| `set<T>(name, value)` | 类型化键 `PropertyKey{name, type_index}` |
+| `tryGet<T>(name, out)` | 类型不匹配返回 false |
+| `applyDiff(PropertyBagDiff)` | 批量更新 |
+| `toJson()` | 序列化 |
+
+### 5.2 `backend_property_json`（`BackendPropertyRow.h`）
+
+行格式：`{ key, labelEn, editable, value }`。
+
+### 5.3 `backend_property_schema`（`BackendPropertySchema.h`）
+
+| 函数 | 产出 |
+|------|------|
+| `pointCloudBackendSchema()` / `meshBackendSchema()` | PropertyCore `PropertySchema` |
+| `followAttachmentBackendPropertySchema()` | `follow.targetName` 等 |
+| `schemaForBackendClassName(className)` | 分发 |
+| `tagPoseRotationColorSemantics` | `pose.*` → 影响世界变换；`color.*` → 仅颜色 |
+
+### 5.4 `BackendAttributeBase` 工厂
+
+| 工厂 | 绑定属性 |
+|------|----------|
+| `makeBackendPoseAttribute()` | pose.x/y/z |
+| `makeBackendRotationAttribute()` | rotation.x/y/z |
+| `makeBackendDisplayColorAttribute()` | color.r/g/b/a |
+
+---
+
+## 6. `FollowAttachmentComponent`（`IBackendComponent`）
+
+**类型键**：`"FollowAttachment"`
+
+| 方法 | 说明 |
+|------|------|
+| `enabled` / `targetBackendId` / `localPosition` / `localEulerDeg` | 跟随约束参数 |
+| `solverPaused` | gizmo 拖动时暂停求解写回 |
+| `hierarchyDriven` | 由 `attachChild` 自动建立的目标 |
+| `appendPropertyRows` / `applyPropertyChange` | UI：`follow.targetName` → `findByName` |
+| `writeJson` / `readJson` | 工程持久化 |
+| `recomputeLocalFromCurrentWorld`（静态） | 从当前世界位姿重算局部偏移 |
+
+---
+
+## 7. `BackendFollowTransformSolver`
+
+| API | 说明 |
+|-----|------|
+| `WorldMatQuery` | `bool(backendId, BackendMat4& outWorld)`，优先 OSG 真值 |
+| `solve(mgr, worldQuery, skipUpdatingFollowerId, limitPoseUpdateToFollowerIds)` | 拓扑序更新 follower 的 `pose/rotation` |
+
+与 `Widget::runBackendFollowSolveAndSync`、`BackendSceneDocumentFacade` 脏集配合。
+
+---
+
+## 8. `BackendDataManager`（场景注册表 + DAG）
+
+### 8.1 对象注册
+
+| 方法 | 说明 |
+|------|------|
+| `instance()` | 单例（每文档可独立实例，由 `DocumentPage` 持有） |
+| `registerData` / `unregisterData` | 注册/移除（写锁） |
+| `getData` / `contains` / `listData` | 查询（读锁） |
+| `findByName` / `findByClass` / `findByComponent` | 条件查找 |
+
+### 8.2 边与图算法
+
+| 方法 | 说明 |
+|------|------|
+| `attachChild(parentId, childId)` | 有向边 |
+| `setParent(childId, parentId)` | 单父替换 |
+| `detachChild` / `detachAllParents` | 删边 |
+| `parentsOf` / `childrenOf` / `ancestorsOf` / `descendantsOf` | id 列表 |
+| `subtreeIds(rootId)` | 缓存：根 + 后代 |
+| `topoOrder()` / `rootIds()` / `listEdges()` | 拓扑与根 |
+| `wouldCreateCycle` / `validateGraph` | 一致性 |
+
+### 8.3 观测与调试
+
+| 方法 | 说明 |
+|------|------|
+| `addHierarchyObserver` / `removeHierarchyObserver` | **禁止**在回调内再抢写锁 |
+| `takeSnapshot()` | `BackendSnapshot` 向量 |
+| `collectBaselineMetrics` | 性能基线 |
+| `clear()` | 清空 |
+
+### 8.4 `BackendHierarchyModel`
+
+UI 侧增量镜像：`resyncFrom(mgr)`，`subtreeIds(root)`（结构变更后缓存失效）。
+
+---
+
+## 9. `BackendRegistry`（类型工厂，非场景）
+
+| 方法 | 说明 |
+|------|------|
+| `registerType(BackendMeta)` | `className`, `displayName`, `factory`, 标志 |
+| `create(className)` | `shared_ptr<BackendDataBase>` |
+| `ensureBackendBuiltinsRegistered()` | 点云 + Model |
+
+---
+
+## 10. 工具
+
+| 模块 | 作用 |
+|------|------|
+| `geometry_base64` | 浮点缓冲 ↔ Base64（工程嵌入） |
+| `backend_relations` | `parents`/`children` 便捷包装 |
+| `property_rows_compat::syncTransformColorToBag` | 面板 ↔ PropertyBag 同步 |
+
+---
+
+## 11. 与上层模块边界
+
+| 上层 | 如何使用 Data |
+|------|----------------|
+| `Widget` | 注册对象、属性面板、`BackendSceneDocumentFacade` |
+| `BackendVisual` | 读几何缓冲建 OSG |
+| `RobotUrdf` | 每连杆 `MeshBackendData` |
+| `RobotScene` | 读关节/连杆 id，写 `worldMatrix` |
+
+**Data 不包含 OSG 头文件**；世界矩阵经 `IBackendSceneBridge` 列主序 16 double 与 OSG 对齐。
+
+---
+
+## 12. 相关文档
+
+- 可视化：[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md)
+- 场景门面：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §文档门面
+- 总架构：[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §4.3

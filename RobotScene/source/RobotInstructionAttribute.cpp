@@ -1,5 +1,6 @@
 #include "RobotInstructionAttribute.h"
 
+#include "RobotInstructionAxisConfiguration.h"
 #include "RobotInstructionModel.h"
 #include "RobotInstructionPropertySchema.h"
 
@@ -178,7 +179,8 @@ AttributePtr makeEnumAttribute(
 	std::string (*getter)(const Base&),
 	void (*setter)(Base&, const std::string&),
 	const char* key,
-	const char* label)
+	const char* label,
+	bool (*isValidFn)(const std::string&))
 {
 	return std::make_shared<EnumAttributeImpl>(
 		hasProperty,
@@ -186,7 +188,8 @@ AttributePtr makeEnumAttribute(
 		setter,
 		key,
 		label,
-		appendRow);
+		appendRow,
+		isValidFn);
 }
 
 AttributePtr makeSpeedAttribute()
@@ -215,8 +218,222 @@ AttributePtr makeAxisConfigAttribute()
 		hasAxisConfigProperty,
 		getAxisConfig,
 		setAxisConfig,
-		"motion.axisConfig",
-		labelForKey("motion.axisConfig", "Axis Configuration"));
+		"motion.axisConfig.preset",
+		labelForKey("motion.axisConfig.preset", "Axis config preset"));
+}
+
+namespace
+{
+bool hasMotionAxisCfg(const Base& cmd)
+{
+	return cmd.hasMotionAxisConfigurationProperty();
+}
+
+std::string getPreset(const Base& cmd)
+{
+	return cmd.motionAxisConfiguration().preset;
+}
+
+void setPreset(Base& cmd, const std::string& value)
+{
+	if (!cmd.hasMotionAxisConfigurationProperty())
+	{
+		return;
+	}
+	MotionAxisConfiguration cfg = cmd.motionAxisConfiguration();
+	std::string preset;
+	if (!motionAxisConfigPresetFromToken(value, preset))
+	{
+		return;
+	}
+	applyPresetToConfiguration(preset, cfg);
+	cfg.preset = preset;
+	cmd.setMotionAxisConfiguration(cfg);
+}
+
+std::string getElbow(const Base& cmd)
+{
+	return elbowPostureToToken(cmd.motionAxisConfiguration().elbow);
+}
+
+void setElbow(Base& cmd, const std::string& value)
+{
+	if (!cmd.hasMotionAxisConfigurationProperty())
+	{
+		return;
+	}
+	ElbowPosture e{};
+	if (!elbowPostureFromToken(value, e))
+	{
+		return;
+	}
+	MotionAxisConfiguration cfg = cmd.motionAxisConfiguration();
+	cfg.preset = "CUSTOM";
+	cfg.elbow = e;
+	cmd.setMotionAxisConfiguration(cfg);
+}
+
+std::string getWrist(const Base& cmd)
+{
+	return wristPostureToToken(cmd.motionAxisConfiguration().wrist);
+}
+
+void setWrist(Base& cmd, const std::string& value)
+{
+	if (!cmd.hasMotionAxisConfigurationProperty())
+	{
+		return;
+	}
+	WristPosture w{};
+	if (!wristPostureFromToken(value, w))
+	{
+		return;
+	}
+	MotionAxisConfiguration cfg = cmd.motionAxisConfiguration();
+	cfg.preset = "CUSTOM";
+	cfg.wrist = w;
+	cmd.setMotionAxisConfiguration(cfg);
+}
+
+std::string getArm(const Base& cmd)
+{
+	return armPostureToToken(cmd.motionAxisConfiguration().arm);
+}
+
+void setArm(Base& cmd, const std::string& value)
+{
+	if (!cmd.hasMotionAxisConfigurationProperty())
+	{
+		return;
+	}
+	ArmPosture a{};
+	if (!armPostureFromToken(value, a))
+	{
+		return;
+	}
+	MotionAxisConfiguration cfg = cmd.motionAxisConfiguration();
+	cfg.preset = "CUSTOM";
+	cfg.arm = a;
+	cmd.setMotionAxisConfiguration(cfg);
+}
+
+std::string getTurnJ1(const Base& cmd)
+{
+	return jointTurnToToken(cmd.motionAxisConfiguration().turnJ1);
+}
+
+void setTurnJ1(Base& cmd, const std::string& value)
+{
+	if (!cmd.hasMotionAxisConfigurationProperty())
+	{
+		return;
+	}
+	int t = kMotionAxisTurnAuto;
+	if (!jointTurnFromToken(value, t))
+	{
+		return;
+	}
+	MotionAxisConfiguration cfg = cmd.motionAxisConfiguration();
+	cfg.turnJ1 = t;
+	cmd.setMotionAxisConfiguration(cfg);
+}
+
+std::string getTurnJ4(const Base& cmd)
+{
+	return jointTurnToToken(cmd.motionAxisConfiguration().turnJ4);
+}
+
+void setTurnJ4(Base& cmd, const std::string& value)
+{
+	if (!cmd.hasMotionAxisConfigurationProperty())
+	{
+		return;
+	}
+	int t = kMotionAxisTurnAuto;
+	if (!jointTurnFromToken(value, t))
+	{
+		return;
+	}
+	MotionAxisConfiguration cfg = cmd.motionAxisConfiguration();
+	cfg.turnJ4 = t;
+	cmd.setMotionAxisConfiguration(cfg);
+}
+
+std::string getTurnJ6(const Base& cmd)
+{
+	return jointTurnToToken(cmd.motionAxisConfiguration().turnJ6);
+}
+
+void setTurnJ6(Base& cmd, const std::string& value)
+{
+	if (!cmd.hasMotionAxisConfigurationProperty())
+	{
+		return;
+	}
+	int t = kMotionAxisTurnAuto;
+	if (!jointTurnFromToken(value, t))
+	{
+		return;
+	}
+	MotionAxisConfiguration cfg = cmd.motionAxisConfiguration();
+	cfg.turnJ6 = t;
+	cmd.setMotionAxisConfiguration(cfg);
+}
+} // namespace
+
+std::vector<AttributePtr> makeMotionAxisConfigAttributes()
+{
+	std::vector<AttributePtr> attrs;
+	attrs.push_back(makeEnumAttribute(
+		hasMotionAxisCfg,
+		getPreset,
+		setPreset,
+		"motion.axisConfig.preset",
+		labelForKey("motion.axisConfig.preset", "Axis config preset"),
+		isValidMotionAxisConfigPreset));
+	attrs.push_back(makeEnumAttribute(
+		hasMotionAxisCfg,
+		getElbow,
+		setElbow,
+		"motion.axisConfig.elbow",
+		labelForKey("motion.axisConfig.elbow", "Elbow posture"),
+		isValidElbowPostureToken));
+	attrs.push_back(makeEnumAttribute(
+		hasMotionAxisCfg,
+		getWrist,
+		setWrist,
+		"motion.axisConfig.wrist",
+		labelForKey("motion.axisConfig.wrist", "Wrist posture"),
+		isValidWristPostureToken));
+	attrs.push_back(makeEnumAttribute(
+		hasMotionAxisCfg,
+		getArm,
+		setArm,
+		"motion.axisConfig.arm",
+		labelForKey("motion.axisConfig.arm", "Arm posture"),
+		isValidArmPostureToken));
+	attrs.push_back(makeEnumAttribute(
+		hasMotionAxisCfg,
+		getTurnJ1,
+		setTurnJ1,
+		"motion.axisConfig.turn.j1",
+		labelForKey("motion.axisConfig.turn.j1", "J1 turn"),
+		isValidMotionAxisTurnToken));
+	attrs.push_back(makeEnumAttribute(
+		hasMotionAxisCfg,
+		getTurnJ4,
+		setTurnJ4,
+		"motion.axisConfig.turn.j4",
+		labelForKey("motion.axisConfig.turn.j4", "J4 turn"),
+		isValidMotionAxisTurnToken));
+	attrs.push_back(makeEnumAttribute(
+		hasMotionAxisCfg,
+		getTurnJ6,
+		setTurnJ6,
+		"motion.axisConfig.turn.j6",
+		labelForKey("motion.axisConfig.turn.j6", "J6 turn"),
+		isValidMotionAxisTurnToken));
+	return attrs;
 }
 
 AttributePtr makeBlendRadiusAttribute()

@@ -1,0 +1,161 @@
+# BackendVisual 模块开发文档
+
+## 1. 模块定位
+
+`BackendVisual` 解决 **「后端数据对象」与「OSG 可渲染场景分支」** 之间的转换。通过策略接口 `IBackendVisual` + 注册表 `BackendVisualRegistry`，使 `OsgWidgetCore` 不必硬编码点云/网格构建细节。
+
+| 属性 | 说明 |
+|------|------|
+| 依赖 | `Data`（`BackendDataBase` 等）、OpenSceneGraph |
+| 不依赖 | Qt |
+| 导出 | `BACKENDVISUAL_EXPORT` |
+
+---
+
+## 2. 场景分支约定（与 Gizmo/FK 对齐）
+
+```text
+outer (osg::MatrixTransform)     ← 唯一位姿写入：T(center+pose) * R
+└─ inner (PositionAttitudeTransform)  ← 默认 position = -modelCenter
+   └─ Geode / Group（几何）
+```
+
+| 选项 | 结构体字段 | 效果 |
+|------|------------|------|
+| URDF 每连杆 | `MeshVisualOptions::skipInnerModelCenterRebase = true` | inner 不再 `-bboxCenter`；outer 平移仅含 `pose`（顶点已在连杆系） |
+| 网格线框 | `showWireOutline` | 附加 feature-edge 线框 Geode |
+| 光照 | `useSceneLighting` | 三角面法线 + `GL_LIGHTING` |
+
+---
+
+## 3. 核心类型
+
+### 3.1 `struct MeshVisualOptions`
+
+| 成员 | 默认 | 说明 |
+|------|------|------|
+| `showWireOutline` | `true` | 线框叠加 |
+| `useSceneLighting` | `false` | 塑料光照材质 |
+| `skipInnerModelCenterRebase` | `false` | 跳过内层去心（每连杆 URDF） |
+
+### 3.2 `struct BranchBuildResult`
+
+| 成员 | 说明 |
+|------|------|
+| `outer` | 外层 `MatrixTransform`，挂到场景并绑定 `backendId` |
+| `modelCenter` | AABB 中心（gizmo / 拾取缓存） |
+| `diagonal` | AABB 对角线，≥ 1.0（罗盘缩放） |
+
+### 3.3 `class IBackendVisual`（抽象策略）
+
+| 方法 | 返回值 | 作用 |
+|------|--------|------|
+| `typeKey()` | `string` | 注册键，如 `"PointCloudBackendData"`、`"Model"` |
+| `buildOuterBranch(data, meshOptions, out, errorMessage)` | `bool` | 构建完整分支；失败写 `errorMessage` |
+| `computeModelCenterAndDiagonal(data, outCenter, outDiagonal)` | `void` | 不建场景，仅算外包络指标 |
+
+---
+
+## 4. 具体实现类
+
+### 4.1 `PointCloudBackendVisual`
+
+| 方法 | 作用 |
+|------|------|
+| `typeKey()` | `"PointCloudBackendData"` |
+| `makeStagingGeode(data, err)` | 导入预览：单 Geode，无 PAT 包装 |
+| `buildOuterBranch(...)` | `GL_POINTS` + `BackendIdUserData` 挂 outer |
+| `computeModelCenterAndDiagonal(...)` | 委托 `backend_geometry_metrics::pointCloud*` |
+
+**数据输入**：`PointCloudBackendData::pointPositionsXyz()`，可选 per-vertex RGBA。
+
+### 4.2 `MeshBackendVisual`
+
+| 方法 | 作用 |
+|------|------|
+| `typeKey()` | `"Model"`（与 `MeshBackendData::className()` 一致） |
+| `makeDisplayNode(data, options, err)` | 无 outer 的显示 `Group`（填充 + 可选线框） |
+| `buildOuterBranch(...)` | 完整分支；尊重 `skipInnerModelCenterRebase` |
+| `computeModelCenterAndDiagonal(...)` | 三角 soup AABB |
+
+**数据输入**：`MeshBackendData::triangleSoup()`（每三角 9 float：v0,v1,v2 各 xyz）。
+
+---
+
+## 5. `BackendVisualRegistry`（静态工厂）
+
+| 方法 | 作用 |
+|------|------|
+| `ensureBuiltinsRegistered()` | 注册点云 + 网格（`Model`） |
+| `registerType(className, factory)` | 扩展新后端类型 |
+| `createForClassName(className)` | `unique_ptr<IBackendVisual>` |
+| `buildOuterBranch(data, meshOptions, out, err)` | 按 `data->className()` 分发 |
+| `computeModelCenterAndDiagonal(...)` | 分发；未知类型用默认 |
+| `buildPointCloudGeode` / `buildMeshDisplayNode` | 快捷 staging 入口 |
+
+---
+
+## 6. 拾取与 ID 绑定
+
+### 6.1 `class BackendIdUserData`
+
+| 方法 | 作用 |
+|------|------|
+| `BackendIdUserData(id)` | 存储 backend id |
+| `backendId()` | 只读 id |
+| `attach(root, backendId)` | 在 outer 根节点设置 userData |
+| `findInNodePath(path)` | 自叶向根查找第一个 `BackendIdUserData` |
+
+### 6.2 `backendVisualResolvePickNode(outerBranchRoot)`
+
+从 outer 取 **inner PAT 的 child(0)** 作为几何拾取根。
+
+---
+
+## 7. 数学与度量（命名空间）
+
+### `backend_geometry_metrics`
+
+| 函数 | 输入 |
+|------|------|
+| `pointCloudCenterFromXyz` / `pointCloudDiagonalFromXyz` | xyz 交错 float |
+| `meshCenterFromSoup` / `meshDiagonalFromSoup` | 三角 soup |
+
+### `backendvisual_math`
+
+| 函数 | 约定 |
+|------|------|
+| `eulerDegToQuat` / `quatToEulerDeg` | 内禀 ZYX，与 `OsgScene` / `ObjectGizmoFrame` 一致 |
+
+---
+
+## 8. 典型调用链
+
+```mermaid
+sequenceDiagram
+    participant OW as OsgWidget
+    participant Reg as BackendVisualRegistry
+    participant Vis as IBackendVisual
+    participant Scene as OsgScene
+
+    OW->>Reg: buildOuterBranch(data, opts, out)
+    Reg->>Vis: buildOuterBranch
+    Vis-->>OW: BranchBuildResult.outer
+    OW->>Scene: bindBackendVisualRoot(id, outer)
+```
+
+---
+
+## 9. 扩展新可视化类型
+
+1. 实现 `IBackendVisual` 子类。
+2. `BackendVisualRegistry::registerType`（或在启动时 `ensureBuiltinsRegistered` 旁注册）。
+3. 在 `Data` 侧注册对应 `BackendRegistry` 工厂（`className` 必须一致）。
+4. 在 `OsgWidget::load*FromBackendData` 中确保调用 `buildOuterBranch` + `bindBackendVisualRoot`。
+
+---
+
+## 10. 相关文档
+
+- 场景与拾取：[`../OsgWidgetCore/DEVELOPER_GUIDE.md`](../OsgWidgetCore/DEVELOPER_GUIDE.md)
+- 网格/点云数据：[`../Data/DEVELOPER_GUIDE.md`](../Data/DEVELOPER_GUIDE.md)

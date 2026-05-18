@@ -1,0 +1,285 @@
+# RobotScene 模块开发文档
+
+## 1. 模块定位
+
+`RobotScene` 承担 **仿真业务逻辑**：机器人指令模型、校验、规划（Planner）、程序执行状态机、将关节角/FK 结果写回文档与 OSG。不依赖 Qt Widget，通过 `IRobotSimulationDocument` / `IRobotBackendPoseSink` 与 `Widget` 解耦。
+
+| 组合依赖 | `RobotUrdf` + `RobotKinematics` + `RunLogger` |
+| 导出 | `ROBOT_SCENE_API` |
+
+---
+
+## 2. 指令模型（`RobotInstructionModel.h`）
+
+### 2.1 基础类型
+
+| 类型 | 说明 |
+|------|------|
+| `Vec3` | `x,y,z` — 位姿 mm 或欧拉度 |
+| `Type` | `PTP`, `LINE`, `WAIT`, `IF`, `WHILE`, `SET_DO`, `SET_AO` |
+| `Category` | `Motion` / `Logic` |
+
+辅助：`categoryForType`, `typeToString`, `typeFromString`。
+
+### 2.2 `class Base`（抽象指令）
+
+| 分组 | 方法 |
+|------|------|
+| 身份 | `id`, `controllerId`, `type`, `category`, `name` |
+| 运动虚属性 | `hasPoseProperty`, `pose`, `setPose`, `eulerDeg`, `speed`/`accel`, `blendRadius`(LINE), `motionAxisConfiguration`, `axisConfig`(legacy string) |
+| 逻辑虚属性 | `durationSec`(WAIT), `condition`(IF/WHILE), `ioPort`, `ioBoolValue`, `ioAnalogValue` |
+| 嵌套 | `nestedSteps()`, `elseSteps()` — IF/While 子列表 |
+| 面板 | `snapshotPropertyRows()`, `applyPropertyChange(key, value, errMsg)` |
+| 扩展 | `extensionProperties()`, `setExtensionProperty` — **规划上下文**（见 §5） |
+
+### 2.3 具体指令类
+
+| 类 | 类型 | 关键默认值 |
+|----|------|------------|
+| `PtpInstruction` | PTP | speed=100, accel=100, `MotionAxisConfiguration` |
+| `LineInstruction` | LINE | tcpSpeed=200, tcpAccel=200, blendRadius=0 |
+| `WaitInstruction` | WAIT | durationSec=1 |
+| `IfInstruction` | IF | `thenSteps`, `elseSteps` + `thenStepsMut()` |
+| `WhileInstruction` | WHILE | `bodySteps` |
+| `SetDigitalOutputInstruction` | SET_DO | port, bool |
+| `SetAnalogOutputInstruction` | SET_AO | port, analog |
+
+`makeInstructionId()` — 生成唯一 id。
+
+---
+
+## 3. 运动轴配置（`RobotInstructionAxisConfiguration.h`）
+
+### 3.1 枚举
+
+| 枚举 | 值 |
+|------|-----|
+| `ElbowPosture` | Auto, Up, Down |
+| `WristPosture` | Auto, NoFlip, Flip |
+| `ArmPosture` | Auto, Front, Back |
+
+`kMotionAxisTurnAuto = INT_MIN` — J1/J4/J6 转数不约束。
+
+### 3.2 `struct MotionAxisConfiguration`
+
+| 字段 | 说明 |
+|------|------|
+| `preset` | AUTO, ELBOW_UP, …, CUSTOM |
+| `elbow`, `wrist`, `arm`, `turnJ1/J4/J6` | 分项约束 |
+
+| 方法 | 作用 |
+|------|------|
+| `resolveEffective(out JointConfigurationClass)` | 展开 preset |
+| `isFullyAuto()` | 是否全 AUTO |
+| `matchesClass(observed)` | IK 解是否满足构型+转数 |
+
+### 3.3 分类与 JSON
+
+| API | 作用 |
+|-----|------|
+| `classifyJointConfiguration(q, jointNames, seedQ?)` | 肘/腕/臂/转数观测 |
+| `classifyJointTurnRevolutions(q, ref)` | `round((q-ref)/2π)` |
+| `solveIkWithAxisConfiguration`（Controller 内） | 多初值 IK + 筛选 |
+| `motionAxisConfigurationFromJson` / `writeMotionAxisConfigurationToJson` | 含 `turns.j1/j4/j6` |
+| `suggestMotionAxisPresetToken(observed)` | UI 默认 preset |
+| `motionAxisConfigurationRequiresConstraint(cfg)` | 显式约束时禁止无约束回退 |
+| `formatMotionAxisConfigurationSummary` | 树节点摘要 |
+
+**属性键**（PropertySchema）：`motion.axisConfig.preset`, `.elbow`, `.wrist`, `.arm`, `.turn.j1/j4/j6`。
+
+---
+
+## 4. 条件（`RobotInstructionCondition.h`）
+
+| `ConditionKind` | 字段 |
+|-----------------|------|
+| `Always` / `Never` | — |
+| `Io` | `ioPort`, `ioEquals` |
+| `Compare` | `compareLeft`, `compareOp`, `compareRight` |
+
+`conditionFromJson` / `conditionToJson`。
+
+---
+
+## 5. 规划（`RobotInstructionController.h`）
+
+### 5.1 `struct PlanResult`
+
+| 字段 | 说明 |
+|------|------|
+| `ok` | 是否成功 |
+| `plannerName` | 如 `"PtpPlanner"` |
+| `summary` | 可读摘要 |
+| `durationSec` | 段时长 |
+| `jointTargetsRad` | 段末关节角 |
+| `jointTrajectoryRad` | LINE 约 24 点插值；PTP 常为 `{target}` |
+
+### 5.2 `class PlannerBase`
+
+| 方法 | 说明 |
+|------|------|
+| `canHandle(Type)` | 是否处理该类型 |
+| `validate(cmd, errMsg)` | 规划前校验 |
+| `plan(cmd, out, errMsg)` | 输出 `PlanResult` |
+
+**实现类**（`.cpp`，未在头文件导出）：`PtpPlanner`, `LinePlanner`。
+
+### 5.3 `class Controller`
+
+| 方法 | 说明 |
+|------|------|
+| `setDhRows` / `clearDhRows` / `hasDhRows` | DH 回退 IK |
+| `registerPlanner` / `buildDefaultPlanners()` | 注册 PTP/LINE |
+| `validate` / `plan` | 逻辑指令 → `plannerName="logic"` |
+| `queryFeasibleMotionAxisConfigurationOptions(cmd)` | **单次**多初值 IK → 可行 preset/分项 token 列表 |
+
+### 5.4 规划上下文（`extensionProperties` 键）
+
+| 键 | 格式 | 必需场景 |
+|----|------|----------|
+| `context.currentJointRadCsv` | 逗号分隔 rad | 所有运动 IK |
+| `context.urdfPath` | 绝对路径 | URDF IK、LINE 笛卡尔时长 |
+| `context.tcpLinkName` | link 名 | TCP 位姿 IK |
+| `legacy.jointIndex` / `legacy.angleDeg` | int / deg | 最后回退 |
+
+### 5.5 IK 解析顺序（运动指令）
+
+1. 有 TCP → URDF 数值 IK（有欧拉则含姿态）
+2. 有 `MotionAxisConfiguration` 约束 → `solveIkWithAxisConfiguration`（无解且显式约束 → **失败，不回退**）
+3. DH `ikPositionDampedLeastSquares`（`hasDhRows()`）
+4. URDF 重试 / legacy 单关节增量
+
+---
+
+## 6. 程序工具（`RobotInstructionProgram.h` / `Factory`）
+
+| API | 作用 |
+|-----|------|
+| `createFromJson` / `toJson` / `createListFromJson` | 序列化 |
+| `collectMotionInstructions` / `Recursive` | 规划顺序运动点 |
+| `renumberMotionPointIndices` | P1..Pn → `motion.pointIndex` |
+| `formatMotionWaypointSummary` | 树显示 |
+
+---
+
+## 7. 执行与回放
+
+### 7.1 `RobotInstructionPlaybackEngine`（遗留）
+
+| 方法 | 说明 |
+|------|------|
+| `tryStart(doc, osg, queue, initialAngles, err)` | `RobotSimulationCommand` 队列 |
+| `tryStartFromPlanResults(...)` | 合并 `PlanResult` |
+| `tick(doc, osg)` | ~16ms 插值 |
+| `jointAnglesRad()` | 当前角 |
+
+### 7.2 `RobotProgramExecutor`（完整程序）
+
+| 方法 | 说明 |
+|------|------|
+| `tryStart(doc, osg, io, robotInstanceIndex, program, motionPlanResults, initialAngles, err)` | 含 IF/WHILE/WAIT/IO |
+| `tick(doc, osg)` | 状态机 + 运动段 |
+| `stop()` / `isRunning()` | 控制 |
+
+私有：`While` 最大迭代 `kMaxWhileIterations = 10000`。
+
+### 7.3 `IRobotIoSink`
+
+| 方法 | 说明 |
+|------|------|
+| `setDigitalOutput` / `setAnalogOutput` | 纯虚 |
+| `getDigitalInput` | 默认 false |
+
+`SimulationLogIoSink`（Widget）为内存实现。
+
+---
+
+## 8. 场景运动学（`RobotSceneKinematics.h`）
+
+### 8.1 `struct RobotPerLinkKinematicsSlice`
+
+| 字段 | 说明 |
+|------|------|
+| `urdfAbsolutePath` | URDF 路径 |
+| `sceneRootBackendId` | robot root backend id |
+| `linkNameToBackendId` | link → mesh backend |
+| `fkMeshWorldT0` | bind 时各 link 网格世界矩阵 |
+| `outerWorldAtBindByBackendId` | bind 时 outer 世界矩阵 |
+| `meshVerticesInLinkFrame` | 顶点是否在连杆系 |
+
+### 8.2 `namespace RobotSceneKinematics`
+
+| 函数 | 作用 |
+|------|------|
+| `applyJointAnglesFromDocument(doc, osg, anglesRad)` | 按实例循环 per-link / 层级 |
+| `applyJointAnglesForInstance(doc, osg, instanceIndex, local, aggregated)` | 单机 |
+| `applyJointAnglesViaLinkBackends(doc, osg, mgr, angles, slice)` | `Mnew = M0 * inv(T0) * Tq` 写 outer + `setWorldMatrix` |
+| `applyMeshWorldMatricesRelativeToBind(...)` | 预计算 FK 相对 bind 更新 |
+
+**调试**：`ROBOT_KINEMATICS_DEBUG=1` → `[RobotKinematicsDBG]` 日志。
+
+---
+
+## 9. 文档接口
+
+### 9.1 `IRobotSimulationDocument`
+
+| 方法 | 说明 |
+|------|------|
+| `robotKinematicInstanceCount()` | 多机数量 |
+| `robotUrdfAbsolutePathForInstance(i)` | 每机 URDF |
+| `robotJointKeyPrefixForInstance(i)` | 关节键前缀 |
+| `robotUsesPerLinkBackendsForInstance(i)` | 是否 per-link |
+| `robotPerLinkKinematicsForInstance(i, out)` | 切片数据 |
+| `robotJointMatrixTransform(jointName)` | 层级模式关节 MT |
+| `robotLinkNameToBackendId()` | 聚合 map（兼容 UI） |
+| `notifyRobotKinematicsAppliedToScene()` | 跟随脏标记 |
+
+由 `DocumentPage` 实现。
+
+### 9.2 `IRobotBackendPoseSink`
+
+| 方法 | 说明 |
+|------|------|
+| `get/setBackendRootWorldMatrix` | 世界/局部 |
+| `tryGetBackendModelCenterMm` | 可选 |
+| `syncRobotMeshBackendPoseAfterKinematics(mesh)` | FK 后同步 PAT |
+
+由 `OsgWidget` / `BackendSceneDocumentFacade::poseSink()` 实现。
+
+---
+
+## 10. 属性 Schema（`RobotInstructionPropertySchema.h`）
+
+| 函数 | objectTypeId |
+|------|----------------|
+| `ptpInstructionPropertySchema()` | `robot_instruction.ptp` |
+| `lineInstructionPropertySchema()` | `robot_instruction.line` |
+| `waitInstructionPropertySchema()` | `robot_instruction.wait` |
+| `setDoInstructionPropertySchema()` | `robot_instruction.set_do` |
+| `setAoInstructionPropertySchema()` | `robot_instruction.set_ao` |
+| `schemaForInstructionType(Type)` | 分发 |
+
+---
+
+## 11. 典型工作流
+
+```mermaid
+flowchart LR
+  A[编辑指令树] --> B[设置 extension context]
+  B --> C[Controller.plan 每条运动]
+  C --> D[RobotProgramExecutor.tryStart]
+  D --> E[RobotSceneKinematics.apply*]
+  E --> F[IRobotBackendPoseSink]
+```
+
+**预览**（非运行）：`MainWindow` 自程序起点链式 `plan` 至选中 PTP/LINE，写回滑块与场景；轴配置可行列表 `queryFeasibleMotionAxisConfigurationOptions` 带缓存。
+
+---
+
+## 12. 相关文档
+
+- URDF：[`../RobotUrdf/DEVELOPER_GUIDE.md`](../RobotUrdf/DEVELOPER_GUIDE.md)
+- DH：[`../RobotKinematics/DEVELOPER_GUIDE.md`](../RobotKinematics/DEVELOPER_GUIDE.md)
+- UI：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §仿真
+- 轴配置详解：[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §4.8.1–4.8.2

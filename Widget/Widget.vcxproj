@@ -192,6 +192,9 @@
     <ClInclude Include="inc\MainWindow_p.h" />
     <QtMoc Include="inc\DevicePageWidget.h" />
     <QtMoc Include="inc\SimulationCommandWidget.h" />
+    <QtMoc Include="inc\InstructionProgramTreeWidget.h" />
+    <ClInclude Include="inc\RobotProgramStore.h" />
+    <ClInclude Include="inc\SimulationLogIoSink.h" />
     <QtMoc Include="inc\RobotAxisControlWidget.h" />
     <QtMoc Include="inc\DocumentPage.h" />
     <QtMoc Include="inc\MainWindow.h" />
@@ -228,6 +231,9 @@
     <ClCompile Include="source\ApplicationStyle.cpp" />
     <ClCompile Include="source\DevicePageWidget.cpp" />
     <ClCompile Include="source\SimulationCommandWidget.cpp" />
+    <ClCompile Include="source\InstructionProgramTreeWidget.cpp" />
+    <ClCompile Include="source\RobotProgramStore.cpp" />
+    <ClCompile Include="source\SimulationLogIoSink.cpp" />
     <ClCompile Include="source\RobotAxisControlWidget.cpp" />
     <ClCompile Include="source\BackendFollowReverseIndex.cpp" />
     <ClCompile Include="source\BackendSceneDocumentFacade.cpp" />

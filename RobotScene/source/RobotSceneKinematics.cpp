@@ -364,6 +364,40 @@ bool applyJointAnglesViaLinkBackends(
 	return true;
 }
 
+bool applyJointAnglesForInstance(
+	IRobotSimulationDocument* doc,
+	IRobotBackendPoseSink* osg,
+	int instanceIndex,
+	const QVector<double>& localAnglesRad,
+	QVector<double>& aggregatedAnglesRad)
+{
+	if (!doc || instanceIndex < 0 || instanceIndex >= doc->robotKinematicInstanceCount())
+	{
+		return false;
+	}
+	const int nj = doc->robotRevoluteJointCountForInstance(instanceIndex);
+	if (localAnglesRad.size() != nj)
+	{
+		return false;
+	}
+	const int total = doc->robotRevoluteJointNames().size();
+	if (aggregatedAnglesRad.size() != total)
+	{
+		aggregatedAnglesRad.resize(total);
+		aggregatedAnglesRad.fill(0.0);
+	}
+	int offset = 0;
+	for (int i = 0; i < instanceIndex; ++i)
+	{
+		offset += doc->robotRevoluteJointCountForInstance(i);
+	}
+	for (int j = 0; j < nj; ++j)
+	{
+		aggregatedAnglesRad[offset + j] = localAnglesRad[j];
+	}
+	return applyJointAnglesFromDocument(doc, osg, aggregatedAnglesRad);
+}
+
 bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg, const QVector<double>& anglesRad)
 {
 	if (!doc || !doc->hasRobotSimulationContext())

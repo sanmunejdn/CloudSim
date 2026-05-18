@@ -307,6 +307,8 @@ void MainWindow::setupDockWidgets()
 		this, &MainWindow::onSimulationAddInstructionRequested);
 	connect(m_simulationCommandPage, &SimulationCommandWidget::instructionSelectionChanged,
 		this, &MainWindow::onSimulationInstructionSelectionChanged);
+	connect(m_simulationCommandPage, &SimulationCommandWidget::robotSelectionChanged,
+		this, &MainWindow::onSimulationRobotSelectionChanged);
 	connect(m_robotAxisControlPage, &RobotAxisControlWidget::allJointAnglesChanged,
 		this, &MainWindow::onRobotAxisJointAnglesChanged);
 	addDockWidget(Qt::RightDockWidgetArea, m_unitDock);

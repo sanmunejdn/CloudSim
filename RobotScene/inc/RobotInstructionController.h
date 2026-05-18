@@ -21,6 +21,18 @@ struct ROBOT_SCENE_API PlanResult
 	std::vector<std::vector<double>> jointTrajectoryRad; // Optional absolute trajectory waypoints.
 };
 
+/// Axis-configuration enum tokens that pass IK + posture constraints for the current instruction context.
+struct ROBOT_SCENE_API FeasibleMotionAxisConfigurationOptions
+{
+	std::vector<std::string> presetTokens;
+	std::vector<std::string> elbowTokens;
+	std::vector<std::string> wristTokens;
+	std::vector<std::string> armTokens;
+	std::vector<std::string> turnJ1Tokens;
+	std::vector<std::string> turnJ4Tokens;
+	std::vector<std::string> turnJ6Tokens;
+};
+
 class ROBOT_SCENE_API PlannerBase
 {
 public:
@@ -43,6 +55,9 @@ public:
 
 	bool validate(const Base& cmd, std::string* errMsg) const;
 	bool plan(const Base& cmd, PlanResult& out, std::string* errMsg) const;
+
+	/// Enumerates axis-configuration choices that can be planned/started for {@p cmd} (requires planning context on cmd).
+	FeasibleMotionAxisConfigurationOptions queryFeasibleMotionAxisConfigurationOptions(const Base& cmd) const;
 
 private:
 	const PlannerBase* findPlanner(Type t) const;

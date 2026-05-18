@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 
+#include <algorithm>
 #include <memory>
 #include <sstream>
 #include <iomanip>
@@ -23,6 +24,7 @@
 #include "PointCloudBackendData.h"
 #include "OsgWidget.h"
 #include "RobotInstructionPropertySchema.h"
+#include "RobotInstructionProgram.h"
 #include "RunLogger.h"
 
 #include "../../PropertyCore/inc/PropertyTypes.h"
@@ -89,6 +91,7 @@ int propertyEditorTypeForKey(const QString& key, bool editable)
 		case property_core::PropertyType::Bool: return QVariant::Bool;
 		case property_core::PropertyType::Int: return QVariant::Int;
 		case property_core::PropertyType::Double: return QVariant::Double;
+		case property_core::PropertyType::Enum: return QtVariantPropertyManager::enumTypeId();
 		default: return QVariant::String;
 		}
 	}
@@ -118,6 +121,64 @@ QString variantValueToString(const QVariant& value)
 	default:
 		return value.toString();
 	}
+}
+
+QString instructionEnumTokenFromValue(const QString& propertyKey, const QVariant& value)
+{
+	const property_core::PropertyDescriptor* descriptor = instructionPropertyDescriptorForKey(propertyKey);
+	if (!descriptor || descriptor->type != property_core::PropertyType::Enum)
+	{
+		return variantValueToString(value);
+	}
+	const int idx = value.toInt();
+	if (idx >= 0 && idx < static_cast<int>(descriptor->constraints.enumConstraint.options.size()))
+	{
+		return QString::fromStdString(descriptor->constraints.enumConstraint.options[static_cast<size_t>(idx)]);
+	}
+	return variantValueToString(value);
+}
+
+QString axisConfigEnumDisplayName(const QString& propertyKey, const QString& token, bool chinese)
+{
+	if (propertyKey == QStringLiteral("motion.axisConfig.preset"))
+	{
+		if (token == QStringLiteral("AUTO")) return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
+		if (token == QStringLiteral("ELBOW_UP")) return chinese ? QStringLiteral("肘上") : QStringLiteral("Elbow up");
+		if (token == QStringLiteral("ELBOW_DOWN")) return chinese ? QStringLiteral("肘下") : QStringLiteral("Elbow down");
+		if (token == QStringLiteral("WRIST_FLIP")) return chinese ? QStringLiteral("腕翻") : QStringLiteral("Wrist flip");
+		if (token == QStringLiteral("WRIST_NO_FLIP")) return chinese ? QStringLiteral("腕不翻") : QStringLiteral("Wrist no-flip");
+		if (token == QStringLiteral("ELBOW_UP_WRIST_NO_FLIP")) return chinese ? QStringLiteral("肘上/腕不翻") : QStringLiteral("Elbow up, wrist no-flip");
+		if (token == QStringLiteral("ELBOW_UP_WRIST_FLIP")) return chinese ? QStringLiteral("肘上/腕翻") : QStringLiteral("Elbow up, wrist flip");
+		if (token == QStringLiteral("ELBOW_DOWN_WRIST_NO_FLIP")) return chinese ? QStringLiteral("肘下/腕不翻") : QStringLiteral("Elbow down, wrist no-flip");
+		if (token == QStringLiteral("ELBOW_DOWN_WRIST_FLIP")) return chinese ? QStringLiteral("肘下/腕翻") : QStringLiteral("Elbow down, wrist flip");
+		if (token == QStringLiteral("CUSTOM")) return chinese ? QStringLiteral("自定义") : QStringLiteral("Custom");
+	}
+	if (propertyKey == QStringLiteral("motion.axisConfig.elbow"))
+	{
+		if (token == QStringLiteral("AUTO")) return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
+		if (token == QStringLiteral("UP")) return chinese ? QStringLiteral("肘上") : QStringLiteral("Up");
+		if (token == QStringLiteral("DOWN")) return chinese ? QStringLiteral("肘下") : QStringLiteral("Down");
+	}
+	if (propertyKey == QStringLiteral("motion.axisConfig.wrist"))
+	{
+		if (token == QStringLiteral("AUTO")) return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
+		if (token == QStringLiteral("NO_FLIP")) return chinese ? QStringLiteral("腕不翻") : QStringLiteral("No flip");
+		if (token == QStringLiteral("FLIP")) return chinese ? QStringLiteral("腕翻") : QStringLiteral("Flip");
+	}
+	if (propertyKey == QStringLiteral("motion.axisConfig.arm"))
+	{
+		if (token == QStringLiteral("AUTO")) return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
+		if (token == QStringLiteral("FRONT")) return chinese ? QStringLiteral("臂前") : QStringLiteral("Front");
+		if (token == QStringLiteral("BACK")) return chinese ? QStringLiteral("臂后") : QStringLiteral("Back");
+	}
+	if (propertyKey == QStringLiteral("motion.axisConfig.turn.j1")
+		|| propertyKey == QStringLiteral("motion.axisConfig.turn.j4")
+		|| propertyKey == QStringLiteral("motion.axisConfig.turn.j6"))
+	{
+		if (token == QStringLiteral("AUTO")) return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
+		return chinese ? QStringLiteral("转 %1").arg(token) : QStringLiteral("Turn %1").arg(token);
+	}
+	return token;
 }
 
 bool isPoseComponentKey(const QString& key)
@@ -236,7 +297,12 @@ void logBackendWorldMatrixAfterPropertyWrite(
 }
 } // namespace
 
-void MainWindow::appendPropertyBrowserRow(const QString& propertyKey, const QString& displayLabel, const QString& value, bool editable)
+void MainWindow::appendPropertyBrowserRow(
+	const QString& propertyKey,
+	const QString& displayLabel,
+	const QString& value,
+	bool editable,
+	const std::vector<std::string>* enumOptionTokens)
 {
 	if (!m_variantManager || !m_propertyBrowser)
 	{
@@ -283,6 +349,45 @@ void MainWindow::appendPropertyBrowserRow(const QString& propertyKey, const QStr
 		{
 			prop = m_variantManager->addProperty(QVariant::Bool, displayLabel);
 			m_variantManager->setValue(prop, lower == QStringLiteral("true") || lower == QStringLiteral("1"));
+		}
+	}
+	else if (editorType == QtVariantPropertyManager::enumTypeId())
+	{
+		const property_core::PropertyDescriptor* descriptor = instructionPropertyDescriptorForKey(propertyKey);
+		if (descriptor && descriptor->type == property_core::PropertyType::Enum)
+		{
+			const std::vector<std::string>& options = enumOptionTokens && !enumOptionTokens->empty()
+				? *enumOptionTokens
+				: descriptor->constraints.enumConstraint.options;
+			QStringList enumNames;
+			int selectedIndex = 0;
+			const QString valueUpper = value.trimmed().toUpper();
+			for (size_t i = 0; i < options.size(); ++i)
+			{
+				const QString token = QString::fromStdString(options[i]);
+				enumNames << axisConfigEnumDisplayName(propertyKey, token, m_useChinese);
+				if (token == valueUpper || token.compare(value, Qt::CaseInsensitive) == 0)
+				{
+					selectedIndex = static_cast<int>(i);
+				}
+			}
+			if (!enumNames.isEmpty())
+			{
+				if (selectedIndex >= enumNames.size())
+				{
+					selectedIndex = 0;
+				}
+				prop = m_variantManager->addProperty(QtVariantPropertyManager::enumTypeId(), displayLabel);
+				m_variantManager->setAttribute(prop, QStringLiteral("enumNames"), enumNames);
+				m_variantManager->setValue(prop, selectedIndex);
+				QStringList tokenList;
+				tokenList.reserve(static_cast<int>(options.size()));
+				for (const std::string& opt : options)
+				{
+					tokenList << QString::fromStdString(opt);
+				}
+				m_propertyEnumTokens.insert(prop, tokenList);
+			}
 		}
 	}
 	if (!prop)
@@ -402,13 +507,41 @@ QString MainWindow::propertyDisplayLabelForKey(const QString& key, const QString
 	{
 		return tr(QStringLiteral("Acceleration"), QStringLiteral("加速度"));
 	}
-	if (key == QStringLiteral("motion.axisConfig"))
+	if (key == QStringLiteral("motion.axisConfig") || key == QStringLiteral("motion.axisConfig.preset"))
 	{
-		return tr(QStringLiteral("Axis Configuration"), QStringLiteral("轴配置"));
+		return tr(QStringLiteral("Axis config preset"), QStringLiteral("轴配置预设"));
+	}
+	if (key == QStringLiteral("motion.axisConfig.elbow"))
+	{
+		return tr(QStringLiteral("Elbow posture"), QStringLiteral("肘部姿态"));
+	}
+	if (key == QStringLiteral("motion.axisConfig.wrist"))
+	{
+		return tr(QStringLiteral("Wrist posture"), QStringLiteral("腕部姿态"));
+	}
+	if (key == QStringLiteral("motion.axisConfig.arm"))
+	{
+		return tr(QStringLiteral("Arm posture"), QStringLiteral("臂形前后"));
+	}
+	if (key == QStringLiteral("motion.axisConfig.turn.j1"))
+	{
+		return tr(QStringLiteral("J1 turn (rev)"), QStringLiteral("J1 转数"));
+	}
+	if (key == QStringLiteral("motion.axisConfig.turn.j4"))
+	{
+		return tr(QStringLiteral("J4 turn (rev)"), QStringLiteral("J4 转数"));
+	}
+	if (key == QStringLiteral("motion.axisConfig.turn.j6"))
+	{
+		return tr(QStringLiteral("J6 turn (rev)"), QStringLiteral("J6 转数"));
 	}
 	if (key == QStringLiteral("motion.blendRadius"))
 	{
 		return tr(QStringLiteral("Blend Radius (mm)"), QStringLiteral("平滑半径 (mm)"));
+	}
+	if (key == QStringLiteral("motion.pointIndex"))
+	{
+		return tr(QStringLiteral("Waypoint index"), QStringLiteral("点位编号"));
 	}
 	if (const property_core::PropertyDescriptor* descriptor = panelPropertyDescriptorForKey(key))
 	{
@@ -417,13 +550,125 @@ QString MainWindow::propertyDisplayLabelForKey(const QString& key, const QString
 	return labelEnFallback;
 }
 
-void MainWindow::updateInstructionPropertyPanel(const std::shared_ptr<RobotInstruction::Base>& instruction)
+QString MainWindow::instructionEnumTokenFromProperty(QtProperty* property, const QVariant& value) const
+{
+	if (property)
+	{
+		const auto it = m_propertyEnumTokens.constFind(property);
+		if (it != m_propertyEnumTokens.constEnd())
+		{
+			const int idx = value.toInt();
+			if (idx >= 0 && idx < it->size())
+			{
+				return it->at(idx);
+			}
+		}
+	}
+	return instructionEnumTokenFromValue(property ? property->whatsThis() : QString(), value);
+}
+
+void MainWindow::invalidateFeasibleAxisConfigurationCache()
+{
+	m_cachedFeasibleAxisInstructionId.clear();
+	m_cachedFeasibleAxisFingerprint.clear();
+	m_cachedFeasibleAxisSeedJointRad.clear();
+	m_cachedFeasibleAxisOptions = {};
+}
+
+void MainWindow::applySuggestedAxisPresetFromSeedIfNeeded(
+	const std::shared_ptr<RobotInstruction::Base>& instruction,
+	const QVector<double>& seedJointRad,
+	const RobotInstruction::FeasibleMotionAxisConfigurationOptions& feasible)
+{
+	if (!instruction || !instruction->hasMotionAxisConfigurationProperty() || feasible.presetTokens.empty()
+		|| seedJointRad.isEmpty())
+	{
+		return;
+	}
+	const auto tokenAllowed = [&feasible](const std::string& token) {
+		return std::find(feasible.presetTokens.begin(), feasible.presetTokens.end(), token)
+			!= feasible.presetTokens.end();
+	};
+	const auto pickFallback = [&]() -> std::string {
+		if (tokenAllowed("AUTO"))
+		{
+			return "AUTO";
+		}
+		return feasible.presetTokens.front();
+	};
+
+	RobotInstruction::MotionAxisConfiguration cur = instruction->motionAxisConfiguration();
+	const std::string curPreset = cur.preset;
+	const bool presetLocked = !curPreset.empty() && curPreset != "AUTO" && tokenAllowed(curPreset);
+
+	DocumentPage* doc = currentPage();
+	if (!doc || !m_simulationCommandPage)
+	{
+		return;
+	}
+	const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		return;
+	}
+	const QStringList jnames = doc->robotRevoluteJointNamesForInstance(instIdx);
+	std::vector<std::string> jointNames;
+	jointNames.reserve(jnames.size());
+	for (const QString& jn : jnames)
+	{
+		jointNames.push_back(jn.toStdString());
+	}
+	std::vector<double> seed(seedJointRad.size());
+	for (int i = 0; i < seedJointRad.size(); ++i)
+	{
+		seed[static_cast<size_t>(i)] = seedJointRad[i];
+	}
+	const RobotInstruction::JointConfigurationClass observed =
+		RobotInstruction::classifyJointConfiguration(seed, jointNames, &seed);
+	if (!presetLocked)
+	{
+		std::string suggested = RobotInstruction::suggestMotionAxisPresetToken(observed);
+		if (!tokenAllowed(suggested))
+		{
+			suggested = pickFallback();
+		}
+		if (suggested != curPreset)
+		{
+			instruction->applyPropertyChange("motion.axisConfig.preset", suggested, nullptr);
+			cur = instruction->motionAxisConfiguration();
+		}
+	}
+	const auto turnAllowed = [](const std::vector<std::string>& allowed, const std::string& tok) {
+		return std::find(allowed.begin(), allowed.end(), tok) != allowed.end();
+	};
+	const auto applyTurnIfAuto = [&](const char* key, const int currentTurn, const int observedTurn,
+									  const std::vector<std::string>& allowed) {
+		if (currentTurn != RobotInstruction::kMotionAxisTurnAuto)
+		{
+			return;
+		}
+		const std::string tok = RobotInstruction::jointTurnToToken(observedTurn);
+		if (!turnAllowed(allowed, tok))
+		{
+			return;
+		}
+		instruction->applyPropertyChange(key, tok, nullptr);
+	};
+	applyTurnIfAuto("motion.axisConfig.turn.j1", cur.turnJ1, observed.turnJ1, feasible.turnJ1Tokens);
+	applyTurnIfAuto("motion.axisConfig.turn.j4", cur.turnJ4, observed.turnJ4, feasible.turnJ4Tokens);
+	applyTurnIfAuto("motion.axisConfig.turn.j6", cur.turnJ6, observed.turnJ6, feasible.turnJ6Tokens);
+}
+
+void MainWindow::updateInstructionPropertyPanel(
+	const std::shared_ptr<RobotInstruction::Base>& instruction,
+	const bool refreshFeasibleAxisOptions)
 {
 	if (!m_propertyBrowser || !m_variantManager)
 	{
 		return;
 	}
 	m_updatingPropertyBrowser = true;
+	m_propertyEnumTokens.clear();
 	m_variantManager->clear();
 	if (!instruction)
 	{
@@ -438,10 +683,141 @@ void MainWindow::updateInstructionPropertyPanel(const std::shared_ptr<RobotInstr
 		propertyDisplayLabelForKey(QStringLiteral("core.name"), QStringLiteral("Name")),
 		QString::fromStdString(instruction->name()), false);
 
-	const nlohmann::json rows = instruction->snapshotPropertyRows();
-	if (rows.is_array())
+	if (RobotInstruction::isMotionWaypointType(instruction->type()))
 	{
-		for (const auto& r : rows)
+		const int pointIndex = RobotInstruction::motionPointIndex(*instruction);
+		QString pointValue = QStringLiteral("-");
+		if (pointIndex > 0)
+		{
+			pointValue = QString::fromStdString(RobotInstruction::formatMotionPointName(pointIndex));
+			pointValue += i18n(QStringLiteral(" (Point %1)"), QStringLiteral("（第 %1 点）")).arg(pointIndex);
+		}
+		appendPropertyBrowserRow(QStringLiteral("motion.pointIndex"),
+			propertyDisplayLabelForKey(QStringLiteral("motion.pointIndex"), QStringLiteral("Waypoint index")),
+			pointValue,
+			false);
+	}
+
+	const nlohmann::json rows = instruction->snapshotPropertyRows();
+
+	RobotInstruction::FeasibleMotionAxisConfigurationOptions feasibleAxis;
+	QVector<double> seedJointRad;
+	if (RobotInstruction::isMotionWaypointType(instruction->type()))
+	{
+		if (refreshFeasibleAxisOptions)
+		{
+			feasibleAxis = feasibleMotionAxisConfigurationOptionsForInstruction(instruction, &seedJointRad);
+		}
+		else
+		{
+			feasibleAxis = m_cachedFeasibleAxisOptions;
+		}
+		const auto ensureToken = [&](const char* key, const std::vector<std::string>& allowed, const QString& current) {
+			if (allowed.empty() || !refreshFeasibleAxisOptions)
+			{
+				return;
+			}
+			const std::string cur = current.trimmed().toUpper().toStdString();
+			if (cur.empty()
+				|| std::find(allowed.begin(), allowed.end(), cur) != allowed.end())
+			{
+				return;
+			}
+			std::string fallback = allowed.front();
+			if (key == std::string("motion.axisConfig.preset") && !seedJointRad.isEmpty())
+			{
+				DocumentPage* doc = currentPage();
+				if (doc && m_simulationCommandPage)
+				{
+					const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex();
+					if (instIdx >= 0)
+					{
+						const QStringList jnames = doc->robotRevoluteJointNamesForInstance(instIdx);
+						std::vector<std::string> jointNames;
+						std::vector<double> seed(seedJointRad.size());
+						for (int i = 0; i < seedJointRad.size(); ++i)
+						{
+							seed[static_cast<size_t>(i)] = seedJointRad[i];
+						}
+						for (const QString& jn : jnames)
+						{
+							jointNames.push_back(jn.toStdString());
+						}
+						const std::string suggested = RobotInstruction::suggestMotionAxisPresetToken(
+							RobotInstruction::classifyJointConfiguration(seed, jointNames, &seed));
+						if (std::find(allowed.begin(), allowed.end(), suggested) != allowed.end())
+						{
+							fallback = suggested;
+						}
+						else if (std::find(allowed.begin(), allowed.end(), std::string("AUTO")) != allowed.end())
+						{
+							fallback = "AUTO";
+						}
+					}
+				}
+			}
+			instruction->applyPropertyChange(key, fallback, nullptr);
+		};
+		ensureToken(
+			"motion.axisConfig.preset",
+			feasibleAxis.presetTokens,
+			snapshotPropertyValueForKey(rows, QStringLiteral("motion.axisConfig.preset")));
+		ensureToken(
+			"motion.axisConfig.turn.j1",
+			feasibleAxis.turnJ1Tokens,
+			snapshotPropertyValueForKey(rows, QStringLiteral("motion.axisConfig.turn.j1")));
+		ensureToken(
+			"motion.axisConfig.turn.j4",
+			feasibleAxis.turnJ4Tokens,
+			snapshotPropertyValueForKey(rows, QStringLiteral("motion.axisConfig.turn.j4")));
+		ensureToken(
+			"motion.axisConfig.turn.j6",
+			feasibleAxis.turnJ6Tokens,
+			snapshotPropertyValueForKey(rows, QStringLiteral("motion.axisConfig.turn.j6")));
+	}
+
+	nlohmann::json rowsAfter = instruction->snapshotPropertyRows();
+	if (RobotInstruction::isMotionWaypointType(instruction->type()))
+	{
+		const QString presetMid = snapshotPropertyValueForKey(rowsAfter, QStringLiteral("motion.axisConfig.preset"));
+		const bool customAxisMode = presetMid.compare(QStringLiteral("CUSTOM"), Qt::CaseInsensitive) == 0;
+		if (customAxisMode)
+		{
+			const auto ensureToken = [&](const char* key, const std::vector<std::string>& allowed, const QString& current) {
+				if (allowed.empty())
+				{
+					return;
+				}
+				const std::string cur = current.trimmed().toUpper().toStdString();
+				if (cur.empty()
+					|| std::find(allowed.begin(), allowed.end(), cur) != allowed.end())
+				{
+					return;
+				}
+				instruction->applyPropertyChange(key, allowed.front(), nullptr);
+			};
+			ensureToken(
+				"motion.axisConfig.elbow",
+				feasibleAxis.elbowTokens,
+				snapshotPropertyValueForKey(rowsAfter, QStringLiteral("motion.axisConfig.elbow")));
+			ensureToken(
+				"motion.axisConfig.wrist",
+				feasibleAxis.wristTokens,
+				snapshotPropertyValueForKey(rowsAfter, QStringLiteral("motion.axisConfig.wrist")));
+			ensureToken(
+				"motion.axisConfig.arm",
+				feasibleAxis.armTokens,
+				snapshotPropertyValueForKey(rowsAfter, QStringLiteral("motion.axisConfig.arm")));
+			rowsAfter = instruction->snapshotPropertyRows();
+		}
+	}
+
+	const QString presetAfter = snapshotPropertyValueForKey(rowsAfter, QStringLiteral("motion.axisConfig.preset"));
+	const bool customAxisModeAfter = presetAfter.compare(QStringLiteral("CUSTOM"), Qt::CaseInsensitive) == 0;
+
+	if (rowsAfter.is_array())
+	{
+		for (const auto& r : rowsAfter)
 		{
 			if (!r.is_object())
 			{
@@ -450,7 +826,14 @@ void MainWindow::updateInstructionPropertyPanel(const std::shared_ptr<RobotInstr
 			const std::string keyStr = r.value(backend_property_json::kKey, std::string());
 			if (keyStr.rfind("context.", 0) == 0
 				|| keyStr.rfind("legacy.", 0) == 0
-				|| keyStr == "motion.durationSec")
+				|| keyStr == "motion.durationSec"
+				|| keyStr == RobotInstruction::kMotionPointIndexKey)
+			{
+				continue;
+			}
+			if (!customAxisModeAfter
+				&& (keyStr == "motion.axisConfig.elbow" || keyStr == "motion.axisConfig.wrist"
+					|| keyStr == "motion.axisConfig.arm"))
 			{
 				continue;
 			}
@@ -459,7 +842,36 @@ void MainWindow::updateInstructionPropertyPanel(const std::shared_ptr<RobotInstr
 			const std::string valueStr = r.value(backend_property_json::kValue, std::string());
 			const QString key = QString::fromStdString(keyStr);
 			const QString label = propertyDisplayLabelForKey(key, QString::fromStdString(labelStr));
-			appendPropertyBrowserRow(key, label, QString::fromStdString(valueStr), editable);
+			const std::vector<std::string>* enumOverride = nullptr;
+			if (key == QStringLiteral("motion.axisConfig.preset") && !feasibleAxis.presetTokens.empty())
+			{
+				enumOverride = &feasibleAxis.presetTokens;
+			}
+			else if (key == QStringLiteral("motion.axisConfig.elbow") && !feasibleAxis.elbowTokens.empty())
+			{
+				enumOverride = &feasibleAxis.elbowTokens;
+			}
+			else if (key == QStringLiteral("motion.axisConfig.wrist") && !feasibleAxis.wristTokens.empty())
+			{
+				enumOverride = &feasibleAxis.wristTokens;
+			}
+			else if (key == QStringLiteral("motion.axisConfig.arm") && !feasibleAxis.armTokens.empty())
+			{
+				enumOverride = &feasibleAxis.armTokens;
+			}
+			else if (key == QStringLiteral("motion.axisConfig.turn.j1") && !feasibleAxis.turnJ1Tokens.empty())
+			{
+				enumOverride = &feasibleAxis.turnJ1Tokens;
+			}
+			else if (key == QStringLiteral("motion.axisConfig.turn.j4") && !feasibleAxis.turnJ4Tokens.empty())
+			{
+				enumOverride = &feasibleAxis.turnJ4Tokens;
+			}
+			else if (key == QStringLiteral("motion.axisConfig.turn.j6") && !feasibleAxis.turnJ6Tokens.empty())
+			{
+				enumOverride = &feasibleAxis.turnJ6Tokens;
+			}
+			appendPropertyBrowserRow(key, label, QString::fromStdString(valueStr), editable, enumOverride);
 		}
 	}
 
@@ -638,7 +1050,7 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 		{
 			return;
 		}
-		const QString valueText = variantValueToString(value);
+		const QString valueText = instructionEnumTokenFromProperty(property, value);
 		std::string err;
 		if (!m_activeInstructionForProperty->applyPropertyChange(propertyKey.toStdString(), valueText.toStdString(), &err))
 		{
@@ -650,7 +1062,13 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 			m_simulationCommandPage->refreshInstructionList();
 		}
 		refreshInstructionPoseAxes();
-		updateInstructionPropertyPanel(m_activeInstructionForProperty);
+		applyRobotPoseForInstructionPreview(m_activeInstructionForProperty);
+		const bool axisConfigOnly = propertyKey.startsWith(QStringLiteral("motion.axisConfig"));
+		if (!axisConfigOnly)
+		{
+			invalidateFeasibleAxisConfigurationCache();
+		}
+		updateInstructionPropertyPanel(m_activeInstructionForProperty, !axisConfigOnly);
 		return;
 	}
 	if (!m_backendTree || !currentOsgWidget())

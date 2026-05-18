@@ -14,6 +14,7 @@
 #include "widget_global.h"
 
 #include "IRobotSimulationDocument.h"
+#include "RobotProgramStore.h"
 
 #include <string>
 #include <unordered_set>
@@ -39,6 +40,8 @@ public:
 
 	OsgWidget* osgWidget() const { return m_osgWidget; }
 	BackendDataManager& backend() { return m_backend; }
+	RobotProgramStore& robotProgramStore() { return m_robotProgramStore; }
+	const RobotProgramStore& robotProgramStore() const { return m_robotProgramStore; }
 	BackendHierarchyModel& hierarchyModel() { return m_hierarchyModel; }
 	const BackendHierarchyModel& hierarchyModel() const { return m_hierarchyModel; }
 
@@ -101,6 +104,14 @@ public:
 	osg::MatrixTransform* robotJointMatrixTransform(const QString& jointName) const override;
 
 	int robotKinematicInstanceCount() const override;
+
+	QString robotSceneBackendIdForInstance(int instanceIndex) const;
+	QString robotDisplayLabelForInstance(int instanceIndex) const;
+	QStringList robotRevoluteJointNamesForInstance(int instanceIndex) const;
+	void robotJointLimitsForInstance(int instanceIndex, QVector<double>& lowerRad, QVector<double>& upperRad) const;
+	int robotJointOffsetInAggregatedVector(int instanceIndex) const;
+	int robotInstanceIndexForSceneBackendId(const QString& sceneBackendId) const;
+
 	QString robotUrdfAbsolutePathForInstance(int instanceIndex) const override;
 	int robotRevoluteJointCountForInstance(int instanceIndex) const override;
 	QString robotJointKeyPrefixForInstance(int instanceIndex) const override;
@@ -195,6 +206,8 @@ private:
 	QHash<QString, osg::MatrixTransform*> m_robotJointTransforms;
 	/// 【中文】兼容：第一台机器人场景的后端 ID。
 	QString m_robotSceneBackendId;
+
+	RobotProgramStore m_robotProgramStore;
 
 	std::unordered_set<std::string> m_followDirtyBackendIds;
 	bool m_followSolveForced = false;

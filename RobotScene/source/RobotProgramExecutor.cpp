@@ -1,0 +1,383 @@
+#include "RobotProgramExecutor.h"
+
+#include "IRobotBackendPoseSink.h"
+#include "IRobotSimulationDocument.h"
+#include "RobotInstructionProgram.h"
+#include "RobotSceneKinematics.h"
+#include "RunLogger.h"
+#include "UrdfRobotLoader.h"
+
+#include <QByteArray>
+#include <QString>
+
+#include <algorithm>
+#include <cmath>
+
+namespace
+{
+std::string qToUtf8Std(const QString& s)
+{
+	const QByteArray utf8 = s.toUtf8();
+	return std::string(utf8.constData(), static_cast<size_t>(utf8.size()));
+}
+} // namespace
+
+void RobotProgramExecutor::stop()
+{
+	m_running = false;
+	m_stack.clear();
+	m_motionPlanIndex.clear();
+	m_motionPlanResults.clear();
+	m_jointAnglesRad.clear();
+	m_inMotion = false;
+	m_activeMotion = nullptr;
+	m_segStartJointAngles.clear();
+	m_fkMeshWorldT0.clear();
+	m_outerWorldAtStart.clear();
+}
+
+bool RobotProgramExecutor::evaluateCondition(const RobotInstruction::Condition& c) const
+{
+	using RobotInstruction::ConditionKind;
+	switch (c.kind)
+	{
+	case ConditionKind::Always:
+		return true;
+	case ConditionKind::Never:
+		return false;
+	case ConditionKind::Io:
+		if (m_io)
+		{
+			bool v = false;
+			if (m_io->getDigitalInput(c.ioPort, &v))
+			{
+				return v == c.ioEquals;
+			}
+		}
+		return c.ioEquals == false;
+	case ConditionKind::Compare:
+		// Variable table not wired in UI yet; treat unknown left as 0.
+		(void)c;
+		return false;
+	default:
+		return true;
+	}
+}
+
+const RobotInstruction::PlanResult* RobotProgramExecutor::planForMotion(const RobotInstruction::Base& ins) const
+{
+	const auto it = m_motionPlanIndex.find(&ins);
+	if (it == m_motionPlanIndex.end() || it->second >= m_motionPlanResults.size())
+	{
+		return nullptr;
+	}
+	return &m_motionPlanResults[it->second];
+}
+
+bool RobotProgramExecutor::applyJointAngles(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg)
+{
+	return RobotSceneKinematics::applyJointAnglesFromDocument(doc, osg, m_jointAnglesRad);
+}
+
+bool RobotProgramExecutor::startMotionSegment(const RobotInstruction::Base& ins)
+{
+	m_inMotion = true;
+	m_activeMotion = &ins;
+	m_segStartJointAngles = m_jointAnglesRad;
+	const RobotInstruction::PlanResult* plan = planForMotion(ins);
+	m_segDurationSec = 0.5;
+	if (plan && plan->ok && plan->durationSec > 1e-6)
+	{
+		m_segDurationSec = plan->durationSec;
+	}
+	else
+	{
+		const auto& ext = ins.extensionProperties();
+		const auto it = ext.find("motion.durationSec");
+		if (it != ext.end())
+		{
+			bool ok = false;
+			const double v = QString::fromStdString(it->second).toDouble(&ok);
+			if (ok && v > 1e-6)
+			{
+				m_segDurationSec = v;
+			}
+		}
+	}
+	m_segDurationSec = std::max(0.05, m_segDurationSec);
+	m_segmentTimer.restart();
+	return true;
+}
+
+bool RobotProgramExecutor::tickMotionSegment(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg)
+{
+	const RobotInstruction::PlanResult* plan = m_activeMotion ? planForMotion(*m_activeMotion) : nullptr;
+	const double elapsed = m_segmentTimer.elapsed() / 1000.0;
+	const double u = std::min(1.0, elapsed / m_segDurationSec);
+
+	if (plan && plan->ok && !plan->jointTargetsRad.empty())
+	{
+		const size_t n = static_cast<size_t>(m_jointCount);
+		const size_t off = static_cast<size_t>(m_jointOffset);
+		if (plan->jointTargetsRad.size() == n && m_segStartJointAngles.size() == m_jointAnglesRad.size())
+		{
+			for (int j = 0; j < m_jointCount; ++j)
+			{
+				const int gi = m_jointOffset + j;
+				const double q0 = m_segStartJointAngles[gi];
+				const double q1 = plan->jointTargetsRad[static_cast<size_t>(j)];
+				m_jointAnglesRad[gi] = q0 + (q1 - q0) * u;
+			}
+		}
+	}
+	else if (plan && plan->ok && !plan->jointTrajectoryRad.empty())
+	{
+		const auto& traj = plan->jointTrajectoryRad;
+		const double scaled = u * static_cast<double>(traj.size() > 0 ? traj.size() - 1 : 0);
+		const size_t i0 = static_cast<size_t>(std::floor(scaled));
+		const size_t i1 = std::min(i0 + 1U, traj.empty() ? 0U : traj.size() - 1U);
+		const double t = scaled - static_cast<double>(i0);
+		if (!traj.empty() && traj[i0].size() == static_cast<size_t>(m_jointCount))
+		{
+			for (int j = 0; j < m_jointCount; ++j)
+			{
+				const int gi = m_jointOffset + j;
+				const double q0 = (i0 == 0 && m_segStartJointAngles.size() == m_jointAnglesRad.size())
+					? m_segStartJointAngles[gi]
+					: traj[i0][static_cast<size_t>(j)];
+				const double q1 = traj[i1][static_cast<size_t>(j)];
+				m_jointAnglesRad[gi] = q0 + (q1 - q0) * t;
+			}
+		}
+	}
+
+	if (!applyJointAngles(doc, osg))
+	{
+		return false;
+	}
+
+	if (u >= 1.0 - 1e-9)
+	{
+		m_inMotion = false;
+		m_activeMotion = nullptr;
+	}
+	return true;
+}
+
+bool RobotProgramExecutor::advanceProgramStep(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg)
+{
+	(void)doc;
+	(void)osg;
+	while (!m_stack.empty())
+	{
+		ListFrame& frame = m_stack.back();
+		if (frame.pc >= frame.steps.size())
+		{
+			if (frame.whileIns != nullptr)
+			{
+				if (evaluateCondition(frame.whileIns->condition()) && frame.whileIteration < kMaxWhileIterations)
+				{
+					++frame.whileIteration;
+					frame.pc = 0;
+					continue;
+				}
+				if (frame.whileIteration >= kMaxWhileIterations)
+				{
+					RunLogger::warn("RobotProgramExecutor: While loop iteration limit reached.");
+				}
+			}
+			m_stack.pop_back();
+			continue;
+		}
+
+		const std::shared_ptr<RobotInstruction::Base> ins = frame.steps[frame.pc++];
+		if (!ins)
+		{
+			continue;
+		}
+
+		switch (ins->type())
+		{
+		case RobotInstruction::Type::PTP:
+		case RobotInstruction::Type::LINE:
+			startMotionSegment(*ins);
+			return true;
+		case RobotInstruction::Type::WAIT:
+		{
+			m_inMotion = false;
+			m_activeMotion = nullptr;
+			m_segDurationSec = std::max(0.0, ins->durationSec());
+			m_segmentTimer.restart();
+			return true;
+		}
+		case RobotInstruction::Type::SET_DO:
+			if (m_io)
+			{
+				m_io->setDigitalOutput(ins->ioPort(), ins->ioBoolValue());
+			}
+			RunLogger::info(qToUtf8Std(QStringLiteral("Set DO port %1 = %2").arg(ins->ioPort()).arg(ins->ioBoolValue())));
+			continue;
+		case RobotInstruction::Type::SET_AO:
+			if (m_io)
+			{
+				m_io->setAnalogOutput(ins->ioPort(), ins->ioAnalogValue());
+			}
+			RunLogger::info(qToUtf8Std(QStringLiteral("Set AO port %1 = %2").arg(ins->ioPort()).arg(ins->ioAnalogValue())));
+			continue;
+		case RobotInstruction::Type::IF:
+		{
+			const bool takeThen = evaluateCondition(ins->condition());
+			ListFrame branch;
+			const auto& steps = takeThen ? ins->nestedSteps() : ins->elseSteps();
+			branch.steps.assign(steps.begin(), steps.end());
+			if (!branch.steps.empty())
+			{
+				m_stack.push_back(std::move(branch));
+			}
+			continue;
+		}
+		case RobotInstruction::Type::WHILE:
+		{
+			if (!evaluateCondition(ins->condition()))
+			{
+				continue;
+			}
+			ListFrame loop;
+			loop.steps.assign(ins->nestedSteps().begin(), ins->nestedSteps().end());
+			loop.whileIns = dynamic_cast<const RobotInstruction::WhileInstruction*>(ins.get()); // NOLINT
+			loop.whileIteration = 0;
+			if (loop.steps.empty())
+			{
+				continue;
+			}
+			m_stack.push_back(std::move(loop));
+			continue;
+		}
+		default:
+			continue;
+		}
+	}
+	return false;
+}
+
+bool RobotProgramExecutor::tryStart(
+	IRobotSimulationDocument* doc,
+	IRobotBackendPoseSink* osg,
+	IRobotIoSink* io,
+	int robotInstanceIndex,
+	const std::vector<std::shared_ptr<RobotInstruction::Base>>& program,
+	const std::vector<RobotInstruction::PlanResult>& motionPlanResults,
+	const QVector<double>& initialJointAnglesRad,
+	QString* errorOut)
+{
+	stop();
+	if (!doc || !osg || !doc->hasRobotSimulationContext())
+	{
+		if (errorOut)
+		{
+			*errorOut = QStringLiteral("No document or robot context.");
+		}
+		return false;
+	}
+	if (program.empty())
+	{
+		if (errorOut)
+		{
+			*errorOut = QStringLiteral("Empty program.");
+		}
+		return false;
+	}
+
+	m_io = io;
+	m_robotInstanceIndex = robotInstanceIndex;
+	m_jointOffset = 0;
+	m_jointCount = doc->robotRevoluteJointCountForInstance(robotInstanceIndex);
+	for (int i = 0; i < robotInstanceIndex; ++i)
+	{
+		m_jointOffset += doc->robotRevoluteJointCountForInstance(i);
+	}
+
+	const QStringList allJoints = doc->robotRevoluteJointNames();
+	m_jointAnglesRad.resize(allJoints.size());
+	if (initialJointAnglesRad.size() == allJoints.size())
+	{
+		m_jointAnglesRad = initialJointAnglesRad;
+	}
+	else
+	{
+		m_jointAnglesRad.fill(0.0);
+	}
+
+	m_motionPlanResults = motionPlanResults;
+	const std::vector<const RobotInstruction::Base*> motions = RobotInstruction::collectMotionInstructions(program);
+	m_motionPlanIndex.clear();
+	for (size_t i = 0; i < motions.size(); ++i)
+	{
+		if (motions[i])
+		{
+			m_motionPlanIndex[motions[i]] = i;
+		}
+	}
+	if (motions.size() != motionPlanResults.size())
+	{
+		if (errorOut)
+		{
+			*errorOut = QStringLiteral("Motion plan count does not match motion instructions.");
+		}
+		stop();
+		return false;
+	}
+
+	ListFrame root;
+	root.steps = program;
+	m_stack.push_back(std::move(root));
+	m_running = true;
+	m_inMotion = false;
+	RunLogger::info("RobotProgramExecutor started.");
+	return true;
+}
+
+RobotInstructionPlaybackTickResult RobotProgramExecutor::tick(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg)
+{
+	if (!m_running)
+	{
+		return RobotInstructionPlaybackTickResult::Continue;
+	}
+	if (!doc || !osg)
+	{
+		stop();
+		return RobotInstructionPlaybackTickResult::Aborted;
+	}
+
+	if (m_inMotion)
+	{
+		if (!tickMotionSegment(doc, osg))
+		{
+			stop();
+			return RobotInstructionPlaybackTickResult::Aborted;
+		}
+		if (m_inMotion)
+		{
+			return RobotInstructionPlaybackTickResult::Continue;
+		}
+	}
+
+	if (!m_activeMotion && m_segDurationSec > 1e-9 && !m_inMotion && m_segmentTimer.isValid())
+	{
+		const double elapsed = m_segmentTimer.elapsed() / 1000.0;
+		if (elapsed < m_segDurationSec)
+		{
+			return RobotInstructionPlaybackTickResult::Continue;
+		}
+		m_segDurationSec = 0.0;
+	}
+
+	if (advanceProgramStep(doc, osg))
+	{
+		return RobotInstructionPlaybackTickResult::Continue;
+	}
+
+	m_running = false;
+	RunLogger::info("RobotProgramExecutor finished.");
+	return RobotInstructionPlaybackTickResult::Finished;
+}

@@ -1,8 +1,10 @@
 #include "RobotInstructionController.h"
+#include "RobotInstructionAxisConfiguration.h"
 #include "RunLogger.h"
 #include "UrdfRobotLoader.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <sstream>
 
@@ -469,7 +471,169 @@ void logIkSolveResidual(
 	RunLogger::info(os.str());
 }
 
-std::vector<double> solveTargetByUrdfNumericalIkIfPossible(const RobotInstruction::Base& cmd, std::string* failReason)
+int jointIndexByNameHint(const std::vector<std::string>& jointNames, const char* hint, int fallbackIndex)
+{
+	if (hint)
+	{
+		for (size_t i = 0; i < jointNames.size(); ++i)
+		{
+			std::string lower = jointNames[i];
+			std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) {
+				return static_cast<char>(std::tolower(c));
+			});
+			if (lower.find(hint) != std::string::npos)
+			{
+				return static_cast<int>(i);
+			}
+		}
+	}
+	if (fallbackIndex >= 0 && fallbackIndex < static_cast<int>(jointNames.size()))
+	{
+		return fallbackIndex;
+	}
+	return -1;
+}
+
+double jointVectorDistance(const std::vector<double>& a, const std::vector<double>& b)
+{
+	if (a.size() != b.size())
+	{
+		return 1e30;
+	}
+	double sum = 0.0;
+	for (size_t i = 0; i < a.size(); ++i)
+	{
+		const double d = a[i] - b[i];
+		sum += d * d;
+	}
+	return std::sqrt(sum);
+}
+
+std::vector<std::string> revoluteJointNamesFromInstructionContext(const RobotInstruction::Base& cmd)
+{
+	std::vector<std::string> jointNames;
+	const auto& ext = cmd.extensionProperties();
+	const auto itUrdf = ext.find("context.urdfPath");
+	if (itUrdf == ext.end() || itUrdf->second.empty())
+	{
+		return jointNames;
+	}
+	QStringList ql;
+	(void)UrdfRobotLoader::loadRevoluteJointNamesInOrder(QString::fromStdString(itUrdf->second), ql, nullptr);
+	jointNames.reserve(static_cast<size_t>(ql.size()));
+	for (const QString& n : ql)
+	{
+		jointNames.push_back(n.toStdString());
+	}
+	return jointNames;
+}
+
+std::vector<std::vector<double>> buildIkSeedVariants(
+	const std::vector<double>& qSeed,
+	const std::vector<std::string>& jointNames,
+	const RobotInstruction::MotionAxisConfiguration* axisCfg)
+{
+	std::vector<std::vector<double>> seeds;
+	if (qSeed.empty())
+	{
+		return seeds;
+	}
+	auto pushUnique = [&](std::vector<double> q) {
+		for (const auto& existing : seeds)
+		{
+			if (jointVectorDistance(existing, q) < 1e-6)
+			{
+				return;
+			}
+		}
+		seeds.push_back(std::move(q));
+	};
+	pushUnique(qSeed);
+	const int elbowIdx = jointIndexByNameHint(jointNames, "elbow", 2);
+	const int wristIdx = jointIndexByNameHint(jointNames, "wrist", 4);
+	const int j1Idx = jointIndexByNameHint(jointNames, nullptr, 0);
+	if (elbowIdx >= 0)
+	{
+		std::vector<double> qElbow = qSeed;
+		qElbow[static_cast<size_t>(elbowIdx)] = -qElbow[static_cast<size_t>(elbowIdx)];
+		pushUnique(std::move(qElbow));
+	}
+	if (wristIdx >= 0)
+	{
+		std::vector<double> qWrist = qSeed;
+		qWrist[static_cast<size_t>(wristIdx)] += 3.14159265358979323846;
+		pushUnique(std::move(qWrist));
+		if (elbowIdx >= 0)
+		{
+			std::vector<double> qBoth = qSeed;
+			qBoth[static_cast<size_t>(elbowIdx)] = -qBoth[static_cast<size_t>(elbowIdx)];
+			qBoth[static_cast<size_t>(wristIdx)] += 3.14159265358979323846;
+			pushUnique(std::move(qBoth));
+		}
+	}
+	if (axisCfg && RobotInstruction::motionAxisConfigurationRequiresConstraint(*axisCfg))
+	{
+		RobotInstruction::JointConfigurationClass want{};
+		axisCfg->resolveEffective(want);
+		if (elbowIdx >= 0)
+		{
+			if (want.elbow == RobotInstruction::ElbowPosture::Up)
+			{
+				std::vector<double> q = qSeed;
+				q[static_cast<size_t>(elbowIdx)] = 1.2;
+				pushUnique(std::move(q));
+				q = qSeed;
+				q[static_cast<size_t>(elbowIdx)] = 2.0;
+				pushUnique(std::move(q));
+			}
+			else if (want.elbow == RobotInstruction::ElbowPosture::Down)
+			{
+				std::vector<double> q = qSeed;
+				q[static_cast<size_t>(elbowIdx)] = -1.2;
+				pushUnique(std::move(q));
+				q = qSeed;
+				q[static_cast<size_t>(elbowIdx)] = -2.0;
+				pushUnique(std::move(q));
+			}
+		}
+		if (wristIdx >= 0)
+		{
+			if (want.wrist == RobotInstruction::WristPosture::Flip)
+			{
+				std::vector<double> q = qSeed;
+				q[static_cast<size_t>(wristIdx)] += 3.14159265358979323846;
+				pushUnique(std::move(q));
+			}
+			else if (want.wrist == RobotInstruction::WristPosture::NoFlip)
+			{
+				std::vector<double> q = qSeed;
+				q[static_cast<size_t>(wristIdx)] *= 0.25;
+				pushUnique(std::move(q));
+			}
+		}
+		if (j1Idx >= 0)
+		{
+			if (want.arm == RobotInstruction::ArmPosture::Front)
+			{
+				std::vector<double> q = qSeed;
+				q[static_cast<size_t>(j1Idx)] = 0.0;
+				pushUnique(std::move(q));
+			}
+			else if (want.arm == RobotInstruction::ArmPosture::Back)
+			{
+				std::vector<double> q = qSeed;
+				q[static_cast<size_t>(j1Idx)] = 3.14159265358979323846;
+				pushUnique(std::move(q));
+			}
+		}
+	}
+	return seeds;
+}
+
+std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
+	const RobotInstruction::Base& cmd,
+	std::vector<double> q,
+	std::string* failReason)
 {
 	if (!cmd.hasPoseProperty())
 	{
@@ -498,7 +662,6 @@ std::vector<double> solveTargetByUrdfNumericalIkIfPossible(const RobotInstructio
 		}
 		return {};
 	}
-	std::vector<double> q = currentJointVectorFromInstruction(cmd);
 	if (q.empty())
 	{
 		if (failReason)
@@ -659,6 +822,188 @@ std::vector<double> solveTargetByUrdfNumericalIkIfPossible(const RobotInstructio
 	return {};
 }
 
+std::vector<double> solveTargetByUrdfNumericalIkIfPossible(const RobotInstruction::Base& cmd, std::string* failReason)
+{
+	std::vector<double> q0 = currentJointVectorFromInstruction(cmd);
+	if (q0.empty())
+	{
+		if (failReason)
+		{
+			*failReason = "无DH上下文";
+		}
+		return {};
+	}
+	return solveTargetByUrdfNumericalIkFromSeed(cmd, std::move(q0), failReason);
+}
+
+std::vector<double> solveIkWithAxisConfiguration(
+	const RobotInstruction::Base& cmd,
+	const RobotInstruction::MotionAxisConfiguration& cfg,
+	std::string* failReason)
+{
+	std::vector<double> qSeed = currentJointVectorFromInstruction(cmd);
+	if (qSeed.empty())
+	{
+		if (failReason)
+		{
+			*failReason = "无DH上下文";
+		}
+		return {};
+	}
+	const std::vector<std::string> jointNames = revoluteJointNamesFromInstructionContext(cmd);
+	const std::vector<std::vector<double>> seeds = buildIkSeedVariants(qSeed, jointNames, &cfg);
+
+	struct Candidate
+	{
+		std::vector<double> q;
+		double dist = 0.0;
+	};
+	std::vector<Candidate> matching;
+	std::vector<Candidate> converged;
+	for (const std::vector<double>& seed : seeds)
+	{
+		std::vector<double> qTry = solveTargetByUrdfNumericalIkFromSeed(cmd, seed, nullptr);
+		if (qTry.empty())
+		{
+			continue;
+		}
+		const double dist = jointVectorDistance(qTry, qSeed);
+		converged.push_back({ std::move(qTry), dist });
+	}
+	for (Candidate& c : converged)
+	{
+		const RobotInstruction::JointConfigurationClass observed =
+			RobotInstruction::classifyJointConfiguration(c.q, jointNames, &qSeed);
+		if (cfg.matchesClass(observed))
+		{
+			matching.push_back(std::move(c));
+		}
+	}
+	const std::vector<Candidate>& pool = cfg.isFullyAuto() ? converged : matching;
+	if (pool.empty())
+	{
+		if (failReason)
+		{
+			*failReason = cfg.isFullyAuto() ? "IK未收敛/超迭代" : "无满足轴配置的IK解";
+		}
+		return {};
+	}
+	const auto isCandidateBetter = [](const Candidate& c, const Candidate& best) {
+		if (c.dist < best.dist - 1e-9)
+		{
+			return true;
+		}
+		if (c.dist > best.dist + 1e-9)
+		{
+			return false;
+		}
+		const size_t n = std::min(c.q.size(), best.q.size());
+		for (size_t i = 0; i < n; ++i)
+		{
+			if (c.q[i] < best.q[i] - 1e-12)
+			{
+				return true;
+			}
+			if (c.q[i] > best.q[i] + 1e-12)
+			{
+				return false;
+			}
+		}
+		return c.q.size() < best.q.size();
+	};
+	const Candidate* best = &pool.front();
+	for (const Candidate& c : pool)
+	{
+		if (isCandidateBetter(c, *best))
+		{
+			best = &c;
+		}
+	}
+	return best->q;
+}
+
+std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& cmd, std::string* failReason)
+{
+	RobotInstruction::MotionAxisConfiguration cfg;
+	if (cmd.hasMotionAxisConfigurationProperty())
+	{
+		cfg = cmd.motionAxisConfiguration();
+	}
+	return solveIkWithAxisConfiguration(cmd, cfg, failReason);
+}
+
+bool canSolveIkWithAxisConfiguration(
+	const RobotInstruction::Base& cmd,
+	const RobotInstruction::MotionAxisConfiguration& cfg)
+{
+	return !solveIkWithAxisConfiguration(cmd, cfg, nullptr).empty();
+}
+
+struct IkPostureClassEntry
+{
+	RobotInstruction::JointConfigurationClass cls;
+};
+
+bool postureClassEquivalent(
+	const RobotInstruction::JointConfigurationClass& a,
+	const RobotInstruction::JointConfigurationClass& b)
+{
+	return a.elbow == b.elbow && a.wrist == b.wrist && a.arm == b.arm && a.turnJ1 == b.turnJ1
+		&& a.turnJ4 == b.turnJ4 && a.turnJ6 == b.turnJ6;
+}
+
+void appendUniquePostureClass(
+	std::vector<IkPostureClassEntry>& out,
+	const RobotInstruction::JointConfigurationClass& cls)
+{
+	for (const IkPostureClassEntry& e : out)
+	{
+		if (postureClassEquivalent(e.cls, cls))
+		{
+			return;
+		}
+	}
+	out.push_back({ cls });
+}
+
+std::vector<IkPostureClassEntry> collectIkPostureClassesForTarget(const RobotInstruction::Base& cmd)
+{
+	std::vector<IkPostureClassEntry> out;
+	std::vector<double> qSeed = currentJointVectorFromInstruction(cmd);
+	if (qSeed.empty() || !hasTcpLinkContext(cmd))
+	{
+		return out;
+	}
+	const std::vector<std::string> jointNames = revoluteJointNamesFromInstructionContext(cmd);
+	const std::vector<std::vector<double>> seeds = buildIkSeedVariants(qSeed, jointNames, nullptr);
+	for (const std::vector<double>& seed : seeds)
+	{
+		std::vector<double> q = solveTargetByUrdfNumericalIkFromSeed(cmd, seed, nullptr);
+		if (q.empty())
+		{
+			continue;
+		}
+		const RobotInstruction::JointConfigurationClass cls =
+			RobotInstruction::classifyJointConfiguration(q, jointNames, &qSeed);
+		appendUniquePostureClass(out, cls);
+	}
+	return out;
+}
+
+bool anyPostureMatchesConfiguration(
+	const std::vector<IkPostureClassEntry>& postures,
+	const RobotInstruction::MotionAxisConfiguration& cfg)
+{
+	for (const IkPostureClassEntry& e : postures)
+	{
+		if (cfg.matchesClass(e.cls))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 class PtpPlanner final : public RobotInstruction::PlannerBase
 {
 public:
@@ -704,19 +1049,37 @@ public:
 		std::vector<double> targetQ;
 		std::string ikFailReason;
 		const bool preferUrdfIk = hasTcpLinkContext(cmd);
+		RobotInstruction::MotionAxisConfiguration axisCfg;
+		if (cmd.hasMotionAxisConfigurationProperty())
+		{
+			axisCfg = cmd.motionAxisConfiguration();
+		}
+		const bool constrainAxis = cmd.hasMotionAxisConfigurationProperty()
+			&& RobotInstruction::motionAxisConfigurationRequiresConstraint(axisCfg);
 		if (preferUrdfIk)
 		{
-			targetQ = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+			if (cmd.hasMotionAxisConfigurationProperty())
+			{
+				targetQ = solveIkWithAxisConfiguration(cmd, &ikFailReason);
+			}
+			else
+			{
+				targetQ = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+			}
+			if (targetQ.empty() && !constrainAxis)
+			{
+				targetQ = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+			}
 		}
-		if (targetQ.empty() && m_dhRows && !m_dhRows->empty())
+		if (targetQ.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis)
 		{
 			targetQ = solveTargetByIkIfPossible(cmd, *m_dhRows, &ikFailReason);
 		}
-		if (targetQ.empty() && !preferUrdfIk)
+		if (targetQ.empty() && !preferUrdfIk && !constrainAxis)
 		{
 			targetQ = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
 		}
-		if (targetQ.empty())
+		if (targetQ.empty() && !constrainAxis)
 		{
 			targetQ = solveTargetByLegacyJointDelta(cmd);
 		}
@@ -816,19 +1179,44 @@ public:
 		std::vector<double> qTarget;
 		std::string ikFailReason;
 		const bool preferUrdfIk = hasTcpLinkContext(cmd);
+		RobotInstruction::MotionAxisConfiguration axisCfg;
+		if (cmd.hasMotionAxisConfigurationProperty())
+		{
+			axisCfg = cmd.motionAxisConfiguration();
+		}
+		const bool constrainAxis = cmd.hasMotionAxisConfigurationProperty()
+			&& RobotInstruction::motionAxisConfigurationRequiresConstraint(axisCfg);
 		if (preferUrdfIk)
 		{
-			qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+			if (cmd.hasMotionAxisConfigurationProperty())
+			{
+				qTarget = solveIkWithAxisConfiguration(cmd, &ikFailReason);
+			}
+			else
+			{
+				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+			}
+			if (qTarget.empty() && !constrainAxis)
+			{
+				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+			}
 		}
-		if (qTarget.empty() && m_dhRows && !m_dhRows->empty())
+		if (qTarget.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis)
 		{
 			qTarget = solveTargetByIkIfPossible(cmd, *m_dhRows, &ikFailReason);
 		}
 		if (qTarget.empty() && !preferUrdfIk)
 		{
-			qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+			if (cmd.hasMotionAxisConfigurationProperty())
+			{
+				qTarget = solveIkWithAxisConfiguration(cmd, &ikFailReason);
+			}
+			else if (!constrainAxis)
+			{
+				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+			}
 		}
-		if (qTarget.empty())
+		if (qTarget.empty() && !constrainAxis)
 		{
 			qTarget = solveTargetByLegacyJointDelta(cmd);
 		}
@@ -932,6 +1320,10 @@ void Controller::buildDefaultPlanners()
 
 bool Controller::validate(const Base& cmd, std::string* errMsg) const
 {
+	if (cmd.category() != Category::Motion)
+	{
+		return true;
+	}
 	const PlannerBase* planner = findPlanner(cmd.type());
 	if (!planner)
 	{
@@ -946,6 +1338,15 @@ bool Controller::validate(const Base& cmd, std::string* errMsg) const
 
 bool Controller::plan(const Base& cmd, PlanResult& out, std::string* errMsg) const
 {
+	if (cmd.category() != Category::Motion)
+	{
+		out = PlanResult{};
+		out.ok = true;
+		out.plannerName = "logic";
+		out.summary = "Logic instruction (no motion plan)";
+		out.durationSec = 0.0;
+		return true;
+	}
 	const PlannerBase* planner = findPlanner(cmd.type());
 	if (!planner)
 	{
@@ -968,5 +1369,178 @@ const PlannerBase* Controller::findPlanner(Type t) const
 		return nullptr;
 	}
 	return it->get();
+}
+
+namespace
+{
+void appendUniqueToken(std::vector<std::string>& out, const std::string& token)
+{
+	if (std::find(out.begin(), out.end(), token) == out.end())
+	{
+		out.push_back(token);
+	}
+}
+
+bool tokenInList(const std::vector<std::string>& list, const std::string& token)
+{
+	return std::find(list.begin(), list.end(), token) != list.end();
+}
+
+FeasibleMotionAxisConfigurationOptions allAxisConfigurationEnumOptions()
+{
+	FeasibleMotionAxisConfigurationOptions out;
+	out.presetTokens = motionAxisConfigPresetTokens();
+	out.elbowTokens = elbowPostureTokens();
+	out.wristTokens = wristPostureTokens();
+	out.armTokens = armPostureTokens();
+	out.turnJ1Tokens = motionAxisTurnTokens();
+	out.turnJ4Tokens = motionAxisTurnTokens();
+	out.turnJ6Tokens = motionAxisTurnTokens();
+	return out;
+}
+} // namespace
+
+FeasibleMotionAxisConfigurationOptions Controller::queryFeasibleMotionAxisConfigurationOptions(const Base& cmd) const
+{
+	FeasibleMotionAxisConfigurationOptions out;
+	if (!cmd.hasMotionAxisConfigurationProperty())
+	{
+		return out;
+	}
+	if (!hasTcpLinkContext(cmd) || currentJointVectorFromInstruction(cmd).empty())
+	{
+		return allAxisConfigurationEnumOptions();
+	}
+
+	const std::vector<IkPostureClassEntry> postures = collectIkPostureClassesForTarget(cmd);
+	if (postures.empty())
+	{
+		appendUniqueToken(out.presetTokens, "AUTO");
+		appendUniqueToken(out.elbowTokens, "AUTO");
+		appendUniqueToken(out.wristTokens, "AUTO");
+		appendUniqueToken(out.armTokens, "AUTO");
+		return out;
+	}
+
+	MotionAxisConfiguration autoCfg;
+	autoCfg.preset = "AUTO";
+	if (anyPostureMatchesConfiguration(postures, autoCfg))
+	{
+		appendUniqueToken(out.presetTokens, "AUTO");
+	}
+
+	for (const std::string& token : motionAxisConfigPresetTokens())
+	{
+		if (token == "AUTO" || token == "CUSTOM")
+		{
+			continue;
+		}
+		MotionAxisConfiguration cfg;
+		cfg.preset = token;
+		applyPresetToConfiguration(token, cfg);
+		if (anyPostureMatchesConfiguration(postures, cfg))
+		{
+			appendUniqueToken(out.presetTokens, token);
+		}
+	}
+
+	MotionAxisConfiguration customBase = cmd.motionAxisConfiguration();
+	customBase.preset = "CUSTOM";
+
+	for (const std::string& elbowTok : elbowPostureTokens())
+	{
+		MotionAxisConfiguration cfg = customBase;
+		cfg.preset = "CUSTOM";
+		ElbowPosture e{};
+		if (!elbowPostureFromToken(elbowTok, e))
+		{
+			continue;
+		}
+		cfg.elbow = e;
+		if (anyPostureMatchesConfiguration(postures, cfg))
+		{
+			appendUniqueToken(out.elbowTokens, elbowTok);
+		}
+	}
+	for (const std::string& wristTok : wristPostureTokens())
+	{
+		MotionAxisConfiguration cfg = customBase;
+		cfg.preset = "CUSTOM";
+		WristPosture w{};
+		if (!wristPostureFromToken(wristTok, w))
+		{
+			continue;
+		}
+		cfg.wrist = w;
+		if (anyPostureMatchesConfiguration(postures, cfg))
+		{
+			appendUniqueToken(out.wristTokens, wristTok);
+		}
+	}
+	for (const std::string& armTok : armPostureTokens())
+	{
+		MotionAxisConfiguration cfg = customBase;
+		cfg.preset = "CUSTOM";
+		ArmPosture a{};
+		if (!armPostureFromToken(armTok, a))
+		{
+			continue;
+		}
+		cfg.arm = a;
+		if (anyPostureMatchesConfiguration(postures, cfg))
+		{
+			appendUniqueToken(out.armTokens, armTok);
+		}
+	}
+
+	const auto hasNonAuto = [](const std::vector<std::string>& tokens) {
+		for (const std::string& t : tokens)
+		{
+			if (t != "AUTO")
+			{
+				return true;
+			}
+		}
+		return false;
+	};
+	if (hasNonAuto(out.elbowTokens) || hasNonAuto(out.wristTokens) || hasNonAuto(out.armTokens))
+	{
+		appendUniqueToken(out.presetTokens, "CUSTOM");
+	}
+
+	if (out.presetTokens.empty())
+	{
+		appendUniqueToken(out.presetTokens, "AUTO");
+	}
+	if (out.elbowTokens.empty())
+	{
+		appendUniqueToken(out.elbowTokens, "AUTO");
+	}
+	if (out.wristTokens.empty())
+	{
+		appendUniqueToken(out.wristTokens, "AUTO");
+	}
+	if (out.armTokens.empty())
+	{
+		appendUniqueToken(out.armTokens, "AUTO");
+	}
+
+	const std::vector<IkPostureClassEntry>& posturePool = postures;
+	auto collectTurnTokens = [&](int JointConfigurationClass::* turnMember, std::vector<std::string>& tokens) {
+		tokens.clear();
+		appendUniqueToken(tokens, "AUTO");
+		for (const IkPostureClassEntry& e : posturePool)
+		{
+			const int t = e.cls.*turnMember;
+			if (t != RobotInstruction::kMotionAxisTurnAuto)
+			{
+				appendUniqueToken(tokens, RobotInstruction::jointTurnToToken(t));
+			}
+		}
+	};
+	collectTurnTokens(&JointConfigurationClass::turnJ1, out.turnJ1Tokens);
+	collectTurnTokens(&JointConfigurationClass::turnJ4, out.turnJ4Tokens);
+	collectTurnTokens(&JointConfigurationClass::turnJ6, out.turnJ6Tokens);
+	return out;
 }
 } // namespace RobotInstruction

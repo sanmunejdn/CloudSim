@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace RobotInstruction
 {
@@ -50,11 +51,13 @@ ROBOT_SCENE_API AttributePtr makeEnumAttribute(
 	std::string (*getter)(const Base&),
 	void (*setter)(Base&, const std::string&),
 	const char* key,
-	const char* label);
+	const char* label,
+	bool (*isValidFn)(const std::string&) = nullptr);
 
 ROBOT_SCENE_API AttributePtr makeSpeedAttribute();
 ROBOT_SCENE_API AttributePtr makeAccelAttribute();
 ROBOT_SCENE_API AttributePtr makeAxisConfigAttribute();
+ROBOT_SCENE_API std::vector<AttributePtr> makeMotionAxisConfigAttributes();
 ROBOT_SCENE_API AttributePtr makeBlendRadiusAttribute();
 
 } // namespace RobotInstruction

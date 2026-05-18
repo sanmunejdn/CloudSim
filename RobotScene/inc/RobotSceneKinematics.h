@@ -24,6 +24,14 @@ namespace RobotSceneKinematics
 ROBOT_SCENE_API bool applyJointAnglesFromDocument(
 	IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg, const QVector<double>& anglesRad);
 
+/// Updates one robot instance slice inside the aggregated angle vector, then applies FK for all instances.
+ROBOT_SCENE_API bool applyJointAnglesForInstance(
+	IRobotSimulationDocument* doc,
+	IRobotBackendPoseSink* osg,
+	int instanceIndex,
+	const QVector<double>& localAnglesRad,
+	QVector<double>& aggregatedAnglesRad);
+
 /// Per-link URDF: FK → \ref IRobotBackendPoseSink::setBackendRootWorldMatrixFromWorld + \ref MeshBackendData pose/rotation.
 /// Link updates run in backend-parent order so nested OSG parents already match FK before children are written.
 ROBOT_SCENE_API bool applyJointAnglesViaLinkBackends(

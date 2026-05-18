@@ -201,6 +201,75 @@ int DocumentPage::robotKinematicInstanceCount() const
 	return m_hierarchicalRobots.size();
 }
 
+QString DocumentPage::robotSceneBackendIdForInstance(const int instanceIndex) const
+{
+	return instanceIndex >= 0 && instanceIndex < m_hierarchicalRobots.size()
+		? m_hierarchicalRobots[instanceIndex].sceneBackendId
+		: QString();
+}
+
+QString DocumentPage::robotDisplayLabelForInstance(const int instanceIndex) const
+{
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
+	{
+		return QString();
+	}
+	const QString id = m_hierarchicalRobots[instanceIndex].sceneBackendId;
+	if (const auto data = m_backend.getData(id.toStdString()))
+	{
+		if (!data->name().empty())
+		{
+			return QString::fromStdString(data->name());
+		}
+	}
+	return id;
+}
+
+QStringList DocumentPage::robotRevoluteJointNamesForInstance(const int instanceIndex) const
+{
+	return instanceIndex >= 0 && instanceIndex < m_hierarchicalRobots.size()
+		? m_hierarchicalRobots[instanceIndex].revoluteJointNamesUnprefixed
+		: QStringList();
+}
+
+void DocumentPage::robotJointLimitsForInstance(
+	const int instanceIndex,
+	QVector<double>& lowerRad,
+	QVector<double>& upperRad) const
+{
+	lowerRad.clear();
+	upperRad.clear();
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
+	{
+		return;
+	}
+	const HierarchicalRobotInstance& ri = m_hierarchicalRobots[instanceIndex];
+	lowerRad = ri.jointLowerRad;
+	upperRad = ri.jointUpperRad;
+}
+
+int DocumentPage::robotJointOffsetInAggregatedVector(const int instanceIndex) const
+{
+	int offset = 0;
+	for (int i = 0; i < instanceIndex && i < m_hierarchicalRobots.size(); ++i)
+	{
+		offset += m_hierarchicalRobots[i].revoluteJointNamesUnprefixed.size();
+	}
+	return offset;
+}
+
+int DocumentPage::robotInstanceIndexForSceneBackendId(const QString& sceneBackendId) const
+{
+	for (int i = 0; i < m_hierarchicalRobots.size(); ++i)
+	{
+		if (m_hierarchicalRobots[i].sceneBackendId == sceneBackendId)
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+
 QString DocumentPage::robotUrdfAbsolutePathForInstance(int instanceIndex) const
 {
 	return instanceIndex >= 0 && instanceIndex < m_hierarchicalRobots.size()
@@ -250,6 +319,7 @@ bool DocumentPage::robotPerLinkKinematicsForInstance(int instanceIndex, RobotPer
 
 void DocumentPage::clearRobotSimulationContext()
 {
+	m_robotProgramStore.clear();
 	// 【中文】清除传统成员
 	m_robotImportParentId.clear();
 	m_robotLinkNameToBackendId.clear();

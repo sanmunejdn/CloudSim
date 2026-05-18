@@ -479,7 +479,7 @@ void MainWindow::removeBackendObjectFromDocument(const QString& backendId)
 	{
 		doc->clearRobotSimulationIfContains(rid);
 	}
-	if (m_robotInstructionPlayback.isRunning() && !doc->hasRobotSimulationContext())
+	if (m_robotProgramExecutor.isRunning() && !doc->hasRobotSimulationContext())
 	{
 		stopRobotSimulation();
 	}

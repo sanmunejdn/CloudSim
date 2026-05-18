@@ -164,19 +164,31 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="inc\IRobotBackendPoseSink.h" />
+    <ClInclude Include="inc\IRobotIoSink.h" />
     <ClInclude Include="inc\IRobotSimulationDocument.h" />
+    <ClInclude Include="inc\RobotInstructionAxisConfiguration.h" />
     <ClInclude Include="inc\RobotInstructionAttribute.h" />
+    <ClInclude Include="inc\RobotInstructionCondition.h" />
     <ClInclude Include="inc\RobotInstructionController.h" />
+    <ClInclude Include="inc\RobotInstructionFactory.h" />
     <ClInclude Include="inc\RobotInstructionModel.h" />
+    <ClInclude Include="inc\RobotInstructionProgram.h" />
+    <ClInclude Include="inc\RobotInstructionPropertySchema.h" />
     <ClInclude Include="inc\robot_scene_global.h" />
     <ClInclude Include="inc\RobotInstructionPlaybackEngine.h" />
+    <ClInclude Include="inc\RobotProgramExecutor.h" />
     <ClInclude Include="inc\RobotSceneKinematics.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp" />
     <ClCompile Include="source\RobotInstructionAttribute.cpp" />
+    <ClCompile Include="source\RobotInstructionCondition.cpp" />
     <ClCompile Include="source\RobotInstructionController.cpp" />
+    <ClCompile Include="source\RobotInstructionFactory.cpp" />
     <ClCompile Include="source\RobotInstructionModel.cpp" />
+    <ClCompile Include="source\RobotInstructionProgram.cpp" />
     <ClCompile Include="source\RobotInstructionPlaybackEngine.cpp" />
+    <ClCompile Include="source\RobotProgramExecutor.cpp" />
     <ClCompile Include="source\RobotSceneKinematics.cpp" />
   </ItemGroup>
   <ItemGroup>

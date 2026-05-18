@@ -1,5 +1,7 @@
 # PointCloudProcess 架构与模块总结
 
+> **子模块开发文档（类/接口详解）**：见 [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md)。各工程目录下均有 `DEVELOPER_GUIDE.md`（`Data`、`Widget`、`OsgWidgetCore`、`BackendVisual`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`RunLogger`、`PointCloudProcess`）。
+
 ## 1. 项目定位
 
 `PointCloudProcess` 是一个基于 **Qt + OSG + CGAL/OpenCascade** 的桌面端三维点云/网格处理与机器人仿真应用。  
@@ -65,14 +67,14 @@ flowchart TD
 - 文档隔离：`DocumentPage` 每个标签页维护独立 `BackendDataManager + OsgWidget`。
 - 场景交互：对象选择、点拾取、边/面拾取、注释、变换 gizmo、主题/语言切换。
 - 项目 I/O：保存/加载 `.pcp/.pcproj.json`，并打包/解包工程资源。
-- 机器人仿真入口：连接指令编辑控件、轴控件与回放引擎。
+- 机器人仿真入口：连接指令编辑控件、轴控件与回放引擎；**指令树选中预览**（点击 PTP/LINE 将机器人切到该点位关节姿态）。
 
 当前内部子结构（已显式模块化）：
 
 - `MainWindow.cpp`：主流程与核心逻辑（语言、仿真、同步等）。
 - `MainWindowUiSetup.cpp`：窗口构造、菜单和 Dock 初始化（已拆分）。
 - `MainWindowBackendTree.cpp`：后端树/场景树管理。
-- `MainWindowPropertyPanel.cpp`：属性面板构建与属性同步。
+- `MainWindowPropertyPanel.cpp`：属性面板构建与属性同步；**仿真指令**属性含轴配置枚举（可行项过滤、`instructionEnumTokenFromProperty`、切换轴配置时轻量刷新）。
 - `MainWindowFileImport.cpp`：模型/点云/URDF 导入。
 - `MainWindowProjectIo.cpp`：项目保存与恢复（含 sidecar/zip 打包）。
 - `MainWindowImportCaptureRenderController.*`：导入捕获渲染协作控制器。
@@ -182,6 +184,9 @@ flowchart TD
 
 - 指令模型、属性、控制器（`RobotInstruction*`）。
 - Planner 机制：按指令类型选择规划器并输出 `PlanResult`。
+- **运动点编号**：`RobotInstructionProgram::renumberMotionPointIndices` 为 PTP/LINE 分配 `P1..Pn`（`motion.pointIndex` / JSON `pointIndex`），与 `collectMotionInstructionsRecursive` 遍历顺序一致。
+- **运动轴配置（Axis Configuration）**：`RobotInstructionAxisConfiguration` 用跨品牌通用语义描述 PTP/LINE 的 IK 姿态选择；属性键 `motion.axisConfig.preset` / `.elbow` / `.wrist` / `.arm`；JSON 推荐对象字段 `axisConfiguration`（兼容旧字符串 `axisConfig`）。规划时 `solveIkWithAxisConfiguration(cmd, cfg)` 对多种关节初值做数值 IK，再按 `cfg.matchesClass(classifyJointConfiguration(...))` 筛选；**显式 preset/分项非全 AUTO 时**规划失败即报错，**不再**静默回退到无约束 IK。`AUTO` 在可行解集合中取距种子关节最近者。`suggestMotionAxisPresetToken` 由当前关节构型推断最具体 preset（新建/首次选中时用于默认，见 **6.4**）。
+- **可行轴配置探测**：`RobotInstructionController::queryFeasibleMotionAxisConfigurationOptions` 对目标位姿**单次**多初值 IK，收集互不相同的构型类，再判定各 preset/CUSTOM 分项是否可行（避免对每种配置重复完整 IK）。`MainWindow` 按「指令 id + 目标位姿 + 前序滚动关节角」缓存结果；**仅**在选中指令、修改位姿/速度等非轴属性时刷新；**切换轴配置**时复用缓存并只跑预览规划，保证交互响应。
 - 回放引擎：分段插值驱动关节，按定时 tick 更新场景。
 - `RobotSceneKinematics::applyJointAnglesFromDocument`：按 `robotKinematicInstanceCount()` 循环各 `HierarchicalRobotInstance`，对 `perLinkBackends` 实例调用 `applyJointAnglesViaLinkBackends`（`RobotPerLinkKinematicsSlice`）。
 - `applyJointAnglesViaLinkBackends`：按实例内 link→backendId 与 `fkMeshWorldT0` / `outerWorldAtBind` 计算 `Mnew = M0 * inv(T0) * Tq`，`setBackendRootWorldMatrixFromWorld` 后 `MeshBackendData::setWorldMatrix` 分解回 `pose/rotation`。`meshVerticesInLinkFrame` 为真时 FK 传入 `computeMeshWorldMatrices(..., true)`。
@@ -190,6 +195,57 @@ flowchart TD
 
 - 承担“仿真业务逻辑”和“执行状态机”，不承载 UI。
 - 通过接口与 `DocumentPage/OsgWidget` 交互（解耦仿真与表现层）。
+
+### 4.8.1 运动轴配置（通用术语与厂商对照）
+
+同一 TCP 位姿通常对应多组关节解。UI 与 JSON **不**使用 FANUC/ABB 专有缩写作为主选项，而采用下列通用维度（与 ISO 8373 肘/腕等结构术语一致）：
+
+| 通用维度 | 含义（6 轴典型） | FANUC | ABB | KUKA 等 |
+|----------|------------------|-------|-----|---------|
+| `elbow` 肘部 | 上臂/下臂折叠（常 J3） | Up `U` / Down `D` | robconf 象限 | A3 / CONFIG |
+| `wrist` 腕部 | 腕翻转（常 J5） | Flip `F` / No-flip `N` | cf4/cf6 | A5 符号 |
+| `arm` 臂形 | 腕相对基座前/后 | Front `T` / Back `B` | 象限组合 | 机型相关 |
+| `turns` 转数 | J1/J4/J6 相对种子关节的**整圈数**（见 **4.8.2**） | Turn 0,0,0（FANUC 为 90° 分档 0–7，语义不同） | cf1,cf4,cf6,cfx | CONFIG 整型 |
+| `AUTO` | 由当前关节种子选最近 IK 解 | — | — | — |
+
+**预设（`motion.axisConfig.preset`）**：`AUTO`、`ELBOW_UP`、`ELBOW_DOWN`、`WRIST_FLIP`、`WRIST_NO_FLIP`、组合项（如 `ELBOW_UP_WRIST_NO_FLIP`）、`CUSTOM`（配合肘/腕/臂分项枚举 `motion.axisConfig.elbow|wrist|arm`）。
+
+**实现要点**：
+
+| 环节 | 行为 |
+|------|------|
+| 构型分类 | `classifyJointConfiguration(q, jointNames, seedQ*)`：肘由 J3 符号；腕 Flip 优先用相对 `seedQ` 的 Δ角；臂由 J1 与 `cos(J1)` 前/后 |
+| IK 初值 | `buildIkSeedVariants`：种子翻转肘/腕 + 显式约束时的偏向初值（肘 ±1.2/±2 rad 等） |
+| 规划 | `PtpPlanner` / `LinePlanner`：有 `MotionAxisConfiguration` 则 `solveIkWithAxisConfiguration`；`motionAxisConfigurationRequiresConstraint` 为真时禁止 DH/无约束 URDF/Legacy 回退 |
+| 属性 UI | `MainWindowPropertyPanel`：枚举下拉仅展示 `queryFeasible…` 返回的 token；`m_propertyEnumTokens` 保证下拉索引与写入 token 一致（过滤列表与全量 schema 索引分离） |
+| 默认 preset | 新建 PTP 或首次选中且仍为 `AUTO` 时：按当前/滚动关节角 `suggestMotionAxisPresetToken`，若落在可行列表则写入；`context.axisConfigSeeded=1` 避免覆盖用户后续手动选的 `AUTO` |
+| CUSTOM 分项 | 仅 `preset=CUSTOM` 时在属性面板显示肘/腕/臂三行；各行同样只列可行枚举 |
+| Turn 分项 | **始终**显示 `motion.axisConfig.turn.j1|j4|j6`（与 preset 独立）；枚举 `AUTO`、`-2`…`3`；可行值由 IK 构型集归纳 |
+
+### 4.8.2 转数 Turn（J1 / J4 / J6）设计
+
+**背景（厂商差异）**  
+同一 TCP 位姿在肘/腕/臂构型确定后，绕基座（J1）、腕部（J4）、法兰（J6）的连续旋转轴仍可能存在多组等价关节角（相差 360° 整数倍）。FANUC 配置串末三位 **Turn**（常为 0–7，按 90° 分档）与 ABB **cf1/cf4/cf6/cfx**、KUKA **CONFIG** 整型均属此类信息；本工程采用**与 URDF 连续关节兼容**的通用表示，便于数值 IK，而非逐品牌复刻 90° 编码。
+
+**语义（本项目）**
+
+- **Turn 值** `k`：相对**规划种子关节角** `q_seed`，解向量中该关节满足  
+  `round((q - q_seed) / 2π) = k`（`classifyJointTurnRevolutions`）。
+- **`AUTO`（`kMotionAxisTurnAuto` / JSON 省略该轴）**：不约束该轴转数；IK 仍可在多圈中取距种子最近解。
+- **显式 `k`**：`matchesClass` 要求观测构型上 `turnJ1/J4/J6` 与配置一致；与肘/腕/臂约束叠加。
+
+**数据与 UI**
+
+| 层 | 内容 |
+|----|------|
+| 结构体 | `MotionAxisConfiguration::turnJ1/turnJ4/turnJ6`；`JointConfigurationClass` 含观测转数 |
+| JSON | `"turns": { "j1": 0, "j4": 1, "j6": 0 }`（`writeMotionAxisConfigurationToJson`） |
+| 属性键 | `motion.axisConfig.turn.j1` / `.j4` / `.j6` |
+| 默认 | 新建/首次选中且为 `AUTO` 时，由种子关节 `classifyJointConfiguration` 写入可行转数 |
+| 树摘要 | 非 AUTO 时追加 `J1转0` 等片段 |
+
+**与 FANUC 的差异说明**  
+FANUC Turn 0–7 表示 90° 带宽而非简单 `round(Δ/2π)`；若未来需导出 FANUC 程序，可增加 `fanucTurnBandFromRevolutions(k)` 映射层，**规划内核仍用整圈数**。
 
 ## 4.9 `RunLogger`（日志基础设施）
 
@@ -391,17 +447,75 @@ sequenceDiagram
 1. **场景来源二选一**  
    - **层级**：`UrdfRobotLoader::buildHierarchicalRobotScene` → `OsgWidget::addHierarchicalRobotScene`，关节角写入各 `joint_*` 的 `MatrixTransform`。  
    - **每连杆后端（可多台）**：`registerUrdfRobot` 为每台注册 **robot root** + 各 link `MeshBackendData`（见 **6.1**）；`applyJointAnglesFromDocument` 按实例切片写各 link 外层世界矩阵。删除 robot root 或任一 link 时 `clearRobotSimulationIfContains` 移除对应实例。  
-2. 指令由 `RobotInstructionController` 校验与规划。  
-3. `RobotInstructionPlaybackEngine` 按 tick 执行插值。  
-4. 通过接口更新文档中的关节节点矩阵（层级）或各 link 后端/OSG 矩阵（每连杆）。  
-5. UI 面板实时反馈执行过程。  
-6. **调试**：环境变量 `ROBOT_KINEMATICS_DEBUG=1`（或启动参数 `--robot-kinematics-debug 1`）时，`applyJointAnglesViaLinkBackends` 输出 `[RobotKinematicsDBG]`（`T0`/`Tq`/`Mnew`/父世界/写回后 `outerWorld` 等）。  
+2. **程序编辑（`SimulationCommandWidget` + `InstructionProgramTreeWidget`）**  
+   - 每台机器人独立程序：`DocumentPage::robotProgramStore()`，按 `sceneBackendId` 键控。  
+   - 树控件展示层级（IF 的 Then/Else、WHILE 循环体）；拖放调整顺序与父子关系后 `syncToProgram()` 写回向量。  
+   - 工具栏按钮一键插入 PTP/LINE/逻辑/IO；运动点显示 **P1、P2…**（`formatMotionWaypointSummary`）。  
+3. **指令选中预览（非运行态）**  
+   - `InstructionProgramTreeWidget::instructionSelected` → `MainWindow::onSimulationInstructionSelectionChanged`。  
+   - 选中 **PTP/LINE** 时：`updateInstructionPropertyPanel`（含可行轴配置探测/缓存，见下）→ `applyRobotPoseForInstructionPreview` 自**程序起点关节** `m_motionPreviewProgramStartJointRad`（与 Run 时 `initialAngles` 同源；**不**用上一次预览后的滑块值作链式种子，避免重复点击同一点位姿态漂移）按 `collectMotionInstructions` 顺序链式规划至该点，将 `PlanResult::jointTargetsRad` 写回场景并同步滑块（写滑块时 `m_suppressMotionPreviewStartCapture` 防止误更新起点）。  
+   - 仿真运行中（`RobotProgramExecutor`）不抢占预览；逻辑指令选中不改变机器人姿态。  
+   - 属性面板修改 **位姿/速度** 等：失效轴配置缓存 → 全量刷新可行列表 + 预览。修改 **`motion.axisConfig.*`**：仅 `applyPropertyChange` + 预览 + **轻量**属性面板刷新（不重复可行 IK 探测）。  
+4. **轴配置属性与规划一致性**  
+   - 可行列表：`feasibleMotionAxisConfigurationOptionsForInstruction` 对选中点附加与前序点相同的 `context.currentJointRadCsv` / `context.urdfPath` / `context.tcpLinkName` 后调用 `queryFeasibleMotionAxisConfigurationOptions`。  
+   - 用户切换 preset/分项后，`plan` 使用指令上已写入的 `MotionAxisConfiguration`；显式构型无解时 Run/预览均失败并提示（如「无满足轴配置的IK解」），与下拉仅展示可启动项一致。  
+5. 指令由 `RobotInstructionController` 校验与规划（PTP/LINE 读取 `MotionAxisConfiguration` 做多初值 IK 筛选）；Run 时批量规划后由 `RobotProgramExecutor`（含 Wait/If/While/IO 状态机 + 运动段插值）按 tick 执行。  
+6. 通过接口更新文档中的关节节点矩阵（层级）或各 link 后端/OSG 矩阵（每连杆）。  
+7. UI 面板实时反馈执行过程；`OsgWidget::setInstructionPoseAxes` 在世界系显示各运动点 XYZ 坐标轴。  
+8. **调试**：环境变量 `ROBOT_KINEMATICS_DEBUG=1`（或启动参数 `--robot-kinematics-debug 1`）时，`applyJointAnglesViaLinkBackends` 输出 `[RobotKinematicsDBG]`（`T0`/`Tq`/`Mnew`/父世界/写回后 `outerWorld` 等）。  
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant Tree as InstructionProgramTreeWidget
+    participant Sim as SimulationCommandWidget
+    participant MW as MainWindow
+    participant Ctrl as RobotInstructionController
+    participant Kin as RobotSceneKinematics
+    participant Osg as OsgWidget
+
+    User->>Tree: 选中 PTP/LINE 行
+    Tree->>Sim: instructionSelected(ins)
+    Sim->>MW: instructionSelectionChanged(ins)
+    MW->>MW: updateInstructionPropertyPanel(refreshFeasibleAxis=true)
+    Note over MW: queryFeasible… 单次 IK 构型集 + 缓存<br/>可选 suggestPresetFromSeed
+    MW->>MW: applyRobotPoseForInstructionPreview
+    loop 自 P1 至选中点
+        MW->>Ctrl: validate + plan(motion)
+        Ctrl-->>MW: jointTargetsRad
+    end
+    MW->>Kin: applyJointAnglesForInstance
+    Kin->>Osg: 更新连杆/关节矩阵
+    MW->>MW: RobotAxisControlWidget 同步关节角
+
+    User->>MW: 属性面板切换轴配置
+    MW->>MW: applyPropertyChange + 预览 plan
+    MW->>MW: updateInstructionPropertyPanel(refreshFeasibleAxis=false)
+```
+
+```mermaid
+flowchart LR
+    subgraph probe [可行轴配置探测 一次/缓存]
+        A1[多初值 URDF IK] --> A2[classifyJointConfiguration]
+        A2 --> A3[构型类集合]
+        A3 --> A4[匹配 preset / CUSTOM 分项]
+    end
+    subgraph plan [规划/预览/Run]
+        B1[指令 MotionAxisConfiguration] --> B2[solveIkWithAxisConfiguration]
+        B2 --> B3{显式约束?}
+        B3 -->|是且无解| B4[失败 不回退]
+        B3 -->|否或 AUTO| B5[最近种子解 / 允许回退路径]
+    end
+    probe --> UI[属性枚举下拉]
+    UI --> plan
+```
 
 ## 6.5 项目持久化流程
 
 1. `MainWindowProjectIo` 采集文档对象、属性、标注和层级关系。  
-2. 点云可写入 sidecar，工程可封装为 `.pcp`（zip STORE）。  
-3. 加载时恢复后端对象与场景状态，重建树与标注。  
+2. 根级 **`robotPrograms`**：每台机器人一条记录（`sceneBackendId` + `instructions` JSON 数组）；运动指令持久化 `pointIndex`、位姿/速度等字段；PTP/LINE 推荐对象 **`axisConfiguration`**（`preset` / `elbow` / `wrist` / `arm` / 可选 `turns`），兼容旧字段 **`axisConfig`** 字符串。  
+3. 点云可写入 sidecar，工程可封装为 `.pcp`（zip STORE）。  
+4. 加载时恢复后端对象与场景状态，重建 `RobotProgramStore` 与指令树，重建树与标注。  
 
 **每连杆机器人元数据（`project.json`）：**
 
@@ -435,12 +549,12 @@ sequenceDiagram
 - **JobSystem + ProgressManager（Widget）**：耗时 CPU 工作（首批接入：非 LAS/LAZ 点云的 CGAL `loadFromFile`）提交到 `QThreadPool`；`ProgressManager` 通过 `QMetaObject::invokeMethod` 将 `jobStarted` / `jobProgress` / `jobFinished` 投递到 UI 线程，避免在工作线程直接操作 `QWidget`/OSG。
 - **主线程边界**：`BackendDataManager` 注册、`OsgWidget::loadPointCloudFromBackendData`、树与属性刷新仍在 **UI 线程** 完成；后台仅做几何解码与填充 `PointCloudBackendData`（与 ARCHITECTURE 中「Data 不碰 UI」一致）。
 - **BackendDataManager**：容器与层级图由 `std::shared_mutex` 保护；只读查询使用 `std::shared_lock`，注册/注销/边变更/ `clear` 使用 `std::unique_lock`，提升多读场景下的并发度。**注意**：返回的 `std::shared_ptr<BackendDataBase>` 所指对象本身的字段并非每字段加锁；跨线程写同一后端对象仍需调用方序列化或由单线程（通常为 UI）修改。
-- **后续可接 Job 的类型**：网格 CGAL/OCCT 管线、布尔、法线、机器人规划/IK 等可复用同一 `enqueue(title, work, onFinished)` 模式；LAS/LAZ 仍走 OSG 导入路径，保持同步直至确认 OSG 上下文可安全离屏。
+- **后续可接 Job 的类型**：网格 CGAL/OCCT 管线、布尔、法线、机器人规划/IK 等可复用同一 `enqueue(title, work, onFinished)` 模式；**可行轴配置探测**（`queryFeasibleMotionAxisConfigurationOptions`）与长程序链式预览亦可迁入后台线程，结果回 UI 写缓存；LAS/LAZ 仍走 OSG 导入路径，保持同步直至确认 OSG 上下文可安全离屏。
 
 ---
 
 ## 8. 一句话结论
 
 `PointCloudProcess` 当前属于 **“Qt 桌面前端 + 本地 C++ 后端引擎”** 的模块化架构，并已完成一轮关键闭环重构：  
-以 `ObjectGraph` 定义结构语义、以 `BackendVisualBindingIndex` 保障拾取映射、以 `SelectionService + SelectionState` 统一选择与可见性传播；对象 **Gizmo/罗盘** 以 **`ObjectGizmoFrame` + active outer PAT** 为唯一位姿真源，层级子对象选中时 **从 OSG 读帧** 而非把世界 `pose` 当作 root-local 写入；**URDF** 支持 **多机 per-link**（`HierarchicalRobotInstance` + `robotKinematicsInstances`）、**无几何 robot root** 与稳定 backend 命名，FK/`setBackendRootWorldMatrixFromWorld`/`syncOuterPatFromBackend` 共用行向量父链约定，在不改变核心业务能力的前提下显著提升了可维护性与状态一致性。
+以 `ObjectGraph` 定义结构语义、以 `BackendVisualBindingIndex` 保障拾取映射、以 `SelectionService + SelectionState` 统一选择与可见性传播；对象 **Gizmo/罗盘** 以 **`ObjectGizmoFrame` + active outer PAT** 为唯一位姿真源，层级子对象选中时 **从 OSG 读帧** 而非把世界 `pose` 当作 root-local 写入；**URDF** 支持 **多机 per-link**（`HierarchicalRobotInstance` + `robotKinematicsInstances`）、**无几何 robot root** 与稳定 backend 命名，FK/`setBackendRootWorldMatrixFromWorld`/`syncOuterPatFromBackend` 共用行向量父链约定；**运动指令轴配置**在属性/UI/规划/JSON 四层对齐（可行枚举过滤、显式构型约束规划、种子构型默认 preset），在不改变核心业务能力的前提下显著提升了可维护性与状态一致性。
 

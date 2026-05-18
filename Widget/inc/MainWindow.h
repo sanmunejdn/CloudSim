@@ -14,8 +14,9 @@
 #include "MainWindowSelectionState.h"
 #include "RobotAxisControlWidget.h"
 #include "RobotInstructionController.h"
-#include "RobotInstructionPlaybackEngine.h"
+#include "RobotProgramExecutor.h"
 #include "SimulationCommandWidget.h"
+#include "SimulationLogIoSink.h"
 
 class QWidget;
 class OsgWidget;
@@ -82,8 +83,24 @@ private:
 		const QString& typeName, const QString& persistedId = QString(), bool selectInTree = true,
 		const QString& parentId = QString());
 	void updatePropertyPanel(const std::shared_ptr<BackendDataBase>& data);
-	void updateInstructionPropertyPanel(const std::shared_ptr<RobotInstruction::Base>& instruction);
-	void appendPropertyBrowserRow(const QString& propertyKey, const QString& displayLabel, const QString& value, bool editable);
+	void updateInstructionPropertyPanel(
+		const std::shared_ptr<RobotInstruction::Base>& instruction,
+		bool refreshFeasibleAxisOptions = true);
+	void invalidateFeasibleAxisConfigurationCache();
+	QString instructionEnumTokenFromProperty(QtProperty* property, const QVariant& value) const;
+	void applySuggestedAxisPresetFromSeedIfNeeded(
+		const std::shared_ptr<RobotInstruction::Base>& instruction,
+		const QVector<double>& seedJointRad,
+		const RobotInstruction::FeasibleMotionAxisConfigurationOptions& feasible);
+	void appendPropertyBrowserRow(
+		const QString& propertyKey,
+		const QString& displayLabel,
+		const QString& value,
+		bool editable,
+		const std::vector<std::string>* enumOptionTokens = nullptr);
+	RobotInstruction::FeasibleMotionAxisConfigurationOptions feasibleMotionAxisConfigurationOptionsForInstruction(
+		const std::shared_ptr<RobotInstruction::Base>& instruction,
+		QVector<double>* outSeedJointRad = nullptr);
 	QString propertyDisplayLabelForKey(const QString& key, const QString& labelEnFallback) const;
 	bool tryCaptureCurrentRobotTcpPose(
 		RobotInstruction::Vec3& outPoseMm,
@@ -134,7 +151,11 @@ private:
 	void stopRobotSimulation();
 	void logPlaybackFrameComparison(const QVector<double>& finalJointAnglesRad);
 	void refreshInstructionPoseAxes();
+	void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction);
+	void captureMotionPreviewProgramStartJoints();
+	QVector<double> motionPreviewProgramStartJointsLocal(int nj, int jointOffset) const;
 	void refreshSimulationJointListFromCurrentDoc();
+	void onSimulationRobotSelectionChanged(int instanceIndex, const QString& sceneBackendId);
 	void onRobotAxisJointAnglesChanged(const QVector<double>& jointAnglesRad);
 
 	DocumentPage* currentPage() const;
@@ -211,7 +232,12 @@ private:
 	QString m_followTargetNameDebounceBackendId;
 	QString m_followTargetNameDebounceText;
 	RobotInstruction::Controller m_robotInstructionController;
-	RobotInstructionPlaybackEngine m_robotInstructionPlayback;
+	RobotProgramExecutor m_robotProgramExecutor;
+	SimulationLogIoSink m_simulationIoSink;
+	QVector<double> m_aggregatedJointAnglesRad;
+	/// Program-start joint seed for instruction preview / feasible axis probe (not updated by preview).
+	QVector<double> m_motionPreviewProgramStartJointRad;
+	bool m_suppressMotionPreviewStartCapture = false;
 	QDockWidget* m_runDock = nullptr;
 	QAction* m_simulationStartAction = nullptr;
 	bool m_useChinese = true;
@@ -220,4 +246,9 @@ private:
 	JobSystem* m_jobSystem = nullptr;
 	QString m_activeAxisName = QStringLiteral("None");
 	std::shared_ptr<RobotInstruction::Base> m_activeInstructionForProperty;
+	RobotInstruction::FeasibleMotionAxisConfigurationOptions m_cachedFeasibleAxisOptions;
+	QString m_cachedFeasibleAxisInstructionId;
+	QString m_cachedFeasibleAxisFingerprint;
+	QVector<double> m_cachedFeasibleAxisSeedJointRad;
+	QHash<QtProperty*, QStringList> m_propertyEnumTokens;
 };
