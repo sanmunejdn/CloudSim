@@ -9,6 +9,8 @@
 class QCheckBox;
 class QComboBox;
 class QDoubleSpinBox;
+class QFormLayout;
+class QGroupBox;
 class QListWidget;
 class QPushButton;
 class QTimer;
@@ -55,11 +57,16 @@ private:
 	void onShowToggled();
 	void onFramesChangeDebounce();
 
-	bool m_useChinese = false;
+	bool m_useChinese = true;
 	bool m_blockSignals = false;
 	RobotCoordinate::RobotCoordinateFrameSet m_frames;
 	QStringList m_linkNames;
 
+	QGroupBox* m_toolGroup = nullptr;
+	QGroupBox* m_userGroup = nullptr;
+	QGroupBox* m_showGroup = nullptr;
+	QFormLayout* m_toolForm = nullptr;
+	QFormLayout* m_userForm = nullptr;
 	QListWidget* m_toolList = nullptr;
 	QComboBox* m_flangeLinkCombo = nullptr;
 	QDoubleSpinBox* m_toolPos[3]{};

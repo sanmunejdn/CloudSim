@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QString>
 #include <QWidget>
 
 #include "aiwidget_global.h"
@@ -20,6 +21,7 @@ public:
 	void appendAssistantMessage(const QString& text);
 	void appendSystemMessage(const QString& text);
 	void setBusy(bool busy);
+	void setUseChinese(bool chinese);
 
 signals:
 	void messageSubmitted(const QString& text);
@@ -29,6 +31,7 @@ private slots:
 	void onSettingsClicked();
 
 private:
+	bool m_useChinese = true;
 	QTextBrowser* m_history = nullptr;
 	QLineEdit* m_input = nullptr;
 	QPushButton* m_settingsBtn = nullptr;

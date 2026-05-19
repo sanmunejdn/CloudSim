@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QString>
 #include <QDialog>
 
 #include "aiwidget_global.h"
@@ -8,6 +9,8 @@
 class QCheckBox;
 class QDialogButtonBox;
 class QDoubleSpinBox;
+class QFormLayout;
+class QGroupBox;
 class QLabel;
 class QLineEdit;
 class QSpinBox;
@@ -22,6 +25,7 @@ public:
 
 	AiLlmConfig config() const;
 	void setConfig(const AiLlmConfig& config);
+	void setUseChinese(bool chinese);
 
 	QString configFilePath() const;
 
@@ -31,8 +35,14 @@ private slots:
 private:
 	void buildUi();
 	void loadFromFileOrDefaults();
+	void applyLanguage();
+	void updatePathLabel();
 
+	bool m_useChinese = true;
 	QLabel* m_pathLabel = nullptr;
+	QLabel* m_hintLabel = nullptr;
+	QGroupBox* m_connectionGroup = nullptr;
+	QFormLayout* m_form = nullptr;
 	QCheckBox* m_enabled = nullptr;
 	QCheckBox* m_ruleFirst = nullptr;
 	QLineEdit* m_baseUrl = nullptr;

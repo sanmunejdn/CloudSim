@@ -5,6 +5,7 @@
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QLabel>
 #include <QHBoxLayout>
 #include <QListWidget>
 #include <QPushButton>
@@ -39,6 +40,18 @@ void readRigidFromSpins(RobotCoordinate::RobotRigidFrame& f, QDoubleSpinBox* pos
 		f.eulerDeg[i] = euler[i]->value();
 	}
 }
+
+void setFormLabel(QFormLayout* form, const int row, const QString& text)
+{
+	if (!form || row < 0 || row >= form->rowCount())
+	{
+		return;
+	}
+	if (QLabel* label = qobject_cast<QLabel*>(form->itemAt(row, QFormLayout::LabelRole)->widget()))
+	{
+		label->setText(text);
+	}
+}
 } // namespace
 
 RobotFrameSettingsWidget::RobotFrameSettingsWidget(QWidget* parent)
@@ -51,84 +64,86 @@ RobotFrameSettingsWidget::RobotFrameSettingsWidget(QWidget* parent)
 
 	auto* root = new QVBoxLayout(this);
 
-	auto* toolGroup = new QGroupBox(QStringLiteral("Tool frames (flange)"), this);
-	auto* toolLayout = new QVBoxLayout(toolGroup);
-	m_toolList = new QListWidget(toolGroup);
+	m_toolGroup = new QGroupBox(QStringLiteral("Tool frames (flange)"), this);
+	auto* toolLayout = new QVBoxLayout(m_toolGroup);
+	m_toolList = new QListWidget(m_toolGroup);
 	toolLayout->addWidget(m_toolList);
-	auto* toolForm = new QFormLayout;
-	m_flangeLinkCombo = new QComboBox(toolGroup);
-	toolForm->addRow(QStringLiteral("Flange link"), m_flangeLinkCombo);
+	m_toolForm = new QFormLayout;
+	m_flangeLinkCombo = new QComboBox(m_toolGroup);
+	m_toolForm->addRow(QStringLiteral("Flange link"), m_flangeLinkCombo);
 	for (int i = 0; i < 3; ++i)
 	{
-		m_toolPos[i] = makeSpin(toolGroup, -5000.0, 5000.0);
-		m_toolEuler[i] = makeSpin(toolGroup, -360.0, 360.0);
+		m_toolPos[i] = makeSpin(m_toolGroup, -5000.0, 5000.0);
+		m_toolEuler[i] = makeSpin(m_toolGroup, -360.0, 360.0);
 	}
-	toolForm->addRow(QStringLiteral("X (mm, flange)"), m_toolPos[0]);
-	toolForm->addRow(QStringLiteral("Y (mm, flange)"), m_toolPos[1]);
-	toolForm->addRow(QStringLiteral("Z (mm, flange)"), m_toolPos[2]);
-	toolForm->addRow(QStringLiteral("Rx (deg)"), m_toolEuler[0]);
-	toolForm->addRow(QStringLiteral("Ry (deg)"), m_toolEuler[1]);
-	toolForm->addRow(QStringLiteral("Rz (deg)"), m_toolEuler[2]);
-	toolLayout->addLayout(toolForm);
+	m_toolForm->addRow(QStringLiteral("X (mm, flange)"), m_toolPos[0]);
+	m_toolForm->addRow(QStringLiteral("Y (mm, flange)"), m_toolPos[1]);
+	m_toolForm->addRow(QStringLiteral("Z (mm, flange)"), m_toolPos[2]);
+	m_toolForm->addRow(QStringLiteral("Rx (deg)"), m_toolEuler[0]);
+	m_toolForm->addRow(QStringLiteral("Ry (deg)"), m_toolEuler[1]);
+	m_toolForm->addRow(QStringLiteral("Rz (deg)"), m_toolEuler[2]);
+	toolLayout->addLayout(m_toolForm);
 	auto* toolBtnRow = new QHBoxLayout;
-	m_addToolBtn = new QPushButton(QStringLiteral("Add"), toolGroup);
-	m_removeToolBtn = new QPushButton(QStringLiteral("Remove"), toolGroup);
-	m_duplicateToolBtn = new QPushButton(QStringLiteral("Duplicate"), toolGroup);
-	m_setActiveToolBtn = new QPushButton(QStringLiteral("Set active"), toolGroup);
+	m_addToolBtn = new QPushButton(QStringLiteral("Add"), m_toolGroup);
+	m_removeToolBtn = new QPushButton(QStringLiteral("Remove"), m_toolGroup);
+	m_duplicateToolBtn = new QPushButton(QStringLiteral("Duplicate"), m_toolGroup);
+	m_setActiveToolBtn = new QPushButton(QStringLiteral("Set active"), m_toolGroup);
 	toolBtnRow->addWidget(m_addToolBtn);
 	toolBtnRow->addWidget(m_removeToolBtn);
 	toolBtnRow->addWidget(m_duplicateToolBtn);
 	toolBtnRow->addWidget(m_setActiveToolBtn);
 	toolLayout->addLayout(toolBtnRow);
 	auto* toolCapRow = new QHBoxLayout;
-	m_captureToolBtn = new QPushButton(QStringLiteral("Capture from TCP"), toolGroup);
-	m_resetToolBtn = new QPushButton(QStringLiteral("Reset to flange"), toolGroup);
+	m_captureToolBtn = new QPushButton(QStringLiteral("Capture from TCP"), m_toolGroup);
+	m_resetToolBtn = new QPushButton(QStringLiteral("Reset to flange"), m_toolGroup);
 	toolCapRow->addWidget(m_captureToolBtn);
 	toolCapRow->addWidget(m_resetToolBtn);
 	toolLayout->addLayout(toolCapRow);
-	root->addWidget(toolGroup);
+	root->addWidget(m_toolGroup);
 
-	auto* userGroup = new QGroupBox(QStringLiteral("User frames (base)"), this);
-	auto* userLayout = new QVBoxLayout(userGroup);
-	m_userList = new QListWidget(userGroup);
+	m_userGroup = new QGroupBox(QStringLiteral("User frames (base)"), this);
+	auto* userLayout = new QVBoxLayout(m_userGroup);
+	m_userList = new QListWidget(m_userGroup);
 	userLayout->addWidget(m_userList);
-	auto* userForm = new QFormLayout;
+	m_userForm = new QFormLayout;
 	for (int i = 0; i < 3; ++i)
 	{
-		m_userPos[i] = makeSpin(userGroup, -100000.0, 100000.0);
-		m_userEuler[i] = makeSpin(userGroup, -360.0, 360.0);
+		m_userPos[i] = makeSpin(m_userGroup, -100000.0, 100000.0);
+		m_userEuler[i] = makeSpin(m_userGroup, -360.0, 360.0);
 	}
-	userForm->addRow(QStringLiteral("X (mm)"), m_userPos[0]);
-	userForm->addRow(QStringLiteral("Y (mm)"), m_userPos[1]);
-	userForm->addRow(QStringLiteral("Z (mm)"), m_userPos[2]);
-	userForm->addRow(QStringLiteral("Rx (deg)"), m_userEuler[0]);
-	userForm->addRow(QStringLiteral("Ry (deg)"), m_userEuler[1]);
-	userForm->addRow(QStringLiteral("Rz (deg)"), m_userEuler[2]);
-	userLayout->addLayout(userForm);
+	m_userForm->addRow(QStringLiteral("X (mm)"), m_userPos[0]);
+	m_userForm->addRow(QStringLiteral("Y (mm)"), m_userPos[1]);
+	m_userForm->addRow(QStringLiteral("Z (mm)"), m_userPos[2]);
+	m_userForm->addRow(QStringLiteral("Rx (deg)"), m_userEuler[0]);
+	m_userForm->addRow(QStringLiteral("Ry (deg)"), m_userEuler[1]);
+	m_userForm->addRow(QStringLiteral("Rz (deg)"), m_userEuler[2]);
+	userLayout->addLayout(m_userForm);
 	auto* userBtnRow = new QHBoxLayout;
-	m_addUserBtn = new QPushButton(QStringLiteral("Add"), userGroup);
-	m_removeUserBtn = new QPushButton(QStringLiteral("Remove"), userGroup);
-	m_duplicateUserBtn = new QPushButton(QStringLiteral("Duplicate"), userGroup);
-	m_setActiveUserBtn = new QPushButton(QStringLiteral("Set active"), userGroup);
+	m_addUserBtn = new QPushButton(QStringLiteral("Add"), m_userGroup);
+	m_removeUserBtn = new QPushButton(QStringLiteral("Remove"), m_userGroup);
+	m_duplicateUserBtn = new QPushButton(QStringLiteral("Duplicate"), m_userGroup);
+	m_setActiveUserBtn = new QPushButton(QStringLiteral("Set active"), m_userGroup);
 	userBtnRow->addWidget(m_addUserBtn);
 	userBtnRow->addWidget(m_removeUserBtn);
 	userBtnRow->addWidget(m_duplicateUserBtn);
 	userBtnRow->addWidget(m_setActiveUserBtn);
 	userLayout->addLayout(userBtnRow);
-	userLayout->addWidget(new QPushButton(QStringLiteral("Capture origin+pose"), userGroup));
-	m_captureUserBtn = qobject_cast<QPushButton*>(userLayout->itemAt(userLayout->count() - 1)->widget());
-	root->addWidget(userGroup);
+	m_captureUserBtn = new QPushButton(QStringLiteral("Capture origin+pose"), m_userGroup);
+	userLayout->addWidget(m_captureUserBtn);
+	root->addWidget(m_userGroup);
 
-	auto* showGroup = new QGroupBox(QStringLiteral("3D display"), this);
-	auto* showLayout = new QVBoxLayout(showGroup);
-	m_showToolCheck = new QCheckBox(QStringLiteral("Show tool frames"), showGroup);
-	m_showUserCheck = new QCheckBox(QStringLiteral("Show user frames"), showGroup);
+	m_showGroup = new QGroupBox(QStringLiteral("3D display"), this);
+	auto* showLayout = new QVBoxLayout(m_showGroup);
+	m_showToolCheck = new QCheckBox(QStringLiteral("Show tool frames"), m_showGroup);
+	m_showUserCheck = new QCheckBox(QStringLiteral("Show user frames"), m_showGroup);
 	m_showToolCheck->setChecked(true);
 	m_showUserCheck->setChecked(true);
 	showLayout->addWidget(m_showToolCheck);
 	showLayout->addWidget(m_showUserCheck);
-	root->addWidget(showGroup);
+	root->addWidget(m_showGroup);
 	root->addStretch();
+
+	setUseChinese(m_useChinese);
 
 	connect(m_flangeLinkCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
 		if (m_blockSignals)
@@ -178,30 +193,47 @@ RobotFrameSettingsWidget::RobotFrameSettingsWidget(QWidget* parent)
 void RobotFrameSettingsWidget::setUseChinese(bool chinese)
 {
 	m_useChinese = chinese;
-	for (QGroupBox* gb : findChildren<QGroupBox*>())
+	if (m_toolGroup)
 	{
-		if (!gb)
-		{
-			continue;
-		}
-		const QString t = gb->title();
-		if (t.startsWith(QStringLiteral("Tool")))
-		{
-			gb->setTitle(chinese ? QStringLiteral("工具坐标系（法兰）") : QStringLiteral("Tool frames (flange)"));
-		}
-		else if (t.startsWith(QStringLiteral("User")))
-		{
-			gb->setTitle(chinese ? QStringLiteral("用户坐标系（基座）") : QStringLiteral("User frames (base)"));
-		}
-		else if (t.startsWith(QStringLiteral("3D")))
-		{
-			gb->setTitle(chinese ? QStringLiteral("三维显示") : QStringLiteral("3D display"));
-		}
+		m_toolGroup->setTitle(chinese ? QStringLiteral("工具坐标系（法兰）")
+									  : QStringLiteral("Tool frames (flange)"));
+	}
+	if (m_userGroup)
+	{
+		m_userGroup->setTitle(chinese ? QStringLiteral("用户坐标系（基座）")
+									  : QStringLiteral("User frames (base)"));
+	}
+	if (m_showGroup)
+	{
+		m_showGroup->setTitle(chinese ? QStringLiteral("三维显示") : QStringLiteral("3D display"));
+	}
+	if (m_toolForm)
+	{
+		setFormLabel(m_toolForm, 0, chinese ? QStringLiteral("法兰连杆") : QStringLiteral("Flange link"));
+		setFormLabel(m_toolForm, 1, chinese ? QStringLiteral("X（mm，法兰）") : QStringLiteral("X (mm, flange)"));
+		setFormLabel(m_toolForm, 2, chinese ? QStringLiteral("Y（mm，法兰）") : QStringLiteral("Y (mm, flange)"));
+		setFormLabel(m_toolForm, 3, chinese ? QStringLiteral("Z（mm，法兰）") : QStringLiteral("Z (mm, flange)"));
+		setFormLabel(m_toolForm, 4, chinese ? QStringLiteral("Rx（deg）") : QStringLiteral("Rx (deg)"));
+		setFormLabel(m_toolForm, 5, chinese ? QStringLiteral("Ry（deg）") : QStringLiteral("Ry (deg)"));
+		setFormLabel(m_toolForm, 6, chinese ? QStringLiteral("Rz（deg）") : QStringLiteral("Rz (deg)"));
+	}
+	if (m_userForm)
+	{
+		setFormLabel(m_userForm, 0, chinese ? QStringLiteral("X（mm）") : QStringLiteral("X (mm)"));
+		setFormLabel(m_userForm, 1, chinese ? QStringLiteral("Y（mm）") : QStringLiteral("Y (mm)"));
+		setFormLabel(m_userForm, 2, chinese ? QStringLiteral("Z（mm）") : QStringLiteral("Z (mm)"));
+		setFormLabel(m_userForm, 3, chinese ? QStringLiteral("Rx（deg）") : QStringLiteral("Rx (deg)"));
+		setFormLabel(m_userForm, 4, chinese ? QStringLiteral("Ry（deg）") : QStringLiteral("Ry (deg)"));
+		setFormLabel(m_userForm, 5, chinese ? QStringLiteral("Rz（deg）") : QStringLiteral("Rz (deg)"));
 	}
 	m_addToolBtn->setText(chinese ? QStringLiteral("添加") : QStringLiteral("Add"));
 	m_removeToolBtn->setText(chinese ? QStringLiteral("删除") : QStringLiteral("Remove"));
 	m_duplicateToolBtn->setText(chinese ? QStringLiteral("复制") : QStringLiteral("Duplicate"));
 	m_setActiveToolBtn->setText(chinese ? QStringLiteral("设为当前") : QStringLiteral("Set active"));
+	m_addUserBtn->setText(chinese ? QStringLiteral("添加") : QStringLiteral("Add"));
+	m_removeUserBtn->setText(chinese ? QStringLiteral("删除") : QStringLiteral("Remove"));
+	m_duplicateUserBtn->setText(chinese ? QStringLiteral("复制") : QStringLiteral("Duplicate"));
+	m_setActiveUserBtn->setText(chinese ? QStringLiteral("设为当前") : QStringLiteral("Set active"));
 	m_captureToolBtn->setText(chinese ? QStringLiteral("从当前 TCP 捕获") : QStringLiteral("Capture from TCP"));
 	m_resetToolBtn->setText(chinese ? QStringLiteral("与末端重合") : QStringLiteral("Reset to flange"));
 	m_captureUserBtn->setText(chinese ? QStringLiteral("从 TCP 捕获用户系") : QStringLiteral("Capture origin+pose"));

@@ -35,6 +35,7 @@
 
 #include <osg/Vec3f>
 
+#include "AiAssistantDockWidget.h"
 #include "ApplicationStyle.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
@@ -1260,6 +1261,7 @@ void MainWindow::applyLanguage()
 		m_toggleAiAssistantAction->setText(i18n(QStringLiteral("AI Assistant"), QStringLiteral("AI 助手")));
 	}
 	if (m_runInfoPage) m_runInfoPage->setUiLanguage(m_useChinese);
+	if (m_aiAssistantPage) m_aiAssistantPage->setUseChinese(m_useChinese);
 
 	if (m_propertyBrowser)
 	{
