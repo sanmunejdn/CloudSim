@@ -277,6 +277,58 @@ bool parseThreeDoubles(const QString& s, double& a, double& b, double& c)
 	return ok;
 }
 
+// 解析空格分隔的四个浮点数（用于 rgba）；空串视为 0,0,0,1。
+bool parseFourDoubles(const QString& s, double& a, double& b, double& c, double& d)
+{
+	const QString t = s.trimmed();
+	if (t.isEmpty())
+	{
+		a = b = c = 0.0;
+		d = 1.0;
+		return true;
+	}
+	const QStringList parts = t.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+	if (parts.size() < 4)
+	{
+		return false;
+	}
+	bool ok = false;
+	a = parts[0].toDouble(&ok);
+	if (!ok)
+	{
+		return false;
+	}
+	b = parts[1].toDouble(&ok);
+	if (!ok)
+	{
+		return false;
+	}
+	c = parts[2].toDouble(&ok);
+	if (!ok)
+	{
+		return false;
+	}
+	d = parts[3].toDouble(&ok);
+	return ok;
+}
+
+static bool parseUrdfRgbaAttribute(const QString& rgba, float& r, float& g, float& b, float& a)
+{
+	double dr = 0.0;
+	double dg = 0.0;
+	double db = 0.0;
+	double da = 1.0;
+	if (!parseFourDoubles(rgba, dr, dg, db, da))
+	{
+		return false;
+	}
+	r = static_cast<float>(dr);
+	g = static_cast<float>(dg);
+	b = static_cast<float>(db);
+	a = static_cast<float>(da);
+	return true;
+}
+
 // 每个 link 仅解析第一个 <visual>：mesh 路径与 <visual><origin>（无则视为 0）。
 struct UrdfLinkVisual
 {
@@ -288,7 +340,82 @@ struct UrdfLinkVisual
 	double vr = 0.0; // rpy：roll
 	double vp = 0.0; // pitch
 	double vw = 0.0; // yaw
+	// <visual><material><color rgba="r g b a"/>（0..1）；无则 hasMaterialColor=false，显示侧保留默认色
+	bool hasMaterialColor = false;
+	float matR = 0.0f;
+	float matG = 0.0f;
+	float matB = 0.0f;
+	float matA = 1.0f;
+	QString pendingMaterialName; // <material name="..."/> 引用，在 parseUrdfModel 内解析
 };
+
+static void applyUrdfVisualMaterialToBackend(MeshBackendData& backend, const UrdfLinkVisual& vis)
+{
+	if (!vis.hasMaterialColor)
+	{
+		return;
+	}
+	BackendColor color;
+	color.r = vis.matR;
+	color.g = vis.matG;
+	color.b = vis.matB;
+	color.a = vis.matA;
+	backend.setColor(color);
+}
+
+static osg::Vec4 urdfVisualMaterialOsgColor(const UrdfLinkVisual& vis)
+{
+	if (vis.hasMaterialColor)
+	{
+		return osg::Vec4(vis.matR, vis.matG, vis.matB, vis.matA);
+	}
+	return osg::Vec4(0.65f, 0.82f, 0.95f, 1.0f);
+}
+
+// 读取 \<material\>：内联 \<color rgba\>，或仅 name 引用顶层材质。
+static void readMaterialColorBlock(QXmlStreamReader& xml, UrdfLinkVisual& out)
+{
+	const QString matName = xml.attributes().value(QStringLiteral("name")).toString().trimmed();
+	bool inlineColor = false;
+	while (xml.readNextStartElement())
+	{
+		if (xml.name() == QLatin1String("color"))
+		{
+			const QString rgba = xml.attributes().value(QStringLiteral("rgba")).toString();
+			if (parseUrdfRgbaAttribute(rgba, out.matR, out.matG, out.matB, out.matA))
+			{
+				out.hasMaterialColor = true;
+				inlineColor = true;
+			}
+			xml.skipCurrentElement();
+		}
+		else
+		{
+			xml.skipCurrentElement();
+		}
+	}
+	if (!inlineColor && !matName.isEmpty())
+	{
+		out.pendingMaterialName = matName;
+	}
+}
+
+static void applyMaterialRefIfNeeded(UrdfLinkVisual& vis, const std::unordered_map<QString, UrdfLinkVisual>& namedMaterials)
+{
+	if (vis.hasMaterialColor || vis.pendingMaterialName.isEmpty())
+	{
+		return;
+	}
+	const auto it = namedMaterials.find(vis.pendingMaterialName);
+	if (it != namedMaterials.end() && it->second.hasMaterialColor)
+	{
+		vis.matR = it->second.matR;
+		vis.matG = it->second.matG;
+		vis.matB = it->second.matB;
+		vis.matA = it->second.matA;
+		vis.hasMaterialColor = true;
+	}
+}
 
 // 网格文件顶点 → 连杆系（内部 mm）：p_link = V * S * p_file。S 将文件顶点变到 mm；V 的平移来自 URDF 米（乘 kUrdfOriginXyzMetersToInternalMm）。
 // 例：xyz="-0.075 0 0"（米）→ 平移 -75 mm。
@@ -362,6 +489,10 @@ void readVisualBlock(QXmlStreamReader& xml, UrdfLinkVisual& out)
 					xml.skipCurrentElement();
 				}
 			}
+		}
+		else if (xml.name() == QLatin1String("material"))
+		{
+			readMaterialColorBlock(xml, out);
 		}
 		else
 		{
@@ -637,6 +768,7 @@ bool parseUrdfModel(
 {
 	linkVisuals.clear();
 	joints.clear();
+	std::unordered_map<QString, UrdfLinkVisual> namedMaterials;
 	QFile f(urdfFilePath);
 	if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
 	{
@@ -678,7 +810,18 @@ bool parseUrdfModel(
 			}
 			if (!linkName.isEmpty())
 			{
+				applyMaterialRefIfNeeded(vis, namedMaterials);
 				linkVisuals[linkName] = vis;
+			}
+		}
+		else if (xml.name() == QLatin1String("material"))
+		{
+			UrdfLinkVisual matVis;
+			readMaterialColorBlock(xml, matVis);
+			const QString matName = xml.attributes().value(QStringLiteral("name")).toString().trimmed();
+			if (!matName.isEmpty() && matVis.hasMaterialColor)
+			{
+				namedMaterials[matName] = matVis;
 			}
 		}
 		else if (xml.name() == QLatin1String("joint"))
@@ -1319,6 +1462,35 @@ bool UrdfRobotLoader::enumerateLinkVisualMeshes(
 	return true;
 }
 
+bool UrdfRobotLoader::loadLinkVisualMaterialColors(
+	const QString& urdfFilePath,
+	QHash<QString, BackendColor>& outLinkNameToColor,
+	QString* errorMessage)
+{
+	outLinkNameToColor.clear();
+
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		return false;
+	}
+	for (const auto& kv : model->linkVisuals)
+	{
+		const UrdfLinkVisual& vis = kv.second;
+		if (!vis.hasMaterialColor)
+		{
+			continue;
+		}
+		BackendColor c;
+		c.r = vis.matR;
+		c.g = vis.matG;
+		c.b = vis.matB;
+		c.a = vis.matA;
+		outLinkNameToColor.insert(kv.first, c);
+	}
+	return true;
+}
+
 // 【中文】计算给定关节角度下的 Joint 矩阵（与 buildHierarchicalRobotScene 中可 setMatrix 的节点一致）。
 // - revolute/continuous：输出仅绕 \<axis\> 的 R(q)（关节 MatrixTransform 无平移，\<origin\> 由 JointN 节点承担）
 // - 其他类型：输出完整 parent_T_child
@@ -1439,8 +1611,9 @@ static void applyLitPlasticToStateSet(osg::StateSet* ss, const osg::Vec4& baseCo
 class UrdfMeshLightingVisitor : public osg::NodeVisitor
 {
 public:
-	UrdfMeshLightingVisitor()
+	explicit UrdfMeshLightingVisitor(const osg::Vec4& defaultBaseColor)
 		: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
+		, m_defaultBaseColor(defaultBaseColor)
 	{
 	}
 
@@ -1449,7 +1622,7 @@ public:
 		osg::Array* va = geometry.getVertexArray();
 		if (va && va->getNumElements() >= 3U)
 		{
-			osg::Vec4 baseColor(0.65f, 0.82f, 0.95f, 1.0f);
+			osg::Vec4 baseColor = m_defaultBaseColor;
 			osg::Vec4Array* ca = dynamic_cast<osg::Vec4Array*>(geometry.getColorArray());
 			if (ca && !ca->empty() && osg::getBinding(ca) == osg::Array::BIND_OVERALL)
 			{
@@ -1460,6 +1633,9 @@ public:
 		traverse(geometry);
 	}
 
+private:
+	osg::Vec4 m_defaultBaseColor;
+
 	// 仅向下遍历到 Drawable；实际材质在 apply(Geometry) 中设置，避免与 Geode 上整包材质重复叠加。
 	void apply(osg::Geode& geode) override
 	{
@@ -1467,7 +1643,7 @@ public:
 	}
 };
 
-static void finalizeUrdfImportedMeshRendering(osg::Node* root)
+static void finalizeUrdfImportedMeshRendering(osg::Node* root, const osg::Vec4& baseColor)
 {
 	if (!root)
 	{
@@ -1479,7 +1655,7 @@ static void finalizeUrdfImportedMeshRendering(osg::Node* root)
 		smoother.setCreaseAngle(osg::DegreesToRadians(60.0));
 		root->accept(smoother);
 	}
-	UrdfMeshLightingVisitor lighter;
+	UrdfMeshLightingVisitor lighter(baseColor);
 	root->accept(lighter);
 }
 
@@ -1506,7 +1682,7 @@ static osg::ref_ptr<osg::MatrixTransform> createLinkVisualFromMesh(
 	const UrdfLinkVisual& vis,
 	osg::ref_ptr<osg::Node> meshNode)
 {
-	finalizeUrdfImportedMeshRendering(meshNode.get());
+	finalizeUrdfImportedMeshRendering(meshNode.get(), urdfVisualMaterialOsgColor(vis));
 	const Mat4 meshToLink = meshFileToLinkFrameFromVisual(vis);
 	osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
 	mt->setName(linkName.toStdString() + "_Geometry");
@@ -1594,10 +1770,7 @@ static osg::ref_ptr<osg::Node> createLinkVisualFromBackend(
 		.arg(static_cast<qulonglong>(backend->geometryElementCount()))
 		.arg(timer.elapsed())));
 
-	// 【关键】设置颜色（与旧方案 finalizeUrdfImportedMeshRendering 一致）
-	BackendColor color;
-	color.r = 0.65f; color.g = 0.82f; color.b = 0.95f; color.a = 1.0f;
-	backend->setColor(color);
+	applyUrdfVisualMaterialToBackend(*backend, vis);
 
 	// 【关键】清零pose/rotation，避免与meshToLink矩阵重复应用
 	// 旧方案中MeshBackendData不参与URDF连杆加载，所以没有这个字段

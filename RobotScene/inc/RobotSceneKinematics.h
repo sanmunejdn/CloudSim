@@ -49,4 +49,12 @@ ROBOT_SCENE_API void applyMeshWorldMatricesRelativeToBind(
 	const QHash<QString, QString>& linkNameToBackendId,
 	const std::unordered_map<std::string, osg::Matrixd>& outerWorldAtBind);
 
+/// Apply FK for one per-link robot and post-multiply \a basePlacementWorld (scene-root pose) on each link outer matrix.
+ROBOT_SCENE_API bool applyPerLinkRobotBasePlacement(
+	IRobotBackendPoseSink* osg,
+	BackendDataManager& mgr,
+	const RobotPerLinkKinematicsSlice& slice,
+	const QVector<double>& jointAnglesRad,
+	const osg::Matrixd& basePlacementWorld);
+
 } // namespace RobotSceneKinematics

@@ -23,18 +23,17 @@ RunInfoPage::RunInfoPage(QWidget* parent)
 	: QWidget(parent)
 {
 	auto* root = new QVBoxLayout(this);
-	root->setContentsMargins(6, 6, 6, 6);
-	root->setSpacing(6);
-
-	auto* toolRow = new QHBoxLayout;
-	toolRow->addStretch(1);
-	m_clearBtn = new QPushButton(QStringLiteral("Clear"), this);
-	toolRow->addWidget(m_clearBtn);
-	root->addLayout(toolRow);
+	root->setContentsMargins(4, 4, 4, 4);
+	root->setSpacing(4);
 
 	m_logEdit = new QPlainTextEdit(this);
 	m_logEdit->setReadOnly(true);
 	m_logEdit->setMaximumBlockCount(2000);
+	auto* toolRow = new QHBoxLayout;
+	toolRow->addStretch(1);
+	m_clearBtn = new QPushButton(QStringLiteral("Clear"), this);
+	toolRow->addWidget(m_clearBtn);
+	root->addLayout(toolRow, 0);
 	root->addWidget(m_logEdit, 1);
 
 	connect(m_clearBtn, &QPushButton::clicked, this, &RunInfoPage::clearLogs);

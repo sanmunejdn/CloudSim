@@ -1043,8 +1043,10 @@ void OsgWidget::initUi()
 	fmt.setDoubleBuffer(true);
 
 	m_glWidget = new QWidgetViewer(fmt, this);
-	m_glWidget->setMinimumSize(640, 480);
-	layout->addWidget(m_glWidget);
+	// 勿用过大 minimumSize，否则会占满主窗口垂直空间、底部运行信息 Dock 无法拉高。
+	m_glWidget->setMinimumSize(200, 120);
+	m_glWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+	layout->addWidget(m_glWidget, 1);
 	m_glWidget->installEventFilter(this);
 }
 

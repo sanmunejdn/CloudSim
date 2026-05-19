@@ -567,6 +567,7 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 	QString urdfErr;
 	QString rootLink;
 	QHash<QString, QString> linkMeshes;
+	QHash<QString, BackendColor> linkMaterialColors;
 	if (!UrdfRobotLoader::enumerateLinkVisualMeshes(fileInfo.absoluteFilePath(), rootLink, linkMeshes, &urdfErr))
 	{
 		return reportFail(QStringLiteral("URDF"),
@@ -576,6 +577,7 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 	{
 		return reportFail(QStringLiteral("URDF"), QStringLiteral("No mesh visuals found in URDF (need <visual><geometry><mesh>)."));
 	}
+	(void)UrdfRobotLoader::loadLinkVisualMaterialColors(fileInfo.absoluteFilePath(), linkMaterialColors, nullptr);
 
 	QStringList revoluteJointNames;
 	QVector<double> jointLowerRad;
@@ -624,6 +626,10 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 			return reportFail(QStringLiteral("URDF"),
 				QStringLiteral("Failed to load mesh for link '%1': %2")
 					.arg(linkName, QString::fromStdString(loadErr)));
+		}
+		if (linkMaterialColors.contains(linkName))
+		{
+			mesh->setColor(linkMaterialColors.value(linkName));
 		}
 		double fileToLink16[16];
 		if (!UrdfRobotLoader::linkMeshFileToLinkColumnMajor16(fileInfo.absoluteFilePath(), linkName, fileToLink16, &urdfErr))

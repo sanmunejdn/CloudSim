@@ -283,8 +283,9 @@ bool applyJointAnglesViaLinkBackends(
 		const osg::Matrixd& M0m = m0It.value();
 		// UrdfRobotLoader::mat4ToOsg stores C(M)=M^T with C(A*B)=C(B)*C(A). Internal mesh world is Tq*T0^-1*M0;
 		// in OSG multiply order that is M0_osg * inv(T0_osg) * Tq_osg.
+		// robotBasePlacementWorld: scene-root pose (OSG row-vector: post-multiply world placement after FK).
 		const osg::Matrixd Mnew =
-			M0m * osg::Matrixd::inverse(T0m) * Tqm;
+			M0m * osg::Matrixd::inverse(T0m) * Tqm * slice.robotBasePlacementWorld;
 
 		if (dbg > 0)
 		{
@@ -355,6 +356,65 @@ bool applyJointAnglesViaLinkBackends(
 		RunLogger::flush();
 	}
 	return true;
+}
+
+bool applyPerLinkRobotBasePlacement(
+	IRobotBackendPoseSink* osg,
+	BackendDataManager& mgr,
+	const RobotPerLinkKinematicsSlice& slice,
+	const QVector<double>& jointAnglesRad,
+	const osg::Matrixd& basePlacementWorld)
+{
+	if (!osg || slice.linkNameToBackendId.isEmpty() || slice.urdfAbsolutePath.isEmpty())
+	{
+		return false;
+	}
+	QHash<QString, osg::Matrixd> Tq;
+	QString fkErr;
+	if (!UrdfRobotLoader::computeMeshWorldMatrices(
+			slice.urdfAbsolutePath, jointAnglesRad, Tq, &fkErr, slice.meshVerticesInLinkFrame))
+	{
+		RunLogger::warn(qToUtf8Std(QStringLiteral("applyPerLinkRobotBasePlacement FK failed: %1").arg(fkErr)));
+		return false;
+	}
+	const QHash<QString, osg::Matrixd>& T0 = slice.fkMeshWorldT0;
+	const QHash<QString, osg::Matrixd>& m0bind = slice.outerWorldAtBindByBackendId;
+
+	QVector<QString> linkOrder;
+	resolveRobotLinkUpdateOrder(&mgr, slice.linkNameToBackendId, linkOrder);
+
+	bool any = false;
+	for (const QString& linkName : linkOrder)
+	{
+		const QString backendIdStr = slice.linkNameToBackendId.value(linkName);
+		if (backendIdStr.isEmpty())
+		{
+			continue;
+		}
+		const std::string bid = backendIdStr.toStdString();
+		const auto meshPtr = std::dynamic_pointer_cast<MeshBackendData>(mgr.getData(bid));
+		if (!meshPtr)
+		{
+			continue;
+		}
+		if (!Tq.contains(linkName) || !T0.contains(linkName))
+		{
+			continue;
+		}
+		const auto m0It = m0bind.constFind(backendIdStr);
+		if (m0It == m0bind.cend())
+		{
+			continue;
+		}
+		const osg::Matrixd Mnew =
+			m0It.value() * osg::Matrixd::inverse(T0[linkName]) * Tq[linkName] * basePlacementWorld;
+		osg->setBackendRootWorldMatrixFromWorld(bid, Mnew);
+		osg::Matrixd worldAfter = Mnew;
+		(void)osg->getBackendRootWorldMatrix(bid, worldAfter);
+		meshPtr->setWorldMatrix(osgMatToBackendColMajor(worldAfter), &mgr);
+		any = true;
+	}
+	return any;
 }
 
 bool applyJointAnglesForInstance(

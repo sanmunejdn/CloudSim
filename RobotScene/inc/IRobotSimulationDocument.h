@@ -21,6 +21,8 @@ struct RobotPerLinkKinematicsSlice
 	QHash<QString, QString> linkNameToBackendId;
 	QHash<QString, osg::Matrixd> fkMeshWorldT0;
 	QHash<QString, osg::Matrixd> outerWorldAtBindByBackendId;
+	/// Left-multiplies FK output (identity = no extra base placement). Set from robot scene-root pose property.
+	osg::Matrixd robotBasePlacementWorld;
 	bool meshVerticesInLinkFrame = false;
 };
 

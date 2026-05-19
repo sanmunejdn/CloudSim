@@ -159,6 +159,13 @@ public:
 		const QHash<QString, osg::Matrixd>& outerWorldAtBindByBackendId,
 		bool meshVerticesInLinkFrame = false);
 
+	/// Per-link robot instance index for \a backendId (scene root or link mesh backend). \a outIsSceneRoot if root id matched.
+	int robotInstanceIndexForPerLinkBackend(const QString& backendId, bool* outIsSceneRoot = nullptr) const;
+
+	void setRobotBasePlacementWorldForInstance(int instanceIndex, const osg::Matrixd& placementWorld);
+
+	void updateRobotLinkOuterBindFromWorld(int instanceIndex, const QString& linkBackendId, const osg::Matrixd& world);
+
 	const RobotCoordinate::RobotCoordinateFrameSet& robotCoordinateFramesForInstance(int instanceIndex) const;
 	RobotCoordinate::RobotCoordinateFrameSet& robotCoordinateFramesForInstance(int instanceIndex);
 	const RobotCoordinate::RobotUserFrame* robotActiveUserFrameForInstance(int instanceIndex) const;
@@ -178,6 +185,7 @@ private:
 		QHash<QString, QString> linkNameToBackendId;
 		QHash<QString, osg::Matrixd> fkMeshWorldT0;
 		QHash<QString, osg::Matrixd> outerWorldAtBindByBackendId;
+		osg::Matrixd basePlacementWorld;
 		bool meshVerticesInLinkFrame = false;
 		RobotCoordinate::RobotCoordinateFrameSet coordinateFrames;
 	};

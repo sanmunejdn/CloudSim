@@ -1630,6 +1630,10 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 			syncOsgViewerFromMeshBackend(mesh, applyColor);
 		}
 	}
+	if (isPoseComponentKey(propertyKey) || isRotationComponentKey(propertyKey))
+	{
+		syncRobotKinematicsAfterPoseEdit(data);
+	}
 
 	schedulePropertyPanelCommitRefresh(data);
 

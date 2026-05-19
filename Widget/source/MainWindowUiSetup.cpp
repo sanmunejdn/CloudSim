@@ -44,6 +44,31 @@
 using namespace mainwindow_detail;
 using namespace RobotSimulation;
 
+namespace
+{
+/// 内容区已有 QTabWidget 时隐藏 Dock 自带标题栏，避免与页签重复。
+void hideDockTitleBar(QDockWidget* dock)
+{
+	if (!dock)
+	{
+		return;
+	}
+	auto* titleBar = new QWidget(dock);
+	titleBar->setFixedHeight(0);
+	dock->setTitleBarWidget(titleBar);
+}
+
+void setupDockTabWidget(QTabWidget* tabs)
+{
+	if (!tabs)
+	{
+		return;
+	}
+	tabs->setDocumentMode(true);
+	tabs->setContentsMargins(0, 2, 0, 0);
+}
+} // namespace
+
 MainWindow::MainWindow(QWidget* parent)
 	: QMainWindow(parent)
 {
@@ -75,11 +100,13 @@ MainWindow::MainWindow(QWidget* parent)
 	setupMenuBar();
 
 	auto* central = new QWidget(this);
+	central->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	auto* rootLayout = new QVBoxLayout(central);
 	rootLayout->setContentsMargins(8, 8, 8, 8);
 	rootLayout->setSpacing(8);
 
 	m_documentTabs = new QTabWidget(central);
+	m_documentTabs->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	m_documentTabs->setDocumentMode(true);
 	m_documentTabs->setTabsClosable(false);
 	rootLayout->addWidget(m_documentTabs, 1);
@@ -242,6 +269,7 @@ void MainWindow::setupMenuBar()
 void MainWindow::setupDockWidgets()
 {
 	m_propertyDock = new QDockWidget(QStringLiteral("Property"), this);
+	m_propertyDock->setObjectName(QStringLiteral("PropertyDock"));
 	m_propertyDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 	m_variantManager = new QtVariantPropertyManager(this);
 	m_variantFactory = new QtVariantEditorFactory(this);
@@ -259,19 +287,21 @@ void MainWindow::setupDockWidgets()
 	}
 	connect(m_variantManager, &QtVariantPropertyManager::valueChanged, this, &MainWindow::onVariantPropertyValueChanged);
 	m_propertyDockTabs = new QTabWidget(m_propertyDock);
-	m_propertyDockTabs->setDocumentMode(true);
+	setupDockTabWidget(m_propertyDockTabs);
 	m_propertyDockTabs->addTab(m_propertyBrowser, QStringLiteral("Property"));
 	m_devicePage = new DevicePageWidget(m_propertyDockTabs);
 	m_propertyDockTabs->addTab(m_devicePage, QStringLiteral("Devices"));
 	m_propertyDock->setWidget(m_propertyDockTabs);
+	hideDockTitleBar(m_propertyDock);
 	connect(m_devicePage, &DevicePageWidget::urdfImportRequested, this, &MainWindow::onUrdfImportRequested);
 	addDockWidget(Qt::LeftDockWidgetArea, m_propertyDock);
 	resizeDocks({ m_propertyDock }, { 340 }, Qt::Horizontal);
 
-	m_unitDock = new QDockWidget(QStringLiteral("Unit Widget"), this);
+	m_unitDock = new QDockWidget(QStringLiteral("Workspace"), this);
+	m_unitDock->setObjectName(QStringLiteral("UnitDock"));
 	m_unitDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 	m_unitDockTabs = new QTabWidget(m_unitDock);
-	m_unitDockTabs->setDocumentMode(true);
+	setupDockTabWidget(m_unitDockTabs);
 	m_backendTree = new QTreeWidget();
 	m_backendTree->setHeaderHidden(true);
 	m_backendRootItem = new QTreeWidgetItem(QStringList() << QStringLiteral("BackendDataManager"));
@@ -287,6 +317,7 @@ void MainWindow::setupDockWidgets()
 	m_backendTree->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_backendTree, &QTreeWidget::customContextMenuRequested, this, &MainWindow::onBackendTreeContextMenu);
 	m_simulationDockTabs = new QTabWidget(m_unitDockTabs);
+	setupDockTabWidget(m_simulationDockTabs);
 	m_simulationCommandPage = new SimulationCommandWidget(m_simulationDockTabs);
 	m_robotAxisControlPage = new RobotAxisControlWidget(m_simulationDockTabs);
 	m_robotFrameSettingsPage = new RobotFrameSettingsWidget(m_simulationDockTabs);
@@ -305,7 +336,14 @@ void MainWindow::setupDockWidgets()
 	m_osgSceneTree->setAnimated(false);
 	m_osgSceneTree->setHeaderLabels(QStringList() << QStringLiteral("Node") << QStringLiteral("Local transform"));
 	m_unitDockTabs->addTab(m_osgSceneTree, QStringLiteral("Scene"));
-	m_unitDock->setWidget(m_unitDockTabs);
+
+	m_rightPanelTabs = new QTabWidget(m_unitDock);
+	setupDockTabWidget(m_rightPanelTabs);
+	m_rightPanelTabs->addTab(m_unitDockTabs, QStringLiteral("Workspace"));
+	m_aiAssistantPage = new AiAssistantDockWidget(m_rightPanelTabs);
+	m_rightPanelTabs->addTab(m_aiAssistantPage, QStringLiteral("AI"));
+	m_unitDock->setWidget(m_rightPanelTabs);
+	hideDockTitleBar(m_unitDock);
 	connect(m_simulationCommandPage, &SimulationCommandWidget::runRequested, this, &MainWindow::onSimulationRunRequested);
 	connect(m_simulationCommandPage, &SimulationCommandWidget::stopRequested, this, &MainWindow::onSimulationStopRequested);
 	connect(m_simulationCommandPage, &SimulationCommandWidget::exportProgramRequested, this,
@@ -327,28 +365,51 @@ void MainWindow::setupDockWidgets()
 	connect(m_robotFrameSettingsPage, &RobotFrameSettingsWidget::resetToolFrameRequested, this,
 		&MainWindow::onResetToolFrame);
 	addDockWidget(Qt::RightDockWidgetArea, m_unitDock);
+	setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
+	setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
+	setTabPosition(Qt::BottomDockWidgetArea, QTabWidget::North);
 
 	m_runDock = new QDockWidget(QStringLiteral("Runtime Output"), this);
+	m_runDock->setObjectName(QStringLiteral("RunDock"));
 	m_runDock->setAllowedAreas(Qt::BottomDockWidgetArea);
 	m_runInfoPage = new RunInfoPage(m_runDock);
 	m_runDock->setWidget(m_runInfoPage);
+	hideDockTitleBar(m_runDock);
 	addDockWidget(Qt::BottomDockWidgetArea, m_runDock);
-	
-	m_aiDock = new QDockWidget(QStringLiteral("AI Assistant"), this);
-	m_aiDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
-	m_aiAssistantPage = new AiAssistantDockWidget(m_aiDock);
-	m_aiDock->setWidget(m_aiAssistantPage);
-	addDockWidget(Qt::RightDockWidgetArea, m_aiDock);
-	tabifyDockWidget(m_unitDock, m_aiDock);
-	m_aiDock->raise();
+	resizeDocks({ m_runDock }, { 160 }, Qt::Vertical);
+
 	setupAiAssistantCoordinator();
 
 	m_toggleAiAssistantAction = m_viewMenu->addAction(QStringLiteral("AI Assistant"));
-	 m_toggleAiAssistantAction->setCheckable(true);
-	 m_toggleAiAssistantAction->setChecked(true);
-	 connect(m_toggleAiAssistantAction, &QAction::toggled, m_aiDock, &QWidget::setVisible);
+	m_toggleAiAssistantAction->setCheckable(true);
+	m_toggleAiAssistantAction->setChecked(true);
+	connect(m_toggleAiAssistantAction, &QAction::toggled, this, [this](const bool visible) {
+		if (!m_rightPanelTabs || !m_aiAssistantPage)
+		{
+			return;
+		}
+		int aiTab = m_rightPanelTabs->indexOf(m_aiAssistantPage);
+		if (visible)
+		{
+			if (aiTab < 0)
+			{
+				aiTab = m_rightPanelTabs->addTab(
+					m_aiAssistantPage,
+					i18n(QStringLiteral("AI"), QStringLiteral("AI")));
+			}
+			m_rightPanelTabs->setCurrentIndex(aiTab);
+		}
+		else if (aiTab >= 0)
+		{
+			if (m_rightPanelTabs->currentWidget() == m_aiAssistantPage)
+			{
+				m_rightPanelTabs->setCurrentIndex(0);
+			}
+			m_rightPanelTabs->removeTab(aiTab);
+		}
+	});
 
-	m_runDock->setMinimumHeight(140);
+	m_runDock->setMinimumHeight(72);
 }
 
 void MainWindow::shutdownApplicationLogging()

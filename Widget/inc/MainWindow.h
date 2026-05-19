@@ -124,6 +124,7 @@ private:
 		QString* errMsg) const;
 	void syncOsgViewerFromPointCloudBackend(const std::shared_ptr<PointCloudBackendData>& pc, bool applyColor);
 	void syncOsgViewerFromMeshBackend(const std::shared_ptr<MeshBackendData>& mesh, bool applyColor);
+	void syncRobotKinematicsAfterPoseEdit(const std::shared_ptr<BackendDataBase>& data);
 	void onSaveProject();
 	void onOpenProjectFile();
 	void onOpenModel();
@@ -267,7 +268,8 @@ private:
 	QVector<double> m_motionPreviewProgramStartJointRad;
 	bool m_suppressMotionPreviewStartCapture = false;
 	QDockWidget* m_runDock = nullptr;
-	QDockWidget* m_aiDock = nullptr;
+	/// 右侧 Dock 顶栏：工作区（单元/仿真/场景）与 AI，替代 tabifyDockWidget 底部页签。
+	QTabWidget* m_rightPanelTabs = nullptr;
 	AiAssistantDockWidget* m_aiAssistantPage = nullptr;
 	AiAssistantCoordinator* m_aiCoordinator = nullptr;
 	QAction* m_toggleAiAssistantAction = nullptr;

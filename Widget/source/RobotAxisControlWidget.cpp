@@ -76,15 +76,9 @@ void RobotAxisControlWidget::emitAllJointAnglesNow()
 void RobotAxisControlWidget::createUI()
 {
 	QVBoxLayout* mainLayout = new QVBoxLayout(this);
-	mainLayout->setContentsMargins(10, 10, 10, 10);
-	mainLayout->setSpacing(10);
+	mainLayout->setContentsMargins(8, 6, 8, 8);
+	mainLayout->setSpacing(6);
 
-	// 标题
-	QLabel* titleLabel = new QLabel(tr("机器人关节控制"), this);
-	titleLabel->setStyleSheet("font-weight: bold; font-size: 14px;");
-	mainLayout->addWidget(titleLabel);
-
-	// 说明标签
 	QLabel* descLabel = new QLabel(tr("使用滑块或输入框调整各关节角度"), this);
 	descLabel->setStyleSheet("color: gray; font-size: 11px;");
 	mainLayout->addWidget(descLabel);

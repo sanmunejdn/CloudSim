@@ -14,6 +14,7 @@
 #include <RigidTransform.h>
 
 #include "robot_urdf_global.h"
+#include "BackendDataBase.h"
 
 /// 【中文】URDF 机器人层级场景图加载：解析 URDF，构建三层分离的动态层级场景图。
 ///
@@ -104,6 +105,13 @@ namespace UrdfRobotLoader
 		const QString& urdfFilePath,
 		QString& outRootLink,
 		QHash<QString, QString>& outLinkNameToAbsoluteMeshPath,
+		QString* errorMessage = nullptr);
+
+	/// RGBA [0,1] from each link's first \<visual\>\<material\>\<color rgba\>. Only links with explicit color are included.
+	/// 【中文】各连杆首个 visual 的 URDF 材质色；无 \<color\> 的连杆不出现在输出中。
+	ROBOT_URDF_API bool loadLinkVisualMaterialColors(
+		const QString& urdfFilePath,
+		QHash<QString, BackendColor>& outLinkNameToColor,
 		QString* errorMessage = nullptr);
 
 	/// 【中文】计算给定关节角度下、与场景中可 setMatrix 的关节节点一致的矩阵。

@@ -66,6 +66,8 @@
 #include "SimulationCommandWidget.h"
 
 #include "../OsgWidgetCore/inc/OsgScene.h"
+#include "ObjectGizmoFrame.h"
+#include "BackendVisualMath.h"
 
 #include <osg/MatrixTransform>
 #include <osg/NodeVisitor>
@@ -570,6 +572,9 @@ struct MotionPoseBackup
 {
 	RobotInstruction::Vec3 pose{};
 	RobotInstruction::Vec3 euler{};
+	std::string targetQuatCsv;
+	std::string targetTransCsv;
+	bool hasTargetTransform = false;
 	bool active = false;
 };
 
@@ -581,6 +586,15 @@ MotionPoseBackup backupInstructionPose(const RobotInstruction::Base& ins)
 		backup.pose = ins.pose();
 		backup.euler = ins.eulerDeg();
 		backup.active = true;
+		const auto& ext = ins.extensionProperties();
+		const auto itQ = ext.find(RobotInstruction::kExtContextTargetTransformQuatCsv);
+		const auto itT = ext.find(RobotInstruction::kExtContextTargetTransformTransMmCsv);
+		if (itQ != ext.end() && itT != ext.end() && !itQ->second.empty() && !itT->second.empty())
+		{
+			backup.targetQuatCsv = itQ->second;
+			backup.targetTransCsv = itT->second;
+			backup.hasTargetTransform = true;
+		}
 	}
 	return backup;
 }
@@ -593,6 +607,38 @@ void restoreInstructionPose(RobotInstruction::Base& ins, const MotionPoseBackup&
 	}
 	ins.setPose(backup.pose);
 	ins.setEulerDeg(backup.euler);
+	if (backup.hasTargetTransform)
+	{
+		ins.setExtensionProperty(RobotInstruction::kExtContextTargetTransformQuatCsv, backup.targetQuatCsv);
+		ins.setExtensionProperty(RobotInstruction::kExtContextTargetTransformTransMmCsv, backup.targetTransCsv);
+	}
+	else
+	{
+		ins.setExtensionProperty(RobotInstruction::kExtContextTargetTransformQuatCsv, std::string());
+		ins.setExtensionProperty(RobotInstruction::kExtContextTargetTransformTransMmCsv, std::string());
+	}
+}
+
+/// 规划/可达性：示教点世界位姿 render.tcpWorldMat4 冻结，基座移动后按当前 baseWorld 换算 T_base_target。
+static bool reconcileInstructionPlanningTargetFromWorldRender(
+	RobotInstruction::Base& ins,
+	const osg::Matrixd& robotBaseWorld)
+{
+	const auto& ext = ins.extensionProperties();
+	const auto itWorld = ext.find("render.tcpWorldMat4");
+	if (itWorld == ext.end() || itWorld->second.empty())
+	{
+		return false;
+	}
+	osg::Matrixd T_world;
+	if (!decodeMatrix4Csv(itWorld->second, T_world))
+	{
+		return false;
+	}
+	const osg::Matrixd T_base = T_world * osg::Matrixd::inverse(robotBaseWorld);
+	const engine::RigidTransform targetInBase = engine::rigidTransformFromOsg(T_base);
+	RobotInstruction::writeTargetTransformToInstruction(ins, targetInBase);
+	return true;
 }
 
 void mapInstructionPoseRenderToFk(RobotInstruction::Base& ins)
@@ -757,6 +803,12 @@ bool robotBaseWorldMatrixForInstance(
 	}
 	if (robotBaseWorldFromUrdfFk(doc, instIdx, qLocal, outWorld))
 	{
+		RobotPerLinkKinematicsSlice plSlice;
+		if (doc->robotPerLinkKinematicsForInstance(instIdx, plSlice))
+		{
+			// Per-link FK 的 URDF 根矩阵不含 scene-root placement；与 RobotSceneKinematics 一致右乘。
+			outWorld = outWorld * plSlice.robotBasePlacementWorld;
+		}
 		return true;
 	}
 	if (!osg)
@@ -768,7 +820,11 @@ bool robotBaseWorldMatrixForInstance(
 	{
 		return false;
 	}
-	return osg->getBackendRootWorldMatrix(refId.toStdString(), outWorld);
+	if (osg->getBackendRootWorldMatrix(refId.toStdString(), outWorld))
+	{
+		return true;
+	}
+	return false;
 }
 
 static BackendMat4 toolMat4ForFrames(
@@ -1049,6 +1105,23 @@ void attachMotionPlanningContext(
 	ins.setExtensionProperty("context.tcpLinkName", tcpRef);
 }
 
+static void prepareMotionInstructionForPlanning(
+	RobotInstruction::Base& ins,
+	const QVector<double>& rollingQ,
+	DocumentPage* doc,
+	OsgWidget* osgWidget,
+	const int instIdx,
+	const QString& urdfPath,
+	const std::string& defaultTcpLinkName,
+	const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames)
+{
+	osg::Matrixd robotBaseWorld;
+	robotBaseWorld.makeIdentity();
+	(void)robotBaseWorldMatrixForInstance(doc, osgWidget, instIdx, robotBaseWorld, &rollingQ);
+	attachMotionPlanningContext(ins, rollingQ, urdfPath, defaultTcpLinkName, coordinateFrames);
+	(void)reconcileInstructionPlanningTargetFromWorldRender(ins, robotBaseWorld);
+}
+
 QString defaultTcpLinkNameForUrdf(const QString& urdfPath, const QString& comboTcpLink)
 {
 	QString defaultTcpLinkName;
@@ -1131,7 +1204,11 @@ void MainWindow::applyLanguage()
 		m_simulationStartAction->setText(i18n(QStringLiteral("Start Simulation"), QStringLiteral("开始仿真")));
 	}
 
-	if (m_propertyDock) m_propertyDock->setWindowTitle(i18n(QStringLiteral("Property / Devices"), QStringLiteral("属性 / 设备")));
+	// Dock 标题仅用于 tabify 时的外侧页签；内容区页签见 m_propertyDockTabs / m_unitDockTabs。
+	if (m_propertyDock)
+	{
+		m_propertyDock->setWindowTitle(i18n(QStringLiteral("Property"), QStringLiteral("属性")));
+	}
 	if (m_propertyDockTabs && m_propertyDockTabs->count() >= 2)
 	{
 		m_propertyDockTabs->setTabText(0, i18n(QStringLiteral("Property"), QStringLiteral("属性")));
@@ -1139,8 +1216,12 @@ void MainWindow::applyLanguage()
 	}
 	if (m_unitDock)
 	{
-		m_unitDock->setWindowTitle(i18n(QStringLiteral("Units / Simulation / Scene"),
-			QStringLiteral("单元 / 仿真 / 场景")));
+		m_unitDock->setWindowTitle(i18n(QStringLiteral("Workspace"), QStringLiteral("工作区")));
+	}
+	if (m_rightPanelTabs && m_rightPanelTabs->count() >= 2)
+	{
+		m_rightPanelTabs->setTabText(0, i18n(QStringLiteral("Workspace"), QStringLiteral("工作区")));
+		m_rightPanelTabs->setTabText(1, i18n(QStringLiteral("AI"), QStringLiteral("AI")));
 	}
 	if (m_unitDockTabs && m_unitDockTabs->count() >= 3)
 	{
@@ -1170,7 +1251,14 @@ void MainWindow::applyLanguage()
 		}
 	}
 	refreshSimulationJointListFromCurrentDoc();
-	if (m_runDock) m_runDock->setWindowTitle(i18n(QStringLiteral("Runtime Output"), QStringLiteral("运行信息")));
+	if (m_runDock)
+	{
+		m_runDock->setWindowTitle(i18n(QStringLiteral("Runtime Output"), QStringLiteral("运行信息")));
+	}
+	if (m_toggleAiAssistantAction)
+	{
+		m_toggleAiAssistantAction->setText(i18n(QStringLiteral("AI Assistant"), QStringLiteral("AI 助手")));
+	}
 	if (m_runInfoPage) m_runInfoPage->setUiLanguage(m_useChinese);
 
 	if (m_propertyBrowser)
@@ -1376,6 +1464,82 @@ void MainWindow::onSelectedObjectColorChanged(float r, float g, float b, float a
 	}
 }
 
+void MainWindow::syncRobotKinematicsAfterPoseEdit(const std::shared_ptr<BackendDataBase>& data)
+{
+	if (!data || !data->hasPoseProperty())
+	{
+		return;
+	}
+	DocumentPage* doc = currentPage();
+	OsgWidget* osg = currentOsgWidget();
+	if (!doc || !osg)
+	{
+		return;
+	}
+	const QString backendId = QString::fromStdString(data->id());
+	bool isSceneRoot = false;
+	const int instIdx = doc->robotInstanceIndexForPerLinkBackend(backendId, &isSceneRoot);
+	if (instIdx < 0)
+	{
+		return;
+	}
+	RobotPerLinkKinematicsSlice slice;
+	if (!doc->robotPerLinkKinematicsForInstance(instIdx, slice))
+	{
+		return;
+	}
+	const BackendVec3 p = data->pose();
+	const BackendVec3 r = data->rotation();
+	const osg::Quat q = backendvisual_math::eulerDegToQuat(
+		osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
+	const osg::Matrixd placement =
+		ObjectGizmoFrame::outerLocalMatrix(
+			osg::Vec3f(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z)), q);
+
+	if (isSceneRoot)
+	{
+		doc->setRobotBasePlacementWorldForInstance(instIdx, placement);
+		slice.robotBasePlacementWorld = placement;
+		const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+		QVector<double> localAngles(nj, 0.0);
+		int offset = 0;
+		for (int i = 0; i < instIdx; ++i)
+		{
+			offset += doc->robotRevoluteJointCountForInstance(i);
+		}
+		const int totalJoints = doc->robotRevoluteJointNames().size();
+		if (m_aggregatedJointAnglesRad.size() != totalJoints)
+		{
+			m_aggregatedJointAnglesRad.resize(totalJoints);
+		}
+		if (m_aggregatedJointAnglesRad.size() >= offset + nj)
+		{
+			for (int j = 0; j < nj; ++j)
+			{
+				localAngles[j] = m_aggregatedJointAnglesRad[offset + j];
+			}
+		}
+		else if (m_robotAxisControlPage && m_robotAxisControlPage->jointCount() == nj)
+		{
+			localAngles = m_robotAxisControlPage->jointAnglesRad();
+		}
+		if (RobotSceneKinematics::applyPerLinkRobotBasePlacement(
+				osg, doc->backend(), slice, localAngles, placement))
+		{
+			osg->requestRedraw();
+		}
+		invalidateFeasibleAxisConfigurationCache();
+		refreshInstructionPoseAxes();
+		return;
+	}
+
+	osg::Matrixd world;
+	if (osg->getBackendRootWorldMatrix(data->id(), world))
+	{
+		doc->updateRobotLinkOuterBindFromWorld(instIdx, backendId, world);
+	}
+}
+
 void MainWindow::onTransformGizmoCommitted()
 {
 	if (sender() != currentOsgWidget())
@@ -1396,6 +1560,7 @@ void MainWindow::onTransformGizmoCommitted()
 	{
 		(void)osgW->writeActiveBackendPoseFromOsg(*data);
 	}
+	syncRobotKinematicsAfterPoseEdit(data);
 	DocumentPage* doc = currentPage();
 	if (doc)
 	{
@@ -2681,9 +2846,12 @@ void MainWindow::onSimulationExportRequested()
 		}
 		RobotInstruction::Base* ins = const_cast<RobotInstruction::Base*>(motionPtr);
 		const MotionPoseBackup backup = backupInstructionPose(*ins);
-		attachMotionPlanningContext(
+		prepareMotionInstructionForPlanning(
 			*ins,
 			rollingQ,
+			doc,
+			currentOsgWidget(),
+			instIdx,
 			urdfPath,
 			defaultTcpLinkName.toStdString(),
 			&doc->robotCoordinateFramesForInstance(instIdx));
@@ -3325,9 +3493,12 @@ RobotInstruction::FeasibleMotionAxisConfigurationOptions MainWindow::feasibleMot
 			continue;
 		}
 		const MotionPoseBackup backup = backupInstructionPose(*motionIns);
-		attachMotionPlanningContext(
+		prepareMotionInstructionForPlanning(
 			*motionIns,
 			rollingQ,
+			doc,
+			currentOsgWidget(),
+			instIdx,
 			urdfPath,
 			defaultTcpLinkName.toStdString(),
 			&doc->robotCoordinateFramesForInstance(instIdx));
@@ -3362,6 +3533,15 @@ RobotInstruction::FeasibleMotionAxisConfigurationOptions MainWindow::feasibleMot
 	{
 		fingerprint += QLatin1Char(',') + QString::number(rollingQ[j], 'g', 8);
 	}
+	osg::Matrixd fpBaseWorld;
+	fpBaseWorld.makeIdentity();
+	if (robotBaseWorldMatrixForInstance(doc, currentOsgWidget(), instIdx, fpBaseWorld, &rollingQ))
+	{
+		fingerprint += QStringLiteral("|bw=%1,%2,%3")
+							.arg(fpBaseWorld(3, 0), 0, 'g', 8)
+							.arg(fpBaseWorld(3, 1), 0, 'g', 8)
+							.arg(fpBaseWorld(3, 2), 0, 'g', 8);
+	}
 	if (m_cachedFeasibleAxisInstructionId == QString::fromStdString(instruction->id())
 		&& m_cachedFeasibleAxisFingerprint == fingerprint && !m_cachedFeasibleAxisOptions.presetTokens.empty())
 	{
@@ -3373,9 +3553,12 @@ RobotInstruction::FeasibleMotionAxisConfigurationOptions MainWindow::feasibleMot
 	}
 
 	const MotionPoseBackup targetBackup = backupInstructionPose(*instruction);
-	attachMotionPlanningContext(
+	prepareMotionInstructionForPlanning(
 		*instruction,
 		rollingQ,
+		doc,
+		currentOsgWidget(),
+		instIdx,
 		urdfPath,
 		defaultTcpLinkName.toStdString(),
 		&doc->robotCoordinateFramesForInstance(instIdx));
@@ -3492,9 +3675,12 @@ void MainWindow::applyRobotPoseForInstructionPreview(const std::shared_ptr<Robot
 			continue;
 		}
 		const MotionPoseBackup backup = backupInstructionPose(*motionIns);
-		attachMotionPlanningContext(
+		prepareMotionInstructionForPlanning(
 			*motionIns,
 			rollingQ,
+			doc,
+			osg,
+			instIdx,
 			urdfPath,
 			defaultTcpLinkName.toStdString(),
 			&doc->robotCoordinateFramesForInstance(instIdx));
@@ -3715,9 +3901,12 @@ QHash<QString, bool> MainWindow::computeMotionReachabilityForCurrentProgram()
 		}
 		RobotInstruction::Base* ins = const_cast<RobotInstruction::Base*>(motionPtr);
 		const MotionPoseBackup backup = backupInstructionPose(*ins);
-		attachMotionPlanningContext(
+		prepareMotionInstructionForPlanning(
 			*ins,
 			rollingQ,
+			doc,
+			currentOsgWidget(),
+			instIdx,
 			urdfPath,
 			defaultTcpLinkName.toStdString(),
 			&doc->robotCoordinateFramesForInstance(instIdx));
@@ -4031,9 +4220,12 @@ void MainWindow::onSimulationStartTriggered()
 		}
 		RobotInstruction::Base* ins = const_cast<RobotInstruction::Base*>(motionPtr);
 		const MotionPoseBackup poseBackup = backupInstructionPose(*ins);
-		attachMotionPlanningContext(
+		prepareMotionInstructionForPlanning(
 			*ins,
 			rollingQ,
+			doc,
+			currentOsgWidget(),
+			instIdx,
 			urdfPath,
 			defaultTcpLinkName.toStdString(),
 			&doc->robotCoordinateFramesForInstance(instIdx));

@@ -335,8 +335,71 @@ bool DocumentPage::robotPerLinkKinematicsForInstance(int instanceIndex, RobotPer
 	out.linkNameToBackendId = ri.linkNameToBackendId;
 	out.fkMeshWorldT0 = ri.fkMeshWorldT0;
 	out.outerWorldAtBindByBackendId = ri.outerWorldAtBindByBackendId;
+	out.robotBasePlacementWorld = ri.basePlacementWorld;
 	out.meshVerticesInLinkFrame = ri.meshVerticesInLinkFrame;
 	return true;
+}
+
+int DocumentPage::robotInstanceIndexForPerLinkBackend(const QString& backendId, bool* outIsSceneRoot) const
+{
+	if (outIsSceneRoot)
+	{
+		*outIsSceneRoot = false;
+	}
+	for (int i = 0; i < m_hierarchicalRobots.size(); ++i)
+	{
+		const HierarchicalRobotInstance& ri = m_hierarchicalRobots[i];
+		if (ri.linkNameToBackendId.isEmpty())
+		{
+			continue;
+		}
+		if (ri.sceneBackendId == backendId)
+		{
+			if (outIsSceneRoot)
+			{
+				*outIsSceneRoot = true;
+			}
+			return i;
+		}
+		if (!ri.perLinkBackends)
+		{
+			continue;
+		}
+		for (auto it = ri.linkNameToBackendId.constBegin(); it != ri.linkNameToBackendId.constEnd(); ++it)
+		{
+			if (it.value() == backendId)
+			{
+				return i;
+			}
+		}
+	}
+	return -1;
+}
+
+void DocumentPage::setRobotBasePlacementWorldForInstance(const int instanceIndex, const osg::Matrixd& placementWorld)
+{
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
+	{
+		return;
+	}
+	m_hierarchicalRobots[instanceIndex].basePlacementWorld = placementWorld;
+	rebuildPerLinkLegacyAggregates();
+}
+
+void DocumentPage::updateRobotLinkOuterBindFromWorld(
+	const int instanceIndex, const QString& linkBackendId, const osg::Matrixd& world)
+{
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size() || linkBackendId.isEmpty())
+	{
+		return;
+	}
+	HierarchicalRobotInstance& ri = m_hierarchicalRobots[instanceIndex];
+	if (!ri.perLinkBackends)
+	{
+		return;
+	}
+	ri.outerWorldAtBindByBackendId.insert(linkBackendId, world);
+	rebuildPerLinkLegacyAggregates();
 }
 
 void DocumentPage::clearRobotSimulationContext()

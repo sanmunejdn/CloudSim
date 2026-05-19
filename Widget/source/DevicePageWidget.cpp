@@ -208,11 +208,13 @@ DevicePageWidget::DevicePageWidget(QWidget* parent)
 	: QWidget(parent)
 {
 	auto* root = new QVBoxLayout(this);
-	root->setContentsMargins(4, 4, 4, 4);
+	root->setContentsMargins(6, 6, 6, 6);
+	root->setSpacing(8);
 	auto* hint = new QLabel(QStringLiteral(
 		"从 resource/models 扫描设备包。左侧选择设备类型与品牌，右侧点击型号缩略图导入 URDF。"));
 	hint->setWordWrap(true);
 	hint->setStyleSheet(QStringLiteral("color: palette(mid); font-size: 11px;"));
+	hint->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
 	root->addWidget(hint);
 
 	setupDeviceColumns(root);
