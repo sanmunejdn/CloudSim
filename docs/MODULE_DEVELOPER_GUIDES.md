@@ -1,10 +1,10 @@
-# PointCloudProcess 子模块开发文档索引
+# CloudSim 子模块开发文档索引
 
 本文档列出各 Visual Studio 子工程（子模块）的 **DEVELOPER_GUIDE.md**。总架构与业务流程见 [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md)。
 
 | 子工程 | 职责简述 | 开发文档 |
 |--------|----------|----------|
-| **PointCloudProcess** | 可执行入口、`main` 生命周期 | [PointCloudProcess/DEVELOPER_GUIDE.md](../PointCloudProcess/DEVELOPER_GUIDE.md) |
+| **CloudSim** | 可执行入口、`main` 生命周期 | [CloudSim/DEVELOPER_GUIDE.md](../CloudSim/DEVELOPER_GUIDE.md) |
 | **Widget** | Qt 主窗口、文档页、OSG 桥接、仿真 UI | [Widget/DEVELOPER_GUIDE.md](../Widget/DEVELOPER_GUIDE.md) |
 | **Data** | 后端对象模型、属性、层级、跟随求解 | [Data/DEVELOPER_GUIDE.md](../Data/DEVELOPER_GUIDE.md) |
 | **BackendVisual** | 数据 → OSG 分支构建策略 | [BackendVisual/DEVELOPER_GUIDE.md](../BackendVisual/DEVELOPER_GUIDE.md) |
@@ -19,7 +19,7 @@
 
 ```mermaid
 flowchart TB
-  EXE[PointCloudProcess.exe] --> W[Widget]
+  EXE[CloudSim.exe] --> W[Widget]
   W --> O[OsgWidgetCore]
   W --> BV[BackendVisual]
   W --> D[Data]
@@ -45,5 +45,5 @@ flowchart TB
 
 ## 约定与规则
 
-- C++ / Qt 编码约定：`.cursor/rules/pointcloudprocess-cpp-conventions.mdc`
-- 解决方案结构：`.cursor/rules/pointcloudprocess-architecture.mdc`
+- C++ / Qt 编码约定：`.cursor/rules/cloudsim-cpp-conventions.mdc`
+- 解决方案结构：`.cursor/rules/cloudsim-architecture.mdc`

@@ -2,7 +2,7 @@
 
 ## 1. 模块定位
 
-`RunLogger` 是横切基础设施：为 `PointCloudProcess` 全解决方案提供**统一日志 API**（文件 + 控制台 + 可选 UI 回调）。不依赖 Qt/OSG，可被 `Data`、`RobotUrdf`、`RobotScene`、`Widget` 等任意工程链接。
+`RunLogger` 是横切基础设施：为 `CloudSim` 全解决方案提供**统一日志 API**（文件 + 控制台 + 可选 UI 回调）。不依赖 Qt/OSG，可被 `Data`、`RobotUrdf`、`RobotScene`、`Widget` 等任意工程链接。
 
 | 属性 | 说明 |
 |------|------|
@@ -17,7 +17,7 @@
 
 ```mermaid
 flowchart LR
-  PCP[PointCloudProcess.exe] --> RL[RunLogger]
+  CS[CloudSim.exe] --> RL[RunLogger]
   Widget --> RL
   Data --> RL
   RobotUrdf --> RL
@@ -55,7 +55,7 @@ flowchart LR
 
 | 函数 | 签名要点 | 作用 |
 |------|----------|------|
-| `initialize` | `(logDirectory, fileNameBase = "PointCloudProcess")` → `bool` | 创建日志目录、打开滚动日志文件；应用启动时调用一次 |
+| `initialize` | `(logDirectory, fileNameBase = "CloudSim")` → `bool` | 创建日志目录、打开滚动日志文件；应用启动时调用一次 |
 | `shutdown` | `void` | 刷盘并关闭 sink；与 `MainWindow::shutdownApplicationLogging()` 配对 |
 
 ### 4.2 UI 桥接

@@ -1,14 +1,14 @@
-# PointCloudProcess 可执行入口开发文档
+# CloudSim 可执行入口开发文档
 
 ## 1. 模块定位
 
-`PointCloudProcess` 工程是解决方案的 **bootstrap 层**：仅包含 `main.cpp`，负责进程级初始化后创建并显示 `MainWindow`。业务逻辑全部在 `Widget` 及其他 DLL/静态库中。
+`CloudSim` 工程是解决方案的 **bootstrap 层**：仅包含 `main.cpp`，负责进程级初始化后创建并显示 `MainWindow`。业务逻辑全部在 `Widget` 及其他 DLL/静态库中。
 
 | 属性 | 说明 |
 |------|------|
-| 输出 | `PointCloudProcess.exe` |
+| 输出 | `CloudSim.exe` |
 | 直接依赖 | `Widget`、`RunLogger`（间接依赖全栈） |
-| 源码 | `PointCloudProcess/main.cpp` |
+| 源码 | `CloudSim/main.cpp` |
 
 ---
 
@@ -50,8 +50,8 @@ GUI 程序无控制台时，用此参数代替预先设置系统环境变量。
 
 ### 2.3 Qt 应用元数据
 
-- `QCoreApplication::setOrganizationName("PointCloudProcess")`
-- `setApplicationName("PointCloudProcess")`
+- `QCoreApplication::setOrganizationName("CloudSim")`
+- `setApplicationName("CloudSim")`
 
 用于 `QSettings`、主题路径等持久化。
 

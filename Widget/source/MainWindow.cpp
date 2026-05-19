@@ -1150,7 +1150,7 @@ QString MainWindow::i18n(const QString& en, const QString& zh) const
 
 void MainWindow::applyLanguage()
 {
-	setWindowTitle(i18n(QStringLiteral("PointCloudProcess - MainWindow"), QStringLiteral("点云处理 - 主窗口")));
+	setWindowTitle(i18n(QStringLiteral("CloudSim - MainWindow"), QStringLiteral("CloudSim - 主窗口")));
 	if (m_fileMenu) m_fileMenu->setTitle(i18n(QStringLiteral("File"), QStringLiteral("文件")));
 	if (m_newDocumentAction)
 	{

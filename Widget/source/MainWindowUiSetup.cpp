@@ -78,7 +78,7 @@ MainWindow::MainWindow(QWidget* parent)
 	std::call_once(s_runLoggerOnce, []() {
 		const QString logDir =
 			QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("logs"));
-		(void)RunLogger::initialize(logDir.toStdString(), "PointCloudProcess");
+		(void)RunLogger::initialize(logDir.toStdString(), "CloudSim");
 		RunLogger::info("Application bootstrap started.");
 		const QByteArray kd = qgetenv("ROBOT_KINEMATICS_DEBUG");
 		if (!kd.isEmpty() && kd != QByteArray("0"))

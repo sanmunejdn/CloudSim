@@ -2,7 +2,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.35826.135
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PointCloudProcess", "PointCloudProcess\PointCloudProcess.vcxproj", "{522C2787-2873-467C-B9D7-C6767D1CDCD6}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSim", "CloudSim\CloudSim.vcxproj", "{522C2787-2873-467C-B9D7-C6767D1CDCD6}"
 	ProjectSection(ProjectDependencies) = postProject
 		{A789E8D9-1CE5-4133-BBC5-26A2BC801B09} = {A789E8D9-1CE5-4133-BBC5-26A2BC801B09}
 		{50119EDF-918F-4BC8-A201-7AC6F0FE82A1} = {50119EDF-918F-4BC8-A201-7AC6F0FE82A1}

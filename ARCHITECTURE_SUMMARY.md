@@ -1,10 +1,10 @@
-# PointCloudProcess 架构与模块总结
+# CloudSim 架构与模块总结
 
-> **子模块开发文档（类/接口详解）**：见 [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md)。各工程目录下均有 `DEVELOPER_GUIDE.md`（`GeometryEngine`、`Data`、`Widget`、`OsgWidgetCore`、`BackendVisual`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`RunLogger`、`PointCloudProcess`）。
+> **子模块开发文档（类/接口详解）**：见 [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md)。各工程目录下均有 `DEVELOPER_GUIDE.md`（`GeometryEngine`、`Data`、`Widget`、`OsgWidgetCore`、`BackendVisual`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`RunLogger`、`CloudSim`）。
 
 ## 1. 项目定位
 
-`PointCloudProcess` 是一个基于 **Qt + OSG + CGAL/OpenCascade** 的桌面端三维点云/网格处理与机器人仿真应用。  
+`CloudSim` 是一个基于 **Qt + OSG + CGAL/OpenCascade** 的桌面端三维点云/网格处理与机器人仿真应用。  
 它不是典型的 Web B/S 架构，而是 **单机 C++ 客户端**，内部采用“前端 UI + 后端数据/渲染/仿真引擎”的分层设计。
 
 ---
@@ -35,7 +35,7 @@
 
 ```mermaid
 flowchart TD
-    A[PointCloudProcess 可执行入口] --> B[Widget UI 编排层]
+    A[CloudSim 可执行入口] --> B[Widget UI 编排层]
     B --> C[OsgWidgetCore 场景核心]
     B --> D[Data 数据模型层]
     B --> E[RobotScene 仿真层]
@@ -56,7 +56,7 @@ flowchart TD
 
 ## 4. 模块级职责与当前架构
 
-## 4.1 `PointCloudProcess`（应用入口）
+## 4.1 `CloudSim`（应用入口）
 
 - `main.cpp` 初始化 `QApplication`、Windows DLL 搜索路径、组织/应用名、日志系统。
 - 创建并展示 `MainWindow`，承担应用生命周期管理（启动/退出）。
@@ -294,8 +294,8 @@ flowchart LR
 
     Data --> RunLogger
 
-    PointCloudProcess --> Widget
-    PointCloudProcess --> RunLogger
+    CloudSim --> Widget
+    CloudSim --> RunLogger
 ```
 
 依赖特征总结：
@@ -623,6 +623,6 @@ flowchart LR
 
 ## 8. 一句话结论
 
-`PointCloudProcess` 当前属于 **“Qt 桌面前端 + 本地 C++ 后端引擎”** 的模块化架构，并已完成一轮关键闭环重构：  
+`CloudSim` 当前属于 **“Qt 桌面前端 + 本地 C++ 后端引擎”** 的模块化架构，并已完成一轮关键闭环重构：  
 以 `ObjectGraph` 定义结构语义、以 `BackendVisualBindingIndex` 保障拾取映射、以 `SelectionService + SelectionState` 统一选择与可见性传播；对象 **Gizmo/罗盘** 以 **`ObjectGizmoFrame` + active outer PAT** 为唯一位姿真源，层级子对象选中时 **从 OSG 读帧** 而非把世界 `pose` 当作 root-local 写入；**URDF** 支持 **多机 per-link**（`HierarchicalRobotInstance` + `robotKinematicsInstances`）、**无几何 robot root** 与稳定 backend 命名，FK/`setBackendRootWorldMatrixFromWorld`/`syncOuterPatFromBackend` 共用行向量父链约定；**运动指令轴配置**在属性/UI/规划/JSON 四层对齐（可行枚举过滤、显式构型约束规划、种子构型默认 preset）；**AI 助手** 经规则解析或 OpenAI 兼容 LLM + `BackendPrimitiveGeometry` 在文档内创建 box/cylinder/cone/sphere 网格并走与导入一致的 OSG 光照显示，在不改变核心业务能力的前提下显著提升了可维护性与状态一致性。
 

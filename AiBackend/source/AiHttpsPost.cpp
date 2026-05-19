@@ -54,7 +54,7 @@ bool postWinHttp(
 	const std::wstring hostW = url.host().toStdWString();
 	const std::wstring pathW = pathAndQuery.toStdWString();
 
-	HINTERNET session = WinHttpOpen(L"PointCloudProcess/1.0",
+	HINTERNET session = WinHttpOpen(L"CloudSim/1.0",
 		WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
 		WINHTTP_NO_PROXY_NAME,
 		WINHTTP_NO_PROXY_BYPASS,

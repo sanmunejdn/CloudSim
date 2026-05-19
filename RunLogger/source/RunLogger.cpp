@@ -95,7 +95,7 @@ bool initialize(const std::string& logDirectory, const std::string& fileNameBase
 {
 	try
 	{
-		const std::string safeBaseName = fileNameBase.empty() ? "PointCloudProcess" : fileNameBase;
+		const std::string safeBaseName = fileNameBase.empty() ? "CloudSim" : fileNameBase;
 		const std::filesystem::path directory = logDirectory.empty()
 													? std::filesystem::current_path() / "logs"
 													: std::filesystem::path(logDirectory);

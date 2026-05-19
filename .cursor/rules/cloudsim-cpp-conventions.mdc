@@ -1,5 +1,5 @@
 ---
-description: PointCloudProcess C++/Qt/OSG 编码与导出约定
+description: CloudSim C++/Qt/OSG 编码与导出约定
 globs:
   - "**/*.h"
   - "**/*.hpp"

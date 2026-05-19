@@ -1,7 +1,7 @@
 # one-off: extract picking from OsgWidget.cpp -> OsgScenePicking.cpp
 import re
 
-path = r"D:\Project\VSprogram\CGAL5.5.2\PointCloudProcess\Widget\source\OsgWidget.cpp"
+path = r"D:\Project\VSprogram\CGAL5.5.2\CloudSim\Widget\source\OsgWidget.cpp"
 with open(path, "r", encoding="utf-8") as f:
     lines = f.readlines()
 
@@ -111,7 +111,7 @@ else:
 text = text.replace("const QPointF s0 = toScreen(ea);", "double s0x=0,s0y=0,s1x=0,s1y=0; toScreen(ea, s0x, s0y); toScreen(eb, s1x, s1y); const double s0sx=s0x")
 # This is getting messy - manual fix pickMeshEdge section
 
-out = r"D:\Project\VSprogram\CGAL5.5.2\PointCloudProcess\OsgWidgetCore\source\OsgScenePicking.cpp"
+out = r"D:\Project\VSprogram\CGAL5.5.2\CloudSim\OsgWidgetCore\source\OsgScenePicking.cpp"
 header = r"""#if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN

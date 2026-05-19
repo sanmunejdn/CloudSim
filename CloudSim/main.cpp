@@ -98,8 +98,8 @@ int main(int argc, char* argv[])
 #ifdef Q_OS_WIN
 	configureWindowsDllSearchPath();
 #endif
-	QCoreApplication::setOrganizationName(QStringLiteral("PointCloudProcess"));
-	QCoreApplication::setApplicationName(QStringLiteral("PointCloudProcess"));
+	QCoreApplication::setOrganizationName(QStringLiteral("CloudSim"));
+	QCoreApplication::setApplicationName(QStringLiteral("CloudSim"));
 	MainWindow mainWindow;
 	mainWindow.showMaximized();
 	const int ret = a.exec();

@@ -19,7 +19,7 @@ enum class LogLevel
 
 using UiSink = std::function<void(LogLevel level, const std::string& message)>;
 
-RUN_LOGGER_API bool initialize(const std::string& logDirectory, const std::string& fileNameBase = "PointCloudProcess");
+RUN_LOGGER_API bool initialize(const std::string& logDirectory, const std::string& fileNameBase = "CloudSim");
 RUN_LOGGER_API void shutdown();
 
 RUN_LOGGER_API void setUiSink(UiSink sink);
