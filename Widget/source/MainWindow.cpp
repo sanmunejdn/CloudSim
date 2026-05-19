@@ -62,6 +62,7 @@
 #include "RobotSceneKinematics.h"
 #include "UrdfRobotLoader.h"
 #include "RunInfoPage.h"
+#include "RunLogger.h"
 #include "SimulationCommandWidget.h"
 
 #include "../OsgWidgetCore/inc/OsgScene.h"
@@ -668,6 +669,10 @@ void requestRefresh()
 
 bool shouldLog(const std::string& instructionId)
 {
+	if (!RunLogger::isDiagnosticsEnabled())
+	{
+		return false;
+	}
 	if (s_forceNext || s_lastInstructionId != instructionId)
 	{
 		s_lastInstructionId = instructionId;
@@ -3192,7 +3197,7 @@ void MainWindow::onSimulationAddInstructionRequested(RobotInstruction::Type type
 					ins->setExtensionProperty("render.tcpLocalMat4", encodeMatrix4Csv(tcpLocalMat));
 				}
 			}
-			if (m_runInfoPage && m_robotAxisControlPage && !capUrdf.isEmpty())
+			if (RunLogger::isDiagnosticsEnabled() && m_runInfoPage && m_robotAxisControlPage && !capUrdf.isEmpty())
 			{
 				QString toolName = QStringLiteral("-");
 				if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(capFrames))
@@ -3745,8 +3750,11 @@ void MainWindow::refreshInstructionPoseAxes()
 		{
 			if (matrixOk)
 			{
-				m_runInfoPage->appendInfo(
-					QStringLiteral("[矩阵自检] BackendMat4↔OSG 平移在第3行、pose→显示、localMatrix 索引：通过"));
+				if (RunLogger::isDiagnosticsEnabled())
+				{
+					m_runInfoPage->appendInfo(
+						QStringLiteral("[矩阵自检] BackendMat4↔OSG 平移在第3行、pose→显示、localMatrix 索引：通过"));
+				}
 			}
 			else
 			{

@@ -1,5 +1,8 @@
 #include "RunLogger.h"
 
+#include <atomic>
+#include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <memory>
 #include <mutex>
@@ -15,6 +18,41 @@ namespace
 std::mutex gMutex;
 std::shared_ptr<spdlog::logger> gLogger;
 RunLogger::UiSink gUiSink;
+std::atomic<RunLogger::LogLevel> gMinLevel{ RunLogger::LogLevel::Info };
+
+bool envFlagEnabled(const char* name)
+{
+	auto valueEnabled = [](const char* e) -> bool {
+		if (!e || e[0] == '\0')
+		{
+			return false;
+		}
+		if (std::strcmp(e, "0") == 0)
+		{
+			return false;
+		}
+		if ((e[0] == 'f' || e[0] == 'F') && (e[1] == 'a' || e[1] == 'A') && (e[2] == 'l' || e[2] == 'L')
+			&& (e[3] == 's' || e[3] == 'S') && (e[4] == 'e' || e[4] == 'E') && e[5] == '\0')
+		{
+			return false;
+		}
+		return true;
+	};
+
+#if defined(_MSC_VER)
+	char* buf = nullptr;
+	size_t len = 0;
+	if (_dupenv_s(&buf, &len, name) != 0 || !buf)
+	{
+		return false;
+	}
+	const bool enabled = valueEnabled(buf);
+	std::free(buf);
+	return enabled;
+#else
+	return valueEnabled(std::getenv(name));
+#endif
+}
 
 spdlog::level::level_enum toSpdlogLevel(RunLogger::LogLevel level)
 {
@@ -70,7 +108,11 @@ bool initialize(const std::string& logDirectory, const std::string& fileNameBase
 
 		auto logger = std::make_shared<spdlog::logger>("RunLogger", sinks.begin(), sinks.end());
 		logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
-		logger->set_level(spdlog::level::trace);
+		const RunLogger::LogLevel minLevel = envFlagEnabled("POINTCLOUD_PROCESS_DEBUG")
+			? RunLogger::LogLevel::Debug
+			: RunLogger::LogLevel::Info;
+		gMinLevel.store(minLevel);
+		logger->set_level(toSpdlogLevel(minLevel));
 		logger->flush_on(spdlog::level::warn);
 
 		{
@@ -108,8 +150,32 @@ void clearUiSink()
 	gUiSink = nullptr;
 }
 
+void setMinimumLogLevel(LogLevel level)
+{
+	gMinLevel.store(level);
+	std::lock_guard<std::mutex> lock(gMutex);
+	if (gLogger)
+	{
+		gLogger->set_level(toSpdlogLevel(level));
+	}
+}
+
+LogLevel minimumLogLevel()
+{
+	return gMinLevel.load();
+}
+
+bool isDiagnosticsEnabled()
+{
+	return envFlagEnabled("POINTCLOUD_PROCESS_DEBUG");
+}
+
 void log(LogLevel level, const std::string& message)
 {
+	if (level < gMinLevel.load())
+	{
+		return;
+	}
 	std::shared_ptr<spdlog::logger> loggerCopy;
 	{
 		std::lock_guard<std::mutex> lock(gMutex);

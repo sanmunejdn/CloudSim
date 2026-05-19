@@ -1,5 +1,7 @@
 # GeometryEngine conventions
 
+> 模块说明与调用边界见 [`DEVELOPER_GUIDE.md`](DEVELOPER_GUIDE.md)。
+
 - Canonical type: `engine::RigidTransform` (`Eigen::Isometry3d`, translation in **mm**).
 - Rotation truth: `Eigen::Quaterniond`; do not compare Euler angles for equality or IK residual.
 - Scene / URDF / OSG chain (row vectors): `parent.composeScene(child)` ≡ `osgParent * osgChild`.

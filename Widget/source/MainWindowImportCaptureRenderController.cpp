@@ -880,13 +880,6 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 				.arg(linkMeshes.size())
 				.arg(revoluteJointNames.size())
 				.arg(robotRootId));
-		const QByteArray kd = qgetenv("ROBOT_KINEMATICS_DEBUG");
-		if (kd.isEmpty() || kd == QByteArray("0"))
-		{
-			mw.m_runInfoPage->appendInfo(
-				QStringLiteral("FK/OSG 调试：设置环境变量 ROBOT_KINEMATICS_DEBUG=1（或调试启动参数 --robot-kinematics-debug 1）"
-							   " 后需重启程序；再导入 URDF 或拖动关节，本页与 exe 旁 logs\\PointCloudProcess.log 会出现 [RobotKinematicsDBG] 矩阵。"));
-		}
 	}
 
 	mw.refreshBackendTree();

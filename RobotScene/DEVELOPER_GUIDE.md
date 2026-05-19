@@ -4,7 +4,7 @@
 
 `RobotScene` 承担 **仿真业务逻辑**：机器人指令模型、校验、规划（Planner）、程序执行状态机、将关节角/FK 结果写回文档与 OSG。不依赖 Qt Widget，通过 `IRobotSimulationDocument` / `IRobotBackendPoseSink` 与 `Widget` 解耦。
 
-| 组合依赖 | `RobotUrdf` + `RobotKinematics` + `RunLogger` |
+| 组合依赖 | `GeometryEngine` + `RobotUrdf` + `RobotKinematics` + `RunLogger` |
 | 导出 | `ROBOT_SCENE_API` |
 
 ---
@@ -227,7 +227,7 @@
 | 符号 | 含义 |
 |------|------|
 | **`T_base_target`** | 指令 `pose`/`euler`：该点 `motion.tool.frameId` 对应**工具系原点**在基座下的位姿 |
-| `T_flange_tool` | 法兰 → 工具（标定）；≈**I** 时 `T_base_target` 即法兰中心 |
+| `T_flange_tool` | 法兰 → 工具（标定）；`positionMm` 在 **法兰连杆轴**（mm），非基座轴；≈**I** 时 `T_base_target` 即法兰中心 |
 | `T_base_flange` | 前置变换后送入 IK 的**法兰连杆**目标 |
 
 遗留名 `T_base_tcp` / `tcpInBaseFromPose` 与 `T_base_target` 同义；新代码用 `targetInBaseFromPose`。
@@ -249,8 +249,9 @@
 |-----|------|
 | `targetInBaseFromPose` | `pose` → `T_base_target` |
 | `engine::RigidTransform` / `ToolKinematics` | **规范刚体真值**（GeometryEngine + Eigen；四元数存储，mm） |
-| `flangeTargetFromToolOriginInBase` | 委托 `engine::flangeFromToolOrigin` |
-| `targetInBaseFromFlange` | 委托 `engine::toolOriginFromFlange` |
+| `rigidTransformFromFrame` / `frameToMat4` | `RobotRigidFrame` ↔ `RigidTransform` / `BackendMat4` |
+| `flangeTargetFromToolOriginInBase` | 委托 `engine::flangeFromToolOrigin`（`composeColumn`） |
+| `targetInBaseFromFlange` | 委托 `engine::toolOriginFromFlange`（`composeColumn`） |
 | `RobotInstruction::readTargetTransformFromInstruction` | 指令真值（优先 `context.targetTransformQuatCsv`） |
 | `RobotMatrixOsg::*` | 遗留 OSG/BackendMat4 薄适配，新逻辑勿再扩展 |
 | `flangeTargetFromBaseTcpAndTool` / `tcpInBaseFromPose` | 兼容别名 |
@@ -269,9 +270,20 @@
 | `context.poseFrame` | `base_tool_origin`（兼容 `base_tcp`） |
 | `context.flangeLinkName` / `context.tcpLinkName` | 法兰 link（IK/FK） |
 
-`[IK残差]` 分列：`toolOrigin`、`flangeTarget`、`fkFlange`、`fkToolOrigin`；主指标 **`residualTcpMm`** = \|toolOrigin − fkFlange×T_tool\|。
+`[IK残差]` 分列：`toolOrigin`、`flangeTarget`、`fkFlange`、`fkToolOrigin`；主指标 **`residualTcpMm`** = \|toolOrigin − fkToolOrigin\|（FK 经 `toolOriginFromFlange`）。
 
 规划上下文：按点写入工具矩阵与法兰 link。指令 `pose` = **基座下工具原点**；3D 轴与绿/红可达性同前。
+
+### 工具链 FK（禁止误用 OSG 裸乘）
+
+1. `T_base_flange`：`UrdfRobotLoader::computeLinkWorldMatrices` → `engine::rigidTransformFromOsg(linkWorld[flange])`。
+2. `T_flange_tool`：`rigidTransformFromFrame` 或 `rigidTransformFromBackendMat4(context.toolFrameMat4)`。
+3. `T_base_target = engine::toolOriginFromFlange(T_base_flange, T_flange_tool)` — **必须**走 `ToolKinematics`（内部 `composeColumn`）。
+4. IK 前置：`flangeFromToolOrigin(T_base_target, T_flange_tool)`（`ikLinkTargetFromInstruction`）。
+
+**反例（已修复）**：`linkWorld * osgMatrixFromBackendMat4(T_tool)` 或 `composeScene` 组合 URDF 法兰与 Eigen 工具 → 法兰系 `(0,0,-200)` 可能表现为仅基座 Z 变化。`RobotMatrixOsg::targetInBaseFromFlangeLinkWorld` 与 `Widget::osgTcpInBaseFromFlangeLinkWorld` 已改为 engine 路径。
+
+**验收**：法兰 Ry≈90° 时，工具 Z=-200 应在基座 X（或 Y）体现约 200 mm 偏移，而非仅 ΔZ。见 `GeometryEngine::runSelfTest`。
 
 ## 8.4 程序导出（`RobotProgramExport.h`）
 
@@ -343,6 +355,7 @@ flowchart LR
 
 ## 12. 相关文档
 
+- 刚体/工具链：[`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md) · [`../GeometryEngine/CONVENTIONS.md`](../GeometryEngine/CONVENTIONS.md)
 - URDF：[`../RobotUrdf/DEVELOPER_GUIDE.md`](../RobotUrdf/DEVELOPER_GUIDE.md)
 - DH：[`../RobotKinematics/DEVELOPER_GUIDE.md`](../RobotKinematics/DEVELOPER_GUIDE.md)
 - UI：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §仿真

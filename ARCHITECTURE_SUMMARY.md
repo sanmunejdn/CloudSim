@@ -1,6 +1,6 @@
 # PointCloudProcess 架构与模块总结
 
-> **子模块开发文档（类/接口详解）**：见 [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md)。各工程目录下均有 `DEVELOPER_GUIDE.md`（`Data`、`Widget`、`OsgWidgetCore`、`BackendVisual`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`RunLogger`、`PointCloudProcess`）。
+> **子模块开发文档（类/接口详解）**：见 [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md)。各工程目录下均有 `DEVELOPER_GUIDE.md`（`GeometryEngine`、`Data`、`Widget`、`OsgWidgetCore`、`BackendVisual`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`RunLogger`、`PointCloudProcess`）。
 
 ## 1. 项目定位
 
@@ -21,8 +21,7 @@
 - `Data`：统一后端对象模型（点云/网格）、属性系统、对象注册管理。
 - `BackendVisual`：数据对象到 OSG 场景分支的可视化适配。
 - `OsgWidgetCore`：与 Qt 无关的 OSG 场景核心（相机、拾取、标注、场景树）。
-- `GeometryEngine`：Eigen 刚体变换（`engine::RigidTransform`），全应用矩阵/姿态统一入口。
-- `GeometryEngine`：Eigen 刚体变换（`engine::RigidTransform`），全应用矩阵/姿态统一入口。
+- `GeometryEngine`：Eigen 刚体变换（`engine::RigidTransform`）、工具链 `ToolKinematics`、OSG/`BackendMat4` 适配；示教/IK/指令位姿统一入口（见 [`GeometryEngine/DEVELOPER_GUIDE.md`](GeometryEngine/DEVELOPER_GUIDE.md)）。
 - `RobotKinematics`：串联机械臂运动学计算。
 - `RobotUrdf`：URDF 解析与层级机器人场景构建。
 - `RobotScene`：机器人指令模型、规划/回放引擎、仿真逻辑。
@@ -43,8 +42,10 @@ flowchart TD
     C --> F[BackendVisual 可视化适配层]
     F --> D
     C --> D
+    E --> GE[GeometryEngine 刚体变换]
     E --> G[RobotUrdf URDF层]
     E --> H[RobotKinematics 运动学层]
+    GE --> D
     G --> D
     B --> I[RunLogger]
     D --> I
@@ -527,7 +528,7 @@ sequenceDiagram
 6. 通过接口更新文档中的关节节点矩阵（层级）或各 link 后端/OSG 矩阵（每连杆）。  
 7. UI 面板实时反馈执行过程；`OsgWidget::setInstructionPoseAxes` 在世界系显示各运动点 XYZ 坐标轴；轴原点 **绿色=IK 可达**、**红色=不可达**（与 PTP/LINE 的 RGB 轴身颜色无关）。  
 8. **调试**：环境变量 `ROBOT_KINEMATICS_DEBUG=1`（或启动参数 `--robot-kinematics-debug 1`）时，`applyJointAnglesViaLinkBackends` 输出 `[RobotKinematicsDBG]`（`T0`/`Tq`/`Mnew`/父世界/写回后 `outerWorld` 等）。  
-9. **坐标系（基座 / 工具 / 用户）**：每台机器人 `HierarchicalRobotInstance::coordinateFrames`（`RobotCoordinateFrames`）；默认基座与 `sceneRootBackendId` 重合、工具与法兰/TCP link 重合、预置 `UFrame1`。仿真 Dock **坐标系** 页（`RobotFrameSettingsWidget`）编辑工具系与用户系；3D 可显示/隐藏（`OsgWidget::setRobotFrameOverlays`）。PTP/LINE 的 `pose/euler` 存 **基系 TCP**；每点 `motion.tool.frameId` / `motion.user.frameId`；规划经 `toolMat4ForExtension` 写入 `context.toolFrameMat4` 后 URDF IK。属性面板 `motion.target.frame` 为 `base` / `user` 示教（落盘仍基系）。指令 `extensions` 随 `robotPrograms` 持久化。  
+9. **坐标系（基座 / 工具 / 用户）**：每台机器人 `HierarchicalRobotInstance::coordinateFrames`（`RobotCoordinateFrames`）；默认基座与 `sceneRootBackendId` 重合、工具与法兰/TCP link 重合、预置 `UFrame1`。仿真 Dock **坐标系** 页（`RobotFrameSettingsWidget`）编辑工具系与用户系（`T_flange_tool.positionMm` 为 **法兰连杆轴** mm，标签 `flange`）；3D 叠加（`OsgWidget::setRobotFrameOverlays`）与示教 FK 均经 `engine::toolOriginFromFlange`（`composeColumn`，勿裸 `linkWorld * toolMat`）。PTP/LINE 的 `pose/euler` 存 **基系工具原点**（`T_base_target`）；每点 `motion.tool.frameId` / `context.toolFrameMat4`；IK 前置 `flangeFromToolOrigin`。属性面板 `motion.target.frame` 为 `base` / `user` 示教（落盘仍基系）。指令 `extensions` 随 `robotPrograms` 持久化。  
 10. **导出**：仿真 **Export…** → `RobotProgramExport` JSON/CSV（基座 mm/deg + `jointRad`），供后续 RAPID/KRL 等后处理。  
 
 ```mermaid

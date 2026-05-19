@@ -323,6 +323,26 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 
 关节滑块 ↔ `MatrixTransform`；信号 `jointAngleChanged`。
 
+### `RobotFrameSettingsWidget`（坐标系 Dock）
+
+| 项 | 说明 |
+|----|------|
+| 工具系 `T_flange_tool` | `positionMm` / `eulerDeg`；平移在 **法兰连杆轴**（UI：`X/Y/Z (mm, flange)`） |
+| `flangeLink` | 空则用 `RobotCoordinateFrameSet::flangeLinkName`（如 `link_6`） |
+| 捕获 / 重置 | `Capture from TCP`、`Reset to flange` → `MainWindow::onCaptureToolFrame` / `onResetToolFrame` |
+
+### 示教与 FK 路径（`MainWindow.cpp`）
+
+| 函数 | 说明 |
+|------|------|
+| `tryCaptureCurrentRobotTcpPose` | 优先 `UrdfFlangeFk+Tool`：`targetInBaseFromUrdfFlangeFk` → `engine::toolOriginFromFlange` |
+| `targetRigidTransformFromUrdfFlangeFk` | 示教落盘 `context.targetTransform*` 真值 |
+| `osgTcpInBaseFromFlangeLinkWorld` | 委托 `toolOriginFromFlange`（禁止裸 `linkWorld * toolMat`） |
+| `osgMatrixFromRobotRigidFrame` | `osgMatrixFromRigidTransform(rigidTransformFromFrame(...))` |
+| `updateRobotFrameOverlays` | per-link 时优先 URDF FK 放置工具轴；否则 `localMatrix` 挂在法兰 backend |
+
+详见 [`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md)、[`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md) §8.3。
+
 ---
 
 ## 14. 其它页面
@@ -344,6 +364,7 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 | 跟随 | `runBackendFollowSolveAndSync` | ARCH §6.2.1 |
 | 选择闭环 | `MainWindowSelectionService` | ARCH §6.3 |
 | 仿真预览/运行 | `onSimulationInstructionSelectionChanged` | ARCH §6.4 |
+| 工具/示教 FK | `targetRigidTransformFromUrdfFlangeFk` | §13、`GeometryEngine` |
 
 ---
 
@@ -360,5 +381,6 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 
 - 总架构：[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md)
 - 模块索引：[`../docs/MODULE_DEVELOPER_GUIDES.md`](../docs/MODULE_DEVELOPER_GUIDES.md)
+- 刚体/工具链：[`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md)
 - 数据层：[`../Data/DEVELOPER_GUIDE.md`](../Data/DEVELOPER_GUIDE.md)
 - OSG 核心：[`../OsgWidgetCore/DEVELOPER_GUIDE.md`](../OsgWidgetCore/DEVELOPER_GUIDE.md)

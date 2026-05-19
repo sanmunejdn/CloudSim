@@ -9,6 +9,7 @@
 | **Data** | 后端对象模型、属性、层级、跟随求解 | [Data/DEVELOPER_GUIDE.md](../Data/DEVELOPER_GUIDE.md) |
 | **BackendVisual** | 数据 → OSG 分支构建策略 | [BackendVisual/DEVELOPER_GUIDE.md](../BackendVisual/DEVELOPER_GUIDE.md) |
 | **OsgWidgetCore** | 纯 OSG 场景、拾取、gizmo、绑定索引 | [OsgWidgetCore/DEVELOPER_GUIDE.md](../OsgWidgetCore/DEVELOPER_GUIDE.md) |
+| **GeometryEngine** | `RigidTransform`、工具链 FK、`OSG`/`BackendMat4` 适配 | [GeometryEngine/DEVELOPER_GUIDE.md](../GeometryEngine/DEVELOPER_GUIDE.md) · [CONVENTIONS.md](../GeometryEngine/CONVENTIONS.md) |
 | **RobotKinematics** | DH 串联 FK / 数值 IK | [RobotKinematics/DEVELOPER_GUIDE.md](../RobotKinematics/DEVELOPER_GUIDE.md) |
 | **RobotUrdf** | URDF 解析、层级场景、每连杆后端 | [RobotUrdf/DEVELOPER_GUIDE.md](../RobotUrdf/DEVELOPER_GUIDE.md) |
 | **RobotScene** | 指令模型、规划、回放、场景 FK | [RobotScene/DEVELOPER_GUIDE.md](../RobotScene/DEVELOPER_GUIDE.md) |
@@ -25,11 +26,14 @@ flowchart TB
   W --> RS[RobotScene]
   W --> RU[RobotUrdf]
   W --> RK[RobotKinematics]
+  W --> GE[GeometryEngine]
   W --> RL[RunLogger]
   O --> BV --> D
+  RS --> GE
   RS --> RU --> D
   RS --> RK
   RS --> RL
+  GE --> D
   D --> RL
 ```
 

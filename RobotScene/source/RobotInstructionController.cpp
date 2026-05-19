@@ -471,6 +471,10 @@ void logIkSolveResidual(
 	const std::vector<double>& qSolved,
 	const char* plannerName)
 {
+	if (!RunLogger::isDiagnosticsEnabled())
+	{
+		return;
+	}
 	const auto& ext = cmd.extensionProperties();
 	const auto itUrdf = ext.find("context.urdfPath");
 	if (itUrdf == ext.end() || itUrdf->second.empty())

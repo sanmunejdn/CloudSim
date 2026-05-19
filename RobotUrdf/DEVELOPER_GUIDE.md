@@ -123,7 +123,9 @@
 ## 10. 与坐标系 / TCP
 
 - 默认终端 link：`loadPrimaryTerminalLinkName` / 最深子 link，供 `makeDefaultFrameSet(flangeLinkName)` 与示教捕获。
-- FK：`computeLinkWorldMatrices` 提供 `T_base_flange`；工具偏移 `T_flange_tool` 在 `RobotScene::RobotCoordinate` 中与场景矩阵同一 OSG 行向量约定。
+- FK：`computeLinkWorldMatrices` 输出各 link 的 `osg::Matrixd`（`mat4ToOsg`：URDF 列主序 → OSG 行向量）。
+- **工具偏移**：`T_base_tool = toolOriginFromFlange(rigidTransformFromOsg(T_base_flange), T_flange_tool)`（`GeometryEngine`，**`composeColumn`**）。业务层勿写 `linkWorld[flange] * toolMat` 代替上述 API（会与 Eigen 工具矩阵约定不一致，导致法兰系平移被当成基座轴平移）。
+- `T_flange_tool.positionMm` 在 **法兰连杆轴** 下定义（见 [`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md) §3）。
 
 ## 11. 相关文档
 

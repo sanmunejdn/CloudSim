@@ -86,6 +86,14 @@ int main(int argc, char* argv[])
 	{
 		(void)qputenv("ROBOT_KINEMATICS_DEBUG", QByteArray("0"));
 	}
+	if (qgetenv("POINTCLOUD_GIZMO_PIVOT_DIAG").isEmpty())
+	{
+		(void)qputenv("POINTCLOUD_GIZMO_PIVOT_DIAG", QByteArray("0"));
+	}
+	if (qgetenv("POINTCLOUD_PROCESS_DEBUG").isEmpty())
+	{
+		(void)qputenv("POINTCLOUD_PROCESS_DEBUG", QByteArray("0"));
+	}
 	QApplication a(argc, argv);
 #ifdef Q_OS_WIN
 	configureWindowsDllSearchPath();
