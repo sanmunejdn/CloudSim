@@ -63,9 +63,9 @@ RobotFrameSettingsWidget::RobotFrameSettingsWidget(QWidget* parent)
 		m_toolPos[i] = makeSpin(toolGroup, -5000.0, 5000.0);
 		m_toolEuler[i] = makeSpin(toolGroup, -360.0, 360.0);
 	}
-	toolForm->addRow(QStringLiteral("X (mm)"), m_toolPos[0]);
-	toolForm->addRow(QStringLiteral("Y (mm)"), m_toolPos[1]);
-	toolForm->addRow(QStringLiteral("Z (mm)"), m_toolPos[2]);
+	toolForm->addRow(QStringLiteral("X (mm, flange)"), m_toolPos[0]);
+	toolForm->addRow(QStringLiteral("Y (mm, flange)"), m_toolPos[1]);
+	toolForm->addRow(QStringLiteral("Z (mm, flange)"), m_toolPos[2]);
 	toolForm->addRow(QStringLiteral("Rx (deg)"), m_toolEuler[0]);
 	toolForm->addRow(QStringLiteral("Ry (deg)"), m_toolEuler[1]);
 	toolForm->addRow(QStringLiteral("Rz (deg)"), m_toolEuler[2]);

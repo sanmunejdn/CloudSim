@@ -6,7 +6,7 @@
 namespace engine
 {
 
-/// T_base_tool = T_base_flange * T_flange_tool (scene row-vector semantics).
+/// T_base_tool = T_base_flange * T_flange_tool (Eigen column isometry product; tool translation in flange axes).
 GEOMETRY_ENGINE_API RigidTransform toolOriginFromFlange(
 	const RigidTransform& baseFlange,
 	const RigidTransform& flangeTool);

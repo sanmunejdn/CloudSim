@@ -615,17 +615,10 @@ std::string encodeJointCsv(const QVector<double>& q)
 	return oss.str();
 }
 
-/// OSG 行向量矩阵：与指令 TCP 轴一致，先旋转再平移（对应 BackendMat4 的 T*R 刚体语义）。
+/// OSG 行向量矩阵：与 FK/IK 共用 GeometryEngine（T_flange_tool 平移在法兰连杆坐标系）。
 osg::Matrixd osgMatrixFromRobotRigidFrame(const RobotCoordinate::RobotRigidFrame& frame)
 {
-	osg::Matrixd m;
-	const osg::Quat q = OsgScene::eulerDegToQuat(osg::Vec3f(
-		static_cast<float>(frame.eulerDeg[0]),
-		static_cast<float>(frame.eulerDeg[1]),
-		static_cast<float>(frame.eulerDeg[2])));
-	m.makeRotate(q);
-	m.setTrans(frame.positionMm[0], frame.positionMm[1], frame.positionMm[2]);
-	return m;
+	return engine::osgMatrixFromRigidTransform(RobotCoordinate::rigidTransformFromFrame(frame));
 }
 
 osg::Matrixd osgMatrixFromBackendMat4(const BackendMat4& m)
@@ -795,7 +788,9 @@ static osg::Matrixd osgTcpInBaseFromFlangeLinkWorld(
 	const QString& flangeLinkQ,
 	const BackendMat4& T_flange_tool)
 {
-	return linkWorldByName.value(flangeLinkQ) * osgMatrixFromBackendMat4(T_flange_tool);
+	const engine::RigidTransform flangeRt = engine::rigidTransformFromOsg(linkWorldByName.value(flangeLinkQ));
+	const engine::RigidTransform toolRt = RobotCoordinate::rigidTransformFromBackendMat4(T_flange_tool);
+	return engine::osgMatrixFromRigidTransform(engine::toolOriginFromFlange(flangeRt, toolRt));
 }
 
 /// per-link：从场景里法兰连杆 backend 外矩阵 × 工具系（与当前显示一致，不依赖 URDF 滑条是否同步）。
