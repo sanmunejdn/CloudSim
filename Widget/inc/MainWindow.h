@@ -3,6 +3,7 @@
 #include <QByteArray>
 #include <QMainWindow>
 #include <QHash>
+#include <QElapsedTimer>
 #include <QTimer>
 #include <QTabWidget>
 #include <QVariant>
@@ -181,6 +182,10 @@ private:
 	void refreshSimulationJointListFromCurrentDoc();
 	void onSimulationRobotSelectionChanged(int instanceIndex, const QString& sceneBackendId);
 	void onRobotAxisJointAnglesChanged(const QVector<double>& jointAnglesRad);
+	void onSimulationTcpDragTeachModeChanged(bool enabled);
+	void onTcpDragTeachPoseChanged(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
+	bool applyTcpDragTeachIkFromPose(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
+	void onTcpDragTeachEnded();
 	void setupAiAssistantCoordinator();
 	void onAiCreateMeshCommandReady(const QByteArray& commandJsonUtf8, const QString& parserVia);
 	void onAiParseFailed(const QString& message, const QString& parserVia);
@@ -267,6 +272,8 @@ private:
 	/// Program-start joint seed for instruction preview / feasible axis probe (not updated by preview).
 	QVector<double> m_motionPreviewProgramStartJointRad;
 	bool m_suppressMotionPreviewStartCapture = false;
+	QString m_tcpDragTeachFlangeLink;
+	QElapsedTimer m_tcpDragTeachIkTimer;
 	QDockWidget* m_runDock = nullptr;
 	/// 右侧 Dock 顶栏：工作区（单元/仿真/场景）与 AI，替代 tabifyDockWidget 底部页签。
 	QTabWidget* m_rightPanelTabs = nullptr;

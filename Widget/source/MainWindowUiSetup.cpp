@@ -354,6 +354,8 @@ void MainWindow::setupDockWidgets()
 		this, &MainWindow::onSimulationInstructionSelectionChanged);
 	connect(m_simulationCommandPage, &SimulationCommandWidget::robotSelectionChanged,
 		this, &MainWindow::onSimulationRobotSelectionChanged);
+	connect(m_simulationCommandPage, &SimulationCommandWidget::tcpDragTeachModeChanged,
+		this, &MainWindow::onSimulationTcpDragTeachModeChanged);
 	connect(m_robotAxisControlPage, &RobotAxisControlWidget::allJointAnglesChanged,
 		this, &MainWindow::onRobotAxisJointAnglesChanged);
 	connect(m_robotFrameSettingsPage, &RobotFrameSettingsWidget::framesChanged, this,

@@ -202,6 +202,7 @@
     <QtMoc Include="inc\MainWindow.h" />
     <QtMoc Include="inc\ProgressManager.h" />
     <ClInclude Include="inc\ObjectTransformOperation.h" />
+    <ClInclude Include="inc\RobotTcpDragTeachOperation.h" />
     <ClInclude Include="inc\MeshEdgeFacePickOperation.h" />
     <ClInclude Include="inc\OsgWidgetBackendLoadController.h" />
     <ClInclude Include="inc\OsgWidgetImportController.h" />
@@ -254,6 +255,8 @@
     <ClCompile Include="source\ProjectPackageZip.cpp" />
     <ClCompile Include="source\MainWindowPropertyPanel.cpp" />
     <ClCompile Include="source\ObjectTransformOperation.cpp" />
+    <ClCompile Include="source\OsgWidgetTcpTeach.cpp" />
+    <ClCompile Include="source\RobotTcpDragTeachOperation.cpp" />
     <ClCompile Include="source\OsgWidget.cpp" />
     <ClCompile Include="source\OsgWidgetBackendLoadController.cpp" />
     <ClCompile Include="source\OsgWidgetImportController.cpp" />

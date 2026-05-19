@@ -351,6 +351,15 @@ flowchart LR
 
 **预览**（非运行）：`MainWindow` 自程序起点链式 `plan` 至选中 PTP/LINE，写回滑块与场景；轴配置可行列表 `queryFeasibleMotionAxisConfigurationOptions` 带缓存。
 
+**末端拖动示教**（非运行、不写指令）：Widget 调用 `RobotTeachIk::solveTeachIk`（`T_base_target` + 法兰 link 数值 IK），再 `RobotSceneKinematics::applyJointAnglesForInstance` 刷新场景。
+
+### 11.1 `RobotTeachIk`
+
+| API | 说明 |
+|-----|------|
+| `TeachIkContext` | `urdfPath`、`ikLinkName`、`T_base_target`、`seedJointRad`、`T_flange_tool` |
+| `solveTeachIk` | 交互示教 IK；法兰目标经 `engine::flangeFromToolOrigin` |
+
 ---
 
 ## 12. 相关文档

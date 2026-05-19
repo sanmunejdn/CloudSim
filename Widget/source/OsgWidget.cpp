@@ -73,6 +73,7 @@
 
 #include "GraphicsWindowQt1.h"
 #include "ObjectTransformOperation.h"
+#include "RobotTcpDragTeachOperation.h"
 #include "PointPickOperation.h"
 #include "MeshEdgeFacePickOperation.h"
 #include "QWidgetViewer.h"
@@ -87,6 +88,7 @@ OsgWidget::OsgWidget(QWidget* parent)
 	m_feedbackTimer.start();
 	m_pointPickOperation = std::make_unique<PointPickOperation>(this);
 	m_objectTransformOperation = std::make_unique<ObjectTransformOperation>(this);
+	m_tcpDragTeachOperation = std::make_unique<RobotTcpDragTeachOperation>(this);
 	m_meshElementPickOperation = std::make_unique<MeshEdgeFacePickOperation>(this);
 	m_importController = std::make_unique<OsgWidgetImportController>();
 	m_backendLoadController = std::make_unique<OsgWidgetBackendLoadController>();
@@ -304,7 +306,7 @@ void OsgWidget::setPerFrameHook(std::function<void(OsgWidget*)> fn)
 
 bool OsgWidget::isTransformGizmoDragging() const
 {
-	return m_dragging || m_rotating;
+	return m_dragging || m_rotating || m_tcpTeachDragging || m_tcpTeachRotating;
 }
 
 bool OsgWidget::syncOuterPatFromBackend(const BackendDataBase& data)
@@ -1256,6 +1258,10 @@ void OsgWidget::setTransformGizmoFrame(TransformGizmoFrame frame)
 {
 	m_transformGizmoFrame = frame;
 	syncCompassGizmoOrientation();
+	if (m_tcpTeachActive)
+	{
+		updateTcpDragTeachFromTarget(m_tcpTeachTargetInBase);
+	}
 }
 
 void OsgWidget::setPointPickMode(bool enabled)
@@ -1650,6 +1656,13 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 		{
 			if (event->type() == QEvent::KeyPress)
 			{
+				if (m_tcpTeachActive)
+				{
+					endTcpDragTeach();
+					emit tcpDragTeachEnded();
+					requestRedraw();
+					return true;
+				}
 				if (m_objectSelectionMode)
 				{
 					m_dragging = false;
@@ -1691,6 +1704,11 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 		return true;
 	}
 
+	if (m_tcpDragTeachOperation && m_tcpDragTeachOperation->handleEvent(watched, event))
+	{
+		return true;
+	}
+
 	if (m_objectTransformOperation && m_objectTransformOperation->handleEvent(watched, event))
 	{
 		return true;
@@ -1701,6 +1719,7 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 
 void OsgWidget::clearImportedContent()
 {
+	endTcpDragTeach();
 	clearInstructionPoseAxes();
 	clearStagingGeometry();
 	hideMeshElementHighlight();

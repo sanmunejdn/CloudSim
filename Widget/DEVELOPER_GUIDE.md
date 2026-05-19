@@ -191,6 +191,9 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 | `addHierarchicalRobotScene` / `removeHierarchicalRobotScene` | 层级 URDF |
 | `setInstructionPoseAxes` / `clearInstructionPoseAxes` | PTP/LINE 世界系 XYZ 轴 |
 | `setCameraFollowBackendId` | 轨道相机跟踪 backend 原点 |
+| `beginTcpDragTeach` / `endTcpDragTeach` | TCP 示教罗盘（挂 robot root，独立 overlay） |
+| `isTcpDragTeachActive` / `isTcpDragGizmoDragging` | 示教模式 / 拖动中 |
+| `updateTcpDragTeachFromTarget` | FK 后对齐罗盘 |
 
 ### 6.5 信号（与 MainWindow 协作）
 
@@ -198,6 +201,7 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 |------|------|
 | `backendObjectPicked(backendId)` | OSG 拾取 |
 | `transformGizmoCommitted` | 罗盘释放 → 刷新属性面板 |
+| `tcpDragTeachPoseChanged` / `tcpDragTeachEnded` | TCP 示教拖动 / ESC 退出 |
 | `selectedObjectPoseChanged` / `Rotation` / `Color` | 拖动中写后端 |
 | `annotationCreated` / `Removed` / `visibilityChanged` | 注释 |
 
@@ -306,6 +310,8 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 | `appendInstructionFromCurrentPose` | 捕获当前 TCP |
 | `instructionSelected` → MainWindow | 预览链式 plan |
 | `runRequested` / `stopRequested` | 执行器 |
+| `tcpDragTeachModeChanged(bool)` | 末端拖动示教开/关（不落盘指令） |
+| `setTcpDragTeachMode` / `tcpDragTeachMode` | 与 3D ESC / 仿真 Run 同步按钮状态 |
 
 ### `InstructionProgramTreeWidget`
 
@@ -364,6 +370,7 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 | 跟随 | `runBackendFollowSolveAndSync` | ARCH §6.2.1 |
 | 选择闭环 | `MainWindowSelectionService` | ARCH §6.3 |
 | 仿真预览/运行 | `onSimulationInstructionSelectionChanged` | ARCH §6.4 |
+| 末端拖动示教 | `onSimulationTcpDragTeachModeChanged` → `RobotTeachIk` | §13 |
 | 工具/示教 FK | `targetRigidTransformFromUrdfFlangeFk` | §13、`GeometryEngine` |
 
 ---

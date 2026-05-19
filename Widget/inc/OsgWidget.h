@@ -34,6 +34,8 @@
 #include "IRobotBackendPoseSink.h"
 #include "../OsgWidgetCore/inc/OsgScene.h"
 
+#include <RigidTransform.h>
+
 namespace osg {
 class Group;
 class Node;
@@ -48,6 +50,7 @@ class QWidgetViewer;
 class SelectionOperation;
 class PointPickOperation;
 class ObjectTransformOperation;
+class RobotTcpDragTeachOperation;
 class MeshEdgeFacePickOperation;
 class BackendDataBase;
 class PointCloudBackendData;
@@ -68,6 +71,7 @@ public:
 	using DragAxis = OsgScene::DragAxis;
 	friend class PointPickOperation;
 	friend class ObjectTransformOperation;
+	friend class RobotTcpDragTeachOperation;
 	friend class MeshEdgeFacePickOperation;
 	friend class OsgWidgetImportController;
 	friend class OsgWidgetBackendLoadController;
@@ -216,9 +220,22 @@ public:
 	void setRobotFrameOverlays(const RobotFrameOverlayUpdate& update);
 	void clearRobotFrameOverlays(const std::string& robotRootBackendId);
 
+	/// TCP 末端拖动示教：在机器人 TCP 处显示独立罗盘，拖动时发出位姿变化信号（不落盘指令）。
+	bool isTcpDragTeachActive() const { return m_tcpTeachActive; }
+	bool isTcpDragGizmoDragging() const { return m_tcpTeachDragging || m_tcpTeachRotating; }
+	void beginTcpDragTeach(
+		const std::string& mountBackendId,
+		const engine::RigidTransform& T_base_target,
+		float modelDiagonalMm = 1000.0f,
+		std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld = nullptr,
+		const osg::Matrixd* toolLocalOnFlange = nullptr);
+	void endTcpDragTeach();
+	void updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target);
+	engine::RigidTransform tcpDragTeachTargetInBase() const { return m_tcpTeachTargetInBase; }
+
 	/// Optional per-frame callback (e.g. follow-attachment solve); runs on the viewer frame timer.
 	void setPerFrameHook(std::function<void(OsgWidget*)> fn);
-	/// True while object gizmo translate/rotate drag is active (skip automatic follower pose overwrite).
+	/// True while object or TCP-teach gizmo translate/rotate drag is active (skip automatic follower pose overwrite).
 	bool isTransformGizmoDragging() const;
 	/// Apply \a data pose/rotation to the outer PAT using cached model center (backend as pose authority).
 	bool syncOuterPatFromBackend(const BackendDataBase& data);
@@ -231,12 +248,62 @@ public:
 	void clearCameraFollowBackendId();
 	const std::string& cameraFollowBackendId() const { return m_cameraFollowBackendId; }
 
+	// TCP 示教罗盘（\ref RobotTcpDragTeachOperation 直接访问，同 OsgScene 对象 gizmo 成员约定）
+	void updateTcpTeachCompassHighlight(DragAxis axis, bool highlightRing = false);
+	void updateTcpTeachCompassScale();
+	void computeTcpTeachPivotWorld(osg::Vec3f& outPivotWorld) const;
+	bool tcpTeachCompassUnitAxisWorld(DragAxis axis, osg::Vec3d& outAxisWorld) const;
+	bool beginTcpTeachScreenDrag();
+	double tcpTeachScreenDragDsMm(const QPoint& curPos, const QPoint& lastPos) const;
+	int pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, bool preferRing, bool* outPickedRing = nullptr) const;
+	void applyTcpTeachTranslationWorld(int axisIndex, double dsWorld);
+	void applyTcpTeachTranslationBody(int axisIndex, double dsWorld);
+	void applyTcpTeachRotationWorld(int axisIndex, double deltaRad);
+	void applyTcpTeachRotationBody(int axisIndex, double deltaRad);
+	void syncTcpTeachCompassAttitude();
+	bool tcpTeachResolveBaseWorld(osg::Matrixd& outBaseWorld) const;
+	bool tcpTeachToolWorldMatrix(osg::Matrixd& outToolWorld) const;
+	void tcpTeachSetTargetFromToolWorld(const osg::Matrixd& toolWorld);
+	bool m_tcpTeachActive = false;
+	std::string m_tcpTeachMountBackendId;
+	std::function<bool(osg::Matrixd&)> m_tcpTeachResolveRobotBaseWorld;
+	bool m_tcpTeachUseFlangeLocalPlacement = false;
+	osg::Matrixd m_tcpTeachToolLocalOnFlange;
+	engine::RigidTransform m_tcpTeachTargetInBase;
+	float m_tcpTeachModelDiagonal = 1000.0f;
+	double m_tcpTeachGizmoRefDistance = -1.0;
+	double m_tcpTeachGizmoRefScale = 1.0;
+	bool m_tcpTeachDragging = false;
+	bool m_tcpTeachRotating = false;
+	DragAxis m_tcpTeachDragAxis = DragAxis::None;
+	DragAxis m_tcpTeachHoverAxis = DragAxis::None;
+	osg::Vec3d m_tcpTeachDragAxisWorld{};
+	double m_tcpTeachDragScreenAxisUx = 1.0;
+	double m_tcpTeachDragScreenAxisUy = 0.0;
+	double m_tcpTeachDragMmPerPixel = 1.0;
+	osg::Vec3d m_tcpTeachTransDragPlaneO{};
+	osg::Vec3d m_tcpTeachTransDragPlaneN{};
+	osg::Vec3d m_tcpTeachDragLastHitWorld{};
+	bool m_tcpTeachTransDragPlaneActive = false;
+	bool m_tcpTeachRotatePivotActive = false;
+	osg::Vec3d m_tcpTeachRotatePivotWorld{};
+	osg::ref_ptr<osg::MatrixTransform> m_tcpTeachMountPat;
+	osg::ref_ptr<osg::Group> m_tcpTeachOverlayGroup;
+	osg::ref_ptr<osg::PositionAttitudeTransform> m_tcpTeachCompassTransform;
+	osg::ref_ptr<osg::MatrixTransform> m_tcpTeachCompassScaleTransform;
+	osg::ref_ptr<osg::Node> m_tcpTeachCompassNode;
+	osg::ref_ptr<osg::MatrixTransform> m_tcpTeachAxisBranch[3];
+	osg::ref_ptr<osg::MatrixTransform> m_tcpTeachRingBranch[3];
+
 signals:
 	void selectedObjectPoseChanged(float x, float y, float z);
 	void selectedObjectRotationChanged(float rx, float ry, float rz);
 	void selectedObjectColorChanged(float r, float g, float b, float a);
 	/// Emitted once when translate/rotate gizmo drag ends (left/right release after an active drag).
 	void transformGizmoCommitted();
+	/// TCP 示教拖动中位姿更新（基座系工具原点 mm + 欧拉 deg）。
+	void tcpDragTeachPoseChanged(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
+	void tcpDragTeachEnded();
 	void backendObjectPicked(const QString& backendId);
 	void activeAxisChanged(const QString& axisName);
 	void selectionCanceledByEsc();
@@ -287,6 +354,7 @@ private:
 	void updatePointPickMarker(const osg::Vec3f& pointWorld, bool hit);
 	void clearPointPickMarker();
 	void refreshAnnotationTexts();
+	void emitTcpDragTeachPoseChanged();
 
 private:
 	QWidgetViewer* m_glWidget = nullptr;
@@ -299,6 +367,7 @@ private:
 	std::unique_ptr<OsgWidgetPickAnnotationController> m_pickAnnotationController;
 	std::unique_ptr<SelectionOperation> m_pointPickOperation;
 	std::unique_ptr<SelectionOperation> m_objectTransformOperation;
+	std::unique_ptr<SelectionOperation> m_tcpDragTeachOperation;
 	std::unique_ptr<SelectionOperation> m_meshElementPickOperation;
 	/// 使用场景光照加载的网格后端（如 URDF 连杆），改色时保留 Material+LIGHTING。
 	std::unordered_set<std::string> m_litMeshBackendIds;
@@ -311,6 +380,7 @@ private:
 		std::vector<osg::ref_ptr<osg::MatrixTransform>> userNodes;
 	};
 	std::unordered_map<std::string, RobotFrameOverlayNodes> m_robotFrameOverlayNodes;
+
 	std::function<void(OsgWidget*)> m_perFrameHook;
 	std::string m_cameraFollowBackendId;
 

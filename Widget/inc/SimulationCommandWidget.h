@@ -28,6 +28,8 @@ public:
 	void setProgramStore(RobotProgramStore* store);
 	void setUseChinese(bool chinese);
 	void setSimulationRunning(bool running);
+	void setTcpDragTeachMode(bool enabled);
+	bool tcpDragTeachMode() const;
 
 	void setRobotInstances(const QStringList& labels, const QStringList& backendIds);
 	int currentRobotInstanceIndex() const;
@@ -60,6 +62,7 @@ signals:
 	void runRequested();
 	void stopRequested();
 	void exportProgramRequested();
+	void tcpDragTeachModeChanged(bool enabled);
 
 private:
 	void bindProgramTree();
@@ -92,4 +95,6 @@ private:
 	QPushButton* m_runBtn = nullptr;
 	QPushButton* m_stopBtn = nullptr;
 	QPushButton* m_exportBtn = nullptr;
+	QPushButton* m_tcpDragTeachBtn = nullptr;
+	bool m_tcpDragTeachMode = false;
 };

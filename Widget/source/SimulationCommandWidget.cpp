@@ -8,6 +8,7 @@
 #include "RobotProgramStore.h"
 
 #include <QComboBox>
+#include <QSignalBlocker>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -156,6 +157,18 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 		}
 		addRow->addWidget(createTypeButton(t));
 	}
+	m_tcpDragTeachBtn = new QPushButton(QStringLiteral("End-effector drag"), this);
+	m_tcpDragTeachBtn->setCheckable(true);
+	m_tcpDragTeachBtn->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+	connect(m_tcpDragTeachBtn, &QPushButton::toggled, this, [this](const bool checked) {
+		if (m_tcpDragTeachMode == checked)
+		{
+			return;
+		}
+		m_tcpDragTeachMode = checked;
+		emit tcpDragTeachModeChanged(checked);
+	});
+	addRow->addWidget(m_tcpDragTeachBtn);
 	addRow->addStretch(1);
 	root->addLayout(addRow);
 
@@ -304,6 +317,10 @@ void SimulationCommandWidget::setTypeButtonsEnabled(const bool enabled)
 			btn->setEnabled(enabled);
 		}
 	}
+	if (m_tcpDragTeachBtn)
+	{
+		m_tcpDragTeachBtn->setEnabled(enabled && !m_simulationRunning);
+	}
 }
 
 void SimulationCommandWidget::setTcpLinkOptions(const QStringList& linkNames, const QString& preferredLink)
@@ -364,6 +381,13 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 	{
 		m_exportBtn->setText(chinese ? QStringLiteral("导出...") : QStringLiteral("Export..."));
 	}
+	if (m_tcpDragTeachBtn)
+	{
+		m_tcpDragTeachBtn->setText(chinese ? QStringLiteral("末端拖动") : QStringLiteral("End-effector drag"));
+		m_tcpDragTeachBtn->setToolTip(
+			chinese ? QStringLiteral("在 3D 视图中拖动 TCP 罗盘示教（不写指令）")
+					: QStringLiteral("Drag TCP gizmo in 3D view to teach pose (does not edit program)"));
+	}
 	updateTypeButtonLabels();
 	rebuildCommandListWidget();
 }
@@ -414,7 +438,40 @@ void SimulationCommandWidget::updateTypeButtonLabels()
 void SimulationCommandWidget::setSimulationRunning(bool running)
 {
 	m_simulationRunning = running;
+	if (running && m_tcpDragTeachBtn && m_tcpDragTeachBtn->isChecked())
+	{
+		const QSignalBlocker b(m_tcpDragTeachBtn);
+		m_tcpDragTeachBtn->setChecked(false);
+		m_tcpDragTeachMode = false;
+		emit tcpDragTeachModeChanged(false);
+	}
+	if (m_tcpDragTeachBtn)
+	{
+		m_tcpDragTeachBtn->setEnabled(!running && m_hasRobotContext);
+	}
 	updateRunStopButtons();
+}
+
+void SimulationCommandWidget::setTcpDragTeachMode(const bool enabled)
+{
+	if (!m_tcpDragTeachBtn)
+	{
+		m_tcpDragTeachMode = enabled;
+		return;
+	}
+	if (m_tcpDragTeachBtn->isChecked() == enabled)
+	{
+		m_tcpDragTeachMode = enabled;
+		return;
+	}
+	const QSignalBlocker b(m_tcpDragTeachBtn);
+	m_tcpDragTeachBtn->setChecked(enabled);
+	m_tcpDragTeachMode = enabled;
+}
+
+bool SimulationCommandWidget::tcpDragTeachMode() const
+{
+	return m_tcpDragTeachMode;
 }
 
 void SimulationCommandWidget::rebuildCommandListWidget()

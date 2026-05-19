@@ -13,6 +13,7 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QDockWidget>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileDialog>
 #include <QHeaderView>
@@ -55,6 +56,7 @@
 #include "RobotCoordinateFrames.h"
 #include "RobotInstructionTransform.h"
 #include "RobotMatrixOsgBridge.h"
+#include "RobotTeachIk.h"
 
 #include <Adapters.h>
 #include <RigidTransform.h>
@@ -1877,6 +1879,8 @@ void MainWindow::wireDocumentPageSignals(DocumentPage* page)
 	connect(o, &OsgWidget::selectedObjectRotationChanged, this, &MainWindow::onSelectedObjectRotationChanged);
 	connect(o, &OsgWidget::selectedObjectColorChanged, this, &MainWindow::onSelectedObjectColorChanged);
 	connect(o, &OsgWidget::transformGizmoCommitted, this, &MainWindow::onTransformGizmoCommitted);
+	connect(o, &OsgWidget::tcpDragTeachPoseChanged, this, &MainWindow::onTcpDragTeachPoseChanged);
+	connect(o, &OsgWidget::tcpDragTeachEnded, this, &MainWindow::onTcpDragTeachEnded);
 	connect(o, &OsgWidget::activeAxisChanged, this, &MainWindow::onActiveAxisChanged);
 	connect(o, &OsgWidget::selectionCanceledByEsc, this, &MainWindow::onSelectionCanceledByEsc);
 	connect(o, &OsgWidget::annotationCreated, this, &MainWindow::onAnnotationCreated);
@@ -2683,6 +2687,11 @@ void MainWindow::refreshRobotCoordinateFrameOverlays(
 void MainWindow::onSimulationRobotSelectionChanged(int instanceIndex, const QString& sceneBackendId)
 {
 	(void)sceneBackendId;
+	if (m_simulationCommandPage && m_simulationCommandPage->tcpDragTeachMode())
+	{
+		onSimulationTcpDragTeachModeChanged(false);
+		m_simulationCommandPage->setTcpDragTeachMode(false);
+	}
 	DocumentPage* doc = currentPage();
 	if (!doc || !m_simulationCommandPage || !m_robotAxisControlPage || instanceIndex < 0)
 	{
@@ -2757,6 +2766,248 @@ void MainWindow::onRobotAxisJointAnglesChanged(const QVector<double>& jointAngle
 		captureMotionPreviewProgramStartJoints();
 		invalidateFeasibleAxisConfigurationCache();
 	}
+}
+
+void MainWindow::onSimulationTcpDragTeachModeChanged(const bool enabled)
+{
+	OsgWidget* osg = currentOsgWidget();
+	if (!m_simulationCommandPage)
+	{
+		return;
+	}
+	if (!enabled)
+	{
+		if (osg && osg->isTcpDragTeachActive())
+		{
+			osg->endTcpDragTeach();
+		}
+		m_tcpDragTeachFlangeLink.clear();
+		return;
+	}
+	if (m_robotProgramExecutor.isRunning())
+	{
+		m_simulationCommandPage->setTcpDragTeachMode(false);
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendWarning(
+				i18n(QStringLiteral("Stop simulation before TCP drag teach."),
+					QStringLiteral("请先停止仿真再使用末端拖动。")));
+		}
+		return;
+	}
+	DocumentPage* doc = currentPage();
+	if (!doc || !osg || !doc->hasRobotSimulationContext() || !m_robotAxisControlPage)
+	{
+		m_simulationCommandPage->setTcpDragTeachMode(false);
+		return;
+	}
+	MainWindowSelectionService::clearBackendObjectSelection(*this, true);
+	if (osg->objectSelectionMode())
+	{
+		osg->setObjectSelectionMode(false);
+	}
+	const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex() >= 0
+		? m_simulationCommandPage->currentRobotInstanceIndex()
+		: 0;
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	const QString robotRootId = doc->robotSceneBackendIdForInstance(instIdx);
+	if (urdfPath.isEmpty() || robotRootId.isEmpty())
+	{
+		m_simulationCommandPage->setTcpDragTeachMode(false);
+		return;
+	}
+	QStringList revoluteChildLinks;
+	QString fallbackFlange;
+	(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, revoluteChildLinks, nullptr);
+	if (!revoluteChildLinks.isEmpty())
+	{
+		fallbackFlange = revoluteChildLinks.back();
+	}
+	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
+	engine::RigidTransform targetInBase{};
+	QString flangeLinkQ;
+	if (!targetRigidTransformFromUrdfFlangeFk(
+			urdfPath,
+			m_robotAxisControlPage->jointAnglesRad(),
+			frames,
+			fallbackFlange,
+			targetInBase,
+			flangeLinkQ,
+			nullptr))
+	{
+		RobotInstruction::Vec3 pose{};
+		RobotInstruction::Vec3 euler{};
+		QString err;
+		if (!tryCaptureCurrentRobotTcpPose(pose, euler, nullptr, nullptr, nullptr, &err))
+		{
+			if (m_runInfoPage)
+			{
+				m_runInfoPage->appendWarning(err);
+			}
+			m_simulationCommandPage->setTcpDragTeachMode(false);
+			return;
+		}
+		targetInBase = engine::RigidTransform::fromTranslationEulerDeg(pose.x, pose.y, pose.z, euler.x, euler.y, euler.z);
+		flangeLinkQ = defaultTcpLinkNameForUrdf(urdfPath, m_simulationCommandPage->selectedTcpLink());
+	}
+	m_tcpDragTeachFlangeLink = flangeLinkQ;
+	float modelDiag = 1000.0f;
+	if (const QString rootBid = robotRootId; osg->hasBackendObjectBranch(rootBid.toStdString()))
+	{
+		double cx = 0.0;
+		double cy = 0.0;
+		double cz = 0.0;
+		if (osg->tryGetBackendModelCenterMm(rootBid.toStdString(), cx, cy, cz))
+		{
+			(void)cx;
+			(void)cy;
+			(void)cz;
+		}
+	}
+	(void)modelDiag;
+	std::string mountBackendId = robotRootId.toStdString();
+	if (!osg->hasBackendObjectBranch(mountBackendId))
+	{
+		if (!m_tcpDragTeachFlangeLink.isEmpty())
+		{
+			const std::string flangeId = linkMeshBackendIdForInstance(
+				doc, instIdx, m_tcpDragTeachFlangeLink.toStdString())
+				.toStdString();
+			if (!flangeId.empty() && osg->hasBackendObjectBranch(flangeId))
+			{
+				mountBackendId = flangeId;
+			}
+		}
+		if (!osg->hasBackendObjectBranch(mountBackendId))
+		{
+			const QString refBackendId = doc->robotFrameWorldReferenceBackendId(instIdx);
+			if (!refBackendId.isEmpty() && osg->hasBackendObjectBranch(refBackendId.toStdString()))
+			{
+				mountBackendId = refBackendId.toStdString();
+			}
+		}
+	}
+	std::function<bool(osg::Matrixd&)> resolveRobotBaseWorld;
+	if (mountBackendId != robotRootId.toStdString())
+	{
+		resolveRobotBaseWorld = [this, doc, osg, instIdx](osg::Matrixd& outWorld) -> bool {
+			QVector<double> jointQ;
+			if (m_robotAxisControlPage && m_robotAxisControlPage->jointCount() > 0)
+			{
+				jointQ = m_robotAxisControlPage->jointAnglesRad();
+			}
+			return robotBaseWorldMatrixForInstance(
+				doc, osg, instIdx, outWorld, jointQ.isEmpty() ? nullptr : &jointQ);
+		};
+	}
+	const BackendMat4 toolMat4 = toolMat4ForFrames(frames, nullptr);
+	const osg::Matrixd toolLocalOnFlange = osgMatrixFromBackendMat4(toolMat4);
+	const osg::Matrixd* toolLocalPtr = resolveRobotBaseWorld ? &toolLocalOnFlange : nullptr;
+	osg->beginTcpDragTeach(mountBackendId, targetInBase, modelDiag, resolveRobotBaseWorld, toolLocalPtr);
+	if (!osg->isTcpDragTeachActive())
+	{
+		m_simulationCommandPage->setTcpDragTeachMode(false);
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendWarning(i18n(QStringLiteral("Failed to attach TCP drag gizmo."),
+				QStringLiteral("无法挂载 TCP 拖动罗盘。")));
+		}
+	}
+	m_tcpDragTeachIkTimer.start();
+}
+
+bool MainWindow::applyTcpDragTeachIkFromPose(
+	const double pxMm,
+	const double pyMm,
+	const double pzMm,
+	const double exDeg,
+	const double eyDeg,
+	const double ezDeg)
+{
+	DocumentPage* doc = currentPage();
+	OsgWidget* osg = currentOsgWidget();
+	if (!doc || !osg || !m_simulationCommandPage || !m_robotAxisControlPage || m_robotProgramExecutor.isRunning())
+	{
+		return false;
+	}
+	const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex() >= 0
+		? m_simulationCommandPage->currentRobotInstanceIndex()
+		: 0;
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	if (urdfPath.isEmpty() || m_tcpDragTeachFlangeLink.isEmpty())
+	{
+		return false;
+	}
+	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
+	BackendMat4 toolMat = BackendMat4::identity();
+	if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
+	{
+		toolMat = RobotCoordinate::frameToMat4(tool->T_flange_tool);
+	}
+	RobotTeachIk::TeachIkContext ctx;
+	ctx.urdfPath = urdfPath;
+	ctx.ikLinkName = m_tcpDragTeachFlangeLink;
+	ctx.T_base_target = engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
+	ctx.seedJointRad.clear();
+	const QVector<double> seedQ = m_robotAxisControlPage->jointAnglesRad();
+	ctx.seedJointRad.reserve(static_cast<size_t>(seedQ.size()));
+	for (double v : seedQ)
+	{
+		ctx.seedJointRad.push_back(v);
+	}
+	ctx.useOrientation = true;
+	ctx.T_flange_tool = toolMat;
+	const RobotTeachIk::TeachIkResult ik = RobotTeachIk::solveTeachIk(ctx);
+	if (!ik.ok)
+	{
+		return false;
+	}
+	QVector<double> qRad;
+	qRad.reserve(static_cast<int>(ik.jointRad.size()));
+	for (double v : ik.jointRad)
+	{
+		qRad.push_back(v);
+	}
+	m_suppressMotionPreviewStartCapture = true;
+	const QSignalBlocker blockAxis(m_robotAxisControlPage);
+	m_robotAxisControlPage->setJointAnglesRad(qRad);
+	onRobotAxisJointAnglesChanged(qRad);
+	engine::RigidTransform fkTarget{};
+	QString flangeQ;
+	QStringList revoluteChildLinks;
+	QString fallbackFlange;
+	(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, revoluteChildLinks, nullptr);
+	if (!revoluteChildLinks.isEmpty())
+	{
+		fallbackFlange = revoluteChildLinks.back();
+	}
+	if (targetRigidTransformFromUrdfFlangeFk(urdfPath, qRad, frames, fallbackFlange, fkTarget, flangeQ, nullptr))
+	{
+		osg->updateTcpDragTeachFromTarget(fkTarget);
+	}
+	m_suppressMotionPreviewStartCapture = false;
+	refreshRobotCoordinateFrameOverlays();
+	return true;
+}
+
+void MainWindow::onTcpDragTeachPoseChanged(
+	const double pxMm,
+	const double pyMm,
+	const double pzMm,
+	const double exDeg,
+	const double eyDeg,
+	const double ezDeg)
+{
+	(void)applyTcpDragTeachIkFromPose(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
+}
+
+void MainWindow::onTcpDragTeachEnded()
+{
+	if (m_simulationCommandPage)
+	{
+		m_simulationCommandPage->setTcpDragTeachMode(false);
+	}
+	m_tcpDragTeachFlangeLink.clear();
 }
 
 void MainWindow::onSimulationStopRequested()
