@@ -455,7 +455,9 @@ void InstructionProgramTreeWidget::selectInstructionByRaw(RobotInstruction::Base
 	}
 }
 
-void InstructionProgramTreeWidget::insertInstruction(const std::shared_ptr<RobotInstruction::Base>& ins)
+void InstructionProgramTreeWidget::insertInstruction(
+	const std::shared_ptr<RobotInstruction::Base>& ins,
+	const bool emitSelection)
 {
 	if (!ins || !m_program)
 	{
@@ -533,8 +535,13 @@ void InstructionProgramTreeWidget::insertInstruction(const std::shared_ptr<Robot
 	}
 
 	rebuildFromProgram();
+	m_syncing = true;
 	selectInstructionByRaw(ins.get());
-	emit instructionSelected(ins);
+	m_syncing = false;
+	if (emitSelection)
+	{
+		emit instructionSelected(ins);
+	}
 }
 
 void InstructionProgramTreeWidget::removeSelected()

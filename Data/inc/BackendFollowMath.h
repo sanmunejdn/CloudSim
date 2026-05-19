@@ -6,7 +6,8 @@
 
 struct BackendVec3;
 
-/// Column-major 4x4 (same storage order as \c osg::Matrixd): transforms column vectors \(p' = M p\).
+/// Column-major 4x4 (legacy; same storage order as \c osg::Matrixd). New rigid chains should use
+/// \c engine::RigidTransform from GeometryEngine at module boundaries.
 struct DATA_EXPORT BackendMat4
 {
 	double v[16]{};

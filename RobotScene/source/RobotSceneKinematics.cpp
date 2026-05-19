@@ -1,5 +1,6 @@
 #include "RobotSceneKinematics.h"
 
+#include "RobotMatrixOsgBridge.h"
 #include "IRobotBackendPoseSink.h"
 #include "IRobotSimulationDocument.h"
 
@@ -90,15 +91,7 @@ std::string joinUtf8List(const QVector<QString>& v)
 
 BackendMat4 osgMatToBackendColMajor(const osg::Matrixd& m)
 {
-	BackendMat4 b{};
-	for (int c = 0; c < 4; ++c)
-	{
-		for (int r = 0; r < 4; ++r)
-		{
-			b.v[c * 4 + r] = m(r, c);
-		}
-	}
-	return b;
+	return RobotMatrixOsg::backendColMajorFromMatrix(m);
 }
 
 /// When link meshes are parented in OSG, \ref IRobotBackendPoseSink::setBackendRootWorldMatrixFromWorld uses each

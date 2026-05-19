@@ -10,6 +10,7 @@
 #include "OsgWidget.h"
 #include "OsgWidgetCaptureController.h"
 #include "PointCloudBackendData.h"
+#include "RobotCoordinateFrames.h"
 #include "RobotSceneKinematics.h"
 #include "RunInfoPage.h"
 #include "UrdfRobotLoader.h"
@@ -832,6 +833,23 @@ bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, 
 		QHash<QString, osg::MatrixTransform*>(),
 		robotRootId,
 		robotRootId);
+
+	{
+		QString defaultFlangeLink;
+		QStringList revoluteChildLinks;
+		(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(
+			fileInfo.absoluteFilePath(), revoluteChildLinks, nullptr);
+		if (!revoluteChildLinks.isEmpty())
+		{
+			defaultFlangeLink = revoluteChildLinks.back();
+		}
+		const int instIdx = doc->robotKinematicInstanceCount() - 1;
+		if (instIdx >= 0)
+		{
+			doc->robotCoordinateFramesForInstance(instIdx) =
+				RobotCoordinate::makeDefaultFrameSet(defaultFlangeLink.toStdString());
+		}
+	}
 
 	doc->setRobotPerLinkKinematicsBinding(robotRootId + QStringLiteral("_ctx"), linkToBackend, fkT0, outerBind, true);
 

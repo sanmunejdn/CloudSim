@@ -11,6 +11,8 @@
 #include <osg/MatrixTransform>
 #include <osg/Node>
 
+#include <RigidTransform.h>
+
 #include "robot_urdf_global.h"
 
 /// 【中文】URDF 机器人层级场景图加载：解析 URDF，构建三层分离的动态层级场景图。
@@ -82,6 +84,13 @@ namespace UrdfRobotLoader
 		const QString& urdfFilePath,
 		const QVector<double>& jointAnglesRad,
 		QHash<QString, osg::Matrixd>& outLinkNameToLinkWorld,
+		QString* errorMessage = nullptr);
+
+	/// Same as \ref computeLinkWorldMatrices but returns \c engine::RigidTransform (mm, quaternion truth).
+	ROBOT_URDF_API bool computeLinkWorldRigidTransforms(
+		const QString& urdfFilePath,
+		const QVector<double>& jointAnglesRad,
+		QHash<QString, engine::RigidTransform>& outLinkNameToLinkWorld,
 		QString* errorMessage = nullptr);
 
 	/// Drops cached parse trees (e.g. after replacing URDF on disk in edge cases). Normally unnecessary: cache keys include mtime.

@@ -241,6 +241,20 @@ osg::Group* findUrdfLinkContainer(osg::Group* sceneSubtree, const std::string& u
 	return vis.found;
 }
 
+osg::ref_ptr<osg::Geode> createReachabilityOriginGeode(bool reachable)
+{
+	const float r = reachable ? 6.0f : 7.0f;
+	const osg::Vec4 color = reachable ? osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f) : osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f);
+	osg::ref_ptr<osg::Sphere> sphere = new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.0f), r);
+	osg::ref_ptr<osg::ShapeDrawable> drawable = new osg::ShapeDrawable(sphere.get());
+	drawable->setColor(color);
+	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+	geode->addDrawable(drawable.get());
+	osg::StateSet* ss = geode->getOrCreateStateSet();
+	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+	return geode;
+}
+
 osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(float axisLengthMm, bool lineMotion)
 {
 	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
@@ -456,24 +470,10 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& a
 		m_instructionPoseAxesGroup = new osg::Group;
 		m_instructionPoseAxesGroup->setName("InstructionPoseAxes");
 	}
-	// FK / render.tcpLocalMat4 are authored in the robot assembly local frame (same subtree as link_6).
-	// Parent axes under that assembly so we do not compose PAT world here (avoids ~1m+ overlay offset bugs).
+	// Waypoints are world-fixed markers on the trajectory overlay (not children of moving robot links).
 	osg::Group* parentGroup = m_trajectoryOverlayGroup.get();
-	bool axesInRobotAssemblyLocal = false;
+	const bool axesInRobotAssemblyLocal = false;
 	osg::Group* robotAsmRoot = nullptr;
-	if (!axes.empty() && !axes.front().robotBackendId.empty())
-	{
-		const auto itPat = m_backendObjectRoots.find(axes.front().robotBackendId);
-		if (itPat != m_backendObjectRoots.end() && itPat->second.valid() && itPat->second->getNumChildren() > 0)
-		{
-			if (osg::Group* asmRoot = dynamic_cast<osg::Group*>(itPat->second->getChild(0)))
-			{
-				parentGroup = asmRoot;
-				axesInRobotAssemblyLocal = true;
-				robotAsmRoot = asmRoot;
-			}
-		}
-	}
 	while (m_instructionPoseAxesGroup->getNumParents() > 0)
 	{
 		osg::Group* p = m_instructionPoseAxesGroup->getParent(0);
@@ -494,59 +494,17 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& a
 		osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
 		mt->setName(a.lineMotion ? "LINE_TargetAxis" : "PTP_TargetAxis");
 		const osg::Vec3f p = a.positionMm;
-		const bool linkLocalMatrix = !a.urdfTcpAttachLinkName.empty();
 		osg::Matrixd m;
-		if (a.hasLocalMatrix)
-		{
-			for (int r = 0; r < 4; ++r)
-			{
-				for (int c = 0; c < 4; ++c)
-				{
-					m(r, c) = a.localMatrix[r * 4 + c];
-				}
-			}
-			if (!linkLocalMatrix && !axesInRobotAssemblyLocal && !a.robotBackendId.empty())
-			{
-				osg::Matrixd rootWorld;
-				if (getBackendRootWorldMatrix(a.robotBackendId, rootWorld))
-				{
-					m = rootWorld * m;
-				}
-			}
-		}
-		else
-		{
-			// Same convention as capture / URDF FK: makeRotate then setTrans (not translate*rotate).
-			const osg::Quat q = OsgScene::eulerDegToQuat(a.eulerDeg);
-			m.makeRotate(q);
-			m.setTrans(static_cast<double>(p.x()), static_cast<double>(p.y()), static_cast<double>(p.z()));
-			if (!axesInRobotAssemblyLocal && !a.robotBackendId.empty())
-			{
-				osg::Matrixd rootWorld;
-				if (getBackendRootWorldMatrix(a.robotBackendId, rootWorld))
-				{
-					m = rootWorld * m;
-				}
-			}
-		}
+		const osg::Quat q = OsgScene::eulerDegToQuat(a.eulerDeg);
+		m.makeRotate(q);
+		m.setTrans(static_cast<double>(p.x()), static_cast<double>(p.y()), static_cast<double>(p.z()));
+		(void)axesInRobotAssemblyLocal;
+		(void)robotAsmRoot;
 		mt->setMatrix(m);
+		mt->addChild(createReachabilityOriginGeode(a.reachable).get());
 		mt->addChild(createInstructionPoseAxisGeode(a.lineMotion ? 100.0f : 80.0f, a.lineMotion).get());
-
-		bool mountedUnderLink = false;
-		if (linkLocalMatrix && robotAsmRoot)
-		{
-			if (osg::Group* linkC = findUrdfLinkContainer(robotAsmRoot, a.urdfTcpAttachLinkName))
-			{
-				linkC->addChild(mt.get());
-				m_instructionPoseAxisNodes.push_back(mt);
-				mountedUnderLink = true;
-			}
-		}
-		if (!mountedUnderLink)
-		{
-			m_instructionPoseAxesGroup->addChild(mt.get());
-			m_instructionPoseAxisNodes.push_back(mt);
-		}
+		m_instructionPoseAxesGroup->addChild(mt.get());
+		m_instructionPoseAxisNodes.push_back(mt);
 	}
 	requestRedraw();
 }
@@ -568,6 +526,107 @@ void OsgWidget::clearInstructionPoseAxes()
 	if (m_instructionPoseAxesGroup.valid())
 	{
 		m_instructionPoseAxesGroup->removeChildren(0, m_instructionPoseAxesGroup->getNumChildren());
+	}
+	requestRedraw();
+}
+
+void OsgWidget::clearRobotFrameOverlays(const std::string& robotRootBackendId)
+{
+	const auto it = m_robotFrameOverlayNodes.find(robotRootBackendId);
+	if (it == m_robotFrameOverlayNodes.end())
+	{
+		return;
+	}
+	auto detach = [](const osg::ref_ptr<osg::MatrixTransform>& t) {
+		if (!t.valid())
+		{
+			return;
+		}
+		while (t->getNumParents() > 0)
+		{
+			t->getParent(0)->removeChild(t.get());
+		}
+	};
+	for (const osg::ref_ptr<osg::MatrixTransform>& t : it->second.toolNodes)
+	{
+		detach(t);
+	}
+	for (const osg::ref_ptr<osg::MatrixTransform>& u : it->second.userNodes)
+	{
+		detach(u);
+	}
+	m_robotFrameOverlayNodes.erase(it);
+	requestRedraw();
+}
+
+void OsgWidget::setRobotFrameOverlays(const RobotFrameOverlayUpdate& update)
+{
+	if (update.robotRootBackendId.empty())
+	{
+		return;
+	}
+	clearRobotFrameOverlays(update.robotRootBackendId);
+	RobotFrameOverlayNodes nodes;
+
+	auto mountOnParent = [&](const std::string& mountBackendId, osg::MatrixTransform* mt) -> bool {
+		if (!mt)
+		{
+			return false;
+		}
+		if (!mountBackendId.empty())
+		{
+			const auto it = m_backendObjectRoots.find(mountBackendId);
+			if (it != m_backendObjectRoots.end() && it->second.valid())
+			{
+				it->second->addChild(mt);
+				return true;
+			}
+		}
+		const auto itScene = m_backendObjectRoots.find(update.robotRootBackendId);
+		if (itScene != m_backendObjectRoots.end() && itScene->second.valid() && itScene->second->getNumChildren() > 0)
+		{
+			if (osg::Group* asmRoot = dynamic_cast<osg::Group*>(itScene->second->getChild(0)))
+			{
+				asmRoot->addChild(mt);
+				return true;
+			}
+		}
+		return false;
+	};
+
+	if (update.showToolFrames)
+	{
+		for (const RobotFrameOverlayUpdate::ToolEntry& te : update.toolFrames)
+		{
+			osg::ref_ptr<osg::MatrixTransform> toolMt = new osg::MatrixTransform;
+			toolMt->setName(std::string("RobotToolFrame_") + te.name);
+			toolMt->setMatrix(te.localMatrix);
+			const float axisLen = te.active ? 100.0f : 75.0f;
+			toolMt->addChild(createInstructionPoseAxisGeode(axisLen, false).get());
+			if (mountOnParent(te.mountBackendId, toolMt.get()))
+			{
+				nodes.toolNodes.push_back(toolMt);
+			}
+		}
+	}
+	if (update.showUserFrames)
+	{
+		for (const RobotFrameOverlayUpdate::UserEntry& ue : update.userFrames)
+		{
+			osg::ref_ptr<osg::MatrixTransform> userMt = new osg::MatrixTransform;
+			userMt->setName(std::string("RobotUserFrame_") + ue.name);
+			userMt->setMatrix(ue.localMatrix);
+			userMt->addChild(createInstructionPoseAxisGeode(110.0f, false).get());
+			if (mountOnParent(ue.mountBackendId, userMt.get()))
+			{
+				nodes.userNodes.push_back(userMt);
+			}
+		}
+	}
+
+	if (!nodes.toolNodes.empty() || !nodes.userNodes.empty())
+	{
+		m_robotFrameOverlayNodes[update.robotRootBackendId] = std::move(nodes);
 	}
 	requestRedraw();
 }

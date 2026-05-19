@@ -5,6 +5,8 @@
 
 #include "UrdfRobotLoader.h"
 
+#include <Adapters.h>
+
 #include <QDateTime>
 #include <QByteArray>
 #include <QDir>
@@ -1249,6 +1251,26 @@ bool UrdfRobotLoader::computeLinkWorldMatrices(
 		return false;
 	}
 	computeLinkWorldMatricesFromModel(*model, jointAnglesRad, outLinkNameToLinkWorld);
+	return true;
+}
+
+bool UrdfRobotLoader::computeLinkWorldRigidTransforms(
+	const QString& urdfFilePath,
+	const QVector<double>& jointAnglesRad,
+	QHash<QString, engine::RigidTransform>& outLinkNameToLinkWorld,
+	QString* errorMessage)
+{
+	QHash<QString, osg::Matrixd> osgMats;
+	if (!computeLinkWorldMatrices(urdfFilePath, jointAnglesRad, osgMats, errorMessage))
+	{
+		outLinkNameToLinkWorld.clear();
+		return false;
+	}
+	outLinkNameToLinkWorld.clear();
+	for (auto it = osgMats.constBegin(); it != osgMats.constEnd(); ++it)
+	{
+		outLinkNameToLinkWorld.insert(it.key(), engine::rigidTransformFromOsg(it.value()));
+	}
 	return true;
 }
 

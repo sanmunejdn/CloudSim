@@ -16,6 +16,9 @@
     <ClCompile Include="source\RobotInstructionModel.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="source\RobotProgramExport.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\IRobotBackendPoseSink.h">
@@ -40,6 +43,9 @@
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotInstructionModel.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotProgramExport.h">
       <Filter>inc</Filter>
     </ClInclude>
   </ItemGroup>

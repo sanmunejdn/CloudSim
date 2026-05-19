@@ -130,7 +130,7 @@
       <PreprocessorDefinitions>DATA_LIB;RUN_LOGGER_STATIC;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/opencascade-7.9.3-vc14-64/inc;../../bin/SDK/dxfSolution/dxflib/inc;../../bin/SDK/boost_1_79_0;../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../bin/SDK/CGAL5.5.2/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/eigen;../../bin/SDK/opencascade-7.9.3-vc14-64/inc;../../bin/SDK/dxfSolution/dxflib/inc;../../bin/SDK/boost_1_79_0;../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../bin/SDK/CGAL5.5.2/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -149,7 +149,7 @@
       <PreprocessorDefinitions>DATA_LIB;RUN_LOGGER_STATIC</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/opencascade-7.9.3-vc14-64/inc;../../bin/SDK/dxfSolution/dxflib/inc;../../bin/SDK/boost_1_79_0;../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../bin/SDK/CGAL5.5.2/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/eigen;../../bin/SDK/opencascade-7.9.3-vc14-64/inc;../../bin/SDK/dxfSolution/dxflib/inc;../../bin/SDK/boost_1_79_0;../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../bin/SDK/CGAL5.5.2/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>

@@ -84,7 +84,11 @@ public:
 		osg::Vec3f positionMm;
 		osg::Vec3f eulerDeg;
 		bool lineMotion = false;
+		/// IK reachable for this waypoint (origin marker green/red).
+		bool reachable = true;
 		std::string robotBackendId; // Local frame parent. Empty means world overlay.
+		/// per-link：T_base_tcp 直接挂在 \a robotBackendId 的 PAT 下（勿用其子装配子图，避免漂到场景原点）。
+		bool mountTcpOnPatRoot = false;
 		bool hasLocalMatrix = false;
 		double localMatrix[16]{};
 		/// URDF link name (e.g. "link_6"). When set, \a localMatrix is inv(T_link)*T_tcp in that link's
@@ -187,6 +191,31 @@ public:
 	void setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& axes);
 	void clearInstructionPoseAxes();
 
+	struct RobotFrameOverlayUpdate
+	{
+		std::string robotRootBackendId;
+		bool showToolFrames = false;
+		struct ToolEntry
+		{
+			std::string name;
+			/// 非空时挂到该连杆/后端 PAT；空则挂到 robotRoot 下 URDF 装配子图（层级导入）。
+			std::string mountBackendId;
+			osg::Matrixd localMatrix;
+			bool active = false;
+		};
+		std::vector<ToolEntry> toolFrames;
+		bool showUserFrames = false;
+		struct UserEntry
+		{
+			std::string name;
+			std::string mountBackendId;
+			osg::Matrixd localMatrix;
+		};
+		std::vector<UserEntry> userFrames;
+	};
+	void setRobotFrameOverlays(const RobotFrameOverlayUpdate& update);
+	void clearRobotFrameOverlays(const std::string& robotRootBackendId);
+
 	/// Optional per-frame callback (e.g. follow-attachment solve); runs on the viewer frame timer.
 	void setPerFrameHook(std::function<void(OsgWidget*)> fn);
 	/// True while object gizmo translate/rotate drag is active (skip automatic follower pose overwrite).
@@ -276,6 +305,12 @@ private:
 	osg::ref_ptr<osg::Group> m_instructionPoseAxesGroup;
 	/// Instruction TCP axes parented directly under link containers (must detach before rebuild/clear).
 	std::vector<osg::ref_ptr<osg::MatrixTransform>> m_instructionPoseAxisNodes;
+	struct RobotFrameOverlayNodes
+	{
+		std::vector<osg::ref_ptr<osg::MatrixTransform>> toolNodes;
+		std::vector<osg::ref_ptr<osg::MatrixTransform>> userNodes;
+	};
+	std::unordered_map<std::string, RobotFrameOverlayNodes> m_robotFrameOverlayNodes;
 	std::function<void(OsgWidget*)> m_perFrameHook;
 	std::string m_cameraFollowBackendId;
 

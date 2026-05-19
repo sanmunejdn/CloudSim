@@ -1,6 +1,7 @@
 #include "RobotInstructionFactory.h"
 #include "RobotInstructionAxisConfiguration.h"
 #include "RobotInstructionProgram.h"
+#include "RobotInstructionTransform.h"
 
 namespace RobotInstruction
 {
@@ -46,6 +47,16 @@ void applyCommonFields(Base& ins, const nlohmann::json& j)
 	{
 		ins.setControllerId(robotId);
 	}
+	if (j.contains("extensions") && j["extensions"].is_object())
+	{
+		for (auto it = j["extensions"].begin(); it != j["extensions"].end(); ++it)
+		{
+			if (it.value().is_string())
+			{
+				ins.setExtensionProperty(it.key(), it.value().get<std::string>());
+			}
+		}
+	}
 }
 
 bool parseNested(const nlohmann::json& j, const char* key, std::vector<std::shared_ptr<Base>>& out, std::string* errMsg)
@@ -75,6 +86,16 @@ void writeCommonFields(nlohmann::json& j, const Base& ins)
 	if (!ins.controllerId().empty())
 	{
 		j["robotId"] = ins.controllerId();
+	}
+	const auto& ext = ins.extensionProperties();
+	if (!ext.empty())
+	{
+		nlohmann::json extObj = nlohmann::json::object();
+		for (const auto& kv : ext)
+		{
+			extObj[kv.first] = kv.second;
+		}
+		j["extensions"] = std::move(extObj);
 	}
 }
 } // namespace
@@ -123,6 +144,13 @@ std::shared_ptr<Base> createFromJson(const nlohmann::json& j, std::string* errMs
 			setMotionPointIndex(*p, j["pointIndex"].get<int>());
 		}
 		ins = p;
+		{
+			engine::RigidTransform t{};
+			if (readTargetTransformFromInstruction(*p, t))
+			{
+				writeTargetTransformToInstruction(*p, t);
+			}
+		}
 		break;
 	}
 	case Type::LINE:
@@ -146,6 +174,13 @@ std::shared_ptr<Base> createFromJson(const nlohmann::json& j, std::string* errMs
 			setMotionPointIndex(*p, j["pointIndex"].get<int>());
 		}
 		ins = p;
+		{
+			engine::RigidTransform t{};
+			if (readTargetTransformFromInstruction(*p, t))
+			{
+				writeTargetTransformToInstruction(*p, t);
+			}
+		}
 		break;
 	}
 	case Type::WAIT:

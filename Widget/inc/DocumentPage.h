@@ -14,6 +14,7 @@
 #include "widget_global.h"
 
 #include "IRobotSimulationDocument.h"
+#include "RobotCoordinateFrames.h"
 #include "RobotProgramStore.h"
 
 #include <string>
@@ -106,6 +107,8 @@ public:
 	int robotKinematicInstanceCount() const override;
 
 	QString robotSceneBackendIdForInstance(int instanceIndex) const;
+	/// per-link 模式下 sceneBackendId 可能无 OSG 节点；返回用于坐标系 overlay 世界矩阵的连杆 backend id。
+	QString robotFrameWorldReferenceBackendId(int instanceIndex) const;
 	QString robotDisplayLabelForInstance(int instanceIndex) const;
 	QStringList robotRevoluteJointNamesForInstance(int instanceIndex) const;
 	void robotJointLimitsForInstance(int instanceIndex, QVector<double>& lowerRad, QVector<double>& upperRad) const;
@@ -156,6 +159,10 @@ public:
 		const QHash<QString, osg::Matrixd>& outerWorldAtBindByBackendId,
 		bool meshVerticesInLinkFrame = false);
 
+	const RobotCoordinate::RobotCoordinateFrameSet& robotCoordinateFramesForInstance(int instanceIndex) const;
+	RobotCoordinate::RobotCoordinateFrameSet& robotCoordinateFramesForInstance(int instanceIndex);
+	const RobotCoordinate::RobotUserFrame* robotActiveUserFrameForInstance(int instanceIndex) const;
+
 private:
 	struct HierarchicalRobotInstance
 	{
@@ -172,6 +179,7 @@ private:
 		QHash<QString, osg::Matrixd> fkMeshWorldT0;
 		QHash<QString, osg::Matrixd> outerWorldAtBindByBackendId;
 		bool meshVerticesInLinkFrame = false;
+		RobotCoordinate::RobotCoordinateFrameSet coordinateFrames;
 	};
 
 	void rebuildHierarchicalRobotAggregates();

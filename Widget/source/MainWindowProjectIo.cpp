@@ -32,6 +32,7 @@
 #include "ProjectPackageZip.h"
 #include "RobotInstructionFactory.h"
 #include "RobotProgramStore.h"
+#include "RobotCoordinateFrames.h"
 #include "RobotSceneKinematics.h"
 #include "RunInfoPage.h"
 #include "UrdfRobotLoader.h"
@@ -179,6 +180,43 @@ bool restorePerLinkRobotKinematicsFromJson(
 	page->appendHierarchicalRobotSimulationContext(
 		urdf, jn, lo, hi, QHash<QString, osg::MatrixTransform*>(), sceneRoot, jointRoot);
 	page->setRobotPerLinkKinematicsBinding(importKey, linkMap, fkT0, outer, meshInLinkFrame);
+	const QJsonObject cfObj = rk.value(QStringLiteral("coordinateFrames")).toObject();
+	if (!cfObj.isEmpty())
+	{
+		const QByteArray raw = QJsonDocument(cfObj).toJson(QJsonDocument::Compact);
+		try
+		{
+			const nlohmann::json cfJ = nlohmann::json::parse(raw.constData(), raw.constData() + raw.size());
+			RobotCoordinate::RobotCoordinateFrameSet frames;
+			if (RobotCoordinate::readCoordinateFrameSetFromJson(cfJ, frames))
+			{
+				const int instIdx = page->robotKinematicInstanceCount() - 1;
+				if (instIdx >= 0)
+				{
+					page->robotCoordinateFramesForInstance(instIdx) = std::move(frames);
+				}
+			}
+		}
+		catch (...)
+		{
+		}
+	}
+	else
+	{
+		const int instIdx = page->robotKinematicInstanceCount() - 1;
+		if (instIdx >= 0)
+		{
+			QString defaultFlange;
+			QStringList childLinks;
+			(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdf, childLinks, nullptr);
+			if (!childLinks.isEmpty())
+			{
+				defaultFlange = childLinks.back();
+			}
+			page->robotCoordinateFramesForInstance(instIdx) =
+				RobotCoordinate::makeDefaultFrameSet(defaultFlange.toStdString());
+		}
+	}
 	outAllJointAnglesRad += q0;
 	return true;
 }
@@ -498,6 +536,14 @@ void MainWindow::onSaveProject()
 			if (pl.meshVerticesInLinkFrame)
 			{
 				rk.insert(QStringLiteral("meshInLinkFrame"), true);
+			}
+			nlohmann::json cfJ;
+			RobotCoordinate::writeCoordinateFrameSetToJson(doc->robotCoordinateFramesForInstance(ri), cfJ);
+			const QByteArray cfRaw = QByteArray::fromStdString(cfJ.dump());
+			const QJsonDocument cfDoc = QJsonDocument::fromJson(cfRaw);
+			if (cfDoc.isObject())
+			{
+				rk.insert(QStringLiteral("coordinateFrames"), cfDoc.object());
 			}
 			robotsArr.push_back(rk);
 		}
@@ -993,6 +1039,15 @@ void MainWindow::onOpenProjectFile()
 		{
 			(void)RobotSceneKinematics::applyJointAnglesFromDocument(page, page->sceneFacade().poseSink(), allQ0);
 			refreshSimulationJointListFromCurrentDoc();
+			if (m_simulationCommandPage && page->robotKinematicInstanceCount() > 0)
+			{
+				const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex();
+				if (instIdx >= 0)
+				{
+					syncRobotFrameSettingsFromDocument(instIdx);
+					refreshRobotCoordinateFrameOverlays();
+				}
+			}
 		}
 	}
 

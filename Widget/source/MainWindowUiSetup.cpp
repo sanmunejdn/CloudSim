@@ -25,6 +25,7 @@
 #include "ProgressManager.h"
 #include "RunInfoPage.h"
 #include "RunLogger.h"
+#include "RobotFrameSettingsWidget.h"
 #include "SimulationCommandWidget.h"
 #include "AiAssistantDockWidget.h"
 #include "AiAssistantCoordinator.h"
@@ -288,8 +289,10 @@ void MainWindow::setupDockWidgets()
 	m_simulationDockTabs = new QTabWidget(m_unitDockTabs);
 	m_simulationCommandPage = new SimulationCommandWidget(m_simulationDockTabs);
 	m_robotAxisControlPage = new RobotAxisControlWidget(m_simulationDockTabs);
+	m_robotFrameSettingsPage = new RobotFrameSettingsWidget(m_simulationDockTabs);
 	m_simulationDockTabs->addTab(m_simulationCommandPage, QStringLiteral("Instructions"));
 	m_simulationDockTabs->addTab(m_robotAxisControlPage, QStringLiteral("Axis control"));
+	m_simulationDockTabs->addTab(m_robotFrameSettingsPage, QStringLiteral("Frames"));
 	m_unitDockTabs->addTab(m_backendTree, QStringLiteral("Units"));
 	m_unitDockTabs->addTab(m_simulationDockTabs, QStringLiteral("Simulation"));
 	m_osgSceneTree = new QTreeWidget();
@@ -305,6 +308,8 @@ void MainWindow::setupDockWidgets()
 	m_unitDock->setWidget(m_unitDockTabs);
 	connect(m_simulationCommandPage, &SimulationCommandWidget::runRequested, this, &MainWindow::onSimulationRunRequested);
 	connect(m_simulationCommandPage, &SimulationCommandWidget::stopRequested, this, &MainWindow::onSimulationStopRequested);
+	connect(m_simulationCommandPage, &SimulationCommandWidget::exportProgramRequested, this,
+		&MainWindow::onSimulationExportRequested);
 	connect(m_simulationCommandPage, &SimulationCommandWidget::addInstructionRequested,
 		this, &MainWindow::onSimulationAddInstructionRequested);
 	connect(m_simulationCommandPage, &SimulationCommandWidget::instructionSelectionChanged,
@@ -313,6 +318,14 @@ void MainWindow::setupDockWidgets()
 		this, &MainWindow::onSimulationRobotSelectionChanged);
 	connect(m_robotAxisControlPage, &RobotAxisControlWidget::allJointAnglesChanged,
 		this, &MainWindow::onRobotAxisJointAnglesChanged);
+	connect(m_robotFrameSettingsPage, &RobotFrameSettingsWidget::framesChanged, this,
+		&MainWindow::onRobotCoordinateFramesChanged);
+	connect(m_robotFrameSettingsPage, &RobotFrameSettingsWidget::captureToolFromTcpRequested, this,
+		&MainWindow::onCaptureToolFrameFromTcp);
+	connect(m_robotFrameSettingsPage, &RobotFrameSettingsWidget::captureUserFrameFromTcpRequested, this,
+		&MainWindow::onCaptureUserFrameFromTcp);
+	connect(m_robotFrameSettingsPage, &RobotFrameSettingsWidget::resetToolFrameRequested, this,
+		&MainWindow::onResetToolFrame);
 	addDockWidget(Qt::RightDockWidgetArea, m_unitDock);
 
 	m_runDock = new QDockWidget(QStringLiteral("Runtime Output"), this);

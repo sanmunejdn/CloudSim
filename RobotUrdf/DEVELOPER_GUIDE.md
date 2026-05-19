@@ -28,7 +28,8 @@
 | 函数 | 说明 |
 |------|------|
 | `computeJointTransformMatrices(urdf, angles, outMap, err)` | 关节名 → 变换；旋转关节仅 R(q) |
-| `computeLinkWorldMatrices(urdf, angles, out, err)` | 各 link **坐标系**世界矩阵 |
+| `computeLinkWorldMatrices(urdf, angles, out, err)` | 各 link **坐标系**世界矩阵（OSG） |
+| `computeLinkWorldRigidTransforms(urdf, angles, out, err)` | 同上，输出 `engine::RigidTransform`（推荐机器人/IK 边界） |
 | `computeMeshWorldMatrices(urdf, angles, out, err, meshVerticesAlreadyInLinkFrame)` | 各 link **网格**世界矩阵；末参 `true` 时 visual 为单位（顶点已在连杆系） |
 | `linkMeshFileToLinkColumnMajor16(urdf, linkName, out16, err)` | mesh 文件系 → 连杆系 4×4（列主序），供导入烘焙顶点 |
 
@@ -119,7 +120,12 @@
 
 ---
 
-## 10. 相关文档
+## 10. 与坐标系 / TCP
+
+- 默认终端 link：`loadPrimaryTerminalLinkName` / 最深子 link，供 `makeDefaultFrameSet(flangeLinkName)` 与示教捕获。
+- FK：`computeLinkWorldMatrices` 提供 `T_base_flange`；工具偏移 `T_flange_tool` 在 `RobotScene::RobotCoordinate` 中与场景矩阵同一 OSG 行向量约定。
+
+## 11. 相关文档
 
 - 场景 FK 写回：[`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md)
 - UI 导入：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §`registerUrdfRobot`

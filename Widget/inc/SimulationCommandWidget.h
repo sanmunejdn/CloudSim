@@ -44,7 +44,8 @@ public:
 	std::shared_ptr<RobotInstruction::Base> appendInstructionFromCurrentPose(
 		RobotInstruction::Type type,
 		const RobotInstruction::Vec3& poseMm,
-		const RobotInstruction::Vec3& eulerDeg);
+		const RobotInstruction::Vec3& eulerDeg,
+		bool deferInstructionSelection = false);
 
 	std::shared_ptr<RobotInstruction::Base> appendInstruction(RobotInstruction::Type type);
 	bool appendInstructionFromJson(const nlohmann::json& j, std::string* errMsg = nullptr);
@@ -58,6 +59,7 @@ signals:
 	void instructionSelectionChanged(std::shared_ptr<RobotInstruction::Base> instruction);
 	void runRequested();
 	void stopRequested();
+	void exportProgramRequested();
 
 private:
 	void bindProgramTree();
@@ -89,4 +91,5 @@ private:
 	QPushButton* m_clearBtn = nullptr;
 	QPushButton* m_runBtn = nullptr;
 	QPushButton* m_stopBtn = nullptr;
+	QPushButton* m_exportBtn = nullptr;
 };

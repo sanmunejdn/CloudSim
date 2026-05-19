@@ -21,8 +21,8 @@
 | `BackendColor` | `r,g,b,a` float 0..1 |
 | `BackendPoseValue` | `position` + `eulerDeg` |
 | `BackendPoseReferenceFrame` | `World` / `Parent` |
-| `BackendMat4` | `v[16]` 列主序；`identity()`, `translate()`, `rotateEulerDeg()` |
-| `backend_world_mat_from_pose` 等 | 与 Visual 外层矩阵 `T(center+pose)*R` 一致 |
+| `BackendMat4` | `v[16]` 列主序（遗留）；`backend_mat4_multiply` 用 Eigen 列向量语义（与 GeometryEngine `composeColumn` 一致） |
+| `backend_world_mat_from_pose` 等 | 与 Visual 外层矩阵 `T(center+pose)*R` 一致；新刚体链在模块边界用 GeometryEngine |
 
 ---
 

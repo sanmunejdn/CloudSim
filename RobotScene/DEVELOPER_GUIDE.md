@@ -220,6 +220,70 @@
 
 ---
 
+## 8.3 坐标系（`RobotCoordinateFrames.h`）
+
+### 术语（避免 `tcp` 歧义）
+
+| 符号 | 含义 |
+|------|------|
+| **`T_base_target`** | 指令 `pose`/`euler`：该点 `motion.tool.frameId` 对应**工具系原点**在基座下的位姿 |
+| `T_flange_tool` | 法兰 → 工具（标定）；≈**I** 时 `T_base_target` 即法兰中心 |
+| `T_base_flange` | 前置变换后送入 IK 的**法兰连杆**目标 |
+
+遗留名 `T_base_tcp` / `tcpInBaseFromPose` 与 `T_base_target` 同义；新代码用 `targetInBaseFromPose`。
+
+### 坐标变换前置（单一 IK，不按工具分叉）
+
+1. 读指令 → `T_base_target`
+2. 读工具 → `T_flange_tool`（`motion.tool.frameId` / `context.toolFrameMat4`）
+3. **前置**：`T_base_flange = flangeTargetFromToolOriginInBase(T_base_target, T_flange_tool)`
+4. IK 只求法兰连杆位姿；禁止在规划器内再乘 `T_tool`
+
+| 类型 | 说明 |
+|------|------|
+| `RobotRigidFrame` | 平移 mm + 欧拉 deg（`BackendFollowMath` 同约定） |
+| `RobotUserFrame` | `id` / `name` / `T_base_user` |
+| `RobotCoordinateFrameSet` | `toolFrames[]`（`T_flange_tool`）、`activeToolFrameId`、`flangeLinkName`、用户系列表、激活 id、3D 显示开关 |
+
+| API | 作用 |
+|-----|------|
+| `targetInBaseFromPose` | `pose` → `T_base_target` |
+| `engine::RigidTransform` / `ToolKinematics` | **规范刚体真值**（GeometryEngine + Eigen；四元数存储，mm） |
+| `flangeTargetFromToolOriginInBase` | 委托 `engine::flangeFromToolOrigin` |
+| `targetInBaseFromFlange` | 委托 `engine::toolOriginFromFlange` |
+| `RobotInstruction::readTargetTransformFromInstruction` | 指令真值（优先 `context.targetTransformQuatCsv`） |
+| `RobotMatrixOsg::*` | 遗留 OSG/BackendMat4 薄适配，新逻辑勿再扩展 |
+| `flangeTargetFromBaseTcpAndTool` / `tcpInBaseFromPose` | 兼容别名 |
+| `tcpInUserFromBaseTcp` / `tcpInBaseFromUserTcp` | 用户系示教换算 |
+| `resolveToolFrameForExtension` / `toolMat4ForExtension` | 按点工具 → `context.toolFrameMat4` |
+| `resolveUserFrameForExtension` | 用户系 |
+
+**指令扩展键（PTP/LINE）**
+
+| 键 | 说明 |
+|----|------|
+| `motion.tool.frameId` | 工具系 id；切换时 **保持 TCP 空间位置**（`pose` 不变），重算 IK |
+| `motion.user.frameId` | 用户系 id |
+| `motion.target.frame` | `base` / `user` — 面板显示系 |
+| `context.toolFrameMat4` | 规划用工具矩阵（按点冻结） |
+| `context.poseFrame` | `base_tool_origin`（兼容 `base_tcp`） |
+| `context.flangeLinkName` / `context.tcpLinkName` | 法兰 link（IK/FK） |
+
+`[IK残差]` 分列：`toolOrigin`、`flangeTarget`、`fkFlange`、`fkToolOrigin`；主指标 **`residualTcpMm`** = \|toolOrigin − fkFlange×T_tool\|。
+
+规划上下文：按点写入工具矩阵与法兰 link。指令 `pose` = **基座下工具原点**；3D 轴与绿/红可达性同前。
+
+## 8.4 程序导出（`RobotProgramExport.h`）
+
+| API | 作用 |
+|-----|------|
+| `buildExportResult` | 运动点列表 + 规划结果 → 基座 TCP + 关节角 |
+| `writeExportResultToJson` / `writeExportResultToCsv` | 导出（`coordinateFrame: base_tool_origin_mm_deg`，语义同示教 `pose`） |
+
+仿真 Dock **Export…** 先链式 `plan` 再写文件；失败点 `ikOk=false` 并带 `ikError`/`summary`。
+
+---
+
 ## 9. 文档接口
 
 ### 9.1 `IRobotSimulationDocument`

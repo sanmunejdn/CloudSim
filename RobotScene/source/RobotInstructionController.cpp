@@ -1,7 +1,15 @@
 #include "RobotInstructionController.h"
+#include "RobotCoordinateFrames.h"
+#include "RobotInstructionTransform.h"
+#include "RobotMatrixOsgBridge.h"
 #include "RobotInstructionAxisConfiguration.h"
+#include "BackendDataBase.h"
 #include "RunLogger.h"
 #include "UrdfRobotLoader.h"
+
+#include <Adapters.h>
+#include <RigidTransform.h>
+#include <ToolKinematics.h>
 
 #include <algorithm>
 #include <cctype>
@@ -87,6 +95,60 @@ void normalizeQuatSafe(osg::Quat& q)
 	}
 	const double invN = 1.0 / std::sqrt(n2);
 	q.set(q.x() * invN, q.y() * invN, q.z() * invN, q.w() * invN);
+}
+
+osg::Quat eulerDegToQuat(const RobotInstruction::Vec3& eulerDeg);
+osg::Matrixd backendMat4ToOsg(const BackendMat4& m);
+
+struct IkLinkTarget
+{
+	double pos[3] = { 0.0, 0.0, 0.0 };
+	osg::Quat quat;
+	bool hasOrientation = false;
+};
+
+/// Sole tool handling before IK: pose/euler = T_base_target; solver input = T_base_flange only.
+bool ikLinkTargetFromInstruction(const RobotInstruction::Base& cmd, IkLinkTarget& out)
+{
+	if (!cmd.hasPoseProperty())
+	{
+		return false;
+	}
+	engine::RigidTransform T_base_target{};
+	if (!RobotInstruction::readTargetTransformFromInstruction(cmd, T_base_target))
+	{
+		return false;
+	}
+	BackendMat4 T_flange_tool = BackendMat4::identity();
+	const auto& ext = cmd.extensionProperties();
+	const auto itTool = ext.find(RobotCoordinate::kExtContextToolFrameMat4);
+	if (itTool != ext.end() && !itTool->second.empty())
+	{
+		(void)RobotCoordinate::parseMat4Csv(itTool->second, T_flange_tool);
+	}
+	const engine::RigidTransform T_base_link = engine::flangeFromToolOrigin(
+		T_base_target,
+		RobotCoordinate::rigidTransformFromBackendMat4(T_flange_tool));
+	double tx = 0.0;
+	double ty = 0.0;
+	double tz = 0.0;
+	T_base_link.translationMm(tx, ty, tz);
+	out.pos[0] = tx;
+	out.pos[1] = ty;
+	out.pos[2] = tz;
+	if (cmd.hasEulerProperty())
+	{
+		const Eigen::Quaterniond q = T_base_link.rotation().normalized();
+		out.quat.set(q.x(), q.y(), q.z(), q.w());
+		normalizeQuatSafe(out.quat);
+		out.hasOrientation = true;
+	}
+	return true;
+}
+
+osg::Matrixd backendMat4ToOsg(const BackendMat4& m)
+{
+	return RobotMatrixOsg::matrixFromBackendColMajor(m);
 }
 
 osg::Quat eulerDegToQuat(const RobotInstruction::Vec3& eulerDeg)
@@ -295,8 +357,16 @@ std::vector<double> solveTargetByIkIfPossible(
 		}
 		return {};
 	}
-	const RobotInstruction::Vec3 p = cmd.pose();
-	const double targetPos[3] = { p.x, p.y, p.z };
+	IkLinkTarget linkTarget{};
+	if (!ikLinkTargetFromInstruction(cmd, linkTarget))
+	{
+		if (failReason)
+		{
+			*failReason = "无DH上下文";
+		}
+		return {};
+	}
+	const double targetPos[3] = { linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2] };
 
 	double reachMm = 0.0;
 	for (const robot_kinematics::DhRow& row : dhRows)
@@ -403,8 +473,7 @@ void logIkSolveResidual(
 {
 	const auto& ext = cmd.extensionProperties();
 	const auto itUrdf = ext.find("context.urdfPath");
-	const auto itTcp = ext.find("context.tcpLinkName");
-	if (itUrdf == ext.end() || itTcp == ext.end() || itUrdf->second.empty() || itTcp->second.empty())
+	if (itUrdf == ext.end() || itUrdf->second.empty())
 	{
 		return;
 	}
@@ -412,20 +481,81 @@ void logIkSolveResidual(
 	{
 		return;
 	}
+	std::string flangeLink;
+	const auto itFlange = ext.find("context.flangeLinkName");
+	if (itFlange != ext.end() && !itFlange->second.empty())
+	{
+		flangeLink = itFlange->second;
+	}
+	else
+	{
+		const auto itTcp = ext.find("context.tcpLinkName");
+		if (itTcp == ext.end() || itTcp->second.empty())
+		{
+			return;
+		}
+		flangeLink = itTcp->second;
+	}
+
 	const QString urdfPath = QString::fromStdString(itUrdf->second);
-	const QString tcpLink = QString::fromStdString(itTcp->second);
-	const RobotInstruction::Vec3 target = cmd.pose();
-	const bool hasTargetEuler = cmd.hasEulerProperty();
-	double fkPos[3] = { 0.0, 0.0, 0.0 };
-	osg::Quat fkRot;
-	if (!tcpPositionFromUrdf(urdfPath, tcpLink, qSolved, fkPos, &fkRot))
+	const QString flangeLinkQ = QString::fromStdString(flangeLink);
+
+	engine::RigidTransform T_base_target{};
+	if (!RobotInstruction::readTargetTransformFromInstruction(cmd, T_base_target))
+	{
+		return;
+	}
+	double toolOriginPos[3]{};
+	T_base_target.translationMm(toolOriginPos[0], toolOriginPos[1], toolOriginPos[2]);
+
+	BackendMat4 T_flange_tool = BackendMat4::identity();
+	const auto itTool = ext.find(RobotCoordinate::kExtContextToolFrameMat4);
+	if (itTool != ext.end() && !itTool->second.empty())
+	{
+		(void)RobotCoordinate::parseMat4Csv(itTool->second, T_flange_tool);
+	}
+
+	IkLinkTarget linkTarget{};
+	if (!ikLinkTargetFromInstruction(cmd, linkTarget))
+	{
+		return;
+	}
+	const RobotInstruction::Vec3 flangeTarget{
+		linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2] };
+	const bool hasTargetEuler = linkTarget.hasOrientation;
+
+	double fkFlangePos[3] = { 0.0, 0.0, 0.0 };
+	osg::Quat fkFlangeRot;
+	if (!tcpPositionFromUrdf(urdfPath, flangeLinkQ, qSolved, fkFlangePos, &fkFlangeRot))
 	{
 		std::ostringstream os;
 		os << "[IK残差] planner=" << (plannerName ? plannerName : "Unknown")
-		   << ", tcpLink=" << tcpLink.toStdString()
-		   << ", FK检查失败（无法基于q重算tcp位置）";
+		   << ", flangeLink=" << flangeLink << ", FK failed (cannot recompute flange pose from q)";
 		RunLogger::warn(os.str());
 		return;
+	}
+
+	double fkToolOriginPos[3]{};
+	engine::RigidTransform fkToolRt{};
+	bool hasFkToolRot = false;
+	{
+		QVector<double> qQt;
+		qQt.reserve(static_cast<int>(qSolved.size()));
+		for (double v : qSolved)
+		{
+			qQt.push_back(v);
+		}
+		QHash<QString, osg::Matrixd> linkWorld;
+		if (UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, qQt, linkWorld, nullptr)
+			&& linkWorld.contains(flangeLinkQ))
+		{
+			const engine::RigidTransform flangeRt = engine::rigidTransformFromOsg(linkWorld.value(flangeLinkQ));
+			fkToolRt = engine::toolOriginFromFlange(
+				flangeRt,
+				RobotCoordinate::rigidTransformFromBackendMat4(T_flange_tool));
+			fkToolRt.translationMm(fkToolOriginPos[0], fkToolOriginPos[1], fkToolOriginPos[2]);
+			hasFkToolRot = true;
+		}
 	}
 
 	std::ostringstream qPreview;
@@ -443,30 +573,52 @@ void logIkSolveResidual(
 		qPreview << ", ...";
 	}
 
-	const double dx = fkPos[0] - target.x;
-	const double dy = fkPos[1] - target.y;
-	const double dz = fkPos[2] - target.z;
-	const double errMm = std::sqrt(dx * dx + dy * dy + dz * dz);
-	double errRotDeg = 0.0;
+	const double dFlangeX = fkFlangePos[0] - flangeTarget.x;
+	const double dFlangeY = fkFlangePos[1] - flangeTarget.y;
+	const double dFlangeZ = fkFlangePos[2] - flangeTarget.z;
+	const double residualFlangeMm =
+		std::sqrt(dFlangeX * dFlangeX + dFlangeY * dFlangeY + dFlangeZ * dFlangeZ);
+
+	const double dTcpX = fkToolOriginPos[0] - toolOriginPos[0];
+	const double dTcpY = fkToolOriginPos[1] - toolOriginPos[1];
+	const double dTcpZ = fkToolOriginPos[2] - toolOriginPos[2];
+	const double residualTcpMm = std::sqrt(dTcpX * dTcpX + dTcpY * dTcpY + dTcpZ * dTcpZ);
+
+	double residualTcpRotDeg = 0.0;
+	double residualFlangeRotDeg = 0.0;
 	if (hasTargetEuler)
 	{
-		const osg::Quat targetQuat = eulerDegToQuat(cmd.eulerDeg());
+		const osg::Quat targetFlangeQuat = linkTarget.quat;
 		double eRot[3] = { 0.0, 0.0, 0.0 };
-		quatErrorAxisAngle(fkRot, targetQuat, eRot);
+		quatErrorAxisAngle(fkFlangeRot, targetFlangeQuat, eRot);
 		const double errRotRad = std::sqrt(eRot[0] * eRot[0] + eRot[1] * eRot[1] + eRot[2] * eRot[2]);
-		errRotDeg = errRotRad * (180.0 / 3.14159265358979323846);
+		residualFlangeRotDeg = errRotRad * (180.0 / 3.14159265358979323846);
+
+		if (hasFkToolRot)
+		{
+			residualTcpRotDeg = T_base_target.rotationErrorDeg(fkToolRt);
+		}
 	}
 
 	std::ostringstream os;
 	os << "[IK残差] planner=" << (plannerName ? plannerName : "Unknown")
-	   << ", tcpLink=" << tcpLink.toStdString()
-	   << ", targetPose=(" << target.x << ", " << target.y << ", " << target.z << ")"
+	   << ", flangeLink=" << flangeLink
+	   << ", toolOrigin=(" << toolOriginPos[0] << ", " << toolOriginPos[1] << ", " << toolOriginPos[2] << ")"
+	   << ", flangeTarget=(" << flangeTarget.x << ", " << flangeTarget.y << ", " << flangeTarget.z << ")"
+	   << ", fkFlange=(" << fkFlangePos[0] << ", " << fkFlangePos[1] << ", " << fkFlangePos[2] << ")"
+	   << ", fkToolOrigin=(" << fkToolOriginPos[0] << ", " << fkToolOriginPos[1] << ", " << fkToolOriginPos[2]
+	   << ")"
 	   << ", solvedQ[0..]=[" << qPreview.str() << "]"
-	   << ", fkTcp=(" << fkPos[0] << ", " << fkPos[1] << ", " << fkPos[2] << ")"
-	   << ", errMm=" << errMm;
+	   << ", residualTcpMm=" << residualTcpMm
+	   << ", residualFlangeMm=" << residualFlangeMm;
 	if (hasTargetEuler)
 	{
-		os << ", errRotDeg=" << errRotDeg;
+		os << ", residualTcpRotDeg=" << residualTcpRotDeg
+		   << ", residualFlangeRotDeg=" << residualFlangeRotDeg;
+	}
+	if (residualTcpMm > 1.0 && residualFlangeMm < 0.1)
+	{
+		os << " (hint: flange OK but tool matrix/link mismatch)";
 	}
 	RunLogger::info(os.str());
 }
@@ -672,10 +824,18 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 	}
 	const QString urdfPath = QString::fromStdString(itUrdf->second);
 	const QString tcpLink = QString::fromStdString(itTcp->second);
-	const RobotInstruction::Vec3 p = cmd.pose();
-	const double target[3] = { p.x, p.y, p.z };
-	const bool useOrientation = cmd.hasEulerProperty();
-	const osg::Quat targetQuat = useOrientation ? eulerDegToQuat(cmd.eulerDeg()) : osg::Quat();
+	IkLinkTarget linkTarget{};
+	if (!ikLinkTargetFromInstruction(cmd, linkTarget))
+	{
+		if (failReason)
+		{
+			*failReason = "无DH上下文";
+		}
+		return {};
+	}
+	const double target[3] = { linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2] };
+	const bool useOrientation = linkTarget.hasOrientation;
+	const osg::Quat targetQuat = useOrientation ? linkTarget.quat : osg::Quat();
 	const double targetNormMm = std::sqrt(target[0] * target[0] + target[1] * target[1] + target[2] * target[2]);
 	if (targetNormMm > 50000.0)
 	{
@@ -812,6 +972,79 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 		{
 			jte[static_cast<size_t>(j)] = std::max(-0.2, std::min(0.2, jte[static_cast<size_t>(j)]));
 			q[static_cast<size_t>(j)] += jte[static_cast<size_t>(j)];
+		}
+	}
+
+	if (useOrientation)
+	{
+		IkLinkTarget posOnlyTarget = linkTarget;
+		posOnlyTarget.hasOrientation = false;
+		std::vector<double> qPos = q;
+		const double posTarget[3] = { posOnlyTarget.pos[0], posOnlyTarget.pos[1], posOnlyTarget.pos[2] };
+		for (int iter = 0; iter < maxIters; ++iter)
+		{
+			if (!tcpPositionFromUrdf(urdfPath, tcpLink, qPos, pos, nullptr))
+			{
+				break;
+			}
+			const double e0 = posTarget[0] - pos[0];
+			const double e1 = posTarget[1] - pos[1];
+			const double e2 = posTarget[2] - pos[2];
+			const double posErr = std::sqrt(e0 * e0 + e1 * e1 + e2 * e2);
+			if (posErr < 1e-2)
+			{
+				return qPos;
+			}
+			const int n = static_cast<int>(qPos.size());
+			std::vector<double> J(static_cast<size_t>(3 * n), 0.0);
+			for (int j = 0; j < n; ++j)
+			{
+				std::vector<double> qPert = qPos;
+				qPert[static_cast<size_t>(j)] += eps;
+				double p2[3] = { 0.0, 0.0, 0.0 };
+				if (!tcpPositionFromUrdf(urdfPath, tcpLink, qPert, p2, nullptr))
+				{
+					break;
+				}
+				J[0 * n + j] = (p2[0] - pos[0]) / eps;
+				J[1 * n + j] = (p2[1] - pos[1]) / eps;
+				J[2 * n + j] = (p2[2] - pos[2]) / eps;
+			}
+			std::vector<double> jtj(static_cast<size_t>(n * n), 0.0);
+			std::vector<double> jte(static_cast<size_t>(n), 0.0);
+			const double e[3] = { e0, e1, e2 };
+			for (int r = 0; r < 3; ++r)
+			{
+				for (int c = 0; c < n; ++c)
+				{
+					jte[static_cast<size_t>(c)] += J[static_cast<size_t>(r * n + c)] * e[r];
+				}
+			}
+			for (int r = 0; r < n; ++r)
+			{
+				for (int c = 0; c < n; ++c)
+				{
+					double s = 0.0;
+					for (int k = 0; k < 3; ++k)
+					{
+						s += J[static_cast<size_t>(k * n + r)] * J[static_cast<size_t>(k * n + c)];
+					}
+					jtj[static_cast<size_t>(r * n + c)] = s;
+				}
+			}
+			for (int i = 0; i < n; ++i)
+			{
+				jtj[static_cast<size_t>(i * n + i)] += lambda * lambda;
+			}
+			if (!solveLinearSystem(jtj, jte, n))
+			{
+				break;
+			}
+			for (int j = 0; j < n; ++j)
+			{
+				jte[static_cast<size_t>(j)] = std::max(-0.2, std::min(0.2, jte[static_cast<size_t>(j)]));
+				qPos[static_cast<size_t>(j)] += jte[static_cast<size_t>(j)];
+			}
 		}
 	}
 

@@ -208,6 +208,28 @@ QString DocumentPage::robotSceneBackendIdForInstance(const int instanceIndex) co
 		: QString();
 }
 
+QString DocumentPage::robotFrameWorldReferenceBackendId(const int instanceIndex) const
+{
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
+	{
+		return QString();
+	}
+	const HierarchicalRobotInstance& ri = m_hierarchicalRobots[instanceIndex];
+	if (!ri.perLinkBackends)
+	{
+		return ri.sceneBackendId;
+	}
+	for (auto it = ri.linkNameToBackendId.constBegin(); it != ri.linkNameToBackendId.constEnd(); ++it)
+	{
+		const QString& linkBackendId = it.value();
+		if (m_backendParentId.value(linkBackendId) == ri.sceneBackendId)
+		{
+			return linkBackendId;
+		}
+	}
+	return ri.linkNameToBackendId.isEmpty() ? ri.sceneBackendId : ri.linkNameToBackendId.constBegin().value();
+}
+
 QString DocumentPage::robotDisplayLabelForInstance(const int instanceIndex) const
 {
 	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
@@ -511,5 +533,31 @@ void DocumentPage::markFollowAttachmentDirtyFromBackendMove(const BackendDataMan
 			stack.push_back(c);
 		}
 	}
+}
+
+const RobotCoordinate::RobotCoordinateFrameSet& DocumentPage::robotCoordinateFramesForInstance(
+	const int instanceIndex) const
+{
+	static const RobotCoordinate::RobotCoordinateFrameSet kEmpty{};
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
+	{
+		return kEmpty;
+	}
+	return m_hierarchicalRobots[instanceIndex].coordinateFrames;
+}
+
+RobotCoordinate::RobotCoordinateFrameSet& DocumentPage::robotCoordinateFramesForInstance(const int instanceIndex)
+{
+	static RobotCoordinate::RobotCoordinateFrameSet kEmpty{};
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
+	{
+		return kEmpty;
+	}
+	return m_hierarchicalRobots[instanceIndex].coordinateFrames;
+}
+
+const RobotCoordinate::RobotUserFrame* DocumentPage::robotActiveUserFrameForInstance(const int instanceIndex) const
+{
+	return RobotCoordinate::activeUserFrame(robotCoordinateFramesForInstance(instanceIndex));
 }
 

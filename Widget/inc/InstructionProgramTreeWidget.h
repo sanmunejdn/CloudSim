@@ -33,7 +33,9 @@ public:
 	QTreeWidgetItem* selectedItem() const { return currentItem(); }
 
 	/// Insert new instruction relative to current selection (or append at root).
-	void insertInstruction(const std::shared_ptr<RobotInstruction::Base>& ins);
+	/// When \a emitSelection is false, tree selection is updated without emitting
+	/// instructionSelected (avoids preview/IK before caller sets tool extensions).
+	void insertInstruction(const std::shared_ptr<RobotInstruction::Base>& ins, bool emitSelection = true);
 	void removeSelected();
 	void clearProgram();
 

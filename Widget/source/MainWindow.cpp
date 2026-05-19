@@ -14,6 +14,7 @@
 #include <QApplication>
 #include <QDockWidget>
 #include <QFile>
+#include <QFileDialog>
 #include <QHeaderView>
 #include <QList>
 #include <QMessageBox>
@@ -50,10 +51,20 @@
 #include "OsgWidget.h"
 #include "IRobotBackendPoseSink.h"
 #include "RobotInstructionProgram.h"
+#include "RobotCoordinateFrames.h"
+#include "RobotInstructionTransform.h"
+#include "RobotMatrixOsgBridge.h"
+
+#include <Adapters.h>
+#include <RigidTransform.h>
+#include <ToolKinematics.h>
+#include "RobotProgramExport.h"
 #include "RobotSceneKinematics.h"
 #include "UrdfRobotLoader.h"
 #include "RunInfoPage.h"
 #include "SimulationCommandWidget.h"
+
+#include "../OsgWidgetCore/inc/OsgScene.h"
 
 #include <osg/MatrixTransform>
 #include <osg/NodeVisitor>
@@ -585,89 +596,8 @@ void restoreInstructionPose(RobotInstruction::Base& ins, const MotionPoseBackup&
 
 void mapInstructionPoseRenderToFk(RobotInstruction::Base& ins)
 {
-	if (!ins.hasPoseProperty() || !ins.hasEulerProperty())
-	{
-		return;
-	}
-	const RobotInstruction::Vec3 pose = ins.pose();
-	const RobotInstruction::Vec3 euler = ins.eulerDeg();
-	const auto& extMap = ins.extensionProperties();
-	const auto itRenderToFk = extMap.find("context.renderWorldToFkMat4");
-	bool mappedByMatrix = false;
-	if (itRenderToFk != extMap.end() && !itRenderToFk->second.empty())
-	{
-		osg::Matrixd renderToFk;
-		if (decodeMatrix4Csv(itRenderToFk->second, renderToFk))
-		{
-			bool shouldMapRenderToFk = true;
-			osg::Matrixd capRender;
-			osg::Matrixd capFk;
-			const auto itCapturedRender = extMap.find("render.tcpWorldMat4");
-			const auto itCapturedFk = extMap.find("render.tcpLocalMat4");
-			if (itCapturedRender != extMap.end() && !itCapturedRender->second.empty()
-				&& itCapturedFk != extMap.end() && !itCapturedFk->second.empty())
-			{
-				if (decodeMatrix4Csv(itCapturedRender->second, capRender)
-					&& decodeMatrix4Csv(itCapturedFk->second, capFk))
-				{
-					osg::Matrixd currentPoseMat;
-					currentPoseMat.makeRotate(OsgScene::eulerDegToQuat(osg::Vec3f(
-						static_cast<float>(euler.x),
-						static_cast<float>(euler.y),
-						static_cast<float>(euler.z))));
-					currentPoseMat.setTrans(pose.x, pose.y, pose.z);
-					const double fkScore = matrixTranslationErrorMm(currentPoseMat, capFk)
-						+ quaternionAngularErrorDeg(currentPoseMat.getRotate(), capFk.getRotate());
-					const double renderScore = matrixTranslationErrorMm(currentPoseMat, capRender)
-						+ quaternionAngularErrorDeg(currentPoseMat.getRotate(), capRender.getRotate());
-					shouldMapRenderToFk = (renderScore + 1e-6 < fkScore);
-				}
-			}
-			osg::Matrixd targetRender;
-			targetRender.makeRotate(OsgScene::eulerDegToQuat(osg::Vec3f(
-				static_cast<float>(euler.x),
-				static_cast<float>(euler.y),
-				static_cast<float>(euler.z))));
-			targetRender.setTrans(pose.x, pose.y, pose.z);
-			const osg::Matrixd targetFk = shouldMapRenderToFk ? (renderToFk * targetRender) : targetRender;
-			const osg::Vec3d mappedPos = targetFk.getTrans();
-			const osg::Vec3f mappedEuler = OsgScene::quatToEulerDeg(targetFk.getRotate());
-			ins.setPose(RobotInstruction::Vec3{ mappedPos.x(), mappedPos.y(), mappedPos.z() });
-			ins.setEulerDeg(RobotInstruction::Vec3{
-				static_cast<double>(mappedEuler.x()),
-				static_cast<double>(mappedEuler.y()),
-				static_cast<double>(mappedEuler.z()) });
-			mappedByMatrix = true;
-		}
-	}
-	if (!mappedByMatrix)
-	{
-		const auto itDeltaPos = extMap.find("context.renderToFkDeltaPosMmCsv");
-		if (itDeltaPos != extMap.end() && !itDeltaPos->second.empty())
-		{
-			std::stringstream dss(itDeltaPos->second);
-			dss.imbue(std::locale::classic());
-			std::string tok;
-			double dv[3] = { 0.0, 0.0, 0.0 };
-			int dn = 0;
-			while (std::getline(dss, tok, ',') && dn < 3)
-			{
-				try
-				{
-					dv[dn++] = std::stod(tok);
-				}
-				catch (...)
-				{
-					dn = 0;
-					break;
-				}
-			}
-			if (dn == 3)
-			{
-				ins.setPose(RobotInstruction::Vec3{ pose.x + dv[0], pose.y + dv[1], pose.z + dv[2] });
-			}
-		}
-	}
+	(void)ins;
+	// 指令 pose/euler 已为基座系 TCP；不再做 render→FK 改写（旧逻辑会把点拉到基座原点附近）。
 }
 
 std::string encodeJointCsv(const QVector<double>& q)
@@ -685,20 +615,436 @@ std::string encodeJointCsv(const QVector<double>& q)
 	return oss.str();
 }
 
+/// OSG 行向量矩阵：与指令 TCP 轴一致，先旋转再平移（对应 BackendMat4 的 T*R 刚体语义）。
+osg::Matrixd osgMatrixFromRobotRigidFrame(const RobotCoordinate::RobotRigidFrame& frame)
+{
+	osg::Matrixd m;
+	const osg::Quat q = OsgScene::eulerDegToQuat(osg::Vec3f(
+		static_cast<float>(frame.eulerDeg[0]),
+		static_cast<float>(frame.eulerDeg[1]),
+		static_cast<float>(frame.eulerDeg[2])));
+	m.makeRotate(q);
+	m.setTrans(frame.positionMm[0], frame.positionMm[1], frame.positionMm[2]);
+	return m;
+}
+
+osg::Matrixd osgMatrixFromBackendMat4(const BackendMat4& m)
+{
+	return RobotMatrixOsg::matrixFromBackendColMajor(m);
+}
+
+BackendMat4 backendMat4FromOsg(const osg::Matrixd& m)
+{
+	return RobotMatrixOsg::backendColMajorFromMatrix(m);
+}
+
+void copyOsgMatrixToInstructionLocal(const osg::Matrixd& m, double outLocalMatrix[16])
+{
+	for (int r = 0; r < 4; ++r)
+	{
+		for (int c = 0; c < 4; ++c)
+		{
+			outLocalMatrix[r * 4 + c] = m(r, c);
+		}
+	}
+}
+
+QString linkMeshBackendIdForInstance(DocumentPage* doc, const int instIdx, const std::string& linkName)
+{
+	if (!doc || linkName.empty())
+	{
+		return QString();
+	}
+	RobotPerLinkKinematicsSlice slice;
+	if (!doc->robotPerLinkKinematicsForInstance(instIdx, slice))
+	{
+		return QString();
+	}
+	return slice.linkNameToBackendId.value(QString::fromStdString(linkName));
+}
+
+namespace InstructionPoseDiagState
+{
+static std::string s_lastInstructionId;
+static bool s_forceNext = false;
+
+void requestRefresh()
+{
+	s_forceNext = true;
+}
+
+bool shouldLog(const std::string& instructionId)
+{
+	if (s_forceNext || s_lastInstructionId != instructionId)
+	{
+		s_lastInstructionId = instructionId;
+		s_forceNext = false;
+		return true;
+	}
+	return false;
+}
+} // namespace InstructionPoseDiagState
+
+/// URDF 根连杆世界矩阵（与 FK 一致）；失败时返回 false。
+static bool robotBaseWorldFromUrdfFk(
+	const DocumentPage* doc,
+	const int instIdx,
+	const QVector<double>& jointAnglesRadLocal,
+	osg::Matrixd& outWorld)
+{
+	outWorld.makeIdentity();
+	if (!doc || instIdx < 0)
+	{
+		return false;
+	}
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	if (urdfPath.isEmpty())
+	{
+		return false;
+	}
+	QString rootLink;
+	QHash<QString, QString> meshPaths;
+	if (!UrdfRobotLoader::enumerateLinkVisualMeshes(urdfPath, rootLink, meshPaths, nullptr))
+	{
+		return false;
+	}
+	QHash<QString, osg::Matrixd> linkWorld;
+	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, jointAnglesRadLocal, linkWorld, nullptr))
+	{
+		return false;
+	}
+	if (!rootLink.isEmpty() && linkWorld.contains(rootLink))
+	{
+		outWorld = linkWorld.value(rootLink);
+		return true;
+	}
+	const QString refBackendId = doc->robotFrameWorldReferenceBackendId(instIdx);
+	RobotPerLinkKinematicsSlice slice;
+	if (doc->robotPerLinkKinematicsForInstance(instIdx, slice))
+	{
+		for (auto it = slice.linkNameToBackendId.constBegin(); it != slice.linkNameToBackendId.constEnd(); ++it)
+		{
+			if (it.value() == refBackendId && linkWorld.contains(it.key()))
+			{
+				outWorld = linkWorld.value(it.key());
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+/// 机器人 URDF 基座在场景中的世界矩阵；优先 URDF FK，回退 PAT。
+bool robotBaseWorldMatrixForInstance(
+	const DocumentPage* doc,
+	OsgWidget* osg,
+	const int instIdx,
+	osg::Matrixd& outWorld,
+	const QVector<double>* jointAnglesRadLocal = nullptr)
+{
+	outWorld.makeIdentity();
+	if (!doc || instIdx < 0)
+	{
+		return false;
+	}
+	QVector<double> qLocal;
+	if (jointAnglesRadLocal && !jointAnglesRadLocal->isEmpty())
+	{
+		qLocal = *jointAnglesRadLocal;
+	}
+	else
+	{
+		const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+		qLocal = QVector<double>(nj, 0.0);
+	}
+	if (robotBaseWorldFromUrdfFk(doc, instIdx, qLocal, outWorld))
+	{
+		return true;
+	}
+	if (!osg)
+	{
+		return false;
+	}
+	const QString refId = doc->robotFrameWorldReferenceBackendId(instIdx);
+	if (refId.isEmpty())
+	{
+		return false;
+	}
+	return osg->getBackendRootWorldMatrix(refId.toStdString(), outWorld);
+}
+
+static BackendMat4 toolMat4ForFrames(
+	const RobotCoordinate::RobotCoordinateFrameSet& frames,
+	const RobotInstruction::Base* instructionWithToolContext)
+{
+	if (instructionWithToolContext)
+	{
+		return RobotCoordinate::toolMat4ForExtension(
+			frames, instructionWithToolContext->extensionProperties());
+	}
+	if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
+	{
+		return RobotCoordinate::frameToMat4(tool->T_flange_tool);
+	}
+	return BackendMat4::identity();
+}
+
+/// URDF linkWorld（mat4ToOsg）与工具系：行向量约定 T_base_tcp = T_base_flange * T_flange_tool。
+static osg::Matrixd osgTcpInBaseFromFlangeLinkWorld(
+	const QHash<QString, osg::Matrixd>& linkWorldByName,
+	const QString& flangeLinkQ,
+	const BackendMat4& T_flange_tool)
+{
+	return linkWorldByName.value(flangeLinkQ) * osgMatrixFromBackendMat4(T_flange_tool);
+}
+
+/// per-link：从场景里法兰连杆 backend 外矩阵 × 工具系（与当前显示一致，不依赖 URDF 滑条是否同步）。
+static bool captureTcpFromSceneFlangeBackend(
+	DocumentPage* doc,
+	OsgWidget* osg,
+	int instIdx,
+	const RobotCoordinate::RobotCoordinateFrameSet& frames,
+	const QString& fallbackFlangeLink,
+	const osg::Matrixd& robotBaseWorld,
+	osg::Matrixd& outTcpInBase,
+	osg::Matrixd& outRenderWorld,
+	QString& outFlangeLinkName,
+	QString& outSourceTag)
+{
+	if (!doc || !osg || instIdx < 0 || !doc->robotUsesPerLinkBackendsForInstance(instIdx))
+	{
+		return false;
+	}
+	std::string flangeLink;
+	if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
+	{
+		flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, *tool);
+	}
+	else if (!frames.flangeLinkName.empty())
+	{
+		flangeLink = frames.flangeLinkName;
+	}
+	else
+	{
+		flangeLink = fallbackFlangeLink.toStdString();
+	}
+	if (flangeLink.empty())
+	{
+		return false;
+	}
+	const QString flangeBackendId = linkMeshBackendIdForInstance(doc, instIdx, flangeLink);
+	if (flangeBackendId.isEmpty())
+	{
+		return false;
+	}
+	osg::Matrixd flangeWorld;
+	if (!osg->getBackendRootWorldMatrix(flangeBackendId.toStdString(), flangeWorld))
+	{
+		return false;
+	}
+	const BackendMat4 T_flange_tool = toolMat4ForFrames(frames, nullptr);
+	outRenderWorld = flangeWorld * osgMatrixFromBackendMat4(T_flange_tool);
+	osg::Matrixd invBase;
+	invBase.makeIdentity();
+	if (robotBaseWorld.valid())
+	{
+		invBase = osg::Matrixd::inverse(robotBaseWorld);
+	}
+	outTcpInBase = outRenderWorld * invBase;
+	outFlangeLinkName = QString::fromStdString(flangeLink);
+	outSourceTag = QStringLiteral("SceneFlangeBackend+Tool");
+	return true;
+}
+
+/// 示教捕获：URDF 正解法兰 T_base_flange，再乘当前激活工具 T_flange_tool → T_base_target（与 IK 前置变换互逆）。
+static bool targetInBaseFromUrdfFlangeFk(
+	const QString& urdfPath,
+	const QVector<double>& jointQ,
+	const RobotCoordinate::RobotCoordinateFrameSet& frames,
+	const QString& fallbackFlangeLink,
+	BackendMat4& outTargetInBase,
+	BackendMat4* outFlangeInBase,
+	QString& outFlangeLinkName,
+	const RobotInstruction::Base* instructionWithTool = nullptr)
+{
+	std::string flangeLink;
+	if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
+	{
+		flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, *tool);
+	}
+	else if (!frames.flangeLinkName.empty())
+	{
+		flangeLink = frames.flangeLinkName;
+	}
+	else
+	{
+		flangeLink = fallbackFlangeLink.toStdString();
+	}
+	const QString flangeQ = QString::fromStdString(flangeLink);
+	if (flangeQ.isEmpty())
+	{
+		return false;
+	}
+	QHash<QString, osg::Matrixd> linkWorld;
+	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, jointQ, linkWorld, nullptr))
+	{
+		return false;
+	}
+	if (!linkWorld.contains(flangeQ))
+	{
+		return false;
+	}
+	const osg::Matrixd& T_base_flange_osg = linkWorld.value(flangeQ);
+	const BackendMat4 T_flange_tool = toolMat4ForFrames(frames, instructionWithTool);
+	outTargetInBase = RobotMatrixOsg::targetInBaseFromFlangeLinkWorld(T_base_flange_osg, T_flange_tool);
+	if (outFlangeInBase)
+	{
+		*outFlangeInBase = RobotMatrixOsg::backendColMajorFromMatrix(T_base_flange_osg);
+	}
+	outFlangeLinkName = flangeQ;
+	return true;
+}
+
+/// Same FK as \ref targetInBaseFromUrdfFlangeFk but returns canonical \c engine::RigidTransform (no BackendMat4).
+static bool targetRigidTransformFromUrdfFlangeFk(
+	const QString& urdfPath,
+	const QVector<double>& jointQ,
+	const RobotCoordinate::RobotCoordinateFrameSet& frames,
+	const QString& fallbackFlangeLink,
+	engine::RigidTransform& outTargetInBase,
+	QString& outFlangeLinkName,
+	const RobotInstruction::Base* instructionWithTool = nullptr)
+{
+	std::string flangeLink;
+	if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
+	{
+		flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, *tool);
+	}
+	else if (!frames.flangeLinkName.empty())
+	{
+		flangeLink = frames.flangeLinkName;
+	}
+	else
+	{
+		flangeLink = fallbackFlangeLink.toStdString();
+	}
+	const QString flangeQ = QString::fromStdString(flangeLink);
+	if (flangeQ.isEmpty())
+	{
+		return false;
+	}
+	QHash<QString, osg::Matrixd> linkWorld;
+	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, jointQ, linkWorld, nullptr))
+	{
+		return false;
+	}
+	if (!linkWorld.contains(flangeQ))
+	{
+		return false;
+	}
+	const engine::RigidTransform flangeRt = engine::rigidTransformFromOsg(linkWorld.value(flangeQ));
+	const BackendMat4 T_flange_tool = toolMat4ForFrames(frames, instructionWithTool);
+	const engine::RigidTransform toolRt = RobotCoordinate::rigidTransformFromBackendMat4(T_flange_tool);
+	outTargetInBase = engine::toolOriginFromFlange(flangeRt, toolRt);
+	outFlangeLinkName = flangeQ;
+	return true;
+}
+
+/// T_base_tcp = T_base_flange * T_flange_tool（与示教 capture、URDF linkWorld 同一套 OSG 行向量约定）。
+bool tcpInBaseFromLinkWorldAndToolFrames(
+	const QHash<QString, osg::Matrixd>& linkWorldByName,
+	const RobotCoordinate::RobotCoordinateFrameSet& frames,
+	const QString& fallbackFlangeLink,
+	osg::Matrixd& outTcpInBase,
+	QString& outFlangeLinkName,
+	const RobotInstruction::Base* instructionWithToolContext)
+{
+	std::string flangeLink;
+	if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
+	{
+		flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, *tool);
+	}
+	else if (!frames.flangeLinkName.empty())
+	{
+		flangeLink = frames.flangeLinkName;
+	}
+	else
+	{
+		flangeLink = fallbackFlangeLink.toStdString();
+	}
+	const QString flangeQ = QString::fromStdString(flangeLink);
+	if (flangeQ.isEmpty() || !linkWorldByName.contains(flangeQ))
+	{
+		return false;
+	}
+	const BackendMat4 T_flange_tool = toolMat4ForFrames(frames, instructionWithToolContext);
+	outTcpInBase = osgTcpInBaseFromFlangeLinkWorld(linkWorldByName, flangeQ, T_flange_tool);
+	outFlangeLinkName = flangeQ;
+	return true;
+}
+
+BackendMat4 toolTcpInBaseFromFk(
+	const QString& urdfPath,
+	const QVector<double>& jointQ,
+	const RobotCoordinate::RobotCoordinateFrameSet& frames,
+	const RobotCoordinate::RobotToolFrame& tool)
+{
+	const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, tool);
+	if (urdfPath.isEmpty() || flangeLink.empty())
+	{
+		return BackendMat4::identity();
+	}
+	QHash<QString, osg::Matrixd> linkWorld;
+	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, jointQ, linkWorld, nullptr))
+	{
+		return BackendMat4::identity();
+	}
+	const QString flangeQ = QString::fromStdString(flangeLink);
+	if (!linkWorld.contains(flangeQ))
+	{
+		return BackendMat4::identity();
+	}
+	const BackendMat4 T_flange_tool = RobotCoordinate::frameToMat4(tool.T_flange_tool);
+	return backendMat4FromOsg(osgTcpInBaseFromFlangeLinkWorld(linkWorld, flangeQ, T_flange_tool));
+}
+
 void attachMotionPlanningContext(
 	RobotInstruction::Base& ins,
 	const QVector<double>& rollingQ,
 	const QString& urdfPath,
-	const std::string& defaultTcpLinkName)
+	const std::string& defaultTcpLinkName,
+	const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames)
 {
 	ins.setExtensionProperty("context.currentJointRadCsv", encodeJointCsv(rollingQ));
 	ins.setExtensionProperty("context.urdfPath", urdfPath.toStdString());
 	std::string tcpRef = defaultTcpLinkName;
 	const auto& ext = ins.extensionProperties();
-	const auto itCapturedTcp = ext.find("context.capturedTcpLinkName");
-	if (itCapturedTcp != ext.end() && !itCapturedTcp->second.empty())
+	const auto itCapturedTcp = ext.find(RobotCoordinate::kExtContextCapturedTcpLinkName);
+	const bool hasCapturedTcp =
+		itCapturedTcp != ext.end() && !itCapturedTcp->second.empty();
+	if (hasCapturedTcp)
 	{
 		tcpRef = itCapturedTcp->second;
+	}
+	if (coordinateFrames)
+	{
+		const BackendMat4 toolMat = RobotCoordinate::toolMat4ForExtension(*coordinateFrames, ext);
+		ins.setExtensionProperty(
+			RobotCoordinate::kExtContextToolFrameMat4, RobotCoordinate::encodeMat4Csv(toolMat));
+		if (const RobotCoordinate::RobotToolFrame* tool =
+				RobotCoordinate::resolveToolFrameForExtension(*coordinateFrames, ext))
+		{
+			const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(*coordinateFrames, *tool);
+			if (!flangeLink.empty())
+			{
+				ins.setExtensionProperty("context.flangeLinkName", flangeLink);
+				ins.setExtensionProperty("context.activeToolFrameId", tool->id);
+				if (!hasCapturedTcp)
+				{
+					tcpRef = flangeLink;
+				}
+			}
+		}
 	}
 	ins.setExtensionProperty("context.tcpLinkName", tcpRef);
 }
@@ -810,10 +1156,18 @@ void MainWindow::applyLanguage()
 	{
 		m_robotAxisControlPage->setUseChinese(m_useChinese);
 	}
+	if (m_robotFrameSettingsPage)
+	{
+		m_robotFrameSettingsPage->setUseChinese(m_useChinese);
+	}
 	if (m_simulationDockTabs && m_simulationDockTabs->count() >= 2)
 	{
 		m_simulationDockTabs->setTabText(0, i18n(QStringLiteral("Instructions"), QStringLiteral("指令")));
 		m_simulationDockTabs->setTabText(1, i18n(QStringLiteral("Axis control"), QStringLiteral("轴控制")));
+		if (m_simulationDockTabs->count() >= 3)
+		{
+			m_simulationDockTabs->setTabText(2, i18n(QStringLiteral("Frames"), QStringLiteral("坐标系")));
+		}
 	}
 	refreshSimulationJointListFromCurrentDoc();
 	if (m_runDock) m_runDock->setWindowTitle(i18n(QStringLiteral("Runtime Output"), QStringLiteral("运行信息")));
@@ -1311,6 +1665,15 @@ DocumentPage* MainWindow::currentPage() const
 	return qobject_cast<DocumentPage*>(m_documentTabs->currentWidget());
 }
 
+int MainWindow::currentSimulationRobotInstanceIndex() const
+{
+	if (!m_simulationCommandPage)
+	{
+		return -1;
+	}
+	return m_simulationCommandPage->currentRobotInstanceIndex();
+}
+
 OsgWidget* MainWindow::currentOsgWidget() const
 {
 	DocumentPage* p = currentPage();
@@ -1380,6 +1743,10 @@ void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 void MainWindow::runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg,
 	const std::string* manualPoseAuthorityBackendId)
 {
+	if (m_robotProgramExecutor.isRunning())
+	{
+		return;
+	}
 	BackendDataManager& mgr = page.backend();
 	const bool forced = page.takeFollowSolveForced();
 	auto& dirty = page.followDirtyBackendIds();
@@ -1680,10 +2047,19 @@ void MainWindow::stopRobotSimulation()
 			if (nj > 0 && m_robotAxisControlPage->jointCount() == nj
 				&& offset + nj <= lastJointAngles.size())
 			{
-				m_robotAxisControlPage->setJointAnglesRad(lastJointAngles.mid(offset, nj));
+				const QVector<double> local = lastJointAngles.mid(offset, nj);
+				m_robotAxisControlPage->setJointAnglesRad(local);
+				IRobotBackendPoseSink* poseSink = doc->sceneFacade().poseSink();
+				if (poseSink && m_aggregatedJointAnglesRad.size() == doc->robotRevoluteJointNames().size())
+				{
+					(void)RobotSceneKinematics::applyJointAnglesForInstance(
+						doc, poseSink, instIdx, local, m_aggregatedJointAnglesRad);
+				}
 			}
 		}
 	}
+	refreshInstructionPoseAxes();
+	refreshRobotCoordinateFrameOverlays();
 }
 
 void MainWindow::refreshSimulationJointListFromCurrentDoc()
@@ -1752,6 +2128,8 @@ void MainWindow::refreshSimulationJointListFromCurrentDoc()
 
 		m_aggregatedJointAnglesRad = QVector<double>(doc->robotRevoluteJointNames().size(), 0.0);
 		captureMotionPreviewProgramStartJoints();
+		syncRobotFrameSettingsFromDocument(instIdx);
+		refreshRobotCoordinateFrameOverlays();
 	}
 	else
 	{
@@ -1813,6 +2191,328 @@ QVector<double> MainWindow::motionPreviewProgramStartJointsLocal(const int nj, c
 	return rollingQ;
 }
 
+void MainWindow::syncRobotFrameSettingsFromDocument(const int instanceIndex)
+{
+	DocumentPage* doc = currentPage();
+	if (!doc || !m_robotFrameSettingsPage || instanceIndex < 0)
+	{
+		return;
+	}
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instanceIndex);
+	QStringList linkNames;
+	QStringList childLinks;
+	(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, childLinks, nullptr);
+	QSet<QString> uniq;
+	for (const QString& l : childLinks)
+	{
+		if (!l.isEmpty() && !uniq.contains(l))
+		{
+			uniq.insert(l);
+			linkNames.push_back(l);
+		}
+	}
+	m_robotFrameSettingsPage->setLinkNameOptions(linkNames);
+	m_robotFrameSettingsPage->setCoordinateFrames(doc->robotCoordinateFramesForInstance(instanceIndex));
+	if (m_robotFrameSettingsPage)
+	{
+		m_robotFrameSettingsPage->setUseChinese(m_useChinese);
+	}
+}
+
+void MainWindow::onRobotCoordinateFramesChanged()
+{
+	DocumentPage* doc = currentPage();
+	if (!doc || !m_simulationCommandPage || !m_robotFrameSettingsPage)
+	{
+		return;
+	}
+	const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		return;
+	}
+	doc->robotCoordinateFramesForInstance(instIdx) = m_robotFrameSettingsPage->coordinateFrames();
+	invalidateFeasibleAxisConfigurationCache();
+	refreshRobotCoordinateFrameOverlays();
+	refreshInstructionPoseAxes();
+	if (m_activeInstructionForProperty)
+	{
+		updateInstructionPropertyPanel(m_activeInstructionForProperty, false);
+		if (RobotInstruction::isMotionWaypointType(m_activeInstructionForProperty->type()))
+		{
+			applyRobotPoseForInstructionPreview(m_activeInstructionForProperty);
+		}
+	}
+}
+
+void MainWindow::onCaptureToolFrameFromTcp()
+{
+	DocumentPage* doc = currentPage();
+	if (!doc || !m_simulationCommandPage || !m_robotFrameSettingsPage)
+	{
+		return;
+	}
+	const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		return;
+	}
+	RobotInstruction::Vec3 pose{};
+	RobotInstruction::Vec3 euler{};
+	QString err;
+	if (!tryCaptureCurrentRobotTcpPose(pose, euler, nullptr, nullptr, nullptr, &err))
+	{
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendWarning(err);
+		}
+		return;
+	}
+	const BackendMat4 T_base_tcp =
+		RobotCoordinate::tcpInBaseFromPose(pose.x, pose.y, pose.z, euler.x, euler.y, euler.z);
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	RobotCoordinate::RobotCoordinateFrameSet frames = m_robotFrameSettingsPage->coordinateFrames();
+	const RobotCoordinate::RobotToolFrame* activeTool = RobotCoordinate::activeToolFrame(frames);
+	std::string flangeLink = activeTool ? RobotCoordinate::effectiveFlangeLinkName(frames, *activeTool) : std::string();
+	if (flangeLink.empty())
+	{
+		flangeLink = defaultTcpLinkNameForUrdf(urdfPath, m_simulationCommandPage->selectedTcpLink()).toStdString();
+	}
+	QVector<double> q;
+	if (m_robotAxisControlPage && m_robotAxisControlPage->jointCount() > 0)
+	{
+		q = m_robotAxisControlPage->jointAnglesRad();
+	}
+	QHash<QString, osg::Matrixd> linkWorld;
+	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, q, linkWorld, &err))
+	{
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendWarning(err);
+		}
+		return;
+	}
+	const QString flangeQ = QString::fromStdString(flangeLink);
+	if (!linkWorld.contains(flangeQ))
+	{
+		return;
+	}
+	const BackendMat4 T_base_flange =
+		RobotMatrixOsg::backendColMajorFromMatrix(linkWorld.value(flangeQ));
+	BackendMat4 invFlange{};
+	if (!backend_mat4_invert_rigid(T_base_flange, invFlange))
+	{
+		return;
+	}
+	BackendMat4 T_flange_tool{};
+	backend_mat4_multiply(invFlange, T_base_tcp, T_flange_tool);
+	RobotCoordinate::RobotToolFrame* target = nullptr;
+	for (RobotCoordinate::RobotToolFrame& tf : frames.toolFrames)
+	{
+		if (tf.id == frames.activeToolFrameId)
+		{
+			target = &tf;
+			break;
+		}
+	}
+	if (!target && !frames.toolFrames.empty())
+	{
+		target = &frames.toolFrames.front();
+	}
+	if (!target)
+	{
+		return;
+	}
+	target->T_flange_tool = RobotCoordinate::mat4ToFrame(T_flange_tool);
+	m_robotFrameSettingsPage->setCoordinateFrames(frames);
+	doc->robotCoordinateFramesForInstance(instIdx) = frames;
+	onRobotCoordinateFramesChanged();
+}
+
+void MainWindow::onResetToolFrame()
+{
+	DocumentPage* doc = currentPage();
+	if (!doc || !m_simulationCommandPage || !m_robotFrameSettingsPage)
+	{
+		return;
+	}
+	const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		return;
+	}
+	RobotCoordinate::RobotCoordinateFrameSet frames = m_robotFrameSettingsPage->coordinateFrames();
+	for (RobotCoordinate::RobotToolFrame& tf : frames.toolFrames)
+	{
+		if (tf.id == frames.activeToolFrameId)
+		{
+			tf.T_flange_tool = RobotCoordinate::identityRigidFrame();
+			break;
+		}
+	}
+	m_robotFrameSettingsPage->setCoordinateFrames(frames);
+	doc->robotCoordinateFramesForInstance(instIdx) = frames;
+	onRobotCoordinateFramesChanged();
+}
+
+void MainWindow::onCaptureUserFrameFromTcp()
+{
+	DocumentPage* doc = currentPage();
+	if (!doc || !m_simulationCommandPage || !m_robotFrameSettingsPage)
+	{
+		return;
+	}
+	const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		return;
+	}
+	RobotInstruction::Vec3 pose{};
+	RobotInstruction::Vec3 euler{};
+	QString err;
+	if (!tryCaptureCurrentRobotTcpPose(pose, euler, nullptr, nullptr, nullptr, &err))
+	{
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendWarning(err);
+		}
+		return;
+	}
+	RobotCoordinate::RobotCoordinateFrameSet frames = m_robotFrameSettingsPage->coordinateFrames();
+	RobotCoordinate::RobotUserFrame* target = nullptr;
+	for (RobotCoordinate::RobotUserFrame& uf : frames.userFrames)
+	{
+		if (uf.id == frames.activeUserFrameId)
+		{
+			target = &uf;
+			break;
+		}
+	}
+	if (!target && !frames.userFrames.empty())
+	{
+		target = &frames.userFrames.front();
+	}
+	if (!target)
+	{
+		return;
+	}
+	target->T_base_user.positionMm[0] = pose.x;
+	target->T_base_user.positionMm[1] = pose.y;
+	target->T_base_user.positionMm[2] = pose.z;
+	target->T_base_user.eulerDeg[0] = euler.x;
+	target->T_base_user.eulerDeg[1] = euler.y;
+	target->T_base_user.eulerDeg[2] = euler.z;
+	m_robotFrameSettingsPage->setCoordinateFrames(frames);
+	doc->robotCoordinateFramesForInstance(instIdx) = frames;
+	onRobotCoordinateFramesChanged();
+}
+
+void MainWindow::refreshRobotCoordinateFrameOverlays(
+	const std::shared_ptr<RobotInstruction::Base>& highlightInstruction)
+{
+	OsgWidget* osg = currentOsgWidget();
+	DocumentPage* doc = currentPage();
+	if (!osg || !doc || !m_simulationCommandPage)
+	{
+		return;
+	}
+	const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		return;
+	}
+	const QString robotRootId = doc->robotSceneBackendIdForInstance(instIdx);
+	if (robotRootId.isEmpty())
+	{
+		return;
+	}
+	osg->clearRobotFrameOverlays(robotRootId.toStdString());
+	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
+	if (!frames.showToolFrameInScene && !frames.showUserFramesInScene)
+	{
+		return;
+	}
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	QVector<double> jointQ;
+	if (m_robotAxisControlPage && m_robotAxisControlPage->jointCount() > 0)
+	{
+		jointQ = m_robotAxisControlPage->jointAnglesRad();
+	}
+	const bool perLink = doc->robotUsesPerLinkBackendsForInstance(instIdx);
+	const QString baseLinkBackendId = doc->robotFrameWorldReferenceBackendId(instIdx);
+	std::string highlightToolId = frames.activeToolFrameId;
+	if (highlightInstruction && highlightInstruction->hasPoseProperty())
+	{
+		if (const RobotCoordinate::RobotToolFrame* insTool = RobotCoordinate::resolveToolFrameForExtension(
+				frames, highlightInstruction->extensionProperties()))
+		{
+			highlightToolId = insTool->id;
+		}
+	}
+	OsgWidget::RobotFrameOverlayUpdate upd;
+	upd.robotRootBackendId = robotRootId.toStdString();
+	upd.showToolFrames = frames.showToolFrameInScene;
+	upd.showUserFrames = frames.showUserFramesInScene;
+	for (const RobotCoordinate::RobotToolFrame& tool : frames.toolFrames)
+	{
+		OsgWidget::RobotFrameOverlayUpdate::ToolEntry te;
+		te.name = tool.name;
+		te.active = (tool.id == highlightToolId);
+		if (perLink)
+		{
+			const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, tool);
+			const BackendMat4 T_flange_tool = RobotCoordinate::frameToMat4(tool.T_flange_tool);
+			bool placedByUrdfFk = false;
+			if (!urdfPath.isEmpty() && !jointQ.isEmpty())
+			{
+				QHash<QString, osg::Matrixd> linkWorld;
+				const QString flangeQ = QString::fromStdString(flangeLink);
+				if (UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, jointQ, linkWorld, nullptr)
+					&& linkWorld.contains(flangeQ))
+				{
+					const osg::Matrixd toolInBase = RobotMatrixOsg::matrixFromBackendColMajor(
+						RobotMatrixOsg::targetInBaseFromFlangeLinkWorld(
+							linkWorld.value(flangeQ), T_flange_tool));
+					osg::Matrixd baseWorld;
+					baseWorld.makeIdentity();
+					if (robotBaseWorldMatrixForInstance(doc, osg, instIdx, baseWorld, &jointQ))
+					{
+						const osg::Matrixd toolWorld = toolInBase * baseWorld;
+						osg::Matrixd sceneWorld;
+						sceneWorld.makeIdentity();
+						if (osg->getBackendRootWorldMatrix(robotRootId.toStdString(), sceneWorld))
+						{
+							te.mountBackendId = robotRootId.toStdString();
+							te.localMatrix = toolWorld * osg::Matrixd::inverse(sceneWorld);
+							placedByUrdfFk = true;
+						}
+					}
+				}
+			}
+			if (!placedByUrdfFk)
+			{
+				te.mountBackendId = linkMeshBackendIdForInstance(doc, instIdx, flangeLink).toStdString();
+				te.localMatrix = osgMatrixFromRobotRigidFrame(tool.T_flange_tool);
+			}
+		}
+		else
+		{
+			te.mountBackendId.clear();
+			te.localMatrix = osgMatrixFromBackendMat4(toolTcpInBaseFromFk(urdfPath, jointQ, frames, tool));
+		}
+		upd.toolFrames.push_back(std::move(te));
+	}
+	for (const RobotCoordinate::RobotUserFrame& uf : frames.userFrames)
+	{
+		OsgWidget::RobotFrameOverlayUpdate::UserEntry ue;
+		ue.name = uf.name;
+		ue.mountBackendId = perLink ? baseLinkBackendId.toStdString() : std::string();
+		ue.localMatrix = osgMatrixFromRobotRigidFrame(uf.T_base_user);
+		upd.userFrames.push_back(std::move(ue));
+	}
+	osg->setRobotFrameOverlays(upd);
+}
+
 void MainWindow::onSimulationRobotSelectionChanged(int instanceIndex, const QString& sceneBackendId)
 {
 	(void)sceneBackendId;
@@ -1821,6 +2521,8 @@ void MainWindow::onSimulationRobotSelectionChanged(int instanceIndex, const QStr
 	{
 		return;
 	}
+	syncRobotFrameSettingsFromDocument(instanceIndex);
+	refreshRobotCoordinateFrameOverlays();
 	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instanceIndex);
 	m_simulationCommandPage->setRevoluteJointNames(doc->robotRevoluteJointNamesForInstance(instanceIndex));
 
@@ -1856,6 +2558,7 @@ void MainWindow::onSimulationRobotSelectionChanged(int instanceIndex, const QStr
 	}
 	captureMotionPreviewProgramStartJoints();
 	invalidateFeasibleAxisConfigurationCache();
+	refreshRobotCoordinateFrameOverlays();
 }
 
 void MainWindow::onRobotAxisJointAnglesChanged(const QVector<double>& jointAnglesRad)
@@ -1881,6 +2584,7 @@ void MainWindow::onRobotAxisJointAnglesChanged(const QVector<double>& jointAngle
 	}
 	(void)RobotSceneKinematics::applyJointAnglesForInstance(
 		doc, poseSink, instIdx, jointAnglesRad, m_aggregatedJointAnglesRad);
+	refreshRobotCoordinateFrameOverlays();
 	if (!m_suppressMotionPreviewStartCapture)
 	{
 		captureMotionPreviewProgramStartJoints();
@@ -1900,6 +2604,180 @@ void MainWindow::onSimulationStopRequested()
 void MainWindow::onSimulationRunRequested()
 {
 	onSimulationStartTriggered();
+}
+
+void MainWindow::onSimulationExportRequested()
+{
+	DocumentPage* doc = currentPage();
+	if (!doc || !m_simulationCommandPage || !doc->hasRobotSimulationContext())
+	{
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendWarning(i18n(
+				QStringLiteral("Import a robot (URDF) first, then export the program."),
+				QStringLiteral("请先导入机器人(URDF)，再导出程序。")));
+		}
+		return;
+	}
+	const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		return;
+	}
+	const QString robotBackendId = m_simulationCommandPage->currentRobotBackendId();
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	if (urdfPath.isEmpty())
+	{
+		return;
+	}
+	{
+		std::vector<robot_kinematics::DhRow> dhRows;
+		QString dhErr;
+		if (buildDhRowsFromUrdf(urdfPath, dhRows, &dhErr))
+		{
+			m_robotInstructionController.setDhRows(dhRows);
+		}
+		else
+		{
+			m_robotInstructionController.clearDhRows();
+		}
+	}
+	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+	if (nj <= 0)
+	{
+		return;
+	}
+	const std::vector<std::shared_ptr<RobotInstruction::Base>> instructions =
+		m_simulationCommandPage->instructions(robotBackendId);
+	const std::vector<const RobotInstruction::Base*> motions =
+		RobotInstruction::collectMotionInstructions(instructions);
+	if (motions.empty())
+	{
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendWarning(i18n(QStringLiteral("No motion instructions to export."),
+				QStringLiteral("没有可导出的运动指令。")));
+		}
+		return;
+	}
+	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
+	const QString defaultTcpLinkName = defaultTcpLinkNameForUrdf(
+		urdfPath,
+		m_simulationCommandPage ? m_simulationCommandPage->selectedTcpLink() : QString());
+	QVector<double> rollingQ = motionPreviewProgramStartJointsLocal(nj, jointOffset);
+	std::vector<RobotInstruction::PlanResult> plans;
+	plans.reserve(motions.size());
+	int failedCount = 0;
+	for (const RobotInstruction::Base* motionPtr : motions)
+	{
+		if (!motionPtr)
+		{
+			RobotInstruction::PlanResult empty{};
+			empty.ok = false;
+			empty.summary = "Invalid instruction";
+			plans.push_back(std::move(empty));
+			++failedCount;
+			continue;
+		}
+		RobotInstruction::Base* ins = const_cast<RobotInstruction::Base*>(motionPtr);
+		const MotionPoseBackup backup = backupInstructionPose(*ins);
+		attachMotionPlanningContext(
+			*ins,
+			rollingQ,
+			urdfPath,
+			defaultTcpLinkName.toStdString(),
+			&doc->robotCoordinateFramesForInstance(instIdx));
+		std::string planErr;
+		RobotInstruction::PlanResult plan{};
+		if (!m_robotInstructionController.validate(*ins, &planErr))
+		{
+			plan.ok = false;
+			plan.summary = planErr.empty() ? "Validation failed" : planErr;
+			++failedCount;
+		}
+		else if (!m_robotInstructionController.plan(*ins, plan, &planErr))
+		{
+			plan.ok = false;
+			if (!planErr.empty())
+			{
+				plan.summary = planErr;
+			}
+			++failedCount;
+		}
+		restoreInstructionPose(*ins, backup);
+		if (plan.ok && !plan.jointTargetsRad.empty()
+			&& plan.jointTargetsRad.size() == static_cast<size_t>(rollingQ.size()))
+		{
+			for (int j = 0; j < rollingQ.size(); ++j)
+			{
+				rollingQ[j] = plan.jointTargetsRad[static_cast<size_t>(j)];
+			}
+		}
+		plans.push_back(std::move(plan));
+	}
+	RobotProgramExport::RobotProgramExportResult exportResult;
+	std::string buildErr;
+	if (!RobotProgramExport::buildExportResult(
+			motions,
+			plans,
+			robotBackendId.toStdString(),
+			urdfPath.toStdString(),
+			exportResult,
+			&buildErr))
+	{
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendWarning(QString::fromStdString(buildErr));
+		}
+		return;
+	}
+	const QString defaultName = QStringLiteral("robot_program.json");
+	const QString path = QFileDialog::getSaveFileName(
+		this,
+		i18n(QStringLiteral("Export robot program"), QStringLiteral("导出机器人程序")),
+		defaultName,
+		i18n(QStringLiteral("JSON (*.json);;CSV (*.csv)"), QStringLiteral("JSON (*.json);;CSV (*.csv)")));
+	if (path.isEmpty())
+	{
+		return;
+	}
+	std::string fileBody;
+	std::string writeErr;
+	const bool asCsv = path.endsWith(QStringLiteral(".csv"), Qt::CaseInsensitive);
+	const bool okWrite = asCsv ? RobotProgramExport::writeExportResultToCsv(exportResult, fileBody, &writeErr)
+								 : RobotProgramExport::writeExportResultToJson(exportResult, fileBody, &writeErr);
+	if (!okWrite)
+	{
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendWarning(QString::fromStdString(writeErr));
+		}
+		return;
+	}
+	QFile f(path);
+	if (!f.open(QIODevice::WriteOnly | QIODevice::Text))
+	{
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendWarning(i18n(QStringLiteral("Cannot write file: %1").arg(path),
+				QStringLiteral("无法写入文件：%1").arg(path)));
+		}
+		return;
+	}
+	f.write(fileBody.c_str(), static_cast<qint64>(fileBody.size()));
+	f.close();
+	if (m_runInfoPage)
+	{
+		m_runInfoPage->appendInfo(i18n(QStringLiteral("Exported program to %1 (%2 motion points, %3 IK failures).")
+											.arg(path)
+											.arg(exportResult.points.size())
+											.arg(failedCount),
+			QStringLiteral("程序已导出至 %1（%2 个运动点，%3 个 IK 失败）。")
+				.arg(path)
+				.arg(exportResult.points.size())
+				.arg(failedCount)));
+	}
+	refreshInstructionPoseAxes();
 }
 
 bool MainWindow::tryCaptureCurrentRobotTcpPose(
@@ -1937,24 +2815,26 @@ bool MainWindow::tryCaptureCurrentRobotTcpPose(
 	const QStringList jointsLocal = doc->robotRevoluteJointNamesForInstance(instIdx);
 	QVector<double> q(jointsLocal.size(), 0.0);
 	QString qSource = QStringLiteral("zero-fallback");
-	osg::Matrixd robotRootWorld;
-	robotRootWorld.makeIdentity();
-	if (OsgWidget* osg = currentOsgWidget())
+	OsgWidget* osg = currentOsgWidget();
+	osg::Matrixd robotBaseWorld;
+	robotBaseWorld.makeIdentity();
+	const bool hasRobotBaseWorld = robotBaseWorldMatrixForInstance(doc, osg, instIdx, robotBaseWorld);
+	if (m_robotAxisControlPage && m_robotAxisControlPage->jointCount() > 0)
 	{
-		const QString robotRootId = doc->robotSceneBackendIdForInstance(instIdx);
-		if (!robotRootId.isEmpty())
+		const QVector<double> sliderQ = m_robotAxisControlPage->jointAnglesRad();
+		const int nCopy = std::min(q.size(), sliderQ.size());
+		for (int j = 0; j < nCopy; ++j)
 		{
-			osg::Matrixd m;
-			if (osg->getBackendRootWorldMatrix(robotRootId.toStdString(), m))
-			{
-				robotRootWorld = m;
-			}
+			q[j] = sliderQ[j];
 		}
-	}
-	if (m_robotAxisControlPage && m_robotAxisControlPage->jointCount() == jointsLocal.size())
-	{
-		q = m_robotAxisControlPage->jointAnglesRad();
-		qSource = QStringLiteral("slider");
+		if (nCopy == q.size() && nCopy > 0)
+		{
+			qSource = QStringLiteral("slider");
+		}
+		else if (nCopy > 0)
+		{
+			qSource = QStringLiteral("slider-partial");
+		}
 	}
 	(void)qSource;
 	const QString lastJointName = jointsLocal.isEmpty() ? QString() : (jointPrefix + jointsLocal.back());
@@ -1962,25 +2842,40 @@ bool MainWindow::tryCaptureCurrentRobotTcpPose(
 	QString computeErr;
 	const bool hasLinkFk = UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, q, linkWorldByName, &computeErr);
 
-	QString tcpLinkName;
+	QString fallbackFlangeLink;
 	{
-		// Link frame fallback only (primary path uses last revolute joint frame).
 		QStringList revoluteChildLinks;
 		(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, revoluteChildLinks, nullptr);
 		if (!revoluteChildLinks.isEmpty())
 		{
-			tcpLinkName = revoluteChildLinks.back();
+			fallbackFlangeLink = revoluteChildLinks.back();
 		}
 	}
-	if (tcpLinkName.isEmpty() && m_simulationCommandPage)
+	if (fallbackFlangeLink.isEmpty() && m_simulationCommandPage)
 	{
-		// Fallback only when URDF does not expose revolute child links.
-		tcpLinkName = m_simulationCommandPage->selectedTcpLink();
+		fallbackFlangeLink = m_simulationCommandPage->selectedTcpLink();
 	}
+	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
+	QString tcpLinkName;
 	osg::Matrixd tcpLocal;
 	bool hasTcpLocal = false;
 	QString tcpSource = QStringLiteral("None");
-	// Hierarchy pose of last revolute joint (OSG scene graph); may differ from URDF child link frame.
+	osg::Matrixd tcpRenderWorld;
+	bool capturedFromScene = false;
+	BackendMat4 capturedTargetInBase{};
+	bool hasCapturedTargetInBase = false;
+	// 优先 URDF 法兰 FK × 工具系（per-link 场景 PAT 世界矩阵不可靠，禁止先于本路径用 SceneFlangeBackend）。
+	if (hasLinkFk)
+	{
+		if (targetInBaseFromUrdfFlangeFk(
+				urdfPath, q, frames, fallbackFlangeLink, capturedTargetInBase, nullptr, tcpLinkName))
+		{
+			tcpLocal = RobotMatrixOsg::matrixFromBackendColMajor(capturedTargetInBase);
+			hasTcpLocal = true;
+			hasCapturedTargetInBase = true;
+			tcpSource = QStringLiteral("UrdfFlangeFk+Tool");
+		}
+	}
 	osg::Matrixd tcpLocalFromHierarchy;
 	bool hasHierarchyLocal = false;
 	if (!lastJointName.isEmpty())
@@ -1990,62 +2885,138 @@ bool MainWindow::tryCaptureCurrentRobotTcpPose(
 			osg::Matrixd jointWorld;
 			if (matrixFromNodeWorld(jointMt, jointWorld))
 			{
-				tcpLocalFromHierarchy = osg::Matrixd::inverse(robotRootWorld) * jointWorld;
+				osg::Matrixd invBase;
+				invBase.makeIdentity();
+				if (hasRobotBaseWorld)
+				{
+					invBase = osg::Matrixd::inverse(robotBaseWorld);
+				}
+				tcpLocalFromHierarchy = invBase * jointWorld;
 				hasHierarchyLocal = true;
 			}
 		}
 	}
-	// Primary: URDF link FK for tcpLinkName — same frame as RobotInstructionController URDF IK / FK.
-	// Using the joint MatrixTransform first caused "add at current pose then run moves" when joint ≠ link frame.
-	if (hasLinkFk && !tcpLinkName.isEmpty() && linkWorldByName.contains(tcpLinkName))
+	if (!hasTcpLocal
+		&& captureTcpFromSceneFlangeBackend(
+			doc, osg, instIdx, frames, fallbackFlangeLink, robotBaseWorld, tcpLocal, tcpRenderWorld, tcpLinkName, tcpSource))
 	{
-		tcpLocal = linkWorldByName.value(tcpLinkName);
 		hasTcpLocal = true;
-		tcpSource = QStringLiteral("LinkFK");
+		capturedFromScene = true;
 	}
-	else if (hasHierarchyLocal)
+	if (!hasTcpLocal && hasHierarchyLocal)
 	{
-		tcpLocal = tcpLocalFromHierarchy;
-		hasTcpLocal = true;
-		tcpSource = QStringLiteral("HierarchyJoint");
-	}
-	else if (!lastJointName.isEmpty())
-	{
-		if (errMsg)
+		const BackendMat4 T_flange_tool = toolMat4ForFrames(frames, nullptr);
+		tcpLocal = tcpLocalFromHierarchy * osgMatrixFromBackendMat4(T_flange_tool);
+		if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
 		{
-			*errMsg = i18n(QStringLiteral("Cannot evaluate TCP world transform."),
-				QStringLiteral("无法获取末端世界坐标。"));
+			tcpLinkName = QString::fromStdString(RobotCoordinate::effectiveFlangeLinkName(frames, *tool));
 		}
-		return false;
+		else
+		{
+			tcpLinkName = fallbackFlangeLink;
+		}
+		hasTcpLocal = true;
+		tcpSource = QStringLiteral("HierarchyJoint+Tool");
 	}
 	if (!hasTcpLocal)
 	{
 		if (errMsg)
 		{
-			*errMsg = i18n(QStringLiteral("No link transform is available for TCP."),
-				QStringLiteral("当前没有可用的末端关节/连杆位姿。"));
+			if (!hasLinkFk)
+			{
+				const QString detail = computeErr.isEmpty()
+					? i18n(QStringLiteral("URDF forward kinematics failed."),
+						QStringLiteral("URDF 正解计算失败。"))
+					: computeErr;
+				*errMsg = i18n(
+					QStringLiteral("Cannot evaluate TCP: %1").arg(detail),
+					QStringLiteral("无法获取末端坐标：%1").arg(detail));
+			}
+			else
+			{
+				std::string flangeLink;
+				if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
+				{
+					flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, *tool);
+				}
+				else
+				{
+					flangeLink = fallbackFlangeLink.toStdString();
+				}
+				const QString flangeQ = QString::fromStdString(flangeLink);
+				if (flangeQ.isEmpty())
+				{
+					*errMsg = i18n(
+						QStringLiteral("Flange link name is not configured."),
+						QStringLiteral("未配置法兰连杆名。"));
+				}
+				else if (!linkWorldByName.contains(flangeQ))
+				{
+					*errMsg = i18n(
+						QStringLiteral("Link '%1' not in URDF FK result (check tool frame flange link).")
+							.arg(flangeQ),
+						QStringLiteral("URDF 正解结果中无连杆「%1」（请检查工具系法兰连杆名）。").arg(flangeQ));
+				}
+				else if (!lastJointName.isEmpty() && !doc->robotJointMatrixTransform(lastJointName))
+				{
+					*errMsg = i18n(
+						QStringLiteral("Per-link robot has no joint scene node '%1'; use URDF FK path.")
+							.arg(lastJointName),
+						QStringLiteral("每连杆导入无关节场景节点「%1」；应走 URDF 正解路径。")
+							.arg(lastJointName));
+				}
+				else
+				{
+					*errMsg = i18n(QStringLiteral("Cannot evaluate TCP world transform."),
+						QStringLiteral("无法获取末端世界坐标。"));
+				}
+			}
 		}
 		return false;
 	}
 
-	// Keep captured TCP matrix directly. In current URDF->OSG pipeline this matrix is already
-	// in the same scene frame used by FK comparison and overlay rendering; multiplying rootWorld
-	// here introduces an extra transform and shifts the marker.
+	// tcpLocal：URDF 基座系下的 T_base_target（工具系原点）。
 	const osg::Matrixd tcpWorld = tcpLocal;
-	osg::Matrixd renderWorld = tcpWorld;
-	if (hasHierarchyLocal)
+	const osg::Matrixd renderWorld = capturedFromScene ? tcpRenderWorld : (tcpWorld * robotBaseWorld);
+	// 落盘 pose/euler：直接由 URDF FK × 工具系得到 RigidTransform（与 IK/残差同一路径）。
+	if (hasCapturedTargetInBase && hasLinkFk)
 	{
-		// Rendering should align with the visible robot scene graph in world space.
-		renderWorld = robotRootWorld * tcpLocalFromHierarchy;
+		engine::RigidTransform target{};
+		QString flangeLinkQ;
+		if (targetRigidTransformFromUrdfFlangeFk(
+				urdfPath, q, frames, fallbackFlangeLink, target, flangeLinkQ, nullptr))
+		{
+			target.translationMm(outPoseMm.x, outPoseMm.y, outPoseMm.z);
+			target.eulerDegForDisplay(outEulerDeg.x, outEulerDeg.y, outEulerDeg.z);
+			tcpLocal = engine::osgMatrixFromRigidTransform(target);
+			capturedTargetInBase = RobotCoordinate::backendMat4FromRigidTransform(target);
+		}
+		else
+		{
+			const engine::RigidTransform target = RobotCoordinate::rigidTransformFromBackendMat4(capturedTargetInBase);
+			target.translationMm(outPoseMm.x, outPoseMm.y, outPoseMm.z);
+			target.eulerDegForDisplay(outEulerDeg.x, outEulerDeg.y, outEulerDeg.z);
+			tcpLocal = engine::osgMatrixFromRigidTransform(target);
+		}
 	}
-	const osg::Vec3d t = tcpWorld.getTrans();
-	const osg::Vec3f euler = OsgScene::quatToEulerDeg(tcpWorld.getRotate());
-	outPoseMm.x = t.x();
-	outPoseMm.y = t.y();
-	outPoseMm.z = t.z();
-	outEulerDeg.x = euler.x();
-	outEulerDeg.y = euler.y();
-	outEulerDeg.z = euler.z();
+	else if (hasCapturedTargetInBase)
+	{
+		const engine::RigidTransform target = RobotCoordinate::rigidTransformFromBackendMat4(capturedTargetInBase);
+		target.translationMm(outPoseMm.x, outPoseMm.y, outPoseMm.z);
+		target.eulerDegForDisplay(outEulerDeg.x, outEulerDeg.y, outEulerDeg.z);
+		tcpLocal = engine::osgMatrixFromRigidTransform(target);
+	}
+	else
+	{
+		const osg::Vec3d t = tcpWorld.getTrans();
+		const osg::Vec3f euler = OsgScene::quatToEulerDeg(tcpWorld.getRotate());
+		outPoseMm.x = t.x();
+		outPoseMm.y = t.y();
+		outPoseMm.z = t.z();
+		outEulerDeg.x = euler.x();
+		outEulerDeg.y = euler.y();
+		outEulerDeg.z = euler.z();
+	}
 	if (outTcpLocalMat)
 	{
 		*outTcpLocalMat = tcpWorld;
@@ -2082,10 +3053,48 @@ void MainWindow::onSimulationAddInstructionRequested(RobotInstruction::Type type
 		}
 		return;
 	}
-	const std::shared_ptr<RobotInstruction::Base> ins = m_simulationCommandPage->appendInstructionFromCurrentPose(type, pose, euler);
+	engine::RigidTransform teachTargetRt{};
+	bool hasTeachTargetRt = false;
+	if (DocumentPage* preDoc = currentPage())
+	{
+		const int preInstIdx = m_simulationCommandPage->currentRobotInstanceIndex() >= 0
+			? m_simulationCommandPage->currentRobotInstanceIndex()
+			: 0;
+		const QString preUrdf = preDoc->robotUrdfAbsolutePathForInstance(preInstIdx);
+		if (m_robotAxisControlPage && !preUrdf.isEmpty())
+		{
+			QStringList revoluteChildLinks;
+			QString fallbackFlange;
+			(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(preUrdf, revoluteChildLinks, nullptr);
+			if (!revoluteChildLinks.isEmpty())
+			{
+				fallbackFlange = revoluteChildLinks.back();
+			}
+			QString flangeLinkQ;
+			hasTeachTargetRt = targetRigidTransformFromUrdfFlangeFk(
+				preUrdf,
+				m_robotAxisControlPage->jointAnglesRad(),
+				preDoc->robotCoordinateFramesForInstance(preInstIdx),
+				fallbackFlange,
+				teachTargetRt,
+				flangeLinkQ,
+				nullptr);
+			if (hasTeachTargetRt)
+			{
+				teachTargetRt.translationMm(pose.x, pose.y, pose.z);
+				teachTargetRt.eulerDegForDisplay(euler.x, euler.y, euler.z);
+			}
+		}
+	}
+	const std::shared_ptr<RobotInstruction::Base> ins =
+		m_simulationCommandPage->appendInstructionFromCurrentPose(type, pose, euler, true);
 	invalidateFeasibleAxisConfigurationCache();
 	if (ins)
 	{
+		if (hasTeachTargetRt)
+		{
+			RobotInstruction::writeTargetTransformToInstruction(*ins, teachTargetRt);
+		}
 		const std::string matCsv = encodeMatrix4Csv(tcpLocalMat);
 		const std::string renderMatCsv = encodeMatrix4Csv(tcpRenderWorldMat);
 		const osg::Matrixd renderWorldToFk = tcpLocalMat * osg::Matrixd::inverse(tcpRenderWorldMat);
@@ -2099,7 +3108,135 @@ void MainWindow::onSimulationAddInstructionRequested(RobotInstruction::Type type
 		ins->setExtensionProperty("render.tcpLinkName", tcpLinkName.toStdString());
 		ins->setExtensionProperty("context.renderWorldToFkMat4", renderToFkCsv);
 		ins->setExtensionProperty("context.renderToFkDeltaPosMmCsv", deltaOss.str());
+		ins->setExtensionProperty("context.poseFrame", "base_tool_origin");
 		ins->setExtensionProperty("context.capturedTcpLinkName", tcpLinkName.toStdString());
+		if (DocumentPage* capDoc = currentPage())
+		{
+			const int capInstIdx = m_simulationCommandPage->currentRobotInstanceIndex() >= 0
+				? m_simulationCommandPage->currentRobotInstanceIndex()
+				: 0;
+			const RobotCoordinate::RobotCoordinateFrameSet& capFrames =
+				capDoc->robotCoordinateFramesForInstance(capInstIdx);
+			if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(capFrames))
+			{
+				const BackendMat4 toolMat = RobotCoordinate::frameToMat4(tool->T_flange_tool);
+				ins->setExtensionProperty(
+					RobotCoordinate::kExtContextToolFrameMat4, RobotCoordinate::encodeMat4Csv(toolMat));
+				const std::string flangeLink =
+					RobotCoordinate::effectiveFlangeLinkName(capFrames, *tool);
+				if (!flangeLink.empty())
+				{
+					ins->setExtensionProperty("context.flangeLinkName", flangeLink);
+				}
+				ins->setExtensionProperty("context.activeToolFrameId", tool->id);
+				ins->setExtensionProperty(RobotCoordinate::kExtMotionToolFrameId, tool->id);
+			}
+			if (const RobotCoordinate::RobotUserFrame* uf = RobotCoordinate::activeUserFrame(capFrames))
+			{
+				ins->setExtensionProperty(RobotCoordinate::kExtMotionUserFrameId, uf->id);
+			}
+			ins->setExtensionProperty(RobotCoordinate::kExtMotionTargetFrame, "base");
+			const QString capUrdf = capDoc->robotUrdfAbsolutePathForInstance(capInstIdx);
+			if (!capUrdf.isEmpty())
+			{
+				ins->setExtensionProperty("context.urdfPath", capUrdf.toStdString());
+			}
+			if (!tcpLinkName.isEmpty())
+			{
+				ins->setExtensionProperty("context.tcpLinkName", tcpLinkName.toStdString());
+			}
+			QStringList revoluteChildLinks;
+			QString fallbackFlange;
+			if (!capUrdf.isEmpty())
+			{
+				(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(capUrdf, revoluteChildLinks, nullptr);
+				if (!revoluteChildLinks.isEmpty())
+				{
+					fallbackFlange = revoluteChildLinks.back();
+				}
+			}
+			if (m_robotAxisControlPage && m_robotAxisControlPage->jointCount() > 0)
+			{
+				ins->setExtensionProperty(
+					"context.currentJointRadCsv",
+					encodeJointCsv(m_robotAxisControlPage->jointAnglesRad()));
+			}
+			// 扩展属性（含 per-point 工具系）就绪后，用当前滑条关节角重算落盘 pose，与示教 FK 同 q。
+			if (m_robotAxisControlPage && !capUrdf.isEmpty())
+			{
+				BackendMat4 T_sync{};
+				QString flangeLinkSync;
+				engine::RigidTransform targetRt{};
+				if (targetRigidTransformFromUrdfFlangeFk(
+						capUrdf,
+						m_robotAxisControlPage->jointAnglesRad(),
+						capFrames,
+						fallbackFlange,
+						targetRt,
+						flangeLinkSync,
+						ins.get()))
+				{
+					RobotInstruction::writeTargetTransformToInstruction(*ins, targetRt);
+					tcpLocalMat = engine::osgMatrixFromRigidTransform(targetRt);
+					ins->setExtensionProperty("render.tcpLocalMat4", encodeMatrix4Csv(tcpLocalMat));
+				}
+				else if (targetInBaseFromUrdfFlangeFk(
+						capUrdf,
+						m_robotAxisControlPage->jointAnglesRad(),
+						capFrames,
+						fallbackFlange,
+						T_sync,
+						nullptr,
+						flangeLinkSync,
+						ins.get()))
+				{
+					const engine::RigidTransform targetRtLegacy =
+						RobotCoordinate::rigidTransformFromBackendMat4(T_sync);
+					RobotInstruction::writeTargetTransformToInstruction(*ins, targetRtLegacy);
+					tcpLocalMat = engine::osgMatrixFromRigidTransform(targetRtLegacy);
+					ins->setExtensionProperty("render.tcpLocalMat4", encodeMatrix4Csv(tcpLocalMat));
+				}
+			}
+			if (m_runInfoPage && m_robotAxisControlPage && !capUrdf.isEmpty())
+			{
+				QString toolName = QStringLiteral("-");
+				if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(capFrames))
+				{
+					toolName = QString::fromStdString(tool->name);
+				}
+				BackendMat4 T_target{};
+				BackendMat4 T_flange{};
+				QString flangeLinkQ;
+				if (targetInBaseFromUrdfFlangeFk(
+						capUrdf,
+						m_robotAxisControlPage->jointAnglesRad(),
+						capFrames,
+						fallbackFlange,
+						T_target,
+						&T_flange,
+						flangeLinkQ,
+						ins.get()))
+				{
+					const RobotCoordinate::RobotRigidFrame fTool = RobotCoordinate::mat4ToFrame(T_target);
+					const RobotCoordinate::RobotRigidFrame fFlange = RobotCoordinate::mat4ToFrame(T_flange);
+					m_runInfoPage->appendInfo(
+						QStringLiteral(
+							"[示教] tool=%1 路径=UrdfFlange×Tool flange=(%2,%3,%4) FK_toolOrigin=(%5,%6,%7) 落盘pose=(%8,%9,%10) link=%11")
+							.arg(toolName)
+							.arg(fFlange.positionMm[0], 0, 'f', 2)
+							.arg(fFlange.positionMm[1], 0, 'f', 2)
+							.arg(fFlange.positionMm[2], 0, 'f', 2)
+							.arg(fTool.positionMm[0], 0, 'f', 2)
+							.arg(fTool.positionMm[1], 0, 'f', 2)
+							.arg(fTool.positionMm[2], 0, 'f', 2)
+							.arg(ins->pose().x, 0, 'f', 2)
+							.arg(ins->pose().y, 0, 'f', 2)
+							.arg(ins->pose().z, 0, 'f', 2)
+							.arg(flangeLinkQ));
+				}
+			}
+		}
+		onSimulationInstructionSelectionChanged(ins);
 		if (ins->hasMotionAxisConfigurationProperty() && m_robotAxisControlPage
 			&& m_robotAxisControlPage->jointCount() > 0)
 		{
@@ -2110,7 +3247,10 @@ void MainWindow::onSimulationAddInstructionRequested(RobotInstruction::Type type
 			ins->setExtensionProperty("context.axisConfigSeeded", "1");
 		}
 	}
-	refreshInstructionPoseAxes();
+	else
+	{
+		refreshInstructionPoseAxes();
+	}
 }
 
 RobotInstruction::FeasibleMotionAxisConfigurationOptions MainWindow::feasibleMotionAxisConfigurationOptionsForInstruction(
@@ -2185,12 +3325,12 @@ RobotInstruction::FeasibleMotionAxisConfigurationOptions MainWindow::feasibleMot
 			continue;
 		}
 		const MotionPoseBackup backup = backupInstructionPose(*motionIns);
-		mapInstructionPoseRenderToFk(*motionIns);
 		attachMotionPlanningContext(
 			*motionIns,
 			rollingQ,
 			urdfPath,
-			defaultTcpLinkName.toStdString());
+			defaultTcpLinkName.toStdString(),
+			&doc->robotCoordinateFramesForInstance(instIdx));
 		std::string planErr;
 		RobotInstruction::PlanResult plan{};
 		if (m_robotInstructionController.plan(*motionIns, plan, &planErr)
@@ -2233,12 +3373,12 @@ RobotInstruction::FeasibleMotionAxisConfigurationOptions MainWindow::feasibleMot
 	}
 
 	const MotionPoseBackup targetBackup = backupInstructionPose(*instruction);
-	mapInstructionPoseRenderToFk(*instruction);
 	attachMotionPlanningContext(
 		*instruction,
 		rollingQ,
 		urdfPath,
-		defaultTcpLinkName.toStdString());
+		defaultTcpLinkName.toStdString(),
+		&doc->robotCoordinateFramesForInstance(instIdx));
 	out = m_robotInstructionController.queryFeasibleMotionAxisConfigurationOptions(*instruction);
 	restoreInstructionPose(*instruction, targetBackup);
 
@@ -2275,8 +3415,9 @@ void MainWindow::onSimulationInstructionSelectionChanged(const std::shared_ptr<R
 			updateInstructionPropertyPanel(instruction, false);
 		}
 	}
-	refreshInstructionPoseAxes();
 	applyRobotPoseForInstructionPreview(instruction);
+	refreshRobotCoordinateFrameOverlays(instruction);
+	refreshInstructionPoseAxes();
 }
 
 void MainWindow::applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction)
@@ -2351,12 +3492,12 @@ void MainWindow::applyRobotPoseForInstructionPreview(const std::shared_ptr<Robot
 			continue;
 		}
 		const MotionPoseBackup backup = backupInstructionPose(*motionIns);
-		mapInstructionPoseRenderToFk(*motionIns);
 		attachMotionPlanningContext(
 			*motionIns,
 			rollingQ,
 			urdfPath,
-			defaultTcpLinkName.toStdString());
+			defaultTcpLinkName.toStdString(),
+			&doc->robotCoordinateFramesForInstance(instIdx));
 		std::string planErr;
 		if (!m_robotInstructionController.validate(*motionIns, &planErr))
 		{
@@ -2407,6 +3548,7 @@ void MainWindow::applyRobotPoseForInstructionPreview(const std::shared_ptr<Robot
 	}
 	(void)RobotSceneKinematics::applyJointAnglesForInstance(
 		doc, poseSink, instIdx, rollingQ, m_aggregatedJointAnglesRad);
+	refreshRobotCoordinateFrameOverlays(instruction);
 	if (m_robotAxisControlPage && m_robotAxisControlPage->jointCount() == nj)
 	{
 		m_suppressMotionPreviewStartCapture = true;
@@ -2414,11 +3556,215 @@ void MainWindow::applyRobotPoseForInstructionPreview(const std::shared_ptr<Robot
 		m_robotAxisControlPage->setJointAnglesRad(rollingQ);
 		m_suppressMotionPreviewStartCapture = false;
 	}
+	InstructionPoseDiagState::requestRefresh();
 	osg->requestRedraw();
+}
+
+namespace
+{
+osg::Matrixd tcpLocalFromPoseFields(const RobotInstruction::Base& ins)
+{
+	engine::RigidTransform T_pose{};
+	if (RobotInstruction::readTargetTransformFromInstruction(ins, T_pose))
+	{
+		return engine::osgMatrixFromRigidTransform(T_pose);
+	}
+	return osg::Matrixd();
+}
+
+/// 基座系 T_base_target：pose/euler → BackendMat4 → OSG（与 capture / IK 同一套刚体矩阵）。
+bool instructionTcpLocalMatrix(const RobotInstruction::Base& ins, osg::Matrixd& outTcpLocal)
+{
+	outTcpLocal = tcpLocalFromPoseFields(ins);
+	return true;
+}
+
+/// 指令点显示：落盘 T_base_tool（含该点冻结的工具系），挂在轨迹世界层，不随当前关节角 FK 移动。
+bool fillInstructionPoseAxisMount(
+	const DocumentPage* doc,
+	OsgWidget* osg,
+	int instIdx,
+	const RobotInstruction::Base& ins,
+	bool lineMotion,
+	bool reachable,
+	OsgWidget::InstructionPoseAxis& axis,
+	const QVector<double>* jointAnglesRadLocal = nullptr)
+{
+	(void)jointAnglesRadLocal;
+	engine::RigidTransform T_target{};
+	if (!RobotInstruction::readTargetTransformFromInstruction(ins, T_target))
+	{
+		return false;
+	}
+	const osg::Matrixd tcpLocal = engine::osgMatrixFromRigidTransform(T_target);
+
+	axis.lineMotion = lineMotion;
+	axis.reachable = reachable;
+	axis.hasLocalMatrix = false;
+	axis.robotBackendId.clear();
+	axis.mountTcpOnPatRoot = false;
+	axis.urdfTcpAttachLinkName.clear();
+
+	osg::Matrixd T_world = tcpLocal;
+	if (doc && osg && instIdx >= 0)
+	{
+		osg::Matrixd baseWorld;
+		baseWorld.makeIdentity();
+		if (robotBaseWorldMatrixForInstance(doc, osg, instIdx, baseWorld, nullptr))
+		{
+			T_world = tcpLocal * baseWorld;
+		}
+	}
+	const auto itWorld = ins.extensionProperties().find("render.tcpWorldMat4");
+	if (itWorld != ins.extensionProperties().end() && !itWorld->second.empty())
+	{
+		osg::Matrixd T_cached;
+		if (decodeMatrix4Csv(itWorld->second, T_cached))
+		{
+			T_world = T_cached;
+		}
+	}
+	axis.positionMm = osg::Vec3f(
+		static_cast<float>(T_world(3, 0)),
+		static_cast<float>(T_world(3, 1)),
+		static_cast<float>(T_world(3, 2)));
+	axis.eulerDeg = OsgScene::quatToEulerDeg(T_world.getRotate());
+	return true;
+}
+} // namespace
+
+void MainWindow::syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction)
+{
+	if (!instruction || !instruction->hasPoseProperty())
+	{
+		return;
+	}
+	DocumentPage* doc = currentPage();
+	OsgWidget* osg = currentOsgWidget();
+	if (!doc || !osg || !m_simulationCommandPage)
+	{
+		return;
+	}
+	const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex() >= 0
+		? m_simulationCommandPage->currentRobotInstanceIndex()
+		: 0;
+	osg::Matrixd tcpLocal = tcpLocalFromPoseFields(*instruction);
+	instruction->setExtensionProperty("render.tcpLocalMat4", encodeMatrix4Csv(tcpLocal));
+	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
+	if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::resolveToolFrameForExtension(
+			frames, instruction->extensionProperties()))
+	{
+		instruction->setExtensionProperty("context.activeToolFrameId", tool->id);
+	}
+	osg::Matrixd robotBaseWorld;
+	robotBaseWorld.makeIdentity();
+	QVector<double> syncJointQ;
+	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
+	if (nj > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + nj)
+	{
+		syncJointQ.resize(nj);
+		for (int j = 0; j < nj; ++j)
+		{
+			syncJointQ[j] = m_aggregatedJointAnglesRad[jointOffset + j];
+		}
+	}
+	if (robotBaseWorldMatrixForInstance(
+			doc, osg, instIdx, robotBaseWorld, syncJointQ.isEmpty() ? nullptr : &syncJointQ))
+	{
+		instruction->setExtensionProperty("render.tcpWorldMat4", encodeMatrix4Csv(tcpLocal * robotBaseWorld));
+	}
+}
+
+QHash<QString, bool> MainWindow::computeMotionReachabilityForCurrentProgram()
+{
+	QHash<QString, bool> reachability;
+	DocumentPage* doc = currentPage();
+	if (!doc || !m_simulationCommandPage || !doc->hasRobotSimulationContext())
+	{
+		return reachability;
+	}
+	const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex() >= 0
+		? m_simulationCommandPage->currentRobotInstanceIndex()
+		: 0;
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	if (urdfPath.isEmpty())
+	{
+		return reachability;
+	}
+	const QString robotBackendId = m_simulationCommandPage->currentRobotBackendId();
+	const std::vector<std::shared_ptr<RobotInstruction::Base>> program =
+		m_simulationCommandPage->instructions(robotBackendId);
+	const std::vector<const RobotInstruction::Base*> motions =
+		RobotInstruction::collectMotionInstructions(program);
+	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+	if (nj <= 0)
+	{
+		return reachability;
+	}
+	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
+	const QString defaultTcpLinkName = defaultTcpLinkNameForUrdf(
+		urdfPath,
+		m_simulationCommandPage ? m_simulationCommandPage->selectedTcpLink() : QString());
+	QVector<double> rollingQ = motionPreviewProgramStartJointsLocal(nj, jointOffset);
+	for (const RobotInstruction::Base* motionPtr : motions)
+	{
+		if (!motionPtr)
+		{
+			continue;
+		}
+		RobotInstruction::Base* ins = const_cast<RobotInstruction::Base*>(motionPtr);
+		const MotionPoseBackup backup = backupInstructionPose(*ins);
+		attachMotionPlanningContext(
+			*ins,
+			rollingQ,
+			urdfPath,
+			defaultTcpLinkName.toStdString(),
+			&doc->robotCoordinateFramesForInstance(instIdx));
+		std::string planErr;
+		RobotInstruction::PlanResult plan{};
+		const bool ok = m_robotInstructionController.plan(*ins, plan, &planErr) && plan.ok;
+		reachability.insert(QString::fromStdString(ins->id()), ok);
+		restoreInstructionPose(*ins, backup);
+		if (ok && !plan.jointTargetsRad.empty()
+			&& plan.jointTargetsRad.size() == static_cast<size_t>(rollingQ.size()))
+		{
+			for (int j = 0; j < rollingQ.size(); ++j)
+			{
+				rollingQ[j] = plan.jointTargetsRad[static_cast<size_t>(j)];
+			}
+		}
+	}
+	return reachability;
 }
 
 void MainWindow::refreshInstructionPoseAxes()
 {
+	static bool s_matrixConventionSelfTestDone = false;
+	if (!s_matrixConventionSelfTestDone)
+	{
+		s_matrixConventionSelfTestDone = true;
+		std::vector<std::string> matrixTestFailures;
+		const bool matrixOk = RobotMatrixOsg::runConventionSelfTest(matrixTestFailures);
+		if (m_runInfoPage)
+		{
+			if (matrixOk)
+			{
+				m_runInfoPage->appendInfo(
+					QStringLiteral("[矩阵自检] BackendMat4↔OSG 平移在第3行、pose→显示、localMatrix 索引：通过"));
+			}
+			else
+			{
+				m_runInfoPage->appendWarning(QStringLiteral("[矩阵自检] 失败 %1 项，指令点可能落在基座原点")
+					.arg(static_cast<int>(matrixTestFailures.size())));
+				for (const std::string& msg : matrixTestFailures)
+				{
+					m_runInfoPage->appendWarning(QString::fromStdString(msg));
+				}
+			}
+		}
+	}
+
 	OsgWidget* osg = currentOsgWidget();
 	DocumentPage* doc = currentPage();
 	if (!osg || !m_simulationCommandPage)
@@ -2429,36 +3775,52 @@ void MainWindow::refreshInstructionPoseAxes()
 		}
 		return;
 	}
+	const QHash<QString, bool> reachability = computeMotionReachabilityForCurrentProgram();
 	const std::vector<std::shared_ptr<RobotInstruction::Base>> insList = m_simulationCommandPage->instructionList();
 	std::vector<OsgWidget::InstructionPoseAxis> axes;
 	axes.reserve(insList.size());
-	std::string robotBackendId;
-	if (m_simulationCommandPage && !m_simulationCommandPage->currentRobotBackendId().isEmpty())
+	const int axisInstIdx = m_simulationCommandPage->currentRobotInstanceIndex() >= 0
+		? m_simulationCommandPage->currentRobotInstanceIndex()
+		: 0;
+	QVector<double> axisJointQ;
+	if (doc && axisInstIdx >= 0)
 	{
-		robotBackendId = m_simulationCommandPage->currentRobotBackendId().toStdString();
-	}
-	else if (doc && !doc->robotSceneBackendId().isEmpty())
-	{
-		robotBackendId = doc->robotSceneBackendId().toStdString();
+		const int nj = doc->robotRevoluteJointCountForInstance(axisInstIdx);
+		const int jointOffset = doc->robotJointOffsetInAggregatedVector(axisInstIdx);
+		if (nj > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + nj)
+		{
+			axisJointQ.resize(nj);
+			for (int j = 0; j < nj; ++j)
+			{
+				axisJointQ[j] = m_aggregatedJointAnglesRad[jointOffset + j];
+			}
+		}
+		else if (m_robotAxisControlPage && m_robotAxisControlPage->jointCount() == nj)
+		{
+			axisJointQ = m_robotAxisControlPage->jointAnglesRad();
+		}
 	}
 	for (const auto& ins : insList)
 	{
-		if (!ins || !ins->hasPoseProperty() || !ins->hasEulerProperty())
+		if (!ins || !ins->hasPoseProperty())
 		{
 			continue;
 		}
-		const RobotInstruction::Vec3 p = ins->pose();
-		const RobotInstruction::Vec3 e = ins->eulerDeg();
+		const auto itReach = reachability.constFind(QString::fromStdString(ins->id()));
+		const bool reachable = (itReach == reachability.constEnd()) ? true : itReach.value();
 		OsgWidget::InstructionPoseAxis a;
-		a.positionMm = osg::Vec3f(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
-		a.eulerDeg = osg::Vec3f(static_cast<float>(e.x), static_cast<float>(e.y), static_cast<float>(e.z));
-		a.lineMotion = (ins->type() == RobotInstruction::Type::LINE);
-		// Keep instruction markers in world frame and parent under overlay root.
-		a.robotBackendId.clear();
-		a.urdfTcpAttachLinkName.clear();
-		// Render target axes from current editable pose/euler to keep display
-		// consistent with what planner/IK receives.
-		a.hasLocalMatrix = false;
+		if (!fillInstructionPoseAxisMount(
+				doc,
+				osg,
+				axisInstIdx,
+				*ins,
+				ins->type() == RobotInstruction::Type::LINE,
+				reachable,
+				a,
+				nullptr))
+		{
+			continue;
+		}
 		axes.push_back(a);
 	}
 	if (axes.empty())
@@ -2467,6 +3829,90 @@ void MainWindow::refreshInstructionPoseAxes()
 		return;
 	}
 	osg->setInstructionPoseAxes(axes);
+
+	if (m_activeInstructionForProperty && m_activeInstructionForProperty->hasPoseProperty() && m_runInfoPage && doc
+		&& InstructionPoseDiagState::shouldLog(m_activeInstructionForProperty->id()))
+	{
+		const RobotInstruction::Vec3 p = m_activeInstructionForProperty->pose();
+		engine::RigidTransform T_pose{};
+		(void)RobotInstruction::readTargetTransformFromInstruction(*m_activeInstructionForProperty, T_pose);
+		const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(axisInstIdx);
+		QString diagMsg;
+		if (!urdfPath.isEmpty())
+		{
+			QVector<double> q = axisJointQ;
+			if (q.isEmpty() && m_robotAxisControlPage)
+			{
+				q = m_robotAxisControlPage->jointAnglesRad();
+			}
+			QHash<QString, osg::Matrixd> linkWorld;
+			QString fkErr;
+			if (!q.isEmpty() && UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, q, linkWorld, &fkErr))
+			{
+				const RobotCoordinate::RobotCoordinateFrameSet& frames =
+					doc->robotCoordinateFramesForInstance(axisInstIdx);
+				std::string flangeLink;
+				if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::resolveToolFrameForExtension(
+						frames, m_activeInstructionForProperty->extensionProperties()))
+				{
+					flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, *tool);
+				}
+				const QString flangeQ = QString::fromStdString(flangeLink);
+				if (!flangeQ.isEmpty() && linkWorld.contains(flangeQ))
+				{
+					const BackendMat4 T_flange_tool = RobotCoordinate::toolMat4ForExtension(
+						frames, m_activeInstructionForProperty->extensionProperties());
+					const engine::RigidTransform flangeRt =
+						engine::rigidTransformFromOsg(linkWorld.value(flangeQ));
+					const engine::RigidTransform fkTool = engine::toolOriginFromFlange(
+						flangeRt,
+						RobotCoordinate::rigidTransformFromBackendMat4(T_flange_tool));
+					const double posErrMm = T_pose.translationErrorMm(fkTool);
+					const double angErrDeg = T_pose.rotationErrorDeg(fkTool);
+					QString toolNote;
+					if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::resolveToolFrameForExtension(
+							frames, m_activeInstructionForProperty->extensionProperties()))
+					{
+						toolNote = QString::fromStdString(tool->name);
+					}
+					diagMsg = QStringLiteral(
+						"[指令显示] %1 toolOrigin=(%2,%3,%4) 工具=%5 基座FK toolOrigin: Δpos=%6mm Δrot=%7°")
+						.arg(QString::fromStdString(m_activeInstructionForProperty->id()))
+						.arg(p.x, 0, 'f', 2)
+						.arg(p.y, 0, 'f', 2)
+						.arg(p.z, 0, 'f', 2)
+						.arg(toolNote.isEmpty() ? QStringLiteral("-") : toolNote)
+						.arg(posErrMm, 0, 'f', 3)
+						.arg(angErrDeg, 0, 'f', 3);
+					if (posErrMm > 1.0 || angErrDeg > 1.0)
+					{
+						diagMsg += i18n(
+							QStringLiteral(
+								" — select this waypoint to preview; large Δ while another point is previewed is normal."),
+							QStringLiteral(" — 请选中该点以预览；正在预览其他点时 Δ 偏大属正常。"));
+					}
+					else
+					{
+						diagMsg += i18n(
+							QStringLiteral(" — preview aligned."),
+							QStringLiteral(" — 预览已对齐。"));
+					}
+				}
+			}
+		}
+		if (diagMsg.isEmpty())
+		{
+			const osg::Vec3d t = engine::osgMatrixFromRigidTransform(T_pose).getTrans();
+			diagMsg = QStringLiteral("[指令显示] toolOrigin=(%1,%2,%3) 显示平移=(%4,%5,%6)")
+				.arg(p.x, 0, 'f', 2)
+				.arg(p.y, 0, 'f', 2)
+				.arg(p.z, 0, 'f', 2)
+				.arg(t.x(), 0, 'f', 2)
+				.arg(t.y(), 0, 'f', 2)
+				.arg(t.z(), 0, 'f', 2);
+		}
+		m_runInfoPage->appendInfo(diagMsg);
+	}
 }
 
 void MainWindow::onSimulationStartTriggered()
@@ -2582,8 +4028,12 @@ void MainWindow::onSimulationStartTriggered()
 		}
 		RobotInstruction::Base* ins = const_cast<RobotInstruction::Base*>(motionPtr);
 		const MotionPoseBackup poseBackup = backupInstructionPose(*ins);
-		mapInstructionPoseRenderToFk(*ins);
-		attachMotionPlanningContext(*ins, rollingQ, urdfPath, defaultTcpLinkName.toStdString());
+		attachMotionPlanningContext(
+			*ins,
+			rollingQ,
+			urdfPath,
+			defaultTcpLinkName.toStdString(),
+			&doc->robotCoordinateFramesForInstance(instIdx));
 		std::string planErr;
 		if (!m_robotInstructionController.validate(*ins, &planErr))
 		{
@@ -2720,7 +4170,10 @@ void MainWindow::logPlaybackFrameComparison(const QVector<double>& finalJointAng
 			.arg(z, 0, 'f', 3);
 	};
 
-	const QString urdfPath = doc->robotUrdfAbsolutePath();
+	const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex() >= 0
+		? m_simulationCommandPage->currentRobotInstanceIndex()
+		: 0;
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
 	QHash<QString, osg::Matrixd> linkWorldByName;
 	QString fkErr;
 	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, finalJointAnglesRad, linkWorldByName, &fkErr))
@@ -2733,7 +4186,20 @@ void MainWindow::logPlaybackFrameComparison(const QVector<double>& finalJointAng
 		QStringLiteral("[Playback对比] targetPose=%1")
 			.arg(fmtPos(targetPose.x, targetPose.y, targetPose.z)));
 
-	if (!tcpLinkName.isEmpty() && linkWorldByName.contains(tcpLinkName))
+	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
+	osg::Matrixd fkTcpInBase;
+	QString fkFlangeLink;
+	if (tcpInBaseFromLinkWorldAndToolFrames(
+			linkWorldByName, frames, tcpLinkName, fkTcpInBase, fkFlangeLink, targetIns.get()))
+	{
+		const osg::Vec3d t = fkTcpInBase.getTrans();
+		m_runInfoPage->appendInfo(
+			QStringLiteral("[Playback对比] FK(TCP, flange=%1)=%2, errMm=%3")
+				.arg(fkFlangeLink)
+				.arg(fmtPos(t.x(), t.y(), t.z()))
+				.arg(distToTarget(t.x(), t.y(), t.z()), 0, 'f', 6));
+	}
+	else if (!tcpLinkName.isEmpty() && linkWorldByName.contains(tcpLinkName))
 	{
 		const osg::Vec3d t = linkWorldByName.value(tcpLinkName).getTrans();
 		m_runInfoPage->appendInfo(
@@ -2749,16 +4215,44 @@ void MainWindow::logPlaybackFrameComparison(const QVector<double>& finalJointAng
 				.arg(tcpLinkName.isEmpty() ? QStringLiteral("<empty>") : tcpLinkName));
 	}
 
+	BackendMat4 T_target_tcp = RobotCoordinate::tcpInBaseFromPose(
+		targetPose.x, targetPose.y, targetPose.z, 0.0, 0.0, 0.0);
+	if (targetIns->hasEulerProperty())
+	{
+		const RobotInstruction::Vec3 e = targetIns->eulerDeg();
+		T_target_tcp = RobotCoordinate::tcpInBaseFromPose(
+			targetPose.x, targetPose.y, targetPose.z, e.x, e.y, e.z);
+	}
+	const BackendMat4 T_flange_tool = toolMat4ForFrames(frames, targetIns.get());
+	const BackendMat4 T_expected_flange =
+		RobotCoordinate::flangeTargetFromBaseTcpAndTool(T_target_tcp, T_flange_tool);
+	BackendVec3 expFlangePos{};
+	BackendVec3 expFlangeEuler{};
+	backend_trans_euler_from_rigid_mat(T_expected_flange, expFlangePos, expFlangeEuler);
+	const auto dist3 = [](double ax, double ay, double az, double bx, double by, double bz) {
+		const double dx = ax - bx;
+		const double dy = ay - by;
+		const double dz = az - bz;
+		return std::sqrt(dx * dx + dy * dy + dz * dz);
+	};
+
 	QString primaryLink;
 	(void)UrdfRobotLoader::loadPrimaryTerminalLinkName(urdfPath, primaryLink, nullptr);
+	if (primaryLink.isEmpty() && !fkFlangeLink.isEmpty())
+	{
+		primaryLink = fkFlangeLink;
+	}
 	if (!primaryLink.isEmpty() && linkWorldByName.contains(primaryLink))
 	{
 		const osg::Vec3d t = linkWorldByName.value(primaryLink).getTrans();
+		const double errFlangeMm = dist3(
+			t.x(), t.y(), t.z(), expFlangePos.x, expFlangePos.y, expFlangePos.z);
 		m_runInfoPage->appendInfo(
-			QStringLiteral("[Playback对比] FK(primaryLink=%1)=%2, errMm=%3")
+			QStringLiteral("[Playback对比] FK(flange=%1)=%2, expectedFlange(from TCP)=%3, errMm=%4")
 				.arg(primaryLink)
 				.arg(fmtPos(t.x(), t.y(), t.z()))
-				.arg(distToTarget(t.x(), t.y(), t.z()), 0, 'f', 6));
+				.arg(fmtPos(expFlangePos.x, expFlangePos.y, expFlangePos.z))
+				.arg(errFlangeMm, 0, 'f', 6));
 	}
 
 	const QStringList joints = doc->robotRevoluteJointNames();
@@ -2807,8 +4301,8 @@ void MainWindow::onRobotSimulationTick()
 	m_aggregatedJointAnglesRad = m_robotProgramExecutor.jointAnglesRad();
 	if (doc && osg)
 	{
-		doc->requestFollowSolveForced();
-		runBackendFollowSolveAndSync(*doc, *osg);
+		refreshRobotCoordinateFrameOverlays();
+		osg->requestRedraw();
 	}
 	switch (r)
 	{
@@ -2816,6 +4310,7 @@ void MainWindow::onRobotSimulationTick()
 		break;
 	case RobotInstructionPlaybackTickResult::Finished:
 		logPlaybackFrameComparison(m_robotProgramExecutor.jointAnglesRad());
+		refreshRobotCoordinateFrameOverlays();
 		stopRobotSimulation();
 		if (m_runInfoPage)
 		{

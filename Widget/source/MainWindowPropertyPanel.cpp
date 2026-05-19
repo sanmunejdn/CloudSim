@@ -23,6 +23,7 @@
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 #include "OsgWidget.h"
+#include "RobotCoordinateFrames.h"
 #include "RobotInstructionPropertySchema.h"
 #include "RobotInstructionProgram.h"
 #include "RunLogger.h"
@@ -33,6 +34,91 @@
 #include "qtvariantproperty.h"
 
 using namespace mainwindow_detail;
+
+namespace
+{
+bool instructionUsesActiveUserFrame(const RobotInstruction::Base& ins)
+{
+	return RobotCoordinate::instructionTargetDisplayUsesUserFrame(ins.extensionProperties());
+}
+
+void instructionTcpInBase(const RobotInstruction::Base& ins, BackendMat4& out)
+{
+	const RobotInstruction::Vec3 p = ins.pose();
+	const RobotInstruction::Vec3 e = ins.eulerDeg();
+	out = RobotCoordinate::tcpInBaseFromPose(p.x, p.y, p.z, e.x, e.y, e.z);
+}
+
+void setInstructionTcpInBase(RobotInstruction::Base& ins, const BackendMat4& T_base_tcp)
+{
+	double pos[3]{};
+	double euler[3]{};
+	RobotCoordinate::poseEulerFromTcpInBase(T_base_tcp, pos, euler);
+	RobotInstruction::Vec3 p{};
+	p.x = pos[0];
+	p.y = pos[1];
+	p.z = pos[2];
+	ins.setPose(p);
+	RobotInstruction::Vec3 e{};
+	e.x = euler[0];
+	e.y = euler[1];
+	e.z = euler[2];
+	ins.setEulerDeg(e);
+}
+
+BackendMat4 instructionTcpForDisplay(const MainWindow& mw, const RobotInstruction::Base& ins)
+{
+	const BackendMat4 T_base_tcp = [&]() {
+		BackendMat4 t{};
+		instructionTcpInBase(ins, t);
+		return t;
+	}();
+	if (!instructionUsesActiveUserFrame(ins))
+	{
+		return T_base_tcp;
+	}
+	DocumentPage* doc = mw.currentPage();
+	if (!doc)
+	{
+		return T_base_tcp;
+	}
+	const int instIdx = mw.currentSimulationRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		return T_base_tcp;
+	}
+	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
+	const RobotCoordinate::RobotUserFrame* uf =
+		RobotCoordinate::resolveUserFrameForExtension(frames, ins.extensionProperties());
+	if (!uf)
+	{
+		return T_base_tcp;
+	}
+	const BackendMat4 T_base_user = RobotCoordinate::frameToMat4(uf->T_base_user);
+	return RobotCoordinate::tcpInUserFromBaseTcp(T_base_user, T_base_tcp);
+}
+
+bool isMotionTargetPoseKey(const QString& key)
+{
+	return key == QStringLiteral("motion.target.pose.x") || key == QStringLiteral("motion.target.pose.y")
+		|| key == QStringLiteral("motion.target.pose.z") || key == QStringLiteral("motion.target.euler.rx")
+		|| key == QStringLiteral("motion.target.euler.ry") || key == QStringLiteral("motion.target.euler.rz");
+}
+
+bool isInstructionPanelManagedExtensionKey(const std::string& keyStr)
+{
+	if (keyStr == RobotCoordinate::kExtMotionToolFrameId || keyStr == RobotCoordinate::kExtMotionUserFrameId
+		|| keyStr == RobotCoordinate::kExtMotionTargetFrame)
+	{
+		return true;
+	}
+	if (keyStr.rfind("render.", 0) == 0 || keyStr.rfind("context.", 0) == 0)
+	{
+		return true;
+	}
+	return false;
+}
+} // namespace
 
 namespace
 {
@@ -104,6 +190,11 @@ int propertyEditorTypeForKey(const QString& key, bool editable)
 		case property_core::PropertyType::Double: return QVariant::Double;
 		default: return QVariant::String;
 		}
+	}
+	if (key == QStringLiteral("motion.tool.frameId") || key == QStringLiteral("motion.user.frameId")
+		|| key == QStringLiteral("motion.target.frame"))
+	{
+		return QtVariantPropertyManager::enumTypeId();
 	}
 	return QVariant::String;
 }
@@ -302,7 +393,9 @@ void MainWindow::appendPropertyBrowserRow(
 	const QString& displayLabel,
 	const QString& value,
 	bool editable,
-	const std::vector<std::string>* enumOptionTokens)
+	const std::vector<std::string>* enumOptionTokens,
+	const QStringList* enumDisplayNames,
+	const QString& toolTip)
 {
 	if (!m_variantManager || !m_propertyBrowser)
 	{
@@ -354,19 +447,36 @@ void MainWindow::appendPropertyBrowserRow(
 	else if (editorType == QtVariantPropertyManager::enumTypeId())
 	{
 		const property_core::PropertyDescriptor* descriptor = instructionPropertyDescriptorForKey(propertyKey);
-		if (descriptor && descriptor->type == property_core::PropertyType::Enum)
+		const std::vector<std::string>* optionsPtr = nullptr;
+		std::vector<std::string> descriptorOptions;
+		if (enumOptionTokens && !enumOptionTokens->empty())
 		{
-			const std::vector<std::string>& options = enumOptionTokens && !enumOptionTokens->empty()
-				? *enumOptionTokens
-				: descriptor->constraints.enumConstraint.options;
+			optionsPtr = enumOptionTokens;
+		}
+		else if (descriptor && descriptor->type == property_core::PropertyType::Enum)
+		{
+			descriptorOptions = descriptor->constraints.enumConstraint.options;
+			optionsPtr = &descriptorOptions;
+		}
+		if (optionsPtr && !optionsPtr->empty())
+		{
+			const std::vector<std::string>& options = *optionsPtr;
 			QStringList enumNames;
 			int selectedIndex = 0;
-			const QString valueUpper = value.trimmed().toUpper();
+			const QString valueTrim = value.trimmed();
 			for (size_t i = 0; i < options.size(); ++i)
 			{
 				const QString token = QString::fromStdString(options[i]);
-				enumNames << axisConfigEnumDisplayName(propertyKey, token, m_useChinese);
-				if (token == valueUpper || token.compare(value, Qt::CaseInsensitive) == 0)
+				if (enumDisplayNames && static_cast<int>(i) < enumDisplayNames->size()
+					&& !enumDisplayNames->at(static_cast<int>(i)).isEmpty())
+				{
+					enumNames << enumDisplayNames->at(static_cast<int>(i));
+				}
+				else
+				{
+					enumNames << axisConfigEnumDisplayName(propertyKey, token, m_useChinese);
+				}
+				if (token.compare(valueTrim, Qt::CaseInsensitive) == 0)
 				{
 					selectedIndex = static_cast<int>(i);
 				}
@@ -400,6 +510,10 @@ void MainWindow::appendPropertyBrowserRow(
 		}
 	}
 	prop->setWhatsThis(propertyKey);
+	if (!toolTip.isEmpty())
+	{
+		prop->setToolTip(toolTip);
+	}
 	m_propertyBrowser->addProperty(prop);
 }
 
@@ -474,6 +588,18 @@ QString MainWindow::propertyDisplayLabelForKey(const QString& key, const QString
 	if (key == QStringLiteral("mesh.triangle_count"))
 	{
 		return tr(QStringLiteral("Triangle count"), QStringLiteral("三角形数"));
+	}
+	if (key == QStringLiteral("motion.target.frame"))
+	{
+		return tr(QStringLiteral("Target frame"), QStringLiteral("目标坐标系"));
+	}
+	if (key == QStringLiteral("motion.tool.frameId"))
+	{
+		return tr(QStringLiteral("Tool frame"), QStringLiteral("工具坐标系"));
+	}
+	if (key == QStringLiteral("motion.user.frameId"))
+	{
+		return tr(QStringLiteral("User frame"), QStringLiteral("用户坐标系"));
 	}
 	if (key == QStringLiteral("motion.target.pose.x"))
 	{
@@ -815,6 +941,99 @@ void MainWindow::updateInstructionPropertyPanel(
 	const QString presetAfter = snapshotPropertyValueForKey(rowsAfter, QStringLiteral("motion.axisConfig.preset"));
 	const bool customAxisModeAfter = presetAfter.compare(QStringLiteral("CUSTOM"), Qt::CaseInsensitive) == 0;
 
+	if (instruction->hasPoseProperty())
+	{
+		const auto& ext = instruction->extensionProperties();
+		DocumentPage* doc = currentPage();
+		const int instIdx = m_simulationCommandPage ? m_simulationCommandPage->currentRobotInstanceIndex() : -1;
+		std::vector<std::string> toolTokens = { "active" };
+		std::vector<std::string> userTokens = { "active" };
+		QStringList toolEnumNames;
+		QStringList userEnumNames;
+		toolEnumNames << i18n(QStringLiteral("Active (follow robot)"), QStringLiteral("跟随当前工具"));
+		userEnumNames << i18n(QStringLiteral("Active (follow robot)"), QStringLiteral("跟随当前用户系"));
+		if (doc && instIdx >= 0)
+		{
+			const RobotCoordinate::RobotCoordinateFrameSet& frames =
+				doc->robotCoordinateFramesForInstance(instIdx);
+			for (const RobotCoordinate::RobotToolFrame& tf : frames.toolFrames)
+			{
+				toolTokens.push_back(tf.id);
+				QString label = QString::fromStdString(tf.name);
+				if (!tf.id.empty() && label != QString::fromStdString(tf.id))
+				{
+					label += QStringLiteral(" (") + QString::fromStdString(tf.id) + QLatin1Char(')');
+				}
+				toolEnumNames << label;
+			}
+			for (const RobotCoordinate::RobotUserFrame& uf : frames.userFrames)
+			{
+				userTokens.push_back(uf.id);
+				QString label = QString::fromStdString(uf.name);
+				if (!uf.id.empty() && label != QString::fromStdString(uf.id))
+				{
+					label += QStringLiteral(" (") + QString::fromStdString(uf.id) + QLatin1Char(')');
+				}
+				userEnumNames << label;
+			}
+		}
+		QString toolVal = QStringLiteral("active");
+		const auto itTool = ext.find(RobotCoordinate::kExtMotionToolFrameId);
+		if (itTool != ext.end() && !itTool->second.empty())
+		{
+			toolVal = QString::fromStdString(itTool->second);
+		}
+		appendPropertyBrowserRow(
+			QStringLiteral("motion.tool.frameId"),
+			propertyDisplayLabelForKey(QStringLiteral("motion.tool.frameId"), QStringLiteral("Tool frame")),
+			toolVal,
+			true,
+			&toolTokens,
+			&toolEnumNames,
+			i18n(
+				QStringLiteral(
+					"When changing the tool frame, the TCP position in space is kept; joint angles are "
+					"recomputed automatically."),
+				QStringLiteral("切换工具系时，系统将保持工具尖端（TCP）空间位置不变，自动重新计算关节角度。")));
+		QString userVal = QStringLiteral("active");
+		const auto itUser = ext.find(RobotCoordinate::kExtMotionUserFrameId);
+		if (itUser != ext.end() && !itUser->second.empty())
+		{
+			userVal = QString::fromStdString(itUser->second);
+		}
+		appendPropertyBrowserRow(
+			QStringLiteral("motion.user.frameId"),
+			propertyDisplayLabelForKey(QStringLiteral("motion.user.frameId"), QStringLiteral("User frame")),
+			userVal,
+			true,
+			&userTokens,
+			&userEnumNames);
+		QString frameVal = QStringLiteral("base");
+		const auto itFr = ext.find(RobotCoordinate::kExtMotionTargetFrame);
+		if (itFr != ext.end() && !itFr->second.empty())
+		{
+			frameVal = QString::fromStdString(itFr->second);
+			if (frameVal == QStringLiteral("active_user"))
+			{
+				frameVal = QStringLiteral("user");
+			}
+		}
+		static const std::vector<std::string> frameTokens = { "base", "user" };
+		const QStringList frameEnumNames = {
+			i18n(QStringLiteral("Robot base (TCP)"), QStringLiteral("机器人基座 (TCP)")),
+			i18n(QStringLiteral("User frame (TCP)"), QStringLiteral("用户坐标系 (TCP)")),
+		};
+		appendPropertyBrowserRow(
+			QStringLiteral("motion.target.frame"),
+			propertyDisplayLabelForKey(QStringLiteral("motion.target.frame"), QStringLiteral("Target frame")),
+			frameVal,
+			true,
+			&frameTokens,
+			&frameEnumNames);
+	}
+
+	const BackendMat4 T_display = instructionTcpForDisplay(*this, *instruction);
+
 	if (rowsAfter.is_array())
 	{
 		for (const auto& r : rowsAfter)
@@ -824,10 +1043,8 @@ void MainWindow::updateInstructionPropertyPanel(
 				continue;
 			}
 			const std::string keyStr = r.value(backend_property_json::kKey, std::string());
-			if (keyStr.rfind("context.", 0) == 0
-				|| keyStr.rfind("legacy.", 0) == 0
-				|| keyStr == "motion.durationSec"
-				|| keyStr == RobotInstruction::kMotionPointIndexKey)
+			if (isInstructionPanelManagedExtensionKey(keyStr) || keyStr.rfind("legacy.", 0) == 0
+				|| keyStr == "motion.durationSec" || keyStr == RobotInstruction::kMotionPointIndexKey)
 			{
 				continue;
 			}
@@ -839,9 +1056,64 @@ void MainWindow::updateInstructionPropertyPanel(
 			}
 			const std::string labelStr = r.value(backend_property_json::kLabelEn, std::string());
 			const bool editable = r.value(backend_property_json::kEditable, false);
-			const std::string valueStr = r.value(backend_property_json::kValue, std::string());
+			std::string valueStr = r.value(backend_property_json::kValue, std::string());
 			const QString key = QString::fromStdString(keyStr);
-			const QString label = propertyDisplayLabelForKey(key, QString::fromStdString(labelStr));
+			if (isMotionTargetPoseKey(key))
+			{
+				const RobotCoordinate::RobotRigidFrame disp = RobotCoordinate::mat4ToFrame(T_display);
+				if (key == QStringLiteral("motion.target.pose.x"))
+				{
+					valueStr = std::to_string(disp.positionMm[0]);
+				}
+				else if (key == QStringLiteral("motion.target.pose.y"))
+				{
+					valueStr = std::to_string(disp.positionMm[1]);
+				}
+				else if (key == QStringLiteral("motion.target.pose.z"))
+				{
+					valueStr = std::to_string(disp.positionMm[2]);
+				}
+				else if (key == QStringLiteral("motion.target.euler.rx"))
+				{
+					valueStr = std::to_string(disp.eulerDeg[0]);
+				}
+				else if (key == QStringLiteral("motion.target.euler.ry"))
+				{
+					valueStr = std::to_string(disp.eulerDeg[1]);
+				}
+				else if (key == QStringLiteral("motion.target.euler.rz"))
+				{
+					valueStr = std::to_string(disp.eulerDeg[2]);
+				}
+			}
+			QString label = propertyDisplayLabelForKey(key, QString::fromStdString(labelStr));
+			if (instructionUsesActiveUserFrame(*instruction) && isMotionTargetPoseKey(key))
+			{
+				DocumentPage* doc = currentPage();
+				if (doc && m_simulationCommandPage)
+				{
+					const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex();
+					if (instIdx >= 0)
+					{
+						const RobotCoordinate::RobotCoordinateFrameSet& frames =
+							doc->robotCoordinateFramesForInstance(instIdx);
+						if (const RobotCoordinate::RobotUserFrame* uf = RobotCoordinate::resolveUserFrameForExtension(
+								frames, instruction->extensionProperties()))
+						{
+							label += QStringLiteral(" (%1)").arg(QString::fromStdString(uf->name));
+						}
+					}
+				}
+			}
+			else if (isMotionTargetPoseKey(key))
+			{
+				const auto& extPose = instruction->extensionProperties();
+				const auto itToolId = extPose.find(RobotCoordinate::kExtMotionToolFrameId);
+				if (itToolId != extPose.end() && !itToolId->second.empty() && itToolId->second != "active")
+				{
+					label += i18n(QStringLiteral(" (TCP mm)"), QStringLiteral(" (TCP mm)"));
+				}
+			}
 			const std::vector<std::string>* enumOverride = nullptr;
 			if (key == QStringLiteral("motion.axisConfig.preset") && !feasibleAxis.presetTokens.empty())
 			{
@@ -1050,12 +1322,164 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 		{
 			return;
 		}
-		const QString valueText = instructionEnumTokenFromProperty(property, value);
-		std::string err;
-		if (!m_activeInstructionForProperty->applyPropertyChange(propertyKey.toStdString(), valueText.toStdString(), &err))
+		QString valueText = instructionEnumTokenFromProperty(property, value);
+		if (propertyKey == QStringLiteral("motion.target.frame"))
 		{
-			updateInstructionPropertyPanel(m_activeInstructionForProperty);
+			std::string tok = valueText.toStdString();
+			if (tok == "active_user")
+			{
+				tok = "user";
+			}
+			m_activeInstructionForProperty->setExtensionProperty(
+				RobotCoordinate::kExtMotionTargetFrame, tok);
+			invalidateFeasibleAxisConfigurationCache();
+			updateInstructionPropertyPanel(m_activeInstructionForProperty, false);
+			refreshInstructionPoseAxes();
 			return;
+		}
+		if (propertyKey == QStringLiteral("motion.tool.frameId"))
+		{
+			m_activeInstructionForProperty->setExtensionProperty(
+				RobotCoordinate::kExtMotionToolFrameId, valueText.toStdString());
+			if (DocumentPage* doc = currentPage())
+			{
+				const int instIdx = m_simulationCommandPage
+					? m_simulationCommandPage->currentRobotInstanceIndex()
+					: -1;
+				if (instIdx >= 0)
+				{
+					const RobotCoordinate::RobotCoordinateFrameSet& frames =
+						doc->robotCoordinateFramesForInstance(instIdx);
+					if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::resolveToolFrameForExtension(
+							frames, m_activeInstructionForProperty->extensionProperties()))
+					{
+						const BackendMat4 toolMat = RobotCoordinate::frameToMat4(tool->T_flange_tool);
+						m_activeInstructionForProperty->setExtensionProperty(
+							RobotCoordinate::kExtContextToolFrameMat4,
+							RobotCoordinate::encodeMat4Csv(toolMat));
+						m_activeInstructionForProperty->setExtensionProperty(
+							"context.activeToolFrameId", tool->id);
+						const std::string flangeLink =
+							RobotCoordinate::effectiveFlangeLinkName(frames, *tool);
+						if (!flangeLink.empty())
+						{
+							m_activeInstructionForProperty->setExtensionProperty(
+								"context.flangeLinkName", flangeLink);
+						}
+					}
+				}
+			}
+			syncInstructionRenderMatricesFromPose(m_activeInstructionForProperty);
+			invalidateFeasibleAxisConfigurationCache();
+			applyRobotPoseForInstructionPreview(m_activeInstructionForProperty);
+			updateInstructionPropertyPanel(m_activeInstructionForProperty, true);
+			refreshRobotCoordinateFrameOverlays(m_activeInstructionForProperty);
+			refreshInstructionPoseAxes();
+			if (m_runInfoPage)
+			{
+				QString toolLabel = valueText;
+				if (DocumentPage* doc = currentPage())
+				{
+					const int instIdx = m_simulationCommandPage
+						? m_simulationCommandPage->currentRobotInstanceIndex()
+						: -1;
+					if (instIdx >= 0)
+					{
+						const RobotCoordinate::RobotCoordinateFrameSet& frames =
+							doc->robotCoordinateFramesForInstance(instIdx);
+						if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::resolveToolFrameForExtension(
+								frames, m_activeInstructionForProperty->extensionProperties()))
+						{
+							toolLabel = QString::fromStdString(tool->name);
+						}
+					}
+				}
+				m_runInfoPage->appendInfo(
+					i18n(QStringLiteral("Tool frame → %1; TCP target unchanged, flange IK and preview updated.")
+							.arg(toolLabel),
+						QStringLiteral("工具系 → %1；TCP 目标未变，已重算法兰 IK 与预览。").arg(toolLabel)));
+			}
+			return;
+		}
+		if (propertyKey == QStringLiteral("motion.user.frameId"))
+		{
+			m_activeInstructionForProperty->setExtensionProperty(
+				RobotCoordinate::kExtMotionUserFrameId, valueText.toStdString());
+			updateInstructionPropertyPanel(m_activeInstructionForProperty, false);
+			refreshInstructionPoseAxes();
+			return;
+		}
+		if (isMotionTargetPoseKey(propertyKey))
+		{
+			BackendMat4 T_disp = instructionTcpForDisplay(*this, *m_activeInstructionForProperty);
+			RobotCoordinate::RobotRigidFrame disp = RobotCoordinate::mat4ToFrame(T_disp);
+			bool ok = false;
+			const double v = valueText.toDouble(&ok);
+			if (ok)
+			{
+				if (propertyKey == QStringLiteral("motion.target.pose.x"))
+				{
+					disp.positionMm[0] = v;
+				}
+				else if (propertyKey == QStringLiteral("motion.target.pose.y"))
+				{
+					disp.positionMm[1] = v;
+				}
+				else if (propertyKey == QStringLiteral("motion.target.pose.z"))
+				{
+					disp.positionMm[2] = v;
+				}
+				else if (propertyKey == QStringLiteral("motion.target.euler.rx"))
+				{
+					disp.eulerDeg[0] = v;
+				}
+				else if (propertyKey == QStringLiteral("motion.target.euler.ry"))
+				{
+					disp.eulerDeg[1] = v;
+				}
+				else if (propertyKey == QStringLiteral("motion.target.euler.rz"))
+				{
+					disp.eulerDeg[2] = v;
+				}
+			}
+			BackendMat4 T_base_tcp;
+			if (instructionUsesActiveUserFrame(*m_activeInstructionForProperty))
+			{
+				DocumentPage* doc = currentPage();
+				BackendMat4 T_base_user = BackendMat4::identity();
+				if (doc && m_simulationCommandPage)
+				{
+					const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex();
+					if (instIdx >= 0)
+					{
+						const RobotCoordinate::RobotCoordinateFrameSet& frames =
+							doc->robotCoordinateFramesForInstance(instIdx);
+						if (const RobotCoordinate::RobotUserFrame* uf = RobotCoordinate::resolveUserFrameForExtension(
+								frames, m_activeInstructionForProperty->extensionProperties()))
+						{
+							T_base_user = RobotCoordinate::frameToMat4(uf->T_base_user);
+						}
+					}
+				}
+				const BackendMat4 T_user_tcp = RobotCoordinate::frameToMat4(disp);
+				T_base_tcp = RobotCoordinate::tcpInBaseFromUserTcp(T_base_user, T_user_tcp);
+			}
+			else
+			{
+				T_base_tcp = RobotCoordinate::frameToMat4(disp);
+			}
+			setInstructionTcpInBase(*m_activeInstructionForProperty, T_base_tcp);
+			syncInstructionRenderMatricesFromPose(m_activeInstructionForProperty);
+		}
+		else
+		{
+			std::string err;
+			if (!m_activeInstructionForProperty->applyPropertyChange(
+					propertyKey.toStdString(), valueText.toStdString(), &err))
+			{
+				updateInstructionPropertyPanel(m_activeInstructionForProperty);
+				return;
+			}
 		}
 		if (m_simulationCommandPage)
 		{

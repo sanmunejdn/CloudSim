@@ -21,6 +21,8 @@
 - `Data`：统一后端对象模型（点云/网格）、属性系统、对象注册管理。
 - `BackendVisual`：数据对象到 OSG 场景分支的可视化适配。
 - `OsgWidgetCore`：与 Qt 无关的 OSG 场景核心（相机、拾取、标注、场景树）。
+- `GeometryEngine`：Eigen 刚体变换（`engine::RigidTransform`），全应用矩阵/姿态统一入口。
+- `GeometryEngine`：Eigen 刚体变换（`engine::RigidTransform`），全应用矩阵/姿态统一入口。
 - `RobotKinematics`：串联机械臂运动学计算。
 - `RobotUrdf`：URDF 解析与层级机器人场景构建。
 - `RobotScene`：机器人指令模型、规划/回放引擎、仿真逻辑。
@@ -523,8 +525,10 @@ sequenceDiagram
    - 用户切换 preset/分项后，`plan` 使用指令上已写入的 `MotionAxisConfiguration`；显式构型无解时 Run/预览均失败并提示（如「无满足轴配置的IK解」），与下拉仅展示可启动项一致。  
 5. 指令由 `RobotInstructionController` 校验与规划（PTP/LINE 读取 `MotionAxisConfiguration` 做多初值 IK 筛选）；Run 时批量规划后由 `RobotProgramExecutor`（含 Wait/If/While/IO 状态机 + 运动段插值）按 tick 执行。  
 6. 通过接口更新文档中的关节节点矩阵（层级）或各 link 后端/OSG 矩阵（每连杆）。  
-7. UI 面板实时反馈执行过程；`OsgWidget::setInstructionPoseAxes` 在世界系显示各运动点 XYZ 坐标轴。  
+7. UI 面板实时反馈执行过程；`OsgWidget::setInstructionPoseAxes` 在世界系显示各运动点 XYZ 坐标轴；轴原点 **绿色=IK 可达**、**红色=不可达**（与 PTP/LINE 的 RGB 轴身颜色无关）。  
 8. **调试**：环境变量 `ROBOT_KINEMATICS_DEBUG=1`（或启动参数 `--robot-kinematics-debug 1`）时，`applyJointAnglesViaLinkBackends` 输出 `[RobotKinematicsDBG]`（`T0`/`Tq`/`Mnew`/父世界/写回后 `outerWorld` 等）。  
+9. **坐标系（基座 / 工具 / 用户）**：每台机器人 `HierarchicalRobotInstance::coordinateFrames`（`RobotCoordinateFrames`）；默认基座与 `sceneRootBackendId` 重合、工具与法兰/TCP link 重合、预置 `UFrame1`。仿真 Dock **坐标系** 页（`RobotFrameSettingsWidget`）编辑工具系与用户系；3D 可显示/隐藏（`OsgWidget::setRobotFrameOverlays`）。PTP/LINE 的 `pose/euler` 存 **基系 TCP**；每点 `motion.tool.frameId` / `motion.user.frameId`；规划经 `toolMat4ForExtension` 写入 `context.toolFrameMat4` 后 URDF IK。属性面板 `motion.target.frame` 为 `base` / `user` 示教（落盘仍基系）。指令 `extensions` 随 `robotPrograms` 持久化。  
+10. **导出**：仿真 **Export…** → `RobotProgramExport` JSON/CSV（基座 mm/deg + `jointRad`），供后续 RAPID/KRL 等后处理。  
 
 ```mermaid
 sequenceDiagram

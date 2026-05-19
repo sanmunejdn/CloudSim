@@ -1,8 +1,42 @@
 #include "BackendFollowMath.h"
 #include "BackendDataBase.h"
 
+#include <Eigen/Geometry>
+
 #include <algorithm>
 #include <cstring>
+
+namespace
+{
+Eigen::Isometry3d isometryFromBackendMat4(const BackendMat4& m)
+{
+	Eigen::Matrix4d e = Eigen::Matrix4d::Identity();
+	for (int col = 0; col < 4; ++col)
+	{
+		for (int row = 0; row < 4; ++row)
+		{
+			e(row, col) = m.v[col * 4 + row];
+		}
+	}
+	Eigen::Isometry3d iso = Eigen::Isometry3d::Identity();
+	iso.matrix() = e;
+	return iso;
+}
+
+BackendMat4 backendMat4FromIsometry(const Eigen::Isometry3d& iso)
+{
+	BackendMat4 out{};
+	const Eigen::Matrix4d e = iso.matrix();
+	for (int col = 0; col < 4; ++col)
+	{
+		for (int row = 0; row < 4; ++row)
+		{
+			out.v[col * 4 + row] = e(row, col);
+		}
+	}
+	return out;
+}
+} // namespace
 
 BackendMat4 BackendMat4::identity()
 {
@@ -50,21 +84,7 @@ BackendMat4 BackendMat4::rotateEulerDeg(double exDeg, double eyDeg, double ezDeg
 
 bool backend_mat4_multiply(const BackendMat4& a, const BackendMat4& b, BackendMat4& out)
 {
-	// Column-major: index(col, row) = col * 4 + row.  out = a * b.
-	BackendMat4 r{};
-	for (int c = 0; c < 4; ++c)
-	{
-		for (int row = 0; row < 4; ++row)
-		{
-			double s = 0.0;
-			for (int k = 0; k < 4; ++k)
-			{
-				s += a.v[k * 4 + row] * b.v[c * 4 + k];
-			}
-			r.v[c * 4 + row] = s;
-		}
-	}
-	out = r;
+	out = backendMat4FromIsometry(isometryFromBackendMat4(a) * isometryFromBackendMat4(b));
 	return true;
 }
 

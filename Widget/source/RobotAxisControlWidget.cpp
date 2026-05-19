@@ -299,6 +299,7 @@ void RobotAxisControlWidget::resetAllJoints()
 	for (const QString& name : m_jointOrder) {
 		setJointAngle(name, 0.0);
 	}
+	emitAllJointAnglesNow();
 }
 
 void RobotAxisControlWidget::onSliderValueChanged(int value)
@@ -374,13 +375,6 @@ void RobotAxisControlWidget::onResetButtonClicked()
 void RobotAxisControlWidget::onResetAllButtonClicked()
 {
 	resetAllJoints();
-	
-	// 收集所有角度并发送批量信号
-	QVector<double> angles;
-	for (const QString& name : m_jointOrder) {
-		angles.append(m_jointControls[name].currentAngle);
-	}
-	emit allJointAnglesChanged(angles);
 }
 
 void RobotAxisControlWidget::updateJointTransform(const QString& jointName, double angleRad)

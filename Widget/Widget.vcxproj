@@ -154,7 +154,7 @@
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../AiBackend/inc;../AiWidget/inc;../OsgWidgetCore/inc;../BackendVisual/inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/qtpropertybrowser;../../bin/SDK/OSG3.6.5/include;../Data/inc;../RobotKinematics/inc;../RobotUrdf/inc;../RobotScene/inc</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../AiBackend/inc;../AiWidget/inc;../OsgWidgetCore/inc;../BackendVisual/inc;../GeometryEngine/inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/eigen;../../bin/SDK/qtpropertybrowser;../../bin/SDK/OSG3.6.5/include;../Data/inc;../RobotKinematics/inc;../RobotUrdf/inc;../RobotScene/inc</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -174,7 +174,7 @@
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../AiBackend/inc;../AiWidget/inc;../OsgWidgetCore/inc;../BackendVisual/inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/qtpropertybrowser;../../bin/SDK/OSG3.6.5/include;../Data/inc;../RobotKinematics/inc;../RobotUrdf/inc;../RobotScene/inc</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../AiBackend/inc;../AiWidget/inc;../OsgWidgetCore/inc;../BackendVisual/inc;../GeometryEngine/inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/eigen;../../bin/SDK/qtpropertybrowser;../../bin/SDK/OSG3.6.5/include;../Data/inc;../RobotKinematics/inc;../RobotUrdf/inc;../RobotScene/inc</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -193,6 +193,7 @@
     <ClInclude Include="inc\MainWindow_p.h" />
     <QtMoc Include="inc\DevicePageWidget.h" />
     <QtMoc Include="inc\SimulationCommandWidget.h" />
+    <QtMoc Include="inc\RobotFrameSettingsWidget.h" />
     <QtMoc Include="inc\InstructionProgramTreeWidget.h" />
     <ClInclude Include="inc\RobotProgramStore.h" />
     <ClInclude Include="inc\SimulationLogIoSink.h" />
@@ -233,6 +234,7 @@
     <ClCompile Include="source\ApplicationStyle.cpp" />
     <ClCompile Include="source\DevicePageWidget.cpp" />
     <ClCompile Include="source\SimulationCommandWidget.cpp" />
+    <ClCompile Include="source\RobotFrameSettingsWidget.cpp" />
     <ClCompile Include="source\InstructionProgramTreeWidget.cpp" />
     <ClCompile Include="source\RobotProgramStore.cpp" />
     <ClCompile Include="source\SimulationLogIoSink.cpp" />
@@ -290,6 +292,9 @@
     </ProjectReference>
     <ProjectReference Include="..\RobotUrdf\RobotUrdf.vcxproj">
       <Project>{7a3e9b2c-4d1f-4e8a-b5c6-1d2e3f4a5b6c}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\GeometryEngine\GeometryEngine.vcxproj">
+      <Project>{d4e5f6a7-b8c9-4d0e-9f1a-2b3c4d5e6f70}</Project>
     </ProjectReference>
     <ProjectReference Include="..\RobotScene\RobotScene.vcxproj">
       <Project>{b2c4d6e8-0a1f-4e3c-9d5e-7f1a2b3c4d5e}</Project>

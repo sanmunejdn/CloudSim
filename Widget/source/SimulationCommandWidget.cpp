@@ -173,9 +173,12 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 	auto* rowRun = new QHBoxLayout;
 	m_runBtn = new QPushButton(QStringLiteral("Run"));
 	m_stopBtn = new QPushButton(QStringLiteral("Stop"));
+	m_exportBtn = new QPushButton(QStringLiteral("Export..."));
 	m_stopBtn->setEnabled(false);
 	rowRun->addWidget(m_runBtn);
 	rowRun->addWidget(m_stopBtn);
+	rowRun->addWidget(m_exportBtn);
+	rowRun->addStretch(1);
 	root->addLayout(rowRun);
 
 	connect(m_robotCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SimulationCommandWidget::onRobotComboChanged);
@@ -188,6 +191,7 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 	});
 	connect(m_runBtn, &QPushButton::clicked, this, &SimulationCommandWidget::runRequested);
 	connect(m_stopBtn, &QPushButton::clicked, this, &SimulationCommandWidget::stopRequested);
+	connect(m_exportBtn, &QPushButton::clicked, this, &SimulationCommandWidget::exportProgramRequested);
 
 	updateTypeButtonLabels();
 	updateRunStopButtons();
@@ -356,6 +360,10 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 	m_clearBtn->setText(chinese ? QStringLiteral("清空") : QStringLiteral("Clear"));
 	m_runBtn->setText(chinese ? QStringLiteral("运行") : QStringLiteral("Run"));
 	m_stopBtn->setText(chinese ? QStringLiteral("停止") : QStringLiteral("Stop"));
+	if (m_exportBtn)
+	{
+		m_exportBtn->setText(chinese ? QStringLiteral("导出...") : QStringLiteral("Export..."));
+	}
 	updateTypeButtonLabels();
 	rebuildCommandListWidget();
 }
@@ -601,7 +609,8 @@ bool SimulationCommandWidget::appendInstructionFromJson(const nlohmann::json& j,
 std::shared_ptr<RobotInstruction::Base> SimulationCommandWidget::appendInstructionFromCurrentPose(
 	RobotInstruction::Type type,
 	const RobotInstruction::Vec3& poseMm,
-	const RobotInstruction::Vec3& eulerDeg)
+	const RobotInstruction::Vec3& eulerDeg,
+	const bool deferInstructionSelection)
 {
 	std::shared_ptr<RobotInstruction::Base> ins;
 	if (type == RobotInstruction::Type::LINE)
@@ -627,7 +636,7 @@ std::shared_ptr<RobotInstruction::Base> SimulationCommandWidget::appendInstructi
 	}
 	if (m_tree)
 	{
-		m_tree->insertInstruction(ins);
+		m_tree->insertInstruction(ins, !deferInstructionSelection);
 	}
 	else
 	{

@@ -6,6 +6,7 @@
 #include <QTimer>
 #include <QTabWidget>
 #include <QVariant>
+#include <QHash>
 #include <QVector>
 #include <memory>
 #include <string>
@@ -18,8 +19,10 @@
 #include "RobotAxisControlWidget.h"
 #include "RobotInstructionController.h"
 #include "RobotProgramExecutor.h"
+#include "RobotFrameSettingsWidget.h"
 #include "SimulationCommandWidget.h"
 #include "SimulationLogIoSink.h"
+#include "RunInfoPage.h"
 
 class QWidget;
 class OsgWidget;
@@ -64,6 +67,7 @@ public:
 	static void shutdownApplicationLogging();
 
 	DocumentPage* currentPage() const;
+	int currentSimulationRobotInstanceIndex() const;
 	bool registerExistingBackendObject(std::shared_ptr<BackendDataBase> backendObject, const QString& sourcePath,
 		const QString& typeName, const QString& persistedId = QString(), bool selectInTree = true,
 		const QString& parentId = QString());
@@ -104,7 +108,9 @@ private:
 		const QString& displayLabel,
 		const QString& value,
 		bool editable,
-		const std::vector<std::string>* enumOptionTokens = nullptr);
+		const std::vector<std::string>* enumOptionTokens = nullptr,
+		const QStringList* enumDisplayNames = nullptr,
+		const QString& toolTip = QString());
 	RobotInstruction::FeasibleMotionAxisConfigurationOptions feasibleMotionAxisConfigurationOptionsForInstruction(
 		const std::shared_ptr<RobotInstruction::Base>& instruction,
 		QVector<double>* outSeedJointRad = nullptr);
@@ -157,7 +163,17 @@ private:
 	void onRobotSimulationTick();
 	void stopRobotSimulation();
 	void logPlaybackFrameComparison(const QVector<double>& finalJointAnglesRad);
+	QHash<QString, bool> computeMotionReachabilityForCurrentProgram();
+	void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void refreshInstructionPoseAxes();
+	void onSimulationExportRequested();
+	void refreshRobotCoordinateFrameOverlays(
+		const std::shared_ptr<RobotInstruction::Base>& highlightInstruction = nullptr);
+	void syncRobotFrameSettingsFromDocument(int instanceIndex);
+	void onRobotCoordinateFramesChanged();
+	void onCaptureToolFrameFromTcp();
+	void onCaptureUserFrameFromTcp();
+	void onResetToolFrame();
 	void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void captureMotionPreviewProgramStartJoints();
 	QVector<double> motionPreviewProgramStartJointsLocal(int nj, int jointOffset) const;
@@ -236,6 +252,7 @@ private:
 	QTabWidget* m_simulationDockTabs = nullptr;
 	SimulationCommandWidget* m_simulationCommandPage = nullptr;
 	RobotAxisControlWidget* m_robotAxisControlPage = nullptr;
+	RobotFrameSettingsWidget* m_robotFrameSettingsPage = nullptr;
 	QTimer m_robotSimTimer;
 	QTimer m_followTargetNameDebounceTimer;
 	QTimer m_propertyPanelCommitTimer;

@@ -58,6 +58,8 @@ flowchart LR
 | `Controller::setDhRows` | UI/配置注入 DH 表 |
 | `PtpPlanner` / `LinePlanner`（实现于 `.cpp`） | `context.urdfPath` 为空且 `hasDhRows()` 时 |
 
+笛卡尔目标在 `RobotScene` 中已为 **基座系 TCP**；`context.toolFrameMat4` 换算法兰 link 目标后再 IK。导出关节角见 `RobotProgramExport`。
+
 ---
 
 ## 5. 扩展指南

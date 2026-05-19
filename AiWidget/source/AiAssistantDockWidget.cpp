@@ -23,7 +23,7 @@ AiAssistantDockWidget::AiAssistantDockWidget(QWidget* parent)
 
 	auto* row = new QHBoxLayout;
 	m_input = new QLineEdit(this);
-	m_input->setPlaceholderText(QStringLiteral("e.g. create box 100x50x100 mm / Éú³É³¤·½Ìå£¬³¤¿í¸ßÎª100x50x100 mm"));
+	m_input->setPlaceholderText(QStringLiteral("e.g. create box 100x50x100 mm / ï¿½ï¿½ï¿½É³ï¿½ï¿½ï¿½ï¿½å£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª100x50x100 mm"));
 	connect(m_input, &QLineEdit::returnPressed, this, &AiAssistantDockWidget::onSendClicked);
 	m_settingsBtn = new QPushButton(QStringLiteral("Settings"), this);
 	m_settingsBtn->setToolTip(QStringLiteral("Configure LLM (ai_config.json)"));
