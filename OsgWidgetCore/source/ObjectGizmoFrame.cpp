@@ -111,7 +111,7 @@ bool ObjectGizmoFrame::fromOuter(osg::MatrixTransform* outer, const osg::Vec3f& 
 	osg::Node* const inner0 = outer->getChild(0);
 	osg::NodePath pathToInner = nodePathToSceneRootFromLeaf(outer);
 	pathToInner.push_back(inner0);
-	const osg::Vec3d fileOrigin = osg::Vec3d(0.0, 0.0, 0.0) * osg::computeLocalToWorld(pathToInner);
+	const osg::Vec3d fileOriginWorld = osg::Vec3d(0.0, 0.0, 0.0) * osg::computeLocalToWorld(pathToInner);
 
 	osg::NodePath pathOuter = nodePathToSceneRootFromLeaf(outer);
 	osg::Matrixd parentWorld;
@@ -129,7 +129,8 @@ bool ObjectGizmoFrame::fromOuter(osg::MatrixTransform* outer, const osg::Vec3f& 
 	{
 		parentWorld.makeIdentity();
 	}
-	const osg::Vec3d fileInOuterParent = fileOrigin * osg::Matrixd::inverse(parentWorld);
+	const osg::Vec3d fileInOuterParent = fileOriginWorld * osg::Matrixd::inverse(parentWorld);
+
 	osg::Vec3d innerOffset;
 	if (!readInnerOriginInOuterLocal(outer, innerOffset))
 	{
@@ -138,8 +139,10 @@ bool ObjectGizmoFrame::fromOuter(osg::MatrixTransform* outer, const osg::Vec3f& 
 			static_cast<double>(-modelCenter.y()),
 			static_cast<double>(-modelCenter.z()));
 	}
-	const osg::Vec3d rotatedOff = innerOffset * osg::Matrixd::rotate(q);
-	const osg::Vec3d outerTranslate = fileInOuterParent - rotatedOff;
+
+	const osg::Matrixd Rm = osg::Matrixd::rotate(q);
+	// T(trans)*R moves inner origin to (inner+trans)*R in outer parent; decompose(td) is trans*R, not trans.
+	const osg::Vec3d trans = (fileInOuterParent - innerOffset * Rm) * osg::Matrixd::inverse(Rm);
 
 	out.m_innerOriginInOuterLocal.set(
 		static_cast<float>(innerOffset.x()),
@@ -150,9 +153,9 @@ bool ObjectGizmoFrame::fromOuter(osg::MatrixTransform* outer, const osg::Vec3f& 
 		static_cast<float>(-innerOffset.y()),
 		static_cast<float>(-innerOffset.z()));
 	out.m_centerPlusPose.set(
-		static_cast<float>(outerTranslate.x()),
-		static_cast<float>(outerTranslate.y()),
-		static_cast<float>(outerTranslate.z()));
+		static_cast<float>(trans.x()),
+		static_cast<float>(trans.y()),
+		static_cast<float>(trans.z()));
 	out.m_attitude = q;
 	return true;
 }
@@ -216,17 +219,28 @@ osg::Vec3d ObjectGizmoFrame::pivotInOuterParentFromOuter(osg::MatrixTransform* o
 	return pivotW * osg::Matrixd::inverse(parentWorld);
 }
 
+osg::Vec3d ObjectGizmoFrame::pivotInOuterParentFromWorld(osg::MatrixTransform* outer, const osg::Vec3d& pivotWorld)
+{
+	osg::Matrixd parentWorld;
+	if (!parentWorldMatrixOfOuter(outer, parentWorld))
+	{
+		return pivotWorld;
+	}
+	return pivotWorld * osg::Matrixd::inverse(parentWorld);
+}
+
 osg::Vec3d ObjectGizmoFrame::pivotInOuterParentFromMembers() const
 {
 	const osg::Vec3d inner(
 		static_cast<double>(m_innerOriginInOuterLocal.x()),
 		static_cast<double>(m_innerOriginInOuterLocal.y()),
 		static_cast<double>(m_innerOriginInOuterLocal.z()));
-	const osg::Vec3d cpp(
+	const osg::Vec3d trans(
 		static_cast<double>(m_centerPlusPose.x()),
 		static_cast<double>(m_centerPlusPose.y()),
 		static_cast<double>(m_centerPlusPose.z()));
-	return cpp + inner * osg::Matrixd::rotate(m_attitude);
+	const osg::Matrixd Rm = osg::Matrixd::rotate(m_attitude);
+	return (inner + trans) * Rm;
 }
 
 void ObjectGizmoFrame::setCenterPlusPoseFromPivotInOuterParent(const osg::Vec3d& pivotInOuterParent)
@@ -235,11 +249,12 @@ void ObjectGizmoFrame::setCenterPlusPoseFromPivotInOuterParent(const osg::Vec3d&
 		static_cast<double>(m_innerOriginInOuterLocal.x()),
 		static_cast<double>(m_innerOriginInOuterLocal.y()),
 		static_cast<double>(m_innerOriginInOuterLocal.z()));
-	const osg::Vec3d T_new = pivotInOuterParent - inner * osg::Matrixd::rotate(m_attitude);
+	const osg::Matrixd Rm = osg::Matrixd::rotate(m_attitude);
+	const osg::Vec3d transNew = (pivotInOuterParent - inner * Rm) * osg::Matrixd::inverse(Rm);
 	m_centerPlusPose.set(
-		static_cast<float>(T_new.x()),
-		static_cast<float>(T_new.y()),
-		static_cast<float>(T_new.z()));
+		static_cast<float>(transNew.x()),
+		static_cast<float>(transNew.y()),
+		static_cast<float>(transNew.z()));
 }
 
 void ObjectGizmoFrame::translatePivotInOuterParent(const osg::Vec3d& deltaInOuterParent)
@@ -277,15 +292,101 @@ void ObjectGizmoFrame::translateAlongBodyAxis(osg::MatrixTransform* outer, int a
 	const osg::Vec3f loc = worldAxis(axisIndex);
 	const osg::Vec3f w = m_attitude * loc;
 	osg::Vec3d axisW(static_cast<double>(w.x()), static_cast<double>(w.y()), static_cast<double>(w.z()));
+	translateAlongWorldDirection(outer, axisW, deltaWorld);
+}
+
+void ObjectGizmoFrame::translateAlongWorldDirection(osg::MatrixTransform* outer, const osg::Vec3d& axisWUnit,
+	double deltaWorld)
+{
+	if (!outer || std::abs(deltaWorld) < 1e-20)
+	{
+		return;
+	}
+	const double len = axisWUnit.length();
+	if (len < 1e-12)
+	{
+		return;
+	}
 	osg::Matrixd parentWorld;
 	parentWorldMatrixOfOuter(outer, parentWorld);
-	osg::Vec3d deltaParent = worldDirectionToOuterParent(axisW, parentWorld);
-	const double len = deltaParent.length();
-	if (len > 1e-12)
+	osg::Vec3d deltaParent = worldDirectionToOuterParent(axisWUnit / len, parentWorld);
+	const double deltaLen = deltaParent.length();
+	if (deltaLen > 1e-12)
 	{
-		deltaParent *= (deltaWorld / len);
+		deltaParent *= (deltaWorld / deltaLen);
 	}
 	translatePivotInOuterParent(deltaParent);
+}
+
+bool ObjectGizmoFrame::dragAxisDirectionSceneWorld(osg::MatrixTransform* outer, bool worldGizmoFrame,
+	const osg::Quat& outerAttitude, int axisIndex, osg::Vec3d& outUnit)
+{
+	outUnit.set(0.0, 0.0, 1.0);
+	if (!outer || axisIndex < 0 || axisIndex > 2)
+	{
+		return false;
+	}
+	osg::Vec3d axisInParent;
+	if (worldGizmoFrame)
+	{
+		axisInParent = osg::Vec3d(
+			axisIndex == 0 ? 1.0 : 0.0,
+			axisIndex == 1 ? 1.0 : 0.0,
+			axisIndex == 2 ? 1.0 : 0.0);
+	}
+	else
+	{
+		const osg::Vec3f w = outerAttitude * worldAxis(axisIndex);
+		axisInParent.set(static_cast<double>(w.x()), static_cast<double>(w.y()), static_cast<double>(w.z()));
+	}
+	osg::Matrixd parentWorld;
+	if (!parentWorldMatrixOfOuter(outer, parentWorld))
+	{
+		return false;
+	}
+	outUnit = osg::Matrixd::transform3x3(axisInParent, parentWorld);
+	const double len = outUnit.length();
+	if (len < 1e-12)
+	{
+		return false;
+	}
+	outUnit /= len;
+	return true;
+}
+
+bool ObjectGizmoFrame::dragAxisDirectionOuterParent(osg::MatrixTransform* outer, bool worldGizmoFrame,
+	const osg::Quat& outerAttitude, int axisIndex, osg::Vec3d& outUnit)
+{
+	outUnit.set(0.0, 0.0, 1.0);
+	if (!outer || axisIndex < 0 || axisIndex > 2)
+	{
+		return false;
+	}
+	if (worldGizmoFrame)
+	{
+		const osg::Vec3d axisScene(
+			axisIndex == 0 ? 1.0 : 0.0,
+			axisIndex == 1 ? 1.0 : 0.0,
+			axisIndex == 2 ? 1.0 : 0.0);
+		osg::Matrixd parentWorld;
+		if (!parentWorldMatrixOfOuter(outer, parentWorld))
+		{
+			return false;
+		}
+		outUnit = worldDirectionToOuterParent(axisScene, parentWorld);
+	}
+	else
+	{
+		const osg::Vec3f w = outerAttitude * worldAxis(axisIndex);
+		outUnit.set(static_cast<double>(w.x()), static_cast<double>(w.y()), static_cast<double>(w.z()));
+	}
+	const double len = outUnit.length();
+	if (len < 1e-12)
+	{
+		return false;
+	}
+	outUnit /= len;
+	return true;
 }
 
 void ObjectGizmoFrame::rotatePreMultiplyWorldAxis(int axisIndex, double deltaRad)
@@ -304,32 +405,25 @@ void ObjectGizmoFrame::rotatePostMultiplyLocalAxis(int axisIndex, double deltaRa
 
 void ObjectGizmoFrame::adjustCenterPlusPoseForRotationDelta(const osg::Quat& R_old, const osg::Quat& R_new)
 {
-	const osg::Vec3d rBodyD(
+	const osg::Vec3d inner(
 		static_cast<double>(m_innerOriginInOuterLocal.x()),
 		static_cast<double>(m_innerOriginInOuterLocal.y()),
 		static_cast<double>(m_innerOriginInOuterLocal.z()));
 	const osg::Matrixd R_old_m = osg::Matrixd::rotate(R_old);
 	const osg::Matrixd R_new_m = osg::Matrixd::rotate(R_new);
-	const osg::Vec3d T_old_d(
+	const osg::Vec3d transOld(
 		static_cast<double>(m_centerPlusPose.x()),
 		static_cast<double>(m_centerPlusPose.y()),
 		static_cast<double>(m_centerPlusPose.z()));
-	const osg::Vec3d wOld = rBodyD * R_old_m;
-	const osg::Vec3d wNew = rBodyD * R_new_m;
-	const osg::Vec3d T_new_d = T_old_d + wOld - wNew;
-	m_centerPlusPose.set(static_cast<float>(T_new_d.x()), static_cast<float>(T_new_d.y()), static_cast<float>(T_new_d.z()));
+	const osg::Vec3d pivotConst = (inner + transOld) * R_old_m;
+	const osg::Vec3d transNew = (pivotConst - inner * R_new_m) * osg::Matrixd::inverse(R_new_m);
+	m_centerPlusPose.set(static_cast<float>(transNew.x()), static_cast<float>(transNew.y()), static_cast<float>(transNew.z()));
 	m_attitude = R_new;
 }
 
 void ObjectGizmoFrame::setRotationKeepingPivotInOuterParent(const osg::Vec3d& pivotInOuterParent,
 	const osg::Quat& newAttitude)
 {
-	const osg::Vec3d rBodyD(
-		static_cast<double>(m_innerOriginInOuterLocal.x()),
-		static_cast<double>(m_innerOriginInOuterLocal.y()),
-		static_cast<double>(m_innerOriginInOuterLocal.z()));
-	const osg::Matrixd R_new_m = osg::Matrixd::rotate(newAttitude);
-	const osg::Vec3d T_new_d = pivotInOuterParent - rBodyD * R_new_m;
-	m_centerPlusPose.set(static_cast<float>(T_new_d.x()), static_cast<float>(T_new_d.y()), static_cast<float>(T_new_d.z()));
 	m_attitude = newAttitude;
+	setCenterPlusPoseFromPivotInOuterParent(pivotInOuterParent);
 }

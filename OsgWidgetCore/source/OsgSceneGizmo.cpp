@@ -531,6 +531,222 @@ void OsgScene::computeGizmoPivotWorld(osg::Vec3f& outPivotWorld) const
 	}
 }
 
+bool OsgScene::gizmoCompassUnitAxisWorld(const DragAxis axis, osg::Vec3d& outAxisWorld) const
+{
+	outAxisWorld.set(0.0, 0.0, 1.0);
+	if (axis == DragAxis::None || !m_objectSelectionMode || !m_activeBackendOuterPat.valid())
+	{
+		return false;
+	}
+	ObjectGizmoFrame gf;
+	if (!readActiveObjectGizmoFrame(gf))
+	{
+		return false;
+	}
+	const int axisIndex = (axis == DragAxis::X) ? 0 : (axis == DragAxis::Y) ? 1 : 2;
+	return ObjectGizmoFrame::dragAxisDirectionSceneWorld(
+		m_activeBackendOuterPat.get(),
+		m_transformGizmoFrame == TransformGizmoFrame::World,
+		gf.attitude(),
+		axisIndex,
+		outAxisWorld);
+}
+
+bool OsgScene::beginGizmoScreenDrag(const DragAxis axis)
+{
+	m_gizmoDragScreenAxisUx = 1.0;
+	m_gizmoDragScreenAxisUy = 0.0;
+	m_gizmoDragMmPerPixel = 1.0;
+	if (!m_objectSelectionMode || !m_viewer.valid() || !m_viewer->getCamera() || viewportWidth() <= 0
+		|| viewportHeight() <= 0)
+	{
+		return false;
+	}
+	osg::Vec3d axisW;
+	if (!gizmoCompassUnitAxisWorld(axis, axisW))
+	{
+		return false;
+	}
+	m_gizmoScreenDragAxisWorld = axisW;
+	float gizmoScale = 1.0f;
+	if (m_compassScaleTransform.valid())
+	{
+		const osg::Matrixd& sm = m_compassScaleTransform->getMatrix();
+		gizmoScale = static_cast<float>(std::max({ std::abs(sm(0, 0)), std::abs(sm(1, 1)), std::abs(sm(2, 2)) }));
+		if (gizmoScale < 1e-6f)
+		{
+			gizmoScale = 1.0f;
+		}
+	}
+	const float axisLenMm = 120.0f * gizmoScale;
+
+	osg::Vec3f origin;
+	computeGizmoPivotWorld(origin);
+	const osg::Vec3f tipWorld(
+		origin.x() + static_cast<float>(axisW.x() * static_cast<double>(axisLenMm)),
+		origin.y() + static_cast<float>(axisW.y() * static_cast<double>(axisLenMm)),
+		origin.z() + static_cast<float>(axisW.z() * static_cast<double>(axisLenMm)));
+
+	osg::Camera* const camera = m_viewer->getCamera();
+	const osg::Matrixd mvp = camera->getViewMatrix() * camera->getProjectionMatrix();
+	auto projectToScreen = [&](const osg::Vec3f& world, double& sx, double& sy) {
+		const osg::Vec3d clip = osg::Vec3d(world) * mvp;
+		sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
+		sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
+	};
+
+	double ox = 0.0;
+	double oy = 0.0;
+	double tx = 0.0;
+	double ty = 0.0;
+	projectToScreen(origin, ox, oy);
+	projectToScreen(tipWorld, tx, ty);
+	const double vx = tx - ox;
+	const double vy = ty - oy;
+	const double lenPx = std::hypot(vx, vy);
+	if (lenPx < 1e-3)
+	{
+		return false;
+	}
+	m_gizmoDragScreenAxisUx = vx / lenPx;
+	m_gizmoDragScreenAxisUy = vy / lenPx;
+	m_gizmoDragMmPerPixel = static_cast<double>(axisLenMm) / lenPx;
+	return true;
+}
+
+double OsgScene::gizmoScreenDragDs(double mouseXCur, double mouseYCur, double mouseXLast, double mouseYLast) const
+{
+	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
+	const double dx = (mouseXCur - mouseXLast) * dpr;
+	const double dy = (mouseYCur - mouseYLast) * dpr;
+	const double dPx = dx * m_gizmoDragScreenAxisUx + dy * m_gizmoDragScreenAxisUy;
+	return dPx * m_gizmoDragMmPerPixel;
+}
+
+bool OsgScene::gizmoScreenAngleAtMouse(const DragAxis axis, double mouseX, double mouseY, double& outAngleRad) const
+{
+	outAngleRad = 0.0;
+	if (!m_viewer.valid() || !m_viewer->getCamera() || viewportWidth() <= 0 || viewportHeight() <= 0)
+	{
+		return false;
+	}
+	osg::Vec3d axisW;
+	if (!gizmoCompassUnitAxisWorld(axis, axisW))
+	{
+		return false;
+	}
+	osg::Vec3d pivotW;
+	if (m_gizmoRotateScreenActive && m_gizmoRotatePivotActive)
+	{
+		pivotW = m_gizmoRotatePivotWorld;
+	}
+	else
+	{
+		osg::Vec3f pivotF;
+		computeGizmoPivotWorld(pivotF);
+		pivotW.set(static_cast<double>(pivotF.x()), static_cast<double>(pivotF.y()), static_cast<double>(pivotF.z()));
+	}
+
+	osg::Vec3d ref(1.0, 0.0, 0.0);
+	if (std::abs(axisW * ref) > 0.9)
+	{
+		ref.set(0.0, 1.0, 0.0);
+	}
+	osg::Vec3d u = ref ^ axisW;
+	const double uLen = u.length();
+	if (uLen < 1e-12)
+	{
+		return false;
+	}
+	u /= uLen;
+	const osg::Vec3d v = axisW ^ u;
+
+	osg::Camera* const camera = m_viewer->getCamera();
+	const osg::Matrixd mvp = camera->getViewMatrix() * camera->getProjectionMatrix();
+	auto projectToScreen = [&](const osg::Vec3d& world, double& sx, double& sy) {
+		const osg::Vec3d clip = world * mvp;
+		sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
+		sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
+	};
+
+	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
+	const double mx = mouseX * dpr;
+	const double my = mouseY * dpr;
+
+	double px = 0.0;
+	double py = 0.0;
+	double ux = 0.0;
+	double uy = 0.0;
+	double vx = 0.0;
+	double vy = 0.0;
+	projectToScreen(pivotW, px, py);
+	projectToScreen(pivotW + u, ux, uy);
+	projectToScreen(pivotW + v, vx, vy);
+	ux -= px;
+	uy -= py;
+	vx -= px;
+	vy -= py;
+
+	const double det = ux * vy - uy * vx;
+	if (std::abs(det) < 1e-6)
+	{
+		return false;
+	}
+	const double rx = mx - px;
+	const double ry = my - py;
+	const double a = (rx * vy - ry * vx) / det;
+	const double b = (-rx * uy + ry * ux) / det;
+	outAngleRad = std::atan2(a, b);
+	return true;
+}
+
+bool OsgScene::beginGizmoScreenRotate(const DragAxis axis, const double mouseX, const double mouseY)
+{
+	m_gizmoRotateScreenActive = false;
+	double angle = 0.0;
+	if (!gizmoScreenAngleAtMouse(axis, mouseX, mouseY, angle))
+	{
+		return false;
+	}
+	m_gizmoRotateLastScreenAngle = angle;
+	m_gizmoRotateScreenActive = true;
+	return true;
+}
+
+double OsgScene::gizmoScreenRotateDeltaRad(const double mouseX, const double mouseY)
+{
+	if (!m_gizmoRotateScreenActive || m_dragAxis == DragAxis::None)
+	{
+		return 0.0;
+	}
+	double angle = 0.0;
+	if (!gizmoScreenAngleAtMouse(m_dragAxis, mouseX, mouseY, angle))
+	{
+		return 0.0;
+	}
+	double delta = angle - m_gizmoRotateLastScreenAngle;
+	const double twoPi = 2.0 * osg::PI;
+	while (delta > osg::PI)
+	{
+		delta -= twoPi;
+	}
+	while (delta < -osg::PI)
+	{
+		delta += twoPi;
+	}
+	const double maxStep = 0.42;
+	if (delta > maxStep)
+	{
+		delta = maxStep;
+	}
+	else if (delta < -maxStep)
+	{
+		delta = -maxStep;
+	}
+	m_gizmoRotateLastScreenAngle = angle;
+	return delta;
+}
+
 void OsgScene::logGizmoPivotDiagnostics(const char* reasonTag) const
 {
 	if (!gizmoPivotDiagEnabled())

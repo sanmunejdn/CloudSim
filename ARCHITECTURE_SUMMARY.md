@@ -161,7 +161,7 @@ flowchart TD
 
 **对象变换 Gizmo（`ObjectGizmoFrame` + overlay 挂载）：**
 
-- **`ObjectGizmoFrame`**（`OsgWidgetCore/inc|source/ObjectGizmoFrame.*`）：集中 outer 分支位姿数学，约定与 `MeshBackendVisual::buildOuterBranch` 一致——外层局部矩阵为 **`T(center+pose) * R`**（行向量 OSG 约定）。提供 `fromOuter` / `applyToOuter`、世界/父空间枢轴（文件原点）、沿世界/物体轴平移、绕世界/局部轴旋转，以及**保枢轴旋转**（`setRotationKeepingPivotInOuterParent`）。
+- **`ObjectGizmoFrame`**（`OsgWidgetCore/inc|source/ObjectGizmoFrame.*`）：集中 outer 分支位姿数学，约定与 `MeshBackendVisual::buildOuterBranch` 一致——外层局部矩阵为 **`T(trans) * R`**，`trans` = `centerPlusPose` = `modelCenter + pose`（行向量 OSG）。文件原点在 outer 父节点下为 **`(inner + trans) * R`**。`fromOuter` 用 **`trans = (fileInOuterParent - inner*R) * inv(R)`** 恢复（不可用 `decompose` 的平移分量）。提供屏幕/父空间旋转轴（`dragAxisDirectionSceneWorld` / `dragAxisDirectionOuterParent`）、`translateAlongWorldDirection`、`adjustCenterPlusPoseForRotationDelta`（保枢轴）等。
 - **场景图位姿真源**：活动后端的 **`m_activeBackendOuterPat`**（`osg::MatrixTransform`）为唯一 OSG 位姿写入点；已移除与根级平行的 `m_selectedTransform` 及与之相关的双向同步 API。
 - **Overlay 结构**：`initScene` 创建 `m_gizmoOverlayGroup`（含罗盘 `m_compassTransform`、拾取反馈 `m_pickFeedbackTransform`），默认不挂场景；选中时由 **`attachGizmoOverlayToActiveBackend`** 挂到 **inner PAT**（outer 的 child0，局部 `-modelCenter`）下，使罗盘枢轴与**网格/点云文件原点**一致。取消选择或导入替换场景时 **`detachGizmoOverlay`**。
 - **同步入口**：`readActiveObjectGizmoFrame`、`syncActiveBackendRootFromObjectFrame`（非拖动时将旋转增量传播到 OSG 子树中的后代 backend outer）、`cacheSelectionGizmoPose`、`syncGizmoAndPickFromBackend`（选中/加载：无 `m_backendParentIds` 父节点时 `setFromBackend`+`applyToOuter`；**有父节点**时仅 `fromOuter`+挂 overlay，不覆盖 FK/层级局部矩阵）、`setBackendRootWorldMatrixFromWorld`（行向量：`local = world * inv(parentWorld)`，父矩阵优先 `m_backendParentIds`）。
@@ -407,9 +407,10 @@ m_activeBackendOuterPat          ← 唯一位姿写入：T(center+pose) * R
 | 字段 | 含义 |
 |------|------|
 | `modelCenter` | 外包络中心（与 `m_backendModelCenters` 一致） |
-| `centerPlusPose` | outer 平移分量：`modelCenter + backend.pose` |
-| `attitude` | outer 旋转四元数 |
+| `centerPlusPose` | outer 平移 `trans`：`modelCenter + backend.pose`（非 `decompose` 的 `trans*R`） |
+| `attitude` | outer 旋转 `R` |
 | `backendPoseRelativeToCenter()` | 即后端 `pose`（相对几何中心） |
+| 文件原点（枢轴） | outer 父空间：`(inner + centerPlusPose) * R` |
 
 **主要 API（`OsgScene` / `OsgWidget` 委托）：**
 
@@ -427,9 +428,9 @@ m_activeBackendOuterPat          ← 唯一位姿写入：T(center+pose) * R
 **端到端流程：**
 
 1. **选中**：树/OSG 拾取 → `syncSelectionFromBackend` → `syncGizmoAndPickFromBackend`：根级或孤立对象 `setFromBackend`+`applyToOuter`；**URDF/层级子连杆** 若已有父 backend id，则 **`fromOuter` 保留当前局部矩阵**（FK 已写世界位姿，后端 `pose` 为世界分解值，不可直接 `applyToOuter`）→ `attachGizmoOverlayToActiveBackend`。
-2. **拖拽**：`ObjectTransformOperation` 在按下时缓存旋转枢轴（outer 父节点局部）；拖动中只改 `ObjectGizmoFrame` 并 `applyToOuter`，`syncActiveBackendRootFromObjectFrame(..., true)`；**跟随求解**在拖动期间仍可运行，但对**正在拖拽的 follower** 跳过自动写回（见 **6.2.1**）。
-3. **属性面板**：`OsgWidget::selectedPosition` / `setSelectedPosition` / `setSelectedRotation` 等均经 `readActiveObjectGizmoFrame` 与 `applyToOuter`，与罗盘共用同一数学路径。
-4. **松手**：`cacheSelectionGizmoPose` → `transformGizmoCommitted` → `MainWindow` 刷新属性面板；位姿写回 `BackendDataBase` 仍走既有 `selectedObjectPoseChanged` 等信号。
+2. **拖拽**：`ObjectTransformOperation` — **LMB** `beginGizmoScreenDrag` + `gizmoScreenDragDs`（屏幕轴平移，避免平面求交发散）；**RMB** 冻结 `m_gizmoRotatePivotWorld` + `gizmoScreenRotateDeltaRad`（屏幕角），`adjustCenterPlusPoseForRotationDelta` 保枢轴，旋转轴经 `dragAxisDirectionOuterParent` 写入父空间四元数（屏幕法向经 `dragAxisDirectionSceneWorld`）。拖动中 `syncActiveBackendRootFromObjectFrame(..., true)`；**旋转不写** `selectedObjectPoseChanged`（仅平移写）。**跟随求解**对正在拖拽的 follower 跳过写回（见 **6.2.1**）。
+3. **属性面板**：`selectedPosition` / `setSelectedRotation` 等经 `readActiveObjectGizmoFrame` 与 `applyToOuter`，与罗盘同一数学路径。
+4. **松手**：`cacheSelectionGizmoPose` → `transformGizmoCommitted` → MainWindow 刷新属性面板。
 5. **导入/清空选择**：`OsgWidgetImportController` 等路径调用 `detachGizmoOverlay`，避免 overlay 留在已卸载的 inner 上。
 
 ```mermaid
@@ -452,7 +453,7 @@ sequenceDiagram
 
     UI->>OW: 拖拽移动/旋转
     OW->>SC: readActiveObjectGizmoFrame(gf)
-    UI->>GF: translate*/rotate* / setRotationKeepingPivot
+    UI->>GF: translateAlongWorldDirection / adjustCenterPlusPoseForRotationDelta
     OW->>GF: applyToOuter(outer)
     OW->>SC: syncActiveBackendRootFromObjectFrame(gf, dragging)
 

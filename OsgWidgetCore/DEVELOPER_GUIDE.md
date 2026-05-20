@@ -36,20 +36,26 @@ m_stagingGroup（导入预览）
 
 ## 3. `class ObjectGizmoFrame`
 
-**语义**：outer 局部矩阵 = **`T(centerPlusPose) * R(attitude)`**（行向量 OSG）；文件原点在 inner 局部 (0,0,0)。
+**语义**：outer 局部矩阵 = **`T(centerPlusPose) * R(attitude)`**（行向量 OSG）；文件原点在 inner 局部 (0,0,0)。inner PAT 平移为 **`-modelCenter`**（`MeshBackendVisual::buildOuterBranch`）。
+
+**枢轴（文件原点）在 outer 父节点下**：`(inner + centerPlusPose) * R`，其中 `inner` 为 inner 在 outer 局部的平移（通常 `-modelCenter`）。**禁止**用 `centerPlusPose + inner*R` 或 `decompose(outer).translation` 当作 `centerPlusPose`：`decompose` 得到的是原点位置 `trans*R`，不是 `trans`。
 
 | 字段 / 方法 | 说明 |
 |-------------|------|
 | `modelCenter` | 与 `m_backendModelCenters` 一致 |
-| `centerPlusPose` | `modelCenter + backend.pose` |
-| `attitude` | outer 四元数 |
-| `backendPoseRelativeToCenter()` | 即后端 `pose` |
-| `fromOuter(outer, modelCenter, out)` | 从场景读帧 |
+| `centerPlusPose` | outer 平移分量 `trans`：`modelCenter + backend.pose`（与 `buildOuterBranch` 的 `T(trans)*R` 一致） |
+| `attitude` | outer 旋转 `R` |
+| `backendPoseRelativeToCenter()` | 即后端 `pose`（`centerPlusPose - modelCenter`） |
+| `fromOuter(outer, modelCenter, out)` | 从场景读帧：`trans = (fileInOuterParent - inner*R) * inv(R)` |
 | `setFromBackend(poseRelCenter, attitude, modelCenter)` | 从后端写帧 |
-| `applyToOuter(outer)` | 写回 `m_activeBackendOuterPat` |
-| `translateAlongWorldAxis` / `translateAlongBodyAxis` | 平移 |
-| `rotatePreMultiplyWorldAxis` / `rotatePostMultiplyLocalAxis` | 旋转 |
-| `setRotationKeepingPivotInOuterParent` | 保枢轴旋转 |
+| `applyToOuter(outer)` | `setMatrix(T(centerPlusPose)*R)` |
+| `translateAlongWorldDirection` | 沿**场景世界**方向移动枢轴（内部 `worldDirectionToOuterParent`） |
+| `translateAlongWorldAxis` / `translateAlongBodyAxis` | 沿世界/物体轴索引平移 |
+| `dragAxisDirectionSceneWorld` | 环法向 / **屏幕转角**用：经 `parentWorld` 转到场景世界 |
+| `dragAxisDirectionOuterParent` | **四元数旋转**用：World 为场景轴投到 outer 父空间；Local 为 `R*localAxis` |
+| `adjustCenterPlusPoseForRotationDelta` | 保枢轴：固定 `(inner+trans)*R`，更新 `trans` 与 `R` |
+| `rotatePreMultiplyWorldAxis` / `rotatePostMultiplyLocalAxis` | 属性面板等：`δq*R` / `R*δq`（轴在 outer 局部） |
+| `setRotationKeepingPivotInOuterParent` | 给定父空间枢轴与 `R_new` 反解 `trans` |
 | `pivotWorldFromOuter` / `pivotInOuterParentFromOuter` | 枢轴诊断 |
 
 ---
@@ -123,10 +129,24 @@ m_stagingGroup（导入预览）
 
 | 方法 | 说明 |
 |------|------|
-| `createCompassNode` / `attachCompassGraphics` / `detachCompassGraphics` | 罗盘几何 |
+| `createCompassNode` / `attachCompassGraphics` / `detachCompassGraphics` | 罗盘几何；`m_compassScaleTransform` 仅缩放几何，避免 PAT scale 拉偏枢轴 |
+| `syncCompassGizmoOrientation` | World：`compassAtt = R⁻¹`；Local：单位四元数 |
 | `pickAxisAtScreenPos(mouseX, mouseY, preferRing, outPickedRing)` | 轴/环命中 → `kGizmoAxisX/Y/Z` |
 | `computeCameraScreenRayWorld` | Qt 逻辑坐标 × DPR |
-| `computeGizmoPivotWorld` / `logGizmoPivotDiagnostics` | 枢轴；`POINTCLOUD_GIZMO_PIVOT_DIAG` |
+| `computeGizmoPivotWorld` / `logGizmoPivotDiagnostics` | inner 原点世界坐标；`POINTCLOUD_GIZMO_PIVOT_DIAG` |
+| `gizmoCompassUnitAxisWorld` | 委托 `ObjectGizmoFrame::dragAxisDirectionSceneWorld`（**场景世界**，与 `computeGizmoPivotWorld` 同系） |
+| `beginGizmoScreenDrag` / `gizmoScreenDragDs` | 平移：冻结屏幕轴 + `mmPerPixel`（与 TCP 示教同思路） |
+| `beginGizmoScreenRotate` / `gizmoScreenRotateDeltaRad` | 旋转：绕冻结的 `m_gizmoRotatePivotWorld` 的屏幕角增量 |
+| `gizmoScreenAngleAtMouse` | 在垂直于环法向的屏幕平面内 `atan2`；法向来自 `gizmoCompassUnitAxisWorld` |
+
+**坐标系分工（对象 gizmo 旋转）**：
+
+| 环节 | 坐标系 |
+|------|--------|
+| 屏幕转角、罗盘视觉法向 | 场景世界（`dragAxisDirectionSceneWorld`） |
+| 写入 `outer` 四元数 | outer **父节点**局部（`dragAxisDirectionOuterParent`） |
+| World 帧 | `R_new = Quat(δ, axisParent) * R_old`，`axisParent = worldDirectionToOuterParent(场景 X/Y/Z)` |
+| Local 帧 | `R_new = R_old * Quat(δ, axisParent)`，`axisParent = R_old * localAxis` |
 
 ### 5.8 相机与注释
 
@@ -170,8 +190,9 @@ m_stagingGroup（导入预览）
 ## 7. 端到端：选中与拖拽
 
 1. 拾取 → `resolveBackendIdFromPickedPath` → `syncGizmoAndPickFromBackend`
-2. 拖拽 → `ObjectTransformOperation` 改 `ObjectGizmoFrame` → `applyToOuter` → `syncActiveBackendRootFromObjectFrame(..., true)`
-3. 释放 → `cacheSelectionGizmoPose` → 信号 `transformGizmoCommitted`
+2. **LMB 平移** → `beginGizmoScreenDrag` → 每帧 `gizmoScreenDragDs` → `translateAlongWorldDirection(冻结轴)` → `applyToOuter`
+3. **RMB 旋转** → `cacheRotatePivot`（世界枢轴）→ `beginGizmoScreenRotate` → `gizmoScreenRotateDeltaRad` → `adjustCenterPlusPoseForRotationDelta` → `applyToOuter`（拖动中**不** `emit selectedObjectPoseChanged`）
+4. 释放 → `cacheSelectionGizmoPose` → `transformGizmoCommitted` → MainWindow 刷新属性面板
 
 详见 [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §6.2.0。
 
@@ -180,4 +201,4 @@ m_stagingGroup（导入预览）
 ## 8. 相关文档
 
 - 可视化构建：[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md)
-- Qt 桥接：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md)
+- Qt 桥接：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md)（对象罗盘拖动 §6.3.1；TCP 示教 §13.1）

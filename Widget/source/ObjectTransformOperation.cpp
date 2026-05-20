@@ -164,6 +164,7 @@ void resetGizmoDragSession(OsgWidget* o)
 {
 	o->m_gizmoTransDragPlaneActive = false;
 	o->m_gizmoRotatePivotActive = false;
+	o->m_gizmoRotateScreenActive = false;
 }
 
 bool cacheRotatePivotInParentSpace(OsgWidget* o)
@@ -172,33 +173,15 @@ bool cacheRotatePivotInParentSpace(OsgWidget* o)
 	{
 		return false;
 	}
+	ObjectGizmoFrame gf;
+	if (!o->readActiveObjectGizmoFrame(gf))
+	{
+		return false;
+	}
 	osg::Vec3f pivotF;
 	o->computeGizmoPivotWorld(pivotF);
-	const osg::Vec3d pivotW(static_cast<double>(pivotF.x()), static_cast<double>(pivotF.y()),
+	o->m_gizmoRotatePivotWorld.set(static_cast<double>(pivotF.x()), static_cast<double>(pivotF.y()),
 		static_cast<double>(pivotF.z()));
-	o->m_gizmoRotatePivotWorld = pivotW;
-	osg::NodePath pathOuter;
-	for (osg::Node* n = o->m_activeBackendOuterPat.get(); n != nullptr;
-		n = n->getNumParents() > 0 ? n->getParent(0) : nullptr)
-	{
-		pathOuter.insert(pathOuter.begin(), n);
-	}
-	osg::Matrixd parentWorld;
-	if (pathOuter.size() >= 2U)
-	{
-		osg::NodePath parentPath;
-		parentPath.reserve(pathOuter.size() - 1U);
-		for (unsigned i = 0; i + 1U < pathOuter.size(); ++i)
-		{
-			parentPath.push_back(pathOuter[i]);
-		}
-		parentWorld = osg::computeLocalToWorld(parentPath);
-	}
-	else
-	{
-		parentWorld.makeIdentity();
-	}
-	o->m_gizmoRotatePivotInParent = pivotW * osg::Matrixd::inverse(parentWorld);
 	o->m_gizmoRotatePivotActive = true;
 	return true;
 }
@@ -338,10 +321,8 @@ bool ObjectTransformOperation::handleEvent(QObject* watched, QEvent* event)
 				m_owner->m_dragging = true;
 				m_owner->m_rotating = false;
 				m_owner->m_lastMousePos = mouseEvent->pos();
-				if (!tryBeginTranslatePlane(m_owner, mouseEvent->pos()))
-				{
-					(void)seedTranslateDragOnAxisLine(m_owner, mouseEvent->pos());
-				}
+				resetGizmoDragSession(m_owner);
+				(void)m_owner->beginGizmoScreenDrag(m_owner->m_dragAxis);
 				m_owner->updateCompassHighlight(m_owner->m_dragAxis, false);
 				emit m_owner->activeAxisChanged(m_owner->axisToString(m_owner->m_dragAxis));
 				m_owner->requestRedraw();
@@ -362,7 +343,12 @@ bool ObjectTransformOperation::handleEvent(QObject* watched, QEvent* event)
 			m_owner->m_rotating = true;
 			m_owner->m_dragging = false;
 			m_owner->m_lastMousePos = mouseEvent->pos();
-			tryBeginRotateHit(m_owner, mouseEvent->pos());
+			resetGizmoDragSession(m_owner);
+			(void)cacheRotatePivotInParentSpace(m_owner);
+			(void)m_owner->beginGizmoScreenRotate(
+				m_owner->m_dragAxis,
+				static_cast<double>(mouseEvent->pos().x()),
+				static_cast<double>(mouseEvent->pos().y()));
 			m_owner->updateCompassHighlight(m_owner->m_dragAxis, true);
 			emit m_owner->activeAxisChanged(m_owner->axisToString(m_owner->m_dragAxis));
 			m_owner->requestRedraw();
@@ -377,32 +363,12 @@ bool ObjectTransformOperation::handleEvent(QObject* watched, QEvent* event)
 		const QPoint pos = mouseEvent->pos();
 		if (m_owner->m_dragging)
 		{
-			const osg::Vec3d axisW = worldUnitAxisForGizmo(m_owner, m_owner->m_dragAxis);
-			double dsWorld = 0.0;
-			osg::Vec3d eye, dir;
-			const bool rayOk = m_owner->computeCameraScreenRayWorld(static_cast<double>(pos.x()), static_cast<double>(pos.y()), eye, dir);
-			osg::Vec3d qNew;
-			osg::Vec3d pivotCur;
-			currentGizmoPivotWorldD(m_owner, pivotCur);
-			const bool hitOk = rayOk && m_owner->m_gizmoTransDragPlaneActive
-				&& rayPlaneIntersect(eye, dir, pivotCur, m_owner->m_gizmoTransDragPlaneN, qNew);
-			if (hitOk)
-			{
-				dsWorld = (qNew - m_owner->m_gizmoDragLastHitWorld) * axisW;
-				dsWorld *= kGizmoTranslatePlaneGain;
-				m_owner->m_gizmoDragLastHitWorld = qNew;
-			}
-			else if (m_owner->m_gizmoTransDragPlaneActive && rayOk)
-			{
-				osg::Vec3d lineHit;
-				const double maxLineT = maxGizmoTranslateStepWorld(m_owner) * 4.0;
-				if (rayClosestPointOnLine(eye, dir, pivotCur, axisW, lineHit, maxLineT))
-				{
-					dsWorld = (lineHit - m_owner->m_gizmoDragLastHitWorld) * axisW;
-					dsWorld *= kGizmoTranslatePlaneGain;
-					m_owner->m_gizmoDragLastHitWorld = lineHit;
-				}
-			}
+			double dsWorld = m_owner->gizmoScreenDragDs(
+				static_cast<double>(pos.x()),
+				static_cast<double>(pos.y()),
+				static_cast<double>(m_owner->m_lastMousePos.x()),
+				static_cast<double>(m_owner->m_lastMousePos.y()));
+			dsWorld *= kGizmoTranslatePlaneGain;
 			dsWorld = clampGizmoTranslateDsWorld(dsWorld, m_owner);
 			m_owner->m_lastMousePos = pos;
 
@@ -410,14 +376,7 @@ bool ObjectTransformOperation::handleEvent(QObject* watched, QEvent* event)
 			osg::MatrixTransform* const outer = m_owner->m_activeBackendOuterPat.get();
 			if (outer && m_owner->readActiveObjectGizmoFrame(f) && std::abs(dsWorld) > 1e-10)
 			{
-				if (m_owner->transformGizmoFrame() == OsgWidget::TransformGizmoFrame::World)
-				{
-					f.translateAlongWorldAxis(outer, dragAxisToIndex(m_owner->m_dragAxis), dsWorld);
-				}
-				else
-				{
-					f.translateAlongBodyAxis(outer, dragAxisToIndex(m_owner->m_dragAxis), dsWorld);
-				}
+				f.translateAlongWorldDirection(outer, m_owner->m_gizmoScreenDragAxisWorld, dsWorld);
 				f.applyToOuter(outer);
 				(void)ObjectGizmoFrame::fromOuter(outer, f.modelCenter(), f);
 				markGizmoSessionModified();
@@ -430,43 +389,9 @@ bool ObjectTransformOperation::handleEvent(QObject* watched, QEvent* event)
 		}
 		else if (m_owner->m_rotating)
 		{
-			const osg::Vec3d pivot = m_owner->m_gizmoRotatePivotActive
-				? m_owner->m_gizmoRotatePivotWorld
-				: [&]() {
-					osg::Vec3f pivotF;
-					m_owner->computeGizmoPivotWorld(pivotF);
-					return osg::Vec3d(static_cast<double>(pivotF.x()), static_cast<double>(pivotF.y()),
-						static_cast<double>(pivotF.z()));
-				}();
-			const osg::Vec3d axisW = worldUnitAxisForGizmo(m_owner, m_owner->m_dragAxis);
-			osg::Vec3d eye, dir;
-			double deltaRad = 0.0;
-			if (m_owner->computeCameraScreenRayWorld(static_cast<double>(pos.x()), static_cast<double>(pos.y()), eye, dir))
-			{
-				osg::Vec3d qHit;
-				if (rayPlaneIntersect(eye, dir, pivot, axisW, qHit))
-				{
-					osg::Vec3d v0 = m_owner->m_gizmoDragLastHitWorld - pivot;
-					osg::Vec3d v1 = qHit - pivot;
-					const double along0 = v0 * axisW;
-					const double along1 = v1 * axisW;
-					v0 -= axisW * along0;
-					v1 -= axisW * along1;
-					const double l0 = v0.length();
-					const double l1 = v1.length();
-					if (l0 > 1e-8 && l1 > 1e-8)
-					{
-						v0 /= l0;
-						v1 /= l1;
-						const osg::Vec3d crossv = v0 ^ v1;
-						const double sinTh = crossv * axisW;
-						const double cosTh = v0 * v1;
-						deltaRad = std::atan2(sinTh, cosTh);
-						deltaRad *= kGizmoRotateArcGain;
-					}
-					m_owner->m_gizmoDragLastHitWorld = qHit;
-				}
-			}
+			double deltaRad = m_owner->gizmoScreenRotateDeltaRad(
+				static_cast<double>(pos.x()), static_cast<double>(pos.y()));
+			deltaRad *= kGizmoRotateArcGain;
 			m_owner->m_lastMousePos = pos;
 
 			if (std::abs(deltaRad) <= 1e-8)
@@ -475,47 +400,29 @@ bool ObjectTransformOperation::handleEvent(QObject* watched, QEvent* event)
 			}
 
 			ObjectGizmoFrame f;
-			if (m_owner->readActiveObjectGizmoFrame(f))
+			osg::MatrixTransform* const outerRot = m_owner->m_activeBackendOuterPat.get();
+			if (m_owner->readActiveObjectGizmoFrame(f) && outerRot)
 			{
 				const osg::Quat R_old = f.attitude();
-				osg::Quat R_new;
-				if (m_owner->transformGizmoFrame() == OsgWidget::TransformGizmoFrame::World)
+				const int axisIndex = dragAxisToIndex(m_owner->m_dragAxis);
+				const bool worldFrame =
+					m_owner->transformGizmoFrame() == OsgWidget::TransformGizmoFrame::World;
+				osg::Vec3d axisForQuat;
+				osg::Quat R_new = R_old;
+				if (ObjectGizmoFrame::dragAxisDirectionOuterParent(
+						outerRot, worldFrame, R_old, axisIndex, axisForQuat))
 				{
-					osg::Vec3 axis(0.0f, 0.0f, 1.0f);
-					if (m_owner->m_dragAxis == OsgWidget::DragAxis::X) axis.set(1.0f, 0.0f, 0.0f);
-					if (m_owner->m_dragAxis == OsgWidget::DragAxis::Y) axis.set(0.0f, 1.0f, 0.0f);
-					if (m_owner->m_dragAxis == OsgWidget::DragAxis::Z) axis.set(0.0f, 0.0f, 1.0f);
-					const osg::Quat deltaQuat(static_cast<float>(deltaRad), axis);
-					R_new = deltaQuat * R_old;
+					const osg::Quat deltaQuat(
+						static_cast<float>(deltaRad),
+						osg::Vec3(static_cast<float>(axisForQuat.x()), static_cast<float>(axisForQuat.y()),
+							static_cast<float>(axisForQuat.z())));
+					R_new = worldFrame ? (deltaQuat * R_old) : (R_old * deltaQuat);
 				}
-				else
-				{
-					const osg::Vec3f axf = gizmoLocalAxis(m_owner->m_dragAxis);
-					const osg::Quat deltaQuat(static_cast<float>(deltaRad), osg::Vec3(axf.x(), axf.y(), axf.z()));
-					R_new = R_old * deltaQuat;
-				}
-				if (m_owner->m_gizmoRotatePivotActive)
-				{
-					f.setRotationKeepingPivotInOuterParent(m_owner->m_gizmoRotatePivotInParent, R_new);
-				}
-				else
-				{
-					f.adjustCenterPlusPoseForRotationDelta(R_old, R_new);
-				}
-				osg::MatrixTransform* const outerRot = m_owner->m_activeBackendOuterPat.get();
-				if (outerRot)
-				{
-					f.applyToOuter(outerRot);
-					(void)ObjectGizmoFrame::fromOuter(outerRot, f.modelCenter(), f);
-				}
+				f.adjustCenterPlusPoseForRotationDelta(R_old, R_new);
+				f.applyToOuter(outerRot);
 				markGizmoSessionModified();
 				m_owner->syncActiveBackendRootFromObjectFrame(f, true);
 				m_owner->syncCompassGizmoOrientation();
-
-				const osg::Vec3f pose = f.backendPoseRelativeToCenter();
-				emit m_owner->selectedObjectPoseChanged(pose.x(), pose.y(), pose.z());
-				const osg::Vec3f euler = m_owner->quatToEulerDeg(f.attitude());
-				emit m_owner->selectedObjectRotationChanged(euler.x(), euler.y(), euler.z());
 				m_owner->requestRedraw();
 			}
 		}

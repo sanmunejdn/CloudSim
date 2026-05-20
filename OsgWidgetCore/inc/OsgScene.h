@@ -129,6 +129,15 @@ public:
 	/// Qt widget pixel coords (logical); multiplied internally by \ref devicePixelRatio to match OSG viewport.
 	bool computeCameraScreenRayWorld(double mouseX, double mouseY, osg::Vec3d& outRayOriginWorld, osg::Vec3d& outRayDirUnitWorld) const;
 	void computeGizmoPivotWorld(osg::Vec3f& outPivotWorld) const;
+	/// 与罗盘显示一致的单位轴方向（世界坐标）。
+	bool gizmoCompassUnitAxisWorld(DragAxis axis, osg::Vec3d& outAxisWorld) const;
+	/// 平移拖动：冻结屏幕轴 + mm/px（与 TCP 示教相同，避免移动 pivot 时平面求交发散）。
+	bool beginGizmoScreenDrag(DragAxis axis);
+	double gizmoScreenDragDs(double mouseXCur, double mouseYCur, double mouseXLast, double mouseYLast) const;
+	/// 旋转拖动：绕罗盘枢轴的屏幕角（与平移相同，避免姿态变化时平面求交发散）。
+	bool beginGizmoScreenRotate(DragAxis axis, double mouseX, double mouseY);
+	double gizmoScreenRotateDeltaRad(double mouseX, double mouseY);
+	bool gizmoScreenAngleAtMouse(DragAxis axis, double mouseX, double mouseY, double& outAngleRad) const;
 	/// 若环境变量 \c POINTCLOUD_GIZMO_PIVOT_DIAG 非空且不为 \c "0"：经 RunLogger 输出枢轴与场景图文件原点的对比（用于排查罗盘/几何不一致）。
 	void logGizmoPivotDiagnostics(const char* reasonTag) const;
 
@@ -209,6 +218,12 @@ public:
 	osg::Vec3d m_gizmoTransDragPlaneN{};
 	osg::Vec3d m_gizmoDragLastHitWorld{};
 	bool m_gizmoTransDragPlaneActive = false;
+	double m_gizmoDragScreenAxisUx = 1.0;
+	double m_gizmoDragScreenAxisUy = 0.0;
+	double m_gizmoDragMmPerPixel = 1.0;
+	osg::Vec3d m_gizmoScreenDragAxisWorld{0.0, 0.0, 1.0};
+	double m_gizmoRotateLastScreenAngle = 0.0;
+	bool m_gizmoRotateScreenActive = false;
 	/// 旋转拖拽开始时缓存的文件原点（外层父节点局部坐标），用于 \c a = pivot - (-center)*R 保枢轴。
 	bool m_gizmoRotatePivotActive = false;
 	osg::Vec3d m_gizmoRotatePivotInParent{};

@@ -5,9 +5,7 @@
 #include <Adapters.h>
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
-#include <fstream>
 
 #include <osg/BlendFunc>
 #include <osg/Camera>
@@ -25,22 +23,6 @@
 
 namespace
 {
-// #region agent log
-void agentDbgLog4ce7a0(const char* hypothesisId, const char* message, const std::string& dataJson)
-{
-	using clock = std::chrono::system_clock;
-	const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(clock::now().time_since_epoch()).count();
-	std::ofstream out(R"(d:\Project\VSprogram\CGAL5.5.2\debug-4ce7a0.log)", std::ios::app);
-	if (!out)
-	{
-		return;
-	}
-	out << "{\"sessionId\":\"4ce7a0\",\"runId\":\"screen-drag\",\"hypothesisId\":\"" << hypothesisId
-	    << "\",\"location\":\"OsgWidgetTcpTeach.cpp\",\"message\":\"" << message << "\",\"data\":"
-	    << (dataJson.empty() ? "{}" : dataJson) << ",\"timestamp\":" << ms << "}\n";
-}
-// #endregion
-
 osg::Quat rigidRotationToOsgQuat(const engine::RigidTransform& rt)
 {
 	const Eigen::Quaterniond q = rt.rotation().normalized();
@@ -709,8 +691,6 @@ void OsgWidget::applyTcpTeachTranslationWorld(const int axisIndex, const double 
 			axisW.set(0.0, 1.0, 0.0);
 		}
 	}
-	osg::Vec3f pivotBefore;
-	computeTcpTeachPivotWorld(pivotBefore);
 	osg::Matrixd toolWorld;
 	if (!tcpTeachToolWorldMatrix(toolWorld))
 	{
@@ -721,23 +701,6 @@ void OsgWidget::applyTcpTeachTranslationWorld(const int axisIndex, const double 
 	t += Eigen::Vector3d(axisW.x(), axisW.y(), axisW.z()) * dsWorld;
 	toolInWorld.setTranslationMm(t);
 	tcpTeachSetTargetFromToolWorld(engine::osgMatrixFromRigidTransform(toolInWorld));
-	// #region agent log
-	if (axisIndex == 0 || axisIndex == 1)
-	{
-		osg::Vec3f pivotAfter;
-		computeTcpTeachPivotWorld(pivotAfter);
-		const int frameWorld = (transformGizmoFrame() == TransformGizmoFrame::World) ? 1 : 0;
-		const double pivotBeforeAxis = (axisIndex == 0) ? pivotBefore.x() : pivotBefore.y();
-		const double pivotAfterAxis = (axisIndex == 0) ? pivotAfter.x() : pivotAfter.y();
-		agentDbgLog4ce7a0(
-			"H15",
-			"apply_world_tool_delta",
-			std::string("{\"axis\":") + std::to_string(axisIndex) + ",\"frameWorld\":" + std::to_string(frameWorld)
-			+ ",\"dsWorldMm\":" + std::to_string(dsWorld) + ",\"pivotBefore\":" + std::to_string(pivotBeforeAxis)
-			+ ",\"pivotAfter\":" + std::to_string(pivotAfterAxis)
-			+ ",\"mmPerPx\":" + std::to_string(m_tcpTeachDragMmPerPixel) + "}");
-	}
-	// #endregion
 }
 
 void OsgWidget::applyTcpTeachTranslationBody(const int axisIndex, const double dsWorld)

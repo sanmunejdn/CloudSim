@@ -184,6 +184,33 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 | `syncSelectionFromBackend` / `syncSelectionForBackendId` | 选中同步 |
 | `get/setBackendRootWorldMatrixFromWorld` | FK / 属性 |
 
+### 6.3.1 对象选择罗盘（`ObjectTransformOperation`）
+
+与 TCP 示教（§13.1）共用 **`TransformGizmoFrame`（World / Local）**，位姿真源为 **`ObjectGizmoFrame` + `m_activeBackendOuterPat`**，无 IK。
+
+**拖动链路**：
+
+```text
+LMB → beginGizmoScreenDrag → gizmoScreenDragDs × gain → translateAlongWorldDirection(m_gizmoScreenDragAxisWorld)
+    → applyToOuter → syncActiveBackendRootFromObjectFrame(..., true) → selectedObjectPoseChanged
+
+RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreenRotateDeltaRad × gain
+    → dragAxisDirectionOuterParent → adjustCenterPlusPoseForRotationDelta → applyToOuter
+    → syncCompassGizmoOrientation（不写 selectedObjectPoseChanged）
+```
+
+**平移不用平面求交**：物体与 outer 一体运动，移动枢轴时射线-平面求交会发散（与 TCP 相同）。按下时冻结 `gizmoCompassUnitAxisWorld` 方向的屏幕轴与 `mmPerPixel`。
+
+**旋转保枢轴**：`adjustCenterPlusPoseForRotationDelta` 固定文件原点 `(inner+trans)*R`；`fromOuter` 用 `(fileInOuterParent - inner*R)*inv(R)` 恢复 `trans`（见 `OsgWidgetCore` §3）。
+
+**旋转轴坐标系**：屏幕转角用法向的**场景世界**方向；四元数写入用 **outer 父节点**方向（`dragAxisDirectionOuterParent`）。层级父节点非单位阵时，World 模式须 `worldDirectionToOuterParent`，不可直接把场景 `(1,0,0)` 当作 `Quat` 轴而不经父链变换。
+
+| 文件 | 职责 |
+|------|------|
+| `ObjectTransformOperation.cpp` | 鼠标、平移/旋转应用 |
+| `OsgSceneGizmo.cpp` | 罗盘、`beginGizmoScreen*`、`gizmoCompassUnitAxisWorld` |
+| `ObjectGizmoFrame.cpp` | 位姿数学、轴方向、保枢轴 |
+
 ### 6.4 机器人与指令预览
 
 | 方法 | 说明 |
@@ -191,9 +218,12 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 | `addHierarchicalRobotScene` / `removeHierarchicalRobotScene` | 层级 URDF |
 | `setInstructionPoseAxes` / `clearInstructionPoseAxes` | PTP/LINE 世界系 XYZ 轴 |
 | `setCameraFollowBackendId` | 轨道相机跟踪 backend 原点 |
-| `beginTcpDragTeach` / `endTcpDragTeach` | TCP 示教罗盘（挂 robot root，独立 overlay） |
+| `beginTcpDragTeach` / `endTcpDragTeach` | TCP 示教罗盘；见 §13.1 |
 | `isTcpDragTeachActive` / `isTcpDragGizmoDragging` | 示教模式 / 拖动中 |
-| `updateTcpDragTeachFromTarget` | FK 后对齐罗盘 |
+| `updateTcpDragTeachFromTarget` | IK→FK 后对齐罗盘与 `m_tcpTeachTargetInBase` |
+| `beginTcpTeachScreenDrag` / `tcpTeachScreenDragDsMm` | 平移拖动：冻结屏幕轴 + mm/px 标定 |
+| `tcpTeachCompassUnitAxisWorld` | 罗盘箭头在世界系的单位方向（与拾取一致） |
+| `applyTcpTeachTranslationWorld` | 沿世界方向增量更新 tool 位姿并写回基座目标 |
 
 ### 6.5 信号（与 MainWindow 协作）
 
@@ -202,7 +232,7 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 | `backendObjectPicked(backendId)` | OSG 拾取 |
 | `transformGizmoCommitted` | 罗盘释放 → 刷新属性面板 |
 | `tcpDragTeachPoseChanged` / `tcpDragTeachEnded` | TCP 示教拖动 / ESC 退出 |
-| `selectedObjectPoseChanged` / `Rotation` / `Color` | 拖动中写后端 |
+| `selectedObjectPoseChanged` / `Rotation` / `Color` | 平移拖动中写后端；**旋转拖动中不写**（松手 `transformGizmoCommitted`） |
 | `annotationCreated` / `Removed` / `visibilityChanged` | 注释 |
 
 ### 6.6 帧钩子
@@ -234,7 +264,8 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 | 类 | 基类 | 行为 |
 |----|------|------|
 | `SelectionOperation` | — | 分发鼠标/滚轮虚函数 |
-| `ObjectTransformOperation` | SelectionOperation | LMB 平移 / RMB 旋转 gizmo |
+| `ObjectTransformOperation` | SelectionOperation | LMB **屏幕轴**平移 / RMB **屏幕角**旋转；见 §6.3.1 |
+| `RobotTcpDragTeachOperation` | SelectionOperation | TCP 示教罗盘：LMB **屏幕空间**平移 / RMB 旋转；见 §13.1 |
 | `PointPickOperation` | SelectionOperation | 点云拾取 + 注释 |
 | `MeshEdgeFacePickOperation` | SelectionOperation | 网格边/面拾取高亮 |
 
@@ -329,6 +360,50 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 
 关节滑块 ↔ `MatrixTransform`；信号 `jointAngleChanged`。
 
+### 13.1 末端拖动示教（TCP 罗盘）
+
+**入口**：`SimulationCommandWidget` 可切换按钮 → `tcpDragTeachModeChanged` → `MainWindow::onSimulationTcpDragTeachModeChanged`。
+
+**行为约束**：
+
+- 仅更新关节滑块与场景姿态，**不写** PTP/LINE 指令；落盘仍用「点到点/直线」+ `tryCaptureCurrentRobotTcpPose`。
+- 仿真运行中禁止进入；与对象选择 gizmo 互斥（进入时 `clearBackendObjectSelection`、关闭 `objectSelectionMode`）。
+- 支持视图菜单 **Transform: World / Local**（`setTransformGizmoFrame`），与对象罗盘共用同一开关。
+
+**挂载（per-link URDF 常见）**：
+
+1. 优先 `robotSceneBackendId`；若无分支则 **法兰连杆 mesh** `linkMeshBackendIdForInstance`；再回退 `robotFrameWorldReferenceBackendId`。
+2. `resolveRobotBaseWorld`：挂载在法兰时提供 `robotBaseWorldMatrixForInstance`，供 `tcpTeachSetTargetFromToolWorld` 做基座↔世界变换。
+3. `toolLocalOnFlange`：罗盘 PAT 的 `localMatrix = T_flange_tool`（与 `updateRobotFrameOverlays` per-link 一致）；`updateTcpDragTeachFromTarget` 在法兰模式下只刷新该固定局部矩阵，位置随 FK 关节更新。
+
+**拖动链路**：
+
+```
+LMB/RMB (RobotTcpDragTeachOperation)
+  → 平移：tcpTeachScreenDragDsMm × gain → applyTcpTeachTranslationWorld（沿 m_tcpTeachDragAxisWorld）
+  → emit tcpDragTeachPoseChanged
+  → MainWindow::applyTcpDragTeachIkFromPose（RobotTeachIk + applyJointAngles）
+  → updateTcpDragTeachFromTarget(fkTarget)
+```
+
+**平移为何不用平面求交**：对象 gizmo 与 TCP 示教均在拖动时移动枢轴/末端，平面求交会导致 `ds` 暴增或反向。对象侧见 §6.3.1；TCP 按下时 `beginTcpTeachScreenDrag()`：
+
+- 用 `tcpTeachCompassUnitAxisWorld` 与拾取相同的 `toWorld` 逻辑冻结**屏幕单位向量**；
+- `mmPerPixel = (120mm × 罗盘缩放) / 轴在屏幕上的像素长度`；
+- 每帧 `ds = dot(Δmouse·dpr, screenAxis) × mmPerPixel`。
+
+旋转仍用枢轴平面求交，冻结 `m_tcpTeachRotatePivotWorld`（对象 gizmo 已改为屏幕角 + `gizmoScreenRotateDeltaRad`，见 §6.3.1）。
+
+**实现文件**：
+
+| 文件 | 职责 |
+|------|------|
+| `OsgWidgetTcpTeach.cpp` | 罗盘几何、挂载、`beginTcpTeachScreenDrag`、位姿应用 |
+| `RobotTcpDragTeachOperation.cpp` | 鼠标事件、拾取轴、平移/旋转 |
+| `MainWindow.cpp` | 模式进出、`applyTcpDragTeachIkFromPose`、法兰 link 名缓存 |
+
+详见 [`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md)（`RobotTeachIk`）。
+
 ### `RobotFrameSettingsWidget`（坐标系 Dock）
 
 | 项 | 说明 |
@@ -370,7 +445,7 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 | 跟随 | `runBackendFollowSolveAndSync` | ARCH §6.2.1 |
 | 选择闭环 | `MainWindowSelectionService` | ARCH §6.3 |
 | 仿真预览/运行 | `onSimulationInstructionSelectionChanged` | ARCH §6.4 |
-| 末端拖动示教 | `onSimulationTcpDragTeachModeChanged` → `RobotTeachIk` | §13 |
+| 末端拖动示教 | `onSimulationTcpDragTeachModeChanged` → 屏幕空间平移 → `RobotTeachIk` | §13.1 |
 | 工具/示教 FK | `targetRigidTransformFromUrdfFlangeFk` | §13、`GeometryEngine` |
 
 ---
