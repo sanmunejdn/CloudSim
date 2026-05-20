@@ -79,27 +79,38 @@ osg::ref_ptr<osg::Node> buildMeshDisplayNodeImpl(const MeshBackendData& data, co
 	{
 		osg::ref_ptr<osg::Vec3Array> na = new osg::Vec3Array;
 		na->reserve(va->size());
-		for (std::size_t i = 0; i + 2 < va->size(); i += 3)
+		const std::vector<float>& fileNormals = data.triangleVertexNormals();
+		if (data.hasTriangleVertexNormals())
 		{
-			const osg::Vec3& p0 = (*va)[i];
-			const osg::Vec3& p1 = (*va)[i + 1];
-			const osg::Vec3& p2 = (*va)[i + 2];
-			osg::Vec3 e1 = p1 - p0;
-			osg::Vec3 e2 = p2 - p0;
-			osg::Vec3 n = e1 ^ e2;
-			const float len2 = n.length2();
-			if (len2 > 1e-20f)
+			for (std::size_t i = 0; i + 2 < fileNormals.size(); i += 3)
 			{
-				n.normalize();
+				na->push_back(osg::Vec3(fileNormals[i], fileNormals[i + 1], fileNormals[i + 2]));
 			}
-			else
+		}
+		else
+		{
+			for (std::size_t i = 0; i + 2 < va->size(); i += 3)
 			{
-				n.set(0.0f, 0.0f, 1.0f);
+				const osg::Vec3& p0 = (*va)[i];
+				const osg::Vec3& p1 = (*va)[i + 1];
+				const osg::Vec3& p2 = (*va)[i + 2];
+				osg::Vec3 e1 = p1 - p0;
+				osg::Vec3 e2 = p2 - p0;
+				osg::Vec3 n = e1 ^ e2;
+				const float len2 = n.length2();
+				if (len2 > 1e-20f)
+				{
+					n.normalize();
+				}
+				else
+				{
+					n.set(0.0f, 0.0f, 1.0f);
+				}
+				const osg::Vec3f nf(static_cast<float>(n.x()), static_cast<float>(n.y()), static_cast<float>(n.z()));
+				na->push_back(nf);
+				na->push_back(nf);
+				na->push_back(nf);
 			}
-			const osg::Vec3f nf(static_cast<float>(n.x()), static_cast<float>(n.y()), static_cast<float>(n.z()));
-			na->push_back(nf);
-			na->push_back(nf);
-			na->push_back(nf);
 		}
 		geometry->setNormalArray(na.get(), osg::Array::BIND_PER_VERTEX);
 	}

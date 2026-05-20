@@ -165,6 +165,8 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 | `loadPointCloudFromBackendData` / `loadMeshFromBackendData(skipInner...)` | 注册后建 OSG 分支 |
 | `clearImportedContent` / `clearStagingGeometry` | 清空 |
 
+**网格文件路由**（`MainWindowImportCaptureRenderController` → `MeshBackendData::loadFromFile` / `loadStepHierarchyFromFile`）：`.step`/`.stp` 仅 Data 层 OCCT（多零件优先层级导入）；`.obj` 含 `vn` 时 Data 保留文件法线（见 [`../Data/DEVELOPER_GUIDE.md`](../Data/DEVELOPER_GUIDE.md) §4.2.1），避免 URDF/CAD OBJ 在 `useSceneLighting` 下整面发黑；`.dae`/`.fbx` 等仍可为 OSG fallback，与 STEP/OBJ 主路径分离。
+
 ### 6.2 交互模式
 
 | 方法 | 说明 |
@@ -291,7 +293,7 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 | `registerBackendObject(mw, path, typeName, isPointCloud, quietUi)` | 通用文件导入 |
 | `registerUrdfRobot(mw, urdfPath, quietUi)` | **每连杆**路径：robot root + 各 link `MeshBackendData`、拓扑 `setBackendParent`、FK bind、`appendHierarchicalRobotSimulationContext` |
 
-要点见 [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §6.1。
+要点见 [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §6.1。网格绕序/法线策略见 [`../Data/DEVELOPER_GUIDE.md`](../Data/DEVELOPER_GUIDE.md) §4.2.1、[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md) §4.2。
 
 ---
 

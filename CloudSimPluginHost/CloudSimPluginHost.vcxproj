@@ -1,0 +1,105 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{D4E5F6A7-B8C9-0123-DEF0-234567890BCD}</ProjectGuid>
+    <RootNamespace>CloudSimPluginHost</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <Keyword>QtVS_v304</Keyword>
+    <QtMsBuild Condition="'$(QtMsBuild)'=='' OR !Exists('$(QtMsBuild)\qt.targets')">$(MSBuildProjectDirectory)\..\Widget\QtMsBuild</QtMsBuild>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <Import Project="$(QtMsBuild)\qt_defaults.props" Condition="Exists('$(QtMsBuild)\qt_defaults.props')" />
+  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <QtModules>core;widgets;opengl</QtModules>
+    <QtInstall>5.14.2_msvc2017_64</QtInstall>
+    <QtBuildConfig>release</QtBuildConfig>
+  </PropertyGroup>
+  <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <QtModules>core;widgets;opengl</QtModules>
+    <QtInstall>5.14.2_msvc2017_64</QtInstall>
+  </PropertyGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" />
+    <Import Project="$(QtMsBuild)\Qt.props" Condition="Exists('$(QtMsBuild)\Qt.props')" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" />
+    <Import Project="$(QtMsBuild)\Qt.props" Condition="Exists('$(QtMsBuild)\Qt.props')" />
+  </ImportGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(SolutionDir)../bin/x64d/</OutDir>
+    <IntDir>$(SolutionDir)../bin/x64dmiddle/CloudSimPluginHost/</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(SolutionDir)../bin/x64/</OutDir>
+    <IntDir>$(SolutionDir)../bin/x64middle/CloudSimPluginHost/</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>PLUGIN_HOST_STATIC;RUN_LOGGER_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;../CloudSimPluginSDK/inc;../Widget/inc;../Data/inc;../RunLogger/inc;../GeometryEngine/inc;../RobotUrdf/inc;../RobotScene/inc;../RobotKinematics/inc;../AiBackend/inc;../AiWidget/inc;../../bin/SDK/JSON;../../bin/SDK/eigen;../../bin/SDK/qtpropertybrowser;../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>PLUGIN_HOST_STATIC;RUN_LOGGER_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;../CloudSimPluginSDK/inc;../Widget/inc;../Data/inc;../RunLogger/inc;../GeometryEngine/inc;../RobotUrdf/inc;../RobotScene/inc;../RobotKinematics/inc;../AiBackend/inc;../AiWidget/inc;../../bin/SDK/JSON;../../bin/SDK/eigen;../../bin/SDK/qtpropertybrowser;../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\plugin_host_global.h" />
+    <ClInclude Include="inc\PluginDelegatedBackend.h" />
+    <ClInclude Include="inc\PluginDocumentAdapter.h" />
+    <ClInclude Include="inc\PluginHostContext.h" />
+    <ClInclude Include="inc\PluginManager.h" />
+    <ClInclude Include="inc\PluginSceneBridgeAdapter.h" />
+    <QtMoc Include="inc\PluginHostContext.h" />
+    <QtMoc Include="inc\PluginManager.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\PluginDelegatedBackend.cpp" />
+    <ClCompile Include="source\PluginDocumentAdapter.cpp" />
+    <ClCompile Include="source\PluginHostContext.cpp" />
+    <ClCompile Include="source\PluginManager.cpp" />
+    <ClCompile Include="source\PluginSceneBridgeAdapter.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CloudSimPluginSDK\CloudSimPluginSDK.vcxproj">
+      <Project>{c3d4e5f6-a7b8-9012-cdef-123456789abc}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\Data\Data.vcxproj">
+      <Project>{50119edf-918f-4bc8-a201-7ac6f0fe82a1}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\RunLogger\RunLogger.vcxproj">
+      <Project>{35f6e3c1-7f9a-4d93-9faf-74bae4a0c2d1}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Import Project="$(QtMsBuild)\qt.targets" Condition="Exists('$(QtMsBuild)\qt.targets')" />
+</Project>

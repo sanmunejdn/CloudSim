@@ -54,6 +54,7 @@ class MainWindowSelectionService;
 class MainWindowObjectRepository;
 class AiAssistantDockWidget;
 class AiAssistantCoordinator;
+class PluginManager;
 
 /// 搴旂敤绋嬪簭涓荤獥鍙ｏ細鑿滃崟銆佸仠闈犳爮銆佹枃妗ｉ〉銆佸睘鎬ч潰鏉夸笌 OsgWidget 鐨勫崗璋冨叆鍙ｃ€?
 class WIDGET_EXPORT MainWindow : public QMainWindow
@@ -68,6 +69,15 @@ public:
 	static void shutdownApplicationLogging();
 
 	DocumentPage* currentPage() const;
+	QTabWidget* documentTabs() const { return m_documentTabs; }
+	int documentTabCount() const;
+	RunInfoPage* runInfoPage() const { return m_runInfoPage; }
+	PluginManager* pluginManager() const { return m_pluginManager; }
+	void loadPlugins();
+	/// Plugin UI tab beside Workspace / AI (returns tab index, or -1).
+	int addPluginSidePanelTab(const QString& title, QWidget* widget);
+	void removePluginSidePanelTab(QWidget* widget);
+	QTabWidget* rightPanelTabs() const { return m_rightPanelTabs; }
 	int currentSimulationRobotInstanceIndex() const;
 	bool registerExistingBackendObject(std::shared_ptr<BackendDataBase> backendObject, const QString& sourcePath,
 		const QString& typeName, const QString& persistedId = QString(), bool selectInTree = true,
@@ -84,6 +94,7 @@ private:
 	friend class MainWindowImportCaptureRenderController;
 	friend class MainWindowSelectionService;
 	friend class MainWindowObjectRepository;
+	friend class PluginHostContext;
 	void setupMenuBar();
 	void setupDockWidgets();
 	void applyLanguage();
@@ -285,6 +296,8 @@ private:
 	bool m_updatingPropertyBrowser = false;
 	MainWindowSelectionState m_selectionState;
 	JobSystem* m_jobSystem = nullptr;
+	PluginManager* m_pluginManager = nullptr;
+	bool m_pluginsLoadStarted = false;
 	QString m_activeAxisName = QStringLiteral("None");
 	std::shared_ptr<RobotInstruction::Base> m_activeInstructionForProperty;
 	RobotInstruction::FeasibleMotionAxisConfigurationOptions m_cachedFeasibleAxisOptions;

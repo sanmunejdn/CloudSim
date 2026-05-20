@@ -137,7 +137,7 @@ flowchart TD
 - `BackendVisualRegistry` 按 `className` 注册/创建视觉构建器。
 - 输出统一 `BranchBuildResult`（**外层 `osg::MatrixTransform`**、内层 `PositionAttitudeTransform`、模型中心、对角线尺度）供交互层复用；外层存完整刚体局部矩阵，便于 FK / `setBackendRootWorldMatrixFromWorld` 避免 PAT 的 TRS 分解误差。
 - `MeshVisualOptions`：`showWireOutline`、`useSceneLighting`；**`skipInnerModelCenterRebase`** 为真时不再做「外包络中心 + 内层 `-bboxCenter`」的通用网格去心（用于 **URDF 每连杆**：顶点已在连杆系且由 FK 写外层世界矩阵，与层级导入「仅 `meshToLink`、无去心 PAT」语义对齐）。
-- **程序生成网格**：`MeshBackendData` 默认浅蓝材质色；`useSceneLighting=true` 时按 per-vertex 法线 + `applyLitPlastic` 渲染。若 soup 绕序与外侧 CCW 不一致，会出现「几何正确但全黑」——基本体由 `BackendPrimitiveGeometry` 保证绕序，CGAL/文件导入路径沿用各自约定。
+- **程序生成网格**：`MeshBackendData` 默认浅蓝材质色；`useSceneLighting=true` 时按 per-vertex 法线 + `applyLitPlastic` 渲染。若绕序与外侧不一致且无法线缓冲，会出现「几何正确但全黑」——基本体由 `BackendPrimitiveGeometry` 保证绕序；**STEP** 在 OCCT 导出时对 `TopAbs_REVERSED` 面翻转三角绕序；**OBJ 含 `vn`** 保留文件法线供光照（见 `Data` §4.2.1）；无 `vn` 的 OBJ/STL/PLY/OFF 走 CGAL `orient_polygon_soup` + 质心外向绕序修正。
 
 模块定位：
 
@@ -320,8 +320,8 @@ flowchart LR
 **URDF 每连杆导入（`MainWindowImportCaptureRenderController::registerUrdfRobot`）要点：**
 
 0. **机器人根（无几何）**：注册 `MeshBackendData` 父对象，id 为 `RobotURDF_<模型基名>`（`makeUniqueBackendId` 冲突时 `_2`、`_3`…）；显示名为模型基名；**不**再附加时间戳或 `_link_` 段。二次导入 **不** 清空已有机器人/连杆。  
-1. 对每个 link：id = `robotRootId + "_" + linkName`；`loadFromFile` → `linkMeshFileToLinkColumnMajor16` → **`transformVerticesColumnMajorHomogeneous4x4`** + **`setTransformPivotAtOrigin(true)`**。  
-2. `loadMeshFromBackendData(..., skipInnerModelCenterRebase = true)`：避免与 FK 重复去心/平移。  
+1. 对每个 link：id = `robotRootId + "_" + linkName`；`loadFromFile`（`.obj` 含 `vn` 时保留 `triangleVertexNormals`，见 Data §4.2.1）→ `linkMeshFileToLinkColumnMajor16` → **`transformVerticesColumnMajorHomogeneous4x4`**（顶点与法线一并旋转）+ **`setTransformPivotAtOrigin(true)`**。  
+2. `loadMeshFromBackendData(..., useSceneLighting=true, skipInnerModelCenterRebase = true)`：避免与 FK 重复去心/平移；连杆网格依赖文件法线或绕序修正后的 soup。  
 3. `BackendDataManager::attachChild`：无网格 URDF 父 link 挂到 **robotRootId**；有网格父 link 挂到对应 link backend。`OsgWidget::setBackendParent` 按拓扑序同步 OSG 父链；**不在** reparent 时强行恢复扁平布局世界（由后续 FK 拓扑写回）。  
 4. 拓扑序 `setBackendRootWorldMatrixFromWorld` 写 bind 姿态，采集 `outerBind`（与 FK `Tq` 校验，`maxAbsDiff` 应 ≈0）。  
 5. `appendHierarchicalRobotSimulationContext(..., robotRootId, robotRootId)`；`setRobotPerLinkKinematicsBinding(robotRootId + "_ctx", ...)`；`applyJointAnglesFromDocument` 首帧同步。相机 `focusCameraOnBackend` 仍对准 **根 link 网格** id，非 robot root。  
@@ -619,6 +619,42 @@ flowchart LR
 - **主线程边界**：`BackendDataManager` 注册、`OsgWidget::loadPointCloudFromBackendData`、树与属性刷新仍在 **UI 线程** 完成；后台仅做几何解码与填充 `PointCloudBackendData`（与 ARCHITECTURE 中「Data 不碰 UI」一致）。
 - **BackendDataManager**：容器与层级图由 `std::shared_mutex` 保护；只读查询使用 `std::shared_lock`，注册/注销/边变更/ `clear` 使用 `std::unique_lock`，提升多读场景下的并发度。**注意**：返回的 `std::shared_ptr<BackendDataBase>` 所指对象本身的字段并非每字段加锁；跨线程写同一后端对象仍需调用方序列化或由单线程（通常为 UI）修改。
 - **后续可接 Job 的类型**：网格 CGAL/OCCT 管线、布尔、法线、机器人规划/IK 等可复用同一 `enqueue(title, work, onFinished)` 模式；**可行轴配置探测**（`queryFeasibleMotionAxisConfigurationOptions`）与长程序链式预览亦可迁入后台线程，结果回 UI 写缓存；**AI 助手 LLM 调用**（Phase 2）宜在 Job 中请求、UI 线程仅执行 `executeFromJson`；LAS/LAZ 仍走 OSG 导入路径，保持同步直至确认 OSG 上下文可安全离屏。
+
+---
+
+## 10. 动态插件系统
+
+### 10.1 定位
+
+- **CloudSimPluginSDK**：插件与宿主之间的稳定 ABI（`ICloudSimPlugin`、`IPluginHostContext`）。
+- **CloudSimPluginHost**（源码位于 `CloudSimPluginHost/`，编译进 `Widget.dll`）：启动时扫描 `applicationDirPath()/plugins/**/plugin.json`，`QPluginLoader` 加载 DLL。
+- 插件 **仅链接 SDK**；数据/场景写入经宿主转发到 `BackendDataManager`、`MeshBackendVisual` 等既有路径。
+
+### 10.2 运行时布局
+
+```text
+bin/x64(d)/
+  CloudSim.exe
+  Widget.dll
+  Data.dll
+  CloudSimPluginSDK.dll
+  plugins/
+    com.cloudsim.hello/
+      plugin.json
+      HelloPlugin.dll
+```
+
+### 10.3 生命周期
+
+1. `MainWindow` UI 初始化完成后调用 `loadPlugins()`。
+2. 读清单 → 校验 `minHostVersion` / `enabled` → `QPluginLoader` → `ICloudSimPlugin::initialize(IPluginHostContext*)`。
+3. 插件注册 Dock/菜单；Phase 1 通过 `createPrimitiveMesh` 创建网格；Phase 2 通过 `registerBackendType` 转发 `BackendRegistry`。
+4. 退出时 `PluginManager::shutdownAll()` 调用各插件 `shutdown()`（运行期不卸载 DLL）。
+
+### 10.4 开发文档
+
+- SDK：[CloudSimPluginSDK/DEVELOPER_GUIDE.md](CloudSimPluginSDK/DEVELOPER_GUIDE.md)
+- 示例：[Plugins/HelloPlugin/](Plugins/HelloPlugin/)
 
 ---
 

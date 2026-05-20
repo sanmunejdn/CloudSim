@@ -6,7 +6,7 @@ alwaysApply: true
 # CloudSim 架构
 
 - **解决方案**: `CloudSim.sln`（Visual Studio 2019，`v142`，Unicode，`Win32`/`x64`）。
-- **工程**: `CloudSim`（可执行）、`Widget`（x64 为 DLL）、`Data`、`OsgWidgetCore`、`RobotKinematics`、`RobotUrdf`、`RobotScene`。
+- **工程**: `CloudSim`（可执行）、`Widget`（x64 为 DLL，含 `CloudSimPluginHost` 源码）、`Data`、`OsgWidgetCore`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`CloudSimPluginSDK`（DLL）、`HelloPlugin`（示例插件 DLL，输出到 `bin/.../plugins/`）。
 - **技术栈**: C++、**Qt 5.14**（`msvc2017_64`）、**OpenSceneGraph**、**CGAL**（点云/PLY 等）、**nlohmann::json**（属性与工程序列化）。
 - **目录习惯**: 各子工程内 **`inc/`** 放头文件，**`source/`** 放实现；跨模块引用通过 vcxproj 的包含目录（常见为相对路径如 `../OsgWidgetCore/inc/...`）。
 - **修改代码时**: 新增源文件需在对应 **`.vcxproj` / `.vcxproj.filters`** 中登记；新增跨 DLL 符号需正确使用该模块的 **`*_LIB` 预处理器定义** 与导出宏（见各 `*_global.h`）。

@@ -114,11 +114,27 @@
 
 | 方法 | 说明 |
 |------|------|
-| `setTriangleSoup` / `triangleSoup()` | 每三角 9 float |
-| `transformVerticesColumnMajorHomogeneous4x4(colMajor16)` | URDF：mesh 文件系 → 连杆系 |
+| `setTriangleSoup` / `triangleSoup()` | 每三角 9 float（v0,v1,v2 各 xyz） |
+| `setTriangleSoupWithNormals` / `triangleVertexNormals()` / `hasTriangleVertexNormals()` | 可选每顶点法线（9 float/三角，与 soup 下标对齐）；OBJ 含 `vn` 时写入 |
+| `transformVerticesColumnMajorHomogeneous4x4(colMajor16)` | URDF：mesh 文件系 → 连杆系；**同时**变换 `triangleVertexNormals`（3×3 旋转，无平移） |
 | `setTransformPivotAtOrigin(true)` | 枢轴在原点；`modelCenter` 为 (0,0,0) |
-| `loadFromFile` | `.obj`, `.stl`, `.ply`, `.off` |
+| `loadFromFile` | 见 §4.2.1 |
 | `loadStepHierarchyFromFile` / `loadDxfHierarchyFromFile` | 静态，输出 `MeshHierarchyPart` 列表 |
+
+### 4.2.1 网格文件导入（`loadFromFile`）
+
+统一写入 `triangleSoup`；`clearGeometry()` 同时清空 soup 与法线缓冲。
+
+| 扩展名 | 实现 | 绕序 / 法线 |
+|--------|------|-------------|
+| `.step` / `.stp` | OCCT `STEPControl_Reader` + `BRepMesh_IncrementalMesh` | `TopAbs_REVERSED` 面导出时交换三角 n2/n3，避免场景光照发黑 |
+| `.obj`（含 `vn`） | 自研解析 `v` / `vn` / `f v/vt/vn` | **保留文件顶点顺序**；`vn` 写入 `triangleVertexNormals`，供 `MeshBackendVisual` 光照（CGAL `read_polygon_soup` 会丢弃 `vn`） |
+| `.obj`（无 `vn`） | CGAL `read_polygon_soup` | `orient_polygon_soup` 后按顶点质心外向翻转扇形三角绕序 |
+| `.stl` / `.ply` / `.off` | CGAL `read_polygon_soup` | 同 `.obj` 无 `vn` 路径 |
+
+**现象与约定**：`BackendVisual` 在 `useSceneLighting=true` 时，无法线缓冲则用法线 `n = (p1-p0)×(p2-p0)`。绕序错误或仅用绕序对齐内向 `vn` 会导致**整面发黑**；带 `vn` 的 CAD/Max OBJ 必须走文件法线路径。
+
+**Widget 导入**：`MainWindowImportCaptureRenderController` 对 STEP 优先 `loadStepHierarchyFromFile`（多零件层级）；单件 STEP 与上述 `loadFromFile` 一致。`.obj` 等不走 OSG `importModelFile` fallback（见该控制器注释）。
 
 ### 4.3 `struct MeshHierarchyPart`
 
@@ -250,6 +266,7 @@ UI 侧增量镜像：`resyncFrom(mgr)`，`subtreeIds(root)`（结构变更后缓
 |------|----------------|
 | `Widget` | 注册对象、属性面板、`BackendSceneDocumentFacade` |
 | `BackendVisual` | 读几何缓冲建 OSG |
+| `PointCloudAlgorithm` | 经 `PointCloudBackendOps` 做点云下采样/变换/重建网格（见 [`../PointCloudAlgorithm/DEVELOPER_GUIDE.md`](../PointCloudAlgorithm/DEVELOPER_GUIDE.md)） |
 | `RobotUrdf` | 每连杆 `MeshBackendData` |
 | `RobotScene` | 读关节/连杆 id，写 `worldMatrix` |
 
@@ -259,6 +276,6 @@ UI 侧增量镜像：`resyncFrom(mgr)`，`subtreeIds(root)`（结构变更后缓
 
 ## 12. 相关文档
 
-- 可视化：[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md)
-- 场景门面：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §文档门面
-- 总架构：[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §4.3
+- 可视化：[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md)（法线光照 §4.2）
+- 场景门面 / 文件导入：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §6.1、§10
+- 总架构：[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §4.3、§4.4

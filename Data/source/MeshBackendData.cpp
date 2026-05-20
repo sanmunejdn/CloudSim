@@ -12,16 +12,19 @@
 #include <map>
 #include <unordered_set>
 #include <CGAL/IO/polygon_soup_io.h>
+#include <CGAL/Polygon_mesh_processing/orient_polygon_soup.h>
 #include <CGAL/Simple_cartesian.h>
 
 #include "dl_creationadapter.h"
 #include "dl_dxf.h"
 
+#include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
 
 #include <BRepBndLib.hxx>
+#include <TopAbs.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRep_Tool.hxx>
 #include <STEPControl_Reader.hxx>
@@ -77,6 +80,7 @@ std::size_t MeshBackendData::geometryElementCount() const
 void MeshBackendData::clearGeometry()
 {
 	m_triangleSoup.clear();
+	m_triangleNormals.clear();
 	m_bounds = BackendBoundingBox{};
 }
 
@@ -133,12 +137,24 @@ bool MeshBackendData::applyPropertyChange(const std::string& key, const std::str
 
 void MeshBackendData::setTriangleSoup(std::vector<float> xyzPerTriangleVertex)
 {
+	setTriangleSoupWithNormals(std::move(xyzPerTriangleVertex), {});
+}
+
+void MeshBackendData::setTriangleSoupWithNormals(std::vector<float> xyzPerTriangleVertex,
+	std::vector<float> normalPerTriangleVertex)
+{
 	if (xyzPerTriangleVertex.size() % 9U != 0U)
 	{
 		clearGeometry();
 		return;
 	}
+	if (!normalPerTriangleVertex.empty() && normalPerTriangleVertex.size() != xyzPerTriangleVertex.size())
+	{
+		clearGeometry();
+		return;
+	}
 	m_triangleSoup = std::move(xyzPerTriangleVertex);
+	m_triangleNormals = std::move(normalPerTriangleVertex);
 	recomputeBounds();
 }
 
@@ -159,6 +175,21 @@ void MeshBackendData::transformVerticesColumnMajorHomogeneous4x4(const double M[
 		m_triangleSoup[i] = static_cast<float>(nx);
 		m_triangleSoup[i + 1] = static_cast<float>(ny);
 		m_triangleSoup[i + 2] = static_cast<float>(nz);
+	}
+	if (m_triangleNormals.size() == m_triangleSoup.size())
+	{
+		for (std::size_t i = 0; i + 2 < m_triangleNormals.size(); i += 3U)
+		{
+			const double x = static_cast<double>(m_triangleNormals[i]);
+			const double y = static_cast<double>(m_triangleNormals[i + 1]);
+			const double z = static_cast<double>(m_triangleNormals[i + 2]);
+			const double nx = M[0] * x + M[4] * y + M[8] * z;
+			const double ny = M[1] * x + M[5] * y + M[9] * z;
+			const double nz = M[2] * x + M[6] * y + M[10] * z;
+			m_triangleNormals[i] = static_cast<float>(nx);
+			m_triangleNormals[i + 1] = static_cast<float>(ny);
+			m_triangleNormals[i + 2] = static_cast<float>(nz);
+		}
 	}
 	recomputeBounds();
 }
@@ -245,6 +276,314 @@ std::string meshLowerExtension(const std::string& path)
 	return ext;
 }
 
+constexpr bool kMeshStepFlipReversedFaceWinding = true;
+
+static void meshPushTri(std::vector<float>& soup, double ax, double ay, double az, double bx, double by, double bz,
+	double cx, double cy, double cz);
+
+template <typename PointRange>
+static bool meshComputePointsCentroid(const PointRange& points, double& centX, double& centY, double& centZ)
+{
+	if (points.empty())
+	{
+		return false;
+	}
+	centX = 0.0;
+	centY = 0.0;
+	centZ = 0.0;
+	for (const auto& p : points)
+	{
+		centX += p.x();
+		centY += p.y();
+		centZ += p.z();
+	}
+	const double inv = 1.0 / static_cast<double>(points.size());
+	centX *= inv;
+	centY *= inv;
+	centZ *= inv;
+	return true;
+}
+
+static bool meshTriangleNormalPointsOutward(double nx, double ny, double nz, double triX, double triY, double triZ,
+	double centX, double centY, double centZ)
+{
+	const double ox = triX - centX;
+	const double oy = triY - centY;
+	const double oz = triZ - centZ;
+	return nx * ox + ny * oy + nz * oz >= 0.0;
+}
+
+template <typename PointRange, typename PolygonRange>
+static void meshBuildSoupFromPolygons(const PointRange& points, const PolygonRange& polygons, std::vector<float>& soup)
+{
+	double centX = 0.0;
+	double centY = 0.0;
+	double centZ = 0.0;
+	const bool hasCentroid = meshComputePointsCentroid(points, centX, centY, centZ);
+	for (const auto& poly : polygons)
+	{
+		if (poly.size() < 3U)
+		{
+			continue;
+		}
+		for (std::size_t k = 1; k + 1 < poly.size(); ++k)
+		{
+			const std::size_t i0 = poly[0];
+			const std::size_t i1 = poly[k];
+			const std::size_t i2 = poly[k + 1];
+			if (i0 >= points.size() || i1 >= points.size() || i2 >= points.size())
+			{
+				continue;
+			}
+			const auto& p0 = points[i0];
+			const auto& p1 = points[i1];
+			const auto& p2 = points[i2];
+			const double abx = p1.x() - p0.x();
+			const double aby = p1.y() - p0.y();
+			const double abz = p1.z() - p0.z();
+			const double acx = p2.x() - p0.x();
+			const double acy = p2.y() - p0.y();
+			const double acz = p2.z() - p0.z();
+			const double nx = aby * acz - abz * acy;
+			const double ny = abz * acx - abx * acz;
+			const double nz = abx * acy - aby * acx;
+			const double triX = (p0.x() + p1.x() + p2.x()) / 3.0;
+			const double triY = (p0.y() + p1.y() + p2.y()) / 3.0;
+			const double triZ = (p0.z() + p1.z() + p2.z()) / 3.0;
+			const bool flipTri = hasCentroid
+				&& !meshTriangleNormalPointsOutward(nx, ny, nz, triX, triY, triZ, centX, centY, centZ);
+			if (flipTri)
+			{
+				meshPushTri(soup, p0.x(), p0.y(), p0.z(), p2.x(), p2.y(), p2.z(), p1.x(), p1.y(), p1.z());
+			}
+			else
+			{
+				meshPushTri(soup, p0.x(), p0.y(), p0.z(), p1.x(), p1.y(), p1.z(), p2.x(), p2.y(), p2.z());
+			}
+		}
+	}
+}
+
+struct MeshObjVec3
+{
+	double x = 0.0;
+	double y = 0.0;
+	double z = 0.0;
+};
+
+struct MeshObjCorner
+{
+	int v = 0;
+	int vt = 0;
+	int vn = 0;
+};
+
+static bool meshParseObjFaceToken(const std::string& token, MeshObjCorner& corner)
+{
+	corner = {};
+	const std::size_t slash1 = token.find('/');
+	if (slash1 == std::string::npos)
+	{
+		if (token.empty())
+		{
+			return false;
+		}
+		corner.v = std::stoi(token);
+		return true;
+	}
+	corner.v = std::stoi(token.substr(0, slash1));
+	const std::size_t slash2 = token.find('/', slash1 + 1);
+	if (slash2 == std::string::npos)
+	{
+		const std::string vtPart = token.substr(slash1 + 1);
+		if (!vtPart.empty())
+		{
+			corner.vt = std::stoi(vtPart);
+		}
+		return true;
+	}
+	const std::string vtPart = token.substr(slash1 + 1, slash2 - slash1 - 1);
+	if (!vtPart.empty())
+	{
+		corner.vt = std::stoi(vtPart);
+	}
+	const std::string vnPart = token.substr(slash2 + 1);
+	if (!vnPart.empty())
+	{
+		corner.vn = std::stoi(vnPart);
+	}
+	return true;
+}
+
+static std::size_t meshResolveObjIndex(int idx, std::size_t count)
+{
+	if (idx > 0)
+	{
+		return static_cast<std::size_t>(idx - 1);
+	}
+	if (idx < 0)
+	{
+		const std::size_t back = static_cast<std::size_t>(-idx);
+		return back <= count ? count - back : count;
+	}
+	return count;
+}
+
+static bool meshTryLoadObjWithVertexNormals(const std::string& path, std::vector<float>& soup, std::vector<float>& normalSoup)
+{
+	std::ifstream in(path);
+	if (!in)
+	{
+		return false;
+	}
+	std::vector<MeshObjVec3> vertices;
+	std::vector<MeshObjVec3> normals;
+	bool hasNormals = false;
+	soup.clear();
+	normalSoup.clear();
+
+	auto resolveVertex = [&](int idx) -> const MeshObjVec3* {
+		const std::size_t i = meshResolveObjIndex(idx, vertices.size());
+		return i < vertices.size() ? &vertices[i] : nullptr;
+	};
+	auto resolveNormal = [&](int idx) -> const MeshObjVec3* {
+		if (!hasNormals)
+		{
+			return nullptr;
+		}
+		const std::size_t i = meshResolveObjIndex(idx, normals.size());
+		return i < normals.size() ? &normals[i] : nullptr;
+	};
+
+	auto emitTriangle = [&](const MeshObjCorner& c0, const MeshObjCorner& c1, const MeshObjCorner& c2) {
+		const MeshObjVec3* p0 = resolveVertex(c0.v);
+		const MeshObjVec3* p1 = resolveVertex(c1.v);
+		const MeshObjVec3* p2 = resolveVertex(c2.v);
+		if (!p0 || !p1 || !p2)
+		{
+			return;
+		}
+		const double abx = p1->x - p0->x;
+		const double aby = p1->y - p0->y;
+		const double abz = p1->z - p0->z;
+		const double acx = p2->x - p0->x;
+		const double acy = p2->y - p0->y;
+		const double acz = p2->z - p0->z;
+		const double nx = aby * acz - abz * acy;
+		const double ny = abz * acx - abx * acz;
+		const double nz = abx * acy - aby * acx;
+		meshPushTri(soup, p0->x, p0->y, p0->z, p1->x, p1->y, p1->z, p2->x, p2->y, p2->z);
+		auto pushCornerNormal = [&](const MeshObjCorner& corner) {
+			const MeshObjVec3* n = resolveNormal(corner.vn);
+			if (n)
+			{
+				normalSoup.push_back(static_cast<float>(n->x));
+				normalSoup.push_back(static_cast<float>(n->y));
+				normalSoup.push_back(static_cast<float>(n->z));
+				return;
+			}
+			const double len2 = nx * nx + ny * ny + nz * nz;
+			if (len2 < 1e-30)
+			{
+				normalSoup.push_back(0.0f);
+				normalSoup.push_back(0.0f);
+				normalSoup.push_back(1.0f);
+				return;
+			}
+			const double invLen = 1.0 / std::sqrt(len2);
+			normalSoup.push_back(static_cast<float>(nx * invLen));
+			normalSoup.push_back(static_cast<float>(ny * invLen));
+			normalSoup.push_back(static_cast<float>(nz * invLen));
+		};
+		pushCornerNormal(c0);
+		pushCornerNormal(c1);
+		pushCornerNormal(c2);
+	};
+
+	std::string line;
+	while (std::getline(in, line))
+	{
+		if (line.empty())
+		{
+			continue;
+		}
+		if (line[0] == '#')
+		{
+			continue;
+		}
+		if (line.size() >= 2 && line[0] == 'v' && line[1] == ' ')
+		{
+			std::istringstream iss(line.substr(2));
+			MeshObjVec3 p;
+			if (iss >> p.x >> p.y >> p.z)
+			{
+				vertices.push_back(p);
+			}
+			continue;
+		}
+		if (line.size() >= 3 && line[0] == 'v' && line[1] == 'n' && line[2] == ' ')
+		{
+			std::istringstream iss(line.substr(3));
+			MeshObjVec3 n;
+			if (iss >> n.x >> n.y >> n.z)
+			{
+				normals.push_back(n);
+				hasNormals = true;
+			}
+			continue;
+		}
+		if (line.size() >= 2 && line[0] == 'f' && line[1] == ' ')
+		{
+			std::istringstream iss(line.substr(2));
+			std::vector<MeshObjCorner> corners;
+			std::string token;
+			while (iss >> token)
+			{
+				MeshObjCorner corner;
+				if (meshParseObjFaceToken(token, corner))
+				{
+					corners.push_back(corner);
+				}
+			}
+			if (corners.size() == 3U)
+			{
+				emitTriangle(corners[0], corners[1], corners[2]);
+			}
+			else if (corners.size() > 3U)
+			{
+				for (std::size_t k = 1; k + 1 < corners.size(); ++k)
+				{
+					emitTriangle(corners[0], corners[k], corners[k + 1]);
+				}
+			}
+		}
+	}
+
+	if (!hasNormals || soup.empty() || normalSoup.size() != soup.size())
+	{
+		soup.clear();
+		normalSoup.clear();
+		return false;
+	}
+	return true;
+}
+
+static void meshPushTransformedTri(std::vector<float>& soup, const gp_Pnt& p1, const gp_Pnt& p2, const gp_Pnt& p3,
+	const bool reverseWinding)
+{
+	const gp_Pnt& pb = reverseWinding ? p3 : p2;
+	const gp_Pnt& pc = reverseWinding ? p2 : p3;
+	soup.push_back(static_cast<float>(p1.X()));
+	soup.push_back(static_cast<float>(p1.Y()));
+	soup.push_back(static_cast<float>(p1.Z()));
+	soup.push_back(static_cast<float>(pb.X()));
+	soup.push_back(static_cast<float>(pb.Y()));
+	soup.push_back(static_cast<float>(pb.Z()));
+	soup.push_back(static_cast<float>(pc.X()));
+	soup.push_back(static_cast<float>(pc.Y()));
+	soup.push_back(static_cast<float>(pc.Z()));
+}
+
 static void meshPushTri(std::vector<float>& soup, double ax, double ay, double az, double bx, double by, double bz,
 	double cx, double cy, double cz)
 {
@@ -299,12 +638,14 @@ static void meshAppendShapeTriangles(const TopoDS_Shape& shape, std::vector<floa
 	for (TopExp_Explorer exp(shape, TopAbs_FACE); exp.More(); exp.Next())
 	{
 		const TopoDS_Face face = TopoDS::Face(exp.Current());
+		const bool reverseWinding = kMeshStepFlipReversedFaceWinding && (face.Orientation() == TopAbs_REVERSED);
 		TopLoc_Location loc;
 		Handle(Poly_Triangulation) tri = BRep_Tool::Triangulation(face, loc);
 		if (tri.IsNull() || !tri->HasGeometry() || tri->NbTriangles() <= 0)
 		{
 			continue;
 		}
+		const gp_Trsf xf = loc.Transformation();
 		for (Standard_Integer ti = 1; ti <= tri->NbTriangles(); ++ti)
 		{
 			const Poly_Triangle& t = tri->Triangle(ti);
@@ -313,18 +654,10 @@ static void meshAppendShapeTriangles(const TopoDS_Shape& shape, std::vector<floa
 			gp_Pnt p1 = tri->Node(n1);
 			gp_Pnt p2 = tri->Node(n2);
 			gp_Pnt p3 = tri->Node(n3);
-			p1.Transform(loc.Transformation());
-			p2.Transform(loc.Transformation());
-			p3.Transform(loc.Transformation());
-			soup.push_back(static_cast<float>(p1.X()));
-			soup.push_back(static_cast<float>(p1.Y()));
-			soup.push_back(static_cast<float>(p1.Z()));
-			soup.push_back(static_cast<float>(p2.X()));
-			soup.push_back(static_cast<float>(p2.Y()));
-			soup.push_back(static_cast<float>(p2.Z()));
-			soup.push_back(static_cast<float>(p3.X()));
-			soup.push_back(static_cast<float>(p3.Y()));
-			soup.push_back(static_cast<float>(p3.Z()));
+			p1.Transform(xf);
+			p2.Transform(xf);
+			p3.Transform(xf);
+			meshPushTransformedTri(soup, p1, p2, p3, reverseWinding);
 		}
 	}
 }
@@ -1005,44 +1338,11 @@ bool MeshBackendData::loadFromFile(const std::string& path, std::string* errMsg)
 		const Standard_Real angDeflection = 0.5; // OCCT 默认口径
 
 		BRepMesh_IncrementalMesh mesher(shape, linDeflectionRel, isRelative, angDeflection, Standard_False);
+		(void)mesher;
 
 		// 3) 遍历面，提取三角化数据并写入 soup（每三角形 9 个 float：三顶点 xyz）
 		std::vector<float> soup;
-		for (TopExp_Explorer exp(shape, TopAbs_FACE); exp.More(); exp.Next())
-		{
-			const TopoDS_Face face = TopoDS::Face(exp.Current());
-			TopLoc_Location loc;
-			Handle(Poly_Triangulation) tri = BRep_Tool::Triangulation(face, loc);
-			if (tri.IsNull() || !tri->HasGeometry() || tri->NbTriangles() <= 0)
-			{
-				continue;
-			}
-
-			// 节点与三角形索引在 OCCT 中通常是 1-based
-			for (Standard_Integer ti = 1; ti <= tri->NbTriangles(); ++ti)
-			{
-				const Poly_Triangle& t = tri->Triangle(ti);
-				Standard_Integer n1 = 0, n2 = 0, n3 = 0;
-				t.Get(n1, n2, n3);
-
-				gp_Pnt p1 = tri->Node(n1);
-				gp_Pnt p2 = tri->Node(n2);
-				gp_Pnt p3 = tri->Node(n3);
-				p1.Transform(loc.Transformation());
-				p2.Transform(loc.Transformation());
-				p3.Transform(loc.Transformation());
-
-				soup.push_back(static_cast<float>(p1.X()));
-				soup.push_back(static_cast<float>(p1.Y()));
-				soup.push_back(static_cast<float>(p1.Z()));
-				soup.push_back(static_cast<float>(p2.X()));
-				soup.push_back(static_cast<float>(p2.Y()));
-				soup.push_back(static_cast<float>(p2.Z()));
-				soup.push_back(static_cast<float>(p3.X()));
-				soup.push_back(static_cast<float>(p3.Y()));
-				soup.push_back(static_cast<float>(p3.Z()));
-			}
-		}
+		meshAppendShapeTriangles(shape, soup);
 
 		if (soup.empty())
 		{
@@ -1075,7 +1375,20 @@ bool MeshBackendData::loadFromFile(const std::string& path, std::string* errMsg)
 		return true;
 	}
 
-	// CGAL 入口（保持原逻辑）
+	// OBJ：若文件含 vn，保留文件法线供光照（CGAL read_polygon_soup 会丢弃 vn）
+	if (ext == "obj")
+	{
+		std::vector<float> objSoup;
+		std::vector<float> objNormals;
+		if (meshTryLoadObjWithVertexNormals(path, objSoup, objNormals))
+		{
+			setTriangleSoupWithNormals(std::move(objSoup), std::move(objNormals));
+			RunLogger::info("[MeshBackendData] OBJ loaded with file vertex normals for lighting.");
+			return !m_triangleSoup.empty();
+		}
+	}
+
+	// CGAL 入口（.obj 无 vn 时回退；.stl/.ply/.off）
 	if (!(ext == "obj" || ext == "stl" || ext == "ply" || ext == "off"))
 	{
 		meshLoadErr(errMsg, "CGAL backend supports .obj .stl .ply .off; other formats use the OSG import path.");
@@ -1097,36 +1410,14 @@ bool MeshBackendData::loadFromFile(const std::string& path, std::string* errMsg)
 		return false;
 	}
 
-	std::vector<float> soup;
-	for (const auto& poly : polygons)
+	if (!CGAL::Polygon_mesh_processing::orient_polygon_soup(points, polygons))
 	{
-		if (poly.size() < 3U)
-		{
-			continue;
-		}
-		for (std::size_t k = 1; k + 1 < poly.size(); ++k)
-		{
-			const std::size_t i0 = poly[0];
-			const std::size_t i1 = poly[k];
-			const std::size_t i2 = poly[k + 1];
-			if (i0 >= points.size() || i1 >= points.size() || i2 >= points.size())
-			{
-				continue;
-			}
-			const Point3& p0 = points[i0];
-			const Point3& p1 = points[i1];
-			const Point3& p2 = points[i2];
-			soup.push_back(static_cast<float>(p0.x()));
-			soup.push_back(static_cast<float>(p0.y()));
-			soup.push_back(static_cast<float>(p0.z()));
-			soup.push_back(static_cast<float>(p1.x()));
-			soup.push_back(static_cast<float>(p1.y()));
-			soup.push_back(static_cast<float>(p1.z()));
-			soup.push_back(static_cast<float>(p2.x()));
-			soup.push_back(static_cast<float>(p2.y()));
-			soup.push_back(static_cast<float>(p2.z()));
-		}
+		RunLogger::warn("[MeshBackendData] orient_polygon_soup duplicated vertices (non-manifold geometry).");
 	}
+
+	std::vector<float> soup;
+	meshBuildSoupFromPolygons(points, polygons, soup);
+
 	if (soup.empty())
 	{
 		meshLoadErr(errMsg, "No triangles extracted from mesh file.");

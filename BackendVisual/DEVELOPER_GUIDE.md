@@ -24,7 +24,7 @@ outer (osg::MatrixTransform)     ← 唯一位姿写入：T(center+pose) * R
 |------|------------|------|
 | URDF 每连杆 | `MeshVisualOptions::skipInnerModelCenterRebase = true` | inner 不再 `-bboxCenter`；outer 平移仅含 `pose`（顶点已在连杆系） |
 | 网格线框 | `showWireOutline` | 附加 feature-edge 线框 Geode |
-| 光照 | `useSceneLighting` | 三角面法线 + `GL_LIGHTING` |
+| 光照 | `useSceneLighting` | per-vertex 法线 + `GL_LIGHTING`（见 §4.2） |
 
 ---
 
@@ -79,6 +79,15 @@ outer (osg::MatrixTransform)     ← 唯一位姿写入：T(center+pose) * R
 | `computeModelCenterAndDiagonal(...)` | 三角 soup AABB |
 
 **数据输入**：`MeshBackendData::triangleSoup()`（每三角 9 float：v0,v1,v2 各 xyz）。
+
+**法线（`useSceneLighting=true`）**：
+
+| 条件 | 法线来源 |
+|------|----------|
+| `data.hasTriangleVertexNormals()` | `triangleVertexNormals()`，与顶点一一对应（OBJ 含 `vn` 时由 Data 填入） |
+| 否则 | 由 soup 绕序计算 `n = (p1-p0) × (p2-p0)` 并归一化（每三角三顶点同法向） |
+
+与 Data §4.2.1 配合：STEP 靠绕序修正；带 `vn` 的 OBJ 靠文件法线，**不要**仅依赖绕序重算法线。
 
 ---
 

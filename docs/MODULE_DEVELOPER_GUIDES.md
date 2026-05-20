@@ -14,6 +14,9 @@
 | **RobotUrdf** | URDF 解析、层级场景、每连杆后端 | [RobotUrdf/DEVELOPER_GUIDE.md](../RobotUrdf/DEVELOPER_GUIDE.md) |
 | **RobotScene** | 指令模型、规划、回放、场景 FK | [RobotScene/DEVELOPER_GUIDE.md](../RobotScene/DEVELOPER_GUIDE.md) |
 | **RunLogger** | 文件/控制台/UI 日志 | [RunLogger/DEVELOPER_GUIDE.md](../RunLogger/DEVELOPER_GUIDE.md) |
+| **CloudSimPluginSDK** | 动态插件 ABI（宿主上下文、文档/场景 API） | [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../CloudSimPluginSDK/DEVELOPER_GUIDE.md) |
+| **CloudSimPluginHost** | 插件扫描、`QPluginLoader`、宿主实现（源码在 `CloudSimPluginHost/`，编译进 `Widget.dll`） | 见 [ARCHITECTURE_SUMMARY.md §10](../ARCHITECTURE_SUMMARY.md) |
+| **HelloPlugin** | 官方示例插件（Dock + 菜单 + 创建立方体） | [Plugins/HelloPlugin/plugin.json](../Plugins/HelloPlugin/plugin.json) |
 
 ## 依赖方向（简图）
 
@@ -28,6 +31,9 @@ flowchart TB
   W --> RK[RobotKinematics]
   W --> GE[GeometryEngine]
   W --> RL[RunLogger]
+  W --> PH[CloudSimPluginHost]
+  PH --> SDK[CloudSimPluginSDK]
+  PLG[plugins/*.dll] --> SDK
   O --> BV --> D
   RS --> GE
   RS --> RU --> D

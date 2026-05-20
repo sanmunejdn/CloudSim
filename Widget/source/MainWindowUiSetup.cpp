@@ -10,6 +10,7 @@
 #include <QMenuBar>
 #include <QStatusBar>
 #include <QTabWidget>
+#include <QTimer>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 #include <QVBoxLayout>
@@ -412,6 +413,9 @@ void MainWindow::setupDockWidgets()
 	});
 
 	m_runDock->setMinimumHeight(72);
+
+	// Defer plugin load until the dock/tab hierarchy is fully attached (avoids addTab crash at startup).
+	QTimer::singleShot(0, this, [this]() { loadPlugins(); });
 }
 
 void MainWindow::shutdownApplicationLogging()

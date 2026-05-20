@@ -31,7 +31,14 @@ public:
 
 	// Nine floats per triangle: v0.xyz, v1.xyz, v2.xyz (model space, same frame as OSG import).
 	void setTriangleSoup(std::vector<float> xyzPerTriangleVertex);
+	/// Optional per-vertex normals (9 floats per triangle, aligned with \c triangleSoup). Used for OBJ vn lighting.
+	void setTriangleSoupWithNormals(std::vector<float> xyzPerTriangleVertex, std::vector<float> normalPerTriangleVertex);
 	const std::vector<float>& triangleSoup() const { return m_triangleSoup; }
+	const std::vector<float>& triangleVertexNormals() const { return m_triangleNormals; }
+	bool hasTriangleVertexNormals() const
+	{
+		return !m_triangleNormals.empty() && m_triangleNormals.size() == m_triangleSoup.size();
+	}
 
 	/// Apply column-major rigid 4x4 (mesh-file → link frame) to every triangle vertex xyz in \c m_triangleSoup; recomputes bounds.
 	void transformVerticesColumnMajorHomogeneous4x4(const double colMajor16[16]);
@@ -68,6 +75,7 @@ private:
 	void recomputeBounds();
 
 	std::vector<float> m_triangleSoup;
+	std::vector<float> m_triangleNormals;
 	BackendBoundingBox m_bounds;
 	BackendVec3 m_position;
 	BackendVec3 m_rotation;
