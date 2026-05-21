@@ -7,7 +7,7 @@
 
 #include "RobotInstructionModel.h"
 #include "RobotSimulationTypes.h"
-#include "widget_global.h"
+#include "robotwidget_global.h"
 
 #include <memory>
 #include <vector>
@@ -18,7 +18,7 @@ class QLabel;
 class RobotProgramStore;
 class InstructionProgramTreeWidget;
 
-class WIDGET_EXPORT SimulationCommandWidget : public QWidget
+class ROBOTWIDGET_EXPORT SimulationCommandWidget : public QWidget
 {
 	Q_OBJECT
 

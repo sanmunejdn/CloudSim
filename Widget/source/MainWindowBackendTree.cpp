@@ -1,5 +1,7 @@
 #include "MainWindow.h"
 
+#include "../RobotWidget/inc/RobotSimulationController.h"
+
 #include <QAction>
 #include <QList>
 #include <QMenu>
@@ -479,7 +481,8 @@ void MainWindow::removeBackendObjectFromDocument(const QString& backendId)
 	{
 		doc->clearRobotSimulationIfContains(rid);
 	}
-	if (m_robotProgramExecutor.isRunning() && !doc->hasRobotSimulationContext())
+	if (m_robotSimulation && m_robotSimulation->programExecutor().isRunning()
+		&& !doc->hasRobotSimulationContext())
 	{
 		stopRobotSimulation();
 	}

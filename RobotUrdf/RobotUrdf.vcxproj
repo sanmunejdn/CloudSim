@@ -115,7 +115,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>ROBOT_URDF_STATIC;RUN_LOGGER_STATIC;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ROBOT_URDF_STATIC;RUN_LOGGER_STATIC;BACKENDVISUAL_STATIC;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>inc;../Data/inc;../RunLogger/inc;../../bin/SDK/JSON;../../OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -128,7 +128,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>ROBOT_URDF_STATIC;RUN_LOGGER_STATIC;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ROBOT_URDF_STATIC;RUN_LOGGER_STATIC;BACKENDVISUAL_STATIC;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>inc;../Data/inc;../RunLogger/inc;../../bin/SDK/JSON;../../OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -142,7 +142,7 @@
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <UndefinePreprocessorDefinitions>_DEBUG</UndefinePreprocessorDefinitions>
-      <PreprocessorDefinitions>ROBOT_URDF_STATIC;RUN_LOGGER_STATIC;_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ROBOT_URDF_STATIC;RUN_LOGGER_STATIC;BACKENDVISUAL_STATIC;_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>inc;../GeometryEngine/inc;../BackendVisual/inc;../Data/inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/eigen;../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -155,7 +155,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>ROBOT_URDF_STATIC;RUN_LOGGER_STATIC;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ROBOT_URDF_STATIC;RUN_LOGGER_STATIC;BACKENDVISUAL_STATIC;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>inc;../GeometryEngine/inc;../BackendVisual/inc;../Data/inc;../RunLogger/inc;../../bin/SDK/JSON;../../bin/SDK/eigen;../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "RobotInstructionModel.h"
-#include "widget_global.h"
+#include "robotwidget_global.h"
 
 #include <QHash>
 #include <QString>
@@ -11,7 +11,7 @@
 #include <vector>
 
 /// Per-robot instruction programs keyed by scene backend id (robot root).
-class WIDGET_EXPORT RobotProgramStore
+class ROBOTWIDGET_EXPORT RobotProgramStore
 {
 public:
 	void clear();

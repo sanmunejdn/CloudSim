@@ -70,7 +70,7 @@ flowchart TD
 - 文档隔离：`DocumentPage` 每个标签页维护独立 `BackendDataManager + OsgWidget`。
 - 场景交互：对象选择、点拾取、边/面拾取、注释、变换 gizmo、主题/语言切换。
 - 项目 I/O：保存/加载 `.pcp/.pcproj.json`，并打包/解包工程资源。
-- 机器人仿真入口：连接指令编辑控件、轴控件与回放引擎；**指令树选中预览**（点击 PTP/LINE 将机器人切到该点位关节姿态）。
+- 机器人仿真宿主：`MainWindowRobotHost` + `RobotSimulationController`（`RobotWidget.dll`）；**指令树选中预览**与 **Run** 对含 `context.currentJointRadCsv` 的运动点使用**示教关节角**（与拖动/添加指令一致），其余点仍链式 `plan`。`DocumentHost` 必须转发 `robotBackendManagerForKinematics()`（per-link FK）。仿真 Dock 在 **`RobotWidget`**，TCP 示教 OSG 在 **`Widget`**（`OsgWidgetTcpTeach`）。
 
 当前内部子结构（已显式模块化）：
 
@@ -90,6 +90,10 @@ flowchart TD
 - **`ObjectTransformOperation`**：对象选择模式下罗盘平移/旋转的鼠标事件处理；读写路径统一为 `readActiveObjectGizmoFrame` → 修改 `ObjectGizmoFrame` → `applyToOuter` → `syncActiveBackendRootFromObjectFrame(..., dragging)`；`MouseButtonRelease` 时 `cacheSelectionGizmoPose` 并发出 `transformGizmoCommitted`。
 - **`OsgWidgetTransformHierarchyController`**：选中 backend 时 `syncSelectionForBackendId` 内调用 `attachGizmoOverlayToActiveBackend` / `cacheSelectionGizmoPose`；层级变更后与 `OsgScene` 传播逻辑配合。
 - **`OsgWidgetGizmoController`**：罗盘几何创建、高亮、屏幕轴拾取等对 `OsgScene` 的薄封装。
+- **`RobotWidget`（x64 DLL，见 `RobotWidget/DEVELOPER_GUIDE.md`）**：
+  - 页面：`DevicePageWidget`、`SimulationCommandWidget`、`RobotAxisControlWidget`、`RobotFrameSettingsWidget` 等。
+  - 编排：`RobotSimulationController`；宿主契约 `IRobotMainWindowHost` / `IRobotDocumentHost` / `IRobotOsgViewHost`。
+  - 工程 I/O：`RobotProjectIo::writeRobotKinematicsAndPrograms` / `loadRobotPrograms`（`MainWindowProjectIo` 委托）。
 - **AI 助手（独立子系统，见 `AiBackend` + `AiWidget`）**：
   - **`AiBackend`（后端）**：`AiLlmConfig`、`AiIntentParser`、`AiCommandSchema`、`AiLlmClient`、`AiHttpsPost`（Windows WinHTTP HTTPS）；依赖 `Data`（`BackendPrimitiveGeometry`）。
   - **`AiWidget`（前端）**：`AiAssistantDockWidget`、`AiLlmSettingsDialog`、`AiAssistantCoordinator`（规则/LLM 编排、解析来源提示）。
@@ -275,6 +279,13 @@ flowchart LR
     Widget --> Data
     Widget --> RobotKinematics
     Widget --> RobotUrdf
+    Widget --> RobotWidget
+    RobotWidget --> RobotScene
+    RobotWidget --> RobotUrdf
+    RobotWidget --> RobotKinematics
+    RobotWidget --> GeometryEngine
+    RobotWidget --> RunLogger
+    RobotWidget --> Data
     Widget --> RobotScene
     Widget --> RunLogger
     Widget --> AiWidget
@@ -518,14 +529,14 @@ sequenceDiagram
    - 树控件展示层级（IF 的 Then/Else、WHILE 循环体）；拖放调整顺序与父子关系后 `syncToProgram()` 写回向量。  
    - 工具栏按钮一键插入 PTP/LINE/逻辑/IO；运动点显示 **P1、P2…**（`formatMotionWaypointSummary`）。  
 3. **指令选中预览（非运行态）**  
-   - `InstructionProgramTreeWidget::instructionSelected` → `MainWindow::onSimulationInstructionSelectionChanged`。  
-   - 选中 **PTP/LINE** 时：`updateInstructionPropertyPanel`（含可行轴配置探测/缓存，见下）→ `applyRobotPoseForInstructionPreview` 自**程序起点关节** `m_motionPreviewProgramStartJointRad`（与 Run 时 `initialAngles` 同源；**不**用上一次预览后的滑块值作链式种子，避免重复点击同一点位姿态漂移）按 `collectMotionInstructions` 顺序链式规划至该点，将 `PlanResult::jointTargetsRad` 写回场景并同步滑块（写滑块时 `m_suppressMotionPreviewStartCapture` 防止误更新起点）。  
-   - 仿真运行中（`RobotProgramExecutor`）不抢占预览；逻辑指令选中不改变机器人姿态。  
+   - `InstructionProgramTreeWidget::instructionSelected` → `RobotSimulationController::onSimulationInstructionSelectionChanged`（`MainWindow` 转发）。  
+   - 选中 **PTP/LINE** 时：`updateInstructionPropertyPanel`（可行轴配置探测/缓存）→ `applyRobotPoseForInstructionPreview` 自 `m_motionPreviewProgramStartJointRad` 链式至该点。对链上每点：若存在 `context.currentJointRadCsv` 则**直接**用示教关节（跳过该点 IK）；否则 `prepareMotionInstructionForPlanning`（**不**覆盖指令 `pose`）+ `plan`。写回场景与滑块；`m_suppressMotionPreviewStartCapture` 防止误改程序起点。添加指令后首次选中用 `m_skipInstructionPreviewOnce` 避免立即预览拉离示教姿态。  
+   - 仿真运行中不抢占预览；逻辑指令选中不改变机器人姿态。  
    - 属性面板修改 **位姿/速度** 等：失效轴配置缓存 → 全量刷新可行列表 + 预览。修改 **`motion.axisConfig.*`**：仅 `applyPropertyChange` + 预览 + **轻量**属性面板刷新（不重复可行 IK 探测）。  
 4. **轴配置属性与规划一致性**  
    - 可行列表：`feasibleMotionAxisConfigurationOptionsForInstruction` 对选中点附加与前序点相同的 `context.currentJointRadCsv` / `context.urdfPath` / `context.tcpLinkName` 后调用 `queryFeasibleMotionAxisConfigurationOptions`。  
    - 用户切换 preset/分项后，`plan` 使用指令上已写入的 `MotionAxisConfiguration`；显式构型无解时 Run/预览均失败并提示（如「无满足轴配置的IK解」），与下拉仅展示可启动项一致。  
-5. 指令由 `RobotInstructionController` 校验与规划（PTP/LINE 读取 `MotionAxisConfiguration` 做多初值 IK 筛选）；Run 时批量规划后由 `RobotProgramExecutor`（含 Wait/If/While/IO 状态机 + 运动段插值）按 tick 执行。  
+5. **Run**：`onSimulationStartTriggered` 构建 `PlanResult` 时同样优先 `context.currentJointRadCsv`；`initialAngles` 取自 `m_motionPreviewProgramStartJointRad`（首条运动指令加入时捕获，后续点不覆盖起点）。`RobotProgramExecutor` 按 tick 插值 `jointTargetsRad` 并 `applyJointAnglesFromDocument`。无示教 CSV 的点仍走 `RobotInstructionController::plan`。  
 6. 通过接口更新文档中的关节节点矩阵（层级）或各 link 后端/OSG 矩阵（每连杆）。  
 7. UI 面板实时反馈执行过程；`OsgWidget::setInstructionPoseAxes` 在世界系显示各运动点 XYZ 坐标轴；轴原点 **绿色=IK 可达**、**红色=不可达**（与 PTP/LINE 的 RGB 轴身颜色无关）。  
 8. **调试**：环境变量 `ROBOT_KINEMATICS_DEBUG=1`（或启动参数 `--robot-kinematics-debug 1`）时，`applyJointAnglesViaLinkBackends` 输出 `[RobotKinematicsDBG]`（`T0`/`Tq`/`Mnew`/父世界/写回后 `outerWorld` 等）。  
@@ -549,8 +560,12 @@ sequenceDiagram
     Note over MW: queryFeasible… 单次 IK 构型集 + 缓存<br/>可选 suggestPresetFromSeed
     MW->>MW: applyRobotPoseForInstructionPreview
     loop 自 P1 至选中点
-        MW->>Ctrl: validate + plan(motion)
-        Ctrl-->>MW: jointTargetsRad
+        alt 有 currentJointRadCsv
+            MW->>MW: 示教关节 → rollingQ
+        else 无 CSV
+            MW->>Ctrl: validate + plan(motion)
+            Ctrl-->>MW: jointTargetsRad
+        end
     end
     MW->>Kin: applyJointAnglesForInstance
     Kin->>Osg: 更新连杆/关节矩阵

@@ -329,6 +329,10 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 
 ## 13. 仿真 UI
 
+仿真页面控件与编排已迁入 **`RobotWidget`**（x64 DLL）。`Widget` 通过 `MainWindowRobotHost`（实现 `IRobotMainWindowHost`）提供文档/OSG/属性面板访问；`RobotSimulationController` 承接原 `MainWindow` 的仿真/示教/指令槽。详见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)。
+
+**仍留在 `Widget`**：`DocumentPage`、`OsgWidget`、`OsgWidgetTcpTeach.cpp`、`RobotTcpDragTeachOperation.cpp`（依赖 `OsgWidget*`）。
+
 ### `RobotProgramStore`
 
 `QHash<sceneBackendId, vector<RobotInstruction::Base>>`；`activeRobotBackendId()`。
@@ -341,7 +345,7 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 | `setRobotInstances(labels, backendIds)` | 多机 |
 | `instructions(robotBackendId)` | 指令向量 |
 | `appendInstructionFromCurrentPose` | 捕获当前 TCP |
-| `instructionSelected` → MainWindow | 预览链式 plan |
+| `instructionSelected` → `RobotSimulationController` | 预览：有 `currentJointRadCsv` 用示教关节，否则链式 plan |
 | `runRequested` / `stopRequested` | 执行器 |
 | `tcpDragTeachModeChanged(bool)` | 末端拖动示教开/关（不落盘指令） |
 | `setTcpDragTeachMode` / `tcpDragTeachMode` | 与 3D ESC / 仿真 Run 同步按钮状态 |
@@ -360,15 +364,15 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 
 ### `RobotAxisControlWidget`
 
-关节滑块 ↔ `MatrixTransform`；信号 `jointAngleChanged`。
+关节滑块 ↔ 场景由 `RobotSimulationController::onRobotAxisJointAnglesChanged` 经 `applyJointAnglesForInstance` 驱动（per-link 不依赖 `MatrixTransform` 节点）。`setJointAngle` 内 `qBound` 与 URDF 限位一致；拖动示教 IK 结果在 controller 侧先钳位再写滑块与场景。
 
 ### 13.1 末端拖动示教（TCP 罗盘）
 
-**入口**：`SimulationCommandWidget` 可切换按钮 → `tcpDragTeachModeChanged` → `MainWindow::onSimulationTcpDragTeachModeChanged`。
+**入口**：`SimulationCommandWidget` 可切换按钮 → `tcpDragTeachModeChanged` → `RobotSimulationController::onSimulationTcpDragTeachModeChanged`（经 `MainWindow` 槽转发）。
 
 **行为约束**：
 
-- 仅更新关节滑块与场景姿态，**不写** PTP/LINE 指令；落盘仍用「点到点/直线」+ `tryCaptureCurrentRobotTcpPose`。
+- 仅更新关节滑块与场景姿态，**不写** PTP/LINE 指令；落盘用「点到点/直线」：优先 `m_lastTcpDragTargetInBase`（罗盘位姿）+ `currentJointRadCsv`，否则 `tryCaptureCurrentRobotTcpPose`。
 - 仿真运行中禁止进入；与对象选择 gizmo 互斥（进入时 `clearBackendObjectSelection`、关闭 `objectSelectionMode`）。
 - 支持视图菜单 **Transform: World / Local**（`setTransformGizmoFrame`），与对象罗盘共用同一开关。
 
@@ -384,8 +388,8 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 LMB/RMB (RobotTcpDragTeachOperation)
   → 平移：tcpTeachScreenDragDsMm × gain → applyTcpTeachTranslationWorld（沿 m_tcpTeachDragAxisWorld）
   → emit tcpDragTeachPoseChanged
-  → MainWindow::applyTcpDragTeachIkFromPose（RobotTeachIk + applyJointAngles）
-  → updateTcpDragTeachFromTarget(fkTarget)
+  → `RobotSimulationController` / `MainWindow` 转发 → `applyTcpDragTeachIkFromPose`（RobotTeachIk → 关节钳位 → 滑块与场景同步 → applyJointAngles）
+  → updateTcpDragTeachFromTarget(fkTarget)；`m_lastTcpDragTargetInBase` 供「添加指令」落盘罗盘位姿
 ```
 
 **平移为何不用平面求交**：对象 gizmo 与 TCP 示教均在拖动时移动枢轴/末端，平面求交会导致 `ds` 暴增或反向。对象侧见 §6.3.1；TCP 按下时 `beginTcpTeachScreenDrag()`：
@@ -402,7 +406,8 @@ LMB/RMB (RobotTcpDragTeachOperation)
 |------|------|
 | `OsgWidgetTcpTeach.cpp` | 罗盘几何、挂载、`beginTcpTeachScreenDrag`、位姿应用 |
 | `RobotTcpDragTeachOperation.cpp` | 鼠标事件、拾取轴、平移/旋转 |
-| `MainWindow.cpp` | 模式进出、`applyTcpDragTeachIkFromPose`、法兰 link 名缓存 |
+| `RobotSimulationController.cpp` | 模式进出、IK、指令预览/回放编排 |
+| `MainWindowRobotHost.cpp` | 宿主：`DocumentHost` 须转发 `robotBackendManagerForKinematics()`；`osgView()` 随当前页 OSG 重建 |
 
 详见 [`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md)（`RobotTeachIk`）。
 
@@ -412,9 +417,9 @@ LMB/RMB (RobotTcpDragTeachOperation)
 |----|------|
 | 工具系 `T_flange_tool` | `positionMm` / `eulerDeg`；平移在 **法兰连杆轴**（UI：`X/Y/Z (mm, flange)`） |
 | `flangeLink` | 空则用 `RobotCoordinateFrameSet::flangeLinkName`（如 `link_6`） |
-| 捕获 / 重置 | `Capture from TCP`、`Reset to flange` → `MainWindow::onCaptureToolFrame` / `onResetToolFrame` |
+| 捕获 / 重置 | `Capture from TCP`、`Reset to flange` → `RobotSimulationController`（经 `MainWindow` 转发） |
 
-### 示教与 FK 路径（`MainWindow.cpp`）
+### 示教与 FK 路径（`RobotWidget` + `MainWindow` 转发）
 
 | 函数 | 说明 |
 |------|------|
@@ -446,7 +451,7 @@ LMB/RMB (RobotTcpDragTeachOperation)
 | Gizmo | `ObjectTransformOperation` | ARCH §6.2.0 |
 | 跟随 | `runBackendFollowSolveAndSync` | ARCH §6.2.1 |
 | 选择闭环 | `MainWindowSelectionService` | ARCH §6.3 |
-| 仿真预览/运行 | `onSimulationInstructionSelectionChanged` | ARCH §6.4 |
+| 仿真预览/运行 | `applyRobotPoseForInstructionPreview` / `onSimulationStartTriggered`（示教 CSV 优先） | ARCH §6.4、`RobotWidget` 指南 |
 | 末端拖动示教 | `onSimulationTcpDragTeachModeChanged` → 屏幕空间平移 → `RobotTeachIk` | §13.1 |
 | 工具/示教 FK | `targetRigidTransformFromUrdfFlangeFk` | §13、`GeometryEngine` |
 
@@ -454,10 +459,11 @@ LMB/RMB (RobotTcpDragTeachOperation)
 
 ## 16. 扩展指南
 
-1. **新菜单/工作流**：优先新 `MainWindowXxx.cpp` 单元，避免膨胀 `MainWindow.cpp`。
-2. **新 OSG 行为**：逻辑放 `OsgWidgetCore`；Qt 事件放 `OsgWidget` 或 `*Controller`。
-3. **新后端类型**：`Data` 注册 + `BackendVisual` + `load*FromBackendData` 分支。
-4. **DLL 导出**：新 public 类方法标记 `WIDGET_EXPORT`。
+1. **机器人仿真 UI/编排**：改 `RobotWidget`；`Widget` 仅扩展 `IRobotMainWindowHost` 与 OSG/TCP 底层。
+2. **新菜单/工作流**：优先新 `MainWindowXxx.cpp` 单元，避免膨胀 `MainWindow.cpp`。
+3. **新 OSG 行为**：逻辑放 `OsgWidgetCore`；Qt 事件放 `OsgWidget` 或 `*Controller`。
+4. **新后端类型**：`Data` 注册 + `BackendVisual` + `load*FromBackendData` 分支。
+5. **DLL 导出**：`Widget` 用 `WIDGET_EXPORT`；仿真页面类用 `ROBOTWIDGET_EXPORT`（见 `robotwidget_global.h`）。
 
 ---
 
@@ -468,3 +474,4 @@ LMB/RMB (RobotTcpDragTeachOperation)
 - 刚体/工具链：[`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md)
 - 数据层：[`../Data/DEVELOPER_GUIDE.md`](../Data/DEVELOPER_GUIDE.md)
 - OSG 核心：[`../OsgWidgetCore/DEVELOPER_GUIDE.md`](../OsgWidgetCore/DEVELOPER_GUIDE.md)
+- 仿真 UI：`../RobotWidget/DEVELOPER_GUIDE.md`

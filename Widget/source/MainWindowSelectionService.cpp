@@ -26,9 +26,9 @@ void MainWindowSelectionService::clearSelection(MainWindow& mainWindow, bool cle
 {
 	clearBackendObjectSelection(mainWindow, clearTreeSelection);
 	mainWindow.m_activeInstructionForProperty.reset();
-	if (mainWindow.m_simulationCommandPage)
+	if (mainWindow.simulationCommandPage())
 	{
-		mainWindow.m_simulationCommandPage->clearInstructionSelection();
+		mainWindow.simulationCommandPage()->clearInstructionSelection();
 	}
 	if (OsgWidget* osg = mainWindow.currentOsgWidget())
 	{
@@ -138,9 +138,9 @@ void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& m
 		return;
 	}
 	mainWindow.m_activeInstructionForProperty.reset();
-	if (mainWindow.m_simulationCommandPage)
+	if (mainWindow.simulationCommandPage())
 	{
-		mainWindow.m_simulationCommandPage->clearInstructionSelection();
+		mainWindow.simulationCommandPage()->clearInstructionSelection();
 	}
 	if (OsgWidget* osg = mainWindow.currentOsgWidget())
 	{

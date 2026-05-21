@@ -15,14 +15,12 @@
 #include <QGroupBox>
 #include <QScrollArea>
 
-#include "robot_urdf_global.h"
+#include "robotwidget_global.h"
 #include <osg/MatrixTransform>
-
-namespace UrdfRobotLoader {
 
 /// 【中文】机器人关节轴控制Widget
 /// 显示每个轴的上下限，提供滑块和数值输入框来控制轴角度
-class ROBOT_URDF_API RobotAxisControlWidget : public QWidget
+class ROBOTWIDGET_EXPORT RobotAxisControlWidget : public QWidget
 {
 	Q_OBJECT
 
@@ -113,7 +111,3 @@ private:
 	int angleToSliderValue(double angleRad) const;
 	double sliderValueToAngle(int value) const;
 };
-
-} // namespace UrdfRobotLoader
-
-using RobotAxisControlWidget = UrdfRobotLoader::RobotAxisControlWidget;

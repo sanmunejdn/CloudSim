@@ -1,7 +1,7 @@
 #pragma once
 
 #include "RobotCoordinateFrames.h"
-#include "widget_global.h"
+#include "robotwidget_global.h"
 
 #include <QStringList>
 #include <QWidget>
@@ -15,7 +15,7 @@ class QListWidget;
 class QPushButton;
 class QTimer;
 
-class WIDGET_EXPORT RobotFrameSettingsWidget : public QWidget
+class ROBOTWIDGET_EXPORT RobotFrameSettingsWidget : public QWidget
 {
 	Q_OBJECT
 

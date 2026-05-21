@@ -137,7 +137,7 @@
 
 | 键 | 格式 | 必需场景 |
 |----|------|----------|
-| `context.currentJointRadCsv` | 逗号分隔 rad | 所有运动 IK |
+| `context.currentJointRadCsv` | 逗号分隔 rad | 规划种子；**预览/Run** 有则优先作该点关节目标（见 `RobotWidget` 示教路径） |
 | `context.urdfPath` | 绝对路径 | URDF IK、LINE 笛卡尔时长 |
 | `context.tcpLinkName` | link 名 | TCP 位姿 IK |
 | `legacy.jointIndex` / `legacy.angleDeg` | int / deg | 最后回退 |
@@ -349,9 +349,11 @@ flowchart LR
   E --> F[IRobotBackendPoseSink]
 ```
 
-**预览**（非运行）：`MainWindow` 自程序起点链式 `plan` 至选中 PTP/LINE，写回滑块与场景；轴配置可行列表 `queryFeasibleMotionAxisConfigurationOptions` 带缓存。
+**预览**（非运行）：`RobotSimulationController::applyRobotPoseForInstructionPreview` 自 `m_motionPreviewProgramStartJointRad` 链式至选中点。若该点含 `context.currentJointRadCsv`（添加指令时写入），**直接**用示教关节角，不对该点重算 IK；否则 `validate` + `plan`。轴配置可行列表 `queryFeasibleMotionAxisConfigurationOptions` 带缓存。
 
-**末端拖动示教**（非运行、不写指令）：Widget 用屏幕空间平移更新 `T_base_target` 后调用 `RobotTeachIk::solveTeachIk`（法兰 link 数值 IK），再 `applyJointAnglesForInstance` 刷新场景；交互与挂载见 [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §13.1。
+**运行**：`onSimulationStartTriggered` 对每条运动同样优先示教 CSV 构建 `PlanResult::jointTargetsRad`；`RobotProgramExecutor` 插值执行。程序起点仅在**第一条**运动指令加入时更新（见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)）。
+
+**末端拖动示教**（非运行、不写指令）：屏幕空间平移更新 `T_base_target` → `RobotTeachIk` → 关节钳位 → `applyJointAnglesForInstance`；添加指令时用罗盘位姿 + `currentJointRadCsv` 落盘。见 [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §13.1、[`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)。
 
 ### 11.1 `RobotTeachIk`
 

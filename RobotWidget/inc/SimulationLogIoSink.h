@@ -1,12 +1,12 @@
 #pragma once
 
 #include "IRobotIoSink.h"
-#include "widget_global.h"
+#include "robotwidget_global.h"
 
 #include <QHash>
 
 /// In-memory digital IO state for simulation (logged via RunLogger when outputs change).
-class WIDGET_EXPORT SimulationLogIoSink : public IRobotIoSink
+class ROBOTWIDGET_EXPORT SimulationLogIoSink : public IRobotIoSink
 {
 public:
 	void setDigitalOutput(int port, bool value) override;

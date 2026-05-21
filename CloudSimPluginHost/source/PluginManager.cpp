@@ -28,6 +28,10 @@ PluginManager::~PluginManager()
 
 void PluginManager::shutdownAll()
 {
+	if (m_plugins.empty())
+	{
+		return;
+	}
 	for (auto& entry : m_plugins)
 	{
 		if (entry && entry->instance)

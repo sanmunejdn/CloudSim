@@ -27,6 +27,7 @@
 #include "RobotInstructionPropertySchema.h"
 #include "RobotInstructionProgram.h"
 #include "RunLogger.h"
+#include "../RobotWidget/inc/SimulationCommandWidget.h"
 
 #include "../../PropertyCore/inc/PropertyTypes.h"
 
@@ -728,11 +729,11 @@ void MainWindow::applySuggestedAxisPresetFromSeedIfNeeded(
 	const bool presetLocked = !curPreset.empty() && curPreset != "AUTO" && tokenAllowed(curPreset);
 
 	DocumentPage* doc = currentPage();
-	if (!doc || !m_simulationCommandPage)
+	if (!doc || !simulationCommandPage())
 	{
 		return;
 	}
-	const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex();
+	const int instIdx = simulationCommandPage()->currentRobotInstanceIndex();
 	if (instIdx < 0)
 	{
 		return;
@@ -853,9 +854,9 @@ void MainWindow::updateInstructionPropertyPanel(
 			if (key == std::string("motion.axisConfig.preset") && !seedJointRad.isEmpty())
 			{
 				DocumentPage* doc = currentPage();
-				if (doc && m_simulationCommandPage)
+				if (doc && simulationCommandPage())
 				{
-					const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex();
+					const int instIdx = simulationCommandPage()->currentRobotInstanceIndex();
 					if (instIdx >= 0)
 					{
 						const QStringList jnames = doc->robotRevoluteJointNamesForInstance(instIdx);
@@ -945,7 +946,7 @@ void MainWindow::updateInstructionPropertyPanel(
 	{
 		const auto& ext = instruction->extensionProperties();
 		DocumentPage* doc = currentPage();
-		const int instIdx = m_simulationCommandPage ? m_simulationCommandPage->currentRobotInstanceIndex() : -1;
+		const int instIdx = simulationCommandPage() ? simulationCommandPage()->currentRobotInstanceIndex() : -1;
 		std::vector<std::string> toolTokens = { "active" };
 		std::vector<std::string> userTokens = { "active" };
 		QStringList toolEnumNames;
@@ -1090,9 +1091,9 @@ void MainWindow::updateInstructionPropertyPanel(
 			if (instructionUsesActiveUserFrame(*instruction) && isMotionTargetPoseKey(key))
 			{
 				DocumentPage* doc = currentPage();
-				if (doc && m_simulationCommandPage)
+				if (doc && simulationCommandPage())
 				{
-					const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex();
+					const int instIdx = simulationCommandPage()->currentRobotInstanceIndex();
 					if (instIdx >= 0)
 					{
 						const RobotCoordinate::RobotCoordinateFrameSet& frames =
@@ -1343,8 +1344,8 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 				RobotCoordinate::kExtMotionToolFrameId, valueText.toStdString());
 			if (DocumentPage* doc = currentPage())
 			{
-				const int instIdx = m_simulationCommandPage
-					? m_simulationCommandPage->currentRobotInstanceIndex()
+				const int instIdx = simulationCommandPage()
+					? simulationCommandPage()->currentRobotInstanceIndex()
 					: -1;
 				if (instIdx >= 0)
 				{
@@ -1380,8 +1381,8 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 				QString toolLabel = valueText;
 				if (DocumentPage* doc = currentPage())
 				{
-					const int instIdx = m_simulationCommandPage
-						? m_simulationCommandPage->currentRobotInstanceIndex()
+					const int instIdx = simulationCommandPage()
+						? simulationCommandPage()->currentRobotInstanceIndex()
 						: -1;
 					if (instIdx >= 0)
 					{
@@ -1447,9 +1448,9 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 			{
 				DocumentPage* doc = currentPage();
 				BackendMat4 T_base_user = BackendMat4::identity();
-				if (doc && m_simulationCommandPage)
+				if (doc && simulationCommandPage())
 				{
-					const int instIdx = m_simulationCommandPage->currentRobotInstanceIndex();
+					const int instIdx = simulationCommandPage()->currentRobotInstanceIndex();
 					if (instIdx >= 0)
 					{
 						const RobotCoordinate::RobotCoordinateFrameSet& frames =
@@ -1481,9 +1482,9 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 				return;
 			}
 		}
-		if (m_simulationCommandPage)
+		if (simulationCommandPage())
 		{
-			m_simulationCommandPage->refreshInstructionList();
+			simulationCommandPage()->refreshInstructionList();
 		}
 		refreshInstructionPoseAxes();
 		applyRobotPoseForInstructionPreview(m_activeInstructionForProperty);

@@ -23,11 +23,13 @@
 #include "MainWindowSelectionService.h"
 #include "MainWindow_p.h"
 #include "OsgWidget.h"
+#include "PluginManager.h"
 #include "ProgressManager.h"
 #include "RunInfoPage.h"
 #include "RunLogger.h"
-#include "RobotFrameSettingsWidget.h"
-#include "SimulationCommandWidget.h"
+#include "MainWindowRobotHost.h"
+#include "../RobotWidget/inc/RobotSimulationController.h"
+#include "../RobotWidget/inc/RobotSimulationDockWidget.h"
 #include "AiAssistantDockWidget.h"
 #include "AiAssistantCoordinator.h"
 
@@ -97,7 +99,10 @@ MainWindow::MainWindow(QWidget* parent)
 		}
 	});
 
-	m_robotInstructionController.buildDefaultPlanners();
+	m_robotHost = std::make_unique<MainWindowRobotHost>(this);
+	m_robotSimulation = std::make_unique<RobotSimulationController>(this);
+	m_robotSimulation->setHost(m_robotHost.get());
+	m_robotSimulation->initializePlanners();
 	setupMenuBar();
 
 	auto* central = new QWidget(this);
@@ -111,7 +116,6 @@ MainWindow::MainWindow(QWidget* parent)
 	m_documentTabs->setDocumentMode(true);
 	m_documentTabs->setTabsClosable(false);
 	rootLayout->addWidget(m_documentTabs, 1);
-	connect(m_documentTabs, &QTabWidget::currentChanged, this, &MainWindow::onDocumentTabChanged);
 
 	auto* firstPage = new DocumentPage(m_documentTabs);
 	wireDocumentPageSignals(firstPage);
@@ -119,7 +123,8 @@ MainWindow::MainWindow(QWidget* parent)
 	setCentralWidget(central);
 	setupDockWidgets();
 	m_robotSimTimer.setInterval(kPlaybackTimerIntervalMs);
-	connect(&m_robotSimTimer, &QTimer::timeout, this, &MainWindow::onRobotSimulationTick);
+	m_robotSimulation->attachPlaybackTimer(&m_robotSimTimer);
+	connect(m_documentTabs, &QTabWidget::currentChanged, this, &MainWindow::onDocumentTabChanged);
 	m_followTargetNameDebounceTimer.setSingleShot(true);
 	connect(&m_followTargetNameDebounceTimer, &QTimer::timeout, this, &MainWindow::flushFollowTargetNamePropertyEdit);
 	m_propertyPanelCommitTimer.setSingleShot(true);
@@ -259,7 +264,7 @@ void MainWindow::setupMenuBar()
 	m_languageEnglishAction = m_languageMenu->addAction(QStringLiteral("English"));
 	m_languageEnglishAction->setCheckable(true);
 	m_languageActionGroup->addAction(m_languageEnglishAction);
-	m_languageChineseAction = m_languageMenu->addAction(QStringLiteral("涓枃"));
+	m_languageChineseAction = m_languageMenu->addAction(QStringLiteral("中文"));
 	m_languageChineseAction->setCheckable(true);
 	m_languageActionGroup->addAction(m_languageChineseAction);
 	m_languageChineseAction->setChecked(true);
@@ -317,16 +322,10 @@ void MainWindow::setupDockWidgets()
 	});
 	m_backendTree->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(m_backendTree, &QTreeWidget::customContextMenuRequested, this, &MainWindow::onBackendTreeContextMenu);
-	m_simulationDockTabs = new QTabWidget(m_unitDockTabs);
-	setupDockTabWidget(m_simulationDockTabs);
-	m_simulationCommandPage = new SimulationCommandWidget(m_simulationDockTabs);
-	m_robotAxisControlPage = new RobotAxisControlWidget(m_simulationDockTabs);
-	m_robotFrameSettingsPage = new RobotFrameSettingsWidget(m_simulationDockTabs);
-	m_simulationDockTabs->addTab(m_simulationCommandPage, QStringLiteral("Instructions"));
-	m_simulationDockTabs->addTab(m_robotAxisControlPage, QStringLiteral("Axis control"));
-	m_simulationDockTabs->addTab(m_robotFrameSettingsPage, QStringLiteral("Frames"));
+	m_robotSimulation->createSimulationDock(m_unitDockTabs);
 	m_unitDockTabs->addTab(m_backendTree, QStringLiteral("Units"));
-	m_unitDockTabs->addTab(m_simulationDockTabs, QStringLiteral("Simulation"));
+	m_unitDockTabs->addTab(m_robotSimulation->simulationDock(), QStringLiteral("Simulation"));
+	m_robotSimulation->wireSimulationSignals();
 	m_osgSceneTree = new QTreeWidget();
 	m_osgSceneTree->setColumnCount(2);
 	m_osgSceneTree->setHeaderHidden(false);
@@ -345,28 +344,6 @@ void MainWindow::setupDockWidgets()
 	m_rightPanelTabs->addTab(m_aiAssistantPage, QStringLiteral("AI"));
 	m_unitDock->setWidget(m_rightPanelTabs);
 	hideDockTitleBar(m_unitDock);
-	connect(m_simulationCommandPage, &SimulationCommandWidget::runRequested, this, &MainWindow::onSimulationRunRequested);
-	connect(m_simulationCommandPage, &SimulationCommandWidget::stopRequested, this, &MainWindow::onSimulationStopRequested);
-	connect(m_simulationCommandPage, &SimulationCommandWidget::exportProgramRequested, this,
-		&MainWindow::onSimulationExportRequested);
-	connect(m_simulationCommandPage, &SimulationCommandWidget::addInstructionRequested,
-		this, &MainWindow::onSimulationAddInstructionRequested);
-	connect(m_simulationCommandPage, &SimulationCommandWidget::instructionSelectionChanged,
-		this, &MainWindow::onSimulationInstructionSelectionChanged);
-	connect(m_simulationCommandPage, &SimulationCommandWidget::robotSelectionChanged,
-		this, &MainWindow::onSimulationRobotSelectionChanged);
-	connect(m_simulationCommandPage, &SimulationCommandWidget::tcpDragTeachModeChanged,
-		this, &MainWindow::onSimulationTcpDragTeachModeChanged);
-	connect(m_robotAxisControlPage, &RobotAxisControlWidget::allJointAnglesChanged,
-		this, &MainWindow::onRobotAxisJointAnglesChanged);
-	connect(m_robotFrameSettingsPage, &RobotFrameSettingsWidget::framesChanged, this,
-		&MainWindow::onRobotCoordinateFramesChanged);
-	connect(m_robotFrameSettingsPage, &RobotFrameSettingsWidget::captureToolFromTcpRequested, this,
-		&MainWindow::onCaptureToolFrameFromTcp);
-	connect(m_robotFrameSettingsPage, &RobotFrameSettingsWidget::captureUserFrameFromTcpRequested, this,
-		&MainWindow::onCaptureUserFrameFromTcp);
-	connect(m_robotFrameSettingsPage, &RobotFrameSettingsWidget::resetToolFrameRequested, this,
-		&MainWindow::onResetToolFrame);
 	addDockWidget(Qt::RightDockWidgetArea, m_unitDock);
 	setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
 	setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
@@ -416,6 +393,14 @@ void MainWindow::setupDockWidgets()
 
 	// Defer plugin load until the dock/tab hierarchy is fully attached (avoids addTab crash at startup).
 	QTimer::singleShot(0, this, [this]() { loadPlugins(); });
+}
+
+MainWindow::~MainWindow()
+{
+	if (m_pluginManager)
+	{
+		m_pluginManager->shutdownAll();
+	}
 }
 
 void MainWindow::shutdownApplicationLogging()

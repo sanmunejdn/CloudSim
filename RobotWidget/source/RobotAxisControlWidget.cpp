@@ -4,7 +4,6 @@
 #include <QDebug>
 #include <cmath>
 
-namespace UrdfRobotLoader {
 static constexpr double kPi = 3.14159265358979323846;
 
 RobotAxisControlWidget::RobotAxisControlWidget(QWidget* parent)
@@ -397,5 +396,3 @@ double RobotAxisControlWidget::sliderValueToAngle(int value) const
 {
 	return value / SLIDER_SCALE;
 }
-
-} // namespace UrdfRobotLoader

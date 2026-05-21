@@ -15,7 +15,7 @@
 
 #include "IRobotSimulationDocument.h"
 #include "RobotCoordinateFrames.h"
-#include "RobotProgramStore.h"
+#include "../RobotWidget/inc/RobotProgramStore.h"
 
 #include <string>
 #include <unordered_set>

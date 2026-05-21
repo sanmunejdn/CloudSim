@@ -5,7 +5,8 @@
 | 子工程 | 职责简述 | 开发文档 |
 |--------|----------|----------|
 | **CloudSim** | 可执行入口、`main` 生命周期 | [CloudSim/DEVELOPER_GUIDE.md](../CloudSim/DEVELOPER_GUIDE.md) |
-| **Widget** | Qt 主窗口、文档页、OSG 桥接、仿真 UI | [Widget/DEVELOPER_GUIDE.md](../Widget/DEVELOPER_GUIDE.md) |
+| **Widget** | Qt 主窗口、文档页、OSG/TCP 示教桥接 | [Widget/DEVELOPER_GUIDE.md](../Widget/DEVELOPER_GUIDE.md) |
+| **RobotWidget** | 仿真/设备 Dock UI、`RobotSimulationController`、工程机器人 JSON | [RobotWidget/DEVELOPER_GUIDE.md](../RobotWidget/DEVELOPER_GUIDE.md) |
 | **Data** | 后端对象模型、属性、层级、跟随求解 | [Data/DEVELOPER_GUIDE.md](../Data/DEVELOPER_GUIDE.md) |
 | **BackendVisual** | 数据 → OSG 分支构建策略 | [BackendVisual/DEVELOPER_GUIDE.md](../BackendVisual/DEVELOPER_GUIDE.md) |
 | **OsgWidgetCore** | 纯 OSG 场景、拾取、gizmo、绑定索引 | [OsgWidgetCore/DEVELOPER_GUIDE.md](../OsgWidgetCore/DEVELOPER_GUIDE.md) |
@@ -26,9 +27,13 @@ flowchart TB
   W --> O[OsgWidgetCore]
   W --> BV[BackendVisual]
   W --> D[Data]
-  W --> RS[RobotScene]
-  W --> RU[RobotUrdf]
-  W --> RK[RobotKinematics]
+  W --> RW[RobotWidget]
+  RW --> RS[RobotScene]
+  RW --> RU[RobotUrdf]
+  RW --> RK[RobotKinematics]
+  W --> RS
+  W --> RU
+  W --> RK
   W --> GE[GeometryEngine]
   W --> RL[RunLogger]
   W --> PH[CloudSimPluginHost]

@@ -6,7 +6,8 @@ alwaysApply: true
 # CloudSim 架构
 
 - **解决方案**: `CloudSim.sln`（Visual Studio 2019，`v142`，Unicode，`Win32`/`x64`）。
-- **工程**: `CloudSim`（可执行）、`Widget`（x64 为 DLL，含 `CloudSimPluginHost` 源码）、`Data`、`OsgWidgetCore`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`CloudSimPluginSDK`（DLL）、`HelloPlugin`（示例插件 DLL，输出到 `bin/.../plugins/`）。
+- **工程**: `CloudSim`（可执行）、`Widget`（x64 为 DLL，含 `CloudSimPluginHost` 源码）、`RobotWidget`（x64 DLL，仿真/设备 UI 与编排）、`AiWidget`（x64 DLL）、`AiBackend`、`Data`、`OsgWidgetCore`、`GeometryEngine`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`CloudSimPluginSDK`（DLL）、`HelloPlugin`（示例插件 DLL，输出到 `bin/.../plugins/`）。`RobotWidget` 仅 **x64**；Win32 不链接。
 - **技术栈**: C++、**Qt 5.14**（`msvc2017_64`）、**OpenSceneGraph**、**CGAL**（点云/PLY 等）、**nlohmann::json**（属性与工程序列化）。
 - **目录习惯**: 各子工程内 **`inc/`** 放头文件，**`source/`** 放实现；跨模块引用通过 vcxproj 的包含目录（常见为相对路径如 `../OsgWidgetCore/inc/...`）。
 - **修改代码时**: 新增源文件需在对应 **`.vcxproj` / `.vcxproj.filters`** 中登记；新增跨 DLL 符号需正确使用该模块的 **`*_LIB` 预处理器定义** 与导出宏（见各 `*_global.h`）。
+- **机器人仿真**: 编排与 Dock UI 在 `RobotWidget`；`MainWindowRobotHost::DocumentHost` 必须转发 `robotBackendManagerForKinematics()`。运动指令 `context.currentJointRadCsv` 为预览/Run 关节真源；`prepareMotionInstructionForPlanning` 不得用 FK 覆盖指令 `pose`。详见 `RobotWidget/DEVELOPER_GUIDE.md`、`ARCHITECTURE_SUMMARY.md` §6.4。

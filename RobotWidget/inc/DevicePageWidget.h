@@ -4,12 +4,14 @@
 #include <QString>
 #include <QWidget>
 
+#include "robotwidget_global.h"
+
 class QListWidget;
 class QVBoxLayout;
 class QScrollArea;
 
 /// 设备页：三列——设备类型 | 设备品牌 | 具体型号（缩略图按钮），数据来自 resource/models 目录树。
-class DevicePageWidget : public QWidget
+class ROBOTWIDGET_EXPORT DevicePageWidget : public QWidget
 {
 	Q_OBJECT
 

@@ -17,12 +17,8 @@
 #include "MainWindowSelectionState.h"
 
 #include <json.hpp>
-#include "RobotAxisControlWidget.h"
+#include "RobotInstructionModel.h"
 #include "RobotInstructionController.h"
-#include "RobotProgramExecutor.h"
-#include "RobotFrameSettingsWidget.h"
-#include "SimulationCommandWidget.h"
-#include "SimulationLogIoSink.h"
 #include "RunInfoPage.h"
 
 class QWidget;
@@ -50,20 +46,22 @@ class QActionGroup;
 class MainWindowImportCaptureRenderController;
 class JobSystem;
 class DevicePageWidget;
+class RobotSimulationController;
+class MainWindowRobotHost;
 class MainWindowSelectionService;
 class MainWindowObjectRepository;
 class AiAssistantDockWidget;
 class AiAssistantCoordinator;
 class PluginManager;
 
-/// 搴旂敤绋嬪簭涓荤獥鍙ｏ細鑿滃崟銆佸仠闈犳爮銆佹枃妗ｉ〉銆佸睘鎬ч潰鏉夸笌 OsgWidget 鐨勫崗璋冨叆鍙ｃ€?
+/// 应用程序主窗口：菜单、停靠栏、文档页、属性面板与 OsgWidget 的协调入口。
 class WIDGET_EXPORT MainWindow : public QMainWindow
 {
 	Q_OBJECT
 
 public:
 	explicit MainWindow(QWidget* parent = nullptr);
-	~MainWindow() override = default;
+	~MainWindow() override;
 
 	/// Call once after \c QApplication::exec() returns (same RunLogger module as \ref RunInfoPage).
 	static void shutdownApplicationLogging();
@@ -79,6 +77,16 @@ public:
 	void removePluginSidePanelTab(QWidget* widget);
 	QTabWidget* rightPanelTabs() const { return m_rightPanelTabs; }
 	int currentSimulationRobotInstanceIndex() const;
+	RobotSimulationController* robotSimulation() { return m_robotSimulation.get(); }
+	class SimulationCommandWidget* simulationCommandPage() const;
+	void refreshSimulationJointListFromCurrentDoc();
+	void syncRobotFrameSettingsFromDocument(int instanceIndex);
+	void refreshRobotCoordinateFrameOverlays(
+		const std::shared_ptr<RobotInstruction::Base>& instruction = nullptr);
+	void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction);
+	void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
+	void refreshInstructionPoseAxes();
+	void stopRobotSimulation();
 	bool registerExistingBackendObject(std::shared_ptr<BackendDataBase> backendObject, const QString& sourcePath,
 		const QString& typeName, const QString& persistedId = QString(), bool selectInTree = true,
 		const QString& parentId = QString());
@@ -95,6 +103,7 @@ private:
 	friend class MainWindowSelectionService;
 	friend class MainWindowObjectRepository;
 	friend class PluginHostContext;
+	friend class MainWindowRobotHost;
 	void setupMenuBar();
 	void setupDockWidgets();
 	void applyLanguage();
@@ -174,28 +183,15 @@ private:
 	void onSimulationAddInstructionRequested(RobotInstruction::Type type);
 	void onSimulationInstructionSelectionChanged(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void onRobotSimulationTick();
-	void stopRobotSimulation();
-	void logPlaybackFrameComparison(const QVector<double>& finalJointAnglesRad);
-	QHash<QString, bool> computeMotionReachabilityForCurrentProgram();
-	void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
-	void refreshInstructionPoseAxes();
 	void onSimulationExportRequested();
-	void refreshRobotCoordinateFrameOverlays(
-		const std::shared_ptr<RobotInstruction::Base>& highlightInstruction = nullptr);
-	void syncRobotFrameSettingsFromDocument(int instanceIndex);
 	void onRobotCoordinateFramesChanged();
 	void onCaptureToolFrameFromTcp();
 	void onCaptureUserFrameFromTcp();
 	void onResetToolFrame();
-	void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction);
-	void captureMotionPreviewProgramStartJoints();
-	QVector<double> motionPreviewProgramStartJointsLocal(int nj, int jointOffset) const;
-	void refreshSimulationJointListFromCurrentDoc();
 	void onSimulationRobotSelectionChanged(int instanceIndex, const QString& sceneBackendId);
 	void onRobotAxisJointAnglesChanged(const QVector<double>& jointAnglesRad);
 	void onSimulationTcpDragTeachModeChanged(bool enabled);
 	void onTcpDragTeachPoseChanged(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
-	bool applyTcpDragTeachIkFromPose(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
 	void onTcpDragTeachEnded();
 	void setupAiAssistantCoordinator();
 	void onAiCreateMeshCommandReady(const QByteArray& commandJsonUtf8, const QString& parserVia);
@@ -266,25 +262,14 @@ private:
 	DevicePageWidget* m_devicePage = nullptr;
 	QDockWidget* m_unitDock = nullptr;
 	QTabWidget* m_unitDockTabs = nullptr;
-	QTabWidget* m_simulationDockTabs = nullptr;
-	SimulationCommandWidget* m_simulationCommandPage = nullptr;
-	RobotAxisControlWidget* m_robotAxisControlPage = nullptr;
-	RobotFrameSettingsWidget* m_robotFrameSettingsPage = nullptr;
+	std::unique_ptr<RobotSimulationController> m_robotSimulation;
+	std::unique_ptr<MainWindowRobotHost> m_robotHost;
 	QTimer m_robotSimTimer;
 	QTimer m_followTargetNameDebounceTimer;
 	QTimer m_propertyPanelCommitTimer;
 	QString m_propertyPanelCommitPendingBackendId;
 	QString m_followTargetNameDebounceBackendId;
 	QString m_followTargetNameDebounceText;
-	RobotInstruction::Controller m_robotInstructionController;
-	RobotProgramExecutor m_robotProgramExecutor;
-	SimulationLogIoSink m_simulationIoSink;
-	QVector<double> m_aggregatedJointAnglesRad;
-	/// Program-start joint seed for instruction preview / feasible axis probe (not updated by preview).
-	QVector<double> m_motionPreviewProgramStartJointRad;
-	bool m_suppressMotionPreviewStartCapture = false;
-	QString m_tcpDragTeachFlangeLink;
-	QElapsedTimer m_tcpDragTeachIkTimer;
 	QDockWidget* m_runDock = nullptr;
 	/// 右侧 Dock 顶栏：工作区（单元/仿真/场景）与 AI，替代 tabifyDockWidget 底部页签。
 	QTabWidget* m_rightPanelTabs = nullptr;

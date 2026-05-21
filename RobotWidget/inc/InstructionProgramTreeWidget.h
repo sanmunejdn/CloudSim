@@ -1,7 +1,7 @@
 #pragma once
 
 #include "RobotInstructionModel.h"
-#include "widget_global.h"
+#include "robotwidget_global.h"
 
 #include <QTreeWidget>
 
@@ -10,7 +10,7 @@
 #include <vector>
 
 /// Hierarchical instruction program editor with drag-and-drop reparenting.
-class WIDGET_EXPORT InstructionProgramTreeWidget : public QTreeWidget
+class ROBOTWIDGET_EXPORT InstructionProgramTreeWidget : public QTreeWidget
 {
 	Q_OBJECT
 

@@ -137,18 +137,3 @@ void MainWindow::onOpenPointCloud()
 		m_runInfoPage->appendInfo(QStringLiteral("Point cloud opened: %1").arg(filePath));
 	}
 }
-
-void MainWindow::onUrdfImportRequested(const QString& urdfPath)
-{
-	if (urdfPath.isEmpty())
-	{
-		return;
-	}
-	if (!currentOsgWidget())
-	{
-		QMessageBox::warning(this, QStringLiteral("URDF"), QStringLiteral("No active 3D view."));
-		return;
-	}
-	MainWindowImportCaptureRenderController controller;
-	(void)controller.registerUrdfRobot(*this, urdfPath, false);
-}
