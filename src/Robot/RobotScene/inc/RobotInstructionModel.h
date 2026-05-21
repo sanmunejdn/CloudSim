@@ -118,6 +118,7 @@ public:
 
 	const std::unordered_map<std::string, std::string>& extensionProperties() const { return m_extensionProperties; }
 	void setExtensionProperty(const std::string& key, const std::string& value) { m_extensionProperties[key] = value; }
+	void eraseExtensionProperty(const std::string& key) { (void)m_extensionProperties.erase(key); }
 
 protected:
 	void addAttribute(const std::shared_ptr<AttributeBase>& attr);

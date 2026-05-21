@@ -1,6 +1,7 @@
 #include "RobotTeachIk.h"
 
 #include "RobotCoordinateFrames.h"
+#include "RobotMatrixOsgBridge.h"
 
 #include <Adapters.h>
 #include <ToolKinematics.h>
@@ -445,10 +446,11 @@ double residualToolOriginMm(
 	{
 		return 1e30;
 	}
-	const engine::RigidTransform flangeRt = engine::rigidTransformFromOsg(linkWorld.value(ctx.ikLinkName));
-	const engine::RigidTransform fkToolRt = engine::toolOriginFromFlange(flangeRt, T_flange_tool);
-	double fkPos[3]{};
-	fkToolRt.translationMm(fkPos[0], fkPos[1], fkPos[2]);
+	const BackendMat4 fkTcpMat = RobotMatrixOsg::targetInBaseFromFlangeLinkWorld(
+		linkWorld.value(ctx.ikLinkName), ctx.T_flange_tool);
+	const RobotCoordinate::RobotRigidFrame fkTcpFrame = RobotCoordinate::mat4ToFrame(fkTcpMat);
+	const double fkPos[3] = {
+		fkTcpFrame.positionMm[0], fkTcpFrame.positionMm[1], fkTcpFrame.positionMm[2] };
 	const double dx = fkPos[0] - toolOriginPos[0];
 	const double dy = fkPos[1] - toolOriginPos[1];
 	const double dz = fkPos[2] - toolOriginPos[2];

@@ -204,7 +204,14 @@ bool RobotTcpDragTeachOperation::handleEvent(QObject* watched, QEvent* event)
 			m_owner->m_lastMousePos = pos;
 			if (std::abs(dsWorld) > 1e-10)
 			{
-				m_owner->applyTcpTeachTranslationWorld(ax, dsWorld);
+				if (m_owner->transformGizmoFrame() == OsgWidget::TransformGizmoFrame::World)
+				{
+					m_owner->applyTcpTeachTranslationWorld(ax, dsWorld);
+				}
+				else
+				{
+					m_owner->applyTcpTeachTranslationBody(ax, dsWorld);
+				}
 				m_sessionModified = true;
 				m_owner->emitTcpDragTeachPoseChanged();
 			}

@@ -83,6 +83,74 @@ void restoreInstructionPose(RobotInstruction::Base& ins, const MotionPoseBackup&
 	}
 }
 
+void invalidateTaughtJointsForToolFrameChange(RobotInstruction::Base& ins)
+{
+	ins.eraseExtensionProperty("context.currentJointRadCsv");
+	ins.eraseExtensionProperty("context.axisConfigSeeded");
+}
+
+void invalidateTaughtJointsFromMotionIndexForward(
+	const std::vector<const RobotInstruction::Base*>& motions,
+	const int fromMotionIndexInclusive)
+{
+	if (fromMotionIndexInclusive < 0)
+	{
+		return;
+	}
+	for (size_t i = static_cast<size_t>(fromMotionIndexInclusive); i < motions.size(); ++i)
+	{
+		if (RobotInstruction::Base* ins = const_cast<RobotInstruction::Base*>(motions[i]))
+		{
+			invalidateTaughtJointsForToolFrameChange(*ins);
+		}
+	}
+}
+
+bool shouldUseTaughtJointCsv(
+	const RobotInstruction::Base& ins,
+	const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames)
+{
+	if (jointAnglesRadFromInstructionContext(ins).isEmpty())
+	{
+		return false;
+	}
+	const auto& ext = ins.extensionProperties();
+	const auto itMotion = ext.find(RobotCoordinate::kExtMotionToolFrameId);
+	const std::string motionId = (itMotion != ext.end()) ? itMotion->second : std::string();
+	if (motionId.empty() || motionId == "active")
+	{
+		return false;
+	}
+	const auto itFrozen = ext.find("context.activeToolFrameId");
+	if (itFrozen != ext.end() && !itFrozen->second.empty() && itFrozen->second != motionId)
+	{
+		return false;
+	}
+	if (coordinateFrames && coordinateFrames->activeToolFrameId != motionId)
+	{
+		return false;
+	}
+	if (coordinateFrames)
+	{
+		const BackendMat4 live = RobotCoordinate::toolMat4ForExtension(*coordinateFrames, ext);
+		const auto itMat = ext.find(RobotCoordinate::kExtContextToolFrameMat4);
+		if (itMat != ext.end() && !itMat->second.empty())
+		{
+			BackendMat4 frozen{};
+			if (RobotCoordinate::parseMat4Csv(itMat->second, frozen))
+			{
+				const std::string liveCsv = RobotCoordinate::encodeMat4Csv(live);
+				const std::string frozenCsv = RobotCoordinate::encodeMat4Csv(frozen);
+				if (liveCsv != frozenCsv)
+				{
+					return false;
+				}
+			}
+		}
+	}
+	return true;
+}
+
 void prepareMotionInstructionForPlanning(
 	RobotInstruction::Base& ins,
 	const QVector<double>& rollingQ,

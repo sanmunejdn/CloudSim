@@ -46,6 +46,8 @@ public:
 		float modelDiagonalMm,
 		std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld,
 		const osg::Matrixd* toolLocalOnFlange) = 0;
-	virtual void updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target) = 0;
+	virtual void updateTcpDragTeachFromTarget(
+		const engine::RigidTransform& T_base_target,
+		bool syncTargetInBase = true) = 0;
 	virtual void updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLocalOnFlange) = 0;
 };

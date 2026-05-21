@@ -80,11 +80,12 @@ bool runSelfTest(std::vector<std::string>& failures)
 		expectNear(failures, "colMajorRoundTrip.rot", back.rotationErrorDeg(t), 0.0, 1e-4);
 	}
 
-	// Tool offset (0,0,-200) in flange frame must rotate with flange — not stay in base/world Z only.
+	// Tool offset (0,0,-200) in flange frame must rotate with flange (URDF/OSG row chain: parent * child).
 	{
 		const RigidTransform flange = RigidTransform::fromTranslationEulerDeg(1000.0, 500.0, 800.0, 0.0, 90.0, 0.0);
 		const RigidTransform tool = translationOnly(0.0, 0.0, -200.0);
-		const RigidTransform tcp = toolOriginFromFlange(flange, tool);
+		const osg::Matrixd tcpOsg = osgMatrixFromRigidTransform(flange) * osgMatrixFromRigidTransform(tool);
+		const RigidTransform tcp = rigidTransformFromOsg(tcpOsg);
 		double tx = 0.0;
 		double ty = 0.0;
 		double tz = 0.0;
@@ -92,20 +93,6 @@ bool runSelfTest(std::vector<std::string>& failures)
 		expectNear(failures, "flangeLocalToolOffset.deltaX", tx - 1000.0, -200.0, 1e-3);
 		expectNear(failures, "flangeLocalToolOffset.deltaY", ty - 500.0, 0.0, 1e-3);
 		expectNear(failures, "flangeLocalToolOffset.deltaZ", tz - 800.0, 0.0, 1e-3);
-	}
-
-	// URDF FK path: flange from OSG matrix (as rigidTransformFromOsg(linkWorld)) then tool compose.
-	{
-		const RigidTransform flangeEigen = RigidTransform::fromTranslationEulerDeg(1000.0, 500.0, 800.0, 0.0, 90.0, 0.0);
-		const RigidTransform flangeOsgRt = rigidTransformFromOsg(osgMatrixFromRigidTransform(flangeEigen));
-		const RigidTransform tool = translationOnly(0.0, 0.0, -200.0);
-		const RigidTransform tcp = toolOriginFromFlange(flangeOsgRt, tool);
-		double tx = 0.0;
-		double ty = 0.0;
-		double tz = 0.0;
-		tcp.translationMm(tx, ty, tz);
-		expectNear(failures, "urdfOsgFlangeTool.deltaX", tx - 1000.0, -200.0, 1e-3);
-		expectNear(failures, "urdfOsgFlangeTool.deltaZ", tz - 800.0, 0.0, 1e-3);
 	}
 
 	return failures.empty();

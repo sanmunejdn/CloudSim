@@ -82,7 +82,9 @@ public slots:
 	void refreshSimulationJointListFromCurrentDoc();
 	void syncRobotFrameSettingsFromDocument(int instanceIndex);
 	void refreshRobotCoordinateFrameOverlays(
-		const std::shared_ptr<RobotInstruction::Base>& highlightInstruction = nullptr);
+		const std::shared_ptr<RobotInstruction::Base>& highlightInstruction = nullptr,
+		const QVector<double>* jointAnglesRadLocal = nullptr);
+	void refreshRobotCoordinateFrameOverlaysForPlayback();
 	void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void refreshInstructionPoseAxes();

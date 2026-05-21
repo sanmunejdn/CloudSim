@@ -237,9 +237,11 @@ public:
 	{
 		m_osg->beginTcpDragTeach(mountBackendId, T_base_target, modelDiagonalMm, resolveRobotBaseWorld, toolLocalOnFlange);
 	}
-	void updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target) override
+	void updateTcpDragTeachFromTarget(
+		const engine::RigidTransform& T_base_target,
+		bool syncTargetInBase = true) override
 	{
-		m_osg->updateTcpDragTeachFromTarget(T_base_target);
+		m_osg->updateTcpDragTeachFromTarget(T_base_target, syncTargetInBase);
 	}
 	void updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLocalOnFlange) override
 	{

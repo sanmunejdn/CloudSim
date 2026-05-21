@@ -22,6 +22,7 @@
 
 class QTabWidget;
 class OsgWidget;
+class MeshBackendData;
 
 #include "BackendDataManager.h"
 #include "BackendFollowReverseIndex.h"
@@ -40,6 +41,9 @@ public:
 	~DocumentPage() override = default;
 
 	OsgWidget* osgWidget() const { return m_osgWidget; }
+	/// 将已注册的 MeshBackendData 载入本页 OSG 场景（避免在轻量 TU 中直接包含 OsgWidget.h）。
+	bool loadMeshFromBackendIntoScene(const MeshBackendData& data, QString* errorMessage = nullptr,
+		bool resetViewToHome = true, bool showWireOutline = true, bool useSceneLighting = true);
 	BackendDataManager& backend() { return m_backend; }
 	RobotProgramStore& robotProgramStore() { return m_robotProgramStore; }
 	const RobotProgramStore& robotProgramStore() const { return m_robotProgramStore; }

@@ -23,6 +23,31 @@
 
 namespace
 {
+
+bool tcpTeachMountPatWorldMatrix(const osg::MatrixTransform* mountPat, osg::Matrixd& outWorld)
+{
+	if (!mountPat)
+	{
+		return false;
+	}
+	const osg::NodePathList paths = mountPat->getParentalNodePaths();
+	if (paths.empty())
+	{
+		return false;
+	}
+	const osg::NodePath& path = paths.front();
+	outWorld = osg::computeLocalToWorld(path);
+	if (path.empty() || path.back() != mountPat)
+	{
+		outWorld = outWorld * mountPat->getMatrix();
+	}
+	return true;
+}
+
+} // namespace
+
+namespace
+{
 osg::Quat rigidRotationToOsgQuat(const engine::RigidTransform& rt)
 {
 	const Eigen::Quaterniond q = rt.rotation().normalized();
@@ -163,6 +188,12 @@ bool OsgWidget::tcpTeachResolveBaseWorld(osg::Matrixd& outBaseWorld) const
 
 bool OsgWidget::tcpTeachToolWorldMatrix(osg::Matrixd& outToolWorld) const
 {
+	// H8: per-link 法兰挂载时以场景图真值为准，避免 baseWorld 与 URDF 基座不一致导致 World 拖动错位。
+	if (m_tcpTeachUseFlangeLocalPlacement && m_tcpTeachMountPat.valid()
+		&& tcpTeachMountPatWorldMatrix(m_tcpTeachMountPat.get(), outToolWorld))
+	{
+		return true;
+	}
 	osg::Matrixd baseWorld;
 	if (!tcpTeachResolveBaseWorld(baseWorld))
 	{
@@ -172,15 +203,17 @@ bool OsgWidget::tcpTeachToolWorldMatrix(osg::Matrixd& outToolWorld) const
 	return true;
 }
 
-void OsgWidget::tcpTeachSetTargetFromToolWorld(const osg::Matrixd& toolWorld)
+void OsgWidget::tcpTeachSetTargetFromToolWorld(const osg::Matrixd& toolWorldOsg)
 {
-	osg::Matrixd baseWorld;
-	if (!tcpTeachResolveBaseWorld(baseWorld))
+	osg::Matrixd baseWorldOsg;
+	if (!tcpTeachResolveBaseWorld(baseWorldOsg))
 	{
 		return;
 	}
-	const osg::Matrixd toolInBase = toolWorld * osg::Matrixd::inverse(baseWorld);
-	m_tcpTeachTargetInBase = engine::rigidTransformFromOsg(toolInBase);
+	const engine::RigidTransform toolW = engine::rigidTransformFromOsg(toolWorldOsg);
+	const engine::RigidTransform baseW = engine::rigidTransformFromOsg(baseWorldOsg);
+	// URDF/IK 基座用 composeColumn；勿用 OSG 行链 toolWorld*inv(base) 再转 Eigen（易致 X/Z 与 Y 符号不一致）。
+	m_tcpTeachTargetInBase = baseW.inverse().composeColumn(toolW);
 }
 
 void OsgWidget::beginTcpDragTeach(
@@ -284,9 +317,15 @@ void OsgWidget::updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLoca
 	requestRedraw();
 }
 
-void OsgWidget::updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target)
+void OsgWidget::updateTcpDragTeachFromTarget(
+	const engine::RigidTransform& T_base_target,
+	bool syncTargetInBase)
 {
-	m_tcpTeachTargetInBase = T_base_target;
+	// Per-link flange mount: scene pose follows link FK; keep dragged T_base_target for IK (DEVELOPER_GUIDE §13.1).
+	if (syncTargetInBase || !m_tcpTeachUseFlangeLocalPlacement)
+	{
+		m_tcpTeachTargetInBase = T_base_target;
+	}
 	if (!m_tcpTeachActive || !m_tcpTeachMountPat.valid() || m_tcpTeachMountBackendId.empty())
 	{
 		return;
@@ -457,38 +496,45 @@ bool OsgWidget::tcpTeachCompassUnitAxisWorld(const DragAxis axis, osg::Vec3d& ou
 	{
 		return false;
 	}
-	osg::Vec3f origin;
-	computeTcpTeachPivotWorld(origin);
-	osg::Vec3f tipLocal(120.0f, 0.0f, 0.0f);
-	if (axis == DragAxis::Y)
-	{
-		tipLocal.set(0.0f, 120.0f, 0.0f);
-	}
-	else if (axis == DragAxis::Z)
-	{
-		tipLocal.set(0.0f, 0.0f, 120.0f);
-	}
-	const osg::Quat attitude = rigidRotationToOsgQuat(m_tcpTeachTargetInBase);
-	osg::Quat compassAtt;
 	if (transformGizmoFrame() == TransformGizmoFrame::World)
 	{
-		compassAtt = attitude.inverse();
+		if (axis == DragAxis::X)
+		{
+			outAxisWorld.set(1.0, 0.0, 0.0);
+		}
+		else if (axis == DragAxis::Y)
+		{
+			outAxisWorld.set(0.0, 1.0, 0.0);
+		}
+		else
+		{
+			outAxisWorld.set(0.0, 0.0, 1.0);
+		}
+		return true;
 	}
-	else
+	osg::Matrixd baseWorldOsg;
+	if (!tcpTeachResolveBaseWorld(baseWorldOsg))
 	{
-		compassAtt = osg::Quat();
+		return false;
 	}
-	const osg::Vec3f tipWorld = origin + attitude * (compassAtt * tipLocal);
-	outAxisWorld.set(
-		static_cast<double>(tipWorld.x() - origin.x()),
-		static_cast<double>(tipWorld.y() - origin.y()),
-		static_cast<double>(tipWorld.z() - origin.z()));
-	const double len = outAxisWorld.length();
+	const engine::RigidTransform baseW = engine::rigidTransformFromOsg(baseWorldOsg);
+	Eigen::Vector3d localAxis = Eigen::Vector3d::UnitZ();
+	if (axis == DragAxis::X)
+	{
+		localAxis = Eigen::Vector3d::UnitX();
+	}
+	else if (axis == DragAxis::Y)
+	{
+		localAxis = Eigen::Vector3d::UnitY();
+	}
+	// 屏幕标定轴须与 IK 基座目标一致；勿用场景 FK 的 toolW.rotation()（X/Z 可能与 Y 符号相反）。
+	const Eigen::Vector3d w = baseW.rotation() * m_tcpTeachTargetInBase.rotation() * localAxis;
+	const double len = w.norm();
 	if (len < 1e-12)
 	{
 		return false;
 	}
-	outAxisWorld /= len;
+	outAxisWorld.set(w.x() / len, w.y() / len, w.z() / len);
 	return true;
 }
 
@@ -704,16 +750,22 @@ void OsgWidget::applyTcpTeachTranslationWorld(const int axisIndex, const double 
 			axisW.set(0.0, 1.0, 0.0);
 		}
 	}
-	osg::Matrixd toolWorld;
-	if (!tcpTeachToolWorldMatrix(toolWorld))
+	osg::Matrixd toolWorldOsg;
+	if (!tcpTeachToolWorldMatrix(toolWorldOsg))
 	{
 		return;
 	}
-	engine::RigidTransform toolInWorld = engine::rigidTransformFromOsg(toolWorld);
-	Eigen::Vector3d t = toolInWorld.translationMm();
+	engine::RigidTransform toolW = engine::rigidTransformFromOsg(toolWorldOsg);
+	Eigen::Vector3d t = toolW.translationMm();
 	t += Eigen::Vector3d(axisW.x(), axisW.y(), axisW.z()) * dsWorld;
-	toolInWorld.setTranslationMm(t);
-	tcpTeachSetTargetFromToolWorld(engine::osgMatrixFromRigidTransform(toolInWorld));
+	toolW.setTranslationMm(t);
+	osg::Matrixd baseWorldOsg;
+	if (!tcpTeachResolveBaseWorld(baseWorldOsg))
+	{
+		return;
+	}
+	const engine::RigidTransform baseW = engine::rigidTransformFromOsg(baseWorldOsg);
+	m_tcpTeachTargetInBase = baseW.inverse().composeColumn(toolW);
 }
 
 void OsgWidget::applyTcpTeachTranslationBody(const int axisIndex, const double dsWorld)

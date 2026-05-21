@@ -36,6 +36,7 @@ public:
 	RobotInstructionPlaybackTickResult tick(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg);
 
 	const QVector<double>& jointAnglesRad() const { return m_jointAnglesRad; }
+	const RobotInstruction::Base* activeMotion() const { return m_activeMotion; }
 
 private:
 	struct ListFrame

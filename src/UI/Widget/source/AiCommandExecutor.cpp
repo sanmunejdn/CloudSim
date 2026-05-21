@@ -6,7 +6,6 @@
 #include "DocumentPage.h"
 #include "MainWindow.h"
 #include "MeshBackendData.h"
-#include "OsgWidget.h"
 
 #include <memory>
 
@@ -78,15 +77,12 @@ bool executeFromJson(MainWindow& mw, const nlohmann::json& cmd, QString& outAssi
 		return false;
 	}
 
-	if (OsgWidget* osg = doc->osgWidget())
+	QString sceneErr;
+	// Match general mesh import: lit plastic + wire; requires outward CCW winding in soup.
+	if (!doc->loadMeshFromBackendIntoScene(*mesh, &sceneErr, true, true, true))
 	{
-		QString sceneErr;
-		// Match general mesh import: lit plastic + wire; requires outward CCW winding in soup.
-		if (!osg->loadMeshFromBackendData(*mesh, &sceneErr, true, true, true))
-		{
-			outError = sceneErr;
-			return false;
-		}
+		outError = sceneErr;
+		return false;
 	}
 
 	const QString prim = QString::fromStdString(AiCommandSchema::primitiveKindToString(params.kind));

@@ -230,7 +230,7 @@ public:
 		std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld = nullptr,
 		const osg::Matrixd* toolLocalOnFlange = nullptr);
 	void endTcpDragTeach();
-	void updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target);
+	void updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target, bool syncTargetInBase = true);
 	/// Update \c T_flange_tool PAT while flange-local TCP teach is active (e.g. user switched active tool frame).
 	void updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLocalOnFlange);
 	engine::RigidTransform tcpDragTeachTargetInBase() const { return m_tcpTeachTargetInBase; }

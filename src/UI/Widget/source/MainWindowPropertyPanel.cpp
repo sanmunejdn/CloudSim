@@ -27,6 +27,7 @@
 #include "RobotInstructionPropertySchema.h"
 #include "RobotInstructionProgram.h"
 #include "RunLogger.h"
+#include "../RobotWidget/inc/RobotInstructionPlanningHelpers.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
 
 #include "../../Data/PropertyCore/inc/PropertyTypes.h"
@@ -799,9 +800,11 @@ void MainWindow::updateInstructionPropertyPanel(
 	m_variantManager->clear();
 	if (!instruction)
 	{
+		m_activeInstructionForProperty.reset();
 		m_updatingPropertyBrowser = false;
 		return;
 	}
+	m_activeInstructionForProperty = instruction;
 
 	appendPropertyBrowserRow(QStringLiteral("core.id"),
 		propertyDisplayLabelForKey(QStringLiteral("core.id"), QStringLiteral("ID")),
@@ -1370,10 +1373,42 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 					}
 				}
 			}
+			int changedMotionIndex = -1;
+			if (simulationCommandPage())
+			{
+				const std::vector<std::shared_ptr<RobotInstruction::Base>> program =
+					simulationCommandPage()->instructions(simulationCommandPage()->currentRobotBackendId());
+				const std::vector<const RobotInstruction::Base*> motions =
+					RobotInstruction::collectMotionInstructions(program);
+				for (size_t i = 0; i < motions.size(); ++i)
+				{
+					if (motions[i] && motions[i]->id() == m_activeInstructionForProperty->id())
+					{
+						changedMotionIndex = static_cast<int>(i);
+						break;
+					}
+				}
+				if (changedMotionIndex >= 0)
+				{
+					RobotInstructionPlanning::invalidateTaughtJointsFromMotionIndexForward(
+						motions, changedMotionIndex);
+				}
+				else
+				{
+					RobotInstructionPlanning::invalidateTaughtJointsForToolFrameChange(
+						*m_activeInstructionForProperty);
+				}
+			}
+			else
+			{
+				RobotInstructionPlanning::invalidateTaughtJointsForToolFrameChange(
+					*m_activeInstructionForProperty);
+			}
 			syncInstructionRenderMatricesFromPose(m_activeInstructionForProperty);
 			invalidateFeasibleAxisConfigurationCache();
 			applyRobotPoseForInstructionPreview(m_activeInstructionForProperty);
-			updateInstructionPropertyPanel(m_activeInstructionForProperty, true);
+			// 工具系切换已触发整链预览 IK；延后可行轴枚举，避免与预览重复多初值求解造成卡顿。
+			updateInstructionPropertyPanel(m_activeInstructionForProperty, false);
 			refreshRobotCoordinateFrameOverlays(m_activeInstructionForProperty);
 			refreshInstructionPoseAxes();
 			if (m_runInfoPage)

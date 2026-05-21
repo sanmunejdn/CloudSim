@@ -7,6 +7,7 @@
 #include "BackendDataManager.h"
 #include "BackendDataBase.h"
 #include "FollowAttachmentComponent.h"
+#include "MeshBackendData.h"
 #include "OsgWidget.h"
 
 #include <memory>
@@ -622,5 +623,20 @@ RobotCoordinate::RobotCoordinateFrameSet& DocumentPage::robotCoordinateFramesFor
 const RobotCoordinate::RobotUserFrame* DocumentPage::robotActiveUserFrameForInstance(const int instanceIndex) const
 {
 	return RobotCoordinate::activeUserFrame(robotCoordinateFramesForInstance(instanceIndex));
+}
+
+bool DocumentPage::loadMeshFromBackendIntoScene(
+	const MeshBackendData& data,
+	QString* errorMessage,
+	const bool resetViewToHome,
+	const bool showWireOutline,
+	const bool useSceneLighting)
+{
+	if (!m_osgWidget)
+	{
+		return false;
+	}
+	return m_osgWidget->loadMeshFromBackendData(
+		data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting);
 }
 

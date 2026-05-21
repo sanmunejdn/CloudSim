@@ -4,6 +4,7 @@
 #include "robotwidget_global.h"
 
 #include <unordered_map>
+#include <vector>
 #include <QVector>
 #include <QString>
 
@@ -27,6 +28,19 @@ ROBOTWIDGET_EXPORT void restoreInstructionPose(RobotInstruction::Base& ins, cons
 ROBOTWIDGET_EXPORT std::string encodeJointAnglesRadCsv(const QVector<double>& jointAnglesRad);
 ROBOTWIDGET_EXPORT QVector<double> jointAnglesRadFromInstructionContext(const RobotInstruction::Base& ins);
 ROBOTWIDGET_EXPORT double motionDurationSecFromInstruction(const RobotInstruction::Base& ins, double defaultSec = 0.5);
+
+/// Drop taught joint CSV so preview/Run replan IK after \c motion.tool.frameId / tool matrix change.
+ROBOTWIDGET_EXPORT void invalidateTaughtJointsForToolFrameChange(RobotInstruction::Base& ins);
+
+/// 从 \a fromMotionIndexInclusive 起清除示教关节（含当前点），避免下游仍用旧工具系下的 CSV。
+ROBOTWIDGET_EXPORT void invalidateTaughtJointsFromMotionIndexForward(
+	const std::vector<const RobotInstruction::Base*>& motions,
+	int fromMotionIndexInclusive);
+
+/// True only when taught CSV matches this point's frozen \c motion.tool.frameId / tool matrix (not global "active").
+ROBOTWIDGET_EXPORT bool shouldUseTaughtJointCsv(
+	const RobotInstruction::Base& ins,
+	const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames);
 
 ROBOTWIDGET_EXPORT void prepareMotionInstructionForPlanning(
 	RobotInstruction::Base& ins,

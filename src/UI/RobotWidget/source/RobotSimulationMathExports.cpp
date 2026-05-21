@@ -78,7 +78,13 @@ bool targetInBaseFromUrdfFlangeFk(
 		return false;
 	}
 	const BackendMat4 T_tool = toolMat4ForFrames(frames, instructionWithTool);
-	outTargetInBase = RobotMatrixOsg::targetInBaseFromFlangeLinkWorld(linkWorld.value(flangeQ), T_tool);
+	const engine::RigidTransform T_base_flange =
+		engine::rigidTransformFromOsg(linkWorld.value(flangeQ));
+	const engine::RigidTransform T_flange_tool =
+		RobotCoordinate::rigidTransformFromBackendMat4(T_tool);
+	const engine::RigidTransform T_base_target =
+		engine::toolOriginFromFlange(T_base_flange, T_flange_tool);
+	outTargetInBase = RobotCoordinate::backendMat4FromRigidTransform(T_base_target);
 	if (outFlangeLinkName)
 	{
 		*outFlangeLinkName = flangeQ;

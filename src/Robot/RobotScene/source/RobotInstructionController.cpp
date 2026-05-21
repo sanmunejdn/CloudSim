@@ -13,7 +13,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
+#include <fstream>
 #include <sstream>
 
 #include <QHash>
@@ -26,6 +28,21 @@
 namespace
 {
 constexpr double kDegToRad = 3.14159265358979323846 / 180.0;
+// #region agent log
+void agentDebugLogScene(
+	const char* hypothesisId,
+	const char* location,
+	const char* message,
+	const std::string& dataJson,
+	const char* runId = "pre-fix")
+{
+	(void)hypothesisId;
+	(void)location;
+	(void)message;
+	(void)dataJson;
+	(void)runId;
+}
+// #endregion
 
 bool solveLinearSystem(std::vector<double>& a, std::vector<double>& b, int n)
 {
@@ -126,9 +143,18 @@ bool ikLinkTargetFromInstruction(const RobotInstruction::Base& cmd, IkLinkTarget
 	{
 		(void)RobotCoordinate::parseMat4Csv(itTool->second, T_flange_tool);
 	}
+	double rawTx = 0.0;
+	double rawTy = 0.0;
+	double rawTz = 0.0;
+	T_base_target.translationMm(rawTx, rawTy, rawTz);
+	const engine::RigidTransform T_tool = RobotCoordinate::rigidTransformFromBackendMat4(T_flange_tool);
+	double toolTx = 0.0;
+	double toolTy = 0.0;
+	double toolTz = 0.0;
+	T_tool.translationMm(toolTx, toolTy, toolTz);
 	const engine::RigidTransform T_base_link = engine::flangeFromToolOrigin(
 		T_base_target,
-		RobotCoordinate::rigidTransformFromBackendMat4(T_flange_tool));
+		T_tool);
 	double tx = 0.0;
 	double ty = 0.0;
 	double tz = 0.0;
@@ -143,6 +169,15 @@ bool ikLinkTargetFromInstruction(const RobotInstruction::Base& cmd, IkLinkTarget
 		normalizeQuatSafe(out.quat);
 		out.hasOrientation = true;
 	}
+	// #region agent log
+	{
+		std::ostringstream d;
+		d << "{\"rawTarget\":{\"x\":" << rawTx << ",\"y\":" << rawTy << ",\"z\":" << rawTz
+		  << "},\"toolOffset\":{\"x\":" << toolTx << ",\"y\":" << toolTy << ",\"z\":" << toolTz
+		  << "},\"computedFlange\":{\"x\":" << tx << ",\"y\":" << ty << ",\"z\":" << tz << "}}";
+		agentDebugLogScene("H12", "ikLinkTargetFromInstruction", "tool_to_flange_conversion", d.str());
+	}
+	// #endregion
 	return true;
 }
 
@@ -553,10 +588,9 @@ void logIkSolveResidual(
 		if (UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, qQt, linkWorld, nullptr)
 			&& linkWorld.contains(flangeLinkQ))
 		{
-			const engine::RigidTransform flangeRt = engine::rigidTransformFromOsg(linkWorld.value(flangeLinkQ));
-			fkToolRt = engine::toolOriginFromFlange(
-				flangeRt,
-				RobotCoordinate::rigidTransformFromBackendMat4(T_flange_tool));
+			const BackendMat4 fkTcpMat = RobotMatrixOsg::targetInBaseFromFlangeLinkWorld(
+				linkWorld.value(flangeLinkQ), T_flange_tool);
+			fkToolRt = RobotCoordinate::rigidTransformFromBackendMat4(fkTcpMat);
 			fkToolRt.translationMm(fkToolOriginPos[0], fkToolOriginPos[1], fkToolOriginPos[2]);
 			hasFkToolRot = true;
 		}
@@ -810,7 +844,11 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 		return {};
 	}
 	const auto itTcp = ext.find("context.tcpLinkName");
-	if (itTcp == ext.end() || itTcp->second.empty())
+	const auto itFlange = ext.find("context.flangeLinkName");
+	const std::string ikLinkName = (itFlange != ext.end() && !itFlange->second.empty())
+		? itFlange->second
+		: ((itTcp != ext.end()) ? itTcp->second : std::string());
+	if (ikLinkName.empty())
 	{
 		if (failReason)
 		{
@@ -827,7 +865,7 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 		return {};
 	}
 	const QString urdfPath = QString::fromStdString(itUrdf->second);
-	const QString tcpLink = QString::fromStdString(itTcp->second);
+	const QString ikLink = QString::fromStdString(ikLinkName);
 	IkLinkTarget linkTarget{};
 	if (!ikLinkTargetFromInstruction(cmd, linkTarget))
 	{
@@ -840,6 +878,28 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 	const double target[3] = { linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2] };
 	const bool useOrientation = linkTarget.hasOrientation;
 	const osg::Quat targetQuat = useOrientation ? linkTarget.quat : osg::Quat();
+	engine::RigidTransform targetToolRt{};
+	const bool hasTargetToolRt = RobotInstruction::readTargetTransformFromInstruction(cmd, targetToolRt);
+	BackendMat4 T_flange_tool = BackendMat4::identity();
+	if (const auto itToolMat = ext.find(RobotCoordinate::kExtContextToolFrameMat4);
+		itToolMat != ext.end() && !itToolMat->second.empty())
+	{
+		(void)RobotCoordinate::parseMat4Csv(itToolMat->second, T_flange_tool);
+	}
+	const engine::RigidTransform flangeToolRt = RobotCoordinate::rigidTransformFromBackendMat4(T_flange_tool);
+	// #region agent log
+	{
+		const auto itMotionTool = ext.find(RobotCoordinate::kExtMotionToolFrameId);
+		const auto itCtxTool = ext.find("context.activeToolFrameId");
+		const std::string motionToolId = (itMotionTool != ext.end()) ? itMotionTool->second : std::string();
+		const std::string ctxToolId = (itCtxTool != ext.end()) ? itCtxTool->second : std::string();
+		std::ostringstream d;
+		d << "{\"ikLink\":\"" << ikLinkName << "\",\"motionToolId\":\"" << motionToolId
+		  << "\",\"ctxToolId\":\"" << ctxToolId << "\",\"target\":{\"x\":" << target[0]
+		  << ",\"y\":" << target[1] << ",\"z\":" << target[2] << "}}";
+		agentDebugLogScene("H10", "solveTargetByUrdfNumericalIkFromSeed", "ik_input_link_target", d.str());
+	}
+	// #endregion
 	const double targetNormMm = std::sqrt(target[0] * target[0] + target[1] * target[1] + target[2] * target[2]);
 	if (targetNormMm > 50000.0)
 	{
@@ -852,7 +912,7 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 
 	double pos[3] = { 0.0, 0.0, 0.0 };
 	osg::Quat curQuat;
-	if (!tcpPositionFromUrdf(urdfPath, tcpLink, q, pos, useOrientation ? &curQuat : nullptr))
+	if (!tcpPositionFromUrdf(urdfPath, ikLink, q, pos, useOrientation ? &curQuat : nullptr))
 	{
 		if (failReason)
 		{
@@ -882,7 +942,7 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 	const double orientationWeight = useOrientation ? 300.0 : 1.0;
 	for (int iter = 0; iter < maxIters; ++iter)
 	{
-		if (!tcpPositionFromUrdf(urdfPath, tcpLink, q, pos, useOrientation ? &curQuat : nullptr))
+		if (!tcpPositionFromUrdf(urdfPath, ikLink, q, pos, useOrientation ? &curQuat : nullptr))
 		{
 			if (failReason)
 			{
@@ -907,6 +967,27 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 		}
 		if (posErr < 1e-2 && (!useOrientation || rotErr < 0.1 * kDegToRad))
 		{
+			// #region agent log
+			{
+				double toolPosErr = -1.0;
+				if (useOrientation && hasTargetToolRt)
+				{
+					const Eigen::Quaterniond qFlange(
+						curQuat.w(), curQuat.x(), curQuat.y(), curQuat.z());
+					const engine::RigidTransform fkFlangeRt =
+						engine::RigidTransform::fromTranslationQuat(
+							Eigen::Vector3d(pos[0], pos[1], pos[2]), qFlange);
+					const engine::RigidTransform fkToolRt =
+						engine::toolOriginFromFlange(fkFlangeRt, flangeToolRt);
+					toolPosErr = (fkToolRt.translationMm() - targetToolRt.translationMm()).norm();
+				}
+				std::ostringstream d;
+				d << "{\"ikLink\":\"" << ikLinkName << "\",\"finalPosErrMm\":" << posErr
+				  << ",\"finalRotErrRad\":" << rotErr << ",\"toolPosErrMm\":" << toolPosErr
+				  << ",\"iter\":" << iter << "}";
+				agentDebugLogScene("H10", "solveTargetByUrdfNumericalIkFromSeed", "ik_converged", d.str());
+			}
+			// #endregion
 			return q;
 		}
 
@@ -918,7 +999,7 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 			qPert[static_cast<size_t>(j)] += eps;
 			double p2[3] = { 0.0, 0.0, 0.0 };
 			osg::Quat q2;
-			if (!tcpPositionFromUrdf(urdfPath, tcpLink, qPert, p2, useOrientation ? &q2 : nullptr))
+			if (!tcpPositionFromUrdf(urdfPath, ikLink, qPert, p2, useOrientation ? &q2 : nullptr))
 			{
 				if (failReason)
 				{
@@ -987,7 +1068,7 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 		const double posTarget[3] = { posOnlyTarget.pos[0], posOnlyTarget.pos[1], posOnlyTarget.pos[2] };
 		for (int iter = 0; iter < maxIters; ++iter)
 		{
-			if (!tcpPositionFromUrdf(urdfPath, tcpLink, qPos, pos, nullptr))
+			if (!tcpPositionFromUrdf(urdfPath, ikLink, qPos, pos, nullptr))
 			{
 				break;
 			}
@@ -1006,7 +1087,7 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 				std::vector<double> qPert = qPos;
 				qPert[static_cast<size_t>(j)] += eps;
 				double p2[3] = { 0.0, 0.0, 0.0 };
-				if (!tcpPositionFromUrdf(urdfPath, tcpLink, qPert, p2, nullptr))
+				if (!tcpPositionFromUrdf(urdfPath, ikLink, qPert, p2, nullptr))
 				{
 					break;
 				}
@@ -1285,6 +1366,7 @@ public:
 		}
 		std::vector<double> targetQ;
 		std::string ikFailReason;
+		std::string solvePath = "none";
 		const bool preferUrdfIk = hasTcpLinkContext(cmd);
 		RobotInstruction::MotionAxisConfiguration axisCfg;
 		if (cmd.hasMotionAxisConfigurationProperty())
@@ -1298,28 +1380,67 @@ public:
 			if (cmd.hasMotionAxisConfigurationProperty())
 			{
 				targetQ = solveIkWithAxisConfiguration(cmd, &ikFailReason);
+				if (!targetQ.empty())
+				{
+					solvePath = "urdf_axis_cfg";
+				}
 			}
 			else
 			{
 				targetQ = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+				if (!targetQ.empty())
+				{
+					solvePath = "urdf";
+				}
 			}
 			if (targetQ.empty() && !constrainAxis)
 			{
 				targetQ = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+				if (!targetQ.empty())
+				{
+					solvePath = "urdf_retry";
+				}
 			}
 		}
 		if (targetQ.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis)
 		{
 			targetQ = solveTargetByIkIfPossible(cmd, *m_dhRows, &ikFailReason);
+			if (!targetQ.empty())
+			{
+				solvePath = "dh";
+			}
 		}
 		if (targetQ.empty() && !preferUrdfIk && !constrainAxis)
 		{
 			targetQ = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+			if (!targetQ.empty())
+			{
+				solvePath = "urdf_late";
+			}
 		}
 		if (targetQ.empty() && !constrainAxis)
 		{
 			targetQ = solveTargetByLegacyJointDelta(cmd);
+			if (!targetQ.empty())
+			{
+				solvePath = "legacy";
+			}
 		}
+		// #region agent log
+		{
+			const auto& ext = cmd.extensionProperties();
+			const auto itTool = ext.find(RobotCoordinate::kExtMotionToolFrameId);
+			const auto itCtx = ext.find("context.activeToolFrameId");
+			const std::string motionToolId = (itTool != ext.end()) ? itTool->second : std::string();
+			const std::string ctxToolId = (itCtx != ext.end()) ? itCtx->second : std::string();
+			std::ostringstream d;
+			d << "{\"preferUrdfIk\":" << (preferUrdfIk ? "true" : "false")
+			  << ",\"constrainAxis\":" << (constrainAxis ? "true" : "false") << ",\"solvePath\":\"" << solvePath
+			  << "\",\"targetQSize\":" << targetQ.size() << ",\"ikFailReason\":\"" << ikFailReason
+			  << "\",\"motionToolId\":\"" << motionToolId << "\",\"ctxToolId\":\"" << ctxToolId << "\"}";
+			agentDebugLogScene("H9", "PtpPlanner::plan", "ptp_solver_path", d.str());
+		}
+		// #endregion
 		if (targetQ.empty())
 		{
 			if (errMsg)
