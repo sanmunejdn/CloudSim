@@ -2,7 +2,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.35826.135
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSim", "CloudSim\CloudSim.vcxproj", "{522C2787-2873-467C-B9D7-C6767D1CDCD6}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSim", "src\App\CloudSim\CloudSim.vcxproj", "{522C2787-2873-467C-B9D7-C6767D1CDCD6}"
 	ProjectSection(ProjectDependencies) = postProject
 		{A789E8D9-1CE5-4133-BBC5-26A2BC801B09} = {A789E8D9-1CE5-4133-BBC5-26A2BC801B09}
 		{50119EDF-918F-4BC8-A201-7AC6F0FE82A1} = {50119EDF-918F-4BC8-A201-7AC6F0FE82A1}
@@ -11,9 +11,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSim", "CloudSim\CloudS
 		{D5E6F7A8-B9C0-1234-DEF0-456789012345} = {D5E6F7A8-B9C0-1234-DEF0-456789012345}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "OsgWidgetCore", "OsgWidgetCore\OsgWidgetCore.vcxproj", "{E4F5A6B7-C8D9-4E0F-1A2B-3C4D5E6F7080}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "OsgWidgetCore", "src\UI\OsgWidgetCore\OsgWidgetCore.vcxproj", "{E4F5A6B7-C8D9-4E0F-1A2B-3C4D5E6F7080}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Widget", "Widget\Widget.vcxproj", "{A789E8D9-1CE5-4133-BBC5-26A2BC801B09}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Widget", "src\UI\Widget\Widget.vcxproj", "{A789E8D9-1CE5-4133-BBC5-26A2BC801B09}"
 	ProjectSection(ProjectDependencies) = postProject
 		{E4F5A6B7-C8D9-4E0F-1A2B-3C4D5E6F7080} = {E4F5A6B7-C8D9-4E0F-1A2B-3C4D5E6F7080}
 		{50119EDF-918F-4BC8-A201-7AC6F0FE82A1} = {50119EDF-918F-4BC8-A201-7AC6F0FE82A1}
@@ -27,42 +27,42 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Widget", "Widget\Widget.vcx
 		{D5E6F7A8-B9C0-1234-DEF0-456789012345} = {D5E6F7A8-B9C0-1234-DEF0-456789012345}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Data", "Data\Data.vcxproj", "{50119EDF-918F-4BC8-A201-7AC6F0FE82A1}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Data", "src\Data\Data\Data.vcxproj", "{50119EDF-918F-4BC8-A201-7AC6F0FE82A1}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BackendVisual", "BackendVisual\BackendVisual.vcxproj", "{F1E2D3C4-B5A6-4789-0123-456789ABCDEF}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BackendVisual", "src\UI\BackendVisual\BackendVisual.vcxproj", "{F1E2D3C4-B5A6-4789-0123-456789ABCDEF}"
 	ProjectSection(ProjectDependencies) = postProject
 		{50119EDF-918F-4BC8-A201-7AC6F0FE82A1} = {50119EDF-918F-4BC8-A201-7AC6F0FE82A1}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RobotKinematics", "RobotKinematics\RobotKinematics.vcxproj", "{8F4E2C1A-9D3B-4E7F-8A1C-2B6D4E8F0A1C}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RobotKinematics", "src\Robot\RobotKinematics\RobotKinematics.vcxproj", "{8F4E2C1A-9D3B-4E7F-8A1C-2B6D4E8F0A1C}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RobotUrdf", "RobotUrdf\RobotUrdf.vcxproj", "{7A3E9B2C-4D1F-4E8A-B5C6-1D2E3F4A5B6C}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RobotUrdf", "src\Robot\RobotUrdf\RobotUrdf.vcxproj", "{7A3E9B2C-4D1F-4E8A-B5C6-1D2E3F4A5B6C}"
 	ProjectSection(ProjectDependencies) = postProject
 		{50119EDF-918F-4BC8-A201-7AC6F0FE82A1} = {50119EDF-918F-4BC8-A201-7AC6F0FE82A1}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RobotScene", "RobotScene\RobotScene.vcxproj", "{B2C4D6E8-0A1F-4E3C-9D5E-7F1A2B3C4D5E}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RobotScene", "src\Robot\RobotScene\RobotScene.vcxproj", "{B2C4D6E8-0A1F-4E3C-9D5E-7F1A2B3C4D5E}"
 	ProjectSection(ProjectDependencies) = postProject
 		{7A3E9B2C-4D1F-4E8A-B5C6-1D2E3F4A5B6C} = {7A3E9B2C-4D1F-4E8A-B5C6-1D2E3F4A5B6C}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GeometryEngine", "GeometryEngine\GeometryEngine.vcxproj", "{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GeometryEngine", "src\Geometry\GeometryEngine\GeometryEngine.vcxproj", "{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PointCloudAlgorithm", "PointCloudAlgorithm\PointCloudAlgorithm.vcxproj", "{E8F9A0B1-C2D3-4E4F-9A8B-1C2D3E4F5A6B}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PointCloudAlgorithm", "src\Geometry\PointCloudAlgorithm\PointCloudAlgorithm.vcxproj", "{E8F9A0B1-C2D3-4E4F-9A8B-1C2D3E4F5A6B}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RunLogger", "RunLogger\RunLogger.vcxproj", "{35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RunLogger", "src\Infra\RunLogger\RunLogger.vcxproj", "{35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AiBackend", "AiBackend\AiBackend.vcxproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AiBackend", "src\AI\AiBackend\AiBackend.vcxproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
 	ProjectSection(ProjectDependencies) = postProject
 		{50119EDF-918F-4BC8-A201-7AC6F0FE82A1} = {50119EDF-918F-4BC8-A201-7AC6F0FE82A1}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AiWidget", "AiWidget\AiWidget.vcxproj", "{B2C3D4E5-F6A7-8901-BCDE-F12345678901}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AiWidget", "src\UI\AiWidget\AiWidget.vcxproj", "{B2C3D4E5-F6A7-8901-BCDE-F12345678901}"
 	ProjectSection(ProjectDependencies) = postProject
 		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890} = {A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RobotWidget", "RobotWidget\RobotWidget.vcxproj", "{D5E6F7A8-B9C0-1234-DEF0-456789012345}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RobotWidget", "src\UI\RobotWidget\RobotWidget.vcxproj", "{D5E6F7A8-B9C0-1234-DEF0-456789012345}"
 	ProjectSection(ProjectDependencies) = postProject
 		{50119EDF-918F-4BC8-A201-7AC6F0FE82A1} = {50119EDF-918F-4BC8-A201-7AC6F0FE82A1}
 		{8F4E2C1A-9D3B-4E7F-8A1C-2B6D4E8F0A1C} = {8F4E2C1A-9D3B-4E7F-8A1C-2B6D4E8F0A1C}
@@ -72,9 +72,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RobotWidget", "RobotWidget\
 		{35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1} = {35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSimPluginSDK", "CloudSimPluginSDK\CloudSimPluginSDK.vcxproj", "{C3D4E5F6-A7B8-9012-CDEF-123456789ABC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSimPluginSDK", "src\Plugins\CloudSimPluginSDK\CloudSimPluginSDK.vcxproj", "{C3D4E5F6-A7B8-9012-CDEF-123456789ABC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloPlugin", "Plugins\HelloPlugin\HelloPlugin.vcxproj", "{E5F6A7B8-C9D0-1234-EF01-345678901CDE}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloPlugin", "src\Plugins\HelloPlugin\HelloPlugin.vcxproj", "{E5F6A7B8-C9D0-1234-EF01-345678901CDE}"
 	ProjectSection(ProjectDependencies) = postProject
 		{C3D4E5F6-A7B8-9012-CDEF-123456789ABC} = {C3D4E5F6-A7B8-9012-CDEF-123456789ABC}
 	EndProjectSection

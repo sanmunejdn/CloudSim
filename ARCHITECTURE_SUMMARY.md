@@ -1,6 +1,8 @@
 # CloudSim 架构与模块总结
 
-> **子模块开发文档（类/接口详解）**：见 [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md)。各工程目录下均有 `DEVELOPER_GUIDE.md`（`GeometryEngine`、`Data`、`Widget`、`OsgWidgetCore`、`BackendVisual`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`RunLogger`、`CloudSim`）。
+> **目录布局**：源码在 `src/` 按功能域分组（App / UI / Robot / Geometry / Data / AI / Plugins / Infra），见 [`docs/DIRECTORY_LAYOUT.md`](docs/DIRECTORY_LAYOUT.md)。
+>
+> **子模块开发文档（类/接口详解）**：见 [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md)。各工程目录下均有 `DEVELOPER_GUIDE.md`。
 
 ## 1. 项目定位
 
