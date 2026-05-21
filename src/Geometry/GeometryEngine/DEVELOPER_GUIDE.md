@@ -62,7 +62,7 @@ UI：`RobotFrameSettingsWidget` 标签为 `X/Y/Z (mm, flange)`。
 
 | API | 说明 |
 |-----|------|
-| `engine::runSelfTest(failures)` | 含 URDF 式 compose、OSG 往返、**Ry=90° 法兰 + (0,0,-200) 工具**（基座 ΔX≈-200，非仅 ΔZ） |
+| `engine::runSelfTest(failures)` | 含 URDF 式 compose、OSG 往返、**Ry=90° 法兰 + (0,0,-200) 工具**（基座 ΔX≈+200，非仅 ΔZ） |
 | `RobotMatrixOsg::runConventionSelfTest` | 桥接 `RobotScene` 的 `targetInBaseFromFlange` 往返 |
 
 构建后可在调试入口触发（见 `MainWindow` 矩阵自检日志）。

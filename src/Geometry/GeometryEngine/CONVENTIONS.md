@@ -7,7 +7,7 @@
 - Scene / URDF / OSG chain (row vectors): `parent.composeScene(child)` ≡ `osgParent * osgChild`.
 - `rigidTransformFromOsg` / `osgMatrixFromRigidTransform` transpose the 3×3 block (row-vector OSG ↔ column Eigen).
 - Tool: `toolOriginFromFlange` / `flangeFromToolOrigin` (`composeColumn`) for instruction pose + `BackendMat4` tool matrix (IK / 落盘).
-- URDF `linkWorld` (OSG row vectors): `RobotMatrixOsg::targetInBaseFromFlangeLinkWorld` = `T_flange_osg * T_tool_osg` — do not route linkWorld through `composeColumn`.
+- URDF `linkWorld` bridge: convert OSG + `BackendMat4` to `RigidTransform`, then compose via `toolOriginFromFlange`; do not keep a separate `linkWorld * tool` convention.
 - `RobotRigidFrame.positionMm` for `T_flange_tool` is the tool origin in **flange link axes** (URDF `flangeLinkName`), not base/world axes. Offset (0,0,-200) moves along flange Z; at poses where flange Z ∥ base Z it looks like world Z.
 - Euler degrees: display and legacy JSON only (`eulerDegForDisplay`, `fromTranslationEulerDeg`).
 - Legacy `BackendMat4`: use `colMajorFromRigidTransform` / `rigidTransformFromColMajor` at module boundaries only.

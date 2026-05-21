@@ -25,8 +25,10 @@ BackendMat4 targetInBaseFromFlangeLinkWorld(
 	const osg::Matrixd& T_base_flange_osg,
 	const BackendMat4& T_flange_tool)
 {
-	const osg::Matrixd T_tool_osg = matrixFromBackendColMajor(T_flange_tool);
-	return backendColMajorFromMatrix(T_base_flange_osg * T_tool_osg);
+	const engine::RigidTransform T_base_flange = engine::rigidTransformFromOsg(T_base_flange_osg);
+	const engine::RigidTransform T_tool = RobotCoordinate::rigidTransformFromBackendMat4(T_flange_tool);
+	const engine::RigidTransform T_base_tool = engine::toolOriginFromFlange(T_base_flange, T_tool);
+	return RobotCoordinate::backendMat4FromRigidTransform(T_base_tool);
 }
 
 BackendMat4 flangeTargetFromToolOriginInBase(
@@ -95,8 +97,17 @@ bool runConventionSelfTest(std::vector<std::string>& failures)
 		const BackendMat4 T_tool = RobotCoordinate::backendMat4FromRigidTransform(tool);
 		const BackendMat4 T_tcp = targetInBaseFromFlangeLinkWorld(flangeOsg, T_tool);
 		const RobotCoordinate::RobotRigidFrame tcpFrame = RobotCoordinate::mat4ToFrame(T_tcp);
-		expectNear(failures, "linkWorldTool.deltaX", tcpFrame.positionMm[0] - 1000.0, -200.0, 1e-3);
+		const engine::RigidTransform tcpByToolKinematics = engine::toolOriginFromFlange(flange, tool);
+		double kx = 0.0;
+		double ky = 0.0;
+		double kz = 0.0;
+		tcpByToolKinematics.translationMm(kx, ky, kz);
+		expectNear(failures, "linkWorldTool.deltaX", tcpFrame.positionMm[0] - 1000.0, 200.0, 1e-3);
 		expectNear(failures, "linkWorldTool.deltaZ", tcpFrame.positionMm[2] - 800.0, 0.0, 1e-3);
+		expectNear(failures, "linkWorldTool.refPos", std::sqrt(
+			std::pow(tcpFrame.positionMm[0] - kx, 2.0)
+			+ std::pow(tcpFrame.positionMm[1] - ky, 2.0)
+			+ std::pow(tcpFrame.positionMm[2] - kz, 2.0)), 0.0, 1e-3);
 	}
 
 	return failures.empty();

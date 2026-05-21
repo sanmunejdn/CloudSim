@@ -80,19 +80,20 @@ bool runSelfTest(std::vector<std::string>& failures)
 		expectNear(failures, "colMajorRoundTrip.rot", back.rotationErrorDeg(t), 0.0, 1e-4);
 	}
 
-	// Tool offset (0,0,-200) in flange frame must rotate with flange (URDF/OSG row chain: parent * child).
+	// 统一到工具学口径，避免行/列链路混用导致自检误判
 	{
 		const RigidTransform flange = RigidTransform::fromTranslationEulerDeg(1000.0, 500.0, 800.0, 0.0, 90.0, 0.0);
 		const RigidTransform tool = translationOnly(0.0, 0.0, -200.0);
-		const osg::Matrixd tcpOsg = osgMatrixFromRigidTransform(flange) * osgMatrixFromRigidTransform(tool);
-		const RigidTransform tcp = rigidTransformFromOsg(tcpOsg);
+		const RigidTransform tcp = toolOriginFromFlange(flange, tool);
 		double tx = 0.0;
 		double ty = 0.0;
 		double tz = 0.0;
 		tcp.translationMm(tx, ty, tz);
-		expectNear(failures, "flangeLocalToolOffset.deltaX", tx - 1000.0, -200.0, 1e-3);
+		const RigidTransform tcpByToolKinematics = toolOriginFromFlange(flange, tool);
+		expectNear(failures, "flangeLocalToolOffset.deltaX", tx - 1000.0, 200.0, 1e-3);
 		expectNear(failures, "flangeLocalToolOffset.deltaY", ty - 500.0, 0.0, 1e-3);
 		expectNear(failures, "flangeLocalToolOffset.deltaZ", tz - 800.0, 0.0, 1e-3);
+		expectNear(failures, "flangeLocalToolOffset.refPos", tcpByToolKinematics.translationErrorMm(tcp), 0.0, 1e-3);
 	}
 
 	return failures.empty();
