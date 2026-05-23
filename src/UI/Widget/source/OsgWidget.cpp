@@ -97,6 +97,10 @@ OsgWidget::OsgWidget(QWidget* parent)
 	initScene();
 	initUi();
 	setRequestRedraw([this]() {
+		if (m_tcpTeachActive)
+		{
+			syncTcpTeachWorldPatFromMount();
+		}
 		emit sceneRedrawRequested();
 		if (m_glWidget)
 		{

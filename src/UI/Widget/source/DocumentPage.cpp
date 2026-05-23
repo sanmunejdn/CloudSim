@@ -1,7 +1,11 @@
 #include "DocumentPage.h"
 
+#include "BackendSceneDocumentFacade.h"
 #include "EventHub.h"
 #include "RobotProgramStore.h"
+
+#include <osg/Group>
+#include <osg/MatrixTransform>
 
 #include <QSet>
 #include <QTabWidget>
@@ -19,6 +23,11 @@ DocumentPage::DocumentPage(QTabWidget* parentTabs, cloudsim::core::EventHub& eve
 	: DocumentHost(parentTabs, events,
 		  QStringLiteral("doc-%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces)))
 {
+}
+
+BackendSceneDocumentFacade DocumentPage::sceneFacade()
+{
+	return BackendSceneDocumentFacade(backend(), sceneBridge(), followReverseIndex(), osgWidget());
 }
 
 void DocumentPage::rebuildHierarchicalRobotAggregates()

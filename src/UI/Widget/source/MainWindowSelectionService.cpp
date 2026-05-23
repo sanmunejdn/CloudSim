@@ -8,6 +8,7 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 
+#include "BackendSceneDocumentFacade.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendHierarchyModel.h"

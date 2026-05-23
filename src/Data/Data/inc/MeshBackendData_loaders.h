@@ -1,0 +1,31 @@
+#pragma once
+
+#include <string>
+#include <vector>
+
+#include <TopoDS_Shape.hxx>
+
+class MeshBackendData;
+struct MeshHierarchyPart;
+
+namespace mesh_backend_load {
+
+constexpr bool kMeshStepFlipReversedFaceWinding = true;
+
+void meshLoadErr(std::string* errMsg, const char* text);
+std::string meshLowerExtension(const std::string& path);
+
+void meshPushTri(std::vector<float>& soup, double ax, double ay, double az, double bx, double by, double bz,
+	double cx, double cy, double cz);
+
+bool meshTryLoadObjWithVertexNormals(const std::string& path, std::vector<float>& soup, std::vector<float>& normalSoup);
+
+void meshAppendShapeTriangles(const TopoDS_Shape& shape, std::vector<float>& soup);
+void meshCollectStepHierarchyRecursive(const TopoDS_Shape& shape, const std::string& path, const std::string& parentPath,
+	std::vector<MeshHierarchyPart>& outParts);
+
+bool meshLoadStepSingleFile(const std::string& path, std::vector<float>& soup, std::string* errMsg);
+bool meshLoadDxfSingleFile(const std::string& path, std::vector<float>& soup, std::string* errMsg);
+bool meshLoadCgalMeshFile(MeshBackendData& mesh, const std::string& path, const std::string& ext, std::string* errMsg);
+
+} // namespace mesh_backend_load

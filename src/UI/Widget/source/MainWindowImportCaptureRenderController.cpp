@@ -3,6 +3,7 @@
 #include "JobSystem.h"
 #include "MainWindow.h"
 
+#include "BackendSceneDocumentFacade.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "DocumentPage.h"

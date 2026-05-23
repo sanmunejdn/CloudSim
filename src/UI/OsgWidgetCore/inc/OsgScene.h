@@ -179,6 +179,8 @@ public:
 	osg::ref_ptr<osg::Group> m_robotAssemblyGroup;
 	/// 预留：轨迹、路径、调试曲线等覆盖几何。
 	osg::ref_ptr<osg::Group> m_trajectoryOverlayGroup;
+	/// TCP 示教罗盘：挂在此组下，避免成为受光机器人子节点后随视角变暗。
+	osg::ref_ptr<osg::Group> m_tcpTeachSceneOverlayGroup;
 	osg::ref_ptr<osg::Group> m_stagingGroup;
 	std::unordered_map<std::string, osg::ref_ptr<osg::MatrixTransform>> m_backendObjectRoots;
 	std::unordered_map<std::string, std::string> m_backendParentIds;

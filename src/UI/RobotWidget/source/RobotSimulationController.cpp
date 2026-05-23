@@ -2296,6 +2296,14 @@ void RobotSimulationController::onSimulationAddInstructionRequested(RobotInstruc
 	}
 }
 
+void RobotSimulationController::invalidateFeasibleAxisConfigurationCache()
+{
+	m_cachedFeasibleAxisInstructionId.clear();
+	m_cachedFeasibleAxisFingerprint.clear();
+	m_cachedFeasibleAxisSeedJointRad.clear();
+	m_cachedFeasibleAxisOptions = {};
+}
+
 RobotInstruction::FeasibleMotionAxisConfigurationOptions RobotSimulationController::feasibleMotionAxisConfigurationOptionsForInstruction(
 	const std::shared_ptr<RobotInstruction::Base>& instruction,
 	QVector<double>* outSeedJointRad)

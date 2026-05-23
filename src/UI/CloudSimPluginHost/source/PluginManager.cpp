@@ -4,6 +4,7 @@
 #include "ICloudSimPlugin.h"
 #include "MainWindow.h"
 #include "PluginHostContext.h"
+#include "RunInfoPage.h"
 #include "RunLogger.h"
 
 #include <json.hpp>

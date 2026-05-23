@@ -14,7 +14,7 @@ class IRobotBackendPoseSink;
 class OsgWidget;
 
 /// One backend id paired with scene + data managers (lightweight handle).
-class WIDGET_EXPORT BackendSceneEntity
+class OSG_WIDGET_API BackendSceneEntity
 {
 public:
 	BackendSceneEntity() = default;
@@ -49,7 +49,7 @@ private:
 };
 
 /// Per-document facade: \ref BackendDataManager + \ref IBackendSceneBridge + follow reverse index.
-class WIDGET_EXPORT BackendSceneDocumentFacade
+class OSG_WIDGET_API BackendSceneDocumentFacade
 {
 public:
 	BackendSceneDocumentFacade() = default;

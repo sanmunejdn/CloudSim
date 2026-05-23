@@ -1,5 +1,9 @@
 ﻿#include "MainWindow.h"
 
+#include "BackendSceneDocumentFacade.h"
+#include "RobotInstructionController.h"
+#include "RobotInstructionModel.h"
+
 #include <algorithm>
 #include <cmath>
 #include <functional>

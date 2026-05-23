@@ -68,12 +68,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)../bin/x64d/</OutDir>
-    <IntDir>$(SolutionDir)../bin/x64dmiddle/PointCloudAlgorithm/</IntDir>
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)PointCloudAlgorithm\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)../bin/x64/</OutDir>
-    <IntDir>$(SolutionDir)../bin/x64middle/PointCloudAlgorithm/</IntDir>
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)PointCloudAlgorithm\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>$(SolutionDir)../bin/x86d/</OutDir>

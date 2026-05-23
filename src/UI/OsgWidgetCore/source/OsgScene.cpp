@@ -271,6 +271,17 @@ void OsgScene::initScene()
 	m_trajectoryOverlayGroup->setName("TrajectoryOverlay");
 	m_trajectoryOverlayGroup->setNodeMask(0xffffffffu);
 
+	m_tcpTeachSceneOverlayGroup = new osg::Group;
+	m_tcpTeachSceneOverlayGroup->setName("TcpTeachSceneOverlay");
+	m_tcpTeachSceneOverlayGroup->setNodeMask(0xffffffffu);
+	m_tcpTeachSceneOverlayGroup->getOrCreateStateSet()->setMode(
+		GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_tcpTeachSceneOverlayGroup->getOrCreateStateSet()->setMode(
+		GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_tcpTeachSceneOverlayGroup->getOrCreateStateSet()->setMode(
+		GL_FOG, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_trajectoryOverlayGroup->addChild(m_tcpTeachSceneOverlayGroup.get());
+
 	m_stagingGroup = new osg::Group;
 	m_stagingGroup->setNodeMask(0xffffffffu);
 	m_stagingGroup->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
@@ -280,6 +291,12 @@ void OsgScene::initScene()
 	m_gizmoOverlayGroup = new osg::Group;
 	m_gizmoOverlayGroup->setName("GizmoOverlay");
 	m_gizmoOverlayGroup->setNodeMask(0xffffffffu);
+	m_gizmoOverlayGroup->getOrCreateStateSet()->setMode(
+		GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_gizmoOverlayGroup->getOrCreateStateSet()->setMode(
+		GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_gizmoOverlayGroup->getOrCreateStateSet()->setMode(
+		GL_FOG, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 
 	m_compassTransform = new osg::PositionAttitudeTransform;
 	m_compassTransform->setPosition(osg::Vec3d(0.0, 0.0, 0.0));

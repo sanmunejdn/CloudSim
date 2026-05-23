@@ -6,11 +6,6 @@
 #include <QVector>
 #include <QWidget>
 
-#include <osg/Matrixd>
-#include <osg/MatrixTransform>
-#include <osg/Group>
-#include <osg/ref_ptr>
-
 #include "widget_global.h"
 
 #include "DocumentHost.h"
@@ -26,8 +21,14 @@ class EventHub;
 
 class QTabWidget;
 class MeshBackendData;
+class BackendSceneDocumentFacade;
 
-#include "BackendSceneDocumentFacade.h"
+namespace osg {
+class Group;
+class MatrixTransform;
+template<class T>
+class ref_ptr;
+}
 
 /// 单文档页：宿主层 DocumentHost + 机器人仿真元数据（IRobotSimulationDocument）。
 class WIDGET_EXPORT DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulationDocument
@@ -38,10 +39,7 @@ public:
 	explicit DocumentPage(QTabWidget* parentTabs, cloudsim::core::EventHub& events);
 	~DocumentPage() override = default;
 
-	BackendSceneDocumentFacade sceneFacade()
-	{
-		return BackendSceneDocumentFacade(backend(), sceneBridge(), followReverseIndex(), osgWidget());
-	}
+	BackendSceneDocumentFacade sceneFacade();
 
 	void invalidateFollowReverseIndex() { followReverseIndex().invalidate(); }
 

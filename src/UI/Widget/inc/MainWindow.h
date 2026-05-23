@@ -17,9 +17,6 @@
 #include "MainWindowSelectionState.h"
 
 #include <json.hpp>
-#include "RobotInstructionModel.h"
-#include "RobotInstructionController.h"
-#include "RunInfoPage.h"
 
 class QWidget;
 class OsgWidget;
@@ -56,6 +53,13 @@ class PluginManager;
 
 namespace cloudsim::core {
 class EventHub;
+}
+
+namespace RobotInstruction {
+class Base;
+struct Vec3;
+struct FeasibleMotionAxisConfigurationOptions;
+enum class Type;
 }
 
 /// 应用程序主窗口：菜单、停靠栏、文档页、属性面板与 OsgWidget 的协调入口。
@@ -290,9 +294,5 @@ private:
 	bool m_pluginsLoadStarted = false;
 	QString m_activeAxisName = QStringLiteral("None");
 	std::shared_ptr<RobotInstruction::Base> m_activeInstructionForProperty;
-	RobotInstruction::FeasibleMotionAxisConfigurationOptions m_cachedFeasibleAxisOptions;
-	QString m_cachedFeasibleAxisInstructionId;
-	QString m_cachedFeasibleAxisFingerprint;
-	QVector<double> m_cachedFeasibleAxisSeedJointRad;
 	QHash<QtProperty*, QStringList> m_propertyEnumTokens;
 };

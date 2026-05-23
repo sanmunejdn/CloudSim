@@ -1,15 +1,20 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- 统一 CloudSim 各工程输出/链接目录，避免 $(SolutionDir) 为空时找不到 .lib -->
-<Project>
-  <PropertyGroup>
-    <CloudSimRepoRoot>$(MSBuildThisFileDirectory)..\</CloudSimRepoRoot>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <CloudSimBinDir>$(CloudSimRepoRoot)bin\x64d\</CloudSimBinDir>
-    <CloudSimIntRoot>$(CloudSimRepoRoot)bin\x64dmiddle\</CloudSimIntRoot>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <CloudSimBinDir>$(CloudSimRepoRoot)bin\x64\</CloudSimBinDir>
-    <CloudSimIntRoot>$(CloudSimRepoRoot)bin\x64middle\</CloudSimIntRoot>
-  </PropertyGroup>
-</Project>
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 统一 CloudSim 各工程输出/链接目录，避免 $(SolutionDir) 为空时找不到 .lib -->
+<Project>
+  <PropertyGroup>
+    <CloudSimRepoRoot>$(MSBuildThisFileDirectory)..\</CloudSimRepoRoot>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <CloudSimBinDir>$(CloudSimRepoRoot)bin\x64d\</CloudSimBinDir>
+    <CloudSimIntRoot>$(CloudSimRepoRoot)bin\x64dmiddle\</CloudSimIntRoot>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <CloudSimBinDir>$(CloudSimRepoRoot)bin\x64\</CloudSimBinDir>
+    <CloudSimIntRoot>$(CloudSimRepoRoot)bin\x64middle\</CloudSimIntRoot>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
+    <ClCompile>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+  </ItemDefinitionGroup>
+</Project>

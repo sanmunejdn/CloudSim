@@ -27,6 +27,9 @@
 #include "RobotInstructionPropertySchema.h"
 #include "RobotInstructionProgram.h"
 #include "RunLogger.h"
+#include "RunInfoPage.h"
+#include "RobotInstructionController.h"
+#include "RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotInstructionPlanningHelpers.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
 
@@ -697,10 +700,10 @@ QString MainWindow::instructionEnumTokenFromProperty(QtProperty* property, const
 
 void MainWindow::invalidateFeasibleAxisConfigurationCache()
 {
-	m_cachedFeasibleAxisInstructionId.clear();
-	m_cachedFeasibleAxisFingerprint.clear();
-	m_cachedFeasibleAxisSeedJointRad.clear();
-	m_cachedFeasibleAxisOptions = {};
+	if (m_robotSimulation)
+	{
+		m_robotSimulation->invalidateFeasibleAxisConfigurationCache();
+	}
 }
 
 void MainWindow::applySuggestedAxisPresetFromSeedIfNeeded(
@@ -838,9 +841,9 @@ void MainWindow::updateInstructionPropertyPanel(
 		{
 			feasibleAxis = feasibleMotionAxisConfigurationOptionsForInstruction(instruction, &seedJointRad);
 		}
-		else
+		else if (m_robotSimulation)
 		{
-			feasibleAxis = m_cachedFeasibleAxisOptions;
+			feasibleAxis = m_robotSimulation->cachedFeasibleAxisConfigurationOptions();
 		}
 		const auto ensureToken = [&](const char* key, const std::vector<std::string>& allowed, const QString& current) {
 			if (allowed.empty() || !refreshFeasibleAxisOptions)

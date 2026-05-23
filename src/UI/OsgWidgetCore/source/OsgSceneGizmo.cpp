@@ -10,6 +10,7 @@
 
 #include "OsgScene.h"
 
+#include "OsgCompassRender.h"
 #include "ObjectGizmoFrame.h"
 
 #include <algorithm>
@@ -62,6 +63,12 @@ osg::NodePath nodePathToSceneRootFromLeaf(const osg::Node* leaf)
 	}
 	return path;
 }
+
+// 罗盘局部几何与屏幕自适应缩放的基准（须与 updateCompassScale 中除数一致）
+constexpr float kCompassAxisLength = 600.0f;
+constexpr float kCompassGeomScale = kCompassAxisLength / 120.0f;
+constexpr double kCompassModelDiagonalFactor = 0.40;
+constexpr double kCompassMinAxisWorld = 100.0;
 } // namespace
 
 osg::Node* OsgScene::createCompassNode()
@@ -72,27 +79,16 @@ osg::Node* OsgScene::createCompassNode()
 		m_compassRingBranch[i] = nullptr;
 	}
 
-	const float axisLen = 120.0f;
-	const float coneH = 20.0f;
-	const float coneR = 7.0f;
-	const float shaftEnd = axisLen - 12.0f;
-	const float tipExtension = 6.0f;
-	const float ringRadius = 65.0f;
-	const float tubeR = 2.85f;
+	const float axisLen = kCompassAxisLength;
+	const float coneH = 20.0f * kCompassGeomScale;
+	const float coneR = 7.0f * kCompassGeomScale;
+	const float shaftEnd = axisLen - 12.0f * kCompassGeomScale;
+	const float tipExtension = 6.0f * kCompassGeomScale;
+	const float ringRadius = 65.0f * kCompassGeomScale;
+	const float tubeR = 2.85f * kCompassGeomScale;
 	const int ringSegments = 36;
 
-	auto applyCompassStateSet = [](osg::StateSet* ss) {
-		ss->setAttributeAndModes(new osg::PolygonOffset(-1.0f, -1.0f), osg::StateAttribute::ON);
-		ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
-		ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-		ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-		ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
-		osg::ref_ptr<osg::Depth> depth = new osg::Depth;
-		depth->setFunction(osg::Depth::ALWAYS);
-		depth->setWriteMask(false);
-		ss->setAttributeAndModes(depth.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-		ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-	};
+	const auto applyCompassStateSet = [](osg::StateSet* ss) { osg_compass::applyUnlitHighlitStateSet(ss); };
 
 	auto addPositiveAxis = [&](const osg::Vec3& p1, const osg::Vec3& coneDir, const osg::Vec4& col) -> osg::ref_ptr<osg::Geode> {
 		osg::ref_ptr<osg::Geode> g = new osg::Geode;
@@ -106,7 +102,8 @@ osg::Node* OsgScene::createCompassNode()
 		lineGeom->setColorArray(ca.get(), osg::Array::BIND_OVERALL);
 		lineGeom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, 2));
 		g->addDrawable(lineGeom.get());
-		g->getOrCreateStateSet()->setAttribute(new osg::LineWidth(6.0f));
+		applyCompassStateSet(lineGeom->getOrCreateStateSet());
+		lineGeom->getOrCreateStateSet()->setAttribute(new osg::LineWidth(6.0f));
 
 		const osg::Vec3 tip = coneDir * (axisLen + tipExtension);
 		const osg::Vec3 coneCenter = tip - coneDir * (coneH * 0.5f);
@@ -116,8 +113,11 @@ osg::Node* OsgScene::createCompassNode()
 		cone->setRotation(rot);
 		cone->setCenter(coneCenter);
 		osg::ref_ptr<osg::ShapeDrawable> coneDraw = new osg::ShapeDrawable(cone.get());
+		coneDraw->setUseDisplayList(false);
 		coneDraw->setColor(col);
 		g->addDrawable(coneDraw.get());
+		applyCompassStateSet(coneDraw->getOrCreateStateSet());
+		applyCompassStateSet(g->getOrCreateStateSet());
 		return g;
 	};
 
@@ -151,9 +151,12 @@ osg::Node* OsgScene::createCompassNode()
 			osg::ref_ptr<osg::MatrixTransform> seg = new osg::MatrixTransform;
 			seg->setMatrix(osg::Matrix::translate(p));
 			osg::ref_ptr<osg::ShapeDrawable> sd = new osg::ShapeDrawable(cyl.get());
+			sd->setUseDisplayList(false);
 			sd->setColor(color);
+			applyCompassStateSet(sd->getOrCreateStateSet());
 			osg::ref_ptr<osg::Geode> segGeode = new osg::Geode;
 			segGeode->addDrawable(sd.get());
+			applyCompassStateSet(segGeode->getOrCreateStateSet());
 			seg->addChild(segGeode.get());
 			ringGroup->addChild(seg.get());
 		}
@@ -167,35 +170,33 @@ osg::Node* OsgScene::createCompassNode()
 	const osg::Vec4 green(0.15f, 1.0f, 0.15f, 1.0f);
 	const osg::Vec4 blue(0.15f, 0.45f, 1.0f, 1.0f);
 
-	osg::ref_ptr<osg::MatrixTransform> ax = new osg::MatrixTransform;
-	ax->addChild(addPositiveAxis(osg::Vec3(shaftEnd, 0.0f, 0.0f), osg::Vec3(1.0f, 0.0f, 0.0f), red).get());
-	m_compassAxisBranch[0] = ax;
-	root->addChild(ax.get());
+	auto wrapAxisBranch = [&](osg::Node* child) -> osg::ref_ptr<osg::MatrixTransform> {
+		osg::ref_ptr<osg::MatrixTransform> br = new osg::MatrixTransform;
+		br->addChild(child);
+		applyCompassStateSet(br->getOrCreateStateSet());
+		return br;
+	};
 
-	osg::ref_ptr<osg::MatrixTransform> ay = new osg::MatrixTransform;
-	ay->addChild(addPositiveAxis(osg::Vec3(0.0f, shaftEnd, 0.0f), osg::Vec3(0.0f, 1.0f, 0.0f), green).get());
-	m_compassAxisBranch[1] = ay;
-	root->addChild(ay.get());
+	m_compassAxisBranch[0] = wrapAxisBranch(
+		addPositiveAxis(osg::Vec3(shaftEnd, 0.0f, 0.0f), osg::Vec3(1.0f, 0.0f, 0.0f), red).get());
+	root->addChild(m_compassAxisBranch[0].get());
 
-	osg::ref_ptr<osg::MatrixTransform> az = new osg::MatrixTransform;
-	az->addChild(addPositiveAxis(osg::Vec3(0.0f, 0.0f, shaftEnd), osg::Vec3(0.0f, 0.0f, 1.0f), blue).get());
-	m_compassAxisBranch[2] = az;
-	root->addChild(az.get());
+	m_compassAxisBranch[1] = wrapAxisBranch(
+		addPositiveAxis(osg::Vec3(0.0f, shaftEnd, 0.0f), osg::Vec3(0.0f, 1.0f, 0.0f), green).get());
+	root->addChild(m_compassAxisBranch[1].get());
 
-	osg::ref_ptr<osg::MatrixTransform> rx = new osg::MatrixTransform;
-	rx->addChild(addTubeRing(0, osg::Vec4(1.0f, 0.35f, 0.35f, 0.92f)).get());
-	m_compassRingBranch[0] = rx;
-	root->addChild(rx.get());
+	m_compassAxisBranch[2] = wrapAxisBranch(
+		addPositiveAxis(osg::Vec3(0.0f, 0.0f, shaftEnd), osg::Vec3(0.0f, 0.0f, 1.0f), blue).get());
+	root->addChild(m_compassAxisBranch[2].get());
 
-	osg::ref_ptr<osg::MatrixTransform> ry = new osg::MatrixTransform;
-	ry->addChild(addTubeRing(1, osg::Vec4(0.35f, 1.0f, 0.35f, 0.92f)).get());
-	m_compassRingBranch[1] = ry;
-	root->addChild(ry.get());
+	m_compassRingBranch[0] = wrapAxisBranch(addTubeRing(0, osg::Vec4(1.0f, 0.35f, 0.35f, 1.0f)).get());
+	root->addChild(m_compassRingBranch[0].get());
 
-	osg::ref_ptr<osg::MatrixTransform> rz = new osg::MatrixTransform;
-	rz->addChild(addTubeRing(2, osg::Vec4(0.35f, 0.55f, 1.0f, 0.92f)).get());
-	m_compassRingBranch[2] = rz;
-	root->addChild(rz.get());
+	m_compassRingBranch[1] = wrapAxisBranch(addTubeRing(1, osg::Vec4(0.35f, 1.0f, 0.35f, 1.0f)).get());
+	root->addChild(m_compassRingBranch[1].get());
+
+	m_compassRingBranch[2] = wrapAxisBranch(addTubeRing(2, osg::Vec4(0.35f, 0.55f, 1.0f, 1.0f)).get());
+	root->addChild(m_compassRingBranch[2].get());
 
 	return root.release();
 }
@@ -252,6 +253,8 @@ void OsgScene::attachCompassGraphics()
 	}
 	m_compassScaleTransform = new osg::MatrixTransform;
 	m_compassScaleTransform->setMatrix(osg::Matrix::identity());
+	osg_compass::applyUnlitHighlitStateSet(m_compassScaleTransform->getOrCreateStateSet());
+	osg_compass::applyUnlitHighlitStateSet(m_compassTransform->getOrCreateStateSet());
 	m_compassNode = createCompassNode();
 	m_compassScaleTransform->addChild(m_compassNode.get());
 	m_compassTransform->addChild(m_compassScaleTransform.get());
@@ -368,8 +371,10 @@ void OsgScene::updateCompassScale()
 	if (m_gizmoReferenceDistance < 0.0 || m_gizmoReferenceDistance <= 1e-6)
 	{
 		m_gizmoReferenceDistance = std::max(1.0, distance);
-		const double desiredAxisWorld = std::max(20.0, static_cast<double>(m_activeModelDiagonal) * 0.08);
-		m_gizmoReferenceScale = std::max(0.4, std::min(800.0, desiredAxisWorld / 120.0));
+		const double desiredAxisWorld =
+			std::max(kCompassMinAxisWorld, static_cast<double>(m_activeModelDiagonal) * kCompassModelDiagonalFactor);
+		m_gizmoReferenceScale =
+			std::max(0.4, std::min(800.0, desiredAxisWorld / static_cast<double>(kCompassAxisLength)));
 	}
 	double scale = m_gizmoReferenceScale * (distance / m_gizmoReferenceDistance);
 	scale = std::max(0.3, std::min(1200.0, scale));
@@ -411,8 +416,8 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing,
 			gizmoScale = 1.0f;
 		}
 	}
-	const float axisLen = 120.0f * gizmoScale;
-	const float ringRadius = 65.0f * gizmoScale;
+	const float axisLen = kCompassAxisLength * gizmoScale;
+	const float ringRadius = 65.0f * kCompassGeomScale * gizmoScale;
 
 	osg::Camera* camera = m_viewer->getCamera();
 	const osg::Matrixd mvp = camera->getViewMatrix() * camera->getProjectionMatrix();
@@ -578,7 +583,7 @@ bool OsgScene::beginGizmoScreenDrag(const DragAxis axis)
 			gizmoScale = 1.0f;
 		}
 	}
-	const float axisLenMm = 120.0f * gizmoScale;
+	const float axisLenMm = kCompassAxisLength * gizmoScale;
 
 	osg::Vec3f origin;
 	computeGizmoPivotWorld(origin);

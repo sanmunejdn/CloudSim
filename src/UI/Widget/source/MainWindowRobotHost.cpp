@@ -1,7 +1,9 @@
 #include "MainWindowRobotHost.h"
 
+#include "BackendSceneDocumentFacade.h"
 #include "DocumentPage.h"
 #include "MainWindow.h"
+#include "RunInfoPage.h"
 #include "MainWindowImportCaptureRenderController.h"
 #include "MainWindowSelectionService.h"
 #include "OsgWidget.h"

@@ -48,6 +48,11 @@ public:
 	RobotInstruction::FeasibleMotionAxisConfigurationOptions feasibleMotionAxisConfigurationOptionsForInstruction(
 		const std::shared_ptr<RobotInstruction::Base>& instruction,
 		QVector<double>* outSeedJointRad = nullptr);
+	const RobotInstruction::FeasibleMotionAxisConfigurationOptions& cachedFeasibleAxisConfigurationOptions() const
+	{
+		return m_cachedFeasibleAxisOptions;
+	}
+	void invalidateFeasibleAxisConfigurationCache();
 
 	bool tryCaptureCurrentRobotTcpPose(
 		RobotInstruction::Vec3& outPoseMm,

@@ -1,5 +1,7 @@
 #include "MainWindow.h"
 
+#include "BackendSceneDocumentFacade.h"
+
 #include <algorithm>
 #include <cmath>
 #include <memory>

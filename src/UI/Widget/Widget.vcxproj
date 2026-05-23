@@ -154,6 +154,9 @@
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <AdditionalIncludeDirectories>inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../../AI/AiBackend/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../BackendVisual/inc;../../Geometry/GeometryEngine/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/qtpropertybrowser;../../../../bin/SDK/OSG3.6.5/include;../../Data/Data/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotScene/inc;../../UI/Widget/inc</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /Zm300 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -174,6 +177,9 @@
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <AdditionalIncludeDirectories>inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../../AI/AiBackend/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../BackendVisual/inc;../../Geometry/GeometryEngine/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/qtpropertybrowser;../../../../bin/SDK/OSG3.6.5/include;../../Data/Data/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotScene/inc;../../UI/Widget/inc</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /Zm300 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
@@ -218,9 +224,12 @@
     <ClInclude Include="inc\ProjectPackageZip.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="source\AiCommandExecutor.cpp" />
     <ClCompile Include="source\ApplicationStyle.cpp" />
-    <ClCompile Include="source\BackendSceneDocumentFacade.cpp" />
     <ClCompile Include="source\DocumentPage.cpp" />
     <ClCompile Include="source\MainWindow.cpp" />
     <ClCompile Include="source\MainWindowRobotHost.cpp" />
@@ -244,7 +253,10 @@
     <ClCompile Include="source\JobSystem.cpp" />
     <ClCompile Include="source\ProgressManager.cpp" />
     <ClCompile Include="source\RunInfoPage.cpp" />
-    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertybrowser.cpp" />
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertybrowser.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertybrowserutils.cpp" />
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertymanager.cpp" />
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qteditorfactory.cpp" />

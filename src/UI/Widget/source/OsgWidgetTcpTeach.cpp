@@ -1,6 +1,8 @@
 #include "OsgWidget.h"
 #include "RobotTcpDragTeachOperation.h"
 
+#include "../../OsgWidgetCore/inc/OsgCompassRender.h"
+
 #include <RigidTransform.h>
 #include <Adapters.h>
 
@@ -24,6 +26,20 @@
 namespace
 {
 
+osg::Vec3d tcpTeachNodeOriginWorld(const osg::Node* leaf)
+{
+	if (!leaf)
+	{
+		return osg::Vec3d(0.0, 0.0, 0.0);
+	}
+	osg::NodePath path;
+	for (const osg::Node* n = leaf; n != nullptr; n = n->getNumParents() > 0 ? n->getParent(0) : nullptr)
+	{
+		path.insert(path.begin(), const_cast<osg::Node*>(n));
+	}
+	return osg::Vec3d(0.0, 0.0, 0.0) * osg::computeLocalToWorld(path);
+}
+
 bool tcpTeachMountPatWorldMatrix(const osg::MatrixTransform* mountPat, osg::Matrixd& outWorld)
 {
 	if (!mountPat)
@@ -44,6 +60,11 @@ bool tcpTeachMountPatWorldMatrix(const osg::MatrixTransform* mountPat, osg::Matr
 	return true;
 }
 
+constexpr float kCompassAxisLength = 600.0f;
+constexpr float kCompassGeomScale = kCompassAxisLength / 120.0f;
+constexpr double kCompassModelDiagonalFactor = 0.40;
+constexpr double kCompassMinAxisWorld = 100.0;
+
 } // namespace
 
 namespace
@@ -63,26 +84,13 @@ osg::Node* buildTcpTeachCompassGeometry(
 		axisBranch[i] = nullptr;
 		ringBranch[i] = nullptr;
 	}
-	const float axisLen = 120.0f;
-	const float coneH = 20.0f;
-	const float coneR = 7.0f;
-	const float tipExtension = 6.0f;
-	const float ringRadius = 65.0f;
-	const float tubeR = 2.85f;
+	const float axisLen = kCompassAxisLength;
+	const float coneH = 20.0f * kCompassGeomScale;
+	const float coneR = 7.0f * kCompassGeomScale;
+	const float tipExtension = 6.0f * kCompassGeomScale;
+	const float ringRadius = 65.0f * kCompassGeomScale;
+	const float tubeR = 2.85f * kCompassGeomScale;
 	const int ringSegments = 36;
-
-	auto applyCompassStateSet = [](osg::StateSet* ss) {
-		ss->setAttributeAndModes(new osg::PolygonOffset(-1.0f, -1.0f), osg::StateAttribute::ON);
-		ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
-		ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-		ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-		ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
-		osg::ref_ptr<osg::Depth> depth = new osg::Depth;
-		depth->setFunction(osg::Depth::ALWAYS);
-		depth->setWriteMask(false);
-		ss->setAttributeAndModes(depth.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-		ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-	};
 
 	auto addPositiveAxis = [&](const osg::Vec3& p1, const osg::Vec3& coneDir, const osg::Vec4& col) -> osg::ref_ptr<osg::Geode> {
 		osg::ref_ptr<osg::Geode> g = new osg::Geode;
@@ -96,7 +104,8 @@ osg::Node* buildTcpTeachCompassGeometry(
 		lineGeom->setColorArray(ca.get(), osg::Array::BIND_OVERALL);
 		lineGeom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, 2));
 		g->addDrawable(lineGeom.get());
-		g->getOrCreateStateSet()->setAttribute(new osg::LineWidth(6.0f));
+		osg_compass::applyUnlitHighlitStateSet(lineGeom->getOrCreateStateSet());
+		lineGeom->getOrCreateStateSet()->setAttribute(new osg::LineWidth(6.0f));
 
 		const osg::Vec3 tip = coneDir * (axisLen + tipExtension);
 		const osg::Vec3 coneCenter = tip - coneDir * (coneH * 0.5f);
@@ -106,22 +115,26 @@ osg::Node* buildTcpTeachCompassGeometry(
 		cone->setRotation(rot);
 		cone->setCenter(coneCenter);
 		osg::ref_ptr<osg::ShapeDrawable> coneDraw = new osg::ShapeDrawable(cone.get());
+		coneDraw->setUseDisplayList(false);
 		coneDraw->setColor(col);
 		g->addDrawable(coneDraw.get());
-		applyCompassStateSet(g->getOrCreateStateSet());
+		osg_compass::applyUnlitHighlitStateSet(coneDraw->getOrCreateStateSet());
+		osg_compass::applyUnlitHighlitStateSet(g->getOrCreateStateSet());
 		return g;
 	};
 
 	osg::ref_ptr<osg::Group> root = new osg::Group;
 	root->setName("TcpTeachCompass");
+	osg_compass::applyUnlitHighlitStateSet(root->getOrCreateStateSet());
 
-	const osg::Vec4 colX(0.92f, 0.22f, 0.22f, 0.95f);
-	const osg::Vec4 colY(0.22f, 0.85f, 0.28f, 0.95f);
-	const osg::Vec4 colZ(0.25f, 0.45f, 0.95f, 0.95f);
+	const osg::Vec4 colX(0.92f, 0.22f, 0.22f, 1.0f);
+	const osg::Vec4 colY(0.22f, 0.85f, 0.28f, 1.0f);
+	const osg::Vec4 colZ(0.25f, 0.45f, 0.95f, 1.0f);
 
 	auto wrapBranch = [&](osg::Node* child) -> osg::ref_ptr<osg::MatrixTransform> {
 		osg::ref_ptr<osg::MatrixTransform> br = new osg::MatrixTransform;
 		br->addChild(child);
+		osg_compass::applyUnlitHighlitStateSet(br->getOrCreateStateSet());
 		return br;
 	};
 
@@ -160,8 +173,9 @@ osg::Node* buildTcpTeachCompassGeometry(
 		geom->setColorArray(ca.get(), osg::Array::BIND_OVERALL);
 		geom->addPrimitiveSet(new osg::DrawArrays(GL_LINE_STRIP, 0, v->size()));
 		geom->getOrCreateStateSet()->setAttribute(new osg::LineWidth(4.0f));
-		applyCompassStateSet(geom->getOrCreateStateSet());
+		osg_compass::applyUnlitHighlitStateSet(geom->getOrCreateStateSet());
 		g->addDrawable(geom.get());
+		osg_compass::applyUnlitHighlitStateSet(g->getOrCreateStateSet());
 		ringBranch[axisIdx] = wrapBranch(g.get());
 		root->addChild(ringBranch[axisIdx].get());
 	};
@@ -250,19 +264,31 @@ void OsgWidget::beginTcpDragTeach(
 
 	m_tcpTeachMountPat = new osg::MatrixTransform;
 	m_tcpTeachMountPat->setName("TcpTeachMount");
+	it->second->addChild(m_tcpTeachMountPat.get());
+
+	m_tcpTeachWorldPat = new osg::MatrixTransform;
+	m_tcpTeachWorldPat->setName("TcpTeachWorld");
+	osg_compass::applyUnlitHighlitStateSet(m_tcpTeachWorldPat->getOrCreateStateSet());
 
 	m_tcpTeachOverlayGroup = new osg::Group;
 	m_tcpTeachOverlayGroup->setName("TcpTeachGizmoOverlay");
+	osg_compass::applyUnlitHighlitStateSet(m_tcpTeachOverlayGroup->getOrCreateStateSet());
 	m_tcpTeachCompassTransform = new osg::PositionAttitudeTransform;
+	osg_compass::applyUnlitHighlitStateSet(m_tcpTeachCompassTransform->getOrCreateStateSet());
 	m_tcpTeachCompassScaleTransform = new osg::MatrixTransform;
+	osg_compass::applyUnlitHighlitStateSet(m_tcpTeachCompassScaleTransform->getOrCreateStateSet());
 	m_tcpTeachCompassNode = buildTcpTeachCompassGeometry(m_tcpTeachAxisBranch, m_tcpTeachRingBranch);
 	m_tcpTeachCompassScaleTransform->addChild(m_tcpTeachCompassNode.get());
 	m_tcpTeachCompassTransform->addChild(m_tcpTeachCompassScaleTransform.get());
 	m_tcpTeachOverlayGroup->addChild(m_tcpTeachCompassTransform.get());
-	m_tcpTeachMountPat->addChild(m_tcpTeachOverlayGroup.get());
+	m_tcpTeachWorldPat->addChild(m_tcpTeachOverlayGroup.get());
+	if (m_tcpTeachSceneOverlayGroup.valid())
+	{
+		m_tcpTeachSceneOverlayGroup->addChild(m_tcpTeachWorldPat.get());
+	}
 
-	it->second->addChild(m_tcpTeachMountPat.get());
 	updateTcpDragTeachFromTarget(T_base_target);
+	syncTcpTeachWorldPatFromMount();
 	syncTcpTeachCompassAttitude();
 	updateTcpTeachCompassScale();
 	m_tcpTeachCompassTransform->setNodeMask(0xffffffffu);
@@ -290,7 +316,12 @@ void OsgWidget::endTcpDragTeach()
 	m_tcpTeachDragScreenAxisUy = 0.0;
 	m_tcpTeachDragMmPerPixel = 1.0;
 	m_tcpTeachHoverAxis = DragAxis::None;
+	if (m_tcpTeachWorldPat.valid() && m_tcpTeachSceneOverlayGroup.valid())
+	{
+		m_tcpTeachSceneOverlayGroup->removeChild(m_tcpTeachWorldPat.get());
+	}
 	m_tcpTeachMountPat = nullptr;
+	m_tcpTeachWorldPat = nullptr;
 	m_tcpTeachOverlayGroup = nullptr;
 	m_tcpTeachCompassTransform = nullptr;
 	m_tcpTeachCompassScaleTransform = nullptr;
@@ -312,9 +343,25 @@ void OsgWidget::updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLoca
 	}
 	m_tcpTeachToolLocalOnFlange = toolLocalOnFlange;
 	m_tcpTeachMountPat->setMatrix(m_tcpTeachToolLocalOnFlange);
+	syncTcpTeachWorldPatFromMount();
 	syncTcpTeachCompassAttitude();
 	updateTcpTeachCompassScale();
 	requestRedraw();
+}
+
+void OsgWidget::syncTcpTeachWorldPatFromMount()
+{
+	if (!m_tcpTeachActive || !m_tcpTeachWorldPat.valid() || !m_tcpTeachMountPat.valid())
+	{
+		return;
+	}
+	osg::NodePath path;
+	for (osg::Node* n = m_tcpTeachMountPat.get(); n != nullptr;
+		 n = n->getNumParents() > 0 ? n->getParent(0) : nullptr)
+	{
+		path.insert(path.begin(), n);
+	}
+	m_tcpTeachWorldPat->setMatrix(osg::computeLocalToWorld(path));
 }
 
 void OsgWidget::updateTcpDragTeachFromTarget(
@@ -333,6 +380,7 @@ void OsgWidget::updateTcpDragTeachFromTarget(
 	if (m_tcpTeachUseFlangeLocalPlacement)
 	{
 		m_tcpTeachMountPat->setMatrix(m_tcpTeachToolLocalOnFlange);
+		syncTcpTeachWorldPatFromMount();
 		syncTcpTeachCompassAttitude();
 		updateTcpTeachCompassScale();
 		requestRedraw();
@@ -347,6 +395,7 @@ void OsgWidget::updateTcpDragTeachFromTarget(
 	const osg::Matrixd toolInBase = engine::osgMatrixFromRigidTransform(T_base_target);
 	const osg::Matrixd localOnRoot = toolInBase * osg::Matrixd::inverse(sceneWorld);
 	m_tcpTeachMountPat->setMatrix(localOnRoot);
+	syncTcpTeachWorldPatFromMount();
 	syncTcpTeachCompassAttitude();
 	updateTcpTeachCompassScale();
 	requestRedraw();
@@ -409,8 +458,10 @@ void OsgWidget::updateTcpTeachCompassScale()
 	if (m_tcpTeachGizmoRefDistance < 0.0 || m_tcpTeachGizmoRefDistance <= 1e-6)
 	{
 		m_tcpTeachGizmoRefDistance = std::max(1.0, distance);
-		const double desiredAxisWorld = std::max(20.0, static_cast<double>(m_tcpTeachModelDiagonal) * 0.08);
-		m_tcpTeachGizmoRefScale = std::max(0.4, std::min(800.0, desiredAxisWorld / 120.0));
+		const double desiredAxisWorld =
+			std::max(kCompassMinAxisWorld, static_cast<double>(m_tcpTeachModelDiagonal) * kCompassModelDiagonalFactor);
+		m_tcpTeachGizmoRefScale =
+			std::max(0.4, std::min(800.0, desiredAxisWorld / static_cast<double>(kCompassAxisLength)));
 	}
 	double scale = m_tcpTeachGizmoRefScale * (distance / m_tcpTeachGizmoRefDistance);
 	scale = std::max(0.3, std::min(1200.0, scale));
@@ -444,7 +495,7 @@ bool OsgWidget::beginTcpTeachScreenDrag()
 			gizmoScale = 1.0f;
 		}
 	}
-	const float axisLenMm = 120.0f * gizmoScale;
+	const float axisLenMm = kCompassAxisLength * gizmoScale;
 
 	osg::Vec3f origin;
 	computeTcpTeachPivotWorld(origin);
@@ -541,6 +592,18 @@ bool OsgWidget::tcpTeachCompassUnitAxisWorld(const DragAxis axis, osg::Vec3d& ou
 void OsgWidget::computeTcpTeachPivotWorld(osg::Vec3f& outPivotWorld) const
 {
 	outPivotWorld.set(0.0f, 0.0f, 0.0f);
+	if (m_tcpTeachWorldPat.valid())
+	{
+		osg::NodePath path;
+		for (osg::Node* n = m_tcpTeachWorldPat.get(); n != nullptr;
+			 n = n->getNumParents() > 0 ? n->getParent(0) : nullptr)
+		{
+			path.insert(path.begin(), n);
+		}
+		const osg::Vec3d w = osg::Vec3d(0.0, 0.0, 0.0) * osg::computeLocalToWorld(path);
+		outPivotWorld.set(static_cast<float>(w.x()), static_cast<float>(w.y()), static_cast<float>(w.z()));
+		return;
+	}
 	if (!m_tcpTeachMountPat.valid())
 	{
 		return;
@@ -580,8 +643,8 @@ int OsgWidget::pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, const bool pr
 			gizmoScale = 1.0f;
 		}
 	}
-	const float axisLen = 120.0f * gizmoScale;
-	const float ringRadius = 65.0f * gizmoScale;
+	const float axisLen = kCompassAxisLength * gizmoScale;
+	const float ringRadius = 65.0f * kCompassGeomScale * gizmoScale;
 
 	osg::Camera* camera = m_viewer->getCamera();
 	const osg::Matrixd mvp = camera->getViewMatrix() * camera->getProjectionMatrix();

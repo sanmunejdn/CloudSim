@@ -263,6 +263,7 @@ public:
 	void applyTcpTeachRotationWorld(int axisIndex, double deltaRad);
 	void applyTcpTeachRotationBody(int axisIndex, double deltaRad);
 	void syncTcpTeachCompassAttitude();
+	void syncTcpTeachWorldPatFromMount();
 	bool tcpTeachResolveBaseWorld(osg::Matrixd& outBaseWorld) const;
 	bool tcpTeachToolWorldMatrix(osg::Matrixd& outToolWorld) const;
 	void tcpTeachSetTargetFromToolWorld(const osg::Matrixd& toolWorld);
@@ -290,6 +291,8 @@ public:
 	bool m_tcpTeachRotatePivotActive = false;
 	osg::Vec3d m_tcpTeachRotatePivotWorld{};
 	osg::ref_ptr<osg::MatrixTransform> m_tcpTeachMountPat;
+	/// 场景 overlay 上的世界位姿节点（罗盘挂此，不挂在受光机器人子树下）
+	osg::ref_ptr<osg::MatrixTransform> m_tcpTeachWorldPat;
 	osg::ref_ptr<osg::Group> m_tcpTeachOverlayGroup;
 	osg::ref_ptr<osg::PositionAttitudeTransform> m_tcpTeachCompassTransform;
 	osg::ref_ptr<osg::MatrixTransform> m_tcpTeachCompassScaleTransform;
