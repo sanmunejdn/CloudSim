@@ -61,7 +61,6 @@ public:
 	void setBackendsVisible(const std::vector<std::string>& backendIds, bool visible);
 
 	IRobotBackendPoseSink* poseSink() const;
-	OsgWidget* osgWidget() const { return m_osgWidget; }
 	IBackendSceneBridge& bridge() const { return *m_bridge; }
 	BackendDataManager& backendManager() const { return *m_mgr; }
 	BackendFollowReverseIndex& followReverseIndex() const { return *m_followIndex; }
@@ -70,5 +69,5 @@ private:
 	BackendDataManager* m_mgr = nullptr;
 	IBackendSceneBridge* m_bridge = nullptr;
 	BackendFollowReverseIndex* m_followIndex = nullptr;
-	OsgWidget* m_osgWidget = nullptr;
+	IRobotBackendPoseSink* m_poseSink = nullptr;
 };

@@ -6,7 +6,7 @@
 #include "MainWindowSelectionService.h"
 #include "OsgWidget.h"
 
-#include "../OsgWidgetCore/inc/OsgScene.h"
+#include "../../OsgWidgetCore/inc/OsgScene.h"
 #include "../RobotWidget/inc/IRobotOsgViewHost.h"
 #include "../RobotWidget/inc/RobotOsgUiTypes.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"

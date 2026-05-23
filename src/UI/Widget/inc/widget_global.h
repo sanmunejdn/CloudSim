@@ -19,6 +19,13 @@
 # define WIDGET_EXPORT
 #endif
 
+#if defined(CLOUDSIM_OSG_IN_HOST)
+# include "../../Host/CloudSimHost/inc/cloudsim_host_global.h"
+# define OSG_WIDGET_API CLOUDSIM_HOST_EXPORT
+#else
+# define OSG_WIDGET_API WIDGET_EXPORT
+#endif
+
 #define HPL_TRY \
 	try{
 

@@ -1,3 +1,5 @@
+#include "CloudSimBootstrap.h"
+#include "ICloudSimContext.h"
 #include "MainWindow.h"
 
 #include <QtWidgets/QApplication>
@@ -7,6 +9,7 @@
 #include <QFileInfo>
 
 #include <cstring>
+#include <memory>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -100,7 +103,9 @@ int main(int argc, char* argv[])
 #endif
 	QCoreApplication::setOrganizationName(QStringLiteral("CloudSim"));
 	QCoreApplication::setApplicationName(QStringLiteral("CloudSim"));
-	MainWindow mainWindow;
+	// 组合根：后续 MainWindow / DocumentPage 注入 g_appContext
+	cloudsimSetApplicationContext(cloudsimCreateApplicationContext());
+	MainWindow mainWindow(cloudsimApplicationContext()->events());
 	mainWindow.showMaximized();
 	const int ret = a.exec();
 	MainWindow::shutdownApplicationLogging();

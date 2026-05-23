@@ -17,6 +17,21 @@
 
 - `Widget`：主窗口、文档页、菜单、树面板、属性面板、交互模式、仿真控制面板。
 - 主要承担：用户输入、状态展示、工作流编排、跨模块协调。
+- **不直接编译** `OsgWidget` 等 OSG Qt 壳层源码；文档数据/视口经 **`CloudSimHost::DocumentHost`** 与 Core 接口访问（见 **§2.1**）。
+
+### 契约与宿主（前后端分界，2025 重构）
+
+| 模块 | 角色 |
+|------|------|
+| **`CloudSimCore`** | 稳定契约 DLL：`IDataService`、`IRobotService`、`IRenderView`、`EventHub`、`IDocumentScope`、`ICloudSimContext`；DTO（`PoseDto`、`Mat4` 等），**无** OSG/CGAL/Eigen 头文件。 |
+| **`CloudSimHost`** | 本地引擎宿主 DLL：实现 `DocumentHost`（每页 `BackendDataManager` + `OsgWidget`）、Core 适配器（`DataServiceAdapter`、`OsgRenderViewAdapter`、`RobotServiceAdapter` 占位）、`cloudsimCreateApplicationContext()`；**编译** Widget 目录下的 `OsgWidget*.cpp` / `QWidgetViewer.cpp` 等 Qt+OSG 桥接源码。 |
+| **`CloudSimBootstrap`** | 仅 **头文件 API**（`CloudSimBootstrap.h` → `cloudsim_host_global.h`）；组合根 **实现** 在 `CloudSimHost.dll`，exe 只 include + 链接 Host。 |
+
+边界约定：
+
+- Widget / `CloudSim.exe` 链接 **`CloudSimCore.lib` + `CloudSimHost.lib`**（及 `Widget.lib` 等），不链 `CloudSimBootstrap.lib`。
+- `DocumentPage` **继承** `cloudsim::host::DocumentHost`，并实现 `IRobotSimulationDocument`（机器人元数据、`osg::` 相关仍主要在 Widget，逐步 DTO 化）。
+- `MainWindow` 构造注入 `cloudsimApplicationContext()->events()`，跨模块通知走 **`EventHub`**（选型/位姿提交等待办事件仍待贯通）。
 
 ### 后端（本地引擎层，不是远程服务）
 
@@ -29,7 +44,36 @@
 - `RobotScene`：机器人指令模型、规划/回放引擎、仿真逻辑。
 - `RunLogger`：运行日志基础设施。
 
-> 结论：这是“**桌面前端 + 本地后端引擎**”架构，而非“前端 + 远程 API 服务”。
+> 结论：这是“**桌面前端 + 契约层 + 本地宿主引擎**”架构，而非“前端 + 远程 API 服务”。
+
+---
+
+## 2.1 契约与宿主：调用关系
+
+```mermaid
+flowchart LR
+    EXE[CloudSim.exe] --> W[Widget.dll]
+    EXE --> H[CloudSimHost.dll]
+    W --> H
+    W --> C[CloudSimCore.dll]
+    H --> C
+    H --> OW[OsgWidget 源码编在 Host]
+    OW --> OGC[OsgWidgetCore.dll]
+    H --> D[Data.dll]
+    H --> BV[BackendVisual.dll]
+    W --> RW[RobotWidget.dll]
+    RW --> RS[RobotScene.dll]
+```
+
+**单文档页（当前）：**
+
+```text
+DocumentPage (Widget)
+  └─ DocumentHost (Host) ── IDataService / IRenderView / IRobotService (Core 接口)
+        ├─ BackendDataManager (Data)
+        ├─ OsgWidget + OsgWidgetSceneBridge (Host 编译)
+        └─ RobotProgramStore 等（仍由 Host 持有，机器人仿真接口在 DocumentPage 转发）
+```
 
 ---
 
@@ -37,19 +81,24 @@
 
 ```mermaid
 flowchart TD
-    A[CloudSim 可执行入口] --> B[Widget UI 编排层]
-    B --> C[OsgWidgetCore 场景核心]
-    B --> D[Data 数据模型层]
-    B --> E[RobotScene 仿真层]
-    C --> F[BackendVisual 可视化适配层]
+    A[CloudSim.exe] --> B[Widget UI 编排层]
+    A --> H[CloudSimHost 文档宿主 + OsgWidget]
+    B --> H
+    B --> C[CloudSimCore 契约]
+    H --> C
+    H --> OGC[OsgWidgetCore 场景核心]
+    H --> D[Data 数据模型层]
+    B --> E[RobotScene 仿真层 via RobotWidget]
+    OGC --> F[BackendVisual 可视化适配层]
     F --> D
-    C --> D
+    OGC --> D
     E --> GE[GeometryEngine 刚体变换]
     E --> G[RobotUrdf URDF层]
-    E --> H[RobotKinematics 运动学层]
+    E --> H2[RobotKinematics 运动学层]
     GE --> D
     G --> D
     B --> I[RunLogger]
+    H --> I
     D --> I
     E --> I
 ```
@@ -58,18 +107,40 @@ flowchart TD
 
 ## 4. 模块级职责与当前架构
 
+## 4.0 `CloudSimCore`（契约 DLL）
+
+- 路径：`src/Contracts/CloudSimCore/`；产物：`bin/x64(d)/CloudSimCore.dll`。
+- 接口与 DTO 见 [`CloudSimCore/DEVELOPER_GUIDE.md`](src/Contracts/CloudSimCore/DEVELOPER_GUIDE.md)。
+- `EventHub`：类型化发布/订阅，供 `MainWindow`、文档页与后续引擎事件贯通。
+- `IDocumentScope`：每文档 `data()` / `robot()` / `render()`；由 `DocumentHost` 实现。
+- 虚析构等在 `.cpp` 中导出，避免跨 DLL `LNK2019`。
+
+## 4.0.1 `CloudSimHost`（本地宿主 DLL）
+
+- 路径：`src/Host/CloudSimHost/`；产物：`bin/x64(d)/CloudSimHost.dll` + **`CloudSimHost.lib`**（Widget / exe 链接用）。开发文档：[`CloudSimHost/DEVELOPER_GUIDE.md`](src/Host/CloudSimHost/DEVELOPER_GUIDE.md)。
+- **`DocumentHost`**：`QWidget` + `IDocumentScope`；持有 `BackendDataManager`、`OsgWidget`、`BackendSceneDocumentFacade` 相关桥接（`OsgWidgetSceneBridge`、`BackendFollowReverseIndex`）。
+- **适配器**：`DataServiceAdapter`（真实 Data）、`OsgRenderViewAdapter`（`Mat4` ↔ `osg::Matrixd`）、`RobotServiceAdapter`（占位，URDF/规划仍主要走 `RobotWidget`）。
+- **组合根**：`CloudSimApplicationContext.cpp` 实现 `cloudsimCreateApplicationContext()` / `cloudsimSetApplicationContext()`（头文件在 `CloudSimBootstrap/inc`，经 `cloudsim_host_global.h` 导出）。
+- **OSG Qt 壳层**：`OsgWidget*.cpp`、`QWidgetViewer.cpp` 等自 `src/UI/Widget/source` **编入 Host**（`CLOUDSIM_OSG_IN_HOST`；Widget 侧 `OSG_WIDGET_API` 为 import）。`OsgWidgetCore` 仍为无 Qt 场景核心。
+- **工程注意**：含 `Q_OBJECT` 的头（如 `DocumentHost.h`）在 vcxproj 中仅登记为 **`QtMoc`**，勿与 `ClInclude` 重复。
+
+## 4.0.2 `CloudSimBootstrap`（组合根头文件）
+
+- 路径：`src/App/CloudSimBootstrap/`；sln 中可为静态库工程，**产品 exe 不链接**其 `.lib`。
+- 仅提供 `CloudSimBootstrap.h`（`cloudsimCreateApplicationContext` 等声明）；实现位于 **Host**。
+
 ## 4.1 `CloudSim`（应用入口）
 
-- `main.cpp` 初始化 `QApplication`、Windows DLL 搜索路径、组织/应用名、日志系统。
-- 创建并展示 `MainWindow`，承担应用生命周期管理（启动/退出）。
-- 依赖 `Widget` 与 `RunLogger`，本身逻辑轻量，属于 bootstrap 层。
+- `main.cpp`：`cloudsimSetApplicationContext(cloudsimCreateApplicationContext())` 后创建 `MainWindow(cloudsimApplicationContext()->events())`。
+- 初始化 `QApplication`、Windows DLL 搜索路径、组织/应用名、日志系统。
+- 链接：`CloudSimCore.lib`、`CloudSimHost.lib`、`Widget.lib` 等；逻辑轻量。
 
 ## 4.2 `Widget`（UI 与流程协调中心）
 
 主要职责：
 
 - 主窗口编排：菜单、停靠窗、文档标签、属性面板、运行信息面板。
-- 文档隔离：`DocumentPage` 每个标签页维护独立 `BackendDataManager + OsgWidget`。
+- 文档隔离：`DocumentPage` **继承** `cloudsim::host::DocumentHost`，每标签页一份 Host 侧 `BackendDataManager + OsgWidget`（Widget 通过 `backend()` / `osgWidget()` 访问，逐步改为 Core 接口）。
 - 场景交互：对象选择、点拾取、边/面拾取、注释、变换 gizmo、主题/语言切换。
 - 项目 I/O：保存/加载 `.pcp/.pcproj.json`，并打包/解包工程资源。
 - 机器人仿真宿主：`MainWindowRobotHost` + `RobotSimulationController`（`RobotWidget.dll`）；**指令树选中预览**与 **Run** 对含 `context.currentJointRadCsv` 的运动点使用**示教关节角**（与拖动/添加指令一致），其余点仍链式 `plan`。`DocumentHost` 必须转发 `robotBackendManagerForKinematics()`（per-link FK）。仿真 Dock 在 **`RobotWidget`**，TCP 示教 OSG 在 **`Widget`**（`OsgWidgetTcpTeach`）。
@@ -88,7 +159,7 @@ flowchart TD
 - `MainWindowSelectionState.h`：`MainWindow` 侧选择状态容器（当前以 `selectedBackendId` 为真源）。
 - `MainWindowObjectRepository.*`：后端对象查询门面（收敛 `activeBackend()` 调用）。
 - `MainWindowObjectGraph.*`：对象层级只读关系图（节点/父子/子树查询），作为树构建与可见性传播的统一结构语义。
-- `OsgWidget*.cpp`：将 Qt 事件与 OSG 场景能力做桥接。
+- **OSG Qt 桥接**（`OsgWidget*.cpp` 等）已 **迁入 `CloudSimHost` 编译**；Widget 仅保留 UI 编排与对 Host 导出类的链接。
 - **`ObjectTransformOperation`**：对象选择模式下罗盘平移/旋转的鼠标事件处理；读写路径统一为 `readActiveObjectGizmoFrame` → 修改 `ObjectGizmoFrame` → `applyToOuter` → `syncActiveBackendRootFromObjectFrame(..., dragging)`；`MouseButtonRelease` 时 `cacheSelectionGizmoPose` 并发出 `transformGizmoCommitted`。
 - **`OsgWidgetTransformHierarchyController`**：选中 backend 时 `syncSelectionForBackendId` 内调用 `attachGizmoOverlayToActiveBackend` / `cacheSelectionGizmoPose`；层级变更后与 `OsgScene` 传播逻辑配合。
 - **`OsgWidgetGizmoController`**：罗盘几何创建、高亮、屏幕轴拾取等对 `OsgScene` 的薄封装。
@@ -126,11 +197,12 @@ flowchart TD
 - 所有上层模块共享的数据真源（single source of truth）。
 - 承担持久化语义和几何属性语义，不直接处理 UI 事件。
 
-### 4.3.1 文档级场景门面（`BackendSceneDocumentFacade`，位于 `Widget`）
+### 4.3.1 文档级场景门面（`BackendSceneDocumentFacade`，由 `DocumentHost` 持有）
 
+- 源码仍在 `src/UI/Widget/`，由 **`CloudSimHost` 工程编译**；`DocumentHost::sceneBridge()` / `DocumentPage` 转发访问。
 - **`IBackendSceneBridge` / `OsgWidgetSceneBridge`**：`Data` 模块仍不包含 OSG 头文件；世界矩阵以 **列主序 16 double** 与 OSG 对齐，经桥接委托 `OsgWidget` 的 `setBackendRootWorldMatrixFromWorld`、`setBackendObjectVisible`、`removeBackendObjectVisual`、`syncOuterPatFromBackend`、`setBackendParent` 等。
 - **`BackendSceneEntity`**：按 `backendId` 持有桥接器与 `BackendDataManager` 指针，提供 `show`/`hide`、世界矩阵读写、子对象 id（`BackendDataManager::childrenOf`）、**跟随者 id 列表**（见下）。
-- **`BackendSceneDocumentFacade`**：由 `DocumentPage::sceneFacade()` 构造，组合当前页的 `BackendDataManager`、桥接器、**`BackendFollowReverseIndex`**（从全表扫描 `FollowAttachmentComponent` 建立「目标 id → 跟随者 id」反向映射；在 `applyHierarchyFollowBinding`、`afterBackendFollowPropertyEdited`、`removeBackendSubtree`、工程加载恢复边与 follow JSON 后调用 `invalidateFollowReverseIndex()` 失效缓存）。
+- **`BackendSceneDocumentFacade`**：由 `DocumentHost` 组合当前页的 `BackendDataManager`、桥接器、**`BackendFollowReverseIndex`**（从全表扫描 `FollowAttachmentComponent` 建立「目标 id → 跟随者 id」反向映射；在 `applyHierarchyFollowBinding`、`afterBackendFollowPropertyEdited`、`removeBackendSubtree`、工程加载恢复边与 follow JSON 后调用 `invalidateFollowReverseIndex()` 失效缓存）。
 - **`poseSink()`**：返回 `OsgWidget*` 作为 `IRobotBackendPoseSink*`，供 `RobotSceneKinematics::applyJointAnglesFromDocument` 等机器人 FK 写回路径使用（与直接传 `OsgWidget*` 等价，入口统一在门面）。
 - **推荐调用链**：树可见性级联、`runBackendFollowSolveAndSync` 中对 `syncOuterPatFromBackend` 的批量写回，优先经 `sceneFacade().entity(...)` / `bridge()`，避免在 UI 层散落裸 `OsgWidget` 场景细节。
 - **删除与解绑**：视觉分支移除与拾取索引解绑仍由 `OsgWidget::removeBackendObjectVisual` 等实现；逻辑子树删除顺序保持「先场景/绑定、再 `unregisterData`」的现有约定；门面不替代 `removeBackendSubtree`，仅收敛显隐与变换的**对外 API**。
@@ -162,7 +234,7 @@ flowchart TD
 架构特点：
 
 - 纯 OSG 核心，不依赖 Qt 事件循环；通过回调方式请求重绘。
-- `Widget::OsgWidget` 作为 Qt 壳层，负责事件桥接与控件集成。
+- **`OsgWidget`**（Qt 壳层，源码在 `Widget/`，**由 `CloudSimHost.dll` 编译导出**）负责事件桥接与控件集成；`OsgRenderViewAdapter` 对 Core 侧暴露 `IRenderView`。
 - 拾取链路已从“临时遍历/局部 userData 依赖”升级为“索引解析 + 统一信号回传”。
 
 **对象变换 Gizmo（`ObjectGizmoFrame` + overlay 挂载）：**
@@ -274,13 +346,27 @@ FANUC Turn 0–7 表示 90° 带宽而非简单 `round(Δ/2π)`；若未来需�
 
 ## 5. 模块依赖关系（工程级）
 
+**x64 链接形态（2025 起）**：下列引擎模块在 x64 为 **独立 DLL**，运行时与 `Widget.dll` / `CloudSimHost.dll` / `Data.dll` / `RobotWidget.dll` **共享单实例**（不再静态嵌入多份）：
+
+`CloudSimCore`、`CloudSimHost`、`RunLogger`、`GeometryEngine`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`BackendVisual`、`OsgWidgetCore`。
+
+`PointCloudAlgorithm` 仍 **静态链入** `Data.dll`；`CloudSimPluginHost` 源码仍 **编进** `Widget.dll`。Win32 遗留路径仍可使用 `*_STATIC` 静态 `.lib`。
+
+**构建输出**：`CloudSim/Directory.Build.props` 定义 `$(CloudSimBinDir)` → 仓库根 `bin/x64d/` 或 `bin/x64/`，各工程 `OutDir` / 链接库路径统一，避免 `$(SolutionDir)` 为空时 **LNK1181**（找不到 `CloudSimHost.lib`）。建议生成顺序：**CloudSimCore → Data → … → CloudSimHost → Widget → CloudSim**。
+
+完整运行时布局见 **§10.2**；各模块 `*_LIB` / 导出宏见 [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md)「x64 动态库约定」。
+
 ```mermaid
 flowchart LR
-    Widget --> OsgWidgetCore
-    Widget --> BackendVisual
-    Widget --> Data
-    Widget --> RobotKinematics
-    Widget --> RobotUrdf
+    CloudSim --> Widget
+    CloudSim --> Host[CloudSimHost]
+    CloudSim --> Core[CloudSimCore]
+    Widget --> Host
+    Widget --> Core
+    Host --> Core
+    Host --> OsgWidgetCore
+    Host --> BackendVisual
+    Host --> Data
     Widget --> RobotWidget
     RobotWidget --> RobotScene
     RobotWidget --> RobotUrdf
@@ -297,25 +383,28 @@ flowchart LR
     OsgWidgetCore --> BackendVisual
     OsgWidgetCore --> Data
     BackendVisual --> Data
+    BackendVisual --> GeometryEngine
 
     RobotUrdf --> Data
     RobotUrdf --> RunLogger
+    RobotUrdf --> BackendVisual
+    RobotUrdf --> GeometryEngine
 
     RobotScene --> RobotUrdf
     RobotScene --> RobotKinematics
     RobotScene --> RunLogger
+    RobotScene --> GeometryEngine
 
     Data --> RunLogger
-
-    CloudSim --> Widget
-    CloudSim --> RunLogger
+    Data --> PointCloudAlgorithm
 ```
 
 依赖特征总结：
 
-- 依赖方向整体从 UI 向底层能力汇聚，层次清晰。
-- `Data` 和 `RunLogger` 为共用基础层。
-- `RobotScene` 组合 `RobotUrdf + RobotKinematics`，业务语义完整。
+- 依赖方向整体从 UI → **Host（OSG+文档）** → Core 契约 → 底层引擎，层次清晰。
+- `Data` 与 `RunLogger` 为共用基础层；x64 下通过 **DLL 边界** 保证日志单例与代码单份加载。
+- `RobotScene` 组合 `RobotUrdf + RobotKinematics + GeometryEngine`，业务语义完整。
+- Widget 仍链 **Data / RobotScene** 等头文件用于属性面板与工程 I/O；中长期经 Core DTO 与 `IRobotService` 收敛。
 
 ---
 
@@ -654,6 +743,9 @@ flowchart LR
 
 ### 当前可持续演进点
 
+- **`EventHub` 贯通**：`SelectionChanged`、`PoseCommitted` 等由 OSG/属性面板发布，减少 `MainWindow` 直接耦合。
+- **`IRobotService` 实装**：程序 JSON、URDF 注册、规划预览等从 `RobotWidget` 迁入 Host 适配器。
+- **Widget 进一步瘦身**：减少直接 `#include` Data/OSG；机器人元数据 DTO 化。
 - `MainWindowSelectionService` 仍包含部分渲染细节分支（点云/网格具体分支加载），后续可继续下沉到更细粒度应用服务。
 - `ObjectGraph` 当前是按需构建的只读快照，后续可评估增量更新/缓存策略以降低大场景重建成本。
 - `Widget/MainWindow` 仍是高复杂度协调中心，继续按“功能域”拆分有收益。
@@ -680,8 +772,10 @@ flowchart LR
 ### 10.2 运行时布局
 
 ```text
-bin/x64(d)/
+bin/x64(d)/                    # CloudSimBinDir，见 CloudSim/Directory.Build.props
   CloudSim.exe
+  CloudSimCore.dll
+  CloudSimHost.dll             # DocumentHost + OsgWidget + 组合根实现
   Widget.dll
   Data.dll
   RunLogger.dll
@@ -717,6 +811,5 @@ bin/x64(d)/
 
 ## 8. 一句话结论
 
-`CloudSim` 当前属于 **“Qt 桌面前端 + 本地 C++ 后端引擎”** 的模块化架构，并已完成一轮关键闭环重构：  
-以 `ObjectGraph` 定义结构语义、以 `BackendVisualBindingIndex` 保障拾取映射、以 `SelectionService + SelectionState` 统一选择与可见性传播；对象 **Gizmo/罗盘** 以 **`ObjectGizmoFrame` + active outer PAT** 为唯一位姿真源，层级子对象选中时 **从 OSG 读帧** 而非把世界 `pose` 当作 root-local 写入；**URDF** 支持 **多机 per-link**（`HierarchicalRobotInstance` + `robotKinematicsInstances`）、**无几何 robot root** 与稳定 backend 命名，FK/`setBackendRootWorldMatrixFromWorld`/`syncOuterPatFromBackend` 共用行向量父链约定；**运动指令轴配置**在属性/UI/规划/JSON 四层对齐（可行枚举过滤、显式构型约束规划、种子构型默认 preset）；**AI 助手** 经规则解析或 OpenAI 兼容 LLM + `BackendPrimitiveGeometry` 在文档内创建 box/cylinder/cone/sphere 网格并走与导入一致的 OSG 光照显示，在不改变核心业务能力的前提下显著提升了可维护性与状态一致性。
+`CloudSim` 当前属于 **“Qt 桌面前端 + CloudSimCore 契约 + CloudSimHost 本地宿主 + 引擎 DLL”** 的模块化架构：UI（`Widget`）经 **`DocumentHost`** 访问数据与 OSG，组合根与 **`OsgWidget`** 实现位于 **Host**，契约在 **Core**；并已完成拾取/选择闭环与 URDF 多机 per-link 等能力。后续在 **`EventHub` 贯通**、**`IRobotService` 实装**、Widget 对 Data/OSG 头文件依赖收敛上继续演进；对象 **Gizmo**、**运动轴配置**、**AI 助手** 等行为与重构前一致，见上文各节。
 

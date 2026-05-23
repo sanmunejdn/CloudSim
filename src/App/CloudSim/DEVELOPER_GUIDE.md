@@ -2,12 +2,13 @@
 
 ## 1. 模块定位
 
-`CloudSim` 工程是解决方案的 **bootstrap 层**：仅包含 `main.cpp`，负责进程级初始化后创建并显示 `MainWindow`。业务逻辑全部在 `Widget` 及其他 DLL/静态库中。
+`CloudSim` 工程是解决方案的 **bootstrap 层**：仅包含 `main.cpp`，负责进程级初始化后创建并显示 `MainWindow`。业务逻辑在 `Widget.dll` 及其他引擎/功能 DLL 中。
 
 | 属性 | 说明 |
 |------|------|
 | 输出 | `CloudSim.exe` |
-| 直接依赖 | `Widget`、`RunLogger`（间接依赖全栈） |
+| x64 直接链接 | `Widget.lib`、`Data.lib`（import lib） |
+| 运行时依赖 | exe 同目录下全部产品 DLL（见 [`docs/DIRECTORY_LAYOUT.md`](../docs/DIRECTORY_LAYOUT.md)「x64 运行时 DLL」） |
 | 源码 | `CloudSim/main.cpp` |
 
 ---
@@ -28,6 +29,7 @@ sequenceDiagram
     main->>MW: MainWindow w; w.showMaximized()
     main->>Qt: exec()
     main->>MW: shutdownApplicationLogging()
+    Note over MW,RL: RunLogger.dll 由 Widget/Data 等加载
 ```
 
 ### 2.1 `applyRobotKinematicsDebugFromArgv`
@@ -85,7 +87,8 @@ return code;
 ## 4. 构建注意
 
 - 平台：`Win32` / `x64`，工具集 `v142`，Unicode。
-- 运行目录：exe 旁需能解析 OSG/CGAL/Qt DLL；调试时工作目录通常设为 `bin/x64...`。
+- **x64**：工作目录设为 `bin/x64/`（或 `x64d/`）；exe 旁需有 Qt/OSG/OCCT 及全部产品 DLL（`RunLogger.dll`、`OsgWidgetCore.dll` 等）。
+- **Win32**：遗留单体/静态链接路径；`main` 仍可直接链 `RunLogger.lib` 静态库。
 - 新增全局启动逻辑（单实例、崩溃转储等）应放在 `main.cpp` 或小型 `AppBootstrap` 单元，避免膨胀 `MainWindow`。
 
 ---

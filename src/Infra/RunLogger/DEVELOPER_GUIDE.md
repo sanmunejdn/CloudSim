@@ -6,10 +6,11 @@
 
 | 属性 | 说明 |
 |------|------|
-| 工程类型 | 静态库 / DLL（`RUN_LOGGER_API`） |
+| 工程类型 | x64：**动态库** `RunLogger.dll`；Win32：静态 `.lib` |
 | 头文件目录 | `RunLogger/inc/` |
 | 实现目录 | `RunLogger/source/` |
 | 导出宏 | `run_logger_global.h` → `RUN_LOGGER_API` |
+| 构建定义 | x64 构建侧：`RUN_LOGGER_LIB`；Win32：`RUN_LOGGER_STATIC` |
 
 ---
 
@@ -17,14 +18,15 @@
 
 ```mermaid
 flowchart LR
-  CS[CloudSim.exe] --> RL[RunLogger]
-  Widget --> RL
-  Data --> RL
-  RobotUrdf --> RL
-  RobotScene --> RL
+  CS[CloudSim.exe] --> RL[RunLogger.dll]
+  Widget.dll --> RL
+  Data.dll --> RL
+  RobotUrdf.dll --> RL
+  RobotScene.dll --> RL
+  OsgWidgetCore.dll --> RL
 ```
 
-**被依赖方**：无业务模块依赖；**依赖方**：几乎所有上层模块。
+**被依赖方**：无业务模块依赖；**依赖方**：几乎所有上层模块（x64 通过 import lib 链接，运行时共享一份 DLL）。
 
 ---
 

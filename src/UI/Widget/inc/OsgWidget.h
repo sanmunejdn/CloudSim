@@ -32,7 +32,7 @@
 #include "widget_global.h"
 #include "GraphicsWindowQt1.h"
 #include "IRobotBackendPoseSink.h"
-#include "../OsgWidgetCore/inc/OsgScene.h"
+#include "../../OsgWidgetCore/inc/OsgScene.h"
 
 #include <RigidTransform.h>
 
@@ -64,7 +64,7 @@ class OsgWidgetTransformHierarchyController;
 struct MeshCapturedPart;
 
 /// 三维视图核心控件：封装 OSG Viewer、相机与场景根节点，负责导入、后端对象显示、拾取与标注等。
-class WIDGET_EXPORT OsgWidget : public QWidget, public IRobotBackendPoseSink, public OsgScene
+class OSG_WIDGET_API OsgWidget : public QWidget, public IRobotBackendPoseSink, public OsgScene
 {
 	Q_OBJECT
 public:

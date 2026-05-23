@@ -150,18 +150,18 @@
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <UndefinePreprocessorDefinitions>_DEBUG</UndefinePreprocessorDefinitions>
-      <PreprocessorDefinitions>WIDGET_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIDGET_LIB;CLOUDSIM_OSG_IN_HOST;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../../AI/AiBackend/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../BackendVisual/inc;../../Geometry/GeometryEngine/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/qtpropertybrowser;../../../../bin/SDK/OSG3.6.5/include;../../Data/Data/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotScene/inc</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../../AI/AiBackend/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../BackendVisual/inc;../../Geometry/GeometryEngine/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/qtpropertybrowser;../../../../bin/SDK/OSG3.6.5/include;../../Data/Data/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotScene/inc;../../UI/Widget/inc</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /Zm300 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>CloudSimPluginSDK.lib;OsgWidgetCore.lib;BackendVisual.lib;GeometryEngine.lib;RunLogger.lib;osgViewer.lib;osg.lib;osgDB.lib;osgWidget.lib;osgVolume.lib;osgUtil.lib;osgUI.lib;osgText.lib;osgTerrain.lib;osgSim.lib;osgShadow.lib;osgPresentation.lib;osgParticle.lib;osgManipulator.lib;osgGA.lib;osgFX.lib;osgAnimation.lib;OpenThreads.lib;Data.lib;RobotKinematics.lib;RobotUrdf.lib;RobotScene.lib;RobotWidget.lib;AiWidget.lib;AiBackend.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(CloudSimBinDir)CloudSimCore.lib;$(CloudSimBinDir)CloudSimHost.lib;CloudSimPluginSDK.lib;OsgWidgetCore.lib;BackendVisual.lib;GeometryEngine.lib;RunLogger.lib;osgViewer.lib;osg.lib;osgDB.lib;osgWidget.lib;osgVolume.lib;osgUtil.lib;osgUI.lib;osgText.lib;osgTerrain.lib;osgSim.lib;osgShadow.lib;osgPresentation.lib;osgParticle.lib;osgManipulator.lib;osgGA.lib;osgFX.lib;osgAnimation.lib;OpenThreads.lib;Data.lib;RobotKinematics.lib;RobotUrdf.lib;RobotScene.lib;RobotWidget.lib;AiWidget.lib;AiBackend.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(CloudSimBinDir);$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -170,11 +170,11 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIDGET_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIDGET_LIB;CLOUDSIM_OSG_IN_HOST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../../AI/AiBackend/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../BackendVisual/inc;../../Geometry/GeometryEngine/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/qtpropertybrowser;../../../../bin/SDK/OSG3.6.5/include;../../Data/Data/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotScene/inc</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../../AI/AiBackend/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../BackendVisual/inc;../../Geometry/GeometryEngine/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/qtpropertybrowser;../../../../bin/SDK/OSG3.6.5/include;../../Data/Data/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotScene/inc;../../UI/Widget/inc</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /Zm300 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -182,8 +182,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>CloudSimPluginSDK.lib;OsgWidgetCore.lib;BackendVisual.lib;GeometryEngine.lib;RunLogger.lib;osgViewer.lib;osg.lib;osgDB.lib;osgWidget.lib;osgVolume.lib;osgUtil.lib;osgUI.lib;osgText.lib;osgTerrain.lib;osgSim.lib;osgShadow.lib;osgPresentation.lib;osgParticle.lib;osgManipulator.lib;osgGA.lib;osgFX.lib;osgAnimation.lib;OpenThreads.lib;Data.lib;RobotKinematics.lib;RobotUrdf.lib;RobotScene.lib;RobotWidget.lib;AiWidget.lib;AiBackend.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(CloudSimBinDir)CloudSimCore.lib;$(CloudSimBinDir)CloudSimHost.lib;CloudSimPluginSDK.lib;OsgWidgetCore.lib;BackendVisual.lib;GeometryEngine.lib;RunLogger.lib;osgViewer.lib;osg.lib;osgDB.lib;osgWidget.lib;osgVolume.lib;osgUtil.lib;osgUI.lib;osgText.lib;osgTerrain.lib;osgSim.lib;osgShadow.lib;osgPresentation.lib;osgParticle.lib;osgManipulator.lib;osgGA.lib;osgFX.lib;osgAnimation.lib;OpenThreads.lib;Data.lib;RobotKinematics.lib;RobotUrdf.lib;RobotScene.lib;RobotWidget.lib;AiWidget.lib;AiBackend.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(CloudSimBinDir);$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -194,7 +194,8 @@
     <QtMoc Include="..\CloudSimPluginHost\inc\PluginManager.h" />
     <ClInclude Include="inc\AiCommandExecutor.h" />
     <ClInclude Include="inc\ApplicationStyle.h" />
-    <ClInclude Include="inc\GraphicsWindowQt1.h" />
+    <ClInclude Include="..\..\Host\CloudSimHost\inc\CloudSimHost.h" />
+    <ClInclude Include="..\..\Host\CloudSimHost\inc\DocumentHost.h" />
     <ClInclude Include="inc\MainWindow_p.h" />
     <QtMoc Include="inc\DocumentPage.h" />
     <QtMoc Include="inc\MainWindow.h" />
@@ -202,9 +203,6 @@
     <ClInclude Include="inc\ObjectTransformOperation.h" />
     <ClInclude Include="inc\RobotTcpDragTeachOperation.h" />
     <ClInclude Include="inc\MeshEdgeFacePickOperation.h" />
-    <ClInclude Include="inc\OsgWidgetBackendLoadController.h" />
-    <ClInclude Include="inc\OsgWidgetImportController.h" />
-    <ClInclude Include="inc\OsgWidgetCaptureController.h" />
     <ClInclude Include="inc\MainWindowImportCaptureRenderController.h" />
     <ClInclude Include="inc\JobSystem.h" />
     <ClInclude Include="inc\MainWindowObjectRepository.h" />
@@ -213,28 +211,17 @@
     <ClInclude Include="inc\BackendSceneDocumentFacade.h" />
     <ClInclude Include="inc\IBackendSceneBridge.h" />
     <ClInclude Include="inc\MainWindowSelectionState.h" />
-    <ClInclude Include="inc\OsgWidgetPickAnnotationController.h" />
-    <ClInclude Include="inc\OsgWidgetColorController.h" />
-    <ClInclude Include="inc\OsgWidgetCameraFocusController.h" />
-    <ClInclude Include="inc\OsgWidgetGizmoController.h" />
     <ClInclude Include="inc\OsgWidgetSceneBridge.h" />
-    <ClInclude Include="inc\OsgWidgetTransformHierarchyController.h" />
-    <QtMoc Include="inc\OsgWidget.h" />
-    <ClInclude Include="inc\PointPickOperation.h" />
-    <ClInclude Include="inc\QtKeyboardMap.h" />
     <QtMoc Include="inc\RunInfoPage.h" />
     <ClInclude Include="inc\SelectionOperation.h" />
-    <QtMoc Include="inc\QWidgetViewer.h" />
     <ClInclude Include="inc\widget_global.h" />
     <ClInclude Include="inc\ProjectPackageZip.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\AiCommandExecutor.cpp" />
     <ClCompile Include="source\ApplicationStyle.cpp" />
-    <ClCompile Include="source\BackendFollowReverseIndex.cpp" />
     <ClCompile Include="source\BackendSceneDocumentFacade.cpp" />
     <ClCompile Include="source\DocumentPage.cpp" />
-    <ClCompile Include="source\GraphicsWindowQt1.cpp" />
     <ClCompile Include="source\MainWindow.cpp" />
     <ClCompile Include="source\MainWindowRobotHost.cpp" />
     <ClCompile Include="source\MainWindowRobotStubs.cpp" />
@@ -253,25 +240,9 @@
     <ClCompile Include="source\MainWindowProjectIo.cpp" />
     <ClCompile Include="source\ProjectPackageZip.cpp" />
     <ClCompile Include="source\MainWindowPropertyPanel.cpp" />
-    <ClCompile Include="source\ObjectTransformOperation.cpp" />
-    <ClCompile Include="source\OsgWidgetTcpTeach.cpp" />
-    <ClCompile Include="source\RobotTcpDragTeachOperation.cpp" />
-    <ClCompile Include="source\OsgWidget.cpp" />
-    <ClCompile Include="source\OsgWidgetBackendLoadController.cpp" />
-    <ClCompile Include="source\OsgWidgetImportController.cpp" />
-    <ClCompile Include="source\OsgWidgetCaptureController.cpp" />
     <ClCompile Include="source\MainWindowImportCaptureRenderController.cpp" />
     <ClCompile Include="source\JobSystem.cpp" />
     <ClCompile Include="source\ProgressManager.cpp" />
-    <ClCompile Include="source\OsgWidgetPickAnnotationController.cpp" />
-    <ClCompile Include="source\OsgWidgetColorController.cpp" />
-    <ClCompile Include="source\OsgWidgetCameraFocusController.cpp" />
-    <ClCompile Include="source\OsgWidgetGizmoController.cpp" />
-    <ClCompile Include="source\OsgWidgetSceneBridge.cpp" />
-    <ClCompile Include="source\OsgWidgetTransformHierarchyController.cpp" />
-    <ClCompile Include="source\PointPickOperation.cpp" />
-    <ClCompile Include="source\MeshEdgeFacePickOperation.cpp" />
-    <ClCompile Include="source\QWidgetViewer.cpp" />
     <ClCompile Include="source\RunInfoPage.cpp" />
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertybrowser.cpp" />
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertybrowserutils.cpp" />
@@ -283,6 +254,13 @@
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\moc_qtpropertybrowserutils_p.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\Host\CloudSimHost\CloudSimHost.vcxproj">
+      <Project>{c1d2e3f4-a5b6-7890-cdef-1234567890ab}</Project>
+      <LinkLibraryDependencies>true</LinkLibraryDependencies>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Contracts\CloudSimCore\CloudSimCore.vcxproj">
+      <Project>{a0b1c2d3-e4f5-6789-abcd-ef0123456701}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\BackendVisual\BackendVisual.vcxproj">
       <Project>{f1e2d3c4-b5a6-4789-0123-456789abcdef}</Project>
     </ProjectReference>

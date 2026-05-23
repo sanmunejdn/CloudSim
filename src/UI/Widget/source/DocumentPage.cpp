@@ -1,61 +1,24 @@
 #include "DocumentPage.h"
 
+#include "EventHub.h"
+#include "RobotProgramStore.h"
+
 #include <QSet>
 #include <QTabWidget>
-#include <QVBoxLayout>
+#include <QUuid>
 
 #include "BackendDataManager.h"
 #include "BackendDataBase.h"
 #include "FollowAttachmentComponent.h"
-#include "MeshBackendData.h"
-#include "OsgWidget.h"
 
 #include <memory>
 #include <unordered_map>
 #include <vector>
 
-QStringList DocumentPage::removeBackendSubtree(const QString& rootBackendId)
+DocumentPage::DocumentPage(QTabWidget* parentTabs, cloudsim::core::EventHub& events)
+	: DocumentHost(parentTabs, events,
+		  QStringLiteral("doc-%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces)))
 {
-	if (rootBackendId.isEmpty())
-	{
-		return {};
-	}
-	QStringList ids;
-	const std::string rootStd = rootBackendId.toStdString();
-	const std::vector<std::string>& subtree = m_hierarchyModel.subtreeIds(rootStd);
-	if (subtree.empty() && m_backend.contains(rootStd))
-	{
-		ids.append(rootBackendId);
-	}
-	else
-	{
-		for (const std::string& id : subtree)
-		{
-			ids.append(QString::fromStdString(id));
-		}
-	}
-	for (const QString& id : ids)
-	{
-		m_backend.unregisterData(id.toStdString());
-		m_backendParentId.remove(id);
-		m_backendSourcePath.remove(id);
-		m_backendSourceType.remove(id);
-	}
-	m_followReverseIndex.invalidate();
-	return ids;
-}
-
-DocumentPage::DocumentPage(QTabWidget* parentTabs)
-	: QWidget(parentTabs)
-{
-	setContentsMargins(0, 0, 0, 0);
-	auto* layout = new QVBoxLayout(this);
-	layout->setContentsMargins(0, 0, 0, 0);
-	layout->setSpacing(0);
-
-	m_osgWidget = new OsgWidget(this);
-	m_sceneBridge.setOsgWidget(m_osgWidget);
-	layout->addWidget(m_osgWidget);
 }
 
 void DocumentPage::rebuildHierarchicalRobotAggregates()
@@ -223,7 +186,7 @@ QString DocumentPage::robotFrameWorldReferenceBackendId(const int instanceIndex)
 	for (auto it = ri.linkNameToBackendId.constBegin(); it != ri.linkNameToBackendId.constEnd(); ++it)
 	{
 		const QString& linkBackendId = it.value();
-		if (m_backendParentId.value(linkBackendId) == ri.sceneBackendId)
+		if (backendParentId().value(linkBackendId) == ri.sceneBackendId)
 		{
 			return linkBackendId;
 		}
@@ -238,7 +201,7 @@ QString DocumentPage::robotDisplayLabelForInstance(const int instanceIndex) cons
 		return QString();
 	}
 	const QString id = m_hierarchicalRobots[instanceIndex].sceneBackendId;
-	if (const auto data = m_backend.getData(id.toStdString()))
+	if (const auto data = backend().getData(id.toStdString()))
 	{
 		if (!data->name().empty())
 		{
@@ -405,7 +368,7 @@ void DocumentPage::updateRobotLinkOuterBindFromWorld(
 
 void DocumentPage::clearRobotSimulationContext()
 {
-	m_robotProgramStore.clear();
+	robotProgramStore().clear();
 	// 【中文】清除传统成员
 	m_robotImportParentId.clear();
 	m_robotLinkNameToBackendId.clear();
@@ -523,16 +486,9 @@ QString DocumentPage::robotJointPrefixRoot() const
 	return p;
 }
 
-bool DocumentPage::takeFollowSolveForced()
-{
-	const bool v = m_followSolveForced;
-	m_followSolveForced = false;
-	return v;
-}
-
 void DocumentPage::notifyRobotKinematicsAppliedToScene()
 {
-	if (m_suppressRobotFollowDirtyNotify)
+	if (suppressRobotFollowDirtyNotify())
 	{
 		return;
 	}
@@ -540,7 +496,7 @@ void DocumentPage::notifyRobotKinematicsAppliedToScene()
 	{
 		if (!ri.sceneBackendId.isEmpty())
 		{
-			markFollowAttachmentDirtyFromBackendMove(m_backend, ri.sceneBackendId.toStdString());
+			markFollowAttachmentDirtyFromBackendMove(backend(), ri.sceneBackendId.toStdString());
 		}
 	}
 }
@@ -587,7 +543,7 @@ void DocumentPage::markFollowAttachmentDirtyFromBackendMove(const BackendDataMan
 		{
 			continue;
 		}
-		m_followDirtyBackendIds.insert(u);
+		followDirtyBackendIds().insert(u);
 		const auto itF = targetToFollowers.find(u);
 		if (itF != targetToFollowers.end())
 		{
@@ -627,20 +583,5 @@ RobotCoordinate::RobotCoordinateFrameSet& DocumentPage::robotCoordinateFramesFor
 const RobotCoordinate::RobotUserFrame* DocumentPage::robotActiveUserFrameForInstance(const int instanceIndex) const
 {
 	return RobotCoordinate::activeUserFrame(robotCoordinateFramesForInstance(instanceIndex));
-}
-
-bool DocumentPage::loadMeshFromBackendIntoScene(
-	const MeshBackendData& data,
-	QString* errorMessage,
-	const bool resetViewToHome,
-	const bool showWireOutline,
-	const bool useSceneLighting)
-{
-	if (!m_osgWidget)
-	{
-		return false;
-	}
-	return m_osgWidget->loadMeshFromBackendData(
-		data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting);
 }
 

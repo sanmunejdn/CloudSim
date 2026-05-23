@@ -4,8 +4,9 @@
 
 `RobotUrdf` 负责 **URDF 解析**、**OSG 层级机器人场景**构建、**每连杆 Mesh 后端**批量创建，以及 FK 所需的 link/joint 元数据。长度内部统一 **mm**（URDF origin 由米转换）。
 
-| 依赖 | `Data`, `RunLogger`；可选 `BackendVisual`（每连杆） |
-| 导出 | `ROBOT_URDF_API` |
+| 依赖 | `Data.dll`、`GeometryEngine.dll`、`RunLogger.dll`、`BackendVisual.dll` |
+| x64 输出 | `RobotUrdf.dll` |
+| 导出 | `ROBOT_URDF_API`（x64 构建：`ROBOT_URDF_LIB`） |
 
 ---
 

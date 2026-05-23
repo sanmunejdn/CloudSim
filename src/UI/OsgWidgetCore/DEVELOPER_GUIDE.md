@@ -7,8 +7,10 @@
 | 属性 | 说明 |
 |------|------|
 | 主类 | `OsgScene`（头文件 `OsgScene.h`，实现分 `OsgScene*.cpp`） |
-| 依赖 | `BackendVisual`, `Data/BackendDataBase` |
-| 导出 | `OSGWIDGETCORE_EXPORT` |
+| x64 输出 | `OsgWidgetCore.dll` |
+| 依赖 | `BackendVisual.dll`、`Data.dll`、`RunLogger.dll` |
+| 导出 | `OSGWIDGETCORE_EXPORT`（x64 构建：`OSGWIDGETCORE_LIB`） |
+| 头文件注意 | 导出类若含 `osg::ref_ptr<osgViewer::Viewer>` 等成员，须在头文件中 `#include` 完整 OSG 类型（非仅前向声明） |
 
 ---
 

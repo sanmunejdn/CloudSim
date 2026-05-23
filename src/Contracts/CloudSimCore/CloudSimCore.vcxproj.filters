@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{4F8A1B2C-3D4E-5F60-9A8B-1C2D3E4F5A6B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source">
+      <UniqueIdentifier>{5F8A1B2C-3D4E-5F60-9A8B-1C2D3E4F5A6C}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\cloudsim_core_global.h"><Filter>inc</Filter></ClInclude>
+    <ClInclude Include="inc\CloudSimCoreFactories.h"><Filter>inc</Filter></ClInclude>
+    <ClInclude Include="inc\CloudSimCoreVersion.h"><Filter>inc</Filter></ClInclude>
+    <ClInclude Include="inc\CoreEvents.h"><Filter>inc</Filter></ClInclude>
+    <ClInclude Include="inc\CoreTypes.h"><Filter>inc</Filter></ClInclude>
+    <ClInclude Include="inc\EventHub.h"><Filter>inc</Filter></ClInclude>
+    <ClInclude Include="inc\ICloudSimContext.h"><Filter>inc</Filter></ClInclude>
+    <ClInclude Include="inc\IDataService.h"><Filter>inc</Filter></ClInclude>
+    <ClInclude Include="inc\IDocumentScope.h"><Filter>inc</Filter></ClInclude>
+    <ClInclude Include="inc\IRenderView.h"><Filter>inc</Filter></ClInclude>
+    <ClInclude Include="inc\IRobotService.h"><Filter>inc</Filter></ClInclude>
+    <ClInclude Include="inc\NullCoreServices.h"><Filter>inc</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\CloudSimCoreVersion.cpp"><Filter>source</Filter></ClCompile>
+    <ClCompile Include="source\EventHub.cpp"><Filter>source</Filter></ClCompile>
+    <ClCompile Include="source\NullCoreServices.cpp"><Filter>source</Filter></ClCompile>
+  </ItemGroup>
+</Project>

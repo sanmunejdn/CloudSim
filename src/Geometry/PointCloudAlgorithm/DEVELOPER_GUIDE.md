@@ -6,7 +6,7 @@
 
 | 属性 | 说明 |
 |------|------|
-| 输出 | `PointCloudAlgorithm.lib` / `PointCloudAlgorithmd.lib` |
+| 输出 | 静态库 `PointCloudAlgorithm.lib`（**仅**链入 `Data.dll`，x64 无独立 DLL） |
 | 命名空间 | `pclalgo` |
 | 依赖 | Eigen（`bin/SDK/eigen`）、CGAL 5.5.2、Boost、GMP（与 `Data` 相同） |
 

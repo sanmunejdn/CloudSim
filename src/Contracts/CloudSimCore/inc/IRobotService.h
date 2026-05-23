@@ -1,0 +1,29 @@
+#pragma once
+
+#include "CoreTypes.h"
+#include "cloudsim_core_global.h"
+
+#include <QJsonArray>
+#include <QJsonObject>
+
+namespace cloudsim::core {
+
+/// Document-scoped robot simulation (plan, FK, programs).
+class CLOUDSIM_CORE_EXPORT IRobotService
+{
+public:
+	virtual ~IRobotService() = default;
+
+	virtual RobotRegistrationDto registerUrdfRobot(const QString& urdfPath, const ImportOptionsDto& options) = 0;
+
+	virtual bool applyJointAnglesRad(const ObjectId& sceneRootBackendId, const QVector<double>& jointAnglesRad,
+		QString* outError = nullptr) = 0;
+
+	virtual bool planInstruction(const MotionInstructionDto& instruction, const PlanContextDto& context,
+		PlanResultDto& out, QString* outError = nullptr) = 0;
+
+	virtual QJsonArray robotProgramsJson() const = 0;
+	virtual bool setRobotProgramsJson(const QJsonArray& programs, QString* outError = nullptr) = 0;
+};
+
+} // namespace cloudsim::core

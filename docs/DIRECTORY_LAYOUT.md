@@ -11,7 +11,11 @@ CloudSim/
 ├── docs/
 ├── .cursor/
 └── src/
-    ├── App/CloudSim/                 # 可执行入口
+    ├── Contracts/CloudSimCore/       # 前后端契约 DLL（IData/IRobot/IRenderView/EventHub）
+    ├── Host/CloudSimHost/            # 文档宿主 + OsgWidget 编译 + 组合根实现（见 DEVELOPER_GUIDE.md）
+    ├── App/
+    │   ├── CloudSim/                 # 可执行入口
+    │   └── CloudSimBootstrap/        # 组合根 API 头文件（实现于 CloudSimHost.dll）
     ├── UI/
     │   ├── Widget/
     │   ├── OsgWidgetCore/
@@ -36,13 +40,14 @@ CloudSim/
     └── Infra/RunLogger/
 ```
 
-**Visual Studio**：`CloudSim.sln` 仅列出 17 个 `.vcxproj`（无解决方案文件夹），避免 VS2019 将 `src` 等目录误判为「不兼容」工程。IDE 中按工程名浏览；磁盘分组见上表。请打开 [`CloudSim/CloudSim.sln`](../CloudSim.sln)。
+**Visual Studio**：`CloudSim.sln` 列出 18 个 `.vcxproj`（含 **CloudSimHost**；无解决方案文件夹），避免 VS2019 将 `src` 等目录误判为「不兼容」工程。IDE 中按工程名浏览；磁盘分组见上表。请打开 [`CloudSim/CloudSim.sln`](../CloudSim.sln)。
 
 ## 旧路径对照（迁移参考）
 
 | 旧路径 | 新路径 |
 |--------|--------|
 | `CloudSim/CloudSim/` | `src/App/CloudSim/` |
+| （新增） | `src/Host/CloudSimHost/` |
 | `Widget/` | `src/UI/Widget/` |
 | `OsgWidgetCore/` | `src/UI/OsgWidgetCore/` |
 | `BackendVisual/` | `src/UI/BackendVisual/` |
@@ -60,8 +65,23 @@ CloudSim/
 
 ## 构建与输出
 
-- `$(SolutionDir)../bin/x64(d)/` 未改；产物仍在 CGAL 工作区 `bin/` 下。
+- 统一目录：[`Directory.Build.props`](../Directory.Build.props) 定义 `$(CloudSimBinDir)` → 仓库根 `bin/x64d/`（Debug）或 `bin/x64/`（Release），不依赖 `$(SolutionDir)`。
 - 插件示例输出：`bin/x64(d)/plugins/com.cloudsim.hello/`。
+- **生成顺序建议**：`CloudSimCore` → `Data` 等引擎 → **`CloudSimHost`**（产出 `CloudSimHost.lib`）→ `Widget` → `CloudSim`。
+
+### x64 运行时 DLL（与 exe 同目录）
+
+除 Qt/OSG/OCCT 等第三方运行时外，产品模块 DLL 包括：
+
+| 类别 | 文件 |
+|------|------|
+| 契约/宿主 | `CloudSimCore.dll`、`CloudSimHost.dll`（含 `DocumentHost`、`OsgWidget`、组合根） |
+| 应用/UI | `CloudSim.exe`、`Widget.dll`、`RobotWidget.dll`、`AiWidget.dll`、`AiBackend.dll` |
+| 数据 | `Data.dll` |
+| 共享引擎 | `RunLogger.dll`、`GeometryEngine.dll`、`RobotKinematics.dll`、`RobotUrdf.dll`、`RobotScene.dll`、`BackendVisual.dll`、`OsgWidgetCore.dll` |
+| 插件 ABI | `CloudSimPluginSDK.dll`；`plugins/<id>/` 下各插件 DLL |
+
+`PointCloudAlgorithm` **无**独立 DLL（静态链入 `Data.dll`）。调试时工作目录应设为 `bin/x64(d)/`，以便 Windows 加载器解析上述 DLL。
 
 ## CloudSimPluginHost 说明
 

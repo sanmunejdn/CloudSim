@@ -72,7 +72,7 @@
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
 
-#include "../OsgWidgetCore/inc/OsgScene.h"
+#include "../../OsgWidgetCore/inc/OsgScene.h"
 #include "ObjectGizmoFrame.h"
 #include "BackendVisualMath.h"
 
@@ -976,7 +976,7 @@ void MainWindow::onNewDocument()
 	{
 		return;
 	}
-	auto* page = new DocumentPage(m_documentTabs);
+	auto* page = new DocumentPage(m_documentTabs, m_appEvents);
 	wireDocumentPageSignals(page);
 	if (OsgWidget* osg = page->osgWidget())
 	{

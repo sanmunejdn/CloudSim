@@ -22,7 +22,7 @@
 class GraphicsWindowQt1;
 
 /// ���� OpenGL �� OSG �� Qt �ؼ����� Qt �������¼����� osgViewer���� GraphicsWindowQt1 ���ʹ�á�
-class  WIDGET_EXPORT QWidgetViewer : public QGLWidget
+class OSG_WIDGET_API QWidgetViewer : public QGLWidget
 {
 	Q_OBJECT
 	typedef QGLWidget inherited;

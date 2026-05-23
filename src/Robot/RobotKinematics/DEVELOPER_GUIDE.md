@@ -8,7 +8,9 @@
 |------|------|
 | 单位 | 长度 **mm**；角度 **rad**（关节变量） |
 | 矩阵布局 | 4×4 齐次变换，**列主序** 16 double（与 OSG/`BackendMat4` 一致） |
+| x64 输出 | `RobotKinematics.dll` |
 | 导出 | `ROBOT_KINEMATICS_API`（`robot_kinematics_global.h`） |
+| 构建定义 | x64：`ROBOT_KINEMATICS_LIB`；Win32：`ROBOT_KINEMATICS_STATIC` |
 
 ---
 
@@ -65,7 +67,7 @@ flowchart LR
 ## 5. 扩展指南
 
 - 新增 7 轴或闭链：建议新库或新命名空间，勿破坏现有 `DhRow` ABI。
-- 导出宏：新公共符号加 `ROBOT_KINEMATICS_API`；静态链接定义 `ROBOT_KINEMATICS_STATIC`。
+- 导出宏：新公共符号加 `ROBOT_KINEMATICS_API`；x64 构建侧定义 `ROBOT_KINEMATICS_LIB`（Win32 用 `ROBOT_KINEMATICS_STATIC`）。
 
 ---
 

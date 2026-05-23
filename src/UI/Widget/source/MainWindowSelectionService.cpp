@@ -10,6 +10,7 @@
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BackendHierarchyModel.h"
 #include "DocumentPage.h"
 #include "MainWindow.h"
 #include "MainWindowObjectRepository.h"

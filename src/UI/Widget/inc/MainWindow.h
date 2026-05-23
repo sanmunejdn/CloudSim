@@ -54,13 +54,17 @@ class AiAssistantDockWidget;
 class AiAssistantCoordinator;
 class PluginManager;
 
+namespace cloudsim::core {
+class EventHub;
+}
+
 /// 应用程序主窗口：菜单、停靠栏、文档页、属性面板与 OsgWidget 的协调入口。
 class WIDGET_EXPORT MainWindow : public QMainWindow
 {
 	Q_OBJECT
 
 public:
-	explicit MainWindow(QWidget* parent = nullptr);
+	explicit MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent = nullptr);
 	~MainWindow() override;
 
 	/// Call once after \c QApplication::exec() returns (same RunLogger module as \ref RunInfoPage).
@@ -220,6 +224,7 @@ private:
 	void setAllDocumentViewerDarkBackground(bool dark);
 	bool viewerUsesDarkBackground() const;
 
+	cloudsim::core::EventHub& m_appEvents;
 	QTabWidget* m_documentTabs = nullptr;
 	QTreeWidget* m_backendTree = nullptr;
 	QTreeWidget* m_osgSceneTree = nullptr;

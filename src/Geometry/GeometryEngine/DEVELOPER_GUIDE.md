@@ -4,8 +4,12 @@
 
 `GeometryEngine` 提供全应用统一的 **刚体变换真值**（`engine::RigidTransform`，内部 `Eigen::Isometry3d`），以及 OSG / `BackendMat4` 列主序之间的适配。不依赖 Qt、URDF、Widget。
 
-| 输出 | `GeometryEngine.lib` / `GeometryEngined.lib` |
-| 依赖 | Eigen（`../../bin/SDK/eigen`）、OSG（仅 `Adapters` 中 `osg::Matrixd` / `osg::Quat`） |
+| 属性 | 说明 |
+|------|------|
+| x64 输出 | `GeometryEngine.dll` + import lib `GeometryEngine.lib` |
+| Win32 输出 | 静态 `GeometryEngine.lib` |
+| 构建定义 | x64：`GEOMETRY_ENGINE_LIB`；Win32：`GEOMETRY_ENGINE_STATIC` |
+| 依赖 | Eigen（`../../bin/SDK/eigen`）、OSG（`Adapters` 中 `osg::Matrixd` / `osg::Quat`） |
 | 约定详表 | [`CONVENTIONS.md`](CONVENTIONS.md) |
 
 **调用方**：`RobotScene`（指令位姿、工具链、IK 前置）、`Widget`（示教捕获、坐标系叠加层）、`Data`（`backend_mat4_multiply` 与 `composeColumn` 语义对齐）。

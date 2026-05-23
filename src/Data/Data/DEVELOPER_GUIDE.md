@@ -6,6 +6,9 @@
 
 | 属性 | 说明 |
 |------|------|
+| x64 输出 | `Data.dll`（`DATA_LIB`） |
+| 静态嵌入 | `PointCloudAlgorithm.lib`（CGAL 算法，无独立 DLL） |
+| 动态链接 | x64：`RunLogger.dll`（import lib） |
 | 并发 | `BackendDataManager` 容器与边由 `std::shared_mutex` 保护；**单个 `BackendDataBase` 字段**无细粒度锁，跨线程写需调用方序列化（通常 UI 线程） |
 | 序列化 | 属性行 JSON + 工程 **`project.json` v4**（`saveToJson`/`loadFromJson`、内嵌 `geometry`、`propertyBag`、`components`） |
 | 导出 | `DATA_EXPORT` |

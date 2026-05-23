@@ -18,6 +18,7 @@
 
 #include "ApplicationStyle.h"
 #include "DocumentPage.h"
+#include "EventHub.h"
 #include "DevicePageWidget.h"
 #include "JobSystem.h"
 #include "MainWindowSelectionService.h"
@@ -72,8 +73,9 @@ void setupDockTabWidget(QTabWidget* tabs)
 }
 } // namespace
 
-MainWindow::MainWindow(QWidget* parent)
+MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	: QMainWindow(parent)
+	, m_appEvents(appEvents)
 {
 	// RunLogger must live in this DLL (same TU as RunInfoPage::setUiSink). The exe used to link RunLogger.lib
 	// separately, which duplicated globals so file logging initialized in main never matched UI / RobotScene.
@@ -117,7 +119,7 @@ MainWindow::MainWindow(QWidget* parent)
 	m_documentTabs->setTabsClosable(false);
 	rootLayout->addWidget(m_documentTabs, 1);
 
-	auto* firstPage = new DocumentPage(m_documentTabs);
+	auto* firstPage = new DocumentPage(m_documentTabs, m_appEvents);
 	wireDocumentPageSignals(firstPage);
 	m_documentTabs->addTab(firstPage, QStringLiteral("Untitled"));
 	setCentralWidget(central);

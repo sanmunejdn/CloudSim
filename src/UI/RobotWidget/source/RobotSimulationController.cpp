@@ -16,8 +16,8 @@
 #include "UrdfRobotLoader.h"
 #include "RunLogger.h"
 #include "RobotOsgUiTypes.h"
-#include "../OsgWidgetCore/inc/ObjectGizmoFrame.h"
-#include "../OsgWidgetCore/inc/OsgScene.h"
+#include "../../OsgWidgetCore/inc/ObjectGizmoFrame.h"
+#include "../../OsgWidgetCore/inc/OsgScene.h"
 #include <Adapters.h>
 #include <ToolKinematics.h>
 #include <BackendDataBase.h>

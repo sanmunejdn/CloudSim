@@ -126,7 +126,7 @@ BackendSceneDocumentFacade::BackendSceneDocumentFacade(BackendDataManager& mgr, 
 	: m_mgr(&mgr)
 	, m_bridge(&bridge)
 	, m_followIndex(&followIndex)
-	, m_osgWidget(osgWidget)
+	, m_poseSink(static_cast<IRobotBackendPoseSink*>(osgWidget))
 {
 }
 
@@ -152,5 +152,5 @@ void BackendSceneDocumentFacade::setBackendsVisible(const std::vector<std::strin
 
 IRobotBackendPoseSink* BackendSceneDocumentFacade::poseSink() const
 {
-	return m_osgWidget;
+	return m_poseSink;
 }

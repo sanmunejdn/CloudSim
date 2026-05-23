@@ -6,9 +6,11 @@
 
 | 属性 | 说明 |
 |------|------|
-| x64 构建 | 通常为 **DLL**（`WIDGET_EXPORT`） |
+| x64 构建 | **DLL** `Widget.dll`（`WIDGET_LIB` / `WIDGET_EXPORT`） |
+| x64 链接 | `Data`、`OsgWidgetCore`、`BackendVisual`、`GeometryEngine`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`RunLogger`、`RobotWidget`、`AiWidget`、`AiBackend`、`CloudSimPluginSDK` 等 **import .lib**（运行时加载对应 DLL） |
 | 头文件 | `Widget/inc/`（约 40 个） |
 | 实现拆分 | `MainWindow*.cpp`, `OsgWidget*.cpp`, `*Controller`, `*Operation` |
+| 插件宿主 | `CloudSimPluginHost` 源码仍 **编译进本 DLL**（非独立 DLL） |
 
 ---
 
@@ -480,7 +482,7 @@ LMB/RMB (RobotTcpDragTeachOperation)
 2. **新菜单/工作流**：优先新 `MainWindowXxx.cpp` 单元，避免膨胀 `MainWindow.cpp`。
 3. **新 OSG 行为**：逻辑放 `OsgWidgetCore`；Qt 事件放 `OsgWidget` 或 `*Controller`。
 4. **新后端类型**：`Data` 注册 + `BackendVisual` + `load*FromBackendData` 分支。
-5. **DLL 导出**：`Widget` 用 `WIDGET_EXPORT`；仿真页面类用 `ROBOTWIDGET_EXPORT`（见 `robotwidget_global.h`）。
+5. **DLL 导出**：`Widget` 用 `WIDGET_EXPORT`；仿真页面类用 `ROBOTWIDGET_EXPORT`；引擎模块（`RunLogger`、`OsgWidgetCore` 等）用各自 `*_global.h` 宏，x64 **勿**在消费者侧定义 `*_STATIC`。
 
 ---
 

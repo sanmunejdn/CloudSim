@@ -6,9 +6,10 @@
 
 | 属性 | 说明 |
 |------|------|
-| 依赖 | `Data`（`BackendDataBase` 等）、OpenSceneGraph |
+| x64 输出 | `BackendVisual.dll` |
+| 依赖 | `Data`（`BackendDataBase` 等）、`GeometryEngine`、`OpenSceneGraph` |
 | 不依赖 | Qt |
-| 导出 | `BACKENDVISUAL_EXPORT` |
+| 导出 | `BACKENDVISUAL_EXPORT`（x64 构建：`BACKENDVISUAL_LIB`） |
 
 ---
 

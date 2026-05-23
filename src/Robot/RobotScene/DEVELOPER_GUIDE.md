@@ -4,8 +4,9 @@
 
 `RobotScene` 承担 **仿真业务逻辑**：机器人指令模型、校验、规划（Planner）、程序执行状态机、将关节角/FK 结果写回文档与 OSG。不依赖 Qt Widget，通过 `IRobotSimulationDocument` / `IRobotBackendPoseSink` 与 `Widget` 解耦。
 
-| 组合依赖 | `GeometryEngine` + `RobotUrdf` + `RobotKinematics` + `RunLogger` |
-| 导出 | `ROBOT_SCENE_API` |
+| 组合依赖 | `GeometryEngine.dll` + `RobotUrdf.dll` + `RobotKinematics.dll` + `Data.dll` + `RunLogger.dll` |
+| x64 输出 | `RobotScene.dll` |
+| 导出 | `ROBOT_SCENE_API`（x64 构建：`ROBOT_SCENE_LIB`） |
 
 ---
 
