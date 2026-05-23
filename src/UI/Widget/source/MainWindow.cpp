@@ -762,6 +762,11 @@ void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 		{
 			return;
 		}
+		// 末端拖动示教：IK 逐帧写连杆位姿，禁止跟随求解写回以免与 FK 冲突（表现为关节闪回零位）。
+		if (o->isTcpDragTeachActive())
+		{
+			return;
+		}
 		if (page->followDirtyBackendIds().empty() && !page->followSolveForcedPending() && !o->isTransformGizmoDragging())
 		{
 			return;
@@ -773,6 +778,10 @@ void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 void MainWindow::runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg,
 	const std::string* manualPoseAuthorityBackendId)
 {
+	if (osg.isTcpDragTeachActive())
+	{
+		return;
+	}
 	if (m_robotSimulation && m_robotSimulation->programExecutor().isRunning())
 	{
 		return;

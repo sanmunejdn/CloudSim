@@ -53,7 +53,7 @@ flowchart TB
 | `MainWindowBackendTree` | 后端树与场景树 |
 | `MainWindowPropertyPanel` | 属性浏览器；仿真指令轴配置枚举过滤 |
 | `MainWindowFileImport` | 模型/点云导入 |
-| `MainWindowProjectIo` | `.pcp` / `project.json`、zip 打包 |
+| `MainWindowProjectIo` | `project.json` **v4**、`.pcp` 打包；对象经 `BackendDataBase::saveToJson` / 注册表加载 |
 | `MainWindowImportCaptureRenderController` | 注册 backend、URDF |
 | `MainWindowSelectionService` | 选择与可见性闭环 |
 | `MainWindowObjectRepository` | `findById` / `listAll` 门面 |
@@ -307,10 +307,27 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 | `zipDirectoryTree` | STORE 无压缩打包 `.pcp` |
 | `extractZipArchive` | 解包 |
 
-### `MainWindowProjectIo`（实现文件）
+### `MainWindowProjectIo`（`MainWindowProjectIo.cpp`）
 
-- 采集对象、属性、`edges`、`followAttachment`、`robotPrograms`、`robotKinematicsInstances`。
-- 点云 sidecar PLY；加载时 `invalidateFollowReverseIndex`、重建树。
+**格式**：`version: 4`（非 v4 拒绝打开）。输出 `.pcproj.json` 或 `.pcp`（`project_package_zip` STORE 打包）。
+
+**保存流程**：
+
+1. 遍历 `DocumentPage::backend().listData()` → `data->saveToJson()` → 附加 `sourcePath`、`sourceType`、`parentId`。
+2. 点云无坐标时尝试 `captureImportedPointCloudBackend`；仍无坐标则中止保存。
+3. 根级：`objects`、`edges`、`robotPrograms`、`robotKinematicsInstances`（`RobotProjectIo::writeRobotKinematicsAndPrograms`）、`annotations`、`cameraFollowBackendId`、`language`。
+
+**加载流程**：
+
+1. 清空后端/机器人上下文；解析 `objects[]`。
+2. `ensureBackendBuiltinsRegistered()` → `BackendRegistry::create(className)` → `loadFromJson()`。
+3. `OsgWidget::loadPointCloudFromBackendData` / `loadMeshFromBackendData` → `registerExistingBackendObject`。
+4. 无内嵌几何且 `sourcePath` 存在时回退 `registerBackendObject`（文件导入）。
+5. 恢复 `edges` → OSG `setBackendParent`；机器人 FK/程序；`runBackendFollowSolveAndSync`；`refreshBackendTree`。
+
+**不再由本文件维护**：对象级 `pose/color` 拼装、点云 PLY sidecar、`followAttachment` 手工读写（已下沉 `Data` 的 `components` + 兼容 `loadFromJson`）。
+
+详见 [`../../docs/backend_persistence/`](../../docs/backend_persistence/)、[`../../ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md) §6.5。
 
 ---
 

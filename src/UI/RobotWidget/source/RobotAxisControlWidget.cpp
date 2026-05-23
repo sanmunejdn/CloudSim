@@ -57,6 +57,12 @@ QVector<double> RobotAxisControlWidget::jointAnglesRad() const
 
 void RobotAxisControlWidget::setJointAnglesRad(const QVector<double>& jointAnglesRad)
 {
+	setJointAnglesRadSilent(jointAnglesRad);
+	emit allJointAnglesChanged(jointAnglesRad);
+}
+
+void RobotAxisControlWidget::setJointAnglesRadSilent(const QVector<double>& jointAnglesRad)
+{
 	if (jointAnglesRad.size() != m_jointOrder.size())
 	{
 		return;

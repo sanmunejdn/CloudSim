@@ -250,6 +250,62 @@ bool MeshBackendData::readProjectEmbeddedGeometry(const std::string& triangleSou
 	return !m_triangleSoup.empty();
 }
 
+void MeshBackendData::saveDerivedJson(nlohmann::json& out) const
+{
+	std::string soupB64;
+	if (writeProjectEmbeddedGeometry(soupB64))
+	{
+		out["geometry"] = nlohmann::json{
+			{ "kind", "triangles" },
+			{ "encoding", "float32_le" },
+			{ "xyzBase64", soupB64 } };
+	}
+	out["mesh"] = nlohmann::json{ { "transformPivotAtOrigin", m_transformPivotAtOrigin } };
+}
+
+bool MeshBackendData::loadDerivedJson(const nlohmann::json& in, std::string* errMsg)
+{
+	if (in.contains("mesh") && in["mesh"].is_object())
+	{
+		m_transformPivotAtOrigin = in["mesh"].value("transformPivotAtOrigin", false);
+	}
+	if (!in.contains("geometry"))
+	{
+		return true;
+	}
+	const nlohmann::json geo = in["geometry"];
+	if (!geo.is_object())
+	{
+		if (errMsg)
+		{
+			*errMsg = "Mesh geometry must be object.";
+		}
+		return false;
+	}
+	if (geo.value("kind", std::string()) != "triangles")
+	{
+		if (errMsg)
+		{
+			*errMsg = "Mesh geometry kind mismatch.";
+		}
+		return false;
+	}
+	const std::string xyzBase64 = geo.value("xyzBase64", std::string());
+	if (xyzBase64.empty())
+	{
+		return true;
+	}
+	if (!readProjectEmbeddedGeometry(xyzBase64))
+	{
+		if (errMsg)
+		{
+			*errMsg = "Mesh geometry decode failed.";
+		}
+		return false;
+	}
+	return true;
+}
+
 namespace {
 
 void meshLoadErr(std::string* errMsg, const char* text)

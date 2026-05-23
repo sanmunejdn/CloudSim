@@ -13,9 +13,7 @@
 
 #include <algorithm>
 #include <cctype>
-#include <chrono>
 #include <cmath>
-#include <fstream>
 #include <sstream>
 
 #include <QHash>
@@ -28,22 +26,6 @@
 namespace
 {
 constexpr double kDegToRad = 3.14159265358979323846 / 180.0;
-// #region agent log
-void agentDebugLogScene(
-	const char* hypothesisId,
-	const char* location,
-	const char* message,
-	const std::string& dataJson,
-	const char* runId = "pre-fix")
-{
-	(void)hypothesisId;
-	(void)location;
-	(void)message;
-	(void)dataJson;
-	(void)runId;
-}
-// #endregion
-
 bool solveLinearSystem(std::vector<double>& a, std::vector<double>& b, int n)
 {
 	if (n <= 0 || static_cast<int>(a.size()) != n * n || static_cast<int>(b.size()) != n)
@@ -169,15 +151,6 @@ bool ikLinkTargetFromInstruction(const RobotInstruction::Base& cmd, IkLinkTarget
 		normalizeQuatSafe(out.quat);
 		out.hasOrientation = true;
 	}
-	// #region agent log
-	{
-		std::ostringstream d;
-		d << "{\"rawTarget\":{\"x\":" << rawTx << ",\"y\":" << rawTy << ",\"z\":" << rawTz
-		  << "},\"toolOffset\":{\"x\":" << toolTx << ",\"y\":" << toolTy << ",\"z\":" << toolTz
-		  << "},\"computedFlange\":{\"x\":" << tx << ",\"y\":" << ty << ",\"z\":" << tz << "}}";
-		agentDebugLogScene("H12", "ikLinkTargetFromInstruction", "tool_to_flange_conversion", d.str());
-	}
-	// #endregion
 	return true;
 }
 
@@ -887,19 +860,6 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 		(void)RobotCoordinate::parseMat4Csv(itToolMat->second, T_flange_tool);
 	}
 	const engine::RigidTransform flangeToolRt = RobotCoordinate::rigidTransformFromBackendMat4(T_flange_tool);
-	// #region agent log
-	{
-		const auto itMotionTool = ext.find(RobotCoordinate::kExtMotionToolFrameId);
-		const auto itCtxTool = ext.find("context.activeToolFrameId");
-		const std::string motionToolId = (itMotionTool != ext.end()) ? itMotionTool->second : std::string();
-		const std::string ctxToolId = (itCtxTool != ext.end()) ? itCtxTool->second : std::string();
-		std::ostringstream d;
-		d << "{\"ikLink\":\"" << ikLinkName << "\",\"motionToolId\":\"" << motionToolId
-		  << "\",\"ctxToolId\":\"" << ctxToolId << "\",\"target\":{\"x\":" << target[0]
-		  << ",\"y\":" << target[1] << ",\"z\":" << target[2] << "}}";
-		agentDebugLogScene("H10", "solveTargetByUrdfNumericalIkFromSeed", "ik_input_link_target", d.str());
-	}
-	// #endregion
 	const double targetNormMm = std::sqrt(target[0] * target[0] + target[1] * target[1] + target[2] * target[2]);
 	if (targetNormMm > 50000.0)
 	{
@@ -967,27 +927,6 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 		}
 		if (posErr < 1e-2 && (!useOrientation || rotErr < 0.1 * kDegToRad))
 		{
-			// #region agent log
-			{
-				double toolPosErr = -1.0;
-				if (useOrientation && hasTargetToolRt)
-				{
-					const Eigen::Quaterniond qFlange(
-						curQuat.w(), curQuat.x(), curQuat.y(), curQuat.z());
-					const engine::RigidTransform fkFlangeRt =
-						engine::RigidTransform::fromTranslationQuat(
-							Eigen::Vector3d(pos[0], pos[1], pos[2]), qFlange);
-					const engine::RigidTransform fkToolRt =
-						engine::toolOriginFromFlange(fkFlangeRt, flangeToolRt);
-					toolPosErr = (fkToolRt.translationMm() - targetToolRt.translationMm()).norm();
-				}
-				std::ostringstream d;
-				d << "{\"ikLink\":\"" << ikLinkName << "\",\"finalPosErrMm\":" << posErr
-				  << ",\"finalRotErrRad\":" << rotErr << ",\"toolPosErrMm\":" << toolPosErr
-				  << ",\"iter\":" << iter << "}";
-				agentDebugLogScene("H10", "solveTargetByUrdfNumericalIkFromSeed", "ik_converged", d.str());
-			}
-			// #endregion
 			return q;
 		}
 
@@ -1426,21 +1365,6 @@ public:
 				solvePath = "legacy";
 			}
 		}
-		// #region agent log
-		{
-			const auto& ext = cmd.extensionProperties();
-			const auto itTool = ext.find(RobotCoordinate::kExtMotionToolFrameId);
-			const auto itCtx = ext.find("context.activeToolFrameId");
-			const std::string motionToolId = (itTool != ext.end()) ? itTool->second : std::string();
-			const std::string ctxToolId = (itCtx != ext.end()) ? itCtx->second : std::string();
-			std::ostringstream d;
-			d << "{\"preferUrdfIk\":" << (preferUrdfIk ? "true" : "false")
-			  << ",\"constrainAxis\":" << (constrainAxis ? "true" : "false") << ",\"solvePath\":\"" << solvePath
-			  << "\",\"targetQSize\":" << targetQ.size() << ",\"ikFailReason\":\"" << ikFailReason
-			  << "\",\"motionToolId\":\"" << motionToolId << "\",\"ctxToolId\":\"" << ctxToolId << "\"}";
-			agentDebugLogScene("H9", "PtpPlanner::plan", "ptp_solver_path", d.str());
-		}
-		// #endregion
 		if (targetQ.empty())
 		{
 			if (errMsg)

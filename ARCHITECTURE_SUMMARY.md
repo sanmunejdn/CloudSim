@@ -597,10 +597,40 @@ flowchart LR
 
 ## 6.5 项目持久化流程
 
-1. `MainWindowProjectIo` 采集文档对象、属性、标注和层级关系。  
-2. 根级 **`robotPrograms`**：每台机器人一条记录（`sceneBackendId` + `instructions` JSON 数组）；运动指令持久化 `pointIndex`、位姿/速度等字段；PTP/LINE 推荐对象 **`axisConfiguration`**（`preset` / `elbow` / `wrist` / `arm` / 可选 `turns`），兼容旧字段 **`axisConfig`** 字符串。  
-3. 点云可写入 sidecar，工程可封装为 `.pcp`（zip STORE）。  
-4. 加载时恢复后端对象与场景状态，重建 `RobotProgramStore` 与指令树，重建树与标注。  
+**格式**：根字段 **`version: 4`**（当前构建仅接受 v4；旧版 `version=3` 等会拒绝加载）。文件为 `project.json` 或 `.pcp`（zip STORE 打包，内含 `project.json`）。
+
+**分层职责**：
+
+| 层 | 职责 |
+|----|------|
+| `BackendDataBase` | 对象级多态序列化：`saveToJson()` / `loadFromJson()`；公共字段 + 派生 `geometry` + `propertyBag` + `components` |
+| `BackendRegistry` | 按 `className` 创建对象（`ensureBackendBuiltinsRegistered`） |
+| `BackendComponentCodecRegistry` | 组件编解码注册表（内建 `FollowAttachment`） |
+| `MainWindowProjectIo` | 文档编排：遍历管理器、写 `edges`/标注/机器人元数据、OSG 加载与 follow 后处理 |
+
+**保存（`onSaveProject`）**：
+
+1. 遍历 `BackendDataManager::listData()`，对每个对象调用 `saveToJson()`，再附加 `sourcePath`、`sourceType`、`parentId`。
+2. 几何内嵌在对象的 **`geometry`** 字段（点云/网格 Base64；不再写点云 PLY sidecar）。
+3. 根级 **`edges`**：`parentId` / `childId`。
+4. 根级 **`robotPrograms`**、**`robotKinematicsInstances`**（见下）、**`annotations`**、**`cameraFollowBackendId`** 等。
+
+**加载（`onOpenProjectFile`）**：
+
+1. 校验 `version == 4`；清空文档后端与机器人上下文。
+2. 对每个 `objects[]` 项：`BackendRegistry::create(className)` → `loadFromJson()` → `loadPointCloudFromBackendData` / `loadMeshFromBackendData` → `registerExistingBackendObject`。
+3. 恢复 **`edges`** → `BackendDataManager::attachChild`；同步 OSG 父链。
+4. 恢复机器人元数据与程序 → `RobotProjectIo::loadRobotPrograms`；`restorePerLinkRobotKinematicsFromJson`。
+5. `invalidateFollowReverseIndex` → `runBackendFollowSolveAndSync`；重建树与标注。
+
+**单对象 JSON（v4 要点）**：
+
+- `id` / `name` / `className`
+- `pose` / `rotation` / `color` / `worldMatrix` / `poseReferenceFrame`
+- **`propertyBag`**：可编辑属性真源（非仅属性面板快照）
+- **`geometry`**：`kind=points|triangles`，`xyzBase64` 等（派生类 `saveDerivedJson`）
+- **`components`**：`[{ "type": "FollowAttachment", "data": { ... } }]`
+- 兼容：无 `components` 时仍可读旧字段 **`followAttachment`**
 
 **每连杆机器人元数据（`project.json`）：**
 
@@ -627,7 +657,7 @@ flowchart LR
 - `MainWindowSelectionService` 仍包含部分渲染细节分支（点云/网格具体分支加载），后续可继续下沉到更细粒度应用服务。
 - `ObjectGraph` 当前是按需构建的只读快照，后续可评估增量更新/缓存策略以降低大场景重建成本。
 - `Widget/MainWindow` 仍是高复杂度协调中心，继续按“功能域”拆分有收益。
-- 项目 I/O 已有独立文件，后续可再抽象版本迁移与格式兼容层。
+- 工程持久化已切 **v4 + 对象多态序列化**；后续可补 `componentsSchemaVersion`、更多组件类型注册与自动化回归。
 - **AI 助手**：Phase 2 已接 LLM；后续可扩展「修改已有对象 / 布尔 / 导入」等命令 schema。
 
 ## 9. 异步任务与数据并发（演进）
@@ -654,6 +684,16 @@ bin/x64(d)/
   CloudSim.exe
   Widget.dll
   Data.dll
+  RunLogger.dll
+  GeometryEngine.dll
+  RobotKinematics.dll
+  RobotUrdf.dll
+  RobotScene.dll
+  BackendVisual.dll
+  OsgWidgetCore.dll
+  RobotWidget.dll
+  AiWidget.dll
+  AiBackend.dll
   CloudSimPluginSDK.dll
   plugins/
     com.cloudsim.hello/

@@ -21,6 +21,8 @@ struct ROBOT_SCENE_API TeachIkContext
 	std::vector<double> seedJointRad;
 	bool useOrientation = true;
 	BackendMat4 T_flange_tool = BackendMat4::identity();
+	/// 0 = 全迭代（默认 180）；拖动示教宜设 8–12，每帧小步收敛、避免跳解。
+	int maxIkIterations = 0;
 };
 
 struct ROBOT_SCENE_API TeachIkResult

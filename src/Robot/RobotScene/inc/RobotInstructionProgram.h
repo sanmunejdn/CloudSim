@@ -24,7 +24,7 @@ ROBOT_SCENE_API void flattenInstructionsRecursive(
 	std::vector<std::shared_ptr<Base>>& out);
 
 /// Extension / JSON key for 1-based motion waypoint index (P1, P2, ...).
-ROBOT_SCENE_API constexpr const char* kMotionPointIndexKey = "motion.pointIndex";
+inline constexpr const char* kMotionPointIndexKey = "motion.pointIndex";
 
 ROBOT_SCENE_API bool isMotionWaypointType(Type t);
 ROBOT_SCENE_API int motionPointIndex(const Base& ins);

@@ -5,6 +5,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QString>
+#include <QVector>
 #include <functional>
 
 class IRobotDocumentHost;
@@ -12,7 +13,10 @@ class IRobotDocumentHost;
 namespace RobotProjectIo
 {
 
-ROBOTWIDGET_EXPORT void writeRobotKinematicsAndPrograms(QJsonObject& root, IRobotDocumentHost* doc);
+ROBOTWIDGET_EXPORT void writeRobotKinematicsAndPrograms(
+	QJsonObject& root,
+	IRobotDocumentHost* doc,
+	const QVector<double>* aggregatedJointAnglesRad = nullptr);
 ROBOTWIDGET_EXPORT void loadRobotPrograms(
 	const QJsonObject& root,
 	IRobotDocumentHost* doc,

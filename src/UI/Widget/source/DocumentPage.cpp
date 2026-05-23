@@ -532,6 +532,10 @@ bool DocumentPage::takeFollowSolveForced()
 
 void DocumentPage::notifyRobotKinematicsAppliedToScene()
 {
+	if (m_suppressRobotFollowDirtyNotify)
+	{
+		return;
+	}
 	for (const HierarchicalRobotInstance& ri : m_hierarchicalRobots)
 	{
 		if (!ri.sceneBackendId.isEmpty())

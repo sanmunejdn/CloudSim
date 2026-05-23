@@ -194,6 +194,7 @@ std::vector<double> solveUrdfNumericalIk(
 	const QString& ikLink,
 	const IkLinkTarget& linkTarget,
 	std::vector<double> q,
+	const int maxIters,
 	std::string* failReason)
 {
 	if (urdfPath.isEmpty() || ikLink.isEmpty() || q.empty())
@@ -241,10 +242,10 @@ std::vector<double> solveUrdfNumericalIk(
 
 	const double eps = 1e-4;
 	const double lambda = 1e-2;
-	const int maxIters = 180;
 	const int taskDim = useOrientation ? 6 : 3;
+	const int iterLimit = maxIters > 0 ? maxIters : 180;
 	const double orientationWeight = useOrientation ? 300.0 : 1.0;
-	for (int iter = 0; iter < maxIters; ++iter)
+	for (int iter = 0; iter < iterLimit; ++iter)
 	{
 		if (!linkPoseFromUrdf(urdfPath, ikLink, q, pos, useOrientation ? &curQuat : nullptr))
 		{
@@ -347,7 +348,7 @@ std::vector<double> solveUrdfNumericalIk(
 	{
 		const double posTarget[3] = { linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2] };
 		std::vector<double> qPos = q;
-		for (int iter = 0; iter < maxIters; ++iter)
+		for (int iter = 0; iter < iterLimit; ++iter)
 		{
 			if (!linkPoseFromUrdf(urdfPath, ikLink, qPos, pos, nullptr))
 			{
@@ -475,7 +476,9 @@ TeachIkResult solveTeachIk(const TeachIkContext& ctx)
 		return out;
 	}
 	std::string failReason;
-	std::vector<double> q = solveUrdfNumericalIk(ctx.urdfPath, ctx.ikLinkName, linkTarget, ctx.seedJointRad, &failReason);
+	const int maxIters = ctx.maxIkIterations > 0 ? ctx.maxIkIterations : 180;
+	std::vector<double> q =
+		solveUrdfNumericalIk(ctx.urdfPath, ctx.ikLinkName, linkTarget, ctx.seedJointRad, maxIters, &failReason);
 	if (q.empty())
 	{
 		out.error = failReason.empty() ? std::string("IK未收敛/超迭代") : failReason;

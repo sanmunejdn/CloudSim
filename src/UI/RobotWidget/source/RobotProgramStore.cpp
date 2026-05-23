@@ -79,12 +79,24 @@ const std::vector<std::shared_ptr<RobotInstruction::Base>>& RobotProgramStore::p
 
 std::vector<std::shared_ptr<RobotInstruction::Base>>& RobotProgramStore::activeProgram()
 {
-	return programFor(activeRobotBackendId());
+	const QString id = activeRobotBackendId();
+	if (id.isEmpty())
+	{
+		static std::vector<std::shared_ptr<RobotInstruction::Base>> s_empty;
+		return s_empty;
+	}
+	return programFor(id);
 }
 
 const std::vector<std::shared_ptr<RobotInstruction::Base>>& RobotProgramStore::activeProgram() const
 {
-	return programFor(activeRobotBackendId());
+	const QString id = activeRobotBackendId();
+	if (id.isEmpty())
+	{
+		static const std::vector<std::shared_ptr<RobotInstruction::Base>> s_empty;
+		return s_empty;
+	}
+	return programFor(id);
 }
 
 void RobotProgramStore::setProgramFor(

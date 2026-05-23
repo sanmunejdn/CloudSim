@@ -35,6 +35,7 @@ public:
 	int currentSimulationRobotInstanceIndex() const override;
 
 	void refreshBackendTree() override;
+	void runFollowSolveAndSyncForCurrentDocument() override;
 	void refreshInstructionPropertyPanel(
 		const std::shared_ptr<RobotInstruction::Base>& instruction,
 		bool refreshFeasibleAxisOptions = true) override;

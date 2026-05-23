@@ -34,6 +34,8 @@ public:
 	int jointCount() const;
 	QVector<double> jointAnglesRad() const;
 	void setJointAnglesRad(const QVector<double>& jointAnglesRad);
+	/// 仅刷新滑块/输入框显示，不发射 allJointAnglesChanged（末端拖动 IK 回写用）。
+	void setJointAnglesRadSilent(const QVector<double>& jointAnglesRad);
 
 	/// 【中文】初始化关节控制界面
 	/// @param jointNames 关节名称列表（按顺序）

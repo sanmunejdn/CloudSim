@@ -7,7 +7,7 @@
 | 属性 | 说明 |
 |------|------|
 | 并发 | `BackendDataManager` 容器与边由 `std::shared_mutex` 保护；**单个 `BackendDataBase` 字段**无细粒度锁，跨线程写需调用方序列化（通常 UI 线程） |
-| 序列化 | `nlohmann::json` 属性行 + 工程 `project.json` 嵌入几何 Base64 |
+| 序列化 | 属性行 JSON + 工程 **`project.json` v4**（`saveToJson`/`loadFromJson`、内嵌 `geometry`、`propertyBag`、`components`） |
 | 导出 | `DATA_EXPORT` |
 
 ---
@@ -87,6 +87,25 @@
 | `parentObjects(manager)` | 直接父对象 shared_ptr 列表 |
 | `childObjects(manager)` | 直接子对象 |
 | `descendantObjects(manager)` | 可达后代（DAG） |
+
+### 3.8 工程持久化（`project.json` v4）
+
+| 方法 | 说明 |
+|------|------|
+| `saveToJson() const` | 模板方法：写出公共字段 + `propertyBag` + `components` + 调用 `saveDerivedJson` |
+| `loadFromJson(in, errMsg)` | 模板方法：恢复公共字段 + `propertyBag` + `components` + 调用 `loadDerivedJson`；兼容旧字段 `followAttachment` |
+| `saveDerivedJson(out)` / `loadDerivedJson(in, errMsg)` | 派生类扩展（几何等），默认空实现 |
+
+**公共字段**（基类统一）：`id`、`name`、`className`、`pose`、`rotation`、`color`、`worldMatrix`、`poseReferenceFrame`、`propertyBag`。
+
+**派生扩展**：
+
+| 类型 | `geometry` 字段 |
+|------|-----------------|
+| `PointCloudBackendData` | `kind=points`，`xyzBase64`，可选 `rgbaPerVertexBase64` |
+| `MeshBackendData` | `kind=triangles`，`xyzBase64`；另 `mesh.transformPivotAtOrigin` |
+
+仍保留 `writeProjectEmbeddedGeometry` / `readProjectEmbeddedGeometry` 供派生类内部使用。
 
 ---
 
@@ -186,8 +205,22 @@ STEP/DXF 层级导入中间结构：`partPath`, `parentPartPath`, `displayName`,
 | `solverPaused` | gizmo 拖动时暂停求解写回 |
 | `hierarchyDriven` | 由 `attachChild` 自动建立的目标 |
 | `appendPropertyRows` / `applyPropertyChange` | UI：`follow.targetName` → `findByName` |
-| `writeJson` / `readJson` | 工程持久化 |
+| `writeJson` / `readJson` | 组件数据体（经 `BackendComponentCodecRegistry` 写入 `components[]`） |
 | `recomputeLocalFromCurrentWorld`（静态） | 从当前世界位姿重算局部偏移 |
+
+---
+
+## 6.1 `BackendComponentCodecRegistry` + `BackendComponentCodecBuiltins`
+
+| API | 说明 |
+|-----|------|
+| `registerCodec(type, writer, reader)` | 注册组件编解码 |
+| `encodeComponent(component)` | → `{ type, data }` |
+| `decodeComponent(entry)` | 按 `type` 还原 `BackendComponentPtr` |
+| `setWarningHook` | 重复注册、未知类型、编解码失败 → 默认接 `RunLogger::warn` |
+| `ensureBackendComponentCodecBuiltinsRegistered()` | 内建注册 `FollowAttachment`（`BackendComponentCodecBuiltins.h`） |
+
+新增组件：实现 `writeJson`/`readJson`，在 builtins 中 `registerCodec`，无需改 `MainWindowProjectIo`。
 
 ---
 
@@ -246,7 +279,9 @@ UI 侧增量镜像：`resyncFrom(mgr)`，`subtreeIds(root)`（结构变更后缓
 |------|------|
 | `registerType(BackendMeta)` | `className`, `displayName`, `factory`, 标志 |
 | `create(className)` | `shared_ptr<BackendDataBase>` |
-| `ensureBackendBuiltinsRegistered()` | 点云 + Model |
+| `ensureBackendBuiltinsRegistered()` | `PointCloudBackendData` + `Model`（`MeshBackendData`） |
+
+工程加载时：`MainWindowProjectIo` 按 JSON 中 `className` 调用 `create`，再 `loadFromJson`。
 
 ---
 
@@ -277,5 +312,6 @@ UI 侧增量镜像：`resyncFrom(mgr)`，`subtreeIds(root)`（结构变更后缓
 ## 12. 相关文档
 
 - 可视化：[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md)（法线光照 §4.2）
-- 场景门面 / 文件导入：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §6.1、§10
-- 总架构：[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §4.3、§4.4
+- 场景门面 / 文件导入 / 工程 I/O：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §6.1、§11
+- 总架构：[`../../ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md) §4.3、§6.5
+- 持久化设计/任务/回归：[`../../docs/backend_persistence/`](../../docs/backend_persistence/)

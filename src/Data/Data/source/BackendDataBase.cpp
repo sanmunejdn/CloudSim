@@ -2,6 +2,8 @@
 
 #include "BackendDataManager.h"
 #include "BackendFollowMath.h"
+#include "BackendComponentCodecBuiltins.h"
+#include "BackendComponentCodecRegistry.h"
 #include "BackendPropertyRow.h"
 #include "FollowAttachmentComponent.h"
 #include "MeshBackendData.h"
@@ -12,6 +14,7 @@
 #include <atomic>
 #include <cctype>
 #include <cmath>
+#include <limits>
 #include <mutex>
 
 namespace
@@ -146,6 +149,94 @@ BackendMat4 worldMatrixFromData(const BackendDataBase& data)
 	const BackendVec3 center = modelCenterForData(data);
 	return backend_world_mat_from_pose(center, data.pose(), data.rotation());
 }
+
+bool jsonToVec3(const nlohmann::json& in, BackendVec3& out)
+{
+	if (!in.is_object())
+	{
+		return false;
+	}
+	out = BackendVec3{ in.value("x", 0.0), in.value("y", 0.0), in.value("z", 0.0) };
+	return true;
+}
+
+bool jsonToColor(const nlohmann::json& in, BackendColor& out)
+{
+	if (!in.is_object())
+	{
+		return false;
+	}
+	out = BackendColor{
+		static_cast<float>(in.value("r", 1.0)),
+		static_cast<float>(in.value("g", 1.0)),
+		static_cast<float>(in.value("b", 1.0)),
+		static_cast<float>(in.value("a", 1.0)) };
+	return true;
+}
+
+void loadPropertyBagFromJson(const nlohmann::json& in, PropertyBag& outBag)
+{
+	PropertyBag restored;
+	if (!in.is_object())
+	{
+		outBag = std::move(restored);
+		return;
+	}
+	for (auto it = in.begin(); it != in.end(); ++it)
+	{
+		const std::string& key = it.key();
+		const nlohmann::json& value = it.value();
+		if (value.is_boolean())
+		{
+			restored.set<bool>(key, value.get<bool>());
+			continue;
+		}
+		if (value.is_number_integer())
+		{
+			const long long v = value.get<long long>();
+			if (v >= static_cast<long long>(std::numeric_limits<int>::min())
+				&& v <= static_cast<long long>(std::numeric_limits<int>::max()))
+			{
+				restored.set<int>(key, static_cast<int>(v));
+			}
+			else
+			{
+				restored.set<double>(key, static_cast<double>(v));
+			}
+			continue;
+		}
+		if (value.is_number_float())
+		{
+			restored.set<double>(key, value.get<double>());
+			continue;
+		}
+		if (value.is_string())
+		{
+			restored.set<std::string>(key, value.get<std::string>());
+			continue;
+		}
+		if (value.is_array())
+		{
+			if (value.size() == 3 && value[0].is_number() && value[1].is_number() && value[2].is_number())
+			{
+				restored.set<std::array<double, 3>>(key, std::array<double, 3>{
+														 value[0].get<double>(), value[1].get<double>(), value[2].get<double>() });
+				continue;
+			}
+			if (value.size() == 4 && value[0].is_number() && value[1].is_number() && value[2].is_number()
+				&& value[3].is_number())
+			{
+				restored.set<std::array<float, 4>>(key,
+					std::array<float, 4>{ static_cast<float>(value[0].get<double>()),
+						static_cast<float>(value[1].get<double>()),
+						static_cast<float>(value[2].get<double>()),
+						static_cast<float>(value[3].get<double>()) });
+			}
+		}
+	}
+	outBag = std::move(restored);
+}
+
 } // namespace
 
 BackendDataBase::BackendDataBase()
@@ -178,6 +269,152 @@ void BackendDataBase::setName(const std::string& name)
 	{
 		m_name = name;
 	}
+}
+
+nlohmann::json BackendDataBase::saveToJson() const
+{
+	ensureBackendComponentCodecBuiltinsRegistered();
+	nlohmann::json out = nlohmann::json::object();
+	out["id"] = m_id;
+	out["name"] = m_name;
+	out["className"] = className();
+	out["propertyBag"] = m_propertyBag.toJson();
+	out["poseReferenceFrame"] = (m_poseReferenceFrame == BackendPoseReferenceFrame::Parent) ? "parent" : "world";
+	nlohmann::json components = nlohmann::json::array();
+	for (const auto& component : listComponents())
+	{
+		nlohmann::json item = BackendComponentCodecRegistry::instance().encodeComponent(component);
+		if (!item.is_null())
+		{
+			components.push_back(std::move(item));
+		}
+	}
+	if (!components.empty())
+	{
+		out["components"] = std::move(components);
+	}
+
+	if (hasPoseProperty())
+	{
+		const BackendVec3 p = pose();
+		out["pose"] = nlohmann::json{ { "x", p.x }, { "y", p.y }, { "z", p.z } };
+	}
+	if (hasRotationProperty())
+	{
+		const BackendVec3 r = rotation();
+		out["rotation"] = nlohmann::json{ { "x", r.x }, { "y", r.y }, { "z", r.z } };
+	}
+	if (hasColorProperty())
+	{
+		const BackendColor c = color();
+		out["color"] = nlohmann::json{ { "r", c.r }, { "g", c.g }, { "b", c.b }, { "a", c.a } };
+	}
+	const BackendMat4 wm = worldMatrix();
+	nlohmann::json wmArr = nlohmann::json::array();
+	for (double v : wm.v)
+	{
+		wmArr.push_back(v);
+	}
+	out["worldMatrix"] = wmArr;
+
+	saveDerivedJson(out);
+	return out;
+}
+
+bool BackendDataBase::loadFromJson(const nlohmann::json& in, std::string* errMsg)
+{
+	ensureBackendComponentCodecBuiltinsRegistered();
+	if (!in.is_object())
+	{
+		if (errMsg)
+		{
+			*errMsg = "Backend json must be object.";
+		}
+		return false;
+	}
+
+	const std::string newId = in.value("id", std::string());
+	if (!newId.empty())
+	{
+		setId(newId);
+	}
+	const std::string newName = in.value("name", std::string());
+	if (!newName.empty())
+	{
+		setName(newName);
+	}
+	const std::string frame = toLowerAscii(in.value("poseReferenceFrame", std::string("world")));
+	setPoseReferenceFrame(frame == "parent" ? BackendPoseReferenceFrame::Parent : BackendPoseReferenceFrame::World);
+
+	if (hasPoseProperty())
+	{
+		BackendVec3 p{};
+		if (jsonToVec3(in.value("pose", nlohmann::json::object()), p))
+		{
+			setPose(p);
+		}
+	}
+	if (hasRotationProperty())
+	{
+		BackendVec3 r{};
+		if (jsonToVec3(in.value("rotation", nlohmann::json::object()), r))
+		{
+			setRotation(r);
+		}
+	}
+	if (hasColorProperty())
+	{
+		BackendColor c{};
+		if (jsonToColor(in.value("color", nlohmann::json::object()), c))
+		{
+			setColor(c);
+		}
+	}
+
+	loadPropertyBagFromJson(in.value("propertyBag", nlohmann::json::object()), m_propertyBag);
+	removeComponent(FollowAttachmentComponent::typeKeyStatic());
+	const nlohmann::json components = in.value("components", nlohmann::json::array());
+	if (components.is_array())
+	{
+		for (const auto& item : components)
+		{
+			const BackendComponentPtr component = BackendComponentCodecRegistry::instance().decodeComponent(item);
+			if (component)
+			{
+				addComponent(component);
+			}
+		}
+	}
+	if (!hasComponent(FollowAttachmentComponent::typeKeyStatic()) && in.contains("followAttachment")
+		&& in["followAttachment"].is_object())
+	{
+		auto follow = std::make_shared<FollowAttachmentComponent>();
+		follow->readJson(in["followAttachment"]);
+		addComponent(follow);
+	}
+	if (in.contains("worldMatrix"))
+	{
+		const nlohmann::json wm = in["worldMatrix"];
+		if (wm.is_array() && wm.size() == 16)
+		{
+			BackendMat4 world{};
+			bool ok = true;
+			for (std::size_t i = 0; i < 16U; ++i)
+			{
+				if (!wm[i].is_number())
+				{
+					ok = false;
+					break;
+				}
+				world.v[i] = wm[i].get<double>();
+			}
+			if (ok)
+			{
+				setWorldMatrix(world);
+			}
+		}
+	}
+	return loadDerivedJson(in, errMsg);
 }
 
 void BackendDataBase::applyBackendWorldPose(const BackendVec3& centerWorld, const BackendVec3& eulerDegWorld)
@@ -554,6 +791,18 @@ bool BackendDataBase::hasComponent(const std::string& componentType) const
 	}
 	std::lock_guard<std::mutex> lock(m_componentMutex);
 	return m_components.find(componentType) != m_components.end();
+}
+
+void BackendDataBase::saveDerivedJson(nlohmann::json& out) const
+{
+	(void)out;
+}
+
+bool BackendDataBase::loadDerivedJson(const nlohmann::json& in, std::string* errMsg)
+{
+	(void)in;
+	(void)errMsg;
+	return true;
 }
 
 std::vector<std::shared_ptr<BackendDataBase>> BackendDataBase::parentObjects(const BackendDataManager& manager) const

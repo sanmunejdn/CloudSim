@@ -30,9 +30,7 @@
 #include <QSet>
 #include <QSignalBlocker>
 #include <algorithm>
-#include <chrono>
 #include <cmath>
-#include <fstream>
 #include <osg/Matrixd>
 #include <sstream>
 #include <string>
@@ -42,20 +40,7 @@ using namespace RobotSimulation;
 namespace
 {
 constexpr double kTaughtReuseResidualMm = 1.0;
-// #region agent log
-void agentDebugLog(
-	const char* hypothesisId,
-	const char* location,
-	const char* message,
-	const std::string& dataJson,
-	const char* runId = "pre-fix")
-{
-	(void)hypothesisId;
-	(void)location;
-	(void)message;
-	(void)dataJson;
-	(void)runId;
-}
+constexpr double kPi = 3.14159265358979323846;
 
 int changedJointCount(const QVector<double>& a, const QVector<double>& b, const double eps = 1e-9)
 {
@@ -70,6 +55,68 @@ int changedJointCount(const QVector<double>& a, const QVector<double>& b, const 
 	}
 	return changed;
 }
+
+void wrapJointAnglesTowardSeed(QVector<double>& q, const QVector<double>& seed)
+{
+	if (q.size() != seed.size())
+	{
+		return;
+	}
+	for (int j = 0; j < q.size(); ++j)
+	{
+		double d = q[j] - seed[j];
+		while (d > kPi)
+		{
+			q[j] -= 2.0 * kPi;
+			d = q[j] - seed[j];
+		}
+		while (d < -kPi)
+		{
+			q[j] += 2.0 * kPi;
+			d = q[j] - seed[j];
+		}
+	}
+}
+
+QVector<double> clampJointStepFromPrevious(
+	const QVector<double>& target, const QVector<double>& previous, const double maxStepRad)
+{
+	QVector<double> out = target;
+	if (previous.size() != target.size() || maxStepRad <= 0.0)
+	{
+		return out;
+	}
+	for (int j = 0; j < target.size(); ++j)
+	{
+		const double d = target[j] - previous[j];
+		if (std::abs(d) > maxStepRad)
+		{
+			out[j] = previous[j] + std::copysign(maxStepRad, d);
+		}
+	}
+	return out;
+}
+
+double maxJointDeltaRad(const QVector<double>& a, const QVector<double>& b)
+{
+	if (a.size() != b.size())
+	{
+		return 0.0;
+	}
+	double m = 0.0;
+	for (int j = 0; j < a.size(); ++j)
+	{
+		m = std::max(m, std::abs(a[j] - b[j]));
+	}
+	return m;
+}
+
+bool instructionTcpWorldMat4FromTaughtJoints(
+	IRobotDocumentHost* doc,
+	int instIdx,
+	const RobotInstruction::Base& ins,
+	const QVector<double>& taughtQ,
+	osg::Matrixd& outTcpWorld);
 
 double targetResidualMmForInstruction(
 	const QString& urdfPath,
@@ -93,24 +140,8 @@ double targetResidualMmForInstruction(
 	const engine::RigidTransform fkTarget = RobotCoordinate::rigidTransformFromBackendMat4(fkTargetMat);
 	const Eigen::Vector3d a = target.translationMm();
 	const Eigen::Vector3d b = fkTarget.translationMm();
-	const double residual = (a - b).norm();
-	// #region agent log
-	{
-		const auto& ext = ins.extensionProperties();
-		const auto itMotion = ext.find(RobotCoordinate::kExtMotionToolFrameId);
-		const auto itCtxTool = ext.find("context.activeToolFrameId");
-		const std::string motionToolId = (itMotion != ext.end()) ? itMotion->second : std::string();
-		const std::string ctxToolId = (itCtxTool != ext.end()) ? itCtxTool->second : std::string();
-		std::ostringstream d;
-		d << "{\"motionToolId\":\"" << motionToolId << "\",\"ctxToolId\":\"" << ctxToolId
-		  << "\",\"resolvedFlange\":\"" << resolvedFlangeLink.toStdString() << "\",\"residualMm\":"
-		  << residual << "}";
-		agentDebugLog("H11", "targetResidualMmForInstruction", "residual_eval_context", d.str());
-	}
-	// #endregion
-	return residual;
+	return (a - b).norm();
 }
-// #endregion
 
 QVector<double> clampJointAnglesToInstanceLimits(
 	IRobotDocumentHost* doc, const int instIdx, const QVector<double>& jointAnglesRad)
@@ -334,6 +365,7 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 			labels.append(doc->robotDisplayLabelForInstance(i));
 			backendIds.append(doc->robotSceneBackendIdForInstance(i));
 		}
+		// 须在 setRobotInstances 之后再绑定指令树，否则 activeProgram 指向空 backendId 或 QHash 重分配后悬空指针
 		m_host->simulationCommandPage()->setRobotInstances(labels, backendIds);
 
 		const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0
@@ -377,7 +409,18 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 			m_host->robotAxisControlPage()->clearJoints();
 		}
 
-		m_aggregatedJointAnglesRad = QVector<double>(doc->robotRevoluteJointNames().size(), 0.0);
+		{
+			const int total = doc->robotRevoluteJointNames().size();
+			const int oldSize = m_aggregatedJointAnglesRad.size();
+			if (m_aggregatedJointAnglesRad.size() != total)
+			{
+				m_aggregatedJointAnglesRad.resize(total);
+				for (int i = oldSize; i < total; ++i)
+				{
+					m_aggregatedJointAnglesRad[i] = 0.0;
+				}
+			}
+		}
 		captureMotionPreviewProgramStartJoints();
 		syncRobotFrameSettingsFromDocument(instIdx);
 		refreshRobotCoordinateFrameOverlays();
@@ -390,7 +433,121 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 		m_host->robotAxisControlPage()->clearJoints();
 		m_aggregatedJointAnglesRad.clear();
 		m_motionPreviewProgramStartJointRad.clear();
+		m_host->simulationCommandPage()->bindProgramTree();
 	}
+}
+
+void RobotSimulationController::restoreAggregatedJointStateAfterProjectLoad(
+	const QVector<double>& allJointAnglesRad)
+{
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!doc || !doc->hasRobotSimulationContext())
+	{
+		return;
+	}
+	const int total = doc->robotRevoluteJointNames().size();
+	if (allJointAnglesRad.size() != total)
+	{
+		return;
+	}
+	m_aggregatedJointAnglesRad = allJointAnglesRad;
+	const int instIdx = m_host->simulationCommandPage()
+		&& m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0
+		? m_host->simulationCommandPage()->currentRobotInstanceIndex()
+		: 0;
+	if (instIdx < 0)
+	{
+		return;
+	}
+	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
+	if (m_host->robotAxisControlPage() && nj > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + nj)
+	{
+		QVector<double> local(nj);
+		for (int j = 0; j < nj; ++j)
+		{
+			local[j] = m_aggregatedJointAnglesRad[jointOffset + j];
+		}
+		QSignalBlocker blocker(m_host->robotAxisControlPage());
+		m_host->robotAxisControlPage()->setJointAnglesRad(local);
+	}
+	captureMotionPreviewProgramStartJoints();
+	refreshInstructionPoseAxes();
+}
+
+void RobotSimulationController::applyProgramStartPoseAfterProjectLoad()
+{
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	IRobotBackendPoseSink* poseSink = doc ? doc->poseSink() : nullptr;
+	if (!doc || !poseSink || !m_host->simulationCommandPage() || !doc->hasRobotSimulationContext())
+	{
+		return;
+	}
+	const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0
+		? m_host->simulationCommandPage()->currentRobotInstanceIndex()
+		: 0;
+	if (instIdx < 0)
+	{
+		return;
+	}
+	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
+	if (nj <= 0)
+	{
+		return;
+	}
+	const QString robotBackendId = m_host->simulationCommandPage()->currentRobotBackendId();
+	const std::vector<std::shared_ptr<RobotInstruction::Base>> program =
+		m_host->simulationCommandPage()->instructions(robotBackendId);
+	const std::vector<const RobotInstruction::Base*> motions = RobotInstruction::collectMotionInstructions(program);
+	bool appliedStartQ = false;
+	if (!motions.empty() && motions.front())
+	{
+		const QVector<double> startQ =
+			RobotInstructionPlanning::jointAnglesRadFromInstructionContext(*motions.front());
+		if (startQ.size() == nj)
+		{
+			appliedStartQ = true;
+			const QStringList jnamesAll = doc->robotRevoluteJointNames();
+			if (m_aggregatedJointAnglesRad.size() != jnamesAll.size())
+			{
+				m_aggregatedJointAnglesRad = QVector<double>(jnamesAll.size(), 0.0);
+			}
+			for (int j = 0; j < nj && jointOffset + j < m_aggregatedJointAnglesRad.size(); ++j)
+			{
+				m_aggregatedJointAnglesRad[jointOffset + j] = startQ[j];
+			}
+			if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() == nj)
+			{
+				QSignalBlocker blocker(m_host->robotAxisControlPage());
+				m_host->robotAxisControlPage()->setJointAnglesRad(startQ);
+			}
+			(void)RobotSceneKinematics::applyJointAnglesForInstance(
+				doc, poseSink, instIdx, startQ, m_aggregatedJointAnglesRad);
+			captureMotionPreviewProgramStartJoints();
+		}
+	}
+	for (const auto& ins : program)
+	{
+		if (!ins || !ins->hasPoseProperty())
+		{
+			continue;
+		}
+		const QVector<double> taughtQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(*ins);
+		if (taughtQ.size() != nj)
+		{
+			continue;
+		}
+		osg::Matrixd tcpWorld;
+		tcpWorld.makeIdentity();
+		if (!instructionTcpWorldMat4FromTaughtJoints(doc, instIdx, *ins, taughtQ, tcpWorld))
+		{
+			continue;
+		}
+		ins->setExtensionProperty(
+			"render.tcpWorldMat4", RobotSimulationMath::encodeMatrix4Csv(tcpWorld));
+	}
+	refreshInstructionPoseAxes();
 }
 
 void RobotSimulationController::captureMotionPreviewProgramStartJoints()
@@ -530,7 +687,7 @@ void RobotSimulationController::onRobotCoordinateFramesChanged()
 					RobotSimulationMath::osgMatrixFromRobotRigidFrame(tool->T_flange_tool));
 			}
 			const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
-			if (!urdfPath.isEmpty() && m_host->robotAxisControlPage())
+			if (!urdfPath.isEmpty())
 			{
 				QStringList revoluteChildLinks;
 				QString fallbackFlange;
@@ -539,17 +696,13 @@ void RobotSimulationController::onRobotCoordinateFramesChanged()
 				{
 					fallbackFlange = revoluteChildLinks.back();
 				}
+				const QVector<double> jointQ = localJointAnglesForInstance(instIdx);
 				engine::RigidTransform fkTarget{};
-				if (RobotSimulationMath::targetRigidTransformFromUrdfFlangeFk(
-						urdfPath,
-						m_host->robotAxisControlPage()->jointAnglesRad(),
-						frames,
-						fallbackFlange,
-						fkTarget,
-						nullptr,
-						nullptr))
+				if (!jointQ.isEmpty()
+					&& RobotSimulationMath::targetRigidTransformFromUrdfFlangeFk(
+						urdfPath, jointQ, frames, fallbackFlange, fkTarget, nullptr, nullptr))
 				{
-					osg->updateTcpDragTeachFromTarget(fkTarget);
+					osg->updateTcpDragTeachFromTarget(fkTarget, false);
 				}
 			}
 		}
@@ -558,7 +711,9 @@ void RobotSimulationController::onRobotCoordinateFramesChanged()
 	if (const std::shared_ptr<RobotInstruction::Base> active = m_host->activeInstructionForProperty())
 	{
 		m_host->refreshInstructionPropertyPanel(active, false);
-		if (RobotInstruction::isMotionWaypointType(active->type()))
+		const bool tcpDragActive = m_host->simulationCommandPage()
+			&& m_host->simulationCommandPage()->tcpDragTeachMode();
+		if (!tcpDragActive && RobotInstruction::isMotionWaypointType(active->type()))
 		{
 			applyRobotPoseForInstructionPreview(active);
 		}
@@ -939,10 +1094,12 @@ void RobotSimulationController::onSimulationRobotSelectionChanged(int instanceIn
 
 void RobotSimulationController::onRobotAxisJointAnglesChanged(const QVector<double>& jointAnglesRad)
 {
-	if (m_programExecutor.isRunning())
+	if (m_programExecutor.isRunning() || m_tcpDragApplyingIk)
 	{
 		return;
 	}
+	const bool tcpDragActive = m_host->simulationCommandPage()
+		&& m_host->simulationCommandPage()->tcpDragTeachMode();
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
 	IRobotBackendPoseSink* poseSink = doc ? doc->poseSink() : nullptr;
 	if (!doc || !poseSink)
@@ -963,6 +1120,12 @@ void RobotSimulationController::onRobotAxisJointAnglesChanged(const QVector<doub
 	if (applied && m_host->osgView())
 	{
 		m_host->osgView()->requestRedraw();
+	}
+	if (tcpDragActive)
+	{
+		syncTcpDragTeachAnchorFromCurrentJoints();
+		refreshRobotCoordinateFrameOverlays();
+		return;
 	}
 	refreshRobotCoordinateFrameOverlays();
 	if (!m_suppressMotionPreviewStartCapture)
@@ -985,7 +1148,20 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 		{
 			osg->endTcpDragTeach();
 		}
+		syncTcpDragExitJointState();
 		m_tcpDragTeachFlangeLink.clear();
+		m_tcpDragLastAppliedJointRad.clear();
+		m_lastTcpDragTargetValid = false;
+		if (IRobotDocumentHost* docOff = m_host ? m_host->document() : nullptr)
+		{
+			docOff->setSuppressRobotFollowDirtyNotify(false);
+			docOff->requestFollowSolveForced();
+		}
+		if (m_host)
+		{
+			m_host->runFollowSolveAndSyncForCurrentDocument();
+			syncTcpDragExitJointState();
+		}
 		return;
 	}
 	if (m_programExecutor.isRunning())
@@ -1114,11 +1290,7 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 	if (mountOnFlange)
 	{
 		resolveRobotBaseWorld = [this, doc, osg, instIdx](osg::Matrixd& outWorld) -> bool {
-			QVector<double> jointQ;
-			if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() > 0)
-			{
-				jointQ = m_host->robotAxisControlPage()->jointAnglesRad();
-			}
+			QVector<double> jointQ = localJointAnglesForInstance(instIdx);
 			return RobotSimulationMath::robotBaseWorldMatrixForInstance(
 				doc, osg, instIdx, outWorld, jointQ.isEmpty() ? nullptr : &jointQ);
 		};
@@ -1131,25 +1303,64 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 	else if (mountBackendId != robotRootId.toStdString())
 	{
 		resolveRobotBaseWorld = [this, doc, osg, instIdx](osg::Matrixd& outWorld) -> bool {
-			QVector<double> jointQ;
-			if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() > 0)
-			{
-				jointQ = m_host->robotAxisControlPage()->jointAnglesRad();
-			}
+			QVector<double> jointQ = localJointAnglesForInstance(instIdx);
 			return RobotSimulationMath::robotBaseWorldMatrixForInstance(
 				doc, osg, instIdx, outWorld, jointQ.isEmpty() ? nullptr : &jointQ);
 		};
 	}
+	m_tcpDragLastAppliedJointRad.clear();
+	m_lastTcpDragTargetValid = false;
+	doc->setSuppressRobotFollowDirtyNotify(true);
+	doc->clearFollowDirtyBackendIds();
 	osg->beginTcpDragTeach(mountBackendId, targetInBase, modelDiag, resolveRobotBaseWorld, toolLocalPtr);
 	if (!osg->isTcpDragTeachActive())
 	{
+		doc->setSuppressRobotFollowDirtyNotify(false);
 		m_host->simulationCommandPage()->setTcpDragTeachMode(false);
 		if (m_host->runInfoPage())
 		{
 			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Failed to attach TCP drag gizmo."), QStringLiteral("无法挂载 TCP 拖动示教罗盘。")));
 		}
 	}
+	m_lastTcpDragTargetInBase = targetInBase;
+	m_lastTcpDragTargetValid = true;
 	m_tcpDragTeachIkTimer.start();
+}
+
+void RobotSimulationController::syncTcpDragTeachAnchorFromCurrentJoints()
+{
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
+	if (!doc || !osg || !m_host->simulationCommandPage() || !m_host->robotAxisControlPage()
+		|| !osg->isTcpDragTeachActive() || m_tcpDragTeachFlangeLink.isEmpty())
+	{
+		return;
+	}
+	const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0
+		? m_host->simulationCommandPage()->currentRobotInstanceIndex()
+		: 0;
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	if (urdfPath.isEmpty())
+	{
+		return;
+	}
+	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
+	engine::RigidTransform fkTarget{};
+	if (!RobotSimulationMath::targetRigidTransformFromUrdfFlangeFk(
+			urdfPath,
+			m_host->robotAxisControlPage()->jointAnglesRad(),
+			frames,
+			m_tcpDragTeachFlangeLink,
+			fkTarget,
+			nullptr,
+			nullptr))
+	{
+		return;
+	}
+	osg->updateTcpDragTeachFromTarget(fkTarget, true);
+	m_lastTcpDragTargetInBase = fkTarget;
+	m_lastTcpDragTargetValid = true;
+	m_tcpDragLastAppliedJointRad = localJointAnglesForInstance(instIdx);
 }
 
 bool RobotSimulationController::applyTcpDragTeachIkFromPose(
@@ -1174,6 +1385,14 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(
 	{
 		return false;
 	}
+	static constexpr int kTcpDragIkMinIntervalMs = 33;
+	if (m_tcpDragTeachIkTimer.isValid() && m_tcpDragTeachIkTimer.elapsed() < kTcpDragIkMinIntervalMs)
+	{
+		return true;
+	}
+	m_tcpDragTeachIkTimer.restart();
+	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
+	const int njInst = doc->robotRevoluteJointCountForInstance(instIdx);
 	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
 	BackendMat4 toolMat = BackendMat4::identity();
 	if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
@@ -1185,7 +1404,19 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(
 	ctx.ikLinkName = m_tcpDragTeachFlangeLink;
 	ctx.T_base_target = engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
 	ctx.seedJointRad.clear();
-	const QVector<double> seedQ = m_host->robotAxisControlPage()->jointAnglesRad();
+	QVector<double> seedQ;
+	if (njInst > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + njInst)
+	{
+		seedQ.resize(njInst);
+		for (int j = 0; j < njInst; ++j)
+		{
+			seedQ[j] = m_aggregatedJointAnglesRad[jointOffset + j];
+		}
+	}
+	else
+	{
+		seedQ = m_host->robotAxisControlPage()->jointAnglesRad();
+	}
 	ctx.seedJointRad.reserve(static_cast<size_t>(seedQ.size()));
 	for (double v : seedQ)
 	{
@@ -1193,8 +1424,36 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(
 	}
 	ctx.useOrientation = true;
 	ctx.T_flange_tool = toolMat;
-	m_lastTcpDragTargetInBase = ctx.T_base_target;
-	m_lastTcpDragTargetValid = true;
+	ctx.maxIkIterations = 20;
+	const engine::RigidTransform targetFromEmit = ctx.T_base_target;
+	const bool hadPrevTarget = m_lastTcpDragTargetValid;
+	const engine::RigidTransform prevTarget = m_lastTcpDragTargetInBase;
+	engine::RigidTransform ikTarget = targetFromEmit;
+	static constexpr double kTcpDragMaxChaseMmPerIk = 50.0;
+	if (hadPrevTarget)
+	{
+		double tPrev[3]{};
+		double tEmit[3]{};
+		prevTarget.translationMm(tPrev[0], tPrev[1], tPrev[2]);
+		targetFromEmit.translationMm(tEmit[0], tEmit[1], tEmit[2]);
+		const double dx = tEmit[0] - tPrev[0];
+		const double dy = tEmit[1] - tPrev[1];
+		const double dz = tEmit[2] - tPrev[2];
+		const double emitLen = std::sqrt(dx * dx + dy * dy + dz * dz);
+		if (emitLen > kTcpDragMaxChaseMmPerIk)
+		{
+			const double s = kTcpDragMaxChaseMmPerIk / emitLen;
+			ikTarget = engine::RigidTransform::fromTranslationEulerDeg(
+				tPrev[0] + dx * s,
+				tPrev[1] + dy * s,
+				tPrev[2] + dz * s,
+				exDeg,
+				eyDeg,
+				ezDeg);
+		}
+	}
+	ctx.T_base_target = ikTarget;
+	const engine::RigidTransform targetForIkStep = ikTarget;
 	const RobotTeachIk::TeachIkResult ik = RobotTeachIk::solveTeachIk(ctx);
 	if (!ik.ok)
 	{
@@ -1206,36 +1465,95 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(
 	{
 		qRad.push_back(v);
 	}
-	const QVector<double> qClamped = clampJointAnglesToInstanceLimits(doc, instIdx, qRad);
+	QVector<double> qClamped = clampJointAnglesToInstanceLimits(doc, instIdx, qRad);
 	const bool anyClamped = (qClamped.size() == qRad.size())
 		&& !std::equal(qClamped.begin(), qClamped.end(), qRad.begin());
+	wrapJointAnglesTowardSeed(qClamped, seedQ);
+	const bool hasPrevDragQ = (m_tcpDragLastAppliedJointRad.size() == qClamped.size());
+	const double maxDeltaIk =
+		hasPrevDragQ ? maxJointDeltaRad(qClamped, m_tcpDragLastAppliedJointRad) : 1.0;
+	static constexpr double kTcpDragMaxJointStepRad = 0.12;
+	if (hasPrevDragQ)
+	{
+		qClamped = clampJointStepFromPrevious(qClamped, m_tcpDragLastAppliedJointRad, kTcpDragMaxJointStepRad);
+	}
+	const double maxJointDelta =
+		hasPrevDragQ ? maxJointDeltaRad(qClamped, m_tcpDragLastAppliedJointRad) : 1.0;
+	static constexpr double kTcpDragMinJointApplyRad = 0.002;
+	if (maxJointDelta < kTcpDragMinJointApplyRad)
+	{
+		return true;
+	}
+	if (hadPrevTarget && !qClamped.isEmpty())
+	{
+		engine::RigidTransform fkMotion{};
+		if (RobotSimulationMath::targetRigidTransformFromUrdfFlangeFk(
+				urdfPath, qClamped, frames, m_tcpDragTeachFlangeLink, fkMotion, nullptr, nullptr))
+		{
+			double tPrev[3]{};
+			double tTgt[3]{};
+			double tFk[3]{};
+			prevTarget.translationMm(tPrev[0], tPrev[1], tPrev[2]);
+			targetForIkStep.translationMm(tTgt[0], tTgt[1], tTgt[2]);
+			fkMotion.translationMm(tFk[0], tFk[1], tFk[2]);
+			engine::RigidTransform fkSeedPose{};
+			if (RobotSimulationMath::targetRigidTransformFromUrdfFlangeFk(
+					urdfPath, seedQ, frames, m_tcpDragTeachFlangeLink, fkSeedPose, nullptr, nullptr))
+			{
+				double tSeed[3]{};
+				fkSeedPose.translationMm(tSeed[0], tSeed[1], tSeed[2]);
+				const double wantDx = tTgt[0] - tPrev[0];
+				const double wantDy = tTgt[1] - tPrev[1];
+				const double wantDz = tTgt[2] - tPrev[2];
+				const double fkDx = tFk[0] - tSeed[0];
+				const double fkDy = tFk[1] - tSeed[1];
+				const double fkDz = tFk[2] - tSeed[2];
+				const double wantLen = std::sqrt(wantDx * wantDx + wantDy * wantDy + wantDz * wantDz);
+				const double fkLen = std::sqrt(fkDx * fkDx + fkDy * fkDy + fkDz * fkDz);
+				const double alignDot = wantDx * fkDx + wantDy * fkDy + wantDz * fkDz;
+				const double alignRatio =
+					(wantLen > 1e-6 && fkLen > 1e-6) ? (alignDot / (wantLen * fkLen)) : 1.0;
+				static constexpr double kTcpDragMinWantLenMm = 2.0;
+				static constexpr double kTcpDragMinAlignRatio = 0.35;
+				const bool rejectOpposite = (wantLen >= kTcpDragMinWantLenMm && alignDot < 0.0);
+				const bool rejectMisaligned =
+					(wantLen >= 5.0 && fkLen >= kTcpDragMinWantLenMm
+					 && alignRatio < kTcpDragMinAlignRatio);
+				if (rejectOpposite || rejectMisaligned)
+				{
+					return true;
+				}
+			}
+		}
+	}
+	m_lastTcpDragTargetInBase = targetForIkStep;
+	m_lastTcpDragTargetValid = true;
+	m_tcpDragLastAppliedJointRad = qClamped;
+	if (m_aggregatedJointAnglesRad.size() != doc->robotRevoluteJointNames().size())
+	{
+		m_aggregatedJointAnglesRad = QVector<double>(doc->robotRevoluteJointNames().size(), 0.0);
+	}
+	for (int j = 0; j < njInst && jointOffset + j < m_aggregatedJointAnglesRad.size(); ++j)
+	{
+		m_aggregatedJointAnglesRad[jointOffset + j] = qClamped[j];
+	}
+	m_tcpDragApplyingIk = true;
 	m_suppressMotionPreviewStartCapture = true;
-	const QSignalBlocker blockAxis(m_host->robotAxisControlPage());
-	m_host->robotAxisControlPage()->setJointAnglesRad(qClamped);
-	const QVector<double> qApplied = m_host->robotAxisControlPage()->jointAnglesRad();
-	onRobotAxisJointAnglesChanged(qApplied);
+	(void)RobotSceneKinematics::applyJointAnglesForInstance(
+		doc, doc->poseSink(), instIdx, qClamped, m_aggregatedJointAnglesRad);
+	if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() == njInst)
+	{
+		m_host->robotAxisControlPage()->setJointAnglesRadSilent(qClamped);
+	}
 	if (anyClamped && m_host->runInfoPage())
 	{
 		m_host->appendRunWarning(m_host->i18n(
 			QStringLiteral("TCP drag IK exceeded joint limits; angles were clamped to URDF range."),
 			QStringLiteral("末端拖动 IK 超出关节限位，已按 URDF 范围钳位。")));
 	}
-	engine::RigidTransform fkTarget{};
-	QString flangeQ;
-	QStringList revoluteChildLinks;
-	QString fallbackFlange;
-	(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, revoluteChildLinks, nullptr);
-	if (!revoluteChildLinks.isEmpty())
-	{
-		fallbackFlange = revoluteChildLinks.back();
-	}
-	if (RobotSimulationMath::targetRigidTransformFromUrdfFlangeFk(urdfPath, qApplied, frames, fallbackFlange, fkTarget, &flangeQ, nullptr))
-	{
-		// H8: do not overwrite dragged tool target with FK while on flange mount (avoids ~toolOffset snap).
-		osg->updateTcpDragTeachFromTarget(fkTarget, false);
-	}
 	m_suppressMotionPreviewStartCapture = false;
-	refreshRobotCoordinateFrameOverlays();
+	m_tcpDragApplyingIk = false;
+	osg->requestRedraw();
 	return true;
 }
 
@@ -1250,13 +1568,48 @@ void RobotSimulationController::onTcpDragTeachPoseChanged(
 	(void)applyTcpDragTeachIkFromPose(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
 }
 
+void RobotSimulationController::syncTcpDragExitJointState()
+{
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!doc || !m_host->simulationCommandPage() || !m_host->robotAxisControlPage())
+	{
+		return;
+	}
+	const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0
+		? m_host->simulationCommandPage()->currentRobotInstanceIndex()
+		: 0;
+	const QVector<double> local = localJointAnglesForInstance(instIdx);
+	if (local.isEmpty())
+	{
+		return;
+	}
+	IRobotBackendPoseSink* poseSink = doc->poseSink();
+	if (poseSink)
+	{
+		m_tcpDragApplyingIk = true;
+		m_suppressMotionPreviewStartCapture = true;
+		(void)RobotSceneKinematics::applyJointAnglesForInstance(
+			doc, poseSink, instIdx, local, m_aggregatedJointAnglesRad);
+		m_suppressMotionPreviewStartCapture = false;
+		m_tcpDragApplyingIk = false;
+	}
+	if (m_host->robotAxisControlPage()->jointCount() == local.size())
+	{
+		m_host->robotAxisControlPage()->setJointAnglesRadSilent(local);
+	}
+	refreshRobotCoordinateFrameOverlays();
+	if (IRobotOsgViewHost* osg = m_host->osgView())
+	{
+		osg->requestRedraw();
+	}
+}
+
 void RobotSimulationController::onTcpDragTeachEnded()
 {
 	if (m_host->simulationCommandPage())
 	{
 		m_host->simulationCommandPage()->setTcpDragTeachMode(false);
 	}
-	m_tcpDragTeachFlangeLink.clear();
 	if (m_host->simulationCommandPage() && m_host->document())
 	{
 		const QString robotBackendId = m_host->simulationCommandPage()->currentRobotBackendId();
@@ -1856,6 +2209,27 @@ void RobotSimulationController::onSimulationAddInstructionRequested(RobotInstruc
 				ins->setExtensionProperty(
 					"context.currentJointRadCsv",
 					RobotInstructionPlanning::encodeJointAnglesRadCsv(qLocal));
+				osg::Matrixd tcpWorldFromJoints;
+				if (instructionTcpWorldMat4FromTaughtJoints(capDoc, capInstIdx, *ins, qLocal, tcpWorldFromJoints))
+				{
+					BackendMat4 targetInBase = BackendMat4::identity();
+					(void)RobotSimulationMath::targetInBaseFromUrdfFlangeFk(
+						capUrdf,
+						qLocal,
+						capFrames,
+						fallbackFlange,
+						targetInBase,
+						ins.get(),
+						nullptr);
+					const osg::Matrixd tcpLocalFromJoints =
+						RobotMatrixOsg::matrixFromBackendColMajor(targetInBase);
+					ins->setExtensionProperty(
+						"render.tcpWorldMat4",
+						RobotSimulationMath::encodeMatrix4Csv(tcpWorldFromJoints));
+					ins->setExtensionProperty(
+						"render.tcpLocalMat4",
+						RobotSimulationMath::encodeMatrix4Csv(tcpLocalFromJoints));
+				}
 			}
 			if (RunLogger::isDiagnosticsEnabled() && m_host->runInfoPage() && m_host->robotAxisControlPage() && !capUrdf.isEmpty())
 			{
@@ -2111,7 +2485,12 @@ void RobotSimulationController::onSimulationInstructionSelectionChanged(const st
 			m_host->refreshInstructionPropertyPanel(instruction, false);
 		}
 	}
-	applyRobotPoseForInstructionPreview(instruction);
+	const bool tcpDragActive = m_host->simulationCommandPage()
+		&& m_host->simulationCommandPage()->tcpDragTeachMode();
+	if (!tcpDragActive)
+	{
+		applyRobotPoseForInstructionPreview(instruction);
+	}
 	refreshInstructionPoseAxes();
 }
 
@@ -2120,6 +2499,10 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(const std::s
 	if (m_skipInstructionPreviewOnce)
 	{
 		m_skipInstructionPreviewOnce = false;
+		return;
+	}
+	if (m_host->simulationCommandPage() && m_host->simulationCommandPage()->tcpDragTeachMode())
+	{
 		return;
 	}
 	if (m_programExecutor.isRunning() || !instruction
@@ -2179,14 +2562,6 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(const std::s
 	{
 		return;
 	}
-	// #region agent log
-	{
-		std::ostringstream d;
-		d << "{\"motionCount\":" << motions.size() << ",\"targetMotionIndex\":" << targetMotionIndex
-		  << ",\"jointCount\":" << nj << "}";
-		agentDebugLog("H1", "applyRobotPoseForInstructionPreview", "preview_chain_begin", d.str());
-	}
-	// #endregion
 	const QString defaultTcpLinkName = RobotSimulationMath::defaultTcpLinkNameForUrdf(
 		urdfPath,
 		m_host->simulationCommandPage() ? m_host->simulationCommandPage()->selectedTcpLink() : QString());
@@ -2212,9 +2587,6 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(const std::s
 			if (taughtResidual < 0.0 || taughtResidual > kTaughtReuseResidualMm)
 			{
 				useTaughtCsv = false;
-				std::ostringstream d;
-				d << "{\"mi\":" << mi << ",\"residualMm\":" << taughtResidual << "}";
-				agentDebugLog("H14", "applyRobotPoseForInstructionPreview", "preview_taught_rejected", d.str());
 			}
 		}
 		if (mi == targetMotionIndex || (!useTaughtCsv && !taughtQ.isEmpty()))
@@ -2224,17 +2596,6 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(const std::s
 			const auto itCtxTool = ext.find("context.activeToolFrameId");
 			const std::string motionToolId = (itMotion != ext.end()) ? itMotion->second : std::string();
 			const std::string ctxToolId = (itCtxTool != ext.end()) ? itCtxTool->second : std::string();
-			// #region agent log
-			{
-				std::ostringstream d;
-				d << "{\"mi\":" << mi << ",\"useTaughtCsv\":" << (useTaughtCsv ? "true" : "false")
-				  << ",\"chainReplanned\":" << (chainReplanned ? "true" : "false")
-				  << ",\"taughtCsvLen\":" << taughtQ.size() << ",\"motionToolId\":\"" << motionToolId
-				  << "\",\"ctxToolId\":\"" << ctxToolId << "\",\"activeToolId\":\""
-				  << framesForPlan.activeToolFrameId << "\"}";
-				agentDebugLog("H2", "applyRobotPoseForInstructionPreview", "preview_path_decision", d.str());
-			}
-			// #endregion
 		}
 		if (useTaughtCsv)
 		{
@@ -2242,15 +2603,6 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(const std::s
 			{
 				rollingQ[j] = taughtQ[j];
 			}
-			// #region agent log
-			{
-				const double residual = targetResidualMmForInstruction(
-					urdfPath, rollingQ, framesForPlan, defaultTcpLinkName, *motionIns);
-				std::ostringstream d;
-				d << "{\"mi\":" << mi << ",\"source\":\"taughtCsv\",\"residualMm\":" << residual << "}";
-				agentDebugLog("H5", "applyRobotPoseForInstructionPreview", "preview_fk_residual", d.str());
-			}
-			// #endregion
 			continue;
 		}
 		const RobotInstructionPlanning::MotionPoseBackup backup = RobotInstructionPlanning::backupInstructionPose(*motionIns);
@@ -2266,13 +2618,6 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(const std::s
 		std::string planErr;
 		if (!m_instructionController.validate(*motionIns, &planErr))
 		{
-			// #region agent log
-			{
-				std::ostringstream d;
-				d << "{\"mi\":" << mi << ",\"stage\":\"validate\",\"err\":\"" << planErr << "\"}";
-				agentDebugLog("H8", "applyRobotPoseForInstructionPreview", "preview_plan_failed", d.str());
-			}
-			// #endregion
 			RobotInstructionPlanning::restoreInstructionPose(*motionIns, backup);
 			if (m_host->runInfoPage() && mi == targetMotionIndex)
 			{
@@ -2288,13 +2633,6 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(const std::s
 		RobotInstruction::PlanResult plan{};
 		if (!m_instructionController.plan(*motionIns, plan, &planErr))
 		{
-			// #region agent log
-			{
-				std::ostringstream d;
-				d << "{\"mi\":" << mi << ",\"stage\":\"plan\",\"err\":\"" << planErr << "\"}";
-				agentDebugLog("H8", "applyRobotPoseForInstructionPreview", "preview_plan_failed", d.str());
-			}
-			// #endregion
 			RobotInstructionPlanning::restoreInstructionPose(*motionIns, backup);
 			if (m_host->runInfoPage() && mi == targetMotionIndex)
 			{
@@ -2307,15 +2645,6 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(const std::s
 			}
 			return;
 		}
-		// #region agent log
-		{
-			std::ostringstream d;
-			d << "{\"mi\":" << mi << ",\"planOk\":" << (plan.ok ? "true" : "false")
-			  << ",\"planner\":\"" << plan.plannerName << "\",\"jointTargetsCount\":" << plan.jointTargetsRad.size()
-			  << ",\"summary\":\"" << plan.summary << "\"}";
-			agentDebugLog("H7", "applyRobotPoseForInstructionPreview", "preview_plan_result", d.str());
-		}
-		// #endregion
 		if (!plan.jointTargetsRad.empty() && plan.jointTargetsRad.size() == static_cast<size_t>(nj))
 		{
 			for (int j = 0; j < nj; ++j)
@@ -2324,28 +2653,10 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(const std::s
 			}
 		}
 		chainReplanned = true;
-		// #region agent log
-		{
-			const double residual = targetResidualMmForInstruction(
-				urdfPath, rollingQ, framesForPlan, defaultTcpLinkName, *motionIns);
-			std::ostringstream d;
-			d << "{\"mi\":" << mi << ",\"source\":\"planner\",\"planner\":\"" << plan.plannerName
-			  << "\",\"residualMm\":" << residual << "}";
-			agentDebugLog("H5", "applyRobotPoseForInstructionPreview", "preview_fk_residual", d.str());
-		}
-		// #endregion
 		RobotInstructionPlanning::restoreInstructionPose(*motionIns, backup);
 	}
 	const QVector<double> rollingQBeforeClamp = rollingQ;
 	const QVector<double> rollingQClamped = clampJointAnglesToInstanceLimits(doc, instIdx, rollingQ);
-	// #region agent log
-	{
-		std::ostringstream d;
-		d << "{\"changedJointCount\":" << changedJointCount(rollingQBeforeClamp, rollingQClamped)
-		  << ",\"targetMotionIndex\":" << targetMotionIndex << "}";
-		agentDebugLog("H3", "applyRobotPoseForInstructionPreview", "preview_clamp_result", d.str());
-	}
-	// #endregion
 	const QStringList jnamesAll = doc->robotRevoluteJointNames();
 	if (m_aggregatedJointAnglesRad.size() != jnamesAll.size())
 	{
@@ -2364,13 +2675,62 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(const std::s
 	}
 	(void)RobotSceneKinematics::applyJointAnglesForInstance(
 		doc, poseSink, instIdx, rollingQ, m_aggregatedJointAnglesRad);
-	syncInstructionRenderMatricesFromPose(instruction);
 	refreshRobotCoordinateFrameOverlays(instruction, &rollingQ);
 	osg->requestRedraw();
 }
 
 namespace
 {
+/// 用示教关节 URDF 正解 + 文档基座位姿算世界 TCP，不依赖当前场景关节状态。
+bool instructionTcpWorldMat4FromTaughtJoints(
+	IRobotDocumentHost* doc,
+	int instIdx,
+	const RobotInstruction::Base& ins,
+	const QVector<double>& taughtQ,
+	osg::Matrixd& outTcpWorld)
+{
+	if (!doc || instIdx < 0 || taughtQ.isEmpty())
+	{
+		return false;
+	}
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	if (urdfPath.isEmpty())
+	{
+		return false;
+	}
+	QString fallbackFlangeLink;
+	{
+		QStringList revoluteChildLinks;
+		(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, revoluteChildLinks, nullptr);
+		if (!revoluteChildLinks.isEmpty())
+		{
+			fallbackFlangeLink = revoluteChildLinks.back();
+		}
+	}
+	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
+	BackendMat4 targetInBase = BackendMat4::identity();
+	QString tcpLinkName;
+	if (!RobotSimulationMath::targetInBaseFromUrdfFlangeFk(
+			urdfPath, taughtQ, frames, fallbackFlangeLink, targetInBase, &ins, &tcpLinkName))
+	{
+		return false;
+	}
+	const osg::Matrixd tcpLocal = RobotMatrixOsg::matrixFromBackendColMajor(targetInBase);
+	osg::Matrixd robotBaseWorld;
+	robotBaseWorld.makeIdentity();
+	RobotPerLinkKinematicsSlice slice;
+	if (doc->robotPerLinkKinematicsForInstance(instIdx, slice))
+	{
+		robotBaseWorld = slice.robotBasePlacementWorld;
+	}
+	else if (!RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, nullptr, instIdx, robotBaseWorld))
+	{
+		return false;
+	}
+	outTcpWorld = tcpLocal * robotBaseWorld;
+	return true;
+}
+
 osg::Matrixd tcpLocalFromPoseFields(const RobotInstruction::Base& ins)
 {
 	engine::RigidTransform T_pose{};
@@ -2413,29 +2773,26 @@ bool fillInstructionPoseAxisMount(
 	axis.mountTcpOnPatRoot = false;
 	axis.urdfTcpAttachLinkName.clear();
 
-	// H3: prefer pose×current base world; stale render.tcpWorldMat4 caused axes on wrong link (e.g. Link3).
+	// 指令点世界位姿以 render.tcpWorldMat4 为准（示教时冻结），不随当前机器人姿态变化。
 	osg::Matrixd T_world = tcpLocal;
-	bool usedBaseWorld = false;
-	if (doc && osg && instIdx >= 0)
+	bool positioned = false;
+	const auto itWorld = ins.extensionProperties().find("render.tcpWorldMat4");
+	if (itWorld != ins.extensionProperties().end() && !itWorld->second.empty())
+	{
+		osg::Matrixd T_cached;
+		if (RobotSimulationMath::decodeMatrix4Csv(itWorld->second, T_cached))
+		{
+			T_world = T_cached;
+			positioned = true;
+		}
+	}
+	if (!positioned && doc && osg && instIdx >= 0 && jointAnglesRadLocal && !jointAnglesRadLocal->isEmpty())
 	{
 		osg::Matrixd baseWorld;
 		baseWorld.makeIdentity();
 		if (RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, osg, instIdx, baseWorld, jointAnglesRadLocal))
 		{
 			T_world = tcpLocal * baseWorld;
-			usedBaseWorld = true;
-		}
-	}
-	if (!usedBaseWorld)
-	{
-		const auto itWorld = ins.extensionProperties().find("render.tcpWorldMat4");
-		if (itWorld != ins.extensionProperties().end() && !itWorld->second.empty())
-		{
-			osg::Matrixd T_cached;
-			if (RobotSimulationMath::decodeMatrix4Csv(itWorld->second, T_cached))
-			{
-				T_world = T_cached;
-			}
 		}
 	}
 	axis.positionMm = osg::Vec3f(
@@ -2470,23 +2827,35 @@ void RobotSimulationController::syncInstructionRenderMatricesFromPose(const std:
 	{
 		instruction->setExtensionProperty("context.activeToolFrameId", tool->id);
 	}
-	osg::Matrixd robotBaseWorld;
-	robotBaseWorld.makeIdentity();
-	QVector<double> syncJointQ;
+	osg::Matrixd tcpWorld;
+	tcpWorld.makeIdentity();
 	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
-	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
-	if (nj > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + nj)
+	QVector<double> taughtQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(*instruction);
+	if (taughtQ.size() == nj
+		&& instructionTcpWorldMat4FromTaughtJoints(doc, instIdx, *instruction, taughtQ, tcpWorld))
 	{
-		syncJointQ.resize(nj);
-		for (int j = 0; j < nj; ++j)
-		{
-			syncJointQ[j] = m_aggregatedJointAnglesRad[jointOffset + j];
-		}
+		instruction->setExtensionProperty("render.tcpWorldMat4", RobotSimulationMath::encodeMatrix4Csv(tcpWorld));
 	}
-	if (RobotSimulationMath::robotBaseWorldMatrixForInstance(
-			doc, osg, instIdx, robotBaseWorld, syncJointQ.isEmpty() ? nullptr : &syncJointQ))
+	else
 	{
-		instruction->setExtensionProperty("render.tcpWorldMat4", RobotSimulationMath::encodeMatrix4Csv(tcpLocal * robotBaseWorld));
+		osg::Matrixd robotBaseWorld;
+		robotBaseWorld.makeIdentity();
+		const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
+		QVector<double> syncJointQ;
+		if (nj > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + nj)
+		{
+			syncJointQ.resize(nj);
+			for (int j = 0; j < nj; ++j)
+			{
+				syncJointQ[j] = m_aggregatedJointAnglesRad[jointOffset + j];
+			}
+		}
+		if (RobotSimulationMath::robotBaseWorldMatrixForInstance(
+				doc, osg, instIdx, robotBaseWorld, syncJointQ.isEmpty() ? nullptr : &syncJointQ))
+		{
+			instruction->setExtensionProperty(
+				"render.tcpWorldMat4", RobotSimulationMath::encodeMatrix4Csv(tcpLocal * robotBaseWorld));
+		}
 	}
 }
 
@@ -2639,7 +3008,7 @@ void RobotSimulationController::refreshInstructionPoseAxes()
 				ins->type() == RobotInstruction::Type::LINE,
 				reachable,
 				a,
-				axisJointQ.isEmpty() ? nullptr : &axisJointQ))
+				nullptr))
 		{
 			continue;
 		}
@@ -2780,9 +3149,6 @@ void RobotSimulationController::onSimulationStartTriggered()
 			if (taughtResidual < 0.0 || taughtResidual > kTaughtReuseResidualMm)
 			{
 				useTaughtCsv = false;
-				std::ostringstream d;
-				d << "{\"mi\":" << mi << ",\"residualMm\":" << taughtResidual << "}";
-				agentDebugLog("H14", "onSimulationStartTriggered", "run_taught_rejected", d.str());
 			}
 		}
 		const auto& ext = ins->extensionProperties();
@@ -2790,17 +3156,6 @@ void RobotSimulationController::onSimulationStartTriggered()
 		const auto itCtxTool = ext.find("context.activeToolFrameId");
 		const std::string motionToolId = (itMotion != ext.end()) ? itMotion->second : std::string();
 		const std::string ctxToolId = (itCtxTool != ext.end()) ? itCtxTool->second : std::string();
-		// #region agent log
-		{
-			std::ostringstream d;
-			d << "{\"mi\":" << mi << ",\"useTaughtCsv\":" << (useTaughtCsv ? "true" : "false")
-			  << ",\"chainReplanned\":" << (chainReplanned ? "true" : "false")
-			  << ",\"taughtCsvLen\":" << taughtQ.size() << ",\"motionToolId\":\"" << motionToolId
-			  << "\",\"ctxToolId\":\"" << ctxToolId << "\",\"activeToolId\":\""
-			  << framesForRun.activeToolFrameId << "\"}";
-			agentDebugLog("H4", "onSimulationStartTriggered", "run_path_decision", d.str());
-		}
-		// #endregion
 		if (useTaughtCsv)
 		{
 			for (int j = 0; j < nj; ++j)
@@ -2809,23 +3164,6 @@ void RobotSimulationController::onSimulationStartTriggered()
 			}
 			const QVector<double> rollingQBeforeClamp = rollingQ;
 			const QVector<double> rollingQClamped = clampJointAnglesToInstanceLimits(doc, instIdx, rollingQ);
-			// #region agent log
-			{
-				std::ostringstream d;
-				d << "{\"mi\":" << mi << ",\"changedJointCount\":"
-				  << changedJointCount(rollingQBeforeClamp, rollingQClamped) << "}";
-				agentDebugLog("H3", "onSimulationStartTriggered", "run_clamp_result_taught", d.str());
-			}
-			// #endregion
-			// #region agent log
-			{
-				const double residual = targetResidualMmForInstruction(
-					urdfPath, rollingQ, framesForRun, defaultTcpLinkName, *ins);
-				std::ostringstream d;
-				d << "{\"mi\":" << mi << ",\"source\":\"taughtCsv\",\"residualMm\":" << residual << "}";
-				agentDebugLog("H6", "onSimulationStartTriggered", "run_fk_residual", d.str());
-			}
-			// #endregion
 			RobotInstruction::PlanResult plan{};
 			plan.ok = true;
 			plan.plannerName = "taughtJointCsv";
@@ -2856,13 +3194,6 @@ void RobotSimulationController::onSimulationStartTriggered()
 		std::string planErr;
 		if (!m_instructionController.validate(*ins, &planErr))
 		{
-			// #region agent log
-			{
-				std::ostringstream d;
-				d << "{\"mi\":" << mi << ",\"stage\":\"validate\",\"err\":\"" << planErr << "\"}";
-				agentDebugLog("H8", "onSimulationStartTriggered", "run_plan_failed", d.str());
-			}
-			// #endregion
 			RobotInstructionPlanning::restoreInstructionPose(*ins, poseBackup);
 			if (m_host->runInfoPage())
 			{
@@ -2875,13 +3206,6 @@ void RobotSimulationController::onSimulationStartTriggered()
 		RobotInstruction::PlanResult plan{};
 		if (!m_instructionController.plan(*ins, plan, &planErr))
 		{
-			// #region agent log
-			{
-				std::ostringstream d;
-				d << "{\"mi\":" << mi << ",\"stage\":\"plan\",\"err\":\"" << planErr << "\"}";
-				agentDebugLog("H8", "onSimulationStartTriggered", "run_plan_failed", d.str());
-			}
-			// #endregion
 			RobotInstructionPlanning::restoreInstructionPose(*ins, poseBackup);
 			if (m_host->runInfoPage())
 			{
@@ -2891,15 +3215,6 @@ void RobotSimulationController::onSimulationStartTriggered()
 			}
 			return;
 		}
-		// #region agent log
-		{
-			std::ostringstream d;
-			d << "{\"mi\":" << mi << ",\"planOk\":" << (plan.ok ? "true" : "false")
-			  << ",\"planner\":\"" << plan.plannerName << "\",\"jointTargetsCount\":" << plan.jointTargetsRad.size()
-			  << ",\"summary\":\"" << plan.summary << "\"}";
-			agentDebugLog("H7", "onSimulationStartTriggered", "run_plan_result", d.str());
-		}
-		// #endregion
 		if (!plan.jointTargetsRad.empty() && plan.jointTargetsRad.size() == static_cast<size_t>(rollingQ.size()))
 		{
 			for (int j = 0; j < rollingQ.size(); ++j)
@@ -2910,24 +3225,6 @@ void RobotSimulationController::onSimulationStartTriggered()
 		chainReplanned = true;
 		const QVector<double> rollingQBeforeClamp = rollingQ;
 		const QVector<double> rollingQClamped = clampJointAnglesToInstanceLimits(doc, instIdx, rollingQ);
-		// #region agent log
-		{
-			std::ostringstream d;
-			d << "{\"mi\":" << mi << ",\"planner\":\"" << plan.plannerName
-			  << "\",\"changedJointCount\":" << changedJointCount(rollingQBeforeClamp, rollingQClamped) << "}";
-			agentDebugLog("H3", "onSimulationStartTriggered", "run_clamp_result_plan", d.str());
-		}
-		// #endregion
-		// #region agent log
-		{
-			const double residual = targetResidualMmForInstruction(
-				urdfPath, rollingQ, framesForRun, defaultTcpLinkName, *ins);
-			std::ostringstream d;
-			d << "{\"mi\":" << mi << ",\"source\":\"planner\",\"planner\":\"" << plan.plannerName
-			  << "\",\"residualMm\":" << residual << "}";
-			agentDebugLog("H6", "onSimulationStartTriggered", "run_fk_residual", d.str());
-		}
-		// #endregion
 		RobotInstructionPlanning::restoreInstructionPose(*ins, poseBackup);
 		if (plan.durationSec > 1e-6)
 		{

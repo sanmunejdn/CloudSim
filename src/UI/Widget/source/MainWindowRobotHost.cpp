@@ -128,6 +128,11 @@ public:
 	}
 	void notifyRobotKinematicsAppliedToScene() override { m_page->notifyRobotKinematicsAppliedToScene(); }
 	void requestFollowSolveForced() override { m_page->requestFollowSolveForced(); }
+	void setSuppressRobotFollowDirtyNotify(const bool suppress) override
+	{
+		m_page->setSuppressRobotFollowDirtyNotify(suppress);
+	}
+	void clearFollowDirtyBackendIds() override { m_page->clearFollowDirtyBackendIds(); }
 
 private:
 	DocumentPage* m_page = nullptr;
@@ -344,6 +349,16 @@ int MainWindowRobotHost::currentSimulationRobotInstanceIndex() const
 }
 
 void MainWindowRobotHost::refreshBackendTree() { m_mw->refreshBackendTree(); }
+
+void MainWindowRobotHost::runFollowSolveAndSyncForCurrentDocument()
+{
+	DocumentPage* page = m_mw->currentPage();
+	OsgWidget* osg = page ? page->osgWidget() : nullptr;
+	if (page && osg)
+	{
+		m_mw->runBackendFollowSolveAndSync(*page, *osg);
+	}
+}
 
 void MainWindowRobotHost::refreshInstructionPropertyPanel(
 	const std::shared_ptr<RobotInstruction::Base>& instruction,

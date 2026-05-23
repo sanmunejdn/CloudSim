@@ -26,6 +26,7 @@ public:
 	explicit SimulationCommandWidget(QWidget* parent = nullptr);
 
 	void setProgramStore(RobotProgramStore* store);
+	void bindProgramTree();
 	void setUseChinese(bool chinese);
 	void setSimulationRunning(bool running);
 	void setTcpDragTeachMode(bool enabled);
@@ -65,7 +66,6 @@ signals:
 	void tcpDragTeachModeChanged(bool enabled);
 
 private:
-	void bindProgramTree();
 	void rebuildCommandListWidget();
 	void onAddTypeButtonClicked();
 	void onRemoveClicked();

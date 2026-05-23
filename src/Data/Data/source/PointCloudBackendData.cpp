@@ -774,3 +774,63 @@ bool PointCloudBackendData::applyPropertyChange(const std::string& key, const st
 	return BackendDataBase::applyPropertyChange(key, value, errMsg, mgr);
 }
 
+void PointCloudBackendData::saveDerivedJson(nlohmann::json& out) const
+{
+	std::string xyzB64;
+	std::string rgbaB64;
+	if (!writeProjectEmbeddedGeometry(xyzB64, rgbaB64))
+	{
+		return;
+	}
+	nlohmann::json geo = nlohmann::json{
+		{ "kind", "points" },
+		{ "encoding", "float32_le" },
+		{ "xyzBase64", xyzB64 },
+		{ "pointCount", geometryElementCount() } };
+	if (!rgbaB64.empty())
+	{
+		geo["rgbaPerVertexBase64"] = rgbaB64;
+	}
+	out["geometry"] = std::move(geo);
+}
+
+bool PointCloudBackendData::loadDerivedJson(const nlohmann::json& in, std::string* errMsg)
+{
+	if (!in.contains("geometry"))
+	{
+		return true;
+	}
+	const nlohmann::json geo = in["geometry"];
+	if (!geo.is_object())
+	{
+		if (errMsg)
+		{
+			*errMsg = "Point cloud geometry must be object.";
+		}
+		return false;
+	}
+	if (geo.value("kind", std::string()) != "points")
+	{
+		if (errMsg)
+		{
+			*errMsg = "Point cloud geometry kind mismatch.";
+		}
+		return false;
+	}
+	const std::string xyzBase64 = geo.value("xyzBase64", std::string());
+	if (xyzBase64.empty())
+	{
+		return true;
+	}
+	const std::string rgbaBase64 = geo.value("rgbaPerVertexBase64", std::string());
+	if (!readProjectEmbeddedGeometry(xyzBase64, rgbaBase64))
+	{
+		if (errMsg)
+		{
+			*errMsg = "Point cloud geometry decode failed.";
+		}
+		return false;
+	}
+	return true;
+}
+

@@ -10,7 +10,10 @@
 namespace RobotProjectIo
 {
 
-void writeRobotKinematicsAndPrograms(QJsonObject& root, IRobotDocumentHost* doc)
+void writeRobotKinematicsAndPrograms(
+	QJsonObject& root,
+	IRobotDocumentHost* doc,
+	const QVector<double>* aggregatedJointAnglesRad)
 {
 	if (!doc)
 	{
@@ -55,6 +58,20 @@ void writeRobotKinematicsAndPrograms(QJsonObject& root, IRobotDocumentHost* doc)
 			if (cfDoc.isObject())
 			{
 				rk.insert(QStringLiteral("coordinateFrames"), cfDoc.object());
+			}
+			if (aggregatedJointAnglesRad && !aggregatedJointAnglesRad->isEmpty())
+			{
+				const int offset = doc->robotJointOffsetInAggregatedVector(ri);
+				const int nj = doc->robotRevoluteJointCountForInstance(ri);
+				if (nj > 0 && aggregatedJointAnglesRad->size() >= offset + nj)
+				{
+					QJsonArray ja;
+					for (int j = 0; j < nj; ++j)
+					{
+						ja.append((*aggregatedJointAnglesRad)[offset + j]);
+					}
+					rk.insert(QStringLiteral("jointAnglesRad"), ja);
+				}
 			}
 			robotsArr.push_back(rk);
 		}

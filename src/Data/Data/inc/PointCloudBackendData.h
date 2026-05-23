@@ -63,6 +63,8 @@ public:
 
 private:
 	void recomputeBoundsFromPoints();
+	void saveDerivedJson(nlohmann::json& out) const override;
+	bool loadDerivedJson(const nlohmann::json& in, std::string* errMsg) override;
 
 	BackendVec3 m_position;
 	BackendVec3 m_rotation;

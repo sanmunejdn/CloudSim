@@ -67,6 +67,8 @@ public:
 	void requestFollowSolveForced() { m_followSolveForced = true; }
 	bool takeFollowSolveForced();
 	bool followSolveForcedPending() const { return m_followSolveForced; }
+	void setSuppressRobotFollowDirtyNotify(const bool suppress) { m_suppressRobotFollowDirtyNotify = suppress; }
+	bool suppressRobotFollowDirtyNotify() const { return m_suppressRobotFollowDirtyNotify; }
 
 	QMap<QString, QString>& backendSourcePath() { return m_backendSourcePath; }
 	QMap<QString, QString>& backendSourceType() { return m_backendSourceType; }
@@ -231,4 +233,5 @@ private:
 
 	std::unordered_set<std::string> m_followDirtyBackendIds;
 	bool m_followSolveForced = false;
+	bool m_suppressRobotFollowDirtyNotify = false;
 };

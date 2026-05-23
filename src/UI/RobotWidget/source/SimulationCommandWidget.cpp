@@ -223,7 +223,6 @@ QPushButton* SimulationCommandWidget::createTypeButton(const RobotInstruction::T
 void SimulationCommandWidget::setProgramStore(RobotProgramStore* store)
 {
 	m_programStore = store;
-	bindProgramTree();
 }
 
 void SimulationCommandWidget::bindProgramTree()
@@ -233,14 +232,18 @@ void SimulationCommandWidget::bindProgramTree()
 		return;
 	}
 	m_tree->setUseChinese(m_useChinese);
-	if (m_programStore)
-	{
-		m_tree->setProgram(&m_programStore->activeProgram());
-	}
-	else
+	if (!m_programStore)
 	{
 		m_tree->setProgram(nullptr);
+		return;
 	}
+	const QString backendId = m_programStore->activeRobotBackendId();
+	if (backendId.isEmpty())
+	{
+		m_tree->setProgram(nullptr);
+		return;
+	}
+	m_tree->setProgram(&m_programStore->programFor(backendId));
 }
 
 void SimulationCommandWidget::setRobotInstances(const QStringList& labels, const QStringList& backendIds)

@@ -107,6 +107,8 @@ public:
 
 	PropertyBag& propertyBag() { return m_propertyBag; }
 	const PropertyBag& propertyBag() const { return m_propertyBag; }
+	nlohmann::json saveToJson() const;
+	bool loadFromJson(const nlohmann::json& in, std::string* errMsg = nullptr);
 
 	// Property panel: JSON array; row shape in BackendPropertyRow.h (backend_property_json).
 	// \a mgr resolves follow target id to display name when present.
@@ -150,6 +152,8 @@ public:
 
 protected:
 	static std::string generateId();
+	virtual void saveDerivedJson(nlohmann::json& out) const;
+	virtual bool loadDerivedJson(const nlohmann::json& in, std::string* errMsg);
 
 	std::vector<std::shared_ptr<BackendAttributeBase>> m_attributes;
 

@@ -1,12 +1,13 @@
 #include "MainWindow.h"
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
 #include <QByteArray>
-#include <QDataStream>
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
@@ -24,6 +25,8 @@
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BackendRegistry.h"
+#include "BackendRegistryBuiltins.h"
 #include "DocumentPage.h"
 #include "FollowAttachmentComponent.h"
 #include "MeshBackendData.h"
@@ -37,88 +40,32 @@
 #include "RunInfoPage.h"
 #include "UrdfRobotLoader.h"
 #include "../RobotWidget/inc/IRobotDocumentHost.h"
+#include "../RobotWidget/inc/RobotAxisControlWidget.h"
 #include "../RobotWidget/inc/RobotProjectIoAdapter.h"
+#include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
 #include "MainWindowRobotHost.h"
 
 namespace {
-
-std::string qStringToUtf8StdString(const QString& q)
+QJsonObject stdJsonToQJsonObject(const nlohmann::json& in)
 {
-	const QByteArray b = q.toUtf8();
-	return std::string(b.constData(), static_cast<std::size_t>(b.size()));
+	const std::string payload = in.dump();
+	const QJsonDocument doc = QJsonDocument::fromJson(
+		QByteArray(payload.data(), static_cast<int>(payload.size())));
+	return doc.isObject() ? doc.object() : QJsonObject{};
 }
 
-constexpr quint32 kPointCloudBinMagic = 0x31435050u;
-
-bool readPointCloudBinaryFile(const QString& absolutePath, PointCloudBackendData& pc, QString* errMsg)
+nlohmann::json qJsonObjectToStdJson(const QJsonObject& in)
 {
-	QFile f(absolutePath);
-	if (!f.open(QIODevice::ReadOnly))
+	const QByteArray payload = QJsonDocument(in).toJson(QJsonDocument::Compact);
+	try
 	{
-		if (errMsg)
-		{
-			*errMsg = QStringLiteral("Cannot open point blob: %1").arg(absolutePath);
-		}
-		return false;
+		return nlohmann::json::parse(payload.constData(), payload.constData() + payload.size());
 	}
-	QDataStream ds(&f);
-	ds.setByteOrder(QDataStream::LittleEndian);
-	quint32 magic = 0;
-	quint32 version = 0;
-	quint64 n = 0;
-	quint32 hasRgba = 0;
-	ds >> magic >> version >> n >> hasRgba;
-	if (magic != kPointCloudBinMagic || version != 1u || n == 0u)
+	catch (...)
 	{
-		if (errMsg)
-		{
-			*errMsg = QStringLiteral("Invalid point blob header.");
-		}
-		return false;
+		return nlohmann::json::object();
 	}
-	const std::size_t xyzCount = static_cast<std::size_t>(n) * 3U;
-	std::vector<float> xyz(xyzCount);
-	const int xyzBytes = static_cast<int>(xyz.size() * sizeof(float));
-	if (ds.readRawData(reinterpret_cast<char*>(xyz.data()), xyzBytes) != xyzBytes)
-	{
-		if (errMsg)
-		{
-			*errMsg = QStringLiteral("Truncated XYZ payload.");
-		}
-		return false;
-	}
-	std::vector<float> rgba;
-	if (hasRgba)
-	{
-		rgba.resize(static_cast<std::size_t>(n) * 4U);
-		const int rgbaBytes = static_cast<int>(rgba.size() * sizeof(float));
-		if (ds.readRawData(reinterpret_cast<char*>(rgba.data()), rgbaBytes) != rgbaBytes)
-		{
-			if (errMsg)
-			{
-				*errMsg = QStringLiteral("Truncated RGBA payload.");
-			}
-			return false;
-		}
-	}
-	pc.setPointBuffers(std::move(xyz), std::move(rgba));
-	return true;
-}
-
-QString mergeBase64Shards(const QJsonObject& emb, const QString& singleKey, const QString& shardsKey)
-{
-	QString merged = emb.value(singleKey).toString();
-	if (!merged.isEmpty())
-	{
-		return merged;
-	}
-	const QJsonArray shards = emb.value(shardsKey).toArray();
-	for (const QJsonValue& v : shards)
-	{
-		merged += v.toString();
-	}
-	return merged;
 }
 
 bool restorePerLinkRobotKinematicsFromJson(
@@ -159,6 +106,14 @@ bool restorePerLinkRobotKinematicsFromJson(
 	QVector<double> hi;
 	(void)UrdfRobotLoader::loadRevoluteJointMeta(urdf, jn, lo, hi, nullptr);
 	QVector<double> q0(jn.size(), 0.0);
+	const QJsonArray savedJoints = rk.value(QStringLiteral("jointAnglesRad")).toArray();
+	if (savedJoints.size() == jn.size())
+	{
+		for (int i = 0; i < jn.size(); ++i)
+		{
+			q0[i] = savedJoints.at(i).toDouble(0.0);
+		}
+	}
 	QHash<QString, osg::Matrixd> Tq;
 	QString fkErr;
 	if (!UrdfRobotLoader::computeMeshWorldMatrices(urdf, q0, Tq, &fkErr, meshInLinkFrame))
@@ -225,26 +180,6 @@ bool restorePerLinkRobotKinematicsFromJson(
 	return true;
 }
 
-QString sanitizedArchiveBase(const QString& base)
-{
-	QString s = base.trimmed();
-	for (int i = 0; i < s.length(); ++i)
-	{
-		const QChar c = s.at(i);
-		if (c == QLatin1Char('/') || c == QLatin1Char('\\') || c == QLatin1Char(':') || c == QLatin1Char('*')
-			|| c == QLatin1Char('?') || c == QLatin1Char('"') || c == QLatin1Char('<') || c == QLatin1Char('>')
-			|| c == QLatin1Char('|'))
-		{
-			s[i] = QLatin1Char('_');
-		}
-	}
-	if (s.isEmpty())
-	{
-		s = QStringLiteral("project");
-	}
-	return s;
-}
-
 void rebuildLegacyParentMirror(DocumentPage* page)
 {
 	if (!page)
@@ -303,64 +238,6 @@ void applyPointCloudPoseFromJson(PointCloudBackendData& pc, OsgWidget* osgWidget
 	}
 }
 
-void appendFollowAttachmentJson(const std::shared_ptr<BackendDataBase>& data, QJsonObject& obj)
-{
-	if (!data)
-	{
-		return;
-	}
-	const auto c = std::dynamic_pointer_cast<FollowAttachmentComponent>(
-		data->getComponent(FollowAttachmentComponent::typeKeyStatic()));
-	if (!c)
-	{
-		return;
-	}
-	QJsonObject fa;
-	fa.insert(QStringLiteral("enabled"), c->enabled());
-	fa.insert(QStringLiteral("targetId"), QString::fromStdString(c->targetBackendId()));
-	const BackendVec3 lp = c->localPosition();
-	QJsonObject lpj;
-	lpj.insert(QStringLiteral("x"), lp.x);
-	lpj.insert(QStringLiteral("y"), lp.y);
-	lpj.insert(QStringLiteral("z"), lp.z);
-	fa.insert(QStringLiteral("localPosition"), lpj);
-	const BackendVec3 le = c->localEulerDeg();
-	QJsonObject lej;
-	lej.insert(QStringLiteral("x"), le.x);
-	lej.insert(QStringLiteral("y"), le.y);
-	lej.insert(QStringLiteral("z"), le.z);
-	fa.insert(QStringLiteral("localEulerDeg"), lej);
-	fa.insert(QStringLiteral("solverPaused"), c->solverPaused());
-	fa.insert(QStringLiteral("hierarchyDriven"), c->hierarchyDriven());
-	obj.insert(QStringLiteral("followAttachment"), fa);
-}
-
-void applyFollowAttachmentFromObjectJson(const std::shared_ptr<BackendDataBase>& data, const QJsonObject& obj)
-{
-	if (!data)
-	{
-		return;
-	}
-	const QJsonObject fa = obj.value(QStringLiteral("followAttachment")).toObject();
-	if (fa.isEmpty())
-	{
-		return;
-	}
-	data->removeComponent(FollowAttachmentComponent::typeKeyStatic());
-	auto comp = std::make_shared<FollowAttachmentComponent>();
-	comp->setEnabled(fa.value(QStringLiteral("enabled")).toBool());
-	comp->setTargetBackendId(fa.value(QStringLiteral("targetId")).toString().toStdString());
-	const QJsonObject lpj = fa.value(QStringLiteral("localPosition")).toObject();
-	comp->setLocalPosition(BackendVec3{ lpj.value(QStringLiteral("x")).toDouble(), lpj.value(QStringLiteral("y")).toDouble(),
-		lpj.value(QStringLiteral("z")).toDouble() });
-	const QJsonObject lej = fa.value(QStringLiteral("localEulerDeg")).toObject();
-	comp->setLocalEulerDeg(BackendVec3{ lej.value(QStringLiteral("x")).toDouble(), lej.value(QStringLiteral("y")).toDouble(),
-		lej.value(QStringLiteral("z")).toDouble() });
-	comp->setSolverPaused(fa.value(QStringLiteral("solverPaused")).toBool());
-	comp->setHierarchyDriven(fa.value(QStringLiteral("hierarchyDriven")).toBool());
-	data->addComponent(comp);
-}
-
 } // namespace
 
 void MainWindow::onSaveProject()
@@ -394,7 +271,7 @@ void MainWindow::onSaveProject()
 	const QString jsonWritePath = packageMode ? QDir(workRoot).filePath(QStringLiteral("project.json")) : savePath;
 
 	QJsonObject root;
-	root.insert(QStringLiteral("version"), 3);
+	root.insert(QStringLiteral("version"), 4);
 	if (packageMode)
 	{
 		root.insert(QStringLiteral("bundle"), QStringLiteral("zip"));
@@ -407,22 +284,15 @@ void MainWindow::onSaveProject()
 		[](const std::shared_ptr<BackendDataBase>& d) {
 			return d && std::dynamic_pointer_cast<PointCloudBackendData>(d);
 		}));
-	int pointCloudBlobIndex = 0;
 
 	for (const auto& data : dataList)
 	{
 		if (!data) continue;
-		QJsonObject obj;
 		const std::string id = data->id();
 		const QString idQs = QString::fromStdString(id);
-		obj.insert(QStringLiteral("id"), QString::fromStdString(id));
-		obj.insert(QStringLiteral("name"), QString::fromStdString(data->name()));
-		obj.insert(QStringLiteral("className"), QString::fromStdString(data->className()));
 		const QString srcPath = doc->backendSourcePath().count(idQs) ? doc->backendSourcePath()[idQs] : QString();
-		obj.insert(QStringLiteral("sourcePath"), srcPath);
-		obj.insert(QStringLiteral("sourceType"), doc->backendSourceType().count(idQs) ? doc->backendSourceType()[idQs] : QString());
+		const QString sourceType = doc->backendSourceType().count(idQs) ? doc->backendSourceType()[idQs] : QString();
 		const std::vector<std::string> parentIds = doc->backend().parentsOf(id);
-		obj.insert(QStringLiteral("parentId"), parentIds.empty() ? QString() : QString::fromStdString(parentIds.front()));
 
 		if (auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(data))
 		{
@@ -434,15 +304,6 @@ void MainWindow::onSaveProject()
 					m_runInfoPage->appendWarning(QStringLiteral("Save: could not embed point cloud from viewer: %1").arg(resyncErr));
 				}
 			}
-			const BackendVec3 p = pc->pose();
-			const BackendVec3 r = pc->rotation();
-			const BackendColor c = pc->color();
-			QJsonObject pose; pose.insert(QStringLiteral("x"), p.x); pose.insert(QStringLiteral("y"), p.y); pose.insert(QStringLiteral("z"), p.z);
-			QJsonObject rot; rot.insert(QStringLiteral("x"), r.x); rot.insert(QStringLiteral("y"), r.y); rot.insert(QStringLiteral("z"), r.z);
-			QJsonObject col; col.insert(QStringLiteral("r"), c.r); col.insert(QStringLiteral("g"), c.g); col.insert(QStringLiteral("b"), c.b); col.insert(QStringLiteral("a"), c.a);
-			obj.insert(QStringLiteral("pose"), pose);
-			obj.insert(QStringLiteral("rotation"), rot);
-			obj.insert(QStringLiteral("color"), col);
 			if (pc->pointPositionsXyz().empty())
 			{
 				QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
@@ -450,52 +311,12 @@ void MainWindow::onSaveProject()
 						QStringLiteral("后端没有点云坐标，无法保存。请在源文件仍在磁盘上时重新导入。")));
 				return;
 			}
-			QString sidecarRelative;
-			QString sidecarAbs;
-			if (packageMode)
-			{
-				const QString ab = sanitizedArchiveBase(saveFileInfo.completeBaseName());
-				sidecarRelative = QStringLiteral("assets/%1_pcloud%2.ply").arg(ab).arg(pointCloudBlobIndex++);
-				sidecarAbs = QDir(workRoot).filePath(sidecarRelative);
-				QDir().mkpath(QFileInfo(sidecarAbs).absolutePath());
-			}
-			else
-			{
-				sidecarRelative = QStringLiteral("%1.pcloud%2.ply")
-					.arg(saveFileInfo.completeBaseName())
-					.arg(pointCloudBlobIndex++);
-				sidecarAbs = saveFileInfo.absolutePath() + QLatin1Char('/') + sidecarRelative;
-			}
-			std::string plyErr;
-			if (!pc->writePointCloudPlySidecar(qStringToUtf8StdString(sidecarAbs), &plyErr))
-			{
-				const QString blobErr = QString::fromStdString(plyErr);
-				QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
-					i18n(QStringLiteral("Failed to write point cloud data file: %1").arg(blobErr),
-						QStringLiteral("写点云数据文件失败：%1").arg(blobErr)));
-				return;
-			}
-			const std::size_t npts = pc->pointPositionsXyz().size() / 3U;
-			QJsonObject emb;
-			emb.insert(QStringLiteral("kind"), QStringLiteral("points"));
-			emb.insert(QStringLiteral("encoding"), QStringLiteral("cgal_ply_sidecar"));
-			emb.insert(QStringLiteral("pointCount"), QJsonValue(static_cast<double>(npts)));
-			emb.insert(QStringLiteral("sidecar"), sidecarRelative);
-			obj.insert(QStringLiteral("embeddedGeometry"), emb);
 		}
-		else if (auto mesh = std::dynamic_pointer_cast<MeshBackendData>(data))
-		{
-			std::string soupB64;
-			if (mesh->writeProjectEmbeddedGeometry(soupB64))
-			{
-				QJsonObject emb;
-				emb.insert(QStringLiteral("kind"), QStringLiteral("triangles"));
-				emb.insert(QStringLiteral("encoding"), QStringLiteral("float32_le"));
-				emb.insert(QStringLiteral("xyzBase64"), QString::fromStdString(soupB64));
-				obj.insert(QStringLiteral("embeddedGeometry"), emb);
-			}
-		}
-		appendFollowAttachmentJson(data, obj);
+
+		QJsonObject obj = stdJsonToQJsonObject(data->saveToJson());
+		obj.insert(QStringLiteral("sourcePath"), srcPath);
+		obj.insert(QStringLiteral("sourceType"), sourceType);
+		obj.insert(QStringLiteral("parentId"), parentIds.empty() ? QString() : QString::fromStdString(parentIds.front()));
 		objects.push_back(obj);
 	}
 	root.insert(QStringLiteral("objects"), objects);
@@ -513,7 +334,26 @@ void MainWindow::onSaveProject()
 	{
 		if (IRobotDocumentHost* robotDoc = m_robotHost->document())
 		{
-			RobotProjectIo::writeRobotKinematicsAndPrograms(root, robotDoc);
+			const QVector<double>* jointAngles = nullptr;
+			QVector<double> anglesToSave;
+			if (m_robotSimulation)
+			{
+				anglesToSave = m_robotSimulation->aggregatedJointAnglesRad();
+			}
+			if (anglesToSave.isEmpty() && m_robotHost->robotAxisControlPage()
+				&& robotDoc->hasRobotSimulationContext())
+			{
+				const int total = robotDoc->robotRevoluteJointNames().size();
+				if (m_robotHost->robotAxisControlPage()->jointCount() == total)
+				{
+					anglesToSave = m_robotHost->robotAxisControlPage()->jointAnglesRad();
+				}
+			}
+			if (!anglesToSave.isEmpty())
+			{
+				jointAngles = &anglesToSave;
+			}
+			RobotProjectIo::writeRobotKinematicsAndPrograms(root, robotDoc, jointAngles);
 		}
 	}
 
@@ -660,6 +500,25 @@ void MainWindow::onOpenProjectFile()
 	OsgWidget* osg = page->osgWidget();
 
 	const QJsonObject root = jsonDoc.object();
+	bool projectHadPrograms = false;
+	bool projectRobotKinematicsRestored = false;
+	QVector<double> projectLoadedJointAngles;
+	const int projectVersion = root.value(QStringLiteral("version")).toInt(0);
+	if (projectVersion != 4)
+	{
+		QMessageBox::warning(this,
+			i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
+			i18n(QStringLiteral("Unsupported project version: %1. This build only supports project.json v4.")
+					 .arg(projectVersion),
+				QStringLiteral("不支持的工程版本：%1。当前版本仅支持 project.json v4。").arg(projectVersion)));
+		if (m_runInfoPage)
+		{
+			m_runInfoPage->appendWarning(
+				QStringLiteral("Project load aborted: unsupported project version %1 (expected v4).")
+					.arg(projectVersion));
+		}
+		return;
+	}
 	const QJsonArray edgesJson = root.value(QStringLiteral("edges")).toArray();
 	std::vector<std::pair<QString, QString>> pendingEdges;
 	pendingEdges.reserve(static_cast<std::size_t>(edgesJson.size()));
@@ -705,7 +564,7 @@ void MainWindow::onOpenProjectFile()
 	{
 		collectRobotLinkIds(rk);
 	}
-	const bool meshInLinkFrameHint = !robotLinkMeshBackendIds.isEmpty();
+	ensureBackendBuiltinsRegistered();
 	const QJsonArray objects = root.value(QStringLiteral("objects")).toArray();
 	for (const auto& v : objects)
 	{
@@ -717,13 +576,21 @@ void MainWindow::onOpenProjectFile()
 		const QString legacyParentId = obj.value(QStringLiteral("parentId")).toString();
 		const QString persistedId = obj.value(QStringLiteral("id")).toString();
 		const QString classNameVal = obj.value(QStringLiteral("className")).toString();
-		const QJsonObject emb = obj.value(QStringLiteral("embeddedGeometry")).toObject();
-		const QString embKind = emb.value(QStringLiteral("kind")).toString();
-		const bool hasEmb = !emb.isEmpty() && !embKind.isEmpty();
+		const QJsonObject emb = obj.value(QStringLiteral("geometry")).toObject();
+		const bool hasEmb = !emb.isEmpty();
 
 		if (classNameVal == QStringLiteral("Compass")
 			|| sourceType.compare(QStringLiteral("Compass"), Qt::CaseInsensitive) == 0)
 		{
+			continue;
+		}
+
+		if (classNameVal.isEmpty())
+		{
+			if (m_runInfoPage)
+			{
+				m_runInfoPage->appendWarning(QStringLiteral("Skip object with empty className: %1").arg(persistedId));
+			}
 			continue;
 		}
 
@@ -733,113 +600,64 @@ void MainWindow::onOpenProjectFile()
 		}
 
 		bool loaded = false;
-		if (hasEmb && embKind == QStringLiteral("points")
-			&& sourceType.compare(QStringLiteral("PointCloud"), Qt::CaseInsensitive) == 0)
+		std::shared_ptr<BackendDataBase> backendObject = BackendRegistry::instance().create(classNameVal.toStdString());
+		if (!backendObject)
 		{
-			auto pc = std::make_shared<PointCloudBackendData>();
-			const QString objName = obj.value(QStringLiteral("name")).toString();
-			if (!objName.isEmpty())
+			if (m_runInfoPage)
 			{
-				pc->setName(objName.toStdString());
+				m_runInfoPage->appendWarning(
+					QStringLiteral("Unknown backend className: %1 (id=%2)").arg(classNameVal, persistedId));
 			}
-			applyPointCloudPoseFromJson(*pc, osg, obj);
-			const QString enc = emb.value(QStringLiteral("encoding")).toString();
-			bool geoOk = false;
-			QString geoErr;
-			if (enc == QStringLiteral("float32_le_sidecar") || enc == QStringLiteral("cgal_ply_sidecar"))
-			{
-				const QString rel = emb.value(QStringLiteral("sidecar")).toString();
-				if (!rel.isEmpty())
-				{
-					const QString absBlob = QDir(projectDir).filePath(rel);
-					if (absBlob.endsWith(QStringLiteral(".bin"), Qt::CaseInsensitive))
-					{
-						geoOk = readPointCloudBinaryFile(absBlob, *pc, &geoErr);
-					}
-					else
-					{
-						std::string plyErr;
-						geoOk = pc->readPointCloudPlySidecar(qStringToUtf8StdString(absBlob), &plyErr);
-						geoErr = QString::fromStdString(plyErr);
-					}
-				}
-				else
-				{
-					geoErr = QStringLiteral("embeddedGeometry.sidecar is missing.");
-				}
-			}
-			else
-			{
-				const QString xyzMerged = mergeBase64Shards(emb, QStringLiteral("xyzBase64"), QStringLiteral("xyzBase64Shards"));
-				const QString rgbaMerged = mergeBase64Shards(emb, QStringLiteral("rgbaPerVertexBase64"),
-					QStringLiteral("rgbaPerVertexBase64Shards"));
-				geoOk = pc->readProjectEmbeddedGeometry(xyzMerged.toStdString(), rgbaMerged.toStdString());
-				if (!geoOk)
-				{
-					geoErr = QStringLiteral("Invalid or missing inline base64 point data (xyzBase64).");
-				}
-			}
-			if (geoOk)
-			{
-				QString err;
-				if (osg && osg->loadPointCloudFromBackendData(*pc, &err)
-					&& registerExistingBackendObject(
-						pc,
-						sourcePath,
-						QStringLiteral("PointCloud"),
-						persistedId,
-						false,
-						useEdgesRelation ? QString() : legacyParentId))
-				{
-					loaded = true;
-				}
-				else if (m_runInfoPage)
-				{
-					m_runInfoPage->appendWarning(QStringLiteral("Embedded point cloud failed: %1").arg(err));
-				}
-			}
-			else if (m_runInfoPage)
-			{
-				m_runInfoPage->appendWarning(QStringLiteral("Point cloud geometry: %1").arg(geoErr));
-			}
+			continue;
 		}
-		else if (hasEmb && embKind == QStringLiteral("triangles"))
+		std::string loadErr;
+		if (!backendObject->loadFromJson(qJsonObjectToStdJson(obj), &loadErr))
 		{
-			const std::string soupB64 = emb.value(QStringLiteral("xyzBase64")).toString().toStdString();
-			auto mesh = std::make_shared<MeshBackendData>();
-			const QString objName = obj.value(QStringLiteral("name")).toString();
-			if (!objName.isEmpty())
+			if (m_runInfoPage)
 			{
-				mesh->setName(objName.toStdString());
+				m_runInfoPage->appendWarning(
+					QStringLiteral("Object decode failed (%1): %2")
+						.arg(persistedId, QString::fromStdString(loadErr)));
 			}
-			if (mesh->readProjectEmbeddedGeometry(soupB64))
+			continue;
+		}
+
+		QString visualErr;
+		const auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(backendObject);
+		const auto mesh = std::dynamic_pointer_cast<MeshBackendData>(backendObject);
+		if (pc)
+		{
+			loaded = osg && osg->loadPointCloudFromBackendData(*pc, &visualErr);
+		}
+		else if (mesh)
+		{
+			loaded = osg
+				&& osg->loadMeshFromBackendData(*mesh, &visualErr, true, true, true, robotLinkMeshBackendIds.contains(persistedId));
+		}
+		else
+		{
+			if (m_runInfoPage)
 			{
-				QString err;
-				if (osg && osg->loadMeshFromBackendData(*mesh, &err, true, true, true, robotLinkMeshBackendIds.contains(persistedId))
-					&& registerExistingBackendObject(
-						mesh,
-						sourcePath,
-						QStringLiteral("Model"),
-						persistedId,
-						false,
-						useEdgesRelation ? QString() : legacyParentId))
-				{
-					loaded = true;
-				}
-				else if (m_runInfoPage)
-				{
-					m_runInfoPage->appendWarning(QStringLiteral("Embedded mesh failed: %1").arg(err));
-				}
-			}
-			else if (m_runInfoPage)
-			{
-				m_runInfoPage->appendWarning(QStringLiteral("Invalid or missing embedded mesh (xyzBase64)."));
+				m_runInfoPage->appendWarning(
+					QStringLiteral("Unsupported backend object type (id=%1, class=%2)").arg(persistedId, classNameVal));
 			}
 		}
 
-		if (loaded)
+		if (loaded
+			&& registerExistingBackendObject(
+				backendObject,
+				sourcePath,
+				sourceType.isEmpty() ? (pc ? QStringLiteral("PointCloud") : QStringLiteral("Model")) : sourceType,
+				persistedId,
+				false,
+				useEdgesRelation ? QString() : legacyParentId))
 		{
 			continue;
+		}
+		if (m_runInfoPage && !visualErr.isEmpty())
+		{
+			m_runInfoPage->appendWarning(
+				QStringLiteral("Embedded backend visual load failed (id=%1): %2").arg(persistedId, visualErr));
 		}
 
 		QString loadPath;
@@ -943,8 +761,14 @@ void MainWindow::onOpenProjectFile()
 		}
 		if (restored > 0 && !allQ0.isEmpty())
 		{
+			projectRobotKinematicsRestored = true;
+			projectLoadedJointAngles = allQ0;
 			(void)RobotSceneKinematics::applyJointAnglesFromDocument(page, page->sceneFacade().poseSink(), allQ0);
 			refreshSimulationJointListFromCurrentDoc();
+			if (m_robotSimulation)
+			{
+				m_robotSimulation->restoreAggregatedJointStateAfterProjectLoad(allQ0);
+			}
 			if (simulationCommandPage() && page->robotKinematicInstanceCount() > 0)
 			{
 				const int instIdx = simulationCommandPage()->currentRobotInstanceIndex();
@@ -961,7 +785,7 @@ void MainWindow::onOpenProjectFile()
 	{
 		if (IRobotDocumentHost* robotDoc = m_robotHost->document())
 		{
-			const bool hadPrograms = !root.value(QStringLiteral("robotPrograms")).toArray().isEmpty();
+			projectHadPrograms = !root.value(QStringLiteral("robotPrograms")).toArray().isEmpty();
 			RobotProjectIo::loadRobotPrograms(
 				root,
 				robotDoc,
@@ -971,37 +795,14 @@ void MainWindow::onOpenProjectFile()
 						m_runInfoPage->appendWarning(msg);
 					}
 				});
-			if (hadPrograms)
+			if (projectHadPrograms && simulationCommandPage())
 			{
 				refreshSimulationJointListFromCurrentDoc();
-				if (simulationCommandPage())
-				{
-					simulationCommandPage()->refreshInstructionList();
-				}
+				simulationCommandPage()->refreshInstructionList();
 			}
 		}
 	}
 
-	QSet<QString> idsWithFollowAttachmentJson;
-	for (const QJsonValue& vObj : objects)
-	{
-		if (!vObj.isObject())
-		{
-			continue;
-		}
-		const QJsonObject objEnt = vObj.toObject();
-		const QString oid = objEnt.value(QStringLiteral("id")).toString();
-		const QJsonObject faEnt = objEnt.value(QStringLiteral("followAttachment")).toObject();
-		if (!faEnt.isEmpty())
-		{
-			idsWithFollowAttachmentJson.insert(oid);
-		}
-		const std::shared_ptr<BackendDataBase> dataEnt = page->backend().getData(oid.toStdString());
-		if (dataEnt)
-		{
-			applyFollowAttachmentFromObjectJson(dataEnt, objEnt);
-		}
-	}
 	if (osg)
 	{
 		for (const auto& data : page->backend().listData())
@@ -1020,7 +821,8 @@ void MainWindow::onOpenProjectFile()
 		for (const auto& edge : pendingEdges)
 		{
 			const QString childQ = edge.second;
-			if (idsWithFollowAttachmentJson.contains(childQ))
+			const std::shared_ptr<BackendDataBase> childData = page->backend().getData(childQ.toStdString());
+			if (childData && childData->hasComponent(FollowAttachmentComponent::typeKeyStatic()))
 			{
 				continue;
 			}
@@ -1067,6 +869,17 @@ void MainWindow::onOpenProjectFile()
 	{
 		page->requestFollowSolveForced();
 		runBackendFollowSolveAndSync(*page, *osg);
+	}
+
+	if (m_robotSimulation && projectHadPrograms)
+	{
+		m_robotSimulation->applyProgramStartPoseAfterProjectLoad();
+	}
+	else if (m_robotSimulation && projectRobotKinematicsRestored && !projectLoadedJointAngles.isEmpty() && page)
+	{
+		(void)RobotSceneKinematics::applyJointAnglesFromDocument(
+			page, page->sceneFacade().poseSink(), projectLoadedJointAngles);
+		m_robotSimulation->restoreAggregatedJointStateAfterProjectLoad(projectLoadedJointAngles);
 	}
 
 	refreshBackendTree();

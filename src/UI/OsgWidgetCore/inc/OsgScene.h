@@ -33,10 +33,8 @@ class Node;
 class Geometry;
 }
 
-namespace osgViewer {
-class Viewer;
-class GraphicsWindow;
-}
+#include <osgViewer/GraphicsWindow>
+#include <osgViewer/Viewer>
 
 class BackendDataBase;
 

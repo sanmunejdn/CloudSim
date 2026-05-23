@@ -44,4 +44,6 @@ public:
 	virtual void updateRobotLinkOuterBindFromWorld(int instanceIndex, const QString& linkBackendId, const osg::Matrixd& world) = 0;
 	virtual void notifyRobotKinematicsAppliedToScene() = 0;
 	virtual void requestFollowSolveForced() = 0;
+	virtual void setSuppressRobotFollowDirtyNotify(bool suppress) = 0;
+	virtual void clearFollowDirtyBackendIds() = 0;
 };

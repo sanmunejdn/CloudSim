@@ -585,20 +585,19 @@ int OsgWidget::pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, const bool pr
 
 	osg::Camera* camera = m_viewer->getCamera();
 	const osg::Matrixd mvp = camera->getViewMatrix() * camera->getProjectionMatrix();
-	const osg::Quat attitude = rigidRotationToOsgQuat(m_tcpTeachTargetInBase);
 	osg::Vec3f origin;
 	computeTcpTeachPivotWorld(origin);
-	osg::Quat compassAtt;
-	if (transformGizmoFrame() == TransformGizmoFrame::World)
-	{
-		compassAtt = attitude.inverse();
-	}
-	else
-	{
-		compassAtt = osg::Quat();
-	}
-	auto toWorld = [&](const osg::Vec3f& local) -> osg::Vec3f {
-		return origin + attitude * (compassAtt * local);
+	// 与 beginTcpTeachScreenDrag / tcpTeachCompassUnitAxisWorld 同一套世界系轴向，避免拾取与屏幕 ds 反向
+	auto axisTipWorld = [&](const DragAxis axis) -> osg::Vec3f {
+		osg::Vec3d axisW;
+		if (!tcpTeachCompassUnitAxisWorld(axis, axisW))
+		{
+			return origin;
+		}
+		return origin
+			+ osg::Vec3f(static_cast<float>(axisW.x() * static_cast<double>(axisLen)),
+				static_cast<float>(axisW.y() * static_cast<double>(axisLen)),
+				static_cast<float>(axisW.z() * static_cast<double>(axisLen)));
 	};
 
 	auto projectToScreen = [&](const osg::Vec3f& world, double& sx, double& sy) {
@@ -609,9 +608,9 @@ int OsgWidget::pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, const bool pr
 
 	double ox = 0, oy = 0, pxx = 0, pxy = 0, pyx = 0, pyy = 0, pzx = 0, pzy = 0;
 	projectToScreen(origin, ox, oy);
-	projectToScreen(toWorld(osg::Vec3f(axisLen, 0.0f, 0.0f)), pxx, pxy);
-	projectToScreen(toWorld(osg::Vec3f(0.0f, axisLen, 0.0f)), pyx, pyy);
-	projectToScreen(toWorld(osg::Vec3f(0.0f, 0.0f, axisLen)), pzx, pzy);
+	projectToScreen(axisTipWorld(DragAxis::X), pxx, pxy);
+	projectToScreen(axisTipWorld(DragAxis::Y), pyx, pyy);
+	projectToScreen(axisTipWorld(DragAxis::Z), pzx, pzy);
 
 	auto distanceToSegment = [](double p0x, double p0y, double p1x, double p1y, double qx, double qy) -> double {
 		const double vx = p1x - p0x;
@@ -635,6 +634,31 @@ int OsgWidget::pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, const bool pr
 	const double threshold = std::clamp(0.22 * axisLenPx, 14.0, 44.0);
 	const double ringThreshold = std::clamp(0.14 * axisLenPx, 10.0, 36.0);
 
+	osg::Vec3d axisDirW[3];
+	const DragAxis dragAxes[3] = { DragAxis::X, DragAxis::Y, DragAxis::Z };
+	for (int ai = 0; ai < 3; ++ai)
+	{
+		axisDirW[ai].set(0.0, 0.0, 1.0);
+		(void)tcpTeachCompassUnitAxisWorld(dragAxes[ai], axisDirW[ai]);
+	}
+	auto ringPointWorld = [&](const int ringAxis, const float ca, const float sa) -> osg::Vec3f {
+		const double rr = static_cast<double>(ringRadius);
+		osg::Vec3d w(origin.x(), origin.y(), origin.z());
+		if (ringAxis == kGizmoAxisX)
+		{
+			w += axisDirW[1] * (static_cast<double>(ca) * rr) + axisDirW[2] * (static_cast<double>(sa) * rr);
+		}
+		else if (ringAxis == kGizmoAxisY)
+		{
+			w += axisDirW[0] * (static_cast<double>(ca) * rr) + axisDirW[2] * (static_cast<double>(sa) * rr);
+		}
+		else
+		{
+			w += axisDirW[0] * (static_cast<double>(ca) * rr) + axisDirW[1] * (static_cast<double>(sa) * rr);
+		}
+		return osg::Vec3f(static_cast<float>(w.x()), static_cast<float>(w.y()), static_cast<float>(w.z()));
+	};
+
 	auto minDistanceToProjectedRing = [&](int axis) -> double {
 		const int segments = 72;
 		const float r = ringRadius;
@@ -646,18 +670,18 @@ int OsgWidget::pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, const bool pr
 			osg::Vec3f w0, w1;
 			if (axis == kGizmoAxisX)
 			{
-				w0 = toWorld(osg::Vec3f(0.0f, std::cos(a0) * r, std::sin(a0) * r));
-				w1 = toWorld(osg::Vec3f(0.0f, std::cos(a1) * r, std::sin(a1) * r));
+				w0 = ringPointWorld(kGizmoAxisX, std::cos(a0) * r, std::sin(a0) * r);
+				w1 = ringPointWorld(kGizmoAxisX, std::cos(a1) * r, std::sin(a1) * r);
 			}
 			else if (axis == kGizmoAxisY)
 			{
-				w0 = toWorld(osg::Vec3f(std::cos(a0) * r, 0.0f, std::sin(a0) * r));
-				w1 = toWorld(osg::Vec3f(std::cos(a1) * r, 0.0f, std::sin(a1) * r));
+				w0 = ringPointWorld(kGizmoAxisY, std::cos(a0) * r, std::sin(a0) * r);
+				w1 = ringPointWorld(kGizmoAxisY, std::cos(a1) * r, std::sin(a1) * r);
 			}
 			else
 			{
-				w0 = toWorld(osg::Vec3f(std::cos(a0) * r, std::sin(a0) * r, 0.0f));
-				w1 = toWorld(osg::Vec3f(std::cos(a1) * r, std::sin(a1) * r, 0.0f));
+				w0 = ringPointWorld(kGizmoAxisZ, std::cos(a0) * r, std::sin(a0) * r);
+				w1 = ringPointWorld(kGizmoAxisZ, std::cos(a1) * r, std::sin(a1) * r);
 			}
 			double s0x = 0, s0y = 0, s1x = 0, s1y = 0;
 			projectToScreen(w0, s0x, s0y);

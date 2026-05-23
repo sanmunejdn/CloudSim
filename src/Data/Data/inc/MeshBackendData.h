@@ -73,6 +73,8 @@ public:
 
 private:
 	void recomputeBounds();
+	void saveDerivedJson(nlohmann::json& out) const override;
+	bool loadDerivedJson(const nlohmann::json& in, std::string* errMsg) override;
 
 	std::vector<float> m_triangleSoup;
 	std::vector<float> m_triangleNormals;

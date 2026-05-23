@@ -79,6 +79,9 @@ public slots:
 	void onResetToolFrame();
 
 	void stopRobotSimulation();
+	QVector<double> aggregatedJointAnglesRad() const { return m_aggregatedJointAnglesRad; }
+	void restoreAggregatedJointStateAfterProjectLoad(const QVector<double>& allJointAnglesRad);
+	void applyProgramStartPoseAfterProjectLoad();
 	void refreshSimulationJointListFromCurrentDoc();
 	void syncRobotFrameSettingsFromDocument(int instanceIndex);
 	void refreshRobotCoordinateFrameOverlays(
@@ -96,6 +99,8 @@ private:
 	void logPlaybackFrameComparison(const QVector<double>& finalJointAnglesRad);
 	QHash<QString, bool> computeMotionReachabilityForCurrentProgram();
 	bool applyTcpDragTeachIkFromPose(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
+	void syncTcpDragTeachAnchorFromCurrentJoints();
+	void syncTcpDragExitJointState();
 
 	IRobotMainWindowHost* m_host = nullptr;
 	RobotSimulationDockWidget* m_simulationDock = nullptr;
@@ -110,6 +115,8 @@ private:
 	bool m_suppressMotionPreviewStartCapture = false;
 	QString m_tcpDragTeachFlangeLink;
 	QElapsedTimer m_tcpDragTeachIkTimer;
+	bool m_tcpDragApplyingIk = false;
+	QVector<double> m_tcpDragLastAppliedJointRad;
 	engine::RigidTransform m_lastTcpDragTargetInBase;
 	bool m_lastTcpDragTargetValid = false;
 	bool m_skipInstructionPreviewOnce = false;

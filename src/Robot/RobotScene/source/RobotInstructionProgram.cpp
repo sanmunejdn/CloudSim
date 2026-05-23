@@ -21,18 +21,15 @@ void renumberMotionPointIndicesRecursive(std::vector<std::shared_ptr<Base>>& ste
 		}
 		if (ins->type() == Type::IF)
 		{
-			if (auto* ifIns = dynamic_cast<IfInstruction*>(ins.get()))
-			{
-				renumberMotionPointIndicesRecursive(ifIns->thenSteps(), nextIndex);
-				renumberMotionPointIndicesRecursive(ifIns->elseStepsMut(), nextIndex);
-			}
+			renumberMotionPointIndicesRecursive(
+				const_cast<std::vector<std::shared_ptr<Base>>&>(ins->nestedSteps()), nextIndex);
+			renumberMotionPointIndicesRecursive(
+				const_cast<std::vector<std::shared_ptr<Base>>&>(ins->elseSteps()), nextIndex);
 		}
 		else if (ins->type() == Type::WHILE)
 		{
-			if (auto* whileIns = dynamic_cast<WhileInstruction*>(ins.get()))
-			{
-				renumberMotionPointIndicesRecursive(whileIns->bodySteps(), nextIndex);
-			}
+			renumberMotionPointIndicesRecursive(
+				const_cast<std::vector<std::shared_ptr<Base>>&>(ins->nestedSteps()), nextIndex);
 		}
 	}
 }
