@@ -85,7 +85,7 @@ flowchart TD
 1. 读取对象 `className`
 2. 工厂创建实例
 3. 调用 `loadFromJson`
-4. 交由 `registerExistingBackendObject` 或等价注册入口加入 `BackendDataManager`
+4. 交由 `BackendProjectObjectIo::loadProjectObjectsFromJson`（内嵌 `registerEmbeddedProjectObject`、文件 `importProjectObjectFromFile`）注册并发布 `BackendObjectRegisteredEvent`
 
 ### 4.4 `MainWindowProjectIo`（流程编排）
 

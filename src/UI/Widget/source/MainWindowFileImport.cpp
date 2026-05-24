@@ -39,59 +39,6 @@ bool MainWindow::registerBackendObject(const QString& filePath, const QString& t
 	return controller.registerBackendObject(*this, filePath, typeName, isPointCloud, quietUi);
 }
 
-bool MainWindow::registerExistingBackendObject(std::shared_ptr<BackendDataBase> backendObject, const QString& sourcePath,
-	const QString& typeName, const QString& persistedId, bool selectInTree, const QString& parentId)
-{
-	DocumentPage* doc = currentPage();
-	if (!doc)
-	{
-		return false;
-	}
-	if (!backendObject)
-	{
-		return false;
-	}
-	if (!persistedId.isEmpty())
-	{
-		backendObject->setId(persistedId.toStdString());
-	}
-	if (!doc->backend().registerData(backendObject))
-	{
-		QMessageBox::warning(this, QStringLiteral("Backend Register"),
-			QStringLiteral("Failed to register backend object."));
-		return false;
-	}
-	const QString id = QString::fromStdString(backendObject->id());
-	doc->backendSourcePath()[id] = sourcePath;
-	doc->backendSourceType()[id] = typeName;
-	if (!parentId.isEmpty())
-	{
-		if (!doc->backend().attachChild(parentId.toStdString(), id.toStdString()))
-		{
-			doc->backend().unregisterData(id.toStdString());
-			QMessageBox::warning(this, QStringLiteral("Backend Relation"),
-				QStringLiteral("Failed to link backend relation (cycle or invalid parent)."));
-			return false;
-		}
-	}
-	doc->backendParentId()[id] = parentId;
-	if (OsgWidget* osg = doc->osgWidget())
-	{
-		osg->setBackendParent(id.toStdString(), parentId.toStdString());
-	}
-	applyHierarchyFollowBinding(doc, id.toStdString(), parentId.toStdString());
-	if (m_runInfoPage)
-	{
-		m_runInfoPage->appendInfo(QStringLiteral("Backend object registered: %1").arg(QString::fromStdString(backendObject->name())));
-	}
-	refreshBackendTree();
-	if (selectInTree)
-	{
-		focusBackendInTree(backendObject);
-	}
-	return true;
-}
-
 void MainWindow::onOpenModel()
 {
 	const QString filter =

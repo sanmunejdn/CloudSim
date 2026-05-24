@@ -9,6 +9,7 @@
 #include "widget_global.h"
 
 #include "DocumentHost.h"
+#include "IRobotUrdfImportContext.h"
 
 namespace cloudsim::core {
 class EventHub;
@@ -22,6 +23,8 @@ class EventHub;
 class QTabWidget;
 class MeshBackendData;
 class BackendSceneDocumentFacade;
+class OsgWidget;
+class IRobotBackendPoseSink;
 
 namespace osg {
 class Group;
@@ -31,7 +34,9 @@ class ref_ptr;
 }
 
 /// 单文档页：宿主层 DocumentHost + 机器人仿真元数据（IRobotSimulationDocument）。
-class WIDGET_EXPORT DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulationDocument
+class WIDGET_EXPORT DocumentPage : public cloudsim::host::DocumentHost,
+								  public IRobotSimulationDocument,
+								  public cloudsim::host::IRobotUrdfImportContext
 {
 	Q_OBJECT
 
@@ -61,11 +66,12 @@ public:
 		const QVector<double>& jointUpperRad,
 		const QHash<QString, osg::MatrixTransform*>& jointTransformsPrefixedKeys,
 		const QString& robotSceneBackendId,
-		const QString& jointPrefixRootOverride = QString());
+		const QString& jointPrefixRootOverride = QString()) override;
 
 	osg::MatrixTransform* robotJointMatrixTransform(const QString& jointName) const override;
 
 	int robotKinematicInstanceCount() const override;
+	int robotInstanceIndexForSceneBackendId(const QString& sceneBackendId) const override;
 
 	QString robotSceneBackendIdForInstance(int instanceIndex) const;
 	QString robotFrameWorldReferenceBackendId(int instanceIndex) const;
@@ -73,7 +79,6 @@ public:
 	QStringList robotRevoluteJointNamesForInstance(int instanceIndex) const;
 	void robotJointLimitsForInstance(int instanceIndex, QVector<double>& lowerRad, QVector<double>& upperRad) const;
 	int robotJointOffsetInAggregatedVector(int instanceIndex) const;
-	int robotInstanceIndexForSceneBackendId(const QString& sceneBackendId) const;
 
 	QString robotUrdfAbsolutePathForInstance(int instanceIndex) const override;
 	int robotRevoluteJointCountForInstance(int instanceIndex) const override;
@@ -107,11 +112,19 @@ public:
 
 	void notifyRobotKinematicsAppliedToScene() override;
 
+	BackendDataManager& urdfImportBackend() override { return DocumentHost::backend(); }
+	OsgWidget* urdfImportOsgWidget() override;
+	IRobotSimulationDocument* urdfImportRobotSimulationDocument() override { return this; }
+	IRobotBackendPoseSink* urdfImportScenePoseSink() override;
+	QMap<QString, QString>& urdfImportBackendSourcePath() override { return DocumentHost::backendSourcePath(); }
+	QMap<QString, QString>& urdfImportBackendSourceType() override { return DocumentHost::backendSourceType(); }
+	QMap<QString, QString>& urdfImportBackendParentId() override { return DocumentHost::backendParentId(); }
+
 	void setRobotPerLinkKinematicsBinding(const QString& importKey,
 		const QHash<QString, QString>& linkNameToBackendId,
 		const QHash<QString, osg::Matrixd>& fkMeshWorldT0,
 		const QHash<QString, osg::Matrixd>& outerWorldAtBindByBackendId,
-		bool meshVerticesInLinkFrame = false);
+		bool meshVerticesInLinkFrame = false) override;
 
 	int robotInstanceIndexForPerLinkBackend(const QString& backendId, bool* outIsSceneRoot = nullptr) const;
 
@@ -120,7 +133,7 @@ public:
 	void updateRobotLinkOuterBindFromWorld(int instanceIndex, const QString& linkBackendId, const osg::Matrixd& world);
 
 	const RobotCoordinate::RobotCoordinateFrameSet& robotCoordinateFramesForInstance(int instanceIndex) const;
-	RobotCoordinate::RobotCoordinateFrameSet& robotCoordinateFramesForInstance(int instanceIndex);
+	RobotCoordinate::RobotCoordinateFrameSet& robotCoordinateFramesForInstance(int instanceIndex) override;
 	const RobotCoordinate::RobotUserFrame* robotActiveUserFrameForInstance(int instanceIndex) const;
 
 private:

@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "widget_global.h"
+#include "BackendFollowSolve.h"
 #include "MainWindowSelectionState.h"
 
 #include <json.hpp>
@@ -95,16 +96,19 @@ public:
 	void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void refreshInstructionPoseAxes();
 	void stopRobotSimulation();
-	bool registerExistingBackendObject(std::shared_ptr<BackendDataBase> backendObject, const QString& sourcePath,
-		const QString& typeName, const QString& persistedId = QString(), bool selectInTree = true,
-		const QString& parentId = QString());
+	/// 层级/工程批量导入时抑制逐对象 refreshBackendTree
+	class ScopedBackendTreeRefreshSuppress
+	{
+	public:
+		explicit ScopedBackendTreeRefreshSuppress(MainWindow& mw);
+		~ScopedBackendTreeRefreshSuppress();
+	private:
+		MainWindow& m_mw;
+	};
+
+	void focusBackendInTreeAfterImport(const std::shared_ptr<BackendDataBase>& backendObject);
 
 	void afterBackendFollowPropertyEdited(const QString& propertyKey, const QString& valueText);
-
-signals:
-	/// Emitted after a backend property row is successfully committed (panel or debounced follow name).
-	void backendPropertyCommitted(const QString& backendId, const QString& propertyKey, const QString& oldValue,
-		const QString& newValue, quint32 semanticFlags);
 
 private:
 	friend class MainWindowImportCaptureRenderController;
@@ -117,6 +121,8 @@ private:
 	void applyLanguage();
 	QString i18n(const QString& en, const QString& zh) const;
 	void refreshBackendTree();
+	void beginBackendTreeEventRefreshSuppress();
+	void endBackendTreeEventRefreshSuppress();
 	void refreshOsgSceneTree();
 	/** Selects the tree row for this backend id and refreshes the property panel (import / project load). */
 	void focusBackendInTree(const std::shared_ptr<BackendDataBase>& backendObject);
@@ -151,8 +157,6 @@ private:
 		osg::Matrixd* outTcpRenderWorldMat,
 		QString* outTcpLinkName,
 		QString* errMsg) const;
-	void syncOsgViewerFromPointCloudBackend(const std::shared_ptr<PointCloudBackendData>& pc, bool applyColor);
-	void syncOsgViewerFromMeshBackend(const std::shared_ptr<MeshBackendData>& mesh, bool applyColor);
 	void syncRobotKinematicsAfterPoseEdit(const std::shared_ptr<BackendDataBase>& data);
 	void onSaveProject();
 	void onOpenProjectFile();
@@ -216,6 +220,7 @@ private:
 	void installBackendFollowFrameHook(DocumentPage* page);
 	void runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg,
 		const std::string* manualPoseAuthorityBackendId = nullptr);
+	cloudsim::host::FollowSolveContext makeFollowSolveContext(OsgWidget& osg) const;
 	/// Debounced full property browser rebuild after variant edits (avoids clear() on every spin step).
 	void schedulePropertyPanelCommitRefresh(const std::shared_ptr<BackendDataBase>& data);
 	/// After OSG gizmo writes pose/rotation/color to backend: follow solve + property panel (runs on each mouse move, not only the 16ms frame timer).
@@ -229,6 +234,7 @@ private:
 	bool viewerUsesDarkBackground() const;
 
 	cloudsim::core::EventHub& m_appEvents;
+	int m_backendTreeEventRefreshSuppress = 0;
 	QTabWidget* m_documentTabs = nullptr;
 	QTreeWidget* m_backendTree = nullptr;
 	QTreeWidget* m_osgSceneTree = nullptr;

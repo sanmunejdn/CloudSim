@@ -13,10 +13,11 @@ class IRobotDocumentHost;
 namespace RobotProjectIo
 {
 
-ROBOTWIDGET_EXPORT void writeRobotKinematicsAndPrograms(
+ROBOTWIDGET_EXPORT void writeRobotKinematics(
 	QJsonObject& root,
 	IRobotDocumentHost* doc,
 	const QVector<double>* aggregatedJointAnglesRad = nullptr);
+
 ROBOTWIDGET_EXPORT void loadRobotPrograms(
 	const QJsonObject& root,
 	IRobotDocumentHost* doc,

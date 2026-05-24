@@ -5,7 +5,7 @@
 
 class OsgWidget;
 
-/// Delegates \ref IBackendSceneBridge to \ref OsgWidget (no-op when widget pointer is null).
+/// IBackendSceneBridge 委托至 OsgWidget；widget 未绑定时操作为空操作
 class WIDGET_EXPORT OsgWidgetSceneBridge final : public IBackendSceneBridge
 {
 public:

@@ -8,10 +8,13 @@ class RobotProgramStore;
 
 namespace cloudsim::host {
 
+class DocumentHost;
+
+/// IRobotService 门面：URDF/程序/规划在 Host，仿真 UI 仍经 IRobotUrdfImportContext 回调 DocumentPage
 class RobotServiceAdapter final : public core::IRobotService
 {
 public:
-	explicit RobotServiceAdapter(RobotProgramStore& programs);
+	RobotServiceAdapter(DocumentHost& host, RobotProgramStore& programs);
 
 	core::RobotRegistrationDto registerUrdfRobot(const QString& urdfPath,
 		const core::ImportOptionsDto& options) override;
@@ -26,6 +29,7 @@ public:
 	bool setRobotProgramsJson(const QJsonArray& programs, QString* outError = nullptr) override;
 
 private:
+	DocumentHost& m_host;
 	RobotProgramStore& m_programs;
 };
 

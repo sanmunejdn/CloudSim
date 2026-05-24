@@ -52,7 +52,7 @@
 
 - 输入契约
   - 后端 `className` 列表
-  - 当前对象创建路径（`MainWindowProjectIo` / `registerExistingBackendObject`）
+  - 当前对象创建路径（`MainWindowProjectIo` / `BackendProjectObjectIo`）
 - 输出契约
   - `className -> creator` 注册表
   - 加载时通过工厂创建对象

@@ -10,7 +10,7 @@
 | x64 链接 | `Data`、`OsgWidgetCore`、`BackendVisual`、`GeometryEngine`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`RunLogger`、`RobotWidget`、`AiWidget`、`AiBackend`、`CloudSimPluginSDK` 等 **import .lib**（运行时加载对应 DLL） |
 | 头文件 | `Widget/inc/`（约 40 个） |
 | 实现拆分 | `MainWindow*.cpp`, `OsgWidget*.cpp`, `*Controller`, `*Operation` |
-| 插件宿主 | `CloudSimPluginHost` 源码仍 **编译进本 DLL**（非独立 DLL） |
+| 插件宿主 | `CloudSimPluginHost` 源码编进本 DLL → [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md) |
 
 ---
 
@@ -43,19 +43,15 @@ flowchart TB
 | `MainWindow(parent)` | 构造；内部调用 `MainWindowUiSetup` 等拆分单元 |
 | `static shutdownApplicationLogging()` | 退出时 `RunLogger::shutdown` |
 
-| 信号 | 说明 |
-|------|------|
-| `backendPropertyCommitted(backendId, key, old, new, semanticFlags)` | 属性行提交 |
-
 **友元 / 协作类**（逻辑在对应 `.cpp`，非全部 public）：
 
 | 类 | 职责 |
 |----|------|
-| `MainWindowUiSetup` | 菜单、Dock、初始布局 |
+| `MainWindowUiSetup` | 菜单、Dock、初始布局；订阅 `EventHub`（`BackendObjectRegistered/Removed`、`SelectionChanged`、`PoseCommitted`） |
 | `MainWindowBackendTree` | 后端树与场景树 |
 | `MainWindowPropertyPanel` | 属性浏览器；仿真指令轴配置枚举过滤 |
 | `MainWindowFileImport` | 模型/点云导入 |
-| `MainWindowProjectIo` | `project.json` **v4**、`.pcp` 打包；对象经 `BackendDataBase::saveToJson` / 注册表加载 |
+| `MainWindowProjectIo` | `project.json` **v4**、`.pcp`；对象经 `BackendProjectObjectIo` / Host 注册 |
 | `MainWindowImportCaptureRenderController` | 注册 backend、URDF |
 | `MainWindowSelectionService` | 选择与可见性闭环 |
 | `MainWindowObjectRepository` | `findById` / `listAll` 门面 |
@@ -81,13 +77,14 @@ Qt 树角色：`kRoleItemType`, `kRoleBackendId`, `kRoleAnnotationId`；项类�
 
 | 方法 | 说明 |
 |------|------|
-| `osgWidget()` / `backend()` / `hierarchyModel()` | 核心对象 |
+| `render().widget()`（`widgetOsgFromPage`）/ `backend()` / `hierarchyModel()` | 核心对象 |
 | `sceneFacade()` | `BackendSceneDocumentFacade` |
 | `robotProgramStore()` | 每机器人指令表 |
 | `invalidateFollowReverseIndex()` | 跟随反向索引失效 |
 | `markFollowAttachmentDirtyFromBackendMove` / `followDirtyBackendIds` | 跟随脏集 |
 | `requestFollowSolveForced` / `takeFollowSolveForced` | 强制整图跟随求解 |
-| `removeBackendSubtree(rootId)` | 删子树 |
+| `removeBackendSubtree(rootId)` | 删子树（委托 Host；优先 `data().unregisterSubtree`） |
+| 导入/注册 | 经 `DocumentImportFacade` 或 `MainWindow::registerBackendObject`；勿再调用已移除的 `DocumentHost::registerAdopted*` |
 | `setProjectFilePath` / `projectFilePath()` | 工程路径 |
 | `appendHierarchicalRobotSimulationContext(...)` | **追加**机器人实例 |
 | `clearRobotSimulationContext` / `clearRobotSimulationIfContains` | 清除仿真 |
@@ -96,6 +93,25 @@ Qt 树角色：`kRoleItemType`, `kRoleBackendId`, `kRoleAnnotationId`；项类�
 | `notifyRobotKinematicsAppliedToScene()` | FK 后跟随脏 |
 
 实现 **`IRobotSimulationDocument`**（供 `RobotScene` 使用）。
+
+### 4.1a `WidgetDocumentAccess.h`
+
+Widget 侧 OSG 唯一转换点（与 Host `DocumentHostAccess.h` 的 `osgWidgetFrom` 对齐）：
+
+```cpp
+#include "WidgetDocumentAccess.h"
+#include "IRenderView.h"  // 由 WidgetDocumentAccess.h 间接包含
+
+OsgWidget* osg = widgetOsgFromPage(page);  // qobject_cast 自 page->render().widget()
+```
+
+| 说明 | |
+|------|------|
+| 头文件 | `Widget/inc/WidgetDocumentAccess.h` |
+| 参数 | 仅非 const `DocumentPage*`（`render()` 非常量） |
+| 勿用 | 已移除的 `DocumentHost::osgWidget()`；勿对 `const DocumentPage*` 重载（已删除） |
+
+`MainWindow::currentOsgWidget()` 内部即 `widgetOsgFromPage(currentPage())`。
 
 ### 4.2 `IBackendSceneBridge`
 
@@ -109,7 +125,8 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 | `hasBackendObjectBranch` | 是否存在 |
 | `tryGetBackendModelCenterMm` | 模型中心 mm |
 | `syncOuterPatFromBackend` | 从 backend pose 写 outer |
-| `setBackendParent` | 场景父链 |
+| `setBackendParent` | 场景父链（reparent OSG + 写 `m_backendParentIds`） |
+| `setBackendLogicalParent` | 仅写逻辑父 id（DXF 分件等） |
 
 ### 4.3 `OsgWidgetSceneBridge`
 
@@ -120,10 +137,10 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 | 类型 | 作用 |
 |------|------|
 | `BackendSceneEntity` | 单 `backendId`：显隐、矩阵、子 id、follower id |
-| `BackendSceneDocumentFacade` | `entity(id)`、`setBackendsVisible`、`poseSink()` → `IRobotBackendPoseSink*` |
+| `BackendSceneDocumentFacade` | `entity(id)`、`setBackendsVisible`、`ensureSelectionVisualForBackend`、`poseSink()` → `IRobotBackendPoseSink*` |
 | `BackendFollowReverseIndex` | target id → follower ids 缓存 |
 
-**推荐调用链**：树可见性、批量 `syncOuterPatFromBackend` 经 `sceneFacade().entity(...)`，避免 UI 散落裸 `OsgWidget` 细节。
+**推荐调用链**：树显隐经 `sceneFacade().entity(...).setVisible`；树/OSG 选中加载几何经 `ensureSelectionVisualForBackend`；属性改 pose 经 `doc->data().applyPropertyChange`（Host 内 OSG 同步）。减少散落裸 `OsgWidget` 调用。
 
 ---
 
@@ -140,8 +157,8 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 | 方法 | 说明 |
 |------|------|
 | `SelectionSnapshot` | `backendId`, `data`, `kind`（PointCloud/Mesh/Other） |
-| `handleBackendTreeSelectionChanged` | 树 → OSG/属性；mesh 调 `syncSelectionFromBackend` |
-| `handleOsgBackendObjectPicked` | 拾取 → 树选中 |
+| `handleBackendTreeSelectionChanged` | 树 → `sceneFacade` 显隐/选中视觉；末尾 `publishSelectionChanged`（属性面板由 EventHub 订阅刷新） |
+| `handleOsgBackendObjectPicked` | 拾取 → `selectBackendById`（树变更触发上者） |
 | `handleBackendTreeItemChanged` | 勾选 → **子树**显隐（`subtreeIds` 语义） |
 | `clearSelection` / `selectBackendById` | 程序化选择 |
 
@@ -257,7 +274,7 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 | `OsgWidgetCaptureController` | `captureImported*Backend*`；`MeshCapturedPart` |
 | `OsgWidgetPickAnnotationController` | 点标记、文字注释、快照恢复 |
 | `OsgWidgetGizmoController` | 罗盘创建、`pickAxisAtScreenPos`、高亮、缩放 |
-| `OsgWidgetTransformHierarchyController` | `setBackendParent`, `syncSelectionForBackendId`, `finalizeSelectionSync` |
+| `OsgWidgetTransformHierarchyController` | `setBackendParent`, `setBackendLogicalParent`, `syncSelectionForBackendId`, `finalizeSelectionSync` |
 | `OsgWidgetCameraFocusController` | `focusCameraOnBackend` |
 | `OsgWidgetColorController` | staging/backend 上色 |
 
@@ -288,14 +305,51 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 
 ## 10. 导入与 URDF
 
-### `MainWindowImportCaptureRenderController`
+### 推荐入口（新代码）
+
+| 场景 | API |
+|------|-----|
+| obj/stl/ply/off（同步） | `currentPage()->data().importFromFile` 或 `DocumentImportFacade::importFileIntoDocument` |
+| 点云（`IDataService`） | `importFromFile` + `ImportOptionsDto::isPointCloud = true` |
+| 已构造 mesh/点云 | Host `DocumentImportFacade::registerAdoptedMesh` / `registerAdoptedPointCloud` |
+| URDF | `page->robot().registerUrdfRobot` 或 `MainWindowImportCaptureRenderController::registerUrdfRobot` |
+| AI 基本体 | `AiCreateMeshRunner` → `registerAdoptedMesh` + `focusBackendInTreeAfterImport` |
+
+### `MainWindowImportCaptureRenderController`（复杂格式仍经此路径）
 
 | 方法 | 说明 |
 |------|------|
-| `registerBackendObject(mw, path, typeName, isPointCloud, quietUi)` | 通用文件导入 |
+| `registerBackendObject(mw, path, typeName, isPointCloud, quietUi)` | 见下表分格式；Host `importMeshFileExtended` / `importPointCloudFile` |
 | `registerUrdfRobot(mw, urdfPath, quietUi)` | **每连杆**路径：robot root + 各 link `MeshBackendData`、拓扑 `setBackendParent`、FK bind、`appendHierarchicalRobotSimulationContext` |
 
-要点见 [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §6.1。网格绕序/法线策略见 [`../Data/DEVELOPER_GUIDE.md`](../Data/DEVELOPER_GUIDE.md) §4.2.1、[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md) §4.2。
+`MainWindow::registerBackendObject` 仅为上述控制器的薄封装（菜单「打开模型/点云」、工程 las/laz 兜底、插件点云）。
+
+**`registerBackendObject` 内部分流**
+
+| 格式 | 路径 |
+|------|------|
+| 全部格式（同步） | Host `DocumentImportFacade::importFileIntoDocument`（`registerBackendObject` 内调用） |
+| ply 大文件点云 | Widget `JobSystem` 异步读文件，完成后 Host `registerAdoptedPointCloud` |
+| dxf/step 层级 | facade 内 `importMeshFileExtended`，**不**做 Follow；`focusCameraOnBackend(importParent)` 在 Host 内完成 |
+
+**DXF/STEP 层级（与工程加载区别）**
+
+- 分件顶点为世界坐标 → 导入时**不**调用 `applyHierarchyFollowBinding`（避免 `pose ≈ -质心`）。
+- Data 树：`attachChild` + `setBackendLogicalParent`；OSG 各片仍在 flat 组。
+- 工程打开后 `edges[]` 仍由 `MainWindowProjectIo` 批量 `applyHierarchyFollowBinding` + 一次 `runBackendFollowSolveAndSync`。
+
+**已删除（2025 Host 接线 + 无用代码清理，勿再引用）**
+
+| 符号 | 替代 |
+|------|------|
+| `MainWindow::registerExistingBackendObject` | `DocumentImportFacade::registerAdopted*` / `registerBackendObject` |
+| `MainWindow::syncOsgViewerFrom*Backend` | Host `BackendVisualSync` + `doc->data().applyPropertyChange` |
+| `MainWindow::backendPropertyCommitted` 信号 | `EventHub`：`PoseCommittedEvent` / `SelectionChangedEvent` |
+| `DocumentHost::registerAdopted*` 公开成员 | `BackendFileImport::registerAdopted*` 或 `DocumentImportFacade` |
+| `DocumentHost::osgWidget()` | `widgetOsgFromPage` / `render().widget()` |
+| `RobotProjectIo::writeRobotKinematicsAndPrograms` | 保存 kinematics：`mergeRobotKinematicsIntoProjectRoot`；programs：`mergeRobotProgramsIntoProjectRoot` |
+
+要点见 [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §6.1、[`../Host/CloudSimHost/DEVELOPER_GUIDE.md`](../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.1a、§4.4.3。
 
 ---
 
@@ -315,17 +369,15 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 
 **保存流程**：
 
-1. 遍历 `DocumentPage::backend().listData()` → `data->saveToJson()` → 附加 `sourcePath`、`sourceType`、`parentId`。
-2. 点云无坐标时尝试 `captureImportedPointCloudBackend`；仍无坐标则中止保存。
-3. 根级：`objects`、`edges`、`robotPrograms`、`robotKinematicsInstances`（`RobotProjectIo::writeRobotKinematicsAndPrograms`）、`annotations`、`cameraFollowBackendId`、`language`。
+1. Host `buildProjectSaveRoot`：`objects`、`edges`、`annotations`（`AnnotationProjectIo`）、`cameraFollowBackendId`、`language`（点云无坐标则中止）。
+2. Host `mergeRobotKinematicsIntoProjectRoot`（关节角由 Widget 采集）；Host `mergeRobotProgramsIntoProjectRoot`；打包 `.pcp` 仍在 Widget。
 
-**加载流程**：
+**加载流程**（编排已迁入 `BackendProjectObjectIo`，见 Host §4.4）：
 
-1. 清空后端/机器人上下文；解析 `objects[]`。
-2. `ensureBackendBuiltinsRegistered()` → `BackendRegistry::create(className)` → `loadFromJson()`。
-3. `OsgWidget::loadPointCloudFromBackendData` / `loadMeshFromBackendData` → `registerExistingBackendObject`。
-4. 无内嵌几何且 `sourcePath` 存在时回退 `registerBackendObject`（文件导入）。
-5. 恢复 `edges` → OSG `setBackendParent`；机器人 FK/程序；`runBackendFollowSolveAndSync`；`refreshBackendTree`。
+1. 清空后端/机器人上下文。
+2. `loadProjectObjectsFromJson` + `finalizeProjectHierarchyAfterObjects`（Host）；点云文件回退统一 `importPointCloudFile`（含 las/laz）。
+3. `restorePerLinkRobotKinematicsFromProjectJson`；`setRobotProgramsJson`。
+4. Host `restoreRobotKinematicsFromProjectJson`、`loadRobotProgramsFromProjectJson`；Widget 同步关节角与仿真 UI；`finalizeProjectLoadFollowAndViewport`；`publishProjectLoaded`。
 
 **不再由本文件维护**：对象级 `pose/color` 拼装、点云 PLY sidecar、`followAttachment` 手工读写（已下沉 `Data` 的 `components` + 兼容 `loadFromJson`）。
 
@@ -342,7 +394,21 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 | `JobSystem::enqueue(title, work, onFinished)` | `QThreadPool` 执行 `work`；`onFinished` 在 UI 线程 |
 | `ProgressManager` | `jobStarted` / `jobProgress` / `jobFinished`（`QMetaObject::invokeMethod`） |
 
-**边界**：后台仅填充 `PointCloudBackendData`（非 LAS）；注册 OSG、刷树仍在 **UI 线程**。
+**边界**：后台仅填充 `PointCloudBackendData`（非 LAS）；注册 OSG（`registerAdoptedPointCloud`）、刷树仍在 **UI 线程**。
+
+---
+
+## 12a. 属性面板与 EventHub
+
+| 路径 | 说明 |
+|------|------|
+| 普通属性行 | 须有 `currentPage()`：`doc->data().applyPropertyChange` → Host `BackendVisualSync`（OSG + `PoseCommitted`） |
+| 无文档页 | 非 pose/rotation 属性直接 `return`（已移除 `data->applyPropertyChange` 回退） |
+| pose/rotation 分量 | 仍 `setPoseInFrame` + `syncVisualAfterPropertyChange`（未走单行 `applyPropertyChange`） |
+| `follow.*` | `afterBackendFollowPropertyEdited` + Follow 求解（Widget） |
+| 仿真指令属性 | 仍直连 `RobotInstruction::applyPropertyChange` |
+| 选择刷新 | `SelectionChanged` / `PoseCommitted` 订阅 → `updatePropertyPanel`（`MainWindowUiSetup`） |
+| 当前 OSG 视图 | `widgetOsgFromPage(page)` 或 `MainWindow::currentOsgWidget()` |
 
 ---
 
@@ -466,7 +532,7 @@ LMB/RMB (RobotTcpDragTeachOperation)
 | 流程 | 入口 | 文档章节 |
 |------|------|----------|
 | 导入显示 | `registerBackendObject` | ARCH §6.1 |
-| 属性编辑 | `applyPropertyChange` → `syncOuterPatFromBackend` | ARCH §6.2 |
+| 属性编辑 | `doc->data().applyPropertyChange` → Host `BackendVisualSync` | Host §4.2b、ARCH §6.2 |
 | Gizmo | `ObjectTransformOperation` | ARCH §6.2.0 |
 | 跟随 | `runBackendFollowSolveAndSync` | ARCH §6.2.1 |
 | 选择闭环 | `MainWindowSelectionService` | ARCH §6.3 |
@@ -486,7 +552,17 @@ LMB/RMB (RobotTcpDragTeachOperation)
 
 ---
 
-## 17. 相关文档
+## 17. 常见问题
+
+| 现象 | 处理 |
+|------|------|
+| `IRenderView` 未定义（`WidgetDocumentAccess.h`） | 确保 `#include "IRenderView.h"`（已由 `WidgetDocumentAccess.h` 包含） |
+| C2662 `render()` 与 `const DocumentPage*` | 仅使用 `widgetOsgFromPage(DocumentPage*)`；无 const 重载 |
+| 属性提交无效果且无文档页 | 检查 `currentPage()` 非空；见 §12a |
+
+---
+
+## 18. 相关文档
 
 - 总架构：[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md)
 - 模块索引：[`../docs/MODULE_DEVELOPER_GUIDES.md`](../docs/MODULE_DEVELOPER_GUIDES.md)

@@ -52,6 +52,16 @@ public:
 
 	bool registerUrdfRobot(const QString& urdfPath, bool quietUi) override;
 
+	bool planRobotMotionInstruction(
+		RobotInstruction::Base& instruction,
+		const QVector<double>& seedJointRad,
+		int instanceIndex,
+		const QString& urdfPath,
+		const QString& defaultTcpLinkName,
+		const QString& sceneRootBackendId,
+		RobotInstruction::PlanResult& out,
+		std::string* outErr) override;
+
 private:
 	MainWindow* m_mw = nullptr;
 	class DocumentHost;

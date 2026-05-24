@@ -5,8 +5,11 @@
 #include <osg/StateAttribute>
 #include <osg/StateSet>
 
+/// 罗盘渲染：对象变换与 TCP 示教共用无光照高亮状态，避免受场景光照/深度影响变暗
 namespace osg_compass {
 
+/// 套用罗盘无光照高亮 StateSet（OPAQUE、关光照/混合/雾，深度 ALWAYS 不写深度）
+/// @param ss 目标 StateSet，空则直接返回
 inline void applyUnlitHighlitStateSet(osg::StateSet* ss)
 {
 	if (!ss)

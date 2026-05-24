@@ -63,7 +63,10 @@ class OsgWidgetColorController;
 class OsgWidgetTransformHierarchyController;
 struct MeshCapturedPart;
 
-/// 三维视图核心控件：封装 OSG Viewer、相机与场景根节点，负责导入、后端对象显示、拾取与标注等。
+/// 三维视图控件（Qt + \c OsgScene）
+///
+/// Viewer/相机、后端导入显示、拾取标注；对象变换与 TCP 示教罗盘（后者挂场景 overlay，
+/// 位姿经 \c syncTcpTeachWorldPatFromMount 与 mount PAT 对齐）。
 class OSG_WIDGET_API OsgWidget : public QWidget, public IRobotBackendPoseSink, public OsgScene
 {
 	Q_OBJECT
@@ -220,9 +223,15 @@ public:
 	void setRobotFrameOverlays(const RobotFrameOverlayUpdate& update);
 	void clearRobotFrameOverlays(const std::string& robotRootBackendId);
 
-	/// TCP 末端拖动示教：在机器人 TCP 处显示独立罗盘，拖动时发出位姿变化信号（不落盘指令）。
+	/// TCP 末端拖动示教：场景 overlay 罗盘，拖动发位姿信号（不写指令）
 	bool isTcpDragTeachActive() const { return m_tcpTeachActive; }
 	bool isTcpDragGizmoDragging() const { return m_tcpTeachDragging || m_tcpTeachRotating; }
+	/// 进入 TCP 示教
+	/// @param mountBackendId TCP 挂载后端 PAT id
+	/// @param T_base_target 机器人基座系目标 TCP 位姿
+	/// @param modelDiagonalMm 参考模型对角线 mm，用于罗盘屏幕缩放
+	/// @param resolveRobotBaseWorld 可选，解析基座世界矩阵；基座/工具坐标换算
+	/// @param toolLocalOnFlange 非空则按法兰局部工具矩阵放置 TCP
 	void beginTcpDragTeach(
 		const std::string& mountBackendId,
 		const engine::RigidTransform& T_base_target,
@@ -230,8 +239,12 @@ public:
 		std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld = nullptr,
 		const osg::Matrixd* toolLocalOnFlange = nullptr);
 	void endTcpDragTeach();
+	/// 外部同步示教目标（IK/属性面板）
+	/// @param T_base_target 基座系目标位姿
+	/// @param syncTargetInBase 为 true 时刷新内部 \c m_tcpTeachTargetInBase
 	void updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target, bool syncTargetInBase = true);
-	/// Update \c T_flange_tool PAT while flange-local TCP teach is active (e.g. user switched active tool frame).
+	/// 示教中更新法兰局部工具矩阵（如切换当前工具坐标系）
+	/// @param toolLocalOnFlange 法兰系下工具位姿
 	void updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLocalOnFlange);
 	engine::RigidTransform tcpDragTeachTargetInBase() const { return m_tcpTeachTargetInBase; }
 
@@ -250,19 +263,30 @@ public:
 	void clearCameraFollowBackendId();
 	const std::string& cameraFollowBackendId() const { return m_cameraFollowBackendId; }
 
-	// TCP 示教罗盘（\ref RobotTcpDragTeachOperation 直接访问，同 OsgScene 对象 gizmo 成员约定）
+	// TCP 示教罗盘（\ref RobotTcpDragTeachOperation 友元，约定同 OsgScene 对象 gizmo）
 	void updateTcpTeachCompassHighlight(DragAxis axis, bool highlightRing = false);
 	void updateTcpTeachCompassScale();
+	/// @param outPivotWorld 出参，TCP 枢轴世界坐标 mm
 	void computeTcpTeachPivotWorld(osg::Vec3f& outPivotWorld) const;
+	/// @param axis 拖拽轴
+	/// @param outAxisWorld 出参，单位轴方向（世界系）
 	bool tcpTeachCompassUnitAxisWorld(DragAxis axis, osg::Vec3d& outAxisWorld) const;
 	bool beginTcpTeachScreenDrag();
+	/// @param curPos 当前鼠标（控件逻辑像素）
+	/// @param lastPos 上一帧鼠标
+	/// @return 沿冻结屏幕轴的位移 mm
 	double tcpTeachScreenDragDsMm(const QPoint& curPos, const QPoint& lastPos) const;
+	/// @param mousePos 屏幕拾取点
+	/// @param preferRing 优先拾取旋转环
+	/// @param outPickedRing 非空时区分环/轴线
 	int pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, bool preferRing, bool* outPickedRing = nullptr) const;
 	void applyTcpTeachTranslationWorld(int axisIndex, double dsWorld);
 	void applyTcpTeachTranslationBody(int axisIndex, double dsWorld);
 	void applyTcpTeachRotationWorld(int axisIndex, double deltaRad);
 	void applyTcpTeachRotationBody(int axisIndex, double deltaRad);
 	void syncTcpTeachCompassAttitude();
+	/// 从 \c m_tcpTeachMountPat 同步 \c m_tcpTeachWorldPat（overlay 不随机器人子树光照）
+	void syncTcpTeachWorldPatFromMount();
 	bool tcpTeachResolveBaseWorld(osg::Matrixd& outBaseWorld) const;
 	bool tcpTeachToolWorldMatrix(osg::Matrixd& outToolWorld) const;
 	void tcpTeachSetTargetFromToolWorld(const osg::Matrixd& toolWorld);

@@ -27,6 +27,7 @@ public:
 	/// Root first, then BFS over \c m_children. Reference valid until the next structural change
 	/// invalidates this root's cache entry (or use only synchronously on the UI thread).
 	const std::vector<std::string>& subtreeIds(const std::string& rootId);
+	const std::vector<std::string>& subtreeIds(const std::string& rootId) const;
 
 private:
 	void onHierarchyChange(const BackendHierarchyChangeEvent& event);
@@ -38,6 +39,6 @@ private:
 	std::unordered_map<std::string, std::unordered_set<std::string>> m_children;
 	std::unordered_map<std::string, std::unordered_set<std::string>> m_parents;
 	std::unordered_set<std::string> m_nodes;
-	std::unordered_map<std::string, std::vector<std::string>> m_subtreeCache;
-	std::vector<std::string> m_emptySubtree;
+	mutable std::unordered_map<std::string, std::vector<std::string>> m_subtreeCache;
+	mutable std::vector<std::string> m_emptySubtree;
 };

@@ -107,6 +107,16 @@ private:
 	void syncTcpDragTeachAnchorFromCurrentJoints();
 	void syncTcpDragExitJointState();
 
+	bool planMotionOnHost(
+		RobotInstruction::Base& instruction,
+		const QVector<double>& seedJointRad,
+		int instanceIndex,
+		const QString& urdfPath,
+		const QString& defaultTcpLinkName,
+		const QString& sceneRootBackendId,
+		RobotInstruction::PlanResult& plan,
+		std::string* planErr) const;
+
 	IRobotMainWindowHost* m_host = nullptr;
 	RobotSimulationDockWidget* m_simulationDock = nullptr;
 	QTimer* m_playbackTimer = nullptr;

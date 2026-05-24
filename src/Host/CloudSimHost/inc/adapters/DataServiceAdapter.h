@@ -2,14 +2,15 @@
 
 #include "IDataService.h"
 
-class BackendDataManager;
-
 namespace cloudsim::host {
 
+class DocumentHost;
+
+/// Backend → IDataService；插件/UI 访问文档数据推荐经此，勿直暴露 BackendDataManager
 class DataServiceAdapter final : public core::IDataService
 {
 public:
-	explicit DataServiceAdapter(BackendDataManager& backend);
+	explicit DataServiceAdapter(DocumentHost& host);
 
 	bool isValid(const core::ObjectId& id) const override;
 	void clear() override;
@@ -37,7 +38,7 @@ public:
 		QString* outError = nullptr) override;
 
 private:
-	BackendDataManager& m_backend;
+	DocumentHost& m_host;
 };
 
 } // namespace cloudsim::host

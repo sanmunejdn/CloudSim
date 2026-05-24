@@ -3,6 +3,7 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "DocumentPage.h"
+#include "IDataService.h"
 #include "PluginSceneBridgeAdapter.h"
 
 #include <QTabWidget>
@@ -86,6 +87,34 @@ std::string PluginDocumentAdapter::backendClassName(const std::string& backendId
 	}
 	const auto obj = m_page->backend().getData(backendId);
 	return obj ? obj->className() : std::string();
+}
+
+std::string PluginDocumentAdapter::documentId() const
+{
+	if (!m_page)
+	{
+		return std::string();
+	}
+	return m_page->documentId().toStdString();
+}
+
+bool PluginDocumentAdapter::removeBackendObject(const std::string& backendIdUtf8, std::string* outError)
+{
+	if (!m_page || backendIdUtf8.empty())
+	{
+		if (outError)
+		{
+			*outError = "invalid document or backend id";
+		}
+		return false;
+	}
+	QString err;
+	const bool ok = m_page->data().unregisterSubtree(QString::fromStdString(backendIdUtf8), &err);
+	if (!ok && outError)
+	{
+		*outError = err.toStdString();
+	}
+	return ok;
 }
 
 IPluginSceneBridge* PluginDocumentAdapter::sceneBridge()

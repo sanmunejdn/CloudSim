@@ -2,6 +2,7 @@
 
 #include "BackendSceneDocumentFacade.h"
 #include "DocumentPage.h"
+#include "WidgetDocumentAccess.h"
 #include "MainWindow.h"
 #include "RunInfoPage.h"
 #include "MainWindowImportCaptureRenderController.h"
@@ -13,6 +14,8 @@
 #include "../RobotWidget/inc/RobotOsgUiTypes.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
+
+#include "RobotPlanInstruction.h"
 
 #include <Adapters.h>
 
@@ -355,7 +358,7 @@ void MainWindowRobotHost::refreshBackendTree() { m_mw->refreshBackendTree(); }
 void MainWindowRobotHost::runFollowSolveAndSyncForCurrentDocument()
 {
 	DocumentPage* page = m_mw->currentPage();
-	OsgWidget* osg = page ? page->osgWidget() : nullptr;
+	OsgWidget* osg = widgetOsgFromPage(page);
 	if (page && osg)
 	{
 		m_mw->runBackendFollowSolveAndSync(*page, *osg);
@@ -398,4 +401,33 @@ bool MainWindowRobotHost::registerUrdfRobot(const QString& urdfPath, const bool 
 {
 	MainWindowImportCaptureRenderController controller;
 	return controller.registerUrdfRobot(*m_mw, urdfPath, quietUi);
+}
+
+bool MainWindowRobotHost::planRobotMotionInstruction(
+	RobotInstruction::Base& instruction,
+	const QVector<double>& seedJointRad,
+	const int instanceIndex,
+	const QString& urdfPath,
+	const QString& defaultTcpLinkName,
+	const QString& sceneRootBackendId,
+	RobotInstruction::PlanResult& out,
+	std::string* outErr)
+{
+	DocumentPage* page = m_mw->currentPage();
+	if (!page)
+	{
+		if (outErr)
+		{
+			*outErr = "no active document";
+		}
+		return false;
+	}
+	QString hostErr;
+	const bool ok = cloudsim::host::planRobotInstruction(*page, instruction, seedJointRad, instanceIndex, urdfPath,
+		defaultTcpLinkName.toStdString(), sceneRootBackendId, out, &hostErr);
+	if (!ok && outErr)
+	{
+		*outErr = hostErr.toStdString();
+	}
+	return ok;
 }

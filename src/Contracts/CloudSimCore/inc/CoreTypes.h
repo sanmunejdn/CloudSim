@@ -60,6 +60,12 @@ struct ImportOptionsDto
 {
 	bool quietUi = false;
 	bool resetViewToHome = true;
+	/// 写入 backendSourceType（如 Model / PointCloud）
+	QString catalogTypeName = QStringLiteral("Model");
+	bool isPointCloud = false;
+	ObjectId parentId;
+	/// 工程恢复：导入成功后 rekey 为该 id（空则保持自动生成 id）
+	ObjectId persistedId;
 };
 
 struct PlanResultDto
@@ -99,6 +105,10 @@ struct RobotRegistrationDto
 	bool ok = false;
 	QString error;
 	ObjectId sceneRootBackendId;
+	QVector<QString> warnings;
+	int linkCount = 0;
+	int jointCount = 0;
+	QString sourceDisplayName;
 };
 
 } // namespace cloudsim::core

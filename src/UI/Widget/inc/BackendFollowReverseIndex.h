@@ -8,14 +8,14 @@
 
 class BackendDataManager;
 
-/// Reverse index: follow **target** backend id -> follower backend ids (for queries; rebuilt when invalidated).
+/// 跟随反向索引：被跟随 backend id → 跟随者 id 列表；脏时按 BackendDataManager 重建
 class WIDGET_EXPORT BackendFollowReverseIndex
 {
 public:
 	void invalidate();
 	bool isDirty() const { return m_dirty; }
 
-	/// Rebuilds from \a mgr when dirty, then returns followers of \a targetBackendId (may be empty).
+	/// 脏则重建索引，返回 targetBackendId 的跟随者列表（可为空）
 	std::vector<std::string> followersOf(const BackendDataManager& mgr, const std::string& targetBackendId) const;
 
 private:

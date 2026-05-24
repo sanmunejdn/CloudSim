@@ -93,6 +93,20 @@ void OsgScene::syncActiveBackendRootFromObjectFrame(const ObjectGizmoFrame& cur,
 	m_hasLastSelectionPose = true;
 }
 
+void OsgScene::setBackendLogicalParent(const std::string& backendId, const std::string& parentBackendId)
+{
+	if (backendId.empty())
+	{
+		return;
+	}
+	if (parentBackendId.empty() || parentBackendId == backendId)
+	{
+		m_backendParentIds.erase(backendId);
+		return;
+	}
+	m_backendParentIds[backendId] = parentBackendId;
+}
+
 bool OsgScene::isBackendDescendantOf(const std::string& backendId, const std::string& ancestorId) const
 {
 	if (backendId.empty() || ancestorId.empty())

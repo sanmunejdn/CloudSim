@@ -1,6 +1,11 @@
 #include "PluginHostContext.h"
 
+#include "DocumentImportFacade.h"
+#include "CoreTypes.h"
+#include "IDataService.h"
+
 #include "BackendDataBase.h"
+#include "BackendDataManager.h"
 #include "BackendPrimitiveGeometry.h"
 #include "BackendRegistry.h"
 #include "CloudSimPluginVersion.h"
@@ -16,6 +21,7 @@
 #include <QAction>
 #include <QCoreApplication>
 #include <QDockWidget>
+#include <QFileInfo>
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
@@ -405,29 +411,76 @@ bool PluginHostContext::registerMeshFromSoup(std::vector<float> soup, const Plug
 	rot.z = options.rotationDeg.z;
 	mesh->setRotation(rot);
 
-	if (!m_mainWindow->registerExistingBackendObject(
-			mesh, sourcePath, QStringLiteral("Model"), QString(), options.selectInTree, QString()))
+	cloudsim::host::AdoptMeshOptions adoptOpt;
+	adoptOpt.sourcePath = sourcePath;
+	adoptOpt.catalogTypeName = QStringLiteral("Model");
+	adoptOpt.resetViewToHome = options.resetViewToHome;
+	QString regErr;
+	const cloudsim::host::AdoptRegistrationResult adopted =
+		cloudsim::host::registerAdoptedMesh(*doc, mesh, adoptOpt, &regErr);
+	if (!adopted.ok)
 	{
 		if (outError)
 		{
-			*outError = QStringLiteral("Failed to register mesh in backend.");
+			*outError = regErr.isEmpty() ? QStringLiteral("Failed to register mesh in backend.") : regErr;
 		}
 		return false;
 	}
-
-	if (OsgWidget* osg = doc->osgWidget())
+	if (options.selectInTree)
 	{
-		QString sceneErr;
-		if (!osg->loadMeshFromBackendData(*mesh, &sceneErr, options.resetViewToHome, true, true))
-		{
-			if (outError)
-			{
-				*outError = sceneErr;
-			}
-			return false;
-		}
+		m_mainWindow->focusBackendInTree(mesh);
 	}
 	return true;
+}
+
+std::string PluginHostContext::importFileIntoActiveDocument(const std::string& pathUtf8, const bool isPointCloud,
+	std::string* outError)
+{
+	if (!m_mainWindow)
+	{
+		if (outError)
+		{
+			*outError = "MainWindow not available";
+		}
+		return std::string();
+	}
+	DocumentPage* doc = m_mainWindow->currentPage();
+	if (!doc)
+	{
+		if (outError)
+		{
+			*outError = "No active document";
+		}
+		return std::string();
+	}
+	const QString path = QString::fromStdString(pathUtf8);
+	if (path.isEmpty())
+	{
+		if (outError)
+		{
+			*outError = "Empty path";
+		}
+		return std::string();
+	}
+	cloudsim::core::ImportOptionsDto opt;
+	opt.quietUi = true;
+	opt.resetViewToHome = false;
+	opt.catalogTypeName = isPointCloud ? QStringLiteral("PointCloud") : QStringLiteral("Model");
+	opt.isPointCloud = isPointCloud;
+	QString importErr;
+	const cloudsim::host::ImportFileKind kind =
+		isPointCloud ? cloudsim::host::ImportFileKind::PointCloud : cloudsim::host::ImportFileKind::Mesh;
+	const cloudsim::host::ImportFileResult imported =
+		cloudsim::host::importFileIntoDocument(*doc, path, kind, opt, &importErr);
+	if (!imported.ok)
+	{
+		if (outError)
+		{
+			*outError = importErr.toStdString();
+		}
+		return std::string();
+	}
+	return imported.rootBackendId.toStdString();
 }
 
 bool PluginHostContext::registerBackendType(const PluginBackendMeta& meta, QString* outError)

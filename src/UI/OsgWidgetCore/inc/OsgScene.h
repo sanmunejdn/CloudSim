@@ -38,7 +38,11 @@ class Geometry;
 
 class BackendDataBase;
 
-/// OSG 场景图与相机状态（无 Qt）。重绘通过 \ref setRequestRedraw 注入；视口像素通过 \ref setViewportPixels 同步。
+/// OSG 场景图与相机（无 Qt）
+///
+/// 后端对象绑定、拾取、对象变换罗盘（\c m_gizmoOverlayGroup）及 TCP 示教场景 overlay
+/// （\c m_tcpTeachSceneOverlayGroup，几何由 \c OsgWidget 挂载）。
+/// 重绘经 \ref setRequestRedraw 注入；视口经 \ref setViewportPixels 与 DPR 同步。
 class OSGWIDGETCORE_EXPORT OsgScene
 {
 public:
@@ -114,7 +118,9 @@ public:
 	osg::Vec3f computeMeshCenterFromSoup(const std::vector<float>& soup) const;
 	float computeMeshDiagonalFromSoup(const std::vector<float>& soup) const;
 
+	/// 构建对象变换罗盘几何（轴+环），StateSet 走 \c osg_compass::applyUnlitHighlitStateSet
 	osg::Node* createCompassNode();
+	/// 将罗盘挂到当前选中后端 \c m_gizmoOverlayGroup
 	void attachCompassGraphics();
 	void detachCompassGraphics();
 	void refreshCompassDrawVisibility();
@@ -140,6 +146,8 @@ public:
 	void logGizmoPivotDiagnostics(const char* reasonTag) const;
 
 	void focusCameraOnBackend(const std::string& backendId);
+	/// 仅写入逻辑父 id（不改 OSG 场景父链），供分件导入后 focusCameraOnBackend 聚合子树包围球
+	void setBackendLogicalParent(const std::string& backendId, const std::string& parentBackendId);
 
 	bool pickAndActivateBackendAtScreenPos(double mouseX, double mouseY);
 	void cachePickablePointsFromNode(osg::Node* node);

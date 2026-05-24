@@ -1727,7 +1727,7 @@ void RobotSimulationController::onSimulationExportRequested()
 			plan.summary = planErr.empty() ? "Validation failed" : planErr;
 			++failedCount;
 		}
-		else if (!m_instructionController.plan(*ins, plan, &planErr))
+		else if (!planMotionOnHost(*ins, rollingQ, instIdx, urdfPath, defaultTcpLinkName, robotBackendId, plan, &planErr))
 		{
 			plan.ok = false;
 			if (!planErr.empty())
@@ -2400,7 +2400,7 @@ RobotInstruction::FeasibleMotionAxisConfigurationOptions RobotSimulationControll
 			&framesForFeasible);
 		std::string planErr;
 		RobotInstruction::PlanResult plan{};
-		if (m_instructionController.plan(*motionIns, plan, &planErr)
+		if (planMotionOnHost(*motionIns, rollingQ, instIdx, urdfPath, defaultTcpLinkName, robotBackendId, plan, &planErr)
 			&& !plan.jointTargetsRad.empty()
 			&& plan.jointTargetsRad.size() == static_cast<size_t>(nj))
 		{
@@ -2639,7 +2639,7 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(const std::s
 			return;
 		}
 		RobotInstruction::PlanResult plan{};
-		if (!m_instructionController.plan(*motionIns, plan, &planErr))
+		if (!planMotionOnHost(*motionIns, rollingQ, instIdx, urdfPath, defaultTcpLinkName, robotBackendId, plan, &planErr))
 		{
 			RobotInstructionPlanning::restoreInstructionPose(*motionIns, backup);
 			if (m_host->runInfoPage() && mi == targetMotionIndex)
@@ -2918,7 +2918,8 @@ QHash<QString, bool> RobotSimulationController::computeMotionReachabilityForCurr
 			&doc->robotCoordinateFramesForInstance(instIdx));
 		std::string planErr;
 		RobotInstruction::PlanResult plan{};
-		const bool ok = m_instructionController.plan(*ins, plan, &planErr) && plan.ok;
+		const bool ok = planMotionOnHost(*ins, rollingQ, instIdx, urdfPath, defaultTcpLinkName, robotBackendId, plan, &planErr)
+			&& plan.ok;
 		reachability.insert(QString::fromStdString(ins->id()), ok);
 		RobotInstructionPlanning::restoreInstructionPose(*ins, backup);
 		if (ok && !plan.jointTargetsRad.empty()
@@ -3212,7 +3213,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 			return;
 		}
 		RobotInstruction::PlanResult plan{};
-		if (!m_instructionController.plan(*ins, plan, &planErr))
+		if (!planMotionOnHost(*ins, rollingQ, instIdx, urdfPath, defaultTcpLinkName, robotBackendId, plan, &planErr))
 		{
 			RobotInstructionPlanning::restoreInstructionPose(*ins, poseBackup);
 			if (m_host->runInfoPage())
@@ -3376,4 +3377,22 @@ void RobotSimulationController::onRobotSimulationTick()
 		stopRobotSimulation();
 		break;
 	}
+}
+
+bool RobotSimulationController::planMotionOnHost(
+	RobotInstruction::Base& instruction,
+	const QVector<double>& seedJointRad,
+	const int instanceIndex,
+	const QString& urdfPath,
+	const QString& defaultTcpLinkName,
+	const QString& sceneRootBackendId,
+	RobotInstruction::PlanResult& plan,
+	std::string* planErr) const
+{
+	if (!m_host)
+	{
+		return false;
+	}
+	return m_host->planRobotMotionInstruction(instruction, seedJointRad, instanceIndex, urdfPath, defaultTcpLinkName,
+		sceneRootBackendId, plan, planErr);
 }

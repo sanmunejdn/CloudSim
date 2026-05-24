@@ -1,5 +1,8 @@
 ﻿#include "MainWindow.h"
 
+#include "BackendFollowSolve.h"
+#include "BackendHierarchyFollow.h"
+#include "DocumentHostEvents.h"
 #include "BackendSceneDocumentFacade.h"
 #include "RobotInstructionController.h"
 #include "RobotInstructionModel.h"
@@ -48,6 +51,8 @@
 #include "BackendFollowMath.h"
 #include "BackendFollowTransformSolver.h"
 #include "DocumentPage.h"
+#include "WidgetDocumentAccess.h"
+#include "IRenderView.h"
 #include "FollowAttachmentComponent.h"
 #include "DevicePageWidget.h"
 #include "../RobotWidget/inc/RobotAxisControlWidget.h"
@@ -443,6 +448,10 @@ void MainWindow::onTransformGizmoCommitted()
 		doc->markFollowAttachmentDirtyFromBackendMove(doc->backend(), data->id());
 	}
 	updatePropertyPanel(data);
+	if (DocumentPage* doc = currentPage())
+	{
+		cloudsim::host::publishPoseCommittedFromBackend(*doc, *data);
+	}
 }
 
 void MainWindow::refreshFollowSolveAndPropertyPanelFromOsgWrite(const std::shared_ptr<BackendDataBase>& data)
@@ -452,7 +461,7 @@ void MainWindow::refreshFollowSolveAndPropertyPanelFromOsgWrite(const std::share
 		return;
 	}
 	DocumentPage* doc = currentPage();
-	OsgWidget* osg = doc ? doc->osgWidget() : nullptr;
+	OsgWidget* osg = widgetOsgFromPage(doc);
 	if (doc && osg)
 	{
 		doc->markFollowAttachmentDirtyFromBackendMove(doc->backend(), data->id());
@@ -681,9 +690,9 @@ void MainWindow::setAllDocumentViewerDarkBackground(bool dark)
 	for (int i = 0; i < m_documentTabs->count(); ++i)
 	{
 		auto* p = qobject_cast<DocumentPage*>(m_documentTabs->widget(i));
-		if (p && p->osgWidget())
+		if (OsgWidget* osg = widgetOsgFromPage(p))
 		{
-			p->osgWidget()->setViewerBackgroundForDarkUi(dark);
+			osg->setViewerBackgroundForDarkUi(dark);
 		}
 	}
 }
@@ -709,7 +718,11 @@ DocumentPage* MainWindow::currentPage() const
 OsgWidget* MainWindow::currentOsgWidget() const
 {
 	DocumentPage* p = currentPage();
-	return p ? p->osgWidget() : nullptr;
+	if (!p)
+	{
+		return nullptr;
+	}
+	return widgetOsgFromPage(p);
 }
 
 BackendDataManager& MainWindow::activeBackend()
@@ -733,11 +746,11 @@ const BackendHierarchyModel* MainWindow::activeHierarchyModel() const
 
 void MainWindow::wireDocumentPageSignals(DocumentPage* page)
 {
-	if (!page || !page->osgWidget())
+	OsgWidget* o = widgetOsgFromPage(page);
+	if (!o)
 	{
 		return;
 	}
-	OsgWidget* o = page->osgWidget();
 	connect(o, &OsgWidget::selectedObjectPoseChanged, this, &MainWindow::onSelectedObjectPoseChanged);
 	connect(o, &OsgWidget::selectedObjectRotationChanged, this, &MainWindow::onSelectedObjectRotationChanged);
 	connect(o, &OsgWidget::selectedObjectColorChanged, this, &MainWindow::onSelectedObjectColorChanged);
@@ -756,11 +769,11 @@ void MainWindow::wireDocumentPageSignals(DocumentPage* page)
 
 void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 {
-	if (!page || !page->osgWidget())
+	OsgWidget* osg = widgetOsgFromPage(page);
+	if (!osg)
 	{
 		return;
 	}
-	OsgWidget* osg = page->osgWidget();
 	osg->setPerFrameHook([this, page](OsgWidget* o) {
 		if (!page || !o || !m_documentTabs || m_documentTabs->currentWidget() != page)
 		{
@@ -779,83 +792,32 @@ void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 	});
 }
 
-void MainWindow::runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg,
-	const std::string* manualPoseAuthorityBackendId)
+cloudsim::host::FollowSolveContext MainWindow::makeFollowSolveContext(OsgWidget& osg) const
 {
-	if (osg.isTcpDragTeachActive())
-	{
-		return;
-	}
-	if (m_robotSimulation && m_robotSimulation->programExecutor().isRunning())
-	{
-		return;
-	}
-	BackendDataManager& mgr = page.backend();
-	const bool forced = page.takeFollowSolveForced();
-	auto& dirty = page.followDirtyBackendIds();
-	const bool gizmoDrag = osg.isTransformGizmoDragging();
-	if (!forced && dirty.empty() && !gizmoDrag)
-	{
-		return;
-	}
-	std::string skipId;
-	std::string gizmoDragSelectedId;
-	std::string manualAuthorityId;
-	if (manualPoseAuthorityBackendId && !manualPoseAuthorityBackendId->empty())
-	{
-		manualAuthorityId = *manualPoseAuthorityBackendId;
-		skipId = manualAuthorityId;
-	}
-	if (gizmoDrag && m_selectionState.hasBackendSelection())
-	{
-		gizmoDragSelectedId = m_selectionState.selectedBackendId().toStdString();
-		skipId = gizmoDragSelectedId;
-	}
-	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&osg](const std::string& bid, BackendMat4& out) -> bool {
-		osg::Matrixd om;
-		if (!osg.getBackendRootWorldMatrix(bid, om))
+	cloudsim::host::FollowSolveContext ctx;
+	ctx.skipAll = [this, &osg]() {
+		if (osg.isTcpDragTeachActive())
+		{
+			return true;
+		}
+		return m_robotSimulation && m_robotSimulation->programExecutor().isRunning();
+	};
+	ctx.fillGizmoSelectedId = [this, &osg](std::string& outId) -> bool {
+		if (!osg.isTransformGizmoDragging() || !m_selectionState.hasBackendSelection())
 		{
 			return false;
 		}
-		for (int c = 0; c < 4; ++c)
-		{
-			for (int r = 0; r < 4; ++r)
-			{
-				out.v[c * 4 + r] = om(r, c);
-			}
-		}
+		outId = m_selectionState.selectedBackendId().toStdString();
 		return true;
 	};
-	const bool usePoseLimit = !forced && !gizmoDrag && !dirty.empty();
-	const std::unordered_set<std::string>* limitPtr = usePoseLimit ? &dirty : nullptr;
-	BackendFollowTransformSolver::solve(mgr, worldQuery, skipId, limitPtr);
-	for (const auto& d : mgr.listData())
-	{
-		if (!d)
-		{
-			continue;
-		}
-		auto comp = std::dynamic_pointer_cast<FollowAttachmentComponent>(d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
-		if (!comp || !comp->enabled() || comp->targetBackendId().empty())
-		{
-			continue;
-		}
-		const std::string fid = d->id();
-		if (!gizmoDragSelectedId.empty() && fid == gizmoDragSelectedId)
-		{
-			continue;
-		}
-		if (!manualAuthorityId.empty() && fid == manualAuthorityId)
-		{
-			continue;
-		}
-		if (usePoseLimit && !dirty.count(fid))
-		{
-			continue;
-		}
-		page.sceneFacade().bridge().syncOuterPatFromBackend(*d);
-	}
-	dirty.clear();
+	return ctx;
+}
+
+void MainWindow::runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg,
+	const std::string* manualPoseAuthorityBackendId)
+{
+	cloudsim::host::FollowSolveContext ctx = makeFollowSolveContext(osg);
+	cloudsim::host::runBackendFollowSolveAndSync(page, osg, &ctx, manualPoseAuthorityBackendId);
 }
 
 void MainWindow::applyHierarchyFollowBinding(DocumentPage* doc, const std::string& childId, const std::string& parentId)
@@ -864,74 +826,11 @@ void MainWindow::applyHierarchyFollowBinding(DocumentPage* doc, const std::strin
 	{
 		return;
 	}
-	OsgWidget* osg = doc->osgWidget();
-	const std::shared_ptr<BackendDataBase> child = doc->backend().getData(childId);
-	if (!child || !child->hasPoseProperty())
+	cloudsim::host::applyHierarchyFollowBinding(*doc, childId, parentId);
+	if (OsgWidget* osg = widgetOsgFromPage(doc))
 	{
-		return;
-	}
-	if (parentId.empty())
-	{
-		const auto f = std::dynamic_pointer_cast<FollowAttachmentComponent>(
-			child->getComponent(FollowAttachmentComponent::typeKeyStatic()));
-		if (f && f->hierarchyDriven())
-		{
-			child->removeComponent(FollowAttachmentComponent::typeKeyStatic());
-		}
-		if (osg)
-		{
-			doc->markFollowAttachmentDirtyFromBackendMove(doc->backend(), childId);
-			runBackendFollowSolveAndSync(*doc, *osg);
-		}
-		doc->invalidateFollowReverseIndex();
-		return;
-	}
-	if (!doc->backend().contains(parentId))
-	{
-		return;
-	}
-	if (const auto f0 = std::dynamic_pointer_cast<FollowAttachmentComponent>(
-			child->getComponent(FollowAttachmentComponent::typeKeyStatic())))
-	{
-		if (f0->enabled() && !f0->hierarchyDriven() && !f0->targetBackendId().empty())
-		{
-			return;
-		}
-	}
-	if (!child->getComponent(FollowAttachmentComponent::typeKeyStatic()))
-	{
-		child->addComponent(std::make_shared<FollowAttachmentComponent>());
-	}
-	const auto f = std::dynamic_pointer_cast<FollowAttachmentComponent>(
-		child->getComponent(FollowAttachmentComponent::typeKeyStatic()));
-	f->setHierarchyDriven(true);
-	f->setEnabled(true);
-	f->setTargetBackendId(parentId);
-	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [osg](const std::string& bid, BackendMat4& out) -> bool {
-		if (osg)
-		{
-			osg::Matrixd om;
-			if (osg->getBackendRootWorldMatrix(bid, om))
-			{
-				for (int c = 0; c < 4; ++c)
-				{
-					for (int r = 0; r < 4; ++r)
-					{
-						out.v[c * 4 + r] = om(r, c);
-					}
-				}
-				return true;
-			}
-		}
-		return false;
-	};
-	(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(doc->backend(), worldQuery, *child, nullptr);
-	if (osg)
-	{
-		doc->markFollowAttachmentDirtyFromBackendMove(doc->backend(), childId);
 		runBackendFollowSolveAndSync(*doc, *osg);
 	}
-	doc->invalidateFollowReverseIndex();
 }
 
 void MainWindow::afterBackendFollowPropertyEdited(const QString& propertyKey, const QString& valueText)
@@ -982,7 +881,7 @@ void MainWindow::onNewDocument()
 	}
 	auto* page = new DocumentPage(m_documentTabs, m_appEvents);
 	wireDocumentPageSignals(page);
-	if (OsgWidget* osg = page->osgWidget())
+	if (OsgWidget* osg = widgetOsgFromPage(page))
 	{
 		osg->setViewerBackgroundForDarkUi(viewerUsesDarkBackground());
 	}

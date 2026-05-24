@@ -102,6 +102,21 @@
     <ClInclude Include="inc\adapters\DataServiceAdapter.h" />
     <ClInclude Include="inc\adapters\OsgRenderViewAdapter.h" />
     <ClInclude Include="inc\adapters\RobotServiceAdapter.h" />
+    <ClInclude Include="inc\IRobotUrdfImportContext.h" />
+    <ClInclude Include="inc\UrdfRobotImport.h" />
+    <ClInclude Include="inc\BackendFileImport.h" />
+    <ClInclude Include="inc\BackendProjectObjectIo.h" />
+    <ClInclude Include="inc\DocumentHostEvents.h" />
+    <ClInclude Include="inc\RobotPlanInstruction.h" />
+    <ClInclude Include="inc\RobotProgramJsonIo.h" />
+    <ClInclude Include="inc\RobotProjectKinematicsRestore.h" />
+    <ClInclude Include="inc\BackendHierarchyFollow.h" />
+    <ClInclude Include="inc\HierarchyMeshImport.h" />
+    <ClInclude Include="inc\DocumentImportFacade.h" />
+    <ClInclude Include="inc\BackendFollowSolve.h" />
+    <ClInclude Include="inc\ProjectPackageIo.h" />
+    <ClInclude Include="inc\BackendVisualSync.h" />
+    <ClInclude Include="inc\AnnotationProjectIo.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\pch.cpp">
@@ -113,6 +128,20 @@
     <ClCompile Include="source\adapters\DataServiceAdapter.cpp" />
     <ClCompile Include="source\adapters\OsgRenderViewAdapter.cpp" />
     <ClCompile Include="source\adapters\RobotServiceAdapter.cpp" />
+    <ClCompile Include="source\UrdfRobotImport.cpp" />
+    <ClCompile Include="source\BackendFileImport.cpp" />
+    <ClCompile Include="source\BackendProjectObjectIo.cpp" />
+    <ClCompile Include="source\DocumentHostEvents.cpp" />
+    <ClCompile Include="source\RobotPlanInstruction.cpp" />
+    <ClCompile Include="source\RobotProgramJsonIo.cpp" />
+    <ClCompile Include="source\RobotProjectKinematicsRestore.cpp" />
+    <ClCompile Include="source\BackendHierarchyFollow.cpp" />
+    <ClCompile Include="source\HierarchyMeshImport.cpp" />
+    <ClCompile Include="source\DocumentImportFacade.cpp" />
+    <ClCompile Include="source\BackendFollowSolve.cpp" />
+    <ClCompile Include="source\ProjectPackageIo.cpp" />
+    <ClCompile Include="source\BackendVisualSync.cpp" />
+    <ClCompile Include="source\AnnotationProjectIo.cpp" />
     <ClCompile Include="source\CloudSimHostExport.cpp" />
     <ClCompile Include="source\CloudSimApplicationContext.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\BackendFollowReverseIndex.cpp" />

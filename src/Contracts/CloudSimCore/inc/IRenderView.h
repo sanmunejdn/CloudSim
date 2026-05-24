@@ -34,6 +34,11 @@ public:
 	virtual void clearPickHandler() = 0;
 
 	virtual void requestRedraw() = 0;
+
+	/// 聚合逻辑子树包围球并移动轨道相机
+	virtual void focusCameraOnBackend(const ObjectId& id) = 0;
+	/// 仅 Data 逻辑父链，不 reparent OSG 节点
+	virtual void setBackendLogicalParent(const ObjectId& childId, const ObjectId& parentId) = 0;
 };
 
 class CLOUDSIM_CORE_EXPORT IRenderViewFactory

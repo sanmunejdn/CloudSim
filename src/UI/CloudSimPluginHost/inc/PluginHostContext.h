@@ -56,6 +56,9 @@ public:
 	bool registerTriangleMesh(const std::vector<float>& triangleSoup, const PluginMeshCreateOptions& options,
 		QString* outError) override;
 
+	std::string importFileIntoActiveDocument(const std::string& pathUtf8, bool isPointCloud,
+		std::string* outError) override;
+
 	MainWindow* mainWindow() const { return m_mainWindow; }
 
 private:

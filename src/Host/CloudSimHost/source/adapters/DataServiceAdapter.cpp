@@ -1,7 +1,15 @@
 #include "adapters/DataServiceAdapter.h"
 
-#include "BackendDataManager.h"
+#include "DocumentHost.h"
+#include "DocumentHostAccess.h"
+
 #include "BackendDataBase.h"
+#include "BackendDataManager.h"
+#include "BackendFileImport.h"
+#include "BackendVisualSync.h"
+#include "DocumentImportFacade.h"
+#include "BackendProjectObjectIo.h"
+#include "OsgWidget.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryBuiltins.h"
 
@@ -10,16 +18,25 @@
 
 namespace cloudsim::host {
 
-DataServiceAdapter::DataServiceAdapter(BackendDataManager& backend) : m_backend(backend) {}
+DataServiceAdapter::DataServiceAdapter(DocumentHost& host) : m_host(host) {}
+
+namespace {
+
+BackendDataManager& backendOf(DocumentHost& host)
+{
+	return host.backend();
+}
+
+} // namespace
 
 bool DataServiceAdapter::isValid(const core::ObjectId& id) const
 {
-	return !id.isEmpty() && m_backend.contains(id.toStdString());
+	return !id.isEmpty() && backendOf(m_host).contains(id.toStdString());
 }
 
 void DataServiceAdapter::clear()
 {
-	m_backend.clear();
+	backendOf(m_host).clear();
 }
 
 core::ObjectId DataServiceAdapter::registerObject(const core::RegisterObjectDto& meta, QString* outError)
@@ -33,7 +50,7 @@ core::ObjectId DataServiceAdapter::registerObject(const core::RegisterObjectDto&
 		return {};
 	}
 	obj->setName(meta.name.toStdString());
-	if (!m_backend.registerData(obj))
+	if (!backendOf(m_host).registerData(obj))
 	{
 		if (outError)
 			*outError = QStringLiteral("registerData failed");
@@ -46,18 +63,18 @@ core::ObjectId DataServiceAdapter::registerObject(const core::RegisterObjectDto&
 
 bool DataServiceAdapter::unregisterSubtree(const core::ObjectId& id, QString* outError)
 {
-	if (!isValid(id))
+	(void)outError;
+	if (id.isEmpty())
+	{
 		return true;
-	const std::vector<std::string> subtree = m_backend.descendantsOf(id.toStdString());
-	for (const std::string& cid : subtree)
-		m_backend.unregisterData(cid);
-	m_backend.unregisterData(id.toStdString());
-	return true;
+	}
+	const QStringList removed = m_host.removeBackendSubtree(id);
+	return !removed.isEmpty() || !isValid(id);
 }
 
 core::ObjectId DataServiceAdapter::findByName(const QString& name) const
 {
-	const auto list = m_backend.findByName(name.toStdString());
+	const auto list = backendOf(m_host).findByName(name.toStdString());
 	if (list.empty())
 		return {};
 	return QString::fromStdString(list.front()->id());
@@ -65,27 +82,27 @@ core::ObjectId DataServiceAdapter::findByName(const QString& name) const
 
 QString DataServiceAdapter::className(const core::ObjectId& id) const
 {
-	const auto obj = m_backend.getData(id.toStdString());
+	const auto obj = backendOf(m_host).getData(id.toStdString());
 	return obj ? QString::fromStdString(obj->className()) : QString();
 }
 
 QString DataServiceAdapter::displayName(const core::ObjectId& id) const
 {
-	const auto obj = m_backend.getData(id.toStdString());
+	const auto obj = backendOf(m_host).getData(id.toStdString());
 	return obj ? QString::fromStdString(obj->name()) : QString();
 }
 
 QVector<core::ObjectId> DataServiceAdapter::listChildren(const core::ObjectId& parentId) const
 {
 	QVector<core::ObjectId> out;
-	for (const std::string& c : m_backend.childrenOf(parentId.toStdString()))
+	for (const std::string& c : backendOf(m_host).childrenOf(parentId.toStdString()))
 		out.append(QString::fromStdString(c));
 	return out;
 }
 
 bool DataServiceAdapter::attachChild(const core::ObjectId& parentId, const core::ObjectId& childId, QString* outError)
 {
-	if (!m_backend.attachChild(parentId.toStdString(), childId.toStdString()))
+	if (!backendOf(m_host).attachChild(parentId.toStdString(), childId.toStdString()))
 	{
 		if (outError)
 			*outError = QStringLiteral("attachChild failed");
@@ -97,10 +114,10 @@ bool DataServiceAdapter::attachChild(const core::ObjectId& parentId, const core:
 QVector<core::PropertyRowDto> DataServiceAdapter::propertyRows(const core::ObjectId& id) const
 {
 	QVector<core::PropertyRowDto> rows;
-	const auto obj = m_backend.getData(id.toStdString());
+	const auto obj = backendOf(m_host).getData(id.toStdString());
 	if (!obj)
 		return rows;
-	const nlohmann::json j = obj->snapshotPropertyRows(&m_backend);
+	const nlohmann::json j = obj->snapshotPropertyRows(&backendOf(m_host));
 	if (!j.is_array())
 		return rows;
 	for (const auto& row : j)
@@ -118,7 +135,7 @@ QVector<core::PropertyRowDto> DataServiceAdapter::propertyRows(const core::Objec
 bool DataServiceAdapter::applyPropertyChange(const core::ObjectId& id, const QString& key, const QString& value,
 	QString* outError)
 {
-	const auto obj = m_backend.getData(id.toStdString());
+	const auto obj = backendOf(m_host).getData(id.toStdString());
 	if (!obj)
 	{
 		if (outError)
@@ -126,19 +143,20 @@ bool DataServiceAdapter::applyPropertyChange(const core::ObjectId& id, const QSt
 		return false;
 	}
 	std::string err;
-	if (!obj->applyPropertyChange(key.toStdString(), value.toStdString(), &err, &m_backend))
+	if (!obj->applyPropertyChange(key.toStdString(), value.toStdString(), &err, &backendOf(m_host)))
 	{
 		if (outError)
 			*outError = QString::fromStdString(err);
 		return false;
 	}
+	afterDataServicePropertyChange(m_host, *obj, key);
 	return true;
 }
 
 core::BBoxDto DataServiceAdapter::boundingBox(const core::ObjectId& id) const
 {
 	core::BBoxDto box;
-	const auto obj = m_backend.getData(id.toStdString());
+	const auto obj = backendOf(m_host).getData(id.toStdString());
 	if (!obj)
 		return box;
 	const BackendBoundingBox bb = obj->geometryBounds();
@@ -154,13 +172,16 @@ core::BBoxDto DataServiceAdapter::boundingBox(const core::ObjectId& id) const
 
 bool DataServiceAdapter::hasVisualBranch(const core::ObjectId& id) const
 {
-	(void)id;
-	return false;
+	if (id.isEmpty() || !osgWidgetFrom(m_host))
+	{
+		return false;
+	}
+	return osgWidgetFrom(m_host)->hasBackendObjectBranch(id.toStdString());
 }
 
 QJsonObject DataServiceAdapter::saveObjectToJson(const core::ObjectId& id) const
 {
-	const auto obj = m_backend.getData(id.toStdString());
+	const auto obj = backendOf(m_host).getData(id.toStdString());
 	if (!obj)
 		return {};
 	const nlohmann::json j = obj->saveToJson();
@@ -172,28 +193,17 @@ QJsonObject DataServiceAdapter::saveObjectToJson(const core::ObjectId& id) const
 
 core::ObjectId DataServiceAdapter::loadObjectFromJson(const QJsonObject& objectJson, QString* outError)
 {
-	ensureBackendBuiltinsRegistered();
-	const QString className = objectJson.value(QStringLiteral("className")).toString();
-	auto obj = BackendRegistry::instance().create(className.toStdString());
-	if (!obj)
+	std::shared_ptr<BackendDataBase> obj;
+	if (!decodeBackendObjectFromProjectJson(objectJson, obj, outError))
 	{
-		if (outError)
-			*outError = QStringLiteral("create failed for className");
 		return {};
 	}
-	const QJsonDocument doc(objectJson);
-	const std::string jsonStd = doc.toJson(QJsonDocument::Compact).toStdString();
-	nlohmann::json j = nlohmann::json::parse(jsonStd, nullptr, false);
-	if (j.is_discarded() || !obj->loadFromJson(j))
+	const QString sourcePath = objectJson.value(QStringLiteral("sourcePath")).toString();
+	const QString sourceType = objectJson.value(QStringLiteral("sourceType")).toString();
+	const QString parentId = objectJson.value(QStringLiteral("parentId")).toString();
+	const QString catalogType = sourceType.isEmpty() ? QStringLiteral("Model") : sourceType;
+	if (!registerAdoptedBackendObject(m_host, obj, sourcePath, catalogType, parentId, outError))
 	{
-		if (outError)
-			*outError = QStringLiteral("loadFromJson failed");
-		return {};
-	}
-	if (!m_backend.registerData(obj))
-	{
-		if (outError)
-			*outError = QStringLiteral("registerData failed");
 		return {};
 	}
 	return QString::fromStdString(obj->id());
@@ -202,11 +212,9 @@ core::ObjectId DataServiceAdapter::loadObjectFromJson(const QJsonObject& objectJ
 core::ObjectId DataServiceAdapter::importFromFile(const QString& path, const core::ImportOptionsDto& options,
 	QString* outError)
 {
-	(void)path;
-	(void)options;
-	if (outError)
-		*outError = QStringLiteral("importFromFile: use Widget registerBackendObject path");
-	return {};
+	const ImportFileKind kind = options.isPointCloud ? ImportFileKind::PointCloud : ImportFileKind::Mesh;
+	const ImportFileResult imported = importFileIntoDocument(m_host, path, kind, options, outError);
+	return imported.ok ? imported.rootBackendId : QString();
 }
 
 } // namespace cloudsim::host

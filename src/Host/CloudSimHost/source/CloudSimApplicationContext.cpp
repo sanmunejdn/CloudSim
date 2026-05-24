@@ -12,6 +12,7 @@
 
 namespace cloudsim::core {
 
+/// 进程级组合根：全局 EventHub、渲染工厂与活动文档指针；由 cloudsimCreateApplicationContext 构造
 class ApplicationContextImpl final : public ICloudSimContext
 {
 public:
@@ -41,7 +42,7 @@ private:
 
 namespace {
 
-std::unique_ptr<cloudsim::core::ICloudSimContext> g_applicationContext;
+std::unique_ptr<cloudsim::core::ICloudSimContext> g_applicationContext;  // main 注入，进程单例
 
 } // namespace
 

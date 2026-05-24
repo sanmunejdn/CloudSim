@@ -4,19 +4,26 @@
 #include "adapters/OsgRenderViewAdapter.h"
 #include "adapters/RobotServiceAdapter.h"
 
+#include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFollowReverseIndex.h"
+#include "FollowAttachmentComponent.h"
 #include "BackendHierarchyModel.h"
 #include "MeshBackendData.h"
+#include "PointCloudBackendData.h"
 #include "OsgWidget.h"
 #include "HostRenderViewFactory.h"
 #include "OsgWidgetSceneBridge.h"
+#include "BackendFileImport.h"
+#include "DocumentHostEvents.h"
+#include "IRobotUrdfImportContext.h"
 #include "RobotProgramStore.h"
 
 #include <QVBoxLayout>
 
 namespace cloudsim::host {
 
+// Data → OSG → 三适配器；适配器只持引用，不接管所有权
 DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, const QString& documentId)
 	: QWidget(parent)
 	, m_documentId(documentId)
@@ -35,9 +42,19 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 	m_sceneBridge.setOsgWidget(m_osgWidget);
 	layout->addWidget(m_osgWidget);
 
-	m_dataService = std::make_unique<DataServiceAdapter>(*m_backend);
-	m_robotService = std::make_unique<RobotServiceAdapter>(*m_robotProgramStore);
+	m_dataService = std::make_unique<DataServiceAdapter>(*this);
+	m_robotService = std::make_unique<RobotServiceAdapter>(*this, *m_robotProgramStore);
 	m_renderView = std::make_unique<OsgRenderViewAdapter>(*m_osgWidget);
+}
+
+void DocumentHost::setRobotUrdfImportContext(IRobotUrdfImportContext* context)
+{
+	m_robotUrdfImportContext = context;
+}
+
+IRobotUrdfImportContext* DocumentHost::robotUrdfImportContext() const
+{
+	return m_robotUrdfImportContext;
 }
 
 DocumentHost::~DocumentHost() = default;
@@ -62,9 +79,9 @@ cloudsim::core::IRenderView& DocumentHost::render()
 	return *m_renderView;
 }
 
-OsgWidget* DocumentHost::osgWidget() const
+cloudsim::core::EventHub& DocumentHost::events()
 {
-	return m_osgWidget;
+	return m_events;
 }
 
 BackendDataManager& DocumentHost::backend()
@@ -83,6 +100,11 @@ RobotProgramStore& DocumentHost::robotProgramStore()
 }
 
 BackendHierarchyModel& DocumentHost::hierarchyModel()
+{
+	return *m_hierarchyModel;
+}
+
+const BackendHierarchyModel& DocumentHost::hierarchyModel() const
 {
 	return *m_hierarchyModel;
 }
@@ -133,8 +155,13 @@ QStringList DocumentHost::removeBackendSubtree(const QString& rootBackendId)
 		m_backendParentId.remove(id);
 		m_backendSourcePath.remove(id);
 		m_backendSourceType.remove(id);
+		if (m_osgWidget)
+		{
+			m_osgWidget->removeBackendObjectVisual(id.toStdString());
+		}
+		publishBackendObjectRemoved(*this, id);
 	}
-	m_followReverseIndex.invalidate();
+	m_followReverseIndex.invalidate(); // 子树删除后 follower 拓扑可能断裂
 	return ids;
 }
 
@@ -151,6 +178,71 @@ const QString& DocumentHost::projectFilePath() const
 std::unordered_set<std::string>& DocumentHost::followDirtyBackendIds()
 {
 	return m_followDirtyBackendIds;
+}
+
+void DocumentHost::markFollowAttachmentDirtyFromBackendMove(const std::string& seed)
+{
+	if (seed.empty())
+	{
+		return;
+	}
+	BackendDataManager& mgr = backend();
+	// 沿 follower 链 + Data 子节点传播脏标记，供增量 Follow 写回
+	std::unordered_map<std::string, std::vector<std::string>> targetToFollowers;
+	for (const auto& d : mgr.listData())
+	{
+		if (!d)
+		{
+			continue;
+		}
+		const auto comp = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+			d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
+		if (!comp || !comp->enabled())
+		{
+			continue;
+		}
+		const std::string tid = comp->targetBackendId();
+		if (tid.empty() || tid == d->id())
+		{
+			continue;
+		}
+		if (!mgr.contains(tid))
+		{
+			continue;
+		}
+		targetToFollowers[tid].push_back(d->id());
+	}
+
+	std::vector<std::string> stack;
+	stack.push_back(seed);
+	std::unordered_set<std::string> visited;
+	while (!stack.empty())
+	{
+		const std::string u = stack.back();
+		stack.pop_back();
+		if (!visited.insert(u).second)
+		{
+			continue;
+		}
+		m_followDirtyBackendIds.insert(u);
+		const auto itF = targetToFollowers.find(u);
+		if (itF != targetToFollowers.end())
+		{
+			for (const std::string& f : itF->second)
+			{
+				stack.push_back(f);
+			}
+		}
+		for (const std::string& c : mgr.childrenOf(u))
+		{
+			stack.push_back(c);
+		}
+	}
+}
+
+void DocumentHost::invalidateFollowReverseIndex()
+{
+	m_followReverseIndex.invalidate();
 }
 
 void DocumentHost::clearFollowDirtyBackendIds()

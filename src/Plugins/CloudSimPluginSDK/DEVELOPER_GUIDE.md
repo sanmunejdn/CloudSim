@@ -7,6 +7,8 @@
 ## 版本
 
 - 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00010100` = 1.1.0，含 `sidePanelTabParent` / `registerSidePanelTab(const char*)` ABI）
+- `IPluginDocument`：`documentId()`、`removeBackendObject()`（走 Host `IDataService`）
+- `IPluginHostContext`：`importFileIntoActiveDocument()` → 宿主 `DocumentImportFacade::importFileIntoDocument`；`createPrimitiveMesh` / `registerTriangleMesh` → `registerAdoptedMesh`
 - 清单 `plugin.json` 中 `minHostVersion` 使用字符串 `"1.0.0"`
 - 运行时调用 `IPluginHostContext::hostVersion()` 比对
 
@@ -56,10 +58,13 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 | `unregisterSidePanelTab` | 移除页签（`shutdown` 时调用） |
 | `registerDockWidget` | 浮动 Dock（勿用 `Right`，会与工作区重叠） |
 | `registerMenuPath` / `registerAction` | 菜单与动作 |
-| `createPrimitiveMesh` | Phase 1：box/cylinder/cone/sphere |
-| `registerBackendType` | Phase 2：自定义 `className` |
-| `registerTriangleMesh` | Phase 2：三角 soup 注册网格 |
+| `importFileIntoActiveDocument` | 活动文档导入文件；返回 root `backendId`（UTF-8） |
+| `createPrimitiveMesh` | box/cylinder/cone/sphere → Host 注册 + OSG |
+| `registerBackendType` | 自定义 `className`（`PluginDelegatedBackend`） |
+| `registerTriangleMesh` | 三角 soup → `registerAdoptedMesh` |
 | `enqueueJob` / `invokeOnUiThread` | 线程边界 |
+
+宿主实现细节：[`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)。
 
 ## 线程
 
@@ -68,4 +73,4 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 
 ## 示例
 
-见 `src/Plugins/HelloPlugin/`。
+见 [`HelloPlugin/DEVELOPER_GUIDE.md`](../HelloPlugin/DEVELOPER_GUIDE.md)（`plugin.json`、侧栏页签、`createPrimitiveMesh` 流程）。

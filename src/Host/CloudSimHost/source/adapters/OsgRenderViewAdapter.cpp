@@ -21,6 +21,7 @@ const QWidget* OsgRenderViewAdapter::widget() const
 void OsgRenderViewAdapter::setWorldMatrix(const core::ObjectId& id, const core::Mat4& columnMajor)
 {
 	osg::Matrixd m;
+	// 列主序 Mat4 透传
 	for (int i = 0; i < 16; ++i)
 		m.ptr()[i] = columnMajor[static_cast<size_t>(i)];
 	m_widget.setBackendRootWorldMatrixFromWorld(id.toStdString(), m);
@@ -69,6 +70,16 @@ void OsgRenderViewAdapter::clearPickHandler()
 void OsgRenderViewAdapter::requestRedraw()
 {
 	m_widget.requestRedraw();
+}
+
+void OsgRenderViewAdapter::focusCameraOnBackend(const core::ObjectId& id)
+{
+	m_widget.focusCameraOnBackend(id.toStdString());
+}
+
+void OsgRenderViewAdapter::setBackendLogicalParent(const core::ObjectId& childId, const core::ObjectId& parentId)
+{
+	m_widget.setBackendLogicalParent(childId.toStdString(), parentId.toStdString());
 }
 
 } // namespace cloudsim::host

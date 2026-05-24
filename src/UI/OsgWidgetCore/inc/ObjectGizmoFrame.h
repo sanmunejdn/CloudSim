@@ -7,8 +7,7 @@
 #include <osg/Quat>
 #include <osg/Vec3f>
 
-/// Single source of truth for object gizmo pose: outer branch uses \c T(center+pose) * R
-/// (same convention as \c MeshBackendVisual::buildOuterBranch). Row-vector OSG convention.
+/// 对象变换罗盘位姿单一来源：外层 \c T(center+pose)*R（与 \c MeshBackendVisual::buildOuterBranch 一致，行向量 OSG）
 class OSGWIDGETCORE_EXPORT ObjectGizmoFrame
 {
 public:

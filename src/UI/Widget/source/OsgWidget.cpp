@@ -705,6 +705,11 @@ void OsgWidget::setBackendParent(const std::string& backendId, const std::string
 	OsgWidgetTransformHierarchyController::setBackendParent(*this, backendId, parentBackendId);
 }
 
+void OsgWidget::setBackendLogicalParent(const std::string& backendId, const std::string& parentBackendId)
+{
+	OsgScene::setBackendLogicalParent(backendId, parentBackendId);
+}
+
 void OsgWidget::removeBackendObjectVisual(const std::string& backendId)
 {
 	OsgWidgetTransformHierarchyController::removeBackendObjectVisual(*this, backendId);

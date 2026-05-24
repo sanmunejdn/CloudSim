@@ -14,7 +14,9 @@
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BackendHierarchyModel.h"
 #include "DocumentPage.h"
+#include "IDataService.h"
 #include "MainWindow_p.h"
 #include "MainWindowSelectionService.h"
 #include "MeshBackendData.h"
@@ -38,19 +40,148 @@ using namespace mainwindow_detail;
 namespace
 {
 
-QString osgNodeLine(const osg::Node* node)
+const QHash<QString, QString>& osgClassNameZhMap()
+{
+	static const QHash<QString, QString> map = {
+		{QStringLiteral("Group"), QStringLiteral("组")},
+		{QStringLiteral("MatrixTransform"), QStringLiteral("矩阵变换")},
+		{QStringLiteral("PositionAttitudeTransform"), QStringLiteral("位姿变换")},
+		{QStringLiteral("Geode"), QStringLiteral("几何节点")},
+		{QStringLiteral("Geometry"), QStringLiteral("几何体")},
+		{QStringLiteral("Camera"), QStringLiteral("相机")},
+		{QStringLiteral("AutoTransform"), QStringLiteral("自动变换")},
+		{QStringLiteral("Switch"), QStringLiteral("开关节点")},
+		{QStringLiteral("LOD"), QStringLiteral("细节层次")},
+		{QStringLiteral("LightSource"), QStringLiteral("光源")},
+	};
+	return map;
+}
+
+const QHash<QString, QString>& osgNodeNameZhMap()
+{
+	static const QHash<QString, QString> map = {
+		{QStringLiteral("SceneContent"), QStringLiteral("场景内容")},
+		{QStringLiteral("BackendObjects"), QStringLiteral("后端对象")},
+		{QStringLiteral("RobotAssembly"), QStringLiteral("机器人装配")},
+		{QStringLiteral("TrajectoryOverlay"), QStringLiteral("轨迹叠加层")},
+		{QStringLiteral("TcpTeachSceneOverlay"), QStringLiteral("TCP示教场景叠加")},
+		{QStringLiteral("GizmoOverlay"), QStringLiteral("变换罗盘叠加")},
+		{QStringLiteral("Annotations"), QStringLiteral("注释")},
+		{QStringLiteral("InstructionPoseAxes"), QStringLiteral("指令位姿轴")},
+		{QStringLiteral("LINE_TargetAxis"), QStringLiteral("直线目标轴")},
+		{QStringLiteral("PTP_TargetAxis"), QStringLiteral("点到点目标轴")},
+		{QStringLiteral("TcpTeachCompass"), QStringLiteral("TCP示教罗盘")},
+		{QStringLiteral("TcpTeachMount"), QStringLiteral("TCP示教挂载")},
+		{QStringLiteral("TcpTeachWorld"), QStringLiteral("TCP示教世界")},
+		{QStringLiteral("TcpTeachGizmoOverlay"), QStringLiteral("TCP示教罗盘叠加")},
+		{QStringLiteral("RobotHierarchy"), QStringLiteral("机器人层级")},
+		{QStringLiteral("meshWireOverlay"), QStringLiteral("网格线框叠加")},
+		{QStringLiteral("RosZUp_to_OsgYUp"), QStringLiteral("ROS Z上→OSG Y上")},
+		{QStringLiteral("LinkFrameAxes"), QStringLiteral("连杆坐标轴")},
+		{QStringLiteral("JointRotationAxis"), QStringLiteral("关节旋转轴")},
+		{QStringLiteral("PointCloud"), QStringLiteral("点云")},
+		{QStringLiteral("Model"), QStringLiteral("模型")},
+	};
+	return map;
+}
+
+QString translateOsgClassName(const QString& cls, bool useChinese)
+{
+	if (!useChinese)
+	{
+		return cls;
+	}
+	return osgClassNameZhMap().value(cls, cls);
+}
+
+QString translateOsgNodeName(const QString& name, bool useChinese)
+{
+	if (!useChinese || name.isEmpty())
+	{
+		return name;
+	}
+	const auto exact = osgNodeNameZhMap().constFind(name);
+	if (exact != osgNodeNameZhMap().constEnd())
+	{
+		return exact.value();
+	}
+	if (name.startsWith(QStringLiteral("RobotToolFrame_")))
+	{
+		return QStringLiteral("机器人工具坐标系_") + name.mid(15);
+	}
+	if (name.startsWith(QStringLiteral("RobotUserFrame_")))
+	{
+		return QStringLiteral("机器人用户坐标系_") + name.mid(15);
+	}
+	if (name.startsWith(QStringLiteral("Joint")) && name.length() > 5)
+	{
+		bool ok = false;
+		name.mid(5).toInt(&ok);
+		if (ok)
+		{
+			return QStringLiteral("关节") + name.mid(5);
+		}
+	}
+	if (name.startsWith(QStringLiteral("Link")) && name.length() > 4)
+	{
+		bool ok = false;
+		name.mid(4).toInt(&ok);
+		if (ok)
+		{
+			return QStringLiteral("连杆") + name.mid(4);
+		}
+	}
+	if (name.startsWith(QStringLiteral("Axis_Visual_")))
+	{
+		return QStringLiteral("轴可视化_") + name.mid(12);
+	}
+	auto replaceSuffix = [&name](const QString& enSuffix, const QString& zhSuffix) -> QString {
+		if (name.endsWith(enSuffix))
+		{
+			return name.left(name.size() - enSuffix.size()) + zhSuffix;
+		}
+		return QString();
+	};
+	if (QString r = replaceSuffix(QStringLiteral("_JointContent"), QStringLiteral("_关节内容")); !r.isEmpty())
+	{
+		return r;
+	}
+	if (QString r = replaceSuffix(QStringLiteral("_OriginMarker"), QStringLiteral("_原点标记")); !r.isEmpty())
+	{
+		return r;
+	}
+	if (QString r = replaceSuffix(QStringLiteral("_BackendVisual"), QStringLiteral("_后端可视化")); !r.isEmpty())
+	{
+		return r;
+	}
+	if (QString r = replaceSuffix(QStringLiteral("_Geometry"), QStringLiteral("_几何")); !r.isEmpty())
+	{
+		return r;
+	}
+	if (QString r = replaceSuffix(QStringLiteral("_Container"), QStringLiteral("_容器")); !r.isEmpty())
+	{
+		return r;
+	}
+	if (QString r = replaceSuffix(QStringLiteral("_Visual"), QStringLiteral("_可视化")); !r.isEmpty())
+	{
+		return r;
+	}
+	return name;
+}
+
+QString osgNodeLine(const osg::Node* node, bool useChinese)
 {
 	if (!node)
 	{
-		return QStringLiteral("(null)");
+		return useChinese ? QStringLiteral("（空）") : QStringLiteral("(null)");
 	}
-	const QString cls = QString::fromLatin1(node->className());
+	const QString cls = translateOsgClassName(QString::fromLatin1(node->className()), useChinese);
 	const std::string& nm = node->getName();
 	if (nm.empty())
 	{
 		return cls;
 	}
-	return cls + QStringLiteral(" — ") + QString::fromStdString(nm);
+	return cls + QStringLiteral(" — ") + translateOsgNodeName(QString::fromStdString(nm), useChinese);
 }
 
 QString formatMatrix4(const osg::Matrixd& m)
@@ -77,7 +208,7 @@ QString formatMatrix4(const osg::Matrixd& m)
 }
 
 /// Local transform stored on this node (not accumulated world matrix). Non-transform nodes: em dash.
-QString localMatrixSummary(const osg::Node* node)
+QString localMatrixSummary(const osg::Node* node, bool useChinese)
 {
 	if (!node)
 	{
@@ -85,6 +216,12 @@ QString localMatrixSummary(const osg::Node* node)
 	}
 	if (const auto* cam = dynamic_cast<const osg::Camera*>(node))
 	{
+		if (useChinese)
+		{
+			return QStringLiteral("视图:\n%1\n投影:\n%2")
+				.arg(formatMatrix4(cam->getViewMatrix()))
+				.arg(formatMatrix4(cam->getProjectionMatrix()));
+		}
 		return QStringLiteral("View:\n%1\nProj:\n%2")
 			.arg(formatMatrix4(cam->getViewMatrix()))
 			.arg(formatMatrix4(cam->getProjectionMatrix()));
@@ -108,20 +245,20 @@ QString localMatrixSummary(const osg::Node* node)
 	return QStringLiteral("—");
 }
 
-void appendOsgNodeRecursive(QTreeWidgetItem* parent, osg::Node* node, int depthLeft)
+void appendOsgNodeRecursive(QTreeWidgetItem* parent, osg::Node* node, int depthLeft, bool useChinese)
 {
 	if (!node || depthLeft <= 0)
 	{
 		return;
 	}
-	auto* item = new QTreeWidgetItem(QStringList() << osgNodeLine(node) << localMatrixSummary(node));
+	auto* item = new QTreeWidgetItem(QStringList() << osgNodeLine(node, useChinese) << localMatrixSummary(node, useChinese));
 	parent->addChild(item);
 
 	if (osg::Group* g = node->asGroup())
 	{
 		for (unsigned i = 0; i < g->getNumChildren(); ++i)
 		{
-			appendOsgNodeRecursive(item, g->getChild(i), depthLeft - 1);
+			appendOsgNodeRecursive(item, g->getChild(i), depthLeft - 1, useChinese);
 		}
 		return;
 	}
@@ -134,26 +271,77 @@ void appendOsgNodeRecursive(QTreeWidgetItem* parent, osg::Node* node, int depthL
 	for (unsigned i = 0; i < geode->getNumDrawables(); ++i)
 	{
 		osg::Drawable* d = geode->getDrawable(i);
-		QString line = QStringLiteral("Drawable: ");
+		QString line = useChinese ? QStringLiteral("可绘制体：") : QStringLiteral("Drawable: ");
 		if (d)
 		{
-			line += QString::fromLatin1(d->className());
+			line += translateOsgClassName(QString::fromLatin1(d->className()), useChinese);
 			const std::string& dn = d->getName();
 			if (!dn.empty())
 			{
-				line += QStringLiteral(" — ") + QString::fromStdString(dn);
+				line += QStringLiteral(" — ") + translateOsgNodeName(QString::fromStdString(dn), useChinese);
 			}
 		}
 		else
 		{
-			line += QStringLiteral("(null)");
+			line += useChinese ? QStringLiteral("（空）") : QStringLiteral("(null)");
 		}
 		item->addChild(new QTreeWidgetItem(QStringList()
 			<< line << QStringLiteral("—")));
 	}
 }
 
+QStringList collectSubtreeBackendIds(const DocumentPage& doc, const QString& rootBackendId)
+{
+	QStringList ids;
+	if (rootBackendId.isEmpty())
+	{
+		return ids;
+	}
+	const std::string rootStd = rootBackendId.toStdString();
+	const std::vector<std::string> subtree = doc.hierarchyModel().subtreeIds(rootStd);
+	if (subtree.empty() && doc.backend().contains(rootStd))
+	{
+		ids.append(rootBackendId);
+	}
+	else
+	{
+		for (const std::string& id : subtree)
+		{
+			ids.append(QString::fromStdString(id));
+		}
+	}
+	return ids;
+}
+
 } // namespace
+
+void MainWindow::beginBackendTreeEventRefreshSuppress()
+{
+	++m_backendTreeEventRefreshSuppress;
+}
+
+void MainWindow::endBackendTreeEventRefreshSuppress()
+{
+	if (m_backendTreeEventRefreshSuppress > 0)
+	{
+		--m_backendTreeEventRefreshSuppress;
+	}
+}
+
+MainWindow::ScopedBackendTreeRefreshSuppress::ScopedBackendTreeRefreshSuppress(MainWindow& mw) : m_mw(mw)
+{
+	m_mw.beginBackendTreeEventRefreshSuppress();
+}
+
+MainWindow::ScopedBackendTreeRefreshSuppress::~ScopedBackendTreeRefreshSuppress()
+{
+	m_mw.endBackendTreeEventRefreshSuppress();
+}
+
+void MainWindow::focusBackendInTreeAfterImport(const std::shared_ptr<BackendDataBase>& backendObject)
+{
+	focusBackendInTree(backendObject);
+}
 
 void MainWindow::refreshBackendTree()
 {
@@ -288,6 +476,7 @@ void MainWindow::refreshOsgSceneTree()
 	{
 		return;
 	}
+	const bool useChinese = m_useChinese;
 	m_osgSceneTree->clear();
 	OsgWidget* osg = currentOsgWidget();
 	const osg::Group* root = osg ? osg->sceneGraphRoot() : nullptr;
@@ -298,12 +487,12 @@ void MainWindow::refreshOsgSceneTree()
 		return;
 	}
 
-	auto* rootItem = new QTreeWidgetItem(QStringList() << osgNodeLine(root) << localMatrixSummary(root));
+	auto* rootItem = new QTreeWidgetItem(QStringList() << osgNodeLine(root, useChinese) << localMatrixSummary(root, useChinese));
 	m_osgSceneTree->addTopLevelItem(rootItem);
 	osg::Group* rootRw = const_cast<osg::Group*>(root);
 	for (unsigned i = 0; i < rootRw->getNumChildren(); ++i)
 	{
-		appendOsgNodeRecursive(rootItem, rootRw->getChild(i), 256);
+		appendOsgNodeRecursive(rootItem, rootRw->getChild(i), 256, useChinese);
 	}
 	rootItem->setExpanded(true);
 }
@@ -472,9 +661,18 @@ void MainWindow::removeBackendObjectFromDocument(const QString& backendId)
 	{
 		return;
 	}
-	const QStringList removed = doc->removeBackendSubtree(backendId);
+	const QStringList removed = collectSubtreeBackendIds(*doc, backendId);
 	if (removed.isEmpty())
 	{
+		return;
+	}
+	QString unregErr;
+	if (!doc->data().unregisterSubtree(backendId, &unregErr))
+	{
+		if (m_runInfoPage && !unregErr.isEmpty())
+		{
+			m_runInfoPage->appendWarning(unregErr);
+		}
 		return;
 	}
 	for (const QString& rid : removed)
@@ -486,15 +684,7 @@ void MainWindow::removeBackendObjectFromDocument(const QString& backendId)
 	{
 		stopRobotSimulation();
 	}
-	if (OsgWidget* osg = doc->osgWidget())
-	{
-		for (const QString& id : removed)
-		{
-			osg->removeBackendObjectVisual(id.toStdString());
-		}
-	}
 	MainWindowSelectionService::clearSelection(*this, true);
-	refreshBackendTree();
 	if (m_runInfoPage)
 	{
 		m_runInfoPage->appendInfo(

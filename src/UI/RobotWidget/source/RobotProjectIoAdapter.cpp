@@ -10,7 +10,7 @@
 namespace RobotProjectIo
 {
 
-void writeRobotKinematicsAndPrograms(
+void writeRobotKinematics(
 	QJsonObject& root,
 	IRobotDocumentHost* doc,
 	const QVector<double>* aggregatedJointAnglesRad)
@@ -99,40 +99,6 @@ void writeRobotKinematicsAndPrograms(
 			rk.insert(QStringLiteral("meshInLinkFrame"), true);
 		}
 		root.insert(QStringLiteral("robotKinematics"), rk);
-	}
-
-	QJsonArray programsArr;
-	for (auto it = doc->robotProgramStore().allPrograms().constBegin();
-		 it != doc->robotProgramStore().allPrograms().constEnd();
-		 ++it)
-	{
-		if (it.value().empty())
-		{
-			continue;
-		}
-		QJsonObject entry;
-		entry.insert(QStringLiteral("sceneBackendId"), it.key());
-		QJsonArray insArr;
-		for (const auto& ins : it.value())
-		{
-			if (!ins)
-			{
-				continue;
-			}
-			const nlohmann::json j = RobotInstruction::toJson(*ins);
-			const QByteArray raw = QByteArray::fromStdString(j.dump());
-			const QJsonDocument jdoc = QJsonDocument::fromJson(raw);
-			if (jdoc.isObject())
-			{
-				insArr.append(jdoc.object());
-			}
-		}
-		entry.insert(QStringLiteral("instructions"), insArr);
-		programsArr.append(entry);
-	}
-	if (!programsArr.isEmpty())
-	{
-		root.insert(QStringLiteral("robotPrograms"), programsArr);
 	}
 }
 

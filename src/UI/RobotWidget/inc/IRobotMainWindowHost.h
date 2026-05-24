@@ -12,6 +12,7 @@ class RunInfoPage;
 namespace RobotInstruction
 {
 struct FeasibleMotionAxisConfigurationOptions;
+struct PlanResult;
 class Base;
 }
 class SimulationCommandWidget;
@@ -61,4 +62,14 @@ public:
 		const RobotInstruction::FeasibleMotionAxisConfigurationOptions& feasible) = 0;
 
 	virtual bool registerUrdfRobot(const QString& urdfPath, bool quietUi) = 0;
+
+	virtual bool planRobotMotionInstruction(
+		RobotInstruction::Base& instruction,
+		const QVector<double>& seedJointRad,
+		int instanceIndex,
+		const QString& urdfPath,
+		const QString& defaultTcpLinkName,
+		const QString& sceneRootBackendId,
+		RobotInstruction::PlanResult& out,
+		std::string* outErr) = 0;
 };

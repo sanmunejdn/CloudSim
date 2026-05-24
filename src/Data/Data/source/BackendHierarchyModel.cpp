@@ -149,6 +149,11 @@ std::vector<std::string> BackendHierarchyModel::buildSubtreeBfs(const std::strin
 
 const std::vector<std::string>& BackendHierarchyModel::subtreeIds(const std::string& rootId)
 {
+	return const_cast<const BackendHierarchyModel*>(this)->subtreeIds(rootId);
+}
+
+const std::vector<std::string>& BackendHierarchyModel::subtreeIds(const std::string& rootId) const
+{
 	if (rootId.empty() || m_nodes.find(rootId) == m_nodes.end())
 	{
 		m_emptySubtree.clear();

@@ -61,6 +61,8 @@ public:
 	void setBackendsVisible(const std::vector<std::string>& backendIds, bool visible);
 
 	IRobotBackendPoseSink* poseSink() const;
+	/// 选中同步：加载缺失分支并 syncSelectionFromBackend
+	void ensureSelectionVisualForBackend(const BackendDataBase& data, bool urdfLinkMesh = false);
 	IBackendSceneBridge& bridge() const { return *m_bridge; }
 	BackendDataManager& backendManager() const { return *m_mgr; }
 	BackendFollowReverseIndex& followReverseIndex() const { return *m_followIndex; }

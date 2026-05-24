@@ -42,17 +42,14 @@ osg::BoundingSphere worldBoundOfBackendRoot(osg::MatrixTransform* root)
 		path.insert(path.begin(), n);
 	}
 	const osg::Matrix worldMat = osg::computeLocalToWorld(path);
-	// The correct world centre is the outer MT's world translation, because the inner PAT
-	// rebases the geometry centre to origin in the outer MT's local frame.
-	// Using loc.center() (the file-coordinate centre) would double-count the centre offset
-	// that is already encoded in the outer MT's _matrix (translate(centre + pose)).
-	const osg::Vec3d wc(worldMat(3, 0), worldMat(3, 1), worldMat(3, 2));
-	// Compute the old (pre-centre-correction) world centre to measure the shift distance.
-	const osg::Vec4d oldWp4 = worldMat * osg::Vec4d(
+	const osg::Vec4d centerWp4 = worldMat * osg::Vec4d(
 		static_cast<double>(loc.center().x()),
 		static_cast<double>(loc.center().y()),
 		static_cast<double>(loc.center().z()), 1.0);
-	const osg::Vec3d oldWc(oldWp4.x(), oldWp4.y(), oldWp4.z());
+	const osg::Vec3d wc(centerWp4.x(), centerWp4.y(), centerWp4.z());
+	const osg::Vec3d wcTranslate(worldMat(3, 0), worldMat(3, 1), worldMat(3, 2));
+	// 内层去心时 outer 平移已含质心；世界坐标顶点（skip rebase）须用 loc.center() 变换
+	const osg::Vec3d wcUse = (loc.center().length2() > 1e-6f) ? wc : wcTranslate;
 	double maxS = 0.0;
 	for (int c = 0; c < 3; ++c)
 	{
@@ -63,10 +60,9 @@ osg::BoundingSphere worldBoundOfBackendRoot(osg::MatrixTransform* root)
 	{
 		maxS = 1.0;
 	}
-	const double rWorld = static_cast<double>(loc.radius()) * maxS;
-	const double centerShift = (oldWc - wc).length();
-	const float r = static_cast<float>(rWorld + centerShift);
-	return osg::BoundingSphere(osg::Vec3(wc.x(), wc.y(), wc.z()), r);
+	const float r = static_cast<float>(static_cast<double>(loc.radius()) * maxS);
+	return osg::BoundingSphere(osg::Vec3(static_cast<float>(wcUse.x()), static_cast<float>(wcUse.y()),
+		static_cast<float>(wcUse.z())), r);
 }
 
 } // namespace

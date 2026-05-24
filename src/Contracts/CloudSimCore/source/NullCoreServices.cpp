@@ -117,6 +117,8 @@ public:
 	void setPickHandler(PickHandler) override {}
 	void clearPickHandler() override {}
 	void requestRedraw() override {}
+	void focusCameraOnBackend(const ObjectId&) override {}
+	void setBackendLogicalParent(const ObjectId&, const ObjectId&) override {}
 
 private:
 	std::unique_ptr<QWidget> m_widget;

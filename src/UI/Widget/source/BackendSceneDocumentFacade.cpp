@@ -4,7 +4,9 @@
 #include "BackendFollowReverseIndex.h"
 #include "IBackendSceneBridge.h"
 #include "IRobotBackendPoseSink.h"
+#include "MeshBackendData.h"
 #include "OsgWidget.h"
+#include "PointCloudBackendData.h"
 
 BackendSceneEntity::BackendSceneEntity(std::string backendId, IBackendSceneBridge* bridge, BackendDataManager* mgr,
 	BackendFollowReverseIndex* followIndex)
@@ -153,4 +155,59 @@ void BackendSceneDocumentFacade::setBackendsVisible(const std::vector<std::strin
 IRobotBackendPoseSink* BackendSceneDocumentFacade::poseSink() const
 {
 	return m_poseSink;
+}
+
+void BackendSceneDocumentFacade::ensureSelectionVisualForBackend(const BackendDataBase& data, const bool urdfLinkMesh)
+{
+	OsgWidget* osg = static_cast<OsgWidget*>(m_poseSink);
+	if (!osg)
+	{
+		return;
+	}
+	const std::string idStd = data.id();
+	osg->syncSelectionForBackendId(idStd);
+	if (const auto* pc = dynamic_cast<const PointCloudBackendData*>(&data))
+	{
+		if (!pc->pointPositionsXyz().empty())
+		{
+			if (entity(idStd).hasSceneBranch())
+			{
+				osg->syncSelectionFromBackend(*pc);
+			}
+			else
+			{
+				QString geomErr;
+				osg->loadPointCloudFromBackendData(*pc, &geomErr, false);
+			}
+		}
+		return;
+	}
+	if (const auto* mesh = dynamic_cast<const MeshBackendData*>(&data))
+	{
+		if (!mesh->triangleSoup().empty())
+		{
+			if (entity(idStd).hasSceneBranch())
+			{
+				osg->syncSelectionFromBackend(*mesh);
+			}
+			else
+			{
+				QString geomErr;
+				if (urdfLinkMesh)
+				{
+					osg->loadMeshFromBackendData(*mesh, &geomErr, false, true, true);
+				}
+				else
+				{
+					osg->loadMeshFromBackendData(*mesh, &geomErr, false);
+				}
+			}
+		}
+		else
+		{
+			osg->syncSelectionForBackendId(idStd);
+		}
+		return;
+	}
+	osg->syncSelectionForBackendId(idStd);
 }

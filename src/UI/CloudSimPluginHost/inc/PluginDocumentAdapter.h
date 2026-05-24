@@ -19,6 +19,8 @@ public:
 	bool containsBackend(const std::string& backendId) const override;
 	std::string backendDisplayName(const std::string& backendId) const override;
 	std::string backendClassName(const std::string& backendId) const override;
+	std::string documentId() const override;
+	bool removeBackendObject(const std::string& backendIdUtf8, std::string* outError) override;
 
 	IPluginSceneBridge* sceneBridge() override;
 	const IPluginSceneBridge* sceneBridge() const override;

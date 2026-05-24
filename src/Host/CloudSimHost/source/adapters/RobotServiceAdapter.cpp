@@ -1,52 +1,130 @@
 #include "adapters/RobotServiceAdapter.h"
 
+#include "DocumentHost.h"
+#include "DocumentHostAccess.h"
+#include "DocumentHostEvents.h"
+#include "IRobotUrdfImportContext.h"
+#include "RobotPlanInstruction.h"
+#include "RobotProgramJsonIo.h"
 #include "RobotProgramStore.h"
+#include "OsgWidget.h"
+#include "RobotSceneKinematics.h"
+#include "UrdfRobotImport.h"
 
 namespace cloudsim::host {
 
-RobotServiceAdapter::RobotServiceAdapter(RobotProgramStore& programs) : m_programs(programs) {}
+RobotServiceAdapter::RobotServiceAdapter(DocumentHost& host, RobotProgramStore& programs)
+	: m_host(host)
+	, m_programs(programs)
+{
+}
 
 core::RobotRegistrationDto RobotServiceAdapter::registerUrdfRobot(const QString& urdfPath,
 	const core::ImportOptionsDto& options)
 {
-	(void)urdfPath;
-	(void)options;
-	return {false, QStringLiteral("registerUrdfRobot: use RobotWidget import path"), {}};
+	IRobotUrdfImportContext* ctx = m_host.robotUrdfImportContext();
+	if (!ctx)
+	{
+		return {false, QStringLiteral("URDF import: document has no robot import context"), {}, {}, 0, 0, {}};
+	}
+	const core::RobotRegistrationDto result = importUrdfRobot(*ctx, urdfPath, options);
+	if (result.ok)
+	{
+		publishBackendObjectRegistered(m_host, result.sceneRootBackendId, QStringLiteral("RobotURDF"));
+	}
+	return result;
 }
 
 bool RobotServiceAdapter::applyJointAnglesRad(const core::ObjectId& sceneRootBackendId,
 	const QVector<double>& jointAnglesRad, QString* outError)
 {
-	(void)sceneRootBackendId;
-	(void)jointAnglesRad;
-	if (outError)
-		*outError = QStringLiteral("applyJointAnglesRad: use RobotSimulationController");
-	return false;
+	IRobotUrdfImportContext* ctx = m_host.robotUrdfImportContext();
+	if (!ctx)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("no robot import context");
+		}
+		return false;
+	}
+	IRobotSimulationDocument* doc = ctx->urdfImportRobotSimulationDocument();
+	IRobotBackendPoseSink* poseSink = ctx->urdfImportScenePoseSink();
+	if (!doc || !poseSink || !doc->hasRobotSimulationContext())
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("no robot simulation context");
+		}
+		return false;
+	}
+	const int instIdx = ctx->robotInstanceIndexForSceneBackendId(sceneRootBackendId);
+	if (instIdx < 0)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("unknown sceneRootBackendId: %1").arg(sceneRootBackendId);
+		}
+		return false;
+	}
+	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+	if (jointAnglesRad.size() != nj)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("joint count mismatch: expected %1, got %2").arg(nj).arg(jointAnglesRad.size());
+		}
+		return false;
+	}
+	QVector<double> aggregated(doc->robotRevoluteJointNames().size(), 0.0); // 多机拼成一条向量
+	if (!RobotSceneKinematics::applyJointAnglesForInstance(doc, poseSink, instIdx, jointAnglesRad, aggregated))
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("applyJointAnglesForInstance failed");
+		}
+		return false;
+	}
+	doc->notifyRobotKinematicsAppliedToScene();
+	publishRobotKinematicsApplied(m_host, sceneRootBackendId, aggregated);
+	if (OsgWidget* osg = osgWidgetFrom(m_host))
+	{
+		osg->requestRedraw();
+	}
+	return true;
 }
 
 bool RobotServiceAdapter::planInstruction(const core::MotionInstructionDto& instruction,
 	const core::PlanContextDto& context, core::PlanResultDto& out, QString* outError)
 {
-	(void)instruction;
-	(void)context;
-	out = {};
-	if (outError)
-		*outError = QStringLiteral("planInstruction: use RobotScene planner");
-	return false;
+	IRobotUrdfImportContext* ctx = m_host.robotUrdfImportContext();
+	if (!ctx)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("no robot import context");
+		}
+		return false;
+	}
+	return planMotionInstruction(*ctx, instruction, context, out, outError);
 }
 
 QJsonArray RobotServiceAdapter::robotProgramsJson() const
 {
-	(void)m_programs;
-	return {};
+	return robotProgramsToJson(m_programs);
 }
 
 bool RobotServiceAdapter::setRobotProgramsJson(const QJsonArray& programs, QString* outError)
 {
-	(void)programs;
-	if (outError)
-		*outError = QStringLiteral("setRobotProgramsJson: use RobotProjectIoAdapter");
-	return false;
+	IRobotUrdfImportContext* ctx = m_host.robotUrdfImportContext();
+	if (!ctx)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("no robot import context");
+		}
+		return false;
+	}
+	return robotProgramsFromJson(m_programs, programs, *ctx, outError);
 }
 
 } // namespace cloudsim::host

@@ -12,6 +12,7 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendHierarchyModel.h"
+#include "DocumentHostEvents.h"
 #include "DocumentPage.h"
 #include "MainWindow.h"
 #include "MainWindowObjectRepository.h"
@@ -166,9 +167,9 @@ void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& m
 	}
 	const QString id = current->data(0, kRoleBackendId).toString();
 	mainWindow.m_selectionState.setSelectedBackendId(id);
+	DocumentPage* doc = mainWindow.currentPage();
 	const std::shared_ptr<BackendDataBase> data = selectedBackendData(mainWindow);
 	const bool rowVisible = current->checkState(0) != Qt::Unchecked;
-	DocumentPage* doc = mainWindow.currentPage();
 	const bool urdfLinkMesh = doc && doc->hasRobotSimulationContext() && doc->robotLinkBackendIds().contains(id);
 
 	if (osg)
@@ -183,58 +184,15 @@ void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& m
 			osg->setBackendObjectVisible(idStd, rowVisible);
 		}
 		osg->setSelectionActive(data != nullptr);
-		if (data)
+		if (data && doc)
 		{
-			auto pointCloud = std::dynamic_pointer_cast<PointCloudBackendData>(data);
-			if (pointCloud && !pointCloud->pointPositionsXyz().empty())
-			{
-				// Full load clears point annotations; only reload when the branch is missing.
-				if (osg->hasBackendObjectBranch(idStd))
-				{
-					osg->syncSelectionFromBackend(*pointCloud);
-				}
-				else
-				{
-					QString geomErr;
-					osg->loadPointCloudFromBackendData(*pointCloud, &geomErr, false);
-				}
-			}
-			else if (auto mesh = std::dynamic_pointer_cast<MeshBackendData>(data))
-			{
-				if (!mesh->triangleSoup().empty())
-				{
-					if (osg->hasBackendObjectBranch(idStd))
-					{
-						osg->syncSelectionFromBackend(*mesh);
-					}
-					else
-					{
-						QString geomErr;
-						if (urdfLinkMesh)
-						{
-							osg->loadMeshFromBackendData(*mesh, &geomErr, false, true, true);
-						}
-						else
-						{
-							osg->loadMeshFromBackendData(*mesh, &geomErr, false);
-						}
-					}
-				}
-				else
-				{
-					// Parent/group node without direct geometry: keep this backend as active
-					// and allow picking across all visible children.
-					osg->syncSelectionForBackendId(idStd);
-				}
-			}
-			else
-			{
-				// Generic backend with no direct render branch (e.g. assembly parent).
-				osg->syncSelectionForBackendId(idStd);
-			}
+			doc->sceneFacade().ensureSelectionVisualForBackend(*data, urdfLinkMesh);
 		}
 	}
-	mainWindow.updatePropertyPanel(data);
+	if (doc)
+	{
+		cloudsim::host::publishSelectionChanged(*doc, id, cloudsim::core::SelectionSource::Tree);
+	}
 }
 
 void MainWindowSelectionService::handleBackendTreeItemChanged(

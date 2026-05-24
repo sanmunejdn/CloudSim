@@ -73,7 +73,7 @@
 |------|------|
 | `propertyBag()` | `PropertyBag` 键值（类型安全 variant） |
 | `snapshotPropertyRows(mgr)` | 属性面板 JSON 行数组 |
-| `applyPropertyChange(key, value, errMsg, mgr)` | 单行提交 |
+| `applyPropertyChange(key, value, errMsg, mgr)` | 单行提交（**UI/插件**应优先 `IDataService::applyPropertyChange`，由 Host `BackendVisualSync` 同步 OSG 并发布 `PoseCommitted`） |
 
 ### 3.6 组件（Component）
 
@@ -161,6 +161,8 @@
 ### 4.3 `struct MeshHierarchyPart`
 
 STEP/DXF 层级导入中间结构：`partPath`, `parentPartPath`, `displayName`, `triangleSoup`。
+
+DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 通常为 **世界坐标**；Host 导入时用 `skipInnerModelCenterRebase` 且**不做** Follow 求解（见 [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.1a）。
 
 ---
 
@@ -302,11 +304,14 @@ UI 侧增量镜像：`resyncFrom(mgr)`，`subtreeIds(root)`（结构变更后缓
 
 | 上层 | 如何使用 Data |
 |------|----------------|
-| `Widget` | 注册对象、属性面板、`BackendSceneDocumentFacade` |
+| `Widget` / `MainWindow` | 属性：`doc->data().applyPropertyChange`；注册/导入：Host `DocumentImportFacade`；场景：`BackendSceneDocumentFacade` |
+| `CloudSimPluginHost` | 插件经 SDK；宿主内 `unregisterSubtree`、`importFileIntoActiveDocument`、`registerAdoptedMesh`（见 [`../CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md)） |
 | `BackendVisual` | 读几何缓冲建 OSG |
 | `PointCloudAlgorithm` | 经 `PointCloudBackendOps` 做点云下采样/变换/重建网格（见 [`../PointCloudAlgorithm/DEVELOPER_GUIDE.md`](../PointCloudAlgorithm/DEVELOPER_GUIDE.md)） |
 | `RobotUrdf` | 每连杆 `MeshBackendData` |
 | `RobotScene` | 读关节/连杆 id，写 `worldMatrix` |
+
+**原则**：`Data` 为真源；跨模块勿长期 `BackendDataBase::applyPropertyChange` + 手写 OSG sync，应走 [`CloudSimCore` `IDataService`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) 或 Host Facade。
 
 **Data 不包含 OSG 头文件**；世界矩阵经 `IBackendSceneBridge` 列主序 16 double 与 OSG 对齐。
 
@@ -315,6 +320,6 @@ UI 侧增量镜像：`resyncFrom(mgr)`，`subtreeIds(root)`（结构变更后缓
 ## 12. 相关文档
 
 - 可视化：[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md)（法线光照 §4.2）
-- 场景门面 / 文件导入 / 工程 I/O：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §6.1、§11
+- 场景门面 / 文件导入 / 工程 I/O：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §6.1、§11；插件宿主：[`../CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md)
 - 总架构：[`../../ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md) §4.3、§6.5
 - 持久化设计/任务/回归：[`../../docs/backend_persistence/`](../../docs/backend_persistence/)

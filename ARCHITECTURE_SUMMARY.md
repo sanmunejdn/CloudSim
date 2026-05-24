@@ -24,14 +24,14 @@
 | 模块 | 角色 |
 |------|------|
 | **`CloudSimCore`** | 稳定契约 DLL：`IDataService`、`IRobotService`、`IRenderView`、`EventHub`、`IDocumentScope`、`ICloudSimContext`；DTO（`PoseDto`、`Mat4` 等），**无** OSG/CGAL/Eigen 头文件。 |
-| **`CloudSimHost`** | 本地引擎宿主 DLL：实现 `DocumentHost`（每页 `BackendDataManager` + `OsgWidget`）、Core 适配器（`DataServiceAdapter`、`OsgRenderViewAdapter`、`RobotServiceAdapter` 占位）、`cloudsimCreateApplicationContext()`；**编译** Widget 目录下的 `OsgWidget*.cpp` / `QWidgetViewer.cpp` 等 Qt+OSG 桥接源码。 |
+| **`CloudSimHost`** | 本地引擎宿主 DLL：`DocumentHost`、`DataServiceAdapter`、`OsgRenderViewAdapter`、`RobotServiceAdapter`、`DocumentImportFacade`、`ProjectPackageIo`、`BackendVisualSync` 等；**编译** Widget 目录下 `OsgWidget*.cpp` / `QWidgetViewer.cpp`。 |
 | **`CloudSimBootstrap`** | 仅 **头文件 API**（`CloudSimBootstrap.h` → `cloudsim_host_global.h`）；组合根 **实现** 在 `CloudSimHost.dll`，exe 只 include + 链接 Host。 |
 
 边界约定：
 
 - Widget / `CloudSim.exe` 链接 **`CloudSimCore.lib` + `CloudSimHost.lib`**（及 `Widget.lib` 等），不链 `CloudSimBootstrap.lib`。
 - `DocumentPage` **继承** `cloudsim::host::DocumentHost`，并实现 `IRobotSimulationDocument`（机器人元数据、`osg::` 相关仍主要在 Widget，逐步 DTO 化）。
-- `MainWindow` 构造注入 `cloudsimApplicationContext()->events()`，跨模块通知走 **`EventHub`**（选型/位姿提交等待办事件仍待贯通）。
+- `MainWindow` 构造注入 `cloudsimApplicationContext()->events()`；**`EventHub`** 已用于对象注册/删除、**`SelectionChanged`** / **`PoseCommitted`**（属性面板刷新）、gizmo 松手位姿提交。
 
 ### 后端（本地引擎层，不是远程服务）
 
@@ -140,7 +140,7 @@ flowchart TD
 主要职责：
 
 - 主窗口编排：菜单、停靠窗、文档标签、属性面板、运行信息面板。
-- 文档隔离：`DocumentPage` **继承** `cloudsim::host::DocumentHost`，每标签页一份 Host 侧 `BackendDataManager + OsgWidget`（Widget 通过 `backend()` / `osgWidget()` 访问，逐步改为 Core 接口）。
+- 文档隔离：`DocumentPage` **继承** `cloudsim::host::DocumentHost`，每标签页一份 Host 侧 `BackendDataManager + OsgWidget`（Widget：`data()` / `robot()` / `render()`；OSG 经 `widgetOsgFromPage` → `render().widget()`；`backend()` 仍为存量直达）。
 - 场景交互：对象选择、点拾取、边/面拾取、注释、变换 gizmo、主题/语言切换。
 - 项目 I/O：保存/加载 `.pcp/.pcproj.json`，并打包/解包工程资源。
 - 机器人仿真宿主：`MainWindowRobotHost` + `RobotSimulationController`（`RobotWidget.dll`）；**指令树选中预览**与 **Run** 对含 `context.currentJointRadCsv` 的运动点使用**示教关节角**（与拖动/添加指令一致），其余点仍链式 `plan`。`DocumentHost` 必须转发 `robotBackendManagerForKinematics()`（per-link FK）。仿真 Dock 在 **`RobotWidget`**，TCP 示教 OSG 在 **`Widget`**（`OsgWidgetTcpTeach`）。
@@ -166,11 +166,11 @@ flowchart TD
 - **`RobotWidget`（x64 DLL，见 `RobotWidget/DEVELOPER_GUIDE.md`）**：
   - 页面：`DevicePageWidget`、`SimulationCommandWidget`、`RobotAxisControlWidget`、`RobotFrameSettingsWidget` 等。
   - 编排：`RobotSimulationController`；宿主契约 `IRobotMainWindowHost` / `IRobotDocumentHost` / `IRobotOsgViewHost`。
-  - 工程 I/O：`RobotProjectIo::writeRobotKinematicsAndPrograms` / `loadRobotPrograms`（`MainWindowProjectIo` 委托）。
+  - 工程 I/O：保存时 `ProjectPackageIo::mergeRobotKinematicsIntoProjectRoot`（内部 `RobotProjectIo::writeRobotKinematics`）；加载与 programs 仍经 Host `ProjectPackageIo` + `MainWindowProjectIo` 编排。
 - **AI 助手（独立子系统，见 `AiBackend` + `AiWidget`）**：
   - **`AiBackend`（后端）**：`AiLlmConfig`、`AiIntentParser`、`AiCommandSchema`、`AiLlmClient`、`AiHttpsPost`（Windows WinHTTP HTTPS）；依赖 `Data`（`BackendPrimitiveGeometry`）。
   - **`AiWidget`（前端）**：`AiAssistantDockWidget`、`AiLlmSettingsDialog`、`AiAssistantCoordinator`（规则/LLM 编排、解析来源提示）。
-  - **`Widget` 集成**：`AiCreateMeshRunner`（`AiCommandExecutor`）将解析结果注册为 `MeshBackendData` 并加载 OSG；`MainWindow::setupAiAssistantCoordinator` 注入 `JobSystem` 后台队列。
+  - **`Widget` 集成**：`AiCreateMeshRunner` → Host `DocumentImportFacade::registerAdoptedMesh`；`MainWindow::setupAiAssistantCoordinator` 注入 `JobSystem` 后台队列。
   - 配置：`ai_config.json`（exe 同目录）；默认 **LLM 优先**（`rule_parser_first=false`）。
 
 当前 `Widget` 的关键演进点：
@@ -179,7 +179,7 @@ flowchart TD
 - backend 树勾选不再按 UI 节点递归推断关系，而是按 `ObjectGraph` 子树语义级联到 OSG。
 - OSG 拾取得到的 backend id 会直接回填树与属性面板，形成稳定闭环。
 - **URDF 每连杆 / 多机**：`DocumentPage::m_hierarchicalRobots`（`HierarchicalRobotInstance`）按台登记 URDF、关节前缀、`perLinkBackends` 与 `RobotPerLinkKinematicsSlice`（link 映射、`fkT0`、`outerBind`、`meshVerticesInLinkFrame`）；`appendHierarchicalRobotSimulationContext` **追加**实例、二次导入 **不** 调用 `clearRobotSimulationContext`。聚合字段 `robotLinkNameToBackendId` 等仍暴露给 `IRobotSimulationDocument`，由 `rebuildHierarchicalRobotAggregates` 合并各实例（兼容旧 UI）。
-- **选择**：`MainWindowSelectionService::handleBackendTreeSelectionChanged` 对已有 OSG 分支的 mesh 调 `syncSelectionFromBackend`；URDF 连杆在首次加载时用 `skipInnerModelCenterRebase`。**层级子节点**在 `syncGizmoAndPickFromBackend` 内走 `fromOuter` 保留 OSG 局部矩阵（见 **6.2.0**），避免树选中把世界 `pose` 误写为 root-local 导致跳变。
+- **选择**：`handleBackendTreeSelectionChanged` 经 `sceneFacade().ensureSelectionVisualForBackend` 加载/同步几何，并 `publishSelectionChanged`；`MainWindowUiSetup` 订阅事件刷新属性面板。URDF 连杆首次加载仍 `skipInnerModelCenterRebase`。**层级子节点**在 `syncGizmoAndPickFromBackend` 内走 `fromOuter`（见 **6.2.0**）。
 
 ## 4.3 `Data`（后端数据域模型）
 
@@ -428,14 +428,22 @@ flowchart LR
 4. 拓扑序 `setBackendRootWorldMatrixFromWorld` 写 bind 姿态，采集 `outerBind`（与 FK `Tq` 校验，`maxAbsDiff` 应 ≈0）。  
 5. `appendHierarchicalRobotSimulationContext(..., robotRootId, robotRootId)`；`setRobotPerLinkKinematicsBinding(robotRootId + "_ctx", ...)`；`applyJointAnglesFromDocument` 首帧同步。相机 `focusCameraOnBackend` 仍对准 **根 link 网格** id，非 robot root。  
 
+**DXF / STEP / OSG 层级网格（`HierarchyMeshImport` + `MainWindowImportCaptureRenderController`）要点：**
+
+1. obj/stl/ply/off 仍走 `IDataService::importFromFile`；dxf/step 等走 Host `importMeshFileExtended`（`loadDxfHierarchyFromFile` / `loadStepHierarchyFromFile` 或 OSG 捕获）。  
+2. 分件顶点多为 **世界坐标** 烘焙进 `triangleSoup`：每片 `skipInnerModelCenterRebase=true`；`linkOsgSceneParent=false` 时 `setBackendLogicalParent` 同步 `m_backendParentIds`，OSG 分支仍在 flat 组。  
+3. **文件导入阶段不对分件** 调用 `applyHierarchyFollowBinding`（Follow 求解会把 `pose` 写成约负质心，与 skip-rebase 显示冲突）。工程加载的 `edges[]` 仍在 `MainWindowProjectIo` 中批量绑定并一次 `runBackendFollowSolveAndSync`。  
+4. 导入结束：`focusCameraOnBackend(importParent->id())` 合并逻辑子树下全部分件包围球（见 `OsgWidgetCore` `worldBoundOfBackendRoot`）。  
+5. 勿在层级导入后对最后一片再 `loadMeshFromBackendData(..., resetHome)`（`upsertMeshBranchInScene` 会把节点挂回 flat 组并破坏布局）。
+
 ## 6.1.1 AI 助手创建基本体流程（Phase 1 + Phase 2）
 
 1. 用户在 **AI Assistant** Dock 输入自然语言（如「生成长方体，长 100mm，宽 50mm，高 100mm」或「圆柱 半径 30 高 80」）。  
 2. **LLM 路径（默认）**：`rule_parser_first=false` 且 `enabled=true` 时，由 `JobSystem` 调用 `AiLlmClient::parseUserTextWithLlm` → `AiCommandSchema::tryParseCreateMeshCommandJson` 提取 JSON。  
 3. **规则路径（可选）**：`rule_parser_first=true` 时先 `AiIntentParser::tryParseUserText`，成功则不调 LLM；LLM 未启用或失败时可作回退（需 `enabled=false` 时仅规则）。  
 4. `AiCommandSchema::parseCreateMeshCommand` 校验 `primitive`、`dimensions_mm` 等，填充 `PrimitiveMeshParams` / `PrimitiveMeshQuality`。  
-5. `BackendPrimitiveGeometry::makePrimitiveTriangleSoup` 生成 soup → 新建 `MeshBackendData`（可选 `pose_mm` / `rotation_deg`）→ `MainWindow::registerExistingBackendObject`（`Model` 类，树可见）。  
-6. `OsgWidget::loadMeshFromBackendData(*mesh, err, resetViewToHome=true, showWireOutline=true, useSceneLighting=true)`；`BackendVisual` 构建外层分支并更新拾取索引。  
+5. `BackendPrimitiveGeometry::makePrimitiveTriangleSoup` 生成 soup → 新建 `MeshBackendData`（可选 `pose_mm` / `rotation_deg`）→ Host `DocumentImportFacade::registerAdoptedMesh`（含 OSG 与 `BackendObjectRegisteredEvent`）。  
+6. `MainWindow::focusBackendInTreeAfterImport` 选中树节点。  
 7. 助手回复与 `RunInfoPage` 同步成功/失败信息。
 
 **`ai_config.json`（与 exe 同目录）主要字段：**
@@ -474,17 +482,16 @@ sequenceDiagram
     Parse-->>MW: create_mesh JSON
     MW->>Run: executeFromJson
     Run->>Geo: makePrimitiveTriangleSoup
-    Run->>MW: registerExistingBackendObject(MeshBackendData)
-    Run->>OSG: loadMeshFromBackendData
+    Run->>Host: DocumentImportFacade::registerAdoptedMesh
     MW->>Dock: appendAssistantMessage
 ```
 
 ## 6.2 属性编辑与场景同步
 
 1. 用户修改属性面板（位置/旋转/颜色等）。  
-2. `MainWindowSelectionService` 解析当前选择快照，`MainWindow` 写回 `BackendDataBase`。  
-3. `OsgWidget/OsgScene` 同步更新对应场景节点。  
-4. 树、属性、场景共享同一选择真源（`SelectionState`）。  
+2. 普通属性：`doc->data().applyPropertyChange` → Host `DataServiceAdapter` + `BackendVisualSync`（OSG 同步，必要时 `PoseCommittedEvent`）。  
+3. pose/rotation 分量：`setPoseInFrame` / `setRotationInFrame` + `syncVisualAfterPropertyChange`（Widget 编排）。  
+4. `MainWindowUiSetup` 订阅 `SelectionChanged` / `PoseCommitted` 刷新属性面板；树、属性、场景共享 `SelectionState` 真源。  
 
 **嵌套后端写回 OSG（`OsgWidget::syncOuterPatFromBackend`）：**  
 将后端 `pose/rotation` 与缓存的模型中心先拼为 **`backend_world_mat_from_pose`**，再 **`setBackendRootWorldMatrixFromWorld`**（`inv(parentWorld) * world`），避免在父级非单位矩阵时把「世界系平移」误当作外层局部矩阵（旧写法 `translate(center+pose)*rotate` 仅适用于挂在场景根下的物体）。
@@ -707,9 +714,9 @@ flowchart LR
 **加载（`onOpenProjectFile`）**：
 
 1. 校验 `version == 4`；清空文档后端与机器人上下文。
-2. 对每个 `objects[]` 项：`BackendRegistry::create(className)` → `loadFromJson()` → `loadPointCloudFromBackendData` / `loadMeshFromBackendData` → `registerExistingBackendObject`。
-3. 恢复 **`edges`** → `BackendDataManager::attachChild`；同步 OSG 父链。
-4. 恢复机器人元数据与程序 → `RobotProjectIo::loadRobotPrograms`；`restorePerLinkRobotKinematicsFromJson`。
+2. `loadProjectObjectsFromJson` 遍历 `objects[]`（内嵌 / 文件 / Widget 点云兜底）；`finalizeProjectHierarchyAfterObjects` 写 `edges` 与旁路表。
+3. 恢复 **`edges`** → `applyProjectEdgesToBackend`；`rebuildBackendParentIdMirror`；`syncOsgBackendParentsFromBackend`；无显式 `FollowAttachment` 的边 → `applyHierarchyFollowBinding`。
+4. 恢复机器人元数据与程序 → `setRobotProgramsJson`；`restorePerLinkRobotKinematicsFromProjectJson`（Host）。
 5. `invalidateFollowReverseIndex` → `runBackendFollowSolveAndSync`；重建树与标注。
 
 **单对象 JSON（v4 要点）**：
@@ -743,7 +750,8 @@ flowchart LR
 
 ### 当前可持续演进点
 
-- **`EventHub` 贯通**：`SelectionChanged`、`PoseCommitted` 等由 OSG/属性面板发布，减少 `MainWindow` 直接耦合。
+- ~~**`EventHub` 贯通（选择/姿态）**~~：已实现 `SelectionChanged` / `PoseCommitted` 发布与 `MainWindow` 订阅；属性改 pose 经 `IDataService` + `BackendVisualSync`。
+- **`IRenderView` 全面替代**：`currentOsgWidget` 已走 `render().widget()`；其余路径可继续收口。
 - **`IRobotService` 实装**：程序 JSON、URDF 注册、规划预览等从 `RobotWidget` 迁入 Host 适配器。
 - **Widget 进一步瘦身**：减少直接 `#include` Data/OSG；机器人元数据 DTO 化。
 - `MainWindowSelectionService` 仍包含部分渲染细节分支（点云/网格具体分支加载），后续可继续下沉到更细粒度应用服务。
@@ -766,8 +774,8 @@ flowchart LR
 ### 10.1 定位
 
 - **CloudSimPluginSDK**：插件与宿主之间的稳定 ABI（`ICloudSimPlugin`、`IPluginHostContext`）。
-- **CloudSimPluginHost**（源码位于 `CloudSimPluginHost/`，编译进 `Widget.dll`）：启动时扫描 `applicationDirPath()/plugins/**/plugin.json`，`QPluginLoader` 加载 DLL。
-- 插件 **仅链接 SDK**；数据/场景写入经宿主转发到 `BackendDataManager`、`MeshBackendVisual` 等既有路径。
+- **CloudSimPluginHost**（`src/UI/CloudSimPluginHost/`，编译进 `Widget.dll`）：`PluginManager` 扫描 `plugins/**/plugin.json`；`PluginHostContext` 实现 `IPluginHostContext`。
+- 插件 **仅链接 SDK**；导入/网格注册经 **`DocumentImportFacade`** / **`IDataService::unregisterSubtree`**；场景经 **`PluginSceneBridgeAdapter` → `BackendSceneDocumentFacade`**。
 
 ### 10.2 运行时布局
 
@@ -799,17 +807,18 @@ bin/x64(d)/                    # CloudSimBinDir，见 CloudSim/Directory.Build.p
 
 1. `MainWindow` UI 初始化完成后调用 `loadPlugins()`。
 2. 读清单 → 校验 `minHostVersion` / `enabled` → `QPluginLoader` → `ICloudSimPlugin::initialize(IPluginHostContext*)`。
-3. 插件注册 Dock/菜单；Phase 1 通过 `createPrimitiveMesh` 创建网格；Phase 2 通过 `registerBackendType` 转发 `BackendRegistry`。
+3. 插件注册 Dock/菜单；`createPrimitiveMesh` / `registerTriangleMesh` → `registerAdoptedMesh`；`importFileIntoActiveDocument` → `importFileIntoDocument`；`registerBackendType` → `BackendRegistry` + `PluginDelegatedBackend`。
 4. 退出时 `PluginManager::shutdownAll()` 调用各插件 `shutdown()`（运行期不卸载 DLL）。
 
 ### 10.4 开发文档
 
-- SDK：[CloudSimPluginSDK/DEVELOPER_GUIDE.md](CloudSimPluginSDK/DEVELOPER_GUIDE.md)
-- 示例：[Plugins/HelloPlugin/](Plugins/HelloPlugin/)
+- 宿主实现：[CloudSimPluginHost/DEVELOPER_GUIDE.md](src/UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)
+- SDK：[CloudSimPluginSDK/DEVELOPER_GUIDE.md](src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md)
+- 示例：[HelloPlugin/DEVELOPER_GUIDE.md](src/Plugins/HelloPlugin/DEVELOPER_GUIDE.md)
 
 ---
 
 ## 8. 一句话结论
 
-`CloudSim` 当前属于 **“Qt 桌面前端 + CloudSimCore 契约 + CloudSimHost 本地宿主 + 引擎 DLL”** 的模块化架构：UI（`Widget`）经 **`DocumentHost`** 访问数据与 OSG，组合根与 **`OsgWidget`** 实现位于 **Host**，契约在 **Core**；并已完成拾取/选择闭环与 URDF 多机 per-link 等能力。后续在 **`EventHub` 贯通**、**`IRobotService` 实装**、Widget 对 Data/OSG 头文件依赖收敛上继续演进；对象 **Gizmo**、**运动轴配置**、**AI 助手** 等行为与重构前一致，见上文各节。
+`CloudSim` 当前属于 **“Qt 桌面前端 + CloudSimCore 契约 + CloudSimHost 本地宿主 + 引擎 DLL”** 的模块化架构：UI（`Widget`）经 **`DocumentHost`** 与 **`IDataService` / `IRenderView`** 访问数据与场景，组合根与 **`OsgWidget`** 实现位于 **Host**，契约在 **Core**；已完成拾取/选择闭环、URDF 多机 per-link、**Host 剩余接线**（属性 `BackendVisualSync`、导入 Facade、EventHub 选择/姿态、工程 kinematics 保存、插件宿主转发）。后续主要在 **`IRobotSimulationDocument` 迁 Host**、**`IRenderView` 全面替代裸 `OsgWidget*`** 上继续瘦身 Widget。
 

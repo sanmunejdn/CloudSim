@@ -26,7 +26,8 @@ sequenceDiagram
     main->>Qt: QApplication(argc, argv)
     main->>main: configureWindowsDllSearchPath (Win32)
     main->>Qt: setOrganizationName / setApplicationName
-    main->>MW: MainWindow w; w.showMaximized()
+    main->>main: cloudsimCreateApplicationContext
+    main->>MW: MainWindow(events); showMaximized
     main->>Qt: exec()
     main->>MW: shutdownApplicationLogging()
     Note over MW,RL: RunLogger.dll 由 Widget/Data 等加载
@@ -57,14 +58,28 @@ GUI 程序无控制台时，用此参数代替预先设置系统环境变量。
 
 用于 `QSettings`、主题路径等持久化。
 
-### 2.4 主窗口与退出
+### 2.4 应用上下文（`CloudSimBootstrap`）
 
 ```cpp
-MainWindow w;
-w.showMaximized();
-const int code = app.exec();
+cloudsimSetApplicationContext(cloudsimCreateApplicationContext());
+MainWindow mainWindow(cloudsimApplicationContext()->events());
+```
+
+| 组件 | 说明 |
+|------|------|
+| `cloudsimCreateApplicationContext()` | 定义在 **`CloudSimHost.dll`**（`CloudSimBootstrap.h`） |
+| `EventHub` | 进程级；`DocumentPage` 与 `MainWindow` 共享，用于 `BackendObjectRegistered`、`SelectionChanged`、`PoseCommitted` 等 |
+| `MainWindow` 构造 | 注入 `events()`，在 `MainWindowUiSetup` 中订阅并刷新树/属性面板 |
+
+链接：`CloudSimCore.lib` + `CloudSimHost.lib` + `Widget.lib`（及 Data 等运行时 DLL）。
+
+### 2.5 主窗口与退出
+
+```cpp
+mainWindow.showMaximized();
+const int ret = app.exec();
 MainWindow::shutdownApplicationLogging();
-return code;
+return ret;
 ```
 
 `shutdownApplicationLogging()` 内部应调用 `RunLogger::shutdown()`，保证日志文件完整关闭。
@@ -77,10 +92,13 @@ return code;
 
 | 能力 | 文档 |
 |------|------|
-| UI、文档页、导入/保存 | [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) |
-| 后端数据模型 | [`../Data/DEVELOPER_GUIDE.md`](../Data/DEVELOPER_GUIDE.md) |
-| OSG 场景 | [`../OsgWidgetCore/DEVELOPER_GUIDE.md`](../OsgWidgetCore/DEVELOPER_GUIDE.md) |
-| 机器人仿真 | [`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md) |
+| UI、文档页、导入/保存 | [`../../UI/Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md) |
+| Host 组合根、契约适配 | [`../../Host/CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) |
+| Core 契约 / EventHub | [`../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) |
+| 后端数据模型 | [`../../Data/Data/DEVELOPER_GUIDE.md`](../../Data/Data/DEVELOPER_GUIDE.md) |
+| OSG 场景 | [`../../UI/OsgWidgetCore/DEVELOPER_GUIDE.md`](../../UI/OsgWidgetCore/DEVELOPER_GUIDE.md) |
+| 机器人仿真 UI | [`../../UI/RobotWidget/DEVELOPER_GUIDE.md`](../../UI/RobotWidget/DEVELOPER_GUIDE.md) |
+| 动态插件 | [`../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) |
 
 ---
 
@@ -95,5 +113,5 @@ return code;
 
 ## 5. 相关文档
 
-- 总览：[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md)
-- 模块索引：[`../docs/MODULE_DEVELOPER_GUIDES.md`](../docs/MODULE_DEVELOPER_GUIDES.md)
+- 总览：[`../../ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md)
+- 模块索引：[`../../docs/MODULE_DEVELOPER_GUIDES.md`](../../docs/MODULE_DEVELOPER_GUIDES.md)

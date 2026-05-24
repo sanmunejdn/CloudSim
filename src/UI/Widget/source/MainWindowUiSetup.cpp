@@ -18,6 +18,7 @@
 
 #include "ApplicationStyle.h"
 #include "DocumentPage.h"
+#include "CoreEvents.h"
 #include "EventHub.h"
 #include "DevicePageWidget.h"
 #include "JobSystem.h"
@@ -122,6 +123,64 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	auto* firstPage = new DocumentPage(m_documentTabs, m_appEvents);
 	wireDocumentPageSignals(firstPage);
 	m_documentTabs->addTab(firstPage, QStringLiteral("Untitled"));
+
+	m_appEvents.subscribe<cloudsim::core::BackendObjectRegisteredEvent>(
+		[this](const cloudsim::core::BackendObjectRegisteredEvent& ev) {
+			if (m_backendTreeEventRefreshSuppress > 0)
+			{
+				return;
+			}
+			DocumentPage* page = currentPage();
+			if (!page || ev.documentId != page->documentId())
+			{
+				return;
+			}
+			refreshBackendTree();
+		});
+	m_appEvents.subscribe<cloudsim::core::BackendObjectRemovedEvent>(
+		[this](const cloudsim::core::BackendObjectRemovedEvent& ev) {
+			if (m_backendTreeEventRefreshSuppress > 0)
+			{
+				return;
+			}
+			DocumentPage* page = currentPage();
+			if (!page || ev.documentId != page->documentId())
+			{
+				return;
+			}
+			refreshBackendTree();
+		});
+	m_appEvents.subscribe<cloudsim::core::SelectionChangedEvent>(
+		[this](const cloudsim::core::SelectionChangedEvent& ev) {
+			DocumentPage* page = currentPage();
+			if (!page || ev.documentId != page->documentId())
+			{
+				return;
+			}
+			if (ev.primaryId.isEmpty())
+			{
+				updatePropertyPanel(nullptr);
+				return;
+			}
+			if (m_selectionState.selectedBackendId() != ev.primaryId)
+			{
+				m_selectionState.setSelectedBackendId(ev.primaryId);
+			}
+			updatePropertyPanel(MainWindowSelectionService::selectedBackendData(*this));
+		});
+	m_appEvents.subscribe<cloudsim::core::PoseCommittedEvent>([this](const cloudsim::core::PoseCommittedEvent& ev) {
+		DocumentPage* page = currentPage();
+		if (!page || ev.documentId != page->documentId())
+		{
+			return;
+		}
+		if (!m_selectionState.hasBackendSelection() || m_selectionState.selectedBackendId() != ev.objectId)
+		{
+			return;
+		}
+		updatePropertyPanel(MainWindowSelectionService::selectedBackendData(*this));
+	});
+
 	setCentralWidget(central);
 	setupDockWidgets();
 	m_robotSimTimer.setInterval(kPlaybackTimerIntervalMs);

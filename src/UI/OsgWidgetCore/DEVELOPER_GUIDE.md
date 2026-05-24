@@ -94,6 +94,7 @@ m_stagingGroup（导入预览）
 | 方法 | 说明 |
 |------|------|
 | `isBackendDescendantOf(child, ancestor)` | 逻辑父链 `m_backendParentIds` |
+| `setBackendLogicalParent(child, parent)` | 仅写 `m_backendParentIds`，**不** reparent OSG（DXF 分件 + `focusCameraOnBackend` 聚合子树） |
 | `backendOuterPatIsUnderOuterPatInSceneGraph` | OSG 父链 |
 | `syncGizmoAndPickFromBackend(data)` | 选中：无父则 `setFromBackend+applyToOuter`；**有父仅 `fromOuter`** |
 | `syncSelectionForBackendId` | 切换 active + 挂 overlay，不写回 backend |
@@ -154,7 +155,7 @@ m_stagingGroup（导入预览）
 
 | 方法 | 说明 |
 |------|------|
-| `focusCameraOnBackend(backendId)` | 对准外包络 |
+| `focusCameraOnBackend(backendId)` | 合并 `isBackendDescendantOf` 下各 OSG 分支世界包围球并移动 Trackball；空壳父（无几何）依赖逻辑父链；世界坐标顶点（`skipInnerModelCenterRebase`）用 `loc.center()` 变换求中心，勿仅用 outer 平移 |
 | `hasPointAnnotations()` | 是否有注释（帧回调缩放） |
 
 ### 5.9 关键公共成员（控制器直接读写）
@@ -179,28 +180,37 @@ m_stagingGroup（导入预览）
 
 ---
 
-## 6. 与 `Widget::OsgWidget` 的分工
+## 6. 与 `Widget::OsgWidget` / Host 的分工
 
 | 能力 | 所在层 |
 |------|--------|
-| Qt 事件、`eventFilter` | `OsgWidget` + `*Operation` / `*Controller` |
-| 场景图、拾取、gizmo 数学 | `OsgScene` |
+| Qt 事件、`eventFilter` | `OsgWidget`（**由 `CloudSimHost.dll` 编译**）+ `*Operation` / `*Controller` |
+| 场景图、拾取、gizmo 数学 | `OsgScene`（本 DLL） |
 | `IRobotBackendPoseSink` | `OsgWidget` 委托 `OsgScene` |
+| 契约出口 `IRenderView` | Host `OsgRenderViewAdapter` 包装 `OsgWidget` |
+| 矩阵/显隐/拾取（无 Qt） | `IBackendSceneBridge` → `OsgWidgetSceneBridge` → 本模块 API |
+
+**UI 调用约定**（勿绕过）：
+
+- 改后端 **pose/可见性**：`doc->data().applyPropertyChange` 或 gizmo 提交 → Host 写 Data 再 `syncOuterPatFromBackend`。
+- 树选中加载分支：`BackendSceneDocumentFacade::ensureSelectionVisualForBackend`（内部 `load*FromBackendData` + `syncSelectionFromBackend`）。
+- 插件/菜单 **新对象**：Host `DocumentImportFacade`，不在 UI 直接 `buildOuterBranch`。
 
 ---
 
 ## 7. 端到端：选中与拖拽
 
-1. 拾取 → `resolveBackendIdFromPickedPath` → `syncGizmoAndPickFromBackend`
+1. 拾取 → `resolveBackendIdFromPickedPath` → `syncGizmoAndPickFromBackend` → Host `publishSelectionChanged`
 2. **LMB 平移** → `beginGizmoScreenDrag` → 每帧 `gizmoScreenDragDs` → `translateAlongWorldDirection(冻结轴)` → `applyToOuter`
 3. **RMB 旋转** → `cacheRotatePivot`（世界枢轴）→ `beginGizmoScreenRotate` → `gizmoScreenRotateDeltaRad` → `adjustCenterPlusPoseForRotationDelta` → `applyToOuter`（拖动中**不** `emit selectedObjectPoseChanged`）
-4. 释放 → `cacheSelectionGizmoPose` → `transformGizmoCommitted` → MainWindow 刷新属性面板
+4. 释放 → `writeActiveBackendPoseFromOsg` → `publishPoseCommittedFromBackend` → `EventHub` → `MainWindow` 刷新属性面板
 
-详见 [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §6.2.0。
+详见 [`../../ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md) §6.2.0。
 
 ---
 
 ## 8. 相关文档
 
 - 可视化构建：[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md)
-- Qt 桥接：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md)（对象罗盘拖动 §6.3.1；TCP 示教 §13.1）
+- Qt / Host 桥接：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md)（对象罗盘 §6.3.1；属性/EventHub §12a）
+- Host 组合根：[`../Host/CloudSimHost/DEVELOPER_GUIDE.md`](../Host/CloudSimHost/DEVELOPER_GUIDE.md)

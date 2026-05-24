@@ -165,7 +165,24 @@ sequenceDiagram
 
 ---
 
-## 10. 相关文档
+## 10. 与 Host / UI 边界
+
+本模块 **只负责** 从 `BackendDataBase` 构建 OSG 分支几何，**不** 持有业务对象注册、属性协议或工程 I/O。
+
+| 操作 | 推荐层 | 说明 |
+|------|--------|------|
+| 注册 mesh/点云、发事件 | Host `DocumentImportFacade::registerAdopted*` | 内部 `load*FromBackendData` → 本模块 `buildOuterBranch` |
+| 属性改 pose/颜色 | `IDataService::applyPropertyChange` → Host `BackendVisualSync` | 写 Data 后 `syncOuterPatFromBackend`（经 `OsgWidgetSceneBridge`） |
+| 仅换几何、不改 pose | `OsgWidget::loadMeshFromBackendData` 等 | 导入/选中缺分支时由 Widget/Host 触发 |
+| Follow 求解后写回 | Host `BackendFollowSolve` | 批量 `sceneBridge().syncOuterPatFromBackend` |
+
+**禁止**：在 UI 中重复实现 outer PAT 矩阵拼装（与 `MeshBackendVisual::buildOuterBranch` 约定不一致会导致 gizmo 跳变）。矩阵语义见 [`../OsgWidgetCore/DEVELOPER_GUIDE.md`](../OsgWidgetCore/DEVELOPER_GUIDE.md) §3。
+
+---
+
+## 11. 相关文档
 
 - 场景与拾取：[`../OsgWidgetCore/DEVELOPER_GUIDE.md`](../OsgWidgetCore/DEVELOPER_GUIDE.md)
-- 网格/点云数据：[`../Data/DEVELOPER_GUIDE.md`](../Data/DEVELOPER_GUIDE.md)
+- 网格/点云数据：[`../Data/DEVELOPER_GUIDE.md`](../Data/Data/DEVELOPER_GUIDE.md)
+- Host 导入/属性同步：[`../Host/CloudSimHost/DEVELOPER_GUIDE.md`](../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.2a–4.2b
+- Core 契约：[`../Contracts/CloudSimCore/DEVELOPER_GUIDE.md`](../Contracts/CloudSimCore/DEVELOPER_GUIDE.md)

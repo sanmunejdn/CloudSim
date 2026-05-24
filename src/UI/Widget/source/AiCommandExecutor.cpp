@@ -3,6 +3,7 @@
 #include "AiCommandSchema.h"
 #include "BackendDataBase.h"
 #include "BackendPrimitiveGeometry.h"
+#include "DocumentImportFacade.h"
 #include "DocumentPage.h"
 #include "MainWindow.h"
 #include "MeshBackendData.h"
@@ -70,20 +71,19 @@ bool executeFromJson(MainWindow& mw, const nlohmann::json& cmd, QString& outAssi
 	mesh->setTriangleSoup(std::move(soup));
 	applyPoseFromJson(*mesh, cmd);
 
-	if (!mw.registerExistingBackendObject(
-			mesh, QString::fromStdString(sourcePath), QStringLiteral("Model"), QString(), true, QString()))
+	cloudsim::host::AdoptMeshOptions adoptOpt;
+	adoptOpt.sourcePath = QString::fromStdString(sourcePath);
+	adoptOpt.catalogTypeName = QStringLiteral("Model");
+	adoptOpt.resetViewToHome = true;
+	QString regErr;
+	const cloudsim::host::AdoptRegistrationResult adopted =
+		cloudsim::host::registerAdoptedMesh(*doc, mesh, adoptOpt, &regErr);
+	if (!adopted.ok)
 	{
-		outError = QStringLiteral("Failed to register mesh in backend.");
+		outError = regErr.isEmpty() ? QStringLiteral("Failed to register mesh in backend.") : regErr;
 		return false;
 	}
-
-	QString sceneErr;
-	// Match general mesh import: lit plastic + wire; requires outward CCW winding in soup.
-	if (!doc->loadMeshFromBackendIntoScene(*mesh, &sceneErr, true, true, true))
-	{
-		outError = sceneErr;
-		return false;
-	}
+	mw.focusBackendInTreeAfterImport(mesh);
 
 	const QString prim = QString::fromStdString(AiCommandSchema::primitiveKindToString(params.kind));
 	outAssistantReply = QStringLiteral("Created %1: %2").arg(prim, QString::fromStdString(displayName));

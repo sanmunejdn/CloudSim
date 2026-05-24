@@ -77,6 +77,7 @@ void HelloPlugin::insertTestBox()
 
 	PluginMeshCreateOptions options;
 	options.displayName = QStringLiteral("HelloBox");
+	// 宿主侧走 DocumentImportFacade::registerAdoptedMesh，与菜单导入共用注册链
 	options.sourcePath = QStringLiteral("plugin://hello/box");
 
 	QString err;

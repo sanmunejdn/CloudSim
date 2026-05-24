@@ -13,10 +13,13 @@
 **代码入口**：
 
 - `src/Data/Data` — `BackendDataBase::saveToJson` / `loadFromJson`，`BackendComponentCodecBuiltins.h`
-- `src/UI/Widget/source/MainWindowProjectIo.cpp` — 文档保存/打开编排
+- `src/Host/CloudSimHost` — `ProjectPackageIo::buildProjectSaveRoot`、`mergeRobotKinematicsIntoProjectRoot`、`restoreRobotKinematicsFromProjectJson`、`AnnotationProjectIo`
+- `src/UI/Widget/source/MainWindowProjectIo.cpp` — 保存/打开 UI 编排（关节角采集、`.pcp` zip）
 
 **开发文档**：
 
 - [Data DEVELOPER_GUIDE.md](../../src/Data/Data/DEVELOPER_GUIDE.md) §3.8、§6.1、§9
+- [Host DEVELOPER_GUIDE.md](../../src/Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.2c
 - [Widget DEVELOPER_GUIDE.md](../../src/UI/Widget/DEVELOPER_GUIDE.md) §11
+- [RobotWidget DEVELOPER_GUIDE.md](../../src/UI/RobotWidget/DEVELOPER_GUIDE.md)（robotKinematics JSON）
 - [ARCHITECTURE_SUMMARY.md](../../ARCHITECTURE_SUMMARY.md) §6.5

@@ -1,6 +1,7 @@
 #include "DocumentPage.h"
 
 #include "BackendSceneDocumentFacade.h"
+#include "WidgetDocumentAccess.h"
 #include "EventHub.h"
 #include "RobotProgramStore.h"
 
@@ -14,6 +15,8 @@
 #include "BackendDataManager.h"
 #include "BackendDataBase.h"
 #include "FollowAttachmentComponent.h"
+#include "IRobotBackendPoseSink.h"
+#include "OsgWidget.h"
 
 #include <memory>
 #include <unordered_map>
@@ -23,11 +26,22 @@ DocumentPage::DocumentPage(QTabWidget* parentTabs, cloudsim::core::EventHub& eve
 	: DocumentHost(parentTabs, events,
 		  QStringLiteral("doc-%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces)))
 {
+	setRobotUrdfImportContext(this);
+}
+
+OsgWidget* DocumentPage::urdfImportOsgWidget()
+{
+	return widgetOsgFromPage(this);
+}
+
+IRobotBackendPoseSink* DocumentPage::urdfImportScenePoseSink()
+{
+	return static_cast<IRobotBackendPoseSink*>(widgetOsgFromPage(this));
 }
 
 BackendSceneDocumentFacade DocumentPage::sceneFacade()
 {
-	return BackendSceneDocumentFacade(backend(), sceneBridge(), followReverseIndex(), osgWidget());
+	return BackendSceneDocumentFacade(backend(), sceneBridge(), followReverseIndex(), widgetOsgFromPage(this));
 }
 
 void DocumentPage::rebuildHierarchicalRobotAggregates()
@@ -512,60 +526,8 @@ void DocumentPage::notifyRobotKinematicsAppliedToScene()
 
 void DocumentPage::markFollowAttachmentDirtyFromBackendMove(const BackendDataManager& mgr, const std::string& seed)
 {
-	if (seed.empty())
-	{
-		return;
-	}
-	std::unordered_map<std::string, std::vector<std::string>> targetToFollowers;
-	for (const auto& d : mgr.listData())
-	{
-		if (!d)
-		{
-			continue;
-		}
-		auto comp = std::dynamic_pointer_cast<FollowAttachmentComponent>(
-			d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
-		if (!comp || !comp->enabled())
-		{
-			continue;
-		}
-		const std::string tid = comp->targetBackendId();
-		if (tid.empty() || tid == d->id())
-		{
-			continue;
-		}
-		if (!mgr.contains(tid))
-		{
-			continue;
-		}
-		targetToFollowers[tid].push_back(d->id());
-	}
-
-	std::vector<std::string> stack;
-	stack.push_back(seed);
-	std::unordered_set<std::string> visited;
-	while (!stack.empty())
-	{
-		const std::string u = stack.back();
-		stack.pop_back();
-		if (!visited.insert(u).second)
-		{
-			continue;
-		}
-		followDirtyBackendIds().insert(u);
-		const auto itF = targetToFollowers.find(u);
-		if (itF != targetToFollowers.end())
-		{
-			for (const std::string& f : itF->second)
-			{
-				stack.push_back(f);
-			}
-		}
-		for (const std::string& c : mgr.childrenOf(u))
-		{
-			stack.push_back(c);
-		}
-	}
+	(void)mgr;
+	cloudsim::host::DocumentHost::markFollowAttachmentDirtyFromBackendMove(seed);
 }
 
 const RobotCoordinate::RobotCoordinateFrameSet& DocumentPage::robotCoordinateFramesForInstance(

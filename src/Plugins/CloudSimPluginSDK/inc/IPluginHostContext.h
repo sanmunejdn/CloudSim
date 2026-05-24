@@ -78,4 +78,8 @@ public:
 	/// Phase 2: register mesh from triangle soup (9 floats per triangle, mm).
 	virtual bool registerTriangleMesh(const std::vector<float>& triangleSoup, const PluginMeshCreateOptions& options,
 		QString* outError) = 0;
+
+	/// Import file into the active document (mesh: Host \c importFromFile; point cloud: full import path).
+	virtual std::string importFileIntoActiveDocument(const std::string& pathUtf8, bool isPointCloud,
+		std::string* outError = nullptr) = 0;
 };
