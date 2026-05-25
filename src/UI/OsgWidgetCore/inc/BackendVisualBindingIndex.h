@@ -9,8 +9,8 @@
 #include <osg/NodeVisitor>
 #include <osg/observer_ptr>
 
-/// Centralized index for backend object id <-> scene root node bindings.
-/// Picking resolves backend identity through this index instead of ad-hoc maps.
+/// 后端 id 与场景根节点绑定索引
+/// 拾取经此索引解析后端 id
 class OSGWIDGETCORE_EXPORT BackendVisualBindingIndex
 {
 public:
@@ -18,7 +18,7 @@ public:
 	void unbindBackend(const std::string& backendId);
 	void clear();
 
-	/// Resolve backend id for a picked node path; returns false when no bound backend root is present.
+	/// 解析拾取路径的后端 id；无绑定根则 false
 	bool resolveBackendIdFromNodePath(const osg::NodePath& path, std::string& outBackendId) const;
 
 private:

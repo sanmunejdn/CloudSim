@@ -425,7 +425,6 @@ QString matrix4ToLog(const osg::Matrixd& m)
 std::string encodeMatrix4CsvImpl(const osg::Matrixd& m)
 {
 	osg::Matrixd o;
-	// Keep translation terms in-place, but map 3x3 rotation with swapped indices.
 	// This matches the legacy matrix convention used by instruction render metadata.
 	for (int r = 0; r < 4; ++r)
 	{
@@ -492,7 +491,6 @@ bool decodeMatrix4CsvImpl(const std::string& text, osg::Matrixd& out)
 			in(r, c) = values[r * 4 + c];
 		}
 	}
-	// Inverse of encodeMatrix4Csv mapping (same operation: involution).
 	for (int r = 0; r < 4; ++r)
 	{
 		for (int c = 0; c < 4; ++c)

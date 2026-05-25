@@ -10,8 +10,8 @@
 
 class BackendDataManager;
 
-/// Incremental mirror of \ref BackendHierarchyChangeKind events from a \ref BackendDataManager,
-/// with cached \c subtreeIds (root + reachable descendants, unique in DAG).
+/// BackendDataManager 层级变更的增量镜像
+/// 缓存 subtreeIds（根+可达后代，DAG 去重）
 class DATA_EXPORT BackendHierarchyModel
 {
 public:
@@ -21,11 +21,11 @@ public:
 	BackendHierarchyModel(const BackendHierarchyModel&) = delete;
 	BackendHierarchyModel& operator=(const BackendHierarchyModel&) = delete;
 
-	/// Rebuild mirror from manager (caller must not hold the manager's write lock).
+	/// 从 manager 重建镜像（调用方勿持 manager 写锁）
 	void resyncFrom(const BackendDataManager& manager);
 
-	/// Root first, then BFS over \c m_children. Reference valid until the next structural change
-	/// invalidates this root's cache entry (or use only synchronously on the UI thread).
+	/// 根优先 BFS；下次结构变更前有效
+	/// 或仅在 UI 线程同步使用
 	const std::vector<std::string>& subtreeIds(const std::string& rootId);
 	const std::vector<std::string>& subtreeIds(const std::string& rootId) const;
 

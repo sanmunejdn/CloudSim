@@ -15,7 +15,7 @@ class QLabel;
 class QLineEdit;
 class QSpinBox;
 
-/// Edit and save `ai_config.json` next to the executable.
+/// 编辑并保存可执行文件旁 ai_config.json
 class AIWIDGET_EXPORT AiLlmSettingsDialog : public QDialog
 {
 	Q_OBJECT

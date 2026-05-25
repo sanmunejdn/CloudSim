@@ -7,7 +7,7 @@
 namespace {
 constexpr double kPi = 3.14159265358979323846;
 
-/// Store triangle vertices CCW when viewed from outside; OSG uses n = (p1-p0) x (p2-p0).
+// 外视 CCW；法线 (p1-p0)×(p2-p0)
 void pushTri(std::vector<float>& soup,
 	float ax, float ay, float az,
 	float bx, float by, float bz,
@@ -31,7 +31,7 @@ std::vector<float> makeBoxTriangleSoup(double lengthMm, double widthMm, double h
 	// +Z top
 	pushTri(soup, -hx, -hy, hz, hx, -hy, hz, hx, hy, hz);
 	pushTri(soup, -hx, -hy, hz, hx, hy, hz, -hx, hy, hz);
-	// -Z bottom
+	// -Z 底面
 	pushTri(soup, -hx, -hy, -hz, hx, hy, -hz, hx, -hy, -hz);
 	pushTri(soup, -hx, -hy, -hz, -hx, hy, -hz, hx, hy, -hz);
 	// -Y

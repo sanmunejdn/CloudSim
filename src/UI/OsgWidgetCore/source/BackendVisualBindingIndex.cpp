@@ -64,7 +64,6 @@ bool BackendVisualBindingIndex::resolveBackendIdFromNodePath(const osg::NodePath
 		}
 	}
 
-	// Compatibility bridge: allow resolving from node user data if caller provided only scene path.
 	const BackendIdUserData* userId = BackendIdUserData::findInNodePath(path);
 	if (!userId)
 	{

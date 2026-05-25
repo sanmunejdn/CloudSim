@@ -32,8 +32,7 @@ namespace cloudsim::host {
 
 class IRobotUrdfImportContext;
 
-/// 单文档组合根：聚合 BackendDataManager、OsgWidget 与三个 Core 适配器，实现 IDocumentScope。
-/// DocumentPage 继承此类即可，无需在 Widget 内再拼装 Data/OSG/Core。
+/// 单文档组合根
 class CLOUDSIM_HOST_EXPORT DocumentHost : public QWidget, public cloudsim::core::IDocumentScope
 {
 	Q_OBJECT
@@ -48,35 +47,35 @@ public:
 	cloudsim::core::IRenderView& render() override;
 	cloudsim::core::EventHub& events();
 
-	/// 存量直达；新代码走 data()
+	/// 存量 backend 入口
 	BackendDataManager& backend();
 	const BackendDataManager& backend() const;
 	RobotProgramStore& robotProgramStore();
 	BackendHierarchyModel& hierarchyModel();
 	const BackendHierarchyModel& hierarchyModel() const;
-	/// 跟随反向索引，供帧回调增量求解
+	/// Follow 反向索引
 	BackendFollowReverseIndex& followReverseIndex();
-	/// 后端 id 与场景节点的桥接门面
+	/// 场景桥接
 	OsgWidgetSceneBridge& sceneBridge();
 
-	/// Data 网格节点 → OSG 分支
+	/// 网格加载到场景
 	bool loadMeshFromBackendIntoScene(const MeshBackendData& data, QString* errorMessage = nullptr,
 		bool resetViewToHome = true, bool showWireOutline = true, bool useSceneLighting = true);
 
-	/// 工程 I/O 旁路：导入源路径 / 类型 / 父 id
+	/// 工程旁路表
 	QMap<QString, QString>& backendSourcePath();
 	const QMap<QString, QString>& backendSourcePath() const;
 	QMap<QString, QString>& backendSourceType();
 	const QMap<QString, QString>& backendSourceType() const;
 	QMap<QString, QString>& backendParentId();
 	const QMap<QString, QString>& backendParentId() const;
-	/// 逻辑删子树并移除场景视觉
+	/// 删子树
 	QStringList removeBackendSubtree(const QString& rootBackendId);
 
 	void setProjectFilePath(const QString& path);
 	const QString& projectFilePath() const;
 
-	/// 跟随脏集，与 MainWindow 帧回调协作
+	/// Follow 脏集
 	std::unordered_set<std::string>& followDirtyBackendIds();
 	void markFollowAttachmentDirtyFromBackendMove(const std::string& seedBackendId);
 	void invalidateFollowReverseIndex();
@@ -84,13 +83,11 @@ public:
 	void requestFollowSolveForced();
 	bool takeFollowSolveForced();
 	bool followSolveForcedPending() const;
-	/// 机器人 tick 批量写 FK 时抑制脏通知，避免每关节触发 Follow
+	/// FK 批量抑制脏通知
 	void setSuppressRobotFollowDirtyNotify(bool suppress);
 	bool suppressRobotFollowDirtyNotify() const;
 
-	/// 机器人仿真细粒度接口仍由 DocumentPage 转发，后续迁入 Core DTO
-
-	/// DocumentPage 构造后注册，供 RobotServiceAdapter::registerUrdfRobot 使用
+	/// URDF 导入上下文
 	void setRobotUrdfImportContext(IRobotUrdfImportContext* context);
 	IRobotUrdfImportContext* robotUrdfImportContext() const;
 

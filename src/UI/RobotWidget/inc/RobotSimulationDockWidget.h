@@ -9,7 +9,7 @@ class SimulationCommandWidget;
 class RobotAxisControlWidget;
 class RobotFrameSettingsWidget;
 
-/// Simulation dock: Instructions / Axis control / Frames tabs.
+/// 仿真 Dock：指令/轴控制/坐标系页签
 class ROBOTWIDGET_EXPORT RobotSimulationDockWidget : public QWidget
 {
 	Q_OBJECT

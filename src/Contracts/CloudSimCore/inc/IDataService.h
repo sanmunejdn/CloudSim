@@ -7,7 +7,7 @@
 
 namespace cloudsim::core {
 
-/// Document-scoped backend object registry and properties (no concrete Data types).
+/// 文档后端数据服务
 class CLOUDSIM_CORE_EXPORT IDataService
 {
 public:

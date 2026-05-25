@@ -15,7 +15,7 @@ struct MeshCapturedPart
 	std::vector<float> triangleSoup;
 };
 
-/// 从当前 OSG 场景或导入结果中抓取几何，写入后端数据结构（供保存或业务处理）。
+/// 从当前 OSG 场景或导入结果中抓取几何，写入后端数据结构（保存或下游业务）
 class OsgWidgetCaptureController
 {
 public:

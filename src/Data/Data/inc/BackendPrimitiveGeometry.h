@@ -4,6 +4,7 @@
 
 #include <vector>
 
+/// 参数化基本体三角 soup（模型空间，9 float/三角）
 namespace BackendPrimitiveGeometry
 {
 enum class PrimitiveKind { Box, Cylinder, Cone, Sphere };

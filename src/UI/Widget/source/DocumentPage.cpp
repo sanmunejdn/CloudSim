@@ -392,7 +392,7 @@ void DocumentPage::updateRobotLinkOuterBindFromWorld(
 void DocumentPage::clearRobotSimulationContext()
 {
 	robotProgramStore().clear();
-	// 【中文】清除传统成员
+	// 清除传统成员
 	m_robotImportParentId.clear();
 	m_robotLinkNameToBackendId.clear();
 	m_robotFkMeshWorldT0.clear();
@@ -452,7 +452,7 @@ bool DocumentPage::hasRobotKinematicsBind() const
 		(!m_robotFkMeshWorldT0.isEmpty() && !m_robotOuterWorldAtBind.isEmpty());
 }
 
-// 【中文】每连杆 URDF：link → mesh 后端 id（层级导入时为空）。
+// 每连杆 URDF：link → mesh 后端 id（层级导入时为空）
 const QHash<QString, QString>& DocumentPage::robotLinkNameToBackendId() const
 {
 	return m_robotLinkNameToBackendId;

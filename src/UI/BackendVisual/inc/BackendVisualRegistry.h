@@ -14,7 +14,7 @@
 class MeshBackendData;
 class PointCloudBackendData;
 
-/// Registers \ref IBackendVisual factories by \ref BackendDataBase::className().
+/// 按 BackendDataBase::className 注册 IBackendVisual 工厂
 class BACKENDVISUAL_EXPORT BackendVisualRegistry
 {
 public:
@@ -30,7 +30,7 @@ public:
 
 	static void computeModelCenterAndDiagonal(const BackendDataBase& data, osg::Vec3f& outCenter, float& outDiagonal);
 
-	/// Used by staging / import preview (single geode, no PAT wrapper).
+	/// 导入预览用（单 geode，无 PAT）
 	static osg::ref_ptr<osg::Geode> buildPointCloudGeode(const PointCloudBackendData& data, std::string* errorMessage);
 
 	static osg::ref_ptr<osg::Node> buildMeshDisplayNode(const MeshBackendData& data, const MeshVisualOptions& options,

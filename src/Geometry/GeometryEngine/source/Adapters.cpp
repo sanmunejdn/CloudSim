@@ -25,8 +25,8 @@ void normalizeQuat(osg::Quat& q)
 
 RigidTransform rigidTransformFromOsg(const osg::Matrixd& m)
 {
-	// OSG scene/URDF: row vectors v' = v * M. Eigen Isometry: p' = R*p + t (column).
-	// Same rigid transform => R_eigen = R_osg^T, t_eigen = OSG bottom row (m(3,0..2)).
+	// OSG 行向量 v'=v*M；Eigen 列 p'=R*p+t
+	// 同一刚体：R_eigen=R_osg^T，t 取 OSG 底行
 	Eigen::Matrix3d Rrow;
 	for (int r = 0; r < 3; ++r)
 	{
@@ -65,7 +65,7 @@ osg::Matrixd osgMatrixFromRigidTransform(const RigidTransform& t)
 
 RigidTransform rigidTransformFromColMajor(const ColMajorMat4& m)
 {
-	// BackendMat4::v uses OpenGL column-major: index = col * 4 + row.
+	// BackendMat4 列主序 index=col*4+row
 	osg::Matrixd o;
 	for (int r = 0; r < 4; ++r)
 	{

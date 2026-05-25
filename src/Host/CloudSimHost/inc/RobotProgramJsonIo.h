@@ -10,7 +10,7 @@ namespace cloudsim::host {
 
 class IRobotUrdfImportContext;
 
-/// RobotProgramStore ↔ 工程 robotPrograms[]；加载时校验 sceneBackendId 已存在
+/// 机器人程序 JSON
 CLOUDSIM_HOST_EXPORT QJsonArray robotProgramsToJson(const RobotProgramStore& store);
 CLOUDSIM_HOST_EXPORT bool robotProgramsFromJson(RobotProgramStore& store, const QJsonArray& programs,
 	IRobotUrdfImportContext& ctx, QString* outError = nullptr);

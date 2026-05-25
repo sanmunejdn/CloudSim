@@ -10,7 +10,7 @@ namespace cloudsim::host {
 
 class DocumentHost;
 
-/// IRobotService 门面：URDF/程序/规划在 Host，仿真 UI 仍经 IRobotUrdfImportContext 回调 DocumentPage
+/// Host 机器人服务
 class RobotServiceAdapter final : public core::IRobotService
 {
 public:

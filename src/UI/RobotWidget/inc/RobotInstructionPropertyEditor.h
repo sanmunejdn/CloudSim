@@ -7,7 +7,7 @@
 
 class RobotSimulationController;
 
-/// Instruction property-panel helpers; full Qt property browser UI remains in Widget \ref MainWindow.
+/// 指令属性面板辅助（完整 Qt 属性浏览器仍在 MainWindow）
 class ROBOTWIDGET_EXPORT RobotInstructionPropertyEditor
 {
 public:

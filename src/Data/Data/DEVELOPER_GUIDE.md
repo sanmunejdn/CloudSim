@@ -121,7 +121,8 @@
 
 | 方法 | 说明 |
 |------|------|
-| `setPointBuffers(xyz, rgbaPerVertex)` | `3*N` float + 可选 `4*N` RGBA |
+| `setPointBuffers(xyz, rgba)` / `setPointBuffers(xyz, rgba, normals)` | `3*N` float + 可选 `4*N` RGBA + 可选 `3*N` 法线 |
+| `pointNormalsNxNyNz()` / `hasPointNormals()` | 法线缓冲（**v1 不写入 project.json**，仅内存） |
 | `pointPositionsXyz()` / `pointVertexRgba()` | 只读缓冲 |
 | `loadFromFile` | `.ply`, `.xyz`（CGAL） |
 | `readPointCloudFromPlyFile` / `writePointCloudPlySidecar` | PLY 专用 |
@@ -307,7 +308,7 @@ UI 侧增量镜像：`resyncFrom(mgr)`，`subtreeIds(root)`（结构变更后缓
 | `Widget` / `MainWindow` | 属性：`doc->data().applyPropertyChange`；注册/导入：Host `DocumentImportFacade`；场景：`BackendSceneDocumentFacade` |
 | `CloudSimPluginHost` | 插件经 SDK；宿主内 `unregisterSubtree`、`importFileIntoActiveDocument`、`registerAdoptedMesh`（见 [`../CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md)） |
 | `BackendVisual` | 读几何缓冲建 OSG |
-| `PointCloudAlgorithm` | 经 `PointCloudBackendOps` 做点云下采样/变换/重建网格（见 [`../PointCloudAlgorithm/DEVELOPER_GUIDE.md`](../PointCloudAlgorithm/DEVELOPER_GUIDE.md)） |
+| `PointCloudAlgorithm` | 经 `PointCloudBackendOps` 做点云下采样/裁剪/配准/重建等（见 [`../PointCloudAlgorithm/DEVELOPER_GUIDE.md`](../PointCloudAlgorithm/DEVELOPER_GUIDE.md)）；插件经 SDK `IPluginPointCloudHost` 间接调用 |
 | `RobotUrdf` | 每连杆 `MeshBackendData` |
 | `RobotScene` | 读关节/连杆 id，写 `worldMatrix` |
 

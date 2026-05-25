@@ -25,7 +25,7 @@ class QtTreePropertyBrowser;
 class QtVariantPropertyManager;
 class BackendDataBase;
 
-/// Main-window services used by robot simulation orchestration (implemented in Widget).
+/// 机器人编排所需主窗口服务（Widget 实现）
 class ROBOTWIDGET_EXPORT IRobotMainWindowHost : public IRobotPropertyPanelHost
 {
 public:

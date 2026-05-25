@@ -111,24 +111,35 @@ m_stagingGroup（导入预览）
 | `bindBackendVisualRoot` / `unbindBackendVisualRoot` / `clearBackendVisualBindings` | 索引维护 |
 | `resolveBackendIdFromPickedPath` | 拾取路径解析 |
 
-### 5.5 拾取 — 点云
+### 5.5 拾取 — 统一查询（Phase 4）
+
+| 类型 / 方法 | 说明 |
+|-------------|------|
+| `PickKind` / `PickQuery` / `PickResult` / `PickPreviewState` | 见 `PickTypes.h` |
+| `OsgScene::queryPick` | 点 / 面 / 边 / 对象统一入口；hover 与 click 同路径 |
+| `OsgScene::kPointPickHitRadiusPx` 等 | 共用阈值（32px 点、18px 线边距、25px 点击容差） |
+| Widget `ViewportGestureRecognizer` | click/drag/release 吞没与 clickHold |
+
+### 5.6 拾取 — 点云索引（Phase 5）
 
 | 方法 | 说明 |
 |------|------|
-| `cachePickablePointsFromNode` | 提取顶点 |
-| `pickPointAtScreenPos` / `pickNearestPointAtScreenPos` | 屏幕最近点 |
+| `PickSpatialIndex` | `bindBackendVisualRoot` 时从 Geode 构建 KD |
+| `BackendPickIndexRegistry` | `backendId → { pointIndex, meshIndex, generation }` |
+| `cachePickablePointsFromNode` | 优先从 registry 导入，避免选中时重扫 Geode |
+| `pickPointAtScreenPos` / `pickNearestPointAtScreenPos` | 屏幕最近点（legacy，内部仍可用） |
 | `pickPointByRayIntersection` | 射线拾取 |
-| `rebuildPointKdTree` / `nearestCandidatesByKdTree` | KD 加速 |
 
-### 5.6 拾取 — 网格
+### 5.7 拾取 — 网格
 
 | 方法 | 说明 |
 |------|------|
-| `pickMeshFaceByRayIntersection` | 三角命中 |
-| `pickMeshEdgeByRayIntersection` | 边段最近 |
-| `showMeshFaceHighlight` / `showMeshEdgeHighlight` / `hideMeshElementHighlight` | 高亮 overlay |
+| `MeshTopologyIndex` | 绑定 Visual 时缓存三角 soup（局部坐标） |
+| `pickMeshFaceByRayIntersection` | 三角命中 + 共面合并 |
+| `pickMeshEdgeByRayIntersection` | 边段最近（`kMeshEdgeHitRadiusPx`） |
+| `showMeshFaceHighlight` / `showMeshEdgeHighlight` / `hideMeshElementHighlight` | 高亮 overlay（mask `kMaskPickOverlay`） |
 
-### 5.7 罗盘 Gizmo
+### 5.8 罗盘 Gizmo
 
 | 方法 | 说明 |
 |------|------|
@@ -165,6 +176,7 @@ m_stagingGroup（导入预览）
 | `m_activeBackendId`, `m_activeBackendOuterPat` | 当前选中 |
 | `m_backendParentIds`, `m_backendModelCenters`, `m_backendVisibility` | 每对象状态 |
 | `m_backendVisualBindings` | `BackendVisualBindingIndex` |
+| `m_backendPickIndexes` | `BackendPickIndexRegistry`（点云/网格拾取索引） |
 | `m_selectionActive`, `m_objectSelectionMode`, `m_pointPickMode`, `m_mesh*PickMode` | 模式 |
 | `m_dragging`, `m_rotating`, `m_dragAxis`, `m_hoverAxis` | 拖拽状态 |
 | `m_annotations`, `m_pickablePointsLocal`, KD 树字段 | 注释与点拾取 |

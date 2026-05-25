@@ -27,14 +27,14 @@ struct HierarchyMeshImportResult {
 
 using HierarchyFollowBindingFn = std::function<void(const std::string& childBackendId, const std::string& parentBackendId)>;
 
-/// 分件网格：空壳父 + registerAdoptedMeshAndLoadScene；世界坐标分件忽略 onParentFollow
+/// 分件网格导入
 /// @param importParentDisplayName 树顶显示名，空则用 defaultBaseName
 CLOUDSIM_HOST_EXPORT bool importMeshHierarchyParts(DocumentHost& host, const QString& sourceFilePath,
 	const QString& catalogTypeName, const std::vector<MeshHierarchyPart>& parts, const QString& defaultBaseName,
 	const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out, QString* outError = nullptr,
 	const QString& importParentDisplayName = QString());
 
-/// DXF/STEP/OSG 层级或 CGAL/OSG 单件；true=已处理，false=调用方另寻路径
+/// 扩展网格导入
 CLOUDSIM_HOST_EXPORT bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const QString& catalogTypeName,
 	bool quietUi, const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
 	QString* outError = nullptr);

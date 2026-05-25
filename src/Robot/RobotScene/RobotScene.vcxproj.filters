@@ -1,60 +1,137 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="source\RobotSceneKinematics.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionPlaybackEngine.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionAttribute.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionController.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionModel.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotProgramExport.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
+    <Filter Include="inc">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{F12C720D-031E-49D0-9F01-9DA96B05BCA8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Robot">
+      <UniqueIdentifier>{DEADF87F-7310-4634-BF70-CCABF0FA5CD3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{1C52CAE3-1BA6-4D67-AA4B-E52EFF971EE4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Robot">
+      <UniqueIdentifier>{25879083-C24F-4BE1-A93C-F2F76FA83060}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\IRobotBackendPoseSink.h">
       <Filter>inc</Filter>
     </ClInclude>
-    <ClInclude Include="inc\IRobotSimulationDocument.h">
+    <ClInclude Include="inc\IRobotIoSink.h">
       <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IRobotSimulationDocument.h">
+      <Filter>inc\Robot</Filter>
     </ClInclude>
     <ClInclude Include="inc\robot_scene_global.h">
-      <Filter>inc</Filter>
+      <Filter>inc\Global</Filter>
     </ClInclude>
-    <ClInclude Include="inc\RobotInstructionPlaybackEngine.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotSceneKinematics.h">
-      <Filter>inc</Filter>
+    <ClInclude Include="inc\RobotCoordinateFrames.h">
+      <Filter>inc\Robot</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotInstructionAttribute.h">
-      <Filter>inc</Filter>
+      <Filter>inc\Robot</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionAxisConfiguration.h">
+      <Filter>inc\Robot</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionCondition.h">
+      <Filter>inc\Robot</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotInstructionController.h">
-      <Filter>inc</Filter>
+      <Filter>inc\Robot</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionFactory.h">
+      <Filter>inc\Robot</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotInstructionModel.h">
-      <Filter>inc</Filter>
+      <Filter>inc\Robot</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionPlaybackEngine.h">
+      <Filter>inc\Robot</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionProgram.h">
+      <Filter>inc\Robot</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionPropertySchema.h">
+      <Filter>inc\Robot</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionTransform.h">
+      <Filter>inc\Robot</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotMatrixOsgBridge.h">
+      <Filter>inc\Robot</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotProgramExecutor.h">
+      <Filter>inc\Robot</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotProgramExport.h">
-      <Filter>inc</Filter>
+      <Filter>inc\Robot</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotSceneKinematics.h">
+      <Filter>inc\Robot</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotTeachIk.h">
+      <Filter>inc\Robot</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{34839df4-6cec-457e-9bcb-ed71632b27fd}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{d4cc1d44-d80b-4798-952b-31a5302a1a38}</UniqueIdentifier>
-    </Filter>
+    <ClCompile Include="source\CloudSimCoreExport.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotCoordinateFrames.cpp">
+      <Filter>src\Robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionAttribute.cpp">
+      <Filter>src\Robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp">
+      <Filter>src\Robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionCondition.cpp">
+      <Filter>src\Robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionController.cpp">
+      <Filter>src\Robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionFactory.cpp">
+      <Filter>src\Robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionModel.cpp">
+      <Filter>src\Robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionPlaybackEngine.cpp">
+      <Filter>src\Robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionProgram.cpp">
+      <Filter>src\Robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionTransform.cpp">
+      <Filter>src\Robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotMatrixOsgBridge.cpp">
+      <Filter>src\Robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotProgramExecutor.cpp">
+      <Filter>src\Robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotProgramExport.cpp">
+      <Filter>src\Robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotSceneKinematics.cpp">
+      <Filter>src\Robot</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotTeachIk.cpp">
+      <Filter>src\Robot</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

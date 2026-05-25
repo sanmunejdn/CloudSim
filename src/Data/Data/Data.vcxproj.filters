@@ -1,94 +1,149 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Header">
+    <Filter Include="inc">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="Source">
+    <Filter Include="inc\Backend">
+      <UniqueIdentifier>{7008F89F-1A97-4CCB-B0B7-4412487649AE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{E250ECAD-D25E-4DBF-9398-A7C8236101B1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\MeshIo">
+      <UniqueIdentifier>{AE6AD22B-81BF-48E4-8FBF-6B9619A11096}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="src\Backend">
+      <UniqueIdentifier>{CC16D62E-B876-4766-8994-FB2460710B6E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{84264524-45C7-48C8-93CE-736334E526FD}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\MeshIo">
+      <UniqueIdentifier>{1B9D3516-AEA6-463F-AA32-C61C09B7A9E4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\ThirdParty">
+      <UniqueIdentifier>{79E1A589-F2E3-4845-9FE1-0F07957A6836}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\ThirdParty\dxflib">
+      <UniqueIdentifier>{B1E300E1-E018-4446-B3E9-F57876149054}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\pch">
+      <UniqueIdentifier>{3839AEEA-FA30-4955-8607-3364983EBF3D}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="inc\BackendFollowMath.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendFollowTransformSolver.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\FollowAttachmentComponent.h">
-      <Filter>Header</Filter>
-    </ClInclude>
     <ClInclude Include="inc\BackendDataBase.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendObjectAttribute.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendPropertyRow.h">
-      <Filter>Header</Filter>
+      <Filter>inc\Backend</Filter>
     </ClInclude>
     <ClInclude Include="inc\BackendDataManager.h">
-      <Filter>Header</Filter>
+      <Filter>inc\Backend</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendFollowMath.h">
+      <Filter>inc\Backend</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendFollowTransformSolver.h">
+      <Filter>inc\Backend</Filter>
     </ClInclude>
     <ClInclude Include="inc\BackendHierarchyChange.h">
-      <Filter>Header</Filter>
+      <Filter>inc\Backend</Filter>
     </ClInclude>
     <ClInclude Include="inc\BackendHierarchyModel.h">
-      <Filter>Header</Filter>
+      <Filter>inc\Backend</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendObjectAttribute.h">
+      <Filter>inc\Backend</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendPrimitiveGeometry.h">
+      <Filter>inc\Backend</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendPropertyRow.h">
+      <Filter>inc\Backend</Filter>
     </ClInclude>
     <ClInclude Include="inc\data_global.h">
-      <Filter>Header</Filter>
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FollowAttachmentComponent.h">
+      <Filter>inc\Backend</Filter>
     </ClInclude>
     <ClInclude Include="inc\geometry_base64.h">
-      <Filter>Header</Filter>
+      <Filter>inc\MeshIo</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshBackendData.h">
+      <Filter>inc\Backend</Filter>
     </ClInclude>
     <ClInclude Include="inc\PointCloudBackendData.h">
-      <Filter>Header</Filter>
+      <Filter>inc\Backend</Filter>
     </ClInclude>
-    <ClInclude Include="inc\BackendPrimitiveGeometry.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\MeshBackendData.h">
-      <Filter>Header</Filter>
+    <ClInclude Include="inc\PointCloudBackendOps.h">
+      <Filter>inc\Backend</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\BackendFollowMath.cpp">
-      <Filter>Source</Filter>
+    <ClCompile Include="..\..\..\..\bin\SDK\dxfSolution\dxflib\Source\dl_dxf.cpp">
+      <Filter>src\ThirdParty\dxflib</Filter>
     </ClCompile>
-    <ClCompile Include="source\BackendFollowTransformSolver.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\FollowAttachmentComponent.cpp">
-      <Filter>Source</Filter>
+    <ClCompile Include="..\..\..\..\bin\SDK\dxfSolution\dxflib\Source\dl_writer_ascii.cpp">
+      <Filter>src\ThirdParty\dxflib</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendDataBase.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendObjectAttribute.cpp">
-      <Filter>Source</Filter>
+      <Filter>src\Backend</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendDataManager.cpp">
-      <Filter>Source</Filter>
+      <Filter>src\Backend</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendFollowMath.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendFollowTransformSolver.cpp">
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendHierarchyModel.cpp">
-      <Filter>Source</Filter>
+      <Filter>src\Backend</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendObjectAttribute.cpp">
+      <Filter>src\Backend</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendPrimitiveGeometry.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CloudSimCoreExport.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FollowAttachmentComponent.cpp">
+      <Filter>src\Backend</Filter>
     </ClCompile>
     <ClCompile Include="source\geometry_base64.cpp">
-      <Filter>Source</Filter>
+      <Filter>src\MeshIo</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBackendData_cgal_io.cpp">
+      <Filter>src\Backend</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBackendData_core.cpp">
+      <Filter>src\Backend</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBackendData_dxf.cpp">
+      <Filter>src\Backend</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBackendData_load_common.cpp">
+      <Filter>src\Backend</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBackendData_step.cpp">
+      <Filter>src\Backend</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pch.cpp">
+      <Filter>src\pch</Filter>
     </ClCompile>
     <ClCompile Include="source\PointCloudBackendData.cpp">
-      <Filter>Source</Filter>
+      <Filter>src\Backend</Filter>
     </ClCompile>
-    <ClCompile Include="source\BackendPrimitiveGeometry.cpp"><Filter>source</Filter></ClCompile>
-    <ClCompile Include="source\MeshBackendData.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\bin\SDK\dxfSolution\dxflib\Source\dl_dxf.cpp">
-      <Filter>Header</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\bin\SDK\dxfSolution\dxflib\Source\dl_writer_ascii.cpp">
-      <Filter>Source</Filter>
+    <ClCompile Include="source\PointCloudBackendOps.cpp">
+      <Filter>src\Backend</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

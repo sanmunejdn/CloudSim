@@ -12,7 +12,7 @@
 class IRobotBackendPoseSink;
 namespace engine { class RigidTransform; }
 
-/// OSG / 3D view operations for robot UI (implemented by Widget \ref OsgWidget wrapper).
+/// 机器人 UI 的 OSG/三维操作（OsgWidget 实现）
 class ROBOTWIDGET_EXPORT IRobotOsgViewHost
 {
 public:

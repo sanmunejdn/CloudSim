@@ -28,7 +28,7 @@ bool HelloPlugin::initialize(IPluginHostContext* host)
 	{
 		return false;
 	}
-	// Let QTabWidget::addTab own reparenting; do not pre-parent to m_rightPanelTabs.
+	// 由 addTab 负责 reparent，勿预挂 m_rightPanelTabs
 	m_dockWidget = new HelloDockWidget(host, nullptr);
 	if (host->registerSidePanelTab("Hello", m_dockWidget) < 0)
 	{

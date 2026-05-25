@@ -10,7 +10,7 @@ namespace osg {
 class Group;
 }
 
-/// Attached to backend root scene nodes so picking can resolve \ref backendId() without a parallel map.
+/// 挂后端根节点，拾取可解析 backendId，免平行 map
 class BACKENDVISUAL_EXPORT BackendIdUserData : public osg::Referenced
 {
 public:
@@ -19,12 +19,12 @@ public:
 	const std::string& backendId() const { return m_id; }
 
 	static void attach(osg::Node* root, const std::string& backendId);
-	/// Walk \a path from leaf toward root; first node carrying BackendIdUserData wins.
+	/// 自叶向根遍历，首个 BackendIdUserData 生效
 	static const BackendIdUserData* findInNodePath(const osg::NodePath& path);
 
 private:
 	std::string m_id;
 };
 
-/// Same hierarchy convention as OsgWidget upsert: outer transform (\c osg::MatrixTransform) → inner PAT → geometry root.
+/// 同 OsgWidget upsert：外层 MT → 内层 PAT → 几何根
 BACKENDVISUAL_EXPORT osg::Node* backendVisualResolvePickNode(osg::Group* outerBranchRoot);

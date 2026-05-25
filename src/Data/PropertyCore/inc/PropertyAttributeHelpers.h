@@ -8,6 +8,7 @@
 #include <string>
 #include <type_traits>
 
+/// 属性 JSON 行格式化与解析工具
 namespace property_core
 {
 

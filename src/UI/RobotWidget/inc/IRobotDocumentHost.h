@@ -15,7 +15,7 @@ class BackendDataManager;
 class BackendDataBase;
 class IRobotBackendPoseSink;
 
-/// Document-level robot state and mutation (implemented by Widget \ref DocumentPage wrapper).
+/// 文档级机器人状态与变更（DocumentPage 实现）
 class ROBOTWIDGET_EXPORT IRobotDocumentHost : public IRobotSimulationDocument
 {
 public:

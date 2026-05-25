@@ -8,7 +8,7 @@ class MainWindow;
 class DocumentPage;
 class OsgWidget;
 
-/// Implements \ref IRobotMainWindowHost for \ref MainWindow.
+/// MainWindow 的 IRobotMainWindowHost 实现
 class MainWindowRobotHost : public IRobotMainWindowHost
 {
 public:

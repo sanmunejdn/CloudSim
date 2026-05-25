@@ -20,7 +20,7 @@ static void meshAddTraceTriangles(std::vector<float>& soup, const DL_TraceData& 
 		const double dz = z[a] - z[b];
 		return dx * dx + dy * dy + dz * dz < 1e-24;
 	};
-	if (same(2, 3))
+	if (same(2, 3))  // 退化四边形
 	{
 		mesh_backend_load::meshPushTri(soup, x[0], y[0], z[0], x[1], y[1], z[1], x[2], y[2], z[2]);
 	}
@@ -517,10 +517,10 @@ bool MeshBackendData::loadDxfHierarchyFromFile(const std::string& path, std::vec
 		}
 	};
 
-	// Priority 1: explicit root inserts parsed outside any BLOCK.
+	// 优先：BLOCK 外显式根 INSERT
 	expandInsertListAsRoot(collector.rootInserts);
 
-	// Priority 2: many CAD exports put model-space content in *Model_Space BLOCK.
+	// 次选：*Model_Space BLOCK
 	if (outParts.empty())
 	{
 		const auto modelIt = collector.blocks.find("*Model_Space");
@@ -540,7 +540,7 @@ bool MeshBackendData::loadDxfHierarchyFromFile(const std::string& path, std::vec
 		}
 	}
 
-	// Priority 3: fallback to paper-space blocks if model space not present.
+	// 再次：纸空间 BLOCK
 	if (outParts.empty())
 	{
 		for (const char* paperName : { "*Paper_Space", "*Paper_Space0" })
@@ -564,7 +564,7 @@ bool MeshBackendData::loadDxfHierarchyFromFile(const std::string& path, std::vec
 		}
 	}
 
-	// Priority 4: last fallback, if there are still no roots but blocks exist, expand all block inserts.
+	// 兜底：无根时展开全部 BLOCK INSERT
 	if (outParts.empty())
 	{
 		for (const auto& kv : collector.blocks)
@@ -573,7 +573,7 @@ bool MeshBackendData::loadDxfHierarchyFromFile(const std::string& path, std::vec
 		}
 	}
 
-	// Keep model-space direct geometry if there was no insert-expanded result.
+	// 无 INSERT 结果时保留模型空间几何
 	if (outParts.empty() && !collector.modelSoup.empty())
 	{
 		MeshHierarchyPart root;

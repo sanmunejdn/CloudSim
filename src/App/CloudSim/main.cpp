@@ -42,7 +42,7 @@ void prependPathIfExists(const QString& dirPath)
 
 void configureWindowsDllSearchPath()
 {
-	// Ensure project OSG runtime is searched before system PATH entries (e.g. osg161-*.dll).
+	// OSG 运行时优先于系统 PATH（如 osg161-*.dll）
 	const QString appDir = QCoreApplication::applicationDirPath();
 	const QStringList candidates{
 		QDir(appDir).absoluteFilePath("../SDK/OSG3.6.5/bin"),
@@ -58,7 +58,7 @@ void configureWindowsDllSearchPath()
 } // namespace
 #endif
 
-/// Sets \c ROBOT_KINEMATICS_DEBUG from argv so debugging works without pre-setting system env (Windows GUI).
+/// 从 argv 设 ROBOT_KINEMATICS_DEBUG（Windows GUI 无预置 env）
 static void applyRobotKinematicsDebugFromArgv(int argc, char* argv[])
 {
 	for (int i = 1; i < argc; ++i)
@@ -83,8 +83,7 @@ static void applyRobotKinematicsDebugFromArgv(int argc, char* argv[])
 int main(int argc, char* argv[])
 {
 	applyRobotKinematicsDebugFromArgv(argc, argv);
-	// Default ON: per-link FK / OSG matrix dumps (Run info + logs). Turn off with env ROBOT_KINEMATICS_DEBUG=0
-	// or e.g. --robot-kinematics-debug 0 before other args consume the value.
+	// 默认开 per-link FK/OSG 矩阵 dump；ROBOT_KINEMATICS_DEBUG=0 关
 	if (qgetenv("ROBOT_KINEMATICS_DEBUG").isEmpty())
 	{
 		(void)qputenv("ROBOT_KINEMATICS_DEBUG", QByteArray("0"));

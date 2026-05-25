@@ -15,9 +15,9 @@ public:
 	explicit SelectionOperation(OsgWidget* owner) : m_owner(owner) {}
 	virtual ~SelectionOperation() = default;
 
-	// Base-class event dispatcher:
-	// - Derivations only implement hook methods (below).
-	// - This function remains stable so OsgWidget can call it uniformly.
+	// 统一事件分发：
+	// - 子类只实现下方 hook
+	// - 接口稳定，OsgWidget 统一调用
 	virtual bool handleEvent(QObject* watched, QEvent* event)
 	{
 		if (!event)
@@ -47,8 +47,8 @@ public:
 	}
 
 protected:
-	// Whether this operation should consume/process the event right now.
-	// Usually depends on mode flags and event target widget.
+	// 当前是否消费该事件
+	// 取决于模式标志与事件目标控件
 	virtual bool canHandle(QObject* watched, QEvent* event) const
 	{
 		(void)watched;
@@ -56,7 +56,7 @@ protected:
 		return false;
 	}
 
-	// Hooks: default do nothing (do not consume).
+	// Hook 默认空实现（不消费）
 	virtual bool onMouseMove(QMouseEvent* e)
 	{
 		(void)e;

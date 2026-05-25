@@ -1,62 +1,73 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="source\PointCloudBackendVisual.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshBackendVisual.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendVisualRegistry.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendVisualMath.cpp">
+    <Filter Include="inc">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Backend">
+      <UniqueIdentifier>{F75F0008-45D7-4012-8CBA-70EC2F95EE1D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{5A773706-9E8E-4E40-83A5-62EC701A6DE6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Backend">
+      <UniqueIdentifier>{27D8EAC5-387F-4F76-BE65-B723639054A8}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\BackendGeometryMetrics.h">
+      <Filter>inc\Backend</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendIdUserData.h">
+      <Filter>inc\Backend</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\backendvisual_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendVisualMath.h">
+      <Filter>inc\Backend</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendVisualRegistry.h">
+      <Filter>inc\Backend</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IBackendVisual.h">
+      <Filter>inc\Backend</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshBackendVisual.h">
+      <Filter>inc\Backend</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PointCloudBackendVisual.h">
+      <Filter>inc\Backend</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\BackendGeometryMetrics.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendIdUserData.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\BackendGeometryMetrics.cpp">
-      <Filter>src</Filter>
+    <ClCompile Include="source\BackendVisualMath.cpp">
+      <Filter>src\Backend</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendVisualRegistry.cpp">
+      <Filter>src\Backend</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBackendVisual.cpp">
+      <Filter>src\Backend</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PointCloudBackendVisual.cpp">
+      <Filter>src\Backend</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="inc\BackendGeometryMetrics.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendIdUserData.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\backendvisual_global.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendVisualMath.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendVisualRegistry.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IBackendVisual.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MeshBackendVisual.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PointCloudBackendVisual.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{8e21e9fe-9d86-49e4-ad8e-814c22d8c657}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{1c48294e-72e0-466c-a658-1b45145528ad}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
     <None Include="source\MeshWireGeometry.inc">
-      <Filter>inc</Filter>
+      <Filter>src</Filter>
     </None>
   </ItemGroup>
 </Project>

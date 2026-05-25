@@ -17,7 +17,7 @@ constexpr double kMaxDimMm = 1e6;
 AIBACKEND_EXPORT bool primitiveKindFromString(const std::string& s, BackendPrimitiveGeometry::PrimitiveKind& out);
 AIBACKEND_EXPORT std::string primitiveKindToString(BackendPrimitiveGeometry::PrimitiveKind kind);
 
-/// Validates create_mesh command; fills mesh params and quality on success.
+/// 校验 create_mesh 并填充 mesh 参数
 AIBACKEND_EXPORT bool parseCreateMeshCommand(
 	const nlohmann::json& cmd,
 	BackendPrimitiveGeometry::PrimitiveMeshParams& outParams,
@@ -28,7 +28,7 @@ AIBACKEND_EXPORT bool parseCreateMeshCommand(
 
 AIBACKEND_EXPORT std::string defaultDisplayNameFor(const BackendPrimitiveGeometry::PrimitiveMeshParams& params);
 
-/// Extract and validate create_mesh JSON from raw LLM text (may include markdown fences).
+/// 从 LLM 原文提取 create_mesh JSON（可含 markdown 围栏）
 AIBACKEND_EXPORT bool tryParseCreateMeshCommandJson(
 	const std::string& llmText,
 	nlohmann::json& outCommand,

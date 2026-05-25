@@ -83,6 +83,31 @@ flowchart TB
 - Win32 遗留配置仍可用 `*_STATIC` / `BUILD_STATIC` 关闭导入导出。
 - 新增跨 DLL 类/函数：在对应 `*_global.h` 加导出宏，vcxproj 构建侧加 `*_LIB`，消费者通过 `ProjectReference` + import `.lib` 链接。
 
+## Visual Studio 解决方案筛选器
+
+各子工程 `.vcxproj.filters` 统一为两层结构：
+
+1. 顶层：**`inc`**（头文件）、**`src`**（源文件 / Qt Moc）
+2. 子层：按功能划分（如 `inc\adapters`、`src\MainWindow`、`src\OsgWidget`、`src\Backend`、`src\ThirdParty\qtpropertybrowser` 等）
+
+跨工程引用（如 Widget 编入的 `CloudSimPluginHost`、`Host` 引用的 Widget OSG 源）使用 `inc\HostRef`、`src\WidgetBorrowed`、`inc\PluginHost` 等筛选器，与本地 `inc`/`src` 区分。
+
+新增/移动源文件后，在 `CloudSim` 目录执行：
+
+```bash
+python scripts/generate_vcxproj_filters.py
+```
+
+脚本会扫描全部 `*.vcxproj` 并重写对应的 `.vcxproj.filters`（不修改 `.vcxproj` 本身）。
+
+## 源码注释约定（code-comment）
+
+- 只写 **Why**：业务背景、非显然算法、边界兜底、危险操作；不写「代码在做什么」
+- 头文件公开 API：精简中文 `///`（约 5–15 字）；`@param` 保留但描述用中文
+- 实现文件：非显然处用短 `//`，行内注释尽量 ≤5 词
+- 避免「用于…」「该方法…」等翻译腔；行末 `//` 不加句号
+- 批量清理（仅删 `【中文】` 标签等）：`python scripts/apply_code_comment_style.py`（慎用，改后需 diff 复核）
+
 ## 头文件约定
 
 - 公共 API：`各工程/inc/*.h`

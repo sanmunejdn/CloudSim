@@ -136,7 +136,7 @@ void OsgScene::focusCameraOnBackend(const std::string& backendId)
 	osg::Vec3d center(merged.center());
 	double radius = static_cast<double>(merged.radius());
 	// URDF 连杆容器 setCullingActive(false) 时 OSG 包围球常异常偏大；Trackball::home() 也会按「整场景」拟合，
-	// 相机会被拉到极远，其它后端几何落在视锥外或远裁剪外，表现为「导入后全黑，删掉机器人才看见」。
+	// 相机会被拉到极远，其它后端几何落在视锥外或远裁剪外，表现为「导入后全黑，删掉机器人才看见」
 	static constexpr double kMaxFocusRadius = 5.0e5;
 	static constexpr double kMaxEyeDistance = 2.0e6;
 	if (!std::isfinite(center.x()) || !std::isfinite(center.y()) || !std::isfinite(center.z()) || !std::isfinite(radius))
@@ -193,7 +193,7 @@ void OsgScene::focusCameraOnBackend(const std::string& backendId)
 	}
 	m_trackballManipulator->setTransformation(eye, center, up);
 
-	// 世界单位为毫米时：需要足够大的 zFar；同时 zNear 过小 + zFar 极大 → 深度缓冲精度崩溃，表现为「全黑」。
+	// 世界单位为毫米时：需要足够大的 zFar；同时 zNear 过小 + zFar 极大 → 深度缓冲精度崩溃，表现为「全黑」
 	{
 		const double surfaceDist = std::max(1.0, dist - radius);
 		double zNearProj = std::max(10.0, surfaceDist * 0.02);

@@ -1,8 +1,10 @@
 #pragma once
 
 #include "osgwidgetcore_global.h"
+#include "BackendPickIndexRegistry.h"
 #include "BackendVisualBindingIndex.h"
 #include "ObjectGizmoFrame.h"
+#include "PickTypes.h"
 
 #include <cstddef>
 #include <functional>
@@ -47,14 +49,27 @@ class OSGWIDGETCORE_EXPORT OsgScene
 {
 public:
 	enum class DragAxis { None, X, Y, Z };
-	/// Gizmo axes: Local = object/body; World = world-aligned at pivot (see syncCompassGizmoOrientation).
+	/// Local：物体轴；World：枢轴处对齐世界轴
 	enum class TransformGizmoFrame { World, Local };
 
-	// Gizmo 轴编号（与历史 OsgWidgetGizmoController 一致）：0=None,1=X,2=Y,3=Z
+/// Gizmo 轴编号（与历史 OsgWidgetGizmoController 一致）：0=None,1=X,2=Y,3=Z
 	static constexpr int kGizmoAxisNone = 0;
 	static constexpr int kGizmoAxisX = 1;
 	static constexpr int kGizmoAxisY = 2;
 	static constexpr int kGizmoAxisZ = 3;
+
+	/// 屏幕拾取共用阈值（hover/click 须一致，避免预览与提交分裂）
+	static constexpr double kPointPickHitRadiusPx = 32.0;
+	/// 仅在此半径内显示绿色预览环（小于 hit 半径，避免环与光标相距过远）
+	static constexpr double kPointPickPreviewRadiusPx = 18.0;
+	static constexpr double kMeshEdgeHitRadiusPx = 18.0;
+	static constexpr int kPickClickMoveThresholdPx = 25;
+	static constexpr int kPickDragMoveThresholdPx = 25;
+	static constexpr int kPickClickHoldMs = 150;
+	static constexpr int kPickHoverThrottleMs = 16;
+	static constexpr int kPickHoverMinMovePx = 4;
+	static constexpr unsigned int kMaskPickContent = 0x1u;
+	static constexpr unsigned int kMaskPickOverlay = 0x2u;
 
 	struct AnnotationEntry
 	{
@@ -97,15 +112,14 @@ public:
 	/// 清除 osgGA 事件队列中卡住的按键/按钮状态（相机漫游恢复）。
 	void resetNavigationInputQueues();
 
-	/// Used by the viewer frame timer: non-empty annotations get per-frame scale tweaks.
+	/// 帧定时器：非空标注每帧缩放
 	bool hasPointAnnotations() const { return !m_annotations.empty(); }
 
 	bool isBackendDescendantOf(const std::string& backendId, const std::string& ancestorId) const;
-	/// True if \a childBackendId outer PAT is a descendant in the OSG scene graph of \a ancestorBackendId outer PAT
-	/// (walks real parents; used to avoid double-applying gizmo deltas when logical and visual hierarchy match).
+	/// \a childBackendId 外层 PAT 是否为 \a ancestorBackendId 子节点（走真实父链，避免重复 gizmo 增量）
 	bool backendOuterPatIsUnderOuterPatInSceneGraph(const std::string& childBackendId, const std::string& ancestorBackendId) const;
 	void cacheSelectionGizmoPose();
-	/// Apply \a cur to active outer PAT; when not dragging, propagate rotation delta to descendant backend roots.
+	/// 写活动外层 PAT；非拖拽时将旋转增量传播到子孙根
 	void syncActiveBackendRootFromObjectFrame(const ObjectGizmoFrame& cur, bool dragging);
 	bool readActiveObjectGizmoFrame(ObjectGizmoFrame& out) const;
 	void attachGizmoOverlayToActiveBackend();
@@ -130,7 +144,7 @@ public:
 	void updateCompassScale();
 	/// \param outPickedRing 若非空：命中旋转环时为 true，命中轴线段时为 false。
 	int pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing, bool* outPickedRing = nullptr) const;
-	/// Qt widget pixel coords (logical); multiplied internally by \ref devicePixelRatio to match OSG viewport.
+	/// Qt 逻辑像素；内部乘 DPR 对齐 OSG 视口
 	bool computeCameraScreenRayWorld(double mouseX, double mouseY, osg::Vec3d& outRayOriginWorld, osg::Vec3d& outRayDirUnitWorld) const;
 	void computeGizmoPivotWorld(osg::Vec3f& outPivotWorld) const;
 	/// 与罗盘显示一致的单位轴方向（世界坐标）。
@@ -142,7 +156,7 @@ public:
 	bool beginGizmoScreenRotate(DragAxis axis, double mouseX, double mouseY);
 	double gizmoScreenRotateDeltaRad(double mouseX, double mouseY);
 	bool gizmoScreenAngleAtMouse(DragAxis axis, double mouseX, double mouseY, double& outAngleRad) const;
-	/// 若环境变量 \c POINTCLOUD_GIZMO_PIVOT_DIAG 非空且不为 \c "0"：经 RunLogger 输出枢轴与场景图文件原点的对比（用于排查罗盘/几何不一致）。
+	/// POINTCLOUD_GIZMO_PIVOT_DIAG 非空且非 0 时经 RunLogger 输出枢轴诊断
 	void logGizmoPivotDiagnostics(const char* reasonTag) const;
 
 	void focusCameraOnBackend(const std::string& backendId);
@@ -157,9 +171,12 @@ public:
 	bool pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx) const;
 	bool pickMeshFaceByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, osg::Vec3f& outAWorld,
 		osg::Vec3f& outBWorld, osg::Vec3f& outCWorld, osg::Vec3f& outNormalWorld,
-		std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld = nullptr) const;
+		std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld = nullptr,
+		const std::string* scopeBackendId = nullptr) const;
 	bool pickMeshEdgeByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, osg::Vec3f& outEdgeAWorld,
-		osg::Vec3f& outEdgeBWorld) const;
+		osg::Vec3f& outEdgeBWorld, double* outEdgeDistancePx = nullptr,
+		const std::string* scopeBackendId = nullptr) const;
+	PickResult queryPick(const PickQuery& query);
 	void showMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld);
 	void showMeshFaceHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld, const osg::Vec3f& cWorld);
 	void showMeshEdgeHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld);
@@ -171,6 +188,13 @@ public:
 
 	void rebuildPointKdTree();
 	void nearestCandidatesByKdTree(const osg::Vec3f& queryLocalCentered, int k, std::vector<int>& outIndices) const;
+	void nearestCandidatesByPickIndex(
+		const PickSpatialIndex& index,
+		const osg::Vec3f& queryLocalCentered,
+		int k,
+		std::vector<int>& outIndices) const;
+	void importPickSpatialIndexForActiveBackend(const PickSpatialIndex& index);
+	const PickSpatialIndex* activePointPickIndex() const;
 
 	osg::ref_ptr<osgViewer::Viewer> m_viewer;
 	/// 与 GL_LIGHT0 对应；通过 View::HEADLIGHT 随相机移动（等价于头灯挂在视点）。
@@ -195,9 +219,10 @@ public:
 	std::unordered_map<std::string, osg::Vec3f> m_backendModelCenters;
 	std::unordered_map<std::string, bool> m_backendVisibility;
 	BackendVisualBindingIndex m_backendVisualBindings;
+	BackendPickIndexRegistry m_backendPickIndexes;
 	std::string m_activeBackendId;
 	osg::ref_ptr<osg::MatrixTransform> m_activeBackendOuterPat;
-	/// Gizmo overlay (compass + pick feedback) parented under inner PAT at file origin; not in scene until attach.
+	/// gizmo overlay 挂内层 PAT 文件原点，attach 前不在场景
 	osg::ref_ptr<osg::Group> m_gizmoOverlayGroup;
 	osg::ref_ptr<osg::Node> m_gizmoAttachedInner;
 	osg::ref_ptr<osg::PositionAttitudeTransform> m_compassTransform;
@@ -207,7 +232,7 @@ public:
 	osg::ref_ptr<osg::AutoTransform> m_pickFeedbackTransform;
 	osg::ref_ptr<osg::Node> m_compassNode;
 	osg::ref_ptr<osg::Node> m_pickFeedbackNode;
-	/// 各轴正方向（轴线 + 锥体箭头）与旋转环分支，用于悬停/拖拽时的局部缩放高亮。
+	/// 各轴正半轴与旋转环分支，悬停/拖拽局部缩放高亮
 	osg::ref_ptr<osg::MatrixTransform> m_compassAxisBranch[3];
 	osg::ref_ptr<osg::MatrixTransform> m_compassRingBranch[3];
 	osg::ref_ptr<osg::Camera> m_worldAxesHudCamera;
@@ -221,7 +246,7 @@ public:
 	bool m_rotating = false;
 	DragAxis m_dragAxis = DragAxis::None;
 	DragAxis m_hoverAxis = DragAxis::None;
-	/// Frozen translate drag plane (pivot-centered, contains the dragged axis, faces the camera at press time).
+	/// 平移拖拽冻结平面（过枢轴、含拖拽轴、朝向按下时相机）
 	osg::Vec3d m_gizmoTransDragPlaneO{};
 	osg::Vec3d m_gizmoTransDragPlaneN{};
 	osg::Vec3d m_gizmoDragLastHitWorld{};
@@ -232,7 +257,7 @@ public:
 	osg::Vec3d m_gizmoScreenDragAxisWorld{0.0, 0.0, 1.0};
 	double m_gizmoRotateLastScreenAngle = 0.0;
 	bool m_gizmoRotateScreenActive = false;
-	/// 旋转拖拽开始时缓存的文件原点（外层父节点局部坐标），用于 \c a = pivot - (-center)*R 保枢轴。
+	/// 旋转拖拽起始缓存文件原点（外层父局部），保枢轴
 	bool m_gizmoRotatePivotActive = false;
 	osg::Vec3d m_gizmoRotatePivotInParent{};
 	osg::Vec3d m_gizmoRotatePivotWorld{};
@@ -242,7 +267,7 @@ public:
 	float m_activeModelDiagonal = 1.0f;
 	bool m_darkUiTheme = false;
 	bool m_hasLastSelectionPose = false;
-	/// Last committed center+pose (outer translate) and attitude for descendant propagation.
+	/// 上次提交的 center+pose 与姿态，供子孙传播
 	osg::Vec3f m_lastGizmoCenterPlusPose = osg::Vec3f(0.0f, 0.0f, 0.0f);
 	osg::Quat m_lastGizmoAttitude;
 	std::vector<osg::Vec3f> m_pickablePointsLocal;

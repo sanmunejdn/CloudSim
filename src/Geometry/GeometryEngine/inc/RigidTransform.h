@@ -9,7 +9,7 @@
 namespace engine
 {
 
-/// Rigid transform in robot base / scene chain; translation in millimeters.
+/// 基座/场景链刚体变换，平移 mm
 class GEOMETRY_ENGINE_API RigidTransform
 {
 public:
@@ -35,10 +35,10 @@ public:
 	Eigen::Quaterniond rotation() const;
 	void setRotation(const Eigen::Quaterniond& q);
 
-	/// OSG/URDF row-vector chain: this * child (v' = v * M_parent * M_child).
+	/// OSG/URDF 行向量链：this * child
 	RigidTransform composeScene(const RigidTransform& child) const;
 
-	/// Column-vector / BackendMat4 chain: out = this * right (p' = this * right * p).
+	/// 列向量/BackendMat4 链：out = this * right
 	RigidTransform composeColumn(const RigidTransform& right) const;
 
 	RigidTransform inverse() const;

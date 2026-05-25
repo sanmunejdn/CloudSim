@@ -23,7 +23,7 @@
 
 namespace cloudsim::host {
 
-// Data → OSG → 三适配器；适配器只持引用，不接管所有权
+// Data→OSG→三适配器
 DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, const QString& documentId)
 	: QWidget(parent)
 	, m_documentId(documentId)
@@ -187,7 +187,7 @@ void DocumentHost::markFollowAttachmentDirtyFromBackendMove(const std::string& s
 		return;
 	}
 	BackendDataManager& mgr = backend();
-	// 沿 follower 链 + Data 子节点传播脏标记，供增量 Follow 写回
+	// follower 链传播脏标记
 	std::unordered_map<std::string, std::vector<std::string>> targetToFollowers;
 	for (const auto& d : mgr.listData())
 	{

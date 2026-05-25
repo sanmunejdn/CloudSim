@@ -4,6 +4,7 @@
 #include <string>
 #include <utility>
 
+/// 属性面板 JSON 行字段约定
 namespace backend_property_json {
 
 inline constexpr const char* kKey = "key";

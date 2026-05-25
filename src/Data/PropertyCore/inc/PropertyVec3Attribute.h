@@ -8,6 +8,7 @@
 namespace property_core
 {
 
+/// Vec3 属性行（位姿分量等）
 template <typename TContext, typename TVec3, typename TBase>
 class PropertyVec3Attribute : public TBase
 {

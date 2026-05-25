@@ -63,7 +63,7 @@ struct FeasibleMotionAxisConfigurationOptions;
 enum class Type;
 }
 
-/// 应用程序主窗口：菜单、停靠栏、文档页、属性面板与 OsgWidget 的协调入口。
+/// 应用程序主窗口：菜单、停靠栏、文档页、属性面板与 OsgWidget 协调入口
 class WIDGET_EXPORT MainWindow : public QMainWindow
 {
 	Q_OBJECT
@@ -72,7 +72,7 @@ public:
 	explicit MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent = nullptr);
 	~MainWindow() override;
 
-	/// Call once after \c QApplication::exec() returns (same RunLogger module as \ref RunInfoPage).
+	/// QApplication::exec 返回后调用一次（同 RunInfoPage 的 RunLogger）
 	static void shutdownApplicationLogging();
 
 	DocumentPage* currentPage() const;
@@ -81,7 +81,7 @@ public:
 	RunInfoPage* runInfoPage() const { return m_runInfoPage; }
 	PluginManager* pluginManager() const { return m_pluginManager; }
 	void loadPlugins();
-	/// Plugin UI tab beside Workspace / AI (returns tab index, or -1).
+	/// 工作区/AI 旁插件页签（返回索引，失败 -1）
 	int addPluginSidePanelTab(const QString& title, QWidget* widget);
 	void removePluginSidePanelTab(QWidget* widget);
 	QTabWidget* rightPanelTabs() const { return m_rightPanelTabs; }
@@ -119,14 +119,15 @@ private:
 	void setupMenuBar();
 	void setupDockWidgets();
 	void applyLanguage();
+	void notifyPluginsLanguageChanged();
 	QString i18n(const QString& en, const QString& zh) const;
 	void refreshBackendTree();
 	void beginBackendTreeEventRefreshSuppress();
 	void endBackendTreeEventRefreshSuppress();
 	void refreshOsgSceneTree();
-	/** Selects the tree row for this backend id and refreshes the property panel (import / project load). */
+	/// 选中后端树行并刷新属性面板（导入/工程加载）
 	void focusBackendInTree(const std::shared_ptr<BackendDataBase>& backendObject);
-	/** Load geometry via Data (CGAL) when possible; LAS/LAZ and exotic mesh formats fall back to OSG. */
+	/// 优先 Data/CGAL 加载几何；LAS/LAZ 等回退 OSG
 	bool registerBackendObject(const QString& filePath, const QString& typeName, bool isPointCloud, bool quietUi = false);
 	void updatePropertyPanel(const std::shared_ptr<BackendDataBase>& data);
 	void updateInstructionPropertyPanel(
@@ -187,6 +188,7 @@ private:
 	void onNewDocument();
 	void onDocumentTabChanged(int index);
 	void onPointPickFeedback(const QString& text);
+	void onMeshPickFeedback(const QString& text);
 	void onOsgBackendObjectPicked(const QString& backendId);
 	void onUrdfImportRequested(const QString& urdfPath);
 	void onSimulationStartTriggered();
@@ -221,13 +223,13 @@ private:
 	void runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg,
 		const std::string* manualPoseAuthorityBackendId = nullptr);
 	cloudsim::host::FollowSolveContext makeFollowSolveContext(OsgWidget& osg) const;
-	/// Debounced full property browser rebuild after variant edits (avoids clear() on every spin step).
+	/// 属性编辑防抖全量重建（避免每步 spin 都 clear）
 	void schedulePropertyPanelCommitRefresh(const std::shared_ptr<BackendDataBase>& data);
-	/// After OSG gizmo writes pose/rotation/color to backend: follow solve + property panel (runs on each mouse move, not only the 16ms frame timer).
+	/// gizmo 写后端位姿/色后：跟随求解+属性面板（每次 mouse move，非仅帧定时器）
 	void refreshFollowSolveAndPropertyPanelFromOsgWrite(const std::shared_ptr<BackendDataBase>& data);
-	/// Sync FollowAttachment from backend parent edge (append under parent): child world = parent * local.
+	/// 从后端父子边同步 FollowAttachment：子世界=父*局部
 	void applyHierarchyFollowBinding(DocumentPage* page, const std::string& childId, const std::string& parentId);
-	/// Apply debounced follow.targetName (line edit emits per keystroke; avoid clear() while typing).
+	/// 防抖应用 follow.targetName（逐键 emit，避免输入时 clear）
 	void flushFollowTargetNamePropertyEdit();
 	void syncViewModeActionsFromCurrentOsg();
 	void setAllDocumentViewerDarkBackground(bool dark);
@@ -286,7 +288,7 @@ private:
 	QString m_followTargetNameDebounceBackendId;
 	QString m_followTargetNameDebounceText;
 	QDockWidget* m_runDock = nullptr;
-	/// 右侧 Dock 顶栏：工作区（单元/仿真/场景）与 AI，替代 tabifyDockWidget 底部页签。
+	/// 右侧 Dock 顶栏：工作区（单元/仿真/场景）与 AI，替代 tabifyDockWidget 底部页签
 	QTabWidget* m_rightPanelTabs = nullptr;
 	AiAssistantDockWidget* m_aiAssistantPage = nullptr;
 	AiAssistantCoordinator* m_aiCoordinator = nullptr;

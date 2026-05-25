@@ -10,7 +10,7 @@
 #include <memory>
 #include <vector>
 
-/// Per-robot instruction programs keyed by scene backend id (robot root).
+/// 按机器人后端 id 存储指令程序
 class ROBOTWIDGET_EXPORT RobotProgramStore
 {
 public:

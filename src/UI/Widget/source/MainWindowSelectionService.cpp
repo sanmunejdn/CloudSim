@@ -134,6 +134,56 @@ bool MainWindowSelectionService::selectBackendById(MainWindow& mainWindow, const
 	return true;
 }
 
+void MainWindowSelectionService::ensureBackendForPickMode(
+	MainWindow& mainWindow,
+	const SelectedBackendKind preferredKind)
+{
+	OsgWidget* osg = mainWindow.currentOsgWidget();
+	if (!osg || !osg->hasImportedContent())
+	{
+		return;
+	}
+	osg->setSelectionActive(true);
+
+	const SelectionSnapshot current = currentSelection(mainWindow);
+	if (current.valid() && current.hasGeometry)
+	{
+		if (preferredKind == SelectedBackendKind::PointCloud && current.kind == SelectedBackendKind::PointCloud)
+		{
+			return;
+		}
+		if (preferredKind == SelectedBackendKind::Mesh && current.kind == SelectedBackendKind::Mesh)
+		{
+			return;
+		}
+	}
+
+	for (const std::shared_ptr<BackendDataBase>& data : MainWindowObjectRepository::listAll(mainWindow))
+	{
+		if (!data || !data->hasGeometry())
+		{
+			continue;
+		}
+		if (preferredKind == SelectedBackendKind::PointCloud
+			&& !std::dynamic_pointer_cast<PointCloudBackendData>(data))
+		{
+			continue;
+		}
+		if (preferredKind == SelectedBackendKind::Mesh
+			&& !std::dynamic_pointer_cast<MeshBackendData>(data))
+		{
+			continue;
+		}
+		const QString id = QString::fromStdString(data->id());
+		mainWindow.m_selectionState.setSelectedBackendId(id);
+		if (selectBackendById(mainWindow, id, false))
+		{
+			handleBackendTreeSelectionChanged(mainWindow);
+		}
+		return;
+	}
+}
+
 void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& mainWindow)
 {
 	if (!mainWindow.m_backendTree)

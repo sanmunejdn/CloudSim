@@ -2,7 +2,7 @@
 
 #include "widget_global.h"
 
-// AiCommandSchema lives in AiBackend.dll
+/// AiCommandSchema 在 AiBackend.dll
 
 #include <json.hpp>
 #include <QString>

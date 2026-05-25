@@ -88,7 +88,6 @@ void RobotAxisControlWidget::createUI()
 	descLabel->setStyleSheet("color: gray; font-size: 11px;");
 	mainLayout->addWidget(descLabel);
 
-	// 滚动区域（容纳所有关节控制）
 	m_scrollArea = new QScrollArea(this);
 	m_scrollArea->setWidgetResizable(true);
 	m_scrollArea->setFrameShape(QFrame::NoFrame);
@@ -103,7 +102,6 @@ void RobotAxisControlWidget::createUI()
 	m_scrollArea->setWidget(m_contentWidget);
 	mainLayout->addWidget(m_scrollArea);
 
-	// 底部按钮
 	QHBoxLayout* buttonLayout = new QHBoxLayout();
 	buttonLayout->addStretch();
 
@@ -121,7 +119,6 @@ void RobotAxisControlWidget::setupJointControls(
 	const QVector<double>& upperLimits,
 	const QHash<QString, osg::MatrixTransform*>& jointTransforms)
 {
-	// 清空现有控件
 	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it) {
 		JointControl& jc = it.value();
 		if (jc.nameLabel) delete jc.nameLabel;
@@ -134,11 +131,9 @@ void RobotAxisControlWidget::setupJointControls(
 	m_jointControls.clear();
 	m_jointOrder.clear();
 
-	// 移除所有布局项（除了最后的 stretch）
 	QLayoutItem* child;
 	while ((child = m_contentLayout->takeAt(0)) != nullptr) {
 		if (child->spacerItem()) {
-			// 保留 stretch
 			m_contentLayout->addItem(child);
 			break;
 		}
@@ -151,7 +146,6 @@ void RobotAxisControlWidget::setupJointControls(
 		return;
 	}
 
-	// 创建每个关节的控制界面
 	for (int i = 0; i < count; ++i) {
 		const QString& name = jointNames[i];
 		double lower = lowerLimits[i];
@@ -166,7 +160,6 @@ void RobotAxisControlWidget::setupJointControls(
 		jc.currentAngle = 0.0;
 		jc.transformNode = jointTransforms.value(name, nullptr);
 
-		// 创建分组框
 		QGroupBox* groupBox = new QGroupBox(name, m_contentWidget);
 		groupBox->setObjectName("jointGroup_" + name);
 
@@ -174,7 +167,6 @@ void RobotAxisControlWidget::setupJointControls(
 		groupLayout->setContentsMargins(8, 12, 8, 8);
 		groupLayout->setSpacing(6);
 
-		// 1. 上下限显示
 		QHBoxLayout* limitLayout = new QHBoxLayout();
 		jc.limitLabel = new QLabel(groupBox);
 		updateLimitLabel(jc); // 更新显示上下限
@@ -183,7 +175,6 @@ void RobotAxisControlWidget::setupJointControls(
 		limitLayout->addStretch();
 		groupLayout->addLayout(limitLayout);
 
-		// 2. 滑块控制
 		QHBoxLayout* sliderLayout = new QHBoxLayout();
 		QLabel* minLabel = new QLabel(QString::number(lower * 180.0 / kPi, 'f', 1) + "°", groupBox);
 		minLabel->setStyleSheet("font-size: 10px;");
@@ -199,7 +190,6 @@ void RobotAxisControlWidget::setupJointControls(
 		sliderLayout->addWidget(maxLabel);
 		groupLayout->addLayout(sliderLayout);
 
-		// 3. 数值输入区
 		QHBoxLayout* inputLayout = new QHBoxLayout();
 		QLabel* valueLabel = new QLabel(tr("角度:"), groupBox);
 		jc.spinBox = new QDoubleSpinBox(groupBox);
@@ -229,14 +219,12 @@ void RobotAxisControlWidget::setupJointControls(
 		inputLayout->addWidget(jc.resetButton);
 		groupLayout->addLayout(inputLayout);
 
-		// 连接信号槽
 		connect(jc.slider, &QSlider::valueChanged, this, &RobotAxisControlWidget::onSliderValueChanged);
 		connect(jc.spinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
 				this, &RobotAxisControlWidget::onSpinBoxValueChanged);
 		connect(jc.inputEdit, &QLineEdit::returnPressed, this, &RobotAxisControlWidget::onLineEditReturnPressed);
 		connect(jc.resetButton, &QPushButton::clicked, this, &RobotAxisControlWidget::onResetButtonClicked);
 
-		// 添加到主布局
 		m_contentLayout->insertWidget(m_contentLayout->count() - 1, groupBox);
 	}
 }
@@ -263,11 +251,9 @@ void RobotAxisControlWidget::setJointAngle(const QString& jointName, double angl
 
 	JointControl& jc = it.value();
 	
-	// 限制在有效范围内
 	angleRad = qBound(jc.lowerLimit, angleRad, jc.upperLimit);
 	jc.currentAngle = angleRad;
 
-	// 更新UI（阻塞信号避免循环）
 	bool blocked;
 	
 	blocked = jc.slider->blockSignals(true);
@@ -280,7 +266,6 @@ void RobotAxisControlWidget::setJointAngle(const QString& jointName, double angl
 
 	jc.inputEdit->setText(QString::number(angleRad, 'f', 6));
 
-	// 更新OSG节点
 	updateJointTransform(jointName, angleRad);
 }
 
@@ -306,7 +291,6 @@ void RobotAxisControlWidget::onSliderValueChanged(int value)
 	QSlider* slider = qobject_cast<QSlider*>(sender());
 	if (!slider) return;
 
-	// 查找对应的关节
 	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it) {
 		if (it.value().slider == slider) {
 			double angleRad = sliderValueToAngle(value);
@@ -323,7 +307,6 @@ void RobotAxisControlWidget::onSpinBoxValueChanged(double value)
 	QDoubleSpinBox* spinBox = qobject_cast<QDoubleSpinBox*>(sender());
 	if (!spinBox) return;
 
-	// 查找对应的关节
 	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it) {
 		if (it.value().spinBox == spinBox) {
 			double angleRad = value * kPi / 180.0;
@@ -340,7 +323,6 @@ void RobotAxisControlWidget::onLineEditReturnPressed()
 	QLineEdit* lineEdit = qobject_cast<QLineEdit*>(sender());
 	if (!lineEdit) return;
 
-	// 查找对应的关节
 	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it) {
 		if (it.value().inputEdit == lineEdit) {
 			bool ok;
@@ -360,7 +342,6 @@ void RobotAxisControlWidget::onResetButtonClicked()
 	QPushButton* button = qobject_cast<QPushButton*>(sender());
 	if (!button) return;
 
-	// 查找对应的关节
 	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it) {
 		if (it.value().resetButton == button) {
 			setJointAngle(it.key(), 0.0);
@@ -387,10 +368,6 @@ void RobotAxisControlWidget::updateJointTransform(const QString& jointName, doub
 		return;
 	}
 
-	// 获取关节信息并计算变换矩阵
-	// 这里需要调用 UrdfRobotLoader 中的函数来计算
-	// 由于函数在另一个文件，可以通过信号/槽或回调机制
-	// 目前发送信号让外部处理
 }
 
 int RobotAxisControlWidget::angleToSliderValue(double angleRad) const

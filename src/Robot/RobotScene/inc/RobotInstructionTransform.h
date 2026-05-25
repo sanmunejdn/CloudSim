@@ -11,10 +11,10 @@ namespace RobotInstruction
 inline constexpr const char* kExtContextTargetTransformQuatCsv = "context.targetTransformQuatCsv";
 inline constexpr const char* kExtContextTargetTransformTransMmCsv = "context.targetTransformTransMmCsv";
 
-/// Write canonical FK transform to instruction extensions and sync pose/euler display fields.
+/// FK 目标写入扩展并同步 pose/euler 显示
 ROBOT_SCENE_API void writeTargetTransformToInstruction(Base& cmd, const engine::RigidTransform& targetInBase);
 
-/// Read target in base: prefers quat+trans extensions, else pose/euler.
+/// 读基座下目标：优先 quat+trans 扩展，否则 pose/euler
 ROBOT_SCENE_API bool readTargetTransformFromInstruction(const Base& cmd, engine::RigidTransform& outTargetInBase);
 
 } // namespace RobotInstruction

@@ -1,13 +1,11 @@
 #pragma once
 
 
-
 #include "../../Data/PropertyCore/inc/PropertySchema.h"
 
 #include "RobotInstructionAxisConfiguration.h"
 
 #include "RobotInstructionModel.h"
-
 
 
 namespace RobotInstruction
@@ -49,7 +47,6 @@ inline property_core::PropertyDescriptor makeEnumDescriptor(
 }
 
 } // namespace detail
-
 
 
 inline const property_core::PropertySchema& motionAxisConfigPropertyDescriptors()
@@ -151,7 +148,6 @@ inline const property_core::PropertySchema& motionAxisConfigPropertyDescriptors(
 }
 
 
-
 inline const property_core::PropertySchema& ptpInstructionPropertySchema()
 
 {
@@ -201,7 +197,6 @@ inline const property_core::PropertySchema& ptpInstructionPropertySchema()
 	return schema;
 
 }
-
 
 
 inline const property_core::PropertySchema& lineInstructionPropertySchema()
@@ -257,7 +252,6 @@ inline const property_core::PropertySchema& lineInstructionPropertySchema()
 }
 
 
-
 inline const property_core::PropertySchema& waitInstructionPropertySchema()
 
 {
@@ -285,7 +279,6 @@ inline const property_core::PropertySchema& waitInstructionPropertySchema()
 	return schema;
 
 }
-
 
 
 inline const property_core::PropertySchema& setDoInstructionPropertySchema()
@@ -319,7 +312,6 @@ inline const property_core::PropertySchema& setDoInstructionPropertySchema()
 }
 
 
-
 inline const property_core::PropertySchema& setAoInstructionPropertySchema()
 
 {
@@ -349,7 +341,6 @@ inline const property_core::PropertySchema& setAoInstructionPropertySchema()
 	return schema;
 
 }
-
 
 
 inline const property_core::PropertySchema& schemaForInstructionType(const Type type)
@@ -385,7 +376,6 @@ inline const property_core::PropertySchema& schemaForInstructionType(const Type 
 	}
 
 }
-
 
 
 inline const property_core::PropertyDescriptor* findInstructionPropertyDescriptor(const std::string& key)
@@ -435,7 +425,6 @@ inline const property_core::PropertyDescriptor* findInstructionPropertyDescripto
 	return setAoInstructionPropertySchema().find(key);
 
 }
-
 
 
 } // namespace RobotInstruction

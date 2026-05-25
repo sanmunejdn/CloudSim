@@ -8,6 +8,7 @@
 namespace property_core
 {
 
+/// RGBA 颜色属性行
 template <typename TContext, typename TColor, typename TBase>
 class PropertyRgbaAttribute : public TBase
 {

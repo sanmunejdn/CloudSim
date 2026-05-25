@@ -156,9 +156,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="inc\BackendPickIndexRegistry.h" />
     <ClInclude Include="inc\BackendVisualBindingIndex.h" />
+    <ClInclude Include="inc\MeshTopologyIndex.h" />
     <ClInclude Include="inc\ObjectGizmoFrame.h" />
     <ClInclude Include="inc\OsgScene.h" />
+    <ClInclude Include="inc\PickSpatialIndex.h" />
+    <ClInclude Include="inc\PickTypes.h" />
     <ClInclude Include="inc\osgwidgetcore_global.h" />
   </ItemGroup>
   <ItemGroup>
@@ -166,7 +170,9 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="source\BackendPickIndexRegistry.cpp" />
     <ClCompile Include="source\BackendVisualBindingIndex.cpp" />
+    <ClCompile Include="source\MeshTopologyIndex.cpp" />
     <ClCompile Include="source\ObjectGizmoFrame.cpp" />
     <ClCompile Include="source\OsgScene.cpp" />
     <ClCompile Include="source\OsgSceneMath.cpp" />
@@ -175,6 +181,8 @@
     <ClCompile Include="source\OsgSceneGizmo.cpp" />
     <ClCompile Include="source\OsgSceneCamera.cpp" />
     <ClCompile Include="source\OsgSceneSync.cpp" />
+    <ClCompile Include="source\OsgScenePick.cpp" />
+    <ClCompile Include="source\PickSpatialIndex.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Contracts\CloudSimCore\CloudSimCore.vcxproj">

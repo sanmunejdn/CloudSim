@@ -23,7 +23,7 @@ class RobotSimulationDockWidget;
 class QtProperty;
 namespace RobotInstruction { class Base; struct FeasibleMotionAxisConfigurationOptions; }
 
-/// Robot simulation / teach / instruction orchestration (migrated from MainWindow).
+/// 机器人仿真/示教/指令编排（自 MainWindow 迁出）
 class ROBOTWIDGET_EXPORT RobotSimulationController : public QObject
 {
 	Q_OBJECT

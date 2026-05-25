@@ -1,11 +1,35 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Ai">
+      <UniqueIdentifier>{C81E20C1-41C3-40BA-BF14-E0D93651F23D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{DE15333C-8EC2-43E6-A7BA-E2CD01AC611D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Ai">
+      <UniqueIdentifier>{FFA461CA-0FC4-46E5-B95C-D7CB7A0D3558}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\aiwidget_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
     <ClCompile Include="source\AiAssistantCoordinator.cpp">
-      <Filter>src</Filter>
+      <Filter>src\Ai</Filter>
     </ClCompile>
     <ClCompile Include="source\AiAssistantDockWidget.cpp">
-      <Filter>src</Filter>
+      <Filter>src\Ai</Filter>
     </ClCompile>
     <ClCompile Include="source\AiLlmSettingsDialog.cpp">
       <Filter>src</Filter>
@@ -13,26 +37,13 @@
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="inc\AiAssistantCoordinator.h">
-      <Filter>inc</Filter>
+      <Filter>inc\Ai</Filter>
     </QtMoc>
     <QtMoc Include="inc\AiAssistantDockWidget.h">
-      <Filter>inc</Filter>
+      <Filter>inc\Ai</Filter>
     </QtMoc>
     <QtMoc Include="inc\AiLlmSettingsDialog.h">
       <Filter>inc</Filter>
     </QtMoc>
-  </ItemGroup>
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{1be03ca0-11b4-41d8-8e9b-22cf00252ede}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{a107c1a3-e8d3-42bd-ba95-9026ee0654d9}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\aiwidget_global.h">
-      <Filter>inc</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

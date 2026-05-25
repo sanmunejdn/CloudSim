@@ -12,7 +12,7 @@ class EventHub;
 class IDocumentScope;
 class IRenderViewFactory;
 
-/// Application-wide context (composition root output).
+/// 应用组合根
 class CLOUDSIM_CORE_EXPORT ICloudSimContext
 {
 public:

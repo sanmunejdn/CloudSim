@@ -6,7 +6,7 @@ namespace cloudsim::host {
 
 class DocumentHost;
 
-/// Backend → IDataService；插件/UI 访问文档数据推荐经此，勿直暴露 BackendDataManager
+/// Backend 数据适配
 class DataServiceAdapter final : public core::IDataService
 {
 public:

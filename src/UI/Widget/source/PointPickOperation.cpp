@@ -2,8 +2,13 @@
 
 #include <QEvent>
 #include <QMouseEvent>
+#include <QPoint>
 
+#include <cmath>
+
+#include "OsgScene.h"
 #include "OsgWidget.h"
+#include "PickTypes.h"
 
 PointPickOperation::PointPickOperation(OsgWidget* owner)
 	: SelectionOperation(owner)
@@ -13,76 +18,67 @@ PointPickOperation::PointPickOperation(OsgWidget* owner)
 bool PointPickOperation::canHandle(QObject* watched, QEvent* event) const
 {
 	(void)event;
-	if (!m_owner || watched != m_owner->m_glWidget || !m_owner->m_pointPickMode)
-	{
-		return false;
-	}
-	return true;
+	return m_owner && watched == m_owner->m_glWidget && m_owner->m_pointPickMode;
 }
 
 bool PointPickOperation::onMouseButtonPress(QMouseEvent* mouseEvent)
 {
 	if (mouseEvent->button() == Qt::LeftButton)
 	{
-		// Allow left-drag to rotate the view (TrackballManipulator).
-		m_leftPressed = true;
-		m_pressPos = mouseEvent->pos();
-		m_dragMoved = false;
+		m_gesture.onLeftPress(mouseEvent->pos());
 		return false;
 	}
-
-	// Allow middle mouse to move the view during pick modes.
 	if (mouseEvent->button() == Qt::MiddleButton)
 	{
 		return false;
 	}
-
-	// Non-left/non-middle buttons: still consume to avoid unexpected asymmetric press/release.
 	return true;
 }
 
 bool PointPickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 {
-	// Release is used for click selection; return false to let navigation handle release.
-	if (mouseEvent->button() == Qt::LeftButton && m_leftPressed)
+	if (mouseEvent->button() != Qt::LeftButton)
 	{
-		const QPoint delta = mouseEvent->pos() - m_pressPos;
-		constexpr int kClickMoveThresholdPx = 10;
-		const bool clicked = !m_dragMoved && delta.manhattanLength() <= kClickMoveThresholdPx;
-		if (clicked)
-		{
-			osg::Vec3f worldPoint;
-			double nearestDistance = 0.0;
-			const bool hasNearest = m_owner->pickNearestPointAtScreenPos(mouseEvent->pos(), worldPoint, nearestDistance, false);
-			const bool hit = hasNearest && nearestDistance <= 32.0;
-			if (hasNearest)
-			{
-				m_owner->updatePointPickMarker(worldPoint, hit);
-			}
-			else
-			{
-				m_owner->clearPointPickMarker();
-			}
-			emit m_owner->pointPickFeedback(QStringLiteral("%1 | nearest: %2 px")
-				.arg(hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
-				.arg(hasNearest ? QString::number(nearestDistance, 'f', 1) : QStringLiteral("N/A")));
-			if (hit)
-			{
-				m_owner->addPointAnnotation(worldPoint);
-				m_owner->requestRedraw();
-			}
-		}
-
-		m_leftPressed = false;
-		m_dragMoved = false;
 		return false;
 	}
-	return false;
+
+	bool swallowRelease = false;
+	if (!m_gesture.onLeftRelease(mouseEvent->pos(), &swallowRelease))
+	{
+		return false;
+	}
+
+	PickQuery query;
+	query.screenX = mouseEvent->pos().x();
+	query.screenY = mouseEvent->pos().y();
+	query.kind = PickKind::PointCloud;
+	query.hitRadiusPx = OsgScene::kPointPickHitRadiusPx;
+	const PickResult pick = m_owner->queryPick(query);
+
+	if (pick.hit)
+	{
+		m_owner->updatePointPickMarker(pick.worldPoint, true);
+	}
+	else
+	{
+		m_owner->clearPointPickMarker();
+	}
+	emit m_owner->pointPickFeedback(QStringLiteral("%1 | nearest: %2 px")
+		.arg(pick.hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
+		.arg(pick.hit || pick.screenDistancePx > 0.0
+			? QString::number(pick.screenDistancePx, 'f', 1)
+			: QStringLiteral("N/A")));
+	if (pick.hit)
+	{
+		m_owner->addPointAnnotation(pick.worldPoint);
+		m_owner->requestRedraw();
+	}
+	m_gesture.restartClickHold(m_clickHoldTimer);
+	return swallowRelease;
 }
 
 bool PointPickOperation::onMouseDoubleClick(QMouseEvent*)
 {
-	// Preserve old behavior: consume dbl click.
 	return true;
 }
 
@@ -93,48 +89,82 @@ bool PointPickOperation::onWheel(QWheelEvent*)
 
 bool PointPickOperation::onMouseMove(QMouseEvent* mouseEvent)
 {
-	// While left button is pressed, forward events for navigation.
 	if (mouseEvent->buttons().testFlag(Qt::LeftButton))
 	{
-		const QPoint delta = mouseEvent->pos() - m_pressPos;
-		constexpr int kDragMoveThresholdPx = 10;
-		if (delta.manhattanLength() > kDragMoveThresholdPx)
-		{
-			m_dragMoved = true;
-		}
+		m_gesture.onLeftMove(mouseEvent->pos());
 		return false;
 	}
-
-	// Forward middle mouse navigation to OSG.
 	if (mouseEvent->buttons().testFlag(Qt::MiddleButton))
 	{
 		return false;
 	}
-
-	if (m_owner->m_feedbackTimer.isValid() && m_owner->m_feedbackTimer.elapsed() < 50)
+	if (ViewportGestureRecognizer::shouldThrottleHover(m_owner->m_feedbackTimer))
 	{
 		return true;
 	}
 
-	osg::Vec3f worldPoint;
-	double nearestDistance = 0.0;
-	const bool hasNearest = m_owner->pickNearestPointAtScreenPos(mouseEvent->pos(), worldPoint, nearestDistance, true);
-	const bool hit = hasNearest && nearestDistance <= 32.0;
-	if (hasNearest)
+	const QPoint pos = mouseEvent->pos();
+	if ((pos - m_lastHoverPickPos).manhattanLength() < OsgScene::kPickHoverMinMovePx)
 	{
-		m_owner->updatePointPickMarker(worldPoint, hit);
+		return true;
 	}
-	else
-	{
-		m_owner->clearPointPickMarker();
-	}
-	emit m_owner->pointPickFeedback(QStringLiteral("%1 | nearest: %2 px | preview/full: %3/%4")
-		.arg(hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
-		.arg(hasNearest ? QString::number(nearestDistance, 'f', 1) : QStringLiteral("N/A"))
-		.arg(m_owner->m_pickablePointsPreviewLocal.size())
-		.arg(m_owner->m_pickablePointsLocal.size()));
-	m_owner->m_feedbackTimer.restart();
-	m_owner->requestRedraw();
-	return true; // hover preview
-}
+	m_lastHoverPickPos = pos;
 
+	const bool inClickHold = m_gesture.inClickHold(m_clickHoldTimer);
+
+	PickQuery query;
+	query.screenX = pos.x();
+	query.screenY = pos.y();
+	query.kind = PickKind::PointCloud;
+	query.hitRadiusPx = OsgScene::kPointPickHitRadiusPx;
+	query.hoverPick = true;
+	const PickResult pick = m_owner->queryPick(query);
+
+	const bool hadPreview = m_preview.valid
+		&& m_preview.result.hit
+		&& m_preview.result.screenDistancePx <= OsgScene::kPointPickPreviewRadiusPx;
+	const bool showPreview = pick.hit
+		&& pick.screenDistancePx <= OsgScene::kPointPickPreviewRadiusPx;
+	bool needsRedraw = false;
+	if (showPreview)
+	{
+		const bool samePoint = hadPreview
+			&& (m_preview.result.worldPoint - pick.worldPoint).length2() < 1e-3f;
+		m_preview.valid = true;
+		m_preview.result = pick;
+		if (!samePoint)
+		{
+			m_owner->updatePointPickMarker(pick.worldPoint, true);
+			needsRedraw = true;
+		}
+	}
+	else if (!inClickHold)
+	{
+		if (hadPreview || m_preview.valid)
+		{
+			m_preview.valid = false;
+			m_owner->clearPointPickMarker();
+			needsRedraw = true;
+		}
+	}
+
+	const bool feedbackChanged = (pick.hit != m_lastFeedbackHit)
+		|| (pick.hit && std::abs(pick.screenDistancePx - m_lastFeedbackDistPx) >= 0.5);
+	if (feedbackChanged)
+	{
+		m_lastFeedbackHit = pick.hit;
+		m_lastFeedbackDistPx = pick.screenDistancePx;
+		emit m_owner->pointPickFeedback(QStringLiteral("%1 | nearest: %2 px | points: %3")
+			.arg(pick.hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
+			.arg(pick.screenDistancePx > 0.0
+				? QString::number(pick.screenDistancePx, 'f', 1)
+				: QStringLiteral("N/A"))
+			.arg(m_owner->m_pickablePointsLocal.size()));
+	}
+	m_owner->m_feedbackTimer.restart();
+	if (needsRedraw)
+	{
+		m_owner->requestRedraw();
+	}
+	return true;
+}

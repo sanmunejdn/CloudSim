@@ -32,7 +32,7 @@ enum class ROBOT_SCENE_API ArmPosture
 	Back
 };
 
-/// Signed full-revolution count relative to planning seed (INT_MIN = do not constrain).
+/// 相对规划种子的整圈数；INT_MIN 表示不约束
 constexpr int kMotionAxisTurnAuto = INT_MIN;
 
 struct ROBOT_SCENE_API JointConfigurationClass
@@ -55,7 +55,7 @@ struct ROBOT_SCENE_API MotionAxisConfiguration
 	int turnJ4 = kMotionAxisTurnAuto;
 	int turnJ6 = kMotionAxisTurnAuto;
 
-	/// Effective constraints after expanding preset (not CUSTOM/EXPLICIT).
+	/// 展开 preset 后的有效约束（非 CUSTOM/EXPLICIT）
 	void resolveEffective(JointConfigurationClass& out) const;
 
 	bool isFullyAuto() const;
@@ -72,7 +72,7 @@ ROBOT_SCENE_API bool jointTurnFromToken(const std::string& token, int& outTurn);
 ROBOT_SCENE_API std::string jointTurnToToken(int turn);
 ROBOT_SCENE_API bool isValidMotionAxisTurnToken(const std::string& token);
 
-/// Integer revolutions of joint angle relative to reference: round((q - ref) / 2pi).
+/// round((q - ref) / 2π) 整圈分类
 ROBOT_SCENE_API int classifyJointTurnRevolutions(double qRad, double refRad);
 
 ROBOT_SCENE_API bool elbowPostureFromToken(const std::string& token, ElbowPosture& out);
@@ -93,10 +93,10 @@ ROBOT_SCENE_API bool isValidArmPostureToken(const std::string& token);
 ROBOT_SCENE_API MotionAxisConfiguration motionAxisConfigurationFromJson(const nlohmann::json& j);
 ROBOT_SCENE_API void writeMotionAxisConfigurationToJson(const MotionAxisConfiguration& cfg, nlohmann::json& j);
 
-/// Legacy single-string axisConfig ("AUTO", preset tokens).
+/// 旧单字符串 axisConfig（"AUTO" 等 preset）
 ROBOT_SCENE_API MotionAxisConfiguration motionAxisConfigurationFromLegacyString(const std::string& legacy);
 
-/// Short summary for tree UI (empty when AUTO).
+/// 树 UI 短摘要（AUTO 时为空）
 ROBOT_SCENE_API std::string formatMotionAxisConfigurationSummary(const MotionAxisConfiguration& cfg, bool chinese);
 
 ROBOT_SCENE_API bool motionAxisConfigurationRequiresConstraint(const MotionAxisConfiguration& cfg);
@@ -106,7 +106,7 @@ ROBOT_SCENE_API JointConfigurationClass classifyJointConfiguration(
 	const std::vector<std::string>& jointNames,
 	const std::vector<double>* referenceQRad = nullptr);
 
-/// Pick the most specific preset token matching an observed posture (may return "AUTO").
+/// 从观测姿态反推最具体 preset（可能为 AUTO）
 ROBOT_SCENE_API std::string suggestMotionAxisPresetToken(const JointConfigurationClass& observed);
 
 } // namespace RobotInstruction

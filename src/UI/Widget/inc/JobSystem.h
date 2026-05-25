@@ -11,10 +11,10 @@
 
 class ProgressManager;
 
-/// Progress sink passed to background work (fraction in [0,1]; message may be empty).
+/// 后台任务进度 sink（fraction∈[0,1]，message 可空）
 using JobProgressSink = std::function<void(double fraction, const QString& message)>;
 
-/// Submits CPU-heavy work to a thread pool; completion and progress notifications are marshalled to the UI thread.
+/// 线程池提交 CPU 重活；完成与进度通知 marshal 到 UI 线程
 class WIDGET_EXPORT JobSystem : public QObject
 {
 public:
@@ -22,8 +22,8 @@ public:
 
 	ProgressManager* progressManager() const { return m_progress; }
 
-	/// Called from the UI thread. \a work runs on a pool thread; \a onFinished runs on the UI thread after \a work returns.
-	/// If \a work throws, \a onFinished still runs with \a threw == true and \a throwMessage set.
+	/// UI 线程调用；work 在线程池执行，onFinished 在 work 返回后于 UI 线程执行
+	/// work 抛异常时 onFinished 仍执行，threw 为 true 且 throwMessage 有值
 	void enqueue(const QString& title, std::function<void(const JobProgressSink&)> work,
 		std::function<void(bool threw, const QString& throwMessage)> onFinished);
 

@@ -129,7 +129,7 @@ void BackendFollowTransformSolver::solve(
 		indegree[f] = 1;
 	}
 
-	std::vector<std::string> topo;
+	std::vector<std::string> topo;  // 拓扑序
 	std::vector<std::string> queue;
 	queue.reserve(nodes.size());
 	for (const std::string& n : nodes)
@@ -163,7 +163,7 @@ void BackendFollowTransformSolver::solve(
 	}
 	if (topo.size() != nodes.size())
 	{
-		// Cycle or inconsistent graph: skip automatic solve.
+		// 环或不一致图：跳过自动解
 		return;
 	}
 

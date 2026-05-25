@@ -14,14 +14,14 @@ namespace RobotTeachIk
 struct ROBOT_SCENE_API TeachIkContext
 {
 	QString urdfPath;
-	/// URDF link used for numerical IK Jacobian (typically flange / \c context.flangeLinkName).
+	/// 数值 IK 雅可比连杆（通常法兰 / context.flangeLinkName）
 	QString ikLinkName;
-	/// Tool origin in robot base frame (\c T_base_target).
+	/// 基座下工具原点 T_base_target
 	engine::RigidTransform T_base_target;
 	std::vector<double> seedJointRad;
 	bool useOrientation = true;
 	BackendMat4 T_flange_tool = BackendMat4::identity();
-	/// 0 = 全迭代（默认 180）；拖动示教宜设 8–12，每帧小步收敛、避免跳解。
+	/// 0=全迭代默认180；拖动示教宜 8–12，小步收敛防跳解
 	int maxIkIterations = 0;
 };
 
@@ -33,7 +33,7 @@ struct ROBOT_SCENE_API TeachIkResult
 	std::string error;
 };
 
-/// Interactive teach IK: flange target from \c T_base_target and \c T_flange_tool, URDF numerical IK.
+/// 示教 IK：T_base_target 与 T_flange_tool → 法兰目标 → URDF 数值 IK
 ROBOT_SCENE_API TeachIkResult solveTeachIk(const TeachIkContext& ctx);
 
 } // namespace RobotTeachIk

@@ -55,13 +55,15 @@
 
 ## 4. Data 薄包装
 
-[`PointCloudBackendOps.h`](../Data/inc/PointCloudBackendOps.h)（`point_cloud_backend_ops`）：
+[`PointCloudBackendOps.h`](../Data/inc/PointCloudBackendOps.h)（`point_cloud_backend_ops`）覆盖全部 `pclalgo` API：下采样、裁剪、度量、变换、离群/平滑、法线、预处理、ICP、TPS、Poisson/Scale-space 重建。
 
-- `downsamplePointCloud`
+常用入口：
+
+- `downsamplePointCloudVoxel` / `downsamplePointCloudRandom`
 - `applyRigidTransformToPointCloud`
-- `reconstructMeshFromPointCloudPoisson`
+- `reconstructMeshFromPointCloudPoisson`（Poisson Auto）
 
-耗时调用宜在 Widget `JobSystem` 后台线程执行，UI 线程仅 `setPointBuffers` / `setTriangleSoup`。
+插件侧映射见 [`CloudSimPluginSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) §点云 SDK。
 
 ---
 

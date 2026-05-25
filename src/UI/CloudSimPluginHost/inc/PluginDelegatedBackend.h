@@ -5,7 +5,7 @@
 
 #include <memory>
 
-/// Adapts \ref IPluginBackendObject to \ref BackendDataBase for \c BackendRegistry (Phase 2).
+/// IPluginBackendObject 适配为 BackendDataBase（BackendRegistry）
 class PluginDelegatedBackend : public BackendDataBase
 {
 public:

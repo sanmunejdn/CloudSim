@@ -3,6 +3,7 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "DocumentPage.h"
+#include "DocumentPointCloudOps.h"
 #include "IDataService.h"
 #include "PluginSceneBridgeAdapter.h"
 
@@ -125,4 +126,22 @@ IPluginSceneBridge* PluginDocumentAdapter::sceneBridge()
 const IPluginSceneBridge* PluginDocumentAdapter::sceneBridge() const
 {
 	return m_sceneBridge.get();
+}
+
+bool PluginDocumentAdapter::queryPointCloudInfo(const std::string& backendIdUtf8, PluginPointCloudInfo& out) const
+{
+	return document_point_cloud_ops::queryPointCloudInfo(m_page, backendIdUtf8, out);
+}
+
+bool PluginDocumentAdapter::measurePointCloud(const std::string& backendIdUtf8, PluginPointCloudMeasure& out) const
+{
+	return document_point_cloud_ops::measurePointCloud(m_page, backendIdUtf8, out);
+}
+
+bool PluginDocumentAdapter::exportMeshToPly(
+	const std::string& backendIdUtf8,
+	const std::string& pathUtf8,
+	std::string* outError) const
+{
+	return document_point_cloud_ops::exportMeshToPly(m_page, backendIdUtf8, pathUtf8, outError);
 }

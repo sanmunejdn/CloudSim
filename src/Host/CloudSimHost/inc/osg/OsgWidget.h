@@ -128,10 +128,10 @@ public:
 		bool resetViewToHome = true);
 	bool loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage = nullptr, bool resetViewToHome = true,
 		bool showWireOutline = true, bool useSceneLighting = true, bool skipInnerModelCenterRebase = false);
-	/// 该后端网格是否以场景光照渲染（如 URDF 连杆），用于改色时保留光照材质。
+	/// URDF 等光照网格；改色时保留材质
 	bool isBackendMeshLit(const std::string& backendId) const;
 	void clearImportedContent();
-	/// Clears import preview only (keeps already registered backend visuals).
+	/// 仅清导入预览，已注册分支保留
 	void clearStagingGeometry();
 	void setSelectionActive(bool active);
 	void setObjectSelectionMode(bool enabled);
@@ -146,6 +146,7 @@ public:
 	bool meshLinePickMode() const;
 	void setMeshFacePickMode(bool enabled);
 	bool meshFacePickMode() const;
+	PickResult queryPick(const PickQuery& query);
 	osg::Vec3f selectedPosition() const;
 	void setSelectedPosition(const osg::Vec3f& position);
 	osg::Vec3f selectedRotationEulerDeg() const;
@@ -186,14 +187,13 @@ public:
 	bool tryGetBackendModelCenterMm(const std::string& backendId, double& outCx, double& outCy, double& outCz) const override;
 	void syncRobotMeshBackendPoseAfterKinematics(const BackendDataBase& mesh) override;
 
-	/// 【中文】添加层级化机器人场景图（动态层级法），返回场景节点的 ID 用于后续管理。
-	/// 【English】Add hierarchical robot scene graph (dynamic hierarchy method).
-	/// @param robotAssembly The root node of the robot scene (e.g., from UrdfRobotLoader::buildHierarchicalRobotScene)
-	/// @param displayName Display name for the robot in the backend tree
-	/// @return Backend ID assigned to the robot scene, empty if failed
+	/// 挂接 URDF 层级场景，返回 robot 根 backendId
+	/// @param robotAssembly UrdfRobotLoader::buildHierarchicalRobotScene 根节点
+	/// @param displayName 后端树显示名
+	/// @return 失败为空
 	QString addHierarchicalRobotScene(osg::Group* robotAssembly, const QString& displayName);
 
-	/// 【中文】移除层级化机器人场景图。
+	/// 移除 URDF 层级场景
 	void removeHierarchicalRobotScene(const QString& backendId);
 	void setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& axes);
 	void clearInstructionPoseAxes();
@@ -229,7 +229,7 @@ public:
 	/// 进入 TCP 示教
 	/// @param mountBackendId TCP 挂载后端 PAT id
 	/// @param T_base_target 机器人基座系目标 TCP 位姿
-	/// @param modelDiagonalMm 参考模型对角线 mm，用于罗盘屏幕缩放
+	/// @param modelDiagonalMm 模型对角线 mm，罗盘屏幕缩放
 	/// @param resolveRobotBaseWorld 可选，解析基座世界矩阵；基座/工具坐标换算
 	/// @param toolLocalOnFlange 非空则按法兰局部工具矩阵放置 TCP
 	void beginTcpDragTeach(
@@ -334,6 +334,7 @@ signals:
 	void activeAxisChanged(const QString& axisName);
 	void selectionCanceledByEsc();
 	void pointPickFeedback(const QString& text);
+	void meshPickFeedback(const QString& text);
 	void annotationCreated(const QString& annotationId, const QString& displayText);
 	void annotationRemoved(const QString& annotationId);
 	void annotationVisibilityChanged(const QString& annotationId, bool visible);
@@ -423,7 +424,8 @@ private:
 	bool pickMeshEdgeByRayIntersection(const QPoint& mousePos,
 		osg::Vec3f& outPointWorld,
 		osg::Vec3f& outEdgeAWorld,
-		osg::Vec3f& outEdgeBWorld) const;
+		osg::Vec3f& outEdgeBWorld,
+		double* outEdgeDistancePx = nullptr) const;
 
 	using OsgScene::showMeshFaceHighlight;
 	using OsgScene::showMeshEdgeHighlight;

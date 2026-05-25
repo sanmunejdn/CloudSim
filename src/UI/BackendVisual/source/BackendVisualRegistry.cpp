@@ -36,7 +36,6 @@ void registerBuiltins()
 {
 	BackendVisualRegistry::registerType("PointCloudBackendData",
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<PointCloudBackendVisual>(); });
-	// MeshBackendData::className() returns "Model" (see Data/MeshBackendData.cpp); keep alias for clarity.
 	BackendVisualRegistry::registerType("Model",
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });
 	BackendVisualRegistry::registerType("MeshBackendData",

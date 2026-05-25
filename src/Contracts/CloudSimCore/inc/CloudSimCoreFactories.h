@@ -8,7 +8,7 @@ class IRenderViewFactory;
 
 } // namespace cloudsim::core
 
-/// Backend DLL entry points (implemented in Data / RobotScene / OsgWidgetCore).
+/// 后端 DLL 工厂入口
 extern "C" {
 cloudsim::core::IDataService* cloudsimCreateDataService(unsigned int apiVersion);
 cloudsim::core::IRobotService* cloudsimCreateRobotService(unsigned int apiVersion);

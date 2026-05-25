@@ -4,6 +4,7 @@
 
 namespace cloudsim::core {
 
+/// 选中来源
 enum class SelectionSource
 {
 	Tree,
@@ -11,6 +12,7 @@ enum class SelectionSource
 	Programmatic
 };
 
+/// 选中变更
 struct SelectionChangedEvent
 {
 	QString documentId;
@@ -18,6 +20,7 @@ struct SelectionChangedEvent
 	SelectionSource source = SelectionSource::Programmatic;
 };
 
+/// 位姿落盘
 struct PoseCommittedEvent
 {
 	QString documentId;
@@ -25,6 +28,7 @@ struct PoseCommittedEvent
 	PoseDto pose;
 };
 
+/// 后端对象注册
 struct BackendObjectRegisteredEvent
 {
 	QString documentId;
@@ -32,18 +36,21 @@ struct BackendObjectRegisteredEvent
 	QString className;
 };
 
+/// 后端对象移除
 struct BackendObjectRemovedEvent
 {
 	QString documentId;
 	ObjectId objectId;
 };
 
+/// 工程加载完成
 struct ProjectLoadedEvent
 {
 	QString documentId;
 	QString projectPath;
 };
 
+/// 机器人 FK 已应用
 struct RobotKinematicsAppliedEvent
 {
 	QString documentId;

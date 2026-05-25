@@ -193,6 +193,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\CloudSimPluginHost\inc\DocumentPointCloudOps.h" />
+    <ClInclude Include="..\CloudSimPluginHost\inc\PluginPointCloudHostImpl.h" />
     <ClInclude Include="..\CloudSimPluginHost\inc\PluginDelegatedBackend.h" />
     <ClInclude Include="..\CloudSimPluginHost\inc\PluginDocumentAdapter.h" />
     <ClInclude Include="..\CloudSimPluginHost\inc\PluginSceneBridgeAdapter.h" />
@@ -237,6 +239,8 @@
     <ClCompile Include="source\MainWindowAiAssistant.cpp" />
     <ClCompile Include="source\MainWindowUiSetup.cpp" />
     <ClCompile Include="source\MainWindowPlugins.cpp" />
+    <ClCompile Include="..\CloudSimPluginHost\source\DocumentPointCloudOps.cpp" />
+    <ClCompile Include="..\CloudSimPluginHost\source\PluginPointCloudHostImpl.cpp" />
     <ClCompile Include="..\CloudSimPluginHost\source\PluginDelegatedBackend.cpp" />
     <ClCompile Include="..\CloudSimPluginHost\source\PluginDocumentAdapter.cpp" />
     <ClCompile Include="..\CloudSimPluginHost\source\PluginHostContext.cpp" />

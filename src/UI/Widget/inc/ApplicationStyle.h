@@ -4,7 +4,7 @@
 
 class QApplication;
 
-/// 应用外观：浅色与深色主题的加载、保存与应用（作用于 QApplication）。
+/// 应用外观：浅色与深色主题的加载、保存与应用（QApplication）
 namespace ApplicationStyle {
 
 enum class Theme

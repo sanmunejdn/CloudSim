@@ -2,23 +2,52 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="inc">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="source">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{7452FAFC-F2F5-4383-8D83-68C12044EA03}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Plugin">
+      <UniqueIdentifier>{663BA947-6121-4013-92CE-2D6F4EC27980}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Plugin">
+      <UniqueIdentifier>{36C7A2B7-32CE-40C5-82CF-1F3A28476A91}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="inc\cloudsim_plugin_sdk_global.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\CloudSimPluginVersion.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\ICloudSimPlugin.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\IPluginDocument.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\IPluginHostContext.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\IPluginSceneBridge.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\PluginBackendMeta.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\PluginPrimitiveTypes.h"><Filter>inc</Filter></ClInclude>
+    <ClInclude Include="inc\cloudsim_plugin_sdk_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CloudSimPluginVersion.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ICloudSimPlugin.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IPluginDocument.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IPluginHostContext.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IPluginSceneBridge.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginBackendMeta.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginPrimitiveTypes.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\CloudSimPluginVersion.cpp"><Filter>source</Filter></ClCompile>
+    <ClCompile Include="source\CloudSimPluginVersion.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

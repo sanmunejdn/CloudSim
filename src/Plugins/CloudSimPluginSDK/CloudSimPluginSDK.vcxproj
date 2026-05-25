@@ -74,6 +74,8 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="inc\IPluginPointCloudHost.h" />
+    <ClInclude Include="inc\PluginPointCloudTypes.h" />
     <ClInclude Include="inc\cloudsim_plugin_sdk_global.h" />
     <ClInclude Include="inc\CloudSimPluginVersion.h" />
     <ClInclude Include="inc\ICloudSimPlugin.h" />

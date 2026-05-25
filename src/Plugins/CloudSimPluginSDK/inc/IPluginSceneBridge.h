@@ -5,7 +5,7 @@
 #include <array>
 #include <string>
 
-/// Scene operations without OSG headers (column-major 4x4, same layout as host \c osg::Matrixd).
+/// 无 OSG 头的场景操作（4×4 列主序同 osg::Matrixd）
 class IPluginSceneBridge
 {
 public:

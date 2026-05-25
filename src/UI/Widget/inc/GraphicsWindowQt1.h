@@ -6,15 +6,15 @@
 
 #include <QGLWidget>
 #include <osg/Referenced>
-#include <QtCore>   // ����QMutexLocker����
-#include <QtWidgets> // ����QGestureEvent��QCursor
-#include <QGestureEvent> // ��ʽ����QGestureEvent
-#include <QCursor>      // ��ʽ����QCursor
+#include <QtCore>
+#include <QtWidgets>
+#include <QGestureEvent>
+#include <QCursor>
 #include <osgViewer/Viewer>
 
 #include "QWidgetViewer.h"
 
-/// OSG ͼ�δ�������㣺���� osgViewer::GraphicsWindow �� QWidgetViewer��ͬ���ߴ����¼����С�
+/// OSG 图形窗口适配：实现 osgViewer::GraphicsWindow，与 QWidgetViewer 同步尺寸与事件
 class WIDGET_EXPORT GraphicsWindowQt1 : public osgViewer::GraphicsWindow
 {
 public:
@@ -25,9 +25,9 @@ public:
 	inline QWidgetViewer* getGLWidget() { return _widget; }
 	inline const QWidgetViewer* getGLWidget() const { return _widget; }
 
-	/// deprecated
+	/// 已弃用
 	inline QWidgetViewer* getGraphWidget() { return _widget; }
-	/// deprecated
+	/// 已弃用
 	inline const QWidgetViewer* getGraphWidget() const { return _widget; }
 
 	struct WindowData : public osg::Referenced
@@ -37,8 +37,8 @@ public:
 		QWidget* _parent;
 	};
 
-	// ���ӳߴ���·���
-	void updateSize(int width, int height) 
+	/// 同步 traits 宽高并触发 resized
+	void updateSize(int width, int height)
 	{
 		_traits->width = width;
 		_traits->height = height;

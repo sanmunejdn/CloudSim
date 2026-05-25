@@ -4,7 +4,7 @@
 
 #include <QString>
 
-/// 项目包 ZIP：仅 STORE 无压缩方式的打包与解压，用于工程目录的导入导出（.pcp 等）。
+/// 项目包 ZIP：仅 STORE 无压缩方式的打包与解压，工程目录 .pcp 等导入导出
 namespace project_package_zip {
 
 WIDGET_EXPORT bool isZipArchiveFile(const QString& filePath);

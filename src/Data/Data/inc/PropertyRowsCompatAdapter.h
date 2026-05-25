@@ -8,6 +8,7 @@
 class BackendDataManager;
 class FollowAttachmentComponent;
 
+/// 旧 PropertyBag 与 BackendDataBase 位姿/颜色同步
 namespace property_rows_compat
 {
 inline void syncTransformColorToBag(PropertyBag& bag, const BackendDataBase& data)

@@ -5,7 +5,7 @@
 
 class OsgWidget;
 
-/// 将显示颜色应用到暂存几何或后端对象分支（从 OsgWidget 拆出，便于维护）。
+/// 将显示颜色应用到暂存几何或后端对象分支（从 OsgWidget 拆出，自 OsgWidget 拆出
 class OsgWidgetColorController
 {
 public:

@@ -25,6 +25,13 @@ public:
 	IPluginSceneBridge* sceneBridge() override;
 	const IPluginSceneBridge* sceneBridge() const override;
 
+	bool queryPointCloudInfo(const std::string& backendIdUtf8, PluginPointCloudInfo& out) const override;
+	bool measurePointCloud(const std::string& backendIdUtf8, PluginPointCloudMeasure& out) const override;
+	bool exportMeshToPly(
+		const std::string& backendIdUtf8,
+		const std::string& pathUtf8,
+		std::string* outError = nullptr) const override;
+
 	DocumentPage* documentPage() const { return m_page; }
 
 private:

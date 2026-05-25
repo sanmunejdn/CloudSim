@@ -33,7 +33,7 @@ template<class T>
 class ref_ptr;
 }
 
-/// 单文档页：宿主层 DocumentHost + 机器人仿真元数据（IRobotSimulationDocument）。
+/// 单文档页：宿主层 DocumentHost + 机器人仿真元数据（IRobotSimulationDocument）
 class WIDGET_EXPORT DocumentPage : public cloudsim::host::DocumentHost,
 								  public IRobotSimulationDocument,
 								  public cloudsim::host::IRobotUrdfImportContext

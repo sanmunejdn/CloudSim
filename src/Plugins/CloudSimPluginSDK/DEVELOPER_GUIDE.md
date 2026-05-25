@@ -6,9 +6,9 @@
 
 ## 版本
 
-- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00010100` = 1.1.0，含 `sidePanelTabParent` / `registerSidePanelTab(const char*)` ABI）
-- `IPluginDocument`：`documentId()`、`removeBackendObject()`（走 Host `IDataService`）
-- `IPluginHostContext`：`importFileIntoActiveDocument()` → 宿主 `DocumentImportFacade::importFileIntoDocument`；`createPrimitiveMesh` / `registerTriangleMesh` → `registerAdoptedMesh`
+- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00010200` = 1.2.0，含点云 `IPluginPointCloudHost` / `queryPointCloudInfo` ABI）
+- `IPluginDocument`：`documentId()`、`removeBackendObject()`；**1.2.0+** `queryPointCloudInfo` / `measurePointCloud` / `exportMeshToPly`（UI 线程）
+- `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()` → `IPluginPointCloudHost`（异步算法，内部 `JobSystem` + `point_cloud_backend_ops`）
 - 清单 `plugin.json` 中 `minHostVersion` 使用字符串 `"1.0.0"`
 - 运行时调用 `IPluginHostContext::hostVersion()` 比对
 
@@ -63,14 +63,40 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 | `registerBackendType` | 自定义 `className`（`PluginDelegatedBackend`） |
 | `registerTriangleMesh` | 三角 soup → `registerAdoptedMesh` |
 | `enqueueJob` / `invokeOnUiThread` | 线程边界 |
+| `pointCloudHost()` | **1.2.0+** 点云算法宿主（见下节） |
+| `useChinese()` | 与主窗口 **Settings → Language** 一致（默认中文） |
+| `onLanguageChanged(callback)` | 语言切换时 UI 线程通知插件 |
+| `setSidePanelTabTitle(widget, titleUtf8)` | 更新侧栏 Tab 标题 |
+| `IPluginDocument::queryPointCloudInfo` / `measurePointCloud` | **1.2.0+** 点数、包围盒、度量（UI 线程） |
+| `IPluginDocument::exportMeshToPly` | **1.2.0+** 导出 `Model` 三角网格为 PLY（含 face） |
+
+## 点云 SDK（1.2.0+）
+
+头文件：[`PluginPointCloudTypes.h`](inc/PluginPointCloudTypes.h)、[`IPluginPointCloudHost.h`](inc/IPluginPointCloudHost.h)。
+
+| `IPluginPointCloudHost` 方法 | 说明 |
+|------------------------------|------|
+| `downsamplePointCloudVoxel/Random` | 体素/随机下采样，原地写回 |
+| `cropPointCloudByBox/Sphere` | AABB/球裁剪 |
+| `applyRigidTransformToPointCloud` | 刚体变换（列主序 `PluginMat4`） |
+| `removePointCloudOutliers` / `smoothPointCloudBilateral` | 离群/平滑 |
+| `estimatePointCloudNormalsPca/Jet` / `orientPointCloudNormalsMst` | 法线估计与定向 |
+| `preprocessPointCloudForReconstruction` | 重建前预处理 |
+| `rigidRegisterPointCloudsIcp` | ICP 配准，可选应用到源 |
+| `deformPointCloudTpsFromControls` / `deformPointCloudTpsFitAndDeform` | TPS 形变 |
+| `reconstructMeshPoisson/PoissonAuto/ScaleSpace` | 重建 mesh 并 `registerAdoptedMesh` |
+
+回调 `PluginPointCloudFinishedFn` 在 **UI 线程**；算法在宿主 `enqueueJob` 内执行。插件 **不得** 链接 `PointCloudAlgorithm` / `Data`。
 
 宿主实现细节：[`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)。
 
 ## 线程
 
 - `initialize` / `shutdown` / UI 回调：**UI 线程**
-- 重 CPU 工作：`enqueueJob`，完成后在 UI 线程写场景
+- 重 CPU 点云处理：调用 `pointCloudHost()->…`（宿主内部 `enqueueJob`）；**不要**在插件内直接调 pclalgo
+- 界面语言：初始化时读 `useChinese()`；注册 `onLanguageChanged` 并在回调中刷新文案（与主窗口 **设置 → 语言** 同步）
 
 ## 示例
 
-见 [`HelloPlugin/DEVELOPER_GUIDE.md`](../HelloPlugin/DEVELOPER_GUIDE.md)（`plugin.json`、侧栏页签、`createPrimitiveMesh` 流程）。
+- [`HelloPlugin/DEVELOPER_GUIDE.md`](../HelloPlugin/DEVELOPER_GUIDE.md)（网格、`createPrimitiveMesh`）
+- [`PointCloudPlugin/DEVELOPER_GUIDE.md`](../PointCloudPlugin/DEVELOPER_GUIDE.md)（点云导入、下采样、重建）

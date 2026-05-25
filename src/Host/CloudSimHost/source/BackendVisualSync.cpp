@@ -45,7 +45,7 @@ bool propertyKeyNeedsVisualSync(const QString& key)
 	{
 		return true;
 	}
-	return true;
+	return true;  // 未知 key 默认同步
 }
 
 bool propertyKeyCommitsPose(const QString& key)

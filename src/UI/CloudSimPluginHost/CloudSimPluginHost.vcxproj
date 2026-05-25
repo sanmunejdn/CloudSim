@@ -73,6 +73,8 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="inc\DocumentPointCloudOps.h" />
+    <ClInclude Include="inc\PluginPointCloudHostImpl.h" />
     <ClInclude Include="inc\plugin_host_global.h" />
     <ClInclude Include="inc\PluginDelegatedBackend.h" />
     <ClInclude Include="inc\PluginDocumentAdapter.h" />
@@ -83,10 +85,12 @@
     <QtMoc Include="inc\PluginManager.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\DocumentPointCloudOps.cpp" />
     <ClCompile Include="source\PluginDelegatedBackend.cpp" />
     <ClCompile Include="source\PluginDocumentAdapter.cpp" />
     <ClCompile Include="source\PluginHostContext.cpp" />
     <ClCompile Include="source\PluginManager.cpp" />
+    <ClCompile Include="source\PluginPointCloudHostImpl.cpp" />
     <ClCompile Include="source\PluginSceneBridgeAdapter.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -244,6 +244,7 @@ void MainWindow::applyLanguage()
 		m_annotationRootItem->setText(0, i18n(QStringLiteral("Annotations"), QStringLiteral("注释")));
 	}
 	refreshBackendTree();
+	notifyPluginsLanguageChanged();
 }
 
 void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
@@ -579,6 +580,8 @@ void MainWindow::onPointPickModeTriggered()
 	osg->setPointPickMode(true);
 	osg->setMeshLinePickMode(false);
 	osg->setMeshFacePickMode(false);
+	MainWindowSelectionService::ensureBackendForPickMode(
+		*this, MainWindowSelectionService::SelectedBackendKind::PointCloud);
 }
 
 void MainWindow::onMeshLinePickModeTriggered()
@@ -597,6 +600,8 @@ void MainWindow::onMeshLinePickModeTriggered()
 	osg->setPointPickMode(false);
 	osg->setMeshLinePickMode(true);
 	osg->setMeshFacePickMode(false);
+	MainWindowSelectionService::ensureBackendForPickMode(
+		*this, MainWindowSelectionService::SelectedBackendKind::Mesh);
 }
 
 void MainWindow::onMeshFacePickModeTriggered()
@@ -615,6 +620,8 @@ void MainWindow::onMeshFacePickModeTriggered()
 	osg->setPointPickMode(false);
 	osg->setMeshLinePickMode(false);
 	osg->setMeshFacePickMode(true);
+	MainWindowSelectionService::ensureBackendForPickMode(
+		*this, MainWindowSelectionService::SelectedBackendKind::Mesh);
 }
 
 void MainWindow::onSelectionCanceledByEsc()
@@ -763,6 +770,7 @@ void MainWindow::wireDocumentPageSignals(DocumentPage* page)
 	connect(o, &OsgWidget::annotationRemoved, this, &MainWindow::onAnnotationRemoved);
 	connect(o, &OsgWidget::annotationVisibilityChanged, this, &MainWindow::onAnnotationVisibilityChanged);
 	connect(o, &OsgWidget::pointPickFeedback, this, &MainWindow::onPointPickFeedback);
+	connect(o, &OsgWidget::meshPickFeedback, this, &MainWindow::onMeshPickFeedback);
 	connect(o, &OsgWidget::backendObjectPicked, this, &MainWindow::onOsgBackendObjectPicked);
 	installBackendFollowFrameHook(page);
 }
@@ -779,7 +787,7 @@ void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 		{
 			return;
 		}
-		// 末端拖动示教：IK 逐帧写连杆位姿，禁止跟随求解写回以免与 FK 冲突（表现为关节闪回零位）。
+		// 末端拖动示教：IK 逐帧写连杆位姿，禁止跟随求解写回以免与 FK 冲突（表现为关节闪回零位）
 		if (o->isTcpDragTeachActive())
 		{
 			return;
@@ -966,5 +974,10 @@ void MainWindow::onPointPickFeedback(const QString& text)
 	{
 		m_runInfoPage->appendInfo(text);
 	}
+}
+
+void MainWindow::onMeshPickFeedback(const QString& text)
+{
+	onPointPickFeedback(text);
 }
 

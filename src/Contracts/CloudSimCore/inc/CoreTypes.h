@@ -13,6 +13,7 @@ namespace cloudsim::core {
 using ObjectId = QString;
 using Mat4 = std::array<double, 16>;
 
+/// 三维向量
 struct Vec3
 {
 	double x = 0.0;
@@ -20,12 +21,14 @@ struct Vec3
 	double z = 0.0;
 };
 
+/// 位姿 DTO
 struct PoseDto
 {
 	Vec3 positionMm;
 	Vec3 eulerDeg;
 };
 
+/// 颜色 DTO
 struct ColorDto
 {
 	float r = 1.f;
@@ -34,6 +37,7 @@ struct ColorDto
 	float a = 1.f;
 };
 
+/// 包围盒 DTO
 struct BBoxDto
 {
 	Vec3 min;
@@ -41,6 +45,7 @@ struct BBoxDto
 	bool valid = false;
 };
 
+/// 属性行 DTO
 struct PropertyRowDto
 {
 	QString key;
@@ -49,6 +54,7 @@ struct PropertyRowDto
 	QString value;
 };
 
+/// 注册对象元数据
 struct RegisterObjectDto
 {
 	QString className;
@@ -56,18 +62,20 @@ struct RegisterObjectDto
 	ObjectId parentId;
 };
 
+/// 导入选项
 struct ImportOptionsDto
 {
 	bool quietUi = false;
 	bool resetViewToHome = true;
-	/// 写入 backendSourceType（如 Model / PointCloud）
+	/// 后端目录类型
 	QString catalogTypeName = QStringLiteral("Model");
 	bool isPointCloud = false;
 	ObjectId parentId;
-	/// 工程恢复：导入成功后 rekey 为该 id（空则保持自动生成 id）
+	/// 工程稳定 id
 	ObjectId persistedId;
 };
 
+/// 规划结果
 struct PlanResultDto
 {
 	bool ok = false;
@@ -75,6 +83,7 @@ struct PlanResultDto
 	QVector<double> jointTargetsRad;
 };
 
+/// 运动指令
 struct MotionInstructionDto
 {
 	QString instructionType;
@@ -84,6 +93,7 @@ struct MotionInstructionDto
 	QJsonObject extensions;
 };
 
+/// 规划上下文
 struct PlanContextDto
 {
 	QVector<double> seedJointRad;
@@ -100,6 +110,7 @@ struct PlanContextDto
 	}
 };
 
+/// URDF 注册结果
 struct RobotRegistrationDto
 {
 	bool ok = false;

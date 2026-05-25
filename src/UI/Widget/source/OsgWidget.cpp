@@ -1054,7 +1054,7 @@ void OsgWidget::initUi()
 	fmt.setDoubleBuffer(true);
 
 	m_glWidget = new QWidgetViewer(fmt, this);
-	// 勿用过大 minimumSize，否则会占满主窗口垂直空间、底部运行信息 Dock 无法拉高。
+	// 勿用过大 minimumSize，否则会占满主窗口垂直空间、底部运行信息 Dock 无法拉高
 	m_glWidget->setMinimumSize(200, 120);
 	m_glWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	layout->addWidget(m_glWidget, 1);
@@ -1317,13 +1317,13 @@ void OsgWidget::setMeshLinePickMode(bool enabled)
 		updateCompassHighlight(DragAxis::None);
 		emit activeAxisChanged(QStringLiteral("None"));
 		hideMeshElementHighlight();
-		emit pointPickFeedback(QStringLiteral("Mesh Line Pick: move mouse over mesh edges."));
+		emit meshPickFeedback(QStringLiteral("Mesh Line Pick: move mouse over mesh edges."));
 		resetNavigationInputQueues();
 	}
 	else
 	{
 		hideMeshElementHighlight();
-		emit pointPickFeedback(QStringLiteral("Mesh Line Pick: off"));
+		emit meshPickFeedback(QStringLiteral("Mesh Line Pick: off"));
 	}
 	syncCameraManipulatorForModes();
 	refreshCompassDrawVisibility();
@@ -1348,13 +1348,13 @@ void OsgWidget::setMeshFacePickMode(bool enabled)
 		updateCompassHighlight(DragAxis::None);
 		emit activeAxisChanged(QStringLiteral("None"));
 		hideMeshElementHighlight();
-		emit pointPickFeedback(QStringLiteral("Mesh Face Pick: move mouse over mesh faces."));
+		emit meshPickFeedback(QStringLiteral("Mesh Face Pick: move mouse over mesh faces."));
 		resetNavigationInputQueues();
 	}
 	else
 	{
 		hideMeshElementHighlight();
-		emit pointPickFeedback(QStringLiteral("Mesh Face Pick: off"));
+		emit meshPickFeedback(QStringLiteral("Mesh Face Pick: off"));
 	}
 	syncCameraManipulatorForModes();
 	refreshCompassDrawVisibility();
@@ -1365,13 +1365,17 @@ bool OsgWidget::meshFacePickMode() const
 	return m_meshFacePickMode;
 }
 
+PickResult OsgWidget::queryPick(const PickQuery& query)
+{
+	return OsgScene::queryPick(query);
+}
+
 QString OsgWidget::pointCloudPluginReport() const
 {
 	auto hasReader = [](const char* ext) -> bool {
 		return osgDB::Registry::instance()->getReaderWriterForExtension(ext) != nullptr;
 	};
 
-	// xyz uses built-in loader in this widget, so it is always available.
 	const QString ply = hasReader("ply") ? QStringLiteral("OK") : QStringLiteral("Missing");
 	const QString las = hasReader("las") ? QStringLiteral("OK") : QStringLiteral("Missing");
 	const QString laz = hasReader("laz") ? QStringLiteral("OK") : QStringLiteral("Missing");
@@ -1524,7 +1528,6 @@ void OsgWidget::clearPointAnnotations()
 	}
 	if (m_annotationGroup.valid())
 	{
-		// Ensure legacy gizmo-attached annotations are removed too.
 		m_annotationGroup->removeChildren(0, m_annotationGroup->getNumChildren());
 	}
 	m_annotations.clear();
@@ -1552,16 +1555,22 @@ bool OsgWidget::pickMeshFaceByRayIntersection(const QPoint& mousePos,
 	osg::Vec3f& outBWorld,
 	osg::Vec3f& outCWorld,
 	osg::Vec3f& outNormalWorld,
-	std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld) const
+	std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld,
+	const std::string* scopeBackendId) const
 {
 	return OsgScene::pickMeshFaceByRayIntersection(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()),
-		outPointWorld, outAWorld, outBWorld, outCWorld, outNormalWorld, outMergedCoplanarVertsWorld);
+		outPointWorld, outAWorld, outBWorld, outCWorld, outNormalWorld, outMergedCoplanarVertsWorld, scopeBackendId);
 }
 
-bool OsgWidget::pickMeshEdgeByRayIntersection(const QPoint& mousePos, osg::Vec3f& outPointWorld, osg::Vec3f& outEdgeAWorld, osg::Vec3f& outEdgeBWorld) const
+bool OsgWidget::pickMeshEdgeByRayIntersection(const QPoint& mousePos,
+	osg::Vec3f& outPointWorld,
+	osg::Vec3f& outEdgeAWorld,
+	osg::Vec3f& outEdgeBWorld,
+	double* outEdgeDistancePx,
+	const std::string* scopeBackendId) const
 {
 	return OsgScene::pickMeshEdgeByRayIntersection(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()),
-		outPointWorld, outEdgeAWorld, outEdgeBWorld);
+		outPointWorld, outEdgeAWorld, outEdgeBWorld, outEdgeDistancePx, scopeBackendId);
 }
 
 void OsgWidget::addPointAnnotation(const osg::Vec3f& pointWorld)
@@ -1807,7 +1816,7 @@ bool OsgWidget::isBackendMeshLit(const std::string& backendId) const
 	return m_litMeshBackendIds.find(backendId) != m_litMeshBackendIds.end();
 }
 
-// 【中文】添加层级化机器人场景图（动态层级法）
+// 添加层级化机器人场景图（动态层级法）
 QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QString& displayName)
 {
 	if (!robotAssembly || !m_robotAssemblyGroup.valid())
@@ -1815,14 +1824,14 @@ QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QS
 		return QString();
 	}
 
-	// 【中文】生成唯一的后端 ID
+	// 生成唯一的后端 ID
 	static int s_robotSceneCounter = 0;
 	const QString backendId = QStringLiteral("RobotScene_%1_%2")
 		.arg(displayName.isEmpty() ? QStringLiteral("URDF") : displayName)
 		.arg(++s_robotSceneCounter);
 	const std::string stdId = backendId.toStdString();
 
-	// 【中文】与其它后端一致：外层 MatrixTransform 存完整局部刚体矩阵，FK / setBackendRootWorldMatrixFromWorld 无 TRS 分解损失
+	// 与其它后端一致：外层 MatrixTransform 存完整局部刚体矩阵，FK / setBackendRootWorldMatrixFromWorld 无 TRS 分解损失
 	osg::ref_ptr<osg::MatrixTransform> outer = new osg::MatrixTransform;
 	outer->setMatrix(osg::Matrixd::identity());
 	outer->setName(displayName.isEmpty() ? "RobotHierarchy" : displayName.toStdString());
@@ -1846,7 +1855,7 @@ QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QS
 	}
 	applyVisibilityMaskForBackend(stdId);
 
-	// 【中文】禁止对 map 使用 operator[] 赋值 ref_ptr（MSVC + OSG 3.6.5 在 ref_ptr::assign 上 C2440）
+	// 禁止对 map 使用 operator[] 赋值 ref_ptr（MSVC + OSG 3.6.5 在 ref_ptr::assign 上 C2440）
 	const auto inserted = m_backendObjectRoots.insert(std::make_pair(stdId, std::move(outer)));
 	if (inserted.second && inserted.first->second.valid())
 	{
@@ -1854,7 +1863,7 @@ QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QS
 	}
 	m_litMeshBackendIds.insert(stdId);
 
-	// 【中文】刷新场景并对准相机（与 upsertMeshBranchInScene 一致，否则易停留在默认视角看不到模型）
+	// 刷新场景并对准相机（与 upsertMeshBranchInScene 一致，否则易停留在默认视角看不到模型）
 	if (m_viewer.valid())
 	{
 		m_viewer->setSceneData(m_root.get());
@@ -1865,7 +1874,7 @@ QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QS
 	return backendId;
 }
 
-// 【中文】移除层级化机器人场景图
+// 移除层级化机器人场景图
 void OsgWidget::removeHierarchicalRobotScene(const QString& backendId)
 {
 	if (backendId.isEmpty())

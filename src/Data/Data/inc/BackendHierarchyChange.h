@@ -5,7 +5,7 @@
 #include <functional>
 #include <string>
 
-/// Structural changes to the backend object graph (not property/pose edits).
+/// 后端对象图结构变更（非属性/位姿编辑）
 enum class BackendHierarchyChangeKind
 {
 	DataRegistered,
@@ -15,11 +15,7 @@ enum class BackendHierarchyChangeKind
 	AllCleared
 };
 
-/// \c parentId / \c childId interpretation depends on \ref kind:
-/// - DataRegistered: \c childId is the new backend object id; \c parentId empty.
-/// - DataUnregistered: \c childId is the removed backend object id; \c parentId empty.
-/// - EdgeAttached / EdgeDetached: parent/child edge endpoints.
-/// - AllCleared: both ids empty.
+/// parentId/childId 含义随 kind 变化
 struct DATA_EXPORT BackendHierarchyChangeEvent
 {
 	BackendHierarchyChangeKind kind = BackendHierarchyChangeKind::AllCleared;

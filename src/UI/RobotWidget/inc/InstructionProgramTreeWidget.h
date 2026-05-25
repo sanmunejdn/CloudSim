@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-/// Hierarchical instruction program editor with drag-and-drop reparenting.
+/// 层级指令程序编辑器，支持拖放改父
 class ROBOTWIDGET_EXPORT InstructionProgramTreeWidget : public QTreeWidget
 {
 	Q_OBJECT
@@ -32,9 +32,8 @@ public:
 	std::shared_ptr<RobotInstruction::Base> selectedInstruction() const;
 	QTreeWidgetItem* selectedItem() const { return currentItem(); }
 
-	/// Insert new instruction relative to current selection (or append at root).
-	/// When \a emitSelection is false, tree selection is updated without emitting
-	/// instructionSelected (avoids preview/IK before caller sets tool extensions).
+	/// 相对当前选中插入指令（或追加到根）
+	/// emitSelection 为 false 时不发 instructionSelected（避免调用方设工具扩展前触发预览/IK）
 	void insertInstruction(const std::shared_ptr<RobotInstruction::Base>& ins, bool emitSelection = true);
 	void removeSelected();
 	void clearProgram();

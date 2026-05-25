@@ -8,6 +8,7 @@
 namespace property_core
 {
 
+/// 某 objectTypeId 的属性描述表
 struct PropertySchema
 {
 	std::string objectTypeId;
@@ -27,6 +28,7 @@ struct PropertySchema
 	}
 };
 
+/// 合并 descriptor 包到 schema
 inline void appendPack(PropertySchema& target, const std::vector<PropertyDescriptor>& packDescriptors)
 {
 	target.descriptors.insert(target.descriptors.end(), packDescriptors.begin(), packDescriptors.end());

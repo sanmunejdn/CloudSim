@@ -1,250 +1,289 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Header">
+    <Filter Include="inc">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="Source">
+    <Filter Include="inc\Ai">
+      <UniqueIdentifier>{7BE0BF39-9E00-480A-A62B-0EDE2932341A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Async">
+      <UniqueIdentifier>{63C711A5-CE11-4746-A1D2-76F5DBF78A45}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Document">
+      <UniqueIdentifier>{B34DFBBE-207A-43E7-81BD-274A96E483CC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{6D7329A3-1587-4036-8E69-E660E07E42DD}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\HostRef">
+      <UniqueIdentifier>{B67D519F-5938-439A-B361-66B470F448BB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\HostRef\Document">
+      <UniqueIdentifier>{95FEA3D1-3D31-498F-82B6-A4C93D822FA3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Infra">
+      <UniqueIdentifier>{142BEB7D-D6C2-4822-BB4E-474A803FC4E0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\MainWindow">
+      <UniqueIdentifier>{B67058E2-D327-4698-B42C-DBF1B6E03D34}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\OsgWidget">
+      <UniqueIdentifier>{CCA99464-F0A7-4072-ADD4-373830DC2A1E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\PickGizmo">
+      <UniqueIdentifier>{93168C91-C4E5-4214-BE4E-48C7B01D6E5D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\PluginHost">
+      <UniqueIdentifier>{AEE725FE-6389-4189-9305-8A05D2B53CE2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\PluginHost\Plugin">
+      <UniqueIdentifier>{82D13D1D-BAD9-41E5-858B-6DF7672BCAFE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\ProjectIo">
+      <UniqueIdentifier>{942CA4D3-0567-4C6B-AA9E-F2446FCCE29B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\SceneFacade">
+      <UniqueIdentifier>{2332A96F-9FFA-4A29-8B85-90082EB85D9F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\UiStyle">
+      <UniqueIdentifier>{5FE5D075-E162-4274-845B-F743E1B70D9E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="Source\MainWindow">
-      <UniqueIdentifier>{c2f8a1b3-4d5e-6f70-8192-a3b4c5d6e7f8}</UniqueIdentifier>
+    <Filter Include="src\Ai">
+      <UniqueIdentifier>{CC0DD7D4-E476-4441-BB84-73C77FCAC091}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source\qtpropertybrowser">
-      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567890}</UniqueIdentifier>
+    <Filter Include="src\Async">
+      <UniqueIdentifier>{3C07ECD2-34E5-4584-A385-46041C961E69}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Document">
+      <UniqueIdentifier>{3787CCA3-1CFA-4429-AACB-6E436E23446A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Infra">
+      <UniqueIdentifier>{E8B777AE-78DC-4347-9E91-676EB7925362}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\MainWindow">
+      <UniqueIdentifier>{558DD36E-333B-4A00-BA51-1529E2C4BDA2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\PluginHost">
+      <UniqueIdentifier>{7A5DF729-B6EF-4316-A4DC-744BBA369A0E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\PluginHost\Plugin">
+      <UniqueIdentifier>{7DBC123A-440C-4709-B0BB-B7F9EF6B58CB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\ProjectIo">
+      <UniqueIdentifier>{D92FCD5B-A158-46F1-9B1D-E35FABA6B23A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\ThirdParty">
+      <UniqueIdentifier>{E973A0A3-0BE0-41EA-85A1-3B4195D95E67}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\ThirdParty\qtpropertybrowser">
+      <UniqueIdentifier>{C9ABF17E-7EAA-4EE3-84F7-32F1C2290B3C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\UiStyle">
+      <UniqueIdentifier>{98F94824-3BEF-4129-AEBE-EA8D97144F5B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\pch">
+      <UniqueIdentifier>{4021B013-DF36-4624-89E6-71FFDA7D0CC0}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Host\CloudSimHost\inc\CloudSimHost.h">
+      <Filter>inc\HostRef</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Host\CloudSimHost\inc\DocumentHost.h">
+      <Filter>inc\HostRef\Document</Filter>
+    </ClInclude>
+    <ClInclude Include="..\CloudSimPluginHost\inc\PluginDelegatedBackend.h">
+      <Filter>inc\PluginHost\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="..\CloudSimPluginHost\inc\PluginDocumentAdapter.h">
+      <Filter>inc\PluginHost\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="..\CloudSimPluginHost\inc\PluginSceneBridgeAdapter.h">
+      <Filter>inc\PluginHost\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\AiCommandExecutor.h">
+      <Filter>inc\Ai</Filter>
+    </ClInclude>
     <ClInclude Include="inc\ApplicationStyle.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\widget_global.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\GraphicsWindowQt1.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\QtKeyboardMap.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\SelectionOperation.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PointPickOperation.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ObjectTransformOperation.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MeshEdgeFacePickOperation.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\OsgWidgetBackendLoadController.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\OsgWidgetImportController.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\OsgWidgetCaptureController.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MainWindowImportCaptureRenderController.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MainWindowObjectRepository.h">
-      <Filter>Source\MainWindow</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\OsgWidgetPickAnnotationController.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\OsgWidgetColorController.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\OsgWidgetCameraFocusController.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\OsgWidgetGizmoController.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\OsgWidgetSceneBridge.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\OsgWidgetTransformHierarchyController.h">
-      <Filter>Header</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MainWindow_p.h">
-      <Filter>Source\MainWindow</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MainWindowSelectionService.h">
-      <Filter>Source\MainWindow</Filter>
+      <Filter>inc\UiStyle</Filter>
     </ClInclude>
     <ClInclude Include="inc\BackendFollowReverseIndex.h">
-      <Filter>Header</Filter>
+      <Filter>inc\SceneFacade</Filter>
     </ClInclude>
     <ClInclude Include="inc\BackendSceneDocumentFacade.h">
-      <Filter>Header</Filter>
+      <Filter>inc\SceneFacade</Filter>
     </ClInclude>
     <ClInclude Include="inc\IBackendSceneBridge.h">
-      <Filter>Header</Filter>
+      <Filter>inc\SceneFacade</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\JobSystem.h">
+      <Filter>inc\Async</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MainWindow_p.h">
+      <Filter>inc\MainWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MainWindowImportCaptureRenderController.h">
+      <Filter>inc\MainWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MainWindowObjectRepository.h">
+      <Filter>inc\MainWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MainWindowSelectionService.h">
+      <Filter>inc\MainWindow</Filter>
     </ClInclude>
     <ClInclude Include="inc\MainWindowSelectionState.h">
-      <Filter>Source\MainWindow</Filter>
+      <Filter>inc\MainWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshEdgeFacePickOperation.h">
+      <Filter>inc\PickGizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ObjectTransformOperation.h">
+      <Filter>inc\PickGizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgWidgetSceneBridge.h">
+      <Filter>inc\OsgWidget</Filter>
     </ClInclude>
     <ClInclude Include="inc\ProjectPackageZip.h">
-      <Filter>Header</Filter>
+      <Filter>inc\ProjectIo</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotTcpDragTeachOperation.h">
+      <Filter>inc\PickGizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SelectionOperation.h">
+      <Filter>inc\PickGizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\widget_global.h">
+      <Filter>inc\Global</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\QWidgetViewer.cpp">
-      <Filter>Source</Filter>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\moc_qtpropertybrowserutils_p.cpp">
+      <Filter>src\ThirdParty\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qrc_qtpropertybrowser.cpp">
+      <Filter>src\ThirdParty\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qteditorfactory.cpp">
+      <Filter>src\ThirdParty\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertybrowser.cpp">
+      <Filter>src\ThirdParty\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertybrowserutils.cpp">
+      <Filter>src\ThirdParty\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertymanager.cpp">
+      <Filter>src\ThirdParty\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qttreepropertybrowser.cpp">
+      <Filter>src\ThirdParty\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtvariantproperty.cpp">
+      <Filter>src\ThirdParty\qtpropertybrowser</Filter>
+    </ClCompile>
+    <ClCompile Include="..\CloudSimPluginHost\source\PluginDelegatedBackend.cpp">
+      <Filter>src\PluginHost\Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="..\CloudSimPluginHost\source\PluginDocumentAdapter.cpp">
+      <Filter>src\PluginHost\Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="..\CloudSimPluginHost\source\PluginHostContext.cpp">
+      <Filter>src\PluginHost\Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="..\CloudSimPluginHost\source\PluginManager.cpp">
+      <Filter>src\PluginHost\Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="..\CloudSimPluginHost\source\PluginSceneBridgeAdapter.cpp">
+      <Filter>src\PluginHost\Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="source\AiCommandExecutor.cpp">
+      <Filter>src\Ai</Filter>
     </ClCompile>
     <ClCompile Include="source\ApplicationStyle.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\GraphicsWindowQt1.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgWidget.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgWidgetImportController.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgWidgetCaptureController.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgWidgetBackendLoadController.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MainWindowImportCaptureRenderController.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgWidgetPickAnnotationController.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgWidgetColorController.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgWidgetCameraFocusController.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgWidgetGizmoController.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendFollowReverseIndex.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendSceneDocumentFacade.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgWidgetSceneBridge.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgWidgetTransformHierarchyController.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PointPickOperation.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ObjectTransformOperation.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshEdgeFacePickOperation.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MainWindow.cpp">
-      <Filter>Source\MainWindow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MainWindowUiSetup.cpp">
-      <Filter>Source\MainWindow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MainWindowBackendTree.cpp">
-      <Filter>Source\MainWindow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MainWindowObjectRepository.cpp">
-      <Filter>Source\MainWindow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MainWindowSelectionService.cpp">
-      <Filter>Source\MainWindow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MainWindowFileImport.cpp">
-      <Filter>Source\MainWindow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MainWindowProjectIo.cpp">
-      <Filter>Source\MainWindow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ProjectPackageZip.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MainWindowPropertyPanel.cpp">
-      <Filter>Source\MainWindow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RunInfoPage.cpp">
-      <Filter>Source\MainWindow</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\qtpropertybrowser.cpp">
-      <Filter>Source\qtpropertybrowser</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\qtpropertybrowserutils.cpp">
-      <Filter>Source\qtpropertybrowser</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\qtpropertymanager.cpp">
-      <Filter>Source\qtpropertybrowser</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\qteditorfactory.cpp">
-      <Filter>Source\qtpropertybrowser</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\qtvariantproperty.cpp">
-      <Filter>Source\qtpropertybrowser</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\qttreepropertybrowser.cpp">
-      <Filter>Source\qtpropertybrowser</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\qrc_qtpropertybrowser.cpp">
-      <Filter>Source\qtpropertybrowser</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\bin\SDK\qtpropertybrowser\moc_qtpropertybrowserutils_p.cpp">
-      <Filter>Source\qtpropertybrowser</Filter>
+      <Filter>src\UiStyle</Filter>
     </ClCompile>
     <ClCompile Include="source\DocumentPage.cpp">
-      <Filter>Source</Filter>
+      <Filter>src\Document</Filter>
     </ClCompile>
-    <ClCompile Include="source\DevicePageWidget.cpp">
-      <Filter>Source</Filter>
+    <ClCompile Include="source\JobSystem.cpp">
+      <Filter>src\Async</Filter>
     </ClCompile>
-    <ClCompile Include="source\RobotAxisControlWidget.cpp">
-      <Filter>Source</Filter>
+    <ClCompile Include="source\MainWindow.cpp">
+      <Filter>src\MainWindow</Filter>
     </ClCompile>
-    <ClCompile Include="source\SimulationCommandWidget.cpp">
-      <Filter>Source</Filter>
+    <ClCompile Include="source\MainWindowAiAssistant.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowBackendTree.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowFileImport.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowImportCaptureRenderController.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowObjectRepository.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowPlugins.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowProjectIo.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowPropertyPanel.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowRobotHost.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowRobotStubs.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowSelectionService.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowUiSetup.cpp">
+      <Filter>src\MainWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pch.cpp">
+      <Filter>src\pch</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProgressManager.cpp">
+      <Filter>src\Async</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProjectPackageZip.cpp">
+      <Filter>src\ProjectIo</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RunInfoPage.cpp">
+      <Filter>src\Infra</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <QtMoc Include="..\CloudSimPluginHost\inc\PluginHostContext.h">
+      <Filter>inc\PluginHost\Plugin</Filter>
+    </QtMoc>
+    <QtMoc Include="..\CloudSimPluginHost\inc\PluginManager.h">
+      <Filter>inc\PluginHost\Plugin</Filter>
+    </QtMoc>
     <QtMoc Include="inc\DocumentPage.h">
-      <Filter>Header</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\OsgWidget.h">
-      <Filter>Header</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\QWidgetViewer.h">
-      <Filter>Header</Filter>
+      <Filter>inc\Document</Filter>
     </QtMoc>
     <QtMoc Include="inc\MainWindow.h">
-      <Filter>Source\MainWindow</Filter>
+      <Filter>inc\MainWindow</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\ProgressManager.h">
+      <Filter>inc\Async</Filter>
     </QtMoc>
     <QtMoc Include="inc\RunInfoPage.h">
-      <Filter>Source\MainWindow</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\DevicePageWidget.h">
-      <Filter>Header</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\RobotAxisControlWidget.h">
-      <Filter>Header</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\SimulationCommandWidget.h">
-      <Filter>Header</Filter>
+      <Filter>inc\Infra</Filter>
     </QtMoc>
   </ItemGroup>
 </Project>

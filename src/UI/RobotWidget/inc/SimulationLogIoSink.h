@@ -5,7 +5,7 @@
 
 #include <QHash>
 
-/// In-memory digital IO state for simulation (logged via RunLogger when outputs change).
+/// 仿真数字 IO 内存态（输出变更经 RunLogger 记录）
 class ROBOTWIDGET_EXPORT SimulationLogIoSink : public IRobotIoSink
 {
 public:

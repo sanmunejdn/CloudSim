@@ -4,7 +4,7 @@
 
 class OsgWidget;
 
-/// 后端父子层级与联动变换控制（从 OsgWidget 拆出）。
+/// 后端父子层级与联动变换控制（自 OsgWidget 拆出
 class OsgWidgetTransformHierarchyController
 {
 public:

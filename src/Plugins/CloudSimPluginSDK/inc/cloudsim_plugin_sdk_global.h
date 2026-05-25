@@ -10,5 +10,5 @@
 # define PLUGIN_SDK_EXPORT Q_DECL_IMPORT
 #endif
 
-/// Host ABI version (major in high 16 bits, minor in low 16 bits). Must match \ref cloudsimPluginHostVersion().
-#define CLOUDSIM_PLUGIN_HOST_VERSION 0x00010100
+/// 宿主 ABI 版本（高 16 主、低 16 次），须与 cloudsimPluginHostVersion 一致
+#define CLOUDSIM_PLUGIN_HOST_VERSION 0x00010200

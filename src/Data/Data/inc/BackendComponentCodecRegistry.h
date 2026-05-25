@@ -10,6 +10,7 @@
 
 #include "BackendComponent.h"
 
+/// 组件 JSON 编解码注册（工程保存/加载）
 class BackendComponentCodecRegistry
 {
 public:

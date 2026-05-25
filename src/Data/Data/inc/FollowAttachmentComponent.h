@@ -11,7 +11,7 @@
 
 class BackendDataManager;
 
-/// Optional rigid follow: follower outer-branch world = targetWorld * localTransform.
+/// 可选刚体跟随：follower 外支路世界 = targetWorld * localTransform
 class DATA_EXPORT FollowAttachmentComponent : public IBackendComponent
 {
 public:
@@ -31,15 +31,15 @@ public:
 	BackendVec3 localEulerDeg() const;
 	void setLocalEulerDeg(const BackendVec3& e);
 
-	/// When true, property solver skips updating this follower (e.g. user is dragging the gizmo on it).
+	/// true 时求解器跳过此 follower（如用户拖 gizmo）
 	bool solverPaused() const;
 	void setSolverPaused(bool on);
 
-	/// True when follow target was set from backend parent/edge (cleared when user edits follow target).
+	/// 跟随目标来自层级边（用户改 target 后清除）
 	bool hierarchyDriven() const;
 	void setHierarchyDriven(bool on);
 
-	/// Single UI row: follow target by object \a name (resolved via \a mgr).
+	/// 面板单行：按对象名选跟随目标
 	void appendPropertyRows(nlohmann::json& rows, const BackendDataManager* mgr = nullptr) const;
 	bool applyPropertyChange(BackendDataBase& owner, const std::string& key, const std::string& value, std::string* errMsg,
 		const BackendDataManager* mgr = nullptr);
@@ -47,7 +47,7 @@ public:
 	void writeJson(nlohmann::json& out) const;
 	void readJson(const nlohmann::json& in);
 
-	/// Recompute local offset from current world poses (target and follower must be valid in \a mgr).
+	/// 从当前世界位姿重算 local 偏移
 	static bool recomputeLocalFromCurrentWorld(const BackendDataManager& mgr,
 		const std::function<bool(const std::string&, BackendMat4& out)>& worldQuery, BackendDataBase& follower,
 		std::string* errMsg);

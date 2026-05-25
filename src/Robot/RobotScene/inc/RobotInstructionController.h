@@ -16,12 +16,12 @@ struct ROBOT_SCENE_API PlanResult
 	bool ok = false;
 	std::string plannerName;
 	std::string summary;
-	double durationSec = 0.0; // Planned execution time for this segment.
-	std::vector<double> jointTargetsRad; // Final joint target for this instruction segment.
-	std::vector<std::vector<double>> jointTrajectoryRad; // Optional absolute trajectory waypoints.
+	double durationSec = 0.0;
+	std::vector<double> jointTargetsRad;
+	std::vector<std::vector<double>> jointTrajectoryRad;
 };
 
-/// Axis-configuration enum tokens that pass IK + posture constraints for the current instruction context.
+/// 当前指令上下文中通过 IK+姿态约束的轴配置枚举
 struct ROBOT_SCENE_API FeasibleMotionAxisConfigurationOptions
 {
 	std::vector<std::string> presetTokens;
@@ -56,7 +56,7 @@ public:
 	bool validate(const Base& cmd, std::string* errMsg) const;
 	bool plan(const Base& cmd, PlanResult& out, std::string* errMsg) const;
 
-	/// Enumerates axis-configuration choices that can be planned/started for {@p cmd} (requires planning context on cmd).
+	/// 可规划/启动的轴配置选项（cmd 须带规划上下文）
 	FeasibleMotionAxisConfigurationOptions queryFeasibleMotionAxisConfigurationOptions(const Base& cmd) const;
 
 private:

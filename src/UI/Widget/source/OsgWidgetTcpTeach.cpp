@@ -202,7 +202,7 @@ bool OsgWidget::tcpTeachResolveBaseWorld(osg::Matrixd& outBaseWorld) const
 
 bool OsgWidget::tcpTeachToolWorldMatrix(osg::Matrixd& outToolWorld) const
 {
-	// H8: per-link 法兰挂载时以场景图真值为准，避免 baseWorld 与 URDF 基座不一致导致 World 拖动错位。
+	// H8: per-link 法兰挂载时以场景图真值为准，避免 baseWorld 与 URDF 基座不一致导致 World 拖动错位
 	if (m_tcpTeachUseFlangeLocalPlacement && m_tcpTeachMountPat.valid()
 		&& tcpTeachMountPatWorldMatrix(m_tcpTeachMountPat.get(), outToolWorld))
 	{
@@ -226,7 +226,7 @@ void OsgWidget::tcpTeachSetTargetFromToolWorld(const osg::Matrixd& toolWorldOsg)
 	}
 	const engine::RigidTransform toolW = engine::rigidTransformFromOsg(toolWorldOsg);
 	const engine::RigidTransform baseW = engine::rigidTransformFromOsg(baseWorldOsg);
-	// URDF/IK 基座用 composeColumn；勿用 OSG 行链 toolWorld*inv(base) 再转 Eigen（易致 X/Z 与 Y 符号不一致）。
+	// URDF/IK 基座用 composeColumn；勿用 OSG 行链 toolWorld*inv(base) 再转 Eigen（易致 X/Z 与 Y 符号不一致）
 	m_tcpTeachTargetInBase = baseW.inverse().composeColumn(toolW);
 }
 
@@ -578,7 +578,7 @@ bool OsgWidget::tcpTeachCompassUnitAxisWorld(const DragAxis axis, osg::Vec3d& ou
 	{
 		localAxis = Eigen::Vector3d::UnitY();
 	}
-	// 屏幕标定轴须与 IK 基座目标一致；勿用场景 FK 的 toolW.rotation()（X/Z 可能与 Y 符号相反）。
+	// 屏幕标定轴须与 IK 基座目标一致；勿用场景 FK 的 toolW.rotation()（X/Z 可能与 Y 符号相反）
 	const Eigen::Vector3d w = baseW.rotation() * m_tcpTeachTargetInBase.rotation() * localAxis;
 	const double len = w.norm();
 	if (len < 1e-12)

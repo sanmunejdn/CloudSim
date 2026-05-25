@@ -9,7 +9,7 @@ class QTextBrowser;
 class QLineEdit;
 class QPushButton;
 
-/// AI assistant panel: chat history and natural-language mesh creation (rule parser).
+/// AI 助手面板：对话与自然语言建网格（规则解析）
 class AIWIDGET_EXPORT AiAssistantDockWidget : public QWidget
 {
 	Q_OBJECT

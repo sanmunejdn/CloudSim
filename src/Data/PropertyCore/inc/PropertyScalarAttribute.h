@@ -7,6 +7,7 @@
 namespace property_core
 {
 
+/// 标量属性行（bool/int/double/string）
 template <typename TContext, typename TValue, typename TBase>
 class PropertyScalarAttribute : public TBase
 {

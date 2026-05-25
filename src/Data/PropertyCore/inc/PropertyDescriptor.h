@@ -9,6 +9,7 @@
 namespace property_core
 {
 
+/// 双精度滑条范围（enabled 才生效）
 struct NumericRangeDouble
 {
 	bool enabled = false;
@@ -23,6 +24,7 @@ struct NumericRangeInt
 	int maxValue = std::numeric_limits<int>::max();
 };
 
+/// 枚举下拉选项与是否允许自定义
 struct EnumConstraint
 {
 	std::vector<std::string> options;
@@ -36,6 +38,7 @@ struct PropertyConstraints
 	EnumConstraint enumConstraint;
 };
 
+/// 面板分组与编辑器类型提示
 struct PropertyUiHint
 {
 	std::string editor;
@@ -53,7 +56,7 @@ struct PropertyDescriptor
 	PropertyConstraints constraints;
 	PropertyUiHint uiHint;
 	PropertySemanticFlags semanticFlags = PropertySemanticFlags::None;
-	/// Display-only unit (e.g. mm, deg); numeric validation uses constraints when set.
+	/// 仅展示单位（如 mm、deg）；数值校验用 constraints
 	std::string unit;
 };
 

@@ -198,6 +198,7 @@ core::ObjectId DataServiceAdapter::loadObjectFromJson(const QJsonObject& objectJ
 	{
 		return {};
 	}
+	// 内嵌几何走 registerAdopted，非纯 JSON 注册
 	const QString sourcePath = objectJson.value(QStringLiteral("sourcePath")).toString();
 	const QString sourceType = objectJson.value(QStringLiteral("sourceType")).toString();
 	const QString parentId = objectJson.value(QStringLiteral("parentId")).toString();
@@ -212,6 +213,7 @@ core::ObjectId DataServiceAdapter::loadObjectFromJson(const QJsonObject& objectJ
 core::ObjectId DataServiceAdapter::importFromFile(const QString& path, const core::ImportOptionsDto& options,
 	QString* outError)
 {
+	// 统一走导入门面
 	const ImportFileKind kind = options.isPointCloud ? ImportFileKind::PointCloud : ImportFileKind::Mesh;
 	const ImportFileResult imported = importFileIntoDocument(m_host, path, kind, options, outError);
 	return imported.ok ? imported.rootBackendId : QString();

@@ -4,7 +4,7 @@
 
 #include <QString>
 
-/// Primitive kinds for host \c createPrimitiveMesh (units: mm).
+/// 宿主 createPrimitiveMesh 图元类型（mm）
 enum class PluginPrimitiveKind
 {
 	Box = 0,

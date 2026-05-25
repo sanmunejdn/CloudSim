@@ -7,7 +7,7 @@
 class QPlainTextEdit;
 class QPushButton;
 
-/// 运行信息页：以只读文本显示日志、警告与错误，供用户查看处理过程输出。
+/// 运行信息页：以只读文本显示日志、警告与错误，只读展示运行输出
 class WIDGET_EXPORT RunInfoPage : public QWidget
 {
 	Q_OBJECT

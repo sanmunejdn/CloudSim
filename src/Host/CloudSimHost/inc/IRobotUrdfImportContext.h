@@ -23,7 +23,7 @@ struct RobotCoordinateFrameSet;
 
 namespace cloudsim::host {
 
-/// DocumentPage 实现：URDF/工程恢复写后端与仿真元数据（与 DocumentHost 类名区分，避免遮蔽）
+/// URDF 导入回调
 class CLOUDSIM_HOST_EXPORT IRobotUrdfImportContext
 {
 public:

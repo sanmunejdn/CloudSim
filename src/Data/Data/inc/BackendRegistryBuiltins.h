@@ -4,6 +4,7 @@
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 
+/// 进程内一次性注册 Mesh / PointCloud 等内置类型
 inline void ensureBackendBuiltinsRegistered()
 {
 	static bool once = false;

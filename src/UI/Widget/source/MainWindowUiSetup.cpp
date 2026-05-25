@@ -231,7 +231,6 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 
 void MainWindow::setupMenuBar()
 {
-	// --- File: document / import / exit ---
 	m_fileMenu = menuBar()->addMenu(QStringLiteral("File"));
 	m_newDocumentAction = m_fileMenu->addAction(QStringLiteral("New"), this, &MainWindow::onNewDocument);
 	m_fileMenu->addSeparator();
@@ -243,7 +242,6 @@ void MainWindow::setupMenuBar()
 	m_fileMenu->addSeparator();
 	m_exitAction = m_fileMenu->addAction(QStringLiteral("Exit"), this, &QWidget::close);
 
-	// --- View: layout + 3D interaction modes ---
 	m_viewMenu = menuBar()->addMenu(QStringLiteral("View"));
 	m_resetLayoutAction = m_viewMenu->addAction(QStringLiteral("Reset Layout"));
 	m_viewMenu->addSeparator();
@@ -281,7 +279,6 @@ void MainWindow::setupMenuBar()
 	m_gizmoWorldFrameAction->setCheckable(true);
 	m_gizmoFrameGroup->addAction(m_gizmoWorldFrameAction);
 	m_gizmoLocalFrameAction->setChecked(true);
-	// Only react when an action becomes checked; ignore triggered(false) when exclusivity unchecks the other item.
 	connect(m_gizmoLocalFrameAction, &QAction::triggered, this, [this](bool checked) {
 		if (!checked)
 		{
@@ -305,7 +302,6 @@ void MainWindow::setupMenuBar()
 	 m_viewMenu->addSeparator();
 	 m_simulationStartAction = m_viewMenu->addAction(QStringLiteral("Start Simulation"), this, &MainWindow::onSimulationStartTriggered);
 
-	// --- Settings: appearance + language ---
 	m_settingsMenu = menuBar()->addMenu(QStringLiteral("Settings"));
 	m_appearanceMenu = m_settingsMenu->addMenu(QStringLiteral("Theme"));
 	m_themeActionGroup = new QActionGroup(this);

@@ -66,7 +66,7 @@ struct MeshCapturedPart;
 /// 三维视图控件（Qt + \c OsgScene）
 ///
 /// Viewer/相机、后端导入显示、拾取标注；对象变换与 TCP 示教罗盘（后者挂场景 overlay，
-/// 位姿经 \c syncTcpTeachWorldPatFromMount 与 mount PAT 对齐）。
+/// 位姿经 syncTcpTeachWorldPatFromMount 与 mount PAT 对齐）
 class OSG_WIDGET_API OsgWidget : public QWidget, public IRobotBackendPoseSink, public OsgScene
 {
 	Q_OBJECT
@@ -91,15 +91,14 @@ public:
 		osg::Vec3f positionMm;
 		osg::Vec3f eulerDeg;
 		bool lineMotion = false;
-		/// IK reachable for this waypoint (origin marker green/red).
+		/// 路点 IK 可达性（原点标记绿/红）
 		bool reachable = true;
-		std::string robotBackendId; // Local frame parent. Empty means world overlay.
-		/// per-link：T_base_tcp 直接挂在 \a robotBackendId 的 PAT 下（勿用其子装配子图，避免漂到场景原点）。
+		std::string robotBackendId; /// 局部父节点；空表示世界 overlay
+		/// per-link：T_base_tcp 挂 robotBackendId 的 PAT 下（勿用子装配子图，避免漂到场景原点）
 		bool mountTcpOnPatRoot = false;
 		bool hasLocalMatrix = false;
 		double localMatrix[16]{};
-		/// URDF link name (e.g. "link_6"). When set, \a localMatrix is inv(T_link)*T_tcp in that link's
-		/// container frame and the axis is parented under \c "{name}_Container" in the robot scene graph.
+		/// URDF 连杆名；非空时 \a localMatrix 为该连杆容器系 inv(T_link)*T_tcp，轴挂于 \c "{name}_Container"
 		std::string urdfTcpAttachLinkName;
 	};
 
@@ -107,10 +106,10 @@ public:
 	{
 		QString id;
 		QString displayText;
-		QString backendId; // empty => legacy/unknown
-		/// Legacy: offset in object gizmo (center+pose) space at save time (older projects only).
+		QString backendId; /// 空表示旧版/未知
+		/// 旧工程：保存时对象 gizmo 局部偏移
 		osg::Vec3f localCentered;
-		/// Authoritative world-space anchor; when set, position survives switching backend objects.
+		/// 世界锚点；切换后端对象后位置不变
 		osg::Vec3f worldAnchor{};
 		bool hasWorldAnchor = false;
 		bool visible = true;
@@ -128,10 +127,10 @@ public:
 		bool resetViewToHome = true);
 	bool loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage = nullptr, bool resetViewToHome = true,
 		bool showWireOutline = true, bool useSceneLighting = true, bool skipInnerModelCenterRebase = false);
-	/// 该后端网格是否以场景光照渲染（如 URDF 连杆），用于改色时保留光照材质。
+	/// 受光网格后端（如 URDF 连杆）；改色时保留光照材质
 	bool isBackendMeshLit(const std::string& backendId) const;
 	void clearImportedContent();
-	/// Clears import preview only (keeps already registered backend visuals).
+	/// 仅清导入预览，保留已注册后端可视
 	void clearStagingGeometry();
 	void setSelectionActive(bool active);
 	void setObjectSelectionMode(bool enabled);
@@ -146,55 +145,55 @@ public:
 	bool meshLinePickMode() const;
 	void setMeshFacePickMode(bool enabled);
 	bool meshFacePickMode() const;
+	PickResult queryPick(const PickQuery& query);
 	osg::Vec3f selectedPosition() const;
 	void setSelectedPosition(const osg::Vec3f& position);
 	osg::Vec3f selectedRotationEulerDeg() const;
 	void setSelectedRotationEulerDeg(const osg::Vec3f& eulerDeg);
 	void setSelectedColor(float r, float g, float b, float a = 1.0f);
 	QString pointCloudPluginReport() const;
-	/// Per backend tree row: show/hide that object's OSG branch (multiple clouds/meshes per document).
+	/// 按后端树行显隐 OSG 分支
 	void setBackendObjectVisible(const std::string& backendId, bool visible);
-	/// Sync logical backend hierarchy for features like top-parent annotation tracking.
+	/// 同步逻辑父子链（顶层标注跟踪等）
 	void setBackendParent(const std::string& backendId, const std::string& parentBackendId);
 	void setBackendLogicalParent(const std::string& backendId, const std::string& parentBackendId);
 	void removeBackendObjectVisual(const std::string& backendId);
-	/// True if geometry for this backend id is already in the scene (not import staging).
+	/// 后端几何已在场景中（非导入预览）
 	bool hasBackendObjectBranch(const std::string& backendId) const;
-	/// Align gizmo / pick cache with backend pose without reloading geometry (preserves annotations).
+	/// 不重载几何同步 gizmo/拾取缓存，保留标注
 	void syncSelectionFromBackend(const PointCloudBackendData& data);
 	void syncSelectionFromBackend(const MeshBackendData& data);
-	/// Select backend row even when it has no own geometry (e.g. assembly parent).
+	/// 无自有几何的后端行也可选中（如装配父节点）
 	void syncSelectionForBackendId(const std::string& backendId);
 	bool setAnnotationVisible(const QString& annotationId, bool visible);
 	bool removeAnnotation(const QString& annotationId);
 	void clearAllAnnotations();
 	QList<AnnotationSnapshot> annotationSnapshots() const;
 	void restoreAnnotations(const QList<AnnotationSnapshot>& snapshots);
-	// Match Qt dark/light theme: clears OSG camera to a light gray (dark UI) or near-white (light UI).
+/// 随 Qt 深/浅主题设置 OSG 背景色
 	void setViewerBackgroundForDarkUi(bool dark);
-	/// True when at least one backend object has scene geometry (or import staging is present).
+	/// 至少一个后端有几何或存在导入预览
 	bool hasImportedContent() const;
-	/// Root passed to the viewer (\c setSceneData); use for scene-graph hierarchy UI / debugging.
+	/// Viewer 根节点（\c setSceneData），供场景树 UI/调试
 	const osg::Group* sceneGraphRoot() const { return m_root.get(); }
-	/// Rigid-body rotation: each backend root rotates about \a pivotWorld by \a deltaRotation (left-multiply attitude).
+	/// 绕 \a pivotWorld 刚体旋转各后端根（左乘姿态）
 	void applyRigidRotationAboutWorldPivot(const std::vector<std::string>& backendIds, const osg::Vec3f& pivotWorld,
 		const osg::Quat& deltaRotation);
 	osg::Vec3f averageBackendRootPositionWorld(const std::vector<std::string>& backendIds) const;
-	/// World matrix of the outer PAT for \a backendId (respects parent chain under the scene).
+	/// \a backendId 外层 PAT 世界矩阵（含父链）
 	bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const override;
-	/// Sets outer PAT pose so its world matrix equals \a worldMat (respects parent chain).
+	/// 设外层 PAT 世界矩阵为 \a worldMat（含父链）
 	void setBackendRootWorldMatrixFromWorld(const std::string& backendId, const osg::Matrixd& worldMat) override;
 	bool tryGetBackendModelCenterMm(const std::string& backendId, double& outCx, double& outCy, double& outCz) const override;
 	void syncRobotMeshBackendPoseAfterKinematics(const BackendDataBase& mesh) override;
 
-	/// 【中文】添加层级化机器人场景图（动态层级法），返回场景节点的 ID 用于后续管理。
-	/// 【English】Add hierarchical robot scene graph (dynamic hierarchy method).
-	/// @param robotAssembly The root node of the robot scene (e.g., from UrdfRobotLoader::buildHierarchicalRobotScene)
-	/// @param displayName Display name for the robot in the backend tree
-	/// @return Backend ID assigned to the robot scene, empty if failed
+	/// 添加层级机器人场景，返回后端 id
+	/// @param robotAssembly 机器人场景根（UrdfRobotLoader::buildHierarchicalRobotScene）
+	/// @param displayName 后端树显示名
+	/// @return 机器人后端 id，失败为空
 	QString addHierarchicalRobotScene(osg::Group* robotAssembly, const QString& displayName);
 
-	/// 【中文】移除层级化机器人场景图。
+	/// 移除层级化机器人场景图。
 	void removeHierarchicalRobotScene(const QString& backendId);
 	void setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& axes);
 	void clearInstructionPoseAxes();
@@ -230,7 +229,7 @@ public:
 	/// 进入 TCP 示教
 	/// @param mountBackendId TCP 挂载后端 PAT id
 	/// @param T_base_target 机器人基座系目标 TCP 位姿
-	/// @param modelDiagonalMm 参考模型对角线 mm，用于罗盘屏幕缩放
+	/// @param modelDiagonalMm 参考模型对角线 mm，罗盘屏幕缩放
 	/// @param resolveRobotBaseWorld 可选，解析基座世界矩阵；基座/工具坐标换算
 	/// @param toolLocalOnFlange 非空则按法兰局部工具矩阵放置 TCP
 	void beginTcpDragTeach(
@@ -249,22 +248,22 @@ public:
 	void updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLocalOnFlange);
 	engine::RigidTransform tcpDragTeachTargetInBase() const { return m_tcpTeachTargetInBase; }
 
-	/// Optional per-frame callback (e.g. follow-attachment solve); runs on the viewer frame timer.
+	/// 帧定时器回调（如跟随求解）
 	void setPerFrameHook(std::function<void(OsgWidget*)> fn);
-	/// True while object or TCP-teach gizmo translate/rotate drag is active (skip automatic follower pose overwrite).
+	/// 对象/TCP 示教 gizmo 拖拽中，跳过跟随位姿覆写
 	bool isTransformGizmoDragging() const;
-	/// Apply \a data pose/rotation to the outer PAT using cached model center (backend as pose authority).
+	/// 按缓存质心将 \a data 位姿写到外层 PAT
 	bool syncOuterPatFromBackend(const BackendDataBase& data);
-	/// Push current \c ObjectGizmoFrame (from active outer PAT) through \c syncActiveBackendRootFromObjectFrame (non-drag).
+	/// 非拖拽时将 ObjectGizmoFrame 同步到活动后端根
 	void syncActiveBackendRootFromSelectedTransform();
-	/// Read active backend outer world matrix into backend pose/rotation (OSG authority before follow solve).
+	/// OSG 位姿写回后端（跟随求解前）
 	bool writeActiveBackendPoseFromOsg(BackendDataBase& data);
-	/// Orbit manipulator center tracks the world origin of this backend (empty disables).
+	/// 轨道相机中心跟随此后端世界原点（空则关闭）
 	void setCameraFollowBackendId(std::string backendId);
 	void clearCameraFollowBackendId();
 	const std::string& cameraFollowBackendId() const { return m_cameraFollowBackendId; }
 
-	// TCP 示教罗盘（\ref RobotTcpDragTeachOperation 友元，约定同 OsgScene 对象 gizmo）
+/// TCP 示教罗盘（RobotTcpDragTeachOperation 友元，同 OsgScene 对象 gizmo）
 	void updateTcpTeachCompassHighlight(DragAxis axis, bool highlightRing = false);
 	void updateTcpTeachCompassScale();
 	/// @param outPivotWorld 出参，TCP 枢轴世界坐标 mm
@@ -328,19 +327,20 @@ signals:
 	void selectedObjectPoseChanged(float x, float y, float z);
 	void selectedObjectRotationChanged(float rx, float ry, float rz);
 	void selectedObjectColorChanged(float r, float g, float b, float a);
-	/// Emitted once when translate/rotate gizmo drag ends (left/right release after an active drag).
+	/// 平移/旋转 gizmo 拖拽结束
 	void transformGizmoCommitted();
-	/// TCP 示教拖动中位姿更新（基座系工具原点 mm + 欧拉 deg）。
+	/// TCP 示教拖动中位姿更新（基座系 mm + 欧拉 deg）
 	void tcpDragTeachPoseChanged(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
 	void tcpDragTeachEnded();
 	void backendObjectPicked(const QString& backendId);
 	void activeAxisChanged(const QString& axisName);
 	void selectionCanceledByEsc();
 	void pointPickFeedback(const QString& text);
+	void meshPickFeedback(const QString& text);
 	void annotationCreated(const QString& annotationId, const QString& displayText);
 	void annotationRemoved(const QString& annotationId);
 	void annotationVisibilityChanged(const QString& annotationId, bool visible);
-	/// Emitted together with each \ref OsgScene::requestRedraw (scene graph or camera changed).
+	/// 随 OsgScene::requestRedraw 发出（场景或相机变更）
 	void sceneRedrawRequested();
 
 private:
@@ -367,7 +367,7 @@ private:
 	QString axisToString(DragAxis axis) const;
 	void updateCompassScale();
 	void refreshCompassDrawVisibility();
-	/// World: gizmo axes align with world X/Y/Z; Local: axes follow object. Pivot stays at model origin (compass).
+	/// World：轴对齐世界 XYZ；Local：轴随物体；枢轴在模型原点
 	void syncCompassGizmoOrientation();
 	/// 环境变量 \c POINTCLOUD_GIZMO_PIVOT_DIAG 非空且不为 \c "0" 时：经 RunLogger 输出枢轴与场景图文件原点对比（调试用）。
 	void logGizmoPivotDiagnostics(const char* reasonTag) const;
@@ -401,7 +401,7 @@ private:
 	/// 使用场景光照加载的网格后端（如 URDF 连杆），改色时保留 Material+LIGHTING。
 	std::unordered_set<std::string> m_litMeshBackendIds;
 	osg::ref_ptr<osg::Group> m_instructionPoseAxesGroup;
-	/// Instruction TCP axes parented directly under link containers (must detach before rebuild/clear).
+	/// 指令 TCP 轴直接挂连杆容器，重建/清空前须 detach
 	std::vector<osg::ref_ptr<osg::MatrixTransform>> m_instructionPoseAxisNodes;
 	struct RobotFrameOverlayNodes
 	{
@@ -421,12 +421,15 @@ private:
 		osg::Vec3f& outBWorld,
 		osg::Vec3f& outCWorld,
 		osg::Vec3f& outNormalWorld,
-		std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld = nullptr) const;
+		std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld = nullptr,
+		const std::string* scopeBackendId = nullptr) const;
 
 	bool pickMeshEdgeByRayIntersection(const QPoint& mousePos,
 		osg::Vec3f& outPointWorld,
 		osg::Vec3f& outEdgeAWorld,
-		osg::Vec3f& outEdgeBWorld) const;
+		osg::Vec3f& outEdgeBWorld,
+		double* outEdgeDistancePx = nullptr,
+		const std::string* scopeBackendId = nullptr) const;
 
 	using OsgScene::showMeshFaceHighlight;
 	using OsgScene::showMeshEdgeHighlight;

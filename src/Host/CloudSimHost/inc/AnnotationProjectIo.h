@@ -9,7 +9,7 @@ class OsgWidget;
 
 namespace cloudsim::host {
 
-/// 注释与相机跟随的 JSON 读写（工程包共用）
+/// 标注 JSON 读写
 CLOUDSIM_HOST_EXPORT QJsonArray buildAnnotationsJsonFromOsg(OsgWidget& osg, QJsonObject& inOutRootExtras);
 CLOUDSIM_HOST_EXPORT void applyAnnotationsFromProjectJson(OsgWidget& osg, const QJsonObject& root);
 

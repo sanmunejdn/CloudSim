@@ -8,7 +8,7 @@ class IDataService;
 class IRobotService;
 class IRenderView;
 
-/// One document tab: data + robot + render services.
+/// 单文档作用域
 class CLOUDSIM_CORE_EXPORT IDocumentScope
 {
 public:

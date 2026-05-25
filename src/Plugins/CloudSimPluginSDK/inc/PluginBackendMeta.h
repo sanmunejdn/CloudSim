@@ -8,10 +8,10 @@
 
 class IPluginBackendObject;
 
-/// Factory for a plugin-defined backend object (host adapts to \c BackendDataBase).
+/// 插件后端工厂（宿主适配 BackendDataBase）
 using PluginBackendFactory = std::function<std::shared_ptr<IPluginBackendObject>()>;
 
-/// Property rows JSON provider (same schema as host property panel plugins).
+/// 属性行 JSON 提供者（同宿主面板 schema）
 using PluginPropertyRowsProvider = std::function<std::string(const std::string& backendId)>;
 
 struct PluginBackendMeta
@@ -24,7 +24,7 @@ struct PluginBackendMeta
 	bool supportsVisibility = true;
 };
 
-/// Minimal backend surface for plugin-defined types (Phase 2).
+/// 插件自定义后端最小面（Phase 2）
 class IPluginBackendObject
 {
 public:

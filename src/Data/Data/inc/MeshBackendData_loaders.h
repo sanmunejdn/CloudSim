@@ -8,8 +8,10 @@
 class MeshBackendData;
 struct MeshHierarchyPart;
 
+/// 网格文件加载与 OCCT/CGAL 三角化（MeshBackendData 内部）
 namespace mesh_backend_load {
 
+/// STEP 反向面绕序翻转，与 OSG 法线一致
 constexpr bool kMeshStepFlipReversedFaceWinding = true;
 
 void meshLoadErr(std::string* errMsg, const char* text);

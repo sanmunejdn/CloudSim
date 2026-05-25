@@ -9,7 +9,7 @@
 
 class AiAssistantDockWidget;
 
-/// Orchestrates rule/LLM parsing (AiBackend) and drives dock UI messages.
+/// 编排规则/LLM 解析（AiBackend）并驱动 Dock 消息
 class AIWIDGET_EXPORT AiAssistantCoordinator : public QObject
 {
 	Q_OBJECT
@@ -28,7 +28,7 @@ public slots:
 	void onUserMessageSubmitted(const QString& text);
 
 signals:
-	/// Parsed create_mesh JSON (UTF-8) ready for application layer (Widget/MainWindow).
+	/// create_mesh JSON（UTF-8），供 Widget/MainWindow 应用
 	void createMeshCommandReady(const QByteArray& commandJsonUtf8, const QString& parserVia);
 	void parseFailed(const QString& message, const QString& parserVia);
 

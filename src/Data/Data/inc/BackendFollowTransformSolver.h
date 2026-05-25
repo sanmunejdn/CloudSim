@@ -10,16 +10,14 @@
 class BackendDataBase;
 class BackendDataManager;
 
-/// Resolves follower poses from \ref FollowAttachmentComponent chains (DAG). Uses optional OSG world query
-/// when provided so robot / live gizmo targets stay consistent with the scene.
+/// 沿 FollowAttachment DAG 解 follower 位姿；可选 OSG 世界查询与场景/机器人对齐
 class DATA_EXPORT BackendFollowTransformSolver
 {
 public:
 	using WorldMatQuery = std::function<bool(const std::string& backendId, BackendMat4& outWorld)>;
 
-	/// Updates followers in topological order. Skips \a skipUpdatingFollowerId if non-empty (e.g. user dragging that follower).
-	/// When \a limitPoseUpdateToFollowerIds is non-null, only followers whose id appears in the set receive pose writes
-	/// (full graph is still traversed for cycle checks and world cache). When null, all followers are updated.
+	/// 拓扑序更新 follower；skipUpdatingFollowerId 非空则跳过（如拖拽中）
+	/// limitPoseUpdateToFollowerIds 非空时仅写集合内 id（仍全图遍历做环检测）
 	static void solve(BackendDataManager& mgr, const WorldMatQuery& worldQuery, const std::string& skipUpdatingFollowerId,
 		const std::unordered_set<std::string>* limitPoseUpdateToFollowerIds);
 };

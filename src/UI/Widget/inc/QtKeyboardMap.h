@@ -6,7 +6,7 @@
 #include <QInputEvent>
 #include <QPointer>
 
-/// Qt 键值到 osgGA::GUIEventAdapter 键码的映射表，用于把 Qt 键盘事件交给 OSG 处理。
+/// Qt 键值到 osgGA::GUIEventAdapter 键码的映射表，Qt 键值映射 osgGA 键码
 class WIDGET_EXPORT QtKeyboardMap
 {
 

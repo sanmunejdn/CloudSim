@@ -28,30 +28,30 @@ struct ProjectSaveBuildResult {
 	QStringList warnings;
 };
 
-/// 工程 v4 数据段（robotKinematics 由 mergeRobotKinematicsIntoProjectRoot 合并）
+/// 构建工程保存根
 CLOUDSIM_HOST_EXPORT ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& languageCode);
 
-/// 保存前写入 robotKinematics / robotKinematicsInstances（关节角由 Widget 采集）
+/// 合并运动学到根
 CLOUDSIM_HOST_EXPORT void mergeRobotKinematicsIntoProjectRoot(::IRobotDocumentHost* robotDoc, QJsonObject& root,
 	const QVector<double>* aggregatedJointAnglesRad = nullptr);
 
-/// 从工程 JSON 恢复标注与相机跟随
+/// 恢复标注与视口
 CLOUDSIM_HOST_EXPORT void applyProjectViewportFromJson(DocumentHost& host, const QJsonObject& root);
 
-/// 工程加载收尾：父链 → edges 跟随 → 视口 → 强制 Follow（顺序固定）
+/// 工程加载收尾
 CLOUDSIM_HOST_EXPORT void finalizeProjectLoadFollowAndViewport(DocumentHost& host, OsgWidget& osg,
 	const QJsonObject& root, bool useEdgesRelation, const QVector<ProjectHierarchyEdge>& edges,
 	const FollowSolveContext* solveCtx = nullptr);
 
-/// robotKinematicsInstances + 兼容单条 robotKinematics
+/// 恢复运动学实例
 CLOUDSIM_HOST_EXPORT RobotKinematicsRestoreResult restoreRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx,
 	const QJsonObject& projectRoot);
 
-/// 非空 robotPrograms[] 时写入 RobotProgramStore
+/// 加载机器人程序
 CLOUDSIM_HOST_EXPORT bool loadRobotProgramsFromProjectJson(DocumentHost& host, const QJsonObject& projectRoot,
 	QString* outError = nullptr);
 
-/// 保存根 JSON：写入或移除 robotPrograms
+/// 合并程序到根
 CLOUDSIM_HOST_EXPORT void mergeRobotProgramsIntoProjectRoot(DocumentHost& host, QJsonObject& root);
 
 } // namespace cloudsim::host

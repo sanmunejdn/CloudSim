@@ -6,7 +6,7 @@
 
 #include "data_global.h"
 
-// 几何缓冲 Base64（RFC 4648）：对二进制块编码解码，供工程内嵌 float 缓冲等使用。
+/// 几何缓冲 Base64（RFC 4648），工程内嵌 float 块
 
 DATA_EXPORT std::string geometryBase64Encode(const void* bytes, std::size_t byteCount);
 DATA_EXPORT bool geometryBase64Decode(const std::string& base64, std::vector<unsigned char>& outBytes);

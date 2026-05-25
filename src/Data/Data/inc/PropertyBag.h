@@ -45,6 +45,7 @@ struct PropertyBagDiff
 	std::vector<PropertyBagDiffItem> updates;
 };
 
+/// 运行时属性袋：name+type 键，variant 值
 class PropertyBag
 {
 public:

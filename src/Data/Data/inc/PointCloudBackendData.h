@@ -7,7 +7,7 @@
 #include "BackendDataBase.h"
 #include "BackendObjectAttribute.h"
 
-/// 点云后端：交错 xyz 浮点缓冲与可选每顶点 RGBA，支持 PLY 等加载与工程内嵌序列化。
+/// 点云后端：交错 xyz 浮点缓冲与可选每顶点 RGBA，支持 PLY 等加载与工程内嵌序列化
 class DATA_EXPORT PointCloudBackendData : public BackendDataBase
 {
 public:
@@ -35,25 +35,24 @@ public:
 	void setPointCount(std::size_t count);
 	void setBounds(const BackendBoundingBox& bounds);
 
-	// Raw points: xyz interleaved (3 * N floats). Optional per-vertex RGBA (4 * N floats, 0..1).
 	void setPointBuffers(std::vector<float> xyz, std::vector<float> rgbaPerVertex);
+	void setPointBuffers(std::vector<float> xyz, std::vector<float> rgbaPerVertex, std::vector<float> normalsNxNyNz);
+	void setPointNormals(std::vector<float> normalsNxNyNz);
 	const std::vector<float>& pointPositionsXyz() const { return m_xyz; }
 	const std::vector<float>& pointVertexRgba() const { return m_rgbaVertex; }
+	const std::vector<float>& pointNormalsNxNyNz() const { return m_normals; }
 	bool hasPerVertexColors() const { return !m_rgbaVertex.empty(); }
+	bool hasPointNormals() const { return !m_normals.empty(); }
 
-	// Project file embeddedGeometry (Base64 float32 LE); false if no point data to save.
 	bool writeProjectEmbeddedGeometry(std::string& outXyzBase64, std::string& outRgbaPerVertexBase64) const;
 	bool readProjectEmbeddedGeometry(const std::string& xyzBase64, const std::string& rgbaPerVertexBase64);
 
-	// Load PLY point cloud (ASCII/binary) via CGAL; flexible ASCII header when CGAL needs format on line 2.
-	// utf8Path should be UTF-8 (e.g. QString::toUtf8()). Face elements are skipped for rendering.
+/// PLY 加载（CGAL）；utf8Path 为 UTF-8
 	bool readPointCloudFromPlyFile(const std::string& utf8Path, std::string* errMsg = nullptr);
 
-	// Load from disk by extension: .ply (CGAL), .xyz (ASCII). Path should be native-encoded for std::ifstream (e.g. QFile::encodeName).
+/// 按扩展名加载；path 用本地编码（QFile::encodeName）
 	bool loadFromFile(const std::string& path, std::string* errMsg = nullptr);
 
-	// Project sidecar: binary PLY (float x/y/z in body to match typical clouds; binary_little_endian).
-	// utf8Path should be UTF-8 (e.g. QString::toUtf8()).
 	bool writePointCloudPlySidecar(const std::string& utf8Path, std::string* errMsg) const;
 	bool readPointCloudPlySidecar(const std::string& utf8Path, std::string* errMsg);
 
@@ -73,5 +72,6 @@ private:
 	std::size_t m_pointCount = 0U;
 	std::vector<float> m_xyz;
 	std::vector<float> m_rgbaVertex;
+	std::vector<float> m_normals;
 };
 

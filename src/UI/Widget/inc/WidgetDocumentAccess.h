@@ -4,7 +4,7 @@
 #include "IRenderView.h"
 #include "OsgWidget.h"
 
-/// Widget 侧经 IRenderView::widget() 取得 OsgWidget，与 Host osgWidgetFrom 对齐。
+/// Widget 侧经 IRenderView::widget() 取得 OsgWidget，与 Host osgWidgetFrom 对齐
 inline OsgWidget* widgetOsgFromPage(DocumentPage* page)
 {
 	if (!page)

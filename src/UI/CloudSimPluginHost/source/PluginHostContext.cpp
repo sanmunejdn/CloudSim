@@ -16,6 +16,7 @@
 #include "OsgWidget.h"
 #include "PluginDelegatedBackend.h"
 #include "PluginDocumentAdapter.h"
+#include "PluginPointCloudHostImpl.h"
 #include "RunLogger.h"
 
 #include <QAction>
@@ -51,6 +52,7 @@ BackendPrimitiveGeometry::PrimitiveKind toDataKind(PluginPrimitiveKind kind)
 PluginHostContext::PluginHostContext(MainWindow* mainWindow, QObject* parent)
 	: QObject(parent)
 	, m_mainWindow(mainWindow)
+	, m_pointCloudHost(std::make_unique<PluginPointCloudHostImpl>(this))
 {
 }
 
@@ -481,6 +483,59 @@ std::string PluginHostContext::importFileIntoActiveDocument(const std::string& p
 		return std::string();
 	}
 	return imported.rootBackendId.toStdString();
+}
+
+IPluginPointCloudHost* PluginHostContext::pointCloudHost()
+{
+	return m_pointCloudHost.get();
+}
+
+const IPluginPointCloudHost* PluginHostContext::pointCloudHost() const
+{
+	return m_pointCloudHost.get();
+}
+
+bool PluginHostContext::useChinese() const
+{
+	return m_mainWindow && m_mainWindow->m_useChinese;
+}
+
+void PluginHostContext::onLanguageChanged(std::function<void(bool useChinese)> callback)
+{
+	if (callback)
+	{
+		m_languageCallbacks.push_back(std::move(callback));
+	}
+}
+
+void PluginHostContext::setSidePanelTabTitle(QWidget* widget, const char* titleUtf8)
+{
+	if (!m_mainWindow || !widget || !titleUtf8)
+	{
+		return;
+	}
+	QTabWidget* tabs = m_mainWindow->rightPanelTabs();
+	if (!tabs)
+	{
+		return;
+	}
+	const int idx = tabs->indexOf(widget);
+	if (idx >= 0)
+	{
+		tabs->setTabText(idx, QString::fromUtf8(titleUtf8));
+	}
+}
+
+void PluginHostContext::notifyLanguageChanged()
+{
+	const bool chinese = useChinese();
+	for (const auto& cb : m_languageCallbacks)
+	{
+		if (cb)
+		{
+			cb(chinese);
+		}
+	}
 }
 
 bool PluginHostContext::registerBackendType(const PluginBackendMeta& meta, QString* outError)

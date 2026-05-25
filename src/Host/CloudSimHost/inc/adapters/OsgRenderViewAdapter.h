@@ -6,7 +6,7 @@ class OsgWidget;
 
 namespace cloudsim::host {
 
-/// OsgWidget → IRenderView 映射；列主序 Mat4 与 osg::Matrixd 在此转换，Adapter 内不写业务分支
+/// OsgWidget 渲染适配
 class OsgRenderViewAdapter final : public core::IRenderView
 {
 public:
@@ -29,8 +29,8 @@ public:
 
 	void requestRedraw() override;
 
-	void focusCameraOnBackend(const core::ObjectId& id) override; ///< 逻辑子树聚合包围球
-	void setBackendLogicalParent(const core::ObjectId& childId, const core::ObjectId& parentId) override; ///< 仅旁路表，不改 OSG 父链
+	void focusCameraOnBackend(const core::ObjectId& id) override;
+	void setBackendLogicalParent(const core::ObjectId& childId, const core::ObjectId& parentId) override;
 
 private:
 	OsgWidget& m_widget;

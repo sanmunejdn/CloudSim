@@ -10,7 +10,7 @@ class IDataService;
 class IRobotService;
 class IRenderViewFactory;
 
-/// Phase 0/1 stubs until backend adapters are wired.
+/// 空实现桩
 CLOUDSIM_CORE_EXPORT std::unique_ptr<IDataService> makeNullDataService();
 CLOUDSIM_CORE_EXPORT std::unique_ptr<IRobotService> makeNullRobotService();
 CLOUDSIM_CORE_EXPORT std::unique_ptr<IRenderViewFactory> makeNullRenderViewFactory();

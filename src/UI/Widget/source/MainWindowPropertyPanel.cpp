@@ -1268,7 +1268,7 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 			syncInstructionRenderMatricesFromPose(m_activeInstructionForProperty);
 			invalidateFeasibleAxisConfigurationCache();
 			applyRobotPoseForInstructionPreview(m_activeInstructionForProperty);
-			// 工具系切换已触发整链预览 IK；延后可行轴枚举，避免与预览重复多初值求解造成卡顿。
+			// 工具系切换已触发整链预览 IK；延后可行轴枚举，避免与预览重复多初值求解造成卡顿
 			updateInstructionPropertyPanel(m_activeInstructionForProperty, false);
 			refreshRobotCoordinateFrameOverlays(m_activeInstructionForProperty);
 			refreshInstructionPoseAxes();

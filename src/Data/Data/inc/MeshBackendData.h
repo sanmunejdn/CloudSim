@@ -16,7 +16,7 @@ struct DATA_EXPORT MeshHierarchyPart
 	std::vector<float> triangleSoup;
 };
 
-/// 三角网格后端：以三角形 soup（每三角形 9 个 float：三顶点 xyz）存几何，支持文件加载与工程内嵌序列化。
+/// 三角网格后端：以三角形 soup（每三角形 9 个 float：三顶点 xyz）存几何，支持文件加载与工程内嵌序列化
 class DATA_EXPORT MeshBackendData : public BackendDataBase
 {
 public:
@@ -29,9 +29,8 @@ public:
 	std::size_t geometryElementCount() const override;
 	void clearGeometry() override;
 
-	// Nine floats per triangle: v0.xyz, v1.xyz, v2.xyz (model space, same frame as OSG import).
 	void setTriangleSoup(std::vector<float> xyzPerTriangleVertex);
-	/// Optional per-vertex normals (9 floats per triangle, aligned with \c triangleSoup). Used for OBJ vn lighting.
+	/// 可选每三角法线（9 float，与 soup 对齐），OBJ vn 光照
 	void setTriangleSoupWithNormals(std::vector<float> xyzPerTriangleVertex, std::vector<float> normalPerTriangleVertex);
 	const std::vector<float>& triangleSoup() const { return m_triangleSoup; }
 	const std::vector<float>& triangleVertexNormals() const { return m_triangleNormals; }
@@ -40,7 +39,7 @@ public:
 		return !m_triangleNormals.empty() && m_triangleNormals.size() == m_triangleSoup.size();
 	}
 
-	/// Apply column-major rigid 4x4 (mesh-file → link frame) to every triangle vertex xyz in \c m_triangleSoup; recomputes bounds.
+	/// 列主序 4×4（mesh 系→连杆系）烘焙到 soup 顶点并重算包围
 	void transformVerticesColumnMajorHomogeneous4x4(const double colMajor16[16]);
 
 	void setPose(const BackendVec3& position) override;
@@ -58,8 +57,10 @@ public:
 	bool writeProjectEmbeddedGeometry(std::string& outTriangleSoupBase64) const;
 	bool readProjectEmbeddedGeometry(const std::string& triangleSoupBase64);
 
-	// CGAL polygon soup I/O (.obj .stl .ply .off). Path native-encoded for std::ifstream (e.g. QFile::encodeName).
+	/// CGAL polygon soup（.obj/.stl/.ply/.off）；path 本地编码
 	bool loadFromFile(const std::string& path, std::string* errMsg = nullptr);
+	/// 三角 soup 写 PLY（含 face 元素）；path UTF-8
+	bool writeTriangleMeshPly(const std::string& utf8Path, std::string* errMsg = nullptr) const;
 	static bool loadStepHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts, std::string* errMsg = nullptr);
 	static bool loadDxfHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts, std::string* errMsg = nullptr);
 
@@ -67,7 +68,7 @@ public:
 	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
 		const BackendDataManager* mgr = nullptr) override;
 
-	/// When true, pose/rotation/worldMatrix use mesh origin as pivot (URDF link-frame meshes), not bbox center.
+	/// true 时以 mesh 原点为枢轴（URDF 连杆系），非 bbox 中心
 	void setTransformPivotAtOrigin(bool atOrigin) { m_transformPivotAtOrigin = atOrigin; }
 	bool transformPivotAtOrigin() const { return m_transformPivotAtOrigin; }
 

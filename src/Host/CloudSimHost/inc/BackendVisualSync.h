@@ -10,17 +10,17 @@ namespace cloudsim::host {
 
 class DocumentHost;
 
-/// 属性 key 是否需刷新 OSG（pose/颜色/跟随等）
+/// 属性需同步 OSG
 CLOUDSIM_HOST_EXPORT bool propertyKeyNeedsVisualSync(const QString& key);
 
-/// 是否应向 EventHub 发布 PoseCommitted
+/// 属性需发 PoseCommitted
 CLOUDSIM_HOST_EXPORT bool propertyKeyCommitsPose(const QString& key);
 
-/// IDataService 或属性面板提交后：mesh/点云世界矩阵与选中色同步
+/// 属性变更后视觉同步
 CLOUDSIM_HOST_EXPORT void syncVisualAfterPropertyChange(DocumentHost& host, const BackendDataBase& data,
 	bool applyColor = false);
 
-/// applyPropertyChange 成功后的统一后处理（视觉 + 事件）
+/// IDataService 后处理
 CLOUDSIM_HOST_EXPORT void afterDataServicePropertyChange(DocumentHost& host, const BackendDataBase& data,
 	const QString& key);
 

@@ -11,7 +11,7 @@
 namespace engine
 {
 
-/// Column-major 16-double layout (compatible with BackendMat4::v).
+/// 16 double 列主序（兼容 BackendMat4::v）
 using ColMajorMat4 = std::array<double, 16>;
 
 GEOMETRY_ENGINE_API RigidTransform rigidTransformFromOsg(const osg::Matrixd& m);

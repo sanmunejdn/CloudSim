@@ -1,27 +1,41 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClInclude Include="inc\robot_urdf_global.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotSimulationTypes.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\UrdfRobotLoader.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
     <Filter Include="inc">
-      <UniqueIdentifier>{6af0f0e4-35d1-446c-90e7-f960bc436918}</UniqueIdentifier>
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{E850F889-AE25-4971-98A1-0FB69F269715}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Robot">
+      <UniqueIdentifier>{186B2748-CF1A-4608-88CC-3C6455D970F0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Urdf">
+      <UniqueIdentifier>{E1BEF7CE-5C5D-4B51-ABF2-E3EE50D6163F}</UniqueIdentifier>
     </Filter>
     <Filter Include="src">
-      <UniqueIdentifier>{a0d298ac-b435-452b-947b-bf9b4eabce76}</UniqueIdentifier>
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="src\Urdf">
+      <UniqueIdentifier>{88E5CA64-6B8C-4073-B5AA-D711803424FF}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\robot_urdf_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotSimulationTypes.h">
+      <Filter>inc\Robot</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\UrdfRobotLoader.h">
+      <Filter>inc\Urdf</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\UrdfRobotLoader.cpp">
-      <Filter>src</Filter>
+      <Filter>src\Urdf</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

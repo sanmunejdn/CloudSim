@@ -1,54 +1,77 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="source\BackendVisualBindingIndex.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ObjectGizmoFrame.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgSceneSync.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgSceneMath.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgSceneNavigation.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgSceneHierarchy.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgSceneGizmo.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgSceneCamera.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgScene.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
+    <Filter Include="inc">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Backend">
+      <UniqueIdentifier>{961F7D57-D602-410D-9FC6-30E427291B3E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{A1DCCF21-A328-493E-BFB5-0245DC1D4FBB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\OsgWidget">
+      <UniqueIdentifier>{A1A590BB-9D47-448E-B93E-74A2BD7D4DD1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Backend">
+      <UniqueIdentifier>{F65D8EF3-E956-4025-9500-C4CEB4600D83}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\OsgWidget">
+      <UniqueIdentifier>{EAABA7DB-B458-4A00-9C7C-C7AB3121245F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\pch">
+      <UniqueIdentifier>{2A63CEDA-5502-46B7-BC85-4E5FAA1E5C2E}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\BackendVisualBindingIndex.h">
-      <Filter>inc</Filter>
+      <Filter>inc\Backend</Filter>
     </ClInclude>
     <ClInclude Include="inc\ObjectGizmoFrame.h">
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\OsgScene.h">
-      <Filter>inc</Filter>
+      <Filter>inc\OsgWidget</Filter>
     </ClInclude>
     <ClInclude Include="inc\osgwidgetcore_global.h">
-      <Filter>inc</Filter>
+      <Filter>inc\Global</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{05485aa4-51a5-457a-9127-63f113038b9b}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{b96364cc-ff52-4654-8180-9b8926b12cb7}</UniqueIdentifier>
-    </Filter>
+    <ClCompile Include="source\BackendVisualBindingIndex.cpp">
+      <Filter>src\Backend</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ObjectGizmoFrame.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgScene.cpp">
+      <Filter>src\OsgWidget</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneCamera.cpp">
+      <Filter>src\OsgWidget</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneGizmo.cpp">
+      <Filter>src\OsgWidget</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneHierarchy.cpp">
+      <Filter>src\OsgWidget</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneMath.cpp">
+      <Filter>src\OsgWidget</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneNavigation.cpp">
+      <Filter>src\OsgWidget</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneSync.cpp">
+      <Filter>src\OsgWidget</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pch.cpp">
+      <Filter>src\pch</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

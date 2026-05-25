@@ -8,7 +8,7 @@
 
 class BackendDataBase;
 
-/// OSG backend root pose get/set (implemented by \ref OsgWidget in Widget).
+/// OSG 后端根位姿读写（Widget OsgWidget 实现）
 class ROBOT_SCENE_API IRobotBackendPoseSink
 {
 public:
@@ -17,7 +17,7 @@ public:
 	virtual bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const = 0;
 	virtual void setBackendRootWorldMatrixFromWorld(const std::string& backendId, const osg::Matrixd& worldMat) = 0;
 
-	/// Optional: mesh model center (mm) used with \ref backend_pose_euler_from_world_mat for per-link URDF drivers.
+	/// per-link URDF：mesh 模型中心 mm，配合 backend_pose_euler_from_world_mat
 	virtual bool tryGetBackendModelCenterMm(const std::string& backendId, double& outCx, double& outCy, double& outCz) const
 	{
 		(void)backendId;
@@ -27,6 +27,6 @@ public:
 		return false;
 	}
 
-	/// Sync OSG outer PAT from mesh backend pose/rotation after kinematics writes.
+	/// FK 写 pose/rotation 后同步 OSG 外支 PAT
 	virtual void syncRobotMeshBackendPoseAfterKinematics(const BackendDataBase& mesh) { (void)mesh; }
 };

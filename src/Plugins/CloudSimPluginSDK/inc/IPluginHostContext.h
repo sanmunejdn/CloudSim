@@ -17,12 +17,11 @@
 class QAction;
 class ICloudSimPlugin;
 class IPluginDocument;
+class IPluginPointCloudHost;
 class QMenu;
 
-/// Progress callback for background jobs (fraction in [0,1]).
 using PluginJobProgressFn = std::function<void(double fraction, const QString& message)>;
 
-/// Host services available to plugins during \c initialize() and runtime (UI thread unless noted).
 class IPluginHostContext
 {
 public:
@@ -41,45 +40,58 @@ public:
 	virtual IPluginDocument* documentAt(int index) = 0;
 	virtual const IPluginDocument* documentAt(int index) const = 0;
 
-	/// \a callback invoked on the UI thread when the active document tab changes.
+	/// 活动文档切换时 UI 线程回调
 	virtual void onActiveDocumentChanged(std::function<void(IPluginDocument*)> callback) = 0;
 
-	/// Marshals \a fn to the UI thread (no-op if already on UI thread).
+	/// 投递 fn 到 UI 线程（已在则直跑）
 	virtual void invokeOnUiThread(std::function<void()> fn) = 0;
 
-	/// Background work via host JobSystem; \a onFinished runs on the UI thread.
+	/// JobSystem 后台任务；onFinished 回 UI 线程
 	virtual void enqueueJob(const QString& title, std::function<void(const PluginJobProgressFn&)> work,
 		std::function<void(bool threw, const QString& throwMessage)> onFinished) = 0;
 
-	/// Adds a floating dock (left/bottom). Avoid \c Qt::RightDockWidgetArea — use \c registerSidePanelTab instead.
+	/// 浮动 dock（左/下）；右侧用 registerSidePanelTab
 	virtual QDockWidget* registerDockWidget(const QString& title, QWidget* widget,
 		Qt::DockWidgetArea area = Qt::LeftDockWidgetArea) = 0;
 
-	/// Parent for plugin panel widgets (right \c QTabWidget next to Workspace / AI). May be null before UI ready.
+	/// 右侧面板 Tab 父 widget；UI 未就绪可为 null
 	virtual QWidget* sidePanelTabParent() const = 0;
 
-	/// Adds a tab next to Workspace / AI on the right panel (no overlap with simulation UI).
+	/// 右侧 Workspace/AI 旁加 Tab，避开仿真 UI
 	virtual int registerSidePanelTab(const char* titleUtf8, QWidget* widget) = 0;
 	virtual void unregisterSidePanelTab(QWidget* widget) = 0;
 
-	/// Creates menu path (e.g. {"Tools","Hello"}) and returns the leaf menu for adding actions.
+	/// 创建菜单路径并返回叶菜单
 	virtual QMenu* registerMenuPath(const QStringList& path) = 0;
 	virtual QAction* registerAction(QMenu* menu, const QString& text,
 		std::function<void()> handler) = 0;
 
-	/// Phase 1: host builds \c MeshBackendData + OSG branch (same path as AI create-mesh).
+	/// Phase1：宿主建 MeshBackendData+OSG（同 AI create-mesh）
 	virtual bool createPrimitiveMesh(const PluginPrimitiveMeshParams& params,
 		const PluginPrimitiveMeshQuality& quality, const PluginMeshCreateOptions& options,
 		QString* outError) = 0;
 
-	/// Phase 2: register a plugin backend type with the host \c BackendRegistry.
+	/// Phase2：向 BackendRegistry 注册插件后端类型
 	virtual bool registerBackendType(const PluginBackendMeta& meta, QString* outError) = 0;
 
-	/// Phase 2: register mesh from triangle soup (9 floats per triangle, mm).
+	/// Phase2：三角 soup 注册 mesh（每三角 9 float，mm）
 	virtual bool registerTriangleMesh(const std::vector<float>& triangleSoup, const PluginMeshCreateOptions& options,
 		QString* outError) = 0;
 
-	/// Import file into the active document (mesh: Host \c importFromFile; point cloud: full import path).
+	/// 导入到活动文档（mesh/point cloud 各走宿主路径）
 	virtual std::string importFileIntoActiveDocument(const std::string& pathUtf8, bool isPointCloud,
 		std::string* outError = nullptr) = 0;
+
+	/// 1.2.0+：点云算法宿主；宿主版本不足时可为 null
+	virtual IPluginPointCloudHost* pointCloudHost() = 0;
+	virtual const IPluginPointCloudHost* pointCloudHost() const = 0;
+
+	/// 与主窗口 Settings → Language 一致（默认中文）
+	virtual bool useChinese() const = 0;
+
+	/// 语言切换时 UI 线程回调（Settings → Language）
+	virtual void onLanguageChanged(std::function<void(bool useChinese)> callback) = 0;
+
+	/// 更新已注册侧栏 Tab 标题（UTF-8）
+	virtual void setSidePanelTabTitle(QWidget* widget, const char* titleUtf8) = 0;
 };

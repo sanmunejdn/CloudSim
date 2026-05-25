@@ -65,7 +65,7 @@ BackendMat4 BackendMat4::rotateEulerDeg(double exDeg, double eyDeg, double ezDeg
 	const double sy = std::sin(ey);
 	const double cz = std::cos(ez);
 	const double sz = std::sin(ez);
-	// R = Rz(ez)*Ry(ey)*Rx(ex) — matches BackendVisualMath / OSG branch.
+	// R=Rz*Ry*Rx，与 BackendVisual/OSG 一致
 	BackendMat4 r = identity();
 	r.v[0] = cy * cz;
 	r.v[1] = cy * sz;
@@ -90,7 +90,7 @@ bool backend_mat4_multiply(const BackendMat4& a, const BackendMat4& b, BackendMa
 
 bool backend_mat4_invert_rigid(const BackendMat4& m, BackendMat4& out)
 {
-	// R stored column-major: col j at m[j*4+0..2]. Inverse = R^T and t' = -R^T * t.
+	// 列主序 R；逆=R^T，t'=-R^T*t
 	const double tx = m.v[12];
 	const double ty = m.v[13];
 	const double tz = m.v[14];

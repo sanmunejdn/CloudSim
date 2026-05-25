@@ -10,7 +10,7 @@
 
 namespace cloudsim::core {
 
-/// UI-thread domain event bus (typed publish/subscribe).
+/// UI 线程事件总线
 class CLOUDSIM_CORE_EXPORT EventHub
 {
 public:

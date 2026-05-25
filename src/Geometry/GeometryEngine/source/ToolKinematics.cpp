@@ -5,8 +5,8 @@ namespace engine
 
 RigidTransform toolOriginFromFlange(const RigidTransform& baseFlange, const RigidTransform& flangeTool)
 {
-	// Eigen isometry product: p_base = R_flange * t_tool + t_flange (tool offset in flange axes).
-	// Do not use composeScene here: URDF linkWorld (OSG) and tool (Eigen) adapters disagree on row-chain order.
+	// Eigen 等距积：p_base=R_flange*t_tool+t_flange
+	// 勿 composeScene：URDF OSG 与 Eigen 链序不一致
 	return baseFlange.composeColumn(flangeTool);
 }
 

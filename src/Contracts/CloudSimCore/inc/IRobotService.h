@@ -8,7 +8,7 @@
 
 namespace cloudsim::core {
 
-/// Document-scoped robot simulation (plan, FK, programs).
+/// 文档机器人服务
 class CLOUDSIM_CORE_EXPORT IRobotService
 {
 public:

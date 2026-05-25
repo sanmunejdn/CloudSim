@@ -5,7 +5,7 @@
 
 #include "OsgWidget.h"
 
-/// 点选标记与三维文字标注的增删改、刷新与按后端恢复，从 OsgWidget 中抽出的标注逻辑。
+/// 点选标记与三维文字标注的增删改、刷新与按后端恢复，自 OsgWidget 拆出
 class OsgWidgetPickAnnotationController
 {
 public:

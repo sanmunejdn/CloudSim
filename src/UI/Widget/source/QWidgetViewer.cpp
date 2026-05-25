@@ -52,7 +52,6 @@ QWidgetViewer::QWidgetViewer(const QGLFormat& format, QWidget* parent, const QGL
 
 QWidgetViewer::~QWidgetViewer()
 {
-	// close GraphicsWindowQt1 and remove the reference to us
 	if (_gw)
 	{
 		_gw->close();
@@ -128,24 +127,20 @@ bool QWidgetViewer::event(QEvent* event)
 
 	if (event->type() == QEvent::Hide)
 	{
-		// enqueue only the last of QEvent::Hide and QEvent::Show
 		enqueueDeferredEvent(QEvent::Hide, QEvent::Show);
 		return true;
 	}
 	else if (event->type() == QEvent::Show)
 	{
-		// enqueue only the last of QEvent::Show or QEvent::Hide
 		enqueueDeferredEvent(QEvent::Show, QEvent::Hide);
 		return true;
 	}
 	else if (event->type() == QEvent::ParentChange)
 	{
-		// enqueue only the last QEvent::ParentChange
 		enqueueDeferredEvent(QEvent::ParentChange);
 		return true;
 	}
 
-	// perform regular event handling
 	return QGLWidget::event(event);
 }
 
@@ -207,7 +202,6 @@ void QWidgetViewer::keyPressEvent(QKeyEvent* event)
 	int value = s_QtKeyboardMap.remapKey(event);
 	_gw->getEventQueue()->keyPress(value);
 
-	// this passes the event to the regular Qt key event processing,
 	// among others, it closes popup windows on ESC and forwards the event to the parent widgets
 	if (_forwardKeyEvents)
 		inherited::keyPressEvent(event);
@@ -231,7 +225,6 @@ void QWidgetViewer::keyReleaseEvent(QKeyEvent* event)
 		_gw->getEventQueue()->keyRelease(value);
 	}
 
-	// this passes the event to the regular Qt key event processing,
 	// among others, it closes popup windows on ESC and forwards the event to the parent widgets
 	if (_forwardKeyEvents)
 		inherited::keyReleaseEvent(event);

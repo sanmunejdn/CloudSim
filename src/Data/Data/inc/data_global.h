@@ -1,7 +1,7 @@
 #ifndef _POINTCLOUDPROCESS_DATA_GLOBAL_H_
 #define _POINTCLOUDPROCESS_DATA_GLOBAL_H_
 
-// Data DLL export macro.
+/// Data 模块 DLL 导出宏
 
 #if defined(BUILD_STATIC)
 # define DATA_EXPORT

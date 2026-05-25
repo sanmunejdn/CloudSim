@@ -647,7 +647,6 @@ bool InstructionProgramTreeWidget::canAcceptDrop(
 	{
 		return false;
 	}
-	// Cannot drop into own descendants.
 	for (QTreeWidgetItem* p = target; p; p = p->parent())
 	{
 		if (p == dragged)

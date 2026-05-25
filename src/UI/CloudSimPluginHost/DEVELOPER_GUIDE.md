@@ -74,13 +74,20 @@ flowchart LR
 | 插件 SDK 调用 | 宿主实现 |
 |---------------|----------|
 | `importFileIntoActiveDocument(path, isPointCloud)` | `DocumentImportFacade::importFileIntoDocument` |
+| `pointCloudHost()->…` | `PluginPointCloudHostImpl` → `DocumentPointCloudOps` → `point_cloud_backend_ops` → OSG 刷新 |
+| `IPluginDocument::queryPointCloudInfo` / `measurePointCloud` | `DocumentPointCloudOps` 读 `PointCloudBackendData` |
 | `createPrimitiveMesh` / `registerTriangleMesh` | `DocumentImportFacade::registerAdoptedMesh` |
 | `IPluginDocument::removeBackendObject` | `IDataService::unregisterSubtree` |
 | 场景矩阵/显隐 | `IPluginSceneBridge` → `BackendSceneDocumentFacade` |
 
 导入/注册成功后会由 Host 发布 `BackendObjectRegisteredEvent`；`MainWindow` 订阅刷新后端树（与菜单导入一致）。
 
-大文件 **ply 点云** 异步 Job 仍在 `MainWindowImportCaptureRenderController`（非插件 SDK 默认路径）；插件若需同等行为可 `enqueueJob` + 自载点云后调宿主扩展 API（需链接 Host 头，仅建议内部插件）。
+大文件 **ply 点云** 异步 Job 仍在 `MainWindowImportCaptureRenderController`；插件处理已导入点云请用 **`pointCloudHost()`**（snapshot → Job → UI 写回 + `loadPointCloudFromBackendData`）。
+
+| 路径 | 说明 |
+|------|------|
+| `inc/DocumentPointCloudOps.h` | 解析 `PointCloudBackendData`、OSG 提交、mesh 注册 |
+| `inc/PluginPointCloudHostImpl.h` | `IPluginPointCloudHost` 实现 |
 
 ---
 

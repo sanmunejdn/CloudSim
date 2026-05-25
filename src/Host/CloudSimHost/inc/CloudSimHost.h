@@ -16,17 +16,17 @@ namespace cloudsim::host {
 
 class DocumentHost;
 
-/// 创建单文档宿主（ApplicationContextImpl::createDocumentScope 调用）
+/// 创建文档宿主
 CLOUDSIM_HOST_EXPORT std::unique_ptr<core::IDocumentScope> createDocumentHost(QWidget* parent, core::EventHub& events,
 	const QString& documentId);
 
-/// 创建 Host 侧 IRenderViewFactory
+/// 创建渲染工厂
 CLOUDSIM_HOST_EXPORT std::unique_ptr<core::IRenderViewFactory> createHostRenderViewFactory();
 
-/// IDocumentScope → DocumentHost；失败返回 nullptr
+/// 作用域转 Host
 CLOUDSIM_HOST_EXPORT DocumentHost* documentHostFromScope(core::IDocumentScope* scope);
 
 } // namespace cloudsim::host
 
-/// C ABI：校验 cloudsimCoreApiVersion 后返回渲染工厂，供动态加载方
+/// C ABI 渲染工厂
 extern "C" CLOUDSIM_HOST_EXPORT cloudsim::core::IRenderViewFactory* cloudsimCreateRenderViewFactory(unsigned int apiVersion);

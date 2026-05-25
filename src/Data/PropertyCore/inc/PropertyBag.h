@@ -10,6 +10,7 @@
 namespace property_core
 {
 
+/// schema 驱动的属性值存储（key 字符串）
 class PropertyBag
 {
 public:

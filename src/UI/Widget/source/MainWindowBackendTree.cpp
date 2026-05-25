@@ -207,7 +207,7 @@ QString formatMatrix4(const osg::Matrixd& m)
 	return s;
 }
 
-/// Local transform stored on this node (not accumulated world matrix). Non-transform nodes: em dash.
+/// 本节点局部变换（非累积世界矩阵）；非变换节点显示 —
 QString localMatrixSummary(const osg::Node* node, bool useChinese)
 {
 	if (!node)
@@ -415,7 +415,6 @@ void MainWindow::refreshBackendTree()
 		}
 		parentItem->addChild(item);
 
-		// DAG support: additional parents render as reference nodes.
 		for (std::size_t index = 1; index < parentIdsStd.size(); ++index)
 		{
 			const QString extraParentId = QString::fromStdString(parentIdsStd[index]);

@@ -1905,7 +1905,7 @@ bool RobotSimulationController::tryCaptureCurrentRobotTcpPose(
 	bool capturedFromScene = false;
 	BackendMat4 capturedTargetInBase{};
 	bool hasCapturedTargetInBase = false;
-	// 浼樺厛 URDF 娉曞叞 FK 脳 宸ュ叿绯伙紙per-link 鍦烘櫙 PAT 涓栫晫鐭╅樀涓嶅彲闈狅紝绂佹鍏堜簬鏈矾寰勭敤 SceneFlangeBackend锛夈€?
+	// 优先 URDF 法兰 FK×工具系；per-link 场景 PAT 世界矩阵不可信，禁止先用 SceneFlangeBackend
 	if (hasLinkFk)
 	{
 		if (RobotSimulationMath::targetInBaseFromUrdfFlangeFk(
@@ -2015,7 +2015,7 @@ bool RobotSimulationController::tryCaptureCurrentRobotTcpPose(
 		return false;
 	}
 
-	// tcpLocal锛歎RDF 鍩哄骇绯讳笅鐨?T_base_target锛堝伐鍏风郴鍘熺偣锛夈€?
+	// tcpLocal：URDF 基座系 T_base_target（工具系原点）
 	const osg::Matrixd tcpWorld = tcpLocal;
 	const osg::Matrixd renderWorld = capturedFromScene ? tcpRenderWorld : (tcpWorld * robotBaseWorld);
 	// 钀界洏 pose/euler锛氱洿鎺ョ敱 URDF FK 脳 宸ュ叿绯诲緱鍒?RigidTransform锛堜笌 IK/娈嬪樊鍚屼竴璺緞锛夈€?
@@ -2689,7 +2689,7 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(const std::s
 
 namespace
 {
-/// 用示教关节 URDF 正解 + 文档基座位姿算世界 TCP，不依赖当前场景关节状态。
+/// 用示教关节 URDF 正解 + 文档基座位姿算世界 TCP，不依赖当前场景关节状态
 bool instructionTcpWorldMat4FromTaughtJoints(
 	IRobotDocumentHost* doc,
 	int instIdx,
@@ -2749,14 +2749,14 @@ osg::Matrixd tcpLocalFromPoseFields(const RobotInstruction::Base& ins)
 	return osg::Matrixd();
 }
 
-/// 鍩哄骇绯?T_base_target锛歱ose/euler 鈫?BackendMat4 鈫?OSG锛堜笌 capture / IK 鍚屼竴濂楀垰浣撶煩闃碉級銆?
+/// 基座系 T_base_target：pose/euler → BackendMat4 → OSG（与 capture/IK 同一套刚体矩阵）
 bool instructionTcpLocalMatrix(const RobotInstruction::Base& ins, osg::Matrixd& outTcpLocal)
 {
 	outTcpLocal = tcpLocalFromPoseFields(ins);
 	return true;
 }
 
-/// 鎸囦护鐐规樉绀猴細钀界洏 T_base_tool锛堝惈璇ョ偣鍐荤粨鐨勫伐鍏风郴锛夛紝鎸傚湪杞ㄨ抗涓栫晫灞傦紝涓嶉殢褰撳墠鍏宠妭瑙?FK 绉诲姩銆?
+/// 指令点显示：落盘 T_base_tool（含该点冻结工具系），挂轨迹世界层，不随当前关节 FK 移动
 bool fillInstructionPoseAxisMount(
 	IRobotDocumentHost* doc,
 	IRobotOsgViewHost* osg,
@@ -2781,7 +2781,7 @@ bool fillInstructionPoseAxisMount(
 	axis.mountTcpOnPatRoot = false;
 	axis.urdfTcpAttachLinkName.clear();
 
-	// 指令点世界位姿以 render.tcpWorldMat4 为准（示教时冻结），不随当前机器人姿态变化。
+	// 指令点世界位姿以 render.tcpWorldMat4 为准（示教时冻结），不随当前机器人姿态变化
 	osg::Matrixd T_world = tcpLocal;
 	bool positioned = false;
 	const auto itWorld = ins.extensionProperties().find("render.tcpWorldMat4");
@@ -3339,7 +3339,6 @@ void RobotSimulationController::logPlaybackFrameComparison(const QVector<double>
 		m_host->appendRunWarning(m_host->i18n(QStringLiteral("Forward kinematics failed: %1").arg(fkErr), QStringLiteral("正解失败：%1").arg(fkErr)));
 		return;
 	}
-	// Playback diagnostics are intentionally suppressed to avoid misleading FK/TCP comparisons.
 }
 
 void RobotSimulationController::onRobotSimulationTick()

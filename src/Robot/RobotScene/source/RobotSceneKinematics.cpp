@@ -34,7 +34,7 @@ std::string qToUtf8Std(const QString& s)
 	return std::string(utf8.constData(), static_cast<size_t>(utf8.size()));
 }
 
-/// 0=off, 1=compact (translation + quat + order), 2=full 4x4 matrices. Set \c ROBOT_KINEMATICS_DEBUG=1 or 2/full.
+/// ROBOT_KINEMATICS_DEBUG：0 关，1 紧凑，2/full 全矩阵
 int robotKinematicsDebugLevel()
 {
 	const QByteArray v = qgetenv("ROBOT_KINEMATICS_DEBUG");
@@ -575,7 +575,7 @@ bool applyJointAnglesFromDocument(IRobotSimulationDocument* doc, IRobotBackendPo
 		return true;
 	}
 
-	// 【中文】回退到旧架构（传统烘焙法）
+	// 回退到旧架构（传统烘焙法）
 	if (!doc->hasRobotKinematicsBind())
 	{
 		RunLogger::warn("RobotSceneKinematics: fallback path requires RobotKinematicsBind but it is missing.");

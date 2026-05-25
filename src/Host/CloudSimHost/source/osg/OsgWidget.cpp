@@ -1798,7 +1798,6 @@ bool OsgWidget::isBackendMeshLit(const std::string& backendId) const
 	return m_litMeshBackendIds.find(backendId) != m_litMeshBackendIds.end();
 }
 
-// 【中文】添加层级化机器人场景图（动态层级法）
 QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QString& displayName)
 {
 	if (!robotAssembly || !m_robotAssemblyGroup.valid())
@@ -1806,14 +1805,13 @@ QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QS
 		return QString();
 	}
 
-	// 【中文】生成唯一的后端 ID
 	static int s_robotSceneCounter = 0;
 	const QString backendId = QStringLiteral("RobotScene_%1_%2")
 		.arg(displayName.isEmpty() ? QStringLiteral("URDF") : displayName)
 		.arg(++s_robotSceneCounter);
 	const std::string stdId = backendId.toStdString();
 
-	// 【中文】与其它后端一致：外层 MatrixTransform 存完整局部刚体矩阵，FK / setBackendRootWorldMatrixFromWorld 无 TRS 分解损失
+	// 外层 Matrix 存完整刚体，FK 写回无 TRS 损失
 	osg::ref_ptr<osg::MatrixTransform> outer = new osg::MatrixTransform;
 	outer->setMatrix(osg::Matrixd::identity());
 	outer->setName(displayName.isEmpty() ? "RobotHierarchy" : displayName.toStdString());
@@ -1837,7 +1835,7 @@ QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QS
 	}
 	applyVisibilityMaskForBackend(stdId);
 
-	// 【中文】禁止对 map 使用 operator[] 赋值 ref_ptr（MSVC + OSG 3.6.5 在 ref_ptr::assign 上 C2440）
+	// map 勿 operator[] 赋 ref_ptr，MSVC+OSG3.6 C2440
 	const auto inserted = m_backendObjectRoots.insert(std::make_pair(stdId, std::move(outer)));
 	if (inserted.second && inserted.first->second.valid())
 	{
@@ -1845,7 +1843,7 @@ QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QS
 	}
 	m_litMeshBackendIds.insert(stdId);
 
-	// 【中文】刷新场景并对准相机（与 upsertMeshBranchInScene 一致，否则易停留在默认视角看不到模型）
+	// 导入后须 focus，否则默认视角看不到模型
 	if (m_viewer.valid())
 	{
 		m_viewer->setSceneData(m_root.get());
@@ -1856,7 +1854,6 @@ QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QS
 	return backendId;
 }
 
-// 【中文】移除层级化机器人场景图
 void OsgWidget::removeHierarchicalRobotScene(const QString& backendId)
 {
 	if (backendId.isEmpty())

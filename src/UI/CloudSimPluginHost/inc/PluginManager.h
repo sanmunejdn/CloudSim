@@ -12,7 +12,7 @@
 class MainWindow;
 class PluginHostContext;
 
-/// Scans \c plugins/ under the application directory and loads enabled plugin DLLs at startup.
+/// 启动时扫描应用目录 plugins/ 并加载启用插件
 class PluginManager : public QObject
 {
 	Q_OBJECT
@@ -23,6 +23,7 @@ public:
 
 	void loadAllFromPluginsDirectory();
 	void shutdownAll();
+	void notifyLanguageChanged();
 
 	QString loadSummary() const { return m_loadSummary; }
 

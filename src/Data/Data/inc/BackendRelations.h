@@ -6,6 +6,7 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 
+/// 对象图关系查询薄封装（委托 BackendDataBase / Manager）
 namespace backend_relations
 {
 

@@ -36,7 +36,7 @@ struct BackendBaselineMetrics
 	double snapshotMs = 0.0;
 };
 
-/// 后端数据注册表（单例）：按 id 管理共享的 BackendDataBase；读写锁保护索引与层级图，多读并发友好。
+/// 后端数据注册表（单例）：按 id 管理共享的 BackendDataBase；读写锁保护索引与层级图，多读并发友好
 class DATA_EXPORT BackendDataManager
 {
 public:
@@ -44,7 +44,7 @@ public:
 	static BackendDataManager& instance();
 
 	bool registerData(const std::shared_ptr<BackendDataBase>& data);
-	/// Removes the shared object for \a id from the registry (reference counts drop; last owner may destroy it).
+	/// 按 id 移除注册对象（引用归零可销毁）
 	bool unregisterData(const std::string& id);
 	bool contains(const std::string& id) const;
 	std::shared_ptr<BackendDataBase> getData(const std::string& id) const;
@@ -71,8 +71,7 @@ public:
 	BackendBaselineMetrics collectBaselineMetrics(const std::string& sampleRootId = std::string()) const;
 	void clear();
 
-	/// Observers are invoked while the manager's write lock is held; they must not call
-	/// other \c BackendDataManager APIs that take \c m_mutex (deadlock risk).
+	/// 观察者于写锁内回调，不得再调 BackendDataManager 加锁 API（死锁）
 	void addHierarchyObserver(void* key, BackendHierarchyObserver observer);
 	void removeHierarchyObserver(void* key);
 

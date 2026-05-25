@@ -3,6 +3,7 @@
 #include "BackendDataBase.h"
 #include "../../PropertyCore/inc/PropertySchema.h"
 
+/// 后端对象属性 schema 拼装与语义位标注
 namespace backend_property_schema
 {
 

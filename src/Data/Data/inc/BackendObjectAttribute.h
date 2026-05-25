@@ -9,7 +9,7 @@
 
 class BackendDataBase;
 
-// Stateless property plugins: JSON row definitions for the property panel; apply writes back to BackendDataBase.
+/// 无状态属性插件：面板 JSON 行，apply 写回 BackendDataBase
 class DATA_EXPORT BackendAttributeBase : public property_core::PropertyAttribute<BackendDataBase>
 {
 public:

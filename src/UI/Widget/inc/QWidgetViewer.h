@@ -4,24 +4,13 @@
 
 #include "widget_global.h"
 
-/*********************************************
-* DATE  :2018/8/24
-* File��QWidgetViewer.h
-*   osgǶ�뵽Qt �ɻ�  ��д��osgQt::GraphicsWindowQt
-*    ֱ���¼���Ӧ������д�Ϳ���
-***********************************************/
-
 #include <QGLWidget>
 #include <osg/Referenced>
-#include <QtCore>   // ����QMutexLocker����
-#include <QtWidgets> // ����QGestureEvent��QCursor
-#include <QGestureEvent> // ��ʽ����QGestureEvent
-#include <QCursor>      // ��ʽ����QCursor
 #include <osgViewer/Viewer>
 
 class GraphicsWindowQt1;
 
-/// ���� OpenGL �� OSG �� Qt �ؼ����� Qt �������¼����� osgViewer���� GraphicsWindowQt1 ���ʹ�á�
+/// OpenGL/OSG 嵌入 Qt；Qt 输入事件转发 osgViewer，供 GraphicsWindowQt1 使用
 class OSG_WIDGET_API QWidgetViewer : public QGLWidget
 {
 	Q_OBJECT

@@ -8,19 +8,19 @@
 namespace property_core
 {
 
-/// Bitmask: post-commit side effects (OSG selection, follow graph, undo hooks).
+/// 属性提交后语义位：OSG 选中、follow 图、撤销钩子等
 enum class PropertySemanticFlags : std::uint32_t
 {
 	None = 0,
-	/// Pose or rotation scalars affect backend world pose / OSG selection (see syncOuterPatFromBackend).
+	/// 位姿/旋转影响后端世界变换与 OSG 选中
 	AffectsBackendRootWorldXform = 1u << 0,
-	/// Color scalars affect OSG selected color display.
+	/// 颜色影响 OSG 选中色
 	AffectsColorOnly = 1u << 1,
-	/// Follow target / constraint side effects (afterBackendFollowPropertyEdited).
+	/// follow 目标/约束副作用
 	AffectsFollowConstraintGraph = 1u << 2,
-	/// Robot instruction motion fields (planner / pose axes refresh).
+	/// 机器人指令运动字段（规划/轴刷新）
 	AffectsInstructionMotion = 1u << 3,
-	/// Property key not in backend schema: preserve full legacy commit (OSG sync + follow dirty).
+	/// 非 schema 键：保留旧版全量提交（OSG + follow dirty）
 	LegacyFullCommitBehavior = 1u << 31
 };
 

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{F6277E7A-71B0-4BAD-B1FC-6F29C6507E5E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Plugin">
+      <UniqueIdentifier>{0509EA6C-7494-458B-9D2C-FCB8B4C929F9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Plugin">
+      <UniqueIdentifier>{94CAB735-CF64-464A-9812-29EFC4E8066D}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\plugin_host_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginDelegatedBackend.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginDocumentAdapter.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginHostContext.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginManager.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginSceneBridgeAdapter.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\PluginDelegatedBackend.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PluginDocumentAdapter.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PluginHostContext.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PluginManager.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PluginSceneBridgeAdapter.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="inc\PluginHostContext.h">
+      <Filter>inc\Plugin</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\PluginManager.h">
+      <Filter>inc\Plugin</Filter>
+    </QtMoc>
+  </ItemGroup>
+</Project>

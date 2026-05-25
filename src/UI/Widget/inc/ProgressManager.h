@@ -7,7 +7,7 @@
 
 #include "widget_global.h"
 
-/// Thread-safe bridge: workers report progress on any thread; signals are emitted on this object's thread (UI).
+/// 跨线程进度桥：工作线程上报，信号在本对象线程（UI）发出
 class WIDGET_EXPORT ProgressManager : public QObject
 {
 	Q_OBJECT
@@ -24,6 +24,6 @@ public:
 signals:
 	void jobStarted(quint64 jobId, QString title);
 	void jobProgress(quint64 jobId, double fraction, QString message);
-	/// success == worker exited without a C++ exception; business failures handled in the job completion callback may still leave success true.
+	/// success 表示 worker 未抛 C++ 异常；业务失败可能在完成回调里处理且 success 仍为 true
 	void jobFinished(quint64 jobId, bool success, QString errorMessage);
 };

@@ -150,7 +150,6 @@ void classifyPackagePath(const QString& packageRoot, const QString& modelsRoot, 
 {
 	const QDir base(modelsRoot);
 	const QString rel = QDir::cleanPath(base.relativeFilePath(packageRoot));
-	// "未分类" — avoid u8 inside QStringLiteral for MSVC
 	static const QString kNoBrand = QStringLiteral("未分类");
 	if (rel == QLatin1String(".") || rel.isEmpty())
 	{

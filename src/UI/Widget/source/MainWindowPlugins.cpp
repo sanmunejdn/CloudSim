@@ -43,7 +43,6 @@ void MainWindow::removePluginSidePanelTab(QWidget* widget)
 }
 
 int MainWindow::documentTabCount() const
-
 {
 	return m_documentTabs ? m_documentTabs->count() : 0;
 }
@@ -63,5 +62,13 @@ void MainWindow::loadPlugins()
 	}
 
 	m_pluginManager->loadAllFromPluginsDirectory();
+}
+
+void MainWindow::notifyPluginsLanguageChanged()
+{
+	if (m_pluginManager)
+	{
+		m_pluginManager->notifyLanguageChanged();
+	}
 }
 

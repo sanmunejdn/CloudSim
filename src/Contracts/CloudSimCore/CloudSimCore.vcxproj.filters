@@ -2,29 +2,76 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="inc">
-      <UniqueIdentifier>{4F8A1B2C-3D4E-5F60-9A8B-1C2D3E4F5A6B}</UniqueIdentifier>
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="source">
-      <UniqueIdentifier>{5F8A1B2C-3D4E-5F60-9A8B-1C2D3E4F5A6C}</UniqueIdentifier>
+    <Filter Include="inc\Core">
+      <UniqueIdentifier>{75C29F6F-97B4-4DFA-BDE1-4B3D786508F4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{68B4CCB2-A528-44B4-AEFC-5A54447531CB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{521B67EA-B15D-4FCB-8E88-5AFA2EF3587F}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="inc\cloudsim_core_global.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\CloudSimCoreFactories.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\CloudSimCoreVersion.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\CoreEvents.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\CoreTypes.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\EventHub.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\ICloudSimContext.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\IDataService.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\IDocumentScope.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\IRenderView.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\IRobotService.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\NullCoreServices.h"><Filter>inc</Filter></ClInclude>
+    <ClInclude Include="inc\cloudsim_core_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CloudSimCoreFactories.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CloudSimCoreVersion.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CoreEvents.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CoreTypes.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\EventHub.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ICloudSimContext.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IDataService.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IDocumentScope.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IRenderView.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IRobotService.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\NullCoreServices.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\CloudSimCoreVersion.cpp"><Filter>source</Filter></ClCompile>
-    <ClCompile Include="source\EventHub.cpp"><Filter>source</Filter></ClCompile>
-    <ClCompile Include="source\NullCoreServices.cpp"><Filter>source</Filter></ClCompile>
+    <ClCompile Include="source\CloudSimCoreVersion.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\EventHub.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ICloudSimContext.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IDocumentScope.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\NullCoreServices.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

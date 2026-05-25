@@ -216,3 +216,11 @@ void PluginManager::loadAllFromPluginsDirectory()
 		m_mainWindow->runInfoPage()->appendInfo(m_loadSummary);
 	}
 }
+
+void PluginManager::notifyLanguageChanged()
+{
+	if (m_hostContext)
+	{
+		m_hostContext->notifyLanguageChanged();
+	}
+}

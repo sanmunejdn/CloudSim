@@ -7,6 +7,7 @@
 namespace property_core
 {
 
+/// 枚举属性行（下拉/自定义）
 template <typename TContext, typename TBase>
 class PropertyEnumAttribute : public TBase
 {

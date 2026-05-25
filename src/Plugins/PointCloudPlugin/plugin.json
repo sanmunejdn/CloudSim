@@ -1,0 +1,8 @@
+{
+  "id": "com.cloudsim.pointcloud",
+  "name": "Point Cloud",
+  "version": "1.0.0",
+  "minHostVersion": "1.2.0",
+  "library": "PointCloudPlugin.dll",
+  "enabled": true
+}

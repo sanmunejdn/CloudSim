@@ -6,7 +6,7 @@
 
 namespace cloudsim::host {
 
-/// Host 内 OSG 唯一转换点：经 IRenderView::widget() 取得 OsgWidget。
+/// Host 取 OsgWidget
 inline OsgWidget* osgWidgetFrom(DocumentHost& host)
 {
 	return qobject_cast<OsgWidget*>(host.render().widget());

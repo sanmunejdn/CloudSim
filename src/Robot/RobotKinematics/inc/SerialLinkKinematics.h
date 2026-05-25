@@ -9,8 +9,7 @@ namespace robot_kinematics
 {
 
 /// 单节改进 DH（Craig《机器人学导论》）：\n
-/// A_i = Rot_z(θ_i) · Trans_z(d_i) · Trans_x(a_i) · Rot_x(α_i)，\n
-/// 其中 θ_i = thetaOffset + q[jointIndex]（revolute），jointIndex < 0 表示该节无关节变量（θ 仅用 thetaOffset）。
+/// 其中 θ_i = thetaOffset + q[jointIndex]（revolute），jointIndex < 0 表示该节无关节变量（θ 仅用 thetaOffset）
 struct DhRow
 {
 	double a = 0.0;
@@ -20,13 +19,13 @@ struct DhRow
 	int jointIndex = -1;
 };
 
-/// 正运动学：末端坐标系相对基座的 4×4 齐次矩阵（列主序，与 OpenGL/OSG 一致：column * 4 + row）。
+/// 正运动学：末端坐标系相对基座的 4×4 齐次矩阵（列主序，与 OpenGL/OSG 一致：column * 4 + row）
 ROBOT_KINEMATICS_API bool fkSerialDh(
 	const std::vector<DhRow>& rows,
 	const std::vector<double>& q,
 	double T_end4x4_colMajor[16]);
 
-/// 末端位置（齐次矩阵第四列前三个分量）。
+/// 末端位置（齐次矩阵第四列前三个分量）
 ROBOT_KINEMATICS_API bool endEffectorPosition(
 	const std::vector<DhRow>& rows,
 	const std::vector<double>& q,
@@ -34,7 +33,7 @@ ROBOT_KINEMATICS_API bool endEffectorPosition(
 
 /// 数值逆运动学（仅位置）：阻尼最小二乘，使末端接近 targetPos。\n
 /// qInOut 长度须等于关节数；初值作为迭代起点。\n
-/// 成功返回 true（位置误差小于 positionTolerance）；iterationsUsed 可选。
+/// 成功返回 true（位置误差小于 positionTolerance）；iterationsUsed 可选
 ROBOT_KINEMATICS_API bool ikPositionDampedLeastSquares(
 	const std::vector<DhRow>& rows,
 	const double targetPos[3],
@@ -44,7 +43,7 @@ ROBOT_KINEMATICS_API bool ikPositionDampedLeastSquares(
 	double lambdaDamping,
 	int* iterationsUsed = nullptr);
 
-/// 由 DH 行推导关节数量（jointIndex 最大值 + 1）。
+/// 由 DH 行推导关节数量（jointIndex 最大值 + 1）
 ROBOT_KINEMATICS_API std::size_t jointCountFromDhRows(const std::vector<DhRow>& rows);
 
 } // namespace robot_kinematics

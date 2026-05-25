@@ -21,7 +21,6 @@
 
 class BackendDataManager;
 
-// 3D vector (double) for pose, bounds, etc.
 struct BackendVec3
 {
 	double x = 0.0;
@@ -29,7 +28,6 @@ struct BackendVec3
 	double z = 0.0;
 };
 
-// Axis-aligned bounding box.
 struct BackendBoundingBox
 {
 	BackendVec3 min;
@@ -37,7 +35,6 @@ struct BackendBoundingBox
 	bool valid = false;
 };
 
-// Display color RGBA, components in 0..1.
 struct BackendColor
 {
 	float r = 1.0f;
@@ -58,7 +55,7 @@ enum class BackendPoseReferenceFrame
 	Parent = 1
 };
 
-// Abstract backend: id, name, geometry bounds, property panel JSON, pose/color hooks.
+/// 后端基类：id、几何包围、属性面板、位姿/颜色钩子
 class DATA_EXPORT BackendDataBase
 {
 public:
@@ -89,7 +86,7 @@ public:
 	virtual bool hasRotationProperty() const { return false; }
 	virtual bool hasColorProperty() const { return false; }
 
-	/// Narrow transform API: world-space pose authority for types that expose pose/rotation (see ARCHITECTURE §6.2.1).
+	/// 窄变换 API：暴露 pose/rotation 的类型以世界位姿为准
 	virtual bool supportsBackendTransform() const { return hasPoseProperty(); }
 	virtual void applyBackendWorldPose(const BackendVec3& centerWorld, const BackendVec3& eulerDegWorld);
 
@@ -110,8 +107,6 @@ public:
 	nlohmann::json saveToJson() const;
 	bool loadFromJson(const nlohmann::json& in, std::string* errMsg = nullptr);
 
-	// Property panel: JSON array; row shape in BackendPropertyRow.h (backend_property_json).
-	// \a mgr resolves follow target id to display name when present.
 	virtual nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const;
 	virtual bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
 		const BackendDataManager* mgr = nullptr);

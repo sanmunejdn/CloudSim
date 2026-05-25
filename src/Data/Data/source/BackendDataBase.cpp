@@ -71,7 +71,7 @@ BackendVec3 modelCenterForData(const BackendDataBase& data)
 	}
 	if (const auto* mesh = dynamic_cast<const MeshBackendData*>(&data))
 	{
-		if (mesh->transformPivotAtOrigin())
+		if (mesh->transformPivotAtOrigin())  // URDF 枢轴在原点
 		{
 			return BackendVec3{};
 		}

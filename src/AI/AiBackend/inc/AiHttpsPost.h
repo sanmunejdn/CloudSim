@@ -8,7 +8,7 @@
 
 namespace AiHttpsPost
 {
-/// POST \a body to \a url with optional extra \a headerLines (each "Name: value", no CRLF).
+/// POST body 到 url，可选额外头行
 AIBACKEND_EXPORT bool post(
 	const QUrl& url,
 	const QByteArray& body,

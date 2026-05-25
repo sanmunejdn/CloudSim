@@ -202,7 +202,7 @@ bool BackendDataManager::attachChild(const std::string& parentId, const std::str
 		return false;
 	}
 
-	// Cycle check: if parent is reachable from child, adding edge parent->child introduces a cycle.
+	// 环检测：parent 可达 child 则拒加边
 	std::queue<std::string> queue;
 	std::unordered_set<std::string> visited;
 	queue.push(childId);
@@ -256,7 +256,7 @@ bool BackendDataManager::setParent(const std::string& childId, const std::string
 	{
 		return false;
 	}
-	// validate cycle for new edge only
+	// 仅校验新边成环
 	std::queue<std::string> queue;
 	std::unordered_set<std::string> visited;
 	queue.push(childId);
@@ -283,7 +283,7 @@ bool BackendDataManager::setParent(const std::string& childId, const std::string
 		}
 	}
 
-	// detach previous parents first
+	// 先 detach 旧父
 	auto parentSetIt = m_parentsByChild.find(childId);
 	if (parentSetIt != m_parentsByChild.end())
 	{
@@ -610,7 +610,7 @@ std::vector<std::string> BackendDataManager::topoOrder() const
 		std::sort(ready.begin(), ready.end());
 	}
 
-	// Fallback: if graph is invalid (cycle), append remaining nodes deterministically.
+	// 图无效（成环）时确定性追加剩余节点
 	if (order.size() != m_records.size())
 	{
 		std::vector<std::string> remaining;

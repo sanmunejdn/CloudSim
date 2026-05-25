@@ -12,7 +12,7 @@ namespace cloudsim::core {
 
 using PickHandler = std::function<void(const ObjectId& backendId)>;
 
-/// OSG-free render viewport for one document.
+/// 文档渲染视口
 class CLOUDSIM_CORE_EXPORT IRenderView
 {
 public:
@@ -35,12 +35,13 @@ public:
 
 	virtual void requestRedraw() = 0;
 
-	/// 聚合逻辑子树包围球并移动轨道相机
+	/// 聚焦后端子树
 	virtual void focusCameraOnBackend(const ObjectId& id) = 0;
-	/// 仅 Data 逻辑父链，不 reparent OSG 节点
+	/// 逻辑父链（不改 OSG）
 	virtual void setBackendLogicalParent(const ObjectId& childId, const ObjectId& parentId) = 0;
 };
 
+/// 渲染视口工厂
 class CLOUDSIM_CORE_EXPORT IRenderViewFactory
 {
 public:

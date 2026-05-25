@@ -9,6 +9,7 @@
 namespace property_core
 {
 
+/// 属性面板行生成与 apply 插件基类
 template <typename TContext>
 class PropertyAttribute
 {
@@ -24,6 +25,7 @@ public:
 		std::string* errMsg) const = 0;
 };
 
+/// 按序串联多个 PropertyAttribute
 template <typename TContext, typename TAttributeBase>
 class PropertyPipeline
 {

@@ -24,7 +24,7 @@ struct ImportFileResult {
 	HierarchyMeshImportResult hierarchyDetail;
 };
 
-/// 菜单/插件/IDataService 统一导入路由；大 ply 异步仍由 Widget Job 先行
+/// 统一导入路由
 CLOUDSIM_HOST_EXPORT ImportFileResult importFileIntoDocument(DocumentHost& host, const QString& filePath,
 	ImportFileKind kind, const cloudsim::core::ImportOptionsDto& options, QString* outError = nullptr);
 
@@ -48,7 +48,7 @@ struct AdoptRegistrationResult {
 	bool ok = false;
 };
 
-/// 已构造 mesh/点云注册（AI、插件、ply Job 完成回调）
+/// 已构造几何注册
 CLOUDSIM_HOST_EXPORT AdoptRegistrationResult registerAdoptedMesh(DocumentHost& host,
 	const std::shared_ptr<MeshBackendData>& mesh, const AdoptMeshOptions& options, QString* outError = nullptr);
 CLOUDSIM_HOST_EXPORT AdoptRegistrationResult registerAdoptedPointCloud(DocumentHost& host,

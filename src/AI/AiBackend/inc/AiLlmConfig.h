@@ -5,15 +5,15 @@
 #include <QString>
 #include <optional>
 
-/// Loaded from `ai_config.json` next to the executable (see defaultAiConfigPath).
+/// 从可执行文件旁 ai_config.json 加载
 struct AIBACKEND_EXPORT AiLlmConfig
 {
 	bool enabled = false;
-	/// When true, try AiIntentParser before calling the LLM.
+	/// true 时先走 AiIntentParser 再调 LLM
 	bool ruleParserFirst = false;
 	QString baseUrl = QStringLiteral("https://api.openai.com/v1");
 	QString apiKey;
-	/// If api_key is empty, read from this environment variable.
+	/// api_key 空时从此环境变量读取
 	QString apiKeyEnv = QStringLiteral("OPENAI_API_KEY");
 	QString model = QStringLiteral("gpt-4o-mini");
 	int timeoutMs = 60000;

@@ -21,7 +21,7 @@ const QWidget* OsgRenderViewAdapter::widget() const
 void OsgRenderViewAdapter::setWorldMatrix(const core::ObjectId& id, const core::Mat4& columnMajor)
 {
 	osg::Matrixd m;
-	// 列主序 Mat4 透传
+	// 列主序透传
 	for (int i = 0; i < 16; ++i)
 		m.ptr()[i] = columnMajor[static_cast<size_t>(i)];
 	m_widget.setBackendRootWorldMatrixFromWorld(id.toStdString(), m);

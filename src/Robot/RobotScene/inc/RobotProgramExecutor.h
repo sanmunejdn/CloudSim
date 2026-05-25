@@ -16,7 +16,7 @@
 class IRobotSimulationDocument;
 class IRobotBackendPoseSink;
 
-/// Executes a robot program (motion + logic) for one kinematic instance.
+/// 单运动学实例执行机器人程序（运动+逻辑）
 class ROBOT_SCENE_API RobotProgramExecutor
 {
 public:

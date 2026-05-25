@@ -10,26 +10,24 @@
 
 class BackendDataBase;
 
-/// Options only used by mesh visuals; point cloud builds ignore these.
+/// 仅网格构建使用，点云忽略
 struct MeshVisualOptions
 {
 	bool showWireOutline = true;
 	bool useSceneLighting = false;
-	/// When true, skip the inner PAT \c -modelCenter rebase and omit adding model bbox to the outer translate.
-	/// Use for URDF per-link imports where vertices are already in link frame and FK sets the outer world matrix.
+	/// skipInnerModelCenterRebase：URDF 逐连杆顶点已在连杆系，FK 写外层世界矩阵
 	bool skipInnerModelCenterRebase = false;
 };
 
 struct BranchBuildResult
 {
-	/// Outer scene root for backend objects: \c osg::MatrixTransform stores the full rigid local matrix
-	/// (translation × rotation), so world pose updates avoid PAT TRS decomposition loss.
+	/// 外层 MT 存完整局部刚体矩阵，避免 PAT TRS 分解损失
 	osg::ref_ptr<osg::MatrixTransform> outer;
 	osg::Vec3f modelCenter{};
 	float diagonal = 1.0f;
 };
 
-/// Per backend-type strategy: scene branch construction and metric extraction for gizmo/pick sync.
+/// 按后端类型构建场景分支并提取 gizmo/拾取度量
 class BACKENDVISUAL_EXPORT IBackendVisual
 {
 public:

@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <sstream>
 #include <limits>
 #include <queue>
 #include <cmath>
@@ -243,8 +244,8 @@ void OsgScene::initScene()
 	m_root = new osg::Group;
 	m_root->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 
-	// 光源 0：在 initViewer 里通过 applyHeadlightToViewer 设为 View::HEADLIGHT，随主相机视点移动（固定管线头灯）。
-	// 主场景由 Viewer::setSceneData 挂接，不在 Camera 子图下；用 View 的头灯而非把 LightSource 挂到 Camera 上。
+	// 光源 0：在 initViewer 里通过 applyHeadlightToViewer 设为 View::HEADLIGHT，随主相机视点移动（固定管线头灯）
+	// 主场景由 Viewer::setSceneData 挂接，不在 Camera 子图下；用 View 的头灯而非把 LightSource 挂到 Camera 上
 	{
 		m_headlight = new osg::Light;
 		m_headlight->setLightNum(0);
@@ -260,8 +261,8 @@ void OsgScene::initScene()
 	m_backendObjectsGroup = new osg::Group;
 	m_backendObjectsGroup->setName("BackendObjects");
 	m_backendObjectsGroup->setNodeMask(0xffffffffu);
-	// 不在此组上强制 GL_LIGHTING OFF：父级 OVERRIDE 会压过子节点「开启光照」，导致受光网格始终走无光照着色。
-	// 需要无光照的分支（点云、标注等）在各自节点上设置 OFF | OVERRIDE。
+	// 不在此组上强制 GL_LIGHTING OFF：父级 OVERRIDE 会压过子节点「开启光照」，导致受光网格始终走无光照着色
+	// 需要无光照的分支（点云、标注等）在各自节点上设置 OFF | OVERRIDE
 
 	m_robotAssemblyGroup = new osg::Group;
 	m_robotAssemblyGroup->setName("RobotAssembly");
@@ -313,7 +314,7 @@ void OsgScene::initScene()
 	m_annotationGroup->setName("Annotations");
 	m_annotationGroup->setNodeMask(0xffffffffu);
 	m_annotationGroup->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-	// 顺序：标注 → 导入物 → 机器人 → 轨迹 overlay（后者后绘制，便于覆盖在场景几何之上）。
+	// 顺序：标注 → 导入物 → 机器人 → 轨迹 overlay（后者后绘制，便于覆盖在场景几何之上）
 	m_sceneContentGroup->addChild(m_annotationGroup.get());
 	m_sceneContentGroup->addChild(m_backendObjectsGroup.get());
 	m_sceneContentGroup->addChild(m_robotAssemblyGroup.get());
@@ -403,16 +404,19 @@ void OsgScene::updateWorldAxesHudViewport(int widgetWidth, int widgetHeight)
 void OsgScene::bindBackendVisualRoot(const std::string& backendId, osg::Node* rootNode)
 {
 	m_backendVisualBindings.bindBackendRoot(backendId, rootNode);
+	m_backendPickIndexes.bindBackendRoot(backendId, rootNode);
 }
 
 void OsgScene::unbindBackendVisualRoot(const std::string& backendId)
 {
 	m_backendVisualBindings.unbindBackend(backendId);
+	m_backendPickIndexes.unbindBackend(backendId);
 }
 
 void OsgScene::clearBackendVisualBindings()
 {
 	m_backendVisualBindings.clear();
+	m_backendPickIndexes.clear();
 }
 
 bool OsgScene::resolveBackendIdFromPickedPath(const osg::NodePath& path, std::string& outBackendId) const
@@ -468,6 +472,17 @@ void OsgScene::cachePickablePointsFromNode(osg::Node* node)
 	m_pickablePointsCenteredLocal.clear();
 	m_kdNodes.clear();
 	m_kdRoot = -1;
+	if (!m_activeBackendId.empty())
+	{
+		if (const BackendPickBundle* bundle = m_backendPickIndexes.find(m_activeBackendId))
+		{
+			if (!bundle->pointIndex.empty())
+			{
+				importPickSpatialIndexForActiveBackend(bundle->pointIndex);
+				return;
+			}
+		}
+	}
 	if (!node)
 	{
 		return;
@@ -524,14 +539,6 @@ void OsgScene::cachePickablePointsFromNode(osg::Node* node)
 	{
 		return;
 	}
-	const std::size_t targetPreviewCount = 20000;
-	const std::size_t step = std::max<std::size_t>(1, m_pickablePointsLocal.size() / targetPreviewCount);
-	m_pickablePointsPreviewLocal.reserve((m_pickablePointsLocal.size() + step - 1) / step);
-	for (std::size_t i = 0; i < m_pickablePointsLocal.size(); i += step)
-	{
-		m_pickablePointsPreviewLocal.push_back(m_pickablePointsLocal[i]);
-	}
-
 	try
 	{
 		m_pickablePointsCenteredLocal.reserve(m_pickablePointsLocal.size());
@@ -543,7 +550,6 @@ void OsgScene::cachePickablePointsFromNode(osg::Node* node)
 	}
 	catch (...)
 	{
-		// Keep import usable even if KD-tree building fails.
 		m_pickablePointsCenteredLocal.clear();
 		m_kdNodes.clear();
 		m_kdRoot = -1;
@@ -557,7 +563,7 @@ bool OsgScene::pickPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& ou
 	{
 		return false;
 	}
-	return distancePx <= 32.0;
+	return distancePx <= kPointPickHitRadiusPx;
 }
 
 bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx, bool previewOnly) const
@@ -571,23 +577,22 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 	{
 		return false;
 	}
-	// Always try full-scene ray pick first. This keeps hover feedback (red/green circle)
-	// working even when current backend has no point cache (assembly parent selection).
+	const bool hasKdCache = (m_kdRoot >= 0 && !m_pickablePointsCenteredLocal.empty());
+	// hover 有点缓存时跳过射线，避免每帧全场景相交遍历
+	if (!previewOnly || !hasKdCache)
 	{
 		double rayDistPx = 0.0;
-		if (pickPointByRayIntersection(mouseX, mouseY, outPointWorld, rayDistPx))
+		osg::Vec3f rayWorld;
+		if (pickPointByRayIntersection(mouseX, mouseY, rayWorld, rayDistPx)
+			&& rayDistPx <= kPointPickHitRadiusPx)
 		{
+			outPointWorld = rayWorld;
 			outDistancePx = rayDistPx;
 			return true;
 		}
 	}
 
-	// For click pick, ray already failed above; continue with point-cache fallback.
-	if (!previewOnly)
-	{
-		// Keep existing non-preview branch semantics below.
-	}
-	const std::vector<osg::Vec3f>& points = previewOnly ? m_pickablePointsPreviewLocal : m_pickablePointsLocal;
+	const std::vector<osg::Vec3f>& points = m_pickablePointsLocal;
 	if (points.empty())
 	{
 		return false;
@@ -598,7 +603,8 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 	const osg::Quat attitude = gizmoFrame.attitude();
 	const osg::Vec3f selectedPos = gizmoFrame.centerPlusPose();
 
-	if (!previewOnly && m_kdRoot >= 0 && !m_pickablePointsCenteredLocal.empty())
+	// click 与 hover 共用全量点集 + KD
+	if (m_kdRoot >= 0 && !m_pickablePointsCenteredLocal.empty())
 	{
 		osg::Matrixd proj = camera->getProjectionMatrix();
 		osg::Matrixd view = camera->getViewMatrix();
@@ -622,10 +628,21 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 
 		std::vector<int> candidateIndices;
 		nearestCandidatesByKdTree(queryLocal, 96, candidateIndices);
-		double bestD2 = (std::numeric_limits<double>::max)();
-		double bestDepth = (std::numeric_limits<double>::max)();
-		bool candidateFound = false;
-		const double screenTiePx2 = 9.0; // 3px tie-break window
+		const double hitRadiusPx2 = kPointPickHitRadiusPx * kPointPickHitRadiusPx;
+		const double depthLayerEps = 0.02;
+		const double screenTiePx2 = 9.0;
+		struct InRadCand
+		{
+			double d2;
+			double depth;
+			osg::Vec3f world;
+		};
+		InRadCand inRad[96];
+		int inRadCount = 0;
+		double bestFallbackD2 = (std::numeric_limits<double>::max)();
+		double bestFallbackDepth = (std::numeric_limits<double>::max)();
+		osg::Vec3f bestFallbackWorld;
+		bool fallbackFound = false;
 		for (int idx : candidateIndices)
 		{
 			if (idx < 0 || idx >= static_cast<int>(m_pickablePointsCenteredLocal.size()))
@@ -644,52 +661,140 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 			const double dx = sx - mouseX;
 			const double dy = sy - mouseY;
 			const double d2 = dx * dx + dy * dy;
-			const double depth = clip.z(); // NDC depth: smaller is closer to camera
-			if (d2 + screenTiePx2 < bestD2)
+			const double depth = clip.z();
+			if (d2 <= hitRadiusPx2 && inRadCount < 96)
 			{
-				bestD2 = d2;
-				bestDepth = depth;
-				outPointWorld = world;
-				candidateFound = true;
+				inRad[inRadCount++] = {d2, depth, world};
 			}
-			else if (std::abs(d2 - bestD2) <= screenTiePx2 && depth < bestDepth)
+			else if (!previewOnly
+				&& (!fallbackFound
+					|| d2 + screenTiePx2 < bestFallbackD2
+					|| (std::abs(d2 - bestFallbackD2) <= screenTiePx2 && depth < bestFallbackDepth)))
 			{
-				bestD2 = d2;
-				bestDepth = depth;
-				outPointWorld = world;
-				candidateFound = true;
+				fallbackFound = true;
+				bestFallbackD2 = d2;
+				bestFallbackDepth = depth;
+				bestFallbackWorld = world;
 			}
 		}
-		if (candidateFound)
+		double frontInRadiusDepth = (std::numeric_limits<double>::max)();
+		for (int i = 0; i < inRadCount; ++i)
 		{
-			outDistancePx = std::sqrt(bestD2);
+			frontInRadiusDepth = std::min(frontInRadiusDepth, inRad[i].depth);
+		}
+		double bestInRadiusD2 = (std::numeric_limits<double>::max)();
+		osg::Vec3f bestInRadiusWorld;
+		bool inRadiusFound = false;
+		for (int i = 0; i < inRadCount; ++i)
+		{
+			if (frontInRadiusDepth < (std::numeric_limits<double>::max)()
+				&& inRad[i].depth <= frontInRadiusDepth + depthLayerEps)
+			{
+				if (!inRadiusFound || inRad[i].d2 < bestInRadiusD2)
+				{
+					inRadiusFound = true;
+					bestInRadiusD2 = inRad[i].d2;
+					bestInRadiusWorld = inRad[i].world;
+				}
+			}
+		}
+		if (inRadiusFound)
+		{
+			outPointWorld = bestInRadiusWorld;
+			outDistancePx = std::sqrt(bestInRadiusD2);
 			return true;
+		}
+		if (fallbackFound && !previewOnly)
+		{
+			outPointWorld = bestFallbackWorld;
+			outDistancePx = std::sqrt(bestFallbackD2);
+			return true;
+		}
+		if (previewOnly)
+		{
+			return false;
 		}
 	}
 
 	
-	double bestDist2 = 1e30;
-	bool found = false;
+	const double hitRadiusPx2 = kPointPickHitRadiusPx * kPointPickHitRadiusPx;
+	const double depthLayerEps = 0.02;
+	const double screenTiePx2 = 9.0;
+	double frontInRadiusDepth = (std::numeric_limits<double>::max)();
 	for (const osg::Vec3f& pLocal : points)
 	{
 		const osg::Vec3f world = selectedPos + (attitude * (pLocal - m_modelCenter));
 		const osg::Vec3d clip = osg::Vec3d(world) * mvp;
-		if (clip.z() < -1.0 || clip.z() > 1.0) continue;
+		if (clip.z() < -1.0 || clip.z() > 1.0)
+		{
+			continue;
+		}
 		const double sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
 		const double sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
 		const double dx = sx - mouseX;
 		const double dy = sy - mouseY;
 		const double d2 = dx * dx + dy * dy;
-		if (d2 < bestDist2)
+		if (d2 <= hitRadiusPx2)
 		{
-			bestDist2 = d2;
-			outPointWorld = world;
-			found = true;
+			frontInRadiusDepth = std::min(frontInRadiusDepth, clip.z());
 		}
 	}
-	if (!found) return false;
-	outDistancePx = std::sqrt(bestDist2);
-	return true;
+	double bestInRadiusD2 = 1e30;
+	osg::Vec3f bestInRadiusWorld;
+	bool inRadiusFound = false;
+	double bestFallbackD2 = 1e30;
+	double bestFallbackDepth = 1e30;
+	osg::Vec3f bestFallbackWorld;
+	bool fallbackFound = false;
+	for (const osg::Vec3f& pLocal : points)
+	{
+		const osg::Vec3f world = selectedPos + (attitude * (pLocal - m_modelCenter));
+		const osg::Vec3d clip = osg::Vec3d(world) * mvp;
+		if (clip.z() < -1.0 || clip.z() > 1.0)
+		{
+			continue;
+		}
+		const double sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
+		const double sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
+		const double dx = sx - mouseX;
+		const double dy = sy - mouseY;
+		const double d2 = dx * dx + dy * dy;
+		const double depth = clip.z();
+		if (d2 <= hitRadiusPx2
+			&& frontInRadiusDepth < (std::numeric_limits<double>::max)()
+			&& depth <= frontInRadiusDepth + depthLayerEps)
+		{
+			if (!inRadiusFound || d2 < bestInRadiusD2)
+			{
+				inRadiusFound = true;
+				bestInRadiusD2 = d2;
+				bestInRadiusWorld = world;
+			}
+		}
+		else if (!previewOnly
+			&& (!fallbackFound
+				|| d2 + screenTiePx2 < bestFallbackD2
+				|| (std::abs(d2 - bestFallbackD2) <= screenTiePx2 && depth < bestFallbackDepth)))
+		{
+			fallbackFound = true;
+			bestFallbackD2 = d2;
+			bestFallbackDepth = depth;
+			bestFallbackWorld = world;
+		}
+	}
+	if (inRadiusFound)
+	{
+		outPointWorld = bestInRadiusWorld;
+		outDistancePx = std::sqrt(bestInRadiusD2);
+		return true;
+	}
+	if (fallbackFound && !previewOnly)
+	{
+		outPointWorld = bestFallbackWorld;
+		outDistancePx = std::sqrt(bestFallbackD2);
+		return true;
+	}
+	return false;
 }
 
 bool OsgScene::pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx) const
@@ -706,6 +811,7 @@ bool OsgScene::pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec
 	const double y = static_cast<double>(viewportHeight()) - mouseY;
 	osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
 		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, x, y);
+	intersector->setIntersectionLimit(osgUtil::Intersector::LIMIT_NEAREST);
 	osgUtil::IntersectionVisitor iv(intersector.get());
 	iv.setTraversalMask(kMaskContent);
 	m_viewer->getCamera()->accept(iv);
@@ -740,7 +846,7 @@ bool OsgScene::pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec
 	osg::Vec3f bestWorld(0.0f, 0.0f, 0.0f);
 	double bestD2 = (std::numeric_limits<double>::max)();
 	double bestDepth = (std::numeric_limits<double>::max)();
-	const double kScreenWindowPx = 36.0;
+	const double kScreenWindowPx = kPointPickHitRadiusPx;
 	const double kScreenWindowPx2 = kScreenWindowPx * kScreenWindowPx;
 	const double kDepthTie = 1e-4;
 	const bool hasKd = (m_kdRoot >= 0 && !m_pickablePointsCenteredLocal.empty());
@@ -873,7 +979,7 @@ static osg::Vec3f pickVertexLocalToWorld(const osg::Vec3& vLocal, const osg::Mat
 	return osg::Vec3f(vLocal.x(), vLocal.y(), vLocal.z());
 }
 
-/// 浠庡懡涓笁瑙掑嚭鍙戯紝娌垮叡浜竟鍚堝苟涓庣瀛愪笁瑙掑叡闈㈢殑閭绘帴涓夎锛堝鐭╁舰涓や笁瑙掑悎鎴愪竴闈級锛岀敤浜庨潰鎷惧彇/楂樹寒銆?
+// 从命中三角沿共享边合并共面邻接三角（面拾取/高亮）
 static void expandCoplanarTrianglesFromSoupLocal(
 	const std::vector<osg::Vec3>& verts,
 	const osg::Matrixd* m,
@@ -1056,7 +1162,8 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 	osg::Vec3f& outBWorld,
 	osg::Vec3f& outCWorld,
 	osg::Vec3f& outNormalWorld,
-	std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld) const
+	std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld,
+	const std::string* scopeBackendId) const
 {
 	static const unsigned int kMaskContent = 0x1u;
 	if (!m_viewer.valid() || !m_viewer->getCamera() || !m_root.valid())
@@ -1078,11 +1185,34 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 		return false;
 	}
 
-	const auto hit = intersector->getFirstIntersection();
+	osgUtil::LineSegmentIntersector::Intersection firstHit;
+	const osgUtil::LineSegmentIntersector::Intersection* chosenHit = nullptr;
+	if (!scopeBackendId || scopeBackendId->empty())
+	{
+		firstHit = intersector->getFirstIntersection();
+		chosenHit = &firstHit;
+	}
+	else
+	{
+		for (const auto& candidate : intersector->getIntersections())
+		{
+			std::string id;
+			if (resolveBackendIdFromPickedPath(candidate.nodePath, id) && id == *scopeBackendId)
+			{
+				chosenHit = &candidate;
+				break;
+			}
+		}
+		if (!chosenHit)
+		{
+			return false;
+		}
+	}
+
+	const auto& hit = *chosenHit;
 	const osg::Vec3d wp = hit.getWorldIntersectPoint();
 	outPointWorld = osg::Vec3f(static_cast<float>(wp.x()), static_cast<float>(wp.y()), static_cast<float>(wp.z()));
 
-	// Extract triangle vertices from hit drawable.
 	const osg::Drawable* d = hit.drawable.get();
 	const osg::Geometry* geom = d ? d->asGeometry() : nullptr;
 	if (!geom)
@@ -1092,10 +1222,6 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 
 	const osg::RefMatrix* m = hit.matrix.valid() ? hit.matrix.get() : nullptr;
 
-	// Validate in a consistent coordinate space:
-	// - Vertex indices are read in the geometry's local space.
-	// - The intersector gives us `outPointWorld`.
-	// Convert the world hit point to local if we have the intersection matrix.
 	osg::Vec3f outPointLocal = outPointWorld;
 	if (m)
 	{
@@ -1123,7 +1249,6 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 		const double w = (d00 * d21 - d01 * d20) / denom;
 		const double u = 1.0 - v - w;
 
-		// For float-heavy geometry (or ambiguous indices) the barycentric values can drift a bit.
 		const double eps = 0.05;
 		return u >= -eps && v >= -eps && w >= -eps;
 	};
@@ -1137,13 +1262,11 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 		candidates.push_back({ hit.indexList[0], hit.indexList[1], hit.indexList[2] });
 	}
 
-	// 2) Try primitiveIndex as triangle index => base = pi * 3
 	{
 		const unsigned int pi = static_cast<unsigned int>(hit.primitiveIndex);
 		candidates.push_back({ pi * 3u, pi * 3u + 1u, pi * 3u + 2u });
 	}
 
-	// 3) Try primitiveIndex as vertex base => base = pi
 	{
 		const unsigned int pi = static_cast<unsigned int>(hit.primitiveIndex);
 		candidates.push_back({ pi, pi + 1u, pi + 2u });
@@ -1178,7 +1301,6 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 				return osg::Vec3f(vLocal.x(), vLocal.y(), vLocal.z());
 			};
 
-			// Cache first in-bounds triangle as fallback.
 			if (!haveFallback)
 			{
 				triIdxFallback = t.i0 / 3u;
@@ -1188,8 +1310,6 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 				haveFallback = true;
 			}
 
-			// If we don't have an intersection matrix, local validation may be inconsistent.
-			// In that case, accept the first in-bounds triangle to enable visible feedback.
 			if (!m)
 			{
 				outAWorld = fallbackAWorld;
@@ -1200,7 +1320,6 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 				return true;
 			}
 
-			// Validate using LOCAL coordinates to avoid relying on `hit.matrix` correctness.
 			const osg::Vec3f A(aLocal.x(), aLocal.y(), aLocal.z());
 			const osg::Vec3f B(bLocal.x(), bLocal.y(), bLocal.z());
 			const osg::Vec3f C(cLocal.x(), cLocal.y(), cLocal.z());
@@ -1215,7 +1334,6 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 			}
 		}
 
-		// Last resort: if nothing passes barycentric validation, still return the first in-bounds triangle.
 		if (haveFallback)
 		{
 			outAWorld = fallbackAWorld;
@@ -1238,8 +1356,6 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 	}
 	else if (const auto* vda = dynamic_cast<const osg::Vec3dArray*>(geom->getVertexArray()))
 	{
-		// For Vec3dArray, adapt extraction without changing math.
-		// Validate using LOCAL coordinates; output WORLD coordinates for highlights.
 		const auto toLocal = [&](const osg::Vec3d& vLocal) -> osg::Vec3f {
 			return osg::Vec3f(static_cast<float>(vLocal.x()), static_cast<float>(vLocal.y()), static_cast<float>(vLocal.z()));
 		};
@@ -1269,7 +1385,6 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 			const osg::Vec3f B = toLocal((*vda)[t.i1]);
 			const osg::Vec3f C = toLocal((*vda)[t.i2]);
 
-			// Cache first in-bounds triangle as fallback.
 			if (!haveFallback)
 			{
 				triIdxFallbackVd = t.i0 / 3u;
@@ -1303,7 +1418,6 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 		}
 		if (!extracted)
 		{
-			// Last resort fallback.
 			if (haveFallback)
 			{
 				outAWorld = fallbackAWorld;
@@ -1374,15 +1488,14 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 	return true;
 }
 
-bool OsgScene::pickMeshEdgeByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, osg::Vec3f& outEdgeAWorld, osg::Vec3f& outEdgeBWorld) const
+bool OsgScene::pickMeshEdgeByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, osg::Vec3f& outEdgeAWorld, osg::Vec3f& outEdgeBWorld, double* outEdgeDistancePx, const std::string* scopeBackendId) const
 {
 	osg::Vec3f p, a, b, c, n;
-	if (!pickMeshFaceByRayIntersection(mouseX, mouseY, p, a, b, c, n))
+	if (!pickMeshFaceByRayIntersection(mouseX, mouseY, p, a, b, c, n, nullptr, scopeBackendId))
 	{
 		return false;
 	}
 
-	// Choose the closest edge in screen space around mouse point.
 	if (!m_viewer.valid() || !m_viewer->getCamera())
 	{
 		return false;
@@ -1437,13 +1550,17 @@ bool OsgScene::pickMeshEdgeByRayIntersection(double mouseX, double mouseY, osg::
 		}
 	}
 
-	if (best.distPx > 14.0)
+	if (best.distPx > kMeshEdgeHitRadiusPx)
 	{
 		return false;
 	}
 	outPointWorld = p;
 	outEdgeAWorld = best.a;
 	outEdgeBWorld = best.b;
+	if (outEdgeDistancePx)
+	{
+		*outEdgeDistancePx = best.distPx;
+	}
 	return true;
 }
 void OsgScene::showMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld)
@@ -1525,7 +1642,6 @@ void OsgScene::showMeshEdgeHighlight(const osg::Vec3f& aWorld, const osg::Vec3f&
 	m_meshPickedEdgeVertices->at(0) = aWorld;
 	m_meshPickedEdgeVertices->at(1) = bWorld;
 
-	// Degenerate face to avoid stale rendering when in edge mode.
 	m_meshPickedFaceVertices->at(0) = osg::Vec3f(0.0f, 0.0f, 0.0f);
 	m_meshPickedFaceVertices->at(1) = osg::Vec3f(0.0f, 0.0f, 0.0f);
 	m_meshPickedFaceVertices->at(2) = osg::Vec3f(0.0f, 0.0f, 0.0f);

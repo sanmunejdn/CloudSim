@@ -16,8 +16,7 @@ MeshBackendData::MeshBackendData()
 	c.a = 1.0f;
 	m_color = c;
 
-	// Reuse common backend attributes (pose/rotation/color) so property inspector editing
-	// works the same for all backend types.
+	// 复用 pose/rotation/color 属性，面板行为一致
 	m_attributes.push_back(makeBackendPoseAttribute());
 	m_attributes.push_back(makeBackendRotationAttribute());
 	m_attributes.push_back(makeBackendDisplayColorAttribute());

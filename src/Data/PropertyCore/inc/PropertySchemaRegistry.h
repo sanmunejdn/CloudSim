@@ -7,6 +7,7 @@
 namespace property_core
 {
 
+/// objectTypeId → PropertySchema 全局表
 class PropertySchemaRegistry
 {
 public:

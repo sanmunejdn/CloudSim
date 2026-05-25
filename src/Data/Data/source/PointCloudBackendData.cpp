@@ -63,6 +63,7 @@ void PointCloudBackendData::clearGeometry()
 	m_bounds = BackendBoundingBox{};
 	m_xyz.clear();
 	m_rgbaVertex.clear();
+	m_normals.clear();
 }
 
 void PointCloudBackendData::setPose(const BackendVec3& position)
@@ -107,6 +108,14 @@ void PointCloudBackendData::setBounds(const BackendBoundingBox& bounds)
 
 void PointCloudBackendData::setPointBuffers(std::vector<float> xyz, std::vector<float> rgbaPerVertex)
 {
+	setPointBuffers(std::move(xyz), std::move(rgbaPerVertex), {});
+}
+
+void PointCloudBackendData::setPointBuffers(
+	std::vector<float> xyz,
+	std::vector<float> rgbaPerVertex,
+	std::vector<float> normalsNxNyNz)
+{
 	if (xyz.size() % 3U != 0U)
 	{
 		clearGeometry();
@@ -117,10 +126,26 @@ void PointCloudBackendData::setPointBuffers(std::vector<float> xyz, std::vector<
 	{
 		rgbaPerVertex.clear();
 	}
+	if (!normalsNxNyNz.empty() && normalsNxNyNz.size() != n * 3U)
+	{
+		normalsNxNyNz.clear();
+	}
 	m_xyz = std::move(xyz);
 	m_rgbaVertex = std::move(rgbaPerVertex);
+	m_normals = std::move(normalsNxNyNz);
 	m_pointCount = m_xyz.empty() ? 0U : n;
 	recomputeBoundsFromPoints();
+}
+
+void PointCloudBackendData::setPointNormals(std::vector<float> normalsNxNyNz)
+{
+	const std::size_t n = m_xyz.size() / 3U;
+	if (n == 0U || normalsNxNyNz.size() != n * 3U)
+	{
+		m_normals.clear();
+		return;
+	}
+	m_normals = std::move(normalsNxNyNz);
 }
 
 void PointCloudBackendData::recomputeBoundsFromPoints()
@@ -202,12 +227,12 @@ bool PointCloudBackendData::readProjectEmbeddedGeometry(const std::string& xyzBa
 
 namespace {
 
-// Write float xyz to match typical PLY / internal float buffers (~12 B/vertex vs double ~24 B/vertex).
+// PLY 写 float xyz 减体积（~12B/点 vs double ~24B）
 using PlyWriteKernel = CGAL::Simple_cartesian<float>;
 using PlyWritePoint_3 = PlyWriteKernel::Point_3;
 using VtxRgbWrite = std::tuple<PlyWritePoint_3, boost::uint8_t, boost::uint8_t, boost::uint8_t>;
 
-// Read with double so CGAL accepts both float and double vertex coordinates in existing files.
+// 读 double 兼容已有 float/double 顶点
 using PlyReadKernel = CGAL::Simple_cartesian<double>;
 using PlyReadPoint_3 = PlyReadKernel::Point_3;
 using VtxRgbRead = std::tuple<PlyReadPoint_3, boost::uint8_t, boost::uint8_t, boost::uint8_t>;
@@ -363,7 +388,7 @@ static bool parsePlyHeaderScan(std::istream& is, PlyHeaderScan& out, std::string
 		setErr(errMsg, "PLY header missing end_header.");
 		return false;
 	}
-	// CGAL uchar RGB path expects uchar red/green/blue (mesh PLY with float colors falls back to xyz-only read).
+	// uchar RGB 路径；float 色 PLY 回退 xyz-only
 	out.hasUcharRgb = (out.ir >= 0 && out.ig >= 0 && out.ib >= 0);
 	return true;
 }
@@ -706,7 +731,7 @@ bool PointCloudBackendData::writePointCloudPlySidecar(const std::string& utf8Pat
 		setErr(errMsg, "Cannot open file for writing.");
 		return false;
 	}
-	// PLY: text header through end_header, then binary_little_endian vertex records (not ASCII coordinates).
+	// PLY 二进制：end_header 后起 little-endian 顶点
 	CGAL::IO::set_mode(ofs, CGAL::IO::BINARY);
 
 	bool ok = false;

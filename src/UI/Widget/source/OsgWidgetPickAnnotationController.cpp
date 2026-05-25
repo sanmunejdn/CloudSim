@@ -1,5 +1,6 @@
 #include "OsgWidgetPickAnnotationController.h"
 
+#include "OsgScene.h"
 #include "OsgWidget.h"
 #include "ObjectGizmoFrame.h"
 
@@ -100,7 +101,7 @@ void OsgWidgetPickAnnotationController::updatePointPickMarker(OsgWidget& self, c
 	const osg::Quat invAtt = self.readActiveObjectGizmoFrame(gf) ? gf.attitude().inverse() : osg::Quat();
 	const osg::Vec3f localPos = invAtt * (pointWorld - pivotW);
 	self.m_pickFeedbackTransform->setPosition(localPos);
-	self.m_pickFeedbackTransform->setNodeMask(0xffffffffu);
+	self.m_pickFeedbackTransform->setNodeMask(OsgScene::kMaskPickOverlay);
 }
 
 void OsgWidgetPickAnnotationController::clearPointPickMarker(OsgWidget& self)

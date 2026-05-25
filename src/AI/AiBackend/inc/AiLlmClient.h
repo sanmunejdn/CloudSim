@@ -16,7 +16,7 @@ struct LlmParseResult
 	QString errorMessage;
 };
 
-/// Blocking OpenAI-compatible chat completion; intended for JobSystem worker threads.
+/// 阻塞式 OpenAI 兼容对话；供 JobSystem 工作线程
 AIBACKEND_EXPORT LlmParseResult parseUserTextWithLlm(
 	const QString& userText,
 	const AiLlmConfig& config,

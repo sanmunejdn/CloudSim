@@ -3,15 +3,19 @@
 #include "IPluginHostContext.h"
 
 #include <QObject>
+
+#include <functional>
+#include <memory>
 #include <vector>
 
+class PluginPointCloudHostImpl;
 class BackendDataBase;
 class DocumentPage;
 class MainWindow;
 class PluginDocumentAdapter;
 class PluginSceneBridgeAdapter;
 
-/// Host implementation of \ref IPluginHostContext (Widget-only; not exported to plugins).
+/// IPluginHostContext 宿主实现（仅 Widget，不导出插件）
 class PluginHostContext : public QObject, public IPluginHostContext
 {
 	Q_OBJECT
@@ -59,12 +63,23 @@ public:
 	std::string importFileIntoActiveDocument(const std::string& pathUtf8, bool isPointCloud,
 		std::string* outError) override;
 
+	IPluginPointCloudHost* pointCloudHost() override;
+	const IPluginPointCloudHost* pointCloudHost() const override;
+
+	bool useChinese() const override;
+	void onLanguageChanged(std::function<void(bool useChinese)> callback) override;
+	void setSidePanelTabTitle(QWidget* widget, const char* titleUtf8) override;
+
+	void notifyLanguageChanged();
+
 	MainWindow* mainWindow() const { return m_mainWindow; }
 
 private:
 	bool registerMeshFromSoup(std::vector<float> soup, const PluginMeshCreateOptions& options, QString* outError);
 
 	MainWindow* m_mainWindow = nullptr;
+	std::unique_ptr<PluginPointCloudHostImpl> m_pointCloudHost;
+	std::vector<std::function<void(bool useChinese)>> m_languageCallbacks;
 	std::vector<std::unique_ptr<PluginDocumentAdapter>> m_documents;
 	std::vector<std::function<void(IPluginDocument*)>> m_docChangeCallbacks;
 	std::vector<QDockWidget*> m_ownedDocks;

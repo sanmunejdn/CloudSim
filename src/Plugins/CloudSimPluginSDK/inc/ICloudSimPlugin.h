@@ -7,7 +7,7 @@
 
 class IPluginHostContext;
 
-/// Contract implemented by every CloudSim dynamic plugin DLL.
+/// CloudSim 动态插件 DLL 契约
 class ICloudSimPlugin
 {
 public:
@@ -16,10 +16,10 @@ public:
 	virtual QString pluginId() const = 0;
 	virtual QString displayName() const = 0;
 
-	/// Called on the UI thread after manifest validation. Return false to skip the plugin.
+	/// UI 线程 manifest 校验后；false 跳过插件
 	virtual bool initialize(IPluginHostContext* host) = 0;
 
-	/// Called on the UI thread before application exit (plugins are not unloaded at runtime).
+	/// 退出前 UI 线程回调；运行时不会卸载插件
 	virtual void shutdown() = 0;
 };
 

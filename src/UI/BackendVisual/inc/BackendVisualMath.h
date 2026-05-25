@@ -7,7 +7,7 @@
 
 namespace backendvisual_math {
 
-/// Same convention as OsgScene: intrinsic Tait–Bryan ZYX applied as qz * qy * qx on fixed axes.
+/// 同 OsgScene：固定轴 Tait-Bryan ZYX，qz*qy*qx
 BACKENDVISUAL_EXPORT osg::Quat eulerDegToQuat(const osg::Vec3f& eulerDeg);
 BACKENDVISUAL_EXPORT osg::Vec3f quatToEulerDeg(const osg::Quat& q);
 

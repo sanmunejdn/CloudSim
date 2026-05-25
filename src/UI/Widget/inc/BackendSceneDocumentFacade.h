@@ -13,7 +13,7 @@ class IBackendSceneBridge;
 class IRobotBackendPoseSink;
 class OsgWidget;
 
-/// One backend id paired with scene + data managers (lightweight handle).
+/// 后端 id 与场景/数据管理器轻量句柄
 class OSG_WIDGET_API BackendSceneEntity
 {
 public:
@@ -48,7 +48,7 @@ private:
 	BackendFollowReverseIndex* m_followIndex = nullptr;
 };
 
-/// Per-document facade: \ref BackendDataManager + \ref IBackendSceneBridge + follow reverse index.
+/// 单文档门面：BackendDataManager + IBackendSceneBridge + 跟随反向索引
 class OSG_WIDGET_API BackendSceneDocumentFacade
 {
 public:

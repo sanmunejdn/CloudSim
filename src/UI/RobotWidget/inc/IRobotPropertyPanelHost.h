@@ -6,7 +6,7 @@
 
 namespace RobotInstruction { class Base; }
 
-/// Property panel services for robot instruction editing (implemented by Widget MainWindow host).
+/// 指令属性面板服务（MainWindow 实现）
 class ROBOTWIDGET_EXPORT IRobotPropertyPanelHost
 {
 public:

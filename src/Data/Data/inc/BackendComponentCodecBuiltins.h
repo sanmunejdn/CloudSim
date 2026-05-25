@@ -4,6 +4,7 @@
 #include "FollowAttachmentComponent.h"
 #include "RunLogger.h"
 
+/// 注册 Follow 等内置组件编解码
 inline void ensureBackendComponentCodecBuiltinsRegistered()
 {
 	static bool once = false;

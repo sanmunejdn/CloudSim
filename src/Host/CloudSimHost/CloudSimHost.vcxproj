@@ -162,6 +162,7 @@
     <ClCompile Include="..\..\UI\Widget\source\OsgWidgetTransformHierarchyController.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\PointPickOperation.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\MeshEdgeFacePickOperation.cpp" />
+    <ClCompile Include="..\..\UI\Widget\source\ViewportGestureRecognizer.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\QWidgetViewer.cpp" />
     <QtMoc Include="..\..\UI\Widget\inc\OsgWidget.h">
       <Defines>CLOUDSIM_HOST_LIB;%(Defines)</Defines>

@@ -20,11 +20,11 @@ class BackendDataManager;
 namespace RobotSceneKinematics
 {
 
-/// Uses bind pose from the document (T0, outer PAT world matrices) to apply joint angles to the OSG scene.
+/// 用文档绑定姿 T0/外支 PAT 将关节角应用到 OSG 场景
 ROBOT_SCENE_API bool applyJointAnglesFromDocument(
 	IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg, const QVector<double>& anglesRad);
 
-/// Updates one robot instance slice inside the aggregated angle vector, then applies FK for all instances.
+/// 更新聚合角向量中某一实例，再 FK 全部实例
 ROBOT_SCENE_API bool applyJointAnglesForInstance(
 	IRobotSimulationDocument* doc,
 	IRobotBackendPoseSink* osg,
@@ -32,8 +32,7 @@ ROBOT_SCENE_API bool applyJointAnglesForInstance(
 	const QVector<double>& localAnglesRad,
 	QVector<double>& aggregatedAnglesRad);
 
-/// Per-link URDF: FK → \ref IRobotBackendPoseSink::setBackendRootWorldMatrixFromWorld + \ref MeshBackendData pose/rotation.
-/// Link updates run in backend-parent order so nested OSG parents already match FK before children are written.
+/// per-link URDF：FK → setBackendRootWorldMatrix + MeshBackendData pose；按后端父序写子连杆
 ROBOT_SCENE_API bool applyJointAnglesViaLinkBackends(
 	IRobotSimulationDocument* doc,
 	IRobotBackendPoseSink* osg,
@@ -41,7 +40,7 @@ ROBOT_SCENE_API bool applyJointAnglesViaLinkBackends(
 	const QVector<double>& anglesRad,
 	const RobotPerLinkKinematicsSlice& slice);
 
-/// Given per-link mesh world matrices Tq, zero bind FK T0, and bind-time outer PAT matrices, updates the scene.
+/// Tq、零位 FK T0、绑定外 PAT → 更新场景
 ROBOT_SCENE_API void applyMeshWorldMatricesRelativeToBind(
 	IRobotBackendPoseSink* osg,
 	const QHash<QString, osg::Matrixd>& meshWorldByLink,
@@ -49,7 +48,7 @@ ROBOT_SCENE_API void applyMeshWorldMatricesRelativeToBind(
 	const QHash<QString, QString>& linkNameToBackendId,
 	const std::unordered_map<std::string, osg::Matrixd>& outerWorldAtBind);
 
-/// Apply FK for one per-link robot and post-multiply \a basePlacementWorld (scene-root pose) on each link outer matrix.
+/// per-link FK 后左乘 basePlacementWorld（场景根位姿）
 ROBOT_SCENE_API bool applyPerLinkRobotBasePlacement(
 	IRobotBackendPoseSink* osg,
 	BackendDataManager& mgr,
