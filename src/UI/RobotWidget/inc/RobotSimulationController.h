@@ -21,6 +21,8 @@ class BackendDataBase;
 
 class RobotSimulationDockWidget;
 class QtProperty;
+class ProgramEditService;
+class TrajectoryEditSession;
 namespace RobotInstruction { class Base; struct FeasibleMotionAxisConfigurationOptions; }
 
 /// 机器人仿真/示教/指令编排（自 MainWindow 迁出）
@@ -35,6 +37,8 @@ public:
 	IRobotMainWindowHost* host() const { return m_host; }
 
 	RobotSimulationDockWidget* simulationDock() const { return m_simulationDock; }
+	ProgramEditService* programEditService() { return m_programEditService; }
+	TrajectoryEditSession* trajectoryEditSession() { return m_trajectoryEditSession; }
 	void createSimulationDock(QWidget* parentForTabs);
 
 	void initializePlanners();
@@ -119,6 +123,8 @@ private:
 
 	IRobotMainWindowHost* m_host = nullptr;
 	RobotSimulationDockWidget* m_simulationDock = nullptr;
+	ProgramEditService* m_programEditService = nullptr;
+	TrajectoryEditSession* m_trajectoryEditSession = nullptr;
 	QTimer* m_playbackTimer = nullptr;
 	bool m_ownsPlaybackTimer = false;
 

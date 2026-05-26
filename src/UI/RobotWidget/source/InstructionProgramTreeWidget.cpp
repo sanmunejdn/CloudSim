@@ -62,7 +62,7 @@ InstructionProgramTreeWidget::InstructionProgramTreeWidget(QWidget* parent)
 	setRootIsDecorated(true);
 	setAlternatingRowColors(true);
 	setMinimumHeight(120);
-	setSelectionMode(QAbstractItemView::SingleSelection);
+	setSelectionMode(QAbstractItemView::ExtendedSelection);
 	setDragEnabled(true);
 	setAcceptDrops(true);
 	setDropIndicatorShown(true);
@@ -87,6 +87,12 @@ void InstructionProgramTreeWidget::setUseChinese(const bool chinese)
 void InstructionProgramTreeWidget::setProgram(std::vector<std::shared_ptr<RobotInstruction::Base>>* program)
 {
 	m_program = program;
+	rebuildFromProgram();
+}
+
+void InstructionProgramTreeWidget::setGroupMembership(const std::vector<RobotInstruction::InstructionGroup>* groups)
+{
+	m_groups = groups;
 	rebuildFromProgram();
 }
 
@@ -215,7 +221,20 @@ void InstructionProgramTreeWidget::populateInstructionItem(
 		return;
 	}
 	setInstructionPtr(item, ins.get());
-	item->setText(0, formatInstructionLabel(*ins, m_useChinese));
+	QString label = formatInstructionLabel(*ins, m_useChinese);
+	if (m_groups && RobotInstruction::isMotionWaypointType(ins->type()))
+	{
+		for (const RobotInstruction::InstructionGroup& group : *m_groups)
+		{
+			if (std::find(group.memberInstructionIds.begin(), group.memberInstructionIds.end(), ins->id())
+				!= group.memberInstructionIds.end())
+			{
+				label += QStringLiteral(" [") + QString::fromStdString(group.name) + QStringLiteral("]");
+				break;
+			}
+		}
+	}
+	item->setText(0, label);
 
 	if (ins->type() == RobotInstruction::Type::IF)
 	{
@@ -406,6 +425,33 @@ std::shared_ptr<RobotInstruction::Base> InstructionProgramTreeWidget::selectedIn
 	collectPtrMapRecursive(*m_program, ptrMap);
 	const auto it = ptrMap.find(raw);
 	return it != ptrMap.end() ? it->second : nullptr;
+}
+
+std::vector<std::shared_ptr<RobotInstruction::Base>> InstructionProgramTreeWidget::selectedMotionInstructions() const
+{
+	std::vector<std::shared_ptr<RobotInstruction::Base>> out;
+	if (!m_program)
+	{
+		return out;
+	}
+	std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>> ptrMap;
+	collectPtrMapRecursive(*m_program, ptrMap);
+	const QList<QTreeWidgetItem*> items = selectedItems();
+	out.reserve(static_cast<size_t>(items.size()));
+	for (QTreeWidgetItem* item : items)
+	{
+		RobotInstruction::Base* raw = instructionRaw(item);
+		if (!raw || !RobotInstruction::isMotionWaypointType(raw->type()))
+		{
+			continue;
+		}
+		const auto it = ptrMap.find(raw);
+		if (it != ptrMap.end() && it->second)
+		{
+			out.push_back(it->second);
+		}
+	}
+	return out;
 }
 
 QTreeWidgetItem* InstructionProgramTreeWidget::takeTreeItem(QTreeWidgetItem* item)

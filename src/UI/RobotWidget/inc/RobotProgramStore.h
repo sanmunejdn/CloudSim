@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RobotInstructionModel.h"
+#include "RobotProgramCatalog.h"
 #include "robotwidget_global.h"
 
 #include <QHash>
@@ -10,7 +11,7 @@
 #include <memory>
 #include <vector>
 
-/// 按机器人后端 id 存储指令程序
+/// 按机器人后端 id 存储多程序目录
 class ROBOTWIDGET_EXPORT RobotProgramStore
 {
 public:
@@ -27,6 +28,15 @@ public:
 
 	void setRobotInstances(const QStringList& labels, const QStringList& backendIds);
 
+	RobotInstruction::RobotProgramCatalog& catalogFor(const QString& sceneBackendId);
+	const RobotInstruction::RobotProgramCatalog& catalogFor(const QString& sceneBackendId) const;
+
+	RobotInstruction::RobotProgramCatalog& activeCatalog();
+	const RobotInstruction::RobotProgramCatalog& activeCatalog() const;
+
+	std::string activeProgramIdUtf8() const;
+	void setActiveProgramIdUtf8(const std::string& programId);
+
 	std::vector<std::shared_ptr<RobotInstruction::Base>>& programFor(const QString& sceneBackendId);
 	const std::vector<std::shared_ptr<RobotInstruction::Base>>& programFor(const QString& sceneBackendId) const;
 
@@ -35,15 +45,19 @@ public:
 
 	void setProgramFor(const QString& sceneBackendId, std::vector<std::shared_ptr<RobotInstruction::Base>> program);
 
-	const QHash<QString, std::vector<std::shared_ptr<RobotInstruction::Base>>>& allPrograms() const
+	const QHash<QString, RobotInstruction::RobotProgramCatalog>& allCatalogs() const
 	{
-		return m_programs;
+		return m_catalogs;
 	}
 
-private:
-	void ensureActiveProgram();
+	/// 兼容旧接口
+	const QHash<QString, std::vector<std::shared_ptr<RobotInstruction::Base>>>& allPrograms() const;
 
-	QHash<QString, std::vector<std::shared_ptr<RobotInstruction::Base>>> m_programs;
+private:
+	void ensureActiveCatalog();
+
+	mutable QHash<QString, std::vector<std::shared_ptr<RobotInstruction::Base>>> m_legacyProgramsView;
+	QHash<QString, RobotInstruction::RobotProgramCatalog> m_catalogs;
 	QStringList m_labels;
 	QStringList m_backendIds;
 	int m_activeInstanceIndex = 0;

@@ -194,6 +194,11 @@
     <ClInclude Include="inc\RobotProgramExecutor.h" />
     <ClInclude Include="inc\RobotProgramExport.h" />
     <ClInclude Include="inc\RobotInstructionTransform.h" />
+    <ClInclude Include="inc\InstructionProgramDocument.h" />
+    <ClInclude Include="inc\ProgramEditCommand.h" />
+    <ClInclude Include="inc\RobotProgramCatalog.h" />
+    <ClInclude Include="inc\TrajectoryPipelineTypes.h" />
+    <ClInclude Include="inc\TrajectoryPipelineBuilder.h" />
     <ClInclude Include="inc\RobotMatrixOsgBridge.h" />
     <ClInclude Include="inc\RobotSceneKinematics.h" />
     <ClInclude Include="inc\RobotTeachIk.h" />
@@ -211,6 +216,10 @@
     <ClCompile Include="source\RobotProgramExecutor.cpp" />
     <ClCompile Include="source\RobotProgramExport.cpp" />
     <ClCompile Include="source\RobotInstructionTransform.cpp" />
+    <ClCompile Include="source\InstructionProgramDocument.cpp" />
+    <ClCompile Include="source\ProgramEditCommand.cpp" />
+    <ClCompile Include="source\RobotProgramCatalog.cpp" />
+    <ClCompile Include="source\TrajectoryPipelineBuilder.cpp" />
     <ClCompile Include="source\RobotMatrixOsgBridge.cpp" />
     <ClCompile Include="source\RobotSceneKinematics.cpp" />
     <ClCompile Include="source\RobotTeachIk.cpp" />

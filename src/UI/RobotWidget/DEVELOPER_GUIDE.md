@@ -16,13 +16,15 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 
 | Area | Location |
 |------|----------|
-| Simulation dock (Instructions / Axis / Frames) | `RobotSimulationDockWidget`, page widgets |
+| Simulation dock (Instructions / Axis / Frames / **Trajectory Edit**) | `RobotSimulationDockWidget`, page widgets |
 | Orchestration | `RobotSimulationController` |
 | Host contracts | `IRobotMainWindowHost`, `IRobotDocumentHost`, `IRobotOsgViewHost` |
 | FK / matrix helpers | `RobotSimulationMath` |
 | Instruction planning context | `RobotInstructionPlanning` |
 | URDF import entry | `RobotUrdfImport::registerUrdfRobot` → host |
-| Project JSON (robots/programs) | `RobotProjectIo`（写入由 Host `mergeRobotKinematicsIntoProjectRoot` 调用；加载见 Host `restoreRobotKinematicsFromProjectJson`） |
+| 程序 JSON（多程序 / 分组 / v4） | `RobotProgramStore` → `RobotProgramCatalog`；序列化见 `RobotProgramJsonIo` |
+| 程序编辑撤销栈 | `ProgramEditService` + `ProgramEditStack`（`RobotScene`） |
+| 轨迹编辑流水线 | `TrajectoryEditPageWidget` / `TrajectoryEditSession` / `TrajectoryPipelineBuilder` |
 | Property-panel feasible-axis query | `RobotInstructionPropertyEditor` |
 
 ## Widget integration
@@ -66,7 +68,11 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 ### `wireSimulationSignals`
 
-连接 `SimulationCommandWidget` / `RobotAxisControlWidget` / `RobotFrameSettingsWidget` 信号到 controller 槽。`QTabWidget::currentChanged` 须在 dock 与 `attachPlaybackTimer` 之后连接（见 `MainWindowUiSetup`），避免构造期 `stopRobotSimulation` 空指针。
+连接 `SimulationCommandWidget` / `RobotAxisControlWidget` / `RobotFrameSettingsWidget` / **`TrajectoryEditPageWidget`** 信号到 controller 槽。`ProgramEditService`、`TrajectoryEditSession` 在 dock 创建时实例化，文档就绪后 `bindStore`（`refreshSimulationProgramStore`）。
+
+`QTabWidget::currentChanged` 须在 dock 与 `attachPlaybackTimer` 之后连接（见 `MainWindowUiSetup`），避免构造期 `stopRobotSimulation` 空指针。
+
+轨迹编辑：`opsChanged` → `syncSessionPipeline`（结构变更）；参数 SpinBox → `updatePipelineOps`（见 §轨迹编辑）。
 
 ---
 
@@ -150,13 +156,147 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 | 类 | 说明 |
 |----|------|
-| `SimulationCommandWidget` | 指令树、Run/Stop、TCP 拖动按钮、`setProgramStore` |
+| `SimulationCommandWidget` | 指令树、Run/Stop、TCP 拖动；**程序下拉 / 新建 / 重命名 / 删除**；分组「从选中创建」；`setProgramStore`、`activeProgramChanged` / `groupsChanged` |
 | `RobotAxisControlWidget` | 关节滑块；`setJointAngle` 内 `qBound` 限位 |
 | `RobotFrameSettingsWidget` | 工具/用户系；`framesChanged` → 叠加刷新 |
+| `TrajectoryEditPageWidget` | 轨迹编辑 Dock 子页：调色板 + 流水线 + 参数区 + Preview/Apply/Reset/Undo |
+| `TrajectoryPipelineListWidget` | 流水线列表；拖放排序；`kMimeType` 拖入；`opsChanged` / `selectedOpChanged` |
+| `TrajectoryEditSession` | 预览（临时改 store 中 pose）与 Apply（Command 落盘）；`reset` / `abandonPreview`；见 §轨迹编辑 |
+| `ProgramEditService` | `execute` / `undo` / `redo`；`revisionChanged` → 轨迹页 `syncUiAfterProgramRevision` + 指令树刷新 |
 | `InstructionProgramTreeWidget` | `instructionSelected` → 预览 |
 | `DevicePageWidget` | URDF 导入 → `onUrdfImportRequested` |
 
 TCP 拖动 OSG 实现仍在 [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §13.1。
+
+---
+
+## 轨迹编辑（Trajectory Edit）
+
+Dock 第四页「轨迹编辑」。默认中文 UI；`MainWindow::applyLanguage` → `trajectoryEditPage()->setUseChinese(m_useChinese)`。
+
+### 组件与绑定
+
+| 组件 | 职责 |
+|------|------|
+| `TrajectoryEditPageWidget` | UI：程序/分组、调色板、流水线、参数 SpinBox、Preview/Apply/Undo |
+| `TrajectoryPipelineListWidget` | `m_ops` 真源；列表项由 `rebuildItems()` 从 `m_ops` 生成 |
+| `TrajectoryEditSession` | 持有 `m_ops` 副本 + `TrajectoryPipelineBuilder`；Preview 快照 / Apply Command；`reset` / `abandonPreview` |
+| `ProgramEditService` | Apply 时 `execute(cmd)`；Undo 恢复程序树 |
+| `RobotProgramStore` | `activeCatalog()` / `activeProgram()`；与 Instructions 页共用 |
+
+`RobotSimulationController::wireSimulationSignals` 创建并绑定 `ProgramEditService`、`TrajectoryEditSession`；文档就绪后 `bindStore`（见 controller 内 `refreshSimulationProgramStore`）。
+
+### 流水线 ↔ Session 同步（必读）
+
+| 操作 | UI 路径 | Session API |
+|------|---------|-------------|
+| 增删/排序/拖入/加载模板 | `opsChanged` → `syncSessionPipeline()` | **`setPipeline`**（先 `reset()` 清预览） |
+| 仅改参数（SpinBox） | `applyParamsToSelectedOp()` → `syncSessionParams()` | **`updatePipelineOps`**（不 reset；已预览则 `reapplyPreview()`） |
+| 点 Preview / Apply | `reconcilePipelineScopes()` + `flushPipelineToSession()` | 有选中块 → `applyParamsToSelectedOp`；否则 `syncSessionParams` |
+| 撤销 / 重做（任意 Command） | `ProgramEditService::revisionChanged` → `syncUiAfterProgramRevision()` | 刷新分组下拉、丢弃预览、协调流水线 scope（见下） |
+
+**禁止**在参数变更路径调用 `setPipeline()`，否则预览位姿会被 `reset()` 立刻还原。
+
+### 撤销 / 重做与作用域协调
+
+程序树变更（含轨迹 **Apply**、分组创建/删除、指令增删等）均走 `ProgramEditService` 撤销栈。`revisionChanged` 时轨迹页 **`syncUiAfterProgramRevision()`**：
+
+| 步骤 | 行为 |
+|------|------|
+| 刷新 UI | `refreshUndoButtons`、`refreshProgramAndGroupCombos`（保留顶栏/参数区/当前选中块的分组选中项） |
+| 丢弃预览 | `TrajectoryEditSession::abandonPreview()` — **不**还原快照（程序已被 undo/redo 改写，旧快照会污染 store） |
+| 协调 scope | `reconcilePipelineScopes()` — 分组块引用的 `groupId` 若已不存在或成员为空：先回退顶栏当前分组，否则改为 `EntireProgram` |
+| 同步参数面板 | 若有选中块 → `loadSelectedOpToParams()` |
+
+**典型场景**：预览/应用后撤销「创建分组」→ 流水线块仍带旧 `groupId` → 若不协调会报「作用域内无运动路点」；协调后自动回退为全程序作用域。
+
+`applyParamsToSelectedOp` 在 UI 分组下拉无有效项时，**仅当** `storedGroupId` 仍存在于当前程序分组列表时才恢复，避免保留已失效 id。
+
+### Session：`reset` vs `abandonPreview`
+
+| API | 何时用 | 行为 |
+|-----|--------|------|
+| `reset()` | 用户点 **Reset**、切换程序、`setPipeline`（结构变更） | 若预览中：先 `restorePreviewSnapshots()` 还原 store，再清快照 |
+| `abandonPreview()` | `syncUiAfterProgramRevision`（undo/redo 后） | 仅清快照与 `m_previewActive`，**不写回** store |
+
+### 按钮行为一览
+
+| 按钮 | 行为 |
+|------|------|
+| **Preview** | `reconcilePipelineScopes` → `flushPipelineToSession` → `preview` |
+| **Apply** | `reconcilePipelineScopes` → `flush` → `apply`（内部 `reset` + Command 落盘）；每次 `execute` 触发 `revisionChanged` |
+| **Reset** | `session->reset()` + `pipeline->setOps({})`（`opsChanged` → `setPipeline` 同步 Session） |
+| **Undo / Redo** | `ProgramEditService::undo/redo` → `revisionChanged` → `syncUiAfterProgramRevision` |
+| **删除/移动块** | `syncSessionPipeline`（`setPipeline`） |
+| **加载模板** | `setOps` + `syncSessionPipeline` |
+
+### 调色板拖放
+
+调色板为内部类 `TrajectoryOpPaletteWidget`（`TrajectoryEditPageWidget.cpp`），`startDrag` 必须写入 `TrajectoryPipelineListWidget::kMimeType` + `TrajectoryOpKind` 整型。
+
+| 方式 | 行为 |
+|------|------|
+| 双击调色板 | `appendOp(makeDefaultOp(kind))` + `syncSessionPipeline` |
+| 拖入流水线 | `dropEvent` 解析 MIME → `makeDefaultOp`（默认 scope）→ 写入 `m_ops` |
+| ~~Qt 默认 QListWidget 拖放~~ | **已禁用**（`dropEvent` 对未知 MIME `ignore()`）— 仅会产生无数据的「幽灵项」 |
+
+拖入/新建块的默认 scope：`defaultScopeForNewOp()` — **顶栏「分组」**非「（无）」→ `OpScope::Group`（写入 `groupId`），否则 `EntireProgram`。参数区作用域默认「分组」；顶栏分组变更会同步参数区分组下拉，**不**使用指令树选中项。
+
+### 预览 vs 应用
+
+```mermaid
+flowchart LR
+  UI[TrajectoryEditPageWidget]
+  Sess[TrajectoryEditSession]
+  Store[RobotProgramStore]
+  OSG[refreshInstructionPoseAxes + requestRedraw]
+  Cmd[ProgramEditService]
+
+  UI -->|reconcile + flushPipelineToSession| Sess
+  Sess -->|Preview: capture snapshot| Store
+  Sess -->|applyPreviewTransforms| Store
+  Store --> OSG
+  Sess -->|Apply: reset + buildApplyCommands| Cmd
+  Cmd -->|execute / revisionChanged| Store
+  Cmd -->|revisionChanged| UI
+```
+
+| 阶段 | 行为 |
+|------|------|
+| **Preview** | `reconcilePipelineScopes` → `collectPreviewWaypointIds`（仅 Translate/Rotate 块）→ 快照原始 pose → `buildPreviewPoseQuery` 链式算目标位姿 → **临时**写回 store → `syncPreviewRenderMatrices` → `refreshInstructionPoseAxes` |
+| **参数变更且已预览** | `updatePipelineOps` → `reapplyPreview()`（restore 快照 → 重算 → 刷新 OSG） |
+| **Apply** | `reset()` → `buildApplyCommands` → 逐条 `ProgramEditService::execute` → 持久化 |
+| **Undo / Redo** | `syncUiAfterProgramRevision`：`abandonPreview` + `reconcilePipelineScopes` + 刷新分组 UI |
+| **Reset** | `session->reset()` 恢复快照；UI 流水线 `setOps({})` |
+
+预览错误提示（区分原因）：
+
+| 条件 | 文案 |
+|------|------|
+| `m_ops.empty()` | 流水线为空，请先添加平移或旋转块 |
+| 无 Translate/Rotate 块 | 当前流水线无可预览的平移/旋转块 |
+| scope 解析无路点 | 作用域内无运动路点（常见：分组已被撤销但流水线仍引用旧 `groupId`；应先走 `reconcilePipelineScopes`） |
+
+### 参数面板
+
+`refreshParamPanelForKind` 按块类型显示控件：
+
+| `TrajectoryOpKind` | 参数区 |
+|--------------------|--------|
+| Translate | 作用域 + ΔX/ΔY/ΔZ |
+| Rotate | 作用域 + 轴 X/Y/Z + 角度 |
+| Delete / Duplicate / Reorder | 仅作用域 |
+| Mirror | 仅作用域 +「未实现」提示 |
+
+流水线摘要 `formatOpSummary`：`类型 | 作用域 | Δ(…) 或 角度°@轴`。
+
+### 已知限制（Phase 2b）
+
+- Mirror / Reorder 后端 Command 未完整实现
+- Delete 预览高亮、ghost 轨迹、`previewMotionWithAccess` FK 链未做
+- 预览直接改指令 `pose`，非 Run 级 FK 链（MVP 足够显示路点轴偏移）
+
+业务类型与 scope 解析见 [`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md) §12–§13。
 
 ---
 
@@ -182,6 +322,7 @@ TCP 拖动 OSG 实现仍在 [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER
 2. 新增运动点字段：扩展 `RobotInstruction` extensions，并在**预览与 Run** 两条路径一致使用（勿只改其一）。
 3. 若新增 `IRobotSimulationDocument` 虚函数，**DocumentHost 必须转发** `DocumentPage` 对应实现。
 4. DLL 导出：页面类 `ROBOTWIDGET_EXPORT`（`robotwidget_global.h`）。
+5. **轨迹编辑**：结构变更走 `setPipeline`；参数变更走 `updatePipelineOps`；Preview/Apply 前必须 `reconcilePipelineScopes` + `flushPipelineToSession`；undo/redo 后走 `syncUiAfterProgramRevision`（`abandonPreview`，勿在修订路径用 `reset()` 还原快照）；调色板拖放须用 `kMimeType`，勿依赖 Qt 默认列表拖放。
 
 ---
 

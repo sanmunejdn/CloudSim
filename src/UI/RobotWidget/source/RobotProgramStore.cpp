@@ -2,7 +2,8 @@
 
 void RobotProgramStore::clear()
 {
-	m_programs.clear();
+	m_catalogs.clear();
+	m_legacyProgramsView.clear();
 	m_labels.clear();
 	m_backendIds.clear();
 	m_activeInstanceIndex = 0;
@@ -34,7 +35,7 @@ void RobotProgramStore::setActiveInstanceIndex(const int index)
 		return;
 	}
 	m_activeInstanceIndex = index;
-	ensureActiveProgram();
+	ensureActiveCatalog();
 }
 
 void RobotProgramStore::setActiveRobotBackendId(const QString& sceneBackendId)
@@ -56,25 +57,67 @@ void RobotProgramStore::setRobotInstances(const QStringList& labels, const QStri
 	}
 	for (const QString& id : m_backendIds)
 	{
-		if (!m_programs.contains(id))
+		if (!m_catalogs.contains(id))
 		{
-			m_programs.insert(id, {});
+			m_catalogs.insert(id, RobotInstruction::RobotProgramCatalog::withDefaultMain());
 		}
 	}
-	ensureActiveProgram();
+	ensureActiveCatalog();
+}
+
+RobotInstruction::RobotProgramCatalog& RobotProgramStore::catalogFor(const QString& sceneBackendId)
+{
+	if (!m_catalogs.contains(sceneBackendId))
+	{
+		m_catalogs.insert(sceneBackendId, RobotInstruction::RobotProgramCatalog::withDefaultMain());
+	}
+	return m_catalogs[sceneBackendId];
+}
+
+const RobotInstruction::RobotProgramCatalog& RobotProgramStore::catalogFor(const QString& sceneBackendId) const
+{
+	static const RobotInstruction::RobotProgramCatalog s_empty =
+		RobotInstruction::RobotProgramCatalog::withDefaultMain();
+	const auto it = m_catalogs.constFind(sceneBackendId);
+	return it != m_catalogs.constEnd() ? it.value() : s_empty;
+}
+
+RobotInstruction::RobotProgramCatalog& RobotProgramStore::activeCatalog()
+{
+	const QString id = activeRobotBackendId();
+	if (id.isEmpty())
+	{
+		static RobotInstruction::RobotProgramCatalog s_empty =
+			RobotInstruction::RobotProgramCatalog::withDefaultMain();
+		return s_empty;
+	}
+	return catalogFor(id);
+}
+
+const RobotInstruction::RobotProgramCatalog& RobotProgramStore::activeCatalog() const
+{
+	return const_cast<RobotProgramStore*>(this)->activeCatalog();
+}
+
+std::string RobotProgramStore::activeProgramIdUtf8() const
+{
+	return activeCatalog().activeProgramId();
+}
+
+void RobotProgramStore::setActiveProgramIdUtf8(const std::string& programId)
+{
+	activeCatalog().setActiveProgramId(programId);
 }
 
 std::vector<std::shared_ptr<RobotInstruction::Base>>& RobotProgramStore::programFor(const QString& sceneBackendId)
 {
-	return m_programs[sceneBackendId];
+	return catalogFor(sceneBackendId).activeSteps();
 }
 
 const std::vector<std::shared_ptr<RobotInstruction::Base>>& RobotProgramStore::programFor(
 	const QString& sceneBackendId) const
 {
-	static const std::vector<std::shared_ptr<RobotInstruction::Base>> s_empty;
-	const auto it = m_programs.constFind(sceneBackendId);
-	return it != m_programs.constEnd() ? it.value() : s_empty;
+	return catalogFor(sceneBackendId).activeSteps();
 }
 
 std::vector<std::shared_ptr<RobotInstruction::Base>>& RobotProgramStore::activeProgram()
@@ -85,7 +128,7 @@ std::vector<std::shared_ptr<RobotInstruction::Base>>& RobotProgramStore::activeP
 		static std::vector<std::shared_ptr<RobotInstruction::Base>> s_empty;
 		return s_empty;
 	}
-	return programFor(id);
+	return catalogFor(id).activeSteps();
 }
 
 const std::vector<std::shared_ptr<RobotInstruction::Base>>& RobotProgramStore::activeProgram() const
@@ -96,25 +139,39 @@ const std::vector<std::shared_ptr<RobotInstruction::Base>>& RobotProgramStore::a
 		static const std::vector<std::shared_ptr<RobotInstruction::Base>> s_empty;
 		return s_empty;
 	}
-	return programFor(id);
+	return catalogFor(id).activeSteps();
 }
 
 void RobotProgramStore::setProgramFor(
 	const QString& sceneBackendId,
 	std::vector<std::shared_ptr<RobotInstruction::Base>> program)
 {
-	m_programs.insert(sceneBackendId, std::move(program));
+	auto& catalog = catalogFor(sceneBackendId);
+	if (RobotInstruction::RobotProgram* mainProg = catalog.mainProgram())
+	{
+		mainProg->steps = std::move(program);
+	}
 }
 
-void RobotProgramStore::ensureActiveProgram()
+const QHash<QString, std::vector<std::shared_ptr<RobotInstruction::Base>>>& RobotProgramStore::allPrograms() const
+{
+	m_legacyProgramsView.clear();
+	for (auto it = m_catalogs.constBegin(); it != m_catalogs.constEnd(); ++it)
+	{
+		m_legacyProgramsView.insert(it.key(), it.value().activeSteps());
+	}
+	return m_legacyProgramsView;
+}
+
+void RobotProgramStore::ensureActiveCatalog()
 {
 	const QString id = activeRobotBackendId();
 	if (id.isEmpty())
 	{
 		return;
 	}
-	if (!m_programs.contains(id))
+	if (!m_catalogs.contains(id))
 	{
-		m_programs.insert(id, {});
+		m_catalogs.insert(id, RobotInstruction::RobotProgramCatalog::withDefaultMain());
 	}
 }

@@ -3,6 +3,7 @@
 #include "IRobotUrdfImportContext.h"
 
 #include "RobotInstructionFactory.h"
+#include "RobotProgramCatalog.h"
 #include "RobotProgramStore.h"
 
 #include <QJsonDocument>
@@ -15,30 +16,39 @@ namespace cloudsim::host {
 QJsonArray robotProgramsToJson(const RobotProgramStore& store)
 {
 	QJsonArray programsArr;
-	for (auto it = store.allPrograms().constBegin(); it != store.allPrograms().constEnd(); ++it)
+	for (auto it = store.allCatalogs().constBegin(); it != store.allCatalogs().constEnd(); ++it)
 	{
-		if (it.value().empty())
+		const RobotInstruction::RobotProgramCatalog& catalog = it.value();
+		bool hasContent = false;
+		for (const RobotInstruction::RobotProgram& prog : catalog.programs())
+		{
+			if (!prog.steps.empty() || !prog.groups.empty() || prog.isMain)
+			{
+				hasContent = true;
+				break;
+			}
+		}
+		if (!hasContent)
 		{
 			continue;
 		}
 		QJsonObject entry;
 		entry.insert(QStringLiteral("sceneBackendId"), it.key());
-		QJsonArray insArr;
-		for (const auto& ins : it.value())
+		const nlohmann::json catalogJson = catalog.toJson();
+		const QByteArray raw = QByteArray::fromStdString(catalogJson.dump());
+		const QJsonDocument jdoc = QJsonDocument::fromJson(raw);
+		if (jdoc.isObject())
 		{
-			if (!ins)
+			const QJsonObject obj = jdoc.object();
+			if (obj.contains(QStringLiteral("activeProgramId")))
 			{
-				continue;
+				entry.insert(QStringLiteral("activeProgramId"), obj.value(QStringLiteral("activeProgramId")));
 			}
-			const nlohmann::json j = RobotInstruction::toJson(*ins);
-			const QByteArray raw = QByteArray::fromStdString(j.dump());
-			const QJsonDocument jdoc = QJsonDocument::fromJson(raw);
-			if (jdoc.isObject())
+			if (obj.contains(QStringLiteral("programs")))
 			{
-				insArr.append(jdoc.object());
+				entry.insert(QStringLiteral("programs"), obj.value(QStringLiteral("programs")));
 			}
 		}
-		entry.insert(QStringLiteral("instructions"), insArr);
 		programsArr.append(entry);
 	}
 	return programsArr;
@@ -59,7 +69,6 @@ bool robotProgramsFromJson(RobotProgramStore& store, const QJsonArray& programs,
 		{
 			continue;
 		}
-		// 须先恢复 robotKinematics，再加载程序
 		if (ctx.robotInstanceIndexForSceneBackendId(sceneBackendId) < 0)
 		{
 			if (outError)
@@ -68,29 +77,50 @@ bool robotProgramsFromJson(RobotProgramStore& store, const QJsonArray& programs,
 			}
 			return false;
 		}
-		const QJsonArray insArr = progObj.value(QStringLiteral("instructions")).toArray();
-		nlohmann::json arr = nlohmann::json::array();
-		for (const QJsonValue& iv : insArr)
+		RobotInstruction::RobotProgramCatalog catalog;
+		if (progObj.contains(QStringLiteral("programs")))
 		{
-			if (!iv.isObject())
+			const QByteArray raw = QJsonDocument(progObj).toJson(QJsonDocument::Compact);
+			nlohmann::json j = nlohmann::json::parse(std::string(raw.constData(), static_cast<size_t>(raw.size())));
+			std::string parseErr;
+			if (!RobotInstruction::RobotProgramCatalog::fromJson(j, catalog, &parseErr))
 			{
-				continue;
+				if (outError)
+				{
+					*outError = QString::fromStdString(parseErr);
+				}
+				return false;
 			}
-			const QByteArray raw = QJsonDocument(iv.toObject()).toJson(QJsonDocument::Compact);
-			arr.push_back(nlohmann::json::parse(std::string(raw.constData(), static_cast<size_t>(raw.size()))));
 		}
-		std::string parseErr;
-		std::vector<std::shared_ptr<RobotInstruction::Base>> program =
-			RobotInstruction::createListFromJson(arr, &parseErr);
-		if (!parseErr.empty())
+		else
 		{
-			if (outError)
+			catalog = RobotInstruction::RobotProgramCatalog::withDefaultMain();
+			const QJsonArray insArr = progObj.value(QStringLiteral("instructions")).toArray();
+			nlohmann::json arr = nlohmann::json::array();
+			for (const QJsonValue& iv : insArr)
 			{
-				*outError = QString::fromStdString(parseErr);
+				if (!iv.isObject())
+				{
+					continue;
+				}
+				const QByteArray raw = QJsonDocument(iv.toObject()).toJson(QJsonDocument::Compact);
+				arr.push_back(nlohmann::json::parse(std::string(raw.constData(), static_cast<size_t>(raw.size()))));
 			}
-			return false;
+			std::string parseErr;
+			if (RobotInstruction::RobotProgram* mainProg = catalog.mainProgram())
+			{
+				mainProg->steps = RobotInstruction::createListFromJson(arr, &parseErr);
+			}
+			if (!parseErr.empty())
+			{
+				if (outError)
+				{
+					*outError = QString::fromStdString(parseErr);
+				}
+				return false;
+			}
 		}
-		store.setProgramFor(sceneBackendId, std::move(program));
+		store.catalogFor(sceneBackendId) = std::move(catalog);
 	}
 	return true;
 }

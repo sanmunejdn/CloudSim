@@ -79,6 +79,7 @@
 #include "RunLogger.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
+#include "../RobotWidget/inc/TrajectoryEditPageWidget.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
 
 #include "../../OsgWidgetCore/inc/OsgScene.h"
@@ -195,6 +196,10 @@ void MainWindow::applyLanguage()
 		{
 			frame->setUseChinese(m_useChinese);
 		}
+		if (TrajectoryEditPageWidget* traj = simDock->trajectoryEditPage())
+		{
+			traj->setUseChinese(m_useChinese);
+		}
 		QTabWidget* tabs = simDock->tabWidget();
 		if (tabs && tabs->count() >= 2)
 		{
@@ -203,6 +208,10 @@ void MainWindow::applyLanguage()
 			if (tabs->count() >= 3)
 			{
 				tabs->setTabText(2, i18n(QStringLiteral("Frames"), QStringLiteral("坐标系")));
+			}
+			if (tabs->count() >= 4)
+			{
+				tabs->setTabText(3, i18n(QStringLiteral("Trajectory Edit"), QStringLiteral("轨迹编辑")));
 			}
 		}
 	}

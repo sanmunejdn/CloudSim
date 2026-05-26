@@ -369,4 +369,17 @@ std::vector<std::shared_ptr<Base>> createListFromJson(const nlohmann::json& arr,
 	return out;
 }
 
+std::shared_ptr<Base> cloneInstruction(const Base& ins)
+{
+	const nlohmann::json j = toJson(ins);
+	std::string err;
+	auto cloned = createFromJson(j, &err);
+	if (!cloned)
+	{
+		return nullptr;
+	}
+	cloned->setId(makeInstructionId());
+	return cloned;
+}
+
 } // namespace RobotInstruction

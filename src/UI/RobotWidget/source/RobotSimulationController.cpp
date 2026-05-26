@@ -2,6 +2,9 @@
 #include "RobotSimulationDockWidget.h"
 #include "RobotSimulationMath.h"
 #include "RobotInstructionPlanningHelpers.h"
+#include "ProgramEditService.h"
+#include "TrajectoryEditSession.h"
+#include "TrajectoryEditPageWidget.h"
 #include "IRobotMainWindowHost.h"
 #include "IRobotOsgViewHost.h"
 #include "RobotMatrixOsgBridge.h"
@@ -187,6 +190,8 @@ void RobotSimulationController::initializePlanners()
 void RobotSimulationController::createSimulationDock(QWidget* parentForTabs)
 {
 	m_simulationDock = new RobotSimulationDockWidget(parentForTabs);
+	m_programEditService = new ProgramEditService(this);
+	m_trajectoryEditSession = new TrajectoryEditSession(this);
 }
 
 void RobotSimulationController::wireSimulationSignals()
@@ -198,6 +203,23 @@ void RobotSimulationController::wireSimulationSignals()
 	auto* cmd = m_simulationDock->commandPage();
 	auto* axis = m_simulationDock->axisPage();
 	auto* frame = m_simulationDock->framePage();
+	auto* traj = m_simulationDock->trajectoryEditPage();
+	if (m_host && m_host->document())
+	{
+		m_programEditService->bindStore(&m_host->document()->robotProgramStore());
+	}
+	m_trajectoryEditSession->bindEditService(m_programEditService);
+	m_trajectoryEditSession->bindSimulationController(this);
+	if (traj)
+	{
+		traj->bindEditService(m_programEditService);
+		traj->bindSession(m_trajectoryEditSession);
+		traj->bindCommandPage(cmd);
+	}
+	if (cmd)
+	{
+		cmd->setProgramEditService(m_programEditService);
+	}
 	connect(cmd, &SimulationCommandWidget::runRequested, this, &RobotSimulationController::onSimulationRunRequested);
 	connect(cmd, &SimulationCommandWidget::stopRequested, this, &RobotSimulationController::onSimulationStopRequested);
 	connect(cmd, &SimulationCommandWidget::exportProgramRequested, this, &RobotSimulationController::onSimulationExportRequested);
@@ -317,6 +339,10 @@ void RobotSimulationController::stopRobotSimulation()
 	{
 		m_host->simulationCommandPage()->setSimulationRunning(false);
 	}
+	if (m_simulationDock && m_simulationDock->trajectoryEditPage())
+	{
+		m_simulationDock->trajectoryEditPage()->setReadOnly(false);
+	}
 	if (m_host->robotAxisControlPage())
 	{
 		m_host->robotAxisControlPage()->setInteractionEnabled(true);
@@ -354,6 +380,19 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 	if (doc)
 	{
 		m_host->simulationCommandPage()->setProgramStore(&doc->robotProgramStore());
+	}
+	if (m_programEditService && doc)
+	{
+		m_programEditService->bindStore(&doc->robotProgramStore());
+	}
+	if (m_trajectoryEditSession && doc)
+	{
+		m_trajectoryEditSession->bindStore(&doc->robotProgramStore());
+	}
+	if (m_simulationDock && m_simulationDock->trajectoryEditPage() && doc)
+	{
+		m_simulationDock->trajectoryEditPage()->bindStore(&doc->robotProgramStore());
+		m_simulationDock->trajectoryEditPage()->refreshProgramAndGroupCombos();
 	}
 	if (doc && doc->hasRobotSimulationContext())
 	{
@@ -3275,6 +3314,10 @@ void RobotSimulationController::onSimulationStartTriggered()
 		m_host->robotAxisControlPage()->setInteractionEnabled(false);
 	}
 	m_host->simulationCommandPage()->setSimulationRunning(true);
+	if (m_simulationDock && m_simulationDock->trajectoryEditPage())
+	{
+		m_simulationDock->trajectoryEditPage()->setReadOnly(true);
+	}
 	m_playbackTimer->start();
 	if (m_host->runInfoPage())
 	{

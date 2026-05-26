@@ -164,7 +164,7 @@ flowchart TD
 - **`OsgWidgetTransformHierarchyController`**：选中 backend 时 `syncSelectionForBackendId` 内调用 `attachGizmoOverlayToActiveBackend` / `cacheSelectionGizmoPose`；层级变更后与 `OsgScene` 传播逻辑配合。
 - **`OsgWidgetGizmoController`**：罗盘几何创建、高亮、屏幕轴拾取等对 `OsgScene` 的薄封装。
 - **`RobotWidget`（x64 DLL，见 `RobotWidget/DEVELOPER_GUIDE.md`）**：
-  - 页面：`DevicePageWidget`、`SimulationCommandWidget`、`RobotAxisControlWidget`、`RobotFrameSettingsWidget` 等。
+  - 页面：`DevicePageWidget`、`SimulationCommandWidget`、`RobotAxisControlWidget`、`RobotFrameSettingsWidget`、**`TrajectoryEditPageWidget`** 等。
   - 编排：`RobotSimulationController`；宿主契约 `IRobotMainWindowHost` / `IRobotDocumentHost` / `IRobotOsgViewHost`。
   - 工程 I/O：保存时 `ProjectPackageIo::mergeRobotKinematicsIntoProjectRoot`（内部 `RobotProjectIo::writeRobotKinematics`）；加载与 programs 仍经 Host `ProjectPackageIo` + `MainWindowProjectIo` 编排。
 - **AI 助手（独立子系统，见 `AiBackend` + `AiWidget`）**：
@@ -623,9 +623,14 @@ sequenceDiagram
    - **层级**：`UrdfRobotLoader::buildHierarchicalRobotScene` → `OsgWidget::addHierarchicalRobotScene`，关节角写入各 `joint_*` 的 `MatrixTransform`。  
    - **每连杆后端（可多台）**：`registerUrdfRobot` 为每台注册 **robot root** + 各 link `MeshBackendData`（见 **6.1**）；`applyJointAnglesFromDocument` 按实例切片写各 link 外层世界矩阵。删除 robot root 或任一 link 时 `clearRobotSimulationIfContains` 移除对应实例。  
 2. **程序编辑（`SimulationCommandWidget` + `InstructionProgramTreeWidget`）**  
-   - 每台机器人独立程序：`DocumentPage::robotProgramStore()`，按 `sceneBackendId` 键控。  
+   - 每台机器人独立程序：`DocumentPage::robotProgramStore()`，按 `sceneBackendId` 键控；`RobotProgramCatalog` 支持多程序与子程序分组（JSON v4）。  
    - 树控件展示层级（IF 的 Then/Else、WHILE 循环体）；拖放调整顺序与父子关系后 `syncToProgram()` 写回向量。  
    - 工具栏按钮一键插入 PTP/LINE/逻辑/IO；运动点显示 **P1、P2…**（`formatMotionWaypointSummary`）。  
+2b. **轨迹编辑（`TrajectoryEditPageWidget`，Dock 第四页）**  
+   - 装饰器流水线：Translate/Rotate/Delete/Duplicate 等块 + `OpScope`（全程序/分组/P 范围）。  
+   - **Preview**：`reconcilePipelineScopes` → `TrajectoryEditSession` 临时改 store 中路点 `pose` → `syncPreviewRenderMatrices` → `refreshInstructionPoseAxes`；参数变更走 `updatePipelineOps` + 自动 `reapplyPreview`（结构变更才 `setPipeline`/`reset`）。  
+   - **Apply**：`TrajectoryPipelineBuilder::buildApplyCommands` → `ProgramEditService` 撤销栈落盘。  
+   - **Undo/Redo**：`revisionChanged` → `syncUiAfterProgramRevision`（`abandonPreview` + 失效分组 scope 回退顶栏分组或全程序）。调色板拖放须 `kMimeType`（见 `RobotWidget` DEVELOPER_GUIDE §轨迹编辑）。  
 3. **指令选中预览（非运行态）**  
    - `InstructionProgramTreeWidget::instructionSelected` → `RobotSimulationController::onSimulationInstructionSelectionChanged`（`MainWindow` 转发）。  
    - 选中 **PTP/LINE** 时：`updateInstructionPropertyPanel`（可行轴配置探测/缓存）→ `applyRobotPoseForInstructionPreview` 自 `m_motionPreviewProgramStartJointRad` 链式至该点。对链上每点：若存在 `context.currentJointRadCsv` 则**直接**用示教关节（跳过该点 IK）；否则 `prepareMotionInstructionForPlanning`（**不**覆盖指令 `pose`）+ `plan`。写回场景与滑块；`m_suppressMotionPreviewStartCapture` 防止误改程序起点。添加指令后首次选中用 `m_skipInstructionPreviewOnce` 避免立即预览拉离示教姿态。  

@@ -99,6 +99,10 @@
     <QtMoc Include="inc\RobotFrameSettingsWidget.h" />
     <QtMoc Include="inc\InstructionProgramTreeWidget.h" />
     <ClInclude Include="inc\RobotProgramStore.h" />
+    <QtMoc Include="inc\ProgramEditService.h" />
+    <QtMoc Include="inc\TrajectoryEditSession.h" />
+    <QtMoc Include="inc\TrajectoryEditPageWidget.h" />
+    <QtMoc Include="inc\TrajectoryPipelineListWidget.h" />
     <ClInclude Include="inc\SimulationLogIoSink.h" />
     <QtMoc Include="inc\RobotAxisControlWidget.h" />
   </ItemGroup>
@@ -108,6 +112,10 @@
     <ClCompile Include="source\RobotFrameSettingsWidget.cpp" />
     <ClCompile Include="source\InstructionProgramTreeWidget.cpp" />
     <ClCompile Include="source\RobotProgramStore.cpp" />
+    <ClCompile Include="source\ProgramEditService.cpp" />
+    <ClCompile Include="source\TrajectoryEditSession.cpp" />
+    <ClCompile Include="source\TrajectoryEditPageWidget.cpp" />
+    <ClCompile Include="source\TrajectoryPipelineListWidget.cpp" />
     <ClCompile Include="source\SimulationLogIoSink.cpp" />
     <ClCompile Include="source\RobotAxisControlWidget.cpp" />
     <ClCompile Include="source\RobotSimulationController.cpp" />

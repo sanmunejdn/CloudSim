@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RobotInstructionModel.h"
+#include "RobotProgramCatalog.h"
 #include "robotwidget_global.h"
 
 #include <QTreeWidget>
@@ -26,10 +27,12 @@ public:
 
 	void setUseChinese(bool chinese);
 	void setProgram(std::vector<std::shared_ptr<RobotInstruction::Base>>* program);
+	void setGroupMembership(const std::vector<RobotInstruction::InstructionGroup>* groups);
 	void rebuildFromProgram();
 	void syncToProgram();
 
 	std::shared_ptr<RobotInstruction::Base> selectedInstruction() const;
+	std::vector<std::shared_ptr<RobotInstruction::Base>> selectedMotionInstructions() const;
 	QTreeWidgetItem* selectedItem() const { return currentItem(); }
 
 	/// 相对当前选中插入指令（或追加到根）
@@ -71,6 +74,7 @@ private:
 	void selectInstructionByRaw(RobotInstruction::Base* raw);
 
 	std::vector<std::shared_ptr<RobotInstruction::Base>>* m_program = nullptr;
+	const std::vector<RobotInstruction::InstructionGroup>* m_groups = nullptr;
 	bool m_useChinese = false;
 	bool m_syncing = false;
 	QTreeWidgetItem* m_dragItem = nullptr;

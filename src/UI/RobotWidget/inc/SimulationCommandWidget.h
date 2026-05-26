@@ -17,6 +17,7 @@ class QPushButton;
 class QLabel;
 class RobotProgramStore;
 class InstructionProgramTreeWidget;
+class ProgramEditService;
 
 class ROBOTWIDGET_EXPORT SimulationCommandWidget : public QWidget
 {
@@ -26,6 +27,7 @@ public:
 	explicit SimulationCommandWidget(QWidget* parent = nullptr);
 
 	void setProgramStore(RobotProgramStore* store);
+	void setProgramEditService(ProgramEditService* service);
 	void bindProgramTree();
 	void setUseChinese(bool chinese);
 	void setSimulationRunning(bool running);
@@ -53,11 +55,16 @@ public:
 	std::shared_ptr<RobotInstruction::Base> appendInstruction(RobotInstruction::Type type);
 	bool appendInstructionFromJson(const nlohmann::json& j, std::string* errMsg = nullptr);
 
+	std::vector<std::string> selectedMotionInstructionIds() const;
+
 	void refreshInstructionList();
 	void clearInstructionSelection();
+	InstructionProgramTreeWidget* instructionTree() const { return m_tree; }
 
 signals:
 	void robotSelectionChanged(int instanceIndex, const QString& sceneBackendId);
+	void activeProgramChanged(const QString& programIdUtf8);
+	void groupsChanged();
 	void addInstructionRequested(RobotInstruction::Type type);
 	void instructionSelectionChanged(std::shared_ptr<RobotInstruction::Base> instruction);
 	void runRequested();
@@ -76,17 +83,34 @@ private:
 	void setTypeButtonsEnabled(bool enabled);
 	double instructionDurationSec(const RobotInstruction::Base& ins) const;
 	void requestAddInstruction(RobotInstruction::Type type);
+	void refreshProgramCombo();
+	void refreshGroupCombo();
+	void onProgramComboChanged(int index);
+	void onProgramNewClicked();
+	void onProgramRenameClicked();
+	void onProgramDeleteClicked();
+	void onGroupCreateClicked();
+	void updateProgramGroupUi();
 
 	QPushButton* createTypeButton(RobotInstruction::Type type);
 
 	RobotProgramStore* m_programStore = nullptr;
-	bool m_useChinese = false;
+	ProgramEditService* m_editService = nullptr;
+	bool m_useChinese = true;
 	bool m_simulationRunning = false;
 	bool m_hasRobotContext = false;
 
 	QLabel* m_hintLabel = nullptr;
+	QLabel* m_programLabel = nullptr;
+	QLabel* m_groupLabel = nullptr;
 	QComboBox* m_robotCombo = nullptr;
 	QComboBox* m_tcpLinkCombo = nullptr;
+	QComboBox* m_programCombo = nullptr;
+	QPushButton* m_programNewBtn = nullptr;
+	QPushButton* m_programRenameBtn = nullptr;
+	QPushButton* m_programDeleteBtn = nullptr;
+	QComboBox* m_groupCombo = nullptr;
+	QPushButton* m_groupCreateBtn = nullptr;
 	InstructionProgramTreeWidget* m_tree = nullptr;
 
 	QVector<QPushButton*> m_typeButtons;

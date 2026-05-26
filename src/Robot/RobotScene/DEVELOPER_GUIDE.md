@@ -365,7 +365,65 @@ flowchart LR
 
 ---
 
-## 12. 相关文档
+## 12. 多程序与分组（`RobotProgramCatalog`）
+
+每台机器人实例对应一份 `RobotProgramCatalog`（`RobotProgramStore::catalogFor`）。JSON v4 含 `programs[]` 与 `groups[]`；旧工程兼容见 `RobotProgramJsonIo`。
+
+| 类型 | 说明 |
+|------|------|
+| `RobotProgram` | `id` / `name` / `steps` / `groups` |
+| `InstructionGroup` | 元数据分组；`memberInstructionIds` 指向 PTP/LINE 等 id |
+| `kDefaultMainProgramId` | `"main"` |
+
+| API | 作用 |
+|-----|------|
+| `activeSteps()` | 当前活动程序的 `steps` 向量（与 `RobotProgramStore::activeProgram()` 同源） |
+| `resolveGroupMembers` | 分组 → 运动路点指针（过滤 `isMotionWaypointType`） |
+| `resolveOpScopeInstructionIds` | 轨迹块 `OpScope` → 指令 id 列表（Apply/Preview 共用） |
+| `pruneGroupMembers` | 删除指令后清理分组引用 |
+
+### `OpScope`（`TrajectoryPipelineTypes.h`）
+
+| `OpScope::Kind` | 解析规则 |
+|-----------------|----------|
+| `EntireProgram` | `collectMotionInstructions` 全部 PTP/LINE |
+| `Group` | 匹配 `scope.groupId` 的 `memberInstructionIds`（**不**过滤运动类型；若分组不存在则返回空列表，由 UI `reconcilePipelineScopes` 协调） |
+| `PointIndexRange` | `motionPointIndex` ∈ [pointFrom, pointTo]（扩展键 `motion.pointIndex`） |
+| `InstructionIds` | 显式 id 列表 |
+
+---
+
+## 13. 轨迹流水线与程序编辑 Command
+
+### 13.1 流水线描述符
+
+| 类型 | 说明 |
+|------|------|
+| `TrajectoryOpKind` | Translate / Rotate / Mirror / Delete / Duplicate / Reorder |
+| `TrajectoryOpDescriptor` | `kind` + `OpScope` + `translate` / `rotate` 参数 |
+| `TrajectoryPipelineBuilder` | `setOps` + `buildPreviewPoseQuery` + `buildApplyCommands` |
+
+预览链：`buildPreviewPoseQueryChain` 按流水线顺序装饰 `IMotionPoseQuery`（当前 MVP：`TransformMotionPoseQuery` 叠加平移/旋转）。
+
+### 13.2 `ProgramEditCommand` / `ProgramEditStack`
+
+| Command（示例） | 作用 |
+|-----------------|------|
+| `TransformMotionSegmentCommand` | 平移/旋转 scope 内路点 |
+| `InsertInstructionCommand` / `RemoveInstructionCommand` | 增删（Duplicate 等） |
+| `CreateInstructionGroupCommand` | 创建分组 |
+
+`InstructionProgramDocument`：在 `activeProgram()` 步骤树上按 id 查找/修改。Command 使用 `shared_ptr` 跨 DLL 边界（`ProgramEditStack::CommandPtr`）。
+
+Apply 路径：`TrajectoryPipelineBuilder::buildApplyCommands` → UI 层 `ProgramEditService::execute`。
+
+撤销/重做后流水线 scope 与程序分组可能不一致（例如撤销「创建分组」）；UI 层 `TrajectoryEditPageWidget::reconcilePipelineScopes` 在 Preview/Apply 与 `revisionChanged` 时回退失效的 `Group` scope，详见 RobotWidget §轨迹编辑。
+
+业务编排与 UI 绑定见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) §轨迹编辑。
+
+---
+
+## 14. 相关文档
 
 - 刚体/工具链：[`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md) · [`../GeometryEngine/CONVENTIONS.md`](../GeometryEngine/CONVENTIONS.md)
 - URDF：[`../RobotUrdf/DEVELOPER_GUIDE.md`](../RobotUrdf/DEVELOPER_GUIDE.md)
