@@ -52,6 +52,9 @@ public:
 
 	std::vector<const Base*> resolveGroupMembers(const InstructionGroup& group, const RobotProgram& prog) const;
 	std::vector<std::string> resolveOpScopeInstructionIds(const OpScope& scope, const RobotProgram& prog) const;
+	std::vector<std::string> expandToMotionWaypointIds(
+		const RobotProgram& prog,
+		const std::vector<std::string>& instructionIds) const;
 
 	bool addProgram(RobotProgram program, std::string* errMsg = nullptr);
 	bool removeProgram(const std::string& programId, std::string* errMsg = nullptr);

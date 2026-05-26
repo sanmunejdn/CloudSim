@@ -337,4 +337,112 @@ bool CreateInstructionGroupCommand::undo(InstructionProgramDocument& doc, std::s
 	return true;
 }
 
+RemoveInstructionGroupCommand::RemoveInstructionGroupCommand(
+	RobotProgram* program,
+	std::string groupId)
+	: m_program(program)
+	, m_groupId(std::move(groupId))
+{
+}
+
+bool RemoveInstructionGroupCommand::execute(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	(void)doc;
+	if (!m_program)
+	{
+		return false;
+	}
+	const auto it = std::find_if(
+		m_program->groups.begin(),
+		m_program->groups.end(),
+		[this](const InstructionGroup& g) { return g.id == m_groupId; });
+	if (it == m_program->groups.end())
+	{
+		if (errMsg)
+		{
+			*errMsg = "group not found";
+		}
+		return false;
+	}
+	m_removedGroup = *it;
+	m_program->groups.erase(it);
+	m_removedFlag = true;
+	return true;
+}
+
+bool RemoveInstructionGroupCommand::undo(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	(void)doc;
+	(void)errMsg;
+	if (!m_program || !m_removedFlag)
+	{
+		return false;
+	}
+	m_program->groups.push_back(m_removedGroup);
+	m_removedFlag = false;
+	return true;
+}
+
+RenameInstructionGroupCommand::RenameInstructionGroupCommand(
+	RobotProgram* program,
+	std::string groupId,
+	std::string newName)
+	: m_program(program)
+	, m_groupId(std::move(groupId))
+	, m_newName(std::move(newName))
+{
+}
+
+bool RenameInstructionGroupCommand::execute(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	(void)doc;
+	if (!m_program || m_newName.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid rename parameters";
+		}
+		return false;
+	}
+	InstructionGroup* group = nullptr;
+	for (InstructionGroup& g : m_program->groups)
+	{
+		if (g.id == m_groupId)
+		{
+			group = &g;
+			break;
+		}
+	}
+	if (!group)
+	{
+		if (errMsg)
+		{
+			*errMsg = "group not found";
+		}
+		return false;
+	}
+	m_oldName = group->name;
+	group->name = m_newName;
+	return true;
+}
+
+bool RenameInstructionGroupCommand::undo(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	(void)doc;
+	(void)errMsg;
+	if (!m_program || m_oldName.empty())
+	{
+		return false;
+	}
+	for (InstructionGroup& g : m_program->groups)
+	{
+		if (g.id == m_groupId)
+		{
+			g.name = m_oldName;
+			return true;
+		}
+	}
+	return false;
+}
+
 } // namespace RobotInstruction

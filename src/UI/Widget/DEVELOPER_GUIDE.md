@@ -414,7 +414,7 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 
 ## 13. 仿真 UI
 
-仿真页面控件与编排已迁入 **`RobotWidget`**（x64 DLL）。`Widget` 通过 `MainWindowRobotHost`（实现 `IRobotMainWindowHost`）提供文档/OSG/属性面板访问；`RobotSimulationController` 承接原 `MainWindow` 的仿真/示教/指令槽。详见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)。
+仿真页面控件与编排已迁入 **`RobotWidget`**（x64 DLL）。Dock 主标签为 **机器人** / Robot（`MainWindow::applyLanguage` 设置 `m_unitDockTabs` 第二页）。`Widget` 通过 `MainWindowRobotHost`（实现 `IRobotMainWindowHost`）提供文档/OSG/属性面板访问；`RobotSimulationController` 承接原 `MainWindow` 的仿真/示教/指令槽。详见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)。
 
 **仍留在 `Widget`**：`DocumentPage`、`OsgWidget`、`OsgWidgetTcpTeach.cpp`、`RobotTcpDragTeachOperation.cpp`（依赖 `OsgWidget*`）。
 
@@ -432,16 +432,21 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 | `appendInstructionFromCurrentPose` | 捕获当前 TCP |
 | `instructionSelected` → `RobotSimulationController` | 预览：有 `currentJointRadCsv` 用示教关节，否则链式 plan |
 | `runRequested` / `stopRequested` | 执行器 |
-| `tcpDragTeachModeChanged(bool)` | 末端拖动示教开/关（不落盘指令） |
+| `groupsChanged` | 树内分组变更 → 轨迹编辑页刷新分组下拉 |
+| `tcpDragTeachModeChanged(bool)` | **功能**分组内「末端拖动」开/关（不落盘指令） |
 | `setTcpDragTeachMode` / `tcpDragTeachMode` | 与 3D ESC / 仿真 Run 同步按钮状态 |
+
+**布局**：**指令**分组框（PTP/LINE/…）与 **功能**分组框（末端拖动/删除/清空）分两行；详见 [`RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) §SimulationCommandWidget 布局。
 
 ### `InstructionProgramTreeWidget`
 
-| 方法 | 说明 |
+| 方法 / 信号 | 说明 |
 |------|------|
 | `setProgram` / `rebuildFromProgram` / `syncToProgram` | 树 ↔ 模型 |
-| `NodeKind` | Instruction / ThenBranch / ElseBranch |
-| DnD | 调整顺序与嵌套 |
+| `NodeKind` | Instruction / ThenBranch / ElseBranch / **Group** |
+| `createGroupRequested` / `dissolveGroupRequested` / `renameGroupRequested` | 右键菜单 → `SimulationCommandWidget` → `ProgramEditService` |
+| `groupMembershipChanged` | 拖放进出分组后更新 `memberInstructionIds` |
+| DnD | 调整顺序、嵌套 IF/WHILE、根层级指令拖入/拖出 Group |
 
 ### `SimulationLogIoSink`
 
@@ -453,7 +458,7 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 
 ### 13.1 末端拖动示教（TCP 罗盘）
 
-**入口**：`SimulationCommandWidget` 可切换按钮 → `tcpDragTeachModeChanged` → `RobotSimulationController::onSimulationTcpDragTeachModeChanged`（经 `MainWindow` 槽转发）。
+**入口**：`SimulationCommandWidget` **功能**分组内可切换「末端拖动」按钮 → `tcpDragTeachModeChanged` → `RobotSimulationController::onSimulationTcpDragTeachModeChanged`（经 `MainWindow` 槽转发）。
 
 **行为约束**：
 

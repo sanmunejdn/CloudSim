@@ -247,7 +247,11 @@ std::vector<ProgramEditStack::CommandPtr> TrajectoryPipelineBuilder::buildApplyC
 	}
 	for (const TrajectoryOpDescriptor& op : transformOps)
 	{
-		const std::vector<std::string> ids = catalog.resolveOpScopeInstructionIds(op.scope, *m_program);
+		std::vector<std::string> ids = catalog.resolveOpScopeInstructionIds(op.scope, *m_program);
+		if (op.scope.kind == OpScope::Kind::Group)
+		{
+			ids = catalog.expandToMotionWaypointIds(*m_program, ids);
+		}
 		if (!ids.empty())
 		{
 			out.push_back(std::make_shared<TransformMotionSegmentCommand>(

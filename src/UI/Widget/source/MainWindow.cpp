@@ -179,7 +179,7 @@ void MainWindow::applyLanguage()
 	if (m_unitDockTabs && m_unitDockTabs->count() >= 3)
 	{
 		m_unitDockTabs->setTabText(0, i18n(QStringLiteral("Units"), QStringLiteral("单元部件")));
-		m_unitDockTabs->setTabText(1, i18n(QStringLiteral("Simulation"), QStringLiteral("指令仿真")));
+		m_unitDockTabs->setTabText(1, i18n(QStringLiteral("Robot"), QStringLiteral("机器人")));
 		m_unitDockTabs->setTabText(2, i18n(QStringLiteral("Scene graph"), QStringLiteral("场景层级")));
 	}
 	if (simulationCommandPage())

@@ -130,4 +130,36 @@ private:
 	bool m_createdGroup = false;
 };
 
+class ROBOT_SCENE_API RemoveInstructionGroupCommand final : public ProgramEditCommand
+{
+public:
+	RemoveInstructionGroupCommand(RobotProgram* program, std::string groupId);
+
+	bool execute(InstructionProgramDocument& doc, std::string* errMsg) override;
+	bool undo(InstructionProgramDocument& doc, std::string* errMsg) override;
+	const char* commandName() const override { return "RemoveInstructionGroup"; }
+
+private:
+	RobotProgram* m_program = nullptr;
+	std::string m_groupId;
+	InstructionGroup m_removedGroup{};
+	bool m_removedFlag = false;
+};
+
+class ROBOT_SCENE_API RenameInstructionGroupCommand final : public ProgramEditCommand
+{
+public:
+	RenameInstructionGroupCommand(RobotProgram* program, std::string groupId, std::string newName);
+
+	bool execute(InstructionProgramDocument& doc, std::string* errMsg) override;
+	bool undo(InstructionProgramDocument& doc, std::string* errMsg) override;
+	const char* commandName() const override { return "RenameInstructionGroup"; }
+
+private:
+	RobotProgram* m_program = nullptr;
+	std::string m_groupId;
+	std::string m_newName;
+	std::string m_oldName;
+};
+
 } // namespace RobotInstruction

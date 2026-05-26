@@ -372,13 +372,16 @@ flowchart LR
 | 类型 | 说明 |
 |------|------|
 | `RobotProgram` | `id` / `name` / `steps` / `groups` |
-| `InstructionGroup` | 元数据分组；`memberInstructionIds` 指向 PTP/LINE 等 id |
+| `InstructionGroup` | 元数据分组；`memberInstructionIds` 指向根层级任意指令 id（PTP/LINE/WAIT/IF/WHILE/IO 等）；**不改变** `steps` 执行顺序 |
+
+指令页在 `InstructionProgramTreeWidget` 中以 `NodeKind::Group` 嵌套显示；创建/解散/重命名经树右键 + `ProgramEditService`。轨迹编辑页顶栏分组下拉仅用于 `OpScope::Group` 选择。
 | `kDefaultMainProgramId` | `"main"` |
 
 | API | 作用 |
 |-----|------|
 | `activeSteps()` | 当前活动程序的 `steps` 向量（与 `RobotProgramStore::activeProgram()` 同源） |
 | `resolveGroupMembers` | 分组 → 运动路点指针（过滤 `isMotionWaypointType`） |
+| `expandToMotionWaypointIds` | 顶层成员 id 列表 → 递归展开 IF/WHILE 子树内全部运动路点 id（轨迹平移/旋转 scope） |
 | `resolveOpScopeInstructionIds` | 轨迹块 `OpScope` → 指令 id 列表（Apply/Preview 共用） |
 | `pruneGroupMembers` | 删除指令后清理分组引用 |
 
@@ -412,6 +415,8 @@ flowchart LR
 | `TransformMotionSegmentCommand` | 平移/旋转 scope 内路点 |
 | `InsertInstructionCommand` / `RemoveInstructionCommand` | 增删（Duplicate 等） |
 | `CreateInstructionGroupCommand` | 创建分组 |
+| `RemoveInstructionGroupCommand` | 解散分组（不删指令） |
+| `RenameInstructionGroupCommand` | 重命名分组 |
 
 `InstructionProgramDocument`：在 `activeProgram()` 步骤树上按 id 查找/修改。Command 使用 `shared_ptr` 跨 DLL 边界（`ProgramEditStack::CommandPtr`）。
 

@@ -14,6 +14,7 @@
 #include <QLineEdit>
 #include <QSignalBlocker>
 #include <QFrame>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
@@ -151,15 +152,6 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 	programRow->addWidget(m_programDeleteBtn);
 	root->addLayout(programRow);
 
-	auto* groupRow = new QHBoxLayout;
-	m_groupLabel = new QLabel(QStringLiteral("分组"), this);
-	groupRow->addWidget(m_groupLabel);
-	m_groupCombo = new QComboBox(this);
-	groupRow->addWidget(m_groupCombo, 1);
-	m_groupCreateBtn = new QPushButton(QStringLiteral("从选中创建"), this);
-	groupRow->addWidget(m_groupCreateBtn);
-	root->addLayout(groupRow);
-
 	const RobotInstruction::Type types[] = {
 		RobotInstruction::Type::PTP,
 		RobotInstruction::Type::LINE,
@@ -169,13 +161,15 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 		RobotInstruction::Type::SET_DO,
 		RobotInstruction::Type::SET_AO,
 	};
-	auto* addRow = new QHBoxLayout;
+	m_instructionGroupBox = new QGroupBox(QStringLiteral("Instructions"), this);
+	auto* addRow = new QHBoxLayout(m_instructionGroupBox);
+	addRow->setContentsMargins(6, 4, 6, 6);
 	addRow->setSpacing(4);
 	for (const RobotInstruction::Type t : types)
 	{
 		if (t == RobotInstruction::Type::WAIT)
 		{
-			auto* sep = new QFrame(this);
+			auto* sep = new QFrame(m_instructionGroupBox);
 			sep->setFrameShape(QFrame::VLine);
 			sep->setFrameShadow(QFrame::Sunken);
 			sep->setFixedWidth(2);
@@ -183,7 +177,14 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 		}
 		addRow->addWidget(createTypeButton(t));
 	}
-	m_tcpDragTeachBtn = new QPushButton(QStringLiteral("End-effector drag"), this);
+	addRow->addStretch(1);
+	root->addWidget(m_instructionGroupBox);
+
+	m_functionGroupBox = new QGroupBox(QStringLiteral("Functions"), this);
+	auto* funcRow = new QHBoxLayout(m_functionGroupBox);
+	funcRow->setContentsMargins(6, 4, 6, 6);
+	funcRow->setSpacing(4);
+	m_tcpDragTeachBtn = new QPushButton(QStringLiteral("End-effector drag"), m_functionGroupBox);
 	m_tcpDragTeachBtn->setCheckable(true);
 	m_tcpDragTeachBtn->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
 	connect(m_tcpDragTeachBtn, &QPushButton::toggled, this, [this](const bool checked) {
@@ -194,17 +195,15 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 		m_tcpDragTeachMode = checked;
 		emit tcpDragTeachModeChanged(checked);
 	});
-	addRow->addWidget(m_tcpDragTeachBtn);
-	addRow->addStretch(1);
-	root->addLayout(addRow);
-
-	auto* rowBtns = new QHBoxLayout;
-	m_removeBtn = new QPushButton(QStringLiteral("Remove"));
-	m_clearBtn = new QPushButton(QStringLiteral("Clear"));
-	rowBtns->addWidget(m_removeBtn);
-	rowBtns->addWidget(m_clearBtn);
-	rowBtns->addStretch(1);
-	root->addLayout(rowBtns);
+	funcRow->addWidget(m_tcpDragTeachBtn);
+	m_removeBtn = new QPushButton(QStringLiteral("Remove"), m_functionGroupBox);
+	m_clearBtn = new QPushButton(QStringLiteral("Clear"), m_functionGroupBox);
+	m_removeBtn->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+	m_clearBtn->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+	funcRow->addWidget(m_removeBtn);
+	funcRow->addWidget(m_clearBtn);
+	funcRow->addStretch(1);
+	root->addWidget(m_functionGroupBox);
 
 	m_tree = new InstructionProgramTreeWidget(this);
 	root->addWidget(m_tree, 1);
@@ -225,7 +224,6 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 	connect(m_programNewBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onProgramNewClicked);
 	connect(m_programRenameBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onProgramRenameClicked);
 	connect(m_programDeleteBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onProgramDeleteClicked);
-	connect(m_groupCreateBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onGroupCreateClicked);
 	connect(m_removeBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onRemoveClicked);
 	connect(m_clearBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onClearClicked);
 	connect(m_tree, &InstructionProgramTreeWidget::instructionSelected, this,
@@ -233,6 +231,15 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 	connect(m_tree, &InstructionProgramTreeWidget::programStructureChanged, this, [this]() {
 		updateRunStopButtons();
 	});
+	connect(m_tree, &InstructionProgramTreeWidget::groupMembershipChanged, this, [this]() {
+		emit groupsChanged();
+	});
+	connect(m_tree, &InstructionProgramTreeWidget::createGroupRequested, this,
+		&SimulationCommandWidget::onCreateGroupRequested);
+	connect(m_tree, &InstructionProgramTreeWidget::dissolveGroupRequested, this,
+		&SimulationCommandWidget::onDissolveGroupRequested);
+	connect(m_tree, &InstructionProgramTreeWidget::renameGroupRequested, this,
+		&SimulationCommandWidget::onRenameGroupRequested);
 	connect(m_runBtn, &QPushButton::clicked, this, &SimulationCommandWidget::runRequested);
 	connect(m_stopBtn, &QPushButton::clicked, this, &SimulationCommandWidget::stopRequested);
 	connect(m_exportBtn, &QPushButton::clicked, this, &SimulationCommandWidget::exportProgramRequested);
@@ -256,7 +263,6 @@ void SimulationCommandWidget::setProgramStore(RobotProgramStore* store)
 {
 	m_programStore = store;
 	refreshProgramCombo();
-	refreshGroupCombo();
 }
 
 void SimulationCommandWidget::setProgramEditService(ProgramEditService* service)
@@ -327,7 +333,6 @@ void SimulationCommandWidget::onRobotComboChanged(const int index)
 	}
 	m_programStore->setActiveInstanceIndex(index);
 	refreshProgramCombo();
-	refreshGroupCombo();
 	refreshInstructionList();
 	emit robotSelectionChanged(index, m_programStore->activeRobotBackendId());
 }
@@ -414,10 +419,18 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 	if (m_hintLabel)
 	{
 		m_hintLabel->setText(chinese
-			? QStringLiteral("选择机器人后，点击上方按钮直接插入指令；树中可拖动调整层级。")
-			: QStringLiteral("Select a robot, then click a button to insert. Drag items in the tree to reorder."));
+			? QStringLiteral("选择机器人后，点击上方按钮插入指令；Ctrl 多选指令后右键可创建分组；树中可拖动调整顺序。")
+			: QStringLiteral("Select a robot and insert instructions. Ctrl+select items, right-click to create a group. Drag to reorder."));
 	}
 	updateProgramGroupUi();
+	if (m_instructionGroupBox)
+	{
+		m_instructionGroupBox->setTitle(chinese ? QStringLiteral("指令") : QStringLiteral("Instructions"));
+	}
+	if (m_functionGroupBox)
+	{
+		m_functionGroupBox->setTitle(chinese ? QStringLiteral("功能") : QStringLiteral("Functions"));
+	}
 	m_removeBtn->setText(chinese ? QStringLiteral("删除") : QStringLiteral("Remove"));
 	m_clearBtn->setText(chinese ? QStringLiteral("清空") : QStringLiteral("Clear"));
 	m_runBtn->setText(chinese ? QStringLiteral("运行") : QStringLiteral("Run"));
@@ -444,10 +457,6 @@ void SimulationCommandWidget::updateProgramGroupUi()
 	{
 		m_programLabel->setText(zh ? QStringLiteral("程序") : QStringLiteral("Program"));
 	}
-	if (m_groupLabel)
-	{
-		m_groupLabel->setText(zh ? QStringLiteral("分组") : QStringLiteral("Group"));
-	}
 	if (m_programNewBtn)
 	{
 		m_programNewBtn->setToolTip(zh ? QStringLiteral("新建程序") : QStringLiteral("New program"));
@@ -460,11 +469,6 @@ void SimulationCommandWidget::updateProgramGroupUi()
 	{
 		m_programDeleteBtn->setText(zh ? QStringLiteral("删除") : QStringLiteral("Delete"));
 	}
-	if (m_groupCreateBtn)
-	{
-		m_groupCreateBtn->setText(zh ? QStringLiteral("从选中创建") : QStringLiteral("+ from selection"));
-	}
-	refreshGroupCombo();
 }
 
 void SimulationCommandWidget::updateTypeButtonLabels()
@@ -559,7 +563,7 @@ void SimulationCommandWidget::rebuildCommandListWidget()
 	if (m_tree && m_programStore)
 	{
 		const std::string activeId = m_programStore->activeProgramIdUtf8();
-		const RobotInstruction::RobotProgram* prog = m_programStore->activeCatalog().findProgram(activeId);
+		RobotInstruction::RobotProgram* prog = m_programStore->activeCatalog().findProgram(activeId);
 		if (prog)
 		{
 			m_tree->setGroupMembership(&prog->groups);
@@ -596,27 +600,6 @@ void SimulationCommandWidget::refreshProgramCombo()
 	m_programCombo->blockSignals(false);
 }
 
-void SimulationCommandWidget::refreshGroupCombo()
-{
-	if (!m_groupCombo || !m_programStore)
-	{
-		return;
-	}
-	const std::string activeId = m_programStore->activeProgramIdUtf8();
-	const RobotInstruction::RobotProgram* prog = m_programStore->activeCatalog().findProgram(activeId);
-	m_groupCombo->blockSignals(true);
-	m_groupCombo->clear();
-	if (prog)
-	{
-		for (const RobotInstruction::InstructionGroup& group : prog->groups)
-		{
-			m_groupCombo->addItem(QString::fromStdString(group.name), QString::fromStdString(group.id));
-		}
-	}
-	m_groupCombo->blockSignals(false);
-	emit groupsChanged();
-}
-
 void SimulationCommandWidget::onProgramComboChanged(int index)
 {
 	if (!m_programStore || index < 0)
@@ -625,7 +608,6 @@ void SimulationCommandWidget::onProgramComboChanged(int index)
 	}
 	const std::string programId = m_programCombo->itemData(index).toString().toStdString();
 	m_programStore->setActiveProgramIdUtf8(programId);
-	refreshGroupCombo();
 	refreshInstructionList();
 	emit activeProgramChanged(QString::fromStdString(programId));
 }
@@ -704,43 +686,17 @@ void SimulationCommandWidget::onProgramDeleteClicked()
 		return;
 	}
 	refreshProgramCombo();
-	refreshGroupCombo();
 	refreshInstructionList();
 	emit activeProgramChanged(QString::fromStdString(m_programStore->activeProgramIdUtf8()));
 }
 
-void SimulationCommandWidget::onGroupCreateClicked()
+void SimulationCommandWidget::onCreateGroupRequested(
+	const QString& name,
+	const std::vector<std::string>& memberIds)
 {
-	if (!m_programStore || !m_tree || !m_editService)
+	if (!m_programStore || !m_editService || memberIds.empty())
 	{
 		return;
-	}
-	const std::vector<std::shared_ptr<RobotInstruction::Base>> selected = m_tree->selectedMotionInstructions();
-	if (selected.empty())
-	{
-		return;
-	}
-	bool ok = false;
-	const bool zh = m_useChinese;
-	const QString name = QInputDialog::getText(
-		this,
-		zh ? QStringLiteral("创建分组") : QStringLiteral("Create group"),
-		zh ? QStringLiteral("名称") : QStringLiteral("Name"),
-		QLineEdit::Normal,
-		zh ? QStringLiteral("分组") : QStringLiteral("Group"),
-		&ok);
-	if (!ok || name.isEmpty())
-	{
-		return;
-	}
-	std::vector<std::string> memberIds;
-	memberIds.reserve(selected.size());
-	for (const auto& ins : selected)
-	{
-		if (ins)
-		{
-			memberIds.push_back(ins->id());
-		}
 	}
 	RobotInstruction::RobotProgram* prog = m_programStore->activeCatalog().findProgram(m_programStore->activeProgramIdUtf8());
 	if (!prog)
@@ -750,7 +706,7 @@ void SimulationCommandWidget::onGroupCreateClicked()
 	auto cmd = std::make_unique<RobotInstruction::CreateInstructionGroupCommand>(
 		prog,
 		name.toStdString(),
-		std::move(memberIds));
+		memberIds);
 	QString err;
 	if (!m_editService->execute(
 			std::shared_ptr<RobotInstruction::ProgramEditCommand>(std::move(cmd)),
@@ -758,7 +714,56 @@ void SimulationCommandWidget::onGroupCreateClicked()
 	{
 		return;
 	}
-	refreshGroupCombo();
+	rebuildCommandListWidget();
+	emit groupsChanged();
+}
+
+void SimulationCommandWidget::onDissolveGroupRequested(const std::string& groupId)
+{
+	if (!m_programStore || !m_editService || groupId.empty())
+	{
+		return;
+	}
+	RobotInstruction::RobotProgram* prog = m_programStore->activeCatalog().findProgram(m_programStore->activeProgramIdUtf8());
+	if (!prog)
+	{
+		return;
+	}
+	auto cmd = std::make_unique<RobotInstruction::RemoveInstructionGroupCommand>(prog, groupId);
+	QString err;
+	if (!m_editService->execute(
+			std::shared_ptr<RobotInstruction::ProgramEditCommand>(std::move(cmd)),
+			&err))
+	{
+		return;
+	}
+	rebuildCommandListWidget();
+	emit groupsChanged();
+}
+
+void SimulationCommandWidget::onRenameGroupRequested(const std::string& groupId, const QString& newName)
+{
+	if (!m_programStore || !m_editService || groupId.empty() || newName.isEmpty())
+	{
+		return;
+	}
+	RobotInstruction::RobotProgram* prog = m_programStore->activeCatalog().findProgram(m_programStore->activeProgramIdUtf8());
+	if (!prog)
+	{
+		return;
+	}
+	auto cmd = std::make_unique<RobotInstruction::RenameInstructionGroupCommand>(
+		prog,
+		groupId,
+		newName.toStdString());
+	QString err;
+	if (!m_editService->execute(
+			std::shared_ptr<RobotInstruction::ProgramEditCommand>(std::move(cmd)),
+			&err))
+	{
+		return;
+	}
+	rebuildCommandListWidget();
 	emit groupsChanged();
 }
 

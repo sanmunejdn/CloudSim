@@ -9,6 +9,7 @@
 #include <chrono>
 #include <random>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace RobotInstruction
 {
@@ -187,6 +188,90 @@ std::vector<std::string> RobotProgramCatalog::resolveOpScopeInstructionIds(
 				out.push_back(motion->id());
 			}
 		}
+	}
+	return out;
+}
+
+namespace
+{
+void collectMotionIdsFromSteps(
+	const std::vector<std::shared_ptr<Base>>& steps,
+	std::vector<std::string>& out,
+	std::unordered_set<std::string>& seen)
+{
+	for (const std::shared_ptr<Base>& ins : steps)
+	{
+		if (!ins)
+		{
+			continue;
+		}
+		if (isMotionWaypointType(ins->type()))
+		{
+			if (seen.insert(ins->id()).second)
+			{
+				out.push_back(ins->id());
+			}
+			continue;
+		}
+		if (ins->type() == Type::IF)
+		{
+			const auto* ifIns = dynamic_cast<const IfInstruction*>(ins.get());
+			if (ifIns)
+			{
+				collectMotionIdsFromSteps(ifIns->nestedSteps(), out, seen);
+				collectMotionIdsFromSteps(ifIns->elseSteps(), out, seen);
+			}
+		}
+		else if (ins->type() == Type::WHILE)
+		{
+			collectMotionIdsFromSteps(ins->nestedSteps(), out, seen);
+		}
+	}
+}
+
+void collectMotionIdsFromInstructionTree(
+	const Base& ins,
+	std::vector<std::string>& out,
+	std::unordered_set<std::string>& seen)
+{
+	if (isMotionWaypointType(ins.type()))
+	{
+		if (seen.insert(ins.id()).second)
+		{
+			out.push_back(ins.id());
+		}
+		return;
+	}
+	if (ins.type() == Type::IF)
+	{
+		const auto& ifIns = static_cast<const IfInstruction&>(ins);
+		collectMotionIdsFromSteps(ifIns.nestedSteps(), out, seen);
+		collectMotionIdsFromSteps(ifIns.elseSteps(), out, seen);
+	}
+	else if (ins.type() == Type::WHILE)
+	{
+		collectMotionIdsFromSteps(ins.nestedSteps(), out, seen);
+	}
+}
+} // namespace
+
+std::vector<std::string> RobotProgramCatalog::expandToMotionWaypointIds(
+	const RobotProgram& prog,
+	const std::vector<std::string>& instructionIds) const
+{
+	std::unordered_map<std::string, std::shared_ptr<Base>> idMap;
+	InstructionProgramDocument::collectIdMapRecursive(prog.steps, idMap);
+	std::vector<std::string> out;
+	std::unordered_set<std::string> seen;
+	out.reserve(instructionIds.size());
+	for (const std::string& id : instructionIds)
+	{
+		const auto it = idMap.find(id);
+		if (it == idMap.end() || !it->second)
+		{
+			continue;
+		}
+		collectMotionIdsFromInstructionTree(*it->second, out, seen);
 	}
 	return out;
 }

@@ -624,13 +624,15 @@ sequenceDiagram
    - **每连杆后端（可多台）**：`registerUrdfRobot` 为每台注册 **robot root** + 各 link `MeshBackendData`（见 **6.1**）；`applyJointAnglesFromDocument` 按实例切片写各 link 外层世界矩阵。删除 robot root 或任一 link 时 `clearRobotSimulationIfContains` 移除对应实例。  
 2. **程序编辑（`SimulationCommandWidget` + `InstructionProgramTreeWidget`）**  
    - 每台机器人独立程序：`DocumentPage::robotProgramStore()`，按 `sceneBackendId` 键控；`RobotProgramCatalog` 支持多程序与子程序分组（JSON v4）。  
-   - 树控件展示层级（IF 的 Then/Else、WHILE 循环体）；拖放调整顺序与父子关系后 `syncToProgram()` 写回向量。  
-   - 工具栏按钮一键插入 PTP/LINE/逻辑/IO；运动点显示 **P1、P2…**（`formatMotionWaypointSummary`）。  
+   - 指令页 UI：**指令**分组框（PTP/LINE/逻辑/IO 插入）与 **功能**分组框（末端拖动/删除/清空）分两行；无顶栏「分组」下拉。  
+   - 树控件展示层级（IF 的 Then/Else、WHILE 循环体）；**元数据分组以父节点嵌套**（Ctrl 多选根层级指令 → 右键创建/重命名/解散）；切换程序下拉仅显示当前程序指令与分组。  
+   - 运动点显示 **P1、P2…**（`formatMotionWaypointSummary`）。  
 2b. **轨迹编辑（`TrajectoryEditPageWidget`，Dock 第四页）**  
    - 装饰器流水线：Translate/Rotate/Delete/Duplicate 等块 + `OpScope`（全程序/分组/P 范围）。  
    - **Preview**：`reconcilePipelineScopes` → `TrajectoryEditSession` 临时改 store 中路点 `pose` → `syncPreviewRenderMatrices` → `refreshInstructionPoseAxes`；参数变更走 `updatePipelineOps` + 自动 `reapplyPreview`（结构变更才 `setPipeline`/`reset`）。  
    - **Apply**：`TrajectoryPipelineBuilder::buildApplyCommands` → `ProgramEditService` 撤销栈落盘。  
-   - **Undo/Redo**：`revisionChanged` → `syncUiAfterProgramRevision`（`abandonPreview` + 失效分组 scope 回退顶栏分组或全程序）。调色板拖放须 `kMimeType`（见 `RobotWidget` DEVELOPER_GUIDE §轨迹编辑）。  
+   - **Undo/Redo**：`revisionChanged` → `syncUiAfterProgramRevision`（`abandonPreview` + 失效分组 scope 回退顶栏分组或全程序）。  
+   - 分组 scope 平移/旋转：`RobotProgramCatalog::expandToMotionWaypointIds` 展开 IF/WHILE 子树内运动路点。调色板拖放须 `kMimeType`（见 `RobotWidget` DEVELOPER_GUIDE §轨迹编辑）。  
 3. **指令选中预览（非运行态）**  
    - `InstructionProgramTreeWidget::instructionSelected` → `RobotSimulationController::onSimulationInstructionSelectionChanged`（`MainWindow` 转发）。  
    - 选中 **PTP/LINE** 时：`updateInstructionPropertyPanel`（可行轴配置探测/缓存）→ `applyRobotPoseForInstructionPreview` 自 `m_motionPreviewProgramStartJointRad` 链式至该点。对链上每点：若存在 `context.currentJointRadCsv` 则**直接**用示教关节（跳过该点 IK）；否则 `prepareMotionInstructionForPlanning`（**不**覆盖指令 `pose`）+ `plan`。写回场景与滑块；`m_suppressMotionPreviewStartCapture` 防止误改程序起点。添加指令后首次选中用 `m_skipInstructionPreviewOnce` 避免立即预览拉离示教姿态。  

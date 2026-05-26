@@ -1,18 +1,25 @@
 #include "InstructionProgramTreeWidget.h"
 #include "RobotInstructionProgram.h"
 
+#include <QContextMenuEvent>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
+#include <QInputDialog>
+#include <QLineEdit>
+#include <QMenu>
 #include <QMimeData>
 
 #include <algorithm>
 #include <functional>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace
 {
 constexpr int kKindRole = Qt::UserRole;
 constexpr int kInstrPtrRole = Qt::UserRole + 1;
+constexpr int kGroupIdRole = Qt::UserRole + 2;
 
 QString branchLabel(InstructionProgramTreeWidget::NodeKind kind, bool chinese)
 {
@@ -68,6 +75,7 @@ InstructionProgramTreeWidget::InstructionProgramTreeWidget(QWidget* parent)
 	setDropIndicatorShown(true);
 	setDragDropMode(QAbstractItemView::DragDrop);
 	setDefaultDropAction(Qt::MoveAction);
+	setContextMenuPolicy(Qt::DefaultContextMenu);
 
 	connect(this, &QTreeWidget::itemSelectionChanged, this, [this]() {
 		if (m_syncing)
@@ -90,7 +98,7 @@ void InstructionProgramTreeWidget::setProgram(std::vector<std::shared_ptr<RobotI
 	rebuildFromProgram();
 }
 
-void InstructionProgramTreeWidget::setGroupMembership(const std::vector<RobotInstruction::InstructionGroup>* groups)
+void InstructionProgramTreeWidget::setGroupMembership(std::vector<RobotInstruction::InstructionGroup>* groups)
 {
 	m_groups = groups;
 	rebuildFromProgram();
@@ -114,10 +122,39 @@ RobotInstruction::Base* InstructionProgramTreeWidget::instructionRaw(const QTree
 	return reinterpret_cast<RobotInstruction::Base*>(item->data(0, kInstrPtrRole).value<quintptr>());
 }
 
+std::string InstructionProgramTreeWidget::groupIdFromItem(const QTreeWidgetItem* item)
+{
+	if (!item || nodeKind(item) != NodeKind::Group)
+	{
+		return {};
+	}
+	return item->data(0, kGroupIdRole).toString().toStdString();
+}
+
 void InstructionProgramTreeWidget::setInstructionPtr(QTreeWidgetItem* item, RobotInstruction::Base* raw)
 {
 	item->setData(0, kKindRole, static_cast<int>(NodeKind::Instruction));
 	item->setData(0, kInstrPtrRole, QVariant::fromValue<quintptr>(reinterpret_cast<quintptr>(raw)));
+}
+
+void InstructionProgramTreeWidget::setGroupPtr(QTreeWidgetItem* item, const std::string& groupId)
+{
+	item->setData(0, kKindRole, static_cast<int>(NodeKind::Group));
+	item->setData(0, kGroupIdRole, QString::fromStdString(groupId));
+}
+
+bool InstructionProgramTreeWidget::isRootLevelInstructionItem(const QTreeWidgetItem* item)
+{
+	if (!item || nodeKind(item) != NodeKind::Instruction)
+	{
+		return false;
+	}
+	const QTreeWidgetItem* parent = item->parent();
+	if (!parent)
+	{
+		return true;
+	}
+	return nodeKind(parent) == NodeKind::Group;
 }
 
 QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruction::Base& ins, const bool chinese)
@@ -212,6 +249,19 @@ QTreeWidgetItem* InstructionProgramTreeWidget::createInstructionItem(
 	return item;
 }
 
+QTreeWidgetItem* InstructionProgramTreeWidget::createGroupItem(const RobotInstruction::InstructionGroup& group)
+{
+	auto* item = new QTreeWidgetItem();
+	setGroupPtr(item, group.id);
+	const QString label = m_useChinese
+		? QStringLiteral("分组: %1").arg(QString::fromStdString(group.name))
+		: QStringLiteral("Group: %1").arg(QString::fromStdString(group.name));
+	item->setText(0, label);
+	item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsDropEnabled);
+	item->setExpanded(true);
+	return item;
+}
+
 void InstructionProgramTreeWidget::populateInstructionItem(
 	QTreeWidgetItem* item,
 	const std::shared_ptr<RobotInstruction::Base>& ins)
@@ -221,20 +271,7 @@ void InstructionProgramTreeWidget::populateInstructionItem(
 		return;
 	}
 	setInstructionPtr(item, ins.get());
-	QString label = formatInstructionLabel(*ins, m_useChinese);
-	if (m_groups && RobotInstruction::isMotionWaypointType(ins->type()))
-	{
-		for (const RobotInstruction::InstructionGroup& group : *m_groups)
-		{
-			if (std::find(group.memberInstructionIds.begin(), group.memberInstructionIds.end(), ins->id())
-				!= group.memberInstructionIds.end())
-			{
-				label += QStringLiteral(" [") + QString::fromStdString(group.name) + QStringLiteral("]");
-				break;
-			}
-		}
-	}
-	item->setText(0, label);
+	item->setText(0, formatInstructionLabel(*ins, m_useChinese));
 
 	if (ins->type() == RobotInstruction::Type::IF)
 	{
@@ -301,9 +338,68 @@ void InstructionProgramTreeWidget::rebuildFromProgram()
 		m_syncing = false;
 		return;
 	}
-	for (const auto& ins : *m_program)
+
+	std::unordered_map<std::string, std::string> instrToGroupId;
+	if (m_groups)
 	{
-		if (ins)
+		for (const RobotInstruction::InstructionGroup& group : *m_groups)
+		{
+			for (const std::string& memberId : group.memberInstructionIds)
+			{
+				instrToGroupId[memberId] = group.id;
+			}
+		}
+	}
+
+	std::unordered_set<std::string> groupsRendered;
+	for (const std::shared_ptr<RobotInstruction::Base>& ins : *m_program)
+	{
+		if (!ins)
+		{
+			continue;
+		}
+		const auto groupIt = instrToGroupId.find(ins->id());
+		if (groupIt != instrToGroupId.end())
+		{
+			const std::string& groupId = groupIt->second;
+			if (groupsRendered.count(groupId) != 0)
+			{
+				continue;
+			}
+			const RobotInstruction::InstructionGroup* groupDef = nullptr;
+			if (m_groups)
+			{
+				for (const RobotInstruction::InstructionGroup& group : *m_groups)
+				{
+					if (group.id == groupId)
+					{
+						groupDef = &group;
+						break;
+					}
+				}
+			}
+			if (!groupDef)
+			{
+				addTopLevelItem(createInstructionItem(ins));
+				continue;
+			}
+			QTreeWidgetItem* groupItem = createGroupItem(*groupDef);
+			for (const std::shared_ptr<RobotInstruction::Base>& step : *m_program)
+			{
+				if (!step)
+				{
+					continue;
+				}
+				const auto memberIt = instrToGroupId.find(step->id());
+				if (memberIt != instrToGroupId.end() && memberIt->second == groupId)
+				{
+					groupItem->addChild(createInstructionItem(step));
+				}
+			}
+			addTopLevelItem(groupItem);
+			groupsRendered.insert(groupId);
+		}
+		else
 		{
 			addTopLevelItem(createInstructionItem(ins));
 		}
@@ -317,7 +413,6 @@ void InstructionProgramTreeWidget::readStepsFromChildren(
 	std::vector<std::shared_ptr<RobotInstruction::Base>>& out,
 	const std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>>& ptrMap) const
 {
-	out.clear();
 	if (!container)
 	{
 		return;
@@ -346,7 +441,21 @@ void InstructionProgramTreeWidget::readProgramFromTree(
 	for (int i = 0; i < topLevelItemCount(); ++i)
 	{
 		QTreeWidgetItem* item = topLevelItem(i);
-		if (nodeKind(item) != NodeKind::Instruction)
+		const NodeKind kind = nodeKind(item);
+		if (kind == NodeKind::Group)
+		{
+			std::vector<std::shared_ptr<RobotInstruction::Base>> groupSteps;
+			readStepsFromChildren(item, groupSteps, ptrMap);
+			for (const std::shared_ptr<RobotInstruction::Base>& ins : groupSteps)
+			{
+				if (ins)
+				{
+					root.push_back(ins);
+				}
+			}
+			continue;
+		}
+		if (kind != NodeKind::Instruction)
 		{
 			continue;
 		}
@@ -394,6 +503,49 @@ void InstructionProgramTreeWidget::readProgramFromTree(
 	}
 }
 
+void InstructionProgramTreeWidget::syncGroupsFromTree()
+{
+	if (!m_groups)
+	{
+		return;
+	}
+	std::unordered_map<std::string, std::vector<std::string>> membership;
+	for (int i = 0; i < topLevelItemCount(); ++i)
+	{
+		QTreeWidgetItem* item = topLevelItem(i);
+		if (nodeKind(item) != NodeKind::Group)
+		{
+			continue;
+		}
+		const std::string groupId = groupIdFromItem(item);
+		if (groupId.empty())
+		{
+			continue;
+		}
+		std::vector<std::string>& members = membership[groupId];
+		for (int c = 0; c < item->childCount(); ++c)
+		{
+			QTreeWidgetItem* ch = item->child(c);
+			if (RobotInstruction::Base* raw = instructionRaw(ch))
+			{
+				members.push_back(raw->id());
+			}
+		}
+	}
+	for (RobotInstruction::InstructionGroup& group : *m_groups)
+	{
+		const auto it = membership.find(group.id);
+		if (it != membership.end())
+		{
+			group.memberInstructionIds = it->second;
+		}
+		else
+		{
+			group.memberInstructionIds.clear();
+		}
+	}
+}
+
 void InstructionProgramTreeWidget::syncToProgram()
 {
 	if (!m_program)
@@ -406,7 +558,9 @@ void InstructionProgramTreeWidget::syncToProgram()
 	std::vector<std::shared_ptr<RobotInstruction::Base>> newRoot;
 	readProgramFromTree(newRoot, ptrMap);
 	*m_program = std::move(newRoot);
+	syncGroupsFromTree();
 	emit programStructureChanged();
+	emit groupMembershipChanged();
 }
 
 std::shared_ptr<RobotInstruction::Base> InstructionProgramTreeWidget::selectedInstruction() const
@@ -442,6 +596,37 @@ std::vector<std::shared_ptr<RobotInstruction::Base>> InstructionProgramTreeWidge
 	{
 		RobotInstruction::Base* raw = instructionRaw(item);
 		if (!raw || !RobotInstruction::isMotionWaypointType(raw->type()))
+		{
+			continue;
+		}
+		const auto it = ptrMap.find(raw);
+		if (it != ptrMap.end() && it->second)
+		{
+			out.push_back(it->second);
+		}
+	}
+	return out;
+}
+
+std::vector<std::shared_ptr<RobotInstruction::Base>> InstructionProgramTreeWidget::selectedRootInstructions() const
+{
+	std::vector<std::shared_ptr<RobotInstruction::Base>> out;
+	if (!m_program)
+	{
+		return out;
+	}
+	std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>> ptrMap;
+	collectPtrMapRecursive(*m_program, ptrMap);
+	const QList<QTreeWidgetItem*> items = selectedItems();
+	out.reserve(static_cast<size_t>(items.size()));
+	for (QTreeWidgetItem* item : items)
+	{
+		if (!isRootLevelInstructionItem(item))
+		{
+			continue;
+		}
+		RobotInstruction::Base* raw = instructionRaw(item);
+		if (!raw)
 		{
 			continue;
 		}
@@ -519,7 +704,23 @@ void InstructionProgramTreeWidget::insertInstruction(
 	else
 	{
 		const NodeKind k = nodeKind(sel);
-		if (k == NodeKind::ThenBranch || k == NodeKind::ElseBranch)
+		if (k == NodeKind::Group)
+		{
+			m_program->push_back(ins);
+			if (m_groups)
+			{
+				const std::string groupId = groupIdFromItem(sel);
+				for (RobotInstruction::InstructionGroup& group : *m_groups)
+				{
+					if (group.id == groupId)
+					{
+						group.memberInstructionIds.push_back(ins->id());
+						break;
+					}
+				}
+			}
+		}
+		else if (k == NodeKind::ThenBranch || k == NodeKind::ElseBranch)
 		{
 			QTreeWidgetItem* ifItem = sel->parent();
 			auto* ifIns = dynamic_cast<RobotInstruction::IfInstruction*>(instructionRaw(ifItem));
@@ -554,7 +755,23 @@ void InstructionProgramTreeWidget::insertInstruction(
 			else if (QTreeWidgetItem* branch = sel->parent())
 			{
 				const NodeKind pk = nodeKind(branch);
-				if (pk == NodeKind::ThenBranch || pk == NodeKind::ElseBranch)
+				if (pk == NodeKind::Group)
+				{
+					m_program->push_back(ins);
+					const std::string groupId = groupIdFromItem(branch);
+					if (m_groups)
+					{
+						for (RobotInstruction::InstructionGroup& group : *m_groups)
+						{
+							if (group.id == groupId)
+							{
+								group.memberInstructionIds.push_back(ins->id());
+								break;
+							}
+						}
+					}
+				}
+				else if (pk == NodeKind::ThenBranch || pk == NodeKind::ElseBranch)
 				{
 					if (auto* ifIns = dynamic_cast<RobotInstruction::IfInstruction*>(instructionRaw(branch->parent())))
 					{
@@ -642,6 +859,15 @@ void InstructionProgramTreeWidget::removeSelected()
 	{
 		(void)removeRecursive(*m_program);
 	}
+	if (m_groups && raw)
+	{
+		for (RobotInstruction::InstructionGroup& group : *m_groups)
+		{
+			group.memberInstructionIds.erase(
+				std::remove(group.memberInstructionIds.begin(), group.memberInstructionIds.end(), raw->id()),
+				group.memberInstructionIds.end());
+		}
+	}
 	rebuildFromProgram();
 	emit instructionSelected(nullptr);
 }
@@ -653,14 +879,22 @@ void InstructionProgramTreeWidget::clearProgram()
 	{
 		m_program->clear();
 	}
+	if (m_groups)
+	{
+		for (RobotInstruction::InstructionGroup& group : *m_groups)
+		{
+			group.memberInstructionIds.clear();
+		}
+	}
 	emit programStructureChanged();
+	emit groupMembershipChanged();
 	emit instructionSelected(nullptr);
 }
 
 void InstructionProgramTreeWidget::startDrag(Qt::DropActions supportedActions)
 {
 	m_dragItem = currentItem();
-	if (!m_dragItem || nodeKind(m_dragItem) != NodeKind::Instruction)
+	if (!m_dragItem || nodeKind(m_dragItem) != NodeKind::Instruction || !isRootLevelInstructionItem(m_dragItem))
 	{
 		m_dragItem = nullptr;
 		return;
@@ -685,7 +919,7 @@ bool InstructionProgramTreeWidget::canAcceptDrop(
 	QTreeWidgetItem* target,
 	const DropIndicatorPosition pos) const
 {
-	if (!dragged || nodeKind(dragged) != NodeKind::Instruction)
+	if (!dragged || nodeKind(dragged) != NodeKind::Instruction || !isRootLevelInstructionItem(dragged))
 	{
 		return false;
 	}
@@ -707,18 +941,29 @@ bool InstructionProgramTreeWidget::canAcceptDrop(
 	}
 
 	const NodeKind tk = nodeKind(target);
-	if (tk == NodeKind::ThenBranch || tk == NodeKind::ElseBranch)
+	if (tk == NodeKind::Group)
 	{
 		return pos == OnItem || pos == BelowItem || pos == AboveItem;
 	}
+	if (tk == NodeKind::ThenBranch || tk == NodeKind::ElseBranch)
+	{
+		return false;
+	}
 	if (tk == NodeKind::Instruction)
 	{
+		if (QTreeWidgetItem* parent = target->parent())
+		{
+			if (nodeKind(parent) == NodeKind::Group)
+			{
+				return pos == BelowItem || pos == AboveItem;
+			}
+		}
 		RobotInstruction::Base* raw = instructionRaw(target);
 		if (raw && (raw->type() == RobotInstruction::Type::IF || raw->type() == RobotInstruction::Type::WHILE))
 		{
 			if (pos == OnItem)
 			{
-				return true;
+				return false;
 			}
 		}
 		return pos == BelowItem || pos == AboveItem;
@@ -756,37 +1001,29 @@ void InstructionProgramTreeWidget::applyDrop(
 		return;
 	}
 
-	if (const NodeKind tk = nodeKind(target); tk == NodeKind::ThenBranch || tk == NodeKind::ElseBranch)
+	if (const NodeKind tk = nodeKind(target); tk == NodeKind::Group)
 	{
-		int insertAt = target->childCount();
-		if (pos == AboveItem)
+		if (pos == OnItem)
 		{
-			insertAt = 0;
+			target->addChild(item);
+			target->setExpanded(true);
 		}
-		target->insertChild(insertAt, item);
-		target->setExpanded(true);
+		else
+		{
+			QTreeWidgetItem* parent = target->parent();
+			int index = parent ? parent->indexOfChild(target) : indexOfTopLevelItem(target);
+			if (pos == BelowItem)
+			{
+				++index;
+			}
+			insertInto(parent, index);
+		}
 		setCurrentItem(item);
 		return;
 	}
 
 	if (nodeKind(target) == NodeKind::Instruction)
 	{
-		if (RobotInstruction::Base* raw = instructionRaw(target))
-		{
-			if ((raw->type() == RobotInstruction::Type::IF || raw->type() == RobotInstruction::Type::WHILE)
-				&& pos == OnItem)
-			{
-				QTreeWidgetItem* container = target;
-				if (raw->type() == RobotInstruction::Type::IF && target->childCount() > 0)
-				{
-					container = target->child(0);
-				}
-				container->addChild(item);
-				container->setExpanded(true);
-				setCurrentItem(item);
-				return;
-			}
-		}
 		QTreeWidgetItem* parent = target->parent();
 		int index = parent ? parent->indexOfChild(target) : indexOfTopLevelItem(target);
 		if (pos == BelowItem)
@@ -842,4 +1079,70 @@ void InstructionProgramTreeWidget::dropEvent(QDropEvent* event)
 	syncToProgram();
 	rebuildFromProgram();
 	event->acceptProposedAction();
+}
+
+void InstructionProgramTreeWidget::contextMenuEvent(QContextMenuEvent* event)
+{
+	showContextMenu(event->globalPos());
+	event->accept();
+}
+
+void InstructionProgramTreeWidget::showContextMenu(const QPoint& globalPos)
+{
+	QTreeWidgetItem* item = itemAt(viewport()->mapFromGlobal(globalPos));
+	QMenu menu(this);
+
+	if (item && nodeKind(item) == NodeKind::Group)
+	{
+		const std::string groupId = groupIdFromItem(item);
+		const QString renameText = m_useChinese ? QStringLiteral("重命名分组…") : QStringLiteral("Rename group…");
+		const QString dissolveText = m_useChinese ? QStringLiteral("解散分组") : QStringLiteral("Dissolve group");
+		menu.addAction(renameText, this, [this, groupId]() {
+			bool ok = false;
+			const QString title = m_useChinese ? QStringLiteral("重命名分组") : QStringLiteral("Rename group");
+			const QString label = m_useChinese ? QStringLiteral("名称") : QStringLiteral("Name");
+			const QString newName = QInputDialog::getText(this, title, label, QLineEdit::Normal, QString(), &ok);
+			if (ok && !newName.isEmpty())
+			{
+				emit renameGroupRequested(groupId, newName);
+			}
+		});
+		menu.addAction(dissolveText, this, [this, groupId]() {
+			emit dissolveGroupRequested(groupId);
+		});
+	}
+	else
+	{
+		const std::vector<std::shared_ptr<RobotInstruction::Base>> selected = selectedRootInstructions();
+		if (selected.size() >= 2)
+		{
+			const QString createText = m_useChinese ? QStringLiteral("创建分组…") : QStringLiteral("Create group…");
+			menu.addAction(createText, this, [this, selected]() {
+				bool ok = false;
+				const QString title = m_useChinese ? QStringLiteral("创建分组") : QStringLiteral("Create group");
+				const QString label = m_useChinese ? QStringLiteral("名称") : QStringLiteral("Name");
+				const QString defaultName = m_useChinese ? QStringLiteral("分组") : QStringLiteral("Group");
+				const QString name = QInputDialog::getText(this, title, label, QLineEdit::Normal, defaultName, &ok);
+				if (!ok || name.isEmpty())
+				{
+					return;
+				}
+				std::vector<std::string> memberIds;
+				memberIds.reserve(selected.size());
+				for (const std::shared_ptr<RobotInstruction::Base>& ins : selected)
+				{
+					if (ins)
+					{
+						memberIds.push_back(ins->id());
+					}
+				}
+				emit createGroupRequested(name, memberIds);
+			});
+		}
+	}
+
+	if (!menu.isEmpty())
+	{
+		menu.exec(globalPos);
+	}
 }

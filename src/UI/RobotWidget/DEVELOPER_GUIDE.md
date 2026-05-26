@@ -156,23 +156,38 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 | 类 | 说明 |
 |----|------|
-| `SimulationCommandWidget` | 指令树、Run/Stop、TCP 拖动；**程序下拉 / 新建 / 重命名 / 删除**；分组「从选中创建」；`setProgramStore`、`activeProgramChanged` / `groupsChanged` |
+| `SimulationCommandWidget` | 指令树、Run/Stop、TCP 拖动；**程序下拉 / 新建 / 重命名 / 删除**；**指令**分组（PTP/LINE/…）与 **功能**分组（末端拖动/删除/清空）；Ctrl 多选 + 右键创建分组；`setProgramStore`、`activeProgramChanged` / `groupsChanged` |
 | `RobotAxisControlWidget` | 关节滑块；`setJointAngle` 内 `qBound` 限位 |
 | `RobotFrameSettingsWidget` | 工具/用户系；`framesChanged` → 叠加刷新 |
 | `TrajectoryEditPageWidget` | 轨迹编辑 Dock 子页：调色板 + 流水线 + 参数区 + Preview/Apply/Reset/Undo |
-| `TrajectoryPipelineListWidget` | 流水线列表；拖放排序；`kMimeType` 拖入；`opsChanged` / `selectedOpChanged` |
+| `InstructionProgramTreeWidget` | 层级指令树；`NodeKind::Group` 嵌套显示分组；Ctrl 多选根层级指令 → 右键创建分组；拖放维护 `memberInstructionIds`；`instructionSelected` → 预览 |
 | `TrajectoryEditSession` | 预览（临时改 store 中 pose）与 Apply（Command 落盘）；`reset` / `abandonPreview`；见 §轨迹编辑 |
 | `ProgramEditService` | `execute` / `undo` / `redo`；`revisionChanged` → 轨迹页 `syncUiAfterProgramRevision` + 指令树刷新 |
-| `InstructionProgramTreeWidget` | `instructionSelected` → 预览 |
 | `DevicePageWidget` | URDF 导入 → `onUrdfImportRequested` |
 
 TCP 拖动 OSG 实现仍在 [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §13.1。
+
+### `SimulationCommandWidget` 布局（指令子页）
+
+Dock **机器人** 页内指令编辑区自上而下：
+
+| 区域 | 控件 |
+|------|------|
+| 提示 | 选择机器人、插入指令、Ctrl 多选 + 右键分组、拖放排序 |
+| 机器人 / TCP | `m_robotCombo`、`m_tcpLinkCombo` |
+| 程序 | 下拉 + 新建 / 重命名 / 删除 |
+| **指令**（`m_instructionGroupBox`） | PTP、LINE、\|、WAIT、IF、WHILE、SET_DO、SET_AO |
+| **功能**（`m_functionGroupBox`） | 末端拖动、删除、清空 |
+| 指令树 | `InstructionProgramTreeWidget`（占剩余高度） |
+| 运行 | Run / Stop / Export |
+
+分组创建/解散/重命名在**树右键**完成，经 `ProgramEditService` 落盘并 `emit groupsChanged()` 供轨迹编辑页刷新顶栏分组下拉。程序切换：`onProgramComboChanged` → `rebuildCommandListWidget()` 绑定当前程序 `steps` + `groups`。
 
 ---
 
 ## 轨迹编辑（Trajectory Edit）
 
-Dock 第四页「轨迹编辑」。默认中文 UI；`MainWindow::applyLanguage` → `trajectoryEditPage()->setUseChinese(m_useChinese)`。
+Dock 第四页「轨迹编辑」。Dock 主标签为 **机器人** / Robot（原「指令仿真」）。默认中文 UI；`MainWindow::applyLanguage` → `trajectoryEditPage()->setUseChinese(m_useChinese)`。
 
 ### 组件与绑定
 

@@ -85,7 +85,12 @@ std::vector<std::string> TrajectoryEditSession::collectPreviewWaypointIds() cons
 			continue;
 		}
 		const std::vector<std::string> ids = catalog.resolveOpScopeInstructionIds(op.scope, *prog);
-		for (const std::string& id : ids)
+		std::vector<std::string> waypointIds = ids;
+		if (op.scope.kind == RobotInstruction::OpScope::Kind::Group)
+		{
+			waypointIds = catalog.expandToMotionWaypointIds(*prog, ids);
+		}
+		for (const std::string& id : waypointIds)
 		{
 			if (seen.count(id) == 0)
 			{
