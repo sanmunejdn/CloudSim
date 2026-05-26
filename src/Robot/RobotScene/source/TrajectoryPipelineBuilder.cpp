@@ -3,39 +3,45 @@
 #include "InstructionProgramDocument.h"
 #include "RobotInstructionProgram.h"
 #include "RobotInstructionTransform.h"
+#include "RobotProgramCatalog.h"
+#include "TrajectoryApplyActionConverter.h"
+
+#include <ITrajectoryOp.h>
+#include <TrajectoryApplyAction.h>
+#include <TrajectoryOpRegistry.h>
+#include <TrajectoryTransformMath.h>
 
 #include <RigidTransform.h>
-
-#include <cmath>
 
 namespace RobotInstruction
 {
 namespace
 {
-constexpr double kPi = 3.14159265358979323846;
 
 engine::RigidTransform deltaFromDescriptor(const TrajectoryOpDescriptor& op)
 {
 	if (op.kind == TrajectoryOpKind::Translate)
 	{
-		return engine::RigidTransform::fromTranslationQuat(
-			Eigen::Vector3d(op.translate.dxMm, op.translate.dyMm, op.translate.dzMm),
-			Eigen::Quaterniond::Identity());
+		return trajectory_algo::rigidDeltaFromTranslate(op.translate);
 	}
 	if (op.kind == TrajectoryOpKind::Rotate)
 	{
-		Eigen::Vector3d axis(op.rotate.axisX, op.rotate.axisY, op.rotate.axisZ);
-		if (axis.norm() < 1e-9)
-		{
-			axis = Eigen::Vector3d::UnitZ();
-		}
-		axis.normalize();
-		const double rad = op.rotate.angleDeg * kPi / 180.0;
-		return engine::RigidTransform::fromTranslationQuat(
-			Eigen::Vector3d::Zero(),
-			Eigen::Quaterniond(Eigen::AngleAxisd(rad, axis)));
+		return trajectory_algo::rigidDeltaFromRotate(op.rotate);
 	}
 	return engine::RigidTransform::identity();
+}
+
+RobotInstruction::TransformReferenceFrame frameForDescriptor(const TrajectoryOpDescriptor& op)
+{
+	if (op.kind == TrajectoryOpKind::Translate)
+	{
+		return op.translate.frame;
+	}
+	if (op.kind == TrajectoryOpKind::Rotate)
+	{
+		return op.rotate.frame;
+	}
+	return TransformReferenceFrame::World;
 }
 
 engine::RigidTransform combinedTransformForOps(const std::vector<TrajectoryOpDescriptor>& ops)
@@ -43,13 +49,24 @@ engine::RigidTransform combinedTransformForOps(const std::vector<TrajectoryOpDes
 	engine::RigidTransform combined = engine::RigidTransform::identity();
 	for (const TrajectoryOpDescriptor& op : ops)
 	{
-		if (op.kind == TrajectoryOpKind::Translate || op.kind == TrajectoryOpKind::Rotate)
+		if (op.kind != TrajectoryOpKind::Translate && op.kind != TrajectoryOpKind::Rotate)
 		{
-			combined = deltaFromDescriptor(op).composeColumn(combined);
+			continue;
+		}
+		const engine::RigidTransform delta = deltaFromDescriptor(op);
+		const TransformReferenceFrame frame = frameForDescriptor(op);
+		if (frame == TransformReferenceFrame::Body)
+		{
+			combined = combined.composeColumn(delta);
+		}
+		else
+		{
+			combined = delta.composeColumn(combined);
 		}
 	}
 	return combined;
 }
+
 } // namespace
 
 bool DefaultMotionPoseQuery::queryMotionPose(const Base& ins, Vec3& poseMm, Vec3& eulerDeg) const
@@ -111,22 +128,23 @@ bool TransformMotionPoseQuery::queryMotionPose(const Base& ins, Vec3& poseMm, Ve
 			eulerDeg.y,
 			eulerDeg.z);
 	}
-	engine::RigidTransform delta = engine::RigidTransform::identity();
+	engine::RigidTransform updated = target;
 	if (m_translate.dxMm != 0.0 || m_translate.dyMm != 0.0 || m_translate.dzMm != 0.0)
 	{
 		TrajectoryOpDescriptor tOp{};
 		tOp.kind = TrajectoryOpKind::Translate;
 		tOp.translate = m_translate;
-		delta = deltaFromDescriptor(tOp).composeColumn(delta);
+		const engine::RigidTransform tDelta = deltaFromDescriptor(tOp);
+		updated = trajectory_algo::applyTransformDelta(updated, tDelta, m_translate.frame);
 	}
 	if (m_rotate.angleDeg != 0.0)
 	{
 		TrajectoryOpDescriptor rOp{};
 		rOp.kind = TrajectoryOpKind::Rotate;
 		rOp.rotate = m_rotate;
-		delta = deltaFromDescriptor(rOp).composeColumn(delta);
+		const engine::RigidTransform rDelta = deltaFromDescriptor(rOp);
+		updated = trajectory_algo::applyTransformDelta(updated, rDelta, m_rotate.frame);
 	}
-	const engine::RigidTransform updated = delta.composeColumn(target);
 	double px = 0.0;
 	double py = 0.0;
 	double pz = 0.0;
@@ -146,6 +164,7 @@ std::unique_ptr<IMotionPoseQuery> buildPreviewPoseQueryChain(
 	const std::vector<TrajectoryOpDescriptor>& ops)
 {
 	(void)rootSteps;
+	trajectory_algo::ensureTrajectoryOpBuiltinsRegistered();
 	std::unique_ptr<IMotionPoseQuery> chain = std::make_unique<DefaultMotionPoseQuery>();
 	if (!program)
 	{
@@ -154,32 +173,37 @@ std::unique_ptr<IMotionPoseQuery> buildPreviewPoseQueryChain(
 	RobotProgramCatalog catalog;
 	for (const TrajectoryOpDescriptor& op : ops)
 	{
-		if (op.kind != TrajectoryOpKind::Translate && op.kind != TrajectoryOpKind::Rotate)
+		const trajectory_algo::ITrajectoryOp* algo =
+			trajectory_algo::TrajectoryOpRegistry::instance().get(op.kind);
+		if (!algo || !trajectory_algo::hasCapability(
+				algo->capabilities(),
+				trajectory_algo::TrajectoryOpCapability::PreviewPoseTransform))
 		{
 			continue;
 		}
-		std::unordered_set<std::string> ids;
-		for (const std::string& id : catalog.resolveOpScopeInstructionIds(op.scope, *program))
+		std::vector<std::string> scopeIds = catalog.resolveOpScopeInstructionIds(op.scope, *program);
+		if (op.scope.kind == OpScope::Kind::Group)
 		{
-			ids.insert(id);
+			scopeIds = catalog.expandToMotionWaypointIds(*program, scopeIds);
 		}
-		if (ids.empty())
+		trajectory_algo::PreviewTransformStep step{};
+		if (!algo->contributePreviewTransform(op, scopeIds, step) || step.targetIds.empty())
 		{
 			continue;
 		}
 		TranslateParams translate{};
 		RotateParams rotate{};
-		if (op.kind == TrajectoryOpKind::Translate)
+		if (step.kind == trajectory_algo::PreviewTransformStep::Kind::TranslateOnly)
 		{
-			translate = op.translate;
+			translate = step.translate;
 		}
-		else if (op.kind == TrajectoryOpKind::Rotate)
+		else if (step.kind == trajectory_algo::PreviewTransformStep::Kind::RotateOnly)
 		{
-			rotate = op.rotate;
+			rotate = step.rotate;
 		}
 		chain = std::make_unique<TransformMotionPoseQuery>(
 			std::move(chain),
-			std::move(ids),
+			std::move(step.targetIds),
 			translate,
 			rotate);
 	}
@@ -206,7 +230,7 @@ std::vector<ProgramEditStack::CommandPtr> TrajectoryPipelineBuilder::buildApplyC
 	InstructionProgramDocument& doc,
 	std::string* errMsg) const
 {
-	(void)doc;
+	trajectory_algo::ensureTrajectoryOpBuiltinsRegistered();
 	std::vector<ProgramEditStack::CommandPtr> out;
 	if (!m_program)
 	{
@@ -216,54 +240,21 @@ std::vector<ProgramEditStack::CommandPtr> TrajectoryPipelineBuilder::buildApplyC
 		}
 		return out;
 	}
-	RobotProgramCatalog catalog;
-	std::vector<TrajectoryOpDescriptor> transformOps;
+	trajectory_algo::TrajectoryOpContext ctx{};
+	ctx.program = m_program;
+	std::vector<trajectory_algo::TrajectoryApplyAction> actions;
 	for (const TrajectoryOpDescriptor& op : m_ops)
 	{
-		if (op.kind == TrajectoryOpKind::Translate || op.kind == TrajectoryOpKind::Rotate)
-		{
-			transformOps.push_back(op);
-			continue;
-		}
-		const std::vector<std::string> ids = catalog.resolveOpScopeInstructionIds(op.scope, *m_program);
-		if (ids.empty())
+		const trajectory_algo::ITrajectoryOp* algo =
+			trajectory_algo::TrajectoryOpRegistry::instance().get(op.kind);
+		if (!algo)
 		{
 			continue;
 		}
-		if (op.kind == TrajectoryOpKind::Delete)
-		{
-			for (const std::string& id : ids)
-			{
-				out.push_back(std::make_shared<RemoveInstructionCommand>(id));
-			}
-		}
-		else if (op.kind == TrajectoryOpKind::Duplicate)
-		{
-			for (const std::string& id : ids)
-			{
-				out.push_back(std::make_shared<DuplicateInstructionCommand>(id, 0));
-			}
-		}
+		std::vector<trajectory_algo::TrajectoryApplyAction> built = algo->buildApplyActions(ctx, op);
+		actions.insert(actions.end(), built.begin(), built.end());
 	}
-	for (const TrajectoryOpDescriptor& op : transformOps)
-	{
-		std::vector<std::string> ids = catalog.resolveOpScopeInstructionIds(op.scope, *m_program);
-		if (op.scope.kind == OpScope::Kind::Group)
-		{
-			ids = catalog.expandToMotionWaypointIds(*m_program, ids);
-		}
-		if (!ids.empty())
-		{
-			out.push_back(std::make_shared<TransformMotionSegmentCommand>(
-				ids,
-				std::vector<TrajectoryOpDescriptor>{ op }));
-		}
-	}
-	if (out.empty() && errMsg)
-	{
-		*errMsg = "no applicable operations";
-	}
-	return out;
+	return convertApplyActionsToCommands(actions, *m_program, doc, errMsg);
 }
 
 } // namespace RobotInstruction

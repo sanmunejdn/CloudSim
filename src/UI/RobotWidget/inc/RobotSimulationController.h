@@ -91,6 +91,7 @@ public slots:
 	QVector<double> aggregatedJointAnglesRad() const { return m_aggregatedJointAnglesRad; }
 	void restoreAggregatedJointStateAfterProjectLoad(const QVector<double>& allJointAnglesRad);
 	void applyProgramStartPoseAfterProjectLoad();
+	void refreshInstructionPoseAxes(bool computeReachability = true);
 	void refreshSimulationJointListFromCurrentDoc();
 	void syncRobotFrameSettingsFromDocument(int instanceIndex);
 	void refreshRobotCoordinateFrameOverlays(
@@ -99,9 +100,10 @@ public slots:
 	void refreshRobotCoordinateFrameOverlaysForPlayback();
 	void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
-	void refreshInstructionPoseAxes();
 
 private:
+	void applyProgramStartPoseAfterProjectLoadImpl();
+	void finishProgramStartPoseAfterProjectLoad(int instIdx, QVector<double> startJointQ);
 	void captureMotionPreviewProgramStartJoints();
 	QVector<double> motionPreviewProgramStartJointsLocal(int nj, int jointOffset) const;
 	QVector<double> localJointAnglesForInstance(int instIdx) const;

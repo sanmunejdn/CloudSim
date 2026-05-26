@@ -144,16 +144,16 @@
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <UndefinePreprocessorDefinitions>_DEBUG</UndefinePreprocessorDefinitions>
-      <PreprocessorDefinitions>ROBOT_SCENE_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ROBOT_SCENE_LIB;TRAJECTORY_ALGORITHM_STATIC;TRAJECTORY_ALGORITHM_BUILTINS_STATIC;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../../Contracts/CloudSimCore/inc;../../Geometry/GeometryEngine/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../TrajectoryAlgorithm/inc;../TrajectoryAlgorithmBuiltins/inc;../../Contracts/CloudSimCore/inc;../../Geometry/GeometryEngine/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>CloudSimCore.lib;GeometryEngine.lib;Data.lib;RunLogger.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgUtil.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimCore.lib;GeometryEngine.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;Data.lib;RunLogger.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgUtil.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -163,16 +163,16 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>ROBOT_SCENE_LIB;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>ROBOT_SCENE_LIB;TRAJECTORY_ALGORITHM_STATIC;TRAJECTORY_ALGORITHM_BUILTINS_STATIC;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../../Contracts/CloudSimCore/inc;../../Geometry/GeometryEngine/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../TrajectoryAlgorithm/inc;../TrajectoryAlgorithmBuiltins/inc;../../Contracts/CloudSimCore/inc;../../Geometry/GeometryEngine/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>CloudSimCore.lib;GeometryEngine.lib;Data.lib;RunLogger.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgUtil.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimCore.lib;GeometryEngine.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;Data.lib;RunLogger.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgUtil.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -199,6 +199,8 @@
     <ClInclude Include="inc\RobotProgramCatalog.h" />
     <ClInclude Include="inc\TrajectoryPipelineTypes.h" />
     <ClInclude Include="inc\TrajectoryPipelineBuilder.h" />
+    <ClInclude Include="inc\TrajectoryApplyActionConverter.h" />
+    <ClInclude Include="inc\TrajectoryOpBridge.h" />
     <ClInclude Include="inc\RobotMatrixOsgBridge.h" />
     <ClInclude Include="inc\RobotSceneKinematics.h" />
     <ClInclude Include="inc\RobotTeachIk.h" />
@@ -220,6 +222,8 @@
     <ClCompile Include="source\ProgramEditCommand.cpp" />
     <ClCompile Include="source\RobotProgramCatalog.cpp" />
     <ClCompile Include="source\TrajectoryPipelineBuilder.cpp" />
+    <ClCompile Include="source\TrajectoryApplyActionConverter.cpp" />
+    <ClCompile Include="source\TrajectoryOpBridge.cpp" />
     <ClCompile Include="source\RobotMatrixOsgBridge.cpp" />
     <ClCompile Include="source\RobotSceneKinematics.cpp" />
     <ClCompile Include="source\RobotTeachIk.cpp" />
@@ -231,6 +235,12 @@
     </ProjectReference>
     <ProjectReference Include="..\..\Geometry\GeometryEngine\GeometryEngine.vcxproj">
       <Project>{d4e5f6a7-b8c9-4d0e-9f1a-2b3c4d5e6f70}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\TrajectoryAlgorithm\TrajectoryAlgorithm.vcxproj">
+      <Project>{c1a2b3d4-e5f6-7890-abcd-ef0123456702}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\TrajectoryAlgorithmBuiltins\TrajectoryAlgorithmBuiltins.vcxproj">
+      <Project>{c2a3b4d5-e6f7-8901-bcde-f12345678902}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\Data\Data\Data.vcxproj">
       <Project>{50119edf-918f-4bc8-a201-7ac6f0fe82a1}</Project>

@@ -57,6 +57,7 @@ QJsonArray robotProgramsToJson(const RobotProgramStore& store)
 bool robotProgramsFromJson(RobotProgramStore& store, const QJsonArray& programs, IRobotUrdfImportContext& ctx,
 	QString* outError)
 {
+	// 整表替换会使 UI 持有的 steps/groups 裸指针失效；调用方须在刷新前 bindProgramTree
 	for (const QJsonValue& pv : programs)
 	{
 		if (!pv.isObject())

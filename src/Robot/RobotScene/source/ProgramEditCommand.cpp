@@ -4,6 +4,8 @@
 #include "RobotInstructionProgram.h"
 #include "RobotInstructionTransform.h"
 
+#include <TrajectoryTransformMath.h>
+
 #include <RigidTransform.h>
 
 #include <algorithm>
@@ -32,35 +34,41 @@ engine::RigidTransform deltaFromOp(const TrajectoryOpDescriptor& op)
 {
 	if (op.kind == TrajectoryOpKind::Translate)
 	{
-		return engine::RigidTransform::fromTranslationQuat(
-			Eigen::Vector3d(op.translate.dxMm, op.translate.dyMm, op.translate.dzMm),
-			Eigen::Quaterniond::Identity());
+		return trajectory_algo::rigidDeltaFromTranslate(op.translate);
 	}
 	if (op.kind == TrajectoryOpKind::Rotate)
 	{
-		Eigen::Vector3d axis(op.rotate.axisX, op.rotate.axisY, op.rotate.axisZ);
-		if (axis.norm() < 1e-9)
-		{
-			axis = Eigen::Vector3d::UnitZ();
-		}
-		axis.normalize();
-		const double rad = op.rotate.angleDeg * kPi / 180.0;
-		const Eigen::Quaterniond q(Eigen::AngleAxisd(rad, axis));
-		return engine::RigidTransform::fromTranslationQuat(Eigen::Vector3d::Zero(), q);
+		return trajectory_algo::rigidDeltaFromRotate(op.rotate);
 	}
 	return engine::RigidTransform::identity();
 }
 
-void applyDeltaToInstruction(Base& ins, const engine::RigidTransform& delta)
+TransformReferenceFrame frameForOp(const TrajectoryOpDescriptor& op)
+{
+	if (op.kind == TrajectoryOpKind::Translate)
+	{
+		return op.translate.frame;
+	}
+	if (op.kind == TrajectoryOpKind::Rotate)
+	{
+		return op.rotate.frame;
+	}
+	return TransformReferenceFrame::World;
+}
+
+void applyDeltaToInstruction(Base& ins, const engine::RigidTransform& delta, const TransformReferenceFrame frame)
 {
 	engine::RigidTransform target = engine::RigidTransform::identity();
 	if (!readTargetTransformFromInstruction(ins, target))
 	{
 		return;
 	}
-	const engine::RigidTransform updated = delta.composeColumn(target);
+	const engine::RigidTransform updated = trajectory_algo::applyTransformDelta(target, delta, frame);
 	writeTargetTransformToInstruction(ins, updated);
 	ins.eraseExtensionProperty("context.currentJointRadCsv");
+	// 位姿已变，旧渲染缓存会导致 OSG 仍按 render.tcpWorldMat4 显示错误位置
+	ins.eraseExtensionProperty("render.tcpWorldMat4");
+	ins.eraseExtensionProperty("render.tcpLocalMat4");
 }
 } // namespace
 
@@ -236,14 +244,6 @@ bool TransformMotionSegmentCommand::execute(InstructionProgramDocument& doc, std
 {
 	(void)errMsg;
 	m_before.clear();
-	engine::RigidTransform combined = engine::RigidTransform::identity();
-	for (const TrajectoryOpDescriptor& op : m_transformOps)
-	{
-		if (op.kind == TrajectoryOpKind::Translate || op.kind == TrajectoryOpKind::Rotate)
-		{
-			combined = deltaFromOp(op).composeColumn(combined);
-		}
-	}
 	for (const std::string& id : m_targetIds)
 	{
 		Base* raw = doc.findById(id);
@@ -257,7 +257,14 @@ bool TransformMotionSegmentCommand::execute(InstructionProgramDocument& doc, std
 		snap.euler = raw->eulerDeg();
 		snap.extensions = raw->extensionProperties();
 		m_before.push_back(std::move(snap));
-		applyDeltaToInstruction(*raw, combined);
+		for (const TrajectoryOpDescriptor& op : m_transformOps)
+		{
+			if (op.kind != TrajectoryOpKind::Translate && op.kind != TrajectoryOpKind::Rotate)
+			{
+				continue;
+			}
+			applyDeltaToInstruction(*raw, deltaFromOp(op), frameForOp(op));
+		}
 	}
 	return !m_before.empty();
 }

@@ -8,19 +8,16 @@
 
 
 
+#include <QPoint>
 #include <QWidget>
-
-
 
 #include <string>
 
-#include <vector>
 
 
+class QCheckBox;
 
 class QComboBox;
-
-class QDoubleSpinBox;
 
 class QGroupBox;
 
@@ -41,6 +38,8 @@ class ProgramEditService;
 class RobotProgramStore;
 
 class SimulationCommandWidget;
+
+class TrajectoryOpParamPanel;
 
 
 
@@ -90,11 +89,14 @@ private:
 
 	void flushPipelineToSession();
 
+	void runPreviewIfEnabled();
+
 	RobotInstruction::OpScope defaultScopeForNewOp() const;
 
 	RobotInstruction::TrajectoryOpDescriptor makeDefaultOp(RobotInstruction::TrajectoryOpKind kind) const;
 
 	void loadSelectedOpToParams();
+	void loadSelectedOpToParamsImpl();
 
 	void applyParamsToSelectedOp();
 
@@ -110,11 +112,9 @@ private:
 
 	void syncUiAfterProgramRevision();
 
-	void reconcilePipelineScopes();
+	bool reconcilePipelineScopes();
 
-
-
-	void refreshScopeKindCombo();
+	void syncScopeComboFromSelectedOp();
 
 	void updateUiLabels();
 
@@ -128,7 +128,7 @@ private:
 
 	void onPipelineSelectionChanged(int index);
 
-	void onPreviewClicked();
+	void onPreviewToggled(bool checked);
 
 	void onApplyClicked();
 
@@ -147,6 +147,8 @@ private:
 	void onSaveTemplateClicked();
 
 	void onLoadTemplateClicked();
+
+	void showPipelineContextMenu(const QPoint& pos);
 
 
 
@@ -172,28 +174,6 @@ private:
 
 	QGroupBox* m_paramGroupBox = nullptr;
 
-	QLabel* m_scopeKindFieldLabel = nullptr;
-
-	QLabel* m_scopeGroupFieldLabel = nullptr;
-
-	QLabel* m_pointRangeFieldLabel = nullptr;
-
-	QLabel* m_dxFieldLabel = nullptr;
-
-	QLabel* m_dyFieldLabel = nullptr;
-
-	QLabel* m_dzFieldLabel = nullptr;
-
-	QLabel* m_axisXFieldLabel = nullptr;
-
-	QLabel* m_axisYFieldLabel = nullptr;
-
-	QLabel* m_axisZFieldLabel = nullptr;
-
-	QLabel* m_angleFieldLabel = nullptr;
-
-	QLabel* m_mirrorHintLabel = nullptr;
-
 
 
 	QComboBox* m_programCombo = nullptr;
@@ -206,31 +186,13 @@ private:
 
 
 
-	QComboBox* m_scopeKindCombo = nullptr;
-
 	QComboBox* m_scopeGroupCombo = nullptr;
 
-	QDoubleSpinBox* m_pointFromSpin = nullptr;
-
-	QDoubleSpinBox* m_pointToSpin = nullptr;
-
-	QDoubleSpinBox* m_dxSpin = nullptr;
-
-	QDoubleSpinBox* m_dySpin = nullptr;
-
-	QDoubleSpinBox* m_dzSpin = nullptr;
-
-	QDoubleSpinBox* m_axisXSpin = nullptr;
-
-	QDoubleSpinBox* m_axisYSpin = nullptr;
-
-	QDoubleSpinBox* m_axisZSpin = nullptr;
-
-	QDoubleSpinBox* m_angleSpin = nullptr;
+	TrajectoryOpParamPanel* m_paramPanel = nullptr;
 
 
 
-	QPushButton* m_previewBtn = nullptr;
+	QCheckBox* m_previewCheck = nullptr;
 
 	QPushButton* m_applyBtn = nullptr;
 
@@ -240,12 +202,6 @@ private:
 
 	QPushButton* m_redoBtn = nullptr;
 
-	QPushButton* m_removeOpBtn = nullptr;
-
-	QPushButton* m_moveUpBtn = nullptr;
-
-	QPushButton* m_moveDownBtn = nullptr;
-
 	QPushButton* m_saveTemplateBtn = nullptr;
 
 	QPushButton* m_loadTemplateBtn = nullptr;
@@ -253,9 +209,11 @@ private:
 
 
 	bool m_loadingParams = false;
+	bool m_flushingParams = false;
+	bool m_pendingLoadSelectedOp = false;
+	bool m_committingApply = false;
 
 	std::string m_selectedGroupId;
 
 };
-
 

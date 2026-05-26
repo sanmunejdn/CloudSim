@@ -18,6 +18,13 @@ enum class ROBOT_SCENE_API TrajectoryOpKind
 	Reorder
 };
 
+/// 轨迹增量参考系（相对路点当前 T_base_target）
+enum class ROBOT_SCENE_API TransformReferenceFrame : int
+{
+	World = 0,
+	Body = 1
+};
+
 struct ROBOT_SCENE_API OpScope
 {
 	enum class Kind
@@ -37,6 +44,7 @@ struct ROBOT_SCENE_API OpScope
 
 struct ROBOT_SCENE_API TranslateParams
 {
+	TransformReferenceFrame frame = TransformReferenceFrame::World;
 	double dxMm = 0.0;
 	double dyMm = 0.0;
 	double dzMm = 0.0;
@@ -44,6 +52,7 @@ struct ROBOT_SCENE_API TranslateParams
 
 struct ROBOT_SCENE_API RotateParams
 {
+	TransformReferenceFrame frame = TransformReferenceFrame::World;
 	double axisX = 0.0;
 	double axisY = 0.0;
 	double axisZ = 1.0;

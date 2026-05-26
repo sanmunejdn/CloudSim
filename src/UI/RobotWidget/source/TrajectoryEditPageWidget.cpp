@@ -3,19 +3,27 @@
 #include "ProgramEditService.h"
 #include "SimulationCommandWidget.h"
 #include "TrajectoryEditSession.h"
+#include "TrajectoryOpParamPanel.h"
 #include "TrajectoryPipelineListWidget.h"
 #include "RobotProgramStore.h"
 
+#include <ITrajectoryOp.h>
+#include "TrajectoryOpBridge.h"
+
+#include <json.hpp>
+
+#include <QCheckBox>
 #include <QComboBox>
-#include <QDoubleSpinBox>
-#include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSettings>
+#include <QSignalBlocker>
+#include <QTimer>
 #include <QVBoxLayout>
 
 #include <QDrag>
@@ -33,6 +41,7 @@ public:
 		: QListWidget(parent)
 	{
 		setDragEnabled(true);
+		setSpacing(2);
 	}
 
 protected:
@@ -78,11 +87,44 @@ QString opKindLabel(RobotInstruction::TrajectoryOpKind kind, bool zh)
 		return zh ? QStringLiteral("平移") : QStringLiteral("Translate");
 	}
 }
+void updateTransformActionButtons(
+	const RobotInstruction::TrajectoryOpDescriptor& op,
+	QCheckBox* previewCheck,
+	QPushButton* applyBtn,
+	const bool readOnly)
+{
+	const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(op.kind);
+	const bool canTransform = algo
+		&& (trajectory_algo::hasCapability(
+				algo->capabilities(),
+				trajectory_algo::TrajectoryOpCapability::PreviewPoseTransform)
+			|| trajectory_algo::hasCapability(
+				algo->capabilities(),
+				trajectory_algo::TrajectoryOpCapability::ApplyPoseTransform)
+			|| trajectory_algo::hasCapability(
+				algo->capabilities(),
+				trajectory_algo::TrajectoryOpCapability::ApplyStructuralEdit));
+	if (previewCheck)
+	{
+		previewCheck->setEnabled(canTransform && !readOnly
+			&& algo
+			&& trajectory_algo::hasCapability(
+				algo->capabilities(),
+				trajectory_algo::TrajectoryOpCapability::PreviewPoseTransform));
+	}
+	if (applyBtn)
+	{
+		applyBtn->setEnabled(canTransform && !readOnly);
+	}
+}
+
 } // namespace
 
 TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	: QWidget(parent)
 {
+	RobotInstruction::ensureTrajectoryOpBuiltinsRegistered();
+
 	auto* root = new QVBoxLayout(this);
 	root->setContentsMargins(6, 6, 6, 6);
 	root->setSpacing(6);
@@ -111,84 +153,25 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	root->addLayout(bodyRow, 1);
 
 	m_paramGroupBox = new QGroupBox(QStringLiteral("参数"), this);
-	auto* paramForm = new QFormLayout(m_paramGroupBox);
-	m_scopeKindCombo = new QComboBox(m_paramGroupBox);
-	m_scopeKindFieldLabel = new QLabel(QStringLiteral("作用域"), m_paramGroupBox);
-	paramForm->addRow(m_scopeKindFieldLabel, m_scopeKindCombo);
+	auto* paramBoxLayout = new QVBoxLayout(m_paramGroupBox);
 	m_scopeGroupCombo = new QComboBox(m_paramGroupBox);
-	m_scopeGroupFieldLabel = new QLabel(QStringLiteral("分组"), m_paramGroupBox);
-	paramForm->addRow(m_scopeGroupFieldLabel, m_scopeGroupCombo);
-	auto* rangeRow = new QHBoxLayout;
-	m_pointFromSpin = new QDoubleSpinBox(m_paramGroupBox);
-	m_pointFromSpin->setRange(1, 9999);
-	m_pointFromSpin->setDecimals(0);
-	m_pointToSpin = new QDoubleSpinBox(m_paramGroupBox);
-	m_pointToSpin->setRange(1, 9999);
-	m_pointToSpin->setDecimals(0);
-	rangeRow->addWidget(m_pointFromSpin);
-	rangeRow->addWidget(new QLabel(QStringLiteral("-"), m_paramGroupBox));
-	rangeRow->addWidget(m_pointToSpin);
-	m_pointRangeFieldLabel = new QLabel(QStringLiteral("P"), m_paramGroupBox);
-	paramForm->addRow(m_pointRangeFieldLabel, rangeRow);
-	m_dxSpin = new QDoubleSpinBox(m_paramGroupBox);
-	m_dySpin = new QDoubleSpinBox(m_paramGroupBox);
-	m_dzSpin = new QDoubleSpinBox(m_paramGroupBox);
-	for (QDoubleSpinBox* spin : { m_dxSpin, m_dySpin, m_dzSpin })
-	{
-		spin->setRange(-100000.0, 100000.0);
-		spin->setDecimals(2);
-	}
-	m_dxFieldLabel = new QLabel(QStringLiteral("ΔX mm"), m_paramGroupBox);
-	m_dyFieldLabel = new QLabel(QStringLiteral("ΔY mm"), m_paramGroupBox);
-	m_dzFieldLabel = new QLabel(QStringLiteral("ΔZ mm"), m_paramGroupBox);
-	paramForm->addRow(m_dxFieldLabel, m_dxSpin);
-	paramForm->addRow(m_dyFieldLabel, m_dySpin);
-	paramForm->addRow(m_dzFieldLabel, m_dzSpin);
-	m_axisXSpin = new QDoubleSpinBox(m_paramGroupBox);
-	m_axisYSpin = new QDoubleSpinBox(m_paramGroupBox);
-	m_axisZSpin = new QDoubleSpinBox(m_paramGroupBox);
-	m_angleSpin = new QDoubleSpinBox(m_paramGroupBox);
-	for (QDoubleSpinBox* spin : { m_axisXSpin, m_axisYSpin, m_axisZSpin })
-	{
-		spin->setRange(-1.0, 1.0);
-		spin->setDecimals(3);
-	}
-	m_axisZSpin->setValue(1.0);
-	m_angleSpin->setRange(-360.0, 360.0);
-	m_angleSpin->setDecimals(2);
-	m_axisXFieldLabel = new QLabel(QStringLiteral("轴 X"), m_paramGroupBox);
-	m_axisYFieldLabel = new QLabel(QStringLiteral("轴 Y"), m_paramGroupBox);
-	m_axisZFieldLabel = new QLabel(QStringLiteral("轴 Z"), m_paramGroupBox);
-	m_angleFieldLabel = new QLabel(QStringLiteral("角度 °"), m_paramGroupBox);
-	paramForm->addRow(m_axisXFieldLabel, m_axisXSpin);
-	paramForm->addRow(m_axisYFieldLabel, m_axisYSpin);
-	paramForm->addRow(m_axisZFieldLabel, m_axisZSpin);
-	paramForm->addRow(m_angleFieldLabel, m_angleSpin);
-	m_mirrorHintLabel = new QLabel(m_paramGroupBox);
-	m_mirrorHintLabel->setWordWrap(true);
-	m_mirrorHintLabel->setStyleSheet(QStringLiteral("color: gray;"));
-	paramForm->addRow(m_mirrorHintLabel);
+	m_paramPanel = new TrajectoryOpParamPanel(m_paramGroupBox);
+	m_paramPanel->setScopeGroupCombo(m_scopeGroupCombo);
+	paramBoxLayout->addWidget(m_paramPanel);
 	root->addWidget(m_paramGroupBox);
 
-	auto* opRow = new QHBoxLayout;
-	m_removeOpBtn = new QPushButton(QStringLiteral("移除块"), this);
-	m_moveUpBtn = new QPushButton(QStringLiteral("上移"), this);
-	m_moveDownBtn = new QPushButton(QStringLiteral("下移"), this);
-	opRow->addWidget(m_removeOpBtn);
-	opRow->addWidget(m_moveUpBtn);
-	opRow->addWidget(m_moveDownBtn);
-	opRow->addStretch(1);
-	root->addLayout(opRow);
+	m_pipeline->setContextMenuPolicy(Qt::CustomContextMenu);
 
 	auto* actionRow = new QHBoxLayout;
-	m_previewBtn = new QPushButton(QStringLiteral("预览"), this);
+	m_previewCheck = new QCheckBox(QStringLiteral("预览"), this);
+	m_previewCheck->setChecked(true);
 	m_applyBtn = new QPushButton(QStringLiteral("应用"), this);
 	m_resetBtn = new QPushButton(QStringLiteral("重置"), this);
 	m_undoBtn = new QPushButton(QStringLiteral("撤销"), this);
 	m_redoBtn = new QPushButton(QStringLiteral("重做"), this);
 	m_saveTemplateBtn = new QPushButton(QStringLiteral("保存模板"), this);
 	m_loadTemplateBtn = new QPushButton(QStringLiteral("加载模板"), this);
-	actionRow->addWidget(m_previewBtn);
+	actionRow->addWidget(m_previewCheck);
 	actionRow->addWidget(m_applyBtn);
 	actionRow->addWidget(m_resetBtn);
 	actionRow->addWidget(m_undoBtn);
@@ -198,64 +181,62 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	actionRow->addStretch(1);
 	root->addLayout(actionRow);
 
-	refreshScopeKindCombo();
 	rebuildPalette();
 
 	connect(m_programCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &TrajectoryEditPageWidget::onProgramChanged);
 	connect(m_groupCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &TrajectoryEditPageWidget::onGroupChanged);
 	connect(m_palette, &QListWidget::itemDoubleClicked, this, &TrajectoryEditPageWidget::onPaletteDoubleClicked);
-	connect(m_pipeline, &TrajectoryPipelineListWidget::opsChanged, this, &TrajectoryEditPageWidget::syncSessionPipeline);
+	connect(m_pipeline, &TrajectoryPipelineListWidget::opsChanged, this, [this]() {
+		syncSessionPipeline();
+		if (m_loadingParams || (m_paramPanel && m_paramPanel->isRebuilding()))
+		{
+			return;
+		}
+		QTimer::singleShot(0, this, [this]() {
+			if (m_loadingParams || (m_paramPanel && m_paramPanel->isRebuilding()))
+			{
+				return;
+			}
+			runPreviewIfEnabled();
+		});
+	});
 	connect(m_pipeline, &TrajectoryPipelineListWidget::selectedOpChanged, this, &TrajectoryEditPageWidget::onPipelineSelectionChanged);
-	connect(m_previewBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onPreviewClicked);
+	connect(
+		m_pipeline,
+		&QWidget::customContextMenuRequested,
+		this,
+		&TrajectoryEditPageWidget::showPipelineContextMenu);
+	connect(m_previewCheck, &QCheckBox::toggled, this, &TrajectoryEditPageWidget::onPreviewToggled);
 	connect(m_applyBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onApplyClicked);
 	connect(m_resetBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onResetClicked);
 	connect(m_undoBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onUndoClicked);
 	connect(m_redoBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onRedoClicked);
-	connect(m_removeOpBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onRemovePipelineOpClicked);
-	connect(m_moveUpBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onMovePipelineOpUpClicked);
-	connect(m_moveDownBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onMovePipelineOpDownClicked);
 	connect(m_saveTemplateBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onSaveTemplateClicked);
 	connect(m_loadTemplateBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onLoadTemplateClicked);
 
-	auto paramChanged = [this]() {
+	connect(m_paramPanel, &TrajectoryOpParamPanel::paramsChanged, this, [this]() {
 		if (!m_loadingParams)
 		{
-			refreshScopeFieldVisibility();
 			applyParamsToSelectedOp();
+			if (!m_flushingParams && m_previewCheck && m_previewCheck->isChecked()
+				&& m_session && !m_session->isPreviewActive())
+			{
+				runPreviewIfEnabled();
+			}
 		}
-	};
-	connect(m_scopeKindCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, paramChanged);
-	connect(m_scopeGroupCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, paramChanged);
-	for (QDoubleSpinBox* spin :
-		{ m_pointFromSpin, m_pointToSpin, m_dxSpin, m_dySpin, m_dzSpin, m_axisXSpin, m_axisYSpin, m_axisZSpin, m_angleSpin })
-	{
-		connect(spin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, paramChanged);
-	}
+	});
+	connect(m_scopeGroupCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
+		if (!m_loadingParams)
+		{
+			applyParamsToSelectedOp();
+			if (!m_flushingParams && m_previewCheck && m_previewCheck->isChecked()
+				&& m_session && !m_session->isPreviewActive())
+			{
+				runPreviewIfEnabled();
+			}
+		}
+	});
 	setUseChinese(m_useChinese);
-}
-
-void TrajectoryEditPageWidget::refreshScopeKindCombo()
-{
-	if (!m_scopeKindCombo)
-	{
-		return;
-	}
-	const int prevKind = m_scopeKindCombo->currentData().toInt();
-	const bool zh = m_useChinese;
-	m_scopeKindCombo->blockSignals(true);
-	m_scopeKindCombo->clear();
-	m_scopeKindCombo->addItem(
-		zh ? QStringLiteral("分组") : QStringLiteral("Group"),
-		static_cast<int>(RobotInstruction::OpScope::Kind::Group));
-	m_scopeKindCombo->addItem(
-		zh ? QStringLiteral("全程序") : QStringLiteral("Entire program"),
-		static_cast<int>(RobotInstruction::OpScope::Kind::EntireProgram));
-	m_scopeKindCombo->addItem(
-		zh ? QStringLiteral("P 范围") : QStringLiteral("P range"),
-		static_cast<int>(RobotInstruction::OpScope::Kind::PointIndexRange));
-	const int idx = m_scopeKindCombo->findData(prevKind);
-	m_scopeKindCombo->setCurrentIndex(idx >= 0 ? idx : 0);
-	m_scopeKindCombo->blockSignals(false);
 }
 
 void TrajectoryEditPageWidget::updateUiLabels()
@@ -273,61 +254,13 @@ void TrajectoryEditPageWidget::updateUiLabels()
 	{
 		m_paramGroupBox->setTitle(zh ? QStringLiteral("参数") : QStringLiteral("Parameters"));
 	}
-	if (m_scopeKindFieldLabel)
+	if (m_paramPanel)
 	{
-		m_scopeKindFieldLabel->setText(zh ? QStringLiteral("作用域") : QStringLiteral("Scope"));
+		m_paramPanel->setUseChinese(zh);
 	}
-	if (m_scopeGroupFieldLabel)
+	if (m_previewCheck)
 	{
-		m_scopeGroupFieldLabel->setText(zh ? QStringLiteral("分组") : QStringLiteral("Group"));
-	}
-	if (m_pointRangeFieldLabel)
-	{
-		m_pointRangeFieldLabel->setText(QStringLiteral("P"));
-	}
-	if (m_dxFieldLabel)
-	{
-		m_dxFieldLabel->setText(zh ? QStringLiteral("ΔX mm") : QStringLiteral("dX mm"));
-	}
-	if (m_dyFieldLabel)
-	{
-		m_dyFieldLabel->setText(zh ? QStringLiteral("ΔY mm") : QStringLiteral("dY mm"));
-	}
-	if (m_dzFieldLabel)
-	{
-		m_dzFieldLabel->setText(zh ? QStringLiteral("ΔZ mm") : QStringLiteral("dZ mm"));
-	}
-	if (m_axisXFieldLabel)
-	{
-		m_axisXFieldLabel->setText(zh ? QStringLiteral("轴 X") : QStringLiteral("Axis X"));
-	}
-	if (m_axisYFieldLabel)
-	{
-		m_axisYFieldLabel->setText(zh ? QStringLiteral("轴 Y") : QStringLiteral("Axis Y"));
-	}
-	if (m_axisZFieldLabel)
-	{
-		m_axisZFieldLabel->setText(zh ? QStringLiteral("轴 Z") : QStringLiteral("Axis Z"));
-	}
-	if (m_angleFieldLabel)
-	{
-		m_angleFieldLabel->setText(zh ? QStringLiteral("角度 °") : QStringLiteral("Angle deg"));
-	}
-	if (m_removeOpBtn)
-	{
-		m_removeOpBtn->setText(zh ? QStringLiteral("移除块") : QStringLiteral("Remove block"));
-	}
-	if (m_moveUpBtn)
-	{
-		m_moveUpBtn->setText(zh ? QStringLiteral("上移") : QStringLiteral("Up"));
-	}
-	if (m_moveDownBtn)
-	{
-		m_moveDownBtn->setText(zh ? QStringLiteral("下移") : QStringLiteral("Down"));
-	}
-	if (m_previewBtn)
-	{
-		m_previewBtn->setText(zh ? QStringLiteral("预览") : QStringLiteral("Preview"));
+		m_previewCheck->setText(zh ? QStringLiteral("预览") : QStringLiteral("Preview"));
 	}
 	if (m_applyBtn)
 	{
@@ -353,7 +286,6 @@ void TrajectoryEditPageWidget::updateUiLabels()
 	{
 		m_loadTemplateBtn->setText(zh ? QStringLiteral("加载模板") : QStringLiteral("Load template"));
 	}
-	refreshScopeKindCombo();
 }
 
 void TrajectoryEditPageWidget::setUseChinese(const bool chinese)
@@ -378,25 +310,13 @@ void TrajectoryEditPageWidget::setReadOnly(const bool readOnly)
 		m_groupCombo,
 		m_palette,
 		m_pipeline,
-		m_scopeKindCombo,
 		m_scopeGroupCombo,
-		m_pointFromSpin,
-		m_pointToSpin,
-		m_dxSpin,
-		m_dySpin,
-		m_dzSpin,
-		m_axisXSpin,
-		m_axisYSpin,
-		m_axisZSpin,
-		m_angleSpin,
-		m_previewBtn,
+		m_paramPanel,
+		m_previewCheck,
 		m_applyBtn,
 		m_resetBtn,
 		m_undoBtn,
 		m_redoBtn,
-		m_removeOpBtn,
-		m_moveUpBtn,
-		m_moveDownBtn,
 		m_saveTemplateBtn,
 		m_loadTemplateBtn,
 	};
@@ -565,18 +485,39 @@ void TrajectoryEditPageWidget::refreshProgramAndGroupCombos()
 void TrajectoryEditPageWidget::rebuildPalette()
 {
 	m_palette->clear();
-	const RobotInstruction::TrajectoryOpKind kinds[] = {
-		RobotInstruction::TrajectoryOpKind::Translate,
-		RobotInstruction::TrajectoryOpKind::Rotate,
-		RobotInstruction::TrajectoryOpKind::Delete,
-		RobotInstruction::TrajectoryOpKind::Duplicate,
-		RobotInstruction::TrajectoryOpKind::Mirror,
-		RobotInstruction::TrajectoryOpKind::Reorder,
-	};
+	const std::vector<RobotInstruction::TrajectoryOpKind> kinds =
+		RobotInstruction::trajectoryOpPaletteKinds();
 	for (const RobotInstruction::TrajectoryOpKind kind : kinds)
 	{
-		auto* item = new QListWidgetItem(opKindLabel(kind, m_useChinese), m_palette);
+		const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(kind);
+		const QString label = algo
+			? QString::fromUtf8(algo->displayName(m_useChinese))
+			: opKindLabel(kind, m_useChinese);
+		auto* item = new QListWidgetItem(label, m_palette);
+		item->setTextAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
 		item->setData(Qt::UserRole, static_cast<int>(kind));
+	}
+}
+
+void TrajectoryEditPageWidget::runPreviewIfEnabled()
+{
+	if (!m_previewCheck || !m_previewCheck->isChecked() || !m_session || !m_pipeline)
+	{
+		return;
+	}
+	if (m_pipeline->ops().empty())
+	{
+		return;
+	}
+	reconcilePipelineScopes();
+	flushPipelineToSession();
+	QString err;
+	if (!m_session->preview(&err))
+	{
+		QMessageBox::warning(
+			this,
+			m_useChinese ? QStringLiteral("预览") : QStringLiteral("Preview"),
+			err);
 	}
 }
 
@@ -609,29 +550,14 @@ void TrajectoryEditPageWidget::syncScopeGroupFromTopBar()
 	}
 }
 
-void TrajectoryEditPageWidget::fillScopeFromUi(RobotInstruction::OpScope& scope) const
-{
-	scope.kind = static_cast<RobotInstruction::OpScope::Kind>(m_scopeKindCombo->currentData().toInt());
-	scope.instructionIds.clear();
-	scope.groupId.clear();
-	scope.pointFrom = static_cast<int>(m_pointFromSpin->value());
-	scope.pointTo = static_cast<int>(m_pointToSpin->value());
-	if (scope.kind == RobotInstruction::OpScope::Kind::Group)
-	{
-		if (m_scopeGroupCombo && m_scopeGroupCombo->currentIndex() >= 0)
-		{
-			scope.groupId = m_scopeGroupCombo->currentData().toString().toStdString();
-		}
-		if (scope.groupId.empty() && m_groupCombo && m_groupCombo->currentIndex() > 0)
-		{
-			scope.groupId = m_groupCombo->currentData().toString().toStdString();
-		}
-	}
-}
-
 RobotInstruction::TrajectoryOpDescriptor TrajectoryEditPageWidget::makeDefaultOp(
 	const RobotInstruction::TrajectoryOpKind kind) const
 {
+	const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(kind);
+	if (algo)
+	{
+		return algo->makeDefaultDescriptor(defaultScopeForNewOp());
+	}
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = kind;
 	op.scope = defaultScopeForNewOp();
@@ -658,10 +584,11 @@ void TrajectoryEditPageWidget::syncSessionParams()
 
 void TrajectoryEditPageWidget::flushPipelineToSession()
 {
-	if (!m_session || !m_pipeline)
+	if (!m_session || !m_pipeline || m_flushingParams)
 	{
 		return;
 	}
+	m_flushingParams = true;
 	// 拖放 bug 可能导致列表有项但 m_ops 为空，强制与数据对齐
 	if (m_pipeline->count() != static_cast<int>(m_pipeline->ops().size()))
 	{
@@ -675,119 +602,72 @@ void TrajectoryEditPageWidget::flushPipelineToSession()
 	{
 		syncSessionParams();
 	}
+	m_flushingParams = false;
 }
 
 void TrajectoryEditPageWidget::refreshScopeFieldVisibility()
 {
-	if (!m_scopeKindCombo)
-	{
-		return;
-	}
-	const auto scopeKind = static_cast<RobotInstruction::OpScope::Kind>(m_scopeKindCombo->currentData().toInt());
-	const bool showGroup = scopeKind == RobotInstruction::OpScope::Kind::Group;
-	const bool showRange = scopeKind == RobotInstruction::OpScope::Kind::PointIndexRange;
-	if (m_scopeGroupFieldLabel)
-	{
-		m_scopeGroupFieldLabel->setVisible(showGroup);
-	}
-	if (m_scopeGroupCombo)
-	{
-		m_scopeGroupCombo->setVisible(showGroup);
-	}
-	if (m_pointRangeFieldLabel)
-	{
-		m_pointRangeFieldLabel->setVisible(showRange);
-	}
-	if (m_pointFromSpin)
-	{
-		m_pointFromSpin->setVisible(showRange);
-	}
-	if (m_pointToSpin)
-	{
-		m_pointToSpin->setVisible(showRange);
-	}
 }
 
 void TrajectoryEditPageWidget::refreshParamPanelForKind(const RobotInstruction::TrajectoryOpKind kind)
 {
-	const bool showTranslate = kind == RobotInstruction::TrajectoryOpKind::Translate;
-	const bool showRotate = kind == RobotInstruction::TrajectoryOpKind::Rotate;
-	const bool showMirrorHint = kind == RobotInstruction::TrajectoryOpKind::Mirror;
-	const auto setRowVisible = [](QLabel* label, QWidget* widget, const bool visible) {
-		if (label)
-		{
-			label->setVisible(visible);
-		}
-		if (widget)
-		{
-			widget->setVisible(visible);
-		}
-	};
-	setRowVisible(m_dxFieldLabel, m_dxSpin, showTranslate);
-	setRowVisible(m_dyFieldLabel, m_dySpin, showTranslate);
-	setRowVisible(m_dzFieldLabel, m_dzSpin, showTranslate);
-	setRowVisible(m_axisXFieldLabel, m_axisXSpin, showRotate);
-	setRowVisible(m_axisYFieldLabel, m_axisYSpin, showRotate);
-	setRowVisible(m_axisZFieldLabel, m_axisZSpin, showRotate);
-	setRowVisible(m_angleFieldLabel, m_angleSpin, showRotate);
-	if (m_mirrorHintLabel)
-	{
-		m_mirrorHintLabel->setVisible(showMirrorHint);
-		m_mirrorHintLabel->setText(
-			m_useChinese ? QStringLiteral("镜像块尚未实现，预览与应用暂不可用。")
-						 : QStringLiteral("Mirror block is not implemented yet."));
-	}
-	refreshScopeFieldVisibility();
+	(void)kind;
 }
 
 void TrajectoryEditPageWidget::loadSelectedOpToParams()
 {
-	if (!m_pipeline)
+	if (m_pendingLoadSelectedOp)
 	{
 		return;
 	}
+	m_pendingLoadSelectedOp = true;
+	QTimer::singleShot(0, this, [this]() {
+		m_pendingLoadSelectedOp = false;
+		loadSelectedOpToParamsImpl();
+	});
+}
+
+void TrajectoryEditPageWidget::loadSelectedOpToParamsImpl()
+{
+	if (m_committingApply)
+	{
+		return;
+	}
+	if (!m_pipeline || !m_paramPanel || m_pipeline->selectedOpIndex() < 0)
+	{
+		return;
+	}
+	if (m_paramPanel->isRebuilding())
+	{
+		QTimer::singleShot(0, this, [this]() { loadSelectedOpToParamsImpl(); });
+		return;
+	}
 	const RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->selectedOp();
+	const trajectory_algo::ITrajectoryOp* algo =
+		RobotInstruction::trajectoryOpGet(op.kind);
 	m_loadingParams = true;
-	const int scopeIdx = m_scopeKindCombo->findData(static_cast<int>(op.scope.kind));
-	if (scopeIdx >= 0)
-	{
-		m_scopeKindCombo->setCurrentIndex(scopeIdx);
-	}
-	else if (op.scope.kind == RobotInstruction::OpScope::Kind::InstructionIds)
-	{
-		m_scopeKindCombo->setCurrentIndex(m_scopeKindCombo->findData(
-			static_cast<int>(RobotInstruction::OpScope::Kind::Group)));
-	}
-	if (!op.scope.groupId.empty())
-	{
-		const int gIdx = m_scopeGroupCombo->findData(QString::fromStdString(op.scope.groupId));
-		if (gIdx >= 0)
-		{
-			m_scopeGroupCombo->setCurrentIndex(gIdx);
-		}
-	}
-	m_pointFromSpin->setValue(op.scope.pointFrom);
-	m_pointToSpin->setValue(op.scope.pointTo);
-	m_dxSpin->setValue(op.translate.dxMm);
-	m_dySpin->setValue(op.translate.dyMm);
-	m_dzSpin->setValue(op.translate.dzMm);
-	m_axisXSpin->setValue(op.rotate.axisX);
-	m_axisYSpin->setValue(op.rotate.axisY);
-	m_axisZSpin->setValue(op.rotate.axisZ);
-	m_angleSpin->setValue(op.rotate.angleDeg);
+	m_paramPanel->setLoading(true);
+	m_paramPanel->rebuildForOp(op, algo);
 	m_loadingParams = false;
-	refreshParamPanelForKind(op.kind);
+	m_paramPanel->setLoading(false);
+	updateTransformActionButtons(op, m_previewCheck, m_applyBtn, m_readOnly);
 }
 
 void TrajectoryEditPageWidget::applyParamsToSelectedOp()
 {
-	if (!m_pipeline || m_pipeline->selectedOpIndex() < 0)
+	if (!m_pipeline || m_pipeline->selectedOpIndex() < 0 || !m_paramPanel)
 	{
 		return;
 	}
 	RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->selectedOp();
 	const std::string storedGroupId = op.scope.groupId;
-	fillScopeFromUi(op.scope);
+	const trajectory_algo::ITrajectoryOp* algo =
+		RobotInstruction::trajectoryOpGet(op.kind);
+	std::string err;
+	if (!m_paramPanel->applyTo(op, algo, &err))
+	{
+		return;
+	}
 	if (op.scope.kind == RobotInstruction::OpScope::Kind::Group
 		&& op.scope.groupId.empty()
 		&& !storedGroupId.empty()
@@ -807,15 +687,18 @@ void TrajectoryEditPageWidget::applyParamsToSelectedOp()
 			}
 		}
 	}
-	op.translate.dxMm = m_dxSpin->value();
-	op.translate.dyMm = m_dySpin->value();
-	op.translate.dzMm = m_dzSpin->value();
-	op.rotate.axisX = m_axisXSpin->value();
-	op.rotate.axisY = m_axisYSpin->value();
-	op.rotate.axisZ = m_axisZSpin->value();
-	op.rotate.angleDeg = m_angleSpin->value();
+	m_loadingParams = true;
+	m_paramPanel->setLoading(true);
 	m_pipeline->updateSelectedOp(op);
+	m_paramPanel->setLoading(false);
+	m_loadingParams = false;
+	updateTransformActionButtons(op, m_previewCheck, m_applyBtn, m_readOnly);
 	syncSessionParams();
+}
+
+void TrajectoryEditPageWidget::fillScopeFromUi(RobotInstruction::OpScope& scope) const
+{
+	(void)scope;
 }
 
 void TrajectoryEditPageWidget::refreshUndoButtons()
@@ -830,17 +713,17 @@ void TrajectoryEditPageWidget::refreshUndoButtons()
 	}
 }
 
-void TrajectoryEditPageWidget::reconcilePipelineScopes()
+bool TrajectoryEditPageWidget::reconcilePipelineScopes()
 {
 	if (!m_store || !m_pipeline)
 	{
-		return;
+		return false;
 	}
 	const RobotInstruction::RobotProgram* prog =
 		m_store->activeCatalog().findProgram(m_store->activeProgramIdUtf8());
 	if (!prog)
 	{
-		return;
+		return false;
 	}
 	std::vector<RobotInstruction::TrajectoryOpDescriptor> ops = m_pipeline->ops();
 	bool changed = false;
@@ -888,12 +771,43 @@ void TrajectoryEditPageWidget::reconcilePipelineScopes()
 	}
 	if (changed)
 	{
+		m_pipeline->blockSignals(true);
 		m_pipeline->setOps(ops);
+		m_pipeline->blockSignals(false);
 	}
+	return changed;
+}
+
+void TrajectoryEditPageWidget::syncScopeComboFromSelectedOp()
+{
+	if (!m_pipeline || !m_scopeGroupCombo || m_pipeline->selectedOpIndex() < 0)
+	{
+		return;
+	}
+	const RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->selectedOp();
+	m_scopeGroupCombo->blockSignals(true);
+	if (op.scope.kind == RobotInstruction::OpScope::Kind::Group && !op.scope.groupId.empty())
+	{
+		const int idx = m_scopeGroupCombo->findData(QString::fromStdString(op.scope.groupId));
+		if (idx >= 0)
+		{
+			m_scopeGroupCombo->setCurrentIndex(idx);
+		}
+	}
+	m_scopeGroupCombo->blockSignals(false);
 }
 
 void TrajectoryEditPageWidget::syncUiAfterProgramRevision()
 {
+	if (m_committingApply || (m_session && m_session->isApplying()))
+	{
+		return;
+	}
+	m_loadingParams = true;
+	if (m_paramPanel)
+	{
+		m_paramPanel->setLoading(true);
+	}
 	refreshUndoButtons();
 	refreshProgramAndGroupCombos();
 	if (m_session)
@@ -904,11 +818,26 @@ void TrajectoryEditPageWidget::syncUiAfterProgramRevision()
 			m_session->setContextProgramId(m_store->activeProgramIdUtf8());
 		}
 	}
-	reconcilePipelineScopes();
+	const bool pipelineScopeChanged = reconcilePipelineScopes();
 	if (m_pipeline && m_pipeline->selectedOpIndex() >= 0)
 	{
-		loadSelectedOpToParams();
+		// Apply/Undo 后多数情况流水线描述符未变，避免 clearRows 全量重建
+		if (pipelineScopeChanged)
+		{
+			loadSelectedOpToParams();
+		}
+		else
+		{
+			const RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->selectedOp();
+			m_pipeline->updateSelectedOp(op);
+			syncScopeComboFromSelectedOp();
+		}
 	}
+	if (m_paramPanel)
+	{
+		m_paramPanel->setLoading(false);
+	}
+	m_loadingParams = false;
 }
 
 void TrajectoryEditPageWidget::onProgramChanged(int index)
@@ -941,8 +870,8 @@ void TrajectoryEditPageWidget::onGroupChanged(int index)
 		syncScopeGroupFromTopBar();
 		if (!m_loadingParams && m_pipeline && m_pipeline->selectedOpIndex() >= 0)
 		{
-			const auto kind = static_cast<RobotInstruction::OpScope::Kind>(m_scopeKindCombo->currentData().toInt());
-			if (kind == RobotInstruction::OpScope::Kind::Group)
+			RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->selectedOp();
+			if (op.scope.kind == RobotInstruction::OpScope::Kind::Group)
 			{
 				applyParamsToSelectedOp();
 			}
@@ -968,34 +897,66 @@ void TrajectoryEditPageWidget::onPaletteDoubleClicked(QListWidgetItem* item)
 	m_pipeline->appendOp(makeDefaultOp(kind));
 	syncScopeGroupFromTopBar();
 	loadSelectedOpToParams();
-	syncSessionPipeline();
 }
 
 void TrajectoryEditPageWidget::onPipelineSelectionChanged(int index)
 {
 	(void)index;
-	if (!m_pipeline || m_pipeline->selectedOpIndex() < 0)
+	if (m_loadingParams || !m_pipeline || m_pipeline->selectedOpIndex() < 0)
 	{
 		return;
 	}
 	loadSelectedOpToParams();
 }
 
-void TrajectoryEditPageWidget::onPreviewClicked()
+void TrajectoryEditPageWidget::onPreviewToggled(const bool checked)
 {
 	if (!m_session)
 	{
 		return;
 	}
-	reconcilePipelineScopes();
-	flushPipelineToSession();
-	QString err;
-	if (!m_session->preview(&err))
+	if (checked)
 	{
-		QMessageBox::warning(
-			this,
-			m_useChinese ? QStringLiteral("预览") : QStringLiteral("Preview"),
-			err);
+		runPreviewIfEnabled();
+	}
+	else
+	{
+		m_session->reset();
+	}
+}
+
+void TrajectoryEditPageWidget::showPipelineContextMenu(const QPoint& pos)
+{
+	if (!m_pipeline || m_readOnly)
+	{
+		return;
+	}
+	const int idx = m_pipeline->selectedOpIndex();
+	const int count = m_pipeline->count();
+	const bool zh = m_useChinese;
+	QMenu menu(this);
+	QAction* removeAct = menu.addAction(zh ? QStringLiteral("移除块") : QStringLiteral("Remove block"));
+	QAction* upAct = menu.addAction(zh ? QStringLiteral("上移") : QStringLiteral("Move up"));
+	QAction* downAct = menu.addAction(zh ? QStringLiteral("下移") : QStringLiteral("Move down"));
+	removeAct->setEnabled(idx >= 0);
+	upAct->setEnabled(idx > 0);
+	downAct->setEnabled(idx >= 0 && idx < count - 1);
+	QAction* picked = menu.exec(m_pipeline->mapToGlobal(pos));
+	if (!picked)
+	{
+		return;
+	}
+	if (picked == removeAct)
+	{
+		onRemovePipelineOpClicked();
+	}
+	else if (picked == upAct)
+	{
+		onMovePipelineOpUpClicked();
+	}
+	else if (picked == downAct)
+	{
+		onMovePipelineOpDownClicked();
 	}
 }
 
@@ -1005,22 +966,52 @@ void TrajectoryEditPageWidget::onApplyClicked()
 	{
 		return;
 	}
+	m_committingApply = true;
+	if (m_pipeline)
+	{
+		const QSignalBlocker pipelineBlocker(m_pipeline);
+		m_pipeline->setCurrentRow(-1);
+	}
+	if (m_paramPanel)
+	{
+		m_paramPanel->clear();
+	}
 	reconcilePipelineScopes();
 	flushPipelineToSession();
 	QString err;
 	if (!m_session->apply(&err))
 	{
+		m_committingApply = false;
 		QMessageBox::warning(
 			this,
 			m_useChinese ? QStringLiteral("应用") : QStringLiteral("Apply"),
 			err);
 		return;
 	}
+	if (m_pipeline)
+	{
+		const QSignalBlocker pipelineBlocker(m_pipeline);
+		m_pipeline->setOps({});
+	}
+	if (m_session)
+	{
+		m_session->clearPipelineAfterCommit();
+	}
+	if (m_previewCheck)
+	{
+		const QSignalBlocker blocker(m_previewCheck);
+		m_previewCheck->setChecked(false);
+	}
+	if (m_applyBtn)
+	{
+		m_applyBtn->setEnabled(false);
+	}
 	if (m_commandPage)
 	{
 		m_commandPage->refreshInstructionList();
 	}
 	refreshUndoButtons();
+	m_committingApply = false;
 }
 
 void TrajectoryEditPageWidget::onResetClicked()
@@ -1076,7 +1067,6 @@ void TrajectoryEditPageWidget::onRemovePipelineOpClicked()
 	if (m_pipeline)
 	{
 		m_pipeline->removeSelectedOp();
-		syncSessionPipeline();
 	}
 }
 
@@ -1085,7 +1075,6 @@ void TrajectoryEditPageWidget::onMovePipelineOpUpClicked()
 	if (m_pipeline)
 	{
 		m_pipeline->moveSelectedOp(-1);
-		syncSessionPipeline();
 	}
 }
 
@@ -1094,7 +1083,6 @@ void TrajectoryEditPageWidget::onMovePipelineOpDownClicked()
 	if (m_pipeline)
 	{
 		m_pipeline->moveSelectedOp(1);
-		syncSessionPipeline();
 	}
 }
 
@@ -1104,55 +1092,36 @@ void TrajectoryEditPageWidget::onSaveTemplateClicked()
 	{
 		return;
 	}
+	const nlohmann::json pipelineJson = RobotInstruction::trajectoryPipelineToJson(m_pipeline->ops());
 	QSettings settings(QStringLiteral("CloudSim"), QStringLiteral("TrajectoryPipeline"));
-	settings.setValue(QStringLiteral("opsCount"), static_cast<int>(m_pipeline->ops().size()));
-	int i = 0;
-	for (const RobotInstruction::TrajectoryOpDescriptor& op : m_pipeline->ops())
-	{
-		const QString prefix = QStringLiteral("op/%1/").arg(i++);
-		settings.setValue(prefix + QStringLiteral("kind"), static_cast<int>(op.kind));
-		settings.setValue(prefix + QStringLiteral("scopeKind"), static_cast<int>(op.scope.kind));
-		settings.setValue(prefix + QStringLiteral("groupId"), QString::fromStdString(op.scope.groupId));
-		settings.setValue(prefix + QStringLiteral("pointFrom"), op.scope.pointFrom);
-		settings.setValue(prefix + QStringLiteral("pointTo"), op.scope.pointTo);
-		settings.setValue(prefix + QStringLiteral("dx"), op.translate.dxMm);
-		settings.setValue(prefix + QStringLiteral("dy"), op.translate.dyMm);
-		settings.setValue(prefix + QStringLiteral("dz"), op.translate.dzMm);
-		settings.setValue(prefix + QStringLiteral("ax"), op.rotate.axisX);
-		settings.setValue(prefix + QStringLiteral("ay"), op.rotate.axisY);
-		settings.setValue(prefix + QStringLiteral("az"), op.rotate.axisZ);
-		settings.setValue(prefix + QStringLiteral("angle"), op.rotate.angleDeg);
-	}
+	settings.setValue(
+		QStringLiteral("pipelineJson"),
+		QString::fromStdString(pipelineJson.dump()));
 }
 
 void TrajectoryEditPageWidget::onLoadTemplateClicked()
 {
 	QSettings settings(QStringLiteral("CloudSim"), QStringLiteral("TrajectoryPipeline"));
-	const int count = settings.value(QStringLiteral("opsCount"), 0).toInt();
-	std::vector<RobotInstruction::TrajectoryOpDescriptor> ops;
-	ops.reserve(static_cast<size_t>(count));
-	for (int i = 0; i < count; ++i)
+	const QString jsonText = settings.value(QStringLiteral("pipelineJson")).toString();
+	if (jsonText.isEmpty())
 	{
-		const QString prefix = QStringLiteral("op/%1/").arg(i);
-		RobotInstruction::TrajectoryOpDescriptor op{};
-		op.kind = static_cast<RobotInstruction::TrajectoryOpKind>(settings.value(prefix + QStringLiteral("kind"), 0).toInt());
-		op.scope.kind = static_cast<RobotInstruction::OpScope::Kind>(
-			settings.value(prefix + QStringLiteral("scopeKind"), 0).toInt());
-		op.scope.groupId = settings.value(prefix + QStringLiteral("groupId")).toString().toStdString();
-		op.scope.pointFrom = settings.value(prefix + QStringLiteral("pointFrom"), 1).toInt();
-		op.scope.pointTo = settings.value(prefix + QStringLiteral("pointTo"), 1).toInt();
-		op.translate.dxMm = settings.value(prefix + QStringLiteral("dx"), 0.0).toDouble();
-		op.translate.dyMm = settings.value(prefix + QStringLiteral("dy"), 0.0).toDouble();
-		op.translate.dzMm = settings.value(prefix + QStringLiteral("dz"), 0.0).toDouble();
-		op.rotate.axisX = settings.value(prefix + QStringLiteral("ax"), 0.0).toDouble();
-		op.rotate.axisY = settings.value(prefix + QStringLiteral("ay"), 0.0).toDouble();
-		op.rotate.axisZ = settings.value(prefix + QStringLiteral("az"), 1.0).toDouble();
-		op.rotate.angleDeg = settings.value(prefix + QStringLiteral("angle"), 0.0).toDouble();
-		ops.push_back(op);
+		return;
+	}
+	nlohmann::json pipelineJson = nlohmann::json::parse(jsonText.toStdString(), nullptr, false);
+	if (pipelineJson.is_discarded())
+	{
+		return;
+	}
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> ops;
+	std::string err;
+	if (!RobotInstruction::trajectoryPipelineFromJson(pipelineJson, ops, &err))
+	{
+		return;
 	}
 	if (m_pipeline)
 	{
 		m_pipeline->setOps(ops);
 		syncSessionPipeline();
+		runPreviewIfEnabled();
 	}
 }

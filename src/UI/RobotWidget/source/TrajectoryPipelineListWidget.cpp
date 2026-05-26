@@ -1,9 +1,13 @@
 #include "TrajectoryPipelineListWidget.h"
 
+#include <ITrajectoryOp.h>
+#include "TrajectoryOpBridge.h"
+
 #include <QDrag>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QMimeData>
+#include <QSignalBlocker>
 
 #include <cmath>
 #include <cstring>
@@ -123,8 +127,11 @@ void TrajectoryPipelineListWidget::updateSelectedOp(const RobotInstruction::Traj
 		return;
 	}
 	m_ops[static_cast<size_t>(idx)] = op;
-	rebuildItems();
-	setCurrentRow(idx);
+	// 仅改参数时不重建列表，避免 itemSelectionChanged → loadSelectedOpToParams → clearRows 重入
+	if (QListWidgetItem* listItem = QListWidget::item(idx))
+	{
+		listItem->setText(formatOpSummary(op));
+	}
 }
 
 void TrajectoryPipelineListWidget::setDefaultOpFactory(DefaultOpFactory factory)
@@ -178,8 +185,12 @@ void TrajectoryPipelineListWidget::dropEvent(QDropEvent* event)
 			insertRow = row(target);
 		}
 		m_ops.insert(m_ops.begin() + insertRow, op);
-		rebuildItems();
-		setCurrentRow(insertRow);
+		{
+			QSignalBlocker blocker(this);
+			rebuildItems();
+			setCurrentRow(insertRow);
+		}
+		emit selectedOpChanged(selectedOpIndex());
 		emit opsChanged();
 		event->acceptProposedAction();
 		return;
@@ -203,7 +214,8 @@ void TrajectoryPipelineListWidget::rebuildItems()
 		item->setData(Qt::UserRole, static_cast<int>(op.kind));
 	}
 	blockSignals(false);
-	if (prev >= 0 && prev < count())
+	// 外层 QSignalBlocker（如 dropEvent）期间勿恢复选中，避免 itemSelectionChanged 与手动 emit 叠加
+	if (!signalsBlocked() && prev >= 0 && prev < count())
 	{
 		setCurrentRow(prev);
 	}
@@ -211,79 +223,13 @@ void TrajectoryPipelineListWidget::rebuildItems()
 
 QString TrajectoryPipelineListWidget::formatOpSummary(const RobotInstruction::TrajectoryOpDescriptor& op) const
 {
-	QString kindLabel;
-	switch (op.kind)
+	RobotInstruction::ensureTrajectoryOpBuiltinsRegistered();
+	const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(op.kind);
+	if (algo)
 	{
-	case RobotInstruction::TrajectoryOpKind::Rotate:
-		kindLabel = m_useChinese ? QStringLiteral("旋转") : QStringLiteral("Rotate");
-		break;
-	case RobotInstruction::TrajectoryOpKind::Mirror:
-		kindLabel = m_useChinese ? QStringLiteral("镜像") : QStringLiteral("Mirror");
-		break;
-	case RobotInstruction::TrajectoryOpKind::Delete:
-		kindLabel = m_useChinese ? QStringLiteral("删除") : QStringLiteral("Delete");
-		break;
-	case RobotInstruction::TrajectoryOpKind::Duplicate:
-		kindLabel = m_useChinese ? QStringLiteral("复制") : QStringLiteral("Duplicate");
-		break;
-	case RobotInstruction::TrajectoryOpKind::Reorder:
-		kindLabel = m_useChinese ? QStringLiteral("移动顺序") : QStringLiteral("Reorder");
-		break;
-	case RobotInstruction::TrajectoryOpKind::Translate:
-	default:
-		kindLabel = m_useChinese ? QStringLiteral("平移") : QStringLiteral("Translate");
-		break;
+		return QString::fromStdString(algo->formatSummary(op, m_useChinese));
 	}
-	QString scopeLabel;
-	switch (op.scope.kind)
-	{
-	case RobotInstruction::OpScope::Kind::EntireProgram:
-		scopeLabel = m_useChinese ? QStringLiteral("全程序") : QStringLiteral("Entire");
-		break;
-	case RobotInstruction::OpScope::Kind::PointIndexRange:
-		scopeLabel = QStringLiteral("P%1-P%2").arg(op.scope.pointFrom).arg(op.scope.pointTo);
-		break;
-	case RobotInstruction::OpScope::Kind::InstructionIds:
-		scopeLabel = m_useChinese ? QStringLiteral("指定路点") : QStringLiteral("Ids");
-		break;
-	case RobotInstruction::OpScope::Kind::Group:
-	default:
-		if (!op.scope.groupId.empty())
-		{
-			scopeLabel = QString::fromStdString(op.scope.groupId);
-		}
-		else
-		{
-			scopeLabel = m_useChinese ? QStringLiteral("分组") : QStringLiteral("Group");
-		}
-		break;
-	}
-	QString paramLabel;
-	switch (op.kind)
-	{
-	case RobotInstruction::TrajectoryOpKind::Translate:
-		paramLabel = QStringLiteral("Δ(%1,%2,%3)")
-			.arg(op.translate.dxMm, 0, 'f', 1)
-			.arg(op.translate.dyMm, 0, 'f', 1)
-			.arg(op.translate.dzMm, 0, 'f', 1);
-		break;
-	case RobotInstruction::TrajectoryOpKind::Rotate:
-	{
-		const char axis = std::abs(op.rotate.axisZ) >= std::abs(op.rotate.axisX)
-			&& std::abs(op.rotate.axisZ) >= std::abs(op.rotate.axisY)
-			? 'Z'
-			: (std::abs(op.rotate.axisY) >= std::abs(op.rotate.axisX) ? 'Y' : 'X');
-		paramLabel = QStringLiteral("%1°@%2").arg(op.rotate.angleDeg, 0, 'f', 1).arg(axis);
-		break;
-	}
-	default:
-		break;
-	}
-	if (paramLabel.isEmpty())
-	{
-		return kindLabel + QStringLiteral(" | ") + scopeLabel;
-	}
-	return kindLabel + QStringLiteral(" | ") + scopeLabel + QStringLiteral(" | ") + paramLabel;
+	return m_useChinese ? QStringLiteral("未知块") : QStringLiteral("Unknown");
 }
 
 RobotInstruction::TrajectoryOpDescriptor TrajectoryPipelineListWidget::opFromMime(const QMimeData* mime) const

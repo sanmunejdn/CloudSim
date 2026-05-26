@@ -261,6 +261,10 @@ QPushButton* SimulationCommandWidget::createTypeButton(const RobotInstruction::T
 
 void SimulationCommandWidget::setProgramStore(RobotProgramStore* store)
 {
+	if (m_tree)
+	{
+		m_tree->setProgram(nullptr);
+	}
 	m_programStore = store;
 	refreshProgramCombo();
 }
@@ -276,6 +280,7 @@ void SimulationCommandWidget::bindProgramTree()
 	{
 		return;
 	}
+	// 仅同步语言标志；重建由 rebuildCommandListWidget 统一完成，避免 setProgram 前对悬空 m_program renumber
 	m_tree->setUseChinese(m_useChinese);
 	if (!m_programStore)
 	{
@@ -303,10 +308,13 @@ void SimulationCommandWidget::setRobotInstances(const QStringList& labels, const
 	{
 		m_robotCombo->addItem(label);
 	}
-	m_robotCombo->blockSignals(false);
 	if (m_robotCombo->count() > 0)
 	{
 		m_robotCombo->setCurrentIndex(0);
+	}
+	m_robotCombo->blockSignals(false);
+	if (m_robotCombo->count() > 0)
+	{
 		onRobotComboChanged(0);
 	}
 }
@@ -555,10 +563,6 @@ bool SimulationCommandWidget::tcpDragTeachMode() const
 
 void SimulationCommandWidget::rebuildCommandListWidget()
 {
-	if (m_programStore)
-	{
-		RobotInstruction::renumberMotionPointIndices(m_programStore->activeProgram());
-	}
 	bindProgramTree();
 	if (m_tree && m_programStore)
 	{

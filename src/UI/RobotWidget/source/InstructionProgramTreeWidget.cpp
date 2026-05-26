@@ -89,19 +89,16 @@ InstructionProgramTreeWidget::InstructionProgramTreeWidget(QWidget* parent)
 void InstructionProgramTreeWidget::setUseChinese(const bool chinese)
 {
 	m_useChinese = chinese;
-	rebuildFromProgram();
 }
 
 void InstructionProgramTreeWidget::setProgram(std::vector<std::shared_ptr<RobotInstruction::Base>>* program)
 {
 	m_program = program;
-	rebuildFromProgram();
 }
 
 void InstructionProgramTreeWidget::setGroupMembership(std::vector<RobotInstruction::InstructionGroup>* groups)
 {
 	m_groups = groups;
-	rebuildFromProgram();
 }
 
 InstructionProgramTreeWidget::NodeKind InstructionProgramTreeWidget::nodeKind(const QTreeWidgetItem* item)

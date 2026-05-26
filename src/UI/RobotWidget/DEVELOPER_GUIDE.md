@@ -159,7 +159,7 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 | `SimulationCommandWidget` | 指令树、Run/Stop、TCP 拖动；**程序下拉 / 新建 / 重命名 / 删除**；**指令**分组（PTP/LINE/…）与 **功能**分组（末端拖动/删除/清空）；Ctrl 多选 + 右键创建分组；`setProgramStore`、`activeProgramChanged` / `groupsChanged` |
 | `RobotAxisControlWidget` | 关节滑块；`setJointAngle` 内 `qBound` 限位 |
 | `RobotFrameSettingsWidget` | 工具/用户系；`framesChanged` → 叠加刷新 |
-| `TrajectoryEditPageWidget` | 轨迹编辑 Dock 子页：调色板 + 流水线 + 参数区 + Preview/Apply/Reset/Undo |
+| `TrajectoryEditPageWidget` | 轨迹编辑 Dock 子页：调色板 + 流水线 + 参数区 + 预览勾选/Apply/Reset/Undo |
 | `InstructionProgramTreeWidget` | 层级指令树；`NodeKind::Group` 嵌套显示分组；Ctrl 多选根层级指令 → 右键创建分组；拖放维护 `memberInstructionIds`；`instructionSelected` → 预览 |
 | `TrajectoryEditSession` | 预览（临时改 store 中 pose）与 Apply（Command 落盘）；`reset` / `abandonPreview`；见 §轨迹编辑 |
 | `ProgramEditService` | `execute` / `undo` / `redo`；`revisionChanged` → 轨迹页 `syncUiAfterProgramRevision` + 指令树刷新 |
@@ -193,7 +193,7 @@ Dock 第四页「轨迹编辑」。Dock 主标签为 **机器人** / Robot（原
 
 | 组件 | 职责 |
 |------|------|
-| `TrajectoryEditPageWidget` | UI：程序/分组、调色板、流水线、参数 SpinBox、Preview/Apply/Undo |
+| `TrajectoryEditPageWidget` | UI：程序/分组、调色板、流水线、`TrajectoryOpParamPanel`、预览勾选/Apply/Undo |
 | `TrajectoryPipelineListWidget` | `m_ops` 真源；列表项由 `rebuildItems()` 从 `m_ops` 生成 |
 | `TrajectoryEditSession` | 持有 `m_ops` 副本 + `TrajectoryPipelineBuilder`；Preview 快照 / Apply Command；`reset` / `abandonPreview` |
 | `ProgramEditService` | Apply 时 `execute(cmd)`；Undo 恢复程序树 |
@@ -206,8 +206,8 @@ Dock 第四页「轨迹编辑」。Dock 主标签为 **机器人** / Robot（原
 | 操作 | UI 路径 | Session API |
 |------|---------|-------------|
 | 增删/排序/拖入/加载模板 | `opsChanged` → `syncSessionPipeline()` | **`setPipeline`**（先 `reset()` 清预览） |
-| 仅改参数（SpinBox） | `applyParamsToSelectedOp()` → `syncSessionParams()` | **`updatePipelineOps`**（不 reset；已预览则 `reapplyPreview()`） |
-| 点 Preview / Apply | `reconcilePipelineScopes()` + `flushPipelineToSession()` | 有选中块 → `applyParamsToSelectedOp`；否则 `syncSessionParams` |
+| 仅改参数（Schema 面板） | `applyParamsToSelectedOp()` → `syncSessionParams()` | **`updatePipelineOps`**（不 reset；已预览则 `reapplyPreview()`） |
+| 预览勾选 / Apply | `reconcilePipelineScopes()` + `flushPipelineToSession()`（预览勾选时自动或手动触发） | 有选中块 → `applyParamsToSelectedOp`；否则 `syncSessionParams` |
 | 撤销 / 重做（任意 Command） | `ProgramEditService::revisionChanged` → `syncUiAfterProgramRevision()` | 刷新分组下拉、丢弃预览、协调流水线 scope（见下） |
 
 **禁止**在参数变更路径调用 `setPipeline()`，否则预览位姿会被 `reset()` 立刻还原。
@@ -234,16 +234,16 @@ Dock 第四页「轨迹编辑」。Dock 主标签为 **机器人** / Robot（原
 | `reset()` | 用户点 **Reset**、切换程序、`setPipeline`（结构变更） | 若预览中：先 `restorePreviewSnapshots()` 还原 store，再清快照 |
 | `abandonPreview()` | `syncUiAfterProgramRevision`（undo/redo 后） | 仅清快照与 `m_previewActive`，**不写回** store |
 
-### 按钮行为一览
+### 按钮与交互一览
 
-| 按钮 | 行为 |
+| 控件 | 行为 |
 |------|------|
-| **Preview** | `reconcilePipelineScopes` → `flushPipelineToSession` → `preview` |
-| **Apply** | `reconcilePipelineScopes` → `flush` → `apply`（内部 `reset` + Command 落盘）；每次 `execute` 触发 `revisionChanged` |
+| **预览（勾选框，默认勾选）** | 勾选：`runPreviewIfEnabled`（`reconcile` → `flush` → `preview`）；取消：`session->reset()` 恢复路点。流水线/参数变更且仍勾选时自动重跑预览 |
+| **Apply** | `reconcilePipelineScopes` → `flush` → `apply`（内部恢复快照 + Command 落盘 + 同步 `render.*`）；成功后清空流水线并**取消勾选**预览 |
 | **Reset** | `session->reset()` + `pipeline->setOps({})`（`opsChanged` → `setPipeline` 同步 Session） |
 | **Undo / Redo** | `ProgramEditService::undo/redo` → `revisionChanged` → `syncUiAfterProgramRevision` |
-| **删除/移动块** | `syncSessionPipeline`（`setPipeline`） |
-| **加载模板** | `setOps` + `syncSessionPipeline` |
+| **流水线右键** | 移除块 / 上移 / 下移（`opsChanged` → `syncSessionPipeline` + 勾选时自动预览） |
+| **加载模板** | `setOps` + `syncSessionPipeline` + 勾选时 `runPreviewIfEnabled` |
 
 ### 调色板拖放
 
@@ -251,7 +251,7 @@ Dock 第四页「轨迹编辑」。Dock 主标签为 **机器人** / Robot（原
 
 | 方式 | 行为 |
 |------|------|
-| 双击调色板 | `appendOp(makeDefaultOp(kind))` + `syncSessionPipeline` |
+| 双击调色板 | `appendOp(makeDefaultOp(kind))`（`opsChanged` 同步 Session 并可选自动预览） |
 | 拖入流水线 | `dropEvent` 解析 MIME → `makeDefaultOp`（默认 scope）→ 写入 `m_ops` |
 | ~~Qt 默认 QListWidget 拖放~~ | **已禁用**（`dropEvent` 对未知 MIME `ignore()`）— 仅会产生无数据的「幽灵项」 |
 
@@ -278,7 +278,7 @@ flowchart LR
 
 | 阶段 | 行为 |
 |------|------|
-| **Preview** | `reconcilePipelineScopes` → `collectPreviewWaypointIds`（仅 Translate/Rotate 块）→ 快照原始 pose → `buildPreviewPoseQuery` 链式算目标位姿 → **临时**写回 store → `syncPreviewRenderMatrices` → `refreshInstructionPoseAxes` |
+| **Preview** | `reconcilePipelineScopes` → `collectPreviewWaypointIds`（凡 `PreviewPoseTransform` 能力块）→ 快照原始 pose → `buildPreviewPoseQuery` 链式算目标位姿（含 World/Body `frame`）→ **临时**写回 store → `syncPreviewRenderMatrices` → `refreshInstructionPoseAxes` |
 | **参数变更且已预览** | `updatePipelineOps` → `reapplyPreview()`（restore 快照 → 重算 → 刷新 OSG） |
 | **Apply** | `reset()` → `buildApplyCommands` → 逐条 `ProgramEditService::execute` → 持久化 |
 | **Undo / Redo** | `syncUiAfterProgramRevision`：`abandonPreview` + `reconcilePipelineScopes` + 刷新分组 UI |
@@ -289,21 +289,22 @@ flowchart LR
 | 条件 | 文案 |
 |------|------|
 | `m_ops.empty()` | 流水线为空，请先添加平移或旋转块 |
-| 无 Translate/Rotate 块 | 当前流水线无可预览的平移/旋转块 |
+| 无可预览能力块 | 当前流水线无可预览的平移/旋转块（`PreviewPoseTransform`） |
 | scope 解析无路点 | 作用域内无运动路点（常见：分组已被撤销但流水线仍引用旧 `groupId`；应先走 `reconcilePipelineScopes`） |
 
-### 参数面板
+### 参数面板（Schema 驱动）
 
-`refreshParamPanelForKind` 按块类型显示控件：
+| 组件 | 职责 |
+|------|------|
+| `TrajectoryOpParamPanel` | 根据 `ITrajectoryOp::paramFields()` 动态建控件；读写经 [`TrajectoryOpBridge.h`](../../Robot/RobotScene/inc/TrajectoryOpBridge.h) |
+| `TrajectoryParamWidgetFactory` | Double / Int / Enum / Vec3 / Message 等控件工厂 |
+| 顶栏分组 Combo | 页级持有；`scope.groupId` 行复用同一控件，面板 `clearRows` 时不销毁 |
 
-| `TrajectoryOpKind` | 参数区 |
-|--------------------|--------|
-| Translate | 作用域 + ΔX/ΔY/ΔZ |
-| Rotate | 作用域 + 轴 X/Y/Z + 角度 |
-| Delete / Duplicate / Reorder | 仅作用域 |
-| Mirror | 仅作用域 +「未实现」提示 |
+构造时 `RobotInstruction::ensureTrajectoryOpBuiltinsRegistered()`。调色板种类来自 `trajectoryOpPaletteKinds()`；默认块 `makeDefaultDescriptor(defaultScopeForNewOp())`。
 
-流水线摘要 `formatOpSummary`：`类型 | 作用域 | Δ(…) 或 角度°@轴`。
+流水线摘要 `formatOpSummary`：委托 Registry 中对应 `ITrajectoryOp::formatSummary`（含坐标系、Δ、角度等）。
+
+模板：`QSettings` 键 `pipelineJson`，`trajectoryPipelineToJson` / `trajectoryPipelineFromJson`（见 [`TrajectoryAlgorithm/DEVELOPER_GUIDE.md`](../../Robot/TrajectoryAlgorithm/DEVELOPER_GUIDE.md) §8）。
 
 ### 已知限制（Phase 2b）
 
@@ -311,7 +312,7 @@ flowchart LR
 - Delete 预览高亮、ghost 轨迹、`previewMotionWithAccess` FK 链未做
 - 预览直接改指令 `pose`，非 Run 级 FK 链（MVP 足够显示路点轴偏移）
 
-业务类型与 scope 解析见 [`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md) §12–§13。
+业务类型、算法块与 scope 解析见 [`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md) §12–§13、[`../TrajectoryAlgorithm/DEVELOPER_GUIDE.md`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md)。
 
 ---
 

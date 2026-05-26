@@ -398,15 +398,26 @@ flowchart LR
 
 ## 13. 轨迹流水线与程序编辑 Command
 
+### 13.0 算法库与桥接
+
+| 工程 | 说明 |
+|------|------|
+| [`TrajectoryAlgorithm`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md) | `ITrajectoryOp`、Registry、ParamSchema、Codec、`TrajectoryTransformMath` |
+| [`TrajectoryAlgorithmBuiltins`](../TrajectoryAlgorithmBuiltins/) | Translate / Rotate / Delete / Duplicate + Mirror·Reorder 占位 |
+| [`TrajectoryOpBridge.h`](inc/TrajectoryOpBridge.h) | **UI 唯一入口**：Registry、参数读写、模板 JSON（避免 RobotWidget 重复链接静态库） |
+
+`ensureTrajectoryOpBuiltinsRegistered()` 在 `TrajectoryPipelineBuilder::buildApplyCommands` 与 UI 构造时调用。Apply：`ITrajectoryOp::buildApplyActions` → [`TrajectoryApplyActionConverter`](source/TrajectoryApplyActionConverter.cpp) → `ProgramEditCommand`。
+
 ### 13.1 流水线描述符
 
 | 类型 | 说明 |
 |------|------|
 | `TrajectoryOpKind` | Translate / Rotate / Mirror / Delete / Duplicate / Reorder |
-| `TrajectoryOpDescriptor` | `kind` + `OpScope` + `translate` / `rotate` 参数 |
-| `TrajectoryPipelineBuilder` | `setOps` + `buildPreviewPoseQuery` + `buildApplyCommands` |
+| `TrajectoryOpDescriptor` | `kind` + `OpScope` + `translate` / `rotate` / `duplicateCount` 等 |
+| `TransformReferenceFrame` | `World` / `Body`（`TranslateParams` / `RotateParams` 的 `frame`） |
+| `TrajectoryPipelineBuilder` | `setOps` + `buildPreviewPoseQuery` + `buildApplyCommands`（内部走 Registry） |
 
-预览链：`buildPreviewPoseQueryChain` 按流水线顺序装饰 `IMotionPoseQuery`（当前 MVP：`TransformMotionPoseQuery` 叠加平移/旋转）。
+预览链：`buildPreviewPoseQueryChain` 按流水线顺序调用各块 `contributePreviewTransform`（`capabilities & PreviewPoseTransform`），叠加到 `TransformMotionPoseQuery`；位姿合成用 `trajectory_algo::applyTransformDelta`。
 
 ### 13.2 `ProgramEditCommand` / `ProgramEditStack`
 
@@ -430,6 +441,7 @@ Apply 路径：`TrajectoryPipelineBuilder::buildApplyCommands` → UI 层 `Progr
 
 ## 14. 相关文档
 
+- 轨迹算法：[`../TrajectoryAlgorithm/DEVELOPER_GUIDE.md`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md)
 - 刚体/工具链：[`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md) · [`../GeometryEngine/CONVENTIONS.md`](../GeometryEngine/CONVENTIONS.md)
 - URDF：[`../RobotUrdf/DEVELOPER_GUIDE.md`](../RobotUrdf/DEVELOPER_GUIDE.md)
 - DH：[`../RobotKinematics/DEVELOPER_GUIDE.md`](../RobotKinematics/DEVELOPER_GUIDE.md)

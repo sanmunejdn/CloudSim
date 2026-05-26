@@ -36,6 +36,9 @@ public:
 	bool apply(QString* outError = nullptr);
 	void reset();
 	void abandonPreview();
+	void clearPipelineAfterCommit();
+	bool isApplying() const { return m_applying; }
+	bool isPreviewActive() const { return m_previewActive; }
 	bool canApply() const;
 
 signals:
@@ -54,7 +57,17 @@ private:
 	bool capturePreviewSnapshots(QString* outError);
 	bool applyPreviewTransforms(QString* outError);
 	void restorePreviewSnapshots();
+	void clearPreviewStateWithoutRestore();
 	void syncPreviewRenderMatrices();
+	void syncRenderMatricesForInstructionIds(const std::vector<std::string>& ids);
+	void syncRenderMatricesFromFrozenBase(
+		const std::vector<std::string>& ids,
+		const std::unordered_map<std::string, std::string>& frozenBaseWorldCsvById);
+	bool writeRenderMatricesFromSnapshotBase(
+		const PreviewSnapshot& snap,
+		RobotInstruction::Base& raw,
+		const std::string* frozenBaseWorldCsv,
+		double* outWorldDeltaMm) const;
 	bool reapplyPreview(QString* outError = nullptr);
 	void refreshPreviewVisuals();
 	std::vector<std::string> collectPreviewWaypointIds() const;
@@ -68,4 +81,5 @@ private:
 	std::string m_defaultGroupId;
 	std::vector<PreviewSnapshot> m_previewSnapshots;
 	bool m_previewActive = false;
+	bool m_applying = false;
 };

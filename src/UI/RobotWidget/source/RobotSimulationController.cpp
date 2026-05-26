@@ -1,4 +1,5 @@
 ﻿#include "RobotSimulationController.h"
+
 #include "RobotSimulationDockWidget.h"
 #include "RobotSimulationMath.h"
 #include "RobotInstructionPlanningHelpers.h"
@@ -28,6 +29,7 @@
 #include <QMessageBox>
 #include <QFile>
 #include <QFileDialog>
+#include <QPointer>
 #include <QSet>
 #include <QSignalBlocker>
 #include <QSet>
@@ -516,6 +518,38 @@ void RobotSimulationController::restoreAggregatedJointStateAfterProjectLoad(
 
 void RobotSimulationController::applyProgramStartPoseAfterProjectLoad()
 {
+	QPointer<RobotSimulationController> guard(this);
+	QTimer::singleShot(0, this, [guard]() {
+		if (!guard)
+		{
+			return;
+		}
+		guard->applyProgramStartPoseAfterProjectLoadImpl();
+	});
+}
+
+void RobotSimulationController::finishProgramStartPoseAfterProjectLoad(
+	const int instIdx,
+	const QVector<double> startJointQ)
+{
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	IRobotBackendPoseSink* poseSink = doc ? doc->poseSink() : nullptr;
+	if (!doc || !poseSink || instIdx < 0 || !m_host || !m_host->simulationCommandPage())
+	{
+		return;
+	}
+	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+	if (startJointQ.size() == nj)
+	{
+		(void)RobotSceneKinematics::applyJointAnglesForInstance(
+			doc, poseSink, instIdx, startJointQ, m_aggregatedJointAnglesRad);
+		captureMotionPreviewProgramStartJoints();
+	}
+	refreshInstructionPoseAxes(false);
+}
+
+void RobotSimulationController::applyProgramStartPoseAfterProjectLoadImpl()
+{
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
 	IRobotBackendPoseSink* poseSink = doc ? doc->poseSink() : nullptr;
 	if (!doc || !poseSink || !m_host->simulationCommandPage() || !doc->hasRobotSimulationContext())
@@ -539,14 +573,13 @@ void RobotSimulationController::applyProgramStartPoseAfterProjectLoad()
 	const std::vector<std::shared_ptr<RobotInstruction::Base>> program =
 		m_host->simulationCommandPage()->instructions(robotBackendId);
 	const std::vector<const RobotInstruction::Base*> motions = RobotInstruction::collectMotionInstructions(program);
-	bool appliedStartQ = false;
+	QVector<double> startQForScene;
 	if (!motions.empty() && motions.front())
 	{
 		const QVector<double> startQ =
 			RobotInstructionPlanning::jointAnglesRadFromInstructionContext(*motions.front());
 		if (startQ.size() == nj)
 		{
-			appliedStartQ = true;
 			const QStringList jnamesAll = doc->robotRevoluteJointNames();
 			if (m_aggregatedJointAnglesRad.size() != jnamesAll.size())
 			{
@@ -561,32 +594,71 @@ void RobotSimulationController::applyProgramStartPoseAfterProjectLoad()
 				QSignalBlocker blocker(m_host->robotAxisControlPage());
 				m_host->robotAxisControlPage()->setJointAnglesRad(startQ);
 			}
-			(void)RobotSceneKinematics::applyJointAnglesForInstance(
-				doc, poseSink, instIdx, startQ, m_aggregatedJointAnglesRad);
-			captureMotionPreviewProgramStartJoints();
+			startQForScene = startQ;
 		}
 	}
+	osg::Matrixd robotBaseWorldAtLoad;
+	robotBaseWorldAtLoad.makeIdentity();
+	IRobotOsgViewHost* loadOsg = m_host ? m_host->osgView() : nullptr;
+	(void)RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, loadOsg, instIdx, robotBaseWorldAtLoad);
 	for (const auto& ins : program)
 	{
-		if (!ins || !ins->hasPoseProperty())
+		if (!ins || !RobotInstruction::isMotionWaypointType(ins->type()))
 		{
 			continue;
 		}
-		const QVector<double> taughtQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(*ins);
-		if (taughtQ.size() != nj)
+		const auto& ext = ins->extensionProperties();
+		osg::Matrixd savedWorld;
+		savedWorld.makeIdentity();
+		bool hasSavedWorld = false;
+		const auto itSavedWorld = ext.find("render.tcpWorldMat4");
+		if (itSavedWorld != ext.end() && !itSavedWorld->second.empty())
 		{
+			hasSavedWorld = RobotSimulationMath::decodeMatrix4Csv(itSavedWorld->second, savedWorld);
+		}
+		osg::Matrixd tcpLocalForRecompute;
+		tcpLocalForRecompute.makeIdentity();
+		engine::RigidTransform targetForRecompute{};
+		if (RobotInstruction::readTargetTransformFromInstruction(*ins, targetForRecompute))
+		{
+			tcpLocalForRecompute = engine::osgMatrixFromRigidTransform(targetForRecompute);
+		}
+		const auto itSavedLocal = ext.find("render.tcpLocalMat4");
+		if (itSavedLocal != ext.end() && !itSavedLocal->second.empty())
+		{
+			osg::Matrixd savedLocal;
+			if (RobotSimulationMath::decodeMatrix4Csv(itSavedLocal->second, savedLocal))
+			{
+				tcpLocalForRecompute = savedLocal;
+			}
+		}
+		if (hasSavedWorld)
+		{
+			// 示教时已冻结的世界矩阵；加载后重算会漂移（robotBaseWorld 与关节角参数均不可靠）
 			continue;
 		}
-		osg::Matrixd tcpWorld;
-		tcpWorld.makeIdentity();
-		if (!instructionTcpWorldMat4FromTaughtJoints(doc, instIdx, *ins, taughtQ, tcpWorld))
+		if (itSavedLocal != ext.end() && !itSavedLocal->second.empty())
 		{
-			continue;
+			osg::Matrixd savedLocal;
+			if (RobotSimulationMath::decodeMatrix4Csv(itSavedLocal->second, savedLocal))
+			{
+				ins->setExtensionProperty(
+					"render.tcpWorldMat4",
+					RobotSimulationMath::encodeMatrix4Csv(savedLocal * robotBaseWorldAtLoad));
+				continue;
+			}
 		}
-		ins->setExtensionProperty(
-			"render.tcpWorldMat4", RobotSimulationMath::encodeMatrix4Csv(tcpWorld));
+		syncInstructionRenderMatricesFromPose(ins);
 	}
-	refreshInstructionPoseAxes();
+	QPointer<RobotSimulationController> guard(this);
+	const QVector<double> startQCopy = startQForScene;
+	QTimer::singleShot(0, this, [guard, instIdx, startQCopy]() {
+		if (!guard)
+		{
+			return;
+		}
+		guard->finishProgramStartPoseAfterProjectLoad(instIdx, startQCopy);
+	});
 }
 
 void RobotSimulationController::captureMotionPreviewProgramStartJoints()
@@ -2877,19 +2949,40 @@ void RobotSimulationController::syncInstructionRenderMatricesFromPose(const std:
 	osg::Matrixd tcpWorld;
 	tcpWorld.makeIdentity();
 	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+	const auto& ext = instruction->extensionProperties();
+	const auto itTargetQ = ext.find(RobotInstruction::kExtContextTargetTransformQuatCsv);
+	const auto itTargetT = ext.find(RobotInstruction::kExtContextTargetTransformTransMmCsv);
+	const bool hasCartesianTarget = itTargetQ != ext.end() && itTargetT != ext.end()
+		&& !itTargetQ->second.empty() && !itTargetT->second.empty();
 	QVector<double> taughtQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(*instruction);
-	if (taughtQ.size() == nj
-		&& instructionTcpWorldMat4FromTaughtJoints(doc, instIdx, *instruction, taughtQ, tcpWorld))
+	// 轨迹平移/旋转后 pose 已更新而关节角未重算，不能再按示教 FK 写 world 矩阵
+	const bool usedTaughtFk = !hasCartesianTarget && taughtQ.size() == nj
+		&& instructionTcpWorldMat4FromTaughtJoints(doc, instIdx, *instruction, taughtQ, tcpWorld);
+	if (usedTaughtFk)
 	{
 		instruction->setExtensionProperty("render.tcpWorldMat4", RobotSimulationMath::encodeMatrix4Csv(tcpWorld));
 	}
 	else
 	{
+		// 笛卡尔路点：用该点示教关节算基座世界位姿，不能用当前仿真关节（否则多点会叠在同一错误位置）
+		const auto itWorld = ext.find("render.tcpWorldMat4");
+		if (hasCartesianTarget && taughtQ.size() != nj && itWorld != ext.end() && !itWorld->second.empty())
+		{
+			osg::Matrixd cachedWorld;
+			if (RobotSimulationMath::decodeMatrix4Csv(itWorld->second, cachedWorld))
+			{
+				return;
+			}
+		}
 		osg::Matrixd robotBaseWorld;
 		robotBaseWorld.makeIdentity();
 		const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
 		QVector<double> syncJointQ;
-		if (nj > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + nj)
+		if (hasCartesianTarget && taughtQ.size() == nj)
+		{
+			syncJointQ = taughtQ;
+		}
+		else if (nj > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + nj)
 		{
 			syncJointQ.resize(nj);
 			for (int j = 0; j < nj; ++j)
@@ -2973,7 +3066,7 @@ QHash<QString, bool> RobotSimulationController::computeMotionReachabilityForCurr
 	return reachability;
 }
 
-void RobotSimulationController::refreshInstructionPoseAxes()
+void RobotSimulationController::refreshInstructionPoseAxes(const bool computeReachability)
 {
 	static bool s_matrixConventionSelfTestDone = false;
 	if (!s_matrixConventionSelfTestDone)
@@ -3014,7 +3107,8 @@ void RobotSimulationController::refreshInstructionPoseAxes()
 		}
 		return;
 	}
-	const QHash<QString, bool> reachability = computeMotionReachabilityForCurrentProgram();
+	const QHash<QString, bool> reachability =
+		computeReachability ? computeMotionReachabilityForCurrentProgram() : QHash<QString, bool>{};
 	const std::vector<std::shared_ptr<RobotInstruction::Base>> insList = m_host->simulationCommandPage()->instructionList();
 	std::vector<RobotOsgUi::InstructionPoseAxis> axes;
 	axes.reserve(insList.size());

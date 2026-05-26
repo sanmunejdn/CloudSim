@@ -63,10 +63,22 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RobotUrdf", "src\Robot\Robo
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RobotScene", "src\Robot\RobotScene\RobotScene.vcxproj", "{B2C4D6E8-0A1F-4E3C-9D5E-7F1A2B3C4D5E}"
 	ProjectSection(ProjectDependencies) = postProject
+		{C2A3B4D5-E6F7-8901-BCDE-F12345678902} = {C2A3B4D5-E6F7-8901-BCDE-F12345678902}
+		{C1A2B3D4-E5F6-7890-ABCD-EF0123456702} = {C1A2B3D4-E5F6-7890-ABCD-EF0123456702}
 		{7A3E9B2C-4D1F-4E8A-B5C6-1D2E3F4A5B6C} = {7A3E9B2C-4D1F-4E8A-B5C6-1D2E3F4A5B6C}
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GeometryEngine", "src\Geometry\GeometryEngine\GeometryEngine.vcxproj", "{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TrajectoryAlgorithm", "src\Robot\TrajectoryAlgorithm\TrajectoryAlgorithm.vcxproj", "{C1A2B3D4-E5F6-7890-ABCD-EF0123456702}"
+	ProjectSection(ProjectDependencies) = postProject
+		{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70} = {D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TrajectoryAlgorithmBuiltins", "src\Robot\TrajectoryAlgorithmBuiltins\TrajectoryAlgorithmBuiltins.vcxproj", "{C2A3B4D5-E6F7-8901-BCDE-F12345678902}"
+	ProjectSection(ProjectDependencies) = postProject
+		{C1A2B3D4-E5F6-7890-ABCD-EF0123456702} = {C1A2B3D4-E5F6-7890-ABCD-EF0123456702}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PointCloudAlgorithm", "src\Geometry\PointCloudAlgorithm\PointCloudAlgorithm.vcxproj", "{E8F9A0B1-C2D3-4E4F-9A8B-1C2D3E4F5A6B}"
 EndProject
@@ -202,6 +214,18 @@ Global
 		{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}.Release|x64.Build.0 = Release|x64
 		{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}.Release|x86.ActiveCfg = Release|Win32
 		{D4E5F6A7-B8C9-4D0E-9F1A-2B3C4D5E6F70}.Release|x86.Build.0 = Release|Win32
+		{C1A2B3D4-E5F6-7890-ABCD-EF0123456702}.Debug|x64.ActiveCfg = Debug|x64
+		{C1A2B3D4-E5F6-7890-ABCD-EF0123456702}.Debug|x64.Build.0 = Debug|x64
+		{C1A2B3D4-E5F6-7890-ABCD-EF0123456702}.Debug|x86.ActiveCfg = Debug|x64
+		{C1A2B3D4-E5F6-7890-ABCD-EF0123456702}.Release|x64.ActiveCfg = Release|x64
+		{C1A2B3D4-E5F6-7890-ABCD-EF0123456702}.Release|x64.Build.0 = Release|x64
+		{C1A2B3D4-E5F6-7890-ABCD-EF0123456702}.Release|x86.ActiveCfg = Release|x64
+		{C2A3B4D5-E6F7-8901-BCDE-F12345678902}.Debug|x64.ActiveCfg = Debug|x64
+		{C2A3B4D5-E6F7-8901-BCDE-F12345678902}.Debug|x64.Build.0 = Debug|x64
+		{C2A3B4D5-E6F7-8901-BCDE-F12345678902}.Debug|x86.ActiveCfg = Debug|x64
+		{C2A3B4D5-E6F7-8901-BCDE-F12345678902}.Release|x64.ActiveCfg = Release|x64
+		{C2A3B4D5-E6F7-8901-BCDE-F12345678902}.Release|x64.Build.0 = Release|x64
+		{C2A3B4D5-E6F7-8901-BCDE-F12345678902}.Release|x86.ActiveCfg = Release|x64
 		{E8F9A0B1-C2D3-4E4F-9A8B-1C2D3E4F5A6B}.Debug|x64.ActiveCfg = Debug|x64
 		{E8F9A0B1-C2D3-4E4F-9A8B-1C2D3E4F5A6B}.Debug|x64.Build.0 = Debug|x64
 		{E8F9A0B1-C2D3-4E4F-9A8B-1C2D3E4F5A6B}.Debug|x86.ActiveCfg = Debug|Win32

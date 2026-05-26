@@ -369,8 +369,8 @@ void MainWindow::onOpenProjectFile()
 		}
 		if (projectHadPrograms && simulationCommandPage())
 		{
+			// setRobotInstances 内已 refreshInstructionList，勿重复触发 renumber/rebuild
 			refreshSimulationJointListFromCurrentDoc();
-			simulationCommandPage()->refreshInstructionList();
 		}
 	}
 

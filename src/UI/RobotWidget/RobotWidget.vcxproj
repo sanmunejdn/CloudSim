@@ -60,7 +60,7 @@
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>ROBOTWIDGET_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>inc;../OsgWidgetCore/inc;../BackendVisual/inc;../../Robot/RobotScene/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotKinematics/inc;../../Geometry/GeometryEngine/inc;../../Data/Data/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;../../../../bin/SDK/qtpropertybrowser;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../OsgWidgetCore/inc;../BackendVisual/inc;../../Robot/RobotScene/inc;../../Robot/TrajectoryAlgorithm/inc;../../Robot/TrajectoryAlgorithmBuiltins/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotKinematics/inc;../../Geometry/GeometryEngine/inc;../../Data/Data/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;../../../../bin/SDK/qtpropertybrowser;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -72,7 +72,7 @@
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>ROBOTWIDGET_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>inc;../OsgWidgetCore/inc;../BackendVisual/inc;../../Robot/RobotScene/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotKinematics/inc;../../Geometry/GeometryEngine/inc;../../Data/Data/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;../../../../bin/SDK/qtpropertybrowser;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../OsgWidgetCore/inc;../BackendVisual/inc;../../Robot/RobotScene/inc;../../Robot/TrajectoryAlgorithm/inc;../../Robot/TrajectoryAlgorithmBuiltins/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotKinematics/inc;../../Geometry/GeometryEngine/inc;../../Data/Data/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;../../../../bin/SDK/qtpropertybrowser;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -102,6 +102,7 @@
     <QtMoc Include="inc\ProgramEditService.h" />
     <QtMoc Include="inc\TrajectoryEditSession.h" />
     <QtMoc Include="inc\TrajectoryEditPageWidget.h" />
+    <QtMoc Include="inc\TrajectoryOpParamPanel.h" />
     <QtMoc Include="inc\TrajectoryPipelineListWidget.h" />
     <ClInclude Include="inc\SimulationLogIoSink.h" />
     <QtMoc Include="inc\RobotAxisControlWidget.h" />
@@ -115,6 +116,8 @@
     <ClCompile Include="source\ProgramEditService.cpp" />
     <ClCompile Include="source\TrajectoryEditSession.cpp" />
     <ClCompile Include="source\TrajectoryEditPageWidget.cpp" />
+    <ClCompile Include="source\TrajectoryOpParamPanel.cpp" />
+    <ClCompile Include="source\TrajectoryParamWidgetFactory.cpp" />
     <ClCompile Include="source\TrajectoryPipelineListWidget.cpp" />
     <ClCompile Include="source\SimulationLogIoSink.cpp" />
     <ClCompile Include="source\RobotAxisControlWidget.cpp" />
