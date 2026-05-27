@@ -169,8 +169,8 @@ flowchart TD
   - 工程 I/O：保存时 `ProjectPackageIo::mergeRobotKinematicsIntoProjectRoot`（内部 `RobotProjectIo::writeRobotKinematics`）；加载与 programs 仍经 Host `ProjectPackageIo` + `MainWindowProjectIo` 编排。
 - **AI 助手（`CloudSimAiSDK` + `AiWidget` + 宿主 `CloudSimPluginHost` 内 Ai 实现）**：
   - **`CloudSimAiSDK.dll`**：稳定 ABI（`IAiAssistantHost`、`IAiDomainRegistry`、`ICloudSimAiPlugin`、配置 DTO）。
-  - **宿主实现**（编入 `Widget.dll`）：`AiAssistantHostImpl`、`AiActionPlanExecutor`、分域 Handler、规则/本地/远程解析链；`ai_config.json` 默认 `hardware_profile: vram_8gb`。
-  - **训练**：仓库外 `tools/ai-training/`，见 `CloudSimAiSDK/DEVELOPER_GUIDE.md`。
+  - **宿主实现**（编入 `Widget.dll`）：`AiAssistantHostImpl`、`AiActionPlanExecutor`、`AiMeshDefaults`（缺省尺寸补全）、分域 Handler、规则/本地/远程解析链；`ai_config.json` 默认 `hardware_profile: vram_8gb`，可选 `mesh_create_defaults`。
+  - **训练**：仓库外 `tools/ai-training/`（`dataset.jsonl` **训练后仍保留在仓库**，见该目录 README §2.1）；见 `CloudSimAiSDK/DEVELOPER_GUIDE.md`。
   - **`AiWidget`（前端）**：`AiAssistantDockWidget`、`AiLlmSettingsDialog`、`AiAssistantCoordinator`（规则/LLM 编排、解析来源提示）。
   - **`Widget` 集成**：`AiCreateMeshRunner` → Host `DocumentImportFacade::registerAdoptedMesh`；`MainWindow::setupAiAssistantCoordinator` 注入 `JobSystem` 后台队列。
   - 配置：`ai_config.json`（exe 同目录）；默认 **先 rules 再 local**（见 `parser_priority`）。
@@ -469,11 +469,11 @@ flowchart TD
 1. 用户在 **AI Assistant** Dock 输入自然语言，并选择领域（**自动 / 创建网格 / 几何识别**）。  
 2. `AiAssistantCoordinator` 经 `IAiAssistantHost::parseUserTextAsync` 提交到 `JobSystem` 后台解析（进度回调经 UI 线程）。  
 3. **解析链**（`ai_config.json` 中 `parser_priority` / `domains[].parser_priority`）：  
-   - **rules**：`AiIntentParser`（「生成/创建 + 基本体 + 尺寸」，零模型）  
-   - **local**：Ollama 等 OpenAI 兼容 API（`domains[].base_url` + `model`）  
+   - **rules**：`AiIntentParser`（「生成/创建 + 基本体」；**尺寸可省略**，由 `AiMeshDefaults` 补默认）  
+   - **local**：Ollama 等 OpenAI 兼容 API（`domains[].base_url` + `model`；口语/复杂句；`meshSystemPrompt` + 同样补全）  
    - **remote**：可选云端 `remote_llm`  
-4. 成功则得到 `create_mesh` v1 JSON 或 **ActionPlan v2**（`steps[]`）。  
-5. `AiActionPlanExecutor` / `IAiDomainHandler` → `PluginHostContext::createPrimitiveMesh` 等。  
+4. 成功则得到 `create_mesh` v1 JSON 或 **ActionPlan v2**（`steps[]`）；`dimensions_mm` 不完整时在 schema 执行前由 `AiMeshDefaults::applyMissingDimensions` 兜底。  
+5. `AiActionPlanExecutor` / `IAiDomainHandler` → `PluginHostContext::createPrimitiveMesh` 等；若使用了默认尺寸，`summary` 会提示用户。  
 6. 助手历史与 `RunInfoPage` 显示结果。
 
 **配置与训练文档：**
@@ -487,18 +487,28 @@ flowchart TD
 | 字段 | 说明 |
 |------|------|
 | `parser_priority` | 全局默认：`["rules","local","remote"]` |
+| `mesh_create_defaults` | 可选；box/cylinder/cone/sphere 缺省 mm（与训练金标一致） |
 | `domains[]` | 分域：`id`、`model`、`base_url`、`parser_priority` |
 | `remote_llm` | 可选云端 API（`enabled`、`api_key`、`model` 等） |
 | `hardware_profile` | 默认 `vram_8gb`（3B 文本 + 3B VL，单模型常驻） |
 
-**支持的基本体与尺寸语义：**
+**mesh.create 出厂默认尺寸（`dimensions_mm`，可配置覆盖）：**
 
-| `primitive` | 主要尺寸字段 | 备注 |
-|-------------|--------------|------|
-| `box` | `length_mm`, `width_mm`, `height_mm` | 中心在原点，X/Y/Z 对应长/宽/高 |
-| `cylinder` | `radius_mm`, `height_mm` | 轴沿 Z，底面在 z = -h/2 |
-| `cone` | `radius_mm`（底）, `radius_top_mm`, `height_mm` | `radius_top_mm≈0` 为尖顶 |
-| `sphere` | `radius_mm` | `segments` / `rings` 控制网格密度 |
+| `primitive` | 默认（mm） | 用户示例 |
+|-------------|------------|----------|
+| `box` | 100 × 100 × 100 | `生成长方体` → rules |
+| `cylinder` | R50, H100 | `生成大一点的圆柱` → local 专模（可训练） |
+| `cone` | R50, H100 | |
+| `sphere` | R50 | |
+
+**支持的基本体与尺寸语义（JSON 字段名）：**
+
+| `primitive` | `dimensions_mm` 主要字段 | 备注 |
+|-------------|--------------------------|------|
+| `box` | `length`, `width`, `height` | 中心在原点，Z 为高 |
+| `cylinder` | `radius`, `height` | 轴沿 Z |
+| `cone` | `radius`, `height`；可选 `radius_top` | `radius_top≈0` 为尖顶 |
+| `sphere` | `radius` 或 `diameter` | `mesh_quality.segments` / `rings` 控制密度 |
 
 ```mermaid
 sequenceDiagram
@@ -837,10 +847,16 @@ bin/x64(d)/                    # CloudSimBinDir，见 CloudSim/Directory.Build.p
   AiWidget.dll
   CloudSimAiSDK.dll
   CloudSimPluginSDK.dll
+  PlcCommSDK.dll
+  PlcCommUI.dll
+  plctag.dll
   plugins/
     com.cloudsim.hello/
       plugin.json
       HelloPlugin.dll
+    com.cloudsim.plccomm/
+      plugin.json
+      PlcCommPlugin.dll
 ```
 
 ### 10.3 生命周期
@@ -855,6 +871,7 @@ bin/x64(d)/                    # CloudSimBinDir，见 CloudSim/Directory.Build.p
 - 宿主实现：[CloudSimPluginHost/DEVELOPER_GUIDE.md](src/UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)
 - SDK：[CloudSimPluginSDK/DEVELOPER_GUIDE.md](src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md)
 - 示例：[HelloPlugin/DEVELOPER_GUIDE.md](src/Plugins/HelloPlugin/DEVELOPER_GUIDE.md)
+- PLC：[PlcCommSDK/DEVELOPER_GUIDE.md](src/Plugins/PlcCommSDK/DEVELOPER_GUIDE.md)、[PlcCommPlugin/DEVELOPER_GUIDE.md](src/Plugins/PlcCommPlugin/DEVELOPER_GUIDE.md)
 
 ---
 

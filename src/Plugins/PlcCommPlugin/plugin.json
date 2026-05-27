@@ -1,0 +1,8 @@
+{
+  "id": "com.cloudsim.plccomm",
+  "name": "PLC",
+  "version": "1.0.0",
+  "minHostVersion": "1.1.0",
+  "library": "PlcCommPlugin.dll",
+  "enabled": true
+}

@@ -38,11 +38,14 @@ CloudSim/
     ├── Plugins/CloudSimAiSDK/
     ├── Plugins/
     │   ├── CloudSimPluginSDK/
+    │   ├── PlcCommSDK/
+    │   ├── PlcCommUI/
+    │   ├── PlcCommPlugin/
     │   └── HelloPlugin/
     └── Infra/RunLogger/
 ```
 
-**Visual Studio**：`CloudSim.sln` 列出 18 个 `.vcxproj`（含 **CloudSimHost**；无解决方案文件夹），避免 VS2019 将 `src` 等目录误判为「不兼容」工程。IDE 中按工程名浏览；磁盘分组见上表。请打开 [`CloudSim/CloudSim.sln`](../CloudSim.sln)。
+**Visual Studio**：`CloudSim.sln` 列出 21 个 `.vcxproj`（含 **CloudSimHost**、**PlcCommSDK**、**PlcCommUI**、**PlcCommPlugin**；无解决方案文件夹），避免 VS2019 将 `src` 等目录误判为「不兼容」工程。IDE 中按工程名浏览；磁盘分组见上表。请打开 [`CloudSim/CloudSim.sln`](../CloudSim.sln)。
 
 ## 旧路径对照（迁移参考）
 
@@ -63,6 +66,9 @@ CloudSim/
 | `CloudSimAiSDK/` | `src/Plugins/CloudSimAiSDK/` |
 | `CloudSimPluginSDK/` | `src/Plugins/CloudSimPluginSDK/` |
 | `Plugins/HelloPlugin/` | `src/Plugins/HelloPlugin/` |
+| `PlcCommSDK/` | `src/Plugins/PlcCommSDK/`（libplctag 后端 DLL） |
+| `PlcCommUI/` | `src/Plugins/PlcCommUI/`（Qt 调试 UI DLL，仅链 PlcCommSDK） |
+| `PlcCommPlugin/` | `src/Plugins/PlcCommPlugin/`（CloudSim 插件，侧栏 PLC 页） |
 | `RunLogger/` | `src/Infra/RunLogger/` |
 
 ## 构建与输出
@@ -82,6 +88,7 @@ CloudSim/
 | 数据 | `Data.dll` |
 | 共享引擎 | `RunLogger.dll`、`GeometryEngine.dll`、`RobotKinematics.dll`、`RobotUrdf.dll`、`RobotScene.dll`、`BackendVisual.dll`、`OsgWidgetCore.dll` |
 | 插件 ABI | `CloudSimPluginSDK.dll`；`plugins/<id>/` 下各插件 DLL |
+| PLC 通信（独立） | `PlcCommSDK.dll`、`PlcCommUI.dll`、`plctag.dll`（见 `bin/SDK/libplctag-2.6-vc14-64/`） |
 
 `PointCloudAlgorithm` **无**独立 DLL（静态链入 `Data.dll`）。调试时工作目录应设为 `bin/x64(d)/`，以便 Windows 加载器解析上述 DLL。
 

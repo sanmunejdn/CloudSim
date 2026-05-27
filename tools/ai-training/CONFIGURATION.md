@@ -12,10 +12,31 @@
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `hardware_profile` | string | 硬件档位提示。默认 `vram_8gb`：建议单模型常驻、8GB 显存用 3B 级模型。 |
+| `mesh_create_defaults` | object | **可选**。`mesh.create` 在规则/LLM 未给出完整尺寸时的兜底（见下文 §1.1）。 |
 | `parser_priority` | string[] | 全局默认解析顺序：`rules` → `local` → `remote`。 |
 | `remote_llm` | object | 可选云端 OpenAI 兼容 API。 |
 | `router` | object | 领域路由（默认 `explicit_ui`：由 UI 下拉选择领域）。 |
 | `domains` | array | **分域专模**列表（核心）。 |
+
+### 1.1 mesh_create_defaults（创建基本体缺省尺寸）
+
+用户只说「生成长方体」等、未给数字时，宿主 `AiMeshDefaults::applyMissingDimensions` 会补全 `dimensions_mm`（规则解析、LLM 输出、执行前各调用一次）。
+
+```json
+"mesh_create_defaults": {
+  "box": { "length": 100, "width": 100, "height": 100 },
+  "cylinder": { "radius": 50, "height": 100 },
+  "cone": { "radius": 50, "height": 100 },
+  "sphere": { "radius": 50 }
+}
+```
+
+| 说明 | |
+|------|--|
+| 单位 | 毫米（mm），与 `create_mesh` JSON 一致 |
+| 省略该块 | 使用 [`ai_config.defaults.json`](../../src/App/CloudSim/ai_config.defaults.json) 内置表 |
+| 训练数据 | `tools/ai-training/domains/mesh.create/dataset.jsonl` 中「无尺寸」样本的 `output` 应与上表一致 |
+| 执行反馈 | 补全默认后，助手 `summary` 会提示「已使用默认参数」 |
 
 ### parser_priority 取值
 
@@ -81,7 +102,7 @@
 
 | id | model | 说明 |
 |----|-------|------|
-| `mesh.create` | `qwen2.5:3b` | 文本 → 创建基本体 JSON |
+| `mesh.create` | `qwen2.5:3b`（或自训练 `cloudsim-mesh:3b`） | 文本 → 创建基本体 JSON；无尺寸句可走 **rules** 兜底 |
 | `geometry.recognize` | `qwen2.5vl:3b` | 多模态几何识别 |
 
 ---
@@ -118,6 +139,8 @@ cd D:\Project\VSprogram\Ollama
 |------|------|
 | 输入后无反应 | 确认已用新 `Widget.dll`；插件加载后 `IAiAssistantHost` 已绑定；看运行输出 |
 | 创建类语句无模型 | 确认 `parser_priority` 含 `rules`；或 Ollama 已启动 |
+| 「生成长方体」无尺寸失败 | 应走 rules + 默认补全；检查 `mesh_create_defaults` 与新版 `Widget.dll` |
+| 口语句（大一点圆柱）效果差 | 需 **local** 专模；可训练 `cloudsim-mesh:3b` 并改 `domains[].model` |
 | 闲聊崩溃/无响应 | 已修复：勿在后台线程直接更新 UI；闲聊走提示文案 |
 | 11434 端口占用 | Ollama 已在运行，无需再 `ollama serve` |
 | 换模型不生效 | 修改 `domains[].model` 后重启 CloudSim；Ollama 侧 `ollama list` 确认名称 |

@@ -126,7 +126,8 @@ flowchart LR
 | 类 | 职责 |
 |----|------|
 | `AiAssistantHostImpl` | `IAiAssistantHost`：解析链、配置、执行委托 |
-| `AiIntentParser` | 规则解析（创建基本体） |
-| `AiLlmClient` | OpenAI 兼容 HTTP（Ollama / 云端） |
-| `AiActionPlanExecutor` | JSON → `createPrimitiveMesh` / `importFile` |
+| `AiIntentParser` | 规则解析（创建基本体；尺寸可省略） |
+| `AiMeshDefaults` | `mesh_create_defaults` 加载；`applyMissingDimensions` 补全 `dimensions_mm` |
+| `AiLlmClient` | OpenAI 兼容 HTTP（Ollama / 云端）；mesh 提示词含缺省/口语策略 |
+| `AiActionPlanExecutor` | JSON → `createPrimitiveMesh` / `importFile`；执行 summary 提示默认尺寸 |
 | `MeshCreateDomainHandler` / `GeometryRecognizeDomainHandler` | 内置分域 |

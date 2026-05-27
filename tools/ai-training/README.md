@@ -45,6 +45,19 @@ flowchart LR
 | 4. 配置 | `ai_config.json` → `domains[].model` |
 | 5. 验证 | AI 助手或 `curl` 调 `/v1/chat/completions` |
 
+### 2.1 训练完成后要删除 dataset.jsonl 吗？
+
+**不要删除。** `domains/<id>/dataset.jsonl` 是仓库内的**版本化训练资产**，应长期保留，原因：
+
+| 原因 | 说明 |
+|------|------|
+| 复现与迭代 | 增删样本、改默认尺寸策略后需重新 SFT |
+| 与运行时对齐 | 金标尺寸须与 `mesh_create_defaults` / `AiMeshDefaults` 一致 |
+| 校验 | `python scripts/build_dataset.py mesh.create` 可在 CI 或提交前回归 |
+| 协作 | 其它开发者依赖同一份 jsonl 复现 `cloudsim-mesh:3b` |
+
+可删除的仅是**训练过程临时目录**（如 LLaMA-Factory 的 `saves/`、合并中间 GGUF），勿提交到 git；**不要**删 `tools/ai-training/domains/**/dataset.jsonl`。
+
 ---
 
 ## 3. 环境准备
@@ -276,7 +289,7 @@ curl http://127.0.0.1:11434/v1/chat/completions -d "{
 
 | 脚本 | 用法 |
 |------|------|
-| `scripts/build_dataset.py` | `python build_dataset.py mesh.create` 校验 jsonl 每行合法 JSON |
+| `scripts/build_dataset.py` | `python build_dataset.py mesh.create` 校验 jsonl + mesh.create 的 `create_mesh` schema |
 | `scripts/export_catalog_slices.py` | `python export_catalog_slices.py mesh.create` 输出 catalog 子集 |
 
 ---

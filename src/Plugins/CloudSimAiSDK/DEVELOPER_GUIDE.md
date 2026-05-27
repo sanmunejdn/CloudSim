@@ -113,9 +113,13 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 | 4 | `ai_config.json` → `domains[].model = "<name>"` |
 | 5 | CloudSim 验证 |
 
+**训练集是否删除？** 不要删除 `tools/ai-training/domains/<id>/dataset.jsonl`（版本化金标，便于复训与 `build_dataset.py` 校验）。仅清理训练机上的 `saves/`、临时 GGUF 等产物。详见 [`tools/ai-training/README.md`](../../tools/ai-training/README.md) §2.1。
+
+**mesh.create 缺省尺寸：** 运行时由 `AiMeshDefaults` + `ai_config.json` 的 `mesh_create_defaults` 补全；训练样本中「无尺寸」句的 `output` 须写出完整 `dimensions_mm`（与默认表一致）。专模部署见 [`domains/mesh.create/README.md`](../../tools/ai-training/domains/mesh.create/README.md)。
+
 数据集 `output` 格式：
 
-- **mesh.create**：`{"version":1,"action":"create_mesh","primitive":"box",...}`
+- **mesh.create**：`{"version":1,"action":"create_mesh","primitive":"box","dimensions_mm":{...}}`
 - **geometry.recognize**：`{"primitive":"box","label":"...",...}`
 
 ---

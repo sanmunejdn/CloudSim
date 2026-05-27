@@ -123,6 +123,19 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PointCloudPlugin", "src\Plu
 		{C3D4E5F6-A7B8-9012-CDEF-123456789ABC} = {C3D4E5F6-A7B8-9012-CDEF-123456789ABC}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PlcCommSDK", "src\Plugins\PlcCommSDK\PlcCommSDK.vcxproj", "{B1C2D3E4-F5A6-7890-BCDE-F12345678910}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PlcCommUI", "src\Plugins\PlcCommUI\PlcCommUI.vcxproj", "{B2C3D4E5-F6A7-8901-BCDE-F12345678911}"
+	ProjectSection(ProjectDependencies) = postProject
+		{B1C2D3E4-F5A6-7890-BCDE-F12345678910} = {B1C2D3E4-F5A6-7890-BCDE-F12345678910}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PlcCommPlugin", "src\Plugins\PlcCommPlugin\PlcCommPlugin.vcxproj", "{C4D5E6F7-A8B9-0123-CDEF-456789ABCDEF}"
+	ProjectSection(ProjectDependencies) = postProject
+		{C3D4E5F6-A7B8-9012-CDEF-123456789ABC} = {C3D4E5F6-A7B8-9012-CDEF-123456789ABC}
+		{B2C3D4E5-F6A7-8901-BCDE-F12345678911} = {B2C3D4E5-F6A7-8901-BCDE-F12345678911}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -291,6 +304,24 @@ Global
 		{F6A7B8C9-D0E1-2345-F012-456789ABCDEF}.Release|x64.ActiveCfg = Release|x64
 		{F6A7B8C9-D0E1-2345-F012-456789ABCDEF}.Release|x64.Build.0 = Release|x64
 		{F6A7B8C9-D0E1-2345-F012-456789ABCDEF}.Release|x86.ActiveCfg = Release|x64
+		{B1C2D3E4-F5A6-7890-BCDE-F12345678910}.Debug|x64.ActiveCfg = Debug|x64
+		{B1C2D3E4-F5A6-7890-BCDE-F12345678910}.Debug|x64.Build.0 = Debug|x64
+		{B1C2D3E4-F5A6-7890-BCDE-F12345678910}.Debug|x86.ActiveCfg = Debug|x64
+		{B1C2D3E4-F5A6-7890-BCDE-F12345678910}.Release|x64.ActiveCfg = Release|x64
+		{B1C2D3E4-F5A6-7890-BCDE-F12345678910}.Release|x64.Build.0 = Release|x64
+		{B1C2D3E4-F5A6-7890-BCDE-F12345678910}.Release|x86.ActiveCfg = Release|x64
+		{B2C3D4E5-F6A7-8901-BCDE-F12345678911}.Debug|x64.ActiveCfg = Debug|x64
+		{B2C3D4E5-F6A7-8901-BCDE-F12345678911}.Debug|x64.Build.0 = Debug|x64
+		{B2C3D4E5-F6A7-8901-BCDE-F12345678911}.Debug|x86.ActiveCfg = Debug|x64
+		{B2C3D4E5-F6A7-8901-BCDE-F12345678911}.Release|x64.ActiveCfg = Release|x64
+		{B2C3D4E5-F6A7-8901-BCDE-F12345678911}.Release|x64.Build.0 = Release|x64
+		{B2C3D4E5-F6A7-8901-BCDE-F12345678911}.Release|x86.ActiveCfg = Release|x64
+		{C4D5E6F7-A8B9-0123-CDEF-456789ABCDEF}.Debug|x64.ActiveCfg = Debug|x64
+		{C4D5E6F7-A8B9-0123-CDEF-456789ABCDEF}.Debug|x64.Build.0 = Debug|x64
+		{C4D5E6F7-A8B9-0123-CDEF-456789ABCDEF}.Debug|x86.ActiveCfg = Debug|x64
+		{C4D5E6F7-A8B9-0123-CDEF-456789ABCDEF}.Release|x64.ActiveCfg = Release|x64
+		{C4D5E6F7-A8B9-0123-CDEF-456789ABCDEF}.Release|x64.Build.0 = Release|x64
+		{C4D5E6F7-A8B9-0123-CDEF-456789ABCDEF}.Release|x86.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
