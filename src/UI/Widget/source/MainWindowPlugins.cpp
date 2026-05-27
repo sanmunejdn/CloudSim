@@ -62,6 +62,7 @@ void MainWindow::loadPlugins()
 	}
 
 	m_pluginManager->loadAllFromPluginsDirectory();
+	refreshAiAssistantHost();
 }
 
 void MainWindow::notifyPluginsLanguageChanged()

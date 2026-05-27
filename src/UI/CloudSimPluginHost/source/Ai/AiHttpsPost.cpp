@@ -24,6 +24,31 @@ namespace AiHttpsPost
 {
 namespace
 {
+QString winHttpErrorHint(DWORD code)
+{
+	switch (code)
+	{
+	case 12029:
+		return QStringLiteral(
+			"无法连接本地推理服务（WinHTTP 12029）。请确认：\n"
+			"1) Ollama 已启动（托盘图标或运行 status-ollama.ps1）\n"
+			"2) ai_config.json 中 base_url 为 http://127.0.0.1:11434/v1\n"
+			"3) 系统代理未拦截 localhost（本版本已对 127.0.0.1 禁用代理）");
+	case 12002:
+		return QStringLiteral("请求超时，可增大 ai_config 中 timeout_ms 或检查 Ollama 是否繁忙。");
+	default:
+		break;
+	}
+	return {};
+}
+
+bool isLoopbackHost(const QString& host)
+{
+	const QString h = host.trimmed().toLower();
+	return h == QStringLiteral("localhost") || h == QStringLiteral("127.0.0.1") || h == QStringLiteral("[::1]")
+		|| h == QStringLiteral("::1");
+}
+
 #ifdef Q_OS_WIN
 bool postWinHttp(
 	const QUrl& url,
@@ -43,8 +68,8 @@ bool postWinHttp(
 	}
 
 	const bool secure = url.scheme().compare(QStringLiteral("https"), Qt::CaseInsensitive) == 0;
-	const INTERNET_PORT port = static_cast<INTERNET_PORT>(
-		url.port(secure ? 443 : 80));
+	const int urlPort = url.port(secure ? 443 : 80);
+	const INTERNET_PORT port = static_cast<INTERNET_PORT>(urlPort > 0 ? urlPort : (secure ? 443 : 80));
 
 	const QString path = url.path(QUrl::FullyEncoded).isEmpty()
 		? QStringLiteral("/")
@@ -54,14 +79,16 @@ bool postWinHttp(
 	const std::wstring hostW = url.host().toStdWString();
 	const std::wstring pathW = pathAndQuery.toStdWString();
 
-	HINTERNET session = WinHttpOpen(L"CloudSim/1.0",
-		WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-		WINHTTP_NO_PROXY_NAME,
-		WINHTTP_NO_PROXY_BYPASS,
-		0);
+	// 访问 127.0.0.1/localhost 时必须绕过系统代理，否则常见 12029
+	const DWORD accessType = isLoopbackHost(url.host()) ? WINHTTP_ACCESS_TYPE_NO_PROXY : WINHTTP_ACCESS_TYPE_DEFAULT_PROXY;
+	HINTERNET session = WinHttpOpen(L"CloudSim/1.0", accessType, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
 	if (!session)
 	{
-		errorMessage = QStringLiteral("WinHttpOpen failed (%1).").arg(GetLastError());
+		const DWORD err = GetLastError();
+		errorMessage = QStringLiteral("WinHttpOpen failed (%1).").arg(err);
+		const QString hint = winHttpErrorHint(err);
+		if (!hint.isEmpty())
+			errorMessage += QStringLiteral("\n") + hint;
 		return false;
 	}
 
@@ -70,7 +97,14 @@ bool postWinHttp(
 	HINTERNET connect = WinHttpConnect(session, hostW.c_str(), port, 0);
 	if (!connect)
 	{
-		errorMessage = QStringLiteral("WinHttpConnect failed (%1).").arg(GetLastError());
+		const DWORD err = GetLastError();
+		errorMessage = QStringLiteral("WinHttpConnect failed (%1) host=%2 port=%3.")
+			.arg(err)
+			.arg(url.host())
+			.arg(urlPort);
+		const QString hint = winHttpErrorHint(err);
+		if (!hint.isEmpty())
+			errorMessage += QStringLiteral("\n") + hint;
 		WinHttpCloseHandle(session);
 		return false;
 	}
@@ -122,7 +156,16 @@ bool postWinHttp(
 		0);
 	if (!sendOk)
 	{
-		errorMessage = QStringLiteral("WinHttpSendRequest failed (%1).").arg(GetLastError());
+		const DWORD err = GetLastError();
+		errorMessage = QStringLiteral("WinHttpSendRequest failed (%1) %2://%3:%4%5")
+			.arg(err)
+			.arg(url.scheme())
+			.arg(url.host())
+			.arg(urlPort)
+			.arg(pathAndQuery);
+		const QString hint = winHttpErrorHint(err);
+		if (!hint.isEmpty())
+			errorMessage += QStringLiteral("\n") + hint;
 		WinHttpCloseHandle(request);
 		WinHttpCloseHandle(connect);
 		WinHttpCloseHandle(session);

@@ -1,11 +1,12 @@
 #pragma once
 
-#include <QString>
-#include <QDialog>
-
+#include "AiConfigDto.h"
 #include "aiwidget_global.h"
-#include "AiLlmConfig.h"
 
+#include <QDialog>
+#include <QString>
+
+class IAiAssistantHost;
 class QCheckBox;
 class QDialogButtonBox;
 class QDoubleSpinBox;
@@ -15,7 +16,7 @@ class QLabel;
 class QLineEdit;
 class QSpinBox;
 
-/// 编辑并保存可执行文件旁 ai_config.json
+/// 编辑 ai_config.json（经 IAiAssistantHost）
 class AIWIDGET_EXPORT AiLlmSettingsDialog : public QDialog
 {
 	Q_OBJECT
@@ -23,11 +24,8 @@ class AIWIDGET_EXPORT AiLlmSettingsDialog : public QDialog
 public:
 	explicit AiLlmSettingsDialog(QWidget* parent = nullptr);
 
-	AiLlmConfig config() const;
-	void setConfig(const AiLlmConfig& config);
+	void setAiHost(IAiAssistantHost* host);
 	void setUseChinese(bool chinese);
-
-	QString configFilePath() const;
 
 private slots:
 	void onAccepted();
@@ -37,8 +35,11 @@ private:
 	void loadFromFileOrDefaults();
 	void applyLanguage();
 	void updatePathLabel();
+	void setConfig(const AiConfigDto& cfg);
+	AiConfigDto config() const;
 
 	bool m_useChinese = true;
+	IAiAssistantHost* m_aiHost = nullptr;
 	QLabel* m_pathLabel = nullptr;
 	QLabel* m_hintLabel = nullptr;
 	QGroupBox* m_connectionGroup = nullptr;

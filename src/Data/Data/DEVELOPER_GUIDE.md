@@ -114,6 +114,17 @@
 
 ## 4. 具体后端类型
 
+### 4.0 文件路径编码约定
+
+Data 层凡以 `std::string path` 打开磁盘文件的 API（含 `PlyIo`、`PointCloudBackendData::loadFromFile` / `readPointCloudFromPlyFile`、`MeshBackendData::loadFromFile` 传入 CGAL/OCCT 的路径）均约定为 **Qt 本地窄字节路径**，与 `QFile::encodeName(QString)` 一致。
+
+| 做法 | 说明 |
+|------|------|
+| Widget/Host 传参 | `QByteArray enc = QFile::encodeName(filePath)` → `std::string(enc.constData(), enc.size())` |
+| C++ 打开文件 | `std::ifstream{std::filesystem::path{path}}` 或 `std::filesystem::path(path)` |
+| **禁止** | 对本地路径使用 `std::filesystem::u8path`（中文 Windows 下非法 UTF-8 序列会抛 `system_error`） |
+| **禁止** | Widget 侧对含中文路径用 `filePath.toUtf8()` 再交给上述 API（与 `encodeName` 语义不一致） |
+
 ### 4.1 `PointCloudBackendData`
 
 | 注册名 | `className()` = `"PointCloudBackendData"` |
@@ -124,18 +135,18 @@
 | `setPointBuffers(xyz, rgba)` / `setPointBuffers(xyz, rgba, normals)` | `3*N` float + 可选 `4*N` RGBA + 可选 `3*N` 法线 |
 | `pointNormalsNxNyNz()` / `hasPointNormals()` | 法线缓冲（**v1 不写入 project.json**，仅内存） |
 | `pointPositionsXyz()` / `pointVertexRgba()` | 只读缓冲 |
-| `loadFromFile` | `.ply`, `.xyz`（CGAL） |
-| `readPointCloudFromPlyFile` / `writePointCloudPlySidecar` | PLY 专用（**仅顶点**，忽略 `element face`） |
+| `loadFromFile` | `.ply`, `.xyz`（CGAL）；路径见 §4.0 |
+| `readPointCloudFromPlyFile` / `writePointCloudPlySidecar` | PLY 专用（**仅顶点**，忽略 `element face`）；路径见 §4.0 |
+| `writeProjectEmbeddedGeometry` / `readProjectEmbeddedGeometry` | 工程内嵌 Base64 |
 
-**PLY 双形态（`PlyIo.h`）**
+**PLY 双形态（`PlyIo.h`，路径 §4.0）**
 
 | API | 说明 |
 |-----|------|
-| `scanPlyHeader` | 解析头：`vertexCount`、`faceCount`、`hasFaceElement`、点云读路径所需 x/y/z/RGB 列索引 |
-| `plyFileHasTriangleFaces` | `hasFaceElement && faceCount > 0`（`element face` / `polygon` / `triangle`） |
-
-含三角面的 PLY 经 **点云菜单/Host `importPointCloudFile`** 导入时，由 Host/Widget 在入口改道 `MeshBackendData::loadFromFile`（`read_polygon_soup`），不在此读顶点。
-| `writeProjectEmbeddedGeometry` / `readProjectEmbeddedGeometry` | 工程内嵌 Base64 |
+| `scanPlyHeader` | 解析头：`vertexCount`、`faceCount`、`hasFaceElement`、点云读路径所需 x/y/z/RGB 列索引；首行可剥离 UTF-8 BOM |
+| `plyFileHasTriangleFaces` | `valid && hasFaceElement && faceCount > 0`；面元元素名支持 `face` / `polygon` / `triangle` |
+| 分流约定 | 含三角面的 PLY 经点云菜单或 Host `importPointCloudFile` 时，由 Host/Widget 改道 `MeshBackendData::loadFromFile`（`read_polygon_soup`），**不在此**读顶点 |
+| `loadFromFile`（点云） | `.ply` 且 `plyFileHasTriangleFaces` 为真时**拒绝**并提示改走网格导入（防止 Job 异步路径误当纯点云） |
 
 位姿/颜色/属性：`hasPoseProperty` 等均为 `true`。
 
@@ -162,9 +173,17 @@
 | `.step` / `.stp` | OCCT `STEPControl_Reader` + `BRepMesh_IncrementalMesh` | `TopAbs_REVERSED` 面导出时交换三角 n2/n3，避免场景光照发黑 |
 | `.obj`（含 `vn`） | 自研解析 `v` / `vn` / `f v/vt/vn` | **保留文件顶点顺序**；`vn` 写入 `triangleVertexNormals`，供 `MeshBackendVisual` 光照（CGAL `read_polygon_soup` 会丢弃 `vn`） |
 | `.obj`（无 `vn`） | CGAL `read_polygon_soup` | `orient_polygon_soup` 后保持绕序一致；封闭体按有符号体积整体翻转（避免逐三角质心翻转导致非凸面发黑） |
-| `.stl` / `.ply` / `.off` | CGAL `read_polygon_soup` | 同 `.obj` 无 `vn` 路径 |
+| `.stl` / `.ply` / `.off` | CGAL `read_polygon_soup` | 同 `.obj` 无 `vn` 路径（见下） |
 
-**现象与约定**：`BackendVisual` 在 `useSceneLighting=true` 时，无法线缓冲则用法线 `n = (p1-p0)×(p2-p0)`。绕序错误或仅用绕序对齐内向 `vn` 会导致**整面发黑**；带 `vn` 的 CAD/Max OBJ 必须走文件法线路径。
+**CGAL 无 `vn` 路径（`MeshBackendData_load_common.cpp`）**
+
+1. `CGAL::IO::read_polygon_soup` → `orient_polygon_soup`（绕序一致化）。
+2. `meshBuildSoupFromPolygons`：按 polygon 扇形三角化写入 `triangleSoup`，**不**做逐三角质心外向翻转。
+3. `meshOrientSoupOutwardIfClosed`：以顶点质心为参考计算有符号体积；若 `vol` 相对包围盒尺度明显为负，则**整体**交换所有三角的 p1/p2；开放薄片（\|vol\| 近零）不翻转。
+
+逐三角「相对质心朝外」翻转在非凸封闭体上会导致相邻面绕序不一致 → 场景光照下**部分面发黑**（已移除）。光照侧见 [`BackendVisual/DEVELOPER_GUIDE.md`](../../UI/BackendVisual/DEVELOPER_GUIDE.md) §4.2。
+
+**现象与约定**：`BackendVisual` 在 `useSceneLighting=true` 时，无法线缓冲则用法线 `n = (p1-p0)×(p2-p0)`。绕序局部不一致会导致**部分或整面发黑**；带 `vn` 的 CAD/Max OBJ 必须走文件法线路径。
 
 **Widget 导入**：`MainWindowImportCaptureRenderController` 对 STEP 优先 `loadStepHierarchyFromFile`（多零件层级）；单件 STEP 与上述 `loadFromFile` 一致。`.obj` 等不走 OSG `importModelFile` fallback（见该控制器注释）。
 

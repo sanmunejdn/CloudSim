@@ -1,0 +1,1 @@
+{"instruction":"创建一个长100宽50高30的盒子","input":"","output":"{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":50,\"height\":30}}"}

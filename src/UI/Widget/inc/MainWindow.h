@@ -208,10 +208,9 @@ private:
 	void onTcpDragTeachPoseChanged(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
 	void onTcpDragTeachEnded();
 	void setupAiAssistantCoordinator();
-	void onAiCreateMeshCommandReady(const QByteArray& commandJsonUtf8, const QString& parserVia);
+	void refreshAiAssistantHost();
 	void onAiParseFailed(const QString& message, const QString& parserVia);
 	void finishAiAssistantReply(const QString& reply, bool isError, const QString& parserVia = QString());
-	void executeAiCreateMeshCommand(const nlohmann::json& cmd, const QString& parserVia);
 
 	BackendDataManager& activeBackend();
 	BackendHierarchyModel* activeHierarchyModel();

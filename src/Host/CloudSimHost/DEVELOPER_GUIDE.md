@@ -196,8 +196,12 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | 函数 | 说明 |
 |------|------|
 | `registerAdoptedBackendObject` | 接管已构造 `BackendDataBase`；发布 `BackendObjectRegisteredEvent` |
-| `registerAdoptedMeshAndLoadScene` | 上者 + `OsgWidget::loadMeshFromBackendData`（DXF/STEP/OSG 分件） |
+| `registerAdoptedMeshAndLoadScene` | 上者 + `OsgWidget::loadMeshFromBackendData`（DXF/STEP/OSG 分件）；OSG 失败时返回 `false`，不保留无视觉对象 |
 | `registerAdoptedPointCloudAndLoadScene` | 上者 + `OsgWidget::loadPointCloudFromBackendData`（含 JobSystem 异步完成回调） |
+| `importMeshFile` | 读 obj/stl/ply/off → `registerData` → `loadMeshFromBackendData`；`loadFromFile` 失败、`!hasGeometry()` 或 OSG 失败 → 返回空 id 并 `unregisterData` + 清理旁路表 |
+| `importPointCloudFile` | ply/xyz/las/laz；路径 `QFile::encodeName`（见 Data §4.0）。**ply 含面**（`plyFileHasTriangleFaces`）→ `importMeshFile`，`catalogTypeName = Model` |
+
+`importMeshFile` 与 `registerAdoptedMeshAndLoadScene` 在 OSG 显示失败时语义对齐：均不应留下已注册但无视口几何的对象。
 
 **可选参数（`BackendFileImport`）**
 
@@ -248,7 +252,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | 加载 `objects[]` | `loadProjectObjectsFromJson` + `finalizeProjectHierarchyAfterObjects` |
 | 加载内嵌几何 | `registerEmbeddedProjectObject`（由 load 编排调用） |
 | 工程文件回退 | `importProjectObjectFromFile`（网格 `importMeshFile`；点云 ply/xyz `importPointCloudFile`） |
-| 点云 ply/xyz/las/laz | `importPointCloudFile`（ply/xyz=CGAL 顶点；**ply 含 face**→`importMeshFile`；las/laz=OsgWidget+capture）；大文件纯顶点 ply 可走 Job 异步（Widget） |
+| 点云 ply/xyz/las/laz | `importPointCloudFile`（路径 `encodeName`；ply/xyz=CGAL 顶点；**ply 含 face**→`importMeshFile`/`Model`；las/laz=OsgWidget+capture）；大文件**纯顶点** ply 可走 Job 异步（Widget） |
 | `parseProjectEdgesJson` / `applyProjectEdgesToBackend` | 恢复 `edges[]` → `BackendDataManager::attachChild` |
 | `syncOsgBackendParentsFromBackend` | Data 父子 → `OsgWidget::setBackendParent` |
 | `rebuildBackendParentIdMirror` | edges 后重建 `backendParentId` 旁路表 |
@@ -270,8 +274,8 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 |------|------|------|
 | 已构造 mesh/点云注册 + OSG | `DocumentImportFacade::registerAdoptedMesh` / `registerAdoptedPointCloud` | 发 `BackendObjectRegisteredEvent` |
 | 已构造任意 `BackendDataBase`（Host 内部） | `BackendFileImport::registerAdoptedBackendObject` | 发 `BackendObjectRegisteredEvent` |
-| 简单网格文件 obj/stl/ply/off | `page->data().importFromFile` → `BackendFileImport::importMeshFile` | 含 `ImportOptionsDto::persistedId` |
-| 点云 ply/xyz（工程/Host） | `importPointCloudFile` / `importProjectObjectFromFile` | |
+| 简单网格文件 obj/stl/ply/off | `page->data().importFromFile` → `BackendFileImport::importMeshFile` | 含 `ImportOptionsDto::persistedId`；失败不回填 id |
+| 点云 ply/xyz（工程/Host） | `importPointCloudFile` / `importProjectObjectFromFile` | ply 含面自动 mesh；路径见 Data §4.0 |
 | 工程 `objects[]` 整批加载 | `loadProjectObjectsFromJson` + `finalizeProjectHierarchyAfterObjects` | las/laz 经 Widget 回调 |
 | 工程稳定 id | `rekeyBackendObject` 或导入前 `setId` | |
 | 删子树 | `page->data().unregisterSubtree` | |

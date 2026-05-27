@@ -1,0 +1,10 @@
+{
+  "id": "com.cloudsim.helloai",
+  "name": "Hello AI",
+  "version": "1.0.0",
+  "minHostVersion": "1.3.0",
+  "minAiSdkVersion": "1.0.0",
+  "library": "HelloAiPlugin.dll",
+  "enabled": true,
+  "capabilities": ["ai-assistant"]
+}

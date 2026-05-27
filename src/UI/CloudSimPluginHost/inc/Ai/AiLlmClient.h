@@ -16,9 +16,11 @@ struct LlmParseResult
 	QString errorMessage;
 };
 
-/// 阻塞式 OpenAI 兼容对话；供 JobSystem 工作线程
+/// 阻塞式 OpenAI 兼容对话；imagePng 非空时走 vision content；recognitionSchema 用于几何识别域
 AIBACKEND_EXPORT LlmParseResult parseUserTextWithLlm(
 	const QString& userText,
 	const AiLlmConfig& config,
-	const AiProgressSink& progress);
+	const AiProgressSink& progress,
+	const QByteArray& imagePng = QByteArray(),
+	bool recognitionSchema = false);
 }

@@ -1,16 +1,11 @@
 #include "AiAssistantCoordinator.h"
 
 #include "AiAssistantDockWidget.h"
-#include "AiIntentParser.h"
-#include "AiLlmClient.h"
-#include "AiLlmConfig.h"
-#include "AiProgressSink.h"
-
-#include <optional>
-
-#include <QPointer>
-
-#include <memory>
+#include "AiConfigDefaults.h"
+#include "AiConfigDto.h"
+#include "AiDomainTypes.h"
+#include "AiInferenceTypes.h"
+#include "IAiAssistantHost.h"
 
 namespace
 {
@@ -28,104 +23,72 @@ AiAssistantCoordinator::AiAssistantCoordinator(AiAssistantDockWidget* dock, QObj
 {
 }
 
-void AiAssistantCoordinator::setBackgroundEnqueue(EnqueueBackgroundWork enqueue)
+void AiAssistantCoordinator::setAiHost(IAiAssistantHost* host)
 {
-	m_enqueue = std::move(enqueue);
+	m_aiHost = host;
 }
 
 void AiAssistantCoordinator::onUserMessageSubmitted(const QString& text)
 {
 	if (!m_dock)
 		return;
+	if (!m_aiHost)
+	{
+		const QString msg = QStringLiteral(
+			"AI 宿主未就绪（插件宿主尚未初始化）。请重新编译并启动 CloudSim，或稍后重试。");
+		m_dock->appendAssistantMessage(msg);
+		emit parseFailed(msg, QString());
+		return;
+	}
 
 	m_dock->setBusy(true);
 
-	const AiIntentParser::ParseResult ruleParsed = AiIntentParser::tryParseUserText(text);
-	const std::optional<AiLlmConfig> llmCfg = loadAiLlmConfig();
+	const std::optional<AiConfigDto> cfgOpt = m_aiHost->loadConfig();
+	const AiConfigDto cfg = cfgOpt ? *cfgOpt : defaultAiConfigDto();
 
-	if (ruleParsed.ok && (!llmCfg || llmCfg->ruleParserFirst))
-	{
-		m_dock->appendSystemMessage(QStringLiteral("Parser: offline rules"));
-		emit createMeshCommandReady(
-			QByteArray::fromStdString(ruleParsed.command.dump()), QStringLiteral("Rules"));
-		return;
-	}
+	AiInferenceRequest req;
+	req.domainId = m_dock->selectedDomainId();
+	req.userText = text;
 
-	if (!llmCfg || !llmCfg->enabled)
-	{
-		QString msg = ruleParsed.errorMessage;
-		if (!ruleParsed.hintMessage.isEmpty())
-			msg += QStringLiteral("\n") + ruleParsed.hintMessage;
-		if (msg.isEmpty())
-			msg = QStringLiteral("Rule parser failed. Enable LLM in Settings.");
-		else
-			msg += QStringLiteral("\n\nTip: open Settings, enable LLM and set API key.");
-		m_dock->setBusy(false);
-		m_dock->appendAssistantMessage(prefixWithParser(QStringLiteral("Rules"), msg));
-		emit parseFailed(msg, QStringLiteral("Rules"));
-		return;
-	}
-
-	if (!llmCfg->hasApiKey())
-	{
-		const QString msg = QStringLiteral("Set API key in Settings or %1 environment variable.")
-			.arg(llmCfg->apiKeyEnv);
-		m_dock->setBusy(false);
-		m_dock->appendAssistantMessage(prefixWithParser(QStringLiteral("LLM"), msg));
-		emit parseFailed(msg, QStringLiteral("LLM"));
-		return;
-	}
-
-	if (!m_enqueue)
-	{
-		const QString msg = QStringLiteral("Background job queue not configured.");
-		m_dock->setBusy(false);
-		m_dock->appendAssistantMessage(prefixWithParser(QStringLiteral("LLM"), msg));
-		emit parseFailed(msg, QStringLiteral("LLM"));
-		return;
-	}
-
-	const QString llmVia = QStringLiteral("LLM %1").arg(llmCfg->model);
-	m_dock->appendSystemMessage(QStringLiteral("Parser: %1 (requesting...)").arg(llmVia));
-
-	struct LlmJobPayload
-	{
-		AiLlmClient::LlmParseResult result;
-	};
-	const auto payload = std::make_shared<LlmJobPayload>();
-	const QPointer<AiAssistantCoordinator> self(this);
-	const QPointer<AiAssistantDockWidget> dockPtr(m_dock);
-	const QString userText = text;
-	const AiLlmConfig config = *llmCfg;
-	const QString parserLabel = llmVia;
-
-	m_enqueue(
-		QStringLiteral("AI: parse command"),
-		[payload, userText, config](const std::function<void(double, const QString&)>& sink) {
-			const AiProgressSink progress = [&sink](double fraction, const QString& message) {
-				if (sink)
-					sink(fraction, message);
-			};
-			payload->result = AiLlmClient::parseUserTextWithLlm(userText, config, progress);
+	m_aiHost->parseUserTextAsync(
+		req,
+		cfg,
+		[this](double fraction, const QString& message) {
+			if (m_dock && !message.isEmpty())
+				m_dock->appendSystemMessage(QStringLiteral("%1% — %2").arg(static_cast<int>(fraction * 100)).arg(message));
 		},
-		[payload, self, dockPtr, parserLabel](bool threw, const QString& throwMsg) {
-			if (!self || !dockPtr)
+		[this](AiParseResult result) {
+			if (!m_dock)
 				return;
-			dockPtr->setBusy(false);
-			if (threw)
+			m_dock->setBusy(false);
+			if (!result.ok)
 			{
-				const QString msg = throwMsg.isEmpty() ? QStringLiteral("LLM job failed.") : throwMsg;
-				dockPtr->appendAssistantMessage(prefixWithParser(parserLabel, msg));
-				emit self->parseFailed(msg, parserLabel);
+				QString msg = result.errorMessage;
+				if (!result.hintMessage.isEmpty())
+					msg += QStringLiteral("\n") + result.hintMessage;
+				m_dock->appendAssistantMessage(prefixWithParser(result.parserVia, msg));
+				emit parseFailed(msg, result.parserVia);
 				return;
 			}
-			if (!payload->result.ok)
+
+			QString summary;
+			QString err;
+			bool executed = false;
+			if (result.outputKind == AiDomainOutputKind::ActionPlan)
+				executed = m_aiHost->executeActionPlan(result.outputJsonUtf8, &summary, &err);
+			else
+				executed = m_aiHost->executeDomainOutput(result.domainId, result.outputJsonUtf8, &summary, &err);
+
+			if (!executed)
 			{
-				dockPtr->appendAssistantMessage(prefixWithParser(parserLabel, payload->result.errorMessage));
-				emit self->parseFailed(payload->result.errorMessage, parserLabel);
+				const QString msg = err.isEmpty() ? QStringLiteral("Failed to execute AI plan.") : err;
+				m_dock->appendAssistantMessage(prefixWithParser(result.parserVia, msg));
+				emit parseFailed(msg, result.parserVia);
 				return;
 			}
-			emit self->createMeshCommandReady(
-				QByteArray::fromStdString(payload->result.command.dump()), parserLabel);
+
+			const QString reply = summary.isEmpty() ? QStringLiteral("Done.") : summary;
+			m_dock->appendAssistantMessage(prefixWithParser(result.parserVia, reply));
+			emit assistantFinished(reply, false, result.parserVia);
 		});
 }

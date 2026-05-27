@@ -35,7 +35,7 @@ CloudSim/
     ├── Data/
     │   ├── Data/
     │   └── PropertyCore/             # 仅头文件
-    ├── AI/AiBackend/
+    ├── Plugins/CloudSimAiSDK/
     ├── Plugins/
     │   ├── CloudSimPluginSDK/
     │   └── HelloPlugin/
@@ -60,7 +60,7 @@ CloudSim/
 | `GeometryEngine/`、`PointCloudAlgorithm/` | `src/Geometry/.../` |
 | `Data/` | `src/Data/Data/` |
 | `PropertyCore/` | `src/Data/PropertyCore/` |
-| `AiBackend/` | `src/AI/AiBackend/` |
+| `CloudSimAiSDK/` | `src/Plugins/CloudSimAiSDK/` |
 | `CloudSimPluginSDK/` | `src/Plugins/CloudSimPluginSDK/` |
 | `Plugins/HelloPlugin/` | `src/Plugins/HelloPlugin/` |
 | `RunLogger/` | `src/Infra/RunLogger/` |
@@ -78,7 +78,7 @@ CloudSim/
 | 类别 | 文件 |
 |------|------|
 | 契约/宿主 | `CloudSimCore.dll`、`CloudSimHost.dll`（含 `DocumentHost`、`OsgWidget`、组合根） |
-| 应用/UI | `CloudSim.exe`、`Widget.dll`、`RobotWidget.dll`、`AiWidget.dll`、`AiBackend.dll` |
+| 应用/UI | `CloudSim.exe`、`Widget.dll`、`RobotWidget.dll`、`AiWidget.dll`、`CloudSimAiSDK.dll` |
 | 数据 | `Data.dll` |
 | 共享引擎 | `RunLogger.dll`、`GeometryEngine.dll`、`RobotKinematics.dll`、`RobotUrdf.dll`、`RobotScene.dll`、`BackendVisual.dll`、`OsgWidgetCore.dll` |
 | 插件 ABI | `CloudSimPluginSDK.dll`；`plugins/<id>/` 下各插件 DLL |

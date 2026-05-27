@@ -16,6 +16,7 @@
 
 class QAction;
 class ICloudSimPlugin;
+class IAiAssistantHost;
 class IPluginDocument;
 class IPluginPointCloudHost;
 class QMenu;
@@ -85,6 +86,10 @@ public:
 	/// 1.2.0+：点云算法宿主；宿主版本不足时可为 null
 	virtual IPluginPointCloudHost* pointCloudHost() = 0;
 	virtual const IPluginPointCloudHost* pointCloudHost() const = 0;
+
+	/// 1.3.0+：AI 助手宿主（CloudSimAiSDK）；未链 AiSDK 时可为 null
+	virtual IAiAssistantHost* aiAssistantHost() = 0;
+	virtual const IAiAssistantHost* aiAssistantHost() const = 0;
 
 	/// 与主窗口 Settings → Language 一致（默认中文）
 	virtual bool useChinese() const = 0;

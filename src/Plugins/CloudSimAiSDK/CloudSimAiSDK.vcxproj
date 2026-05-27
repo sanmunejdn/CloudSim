@@ -1,4 +1,4 @@
-﻿<?xml version='1.0' encoding='utf-8'?>
+<?xml version='1.0' encoding='utf-8'?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -12,11 +12,11 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
-    <RootNamespace>AiBackend</RootNamespace>
+    <ProjectGuid>{F7A8B9C0-D1E2-3456-7890-ABCDEF012345}</ProjectGuid>
+    <RootNamespace>CloudSimAiSDK</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <Keyword>QtVS_v304</Keyword>
-    <QtMsBuild Condition="'$(QtMsBuild)'=='' OR !Exists('$(QtMsBuild)\qt.targets')">$(MSBuildProjectDirectory)\..\Widget\QtMsBuild</QtMsBuild>
+    <QtMsBuild Condition="'$(QtMsBuild)'=='' OR !Exists('$(QtMsBuild)\qt.targets')">$(MSBuildProjectDirectory)\..\..\UI\Widget\QtMsBuild</QtMsBuild>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -32,12 +32,12 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <Import Project="$(QtMsBuild)\qt_defaults.props" Condition="Exists('$(QtMsBuild)\qt_defaults.props')" />
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <QtModules>core;network</QtModules>
+    <QtModules>core</QtModules>
     <QtInstall>5.14.2_msvc2017_64</QtInstall>
     <QtBuildConfig>release</QtBuildConfig>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <QtModules>core;network</QtModules>
+    <QtModules>core</QtModules>
     <QtInstall>5.14.2_msvc2017_64</QtInstall>
   </PropertyGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -50,56 +50,44 @@
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)../bin/x64d/</OutDir>
-    <IntDir>$(SolutionDir)../bin/x64dmiddle/AiBackend/</IntDir>
+    <IntDir>$(SolutionDir)../bin/x64dmiddle/CloudSimAiSDK/</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)../bin/x64/</OutDir>
-    <IntDir>$(SolutionDir)../bin/x64middle/AiBackend/</IntDir>
+    <IntDir>$(SolutionDir)../bin/x64middle/CloudSimAiSDK/</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <PreprocessorDefinitions>AIBACKEND_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>inc;../../Data/Data/inc;../../../../bin/SDK/JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>CLOUDSIM_AI_SDK_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
-    <Link>
-      <AdditionalDependencies>Data.lib;winhttp.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <PreprocessorDefinitions>AIBACKEND_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>inc;../../Data/Data/inc;../../../../bin/SDK/JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>CLOUDSIM_AI_SDK_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
-    <Link>
-      <AdditionalDependencies>Data.lib;winhttp.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-    </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="inc\aibackend_global.h" />
-    <ClInclude Include="inc\AiProgressSink.h" />
-    <ClInclude Include="inc\AiCommandSchema.h" />
-    <ClInclude Include="inc\AiHttpsPost.h" />
-    <ClInclude Include="inc\AiIntentParser.h" />
-    <ClInclude Include="inc\AiLlmClient.h" />
-    <ClInclude Include="inc\AiLlmConfig.h" />
+    <ClInclude Include="inc\cloudsim_ai_sdk_global.h" />
+    <ClInclude Include="inc\CloudSimAiVersion.h" />
+    <ClInclude Include="inc\AiConfigDefaults.h" />
+    <ClInclude Include="inc\AiConfigDto.h" />
+    <ClInclude Include="inc\AiDomainTypes.h" />
+    <ClInclude Include="inc\AiInferenceTypes.h" />
+    <ClInclude Include="inc\AiParseTypes.h" />
+    <ClInclude Include="inc\IAiAssistantHost.h" />
+    <ClInclude Include="inc\IAiDomainHandler.h" />
+    <ClInclude Include="inc\IAiInferenceProvider.h" />
+    <ClInclude Include="inc\ICloudSimAiPlugin.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\AiCommandSchema.cpp" />
-    <ClCompile Include="source\AiHttpsPost.cpp" />
-    <ClCompile Include="source\AiIntentParser.cpp" />
-    <ClCompile Include="source\AiLlmClient.cpp" />
-    <ClCompile Include="source\AiLlmConfig.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\Data\Data\Data.vcxproj">
-      <Project>{50119edf-918f-4bc8-a201-7ac6f0fe82a1}</Project>
-    </ProjectReference>
+    <ClCompile Include="source\AiConfigDefaults.cpp" />
+    <ClCompile Include="source\CloudSimAiVersion.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="$(QtMsBuild)\qt.targets" Condition="Exists('$(QtMsBuild)\qt.targets')" />

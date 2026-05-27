@@ -7,7 +7,7 @@
 | 属性 | 说明 |
 |------|------|
 | x64 构建 | **DLL** `Widget.dll`（`WIDGET_LIB` / `WIDGET_EXPORT`） |
-| x64 链接 | `Data`、`OsgWidgetCore`、`BackendVisual`、`GeometryEngine`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`RunLogger`、`RobotWidget`、`AiWidget`、`AiBackend`、`CloudSimPluginSDK` 等 **import .lib**（运行时加载对应 DLL） |
+| x64 链接 | `Data`、`OsgWidgetCore`、`BackendVisual`、`GeometryEngine`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`RunLogger`、`RobotWidget`、`AiWidget`、`CloudSimAiSDK`、`CloudSimPluginSDK` 等 **import .lib**（运行时加载对应 DLL） |
 | 头文件 | `Widget/inc/`（约 40 个） |
 | 实现拆分 | `MainWindow*.cpp`, `OsgWidget*.cpp`, `*Controller`, `*Operation` |
 | 插件宿主 | `CloudSimPluginHost` 源码编进本 DLL → [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md) |
@@ -329,11 +329,15 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 | 格式 | 路径 |
 |------|------|
 | 全部格式（同步） | Host `DocumentImportFacade::importFileIntoDocument`（`registerBackendObject` 内调用） |
-| ply 大文件点云 | Widget `JobSystem` 异步读文件，完成后 Host `registerAdoptedPointCloud` |
-| ply 含 `element face` | **不入点云 Job**；`plyFileHasTriangleFaces` 为真时改 `ImportFileKind::Mesh`（catalog `Model`） |
+| ply 大文件点云 | Widget `JobSystem` 异步读文件，完成后 Host `registerAdoptedPointCloud`（**仅纯顶点** ply；含面时 `PointCloudBackendData::loadFromFile` 会拒绝） |
+| ply 含 `element face` | **不入点云 Job**；`plyFileHasTriangleFaces(nativePath)` 为真时改 `ImportFileKind::Mesh`（catalog `Model`） |
 | dxf/step 层级 | facade 内 `importMeshFileExtended`，**不**做 Follow；`focusCameraOnBackend(importParent)` 在 Host 内完成 |
 
-**PLY 点云菜单 + mesh**：`OsgWidgetImportController::importPointCloudFile` 对含面 PLY 走 `MeshBackendData::loadFromFile` + `loadMeshFromBackendData`（staging）；注册路径与上表 mesh 改道一致。纯顶点 PLY 仍 `readPointCloudFromPlyFile`。
+**路径编码（PLY 及 Data 读盘）**：`nativePath = QFile::encodeName(filePath)` → `std::string`；与 [`Data/Data/DEVELOPER_GUIDE.md`](../Data/Data/DEVELOPER_GUIDE.md) §4.0 一致。**勿**对磁盘路径使用 `toUtf8()`。
+
+**PLY 点云菜单 + mesh**：`OsgWidgetImportController::importPointCloudFile` 对含面 PLY 同样用 `encodeName` + `plyFileHasTriangleFaces`，走 `MeshBackendData::loadFromFile` + `loadMeshFromBackendData`（staging）；菜单注册路径与上表 mesh 改道一致。纯顶点 PLY 仍 `readPointCloudFromPlyFile`。
+
+**导入完成 `finish()`**：`focusBackendInTreeAfterImport` 后调用 `doc->sceneFacade().ensureSelectionVisualForBackend`（实现文件需 `#include "BackendSceneDocumentFacade.h"`），避免树已选中但 OSG 无分支。mesh 导入若 OSG 失败，Host `importMeshFile` 会回滚 `registerData`（见 Host §4.4.1），用户应看到错误而非空场景对象。
 
 **DXF/STEP 层级（与工程加载区别）**
 

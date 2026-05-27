@@ -27,6 +27,16 @@ std::vector<double> extractNumbersMm(const QString& text)
 		out.push_back(mMul.captured(3).toDouble());
 		return out;
 	}
+	QRegularExpression reLwh(QStringLiteral(
+		"长\\s*宽\\s*高\\s*(?:为|是)?\\s*(\\d+(?:\\.\\d+)?)\\s*[,，、]\\s*(\\d+(?:\\.\\d+)?)\\s*[,，、]\\s*(\\d+(?:\\.\\d+)?)"));
+	auto mLwh = reLwh.match(text);
+	if (mLwh.hasMatch())
+	{
+		out.push_back(mLwh.captured(1).toDouble());
+		out.push_back(mLwh.captured(2).toDouble());
+		out.push_back(mLwh.captured(3).toDouble());
+		return out;
+	}
 	QRegularExpression rePlain(QStringLiteral("(\\d+(?:\\.\\d+)?)"));
 	auto it = rePlain.globalMatch(text);
 	while (it.hasNext())

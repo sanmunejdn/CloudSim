@@ -167,11 +167,13 @@ flowchart TD
   - 页面：`DevicePageWidget`、`SimulationCommandWidget`、`RobotAxisControlWidget`、`RobotFrameSettingsWidget`、**`TrajectoryEditPageWidget`** 等。
   - 编排：`RobotSimulationController`；宿主契约 `IRobotMainWindowHost` / `IRobotDocumentHost` / `IRobotOsgViewHost`。
   - 工程 I/O：保存时 `ProjectPackageIo::mergeRobotKinematicsIntoProjectRoot`（内部 `RobotProjectIo::writeRobotKinematics`）；加载与 programs 仍经 Host `ProjectPackageIo` + `MainWindowProjectIo` 编排。
-- **AI 助手（独立子系统，见 `AiBackend` + `AiWidget`）**：
-  - **`AiBackend`（后端）**：`AiLlmConfig`、`AiIntentParser`、`AiCommandSchema`、`AiLlmClient`、`AiHttpsPost`（Windows WinHTTP HTTPS）；依赖 `Data`（`BackendPrimitiveGeometry`）。
+- **AI 助手（`CloudSimAiSDK` + `AiWidget` + 宿主 `CloudSimPluginHost` 内 Ai 实现）**：
+  - **`CloudSimAiSDK.dll`**：稳定 ABI（`IAiAssistantHost`、`IAiDomainRegistry`、`ICloudSimAiPlugin`、配置 DTO）。
+  - **宿主实现**（编入 `Widget.dll`）：`AiAssistantHostImpl`、`AiActionPlanExecutor`、分域 Handler、规则/本地/远程解析链；`ai_config.json` 默认 `hardware_profile: vram_8gb`。
+  - **训练**：仓库外 `tools/ai-training/`，见 `CloudSimAiSDK/DEVELOPER_GUIDE.md`。
   - **`AiWidget`（前端）**：`AiAssistantDockWidget`、`AiLlmSettingsDialog`、`AiAssistantCoordinator`（规则/LLM 编排、解析来源提示）。
   - **`Widget` 集成**：`AiCreateMeshRunner` → Host `DocumentImportFacade::registerAdoptedMesh`；`MainWindow::setupAiAssistantCoordinator` 注入 `JobSystem` 后台队列。
-  - 配置：`ai_config.json`（exe 同目录）；默认 **LLM 优先**（`rule_parser_first=false`）。
+  - 配置：`ai_config.json`（exe 同目录）；默认 **先 rules 再 local**（见 `parser_priority`）。
 
 当前 `Widget` 的关键演进点：
 
@@ -215,7 +217,7 @@ flowchart TD
 - `BackendVisualRegistry` 按 `className` 注册/创建视觉构建器。
 - 输出统一 `BranchBuildResult`（**外层 `osg::MatrixTransform`**、内层 `PositionAttitudeTransform`、模型中心、对角线尺度）供交互层复用；外层存完整刚体局部矩阵，便于 FK / `setBackendRootWorldMatrixFromWorld` 避免 PAT 的 TRS 分解误差。
 - `MeshVisualOptions`：`showWireOutline`、`useSceneLighting`；**`skipInnerModelCenterRebase`** 为真时不再做「外包络中心 + 内层 `-bboxCenter`」的通用网格去心（用于 **URDF 每连杆**：顶点已在连杆系且由 FK 写外层世界矩阵，与层级导入「仅 `meshToLink`、无去心 PAT」语义对齐）。
-- **程序生成网格**：`MeshBackendData` 默认浅蓝材质色；`useSceneLighting=true` 时按 per-vertex 法线 + `applyLitPlastic` 渲染。若绕序与外侧不一致且无法线缓冲，会出现「几何正确但全黑」——基本体由 `BackendPrimitiveGeometry` 保证绕序；**STEP** 在 OCCT 导出时对 `TopAbs_REVERSED` 面翻转三角绕序；**OBJ 含 `vn`** 保留文件法线供光照（见 `Data` §4.2.1）；无 `vn` 的 OBJ/STL/PLY/OFF 走 CGAL `orient_polygon_soup` + 封闭体有符号体积整体外向修正（非逐三角质心翻转）。
+- **程序生成网格**：`MeshBackendData` 默认浅蓝材质色；`useSceneLighting=true` 时按 per-vertex 法线 + `applyLitPlastic` 渲染。绕序局部不一致且无法线缓冲时会出现**部分面发黑**（见 `BackendVisual` §4.2）——基本体由 `BackendPrimitiveGeometry` 保证绕序；**STEP** 在 OCCT 导出时对 `TopAbs_REVERSED` 面翻转三角绕序；**OBJ 含 `vn`** 保留文件法线；无 `vn` 的 OBJ/STL/PLY/OFF 走 CGAL `orient_polygon_soup` + 封闭体有符号体积整体外向修正（详见 `Data` §4.2.1，已移除逐三角质心翻转）。
 
 模块定位：
 
@@ -377,8 +379,9 @@ flowchart LR
     Widget --> RobotScene
     Widget --> RunLogger
     Widget --> AiWidget
-    AiWidget --> AiBackend
-    AiBackend --> Data
+    AiWidget --> CloudSimAiSDK
+    Widget --> CloudSimPluginHost
+    CloudSimPluginHost --> Data
 
     OsgWidgetCore --> BackendVisual
     OsgWidgetCore --> Data
@@ -436,26 +439,57 @@ flowchart LR
 4. 导入结束：`focusCameraOnBackend(importParent->id())` 合并逻辑子树下全部分件包围球（见 `OsgWidgetCore` `worldBoundOfBackendRoot`）。  
 5. 勿在层级导入后对最后一片再 `loadMeshFromBackendData(..., resetHome)`（`upsertMeshBranchInScene` 会把节点挂回 flat 组并破坏布局）。
 
-## 6.1.1 AI 助手创建基本体流程（Phase 1 + Phase 2）
+**PLY 双形态（点云菜单 / `isPointCloud` 导入）要点：**
 
-1. 用户在 **AI Assistant** Dock 输入自然语言（如「生成长方体，长 100mm，宽 50mm，高 100mm」或「圆柱 半径 30 高 80」）。  
-2. **LLM 路径（默认）**：`rule_parser_first=false` 且 `enabled=true` 时，由 `JobSystem` 调用 `AiLlmClient::parseUserTextWithLlm` → `AiCommandSchema::tryParseCreateMeshCommandJson` 提取 JSON。  
-3. **规则路径（可选）**：`rule_parser_first=true` 时先 `AiIntentParser::tryParseUserText`，成功则不调 LLM；LLM 未启用或失败时可作回退（需 `enabled=false` 时仅规则）。  
-4. `AiCommandSchema::parseCreateMeshCommand` 校验 `primitive`、`dimensions_mm` 等，填充 `PrimitiveMeshParams` / `PrimitiveMeshQuality`。  
-5. `BackendPrimitiveGeometry::makePrimitiveTriangleSoup` 生成 soup → 新建 `MeshBackendData`（可选 `pose_mm` / `rotation_deg`）→ Host `DocumentImportFacade::registerAdoptedMesh`（含 OSG 与 `BackendObjectRegisteredEvent`）。  
-6. `MainWindow::focusBackendInTreeAfterImport` 选中树节点。  
-7. 助手回复与 `RunInfoPage` 同步成功/失败信息。
+1. **头扫描**：`PlyIo::plyFileHasTriangleFaces`（`element face` / `polygon` / `triangle`，`faceCount > 0`）；路径须为 **`QFile::encodeName` 本地编码**，Data/Host **勿** `std::filesystem::u8path`（中文 Windows 易崩溃）。
+2. **含面 PLY**：`MainWindowImportCaptureRenderController` / Host `importPointCloudFile` 改道 `importFileIntoDocument(Mesh)` → `MeshBackendData::loadFromFile`（CGAL `read_polygon_soup`）→ `loadMeshFromBackendData`；catalog **`Model`**。
+3. **纯顶点 PLY**：点云 Job 或同步 `importPointCloudFile`；`PointCloudBackendData::readPointCloudFromPlyFile`（忽略面）；误含面时 `loadFromFile` 拒绝以防 Job 只显示散点。
+4. **失败语义**：`importMeshFile` 在无几何或 OSG 失败时 `unregisterData`；Widget `finish()` 后 `ensureSelectionVisualForBackend` 补场景分支。
+5. **Staging 预览**：`OsgWidgetImportController::importPointCloudFile` 对含面 PLY 与注册路径一致（`encodeName` + mesh load）。
 
-**`ai_config.json`（与 exe 同目录）主要字段：**
+```mermaid
+flowchart TD
+  menu[OpenPointCloud_or_isPointCloud]
+  scan[plyFileHasTriangleFaces]
+  meshImp[importMesh_Model]
+  pcJob[JobSystem_pure_vertices]
+  pcSync[importPointCloudFile_sync]
+  menu --> scan
+  scan -->|faces| meshImp
+  scan -->|vertices_only| pcJob
+  scan -->|vertices_no_job| pcSync
+  meshImp --> cgal[MeshBackendData_CGAL]
+  cgal --> osg[loadMeshFromBackendData]
+```
+
+细节见 [`Data/Data/DEVELOPER_GUIDE.md`](src/Data/Data/DEVELOPER_GUIDE.md) §4.0–4.2.1、[`Widget/DEVELOPER_GUIDE.md`](src/UI/Widget/DEVELOPER_GUIDE.md) §10、[`CloudSimHost/DEVELOPER_GUIDE.md`](src/Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.1。
+
+## 6.1.1 AI 助手流程（CloudSimAiSDK + 分域专模）
+
+1. 用户在 **AI Assistant** Dock 输入自然语言，并选择领域（**自动 / 创建网格 / 几何识别**）。  
+2. `AiAssistantCoordinator` 经 `IAiAssistantHost::parseUserTextAsync` 提交到 `JobSystem` 后台解析（进度回调经 UI 线程）。  
+3. **解析链**（`ai_config.json` 中 `parser_priority` / `domains[].parser_priority`）：  
+   - **rules**：`AiIntentParser`（「生成/创建 + 基本体 + 尺寸」，零模型）  
+   - **local**：Ollama 等 OpenAI 兼容 API（`domains[].base_url` + `model`）  
+   - **remote**：可选云端 `remote_llm`  
+4. 成功则得到 `create_mesh` v1 JSON 或 **ActionPlan v2**（`steps[]`）。  
+5. `AiActionPlanExecutor` / `IAiDomainHandler` → `PluginHostContext::createPrimitiveMesh` 等。  
+6. 助手历史与 `RunInfoPage` 显示结果。
+
+**配置与训练文档：**
+
+- 运行时配置：[`tools/ai-training/CONFIGURATION.md`](tools/ai-training/CONFIGURATION.md)  
+- 离线训练：[`tools/ai-training/README.md`](tools/ai-training/README.md)  
+- SDK / 接模：[`src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md`](src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md)
+
+**`ai_config.json`（与 exe 同目录）要点：**
 
 | 字段 | 说明 |
 |------|------|
-| `enabled` | 为 true 时规则失败后可走 LLM |
-| `rule_parser_first` | 默认 false（先 LLM）；为 true 时先规则、成功则不调 LLM |
-| `base_url` | OpenAI 兼容 API 根，如 `https://api.openai.com/v1` |
-| `api_key` / `api_key_env` | 密钥或环境变量名（如 `OPENAI_API_KEY`） |
-| `model` | 模型名，如 `gpt-4o-mini` |
-| `timeout_ms` | HTTP 超时 |
+| `parser_priority` | 全局默认：`["rules","local","remote"]` |
+| `domains[]` | 分域：`id`、`model`、`base_url`、`parser_priority` |
+| `remote_llm` | 可选云端 API（`enabled`、`api_key`、`model` 等） |
+| `hardware_profile` | 默认 `vram_8gb`（3B 文本 + 3B VL，单模型常驻） |
 
 **支持的基本体与尺寸语义：**
 
@@ -470,20 +504,19 @@ flowchart LR
 sequenceDiagram
     participant User as User
     participant Dock as AiAssistantDockWidget
-    participant MW as MainWindow
-    participant Parse as AiIntentParser
-    participant Run as AiCreateMeshRunner
-    participant Geo as BackendPrimitiveGeometry
-    participant OSG as OsgWidget
+    participant Coord as AiAssistantCoordinator
+    participant Host as IAiAssistantHost
+    participant Job as JobSystem
+    participant Exec as AiActionPlanExecutor
 
     User->>Dock: 输入自然语言
-    Dock->>MW: messageSubmitted(text)
-    MW->>Parse: tryParseUserText
-    Parse-->>MW: create_mesh JSON
-    MW->>Run: executeFromJson
-    Run->>Geo: makePrimitiveTriangleSoup
-    Run->>Host: DocumentImportFacade::registerAdoptedMesh
-    MW->>Dock: appendAssistantMessage
+    Dock->>Coord: messageSubmitted
+    Coord->>Host: parseUserTextAsync
+    Host->>Job: rules / local LLM
+    Job-->>Host: AiParseResult
+    Host->>Exec: executeActionPlan
+    Exec-->>Coord: 成功/失败
+    Coord->>Dock: appendAssistantMessage
 ```
 
 ## 6.2 属性编辑与场景同步
@@ -802,7 +835,7 @@ bin/x64(d)/                    # CloudSimBinDir，见 CloudSim/Directory.Build.p
   OsgWidgetCore.dll
   RobotWidget.dll
   AiWidget.dll
-  AiBackend.dll
+  CloudSimAiSDK.dll
   CloudSimPluginSDK.dll
   plugins/
     com.cloudsim.hello/

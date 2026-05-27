@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 
+class AiAssistantHostImpl;
 class PluginPointCloudHostImpl;
 class BackendDataBase;
 class DocumentPage;
@@ -70,6 +71,9 @@ public:
 	void onLanguageChanged(std::function<void(bool useChinese)> callback) override;
 	void setSidePanelTabTitle(QWidget* widget, const char* titleUtf8) override;
 
+	IAiAssistantHost* aiAssistantHost() override;
+	const IAiAssistantHost* aiAssistantHost() const override;
+
 	void notifyLanguageChanged();
 
 	MainWindow* mainWindow() const { return m_mainWindow; }
@@ -79,6 +83,7 @@ private:
 
 	MainWindow* m_mainWindow = nullptr;
 	std::unique_ptr<PluginPointCloudHostImpl> m_pointCloudHost;
+	std::unique_ptr<AiAssistantHostImpl> m_aiHost;
 	std::vector<std::function<void(bool useChinese)>> m_languageCallbacks;
 	std::vector<std::unique_ptr<PluginDocumentAdapter>> m_documents;
 	std::vector<std::function<void(IPluginDocument*)>> m_docChangeCallbacks;

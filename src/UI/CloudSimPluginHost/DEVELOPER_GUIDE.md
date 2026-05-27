@@ -84,7 +84,7 @@ flowchart LR
 
 大文件 **ply 点云** 异步 Job 仍在 `MainWindowImportCaptureRenderController`；插件处理已导入点云请用 **`pointCloudHost()`**（snapshot → Job → UI 写回 + `loadPointCloudFromBackendData`）。
 
-`importFileIntoActiveDocument(..., isPointCloud=true)` 且扩展名为 `.ply` 时：若头含 `element face`（`PlyIo::plyFileHasTriangleFaces`），Host `importPointCloudFile` 自动改 `importMeshFile`，注册为 `Model` 网格而非点云。
+`importFileIntoActiveDocument(..., isPointCloud=true)` 且扩展名为 `.ply` 时：若头含 `element face`（`PlyIo::plyFileHasTriangleFaces`），Host `importPointCloudFile` 自动改 `importMeshFile`，注册为 `Model` 网格而非点云。行为与菜单「打开点云」一致；磁盘路径使用 Qt 本地编码（`QFile::encodeName`），见 [`Data/Data/DEVELOPER_GUIDE.md`](../Data/Data/DEVELOPER_GUIDE.md) §4.0。
 
 | 路径 | 说明 |
 |------|------|
@@ -117,3 +117,16 @@ flowchart LR
 | [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) | `IDataService`、`EventHub` |
 | [`Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) | 主窗口、JobSystem |
 | [`ARCHITECTURE_SUMMARY.md`](../../../ARCHITECTURE_SUMMARY.md) §10 | 插件运行时与目录约定 |
+| [`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) | AI 助手、`ai_config`、训练索引 |
+| [`tools/ai-training/CONFIGURATION.md`](../../tools/ai-training/CONFIGURATION.md) | `ai_config.json` 字段 |
+| [`tools/ai-training/README.md`](../../tools/ai-training/README.md) | 离线训练与 Ollama 部署 |
+
+### AI 实现位置（`source/Ai/`）
+
+| 类 | 职责 |
+|----|------|
+| `AiAssistantHostImpl` | `IAiAssistantHost`：解析链、配置、执行委托 |
+| `AiIntentParser` | 规则解析（创建基本体） |
+| `AiLlmClient` | OpenAI 兼容 HTTP（Ollama / 云端） |
+| `AiActionPlanExecutor` | JSON → `createPrimitiveMesh` / `importFile` |
+| `MeshCreateDomainHandler` / `GeometryRecognizeDomainHandler` | 内置分域 |

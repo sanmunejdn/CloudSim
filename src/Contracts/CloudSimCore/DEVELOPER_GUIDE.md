@@ -37,7 +37,7 @@
 | `unregisterSubtree` | `DocumentHost::removeBackendSubtree` + `BackendObjectRemovedEvent` |
 | `propertyRows` | `BackendDataBase::snapshotPropertyRows` → DTO |
 | `applyPropertyChange` | 写 Data 后 **`BackendVisualSync`**：mesh/点云 OSG 同步；相关 key 发布 **`PoseCommittedEvent`** |
-| `importFromFile` | `DocumentImportFacade::importFileIntoDocument`；`ImportOptionsDto::isPointCloud == true` 时点云，否则 mesh（obj/stl/ply/off + dxf/step/层级） |
+| `importFromFile` | `DocumentImportFacade::importFileIntoDocument`；`isPointCloud == true` 时点云，否则 mesh（obj/stl/ply/off + dxf/step/层级）。**透明行为**：`.ply` 且 `PlyIo::plyFileHasTriangleFaces` 时 Host 内部改 mesh（`Model`），插件无需单独分支 |
 | `loadObjectFromJson` / `saveObjectToJson` | 工程对象级 JSON（`BackendProjectObjectIo`） |
 
 **未在契约内、由 Host 头文件导出**：`DocumentImportFacade::registerAdoptedMesh` / `registerAdoptedPointCloud`（已构造几何 + OSG，供 AI/插件/ply Job）。

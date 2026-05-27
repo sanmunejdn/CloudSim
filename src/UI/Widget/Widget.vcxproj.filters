@@ -107,7 +107,6 @@
     <ClInclude Include="..\CloudSimPluginHost\inc\PluginSceneBridgeAdapter.h">
       <Filter>inc\PluginHost\Plugin</Filter>
     </ClInclude>
-    <ClInclude Include="inc\AiCommandExecutor.h">
       <Filter>inc\Ai</Filter>
     </ClInclude>
     <ClInclude Include="inc\ApplicationStyle.h">
@@ -202,7 +201,6 @@
     <ClCompile Include="..\CloudSimPluginHost\source\PluginSceneBridgeAdapter.cpp">
       <Filter>src\PluginHost\Plugin</Filter>
     </ClCompile>
-    <ClCompile Include="source\AiCommandExecutor.cpp">
       <Filter>src\Ai</Filter>
     </ClCompile>
     <ClCompile Include="source\ApplicationStyle.cpp">

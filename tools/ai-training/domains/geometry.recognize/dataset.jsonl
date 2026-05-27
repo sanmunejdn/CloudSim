@@ -1,0 +1,1 @@
+{"instruction":"识别图中的基本体类型与大致尺寸","input":"<image>","output":"{\"primitive\":\"box\",\"label\":\"长方体\",\"dimensions_mm\":{\"length\":100,\"width\":50,\"height\":30},\"confidence\":0.85}"}

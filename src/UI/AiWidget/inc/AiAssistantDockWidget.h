@@ -5,6 +5,8 @@
 
 #include "aiwidget_global.h"
 
+class QComboBox;
+class IAiAssistantHost;
 class QTextBrowser;
 class QLineEdit;
 class QPushButton;
@@ -22,6 +24,9 @@ public:
 	void appendSystemMessage(const QString& text);
 	void setBusy(bool busy);
 	void setUseChinese(bool chinese);
+	void setAiHost(IAiAssistantHost* host);
+
+	QString selectedDomainId() const;
 
 signals:
 	void messageSubmitted(const QString& text);
@@ -32,6 +37,8 @@ private slots:
 
 private:
 	bool m_useChinese = true;
+	IAiAssistantHost* m_aiHost = nullptr;
+	QComboBox* m_domainCombo = nullptr;
 	QTextBrowser* m_history = nullptr;
 	QLineEdit* m_input = nullptr;
 	QPushButton* m_settingsBtn = nullptr;

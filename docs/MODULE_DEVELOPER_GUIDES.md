@@ -21,6 +21,9 @@
 | **CloudSimPluginSDK** | 动态插件 ABI（宿主上下文、文档/场景 API） | [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) |
 | **CloudSimPluginHost** | 插件扫描、`QPluginLoader`、`PluginHostContext`（编进 `Widget.dll`） | [CloudSimPluginHost/DEVELOPER_GUIDE.md](../src/UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) · [ARCHITECTURE_SUMMARY.md §10](../ARCHITECTURE_SUMMARY.md) |
 | **HelloPlugin** | 官方示例插件（侧栏 + 菜单 + `createPrimitiveMesh`） | [HelloPlugin/DEVELOPER_GUIDE.md](../src/Plugins/HelloPlugin/DEVELOPER_GUIDE.md) |
+| **CloudSimAiSDK** | AI 助手 ABI、分域专模、`ai_config` 与训练文档索引 | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) · [配置](../../tools/ai-training/CONFIGURATION.md) · [训练](../../tools/ai-training/README.md) |
+| **AiWidget** | AI 助手 Dock、`AiAssistantCoordinator` | 见 [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) |
+| **HelloAiPlugin** | AI 插件示例（`ICloudSimAiPlugin`） | [HelloAiPlugin/DEVELOPER_GUIDE.md](../src/Plugins/HelloAiPlugin/DEVELOPER_GUIDE.md) |
 
 ## 依赖方向（简图）
 

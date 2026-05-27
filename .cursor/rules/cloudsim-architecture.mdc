@@ -7,7 +7,7 @@ alwaysApply: true
 
 - **解决方案**: `CloudSim.sln`（Visual Studio 2019，`v142`，Unicode，`Win32`/`x64`）。
 - **源码布局**: 工程按功能域位于 `src/`（`App`、`UI`、`Robot`、`Geometry`、`Data`、`AI`、`Plugins`、`Infra`）；详见 `docs/DIRECTORY_LAYOUT.md`。`.sln` 不嵌解决方案文件夹（VS2019 易报不兼容），分组以磁盘目录为准。
-- **工程**: `CloudSim`（可执行）、`Widget`（x64 为 DLL，含 `CloudSimPluginHost` 源码）、`RobotWidget`（x64 DLL）、`AiWidget`（x64 DLL）、`AiBackend`、`Data`、`CloudSimPluginSDK`（DLL）、`CloudSimPluginHost`（sln 内独立静态库，产品仍编入 Widget）、`HelloPlugin`（`bin/.../plugins/`）。x64 共享引擎 DLL：`RunLogger`、`GeometryEngine`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`BackendVisual`、`OsgWidgetCore`；`PointCloudAlgorithm` 仍静态链入 `Data.dll`。`RobotWidget` 仅 **x64**；Win32 不链接。
+- **工程**: `CloudSim`（可执行）、`Widget`（x64 DLL，含 `CloudSimPluginHost` + Ai 宿主实现）、`RobotWidget`、`AiWidget`、`CloudSimAiSDK`（DLL）、`Data`、`CloudSimPluginSDK`（DLL）、`CloudSimPluginHost`（sln 静态库参考）、`HelloPlugin` / `HelloAiPlugin`（`bin/.../plugins/`）。x64 共享引擎 DLL：`RunLogger`、`GeometryEngine`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`BackendVisual`、`OsgWidgetCore`；`PointCloudAlgorithm` 仍静态链入 `Data.dll`。`RobotWidget` 仅 **x64**；Win32 不链接。
 - **技术栈**: C++、**Qt 5.14**（`msvc2017_64`）、**OpenSceneGraph**、**CGAL**（点云/PLY 等）、**nlohmann::json**（属性与工程序列化）。
 - **目录习惯**: 各子工程内 **`inc/`** + **`source/`**；跨模块引用以 vcxproj `AdditionalIncludeDirectories` / `ProjectReference` 为准（路径相对各 `.vcxproj`，跨域示例见 `DIRECTORY_LAYOUT.md`）。
 - **修改代码时**: 新增源文件需在对应 **`.vcxproj` / `.vcxproj.filters`** 中登记；新增跨 DLL 符号需正确使用该模块的 **`*_LIB` 预处理器定义** 与导出宏（见各 `*_global.h`）。

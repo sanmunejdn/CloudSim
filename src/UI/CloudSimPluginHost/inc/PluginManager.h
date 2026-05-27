@@ -27,6 +27,9 @@ public:
 
 	QString loadSummary() const { return m_loadSummary; }
 
+	PluginHostContext* hostContext() { return m_hostContext.get(); }
+	const PluginHostContext* hostContext() const { return m_hostContext.get(); }
+
 private:
 	struct LoadedPlugin
 	{
@@ -39,6 +42,7 @@ private:
 	bool loadOnePlugin(const QString& pluginDir, const QString& manifestPath);
 	static bool parseHostVersionString(const QString& versionStr, unsigned int& outPacked);
 	static bool hostVersionSatisfies(const QString& minHostVersionStr);
+	static bool aiSdkVersionSatisfies(const QString& minAiSdkVersionStr);
 
 	MainWindow* m_mainWindow = nullptr;
 	std::unique_ptr<PluginHostContext> m_hostContext;

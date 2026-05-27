@@ -16,6 +16,8 @@
 #include "OsgWidget.h"
 #include "PluginDelegatedBackend.h"
 #include "PluginDocumentAdapter.h"
+#include "Ai/AiAssistantHostImpl.h"
+#include "IAiAssistantHost.h"
 #include "PluginPointCloudHostImpl.h"
 #include "RunLogger.h"
 
@@ -53,6 +55,7 @@ PluginHostContext::PluginHostContext(MainWindow* mainWindow, QObject* parent)
 	: QObject(parent)
 	, m_mainWindow(mainWindow)
 	, m_pointCloudHost(std::make_unique<PluginPointCloudHostImpl>(this))
+	, m_aiHost(std::make_unique<AiAssistantHostImpl>(this))
 {
 }
 
@@ -493,6 +496,16 @@ IPluginPointCloudHost* PluginHostContext::pointCloudHost()
 const IPluginPointCloudHost* PluginHostContext::pointCloudHost() const
 {
 	return m_pointCloudHost.get();
+}
+
+IAiAssistantHost* PluginHostContext::aiAssistantHost()
+{
+	return m_aiHost.get();
+}
+
+const IAiAssistantHost* PluginHostContext::aiAssistantHost() const
+{
+	return m_aiHost.get();
 }
 
 bool PluginHostContext::useChinese() const

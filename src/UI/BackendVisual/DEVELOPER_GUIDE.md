@@ -90,6 +90,15 @@ outer (osg::MatrixTransform)     ← 唯一位姿写入：T(center+pose) * R
 
 与 Data §4.2.1 配合：STEP 靠绕序修正；带 `vn` 的 OBJ 靠文件法线，**不要**仅依赖绕序重算法线。
 
+**光照与发黑（CGAL ply/stl/off 等）**
+
+| 现象 | 原因 |
+|------|------|
+| 部分三角面黑、邻面正常 | soup 绕序局部不一致 → 叉积法线朝内，`N·L < 0` |
+| 整片发黑 | 全局内外反或无法线且绕序全反 |
+
+`LitMeshMaterial::applyPlastic` 已对 `FRONT_AND_BACK` 设 ambient/diffuse，问题主要在**法线方向**，而非 `GL_CULL_FACE` 剔除。修正应在 Data 导入（`orient_polygon_soup` + 封闭体体积整体翻转，见 Data §4.2.1），而非在 Visual 层逐面翻转。
+
 ---
 
 ## 5. `BackendVisualRegistry`（静态工厂）

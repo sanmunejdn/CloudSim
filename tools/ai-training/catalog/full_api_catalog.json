@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "apis": [
+    { "id": "createPrimitiveMesh", "domains": ["mesh.create"] },
+    { "id": "importFileIntoActiveDocument", "domains": ["document.import"] },
+    { "id": "registerTriangleMesh", "domains": ["mesh.create"] }
+  ]
+}

@@ -1,0 +1,385 @@
+#include "Ai/AiAssistantHostImpl.h"
+
+#include "Ai/AiActionPlanExecutor.h"
+#include "Ai/AiConfigLoader.h"
+#include "AiIntentParser.h"
+#include "AiLlmClient.h"
+#include "AiProgressSink.h"
+#include "CloudSimAiVersion.h"
+#include "PluginHostContext.h"
+
+#include <json.hpp>
+
+namespace
+{
+AiLlmConfig toLlmConfig(const AiRemoteLlmConfig& r)
+{
+	AiLlmConfig c;
+	c.enabled = r.enabled;
+	c.baseUrl = r.baseUrl;
+	c.apiKey = r.apiKey;
+	c.apiKeyEnv = r.apiKeyEnv;
+	c.model = r.model;
+	c.timeoutMs = r.timeoutMs;
+	c.temperature = r.temperature;
+	return c;
+}
+
+AiLlmConfig domainToLlmConfig(const AiDomainModelConfig& d)
+{
+	AiLlmConfig c;
+	c.enabled = true;
+	c.baseUrl = d.baseUrl;
+	c.model = d.model;
+	c.timeoutMs = 120000;
+	c.temperature = 0.1;
+	return c;
+}
+
+AiInferenceProgressFn wrapProgressForUi(PluginHostContext* host, const AiInferenceProgressFn& progress)
+{
+	if (!progress || !host)
+		return progress;
+	return [host, progress](double fraction, const QString& message) {
+		host->invokeOnUiThread([progress, fraction, message]() {
+			if (progress)
+				progress(fraction, message);
+		});
+	};
+}
+
+bool isConversationalQuery(const QString& text)
+{
+	const QString t = text.trimmed();
+	if (t.isEmpty())
+		return false;
+	static const QStringList keys = {
+		QStringLiteral("什么模型"),
+		QStringLiteral("哪个模型"),
+		QStringLiteral("你是谁"),
+		QStringLiteral("你是什么"),
+		QStringLiteral("你好"),
+		QStringLiteral("介绍一下"),
+		QStringLiteral("能做什么"),
+	};
+	for (const QString& k : keys)
+	{
+		if (t.contains(k))
+			return true;
+	}
+	return false;
+}
+}
+
+AiAssistantHostImpl::AiAssistantHostImpl(PluginHostContext* pluginHost)
+	: m_pluginHost(pluginHost)
+	, m_router(&m_registry)
+{
+	registerBuiltinDomains();
+}
+
+unsigned int AiAssistantHostImpl::aiSdkVersion() const
+{
+	return cloudsimAiSdkVersion();
+}
+
+std::optional<AiConfigDto> AiAssistantHostImpl::loadConfig() const
+{
+	return loadAiConfigDto();
+}
+
+bool AiAssistantHostImpl::saveConfig(const AiConfigDto& config, QString* errorMessage) const
+{
+	return saveAiConfigDto(config, QString(), errorMessage);
+}
+
+QByteArray AiAssistantHostImpl::apiCatalogJson() const
+{
+	static const char kCatalog[] = R"({
+  "version": 1,
+  "apis": [
+    { "id": "createPrimitiveMesh", "domains": ["mesh.create"], "summary": "Create box/cylinder/cone/sphere" },
+    { "id": "importFileIntoActiveDocument", "domains": ["document.import"], "summary": "Import mesh or point cloud file" },
+    { "id": "registerTriangleMesh", "domains": ["mesh.create"], "summary": "Register triangle soup mesh" }
+  ]
+})";
+	return QByteArray(kCatalog);
+}
+
+IAiDomainRegistry* AiAssistantHostImpl::domainRegistry()
+{
+	return &m_registry;
+}
+
+const IAiDomainRegistry* AiAssistantHostImpl::domainRegistry() const
+{
+	return &m_registry;
+}
+
+void AiAssistantHostImpl::registerInferenceProvider(std::shared_ptr<IAiInferenceProvider> provider)
+{
+	if (provider)
+		m_inferenceProviders.push_back(std::move(provider));
+}
+
+void AiAssistantHostImpl::registerBuiltinDomains()
+{
+	{
+		AiDomainDescriptor d;
+		d.domainId = AiDomainIds::meshCreate();
+		d.displayName = QStringLiteral("Create mesh");
+		d.outputKind = AiDomainOutputKind::ActionPlan;
+		d.supportsMultimodal = false;
+		d.parserPriority = QStringList{ QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote") };
+		m_registry.registerDomain(d, &m_meshHandler);
+	}
+	{
+		AiDomainDescriptor d;
+		d.domainId = AiDomainIds::geometryRecognize();
+		d.displayName = QStringLiteral("Geometry recognize");
+		d.outputKind = AiDomainOutputKind::StructuredJson;
+		d.supportsMultimodal = true;
+		d.parserPriority = QStringList{ QStringLiteral("local") };
+		d.unloadOtherModelsBeforeInfer = true;
+		m_registry.registerDomain(d, &m_geomHandler);
+	}
+}
+
+QString AiAssistantHostImpl::resolveDomainId(const QString& requestedDomainId, const QString& userText) const
+{
+	return m_router.resolve(requestedDomainId, userText);
+}
+
+AiParseResult AiAssistantHostImpl::parseUserTextWithRules(const QString& domainId, const QString& text) const
+{
+	AiParseResult r;
+	QString d = domainId;
+	if (d.isEmpty() || d == AiDomainIds::autoDomain())
+		d = AiDomainIds::meshCreate();
+	r.domainId = d;
+	if (d == AiDomainIds::meshCreate())
+	{
+		const AiIntentParser::ParseResult pr = AiIntentParser::tryParseUserText(text);
+		r.ok = pr.ok;
+		r.outputKind = AiDomainOutputKind::ActionPlan;
+		if (pr.ok)
+		{
+			r.outputJsonUtf8 = QByteArray::fromStdString(pr.command.dump());
+			r.parserVia = QStringLiteral("Rules");
+		}
+		else
+		{
+			r.errorMessage = pr.errorMessage;
+			r.hintMessage = pr.hintMessage;
+			r.parserVia = QStringLiteral("Rules");
+		}
+		return r;
+	}
+	r.errorMessage = QStringLiteral("No rule parser for domain %1.").arg(r.domainId);
+	return r;
+}
+
+const AiDomainModelConfig* AiAssistantHostImpl::findDomainConfig(const AiConfigDto& cfg, const QString& domainId) const
+{
+	for (const auto& d : cfg.domains)
+	{
+		if (d.id == domainId && d.enabled)
+			return &d;
+	}
+	return nullptr;
+}
+
+AiParseResult AiAssistantHostImpl::parseWithLocalLlm(const QString& domainId, const QString& text,
+	const AiDomainModelConfig& dm, const QByteArray& imagePng, const AiInferenceProgressFn& progress) const
+{
+	AiParseResult r;
+	r.domainId = domainId;
+	const bool recognition = domainId == AiDomainIds::geometryRecognize();
+	const AiLlmConfig llm = domainToLlmConfig(dm);
+	const AiProgressSink sink = [&progress](double f, const QString& m) {
+		if (progress)
+			progress(f, m);
+	};
+	const AiLlmClient::LlmParseResult lr =
+		AiLlmClient::parseUserTextWithLlm(text, llm, sink, imagePng, recognition);
+	r.ok = lr.ok;
+	r.outputKind = recognition ? AiDomainOutputKind::StructuredJson : AiDomainOutputKind::ActionPlan;
+	if (lr.ok)
+	{
+		r.outputJsonUtf8 = QByteArray::fromStdString(lr.command.dump());
+		r.parserVia = QStringLiteral("Local %1").arg(dm.model);
+	}
+	else
+	{
+		r.errorMessage = lr.errorMessage;
+		r.parserVia = QStringLiteral("Local %1").arg(dm.model);
+	}
+	return r;
+}
+
+AiParseResult AiAssistantHostImpl::parseWithRemoteLlm(const QString& domainId, const QString& text,
+	const AiRemoteLlmConfig& remote, const AiInferenceProgressFn& progress) const
+{
+	AiParseResult r;
+	r.domainId = domainId;
+	if (!remote.enabled)
+	{
+		r.errorMessage = QStringLiteral("Remote LLM disabled.");
+		return r;
+	}
+	AiLlmConfig llm = toLlmConfig(remote);
+	if (!llm.hasApiKey())
+	{
+		r.errorMessage = QStringLiteral("Remote API key not configured.");
+		return r;
+	}
+	const AiProgressSink sink = [&progress](double f, const QString& m) {
+		if (progress)
+			progress(f, m);
+	};
+	const AiLlmClient::LlmParseResult lr = AiLlmClient::parseUserTextWithLlm(text, llm, sink);
+	r.ok = lr.ok;
+	r.outputKind = AiDomainOutputKind::ActionPlan;
+	if (lr.ok)
+	{
+		r.outputJsonUtf8 = QByteArray::fromStdString(lr.command.dump());
+		r.parserVia = QStringLiteral("Remote %1").arg(remote.model);
+	}
+	else
+	{
+		r.errorMessage = lr.errorMessage;
+		r.parserVia = QStringLiteral("Remote %1").arg(remote.model);
+	}
+	return r;
+}
+
+void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, const AiConfigDto& config,
+	const AiInferenceProgressFn& progress, std::function<void(AiParseResult)> onFinished)
+{
+	if (!m_pluginHost || !onFinished)
+		return;
+
+	const QString domainId = resolveDomainId(request.domainId, request.userText);
+	QStringList chain = config.parserPriorityDefault;
+	if (const AiDomainDescriptor* descUi = m_registry.descriptor(domainId))
+	{
+		if (!descUi->parserPriority.isEmpty())
+			chain = descUi->parserPriority;
+	}
+
+	const auto result = std::make_shared<AiParseResult>();
+	const QString userText = request.userText;
+	const QByteArray imagePng = request.imagePng;
+	const AiConfigDto cfgCopy = config;
+	const AiInferenceProgressFn uiProgress = wrapProgressForUi(m_pluginHost, progress);
+
+	m_pluginHost->enqueueJob(
+		QStringLiteral("AI: parse"),
+		[this, userText, imagePng, cfgCopy, domainId, chain, uiProgress, result](const PluginJobProgressFn&) {
+			const AiDomainDescriptor* desc = m_registry.descriptor(domainId);
+			const AiDomainModelConfig* dm = findDomainConfig(cfgCopy, domainId);
+
+			result->domainId = domainId;
+			if (desc)
+				result->outputKind = desc->outputKind;
+			else
+				result->outputKind = AiDomainOutputKind::ActionPlan;
+
+			for (const QString& step : chain)
+			{
+				if (step == QStringLiteral("rules"))
+				{
+					const AiParseResult rr = parseUserTextWithRules(domainId, userText);
+					if (rr.ok)
+					{
+						*result = rr;
+						return;
+					}
+					*result = rr;
+				}
+				else if (step == QStringLiteral("local") && dm)
+				{
+					if (isConversationalQuery(userText))
+					{
+						result->ok = false;
+						result->errorMessage = QStringLiteral(
+							"我是 CloudSim AI 助手（规则解析 + 本地模型 %1）。\n"
+							"创建几何请使用「生成/创建」+ 基本体类型 + 尺寸（mm）。")
+							.arg(dm->model);
+						result->hintMessage =
+							QStringLiteral("示例：生成长方体，长宽高为 100,100,200");
+						result->parserVia = QStringLiteral("Local");
+						return;
+					}
+					if (dm->unloadOtherModelsBeforeInfer && !m_lastLoadedModel.isEmpty()
+						&& m_lastLoadedModel != dm->model)
+					{
+						m_lastLoadedModel.clear();
+					}
+					m_lastLoadedModel = dm->model;
+					const AiParseResult lr = parseWithLocalLlm(domainId, userText, *dm, imagePng, uiProgress);
+					if (lr.ok)
+					{
+						*result = lr;
+						return;
+					}
+					if (result->errorMessage.isEmpty())
+						*result = lr;
+				}
+				else if (step == QStringLiteral("remote"))
+				{
+					const AiParseResult rr = parseWithRemoteLlm(domainId, userText, cfgCopy.remoteLlm, uiProgress);
+					if (rr.ok)
+					{
+						*result = rr;
+						return;
+					}
+					if (result->errorMessage.isEmpty())
+						*result = rr;
+				}
+			}
+			if (!result->ok && result->errorMessage.isEmpty())
+				result->errorMessage = QStringLiteral("All parsers failed for domain %1.").arg(domainId);
+		},
+		[result, onFinished](bool threw, const QString& throwMsg) {
+			if (threw)
+			{
+				AiParseResult r;
+				r.errorMessage = throwMsg.isEmpty() ? QStringLiteral("AI parse job failed.") : throwMsg;
+				onFinished(r);
+				return;
+			}
+			onFinished(*result);
+		});
+}
+
+bool AiAssistantHostImpl::executeActionPlan(const QByteArray& actionPlanJsonUtf8, QString* outSummary, QString* outError)
+{
+	if (!m_pluginHost)
+	{
+		if (outError)
+			*outError = QStringLiteral("Plugin host not available.");
+		return false;
+	}
+	return AiActionPlanExecutor::execute(*m_pluginHost, actionPlanJsonUtf8, outSummary, outError);
+}
+
+bool AiAssistantHostImpl::executeDomainOutput(const QString& domainId, const QByteArray& outputJsonUtf8,
+	QString* outSummary, QString* outError)
+{
+	IAiDomainHandler* h = m_registry.handler(domainId);
+	if (!h || !m_pluginHost)
+	{
+		if (outError)
+			*outError = QStringLiteral("Unknown domain or host.");
+		return false;
+	}
+	QString err;
+	if (!h->validateOutput(outputJsonUtf8, &err))
+	{
+		if (outError)
+			*outError = err;
+		return false;
+	}
+	return h->execute(outputJsonUtf8, m_pluginHost, this, outSummary, outError);
+}

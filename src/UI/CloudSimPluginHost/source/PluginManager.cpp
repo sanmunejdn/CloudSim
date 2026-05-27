@@ -1,7 +1,10 @@
 #include "PluginManager.h"
 
+#include "CloudSimAiVersion.h"
 #include "CloudSimPluginVersion.h"
+#include "ICloudSimAiPlugin.h"
 #include "ICloudSimPlugin.h"
+#include "IAiAssistantHost.h"
 #include "MainWindow.h"
 #include "PluginHostContext.h"
 #include "RunInfoPage.h"
@@ -35,10 +38,15 @@ void PluginManager::shutdownAll()
 	}
 	for (auto& entry : m_plugins)
 	{
-		if (entry && entry->instance)
+	if (entry && entry->instance)
+	{
+		if (entry->loader)
 		{
-			entry->instance->shutdown();
+			if (auto* aiPlg = qobject_cast<ICloudSimAiPlugin*>(entry->loader->instance()))
+				aiPlg->shutdownAi();
 		}
+		entry->instance->shutdown();
+	}
 		if (entry && entry->loader && entry->loader->isLoaded())
 		{
 			entry->loader->unload();
@@ -80,6 +88,31 @@ bool PluginManager::hostVersionSatisfies(const QString& minHostVersionStr)
 	return cloudsimPluginHostVersion() >= required;
 }
 
+bool PluginManager::aiSdkVersionSatisfies(const QString& minAiSdkVersionStr)
+{
+	if (minAiSdkVersionStr.isEmpty())
+		return true;
+	unsigned int required = 0;
+	if (!parseHostVersionString(minAiSdkVersionStr, required))
+		return false;
+	return cloudsimAiSdkVersion() >= required;
+}
+
+namespace
+{
+bool manifestHasCapability(const nlohmann::json& manifest, const char* capability)
+{
+	if (!manifest.contains("capabilities") || !manifest["capabilities"].is_array())
+		return false;
+	for (const auto& c : manifest["capabilities"])
+	{
+		if (c.is_string() && c.get<std::string>() == capability)
+			return true;
+	}
+	return false;
+}
+}
+
 bool PluginManager::loadOnePlugin(const QString& pluginDir, const QString& manifestPath)
 {
 	QFile file(manifestPath);
@@ -109,6 +142,8 @@ bool PluginManager::loadOnePlugin(const QString& pluginDir, const QString& manif
 	const QString name = QString::fromStdString(manifest.value("name", std::string()));
 	const QString library = QString::fromStdString(manifest.value("library", std::string()));
 	const QString minHost = QString::fromStdString(manifest.value("minHostVersion", std::string()));
+	const QString minAiSdk = QString::fromStdString(manifest.value("minAiSdkVersion", std::string()));
+	const bool wantsAi = manifestHasCapability(manifest, "ai-assistant");
 
 	if (id.isEmpty() || library.isEmpty())
 	{
@@ -151,6 +186,28 @@ bool PluginManager::loadOnePlugin(const QString& pluginDir, const QString& manif
 		RunLogger::warn("Plugin initialize() returned false: " + id.toStdString());
 		loader->unload();
 		return false;
+	}
+
+	if (wantsAi && !aiSdkVersionSatisfies(minAiSdk))
+	{
+		RunLogger::warn("Plugin AI capability skipped (AiSDK version): " + id.toStdString());
+	}
+	else if (IAiAssistantHost* aiHost = m_hostContext->aiAssistantHost())
+	{
+		if (auto* aiPlugin = qobject_cast<ICloudSimAiPlugin*>(pluginObject))
+		{
+			if (!aiPlugin->initializeAi(m_hostContext.get(), aiHost))
+			{
+				RunLogger::warn("Plugin initializeAi() returned false: " + id.toStdString());
+			}
+			else if (QWidget* panel = aiPlugin->createAssistantWidget(m_mainWindow))
+			{
+				const int prio = aiPlugin->assistantPanelPriority();
+				const QString tabTitle = aiPlugin->aiPluginId();
+				m_hostContext->registerSidePanelTab(tabTitle.toUtf8().constData(), panel);
+				(void)prio;
+			}
+		}
 	}
 
 	auto loaded = std::make_unique<LoadedPlugin>();
