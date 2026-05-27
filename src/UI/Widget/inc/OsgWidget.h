@@ -343,6 +343,9 @@ signals:
 	/// 随 OsgScene::requestRedraw 发出（场景或相机变更）
 	void sceneRedrawRequested();
 
+protected:
+	void showEvent(QShowEvent* event) override;
+
 private:
 	void initViewer();
 	void initUi();

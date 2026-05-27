@@ -1,5 +1,6 @@
 #include "PointCloudBackendData.h"
 
+#include "PlyIo.h"
 #include "geometry_base64.h"
 #include "../../PropertyCore/inc/PropertyAttribute.h"
 
@@ -251,148 +252,6 @@ static boost::uint8_t floatChannelToU8(float c)
 	return static_cast<boost::uint8_t>(std::clamp(v, 0L, 255L));
 }
 
-struct PlyHeaderScan
-{
-	bool valid = false;
-	bool cgalFormatOnLine2 = false;
-	bool isAscii = true;
-	int vertexCount = 0;
-	bool hasUcharRgb = false;
-	bool vertexHasListProperty = false;
-	int ix = -1;
-	int iy = -1;
-	int iz = -1;
-	int ir = -1;
-	int ig = -1;
-	int ib = -1;
-};
-
-static bool parsePlyHeaderScan(std::istream& is, PlyHeaderScan& out, std::string* errMsg)
-{
-	out = PlyHeaderScan{};
-	std::string line;
-	int lineNumber = 0;
-	bool inVertex = false;
-	int vertexPropIndex = 0;
-
-	while (std::getline(is, line))
-	{
-		if (!line.empty() && line.back() == '\r')
-		{
-			line.pop_back();
-		}
-		++lineNumber;
-
-		if (lineNumber == 1)
-		{
-			if (line != "ply")
-			{
-				setErr(errMsg, "Not a PLY file (missing 'ply' signature).");
-				return false;
-			}
-			continue;
-		}
-		if (lineNumber == 2 && line.rfind("format ", 0) == 0)
-		{
-			out.cgalFormatOnLine2 = true;
-		}
-		if (line.rfind("format ", 0) == 0)
-		{
-			if (line.find("ascii") != std::string::npos)
-			{
-				out.isAscii = true;
-			}
-			else
-			{
-				out.isAscii = false;
-			}
-		}
-		if (line == "end_header")
-		{
-			out.valid = true;
-			break;
-		}
-		if (line.size() >= 15 && line.compare(0, 15, "element vertex") == 0)
-		{
-			std::istringstream ls(line);
-			std::string a;
-			std::string b;
-			std::size_t n = 0;
-			if (ls >> a >> b >> n)
-			{
-				out.vertexCount = static_cast<int>(n);
-			}
-			inVertex = true;
-			vertexPropIndex = 0;
-		}
-		else if (line.size() >= 8 && line.compare(0, 8, "element ") == 0)
-		{
-			inVertex = false;
-		}
-		else if (inVertex && line.rfind("property ", 0) == 0)
-		{
-			std::istringstream ls(line);
-			std::string keyword;
-			std::string type;
-			std::string name;
-			ls >> keyword >> type;
-			if (type == "list")
-			{
-				out.vertexHasListProperty = true;
-				std::string st;
-				std::string lt;
-				std::string nm;
-				if (!(ls >> st >> lt >> nm))
-				{
-					continue;
-				}
-				name = nm;
-			}
-			else if (!(ls >> name))
-			{
-				continue;
-			}
-			auto mapRgb = [&](const std::string& n, int idx) {
-				if (n == "red" || n == "diffuse_red")
-				{
-					out.ir = idx;
-				}
-				else if (n == "green" || n == "diffuse_green")
-				{
-					out.ig = idx;
-				}
-				else if (n == "blue" || n == "diffuse_blue")
-				{
-					out.ib = idx;
-				}
-			};
-			if (name == "x")
-			{
-				out.ix = vertexPropIndex;
-			}
-			else if (name == "y")
-			{
-				out.iy = vertexPropIndex;
-			}
-			else if (name == "z")
-			{
-				out.iz = vertexPropIndex;
-			}
-			mapRgb(name, vertexPropIndex);
-			++vertexPropIndex;
-		}
-	}
-
-	if (!out.valid)
-	{
-		setErr(errMsg, "PLY header missing end_header.");
-		return false;
-	}
-	// uchar RGB 路径；float 色 PLY 回退 xyz-only
-	out.hasUcharRgb = (out.ir >= 0 && out.ig >= 0 && out.ib >= 0);
-	return true;
-}
-
 static void cgalRgbRowsToBackend(const std::vector<VtxRgbRead>& withRgb, PointCloudBackendData& dst)
 {
 	std::vector<float> xyz(withRgb.size() * 3U);
@@ -414,7 +273,7 @@ static void cgalRgbRowsToBackend(const std::vector<VtxRgbRead>& withRgb, PointCl
 	dst.setPointBuffers(std::move(xyz), std::move(rgba));
 }
 
-static bool readPlyWithCgalFromPath(const std::string& utf8Path, const PlyHeaderScan& scan, PointCloudBackendData& dst,
+static bool readPlyWithCgalFromPath(const std::string& utf8Path, const PlyHeaderInfo& scan, PointCloudBackendData& dst,
 	std::string* errMsg)
 {
 	if (!scan.cgalFormatOnLine2)
@@ -422,7 +281,7 @@ static bool readPlyWithCgalFromPath(const std::string& utf8Path, const PlyHeader
 		return false;
 	}
 
-	std::ifstream is(std::filesystem::u8path(utf8Path), scan.isAscii ? std::ios::in : std::ios::binary);
+	std::ifstream is(std::filesystem::path(utf8Path), scan.isAscii ? std::ios::in : std::ios::binary);
 	if (!is)
 	{
 		setErr(errMsg, "Cannot open point PLY file.");
@@ -446,7 +305,7 @@ static bool readPlyWithCgalFromPath(const std::string& utf8Path, const PlyHeader
 		}
 	}
 
-	std::ifstream is2(std::filesystem::u8path(utf8Path), scan.isAscii ? std::ios::in : std::ios::binary);
+	std::ifstream is2(std::filesystem::path(utf8Path), scan.isAscii ? std::ios::in : std::ios::binary);
 	if (!is2)
 	{
 		setErr(errMsg, "Cannot open point PLY file.");
@@ -482,7 +341,7 @@ static int splitAsciiNumbers(const std::string& line, double* out, int maxOut)
 	return n;
 }
 
-static bool readAsciiPlyFlexible(const std::string& utf8Path, const PlyHeaderScan& scan, PointCloudBackendData& dst,
+static bool readAsciiPlyFlexible(const std::string& utf8Path, const PlyHeaderInfo& scan, PointCloudBackendData& dst,
 	std::string* errMsg)
 {
 	if (!scan.isAscii || scan.vertexCount <= 0 || scan.vertexHasListProperty)
@@ -496,7 +355,8 @@ static bool readAsciiPlyFlexible(const std::string& utf8Path, const PlyHeaderSca
 		return false;
 	}
 
-	std::ifstream fin(std::filesystem::u8path(utf8Path));
+	// 花括号避免 most vexing parse：fin(path) 会被解析成函数声明
+	std::ifstream fin{std::filesystem::path{utf8Path}};
 	if (!fin)
 	{
 		setErr(errMsg, "Cannot open point PLY file.");
@@ -588,18 +448,10 @@ static bool readAsciiPlyFlexible(const std::string& utf8Path, const PlyHeaderSca
 
 bool PointCloudBackendData::readPointCloudFromPlyFile(const std::string& utf8Path, std::string* errMsg)
 {
-	PlyHeaderScan scan;
+	PlyHeaderInfo scan;
+	if (!scanPlyHeader(utf8Path, scan, errMsg))
 	{
-		std::ifstream s(std::filesystem::u8path(utf8Path), std::ios::binary);
-		if (!s)
-		{
-			setErr(errMsg, "Cannot open PLY file.");
-			return false;
-		}
-		if (!parsePlyHeaderScan(s, scan, errMsg))
-		{
-			return false;
-		}
+		return false;
 	}
 
 	std::string cgalErr;
@@ -700,6 +552,11 @@ bool PointCloudBackendData::loadFromFile(const std::string& path, std::string* e
 	}
 	if (ext == "ply")
 	{
+		if (plyFileHasTriangleFaces(path))
+		{
+			setErr(errMsg, "PLY contains faces; import as mesh instead of point cloud.");
+			return false;
+		}
 		return readPointCloudFromPlyFile(path, errMsg);
 	}
 	if (ext == "xyz")
@@ -725,7 +582,7 @@ bool PointCloudBackendData::writePointCloudPlySidecar(const std::string& utf8Pat
 	const std::size_t n = m_xyz.size() / 3U;
 	const bool hasRgba = hasPerVertexColors() && m_rgbaVertex.size() == n * 4U;
 
-	std::ofstream ofs(std::filesystem::u8path(utf8Path), std::ios::binary);
+	std::ofstream ofs(std::filesystem::path(utf8Path), std::ios::binary);
 	if (!ofs)
 	{
 		setErr(errMsg, "Cannot open file for writing.");

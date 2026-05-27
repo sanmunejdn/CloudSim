@@ -91,4 +91,9 @@ void saveTheme(Theme theme)
 	settings.setValue(QStringLiteral("theme"), themeToString(theme));
 }
 
+bool usesDarkTheme()
+{
+	return loadSavedTheme() == Theme::Dark;
+}
+
 } // namespace ApplicationStyle

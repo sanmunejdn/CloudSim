@@ -13,9 +13,14 @@
 #include <string>
 #include <unordered_map>
 
+#include <QColor>
 #include <QFile>
 #include <QFileInfo>
 #include <QMouseEvent>
+#include <QPalette>
+#include <QShowEvent>
+#include <QPalette>
+#include <QShowEvent>
 #include <QRegExp>
 #include <QStringList>
 #include <QTextStream>
@@ -81,6 +86,15 @@
 #include "BackendFollowMath.h"
 #include "BackendVisualMath.h"
 #include "ObjectGizmoFrame.h"
+
+namespace {
+
+QColor viewerChromeColor(bool dark)
+{
+	return dark ? QColor(102, 102, 107) : QColor(250, 250, 250);
+}
+
+} // namespace
 
 OsgWidget::OsgWidget(QWidget* parent)
 	: QWidget(parent)
@@ -637,10 +651,30 @@ void OsgWidget::setRobotFrameOverlays(const RobotFrameOverlayUpdate& update)
 	requestRedraw();
 }
 
+namespace {
+
+void syncGlWidgetChrome(QWidgetViewer* glWidget, bool dark)
+{
+	if (!glWidget)
+	{
+		return;
+	}
+	const QColor bg = viewerChromeColor(dark);
+	QPalette pal = glWidget->palette();
+	pal.setColor(QPalette::Window, bg);
+	glWidget->setPalette(pal);
+	glWidget->setAutoFillBackground(true);
+	glWidget->setStyleSheet(QStringLiteral("background-color: %1;").arg(bg.name()));
+}
+
+} // namespace
+
 void OsgWidget::setViewerBackgroundForDarkUi(bool dark)
 {
 	m_darkUiTheme = dark;
-	if (!m_viewer.valid() || !m_viewer->getCamera())
+	syncGlWidgetChrome(m_glWidget, dark);
+	const bool viewerOk = m_viewer.valid() && m_viewer->getCamera();
+	if (!viewerOk)
 	{
 		return;
 	}
@@ -658,6 +692,13 @@ void OsgWidget::setViewerBackgroundForDarkUi(bool dark)
 		}
 	}
 	requestRedraw();
+}
+
+void OsgWidget::showEvent(QShowEvent* event)
+{
+	QWidget::showEvent(event);
+	// m_darkUiTheme 由 MainWindow（主题切换 / 新建文档）写入，Host DLL 不链 ApplicationStyle
+	setViewerBackgroundForDarkUi(m_darkUiTheme);
 }
 
 void OsgWidget::clearStagingGeometry()
@@ -1116,7 +1157,7 @@ void OsgWidget::initViewer()
 	m_viewer->setCameraManipulator(m_trackballManipulator.get());
 	m_viewer->getEventQueue()->syncWindowRectangleWithGraphicsContext();
 
-	setViewerBackgroundForDarkUi(false);
+	setViewerBackgroundForDarkUi(m_darkUiTheme);
 	m_viewer->getCamera()->setViewMatrixAsLookAt(
 		osg::Vec3(3, 3, 3),
 		osg::Vec3(0, 0, 0),

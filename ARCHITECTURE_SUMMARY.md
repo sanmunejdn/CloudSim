@@ -215,7 +215,7 @@ flowchart TD
 - `BackendVisualRegistry` 按 `className` 注册/创建视觉构建器。
 - 输出统一 `BranchBuildResult`（**外层 `osg::MatrixTransform`**、内层 `PositionAttitudeTransform`、模型中心、对角线尺度）供交互层复用；外层存完整刚体局部矩阵，便于 FK / `setBackendRootWorldMatrixFromWorld` 避免 PAT 的 TRS 分解误差。
 - `MeshVisualOptions`：`showWireOutline`、`useSceneLighting`；**`skipInnerModelCenterRebase`** 为真时不再做「外包络中心 + 内层 `-bboxCenter`」的通用网格去心（用于 **URDF 每连杆**：顶点已在连杆系且由 FK 写外层世界矩阵，与层级导入「仅 `meshToLink`、无去心 PAT」语义对齐）。
-- **程序生成网格**：`MeshBackendData` 默认浅蓝材质色；`useSceneLighting=true` 时按 per-vertex 法线 + `applyLitPlastic` 渲染。若绕序与外侧不一致且无法线缓冲，会出现「几何正确但全黑」——基本体由 `BackendPrimitiveGeometry` 保证绕序；**STEP** 在 OCCT 导出时对 `TopAbs_REVERSED` 面翻转三角绕序；**OBJ 含 `vn`** 保留文件法线供光照（见 `Data` §4.2.1）；无 `vn` 的 OBJ/STL/PLY/OFF 走 CGAL `orient_polygon_soup` + 质心外向绕序修正。
+- **程序生成网格**：`MeshBackendData` 默认浅蓝材质色；`useSceneLighting=true` 时按 per-vertex 法线 + `applyLitPlastic` 渲染。若绕序与外侧不一致且无法线缓冲，会出现「几何正确但全黑」——基本体由 `BackendPrimitiveGeometry` 保证绕序；**STEP** 在 OCCT 导出时对 `TopAbs_REVERSED` 面翻转三角绕序；**OBJ 含 `vn`** 保留文件法线供光照（见 `Data` §4.2.1）；无 `vn` 的 OBJ/STL/PLY/OFF 走 CGAL `orient_polygon_soup` + 封闭体有符号体积整体外向修正（非逐三角质心翻转）。
 
 模块定位：
 

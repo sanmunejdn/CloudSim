@@ -330,7 +330,10 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 |------|------|
 | 全部格式（同步） | Host `DocumentImportFacade::importFileIntoDocument`（`registerBackendObject` 内调用） |
 | ply 大文件点云 | Widget `JobSystem` 异步读文件，完成后 Host `registerAdoptedPointCloud` |
+| ply 含 `element face` | **不入点云 Job**；`plyFileHasTriangleFaces` 为真时改 `ImportFileKind::Mesh`（catalog `Model`） |
 | dxf/step 层级 | facade 内 `importMeshFileExtended`，**不**做 Follow；`focusCameraOnBackend(importParent)` 在 Host 内完成 |
+
+**PLY 点云菜单 + mesh**：`OsgWidgetImportController::importPointCloudFile` 对含面 PLY 走 `MeshBackendData::loadFromFile` + `loadMeshFromBackendData`（staging）；注册路径与上表 mesh 改道一致。纯顶点 PLY 仍 `readPointCloudFromPlyFile`。
 
 **DXF/STEP 层级（与工程加载区别）**
 

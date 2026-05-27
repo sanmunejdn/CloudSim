@@ -77,6 +77,9 @@
     <ClInclude Include="inc\MeshBackendData.h">
       <Filter>inc\Backend</Filter>
     </ClInclude>
+    <ClInclude Include="inc\PlyIo.h">
+      <Filter>inc\Backend</Filter>
+    </ClInclude>
     <ClInclude Include="inc\PointCloudBackendData.h">
       <Filter>inc\Backend</Filter>
     </ClInclude>
@@ -138,6 +141,9 @@
     </ClCompile>
     <ClCompile Include="source\pch.cpp">
       <Filter>src\pch</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PlyIo.cpp">
+      <Filter>src\Backend</Filter>
     </ClCompile>
     <ClCompile Include="source\PointCloudBackendData.cpp">
       <Filter>src\Backend</Filter>

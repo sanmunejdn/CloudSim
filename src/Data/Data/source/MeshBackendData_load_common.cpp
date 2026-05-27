@@ -52,22 +52,9 @@ static bool meshComputePointsCentroid(const PointRange& points, double& centX, d
 	return true;
 }
 
-static bool meshTriangleNormalPointsOutward(double nx, double ny, double nz, double triX, double triY, double triZ,
-	double centX, double centY, double centZ)
-{
-	const double ox = triX - centX;
-	const double oy = triY - centY;
-	const double oz = triZ - centZ;
-	return nx * ox + ny * oy + nz * oz >= 0.0;
-}
-
 template <typename PointRange, typename PolygonRange>
 static void meshBuildSoupFromPolygons(const PointRange& points, const PolygonRange& polygons, std::vector<float>& soup)
 {
-	double centX = 0.0;
-	double centY = 0.0;
-	double centZ = 0.0;
-	const bool hasCentroid = meshComputePointsCentroid(points, centX, centY, centZ);
 	for (const auto& poly : polygons)
 	{
 		if (poly.size() < 3U)
@@ -86,29 +73,70 @@ static void meshBuildSoupFromPolygons(const PointRange& points, const PolygonRan
 			const auto& p0 = points[i0];
 			const auto& p1 = points[i1];
 			const auto& p2 = points[i2];
-			const double abx = p1.x() - p0.x();
-			const double aby = p1.y() - p0.y();
-			const double abz = p1.z() - p0.z();
-			const double acx = p2.x() - p0.x();
-			const double acy = p2.y() - p0.y();
-			const double acz = p2.z() - p0.z();
-			const double nx = aby * acz - abz * acy;
-			const double ny = abz * acx - abx * acz;
-			const double nz = abx * acy - aby * acx;
-			const double triX = (p0.x() + p1.x() + p2.x()) / 3.0;
-			const double triY = (p0.y() + p1.y() + p2.y()) / 3.0;
-			const double triZ = (p0.z() + p1.z() + p2.z()) / 3.0;
-			const bool flipTri = hasCentroid
-				&& !meshTriangleNormalPointsOutward(nx, ny, nz, triX, triY, triZ, centX, centY, centZ);
-			if (flipTri)
-			{
-				meshPushTri(soup, p0.x(), p0.y(), p0.z(), p2.x(), p2.y(), p2.z(), p1.x(), p1.y(), p1.z());
-			}
-			else
-			{
-				meshPushTri(soup, p0.x(), p0.y(), p0.z(), p1.x(), p1.y(), p1.z(), p2.x(), p2.y(), p2.z());
-			}
+			meshPushTri(soup, p0.x(), p0.y(), p0.z(), p1.x(), p1.y(), p1.z(), p2.x(), p2.y(), p2.z());
 		}
+	}
+}
+
+static double meshSignedVolumeOfSoupAboutPoint(const std::vector<float>& soup, const double cx, const double cy,
+	const double cz)
+{
+	double vol = 0.0;
+	for (std::size_t i = 0; i + 8 < soup.size(); i += 9U)
+	{
+		const double ax = static_cast<double>(soup[i]) - cx;
+		const double ay = static_cast<double>(soup[i + 1]) - cy;
+		const double az = static_cast<double>(soup[i + 2]) - cz;
+		const double bx = static_cast<double>(soup[i + 3]) - cx;
+		const double by = static_cast<double>(soup[i + 4]) - cy;
+		const double bz = static_cast<double>(soup[i + 5]) - cz;
+		const double ccx = static_cast<double>(soup[i + 6]) - cx;
+		const double ccy = static_cast<double>(soup[i + 7]) - cy;
+		const double ccz = static_cast<double>(soup[i + 8]) - cz;
+		vol += ax * (by * ccz - bz * ccy) - ay * (bx * ccz - bz * ccx) + az * (bx * ccy - by * ccx);
+	}
+	return vol / 6.0;
+}
+
+static void meshFlipAllTriangleWindingInSoup(std::vector<float>& soup)
+{
+	for (std::size_t i = 0; i + 8 < soup.size(); i += 9U)
+	{
+		std::swap(soup[i + 3], soup[i + 6]);
+		std::swap(soup[i + 4], soup[i + 7]);
+		std::swap(soup[i + 5], soup[i + 8]);
+	}
+}
+
+/// 封闭体整体内外翻转；逐三角质心翻转在非凸网格上会导致部分面发黑
+static void meshOrientSoupOutwardIfClosed(std::vector<float>& soup, const double refX, const double refY,
+	const double refZ)
+{
+	if (soup.size() < 9U)
+	{
+		return;
+	}
+	double minX = soup[0];
+	double minY = soup[1];
+	double minZ = soup[2];
+	double maxX = minX;
+	double maxY = minY;
+	double maxZ = minZ;
+	for (std::size_t i = 0; i + 2 < soup.size(); i += 3U)
+	{
+		minX = std::min(minX, static_cast<double>(soup[i]));
+		maxX = std::max(maxX, static_cast<double>(soup[i]));
+		minY = std::min(minY, static_cast<double>(soup[i + 1]));
+		maxY = std::max(maxY, static_cast<double>(soup[i + 1]));
+		minZ = std::min(minZ, static_cast<double>(soup[i + 2]));
+		maxZ = std::max(maxZ, static_cast<double>(soup[i + 2]));
+	}
+	const double scale = std::max({maxX - minX, maxY - minY, maxZ - minZ, 1e-6});
+	const double volEps = scale * scale * scale * 1e-9;
+	const double vol = meshSignedVolumeOfSoupAboutPoint(soup, refX, refY, refZ);
+	if (vol < -volEps)
+	{
+		meshFlipAllTriangleWindingInSoup(soup);
 	}
 }
 
@@ -370,8 +398,14 @@ bool meshLoadCgalMeshFile(MeshBackendData& mesh, const std::string& path, const 
 		RunLogger::warn("[MeshBackendData] orient_polygon_soup duplicated vertices (non-manifold geometry).");
 	}
 
+	double refX = 0.0;
+	double refY = 0.0;
+	double refZ = 0.0;
+	(void)meshComputePointsCentroid(points, refX, refY, refZ);
+
 	std::vector<float> soup;
 	meshBuildSoupFromPolygons(points, polygons, soup);
+	meshOrientSoupOutwardIfClosed(soup, refX, refY, refZ);
 
 	if (soup.empty())
 	{

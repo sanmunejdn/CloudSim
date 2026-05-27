@@ -8,11 +8,14 @@
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BackendSceneDocumentFacade.h"
 #include "DocumentPage.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
+#include "PlyIo.h"
 #include "PointCloudBackendData.h"
 #include "RunInfoPage.h"
+#include "WidgetDocumentAccess.h"
 
 #include <QByteArray>
 #include <QFile>
@@ -60,6 +63,14 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 			mw.m_runInfoPage->appendInfo(QStringLiteral("Backend object registered: %1").arg(fileInfo.fileName()));
 		}
 		mw.focusBackendInTreeAfterImport(obj);
+		if (obj && doc)
+		{
+			doc->sceneFacade().ensureSelectionVisualForBackend(*obj);
+			if (OsgWidget* osg = widgetOsgFromPage(doc))
+			{
+				osg->requestRedraw();
+			}
+		}
 	};
 
 	if (isPointCloud)
@@ -82,6 +93,29 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 			p->setRotation(rot);
 			return p;
 		};
+
+		if (extLower == QLatin1String("ply") && plyFileHasTriangleFaces(nativePath))
+		{
+			cloudsim::core::ImportOptionsDto meshOpt;
+			meshOpt.quietUi = quietUi;
+			meshOpt.resetViewToHome = true;
+			meshOpt.catalogTypeName = QStringLiteral("Model");
+			QString importErr;
+			const cloudsim::host::ImportFileResult imported =
+				cloudsim::host::importFileIntoDocument(*doc, filePath, cloudsim::host::ImportFileKind::Mesh, meshOpt, &importErr);
+			if (!imported.ok)
+			{
+				return reportFail(QStringLiteral("Point cloud"),
+					importErr.isEmpty() ? QStringLiteral("Failed to load PLY mesh.") : importErr);
+			}
+			const std::shared_ptr<BackendDataBase> obj = doc->backend().getData(imported.rootBackendId.toStdString());
+			if (!obj)
+			{
+				return reportFail(QStringLiteral("Point cloud"), QStringLiteral("Imported object not found in backend."));
+			}
+			finish(obj);
+			return true;
+		}
 
 		// Job 回调可能在栈帧返回后执行，fileInfo 须按值捕获
 		if (!isLasLaz && mw.jobSystem())

@@ -16,5 +16,6 @@ enum class Theme
 WIDGET_EXPORT void applyTheme(QApplication* app, Theme theme);
 WIDGET_EXPORT Theme loadSavedTheme();
 WIDGET_EXPORT void saveTheme(Theme theme);
+WIDGET_EXPORT bool usesDarkTheme();
 
 } // namespace ApplicationStyle

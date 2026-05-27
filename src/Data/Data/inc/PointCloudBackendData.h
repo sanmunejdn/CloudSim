@@ -47,14 +47,14 @@ public:
 	bool writeProjectEmbeddedGeometry(std::string& outXyzBase64, std::string& outRgbaPerVertexBase64) const;
 	bool readProjectEmbeddedGeometry(const std::string& xyzBase64, const std::string& rgbaPerVertexBase64);
 
-/// PLY 加载（CGAL）；utf8Path 为 UTF-8
-	bool readPointCloudFromPlyFile(const std::string& utf8Path, std::string* errMsg = nullptr);
+/// PLY 加载（CGAL）；path 为本地编码（QFile::encodeName）
+	bool readPointCloudFromPlyFile(const std::string& path, std::string* errMsg = nullptr);
 
 /// 按扩展名加载；path 用本地编码（QFile::encodeName）
 	bool loadFromFile(const std::string& path, std::string* errMsg = nullptr);
 
-	bool writePointCloudPlySidecar(const std::string& utf8Path, std::string* errMsg) const;
-	bool readPointCloudPlySidecar(const std::string& utf8Path, std::string* errMsg);
+	bool writePointCloudPlySidecar(const std::string& path, std::string* errMsg) const;
+	bool readPointCloudPlySidecar(const std::string& path, std::string* errMsg);
 
 	nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const override;
 	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,

@@ -8,6 +8,7 @@
 #include "BackendDataManager.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
+#include "PlyIo.h"
 #include "PointCloudBackendData.h"
 
 #include <QFile>
@@ -137,11 +138,12 @@ core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const
 	auto mesh = std::make_shared<MeshBackendData>();
 	mesh->setName(fileInfo.fileName().toStdString());
 	std::string loadErr;
-	if (!mesh->loadFromFile(nativePath, &loadErr))
+	if (!mesh->loadFromFile(nativePath, &loadErr) || !mesh->hasGeometry())
 	{
 		if (outError)
 		{
-			*outError = loadErr.empty() ? QStringLiteral("Failed to load mesh.") : QString::fromStdString(loadErr);
+			*outError = loadErr.empty() ? QStringLiteral("Failed to load mesh (no triangle geometry).")
+										  : QString::fromStdString(loadErr);
 		}
 		return {};
 	}
@@ -183,9 +185,17 @@ core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const
 	if (OsgWidget* osg = osgWidgetFrom(host))
 	{
 		QString sceneErr;
-		if (!osg->loadMeshFromBackendData(*mesh, &sceneErr, options.resetViewToHome) && outError)
+		if (!osg->loadMeshFromBackendData(*mesh, &sceneErr, options.resetViewToHome))
 		{
-			*outError = sceneErr.isEmpty() ? QStringLiteral("OSG mesh display failed") : sceneErr;
+			host.backend().unregisterData(mesh->id());
+			host.backendSourcePath().remove(id);
+			host.backendSourceType().remove(id);
+			host.backendParentId().remove(id);
+			if (outError)
+			{
+				*outError = sceneErr.isEmpty() ? QStringLiteral("OSG mesh display failed") : sceneErr;
+			}
+			return {};
 		}
 	}
 
@@ -214,6 +224,13 @@ core::ObjectId importPointCloudFile(DocumentHost& host, const QString& filePath,
 
 	const QByteArray nativeEnc = QFile::encodeName(filePath);
 	const std::string nativePath(nativeEnc.constData(), static_cast<std::size_t>(nativeEnc.size()));
+
+	if (ext == QStringLiteral("ply") && plyFileHasTriangleFaces(nativePath))
+	{
+		core::ImportOptionsDto meshOpt = options;
+		meshOpt.catalogTypeName = QStringLiteral("Model");
+		return importMeshFile(host, filePath, meshOpt, outError);
+	}
 
 	auto pointCloud = makeEmptyPointCloudShell(fileInfo.fileName());
 	if (!applyPersistedIdIfRequested(host, pointCloud, options, outError))

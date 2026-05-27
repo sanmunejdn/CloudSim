@@ -1,6 +1,8 @@
 #include "OsgWidgetImportController.h"
 
 #include "OsgWidget.h"
+#include "MeshBackendData.h"
+#include "PlyIo.h"
 #include "PointCloudBackendData.h"
 
 #include <QFileInfo>
@@ -106,12 +108,30 @@ bool OsgWidgetImportController::importPointCloudFile(OsgWidget& self, const QStr
 	}
 	else if (extension == QStringLiteral("ply"))
 	{
-		// Prefer CGAL in Data layer: reads point clouds as vertices only (ignores faces), then OSG draws buffers.
-		// Avoids OSG mesh PLY warnings (e.g. vertex_indices) and matches project/backend pipeline.
+		const QByteArray nativePathBytes = QFile::encodeName(filePath);
+		const std::string nativePath(nativePathBytes.constData(),
+			static_cast<size_t>(nativePathBytes.size()));
+		if (plyFileHasTriangleFaces(nativePath))
+		{
+			MeshBackendData meshBackend;
+			std::string meshErr;
+			if (meshBackend.loadFromFile(nativePath, &meshErr) && meshBackend.hasGeometry())
+			{
+				return self.loadMeshFromBackendData(meshBackend, errorMessage, true, true, true, false);
+			}
+			if (errorMessage)
+			{
+				*errorMessage = meshErr.empty()
+					? QStringLiteral("PLY has faces but mesh load failed.")
+					: QString::fromStdString(meshErr);
+			}
+			return false;
+		}
+
+		// 纯顶点 PLY：CGAL 读点云缓冲，避免 OSG 网格 PLY 插件告警
 		PointCloudBackendData plyBackend;
 		std::string plyErr;
-		const std::string utf8Path(filePath.toUtf8().constData());
-		if (plyBackend.readPointCloudFromPlyFile(utf8Path, &plyErr) && !plyBackend.pointPositionsXyz().empty())
+		if (plyBackend.readPointCloudFromPlyFile(nativePath, &plyErr) && !plyBackend.pointPositionsXyz().empty())
 		{
 			QString loadErr;
 			osg::ref_ptr<osg::Geode> g = self.buildPointCloudGeode(plyBackend, &loadErr);

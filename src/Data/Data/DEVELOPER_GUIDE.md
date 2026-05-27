@@ -125,7 +125,16 @@
 | `pointNormalsNxNyNz()` / `hasPointNormals()` | 法线缓冲（**v1 不写入 project.json**，仅内存） |
 | `pointPositionsXyz()` / `pointVertexRgba()` | 只读缓冲 |
 | `loadFromFile` | `.ply`, `.xyz`（CGAL） |
-| `readPointCloudFromPlyFile` / `writePointCloudPlySidecar` | PLY 专用 |
+| `readPointCloudFromPlyFile` / `writePointCloudPlySidecar` | PLY 专用（**仅顶点**，忽略 `element face`） |
+
+**PLY 双形态（`PlyIo.h`）**
+
+| API | 说明 |
+|-----|------|
+| `scanPlyHeader` | 解析头：`vertexCount`、`faceCount`、`hasFaceElement`、点云读路径所需 x/y/z/RGB 列索引 |
+| `plyFileHasTriangleFaces` | `hasFaceElement && faceCount > 0`（`element face` / `polygon` / `triangle`） |
+
+含三角面的 PLY 经 **点云菜单/Host `importPointCloudFile`** 导入时，由 Host/Widget 在入口改道 `MeshBackendData::loadFromFile`（`read_polygon_soup`），不在此读顶点。
 | `writeProjectEmbeddedGeometry` / `readProjectEmbeddedGeometry` | 工程内嵌 Base64 |
 
 位姿/颜色/属性：`hasPoseProperty` 等均为 `true`。
@@ -152,7 +161,7 @@
 |--------|------|-------------|
 | `.step` / `.stp` | OCCT `STEPControl_Reader` + `BRepMesh_IncrementalMesh` | `TopAbs_REVERSED` 面导出时交换三角 n2/n3，避免场景光照发黑 |
 | `.obj`（含 `vn`） | 自研解析 `v` / `vn` / `f v/vt/vn` | **保留文件顶点顺序**；`vn` 写入 `triangleVertexNormals`，供 `MeshBackendVisual` 光照（CGAL `read_polygon_soup` 会丢弃 `vn`） |
-| `.obj`（无 `vn`） | CGAL `read_polygon_soup` | `orient_polygon_soup` 后按顶点质心外向翻转扇形三角绕序 |
+| `.obj`（无 `vn`） | CGAL `read_polygon_soup` | `orient_polygon_soup` 后保持绕序一致；封闭体按有符号体积整体翻转（避免逐三角质心翻转导致非凸面发黑） |
 | `.stl` / `.ply` / `.off` | CGAL `read_polygon_soup` | 同 `.obj` 无 `vn` 路径 |
 
 **现象与约定**：`BackendVisual` 在 `useSceneLighting=true` 时，无法线缓冲则用法线 `n = (p1-p0)×(p2-p0)`。绕序错误或仅用绕序对齐内向 `vn` 会导致**整面发黑**；带 `vn` 的 CAD/Max OBJ 必须走文件法线路径。

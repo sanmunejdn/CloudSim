@@ -248,7 +248,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | 加载 `objects[]` | `loadProjectObjectsFromJson` + `finalizeProjectHierarchyAfterObjects` |
 | 加载内嵌几何 | `registerEmbeddedProjectObject`（由 load 编排调用） |
 | 工程文件回退 | `importProjectObjectFromFile`（网格 `importMeshFile`；点云 ply/xyz `importPointCloudFile`） |
-| 点云 ply/xyz/las/laz | `importPointCloudFile`（ply/xyz=CGAL；las/laz=OsgWidget+capture）；大文件 ply 可走 Job 异步（Widget） |
+| 点云 ply/xyz/las/laz | `importPointCloudFile`（ply/xyz=CGAL 顶点；**ply 含 face**→`importMeshFile`；las/laz=OsgWidget+capture）；大文件纯顶点 ply 可走 Job 异步（Widget） |
 | `parseProjectEdgesJson` / `applyProjectEdgesToBackend` | 恢复 `edges[]` → `BackendDataManager::attachChild` |
 | `syncOsgBackendParentsFromBackend` | Data 父子 → `OsgWidget::setBackendParent` |
 | `rebuildBackendParentIdMirror` | edges 后重建 `backendParentId` 旁路表 |

@@ -687,12 +687,26 @@ void MainWindow::onThemeActionGroupTriggered(QAction* action)
 	{
 		ApplicationStyle::applyTheme(qApp, ApplicationStyle::Theme::Light);
 		ApplicationStyle::saveTheme(ApplicationStyle::Theme::Light);
+		if (m_lightThemeAction && m_darkThemeAction)
+		{
+			QSignalBlocker blockLight(m_lightThemeAction);
+			QSignalBlocker blockDark(m_darkThemeAction);
+			m_lightThemeAction->setChecked(true);
+			m_darkThemeAction->setChecked(false);
+		}
 		setAllDocumentViewerDarkBackground(false);
 	}
 		else if (action == m_darkThemeAction)
 	{
 		ApplicationStyle::applyTheme(qApp, ApplicationStyle::Theme::Dark);
 		ApplicationStyle::saveTheme(ApplicationStyle::Theme::Dark);
+		if (m_lightThemeAction && m_darkThemeAction)
+		{
+			QSignalBlocker blockLight(m_lightThemeAction);
+			QSignalBlocker blockDark(m_darkThemeAction);
+			m_lightThemeAction->setChecked(false);
+			m_darkThemeAction->setChecked(true);
+		}
 		setAllDocumentViewerDarkBackground(true);
 	}
 }
@@ -715,11 +729,8 @@ void MainWindow::setAllDocumentViewerDarkBackground(bool dark)
 
 bool MainWindow::viewerUsesDarkBackground() const
 {
-	if (m_darkThemeAction && m_lightThemeAction)
-	{
-		return m_darkThemeAction->isChecked();
-	}
-	return ApplicationStyle::loadSavedTheme() == ApplicationStyle::Theme::Dark;
+	// 与 QSettings 一致；菜单勾选在导入机器人等长流程后可能与已保存主题不同步
+	return ApplicationStyle::usesDarkTheme();
 }
 
 DocumentPage* MainWindow::currentPage() const
