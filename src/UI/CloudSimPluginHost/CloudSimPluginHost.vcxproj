@@ -97,6 +97,7 @@
     <ClInclude Include="inc\plugin_host_global.h" />
     <ClInclude Include="inc\PluginDelegatedBackend.h" />
     <ClInclude Include="inc\PluginDocumentAdapter.h" />
+    <ClInclude Include="inc\Ai\AiMeshDefaults.h" />
     <ClInclude Include="inc\PluginHostContext.h" />
     <ClInclude Include="inc\PluginManager.h" />
     <ClInclude Include="inc\PluginSceneBridgeAdapter.h" />
@@ -114,6 +115,7 @@
     <ClCompile Include="source\Ai\AiIntentParser.cpp" />
     <ClCompile Include="source\Ai\AiLlmClient.cpp" />
     <ClCompile Include="source\Ai\AiLlmConfig.cpp" />
+    <ClCompile Include="source\Ai\AiMeshDefaults.cpp" />
     <ClCompile Include="source\Ai\GeometryRecognizeDomainHandler.cpp" />
     <ClCompile Include="source\Ai\MeshCreateDomainHandler.cpp" />
     <ClCompile Include="source\DocumentPointCloudOps.cpp" />

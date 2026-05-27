@@ -1,5 +1,6 @@
 #include "Ai/AiConfigLoader.h"
 
+#include "Ai/AiMeshDefaults.h"
 #include "AiConfigDefaults.h"
 #include "AiDomainTypes.h"
 #include "AiLlmConfig.h"
@@ -30,7 +31,23 @@ std::optional<AiConfigDto> loadAiConfigDto(const QString& filePath)
 	const QString path = filePath.isEmpty() ? defaultAiConfigPath() : filePath;
 	QFile f(path);
 	if (!f.open(QIODevice::ReadOnly))
+	{
+		const QString defaultsPath = QCoreApplication::applicationDirPath() + QStringLiteral("/ai_config.defaults.json");
+		QFile def(defaultsPath);
+		if (def.open(QIODevice::ReadOnly))
+		{
+			try
+			{
+				const nlohmann::json dj = nlohmann::json::parse(def.readAll().constData(), nullptr, true);
+				if (dj.is_object())
+					AiMeshDefaults::loadFromConfigJson(dj);
+			}
+			catch (...)
+			{
+			}
+		}
 		return std::nullopt;
+	}
 
 	nlohmann::json j;
 	try
@@ -43,6 +60,8 @@ std::optional<AiConfigDto> loadAiConfigDto(const QString& filePath)
 	}
 	if (!j.is_object())
 		return std::nullopt;
+
+	AiMeshDefaults::loadFromConfigJson(j);
 
 	AiConfigDto cfg = defaultAiConfigDto();
 

@@ -87,7 +87,9 @@ void AiAssistantCoordinator::onUserMessageSubmitted(const QString& text)
 				return;
 			}
 
-			const QString reply = summary.isEmpty() ? QStringLiteral("Done.") : summary;
+			QString reply = summary.isEmpty() ? QStringLiteral("Done.") : summary;
+			if (!result.hintMessage.isEmpty())
+				reply += QStringLiteral("\n") + result.hintMessage;
 			m_dock->appendAssistantMessage(prefixWithParser(result.parserVia, reply));
 			emit assistantFinished(reply, false, result.parserVia);
 		});

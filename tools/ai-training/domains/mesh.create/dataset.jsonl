@@ -1,1 +1,80 @@
-{"instruction":"创建一个长100宽50高30的盒子","input":"","output":"{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":50,\"height\":30}}"}
+{"instruction": "生成长方体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":100}}"}
+{"instruction": "创建一个长方体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":100}}"}
+{"instruction": "帮我生成立方体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":100}}"}
+{"instruction": "create a box", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":100}}"}
+{"instruction": "生成盒子", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":100}}"}
+{"instruction": "建立长方体模型", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":100}}"}
+{"instruction": "生成圆柱", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":50,\"height\":100}}"}
+{"instruction": "创建一个圆柱体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":50,\"height\":100}}"}
+{"instruction": "make cylinder", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":50,\"height\":100}}"}
+{"instruction": "生成圆筒", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":50,\"height\":100}}"}
+{"instruction": "建立圆柱", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":50,\"height\":100}}"}
+{"instruction": "生成圆锥", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cone\",\"dimensions_mm\":{\"radius\":50,\"height\":100}}"}
+{"instruction": "创建圆锥体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cone\",\"dimensions_mm\":{\"radius\":50,\"height\":100}}"}
+{"instruction": "create cone", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cone\",\"dimensions_mm\":{\"radius\":50,\"height\":100}}"}
+{"instruction": "生成球体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"sphere\",\"dimensions_mm\":{\"radius\":50}}"}
+{"instruction": "创建一个球", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"sphere\",\"dimensions_mm\":{\"radius\":50}}"}
+{"instruction": "make sphere", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"sphere\",\"dimensions_mm\":{\"radius\":50}}"}
+{"instruction": "生成球", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"sphere\",\"dimensions_mm\":{\"radius\":50}}"}
+{"instruction": "生成长方体，长200", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":200,\"width\":100,\"height\":100}}"}
+{"instruction": "长方体长150宽80", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":150,\"width\":80,\"height\":100}}"}
+{"instruction": "创建盒子高60", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":60}}"}
+{"instruction": "生成圆柱半径40", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":40,\"height\":100}}"}
+{"instruction": "圆柱高120", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":50,\"height\":120}}"}
+{"instruction": "圆锥底面半径30", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cone\",\"dimensions_mm\":{\"radius\":30,\"height\":100}}"}
+{"instruction": "球半径25", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"sphere\",\"dimensions_mm\":{\"radius\":25}}"}
+{"instruction": "生成长方体长100", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":100}}"}
+{"instruction": "宽50的长方体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":50,\"height\":100}}"}
+{"instruction": "高200的盒子", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":200}}"}
+{"instruction": "圆柱直径80", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":40,\"height\":100}}"}
+{"instruction": "生成圆锥高150", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cone\",\"dimensions_mm\":{\"radius\":50,\"height\":150}}"}
+{"instruction": "创建一个长100宽50高30的盒子", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":50,\"height\":30}}"}
+{"instruction": "生成长方体，长宽高为100,100,200", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":200}}"}
+{"instruction": "生成100x50x30mm的长方体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":50,\"height\":30}}"}
+{"instruction": "圆柱半径30高80", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":30,\"height\":80}}"}
+{"instruction": "创建圆柱 R40 H100", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":40,\"height\":100}}"}
+{"instruction": "圆锥半径20高60", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cone\",\"dimensions_mm\":{\"radius\":20,\"height\":60}}"}
+{"instruction": "球体半径35", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"sphere\",\"dimensions_mm\":{\"radius\":35}}"}
+{"instruction": "生成直径100的球", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"sphere\",\"dimensions_mm\":{\"diameter\":100}}"}
+{"instruction": "box 200x100x50", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":200,\"width\":100,\"height\":50}}"}
+{"instruction": "create cylinder radius 25 height 75", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":25,\"height\":75}}"}
+{"instruction": "生成大一点的圆柱", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":75,\"height\":150}}"}
+{"instruction": "创建小一点的球", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"sphere\",\"dimensions_mm\":{\"radius\":25}}"}
+{"instruction": "做一个大长方体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":150,\"width\":150,\"height\":150}}"}
+{"instruction": "生成小盒子", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":50,\"width\":50,\"height\":50}}"}
+{"instruction": "扁一点的长方体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":150,\"width\":150,\"height\":50}}"}
+{"instruction": "厚一点的盒子", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":150}}"}
+{"instruction": "大一点的圆锥", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cone\",\"dimensions_mm\":{\"radius\":75,\"height\":150}}"}
+{"instruction": "小圆柱", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":25,\"height\":50}}"}
+{"instruction": "生成很高的圆柱", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":50,\"height\":200}}"}
+{"instruction": "宽扁盒子 长200", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":200,\"width\":200,\"height\":60}}"}
+{"instruction": "请生成一个长方体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":100}}"}
+{"instruction": "在场景里创建圆柱", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":50,\"height\":100}}"}
+{"instruction": "添加球体模型", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"sphere\",\"dimensions_mm\":{\"radius\":50}}"}
+{"instruction": "生成标准长方体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":100}}"}
+{"instruction": "默认尺寸圆柱", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":50,\"height\":100}}"}
+{"instruction": "长方体 长80", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":80,\"width\":100,\"height\":100}}"}
+{"instruction": "长方体 宽60 高40", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":60,\"height\":40}}"}
+{"instruction": "圆柱 高80", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":50,\"height\":80}}"}
+{"instruction": "圆锥 半径35", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cone\",\"dimensions_mm\":{\"radius\":35,\"height\":100}}"}
+{"instruction": "生成长方体 50*50*50", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":50,\"width\":50,\"height\":50}}"}
+{"instruction": "生成圆柱 直径60 高90", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":30,\"height\":90}}"}
+{"instruction": "生成细长圆柱", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":30,\"height\":200}}"}
+{"instruction": "生成矮圆柱", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":60,\"height\":40}}"}
+{"instruction": "大球", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"sphere\",\"dimensions_mm\":{\"radius\":75}}"}
+{"instruction": "小球体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"sphere\",\"dimensions_mm\":{\"radius\":20}}"}
+{"instruction": "生成较宽的长方体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":80,\"width\":200,\"height\":100}}"}
+{"instruction": "生成较高的长方体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":250}}"}
+{"instruction": "create box without dimensions", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":100}}"}
+{"instruction": "make a cone", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cone\",\"dimensions_mm\":{\"radius\":50,\"height\":100}}"}
+{"instruction": "建立球体 半径40", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"sphere\",\"dimensions_mm\":{\"radius\":40}}"}
+{"instruction": "生成圆锥体 高80", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cone\",\"dimensions_mm\":{\"radius\":50,\"height\":80}}"}
+{"instruction": "做一个盒子长120", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":120,\"width\":100,\"height\":100}}"}
+{"instruction": "生成扁圆柱", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":80,\"height\":40}}"}
+{"instruction": "生成粗短圆柱", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cylinder\",\"dimensions_mm\":{\"radius\":70,\"height\":50}}"}
+{"instruction": "长方体长宽高 80,90,100", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":80,\"width\":90,\"height\":100}}"}
+{"instruction": "生成正方体", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":100}}"}
+{"instruction": "生成细长盒子", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":50,\"width\":50,\"height\":300}}"}
+{"instruction": "创建大圆锥", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cone\",\"dimensions_mm\":{\"radius\":75,\"height\":150}}"}
+{"instruction": "创建小圆锥", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"cone\",\"dimensions_mm\":{\"radius\":25,\"height\":50}}"}
+{"instruction": "生成标准球", "input": "", "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"sphere\",\"dimensions_mm\":{\"radius\":50}}"}

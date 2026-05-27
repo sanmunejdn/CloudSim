@@ -1,5 +1,6 @@
 #include "Ai/AiActionPlanExecutor.h"
 
+#include "Ai/AiMeshDefaults.h"
 #include "AiCommandSchema.h"
 #include "PluginHostContext.h"
 #include "PluginPrimitiveTypes.h"
@@ -24,8 +25,14 @@ PluginPrimitiveKind toPluginKind(BackendPrimitiveGeometry::PrimitiveKind k)
 	return PluginPrimitiveKind::Box;
 }
 
-bool executeCreateMeshStep(PluginHostContext& host, const nlohmann::json& cmd, QString* outError)
+bool executeCreateMeshStep(PluginHostContext& host, const nlohmann::json& cmdIn, QString* outError, QString* outSummaryExtra = nullptr)
 {
+	nlohmann::json cmd = cmdIn;
+	bool usedDefaults = false;
+	AiMeshDefaults::applyMissingDimensions(cmd, &usedDefaults);
+	if (outSummaryExtra && usedDefaults)
+		*outSummaryExtra = AiMeshDefaults::defaultsAppliedNote(cmd, true);
+
 	BackendPrimitiveGeometry::PrimitiveMeshParams params;
 	BackendPrimitiveGeometry::PrimitiveMeshQuality quality;
 	std::string displayName;
@@ -90,6 +97,7 @@ bool executeStep(PluginHostContext& host, const nlohmann::json& step, QString* o
 			cmd["rotation_deg"] = args["rotation_deg"];
 		if (args.contains("mesh_quality"))
 			cmd["mesh_quality"] = args["mesh_quality"];
+		AiMeshDefaults::applyMissingDimensions(cmd);
 		return executeCreateMeshStep(host, cmd, outError);
 	}
 	if (api == "importFileIntoActiveDocument")
@@ -144,14 +152,24 @@ bool execute(const PluginHostContext& host, const QByteArray& planJsonUtf8, QStr
 	if (root.contains("action") && root.value("action", "") == "create_mesh")
 	{
 		QString err;
-		if (!executeCreateMeshStep(mutableHost, root, &err))
+		QString extra;
+		if (!executeCreateMeshStep(mutableHost, root, &err, &extra))
 		{
 			if (outError)
 				*outError = err;
 			return false;
 		}
 		if (outSummary)
-			*outSummary = QStringLiteral("Created mesh from AI command.");
+		{
+			nlohmann::json summaryCmd = root;
+			AiMeshDefaults::applyMissingDimensions(summaryCmd);
+			*outSummary = QStringLiteral("已根据 AI 指令创建网格。");
+			const QString dims = AiMeshDefaults::summarizeDimensionsMm(summaryCmd);
+			if (!dims.isEmpty())
+				*outSummary += QStringLiteral("\n尺寸：%1").arg(dims);
+			if (!extra.isEmpty())
+				*outSummary += QStringLiteral("\n") + extra;
+		}
 		return true;
 	}
 

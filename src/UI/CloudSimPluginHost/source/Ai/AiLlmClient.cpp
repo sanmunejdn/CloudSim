@@ -1,5 +1,6 @@
 #include "AiLlmClient.h"
 
+#include "Ai/AiMeshDefaults.h"
 #include "AiCommandSchema.h"
 #include "AiHttpsPost.h"
 
@@ -33,6 +34,7 @@ QString chatCompletionsUrl(const QString& baseUrl)
 
 QString meshSystemPrompt()
 {
+	const auto d = AiMeshDefaults::activeDefaults();
 	return QStringLiteral(
 		"You convert user requests into a single JSON object for a CAD mesh command. "
 		"Reply with ONLY valid JSON (no markdown), schema:\n"
@@ -40,9 +42,21 @@ QString meshSystemPrompt()
 		"\"dimensions_mm\":{...},\"name\":\"optional string\","
 		"\"pose_mm\":{\"x\":0,\"y\":0,\"z\":0},\"rotation_deg\":{\"x\":0,\"y\":0,\"z\":0},"
 		"\"mesh_quality\":{\"segments\":32,\"rings\":16}}\n"
-		"Units are millimeters. box: length,width,height. cylinder: radius,height. "
-		"cone: radius,height; optional radius_top. sphere: radius or diameter. "
-		"Center at origin, Z is height axis for box/cylinder/cone.");
+		"Units are millimeters. Always include dimensions_mm with all required fields.\n"
+		"If the user omits sizes, use defaults: box length=%1 width=%2 height=%3; "
+		"cylinder radius=%4 height=%5; cone radius=%6 height=%7; sphere radius=%8.\n"
+		"If the user gives partial sizes, fill missing fields with those defaults.\n"
+		"If the user says larger/smaller/thicker/flatter (大一点/小一点/扁/厚), scale defaults (~1.5x or ~0.5x) and still output full dimensions_mm.\n"
+		"box: length,width,height. cylinder: radius,height. cone: radius,height. sphere: radius or diameter. "
+		"Center at origin, Z is height axis for box/cylinder/cone.")
+		.arg(d.boxLengthMm)
+		.arg(d.boxWidthMm)
+		.arg(d.boxHeightMm)
+		.arg(d.cylinderRadiusMm)
+		.arg(d.cylinderHeightMm)
+		.arg(d.coneRadiusMm)
+		.arg(d.coneHeightMm)
+		.arg(d.sphereRadiusMm);
 }
 
 QString recognitionSystemPrompt()
@@ -169,6 +183,7 @@ LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& 
 			out.errorMessage = QString::fromStdString(parseErr);
 			return out;
 		}
+		AiMeshDefaults::applyMissingDimensions(out.command);
 	}
 
 	out.ok = true;

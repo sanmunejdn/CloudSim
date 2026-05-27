@@ -79,13 +79,31 @@ ollama pull qwen2.5vl:3b
 
 ### 4.1 mesh.create（创建基本体）
 
-`output` 对齐 `AiCommandSchema` v1 `create_mesh`：
+`output` 对齐 `AiCommandSchema` v1 `create_mesh`。**`output` 必须包含完整 `dimensions_mm`**（运行时 `AiMeshDefaults::applyMissingDimensions` 会兜底，但训练标签应写全）。
+
+**运行时默认尺寸**（与 [`ai_config.defaults.json`](../../src/App/CloudSim/ai_config.defaults.json) 中 `mesh_create_defaults` 一致，可覆盖）：
+
+| primitive | 默认 dimensions_mm |
+|-----------|-------------------|
+| box | length=100, width=100, height=100 |
+| cylinder | radius=50, height=100 |
+| cone | radius=50, height=100 |
+| sphere | radius=50 |
+
+**必训样本类型**（见 `domains/mesh.create/dataset.jsonl`，当前约 80 条）：
+
+| 类型 | 说明 | instruction 示例 |
+|------|------|------------------|
+| 无尺寸 | 用户未给数字 | `生成长方体` → 默认 100³ |
+| 部分尺寸 | 只给长/宽/高等 | `长方体长200` → 200×100×100 |
+| 完整尺寸 | 数字齐全 | `长宽高 100,100,200` |
+| 口语修饰 | 大/小/扁/厚 | `大一点的圆柱` → 约 1.5× 默认 |
 
 ```json
 {
-  "instruction": "生成长方体，长宽高 100,100,200",
+  "instruction": "生成长方体",
   "input": "",
-  "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":200}}"
+  "output": "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box\",\"dimensions_mm\":{\"length\":100,\"width\":100,\"height\":100}}"
 }
 ```
 
@@ -96,7 +114,7 @@ ollama pull qwen2.5vl:3b
 | cone | radius, height, radius_top（可选） |
 | sphere | radius 或 diameter |
 
-校验数据集：
+校验数据集（含 schema 字段检查）：
 
 ```bash
 python scripts/build_dataset.py mesh.create

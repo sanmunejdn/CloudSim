@@ -165,6 +165,7 @@ AiParseResult AiAssistantHostImpl::parseUserTextWithRules(const QString& domainI
 		if (pr.ok)
 		{
 			r.outputJsonUtf8 = QByteArray::fromStdString(pr.command.dump());
+			r.hintMessage = pr.hintMessage;
 			r.parserVia = QStringLiteral("Rules");
 		}
 		else
@@ -307,7 +308,7 @@ void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, 
 							"创建几何请使用「生成/创建」+ 基本体类型 + 尺寸（mm）。")
 							.arg(dm->model);
 						result->hintMessage =
-							QStringLiteral("示例：生成长方体，长宽高为 100,100,200");
+							QStringLiteral("示例：生成长方体（可省略尺寸，将用默认 100×100×100 mm）");
 						result->parserVia = QStringLiteral("Local");
 						return;
 					}

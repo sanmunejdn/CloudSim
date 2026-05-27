@@ -1,5 +1,7 @@
 #include "AiCommandSchema.h"
 
+#include "Ai/AiMeshDefaults.h"
+
 #include <cctype>
 #include <cmath>
 #include <cstddef>
@@ -151,7 +153,9 @@ bool parseCreateMeshCommand(
 		errorMessage = "Unknown primitive (box|cylinder|cone|sphere).";
 		return false;
 	}
-	const nlohmann::json& dims = cmd.contains("dimensions_mm") ? cmd["dimensions_mm"] : nlohmann::json::object();
+	nlohmann::json cmdMut = cmd;
+	AiMeshDefaults::applyMissingDimensions(cmdMut);
+	const nlohmann::json& dims = cmdMut.contains("dimensions_mm") ? cmdMut["dimensions_mm"] : nlohmann::json::object();
 	switch (outParams.kind)
 	{
 	case BackendPrimitiveGeometry::PrimitiveKind::Box:

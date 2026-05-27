@@ -1,5 +1,11 @@
 {
   "hardware_profile": "vram_8gb",
+  "mesh_create_defaults": {
+    "box": { "length": 100, "width": 100, "height": 100 },
+    "cylinder": { "radius": 50, "height": 100 },
+    "cone": { "radius": 50, "height": 100 },
+    "sphere": { "radius": 50 }
+  },
   "parser_priority": ["rules", "local", "remote"],
   "remote_llm": { "enabled": false },
   "router": { "mode": "explicit_ui" },
