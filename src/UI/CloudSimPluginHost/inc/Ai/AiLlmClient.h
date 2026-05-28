@@ -16,11 +16,11 @@ struct LlmParseResult
 	QString errorMessage;
 };
 
-/// 阻塞式 OpenAI 兼容对话；imagePng 非空时走 vision content；recognitionSchema 用于几何识别域
+/// 阻塞式 OpenAI 兼容对话；domainId 选择 prompt/schema（mesh.create / mesh.compose / geometry.recognize）
 AIBACKEND_EXPORT LlmParseResult parseUserTextWithLlm(
 	const QString& userText,
 	const AiLlmConfig& config,
 	const AiProgressSink& progress,
 	const QByteArray& imagePng = QByteArray(),
-	bool recognitionSchema = false);
+	const QString& domainId = QString());
 }

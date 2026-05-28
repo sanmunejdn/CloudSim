@@ -145,7 +145,10 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 | domain_id | 模型（默认） | 输出 |
 |-----------|--------------|------|
 | `mesh.create` | qwen2.5:3b | ActionPlan / create_mesh v1 |
+| `mesh.compose` | qwen2.5:3b | ActionPlan v2（`steps[]` + `booleanMesh`） |
 | `geometry.recognize` | qwen2.5vl:3b | StructuredJson → 可转 ActionPlan |
+
+宿主 API：`createPrimitiveMesh`（可选返回 `backendId`）、`booleanMesh`（CGAL 差/并/交）。
 
 ---
 

@@ -55,7 +55,10 @@ public:
 	QAction* registerAction(QMenu* menu, const QString& text, std::function<void()> handler) override;
 
 	bool createPrimitiveMesh(const PluginPrimitiveMeshParams& params, const PluginPrimitiveMeshQuality& quality,
-		const PluginMeshCreateOptions& options, QString* outError) override;
+		const PluginMeshCreateOptions& options, QString* outError, QString* outBackendId = nullptr) override;
+
+	bool booleanMesh(PluginMeshBooleanOp op, const std::string& targetBackendId, const std::string& toolBackendId,
+		const PluginBooleanMeshOptions& options, std::string* outResultBackendId, QString* outError) override;
 
 	bool registerBackendType(const PluginBackendMeta& meta, QString* outError) override;
 	bool registerTriangleMesh(const std::vector<float>& triangleSoup, const PluginMeshCreateOptions& options,
@@ -71,6 +74,19 @@ public:
 	void onLanguageChanged(std::function<void(bool useChinese)> callback) override;
 	void setSidePanelTabTitle(QWidget* widget, const char* titleUtf8) override;
 
+	bool buildPrimitiveMeshSoup(const PluginPrimitiveMeshParams& params, const PluginPrimitiveMeshQuality& quality,
+		const PluginMeshCreateOptions& placement, std::vector<float>& outWorldSoup, QString* outError) override;
+
+	bool booleanMeshSoups(PluginMeshBooleanOp op, const std::vector<float>& targetWorldSoup,
+		const std::vector<float>& toolWorldSoup, const PluginBooleanMeshOptions& options,
+		std::string* outResultBackendId, QString* outError) override;
+
+	bool booleanPrimitiveMeshes(PluginMeshBooleanOp op, const PluginPrimitiveMeshParams& targetParams,
+		const PluginPrimitiveMeshQuality& targetQuality, const PluginMeshCreateOptions& targetPlacement,
+		const PluginPrimitiveMeshParams& toolParams, const PluginPrimitiveMeshQuality& toolQuality,
+		const PluginMeshCreateOptions& toolPlacement, const PluginBooleanMeshOptions& options,
+		std::string* outResultBackendId, QString* outError) override;
+
 	IAiAssistantHost* aiAssistantHost() override;
 	const IAiAssistantHost* aiAssistantHost() const override;
 
@@ -79,7 +95,12 @@ public:
 	MainWindow* mainWindow() const { return m_mainWindow; }
 
 private:
-	bool registerMeshFromSoup(std::vector<float> soup, const PluginMeshCreateOptions& options, QString* outError);
+	bool booleanSoupsAndRegister(const std::vector<float>& targetWorldSoup, const std::vector<float>& toolWorldSoup,
+		PluginMeshBooleanOp op, const PluginBooleanMeshOptions& options, std::string* outResultBackendId,
+		QString* outError);
+
+	bool registerMeshFromSoup(std::vector<float> soup, const PluginMeshCreateOptions& options, QString* outError,
+		QString* outBackendId = nullptr);
 
 	MainWindow* m_mainWindow = nullptr;
 	std::unique_ptr<PluginPointCloudHostImpl> m_pointCloudHost;

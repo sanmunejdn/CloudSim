@@ -67,10 +67,15 @@ public:
 	virtual QAction* registerAction(QMenu* menu, const QString& text,
 		std::function<void()> handler) = 0;
 
-	/// Phase1：宿主建 MeshBackendData+OSG（同 AI create-mesh）
+	/// Phase1：宿主建 MeshBackendData+OSG（同 AI create-mesh）；outBackendId 可选返回注册 id
 	virtual bool createPrimitiveMesh(const PluginPrimitiveMeshParams& params,
 		const PluginPrimitiveMeshQuality& quality, const PluginMeshCreateOptions& options,
-		QString* outError) = 0;
+		QString* outError, QString* outBackendId = nullptr) = 0;
+
+	/// 两网格布尔（世界坐标 soup）；outResultBackendId 为结果 mesh id
+	virtual bool booleanMesh(PluginMeshBooleanOp op, const std::string& targetBackendId,
+		const std::string& toolBackendId, const PluginBooleanMeshOptions& options,
+		std::string* outResultBackendId, QString* outError) = 0;
 
 	/// Phase2：向 BackendRegistry 注册插件后端类型
 	virtual bool registerBackendType(const PluginBackendMeta& meta, QString* outError) = 0;
@@ -99,4 +104,19 @@ public:
 
 	/// 更新已注册侧栏 Tab 标题（UTF-8）
 	virtual void setSidePanelTabTitle(QWidget* widget, const char* titleUtf8) = 0;
+
+	/// 1.4.0+（追加在 vtable 末尾，勿插入中间以免破坏旧插件 ABI）
+	virtual bool buildPrimitiveMeshSoup(const PluginPrimitiveMeshParams& params,
+		const PluginPrimitiveMeshQuality& quality, const PluginMeshCreateOptions& placement,
+		std::vector<float>& outWorldSoup, QString* outError) = 0;
+
+	virtual bool booleanMeshSoups(PluginMeshBooleanOp op, const std::vector<float>& targetWorldSoup,
+		const std::vector<float>& toolWorldSoup, const PluginBooleanMeshOptions& options,
+		std::string* outResultBackendId, QString* outError) = 0;
+
+	virtual bool booleanPrimitiveMeshes(PluginMeshBooleanOp op,
+		const PluginPrimitiveMeshParams& targetParams, const PluginPrimitiveMeshQuality& targetQuality,
+		const PluginMeshCreateOptions& targetPlacement, const PluginPrimitiveMeshParams& toolParams,
+		const PluginPrimitiveMeshQuality& toolQuality, const PluginMeshCreateOptions& toolPlacement,
+		const PluginBooleanMeshOptions& options, std::string* outResultBackendId, QString* outError) = 0;
 };

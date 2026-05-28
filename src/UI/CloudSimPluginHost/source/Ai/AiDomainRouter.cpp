@@ -19,6 +19,12 @@ QString AiDomainRouter::resolve(const QString& requestedDomainId, const QString&
 	{
 		return AiDomainIds::geometryRecognize();
 	}
+	if (t.contains(QStringLiteral("挖")) || t.contains(QStringLiteral("通孔")) || t.contains(QStringLiteral("盲孔"))
+		|| t.contains(QStringLiteral("布尔")) || t.contains(QStringLiteral("差集")) || t.contains(QStringLiteral("并集"))
+		|| t.contains(QStringLiteral("相交")) || t.contains(QStringLiteral("boolean"), Qt::CaseInsensitive))
+	{
+		return AiDomainIds::meshCompose();
+	}
 	if (t.contains(QStringLiteral("导入")) || t.contains(QStringLiteral("import"), Qt::CaseInsensitive))
 		return AiDomainIds::documentImport();
 	if (t.contains(QStringLiteral("点云")) || t.contains(QStringLiteral("下采样")) || t.contains(QStringLiteral("point cloud"), Qt::CaseInsensitive))

@@ -45,3 +45,19 @@ struct PluginMeshCreateOptions
 	bool selectInTree = true;
 	bool resetViewToHome = true;
 };
+
+enum class PluginMeshBooleanOp
+{
+	Difference = 0,
+	Union,
+	Intersection
+};
+
+struct PluginBooleanMeshOptions
+{
+	PluginMeshBooleanOp op = PluginMeshBooleanOp::Difference;
+	QString resultName;
+	bool hideOperands = true;
+	bool selectInTree = true;
+	bool resetViewToHome = false;
+};

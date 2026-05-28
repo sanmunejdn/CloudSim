@@ -19,6 +19,7 @@ AiAssistantDockWidget::AiAssistantDockWidget(QWidget* parent)
 	m_domainCombo = new QComboBox(this);
 	m_domainCombo->addItem(QStringLiteral("Auto"), AiDomainIds::autoDomain());
 	m_domainCombo->addItem(QStringLiteral("Create mesh"), AiDomainIds::meshCreate());
+	m_domainCombo->addItem(QStringLiteral("Compose (boolean)"), AiDomainIds::meshCompose());
 	m_domainCombo->addItem(QStringLiteral("Geometry recognize"), AiDomainIds::geometryRecognize());
 	root->addWidget(m_domainCombo);
 

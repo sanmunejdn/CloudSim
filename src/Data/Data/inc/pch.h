@@ -29,6 +29,8 @@
 #include <CGAL/IO/polygon_soup_io.h>
 
 #include <CGAL/Polygon_mesh_processing/orient_polygon_soup.h>
+#include <CGAL/Polygon_mesh_processing/corefinement.h>
+#include <CGAL/Surface_mesh.h>
 
 
 

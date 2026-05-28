@@ -466,15 +466,34 @@ flowchart TD
 
 ## 6.1.1 AI 助手流程（CloudSimAiSDK + 分域专模）
 
-1. 用户在 **AI Assistant** Dock 输入自然语言，并选择领域（**自动 / 创建网格 / 几何识别**）。  
+1. 用户在 **AI Assistant** Dock 输入自然语言，并选择领域（**自动 / 创建网格 / 布尔多步 / 几何识别**）。  
 2. `AiAssistantCoordinator` 经 `IAiAssistantHost::parseUserTextAsync` 提交到 `JobSystem` 后台解析（进度回调经 UI 线程）。  
 3. **解析链**（`ai_config.json` 中 `parser_priority` / `domains[].parser_priority`）：  
    - **rules**：`AiIntentParser`（「生成/创建 + 基本体」；**尺寸可省略**，由 `AiMeshDefaults` 补默认）  
    - **local**：Ollama 等 OpenAI 兼容 API（`domains[].base_url` + `model`；口语/复杂句；`meshSystemPrompt` + 同样补全）  
    - **remote**：可选云端 `remote_llm`  
 4. 成功则得到 `create_mesh` v1 JSON 或 **ActionPlan v2**（`steps[]`）；`dimensions_mm` 不完整时在 schema 执行前由 `AiMeshDefaults::applyMissingDimensions` 兜底。  
-5. `AiActionPlanExecutor` / `IAiDomainHandler` → `PluginHostContext::createPrimitiveMesh` 等；若使用了默认尺寸，`summary` 会提示用户。  
+5. `AiActionPlanExecutor` / `IAiDomainHandler` → `PluginHostContext` 网格 API（CGAL PMP）；若使用了默认尺寸，`summary` 会提示用户。  
 6. 助手历史与 `RunInfoPage` 显示结果。
+
+**mesh.compose（布尔多步，ActionPlan v2）：**
+
+| API | 说明 |
+|-----|------|
+| `createPrimitiveMesh` | 步骤内创建立方体/圆柱等；`id` 供后续 `$ref` |
+| `booleanMesh` | `op`: difference/union/intersection；`target`/`tool`: `$stepId` 或 backendId（**对已注册后端**） |
+
+**宿主 1.4.0+ 预注册布尔（场景仅 1 个结果后端）：**
+
+| API | 说明 |
+|-----|------|
+| `buildPrimitiveMeshSoup` | 图元 → 世界坐标三角 soup，**不注册**后端 |
+| `booleanMeshSoups` | 两 soup 布尔，**仅注册**结果 mesh |
+| `booleanPrimitiveMeshes` | 两图元参数一键布尔（内部 build + booleanMeshSoups） |
+
+`AiActionPlanExecutor` 对含 `booleanMesh` 的 v2 计划默认 **ephemeral compose**：前两步 `createPrimitiveMesh` 只写内存 soup，最后一步 `booleanMeshSoups`；计划 JSON 仍为 3 步金标，无需改训练集。对已存在后端的场景仍用 `booleanMesh`。
+
+自动路由关键词：挖、通孔、布尔、差集等 → `mesh.compose`。金标例句：「100³ + D50 通孔」→ box + cylinder(R25,H120) + difference。详见 [`tools/ai-training/domains/mesh.compose/README.md`](tools/ai-training/domains/mesh.compose/README.md)。
 
 **配置与训练文档：**
 
@@ -871,7 +890,42 @@ bin/x64(d)/                    # CloudSimBinDir，见 CloudSim/Directory.Build.p
 - 宿主实现：[CloudSimPluginHost/DEVELOPER_GUIDE.md](src/UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)
 - SDK：[CloudSimPluginSDK/DEVELOPER_GUIDE.md](src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md)
 - 示例：[HelloPlugin/DEVELOPER_GUIDE.md](src/Plugins/HelloPlugin/DEVELOPER_GUIDE.md)
-- PLC：[PlcCommSDK/DEVELOPER_GUIDE.md](src/Plugins/PlcCommSDK/DEVELOPER_GUIDE.md)、[PlcCommPlugin/DEVELOPER_GUIDE.md](src/Plugins/PlcCommPlugin/DEVELOPER_GUIDE.md)
+- PLC：[PlcCommSDK/DEVELOPER_GUIDE.md](src/Plugins/PlcCommSDK/DEVELOPER_GUIDE.md)、[PlcCommUI/DEVELOPER_GUIDE.md](src/Plugins/PlcCommUI/DEVELOPER_GUIDE.md)、[PlcCommPlugin/DEVELOPER_GUIDE.md](src/Plugins/PlcCommPlugin/DEVELOPER_GUIDE.md)
+
+### 10.5 PlcComm 通信栈（libplctag）
+
+与 **CloudSimPluginSDK 插件 ABI 无关** 的独立 PLC 模块，经 `CloudSim.sln` 编入同一解决方案，输出到 `bin/x64(d)/`。
+
+```mermaid
+flowchart LR
+  subgraph plugin [PlcCommPlugin]
+    P[ICloudSimPlugin]
+  end
+  subgraph ui [PlcCommUI]
+    W[PlcCommWidget]
+    C[PlcCommController]
+    K[PlcCommWorker]
+  end
+  subgraph sdk [PlcCommSDK]
+    I[IPlcCommClient]
+    B[PlcTagStringBuilder]
+  end
+  subgraph vendor [bin/SDK]
+    L[libplctag / plctag.dll]
+  end
+  P --> W
+  W --> C --> K --> I --> B --> L
+```
+
+| 工程 | 说明 |
+|------|------|
+| **PlcCommSDK** | `IPlcCommClient`；AB EIP + Modbus TCP；底层 **TCP**（无原始 Socket API） |
+| **PlcCommUI** | Qt 通讯页；Worker 线程读写；数值格式 hex/dec/bin/uint16/int32 |
+| **PlcCommPlugin** | `registerSidePanelTab`；`plugins/com.cloudsim.plccomm/` |
+
+第三方库：`bin/SDK/libplctag-2.6-vc14-64/`（见 `README_DEPLOY.md`、`scripts/fetch_libplctag.ps1`）。
+
+**连接语义**：Modbus `connect` 做 TCP 探测；AB `connect` 仅校验参数，**addTag** 后建 EIP 会话。详见 PlcCommSDK 开发指南。
 
 ---
 

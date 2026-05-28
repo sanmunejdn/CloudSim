@@ -129,5 +129,7 @@ flowchart LR
 | `AiIntentParser` | 规则解析（创建基本体；尺寸可省略） |
 | `AiMeshDefaults` | `mesh_create_defaults` 加载；`applyMissingDimensions` 补全 `dimensions_mm` |
 | `AiLlmClient` | OpenAI 兼容 HTTP（Ollama / 云端）；mesh 提示词含缺省/口语策略 |
-| `AiActionPlanExecutor` | JSON → `createPrimitiveMesh` / `importFile`；执行 summary 提示默认尺寸 |
-| `MeshCreateDomainHandler` / `GeometryRecognizeDomainHandler` | 内置分域 |
+| `AiActionPlanExecutor` | JSON → `createPrimitiveMesh` / `importFile`；含 `booleanMesh` 的 compose 计划默认内存布尔（仅注册结果） |
+| `MeshCreateDomainHandler` / `MeshComposeDomainHandler` / `GeometryRecognizeDomainHandler` | 内置分域 |
+| `MeshBoolean`（Data） | CGAL PMP；`booleanMeshSoups` / `booleanMesh` 调用 |
+| `PluginHostContext` 1.4.0+ | `buildPrimitiveMeshSoup`、`booleanMeshSoups`、`booleanPrimitiveMeshes`（预注册布尔） |

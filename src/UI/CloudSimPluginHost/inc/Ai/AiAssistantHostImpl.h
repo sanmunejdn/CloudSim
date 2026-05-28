@@ -5,6 +5,7 @@
 #include "Ai/AiDomainRegistryImpl.h"
 #include "Ai/AiDomainRouter.h"
 #include "Ai/GeometryRecognizeDomainHandler.h"
+#include "Ai/MeshComposeDomainHandler.h"
 #include "Ai/MeshCreateDomainHandler.h"
 
 #include <memory>
@@ -50,6 +51,7 @@ private:
 	AiDomainRegistryImpl m_registry;
 	AiDomainRouter m_router;
 	MeshCreateDomainHandler m_meshHandler;
+	MeshComposeDomainHandler m_composeHandler;
 	GeometryRecognizeDomainHandler m_geomHandler;
 	std::vector<std::shared_ptr<IAiInferenceProvider>> m_inferenceProviders;
 	QString m_lastLoadedModel;

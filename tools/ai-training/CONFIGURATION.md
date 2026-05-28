@@ -103,6 +103,7 @@
 | id | model | 说明 |
 |----|-------|------|
 | `mesh.create` | `qwen2.5:3b`（或自训练 `cloudsim-mesh:3b`） | 文本 → 创建基本体 JSON；无尺寸句可走 **rules** 兜底 |
+| `mesh.compose` | `qwen2.5:3b`（或 `cloudsim-compose:3b`） | ActionPlan v2：多步创建 + `booleanMesh`；`parser_priority` 建议 `["local"]` |
 | `geometry.recognize` | `qwen2.5vl:3b` | 多模态几何识别 |
 
 ---

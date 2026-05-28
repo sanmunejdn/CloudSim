@@ -1,7 +1,6 @@
 #include "AiIntentParser.h"
 
-
-
+#include "Ai/AiCommandSchema.h"
 #include "Ai/AiMeshDefaults.h"
 
 
@@ -146,7 +145,29 @@ bool hasCreateVerb(const QString& t)
 
 }
 
+bool hasHoleIntent(const QString& t)
+{
+	return t.contains(QStringLiteral("通孔")) || t.contains(QStringLiteral("穿孔")) || t.contains(QStringLiteral("钻孔"))
+		|| (t.contains(QStringLiteral("挖")) && (t.contains(QStringLiteral("孔")) || t.contains(QStringLiteral("洞"))));
+}
 
+bool isBoxStockPhrase(const QString& t)
+{
+	return t.contains(QStringLiteral("长方体")) || t.contains(QStringLiteral("立方体")) || t.contains(QStringLiteral("盒子"));
+}
+
+double findDiameterMm(const QString& t, const std::vector<double>& nums)
+{
+	QRegularExpression re(QStringLiteral("直径\\s*(?:为|是)?\\s*(\\d+(?:\\.\\d+)?)"));
+	const auto m = re.match(t);
+	if (m.hasMatch())
+		return m.captured(1).toDouble();
+	if (t.contains(QStringLiteral("直径")) && nums.size() >= 4)
+		return nums[3];
+	if (t.contains(QStringLiteral("直径")) && !nums.empty())
+		return nums.back();
+	return -1.0;
+}
 
 double findLabeled(const QString& t, const QStringList& labels, const std::vector<double>& nums, int fallbackIndex)
 
@@ -456,7 +477,101 @@ ParseResult tryParseUserText(const QString& textIn)
 
 }
 
+ParseResult tryParseComposeUserText(const QString& textIn)
+{
+	ParseResult r;
+	const QString t = norm(textIn);
+	if (t.isEmpty())
+	{
+		r.errorMessage = QStringLiteral("请输入描述，例如：生成长方体 100×100×200，顶部挖直径 50 通孔。");
+		return r;
+	}
+	if (!hasCreateVerb(t))
+	{
+		r.errorMessage = QStringLiteral("请使用「生成/创建」等动词。");
+		return r;
+	}
+	if (!hasHoleIntent(t))
+	{
+		r.errorMessage = QStringLiteral("未识别通孔/挖孔意图。");
+		return r;
+	}
+	if (!isBoxStockPhrase(t))
+	{
+		r.errorMessage = QStringLiteral("通孔规则解析暂仅支持长方体坯料（长方体/立方体/盒子）。");
+		return r;
+	}
 
+	const std::vector<double> nums = extractNumbersMm(t);
+	double L = findLabeled(t, { QStringLiteral("长") }, nums, 0);
+	double W = findLabeled(t, { QStringLiteral("宽") }, nums, 1);
+	double H = findLabeled(t, { QStringLiteral("高") }, nums, 2);
+	if (L < 0 && nums.size() >= 3)
+	{
+		L = nums[0];
+		W = nums[1];
+		H = nums[2];
+	}
+	if (L <= 0.0 || W <= 0.0 || H <= 0.0)
+	{
+		r.errorMessage = QStringLiteral("请给出长方体长宽高（mm）。");
+		return r;
+	}
+
+	const double diam = findDiameterMm(t, nums);
+	if (diam <= 0.0)
+	{
+		r.errorMessage = QStringLiteral("请给出通孔直径（mm）。");
+		return r;
+	}
+	const double R = diam * 0.5;
+	const double cylH = H * 1.2 + 20.0;
+
+	nlohmann::json plan;
+	plan["version"] = 2;
+	plan["domain"] = "mesh.compose";
+	plan["steps"] = nlohmann::json::array();
+	plan["steps"].push_back({
+		{ "id", "body" },
+		{ "api", "createPrimitiveMesh" },
+		{ "args",
+			{
+				{ "primitive", "box" },
+				{ "dimensions_mm", { { "length", L }, { "width", W }, { "height", H } } },
+				{ "name", "Body" },
+				{ "mesh_quality", { { "segments", 32 } } },
+			} },
+	});
+	plan["steps"].push_back({
+		{ "id", "hole_tool" },
+		{ "api", "createPrimitiveMesh" },
+		{ "args",
+			{
+				{ "primitive", "cylinder" },
+				{ "dimensions_mm", { { "radius", R }, { "height", cylH } } },
+				{ "name", "HoleTool" },
+				{ "mesh_quality", { { "segments", 32 } } },
+			} },
+	});
+	plan["steps"].push_back({
+		{ "id", "result" },
+		{ "api", "booleanMesh" },
+		{ "args",
+			{
+				{ "op", "difference" },
+				{ "target", "$body" },
+				{ "tool", "$hole_tool" },
+				{ "result_name", "BoxWithHole" },
+				{ "hide_operands", true },
+			} },
+	});
+
+	AiCommandSchema::normalizeComposePlanJson(plan);
+	r.ok = true;
+	r.command = std::move(plan);
+	r.hintMessage = QStringLiteral("已用规则生成 box+cylinder 通孔编排。");
+	return r;
+}
 
 }
 

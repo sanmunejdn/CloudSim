@@ -130,10 +130,13 @@ bool applyMissingDimensions(nlohmann::json& cmd, bool* usedDefaults)
 	}
 	case BackendPrimitiveGeometry::PrimitiveKind::Cylinder:
 	{
-		double R = 0, H = 0;
+		double R = 0, D = 0, H = 0;
 		const bool hasR = readDimIfPositive(dims, "radius", R);
+		const bool hasD = readDimIfPositive(dims, "diameter", D);
 		const bool hasH = readDimIfPositive(dims, "height", H);
-		if (!hasR)
+		if (!hasR && hasD)
+			setDim(dims, "radius", D * 0.5, anyDefault);
+		else if (!hasR)
 			setDim(dims, "radius", defs.cylinderRadiusMm, anyDefault);
 		if (!hasH)
 			setDim(dims, "height", defs.cylinderHeightMm, anyDefault);

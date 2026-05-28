@@ -16,6 +16,9 @@ tools/ai-training/
     mesh.create/
       README.md
       dataset.jsonl         # 该域训练样本
+    mesh.compose/
+      README.md
+      dataset.jsonl         # 布尔多步 ActionPlan v2
     geometry.recognize/
       README.md
       dataset.jsonl
@@ -133,7 +136,28 @@ ollama pull qwen2.5vl:3b
 python scripts/build_dataset.py mesh.create
 ```
 
-### 4.2 geometry.recognize（几何识别）
+### 4.2 mesh.compose（布尔多步编排）
+
+`output` 为 **ActionPlan v2**（`version:2` + `steps[]`），支持三种布尔 op：
+
+| op | 典型步骤 |
+|----|----------|
+| `difference` | box + cylinder（`hole_tool`）→ 挖孔 |
+| `union` | 两实体 + 常需 `pose_mm` 错位 → 合并 |
+| `intersection` | 两实体部分重叠 → 保留交集 |
+
+生成/校验（含 op 统计与重复 instruction 警告）：
+
+```bash
+python scripts/gen_mesh_compose_dataset.py
+python scripts/build_dataset.py mesh.compose
+```
+
+首版数据量建议（~50 条）：difference / union / intersection 约 **36% / 36% / 24%**，另 2 条无布尔单步 create。
+
+详见 [`domains/mesh.compose/README.md`](domains/mesh.compose/README.md)（含 union/intersection 金标与 CloudSim 验收清单）。
+
+### 4.3 geometry.recognize（几何识别）
 
 `output` 为识别 JSON（非 ActionPlan），由 `GeometryRecognizeDomainHandler` 校验：
 
@@ -147,7 +171,7 @@ python scripts/build_dataset.py mesh.create
 
 多模态样本需在 LLaMA-Factory 中配置图像路径；CloudSim 运行时会将截图 PNG 送入 vision API。
 
-### 4.3 数据量建议
+### 4.4 数据量建议
 
 | 场景 | 建议条数 |
 |------|----------|

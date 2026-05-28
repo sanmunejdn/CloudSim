@@ -3,6 +3,7 @@
 #include "Ai/AiActionPlanExecutor.h"
 #include "Ai/AiConfigLoader.h"
 #include "AiIntentParser.h"
+#include "Ai/MeshComposeDomainHandler.h"
 #include "AiLlmClient.h"
 #include "AiProgressSink.h"
 #include "CloudSimAiVersion.h"
@@ -95,14 +96,18 @@ bool AiAssistantHostImpl::saveConfig(const AiConfigDto& config, QString* errorMe
 
 QByteArray AiAssistantHostImpl::apiCatalogJson() const
 {
-	static const char kCatalog[] = R"({
+	static const char kCatalog[] = R"json({
   "version": 1,
   "apis": [
-    { "id": "createPrimitiveMesh", "domains": ["mesh.create"], "summary": "Create box/cylinder/cone/sphere" },
+    { "id": "createPrimitiveMesh", "domains": ["mesh.create","mesh.compose"], "summary": "Create box/cylinder/cone/sphere (registers backend)" },
+    { "id": "buildPrimitiveMeshSoup", "domains": ["mesh.compose"], "summary": "Build world-space triangle soup without registering backend (host 1.4.0+)" },
+    { "id": "booleanMeshSoups", "domains": ["mesh.compose"], "summary": "Boolean two world soups; register result only (host 1.4.0+)" },
+    { "id": "booleanPrimitiveMeshes", "domains": ["mesh.compose"], "summary": "Boolean two primitives; register result only (host 1.4.0+)" },
+    { "id": "booleanMesh", "domains": ["mesh.compose"], "summary": "Boolean on two already-registered mesh backends" },
     { "id": "importFileIntoActiveDocument", "domains": ["document.import"], "summary": "Import mesh or point cloud file" },
     { "id": "registerTriangleMesh", "domains": ["mesh.create"], "summary": "Register triangle soup mesh" }
   ]
-})";
+})json";
 	return QByteArray(kCatalog);
 }
 
@@ -132,6 +137,15 @@ void AiAssistantHostImpl::registerBuiltinDomains()
 		d.supportsMultimodal = false;
 		d.parserPriority = QStringList{ QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote") };
 		m_registry.registerDomain(d, &m_meshHandler);
+	}
+	{
+		AiDomainDescriptor d;
+		d.domainId = AiDomainIds::meshCompose();
+		d.displayName = QStringLiteral("Compose mesh (boolean)");
+		d.outputKind = AiDomainOutputKind::ActionPlan;
+		d.supportsMultimodal = false;
+		d.parserPriority = QStringList{ QStringLiteral("local"), QStringLiteral("remote") };
+		m_registry.registerDomain(d, &m_composeHandler);
 	}
 	{
 		AiDomainDescriptor d;
@@ -176,6 +190,25 @@ AiParseResult AiAssistantHostImpl::parseUserTextWithRules(const QString& domainI
 		}
 		return r;
 	}
+	if (d == AiDomainIds::meshCompose())
+	{
+		const AiIntentParser::ParseResult pr = AiIntentParser::tryParseComposeUserText(text);
+		r.ok = pr.ok;
+		r.outputKind = AiDomainOutputKind::ActionPlan;
+		if (pr.ok)
+		{
+			r.outputJsonUtf8 = QByteArray::fromStdString(pr.command.dump());
+			r.hintMessage = pr.hintMessage;
+			r.parserVia = QStringLiteral("Rules");
+		}
+		else
+		{
+			r.errorMessage = pr.errorMessage;
+			r.hintMessage = pr.hintMessage;
+			r.parserVia = QStringLiteral("Rules");
+		}
+		return r;
+	}
 	r.errorMessage = QStringLiteral("No rule parser for domain %1.").arg(r.domainId);
 	return r;
 }
@@ -195,16 +228,18 @@ AiParseResult AiAssistantHostImpl::parseWithLocalLlm(const QString& domainId, co
 {
 	AiParseResult r;
 	r.domainId = domainId;
-	const bool recognition = domainId == AiDomainIds::geometryRecognize();
 	const AiLlmConfig llm = domainToLlmConfig(dm);
 	const AiProgressSink sink = [&progress](double f, const QString& m) {
 		if (progress)
 			progress(f, m);
 	};
 	const AiLlmClient::LlmParseResult lr =
-		AiLlmClient::parseUserTextWithLlm(text, llm, sink, imagePng, recognition);
+		AiLlmClient::parseUserTextWithLlm(text, llm, sink, imagePng, domainId);
 	r.ok = lr.ok;
-	r.outputKind = recognition ? AiDomainOutputKind::StructuredJson : AiDomainOutputKind::ActionPlan;
+	if (domainId == AiDomainIds::geometryRecognize())
+		r.outputKind = AiDomainOutputKind::StructuredJson;
+	else
+		r.outputKind = AiDomainOutputKind::ActionPlan;
 	if (lr.ok)
 	{
 		r.outputJsonUtf8 = QByteArray::fromStdString(lr.command.dump());
@@ -238,7 +273,7 @@ AiParseResult AiAssistantHostImpl::parseWithRemoteLlm(const QString& domainId, c
 		if (progress)
 			progress(f, m);
 	};
-	const AiLlmClient::LlmParseResult lr = AiLlmClient::parseUserTextWithLlm(text, llm, sink);
+	const AiLlmClient::LlmParseResult lr = AiLlmClient::parseUserTextWithLlm(text, llm, sink, QByteArray(), domainId);
 	r.ok = lr.ok;
 	r.outputKind = AiDomainOutputKind::ActionPlan;
 	if (lr.ok)

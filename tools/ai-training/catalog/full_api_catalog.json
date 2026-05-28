@@ -1,7 +1,11 @@
 {
   "version": 1,
   "apis": [
-    { "id": "createPrimitiveMesh", "domains": ["mesh.create"] },
+    { "id": "createPrimitiveMesh", "domains": ["mesh.create", "mesh.compose"] },
+    { "id": "buildPrimitiveMeshSoup", "domains": ["mesh.compose"] },
+    { "id": "booleanMeshSoups", "domains": ["mesh.compose"] },
+    { "id": "booleanPrimitiveMeshes", "domains": ["mesh.compose"] },
+    { "id": "booleanMesh", "domains": ["mesh.compose"] },
     { "id": "importFileIntoActiveDocument", "domains": ["document.import"] },
     { "id": "registerTriangleMesh", "domains": ["mesh.create"] }
   ]

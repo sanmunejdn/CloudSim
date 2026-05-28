@@ -16,6 +16,7 @@ enum class CLOUDSIM_AI_SDK_EXPORT AiDomainOutputKind
 namespace AiDomainIds
 {
 inline QString meshCreate() { return QStringLiteral("mesh.create"); }
+inline QString meshCompose() { return QStringLiteral("mesh.compose"); }
 inline QString documentImport() { return QStringLiteral("document.import"); }
 inline QString pointCloudOps() { return QStringLiteral("pointcloud.ops"); }
 inline QString geometryRecognize() { return QStringLiteral("geometry.recognize"); }

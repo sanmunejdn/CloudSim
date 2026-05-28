@@ -19,6 +19,11 @@ AiConfigDto defaultAiConfigDto()
 	mesh.model = QStringLiteral("qwen2.5:3b");
 	mesh.parserPriority = QStringList{ QStringLiteral("rules"), QStringLiteral("local") };
 
+	AiDomainModelConfig compose;
+	compose.id = AiDomainIds::meshCompose();
+	compose.model = QStringLiteral("qwen2.5:3b");
+	compose.parserPriority = QStringList{ QStringLiteral("local"), QStringLiteral("remote") };
+
 	AiDomainModelConfig geom;
 	geom.id = AiDomainIds::geometryRecognize();
 	geom.model = QStringLiteral("qwen2.5vl:3b");
@@ -26,6 +31,6 @@ AiConfigDto defaultAiConfigDto()
 	geom.parserPriority = QStringList{ QStringLiteral("local") };
 	geom.unloadOtherModelsBeforeInfer = true;
 
-	cfg.domains = { mesh, geom };
+	cfg.domains = { mesh, compose, geom };
 	return cfg;
 }

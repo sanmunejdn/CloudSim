@@ -17,4 +17,7 @@ struct ParseResult
 };
 
 AIBACKEND_EXPORT ParseResult tryParseUserText(const QString& text);
+
+/// mesh.compose：长方体 + 通孔等固定句式，避免小模型把坯料建成圆柱
+AIBACKEND_EXPORT ParseResult tryParseComposeUserText(const QString& text);
 }

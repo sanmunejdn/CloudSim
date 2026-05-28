@@ -6,9 +6,9 @@
 
 ## 版本
 
-- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00010200` = 1.2.0，含点云 `IPluginPointCloudHost` / `queryPointCloudInfo` ABI）
+- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00010400` = 1.4.0）
 - `IPluginDocument`：`documentId()`、`removeBackendObject()`；**1.2.0+** `queryPointCloudInfo` / `measurePointCloud` / `exportMeshToPly`（UI 线程）
-- `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()` → `IPluginPointCloudHost`（异步算法，内部 `JobSystem` + `point_cloud_backend_ops`）
+- `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()`；**1.4.0+** 末尾追加 `buildPrimitiveMeshSoup` / `booleanMeshSoups` / `booleanPrimitiveMeshes`（勿插入 vtable 中间）；升级宿主后须**重编译全部插件 DLL**
 - 清单 `plugin.json` 中 `minHostVersion` 使用字符串 `"1.0.0"`
 - 运行时调用 `IPluginHostContext::hostVersion()` 比对
 

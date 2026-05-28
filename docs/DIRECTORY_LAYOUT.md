@@ -66,9 +66,9 @@ CloudSim/
 | `CloudSimAiSDK/` | `src/Plugins/CloudSimAiSDK/` |
 | `CloudSimPluginSDK/` | `src/Plugins/CloudSimPluginSDK/` |
 | `Plugins/HelloPlugin/` | `src/Plugins/HelloPlugin/` |
-| `PlcCommSDK/` | `src/Plugins/PlcCommSDK/`（libplctag 后端 DLL） |
-| `PlcCommUI/` | `src/Plugins/PlcCommUI/`（Qt 调试 UI DLL，仅链 PlcCommSDK） |
-| `PlcCommPlugin/` | `src/Plugins/PlcCommPlugin/`（CloudSim 插件，侧栏 PLC 页） |
+| `PlcCommSDK/` | `src/Plugins/PlcCommSDK/`（libplctag 后端，见 `DEVELOPER_GUIDE.md`） |
+| `PlcCommUI/` | `src/Plugins/PlcCommUI/`（Qt 通讯页，仅链 PlcCommSDK） |
+| `PlcCommPlugin/` | `src/Plugins/PlcCommPlugin/`（侧栏 PLC 页插件） |
 | `RunLogger/` | `src/Infra/RunLogger/` |
 
 ## 构建与输出

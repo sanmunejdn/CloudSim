@@ -13,6 +13,9 @@
 #include "JobSystem.h"
 #include "MainWindow.h"
 #include "MeshBackendData.h"
+#include "MeshBoolean.h"
+#include "BackendFollowMath.h"
+#include "BackendSceneDocumentFacade.h"
 #include "OsgWidget.h"
 #include "PluginDelegatedBackend.h"
 #include "PluginDocumentAdapter.h"
@@ -40,13 +43,78 @@ BackendPrimitiveGeometry::PrimitiveKind toDataKind(PluginPrimitiveKind kind)
 	{
 	case PluginPrimitiveKind::Cylinder:
 		return BackendPrimitiveGeometry::PrimitiveKind::Cylinder;
-	case PluginPrimitiveKind::Cone:
-		return BackendPrimitiveGeometry::PrimitiveKind::Cone;
 	case PluginPrimitiveKind::Sphere:
 		return BackendPrimitiveGeometry::PrimitiveKind::Sphere;
+	case PluginPrimitiveKind::Cone:
+		return BackendPrimitiveGeometry::PrimitiveKind::Cone;
 	case PluginPrimitiveKind::Box:
 	default:
 		return BackendPrimitiveGeometry::PrimitiveKind::Box;
+	}
+}
+
+BackendPrimitiveGeometry::PrimitiveMeshParams toDataParams(const PluginPrimitiveMeshParams& params)
+{
+	BackendPrimitiveGeometry::PrimitiveMeshParams out;
+	out.kind = toDataKind(params.kind);
+	out.lengthMm = params.lengthMm;
+	out.widthMm = params.widthMm;
+	out.heightMm = params.heightMm;
+	out.radiusMm = params.radiusMm;
+	out.radiusTopMm = params.radiusTopMm;
+	return out;
+}
+
+BackendPrimitiveGeometry::PrimitiveMeshQuality toDataQuality(const PluginPrimitiveMeshQuality& quality)
+{
+	BackendPrimitiveGeometry::PrimitiveMeshQuality out;
+	out.segments = quality.segments;
+	out.rings = quality.rings;
+	return out;
+}
+
+void transformSoupByMat4(std::vector<float>& soup, const BackendMat4& M)
+{
+	for (std::size_t i = 0; i + 2 < soup.size(); i += 3U)
+	{
+		const double x = static_cast<double>(soup[i]);
+		const double y = static_cast<double>(soup[i + 1]);
+		const double z = static_cast<double>(soup[i + 2]);
+		soup[i] = static_cast<float>(M.v[0] * x + M.v[4] * y + M.v[8] * z + M.v[12]);
+		soup[i + 1] = static_cast<float>(M.v[1] * x + M.v[5] * y + M.v[9] * z + M.v[13]);
+		soup[i + 2] = static_cast<float>(M.v[2] * x + M.v[6] * y + M.v[10] * z + M.v[14]);
+	}
+}
+
+BackendMat4 placementWorldMatrix(const PluginMeshCreateOptions& placement)
+{
+	const BackendVec3 center{};
+	const BackendVec3 pose{ placement.poseMm.x, placement.poseMm.y, placement.poseMm.z };
+	const BackendVec3 rot{ placement.rotationDeg.x, placement.rotationDeg.y, placement.rotationDeg.z };
+	return backend_world_mat_from_pose(center, pose, rot);
+}
+
+std::vector<float> worldTriangleSoupForMesh(const MeshBackendData& mesh, BackendDataManager& mgr)
+{
+	std::vector<float> soup = mesh.triangleSoup();
+	if (soup.empty())
+		return soup;
+	const BackendMat4 world = mesh.worldMatrix(&mgr);
+	transformSoupByMat4(soup, world);
+	return soup;
+}
+
+MeshBooleanOp toMeshBooleanOp(PluginMeshBooleanOp op)
+{
+	switch (op)
+	{
+	case PluginMeshBooleanOp::Union:
+		return MeshBooleanOp::Union;
+	case PluginMeshBooleanOp::Intersection:
+		return MeshBooleanOp::Intersection;
+	case PluginMeshBooleanOp::Difference:
+	default:
+		return MeshBooleanOp::Difference;
 	}
 }
 } // namespace
@@ -341,27 +409,164 @@ QAction* PluginHostContext::registerAction(QMenu* menu, const QString& text, std
 }
 
 bool PluginHostContext::createPrimitiveMesh(const PluginPrimitiveMeshParams& params,
-	const PluginPrimitiveMeshQuality& quality, const PluginMeshCreateOptions& options, QString* outError)
+	const PluginPrimitiveMeshQuality& quality, const PluginMeshCreateOptions& options, QString* outError,
+	QString* outBackendId)
 {
-	BackendPrimitiveGeometry::PrimitiveMeshParams dataParams;
-	dataParams.kind = toDataKind(params.kind);
-	dataParams.lengthMm = params.lengthMm;
-	dataParams.widthMm = params.widthMm;
-	dataParams.heightMm = params.heightMm;
-	dataParams.radiusMm = params.radiusMm;
-	dataParams.radiusTopMm = params.radiusTopMm;
+	auto soup = BackendPrimitiveGeometry::makePrimitiveTriangleSoup(toDataParams(params), toDataQuality(quality));
+	return registerMeshFromSoup(std::move(soup), options, outError, outBackendId);
+}
 
-	BackendPrimitiveGeometry::PrimitiveMeshQuality dataQuality;
-	dataQuality.segments = quality.segments;
-	dataQuality.rings = quality.rings;
+bool PluginHostContext::buildPrimitiveMeshSoup(const PluginPrimitiveMeshParams& params,
+	const PluginPrimitiveMeshQuality& quality, const PluginMeshCreateOptions& placement,
+	std::vector<float>& outWorldSoup, QString* outError)
+{
+	outWorldSoup.clear();
+	std::vector<float> soup =
+		BackendPrimitiveGeometry::makePrimitiveTriangleSoup(toDataParams(params), toDataQuality(quality));
+	if (soup.empty())
+	{
+		if (outError)
+			*outError = QStringLiteral("Primitive mesh soup is empty.");
+		return false;
+	}
+	const BackendMat4 world = placementWorldMatrix(placement);
+	transformSoupByMat4(soup, world);
+	outWorldSoup = std::move(soup);
+	return true;
+}
 
-	auto soup = BackendPrimitiveGeometry::makePrimitiveTriangleSoup(dataParams, dataQuality);
-	return registerMeshFromSoup(std::move(soup), options, outError);
+bool PluginHostContext::booleanSoupsAndRegister(const std::vector<float>& targetWorldSoup,
+	const std::vector<float>& toolWorldSoup, PluginMeshBooleanOp op, const PluginBooleanMeshOptions& options,
+	std::string* outResultBackendId, QString* outError)
+{
+	if (outResultBackendId)
+		outResultBackendId->clear();
+	if (targetWorldSoup.empty() || toolWorldSoup.empty())
+	{
+		if (outError)
+			*outError = QStringLiteral("Target or tool soup is empty.");
+		return false;
+	}
+	std::vector<float> resultSoup;
+	std::string boolErr;
+	if (!MeshBoolean::compute(targetWorldSoup, toolWorldSoup, toMeshBooleanOp(op), resultSoup, &boolErr))
+	{
+		if (outError)
+			*outError = QString::fromStdString(boolErr);
+		return false;
+	}
+	PluginMeshCreateOptions regOpt;
+	regOpt.displayName = options.resultName.isEmpty() ? QStringLiteral("BooleanResult") : options.resultName;
+	regOpt.sourcePath = QStringLiteral("ai://boolean");
+	regOpt.selectInTree = options.selectInTree;
+	regOpt.resetViewToHome = options.resetViewToHome;
+	regOpt.poseMm = {};
+	regOpt.rotationDeg = {};
+	QString regErr;
+	QString resultId;
+	if (!registerMeshFromSoup(std::move(resultSoup), regOpt, &regErr, &resultId))
+	{
+		if (outError)
+			*outError = regErr;
+		return false;
+	}
+	if (outResultBackendId)
+		*outResultBackendId = resultId.toStdString();
+	return true;
+}
+
+bool PluginHostContext::booleanMeshSoups(PluginMeshBooleanOp op, const std::vector<float>& targetWorldSoup,
+	const std::vector<float>& toolWorldSoup, const PluginBooleanMeshOptions& options,
+	std::string* outResultBackendId, QString* outError)
+{
+	if (!m_mainWindow)
+	{
+		if (outError)
+			*outError = QStringLiteral("MainWindow not available.");
+		return false;
+	}
+	if (!m_mainWindow->currentPage())
+	{
+		if (outError)
+			*outError = QStringLiteral("No active document.");
+		return false;
+	}
+	return booleanSoupsAndRegister(targetWorldSoup, toolWorldSoup, op, options, outResultBackendId, outError);
+}
+
+bool PluginHostContext::booleanPrimitiveMeshes(PluginMeshBooleanOp op, const PluginPrimitiveMeshParams& targetParams,
+	const PluginPrimitiveMeshQuality& targetQuality, const PluginMeshCreateOptions& targetPlacement,
+	const PluginPrimitiveMeshParams& toolParams, const PluginPrimitiveMeshQuality& toolQuality,
+	const PluginMeshCreateOptions& toolPlacement, const PluginBooleanMeshOptions& options,
+	std::string* outResultBackendId, QString* outError)
+{
+	std::vector<float> targetSoup;
+	std::vector<float> toolSoup;
+	if (!buildPrimitiveMeshSoup(targetParams, targetQuality, targetPlacement, targetSoup, outError))
+		return false;
+	if (!buildPrimitiveMeshSoup(toolParams, toolQuality, toolPlacement, toolSoup, outError))
+		return false;
+	return booleanMeshSoups(op, targetSoup, toolSoup, options, outResultBackendId, outError);
+}
+
+bool PluginHostContext::booleanMesh(PluginMeshBooleanOp op, const std::string& targetBackendId,
+	const std::string& toolBackendId, const PluginBooleanMeshOptions& options, std::string* outResultBackendId,
+	QString* outError)
+{
+	if (outResultBackendId)
+		outResultBackendId->clear();
+	if (!m_mainWindow)
+	{
+		if (outError)
+			*outError = QStringLiteral("MainWindow not available.");
+		return false;
+	}
+	DocumentPage* doc = m_mainWindow->currentPage();
+	if (!doc)
+	{
+		if (outError)
+			*outError = QStringLiteral("No active document.");
+		return false;
+	}
+	BackendDataManager& mgr = doc->backend();
+	const auto targetData = mgr.getData(targetBackendId);
+	const auto toolData = mgr.getData(toolBackendId);
+	const auto targetMesh = std::dynamic_pointer_cast<MeshBackendData>(targetData);
+	const auto toolMesh = std::dynamic_pointer_cast<MeshBackendData>(toolData);
+	if (!targetMesh || !toolMesh || targetMesh->triangleSoup().empty() || toolMesh->triangleSoup().empty())
+	{
+		if (outError)
+			*outError = QStringLiteral("Target or tool mesh not found or has no geometry.");
+		return false;
+	}
+	const std::vector<float> targetSoup = worldTriangleSoupForMesh(*targetMesh, mgr);
+	const std::vector<float> toolSoup = worldTriangleSoupForMesh(*toolMesh, mgr);
+	if (!booleanSoupsAndRegister(targetSoup, toolSoup, op, options, outResultBackendId, outError))
+		return false;
+	if (options.hideOperands)
+	{
+		std::vector<std::string> hideIds;
+		hideIds.push_back(targetBackendId);
+		hideIds.push_back(toolBackendId);
+		doc->sceneFacade().setBackendsVisible(hideIds, false);
+	}
+	return true;
 }
 
 bool PluginHostContext::registerTriangleMesh(const std::vector<float>& triangleSoup,
 	const PluginMeshCreateOptions& options, QString* outError)
 {
+	// 异常长度多为插件未随宿主 1.4.0 重编译导致 vtable 错位
+	constexpr std::size_t kMaxSoupFloats = 50'000'000U;
+	if (triangleSoup.size() > kMaxSoupFloats)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral(
+				"Triangle soup size invalid. Rebuild plugins after upgrading host to 1.4.0.");
+		}
+		return false;
+	}
 	if (triangleSoup.empty() || (triangleSoup.size() % 9U) != 0U)
 	{
 		if (outError)
@@ -370,12 +575,11 @@ bool PluginHostContext::registerTriangleMesh(const std::vector<float>& triangleS
 		}
 		return false;
 	}
-	std::vector<float> copy = triangleSoup;
-	return registerMeshFromSoup(std::move(copy), options, outError);
+	return registerMeshFromSoup(std::vector<float>(triangleSoup), options, outError, nullptr);
 }
 
 bool PluginHostContext::registerMeshFromSoup(std::vector<float> soup, const PluginMeshCreateOptions& options,
-	QString* outError)
+	QString* outError, QString* outBackendId)
 {
 	if (!m_mainWindow)
 	{
@@ -431,6 +635,8 @@ bool PluginHostContext::registerMeshFromSoup(std::vector<float> soup, const Plug
 		}
 		return false;
 	}
+	if (outBackendId)
+		*outBackendId = adopted.backendId;
 	if (options.selectInTree)
 	{
 		m_mainWindow->focusBackendInTree(mesh);

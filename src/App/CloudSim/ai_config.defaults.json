@@ -19,6 +19,14 @@
       "parser_priority": ["rules", "local"]
     },
     {
+      "id": "mesh.compose",
+      "enabled": true,
+      "base_url": "http://127.0.0.1:11434/v1",
+      "model": "qwen2.5:3b",
+      "multimodal": false,
+      "parser_priority": ["rules", "local"]
+    },
+    {
       "id": "geometry.recognize",
       "enabled": true,
       "base_url": "http://127.0.0.1:11434/v1",

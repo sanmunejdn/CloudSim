@@ -1,4 +1,4 @@
-﻿<?xml version='1.0' encoding='utf-8'?>
+<?xml version='1.0' encoding='utf-8'?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -91,6 +91,7 @@
     <ClInclude Include="inc\Ai\AiLlmConfig.h" />
     <ClInclude Include="inc\Ai\AiProgressSink.h" />
     <ClInclude Include="inc\Ai\GeometryRecognizeDomainHandler.h" />
+    <ClInclude Include="inc\Ai\MeshComposeDomainHandler.h" />
     <ClInclude Include="inc\Ai\MeshCreateDomainHandler.h" />
     <ClInclude Include="inc\DocumentPointCloudOps.h" />
     <ClInclude Include="inc\PluginPointCloudHostImpl.h" />
@@ -117,6 +118,7 @@
     <ClCompile Include="source\Ai\AiLlmConfig.cpp" />
     <ClCompile Include="source\Ai\AiMeshDefaults.cpp" />
     <ClCompile Include="source\Ai\GeometryRecognizeDomainHandler.cpp" />
+    <ClCompile Include="source\Ai\MeshComposeDomainHandler.cpp" />
     <ClCompile Include="source\Ai\MeshCreateDomainHandler.cpp" />
     <ClCompile Include="source\DocumentPointCloudOps.cpp" />
     <ClCompile Include="source\PluginDelegatedBackend.cpp" />

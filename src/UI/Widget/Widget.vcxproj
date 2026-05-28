@@ -1,4 +1,4 @@
-﻿<?xml version='1.0' encoding='utf-8'?>
+<?xml version='1.0' encoding='utf-8'?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -211,6 +211,7 @@
     <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiLlmConfig.h" />
     <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiProgressSink.h" />
     <ClInclude Include="..\CloudSimPluginHost\inc\Ai\GeometryRecognizeDomainHandler.h" />
+    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\MeshComposeDomainHandler.h" />
     <ClInclude Include="..\CloudSimPluginHost\inc\Ai\MeshCreateDomainHandler.h" />
     <QtMoc Include="..\CloudSimPluginHost\inc\PluginHostContext.h" />
     <QtMoc Include="..\CloudSimPluginHost\inc\PluginManager.h" />
@@ -270,6 +271,7 @@
     <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiLlmConfig.cpp" />
     <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiMeshDefaults.cpp" />
     <ClCompile Include="..\CloudSimPluginHost\source\Ai\GeometryRecognizeDomainHandler.cpp" />
+    <ClCompile Include="..\CloudSimPluginHost\source\Ai\MeshComposeDomainHandler.cpp" />
     <ClCompile Include="..\CloudSimPluginHost\source\Ai\MeshCreateDomainHandler.cpp" />
     <ClCompile Include="source\MainWindowBackendTree.cpp" />
     <ClCompile Include="source\MainWindowObjectRepository.cpp" />

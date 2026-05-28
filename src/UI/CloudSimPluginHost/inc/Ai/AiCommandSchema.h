@@ -28,6 +28,15 @@ AIBACKEND_EXPORT bool parseCreateMeshCommand(
 
 AIBACKEND_EXPORT std::string defaultDisplayNameFor(const BackendPrimitiveGeometry::PrimitiveMeshParams& params);
 
+/// 从 LLM 原文提取 JSON 对象文本（去 markdown 围栏）
+AIBACKEND_EXPORT std::string extractJsonObjectText(const std::string& text);
+
+/// 修复 mesh.compose 常见 LLM 语法：steps 数组内误写为 "stepId":{...}
+AIBACKEND_EXPORT std::string repairComposePlanJsonText(const std::string& text);
+
+/// 规范化已解析的 compose ActionPlan（id、dimensions_mm 等）
+AIBACKEND_EXPORT void normalizeComposePlanJson(nlohmann::json& root);
+
 /// 从 LLM 原文提取 create_mesh JSON（可含 markdown 围栏）
 AIBACKEND_EXPORT bool tryParseCreateMeshCommandJson(
 	const std::string& llmText,
