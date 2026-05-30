@@ -45,6 +45,8 @@ flowchart LR
 | 线程 | `enqueueJob` → `MainWindow::jobSystem()`；`invokeOnUiThread` → `QMetaObject::invokeMethod` |
 | **导入** | `importFileIntoActiveDocument` → `DocumentImportFacade::importFileIntoDocument`（`ImportOptionsDto::isPointCloud`） |
 | **网格** | `createPrimitiveMesh` / `registerTriangleMesh` → `registerAdoptedMesh`（Host） |
+| **视口截图** | **1.6.0+** `captureActiveViewportPng` → `MainWindow::currentOsgWidget()` → `OsgWidget::captureViewportPng`（UI 线程，`readPixels` + PNG） |
+| **几何拾取** | **1.7.0+** `geometryHost()->pickStepElementFromViewport`：`OsgWidget::meshPickCommitted` + 模型坐标反变换 + `resolveStepFace/EdgeIndex` |
 | **类型** | `registerBackendType` → `BackendRegistry` + `PluginDelegatedBackend` 包装 `IPluginBackendObject` |
 | 日志 | `RunLogger` info/warn/error |
 
@@ -75,6 +77,8 @@ flowchart LR
 |---------------|----------|
 | `importFileIntoActiveDocument(path, isPointCloud)` | `DocumentImportFacade::importFileIntoDocument` |
 | `pointCloudHost()->…` | `PluginPointCloudHostImpl` → `DocumentPointCloudOps` → `point_cloud_backend_ops` → OSG 刷新 |
+| `geometryHost()->listComputableBackends` | `PluginGeometryHostImpl` 读取 `DocumentPage::backend()` + `backendSourcePath()` 过滤 STEP/BRep |
+| `geometryHost()->pickStepElementFromViewport` | `PluginGeometryHostImpl` 监听 `OsgWidget::meshPickCommitted` 并回填 `PluginGeometryStepRef` |
 | `IPluginDocument::queryPointCloudInfo` / `measurePointCloud` | `DocumentPointCloudOps` 读 `PointCloudBackendData` |
 | `createPrimitiveMesh` / `registerTriangleMesh` | `DocumentImportFacade::registerAdoptedMesh` |
 | `IPluginDocument::removeBackendObject` | `IDataService::unregisterSubtree` |
@@ -130,6 +134,18 @@ flowchart LR
 | `AiMeshDefaults` | `mesh_create_defaults` 加载；`applyMissingDimensions` 补全 `dimensions_mm` |
 | `AiLlmClient` | OpenAI 兼容 HTTP（Ollama / 云端）；mesh 提示词含缺省/口语策略 |
 | `AiActionPlanExecutor` | JSON → `createPrimitiveMesh` / `importFile`；含 `booleanMesh` 的 compose 计划默认内存布尔（仅注册结果） |
-| `MeshCreateDomainHandler` / `MeshComposeDomainHandler` / `GeometryRecognizeDomainHandler` | 内置分域 |
+| `MeshCreateDomainHandler` / `MeshComposeDomainHandler` / `GeometryRecognizeDomainHandler` / `TrajectoryFeatureDomainHandler` | 内置分域 |
 | `MeshBoolean`（Data） | CGAL PMP；`booleanMeshSoups` / `booleanMesh` 调用 |
 | `PluginHostContext` 1.4.0+ | `buildPrimitiveMeshSoup`、`booleanMeshSoups`、`booleanPrimitiveMeshes`（预注册布尔） |
+| `geometry_backend_ops`（Data） | `FeatureSpec` 离散 / Catalog；轨迹页与 AI `trajectory.feature` 共用 |
+
+### `TrajectoryFeatureDomainHandler`（`trajectory.feature`）
+
+| 项 | 说明 |
+|----|------|
+| 输出 | `StructuredJson`：`{ "features": [ FeatureSpec, ... ], "suggestedPipelineTemplate": "weld_default" }` |
+| `validateOutput` | 逐项 `featureSpecFromJson` + `validateFeatureSpec`；失败不调用 `discretizeFeature` |
+| `execute` | 当前仅校验通过并提示用户在 **轨迹生成** 页离散/预览 |
+| 路由 | `AiDomainRouter`：关键词「轨迹/焊缝/涂胶/打磨/trajectory」 |
+
+---

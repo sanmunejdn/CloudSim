@@ -20,6 +20,7 @@ inline QString meshCompose() { return QStringLiteral("mesh.compose"); }
 inline QString documentImport() { return QStringLiteral("document.import"); }
 inline QString pointCloudOps() { return QStringLiteral("pointcloud.ops"); }
 inline QString geometryRecognize() { return QStringLiteral("geometry.recognize"); }
+inline QString trajectoryFeature() { return QStringLiteral("trajectory.feature"); }
 inline QString robotCommand() { return QStringLiteral("robot.command"); }
 inline QString autoDomain() { return QStringLiteral("auto"); }
 }

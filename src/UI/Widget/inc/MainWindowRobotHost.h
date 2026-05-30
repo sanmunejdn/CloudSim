@@ -2,11 +2,15 @@
 
 #include "../RobotWidget/inc/IRobotMainWindowHost.h"
 
+#include <functional>
 #include <memory>
 
 class MainWindow;
 class DocumentPage;
 class OsgWidget;
+
+struct PickResult;
+enum class PickKind;
 
 /// MainWindow 的 IRobotMainWindowHost 实现
 class MainWindowRobotHost : public IRobotMainWindowHost
@@ -62,6 +66,10 @@ public:
 		RobotInstruction::PlanResult& out,
 		std::string* outErr) override;
 
+	void setMeshPickCommittedHandler(std::function<void(const PickResult&, PickKind)> handler) override;
+	void clearMeshPickCommittedHandler() override;
+	void notifyMeshPickCommitted(const PickResult& pick, PickKind kind);
+
 private:
 	MainWindow* m_mw = nullptr;
 	class DocumentHost;
@@ -69,4 +77,5 @@ private:
 	std::unique_ptr<DocumentHost> m_docHost;
 	std::unique_ptr<OsgViewHost> m_osgHost;
 	OsgWidget* m_osgHostWidget = nullptr;
+	std::function<void(const PickResult&, PickKind)> m_meshPickHandler;
 };

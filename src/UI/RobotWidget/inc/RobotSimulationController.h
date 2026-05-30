@@ -92,6 +92,8 @@ public slots:
 	void restoreAggregatedJointStateAfterProjectLoad(const QVector<double>& allJointAnglesRad);
 	void applyProgramStartPoseAfterProjectLoad();
 	void refreshInstructionPoseAxes(bool computeReachability = true);
+	void setRawTrajectoryPreviewActive(bool active);
+	bool rawTrajectoryPreviewActive() const { return m_rawTrajectoryPreviewActive; }
 	void refreshSimulationJointListFromCurrentDoc();
 	void syncRobotFrameSettingsFromDocument(int instanceIndex);
 	void refreshRobotCoordinateFrameOverlays(
@@ -143,6 +145,7 @@ private:
 	engine::RigidTransform m_lastTcpDragTargetInBase;
 	bool m_lastTcpDragTargetValid = false;
 	bool m_skipInstructionPreviewOnce = false;
+	bool m_rawTrajectoryPreviewActive = false;
 	RobotInstruction::FeasibleMotionAxisConfigurationOptions m_cachedFeasibleAxisOptions;
 	QString m_cachedFeasibleAxisInstructionId;
 	QString m_cachedFeasibleAxisFingerprint;

@@ -3,6 +3,7 @@
 #include "AiAssistantCoordinator.h"
 #include "AiAssistantDockWidget.h"
 #include "IAiAssistantHost.h"
+#include "IPluginHostContext.h"
 #include "PluginHostContext.h"
 #include "PluginManager.h"
 #include "RunInfoPage.h"
@@ -32,12 +33,19 @@ void MainWindow::onAiParseFailed(const QString& message, const QString& parserVi
 
 void MainWindow::refreshAiAssistantHost()
 {
+	IPluginHostContext* pluginHost = nullptr;
 	IAiAssistantHost* aiHost = nullptr;
 	if (m_pluginManager && m_pluginManager->hostContext())
-		aiHost = m_pluginManager->hostContext()->aiAssistantHost();
+	{
+		pluginHost = m_pluginManager->hostContext();
+		aiHost = pluginHost->aiAssistantHost();
+	}
 
 	if (m_aiCoordinator)
+	{
 		m_aiCoordinator->setAiHost(aiHost);
+		m_aiCoordinator->setPluginHost(pluginHost);
+	}
 	if (m_aiAssistantPage)
 		m_aiAssistantPage->setAiHost(aiHost);
 }
@@ -56,6 +64,8 @@ void MainWindow::setupAiAssistantCoordinator()
 	connect(m_aiCoordinator, &AiAssistantCoordinator::parseFailed, this, &MainWindow::onAiParseFailed);
 	connect(m_aiAssistantPage, &AiAssistantDockWidget::messageSubmitted, m_aiCoordinator,
 		&AiAssistantCoordinator::onUserMessageSubmitted);
+	connect(m_aiAssistantPage, &AiAssistantDockWidget::createFromRecognitionClicked, m_aiCoordinator,
+		&AiAssistantCoordinator::onCreateRecognitionConfirmed);
 
 	refreshAiAssistantHost();
 }

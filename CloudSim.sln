@@ -82,6 +82,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TrajectoryAlgorithmBuiltins
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PointCloudAlgorithm", "src\Geometry\PointCloudAlgorithm\PointCloudAlgorithm.vcxproj", "{E8F9A0B1-C2D3-4E4F-9A8B-1C2D3E4F5A6B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GeometryAlgorithm", "src\Geometry\GeometryAlgorithm\GeometryAlgorithm.vcxproj", "{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RunLogger", "src\Infra\RunLogger\RunLogger.vcxproj", "{35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSimAiSDK", "src\Plugins\CloudSimAiSDK\CloudSimAiSDK.vcxproj", "{F7A8B9C0-D1E2-3456-7890-ABCDEF012345}"
@@ -119,6 +121,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloAiPlugin", "src\Plugin
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PointCloudPlugin", "src\Plugins\PointCloudPlugin\PointCloudPlugin.vcxproj", "{F6A7B8C9-D0E1-2345-F012-456789ABCDEF}"
+	ProjectSection(ProjectDependencies) = postProject
+		{C3D4E5F6-A7B8-9012-CDEF-123456789ABC} = {C3D4E5F6-A7B8-9012-CDEF-123456789ABC}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GeometryPlugin", "src\Plugins\GeometryPlugin\GeometryPlugin.vcxproj", "{B2C3D4E5-F6A7-4901-ABCD-EF0123456790}"
 	ProjectSection(ProjectDependencies) = postProject
 		{C3D4E5F6-A7B8-9012-CDEF-123456789ABC} = {C3D4E5F6-A7B8-9012-CDEF-123456789ABC}
 	EndProjectSection
@@ -254,6 +261,14 @@ Global
 		{E8F9A0B1-C2D3-4E4F-9A8B-1C2D3E4F5A6B}.Release|x64.Build.0 = Release|x64
 		{E8F9A0B1-C2D3-4E4F-9A8B-1C2D3E4F5A6B}.Release|x86.ActiveCfg = Release|Win32
 		{E8F9A0B1-C2D3-4E4F-9A8B-1C2D3E4F5A6B}.Release|x86.Build.0 = Release|Win32
+		{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}.Debug|x64.ActiveCfg = Debug|x64
+		{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}.Debug|x64.Build.0 = Debug|x64
+		{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}.Debug|x86.ActiveCfg = Debug|Win32
+		{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}.Debug|x86.Build.0 = Debug|Win32
+		{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}.Release|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}.Release|x64.Build.0 = Release|x64
+		{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}.Release|x86.ActiveCfg = Release|Win32
+		{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}.Release|x86.Build.0 = Release|Win32
 		{35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1}.Debug|x64.ActiveCfg = Debug|x64
 		{35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1}.Debug|x64.Build.0 = Debug|x64
 		{35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1}.Debug|x86.ActiveCfg = Debug|Win32
@@ -304,6 +319,12 @@ Global
 		{F6A7B8C9-D0E1-2345-F012-456789ABCDEF}.Release|x64.ActiveCfg = Release|x64
 		{F6A7B8C9-D0E1-2345-F012-456789ABCDEF}.Release|x64.Build.0 = Release|x64
 		{F6A7B8C9-D0E1-2345-F012-456789ABCDEF}.Release|x86.ActiveCfg = Release|x64
+		{B2C3D4E5-F6A7-4901-ABCD-EF0123456790}.Debug|x64.ActiveCfg = Debug|x64
+		{B2C3D4E5-F6A7-4901-ABCD-EF0123456790}.Debug|x64.Build.0 = Debug|x64
+		{B2C3D4E5-F6A7-4901-ABCD-EF0123456790}.Debug|x86.ActiveCfg = Debug|x64
+		{B2C3D4E5-F6A7-4901-ABCD-EF0123456790}.Release|x64.ActiveCfg = Release|x64
+		{B2C3D4E5-F6A7-4901-ABCD-EF0123456790}.Release|x64.Build.0 = Release|x64
+		{B2C3D4E5-F6A7-4901-ABCD-EF0123456790}.Release|x86.ActiveCfg = Release|x64
 		{B1C2D3E4-F5A6-7890-BCDE-F12345678910}.Debug|x64.ActiveCfg = Debug|x64
 		{B1C2D3E4-F5A6-7890-BCDE-F12345678910}.Debug|x64.Build.0 = Debug|x64
 		{B1C2D3E4-F5A6-7890-BCDE-F12345678910}.Debug|x86.ActiveCfg = Debug|x64

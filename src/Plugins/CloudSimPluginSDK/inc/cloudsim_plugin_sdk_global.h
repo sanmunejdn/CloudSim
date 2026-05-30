@@ -11,4 +11,4 @@
 #endif
 
 /// 宿主 ABI 版本（高 16 主、低 16 次），须与 cloudsimPluginHostVersion 一致
-#define CLOUDSIM_PLUGIN_HOST_VERSION 0x00010400
+#define CLOUDSIM_PLUGIN_HOST_VERSION 0x00010700

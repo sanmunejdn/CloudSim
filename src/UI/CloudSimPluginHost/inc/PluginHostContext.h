@@ -9,6 +9,7 @@
 #include <vector>
 
 class AiAssistantHostImpl;
+class PluginGeometryHostImpl;
 class PluginPointCloudHostImpl;
 class BackendDataBase;
 class DocumentPage;
@@ -70,6 +71,9 @@ public:
 	IPluginPointCloudHost* pointCloudHost() override;
 	const IPluginPointCloudHost* pointCloudHost() const override;
 
+	IPluginGeometryHost* geometryHost() override;
+	const IPluginGeometryHost* geometryHost() const override;
+
 	bool useChinese() const override;
 	void onLanguageChanged(std::function<void(bool useChinese)> callback) override;
 	void setSidePanelTabTitle(QWidget* widget, const char* titleUtf8) override;
@@ -90,6 +94,8 @@ public:
 	IAiAssistantHost* aiAssistantHost() override;
 	const IAiAssistantHost* aiAssistantHost() const override;
 
+	bool captureActiveViewportPng(QByteArray& outPng, QString* outError = nullptr) override;
+
 	void notifyLanguageChanged();
 
 	MainWindow* mainWindow() const { return m_mainWindow; }
@@ -104,6 +110,7 @@ private:
 
 	MainWindow* m_mainWindow = nullptr;
 	std::unique_ptr<PluginPointCloudHostImpl> m_pointCloudHost;
+	std::unique_ptr<PluginGeometryHostImpl> m_geometryHost;
 	std::unique_ptr<AiAssistantHostImpl> m_aiHost;
 	std::vector<std::function<void(bool useChinese)>> m_languageCallbacks;
 	std::vector<std::unique_ptr<PluginDocumentAdapter>> m_documents;

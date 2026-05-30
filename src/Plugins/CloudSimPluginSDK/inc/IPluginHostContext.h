@@ -9,7 +9,7 @@
 #include <memory>
 #include <vector>
 
-#include <QDockWidget>
+#include <QByteArray>
 #include <QString>
 #include <QStringList>
 #include <QWidget>
@@ -18,7 +18,9 @@ class QAction;
 class ICloudSimPlugin;
 class IAiAssistantHost;
 class IPluginDocument;
+class IPluginGeometryHost;
 class IPluginPointCloudHost;
+class QDockWidget;
 class QMenu;
 
 using PluginJobProgressFn = std::function<void(double fraction, const QString& message)>;
@@ -119,4 +121,11 @@ public:
 		const PluginMeshCreateOptions& targetPlacement, const PluginPrimitiveMeshParams& toolParams,
 		const PluginPrimitiveMeshQuality& toolQuality, const PluginMeshCreateOptions& toolPlacement,
 		const PluginBooleanMeshOptions& options, std::string* outResultBackendId, QString* outError) = 0;
+
+	/// 1.5.0+：OCC/CGAL 几何算法宿主；宿主版本不足时可为 null
+	virtual IPluginGeometryHost* geometryHost() = 0;
+	virtual const IPluginGeometryHost* geometryHost() const = 0;
+
+	/// 1.6.0+：活动文档 3D 视口 PNG 截图（供 geometry.recognize 等多模态域）
+	virtual bool captureActiveViewportPng(QByteArray& outPng, QString* outError = nullptr) = 0;
 };

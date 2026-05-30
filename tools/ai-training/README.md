@@ -159,17 +159,25 @@ python scripts/build_dataset.py mesh.compose
 
 ### 4.3 geometry.recognize（几何识别）
 
-`output` 为识别 JSON（非 ActionPlan），由 `GeometryRecognizeDomainHandler` 校验：
+`output` 为识别 JSON（非 ActionPlan），由 `GeometryRecognizeDomainHandler` 校验（`primitive` ∈ box/cylinder/cone/sphere/unknown，按类型校验 `dimensions_mm`；`unknown` 不可 execute）：
 
 ```json
 {
   "instruction": "识别图中的基本体",
-  "input": "<image>",
+  "input": "images/box_000.png",
   "output": "{\"primitive\":\"box\",\"label\":\"长方体\",\"dimensions_mm\":{\"length\":100,\"width\":50,\"height\":30},\"confidence\":0.9}"
 }
 ```
 
-多模态样本需在 LLaMA-Factory 中配置图像路径；CloudSim 运行时会将截图 PNG 送入 vision API。
+**生成合成训练集（冷启动 / 联调）：**
+
+```bash
+pip install pillow
+python tools/ai-training/scripts/gen_geometry_recognize_dataset.py --per-type 15
+python tools/ai-training/scripts/build_dataset.py geometry.recognize
+```
+
+输出：`domains/geometry.recognize/images/*.png` + 更新后的 `dataset.jsonl`（当前默认 60 条，四类基本体各 15）。CloudSim 运行时将活动视口 PNG 经 `captureActiveViewportPng` 送入 vision API；识别结果默认仅展示，用户确认后再创建 mesh。
 
 ### 4.4 数据量建议
 

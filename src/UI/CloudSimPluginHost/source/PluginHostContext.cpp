@@ -22,6 +22,7 @@
 #include "Ai/AiAssistantHostImpl.h"
 #include "IAiAssistantHost.h"
 #include "PluginPointCloudHostImpl.h"
+#include "PluginGeometryHostImpl.h"
 #include "RunLogger.h"
 
 #include <QAction>
@@ -123,6 +124,7 @@ PluginHostContext::PluginHostContext(MainWindow* mainWindow, QObject* parent)
 	: QObject(parent)
 	, m_mainWindow(mainWindow)
 	, m_pointCloudHost(std::make_unique<PluginPointCloudHostImpl>(this))
+	, m_geometryHost(std::make_unique<PluginGeometryHostImpl>(this))
 	, m_aiHost(std::make_unique<AiAssistantHostImpl>(this))
 {
 }
@@ -704,6 +706,16 @@ const IPluginPointCloudHost* PluginHostContext::pointCloudHost() const
 	return m_pointCloudHost.get();
 }
 
+IPluginGeometryHost* PluginHostContext::geometryHost()
+{
+	return m_geometryHost.get();
+}
+
+const IPluginGeometryHost* PluginHostContext::geometryHost() const
+{
+	return m_geometryHost.get();
+}
+
 IAiAssistantHost* PluginHostContext::aiAssistantHost()
 {
 	return m_aiHost.get();
@@ -712,6 +724,24 @@ IAiAssistantHost* PluginHostContext::aiAssistantHost()
 const IAiAssistantHost* PluginHostContext::aiAssistantHost() const
 {
 	return m_aiHost.get();
+}
+
+bool PluginHostContext::captureActiveViewportPng(QByteArray& outPng, QString* outError)
+{
+	if (!m_mainWindow)
+	{
+		if (outError)
+			*outError = QStringLiteral("主窗口未就绪");
+		return false;
+	}
+	OsgWidget* osg = m_mainWindow->currentOsgWidget();
+	if (!osg)
+	{
+		if (outError)
+			*outError = QStringLiteral("请先打开含 3D 视口的文档");
+		return false;
+	}
+	return osg->captureViewportPng(outPng, outError);
 }
 
 bool PluginHostContext::useChinese() const

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Filter="inc">
+    <ClInclude Include="inc\geometry_algorithm_global.h" />
+    <ClInclude Include="inc\Types.h" />
+    <ClInclude Include="inc\ShapeIo.h" />
+    <ClInclude Include="inc\Discretize.h" />
+    <ClInclude Include="inc\MeshDiscretize.h" />
+    <ClInclude Include="inc\Intersection.h" />
+    <ClInclude Include="inc\BrepBoolean.h" />
+    <ClInclude Include="inc\WireOps.h" />
+    <ClInclude Include="inc\ShellOps.h" />
+    <ClInclude Include="inc\GeoMeshBoolean.h" />
+    <ClInclude Include="inc\SelfTest.h" />
+  </ItemGroup>
+  <ItemGroup Filter="source">
+    <ClCompile Include="source\ShapeIo.cpp" />
+    <ClCompile Include="source\Discretize.cpp" />
+    <ClCompile Include="source\DiscretizeEdge.cpp" />
+    <ClCompile Include="source\MeshDiscretize.cpp" />
+    <ClCompile Include="source\Intersection.cpp" />
+    <ClCompile Include="source\BrepBoolean.cpp" />
+    <ClCompile Include="source\WireOps.cpp" />
+    <ClCompile Include="source\ShellOps.cpp" />
+    <ClCompile Include="source\MeshBoolean.cpp" />
+    <ClCompile Include="source\SelfTest.cpp" />
+  </ItemGroup>
+</Project>

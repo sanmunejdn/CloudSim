@@ -31,6 +31,7 @@ CloudSim/
     │   └── RobotUrdf/
     ├── Geometry/
     │   ├── GeometryEngine/
+    │   ├── GeometryAlgorithm/
     │   └── PointCloudAlgorithm/
     ├── Data/
     │   ├── Data/
@@ -38,6 +39,8 @@ CloudSim/
     ├── Plugins/CloudSimAiSDK/
     ├── Plugins/
     │   ├── CloudSimPluginSDK/
+    │   ├── PointCloudPlugin/
+    │   ├── GeometryPlugin/
     │   ├── PlcCommSDK/
     │   ├── PlcCommUI/
     │   ├── PlcCommPlugin/
@@ -60,7 +63,7 @@ CloudSim/
 | `AiWidget/` | `src/UI/AiWidget/` |
 | `CloudSimPluginHost/` | `src/UI/CloudSimPluginHost/` |
 | `RobotScene/`、`RobotKinematics/`、`RobotUrdf/` | `src/Robot/.../` |
-| `GeometryEngine/`、`PointCloudAlgorithm/` | `src/Geometry/.../` |
+| `GeometryEngine/`、`GeometryAlgorithm/`、`PointCloudAlgorithm/` | `src/Geometry/.../` |
 | `Data/` | `src/Data/Data/` |
 | `PropertyCore/` | `src/Data/PropertyCore/` |
 | `CloudSimAiSDK/` | `src/Plugins/CloudSimAiSDK/` |
@@ -86,7 +89,7 @@ CloudSim/
 | 契约/宿主 | `CloudSimCore.dll`、`CloudSimHost.dll`（含 `DocumentHost`、`OsgWidget`、组合根） |
 | 应用/UI | `CloudSim.exe`、`Widget.dll`、`RobotWidget.dll`、`AiWidget.dll`、`CloudSimAiSDK.dll` |
 | 数据 | `Data.dll` |
-| 共享引擎 | `RunLogger.dll`、`GeometryEngine.dll`、`RobotKinematics.dll`、`RobotUrdf.dll`、`RobotScene.dll`、`BackendVisual.dll`、`OsgWidgetCore.dll` |
+| 共享引擎 | `RunLogger.dll`、`GeometryEngine.dll`、`GeometryAlgorithm.dll`、`RobotKinematics.dll`、`RobotUrdf.dll`、`RobotScene.dll`、`BackendVisual.dll`、`OsgWidgetCore.dll` |
 | 插件 ABI | `CloudSimPluginSDK.dll`；`plugins/<id>/` 下各插件 DLL |
 | PLC 通信（独立） | `PlcCommSDK.dll`、`PlcCommUI.dll`、`plctag.dll`（见 `bin/SDK/libplctag-2.6-vc14-64/`） |
 

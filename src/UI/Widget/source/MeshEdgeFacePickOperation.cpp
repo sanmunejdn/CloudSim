@@ -138,6 +138,13 @@ bool MeshEdgeFacePickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 	}
 
 	emitMeshFeedback(true, pick);
+	if (pick.hit)
+	{
+		const int kindInt = m_owner->m_meshFacePickMode
+			? static_cast<int>(PickKind::MeshFace)
+			: static_cast<int>(PickKind::MeshEdge);
+		emit m_owner->meshPickCommitted(pick, kindInt);
+	}
 	m_gesture.restartClickHold(m_clickHoldTimer);
 	m_owner->requestRedraw();
 	return swallowRelease;

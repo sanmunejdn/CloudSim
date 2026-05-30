@@ -13,8 +13,8 @@
 #include <string>
 #include <unordered_map>
 
-#include <QColor>
-#include <QFile>
+#include <QBuffer>
+#include <QImage>
 #include <QFileInfo>
 #include <QMouseEvent>
 #include <QPalette>
@@ -67,6 +67,7 @@
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 
+#include <osg/Image>
 #include <osgViewer/Viewer>
 
 #include "OsgWidgetBackendLoadController.h"
@@ -81,6 +82,7 @@
 #include "RobotTcpDragTeachOperation.h"
 #include "PointPickOperation.h"
 #include "MeshEdgeFacePickOperation.h"
+#include "PickTypes.h"
 #include "QWidgetViewer.h"
 
 #include "BackendFollowMath.h"
@@ -99,6 +101,7 @@ QColor viewerChromeColor(bool dark)
 OsgWidget::OsgWidget(QWidget* parent)
 	: QWidget(parent)
 {
+	qRegisterMetaType<PickResult>("PickResult");
 	m_feedbackTimer.start();
 	m_pointPickOperation = std::make_unique<PointPickOperation>(this);
 	m_objectTransformOperation = std::make_unique<ObjectTransformOperation>(this);
@@ -546,6 +549,107 @@ void OsgWidget::clearInstructionPoseAxes()
 	if (m_instructionPoseAxesGroup.valid())
 	{
 		m_instructionPoseAxesGroup->removeChildren(0, m_instructionPoseAxesGroup->getNumChildren());
+	}
+	requestRedraw();
+}
+
+void OsgWidget::setRawTrajectoryOverlay(const std::vector<RawTrajectoryOverlayVertex>& points)
+{
+	if (!m_trajectoryOverlayGroup.valid())
+	{
+		return;
+	}
+	if (!m_rawTrajectoryOverlayGeode.valid())
+	{
+		m_rawTrajectoryOverlayGeode = new osg::Geode;
+		m_rawTrajectoryOverlayGeode->setName("RawTrajectoryOverlay");
+		m_trajectoryOverlayGroup->addChild(m_rawTrajectoryOverlayGeode.get());
+	}
+	m_rawTrajectoryOverlayGeode->removeDrawables(0, m_rawTrajectoryOverlayGeode->getNumDrawables());
+	if (points.size() < 2U)
+	{
+		requestRedraw();
+		return;
+	}
+	osg::ref_ptr<osg::Vec3Array> lineVerts = new osg::Vec3Array;
+	lineVerts->reserve(points.size());
+	for (const RawTrajectoryOverlayVertex& v : points)
+	{
+		lineVerts->push_back(v.positionMm);
+	}
+	osg::ref_ptr<osg::Geometry> lineGeom = new osg::Geometry;
+	lineGeom->setVertexArray(lineVerts.get());
+	osg::ref_ptr<osg::Vec4Array> lineColor = new osg::Vec4Array;
+	lineColor->push_back(osg::Vec4(0.2f, 0.85f, 1.0f, 1.0f));
+	lineGeom->setColorArray(lineColor.get(), osg::Array::BIND_OVERALL);
+	lineGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::LINE_STRIP, 0, static_cast<GLsizei>(lineVerts->size())));
+	osg::StateSet* ss = lineGeom->getOrCreateStateSet();
+	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+	ss->setAttribute(new osg::LineWidth(2.0f));
+	m_rawTrajectoryOverlayGeode->addDrawable(lineGeom.get());
+	osg::ref_ptr<osg::Vec3Array> ptVerts = new osg::Vec3Array;
+	osg::ref_ptr<osg::Vec4Array> ptColors = new osg::Vec4Array;
+	ptVerts->reserve(points.size());
+	ptColors->reserve(points.size());
+	for (const RawTrajectoryOverlayVertex& v : points)
+	{
+		ptVerts->push_back(v.positionMm);
+		ptColors->push_back(v.reachable ? osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f) : osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
+	}
+	osg::ref_ptr<osg::Geometry> ptGeom = new osg::Geometry;
+	ptGeom->setVertexArray(ptVerts.get());
+	ptGeom->setColorArray(ptColors.get(), osg::Array::BIND_PER_VERTEX);
+	ptGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::POINTS, 0, static_cast<GLsizei>(ptVerts->size())));
+	osg::StateSet* ptSs = ptGeom->getOrCreateStateSet();
+	ptSs->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+	ptSs->setAttribute(new osg::Point(5.0f));
+	m_rawTrajectoryOverlayGeode->addDrawable(ptGeom.get());
+	requestRedraw();
+}
+
+void OsgWidget::clearRawTrajectoryOverlay()
+{
+	if (m_rawTrajectoryOverlayGeode.valid())
+	{
+		m_rawTrajectoryOverlayGeode->removeDrawables(0, m_rawTrajectoryOverlayGeode->getNumDrawables());
+	}
+	requestRedraw();
+}
+
+void OsgWidget::setRawTrajectoryOverlayFrames(const std::vector<RawTrajectoryOverlayFrame>& frames)
+{
+	if (!m_trajectoryOverlayGroup.valid())
+	{
+		return;
+	}
+	if (!m_rawTrajectoryFramesGroup.valid())
+	{
+		m_rawTrajectoryFramesGroup = new osg::Group;
+		m_rawTrajectoryFramesGroup->setName("RawTrajectoryOverlayFrames");
+		m_trajectoryOverlayGroup->addChild(m_rawTrajectoryFramesGroup.get());
+	}
+	m_rawTrajectoryFramesGroup->removeChildren(0, m_rawTrajectoryFramesGroup->getNumChildren());
+	const float axisLenMm = 15.0f;
+	for (const RawTrajectoryOverlayFrame& f : frames)
+	{
+		osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
+		const osg::Quat q = OsgScene::eulerDegToQuat(f.eulerDeg);
+		osg::Matrixd m;
+		m.makeRotate(q);
+		m.setTrans(static_cast<double>(f.positionMm.x()), static_cast<double>(f.positionMm.y()),
+			static_cast<double>(f.positionMm.z()));
+		mt->setMatrix(m);
+		mt->addChild(createInstructionPoseAxisGeode(axisLenMm, true).get());
+		m_rawTrajectoryFramesGroup->addChild(mt.get());
+	}
+	requestRedraw();
+}
+
+void OsgWidget::clearRawTrajectoryOverlayFrames()
+{
+	if (m_rawTrajectoryFramesGroup.valid())
+	{
+		m_rawTrajectoryFramesGroup->removeChildren(0, m_rawTrajectoryFramesGroup->getNumChildren());
 	}
 	requestRedraw();
 }
@@ -1834,6 +1938,75 @@ bool OsgWidget::captureImportedMeshBackendHierarchy(std::vector<MeshCapturedPart
 	return m_captureController
 		? m_captureController->captureImportedMeshBackendHierarchy(*this, outParts, errorMessage)
 		: false;
+}
+
+bool OsgWidget::captureViewportPng(QByteArray& outPng, QString* errorMessage, int maxWidth, int maxHeight)
+{
+	outPng.clear();
+	if (!m_viewer.valid() || !m_glWidget || !m_graphicsWindow.valid())
+	{
+		if (errorMessage)
+			*errorMessage = QStringLiteral("3D 视口未就绪");
+		return false;
+	}
+	if (maxWidth <= 0 || maxHeight <= 0)
+	{
+		if (errorMessage)
+			*errorMessage = QStringLiteral("无效的截图尺寸");
+		return false;
+	}
+
+	if (!m_graphicsWindow->makeCurrent())
+	{
+		if (errorMessage)
+			*errorMessage = QStringLiteral("无法激活 OpenGL 上下文");
+		return false;
+	}
+
+	m_viewer->frame();
+
+	osg::Camera* cam = m_viewer->getCamera();
+	if (!cam)
+	{
+		if (errorMessage)
+			*errorMessage = QStringLiteral("相机未就绪");
+		return false;
+	}
+	const osg::Viewport* vp = cam->getViewport();
+	if (!vp || vp->width() <= 0 || vp->height() <= 0)
+	{
+		if (errorMessage)
+			*errorMessage = QStringLiteral("视口尺寸无效");
+		return false;
+	}
+
+	osg::ref_ptr<osg::Image> image = new osg::Image;
+	image->readPixels(static_cast<int>(vp->x()), static_cast<int>(vp->y()), static_cast<int>(vp->width()),
+		static_cast<int>(vp->height()), GL_RGBA, GL_UNSIGNED_BYTE);
+	image->flipVertical();
+
+	QImage qimg(image->data(), image->s(), image->t(), static_cast<int>(image->getRowSizeInBytes()),
+		QImage::Format_RGBA8888);
+	QImage copy = qimg.copy();
+	if (copy.isNull())
+	{
+		if (errorMessage)
+			*errorMessage = QStringLiteral("读取帧缓冲失败");
+		return false;
+	}
+
+	if (copy.width() > maxWidth || copy.height() > maxHeight)
+		copy = copy.scaled(maxWidth, maxHeight, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+
+	QBuffer buf(&outPng);
+	if (!buf.open(QIODevice::WriteOnly) || !copy.save(&buf, "PNG"))
+	{
+		outPng.clear();
+		if (errorMessage)
+			*errorMessage = QStringLiteral("PNG 编码失败");
+		return false;
+	}
+	return true;
 }
 
 bool OsgWidget::loadPointCloudFromBackendData(const PointCloudBackendData& data, QString* errorMessage, bool resetViewToHome)

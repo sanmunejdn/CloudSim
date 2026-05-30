@@ -147,7 +147,7 @@
       <PreprocessorDefinitions>ROBOT_SCENE_LIB;TRAJECTORY_ALGORITHM_STATIC;TRAJECTORY_ALGORITHM_BUILTINS_STATIC;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../TrajectoryAlgorithm/inc;../TrajectoryAlgorithmBuiltins/inc;../../Contracts/CloudSimCore/inc;../../Geometry/GeometryEngine/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../TrajectoryAlgorithm/inc;../TrajectoryAlgorithmBuiltins/inc;../../Contracts/CloudSimCore/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -166,7 +166,7 @@
       <PreprocessorDefinitions>ROBOT_SCENE_LIB;TRAJECTORY_ALGORITHM_STATIC;TRAJECTORY_ALGORITHM_BUILTINS_STATIC;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../TrajectoryAlgorithm/inc;../TrajectoryAlgorithmBuiltins/inc;../../Contracts/CloudSimCore/inc;../../Geometry/GeometryEngine/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../TrajectoryAlgorithm/inc;../TrajectoryAlgorithmBuiltins/inc;../../Contracts/CloudSimCore/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -204,6 +204,7 @@
     <ClInclude Include="inc\RobotMatrixOsgBridge.h" />
     <ClInclude Include="inc\RobotSceneKinematics.h" />
     <ClInclude Include="inc\RobotTeachIk.h" />
+    <ClInclude Include="inc\RawTrajectory.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp" />
@@ -224,6 +225,7 @@
     <ClCompile Include="source\TrajectoryPipelineBuilder.cpp" />
     <ClCompile Include="source\TrajectoryApplyActionConverter.cpp" />
     <ClCompile Include="source\TrajectoryOpBridge.cpp" />
+    <ClCompile Include="source\RawTrajectory.cpp" />
     <ClCompile Include="source\RobotMatrixOsgBridge.cpp" />
     <ClCompile Include="source\RobotSceneKinematics.cpp" />
     <ClCompile Include="source\RobotTeachIk.cpp" />

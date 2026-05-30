@@ -62,6 +62,7 @@
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 #include "OsgWidget.h"
+#include "MainWindowRobotHost.h"
 #include "IRobotBackendPoseSink.h"
 #include "RobotInstructionProgram.h"
 #include "RobotCoordinateFrames.h"
@@ -79,10 +80,12 @@
 #include "RunLogger.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
+#include "../RobotWidget/inc/FeatureTrajectoryPageWidget.h"
 #include "../RobotWidget/inc/TrajectoryEditPageWidget.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
 
 #include "../../OsgWidgetCore/inc/OsgScene.h"
+#include "../../OsgWidgetCore/inc/PickTypes.h"
 #include "ObjectGizmoFrame.h"
 #include "BackendVisualMath.h"
 
@@ -200,18 +203,31 @@ void MainWindow::applyLanguage()
 		{
 			traj->setUseChinese(m_useChinese);
 		}
+		if (FeatureTrajectoryPageWidget* feat = simDock->featureTrajectoryPage())
+		{
+			feat->setUseChinese(m_useChinese);
+		}
 		QTabWidget* tabs = simDock->tabWidget();
 		if (tabs && tabs->count() >= 2)
 		{
-			tabs->setTabText(0, i18n(QStringLiteral("Instructions"), QStringLiteral("指令")));
-			tabs->setTabText(1, i18n(QStringLiteral("Axis control"), QStringLiteral("轴控制")));
-			if (tabs->count() >= 3)
+			tabs->setTabText(RobotSimulationDockWidget::kTabIndexInstructions,
+				i18n(QStringLiteral("Instructions"), QStringLiteral("指令")));
+			tabs->setTabText(RobotSimulationDockWidget::kTabIndexAxisControl,
+				i18n(QStringLiteral("Axis control"), QStringLiteral("轴控制")));
+			if (tabs->count() > RobotSimulationDockWidget::kTabIndexFrames)
 			{
-				tabs->setTabText(2, i18n(QStringLiteral("Frames"), QStringLiteral("坐标系")));
+				tabs->setTabText(RobotSimulationDockWidget::kTabIndexFrames,
+					i18n(QStringLiteral("Frames"), QStringLiteral("坐标系")));
 			}
-			if (tabs->count() >= 4)
+			if (tabs->count() > RobotSimulationDockWidget::kTabIndexTrajectoryGeneration)
 			{
-				tabs->setTabText(3, i18n(QStringLiteral("Trajectory Edit"), QStringLiteral("轨迹编辑")));
+				tabs->setTabText(RobotSimulationDockWidget::kTabIndexTrajectoryGeneration,
+					i18n(QStringLiteral("Trajectory Generation"), QStringLiteral("轨迹生成")));
+			}
+			if (tabs->count() > RobotSimulationDockWidget::kTabIndexTrajectoryEdit)
+			{
+				tabs->setTabText(RobotSimulationDockWidget::kTabIndexTrajectoryEdit,
+					i18n(QStringLiteral("Trajectory Edit"), QStringLiteral("轨迹编辑")));
 			}
 		}
 	}
@@ -791,6 +807,12 @@ void MainWindow::wireDocumentPageSignals(DocumentPage* page)
 	connect(o, &OsgWidget::annotationVisibilityChanged, this, &MainWindow::onAnnotationVisibilityChanged);
 	connect(o, &OsgWidget::pointPickFeedback, this, &MainWindow::onPointPickFeedback);
 	connect(o, &OsgWidget::meshPickFeedback, this, &MainWindow::onMeshPickFeedback);
+	connect(o, &OsgWidget::meshPickCommitted, this, [this](PickResult pick, int pickKindInt) {
+		if (m_robotHost)
+		{
+			m_robotHost->notifyMeshPickCommitted(pick, static_cast<PickKind>(pickKindInt));
+		}
+	});
 	connect(o, &OsgWidget::backendObjectPicked, this, &MainWindow::onOsgBackendObjectPicked);
 	installBackendFollowFrameHook(page);
 }

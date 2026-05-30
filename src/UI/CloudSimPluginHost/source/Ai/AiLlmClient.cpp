@@ -9,6 +9,8 @@
 #include <json.hpp>
 
 #include <QByteArray>
+#include <QBuffer>
+#include <QImage>
 #include <QUrl>
 
 namespace AiLlmClient
@@ -32,6 +34,35 @@ QString chatCompletionsUrl(const QString& baseUrl)
 	if (u.endsWith(QStringLiteral("/chat/completions"), Qt::CaseInsensitive))
 		return u;
 	return u + QStringLiteral("/chat/completions");
+}
+
+QString ollamaNativeChatUrl(const QString& baseUrl)
+{
+	QString u = baseUrl.trimmed();
+	while (u.endsWith(QLatin1Char('/')))
+		u.chop(1);
+	if (u.endsWith(QStringLiteral("/v1"), Qt::CaseInsensitive))
+		u.chop(2);
+	return u + QStringLiteral("/api/chat");
+}
+
+bool isLocalOllamaBaseUrl(const QString& baseUrl)
+{
+	return baseUrl.contains(QStringLiteral("127.0.0.1"), Qt::CaseInsensitive)
+		|| baseUrl.contains(QStringLiteral("localhost"), Qt::CaseInsensitive);
+}
+
+QByteArray visionImageBase64Raw(const QByteArray& imagePng)
+{
+	QImage img = QImage::fromData(imagePng);
+	if (img.isNull())
+		return imagePng.toBase64();
+	QImage rgb = img.convertToFormat(QImage::Format_RGB888);
+	QByteArray jpeg;
+	QBuffer buf(&jpeg);
+	if (!buf.open(QIODevice::WriteOnly) || !rgb.save(&buf, "JPEG", 90))
+		return imagePng.toBase64();
+	return jpeg.toBase64();
 }
 
 QString meshSystemPrompt()
@@ -64,10 +95,22 @@ QString meshSystemPrompt()
 QString recognitionSystemPrompt()
 {
 	return QStringLiteral(
-		"You analyze a CAD viewport screenshot and optional user text. "
-		"Reply with ONLY valid JSON (no markdown):\n"
-		"{\"primitive\":\"box|cylinder|cone|sphere|unknown\",\"label\":\"short description\","
-		"\"dimensions_mm\":{},\"confidence\":0.0}");
+		"你是 CAD 视口几何识别助手。用户会提供一张 3D 视口截图（通常白底、单个主要基本体）。"
+		"识别主要物体的类型并估计尺寸（毫米）。"
+		"仅回复一个 JSON 对象，不要 markdown、不要解释：\n"
+		"{\"primitive\":\"box|cylinder|cone|sphere|unknown\",\"label\":\"中文短名\","
+		"\"dimensions_mm\":{...},\"confidence\":0.0}\n"
+		"box 需 length,width,height；cylinder/cone 需 radius,height；sphere 需 radius。"
+		"视口里明显是长方体/立方体时 primitive 必须是 box，不要返回 unknown。"
+		"仅当完全无法判断时才用 unknown，confidence 取 0~1。");
+}
+
+QString recognitionUserPrompt(const QString& userText)
+{
+	const QString t = userText.trimmed();
+	if (t.isEmpty())
+		return QStringLiteral("识别截图中的主要基本体类型，并估计 dimensions_mm（毫米）。");
+	return t + QStringLiteral("\n请根据截图识别主要基本体，输出 JSON。");
 }
 
 QString composeSystemPrompt()
@@ -108,8 +151,7 @@ LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& 
 {
 	LlmParseResult out;
 	const QString apiKey = resolveApiKey(config);
-	const bool localOllama = config.baseUrl.contains(QStringLiteral("127.0.0.1"), Qt::CaseInsensitive)
-		|| config.baseUrl.contains(QStringLiteral("localhost"), Qt::CaseInsensitive);
+	const bool localOllama = isLocalOllamaBaseUrl(config.baseUrl);
 	const QString authKey = apiKey.isEmpty() && localOllama ? QStringLiteral("ollama") : apiKey;
 	if (authKey.isEmpty())
 	{
@@ -124,31 +166,51 @@ LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& 
 	const bool composeSchema = domainId == AiDomainIds::meshCompose();
 	const QString sys = recognitionSchema ? recognitionSystemPrompt()
 		: (composeSchema ? composeSystemPrompt() : meshSystemPrompt());
-	nlohmann::json userMessage;
-	if (!imagePng.isEmpty())
-	{
-		const QString b64 = QString::fromLatin1(imagePng.toBase64());
-		const std::string dataUrl = "data:image/png;base64," + b64.toStdString();
-		userMessage["role"] = "user";
-		userMessage["content"] = nlohmann::json::array({
-			{ { "type", "text" }, { "text", userText.trimmed().toStdString() } },
-			{ { "type", "image_url" }, { "image_url", { { "url", dataUrl } } } },
-		});
-	}
-	else
-	{
-		userMessage = { { "role", "user" }, { "content", userText.trimmed().toStdString() } };
-	}
+	const QString userPrompt = recognitionSchema ? recognitionUserPrompt(userText) : userText.trimmed();
 
 	nlohmann::json body;
 	body["model"] = config.model.toStdString();
 	body["temperature"] = config.temperature;
-	body["messages"] = nlohmann::json::array({
-		{ { "role", "system" }, { "content", sys.toStdString() } },
-		userMessage,
-	});
 
-	const QUrl url(chatCompletionsUrl(config.baseUrl));
+	QUrl url;
+	if (localOllama && !imagePng.isEmpty())
+	{
+		// Ollama 原生 /api/chat + images[] 比 /v1 image_url 更可靠
+		url = QUrl(ollamaNativeChatUrl(config.baseUrl));
+		body["stream"] = false;
+		const std::string imgB64 = visionImageBase64Raw(imagePng).toStdString();
+		nlohmann::json userMsg;
+		userMsg["role"] = "user";
+		userMsg["content"] = userPrompt.toStdString();
+		userMsg["images"] = nlohmann::json::array({ imgB64 });
+		body["messages"] = nlohmann::json::array({
+			{ { "role", "system" }, { "content", sys.toStdString() } },
+			userMsg,
+		});
+	}
+	else
+	{
+		url = QUrl(chatCompletionsUrl(config.baseUrl));
+		nlohmann::json userMessage;
+		if (!imagePng.isEmpty())
+		{
+			const std::string dataUrl = "data:image/jpeg;base64," + visionImageBase64Raw(imagePng).toStdString();
+			userMessage["role"] = "user";
+			userMessage["content"] = nlohmann::json::array({
+				{ { "type", "image_url" }, { "image_url", { { "url", dataUrl } } } },
+				{ { "type", "text" }, { "text", userPrompt.toStdString() } },
+			});
+		}
+		else
+		{
+			userMessage = { { "role", "user" }, { "content", userPrompt.toStdString() } };
+		}
+		body["messages"] = nlohmann::json::array({
+			{ { "role", "system" }, { "content", sys.toStdString() } },
+			userMessage,
+		});
+	}
+
 	const QByteArray payload = QByteArray::fromStdString(body.dump());
 	QList<QPair<QByteArray, QByteArray>> headers;
 	headers.append(qMakePair(QByteArray("Authorization"), QByteArray("Bearer ") + authKey.toUtf8()));
@@ -183,7 +245,11 @@ LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& 
 	}
 
 	std::string content;
-	if (resp.contains("choices") && resp["choices"].is_array() && !resp["choices"].empty())
+	if (localOllama && !imagePng.isEmpty() && resp.contains("message") && resp["message"].is_object())
+	{
+		content = resp["message"].value("content", std::string());
+	}
+	else if (resp.contains("choices") && resp["choices"].is_array() && !resp["choices"].empty())
 	{
 		const auto& ch0 = resp["choices"][0];
 		if (ch0.contains("message") && ch0["message"].is_object())
@@ -197,9 +263,10 @@ LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& 
 
 	if (recognitionSchema)
 	{
+		const std::string extracted = AiCommandSchema::extractJsonObjectText(content);
 		try
 		{
-			out.command = nlohmann::json::parse(content, nullptr, true);
+			out.command = nlohmann::json::parse(extracted, nullptr, true);
 		}
 		catch (...)
 		{

@@ -157,6 +157,15 @@ void AiAssistantHostImpl::registerBuiltinDomains()
 		d.unloadOtherModelsBeforeInfer = true;
 		m_registry.registerDomain(d, &m_geomHandler);
 	}
+	{
+		AiDomainDescriptor d;
+		d.domainId = AiDomainIds::trajectoryFeature();
+		d.displayName = QStringLiteral("Trajectory feature");
+		d.outputKind = AiDomainOutputKind::StructuredJson;
+		d.supportsMultimodal = false;
+		d.parserPriority = QStringList{QStringLiteral("local"), QStringLiteral("remote")};
+		m_registry.registerDomain(d, &m_trajFeatureHandler);
+	}
 }
 
 QString AiAssistantHostImpl::resolveDomainId(const QString& requestedDomainId, const QString& userText) const
@@ -296,6 +305,17 @@ void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, 
 		return;
 
 	const QString domainId = resolveDomainId(request.domainId, request.userText);
+	if (domainId == AiDomainIds::geometryRecognize() && request.imagePng.isEmpty())
+	{
+		AiParseResult r;
+		r.domainId = domainId;
+		r.ok = false;
+		r.errorMessage = QStringLiteral("几何识别需要当前 3D 视口截图。请先打开含视口的文档并重试。");
+		r.hintMessage = QStringLiteral("在 AI 面板选择「几何识别」后发送识别指令。");
+		onFinished(r);
+		return;
+	}
+
 	QStringList chain = config.parserPriorityDefault;
 	if (const AiDomainDescriptor* descUi = m_registry.descriptor(domainId))
 	{

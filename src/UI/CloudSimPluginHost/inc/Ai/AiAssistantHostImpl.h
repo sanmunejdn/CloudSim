@@ -7,6 +7,7 @@
 #include "Ai/GeometryRecognizeDomainHandler.h"
 #include "Ai/MeshComposeDomainHandler.h"
 #include "Ai/MeshCreateDomainHandler.h"
+#include "Ai/TrajectoryFeatureDomainHandler.h"
 
 #include <memory>
 
@@ -53,6 +54,7 @@ private:
 	MeshCreateDomainHandler m_meshHandler;
 	MeshComposeDomainHandler m_composeHandler;
 	GeometryRecognizeDomainHandler m_geomHandler;
+	TrajectoryFeatureDomainHandler m_trajFeatureHandler;
 	std::vector<std::shared_ptr<IAiInferenceProvider>> m_inferenceProviders;
 	QString m_lastLoadedModel;
 };

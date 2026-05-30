@@ -71,6 +71,8 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 				osg->requestRedraw();
 			}
 		}
+		// 导入后刷新轨迹生成页工件下拉（与 URDF 导入路径一致）
+		mw.refreshSimulationJointListFromCurrentDoc();
 	};
 
 	if (isPointCloud)

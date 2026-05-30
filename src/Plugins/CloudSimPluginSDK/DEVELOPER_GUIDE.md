@@ -6,9 +6,9 @@
 
 ## 版本
 
-- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00010400` = 1.4.0）
+- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00010700` = 1.7.0）
 - `IPluginDocument`：`documentId()`、`removeBackendObject()`；**1.2.0+** `queryPointCloudInfo` / `measurePointCloud` / `exportMeshToPly`（UI 线程）
-- `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()`；**1.4.0+** 末尾追加 `buildPrimitiveMeshSoup` / `booleanMeshSoups` / `booleanPrimitiveMeshes`（勿插入 vtable 中间）；升级宿主后须**重编译全部插件 DLL**
+- `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()`；**1.4.0+** 末尾追加 `buildPrimitiveMeshSoup` / `booleanMeshSoups` / `booleanPrimitiveMeshes`；**1.5.0+** `geometryHost()`；**1.6.0+** `captureActiveViewportPng()`（活动文档 3D 视口 PNG，供 geometry.recognize 等多模态域）；**1.7.0+** `IPluginGeometryHost` 新增 `listComputableBackends` / `pickStepElementFromViewport`（几何插件可直接驱动后端对象 + 视图拾取）；新 API 均追加在 vtable 末尾，勿插入中间；升级宿主后须**重编译全部插件 DLL**
 - 清单 `plugin.json` 中 `minHostVersion` 使用字符串 `"1.0.0"`
 - 运行时调用 `IPluginHostContext::hostVersion()` 比对
 
@@ -64,6 +64,9 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 | `registerTriangleMesh` | 三角 soup → `registerAdoptedMesh` |
 | `enqueueJob` / `invokeOnUiThread` | 线程边界 |
 | `pointCloudHost()` | **1.2.0+** 点云算法宿主（见下节） |
+| `geometryHost()` | **1.5.0+** 几何算法宿主（STEP/BRep 离散、求交、布尔） |
+| `geometryHost()->listComputableBackends` | **1.7.0+** 枚举活动文档可计算 STEP/BRep 后端 |
+| `geometryHost()->pickStepElementFromViewport` | **1.7.0+** 3D 视图一次拾取 edge/face 并返回 `PluginGeometryStepRef` |
 | `useChinese()` | 与主窗口 **Settings → Language** 一致（默认中文） |
 | `onLanguageChanged(callback)` | 语言切换时 UI 线程通知插件 |
 | `setSidePanelTabTitle(widget, titleUtf8)` | 更新侧栏 Tab 标题 |

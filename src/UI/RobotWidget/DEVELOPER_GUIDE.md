@@ -16,7 +16,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 
 | Area | Location |
 |------|----------|
-| Simulation dock (Instructions / Axis / Frames / **Trajectory Edit**) | `RobotSimulationDockWidget`, page widgets |
+| Simulation dock (Instructions / Axis / Frames / **Trajectory Generation** / **Trajectory Edit**) | `RobotSimulationDockWidget`, page widgets |
 | Orchestration | `RobotSimulationController` |
 | Host contracts | `IRobotMainWindowHost`, `IRobotDocumentHost`, `IRobotOsgViewHost` |
 | FK / matrix helpers | `RobotSimulationMath` |
@@ -25,6 +25,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 | 程序 JSON（多程序 / 分组 / v4） | `RobotProgramStore` → `RobotProgramCatalog`；序列化见 `RobotProgramJsonIo` |
 | 程序编辑撤销栈 | `ProgramEditService` + `ProgramEditStack`（`RobotScene`） |
 | 轨迹编辑流水线 | `TrajectoryEditPageWidget` / `TrajectoryEditSession` / `TrajectoryPipelineBuilder` |
+| **CAD 轨迹生成** | `FeatureTrajectoryPageWidget`：`FeatureSpec` → 离散 → `RawTrajectory` 写入 `TrajectoryEditSession` |
 | Property-panel feasible-axis query | `RobotInstructionPropertyEditor` |
 
 ## Widget integration
@@ -68,7 +69,9 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 ### `wireSimulationSignals`
 
-连接 `SimulationCommandWidget` / `RobotAxisControlWidget` / `RobotFrameSettingsWidget` / **`TrajectoryEditPageWidget`** 信号到 controller 槽。`ProgramEditService`、`TrajectoryEditSession` 在 dock 创建时实例化，文档就绪后 `bindStore`（`refreshSimulationProgramStore`）。
+连接 `SimulationCommandWidget` / `RobotAxisControlWidget` / `RobotFrameSettingsWidget` / **`TrajectoryEditPageWidget`** / **`FeatureTrajectoryPageWidget`** 信号到 controller 槽。`ProgramEditService`、`TrajectoryEditSession` 在 dock 创建时实例化，文档就绪后 `bindStore`（`refreshSimulationProgramStore`）。
+
+`FeatureTrajectoryPageWidget`：`bindHost` + `bindSession` + `setStepPathResolver`（`doc->meshBackendStepSourcePath`）；见 §CAD 轨迹生成。`TrajectoryEditPageWidget` 承接 session 内 RawTrajectory 的配方与生成程序。
 
 `QTabWidget::currentChanged` 须在 dock 与 `attachPlaybackTimer` 之后连接（见 `MainWindowUiSetup`），避免构造期 `stopRobotSimulation` 空指针。
 
@@ -159,9 +162,9 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 | `SimulationCommandWidget` | 指令树、Run/Stop、TCP 拖动；**程序下拉 / 新建 / 重命名 / 删除**；**指令**分组（PTP/LINE/…）与 **功能**分组（末端拖动/删除/清空）；Ctrl 多选 + 右键创建分组；`setProgramStore`、`activeProgramChanged` / `groupsChanged` |
 | `RobotAxisControlWidget` | 关节滑块；`setJointAngle` 内 `qBound` 限位 |
 | `RobotFrameSettingsWidget` | 工具/用户系；`framesChanged` → 叠加刷新 |
-| `TrajectoryEditPageWidget` | 轨迹编辑 Dock 子页：调色板 + 流水线 + 参数区 + 预览勾选/Apply/Reset/Undo |
+| `TrajectoryEditPageWidget` | 轨迹编辑 Dock 子页：**原始轨迹**配方区 + 调色板 + Program Op 流水线 + 参数区 + 预览勾选/Apply/Reset/Undo |
 | `InstructionProgramTreeWidget` | 层级指令树；`NodeKind::Group` 嵌套显示分组；Ctrl 多选根层级指令 → 右键创建分组；拖放维护 `memberInstructionIds`；`instructionSelected` → 预览 |
-| `TrajectoryEditSession` | 预览（临时改 store 中 pose）与 Apply（Command 落盘）；`reset` / `abandonPreview`；见 §轨迹编辑 |
+| `TrajectoryEditSession` | 预览（临时改 store 中 pose）与 Apply（Command 落盘）；`reset` / `abandonPreview`；**并行持有** `m_rawTrajectory`（`setRawTrajectory` / `rawTrajectoryChanged`，与 Program 预览快照解耦）；见 §轨迹编辑 |
 | `ProgramEditService` | `execute` / `undo` / `redo`；`revisionChanged` → 轨迹页 `syncUiAfterProgramRevision` + 指令树刷新 |
 | `DevicePageWidget` | URDF 导入 → `onUrdfImportRequested` |
 
@@ -187,9 +190,22 @@ Dock **机器人** 页内指令编辑区自上而下：
 
 ## 轨迹编辑（Trajectory Edit）
 
-Dock 第四页「轨迹编辑」。Dock 主标签为 **机器人** / Robot（原「指令仿真」）。默认中文 UI；`MainWindow::applyLanguage` → `trajectoryEditPage()->setUseChinese(m_useChinese)`。
+Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签为 **机器人** / Robot（原「指令仿真」）。默认中文 UI；`MainWindow::applyLanguage` → `trajectoryEditPage()->setUseChinese` / `featureTrajectoryPage()->setUseChinese`；页签索引见 `RobotSimulationDockWidget::kTabIndexTrajectoryGeneration` / `kTabIndexTrajectoryEdit`。
 
-### 组件与绑定
+### 原始轨迹（CAD 离散结果）
+
+页顶 **「原始轨迹」** 区与下方 Program Op 流水线 UI 分区，避免两套 Op 体系混淆：
+
+| 控件 | 行为 |
+|------|------|
+| 状态标签 | `TrajectoryEditSession::hasRawTrajectory()` → 点数；否则提示先在轨迹生成页离散 |
+| 配方下拉 | 焊缝 / 涂胶 / 打磨（`rawTrajectoryRecipe*Default`） |
+| 应用配方流水线 | session 取 raw 副本 → `applyRawTrajectoryPipeline` → 写回 session → OSG 预览 |
+| 生成程序 | `emitRawTrajectoryToProgram` → `mainProgram()` → 刷新指令树 |
+
+`rawTrajectoryChanged` 刷新状态；`reset()` / `abandonPreview` **不清** `m_rawTrajectory`。
+
+### 组件与绑定（Program Op 流水线）
 
 | 组件 | 职责 |
 |------|------|
@@ -312,7 +328,56 @@ flowchart LR
 - Delete 预览高亮、ghost 轨迹、`previewMotionWithAccess` FK 链未做
 - 预览直接改指令 `pose`，非 Run 级 FK 链（MVP 足够显示路点轴偏移）
 
-业务类型、算法块与 scope 解析见 [`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md) §12–§13、[`../TrajectoryAlgorithm/DEVELOPER_GUIDE.md`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md)。
+业务类型、算法块与 scope 解析见 [`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md) §12–§14、[`../TrajectoryAlgorithm/DEVELOPER_GUIDE.md`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md)。
+
+---
+
+## CAD 轨迹生成（Trajectory Generation）
+
+Dock 页签 **「轨迹生成」**（`FeatureTrajectoryPageWidget`，`kTabIndexTrajectoryGeneration`）。与 §轨迹编辑 区分：本页仅 **特征离散 → 原始 `RawTrajectory` 预览**；配方流水线与 `emitRawTrajectoryToProgram` 在轨迹编辑页完成。
+
+| 步骤 | UI / API |
+|------|----------|
+| 选 STEP 工件 | `m_backendCombo`：`className=="Model"`、id 非 `RobotURDF_*`、`meshBackendStepSourcePath` 扩展名 `.step`/`.stp` |
+| **3D 拾取边/面** | 复用 `MeshEdgeFacePickOperation` → `OsgWidget::meshPickCommitted` → `buildFeatureSpecFromModelPick`（世界坐标经 `feature_pick_transform::worldPointToStepModelMm` 反变换后 `resolveStepFace/EdgeIndex`） |
+| 面离散类型 | 拾取前下拉：`FaceBoundary` / `FaceUVGrid` |
+| 枚举特征目录 | `geometry_backend_ops::enumerateFeatureCatalog`（Catalog JSON ≠ FeatureSpec，须组装或 3D 拾取） |
+| 离散参数 UI | `m_discretizeGroup`：`applyDiscretizeUiToSpecJson` / `syncDiscretizeUiFromSpecJson` ↔ `FeatureSpec` JSON |
+| 离散预览 | `discretizeFeature` → `importRawPathToTrajectory` → `TrajectoryEditSession::setRawTrajectory` → `applyRawTrajectoryPreviewToOsg` |
+
+**离散参数 UI ↔ JSON**（V1 不增 schema 字段）：
+
+| 模式 | UI 控件 | JSON 路径 | 默认 |
+|------|---------|-----------|------|
+| 线/轮廓（`EdgeChain` / `FaceBoundary`） | 步距、曲线精度 | `discretize.stepMm`、`discretize.linearDeflectionMm` | 2.0 mm、0.01 mm |
+| 面网格（`FaceUVGrid`） | U/V 点数、网格旋转 | `refs.uvCountU/V`、`refs.gridAngleDeg` | 16×16、0° |
+
+拾取写 Spec 时 UI 当前值覆盖 `buildFeatureSpecFromModelPick` 默认；离散完成后状态栏显示实际点数（如「步距 2 mm → 共 N 点」或「UV 16×16 → 共 N 点」）。
+
+**3D 拾取数据流**：轨迹页「拾取边/面」→ `IRobotOsgViewHost::setMesh*PickMode` + `setMeshPickScopeBackendId`（当前 combo backend）→ 视口左键 → `MainWindowRobotHost::notifyMeshPickCommitted` → 自动填 `FeatureSpec` 并离散。
+
+**坐标系约定**：`RawTrajectory.points` 与 OCCT 离散结果同在 **STEP 文件坐标**（非视口世界坐标）。预览与 `emitRawTrajectoryToProgram` 前经 `feature_pick_transform::stepModelPointToWorldMm` / `transformRawTrajectoryToWorld` 按 **当前** `workpiece.backendIdUtf8` 的 `getBackendRootWorldMatrix` + `modelCenter` 变换（与 `ObjectGizmoFrame` / `buildOuterBranch` 一致）。session 内 raw 保持 file 坐标；工件移动后重新离散或刷新预览即可跟随。
+
+**预览叠加层**：原始轨迹用 `setRawTrajectoryOverlay`（折线 + 点）+ 可选 `setRawTrajectoryOverlayFrames`（稀疏 TCP 轴，默认 15 mm，X/Y/Z 红/绿/蓝）。UI「显示坐标轴」+「轴间隔」（0 = 自动 max(1, n/20)，最多 50 轴）。`RobotSimulationController::m_rawTrajectoryPreviewActive` 时跳过 `refreshInstructionPoseAxes`，避免被指令树预览覆盖。选中指令树节点会清除 raw 预览并恢复指令路点轴。
+
+**生成程序后显示**：`TrajectoryEditPageWidget::onRawEmitProgram` 在 `refreshInstructionList()` 后调用 `refreshInstructionPoseAxes(false)` 并 `clearRawTrajectoryOverlay` / `clearRawTrajectoryOverlayFrames`，3D 立即显示指令 TCP 轴，无需再点树。`emitRawTrajectoryToProgram` 写入 LINE 后**默认创建分组**（组名 = `sourceFeature.featureId`，成员 = 全部可达 LINE id）。
+
+**当前特征锁定**：3D 拾取或离散成功后缓存 `FeatureSpec`；调整离散参数时自动对**上次特征**重新离散（400 ms 防抖），无需再次拾取；编辑器仍为 catalog JSON 时不影响参数调参。
+
+**性能**：指令树选中时 `refreshInstructionPoseAxes(false)`（不算全程序可达性）；树选择 50 ms debounce；程序步数 &gt; 100 时 `rebuildFromProgram` 不 `expandAll`。大量路点写入程序后树操作仍较重，建议适当增大离散步距或后续使用路径分组 emit。
+
+**V1 限制**：单次拾取一条边或一个面；层级 STEP 子件共享整件 STEP 索引；索引解析容差默认 2 mm；已 emit 的 LINE 为发射时刻世界坐标，工件再移动不会自动更新程序。
+
+数据流：`FeatureTrajectoryPage` 离散 → `TrajectoryEditSession::m_rawTrajectory` → `TrajectoryEditPage` 应用配方 / 生成程序。
+
+| 依赖 | 说明 |
+|------|------|
+| `geometry_backend_ops` | [`Data/inc/GeometryRef.h`](../../Data/Data/inc/GeometryRef.h) |
+| `RawTrajectory` | [`RobotScene/inc/RawTrajectory.h`](../../Robot/RobotScene/inc/RawTrajectory.h) |
+| STEP 路径 | `IRobotDocumentHost::meshBackendStepSourcePath`（`DocumentHost::backendSourcePath`） |
+| 预览 | `setRawTrajectoryOverlay` / `setRawTrajectoryOverlayFrames` / `clearRawTrajectoryOverlay*`；指令路点仍用 `setInstructionPoseAxes` |
+
+AI 入口：领域 `trajectory.feature`（`TrajectoryFeatureDomainHandler`）校验 LLM 输出的 `features[]`；规则回退 `suggestFeaturesFromCatalog`。见 [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md)、[`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md)。
 
 ---
 

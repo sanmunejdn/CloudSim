@@ -1,6 +1,12 @@
 #include "TrajectoryEditPageWidget.h"
 
+#include "FeaturePickTransform.h"
+#include "IRobotMainWindowHost.h"
+#include "IRobotOsgViewHost.h"
 #include "ProgramEditService.h"
+#include "RobotOsgUiTypes.h"
+#include "RobotSimulationController.h"
+#include "RawTrajectory.h"
 #include "SimulationCommandWidget.h"
 #include "TrajectoryEditSession.h"
 #include "TrajectoryOpParamPanel.h"
@@ -129,6 +135,21 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	root->setContentsMargins(6, 6, 6, 6);
 	root->setSpacing(6);
 
+	m_rawGroupBox = new QGroupBox(QStringLiteral("原始轨迹"), this);
+	auto* rawLayout = new QVBoxLayout(m_rawGroupBox);
+	m_rawStatusLabel = new QLabel(this);
+	rawLayout->addWidget(m_rawStatusLabel);
+	m_rawRecipeCombo = new QComboBox(m_rawGroupBox);
+	m_rawRecipeCombo->addItem(QStringLiteral("焊缝默认"), QStringLiteral("weld"));
+	m_rawRecipeCombo->addItem(QStringLiteral("涂胶默认"), QStringLiteral("glue"));
+	m_rawRecipeCombo->addItem(QStringLiteral("打磨默认"), QStringLiteral("grind"));
+	rawLayout->addWidget(m_rawRecipeCombo);
+	m_rawApplyBtn = new QPushButton(QStringLiteral("应用配方流水线"), m_rawGroupBox);
+	m_rawEmitBtn = new QPushButton(QStringLiteral("生成程序"), m_rawGroupBox);
+	rawLayout->addWidget(m_rawApplyBtn);
+	rawLayout->addWidget(m_rawEmitBtn);
+	root->addWidget(m_rawGroupBox);
+
 	auto* scopeRow = new QHBoxLayout;
 	m_programLabel = new QLabel(QStringLiteral("程序"), this);
 	scopeRow->addWidget(m_programLabel);
@@ -213,6 +234,8 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	connect(m_redoBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onRedoClicked);
 	connect(m_saveTemplateBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onSaveTemplateClicked);
 	connect(m_loadTemplateBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onLoadTemplateClicked);
+	connect(m_rawApplyBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onRawApplyRecipe);
+	connect(m_rawEmitBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onRawEmitProgram);
 
 	connect(m_paramPanel, &TrajectoryOpParamPanel::paramsChanged, this, [this]() {
 		if (!m_loadingParams)
@@ -286,6 +309,19 @@ void TrajectoryEditPageWidget::updateUiLabels()
 	{
 		m_loadTemplateBtn->setText(zh ? QStringLiteral("加载模板") : QStringLiteral("Load template"));
 	}
+	if (m_rawGroupBox)
+	{
+		m_rawGroupBox->setTitle(zh ? QStringLiteral("原始轨迹") : QStringLiteral("Raw trajectory"));
+	}
+	if (m_rawApplyBtn)
+	{
+		m_rawApplyBtn->setText(zh ? QStringLiteral("应用配方流水线") : QStringLiteral("Apply recipe pipeline"));
+	}
+	if (m_rawEmitBtn)
+	{
+		m_rawEmitBtn->setText(zh ? QStringLiteral("生成程序") : QStringLiteral("Emit program"));
+	}
+	refreshRawTrajectoryStatus();
 }
 
 void TrajectoryEditPageWidget::setUseChinese(const bool chinese)
@@ -319,6 +355,7 @@ void TrajectoryEditPageWidget::setReadOnly(const bool readOnly)
 		m_redoBtn,
 		m_saveTemplateBtn,
 		m_loadTemplateBtn,
+		m_rawRecipeCombo,
 	};
 	for (QWidget* w : widgets)
 	{
@@ -327,12 +364,14 @@ void TrajectoryEditPageWidget::setReadOnly(const bool readOnly)
 			w->setEnabled(!readOnly);
 		}
 	}
+	refreshRawTrajectoryStatus();
 }
 
 void TrajectoryEditPageWidget::bindStore(RobotProgramStore* store)
 {
 	m_store = store;
 	refreshProgramAndGroupCombos();
+	refreshRawTrajectoryStatus();
 }
 
 void TrajectoryEditPageWidget::bindEditService(ProgramEditService* service)
@@ -353,7 +392,239 @@ void TrajectoryEditPageWidget::bindEditService(ProgramEditService* service)
 
 void TrajectoryEditPageWidget::bindSession(TrajectoryEditSession* session)
 {
+	if (m_session)
+	{
+		disconnect(m_session, nullptr, this, nullptr);
+	}
 	m_session = session;
+	if (m_session)
+	{
+		connect(m_session, &TrajectoryEditSession::rawTrajectoryChanged, this, [this]() {
+			refreshRawTrajectoryStatus();
+		});
+	}
+	refreshRawTrajectoryStatus();
+}
+
+void TrajectoryEditPageWidget::bindSimulationController(RobotSimulationController* controller)
+{
+	m_simController = controller;
+}
+
+void TrajectoryEditPageWidget::bindHost(IRobotMainWindowHost* host)
+{
+	m_host = host;
+}
+
+void TrajectoryEditPageWidget::refreshRawTrajectoryStatus()
+{
+	const bool zh = m_useChinese;
+	if (!m_rawStatusLabel)
+	{
+		return;
+	}
+	if (!m_session || !m_session->hasRawTrajectory())
+	{
+		m_rawStatusLabel->setText(zh ? QStringLiteral("请先在轨迹生成页离散")
+			: QStringLiteral("Discretize on Trajectory Generation tab first"));
+		if (m_rawApplyBtn)
+		{
+			m_rawApplyBtn->setEnabled(false);
+		}
+		if (m_rawEmitBtn)
+		{
+			m_rawEmitBtn->setEnabled(false);
+		}
+		return;
+	}
+	const RobotInstruction::RawTrajectory* traj = m_session->rawTrajectory();
+	const int n = traj ? static_cast<int>(traj->points.size()) : 0;
+	m_rawStatusLabel->setText(zh ? QStringLiteral("原始轨迹：%1 点").arg(n)
+		: QStringLiteral("Raw trajectory: %1 points").arg(n));
+	if (m_rawApplyBtn)
+	{
+		m_rawApplyBtn->setEnabled(!m_readOnly);
+	}
+	if (m_rawEmitBtn)
+	{
+		m_rawEmitBtn->setEnabled(!m_readOnly && m_store != nullptr);
+	}
+}
+
+std::string TrajectoryEditPageWidget::resolvePreviewBackendId(const RobotInstruction::RawTrajectory& traj) const
+{
+	if (!traj.sourceFeature.workpiece.backendIdUtf8.empty())
+	{
+		return traj.sourceFeature.workpiece.backendIdUtf8;
+	}
+	return {};
+}
+
+void TrajectoryEditPageWidget::showRawTrajectoryPreview(const RobotInstruction::RawTrajectory& traj)
+{
+	if (!m_host)
+	{
+		return;
+	}
+	IRobotOsgViewHost* osg = m_host->osgView();
+	if (!osg)
+	{
+		return;
+	}
+	const std::string backendId = resolvePreviewBackendId(traj);
+	if (backendId.empty())
+	{
+		if (m_host)
+		{
+			m_host->appendRunWarning(m_useChinese ? QStringLiteral("轨迹预览：FeatureSpec 缺少 workpiece.backendIdUtf8")
+				: QStringLiteral("Trajectory preview: missing workpiece.backendIdUtf8"));
+		}
+		return;
+	}
+	if (traj.points.empty())
+	{
+		return;
+	}
+	RobotOsgUi::RawTrajectoryPreviewOptions options;
+	options.showAxes = true;
+	options.axisInterval = 0;
+	options.maxAxes = 50;
+	std::string err;
+	feature_pick_transform::applyRawTrajectoryPreviewToOsg(osg, backendId, traj, options, &err);
+	if (!err.empty())
+	{
+		if (m_host)
+		{
+			m_host->appendRunWarning(QString::fromStdString(err));
+		}
+		if (m_simController)
+		{
+			m_simController->setRawTrajectoryPreviewActive(false);
+		}
+		return;
+	}
+	if (m_simController)
+	{
+		m_simController->setRawTrajectoryPreviewActive(true);
+	}
+	osg->requestRedraw();
+}
+
+void TrajectoryEditPageWidget::onRawApplyRecipe()
+{
+	if (!m_session || !m_session->hasRawTrajectory())
+	{
+		return;
+	}
+	const RobotInstruction::RawTrajectory* src = m_session->rawTrajectory();
+	if (!src)
+	{
+		return;
+	}
+	RobotInstruction::RawTrajectory traj = *src;
+	const QString recipe = m_rawRecipeCombo->currentData().toString();
+	std::vector<RobotInstruction::RawTrajectoryOpDescriptor> ops;
+	if (recipe == QStringLiteral("glue"))
+	{
+		ops = RobotInstruction::rawTrajectoryRecipeGlueDefault();
+	}
+	else if (recipe == QStringLiteral("grind"))
+	{
+		ops = RobotInstruction::rawTrajectoryRecipeGrindDefault();
+	}
+	else
+	{
+		ops = RobotInstruction::rawTrajectoryRecipeWeldDefault();
+	}
+	std::string err;
+	if (!RobotInstruction::applyRawTrajectoryPipeline(ops, traj, &err))
+	{
+		QMessageBox::warning(this, QStringLiteral("配方"), QString::fromStdString(err));
+		return;
+	}
+	m_session->setRawTrajectory(traj);
+	showRawTrajectoryPreview(traj);
+	if (m_host)
+	{
+		m_host->appendRunInfo(m_useChinese ? QStringLiteral("配方已应用")
+			: QStringLiteral("Recipe applied"));
+	}
+}
+
+void TrajectoryEditPageWidget::onRawEmitProgram()
+{
+	if (!m_session || !m_store || !m_session->hasRawTrajectory())
+	{
+		return;
+	}
+	const RobotInstruction::RawTrajectory* src = m_session->rawTrajectory();
+	if (!src)
+	{
+		return;
+	}
+	RobotInstruction::RobotProgram* prog = m_store->activeCatalog().mainProgram();
+	if (!prog)
+	{
+		return;
+	}
+	const std::string backendId = resolvePreviewBackendId(*src);
+	if (backendId.empty())
+	{
+		QMessageBox::warning(this, QStringLiteral("生成"),
+			m_useChinese ? QStringLiteral("FeatureSpec 缺少 workpiece.backendIdUtf8")
+				: QStringLiteral("FeatureSpec missing workpiece.backendIdUtf8"));
+		return;
+	}
+	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
+	if (!osg)
+	{
+		return;
+	}
+	RobotInstruction::RawTrajectory worldTraj;
+	std::string err;
+	std::string emittedGroupId;
+	if (!feature_pick_transform::transformRawTrajectoryToWorld(osg, backendId, *src, worldTraj, &err))
+	{
+		QMessageBox::warning(this, QStringLiteral("生成"), QString::fromStdString(err));
+		return;
+	}
+	if (!RobotInstruction::emitRawTrajectoryToProgram(worldTraj, *prog, &err, &emittedGroupId))
+	{
+		QMessageBox::warning(this, QStringLiteral("生成"), QString::fromStdString(err));
+		return;
+	}
+	if (m_simController)
+	{
+		m_simController->setRawTrajectoryPreviewActive(false);
+	}
+	if (m_commandPage)
+	{
+		m_commandPage->refreshInstructionList();
+	}
+	if (!emittedGroupId.empty())
+	{
+		m_selectedGroupId = emittedGroupId;
+	}
+	refreshProgramAndGroupCombos();
+	if (m_simController)
+	{
+		m_simController->refreshInstructionPoseAxes(false);
+	}
+	if (osg)
+	{
+		osg->clearRawTrajectoryOverlay();
+		osg->clearRawTrajectoryOverlayFrames();
+		osg->requestRedraw();
+	}
+	if (m_host)
+	{
+		const QString groupName = src->sourceFeature.featureId.empty()
+			? QStringLiteral("RawTrajectory")
+			: QString::fromStdString(src->sourceFeature.featureId);
+		m_host->appendRunInfo(m_useChinese
+			? QStringLiteral("已写入主程序，分组「%1」").arg(groupName)
+			: QStringLiteral("Written to main program, group \"%1\"").arg(groupName));
+	}
 }
 
 void TrajectoryEditPageWidget::bindCommandPage(SimulationCommandWidget* commandPage)

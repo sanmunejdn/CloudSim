@@ -10,6 +10,7 @@
 #include "OsgWidget.h"
 
 #include "../../OsgWidgetCore/inc/OsgScene.h"
+#include "../../OsgWidgetCore/inc/PickTypes.h"
 #include "../RobotWidget/inc/IRobotOsgViewHost.h"
 #include "../RobotWidget/inc/RobotOsgUiTypes.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
@@ -138,6 +139,10 @@ public:
 		m_page->setSuppressRobotFollowDirtyNotify(suppress);
 	}
 	void clearFollowDirtyBackendIds() override { m_page->clearFollowDirtyBackendIds(); }
+	QString meshBackendStepSourcePath(const QString& backendId) const override
+	{
+		return m_page->backendSourcePath().value(backendId);
+	}
 
 private:
 	DocumentPage* m_page = nullptr;
@@ -201,6 +206,35 @@ public:
 		m_osg->setInstructionPoseAxes(converted);
 	}
 	void clearInstructionPoseAxes() override { m_osg->clearInstructionPoseAxes(); }
+	void setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points) override
+	{
+		std::vector<OsgWidget::RawTrajectoryOverlayVertex> converted;
+		converted.reserve(points.size());
+		for (const RobotOsgUi::RawTrajectoryOverlayVertex& v : points)
+		{
+			OsgWidget::RawTrajectoryOverlayVertex o;
+			o.positionMm = v.positionMm;
+			o.reachable = v.reachable;
+			converted.push_back(o);
+		}
+		m_osg->setRawTrajectoryOverlay(converted);
+	}
+	void clearRawTrajectoryOverlay() override { m_osg->clearRawTrajectoryOverlay(); }
+	void setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& frames) override
+	{
+		std::vector<OsgWidget::RawTrajectoryOverlayFrame> converted;
+		converted.reserve(frames.size());
+		for (const RobotOsgUi::RawTrajectoryOverlayFrame& f : frames)
+		{
+			OsgWidget::RawTrajectoryOverlayFrame o;
+			o.positionMm = f.positionMm;
+			o.eulerDeg = f.eulerDeg;
+			o.reachable = f.reachable;
+			converted.push_back(o);
+		}
+		m_osg->setRawTrajectoryOverlayFrames(converted);
+	}
+	void clearRawTrajectoryOverlayFrames() override { m_osg->clearRawTrajectoryOverlayFrames(); }
 	void setCameraFollowBackendId(const std::string& backendId) override
 	{
 		m_osg->setCameraFollowBackendId(backendId);
@@ -256,6 +290,16 @@ public:
 	void updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLocalOnFlange) override
 	{
 		m_osg->updateTcpDragTeachToolLocalOnFlange(toolLocalOnFlange);
+	}
+
+	void setMeshLinePickMode(const bool enabled) override { m_osg->setMeshLinePickMode(enabled); }
+	void setMeshFacePickMode(const bool enabled) override { m_osg->setMeshFacePickMode(enabled); }
+	bool meshLinePickMode() const override { return m_osg->meshLinePickMode(); }
+	bool meshFacePickMode() const override { return m_osg->meshFacePickMode(); }
+	void setMeshPickScopeBackendId(const std::string& backendId) override
+	{
+		m_osg->syncSelectionForBackendId(backendId);
+		m_osg->setSelectionActive(true);
 	}
 
 private:
@@ -430,4 +474,22 @@ bool MainWindowRobotHost::planRobotMotionInstruction(
 		*outErr = hostErr.toStdString();
 	}
 	return ok;
+}
+
+void MainWindowRobotHost::setMeshPickCommittedHandler(std::function<void(const PickResult&, PickKind)> handler)
+{
+	m_meshPickHandler = std::move(handler);
+}
+
+void MainWindowRobotHost::clearMeshPickCommittedHandler()
+{
+	m_meshPickHandler = {};
+}
+
+void MainWindowRobotHost::notifyMeshPickCommitted(const PickResult& pick, const PickKind kind)
+{
+	if (m_meshPickHandler)
+	{
+		m_meshPickHandler(pick, kind);
+	}
 }

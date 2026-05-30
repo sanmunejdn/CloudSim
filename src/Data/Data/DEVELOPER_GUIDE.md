@@ -193,6 +193,22 @@ STEP/DXF 层级导入中间结构：`partPath`, `parentPartPath`, `displayName`,
 
 DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 通常为 **世界坐标**；Host 导入时用 `skipInnerModelCenterRebase` 且**不做** Follow 求解（见 [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.1a）。
 
+### 4.4 CAD 轨迹几何桥接（`GeometryRef.h` / `GeometryBackendOps.cpp`）
+
+场景显示仍为 `MeshBackendData` 三角 soup；**特征离散**在运行时从 STEP 临时加载 B-rep（`geoalgo::readStepShape`），不经 Data 持久化 `TopoDS_Shape`。
+
+| 类型 / API | 说明 |
+|------------|------|
+| `geometry_backend_ops::GeometryRef` | `backendIdUtf8` + `stepPathUtf8` + `frameId`；`stepPathUtf8` 与 `DocumentHost::backendSourcePath` 对齐 |
+| `resolveGeometryRef` | 填充 `geoalgo::WorkpieceRef` |
+| `discretizeFeature` / `discretizeFeatures` | 转发 `geoalgo::discretizeFeature` |
+| `validateFeatureSpec` | 转发 `validateFeatureSpecWithShape`（含索引范围） |
+| `enumerateFeatureCatalog` | 边/面目录，供 UI 与 LLM grounding |
+| `featureSpecFromJson` / `featureSpecToJson` | JSON 契约 |
+| `suggestFeaturesFromCatalog` | 规则启发式（焊/胶/磨意图关键词） |
+
+UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP 路径（`MainWindowRobotHost::DocumentHost` 转发 `DocumentPage::backendSourcePath()`）。
+
 ---
 
 ## 5. 属性基础设施

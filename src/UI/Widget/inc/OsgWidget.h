@@ -33,8 +33,13 @@
 #include "GraphicsWindowQt1.h"
 #include "IRobotBackendPoseSink.h"
 #include "../../OsgWidgetCore/inc/OsgScene.h"
+#include "../../OsgWidgetCore/inc/PickTypes.h"
+
+#include <QMetaType>
 
 #include <RigidTransform.h>
+
+Q_DECLARE_METATYPE(PickResult)
 
 namespace osg {
 class Group;
@@ -123,6 +128,8 @@ public:
 	bool captureImportedPointCloudBackend(PointCloudBackendData& out, QString* errorMessage = nullptr);
 	bool captureImportedMeshBackend(MeshBackendData& out, QString* errorMessage = nullptr);
 	bool captureImportedMeshBackendHierarchy(std::vector<MeshCapturedPart>& outParts, QString* errorMessage = nullptr);
+	bool captureViewportPng(QByteArray& outPng, QString* errorMessage = nullptr, int maxWidth = 768,
+		int maxHeight = 768);
 	bool loadPointCloudFromBackendData(const PointCloudBackendData& data, QString* errorMessage = nullptr,
 		bool resetViewToHome = true);
 	bool loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage = nullptr, bool resetViewToHome = true,
@@ -197,6 +204,23 @@ public:
 	void removeHierarchicalRobotScene(const QString& backendId);
 	void setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& axes);
 	void clearInstructionPoseAxes();
+
+	struct RawTrajectoryOverlayVertex
+	{
+		osg::Vec3f positionMm;
+		bool reachable = true;
+	};
+	void setRawTrajectoryOverlay(const std::vector<RawTrajectoryOverlayVertex>& points);
+	void clearRawTrajectoryOverlay();
+
+	struct RawTrajectoryOverlayFrame
+	{
+		osg::Vec3f positionMm;
+		osg::Vec3f eulerDeg;
+		bool reachable = true;
+	};
+	void setRawTrajectoryOverlayFrames(const std::vector<RawTrajectoryOverlayFrame>& frames);
+	void clearRawTrajectoryOverlayFrames();
 
 	struct RobotFrameOverlayUpdate
 	{
@@ -337,6 +361,7 @@ signals:
 	void selectionCanceledByEsc();
 	void pointPickFeedback(const QString& text);
 	void meshPickFeedback(const QString& text);
+	void meshPickCommitted(PickResult pick, int pickKind);
 	void annotationCreated(const QString& annotationId, const QString& displayText);
 	void annotationRemoved(const QString& annotationId);
 	void annotationVisibilityChanged(const QString& annotationId, bool visible);
@@ -406,6 +431,8 @@ private:
 	osg::ref_ptr<osg::Group> m_instructionPoseAxesGroup;
 	/// 指令 TCP 轴直接挂连杆容器，重建/清空前须 detach
 	std::vector<osg::ref_ptr<osg::MatrixTransform>> m_instructionPoseAxisNodes;
+	osg::ref_ptr<osg::Geode> m_rawTrajectoryOverlayGeode;
+	osg::ref_ptr<osg::Group> m_rawTrajectoryFramesGroup;
 	struct RobotFrameOverlayNodes
 	{
 		std::vector<osg::ref_ptr<osg::MatrixTransform>> toolNodes;

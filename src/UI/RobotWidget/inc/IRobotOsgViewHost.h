@@ -9,6 +9,9 @@
 
 #include <osg/Matrixd>
 
+struct PickResult;
+enum class PickKind;
+
 class IRobotBackendPoseSink;
 namespace engine { class RigidTransform; }
 
@@ -33,6 +36,10 @@ public:
 
 	virtual void setInstructionPoseAxes(const std::vector<RobotOsgUi::InstructionPoseAxis>& axes) = 0;
 	virtual void clearInstructionPoseAxes() = 0;
+	virtual void setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points) = 0;
+	virtual void clearRawTrajectoryOverlay() = 0;
+	virtual void setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& frames) = 0;
+	virtual void clearRawTrajectoryOverlayFrames() = 0;
 	virtual void setCameraFollowBackendId(const std::string& backendId) = 0;
 
 	virtual void setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverlayUpdate& update) = 0;
@@ -50,4 +57,10 @@ public:
 		const engine::RigidTransform& T_base_target,
 		bool syncTargetInBase = true) = 0;
 	virtual void updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLocalOnFlange) = 0;
+
+	virtual void setMeshLinePickMode(bool enabled) = 0;
+	virtual void setMeshFacePickMode(bool enabled) = 0;
+	virtual bool meshLinePickMode() const = 0;
+	virtual bool meshFacePickMode() const = 0;
+	virtual void setMeshPickScopeBackendId(const std::string& backendId) = 0;
 };

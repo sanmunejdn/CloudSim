@@ -11,6 +11,8 @@
 | 数据契约 | `RobotInstruction::TrajectoryOpDescriptor` / `OpScope` 定义在 [`RobotScene/inc/TrajectoryPipelineTypes.h`](../RobotScene/inc/TrajectoryPipelineTypes.h) |
 | UI 访问 | `RobotWidget` **不**直接链接本库；经 [`RobotScene/inc/TrajectoryOpBridge.h`](../RobotScene/inc/TrajectoryOpBridge.h) 导出 API，保证单例 `TrajectoryOpRegistry` |
 
+**与 CAD 轨迹流水线的边界**：[`RobotScene/inc/RawTrajectory.h`](../RobotScene/inc/RawTrajectory.h) 定义 `RawTrajectoryOpKind`（Resample、OffsetAlongNormal、Weave 等），作用于 **离散后、写入 Program 前** 的 TCP 轨迹；本库的 `ITrajectoryOp` 作用于 **已有 `RobotProgram` 路点** 的装饰编辑（Translate/Rotate/Delete/Duplicate）。二者在 `emitRawTrajectoryToProgram` / 轨迹编辑页汇合。
+
 依赖方向：`TrajectoryAlgorithm` → `GeometryEngine` + RobotScene 头文件；**不得** include `ProgramEditCommand.h` 或 Qt。
 
 ---

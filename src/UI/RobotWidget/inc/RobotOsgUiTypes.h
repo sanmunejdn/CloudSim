@@ -48,6 +48,46 @@ struct InstructionPoseAxis
 
 
 
+struct RawTrajectoryOverlayVertex
+
+{
+
+	osg::Vec3f positionMm;
+
+	bool reachable = true;
+
+};
+
+
+
+struct RawTrajectoryOverlayFrame
+
+{
+
+	osg::Vec3f positionMm;
+
+	osg::Vec3f eulerDeg;
+
+	bool reachable = true;
+
+};
+
+
+
+struct RawTrajectoryPreviewOptions
+
+{
+
+	bool showAxes = true;
+
+	int axisInterval = 0;
+
+	int maxAxes = 50;
+
+};
+
+
+
 struct RobotFrameOverlayUpdate
 
 {

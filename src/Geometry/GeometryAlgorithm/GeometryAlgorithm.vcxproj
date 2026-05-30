@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}</ProjectGuid>
+    <RootNamespace>GeometryAlgorithm</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)GeometryAlgorithm\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)GeometryAlgorithm\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(SolutionDir)../bin/x86d/</OutDir>
+    <IntDir>$(SolutionDir)../bin/x86dmiddle/GeometryAlgorithm/</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(SolutionDir)../bin/x86/</OutDir>
+    <IntDir>$(SolutionDir)../bin/x86middle/GeometryAlgorithm/</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>GEOMETRY_ALGORITHM_STATIC;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>inc;source;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>GEOMETRY_ALGORITHM_STATIC;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>inc;source;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <UndefinePreprocessorDefinitions>_DEBUG</UndefinePreprocessorDefinitions>
+      <PreprocessorDefinitions>GEOMETRY_ALGORITHM_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>inc;source;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-gd-x64-1_79.lib;boost_date_time-vc142-mt-gd-x64-1_79.lib;libboost_exception-vc142-mt-gd-x64-1_79.lib;boost_filesystem-vc142-mt-gd-x64-1_79.lib;boost_graph-vc142-mt-gd-x64-1_79.lib;boost_iostreams-vc142-mt-gd-x64-1_79.lib;boost_locale-vc142-mt-gd-x64-1_79.lib;boost_math_c99-vc142-mt-gd-x64-1_79.lib;boost_math_c99f-vc142-mt-gd-x64-1_79.lib;boost_math_c99l-vc142-mt-gd-x64-1_79.lib;boost_math_tr1-vc142-mt-gd-x64-1_79.lib;boost_math_tr1f-vc142-mt-gd-x64-1_79.lib;boost_math_tr1l-vc142-mt-gd-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_random-vc142-mt-gd-x64-1_79.lib;boost_regex-vc142-mt-gd-x64-1_79.lib;boost_serialization-vc142-mt-gd-x64-1_79.lib;boost_system-vc142-mt-gd-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_thread-vc142-mt-gd-x64-1_79.lib;boost_unit_test_framework-vc142-mt-gd-x64-1_79.lib;boost_wserialization-vc142-mt-gd-x64-1_79.lib;TKernel.lib;TKMath.lib;TKG2d.lib;TKG3d.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKMesh.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKShHealing.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/lib;../../../../bin/SDK/boost_1_79_0/lib64-msvc-14.2;../../../../bin/SDK/opencascade-7.9.3-vc14-64/win64/vc14/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>GEOMETRY_ALGORITHM_LIB;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>inc;source;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-x64-1_79.lib;boost_date_time-vc142-mt-x64-1_79.lib;libboost_exception-vc142-mt-x64-1_79.lib;boost_filesystem-vc142-mt-x64-1_79.lib;boost_graph-vc142-mt-x64-1_79.lib;boost_iostreams-vc142-mt-x64-1_79.lib;boost_locale-vc142-mt-x64-1_79.lib;boost_math_c99-vc142-mt-x64-1_79.lib;boost_math_c99f-vc142-mt-x64-1_79.lib;boost_math_c99l-vc142-mt-x64-1_79.lib;boost_math_tr1-vc142-mt-x64-1_79.lib;boost_math_tr1f-vc142-mt-x64-1_79.lib;boost_math_tr1l-vc142-mt-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-x64-1_79.lib;boost_random-vc142-mt-x64-1_79.lib;boost_regex-vc142-mt-x64-1_79.lib;boost_serialization-vc142-mt-x64-1_79.lib;boost_system-vc142-mt-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-x64-1_79.lib;boost_thread-vc142-mt-x64-1_79.lib;boost_unit_test_framework-vc142-mt-x64-1_79.lib;boost_wserialization-vc142-mt-x64-1_79.lib;TKernel.lib;TKMath.lib;TKG2d.lib;TKG3d.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKMesh.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKShHealing.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/lib;../../../../bin/SDK/boost_1_79_0/lib64-msvc-14.2;../../../../bin/SDK/opencascade-7.9.3-vc14-64/win64/vc14/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\geometry_algorithm_global.h" />
+    <ClInclude Include="inc\Types.h" />
+    <ClInclude Include="inc\ShapeQuery.h" />
+    <ClInclude Include="inc\Discretize.h" />
+    <ClInclude Include="inc\MeshDiscretize.h" />
+    <ClInclude Include="inc\Intersection.h" />
+    <ClInclude Include="inc\BrepBoolean.h" />
+    <ClInclude Include="inc\WireOps.h" />
+    <ClInclude Include="inc\ShellOps.h" />
+    <ClInclude Include="inc\GeoMeshBoolean.h" />
+    <ClInclude Include="inc\SelfTest.h" />
+    <ClInclude Include="inc\FeatureSpec.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\ShapeQuery.cpp" />
+    <ClCompile Include="source\ShapeIo.cpp" />
+    <ClCompile Include="source\Discretize.cpp" />
+    <ClCompile Include="source\DiscretizeEdge.cpp" />
+    <ClCompile Include="source\MeshDiscretize.cpp" />
+    <ClCompile Include="source\Intersection.cpp" />
+    <ClCompile Include="source\BrepBoolean.cpp" />
+    <ClCompile Include="source\WireOps.cpp" />
+    <ClCompile Include="source\ShellOps.cpp" />
+    <ClCompile Include="source\MeshBoolean.cpp" />
+    <ClCompile Include="source\SelfTest.cpp" />
+    <ClCompile Include="source\FeatureDiscretize.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets" />
+</Project>

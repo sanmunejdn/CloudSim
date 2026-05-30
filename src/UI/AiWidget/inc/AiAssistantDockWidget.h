@@ -7,6 +7,7 @@
 
 class QComboBox;
 class IAiAssistantHost;
+class QLabel;
 class QTextBrowser;
 class QLineEdit;
 class QPushButton;
@@ -27,20 +28,28 @@ public:
 	void setAiHost(IAiAssistantHost* host);
 
 	QString selectedDomainId() const;
+	void showRecognitionResult(const QByteArray& jsonUtf8, const QString& parserVia);
+	void hideCreateFromRecognitionButton();
 
 signals:
 	void messageSubmitted(const QString& text);
+	void createFromRecognitionClicked();
 
 private slots:
 	void onSendClicked();
 	void onSettingsClicked();
+	void onDomainChanged(int index);
 
 private:
+	static QString prefixWithParser(const QString& parserVia, const QString& text);
+
 	bool m_useChinese = true;
 	IAiAssistantHost* m_aiHost = nullptr;
 	QComboBox* m_domainCombo = nullptr;
+	QLabel* m_viewportHint = nullptr;
 	QTextBrowser* m_history = nullptr;
 	QLineEdit* m_input = nullptr;
 	QPushButton* m_settingsBtn = nullptr;
 	QPushButton* m_sendBtn = nullptr;
+	QPushButton* m_createFromRecognitionBtn = nullptr;
 };

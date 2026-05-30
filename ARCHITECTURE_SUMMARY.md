@@ -39,6 +39,7 @@
 - `BackendVisual`：数据对象到 OSG 场景分支的可视化适配。
 - `OsgWidgetCore`：与 Qt 无关的 OSG 场景核心（相机、拾取、标注、场景树）。
 - `GeometryEngine`：Eigen 刚体变换（`engine::RigidTransform`）、工具链 `ToolKinematics`、OSG/`BackendMat4` 适配；示教/IK/指令位姿统一入口（见 [`GeometryEngine/DEVELOPER_GUIDE.md`](GeometryEngine/DEVELOPER_GUIDE.md)）。
+- `GeometryAlgorithm`：OCC/CGAL CAD 离散、求交、B-rep/网格布尔；**`FeatureSpec` 统一特征离散**（`discretizeFeature` → `RawPath`）；x64 独立 DLL，由 `Data` / `CloudSimPluginHost` 链入（见 [`GeometryAlgorithm/DEVELOPER_GUIDE.md`](GeometryAlgorithm/DEVELOPER_GUIDE.md)）。
 - `RobotKinematics`：串联机械臂运动学计算。
 - `RobotUrdf`：URDF 解析与层级机器人场景构建。
 - `RobotScene`：机器人指令模型、规划/回放引擎、仿真逻辑。
@@ -286,8 +287,29 @@ flowchart TD
 
 - 承担“仿真业务逻辑”和“执行状态机”，不承载 UI。
 - 通过接口与 `DocumentPage/OsgWidget` 交互（解耦仿真与表现层）。
+- **CAD 轨迹中间层**：`RawTrajectory`（`RawPath` 导入 → 编辑 Op 流水线 → `emitRawTrajectoryToProgram`）；工艺=配方模板，无 `process.type` 分支（见 **6.4.1**）。
 
-### 4.8.1 运动轴配置（通用术语与厂商对照）
+### 4.8.1 CAD 轨迹生成（特征离散 + 编辑）
+
+```mermaid
+flowchart LR
+  Spec[FeatureSpec] --> Disc[discretizeFeature]
+  Disc --> RawPath[RawPath]
+  RawPath --> Import[importRawPathToTrajectory]
+  Import --> RT[RawTrajectory]
+  RT --> Pipe[applyRawTrajectoryPipeline]
+  Pipe --> Prog[RobotProgram LINE]
+```
+
+| 层 | 模块 | 职责 |
+|----|------|------|
+| 特征来源 | UI 拾取 / `suggestFeaturesFromCatalog` / AI `trajectory.feature` | 产出同一 `FeatureSpec` JSON |
+| 离散 | `GeometryAlgorithm` | 唯一入口 `discretizeFeature`；B-rep 仅运行时从 STEP 加载 |
+| 显示 | `MeshBackendData` soup | 场景持久化仍为三角网格 |
+| 编辑 | `RobotScene::RawTrajectory` | Resample、偏置、摆焊、可达性标记等 |
+| 执行 | `RobotProgram` | PTP/LINE + `TrajectoryContext.externalAxes` |
+
+### 4.8.2 运动轴配置（通用术语与厂商对照）
 
 同一 TCP 位姿通常对应多组关节解。UI 与 JSON **不**使用 FANUC/ABB 专有缩写作为主选项，而采用下列通用维度（与 ISO 8373 肘/腕等结构术语一致）：
 
@@ -296,7 +318,7 @@ flowchart TD
 | `elbow` 肘部 | 上臂/下臂折叠（常 J3） | Up `U` / Down `D` | robconf 象限 | A3 / CONFIG |
 | `wrist` 腕部 | 腕翻转（常 J5） | Flip `F` / No-flip `N` | cf4/cf6 | A5 符号 |
 | `arm` 臂形 | 腕相对基座前/后 | Front `T` / Back `B` | 象限组合 | 机型相关 |
-| `turns` 转数 | J1/J4/J6 相对种子关节的**整圈数**（见 **4.8.2**） | Turn 0,0,0（FANUC 为 90° 分档 0–7，语义不同） | cf1,cf4,cf6,cfx | CONFIG 整型 |
+| `turns` 转数 | J1/J4/J6 相对种子关节的**整圈数**（见 **4.8.3**） | Turn 0,0,0（FANUC 为 90° 分档 0–7，语义不同） | cf1,cf4,cf6,cfx | CONFIG 整型 |
 | `AUTO` | 由当前关节种子选最近 IK 解 | — | — | — |
 
 **预设（`motion.axisConfig.preset`）**：`AUTO`、`ELBOW_UP`、`ELBOW_DOWN`、`WRIST_FLIP`、`WRIST_NO_FLIP`、组合项（如 `ELBOW_UP_WRIST_NO_FLIP`）、`CUSTOM`（配合肘/腕/臂分项枚举 `motion.axisConfig.elbow|wrist|arm`）。
@@ -313,7 +335,7 @@ flowchart TD
 | CUSTOM 分项 | 仅 `preset=CUSTOM` 时在属性面板显示肘/腕/臂三行；各行同样只列可行枚举 |
 | Turn 分项 | **始终**显示 `motion.axisConfig.turn.j1|j4|j6`（与 preset 独立）；枚举 `AUTO`、`-2`…`3`；可行值由 IK 构型集归纳 |
 
-### 4.8.2 转数 Turn（J1 / J4 / J6）设计
+### 4.8.3 转数 Turn（J1 / J4 / J6）设计
 
 **背景（厂商差异）**  
 同一 TCP 位姿在肘/腕/臂构型确定后，绕基座（J1）、腕部（J4）、法兰（J6）的连续旋转轴仍可能存在多组等价关节角（相差 360° 整数倍）。FANUC 配置串末三位 **Turn**（常为 0–7，按 90° 分档）与 ABB **cf1/cf4/cf6/cfx**、KUKA **CONFIG** 整型均属此类信息；本工程采用**与 URDF 连续关节兼容**的通用表示，便于数值 IK，而非逐品牌复刻 90° 编码。
@@ -350,9 +372,9 @@ FANUC Turn 0–7 表示 90° 带宽而非简单 `round(Δ/2π)`；若未来需�
 
 **x64 链接形态（2025 起）**：下列引擎模块在 x64 为 **独立 DLL**，运行时与 `Widget.dll` / `CloudSimHost.dll` / `Data.dll` / `RobotWidget.dll` **共享单实例**（不再静态嵌入多份）：
 
-`CloudSimCore`、`CloudSimHost`、`RunLogger`、`GeometryEngine`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`BackendVisual`、`OsgWidgetCore`。
+`CloudSimCore`、`CloudSimHost`、`RunLogger`、`GeometryEngine`、`GeometryAlgorithm`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`BackendVisual`、`OsgWidgetCore`。
 
-`PointCloudAlgorithm` 仍 **静态链入** `Data.dll`；`CloudSimPluginHost` 源码仍 **编进** `Widget.dll`。Win32 遗留路径仍可使用 `*_STATIC` 静态 `.lib`。
+`PointCloudAlgorithm` 仍 **静态链入** `Data.dll`；`Data` 的 STEP/网格布尔经 `GeometryAlgorithm.dll` 转发（Data 已瘦身 OCCT 直链）；`CloudSimPluginHost` 源码仍 **编进** `Widget.dll`，SDK **1.5.0** 提供 `IPluginGeometryHost`。
 
 **构建输出**：`CloudSim/Directory.Build.props` 定义 `$(CloudSimBinDir)` → 仓库根 `bin/x64d/` 或 `bin/x64/`，各工程 `OutDir` / 链接库路径统一，避免 `$(SolutionDir)` 为空时 **LNK1181**（找不到 `CloudSimHost.lib`）。建议生成顺序：**CloudSimCore → Data → … → CloudSimHost → Widget → CloudSim**。
 
@@ -400,6 +422,7 @@ flowchart LR
 
     Data --> RunLogger
     Data --> PointCloudAlgorithm
+    Data --> GeometryAlgorithm
 ```
 
 依赖特征总结：
@@ -689,12 +712,17 @@ sequenceDiagram
    - 指令页 UI：**指令**分组框（PTP/LINE/逻辑/IO 插入）与 **功能**分组框（末端拖动/删除/清空）分两行；无顶栏「分组」下拉。  
    - 树控件展示层级（IF 的 Then/Else、WHILE 循环体）；**元数据分组以父节点嵌套**（Ctrl 多选根层级指令 → 右键创建/重命名/解散）；切换程序下拉仅显示当前程序指令与分组。  
    - 运动点显示 **P1、P2…**（`formatMotionWaypointSummary`）。  
-2b. **轨迹编辑（`TrajectoryEditPageWidget`，Dock 第四页）**  
+2b. **轨迹编辑（`TrajectoryEditPageWidget`，Dock「轨迹编辑」页）**  
    - 装饰器流水线：Translate/Rotate/Delete/Duplicate 等块 + `OpScope`（全程序/分组/P 范围）。  
    - **Preview**：`reconcilePipelineScopes` → `TrajectoryEditSession` 临时改 store 中路点 `pose` → `syncPreviewRenderMatrices` → `refreshInstructionPoseAxes`；参数变更走 `updatePipelineOps` + 自动 `reapplyPreview`（结构变更才 `setPipeline`/`reset`）。  
    - **Apply**：`TrajectoryPipelineBuilder::buildApplyCommands` → `ProgramEditService` 撤销栈落盘。  
    - **Undo/Redo**：`revisionChanged` → `syncUiAfterProgramRevision`（`abandonPreview` + 失效分组 scope 回退顶栏分组或全程序）。  
    - 分组 scope 平移/旋转：`RobotProgramCatalog::expandToMotionWaypointIds` 展开 IF/WHILE 子树内运动路点。调色板拖放须 `kMimeType`（见 `RobotWidget` DEVELOPER_GUIDE §轨迹编辑）。  
+2c. **CAD 轨迹生成（`FeatureTrajectoryPageWidget`，Dock「轨迹生成」页）**  
+   - 工件 backend + `backendSourcePath` STEP → `enumerateFeatureCatalog` 或手编 `FeatureSpec` JSON。  
+   - `discretizeFeature` → `importRawPathToTrajectory` → 配方（焊缝/涂胶/打磨默认 Op 链）→ `emitRawTrajectoryToProgram` 写入主程序。  
+   - 预览：`setInstructionPoseAxes`（绿/红可达性）；AI 分域 `trajectory.feature` 校验 LLM 输出的 `features[]`。  
+   - 详见 [`RobotWidget/DEVELOPER_GUIDE.md`](RobotWidget/DEVELOPER_GUIDE.md) §CAD 轨迹生成、[`GeometryAlgorithm/DEVELOPER_GUIDE.md`](GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.1。  
 3. **指令选中预览（非运行态）**  
    - `InstructionProgramTreeWidget::instructionSelected` → `RobotSimulationController::onSimulationInstructionSelectionChanged`（`MainWindow` 转发）。  
    - 选中 **PTP/LINE** 时：`updateInstructionPropertyPanel`（可行轴配置探测/缓存）→ `applyRobotPoseForInstructionPreview` 自 `m_motionPreviewProgramStartJointRad` 链式至该点。对链上每点：若存在 `context.currentJointRadCsv` 则**直接**用示教关节（跳过该点 IK）；否则 `prepareMotionInstructionForPlanning`（**不**覆盖指令 `pose`）+ `plan`。写回场景与滑块；`m_suppressMotionPreviewStartCapture` 防止误改程序起点。添加指令后首次选中用 `m_skipInstructionPreviewOnce` 避免立即预览拉离示教姿态。  

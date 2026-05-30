@@ -5,7 +5,11 @@
 #include "IRobotPropertyPanelHost.h"
 #include "robotwidget_global.h"
 
+#include <functional>
 #include <memory>
+
+struct PickResult;
+enum class PickKind;
 
 class QStatusBar;
 class RunInfoPage;
@@ -72,4 +76,7 @@ public:
 		const QString& sceneRootBackendId,
 		RobotInstruction::PlanResult& out,
 		std::string* outErr) = 0;
+
+	virtual void setMeshPickCommittedHandler(std::function<void(const PickResult&, PickKind)> handler) = 0;
+	virtual void clearMeshPickCommittedHandler() = 0;
 };

@@ -13,6 +13,7 @@
 
 #include <Adapters.h>
 #include <RigidTransform.h>
+#include "RawTrajectory.h"
 
 #include <cmath>
 #include <osg/Matrixd>
@@ -391,6 +392,32 @@ void TrajectoryEditSession::abandonPreview()
 bool TrajectoryEditSession::canApply() const
 {
 	return m_store && !m_ops.empty();
+}
+
+void TrajectoryEditSession::setRawTrajectory(RobotInstruction::RawTrajectory traj)
+{
+	m_rawTrajectory = std::move(traj);
+	emit rawTrajectoryChanged();
+}
+
+const RobotInstruction::RawTrajectory* TrajectoryEditSession::rawTrajectory() const
+{
+	return m_rawTrajectory ? &*m_rawTrajectory : nullptr;
+}
+
+bool TrajectoryEditSession::hasRawTrajectory() const
+{
+	return m_rawTrajectory.has_value() && !m_rawTrajectory->points.empty();
+}
+
+void TrajectoryEditSession::clearRawTrajectory()
+{
+	if (!m_rawTrajectory.has_value())
+	{
+		return;
+	}
+	m_rawTrajectory.reset();
+	emit rawTrajectoryChanged();
 }
 
 void TrajectoryEditSession::clearPreviewSnapshots()

@@ -439,11 +439,45 @@ Apply 路径：`TrajectoryPipelineBuilder::buildApplyCommands` → UI 层 `Progr
 
 ---
 
-## 14. 相关文档
+## 14. CAD 轨迹中间表示（`RawTrajectory.h`）
+
+与 §13 **程序级**轨迹编辑（`TrajectoryOpKind` → 已生成 `RobotProgram` 路点）并行，**特征→轨迹**流水线使用独立中间层：
+
+```text
+FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → RawTrajectory
+  → applyRawTrajectoryPipeline(ops) → emitRawTrajectoryToProgram → RobotProgram
+```
+
+| 类型 | 说明 |
+|------|------|
+| `RawTrajectory` | `points` + `TrajectoryContext` + 溯源 `sourceFeature` |
+| `TrajectoryPoint` | `poseMm`、`eulerDeg`、`blendRadiusMm`、`speedMmPerSec`、`reachable` |
+| `TrajectoryContext` | `workpieceFrameId`、`toolFrameId`、`externalAxes[]`（地轨/变位机快照，非工艺字段） |
+| `RawTrajectoryOpKind` | `FrameFromPath`、`Resample`、`OffsetAlongNormal`、`OffsetLateral`、`SmoothPose`、`AssignBlend`、`AssignSpeedZone`、`Weave`、`InsertApproachRetract`、`ReachabilityFilter`、`ExternalAxisSearch`、`EmitToProgram` |
+| `RawTrajectoryOpDescriptor` | 单块参数（步距、偏置、摆焊振幅/周期等） |
+
+| API | 作用 |
+|-----|------|
+| `importRawPathToTrajectory` | `RawPath` + `FrameStrategy`（法向 Z / 固定 Z / 切向 X）→ 姿态 |
+| `applyRawTrajectoryOp` / `applyRawTrajectoryPipeline` | 编辑块；`EmitToProgram` 须用 `emitRawTrajectoryToProgram` |
+| `rawTrajectoryRecipeWeldDefault` / `Glue` / `Grind` | 工艺=预置 Op 列表（无 `process.type`） |
+| `emitRawTrajectoryToProgram` | 可达点 → `LineInstruction` 序列写入 `RobotProgram.steps`，并默认创建 `InstructionGroup`（组名 = `featureId`） |
+| `rawTrajectoryToPreviewPolylineXyz` / `rawTrajectoryReachabilityColorsJson` | UI/OSG 预览 |
+
+实现：[`source/RawTrajectory.cpp`](source/RawTrajectory.cpp)。
+
+**与 `TrajectoryAlgorithm` 的关系**：`ITrajectoryOp` 仍作用于 **已有 Program** 的装饰编辑；`RawTrajectoryOpKind` 作用于 **离散后、落盘前** 的 TCP 轨迹。二者最终在 `RobotProgram` 汇合。
+
+**Phase 占位**：`ReachabilityFilter` 当前为轻量启发式标记；完整 IK 可达性可接入 `RobotInstructionController::plan` / `queryFeasibleMotionAxisConfigurationOptions`。
+
+---
+
+## 15. 相关文档
 
 - 轨迹算法：[`../TrajectoryAlgorithm/DEVELOPER_GUIDE.md`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md)
 - 刚体/工具链：[`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md) · [`../GeometryEngine/CONVENTIONS.md`](../GeometryEngine/CONVENTIONS.md)
 - URDF：[`../RobotUrdf/DEVELOPER_GUIDE.md`](../RobotUrdf/DEVELOPER_GUIDE.md)
 - DH：[`../RobotKinematics/DEVELOPER_GUIDE.md`](../RobotKinematics/DEVELOPER_GUIDE.md)
-- UI：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §仿真
-- 轴配置详解：[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §4.8.1–4.8.2
+- 特征离散：[`../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md`](../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.1
+- UI 轨迹生成：[`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) §CAD 轨迹生成
+- 轴配置详解：[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §4.8.1–4.8.3

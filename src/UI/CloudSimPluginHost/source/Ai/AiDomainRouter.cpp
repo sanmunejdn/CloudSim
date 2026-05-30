@@ -29,6 +29,9 @@ QString AiDomainRouter::resolve(const QString& requestedDomainId, const QString&
 		return AiDomainIds::documentImport();
 	if (t.contains(QStringLiteral("点云")) || t.contains(QStringLiteral("下采样")) || t.contains(QStringLiteral("point cloud"), Qt::CaseInsensitive))
 		return AiDomainIds::pointCloudOps();
+	if (t.contains(QStringLiteral("轨迹")) || t.contains(QStringLiteral("焊缝")) || t.contains(QStringLiteral("涂胶"))
+		|| t.contains(QStringLiteral("打磨")) || t.contains(QStringLiteral("trajectory"), Qt::CaseInsensitive))
+		return AiDomainIds::trajectoryFeature();
 
 	return AiDomainIds::meshCreate();
 }

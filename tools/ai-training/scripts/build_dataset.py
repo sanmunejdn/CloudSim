@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MIN_DIM = 0.1
 MAX_DIM = 1e6
 PRIMITIVES = frozenset({"box", "cylinder", "cone", "sphere"})
+RECOGNITION_PRIMITIVES = frozenset({"box", "cylinder", "cone", "sphere", "unknown"})
 
 
 def _num(v):
@@ -28,6 +29,38 @@ def validate_mesh_create_output(out: dict, line_no: int) -> list[str]:
     prim = out.get("primitive")
     if prim not in PRIMITIVES:
         errs.append(f"line {line_no}: invalid primitive {prim!r}")
+        return errs
+    dims = out.get("dimensions_mm")
+    if not isinstance(dims, dict):
+        errs.append(f"line {line_no}: dimensions_mm must be object")
+        return errs
+    if prim == "box":
+        for k in ("length", "width", "height"):
+            if _num(dims.get(k)) is None:
+                errs.append(f"line {line_no}: box missing/invalid {k}")
+    elif prim in ("cylinder", "cone"):
+        if _num(dims.get("radius")) is None:
+            errs.append(f"line {line_no}: {prim} missing/invalid radius")
+        if _num(dims.get("height")) is None:
+            errs.append(f"line {line_no}: {prim} missing/invalid height")
+    elif prim == "sphere":
+        r = _num(dims.get("radius"))
+        d = _num(dims.get("diameter"))
+        if r is None and d is None:
+            errs.append(f"line {line_no}: sphere needs radius or diameter")
+    return errs
+
+
+def validate_geometry_recognize_output(out: dict, line_no: int) -> list[str]:
+    errs = []
+    prim = out.get("primitive")
+    if prim not in RECOGNITION_PRIMITIVES:
+        errs.append(f"line {line_no}: invalid primitive {prim!r}")
+        return errs
+    conf = out.get("confidence")
+    if conf is not None and not isinstance(conf, (int, float)):
+        errs.append(f"line {line_no}: confidence must be number")
+    if prim == "unknown":
         return errs
     dims = out.get("dimensions_mm")
     if not isinstance(dims, dict):
@@ -150,6 +183,13 @@ def main() -> int:
             errors.extend(validate_mesh_compose_output(out, i))
             op = compose_op_from_output(out)
             op_counts[op] = op_counts.get(op, 0) + 1
+        elif domain == "geometry.recognize":
+            errors.extend(validate_geometry_recognize_output(out, i))
+            img = row.get("input", "")
+            if isinstance(img, str) and img and img != "<image>":
+                img_path = path.parent / img
+                if not img_path.is_file():
+                    errors.append(f"line {i}: missing image {img}")
         ins = row.get("instruction", "")
         if isinstance(ins, str) and ins:
             instruction_seen[ins] = instruction_seen.get(ins, 0) + 1

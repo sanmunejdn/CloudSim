@@ -6,6 +6,7 @@
 #include "ProgramEditService.h"
 #include "TrajectoryEditSession.h"
 #include "TrajectoryEditPageWidget.h"
+#include "FeatureTrajectoryPageWidget.h"
 #include "IRobotMainWindowHost.h"
 #include "IRobotOsgViewHost.h"
 #include "RobotMatrixOsgBridge.h"
@@ -217,6 +218,13 @@ void RobotSimulationController::wireSimulationSignals()
 		traj->bindEditService(m_programEditService);
 		traj->bindSession(m_trajectoryEditSession);
 		traj->bindCommandPage(cmd);
+		traj->bindHost(m_host);
+		traj->bindSimulationController(this);
+	}
+	if (FeatureTrajectoryPageWidget* feat = m_simulationDock->featureTrajectoryPage())
+	{
+		feat->bindSession(m_trajectoryEditSession);
+		feat->bindSimulationController(this);
 	}
 	if (cmd)
 	{
@@ -395,6 +403,18 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 	{
 		m_simulationDock->trajectoryEditPage()->bindStore(&doc->robotProgramStore());
 		m_simulationDock->trajectoryEditPage()->refreshProgramAndGroupCombos();
+	}
+	if (m_simulationDock && m_simulationDock->featureTrajectoryPage() && doc && m_host)
+	{
+		auto* feat = m_simulationDock->featureTrajectoryPage();
+		feat->bindHost(m_host);
+		feat->bindSession(m_trajectoryEditSession);
+		feat->bindSimulationController(this);
+		feat->setStepPathResolver([doc](const QString& backendId) { return doc->meshBackendStepSourcePath(backendId); });
+	}
+	if (m_simulationDock && m_simulationDock->trajectoryEditPage() && m_host)
+	{
+		m_simulationDock->trajectoryEditPage()->bindHost(m_host);
 	}
 	if (doc && doc->hasRobotSimulationContext())
 	{
@@ -2585,6 +2605,10 @@ RobotInstruction::FeasibleMotionAxisConfigurationOptions RobotSimulationControll
 
 void RobotSimulationController::onSimulationInstructionSelectionChanged(const std::shared_ptr<RobotInstruction::Base>& instruction)
 {
+	if (instruction && m_rawTrajectoryPreviewActive)
+	{
+		setRawTrajectoryPreviewActive(false);
+	}
 	if (instruction)
 	{
 		m_host->clearBackendObjectSelection(true);
@@ -2610,7 +2634,7 @@ void RobotSimulationController::onSimulationInstructionSelectionChanged(const st
 	{
 		applyRobotPoseForInstructionPreview(instruction);
 	}
-	refreshInstructionPoseAxes();
+	refreshInstructionPoseAxes(false);
 }
 
 void RobotSimulationController::applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction)
@@ -3066,8 +3090,23 @@ QHash<QString, bool> RobotSimulationController::computeMotionReachabilityForCurr
 	return reachability;
 }
 
+void RobotSimulationController::setRawTrajectoryPreviewActive(const bool active)
+{
+	m_rawTrajectoryPreviewActive = active;
+	if (!active && m_host && m_host->osgView())
+	{
+		IRobotOsgViewHost* osg = m_host->osgView();
+		osg->clearRawTrajectoryOverlay();
+		osg->clearRawTrajectoryOverlayFrames();
+	}
+}
+
 void RobotSimulationController::refreshInstructionPoseAxes(const bool computeReachability)
 {
+	if (m_rawTrajectoryPreviewActive)
+	{
+		return;
+	}
 	static bool s_matrixConventionSelfTestDone = false;
 	if (!s_matrixConventionSelfTestDone)
 	{

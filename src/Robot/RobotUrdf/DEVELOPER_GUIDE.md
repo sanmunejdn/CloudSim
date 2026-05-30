@@ -128,6 +128,18 @@
 - **工具偏移**：`T_base_tool = toolOriginFromFlange(rigidTransformFromOsg(T_base_flange), T_flange_tool)`（`GeometryEngine`，**`composeColumn`**）。业务层勿写 `linkWorld[flange] * toolMat` 代替上述 API（会与 Eigen 工具矩阵约定不一致，导致法兰系平移被当成基座轴平移）。
 - `T_flange_tool.positionMm` 在 **法兰连杆轴** 下定义（见 [`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md) §3）。
 
+## 10.1 外部轴（prismatic / revolute）
+
+`jointChildTransformForFk`（`UrdfRobotLoader.cpp`）按关节类型组合 `parent_T_child`：
+
+| `joint type` | FK 增量 |
+|--------------|---------|
+| `revolute` / `continuous` | `T_origin * R(axis, q)`，`q` 为弧度 |
+| `prismatic` | `T_origin * T(axis, q_mm)`，URDF 关节变量为米，内部乘 `kUrdfOriginXyzMetersToInternalMm` 得 mm |
+| `fixed` 等 | 仅 `T_origin`；不消耗 `jointAnglesRad` 下标 |
+
+CAD 轨迹的外部轴上下文写入 [`RawTrajectory::TrajectoryContext::externalAxes`](../RobotScene/inc/RawTrajectory.h)（快照，非 `process.type` 字段）；协同搜索见 `ExternalAxisSearch` Op（Phase 3 占位）。
+
 ## 11. 相关文档
 
 - 场景 FK 写回：[`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md)

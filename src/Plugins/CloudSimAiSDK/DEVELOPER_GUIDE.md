@@ -148,6 +148,32 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 | `mesh.compose` | qwen2.5:3b | ActionPlan v2（`steps[]` + `booleanMesh`） |
 | `geometry.recognize` | qwen2.5vl:3b | StructuredJson → 可转 ActionPlan |
 
+**geometry.recognize 运行时数据流（V1）：**
+
+1. AI 面板选「几何识别」→ `AiAssistantCoordinator` 经 `IPluginHostContext::captureActiveViewportPng` 截取活动文档 OSG 视口（768 边长 PNG）。
+2. `AiInferenceRequest.imagePng` 送入 `AiLlmClient`（OpenAI 兼容 vision API）。
+3. 解析成功后在对话区展示 `primitive` / `label` / `dimensions_mm` / `confidence`，**不自动改场景**。
+4. 用户点「创建基本体」→ `executeDomainOutput(geometry.recognize, …)` → `GeometryRecognizeDomainHandler` → `createPrimitiveMesh`。
+5. 无视口或 `imagePng` 为空时 fail-fast，提示打开含 3D 视口的文档。
+
+训练集生成：`python tools/ai-training/scripts/gen_geometry_recognize_dataset.py`（默认每类 15 条，共 60 PNG + `dataset.jsonl`）。校验：`python tools/ai-training/scripts/build_dataset.py geometry.recognize`。
+| `trajectory.feature` | qwen2.5:3b（建议） | StructuredJson：`features[]`（`FeatureSpec`）+ `suggestedPipelineTemplate` |
+
+**trajectory.feature 契约示例：**
+
+```json
+{
+  "version": 1,
+  "domain": "trajectory.feature",
+  "features": [
+    { "kind": "FaceIntersection", "refs": { "faceIndices": [3, 7] }, "discretize": { "stepMm": 2 } }
+  ],
+  "suggestedPipelineTemplate": "weld_default"
+}
+```
+
+LLM grounding：先对工件 STEP 调用 `enumerateFeatureCatalog`，在 prompt 中提供 `candidateId` / 边面索引。规则回退：`geoalgo::suggestFeaturesFromCatalog`（经 `geometry_backend_ops`）。
+
 宿主 API：`createPrimitiveMesh`（可选返回 `backendId`）、`booleanMesh`（CGAL 差/并/交）。
 
 ---

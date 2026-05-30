@@ -15,6 +15,13 @@
 
 
 
+namespace RobotInstruction
+{
+struct RawTrajectory;
+}
+
+
+
 class QCheckBox;
 
 class QComboBox;
@@ -40,6 +47,10 @@ class RobotProgramStore;
 class SimulationCommandWidget;
 
 class TrajectoryOpParamPanel;
+
+class IRobotMainWindowHost;
+
+class RobotSimulationController;
 
 
 
@@ -71,7 +82,11 @@ public:
 
 	void bindSession(TrajectoryEditSession* session);
 
+	void bindSimulationController(RobotSimulationController* controller);
+
 	void bindCommandPage(SimulationCommandWidget* commandPage);
+
+	void bindHost(IRobotMainWindowHost* host);
 
 
 
@@ -117,6 +132,16 @@ private:
 	void syncScopeComboFromSelectedOp();
 
 	void updateUiLabels();
+
+	void refreshRawTrajectoryStatus();
+
+	void showRawTrajectoryPreview(const RobotInstruction::RawTrajectory& traj);
+
+	std::string resolvePreviewBackendId(const RobotInstruction::RawTrajectory& traj) const;
+
+	void onRawApplyRecipe();
+
+	void onRawEmitProgram();
 
 
 
@@ -164,7 +189,23 @@ private:
 
 	TrajectoryEditSession* m_session = nullptr;
 
+	RobotSimulationController* m_simController = nullptr;
+
 	SimulationCommandWidget* m_commandPage = nullptr;
+
+	IRobotMainWindowHost* m_host = nullptr;
+
+
+
+	QGroupBox* m_rawGroupBox = nullptr;
+
+	QLabel* m_rawStatusLabel = nullptr;
+
+	QComboBox* m_rawRecipeCombo = nullptr;
+
+	QPushButton* m_rawApplyBtn = nullptr;
+
+	QPushButton* m_rawEmitBtn = nullptr;
 
 
 

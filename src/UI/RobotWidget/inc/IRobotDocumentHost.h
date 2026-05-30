@@ -46,4 +46,5 @@ public:
 	virtual void requestFollowSolveForced() = 0;
 	virtual void setSuppressRobotFollowDirtyNotify(bool suppress) = 0;
 	virtual void clearFollowDirtyBackendIds() = 0;
+	virtual QString meshBackendStepSourcePath(const QString& backendId) const { return QString(); }
 };

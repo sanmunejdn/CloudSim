@@ -682,6 +682,31 @@ static Mat4 jointRevoluteRotationOnly(const UrdfJoint& j, double qRad)
 	return matAxisAngleRad(ax, ay, az, qRad);
 }
 
+static Mat4 jointPrismaticTranslationOnly(const UrdfJoint& j, double qMm)
+{
+	double ax = j.ax;
+	double ay = j.ay;
+	double az = j.az;
+	const double len = std::sqrt(ax * ax + ay * ay + az * az);
+	if (len > 1e-9)
+	{
+		ax /= len;
+		ay /= len;
+		az /= len;
+	}
+	else
+	{
+		ax = 0.0;
+		ay = 0.0;
+		az = 1.0;
+	}
+	Mat4 T = matIdentity();
+	T.m[12] = ax * qMm;
+	T.m[13] = ay * qMm;
+	T.m[14] = az * qMm;
+	return T;
+}
+
 // 正运动学用：子连杆相对父连杆的变换，即 parent_T_child = <joint><origin> * 绕 axis 的 q 角旋转（若为转动关节）
 // \<joint\>\<origin\> xyz 按 REP-103 为米：乘 kUrdfOriginXyzMetersToInternalMm 得到内部 mm，与 visual、网格一致。axis 与 rpy 不缩放。
 // jointAnglesRad 与 qIndex 须与树遍历顺序一致（见 computeMeshWorldMatricesFromModel / loadMeshHierarchyParts）。
@@ -705,7 +730,18 @@ Mat4 jointChildTransformForFk(const UrdfJoint& j, const QVector<double>& jointAn
 		++qIndex;
 		return matMul(T_origin, jointRevoluteRotationOnly(j, q));
 	}
-	// 只有转动关节才递增qIndex，否则保持不变
+	if (jt == QLatin1String("prismatic"))
+	{
+		double q = 0.0;
+		if (qIndex < jointAnglesRad.size())
+		{
+			// URDF prismatic 单位为米，内部 mm
+			q = jointAnglesRad[qIndex] * kUrdfOriginXyzMetersToInternalMm;
+		}
+		++qIndex;
+		return matMul(T_origin, jointPrismaticTranslationOnly(j, q));
+	}
+	// 只有转动/移动关节才递增 qIndex
 	return T_origin;
 }
 
@@ -725,6 +761,10 @@ static Mat4 jointChildTransformAtZeroConfiguration(const UrdfJoint& j)
 	if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
 	{
 		return matMul(T_origin, jointRevoluteRotationOnly(j, 0.0));
+	}
+	if (jt == QLatin1String("prismatic"))
+	{
+		return matMul(T_origin, jointPrismaticTranslationOnly(j, 0.0));
 	}
 	return T_origin;
 }

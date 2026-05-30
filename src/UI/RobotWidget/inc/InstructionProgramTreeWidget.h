@@ -11,6 +11,7 @@
 
 
 #include <QTreeWidget>
+#include <QTimer>
 
 
 
@@ -183,6 +184,8 @@ private:
 	bool m_useChinese = false;
 
 	bool m_syncing = false;
+
+	QTimer m_selectionDebounce;
 
 	QTreeWidgetItem* m_dragItem = nullptr;
 

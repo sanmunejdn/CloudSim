@@ -77,12 +77,22 @@ InstructionProgramTreeWidget::InstructionProgramTreeWidget(QWidget* parent)
 	setDefaultDropAction(Qt::MoveAction);
 	setContextMenuPolicy(Qt::DefaultContextMenu);
 
-	connect(this, &QTreeWidget::itemSelectionChanged, this, [this]() {
+	m_selectionDebounce.setSingleShot(true);
+	m_selectionDebounce.setInterval(50);
+	connect(&m_selectionDebounce, &QTimer::timeout, this, [this]() {
 		if (m_syncing)
 		{
 			return;
 		}
 		emit instructionSelected(selectedInstruction());
+	});
+
+	connect(this, &QTreeWidget::itemSelectionChanged, this, [this]() {
+		if (m_syncing)
+		{
+			return;
+		}
+		m_selectionDebounce.start();
 	});
 }
 
@@ -401,7 +411,10 @@ void InstructionProgramTreeWidget::rebuildFromProgram()
 			addTopLevelItem(createInstructionItem(ins));
 		}
 	}
-	expandAll();
+	if (!m_program || m_program->size() <= 100U)
+	{
+		expandAll();
+	}
 	m_syncing = false;
 }
 

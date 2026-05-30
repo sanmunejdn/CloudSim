@@ -2,6 +2,7 @@
 
 #include "ProgramEditService.h"
 #include "RobotProgramStore.h"
+#include "RawTrajectory.h"
 #include "TrajectoryPipelineBuilder.h"
 #include "TrajectoryPipelineTypes.h"
 #include "robotwidget_global.h"
@@ -9,6 +10,7 @@
 #include <QObject>
 
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -41,8 +43,14 @@ public:
 	bool isPreviewActive() const { return m_previewActive; }
 	bool canApply() const;
 
+	void setRawTrajectory(RobotInstruction::RawTrajectory traj);
+	const RobotInstruction::RawTrajectory* rawTrajectory() const;
+	bool hasRawTrajectory() const;
+	void clearRawTrajectory();
+
 signals:
 	void previewStateChanged(bool active);
+	void rawTrajectoryChanged();
 
 private:
 	struct PreviewSnapshot
@@ -82,4 +90,5 @@ private:
 	std::vector<PreviewSnapshot> m_previewSnapshots;
 	bool m_previewActive = false;
 	bool m_applying = false;
+	std::optional<RobotInstruction::RawTrajectory> m_rawTrajectory;
 };

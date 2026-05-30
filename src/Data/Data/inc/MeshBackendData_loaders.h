@@ -3,12 +3,10 @@
 #include <string>
 #include <vector>
 
-#include <TopoDS_Shape.hxx>
-
 class MeshBackendData;
 struct MeshHierarchyPart;
 
-/// 网格文件加载与 OCCT/CGAL 三角化（MeshBackendData 内部）
+/// 网格文件加载（MeshBackendData 内部）
 namespace mesh_backend_load {
 
 /// STEP 反向面绕序翻转，与 OSG 法线一致
@@ -21,10 +19,6 @@ void meshPushTri(std::vector<float>& soup, double ax, double ay, double az, doub
 	double cx, double cy, double cz);
 
 bool meshTryLoadObjWithVertexNormals(const std::string& path, std::vector<float>& soup, std::vector<float>& normalSoup);
-
-void meshAppendShapeTriangles(const TopoDS_Shape& shape, std::vector<float>& soup);
-void meshCollectStepHierarchyRecursive(const TopoDS_Shape& shape, const std::string& path, const std::string& parentPath,
-	std::vector<MeshHierarchyPart>& outParts);
 
 bool meshLoadStepSingleFile(const std::string& path, std::vector<float>& soup, std::string* errMsg);
 bool meshLoadDxfSingleFile(const std::string& path, std::vector<float>& soup, std::string* errMsg);
