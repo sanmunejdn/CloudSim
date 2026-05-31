@@ -29,7 +29,9 @@ public:
 	void bindSimulationController(RobotSimulationController* controller);
 
 	void setPipeline(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops);
-	void updatePipelineOps(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops);
+	void updatePipelineOps(
+		std::vector<RobotInstruction::TrajectoryOpDescriptor> ops,
+		bool allowPreviewReapply = true);
 
 	void setContextProgramId(const std::string& programId);
 	void setDefaultGroupId(const std::string& groupId);
@@ -66,7 +68,7 @@ private:
 	bool applyPreviewTransforms(QString* outError);
 	void restorePreviewSnapshots();
 	void clearPreviewStateWithoutRestore();
-	void syncPreviewRenderMatrices();
+	void syncPreviewRenderMatrices(const std::vector<std::string>* updatedIds = nullptr);
 	void syncRenderMatricesForInstructionIds(const std::vector<std::string>& ids);
 	void syncRenderMatricesFromFrozenBase(
 		const std::vector<std::string>& ids,
@@ -79,6 +81,8 @@ private:
 	bool reapplyPreview(QString* outError = nullptr);
 	void refreshPreviewVisuals();
 	std::vector<std::string> collectPreviewWaypointIds() const;
+	void invalidatePreviewScopeCache();
+	void updateLightweightPreviewState(bool active);
 
 	RobotProgramStore* m_store = nullptr;
 	ProgramEditService* m_editService = nullptr;
@@ -87,7 +91,14 @@ private:
 	std::vector<RobotInstruction::TrajectoryOpDescriptor> m_ops;
 	std::string m_contextProgramId;
 	std::string m_defaultGroupId;
+	int m_programRevision = 0;
+	mutable bool m_previewWaypointCacheValid = false;
+	mutable std::string m_previewWaypointCacheProgramId;
+	mutable int m_previewWaypointCacheRevision = -1;
+	mutable std::vector<std::string> m_previewWaypointCache;
+	std::vector<std::string> m_effectivePreviewWaypointIds;
 	std::vector<PreviewSnapshot> m_previewSnapshots;
+	bool m_lightweightPreviewActive = false;
 	bool m_previewActive = false;
 	bool m_applying = false;
 	std::optional<RobotInstruction::RawTrajectory> m_rawTrajectory;

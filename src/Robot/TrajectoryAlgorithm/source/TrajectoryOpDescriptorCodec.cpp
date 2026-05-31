@@ -188,9 +188,12 @@ bool fromJson(const nlohmann::json& j, RobotInstruction::TrajectoryOpDescriptor&
 	out.translate = defaults.translate;
 	out.rotate = defaults.rotate;
 	out.duplicateCount = defaults.duplicateCount;
+	out.mirrorAxis = defaults.mirrorAxis;
 
 	if (j.contains("params") && j["params"].is_object())
 	{
+		bool hasTranslateEnd = false;
+		bool hasRotateEnd = false;
 		const std::vector<TrajectoryOpParamField> fields = TrajectoryOpParamAccess::allFieldsForOp(*algo);
 		for (const auto& item : j["params"].items())
 		{
@@ -227,6 +230,24 @@ bool fromJson(const nlohmann::json& j, RobotInstruction::TrajectoryOpDescriptor&
 				continue;
 			}
 			TrajectoryOpParamAccess::write(out, *field, value);
+			if (item.key() == "translate.endDxMm" || item.key() == "translate.endDyMm" || item.key() == "translate.endDzMm")
+			{
+				hasTranslateEnd = true;
+			}
+			if (item.key() == "rotate.endAngleDeg")
+			{
+				hasRotateEnd = true;
+			}
+		}
+		if (!hasTranslateEnd)
+		{
+			out.translate.endDxMm = out.translate.dxMm;
+			out.translate.endDyMm = out.translate.dyMm;
+			out.translate.endDzMm = out.translate.dzMm;
+		}
+		if (!hasRotateEnd)
+		{
+			out.rotate.endAngleDeg = out.rotate.angleDeg;
 		}
 	}
 	return true;

@@ -22,6 +22,7 @@ struct TRAJECTORY_ALGORITHM_API TrajectoryApplyAction
 	RobotInstruction::OpScope scope{};
 	std::vector<std::string> instructionIds;
 	std::vector<RobotInstruction::TrajectoryOpDescriptor> transformOps;
+	int duplicateCount = 1;
 };
 
 } // namespace trajectory_algo

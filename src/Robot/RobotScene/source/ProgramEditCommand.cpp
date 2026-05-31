@@ -18,6 +18,15 @@ namespace
 {
 constexpr double kPi = 3.14159265358979323846;
 
+using IdMap = std::unordered_map<std::string, std::shared_ptr<Base>>;
+
+IdMap collectIdMap(InstructionProgramDocument& doc)
+{
+	IdMap idMap;
+	doc.collectIdMap(idMap);
+	return idMap;
+}
+
 size_t rootIndexOf(const std::vector<std::shared_ptr<Base>>& root, const std::string& id)
 {
 	for (size_t i = 0; i < root.size(); ++i)
@@ -67,6 +76,79 @@ void applyDeltaToInstruction(Base& ins, const engine::RigidTransform& delta, con
 	writeTargetTransformToInstruction(ins, updated);
 	ins.eraseExtensionProperty("context.currentJointRadCsv");
 	// 位姿已变，旧渲染缓存会导致 OSG 仍按 render.tcpWorldMat4 显示错误位置
+	ins.eraseExtensionProperty("render.tcpWorldMat4");
+	ins.eraseExtensionProperty("render.tcpLocalMat4");
+}
+
+TrajectoryOpDescriptor interpolatedDescriptor(const TrajectoryOpDescriptor& op, const double t)
+{
+	TrajectoryOpDescriptor out = op;
+	if (op.kind == TrajectoryOpKind::Translate)
+	{
+		out.translate.dxMm = op.translate.dxMm + (op.translate.endDxMm - op.translate.dxMm) * t;
+		out.translate.dyMm = op.translate.dyMm + (op.translate.endDyMm - op.translate.dyMm) * t;
+		out.translate.dzMm = op.translate.dzMm + (op.translate.endDzMm - op.translate.dzMm) * t;
+		out.translate.endDxMm = out.translate.dxMm;
+		out.translate.endDyMm = out.translate.dyMm;
+		out.translate.endDzMm = out.translate.dzMm;
+	}
+	else if (op.kind == TrajectoryOpKind::Rotate)
+	{
+		out.rotate.angleDeg = op.rotate.angleDeg + (op.rotate.endAngleDeg - op.rotate.angleDeg) * t;
+		out.rotate.endAngleDeg = out.rotate.angleDeg;
+	}
+	return out;
+}
+
+void applyAxisReverseToInstruction(Base& ins, const int mirrorAxis)
+{
+	engine::RigidTransform target = engine::RigidTransform::identity();
+	if (!readTargetTransformFromInstruction(ins, target))
+	{
+		return;
+	}
+	Eigen::Matrix3d rot = target.rotation().toRotationMatrix();
+	Eigen::Vector3d axes[3] = { rot.col(0), rot.col(1), rot.col(2) };
+	const int reversedAxis = std::max(0, std::min(2, mirrorAxis));
+	const int keptAxis = (reversedAxis + 1) % 3;
+	const int rebuiltAxis = 3 - reversedAxis - keptAxis;
+	axes[reversedAxis] = -axes[reversedAxis];
+	axes[rebuiltAxis] = axes[reversedAxis].cross(axes[keptAxis]);
+	if (axes[rebuiltAxis].norm() < 1e-9)
+	{
+		return;
+	}
+	axes[rebuiltAxis].normalize();
+	axes[keptAxis] = axes[rebuiltAxis].cross(axes[reversedAxis]);
+	if (axes[keptAxis].norm() < 1e-9)
+	{
+		return;
+	}
+	axes[reversedAxis].normalize();
+	axes[keptAxis].normalize();
+	Eigen::Matrix3d updatedRot;
+	updatedRot.col(0) = axes[0];
+	updatedRot.col(1) = axes[1];
+	updatedRot.col(2) = axes[2];
+	writeTargetTransformToInstruction(
+		ins,
+		engine::RigidTransform::fromTranslationQuat(target.translationMm(), Eigen::Quaterniond(updatedRot)));
+	ins.eraseExtensionProperty("context.currentJointRadCsv");
+	ins.eraseExtensionProperty("render.tcpWorldMat4");
+	ins.eraseExtensionProperty("render.tcpLocalMat4");
+}
+
+void applyFixedOrientationToInstruction(Base& ins, const engine::RigidTransform& refTarget)
+{
+	engine::RigidTransform target = engine::RigidTransform::identity();
+	if (!readTargetTransformFromInstruction(ins, target))
+	{
+		return;
+	}
+	writeTargetTransformToInstruction(
+		ins,
+		engine::RigidTransform::fromTranslationQuat(target.translationMm(), refTarget.rotation()));
+	ins.eraseExtensionProperty("context.currentJointRadCsv");
 	ins.eraseExtensionProperty("render.tcpWorldMat4");
 	ins.eraseExtensionProperty("render.tcpLocalMat4");
 }
@@ -163,11 +245,13 @@ RemoveInstructionCommand::RemoveInstructionCommand(std::string instructionId)
 bool RemoveInstructionCommand::execute(InstructionProgramDocument& doc, std::string* errMsg)
 {
 	(void)errMsg;
-	Base* raw = doc.findById(m_instructionId);
-	if (!raw)
+	const IdMap idMap = collectIdMap(doc);
+	const auto it = idMap.find(m_instructionId);
+	if (it == idMap.end() || !it->second)
 	{
 		return false;
 	}
+	Base* raw = it->second.get();
 	m_removedSnapshot = cloneInstruction(*raw);
 	if (!m_removedSnapshot)
 	{
@@ -201,11 +285,13 @@ DuplicateInstructionCommand::DuplicateInstructionCommand(
 bool DuplicateInstructionCommand::execute(InstructionProgramDocument& doc, std::string* errMsg)
 {
 	(void)errMsg;
-	Base* raw = doc.findById(m_sourceId);
-	if (!raw)
+	const IdMap idMap = collectIdMap(doc);
+	const auto it = idMap.find(m_sourceId);
+	if (it == idMap.end() || !it->second)
 	{
 		return false;
 	}
+	Base* raw = it->second.get();
 	m_duplicate = cloneInstruction(*raw);
 	if (!m_duplicate)
 	{
@@ -244,25 +330,74 @@ bool TransformMotionSegmentCommand::execute(InstructionProgramDocument& doc, std
 {
 	(void)errMsg;
 	m_before.clear();
+	const IdMap idMap = collectIdMap(doc);
+	std::vector<std::string> validTargetIds;
+	validTargetIds.reserve(m_targetIds.size());
 	for (const std::string& id : m_targetIds)
 	{
-		Base* raw = doc.findById(id);
-		if (!raw || !isMotionWaypointType(raw->type()))
+		const auto it = idMap.find(id);
+		if (it != idMap.end() && it->second && isMotionWaypointType(it->second->type()))
+		{
+			validTargetIds.push_back(id);
+		}
+	}
+	std::unordered_map<size_t, engine::RigidTransform> reorderRefByOpIndex;
+	for (size_t opIdx = 0; opIdx < m_transformOps.size(); ++opIdx)
+	{
+		const TrajectoryOpDescriptor& op = m_transformOps[opIdx];
+		if (op.kind != TrajectoryOpKind::Reorder || validTargetIds.empty())
 		{
 			continue;
 		}
+		const auto refIt = idMap.find(validTargetIds.front());
+		if (refIt == idMap.end() || !refIt->second)
+		{
+			continue;
+		}
+		engine::RigidTransform refTarget = engine::RigidTransform::identity();
+		if (readTargetTransformFromInstruction(*refIt->second, refTarget))
+		{
+			reorderRefByOpIndex.emplace(opIdx, refTarget);
+		}
+	}
+	for (size_t targetIdx = 0; targetIdx < validTargetIds.size(); ++targetIdx)
+	{
+		const std::string& id = validTargetIds[targetIdx];
+		const auto it = idMap.find(id);
+		if (it == idMap.end() || !it->second || !isMotionWaypointType(it->second->type()))
+		{
+			continue;
+		}
+		Base* raw = it->second.get();
 		SnapshotEntry snap;
 		snap.id = raw->id();
 		snap.pose = raw->pose();
 		snap.euler = raw->eulerDeg();
 		snap.extensions = raw->extensionProperties();
 		m_before.push_back(std::move(snap));
-		for (const TrajectoryOpDescriptor& op : m_transformOps)
+		for (size_t opIdx = 0; opIdx < m_transformOps.size(); ++opIdx)
 		{
+			TrajectoryOpDescriptor op = m_transformOps[opIdx];
 			if (op.kind != TrajectoryOpKind::Translate && op.kind != TrajectoryOpKind::Rotate)
 			{
+				if (op.kind == TrajectoryOpKind::Mirror)
+				{
+					applyAxisReverseToInstruction(*raw, op.mirrorAxis);
+				}
+				else if (op.kind == TrajectoryOpKind::Reorder)
+				{
+					const auto refIt = reorderRefByOpIndex.find(opIdx);
+					if (refIt != reorderRefByOpIndex.end())
+					{
+						applyFixedOrientationToInstruction(*raw, refIt->second);
+					}
+				}
 				continue;
 			}
+			const double t = validTargetIds.size() <= 1
+				? 0.0
+				: static_cast<double>(targetIdx) / static_cast<double>(validTargetIds.size() - 1);
+			op = interpolatedDescriptor(op, t);
 			applyDeltaToInstruction(*raw, deltaFromOp(op), frameForOp(op));
 		}
 	}
@@ -272,11 +407,13 @@ bool TransformMotionSegmentCommand::execute(InstructionProgramDocument& doc, std
 bool TransformMotionSegmentCommand::undo(InstructionProgramDocument& doc, std::string* errMsg)
 {
 	(void)errMsg;
+	const IdMap idMap = collectIdMap(doc);
 	for (const SnapshotEntry& snap : m_before)
 	{
-		Base* raw = doc.findById(snap.id);
-		if (raw)
+		const auto it = idMap.find(snap.id);
+		if (it != idMap.end() && it->second)
 		{
+			Base* raw = it->second.get();
 			raw->setPose(snap.pose);
 			if (raw->hasEulerProperty())
 			{
@@ -288,6 +425,50 @@ bool TransformMotionSegmentCommand::undo(InstructionProgramDocument& doc, std::s
 			}
 		}
 	}
+	return true;
+}
+
+CompositeProgramEditCommand::CompositeProgramEditCommand(std::vector<ProgramEditStack::CommandPtr> commands)
+	: m_commands(std::move(commands))
+{
+}
+
+bool CompositeProgramEditCommand::execute(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	m_executedCount = 0;
+	for (const auto& cmd : m_commands)
+	{
+		if (!cmd || !cmd->execute(doc, errMsg))
+		{
+			for (size_t i = m_executedCount; i > 0; --i)
+			{
+				std::string rollbackErr;
+				m_commands[i - 1]->undo(doc, &rollbackErr);
+			}
+			m_executedCount = 0;
+			return false;
+		}
+		++m_executedCount;
+	}
+	return m_executedCount > 0;
+}
+
+bool CompositeProgramEditCommand::undo(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	(void)errMsg;
+	if (m_executedCount == 0)
+	{
+		return false;
+	}
+	for (size_t i = m_executedCount; i > 0; --i)
+	{
+		std::string undoErr;
+		if (!m_commands[i - 1] || !m_commands[i - 1]->undo(doc, &undoErr))
+		{
+			return false;
+		}
+	}
+	m_executedCount = 0;
 	return true;
 }
 

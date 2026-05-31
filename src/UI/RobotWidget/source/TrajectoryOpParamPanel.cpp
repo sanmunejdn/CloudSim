@@ -2,6 +2,7 @@
 
 #include "TrajectoryOpBridge.h"
 
+#include <QAbstractSpinBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
@@ -223,7 +224,8 @@ void TrajectoryOpParamPanel::rebuildForOp(
 			QObject::connect(binding.widget, &QWidget::destroyed, this, []() {});
 			if (auto* spin = binding.widget->findChild<QDoubleSpinBox*>())
 			{
-				connect(spin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this]() {
+				spin->setKeyboardTracking(false);
+				connect(spin, &QAbstractSpinBox::editingFinished, this, [this]() {
 					if (!m_loading)
 					{
 						updateFieldVisibility();
@@ -233,7 +235,8 @@ void TrajectoryOpParamPanel::rebuildForOp(
 			}
 			if (auto* spin = binding.widget->findChild<QSpinBox*>())
 			{
-				connect(spin, QOverload<int>::of(&QSpinBox::valueChanged), this, [this]() {
+				spin->setKeyboardTracking(false);
+				connect(spin, &QAbstractSpinBox::editingFinished, this, [this]() {
 					if (!m_loading)
 					{
 						updateFieldVisibility();

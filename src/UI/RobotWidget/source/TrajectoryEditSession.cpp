@@ -15,11 +15,93 @@
 #include <RigidTransform.h>
 #include "RawTrajectory.h"
 
+#include <algorithm>
 #include <cmath>
+#include <sstream>
 #include <osg/Matrixd>
+#include <unordered_set>
 
 namespace
 {
+using InstructionIndex = std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>>;
+constexpr size_t kLightweightPreviewGuardThreshold = 2000;
+constexpr size_t kLightweightPreviewMaxWaypoints = 1200;
+constexpr const char* kPreviewProbeId = "__preview_probe__";
+
+std::string scopeCacheKey(const RobotInstruction::OpScope& scope)
+{
+	std::string key = std::to_string(static_cast<int>(scope.kind));
+	key.push_back('|');
+	key += scope.groupId;
+	key.push_back('|');
+	key += std::to_string(scope.pointFrom);
+	key.push_back('|');
+	key += std::to_string(scope.pointTo);
+	if (scope.kind == RobotInstruction::OpScope::Kind::InstructionIds)
+	{
+		for (const std::string& id : scope.instructionIds)
+		{
+			key.push_back('|');
+			key += id;
+		}
+	}
+	return key;
+}
+
+InstructionIndex buildInstructionIndex(std::vector<std::shared_ptr<RobotInstruction::Base>>& steps)
+{
+	std::vector<std::shared_ptr<RobotInstruction::Base>> flat;
+	RobotInstruction::flattenInstructionsRecursive(steps, flat);
+	InstructionIndex index;
+	index.reserve(flat.size());
+	for (const std::shared_ptr<RobotInstruction::Base>& ins : flat)
+	{
+		if (ins)
+		{
+			index.emplace(ins->id(), ins);
+		}
+	}
+	return index;
+}
+
+bool canContributePreview(
+	const trajectory_algo::ITrajectoryOp& algo,
+	const RobotInstruction::TrajectoryOpDescriptor& op)
+{
+	if (!trajectory_algo::hasCapability(
+			algo.capabilities(),
+			trajectory_algo::TrajectoryOpCapability::PreviewPoseTransform))
+	{
+		return false;
+	}
+	trajectory_algo::PreviewTransformStep step{};
+	const std::vector<std::string> probeIds = { kPreviewProbeId };
+	if (!algo.contributePreviewTransform(op, probeIds, step))
+	{
+		return false;
+	}
+	return !step.targetIds.empty();
+}
+
+std::vector<std::string> downsampleWaypointIds(const std::vector<std::string>& ids)
+{
+	if (ids.size() <= kLightweightPreviewMaxWaypoints)
+	{
+		return ids;
+	}
+	std::vector<std::string> out;
+	out.reserve(kLightweightPreviewMaxWaypoints);
+	const size_t stride = std::max<size_t>(1, ids.size() / kLightweightPreviewMaxWaypoints);
+	for (size_t i = 0; i < ids.size(); i += stride)
+	{
+		out.push_back(ids[i]);
+		if (out.size() >= kLightweightPreviewMaxWaypoints)
+		{
+			break;
+		}
+	}
+	return out;
+}
 
 bool rigidBaseWorldFromSnapshot(
 	const osg::Matrixd& snapWorld,
@@ -70,11 +152,24 @@ TrajectoryEditSession::TrajectoryEditSession(QObject* parent)
 void TrajectoryEditSession::bindStore(RobotProgramStore* store)
 {
 	m_store = store;
+	invalidatePreviewScopeCache();
 }
 
 void TrajectoryEditSession::bindEditService(ProgramEditService* service)
 {
+	if (m_editService)
+	{
+		disconnect(m_editService, nullptr, this, nullptr);
+	}
 	m_editService = service;
+	if (m_editService)
+	{
+		m_programRevision = m_editService->revision();
+		connect(m_editService, &ProgramEditService::revisionChanged, this, [this](const int revision) {
+			m_programRevision = revision;
+			invalidatePreviewScopeCache();
+		});
+	}
 }
 
 void TrajectoryEditSession::bindSimulationController(RobotSimulationController* controller)
@@ -82,11 +177,14 @@ void TrajectoryEditSession::bindSimulationController(RobotSimulationController* 
 	m_simController = controller;
 }
 
-void TrajectoryEditSession::updatePipelineOps(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops)
+void TrajectoryEditSession::updatePipelineOps(
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> ops,
+	const bool allowPreviewReapply)
 {
 	m_ops = std::move(ops);
 	m_builder.setOps(m_ops);
-	if (m_previewActive)
+	invalidatePreviewScopeCache();
+	if (m_previewActive && allowPreviewReapply)
 	{
 		(void)reapplyPreview(nullptr);
 	}
@@ -97,11 +195,13 @@ void TrajectoryEditSession::setPipeline(std::vector<RobotInstruction::Trajectory
 	reset();
 	m_ops = std::move(ops);
 	m_builder.setOps(m_ops);
+	invalidatePreviewScopeCache();
 }
 
 void TrajectoryEditSession::setContextProgramId(const std::string& programId)
 {
 	m_contextProgramId = programId;
+	invalidatePreviewScopeCache();
 	if (m_store)
 	{
 		m_store->setActiveProgramIdUtf8(programId);
@@ -117,46 +217,65 @@ void TrajectoryEditSession::setDefaultGroupId(const std::string& groupId)
 
 std::vector<std::string> TrajectoryEditSession::collectPreviewWaypointIds() const
 {
-	std::vector<std::string> out;
 	if (!m_store)
 	{
-		return out;
+		return {};
 	}
 	const std::string programId = m_contextProgramId.empty() ? m_store->activeProgramIdUtf8() : m_contextProgramId;
+	if (m_previewWaypointCacheValid && m_previewWaypointCacheProgramId == programId
+		&& m_previewWaypointCacheRevision == m_programRevision)
+	{
+		return m_previewWaypointCache;
+	}
 	const RobotInstruction::RobotProgram* prog = m_store->activeCatalog().findProgram(programId);
 	if (!prog)
 	{
-		return out;
+		return {};
 	}
+	std::vector<std::string> out;
 	RobotInstruction::RobotProgramCatalog catalog;
-	std::unordered_map<std::string, bool> seen;
+	std::unordered_set<std::string> seen;
+	std::unordered_map<std::string, std::vector<std::string>> scopeCache;
 	for (const RobotInstruction::TrajectoryOpDescriptor& op : m_ops)
 	{
 		const trajectory_algo::ITrajectoryOp* algo =
 			RobotInstruction::trajectoryOpGet(op.kind);
-		if (!algo
-			|| !trajectory_algo::hasCapability(
-				algo->capabilities(),
-				trajectory_algo::TrajectoryOpCapability::PreviewPoseTransform))
+		if (!algo || !canContributePreview(*algo, op))
 		{
 			continue;
 		}
-		const std::vector<std::string> ids = catalog.resolveOpScopeInstructionIds(op.scope, *prog);
-		std::vector<std::string> waypointIds = ids;
-		if (op.scope.kind == RobotInstruction::OpScope::Kind::Group)
+		const std::string key = scopeCacheKey(op.scope);
+		auto it = scopeCache.find(key);
+		if (it == scopeCache.end())
 		{
-			waypointIds = catalog.expandToMotionWaypointIds(*prog, ids);
-		}
-		for (const std::string& id : waypointIds)
-		{
-			if (seen.count(id) == 0)
+			std::vector<std::string> ids = catalog.resolveOpScopeInstructionIds(op.scope, *prog);
+			if (op.scope.kind == RobotInstruction::OpScope::Kind::Group)
 			{
-				seen[id] = true;
+				ids = catalog.expandToMotionWaypointIds(*prog, ids);
+			}
+			it = scopeCache.emplace(key, std::move(ids)).first;
+		}
+		for (const std::string& id : it->second)
+		{
+			if (seen.insert(id).second)
+			{
 				out.push_back(id);
 			}
 		}
 	}
+	m_previewWaypointCache = out;
+	m_previewWaypointCacheProgramId = programId;
+	m_previewWaypointCacheRevision = m_programRevision;
+	m_previewWaypointCacheValid = true;
 	return out;
+}
+
+void TrajectoryEditSession::invalidatePreviewScopeCache()
+{
+	m_previewWaypointCacheValid = false;
+	m_previewWaypointCacheProgramId.clear();
+	m_previewWaypointCacheRevision = -1;
+	m_previewWaypointCache.clear();
 }
 
 void TrajectoryEditSession::refreshPreviewVisuals()
@@ -165,7 +284,7 @@ void TrajectoryEditSession::refreshPreviewVisuals()
 	{
 		return;
 	}
-	m_simController->refreshInstructionPoseAxes();
+	m_simController->refreshInstructionPoseAxes(false);
 	if (IRobotMainWindowHost* host = m_simController->host())
 	{
 		if (IRobotOsgViewHost* osg = host->osgView())
@@ -235,10 +354,14 @@ bool TrajectoryEditSession::preview(QString* outError)
 	{
 		if (outError)
 		{
-			*outError = QStringLiteral("作用域内无运动路点");
+			*outError = QStringLiteral("当前参数无有效预览变更");
 		}
+		updateLightweightPreviewState(false);
 		return false;
 	}
+	const bool useLightweight = waypointIds.size() > kLightweightPreviewGuardThreshold;
+	m_effectivePreviewWaypointIds = useLightweight ? downsampleWaypointIds(waypointIds) : waypointIds;
+	updateLightweightPreviewState(useLightweight);
 	if (m_previewActive)
 	{
 		restorePreviewSnapshots();
@@ -275,7 +398,9 @@ bool TrajectoryEditSession::apply(QString* outError)
 		}
 		return false;
 	}
-	const std::vector<std::string> affectedIds = collectPreviewWaypointIds();
+	const std::vector<std::string> affectedIds = !m_effectivePreviewWaypointIds.empty()
+		? m_effectivePreviewWaypointIds
+		: collectPreviewWaypointIds();
 	std::unordered_map<std::string, std::string> frozenBaseWorldCsvById;
 	for (const PreviewSnapshot& snap : m_previewSnapshots)
 	{
@@ -331,13 +456,10 @@ bool TrajectoryEditSession::apply(QString* outError)
 		return false;
 	}
 	m_applying = true;
-	for (const RobotInstruction::ProgramEditStack::CommandPtr& cmd : cmds)
+	if (!m_editService->executeBatch(cmds, outError))
 	{
-		if (!m_editService->execute(cmd, outError))
-		{
-			m_applying = false;
-			return false;
-		}
+		m_applying = false;
+		return false;
 	}
 	m_applying = false;
 	if (!frozenBaseWorldCsvById.empty())
@@ -361,6 +483,8 @@ void TrajectoryEditSession::clearPipelineAfterCommit()
 void TrajectoryEditSession::clearPreviewStateWithoutRestore()
 {
 	clearPreviewSnapshots();
+	m_effectivePreviewWaypointIds.clear();
+	updateLightweightPreviewState(false);
 	const bool wasActive = m_previewActive;
 	m_previewActive = false;
 	if (wasActive)
@@ -442,14 +566,16 @@ bool TrajectoryEditSession::capturePreviewSnapshots(QString* outError)
 		}
 		return false;
 	}
-	RobotInstruction::InstructionProgramDocument doc(&m_store->activeProgram());
-	for (const std::string& id : collectPreviewWaypointIds())
+	std::vector<std::shared_ptr<RobotInstruction::Base>>& activeSteps = m_store->activeProgram();
+	InstructionIndex index = buildInstructionIndex(activeSteps);
+	for (const std::string& id : m_effectivePreviewWaypointIds)
 	{
-		RobotInstruction::Base* raw = doc.findById(id);
-		if (!raw)
+		const auto it = index.find(id);
+		if (it == index.end() || !it->second)
 		{
 			continue;
 		}
+		RobotInstruction::Base* raw = it->second.get();
 		PreviewSnapshot snap;
 		snap.id = raw->id();
 		snap.pose = raw->pose();
@@ -482,14 +608,18 @@ bool TrajectoryEditSession::applyPreviewTransforms(QString* outError)
 	{
 		return false;
 	}
-	RobotInstruction::InstructionProgramDocument doc(&m_store->activeProgram());
+	std::vector<std::shared_ptr<RobotInstruction::Base>>& activeSteps = m_store->activeProgram();
+	InstructionIndex index = buildInstructionIndex(activeSteps);
+	std::vector<std::string> changedIds;
+	changedIds.reserve(m_previewSnapshots.size());
 	for (const PreviewSnapshot& snap : m_previewSnapshots)
 	{
-		RobotInstruction::Base* raw = doc.findById(snap.id);
-		if (!raw)
+		const auto it = index.find(snap.id);
+		if (it == index.end() || !it->second)
 		{
 			continue;
 		}
+		RobotInstruction::Base* raw = it->second.get();
 		RobotInstruction::Vec3 pose{};
 		RobotInstruction::Vec3 euler{};
 		if (!query->queryMotionPose(*raw, pose, euler))
@@ -512,8 +642,12 @@ bool TrajectoryEditSession::applyPreviewTransforms(QString* outError)
 		raw->eraseExtensionProperty("context.currentJointRadCsv");
 		raw->eraseExtensionProperty("render.tcpWorldMat4");
 		raw->eraseExtensionProperty("render.tcpLocalMat4");
+		changedIds.push_back(snap.id);
 	}
-	syncPreviewRenderMatrices();
+	if (!changedIds.empty())
+	{
+		syncPreviewRenderMatrices(&changedIds);
+	}
 	return true;
 }
 
@@ -523,17 +657,13 @@ void TrajectoryEditSession::syncRenderMatricesForInstructionIds(const std::vecto
 	{
 		return;
 	}
-	std::vector<std::shared_ptr<RobotInstruction::Base>> flat;
-	RobotInstruction::flattenInstructionsRecursive(m_store->activeProgram(), flat);
+	InstructionIndex index = buildInstructionIndex(m_store->activeProgram());
 	for (const std::string& id : ids)
 	{
-		for (const std::shared_ptr<RobotInstruction::Base>& ins : flat)
+		const auto it = index.find(id);
+		if (it != index.end() && it->second)
 		{
-			if (ins && ins->id() == id)
-			{
-				m_simController->syncInstructionRenderMatricesFromPose(ins);
-				break;
-			}
+			m_simController->syncInstructionRenderMatricesFromPose(it->second);
 		}
 	}
 }
@@ -599,20 +729,30 @@ bool TrajectoryEditSession::writeRenderMatricesFromSnapshotBase(
 	return true;
 }
 
-void TrajectoryEditSession::syncPreviewRenderMatrices()
+void TrajectoryEditSession::syncPreviewRenderMatrices(const std::vector<std::string>* updatedIds)
 {
 	if (m_previewSnapshots.empty() || !m_store)
 	{
 		return;
 	}
-	RobotInstruction::InstructionProgramDocument doc(&m_store->activeProgram());
+	std::unordered_set<std::string> filterIds;
+	if (updatedIds && !updatedIds->empty())
+	{
+		filterIds.insert(updatedIds->begin(), updatedIds->end());
+	}
+	InstructionIndex index = buildInstructionIndex(m_store->activeProgram());
 	for (const PreviewSnapshot& snap : m_previewSnapshots)
 	{
-		RobotInstruction::Base* raw = doc.findById(snap.id);
-		if (!raw)
+		if (!filterIds.empty() && filterIds.count(snap.id) == 0)
 		{
 			continue;
 		}
+		const auto it = index.find(snap.id);
+		if (it == index.end() || !it->second)
+		{
+			continue;
+		}
+		RobotInstruction::Base* raw = it->second.get();
 		if (!writeRenderMatricesFromSnapshotBase(snap, *raw, nullptr, nullptr))
 		{
 			restoreRenderExtensionsFromSnapshot(*raw, snap.extensions);
@@ -628,7 +768,7 @@ void TrajectoryEditSession::syncRenderMatricesFromFrozenBase(
 	{
 		return;
 	}
-	RobotInstruction::InstructionProgramDocument doc(&m_store->activeProgram());
+	InstructionIndex index = buildInstructionIndex(m_store->activeProgram());
 	for (const std::string& id : ids)
 	{
 		const auto itBase = frozenBaseWorldCsvById.find(id);
@@ -636,11 +776,12 @@ void TrajectoryEditSession::syncRenderMatricesFromFrozenBase(
 		{
 			continue;
 		}
-		RobotInstruction::Base* raw = doc.findById(id);
-		if (!raw)
+		const auto itRaw = index.find(id);
+		if (itRaw == index.end() || !itRaw->second)
 		{
 			continue;
 		}
+		RobotInstruction::Base* raw = itRaw->second.get();
 		osg::Matrixd baseWorld;
 		if (!RobotSimulationMath::decodeMatrix4Csv(itBase->second, baseWorld))
 		{
@@ -664,22 +805,60 @@ void TrajectoryEditSession::restorePreviewSnapshots()
 	{
 		return;
 	}
-	RobotInstruction::InstructionProgramDocument doc(&m_store->activeProgram());
+	InstructionIndex index = buildInstructionIndex(m_store->activeProgram());
 	for (const PreviewSnapshot& snap : m_previewSnapshots)
 	{
-		RobotInstruction::Base* raw = doc.findById(snap.id);
-		if (!raw)
+		const auto it = index.find(snap.id);
+		if (it == index.end() || !it->second)
 		{
 			continue;
 		}
+		RobotInstruction::Base* raw = it->second.get();
 		raw->setPose(snap.pose);
 		if (raw->hasEulerProperty())
 		{
 			raw->setEulerDeg(snap.euler);
 		}
+		// 预览会写入 context.targetTransform*；快照里若不存在，必须显式清掉，避免 pose 与 target 真值不一致。
+		const auto itTargetQ = snap.extensions.find(RobotInstruction::kExtContextTargetTransformQuatCsv);
+		if (itTargetQ == snap.extensions.end())
+		{
+			raw->eraseExtensionProperty(RobotInstruction::kExtContextTargetTransformQuatCsv);
+		}
+		const auto itTargetT = snap.extensions.find(RobotInstruction::kExtContextTargetTransformTransMmCsv);
+		if (itTargetT == snap.extensions.end())
+		{
+			raw->eraseExtensionProperty(RobotInstruction::kExtContextTargetTransformTransMmCsv);
+		}
 		for (const auto& kv : snap.extensions)
 		{
 			raw->setExtensionProperty(kv.first, kv.second);
 		}
+	}
+}
+
+void TrajectoryEditSession::updateLightweightPreviewState(const bool active)
+{
+	if (m_lightweightPreviewActive == active)
+	{
+		return;
+	}
+	m_lightweightPreviewActive = active;
+	if (!m_simController)
+	{
+		return;
+	}
+	IRobotMainWindowHost* host = m_simController->host();
+	if (!host)
+	{
+		return;
+	}
+	if (active)
+	{
+		host->appendRunInfo(QStringLiteral("轨迹点过多，当前使用轻预览模式"));
+	}
+	else
+	{
+		host->appendRunInfo(QStringLiteral("已恢复完整预览模式"));
 	}
 }

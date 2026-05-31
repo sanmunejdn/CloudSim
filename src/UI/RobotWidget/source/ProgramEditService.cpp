@@ -42,6 +42,40 @@ bool ProgramEditService::execute(std::unique_ptr<RobotInstruction::ProgramEditCo
 	return execute(std::shared_ptr<RobotInstruction::ProgramEditCommand>(std::move(cmd)), outError);
 }
 
+bool ProgramEditService::executeBatch(
+	const std::vector<RobotInstruction::ProgramEditStack::CommandPtr>& cmds,
+	QString* outError)
+{
+	if (!m_store)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("no program store");
+		}
+		return false;
+	}
+	if (cmds.empty())
+	{
+		return true;
+	}
+	RobotInstruction::InstructionProgramDocument doc(&m_store->activeProgram());
+	std::string err;
+	for (const auto& cmd : cmds)
+	{
+		if (!m_stack.execute(cmd, doc, &err))
+		{
+			if (outError)
+			{
+				*outError = QString::fromStdString(err);
+			}
+			return false;
+		}
+	}
+	doc.renumberAndNotify();
+	bumpRevision();
+	return true;
+}
+
 bool ProgramEditService::undo(QString* outError)
 {
 	if (!m_store)

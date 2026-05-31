@@ -269,11 +269,18 @@
 | `motion.target.frame` | `base` / `user` — 面板显示系 |
 | `context.toolFrameMat4` | 规划用工具矩阵（按点冻结） |
 | `context.poseFrame` | `base_tool_origin`（兼容 `base_tcp`） |
+| `context.targetTransformQuatCsv` / `context.targetTransformTransMmCsv` | 指令真值刚体（`readTargetTransformFromInstruction` 优先读取） |
 | `context.flangeLinkName` / `context.tcpLinkName` | 法兰 link（IK/FK） |
 
 `[IK残差]` 分列：`toolOrigin`、`flangeTarget`、`fkFlange`、`fkToolOrigin`；主指标 **`residualTcpMm`** = \|toolOrigin − fkToolOrigin\|（FK 经 `toolOriginFromFlange`）。
 
 规划上下文：按点写入工具矩阵与法兰 link。指令 `pose` = **基座下工具原点**；3D 轴与绿/红可达性同前。
+
+### 规划真值一致性（Pose vs TargetTransform）
+
+- `pose/euler` 与 `context.targetTransform*` 必须保持同源一致；`ProgramEditCommand` 对位姿做变换时通过 `writeTargetTransformToInstruction` 同步两者。
+- 轨迹编辑预览会临时写入 `context.targetTransform*`。当上层（RobotWidget）执行快照恢复时，若快照里不存在该键，必须显式清理旧键后再恢复扩展属性。
+- 否则会出现“`pose` 已回退但 `readTargetTransformFromInstruction` 仍是旧值”的状态，Apply 会基于错误真值再次增量，表现为位置被重复作用。
 
 ### 工具链 FK（禁止误用 OSG 裸乘）
 
@@ -403,7 +410,7 @@ flowchart LR
 | 工程 | 说明 |
 |------|------|
 | [`TrajectoryAlgorithm`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md) | `ITrajectoryOp`、Registry、ParamSchema、Codec、`TrajectoryTransformMath` |
-| [`TrajectoryAlgorithmBuiltins`](../TrajectoryAlgorithmBuiltins/) | Translate / Rotate / Delete / Duplicate + Mirror·Reorder 占位 |
+| [`TrajectoryAlgorithmBuiltins`](../TrajectoryAlgorithmBuiltins/) | Translate / Rotate / Delete / Duplicate / Mirror(轴反向) / Reorder(固定姿态) |
 | [`TrajectoryOpBridge.h`](inc/TrajectoryOpBridge.h) | **UI 唯一入口**：Registry、参数读写、模板 JSON（避免 RobotWidget 重复链接静态库） |
 
 `ensureTrajectoryOpBuiltinsRegistered()` 在 `TrajectoryPipelineBuilder::buildApplyCommands` 与 UI 构造时调用。Apply：`ITrajectoryOp::buildApplyActions` → [`TrajectoryApplyActionConverter`](source/TrajectoryApplyActionConverter.cpp) → `ProgramEditCommand`。
@@ -412,7 +419,7 @@ flowchart LR
 
 | 类型 | 说明 |
 |------|------|
-| `TrajectoryOpKind` | Translate / Rotate / Mirror / Delete / Duplicate / Reorder |
+| `TrajectoryOpKind` | Translate / Rotate / Mirror(轴反向) / Delete / Duplicate / Reorder(固定姿态) |
 | `TrajectoryOpDescriptor` | `kind` + `OpScope` + `translate` / `rotate` / `duplicateCount` 等 |
 | `TransformReferenceFrame` | `World` / `Body`（`TranslateParams` / `RotateParams` 的 `frame`） |
 | `TrajectoryPipelineBuilder` | `setOps` + `buildPreviewPoseQuery` + `buildApplyCommands`（内部走 Registry） |
@@ -431,7 +438,7 @@ flowchart LR
 
 `InstructionProgramDocument`：在 `activeProgram()` 步骤树上按 id 查找/修改。Command 使用 `shared_ptr` 跨 DLL 边界（`ProgramEditStack::CommandPtr`）。
 
-Apply 路径：`TrajectoryPipelineBuilder::buildApplyCommands` → UI 层 `ProgramEditService::execute`。
+Apply 路径：`TrajectoryPipelineBuilder::buildApplyCommands` → UI 层 `ProgramEditService::executeBatch`（批执行）。其中 Translate/Rotate 支持按作用域点序做起点→终点线性插值，保证 Preview 与 Apply 一致。
 
 撤销/重做后流水线 scope 与程序分组可能不一致（例如撤销「创建分组」）；UI 层 `TrajectoryEditPageWidget::reconcilePipelineScopes` 在 Preview/Apply 与 `revisionChanged` 时回退失效的 `Group` scope，详见 RobotWidget §轨迹编辑。
 

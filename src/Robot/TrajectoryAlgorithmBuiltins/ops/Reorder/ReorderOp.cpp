@@ -1,5 +1,7 @@
 #include "ReorderOp.h"
 
+#include <cstdio>
+
 namespace trajectory_algo
 {
 
@@ -10,12 +12,12 @@ RobotInstruction::TrajectoryOpKind ReorderOp::kind() const
 
 const char* ReorderOp::displayName(const bool chinese) const
 {
-	return chinese ? "重排" : "Reorder";
+	return chinese ? "固定姿态" : "Fixed Orientation";
 }
 
 TrajectoryOpCapability ReorderOp::capabilities() const
 {
-	return TrajectoryOpCapability::None;
+	return TrajectoryOpCapability::PreviewPoseTransform | TrajectoryOpCapability::ApplyPoseTransform;
 }
 
 RobotInstruction::TrajectoryOpDescriptor ReorderOp::makeDefaultDescriptor(
@@ -31,20 +33,17 @@ std::vector<TrajectoryOpParamField> ReorderOp::paramFields() const
 {
 	return {
 		messageParamField(
-			"hint.notImplemented",
-			"Reorder block is not implemented yet.",
-			"重排块尚未实现，预览与应用暂不可用。"),
+			"reorder.fixedPoseHint",
+			"Lock all orientations to the first waypoint orientation in current scope.",
+			"将作用域内所有姿态固定为首个轨迹点姿态。"),
 	};
 }
 
 bool ReorderOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, std::string* errMsg) const
 {
 	(void)op;
-	if (errMsg)
-	{
-		*errMsg = "Reorder block is not implemented yet.";
-	}
-	return false;
+	(void)errMsg;
+	return true;
 }
 
 std::string ReorderOp::formatSummary(
@@ -52,7 +51,7 @@ std::string ReorderOp::formatSummary(
 	const bool chinese) const
 {
 	(void)op;
-	return chinese ? "重排 | 未实现" : "Reorder | N/A";
+	return chinese ? "固定姿态 | 以首点为基准" : "Fixed Orientation | Use first waypoint";
 }
 
 bool ReorderOp::contributePreviewTransform(
@@ -61,9 +60,18 @@ bool ReorderOp::contributePreviewTransform(
 	PreviewTransformStep& out) const
 {
 	(void)op;
-	(void)targetIds;
-	(void)out;
-	return false;
+	if (targetIds.empty())
+	{
+		return false;
+	}
+	out.kind = PreviewTransformStep::Kind::FixedOrientationToFirst;
+	out.referenceId = targetIds.front();
+	out.targetIds.clear();
+	for (const std::string& id : targetIds)
+	{
+		out.targetIds.insert(id);
+	}
+	return !out.targetIds.empty();
 }
 
 std::vector<TrajectoryApplyAction> ReorderOp::buildApplyActions(
@@ -71,8 +79,10 @@ std::vector<TrajectoryApplyAction> ReorderOp::buildApplyActions(
 	const RobotInstruction::TrajectoryOpDescriptor& op) const
 {
 	(void)ctx;
-	(void)op;
-	return {};
+	TrajectoryApplyAction action{};
+	action.kind = TrajectoryApplyActionKind::TransformSegment;
+	action.transformOps = { op };
+	return { action };
 }
 
 } // namespace trajectory_algo

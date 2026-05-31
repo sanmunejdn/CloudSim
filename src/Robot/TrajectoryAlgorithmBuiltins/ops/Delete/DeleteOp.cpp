@@ -63,7 +63,15 @@ std::vector<TrajectoryApplyAction> DeleteOp::buildApplyActions(
 	const TrajectoryOpContext& ctx,
 	const RobotInstruction::TrajectoryOpDescriptor& op) const
 {
-	(void)ctx;
+	if (ctx.program)
+	{
+		RobotInstruction::RobotProgramCatalog catalog;
+		std::vector<std::string> ids = catalog.resolveOpScopeInstructionIds(op.scope, *ctx.program);
+		if (ids.empty())
+		{
+			return {};
+		}
+	}
 	TrajectoryApplyAction action{};
 	action.kind = TrajectoryApplyActionKind::RemoveInstruction;
 	action.scope = op.scope;

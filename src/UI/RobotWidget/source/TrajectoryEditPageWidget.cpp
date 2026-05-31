@@ -35,6 +35,7 @@
 #include <QDrag>
 #include <QMimeData>
 
+#include <algorithm>
 #include <cstring>
 
 namespace
@@ -81,13 +82,13 @@ QString opKindLabel(RobotInstruction::TrajectoryOpKind kind, bool zh)
 	case RobotInstruction::TrajectoryOpKind::Rotate:
 		return zh ? QStringLiteral("旋转") : QStringLiteral("Rotate");
 	case RobotInstruction::TrajectoryOpKind::Mirror:
-		return zh ? QStringLiteral("镜像") : QStringLiteral("Mirror");
+		return zh ? QStringLiteral("轴反向") : QStringLiteral("Axis Reverse");
 	case RobotInstruction::TrajectoryOpKind::Delete:
 		return zh ? QStringLiteral("删除") : QStringLiteral("Delete");
 	case RobotInstruction::TrajectoryOpKind::Duplicate:
 		return zh ? QStringLiteral("复制") : QStringLiteral("Duplicate");
 	case RobotInstruction::TrajectoryOpKind::Reorder:
-		return zh ? QStringLiteral("移动顺序") : QStringLiteral("Reorder");
+		return zh ? QStringLiteral("固定姿态") : QStringLiteral("Fixed Orientation");
 	case RobotInstruction::TrajectoryOpKind::Translate:
 	default:
 		return zh ? QStringLiteral("平移") : QStringLiteral("Translate");
@@ -213,13 +214,7 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 		{
 			return;
 		}
-		QTimer::singleShot(0, this, [this]() {
-			if (m_loadingParams || (m_paramPanel && m_paramPanel->isRebuilding()))
-			{
-				return;
-			}
-			runPreviewIfEnabled();
-		});
+		schedulePreviewRun(160, false);
 	});
 	connect(m_pipeline, &TrajectoryPipelineListWidget::selectedOpChanged, this, &TrajectoryEditPageWidget::onPipelineSelectionChanged);
 	connect(
@@ -244,18 +239,18 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 			if (!m_flushingParams && m_previewCheck && m_previewCheck->isChecked()
 				&& m_session && !m_session->isPreviewActive())
 			{
-				runPreviewIfEnabled();
+				schedulePreviewRun(100, false);
 			}
 		}
 	});
-	connect(m_scopeGroupCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
+	connect(m_scopeGroupCombo, QOverload<int>::of(&QComboBox::activated), this, [this]() {
 		if (!m_loadingParams)
 		{
 			applyParamsToSelectedOp();
 			if (!m_flushingParams && m_previewCheck && m_previewCheck->isChecked()
 				&& m_session && !m_session->isPreviewActive())
 			{
-				runPreviewIfEnabled();
+				schedulePreviewRun(100, false);
 			}
 		}
 	});
@@ -770,7 +765,7 @@ void TrajectoryEditPageWidget::rebuildPalette()
 	}
 }
 
-void TrajectoryEditPageWidget::runPreviewIfEnabled()
+void TrajectoryEditPageWidget::runPreviewIfEnabled(const bool showWarnings)
 {
 	if (!m_previewCheck || !m_previewCheck->isChecked() || !m_session || !m_pipeline)
 	{
@@ -785,11 +780,31 @@ void TrajectoryEditPageWidget::runPreviewIfEnabled()
 	QString err;
 	if (!m_session->preview(&err))
 	{
-		QMessageBox::warning(
-			this,
-			m_useChinese ? QStringLiteral("预览") : QStringLiteral("Preview"),
-			err);
+		if (showWarnings && !err.isEmpty())
+		{
+			QMessageBox::warning(
+				this,
+				m_useChinese ? QStringLiteral("预览") : QStringLiteral("Preview"),
+				err);
+		}
 	}
+}
+
+void TrajectoryEditPageWidget::schedulePreviewRun(const int delayMs, const bool showWarnings)
+{
+	++m_previewScheduleToken;
+	const int token = m_previewScheduleToken;
+	QTimer::singleShot(std::max(0, delayMs), this, [this, token, showWarnings]() {
+		if (token != m_previewScheduleToken)
+		{
+			return;
+		}
+		if (m_loadingParams || (m_paramPanel && m_paramPanel->isRebuilding()))
+		{
+			return;
+		}
+		runPreviewIfEnabled(showWarnings);
+	});
 }
 
 RobotInstruction::OpScope TrajectoryEditPageWidget::defaultScopeForNewOp() const
@@ -844,16 +859,16 @@ void TrajectoryEditPageWidget::syncSessionPipeline()
 	m_session->setPipeline(m_pipeline->ops());
 }
 
-void TrajectoryEditPageWidget::syncSessionParams()
+void TrajectoryEditPageWidget::syncSessionParams(const bool skipPreviewReapply)
 {
 	if (!m_session || !m_pipeline)
 	{
 		return;
 	}
-	m_session->updatePipelineOps(m_pipeline->ops());
+	m_session->updatePipelineOps(m_pipeline->ops(), !skipPreviewReapply);
 }
 
-void TrajectoryEditPageWidget::flushPipelineToSession()
+void TrajectoryEditPageWidget::flushPipelineToSession(const bool forApply)
 {
 	if (!m_session || !m_pipeline || m_flushingParams)
 	{
@@ -867,11 +882,11 @@ void TrajectoryEditPageWidget::flushPipelineToSession()
 	}
 	if (m_pipeline->selectedOpIndex() >= 0)
 	{
-		applyParamsToSelectedOp();
+		applyParamsToSelectedOp(forApply);
 	}
 	else
 	{
-		syncSessionParams();
+		syncSessionParams(forApply);
 	}
 	m_flushingParams = false;
 }
@@ -924,7 +939,7 @@ void TrajectoryEditPageWidget::loadSelectedOpToParamsImpl()
 	updateTransformActionButtons(op, m_previewCheck, m_applyBtn, m_readOnly);
 }
 
-void TrajectoryEditPageWidget::applyParamsToSelectedOp()
+void TrajectoryEditPageWidget::applyParamsToSelectedOp(const bool skipPreviewReapply)
 {
 	if (!m_pipeline || m_pipeline->selectedOpIndex() < 0 || !m_paramPanel)
 	{
@@ -964,7 +979,7 @@ void TrajectoryEditPageWidget::applyParamsToSelectedOp()
 	m_paramPanel->setLoading(false);
 	m_loadingParams = false;
 	updateTransformActionButtons(op, m_previewCheck, m_applyBtn, m_readOnly);
-	syncSessionParams();
+	syncSessionParams(skipPreviewReapply);
 }
 
 void TrajectoryEditPageWidget::fillScopeFromUi(RobotInstruction::OpScope& scope) const
@@ -1188,7 +1203,7 @@ void TrajectoryEditPageWidget::onPreviewToggled(const bool checked)
 	}
 	if (checked)
 	{
-		runPreviewIfEnabled();
+		schedulePreviewRun(0, true);
 	}
 	else
 	{
@@ -1248,7 +1263,7 @@ void TrajectoryEditPageWidget::onApplyClicked()
 		m_paramPanel->clear();
 	}
 	reconcilePipelineScopes();
-	flushPipelineToSession();
+	flushPipelineToSession(true);
 	QString err;
 	if (!m_session->apply(&err))
 	{
@@ -1393,6 +1408,6 @@ void TrajectoryEditPageWidget::onLoadTemplateClicked()
 	{
 		m_pipeline->setOps(ops);
 		syncSessionPipeline();
-		runPreviewIfEnabled();
+		schedulePreviewRun(120, false);
 	}
 }

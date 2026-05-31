@@ -2,6 +2,8 @@
 
 #include "TrajectoryOpFormat.h"
 
+#include <string>
+
 namespace trajectory_algo
 {
 
@@ -54,7 +56,8 @@ std::string DuplicateOp::formatSummary(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	const bool chinese) const
 {
-	return std::string(displayName(chinese)) + " | " + scopeKindLabel(op.scope.kind, chinese);
+	return std::string(displayName(chinese)) + " | " + scopeKindLabel(op.scope.kind, chinese)
+		+ (chinese ? " | 份数=" : " | Count=") + std::to_string(op.duplicateCount);
 }
 
 bool DuplicateOp::contributePreviewTransform(
@@ -72,10 +75,19 @@ std::vector<TrajectoryApplyAction> DuplicateOp::buildApplyActions(
 	const TrajectoryOpContext& ctx,
 	const RobotInstruction::TrajectoryOpDescriptor& op) const
 {
-	(void)ctx;
+	if (ctx.program)
+	{
+		RobotInstruction::RobotProgramCatalog catalog;
+		std::vector<std::string> ids = catalog.resolveOpScopeInstructionIds(op.scope, *ctx.program);
+		if (ids.empty())
+		{
+			return {};
+		}
+	}
 	TrajectoryApplyAction action{};
 	action.kind = TrajectoryApplyActionKind::DuplicateInstruction;
 	action.scope = op.scope;
+	action.duplicateCount = op.duplicateCount;
 	return { action };
 }
 

@@ -10,6 +10,7 @@
 #include <functional>
 #include <limits>
 #include <queue>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 

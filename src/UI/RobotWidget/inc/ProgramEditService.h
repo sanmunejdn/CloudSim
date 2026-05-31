@@ -22,10 +22,14 @@ public:
 
 	bool execute(std::shared_ptr<RobotInstruction::ProgramEditCommand> cmd, QString* outError = nullptr);
 	bool execute(std::unique_ptr<RobotInstruction::ProgramEditCommand> cmd, QString* outError = nullptr);
+	bool executeBatch(
+		const std::vector<RobotInstruction::ProgramEditStack::CommandPtr>& cmds,
+		QString* outError = nullptr);
 	bool undo(QString* outError = nullptr);
 	bool redo(QString* outError = nullptr);
 	bool canUndo() const;
 	bool canRedo() const;
+	int revision() const { return m_revision; }
 
 	RobotInstruction::InstructionProgramDocument currentDocument();
 

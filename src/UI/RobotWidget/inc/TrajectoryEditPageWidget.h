@@ -100,11 +100,13 @@ private:
 
 	void syncSessionPipeline();
 
-	void syncSessionParams();
+	void syncSessionParams(bool skipPreviewReapply = false);
 
-	void flushPipelineToSession();
+	void flushPipelineToSession(bool forApply = false);
 
-	void runPreviewIfEnabled();
+	void runPreviewIfEnabled(bool showWarnings);
+
+	void schedulePreviewRun(int delayMs, bool showWarnings = false);
 
 	RobotInstruction::OpScope defaultScopeForNewOp() const;
 
@@ -113,7 +115,7 @@ private:
 	void loadSelectedOpToParams();
 	void loadSelectedOpToParamsImpl();
 
-	void applyParamsToSelectedOp();
+	void applyParamsToSelectedOp(bool skipPreviewReapply = false);
 
 	void fillScopeFromUi(RobotInstruction::OpScope& scope) const;
 
@@ -253,6 +255,7 @@ private:
 	bool m_flushingParams = false;
 	bool m_pendingLoadSelectedOp = false;
 	bool m_committingApply = false;
+	int m_previewScheduleToken = 0;
 
 	std::string m_selectedGroupId;
 

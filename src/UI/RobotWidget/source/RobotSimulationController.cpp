@@ -2998,6 +2998,12 @@ void RobotSimulationController::syncInstructionRenderMatricesFromPose(const std:
 				return;
 			}
 		}
+		if (hasCartesianTarget && taughtQ.size() != nj)
+		{
+			// 缺少示教关节且无可用 world 缓存时，保留当前 pose 作为世界位姿，避免按当前机器人底座重复变换
+			instruction->setExtensionProperty("render.tcpWorldMat4", RobotSimulationMath::encodeMatrix4Csv(tcpLocal));
+			return;
+		}
 		osg::Matrixd robotBaseWorld;
 		robotBaseWorld.makeIdentity();
 		const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);

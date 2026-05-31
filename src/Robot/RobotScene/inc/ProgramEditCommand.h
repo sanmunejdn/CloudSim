@@ -110,6 +110,20 @@ private:
 	std::vector<SnapshotEntry> m_before;
 };
 
+class ROBOT_SCENE_API CompositeProgramEditCommand final : public ProgramEditCommand
+{
+public:
+	explicit CompositeProgramEditCommand(std::vector<ProgramEditStack::CommandPtr> commands);
+
+	bool execute(InstructionProgramDocument& doc, std::string* errMsg) override;
+	bool undo(InstructionProgramDocument& doc, std::string* errMsg) override;
+	const char* commandName() const override { return "CompositeProgramEdit"; }
+
+private:
+	std::vector<ProgramEditStack::CommandPtr> m_commands;
+	size_t m_executedCount = 0;
+};
+
 class ROBOT_SCENE_API CreateInstructionGroupCommand final : public ProgramEditCommand
 {
 public:

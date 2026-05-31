@@ -3,6 +3,7 @@
 #include "RobotOsgUiTypes.h"
 
 #include "../../OsgWidgetCore/inc/OsgScene.h"
+#include <sstream>
 
 namespace feature_pick_transform
 {

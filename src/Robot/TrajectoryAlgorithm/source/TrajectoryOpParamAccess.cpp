@@ -73,6 +73,24 @@ bool TrajectoryOpParamAccess::read(
 		out.asDouble = op.translate.dzMm;
 		return true;
 	}
+	if (field.key == "translate.endDxMm")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.translate.endDxMm;
+		return true;
+	}
+	if (field.key == "translate.endDyMm")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.translate.endDyMm;
+		return true;
+	}
+	if (field.key == "translate.endDzMm")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.translate.endDzMm;
+		return true;
+	}
 	if (field.key == "rotate.frame")
 	{
 		out.kind = TrajectoryParamValue::Kind::Int;
@@ -101,6 +119,18 @@ bool TrajectoryOpParamAccess::read(
 	{
 		out.kind = TrajectoryParamValue::Kind::Double;
 		out.asDouble = op.rotate.angleDeg;
+		return true;
+	}
+	if (field.key == "rotate.endAngleDeg")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.rotate.endAngleDeg;
+		return true;
+	}
+	if (field.key == "mirror.axis")
+	{
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = op.mirrorAxis;
 		return true;
 	}
 	if (field.key == "structural.duplicateCount")
@@ -156,6 +186,21 @@ bool TrajectoryOpParamAccess::write(
 		op.translate.dzMm = in.asDouble;
 		return true;
 	}
+	if (field.key == "translate.endDxMm")
+	{
+		op.translate.endDxMm = in.asDouble;
+		return true;
+	}
+	if (field.key == "translate.endDyMm")
+	{
+		op.translate.endDyMm = in.asDouble;
+		return true;
+	}
+	if (field.key == "translate.endDzMm")
+	{
+		op.translate.endDzMm = in.asDouble;
+		return true;
+	}
 	if (field.key == "rotate.frame")
 	{
 		op.rotate.frame = static_cast<RobotInstruction::TransformReferenceFrame>(in.asInt);
@@ -179,6 +224,16 @@ bool TrajectoryOpParamAccess::write(
 	if (field.key == "rotate.angleDeg")
 	{
 		op.rotate.angleDeg = in.asDouble;
+		return true;
+	}
+	if (field.key == "rotate.endAngleDeg")
+	{
+		op.rotate.endAngleDeg = in.asDouble;
+		return true;
+	}
+	if (field.key == "mirror.axis")
+	{
+		op.mirrorAxis = in.asInt;
 		return true;
 	}
 	if (field.key == "structural.duplicateCount")

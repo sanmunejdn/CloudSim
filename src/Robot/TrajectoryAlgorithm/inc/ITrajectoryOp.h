@@ -45,13 +45,17 @@ struct TRAJECTORY_ALGORITHM_API PreviewTransformStep
 	{
 		TranslateOnly = 0,
 		RotateOnly,
-		TranslateAndRotate
+		TranslateAndRotate,
+		AxisReverse,
+		FixedOrientationToFirst
 	};
 
 	Kind kind = Kind::TranslateOnly;
 	std::unordered_set<std::string> targetIds;
 	RobotInstruction::TranslateParams translate{};
 	RobotInstruction::RotateParams rotate{};
+	int mirrorAxis = 0;
+	std::string referenceId;
 };
 
 class TRAJECTORY_ALGORITHM_API ITrajectoryOp

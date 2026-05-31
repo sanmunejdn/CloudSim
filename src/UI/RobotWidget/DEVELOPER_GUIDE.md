@@ -212,7 +212,7 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 | `TrajectoryEditPageWidget` | UI：程序/分组、调色板、流水线、`TrajectoryOpParamPanel`、预览勾选/Apply/Undo |
 | `TrajectoryPipelineListWidget` | `m_ops` 真源；列表项由 `rebuildItems()` 从 `m_ops` 生成 |
 | `TrajectoryEditSession` | 持有 `m_ops` 副本 + `TrajectoryPipelineBuilder`；Preview 快照 / Apply Command；`reset` / `abandonPreview` |
-| `ProgramEditService` | Apply 时 `execute(cmd)`；Undo 恢复程序树 |
+| `ProgramEditService` | Apply 时优先 `executeBatch(cmds)`（单次 `renumberAndNotify` + `revisionChanged`）；Undo/Redo 恢复程序树 |
 | `RobotProgramStore` | `activeCatalog()` / `activeProgram()`；与 Instructions 页共用 |
 
 `RobotSimulationController::wireSimulationSignals` 创建并绑定 `ProgramEditService`、`TrajectoryEditSession`；文档就绪后 `bindStore`（见 controller 内 `refreshSimulationProgramStore`）。
@@ -255,7 +255,7 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 | 控件 | 行为 |
 |------|------|
 | **预览（勾选框，默认勾选）** | 勾选：`runPreviewIfEnabled`（`reconcile` → `flush` → `preview`）；取消：`session->reset()` 恢复路点。流水线/参数变更且仍勾选时自动重跑预览 |
-| **Apply** | `reconcilePipelineScopes` → `flush` → `apply`（内部恢复快照 + Command 落盘 + 同步 `render.*`）；成功后清空流水线并**取消勾选**预览 |
+| **Apply** | `reconcilePipelineScopes` → `flush` → `apply`（内部恢复快照基线 + 批量 Command 落盘 + 同步 `render.*`）；成功后清空流水线并**取消勾选**预览 |
 | **Reset** | `session->reset()` + `pipeline->setOps({})`（`opsChanged` → `setPipeline` 同步 Session） |
 | **Undo / Redo** | `ProgramEditService::undo/redo` → `revisionChanged` → `syncUiAfterProgramRevision` |
 | **流水线右键** | 移除块 / 上移 / 下移（`opsChanged` → `syncSessionPipeline` + 勾选时自动预览） |
@@ -287,7 +287,7 @@ flowchart LR
   Sess -->|Preview: capture snapshot| Store
   Sess -->|applyPreviewTransforms| Store
   Store --> OSG
-  Sess -->|Apply: reset + buildApplyCommands| Cmd
+  Sess -->|Apply: restorePreviewSnapshots + buildApplyCommands| Cmd
   Cmd -->|execute / revisionChanged| Store
   Cmd -->|revisionChanged| UI
 ```
@@ -295,8 +295,8 @@ flowchart LR
 | 阶段 | 行为 |
 |------|------|
 | **Preview** | `reconcilePipelineScopes` → `collectPreviewWaypointIds`（凡 `PreviewPoseTransform` 能力块）→ 快照原始 pose → `buildPreviewPoseQuery` 链式算目标位姿（含 World/Body `frame`）→ **临时**写回 store → `syncPreviewRenderMatrices` → `refreshInstructionPoseAxes` |
-| **参数变更且已预览** | `updatePipelineOps` → `reapplyPreview()`（restore 快照 → 重算 → 刷新 OSG） |
-| **Apply** | `reset()` → `buildApplyCommands` → 逐条 `ProgramEditService::execute` → 持久化 |
+| **参数变更且已预览** | `updatePipelineOps` → `reapplyPreview()`（restore 快照 → 重算 → 刷新 OSG）；平移/旋转按作用域点序执行起点→终点线性插值 |
+| **Apply** | `restorePreviewSnapshots()` → `buildApplyCommands` → `ProgramEditService::executeBatch` → `syncRenderMatrices*` → 持久化 |
 | **Undo / Redo** | `syncUiAfterProgramRevision`：`abandonPreview` + `reconcilePipelineScopes` + 刷新分组 UI |
 | **Reset** | `session->reset()` 恢复快照；UI 流水线 `setOps({})` |
 
@@ -307,6 +307,12 @@ flowchart LR
 | `m_ops.empty()` | 流水线为空，请先添加平移或旋转块 |
 | 无可预览能力块 | 当前流水线无可预览的平移/旋转块（`PreviewPoseTransform`） |
 | scope 解析无路点 | 作用域内无运动路点（常见：分组已被撤销但流水线仍引用旧 `groupId`；应先走 `reconcilePipelineScopes`） |
+
+### pose 与 targetTransform 一致性约束（2026-05 修订）
+
+- `TrajectoryEditSession::restorePreviewSnapshots()` 在恢复 `pose/euler + extensions` 时，若快照中不存在 `context.targetTransformQuatCsv` / `context.targetTransformTransMmCsv`，必须先显式 `eraseExtensionProperty`。
+- 原因：预览阶段会写入 `context.targetTransform*`；若恢复时仅覆盖 `pose/euler` 而不清理残留键，会出现 `pose` 与 `readTargetTransformFromInstruction` 的真值不一致，Apply 会以错误基线再次增量，表现为“位置像被作用多次”。
+- 验证口径：Apply 三阶段（restore 前/后、execute 后）应满足 `pose == targetTransform`，且 `after_execute = baseline + 本次 op`。
 
 ### 参数面板（Schema 驱动）
 
@@ -324,7 +330,8 @@ flowchart LR
 
 ### 已知限制（Phase 2b）
 
-- Mirror / Reorder 后端 Command 未完整实现
+- Mirror 已实现为“轴反向”（选轴后姿态反向，位置不变）
+- Reorder 已实现为“固定姿态”（以作用域首点姿态为基准对齐全部点）
 - Delete 预览高亮、ghost 轨迹、`previewMotionWithAccess` FK 链未做
 - 预览直接改指令 `pose`，非 Run 级 FK 链（MVP 足够显示路点轴偏移）
 

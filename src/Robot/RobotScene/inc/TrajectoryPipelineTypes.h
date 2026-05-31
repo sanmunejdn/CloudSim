@@ -48,6 +48,9 @@ struct ROBOT_SCENE_API TranslateParams
 	double dxMm = 0.0;
 	double dyMm = 0.0;
 	double dzMm = 0.0;
+	double endDxMm = 0.0;
+	double endDyMm = 0.0;
+	double endDzMm = 0.0;
 };
 
 struct ROBOT_SCENE_API RotateParams
@@ -57,6 +60,7 @@ struct ROBOT_SCENE_API RotateParams
 	double axisY = 0.0;
 	double axisZ = 1.0;
 	double angleDeg = 0.0;
+	double endAngleDeg = 0.0;
 };
 
 struct ROBOT_SCENE_API TrajectoryOpDescriptor
@@ -66,6 +70,7 @@ struct ROBOT_SCENE_API TrajectoryOpDescriptor
 	TranslateParams translate{};
 	RotateParams rotate{};
 	int duplicateCount = 1;
+	int mirrorAxis = 0;
 };
 
 } // namespace RobotInstruction
