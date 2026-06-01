@@ -1,28 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <ItemGroup Filter="inc">
-    <ClInclude Include="inc\geometry_algorithm_global.h" />
-    <ClInclude Include="inc\Types.h" />
-    <ClInclude Include="inc\ShapeIo.h" />
-    <ClInclude Include="inc\Discretize.h" />
-    <ClInclude Include="inc\MeshDiscretize.h" />
-    <ClInclude Include="inc\Intersection.h" />
-    <ClInclude Include="inc\BrepBoolean.h" />
-    <ClInclude Include="inc\WireOps.h" />
-    <ClInclude Include="inc\ShellOps.h" />
-    <ClInclude Include="inc\GeoMeshBoolean.h" />
-    <ClInclude Include="inc\SelfTest.h" />
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{CFFEB4C6-0D7E-4F77-A36F-DCEE322AE83B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{CF885F7D-0668-4EAB-99E3-54CC79FD21F7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
-  <ItemGroup Filter="source">
-    <ClCompile Include="source\ShapeIo.cpp" />
-    <ClCompile Include="source\Discretize.cpp" />
-    <ClCompile Include="source\DiscretizeEdge.cpp" />
-    <ClCompile Include="source\MeshDiscretize.cpp" />
-    <ClCompile Include="source\Intersection.cpp" />
-    <ClCompile Include="source\BrepBoolean.cpp" />
-    <ClCompile Include="source\WireOps.cpp" />
-    <ClCompile Include="source\ShellOps.cpp" />
-    <ClCompile Include="source\MeshBoolean.cpp" />
-    <ClCompile Include="source\SelfTest.cpp" />
+  <ItemGroup>
+    <ClInclude Include="inc\geometry_algorithm_global.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Types.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ShapeQuery.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Discretize.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshDiscretize.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Intersection.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BrepBoolean.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\WireOps.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ShellOps.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\GeoMeshBoolean.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SelfTest.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FeatureSpec.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\ShapeQuery.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ShapeIo.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Discretize.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DiscretizeEdge.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshDiscretize.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Intersection.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BrepBoolean.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\WireOps.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ShellOps.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBoolean.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SelfTest.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretize.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

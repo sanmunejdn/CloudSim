@@ -1,59 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="inc">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="inc\Geometry">
-      <UniqueIdentifier>{14238F2D-1DAC-4375-9BAB-3F2A778F9AC7}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{44A32C13-1B80-43B6-9A38-FF4B8A6F8C5C}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\adapters">
-      <UniqueIdentifier>{DE049F30-2138-4D99-9E35-B37CC27EC36C}</UniqueIdentifier>
+      <UniqueIdentifier>{B7D77A0D-FDCF-426E-A110-C7BBD0CA4B8E}</UniqueIdentifier>
     </Filter>
     <Filter Include="src">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="src\Geometry">
-      <UniqueIdentifier>{1913C8F7-A9F5-447C-9E06-8B236F4E0D11}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\adapters">
-      <UniqueIdentifier>{D4036209-1172-4085-84A2-E323E6F0BA0F}</UniqueIdentifier>
+      <UniqueIdentifier>{116A6BCA-2F7C-4A79-A2B6-E70F101CAD1C}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="inc\Adapters.h">
-      <Filter>inc\adapters</Filter>
-    </ClInclude>
     <ClInclude Include="inc\geometry_engine_global.h">
-      <Filter>inc\Global</Filter>
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\RigidTransform.h">
-      <Filter>inc\Geometry</Filter>
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Adapters.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ToolKinematics.h">
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\SelfTest.h">
       <Filter>inc</Filter>
     </ClInclude>
-    <ClInclude Include="inc\ToolKinematics.h">
-      <Filter>inc\Geometry</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\Adapters.cpp">
-      <Filter>src\adapters</Filter>
-    </ClCompile>
     <ClCompile Include="source\RigidTransform.cpp">
-      <Filter>src\Geometry</Filter>
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\SelfTest.cpp">
+    <ClCompile Include="source\Adapters.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\ToolKinematics.cpp">
-      <Filter>src\Geometry</Filter>
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SelfTest.cpp">
+      <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

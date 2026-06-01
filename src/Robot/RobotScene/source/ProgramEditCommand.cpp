@@ -65,6 +65,51 @@ TransformReferenceFrame frameForOp(const TrajectoryOpDescriptor& op)
 	return TransformReferenceFrame::World;
 }
 
+RobotProgram cloneProgramSnapshot(const RobotProgram& program)
+{
+	RobotProgram snapshot;
+	snapshot.id = program.id;
+	snapshot.name = program.name;
+	snapshot.isMain = program.isMain;
+	snapshot.groups = program.groups;
+	snapshot.steps.reserve(program.steps.size());
+	for (const std::shared_ptr<Base>& step : program.steps)
+	{
+		if (!step)
+		{
+			continue;
+		}
+		std::shared_ptr<Base> cloned = cloneInstructionPreservingId(*step);
+		if (cloned)
+		{
+			snapshot.steps.push_back(cloned);
+		}
+	}
+	return snapshot;
+}
+
+void overwriteProgram(RobotProgram& target, const RobotProgram& source)
+{
+	target.id = source.id;
+	target.name = source.name;
+	target.isMain = source.isMain;
+	target.groups = source.groups;
+	target.steps.clear();
+	target.steps.reserve(source.steps.size());
+	for (const std::shared_ptr<Base>& step : source.steps)
+	{
+		if (!step)
+		{
+			continue;
+		}
+		std::shared_ptr<Base> cloned = cloneInstructionPreservingId(*step);
+		if (cloned)
+		{
+			target.steps.push_back(cloned);
+		}
+	}
+}
+
 void applyDeltaToInstruction(Base& ins, const engine::RigidTransform& delta, const TransformReferenceFrame frame)
 {
 	engine::RigidTransform target = engine::RigidTransform::identity();
@@ -469,6 +514,45 @@ bool CompositeProgramEditCommand::undo(InstructionProgramDocument& doc, std::str
 		}
 	}
 	m_executedCount = 0;
+	return true;
+}
+
+ReplaceProgramContentCommand::ReplaceProgramContentCommand(RobotProgram* program, RobotProgram replacement)
+	: m_program(program)
+	, m_after(std::move(replacement))
+{
+}
+
+bool ReplaceProgramContentCommand::execute(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	(void)doc;
+	if (!m_program)
+	{
+		if (errMsg)
+		{
+			*errMsg = "program is null";
+		}
+		return false;
+	}
+	if (!m_executed)
+	{
+		m_before = cloneProgramSnapshot(*m_program);
+	}
+	overwriteProgram(*m_program, m_after);
+	m_executed = true;
+	return true;
+}
+
+bool ReplaceProgramContentCommand::undo(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	(void)doc;
+	(void)errMsg;
+	if (!m_program || !m_executed)
+	{
+		return false;
+	}
+	overwriteProgram(*m_program, m_before);
+	m_executed = false;
 	return true;
 }
 

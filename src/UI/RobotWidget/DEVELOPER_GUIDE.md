@@ -162,7 +162,7 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 | `SimulationCommandWidget` | 指令树、Run/Stop、TCP 拖动；**程序下拉 / 新建 / 重命名 / 删除**；**指令**分组（PTP/LINE/…）与 **功能**分组（末端拖动/删除/清空）；Ctrl 多选 + 右键创建分组；`setProgramStore`、`activeProgramChanged` / `groupsChanged` |
 | `RobotAxisControlWidget` | 关节滑块；`setJointAngle` 内 `qBound` 限位 |
 | `RobotFrameSettingsWidget` | 工具/用户系；`framesChanged` → 叠加刷新 |
-| `TrajectoryEditPageWidget` | 轨迹编辑 Dock 子页：**原始轨迹**配方区 + 调色板 + Program Op 流水线 + 参数区 + 预览勾选/Apply/Reset/Undo |
+| `TrajectoryEditPageWidget` | 轨迹编辑 Dock 子页：**工艺模板**区 + 调色板 + Program Op 流水线 + 参数区 + 预览勾选/Apply/Reset/Undo |
 | `InstructionProgramTreeWidget` | 层级指令树；`NodeKind::Group` 嵌套显示分组；Ctrl 多选根层级指令 → 右键创建分组；拖放维护 `memberInstructionIds`；`instructionSelected` → 预览 |
 | `TrajectoryEditSession` | 预览（临时改 store 中 pose）与 Apply（Command 落盘）；`reset` / `abandonPreview`；**并行持有** `m_rawTrajectory`（`setRawTrajectory` / `rawTrajectoryChanged`，与 Program 预览快照解耦）；见 §轨迹编辑 |
 | `ProgramEditService` | `execute` / `undo` / `redo`；`revisionChanged` → 轨迹页 `syncUiAfterProgramRevision` + 指令树刷新 |
@@ -192,18 +192,18 @@ Dock **机器人** 页内指令编辑区自上而下：
 
 Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签为 **机器人** / Robot（原「指令仿真」）。默认中文 UI；`MainWindow::applyLanguage` → `trajectoryEditPage()->setUseChinese` / `featureTrajectoryPage()->setUseChinese`；页签索引见 `RobotSimulationDockWidget::kTabIndexTrajectoryGeneration` / `kTabIndexTrajectoryEdit`。
 
-### 原始轨迹（CAD 离散结果）
+### 工艺模板与原始轨迹（CAD 离散结果）
 
-页顶 **「原始轨迹」** 区与下方 Program Op 流水线 UI 分区，避免两套 Op 体系混淆：
+页顶 **「工艺模板」** 区用于将焊缝/涂胶/打磨一键填充到统一流水线；`RawTrajectory` 仍作为离散输入来源：
 
 | 控件 | 行为 |
 |------|------|
 | 状态标签 | `TrajectoryEditSession::hasRawTrajectory()` → 点数；否则提示先在轨迹生成页离散 |
-| 配方下拉 | 焊缝 / 涂胶 / 打磨（`rawTrajectoryRecipe*Default`） |
-| 应用配方流水线 | session 取 raw 副本 → `applyRawTrajectoryPipeline` → 写回 session → OSG 预览 |
-| 生成程序 | `emitRawTrajectoryToProgram` → `mainProgram()` → 刷新指令树 |
+| 工艺下拉 | 焊缝 / 涂胶 / 打磨（映射 `RecipeWeld/RecipeGlue/RecipeGrind` 模板） |
+| 填充工艺流水线 | `buildRecipePreset` → `m_pipeline->setOps(...)`，插入统一算法块链（焊缝/打磨默认附加 `Approach + Retract`） |
+| 生成程序 | 保留 `emitRawTrajectoryToProgram` 入口用于 raw 直出；**Apply 成功后自动禁用**，避免覆盖已应用结果；发生新编辑或 Raw 更新后恢复可用 |
 
-`rawTrajectoryChanged` 刷新状态；`reset()` / `abandonPreview` **不清** `m_rawTrajectory`。
+`rawTrajectoryChanged` 刷新状态；`reset()` / `abandonPreview` **不清** `m_rawTrajectory`。当流水线含 Recipe/Approach/Retract 时，Apply 走 Unified IR 分支。
 
 ### 组件与绑定（Program Op 流水线）
 
@@ -255,7 +255,8 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 | 控件 | 行为 |
 |------|------|
 | **预览（勾选框，默认勾选）** | 勾选：`runPreviewIfEnabled`（`reconcile` → `flush` → `preview`）；取消：`session->reset()` 恢复路点。流水线/参数变更且仍勾选时自动重跑预览 |
-| **Apply** | `reconcilePipelineScopes` → `flush` → `apply`（内部恢复快照基线 + 批量 Command 落盘 + 同步 `render.*`）；成功后清空流水线并**取消勾选**预览 |
+| **Apply** | `reconcilePipelineScopes` → `flush` → `apply`：普通块沿用 Program Command；含 Recipe/Approach/Retract 时走 Unified IR + `ReplaceProgramContentCommand`；成功后清空流水线并**取消勾选**预览 |
+| **Apply 后生成门控** | 页面状态 `m_pipelineAppliedSinceLastRawChange=true`，`m_rawEmitBtn` 禁用；`onRawEmitProgram` 也有硬门禁提示，防止绕过按钮状态覆盖结果 |
 | **Reset** | `session->reset()` + `pipeline->setOps({})`（`opsChanged` → `setPipeline` 同步 Session） |
 | **Undo / Redo** | `ProgramEditService::undo/redo` → `revisionChanged` → `syncUiAfterProgramRevision` |
 | **流水线右键** | 移除块 / 上移 / 下移（`opsChanged` → `syncSessionPipeline` + 勾选时自动预览） |
@@ -295,8 +296,9 @@ flowchart LR
 | 阶段 | 行为 |
 |------|------|
 | **Preview** | `reconcilePipelineScopes` → `collectPreviewWaypointIds`（凡 `PreviewPoseTransform` 能力块）→ 快照原始 pose → `buildPreviewPoseQuery` 链式算目标位姿（含 World/Body `frame`）→ **临时**写回 store → `syncPreviewRenderMatrices` → `refreshInstructionPoseAxes` |
+| **Preview（Raw 场景）** | 当 `TrajectoryEditSession::hasRawTrajectory()==true` 时，页面改走 `Raw -> Unified -> pipeline -> Unified->Raw`，并调用 `showRawTrajectoryPreview` 回显；不再依赖 Program 路点预览链 |
 | **参数变更且已预览** | `updatePipelineOps` → `reapplyPreview()`（restore 快照 → 重算 → 刷新 OSG）；平移/旋转按作用域点序执行起点→终点线性插值 |
-| **Apply** | `restorePreviewSnapshots()` → `buildApplyCommands` → `ProgramEditService::executeBatch` → `syncRenderMatrices*` → 持久化 |
+| **Apply** | Raw 存在时强制 `Raw -> Unified -> pipeline -> Program`（Unified 分支）；否则沿用 `restorePreviewSnapshots()` → `buildApplyCommands` → `executeBatch` |
 | **Undo / Redo** | `syncUiAfterProgramRevision`：`abandonPreview` + `reconcilePipelineScopes` + 刷新分组 UI |
 | **Reset** | `session->reset()` 恢复快照；UI 流水线 `setOps({})` |
 
@@ -304,8 +306,8 @@ flowchart LR
 
 | 条件 | 文案 |
 |------|------|
-| `m_ops.empty()` | 流水线为空，请先添加平移或旋转块 |
-| 无可预览能力块 | 当前流水线无可预览的平移/旋转块（`PreviewPoseTransform`） |
+| `m_ops.empty()` | 流水线为空，请先添加算法块 |
+| 无可预览能力块 | 当前流水线无可预览块（Recipe/Approach/Retract 仅 Apply 生效） |
 | scope 解析无路点 | 作用域内无运动路点（常见：分组已被撤销但流水线仍引用旧 `groupId`；应先走 `reconcilePipelineScopes`） |
 
 ### pose 与 targetTransform 一致性约束（2026-05 修订）

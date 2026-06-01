@@ -1,27 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="inc">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="inc\Plugin">
-      <UniqueIdentifier>{398EE30D-DD93-4C71-AA42-AC8495F40DB4}</UniqueIdentifier>
+      <UniqueIdentifier>{2AB7DE0B-4692-42F9-9AF6-70F85F635EAB}</UniqueIdentifier>
     </Filter>
     <Filter Include="src">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+      <UniqueIdentifier>{582926C2-4A68-45AC-9391-D4C9A019D816}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\Plugin">
-      <UniqueIdentifier>{7CA2CEE2-6EF5-48E0-B4EE-034EA1FED927}</UniqueIdentifier>
-    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="plugin.json">
+      <Filter>inc</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\HelloDockWidget.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\HelloPlugin.cpp">
-      <Filter>src\Plugin</Filter>
+      <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -29,12 +26,7 @@
       <Filter>inc</Filter>
     </QtMoc>
     <QtMoc Include="inc\HelloPlugin.h">
-      <Filter>inc\Plugin</Filter>
+      <Filter>inc</Filter>
     </QtMoc>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="plugin.json">
-      <Filter>inc\Plugin</Filter>
-    </None>
   </ItemGroup>
 </Project>

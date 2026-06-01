@@ -1,283 +1,218 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="inc">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="inc\Backend">
-      <UniqueIdentifier>{03E19BF0-4AEE-496A-9BFC-99C167B9BBA1}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Document">
-      <UniqueIdentifier>{49283F82-2162-47B4-938C-4BC217F860DA}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{4052E0B2-BCA1-4B11-8CB1-AA3BD01BA123}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Import">
-      <UniqueIdentifier>{53E5F858-1031-491B-9160-796A7B718501}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\ProjectIo">
-      <UniqueIdentifier>{02C7DDEE-C718-47F4-B17D-7505E726DE58}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Render">
-      <UniqueIdentifier>{20C2F744-208C-4D30-92E4-C1B634523C5D}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Robot">
-      <UniqueIdentifier>{346FE4DD-B15F-4C19-B52D-A72BF0F7AD50}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Urdf">
-      <UniqueIdentifier>{7D8E137C-5A15-4827-870E-C3ADB691A6B0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\adapters">
-      <UniqueIdentifier>{8EE33204-5AB4-43DE-822B-99B78CCAD1FE}</UniqueIdentifier>
+      <UniqueIdentifier>{3F154F73-8BAB-4E98-AB6A-B8D957154445}</UniqueIdentifier>
     </Filter>
     <Filter Include="src">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="src\App">
-      <UniqueIdentifier>{C142BC32-8AAD-4082-88F5-48DC1EFFF22A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Backend">
-      <UniqueIdentifier>{5D419B50-F113-4EB1-A04A-CE611E282012}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Document">
-      <UniqueIdentifier>{449DC748-1905-49CE-B315-7F36E6C870AA}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Import">
-      <UniqueIdentifier>{D9E4CCA5-C0A9-4541-9E04-E93947055A46}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\OsgWidget">
-      <UniqueIdentifier>{A6B7F86D-4C52-417F-8C7E-8062A9331ABE}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\PickGizmo">
-      <UniqueIdentifier>{B132F6D8-02DA-4706-A41C-B2A04B3C2BA0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\ProjectIo">
-      <UniqueIdentifier>{6872A771-10B5-42B2-8620-7801087DF9A2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Render">
-      <UniqueIdentifier>{241D3A69-E282-450B-92F4-30D341F098F7}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Robot">
-      <UniqueIdentifier>{B01E29E5-10F3-4E12-AF05-7784AD9F8529}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\SceneFacade">
-      <UniqueIdentifier>{C50961E3-BE1E-48BC-A6E9-90C3AC207CBE}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Urdf">
-      <UniqueIdentifier>{4BC0802D-CE11-427E-823D-21FDAE4C4ACC}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\adapters">
-      <UniqueIdentifier>{36F0E317-D6B6-4B89-BBAD-55A2A003A84F}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\pch">
-      <UniqueIdentifier>{40C1F5A0-3600-4F37-ACBB-B71B3A82E611}</UniqueIdentifier>
+      <UniqueIdentifier>{5786FE43-7F1A-416C-AB85-A2E8AC7D546F}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="inc\adapters\DataServiceAdapter.h">
-      <Filter>inc\adapters</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\adapters\OsgRenderViewAdapter.h">
-      <Filter>inc\adapters</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\adapters\RobotServiceAdapter.h">
-      <Filter>inc\adapters</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\AnnotationProjectIo.h">
-      <Filter>inc\ProjectIo</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendFileImport.h">
-      <Filter>inc\Backend</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendFollowSolve.h">
-      <Filter>inc\Backend</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendHierarchyFollow.h">
-      <Filter>inc\Backend</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendProjectObjectIo.h">
-      <Filter>inc\Backend</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendVisualSync.h">
-      <Filter>inc\Backend</Filter>
-    </ClInclude>
     <ClInclude Include="inc\cloudsim_host_global.h">
-      <Filter>inc\Global</Filter>
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\CloudSimHost.h">
       <Filter>inc</Filter>
     </ClInclude>
-    <ClInclude Include="inc\DocumentHostEvents.h">
-      <Filter>inc\Document</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\DocumentImportFacade.h">
-      <Filter>inc\Document</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\HierarchyMeshImport.h">
-      <Filter>inc\Import</Filter>
+    <ClInclude Include="inc\widget_global.h">
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\HostRenderViewFactory.h">
-      <Filter>inc\Render</Filter>
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\adapters\DataServiceAdapter.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\adapters\OsgRenderViewAdapter.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\adapters\RobotServiceAdapter.h">
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\IRobotUrdfImportContext.h">
-      <Filter>inc\Urdf</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ProjectPackageIo.h">
-      <Filter>inc\ProjectIo</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotPlanInstruction.h">
-      <Filter>inc\Robot</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotProgramJsonIo.h">
-      <Filter>inc\Robot</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotProjectKinematicsRestore.h">
-      <Filter>inc\Robot</Filter>
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\UrdfRobotImport.h">
-      <Filter>inc\Urdf</Filter>
+      <Filter>inc</Filter>
     </ClInclude>
-    <ClInclude Include="inc\widget_global.h">
-      <Filter>inc\Global</Filter>
+    <ClInclude Include="inc\BackendFileImport.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendProjectObjectIo.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\DocumentHostEvents.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotPlanInstruction.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotProgramJsonIo.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotProjectKinematicsRestore.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendHierarchyFollow.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\HierarchyMeshImport.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\DocumentImportFacade.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendFollowSolve.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ProjectPackageIo.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendVisualSync.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\AnnotationProjectIo.h">
+      <Filter>inc</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\UI\Widget\source\BackendFollowReverseIndex.cpp">
-      <Filter>src\SceneFacade</Filter>
+    <ClCompile Include="source\pch.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\BackendSceneDocumentFacade.cpp">
-      <Filter>src\SceneFacade</Filter>
+    <ClCompile Include="source\DocumentHost.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\GraphicsWindowQt1.cpp">
-      <Filter>src\OsgWidget</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\MeshEdgeFacePickOperation.cpp">
-      <Filter>src\PickGizmo</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\ObjectTransformOperation.cpp">
-      <Filter>src\PickGizmo</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\OsgWidget.cpp">
-      <Filter>src\OsgWidget</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetBackendLoadController.cpp">
-      <Filter>src\OsgWidget</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetCameraFocusController.cpp">
-      <Filter>src\OsgWidget</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetCaptureController.cpp">
-      <Filter>src\OsgWidget</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetColorController.cpp">
-      <Filter>src\OsgWidget</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetGizmoController.cpp">
-      <Filter>src\OsgWidget</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetImportController.cpp">
-      <Filter>src\OsgWidget</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetPickAnnotationController.cpp">
-      <Filter>src\OsgWidget</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetSceneBridge.cpp">
-      <Filter>src\OsgWidget</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetTcpTeach.cpp">
-      <Filter>src\OsgWidget</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetTransformHierarchyController.cpp">
-      <Filter>src\OsgWidget</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\PointPickOperation.cpp">
-      <Filter>src\PickGizmo</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\QWidgetViewer.cpp">
-      <Filter>src\OsgWidget</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\UI\Widget\source\RobotTcpDragTeachOperation.cpp">
-      <Filter>src\PickGizmo</Filter>
+    <ClCompile Include="source\HostRenderViewFactory.cpp">
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\adapters\DataServiceAdapter.cpp">
-      <Filter>src\adapters</Filter>
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\adapters\OsgRenderViewAdapter.cpp">
-      <Filter>src\adapters</Filter>
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\adapters\RobotServiceAdapter.cpp">
-      <Filter>src\adapters</Filter>
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\AnnotationProjectIo.cpp">
-      <Filter>src\ProjectIo</Filter>
+    <ClCompile Include="source\UrdfRobotImport.cpp">
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendFileImport.cpp">
-      <Filter>src\Backend</Filter>
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendProjectObjectIo.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DocumentHostEvents.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotPlanInstruction.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotProgramJsonIo.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotProjectKinematicsRestore.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendHierarchyFollow.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\HierarchyMeshImport.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DocumentImportFacade.cpp">
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendFollowSolve.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\BackendHierarchyFollow.cpp">
-      <Filter>src\Backend</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendProjectObjectIo.cpp">
-      <Filter>src\Backend</Filter>
+    <ClCompile Include="source\ProjectPackageIo.cpp">
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendVisualSync.cpp">
-      <Filter>src\Backend</Filter>
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\CloudSimApplicationContext.cpp">
-      <Filter>src\App</Filter>
+    <ClCompile Include="source\AnnotationProjectIo.cpp">
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\CloudSimHostExport.cpp">
-      <Filter>src\App</Filter>
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\DocumentHost.cpp">
-      <Filter>src\Document</Filter>
+    <ClCompile Include="source\CloudSimApplicationContext.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\DocumentHostEvents.cpp">
-      <Filter>src\Document</Filter>
+    <ClCompile Include="..\..\UI\Widget\source\BackendFollowReverseIndex.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\DocumentImportFacade.cpp">
-      <Filter>src\Document</Filter>
+    <ClCompile Include="..\..\UI\Widget\source\BackendSceneDocumentFacade.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\HierarchyMeshImport.cpp">
-      <Filter>src\Import</Filter>
+    <ClCompile Include="..\..\UI\Widget\source\GraphicsWindowQt1.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\HostRenderViewFactory.cpp">
-      <Filter>src\Render</Filter>
+    <ClCompile Include="..\..\UI\Widget\source\ObjectTransformOperation.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\pch.cpp">
-      <Filter>src\pch</Filter>
+    <ClCompile Include="..\..\UI\Widget\source\RobotTcpDragTeachOperation.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\ProjectPackageIo.cpp">
-      <Filter>src\ProjectIo</Filter>
+    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetTcpTeach.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\RobotPlanInstruction.cpp">
-      <Filter>src\Robot</Filter>
+    <ClCompile Include="..\..\UI\Widget\source\OsgWidget.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\RobotProgramJsonIo.cpp">
-      <Filter>src\Robot</Filter>
+    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetBackendLoadController.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\RobotProjectKinematicsRestore.cpp">
-      <Filter>src\Robot</Filter>
+    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetImportController.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\UrdfRobotImport.cpp">
-      <Filter>src\Urdf</Filter>
+    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetCaptureController.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetPickAnnotationController.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetColorController.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetCameraFocusController.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetGizmoController.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetSceneBridge.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetTransformHierarchyController.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Widget\source\PointPickOperation.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Widget\source\MeshEdgeFacePickOperation.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Widget\source\ViewportGestureRecognizer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Widget\source\QWidgetViewer.cpp">
+      <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="..\..\UI\Widget\inc\OsgWidget.h">
-      <Filter>src\OsgWidget</Filter>
-    </QtMoc>
-    <QtMoc Include="..\..\UI\Widget\inc\QWidgetViewer.h">
-      <Filter>src\OsgWidget</Filter>
+      <Filter>inc</Filter>
     </QtMoc>
     <QtMoc Include="inc\DocumentHost.h">
-      <Filter>inc\Document</Filter>
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="..\..\UI\Widget\inc\QWidgetViewer.h">
+      <Filter>inc</Filter>
     </QtMoc>
   </ItemGroup>
 </Project>

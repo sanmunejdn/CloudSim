@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{FFC815F7-4DD5-4C57-95BE-2D8233DD46EF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{D29EF1AA-A1F1-4D5F-98B3-F8A58031525F}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\TrajectoryOpFormat.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Translate\TranslateOp.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Rotate\RotateOp.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Delete\DeleteOp.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Duplicate\DuplicateOp.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Mirror\MirrorOp.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Reorder\ReorderOp.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\RecipeWeld\RecipeWeldOp.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\RecipeGlue\RecipeGlueOp.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\RecipeGrind\RecipeGrindOp.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Approach\ApproachOp.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Retract\RetractOp.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\TrajectoryOpFormat.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryOpBuiltinsRegister.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Translate\TranslateOp.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Rotate\RotateOp.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Delete\DeleteOp.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Duplicate\DuplicateOp.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Mirror\MirrorOp.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Reorder\ReorderOp.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\RecipeWeld\RecipeWeldOp.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\RecipeGlue\RecipeGlueOp.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\RecipeGrind\RecipeGrindOp.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Approach\ApproachOp.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Retract\RetractOp.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

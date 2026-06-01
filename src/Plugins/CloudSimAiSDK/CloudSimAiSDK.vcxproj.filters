@@ -1,26 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="inc">
-      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567890}</UniqueIdentifier>
+      <UniqueIdentifier>{AE9213F7-50FF-4D22-989F-47024F24D551}</UniqueIdentifier>
     </Filter>
     <Filter Include="src">
-      <UniqueIdentifier>{b2c3d4e5-f6a7-8901-bcde-f12345678901}</UniqueIdentifier>
+      <UniqueIdentifier>{1B9BD8C6-B4A9-4353-9178-2F30625342DD}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="inc\cloudsim_ai_sdk_global.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\CloudSimAiVersion.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\AiConfigDto.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\AiDomainTypes.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\AiInferenceTypes.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\AiParseTypes.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\IAiAssistantHost.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\IAiDomainHandler.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\IAiInferenceProvider.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\ICloudSimAiPlugin.h"><Filter>inc</Filter></ClInclude>
+    <ClInclude Include="inc\cloudsim_ai_sdk_global.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CloudSimAiVersion.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\AiConfigDefaults.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\AiConfigDto.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\AiDomainTypes.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\AiInferenceTypes.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\AiParseTypes.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IAiAssistantHost.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IAiDomainHandler.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IAiInferenceProvider.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ICloudSimAiPlugin.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\CloudSimAiVersion.cpp"><Filter>src</Filter></ClCompile>
+    <ClCompile Include="source\AiConfigDefaults.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CloudSimAiVersion.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

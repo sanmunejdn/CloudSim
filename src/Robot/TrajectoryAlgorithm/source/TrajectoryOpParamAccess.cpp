@@ -133,6 +133,138 @@ bool TrajectoryOpParamAccess::read(
 		out.asInt = op.mirrorAxis;
 		return true;
 	}
+	if (field.key == "recipe.version")
+	{
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = op.recipe.version;
+		return true;
+	}
+	if (field.key == "recipe.resampleStepMm")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.recipe.resampleStepMm;
+		return true;
+	}
+	if (field.key == "recipe.normalOffsetMm")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.recipe.normalOffsetMm;
+		return true;
+	}
+	if (field.key == "recipe.lateralOffsetMm")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.recipe.lateralOffsetMm;
+		return true;
+	}
+	if (field.key == "recipe.speedMmPerSec")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.recipe.speedMmPerSec;
+		return true;
+	}
+	if (field.key == "recipe.blendRadiusMm")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.recipe.blendRadiusMm;
+		return true;
+	}
+	if (field.key == "approach.distanceMm")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.approach.distanceMm;
+		return true;
+	}
+	if (field.key == "approach.directionMode")
+	{
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = static_cast<int>(op.approach.directionMode);
+		return true;
+	}
+	if (field.key == "approach.insertMode")
+	{
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = static_cast<int>(op.approach.insertMode);
+		return true;
+	}
+	if (field.key == "approach.segmentSelectMode")
+	{
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = static_cast<int>(op.approach.segmentSelectMode);
+		return true;
+	}
+	if (field.key == "approach.segmentFrom")
+	{
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = op.approach.segmentFrom;
+		return true;
+	}
+	if (field.key == "approach.segmentTo")
+	{
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = op.approach.segmentTo;
+		return true;
+	}
+	if (field.key == "approach.overrideSpeedEnabled")
+	{
+		out.kind = TrajectoryParamValue::Kind::Bool;
+		out.asBool = op.approach.overrideSpeedEnabled;
+		return true;
+	}
+	if (field.key == "approach.speedMmPerSec")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.approach.speedMmPerSec;
+		return true;
+	}
+	if (field.key == "retract.distanceMm")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.retract.distanceMm;
+		return true;
+	}
+	if (field.key == "retract.directionMode")
+	{
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = static_cast<int>(op.retract.directionMode);
+		return true;
+	}
+	if (field.key == "retract.insertMode")
+	{
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = static_cast<int>(op.retract.insertMode);
+		return true;
+	}
+	if (field.key == "retract.segmentSelectMode")
+	{
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = static_cast<int>(op.retract.segmentSelectMode);
+		return true;
+	}
+	if (field.key == "retract.segmentFrom")
+	{
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = op.retract.segmentFrom;
+		return true;
+	}
+	if (field.key == "retract.segmentTo")
+	{
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = op.retract.segmentTo;
+		return true;
+	}
+	if (field.key == "retract.overrideSpeedEnabled")
+	{
+		out.kind = TrajectoryParamValue::Kind::Bool;
+		out.asBool = op.retract.overrideSpeedEnabled;
+		return true;
+	}
+	if (field.key == "retract.speedMmPerSec")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.retract.speedMmPerSec;
+		return true;
+	}
 	if (field.key == "structural.duplicateCount")
 	{
 		out.kind = TrajectoryParamValue::Kind::Int;
@@ -234,6 +366,116 @@ bool TrajectoryOpParamAccess::write(
 	if (field.key == "mirror.axis")
 	{
 		op.mirrorAxis = in.asInt;
+		return true;
+	}
+	if (field.key == "recipe.version")
+	{
+		op.recipe.version = in.asInt;
+		return true;
+	}
+	if (field.key == "recipe.resampleStepMm")
+	{
+		op.recipe.resampleStepMm = in.asDouble;
+		return true;
+	}
+	if (field.key == "recipe.normalOffsetMm")
+	{
+		op.recipe.normalOffsetMm = in.asDouble;
+		return true;
+	}
+	if (field.key == "recipe.lateralOffsetMm")
+	{
+		op.recipe.lateralOffsetMm = in.asDouble;
+		return true;
+	}
+	if (field.key == "recipe.speedMmPerSec")
+	{
+		op.recipe.speedMmPerSec = in.asDouble;
+		return true;
+	}
+	if (field.key == "recipe.blendRadiusMm")
+	{
+		op.recipe.blendRadiusMm = in.asDouble;
+		return true;
+	}
+	if (field.key == "approach.distanceMm")
+	{
+		op.approach.distanceMm = in.asDouble;
+		return true;
+	}
+	if (field.key == "approach.directionMode")
+	{
+		op.approach.directionMode = static_cast<RobotInstruction::ApproachDirectionMode>(in.asInt);
+		return true;
+	}
+	if (field.key == "approach.insertMode")
+	{
+		op.approach.insertMode = static_cast<RobotInstruction::InsertMode>(in.asInt);
+		return true;
+	}
+	if (field.key == "approach.segmentSelectMode")
+	{
+		op.approach.segmentSelectMode = static_cast<RobotInstruction::SegmentSelectMode>(in.asInt);
+		return true;
+	}
+	if (field.key == "approach.segmentFrom")
+	{
+		op.approach.segmentFrom = in.asInt;
+		return true;
+	}
+	if (field.key == "approach.segmentTo")
+	{
+		op.approach.segmentTo = in.asInt;
+		return true;
+	}
+	if (field.key == "approach.overrideSpeedEnabled")
+	{
+		op.approach.overrideSpeedEnabled = in.asBool;
+		return true;
+	}
+	if (field.key == "approach.speedMmPerSec")
+	{
+		op.approach.speedMmPerSec = in.asDouble;
+		return true;
+	}
+	if (field.key == "retract.distanceMm")
+	{
+		op.retract.distanceMm = in.asDouble;
+		return true;
+	}
+	if (field.key == "retract.directionMode")
+	{
+		op.retract.directionMode = static_cast<RobotInstruction::ApproachDirectionMode>(in.asInt);
+		return true;
+	}
+	if (field.key == "retract.insertMode")
+	{
+		op.retract.insertMode = static_cast<RobotInstruction::InsertMode>(in.asInt);
+		return true;
+	}
+	if (field.key == "retract.segmentSelectMode")
+	{
+		op.retract.segmentSelectMode = static_cast<RobotInstruction::SegmentSelectMode>(in.asInt);
+		return true;
+	}
+	if (field.key == "retract.segmentFrom")
+	{
+		op.retract.segmentFrom = in.asInt;
+		return true;
+	}
+	if (field.key == "retract.segmentTo")
+	{
+		op.retract.segmentTo = in.asInt;
+		return true;
+	}
+	if (field.key == "retract.overrideSpeedEnabled")
+	{
+		op.retract.overrideSpeedEnabled = in.asBool;
+		return true;
+	}
+	if (field.key == "retract.speedMmPerSec")
+	{
+		op.retract.speedMmPerSec = in.asDouble;
 		return true;
 	}
 	if (field.key == "structural.duplicateCount")

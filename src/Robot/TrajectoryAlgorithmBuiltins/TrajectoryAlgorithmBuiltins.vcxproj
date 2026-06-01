@@ -48,7 +48,7 @@
       <PreprocessorDefinitions>TRAJECTORY_ALGORITHM_BUILTINS_LIB;TRAJECTORY_ALGORITHM_LIB;ROBOT_SCENE_LIB;GEOMETRY_ENGINE_STATIC;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;.;ops/Translate;ops/Rotate;ops/Delete;ops/Duplicate;ops/Mirror;ops/Reorder;../TrajectoryAlgorithm/inc;../RobotScene/inc;../../Geometry/GeometryEngine/inc;../../../../bin/SDK/eigen;../../../../bin/SDK/JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;.;ops/Translate;ops/Rotate;ops/Delete;ops/Duplicate;ops/Mirror;ops/Reorder;ops/RecipeWeld;ops/RecipeGlue;ops/RecipeGrind;ops/Approach;ops/Retract;../TrajectoryAlgorithm/inc;../RobotScene/inc;../../Geometry/GeometryEngine/inc;../../../../bin/SDK/eigen;../../../../bin/SDK/JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -58,7 +58,7 @@
       <PreprocessorDefinitions>TRAJECTORY_ALGORITHM_BUILTINS_LIB;TRAJECTORY_ALGORITHM_LIB;ROBOT_SCENE_LIB;GEOMETRY_ENGINE_STATIC;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;.;ops/Translate;ops/Rotate;ops/Delete;ops/Duplicate;ops/Mirror;ops/Reorder;../TrajectoryAlgorithm/inc;../RobotScene/inc;../../Geometry/GeometryEngine/inc;../../../../bin/SDK/eigen;../../../../bin/SDK/JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;.;ops/Translate;ops/Rotate;ops/Delete;ops/Duplicate;ops/Mirror;ops/Reorder;ops/RecipeWeld;ops/RecipeGlue;ops/RecipeGrind;ops/Approach;ops/Retract;../TrajectoryAlgorithm/inc;../RobotScene/inc;../../Geometry/GeometryEngine/inc;../../../../bin/SDK/eigen;../../../../bin/SDK/JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -70,6 +70,11 @@
     <ClInclude Include="ops\Duplicate\DuplicateOp.h" />
     <ClInclude Include="ops\Mirror\MirrorOp.h" />
     <ClInclude Include="ops\Reorder\ReorderOp.h" />
+    <ClInclude Include="ops\RecipeWeld\RecipeWeldOp.h" />
+    <ClInclude Include="ops\RecipeGlue\RecipeGlueOp.h" />
+    <ClInclude Include="ops\RecipeGrind\RecipeGrindOp.h" />
+    <ClInclude Include="ops\Approach\ApproachOp.h" />
+    <ClInclude Include="ops\Retract\RetractOp.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\TrajectoryOpFormat.cpp" />
@@ -80,6 +85,11 @@
     <ClCompile Include="ops\Duplicate\DuplicateOp.cpp" />
     <ClCompile Include="ops\Mirror\MirrorOp.cpp" />
     <ClCompile Include="ops\Reorder\ReorderOp.cpp" />
+    <ClCompile Include="ops\RecipeWeld\RecipeWeldOp.cpp" />
+    <ClCompile Include="ops\RecipeGlue\RecipeGlueOp.cpp" />
+    <ClCompile Include="ops\RecipeGrind\RecipeGrindOp.cpp" />
+    <ClCompile Include="ops\Approach\ApproachOp.cpp" />
+    <ClCompile Include="ops\Retract\RetractOp.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TrajectoryAlgorithm\TrajectoryAlgorithm.vcxproj">

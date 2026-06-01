@@ -5,8 +5,11 @@
 #include "IRobotOsgViewHost.h"
 #include "RobotInstructionProgram.h"
 #include "RobotInstructionTransform.h"
+#include "RecipeBlueprint.h"
 #include "RobotSimulationController.h"
 #include "RobotSimulationMath.h"
+#include "FeaturePickTransform.h"
+#include "UnifiedTrajectory.h"
 
 #include <ITrajectoryOp.h>
 #include "TrajectoryOpBridge.h"
@@ -127,6 +130,47 @@ bool previewPoseNearlyUnchanged(
 	const auto near = [](const double a, const double b) { return std::abs(a - b) <= 0.001; };
 	return near(snapPose.x, newPose.x) && near(snapPose.y, newPose.y) && near(snapPose.z, newPose.z)
 		&& near(snapEuler.x, newEuler.x) && near(snapEuler.y, newEuler.y) && near(snapEuler.z, newEuler.z);
+}
+
+bool isUnifiedOnlyKind(const RobotInstruction::TrajectoryOpKind kind)
+{
+	return RobotInstruction::isRecipeOpKind(kind)
+		|| kind == RobotInstruction::TrajectoryOpKind::Approach
+		|| kind == RobotInstruction::TrajectoryOpKind::Retract;
+}
+
+bool requiresUnifiedApply(
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops,
+	const bool hasRawTrajectory)
+{
+	if (hasRawTrajectory)
+	{
+		return true;
+	}
+	for (const RobotInstruction::TrajectoryOpDescriptor& op : ops)
+	{
+		if (isUnifiedOnlyKind(op.kind))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+std::vector<std::string> collectMotionIds(const RobotInstruction::RobotProgram& program)
+{
+	std::vector<std::string> ids;
+	std::vector<std::shared_ptr<RobotInstruction::Base>> flat;
+	RobotInstruction::flattenInstructionsRecursive(program.steps, flat);
+	ids.reserve(flat.size());
+	for (const std::shared_ptr<RobotInstruction::Base>& base : flat)
+	{
+		if (base && RobotInstruction::isMotionWaypointType(base->type()))
+		{
+			ids.push_back(base->id());
+		}
+	}
+	return ids;
 }
 
 void restoreRenderExtensionsFromSnapshot(
@@ -323,7 +367,7 @@ bool TrajectoryEditSession::preview(QString* outError)
 	{
 		if (outError)
 		{
-			*outError = QStringLiteral("流水线为空，请先添加平移或旋转块");
+			*outError = QStringLiteral("流水线为空，请先添加算法块");
 		}
 		return false;
 	}
@@ -345,7 +389,7 @@ bool TrajectoryEditSession::preview(QString* outError)
 	{
 		if (outError)
 		{
-			*outError = QStringLiteral("当前流水线无可预览的平移/旋转块");
+			*outError = QStringLiteral("当前流水线无可预览块（Recipe/进退刀仅在应用时生效）");
 		}
 		return false;
 	}
@@ -398,6 +442,139 @@ bool TrajectoryEditSession::apply(QString* outError)
 		}
 		return false;
 	}
+	const bool useUnifiedApply = requiresUnifiedApply(m_ops, m_rawTrajectory.has_value());
+	if (useUnifiedApply)
+	{
+		RobotInstruction::RobotProgram* activeProgram = m_store->activeCatalog().mainProgram();
+		if (!activeProgram)
+		{
+			if (outError)
+			{
+				*outError = QStringLiteral("active program is null");
+			}
+			return false;
+		}
+		RobotInstruction::UnifiedTrajectory unified{};
+		RobotInstruction::RawTrajectory rawWorking{};
+		bool usingRaw = false;
+		auto rebuildUnifiedFromRawForApply = [this, &unified](
+												 const RobotInstruction::RawTrajectory& sourceRaw,
+												 const char* phase,
+												 QString* outErrorPtr) -> bool
+		{
+			RobotInstruction::RawTrajectory rawForUnified = sourceRaw;
+			const std::string backendId = sourceRaw.sourceFeature.workpiece.backendIdUtf8;
+			if (!backendId.empty() && m_simController && m_simController->host()
+				&& m_simController->host()->osgView())
+			{
+				RobotInstruction::RawTrajectory worldRaw;
+				std::string worldErr;
+				if (feature_pick_transform::transformRawTrajectoryToWorld(
+						m_simController->host()->osgView(),
+						backendId,
+						sourceRaw,
+						worldRaw,
+						&worldErr))
+				{
+					rawForUnified = std::move(worldRaw);
+				}
+			}
+			if (!RobotInstruction::unifiedTrajectoryFromRaw(rawForUnified, unified, nullptr))
+			{
+				if (outErrorPtr)
+				{
+					*outErrorPtr = QStringLiteral("raw trajectory convert failed (%1)").arg(QString::fromUtf8(phase));
+				}
+				return false;
+			}
+			return true;
+		};
+		if (m_rawTrajectory.has_value())
+		{
+			rawWorking = *m_rawTrajectory;
+			usingRaw = true;
+			if (!rebuildUnifiedFromRawForApply(rawWorking, "init", outError))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			std::string convErr;
+			if (!RobotInstruction::unifiedTrajectoryFromProgram(*activeProgram, unified, &convErr))
+			{
+				if (outError)
+				{
+					*outError = convErr.empty() ? QStringLiteral("program convert failed") : QString::fromStdString(convErr);
+				}
+				return false;
+			}
+		}
+		for (const RobotInstruction::TrajectoryOpDescriptor& op : m_ops)
+		{
+			if (RobotInstruction::isRecipeOpKind(op.kind))
+			{
+				if (!usingRaw)
+				{
+					if (outError)
+					{
+						*outError = QStringLiteral("配方块需要原始轨迹输入");
+					}
+					return false;
+				}
+				std::string recipeErr;
+				if (!RobotInstruction::applyRecipeDescriptorToRawTrajectory(op, rawWorking, &recipeErr))
+				{
+					if (outError)
+					{
+						*outError = recipeErr.empty() ? QStringLiteral("recipe apply failed") : QString::fromStdString(recipeErr);
+					}
+					return false;
+				}
+				if (!rebuildUnifiedFromRawForApply(rawWorking, "recipe", outError))
+				{
+					return false;
+				}
+				continue;
+			}
+			std::string opErr;
+			if (!RobotInstruction::applyUnifiedTrajectoryOp(op, unified, &opErr))
+			{
+				if (outError)
+				{
+					*outError = opErr.empty() ? QStringLiteral("unified op apply failed") : QString::fromStdString(opErr);
+				}
+				return false;
+			}
+		}
+		RobotInstruction::RobotProgram replacement = *activeProgram;
+		std::string emitErr;
+		if (!RobotInstruction::unifiedTrajectoryToProgram(unified, replacement, &emitErr))
+		{
+			if (outError)
+			{
+				*outError = emitErr.empty() ? QStringLiteral("materialize program failed") : QString::fromStdString(emitErr);
+			}
+			return false;
+		}
+		if (usingRaw)
+		{
+			m_rawTrajectory = rawWorking;
+		}
+		std::vector<RobotInstruction::ProgramEditStack::CommandPtr> cmds;
+		cmds.push_back(std::make_shared<RobotInstruction::ReplaceProgramContentCommand>(
+			activeProgram,
+			std::move(replacement)));
+		if (!m_editService->executeBatch(cmds, outError))
+		{
+			return false;
+		}
+		const std::vector<std::string> affectedIds = collectMotionIds(*activeProgram);
+		syncRenderMatricesForInstructionIds(affectedIds);
+		refreshPreviewVisuals();
+		return true;
+	}
+
 	const std::vector<std::string> affectedIds = !m_effectivePreviewWaypointIds.empty()
 		? m_effectivePreviewWaypointIds
 		: collectPreviewWaypointIds();

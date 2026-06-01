@@ -432,6 +432,35 @@ flowchart LR
 - `RobotScene` 组合 `RobotUrdf + RobotKinematics + GeometryEngine`，业务语义完整。
 - Widget 仍链 **Data / RobotScene** 等头文件用于属性面板与工程 I/O；中长期经 Core DTO 与 `IRobotService` 收敛。
 
+### 5.1 工程筛选器（Visual Studio Filters）整理
+
+当前 `CloudSim/src/**` 下各 `*.vcxproj.filters` 已基本收敛为统一模式，可按下述规则维护：
+
+| 规则 | 说明 |
+|------|------|
+| 顶层统一 | 每个工程至少保留 `inc` / `src` 两个顶层筛选器。 |
+| 目录镜像 | 子筛选器名与实际目录保持一致（如 `inc\\Robot` ↔ `inc/Robot`）。 |
+| 分层清晰 | 公共头放 `inc\\Global`（若工程有该层），实现按业务域放 `src\\*`。 |
+| 特殊目录显式 | 预编译头、第三方代码、适配器等用独立筛选器（如 `src\\pch`、`src\\ThirdParty`、`src\\adapters`）。 |
+| 不跨域混放 | UI/Host/Robot/Geometry/Plugin 各域文件不在同一筛选器下混放，减少方案资源管理器噪音。 |
+
+按功能域归类如下（用于快速定位）：
+
+| 功能域 | 工程 | 主要筛选器形态 |
+|--------|------|----------------|
+| App / Contracts | `CloudSim`、`CloudSimBootstrap`、`CloudSimCore` | `inc` / `src`，`CloudSimCore` 额外按 `Core` 细分。 |
+| Host | `CloudSimHost` | `inc`/`src` 下按 `Document`、`Import`、`Render`、`Robot`、`Urdf`、`adapters`、`OsgWidget`、`PickGizmo`、`SceneFacade` 分层。 |
+| UI | `Widget`、`RobotWidget`、`OsgWidgetCore`、`BackendVisual`、`AiWidget`、`CloudSimPluginHost` | 统一 `inc`/`src`，并按 `Ai`、`MainWindow`、`Document`、`PluginHost`、`Simulation`、`Backend` 等业务子域展开。 |
+| Robot | `RobotScene`、`RobotUrdf`、`RobotKinematics` | 以 `Robot`、`Urdf`、`Core` 等子域拆分。 |
+| Geometry / Data | `GeometryEngine`、`GeometryAlgorithm`、`PointCloudAlgorithm`、`Data` | `Data` 最细（含 `Backend`、`MeshIo`、`ThirdParty\\dxflib`、`pch`）；几何工程按 `Geometry`、`adapters` 组织。 |
+| Plugin / Infra | `CloudSimAiSDK`、`CloudSimPluginSDK`、`HelloPlugin`、`PlcCommSDK/UI/Plugin`、`RunLogger` | 统一 `inc`/`src`，插件类工程通常再细分 `Plugin` 子筛选器。 |
+
+维护建议：
+
+1. 新增文件时，优先放入与磁盘目录同名的筛选器，不新增“临时”筛选器名。  
+2. 若需要新增筛选器，先确认是否已有同语义筛选器（避免 `Adapter` / `adapters` 这种重复语义并存）。  
+3. 若目录迁移（例如 Widget → Host），同步更新 `.vcxproj` 与 `.vcxproj.filters`，并在本摘要同步记录一次。  
+
 ---
 
 ## 6. 关键业务流程（端到端）

@@ -4,9 +4,11 @@
 #include "IRobotMainWindowHost.h"
 #include "IRobotOsgViewHost.h"
 #include "ProgramEditService.h"
+#include "RecipeBlueprint.h"
 #include "RobotOsgUiTypes.h"
 #include "RobotSimulationController.h"
 #include "RawTrajectory.h"
+#include "UnifiedTrajectory.h"
 #include "SimulationCommandWidget.h"
 #include "TrajectoryEditSession.h"
 #include "TrajectoryOpParamPanel.h"
@@ -75,6 +77,7 @@ protected:
 
 namespace
 {
+
 QString opKindLabel(RobotInstruction::TrajectoryOpKind kind, bool zh)
 {
 	switch (kind)
@@ -89,11 +92,51 @@ QString opKindLabel(RobotInstruction::TrajectoryOpKind kind, bool zh)
 		return zh ? QStringLiteral("复制") : QStringLiteral("Duplicate");
 	case RobotInstruction::TrajectoryOpKind::Reorder:
 		return zh ? QStringLiteral("固定姿态") : QStringLiteral("Fixed Orientation");
+	case RobotInstruction::TrajectoryOpKind::RecipeWeld:
+		return zh ? QStringLiteral("焊缝配方") : QStringLiteral("Weld Recipe");
+	case RobotInstruction::TrajectoryOpKind::RecipeGlue:
+		return zh ? QStringLiteral("涂胶配方") : QStringLiteral("Glue Recipe");
+	case RobotInstruction::TrajectoryOpKind::RecipeGrind:
+		return zh ? QStringLiteral("打磨配方") : QStringLiteral("Grind Recipe");
+	case RobotInstruction::TrajectoryOpKind::Approach:
+		return zh ? QStringLiteral("进刀") : QStringLiteral("Approach");
+	case RobotInstruction::TrajectoryOpKind::Retract:
+		return zh ? QStringLiteral("退刀") : QStringLiteral("Retract");
 	case RobotInstruction::TrajectoryOpKind::Translate:
 	default:
 		return zh ? QStringLiteral("平移") : QStringLiteral("Translate");
 	}
 }
+
+bool validatePipelineConstraints(
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops,
+	const bool chinese,
+	QString& outError)
+{
+	int recipeCount = 0;
+	for (size_t i = 0; i < ops.size(); ++i)
+	{
+		const RobotInstruction::TrajectoryOpDescriptor& op = ops[i];
+		if (RobotInstruction::isRecipeOpKind(op.kind))
+		{
+			++recipeCount;
+			if (i != 0)
+			{
+				outError = chinese ? QStringLiteral("配方块必须位于流水线首位")
+								   : QStringLiteral("Recipe block must be first");
+				return false;
+			}
+		}
+	}
+	if (recipeCount > 1)
+	{
+		outError = chinese ? QStringLiteral("同一流水线只允许一个配方块")
+						   : QStringLiteral("Only one recipe block is allowed");
+		return false;
+	}
+	return true;
+}
+
 void updateTransformActionButtons(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	QCheckBox* previewCheck,
@@ -101,6 +144,9 @@ void updateTransformActionButtons(
 	const bool readOnly)
 {
 	const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(op.kind);
+	const bool unifiedOnlyOp = RobotInstruction::isRecipeOpKind(op.kind)
+		|| op.kind == RobotInstruction::TrajectoryOpKind::Approach
+		|| op.kind == RobotInstruction::TrajectoryOpKind::Retract;
 	const bool canTransform = algo
 		&& (trajectory_algo::hasCapability(
 				algo->capabilities(),
@@ -110,7 +156,8 @@ void updateTransformActionButtons(
 				trajectory_algo::TrajectoryOpCapability::ApplyPoseTransform)
 			|| trajectory_algo::hasCapability(
 				algo->capabilities(),
-				trajectory_algo::TrajectoryOpCapability::ApplyStructuralEdit));
+				trajectory_algo::TrajectoryOpCapability::ApplyStructuralEdit))
+		|| unifiedOnlyOp;
 	if (previewCheck)
 	{
 		previewCheck->setEnabled(canTransform && !readOnly
@@ -136,7 +183,7 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	root->setContentsMargins(6, 6, 6, 6);
 	root->setSpacing(6);
 
-	m_rawGroupBox = new QGroupBox(QStringLiteral("原始轨迹"), this);
+	m_rawGroupBox = new QGroupBox(QStringLiteral("工艺模板"), this);
 	auto* rawLayout = new QVBoxLayout(m_rawGroupBox);
 	m_rawStatusLabel = new QLabel(this);
 	rawLayout->addWidget(m_rawStatusLabel);
@@ -145,7 +192,7 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	m_rawRecipeCombo->addItem(QStringLiteral("涂胶默认"), QStringLiteral("glue"));
 	m_rawRecipeCombo->addItem(QStringLiteral("打磨默认"), QStringLiteral("grind"));
 	rawLayout->addWidget(m_rawRecipeCombo);
-	m_rawApplyBtn = new QPushButton(QStringLiteral("应用配方流水线"), m_rawGroupBox);
+	m_rawApplyBtn = new QPushButton(QStringLiteral("填充工艺流水线"), m_rawGroupBox);
 	m_rawEmitBtn = new QPushButton(QStringLiteral("生成程序"), m_rawGroupBox);
 	rawLayout->addWidget(m_rawApplyBtn);
 	rawLayout->addWidget(m_rawEmitBtn);
@@ -209,6 +256,7 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	connect(m_groupCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &TrajectoryEditPageWidget::onGroupChanged);
 	connect(m_palette, &QListWidget::itemDoubleClicked, this, &TrajectoryEditPageWidget::onPaletteDoubleClicked);
 	connect(m_pipeline, &TrajectoryPipelineListWidget::opsChanged, this, [this]() {
+		setPipelineAppliedState(false, false);
 		syncSessionPipeline();
 		if (m_loadingParams || (m_paramPanel && m_paramPanel->isRebuilding()))
 		{
@@ -235,6 +283,7 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	connect(m_paramPanel, &TrajectoryOpParamPanel::paramsChanged, this, [this]() {
 		if (!m_loadingParams)
 		{
+			setPipelineAppliedState(false, false);
 			applyParamsToSelectedOp();
 			if (!m_flushingParams && m_previewCheck && m_previewCheck->isChecked()
 				&& m_session && !m_session->isPreviewActive())
@@ -246,6 +295,7 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	connect(m_scopeGroupCombo, QOverload<int>::of(&QComboBox::activated), this, [this]() {
 		if (!m_loadingParams)
 		{
+			setPipelineAppliedState(false, false);
 			applyParamsToSelectedOp();
 			if (!m_flushingParams && m_previewCheck && m_previewCheck->isChecked()
 				&& m_session && !m_session->isPreviewActive())
@@ -306,11 +356,11 @@ void TrajectoryEditPageWidget::updateUiLabels()
 	}
 	if (m_rawGroupBox)
 	{
-		m_rawGroupBox->setTitle(zh ? QStringLiteral("原始轨迹") : QStringLiteral("Raw trajectory"));
+		m_rawGroupBox->setTitle(zh ? QStringLiteral("工艺模板") : QStringLiteral("Recipe Preset"));
 	}
 	if (m_rawApplyBtn)
 	{
-		m_rawApplyBtn->setText(zh ? QStringLiteral("应用配方流水线") : QStringLiteral("Apply recipe pipeline"));
+		m_rawApplyBtn->setText(zh ? QStringLiteral("填充工艺流水线") : QStringLiteral("Fill recipe pipeline"));
 	}
 	if (m_rawEmitBtn)
 	{
@@ -395,6 +445,7 @@ void TrajectoryEditPageWidget::bindSession(TrajectoryEditSession* session)
 	if (m_session)
 	{
 		connect(m_session, &TrajectoryEditSession::rawTrajectoryChanged, this, [this]() {
+			setPipelineAppliedState(false, false);
 			refreshRawTrajectoryStatus();
 		});
 	}
@@ -409,6 +460,29 @@ void TrajectoryEditPageWidget::bindSimulationController(RobotSimulationControlle
 void TrajectoryEditPageWidget::bindHost(IRobotMainWindowHost* host)
 {
 	m_host = host;
+}
+
+void TrajectoryEditPageWidget::setPipelineAppliedState(const bool applied, const bool announce)
+{
+	const bool changed = (m_pipelineAppliedSinceLastRawChange != applied);
+	m_pipelineAppliedSinceLastRawChange = applied;
+	refreshRawTrajectoryStatus();
+	if (!announce || !changed || !m_host)
+	{
+		return;
+	}
+	if (applied)
+	{
+		m_host->appendRunInfo(m_useChinese
+				? QStringLiteral("结果已落盘，生成程序入口已禁用")
+				: QStringLiteral("Result committed, emit program disabled"));
+	}
+	else
+	{
+		m_host->appendRunInfo(m_useChinese
+				? QStringLiteral("检测到新编辑，可重新生成程序")
+				: QStringLiteral("New edits detected, emit program re-enabled"));
+	}
 }
 
 void TrajectoryEditPageWidget::refreshRawTrajectoryStatus()
@@ -434,15 +508,21 @@ void TrajectoryEditPageWidget::refreshRawTrajectoryStatus()
 	}
 	const RobotInstruction::RawTrajectory* traj = m_session->rawTrajectory();
 	const int n = traj ? static_cast<int>(traj->points.size()) : 0;
-	m_rawStatusLabel->setText(zh ? QStringLiteral("原始轨迹：%1 点").arg(n)
-		: QStringLiteral("Raw trajectory: %1 points").arg(n));
+	QString status = zh ? QStringLiteral("原始轨迹：%1 点").arg(n)
+						: QStringLiteral("Raw trajectory: %1 points").arg(n);
+	if (m_pipelineAppliedSinceLastRawChange)
+	{
+		status += zh ? QStringLiteral("（已应用，生成已禁用）")
+					 : QStringLiteral(" (Applied, emit disabled)");
+	}
+	m_rawStatusLabel->setText(status);
 	if (m_rawApplyBtn)
 	{
 		m_rawApplyBtn->setEnabled(!m_readOnly);
 	}
 	if (m_rawEmitBtn)
 	{
-		m_rawEmitBtn->setEnabled(!m_readOnly && m_store != nullptr);
+		m_rawEmitBtn->setEnabled(!m_readOnly && m_store != nullptr && !m_pipelineAppliedSinceLastRawChange);
 	}
 }
 
@@ -507,42 +587,29 @@ void TrajectoryEditPageWidget::showRawTrajectoryPreview(const RobotInstruction::
 
 void TrajectoryEditPageWidget::onRawApplyRecipe()
 {
-	if (!m_session || !m_session->hasRawTrajectory())
-	{
-		return;
-	}
-	const RobotInstruction::RawTrajectory* src = m_session->rawTrajectory();
-	if (!src)
-	{
-		return;
-	}
-	RobotInstruction::RawTrajectory traj = *src;
+	setPipelineAppliedState(false, false);
 	const QString recipe = m_rawRecipeCombo->currentData().toString();
-	std::vector<RobotInstruction::RawTrajectoryOpDescriptor> ops;
+	RobotInstruction::RecipeKind recipeKind = RobotInstruction::RecipeKind::Weld;
 	if (recipe == QStringLiteral("glue"))
 	{
-		ops = RobotInstruction::rawTrajectoryRecipeGlueDefault();
+		recipeKind = RobotInstruction::RecipeKind::Glue;
 	}
 	else if (recipe == QStringLiteral("grind"))
 	{
-		ops = RobotInstruction::rawTrajectoryRecipeGrindDefault();
+		recipeKind = RobotInstruction::RecipeKind::Grind;
 	}
-	else
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor> ops =
+		RobotInstruction::buildRecipePreset(recipeKind);
+	if (m_pipeline)
 	{
-		ops = RobotInstruction::rawTrajectoryRecipeWeldDefault();
+		m_pipeline->setOps(ops);
+		syncSessionPipeline();
+		schedulePreviewRun(120, false);
 	}
-	std::string err;
-	if (!RobotInstruction::applyRawTrajectoryPipeline(ops, traj, &err))
-	{
-		QMessageBox::warning(this, QStringLiteral("配方"), QString::fromStdString(err));
-		return;
-	}
-	m_session->setRawTrajectory(traj);
-	showRawTrajectoryPreview(traj);
 	if (m_host)
 	{
-		m_host->appendRunInfo(m_useChinese ? QStringLiteral("配方已应用")
-			: QStringLiteral("Recipe applied"));
+		m_host->appendRunInfo(m_useChinese ? QStringLiteral("工艺模板已填充到流水线")
+										 : QStringLiteral("Recipe preset inserted to pipeline"));
 	}
 }
 
@@ -550,6 +617,15 @@ void TrajectoryEditPageWidget::onRawEmitProgram()
 {
 	if (!m_session || !m_store || !m_session->hasRawTrajectory())
 	{
+		return;
+	}
+	if (m_pipelineAppliedSinceLastRawChange)
+	{
+		QMessageBox::information(
+			this,
+			m_useChinese ? QStringLiteral("生成") : QStringLiteral("Emit"),
+			m_useChinese ? QStringLiteral("已应用后请勿再生成程序，避免覆盖应用结果")
+						 : QStringLiteral("Emit is disabled after Apply to avoid overriding applied result"));
 		return;
 	}
 	const RobotInstruction::RawTrajectory* src = m_session->rawTrajectory();
@@ -670,13 +746,13 @@ void TrajectoryEditPageWidget::refreshProgramAndGroupCombos()
 	m_programCombo->blockSignals(false);
 
 	QString prevTopGroupId;
-	if (m_groupCombo && m_groupCombo->currentIndex() > 0)
-	{
-		prevTopGroupId = m_groupCombo->currentData().toString();
-	}
-	else if (!m_selectedGroupId.empty())
+	if (!m_selectedGroupId.empty())
 	{
 		prevTopGroupId = QString::fromStdString(m_selectedGroupId);
+	}
+	else if (m_groupCombo && m_groupCombo->currentIndex() > 0)
+	{
+		prevTopGroupId = m_groupCombo->currentData().toString();
 	}
 	QString prevScopeGroupId;
 	if (m_pipeline && m_pipeline->selectedOpIndex() >= 0)
@@ -777,6 +853,81 @@ void TrajectoryEditPageWidget::runPreviewIfEnabled(const bool showWarnings)
 	}
 	reconcilePipelineScopes();
 	flushPipelineToSession();
+	if (m_session->hasRawTrajectory())
+	{
+		const RobotInstruction::RawTrajectory* src = m_session->rawTrajectory();
+		if (src && !src->points.empty())
+		{
+			RobotInstruction::RawTrajectory previewRaw = *src;
+			RobotInstruction::UnifiedTrajectory unified{};
+			std::string rawErr;
+			if (!RobotInstruction::unifiedTrajectoryFromRaw(previewRaw, unified, &rawErr))
+			{
+				if (showWarnings)
+				{
+					QMessageBox::warning(
+						this,
+						m_useChinese ? QStringLiteral("预览") : QStringLiteral("Preview"),
+						QString::fromStdString(rawErr.empty() ? "raw->unified failed" : rawErr));
+				}
+				return;
+			}
+			for (const RobotInstruction::TrajectoryOpDescriptor& op : m_pipeline->ops())
+			{
+				if (RobotInstruction::isRecipeOpKind(op.kind))
+				{
+					if (!RobotInstruction::applyRecipeDescriptorToRawTrajectory(op, previewRaw, &rawErr))
+					{
+						if (showWarnings)
+						{
+							QMessageBox::warning(
+								this,
+								m_useChinese ? QStringLiteral("预览") : QStringLiteral("Preview"),
+								QString::fromStdString(rawErr.empty() ? "recipe preview failed" : rawErr));
+						}
+						return;
+					}
+					if (!RobotInstruction::unifiedTrajectoryFromRaw(previewRaw, unified, &rawErr))
+					{
+						if (showWarnings)
+						{
+							QMessageBox::warning(
+								this,
+								m_useChinese ? QStringLiteral("预览") : QStringLiteral("Preview"),
+								QString::fromStdString(rawErr.empty() ? "raw->unified failed" : rawErr));
+						}
+						return;
+					}
+					continue;
+				}
+				if (!RobotInstruction::applyUnifiedTrajectoryOp(op, unified, &rawErr))
+				{
+					if (showWarnings)
+					{
+						QMessageBox::warning(
+							this,
+							m_useChinese ? QStringLiteral("预览") : QStringLiteral("Preview"),
+							QString::fromStdString(rawErr.empty() ? "unified preview failed" : rawErr));
+					}
+					return;
+				}
+			}
+			if (!RobotInstruction::unifiedTrajectoryToRaw(unified, previewRaw, &rawErr))
+			{
+				if (showWarnings)
+				{
+					QMessageBox::warning(
+						this,
+						m_useChinese ? QStringLiteral("预览") : QStringLiteral("Preview"),
+						QString::fromStdString(rawErr.empty() ? "unified->raw failed" : rawErr));
+				}
+				return;
+			}
+			m_session->abandonPreview();
+			showRawTrajectoryPreview(previewRaw);
+			return;
+		}
+	}
 	QString err;
 	if (!m_session->preview(&err))
 	{
@@ -1263,6 +1414,19 @@ void TrajectoryEditPageWidget::onApplyClicked()
 		m_paramPanel->clear();
 	}
 	reconcilePipelineScopes();
+	if (m_pipeline)
+	{
+		QString constraintErr;
+		if (!validatePipelineConstraints(m_pipeline->ops(), m_useChinese, constraintErr))
+		{
+			m_committingApply = false;
+			QMessageBox::warning(
+				this,
+				m_useChinese ? QStringLiteral("应用") : QStringLiteral("Apply"),
+				constraintErr);
+			return;
+		}
+	}
 	flushPipelineToSession(true);
 	QString err;
 	if (!m_session->apply(&err))
@@ -1297,11 +1461,35 @@ void TrajectoryEditPageWidget::onApplyClicked()
 		m_commandPage->refreshInstructionList();
 	}
 	refreshUndoButtons();
+	setPipelineAppliedState(true, true);
 	m_committingApply = false;
+	if (m_store)
+	{
+		const RobotInstruction::RobotProgram* prog =
+			m_store->activeCatalog().findProgram(m_store->activeProgramIdUtf8());
+		if (prog && !prog->groups.empty())
+		{
+			bool selectedStillValid = false;
+			for (const RobotInstruction::InstructionGroup& group : prog->groups)
+			{
+				if (group.id == m_selectedGroupId)
+				{
+					selectedStillValid = true;
+					break;
+				}
+			}
+			if (!selectedStillValid)
+			{
+				m_selectedGroupId = prog->groups.front().id;
+			}
+		}
+	}
+	refreshProgramAndGroupCombos();
 }
 
 void TrajectoryEditPageWidget::onResetClicked()
 {
+	setPipelineAppliedState(false, false);
 	if (m_session)
 	{
 		m_session->reset();

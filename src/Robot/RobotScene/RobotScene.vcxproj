@@ -205,6 +205,8 @@
     <ClInclude Include="inc\RobotSceneKinematics.h" />
     <ClInclude Include="inc\RobotTeachIk.h" />
     <ClInclude Include="inc\RawTrajectory.h" />
+    <ClInclude Include="inc\RecipeBlueprint.h" />
+    <ClInclude Include="inc\UnifiedTrajectory.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp" />
@@ -226,6 +228,8 @@
     <ClCompile Include="source\TrajectoryApplyActionConverter.cpp" />
     <ClCompile Include="source\TrajectoryOpBridge.cpp" />
     <ClCompile Include="source\RawTrajectory.cpp" />
+    <ClCompile Include="source\RecipeBlueprint.cpp" />
+    <ClCompile Include="source\UnifiedTrajectory.cpp" />
     <ClCompile Include="source\RobotMatrixOsgBridge.cpp" />
     <ClCompile Include="source\RobotSceneKinematics.cpp" />
     <ClCompile Include="source\RobotTeachIk.cpp" />

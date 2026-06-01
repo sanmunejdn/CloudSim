@@ -1,48 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="inc">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="inc\Backend">
-      <UniqueIdentifier>{F75F0008-45D7-4012-8CBA-70EC2F95EE1D}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{5A773706-9E8E-4E40-83A5-62EC701A6DE6}</UniqueIdentifier>
+      <UniqueIdentifier>{9F1187CB-C1F3-4F5C-9E36-ACADCECBC848}</UniqueIdentifier>
     </Filter>
     <Filter Include="src">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="src\Backend">
-      <UniqueIdentifier>{27D8EAC5-387F-4F76-BE65-B723639054A8}</UniqueIdentifier>
+      <UniqueIdentifier>{4C9C4EDD-FB92-4A94-9A48-5AF370C69B36}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <None Include="source\MeshWireGeometry.inc">
+      <Filter>src</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\backendvisual_global.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\BackendGeometryMetrics.h">
-      <Filter>inc\Backend</Filter>
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\BackendIdUserData.h">
-      <Filter>inc\Backend</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\backendvisual_global.h">
-      <Filter>inc\Global</Filter>
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\BackendVisualMath.h">
-      <Filter>inc\Backend</Filter>
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\BackendVisualRegistry.h">
-      <Filter>inc\Backend</Filter>
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\IBackendVisual.h">
-      <Filter>inc\Backend</Filter>
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\MeshBackendVisual.h">
-      <Filter>inc\Backend</Filter>
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\PointCloudBackendVisual.h">
-      <Filter>inc\Backend</Filter>
+      <Filter>inc</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -53,21 +47,16 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendVisualMath.cpp">
-      <Filter>src\Backend</Filter>
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendVisualRegistry.cpp">
-      <Filter>src\Backend</Filter>
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\MeshBackendVisual.cpp">
-      <Filter>src\Backend</Filter>
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\PointCloudBackendVisual.cpp">
-      <Filter>src\Backend</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="source\MeshWireGeometry.inc">
       <Filter>src</Filter>
-    </None>
+    </ClCompile>
   </ItemGroup>
 </Project>

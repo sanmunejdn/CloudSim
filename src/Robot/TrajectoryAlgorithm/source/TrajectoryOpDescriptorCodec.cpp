@@ -27,6 +27,16 @@ std::string kindToString(const RobotInstruction::TrajectoryOpKind kind)
 		return "Duplicate";
 	case RobotInstruction::TrajectoryOpKind::Reorder:
 		return "Reorder";
+	case RobotInstruction::TrajectoryOpKind::RecipeWeld:
+		return "RecipeWeld";
+	case RobotInstruction::TrajectoryOpKind::RecipeGlue:
+		return "RecipeGlue";
+	case RobotInstruction::TrajectoryOpKind::RecipeGrind:
+		return "RecipeGrind";
+	case RobotInstruction::TrajectoryOpKind::Approach:
+		return "Approach";
+	case RobotInstruction::TrajectoryOpKind::Retract:
+		return "Retract";
 	default:
 		return "Translate";
 	}
@@ -62,6 +72,31 @@ bool kindFromString(const std::string& s, RobotInstruction::TrajectoryOpKind& ou
 	if (s == "Reorder")
 	{
 		out = RobotInstruction::TrajectoryOpKind::Reorder;
+		return true;
+	}
+	if (s == "RecipeWeld")
+	{
+		out = RobotInstruction::TrajectoryOpKind::RecipeWeld;
+		return true;
+	}
+	if (s == "RecipeGlue")
+	{
+		out = RobotInstruction::TrajectoryOpKind::RecipeGlue;
+		return true;
+	}
+	if (s == "RecipeGrind")
+	{
+		out = RobotInstruction::TrajectoryOpKind::RecipeGrind;
+		return true;
+	}
+	if (s == "Approach")
+	{
+		out = RobotInstruction::TrajectoryOpKind::Approach;
+		return true;
+	}
+	if (s == "Retract")
+	{
+		out = RobotInstruction::TrajectoryOpKind::Retract;
 		return true;
 	}
 	return false;
@@ -189,6 +224,9 @@ bool fromJson(const nlohmann::json& j, RobotInstruction::TrajectoryOpDescriptor&
 	out.rotate = defaults.rotate;
 	out.duplicateCount = defaults.duplicateCount;
 	out.mirrorAxis = defaults.mirrorAxis;
+	out.recipe = defaults.recipe;
+	out.approach = defaults.approach;
+	out.retract = defaults.retract;
 
 	if (j.contains("params") && j["params"].is_object())
 	{

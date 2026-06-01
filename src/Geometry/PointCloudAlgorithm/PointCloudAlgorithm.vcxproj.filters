@@ -1,32 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="inc">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{E4D87E73-078E-41EE-8F2B-6409360218B6}</UniqueIdentifier>
+      <UniqueIdentifier>{F1593898-90C8-44A7-887B-55EE3F4BB7F8}</UniqueIdentifier>
     </Filter>
     <Filter Include="src">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+      <UniqueIdentifier>{C86CDAA3-8C72-46AA-87A5-86D90CFF3B67}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="inc\point_cloud_algorithm_global.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PointCloudBuffer.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Measure.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Transform.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\Crop.h">
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\Downsample.h">
       <Filter>inc</Filter>
     </ClInclude>
-    <ClInclude Include="inc\Measure.h">
+    <ClInclude Include="inc\RegistrationRigid.h">
       <Filter>inc</Filter>
     </ClInclude>
-    <ClInclude Include="inc\point_cloud_algorithm_global.h">
-      <Filter>inc\Global</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PointCloudBuffer.h">
+    <ClInclude Include="inc\RegistrationNonRigid.h">
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\Preprocess.h">
@@ -35,30 +39,30 @@
     <ClInclude Include="inc\Reconstruction.h">
       <Filter>inc</Filter>
     </ClInclude>
-    <ClInclude Include="inc\RegistrationNonRigid.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RegistrationRigid.h">
-      <Filter>inc</Filter>
-    </ClInclude>
     <ClInclude Include="inc\SelfTest.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Transform.h">
       <Filter>inc</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\PointCloudBuffer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Measure.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Transform.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClCompile Include="source\Crop.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\Downsample.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\Measure.cpp">
+    <ClCompile Include="source\RegistrationRigid.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\PointCloudBuffer.cpp">
+    <ClCompile Include="source\RegistrationNonRigid.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\Preprocess.cpp">
@@ -67,16 +71,7 @@
     <ClCompile Include="source\Reconstruction.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\RegistrationNonRigid.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RegistrationRigid.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
     <ClCompile Include="source\SelfTest.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Transform.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>

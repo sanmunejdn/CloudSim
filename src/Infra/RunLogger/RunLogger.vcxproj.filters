@@ -1,35 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="inc">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{3A4A30EC-DB8A-4696-98E5-894AB64969F2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Infra">
-      <UniqueIdentifier>{36DD23A6-4592-4983-812C-2C2CA8208206}</UniqueIdentifier>
+      <UniqueIdentifier>{92D8387F-9A0C-4F24-8300-06823BE01407}</UniqueIdentifier>
     </Filter>
     <Filter Include="src">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="src\Infra">
-      <UniqueIdentifier>{F4955D61-C048-4DAF-9A2E-5CB2158F49C3}</UniqueIdentifier>
+      <UniqueIdentifier>{07B90D3B-B8D5-473A-AAA1-762FD11C28AE}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="inc\run_logger_global.h">
-      <Filter>inc\Global</Filter>
-    </ClInclude>
     <ClInclude Include="inc\RunLogger.h">
-      <Filter>inc\Infra</Filter>
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\run_logger_global.h">
+      <Filter>inc</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\RunLogger.cpp">
-      <Filter>src\Infra</Filter>
+      <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

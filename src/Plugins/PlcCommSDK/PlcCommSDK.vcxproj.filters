@@ -1,25 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="inc">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <UniqueIdentifier>{5837FD24-2F27-414D-972F-B2AB33340B0A}</UniqueIdentifier>
     </Filter>
-    <Filter Include="source">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+    <Filter Include="src">
+      <UniqueIdentifier>{40F7E6F8-97E2-4C45-B882-0C1E62AD90DE}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="inc\plc_comm_sdk_global.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\PlcCommTypes.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\IPlcCommClient.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="inc\PlcTagStringBuilder.h"><Filter>inc</Filter></ClInclude>
-    <ClInclude Include="source\PlcTagHandle.h"><Filter>source</Filter></ClInclude>
-    <ClInclude Include="source\PlcCommClientImpl.h"><Filter>source</Filter></ClInclude>
+    <ClInclude Include="inc\plc_comm_sdk_global.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PlcCommTypes.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IPlcCommClient.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PlcTagStringBuilder.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="source\PlcTagHandle.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="source\PlcCommClientImpl.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\PlcTagHandle.cpp"><Filter>source</Filter></ClCompile>
-    <ClCompile Include="source\PlcTagStringBuilder.cpp"><Filter>source</Filter></ClCompile>
-    <ClCompile Include="source\PlcCommClientImpl.cpp"><Filter>source</Filter></ClCompile>
-    <ClCompile Include="source\PlcCommSdkExports.cpp"><Filter>source</Filter></ClCompile>
+    <ClCompile Include="source\PlcTagHandle.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PlcTagStringBuilder.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PlcCommClientImpl.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PlcCommSdkExports.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

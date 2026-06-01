@@ -124,6 +124,22 @@ private:
 	size_t m_executedCount = 0;
 };
 
+class ROBOT_SCENE_API ReplaceProgramContentCommand final : public ProgramEditCommand
+{
+public:
+	ReplaceProgramContentCommand(RobotProgram* program, RobotProgram replacement);
+
+	bool execute(InstructionProgramDocument& doc, std::string* errMsg) override;
+	bool undo(InstructionProgramDocument& doc, std::string* errMsg) override;
+	const char* commandName() const override { return "ReplaceProgramContent"; }
+
+private:
+	RobotProgram* m_program = nullptr;
+	RobotProgram m_before{};
+	RobotProgram m_after{};
+	bool m_executed = false;
+};
+
 class ROBOT_SCENE_API CreateInstructionGroupCommand final : public ProgramEditCommand
 {
 public:

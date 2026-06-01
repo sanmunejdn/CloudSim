@@ -28,6 +28,16 @@ RobotInstruction::TrajectoryOpKind kindFromInt(const int v)
 		return RobotInstruction::TrajectoryOpKind::Duplicate;
 	case static_cast<int>(RobotInstruction::TrajectoryOpKind::Reorder):
 		return RobotInstruction::TrajectoryOpKind::Reorder;
+	case static_cast<int>(RobotInstruction::TrajectoryOpKind::RecipeWeld):
+		return RobotInstruction::TrajectoryOpKind::RecipeWeld;
+	case static_cast<int>(RobotInstruction::TrajectoryOpKind::RecipeGlue):
+		return RobotInstruction::TrajectoryOpKind::RecipeGlue;
+	case static_cast<int>(RobotInstruction::TrajectoryOpKind::RecipeGrind):
+		return RobotInstruction::TrajectoryOpKind::RecipeGrind;
+	case static_cast<int>(RobotInstruction::TrajectoryOpKind::Approach):
+		return RobotInstruction::TrajectoryOpKind::Approach;
+	case static_cast<int>(RobotInstruction::TrajectoryOpKind::Retract):
+		return RobotInstruction::TrajectoryOpKind::Retract;
 	case static_cast<int>(RobotInstruction::TrajectoryOpKind::Translate):
 	default:
 		return RobotInstruction::TrajectoryOpKind::Translate;

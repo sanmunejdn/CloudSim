@@ -136,6 +136,7 @@ private:
 	void updateUiLabels();
 
 	void refreshRawTrajectoryStatus();
+	void setPipelineAppliedState(bool applied, bool announce = false);
 
 	void showRawTrajectoryPreview(const RobotInstruction::RawTrajectory& traj);
 
@@ -255,6 +256,7 @@ private:
 	bool m_flushingParams = false;
 	bool m_pendingLoadSelectedOp = false;
 	bool m_committingApply = false;
+	bool m_pipelineAppliedSinceLastRawChange = false;
 	int m_previewScheduleToken = 0;
 
 	std::string m_selectedGroupId;

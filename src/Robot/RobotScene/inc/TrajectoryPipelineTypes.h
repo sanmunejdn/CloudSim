@@ -15,7 +15,12 @@ enum class ROBOT_SCENE_API TrajectoryOpKind
 	Mirror,
 	Delete,
 	Duplicate,
-	Reorder
+	Reorder,
+	RecipeWeld,
+	RecipeGlue,
+	RecipeGrind,
+	Approach,
+	Retract
 };
 
 /// 轨迹增量参考系（相对路点当前 T_base_target）
@@ -63,6 +68,63 @@ struct ROBOT_SCENE_API RotateParams
 	double endAngleDeg = 0.0;
 };
 
+/// 配方参数（预留版本与基础参数）
+struct ROBOT_SCENE_API RecipeParams
+{
+	int version = 1;
+	double resampleStepMm = 0.0;
+	double normalOffsetMm = 0.0;
+	double lateralOffsetMm = 0.0;
+	double speedMmPerSec = 0.0;
+	double blendRadiusMm = 0.0;
+};
+
+/// 方向模式：路径切向 / 法向 / 工具Z
+enum class ROBOT_SCENE_API ApproachDirectionMode : int
+{
+	PathTangent = 0,
+	SurfaceNormal = 1,
+	ToolZ = 2
+};
+
+/// 插点范围：整条轨迹头尾 或 分段头尾
+enum class ROBOT_SCENE_API InsertMode : int
+{
+	Trajectory = 0,
+	Segment = 1
+};
+
+/// 分段选择：全部段 或 区间段
+enum class ROBOT_SCENE_API SegmentSelectMode : int
+{
+	AllSegments = 0,
+	IndexRange = 1
+};
+
+struct ROBOT_SCENE_API ApproachParams
+{
+	double distanceMm = 20.0;
+	ApproachDirectionMode directionMode = ApproachDirectionMode::SurfaceNormal;
+	InsertMode insertMode = InsertMode::Trajectory;
+	SegmentSelectMode segmentSelectMode = SegmentSelectMode::AllSegments;
+	int segmentFrom = 1;
+	int segmentTo = 1;
+	bool overrideSpeedEnabled = false;
+	double speedMmPerSec = 100.0;
+};
+
+struct ROBOT_SCENE_API RetractParams
+{
+	double distanceMm = 20.0;
+	ApproachDirectionMode directionMode = ApproachDirectionMode::SurfaceNormal;
+	InsertMode insertMode = InsertMode::Trajectory;
+	SegmentSelectMode segmentSelectMode = SegmentSelectMode::AllSegments;
+	int segmentFrom = 1;
+	int segmentTo = 1;
+	bool overrideSpeedEnabled = false;
+	double speedMmPerSec = 100.0;
+};
+
 struct ROBOT_SCENE_API TrajectoryOpDescriptor
 {
 	TrajectoryOpKind kind = TrajectoryOpKind::Translate;
@@ -71,6 +133,9 @@ struct ROBOT_SCENE_API TrajectoryOpDescriptor
 	RotateParams rotate{};
 	int duplicateCount = 1;
 	int mirrorAxis = 0;
+	RecipeParams recipe{};
+	ApproachParams approach{};
+	RetractParams retract{};
 };
 
 } // namespace RobotInstruction

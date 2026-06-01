@@ -1,21 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="inc">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{D8A6D272-E4F3-44C1-911F-B2AD58681058}</UniqueIdentifier>
+      <UniqueIdentifier>{A693988C-ABAA-43DD-999B-717A8A4E76ED}</UniqueIdentifier>
     </Filter>
     <Filter Include="src">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+      <UniqueIdentifier>{F968F5BF-89B7-4B56-9A3E-3330F6C4D3E1}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\robot_kinematics_global.h">
-      <Filter>inc\Global</Filter>
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\SerialLinkKinematics.h">
       <Filter>inc</Filter>

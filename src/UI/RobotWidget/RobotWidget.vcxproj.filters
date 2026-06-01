@@ -1,84 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="inc">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="inc\Device">
-      <UniqueIdentifier>{5464C01D-E75B-46D6-9773-4447FBB29D9F}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Document">
-      <UniqueIdentifier>{F70519AC-070F-4902-A0E1-50CFAC795BCB}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{CA03036D-DCBE-410C-8D3A-506E8676AE07}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\MainWindow">
-      <UniqueIdentifier>{C5EE4CE0-E631-4E5A-B954-4A2AC28FE25D}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Robot">
-      <UniqueIdentifier>{DDC13359-70EC-4210-9D1A-A9F2B549964E}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Simulation">
-      <UniqueIdentifier>{6E6ED259-F0A7-4E2D-A521-3B8313586CCB}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Urdf">
-      <UniqueIdentifier>{C16FF3D0-4298-4E03-BCE7-3E3B282414C0}</UniqueIdentifier>
+      <UniqueIdentifier>{B8365B78-E9AB-4B1B-AA00-F0E5BA3BBCE9}</UniqueIdentifier>
     </Filter>
     <Filter Include="src">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="src\Device">
-      <UniqueIdentifier>{E35D6389-B9E2-49DF-B9B7-3F9AAB111AA7}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Robot">
-      <UniqueIdentifier>{8C335DD0-A043-4360-8989-C3E873E0AC11}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Simulation">
-      <UniqueIdentifier>{56DEE83F-761B-45CB-82D6-1414215CE6EE}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Urdf">
-      <UniqueIdentifier>{B2A4AD91-C830-4626-878A-3CAB9DDF692C}</UniqueIdentifier>
+      <UniqueIdentifier>{FB12FA56-F01B-40CD-9EE1-8AFBF8FA7612}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="inc\robotwidget_global.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\IRobotDocumentHost.h">
-      <Filter>inc\Document</Filter>
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\IRobotMainWindowHost.h">
-      <Filter>inc\MainWindow</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IRobotOsgViewHost.h">
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\IRobotPropertyPanelHost.h">
       <Filter>inc</Filter>
     </ClInclude>
-    <ClInclude Include="inc\RobotInstructionPlanningHelpers.h">
-      <Filter>inc\Robot</Filter>
-    </ClInclude>
     <ClInclude Include="inc\RobotInstructionPropertyEditor.h">
-      <Filter>inc\Robot</Filter>
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionPlanningHelpers.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotProjectIoAdapter.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotUrdfImportCoordinator.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IRobotOsgViewHost.h">
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotOsgUiTypes.h">
       <Filter>inc</Filter>
     </ClInclude>
-    <ClInclude Include="inc\RobotProgramStore.h">
-      <Filter>inc\Robot</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotProjectIoAdapter.h">
-      <Filter>inc\Robot</Filter>
-    </ClInclude>
     <ClInclude Include="inc\RobotSimulationMath.h">
-      <Filter>inc\Robot</Filter>
+      <Filter>inc</Filter>
     </ClInclude>
-    <ClInclude Include="inc\RobotUrdfImportCoordinator.h">
-      <Filter>inc\Urdf</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\robotwidget_global.h">
-      <Filter>inc\Global</Filter>
+    <ClInclude Include="inc\RobotProgramStore.h">
+      <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\SimulationLogIoSink.h">
       <Filter>inc</Filter>
@@ -86,72 +51,114 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\DevicePageWidget.cpp">
-      <Filter>src\Device</Filter>
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SimulationCommandWidget.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotFrameSettingsWidget.cpp">
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\InstructionProgramTreeWidget.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\RobotAxisControlWidget.cpp">
-      <Filter>src\Robot</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotFrameSettingsWidget.cpp">
-      <Filter>src\Robot</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionPlanningHelpers.cpp">
-      <Filter>src\Robot</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionPropertyEditor.cpp">
-      <Filter>src\Robot</Filter>
-    </ClCompile>
     <ClCompile Include="source\RobotProgramStore.cpp">
-      <Filter>src\Robot</Filter>
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\RobotProjectIoAdapter.cpp">
-      <Filter>src\Robot</Filter>
+    <ClCompile Include="source\ProgramEditService.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\RobotSimulationController.cpp">
-      <Filter>src\Robot</Filter>
+    <ClCompile Include="source\TrajectoryEditSession.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\RobotSimulationDockWidget.cpp">
-      <Filter>src\Robot</Filter>
+    <ClCompile Include="source\TrajectoryEditPageWidget.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\RobotSimulationMath.cpp">
-      <Filter>src\Robot</Filter>
+    <ClCompile Include="source\FeaturePickTransform.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\RobotSimulationMathExports.cpp">
-      <Filter>src\Robot</Filter>
+    <ClCompile Include="source\FeatureTrajectoryPageWidget.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\RobotUrdfImportCoordinator.cpp">
-      <Filter>src\Urdf</Filter>
+    <ClCompile Include="source\TrajectoryOpParamPanel.cpp">
+      <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\SimulationCommandWidget.cpp">
-      <Filter>src\Simulation</Filter>
+    <ClCompile Include="source\TrajectoryParamWidgetFactory.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryPipelineListWidget.cpp">
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\SimulationLogIoSink.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="source\RobotAxisControlWidget.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotSimulationController.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotSimulationDockWidget.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotSimulationMath.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotSimulationMathExports.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionPlanningHelpers.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionPropertyEditor.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotProjectIoAdapter.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotUrdfImportCoordinator.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <QtMoc Include="inc\RobotSimulationController.h">
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\RobotSimulationDockWidget.h">
+      <Filter>inc</Filter>
+    </QtMoc>
     <QtMoc Include="inc\DevicePageWidget.h">
-      <Filter>inc\Device</Filter>
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\SimulationCommandWidget.h">
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\RobotFrameSettingsWidget.h">
+      <Filter>inc</Filter>
     </QtMoc>
     <QtMoc Include="inc\InstructionProgramTreeWidget.h">
       <Filter>inc</Filter>
     </QtMoc>
+    <QtMoc Include="inc\ProgramEditService.h">
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\TrajectoryEditSession.h">
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\TrajectoryEditPageWidget.h">
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\FeatureTrajectoryPageWidget.h">
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\TrajectoryOpParamPanel.h">
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\TrajectoryPipelineListWidget.h">
+      <Filter>inc</Filter>
+    </QtMoc>
     <QtMoc Include="inc\RobotAxisControlWidget.h">
-      <Filter>inc\Robot</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\RobotFrameSettingsWidget.h">
-      <Filter>inc\Robot</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\RobotSimulationController.h">
-      <Filter>inc\Robot</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\RobotSimulationDockWidget.h">
-      <Filter>inc\Robot</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\SimulationCommandWidget.h">
-      <Filter>inc\Simulation</Filter>
+      <Filter>inc</Filter>
     </QtMoc>
   </ItemGroup>
 </Project>

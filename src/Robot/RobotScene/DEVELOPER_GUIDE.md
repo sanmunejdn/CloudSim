@@ -410,7 +410,7 @@ flowchart LR
 | 工程 | 说明 |
 |------|------|
 | [`TrajectoryAlgorithm`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md) | `ITrajectoryOp`、Registry、ParamSchema、Codec、`TrajectoryTransformMath` |
-| [`TrajectoryAlgorithmBuiltins`](../TrajectoryAlgorithmBuiltins/) | Translate / Rotate / Delete / Duplicate / Mirror(轴反向) / Reorder(固定姿态) |
+| [`TrajectoryAlgorithmBuiltins`](../TrajectoryAlgorithmBuiltins/) | Translate / Rotate / Delete / Duplicate / Mirror(轴反向) / Reorder(固定姿态) / RecipeWeld / RecipeGlue / RecipeGrind / Approach / Retract |
 | [`TrajectoryOpBridge.h`](inc/TrajectoryOpBridge.h) | **UI 唯一入口**：Registry、参数读写、模板 JSON（避免 RobotWidget 重复链接静态库） |
 
 `ensureTrajectoryOpBuiltinsRegistered()` 在 `TrajectoryPipelineBuilder::buildApplyCommands` 与 UI 构造时调用。Apply：`ITrajectoryOp::buildApplyActions` → [`TrajectoryApplyActionConverter`](source/TrajectoryApplyActionConverter.cpp) → `ProgramEditCommand`。
@@ -419,7 +419,7 @@ flowchart LR
 
 | 类型 | 说明 |
 |------|------|
-| `TrajectoryOpKind` | Translate / Rotate / Mirror(轴反向) / Delete / Duplicate / Reorder(固定姿态) |
+| `TrajectoryOpKind` | Translate / Rotate / Mirror(轴反向) / Delete / Duplicate / Reorder(固定姿态) / RecipeWeld / RecipeGlue / RecipeGrind / Approach / Retract |
 | `TrajectoryOpDescriptor` | `kind` + `OpScope` + `translate` / `rotate` / `duplicateCount` 等 |
 | `TransformReferenceFrame` | `World` / `Body`（`TranslateParams` / `RotateParams` 的 `frame`） |
 | `TrajectoryPipelineBuilder` | `setOps` + `buildPreviewPoseQuery` + `buildApplyCommands`（内部走 Registry） |
@@ -438,7 +438,9 @@ flowchart LR
 
 `InstructionProgramDocument`：在 `activeProgram()` 步骤树上按 id 查找/修改。Command 使用 `shared_ptr` 跨 DLL 边界（`ProgramEditStack::CommandPtr`）。
 
-Apply 路径：`TrajectoryPipelineBuilder::buildApplyCommands` → UI 层 `ProgramEditService::executeBatch`（批执行）。其中 Translate/Rotate 支持按作用域点序做起点→终点线性插值，保证 Preview 与 Apply 一致。
+Apply 路径分两支：Program Command 分支（`TrajectoryPipelineBuilder::buildApplyCommands` → `ProgramEditService::executeBatch`）与 Unified IR 分支。2026-05 修复后，**RawTrajectory 存在时一律优先走 Unified IR**（不再仅限 Recipe/Approach/Retract），避免“生成前平移/旋转无效”。Translate/Rotate 在两条分支都按点序支持起点→终点线性插值。
+
+UI 侧新增门控：Apply 成功后会禁用“生成程序”入口，并在 `onRawEmitProgram` 做硬门禁，避免 `emitRawTrajectoryToProgram` 清空主程序后覆盖 Apply 结果。
 
 撤销/重做后流水线 scope 与程序分组可能不一致（例如撤销「创建分组」）；UI 层 `TrajectoryEditPageWidget::reconcilePipelineScopes` 在 Preview/Apply 与 `revisionChanged` 时回退失效的 `Group` scope，详见 RobotWidget §轨迹编辑。
 
@@ -448,11 +450,11 @@ Apply 路径：`TrajectoryPipelineBuilder::buildApplyCommands` → UI 层 `Progr
 
 ## 14. CAD 轨迹中间表示（`RawTrajectory.h`）
 
-与 §13 **程序级**轨迹编辑（`TrajectoryOpKind` → 已生成 `RobotProgram` 路点）并行，**特征→轨迹**流水线使用独立中间层：
+与 §13 **程序级**轨迹编辑并行，特征→轨迹仍基于 `RawTrajectory`，并新增 UnifiedTrajectory 承接 Recipe 与通用块：
 
 ```text
 FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → RawTrajectory
-  → applyRawTrajectoryPipeline(ops) → emitRawTrajectoryToProgram → RobotProgram
+  → Recipe/Approach/Retract/通用块（UnifiedTrajectory）→ ReplaceProgramContentCommand → RobotProgram
 ```
 
 | 类型 | 说明 |
@@ -462,18 +464,21 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 | `TrajectoryContext` | `workpieceFrameId`、`toolFrameId`、`externalAxes[]`（地轨/变位机快照，非工艺字段） |
 | `RawTrajectoryOpKind` | `FrameFromPath`、`Resample`、`OffsetAlongNormal`、`OffsetLateral`、`SmoothPose`、`AssignBlend`、`AssignSpeedZone`、`Weave`、`InsertApproachRetract`、`ReachabilityFilter`、`ExternalAxisSearch`、`EmitToProgram` |
 | `RawTrajectoryOpDescriptor` | 单块参数（步距、偏置、摆焊振幅/周期等） |
+| `UnifiedTrajectory` | 统一点位表示（pose/euler/blend/speed/reachable），用于 Recipe 与通用块的统一执行 |
 
 | API | 作用 |
 |-----|------|
 | `importRawPathToTrajectory` | `RawPath` + `FrameStrategy`（法向 Z / 固定 Z / 切向 X）→ 姿态 |
 | `applyRawTrajectoryOp` / `applyRawTrajectoryPipeline` | 编辑块；`EmitToProgram` 须用 `emitRawTrajectoryToProgram` |
-| `rawTrajectoryRecipeWeldDefault` / `Glue` / `Grind` | 工艺=预置 Op 列表（无 `process.type`） |
+| `rawTrajectoryRecipeWeldDefault` / `Glue` / `Grind` | 配方底座（RecipeBlueprint 会按新策略剥离内置进退刀） |
+| `buildRecipePreset` / `applyRecipeDescriptorToRawTrajectory` | 配方模板与 raw 配方映射 |
+| `unifiedTrajectoryToRaw` | 生成前预览回写：Unified 结果映射回 Raw overlay |
 | `emitRawTrajectoryToProgram` | 可达点 → `LineInstruction` 序列写入 `RobotProgram.steps`，并默认创建 `InstructionGroup`（组名 = `featureId`） |
 | `rawTrajectoryToPreviewPolylineXyz` / `rawTrajectoryReachabilityColorsJson` | UI/OSG 预览 |
 
 实现：[`source/RawTrajectory.cpp`](source/RawTrajectory.cpp)。
 
-**与 `TrajectoryAlgorithm` 的关系**：`ITrajectoryOp` 仍作用于 **已有 Program** 的装饰编辑；`RawTrajectoryOpKind` 作用于 **离散后、落盘前** 的 TCP 轨迹。二者最终在 `RobotProgram` 汇合。
+**与 `TrajectoryAlgorithm` 的关系**：`ITrajectoryOp` 是统一块描述入口；Recipe/Approach/Retract 在 Session 的 Unified IR 分支执行，Translate/Rotate/Mirror/Reorder 同时支持 Program 分支与 Unified IR 分支。
 
 **Phase 占位**：`ReachabilityFilter` 当前为轻量启发式标记；完整 IK 可达性可接入 `RobotInstructionController::plan` / `queryFeasibleMotionAxisConfigurationOptions`。
 
