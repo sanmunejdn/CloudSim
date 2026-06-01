@@ -36,7 +36,7 @@ core::RobotRegistrationDto RobotServiceAdapter::registerUrdfRobot(const QString&
 }
 
 bool RobotServiceAdapter::applyJointAnglesRad(const core::ObjectId& sceneRootBackendId,
-	const QVector<double>& jointAnglesRad, QString* outError)
+	const QVector<double>& jointAnglesRad, QVector<double>* outAggregated, QString* outError)
 {
 	IRobotUrdfImportContext* ctx = m_host.robotUrdfImportContext();
 	if (!ctx)
@@ -75,7 +75,7 @@ bool RobotServiceAdapter::applyJointAnglesRad(const core::ObjectId& sceneRootBac
 		}
 		return false;
 	}
-	QVector<double> aggregated(doc->robotRevoluteJointNames().size(), 0.0); // 多机拼成一条向量
+	QVector<double> aggregated(doc->robotRevoluteJointNames().size(), 0.0);
 	if (!RobotSceneKinematics::applyJointAnglesForInstance(doc, poseSink, instIdx, jointAnglesRad, aggregated))
 	{
 		if (outError)
@@ -83,6 +83,10 @@ bool RobotServiceAdapter::applyJointAnglesRad(const core::ObjectId& sceneRootBac
 			*outError = QStringLiteral("applyJointAnglesForInstance failed");
 		}
 		return false;
+	}
+	if (outAggregated)
+	{
+		*outAggregated = aggregated;
 	}
 	doc->notifyRobotKinematicsAppliedToScene();
 	publishRobotKinematicsApplied(m_host, sceneRootBackendId, aggregated);

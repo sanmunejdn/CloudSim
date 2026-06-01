@@ -367,11 +367,9 @@ void RobotSimulationController::stopRobotSimulation()
 			{
 				const QVector<double> local = lastJointAngles.mid(offset, nj);
 				m_host->robotAxisControlPage()->setJointAnglesRad(local);
-				IRobotBackendPoseSink* poseSink = doc->poseSink();
-				if (poseSink && m_aggregatedJointAnglesRad.size() == doc->robotRevoluteJointNames().size())
+				if (m_aggregatedJointAnglesRad.size() == doc->robotRevoluteJointNames().size())
 				{
-					(void)RobotSceneKinematics::applyJointAnglesForInstance(
-						doc, poseSink, instIdx, local, m_aggregatedJointAnglesRad);
+					(void)doc->applyJointAnglesRad(instIdx, local, m_aggregatedJointAnglesRad);
 				}
 			}
 		}
@@ -561,8 +559,7 @@ void RobotSimulationController::finishProgramStartPoseAfterProjectLoad(
 	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
 	if (startJointQ.size() == nj)
 	{
-		(void)RobotSceneKinematics::applyJointAnglesForInstance(
-			doc, poseSink, instIdx, startJointQ, m_aggregatedJointAnglesRad);
+		(void)doc->applyJointAnglesRad(instIdx, startJointQ, m_aggregatedJointAnglesRad);
 		captureMotionPreviewProgramStartJoints();
 	}
 	refreshInstructionPoseAxes(false);
@@ -879,18 +876,17 @@ void RobotSimulationController::onCaptureToolFrameFromTcp()
 	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
 	RobotCoordinate::RobotCoordinateFrameSet frames = m_host->robotFrameSettingsPage()->coordinateFrames();
 	const RobotCoordinate::RobotToolFrame* activeTool = RobotCoordinate::activeToolFrame(frames);
-	std::string flangeLink = activeTool ? RobotCoordinate::effectiveFlangeLinkName(frames, *activeTool) : std::string();
-	if (flangeLink.empty())
+	QString flangeLink = activeTool ? QString::fromStdString(RobotCoordinate::effectiveFlangeLinkName(frames, *activeTool)) : QString();
+	if (flangeLink.isEmpty())
 	{
-		flangeLink = RobotSimulationMath::defaultTcpLinkNameForUrdf(urdfPath, m_host->simulationCommandPage()->selectedTcpLink()).toStdString();
+		flangeLink = RobotSimulationMath::defaultTcpLinkNameForUrdf(urdfPath, m_host->simulationCommandPage()->selectedTcpLink());
 	}
 	QVector<double> q;
 	if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() > 0)
 	{
 		q = m_host->robotAxisControlPage()->jointAnglesRad();
 	}
-	QHash<QString, osg::Matrixd> linkWorld;
-	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, q, linkWorld, &err))
+	if (!doc->captureToolFrameFromTcp(instIdx, T_base_tcp, q, flangeLink, frames, &err))
 	{
 		if (m_host->runInfoPage())
 		{
@@ -898,38 +894,6 @@ void RobotSimulationController::onCaptureToolFrameFromTcp()
 		}
 		return;
 	}
-	const QString flangeQ = QString::fromStdString(flangeLink);
-	if (!linkWorld.contains(flangeQ))
-	{
-		return;
-	}
-	const BackendMat4 T_base_flange =
-		RobotMatrixOsg::backendColMajorFromMatrix(linkWorld.value(flangeQ));
-	BackendMat4 invFlange{};
-	if (!backend_mat4_invert_rigid(T_base_flange, invFlange))
-	{
-		return;
-	}
-	BackendMat4 T_flange_tool{};
-	backend_mat4_multiply(invFlange, T_base_tcp, T_flange_tool);
-	RobotCoordinate::RobotToolFrame* target = nullptr;
-	for (RobotCoordinate::RobotToolFrame& tf : frames.toolFrames)
-	{
-		if (tf.id == frames.activeToolFrameId)
-		{
-			target = &tf;
-			break;
-		}
-	}
-	if (!target && !frames.toolFrames.empty())
-	{
-		target = &frames.toolFrames.front();
-	}
-	if (!target)
-	{
-		return;
-	}
-	target->T_flange_tool = RobotCoordinate::mat4ToFrame(T_flange_tool);
 	m_host->robotFrameSettingsPage()->setCoordinateFrames(frames);
 	doc->robotCoordinateFramesForInstance(instIdx) = frames;
 	onRobotCoordinateFramesChanged();
@@ -948,14 +912,7 @@ void RobotSimulationController::onResetToolFrame()
 		return;
 	}
 	RobotCoordinate::RobotCoordinateFrameSet frames = m_host->robotFrameSettingsPage()->coordinateFrames();
-	for (RobotCoordinate::RobotToolFrame& tf : frames.toolFrames)
-	{
-		if (tf.id == frames.activeToolFrameId)
-		{
-			tf.T_flange_tool = RobotCoordinate::identityRigidFrame();
-			break;
-		}
-	}
+	doc->resetToolFrame(instIdx, frames);
 	m_host->robotFrameSettingsPage()->setCoordinateFrames(frames);
 	doc->robotCoordinateFramesForInstance(instIdx) = frames;
 	onRobotCoordinateFramesChanged();
@@ -985,29 +942,14 @@ void RobotSimulationController::onCaptureUserFrameFromTcp()
 		return;
 	}
 	RobotCoordinate::RobotCoordinateFrameSet frames = m_host->robotFrameSettingsPage()->coordinateFrames();
-	RobotCoordinate::RobotUserFrame* target = nullptr;
-	for (RobotCoordinate::RobotUserFrame& uf : frames.userFrames)
+	if (!doc->captureUserFrameFromTcp(instIdx, pose.x, pose.y, pose.z, euler.x, euler.y, euler.z, frames, &err))
 	{
-		if (uf.id == frames.activeUserFrameId)
+		if (m_host->runInfoPage())
 		{
-			target = &uf;
-			break;
+			m_host->appendRunWarning(err);
 		}
-	}
-	if (!target && !frames.userFrames.empty())
-	{
-		target = &frames.userFrames.front();
-	}
-	if (!target)
-	{
 		return;
 	}
-	target->T_base_user.positionMm[0] = pose.x;
-	target->T_base_user.positionMm[1] = pose.y;
-	target->T_base_user.positionMm[2] = pose.z;
-	target->T_base_user.eulerDeg[0] = euler.x;
-	target->T_base_user.eulerDeg[1] = euler.y;
-	target->T_base_user.eulerDeg[2] = euler.z;
 	m_host->robotFrameSettingsPage()->setCoordinateFrames(frames);
 	doc->robotCoordinateFramesForInstance(instIdx) = frames;
 	onRobotCoordinateFramesChanged();
@@ -1246,8 +1188,7 @@ void RobotSimulationController::onRobotAxisJointAnglesChanged(const QVector<doub
 	{
 		m_aggregatedJointAnglesRad = QVector<double>(doc->robotRevoluteJointNames().size(), 0.0);
 	}
-	const bool applied = RobotSceneKinematics::applyJointAnglesForInstance(
-		doc, poseSink, instIdx, jointAnglesRad, m_aggregatedJointAnglesRad);
+	const bool applied = doc->applyJointAnglesRad(instIdx, jointAnglesRad, m_aggregatedJointAnglesRad);
 	if (applied && m_host->osgView())
 	{
 		m_host->osgView()->requestRedraw();
@@ -1525,16 +1466,8 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(
 	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
 	const int njInst = doc->robotRevoluteJointCountForInstance(instIdx);
 	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
-	BackendMat4 toolMat = BackendMat4::identity();
-	if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
-	{
-		toolMat = RobotCoordinate::frameToMat4(tool->T_flange_tool);
-	}
-	RobotTeachIk::TeachIkContext ctx;
-	ctx.urdfPath = urdfPath;
-	ctx.ikLinkName = m_tcpDragTeachFlangeLink;
-	ctx.T_base_target = engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
-	ctx.seedJointRad.clear();
+
+	// 种子关节：优先聚合向量，回退轴滑块
 	QVector<double> seedQ;
 	if (njInst > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + njInst)
 	{
@@ -1548,18 +1481,12 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(
 	{
 		seedQ = m_host->robotAxisControlPage()->jointAnglesRad();
 	}
-	ctx.seedJointRad.reserve(static_cast<size_t>(seedQ.size()));
-	for (double v : seedQ)
-	{
-		ctx.seedJointRad.push_back(v);
-	}
-	ctx.useOrientation = true;
-	ctx.T_flange_tool = toolMat;
-	ctx.maxIkIterations = 20;
-	const engine::RigidTransform targetFromEmit = ctx.T_base_target;
+
+	// 目标位姿 chase 限速
+	const engine::RigidTransform targetFromEmit = engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
 	const bool hadPrevTarget = m_lastTcpDragTargetValid;
 	const engine::RigidTransform prevTarget = m_lastTcpDragTargetInBase;
-	engine::RigidTransform ikTarget = targetFromEmit;
+	double ikPx = pxMm, ikPy = pyMm, ikPz = pzMm;
 	static constexpr double kTcpDragMaxChaseMmPerIk = 50.0;
 	if (hadPrevTarget)
 	{
@@ -1574,28 +1501,20 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(
 		if (emitLen > kTcpDragMaxChaseMmPerIk)
 		{
 			const double s = kTcpDragMaxChaseMmPerIk / emitLen;
-			ikTarget = engine::RigidTransform::fromTranslationEulerDeg(
-				tPrev[0] + dx * s,
-				tPrev[1] + dy * s,
-				tPrev[2] + dz * s,
-				exDeg,
-				eyDeg,
-				ezDeg);
+			ikPx = tPrev[0] + dx * s;
+			ikPy = tPrev[1] + dy * s;
+			ikPz = tPrev[2] + dz * s;
 		}
 	}
-	ctx.T_base_target = ikTarget;
-	const engine::RigidTransform targetForIkStep = ikTarget;
-	const RobotTeachIk::TeachIkResult ik = RobotTeachIk::solveTeachIk(ctx);
-	if (!ik.ok)
+	const engine::RigidTransform targetForIkStep = engine::RigidTransform::fromTranslationEulerDeg(ikPx, ikPy, ikPz, exDeg, eyDeg, ezDeg);
+
+	// 通过 Host 求解 IK
+	const auto ikResult = doc->solveTcpDragTeachIk(instIdx, ikPx, ikPy, ikPz, exDeg, eyDeg, ezDeg, seedQ, m_tcpDragTeachFlangeLink);
+	if (!ikResult.ok)
 	{
 		return false;
 	}
-	QVector<double> qRad;
-	qRad.reserve(static_cast<int>(ik.jointRad.size()));
-	for (double v : ik.jointRad)
-	{
-		qRad.push_back(v);
-	}
+	QVector<double> qRad = ikResult.jointRad;
 	QVector<double> qClamped = clampJointAnglesToInstanceLimits(doc, instIdx, qRad);
 	const bool anyClamped = (qClamped.size() == qRad.size())
 		&& !std::equal(qClamped.begin(), qClamped.end(), qRad.begin());
@@ -1670,8 +1589,7 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(
 	}
 	m_tcpDragApplyingIk = true;
 	m_suppressMotionPreviewStartCapture = true;
-	(void)RobotSceneKinematics::applyJointAnglesForInstance(
-		doc, doc->poseSink(), instIdx, qClamped, m_aggregatedJointAnglesRad);
+	(void)doc->applyJointAnglesRad(instIdx, qClamped, m_aggregatedJointAnglesRad);
 	if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() == njInst)
 	{
 		m_host->robotAxisControlPage()->setJointAnglesRadSilent(qClamped);
@@ -1719,8 +1637,7 @@ void RobotSimulationController::syncTcpDragExitJointState()
 	{
 		m_tcpDragApplyingIk = true;
 		m_suppressMotionPreviewStartCapture = true;
-		(void)RobotSceneKinematics::applyJointAnglesForInstance(
-			doc, poseSink, instIdx, local, m_aggregatedJointAnglesRad);
+		(void)doc->applyJointAnglesRad(instIdx, local, m_aggregatedJointAnglesRad);
 		m_suppressMotionPreviewStartCapture = false;
 		m_tcpDragApplyingIk = false;
 	}
@@ -2816,8 +2733,7 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(const std::s
 		m_host->robotAxisControlPage()->setJointAnglesRad(rollingQ);
 		m_suppressMotionPreviewStartCapture = false;
 	}
-	(void)RobotSceneKinematics::applyJointAnglesForInstance(
-		doc, poseSink, instIdx, rollingQ, m_aggregatedJointAnglesRad);
+	(void)doc->applyJointAnglesRad(instIdx, rollingQ, m_aggregatedJointAnglesRad);
 	refreshRobotCoordinateFrameOverlays(instruction, &rollingQ);
 	osg->requestRedraw();
 }

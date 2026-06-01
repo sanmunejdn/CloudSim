@@ -219,4 +219,28 @@ core::ObjectId DataServiceAdapter::importFromFile(const QString& path, const cor
 	return imported.ok ? imported.rootBackendId : QString();
 }
 
+QVector<core::ObjectId> DataServiceAdapter::topoOrder() const
+{
+	QVector<core::ObjectId> out;
+	for (const std::string& id : backendOf(m_host).topoOrder())
+		out.append(QString::fromStdString(id));
+	return out;
+}
+
+QVector<core::ObjectId> DataServiceAdapter::listAll() const
+{
+	QVector<core::ObjectId> out;
+	for (const auto& obj : backendOf(m_host).listData())
+		out.append(QString::fromStdString(obj->id()));
+	return out;
+}
+
+QVector<core::ObjectId> DataServiceAdapter::parentsOf(const core::ObjectId& id) const
+{
+	QVector<core::ObjectId> out;
+	for (const std::string& pid : backendOf(m_host).parentsOf(id.toStdString()))
+		out.append(QString::fromStdString(pid));
+	return out;
+}
+
 } // namespace cloudsim::host

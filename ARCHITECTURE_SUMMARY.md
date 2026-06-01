@@ -886,6 +886,74 @@ flowchart LR
 - 工程持久化已切 **v4 + 对象多态序列化**；后续可补 `componentsSchemaVersion`、更多组件类型注册与自动化回归。
 - **AI 助手**：Phase 2 已接 LLM；后续可扩展「修改已有对象 / 布尔 / 导入」等命令 schema。
 
+## 8. Host 收口迁移路线图（2025-2026）
+
+当前 Widget 层仍有 5 类功能绕过 Host 直达底层模块，计划分阶段收口：
+
+| 阶段 | 方向 | 严重度 | 影响范围 |
+|------|------|--------|---------|
+| 1 | `RobotSimulationController` 核心逻辑迁入 Host | 高 | ~3580 行，15 个核心方法 |
+| 2 | `BackendDataManager` 收口到 `IDataService` | 高 | 17 个文件，仅 2 个走契约 |
+| 3 | OSG 头文件解耦 | 高 | 8 个文件，30+ 处 |
+| 4 | `OsgWidget*` 具体类型解耦 | 中 | 7 个文件，32+ 调用点 |
+| 5 | `RobotInstruction` 属性收口 | 高 | PropertyPanel 30+ 处 |
+
+```mermaid
+flowchart LR
+    P0[阶段0: 文档审视] --> P1[阶段1: Robot 收口]
+    P1 --> P5[阶段5: 属性收口]
+    P1 --> P2[阶段2: Data 收口]
+    P2 --> P3[阶段3: OSG 解耦]
+    P3 --> P4[阶段4: OsgWidget 解耦]
+```
+
+### 阶段 1：RobotSimulationController → Host（已完成 5/6）
+
+Controller 核心逻辑已迁入 Host，退化为 UI 事件转发器。
+
+| 子阶段 | 内容 | 状态 |
+|--------|------|------|
+| 1.1 | 运动学应用链路：6 处 `applyJointAnglesForInstance` 改走 `IRobotDocumentHost` | **完成** |
+| 1.2 | 规划链路：已通过 Host 模块集中 | **完成** |
+| 1.3 | 程序 JSON：已通过 `RobotServiceAdapter` 集中 | **完成** |
+| 1.4 | 坐标系管理：新增 `captureToolFrameFromTcp`/`captureUserFrameFromTcp`/`resetToolFrame` | **完成** |
+| 1.5 | TCP 拖拽示教：新增 `solveTcpDragTeachIk` | **完成** |
+| 1.6 | 导出功能：需 Controller 内部状态，暂保留 | 待定 |
+
+**`IRobotDocumentHost` 新增方法**（`src/UI/RobotWidget/inc/IRobotDocumentHost.h`）：
+- `applyJointAnglesRad(instanceIdx, angles, aggregated)` — 关节角应用
+- `captureToolFrameFromTcp(instanceIdx, T_base_tcp, joints, flangeLink, frames)` — 工具坐标系捕获
+- `captureUserFrameFromTcp(instanceIdx, pos, euler, frames)` — 用户坐标系捕获
+- `resetToolFrame(instanceIdx, frames)` — 工具帧重置
+- `solveTcpDragTeachIk(instanceIdx, pose, seed, ikLink)` — TCP IK 求解
+
+### 阶段 2-4：Widget 瘦身（已完成 2/3）
+
+- **阶段 2.1**：`MainWindowBackendTree` 改用 `doc->data().topoOrder()`/`parentsOf()` — **完成**
+- **阶段 2.2**：工程 I/O 已通过 Host `ProjectPackageIo` 集中 — **完成**
+- **阶段 2.3**：`DocumentPage` 存量清理 — 需深层重构，待定
+- **阶段 3.1**：`MainWindowBackendTree` 移除 10 个 `osg/` include，改用 `IRenderView::sceneGraphSnapshot` — **完成**
+- **阶段 3.2**：`MainWindow` 移除 4 个 `osg/` include，改用 `IRenderView` 方法 — **完成**
+- **阶段 3.3-3.4**：`DocumentPage`/`ObjectTransformOperation` 等 — 深层 OSG 耦合，待定
+- **阶段 4**：32+ 处 `OsgWidget*` 调用改为 `IRenderView*` — 待定
+
+**`IDataService` 新增方法**（`src/Contracts/CloudSimCore/inc/IDataService.h`）：
+- `topoOrder()` — 拓扑排序
+- `listAll()` — 列出所有对象
+- `parentsOf(id)` — 查询父节点
+
+**`IRenderView` 新增方法**（`src/Contracts/CloudSimCore/inc/IRenderView.h`）：
+- `sceneGraphSnapshot(maxDepth)` — 场景树快照（`SceneNodeInfo` DTO）
+- `selectedPosition(outX, outY, outZ)` — 选中对象位置
+- `selectedRotationEulerDeg(outRx, outRy, outRz)` — 选中对象旋转
+
+### 阶段 5：RobotInstruction 属性收口
+
+`MainWindowPropertyPanel` 中 30+ 处 `RobotInstruction` 直连改为经 `IRobotService`。
+**前置条件**：需抽象层隔离 `RobotInstruction` 依赖。
+
+---
+
 ## 9. 异步任务与数据并发（演进）
 
 - **JobSystem + ProgressManager（Widget）**：耗时 CPU 工作（首批接入：非 LAS/LAZ 点云的 CGAL `loadFromFile`）提交到 `QThreadPool`；`ProgressManager` 通过 `QMetaObject::invokeMethod` 将 `jobStarted` / `jobProgress` / `jobFinished` 投递到 UI 线程，避免在工作线程直接操作 `QWidget`/OSG。

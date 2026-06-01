@@ -185,9 +185,28 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | API | 说明 |
 |-----|------|
 | `registerUrdfRobot` | → `UrdfRobotImport`；成功时 `publishBackendObjectRegistered` |
-| `applyJointAnglesRad` | → `RobotSceneKinematics::applyJointAnglesForInstance`；`publishRobotKinematicsApplied` |
+| `applyJointAnglesRad` | → `RobotSceneKinematics::applyJointAnglesForInstance`；`publishRobotKinematicsApplied`；可选 `outAggregated` 返回聚合向量 |
 | `robotProgramsJson` / `setRobotProgramsJson` | → `RobotProgramJsonIo` + `RobotProgramStore` |
 | `planInstruction` | → `RobotPlanInstruction::planMotionInstruction`（`RobotInstruction::Controller::plan`） |
+
+**`IRobotDocumentHost` 新增方法**（阶段 1.1-1.5 已完成，由 `MainWindowRobotHost::DocumentHost` 实现）：
+
+| API | 说明 | 状态 |
+|-----|------|------|
+| `applyJointAnglesRad(instanceIdx, angles, aggregated)` | 应用关节角并更新聚合向量 | **已完成** |
+| `captureToolFrameFromTcp(instanceIdx, T_base_tcp, joints, flangeLink, frames)` | 从 TCP 位姿捕获工具坐标系 | **已完成** |
+| `captureUserFrameFromTcp(instanceIdx, pos, euler, frames)` | 从 TCP 位姿捕获用户坐标系 | **已完成** |
+| `resetToolFrame(instanceIdx, frames)` | 重置活动工具帧为法兰原点 | **已完成** |
+| `solveTcpDragTeachIk(instanceIdx, pose, seed, ikLink)` | TCP 拖拽示教 IK 求解 | **已完成** |
+| `planForExport(instanceIdx, instructions, seed, urdf, tcp, plans)` | 导出程序规划 | 框架已建 |
+
+**计划新增 API**（阶段 5，需 RobotWidget 链接 CloudSimCore）：
+
+| API | 说明 |
+|-----|------|
+| `getInstructionPropertyRows(instructionId)` | 获取指令属性行（替代 Widget 直连） |
+| `applyInstructionPropertyChange(instructionId, key, value)` | 应用指令属性变更 |
+| `queryFeasibleAxisConfigs(instructionId, pose)` | 查询可行轴配置 |
 
 ### 4.4.1 `BackendFileImport` 注册（`registerAdopted*`）
 
@@ -452,13 +471,16 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 5. ~~**场景门面**~~：`BackendSceneDocumentFacade::ensureSelectionVisualForBackend`；`currentOsgWidget` 经 `render().widget()`。
 6. ~~**API 去重**~~：移除 `DocumentHost` 公开 `registerAdopted*` / `osgWidget()`；`osgWidgetFrom` + Widget `widgetOsgFromPage`；删除 Widget 死代码（`syncOsgViewer*`、`backendPropertyCommitted` 等）。
 
-**仍待 / 长期**
+**仍待 / 长期（详见 `ARCHITECTURE_SUMMARY.md` §迁移路线图）**
 
-1. **`IRobotSimulationDocument`**：实例元数据仍留 `DocumentPage` / `RobotWidget`（`RobotSimulationController` 编排）。
-2. **`IRenderView` 全面替代**：拾取/显隐/gizmo 等逐步经契约或 `sceneFacade`，减少裸 `OsgWidget*`（OSG 获取已统一为 `osgWidgetFrom` / `widgetOsgFromPage`）。
-3. **仿真指令属性**：`MainWindowPropertyPanel` 内 `RobotInstruction` 仍直连（非 `IDataService`）。
-4. **Host 目录**：`source/osg/` 若存在勿加入 vcxproj；以 `Widget/source` 为唯一 OsgWidget 源码真源。
-5. **`.pcp` zip**：仍在 Widget（`project_package_zip`），非 Host 职责。
+1. ~~**`RobotSimulationController` 核心逻辑迁入 Host**~~：阶段 1.1-1.5 已完成。运动学（6 处）、坐标系管理、TCP IK 已通过 `IRobotDocumentHost` 委托；规划和程序 JSON 已通过 Host 模块集中。阶段 1.6（导出）待定。
+2. **`IRobotSimulationDocument`**：实例元数据仍留 `DocumentPage` / `RobotWidget`（`RobotSimulationController` 编排）。
+3. ~~**`IRenderView` 全面替代**~~：阶段 3.1-3.2 已完成。`MainWindowBackendTree` 和 `MainWindow` 已移除 OSG include，改用 `sceneGraphSnapshot`/`selectedPosition`/`selectedRotationEulerDeg`。阶段 3.3-3.4（DocumentPage/ObjectTransformOperation）待定。
+4. **仿真指令属性**：`MainWindowPropertyPanel` 内 `RobotInstruction` 仍直连（非 `IDataService`），需抽象层隔离依赖。
+5. ~~**BackendDataManager 收口**~~：阶段 2.1-2.2 已完成。`MainWindowBackendTree` 改用 `doc->data().topoOrder()`/`parentsOf()`；工程 I/O 已通过 Host 集中。阶段 2.3（DocumentPage 存量清理）待定。
+6. **OSG 头文件解耦**：阶段 3.1-3.2 已完成（2 个文件移除 14 个 OSG include）。阶段 3.3-3.4（DocumentPage 等）待定。
+7. **Host 目录**：`source/osg/` 若存在勿加入 vcxproj；以 `Widget/source` 为唯一 OsgWidget 源码真源。
+8. **`.pcp` zip**：仍在 Widget（`project_package_zip`），非 Host 职责。
 
 ---
 

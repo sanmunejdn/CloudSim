@@ -17,23 +17,13 @@
 #include "BackendHierarchyModel.h"
 #include "DocumentPage.h"
 #include "IDataService.h"
+#include "IRenderView.h"
+#include "OsgWidget.h"
 #include "MainWindow_p.h"
 #include "MainWindowSelectionService.h"
 #include "MeshBackendData.h"
-#include "OsgWidget.h"
 #include "PointCloudBackendData.h"
 #include "RunInfoPage.h"
-
-#include <osg/AutoTransform>
-#include <osg/Camera>
-#include <osg/Drawable>
-#include <osg/Geode>
-#include <osg/Group>
-#include <osg/MatrixTransform>
-#include <osg/Matrixd>
-#include <osg/Node>
-#include <osg/PositionAttitudeTransform>
-#include <osg/Vec3f>
 
 using namespace mainwindow_detail;
 
@@ -169,127 +159,6 @@ QString translateOsgNodeName(const QString& name, bool useChinese)
 	return name;
 }
 
-QString osgNodeLine(const osg::Node* node, bool useChinese)
-{
-	if (!node)
-	{
-		return useChinese ? QStringLiteral("（空）") : QStringLiteral("(null)");
-	}
-	const QString cls = translateOsgClassName(QString::fromLatin1(node->className()), useChinese);
-	const std::string& nm = node->getName();
-	if (nm.empty())
-	{
-		return cls;
-	}
-	return cls + QStringLiteral(" — ") + translateOsgNodeName(QString::fromStdString(nm), useChinese);
-}
-
-QString formatMatrix4(const osg::Matrixd& m)
-{
-	QString s;
-	for (int r = 0; r < 4; ++r)
-	{
-		QString row;
-		for (int c = 0; c < 4; ++c)
-		{
-			if (c)
-			{
-				row += QLatin1Char(' ');
-			}
-			row += QString::number(m(r, c), 'g', 6);
-		}
-		if (r)
-		{
-			s += QLatin1Char('\n');
-		}
-		s += row;
-	}
-	return s;
-}
-
-/// 本节点局部变换（非累积世界矩阵）；非变换节点显示 —
-QString localMatrixSummary(const osg::Node* node, bool useChinese)
-{
-	if (!node)
-	{
-		return QStringLiteral("—");
-	}
-	if (const auto* cam = dynamic_cast<const osg::Camera*>(node))
-	{
-		if (useChinese)
-		{
-			return QStringLiteral("视图:\n%1\n投影:\n%2")
-				.arg(formatMatrix4(cam->getViewMatrix()))
-				.arg(formatMatrix4(cam->getProjectionMatrix()));
-		}
-		return QStringLiteral("View:\n%1\nProj:\n%2")
-			.arg(formatMatrix4(cam->getViewMatrix()))
-			.arg(formatMatrix4(cam->getProjectionMatrix()));
-	}
-	if (const auto* mt = dynamic_cast<const osg::MatrixTransform*>(node))
-	{
-		return formatMatrix4(mt->getMatrix());
-	}
-	if (const auto* pat = dynamic_cast<const osg::PositionAttitudeTransform*>(node))
-	{
-		const osg::Matrixd m = osg::Matrixd::translate(pat->getPosition()) * osg::Matrixd::rotate(pat->getAttitude())
-			* osg::Matrixd::scale(pat->getScale());
-		return formatMatrix4(m);
-	}
-	if (const auto* at = dynamic_cast<const osg::AutoTransform*>(node))
-	{
-		const osg::Matrixd m = osg::Matrixd::translate(at->getPosition()) * osg::Matrixd::rotate(at->getRotation())
-			* osg::Matrixd::scale(at->getScale());
-		return formatMatrix4(m);
-	}
-	return QStringLiteral("—");
-}
-
-void appendOsgNodeRecursive(QTreeWidgetItem* parent, osg::Node* node, int depthLeft, bool useChinese)
-{
-	if (!node || depthLeft <= 0)
-	{
-		return;
-	}
-	auto* item = new QTreeWidgetItem(QStringList() << osgNodeLine(node, useChinese) << localMatrixSummary(node, useChinese));
-	parent->addChild(item);
-
-	if (osg::Group* g = node->asGroup())
-	{
-		for (unsigned i = 0; i < g->getNumChildren(); ++i)
-		{
-			appendOsgNodeRecursive(item, g->getChild(i), depthLeft - 1, useChinese);
-		}
-		return;
-	}
-
-	auto* geode = dynamic_cast<osg::Geode*>(node);
-	if (!geode)
-	{
-		return;
-	}
-	for (unsigned i = 0; i < geode->getNumDrawables(); ++i)
-	{
-		osg::Drawable* d = geode->getDrawable(i);
-		QString line = useChinese ? QStringLiteral("可绘制体：") : QStringLiteral("Drawable: ");
-		if (d)
-		{
-			line += translateOsgClassName(QString::fromLatin1(d->className()), useChinese);
-			const std::string& dn = d->getName();
-			if (!dn.empty())
-			{
-				line += QStringLiteral(" — ") + translateOsgNodeName(QString::fromStdString(dn), useChinese);
-			}
-		}
-		else
-		{
-			line += useChinese ? QStringLiteral("（空）") : QStringLiteral("(null)");
-		}
-		item->addChild(new QTreeWidgetItem(QStringList()
-			<< line << QStringLiteral("—")));
-	}
-}
-
 QStringList collectSubtreeBackendIds(const DocumentPage& doc, const QString& rootBackendId)
 {
 	QStringList ids;
@@ -358,12 +227,18 @@ void MainWindow::refreshBackendTree()
 		<< i18n(QStringLiteral("Annotations"), QStringLiteral("注释")));
 	m_backendRootItem->addChild(m_annotationRootItem);
 	m_annotationRootItem->setExpanded(true);
-	std::vector<std::shared_ptr<BackendDataBase>> objects;
-	const std::vector<std::string> topoIds = activeBackend().topoOrder();
-	objects.reserve(topoIds.size());
-	for (const std::string& id : topoIds)
+	DocumentPage* doc = currentPage();
+	if (!doc)
 	{
-		std::shared_ptr<BackendDataBase> data = activeBackend().getData(id);
+		return;
+	}
+	std::vector<std::shared_ptr<BackendDataBase>> objects;
+	const QVector<QString> topoIds = doc->data().topoOrder();
+	objects.reserve(topoIds.size());
+	for (const QString& id : topoIds)
+	{
+		// TODO: IDataService 缺少 getData 返回 shared_ptr，暂保留 BackendDataManager 直连
+		std::shared_ptr<BackendDataBase> data = doc->backend().getData(id.toStdString());
 		if (data)
 		{
 			objects.push_back(std::move(data));
@@ -406,8 +281,8 @@ void MainWindow::refreshBackendTree()
 		{
 			continue;
 		}
-		const std::vector<std::string> parentIdsStd = activeBackend().parentsOf(data->id());
-		const QString parentId = parentIdsStd.empty() ? QString() : QString::fromStdString(parentIdsStd.front());
+		const QVector<QString> parentIds = doc->data().parentsOf(id);
+		const QString parentId = parentIds.isEmpty() ? QString() : parentIds.front();
 		QTreeWidgetItem* parentItem = idToItem.value(parentId, m_backendRootItem);
 		if (!parentItem)
 		{
@@ -415,9 +290,9 @@ void MainWindow::refreshBackendTree()
 		}
 		parentItem->addChild(item);
 
-		for (std::size_t index = 1; index < parentIdsStd.size(); ++index)
+		for (int index = 1; index < parentIds.size(); ++index)
 		{
-			const QString extraParentId = QString::fromStdString(parentIdsStd[index]);
+			const QString extraParentId = parentIds[index];
 			if (extraParentId.isEmpty() || extraParentId == parentId)
 			{
 				continue;
@@ -475,23 +350,36 @@ void MainWindow::refreshOsgSceneTree()
 	{
 		return;
 	}
-	const bool useChinese = m_useChinese;
 	m_osgSceneTree->clear();
-	OsgWidget* osg = currentOsgWidget();
-	const osg::Group* root = osg ? osg->sceneGraphRoot() : nullptr;
-	if (!root)
+	DocumentPage* page = currentPage();
+	if (!page)
 	{
 		m_osgSceneTree->addTopLevelItem(new QTreeWidgetItem(QStringList()
 			<< i18n(QStringLiteral("No scene"), QStringLiteral("无场景")) << QString()));
 		return;
 	}
-
-	auto* rootItem = new QTreeWidgetItem(QStringList() << osgNodeLine(root, useChinese) << localMatrixSummary(root, useChinese));
-	m_osgSceneTree->addTopLevelItem(rootItem);
-	osg::Group* rootRw = const_cast<osg::Group*>(root);
-	for (unsigned i = 0; i < rootRw->getNumChildren(); ++i)
+	const auto snapshot = page->render().sceneGraphSnapshot(256);
+	if (snapshot.className.isEmpty())
 	{
-		appendOsgNodeRecursive(rootItem, rootRw->getChild(i), 256, useChinese);
+		m_osgSceneTree->addTopLevelItem(new QTreeWidgetItem(QStringList()
+			<< i18n(QStringLiteral("No scene"), QStringLiteral("无场景")) << QString()));
+		return;
+	}
+	auto* rootItem = new QTreeWidgetItem(QStringList() << snapshot.name << snapshot.localMatrixSummary);
+	m_osgSceneTree->addTopLevelItem(rootItem);
+	std::function<void(QTreeWidgetItem*, const cloudsim::core::IRenderView::SceneNodeInfo&)> buildTree;
+	buildTree = [&](QTreeWidgetItem* parent, const cloudsim::core::IRenderView::SceneNodeInfo& node)
+	{
+		auto* item = new QTreeWidgetItem(QStringList() << node.name << node.localMatrixSummary);
+		parent->addChild(item);
+		for (const auto& child : node.children)
+		{
+			buildTree(item, child);
+		}
+	};
+	for (const auto& child : snapshot.children)
+	{
+		buildTree(rootItem, child);
 	}
 	rootItem->setExpanded(true);
 }

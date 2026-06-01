@@ -41,8 +41,6 @@
 #include <QWidget>
 #include <QXmlStreamReader>
 
-#include <osg/Vec3f>
-
 #include "AiAssistantDockWidget.h"
 #include "ApplicationStyle.h"
 #include "BackendDataBase.h"
@@ -88,10 +86,6 @@
 #include "../../OsgWidgetCore/inc/PickTypes.h"
 #include "ObjectGizmoFrame.h"
 #include "BackendVisualMath.h"
-
-#include <osg/MatrixTransform>
-#include <osg/NodeVisitor>
-#include <osg/Quat>
 
 #include "qteditorfactory.h"
 #include "qttreepropertybrowser.h"
@@ -288,14 +282,18 @@ void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
 	{
 		return;
 	}
-	OsgWidget* osgW = currentOsgWidget();
 	BackendVec3 euler{};
-	if (osgW)
+	bool rotationFromRender = false;
+	if (DocumentPage* p = currentPage())
 	{
-		const osg::Vec3f er = osgW->selectedRotationEulerDeg();
-		euler.x = static_cast<double>(er.x());
-		euler.y = static_cast<double>(er.y());
-		euler.z = static_cast<double>(er.z());
+		float rx = 0, ry = 0, rz = 0;
+		if (p->render().selectedRotationEulerDeg(rx, ry, rz))
+		{
+			euler.x = static_cast<double>(rx);
+			euler.y = static_cast<double>(ry);
+			euler.z = static_cast<double>(rz);
+			rotationFromRender = true;
+		}
 	}
 	auto pointCloud = std::dynamic_pointer_cast<PointCloudBackendData>(snapshot.data);
 	if (pointCloud)
@@ -304,7 +302,7 @@ void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
 		pose.x = x;
 		pose.y = y;
 		pose.z = z;
-		if (!osgW)
+		if (!rotationFromRender)
 		{
 			euler = pointCloud->rotation();
 		}
@@ -326,7 +324,7 @@ void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
 		pose.x = x;
 		pose.y = y;
 		pose.z = z;
-		if (!osgW)
+		if (!rotationFromRender)
 		{
 			euler = mesh->rotation();
 		}
@@ -358,14 +356,18 @@ void MainWindow::onSelectedObjectRotationChanged(float rx, float ry, float rz)
 	{
 		return;
 	}
-	OsgWidget* osgW = currentOsgWidget();
 	BackendVec3 pos{};
-	if (osgW)
+	bool positionFromRender = false;
+	if (DocumentPage* p = currentPage())
 	{
-		const osg::Vec3f p = osgW->selectedPosition();
-		pos.x = static_cast<double>(p.x());
-		pos.y = static_cast<double>(p.y());
-		pos.z = static_cast<double>(p.z());
+		float px = 0, py = 0, pz = 0;
+		if (p->render().selectedPosition(px, py, pz))
+		{
+			pos.x = static_cast<double>(px);
+			pos.y = static_cast<double>(py);
+			pos.z = static_cast<double>(pz);
+			positionFromRender = true;
+		}
 	}
 	auto pointCloud = std::dynamic_pointer_cast<PointCloudBackendData>(snapshot.data);
 	if (pointCloud)
@@ -374,7 +376,7 @@ void MainWindow::onSelectedObjectRotationChanged(float rx, float ry, float rz)
 		rot.x = rx;
 		rot.y = ry;
 		rot.z = rz;
-		if (!osgW)
+		if (!positionFromRender)
 		{
 			pos = pointCloud->pose();
 		}
@@ -397,7 +399,7 @@ void MainWindow::onSelectedObjectRotationChanged(float rx, float ry, float rz)
 		rot.x = rx;
 		rot.y = ry;
 		rot.z = rz;
-		if (!osgW)
+		if (!positionFromRender)
 		{
 			pos = mesh->pose();
 		}
@@ -896,18 +898,15 @@ void MainWindow::afterBackendFollowPropertyEdited(const QString& propertyKey, co
 	{
 		return;
 	}
-	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [osg](const std::string& bid, BackendMat4& out) -> bool {
-		osg::Matrixd om;
-		if (!osg->getBackendRootWorldMatrix(bid, om))
+	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [doc](const std::string& bid, BackendMat4& out) -> bool {
+		cloudsim::core::Mat4 mat;
+		if (!doc->render().getWorldMatrix(QString::fromStdString(bid), mat))
 		{
 			return false;
 		}
-		for (int c = 0; c < 4; ++c)
+		for (int i = 0; i < 16; ++i)
 		{
-			for (int r = 0; r < 4; ++r)
-			{
-				out.v[c * 4 + r] = om(r, c);
-			}
+			out.v[i] = mat[static_cast<size_t>(i)];
 		}
 		return true;
 	};

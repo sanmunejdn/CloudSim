@@ -39,6 +39,20 @@ public:
 	virtual void focusCameraOnBackend(const ObjectId& id) = 0;
 	/// 逻辑父链（不改 OSG）
 	virtual void setBackendLogicalParent(const ObjectId& childId, const ObjectId& parentId) = 0;
+
+	// 场景树快照（用于调试树视图）
+	struct SceneNodeInfo
+	{
+		QString className;
+		QString name;
+		QString localMatrixSummary;
+		std::vector<SceneNodeInfo> children;
+	};
+	virtual SceneNodeInfo sceneGraphSnapshot(int maxDepth = 8) const = 0;
+
+	// 选中对象位姿查询
+	virtual bool selectedPosition(float& outX, float& outY, float& outZ) const = 0;
+	virtual bool selectedRotationEulerDeg(float& outRx, float& outRy, float& outRz) const = 0;
 };
 
 /// 渲染视口工厂

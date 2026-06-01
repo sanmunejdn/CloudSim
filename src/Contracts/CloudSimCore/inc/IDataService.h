@@ -37,6 +37,11 @@ public:
 
 	virtual ObjectId importFromFile(const QString& path, const ImportOptionsDto& options,
 		QString* outError = nullptr) = 0;
+
+	// 树构建支持
+	virtual QVector<ObjectId> topoOrder() const = 0;
+	virtual QVector<ObjectId> listAll() const = 0;
+	virtual QVector<ObjectId> parentsOf(const ObjectId& id) const = 0;
 };
 
 } // namespace cloudsim::core

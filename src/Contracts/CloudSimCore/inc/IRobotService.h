@@ -17,7 +17,7 @@ public:
 	virtual RobotRegistrationDto registerUrdfRobot(const QString& urdfPath, const ImportOptionsDto& options) = 0;
 
 	virtual bool applyJointAnglesRad(const ObjectId& sceneRootBackendId, const QVector<double>& jointAnglesRad,
-		QString* outError = nullptr) = 0;
+		QVector<double>* outAggregated = nullptr, QString* outError = nullptr) = 0;
 
 	virtual bool planInstruction(const MotionInstructionDto& instruction, const PlanContextDto& context,
 		PlanResultDto& out, QString* outError = nullptr) = 0;

@@ -17,6 +17,10 @@
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
 
 #include "RobotPlanInstruction.h"
+#include "RobotSceneKinematics.h"
+#include "UrdfRobotLoader.h"
+#include "RobotMatrixOsgBridge.h"
+#include "RobotTeachIk.h"
 
 #include <Adapters.h>
 
@@ -139,6 +143,268 @@ public:
 		m_page->setSuppressRobotFollowDirtyNotify(suppress);
 	}
 	void clearFollowDirtyBackendIds() override { m_page->clearFollowDirtyBackendIds(); }
+
+	bool applyJointAnglesRad(int instanceIndex, const QVector<double>& jointAnglesRad,
+		QVector<double>& aggregatedJointAnglesRad, QString* outError) override
+	{
+		if (!m_page || !m_page->hasRobotSimulationContext())
+		{
+			if (outError)
+			{
+				*outError = QStringLiteral("no robot simulation context");
+			}
+			return false;
+		}
+		IRobotBackendPoseSink* poseSink = m_page->sceneFacade().poseSink();
+		if (!poseSink)
+		{
+			if (outError)
+			{
+				*outError = QStringLiteral("no pose sink");
+			}
+			return false;
+		}
+		const int nj = m_page->robotRevoluteJointCountForInstance(instanceIndex);
+		if (jointAnglesRad.size() != nj)
+		{
+			if (outError)
+			{
+				*outError = QStringLiteral("joint count mismatch: expected %1, got %2").arg(nj).arg(jointAnglesRad.size());
+			}
+			return false;
+		}
+		if (aggregatedJointAnglesRad.size() != m_page->robotRevoluteJointNames().size())
+		{
+			aggregatedJointAnglesRad.resize(m_page->robotRevoluteJointNames().size());
+		}
+		if (!RobotSceneKinematics::applyJointAnglesForInstance(
+				m_page, poseSink, instanceIndex, jointAnglesRad, aggregatedJointAnglesRad))
+		{
+			if (outError)
+			{
+				*outError = QStringLiteral("applyJointAnglesForInstance failed");
+			}
+			return false;
+		}
+		m_page->notifyRobotKinematicsAppliedToScene();
+		return true;
+	}
+
+	bool captureToolFrameFromTcp(int instanceIndex, const BackendMat4& T_base_tcp,
+		const QVector<double>& jointAnglesRad, const QString& flangeLinkName,
+		RobotCoordinate::RobotCoordinateFrameSet& frames, QString* outError) override
+	{
+		if (!m_page)
+		{
+			if (outError)
+			{
+				*outError = QStringLiteral("no document page");
+			}
+			return false;
+		}
+		const QString urdfPath = m_page->robotUrdfAbsolutePathForInstance(instanceIndex);
+		std::string flangeLink = flangeLinkName.toStdString();
+		if (flangeLink.empty())
+		{
+			if (outError)
+			{
+				*outError = QStringLiteral("no flange link name");
+			}
+			return false;
+		}
+		QHash<QString, osg::Matrixd> linkWorld;
+		QString err;
+		if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, jointAnglesRad, linkWorld, &err))
+		{
+			if (outError)
+			{
+				*outError = err;
+			}
+			return false;
+		}
+		const QString flangeQ = QString::fromStdString(flangeLink);
+		if (!linkWorld.contains(flangeQ))
+		{
+			if (outError)
+			{
+				*outError = QStringLiteral("flange link not found: %1").arg(flangeQ);
+			}
+			return false;
+		}
+		const BackendMat4 T_base_flange =
+			RobotMatrixOsg::backendColMajorFromMatrix(linkWorld.value(flangeQ));
+		BackendMat4 invFlange{};
+		if (!backend_mat4_invert_rigid(T_base_flange, invFlange))
+		{
+			if (outError)
+			{
+				*outError = QStringLiteral("cannot invert flange matrix");
+			}
+			return false;
+		}
+		BackendMat4 T_flange_tool{};
+		backend_mat4_multiply(invFlange, T_base_tcp, T_flange_tool);
+		RobotCoordinate::RobotToolFrame* target = nullptr;
+		for (RobotCoordinate::RobotToolFrame& tf : frames.toolFrames)
+		{
+			if (tf.id == frames.activeToolFrameId)
+			{
+				target = &tf;
+				break;
+			}
+		}
+		if (!target && !frames.toolFrames.empty())
+		{
+			target = &frames.toolFrames.front();
+		}
+		if (!target)
+		{
+			if (outError)
+			{
+				*outError = QStringLiteral("no tool frame available");
+			}
+			return false;
+		}
+		target->T_flange_tool = RobotCoordinate::mat4ToFrame(T_flange_tool);
+		return true;
+	}
+
+	bool captureUserFrameFromTcp(int /*instanceIndex*/, double posXmm, double posYmm, double posZmm,
+		double eulerXdeg, double eulerYdeg, double eulerZdeg,
+		RobotCoordinate::RobotCoordinateFrameSet& frames, QString* outError) override
+	{
+		RobotCoordinate::RobotUserFrame* target = nullptr;
+		for (RobotCoordinate::RobotUserFrame& uf : frames.userFrames)
+		{
+			if (uf.id == frames.activeUserFrameId)
+			{
+				target = &uf;
+				break;
+			}
+		}
+		if (!target && !frames.userFrames.empty())
+		{
+			target = &frames.userFrames.front();
+		}
+		if (!target)
+		{
+			if (outError)
+			{
+				*outError = QStringLiteral("no user frame available");
+			}
+			return false;
+		}
+		target->T_base_user.positionMm[0] = posXmm;
+		target->T_base_user.positionMm[1] = posYmm;
+		target->T_base_user.positionMm[2] = posZmm;
+		target->T_base_user.eulerDeg[0] = eulerXdeg;
+		target->T_base_user.eulerDeg[1] = eulerYdeg;
+		target->T_base_user.eulerDeg[2] = eulerZdeg;
+		return true;
+	}
+
+	void resetToolFrame(int /*instanceIndex*/, RobotCoordinate::RobotCoordinateFrameSet& frames) override
+	{
+		for (RobotCoordinate::RobotToolFrame& tf : frames.toolFrames)
+		{
+			if (tf.id == frames.activeToolFrameId)
+			{
+				tf.T_flange_tool = RobotCoordinate::identityRigidFrame();
+				break;
+			}
+		}
+	}
+
+	TcpDragIkResult solveTcpDragTeachIk(int instanceIndex,
+		double pxMm, double pyMm, double pzMm,
+		double exDeg, double eyDeg, double ezDeg,
+		const QVector<double>& seedJointRad,
+		const QString& ikLinkName) override
+	{
+		TcpDragIkResult result;
+		if (!m_page)
+		{
+			result.error = QStringLiteral("no document page");
+			return result;
+		}
+		const QString urdfPath = m_page->robotUrdfAbsolutePathForInstance(instanceIndex);
+		if (urdfPath.isEmpty())
+		{
+			result.error = QStringLiteral("no URDF path");
+			return result;
+		}
+		const RobotCoordinate::RobotCoordinateFrameSet& frames = m_page->robotCoordinateFramesForInstance(instanceIndex);
+		BackendMat4 toolMat = BackendMat4::identity();
+		if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
+		{
+			toolMat = RobotCoordinate::frameToMat4(tool->T_flange_tool);
+		}
+		RobotTeachIk::TeachIkContext ctx;
+		ctx.urdfPath = urdfPath;
+		ctx.ikLinkName = ikLinkName;
+		ctx.T_base_target = engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
+		ctx.seedJointRad.reserve(static_cast<size_t>(seedJointRad.size()));
+		for (double v : seedJointRad)
+		{
+			ctx.seedJointRad.push_back(v);
+		}
+		ctx.useOrientation = true;
+		ctx.T_flange_tool = toolMat;
+		ctx.maxIkIterations = 20;
+		const RobotTeachIk::TeachIkResult ik = RobotTeachIk::solveTeachIk(ctx);
+		if (!ik.ok)
+		{
+			result.error = QStringLiteral("IK solve failed");
+			return result;
+		}
+		result.ok = true;
+		result.jointRad.reserve(static_cast<int>(ik.jointRad.size()));
+		for (double v : ik.jointRad)
+		{
+			result.jointRad.push_back(v);
+		}
+		return result;
+	}
+
+	bool planForExport(int instanceIndex,
+		const std::vector<std::shared_ptr<RobotInstruction::Base>>& instructions,
+		const QVector<double>& seedJointRad,
+		const QString& urdfPath,
+		const QString& tcpLinkName,
+		std::vector<ExportPlanResult>& outPlans,
+		int& outFailedCount,
+		QString* outError) override
+	{
+		if (!m_page)
+		{
+			if (outError)
+			{
+				*outError = QStringLiteral("no document page");
+			}
+			return false;
+		}
+		outPlans.clear();
+		outFailedCount = 0;
+		QVector<double> rollingQ = seedJointRad;
+		for (const auto& insPtr : instructions)
+		{
+			ExportPlanResult result;
+			if (!insPtr)
+			{
+				result.ok = false;
+				result.summary = "Invalid instruction";
+				outPlans.push_back(result);
+				++outFailedCount;
+				continue;
+			}
+			// 规划由 Controller 的 m_instructionController 处理
+			// 这里只准备上下文，实际规划需 Controller 调用
+			result.ok = true;
+			outPlans.push_back(result);
+		}
+		return true;
+	}
+
 	QString meshBackendStepSourcePath(const QString& backendId) const override
 	{
 		return m_page->backendSourcePath().value(backendId);

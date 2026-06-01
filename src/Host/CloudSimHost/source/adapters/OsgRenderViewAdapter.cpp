@@ -3,6 +3,13 @@
 #include "OsgWidget.h"
 
 #include <osg/Matrixd>
+#include <osg/Node>
+#include <osg/Group>
+#include <osg/Geode>
+#include <osg/Camera>
+#include <osg/MatrixTransform>
+#include <osg/PositionAttitudeTransform>
+#include <osg/AutoTransform>
 
 namespace cloudsim::host {
 
@@ -80,6 +87,82 @@ void OsgRenderViewAdapter::focusCameraOnBackend(const core::ObjectId& id)
 void OsgRenderViewAdapter::setBackendLogicalParent(const core::ObjectId& childId, const core::ObjectId& parentId)
 {
 	m_widget.setBackendLogicalParent(childId.toStdString(), parentId.toStdString());
+}
+
+namespace {
+
+QString formatMatrix(const osg::Matrixd& m)
+{
+	QString s;
+	for (int r = 0; r < 4; ++r)
+	{
+		for (int c = 0; c < 4; ++c)
+		{
+			if (c > 0) s += QLatin1Char(' ');
+			s += QString::number(m(r, c), 'g', 6);
+		}
+		if (r < 3) s += QLatin1Char('\n');
+	}
+	return s;
+}
+
+QString localMatrixSummary(const osg::Node* node)
+{
+	if (!node) return QStringLiteral("—");
+	if (const auto* cam = dynamic_cast<const osg::Camera*>(node))
+		return QStringLiteral("View:\n%1\nProj:\n%2").arg(formatMatrix(cam->getViewMatrix())).arg(formatMatrix(cam->getProjectionMatrix()));
+	if (const auto* mt = dynamic_cast<const osg::MatrixTransform*>(node))
+		return formatMatrix(mt->getMatrix());
+	if (const auto* pat = dynamic_cast<const osg::PositionAttitudeTransform*>(node))
+		return formatMatrix(osg::Matrixd::translate(pat->getPosition()) * osg::Matrixd::rotate(pat->getAttitude()) * osg::Matrixd::scale(pat->getScale()));
+	if (const auto* at = dynamic_cast<const osg::AutoTransform*>(node))
+		return formatMatrix(osg::Matrixd::translate(at->getPosition()) * osg::Matrixd::rotate(at->getRotation()) * osg::Matrixd::scale(at->getScale()));
+	return QStringLiteral("—");
+}
+
+void buildSnapshotRecursive(core::IRenderView::SceneNodeInfo& info, const osg::Node* node, int depthLeft)
+{
+	if (!node || depthLeft <= 0) return;
+	info.className = QString::fromLatin1(node->className());
+	info.name = QString::fromStdString(node->getName());
+	info.localMatrixSummary = localMatrixSummary(node);
+	if (const auto* g = node->asGroup())
+	{
+		for (unsigned i = 0; i < g->getNumChildren(); ++i)
+		{
+			core::IRenderView::SceneNodeInfo child;
+			buildSnapshotRecursive(child, g->getChild(i), depthLeft - 1);
+			info.children.push_back(std::move(child));
+		}
+	}
+}
+
+} // namespace
+
+core::IRenderView::SceneNodeInfo OsgRenderViewAdapter::sceneGraphSnapshot(int maxDepth) const
+{
+	SceneNodeInfo root;
+	const osg::Node* sceneRoot = m_widget.sceneGraphRoot();
+	buildSnapshotRecursive(root, sceneRoot, maxDepth);
+	return root;
+}
+
+bool OsgRenderViewAdapter::selectedPosition(float& outX, float& outY, float& outZ) const
+{
+	const osg::Vec3f p = m_widget.selectedPosition();
+	outX = p.x();
+	outY = p.y();
+	outZ = p.z();
+	return true;
+}
+
+bool OsgRenderViewAdapter::selectedRotationEulerDeg(float& outRx, float& outRy, float& outRz) const
+{
+	const osg::Vec3f r = m_widget.selectedRotationEulerDeg();
+	outRx = r.x();
+	outRy = r.y();
+	outRz = r.z();
+	return true;
 }
 
 } // namespace cloudsim::host

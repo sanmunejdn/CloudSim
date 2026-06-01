@@ -57,15 +57,20 @@ See also [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §13–�
 
 Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSignals()` after dock creation.
 
-| 职责 | 入口 |
-|------|------|
-| 轴控制 | `onRobotAxisJointAnglesChanged` → `applyJointAnglesForInstance` + `requestRedraw` |
-| 指令选中预览 | `onSimulationInstructionSelectionChanged` → `applyRobotPoseForInstructionPreview` |
-| 添加运动点 | `onSimulationAddInstructionRequested` |
-| 运行/停止 | `onSimulationRunRequested` / `onSimulationStopRequested` → `RobotProgramExecutor` |
-| TCP 拖动示教 | `onSimulationTcpDragTeachModeChanged` / `onTcpDragTeachPoseChanged` |
-| 程序起点 | `captureMotionPreviewProgramStartJoints` → `m_motionPreviewProgramStartJointRad` |
-| 坐标系叠加 | `refreshRobotCoordinateFrameOverlays` |
+**重构进度**（详见 `ARCHITECTURE_SUMMARY.md` §迁移路线图）：
+- 阶段 1.1-1.5 已完成：运动学（6 处 `applyJointAnglesForInstance`）、坐标系管理、TCP IK 已通过 `IRobotDocumentHost` 委托
+- 阶段 1.6 待定：导出功能需 Controller 内部状态
+
+| 职责 | 入口 | 委托方式 |
+|------|------|----------|
+| 轴控制 | `onRobotAxisJointAnglesChanged` | `doc->applyJointAnglesRad()` |
+| 指令选中预览 | `onSimulationInstructionSelectionChanged` → `applyRobotPoseForInstructionPreview` | 仍经 Controller |
+| 添加运动点 | `onSimulationAddInstructionRequested` | 仍经 Controller |
+| 运行/停止 | `onSimulationRunRequested` / `onSimulationStopRequested` | 仍经 Controller |
+| TCP 拖动示教 | `onSimulationTcpDragTeachModeChanged` / `onTcpDragTeachPoseChanged` | IK 经 `doc->solveTcpDragTeachIk()` |
+| 程序起点 | `captureMotionPreviewProgramStartJoints` | 仍经 Controller |
+| 坐标系捕获 | `onCaptureToolFrameFromTcp` / `onCaptureUserFrameFromTcp` | `doc->captureToolFrameFromTcp()` / `doc->captureUserFrameFromTcp()` |
+| 坐标系重置 | `onResetToolFrame` | `doc->resetToolFrame()` |
 
 ### `wireSimulationSignals`
 

@@ -32,6 +32,11 @@ public:
 	void focusCameraOnBackend(const core::ObjectId& id) override;
 	void setBackendLogicalParent(const core::ObjectId& childId, const core::ObjectId& parentId) override;
 
+	SceneNodeInfo sceneGraphSnapshot(int maxDepth = 8) const override;
+
+	bool selectedPosition(float& outX, float& outY, float& outZ) const override;
+	bool selectedRotationEulerDeg(float& outRx, float& outRy, float& outRz) const override;
+
 private:
 	OsgWidget& m_widget;
 	core::PickHandler m_pickHandler;

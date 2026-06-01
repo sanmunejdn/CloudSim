@@ -37,6 +37,10 @@ public:
 	core::ObjectId importFromFile(const QString& path, const core::ImportOptionsDto& options,
 		QString* outError = nullptr) override;
 
+	QVector<core::ObjectId> topoOrder() const override;
+	QVector<core::ObjectId> listAll() const override;
+	QVector<core::ObjectId> parentsOf(const core::ObjectId& id) const override;
+
 private:
 	DocumentHost& m_host;
 };

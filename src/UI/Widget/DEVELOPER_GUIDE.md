@@ -413,7 +413,7 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 | 无文档页 | 非 pose/rotation 属性直接 `return`（已移除 `data->applyPropertyChange` 回退） |
 | pose/rotation 分量 | 仍 `setPoseInFrame` + `syncVisualAfterPropertyChange`（未走单行 `applyPropertyChange`） |
 | `follow.*` | `afterBackendFollowPropertyEdited` + Follow 求解（Widget） |
-| 仿真指令属性 | 仍直连 `RobotInstruction::applyPropertyChange` |
+| 仿真指令属性 | 仍直连 `RobotInstruction::applyPropertyChange`（阶段 5 待定：需抽象层隔离 `RobotInstruction` 依赖） |
 | 选择刷新 | `SelectionChanged` / `PoseCommitted` 订阅 → `updatePropertyPanel`（`MainWindowUiSetup`） |
 | 当前 OSG 视图 | `widgetOsgFromPage(page)` 或 `MainWindow::currentOsgWidget()` |
 

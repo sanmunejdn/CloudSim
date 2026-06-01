@@ -65,6 +65,10 @@ public:
 			*outError = QStringLiteral("NullDataService");
 		return {};
 	}
+
+	QVector<ObjectId> topoOrder() const override { return {}; }
+	QVector<ObjectId> listAll() const override { return {}; }
+	QVector<ObjectId> parentsOf(const ObjectId&) const override { return {}; }
 };
 
 class NullRobotService final : public IRobotService
@@ -75,7 +79,8 @@ public:
 		return {false, QStringLiteral("NullRobotService"), {}};
 	}
 
-	bool applyJointAnglesRad(const ObjectId&, const QVector<double>&, QString* outError) override
+	bool applyJointAnglesRad(const ObjectId&, const QVector<double>&, QVector<double>* /*outAggregated*/,
+		QString* outError) override
 	{
 		if (outError)
 			*outError = QStringLiteral("NullRobotService");
@@ -119,6 +124,10 @@ public:
 	void requestRedraw() override {}
 	void focusCameraOnBackend(const ObjectId&) override {}
 	void setBackendLogicalParent(const ObjectId&, const ObjectId&) override {}
+
+	SceneNodeInfo sceneGraphSnapshot(int /*maxDepth*/) const override { return {}; }
+	bool selectedPosition(float&, float&, float&) const override { return false; }
+	bool selectedRotationEulerDeg(float&, float&, float&) const override { return false; }
 
 private:
 	std::unique_ptr<QWidget> m_widget;
