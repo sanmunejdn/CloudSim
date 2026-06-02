@@ -1,11 +1,18 @@
 #include "RawTrajectory.h"
 
+#include "GeometryRef.h"
+#include "RobotInstructionTransform.h"
 #include "RobotProgramCatalog.h"
+#include "RobotInstructionProgram.h"
+
+#include <FeatureSpec.h>
+#include <RigidTransform.h>
 
 #include <json.hpp>
 
 #include <cmath>
 #include <random>
+#include <unordered_set>
 
 namespace RobotInstruction
 {
@@ -127,7 +134,7 @@ bool importRawPathToTrajectory(
 		return false;
 	}
 	out = RawTrajectory{};
-	out.sourceFeature = path.sourceSpec;
+	out.sourceFeatureJson = geometry_backend_ops::featureSpecToJson(path.sourceSpec);
 	out.points.reserve(path.points.size());
 	for (std::size_t i = 0; i < path.points.size(); ++i)
 	{
@@ -344,7 +351,8 @@ bool emitRawTrajectoryToProgram(
 	const RawTrajectory& trajectory,
 	RobotProgram& program,
 	std::string* errMsg,
-	std::string* outGroupId)
+	std::string* outGroupId,
+	const std::string* pathPlanInstructionId)
 {
 	if (trajectory.points.empty())
 	{
@@ -354,10 +362,43 @@ bool emitRawTrajectoryToProgram(
 		}
 		return false;
 	}
-	program.steps.clear();
-	program.groups.clear();
+	if (pathPlanInstructionId && !pathPlanInstructionId->empty())
+	{
+		std::unordered_set<std::string> staleMotionIds;
+		for (auto it = program.groups.begin(); it != program.groups.end();)
+		{
+			if (it->role == InstructionGroupRole::PathPlanOutput
+				&& it->pathPlanInstructionId == *pathPlanInstructionId)
+			{
+				for (const std::string& id : it->memberInstructionIds)
+				{
+					staleMotionIds.insert(id);
+				}
+				it = program.groups.erase(it);
+			}
+			else
+			{
+				++it;
+			}
+		}
+		program.steps.erase(
+			std::remove_if(
+				program.steps.begin(),
+				program.steps.end(),
+				[&staleMotionIds](const std::shared_ptr<Base>& ins) {
+					return ins && staleMotionIds.count(ins->id()) != 0;
+				}),
+			program.steps.end());
+	}
+	else
+	{
+		program.steps.clear();
+		program.groups.clear();
+	}
 	std::vector<std::string> memberIds;
+	std::vector<std::shared_ptr<Base>> newMotion;
 	memberIds.reserve(trajectory.points.size());
+	newMotion.reserve(trajectory.points.size());
 	int idx = 0;
 	for (const TrajectoryPoint& tp : trajectory.points)
 	{
@@ -367,15 +408,33 @@ bool emitRawTrajectoryToProgram(
 		}
 		auto ins = std::make_shared<LineInstruction>();
 		ins->setName("P" + std::to_string(++idx));
-		ins->setPose(tp.poseMm);
-		ins->setEulerDeg(tp.eulerDeg);
+		const engine::RigidTransform target = engine::RigidTransform::fromTranslationEulerDeg(
+			tp.poseMm.x,
+			tp.poseMm.y,
+			tp.poseMm.z,
+			tp.eulerDeg.x,
+			tp.eulerDeg.y,
+			tp.eulerDeg.z);
+		writeTargetTransformToInstruction(*ins, target);
 		ins->setBlendRadius(tp.blendRadiusMm);
 		if (tp.speedMmPerSec > 0.0)
 		{
 			ins->setSpeed(tp.speedMmPerSec);
 		}
 		memberIds.push_back(ins->id());
-		program.steps.push_back(ins);
+		newMotion.push_back(std::move(ins));
+	}
+	if (memberIds.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "no reachable points";
+		}
+		return false;
+	}
+	for (std::shared_ptr<Base>& motion : newMotion)
+	{
+		program.steps.push_back(std::move(motion));
 	}
 	if (program.steps.empty())
 	{
@@ -387,9 +446,14 @@ bool emitRawTrajectoryToProgram(
 	}
 	InstructionGroup group;
 	group.id = makeGroupId();
-	const std::string& featureId = trajectory.sourceFeature.featureId;
+	const std::string featureId = rawTrajectoryFeatureId(trajectory);
 	group.name = featureId.empty() ? "RawTrajectory" : featureId;
 	group.memberInstructionIds = std::move(memberIds);
+	if (pathPlanInstructionId && !pathPlanInstructionId->empty())
+	{
+		group.role = InstructionGroupRole::PathPlanOutput;
+		group.pathPlanInstructionId = *pathPlanInstructionId;
+	}
 	program.groups.push_back(std::move(group));
 	if (outGroupId)
 	{
@@ -408,6 +472,36 @@ std::string rawTrajectoryToPreviewPolylineXyz(const RawTrajectory& trajectory)
 		arr.push_back(tp.poseMm.z);
 	}
 	return arr.dump();
+}
+
+std::string rawTrajectoryWorkpieceBackendId(const RawTrajectory& trajectory)
+{
+	if (trajectory.sourceFeatureJson.empty())
+	{
+		return {};
+	}
+	geoalgo::FeatureSpec spec{};
+	std::string err;
+	if (!geometry_backend_ops::featureSpecFromJson(trajectory.sourceFeatureJson, spec, &err))
+	{
+		return {};
+	}
+	return spec.workpiece.backendIdUtf8;
+}
+
+std::string rawTrajectoryFeatureId(const RawTrajectory& trajectory)
+{
+	if (trajectory.sourceFeatureJson.empty())
+	{
+		return {};
+	}
+	geoalgo::FeatureSpec spec{};
+	std::string err;
+	if (!geometry_backend_ops::featureSpecFromJson(trajectory.sourceFeatureJson, spec, &err))
+	{
+		return {};
+	}
+	return spec.featureId;
 }
 
 std::string rawTrajectoryReachabilityColorsJson(const RawTrajectory& trajectory)

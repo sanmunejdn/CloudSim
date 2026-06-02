@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IRobotMainWindowHost.h"
+#include "PlanResultCache.h"
 #include "RobotInstructionController.h"
 #include "RobotProgramExecutor.h"
 #include "SimulationLogIoSink.h"
@@ -13,6 +14,8 @@
 #include <QVector>
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include <RigidTransform.h>
 #include <osg/Matrixd>
@@ -24,6 +27,14 @@ class QtProperty;
 class ProgramEditService;
 class TrajectoryEditSession;
 namespace RobotInstruction { class Base; struct FeasibleMotionAxisConfigurationOptions; }
+
+/// 指令选中时链式种子，供 feasible 与 preview 共用，避免重复 IK
+struct ROBOTWIDGET_EXPORT PrecomputedChainSeed
+{
+	QVector<double> jointRad;
+	bool reliable = true;
+	int motionIndex = -1;
+};
 
 /// 机器人仿真/示教/指令编排（自 MainWindow 迁出）
 class ROBOTWIDGET_EXPORT RobotSimulationController : public QObject
@@ -51,7 +62,8 @@ public:
 
 	RobotInstruction::FeasibleMotionAxisConfigurationOptions feasibleMotionAxisConfigurationOptionsForInstruction(
 		const std::shared_ptr<RobotInstruction::Base>& instruction,
-		QVector<double>* outSeedJointRad = nullptr);
+		QVector<double>* outSeedJointRad = nullptr,
+		const PrecomputedChainSeed* precomputedChainSeed = nullptr);
 	const RobotInstruction::FeasibleMotionAxisConfigurationOptions& cachedFeasibleAxisConfigurationOptions() const
 	{
 		return m_cachedFeasibleAxisOptions;
@@ -100,8 +112,12 @@ public slots:
 		const std::shared_ptr<RobotInstruction::Base>& highlightInstruction = nullptr,
 		const QVector<double>* jointAnglesRadLocal = nullptr);
 	void refreshRobotCoordinateFrameOverlaysForPlayback();
-	void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction);
+	void applyRobotPoseForInstructionPreview(
+		const std::shared_ptr<RobotInstruction::Base>& instruction,
+		const PrecomputedChainSeed* precomputedChainSeed = nullptr);
 	void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
+	/// 路点 pose 已是世界系（CAD/Unified Apply）时，直接用位姿写 render.tcpWorldMat4，避免按当前机器人基座重算导致轴错位
+	void syncInstructionRenderMatricesFromWorldPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
 
 private:
 	void applyProgramStartPoseAfterProjectLoadImpl();
@@ -109,6 +125,18 @@ private:
 	void captureMotionPreviewProgramStartJoints();
 	QVector<double> motionPreviewProgramStartJointsLocal(int nj, int jointOffset) const;
 	QVector<double> localJointAnglesForInstance(int instIdx) const;
+	bool buildChainSeedJointRadForInstruction(
+		const std::shared_ptr<RobotInstruction::Base>& instruction,
+		QVector<double>& outChainSeed,
+		int* outTargetMotionIndex = nullptr,
+		bool* outChainReliable = nullptr);
+	void applyToolFrameChangeToProgram(
+		const RobotCoordinate::RobotCoordinateFrameSet& oldFrames,
+		const RobotCoordinate::RobotCoordinateFrameSet& newFrames,
+		bool activeToolChanged,
+		bool toolGeometryChanged);
+	void refreshInstructionPoseAxesWithReachability(const QHash<QString, bool>& reachability);
+	void scheduleAsyncMotionReachabilityRefresh();
 	void logPlaybackFrameComparison(const QVector<double>& finalJointAnglesRad);
 	QHash<QString, bool> computeMotionReachabilityForCurrentProgram();
 	bool applyTcpDragTeachIkFromPose(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
@@ -150,4 +178,35 @@ private:
 	QString m_cachedFeasibleAxisInstructionId;
 	QString m_cachedFeasibleAxisFingerprint;
 	QVector<double> m_cachedFeasibleAxisSeedJointRad;
+
+	PlanResultCache m_planResultCache;
+	QHash<QString, bool> m_motionReachabilityCache;
+	quint64 m_reachabilityJobToken = 0;
+	int m_reachabilityPendingJobs = 0;
+
+	QString computePlanFingerprint(
+		const RobotInstruction::Base& instruction,
+		const QVector<double>& seedJointRad,
+		const QString& urdfPath,
+		const QString& tcpLinkName) const;
+
+	struct LookaheadConfig
+	{
+		int maxAdvanceBlocks = 3;
+		int maxConcurrentJobs = 1;
+		bool enabled = true;
+	};
+	LookaheadConfig m_lookaheadConfig;
+	int m_lookaheadPendingJobs = 0;
+	std::vector<const RobotInstruction::Base*> m_currentRunMotions;
+	std::string m_lastHighlightedInstructionId;
+
+	void tickLookaheadPlanning();
+	bool trySeedJointRadForMotionIndex(
+		size_t targetMotionIndex,
+		const QVector<double>& programStartQ,
+		const QString& urdfPath,
+		const QString& tcpLinkName,
+		int jointCount,
+		QVector<double>& outSeedQ) const;
 };

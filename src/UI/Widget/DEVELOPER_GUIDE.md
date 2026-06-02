@@ -400,8 +400,9 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 |----|------|
 | `JobSystem::enqueue(title, work, onFinished)` | `QThreadPool` 执行 `work`；`onFinished` 在 UI 线程 |
 | `ProgressManager` | `jobStarted` / `jobProgress` / `jobFinished`（`QMetaObject::invokeMethod`） |
+| `IRobotMainWindowHost::enqueueBackgroundJob` | RobotWidget 专用包装：`work` 无 progress sink，委托 `MainWindow::jobSystem()->enqueue`；用于 Run 中 `tickLookaheadPlanning` 等 |
 
-**边界**：后台仅填充 `PointCloudBackendData`（非 LAS）；注册 OSG（`registerAdoptedPointCloud`）、刷树仍在 **UI 线程**。
+**边界**：后台仅填充 `PointCloudBackendData`（非 LAS）；注册 OSG（`registerAdoptedPointCloud`）、刷树仍在 **UI 线程**。机器人规划 Job 仅写局部 `PlanResult`，**缓存写入必须在 `onFinished`（UI 线程）**。
 
 ---
 
@@ -437,7 +438,7 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 | `setRobotInstances(labels, backendIds)` | 多机 |
 | `instructions(robotBackendId)` | 指令向量 |
 | `appendInstructionFromCurrentPose` | 捕获当前 TCP |
-| `instructionSelected` → `RobotSimulationController` | 预览：有 `currentJointRadCsv` 用示教关节，否则链式 plan |
+| `instructionSelected` → `RobotSimulationController` | 预览：链式种子 + 选中点单次 plan（或示教 CSV）；Run 中由 tick 高亮跟随 |
 | `runRequested` / `stopRequested` | 执行器 |
 | `groupsChanged` | 树内分组变更 → 轨迹编辑页刷新分组下拉 |
 | `tcpDragTeachModeChanged(bool)` | **功能**分组内「末端拖动」开/关（不落盘指令） |
@@ -548,7 +549,7 @@ LMB/RMB (RobotTcpDragTeachOperation)
 | Gizmo | `ObjectTransformOperation` | ARCH §6.2.0 |
 | 跟随 | `runBackendFollowSolveAndSync` | ARCH §6.2.1 |
 | 选择闭环 | `MainWindowSelectionService` | ARCH §6.3 |
-| 仿真预览/运行 | `applyRobotPoseForInstructionPreview` / `onSimulationStartTriggered`（示教 CSV 优先） | ARCH §6.4、`RobotWidget` 指南 |
+| 仿真预览/运行 | `applyRobotPoseForInstructionPreview`（链式种子 + 1× IK）/ `onSimulationStartTriggered`（全程序链式 + 缓存；示教 CSV 优先） | ARCH §6.4、`RobotWidget` 指南 |
 | 末端拖动示教 | `onSimulationTcpDragTeachModeChanged` → 屏幕空间平移 → `RobotTeachIk` | §13.1 |
 | 工具/示教 FK | `targetRigidTransformFromUrdfFlangeFk` | §13、`GeometryEngine` |
 

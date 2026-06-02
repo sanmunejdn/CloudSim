@@ -56,6 +56,7 @@
 #include "RobotProjectKinematicsRestore.h"
 
 namespace {
+
 QJsonObject stdJsonToQJsonObject(const nlohmann::json& in)
 {
 	const std::string payload = in.dump();
@@ -380,15 +381,20 @@ void MainWindow::onOpenProjectFile()
 		cloudsim::host::finalizeProjectLoadFollowAndViewport(*page, *osg, root, useEdgesRelation, pendingEdges, &solveCtx);
 	}
 
-	if (m_robotSimulation && projectHadPrograms)
-	{
-		m_robotSimulation->applyProgramStartPoseAfterProjectLoad();
-	}
-	else if (m_robotSimulation && projectRobotKinematicsRestored && !projectLoadedJointAngles.isEmpty() && page)
+	// Follow 求解会改写连杆 mesh 世界矩阵；须在求解后重新按 URDF 关节角同步（与「重置所有关节」同路径）
+	if (projectRobotKinematicsRestored && !projectLoadedJointAngles.isEmpty() && page)
 	{
 		(void)RobotSceneKinematics::applyJointAnglesFromDocument(
 			page, page->sceneFacade().poseSink(), projectLoadedJointAngles);
-		m_robotSimulation->restoreAggregatedJointStateAfterProjectLoad(projectLoadedJointAngles);
+		if (m_robotSimulation)
+		{
+			m_robotSimulation->restoreAggregatedJointStateAfterProjectLoad(projectLoadedJointAngles);
+		}
+	}
+
+	if (m_robotSimulation && projectHadPrograms)
+	{
+		m_robotSimulation->applyProgramStartPoseAfterProjectLoad();
 	}
 
 	endBackendTreeEventRefreshSuppress();

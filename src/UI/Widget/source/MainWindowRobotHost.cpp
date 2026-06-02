@@ -4,6 +4,7 @@
 #include "DocumentPage.h"
 #include "WidgetDocumentAccess.h"
 #include "MainWindow.h"
+#include "JobSystem.h"
 #include "RunInfoPage.h"
 #include "MainWindowImportCaptureRenderController.h"
 #include "MainWindowSelectionService.h"
@@ -740,6 +741,30 @@ bool MainWindowRobotHost::planRobotMotionInstruction(
 		*outErr = hostErr.toStdString();
 	}
 	return ok;
+}
+
+void MainWindowRobotHost::enqueueBackgroundJob(
+	const QString& title,
+	std::function<void()> work,
+	std::function<void(bool threw, const QString& msg)> onFinished)
+{
+	if (!m_mw || !m_mw->jobSystem())
+	{
+		if (onFinished)
+		{
+			onFinished(true, QStringLiteral("JobSystem unavailable"));
+		}
+		return;
+	}
+	m_mw->jobSystem()->enqueue(
+		title,
+		[work = std::move(work)](const JobProgressSink&) {
+			if (work)
+			{
+				work();
+			}
+		},
+		std::move(onFinished));
 }
 
 void MainWindowRobotHost::setMeshPickCommittedHandler(std::function<void(const PickResult&, PickKind)> handler)

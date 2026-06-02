@@ -1,6 +1,7 @@
 #include "RobotProjectKinematicsRestore.h"
 
 #include "IRobotUrdfImportContext.h"
+#include "IRobotBackendPoseSink.h"
 
 #include "BackendDataManager.h"
 #include "RobotCoordinateFrames.h"
@@ -110,15 +111,50 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 	}
 	QHash<QString, osg::Matrixd> fkT0;
 	QHash<QString, osg::Matrixd> outer;
+	auto maxMatAbsDiff = [](const osg::Matrixd& a, const osg::Matrixd& b) -> double {
+		double m = 0.0;
+		for (int r = 0; r < 4; ++r)
+		{
+			for (int c = 0; c < 4; ++c)
+			{
+				const double d = std::abs(static_cast<double>(a(r, c)) - static_cast<double>(b(r, c)));
+				if (d > m)
+				{
+					m = d;
+				}
+			}
+		}
+		return m;
+	};
+	IRobotBackendPoseSink* sink = ctx.urdfImportScenePoseSink();
 	for (auto it = linkMap.constBegin(); it != linkMap.constEnd(); ++it)
 	{
 		const QString& lname = it.key();
-		if (Tq.contains(lname))
+		if (!Tq.contains(lname))
 		{
-			const osg::Matrixd& meshWorld0 = Tq[lname];
-			fkT0.insert(lname, meshWorld0);
-			outer.insert(it.value(), meshWorld0);
+			continue;
 		}
+		const osg::Matrixd& meshWorld0 = Tq[lname];
+		fkT0.insert(lname, meshWorld0);
+		const QString& bid = it.value();
+		if (sink)
+		{
+			osg::Matrixd worldAtLoad;
+			if (sink->getBackendRootWorldMatrix(bid.toStdString(), worldAtLoad))
+			{
+				// 与 UrdfRobotImport 一致：工程 mesh 已加载时用 OSG 真值作绑定，避免仅用 FK 与持久化位姿脱节
+				if (maxMatAbsDiff(worldAtLoad, meshWorld0) > 0.5)
+				{
+					outer.insert(bid, meshWorld0);
+				}
+				else
+				{
+					outer.insert(bid, worldAtLoad);
+				}
+				continue;
+			}
+		}
+		outer.insert(bid, meshWorld0);
 	}
 	// 无 OSG 关节节点：perLink 模式靠 backend 位姿驱动
 	ctx.appendHierarchicalRobotSimulationContext(

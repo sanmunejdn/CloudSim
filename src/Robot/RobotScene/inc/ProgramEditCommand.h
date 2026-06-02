@@ -192,4 +192,103 @@ private:
 	std::string m_oldName;
 };
 
+class ROBOT_SCENE_API InsertPathPlanCommand final : public ProgramEditCommand
+{
+public:
+	InsertPathPlanCommand(std::shared_ptr<PathPlanInstruction> pathPlan, size_t rootIndex);
+
+	bool execute(InstructionProgramDocument& doc, std::string* errMsg) override;
+	bool undo(InstructionProgramDocument& doc, std::string* errMsg) override;
+	const char* commandName() const override { return "InsertPathPlan"; }
+
+private:
+	std::shared_ptr<PathPlanInstruction> m_pathPlan;
+	size_t m_rootIndex = 0;
+	bool m_executed = false;
+};
+
+class ROBOT_SCENE_API UpdatePathPlanPipelineCommand final : public ProgramEditCommand
+{
+public:
+	UpdatePathPlanPipelineCommand(
+		std::string pathPlanId,
+		std::vector<TrajectoryOpDescriptor> pipeline,
+		std::vector<TrajectoryOpDescriptor> appliedHistory);
+
+	bool execute(InstructionProgramDocument& doc, std::string* errMsg) override;
+	bool undo(InstructionProgramDocument& doc, std::string* errMsg) override;
+	const char* commandName() const override { return "UpdatePathPlanPipeline"; }
+
+private:
+	std::string m_pathPlanId;
+	std::vector<TrajectoryOpDescriptor> m_pipeline;
+	std::vector<TrajectoryOpDescriptor> m_appliedHistory;
+	std::vector<TrajectoryOpDescriptor> m_pipelineBefore;
+	std::vector<TrajectoryOpDescriptor> m_appliedBefore;
+};
+
+class ROBOT_SCENE_API UpdatePathPlanRawCommand final : public ProgramEditCommand
+{
+public:
+	UpdatePathPlanRawCommand(
+		RobotProgramCatalog* catalog,
+		std::string pathPlanId,
+		RawTrajectory raw,
+		PathPlanPhase newPhase);
+
+	bool execute(InstructionProgramDocument& doc, std::string* errMsg) override;
+	bool undo(InstructionProgramDocument& doc, std::string* errMsg) override;
+	const char* commandName() const override { return "UpdatePathPlanRaw"; }
+
+private:
+	RobotProgramCatalog* m_catalog = nullptr;
+	std::string m_pathPlanId;
+	RawTrajectory m_raw;
+	PathPlanPhase m_newPhase = PathPlanPhase::RawReady;
+	RawTrajectory m_rawBefore{};
+	PathPlanPhase m_phaseBefore = PathPlanPhase::Draft;
+	bool m_hadRawBefore = false;
+};
+
+class ROBOT_SCENE_API UpdatePathPlanApplyStateCommand final : public ProgramEditCommand
+{
+public:
+	UpdatePathPlanApplyStateCommand(
+		std::string pathPlanId,
+		PathPlanPhase phase,
+		std::string outputGroupId);
+
+	bool execute(InstructionProgramDocument& doc, std::string* errMsg) override;
+	bool undo(InstructionProgramDocument& doc, std::string* errMsg) override;
+	const char* commandName() const override { return "UpdatePathPlanApplyState"; }
+
+private:
+	std::string m_pathPlanId;
+	PathPlanPhase m_phase = PathPlanPhase::Applied;
+	std::string m_outputGroupId;
+	PathPlanPhase m_phaseBefore = PathPlanPhase::Draft;
+	std::string m_outputGroupIdBefore;
+};
+
+class ROBOT_SCENE_API RemovePathPlanCommand final : public ProgramEditCommand
+{
+public:
+	RemovePathPlanCommand(RobotProgramCatalog* catalog, std::string programId, std::string pathPlanId);
+
+	bool execute(InstructionProgramDocument& doc, std::string* errMsg) override;
+	bool undo(InstructionProgramDocument& doc, std::string* errMsg) override;
+	const char* commandName() const override { return "RemovePathPlan"; }
+
+private:
+	RobotProgramCatalog* m_catalog = nullptr;
+	std::string m_programId;
+	std::string m_pathPlanId;
+	std::shared_ptr<PathPlanInstruction> m_snapshot;
+	size_t m_rootIndex = 0;
+	std::vector<InstructionGroup> m_removedOutputGroups;
+	RawTrajectory m_removedRaw{};
+	bool m_hadRaw = false;
+	bool m_executed = false;
+};
+
 } // namespace RobotInstruction

@@ -66,6 +66,76 @@ bool transformRawTrajectoryToWorld(
 	return true;
 }
 
+bool transformTrajectoryPointToFile(
+	IRobotOsgViewHost* osg,
+	const std::string& backendId,
+	const RobotInstruction::TrajectoryPoint& worldPoint,
+	RobotInstruction::TrajectoryPoint& outFile,
+	std::string* errMsg)
+{
+	geoalgo::Point3d modelPos{};
+	const osg::Vec3f worldMm(
+		static_cast<float>(worldPoint.poseMm.x),
+		static_cast<float>(worldPoint.poseMm.y),
+		static_cast<float>(worldPoint.poseMm.z));
+	if (!worldPointToStepModelMm(osg, backendId, worldMm, modelPos, errMsg))
+	{
+		return false;
+	}
+	outFile = worldPoint;
+	outFile.poseMm.x = modelPos.x;
+	outFile.poseMm.y = modelPos.y;
+	outFile.poseMm.z = modelPos.z;
+
+	osg::Matrixd rot;
+	if (!backendWorldRotationMatrix(osg, backendId, rot, errMsg))
+	{
+		return false;
+	}
+	osg::Matrixd rotInv;
+	if (!rotInv.invert(rot))
+	{
+		if (errMsg)
+		{
+			*errMsg = "failed to invert backend rotation";
+		}
+		return false;
+	}
+	const osg::Quat qWorld = OsgScene::eulerDegToQuat(osg::Vec3f(
+		static_cast<float>(worldPoint.eulerDeg.x),
+		static_cast<float>(worldPoint.eulerDeg.y),
+		static_cast<float>(worldPoint.eulerDeg.z)));
+	const osg::Matrixd mWorld = osg::Matrixd::rotate(qWorld);
+	const osg::Matrixd mFile = mWorld * rotInv;
+	const osg::Vec3f eulerFile = OsgScene::quatToEulerDeg(mFile.getRotate());
+	outFile.eulerDeg.x = static_cast<double>(eulerFile.x());
+	outFile.eulerDeg.y = static_cast<double>(eulerFile.y());
+	outFile.eulerDeg.z = static_cast<double>(eulerFile.z());
+	return true;
+}
+
+bool transformRawTrajectoryWorldToFile(
+	IRobotOsgViewHost* osg,
+	const std::string& backendId,
+	const RobotInstruction::RawTrajectory& worldTraj,
+	RobotInstruction::RawTrajectory& outFile,
+	std::string* errMsg)
+{
+	outFile = worldTraj;
+	outFile.points.clear();
+	outFile.points.reserve(worldTraj.points.size());
+	for (const RobotInstruction::TrajectoryPoint& tp : worldTraj.points)
+	{
+		RobotInstruction::TrajectoryPoint fileTp;
+		if (!transformTrajectoryPointToFile(osg, backendId, tp, fileTp, errMsg))
+		{
+			return false;
+		}
+		outFile.points.push_back(fileTp);
+	}
+	return true;
+}
+
 bool buildRawTrajectoryOverlayWorld(
 	IRobotOsgViewHost* osg,
 	const std::string& backendId,
@@ -172,6 +242,85 @@ void applyRawTrajectoryPreviewToOsg(
 	if (!buildRawTrajectoryPreviewWorld(osg, backendId, fileTraj, options, overlay, frames, errMsg))
 	{
 		return;
+	}
+	osg->clearInstructionPoseAxes();
+	osg->setRawTrajectoryOverlay(overlay);
+	if (options.showAxes && !frames.empty())
+	{
+		osg->setRawTrajectoryOverlayFrames(frames);
+	}
+	else
+	{
+		osg->clearRawTrajectoryOverlayFrames();
+	}
+	osg->requestRedraw();
+}
+
+void applyWorldRawTrajectoryPreviewToOsg(
+	IRobotOsgViewHost* osg,
+	const RobotInstruction::RawTrajectory& worldTraj,
+	const RobotOsgUi::RawTrajectoryPreviewOptions& options,
+	std::string* errMsg)
+{
+	if (!osg)
+	{
+		if (errMsg)
+		{
+			*errMsg = "no osg host";
+		}
+		return;
+	}
+	if (worldTraj.points.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "empty trajectory";
+		}
+		return;
+	}
+	std::vector<RobotOsgUi::RawTrajectoryOverlayVertex> overlay;
+	overlay.reserve(worldTraj.points.size());
+	for (const RobotInstruction::TrajectoryPoint& tp : worldTraj.points)
+	{
+		RobotOsgUi::RawTrajectoryOverlayVertex v;
+		v.positionMm.set(
+			static_cast<float>(tp.poseMm.x),
+			static_cast<float>(tp.poseMm.y),
+			static_cast<float>(tp.poseMm.z));
+		v.reachable = tp.reachable;
+		overlay.push_back(v);
+	}
+	std::vector<RobotOsgUi::RawTrajectoryOverlayFrame> frames;
+	if (options.showAxes)
+	{
+		const std::size_t n = worldTraj.points.size();
+		const int autoInterval = std::max(1, static_cast<int>(n / 20U));
+		const int interval = options.axisInterval > 0 ? options.axisInterval : autoInterval;
+		const int maxAxes = options.maxAxes > 0 ? options.maxAxes : 50;
+		for (std::size_t i = 0; i < n; ++i)
+		{
+			const bool isEnd = (i == 0U || i + 1U == n);
+			if (!isEnd && interval > 1 && static_cast<int>(i % static_cast<std::size_t>(interval)) != 0)
+			{
+				continue;
+			}
+			if (static_cast<int>(frames.size()) >= maxAxes)
+			{
+				break;
+			}
+			const RobotInstruction::TrajectoryPoint& tp = worldTraj.points[i];
+			RobotOsgUi::RawTrajectoryOverlayFrame frame;
+			frame.positionMm.set(
+				static_cast<float>(tp.poseMm.x),
+				static_cast<float>(tp.poseMm.y),
+				static_cast<float>(tp.poseMm.z));
+			frame.eulerDeg.set(
+				static_cast<float>(tp.eulerDeg.x),
+				static_cast<float>(tp.eulerDeg.y),
+				static_cast<float>(tp.eulerDeg.z));
+			frame.reachable = tp.reachable;
+			frames.push_back(frame);
+		}
 	}
 	osg->clearInstructionPoseAxes();
 	osg->setRawTrajectoryOverlay(overlay);

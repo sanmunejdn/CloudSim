@@ -144,7 +144,7 @@ flowchart TD
 - 文档隔离：`DocumentPage` **继承** `cloudsim::host::DocumentHost`，每标签页一份 Host 侧 `BackendDataManager + OsgWidget`（Widget：`data()` / `robot()` / `render()`；OSG 经 `widgetOsgFromPage` → `render().widget()`；`backend()` 仍为存量直达）。
 - 场景交互：对象选择、点拾取、边/面拾取、注释、变换 gizmo、主题/语言切换。
 - 项目 I/O：保存/加载 `.pcp/.pcproj.json`，并打包/解包工程资源。
-- 机器人仿真宿主：`MainWindowRobotHost` + `RobotSimulationController`（`RobotWidget.dll`）；**指令树选中预览**与 **Run** 对含 `context.currentJointRadCsv` 的运动点使用**示教关节角**（与拖动/添加指令一致），其余点仍链式 `plan`。`DocumentHost` 必须转发 `robotBackendManagerForKinematics()`（per-link FK）。仿真 Dock 在 **`RobotWidget`**，TCP 示教 OSG 在 **`Widget`**（`OsgWidgetTcpTeach`）。
+- 机器人仿真宿主：`MainWindowRobotHost` + `RobotSimulationController`（`RobotWidget.dll`）；**预览**链式种子 + 对选中点单次 IK（或示教 CSV），**Run** 全程序链式 `plan` + `PlanResultCache` + 后台预读。示教 CSV 仍优先于 IK。`DocumentHost` 必须转发 `robotBackendManagerForKinematics()`（per-link FK）。仿真 Dock 在 **`RobotWidget`**，TCP 示教 OSG 在 **`Widget`**（`OsgWidgetTcpTeach`）。
 
 当前内部子结构（已显式模块化）：
 
@@ -742,30 +742,33 @@ sequenceDiagram
    - 树控件展示层级（IF 的 Then/Else、WHILE 循环体）；**元数据分组以父节点嵌套**（Ctrl 多选根层级指令 → 右键创建/重命名/解散）；切换程序下拉仅显示当前程序指令与分组。  
    - 运动点显示 **P1、P2…**（`formatMotionWaypointSummary`）。  
 2b. **轨迹编辑（`TrajectoryEditPageWidget`，Dock「轨迹编辑」页）**  
-   - 装饰器流水线：Translate/Rotate/Delete/Duplicate 等块 + `OpScope`（全程序/分组/P 范围）。  
-   - **Preview**：`reconcilePipelineScopes` → `TrajectoryEditSession` 临时改 store 中路点 `pose` → `syncPreviewRenderMatrices` → `refreshInstructionPoseAxes`；参数变更走 `updatePipelineOps` + 自动 `reapplyPreview`（结构变更才 `setPipeline`/`reset`）。  
-   - **Apply**：`TrajectoryPipelineBuilder::buildApplyCommands` → `ProgramEditService` 撤销栈落盘。  
-   - **Undo/Redo**：`revisionChanged` → `syncUiAfterProgramRevision`（`abandonPreview` + 失效分组 scope 回退顶栏分组或全程序）。  
-   - 分组 scope 平移/旋转：`RobotProgramCatalog::expandToMotionWaypointIds` 展开 IF/WHILE 子树内运动路点。调色板拖放须 `kMimeType`（见 `RobotWidget` DEVELOPER_GUIDE §轨迹编辑）。  
+   - **PathPlan（可多实例）**：指令树「路径规划」文件夹集中展示；每条独立 `pipeline`/`appliedHistory`/raw；顶栏下拉或树选中绑定；离散写入当前绑定项；Apply 经 `unifiedTrajectoryMergeIntoProgram` 仅替换该条 `PathPlanOutput`。  
+   - 装饰器流水线：Translate/Rotate/Delete/Duplicate 等块 + `OpScope`（全程序/分组/P 范围）；绑定 PathPlan 时 scope 优先其输出组。  
+   - **Preview**：`reconcilePipelineScopes` → `TrajectoryEditSession` 临时改 store 中路点 `pose` → `syncPreviewRenderMatrices` → `refreshInstructionPoseAxes`；参数变更走 `updatePipelineOps`（绑定 PathPlan 时不 `reset`）。  
+   - **Apply**：有 raw 时 Unified 六步 + `CompositeProgramEditCommand`（流水线/raw/phase + `ReplaceProgramContent`）；无 raw 时 `TrajectoryPipelineBuilder::buildApplyCommands`。  
+   - **Undo/Redo**：`revisionChanged` → `syncUiAfterProgramRevision`（`abandonPreview` + 从 PathPlan 重载流水线）。  
+   - 分组 scope：`RobotProgramCatalog::expandToMotionWaypointIds`；PathPlan 仅允许根级拖放排序。  
+   - **Canonical 导出**：`buildCanonicalProgramExportV1`（`nested_tree` + `flatMotionSequence`）；品牌后处理见 `RobotWidget/tools/robot_postprocess/`。  
 2c. **CAD 轨迹生成（`FeatureTrajectoryPageWidget`，Dock「轨迹生成」页）**  
    - 工件 backend + `backendSourcePath` STEP → `enumerateFeatureCatalog` 或手编 `FeatureSpec` JSON。  
    - `discretizeFeature` → `importRawPathToTrajectory` → 配方（焊缝/涂胶/打磨默认 Op 链）→ `emitRawTrajectoryToProgram` 写入主程序。  
    - 预览：`setInstructionPoseAxes`（绿/红可达性）；AI 分域 `trajectory.feature` 校验 LLM 输出的 `features[]`。  
    - 详见 [`RobotWidget/DEVELOPER_GUIDE.md`](RobotWidget/DEVELOPER_GUIDE.md) §CAD 轨迹生成、[`GeometryAlgorithm/DEVELOPER_GUIDE.md`](GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.1。  
 3. **指令选中预览（非运行态）**  
-   - `InstructionProgramTreeWidget::instructionSelected` → `RobotSimulationController::onSimulationInstructionSelectionChanged`（`MainWindow` 转发）。  
-   - 选中 **PTP/LINE** 时：`updateInstructionPropertyPanel`（可行轴配置探测/缓存）→ `applyRobotPoseForInstructionPreview` 自 `m_motionPreviewProgramStartJointRad` 链式至该点。对链上每点：若存在 `context.currentJointRadCsv` 则**直接**用示教关节（跳过该点 IK）；否则 `prepareMotionInstructionForPlanning`（**不**覆盖指令 `pose`）+ `plan`。写回场景与滑块；`m_suppressMotionPreviewStartCapture` 防止误改程序起点。添加指令后首次选中用 `m_skipInstructionPreviewOnce` 避免立即预览拉离示教姿态。  
-   - 仿真运行中不抢占预览；逻辑指令选中不改变机器人姿态。  
-   - 属性面板修改 **位姿/速度** 等：失效轴配置缓存 → 全量刷新可行列表 + 预览。修改 **`motion.axisConfig.*`**：仅 `applyPropertyChange` + 预览 + **轻量**属性面板刷新（不重复可行 IK 探测）。  
+   - 选中 **PTP/LINE** 时：`applyRobotPoseForInstructionPreview`（链式种子 + 单次 IK 或示教 CSV）。  
+   - **坐标系页**：添加未激活工具系为 **StructuralOnly**（不 invalidate plan 缓存、不全程序 IK）；仅显示勾选变更只刷 overlay；切换激活/工具几何时异步 reachability；切换激活工具系时 `syncInstructionToolContextFromFrames` 对 active 跟随路点写 **当前** `activeToolFrame(frames)`（不用 stale frozen id），并自首个受影响点失效下游示教关节。  
+   - 仿真运行中不抢占预览；Run 时指令树经 `currentInstruction()` + `QSignalBlocker` 跟随当前指令。  
+   - 位姿/工具系/Undo 等触发 **`PlanResultCache::invalidateAll`**（与可行轴缓存一并失效）。  
 4. **轴配置属性与规划一致性**  
    - 可行列表：`feasibleMotionAxisConfigurationOptionsForInstruction` 对选中点附加与前序点相同的 `context.currentJointRadCsv` / `context.urdfPath` / `context.tcpLinkName` 后调用 `queryFeasibleMotionAxisConfigurationOptions`。  
    - 用户切换 preset/分项后，`plan` 使用指令上已写入的 `MotionAxisConfiguration`；显式构型无解时 Run/预览均失败并提示（如「无满足轴配置的IK解」），与下拉仅展示可启动项一致。  
-5. **Run**：`onSimulationStartTriggered` 构建 `PlanResult` 时同样优先 `context.currentJointRadCsv`；`initialAngles` 取自 `m_motionPreviewProgramStartJointRad`（首条运动指令加入时捕获，后续点不覆盖起点）。`RobotProgramExecutor` 按 tick 插值 `jointTargetsRad` 并 `applyJointAnglesFromDocument`。无示教 CSV 的点仍走 `RobotInstructionController::plan`。  
+5. **Run**：`onSimulationStartTriggered` 链式构建 `PlanResult`，**命中 `PlanResultCache` 跳过 IK**；`RobotProgramExecutor` 插值播放；`tickLookaheadPlanning` 经 `MainWindowRobotHost::enqueueBackgroundJob` 后台预热后续段。  
+   - **预览 vs Run**：种子均为程序起点 + 前序链式 `rollingQ`；预览只对选中点 1× IK，Run 全程序链式并缓存。详见 [`RobotWidget/DEVELOPER_GUIDE.md`](RobotWidget/DEVELOPER_GUIDE.md) §指令树点击预览 vs 仿真运行。  
 6. 通过接口更新文档中的关节节点矩阵（层级）或各 link 后端/OSG 矩阵（每连杆）。  
 7. UI 面板实时反馈执行过程；`OsgWidget::setInstructionPoseAxes` 在世界系显示各运动点 XYZ 坐标轴；轴原点 **绿色=IK 可达**、**红色=不可达**（与 PTP/LINE 的 RGB 轴身颜色无关）。  
 8. **调试**：环境变量 `ROBOT_KINEMATICS_DEBUG=1`（或启动参数 `--robot-kinematics-debug 1`）时，`applyJointAnglesViaLinkBackends` 输出 `[RobotKinematicsDBG]`（`T0`/`Tq`/`Mnew`/父世界/写回后 `outerWorld` 等）。  
 9. **坐标系（基座 / 工具 / 用户）**：每台机器人 `HierarchicalRobotInstance::coordinateFrames`（`RobotCoordinateFrames`）；默认基座与 `sceneRootBackendId` 重合、工具与法兰/TCP link 重合、预置 `UFrame1`。仿真 Dock **坐标系** 页（`RobotFrameSettingsWidget`）编辑工具系与用户系（`T_flange_tool.positionMm` 为 **法兰连杆轴** mm，标签 `flange`）；3D 叠加（`OsgWidget::setRobotFrameOverlays`）与示教 FK 均经 `engine::toolOriginFromFlange`（`composeColumn`，勿裸 `linkWorld * toolMat`）。PTP/LINE 的 `pose/euler` 存 **基系工具原点**（`T_base_target`）；每点 `motion.tool.frameId` / `context.toolFrameMat4`；IK 前置 `flangeFromToolOrigin`。属性面板 `motion.target.frame` 为 `base` / `user` 示教（落盘仍基系）。指令 `extensions` 随 `robotPrograms` 持久化。  
-10. **导出**：仿真 **Export…** → `RobotProgramExport` JSON/CSV（基座 mm/deg + `jointRad`），供后续 RAPID/KRL 等后处理。  
+10. **导出**：仿真 **Export…** 默认 **Canonical v1**（`cloudsim.program_export`）；兼容 `RobotProgramExport` JSON/CSV；Python `robot_postprocess` 可生成 ABB/KUKA 占位程序。  
 
 ```mermaid
 sequenceDiagram
@@ -783,13 +786,12 @@ sequenceDiagram
     MW->>MW: updateInstructionPropertyPanel(refreshFeasibleAxis=true)
     Note over MW: queryFeasible… 单次 IK 构型集 + 缓存<br/>可选 suggestPresetFromSeed
     MW->>MW: applyRobotPoseForInstructionPreview
-    loop 自 P1 至选中点
-        alt 有 currentJointRadCsv
-            MW->>MW: 示教关节 → rollingQ
-        else 无 CSV
-            MW->>Ctrl: validate + plan(motion)
-            Ctrl-->>MW: jointTargetsRad
-        end
+    Note over MW: buildChainSeedJointRadForInstruction<br/>（前序路点 → chainSeedQ）
+    alt 选中点示教 CSV 残差合格
+        MW->>MW: resultQ ← taughtQ
+    else
+        MW->>Ctrl: plan(选中点, seed=chainSeedQ)  // 1× IK
+        Ctrl-->>MW: jointTargetsRad
     end
     MW->>Kin: applyJointAnglesForInstance
     Kin->>Osg: 更新连杆/关节矩阵
@@ -956,10 +958,11 @@ Controller 核心逻辑已迁入 Host，退化为 UI 事件转发器。
 
 ## 9. 异步任务与数据并发（演进）
 
-- **JobSystem + ProgressManager（Widget）**：耗时 CPU 工作（首批接入：非 LAS/LAZ 点云的 CGAL `loadFromFile`）提交到 `QThreadPool`；`ProgressManager` 通过 `QMetaObject::invokeMethod` 将 `jobStarted` / `jobProgress` / `jobFinished` 投递到 UI 线程，避免在工作线程直接操作 `QWidget`/OSG。
-- **主线程边界**：`BackendDataManager` 注册、`OsgWidget::loadPointCloudFromBackendData`、树与属性刷新仍在 **UI 线程** 完成；后台仅做几何解码与填充 `PointCloudBackendData`（与 ARCHITECTURE 中「Data 不碰 UI」一致）。
-- **BackendDataManager**：容器与层级图由 `std::shared_mutex` 保护；只读查询使用 `std::shared_lock`，注册/注销/边变更/ `clear` 使用 `std::unique_lock`，提升多读场景下的并发度。**注意**：返回的 `std::shared_ptr<BackendDataBase>` 所指对象本身的字段并非每字段加锁；跨线程写同一后端对象仍需调用方序列化或由单线程（通常为 UI）修改。
-- **后续可接 Job 的类型**：网格 CGAL/OCCT 管线、布尔、法线、机器人规划/IK 等可复用同一 `enqueue(title, work, onFinished)` 模式；**可行轴配置探测**（`queryFeasibleMotionAxisConfigurationOptions`）与长程序链式预览亦可迁入后台线程，结果回 UI 写缓存；**AI 助手 LLM 调用**（Phase 2）宜在 Job 中请求、UI 线程仅执行 `executeFromJson`；LAS/LAZ 仍走 OSG 导入路径，保持同步直至确认 OSG 上下文可安全离屏。
+- **JobSystem + ProgressManager（Widget）**：耗时 CPU 工作提交到 `QThreadPool`；`ProgressManager` 通过 `QMetaObject::invokeMethod` 将进度/完成事件投递到 UI 线程。
+- **已接入**：非 LAS/LAZ 点云 CGAL 解码；**Run 中机器人段预读**（`RobotSimulationController::tickLookaheadPlanning` → `MainWindowRobotHost::enqueueBackgroundJob` → `PlanResultCache`，UI 线程写入）。
+- **主线程边界**：`BackendDataManager` 注册、OSG 加载、树与属性刷新仍在 **UI 线程**；后台 Job 不得直接改 `QWidget`/场景图或 `PlanResultCache`。
+- **BackendDataManager**：容器与层级图由 `shared_mutex` 保护（见原文）。
+- **后续可接 Job 的类型**：网格 CGAL/OCCT 管线、布尔、法线；**可行轴配置探测**长链 IK；**AI 助手 LLM**（Phase 2）。LAS/LAZ 仍走 OSG 同步导入路径。
 
 ---
 

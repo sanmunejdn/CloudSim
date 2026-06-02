@@ -27,6 +27,8 @@ ROBOT_SCENE_API void flattenInstructionsRecursive(
 inline constexpr const char* kMotionPointIndexKey = "motion.pointIndex";
 
 ROBOT_SCENE_API bool isMotionWaypointType(Type t);
+ROBOT_SCENE_API bool isExecutableInstructionType(Type t);
+ROBOT_SCENE_API bool shouldSkipInMotionTraversal(Type t);
 ROBOT_SCENE_API int motionPointIndex(const Base& ins);
 ROBOT_SCENE_API void setMotionPointIndex(Base& ins, int oneBasedIndex);
 ROBOT_SCENE_API std::string formatMotionPointName(int oneBasedIndex);

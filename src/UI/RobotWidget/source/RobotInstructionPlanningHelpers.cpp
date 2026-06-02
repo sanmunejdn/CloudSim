@@ -106,6 +106,67 @@ void invalidateTaughtJointsFromMotionIndexForward(
 	}
 }
 
+bool motionFollowsActiveToolFrame(const RobotInstruction::Base& ins)
+{
+	const auto& ext = ins.extensionProperties();
+	const auto itMotion = ext.find(RobotCoordinate::kExtMotionToolFrameId);
+	if (itMotion == ext.end() || itMotion->second.empty() || itMotion->second == "active")
+	{
+		return true;
+	}
+	return false;
+}
+
+void syncInstructionToolContextFromToolFrame(
+	RobotInstruction::Base& ins,
+	const RobotCoordinate::RobotCoordinateFrameSet& frames,
+	const RobotCoordinate::RobotToolFrame& tool)
+{
+	const BackendMat4 toolMat = RobotCoordinate::frameToMat4(tool.T_flange_tool);
+	ins.setExtensionProperty(
+		RobotCoordinate::kExtContextToolFrameMat4, RobotCoordinate::encodeMat4Csv(toolMat));
+	ins.setExtensionProperty("context.activeToolFrameId", tool.id);
+	const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, tool);
+	if (!flangeLink.empty())
+	{
+		ins.setExtensionProperty("context.flangeLinkName", flangeLink);
+	}
+}
+
+void syncInstructionToolContextFromFrames(
+	RobotInstruction::Base& ins,
+	const RobotCoordinate::RobotCoordinateFrameSet& frames)
+{
+	const RobotCoordinate::RobotToolFrame* tool = nullptr;
+	if (motionFollowsActiveToolFrame(ins))
+	{
+		// 跟随 active 的路点必须用全局激活工具，不能走 resolve 里 stale 的 frozen id
+		tool = RobotCoordinate::activeToolFrame(frames);
+	}
+	else if (const RobotCoordinate::RobotToolFrame* resolved =
+				 RobotCoordinate::resolveToolFrameForExtension(frames, ins.extensionProperties()))
+	{
+		tool = resolved;
+	}
+	if (tool)
+	{
+		syncInstructionToolContextFromToolFrame(ins, frames, *tool);
+	}
+}
+
+void persistTaughtJointsAndToolContext(
+	RobotInstruction::Base& ins,
+	const QVector<double>& jointQ,
+	const RobotCoordinate::RobotCoordinateFrameSet& frames)
+{
+	if (jointQ.isEmpty())
+	{
+		return;
+	}
+	ins.setExtensionProperty("context.currentJointRadCsv", encodeJointAnglesRadCsv(jointQ));
+	syncInstructionToolContextFromFrames(ins, frames);
+}
+
 bool shouldUseTaughtJointCsv(
 	const RobotInstruction::Base& ins,
 	const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames)
@@ -117,18 +178,30 @@ bool shouldUseTaughtJointCsv(
 	const auto& ext = ins.extensionProperties();
 	const auto itMotion = ext.find(RobotCoordinate::kExtMotionToolFrameId);
 	const std::string motionId = (itMotion != ext.end()) ? itMotion->second : std::string();
-	if (motionId.empty() || motionId == "active")
+	const bool followsActive = motionId.empty() || motionId == "active";
+	if (followsActive)
 	{
-		return false;
+		if (!coordinateFrames)
+		{
+			return false;
+		}
+		const auto itFrozen = ext.find("context.activeToolFrameId");
+		if (itFrozen == ext.end() || itFrozen->second.empty())
+		{
+			return false;
+		}
+		if (itFrozen->second != coordinateFrames->activeToolFrameId)
+		{
+			return false;
+		}
 	}
-	const auto itFrozen = ext.find("context.activeToolFrameId");
-	if (itFrozen != ext.end() && !itFrozen->second.empty() && itFrozen->second != motionId)
+	else
 	{
-		return false;
-	}
-	if (coordinateFrames && coordinateFrames->activeToolFrameId != motionId)
-	{
-		return false;
+		const auto itFrozen = ext.find("context.activeToolFrameId");
+		if (itFrozen != ext.end() && !itFrozen->second.empty() && itFrozen->second != motionId)
+		{
+			return false;
+		}
 	}
 	if (coordinateFrames)
 	{
@@ -175,6 +248,19 @@ void prepareMotionInstructionForPlanning(
 	{
 		const BackendMat4 T_tool = RobotCoordinate::toolMat4ForExtension(*coordinateFrames, ins.extensionProperties());
 		ins.setExtensionProperty("context.toolFrameMat4", RobotCoordinate::encodeMat4Csv(T_tool));
+		if (const RobotCoordinate::RobotToolFrame* tool =
+				RobotCoordinate::resolveToolFrameForExtension(*coordinateFrames, ins.extensionProperties()))
+		{
+			const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(*coordinateFrames, *tool);
+			if (!flangeLink.empty())
+			{
+				ins.setExtensionProperty("context.flangeLinkName", flangeLink);
+			}
+		}
+		else if (!coordinateFrames->flangeLinkName.empty())
+		{
+			ins.setExtensionProperty("context.flangeLinkName", coordinateFrames->flangeLinkName);
+		}
 	}
 	(void)doc;
 	(void)instIdx;

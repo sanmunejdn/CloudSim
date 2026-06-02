@@ -42,6 +42,8 @@ QString instructionTypeLabel(RobotInstruction::Type t, bool zh)
 		return zh ? QStringLiteral("数字输出") : QStringLiteral("SET_DO");
 	case RobotInstruction::Type::SET_AO:
 		return zh ? QStringLiteral("模拟输出") : QStringLiteral("SET_AO");
+	case RobotInstruction::Type::PathPlan:
+		return zh ? QStringLiteral("路径规划") : QStringLiteral("PATH_PLAN");
 	case RobotInstruction::Type::PTP:
 	default:
 		return zh ? QStringLiteral("点到点") : QStringLiteral("PTP");
@@ -160,6 +162,7 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 		RobotInstruction::Type::WHILE,
 		RobotInstruction::Type::SET_DO,
 		RobotInstruction::Type::SET_AO,
+		RobotInstruction::Type::PathPlan,
 	};
 	m_instructionGroupBox = new QGroupBox(QStringLiteral("Instructions"), this);
 	auto* addRow = new QHBoxLayout(m_instructionGroupBox);
@@ -512,6 +515,10 @@ void SimulationCommandWidget::updateTypeButtonLabels()
 		case RobotInstruction::Type::SET_AO:
 			tip = zh ? QStringLiteral("插入模拟量输出") : QStringLiteral("Insert analog output");
 			break;
+		case RobotInstruction::Type::PathPlan:
+			tip = zh ? QStringLiteral("插入路径规划（流水线与离散 raw）")
+					 : QStringLiteral("Insert path plan (pipeline + discrete raw)");
+			break;
 		case RobotInstruction::Type::PTP:
 		default:
 			tip = zh ? QStringLiteral("插入点到点运动（使用当前 TCP 位姿）")
@@ -798,11 +805,30 @@ void SimulationCommandWidget::requestAddInstruction(const RobotInstruction::Type
 
 void SimulationCommandWidget::onRemoveClicked()
 {
-	if (m_tree)
+	if (!m_tree || !m_programStore)
 	{
-		m_tree->removeSelected();
-		updateRunStopButtons();
+		return;
 	}
+	const std::shared_ptr<RobotInstruction::Base> sel = m_tree->selectedInstruction();
+	if (sel && sel->type() == RobotInstruction::Type::PathPlan && m_editService)
+	{
+		const std::string programId = m_programStore->activeProgramIdUtf8();
+		std::shared_ptr<RobotInstruction::ProgramEditCommand> cmd =
+			std::make_shared<RobotInstruction::RemovePathPlanCommand>(
+				&m_programStore->activeCatalog(),
+				programId,
+				sel->id());
+		QString err;
+		if (m_editService->execute(cmd, &err))
+		{
+			rebuildCommandListWidget();
+			emit instructionSelectionChanged(nullptr);
+		}
+		updateRunStopButtons();
+		return;
+	}
+	m_tree->removeSelected();
+	updateRunStopButtons();
 }
 
 void SimulationCommandWidget::onClearClicked()
@@ -912,6 +938,33 @@ std::shared_ptr<RobotInstruction::Base> SimulationCommandWidget::appendInstructi
 	case RobotInstruction::Type::SET_AO:
 		ins = std::make_shared<RobotInstruction::SetAnalogOutputInstruction>();
 		break;
+	case RobotInstruction::Type::PathPlan:
+	{
+		auto pathPlan = std::make_shared<RobotInstruction::PathPlanInstruction>();
+		if (m_editService && m_programStore)
+		{
+			size_t pathPlanInsertIdx = 0;
+			for (const std::shared_ptr<RobotInstruction::Base>& step : m_programStore->activeProgram())
+			{
+				if (step && step->type() == RobotInstruction::Type::PathPlan)
+				{
+					++pathPlanInsertIdx;
+				}
+			}
+			std::shared_ptr<RobotInstruction::ProgramEditCommand> cmd =
+				std::make_shared<RobotInstruction::InsertPathPlanCommand>(pathPlan, pathPlanInsertIdx);
+			QString err;
+			if (m_editService->execute(cmd, &err))
+			{
+				rebuildCommandListWidget();
+				emit instructionSelectionChanged(pathPlan);
+				updateRunStopButtons();
+				return pathPlan;
+			}
+		}
+		ins = pathPlan;
+		break;
+	}
 	case RobotInstruction::Type::PTP:
 	default:
 		ins = std::make_shared<RobotInstruction::PtpInstruction>();

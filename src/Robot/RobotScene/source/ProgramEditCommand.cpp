@@ -717,4 +717,308 @@ bool RenameInstructionGroupCommand::undo(InstructionProgramDocument& doc, std::s
 	return false;
 }
 
+InsertPathPlanCommand::InsertPathPlanCommand(
+	std::shared_ptr<PathPlanInstruction> pathPlan,
+	const size_t rootIndex)
+	: m_pathPlan(std::move(pathPlan))
+	, m_rootIndex(rootIndex)
+{
+}
+
+bool InsertPathPlanCommand::execute(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	if (!m_pathPlan)
+	{
+		if (errMsg)
+		{
+			*errMsg = "path plan is null";
+		}
+		return false;
+	}
+	if (!doc.insertAtRoot(m_rootIndex, m_pathPlan))
+	{
+		if (errMsg)
+		{
+			*errMsg = "insert path plan failed";
+		}
+		return false;
+	}
+	m_executed = true;
+	doc.renumberAndNotify();
+	return true;
+}
+
+bool InsertPathPlanCommand::undo(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	(void)errMsg;
+	if (!m_executed || !m_pathPlan)
+	{
+		return false;
+	}
+	doc.removeById(m_pathPlan->id());
+	doc.renumberAndNotify();
+	m_executed = false;
+	return true;
+}
+
+UpdatePathPlanPipelineCommand::UpdatePathPlanPipelineCommand(
+	std::string pathPlanId,
+	std::vector<TrajectoryOpDescriptor> pipeline,
+	std::vector<TrajectoryOpDescriptor> appliedHistory)
+	: m_pathPlanId(std::move(pathPlanId))
+	, m_pipeline(std::move(pipeline))
+	, m_appliedHistory(std::move(appliedHistory))
+{
+}
+
+bool UpdatePathPlanPipelineCommand::execute(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	Base* base = doc.findById(m_pathPlanId);
+	PathPlanInstruction* pp = base ? asPathPlan(*base) : nullptr;
+	if (!pp)
+	{
+		if (errMsg)
+		{
+			*errMsg = "path plan not found";
+		}
+		return false;
+	}
+	m_pipelineBefore = pp->pipeline();
+	m_appliedBefore = pp->appliedHistory();
+	pp->setPipeline(m_pipeline);
+	pp->appliedHistoryMut() = m_appliedHistory;
+	return true;
+}
+
+bool UpdatePathPlanPipelineCommand::undo(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	Base* base = doc.findById(m_pathPlanId);
+	PathPlanInstruction* pp = base ? asPathPlan(*base) : nullptr;
+	if (!pp)
+	{
+		if (errMsg)
+		{
+			*errMsg = "path plan not found";
+		}
+		return false;
+	}
+	pp->setPipeline(m_pipelineBefore);
+	pp->appliedHistoryMut() = m_appliedBefore;
+	return true;
+}
+
+UpdatePathPlanRawCommand::UpdatePathPlanRawCommand(
+	RobotProgramCatalog* catalog,
+	std::string pathPlanId,
+	RawTrajectory raw,
+	const PathPlanPhase newPhase)
+	: m_catalog(catalog)
+	, m_pathPlanId(std::move(pathPlanId))
+	, m_raw(std::move(raw))
+	, m_newPhase(newPhase)
+{
+}
+
+bool UpdatePathPlanRawCommand::execute(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	(void)doc;
+	if (!m_catalog)
+	{
+		if (errMsg)
+		{
+			*errMsg = "catalog is null";
+		}
+		return false;
+	}
+	PathPlanInstruction* pp = m_catalog->findPathPlan(m_catalog->activeProgramId(), m_pathPlanId);
+	if (!pp)
+	{
+		if (errMsg)
+		{
+			*errMsg = "path plan not found";
+		}
+		return false;
+	}
+	m_phaseBefore = pp->phase();
+	m_hadRawBefore = m_catalog->pathPlanRaws().load(m_pathPlanId, m_rawBefore);
+	m_catalog->pathPlanRaws().save(m_pathPlanId, m_raw);
+	pp->setPhase(m_newPhase);
+	pp->bumpRawRevision();
+	if (pp->rawTrajectoryKey().empty())
+	{
+		pp->setRawTrajectoryKey(m_pathPlanId);
+	}
+	return true;
+}
+
+bool UpdatePathPlanRawCommand::undo(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	(void)doc;
+	if (!m_catalog)
+	{
+		return false;
+	}
+	PathPlanInstruction* pp = m_catalog->findPathPlan(m_catalog->activeProgramId(), m_pathPlanId);
+	if (!pp)
+	{
+		if (errMsg)
+		{
+			*errMsg = "path plan not found";
+		}
+		return false;
+	}
+	pp->setPhase(m_phaseBefore);
+	if (m_hadRawBefore)
+	{
+		m_catalog->pathPlanRaws().save(m_pathPlanId, m_rawBefore);
+	}
+	else
+	{
+		m_catalog->pathPlanRaws().remove(m_pathPlanId);
+	}
+	return true;
+}
+
+UpdatePathPlanApplyStateCommand::UpdatePathPlanApplyStateCommand(
+	std::string pathPlanId,
+	const PathPlanPhase phase,
+	std::string outputGroupId)
+	: m_pathPlanId(std::move(pathPlanId))
+	, m_phase(phase)
+	, m_outputGroupId(std::move(outputGroupId))
+{
+}
+
+bool UpdatePathPlanApplyStateCommand::execute(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	(void)doc;
+	Base* base = doc.findById(m_pathPlanId);
+	PathPlanInstruction* pp = base ? asPathPlan(*base) : nullptr;
+	if (!pp)
+	{
+		if (errMsg)
+		{
+			*errMsg = "path plan not found";
+		}
+		return false;
+	}
+	m_phaseBefore = pp->phase();
+	m_outputGroupIdBefore = pp->outputGroupId();
+	pp->setPhase(m_phase);
+	pp->setOutputGroupId(m_outputGroupId);
+	return true;
+}
+
+bool UpdatePathPlanApplyStateCommand::undo(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	(void)errMsg;
+	Base* base = doc.findById(m_pathPlanId);
+	PathPlanInstruction* pp = base ? asPathPlan(*base) : nullptr;
+	if (!pp)
+	{
+		return false;
+	}
+	pp->setPhase(m_phaseBefore);
+	pp->setOutputGroupId(m_outputGroupIdBefore);
+	return true;
+}
+
+RemovePathPlanCommand::RemovePathPlanCommand(
+	RobotProgramCatalog* catalog,
+	std::string programId,
+	std::string pathPlanId)
+	: m_catalog(catalog)
+	, m_programId(std::move(programId))
+	, m_pathPlanId(std::move(pathPlanId))
+{
+}
+
+bool RemovePathPlanCommand::execute(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	if (!m_catalog)
+	{
+		if (errMsg)
+		{
+			*errMsg = "catalog is null";
+		}
+		return false;
+	}
+	Base* base = doc.findById(m_pathPlanId);
+	PathPlanInstruction* pp = base ? asPathPlan(*base) : nullptr;
+	if (!pp)
+	{
+		if (errMsg)
+		{
+			*errMsg = "path plan not found";
+		}
+		return false;
+	}
+	m_snapshot = std::dynamic_pointer_cast<PathPlanInstruction>(
+		std::static_pointer_cast<Base>(cloneInstructionPreservingId(*pp)));
+	if (!m_snapshot)
+	{
+		if (errMsg)
+		{
+			*errMsg = "clone path plan failed";
+		}
+		return false;
+	}
+	if (doc.rootSteps())
+	{
+		m_rootIndex = rootIndexOf(*doc.rootSteps(), m_pathPlanId);
+	}
+	RobotProgram* prog = m_catalog->findProgram(m_programId);
+	if (prog)
+	{
+		for (const InstructionGroup& group : prog->groups)
+		{
+			if (group.role == InstructionGroupRole::PathPlanOutput
+				&& group.pathPlanInstructionId == m_pathPlanId)
+			{
+				m_removedOutputGroups.push_back(group);
+			}
+		}
+	}
+	m_hadRaw = m_catalog->pathPlanRaws().load(m_pathPlanId, m_removedRaw);
+	if (!doc.removeById(m_pathPlanId))
+	{
+		if (errMsg)
+		{
+			*errMsg = "remove path plan failed";
+		}
+		return false;
+	}
+	const std::unordered_set<std::string> removedIds{m_pathPlanId};
+	m_catalog->prunePathPlanReferences(m_programId, removedIds);
+	m_executed = true;
+	return true;
+}
+
+bool RemovePathPlanCommand::undo(InstructionProgramDocument& doc, std::string* errMsg)
+{
+	(void)errMsg;
+	if (!m_executed || !m_snapshot || !m_catalog)
+	{
+		return false;
+	}
+	if (!doc.insertAtRoot(m_rootIndex, m_snapshot))
+	{
+		return false;
+	}
+	RobotProgram* prog = m_catalog->findProgram(m_programId);
+	if (prog)
+	{
+		for (const InstructionGroup& group : m_removedOutputGroups)
+		{
+			prog->groups.push_back(group);
+		}
+	}
+	if (m_hadRaw)
+	{
+		m_catalog->pathPlanRaws().save(m_pathPlanId, m_removedRaw);
+	}
+	m_executed = false;
+	return true;
+}
+
 } // namespace RobotInstruction

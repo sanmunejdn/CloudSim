@@ -342,6 +342,24 @@ inline const property_core::PropertySchema& setAoInstructionPropertySchema()
 
 }
 
+inline const property_core::PropertySchema& pathPlanInstructionPropertySchema()
+{
+	using namespace property_core;
+	static const PropertySchema schema = []() {
+		PropertySchema s;
+		s.objectTypeId = "robot_instruction.path_plan";
+		s.schemaVersion = 1;
+		s.descriptors = {
+			{ "planning.phase", "Phase", PropertyType::String, std::string("draft") },
+			{ "planning.outputGroupId", "Output group", PropertyType::String, std::string() },
+			{ "planning.rawTrajectoryKey", "Raw key", PropertyType::String, std::string() },
+			{ "planning.pipelineOpCount", "Pipeline ops", PropertyType::Double, 0.0 },
+			{ "planning.rawRevision", "Raw revision", PropertyType::Double, 0.0 },
+		};
+		return s;
+	}();
+	return schema;
+}
 
 inline const property_core::PropertySchema& schemaForInstructionType(const Type type)
 
@@ -366,6 +384,10 @@ inline const property_core::PropertySchema& schemaForInstructionType(const Type 
 	case Type::SET_AO:
 
 		return setAoInstructionPropertySchema();
+
+	case Type::PathPlan:
+
+		return pathPlanInstructionPropertySchema();
 
 	case Type::PTP:
 

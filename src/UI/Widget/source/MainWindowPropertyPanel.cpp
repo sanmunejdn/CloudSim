@@ -1215,23 +1215,8 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 				{
 					const RobotCoordinate::RobotCoordinateFrameSet& frames =
 						doc->robotCoordinateFramesForInstance(instIdx);
-					if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::resolveToolFrameForExtension(
-							frames, m_activeInstructionForProperty->extensionProperties()))
-					{
-						const BackendMat4 toolMat = RobotCoordinate::frameToMat4(tool->T_flange_tool);
-						m_activeInstructionForProperty->setExtensionProperty(
-							RobotCoordinate::kExtContextToolFrameMat4,
-							RobotCoordinate::encodeMat4Csv(toolMat));
-						m_activeInstructionForProperty->setExtensionProperty(
-							"context.activeToolFrameId", tool->id);
-						const std::string flangeLink =
-							RobotCoordinate::effectiveFlangeLinkName(frames, *tool);
-						if (!flangeLink.empty())
-						{
-							m_activeInstructionForProperty->setExtensionProperty(
-								"context.flangeLinkName", flangeLink);
-						}
-					}
+					RobotInstructionPlanning::syncInstructionToolContextFromFrames(
+						*m_activeInstructionForProperty, frames);
 				}
 			}
 			int changedMotionIndex = -1;

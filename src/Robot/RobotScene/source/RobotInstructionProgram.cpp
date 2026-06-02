@@ -40,6 +40,17 @@ bool isMotionWaypointType(const Type t)
 	return t == Type::PTP || t == Type::LINE;
 }
 
+bool isExecutableInstructionType(const Type t)
+{
+	return isMotionWaypointType(t) || t == Type::WAIT || t == Type::SET_DO || t == Type::SET_AO
+		|| t == Type::IF || t == Type::WHILE;
+}
+
+bool shouldSkipInMotionTraversal(const Type t)
+{
+	return isPathPlanType(t) || isPlanningCategory(categoryForType(t));
+}
+
 int motionPointIndex(const Base& ins)
 {
 	if (!isMotionWaypointType(ins.type()))

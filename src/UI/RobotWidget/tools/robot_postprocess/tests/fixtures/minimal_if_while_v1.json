@@ -1,0 +1,44 @@
+{
+  "format": "cloudsim.program_export",
+  "schemaVersion": 1,
+  "exportedAt": "2026-06-01T00:00:00Z",
+  "exportLayout": "nested_tree",
+  "program": { "id": "main", "name": "Main" },
+  "robot": { "instanceIndex": 0, "sceneBackendId": "robot0", "urdfPath": "" },
+  "coordinateFrames": {
+    "flangeLinkName": "link_6",
+    "activeToolFrameId": "",
+    "activeUserFrameId": "",
+    "toolFrames": [],
+    "userFrames": []
+  },
+  "instructions": [
+    {
+      "type": "if",
+      "category": "Logic",
+      "executable": false,
+      "programStepPath": [0],
+      "instructionId": "INS_IF1",
+      "logic": { "condition": {} },
+      "then": [
+        {
+          "type": "ptp",
+          "category": "Motion",
+          "executable": true,
+          "programStepPath": [0, 0],
+          "instructionId": "INS_P1",
+          "motion": { "pointIndex": 1 },
+          "poses": {
+            "primaryFrame": "base_tcp_mm_deg",
+            "baseTcp": { "positionMm": [100, 0, 500], "eulerDeg": [0, 0, 0] }
+          },
+          "kinematics": { "ikOk": true, "jointRad": [0, 0, 0, 0, 0, 0] }
+        }
+      ],
+      "else": []
+    }
+  ],
+  "flatMotionSequence": [
+    { "flatIndex": 0, "instructionId": "INS_P1", "programStepPath": [0, 0], "pointIndex": 1 }
+  ]
+}

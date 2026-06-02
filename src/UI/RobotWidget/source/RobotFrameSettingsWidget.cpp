@@ -41,6 +41,25 @@ void readRigidFromSpins(RobotCoordinate::RobotRigidFrame& f, QDoubleSpinBox* pos
 	}
 }
 
+bool toolFrameSnapshotMatches(
+	const RobotCoordinate::RobotToolFrame& before,
+	const RobotCoordinate::RobotToolFrame& after)
+{
+	if (before.flangeLinkName != after.flangeLinkName)
+	{
+		return false;
+	}
+	for (int i = 0; i < 3; ++i)
+	{
+		if (std::abs(before.T_flange_tool.positionMm[i] - after.T_flange_tool.positionMm[i]) > 1e-6
+			|| std::abs(before.T_flange_tool.eulerDeg[i] - after.T_flange_tool.eulerDeg[i]) > 1e-6)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 void setFormLabel(QFormLayout* form, const int row, const QString& text)
 {
 	if (!form || row < 0 || row >= form->rowCount())
@@ -426,23 +445,27 @@ void RobotFrameSettingsWidget::onToolListSelectionChanged()
 		return;
 	}
 	const int newRow = m_toolList->currentRow();
+	bool prevRowChanged = false;
 	if (m_lastToolListRow >= 0 && m_lastToolListRow < static_cast<int>(m_frames.toolFrames.size())
 		&& m_lastToolListRow != newRow)
 	{
 		RobotCoordinate::RobotToolFrame& prev = m_frames.toolFrames[static_cast<size_t>(m_lastToolListRow)];
+		const RobotCoordinate::RobotToolFrame before = prev;
 		readRigidFromSpins(prev.T_flange_tool, m_toolPos, m_toolEuler);
+		std::string newFlangeLink;
 		if (m_flangeLinkCombo->currentIndex() > 0)
 		{
-			prev.flangeLinkName = m_flangeLinkCombo->currentText().toStdString();
+			newFlangeLink = m_flangeLinkCombo->currentText().toStdString();
 		}
-		else
-		{
-			prev.flangeLinkName.clear();
-		}
+		prev.flangeLinkName = newFlangeLink;
+		prevRowChanged = !toolFrameSnapshotMatches(before, prev);
 	}
 	m_lastToolListRow = newRow;
 	loadToolFieldsFromSelection();
-	emit framesChanged();
+	if (prevRowChanged)
+	{
+		emit framesChanged();
+	}
 }
 
 void RobotFrameSettingsWidget::onUserListSelectionChanged()
@@ -461,9 +484,11 @@ void RobotFrameSettingsWidget::onAddToolFrame()
 	tf.name = QStringLiteral("TFrame%1").arg(m_frames.toolFrames.size() + 1).toStdString();
 	tf.T_flange_tool = RobotCoordinate::identityRigidFrame();
 	m_frames.toolFrames.push_back(std::move(tf));
+	m_blockSignals = true;
 	rebuildToolFrameList();
 	m_toolList->setCurrentRow(m_toolList->count() - 1);
 	m_lastToolListRow = m_toolList->currentRow();
+	m_blockSignals = false;
 	emit framesChanged();
 }
 
@@ -484,7 +509,14 @@ void RobotFrameSettingsWidget::onRemoveToolFrame()
 	{
 		m_frames.activeToolFrameId = m_frames.toolFrames.empty() ? std::string() : m_frames.toolFrames.front().id;
 	}
+	m_blockSignals = true;
 	rebuildToolFrameList();
+	if (m_toolList->count() > 0)
+	{
+		m_toolList->setCurrentRow(0);
+		m_lastToolListRow = 0;
+	}
+	m_blockSignals = false;
 	emit framesChanged();
 }
 
@@ -499,9 +531,11 @@ void RobotFrameSettingsWidget::onDuplicateToolFrame()
 	copy.id = RobotCoordinate::allocateUniqueToolFrameId(m_frames);
 	copy.name += "_copy";
 	m_frames.toolFrames.push_back(std::move(copy));
+	m_blockSignals = true;
 	rebuildToolFrameList();
 	m_toolList->setCurrentRow(m_toolList->count() - 1);
 	m_lastToolListRow = m_toolList->currentRow();
+	m_blockSignals = false;
 	emit framesChanged();
 }
 

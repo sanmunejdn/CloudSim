@@ -999,79 +999,6 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 		}
 	}
 
-	if (useOrientation)
-	{
-		IkLinkTarget posOnlyTarget = linkTarget;
-		posOnlyTarget.hasOrientation = false;
-		std::vector<double> qPos = q;
-		const double posTarget[3] = { posOnlyTarget.pos[0], posOnlyTarget.pos[1], posOnlyTarget.pos[2] };
-		for (int iter = 0; iter < maxIters; ++iter)
-		{
-			if (!tcpPositionFromUrdf(urdfPath, ikLink, qPos, pos, nullptr))
-			{
-				break;
-			}
-			const double e0 = posTarget[0] - pos[0];
-			const double e1 = posTarget[1] - pos[1];
-			const double e2 = posTarget[2] - pos[2];
-			const double posErr = std::sqrt(e0 * e0 + e1 * e1 + e2 * e2);
-			if (posErr < 1e-2)
-			{
-				return qPos;
-			}
-			const int n = static_cast<int>(qPos.size());
-			std::vector<double> J(static_cast<size_t>(3 * n), 0.0);
-			for (int j = 0; j < n; ++j)
-			{
-				std::vector<double> qPert = qPos;
-				qPert[static_cast<size_t>(j)] += eps;
-				double p2[3] = { 0.0, 0.0, 0.0 };
-				if (!tcpPositionFromUrdf(urdfPath, ikLink, qPert, p2, nullptr))
-				{
-					break;
-				}
-				J[0 * n + j] = (p2[0] - pos[0]) / eps;
-				J[1 * n + j] = (p2[1] - pos[1]) / eps;
-				J[2 * n + j] = (p2[2] - pos[2]) / eps;
-			}
-			std::vector<double> jtj(static_cast<size_t>(n * n), 0.0);
-			std::vector<double> jte(static_cast<size_t>(n), 0.0);
-			const double e[3] = { e0, e1, e2 };
-			for (int r = 0; r < 3; ++r)
-			{
-				for (int c = 0; c < n; ++c)
-				{
-					jte[static_cast<size_t>(c)] += J[static_cast<size_t>(r * n + c)] * e[r];
-				}
-			}
-			for (int r = 0; r < n; ++r)
-			{
-				for (int c = 0; c < n; ++c)
-				{
-					double s = 0.0;
-					for (int k = 0; k < 3; ++k)
-					{
-						s += J[static_cast<size_t>(k * n + r)] * J[static_cast<size_t>(k * n + c)];
-					}
-					jtj[static_cast<size_t>(r * n + c)] = s;
-				}
-			}
-			for (int i = 0; i < n; ++i)
-			{
-				jtj[static_cast<size_t>(i * n + i)] += lambda * lambda;
-			}
-			if (!solveLinearSystem(jtj, jte, n))
-			{
-				break;
-			}
-			for (int j = 0; j < n; ++j)
-			{
-				jte[static_cast<size_t>(j)] = std::max(-0.2, std::min(0.2, jte[static_cast<size_t>(j)]));
-				qPos[static_cast<size_t>(j)] += jte[static_cast<size_t>(j)];
-			}
-		}
-	}
-
 	if (failReason)
 	{
 		*failReason = "IK未收敛/超迭代";
@@ -1341,7 +1268,7 @@ public:
 				}
 			}
 		}
-		if (targetQ.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis)
+		if (targetQ.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis && !cmd.hasEulerProperty())
 		{
 			targetQ = solveTargetByIkIfPossible(cmd, *m_dhRows, &ikFailReason);
 			if (!targetQ.empty())
@@ -1357,7 +1284,7 @@ public:
 				solvePath = "urdf_late";
 			}
 		}
-		if (targetQ.empty() && !constrainAxis)
+		if (targetQ.empty() && !constrainAxis && !cmd.hasEulerProperty())
 		{
 			targetQ = solveTargetByLegacyJointDelta(cmd);
 			if (!targetQ.empty())
@@ -1483,7 +1410,7 @@ public:
 				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
 			}
 		}
-		if (qTarget.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis)
+		if (qTarget.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis && !cmd.hasEulerProperty())
 		{
 			qTarget = solveTargetByIkIfPossible(cmd, *m_dhRows, &ikFailReason);
 		}
@@ -1498,7 +1425,7 @@ public:
 				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
 			}
 		}
-		if (qTarget.empty() && !constrainAxis)
+		if (qTarget.empty() && !constrainAxis && !cmd.hasEulerProperty())
 		{
 			qTarget = solveTargetByLegacyJointDelta(cmd);
 		}

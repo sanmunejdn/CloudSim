@@ -2,12 +2,14 @@
 
 #include "robot_scene_global.h"
 #include "RobotInstructionModel.h"
-#include "RobotProgramCatalog.h"
-
-#include <FeatureSpec.h>
 
 #include <string>
 #include <vector>
+
+namespace geoalgo
+{
+struct RawPath;
+}
 
 namespace RobotInstruction
 {
@@ -46,7 +48,8 @@ struct ROBOT_SCENE_API RawTrajectory
 {
 	std::vector<TrajectoryPoint> points;
 	TrajectoryContext ctx;
-	geoalgo::FeatureSpec sourceFeature;
+	/// FeatureSpec JSON（与 geometry_backend_ops::featureSpecToJson 契约一致）
+	std::string sourceFeatureJson;
 };
 
 enum class ROBOT_SCENE_API RawTrajectoryOpKind
@@ -101,13 +104,10 @@ ROBOT_SCENE_API std::vector<RawTrajectoryOpDescriptor> rawTrajectoryRecipeWeldDe
 ROBOT_SCENE_API std::vector<RawTrajectoryOpDescriptor> rawTrajectoryRecipeGlueDefault();
 ROBOT_SCENE_API std::vector<RawTrajectoryOpDescriptor> rawTrajectoryRecipeGrindDefault();
 
-ROBOT_SCENE_API bool emitRawTrajectoryToProgram(
-	const RawTrajectory& trajectory,
-	RobotProgram& program,
-	std::string* errMsg = nullptr,
-	std::string* outGroupId = nullptr);
-
 ROBOT_SCENE_API std::string rawTrajectoryToPreviewPolylineXyz(const RawTrajectory& trajectory);
 ROBOT_SCENE_API std::string rawTrajectoryReachabilityColorsJson(const RawTrajectory& trajectory);
+
+ROBOT_SCENE_API std::string rawTrajectoryWorkpieceBackendId(const RawTrajectory& trajectory);
+ROBOT_SCENE_API std::string rawTrajectoryFeatureId(const RawTrajectory& trajectory);
 
 } // namespace RobotInstruction

@@ -77,6 +77,11 @@ public:
 		RobotInstruction::PlanResult& out,
 		std::string* outErr) = 0;
 
+	virtual void enqueueBackgroundJob(
+		const QString& title,
+		std::function<void()> work,
+		std::function<void(bool threw, const QString& msg)> onFinished) = 0;
+
 	virtual void setMeshPickCommittedHandler(std::function<void(const PickResult&, PickKind)> handler) = 0;
 	virtual void clearMeshPickCommittedHandler() = 0;
 };

@@ -64,6 +64,23 @@ bool RobotProgramExecutor::evaluateCondition(const RobotInstruction::Condition& 
 	}
 }
 
+const RobotInstruction::Base* RobotProgramExecutor::currentInstruction() const
+{
+	if (m_activeMotion)
+	{
+		return m_activeMotion;
+	}
+	if (!m_stack.empty())
+	{
+		const auto& frame = m_stack.back();
+		if (frame.pc > 0 && frame.pc <= frame.steps.size())
+		{
+			return frame.steps[frame.pc - 1].get();
+		}
+	}
+	return nullptr;
+}
+
 const RobotInstruction::PlanResult* RobotProgramExecutor::planForMotion(const RobotInstruction::Base& ins) const
 {
 	const auto it = m_motionPlanIndex.find(&ins);
@@ -223,6 +240,8 @@ bool RobotProgramExecutor::advanceProgramStep(IRobotSimulationDocument* doc, IRo
 				m_io->setAnalogOutput(ins->ioPort(), ins->ioAnalogValue());
 			}
 			RunLogger::info(qToUtf8Std(QStringLiteral("Set AO port %1 = %2").arg(ins->ioPort()).arg(ins->ioAnalogValue())));
+			continue;
+		case RobotInstruction::Type::PathPlan:
 			continue;
 		case RobotInstruction::Type::IF:
 		{

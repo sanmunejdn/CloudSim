@@ -2,6 +2,7 @@
 
 #include "RobotInstructionAxisConfiguration.h"
 #include "RobotInstructionCondition.h"
+#include "TrajectoryPipelineTypes.h"
 #include "robot_scene_global.h"
 
 #include <json.hpp>
@@ -28,14 +29,26 @@ enum class ROBOT_SCENE_API Type
 	IF,
 	WHILE,
 	SET_DO,
-	SET_AO
+	SET_AO,
+	PathPlan
 };
 
 enum class ROBOT_SCENE_API Category
 {
 	Motion = 0,
-	Logic
+	Logic,
+	Planning
 };
+
+enum class ROBOT_SCENE_API PathPlanPhase
+{
+	Draft = 0,
+	RawReady,
+	Applied
+};
+
+ROBOT_SCENE_API bool isPathPlanType(Type t);
+ROBOT_SCENE_API bool isPlanningCategory(Category c);
 
 ROBOT_SCENE_API Category categoryForType(Type t);
 ROBOT_SCENE_API std::string typeToString(Type t);
@@ -300,6 +313,48 @@ private:
 	int m_port = 0;
 	double m_value = 0.0;
 };
+
+class ROBOT_SCENE_API PathPlanInstruction final : public Base
+{
+public:
+	PathPlanInstruction();
+
+	PathPlanPhase phase() const { return m_phase; }
+	void setPhase(PathPlanPhase p) { m_phase = p; }
+
+	const std::string& sourceFeatureJson() const { return m_sourceFeatureJson; }
+	void setSourceFeatureJson(const std::string& json) { m_sourceFeatureJson = json; }
+	void setSourceFeatureJson(std::string&& json) { m_sourceFeatureJson = std::move(json); }
+
+	const std::vector<TrajectoryOpDescriptor>& pipeline() const { return m_pipeline; }
+	std::vector<TrajectoryOpDescriptor>& pipelineMut() { return m_pipeline; }
+	void setPipeline(std::vector<TrajectoryOpDescriptor> ops) { m_pipeline = std::move(ops); }
+
+	const std::vector<TrajectoryOpDescriptor>& appliedHistory() const { return m_appliedHistory; }
+	std::vector<TrajectoryOpDescriptor>& appliedHistoryMut() { return m_appliedHistory; }
+
+	const std::string& outputGroupId() const { return m_outputGroupId; }
+	void setOutputGroupId(const std::string& id) { m_outputGroupId = id; }
+
+	const std::string& rawTrajectoryKey() const { return m_rawTrajectoryKey; }
+	void setRawTrajectoryKey(const std::string& key) { m_rawTrajectoryKey = key; }
+
+	int rawRevision() const { return m_rawRevision; }
+	void setRawRevision(int r) { m_rawRevision = r; }
+	void bumpRawRevision() { ++m_rawRevision; }
+
+private:
+	PathPlanPhase m_phase = PathPlanPhase::Draft;
+	std::string m_sourceFeatureJson;
+	std::vector<TrajectoryOpDescriptor> m_pipeline;
+	std::vector<TrajectoryOpDescriptor> m_appliedHistory;
+	std::string m_outputGroupId;
+	std::string m_rawTrajectoryKey;
+	int m_rawRevision = 0;
+};
+
+ROBOT_SCENE_API PathPlanInstruction* asPathPlan(Base& ins);
+ROBOT_SCENE_API const PathPlanInstruction* asPathPlan(const Base& ins);
 
 ROBOT_SCENE_API std::string makeInstructionId();
 

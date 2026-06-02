@@ -37,6 +37,7 @@ public:
 
 	const QVector<double>& jointAnglesRad() const { return m_jointAnglesRad; }
 	const RobotInstruction::Base* activeMotion() const { return m_activeMotion; }
+	const RobotInstruction::Base* currentInstruction() const;
 
 private:
 	struct ListFrame

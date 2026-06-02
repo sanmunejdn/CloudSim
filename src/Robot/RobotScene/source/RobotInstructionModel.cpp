@@ -9,6 +9,16 @@ namespace RobotInstruction
 {
 const Condition Base::s_emptyCondition{};
 
+bool isPathPlanType(const Type t)
+{
+	return t == Type::PathPlan;
+}
+
+bool isPlanningCategory(const Category c)
+{
+	return c == Category::Planning;
+}
+
 Category categoryForType(const Type t)
 {
 	switch (t)
@@ -16,6 +26,8 @@ Category categoryForType(const Type t)
 	case Type::PTP:
 	case Type::LINE:
 		return Category::Motion;
+	case Type::PathPlan:
+		return Category::Planning;
 	default:
 		return Category::Logic;
 	}
@@ -32,6 +44,7 @@ std::string typeToString(const Type t)
 	case Type::WHILE: return "while";
 	case Type::SET_DO: return "set_do";
 	case Type::SET_AO: return "set_ao";
+	case Type::PathPlan: return "path_plan";
 	default: return "unknown";
 	}
 }
@@ -71,6 +84,11 @@ bool typeFromString(const std::string& s, Type& out)
 	if (s == "set_ao" || s == "setAO" || s == "SET_AO")
 	{
 		out = Type::SET_AO;
+		return true;
+	}
+	if (s == "path_plan" || s == "PathPlan" || s == "PATH_PLAN")
+	{
+		out = Type::PathPlan;
 		return true;
 	}
 	return false;
@@ -220,6 +238,23 @@ SetDigitalOutputInstruction::SetDigitalOutputInstruction()
 		[](Base& b, const double& v) { b.setIoBoolValue(v >= 0.5); },
 		"logic.io.digitalValue",
 		"Value (0/1)"));
+}
+
+PathPlanInstruction* asPathPlan(Base& ins)
+{
+	return ins.type() == Type::PathPlan ? dynamic_cast<PathPlanInstruction*>(&ins) : nullptr;
+}
+
+const PathPlanInstruction* asPathPlan(const Base& ins)
+{
+	return ins.type() == Type::PathPlan ? dynamic_cast<const PathPlanInstruction*>(&ins) : nullptr;
+}
+
+PathPlanInstruction::PathPlanInstruction()
+{
+	setType(Type::PathPlan);
+	setName("Path Plan");
+	m_rawTrajectoryKey = id();
 }
 
 SetAnalogOutputInstruction::SetAnalogOutputInstruction()

@@ -180,9 +180,13 @@
 |------|------|
 | `tryStart(doc, osg, io, robotInstanceIndex, program, motionPlanResults, initialAngles, err)` | 含 IF/WHILE/WAIT/IO |
 | `tick(doc, osg)` | 状态机 + 运动段 |
+| `currentInstruction()` | 当前执行指令：运动中为 `activeMotion()`，否则栈顶 frame 的 `pc-1` 步 |
+| `activeMotion()` | 当前运动段（插值中） |
 | `stop()` / `isRunning()` | 控制 |
 
 私有：`While` 最大迭代 `kMaxWhileIterations = 10000`。
+
+`motionPlanResults` 由 UI 在 **Run 启动前** 链式填入（含 `PlanResultCache` 命中）；指令树选中预览在 Widget 层 **单次** `plan`、**不**经过本 executor。Run 期间 Widget 用 `currentInstruction()` 高亮指令树。预览与 Run 的差异见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) §指令树点击预览 vs 仿真运行。
 
 ### 7.3 `IRobotIoSink`
 
@@ -293,14 +297,34 @@
 
 **验收**：法兰 Ry≈90° 时，工具 Z=-200 应在基座 X（或 Y）体现约 200 mm 偏移，而非仅 ΔZ。见 `GeometryEngine::runSelfTest`。
 
-## 8.4 程序导出（`RobotProgramExport.h`）
+## 8.4 程序导出
+
+### Canonical v1（主路径，`RobotCanonicalProgramExport.h`）
+
+| 字段 | 说明 |
+|------|------|
+| `format` | `cloudsim.program_export`，`schemaVersion: 1` |
+| `exportLayout` | 默认 `nested_tree`（IF `then`/`else`，WHILE `body`） |
+| `instructions[]` | 与 `program.steps` 同构的运行记录 |
+| `flatMotionSequence` | DFS 运动叶索引，与仿真顺序一致 |
+| `coordinateFrames` | 完整 tool/user 帧定义 |
+
+仿真 **Export…** 写 `*.cloudsim-program.json`；品牌后处理见 `CloudSim/src/UI/RobotWidget/tools/robot_postprocess/`。
+
+### 遗留（`RobotProgramExport.h`）
 
 | API | 作用 |
 |-----|------|
-| `buildExportResult` | 运动点列表 + 规划结果 → 基座 TCP + 关节角 |
-| `writeExportResultToJson` / `writeExportResultToCsv` | 导出（`coordinateFrame: base_tool_origin_mm_deg`，语义同示教 `pose`） |
+| `buildExportResult` | 扁平运动点 + 关节角（过渡） |
 
-仿真 Dock **Export…** 先链式 `plan` 再写文件；失败点 `ikOk=false` 并带 `ikError`/`summary`。
+## 8.5 PathPlan 指令（`Type::PathPlan`，`Category::Planning`）
+
+- 字段：`pipeline[]`、`appliedHistory[]`、`phase`、`outputGroupId`、`rawTrajectoryKey`、`sourceFeatureJson`
+- Raw 存 `RobotProgramCatalog::pathPlanRaws`（工程 JSON `pathPlanRaws`）
+- 执行器/仿真/Canonical 导出跳过 `Category::Planning`；Apply 输出分组 `role=path_plan_output`
+- 编辑命令：`InsertPathPlanCommand`、`RemovePathPlanCommand`、`UpdatePathPlanPipelineCommand`、`UpdatePathPlanRawCommand`、`UpdatePathPlanApplyStateCommand`；轨迹 Apply 用 `CompositeProgramEditCommand` 打包程序替换与 PathPlan 状态
+- `unifiedTrajectoryMergeIntoProgram` / `emitRawTrajectoryToProgram(..., pathPlanInstructionId)`：仅删除并替换当前 PathPlan 的 `PathPlanOutput` 成员路点，其它 PathPlan 输出分组与运动路点保留
+- 旧工程加载：`migrateLegacyPathPlans`（无 PathPlan 但有运动/分组时补默认项）
 
 ---
 
@@ -357,9 +381,9 @@ flowchart LR
   E --> F[IRobotBackendPoseSink]
 ```
 
-**预览**（非运行）：`RobotSimulationController::applyRobotPoseForInstructionPreview` 自 `m_motionPreviewProgramStartJointRad` 链式至选中点。若该点含 `context.currentJointRadCsv`（添加指令时写入），**直接**用示教关节角，不对该点重算 IK；否则 `validate` + `plan`。轴配置可行列表 `queryFeasibleMotionAxisConfigurationOptions` 带缓存。
+**预览**（非运行）：`applyRobotPoseForInstructionPreview` 经链式种子对选中点单次 `plan`（或 `shouldUseTaughtJointCsv` + 残差门控）。**坐标系页**添加未激活工具系不触发全程序 reachability；切换激活工具会同步 `active` 路点 context 并失效示教关节。轴配置可行列表仍经 `queryFeasibleMotionAxisConfigurationOptions`（带独立缓存）。
 
-**运行**：`onSimulationStartTriggered` 对每条运动同样优先示教 CSV 构建 `PlanResult::jointTargetsRad`；`RobotProgramExecutor` 插值执行。程序起点仅在**第一条**运动指令加入时更新（见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)）。
+**运行**：`onSimulationStartTriggered` 链式构建 `PlanResult`（`PlanResultCache` 命中则跳过 IK）；`RobotProgramExecutor` 插值执行；tick 内 `currentInstruction()` 驱动指令树高亮 + `tickLookaheadPlanning` 后台预热。程序起点仅在**第一条**运动指令加入时更新（见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)）。
 
 **末端拖动示教**（非运行、不写指令）：屏幕空间平移更新 `T_base_target` → `RobotTeachIk` → 关节钳位 → `applyJointAnglesForInstance`；添加指令时用罗盘位姿 + `currentJointRadCsv` 落盘。见 [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §13.1、[`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)。
 
@@ -438,9 +462,18 @@ flowchart LR
 
 `InstructionProgramDocument`：在 `activeProgram()` 步骤树上按 id 查找/修改。Command 使用 `shared_ptr` 跨 DLL 边界（`ProgramEditStack::CommandPtr`）。
 
-Apply 路径分两支：Program Command 分支（`TrajectoryPipelineBuilder::buildApplyCommands` → `ProgramEditService::executeBatch`）与 Unified IR 分支。2026-05 修复后，**RawTrajectory 存在时一律优先走 Unified IR**（不再仅限 Recipe/Approach/Retract），避免“生成前平移/旋转无效”。Translate/Rotate 在两条分支都按点序支持起点→终点线性插值。
+Apply 路径分两支：Program Command 分支（`TrajectoryPipelineBuilder::buildApplyCommands` → `ProgramEditService::executeBatch`）与 Unified IR 分支（`TrajectoryEditSession::apply` 内 `requiresUnifiedApply`）。
 
-UI 侧新增门控：Apply 成功后会禁用“生成程序”入口，并在 `onRawEmitProgram` 做硬门禁，避免 `emitRawTrajectoryToProgram` 清空主程序后覆盖 Apply 结果。
+| 条件 | Apply |
+|------|--------|
+| `m_rawTrajectory` 或 `m_bakedWorldRaw` 存在，或流水线含 Recipe/Approach/Retract | **Unified IR**：自 `m_rawTrajectory`（文件坐标→`rebuildUnifiedFromSourceRaw` 世界系）重建 → pending → recipe → **accumulated 历次几何** → 本批 geometry → `unifiedTrajectoryToProgram` |
+| 无 raw，仅平移/旋转等 | Program Command；几何记入 `m_pendingPreRawGeometryOps` |
+
+2026-06：多次 Apply 从**同一 CAD raw** 重放 `m_accumulatedGeometryOps`，不再以 `m_bakedWorldRaw` 为起点（避免第二次移动覆盖第一次）。预览与 Apply 共用 Unified 顺序；有 raw 时 OSG 用世界坐标 `applyWorldRawTrajectoryPreviewToOsg`（见 RobotWidget §预览三分支）。
+
+无 raw 时含配方块：Apply 报错「配方块需要原始轨迹输入」；预览走 `previewUnifiedFromProgramPipeline`（程序路点 → Unified，见 RobotWidget 文档）。
+
+UI 侧：Apply 成功后禁用「生成程序」、`onRawEmitProgram` 硬门禁；清除 raw 叠加层并刷新指令路点轴。
 
 撤销/重做后流水线 scope 与程序分组可能不一致（例如撤销「创建分组」）；UI 层 `TrajectoryEditPageWidget::reconcilePipelineScopes` 在 Preview/Apply 与 `revisionChanged` 时回退失效的 `Group` scope，详见 RobotWidget §轨迹编辑。
 
@@ -472,8 +505,10 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 | `applyRawTrajectoryOp` / `applyRawTrajectoryPipeline` | 编辑块；`EmitToProgram` 须用 `emitRawTrajectoryToProgram` |
 | `rawTrajectoryRecipeWeldDefault` / `Glue` / `Grind` | 配方底座（RecipeBlueprint 会按新策略剥离内置进退刀） |
 | `buildRecipePreset` / `applyRecipeDescriptorToRawTrajectory` | 配方模板与 raw 配方映射 |
-| `unifiedTrajectoryToRaw` | 生成前预览回写：Unified 结果映射回 Raw overlay |
-| `emitRawTrajectoryToProgram` | 可达点 → `LineInstruction` 序列写入 `RobotProgram.steps`，并默认创建 `InstructionGroup`（组名 = `featureId`） |
+| `unifiedTrajectoryFromRaw` / `unifiedTrajectoryFromProgram` | Raw（经 UI 层 world 变换）或程序路点 → Unified |
+| `unifiedTrajectoryToRaw` | Unified → 点位列（轨迹编辑预览为世界 mm，由 UI 直接画 OSG） |
+| `applyUnifiedTrajectoryOp` | 平移/旋转/镜像/进退刀等（世界系 Unified 上按点序插值） |
+| `emitRawTrajectoryToProgram` | 可达点 → `LineInstruction` 写入 `steps` 并建分组；无 PathPlan 绑定时清空后整写；绑定 PathPlan 时按该条 `PathPlanOutput` 成员 id 局部替换（与 `unifiedTrajectoryMergeIntoProgram` 一致） |
 | `rawTrajectoryToPreviewPolylineXyz` / `rawTrajectoryReachabilityColorsJson` | UI/OSG 预览 |
 
 实现：[`source/RawTrajectory.cpp`](source/RawTrajectory.cpp)。

@@ -92,6 +92,8 @@ public:
 
 	void refreshProgramAndGroupCombos();
 
+	void syncBoundPathPlanFromSession();
+
 
 
 private:
@@ -138,7 +140,9 @@ private:
 	void refreshRawTrajectoryStatus();
 	void setPipelineAppliedState(bool applied, bool announce = false);
 
-	void showRawTrajectoryPreview(const RobotInstruction::RawTrajectory& traj);
+	void showRawTrajectoryPreview(
+		const RobotInstruction::RawTrajectory& traj,
+		bool posesAlreadyWorldMm = false);
 
 	std::string resolvePreviewBackendId(const RobotInstruction::RawTrajectory& traj) const;
 
@@ -150,7 +154,13 @@ private:
 
 	void onProgramChanged(int index);
 
+	void onPathPlanChanged(int index);
+
+	void onNewPathPlanClicked();
+
 	void onGroupChanged(int index);
+
+	void refreshPathPlanCombo();
 
 	void onPaletteDoubleClicked(QListWidgetItem* item);
 
@@ -214,6 +224,8 @@ private:
 
 	QLabel* m_programLabel = nullptr;
 
+	QLabel* m_pathPlanLabel = nullptr;
+
 	QLabel* m_groupLabel = nullptr;
 
 	QGroupBox* m_paramGroupBox = nullptr;
@@ -221,6 +233,10 @@ private:
 
 
 	QComboBox* m_programCombo = nullptr;
+
+	QComboBox* m_pathPlanCombo = nullptr;
+
+	QPushButton* m_newPathPlanBtn = nullptr;
 
 	QComboBox* m_groupCombo = nullptr;
 

@@ -88,7 +88,7 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 ### `context.currentJointRadCsv`
 
-添加 PTP/LINE 时写入当前实例关节角（rad，逗号分隔）。**预览**与 **Run** 对该指令优先使用示教角，**不再**对该点重算 IK（避免与拖动/捕获姿态不一致）。
+添加 PTP/LINE 时写入当前实例关节角（rad，逗号分隔）。**Run** 与 **预览** 均先经 `shouldUseTaughtJointCsv` 判定，再校验位置/姿态残差（≤ 1 mm / ≤ 5°）。IK/规划成功后 `persistTaughtJointsAndToolContext` 回写 CSV 与冻结工具 context。
 
 | API | 模块 |
 |-----|------|
@@ -101,12 +101,12 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 仅设置规划上下文，**禁止**用当前 `rollingQ` 的 FK 覆盖指令 `pose/euler`（`writeTargetTransformToInstruction` 已移除）。写入：
 
 - `context.currentJointRadCsv`（链式种子）
-- `context.urdfPath` / `context.tcpLinkName`
+- `context.urdfPath` / `context.tcpLinkName` / `context.flangeLinkName`（由工具系解析法兰 link）
 - `context.toolFrameMat4`
 
 ### 程序起点 `m_motionPreviewProgramStartJointRad`
 
-- 链式预览/Run 的**第一段起点**（与 `initialAngles` 同源）。
+- Run 链式规划的**第一段起点**（与 `initialAngles` 同源）；预览链式种子 `buildChainSeedJointRadForInstruction` 亦从此处起步。
 - **仅在**该机器人**第一条**运动指令加入程序时更新（`collectMotionInstructions` 条数 ≤ 1）；后续点不再覆盖，避免多点示教时起点被第二点关节顶替。
 - 优先从 `m_aggregatedJointAnglesRad` 捕获，否则回退轴滑块。
 
@@ -124,22 +124,111 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 |------|------|
 | 位姿 | 若存在 `m_lastTcpDragTargetValid`，用罗盘 `T_base_target` 写 `pose/euler` 与 `writeTargetTransformToInstruction`；否则 `tryCaptureCurrentRobotTcpPose`（关节角优先 `m_aggregatedJointAnglesRad`） |
 | 关节上下文 | `context.currentJointRadCsv` = `localJointAnglesForInstance` |
-| 添加后 | `captureMotionPreviewProgramStartJoints`（仅首条运动）、`m_skipInstructionPreviewOnce` → 避免立即链式预览把机器人拉离示教姿态 |
+| 添加后 | `captureMotionPreviewProgramStartJoints`（仅首条运动）、`m_skipInstructionPreviewOnce` → 避免立即预览把机器人拉离示教姿态 |
 | 选中 | `onSimulationInstructionSelectionChanged` 刷新属性与叠加轴 |
 
-### 指令预览（`applyRobotPoseForInstructionPreview`）
+### 指令树点击预览 vs 仿真运行
 
-自 `motionPreviewProgramStartJointsLocal` 链式处理 `collectMotionInstructions` 至选中点：
+预览与 Run **规划策略已分离**（2025 性能优化）：预览只对选中点做 **1× IK**，Run 对全程序链式规划并缓存；**二者 IK 种子语义一致**（程序起点 + 前序路点链式 `rollingQ`），不再使用屏幕当前关节角作种子。
 
-- 若该点有 `context.currentJointRadCsv` 且长度 = `nj`：**直接**采用示教关节，跳过 `validate/plan`。
-- 否则：`prepareMotionInstructionForPlanning` + `validate` + `plan`，`rollingQ` 取 `plan.jointTargetsRad`。
-- 写回 `applyJointAnglesForInstance` 与轴滑块（`m_suppressMotionPreviewStartCapture` 防止误改程序起点）。
+| 维度 | 点击预览 | 仿真运行 |
+|------|----------|----------|
+| 种子关节 | **链式** `buildChainSeedJointRadForInstruction`（程序起点 → 前序路点 `rollingQ`；失败回退 `motionPreviewProgramStartJointsLocal`） | 程序起点 + 链式 `rollingQ` |
+| 规划范围 | **仅选中** PTP/LINE（1× IK） | **全部** 运动指令（链式） |
+| 缓存 | 不缓存 | `PlanResultCache`（key = instructionId + fingerprint） |
+| 运行中树 | — | `currentInstruction()` + `QSignalBlocker` 跟随选中，不触发预览 |
+| 后台预读 | — | `tickLookaheadPlanning` → `IRobotMainWindowHost::enqueueBackgroundJob` |
 
-### 运行（`onSimulationStartTriggered`）
+实现均在 `RobotSimulationController`；执行器为 `RobotProgramExecutor`（[`RobotScene/DEVELOPER_GUIDE.md`](../Robot/RobotScene/DEVELOPER_GUIDE.md)）。
 
-- `initialAngles` 优先 `m_motionPreviewProgramStartJointRad`，否则当前滑块。
-- 对每条运动指令构建 `PlanResult`：有示教 CSV 则 `plan.ok=true`、`jointTargetsRad=示教角`（`plannerName=taughtJointCsv`）；否则走 `RobotInstructionController::plan`。
-- `RobotProgramExecutor::tryStart` + `tick` 按段插值 `jointTargetsRad`。
+#### 信号链
+
+| 操作 | 调用链 |
+|------|--------|
+| 点击指令树 | `InstructionProgramTreeWidget::instructionSelected` → `SimulationCommandWidget::instructionSelectionChanged` → `onSimulationInstructionSelectionChanged` →（非 TCP 拖动）`applyRobotPoseForInstructionPreview` |
+| 点 Run | `SimulationCommandWidget::runRequested` → `onSimulationRunRequested` → `onSimulationStartTriggered` → `m_programExecutor.tryStart` + `QTimer` → `onRobotSimulationTick` → `RobotProgramExecutor::tick` |
+
+`emitSelection=false` 重建树时不发 `instructionSelected`，避免在工具扩展写入前触发预览/IK（见 `InstructionProgramTreeWidget`）。
+
+#### 对比总览
+
+| 维度 | 点击预览 | 仿真运行 |
+|------|----------|----------|
+| 触发 | 选中 **PTP/LINE**（及树刷新后的选中） | Run 按钮 |
+| 规划时机 | 每次选中当场算，**不缓存** | 启动前链式规划；**命中** `PlanResultCache` 则跳过 IK |
+| 机器人动作 | **一帧到位** | **定时器插值** |
+| 写回指令 | `backup/restoreInstructionPose`，**不改** `motion.durationSec` | 可写 `motion.durationSec`；`PlanResult` 供播放 |
+| 程序逻辑 | 不执行 WAIT / IF / WHILE / IO | `RobotProgramExecutor::advanceProgramStep` |
+| 运行中 | `m_programExecutor.isRunning()` 时预览 **直接 return** | tick 内更新指令树选中 + 并行预读 |
+
+直观理解：**预览 = 用与 Run 相同语义的链式种子，对选中点单次 IK（或示教 CSV）并瞬间摆过去**；**运行 = 全程序链式建 `PlanResult`（带缓存）再插值播放**。屏幕上的当前关节角**不参与**预览 IK 种子（`localJointAnglesForInstance` 仅用于添加指令、TCP 拖动等其它路径）。
+
+#### `PlanResultCache` 与 fingerprint
+
+- 类：`PlanResultCache`（`RobotWidget/inc/PlanResultCache.h`），仅 UI 线程读写。
+- `computePlanFingerprint` 纳入：指令 id、pose、euler、speed、accel、axisConfig preset、`motion.tool.frameId`、`context.toolFrameMat4`、seed 关节、urdfPath、tcpLinkName。
+- **失效**：`invalidateFeasibleAxisConfigurationCache`、`onRobotCoordinateFramesChanged`、`onSimulationRobotSelectionChanged`、`ProgramEditService::revisionChanged`。
+
+#### 点击预览（`applyRobotPoseForInstructionPreview`）
+
+**前置条件**：非 `m_skipInstructionPreviewOnce`、非 TCP 拖动示教、仿真未运行、选中类型为 PTP/LINE。
+
+**步骤**：
+
+1. `chainSeedQ = buildChainSeedJointRadForInstruction`（前序路点链式种子；前序 `plan` 失败则标记 `chainReliable=false` 并回退程序起点）；`seedQ = chainReliable ? chainSeedQ : programStartQ`。
+2. **示教 CSV 快速路径**：`shouldUseTaughtJointCsv` 且位置/姿态残差合格 → `resultQ = taughtQ`。
+3. 否则对**选中点**单次 `planMotionOnHost`；姿态门控 ≤ 5°；失败可回退 `programStartQ` 再试。
+4. IK 成功后 `persistTaughtJointsAndToolContext` 回写示教关节。
+5. 写入关节状态并 `refreshRobotCoordinateFrameOverlays(instruction, &resultQ)`。
+
+**不**播放中间过程；**不**缓存 `PlanResult`。
+
+#### 仿真运行（`onSimulationStartTriggered`）
+
+1. `initialAngles`：优先 `m_motionPreviewProgramStartJointRad`，否则轴滑块当前角。
+2. 对每条运动指令：先查 `PlanResultCache`；未命中则示教 CSV 或 `planMotionOnHost`；成功写入缓存。
+3. 保存 `m_currentRunMotions` 供 `tickLookaheadPlanning`。
+4. `tryStart` + `m_playbackTimer`；tick 内 `currentInstruction()` 高亮指令树（`QSignalBlocker` + id 去重）。
+
+播放阶段 **不再** 调用 planner；后台 Job 仅预热后续段缓存。
+
+#### 并行预读（`tickLookaheadPlanning`）
+
+Run 期间每 tick 在 UI 线程调用；根据 `activeMotion()` 在 `m_currentRunMotions` 中定位当前段，向前最多 3 段：
+
+1. `trySeedJointRadForMotionIndex` 沿链从 `PlanResultCache` 恢复种子关节；
+2. 未命中且 `m_lookaheadPendingJobs < maxConcurrentJobs` → `IRobotMainWindowHost::enqueueBackgroundJob`；
+3. 工作线程用 `PlanJobPayload` 快照构造独立 `PtpInstruction`/`LineInstruction` + `Controller::plan`（**禁止** clone `Base`）；
+4. `onFinished`（UI 线程）写入 `PlanResultCache`。
+
+`stopRobotSimulation` 清空 `m_currentRunMotions`、`m_lookaheadPendingJobs`、`m_lastHighlightedInstructionId`。
+
+#### 关键 API（本模块）
+
+| 符号 | 文件 | 说明 |
+|------|------|------|
+| `PlanResultCache` | `inc/PlanResultCache.h` | Run 规划结果缓存 |
+| `computePlanFingerprint` | `RobotSimulationController` | 缓存 key 的 fingerprint |
+| `tickLookaheadPlanning` | 同上 | Run 中后台预读 |
+| `buildChainSeedJointRadForInstruction` | 同上 | 预览/可行轴：程序起点 → 前序路点链式种子 |
+| `applyRobotPoseForInstructionPreview` | 同上 | 选中预览（链式种子 + 单次 IK 或示教 CSV） |
+| `onSimulationStartTriggered` | 同上 | Run 启动 + 链式缓存 |
+| `onRobotSimulationTick` | 同上 | 播放 + 树高亮 + 预读调度 |
+
+Host 侧：`IRobotMainWindowHost::enqueueBackgroundJob` → `MainWindowRobotHost` → `MainWindow::jobSystem()`（见 [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §12）。
+
+Executor 侧：`RobotProgramExecutor::currentInstruction()`（见 [`../Robot/RobotScene/DEVELOPER_GUIDE.md`](../Robot/RobotScene/DEVELOPER_GUIDE.md) §7.2）。
+
+#### 与添加指令的协作
+
+- 首条运动指令加入时 `captureMotionPreviewProgramStartJoints` 冻结起点。
+- 添加后设 `m_skipInstructionPreviewOnce`，避免树自动选中触发预览把机器人从刚示教姿态拉走。
+
+#### 修改注意
+
+- 预览与 Run **共享链式种子语义**；差异仅在规划范围（选中 1× vs 全程序）与 Run 缓存/预读。勿在预览中改回 `localJointAnglesForInstance` 作 IK 种子，除非产品需求变更。
+- 改示教 CSV 判定、`prepareMotionInstructionForPlanning`（含 `flangeLinkName`）或姿态门控时，**须同时**核对预览与 Run 两处路径。
+- 改 `computePlanFingerprint` 字段时同步检查缓存命中率与失效触发点。
 
 ---
 
@@ -150,6 +239,7 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 | `backupInstructionPose` / `restoreInstructionPose` | 规划前保存/恢复位姿与 extensions |
 | `prepareMotionInstructionForPlanning` | 写规划上下文（见上） |
 | `encodeJointAnglesRadCsv` / `jointAnglesRadFromInstructionContext` | 示教关节持久化 |
+| `motionFollowsActiveToolFrame` / `syncInstructionToolContextFromFrames` / `persistTaughtJointsAndToolContext` | 工具系切换与 IK 后回写；**active 跟随路点 sync 始终用 `activeToolFrame(frames)`**，避免 stale `context.activeToolFrameId` |
 | `motionDurationSecFromInstruction` | 段时长 |
 
 ---
@@ -166,7 +256,28 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 |----|------|
 | `SimulationCommandWidget` | 指令树、Run/Stop、TCP 拖动；**程序下拉 / 新建 / 重命名 / 删除**；**指令**分组（PTP/LINE/…）与 **功能**分组（末端拖动/删除/清空）；Ctrl 多选 + 右键创建分组；`setProgramStore`、`activeProgramChanged` / `groupsChanged` |
 | `RobotAxisControlWidget` | 关节滑块；`setJointAngle` 内 `qBound` 限位 |
-| `RobotFrameSettingsWidget` | 工具/用户系；`framesChanged` → 叠加刷新 |
+| `RobotFrameSettingsWidget` | 工具/用户系；`framesChanged` → `onRobotCoordinateFramesChanged`（见下） |
+
+#### 工具坐标系页 `framesChanged` 分级刷新
+
+`onRobotCoordinateFramesChanged` 对比变更前后 `RobotCoordinateFrameSet`：
+
+| 变更类型 | 典型操作 | 行为 |
+|----------|----------|------|
+| **无变更** | 仅切换工具列表行（spin 未改） | 不 emit `framesChanged` |
+| **DisplayOnly** | 仅切换「显示工具系/用户系」 | 只刷 overlay |
+| **StructuralOnly** | 添加/复制/删除**未激活**工具系 | `refreshInstructionPoseAxes(false)`；**不** invalidate plan 缓存；**不** preview |
+| **ActiveToolChanged** | 「设为当前」切换激活工具 | `applyToolFrameChangeToProgram` + 失效 plan/可达性缓存；**异步** reachability + 选中点 preview |
+| **ToolGeometryChanged** | 编辑 `T_flange_tool` / flange link | 对使用该工具 id 的路点失效示教关节；异步 reachability + preview |
+
+`motion.tool.frameId` 为 `"active"` 或空的路点**跟随全局激活工具**（切换 active 时 `syncInstructionToolContextFromFrames` 写当前 `activeToolFrameId` / `toolFrameMat4`，不用 frozen id 解析）。具体 id 的路点仅在该工具几何变更时失效。
+
+辅助 API（`RobotInstructionPlanningHelpers`）：`motionFollowsActiveToolFrame`、`syncInstructionToolContextFromFrames`、`persistTaughtJointsAndToolContext`。
+
+Add/Duplicate/Remove 工具系时用 `m_blockSignals` 避免 `setCurrentRow` 触发双重 `framesChanged`。工具列表切换行时仅 spin 实际变更才 emit。
+
+| 类 | 说明 |
+|----|------|
 | `TrajectoryEditPageWidget` | 轨迹编辑 Dock 子页：**工艺模板**区 + 调色板 + Program Op 流水线 + 参数区 + 预览勾选/Apply/Reset/Undo |
 | `InstructionProgramTreeWidget` | 层级指令树；`NodeKind::Group` 嵌套显示分组；Ctrl 多选根层级指令 → 右键创建分组；拖放维护 `memberInstructionIds`；`instructionSelected` → 预览 |
 | `TrajectoryEditSession` | 预览（临时改 store 中 pose）与 Apply（Command 落盘）；`reset` / `abandonPreview`；**并行持有** `m_rawTrajectory`（`setRawTrajectory` / `rawTrajectoryChanged`，与 Program 预览快照解耦）；见 §轨迹编辑 |
@@ -206,15 +317,34 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 | 状态标签 | `TrajectoryEditSession::hasRawTrajectory()` → 点数；否则提示先在轨迹生成页离散 |
 | 工艺下拉 | 焊缝 / 涂胶 / 打磨（映射 `RecipeWeld/RecipeGlue/RecipeGrind` 模板） |
 | 填充工艺流水线 | `buildRecipePreset` → `m_pipeline->setOps(...)`，插入统一算法块链（焊缝/打磨默认附加 `Approach + Retract`） |
-| 生成程序 | 保留 `emitRawTrajectoryToProgram` 入口用于 raw 直出；**Apply 成功后自动禁用**，避免覆盖已应用结果；发生新编辑或 Raw 更新后恢复可用 |
+| 生成程序 | 保留 `emitRawTrajectoryToProgram` 入口用于 raw 直出；绑定 PathPlan 时仅替换该条 `PathPlanOutput`，不删除其它 PathPlan 的分组与路点；**Apply 成功后自动禁用**，避免覆盖已应用结果；发生新编辑或 Raw 更新后恢复可用 |
 
-`rawTrajectoryChanged` 刷新状态；`reset()` / `abandonPreview` **不清** `m_rawTrajectory`。当流水线含 Recipe/Approach/Retract 时，Apply 走 Unified IR 分支。
+`rawTrajectoryChanged` 刷新状态；`reset()` / `abandonPreview` **不清** `m_rawTrajectory`。当流水线含 Recipe/Approach/Retract，或 session 已有 `m_rawTrajectory` / `m_bakedWorldRaw` 时，Apply 走 Unified IR 分支。
+
+### Session 几何历史（多次 Apply / 预览对齐）
+
+`TrajectoryEditSession` 在流水线 **Apply 成功后** 会 `clearPipelineAfterCommit()` 清空 UI 流水线，但保留下列历史，用于下次从**同一 CAD raw 基线**重放全部几何变换（避免「第二次 Apply 覆盖第一次移动」）：
+
+| 成员 | 何时写入 | 何时用于预览/Apply |
+|------|----------|-------------------|
+| `m_pendingPreRawGeometryOps` | 尚无 raw 时走 **Program Command** Apply 的本批几何块 | 首次 **有 raw** 的 Unified Apply/预览：在 recipe 之前叠加，随后 **清空** |
+| `m_accumulatedGeometryOps` | 每次 **有 raw** 的 Unified Apply 成功后，追加本批全部非配方几何块（含 Approach/Retract/平移/旋转等） | 之后每次 Unified Apply/预览：在 recipe 之后、本批 `geometryOps` 之前重放 |
+| `m_bakedWorldRaw` | 有 raw 的 Unified Apply 成功后由 `unifiedTrajectoryToRaw` 烘焙 | 参与 `requiresUnifiedApply` 判断；**不再**作为 Apply 起点（始终从 `m_rawTrajectory` 重建） |
+| `m_rawTrajectory` | 轨迹生成页 `setRawTrajectory`；有 raw 的 Apply 中 recipe 会更新其点列 | Unified 链的 **文件坐标** 输入；经 `rebuildUnifiedFromSourceRaw` 转世界系再算几何 |
+
+用户点轨迹编辑 **Reset** 时：`clearTrajectoryGeometryHistory()` 清空上述历史 + `m_bakedWorldRaw`（`onResetClicked`）。`setRawTrajectory`（新离散）会清 `m_bakedWorldRaw`，**保留** accumulated（除非用户 Reset）。
+
+**禁止**在 Unified Apply 的 recipe 循环内清空 `m_accumulatedGeometryOps`；本批 recipe 与几何分阶段执行（先全部 recipe → rebuild → accumulated → 本批 geometry）。
+
+**新离散**：`setRawTrajectory` 清几何历史；**已绑定** PathPlan 时只更新该条 raw；无绑定时在根级 PathPlan 序列末尾 `InsertPathPlanCommand` 并自动命名（featureId 去重）。重离散清 `appliedHistory`。`bindPathPlan(id)` 加载 `pipeline` / `appliedHistory` / raw。Apply（有 raw）用 `CompositeProgramEditCommand` 一次撤销。删除 PathPlan：`RemovePathPlanCommand`（指令树删除按钮）。
+
+**指令树 · 路径规划区**：根级虚拟节点「路径规划」下展示全部 `Type::PathPlan`（可拖放排序）；子节点可显示对应 `PathPlanOutput` 分组（只读）。运动程序（分组/路点）在其下方。`program.steps` 约定为 **PathPlan 块在前、运动指令在后**（`syncToProgram` 写回）。离散/编辑绑定以树选中或轨迹编辑页下拉为准，不再默认 `plans.front()`。
 
 ### 组件与绑定（Program Op 流水线）
 
 | 组件 | 职责 |
 |------|------|
-| `TrajectoryEditPageWidget` | UI：程序/分组、调色板、流水线、`TrajectoryOpParamPanel`、预览勾选/Apply/Undo |
+| `TrajectoryEditPageWidget` | UI：程序/路径规划/分组、调色板、流水线、`TrajectoryOpParamPanel`、预览勾选/Apply/Undo |
 | `TrajectoryPipelineListWidget` | `m_ops` 真源；列表项由 `rebuildItems()` 从 `m_ops` 生成 |
 | `TrajectoryEditSession` | 持有 `m_ops` 副本 + `TrajectoryPipelineBuilder`；Preview 快照 / Apply Command；`reset` / `abandonPreview` |
 | `ProgramEditService` | Apply 时优先 `executeBatch(cmds)`（单次 `renumberAndNotify` + `revisionChanged`）；Undo/Redo 恢复程序树 |
@@ -226,8 +356,8 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 
 | 操作 | UI 路径 | Session API |
 |------|---------|-------------|
-| 增删/排序/拖入/加载模板 | `opsChanged` → `syncSessionPipeline()` | **`setPipeline`**（先 `reset()` 清预览） |
-| 仅改参数（Schema 面板） | `applyParamsToSelectedOp()` → `syncSessionParams()` | **`updatePipelineOps`**（不 reset；已预览则 `reapplyPreview()`） |
+| 增删/排序/拖入/加载模板 | `opsChanged` → `syncSessionPipeline()` | 已绑定 PathPlan：**`updatePipelineOps`** + `syncPipelineToBoundPathPlan`；否则 **`setPipeline`**（`reset()`） |
+| 仅改参数（Schema 面板） | `applyParamsToSelectedOp()` → `syncSessionParams()` | **`updatePipelineOps`**（不 reset）；勾选预览时 **`schedulePreviewRun`** 完整重算（勿依赖旧 `reapplyPreview` 单独路径） |
 | 预览勾选 / Apply | `reconcilePipelineScopes()` + `flushPipelineToSession()`（预览勾选时自动或手动触发） | 有选中块 → `applyParamsToSelectedOp`；否则 `syncSessionParams` |
 | 撤销 / 重做（任意 Command） | `ProgramEditService::revisionChanged` → `syncUiAfterProgramRevision()` | 刷新分组下拉、丢弃预览、协调流水线 scope（见下） |
 
@@ -259,8 +389,8 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 
 | 控件 | 行为 |
 |------|------|
-| **预览（勾选框，默认勾选）** | 勾选：`runPreviewIfEnabled`（`reconcile` → `flush` → `preview`）；取消：`session->reset()` 恢复路点。流水线/参数变更且仍勾选时自动重跑预览 |
-| **Apply** | `reconcilePipelineScopes` → `flush` → `apply`：普通块沿用 Program Command；含 Recipe/Approach/Retract 时走 Unified IR + `ReplaceProgramContentCommand`；成功后清空流水线并**取消勾选**预览 |
+| **预览（勾选框，默认勾选）** | `runPreviewIfEnabled`（`reconcile` → `flush` → 见下 §预览三分支）；取消：`session->reset()` 恢复路点。流水线/参数变更且仍勾选时 `schedulePreviewRun` 防抖重跑 |
+| **Apply** | `reconcilePipelineScopes` → `flush` → `apply`：无 raw 且仅平移/旋转等可走 Program Command；否则 Unified IR + `ReplaceProgramContentCommand`；成功后清空流水线、**取消勾选**预览、**关闭 raw 叠加层**并 `refreshInstructionPoseAxes` |
 | **Apply 后生成门控** | 页面状态 `m_pipelineAppliedSinceLastRawChange=true`，`m_rawEmitBtn` 禁用；`onRawEmitProgram` 也有硬门禁提示，防止绕过按钮状态覆盖结果 |
 | **Reset** | `session->reset()` + `pipeline->setOps({})`（`opsChanged` → `setPipeline` 同步 Session） |
 | **Undo / Redo** | `ProgramEditService::undo/redo` → `revisionChanged` → `syncUiAfterProgramRevision` |
@@ -279,41 +409,87 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 
 拖入/新建块的默认 scope：`defaultScopeForNewOp()` — **顶栏「分组」**非「（无）」→ `OpScope::Group`（写入 `groupId`），否则 `EntireProgram`。参数区作用域默认「分组」；顶栏分组变更会同步参数区分组下拉，**不**使用指令树选中项。
 
-### 预览 vs 应用
+### 预览 vs 应用（2026-06 修订）
+
+入口均为 `TrajectoryEditPageWidget::runPreviewIfEnabled`：先 `reconcilePipelineScopes` + `flushPipelineToSession`，再按是否已有 raw 分派。
 
 ```mermaid
-flowchart LR
-  UI[TrajectoryEditPageWidget]
-  Sess[TrajectoryEditSession]
-  Store[RobotProgramStore]
-  OSG[refreshInstructionPoseAxes + requestRedraw]
-  Cmd[ProgramEditService]
-
-  UI -->|reconcile + flushPipelineToSession| Sess
-  Sess -->|Preview: capture snapshot| Store
-  Sess -->|applyPreviewTransforms| Store
-  Store --> OSG
-  Sess -->|Apply: restorePreviewSnapshots + buildApplyCommands| Cmd
-  Cmd -->|execute / revisionChanged| Store
-  Cmd -->|revisionChanged| UI
+flowchart TD
+  UI[runPreviewIfEnabled]
+  UI --> HasRaw{hasRawTrajectory?}
+  HasRaw -->|是| RawPrev[buildRawPreviewWithPipeline]
+  RawPrev --> WorldOsg[applyWorldRawTrajectoryPreviewToOsg]
+  HasRaw -->|否| PipePrev[previewPipeline]
+  PipePrev --> NeedU{requiresUnifiedApply?}
+  NeedU -->|是| ProgU[previewUnifiedFromProgramPipeline]
+  NeedU -->|否| ProgQ[preview + buildPreviewPoseQuery]
+  ProgU --> Axes[refreshInstructionPoseAxes]
+  ProgQ --> Axes
 ```
+
+#### 预览三分支
+
+| 分支 | 条件 | API | 3D 显示 |
+|------|------|-----|---------|
+| **A. Raw 叠加层** | `hasRawTrajectory()` | `buildRawPreviewWithPipeline` → `showRawTrajectoryPreview(traj, posesAlreadyWorldMm=true)` | `applyWorldRawTrajectoryPreviewToOsg`：位姿已是**世界 mm**，不再 `world→file→world` |
+| **B. 程序 + Unified** | 无 raw，流水线含 Recipe/Approach/Retract | `previewPipeline` → `previewUnifiedFromProgramPipeline` | 临时写回 store 路点 + `refreshInstructionPoseAxes`；**不**重放 `pendingPreRaw`（已落盘的在路点里） |
+| **C. 程序 + Pose 链** | 无 raw，仅平移/旋转等可预览块 | `previewPipeline` → `preview()` + `buildPreviewPoseQueryChain` | 快照 → 链式变换 → 写回 scope 内路点 |
+
+**Raw 预览 Unified 顺序**（与 Apply 一致，`buildRawPreviewWithPipeline` / `apply` 共有逻辑）：
+
+1. `m_rawTrajectory`（文件坐标）→ `rebuildUnifiedFromSourceRaw`（`transformRawTrajectoryToWorld` + `unifiedTrajectoryFromRaw`）
+2. `m_pendingPreRawGeometryOps`（若有）→ `applyUnifiedTrajectoryOp`
+3. 本批 **recipe** → `applyRecipeDescriptorToRawTrajectory` → 再 `rebuildUnifiedFromSourceRaw`
+4. `m_accumulatedGeometryOps`（历次几何）→ `applyUnifiedTrajectoryOp`
+5. 本批 **geometryOps**（当前流水线非配方块）→ `applyUnifiedTrajectoryOp`
+6. `unifiedTrajectoryToRaw` → 世界系 `outPreviewRaw` → 分支 A 直接画 OSG
+
+**注意**：离散后、尚未「生成程序」时，预览只看 **raw 叠加层**（分支 A），不要与指令树路点轴混读；`m_rawTrajectoryPreviewActive` 时 `refreshInstructionPoseAxes` 直接返回，且预览前会 `clearInstructionPoseAxes`。
+
+#### Apply（Unified 分支，有 raw 时典型：线离散 → 配方 → 移动）
+
+与预览步骤 1–5 相同，最后 `unifiedTrajectoryToProgram` + `ReplaceProgramContentCommand`。成功后：
+
+- `appendGeometryOpsHistory(m_accumulatedGeometryOps, geometryOps)` 记录本批几何；
+- 可选更新 `m_rawTrajectory`（recipe 后的 rawWorking）、写入 `m_bakedWorldRaw`；
+- `syncRenderMatricesForInstructionIds(..., worldFrameTcp=true)`；
+- 页面 `onApplyClicked`：`setRawTrajectoryPreviewActive(false)`、`clearRawTrajectoryOverlay*`、`refreshInstructionPoseAxes`。
+
+无 raw 时：若 `requiresUnifiedApply` 且程序无路点 → 报错「无原始轨迹且程序中无路点」；配方块要求 `usingRaw`（须先离散）。
+
+#### 坐标系
+
+| 数据 | 坐标系 |
+|------|--------|
+| `m_rawTrajectory.points`（session 持久） | STEP **文件**坐标（轨迹生成页离散结果） |
+| Unified 上 `applyUnifiedTrajectoryOp` | **世界** mm（`rebuildUnifiedFromSourceRaw` 之后） |
+| `buildRawPreview` / Apply 写入程序 | 世界 targetTransform；渲染 `syncInstructionRenderMatricesFromWorldPose` |
+| 轨迹生成页首次预览 | `applyRawTrajectoryPreviewToOsg`：file → world（[`FeaturePickTransform`](inc/FeaturePickTransform.h)） |
+| 轨迹编辑页 raw 预览（分支 A） | `applyWorldRawTrajectoryPreviewToOsg`：**已是世界坐标**，避免往返变换抹掉平移 |
+
+#### 其它 Session API
+
+| API | 行为 |
+|-----|------|
+| `previewPipeline(ops)` | 设置 `m_ops` 后分派 B/C；有 raw 时返回错误（应用 `buildRawPreviewWithPipeline`） |
+| `rebuildUnifiedFromSourceRaw` | file raw → world unified（Apply/预览/recipe 后重建共用） |
+| `reapplyPreview` | 无 raw 且 `requiresUnifiedApply` → `previewUnifiedFromProgramPipeline`；否则 Pose 链；**有 raw 时返回 false**（由页面 `schedulePreviewRun` 重算） |
+| `updatePipelineOps` | 仅更新 `m_ops` + 失效 scope 缓存，**不**自动 reapply |
+| `syncSessionParams`（页面） | `updatePipelineOps` + 勾选预览时 `schedulePreviewRun(80ms)` |
 
 | 阶段 | 行为 |
 |------|------|
-| **Preview** | `reconcilePipelineScopes` → `collectPreviewWaypointIds`（凡 `PreviewPoseTransform` 能力块）→ 快照原始 pose → `buildPreviewPoseQuery` 链式算目标位姿（含 World/Body `frame`）→ **临时**写回 store → `syncPreviewRenderMatrices` → `refreshInstructionPoseAxes` |
-| **Preview（Raw 场景）** | 当 `TrajectoryEditSession::hasRawTrajectory()==true` 时，页面改走 `Raw -> Unified -> pipeline -> Unified->Raw`，并调用 `showRawTrajectoryPreview` 回显；不再依赖 Program 路点预览链 |
-| **参数变更且已预览** | `updatePipelineOps` → `reapplyPreview()`（restore 快照 → 重算 → 刷新 OSG）；平移/旋转按作用域点序执行起点→终点线性插值 |
-| **Apply** | Raw 存在时强制 `Raw -> Unified -> pipeline -> Program`（Unified 分支）；否则沿用 `restorePreviewSnapshots()` → `buildApplyCommands` → `executeBatch` |
 | **Undo / Redo** | `syncUiAfterProgramRevision`：`abandonPreview` + `reconcilePipelineScopes` + 刷新分组 UI |
-| **Reset** | `session->reset()` 恢复快照；UI 流水线 `setOps({})` |
+| **Reset** | `reset()` 恢复快照 + `clearTrajectoryGeometryHistory()`；UI 流水线 `setOps({})` |
 
 预览错误提示（区分原因）：
 
 | 条件 | 文案 |
 |------|------|
 | `m_ops.empty()` | 流水线为空，请先添加算法块 |
-| 无可预览能力块 | 当前流水线无可预览块（Recipe/Approach/Retract 仅 Apply 生效） |
-| scope 解析无路点 | 作用域内无运动路点（常见：分组已被撤销但流水线仍引用旧 `groupId`；应先走 `reconcilePipelineScopes`） |
+| 无可预览能力块 | 当前流水线无可预览块 |
+| scope 解析无路点（分支 B/C） | 作用域内无运动路点，请先在程序中创建路点或完成轨迹离散 |
+| 无 raw 且配方 Apply | 配方块需要原始轨迹输入 |
 
 ### pose 与 targetTransform 一致性约束（2026-05 修订）
 
@@ -372,13 +548,20 @@ Dock 页签 **「轨迹生成」**（`FeatureTrajectoryPageWidget`，`kTabIndexT
 
 **坐标系约定**：`RawTrajectory.points` 与 OCCT 离散结果同在 **STEP 文件坐标**（非视口世界坐标）。预览与 `emitRawTrajectoryToProgram` 前经 `feature_pick_transform::stepModelPointToWorldMm` / `transformRawTrajectoryToWorld` 按 **当前** `workpiece.backendIdUtf8` 的 `getBackendRootWorldMatrix` + `modelCenter` 变换（与 `ObjectGizmoFrame` / `buildOuterBranch` 一致）。session 内 raw 保持 file 坐标；工件移动后重新离散或刷新预览即可跟随。
 
-**预览叠加层**：原始轨迹用 `setRawTrajectoryOverlay`（折线 + 点）+ 可选 `setRawTrajectoryOverlayFrames`（稀疏 TCP 轴，默认 15 mm，X/Y/Z 红/绿/蓝）。UI「显示坐标轴」+「轴间隔」（0 = 自动 max(1, n/20)，最多 50 轴）。`RobotSimulationController::m_rawTrajectoryPreviewActive` 时跳过 `refreshInstructionPoseAxes`，避免被指令树预览覆盖。选中指令树节点会清除 raw 预览并恢复指令路点轴。
+**预览叠加层**：原始轨迹用 `setRawTrajectoryOverlay`（折线 + 点）+ 可选 `setRawTrajectoryOverlayFrames`（稀疏 TCP 轴，默认 15 mm，X/Y/Z 红/绿/蓝）。
 
-**生成程序后显示**：`TrajectoryEditPageWidget::onRawEmitProgram` 在 `refreshInstructionList()` 后调用 `refreshInstructionPoseAxes(false)` 并 `clearRawTrajectoryOverlay` / `clearRawTrajectoryOverlayFrames`，3D 立即显示指令 TCP 轴，无需再点树。`emitRawTrajectoryToProgram` 写入 LINE 后**默认创建分组**（组名 = `sourceFeature.featureId`，成员 = 全部可达 LINE id）。
+| API | 用途 |
+|-----|------|
+| `applyRawTrajectoryPreviewToOsg` | **文件坐标** raw（轨迹生成页离散后首次预览） |
+| `applyWorldRawTrajectoryPreviewToOsg` | **世界坐标** raw（轨迹编辑页 `buildRawPreviewWithPipeline` 输出） |
+
+`m_rawTrajectoryPreviewActive` 时 `refreshInstructionPoseAxes` 直接返回，避免 raw 叠加层与指令路点轴叠成「双轨」。轨迹编辑 Apply 成功后会主动清除 raw 叠加并刷新指令轴。选中指令树节点会清除 raw 预览并恢复指令路点轴。
+
+**生成程序后显示**：`TrajectoryEditPageWidget::onRawEmitProgram` 在 `refreshInstructionList()` 后调用 `refreshInstructionPoseAxes(false)` 并 `clearRawTrajectoryOverlay` / `clearRawTrajectoryOverlayFrames`，3D 立即显示指令 TCP 轴，无需再点树。`emitRawTrajectoryToProgram` 写入 LINE 后**默认创建分组**（组名 = `sourceFeature.featureId`，成员 = 全部可达 LINE id）。多 PathPlan 时每次生成/Apply 只更新当前绑定项的输出组，先前规划的分组与路点保留。
 
 **当前特征锁定**：3D 拾取或离散成功后缓存 `FeatureSpec`；调整离散参数时自动对**上次特征**重新离散（400 ms 防抖），无需再次拾取；编辑器仍为 catalog JSON 时不影响参数调参。
 
-**性能**：指令树选中时 `refreshInstructionPoseAxes(false)`（不算全程序可达性）；树选择 50 ms debounce；程序步数 &gt; 100 时 `rebuildFromProgram` 不 `expandAll`。大量路点写入程序后树操作仍较重，建议适当增大离散步距或后续使用路径分组 emit。
+**性能**：指令树选中时 `buildChainSeedJointRadForInstruction` **只算一次**，`feasibleMotionAxisConfigurationOptionsForInstruction` 与 `applyRobotPoseForInstructionPreview` 共用 `PrecomputedChainSeed`；`refreshInstructionPoseAxes(false)`（不算可达性）；链式种子 / 可达性 / Run 复用 `PlanResultCache`（可达性对示教 CSV 路点跳过 IK）。切换激活工具或工具几何时 reachability 经 `enqueueBackgroundJob` 异步计算。树选择 50 ms debounce；程序步数 &gt; 100 时 `rebuildFromProgram` 不 `expandAll`。
 
 **V1 限制**：单次拾取一条边或一个面；层级 STEP 子件共享整件 STEP 索引；索引解析容差默认 2 mm；已 emit 的 LINE 为发射时刻世界坐标，工件再移动不会自动更新程序。
 
@@ -389,7 +572,8 @@ Dock 页签 **「轨迹生成」**（`FeatureTrajectoryPageWidget`，`kTabIndexT
 | `geometry_backend_ops` | [`Data/inc/GeometryRef.h`](../../Data/Data/inc/GeometryRef.h) |
 | `RawTrajectory` | [`RobotScene/inc/RawTrajectory.h`](../../Robot/RobotScene/inc/RawTrajectory.h) |
 | STEP 路径 | `IRobotDocumentHost::meshBackendStepSourcePath`（`DocumentHost::backendSourcePath`） |
-| 预览 | `setRawTrajectoryOverlay` / `setRawTrajectoryOverlayFrames` / `clearRawTrajectoryOverlay*`；指令路点仍用 `setInstructionPoseAxes` |
+| 预览 | `applyRawTrajectoryPreviewToOsg` / `applyWorldRawTrajectoryPreviewToOsg`；`clearRawTrajectoryOverlay*`；指令路点 `setInstructionPoseAxes` |
+| `FeaturePickTransform` | `transformRawTrajectoryToWorld` / `transformRawTrajectoryWorldToFile` / `applyWorldRawTrajectoryPreviewToOsg` |
 
 AI 入口：领域 `trajectory.feature`（`TrajectoryFeatureDomainHandler`）校验 LLM 输出的 `features[]`；规则回退 `suggestFeaturesFromCatalog`。见 [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md)、[`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md)。
 

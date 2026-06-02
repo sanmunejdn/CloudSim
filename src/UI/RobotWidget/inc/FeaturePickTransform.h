@@ -173,6 +173,20 @@ ROBOTWIDGET_EXPORT bool transformRawTrajectoryToWorld(
 	RobotInstruction::RawTrajectory& outWorld,
 	std::string* errMsg = nullptr);
 
+ROBOTWIDGET_EXPORT bool transformTrajectoryPointToFile(
+	IRobotOsgViewHost* osg,
+	const std::string& backendId,
+	const RobotInstruction::TrajectoryPoint& worldPoint,
+	RobotInstruction::TrajectoryPoint& outFile,
+	std::string* errMsg = nullptr);
+
+ROBOTWIDGET_EXPORT bool transformRawTrajectoryWorldToFile(
+	IRobotOsgViewHost* osg,
+	const std::string& backendId,
+	const RobotInstruction::RawTrajectory& worldTraj,
+	RobotInstruction::RawTrajectory& outFile,
+	std::string* errMsg = nullptr);
+
 ROBOTWIDGET_EXPORT bool buildRawTrajectoryOverlayWorld(
 	IRobotOsgViewHost* osg,
 	const std::string& backendId,
@@ -193,6 +207,13 @@ ROBOTWIDGET_EXPORT void applyRawTrajectoryPreviewToOsg(
 	IRobotOsgViewHost* osg,
 	const std::string& backendId,
 	const RobotInstruction::RawTrajectory& fileTraj,
+	const RobotOsgUi::RawTrajectoryPreviewOptions& options,
+	std::string* errMsg = nullptr);
+
+/// poseMm/eulerDeg 已是世界坐标（Unified Apply/预览链输出），不再做 file→world
+ROBOTWIDGET_EXPORT void applyWorldRawTrajectoryPreviewToOsg(
+	IRobotOsgViewHost* osg,
+	const RobotInstruction::RawTrajectory& worldTraj,
 	const RobotOsgUi::RawTrajectoryPreviewOptions& options,
 	std::string* errMsg = nullptr);
 

@@ -87,6 +87,7 @@
     <ClInclude Include="inc\IRobotPropertyPanelHost.h" />
     <ClInclude Include="inc\RobotInstructionPropertyEditor.h" />
     <ClInclude Include="inc\RobotInstructionPlanningHelpers.h" />
+    <ClInclude Include="inc\PlanResultCache.h" />
     <ClInclude Include="inc\RobotProjectIoAdapter.h" />
     <ClInclude Include="inc\RobotUrdfImportCoordinator.h" />
     <ClInclude Include="inc\IRobotOsgViewHost.h" />
@@ -125,6 +126,7 @@
     <ClCompile Include="source\SimulationLogIoSink.cpp" />
     <ClCompile Include="source\RobotAxisControlWidget.cpp" />
     <ClCompile Include="source\RobotSimulationController.cpp" />
+    <ClCompile Include="source\PlanResultCache.cpp" />
     <ClCompile Include="source\RobotSimulationDockWidget.cpp" />
     <ClCompile Include="source\RobotSimulationMath.cpp" />
     <ClCompile Include="source\RobotSimulationMathExports.cpp" />

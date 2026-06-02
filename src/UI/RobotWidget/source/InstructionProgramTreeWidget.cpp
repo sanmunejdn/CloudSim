@@ -10,6 +10,8 @@
 #include <QMenu>
 #include <QMimeData>
 
+#include <json.hpp>
+
 #include <algorithm>
 #include <functional>
 #include <unordered_map>
@@ -161,7 +163,78 @@ bool InstructionProgramTreeWidget::isRootLevelInstructionItem(const QTreeWidgetI
 	{
 		return true;
 	}
-	return nodeKind(parent) == NodeKind::Group;
+	const NodeKind pk = nodeKind(parent);
+	return pk == NodeKind::Group || pk == NodeKind::PlanningSection;
+}
+
+bool InstructionProgramTreeWidget::isPathPlanInstructionItem(const QTreeWidgetItem* item)
+{
+	if (!item || nodeKind(item) != NodeKind::Instruction)
+	{
+		return false;
+	}
+	const RobotInstruction::Base* raw = instructionRaw(item);
+	return raw && raw->type() == RobotInstruction::Type::PathPlan;
+}
+
+QTreeWidgetItem* InstructionProgramTreeWidget::findPlanningSectionItem() const
+{
+	for (int i = 0; i < topLevelItemCount(); ++i)
+	{
+		if (nodeKind(topLevelItem(i)) == NodeKind::PlanningSection)
+		{
+			return topLevelItem(i);
+		}
+	}
+	return nullptr;
+}
+
+size_t InstructionProgramTreeWidget::countRootPathPlansInProgram() const
+{
+	if (!m_program)
+	{
+		return 0;
+	}
+	size_t n = 0;
+	for (const std::shared_ptr<RobotInstruction::Base>& ins : *m_program)
+	{
+		if (ins && ins->type() == RobotInstruction::Type::PathPlan)
+		{
+			++n;
+		}
+	}
+	return n;
+}
+
+QTreeWidgetItem* InstructionProgramTreeWidget::createPlanningSectionItem()
+{
+	auto* item = new QTreeWidgetItem();
+	item->setData(0, kKindRole, static_cast<int>(NodeKind::PlanningSection));
+	item->setText(
+		0,
+		m_useChinese ? QStringLiteral("路径规划") : QStringLiteral("Path planning"));
+	item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsDropEnabled | Qt::ItemIsSelectable);
+	item->setExpanded(true);
+	return item;
+}
+
+QTreeWidgetItem* InstructionProgramTreeWidget::createPathPlanOutputRefItem(
+	const std::string& pathPlanId,
+	const RobotInstruction::InstructionGroup& outputGroup,
+	const bool chinese)
+{
+	auto* item = new QTreeWidgetItem();
+	item->setData(0, kKindRole, static_cast<int>(NodeKind::PathPlanOutputRef));
+	item->setData(0, kGroupIdRole, QString::fromStdString(pathPlanId));
+	const int memberCount = static_cast<int>(outputGroup.memberInstructionIds.size());
+	const QString groupName = QString::fromStdString(outputGroup.name);
+	item->setText(
+		0,
+		chinese
+			? QStringLiteral("↳ 输出: %1（%2 点）").arg(groupName).arg(memberCount)
+			: QStringLiteral("↳ Output: %1 (%2 pts)").arg(groupName).arg(memberCount));
+	item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+	return item;
 }
 
 QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruction::Base& ins, const bool chinese)
@@ -181,6 +254,8 @@ QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruct
 			return chinese ? QStringLiteral("数字输出") : QStringLiteral("SET_DO");
 		case RobotInstruction::Type::SET_AO:
 			return chinese ? QStringLiteral("模拟输出") : QStringLiteral("SET_AO");
+		case RobotInstruction::Type::PathPlan:
+			return chinese ? QStringLiteral("路径规划") : QStringLiteral("PATH_PLAN");
 		case RobotInstruction::Type::PTP:
 		default:
 			return chinese ? QStringLiteral("点到点") : QStringLiteral("PTP");
@@ -188,6 +263,30 @@ QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruct
 	};
 
 	QString summary;
+	if (ins.type() == RobotInstruction::Type::PathPlan)
+	{
+		const RobotInstruction::PathPlanInstruction* pp = RobotInstruction::asPathPlan(ins);
+		const QString phase = pp && pp->phase() == RobotInstruction::PathPlanPhase::Applied
+			? (chinese ? QStringLiteral("已应用") : QStringLiteral("applied"))
+			: (pp && pp->phase() == RobotInstruction::PathPlanPhase::RawReady
+				? (chinese ? QStringLiteral("已离散") : QStringLiteral("raw_ready"))
+				: (chinese ? QStringLiteral("草稿") : QStringLiteral("draft")));
+		QString title = QString::fromStdString(ins.name());
+		if (title.isEmpty())
+		{
+			title = chinese ? QStringLiteral("路径规划") : QStringLiteral("Path plan");
+		}
+		if (pp && !pp->sourceFeatureJson().empty())
+		{
+			const nlohmann::json fj = nlohmann::json::parse(pp->sourceFeatureJson(), nullptr, false);
+			if (!fj.is_discarded() && fj.contains("featureId") && fj["featureId"].is_string())
+			{
+				title += QStringLiteral(" · ") + QString::fromStdString(fj["featureId"].get<std::string>());
+			}
+		}
+		return title + QStringLiteral(" · ") + phase;
+	}
+
 	switch (ins.type())
 	{
 	case RobotInstruction::Type::WAIT:
@@ -358,8 +457,52 @@ void InstructionProgramTreeWidget::rebuildFromProgram()
 		}
 	}
 
-	std::unordered_set<std::string> groupsRendered;
+	std::vector<std::shared_ptr<RobotInstruction::Base>> rootPathPlans;
+	std::vector<std::shared_ptr<RobotInstruction::Base>> motionRoots;
+	rootPathPlans.reserve(m_program->size());
+	motionRoots.reserve(m_program->size());
 	for (const std::shared_ptr<RobotInstruction::Base>& ins : *m_program)
+	{
+		if (!ins)
+		{
+			continue;
+		}
+		if (ins->type() == RobotInstruction::Type::PathPlan)
+		{
+			rootPathPlans.push_back(ins);
+		}
+		else
+		{
+			motionRoots.push_back(ins);
+		}
+	}
+
+	if (!rootPathPlans.empty())
+	{
+		QTreeWidgetItem* section = createPlanningSectionItem();
+		for (const std::shared_ptr<RobotInstruction::Base>& ppIns : rootPathPlans)
+		{
+			QTreeWidgetItem* ppItem = createInstructionItem(ppIns);
+			section->addChild(ppItem);
+			if (m_groups)
+			{
+				for (const RobotInstruction::InstructionGroup& group : *m_groups)
+				{
+					if (group.role == RobotInstruction::InstructionGroupRole::PathPlanOutput
+						&& group.pathPlanInstructionId == ppIns->id()
+						&& !group.memberInstructionIds.empty())
+					{
+						ppItem->addChild(createPathPlanOutputRefItem(ppIns->id(), group, m_useChinese));
+						break;
+					}
+				}
+			}
+		}
+		addTopLevelItem(section);
+	}
+
+	std::unordered_set<std::string> groupsRendered;
+	for (const std::shared_ptr<RobotInstruction::Base>& ins : motionRoots)
 	{
 		if (!ins)
 		{
@@ -391,7 +534,7 @@ void InstructionProgramTreeWidget::rebuildFromProgram()
 				continue;
 			}
 			QTreeWidgetItem* groupItem = createGroupItem(*groupDef);
-			for (const std::shared_ptr<RobotInstruction::Base>& step : *m_program)
+			for (const std::shared_ptr<RobotInstruction::Base>& step : motionRoots)
 			{
 				if (!step)
 				{
@@ -452,6 +595,28 @@ void InstructionProgramTreeWidget::readProgramFromTree(
 	{
 		QTreeWidgetItem* item = topLevelItem(i);
 		const NodeKind kind = nodeKind(item);
+		if (kind == NodeKind::PlanningSection)
+		{
+			for (int c = 0; c < item->childCount(); ++c)
+			{
+				QTreeWidgetItem* child = item->child(c);
+				if (nodeKind(child) != NodeKind::Instruction)
+				{
+					continue;
+				}
+				RobotInstruction::Base* raw = instructionRaw(child);
+				const auto it = ptrMap.find(raw);
+				if (it != ptrMap.end() && it->second)
+				{
+					root.push_back(it->second);
+				}
+			}
+			continue;
+		}
+		if (kind == NodeKind::PathPlanOutputRef)
+		{
+			continue;
+		}
 		if (kind == NodeKind::Group)
 		{
 			std::vector<std::shared_ptr<RobotInstruction::Base>> groupSteps;
@@ -580,6 +745,13 @@ std::shared_ptr<RobotInstruction::Base> InstructionProgramTreeWidget::selectedIn
 	{
 		return nullptr;
 	}
+	if (nodeKind(item) == NodeKind::PathPlanOutputRef)
+	{
+		if (QTreeWidgetItem* parent = item->parent())
+		{
+			item = parent;
+		}
+	}
 	RobotInstruction::Base* raw = instructionRaw(item);
 	if (!raw || !m_program)
 	{
@@ -706,6 +878,23 @@ void InstructionProgramTreeWidget::insertInstruction(
 	}
 	syncToProgram();
 
+	if (ins->type() == RobotInstruction::Type::PathPlan)
+	{
+		const size_t idx = countRootPathPlansInProgram();
+		m_program->insert(
+			m_program->begin() + static_cast<std::ptrdiff_t>(idx),
+			ins);
+		rebuildFromProgram();
+		m_syncing = true;
+		selectInstructionByRaw(ins.get());
+		m_syncing = false;
+		if (emitSelection)
+		{
+			emit instructionSelected(ins);
+		}
+		return;
+	}
+
 	QTreeWidgetItem* sel = currentItem();
 	if (!sel)
 	{
@@ -820,7 +1009,15 @@ void InstructionProgramTreeWidget::insertInstruction(
 void InstructionProgramTreeWidget::removeSelected()
 {
 	QTreeWidgetItem* sel = currentItem();
-	if (!sel || nodeKind(sel) != NodeKind::Instruction)
+	if (!sel)
+	{
+		return;
+	}
+	if (nodeKind(sel) == NodeKind::PathPlanOutputRef && sel->parent())
+	{
+		sel = sel->parent();
+	}
+	if (nodeKind(sel) != NodeKind::Instruction)
 	{
 		return;
 	}
@@ -904,7 +1101,22 @@ void InstructionProgramTreeWidget::clearProgram()
 void InstructionProgramTreeWidget::startDrag(Qt::DropActions supportedActions)
 {
 	m_dragItem = currentItem();
-	if (!m_dragItem || nodeKind(m_dragItem) != NodeKind::Instruction || !isRootLevelInstructionItem(m_dragItem))
+	if (!m_dragItem || nodeKind(m_dragItem) != NodeKind::Instruction)
+	{
+		m_dragItem = nullptr;
+		return;
+	}
+	const RobotInstruction::Base* raw = instructionRaw(m_dragItem);
+	if (raw && raw->type() == RobotInstruction::Type::PathPlan)
+	{
+		const QTreeWidgetItem* parent = m_dragItem->parent();
+		if (!parent || nodeKind(parent) != NodeKind::PlanningSection)
+		{
+			m_dragItem = nullptr;
+			return;
+		}
+	}
+	else if (!isRootLevelInstructionItem(m_dragItem))
 	{
 		m_dragItem = nullptr;
 		return;
@@ -929,7 +1141,40 @@ bool InstructionProgramTreeWidget::canAcceptDrop(
 	QTreeWidgetItem* target,
 	const DropIndicatorPosition pos) const
 {
-	if (!dragged || nodeKind(dragged) != NodeKind::Instruction || !isRootLevelInstructionItem(dragged))
+	if (!dragged || nodeKind(dragged) != NodeKind::Instruction)
+	{
+		return false;
+	}
+	const RobotInstruction::Base* dragRaw = instructionRaw(dragged);
+	const bool dragIsPathPlan = dragRaw && dragRaw->type() == RobotInstruction::Type::PathPlan;
+	if (dragIsPathPlan)
+	{
+		const QTreeWidgetItem* dragParent = dragged->parent();
+		if (!dragParent || nodeKind(dragParent) != NodeKind::PlanningSection)
+		{
+			return false;
+		}
+		if (!target)
+		{
+			return false;
+		}
+		if (nodeKind(target) == NodeKind::PlanningSection)
+		{
+			return pos == OnItem;
+		}
+		if (nodeKind(target) == NodeKind::PathPlanOutputRef)
+		{
+			target = target->parent();
+		}
+		if (isPathPlanInstructionItem(target))
+		{
+			const QTreeWidgetItem* targetParent = target->parent();
+			return targetParent && nodeKind(targetParent) == NodeKind::PlanningSection
+				&& (pos == BelowItem || pos == AboveItem);
+		}
+		return false;
+	}
+	if (!isRootLevelInstructionItem(dragged))
 	{
 		return false;
 	}
@@ -950,7 +1195,19 @@ bool InstructionProgramTreeWidget::canAcceptDrop(
 		return pos == OnViewport || pos == BelowItem;
 	}
 
+	for (QTreeWidgetItem* p = target; p; p = p->parent())
+	{
+		if (nodeKind(p) == NodeKind::PlanningSection)
+		{
+			return false;
+		}
+	}
+
 	const NodeKind tk = nodeKind(target);
+	if (tk == NodeKind::PlanningSection || tk == NodeKind::PathPlanOutputRef)
+	{
+		return false;
+	}
 	if (tk == NodeKind::Group)
 	{
 		return pos == OnItem || pos == BelowItem || pos == AboveItem;
@@ -1004,9 +1261,54 @@ void InstructionProgramTreeWidget::applyDrop(
 		}
 	};
 
+	const RobotInstruction::Base* dragRawApply = instructionRaw(item);
+	const bool dragPathPlanApply =
+		dragRawApply && dragRawApply->type() == RobotInstruction::Type::PathPlan;
+
 	if (!target || pos == OnViewport)
 	{
+		if (dragPathPlanApply)
+		{
+			delete item;
+			return;
+		}
 		insertInto(nullptr, topLevelItemCount());
+		setCurrentItem(item);
+		return;
+	}
+
+	if (dragPathPlanApply)
+	{
+		QTreeWidgetItem* section = findPlanningSectionItem();
+		if (!section)
+		{
+			section = createPlanningSectionItem();
+			insertTopLevelItem(0, section);
+		}
+		if (nodeKind(target) == NodeKind::PlanningSection && pos == OnItem)
+		{
+			section->addChild(item);
+			section->setExpanded(true);
+		}
+		else
+		{
+			QTreeWidgetItem* refTarget = target;
+			if (nodeKind(refTarget) == NodeKind::PathPlanOutputRef && refTarget->parent())
+			{
+				refTarget = refTarget->parent();
+			}
+			int index = section->indexOfChild(refTarget);
+			if (index < 0)
+			{
+				index = section->childCount();
+			}
+			if (pos == BelowItem)
+			{
+				++index;
+			}
+			section->insertChild(index, item);
+			section->setExpanded(true);
+		}
 		setCurrentItem(item);
 		return;
 	}

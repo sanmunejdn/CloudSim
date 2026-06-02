@@ -47,7 +47,11 @@ public:
 
 		ElseBranch,
 
-		Group
+		Group,
+
+		PlanningSection,
+
+		PathPlanOutputRef
 
 	};
 
@@ -89,7 +93,8 @@ public:
 
 	void clearProgram();
 
-
+	/// Run 期间按原始指针选中树节点；调用方应 QSignalBlocker 避免触发 instructionSelected
+	void selectInstructionByRaw(RobotInstruction::Base* raw);
 
 signals:
 
@@ -137,7 +142,21 @@ private:
 
 	static bool isRootLevelInstructionItem(const QTreeWidgetItem* item);
 
+	static bool isPathPlanInstructionItem(const QTreeWidgetItem* item);
 
+	QTreeWidgetItem* findPlanningSectionItem() const;
+
+	size_t countRootPathPlansInProgram() const;
+
+	QTreeWidgetItem* createPlanningSectionItem();
+
+	QTreeWidgetItem* createPathPlanOutputRefItem(
+
+		const std::string& pathPlanId,
+
+		const RobotInstruction::InstructionGroup& outputGroup,
+
+		bool chinese);
 
 	QTreeWidgetItem* createInstructionItem(const std::shared_ptr<RobotInstruction::Base>& ins);
 
@@ -170,8 +189,6 @@ private:
 	void applyDrop(QTreeWidgetItem* dragged, QTreeWidgetItem* target, DropIndicatorPosition pos);
 
 	QTreeWidgetItem* takeTreeItem(QTreeWidgetItem* item);
-
-	void selectInstructionByRaw(RobotInstruction::Base* raw);
 
 	void showContextMenu(const QPoint& globalPos);
 

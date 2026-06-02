@@ -41,6 +41,14 @@ ROBOT_SCENE_API bool unifiedTrajectoryToProgram(
 	RobotProgram& program,
 	std::string* errMsg = nullptr);
 
+/// Apply 时保留根级 PathPlan/逻辑指令，替换指定 PathPlan 的运动输出与 PathPlanOutput 分组
+ROBOT_SCENE_API bool unifiedTrajectoryMergeIntoProgram(
+	const UnifiedTrajectory& traj,
+	RobotProgram& program,
+	const std::string& pathPlanInstructionId,
+	std::string* errMsg = nullptr,
+	std::string* outOutputGroupId = nullptr);
+
 ROBOT_SCENE_API bool unifiedTrajectoryToRaw(
 	const UnifiedTrajectory& traj,
 	RawTrajectory& raw,

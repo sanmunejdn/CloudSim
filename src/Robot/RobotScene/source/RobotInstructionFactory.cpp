@@ -3,6 +3,8 @@
 #include "RobotInstructionProgram.h"
 #include "RobotInstructionTransform.h"
 
+#include <TrajectoryOpDescriptorCodec.h>
+
 namespace RobotInstruction
 {
 namespace
@@ -76,6 +78,36 @@ bool parseNested(const nlohmann::json& j, const char* key, std::vector<std::shar
 	}
 	out = createListFromJson(arr, errMsg);
 	return errMsg ? errMsg->empty() : true;
+}
+
+std::string pathPlanPhaseToString(const PathPlanPhase p)
+{
+	switch (p)
+	{
+	case PathPlanPhase::RawReady: return "raw_ready";
+	case PathPlanPhase::Applied: return "applied";
+	default: return "draft";
+	}
+}
+
+bool pathPlanPhaseFromString(const std::string& s, PathPlanPhase& out)
+{
+	if (s == "raw_ready" || s == "RawReady")
+	{
+		out = PathPlanPhase::RawReady;
+		return true;
+	}
+	if (s == "applied" || s == "Applied")
+	{
+		out = PathPlanPhase::Applied;
+		return true;
+	}
+	if (s == "draft" || s == "Draft")
+	{
+		out = PathPlanPhase::Draft;
+		return true;
+	}
+	return false;
 }
 
 void writeCommonFields(nlohmann::json& j, const Base& ins)
@@ -232,6 +264,46 @@ std::shared_ptr<Base> createFromJson(const nlohmann::json& j, std::string* errMs
 		ins = p;
 		break;
 	}
+	case Type::PathPlan:
+	{
+		auto p = std::make_shared<PathPlanInstruction>();
+		PathPlanPhase phase = PathPlanPhase::Draft;
+		const std::string phaseStr = j.value("phase", std::string("draft"));
+		pathPlanPhaseFromString(phaseStr, phase);
+		p->setPhase(phase);
+		p->setOutputGroupId(j.value("outputGroupId", std::string()));
+		p->setRawTrajectoryKey(j.value("rawTrajectoryKey", p->id()));
+		p->setRawRevision(j.value("rawRevision", 0));
+		if (j.contains("sourceFeature"))
+		{
+			if (j["sourceFeature"].is_object())
+			{
+				p->setSourceFeatureJson(j["sourceFeature"].dump());
+			}
+			else if (j["sourceFeature"].is_string())
+			{
+				p->setSourceFeatureJson(j["sourceFeature"].get<std::string>());
+			}
+		}
+		if (j.contains("pipeline"))
+		{
+			std::vector<TrajectoryOpDescriptor> pipeline;
+			if (trajectory_algo::pipelineFromJson(j["pipeline"], pipeline, errMsg))
+			{
+				p->setPipeline(std::move(pipeline));
+			}
+		}
+		if (j.contains("appliedHistory"))
+		{
+			std::vector<TrajectoryOpDescriptor> hist;
+			if (trajectory_algo::pipelineFromJson(j["appliedHistory"], hist, errMsg))
+			{
+				p->appliedHistoryMut() = std::move(hist);
+			}
+		}
+		ins = p;
+		break;
+	}
 	default:
 		if (errMsg)
 		{
@@ -334,6 +406,29 @@ nlohmann::json toJson(const Base& ins)
 		j["port"] = ins.ioPort();
 		j["value"] = ins.ioAnalogValue();
 		break;
+	case Type::PathPlan:
+	{
+		const PathPlanInstruction* pp = asPathPlan(ins);
+		if (!pp)
+		{
+			break;
+		}
+		j["phase"] = pathPlanPhaseToString(pp->phase());
+		j["outputGroupId"] = pp->outputGroupId();
+		j["rawTrajectoryKey"] = pp->rawTrajectoryKey();
+		j["rawRevision"] = pp->rawRevision();
+		if (!pp->sourceFeatureJson().empty())
+		{
+			const nlohmann::json feat = nlohmann::json::parse(pp->sourceFeatureJson(), nullptr, false);
+			if (!feat.is_discarded())
+			{
+				j["sourceFeature"] = feat;
+			}
+		}
+		j["pipeline"] = trajectory_algo::pipelineToJson(pp->pipeline());
+		j["appliedHistory"] = trajectory_algo::pipelineToJson(pp->appliedHistory());
+		break;
+	}
 	default:
 		break;
 	}

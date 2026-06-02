@@ -197,6 +197,7 @@
     <ClInclude Include="inc\InstructionProgramDocument.h" />
     <ClInclude Include="inc\ProgramEditCommand.h" />
     <ClInclude Include="inc\RobotProgramCatalog.h" />
+    <ClInclude Include="inc\RobotCanonicalProgramExport.h" />
     <ClInclude Include="inc\TrajectoryPipelineTypes.h" />
     <ClInclude Include="inc\TrajectoryPipelineBuilder.h" />
     <ClInclude Include="inc\TrajectoryApplyActionConverter.h" />
@@ -224,6 +225,8 @@
     <ClCompile Include="source\InstructionProgramDocument.cpp" />
     <ClCompile Include="source\ProgramEditCommand.cpp" />
     <ClCompile Include="source\RobotProgramCatalog.cpp" />
+    <ClCompile Include="source\PathPlanRawStore.cpp" />
+    <ClCompile Include="source\RobotCanonicalProgramExport.cpp" />
     <ClCompile Include="source\TrajectoryPipelineBuilder.cpp" />
     <ClCompile Include="source\TrajectoryApplyActionConverter.cpp" />
     <ClCompile Include="source\TrajectoryOpBridge.cpp" />

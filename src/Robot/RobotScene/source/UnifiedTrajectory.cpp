@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_set>
 
 namespace RobotInstruction
 {
@@ -262,8 +263,8 @@ bool unifiedTrajectoryToProgram(const UnifiedTrajectory& traj, RobotProgram& pro
 	{
 		auto ins = std::make_shared<LineInstruction>();
 		ins->setName("P" + std::to_string(++idx));
-		ins->setPose(p.poseMm);
-		ins->setEulerDeg(p.eulerDeg);
+		const engine::RigidTransform target = rigidFromPoint(p);
+		writeTargetTransformToInstruction(*ins, target);
 		ins->setBlendRadius(p.blendRadiusMm);
 		if (p.speedMmPerSec > 0.0)
 		{
@@ -277,6 +278,65 @@ bool unifiedTrajectoryToProgram(const UnifiedTrajectory& traj, RobotProgram& pro
 	group.name = "UnifiedTrajectory";
 	group.memberInstructionIds = std::move(memberIds);
 	program.groups.push_back(std::move(group));
+	return true;
+}
+
+bool unifiedTrajectoryMergeIntoProgram(
+	const UnifiedTrajectory& traj,
+	RobotProgram& program,
+	const std::string& pathPlanInstructionId,
+	std::string* errMsg,
+	std::string* outOutputGroupId)
+{
+	if (pathPlanInstructionId.empty())
+	{
+		return unifiedTrajectoryToProgram(traj, program, errMsg);
+	}
+	std::unordered_set<std::string> staleMotionIds;
+	for (auto it = program.groups.begin(); it != program.groups.end();)
+	{
+		if (it->role == InstructionGroupRole::PathPlanOutput
+			&& it->pathPlanInstructionId == pathPlanInstructionId)
+		{
+			for (const std::string& id : it->memberInstructionIds)
+			{
+				staleMotionIds.insert(id);
+			}
+			it = program.groups.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+	program.steps.erase(
+		std::remove_if(
+			program.steps.begin(),
+			program.steps.end(),
+			[&staleMotionIds](const std::shared_ptr<Base>& ins) {
+				return ins && staleMotionIds.count(ins->id()) != 0;
+			}),
+		program.steps.end());
+	RobotProgram motionPart;
+	if (!unifiedTrajectoryToProgram(traj, motionPart, errMsg))
+	{
+		return false;
+	}
+	for (std::shared_ptr<Base>& ins : motionPart.steps)
+	{
+		program.steps.push_back(std::move(ins));
+	}
+	if (!motionPart.groups.empty())
+	{
+		InstructionGroup group = std::move(motionPart.groups.back());
+		group.role = InstructionGroupRole::PathPlanOutput;
+		group.pathPlanInstructionId = pathPlanInstructionId;
+		program.groups.push_back(std::move(group));
+		if (outOutputGroupId)
+		{
+			*outOutputGroupId = program.groups.back().id;
+		}
+	}
 	return true;
 }
 

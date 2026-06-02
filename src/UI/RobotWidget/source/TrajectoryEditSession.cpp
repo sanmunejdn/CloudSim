@@ -20,7 +20,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <sstream>
 #include <osg/Matrixd>
 #include <unordered_set>
 
@@ -139,6 +138,41 @@ bool isUnifiedOnlyKind(const RobotInstruction::TrajectoryOpKind kind)
 		|| kind == RobotInstruction::TrajectoryOpKind::Retract;
 }
 
+void appendGeometryOpsHistory(
+	std::vector<RobotInstruction::TrajectoryOpDescriptor>& history,
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& geometryOps)
+{
+	for (const RobotInstruction::TrajectoryOpDescriptor& op : geometryOps)
+	{
+		if (!RobotInstruction::isRecipeOpKind(op.kind))
+		{
+			history.push_back(op);
+		}
+	}
+}
+
+void partitionPipelineOps(
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops,
+	std::vector<RobotInstruction::TrajectoryOpDescriptor>& recipeOps,
+	std::vector<RobotInstruction::TrajectoryOpDescriptor>& geometryOps)
+{
+	recipeOps.clear();
+	geometryOps.clear();
+	recipeOps.reserve(ops.size());
+	geometryOps.reserve(ops.size());
+	for (const RobotInstruction::TrajectoryOpDescriptor& op : ops)
+	{
+		if (RobotInstruction::isRecipeOpKind(op.kind))
+		{
+			recipeOps.push_back(op);
+		}
+		else
+		{
+			geometryOps.push_back(op);
+		}
+	}
+}
+
 bool requiresUnifiedApply(
 	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops,
 	const bool hasRawTrajectory)
@@ -223,15 +257,12 @@ void TrajectoryEditSession::bindSimulationController(RobotSimulationController* 
 
 void TrajectoryEditSession::updatePipelineOps(
 	std::vector<RobotInstruction::TrajectoryOpDescriptor> ops,
-	const bool allowPreviewReapply)
+	const bool /*allowPreviewReapply*/)
 {
 	m_ops = std::move(ops);
 	m_builder.setOps(m_ops);
 	invalidatePreviewScopeCache();
-	if (m_previewActive && allowPreviewReapply)
-	{
-		(void)reapplyPreview(nullptr);
-	}
+	syncPipelineToBoundPathPlan();
 }
 
 void TrajectoryEditSession::setPipeline(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops)
@@ -240,6 +271,7 @@ void TrajectoryEditSession::setPipeline(std::vector<RobotInstruction::Trajectory
 	m_ops = std::move(ops);
 	m_builder.setOps(m_ops);
 	invalidatePreviewScopeCache();
+	syncPipelineToBoundPathPlan();
 }
 
 void TrajectoryEditSession::setContextProgramId(const std::string& programId)
@@ -322,6 +354,42 @@ void TrajectoryEditSession::invalidatePreviewScopeCache()
 	m_previewWaypointCache.clear();
 }
 
+bool TrajectoryEditSession::rebuildUnifiedFromSourceRaw(
+	const RobotInstruction::RawTrajectory& sourceRaw,
+	RobotInstruction::UnifiedTrajectory& unified,
+	QString* outError) const
+{
+	RobotInstruction::RawTrajectory rawForUnified = sourceRaw;
+	const std::string backendId = RobotInstruction::rawTrajectoryWorkpieceBackendId(sourceRaw);
+	if (!backendId.empty() && m_simController && m_simController->host()
+		&& m_simController->host()->osgView())
+	{
+		RobotInstruction::RawTrajectory worldRaw;
+		std::string worldErr;
+		if (feature_pick_transform::transformRawTrajectoryToWorld(
+				m_simController->host()->osgView(),
+				backendId,
+				sourceRaw,
+				worldRaw,
+				&worldErr))
+		{
+			rawForUnified = std::move(worldRaw);
+		}
+	}
+	std::string convErr;
+	if (!RobotInstruction::unifiedTrajectoryFromRaw(rawForUnified, unified, &convErr))
+	{
+		if (outError)
+		{
+			*outError = convErr.empty()
+				? QStringLiteral("raw trajectory convert failed")
+				: QString::fromStdString(convErr);
+		}
+		return false;
+	}
+	return true;
+}
+
 void TrajectoryEditSession::refreshPreviewVisuals()
 {
 	if (!m_simController)
@@ -344,11 +412,225 @@ bool TrajectoryEditSession::reapplyPreview(QString* outError)
 	{
 		return false;
 	}
+	const bool hasRaw = m_rawTrajectory.has_value() && !m_rawTrajectory->points.empty();
+	if (hasRaw)
+	{
+		return false;
+	}
+	if (requiresUnifiedApply(m_ops, false))
+	{
+		return previewUnifiedFromProgramPipeline(outError);
+	}
 	restorePreviewSnapshots();
 	if (!applyPreviewTransforms(outError))
 	{
 		return false;
 	}
+	refreshPreviewVisuals();
+	return true;
+}
+
+bool TrajectoryEditSession::previewPipeline(
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& pipelineOps,
+	QString* outError)
+{
+	m_ops = pipelineOps;
+	m_builder.setOps(m_ops);
+	invalidatePreviewScopeCache();
+	if (m_simController)
+	{
+		m_simController->setRawTrajectoryPreviewActive(false);
+		if (IRobotMainWindowHost* host = m_simController->host())
+		{
+			if (IRobotOsgViewHost* osg = host->osgView())
+			{
+				osg->clearRawTrajectoryOverlay();
+				osg->clearRawTrajectoryOverlayFrames();
+			}
+		}
+	}
+	if (m_rawTrajectory.has_value() && !m_rawTrajectory->points.empty())
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("请使用 buildRawPreviewWithPipeline");
+		}
+		return false;
+	}
+	if (requiresUnifiedApply(pipelineOps, false))
+	{
+		return previewUnifiedFromProgramPipeline(outError);
+	}
+	return preview(outError);
+}
+
+bool TrajectoryEditSession::previewUnifiedFromProgramPipeline(QString* outError)
+{
+	if (!m_store)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("no store");
+		}
+		return false;
+	}
+	if (m_ops.empty())
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("流水线为空");
+		}
+		return false;
+	}
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> recipeOps;
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> geometryOps;
+	partitionPipelineOps(m_ops, recipeOps, geometryOps);
+	bool hasGeometryPreview = false;
+	for (const RobotInstruction::TrajectoryOpDescriptor& op : geometryOps)
+	{
+		const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(op.kind);
+		if (algo
+			&& trajectory_algo::hasCapability(
+				algo->capabilities(),
+				trajectory_algo::TrajectoryOpCapability::PreviewPoseTransform))
+		{
+			hasGeometryPreview = true;
+			break;
+		}
+	}
+	if (!hasGeometryPreview && recipeOps.empty())
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("当前流水线无可预览块");
+		}
+		return false;
+	}
+	const std::vector<std::string> waypointIds = collectPreviewWaypointIds();
+	if (waypointIds.empty())
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("作用域内无运动路点，请先在程序中创建路点或完成轨迹离散");
+		}
+		return false;
+	}
+	m_effectivePreviewWaypointIds = waypointIds;
+	const std::string programId = m_contextProgramId.empty() ? m_store->activeProgramIdUtf8() : m_contextProgramId;
+	const RobotInstruction::RobotProgram* prog = m_store->activeCatalog().findProgram(programId);
+	if (!prog)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("program not found");
+		}
+		return false;
+	}
+	if (m_previewActive)
+	{
+		restorePreviewSnapshots();
+	}
+	else if (!capturePreviewSnapshots(outError))
+	{
+		return false;
+	}
+	RobotInstruction::UnifiedTrajectory unified{};
+	std::string err;
+	if (!RobotInstruction::unifiedTrajectoryFromProgram(*prog, unified, &err))
+	{
+		if (outError)
+		{
+			*outError = err.empty() ? QStringLiteral("program convert failed") : QString::fromStdString(err);
+		}
+		return false;
+	}
+	RobotInstruction::RawTrajectory rawWorking{};
+	if (!RobotInstruction::unifiedTrajectoryToRaw(unified, rawWorking, &err))
+	{
+		if (outError)
+		{
+			*outError = err.empty() ? QStringLiteral("unified->raw failed") : QString::fromStdString(err);
+		}
+		return false;
+	}
+	for (const RobotInstruction::TrajectoryOpDescriptor& op : recipeOps)
+	{
+		if (!RobotInstruction::applyRecipeDescriptorToRawTrajectory(op, rawWorking, &err))
+		{
+			if (outError)
+			{
+				*outError = err.empty() ? QStringLiteral("recipe preview failed") : QString::fromStdString(err);
+			}
+			return false;
+		}
+		if (!rebuildUnifiedFromSourceRaw(rawWorking, unified, outError))
+		{
+			return false;
+		}
+	}
+	auto applyUnifiedOps = [&](const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops) -> bool {
+		for (const RobotInstruction::TrajectoryOpDescriptor& op : ops)
+		{
+			if (!RobotInstruction::applyUnifiedTrajectoryOp(op, unified, &err))
+			{
+				if (outError)
+				{
+					*outError = err.empty() ? QStringLiteral("unified preview failed") : QString::fromStdString(err);
+				}
+				return false;
+			}
+		}
+		return true;
+	};
+	// 程序 Apply 已落盘的几何在路点里，pending 留给首次 raw Apply，预览不再叠一次
+	if (!applyUnifiedOps(geometryOps))
+	{
+		return false;
+	}
+	const std::vector<std::string> motionIds = collectMotionIds(*prog);
+	std::vector<std::shared_ptr<RobotInstruction::Base>>& activeSteps = m_store->activeProgram();
+	InstructionIndex index = buildInstructionIndex(activeSteps);
+	std::vector<std::string> changedIds;
+	changedIds.reserve(motionIds.size());
+	for (size_t i = 0; i < unified.points.size(); ++i)
+	{
+		std::string id;
+		if (!unified.points[i].sourceInstructionId.empty())
+		{
+			id = unified.points[i].sourceInstructionId;
+		}
+		else if (i < motionIds.size())
+		{
+			id = motionIds[i];
+		}
+		else
+		{
+			continue;
+		}
+		const auto it = index.find(id);
+		if (it == index.end() || !it->second)
+		{
+			continue;
+		}
+		const engine::RigidTransform target = engine::RigidTransform::fromTranslationEulerDeg(
+			unified.points[i].poseMm.x,
+			unified.points[i].poseMm.y,
+			unified.points[i].poseMm.z,
+			unified.points[i].eulerDeg.x,
+			unified.points[i].eulerDeg.y,
+			unified.points[i].eulerDeg.z);
+		RobotInstruction::writeTargetTransformToInstruction(*it->second, target);
+		it->second->eraseExtensionProperty("context.currentJointRadCsv");
+		it->second->eraseExtensionProperty("render.tcpWorldMat4");
+		it->second->eraseExtensionProperty("render.tcpLocalMat4");
+		changedIds.push_back(id);
+	}
+	if (!changedIds.empty())
+	{
+		syncRenderMatricesForInstructionIds(changedIds, true);
+	}
+	m_previewActive = true;
+	emit previewStateChanged(true);
 	refreshPreviewVisuals();
 	return true;
 }
@@ -442,7 +724,25 @@ bool TrajectoryEditSession::apply(QString* outError)
 		}
 		return false;
 	}
-	const bool useUnifiedApply = requiresUnifiedApply(m_ops, m_rawTrajectory.has_value());
+	const bool hasRawContext = m_rawTrajectory.has_value() || m_bakedWorldRaw.has_value();
+	const bool useUnifiedApply = requiresUnifiedApply(m_ops, hasRawContext);
+
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> recipeOps;
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> geometryOps;
+	recipeOps.reserve(m_ops.size());
+	geometryOps.reserve(m_ops.size());
+	for (const RobotInstruction::TrajectoryOpDescriptor& op : m_ops)
+	{
+		if (RobotInstruction::isRecipeOpKind(op.kind))
+		{
+			recipeOps.push_back(op);
+		}
+		else
+		{
+			geometryOps.push_back(op);
+		}
+	}
+
 	if (useUnifiedApply)
 	{
 		RobotInstruction::RobotProgram* activeProgram = m_store->activeCatalog().mainProgram();
@@ -462,66 +762,117 @@ bool TrajectoryEditSession::apply(QString* outError)
 												 const char* phase,
 												 QString* outErrorPtr) -> bool
 		{
-			RobotInstruction::RawTrajectory rawForUnified = sourceRaw;
-			const std::string backendId = sourceRaw.sourceFeature.workpiece.backendIdUtf8;
-			if (!backendId.empty() && m_simController && m_simController->host()
-				&& m_simController->host()->osgView())
+			if (rebuildUnifiedFromSourceRaw(sourceRaw, unified, outErrorPtr))
 			{
-				RobotInstruction::RawTrajectory worldRaw;
-				std::string worldErr;
-				if (feature_pick_transform::transformRawTrajectoryToWorld(
-						m_simController->host()->osgView(),
-						backendId,
-						sourceRaw,
-						worldRaw,
-						&worldErr))
-				{
-					rawForUnified = std::move(worldRaw);
-				}
+				return true;
 			}
-			if (!RobotInstruction::unifiedTrajectoryFromRaw(rawForUnified, unified, nullptr))
+			if (outErrorPtr && outErrorPtr->isEmpty())
 			{
-				if (outErrorPtr)
+				*outErrorPtr = QStringLiteral("raw trajectory convert failed (%1)").arg(QString::fromUtf8(phase));
+			}
+			return false;
+		};
+		auto applyOpListToUnified = [&](const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops,
+										 QString* errOut) -> bool {
+			for (const RobotInstruction::TrajectoryOpDescriptor& priorOp : ops)
+			{
+				std::string priorErr;
+				if (!RobotInstruction::applyUnifiedTrajectoryOp(priorOp, unified, &priorErr))
 				{
-					*outErrorPtr = QStringLiteral("raw trajectory convert failed (%1)").arg(QString::fromUtf8(phase));
+					if (errOut)
+					{
+						*errOut = priorErr.empty()
+							? QStringLiteral("累积几何变换应用失败")
+							: QString::fromStdString(priorErr);
+					}
+					return false;
 				}
-				return false;
 			}
 			return true;
 		};
+		auto applyGeometryOpsToUnified = [&](const std::vector<RobotInstruction::TrajectoryOpDescriptor>& geometryOps,
+											   QString* errOut) -> bool {
+			for (const RobotInstruction::TrajectoryOpDescriptor& op : geometryOps)
+			{
+				std::string opErr;
+				if (!RobotInstruction::applyUnifiedTrajectoryOp(op, unified, &opErr))
+				{
+					if (errOut)
+					{
+						*errOut = opErr.empty() ? QStringLiteral("unified op apply failed") : QString::fromStdString(opErr);
+					}
+					return false;
+				}
+			}
+			return true;
+		};
+
+		bool unifiedFromProgram = false;
 		if (m_rawTrajectory.has_value())
 		{
-			rawWorking = *m_rawTrajectory;
 			usingRaw = true;
+			rawWorking = *m_rawTrajectory;
 			if (!rebuildUnifiedFromRawForApply(rawWorking, "init", outError))
 			{
 				return false;
 			}
+			if (!applyOpListToUnified(m_pendingPreRawGeometryOps, outError))
+			{
+				return false;
+			}
+			m_pendingPreRawGeometryOps.clear();
 		}
 		else
 		{
-			std::string convErr;
-			if (!RobotInstruction::unifiedTrajectoryFromProgram(*activeProgram, unified, &convErr))
+			std::vector<std::shared_ptr<RobotInstruction::Base>> flat;
+			RobotInstruction::flattenInstructionsRecursive(activeProgram->steps, flat);
+			int motionCount = 0;
+			for (const std::shared_ptr<RobotInstruction::Base>& base : flat)
+			{
+				if (base && RobotInstruction::isMotionWaypointType(base->type()))
+				{
+					++motionCount;
+				}
+			}
+			if (motionCount > 0)
+			{
+				std::string convErr;
+				if (RobotInstruction::unifiedTrajectoryFromProgram(*activeProgram, unified, &convErr))
+				{
+					unifiedFromProgram = true;
+				}
+				else if (outError)
+				{
+					*outError = convErr.empty() ? QStringLiteral("program convert failed")
+												: QString::fromStdString(convErr);
+					return false;
+				}
+			}
+			if (!unifiedFromProgram)
 			{
 				if (outError)
 				{
-					*outError = convErr.empty() ? QStringLiteral("program convert failed") : QString::fromStdString(convErr);
+					*outError = QStringLiteral("无原始轨迹且程序中无路点");
 				}
 				return false;
 			}
 		}
-		for (const RobotInstruction::TrajectoryOpDescriptor& op : m_ops)
+		if (!recipeOps.empty())
 		{
-			if (RobotInstruction::isRecipeOpKind(op.kind))
+			if (!usingRaw)
 			{
-				if (!usingRaw)
+				if (outError)
 				{
-					if (outError)
-					{
-						*outError = QStringLiteral("配方块需要原始轨迹输入");
-					}
-					return false;
+					*outError = QStringLiteral("配方块需要原始轨迹输入");
 				}
+				return false;
+			}
+			if (rawWorking.points.empty() && m_rawTrajectory.has_value())
+			{
+				rawWorking = *m_rawTrajectory;
+			}
+			for (const RobotInstruction::TrajectoryOpDescriptor& op : recipeOps)
+			{
 				std::string recipeErr;
 				if (!RobotInstruction::applyRecipeDescriptorToRawTrajectory(op, rawWorking, &recipeErr))
 				{
@@ -531,25 +882,43 @@ bool TrajectoryEditSession::apply(QString* outError)
 					}
 					return false;
 				}
-				if (!rebuildUnifiedFromRawForApply(rawWorking, "recipe", outError))
-				{
-					return false;
-				}
-				continue;
 			}
-			std::string opErr;
-			if (!RobotInstruction::applyUnifiedTrajectoryOp(op, unified, &opErr))
+			if (!rebuildUnifiedFromRawForApply(rawWorking, "recipe", outError))
+			{
+				return false;
+			}
+			m_bakedWorldRaw.reset();
+		}
+		if (!applyOpListToUnified(m_accumulatedGeometryOps, outError))
+		{
+			return false;
+		}
+		if (!applyGeometryOpsToUnified(geometryOps, outError))
+		{
+			return false;
+		}
+		RobotInstruction::RobotProgram replacement = *activeProgram;
+		std::string emitErr;
+		std::string outputGroupId;
+		const bool boundPathPlan = !m_boundPathPlanId.empty();
+		if (boundPathPlan)
+		{
+			if (!RobotInstruction::unifiedTrajectoryMergeIntoProgram(
+					unified,
+					replacement,
+					m_boundPathPlanId,
+					&emitErr,
+					&outputGroupId))
 			{
 				if (outError)
 				{
-					*outError = opErr.empty() ? QStringLiteral("unified op apply failed") : QString::fromStdString(opErr);
+					*outError = emitErr.empty() ? QStringLiteral("materialize program failed")
+												: QString::fromStdString(emitErr);
 				}
 				return false;
 			}
 		}
-		RobotInstruction::RobotProgram replacement = *activeProgram;
-		std::string emitErr;
-		if (!RobotInstruction::unifiedTrajectoryToProgram(unified, replacement, &emitErr))
+		else if (!RobotInstruction::unifiedTrajectoryToProgram(unified, replacement, &emitErr))
 		{
 			if (outError)
 			{
@@ -557,20 +926,62 @@ bool TrajectoryEditSession::apply(QString* outError)
 			}
 			return false;
 		}
+		appendGeometryOpsHistory(m_accumulatedGeometryOps, geometryOps);
 		if (usingRaw)
 		{
-			m_rawTrajectory = rawWorking;
+			if (!rawWorking.points.empty())
+			{
+				m_rawTrajectory = rawWorking;
+			}
+			RobotInstruction::RawTrajectory baked{};
+			if (RobotInstruction::unifiedTrajectoryToRaw(unified, baked, nullptr))
+			{
+				m_bakedWorldRaw = std::move(baked);
+			}
 		}
 		std::vector<RobotInstruction::ProgramEditStack::CommandPtr> cmds;
+		if (boundPathPlan)
+		{
+			RobotInstruction::RobotProgramCatalog& catalog = m_store->activeCatalog();
+			cmds.push_back(std::make_shared<RobotInstruction::UpdatePathPlanPipelineCommand>(
+				m_boundPathPlanId,
+				m_ops,
+				m_accumulatedGeometryOps));
+			if (usingRaw && m_rawTrajectory.has_value())
+			{
+				cmds.push_back(std::make_shared<RobotInstruction::UpdatePathPlanRawCommand>(
+					&catalog,
+					m_boundPathPlanId,
+					rawWorking,
+					RobotInstruction::PathPlanPhase::Applied));
+			}
+			cmds.push_back(std::make_shared<RobotInstruction::UpdatePathPlanApplyStateCommand>(
+				m_boundPathPlanId,
+				RobotInstruction::PathPlanPhase::Applied,
+				outputGroupId));
+			if (!outputGroupId.empty())
+			{
+				m_defaultGroupId = outputGroupId;
+			}
+		}
 		cmds.push_back(std::make_shared<RobotInstruction::ReplaceProgramContentCommand>(
 			activeProgram,
 			std::move(replacement)));
-		if (!m_editService->executeBatch(cmds, outError))
+		std::vector<RobotInstruction::ProgramEditStack::CommandPtr> batch;
+		if (cmds.size() > 1)
+		{
+			batch.push_back(std::make_shared<RobotInstruction::CompositeProgramEditCommand>(std::move(cmds)));
+		}
+		else
+		{
+			batch = std::move(cmds);
+		}
+		if (!m_editService->executeBatch(batch, outError))
 		{
 			return false;
 		}
 		const std::vector<std::string> affectedIds = collectMotionIds(*activeProgram);
-		syncRenderMatricesForInstructionIds(affectedIds);
+		syncRenderMatricesForInstructionIds(affectedIds, true);
 		refreshPreviewVisuals();
 		return true;
 	}
@@ -639,6 +1050,14 @@ bool TrajectoryEditSession::apply(QString* outError)
 		return false;
 	}
 	m_applying = false;
+	if (!m_rawTrajectory.has_value())
+	{
+		appendGeometryOpsHistory(m_pendingPreRawGeometryOps, geometryOps);
+	}
+	else
+	{
+		appendGeometryOpsHistory(m_accumulatedGeometryOps, geometryOps);
+	}
 	if (!frozenBaseWorldCsvById.empty())
 	{
 		syncRenderMatricesFromFrozenBase(affectedIds, frozenBaseWorldCsvById);
@@ -680,6 +1099,13 @@ void TrajectoryEditSession::reset()
 	refreshPreviewVisuals();
 }
 
+void TrajectoryEditSession::clearTrajectoryGeometryHistory()
+{
+	m_pendingPreRawGeometryOps.clear();
+	m_accumulatedGeometryOps.clear();
+	m_bakedWorldRaw.reset();
+}
+
 void TrajectoryEditSession::abandonPreview()
 {
 	if (m_previewActive && !m_previewSnapshots.empty())
@@ -695,9 +1121,211 @@ bool TrajectoryEditSession::canApply() const
 	return m_store && !m_ops.empty();
 }
 
+void TrajectoryEditSession::bindPathPlan(const std::string& pathPlanInstructionId)
+{
+	m_boundPathPlanId = pathPlanInstructionId;
+	if (!m_store || pathPlanInstructionId.empty())
+	{
+		return;
+	}
+	RobotInstruction::RobotProgramCatalog& catalog = m_store->activeCatalog();
+	RobotInstruction::PathPlanInstruction* pp = catalog.findPathPlan(
+		catalog.activeProgramId(),
+		pathPlanInstructionId);
+	if (!pp)
+	{
+		return;
+	}
+	m_ops = pp->pipeline();
+	m_accumulatedGeometryOps = pp->appliedHistory();
+	m_builder.setOps(m_ops);
+	if (!pp->outputGroupId().empty())
+	{
+		m_defaultGroupId = pp->outputGroupId();
+	}
+	loadRawFromBoundPathPlan();
+}
+
+void TrajectoryEditSession::clearPathPlanBinding()
+{
+	m_boundPathPlanId.clear();
+}
+
+bool TrajectoryEditSession::persistBoundPathPlanPipeline(QString* outError)
+{
+	if (!m_editService || !m_store || m_boundPathPlanId.empty())
+	{
+		return true;
+	}
+	auto cmd = std::make_shared<RobotInstruction::UpdatePathPlanPipelineCommand>(
+		m_boundPathPlanId,
+		m_ops,
+		m_accumulatedGeometryOps);
+	return m_editService->execute(cmd, outError);
+}
+
+bool TrajectoryEditSession::syncPipelineToBoundPathPlan()
+{
+	if (!m_store || m_boundPathPlanId.empty())
+	{
+		return false;
+	}
+	RobotInstruction::PathPlanInstruction* pp = m_store->activeCatalog().findPathPlan(
+		m_store->activeCatalog().activeProgramId(),
+		m_boundPathPlanId);
+	if (!pp)
+	{
+		return false;
+	}
+	pp->setPipeline(m_ops);
+	pp->appliedHistoryMut() = m_accumulatedGeometryOps;
+	if (m_rawTrajectory.has_value())
+	{
+		m_store->activeCatalog().pathPlanRaws().save(m_boundPathPlanId, *m_rawTrajectory);
+	}
+	return true;
+}
+
+bool TrajectoryEditSession::loadRawFromBoundPathPlan()
+{
+	if (!m_store || m_boundPathPlanId.empty())
+	{
+		return false;
+	}
+	RobotInstruction::RawTrajectory raw;
+	if (!m_store->activeCatalog().pathPlanRaws().load(m_boundPathPlanId, raw))
+	{
+		return false;
+	}
+	m_rawTrajectory = std::move(raw);
+	m_bakedWorldRaw.reset();
+	emit rawTrajectoryChanged();
+	return true;
+}
+
+namespace
+{
+std::string makeUniquePathPlanName(
+	const RobotInstruction::RawTrajectory& traj,
+	const RobotInstruction::RobotProgramCatalog& catalog,
+	const std::string& programId)
+{
+	std::string base = RobotInstruction::rawTrajectoryFeatureId(traj);
+	if (base.empty())
+	{
+		base = "path_plan";
+	}
+	std::unordered_set<std::string> used;
+	if (const RobotInstruction::RobotProgram* prog = catalog.findProgram(programId))
+	{
+		for (const std::shared_ptr<RobotInstruction::Base>& ins : prog->steps)
+		{
+			if (!ins || ins->type() != RobotInstruction::Type::PathPlan)
+			{
+				continue;
+			}
+			if (const RobotInstruction::PathPlanInstruction* pp = RobotInstruction::asPathPlan(*ins))
+			{
+				used.insert(pp->name());
+			}
+		}
+	}
+	if (used.count(base) == 0)
+	{
+		return base;
+	}
+	for (int suffix = 2; suffix < 1000; ++suffix)
+	{
+		const std::string candidate = base + "_" + std::to_string(suffix);
+		if (used.count(candidate) == 0)
+		{
+			return candidate;
+		}
+	}
+	return base + "_" + std::to_string(used.size() + 1);
+}
+} // namespace
+
 void TrajectoryEditSession::setRawTrajectory(RobotInstruction::RawTrajectory traj)
 {
+	clearTrajectoryGeometryHistory();
 	m_rawTrajectory = std::move(traj);
+	m_bakedWorldRaw.reset();
+	if (m_store && m_boundPathPlanId.empty())
+	{
+		auto pathPlan = std::make_shared<RobotInstruction::PathPlanInstruction>();
+		pathPlan->setSourceFeatureJson(m_rawTrajectory->sourceFeatureJson);
+		pathPlan->setRawTrajectoryKey(pathPlan->id());
+		pathPlan->setName(
+			makeUniquePathPlanName(*m_rawTrajectory, m_store->activeCatalog(), m_store->activeProgramIdUtf8()));
+		m_boundPathPlanId = pathPlan->id();
+		size_t insertIdx = 0;
+		for (const std::shared_ptr<RobotInstruction::Base>& step : m_store->activeProgram())
+		{
+			if (step && step->type() == RobotInstruction::Type::PathPlan)
+			{
+				++insertIdx;
+			}
+		}
+		if (m_editService)
+		{
+			std::vector<RobotInstruction::ProgramEditStack::CommandPtr> cmds;
+			cmds.push_back(std::make_shared<RobotInstruction::InsertPathPlanCommand>(pathPlan, insertIdx));
+			cmds.push_back(std::make_shared<RobotInstruction::UpdatePathPlanRawCommand>(
+				&m_store->activeCatalog(),
+				m_boundPathPlanId,
+				*m_rawTrajectory,
+				RobotInstruction::PathPlanPhase::RawReady));
+			QString err;
+			(void)m_editService->executeBatch(cmds, &err);
+		}
+		else
+		{
+			m_store->activeProgram().insert(m_store->activeProgram().begin(), pathPlan);
+			m_store->activeCatalog().pathPlanRaws().save(m_boundPathPlanId, *m_rawTrajectory);
+		}
+	}
+	else if (m_store && !m_boundPathPlanId.empty())
+	{
+		RobotInstruction::RobotProgramCatalog& catalog = m_store->activeCatalog();
+		if (m_editService)
+		{
+			auto cmd = std::make_shared<RobotInstruction::UpdatePathPlanRawCommand>(
+				&catalog,
+				m_boundPathPlanId,
+				*m_rawTrajectory,
+				RobotInstruction::PathPlanPhase::RawReady);
+			QString err;
+			(void)m_editService->execute(cmd, &err);
+		}
+		else
+		{
+			catalog.pathPlanRaws().save(m_boundPathPlanId, *m_rawTrajectory);
+		}
+		if (RobotInstruction::PathPlanInstruction* pp = catalog.findPathPlan(
+				catalog.activeProgramId(),
+				m_boundPathPlanId))
+		{
+			pp->appliedHistoryMut().clear();
+			if (!m_editService)
+			{
+				pp->setPhase(RobotInstruction::PathPlanPhase::RawReady);
+				pp->bumpRawRevision();
+			}
+			pp->setSourceFeatureJson(m_rawTrajectory->sourceFeatureJson);
+			if (pp->name().empty())
+			{
+				pp->setName(makeUniquePathPlanName(
+					*m_rawTrajectory,
+					catalog,
+					catalog.activeProgramId()));
+			}
+			if (pp->rawTrajectoryKey().empty())
+			{
+				pp->setRawTrajectoryKey(m_boundPathPlanId);
+			}
+		}
+	}
 	emit rawTrajectoryChanged();
 }
 
@@ -713,12 +1341,102 @@ bool TrajectoryEditSession::hasRawTrajectory() const
 
 void TrajectoryEditSession::clearRawTrajectory()
 {
-	if (!m_rawTrajectory.has_value())
+	if (!m_rawTrajectory.has_value() && !m_bakedWorldRaw.has_value())
 	{
 		return;
 	}
 	m_rawTrajectory.reset();
+	m_bakedWorldRaw.reset();
 	emit rawTrajectoryChanged();
+}
+
+bool TrajectoryEditSession::buildRawPreviewWithPipeline(
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& pipelineOps,
+	RobotInstruction::RawTrajectory& outPreviewRaw,
+	QString* outError) const
+{
+	if (!m_rawTrajectory.has_value() || m_rawTrajectory->points.empty())
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("无原始轨迹");
+		}
+		return false;
+	}
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> recipeOps;
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> geometryOps;
+	recipeOps.reserve(pipelineOps.size());
+	geometryOps.reserve(pipelineOps.size());
+	for (const RobotInstruction::TrajectoryOpDescriptor& op : pipelineOps)
+	{
+		if (RobotInstruction::isRecipeOpKind(op.kind))
+		{
+			recipeOps.push_back(op);
+		}
+		else
+		{
+			geometryOps.push_back(op);
+		}
+	}
+	RobotInstruction::RawTrajectory rawWorking = *m_rawTrajectory;
+	RobotInstruction::UnifiedTrajectory unified{};
+	if (!rebuildUnifiedFromSourceRaw(rawWorking, unified, outError))
+	{
+		return false;
+	}
+	std::string err;
+	auto applyUnifiedOps = [&](const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops) -> bool {
+		for (const RobotInstruction::TrajectoryOpDescriptor& op : ops)
+		{
+			if (!RobotInstruction::applyUnifiedTrajectoryOp(op, unified, &err))
+			{
+				if (outError)
+				{
+					*outError = err.empty() ? QStringLiteral("unified preview failed") : QString::fromStdString(err);
+				}
+				return false;
+			}
+		}
+		return true;
+	};
+	if (!applyUnifiedOps(m_pendingPreRawGeometryOps))
+	{
+		return false;
+	}
+	for (const RobotInstruction::TrajectoryOpDescriptor& op : recipeOps)
+	{
+		if (!RobotInstruction::applyRecipeDescriptorToRawTrajectory(op, rawWorking, &err))
+		{
+			if (outError)
+			{
+				*outError = err.empty() ? QStringLiteral("recipe preview failed") : QString::fromStdString(err);
+			}
+			return false;
+		}
+		if (!rebuildUnifiedFromSourceRaw(rawWorking, unified, outError))
+		{
+			return false;
+		}
+	}
+	if (!applyUnifiedOps(m_accumulatedGeometryOps))
+	{
+		return false;
+	}
+	if (!applyUnifiedOps(geometryOps))
+	{
+		return false;
+	}
+	RobotInstruction::RawTrajectory worldPreview{};
+	if (!RobotInstruction::unifiedTrajectoryToRaw(unified, worldPreview, &err))
+	{
+		if (outError)
+		{
+			*outError = err.empty() ? QStringLiteral("unified->raw failed") : QString::fromStdString(err);
+		}
+		return false;
+	}
+	outPreviewRaw = std::move(worldPreview);
+	return true;
 }
 
 void TrajectoryEditSession::clearPreviewSnapshots()
@@ -828,7 +1546,9 @@ bool TrajectoryEditSession::applyPreviewTransforms(QString* outError)
 	return true;
 }
 
-void TrajectoryEditSession::syncRenderMatricesForInstructionIds(const std::vector<std::string>& ids)
+void TrajectoryEditSession::syncRenderMatricesForInstructionIds(
+	const std::vector<std::string>& ids,
+	const bool worldFrameTcp)
 {
 	if (!m_simController || !m_store || ids.empty())
 	{
@@ -840,7 +1560,14 @@ void TrajectoryEditSession::syncRenderMatricesForInstructionIds(const std::vecto
 		const auto it = index.find(id);
 		if (it != index.end() && it->second)
 		{
-			m_simController->syncInstructionRenderMatricesFromPose(it->second);
+			if (worldFrameTcp)
+			{
+				m_simController->syncInstructionRenderMatricesFromWorldPose(it->second);
+			}
+			else
+			{
+				m_simController->syncInstructionRenderMatricesFromPose(it->second);
+			}
 		}
 	}
 }

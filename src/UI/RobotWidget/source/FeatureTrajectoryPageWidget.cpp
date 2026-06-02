@@ -812,9 +812,10 @@ void FeatureTrajectoryPageWidget::onLoadCatalog()
 
 std::string FeatureTrajectoryPageWidget::resolvePreviewBackendId(const RobotInstruction::RawTrajectory& traj) const
 {
-	if (!traj.sourceFeature.workpiece.backendIdUtf8.empty())
+	const std::string backendId = RobotInstruction::rawTrajectoryWorkpieceBackendId(traj);
+	if (!backendId.empty())
 	{
-		return traj.sourceFeature.workpiece.backendIdUtf8;
+		return backendId;
 	}
 	return {};
 }
@@ -1000,6 +1001,19 @@ bool FeatureTrajectoryPageWidget::discretizeFromEditor()
 				.arg(spec.discretize.stepMm, 0, 'f', 2).arg(n)
 			: QStringLiteral("Step %1 mm → %2 points; apply recipe on Trajectory Edit tab")
 				.arg(spec.discretize.stepMm, 0, 'f', 2).arg(n);
+	}
+	if (m_session)
+	{
+		if (!m_session->boundPathPlanId().empty())
+		{
+			msg += m_chinese
+				? QStringLiteral("；已写入当前选中的路径规划")
+				: QStringLiteral("; saved to selected path plan");
+		}
+		else
+		{
+			msg += m_chinese ? QStringLiteral("；已新建路径规划") : QStringLiteral("; new path plan created");
+		}
 	}
 	setStatus(msg);
 	return true;
