@@ -756,7 +756,7 @@ sequenceDiagram
    - 详见 [`RobotWidget/DEVELOPER_GUIDE.md`](RobotWidget/DEVELOPER_GUIDE.md) §CAD 轨迹生成、[`GeometryAlgorithm/DEVELOPER_GUIDE.md`](GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.1。  
 3. **指令选中预览（非运行态）**  
    - 选中 **PTP/LINE** 时：`applyRobotPoseForInstructionPreview`（链式种子 + 单次 IK 或示教 CSV）。  
-   - **坐标系页**：添加未激活工具系为 **StructuralOnly**（不 invalidate plan 缓存、不全程序 IK）；仅显示勾选变更只刷 overlay；切换激活/工具几何时异步 reachability；切换激活工具系时 `syncInstructionToolContextFromFrames` 对 active 跟随路点写 **当前** `activeToolFrame(frames)`（不用 stale frozen id），并自首个受影响点失效下游示教关节。  
+   - **坐标系页**：添加未激活工具系为 **StructuralOnly**（不 invalidate plan 缓存、不全程序 IK）；全局或单项 `showInScene` 显示变更只刷 overlay；切换激活/工具几何时异步 reachability；切换激活工具系时 `syncInstructionToolContextFromFrames` 对 active 跟随路点写 **当前** `activeToolFrame(frames)`（不用 stale frozen id），并自首个受影响点失效下游示教关节。  
    - 仿真运行中不抢占预览；Run 时指令树经 `currentInstruction()` + `QSignalBlocker` 跟随当前指令。  
    - 位姿/工具系/Undo 等触发 **`PlanResultCache::invalidateAll`**（与可行轴缓存一并失效）。  
 4. **轴配置属性与规划一致性**  
@@ -767,7 +767,7 @@ sequenceDiagram
 6. 通过接口更新文档中的关节节点矩阵（层级）或各 link 后端/OSG 矩阵（每连杆）。  
 7. UI 面板实时反馈执行过程；`OsgWidget::setInstructionPoseAxes` 在世界系显示各运动点 XYZ 坐标轴；轴原点 **绿色=IK 可达**、**红色=不可达**（与 PTP/LINE 的 RGB 轴身颜色无关）。  
 8. **调试**：环境变量 `ROBOT_KINEMATICS_DEBUG=1`（或启动参数 `--robot-kinematics-debug 1`）时，`applyJointAnglesViaLinkBackends` 输出 `[RobotKinematicsDBG]`（`T0`/`Tq`/`Mnew`/父世界/写回后 `outerWorld` 等）。  
-9. **坐标系（基座 / 工具 / 用户）**：每台机器人 `HierarchicalRobotInstance::coordinateFrames`（`RobotCoordinateFrames`）；默认基座与 `sceneRootBackendId` 重合、工具与法兰/TCP link 重合、预置 `UFrame1`。仿真 Dock **坐标系** 页（`RobotFrameSettingsWidget`）编辑工具系与用户系（`T_flange_tool.positionMm` 为 **法兰连杆轴** mm，标签 `flange`）；3D 叠加（`OsgWidget::setRobotFrameOverlays`）与示教 FK 均经 `engine::toolOriginFromFlange`（`composeColumn`，勿裸 `linkWorld * toolMat`）。PTP/LINE 的 `pose/euler` 存 **基系工具原点**（`T_base_target`）；每点 `motion.tool.frameId` / `context.toolFrameMat4`；IK 前置 `flangeFromToolOrigin`。属性面板 `motion.target.frame` 为 `base` / `user` 示教（落盘仍基系）。指令 `extensions` 随 `robotPrograms` 持久化。  
+9. **坐标系（基座 / 工具 / 用户）**：每台机器人 `HierarchicalRobotInstance::coordinateFrames`（`RobotCoordinateFrames`）；默认基座与 `sceneRootBackendId` 重合、工具与法兰/TCP link 重合、预置 `UFrame1`。仿真 Dock **坐标系** 页（`RobotFrameSettingsWidget`）编辑工具系与用户系（`T_flange_tool.positionMm` 为 **法兰连杆轴** mm，标签 `flange`）；列表每行 **`showInScene`** 勾选 + 全局「显示工具/用户坐标系」控制 3D 轴叠加。3D 叠加（`OsgWidget::setRobotFrameOverlays`）与示教 FK 均经 `engine::toolOriginFromFlange`（`composeColumn`，勿裸 `linkWorld * toolMat`）；per-link 用户系挂 URDF 根连杆，工具/用户轴不参与深度测试。PTP/LINE 的 `pose/euler` 存 **基系工具原点**（`T_base_target`）；每点 `motion.tool.frameId` / `context.toolFrameMat4`；IK 前置 `flangeFromToolOrigin`。属性面板 `motion.target.frame` 为 `base` / `user` 示教（落盘仍基系）。指令 `extensions` 随 `robotPrograms` 持久化。  
 10. **导出**：仿真 **Export…** 默认 **Canonical v1**（`cloudsim.program_export`）；兼容 `RobotProgramExport` JSON/CSV；Python `robot_postprocess` 可生成 ABB/KUKA 占位程序。  
 
 ```mermaid

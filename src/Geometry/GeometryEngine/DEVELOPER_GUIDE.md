@@ -58,7 +58,7 @@
 - **`eulerDeg`**：工具相对法兰的旋转（deg）。
 - 例：`Z = -200`、欧拉全 0 → 沿 **法兰 Z** 负向 200 mm；映射到基座为 `R_flange * (0,0,-200)`。仅当法兰 Z ∥ 基座 Z 时，观感才像「只改世界 Z」。
 
-UI：`RobotFrameSettingsWidget` 标签为 `X/Y/Z (mm, flange)`。
+UI：`RobotFrameSettingsWidget` 标签为 `X/Y/Z (mm, flange)`；列表行尾勾选控制该项 `showInScene`（与全局显示开关共同决定 3D 轴是否绘制）。
 
 ---
 

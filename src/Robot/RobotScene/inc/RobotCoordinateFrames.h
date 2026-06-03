@@ -34,6 +34,7 @@ struct ROBOT_SCENE_API RobotToolFrame
 	/// T_flange_tool；空 flangeLinkName 时用 RobotCoordinateFrameSet::flangeLinkName
 	RobotRigidFrame T_flange_tool;
 	std::string flangeLinkName;
+	bool showInScene = true;
 };
 
 struct ROBOT_SCENE_API RobotUserFrame
@@ -41,6 +42,7 @@ struct ROBOT_SCENE_API RobotUserFrame
 	std::string id;
 	std::string name;
 	RobotRigidFrame T_base_user;
+	bool showInScene = true;
 };
 
 struct ROBOT_SCENE_API RobotCoordinateFrameSet

@@ -515,7 +515,18 @@ LMB/RMB (RobotTcpDragTeachOperation)
 |----|------|
 | 工具系 `T_flange_tool` | `positionMm` / `eulerDeg`；平移在 **法兰连杆轴**（UI：`X/Y/Z (mm, flange)`） |
 | `flangeLink` | 空则用 `RobotCoordinateFrameSet::flangeLinkName`（如 `link_6`） |
+| 列表行尾勾选 | `RobotToolFrame::showInScene` / `RobotUserFrame::showInScene`；与全局「显示工具/用户坐标系」AND 后决定是否绘制 |
 | 捕获 / 重置 | `Capture from TCP`、`Reset to flange` → `RobotSimulationController`（经 `MainWindow` 转发） |
+
+### `OsgWidget::setRobotFrameOverlays`
+
+| 项 | 说明 |
+|----|------|
+| 工具系 | per-link：`mountBackendId` = 法兰 link；`localMatrix` = `T_flange_tool` |
+| 用户系 | per-link：挂 URDF **根连杆** backend（robot root 无 OSG 节点）；`localMatrix` = `T_base_user` |
+| 非 per-link | 空 `mountBackendId` + asmRoot / outer 回退；矩阵为 FK 基系下 TCP |
+| 可见性 | 工具/用户轴 `alwaysVisible`：`GL_DEPTH_TEST OFF` + 高 render bin；指令路点轴仍测深 |
+| `mountOnParent` | 指定 backend 失败时，尝试 robot root 首子 `Group`；否则挂 root `outer` |
 
 ### 示教与 FK 路径（`RobotWidget` + `MainWindow` 转发）
 

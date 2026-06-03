@@ -459,6 +459,7 @@ void writeCoordinateFrameSetToJson(const RobotCoordinateFrameSet& set, nlohmann:
 		{
 			item["flangeLinkName"] = tf.flangeLinkName;
 		}
+		item["showInScene"] = tf.showInScene;
 		toolArr.push_back(std::move(item));
 	}
 	out["toolFrames"] = std::move(toolArr);
@@ -473,6 +474,7 @@ void writeCoordinateFrameSetToJson(const RobotCoordinateFrameSet& set, nlohmann:
 		item["id"] = uf.id;
 		item["name"] = uf.name;
 		writeRigidFrameJson(uf.T_base_user, item["T_base_user"]);
+		item["showInScene"] = uf.showInScene;
 		arr.push_back(std::move(item));
 	}
 	out["userFrames"] = std::move(arr);
@@ -524,6 +526,10 @@ bool readCoordinateFrameSetFromJson(const nlohmann::json& in, RobotCoordinateFra
 			{
 				tf.flangeLinkName = item["flangeLinkName"].get<std::string>();
 			}
+			if (item.contains("showInScene") && item["showInScene"].is_boolean())
+			{
+				tf.showInScene = item["showInScene"].get<bool>();
+			}
 			if (tf.id.empty())
 			{
 				tf.id = makeToolFrameId();
@@ -572,6 +578,10 @@ bool readCoordinateFrameSetFromJson(const nlohmann::json& in, RobotCoordinateFra
 			if (item.contains("T_base_user"))
 			{
 				readRigidFrameJson(item["T_base_user"], uf.T_base_user);
+			}
+			if (item.contains("showInScene") && item["showInScene"].is_boolean())
+			{
+				uf.showInScene = item["showInScene"].get<bool>();
 			}
 			if (uf.id.empty())
 			{

@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QHBoxLayout>
 #include <QListWidget>
+#include <QListWidgetItem>
 #include <QPushButton>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -309,7 +310,35 @@ void RobotFrameSettingsWidget::rebuildToolFrameList()
 		{
 			label += QStringLiteral(" *");
 		}
-		m_toolList->addItem(label);
+		auto* item = new QListWidgetItem(m_toolList);
+		auto* row = new QWidget(m_toolList);
+		auto* rowLayout = new QHBoxLayout(row);
+		rowLayout->setContentsMargins(4, 2, 4, 2);
+		auto* nameLabel = new QLabel(label, row);
+		auto* showCheck = new QCheckBox(row);
+		showCheck->setChecked(tf.showInScene);
+		showCheck->setToolTip(m_useChinese ? QStringLiteral("在三维场景中显示") : QStringLiteral("Show in 3D scene"));
+		rowLayout->addWidget(nameLabel, 1);
+		rowLayout->addWidget(showCheck, 0);
+		item->setSizeHint(row->sizeHint());
+		m_toolList->addItem(item);
+		m_toolList->setItemWidget(item, row);
+		const std::string frameId = tf.id;
+		connect(showCheck, &QCheckBox::toggled, this, [this, frameId](const bool checked) {
+			if (m_blockSignals)
+			{
+				return;
+			}
+			for (RobotCoordinate::RobotToolFrame& f : m_frames.toolFrames)
+			{
+				if (f.id == frameId)
+				{
+					f.showInScene = checked;
+					break;
+				}
+			}
+			emit framesChanged();
+		});
 	}
 	if (m_toolList->count() > 0 && m_toolList->currentRow() < 0)
 	{
@@ -336,7 +365,35 @@ void RobotFrameSettingsWidget::rebuildUserFrameList()
 		{
 			label += QStringLiteral(" *");
 		}
-		m_userList->addItem(label);
+		auto* item = new QListWidgetItem(m_userList);
+		auto* row = new QWidget(m_userList);
+		auto* rowLayout = new QHBoxLayout(row);
+		rowLayout->setContentsMargins(4, 2, 4, 2);
+		auto* nameLabel = new QLabel(label, row);
+		auto* showCheck = new QCheckBox(row);
+		showCheck->setChecked(uf.showInScene);
+		showCheck->setToolTip(m_useChinese ? QStringLiteral("在三维场景中显示") : QStringLiteral("Show in 3D scene"));
+		rowLayout->addWidget(nameLabel, 1);
+		rowLayout->addWidget(showCheck, 0);
+		item->setSizeHint(row->sizeHint());
+		m_userList->addItem(item);
+		m_userList->setItemWidget(item, row);
+		const std::string frameId = uf.id;
+		connect(showCheck, &QCheckBox::toggled, this, [this, frameId](const bool checked) {
+			if (m_blockSignals)
+			{
+				return;
+			}
+			for (RobotCoordinate::RobotUserFrame& f : m_frames.userFrames)
+			{
+				if (f.id == frameId)
+				{
+					f.showInScene = checked;
+					break;
+				}
+			}
+			emit framesChanged();
+		});
 	}
 	if (m_userList->count() > 0 && m_userList->currentRow() < 0)
 	{

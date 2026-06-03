@@ -257,7 +257,10 @@ osg::ref_ptr<osg::Geode> createReachabilityOriginGeode(bool reachable)
 	return geode;
 }
 
-osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(float axisLengthMm, bool lineMotion)
+osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(
+	float axisLengthMm,
+	bool lineMotion,
+	bool alwaysVisible = false)
 {
 	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
 	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
@@ -290,7 +293,15 @@ osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(float axisLengthMm, bool
 
 	osg::StateSet* ss = geode->getOrCreateStateSet();
 	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-	ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::ON);
+	if (alwaysVisible)
+	{
+		ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+		ss->setRenderBinDetails(100, "RenderBin");
+	}
+	else
+	{
+		ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::ON);
+	}
 	ss->setMode(GL_BLEND, osg::StateAttribute::ON);
 	osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth(lineMotion ? 3.0f : 2.5f);
 	ss->setAttributeAndModes(lw.get(), osg::StateAttribute::ON);
@@ -585,13 +596,19 @@ void OsgWidget::setRobotFrameOverlays(const RobotFrameOverlayUpdate& update)
 			}
 		}
 		const auto itScene = m_backendObjectRoots.find(update.robotRootBackendId);
-		if (itScene != m_backendObjectRoots.end() && itScene->second.valid() && itScene->second->getNumChildren() > 0)
+		if (itScene != m_backendObjectRoots.end() && itScene->second.valid())
 		{
-			if (osg::Group* asmRoot = dynamic_cast<osg::Group*>(itScene->second->getChild(0)))
+			osg::MatrixTransform* outer = itScene->second.get();
+			if (outer->getNumChildren() > 0)
 			{
-				asmRoot->addChild(mt);
-				return true;
+				if (osg::Group* asmRoot = dynamic_cast<osg::Group*>(outer->getChild(0)))
+				{
+					asmRoot->addChild(mt);
+					return true;
+				}
 			}
+			outer->addChild(mt);
+			return true;
 		}
 		return false;
 	};
@@ -604,7 +621,7 @@ void OsgWidget::setRobotFrameOverlays(const RobotFrameOverlayUpdate& update)
 			toolMt->setName(std::string("RobotToolFrame_") + te.name);
 			toolMt->setMatrix(te.localMatrix);
 			const float axisLen = te.active ? 100.0f : 75.0f;
-			toolMt->addChild(createInstructionPoseAxisGeode(axisLen, false).get());
+			toolMt->addChild(createInstructionPoseAxisGeode(axisLen, false, true).get());
 			if (mountOnParent(te.mountBackendId, toolMt.get()))
 			{
 				nodes.toolNodes.push_back(toolMt);
@@ -618,7 +635,7 @@ void OsgWidget::setRobotFrameOverlays(const RobotFrameOverlayUpdate& update)
 			osg::ref_ptr<osg::MatrixTransform> userMt = new osg::MatrixTransform;
 			userMt->setName(std::string("RobotUserFrame_") + ue.name);
 			userMt->setMatrix(ue.localMatrix);
-			userMt->addChild(createInstructionPoseAxisGeode(110.0f, false).get());
+			userMt->addChild(createInstructionPoseAxisGeode(110.0f, false, true).get());
 			if (mountOnParent(ue.mountBackendId, userMt.get()))
 			{
 				nodes.userNodes.push_back(userMt);

@@ -247,8 +247,11 @@
 | 类型 | 说明 |
 |------|------|
 | `RobotRigidFrame` | 平移 mm + 欧拉 deg（`BackendFollowMath` 同约定） |
-| `RobotUserFrame` | `id` / `name` / `T_base_user` |
-| `RobotCoordinateFrameSet` | `toolFrames[]`（`T_flange_tool`）、`activeToolFrameId`、`flangeLinkName`、用户系列表、激活 id、3D 显示开关 |
+| `RobotToolFrame` | `id` / `name` / `T_flange_tool` / `flangeLinkName` / **`showInScene`**（默认 `true`） |
+| `RobotUserFrame` | `id` / `name` / `T_base_user` / **`showInScene`**（默认 `true`） |
+| `RobotCoordinateFrameSet` | `toolFrames[]`、`activeToolFrameId`、`flangeLinkName`、用户系列表、激活 id、全局 3D 显示开关 `showToolFrameInScene` / `showUserFramesInScene` |
+
+**JSON**（`writeCoordinateFrameSetToJson` / `readCoordinateFrameSetFromJson`）：全局键 `showToolFrame`、`showUserFrames`；每帧可选 `showInScene`（缺省 `true`，兼容旧工程）。
 
 | API | 作用 |
 |-----|------|

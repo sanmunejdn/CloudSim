@@ -102,12 +102,13 @@ bool rigidFrameMatches(const RobotCoordinate::RobotRigidFrame& a, const RobotCoo
 
 bool toolFrameEntryMatches(const RobotCoordinate::RobotToolFrame& a, const RobotCoordinate::RobotToolFrame& b)
 {
-	return a.id == b.id && a.name == b.name && toolFrameGeometryMatches(a, b);
+	return a.id == b.id && a.name == b.name && a.showInScene == b.showInScene && toolFrameGeometryMatches(a, b);
 }
 
 bool userFrameEntryMatches(const RobotCoordinate::RobotUserFrame& a, const RobotCoordinate::RobotUserFrame& b)
 {
-	return a.id == b.id && a.name == b.name && rigidFrameMatches(a.T_base_user, b.T_base_user);
+	return a.id == b.id && a.name == b.name && a.showInScene == b.showInScene
+		&& rigidFrameMatches(a.T_base_user, b.T_base_user);
 }
 
 bool coordinateFrameSetEquals(
@@ -147,6 +148,14 @@ bool coordinateFrameSetPlanningEquals(
 	RobotCoordinate::RobotCoordinateFrameSet bb = b;
 	aa.showToolFrameInScene = bb.showToolFrameInScene;
 	aa.showUserFramesInScene = bb.showUserFramesInScene;
+	for (size_t i = 0; i < aa.toolFrames.size() && i < bb.toolFrames.size(); ++i)
+	{
+		aa.toolFrames[i].showInScene = bb.toolFrames[i].showInScene;
+	}
+	for (size_t i = 0; i < aa.userFrames.size() && i < bb.userFrames.size(); ++i)
+	{
+		aa.userFrames[i].showInScene = bb.userFrames[i].showInScene;
+	}
 	return coordinateFrameSetEquals(aa, bb);
 }
 
@@ -1432,8 +1441,7 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 	upd.showUserFrames = frames.showUserFramesInScene;
 	for (const RobotCoordinate::RobotToolFrame& tool : frames.toolFrames)
 	{
-		// Run 中指令点轴已标 TCP，隐藏同工具重复 triad；预览时仍显示工具系以便与路点轴比对
-		if (highlightInstruction && tool.id == highlightToolId && m_programExecutor.isRunning())
+		if (!tool.showInScene)
 		{
 			continue;
 		}
@@ -1461,10 +1469,39 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 	}
 	for (const RobotCoordinate::RobotUserFrame& uf : frames.userFrames)
 	{
+		if (!uf.showInScene)
+		{
+			continue;
+		}
 		RobotOsgUi::RobotFrameOverlayUpdate::UserEntry ue;
 		ue.name = uf.name;
-		ue.mountBackendId = perLink ? baseLinkBackendId.toStdString() : std::string();
 		ue.localMatrix = RobotSimulationMath::osgMatrixFromRobotRigidFrame(uf.T_base_user);
+		if (perLink)
+		{
+			// per-link 的 robot root 无 OSG 节点，须挂 URDF 根连杆（FK 下基座不动）
+			QString rootLinkName;
+			QHash<QString, QString> linkMeshes;
+			QString urdfListErr;
+			if (UrdfRobotLoader::enumerateLinkVisualMeshes(urdfPath, rootLinkName, linkMeshes, &urdfListErr)
+				&& !rootLinkName.isEmpty())
+			{
+				const QString rootBackendId = RobotSimulationMath::linkMeshBackendIdForInstance(
+					doc, instIdx, rootLinkName.toStdString());
+				ue.mountBackendId = rootBackendId.isEmpty() ? baseLinkBackendId.toStdString() : rootBackendId.toStdString();
+			}
+			else
+			{
+				ue.mountBackendId = baseLinkBackendId.toStdString();
+			}
+			if (ue.mountBackendId.empty())
+			{
+				continue;
+			}
+		}
+		else
+		{
+			ue.mountBackendId.clear();
+		}
 		upd.userFrames.push_back(std::move(ue));
 	}
 	osg->setRobotFrameOverlays(upd);

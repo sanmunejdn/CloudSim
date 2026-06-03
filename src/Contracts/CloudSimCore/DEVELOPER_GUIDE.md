@@ -146,7 +146,7 @@ OsgWidget* osg = osgWidgetFrom(host);
 | 方法 | 说明 |
 |------|------|
 | `setInstructionPoseAxes(...)` | 运动点坐标轴显示 |
-| `setRobotFrameOverlays(...)` | 坐标系叠加 |
+| `setRobotFrameOverlays(...)` | 工具/用户坐标系叠加（全局开关 + 每帧 `showInScene` 过滤；per-link 挂载见 Widget 指南 §13） |
 | `beginTcpDragTeach` / `endTcpDragTeach` | TCP 示教模式 |
 | `setRawTrajectoryOverlay(...)` | 原始轨迹预览 |
 | `clearRawTrajectoryOverlay` | 清除原始轨迹 |

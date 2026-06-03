@@ -265,7 +265,7 @@ Executor 侧：`RobotProgramExecutor::currentInstruction()`（见 [`../Robot/Rob
 | 变更类型 | 典型操作 | 行为 |
 |----------|----------|------|
 | **无变更** | 仅切换工具列表行（spin 未改） | 不 emit `framesChanged` |
-| **DisplayOnly** | 仅切换「显示工具系/用户系」 | 只刷 overlay |
+| **DisplayOnly** | 全局「显示工具系/用户系」或**单项** `showInScene` 勾选 | 只刷 overlay；不 invalidate plan / 不 IK |
 | **StructuralOnly** | 添加/复制/删除**未激活**工具系 | `refreshInstructionPoseAxes(false)`；**不** invalidate plan 缓存；**不** preview |
 | **ActiveToolChanged** | 「设为当前」切换激活工具 | `applyToolFrameChangeToProgram` + 失效 plan/可达性缓存；**异步** reachability + 选中点 preview |
 | **ToolGeometryChanged** | 编辑 `T_flange_tool` / flange link | 对使用该工具 id 的路点失效示教关节；异步 reachability + preview |
@@ -275,6 +275,17 @@ Executor 侧：`RobotProgramExecutor::currentInstruction()`（见 [`../Robot/Rob
 辅助 API（`RobotInstructionPlanningHelpers`）：`motionFollowsActiveToolFrame`、`syncInstructionToolContextFromFrames`、`persistTaughtJointsAndToolContext`。
 
 Add/Duplicate/Remove 工具系时用 `m_blockSignals` 避免 `setCurrentRow` 触发双重 `framesChanged`。工具列表切换行时仅 spin 实际变更才 emit。
+
+#### `RobotFrameSettingsWidget` 列表与显示
+
+| UI | 行为 |
+|----|------|
+| 工具/用户列表每行 | 名称 + `*`（当前激活）；**右侧勾选** → 该项 `showInScene`（默认 `true`） |
+| 「三维显示」分组 | 全局 `showToolFrameInScene` / `showUserFramesInScene`；关闭时全部 overlay 不绘制 |
+| 单项勾选 | 仅隐藏该条坐标系轴；属 **DisplayOnly**，经 `coordinateFrameSetPlanningEquals` 忽略后对比 |
+| 持久化 | 工程 JSON 每帧可选字段 `showInScene`；缺省视为显示 |
+
+3D 叠加由 `refreshRobotCoordinateFrameOverlays` → `OsgWidget::setRobotFrameOverlays`：全局开关开启且该项 `showInScene` 才入队；per-link 工具系挂法兰 link backend，用户系挂 **URDF 根连杆**（`T_base_user` 相对基座）；工具/用户轴 `createInstructionPoseAxisGeode(..., alwaysVisible=true)` 关闭深度测试以免被 mesh 遮挡。Run 期间工具系与预览一致显示（不再按 highlight 工具 id 跳过）。
 
 | 类 | 说明 |
 |----|------|
