@@ -1,11 +1,11 @@
 #pragma once
 
-#include "DocumentPage.h"
+#include "DocumentHost.h"
 #include "IRenderView.h"
 #include "OsgWidget.h"
 
-/// Widget 侧经 IRenderView::widget() 取得 OsgWidget，与 Host osgWidgetFrom 对齐
-inline OsgWidget* widgetOsgFromPage(DocumentPage* page)
+/// Widget/Host 经 IRenderView::widget() 取得 OsgWidget
+inline OsgWidget* widgetOsgFromPage(cloudsim::host::DocumentHost* page)
 {
 	if (!page)
 	{

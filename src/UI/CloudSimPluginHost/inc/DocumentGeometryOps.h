@@ -6,8 +6,11 @@
 #include <memory>
 #include <string>
 
-class DocumentPage;
-class MainWindow;
+namespace cloudsim::host {
+class DocumentHost;
+}
+
+class IPluginMainWindowHost;
 
 namespace document_geometry_ops
 {
@@ -22,8 +25,8 @@ PluginGeometryJobResult toPluginGeometryResult(
 	const std::string& backendId);
 
 std::string registerMeshSoup(
-	DocumentPage* page,
-	MainWindow* mainWindow,
+	cloudsim::host::DocumentHost* page,
+	IPluginMainWindowHost* mainWindowHost,
 	std::vector<float> soup,
 	const PluginMeshCreateOptions& options,
 	std::string* outError = nullptr);

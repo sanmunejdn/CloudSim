@@ -2,7 +2,7 @@
 
 #include "DocumentImportFacade.h"
 #include "DocumentPointCloudOps.h"
-#include "DocumentPage.h"
+#include "DocumentHost.h"
 #include "MeshBackendData.h"
 #include "PluginDocumentAdapter.h"
 #include "PluginHostContext.h"
@@ -15,14 +15,14 @@
 namespace
 {
 
-DocumentPage* pageFromDoc(IPluginDocument* doc)
+cloudsim::host::DocumentHost* pageFromDoc(IPluginDocument* doc)
 {
 	if (!doc)
 	{
 		return nullptr;
 	}
 	const auto* adapter = dynamic_cast<const PluginDocumentAdapter*>(doc);
-	return adapter ? adapter->documentPage() : nullptr;
+	return adapter ? adapter->documentHost() : nullptr;
 }
 
 using MutateFn = std::function<bool(PointCloudBackendData&, std::string*)>;
@@ -39,7 +39,7 @@ void runMutateJob(
 	{
 		return;
 	}
-	DocumentPage* page = pageFromDoc(doc);
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
 	std::string resolveErr;
 	const auto pc = document_point_cloud_ops::resolvePointCloud(page, backendIdUtf8, &resolveErr);
 	if (!pc)
@@ -305,7 +305,7 @@ void PluginPointCloudHostImpl::rigidRegisterPointCloudsIcp(
 	{
 		return;
 	}
-	DocumentPage* page = pageFromDoc(doc);
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
 	std::string resolveErr;
 	const auto source = document_point_cloud_ops::resolvePointCloud(page, sourceBackendIdUtf8, &resolveErr);
 	if (!source)
@@ -401,7 +401,7 @@ void PluginPointCloudHostImpl::deformPointCloudTpsFitAndDeform(
 	{
 		return;
 	}
-	DocumentPage* page = pageFromDoc(doc);
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
 	std::string resolveErr;
 	const auto source = document_point_cloud_ops::resolvePointCloud(page, sourceBackendIdUtf8, &resolveErr);
 	if (!source)
@@ -489,7 +489,7 @@ void PluginPointCloudHostImpl::reconstructMeshPoisson(
 	{
 		return;
 	}
-	DocumentPage* page = pageFromDoc(doc);
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
 	std::string resolveErr;
 	const auto pc = document_point_cloud_ops::resolvePointCloud(page, backendIdUtf8, &resolveErr);
 	if (!pc)
@@ -542,7 +542,7 @@ void PluginPointCloudHostImpl::reconstructMeshPoisson(
 			meshPtr->setTriangleSoup(std::move(result->triangleSoup));
 			std::string regErr;
 			jobResult.newBackendId = document_point_cloud_ops::registerReconstructedMesh(
-				page, m_host->mainWindow(), meshPtr, params.meshOptions, &regErr);
+				page, m_host->mainWindowHost(), meshPtr, params.meshOptions, &regErr);
 			if (jobResult.newBackendId.empty())
 			{
 				onFinished(false, QString::fromStdString(regErr), jobResult);
@@ -562,7 +562,7 @@ void PluginPointCloudHostImpl::reconstructMeshPoissonAuto(
 	{
 		return;
 	}
-	DocumentPage* page = pageFromDoc(doc);
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
 	std::string resolveErr;
 	const auto pc = document_point_cloud_ops::resolvePointCloud(page, backendIdUtf8, &resolveErr);
 	if (!pc)
@@ -609,7 +609,7 @@ void PluginPointCloudHostImpl::reconstructMeshPoissonAuto(
 			meshPtr->setTriangleSoup(std::move(result->triangleSoup));
 			std::string regErr;
 			jobResult.newBackendId = document_point_cloud_ops::registerReconstructedMesh(
-				page, m_host->mainWindow(), meshPtr, params.meshOptions, &regErr);
+				page, m_host->mainWindowHost(), meshPtr, params.meshOptions, &regErr);
 			if (jobResult.newBackendId.empty())
 			{
 				onFinished(false, QString::fromStdString(regErr), jobResult);
@@ -629,7 +629,7 @@ void PluginPointCloudHostImpl::reconstructMeshScaleSpace(
 	{
 		return;
 	}
-	DocumentPage* page = pageFromDoc(doc);
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
 	std::string resolveErr;
 	const auto pc = document_point_cloud_ops::resolvePointCloud(page, backendIdUtf8, &resolveErr);
 	if (!pc)
@@ -676,7 +676,7 @@ void PluginPointCloudHostImpl::reconstructMeshScaleSpace(
 			meshPtr->setTriangleSoup(std::move(result->triangleSoup));
 			std::string regErr;
 			jobResult.newBackendId = document_point_cloud_ops::registerReconstructedMesh(
-				page, m_host->mainWindow(), meshPtr, params.meshOptions, &regErr);
+				page, m_host->mainWindowHost(), meshPtr, params.meshOptions, &regErr);
 			if (jobResult.newBackendId.empty())
 			{
 				onFinished(false, QString::fromStdString(regErr), jobResult);

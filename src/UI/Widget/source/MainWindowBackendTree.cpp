@@ -12,17 +12,14 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 
-#include "BackendDataBase.h"
-#include "BackendDataManager.h"
 #include "BackendHierarchyModel.h"
+#include "CoreTypes.h"
 #include "DocumentPage.h"
 #include "IDataService.h"
 #include "IRenderView.h"
 #include "OsgWidget.h"
 #include "MainWindow_p.h"
 #include "MainWindowSelectionService.h"
-#include "MeshBackendData.h"
-#include "PointCloudBackendData.h"
 #include "RunInfoPage.h"
 
 using namespace mainwindow_detail;
@@ -168,7 +165,7 @@ QStringList collectSubtreeBackendIds(const DocumentPage& doc, const QString& roo
 	}
 	const std::string rootStd = rootBackendId.toStdString();
 	const std::vector<std::string> subtree = doc.hierarchyModel().subtreeIds(rootStd);
-	if (subtree.empty() && doc.backend().contains(rootStd))
+	if (subtree.empty() && const_cast<DocumentPage&>(doc).data().isValid(rootBackendId))
 	{
 		ids.append(rootBackendId);
 	}
@@ -207,9 +204,9 @@ MainWindow::ScopedBackendTreeRefreshSuppress::~ScopedBackendTreeRefreshSuppress(
 	m_mw.endBackendTreeEventRefreshSuppress();
 }
 
-void MainWindow::focusBackendInTreeAfterImport(const std::shared_ptr<BackendDataBase>& backendObject)
+void MainWindow::focusBackendInTreeAfterImport(const QString& backendId)
 {
-	focusBackendInTree(backendObject);
+	focusBackendInTreeLocal(backendId);
 }
 
 void MainWindow::refreshBackendTree()
@@ -232,35 +229,18 @@ void MainWindow::refreshBackendTree()
 	{
 		return;
 	}
-	std::vector<std::shared_ptr<BackendDataBase>> objects;
-	const QVector<QString> topoIds = doc->data().topoOrder();
-	objects.reserve(topoIds.size());
-	for (const QString& id : topoIds)
-	{
-		// TODO: IDataService 缺少 getData 返回 shared_ptr，暂保留 BackendDataManager 直连
-		std::shared_ptr<BackendDataBase> data = doc->backend().getData(id.toStdString());
-		if (data)
-		{
-			objects.push_back(std::move(data));
-		}
-	}
+	const QVector<cloudsim::core::BackendObjectDto> objects = doc->data().listObjectSnapshots();
 	QHash<QString, QTreeWidgetItem*> idToItem;
-	idToItem.reserve(static_cast<int>(objects.size()));
-	for (const std::shared_ptr<BackendDataBase>& data : objects)
+	idToItem.reserve(objects.size());
+	for (const cloudsim::core::BackendObjectDto& dto : objects)
 	{
-		if (!data)
-		{
-			continue;
-		}
-		const QString id = QString::fromStdString(data->id());
+		const QString id = dto.id;
 		if (id.isEmpty())
 		{
 			continue;
 		}
 
-		const QString nodeText = QStringLiteral("%1 [%2]")
-			.arg(QString::fromStdString(data->name()))
-			.arg(QString::fromStdString(data->id()));
+		const QString nodeText = QStringLiteral("%1 [%2]").arg(dto.name).arg(id);
 		auto* child = new QTreeWidgetItem(QStringList() << nodeText);
 		child->setFlags(child->flags() | Qt::ItemIsUserCheckable);
 		child->setData(0, kRoleItemType, kItemTypeBackend);
@@ -269,19 +249,15 @@ void MainWindow::refreshBackendTree()
 		idToItem.insert(id, child);
 		m_backendTreeItemsById.insert(id, child);
 	}
-	for (const std::shared_ptr<BackendDataBase>& data : objects)
+	for (const cloudsim::core::BackendObjectDto& dto : objects)
 	{
-		if (!data)
-		{
-			continue;
-		}
-		const QString id = QString::fromStdString(data->id());
+		const QString id = dto.id;
 		QTreeWidgetItem* const item = idToItem.value(id, nullptr);
 		if (!item)
 		{
 			continue;
 		}
-		const QVector<QString> parentIds = doc->data().parentsOf(id);
+		const QVector<QString> parentIds = dto.parentIds;
 		const QString parentId = parentIds.isEmpty() ? QString() : parentIds.front();
 		QTreeWidgetItem* parentItem = idToItem.value(parentId, m_backendRootItem);
 		if (!parentItem)

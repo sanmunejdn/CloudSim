@@ -147,6 +147,7 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 | `mesh.create` | qwen2.5:3b | ActionPlan / create_mesh v1 |
 | `mesh.compose` | qwen2.5:3b | ActionPlan v2（`steps[]` + `booleanMesh`） |
 | `geometry.recognize` | qwen2.5vl:3b | StructuredJson → 可转 ActionPlan |
+| `trajectory.feature` | qwen2.5:3b（建议） | StructuredJson：`selectedCandidateIds` + `features[]` + `suggestedPipelineTemplate` |
 
 **geometry.recognize 运行时数据流（V1）：**
 
@@ -157,22 +158,34 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 5. 无视口或 `imagePng` 为空时 fail-fast，提示打开含 3D 视口的文档。
 
 训练集生成：`python tools/ai-training/scripts/gen_geometry_recognize_dataset.py`（默认每类 15 条，共 60 PNG + `dataset.jsonl`）。校验：`python tools/ai-training/scripts/build_dataset.py geometry.recognize`。
-| `trajectory.feature` | qwen2.5:3b（建议） | StructuredJson：`features[]`（`FeatureSpec`）+ `suggestedPipelineTemplate` |
+
+**trajectory.feature 运行时（V1）：**
+
+1. 用户在 AI 面板选「轨迹特征」；**须**在轨迹生成页 combo 已选 STEP 工件。
+2. `AiAssistantCoordinator::prepareTrajectoryFeatureRequest` 注入 `catalogFullUtf8` / `catalogSliceUtf8`；轨迹页自动 `ensureFeatureCatalogEnumerated`。
+3. 解析链 `["rules","local"]`（可选 `remote`）：rules 走 `parseTrajectoryFeatureRequest`；LLM user 消息含 catalog 切片 JSON。
+4. 成功 → 3D **全部**候选编号高亮（`showAiFeatureCandidatePreview`）+ Dock「确认并离散」。
+5. 用户「选 1 和 3」→ `filterCatalogSliceByCandidateIds` → 3D **仅**选中项高亮；可多次调整编号。
+6. 「确认并离散」→ `commitAiTrajectoryFeatures` → `discretizeFeature` + 默认工艺 pipeline 写入 `TrajectoryEditSession`。
+7. catalog 为空或 LLM 未收到 catalog 时，Coordinator **一次** rules 自动重试。
+
+**详细架构、状态机、源文件索引：** [`docs/trajectory_feature_ai.md`](../../docs/trajectory_feature_ai.md)
 
 **trajectory.feature 契约示例：**
 
 ```json
 {
   "version": 1,
-  "domain": "trajectory.feature",
+  "featureAxis": "line",
+  "selectedCandidateIds": ["edge_3"],
   "features": [
-    { "kind": "FaceIntersection", "refs": { "faceIndices": [3, 7] }, "discretize": { "stepMm": 2 } }
+    { "kind": "EdgeChain", "featureId": "edge_3", "refs": { "edgeIndices": [3] }, "discretize": { "stepMm": 5 } }
   ],
   "suggestedPipelineTemplate": "weld_default"
 }
 ```
 
-LLM grounding：先对工件 STEP 调用 `enumerateFeatureCatalog`，在 prompt 中提供 `candidateId` / 边面索引。规则回退：`geoalgo::suggestFeaturesFromCatalog`（经 `geometry_backend_ops`）。
+LLM grounding：`catalogSliceUtf8` 中 `displayIndex` / `candidateId` / `summary`。规则回退：`AiTrajectoryFeatureCatalog::tryParseTrajectoryFeatureRules`（内部 `suggestFeaturesFromCatalog`）。
 
 宿主 API：`createPrimitiveMesh`（可选返回 `backendId`）、`booleanMesh`（CGAL 差/并/交）。
 
@@ -207,4 +220,5 @@ LLM grounding：先对工件 STEP 调用 `enumerateFeatureCatalog`，在 prompt 
 | [`tools/ai-training/CONFIGURATION.md`](../../tools/ai-training/CONFIGURATION.md) | `ai_config.json` 全字段 |
 | [`tools/ai-training/README.md`](../../tools/ai-training/README.md) | 训练、LLaMA-Factory、Ollama 导出 |
 | [`ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md) §6.1.1 | 产品级流程说明 |
+| [`docs/trajectory_feature_ai.md`](../../docs/trajectory_feature_ai.md) | AI 轨迹特征端到端、状态机、验收 |
 | [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) | 宿主 API 与插件 |

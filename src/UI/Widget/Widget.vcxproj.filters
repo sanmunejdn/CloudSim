@@ -1,317 +1,340 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+
   <ItemGroup>
+
     <Filter Include="inc">
+
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+
     </Filter>
+
     <Filter Include="src">
+
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+
     </Filter>
+
   </ItemGroup>
+
   <ItemGroup>
-    <ClInclude Include="..\CloudSimPluginHost\inc\DocumentGeometryOps.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\DocumentPointCloudOps.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\PluginGeometryHostImpl.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\PluginPointCloudHostImpl.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\PluginDelegatedBackend.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\PluginDocumentAdapter.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\PluginSceneBridgeAdapter.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiActionPlanExecutor.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiAssistantHostImpl.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiCommandSchema.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiConfigLoader.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiDomainRegistryImpl.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiDomainRouter.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiHttpsPost.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiIntentParser.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiMeshDefaults.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiLlmClient.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiLlmConfig.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiProgressSink.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\GeometryRecognizeDomainHandler.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\TrajectoryFeatureDomainHandler.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\MeshComposeDomainHandler.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\MeshCreateDomainHandler.h">
-      <Filter>inc</Filter>
-    </ClInclude>
+
     <ClInclude Include="inc\ApplicationStyle.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="..\..\Host\CloudSimHost\inc\CloudSimHost.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="..\..\Host\CloudSimHost\inc\DocumentHost.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\MainWindow_p.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\ObjectTransformOperation.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\RobotTcpDragTeachOperation.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\MeshEdgeFacePickOperation.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\MainWindowImportCaptureRenderController.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\JobSystem.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\MainWindowObjectRepository.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\MainWindowSelectionService.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\BackendFollowReverseIndex.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\BackendSceneDocumentFacade.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\IBackendSceneBridge.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\MainWindowSelectionState.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\OsgWidgetSceneBridge.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\SelectionOperation.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\widget_global.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
     <ClInclude Include="inc\ProjectPackageZip.h">
+
       <Filter>inc</Filter>
+
     </ClInclude>
+
   </ItemGroup>
+
   <ItemGroup>
+
     <ClCompile Include="source\pch.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\ApplicationStyle.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\DocumentPage.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\MainWindow.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\MainWindowRobotHost.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\MainWindowRobotStubs.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\MainWindowAiAssistant.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\MainWindowUiSetup.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\MainWindowPlugins.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\DocumentGeometryOps.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\DocumentPointCloudOps.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\PluginGeometryHostImpl.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\PluginPointCloudHostImpl.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\PluginDelegatedBackend.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\PluginDocumentAdapter.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\PluginHostContext.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\PluginManager.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\PluginSceneBridgeAdapter.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiActionPlanExecutor.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiAssistantHostImpl.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiCommandSchema.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiConfigLoader.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiDomainRegistryImpl.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiDomainRouter.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiHttpsPost.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiIntentParser.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiLlmClient.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiLlmConfig.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiMeshDefaults.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\GeometryRecognizeDomainHandler.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\TrajectoryFeatureDomainHandler.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\MeshComposeDomainHandler.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\MeshCreateDomainHandler.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
+
     <ClCompile Include="source\MainWindowBackendTree.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\MainWindowObjectRepository.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\MainWindowSelectionService.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\MainWindowFileImport.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\MainWindowProjectIo.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\ProjectPackageZip.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\MainWindowPropertyPanel.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\MainWindowImportCaptureRenderController.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\JobSystem.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\ProgressManager.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="source\RunInfoPage.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertybrowser.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertybrowserutils.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertymanager.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qteditorfactory.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtvariantproperty.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qttreepropertybrowser.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qrc_qtpropertybrowser.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\moc_qtpropertybrowserutils_p.cpp">
+
       <Filter>src</Filter>
+
     </ClCompile>
+
   </ItemGroup>
+
   <ItemGroup>
-    <QtMoc Include="..\CloudSimPluginHost\inc\PluginHostContext.h">
-      <Filter>inc</Filter>
-    </QtMoc>
-    <QtMoc Include="..\CloudSimPluginHost\inc\PluginManager.h">
-      <Filter>inc</Filter>
-    </QtMoc>
+
     <QtMoc Include="inc\DocumentPage.h">
+
       <Filter>inc</Filter>
+
     </QtMoc>
+
     <QtMoc Include="inc\MainWindow.h">
+
       <Filter>inc</Filter>
+
     </QtMoc>
+
     <QtMoc Include="inc\ProgressManager.h">
+
       <Filter>inc</Filter>
+
     </QtMoc>
+
     <QtMoc Include="inc\RunInfoPage.h">
+
       <Filter>inc</Filter>
+
     </QtMoc>
+
   </ItemGroup>
+
 </Project>
+

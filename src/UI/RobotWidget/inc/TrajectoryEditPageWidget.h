@@ -18,6 +18,7 @@
 namespace RobotInstruction
 {
 struct RawTrajectory;
+enum class RecipeKind;
 }
 
 
@@ -93,6 +94,8 @@ public:
 	void refreshProgramAndGroupCombos();
 
 	void syncBoundPathPlanFromSession();
+
+	void applyRecipePresetByKind(RobotInstruction::RecipeKind kind);
 
 
 

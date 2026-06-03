@@ -16,6 +16,8 @@
 #include "widget_global.h"
 #include "BackendFollowSolve.h"
 #include "MainWindowSelectionState.h"
+#include "DocumentHost.h"
+#include "IPluginMainWindowHost.h"
 
 #include <json.hpp>
 
@@ -30,11 +32,7 @@ class QtProperty;
 class QtTreePropertyBrowser;
 class QtVariantEditorFactory;
 class QtVariantPropertyManager;
-class BackendDataBase;
-class BackendDataManager;
 class BackendHierarchyModel;
-class PointCloudBackendData;
-class MeshBackendData;
 class QAction;
 class QPoint;
 class RunInfoPage;
@@ -64,7 +62,7 @@ enum class Type;
 }
 
 /// 应用程序主窗口：菜单、停靠栏、文档页、属性面板与 OsgWidget 协调入口
-class WIDGET_EXPORT MainWindow : public QMainWindow
+class WIDGET_EXPORT MainWindow : public QMainWindow, public IPluginMainWindowHost
 {
 	Q_OBJECT
 
@@ -75,18 +73,41 @@ public:
 	/// QApplication::exec 返回后调用一次（同 RunInfoPage 的 RunLogger）
 	static void shutdownApplicationLogging();
 
+	DocumentPage* currentPage();
 	DocumentPage* currentPage() const;
-	QTabWidget* documentTabs() const { return m_documentTabs; }
-	int documentTabCount() const;
-	RunInfoPage* runInfoPage() const { return m_runInfoPage; }
+	cloudsim::host::DocumentHost* currentDocumentHost() override;
+	cloudsim::host::DocumentHost* documentHostAt(int tabIndex) override;
+	QTabWidget* documentTabs() override { return m_documentTabs; }
+	int documentTabCount() const override;
+	void appendRunInfo(const QString& message) override;
+	RunInfoPage* runInfoPage() { return m_runInfoPage; }
 	PluginManager* pluginManager() const { return m_pluginManager; }
 	void loadPlugins();
 	/// 工作区/AI 旁插件页签（返回索引，失败 -1）
-	int addPluginSidePanelTab(const QString& title, QWidget* widget);
-	void removePluginSidePanelTab(QWidget* widget);
-	QTabWidget* rightPanelTabs() const { return m_rightPanelTabs; }
+	int addPluginSidePanelTab(const QString& title, QWidget* widget) override;
+	void removePluginSidePanelTab(QWidget* widget) override;
+	QTabWidget* rightPanelTabs() override { return m_rightPanelTabs; }
 	int currentSimulationRobotInstanceIndex() const;
 	RobotSimulationController* robotSimulation() { return m_robotSimulation.get(); }
+	/// AI trajectory.feature：轨迹页工件与特征预览/提交（PluginHost 桥接）
+	bool resolveTrajectoryWorkpieceForAi(QString* outBackendId, QString* outStepPath) override;
+	bool showAiFeatureCandidatePreviewForAi(const std::string& previewJsonUtf8, QString* outError) override;
+	void clearAiFeatureCandidatePreviewForAi() override;
+	bool commitAiTrajectoryFeaturesForAi(const std::string& featurePlanJsonUtf8, QString* outSummary,
+		QString* outError) override;
+	bool useChinese() const override;
+	QMenuBar* menuBar() override;
+	QStatusBar* statusBar() override;
+	void enqueueBackgroundJob(const QString& title,
+		std::function<void(const PluginJobProgressFn& progress)> work,
+		std::function<void(bool threw, const QString& message)> onFinished) override;
+	QWidget* mainWindowWidget() override { return this; }
+	QObject* pluginActionParent() override { return this; }
+	QDockWidget* addPluginDockWidget(const QString& title, QWidget* widget, Qt::DockWidgetArea area) override;
+	JobSystem* jobSystem();
+	OsgWidget* currentOsgWidget() override;
+	void focusBackendInTree(const std::string& backendId) override;
+	void focusBackendInTreeAfterImport(const QString& backendId) override;
 	class SimulationCommandWidget* simulationCommandPage() const;
 	void refreshSimulationJointListFromCurrentDoc();
 	void syncRobotFrameSettingsFromDocument(int instanceIndex);
@@ -106,8 +127,6 @@ public:
 		MainWindow& m_mw;
 	};
 
-	void focusBackendInTreeAfterImport(const std::shared_ptr<BackendDataBase>& backendObject);
-
 	void afterBackendFollowPropertyEdited(const QString& propertyKey, const QString& valueText);
 
 private:
@@ -126,10 +145,10 @@ private:
 	void endBackendTreeEventRefreshSuppress();
 	void refreshOsgSceneTree();
 	/// 选中后端树行并刷新属性面板（导入/工程加载）
-	void focusBackendInTree(const std::shared_ptr<BackendDataBase>& backendObject);
+	void focusBackendInTreeLocal(const QString& backendId);
 	/// 优先 Data/CGAL 加载几何；LAS/LAZ 等回退 OSG
 	bool registerBackendObject(const QString& filePath, const QString& typeName, bool isPointCloud, bool quietUi = false);
-	void updatePropertyPanel(const std::shared_ptr<BackendDataBase>& data);
+	void updatePropertyPanel(const QString& backendId);
 	void updateInstructionPropertyPanel(
 		const std::shared_ptr<RobotInstruction::Base>& instruction,
 		bool refreshFeasibleAxisOptions = true);
@@ -158,7 +177,7 @@ private:
 		osg::Matrixd* outTcpRenderWorldMat,
 		QString* outTcpLinkName,
 		QString* errMsg) const;
-	void syncRobotKinematicsAfterPoseEdit(const std::shared_ptr<BackendDataBase>& data);
+	void syncRobotKinematicsAfterPoseEdit(const QString& backendId);
 	void onSaveProject();
 	void onOpenProjectFile();
 	void onOpenModel();
@@ -212,20 +231,18 @@ private:
 	void onAiParseFailed(const QString& message, const QString& parserVia);
 	void finishAiAssistantReply(const QString& reply, bool isError, const QString& parserVia = QString());
 
-	BackendDataManager& activeBackend();
 	BackendHierarchyModel* activeHierarchyModel();
 	const BackendHierarchyModel* activeHierarchyModel() const;
 	OsgWidget* currentOsgWidget() const;
-	JobSystem* jobSystem() const { return m_jobSystem; }
+	JobSystem* jobSystem() const;
 	void wireDocumentPageSignals(DocumentPage* page);
 	void installBackendFollowFrameHook(DocumentPage* page);
 	void runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg,
 		const std::string* manualPoseAuthorityBackendId = nullptr);
 	cloudsim::host::FollowSolveContext makeFollowSolveContext(OsgWidget& osg) const;
 	/// 属性编辑防抖全量重建（避免每步 spin 都 clear）
-	void schedulePropertyPanelCommitRefresh(const std::shared_ptr<BackendDataBase>& data);
-	/// gizmo 写后端位姿/色后：跟随求解+属性面板（每次 mouse move，非仅帧定时器）
-	void refreshFollowSolveAndPropertyPanelFromOsgWrite(const std::shared_ptr<BackendDataBase>& data);
+	void schedulePropertyPanelCommitRefresh(const QString& backendId);
+	void refreshFollowSolveAndPropertyPanelFromOsgWrite(const QString& backendId);
 	/// 从后端父子边同步 FollowAttachment：子世界=父*局部
 	void applyHierarchyFollowBinding(DocumentPage* page, const std::string& childId, const std::string& parentId);
 	/// 防抖应用 follow.targetName（逐键 emit，避免输入时 clear）

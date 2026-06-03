@@ -1,16 +1,16 @@
 #pragma once
 
-#include <QString>
-#include <memory>
-#include <vector>
+#include "CoreTypes.h"
 
-class BackendDataBase;
+#include <optional>
+#include <QVector>
+
 class MainWindow;
 
-/// MainWindow 侧对象仓储门面，逐步替代对 activeBackend() 的散落调用。
+/// 基于 IDataService 的对象查询（Widget 不持有 BackendDataBase）
 class MainWindowObjectRepository
 {
 public:
-	static std::shared_ptr<BackendDataBase> findById(MainWindow& mainWindow, const QString& backendId);
-	static std::vector<std::shared_ptr<BackendDataBase>> listAll(MainWindow& mainWindow);
+	static std::optional<cloudsim::core::BackendObjectDto> findSnapshot(MainWindow& mainWindow, const QString& backendId);
+	static QVector<cloudsim::core::BackendObjectDto> listSnapshots(MainWindow& mainWindow);
 };

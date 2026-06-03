@@ -10,6 +10,8 @@
 #include "OsgWidget.h"
 #include "RobotProjectKinematicsRestore.h"
 
+#include "RobotSceneKinematics.h"
+
 #include "../../UI/RobotWidget/inc/IRobotDocumentHost.h"
 #include "../../UI/RobotWidget/inc/RobotProjectIoAdapter.h"
 
@@ -181,6 +183,30 @@ RobotKinematicsRestoreResult restoreRobotKinematicsFromProjectJson(IRobotUrdfImp
 		}
 	}
 	return result;
+}
+
+bool applyRestoredJointAnglesToScene(IRobotUrdfImportContext& ctx,
+	const QVector<double>& aggregatedJointAnglesRad, QString* outError)
+{
+	IRobotSimulationDocument* doc = ctx.urdfImportRobotSimulationDocument();
+	IRobotBackendPoseSink* poseSink = ctx.urdfImportScenePoseSink();
+	if (!doc || !poseSink)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("no robot document or pose sink");
+		}
+		return false;
+	}
+	if (!RobotSceneKinematics::applyJointAnglesFromDocument(doc, poseSink, aggregatedJointAnglesRad))
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("applyJointAnglesFromDocument failed");
+		}
+		return false;
+	}
+	return true;
 }
 
 bool loadRobotProgramsFromProjectJson(DocumentHost& host, const QJsonObject& projectRoot, QString* outError)

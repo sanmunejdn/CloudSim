@@ -1,10 +1,14 @@
 #include "BackendFollowSolve.h"
 
 #include "BackendFollowTransformSolver.h"
+#include "CoreTypes.h"
 #include "DocumentHost.h"
 #include "FollowAttachmentComponent.h"
+#include "IRenderView.h"
 #include "OsgWidget.h"
 #include "OsgWidgetSceneBridge.h"
+
+#include <QString>
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
@@ -98,6 +102,37 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget& osg, const Foll
 		page.sceneBridge().syncOuterPatFromBackend(*d);
 	}
 	dirty.clear();
+}
+
+void afterFollowPropertyEdited(DocumentHost& host, const QString& backendId, const QString& propertyKey,
+	const QString& valueText)
+{
+	const auto data = host.backend().getData(backendId.toStdString());
+	if (!data)
+	{
+		return;
+	}
+	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&host](const std::string& bid, BackendMat4& out) -> bool {
+		cloudsim::core::Mat4 mat;
+		if (!host.render().getWorldMatrix(QString::fromStdString(bid), mat))
+		{
+			return false;
+		}
+		for (int i = 0; i < 16; ++i)
+		{
+			out.v[i] = mat[static_cast<size_t>(i)];
+		}
+		return true;
+	};
+	if (propertyKey == QStringLiteral("follow.targetId") || propertyKey == QStringLiteral("follow.targetName")
+		|| (propertyKey == QStringLiteral("follow.enabled")
+			&& (valueText == QStringLiteral("1")
+				|| valueText.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0)))
+	{
+		(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(host.backend(), worldQuery, *data, nullptr);
+	}
+	host.markFollowAttachmentDirtyFromBackendMove(backendId.toStdString());
+	host.invalidateFollowReverseIndex();
 }
 
 } // namespace cloudsim::host

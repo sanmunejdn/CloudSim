@@ -63,4 +63,7 @@ public:
 	virtual bool meshLinePickMode() const = 0;
 	virtual bool meshFacePickMode() const = 0;
 	virtual void setMeshPickScopeBackendId(const std::string& backendId) = 0;
+
+	virtual void setFeatureCatalogOverlay(const std::vector<RobotOsgUi::FeatureCatalogOverlayItem>& items) = 0;
+	virtual void clearFeatureCatalogOverlay() = 0;
 };

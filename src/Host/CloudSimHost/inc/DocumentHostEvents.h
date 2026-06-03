@@ -22,5 +22,6 @@ CLOUDSIM_HOST_EXPORT void publishPoseCommitted(DocumentHost& host, const QString
 	const cloudsim::core::PoseDto& pose);
 /// 从 Backend 组装 PoseDto
 CLOUDSIM_HOST_EXPORT void publishPoseCommittedFromBackend(DocumentHost& host, const BackendDataBase& data);
+CLOUDSIM_HOST_EXPORT void publishPoseCommittedFromBackendId(DocumentHost& host, const QString& objectId);
 
 } // namespace cloudsim::host

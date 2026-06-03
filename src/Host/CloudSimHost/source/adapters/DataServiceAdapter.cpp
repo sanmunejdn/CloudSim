@@ -8,10 +8,14 @@
 #include "BackendFileImport.h"
 #include "BackendVisualSync.h"
 #include "DocumentImportFacade.h"
-#include "BackendProjectObjectIo.h"
+#include "BackendFollowSolve.h"
 #include "OsgWidget.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryBuiltins.h"
+#include "BackendProjectObjectIo.h"
+#include "FollowAttachmentComponent.h"
+#include "MeshBackendData.h"
+#include "PointCloudBackendData.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -150,7 +154,77 @@ bool DataServiceAdapter::applyPropertyChange(const core::ObjectId& id, const QSt
 		return false;
 	}
 	afterDataServicePropertyChange(m_host, *obj, key);
+	if (key.startsWith(QStringLiteral("follow.")))
+	{
+		afterFollowPropertyEdited(m_host, id, key, value);
+	}
 	return true;
+}
+
+bool DataServiceAdapter::applyWorldPoseMm(const core::ObjectId& id, const core::PoseDto& pose, QString* outError)
+{
+	const auto obj = backendOf(m_host).getData(id.toStdString());
+	if (!obj)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("invalid object id");
+		}
+		return false;
+	}
+	BackendVec3 pos{pose.positionMm.x, pose.positionMm.y, pose.positionMm.z};
+	BackendVec3 euler{pose.eulerDeg.x, pose.eulerDeg.y, pose.eulerDeg.z};
+	if (obj->supportsBackendTransform())
+	{
+		obj->applyBackendWorldPose(pos, euler);
+	}
+	else
+	{
+		obj->setPose(pos);
+		obj->setRotation(euler);
+	}
+	afterDataServicePropertyChange(m_host, *obj, QStringLiteral("pose.x"));
+	return true;
+}
+
+bool DataServiceAdapter::applyColor(const core::ObjectId& id, const core::ColorDto& color, QString* outError)
+{
+	const auto obj = backendOf(m_host).getData(id.toStdString());
+	if (!obj)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("invalid object id");
+		}
+		return false;
+	}
+	BackendColor c;
+	c.r = color.r;
+	c.g = color.g;
+	c.b = color.b;
+	c.a = color.a;
+	obj->setColor(c);
+	afterDataServicePropertyChange(m_host, *obj, QStringLiteral("color.r"));
+	return true;
+}
+
+core::PoseDto DataServiceAdapter::worldPoseMm(const core::ObjectId& id) const
+{
+	core::PoseDto dto;
+	const auto obj = backendOf(m_host).getData(id.toStdString());
+	if (!obj)
+	{
+		return dto;
+	}
+	const BackendVec3 pos = obj->pose();
+	const BackendVec3 rot = obj->rotation();
+	dto.positionMm.x = pos.x;
+	dto.positionMm.y = pos.y;
+	dto.positionMm.z = pos.z;
+	dto.eulerDeg.x = rot.x;
+	dto.eulerDeg.y = rot.y;
+	dto.eulerDeg.z = rot.z;
+	return dto;
 }
 
 core::BBoxDto DataServiceAdapter::boundingBox(const core::ObjectId& id) const
@@ -241,6 +315,148 @@ QVector<core::ObjectId> DataServiceAdapter::parentsOf(const core::ObjectId& id) 
 	for (const std::string& pid : backendOf(m_host).parentsOf(id.toStdString()))
 		out.append(QString::fromStdString(pid));
 	return out;
+}
+
+namespace {
+
+core::BackendObjectDto makeObjectSnapshot(const BackendDataManager& mgr, const BackendDataBase& obj)
+{
+	core::BackendObjectDto dto;
+	dto.id = QString::fromStdString(obj.id());
+	dto.name = QString::fromStdString(obj.name());
+	dto.className = QString::fromStdString(obj.className());
+	dto.hasGeometry = obj.hasGeometry();
+	for (const std::string& pid : mgr.parentsOf(obj.id()))
+	{
+		dto.parentIds.append(QString::fromStdString(pid));
+	}
+	for (const std::string& cid : mgr.childrenOf(obj.id()))
+	{
+		dto.childIds.append(QString::fromStdString(cid));
+	}
+	const BackendBoundingBox bb = obj.geometryBounds();
+	dto.bbox.valid = bb.valid;
+	dto.bbox.min.x = bb.min.x;
+	dto.bbox.min.y = bb.min.y;
+	dto.bbox.min.z = bb.min.z;
+	dto.bbox.max.x = bb.max.x;
+	dto.bbox.max.y = bb.max.y;
+	dto.bbox.max.z = bb.max.z;
+	if (dynamic_cast<const PointCloudBackendData*>(&obj))
+	{
+		dto.geometryKind = core::GeometryKind::Points;
+	}
+	else if (dynamic_cast<const MeshBackendData*>(&obj))
+	{
+		dto.geometryKind = core::GeometryKind::Mesh;
+	}
+	else
+	{
+		dto.geometryKind = dto.hasGeometry ? core::GeometryKind::Mesh : core::GeometryKind::None;
+	}
+	return dto;
+}
+
+core::GeometryKind geometryKindOf(const BackendDataBase& obj)
+{
+	if (dynamic_cast<const PointCloudBackendData*>(&obj))
+	{
+		return core::GeometryKind::Points;
+	}
+	if (dynamic_cast<const MeshBackendData*>(&obj))
+	{
+		return core::GeometryKind::Mesh;
+	}
+	return obj.hasGeometry() ? core::GeometryKind::Mesh : core::GeometryKind::None;
+}
+
+} // namespace
+
+core::BackendObjectDto DataServiceAdapter::objectSnapshot(const core::ObjectId& id) const
+{
+	const auto obj = backendOf(m_host).getData(id.toStdString());
+	if (!obj)
+	{
+		return {};
+	}
+	return makeObjectSnapshot(backendOf(m_host), *obj);
+}
+
+QVector<core::BackendObjectDto> DataServiceAdapter::listObjectSnapshots() const
+{
+	QVector<core::BackendObjectDto> out;
+	const BackendDataManager& mgr = backendOf(m_host);
+	for (const auto& obj : mgr.listData())
+	{
+		if (obj)
+		{
+			out.append(makeObjectSnapshot(mgr, *obj));
+		}
+	}
+	return out;
+}
+
+core::GeometryKind DataServiceAdapter::geometryKind(const core::ObjectId& id) const
+{
+	const auto obj = backendOf(m_host).getData(id.toStdString());
+	if (!obj)
+	{
+		return core::GeometryKind::None;
+	}
+	return geometryKindOf(*obj);
+}
+
+bool DataServiceAdapter::hasComponent(const core::ObjectId& id, const QString& componentType) const
+{
+	const auto obj = backendOf(m_host).getData(id.toStdString());
+	if (!obj)
+	{
+		return false;
+	}
+	return obj->hasComponent(componentType.toStdString());
+}
+
+bool DataServiceAdapter::applyFollowTargetByName(const core::ObjectId& followerId, const QString& targetName,
+	QString* outError)
+{
+	return applyPropertyChange(followerId, QStringLiteral("follow.targetName"), targetName, outError);
+}
+
+void DataServiceAdapter::markFollowDirtyFromMove(const core::ObjectId& seedId)
+{
+	if (!seedId.isEmpty())
+	{
+		m_host.markFollowAttachmentDirtyFromBackendMove(seedId.toStdString());
+	}
+}
+
+void DataServiceAdapter::requestFollowSolveForced()
+{
+	m_host.requestFollowSolveForced();
+}
+
+bool DataServiceAdapter::runFollowSolveAndSync(const core::FollowSolveContextDto& ctx, QString* outError)
+{
+	(void)outError;
+	OsgWidget* osg = osgWidgetFrom(m_host);
+	if (!osg)
+	{
+		return false;
+	}
+	FollowSolveContext hostCtx;
+	hostCtx.skipAll = [ctx]() { return ctx.skipAll; };
+	hostCtx.fillGizmoSelectedId = [ctx](std::string& outSelectedId) -> bool {
+		if (ctx.gizmoSelectedBackendId.isEmpty())
+		{
+			return false;
+		}
+		outSelectedId = ctx.gizmoSelectedBackendId.toStdString();
+		return true;
+	};
+	const std::string manualStd = ctx.manualPoseAuthorityBackendId.toStdString();
+	const std::string* manualPtr = ctx.manualPoseAuthorityBackendId.isEmpty() ? nullptr : &manualStd;
+	runBackendFollowSolveAndSync(m_host, *osg, &hostCtx, manualPtr);
+	return true;
 }
 
 } // namespace cloudsim::host

@@ -1,20 +1,31 @@
 #include "MainWindowObjectRepository.h"
 
-#include "BackendDataManager.h"
+#include "DocumentPage.h"
+#include "IDataService.h"
 #include "MainWindow.h"
 
-std::shared_ptr<BackendDataBase> MainWindowObjectRepository::findById(
-	MainWindow& mainWindow,
-	const QString& backendId)
+std::optional<cloudsim::core::BackendObjectDto> MainWindowObjectRepository::findSnapshot(
+	MainWindow& mainWindow, const QString& backendId)
 {
-	if (backendId.isEmpty())
+	DocumentPage* page = mainWindow.currentPage();
+	if (!page || backendId.isEmpty() || !page->data().isValid(backendId))
 	{
-		return nullptr;
+		return std::nullopt;
 	}
-	return mainWindow.activeBackend().getData(backendId.toStdString());
+	const cloudsim::core::BackendObjectDto dto = page->data().objectSnapshot(backendId);
+	if (dto.id.isEmpty())
+	{
+		return std::nullopt;
+	}
+	return dto;
 }
 
-std::vector<std::shared_ptr<BackendDataBase>> MainWindowObjectRepository::listAll(MainWindow& mainWindow)
+QVector<cloudsim::core::BackendObjectDto> MainWindowObjectRepository::listSnapshots(MainWindow& mainWindow)
 {
-	return mainWindow.activeBackend().listData();
+	DocumentPage* page = mainWindow.currentPage();
+	if (!page)
+	{
+		return {};
+	}
+	return page->data().listObjectSnapshots();
 }

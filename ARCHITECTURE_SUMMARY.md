@@ -29,7 +29,9 @@
 
 边界约定：
 
-- Widget / `CloudSim.exe` 链接 **`CloudSimCore.lib` + `CloudSimHost.lib`**（及 `Widget.lib` 等），不链 `CloudSimBootstrap.lib`。
+- Widget / `CloudSim.exe` 链接 **`CloudSimCore.lib` + `CloudSimHost.lib`**（及 `Widget.lib`、`RobotWidget.lib`、`AiWidget.lib` 等）。**目标态** Widget **不**链 `Data.lib` / `RobotScene.lib` 等引擎 `.lib`；**过渡态**（`IRobotSimulationDocument` / 属性面板等仍引用引擎符号）`Widget.vcxproj` 仍临时链 `Data`、`RobotScene`、`RobotUrdf`、`RobotKinematics`、`GeometryEngine`、`OsgWidgetCore`（见 `tools/check_widget_deps.ps1` 注释）。运行时引擎 DLL 仍由 **`CloudSimHost.dll` 主加载**（单实例共享）。
+- **`CloudSimPluginHost`**（插件扫描、`PluginHostContext`、AI 宿主实现）源码 **编入 `CloudSimHost.vcxproj`**，不再编入 `Widget.dll`。
+- 不链 `CloudSimBootstrap.lib`。
 - `DocumentPage` **继承** `cloudsim::host::DocumentHost`，并实现 `IRobotSimulationDocument`（机器人元数据、`osg::` 相关仍主要在 Widget，逐步 DTO 化）。
 - `MainWindow` 构造注入 `cloudsimApplicationContext()->events()`；**`EventHub`** 已用于对象注册/删除、**`SelectionChanged`** / **`PoseCommitted`**（属性面板刷新）、gizmo 松手位姿提交。
 
@@ -63,7 +65,9 @@ flowchart LR
     H --> D[Data.dll]
     H --> BV[BackendVisual.dll]
     W --> RW[RobotWidget.dll]
+    W --> AW[AiWidget.dll]
     RW --> RS[RobotScene.dll]
+    H --> PH[CloudSimPluginHost 源码]
 ```
 
 **单文档页（当前）：**
@@ -119,7 +123,7 @@ flowchart TD
 ## 4.0.1 `CloudSimHost`（本地宿主 DLL）
 
 - 路径：`src/Host/CloudSimHost/`；产物：`bin/x64(d)/CloudSimHost.dll` + **`CloudSimHost.lib`**（Widget / exe 链接用）。开发文档：[`CloudSimHost/DEVELOPER_GUIDE.md`](src/Host/CloudSimHost/DEVELOPER_GUIDE.md)。
-- **`DocumentHost`**：`QWidget` + `IDocumentScope`；持有 `BackendDataManager`、`OsgWidget`、`BackendSceneDocumentFacade` 相关桥接（`OsgWidgetSceneBridge`、`BackendFollowReverseIndex`）。
+- **`DocumentHost`**：`QWidget` + `IDocumentScope`；持有 `BackendDataManager`、`OsgWidget`、`BackendSceneDocumentFacade` 相关桥接（`OsgWidgetSceneBridge`、`BackendFollowReverseIndex`）。对外 **`sceneFacade()`**、Host 内 **`osgWidget()`**（构造顺序：先 `new OsgWidget`，再 `OsgRenderViewAdapter(*m_osgWidget, *this)`，避免构造期经 `render().widget()` 空指针）。
 - **适配器**：`DataServiceAdapter`（真实 Data）、`OsgRenderViewAdapter`（`Mat4` ↔ `osg::Matrixd`）、`RobotServiceAdapter`（占位，URDF/规划仍主要走 `RobotWidget`）。
 - **组合根**：`CloudSimApplicationContext.cpp` 实现 `cloudsimCreateApplicationContext()` / `cloudsimSetApplicationContext()`（头文件在 `CloudSimBootstrap/inc`，经 `cloudsim_host_global.h` 导出）。
 - **OSG Qt 壳层**：`OsgWidget*.cpp`、`QWidgetViewer.cpp` 等自 `src/UI/Widget/source` **编入 Host**（`CLOUDSIM_OSG_IN_HOST`；Widget 侧 `OSG_WIDGET_API` 为 import）。`OsgWidgetCore` 仍为无 Qt 场景核心。
@@ -141,7 +145,7 @@ flowchart TD
 主要职责：
 
 - 主窗口编排：菜单、停靠窗、文档标签、属性面板、运行信息面板。
-- 文档隔离：`DocumentPage` **继承** `cloudsim::host::DocumentHost`，每标签页一份 Host 侧 `BackendDataManager + OsgWidget`（Widget：`data()` / `robot()` / `render()`；OSG 经 `widgetOsgFromPage` → `render().widget()`；`backend()` 仍为存量直达）。
+- 文档隔离：`DocumentPage` **继承** `cloudsim::host::DocumentHost`，每标签页一份 Host 侧 `BackendDataManager + OsgWidget`（Widget 契约入口：**`data()` / `robot()` / `render()`**；OSG 经 `widgetOsgFromPage` → `render().widget()`；**勿**在 Widget 新代码中使用 `backend()` / `activeBackend()`）。
 - 场景交互：对象选择、点拾取、边/面拾取、注释、变换 gizmo、主题/语言切换。
 - 项目 I/O：保存/加载 `.pcp/.pcproj.json`，并打包/解包工程资源。
 - 机器人仿真宿主：`MainWindowRobotHost` + `RobotSimulationController`（`RobotWidget.dll`）；**预览**链式种子 + 对选中点单次 IK（或示教 CSV），**Run** 全程序链式 `plan` + `PlanResultCache` + 后台预读。示教 CSV 仍优先于 IK。`DocumentHost` 必须转发 `robotBackendManagerForKinematics()`（per-link FK）。仿真 Dock 在 **`RobotWidget`**，TCP 示教 OSG 在 **`Widget`**（`OsgWidgetTcpTeach`）。
@@ -158,7 +162,7 @@ flowchart TD
 - `MainWindowAiAssistant.cpp`：AI 助手 Dock 消息入口（自然语言 → 创建网格）。
 - `MainWindowSelectionService.*`：统一树选中、OSG 拾取回填、清理选择、可见性勾选传播。
 - `MainWindowSelectionState.h`：`MainWindow` 侧选择状态容器（当前以 `selectedBackendId` 为真源）。
-- `MainWindowObjectRepository.*`：后端对象查询门面（收敛 `activeBackend()` 调用）。
+- `MainWindowObjectRepository.*`：后端对象查询门面（`IDataService::objectSnapshot` / `listObjectSnapshots` → `BackendObjectDto`）。
 - `MainWindowObjectGraph.*`：对象层级只读关系图（节点/父子/子树查询），作为树构建与可见性传播的统一结构语义。
 - **OSG Qt 桥接**（`OsgWidget*.cpp` 等）已 **迁入 `CloudSimHost` 编译**；Widget 仅保留 UI 编排与对 Host 导出类的链接。
 - **`ObjectTransformOperation`**：对象选择模式下罗盘平移/旋转的鼠标事件处理；读写路径统一为 `readActiveObjectGizmoFrame` → 修改 `ObjectGizmoFrame` → `applyToOuter` → `syncActiveBackendRootFromObjectFrame(..., dragging)`；`MouseButtonRelease` 时 `cacheSelectionGizmoPose` 并发出 `transformGizmoCommitted`。
@@ -170,7 +174,7 @@ flowchart TD
   - 工程 I/O：保存时 `ProjectPackageIo::mergeRobotKinematicsIntoProjectRoot`（内部 `RobotProjectIo::writeRobotKinematics`）；加载与 programs 仍经 Host `ProjectPackageIo` + `MainWindowProjectIo` 编排。
 - **AI 助手（`CloudSimAiSDK` + `AiWidget` + 宿主 `CloudSimPluginHost` 内 Ai 实现）**：
   - **`CloudSimAiSDK.dll`**：稳定 ABI（`IAiAssistantHost`、`IAiDomainRegistry`、`ICloudSimAiPlugin`、配置 DTO）。
-  - **宿主实现**（编入 `Widget.dll`）：`AiAssistantHostImpl`、`AiActionPlanExecutor`、`AiMeshDefaults`（缺省尺寸补全）、分域 Handler、规则/本地/远程解析链；`ai_config.json` 默认 `hardware_profile: vram_8gb`，可选 `mesh_create_defaults`。
+  - **宿主实现**（编入 **`CloudSimHost.dll`**）：`AiAssistantHostImpl`、`AiActionPlanExecutor`、`AiMeshDefaults`（缺省尺寸补全）、分域 Handler、规则/本地/远程解析链；`ai_config.json` 默认 `hardware_profile: vram_8gb`，可选 `mesh_create_defaults`。
   - **训练**：仓库外 `tools/ai-training/`（`dataset.jsonl` **训练后仍保留在仓库**，见该目录 README §2.1）；见 `CloudSimAiSDK/DEVELOPER_GUIDE.md`。
   - **`AiWidget`（前端）**：`AiAssistantDockWidget`、`AiLlmSettingsDialog`、`AiAssistantCoordinator`（规则/LLM 编排、解析来源提示）。
   - **`Widget` 集成**：`AiCreateMeshRunner` → Host `DocumentImportFacade::registerAdoptedMesh`；`MainWindow::setupAiAssistantCoordinator` 注入 `JobSystem` 后台队列。
@@ -370,11 +374,13 @@ FANUC Turn 0–7 表示 90° 带宽而非简单 `round(Δ/2π)`；若未来需�
 
 ## 5. 模块依赖关系（工程级）
 
-**x64 链接形态（2025 起）**：下列引擎模块在 x64 为 **独立 DLL**，运行时与 `Widget.dll` / `CloudSimHost.dll` / `Data.dll` / `RobotWidget.dll` **共享单实例**（不再静态嵌入多份）：
+**x64 链接形态（2025 起）**：下列引擎模块在 x64 为 **独立 DLL**，运行时与 `CloudSimHost.dll` / `Data.dll` / `RobotWidget.dll` 等 **共享单实例**（不再静态嵌入多份）：
 
 `CloudSimCore`、`CloudSimHost`、`RunLogger`、`GeometryEngine`、`GeometryAlgorithm`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`BackendVisual`、`OsgWidgetCore`。
 
-`PointCloudAlgorithm` 仍 **静态链入** `Data.dll`；`Data` 的 STEP/网格布尔经 `GeometryAlgorithm.dll` 转发（Data 已瘦身 OCCT 直链）；`CloudSimPluginHost` 源码仍 **编进** `Widget.dll`，SDK **1.5.0** 提供 `IPluginGeometryHost`。
+**`Widget.dll` 编译期链接（目标态）**：`CloudSimCore`、`CloudSimHost`、`RunLogger`、`RobotWidget`、`AiWidget`（及 OSG/Qt 系统库）；**不**链接 `BackendVisual` / `GeometryAlgorithm` 等（CI 门禁 `check_widget_deps.ps1` 禁止 vcxproj 出现）。**过渡态**仍链 `Data` / `OsgWidgetCore` / `RobotScene` / `RobotUrdf` / `RobotKinematics` / `GeometryEngine` 直至 `DocumentPage` 机器人与属性面板逻辑迁入 `RobotWidget` 或 Host 契约。新代码仍应经 `doc->data()` / `doc->render()` / `doc->robot()` 访问，勿新增 Data 头 `#include`。
+
+`PointCloudAlgorithm` 仍 **静态链入** `Data.dll`；`Data` 的 STEP/网格布尔经 `GeometryAlgorithm.dll` 转发（Data 已瘦身 OCCT 直链）；**`CloudSimPluginHost` 源码编进 `CloudSimHost.vcxproj`**（非 Widget）；SDK **1.5.0** 提供 `IPluginGeometryHost`。
 
 **构建输出**：`CloudSim/Directory.Build.props` 定义 `$(CloudSimBinDir)` → 仓库根 `bin/x64d/` 或 `bin/x64/`，各工程 `OutDir` / 链接库路径统一，避免 `$(SolutionDir)` 为空时 **LNK1181**（找不到 `CloudSimHost.lib`）。建议生成顺序：**CloudSimCore → Data → … → CloudSimHost → Widget → CloudSim**。
 
@@ -392,18 +398,16 @@ flowchart LR
     Host --> BackendVisual
     Host --> Data
     Widget --> RobotWidget
+    Widget --> AiWidget
+    AiWidget --> CloudSimAiSDK
+    Host --> CloudSimPluginHost
+    CloudSimPluginHost --> Data
     RobotWidget --> RobotScene
     RobotWidget --> RobotUrdf
     RobotWidget --> RobotKinematics
     RobotWidget --> GeometryEngine
     RobotWidget --> RunLogger
     RobotWidget --> Data
-    Widget --> RobotScene
-    Widget --> RunLogger
-    Widget --> AiWidget
-    AiWidget --> CloudSimAiSDK
-    Widget --> CloudSimPluginHost
-    CloudSimPluginHost --> Data
 
     OsgWidgetCore --> BackendVisual
     OsgWidgetCore --> Data
@@ -430,7 +434,7 @@ flowchart LR
 - 依赖方向整体从 UI → **Host（OSG+文档）** → Core 契约 → 底层引擎，层次清晰。
 - `Data` 与 `RunLogger` 为共用基础层；x64 下通过 **DLL 边界** 保证日志单例与代码单份加载。
 - `RobotScene` 组合 `RobotUrdf + RobotKinematics + GeometryEngine`，业务语义完整。
-- Widget 仍链 **Data / RobotScene** 等头文件用于属性面板与工程 I/O；中长期经 Core DTO 与 `IRobotService` 收敛。
+- **Widget 数据访问已契约化**：对象查询走 `BackendObjectDto` / `IDataService::objectSnapshot`；pose/颜色走 `applyWorldPoseMm` / `applyColor` / `worldPoseMm`；Follow 走 `runFollowSolveAndSync`。**链接层**仍过渡性依赖 `Data` / `RobotScene` 等 `.lib`（见 §2 边界约定），与「源文件禁止 `#include` Data 头」的门禁并行。
 
 ### 5.1 工程筛选器（Visual Studio Filters）整理
 
@@ -450,7 +454,8 @@ flowchart LR
 |--------|------|----------------|
 | App / Contracts | `CloudSim`、`CloudSimBootstrap`、`CloudSimCore` | `inc` / `src`，`CloudSimCore` 额外按 `Core` 细分。 |
 | Host | `CloudSimHost` | `inc`/`src` 下按 `Document`、`Import`、`Render`、`Robot`、`Urdf`、`adapters`、`OsgWidget`、`PickGizmo`、`SceneFacade` 分层。 |
-| UI | `Widget`、`RobotWidget`、`OsgWidgetCore`、`BackendVisual`、`AiWidget`、`CloudSimPluginHost` | 统一 `inc`/`src`，并按 `Ai`、`MainWindow`、`Document`、`PluginHost`、`Simulation`、`Backend` 等业务子域展开。 |
+| UI | `Widget`、`RobotWidget`、`OsgWidgetCore`、`BackendVisual`、`AiWidget` | 统一 `inc`/`src`，并按 `Ai`、`MainWindow`、`Document`、`Simulation`、`Backend` 等业务子域展开。 |
+| Host（含插件宿主） | `CloudSimHost` | 含 `PluginHost`、`Ai` 宿主实现、`OsgWidget` 源码等筛选器。 |
 | Robot | `RobotScene`、`RobotUrdf`、`RobotKinematics` | 以 `Robot`、`Urdf`、`Core` 等子域拆分。 |
 | Geometry / Data | `GeometryEngine`、`GeometryAlgorithm`、`PointCloudAlgorithm`、`Data` | `Data` 最细（含 `Backend`、`MeshIo`、`ThirdParty\\dxflib`、`pch`）；几何工程按 `Geometry`、`adapters` 组织。 |
 | Plugin / Infra | `CloudSimAiSDK`、`CloudSimPluginSDK`、`HelloPlugin`、`PlcCommSDK/UI/Plugin`、`RunLogger` | 统一 `inc`/`src`，插件类工程通常再细分 `Plugin` 子筛选器。 |
@@ -551,7 +556,8 @@ flowchart TD
 
 - 运行时配置：[`tools/ai-training/CONFIGURATION.md`](tools/ai-training/CONFIGURATION.md)  
 - 离线训练：[`tools/ai-training/README.md`](tools/ai-training/README.md)  
-- SDK / 接模：[`src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md`](src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md)
+- SDK / 接模：[`src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md`](src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md)  
+- **AI 轨迹特征（`trajectory.feature`）**：[`docs/trajectory_feature_ai.md`](docs/trajectory_feature_ai.md)
 
 **`ai_config.json`（与 exe 同目录）要点：**
 
@@ -752,8 +758,8 @@ sequenceDiagram
 2c. **CAD 轨迹生成（`FeatureTrajectoryPageWidget`，Dock「轨迹生成」页）**  
    - 工件 backend + `backendSourcePath` STEP → `enumerateFeatureCatalog` 或手编 `FeatureSpec` JSON。  
    - `discretizeFeature` → `importRawPathToTrajectory` → 配方（焊缝/涂胶/打磨默认 Op 链）→ `emitRawTrajectoryToProgram` 写入主程序。  
-   - 预览：`setInstructionPoseAxes`（绿/红可达性）；AI 分域 `trajectory.feature` 校验 LLM 输出的 `features[]`。  
-   - 详见 [`RobotWidget/DEVELOPER_GUIDE.md`](RobotWidget/DEVELOPER_GUIDE.md) §CAD 轨迹生成、[`GeometryAlgorithm/DEVELOPER_GUIDE.md`](GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.1。  
+   - 预览：`setInstructionPoseAxes`（绿/红可达性）；AI 分域 `trajectory.feature`：全量候选 3D 编号 → 用户「选 N」后仅高亮选中项 → 确认离散。  
+   - 详见 [`RobotWidget/DEVELOPER_GUIDE.md`](RobotWidget/DEVELOPER_GUIDE.md) §CAD 轨迹生成、[`docs/trajectory_feature_ai.md`](docs/trajectory_feature_ai.md)、[`GeometryAlgorithm/DEVELOPER_GUIDE.md`](GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.1。  
 3. **指令选中预览（非运行态）**  
    - 选中 **PTP/LINE** 时：`applyRobotPoseForInstructionPreview`（链式种子 + 单次 IK 或示教 CSV）。  
    - **坐标系页**：添加未激活工具系为 **StructuralOnly**（不 invalidate plan 缓存、不全程序 IK）；全局或单项 `showInScene` 显示变更只刷 overlay；切换激活/工具几何时异步 reachability；切换激活工具系时 `syncInstructionToolContextFromFrames` 对 active 跟随路点写 **当前** `activeToolFrame(frames)`（不用 stale frozen id），并自首个受影响点失效下游示教关节。  
@@ -881,7 +887,7 @@ flowchart LR
 - ~~**`EventHub` 贯通（选择/姿态）**~~：已实现 `SelectionChanged` / `PoseCommitted` 发布与 `MainWindow` 订阅；属性改 pose 经 `IDataService` + `BackendVisualSync`。
 - **`IRenderView` 全面替代**：`currentOsgWidget` 已走 `render().widget()`；其余路径可继续收口。
 - **`IRobotService` 实装**：程序 JSON、URDF 注册、规划预览等从 `RobotWidget` 迁入 Host 适配器。
-- **Widget 进一步瘦身**：减少直接 `#include` Data/OSG；机器人元数据 DTO 化。
+- **Widget 进一步瘦身**：减少直接 `#include` Data/OSG（CI 门禁已启用）；**过渡**仍链部分引擎 `.lib`；机器人元数据 DTO 化；`DocumentPage` 机器人逻辑迁入 `RobotWidget` 后可收紧 vcxproj。
 - `MainWindowSelectionService` 仍包含部分渲染细节分支（点云/网格具体分支加载），后续可继续下沉到更细粒度应用服务。
 - `ObjectGraph` 当前是按需构建的只读快照，后续可评估增量更新/缓存策略以降低大场景重建成本。
 - `Widget/MainWindow` 仍是高复杂度协调中心，继续按“功能域”拆分有收益。
@@ -971,8 +977,8 @@ Controller 核心逻辑已迁入 Host，退化为 UI 事件转发器。
 ### 10.1 定位
 
 - **CloudSimPluginSDK**：插件与宿主之间的稳定 ABI（`ICloudSimPlugin`、`IPluginHostContext`）。
-- **CloudSimPluginHost**（`src/UI/CloudSimPluginHost/`，编译进 `Widget.dll`）：`PluginManager` 扫描 `plugins/**/plugin.json`；`PluginHostContext` 实现 `IPluginHostContext`。
-- 插件 **仅链接 SDK**；导入/网格注册经 **`DocumentImportFacade`** / **`IDataService::unregisterSubtree`**；场景经 **`PluginSceneBridgeAdapter` → `BackendSceneDocumentFacade`**。
+- **CloudSimPluginHost**（`src/UI/CloudSimPluginHost/`，**编译进 `CloudSimHost.dll`**）：`PluginManager`（`CLOUDSIM_HOST_EXPORT`）扫描 `plugins/**/plugin.json`；`PluginHostContext` 实现 `IPluginHostContext`；经 **`IPluginMainWindowHost`** 回调 `MainWindow` UI（Host 不链 Widget 符号）。
+- 插件 **仅链接 SDK**；文档适配持有 **`DocumentHost*`**；导入/网格注册经 **`DocumentImportFacade`** / **`IDataService::unregisterSubtree`**；场景经 **`PluginSceneBridgeAdapter` → `DocumentHost::sceneFacade()`**。
 
 ### 10.2 运行时布局
 
@@ -1008,7 +1014,7 @@ bin/x64(d)/                    # CloudSimBinDir，见 CloudSim/Directory.Build.p
 
 ### 10.3 生命周期
 
-1. `MainWindow` UI 初始化完成后调用 `loadPlugins()`。
+1. `MainWindow`（实现 `IPluginMainWindowHost`）UI 初始化完成后构造 `PluginManager` 并调用 `loadPlugins()`。
 2. 读清单 → 校验 `minHostVersion` / `enabled` → `QPluginLoader` → `ICloudSimPlugin::initialize(IPluginHostContext*)`。
 3. 插件注册 Dock/菜单；`createPrimitiveMesh` / `registerTriangleMesh` → `registerAdoptedMesh`；`importFileIntoActiveDocument` → `importFileIntoDocument`；`registerBackendType` → `BackendRegistry` + `PluginDelegatedBackend`。
 4. 退出时 `PluginManager::shutdownAll()` 调用各插件 `shutdown()`（运行期不卸载 DLL）。

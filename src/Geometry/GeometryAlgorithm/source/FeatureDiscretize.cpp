@@ -11,8 +11,10 @@
 
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
+#include <BRepBndLib.hxx>
 #include <BRepGProp.hxx>
 #include <BRepTools.hxx>
+#include <Bnd_Box.hxx>
 #include <GProp_GProps.hxx>
 #include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
@@ -1230,6 +1232,182 @@ bool suggestFeaturesFromCatalog(
 		return false;
 	}
 	return true;
+}
+
+namespace
+{
+
+bool edgeByIndex(const TopoDS_Shape& shape, int index, TopoDS_Edge& out)
+{
+	int idx = 0;
+	for (TopExp_Explorer exp(shape, TopAbs_EDGE); exp.More(); exp.Next(), ++idx)
+	{
+		if (idx == index)
+		{
+			out = TopoDS::Edge(exp.Current());
+			return true;
+		}
+	}
+	return false;
+}
+
+bool faceByIndex(const TopoDS_Shape& shape, int index, TopoDS_Face& out)
+{
+	int idx = 0;
+	for (TopExp_Explorer exp(shape, TopAbs_FACE); exp.More(); exp.Next(), ++idx)
+	{
+		if (idx == index)
+		{
+			out = TopoDS::Face(exp.Current());
+			return true;
+		}
+	}
+	return false;
+}
+
+void copyGpPnt(const gp_Pnt& p, double out[3])
+{
+	out[0] = p.X();
+	out[1] = p.Y();
+	out[2] = p.Z();
+}
+
+/// 标签沿工件外法向偏移，避免贴在棱线上与编号重叠
+gp_Vec labelOutwardFromBbox(const TopoDS_Shape& shape, const gp_Pnt& anchor, const gp_Vec& fallback)
+{
+	gp_Pnt center;
+	double diagonal = 50.0;
+	Bnd_Box box;
+	BRepBndLib::Add(shape, box);
+	if (!box.IsVoid())
+	{
+		Standard_Real xmin = 0.0;
+		Standard_Real ymin = 0.0;
+		Standard_Real zmin = 0.0;
+		Standard_Real xmax = 0.0;
+		Standard_Real ymax = 0.0;
+		Standard_Real zmax = 0.0;
+		box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+		center = gp_Pnt((xmin + xmax) * 0.5, (ymin + ymax) * 0.5, (zmin + zmax) * 0.5);
+		const double dx = xmax - xmin;
+		const double dy = ymax - ymin;
+		const double dz = zmax - zmin;
+		diagonal = std::sqrt(dx * dx + dy * dy + dz * dz);
+	}
+	gp_Vec outward(anchor.X() - center.X(), anchor.Y() - center.Y(), anchor.Z() - center.Z());
+	if (outward.SquareMagnitude() < 1e-12)
+	{
+		outward = fallback;
+		if (outward.SquareMagnitude() < 1e-12)
+		{
+			outward = gp_Vec(0.0, 0.0, 1.0);
+		}
+	}
+	outward.Normalize();
+	const double dist = std::clamp(diagonal * 0.12, 18.0, 55.0);
+	outward *= dist;
+	return outward;
+}
+
+} // namespace
+
+bool computeFeatureAnchor(const WorkpieceRef& workpiece, const FeatureRefs& refs, FeatureAnchor& out, std::string* errMsg)
+{
+	out = FeatureAnchor{};
+	if (workpiece.stepPathUtf8.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "stepPathUtf8 required";
+		}
+		return false;
+	}
+	TopoDS_Shape shape;
+	if (!readStepShape(workpiece.stepPathUtf8, shape, errMsg))
+	{
+		return false;
+	}
+
+	if (!refs.edgeIndices.empty())
+	{
+		const int edgeIdx = refs.edgeIndices.front();
+		TopoDS_Edge edge;
+		if (!edgeByIndex(shape, edgeIdx, edge))
+		{
+			if (errMsg)
+			{
+				*errMsg = "edge index out of range";
+			}
+			return false;
+		}
+		BRepAdaptor_Curve curve(edge);
+		const double u0 = curve.FirstParameter();
+		const double u1 = curve.LastParameter();
+		const double um = (u0 + u1) * 0.5;
+		gp_Pnt p0;
+		gp_Pnt p1;
+		gp_Pnt pm;
+		gp_Vec tan;
+		curve.D0(u0, p0);
+		curve.D0(u1, p1);
+		curve.D1(um, pm, tan);
+		copyGpPnt(pm, out.anchorXyzMm);
+		out.hasEdgeSegment = true;
+		copyGpPnt(p0, out.edgeEndAXyzMm);
+		copyGpPnt(p1, out.edgeEndBXyzMm);
+		const gp_Vec outward = labelOutwardFromBbox(shape, pm, tan);
+		copyGpPnt(pm.Translated(outward), out.labelOffsetXyzMm);
+		out.candidateId = "edge_" + std::to_string(edgeIdx);
+		return true;
+	}
+
+	if (!refs.faceIndices.empty())
+	{
+		const int faceIdx = refs.faceIndices.front();
+		TopoDS_Face face;
+		if (!faceByIndex(shape, faceIdx, face))
+		{
+			if (errMsg)
+			{
+				*errMsg = "face index out of range";
+			}
+			return false;
+		}
+		GProp_GProps props;
+		BRepGProp::SurfaceProperties(face, props);
+		const gp_Pnt center = props.CentreOfMass();
+		copyGpPnt(center, out.anchorXyzMm);
+		BRepAdaptor_Surface surf(face);
+		const double uMid = (surf.FirstUParameter() + surf.LastUParameter()) * 0.5;
+		const double vMid = (surf.FirstVParameter() + surf.LastVParameter()) * 0.5;
+		gp_Pnt ps;
+		gp_Vec du;
+		gp_Vec dv;
+		surf.D1(uMid, vMid, ps, du, dv);
+		gp_Vec normal = du.Crossed(dv);
+		if (face.Orientation() == TopAbs_REVERSED)
+		{
+			normal.Reverse();
+		}
+		if (normal.Magnitude() > 1e-9)
+		{
+			normal.Normalize();
+		}
+		else
+		{
+			normal = gp_Vec(0.0, 0.0, 1.0);
+		}
+		const gp_Vec outward = labelOutwardFromBbox(shape, center, normal);
+		copyGpPnt(center.Translated(outward), out.labelOffsetXyzMm);
+		out.candidateId = "face_" + std::to_string(faceIdx);
+		return true;
+	}
+
+	if (errMsg)
+	{
+		*errMsg = "FeatureRefs has no edge or face indices";
+	}
+	return false;
 }
 
 } // namespace geoalgo

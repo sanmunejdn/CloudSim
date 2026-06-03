@@ -30,6 +30,8 @@ public:
 
 	AiParseResult parseUserTextWithRules(const QString& domainId, const QString& text) const override;
 
+	AiParseResult parseTrajectoryFeatureRequest(const AiInferenceRequest& request) const override;
+
 	void parseUserTextAsync(const AiInferenceRequest& request, const AiConfigDto& config,
 		const AiInferenceProgressFn& progress, std::function<void(AiParseResult)> onFinished) override;
 
@@ -44,9 +46,10 @@ private:
 	void registerBuiltinDomains();
 	const AiDomainModelConfig* findDomainConfig(const AiConfigDto& cfg, const QString& domainId) const;
 	AiParseResult parseWithLocalLlm(const QString& domainId, const QString& text, const AiDomainModelConfig& dm,
-		const QByteArray& imagePng, const AiInferenceProgressFn& progress) const;
+		const QByteArray& imagePng, const AiInferenceProgressFn& progress,
+		const QByteArray& catalogSliceUtf8 = QByteArray()) const;
 	AiParseResult parseWithRemoteLlm(const QString& domainId, const QString& text, const AiRemoteLlmConfig& remote,
-		const AiInferenceProgressFn& progress) const;
+		const AiInferenceProgressFn& progress, const QByteArray& catalogSliceUtf8 = QByteArray()) const;
 
 	PluginHostContext* m_pluginHost = nullptr;
 	AiDomainRegistryImpl m_registry;

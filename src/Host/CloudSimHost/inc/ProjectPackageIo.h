@@ -47,6 +47,10 @@ CLOUDSIM_HOST_EXPORT void finalizeProjectLoadFollowAndViewport(DocumentHost& hos
 CLOUDSIM_HOST_EXPORT RobotKinematicsRestoreResult restoreRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx,
 	const QJsonObject& projectRoot);
 
+/// 工程恢复后把聚合关节角写入场景（Widget 不链 RobotScene）
+CLOUDSIM_HOST_EXPORT bool applyRestoredJointAnglesToScene(IRobotUrdfImportContext& ctx,
+	const QVector<double>& aggregatedJointAnglesRad, QString* outError = nullptr);
+
 /// 加载机器人程序
 CLOUDSIM_HOST_EXPORT bool loadRobotProgramsFromProjectJson(DocumentHost& host, const QJsonObject& projectRoot,
 	QString* outError = nullptr);

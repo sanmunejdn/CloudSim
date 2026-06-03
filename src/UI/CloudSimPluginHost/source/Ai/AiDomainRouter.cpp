@@ -14,8 +14,21 @@ QString AiDomainRouter::resolve(const QString& requestedDomainId, const QString&
 		return req;
 
 	const QString t = userText;
-	if (t.contains(QStringLiteral("识别")) || t.contains(QStringLiteral("是什么形状"))
-		|| t.contains(QStringLiteral("选中")) || t.contains(QStringLiteral("recognize"), Qt::CaseInsensitive))
+	const bool trajectoryCue = t.contains(QStringLiteral("轨迹")) || t.contains(QStringLiteral("焊缝"))
+		|| t.contains(QStringLiteral("涂胶")) || t.contains(QStringLiteral("打磨"))
+		|| t.contains(QStringLiteral("trajectory"), Qt::CaseInsensitive)
+		|| t.contains(QStringLiteral("边")) || t.contains(QStringLiteral("面特征"))
+		|| t.contains(QStringLiteral("线特征"));
+	const bool primitiveCue = t.contains(QStringLiteral("长方体")) || t.contains(QStringLiteral("圆柱"))
+		|| t.contains(QStringLiteral("圆锥")) || t.contains(QStringLiteral("球"))
+		|| t.contains(QStringLiteral("基本体"));
+
+	if (trajectoryCue && !primitiveCue)
+		return AiDomainIds::trajectoryFeature();
+
+	if ((t.contains(QStringLiteral("识别")) || t.contains(QStringLiteral("是什么形状"))
+			|| t.contains(QStringLiteral("recognize"), Qt::CaseInsensitive))
+		&& !trajectoryCue)
 	{
 		return AiDomainIds::geometryRecognize();
 	}
@@ -29,9 +42,6 @@ QString AiDomainRouter::resolve(const QString& requestedDomainId, const QString&
 		return AiDomainIds::documentImport();
 	if (t.contains(QStringLiteral("点云")) || t.contains(QStringLiteral("下采样")) || t.contains(QStringLiteral("point cloud"), Qt::CaseInsensitive))
 		return AiDomainIds::pointCloudOps();
-	if (t.contains(QStringLiteral("轨迹")) || t.contains(QStringLiteral("焊缝")) || t.contains(QStringLiteral("涂胶"))
-		|| t.contains(QStringLiteral("打磨")) || t.contains(QStringLiteral("trajectory"), Qt::CaseInsensitive))
-		return AiDomainIds::trajectoryFeature();
 
 	return AiDomainIds::meshCreate();
 }

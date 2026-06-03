@@ -20,10 +20,10 @@
 | **TrajectoryAlgorithm** | 程序级 `ITrajectoryOp`（Translate/Rotate/…）；与 `RawTrajectoryOp` 分工见 RobotScene §14 | [TrajectoryAlgorithm/DEVELOPER_GUIDE.md](../src/Robot/TrajectoryAlgorithm/DEVELOPER_GUIDE.md) |
 | **RunLogger** | 文件/控制台/UI 日志（x64 共享 DLL） | [RunLogger/DEVELOPER_GUIDE.md](../src/Infra/RunLogger/DEVELOPER_GUIDE.md) |
 | **CloudSimPluginSDK** | 动态插件 ABI（宿主上下文、文档/场景 API） | [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) |
-| **CloudSimPluginHost** | 插件扫描、`QPluginLoader`、`PluginHostContext`（编进 `Widget.dll`） | [CloudSimPluginHost/DEVELOPER_GUIDE.md](../src/UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) · [ARCHITECTURE_SUMMARY.md §10](../ARCHITECTURE_SUMMARY.md) |
+| **CloudSimPluginHost** | 插件扫描、`QPluginLoader`、`PluginHostContext`（编进 **`CloudSimHost.dll`**；UI 经 `IPluginMainWindowHost`） | [CloudSimPluginHost/DEVELOPER_GUIDE.md](../src/UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) · [ARCHITECTURE_SUMMARY.md §10](../ARCHITECTURE_SUMMARY.md) |
 | **HelloPlugin** | 官方示例插件（侧栏 + 菜单 + `createPrimitiveMesh`） | [HelloPlugin/DEVELOPER_GUIDE.md](../src/Plugins/HelloPlugin/DEVELOPER_GUIDE.md) |
-| **CloudSimAiSDK** | AI 助手 ABI、分域专模、`ai_config` 与训练文档索引 | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) · [配置](../../tools/ai-training/CONFIGURATION.md) · [训练](../../tools/ai-training/README.md) |
-| **AiWidget** | AI 助手 Dock、`AiAssistantCoordinator` | 见 [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) |
+| **CloudSimAiSDK** | AI 助手 ABI、分域专模、`ai_config` 与训练文档索引 | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) · [配置](../../tools/ai-training/CONFIGURATION.md) · [训练](../../tools/ai-training/README.md) · [**AI 轨迹特征**](../../docs/trajectory_feature_ai.md) |
+| **AiWidget** | AI 助手 Dock、`AiAssistantCoordinator`（含 `trajectory.feature` 会话） | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) · [trajectory_feature_ai.md](../../docs/trajectory_feature_ai.md) |
 | **HelloAiPlugin** | AI 插件示例（`ICloudSimAiPlugin`） | [HelloAiPlugin/DEVELOPER_GUIDE.md](../src/Plugins/HelloAiPlugin/DEVELOPER_GUIDE.md) |
 
 ## 依赖方向（简图）

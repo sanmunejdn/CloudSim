@@ -431,6 +431,26 @@ void RobotSimulationController::onUrdfImportRequested(const QString& urdfPath)
 		m_host->registerUrdfRobot(urdfPath, false);
 	}
 }
+void RobotSimulationController::syncRobotKinematicsAfterPoseEdit(const QString& backendId)
+{
+	if (backendId.isEmpty() || !m_host)
+	{
+		return;
+	}
+	IRobotDocumentHost* doc = m_host->document();
+	if (!doc)
+	{
+		return;
+	}
+	BackendDataManager* mgr = doc->robotBackendManagerForKinematics();
+	if (!mgr)
+	{
+		return;
+	}
+	const std::shared_ptr<BackendDataBase> data = mgr->getData(backendId.toStdString());
+	syncRobotKinematicsAfterPoseEdit(data);
+}
+
 void RobotSimulationController::syncRobotKinematicsAfterPoseEdit(const std::shared_ptr<BackendDataBase>& data)
 {
 	if (!data || !data->hasPoseProperty())
@@ -4656,4 +4676,68 @@ void RobotSimulationController::scheduleAsyncMotionReachabilityRefresh()
 			m_motionReachabilityCache = *jobResult;
 			refreshInstructionPoseAxesWithReachability(m_motionReachabilityCache);
 		});
+}
+
+bool RobotSimulationController::resolveTrajectoryWorkpiece(QString& outBackendId, QString& outStepPath)
+{
+	outBackendId.clear();
+	outStepPath.clear();
+	if (!m_simulationDock || !m_simulationDock->featureTrajectoryPage())
+	{
+		return false;
+	}
+	FeatureTrajectoryPageWidget* feat = m_simulationDock->featureTrajectoryPage();
+	if (!feat->currentWorkpiece(outBackendId, outStepPath))
+	{
+		return false;
+	}
+	(void)feat->ensureFeatureCatalogEnumerated(nullptr);
+	return true;
+}
+
+bool RobotSimulationController::showAiFeatureCandidatePreview(const QByteArray& catalogSliceUtf8, QString* err)
+{
+	if (!m_simulationDock || !m_simulationDock->featureTrajectoryPage())
+	{
+		if (err)
+		{
+			*err = QStringLiteral("轨迹生成页未就绪");
+		}
+		return false;
+	}
+	if (!m_simulationDock->featureTrajectoryPage()->buildAndShowCandidatePreview(catalogSliceUtf8))
+	{
+		if (err)
+		{
+			*err = QStringLiteral("无法显示特征预览");
+		}
+		return false;
+	}
+	if (m_simulationDock->tabWidget())
+	{
+		m_simulationDock->tabWidget()->setCurrentIndex(RobotSimulationDockWidget::kTabIndexTrajectoryGeneration);
+	}
+	return true;
+}
+
+void RobotSimulationController::clearAiFeatureCandidatePreview()
+{
+	if (m_simulationDock && m_simulationDock->featureTrajectoryPage())
+	{
+		m_simulationDock->featureTrajectoryPage()->clearCandidatePreview();
+	}
+}
+
+bool RobotSimulationController::commitAiTrajectoryFeatures(const QByteArray& featurePlanJsonUtf8, QString* summary,
+	QString* err)
+{
+	if (!m_simulationDock || !m_simulationDock->featureTrajectoryPage())
+	{
+		if (err)
+		{
+			*err = QStringLiteral("轨迹生成页未就绪");
+		}
+		return false;
+	}
+	return m_simulationDock->featureTrajectoryPage()->commitFeaturePlanFromAi(featurePlanJsonUtf8, summary, err);
 }

@@ -26,19 +26,13 @@
 #include <osg/Matrixd>
 #include <osg/Vec3f>
 
-#include "BackendDataBase.h"
-#include "BackendDataManager.h"
-#include "BackendRegistry.h"
-#include "BackendRegistryBuiltins.h"
 #include "DocumentPage.h"
+#include "IDataService.h"
 #include "WidgetDocumentAccess.h"
-#include "MeshBackendData.h"
-#include "PointCloudBackendData.h"
 #include "OsgWidget.h"
 #include "ProjectPackageZip.h"
 #include "RobotInstructionFactory.h"
 #include "RobotProgramStore.h"
-#include "RobotSceneKinematics.h"
 #include "RunInfoPage.h"
 #include "../RobotWidget/inc/IRobotDocumentHost.h"
 #include "../RobotWidget/inc/RobotAxisControlWidget.h"
@@ -256,7 +250,7 @@ void MainWindow::onOpenProjectFile()
 		return;
 	}
 
-	page->backend().clear();
+	page->data().clear();
 	page->clearRobotSimulationContext();
 	page->backendSourcePath().clear();
 	page->backendSourceType().clear();
@@ -293,7 +287,6 @@ void MainWindow::onOpenProjectFile()
 		cloudsim::host::parseProjectEdgesJson(root.value(QStringLiteral("edges")).toArray());
 	const bool useEdgesRelation = !pendingEdges.isEmpty();
 	const QSet<QString> robotLinkMeshBackendIds = cloudsim::host::collectRobotLinkMeshBackendIds(root);
-	ensureBackendBuiltinsRegistered();
 	beginBackendTreeEventRefreshSuppress();
 	cloudsim::host::ProjectObjectLoadOptions loadOpts;
 	loadOpts.projectDir = projectDir;
@@ -342,8 +335,8 @@ void MainWindow::onOpenProjectFile()
 		{
 			projectRobotKinematicsRestored = true;
 			projectLoadedJointAngles = rkResult.aggregatedJointAnglesRad;
-			(void)RobotSceneKinematics::applyJointAnglesFromDocument(
-				page, page->sceneFacade().poseSink(), rkResult.aggregatedJointAnglesRad);
+			QString rkApplyErr;
+			(void)cloudsim::host::applyRestoredJointAnglesToScene(*page, rkResult.aggregatedJointAnglesRad, &rkApplyErr);
 			refreshSimulationJointListFromCurrentDoc();
 			if (m_robotSimulation)
 			{
@@ -384,8 +377,8 @@ void MainWindow::onOpenProjectFile()
 	// Follow 求解会改写连杆 mesh 世界矩阵；须在求解后重新按 URDF 关节角同步（与「重置所有关节」同路径）
 	if (projectRobotKinematicsRestored && !projectLoadedJointAngles.isEmpty() && page)
 	{
-		(void)RobotSceneKinematics::applyJointAnglesFromDocument(
-			page, page->sceneFacade().poseSink(), projectLoadedJointAngles);
+		QString rkApplyErr;
+		(void)cloudsim::host::applyRestoredJointAnglesToScene(*page, projectLoadedJointAngles, &rkApplyErr);
 		if (m_robotSimulation)
 		{
 			m_robotSimulation->restoreAggregatedJointStateAfterProjectLoad(projectLoadedJointAngles);

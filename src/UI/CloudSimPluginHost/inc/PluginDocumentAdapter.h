@@ -5,13 +5,16 @@
 #include <memory>
 #include <string>
 
-class DocumentPage;
+namespace cloudsim::host {
+class DocumentHost;
+}
+
 class PluginSceneBridgeAdapter;
 
 class PluginDocumentAdapter : public IPluginDocument
 {
 public:
-	explicit PluginDocumentAdapter(DocumentPage* page);
+	explicit PluginDocumentAdapter(cloudsim::host::DocumentHost* host);
 
 	std::string documentLabel() const override;
 	std::size_t backendObjectCount() const override;
@@ -32,9 +35,9 @@ public:
 		const std::string& pathUtf8,
 		std::string* outError = nullptr) const override;
 
-	DocumentPage* documentPage() const { return m_page; }
+	cloudsim::host::DocumentHost* documentHost() const { return m_host; }
 
 private:
-	DocumentPage* m_page = nullptr;
+	cloudsim::host::DocumentHost* m_host = nullptr;
 	std::unique_ptr<PluginSceneBridgeAdapter> m_sceneBridge;
 };

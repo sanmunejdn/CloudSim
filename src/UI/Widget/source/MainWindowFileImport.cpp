@@ -1,7 +1,5 @@
 #include "MainWindow.h"
 
-#include <memory>
-
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMessageBox>
@@ -9,28 +7,23 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 
-#include "BackendDataBase.h"
-#include "BackendDataManager.h"
 #include "DocumentPage.h"
 #include "MainWindow_p.h"
 #include "MainWindowSelectionService.h"
-#include "MeshBackendData.h"
 #include "OsgWidget.h"
-#include "PointCloudBackendData.h"
 #include "RunInfoPage.h"
 #include "MainWindowImportCaptureRenderController.h"
 
 using namespace mainwindow_detail;
 
-void MainWindow::focusBackendInTree(const std::shared_ptr<BackendDataBase>& backendObject)
+void MainWindow::focusBackendInTreeLocal(const QString& backendId)
 {
-	if (!backendObject || !m_backendTree || !m_backendRootItem)
+	if (backendId.isEmpty() || !m_backendTree || !m_backendRootItem)
 	{
 		return;
 	}
-	const QString idQs = QString::fromStdString(backendObject->id());
-	(void)MainWindowSelectionService::selectBackendById(*this, idQs, true);
-	updatePropertyPanel(backendObject);
+	(void)MainWindowSelectionService::selectBackendById(*this, backendId, true);
+	updatePropertyPanel(backendId);
 }
 
 bool MainWindow::registerBackendObject(const QString& filePath, const QString& typeName, bool isPointCloud, bool quietUi)

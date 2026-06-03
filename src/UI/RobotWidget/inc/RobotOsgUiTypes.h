@@ -88,6 +88,26 @@ struct RawTrajectoryPreviewOptions
 
 
 
+struct FeatureCatalogOverlayItem
+
+{
+
+	int displayIndex = 0;
+
+	osg::Vec3f anchorWorldMm;
+
+	osg::Vec3f labelWorldMm;
+
+	bool hasEdgeSegment = false;
+
+	osg::Vec3f edgeAWorldMm;
+
+	osg::Vec3f edgeBWorldMm;
+
+};
+
+
+
 struct RobotFrameOverlayUpdate
 
 {

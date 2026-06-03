@@ -13,7 +13,7 @@ class PluginGeometryHostImpl;
 class PluginPointCloudHostImpl;
 class BackendDataBase;
 class DocumentPage;
-class MainWindow;
+class IPluginMainWindowHost;
 class PluginDocumentAdapter;
 class PluginSceneBridgeAdapter;
 
@@ -23,7 +23,7 @@ class PluginHostContext : public QObject, public IPluginHostContext
 	Q_OBJECT
 
 public:
-	explicit PluginHostContext(MainWindow* mainWindow, QObject* parent = nullptr);
+	explicit PluginHostContext(IPluginMainWindowHost* mainWindowHost, QObject* parent = nullptr);
 	~PluginHostContext() override;
 
 	void attachDocumentTabSignals();
@@ -96,9 +96,18 @@ public:
 
 	bool captureActiveViewportPng(QByteArray& outPng, QString* outError = nullptr) override;
 
+	bool resolveTrajectoryWorkpiece(QString& outBackendId, QString& outStepPath, QString* outError = nullptr) override;
+	bool buildTrajectoryFeatureCatalogSlice(const QString& backendId, const QString& stepPathUtf8,
+		const QString& userText, QByteArray& outFullCatalogUtf8, QByteArray& outSliceUtf8,
+		QString* outError = nullptr) override;
+	bool showAiFeatureCandidatePreview(const QByteArray& previewJsonUtf8, QString* outError = nullptr) override;
+	void clearAiFeatureCandidatePreview() override;
+	bool commitAiTrajectoryFeatures(const QByteArray& featurePlanJsonUtf8, QString* outSummary,
+		QString* outError = nullptr) override;
+
 	void notifyLanguageChanged();
 
-	MainWindow* mainWindow() const { return m_mainWindow; }
+	IPluginMainWindowHost* mainWindowHost() const { return m_mainWindowHost; }
 
 private:
 	bool booleanSoupsAndRegister(const std::vector<float>& targetWorldSoup, const std::vector<float>& toolWorldSoup,
@@ -108,7 +117,7 @@ private:
 	bool registerMeshFromSoup(std::vector<float> soup, const PluginMeshCreateOptions& options, QString* outError,
 		QString* outBackendId = nullptr);
 
-	MainWindow* m_mainWindow = nullptr;
+	IPluginMainWindowHost* m_mainWindowHost = nullptr;
 	std::unique_ptr<PluginPointCloudHostImpl> m_pointCloudHost;
 	std::unique_ptr<PluginGeometryHostImpl> m_geometryHost;
 	std::unique_ptr<AiAssistantHostImpl> m_aiHost;

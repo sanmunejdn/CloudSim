@@ -34,6 +34,14 @@
       "multimodal": true,
       "parser_priority": ["local"],
       "unload_other_models_before_infer": true
+    },
+    {
+      "id": "trajectory.feature",
+      "enabled": true,
+      "base_url": "http://127.0.0.1:11434/v1",
+      "model": "qwen2.5:3b",
+      "multimodal": false,
+      "parser_priority": ["rules", "local"]
     }
   ]
 }

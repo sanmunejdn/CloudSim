@@ -9,17 +9,16 @@
 #include <QTreeWidgetItem>
 
 #include "BackendSceneDocumentFacade.h"
-#include "BackendDataBase.h"
-#include "BackendDataManager.h"
-#include "BackendHierarchyModel.h"
+#include "CoreTypes.h"
 #include "DocumentHostEvents.h"
 #include "DocumentPage.h"
+#include "IDataService.h"
+#include "IRenderView.h"
+#include "BackendHierarchyModel.h"
 #include "MainWindow.h"
 #include "MainWindowObjectRepository.h"
 #include "MainWindow_p.h"
-#include "MeshBackendData.h"
 #include "OsgWidget.h"
-#include "PointCloudBackendData.h"
 #include "RunInfoPage.h"
 #include "SimulationCommandWidget.h"
 
@@ -37,7 +36,7 @@ void MainWindowSelectionService::clearSelection(MainWindow& mainWindow, bool cle
 	{
 		osg->clearInstructionPoseAxes();
 	}
-	mainWindow.updatePropertyPanel(nullptr);
+	mainWindow.updatePropertyPanel(QString());
 }
 
 void MainWindowSelectionService::clearBackendObjectSelection(MainWindow& mainWindow, bool clearTreeSelection)
@@ -53,38 +52,30 @@ void MainWindowSelectionService::clearBackendObjectSelection(MainWindow& mainWin
 	}
 }
 
-std::shared_ptr<BackendDataBase> MainWindowSelectionService::selectedBackendData(MainWindow& mainWindow)
-{
-	if (!mainWindow.m_selectionState.hasBackendSelection())
-	{
-		return nullptr;
-	}
-	const std::shared_ptr<BackendDataBase> data =
-		MainWindowObjectRepository::findById(mainWindow, mainWindow.m_selectionState.selectedBackendId());
-	if (data)
-	{
-		return data;
-	}
-	mainWindow.m_selectionState.clearBackendSelection();
-	return nullptr;
-}
-
 MainWindowSelectionService::SelectionSnapshot MainWindowSelectionService::currentSelection(MainWindow& mainWindow)
 {
 	SelectionSnapshot snapshot;
 	snapshot.backendId = mainWindow.m_selectionState.selectedBackendId();
-	snapshot.data = selectedBackendData(mainWindow);
-	if (!snapshot.valid())
+	if (snapshot.backendId.isEmpty())
 	{
 		snapshot.kind = SelectedBackendKind::None;
 		snapshot.hasGeometry = false;
 		return snapshot;
 	}
-	if (std::dynamic_pointer_cast<PointCloudBackendData>(snapshot.data))
+	DocumentPage* page = mainWindow.currentPage();
+	if (!page || !page->data().isValid(snapshot.backendId))
+	{
+		snapshot.backendId.clear();
+		snapshot.kind = SelectedBackendKind::None;
+		snapshot.hasGeometry = false;
+		return snapshot;
+	}
+	const cloudsim::core::GeometryKind gk = page->data().geometryKind(snapshot.backendId);
+	if (gk == cloudsim::core::GeometryKind::Points)
 	{
 		snapshot.kind = SelectedBackendKind::PointCloud;
 	}
-	else if (std::dynamic_pointer_cast<MeshBackendData>(snapshot.data))
+	else if (gk == cloudsim::core::GeometryKind::Mesh)
 	{
 		snapshot.kind = SelectedBackendKind::Mesh;
 	}
@@ -92,7 +83,10 @@ MainWindowSelectionService::SelectionSnapshot MainWindowSelectionService::curren
 	{
 		snapshot.kind = SelectedBackendKind::Other;
 	}
-	snapshot.hasGeometry = snapshot.data->hasGeometry();
+	if (const auto dto = MainWindowObjectRepository::findSnapshot(mainWindow, snapshot.backendId))
+	{
+		snapshot.hasGeometry = dto->hasGeometry;
+	}
 	return snapshot;
 }
 
@@ -158,25 +152,29 @@ void MainWindowSelectionService::ensureBackendForPickMode(
 		}
 	}
 
-	for (const std::shared_ptr<BackendDataBase>& data : MainWindowObjectRepository::listAll(mainWindow))
+	DocumentPage* page = mainWindow.currentPage();
+	if (!page)
 	{
-		if (!data || !data->hasGeometry())
+		return;
+	}
+
+	for (const cloudsim::core::BackendObjectDto& dto : MainWindowObjectRepository::listSnapshots(mainWindow))
+	{
+		if (!dto.hasGeometry)
 		{
 			continue;
 		}
-		if (preferredKind == SelectedBackendKind::PointCloud
-			&& !std::dynamic_pointer_cast<PointCloudBackendData>(data))
+		const cloudsim::core::GeometryKind gk = page->data().geometryKind(dto.id);
+		if (preferredKind == SelectedBackendKind::PointCloud && gk != cloudsim::core::GeometryKind::Points)
 		{
 			continue;
 		}
-		if (preferredKind == SelectedBackendKind::Mesh
-			&& !std::dynamic_pointer_cast<MeshBackendData>(data))
+		if (preferredKind == SelectedBackendKind::Mesh && gk != cloudsim::core::GeometryKind::Mesh)
 		{
 			continue;
 		}
-		const QString id = QString::fromStdString(data->id());
-		mainWindow.m_selectionState.setSelectedBackendId(id);
-		if (selectBackendById(mainWindow, id, false))
+		mainWindow.m_selectionState.setSelectedBackendId(dto.id);
+		if (selectBackendById(mainWindow, dto.id, false))
 		{
 			handleBackendTreeSelectionChanged(mainWindow);
 		}
@@ -218,9 +216,9 @@ void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& m
 	const QString id = current->data(0, kRoleBackendId).toString();
 	mainWindow.m_selectionState.setSelectedBackendId(id);
 	DocumentPage* doc = mainWindow.currentPage();
-	const std::shared_ptr<BackendDataBase> data = selectedBackendData(mainWindow);
 	const bool rowVisible = current->checkState(0) != Qt::Unchecked;
 	const bool urdfLinkMesh = doc && doc->hasRobotSimulationContext() && doc->robotLinkBackendIds().contains(id);
+	const bool hasSelection = doc && doc->data().isValid(id);
 
 	if (osg)
 	{
@@ -233,10 +231,10 @@ void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& m
 		{
 			osg->setBackendObjectVisible(idStd, rowVisible);
 		}
-		osg->setSelectionActive(data != nullptr);
-		if (data && doc)
+		osg->setSelectionActive(hasSelection);
+		if (hasSelection && doc)
 		{
-			doc->sceneFacade().ensureSelectionVisualForBackend(*data, urdfLinkMesh);
+			doc->render().ensureSelectionVisualForBackend(id, urdfLinkMesh);
 		}
 	}
 	if (doc)
@@ -322,7 +320,7 @@ void MainWindowSelectionService::handleBackendTreeItemChanged(
 			&& idsToUpdate.contains(mainWindow.m_selectionState.selectedBackendId()))
 		{
 			clearBackendObjectSelection(mainWindow, false);
-			mainWindow.updatePropertyPanel(nullptr);
+			mainWindow.updatePropertyPanel(QString());
 		}
 		if (mainWindow.m_runInfoPage)
 		{

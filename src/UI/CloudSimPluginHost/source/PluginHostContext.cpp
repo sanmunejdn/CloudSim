@@ -1,5 +1,8 @@
 #include "PluginHostContext.h"
 
+#include "Ai/AiTrajectoryFeatureCatalog.h"
+#include "GeometryRef.h"
+
 #include "DocumentImportFacade.h"
 #include "CoreTypes.h"
 #include "IDataService.h"
@@ -9,9 +12,8 @@
 #include "BackendPrimitiveGeometry.h"
 #include "BackendRegistry.h"
 #include "CloudSimPluginVersion.h"
-#include "DocumentPage.h"
-#include "JobSystem.h"
-#include "MainWindow.h"
+#include "DocumentHost.h"
+#include "IPluginMainWindowHost.h"
 #include "MeshBackendData.h"
 #include "MeshBoolean.h"
 #include "BackendFollowMath.h"
@@ -120,9 +122,9 @@ MeshBooleanOp toMeshBooleanOp(PluginMeshBooleanOp op)
 }
 } // namespace
 
-PluginHostContext::PluginHostContext(MainWindow* mainWindow, QObject* parent)
+PluginHostContext::PluginHostContext(IPluginMainWindowHost* mainWindowHost, QObject* parent)
 	: QObject(parent)
-	, m_mainWindow(mainWindow)
+	, m_mainWindowHost(mainWindowHost)
 	, m_pointCloudHost(std::make_unique<PluginPointCloudHostImpl>(this))
 	, m_geometryHost(std::make_unique<PluginGeometryHostImpl>(this))
 	, m_aiHost(std::make_unique<AiAssistantHostImpl>(this))
@@ -133,11 +135,11 @@ PluginHostContext::~PluginHostContext() = default;
 
 void PluginHostContext::attachDocumentTabSignals()
 {
-	if (!m_mainWindow || !m_mainWindow->documentTabs())
+	if (!m_mainWindowHost || !m_mainWindowHost->documentTabs())
 	{
 		return;
 	}
-	QTabWidget* tabs = m_mainWindow->documentTabs();
+	QTabWidget* tabs = m_mainWindowHost->documentTabs();
 	connect(tabs, &QTabWidget::currentChanged, this, [this](int) {
 		refreshDocumentAdapters();
 		IPluginDocument* doc = activeDocument();
@@ -155,16 +157,16 @@ void PluginHostContext::attachDocumentTabSignals()
 void PluginHostContext::refreshDocumentAdapters()
 {
 	m_documents.clear();
-	if (!m_mainWindow || !m_mainWindow->documentTabs())
+	if (!m_mainWindowHost || !m_mainWindowHost->documentTabs())
 	{
 		return;
 	}
-	QTabWidget* tabs = m_mainWindow->documentTabs();
+	QTabWidget* tabs = m_mainWindowHost->documentTabs();
 	for (int i = 0; i < tabs->count(); ++i)
 	{
-		if (auto* page = qobject_cast<DocumentPage*>(tabs->widget(i)))
+		if (auto* host = m_mainWindowHost->documentHostAt(i))
 		{
-			m_documents.push_back(std::make_unique<PluginDocumentAdapter>(page));
+			m_documents.push_back(std::make_unique<PluginDocumentAdapter>(host));
 		}
 	}
 }
@@ -196,23 +198,23 @@ void PluginHostContext::logError(const QString& message) const
 
 int PluginHostContext::documentCount() const
 {
-	return m_mainWindow ? m_mainWindow->documentTabCount() : 0;
+	return m_mainWindowHost ? m_mainWindowHost->documentTabCount() : 0;
 }
 
 IPluginDocument* PluginHostContext::activeDocument()
 {
-	if (!m_mainWindow)
+	if (!m_mainWindowHost)
 	{
 		return nullptr;
 	}
-	DocumentPage* page = m_mainWindow->currentPage();
-	if (!page)
+	cloudsim::host::DocumentHost* host = m_mainWindowHost->currentDocumentHost();
+	if (!host)
 	{
 		return nullptr;
 	}
 	for (const auto& ad : m_documents)
 	{
-		if (ad && ad->documentPage() == page)
+		if (ad && ad->documentHost() == host)
 		{
 			return ad.get();
 		}
@@ -264,7 +266,7 @@ void PluginHostContext::invokeOnUiThread(std::function<void()> fn)
 void PluginHostContext::enqueueJob(const QString& title, std::function<void(const PluginJobProgressFn&)> work,
 	std::function<void(bool threw, const QString& throwMessage)> onFinished)
 {
-	if (!m_mainWindow || !m_mainWindow->jobSystem())
+	if (!m_mainWindowHost)
 	{
 		if (onFinished)
 		{
@@ -272,38 +274,19 @@ void PluginHostContext::enqueueJob(const QString& title, std::function<void(cons
 		}
 		return;
 	}
-	m_mainWindow->jobSystem()->enqueue(
-		title,
-		[work](const JobProgressSink& sink) {
-			if (work)
-			{
-				PluginJobProgressFn pluginSink = [&sink](double fraction, const QString& message) {
-					if (sink)
-					{
-						sink(fraction, message);
-					}
-				};
-				work(pluginSink);
-			}
-		},
-		[onFinished](bool threw, const QString& throwMessage) {
-			if (onFinished)
-			{
-				onFinished(threw, throwMessage);
-			}
-		});
+	m_mainWindowHost->enqueueBackgroundJob(title, std::move(work), std::move(onFinished));
 }
 
 QDockWidget* PluginHostContext::registerDockWidget(const QString& title, QWidget* widget, Qt::DockWidgetArea area)
 {
-	if (!m_mainWindow || !widget)
+	if (!m_mainWindowHost || !widget)
 	{
 		return nullptr;
 	}
 	if (area == Qt::RightDockWidgetArea)
 	{
 		logWarn(QStringLiteral("registerDockWidget(Right) is deprecated; rebuild the plugin and call registerSidePanelTab."));
-		QTabWidget* tabs = m_mainWindow ? m_mainWindow->rightPanelTabs() : nullptr;
+		QTabWidget* tabs = m_mainWindowHost ? m_mainWindowHost->rightPanelTabs() : nullptr;
 		if (tabs && tabs->indexOf(widget) >= 0)
 		{
 			return nullptr;
@@ -312,50 +295,50 @@ QDockWidget* PluginHostContext::registerDockWidget(const QString& title, QWidget
 		(void)registerSidePanelTab(titleUtf8.constData(), widget);
 		return nullptr;
 	}
-	auto* dock = new QDockWidget(title, m_mainWindow);
-	dock->setObjectName(QStringLiteral("PluginDock_") + title);
-	dock->setWidget(widget);
-	m_mainWindow->addDockWidget(area, dock);
-	m_ownedDocks.push_back(dock);
+	auto* dock = m_mainWindowHost->addPluginDockWidget(title, widget, area);
+	if (dock)
+	{
+		m_ownedDocks.push_back(dock);
+	}
 	return dock;
 }
 
 QWidget* PluginHostContext::sidePanelTabParent() const
 {
-	return m_mainWindow ? m_mainWindow->rightPanelTabs() : nullptr;
+	return m_mainWindowHost ? m_mainWindowHost->rightPanelTabs() : nullptr;
 }
 
 int PluginHostContext::registerSidePanelTab(const char* titleUtf8, QWidget* widget)
 {
-	if (!m_mainWindow || !widget || !titleUtf8)
+	if (!m_mainWindowHost || !widget || !titleUtf8)
 	{
 		return -1;
 	}
-	QTabWidget* tabs = m_mainWindow->rightPanelTabs();
+	QTabWidget* tabs = m_mainWindowHost->rightPanelTabs();
 	if (tabs && reinterpret_cast<const void*>(titleUtf8) == static_cast<const void*>(tabs))
 	{
 		logError(QStringLiteral("registerSidePanelTab: invalid title pointer (plugin/host ABI mismatch — rebuild the plugin)."));
 		return -1;
 	}
-	return m_mainWindow->addPluginSidePanelTab(QString::fromUtf8(titleUtf8), widget);
+	return m_mainWindowHost->addPluginSidePanelTab(QString::fromUtf8(titleUtf8), widget);
 }
 
 void PluginHostContext::unregisterSidePanelTab(QWidget* widget)
 {
-	if (!m_mainWindow || !widget)
+	if (!m_mainWindowHost || !widget)
 	{
 		return;
 	}
-	m_mainWindow->removePluginSidePanelTab(widget);
+	m_mainWindowHost->removePluginSidePanelTab(widget);
 }
 
 QMenu* PluginHostContext::registerMenuPath(const QStringList& path)
 {
-	if (!m_mainWindow || path.isEmpty())
+	if (!m_mainWindowHost || path.isEmpty())
 	{
 		return nullptr;
 	}
-	QMenuBar* bar = m_mainWindow->menuBar();
+	QMenuBar* bar = m_mainWindowHost->menuBar();
 	if (!bar)
 	{
 		return nullptr;
@@ -406,7 +389,10 @@ QAction* PluginHostContext::registerAction(QMenu* menu, const QString& text, std
 		return nullptr;
 	}
 	QAction* action = menu->addAction(text);
-	QObject::connect(action, &QAction::triggered, m_mainWindow, [handler]() { handler(); });
+	if (QObject* parent = m_mainWindowHost->pluginActionParent())
+	{
+		QObject::connect(action, &QAction::triggered, parent, [handler]() { handler(); });
+	}
 	return action;
 }
 
@@ -481,13 +467,13 @@ bool PluginHostContext::booleanMeshSoups(PluginMeshBooleanOp op, const std::vect
 	const std::vector<float>& toolWorldSoup, const PluginBooleanMeshOptions& options,
 	std::string* outResultBackendId, QString* outError)
 {
-	if (!m_mainWindow)
+	if (!m_mainWindowHost)
 	{
 		if (outError)
 			*outError = QStringLiteral("MainWindow not available.");
 		return false;
 	}
-	if (!m_mainWindow->currentPage())
+	if (!m_mainWindowHost->currentDocumentHost())
 	{
 		if (outError)
 			*outError = QStringLiteral("No active document.");
@@ -517,13 +503,13 @@ bool PluginHostContext::booleanMesh(PluginMeshBooleanOp op, const std::string& t
 {
 	if (outResultBackendId)
 		outResultBackendId->clear();
-	if (!m_mainWindow)
+	if (!m_mainWindowHost)
 	{
 		if (outError)
 			*outError = QStringLiteral("MainWindow not available.");
 		return false;
 	}
-	DocumentPage* doc = m_mainWindow->currentPage();
+	cloudsim::host::DocumentHost* doc = m_mainWindowHost->currentDocumentHost();
 	if (!doc)
 	{
 		if (outError)
@@ -583,7 +569,7 @@ bool PluginHostContext::registerTriangleMesh(const std::vector<float>& triangleS
 bool PluginHostContext::registerMeshFromSoup(std::vector<float> soup, const PluginMeshCreateOptions& options,
 	QString* outError, QString* outBackendId)
 {
-	if (!m_mainWindow)
+	if (!m_mainWindowHost)
 	{
 		if (outError)
 		{
@@ -591,7 +577,7 @@ bool PluginHostContext::registerMeshFromSoup(std::vector<float> soup, const Plug
 		}
 		return false;
 	}
-	DocumentPage* doc = m_mainWindow->currentPage();
+	cloudsim::host::DocumentHost* doc = m_mainWindowHost->currentDocumentHost();
 	if (!doc)
 	{
 		if (outError)
@@ -641,7 +627,7 @@ bool PluginHostContext::registerMeshFromSoup(std::vector<float> soup, const Plug
 		*outBackendId = adopted.backendId;
 	if (options.selectInTree)
 	{
-		m_mainWindow->focusBackendInTree(mesh);
+		m_mainWindowHost->focusBackendInTree(mesh->id());
 	}
 	return true;
 }
@@ -649,7 +635,7 @@ bool PluginHostContext::registerMeshFromSoup(std::vector<float> soup, const Plug
 std::string PluginHostContext::importFileIntoActiveDocument(const std::string& pathUtf8, const bool isPointCloud,
 	std::string* outError)
 {
-	if (!m_mainWindow)
+	if (!m_mainWindowHost)
 	{
 		if (outError)
 		{
@@ -657,7 +643,7 @@ std::string PluginHostContext::importFileIntoActiveDocument(const std::string& p
 		}
 		return std::string();
 	}
-	DocumentPage* doc = m_mainWindow->currentPage();
+	cloudsim::host::DocumentHost* doc = m_mainWindowHost->currentDocumentHost();
 	if (!doc)
 	{
 		if (outError)
@@ -728,13 +714,13 @@ const IAiAssistantHost* PluginHostContext::aiAssistantHost() const
 
 bool PluginHostContext::captureActiveViewportPng(QByteArray& outPng, QString* outError)
 {
-	if (!m_mainWindow)
+	if (!m_mainWindowHost)
 	{
 		if (outError)
 			*outError = QStringLiteral("主窗口未就绪");
 		return false;
 	}
-	OsgWidget* osg = m_mainWindow->currentOsgWidget();
+	OsgWidget* osg = m_mainWindowHost->currentOsgWidget();
 	if (!osg)
 	{
 		if (outError)
@@ -744,9 +730,109 @@ bool PluginHostContext::captureActiveViewportPng(QByteArray& outPng, QString* ou
 	return osg->captureViewportPng(outPng, outError);
 }
 
+bool PluginHostContext::resolveTrajectoryWorkpiece(QString& outBackendId, QString& outStepPath, QString* outError)
+{
+	if (!m_mainWindowHost)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("主窗口未就绪");
+		}
+		return false;
+	}
+	if (!m_mainWindowHost->resolveTrajectoryWorkpieceForAi(&outBackendId, &outStepPath))
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("请先在轨迹生成页选择 STEP 工件");
+		}
+		return false;
+	}
+	return true;
+}
+
+bool PluginHostContext::buildTrajectoryFeatureCatalogSlice(const QString& backendId, const QString& stepPathUtf8,
+	const QString& userText, QByteArray& outFullCatalogUtf8, QByteArray& outSliceUtf8, QString* outError)
+{
+	outFullCatalogUtf8.clear();
+	outSliceUtf8.clear();
+	if (backendId.isEmpty() || stepPathUtf8.isEmpty())
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("STEP 工件无效");
+		}
+		return false;
+	}
+	geometry_backend_ops::GeometryRef ref;
+	ref.backendIdUtf8 = backendId.toStdString();
+	ref.stepPathUtf8 = stepPathUtf8.toStdString();
+	geoalgo::WorkpieceRef wp;
+	std::string err;
+	if (!geometry_backend_ops::resolveGeometryRef(ref, wp, &err))
+	{
+		if (outError)
+		{
+			*outError = QString::fromStdString(err);
+		}
+		return false;
+	}
+	geoalgo::FeatureCatalog catalog;
+	if (!geometry_backend_ops::enumerateFeatureCatalog(wp, catalog, &err))
+	{
+		if (outError)
+		{
+			*outError = QString::fromStdString(err);
+		}
+		return false;
+	}
+	outFullCatalogUtf8 = QByteArray::fromStdString(geometry_backend_ops::featureCatalogToJson(catalog));
+	const AiFeatureAxis axis = AiTrajectoryFeatureCatalog::inferFeatureAxisFromText(userText);
+	outSliceUtf8 = AiTrajectoryFeatureCatalog::buildCatalogSliceJson(catalog, axis);
+	return true;
+}
+
+bool PluginHostContext::showAiFeatureCandidatePreview(const QByteArray& previewJsonUtf8, QString* outError)
+{
+	if (!m_mainWindowHost)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("主窗口未就绪");
+		}
+		return false;
+	}
+	return m_mainWindowHost->showAiFeatureCandidatePreviewForAi(
+		std::string(previewJsonUtf8.constData(), static_cast<std::size_t>(previewJsonUtf8.size())), outError);
+}
+
+void PluginHostContext::clearAiFeatureCandidatePreview()
+{
+	if (m_mainWindowHost)
+	{
+		m_mainWindowHost->clearAiFeatureCandidatePreviewForAi();
+	}
+}
+
+bool PluginHostContext::commitAiTrajectoryFeatures(const QByteArray& featurePlanJsonUtf8, QString* outSummary,
+	QString* outError)
+{
+	if (!m_mainWindowHost)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("主窗口未就绪");
+		}
+		return false;
+	}
+	return m_mainWindowHost->commitAiTrajectoryFeaturesForAi(
+		std::string(featurePlanJsonUtf8.constData(), static_cast<std::size_t>(featurePlanJsonUtf8.size())),
+		outSummary, outError);
+}
+
 bool PluginHostContext::useChinese() const
 {
-	return m_mainWindow && m_mainWindow->m_useChinese;
+	return m_mainWindowHost && m_mainWindowHost->useChinese();
 }
 
 void PluginHostContext::onLanguageChanged(std::function<void(bool useChinese)> callback)
@@ -759,11 +845,11 @@ void PluginHostContext::onLanguageChanged(std::function<void(bool useChinese)> c
 
 void PluginHostContext::setSidePanelTabTitle(QWidget* widget, const char* titleUtf8)
 {
-	if (!m_mainWindow || !widget || !titleUtf8)
+	if (!m_mainWindowHost || !widget || !titleUtf8)
 	{
 		return;
 	}
-	QTabWidget* tabs = m_mainWindow->rightPanelTabs();
+	QTabWidget* tabs = m_mainWindowHost->rightPanelTabs();
 	if (!tabs)
 	{
 		return;

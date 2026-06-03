@@ -3,6 +3,8 @@
 #include "Ai/AiActionPlanExecutor.h"
 #include "Ai/AiConfigLoader.h"
 #include "AiIntentParser.h"
+#include "Ai/AiTrajectoryFeatureCatalog.h"
+#include "AiTrajectoryFeatureTypes.h"
 #include "Ai/MeshComposeDomainHandler.h"
 #include "AiLlmClient.h"
 #include "AiProgressSink.h"
@@ -163,7 +165,7 @@ void AiAssistantHostImpl::registerBuiltinDomains()
 		d.displayName = QStringLiteral("Trajectory feature");
 		d.outputKind = AiDomainOutputKind::StructuredJson;
 		d.supportsMultimodal = false;
-		d.parserPriority = QStringList{QStringLiteral("local"), QStringLiteral("remote")};
+		d.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
 		m_registry.registerDomain(d, &m_trajFeatureHandler);
 	}
 }
@@ -218,8 +220,26 @@ AiParseResult AiAssistantHostImpl::parseUserTextWithRules(const QString& domainI
 		}
 		return r;
 	}
+	if (d == AiDomainIds::trajectoryFeature())
+	{
+		r.ok = false;
+		r.errorMessage =
+			QStringLiteral("trajectory.feature rules require catalog context; use parseTrajectoryFeatureRequest.");
+		r.parserVia = QStringLiteral("Rules");
+		return r;
+	}
 	r.errorMessage = QStringLiteral("No rule parser for domain %1.").arg(r.domainId);
 	return r;
+}
+
+AiParseResult AiAssistantHostImpl::parseTrajectoryFeatureRequest(const AiInferenceRequest& request) const
+{
+	AiParseResult r;
+	r.domainId = AiDomainIds::trajectoryFeature();
+	r.outputKind = AiDomainOutputKind::StructuredJson;
+	const AiFeatureAxis axis = AiTrajectoryFeatureCatalog::inferFeatureAxisFromText(request.userText);
+	return AiTrajectoryFeatureCatalog::tryParseTrajectoryFeatureRules(request.userText, axis,
+		request.catalogSliceUtf8, request.workpieceBackendId, request.workpieceStepPathUtf8);
 }
 
 const AiDomainModelConfig* AiAssistantHostImpl::findDomainConfig(const AiConfigDto& cfg, const QString& domainId) const
@@ -233,7 +253,8 @@ const AiDomainModelConfig* AiAssistantHostImpl::findDomainConfig(const AiConfigD
 }
 
 AiParseResult AiAssistantHostImpl::parseWithLocalLlm(const QString& domainId, const QString& text,
-	const AiDomainModelConfig& dm, const QByteArray& imagePng, const AiInferenceProgressFn& progress) const
+	const AiDomainModelConfig& dm, const QByteArray& imagePng, const AiInferenceProgressFn& progress,
+	const QByteArray& catalogSliceUtf8) const
 {
 	AiParseResult r;
 	r.domainId = domainId;
@@ -243,9 +264,9 @@ AiParseResult AiAssistantHostImpl::parseWithLocalLlm(const QString& domainId, co
 			progress(f, m);
 	};
 	const AiLlmClient::LlmParseResult lr =
-		AiLlmClient::parseUserTextWithLlm(text, llm, sink, imagePng, domainId);
+		AiLlmClient::parseUserTextWithLlm(text, llm, sink, imagePng, domainId, catalogSliceUtf8);
 	r.ok = lr.ok;
-	if (domainId == AiDomainIds::geometryRecognize())
+	if (domainId == AiDomainIds::geometryRecognize() || domainId == AiDomainIds::trajectoryFeature())
 		r.outputKind = AiDomainOutputKind::StructuredJson;
 	else
 		r.outputKind = AiDomainOutputKind::ActionPlan;
@@ -263,7 +284,8 @@ AiParseResult AiAssistantHostImpl::parseWithLocalLlm(const QString& domainId, co
 }
 
 AiParseResult AiAssistantHostImpl::parseWithRemoteLlm(const QString& domainId, const QString& text,
-	const AiRemoteLlmConfig& remote, const AiInferenceProgressFn& progress) const
+	const AiRemoteLlmConfig& remote, const AiInferenceProgressFn& progress,
+	const QByteArray& catalogSliceUtf8) const
 {
 	AiParseResult r;
 	r.domainId = domainId;
@@ -282,9 +304,13 @@ AiParseResult AiAssistantHostImpl::parseWithRemoteLlm(const QString& domainId, c
 		if (progress)
 			progress(f, m);
 	};
-	const AiLlmClient::LlmParseResult lr = AiLlmClient::parseUserTextWithLlm(text, llm, sink, QByteArray(), domainId);
+	const AiLlmClient::LlmParseResult lr =
+		AiLlmClient::parseUserTextWithLlm(text, llm, sink, QByteArray(), domainId, catalogSliceUtf8);
 	r.ok = lr.ok;
-	r.outputKind = AiDomainOutputKind::ActionPlan;
+	if (domainId == AiDomainIds::geometryRecognize() || domainId == AiDomainIds::trajectoryFeature())
+		r.outputKind = AiDomainOutputKind::StructuredJson;
+	else
+		r.outputKind = AiDomainOutputKind::ActionPlan;
 	if (lr.ok)
 	{
 		r.outputJsonUtf8 = QByteArray::fromStdString(lr.command.dump());
@@ -324,6 +350,7 @@ void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, 
 	}
 
 	const auto result = std::make_shared<AiParseResult>();
+	const AiInferenceRequest reqCopy = request;
 	const QString userText = request.userText;
 	const QByteArray imagePng = request.imagePng;
 	const AiConfigDto cfgCopy = config;
@@ -331,7 +358,7 @@ void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, 
 
 	m_pluginHost->enqueueJob(
 		QStringLiteral("AI: parse"),
-		[this, userText, imagePng, cfgCopy, domainId, chain, uiProgress, result](const PluginJobProgressFn&) {
+		[this, reqCopy, userText, imagePng, cfgCopy, domainId, chain, uiProgress, result](const PluginJobProgressFn&) {
 			const AiDomainDescriptor* desc = m_registry.descriptor(domainId);
 			const AiDomainModelConfig* dm = findDomainConfig(cfgCopy, domainId);
 
@@ -345,7 +372,9 @@ void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, 
 			{
 				if (step == QStringLiteral("rules"))
 				{
-					const AiParseResult rr = parseUserTextWithRules(domainId, userText);
+					const AiParseResult rr = domainId == AiDomainIds::trajectoryFeature()
+						? parseTrajectoryFeatureRequest(reqCopy)
+						: parseUserTextWithRules(domainId, userText);
 					if (rr.ok)
 					{
 						*result = rr;
@@ -373,7 +402,8 @@ void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, 
 						m_lastLoadedModel.clear();
 					}
 					m_lastLoadedModel = dm->model;
-					const AiParseResult lr = parseWithLocalLlm(domainId, userText, *dm, imagePng, uiProgress);
+					const AiParseResult lr =
+						parseWithLocalLlm(domainId, userText, *dm, imagePng, uiProgress, reqCopy.catalogSliceUtf8);
 					if (lr.ok)
 					{
 						*result = lr;
@@ -384,7 +414,8 @@ void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, 
 				}
 				else if (step == QStringLiteral("remote"))
 				{
-					const AiParseResult rr = parseWithRemoteLlm(domainId, userText, cfgCopy.remoteLlm, uiProgress);
+					const AiParseResult rr = parseWithRemoteLlm(domainId, userText, cfgCopy.remoteLlm, uiProgress,
+						reqCopy.catalogSliceUtf8);
 					if (rr.ok)
 					{
 						*result = rr;

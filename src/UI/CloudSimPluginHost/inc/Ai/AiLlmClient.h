@@ -22,5 +22,6 @@ AIBACKEND_EXPORT LlmParseResult parseUserTextWithLlm(
 	const AiLlmConfig& config,
 	const AiProgressSink& progress,
 	const QByteArray& imagePng = QByteArray(),
-	const QString& domainId = QString());
+	const QString& domainId = QString(),
+	const QByteArray& catalogSliceUtf8 = QByteArray());
 }

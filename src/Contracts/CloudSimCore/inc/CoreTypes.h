@@ -122,4 +122,33 @@ struct RobotRegistrationDto
 	QString sourceDisplayName;
 };
 
+/// 几何类型（Widget 侧分支，避免 dynamic_cast Data 类型）
+enum class GeometryKind
+{
+	None,
+	Points,
+	Mesh
+};
+
+/// 后端对象快照（Widget 不持有 BackendDataBase）
+struct BackendObjectDto
+{
+	ObjectId id;
+	QString name;
+	QString className;
+	QVector<ObjectId> parentIds;
+	QVector<ObjectId> childIds;
+	bool hasGeometry = false;
+	GeometryKind geometryKind = GeometryKind::None;
+	BBoxDto bbox;
+};
+
+/// Follow 求解上下文（UI 策略经 DTO 传入 Host）
+struct FollowSolveContextDto
+{
+	bool skipAll = false;
+	ObjectId gizmoSelectedBackendId;
+	ObjectId manualPoseAuthorityBackendId;
+};
+
 } // namespace cloudsim::core

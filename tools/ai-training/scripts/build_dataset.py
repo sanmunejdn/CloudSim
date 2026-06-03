@@ -84,6 +84,8 @@ def validate_geometry_recognize_output(out: dict, line_no: int) -> list[str]:
 
 
 KNOWN_APIS = frozenset({"createPrimitiveMesh", "booleanMesh", "importFileIntoActiveDocument"})
+TRAJECTORY_AXES = frozenset({"line", "surface", "ambiguous"})
+TRAJECTORY_PIPELINES = frozenset({"weld_default", "glue_default", "grind_default"})
 
 
 def validate_mesh_compose_output(out: dict, line_no: int) -> list[str]:
@@ -134,6 +136,27 @@ def validate_mesh_compose_output(out: dict, line_no: int) -> list[str]:
         sid = step.get("id")
         if isinstance(sid, str) and sid:
             defined.add(sid)
+    return errs
+
+
+def validate_trajectory_feature_output(out: dict, line_no: int) -> list[str]:
+    errs = []
+    if out.get("version", 1) != 1:
+        errs.append(f"line {line_no}: version must be 1")
+    axis = out.get("featureAxis")
+    if axis not in TRAJECTORY_AXES:
+        errs.append(f"line {line_no}: invalid featureAxis {axis!r}")
+    if axis == "ambiguous" and not out.get("clarifyMessage"):
+        errs.append(f"line {line_no}: ambiguous requires clarifyMessage")
+    ids = out.get("selectedCandidateIds")
+    if ids is not None and not isinstance(ids, list):
+        errs.append(f"line {line_no}: selectedCandidateIds must be array")
+    tpl = out.get("suggestedPipelineTemplate")
+    if tpl is not None and tpl not in TRAJECTORY_PIPELINES:
+        errs.append(f"line {line_no}: invalid suggestedPipelineTemplate {tpl!r}")
+    feats = out.get("features")
+    if feats is not None and not isinstance(feats, list):
+        errs.append(f"line {line_no}: features must be array")
     return errs
 
 
@@ -190,6 +213,11 @@ def main() -> int:
                 img_path = path.parent / img
                 if not img_path.is_file():
                     errors.append(f"line {i}: missing image {img}")
+        elif domain == "trajectory.feature":
+            errors.extend(validate_trajectory_feature_output(out, i))
+            inp = row.get("input")
+            if inp is not None and not isinstance(inp, (str, dict)):
+                errors.append(f"line {i}: input must be string or object")
         ins = row.get("instruction", "")
         if isinstance(ins, str) and ins:
             instruction_seen[ins] = instruction_seen.get(ins, 0) + 1

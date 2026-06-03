@@ -128,4 +128,19 @@ public:
 
 	/// 1.6.0+：活动文档 3D 视口 PNG 截图（供 geometry.recognize 等多模态域）
 	virtual bool captureActiveViewportPng(QByteArray& outPng, QString* outError = nullptr) = 0;
+
+	/// 1.7.0+：轨迹生成页 combo 当前 STEP 工件
+	virtual bool resolveTrajectoryWorkpiece(QString& outBackendId, QString& outStepPath, QString* outError = nullptr) = 0;
+
+	/// 1.7.0+：枚举 catalog 并按用户文本推断 featureAxis 切片
+	virtual bool buildTrajectoryFeatureCatalogSlice(const QString& backendId, const QString& stepPathUtf8,
+		const QString& userText, QByteArray& outFullCatalogUtf8, QByteArray& outSliceUtf8, QString* outError = nullptr) = 0;
+
+	/// 1.7.0+：3D 编号高亮预览（catalog 切片 JSON）
+	virtual bool showAiFeatureCandidatePreview(const QByteArray& catalogSliceUtf8, QString* outError = nullptr) = 0;
+	virtual void clearAiFeatureCandidatePreview() = 0;
+
+	/// 1.7.0+：离散选中特征并注入轨迹编辑 session + 默认工艺流水线
+	virtual bool commitAiTrajectoryFeatures(const QByteArray& featurePlanJsonUtf8, QString* outSummary,
+		QString* outError = nullptr) = 0;
 };

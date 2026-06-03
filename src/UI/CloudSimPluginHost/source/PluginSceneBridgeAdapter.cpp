@@ -1,21 +1,21 @@
 #include "PluginSceneBridgeAdapter.h"
 
 #include "BackendSceneDocumentFacade.h"
-#include "DocumentPage.h"
+#include "DocumentHost.h"
 #include "IBackendSceneBridge.h"
 
-PluginSceneBridgeAdapter::PluginSceneBridgeAdapter(DocumentPage* page)
-	: m_page(page)
+PluginSceneBridgeAdapter::PluginSceneBridgeAdapter(cloudsim::host::DocumentHost* host)
+	: m_host(host)
 {
 }
 
 IBackendSceneBridge* PluginSceneBridgeAdapter::bridge() const
 {
-	if (!m_page)
+	if (!m_host)
 	{
 		return nullptr;
 	}
-	return &m_page->sceneFacade().bridge();
+	return &m_host->sceneFacade().bridge();
 }
 
 bool PluginSceneBridgeAdapter::setBackendRootWorldMatrixColumnMajor(const std::string& backendId,
@@ -43,11 +43,11 @@ bool PluginSceneBridgeAdapter::getBackendRootWorldMatrixColumnMajor(const std::s
 
 void PluginSceneBridgeAdapter::setBackendObjectVisible(const std::string& backendId, bool visible)
 {
-	if (!m_page)
+	if (!m_host)
 	{
 		return;
 	}
-	BackendSceneEntity ent = m_page->sceneFacade().entity(backendId);
+	BackendSceneEntity ent = m_host->sceneFacade().entity(backendId);
 	if (!ent.valid())
 	{
 		return;

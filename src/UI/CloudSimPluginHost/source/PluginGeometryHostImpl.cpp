@@ -1,7 +1,7 @@
 #include "PluginGeometryHostImpl.h"
 
 #include "DocumentGeometryOps.h"
-#include "DocumentPage.h"
+#include "DocumentHost.h"
 #include "GeometryBackendOps.h"
 #include "OsgWidget.h"
 #include "BackendDataBase.h"
@@ -24,14 +24,14 @@
 namespace
 {
 
-DocumentPage* pageFromDoc(IPluginDocument* doc)
+cloudsim::host::DocumentHost* pageFromDoc(IPluginDocument* doc)
 {
 	if (!doc)
 	{
 		return nullptr;
 	}
 	const auto* adapter = dynamic_cast<const PluginDocumentAdapter*>(doc);
-	return adapter ? adapter->documentPage() : nullptr;
+	return adapter ? adapter->documentHost() : nullptr;
 }
 
 bool isStepPath(const QString& path)
@@ -40,7 +40,7 @@ bool isStepPath(const QString& path)
 	return p.endsWith(QStringLiteral(".step")) || p.endsWith(QStringLiteral(".stp"));
 }
 
-QString stepPathForBackend(DocumentPage* page, const std::string& backendIdUtf8)
+QString stepPathForBackend(cloudsim::host::DocumentHost* page, const std::string& backendIdUtf8)
 {
 	if (!page || backendIdUtf8.empty())
 	{
@@ -125,7 +125,7 @@ void runMeshJob(
 	{
 		return;
 	}
-	DocumentPage* page = pageFromDoc(doc);
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
 	if (!page)
 	{
 		onFinished(false, QStringLiteral("No active document"), {});
@@ -154,7 +154,7 @@ void runMeshJob(
 			}
 			std::string regErr;
 			const std::string backendId = document_geometry_ops::registerMeshSoup(
-				page, host->mainWindow(), std::move(result->soup), options, &regErr);
+				page, host->mainWindowHost(), std::move(result->soup), options, &regErr);
 			if (backendId.empty())
 			{
 				onFinished(false, QString::fromStdString(regErr), jobResult);
@@ -496,7 +496,7 @@ bool PluginGeometryHostImpl::listComputableBackends(
 	QString* outError)
 {
 	outBackends.clear();
-	DocumentPage* page = pageFromDoc(doc);
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
 	if (!page)
 	{
 		if (outError)
@@ -546,8 +546,8 @@ void PluginGeometryHostImpl::pickStepElementFromViewport(
 	{
 		return;
 	}
-	DocumentPage* page = pageFromDoc(doc);
-	if (!page || !m_host || !m_host->mainWindow())
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	if (!page || !m_host || !m_host->mainWindowHost())
 	{
 		onFinished(false, QStringLiteral("No active document"), {});
 		return;

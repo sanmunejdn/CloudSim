@@ -1,6 +1,11 @@
 #include "adapters/OsgRenderViewAdapter.h"
 
+#include "DocumentHost.h"
+#include "DocumentHostAccess.h"
+#include "IDataService.h"
 #include "OsgWidget.h"
+
+#include "BackendDataManager.h"
 
 #include <osg/Matrixd>
 #include <osg/Node>
@@ -15,6 +20,17 @@ namespace cloudsim::host {
 
 OsgRenderViewAdapter::OsgRenderViewAdapter(OsgWidget& widget) : m_widget(widget) {}
 
+OsgRenderViewAdapter::OsgRenderViewAdapter(OsgWidget& widget, DocumentHost& host)
+	: m_widget(widget)
+	, m_host(&host)
+{
+}
+
+OsgRenderViewAdapter::OsgRenderViewAdapter(DocumentHost& host)
+	: OsgRenderViewAdapter(*osgWidgetFrom(host), host)
+{
+}
+
 QWidget* OsgRenderViewAdapter::widget()
 {
 	return &m_widget;
@@ -28,9 +44,10 @@ const QWidget* OsgRenderViewAdapter::widget() const
 void OsgRenderViewAdapter::setWorldMatrix(const core::ObjectId& id, const core::Mat4& columnMajor)
 {
 	osg::Matrixd m;
-	// 列主序透传
 	for (int i = 0; i < 16; ++i)
+	{
 		m.ptr()[i] = columnMajor[static_cast<size_t>(i)];
+	}
 	m_widget.setBackendRootWorldMatrixFromWorld(id.toStdString(), m);
 }
 
@@ -38,9 +55,13 @@ bool OsgRenderViewAdapter::getWorldMatrix(const core::ObjectId& id, core::Mat4& 
 {
 	osg::Matrixd m;
 	if (!m_widget.getBackendRootWorldMatrix(id.toStdString(), m))
+	{
 		return false;
+	}
 	for (int i = 0; i < 16; ++i)
+	{
 		outColumnMajor[static_cast<size_t>(i)] = m.ptr()[i];
+	}
 	return true;
 }
 
@@ -59,7 +80,8 @@ bool OsgRenderViewAdapter::hasVisualBranch(const core::ObjectId& id) const
 	return m_widget.hasBackendObjectBranch(id.toStdString());
 }
 
-bool OsgRenderViewAdapter::tryGetModelCenterMm(const core::ObjectId& id, double& outCx, double& outCy, double& outCz) const
+bool OsgRenderViewAdapter::tryGetModelCenterMm(const core::ObjectId& id, double& outCx, double& outCy,
+	double& outCz) const
 {
 	return m_widget.tryGetBackendModelCenterMm(id.toStdString(), outCx, outCy, outCz);
 }
@@ -98,31 +120,54 @@ QString formatMatrix(const osg::Matrixd& m)
 	{
 		for (int c = 0; c < 4; ++c)
 		{
-			if (c > 0) s += QLatin1Char(' ');
+			if (c > 0)
+			{
+				s += QLatin1Char(' ');
+			}
 			s += QString::number(m(r, c), 'g', 6);
 		}
-		if (r < 3) s += QLatin1Char('\n');
+		if (r < 3)
+		{
+			s += QLatin1Char('\n');
+		}
 	}
 	return s;
 }
 
 QString localMatrixSummary(const osg::Node* node)
 {
-	if (!node) return QStringLiteral("—");
+	if (!node)
+	{
+		return QStringLiteral("—");
+	}
 	if (const auto* cam = dynamic_cast<const osg::Camera*>(node))
-		return QStringLiteral("View:\n%1\nProj:\n%2").arg(formatMatrix(cam->getViewMatrix())).arg(formatMatrix(cam->getProjectionMatrix()));
+	{
+		return QStringLiteral("View:\n%1\nProj:\n%2").arg(formatMatrix(cam->getViewMatrix()))
+			.arg(formatMatrix(cam->getProjectionMatrix()));
+	}
 	if (const auto* mt = dynamic_cast<const osg::MatrixTransform*>(node))
+	{
 		return formatMatrix(mt->getMatrix());
+	}
 	if (const auto* pat = dynamic_cast<const osg::PositionAttitudeTransform*>(node))
-		return formatMatrix(osg::Matrixd::translate(pat->getPosition()) * osg::Matrixd::rotate(pat->getAttitude()) * osg::Matrixd::scale(pat->getScale()));
+	{
+		return formatMatrix(osg::Matrixd::translate(pat->getPosition()) * osg::Matrixd::rotate(pat->getAttitude())
+			* osg::Matrixd::scale(pat->getScale()));
+	}
 	if (const auto* at = dynamic_cast<const osg::AutoTransform*>(node))
-		return formatMatrix(osg::Matrixd::translate(at->getPosition()) * osg::Matrixd::rotate(at->getRotation()) * osg::Matrixd::scale(at->getScale()));
+	{
+		return formatMatrix(osg::Matrixd::translate(at->getPosition()) * osg::Matrixd::rotate(at->getRotation())
+			* osg::Matrixd::scale(at->getScale()));
+	}
 	return QStringLiteral("—");
 }
 
 void buildSnapshotRecursive(core::IRenderView::SceneNodeInfo& info, const osg::Node* node, int depthLeft)
 {
-	if (!node || depthLeft <= 0) return;
+	if (!node || depthLeft <= 0)
+	{
+		return;
+	}
 	info.className = QString::fromLatin1(node->className());
 	info.name = QString::fromStdString(node->getName());
 	info.localMatrixSummary = localMatrixSummary(node);
@@ -163,6 +208,46 @@ bool OsgRenderViewAdapter::selectedRotationEulerDeg(float& outRx, float& outRy, 
 	outRy = r.y();
 	outRz = r.z();
 	return true;
+}
+
+void OsgRenderViewAdapter::ensureSelectionVisualForBackend(const core::ObjectId& id, const bool urdfLinkMesh)
+{
+	if (m_host)
+	{
+		m_host->ensureSelectionVisualForBackend(id.toStdString(), urdfLinkMesh);
+	}
+}
+
+bool OsgRenderViewAdapter::syncOuterPatFromBackend(const core::ObjectId& id)
+{
+	if (m_host)
+	{
+		return m_host->syncOuterPatFromBackendId(id.toStdString());
+	}
+	return false;
+}
+
+core::GeometryKind OsgRenderViewAdapter::geometryKindForBackend(const core::ObjectId& id) const
+{
+	if (m_host)
+	{
+		return m_host->data().geometryKind(id);
+	}
+	return core::GeometryKind::None;
+}
+
+bool OsgRenderViewAdapter::commitGizmoPoseToBackend(const core::ObjectId& id)
+{
+	if (!m_host)
+	{
+		return false;
+	}
+	const auto obj = m_host->backend().getData(id.toStdString());
+	if (!obj)
+	{
+		return false;
+	}
+	return m_widget.writeActiveBackendPoseFromOsg(*obj);
 }
 
 } // namespace cloudsim::host

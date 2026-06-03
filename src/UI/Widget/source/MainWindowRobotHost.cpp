@@ -2,6 +2,7 @@
 
 #include "BackendSceneDocumentFacade.h"
 #include "DocumentPage.h"
+#include "IRobotService.h"
 #include "WidgetDocumentAccess.h"
 #include "MainWindow.h"
 #include "JobSystem.h"
@@ -10,15 +11,12 @@
 #include "MainWindowSelectionService.h"
 #include "OsgWidget.h"
 
-#include "../../OsgWidgetCore/inc/OsgScene.h"
-#include "../../OsgWidgetCore/inc/PickTypes.h"
 #include "../RobotWidget/inc/IRobotOsgViewHost.h"
 #include "../RobotWidget/inc/RobotOsgUiTypes.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
 
 #include "RobotPlanInstruction.h"
-#include "RobotSceneKinematics.h"
 #include "UrdfRobotLoader.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotTeachIk.h"
@@ -174,20 +172,19 @@ public:
 			}
 			return false;
 		}
-		if (aggregatedJointAnglesRad.size() != m_page->robotRevoluteJointNames().size())
-		{
-			aggregatedJointAnglesRad.resize(m_page->robotRevoluteJointNames().size());
-		}
-		if (!RobotSceneKinematics::applyJointAnglesForInstance(
-				m_page, poseSink, instanceIndex, jointAnglesRad, aggregatedJointAnglesRad))
+		const QString sceneRootId = m_page->robotSceneBackendIdForInstance(instanceIndex);
+		if (sceneRootId.isEmpty())
 		{
 			if (outError)
 			{
-				*outError = QStringLiteral("applyJointAnglesForInstance failed");
+				*outError = QStringLiteral("no scene root for instance %1").arg(instanceIndex);
 			}
 			return false;
 		}
-		m_page->notifyRobotKinematicsAppliedToScene();
+		if (!m_page->robot().applyJointAnglesRad(sceneRootId, jointAnglesRad, &aggregatedJointAnglesRad, outError))
+		{
+			return false;
+		}
 		return true;
 	}
 
@@ -429,8 +426,8 @@ public:
 	void setSelectionActive(bool active) override { m_osg->setSelectionActive(active); }
 	void setTransformGizmoFrame(int worldOrLocal) override
 	{
-		m_osg->setTransformGizmoFrame(worldOrLocal == 0 ? OsgScene::TransformGizmoFrame::World
-														: OsgScene::TransformGizmoFrame::Local);
+		m_osg->setTransformGizmoFrame(worldOrLocal == 0 ? OsgWidget::TransformGizmoFrame::World
+														: OsgWidget::TransformGizmoFrame::Local);
 	}
 
 	bool hasBackendObjectBranch(const std::string& backendId) const override
@@ -536,6 +533,25 @@ public:
 	{
 		m_osg->clearRobotFrameOverlays(robotRootBackendId);
 	}
+
+	void setFeatureCatalogOverlay(const std::vector<RobotOsgUi::FeatureCatalogOverlayItem>& items) override
+	{
+		std::vector<OsgWidget::FeatureCatalogOverlayItem> converted;
+		converted.reserve(items.size());
+		for (const RobotOsgUi::FeatureCatalogOverlayItem& item : items)
+		{
+			OsgWidget::FeatureCatalogOverlayItem o;
+			o.displayIndex = item.displayIndex;
+			o.anchorWorldMm = item.anchorWorldMm;
+			o.labelWorldMm = item.labelWorldMm;
+			o.hasEdgeSegment = item.hasEdgeSegment;
+			o.edgeAWorldMm = item.edgeAWorldMm;
+			o.edgeBWorldMm = item.edgeBWorldMm;
+			converted.push_back(o);
+		}
+		m_osg->setFeatureCatalogOverlay(converted);
+	}
+	void clearFeatureCatalogOverlay() override { m_osg->clearFeatureCatalogOverlay(); }
 
 	bool isTcpDragTeachActive() const override { return m_osg->isTcpDragTeachActive(); }
 	void endTcpDragTeach() override { m_osg->endTcpDragTeach(); }

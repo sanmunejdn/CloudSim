@@ -7,18 +7,19 @@
 #include <QString>
 #include <QPluginLoader>
 
+#include "cloudsim_host_global.h"
 #include "ICloudSimPlugin.h"
 
-class MainWindow;
+class IPluginMainWindowHost;
 class PluginHostContext;
 
-/// 启动时扫描应用目录 plugins/ 并加载启用插件
-class PluginManager : public QObject
+/// 启动时扫描应用目录 plugins/ 并加载启用插件（编译在 CloudSimHost.dll）
+class CLOUDSIM_HOST_EXPORT PluginManager : public QObject
 {
 	Q_OBJECT
 
 public:
-	explicit PluginManager(MainWindow* mainWindow, QObject* parent = nullptr);
+	explicit PluginManager(IPluginMainWindowHost* mainWindowHost, QObject* parent = nullptr);
 	~PluginManager() override;
 
 	void loadAllFromPluginsDirectory();
@@ -44,7 +45,7 @@ private:
 	static bool hostVersionSatisfies(const QString& minHostVersionStr);
 	static bool aiSdkVersionSatisfies(const QString& minAiSdkVersionStr);
 
-	MainWindow* m_mainWindow = nullptr;
+	IPluginMainWindowHost* m_mainWindowHost = nullptr;
 	std::unique_ptr<PluginHostContext> m_hostContext;
 	std::vector<std::unique_ptr<LoadedPlugin>> m_plugins;
 	QString m_loadSummary;

@@ -3,11 +3,16 @@
 #include "FeaturePickTransform.h"
 #include "IRobotMainWindowHost.h"
 #include "IRobotOsgViewHost.h"
+#include "RecipeBlueprint.h"
 #include "RobotOsgUiTypes.h"
 #include "RobotSimulationController.h"
+#include "RobotSimulationDockWidget.h"
+#include "TrajectoryEditPageWidget.h"
 #include "TrajectoryEditSession.h"
+#include "TrajectoryPipelineBuilder.h"
 
 #include "BackendDataManager.h"
+#include "FeatureSpec.h"
 #include "GeometryRef.h"
 #include "PickTypes.h"
 #include "RawTrajectory.h"
@@ -125,7 +130,7 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent)
 
 	layout->addWidget(m_discretizeGroup);
 
-	m_catalogBtn = new QPushButton(QStringLiteral("枚举特征目录"), this);
+	m_catalogBtn = new QPushButton(QStringLiteral("刷新特征目录"), this);
 	layout->addWidget(m_catalogBtn);
 
 	layout->addWidget(new QLabel(QStringLiteral("FeatureSpec JSON")));
@@ -169,6 +174,17 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent)
 	setUseChinese(m_chinese);
 	updateDiscretizeParamMode();
 	updateActiveFeatureLabel();
+
+	connect(m_backendCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
+		clearCandidatePreview();
+		m_cachedCatalogBackendId.clear();
+		m_cachedCatalogJsonUtf8.clear();
+		if (m_backendCombo && m_backendCombo->currentIndex() >= 0)
+		{
+			(void)autoEnumerateCatalogForCurrentWorkpiece(true, true, nullptr);
+		}
+		emit workpieceComboChanged();
+	});
 }
 
 void FeatureTrajectoryPageWidget::setUseChinese(const bool chinese)
@@ -182,7 +198,7 @@ void FeatureTrajectoryPageWidget::updateUiLabels()
 	const bool zh = m_chinese;
 	if (m_catalogBtn)
 	{
-		m_catalogBtn->setText(zh ? QStringLiteral("枚举特征目录") : QStringLiteral("Enumerate catalog"));
+		m_catalogBtn->setText(zh ? QStringLiteral("刷新特征目录") : QStringLiteral("Refresh catalog"));
 	}
 	if (m_discretizeBtn)
 	{
@@ -761,7 +777,139 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 		setStatus(m_chinese ? QStringLiteral("请先导入 STEP 工件")
 			: QStringLiteral("Import a STEP workpiece first"));
 	}
+	else if (m_backendCombo->currentIndex() >= 0)
+	{
+		QTimer::singleShot(0, this, [this]() {
+			(void)autoEnumerateCatalogForCurrentWorkpiece(true, true, nullptr);
+		});
+	}
 	updatePickUiState();
+}
+
+bool FeatureTrajectoryPageWidget::enumerateCatalogForBackend(const QString& backendId,
+	geoalgo::FeatureCatalog& catalog, QString* err) const
+{
+	if (!m_stepPathResolver)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("STEP 路径解析未就绪");
+		}
+		return false;
+	}
+	const QString stepPath = m_stepPathResolver(backendId);
+	if (stepPath.isEmpty())
+	{
+		if (err)
+		{
+			*err = QStringLiteral("无 STEP 源路径");
+		}
+		return false;
+	}
+	geometry_backend_ops::GeometryRef ref;
+	ref.backendIdUtf8 = backendId.toStdString();
+	ref.stepPathUtf8 = stepPath.toStdString();
+	geoalgo::WorkpieceRef wp;
+	std::string stdErr;
+	if (!geometry_backend_ops::resolveGeometryRef(ref, wp, &stdErr))
+	{
+		if (err)
+		{
+			*err = QString::fromStdString(stdErr);
+		}
+		return false;
+	}
+	if (!geometry_backend_ops::enumerateFeatureCatalog(wp, catalog, &stdErr))
+	{
+		if (err)
+		{
+			*err = QString::fromStdString(stdErr);
+		}
+		return false;
+	}
+	return true;
+}
+
+bool FeatureTrajectoryPageWidget::shouldReplaceEditorWithCatalog() const
+{
+	if (!m_specEditor)
+	{
+		return false;
+	}
+	if (editorHasValidFeatureSpec())
+	{
+		return false;
+	}
+	const QString text = m_specEditor->toPlainText().trimmed();
+	if (text.isEmpty())
+	{
+		return true;
+	}
+	try
+	{
+		const nlohmann::json j = nlohmann::json::parse(text.toStdString());
+		if (j.contains("kind"))
+		{
+			return false;
+		}
+		if (j.contains("candidates"))
+		{
+			return true;
+		}
+	}
+	catch (...)
+	{
+	}
+	return false;
+}
+
+bool FeatureTrajectoryPageWidget::autoEnumerateCatalogForCurrentWorkpiece(const bool updateEditor,
+	const bool quiet, QString* err)
+{
+	QString backendId;
+	QString stepPath;
+	if (!currentWorkpiece(backendId, stepPath))
+	{
+		if (err)
+		{
+			*err = m_chinese ? QStringLiteral("请先在轨迹生成页选择 STEP 工件")
+				: QStringLiteral("Select a STEP workpiece on Trajectory Generation tab");
+		}
+		return false;
+	}
+	if (backendId == m_cachedCatalogBackendId && !m_cachedCatalogJsonUtf8.empty())
+	{
+		return true;
+	}
+
+	geoalgo::FeatureCatalog catalog;
+	if (!enumerateCatalogForBackend(backendId, catalog, err))
+	{
+		return false;
+	}
+
+	m_cachedCatalogBackendId = backendId;
+	m_cachedCatalogJsonUtf8 = geometry_backend_ops::featureCatalogToJson(catalog);
+
+	if (updateEditor && shouldReplaceEditorWithCatalog())
+	{
+		m_specEditor->blockSignals(true);
+		m_specEditor->setPlainText(QString::fromStdString(m_cachedCatalogJsonUtf8));
+		m_specEditor->blockSignals(false);
+	}
+
+	if (!quiet)
+	{
+		setStatus(m_chinese
+			? QStringLiteral("特征目录已加载（%1 个候选）").arg(static_cast<int>(catalog.candidates.size()))
+			: QStringLiteral("Feature catalog loaded (%1 candidates)").arg(static_cast<int>(catalog.candidates.size())));
+	}
+	return true;
+}
+
+bool FeatureTrajectoryPageWidget::ensureFeatureCatalogEnumerated(QString* err)
+{
+	return autoEnumerateCatalogForCurrentWorkpiece(true, true, err);
 }
 
 void FeatureTrajectoryPageWidget::setStatus(const QString& text)
@@ -774,40 +922,25 @@ void FeatureTrajectoryPageWidget::setStatus(const QString& text)
 
 void FeatureTrajectoryPageWidget::onLoadCatalog()
 {
-	if (!m_host || m_backendCombo->currentIndex() < 0)
+	QString err;
+	m_cachedCatalogBackendId.clear();
+	m_cachedCatalogJsonUtf8.clear();
+	if (!autoEnumerateCatalogForCurrentWorkpiece(true, false, &err))
 	{
+		if (!err.isEmpty())
+		{
+			QMessageBox::warning(this, QStringLiteral("Catalog"), err);
+		}
 		return;
 	}
-	const QString backendId = m_backendCombo->currentData().toString();
-	QString stepPath;
-	if (m_stepPathResolver)
+	if (m_chinese)
 	{
-		stepPath = m_stepPathResolver(backendId);
+		setStatus(QStringLiteral("目录已刷新，可复制 candidate 填入 FeatureSpec 或使用 3D 拾取"));
 	}
-	if (stepPath.isEmpty())
+	else
 	{
-		QMessageBox::warning(this, QStringLiteral("Catalog"), QStringLiteral("无 STEP 源路径"));
-		return;
+		setStatus(QStringLiteral("Catalog refreshed; copy a candidate into FeatureSpec or use 3D pick"));
 	}
-	geometry_backend_ops::GeometryRef ref;
-	ref.backendIdUtf8 = backendId.toStdString();
-	ref.stepPathUtf8 = stepPath.toStdString();
-	geoalgo::WorkpieceRef wp;
-	std::string err;
-	if (!geometry_backend_ops::resolveGeometryRef(ref, wp, &err))
-	{
-		QMessageBox::warning(this, QStringLiteral("Catalog"), QString::fromStdString(err));
-		return;
-	}
-	geoalgo::FeatureCatalog catalog;
-	if (!geometry_backend_ops::enumerateFeatureCatalog(wp, catalog, &err))
-	{
-		QMessageBox::warning(this, QStringLiteral("Catalog"), QString::fromStdString(err));
-		return;
-	}
-	m_specEditor->setPlainText(QString::fromStdString(geometry_backend_ops::featureCatalogToJson(catalog)));
-	setStatus(m_chinese ? QStringLiteral("目录已加载，可复制 candidate 填入 FeatureSpec")
-		: QStringLiteral("Catalog loaded; copy a candidate into FeatureSpec"));
 }
 
 std::string FeatureTrajectoryPageWidget::resolvePreviewBackendId(const RobotInstruction::RawTrajectory& traj) const
@@ -1022,4 +1155,265 @@ bool FeatureTrajectoryPageWidget::discretizeFromEditor()
 void FeatureTrajectoryPageWidget::onDiscretize()
 {
 	(void)discretizeFromEditor();
+}
+
+bool FeatureTrajectoryPageWidget::currentWorkpiece(QString& backendId, QString& stepPath) const
+{
+	backendId.clear();
+	stepPath.clear();
+	if (!m_backendCombo || m_backendCombo->currentIndex() < 0)
+	{
+		return false;
+	}
+	backendId = m_backendCombo->currentData().toString();
+	if (backendId.isEmpty() || !m_stepPathResolver)
+	{
+		return false;
+	}
+	stepPath = m_stepPathResolver(backendId);
+	return !backendId.isEmpty() && !stepPath.isEmpty();
+}
+
+bool FeatureTrajectoryPageWidget::buildPreviewOverlayJson(const QByteArray& catalogSliceUtf8,
+	QByteArray& outPreviewJson, QString* err) const
+{
+	QString backendId;
+	QString stepPath;
+	if (!currentWorkpiece(backendId, stepPath))
+	{
+		if (err)
+		{
+			*err = QStringLiteral("请先在轨迹生成页选择 STEP 工件");
+		}
+		return false;
+	}
+	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
+	if (!osg)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("3D 视口未就绪");
+		}
+		return false;
+	}
+
+	try
+	{
+		const nlohmann::json slice = nlohmann::json::parse(catalogSliceUtf8.constData(), nullptr, true);
+		nlohmann::json preview;
+		preview["backendIdUtf8"] = backendId.toStdString();
+		nlohmann::json items = nlohmann::json::array();
+		geoalgo::WorkpieceRef wp;
+		wp.backendIdUtf8 = backendId.toStdString();
+		wp.stepPathUtf8 = stepPath.toStdString();
+
+		if (!slice.contains("candidates") || !slice["candidates"].is_array())
+		{
+			if (err)
+			{
+				*err = QStringLiteral("catalog 切片无 candidates");
+			}
+			return false;
+		}
+
+		for (const auto& c : slice["candidates"])
+		{
+			geoalgo::FeatureRefs refs;
+			if (c.contains("refs") && c["refs"].is_object())
+			{
+				const auto& r = c["refs"];
+				if (r.contains("edgeIndices") && r["edgeIndices"].is_array())
+				{
+					for (const auto& ei : r["edgeIndices"])
+					{
+						if (ei.is_number_integer())
+						{
+							refs.edgeIndices.push_back(ei.get<int>());
+						}
+					}
+				}
+				if (r.contains("faceIndices") && r["faceIndices"].is_array())
+				{
+					for (const auto& fi : r["faceIndices"])
+					{
+						if (fi.is_number_integer())
+						{
+							refs.faceIndices.push_back(fi.get<int>());
+						}
+					}
+				}
+			}
+			geoalgo::FeatureAnchor anchor;
+			std::string anchorErr;
+			if (!geometry_backend_ops::computeFeatureAnchor(wp, refs, anchor, &anchorErr))
+			{
+				continue;
+			}
+
+			auto toWorld = [&](const double modelMm[3], nlohmann::json& outPt) {
+				const geoalgo::Point3d modelPt{modelMm[0], modelMm[1], modelMm[2]};
+				osg::Vec3f worldPt;
+				std::string tfErr;
+				if (!feature_pick_transform::stepModelPointToWorldMm(osg, backendId.toStdString(), modelPt, worldPt, &tfErr))
+				{
+					worldPt.set(static_cast<float>(modelPt.x), static_cast<float>(modelPt.y), static_cast<float>(modelPt.z));
+				}
+				outPt = nlohmann::json::array({static_cast<double>(worldPt.x()), static_cast<double>(worldPt.y()),
+					static_cast<double>(worldPt.z())});
+			};
+
+			nlohmann::json item;
+			item["displayIndex"] = c.value("displayIndex", 0);
+			toWorld(anchor.anchorXyzMm, item["anchorWorldMm"]);
+			toWorld(anchor.labelOffsetXyzMm, item["labelWorldMm"]);
+			item["hasEdgeSegment"] = anchor.hasEdgeSegment;
+			if (anchor.hasEdgeSegment)
+			{
+				toWorld(anchor.edgeEndAXyzMm, item["edgeAWorldMm"]);
+				toWorld(anchor.edgeEndBXyzMm, item["edgeBWorldMm"]);
+			}
+			items.push_back(item);
+		}
+		preview["items"] = items;
+		outPreviewJson = QByteArray::fromStdString(preview.dump());
+		return !items.empty();
+	}
+	catch (...)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("catalog 切片 JSON 无效");
+		}
+		return false;
+	}
+}
+
+bool FeatureTrajectoryPageWidget::buildAndShowCandidatePreview(const QByteArray& catalogSliceUtf8)
+{
+	QByteArray previewJson;
+	QString err;
+	if (!buildPreviewOverlayJson(catalogSliceUtf8, previewJson, &err))
+	{
+		setStatus(err);
+		return false;
+	}
+	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
+	if (!osg)
+	{
+		return false;
+	}
+
+	try
+	{
+		const nlohmann::json preview = nlohmann::json::parse(previewJson.constData(), nullptr, true);
+		std::vector<RobotOsgUi::FeatureCatalogOverlayItem> items;
+		for (const auto& item : preview["items"])
+		{
+			RobotOsgUi::FeatureCatalogOverlayItem o;
+			o.displayIndex = item.value("displayIndex", 0);
+			const auto readVec = [](const nlohmann::json& arr, osg::Vec3f& v) {
+				if (arr.is_array() && arr.size() >= 3)
+				{
+					v.set(static_cast<float>(arr[0].get<double>()), static_cast<float>(arr[1].get<double>()),
+						static_cast<float>(arr[2].get<double>()));
+				}
+			};
+			readVec(item["anchorWorldMm"], o.anchorWorldMm);
+			readVec(item["labelWorldMm"], o.labelWorldMm);
+			o.hasEdgeSegment = item.value("hasEdgeSegment", false);
+			if (o.hasEdgeSegment)
+			{
+				readVec(item["edgeAWorldMm"], o.edgeAWorldMm);
+				readVec(item["edgeBWorldMm"], o.edgeBWorldMm);
+			}
+			items.push_back(o);
+		}
+		osg->setFeatureCatalogOverlay(items);
+		osg->requestRedraw();
+		setStatus(m_chinese ? QStringLiteral("已在 3D 视口显示 %1 个编号特征").arg(items.size())
+			: QStringLiteral("Showing %1 numbered features in 3D").arg(items.size()));
+		return true;
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
+void FeatureTrajectoryPageWidget::clearCandidatePreview()
+{
+	if (m_host && m_host->osgView())
+	{
+		m_host->osgView()->clearFeatureCatalogOverlay();
+		m_host->osgView()->requestRedraw();
+	}
+}
+
+bool FeatureTrajectoryPageWidget::commitFeaturePlanFromAi(const QByteArray& planJsonUtf8, QString* summary,
+	QString* err)
+{
+	try
+	{
+		const nlohmann::json plan = nlohmann::json::parse(planJsonUtf8.constData(), nullptr, true);
+		if (!plan.contains("features") || !plan["features"].is_array() || plan["features"].empty())
+		{
+			if (err)
+			{
+				*err = QStringLiteral("特征计划缺少 features");
+			}
+			return false;
+		}
+
+		const nlohmann::json& first = plan["features"][0];
+		const std::string specJson = first.dump();
+		m_specEditor->blockSignals(true);
+		m_specEditor->setPlainText(QString::fromStdString(specJson));
+		m_specEditor->blockSignals(false);
+		commitLastFeatureSpec(specJson);
+		syncDiscretizeUiFromSpecJson();
+
+		const std::string pipelineTemplate = plan.value("suggestedPipelineTemplate", std::string("weld_default"));
+		if (!discretizeFromEditor())
+		{
+			if (err)
+			{
+				*err = QStringLiteral("离散失败，请检查 FeatureSpec");
+			}
+			return false;
+		}
+
+		if (m_simController && m_simController->simulationDock())
+		{
+			if (TrajectoryEditPageWidget* edit = m_simController->simulationDock()->trajectoryEditPage())
+			{
+				RobotInstruction::RecipeKind recipeKind = RobotInstruction::RecipeKind::Weld;
+				if (pipelineTemplate.find("glue") != std::string::npos)
+				{
+					recipeKind = RobotInstruction::RecipeKind::Glue;
+				}
+				else if (pipelineTemplate.find("grind") != std::string::npos)
+				{
+					recipeKind = RobotInstruction::RecipeKind::Grind;
+				}
+				edit->applyRecipePresetByKind(recipeKind);
+				m_simController->simulationDock()->tabWidget()->setCurrentIndex(
+					RobotSimulationDockWidget::kTabIndexTrajectoryEdit);
+			}
+		}
+
+		if (summary)
+		{
+			*summary = m_chinese ? QStringLiteral("已离散特征并填充默认工艺流水线，请到轨迹编辑页预览。")
+				: QStringLiteral("Feature discretized; default recipe pipeline filled.");
+		}
+		return true;
+	}
+	catch (...)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("特征计划 JSON 无效");
+		}
+		return false;
+	}
 }

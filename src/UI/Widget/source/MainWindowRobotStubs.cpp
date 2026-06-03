@@ -3,7 +3,9 @@
 #include "MainWindowRobotHost.h"
 #include "RobotInstructionProgram.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
+#include <QMenuBar>
 #include <QMessageBox>
+#include <QStatusBar>
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
 
@@ -12,6 +14,66 @@ SimulationCommandWidget* MainWindow::simulationCommandPage() const
 	RobotSimulationDockWidget* dock =
 		m_robotSimulation ? m_robotSimulation->simulationDock() : nullptr;
 	return dock ? dock->commandPage() : nullptr;
+}
+
+bool MainWindow::resolveTrajectoryWorkpieceForAi(QString* outBackendId, QString* outStepPath)
+{
+	if (!m_robotSimulation)
+	{
+		return false;
+	}
+	QString backendId;
+	QString stepPath;
+	if (!m_robotSimulation->resolveTrajectoryWorkpiece(backendId, stepPath))
+	{
+		return false;
+	}
+	if (outBackendId)
+	{
+		*outBackendId = backendId;
+	}
+	if (outStepPath)
+	{
+		*outStepPath = stepPath;
+	}
+	return true;
+}
+
+bool MainWindow::showAiFeatureCandidatePreviewForAi(const std::string& previewJsonUtf8, QString* outError)
+{
+	if (!m_robotSimulation)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("机器人仿真未就绪");
+		}
+		return false;
+	}
+	return m_robotSimulation->showAiFeatureCandidatePreview(
+		QByteArray::fromStdString(previewJsonUtf8), outError);
+}
+
+void MainWindow::clearAiFeatureCandidatePreviewForAi()
+{
+	if (m_robotSimulation)
+	{
+		m_robotSimulation->clearAiFeatureCandidatePreview();
+	}
+}
+
+bool MainWindow::commitAiTrajectoryFeaturesForAi(const std::string& featurePlanJsonUtf8, QString* outSummary,
+	QString* outError)
+{
+	if (!m_robotSimulation)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("机器人仿真未就绪");
+		}
+		return false;
+	}
+	return m_robotSimulation->commitAiTrajectoryFeatures(
+		QByteArray::fromStdString(featurePlanJsonUtf8), outSummary, outError);
 }
 
 void MainWindow::refreshSimulationJointListFromCurrentDoc()
@@ -73,11 +135,11 @@ void MainWindow::stopRobotSimulation()
 	}
 }
 
-void MainWindow::syncRobotKinematicsAfterPoseEdit(const std::shared_ptr<BackendDataBase>& data)
+void MainWindow::syncRobotKinematicsAfterPoseEdit(const QString& backendId)
 {
 	if (m_robotSimulation)
 	{
-		m_robotSimulation->syncRobotKinematicsAfterPoseEdit(data);
+		m_robotSimulation->syncRobotKinematicsAfterPoseEdit(backendId);
 	}
 }
 
@@ -102,6 +164,26 @@ int MainWindow::currentSimulationRobotInstanceIndex() const
 		return cmd->currentRobotInstanceIndex();
 	}
 	return 0;
+}
+
+void MainWindow::focusBackendInTree(const std::string& backendId)
+{
+	focusBackendInTreeLocal(QString::fromStdString(backendId));
+}
+
+JobSystem* MainWindow::jobSystem()
+{
+	return m_jobSystem;
+}
+
+QMenuBar* MainWindow::menuBar()
+{
+	return QMainWindow::menuBar();
+}
+
+QStatusBar* MainWindow::statusBar()
+{
+	return QMainWindow::statusBar();
 }
 
 void MainWindow::onUrdfImportRequested(const QString& urdfPath)

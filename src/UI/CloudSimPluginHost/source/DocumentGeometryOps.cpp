@@ -1,9 +1,9 @@
 #include "DocumentGeometryOps.h"
 
 #include "GeometryBackendOps.h"
+#include "DocumentHost.h"
 #include "DocumentImportFacade.h"
-#include "DocumentPage.h"
-#include "MainWindow.h"
+#include "IPluginMainWindowHost.h"
 #include "MeshBackendData.h"
 
 namespace document_geometry_ops
@@ -120,8 +120,8 @@ PluginGeometryJobResult toPluginGeometryResult(
 }
 
 std::string registerMeshSoup(
-	DocumentPage* page,
-	MainWindow* mainWindow,
+	cloudsim::host::DocumentHost* page,
+	IPluginMainWindowHost* mainWindowHost,
 	std::vector<float> soup,
 	const PluginMeshCreateOptions& options,
 	std::string* outError)
@@ -168,9 +168,9 @@ std::string registerMeshSoup(
 		}
 		return std::string();
 	}
-	if (options.selectInTree && mainWindow)
+	if (options.selectInTree && mainWindowHost)
 	{
-		mainWindow->focusBackendInTreeAfterImport(mesh);
+		mainWindowHost->focusBackendInTreeAfterImport(adopted.backendId);
 	}
 	return adopted.backendId.toStdString();
 }

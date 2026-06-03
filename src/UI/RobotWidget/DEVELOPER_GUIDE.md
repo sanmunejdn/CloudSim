@@ -586,7 +586,16 @@ Dock 页签 **「轨迹生成」**（`FeatureTrajectoryPageWidget`，`kTabIndexT
 | 预览 | `applyRawTrajectoryPreviewToOsg` / `applyWorldRawTrajectoryPreviewToOsg`；`clearRawTrajectoryOverlay*`；指令路点 `setInstructionPoseAxes` |
 | `FeaturePickTransform` | `transformRawTrajectoryToWorld` / `transformRawTrajectoryWorldToFile` / `applyWorldRawTrajectoryPreviewToOsg` |
 
-AI 入口：领域 `trajectory.feature`（`TrajectoryFeatureDomainHandler`）校验 LLM 输出的 `features[]`；规则回退 `suggestFeaturesFromCatalog`。见 [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md)、[`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md)。
+AI 入口：领域 `trajectory.feature`（`TrajectoryFeatureDomainHandler` 校验 `features[]`；确认离散经 `commitFeaturePlanFromAi`）。**完整 AI 流程、3D 编号叠加、编号选择高亮过滤**见 [`docs/trajectory_feature_ai.md`](../../docs/trajectory_feature_ai.md)。
+
+| API（`FeatureTrajectoryPageWidget`） | 说明 |
+|--------------------------------------|------|
+| `ensureFeatureCatalogEnumerated` | 对当前 combo 工件调用 `enumerateFeatureCatalog`（AI 解析前自动触发） |
+| `buildAndShowCandidatePreview` | catalog 切片 → `buildPreviewOverlayJson` → `setFeatureCatalogOverlay` |
+| `clearCandidatePreview` | 清除 3D 特征叠加 |
+| `commitFeaturePlanFromAi` | 计划 JSON → 多特征离散 + 写入 `TrajectoryEditSession` + 默认 pipeline |
+
+3D 叠加经 `IRobotOsgViewHost::setFeatureCatalogOverlay`（红边、黑色编号、leader 线）；锚点 `geometry_backend_ops::computeFeatureAnchor`。
 
 ---
 

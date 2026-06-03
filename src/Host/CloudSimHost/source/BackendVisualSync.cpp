@@ -5,6 +5,7 @@
 #include "DocumentHostEvents.h"
 
 #include "BackendDataBase.h"
+#include "BackendDataManager.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
@@ -82,6 +83,20 @@ void syncVisualAfterPropertyChange(DocumentHost& host, const BackendDataBase& da
 		osg->setSelectedColor(color.r, color.g, color.b, color.a);
 	}
 	osg->requestRedraw();
+}
+
+void syncVisualAfterPropertyChangeById(DocumentHost& host, const QString& objectId, const bool applyColor)
+{
+	if (objectId.isEmpty())
+	{
+		return;
+	}
+	const auto obj = host.backend().getData(objectId.toStdString());
+	if (!obj)
+	{
+		return;
+	}
+	syncVisualAfterPropertyChange(host, *obj, applyColor);
 }
 
 void afterDataServicePropertyChange(DocumentHost& host, const BackendDataBase& data, const QString& key)

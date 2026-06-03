@@ -24,6 +24,7 @@ AiAssistantDockWidget::AiAssistantDockWidget(QWidget* parent)
 	m_domainCombo->addItem(QStringLiteral("Create mesh"), AiDomainIds::meshCreate());
 	m_domainCombo->addItem(QStringLiteral("Compose (boolean)"), AiDomainIds::meshCompose());
 	m_domainCombo->addItem(QStringLiteral("Geometry recognize"), AiDomainIds::geometryRecognize());
+	m_domainCombo->addItem(QStringLiteral("Trajectory feature"), AiDomainIds::trajectoryFeature());
 	root->addWidget(m_domainCombo);
 
 	m_viewportHint = new QLabel(this);
@@ -41,6 +42,17 @@ AiAssistantDockWidget::AiAssistantDockWidget(QWidget* parent)
 	connect(m_createFromRecognitionBtn, &QPushButton::clicked, this,
 		&AiAssistantDockWidget::createFromRecognitionClicked);
 	root->addWidget(m_createFromRecognitionBtn);
+
+	m_confirmTrajectoryBtn = new QPushButton(this);
+	m_retryTrajectoryBtn = new QPushButton(this);
+	m_confirmTrajectoryBtn->hide();
+	m_retryTrajectoryBtn->hide();
+	connect(m_confirmTrajectoryBtn, &QPushButton::clicked, this,
+		&AiAssistantDockWidget::confirmTrajectoryFeaturesClicked);
+	connect(m_retryTrajectoryBtn, &QPushButton::clicked, this,
+		&AiAssistantDockWidget::retryTrajectoryFeaturesClicked);
+	root->addWidget(m_confirmTrajectoryBtn);
+	root->addWidget(m_retryTrajectoryBtn);
 
 	auto* row = new QHBoxLayout;
 	m_input = new QLineEdit(this);
@@ -84,8 +96,13 @@ void AiAssistantDockWidget::setUseChinese(bool chinese)
 	m_domainCombo->setItemText(1, chinese ? QStringLiteral("创建网格") : QStringLiteral("Create mesh"));
 	m_domainCombo->setItemText(2, chinese ? QStringLiteral("布尔组合") : QStringLiteral("Compose (boolean)"));
 	m_domainCombo->setItemText(3, chinese ? QStringLiteral("几何识别") : QStringLiteral("Geometry recognize"));
+	m_domainCombo->setItemText(4, chinese ? QStringLiteral("轨迹特征") : QStringLiteral("Trajectory feature"));
 	if (m_createFromRecognitionBtn)
 		m_createFromRecognitionBtn->setText(chinese ? QStringLiteral("创建基本体") : QStringLiteral("Create primitive"));
+	if (m_confirmTrajectoryBtn)
+		m_confirmTrajectoryBtn->setText(chinese ? QStringLiteral("确认并离散") : QStringLiteral("Confirm & discretize"));
+	if (m_retryTrajectoryBtn)
+		m_retryTrajectoryBtn->setText(chinese ? QStringLiteral("重新识别") : QStringLiteral("Retry"));
 	onDomainChanged(m_domainCombo->currentIndex());
 }
 
@@ -93,13 +110,69 @@ void AiAssistantDockWidget::onDomainChanged(int)
 {
 	if (!m_viewportHint || !m_domainCombo)
 		return;
-	const bool geom = selectedDomainId() == AiDomainIds::geometryRecognize();
-	m_viewportHint->setVisible(geom);
+	const QString domain = selectedDomainId();
+	const bool geom = domain == AiDomainIds::geometryRecognize();
+	const bool traj = domain == AiDomainIds::trajectoryFeature();
+	m_viewportHint->setVisible(geom || traj);
 	if (geom)
 	{
 		m_viewportHint->setText(m_useChinese ? QStringLiteral("将使用当前 3D 视口截图进行识别。")
 											 : QStringLiteral("Will capture the active 3D viewport for recognition."));
 	}
+	else if (traj)
+	{
+		m_viewportHint->setText(m_useChinese
+			? QStringLiteral("请先在「轨迹生成」页选择 STEP 工件；识别结果将编号高亮，确认后离散。")
+			: QStringLiteral("Select a STEP workpiece on Trajectory Generation tab first."));
+	}
+	else
+	{
+		m_viewportHint->clear();
+	}
+}
+
+void AiAssistantDockWidget::showTrajectoryFeatureResult(const QByteArray& planJsonUtf8,
+	const QByteArray& catalogSliceUtf8, const QString& parserVia)
+{
+	const bool selectionOnly = (parserVia == QStringLiteral("Selection"));
+	QString body = selectionOnly
+		? (m_useChinese ? QStringLiteral("已选中特征（3D 视口已高亮）：\n")
+						: QStringLiteral("Selected features (highlighted in 3D):\n"))
+		: (m_useChinese ? QStringLiteral("特征候选（3D 视口已编号高亮）：\n")
+						: QStringLiteral("Feature candidates (numbered in 3D view):\n"));
+	try
+	{
+		const nlohmann::json slice = nlohmann::json::parse(catalogSliceUtf8.constData(), nullptr, true);
+		if (slice.contains("candidates") && slice["candidates"].is_array())
+		{
+			for (const auto& c : slice["candidates"])
+			{
+				body += QStringLiteral("%1. %2 — %3\n")
+							.arg(c.value("displayIndex", 0))
+							.arg(QString::fromStdString(c.value("candidateId", std::string())),
+								QString::fromStdString(c.value("summary", std::string())));
+			}
+		}
+	}
+	catch (...)
+	{
+	}
+	body += m_useChinese ? QStringLiteral("\n可输入「选 1 和 3」调整，或点「确认并离散」。")
+		: QStringLiteral("\nType selection or click Confirm.");
+	appendAssistantMessage(prefixWithParser(parserVia, body));
+	if (m_confirmTrajectoryBtn)
+		m_confirmTrajectoryBtn->show();
+	if (m_retryTrajectoryBtn)
+		m_retryTrajectoryBtn->show();
+	(void)planJsonUtf8;
+}
+
+void AiAssistantDockWidget::hideTrajectoryFeatureConfirmButtons()
+{
+	if (m_confirmTrajectoryBtn)
+		m_confirmTrajectoryBtn->hide();
+	if (m_retryTrajectoryBtn)
+		m_retryTrajectoryBtn->hide();
 }
 
 void AiAssistantDockWidget::showRecognitionResult(const QByteArray& jsonUtf8, const QString& parserVia)

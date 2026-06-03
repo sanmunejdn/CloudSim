@@ -31,6 +31,11 @@ AiConfigDto defaultAiConfigDto()
 	geom.parserPriority = QStringList{ QStringLiteral("local") };
 	geom.unloadOtherModelsBeforeInfer = true;
 
-	cfg.domains = { mesh, compose, geom };
+	AiDomainModelConfig traj;
+	traj.id = AiDomainIds::trajectoryFeature();
+	traj.model = QStringLiteral("qwen2.5:3b");
+	traj.parserPriority = QStringList{ QStringLiteral("rules"), QStringLiteral("local") };
+
+	cfg.domains = { mesh, compose, geom, traj };
 	return cfg;
 }

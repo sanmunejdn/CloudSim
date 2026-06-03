@@ -5,9 +5,8 @@
 #include "ICloudSimAiPlugin.h"
 #include "ICloudSimPlugin.h"
 #include "IAiAssistantHost.h"
-#include "MainWindow.h"
+#include "IPluginMainWindowHost.h"
 #include "PluginHostContext.h"
-#include "RunInfoPage.h"
 #include "RunLogger.h"
 
 #include <json.hpp>
@@ -18,10 +17,10 @@
 #include <QPluginLoader>
 #include <QStatusBar>
 
-PluginManager::PluginManager(MainWindow* mainWindow, QObject* parent)
+PluginManager::PluginManager(IPluginMainWindowHost* mainWindowHost, QObject* parent)
 	: QObject(parent)
-	, m_mainWindow(mainWindow)
-	, m_hostContext(std::make_unique<PluginHostContext>(mainWindow, this))
+	, m_mainWindowHost(mainWindowHost)
+	, m_hostContext(std::make_unique<PluginHostContext>(mainWindowHost, this))
 {
 }
 
@@ -200,12 +199,15 @@ bool PluginManager::loadOnePlugin(const QString& pluginDir, const QString& manif
 			{
 				RunLogger::warn("Plugin initializeAi() returned false: " + id.toStdString());
 			}
-			else if (QWidget* panel = aiPlugin->createAssistantWidget(m_mainWindow))
+			else if (QWidget* parent = m_mainWindowHost->mainWindowWidget())
 			{
-				const int prio = aiPlugin->assistantPanelPriority();
-				const QString tabTitle = aiPlugin->aiPluginId();
-				m_hostContext->registerSidePanelTab(tabTitle.toUtf8().constData(), panel);
-				(void)prio;
+				if (QWidget* panel = aiPlugin->createAssistantWidget(parent))
+				{
+					const int prio = aiPlugin->assistantPanelPriority();
+					const QString tabTitle = aiPlugin->aiPluginId();
+					m_hostContext->registerSidePanelTab(tabTitle.toUtf8().constData(), panel);
+					(void)prio;
+				}
 			}
 		}
 	}
@@ -223,7 +225,7 @@ bool PluginManager::loadOnePlugin(const QString& pluginDir, const QString& manif
 
 void PluginManager::loadAllFromPluginsDirectory()
 {
-	if (!m_mainWindow || !m_hostContext)
+	if (!m_mainWindowHost || !m_hostContext)
 	{
 		return;
 	}
@@ -264,14 +266,11 @@ void PluginManager::loadAllFromPluginsDirectory()
 	m_loadSummary = QStringLiteral("Plugins: %1 loaded, %2 skipped/failed").arg(loadedCount).arg(skippedCount);
 	RunLogger::info(m_loadSummary.toStdString());
 
-	if (m_mainWindow->statusBar())
+	if (m_mainWindowHost->statusBar())
 	{
-		m_mainWindow->statusBar()->showMessage(m_loadSummary, 8000);
+		m_mainWindowHost->statusBar()->showMessage(m_loadSummary, 8000);
 	}
-	if (m_mainWindow->runInfoPage())
-	{
-		m_mainWindow->runInfoPage()->appendInfo(m_loadSummary);
-	}
+	m_mainWindowHost->appendRunInfo(m_loadSummary);
 }
 
 void PluginManager::notifyLanguageChanged()

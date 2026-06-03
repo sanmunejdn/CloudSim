@@ -1,15 +1,14 @@
 #pragma once
 
 #include "DocumentHost.h"
-#include "IRenderView.h"
 #include "OsgWidget.h"
 
 namespace cloudsim::host {
 
-/// Host 取 OsgWidget
+/// Host 取 OsgWidget（直接读成员，避免构造期经 render() 递归）
 inline OsgWidget* osgWidgetFrom(DocumentHost& host)
 {
-	return qobject_cast<OsgWidget*>(host.render().widget());
+	return host.osgWidget();
 }
 
 } // namespace cloudsim::host

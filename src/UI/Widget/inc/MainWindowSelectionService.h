@@ -2,15 +2,13 @@
 
 #include "widget_global.h"
 
-#include <memory>
 #include <QString>
 
 class QString;
 class MainWindow;
-class BackendDataBase;
 class QTreeWidgetItem;
 
-/// Centralized selection orchestration for MainWindow tree/OSG pick flows.
+/// MainWindow 树/OSG 拾取的选择编排
 class WIDGET_EXPORT MainWindowSelectionService
 {
 public:
@@ -25,10 +23,9 @@ public:
 	struct SelectionSnapshot
 	{
 		QString backendId;
-		std::shared_ptr<BackendDataBase> data;
 		SelectedBackendKind kind = SelectedBackendKind::None;
 		bool hasGeometry = false;
-		bool valid() const { return !backendId.isEmpty() && static_cast<bool>(data); }
+		bool valid() const { return !backendId.isEmpty(); }
 	};
 
 	static void clearSelection(MainWindow& mainWindow, bool clearTreeSelection);
@@ -36,10 +33,8 @@ public:
 	static void handleBackendTreeSelectionChanged(MainWindow& mainWindow);
 	static void handleBackendTreeItemChanged(MainWindow& mainWindow, QTreeWidgetItem* item, int column);
 	static void handleOsgBackendObjectPicked(MainWindow& mainWindow, const QString& backendId);
-	static std::shared_ptr<BackendDataBase> selectedBackendData(MainWindow& mainWindow);
 	static SelectionSnapshot currentSelection(MainWindow& mainWindow);
 	static bool selectBackendById(MainWindow& mainWindow, const QString& backendId, bool scrollToItem = true);
 	/// 进入点/线/面拾取前：确保有带几何的匹配 backend 被选中
 	static void ensureBackendForPickMode(MainWindow& mainWindow, SelectedBackendKind preferredKind);
 };
-

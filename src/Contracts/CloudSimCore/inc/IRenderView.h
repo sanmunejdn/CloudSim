@@ -53,6 +53,12 @@ public:
 	// 选中对象位姿查询
 	virtual bool selectedPosition(float& outX, float& outY, float& outZ) const = 0;
 	virtual bool selectedRotationEulerDeg(float& outRx, float& outRy, float& outRz) const = 0;
+
+	virtual void ensureSelectionVisualForBackend(const ObjectId& id, bool urdfLinkMesh = false) = 0;
+	virtual bool syncOuterPatFromBackend(const ObjectId& id) = 0;
+	virtual GeometryKind geometryKindForBackend(const ObjectId& id) const = 0;
+	/// gizmo 松手：OSG 选中态写回后端位姿
+	virtual bool commitGizmoPoseToBackend(const ObjectId& id) = 0;
 };
 
 /// 渲染视口工厂

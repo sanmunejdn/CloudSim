@@ -159,14 +159,14 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 			}
 			if (ev.primaryId.isEmpty())
 			{
-				updatePropertyPanel(nullptr);
+				updatePropertyPanel(QString());
 				return;
 			}
 			if (m_selectionState.selectedBackendId() != ev.primaryId)
 			{
 				m_selectionState.setSelectedBackendId(ev.primaryId);
 			}
-			updatePropertyPanel(MainWindowSelectionService::selectedBackendData(*this));
+			updatePropertyPanel(ev.primaryId);
 		});
 	m_appEvents.subscribe<cloudsim::core::PoseCommittedEvent>([this](const cloudsim::core::PoseCommittedEvent& ev) {
 		DocumentPage* page = currentPage();
@@ -178,7 +178,7 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 		{
 			return;
 		}
-		updatePropertyPanel(MainWindowSelectionService::selectedBackendData(*this));
+		updatePropertyPanel(m_selectionState.selectedBackendId());
 	});
 
 	setCentralWidget(central);

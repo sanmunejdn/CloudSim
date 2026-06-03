@@ -55,6 +55,11 @@ CloudSimHost/
 - `OsgWidget.cpp` 及 `OsgWidget*Controller.cpp`、`ObjectTransformOperation.cpp`、`QWidgetViewer.cpp` 等
 - `BackendSceneDocumentFacade.cpp`、`BackendFollowReverseIndex.cpp`、`OsgWidgetSceneBridge.cpp`
 
+**自 `CloudSimPluginHost` 编入本工程**（路径 `src/UI/CloudSimPluginHost/`）：
+
+- `PluginManager`、`PluginHostContext`、`PluginSceneBridgeAdapter`、`PluginDocumentAdapter` 等
+- AI 宿主：`AiAssistantHostImpl`、`AiActionPlanExecutor`、分域 Handler 等（`source/Ai/*.cpp`）
+
 场景数学与拾取核心仍在 **`OsgWidgetCore.dll`**；`OsgWidget` 只做 Qt 事件与控件桥接。
 
 ---
@@ -91,7 +96,8 @@ flowchart TB
 | 职责边界 | 聚合 `BackendDataManager`、`OsgWidget`、三个 Core 适配器，向上提供统一文档能力 |
 | 生命周期 | 构造时注入 `EventHub` 与 `documentId`；析构时统一释放文档级资源 |
 | 对外契约 | `data()` / `robot()` / `render()` 返回稳定 Core 接口，供 UI 层长期调用 |
-| 兼容接口 | `backend()` 存量直达；OSG 不再提供 `DocumentHost::osgWidget()`，Host 内用 `DocumentHostAccess.h` → `osgWidgetFrom(host)` |
+| 兼容接口 | `backend()` 存量直达；`osgWidget()` 供 Host 内部与 `DocumentHostAccess.h::osgWidgetFrom`；Widget 侧用 `widgetOsgFromPage` → `render().widget()` |
+| 场景门面 | `sceneFacade()` 返回 `BackendSceneDocumentFacade`（插件 `PluginSceneBridgeAdapter` 亦经此访问） |
 | 事件协作 | 与 `MainWindow` 帧回调配合，处理跟随脏集、场景刷新与选择同步 |
 
 常用 API 说明：
@@ -99,6 +105,8 @@ flowchart TB
 | API | 说明 |
 |-----|------|
 | `data()` / `robot()` / `render()` | Core 主入口；实际调用分别落到三个适配器 |
+| `osgWidget()` | 返回文档内 `OsgWidget*`；**须在 `m_osgWidget` 构造之后**再建 `OsgRenderViewAdapter`（构造顺序：`new OsgWidget` → `OsgRenderViewAdapter(*m_osgWidget, *this)`） |
+| `sceneFacade()` | 场景实体、选择视觉、`ensureSelectionVisualForBackend` |
 | `sceneBridge()` / `followReverseIndex()` | 返回场景桥接与跟随索引对象，用于主界面联动 |
 | `loadMeshFromBackendIntoScene(...)` | 将 Data 树节点加载为 OSG 分支 |
 | `removeBackendSubtree(...)` | 删除后端子树并同步场景节点移除 |
@@ -122,6 +130,9 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | 主要职责 | 节点注册、属性读写、导入导出、JSON/DTO 转换 |
 | `importFromFile` | 委托 `DocumentImportFacade::importFileIntoDocument`（mesh；`ImportOptionsDto::isPointCloud` 时点云） |
 | `applyPropertyChange` | 写 Backend 后委托 `BackendVisualSync::afterDataServicePropertyChange`（mesh/点云 OSG 同步、按需 `publishPoseCommittedFromBackend`） |
+| `applyWorldPoseMm` | gizmo / 属性面板写回：更新 Data pose/rotation 后走 `afterDataServicePropertyChange`（等价 pose 分量提交） |
+| `applyColor` | 写 `BackendDataBase::setColor` 后 OSG 同步 |
+| `worldPoseMm` | 读取对象 pose + rotation → `PoseDto`（mm + 欧拉度） |
 | `unregisterSubtree` | 委托 `DocumentHost::removeBackendSubtree`（Data + 旁路表 + OSG 视觉） |
 | `hasVisualBranch` | 委托 `OsgWidget::hasBackendObjectBranch` |
 | `saveObjectToJson` / `loadObjectFromJson` | 委托 `BackendProjectObjectIo` + `registerAdoptedBackendObject`（`load` 不含 OSG，内嵌几何用 `registerEmbeddedProjectObject`） |
@@ -135,6 +146,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 |------|------|
 | `importFileIntoDocument` | 点云 / 简单网格 / dxf·step·层级 统一路由；层级导入后 Host 内聚焦 |
 | `registerAdoptedMesh` / `registerAdoptedPointCloud` | 已构造 mesh/点云注册（AI、插件、ply Job 完成回调）；内部 `registerAdopted*AndLoadScene` + `BackendObjectRegistered` |
+| `PointCloudBackgroundLoadState` | 后台 Job 读 ply/xyz（Widget 不接触 `PointCloudBackendData`）：`executeLoad` → UI 线程 `adoptIntoDocument` |
 | `runBackendFollowSolveAndSync` | Follow 求解 + `sceneBridge().syncOuterPatFromBackend`；`FollowSolveContext` 由 Widget 注入守卫 |
 | `applyProjectEdgesFollowBindingAndSolve` | 工程 `edges[]` 批量 binding + 一次求解（`BackendProjectObjectIo`） |
 
@@ -146,6 +158,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 |-----|------|
 | `propertyKeyNeedsVisualSync` / `propertyKeyCommitsPose` | 按 key 判断是否刷新 OSG / 发布 `PoseCommitted` |
 | `syncVisualAfterPropertyChange` | `syncSelectionForBackendId` + `sceneBridge().syncOuterPatFromBackend`；可选 `setSelectedColor` |
+| `syncVisualAfterPropertyChangeById` | 按 id 查 `BackendDataBase` 后调用上者（Widget pose/颜色分量编辑入口） |
 | `afterDataServicePropertyChange` | 上述组合 + `publishPoseCommittedFromBackend` |
 
 ### 4.2c `ProjectPackageIo` / `AnnotationProjectIo`
@@ -157,10 +170,11 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | `applyProjectViewportFromJson` | 恢复标注与 `cameraFollowBackendId`（经 `AnnotationProjectIo`） |
 | `finalizeProjectLoadFollowAndViewport` | OSG 父链、edges 跟随、视口、强制 Follow 求解 |
 | `restoreRobotKinematicsFromProjectJson` | 工程 robotKinematics* 恢复（perLink） |
+| `applyRestoredJointAnglesToScene` | 工程加载后把聚合关节角 FK 写回场景（Widget 不链 `RobotScene`） |
 | `loadRobotProgramsFromProjectJson` / `mergeRobotProgramsIntoProjectRoot` | 程序 JSON 读写 |
 | `buildAnnotationsJsonFromOsg` / `applyAnnotationsFromProjectJson` | 注释 snapshot ↔ JSON（`AnnotationProjectIo`） |
 
-`DocumentHostEvents`：`publishProjectLoaded`、`publishSelectionChanged`、`publishPoseCommitted`（gizmo 松手、属性提交经 `publishPoseCommittedFromBackend`）。**订阅**：`MainWindowUiSetup` 已订阅 `SelectionChanged` / `PoseCommitted` 刷新属性面板；`BackendObjectRegistered/Removed` 刷新树。
+`DocumentHostEvents`：`publishProjectLoaded`、`publishSelectionChanged`、`publishPoseCommitted`（gizmo 松手、属性提交经 `publishPoseCommittedFromBackend` / **`publishPoseCommittedFromBackendId`**）。**订阅**：`MainWindowUiSetup` 已订阅 `SelectionChanged` / `PoseCommitted` 刷新属性面板；`BackendObjectRegistered/Removed` 刷新树。
 
 ---
 
@@ -171,9 +185,11 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | 维度 | 说明 |
 |------|------|
 | 主要职责 | 相机控制、拾取、场景定位、变换提交、`focusCameraOnBackend`、`setBackendLogicalParent` |
+| 构造 | `(OsgWidget& widget, DocumentHost& host)`：显式传入已构造的 widget，避免构造期经 `render()` 递归 |
 | 关键转换 | `core::Mat4`（列主序 `16 x double`）与 `osg::Matrixd` 双向转换 |
 | 事件接入 | 拾取回调通过 `setPickHandler` 注入，外层可转发到 `EventHub` |
-| Widget 取用 | `MainWindow::currentOsgWidget()` → `qobject_cast<OsgWidget*>(page->render().widget())`（需 `#include "IRenderView.h"`） |
+| Widget 取用 | `MainWindow::currentOsgWidget()` → `widgetOsgFromPage` → `render().widget()` |
+| Host 内部取用 | `DocumentHostAccess.h::osgWidgetFrom(host)` → `host.osgWidget()` |
 | 设计约束 | 不在 Adapter 内引入业务判断，业务决策放 `DocumentPage` 或上层服务 |
 
 ---
@@ -253,11 +269,16 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 
 ### 4.4.2 `DocumentHostEvents`
 
-| 函数 | 事件 |
-|------|------|
+| 函数 | 事件 / 用途 |
+|------|-------------|
 | `publishBackendObjectRegistered` | `BackendObjectRegisteredEvent` |
 | `publishBackendObjectRemoved` | `BackendObjectRemovedEvent`（`removeBackendSubtree`） |
 | `publishRobotKinematicsApplied` | `RobotKinematicsAppliedEvent` |
+| `publishSelectionChanged` | `SelectionChangedEvent` |
+| `publishPoseCommitted` | `PoseCommittedEvent`（显式 `PoseDto`） |
+| `publishPoseCommittedFromBackend` | 从 `BackendDataBase` 组装 pose 后发布 |
+| `publishPoseCommittedFromBackendId` | 按 object id 查 Data 后发布（Widget 属性 pose 分量） |
+| `publishProjectLoaded` | `ProjectLoadedEvent` |
 
 `MainWindow` 订阅前两项，在 `documentId` 与当前页一致时 `refreshBackendTree()`。
 
@@ -306,7 +327,6 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | 符号 | 说明 |
 |------|------|
 | `DocumentHost::registerAdoptedBackendObject` / `registerAdoptedMeshAndLoadScene` / `registerAdoptedPointCloudAndLoadScene` | 改用 `BackendFileImport.h` 自由函数或 `DocumentImportFacade` |
-| `DocumentHost::osgWidget()` | 改用 `osgWidgetFrom(host)`（`DocumentHostAccess.h`） |
 | `MainWindow::registerExistingBackendObject` | 无调用方 |
 | `MainWindow::syncOsgViewerFrom*Backend`、`backendPropertyCommitted` | 由 `BackendVisualSync` + EventHub 替代 |
 | `RobotProjectIo::writeRobotKinematicsAndPrograms` | 保存拆分为 `mergeRobotKinematicsIntoProjectRoot` + `mergeRobotProgramsIntoProjectRoot` |
@@ -315,7 +335,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 
 | 头文件 | 函数 | 调用方 |
 |--------|------|--------|
-| `DocumentHostAccess.h` | `osgWidgetFrom(DocumentHost&)` | Host 模块内 |
+| `DocumentHostAccess.h` | `osgWidgetFrom(DocumentHost&)` → `host.osgWidget()`（Host 模块内；构造期勿经 `render().widget()`） |
 | `WidgetDocumentAccess.h`（Widget） | `widgetOsgFromPage(DocumentPage*)` | `MainWindow`、`DocumentPage` 等 |
 
 **暂勿删除**
@@ -381,7 +401,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 
 ### 5.1 链接依赖（`CloudSimHost.vcxproj`）
 
-`CloudSimCore`、`OsgWidgetCore`、`BackendVisual`、`Data`、`RunLogger`、`GeometryEngine`、`RobotScene`、`RobotUrdf`、`RobotKinematics`、`RobotWidget`（工程引用，保证生成顺序）。
+`CloudSimCore`、`OsgWidgetCore`、`BackendVisual`、`Data`、`RunLogger`、`GeometryEngine`、`GeometryAlgorithm`、`RobotScene`、`RobotUrdf`、`RobotKinematics`、`RobotWidget`、`CloudSimPluginSDK`、`CloudSimAiSDK`（工程引用，保证生成顺序）。**`CloudSimPluginHost` 全部 `.cpp` 编入本 vcxproj**（非 Widget）。
 
 ### 5.2 输出与链接路径
 
@@ -455,7 +475,7 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 | [`ARCHITECTURE_SUMMARY.md`](../../../ARCHITECTURE_SUMMARY.md) §2.1、§4.0.1 | 全局边界与运行时 DLL |
 | [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) | `IDataService` / `IRenderView` / `EventHub` 与 Host 行为对照 |
 | [`Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md) | 主窗口与 `DocumentPage`（UI 仍描述 OsgWidget 行为，实现位于 Host） |
-| [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) | 动态插件宿主、`PluginHostContext` 与 Facade 接线 |
+| [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) | 动态插件宿主（**编入 Host**）、`PluginHostContext` 与 Facade 接线 |
 | [`OsgWidgetCore/DEVELOPER_GUIDE.md`](../../UI/OsgWidgetCore/DEVELOPER_GUIDE.md) | 场景核心、gizmo、拾取索引 |
 
 ---
@@ -468,8 +488,9 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 2. ~~**导入/注册收口**~~：`DocumentImportFacade::registerAdoptedMesh/PointCloud`；菜单/插件/AI/ply Job 异步完成回调统一；`importFromFile` 支持点云。
 3. ~~**EventHub 选择/姿态**~~：`publishSelectionChanged` / `publishPoseCommitted`；`MainWindowUiSetup` 订阅刷新属性面板。
 4. ~~**工程保存**~~：`mergeRobotKinematicsIntoProjectRoot`；注释 JSON 抽至 `AnnotationProjectIo`。
-5. ~~**场景门面**~~：`BackendSceneDocumentFacade::ensureSelectionVisualForBackend`；`currentOsgWidget` 经 `render().widget()`。
-6. ~~**API 去重**~~：移除 `DocumentHost` 公开 `registerAdopted*` / `osgWidget()`；`osgWidgetFrom` + Widget `widgetOsgFromPage`；删除 Widget 死代码（`syncOsgViewer*`、`backendPropertyCommitted` 等）。
+5. ~~**场景门面**~~：`BackendSceneDocumentFacade::ensureSelectionVisualForBackend` 经 `DocumentHost::sceneFacade()`；Widget `currentOsgWidget` 经 `widgetOsgFromPage` / `render().widget()`。
+6. ~~**API 去重**~~：移除 `DocumentHost` 公开 `registerAdopted*`；Host 内 `osgWidgetFrom` + Widget `widgetOsgFromPage`；删除 Widget 死代码（`syncOsgViewer*`、`backendPropertyCommitted` 等）。
+7. ~~**PluginHost 迁入 Host**~~：`CloudSimPluginHost` 源码编入 `CloudSimHost.vcxproj`；`PluginManager`（`CLOUDSIM_HOST_EXPORT`）+ `IPluginMainWindowHost` 解耦 Widget 类型。
 
 **仍待 / 长期（详见 `ARCHITECTURE_SUMMARY.md` §迁移路线图）**
 

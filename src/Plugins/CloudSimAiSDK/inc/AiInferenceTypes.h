@@ -19,7 +19,13 @@ struct AiInferenceRequest
 	QString domainId;
 	QString userText;
 	QByteArray imagePng;
+	/// 轨迹页 STEP 工件 backend id（Coordinator 填充）
+	QString workpieceBackendId;
+	QString workpieceStepPathUtf8;
+	/// 按 featureAxis 切片后的 catalog JSON（供 LLM / rules grounding）
 	QByteArray catalogSliceUtf8;
+	/// 全量 catalog JSON（rules 回退与会话缓存）
+	QByteArray catalogFullUtf8;
 };
 
 using AiInferenceProgressFn = std::function<void(double fraction, const QString& message)>;

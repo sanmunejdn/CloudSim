@@ -78,6 +78,7 @@ public:
 		QString* outTcpLinkName,
 		QString* errMsg) const;
 
+	void syncRobotKinematicsAfterPoseEdit(const QString& backendId);
 	void syncRobotKinematicsAfterPoseEdit(const std::shared_ptr<BackendDataBase>& data);
 
 public slots:
@@ -118,6 +119,12 @@ public slots:
 	void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	/// 路点 pose 已是世界系（CAD/Unified Apply）时，直接用位姿写 render.tcpWorldMat4，避免按当前机器人基座重算导致轴错位
 	void syncInstructionRenderMatricesFromWorldPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
+
+	/// AI 轨迹特征：轨迹页工件 / 预览 / 提交
+	bool resolveTrajectoryWorkpiece(QString& outBackendId, QString& outStepPath);
+	bool showAiFeatureCandidatePreview(const QByteArray& catalogSliceUtf8, QString* err = nullptr);
+	void clearAiFeatureCandidatePreview();
+	bool commitAiTrajectoryFeatures(const QByteArray& featurePlanJsonUtf8, QString* summary, QString* err);
 
 private:
 	void applyProgramStartPoseAfterProjectLoadImpl();

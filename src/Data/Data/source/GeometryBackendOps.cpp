@@ -202,6 +202,15 @@ bool suggestFeaturesFromCatalog(
 	return geoalgo::suggestFeaturesFromCatalog(catalog, intentUtf8, out, errMsg);
 }
 
+bool computeFeatureAnchor(
+	const geoalgo::WorkpieceRef& workpiece,
+	const geoalgo::FeatureRefs& refs,
+	geoalgo::FeatureAnchor& out,
+	std::string* errMsg)
+{
+	return geoalgo::computeFeatureAnchor(workpiece, refs, out, errMsg);
+}
+
 bool buildFeatureSpecFromModelPick(
 	const geoalgo::WorkpieceRef& workpiece,
 	const bool pickFace,

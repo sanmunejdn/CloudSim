@@ -181,6 +181,19 @@ public:
 	void showMeshFaceHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld, const osg::Vec3f& cWorld);
 	void showMeshEdgeHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld);
 	void hideMeshElementHighlight();
+
+	struct FeatureCatalogOverlayItem
+	{
+		int displayIndex = 0;
+		osg::Vec3f anchorWorldMm;
+		osg::Vec3f labelWorldMm;
+		bool hasEdgeSegment = false;
+		osg::Vec3f edgeAWorldMm;
+		osg::Vec3f edgeBWorldMm;
+	};
+	void setFeatureCatalogOverlay(const std::vector<FeatureCatalogOverlayItem>& items);
+	void clearFeatureCatalogOverlay();
+
 	void bindBackendVisualRoot(const std::string& backendId, osg::Node* rootNode);
 	void unbindBackendVisualRoot(const std::string& backendId);
 	void clearBackendVisualBindings();
@@ -286,6 +299,7 @@ public:
 	int m_annotationCounter = 0;
 
 	osg::ref_ptr<osg::Group> m_meshPickOverlayGroup;
+	osg::ref_ptr<osg::Group> m_featureCatalogOverlayGroup;
 	osg::ref_ptr<osg::Geometry> m_meshPickedFaceGeom;
 	osg::ref_ptr<osg::Geometry> m_meshPickedEdgeGeom;
 	osg::ref_ptr<osg::Vec3Array> m_meshPickedFaceVertices;

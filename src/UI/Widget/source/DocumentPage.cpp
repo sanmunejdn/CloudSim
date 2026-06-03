@@ -12,9 +12,7 @@
 #include <QTabWidget>
 #include <QUuid>
 
-#include "BackendDataManager.h"
-#include "BackendDataBase.h"
-#include "FollowAttachmentComponent.h"
+#include "IDataService.h"
 #include "IRobotBackendPoseSink.h"
 #include "OsgWidget.h"
 
@@ -37,11 +35,6 @@ OsgWidget* DocumentPage::urdfImportOsgWidget()
 IRobotBackendPoseSink* DocumentPage::urdfImportScenePoseSink()
 {
 	return static_cast<IRobotBackendPoseSink*>(widgetOsgFromPage(this));
-}
-
-BackendSceneDocumentFacade DocumentPage::sceneFacade()
-{
-	return BackendSceneDocumentFacade(backend(), sceneBridge(), followReverseIndex(), widgetOsgFromPage(this));
 }
 
 void DocumentPage::rebuildHierarchicalRobotAggregates()
@@ -224,14 +217,8 @@ QString DocumentPage::robotDisplayLabelForInstance(const int instanceIndex) cons
 		return QString();
 	}
 	const QString id = m_hierarchicalRobots[instanceIndex].sceneBackendId;
-	if (const auto data = backend().getData(id.toStdString()))
-	{
-		if (!data->name().empty())
-		{
-			return QString::fromStdString(data->name());
-		}
-	}
-	return id;
+	const QString name = const_cast<DocumentPage*>(this)->data().displayName(id);
+	return name.isEmpty() ? id : name;
 }
 
 QStringList DocumentPage::robotRevoluteJointNamesForInstance(const int instanceIndex) const
@@ -519,15 +506,14 @@ void DocumentPage::notifyRobotKinematicsAppliedToScene()
 	{
 		if (!ri.sceneBackendId.isEmpty())
 		{
-			markFollowAttachmentDirtyFromBackendMove(backend(), ri.sceneBackendId.toStdString());
+			markFollowAttachmentDirtyFromBackendMove(ri.sceneBackendId);
 		}
 	}
 }
 
-void DocumentPage::markFollowAttachmentDirtyFromBackendMove(const BackendDataManager& mgr, const std::string& seed)
+void DocumentPage::markFollowAttachmentDirtyFromBackendMove(const QString& seedBackendId)
 {
-	(void)mgr;
-	cloudsim::host::DocumentHost::markFollowAttachmentDirtyFromBackendMove(seed);
+	data().markFollowDirtyFromMove(seedBackendId);
 }
 
 const RobotCoordinate::RobotCoordinateFrameSet& DocumentPage::robotCoordinateFramesForInstance(

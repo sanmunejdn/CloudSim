@@ -150,20 +150,20 @@
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <UndefinePreprocessorDefinitions>_DEBUG</UndefinePreprocessorDefinitions>
-      <PreprocessorDefinitions>WIDGET_LIB;CLOUDSIM_OSG_IN_HOST;AIBACKEND_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIDGET_LIB;CLOUDSIM_OSG_IN_HOST;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../../Plugins/CloudSimAiSDK/inc;../CloudSimPluginHost/inc/Ai;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../BackendVisual/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/qtpropertybrowser;../../../../bin/SDK/OSG3.6.5/include;../../Data/Data/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotScene/inc;../../UI/Widget/inc</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../../Plugins/CloudSimAiSDK/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../../Robot/RobotScene/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Geometry/GeometryEngine/inc;../../Data/Data/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/qtpropertybrowser;../../../../bin/SDK/OSG3.6.5/include;../../UI/Widget/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /Zm300 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CloudSimBinDir)CloudSimCore.lib;$(CloudSimBinDir)CloudSimHost.lib;CloudSimPluginSDK.lib;CloudSimAiSDK.lib;winhttp.lib;OsgWidgetCore.lib;BackendVisual.lib;GeometryEngine.lib;GeometryAlgorithm.lib;RunLogger.lib;osgViewer.lib;osg.lib;osgDB.lib;osgWidget.lib;osgVolume.lib;osgUtil.lib;osgUI.lib;osgText.lib;osgTerrain.lib;osgSim.lib;osgShadow.lib;osgPresentation.lib;osgParticle.lib;osgManipulator.lib;osgGA.lib;osgFX.lib;osgAnimation.lib;OpenThreads.lib;Data.lib;RobotKinematics.lib;RobotUrdf.lib;RobotScene.lib;RobotWidget.lib;AiWidget.lib;CloudSimAiSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(CloudSimBinDir)CloudSimCore.lib;$(CloudSimBinDir)CloudSimHost.lib;RunLogger.lib;RobotWidget.lib;AiWidget.lib;$(CloudSimBinDir)OsgWidgetCore.lib;$(CloudSimBinDir)Data.lib;$(CloudSimBinDir)RobotScene.lib;$(CloudSimBinDir)RobotUrdf.lib;$(CloudSimBinDir)RobotKinematics.lib;$(CloudSimBinDir)GeometryEngine.lib;osgViewer.lib;osg.lib;osgDB.lib;osgWidget.lib;osgVolume.lib;osgUtil.lib;osgUI.lib;osgText.lib;osgTerrain.lib;osgSim.lib;osgShadow.lib;osgPresentation.lib;osgParticle.lib;osgManipulator.lib;osgGA.lib;osgFX.lib;osgAnimation.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(CloudSimBinDir);$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -180,7 +180,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../../Plugins/CloudSimAiSDK/inc;../CloudSimPluginHost/inc/Ai;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../BackendVisual/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/qtpropertybrowser;../../../../bin/SDK/OSG3.6.5/include;../../Data/Data/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Robot/RobotScene/inc;../../UI/Widget/inc</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../../Plugins/CloudSimAiSDK/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../../Robot/RobotScene/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Geometry/GeometryEngine/inc;../../Data/Data/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/qtpropertybrowser;../../../../bin/SDK/OSG3.6.5/include;../../UI/Widget/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /Zm300 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -188,36 +188,11 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CloudSimBinDir)CloudSimCore.lib;$(CloudSimBinDir)CloudSimHost.lib;CloudSimPluginSDK.lib;CloudSimAiSDK.lib;winhttp.lib;OsgWidgetCore.lib;BackendVisual.lib;GeometryEngine.lib;GeometryAlgorithm.lib;RunLogger.lib;osgViewer.lib;osg.lib;osgDB.lib;osgWidget.lib;osgVolume.lib;osgUtil.lib;osgUI.lib;osgText.lib;osgTerrain.lib;osgSim.lib;osgShadow.lib;osgPresentation.lib;osgParticle.lib;osgManipulator.lib;osgGA.lib;osgFX.lib;osgAnimation.lib;OpenThreads.lib;Data.lib;RobotKinematics.lib;RobotUrdf.lib;RobotScene.lib;RobotWidget.lib;AiWidget.lib;CloudSimAiSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(CloudSimBinDir)CloudSimCore.lib;$(CloudSimBinDir)CloudSimHost.lib;RunLogger.lib;RobotWidget.lib;AiWidget.lib;$(CloudSimBinDir)OsgWidgetCore.lib;$(CloudSimBinDir)Data.lib;$(CloudSimBinDir)RobotScene.lib;$(CloudSimBinDir)RobotUrdf.lib;$(CloudSimBinDir)RobotKinematics.lib;$(CloudSimBinDir)GeometryEngine.lib;osgViewer.lib;osg.lib;osgDB.lib;osgWidget.lib;osgVolume.lib;osgUtil.lib;osgUI.lib;osgText.lib;osgTerrain.lib;osgSim.lib;osgShadow.lib;osgPresentation.lib;osgParticle.lib;osgManipulator.lib;osgGA.lib;osgFX.lib;osgAnimation.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(CloudSimBinDir);$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\CloudSimPluginHost\inc\DocumentGeometryOps.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\DocumentPointCloudOps.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\PluginGeometryHostImpl.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\PluginPointCloudHostImpl.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\PluginDelegatedBackend.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\PluginDocumentAdapter.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\PluginSceneBridgeAdapter.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiActionPlanExecutor.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiAssistantHostImpl.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiCommandSchema.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiConfigLoader.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiDomainRegistryImpl.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiDomainRouter.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiHttpsPost.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiIntentParser.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiMeshDefaults.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiLlmClient.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiLlmConfig.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\AiProgressSink.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\GeometryRecognizeDomainHandler.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\TrajectoryFeatureDomainHandler.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\MeshComposeDomainHandler.h" />
-    <ClInclude Include="..\CloudSimPluginHost\inc\Ai\MeshCreateDomainHandler.h" />
-    <QtMoc Include="..\CloudSimPluginHost\inc\PluginHostContext.h" />
-    <QtMoc Include="..\CloudSimPluginHost\inc\PluginManager.h" />
     <ClInclude Include="inc\ApplicationStyle.h" />
     <ClInclude Include="..\..\Host\CloudSimHost\inc\CloudSimHost.h" />
     <ClInclude Include="..\..\Host\CloudSimHost\inc\DocumentHost.h" />
@@ -255,30 +230,6 @@
     <ClCompile Include="source\MainWindowAiAssistant.cpp" />
     <ClCompile Include="source\MainWindowUiSetup.cpp" />
     <ClCompile Include="source\MainWindowPlugins.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\DocumentGeometryOps.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\DocumentPointCloudOps.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\PluginGeometryHostImpl.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\PluginPointCloudHostImpl.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\PluginDelegatedBackend.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\PluginDocumentAdapter.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\PluginHostContext.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\PluginManager.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\PluginSceneBridgeAdapter.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiActionPlanExecutor.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiAssistantHostImpl.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiCommandSchema.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiConfigLoader.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiDomainRegistryImpl.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiDomainRouter.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiHttpsPost.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiIntentParser.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiLlmClient.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiLlmConfig.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\AiMeshDefaults.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\GeometryRecognizeDomainHandler.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\TrajectoryFeatureDomainHandler.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\MeshComposeDomainHandler.cpp" />
-    <ClCompile Include="..\CloudSimPluginHost\source\Ai\MeshCreateDomainHandler.cpp" />
     <ClCompile Include="source\MainWindowBackendTree.cpp" />
     <ClCompile Include="source\MainWindowObjectRepository.cpp" />
     <ClCompile Include="source\MainWindowSelectionService.cpp" />
@@ -310,27 +261,6 @@
     <ProjectReference Include="..\..\Contracts\CloudSimCore\CloudSimCore.vcxproj">
       <Project>{a0b1c2d3-e4f5-6789-abcd-ef0123456701}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\BackendVisual\BackendVisual.vcxproj">
-      <Project>{f1e2d3c4-b5a6-4789-0123-456789abcdef}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\OsgWidgetCore\OsgWidgetCore.vcxproj">
-      <Project>{e4f5a6b7-c8d9-4e0f-1a2b-3c4d5e6f7080}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Robot\RobotKinematics\RobotKinematics.vcxproj">
-      <Project>{8f4e2c1a-9d3b-4e7f-8a1c-2b6d4e8f0a1c}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Robot\RobotUrdf\RobotUrdf.vcxproj">
-      <Project>{7a3e9b2c-4d1f-4e8a-b5c6-1d2e3f4a5b6c}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Geometry\GeometryEngine\GeometryEngine.vcxproj">
-      <Project>{d4e5f6a7-b8c9-4d0e-9f1a-2b3c4d5e6f70}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Geometry\GeometryAlgorithm\GeometryAlgorithm.vcxproj">
-      <Project>{a1b2c3d4-e5f6-4789-abcd-ef0123456789}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Robot\RobotScene\RobotScene.vcxproj">
-      <Project>{b2c4d6e8-0a1f-4e3c-9d5e-7f1a2b3c4d5e}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\..\Infra\RunLogger\RunLogger.vcxproj">
       <Project>{35f6e3c1-7f9a-4d93-9faf-74bae4a0c2d1}</Project>
     </ProjectReference>
@@ -339,9 +269,7 @@
     </ProjectReference>
     <ProjectReference Include="..\RobotWidget\RobotWidget.vcxproj">
       <Project>{d5e6f7a8-b9c0-1234-def0-456789012345}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Plugins\CloudSimPluginSDK\CloudSimPluginSDK.vcxproj">
-      <Project>{c3d4e5f6-a7b8-9012-cdef-123456789abc}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

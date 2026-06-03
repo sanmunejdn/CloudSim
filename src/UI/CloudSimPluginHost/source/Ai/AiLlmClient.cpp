@@ -113,6 +113,29 @@ QString recognitionUserPrompt(const QString& userText)
 	return t + QStringLiteral("\n请根据截图识别主要基本体，输出 JSON。");
 }
 
+QString trajectoryFeatureSystemPrompt()
+{
+	return QStringLiteral(
+		"你是 STEP 工件轨迹特征助手。用户会提供 feature catalog 切片（含 displayIndex、candidateId、summary）和意图。"
+		"仅回复一个 JSON 对象，不要 markdown：\n"
+		"{\"version\":1,\"featureAxis\":\"line|surface|ambiguous\",\"clarifyMessage\":\"可选\","
+		"\"selectedCandidateIds\":[\"edge_0\"],"
+		"\"features\":[{\"schemaVersion\":1,\"featureId\":\"...\",\"kind\":\"EdgeChain|FaceBoundary|FaceUVGrid\","
+		"\"workpiece\":{\"backendIdUtf8\":\"...\",\"stepPathUtf8\":\"...\"},"
+		"\"refs\":{...},\"discretize\":{\"stepMm\":5.0,\"linearDeflectionMm\":0.01}}],"
+		"\"suggestedPipelineTemplate\":\"weld_default|glue_default|grind_default\"}\n"
+		"若无法判断线/面特征，featureAxis=ambiguous 并填写 clarifyMessage。"
+		"selectedCandidateIds 必须从 catalog 的 candidateId 选取。");
+}
+
+QString trajectoryFeatureUserPrompt(const QString& userText, const QByteArray& catalogSliceUtf8)
+{
+	QString prompt = userText.trimmed();
+	prompt += QStringLiteral("\n\nFeature catalog slice JSON:\n");
+	prompt += QString::fromUtf8(catalogSliceUtf8);
+	return prompt;
+}
+
 QString composeSystemPrompt()
 {
 	const auto d = AiMeshDefaults::activeDefaults();
@@ -147,7 +170,7 @@ QString composeSystemPrompt()
 }
 
 LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& config, const AiProgressSink& progress,
-	const QByteArray& imagePng, const QString& domainId)
+	const QByteArray& imagePng, const QString& domainId, const QByteArray& catalogSliceUtf8)
 {
 	LlmParseResult out;
 	const QString apiKey = resolveApiKey(config);
@@ -164,9 +187,12 @@ LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& 
 
 	const bool recognitionSchema = domainId == AiDomainIds::geometryRecognize();
 	const bool composeSchema = domainId == AiDomainIds::meshCompose();
+	const bool trajectorySchema = domainId == AiDomainIds::trajectoryFeature();
 	const QString sys = recognitionSchema ? recognitionSystemPrompt()
-		: (composeSchema ? composeSystemPrompt() : meshSystemPrompt());
-	const QString userPrompt = recognitionSchema ? recognitionUserPrompt(userText) : userText.trimmed();
+		: (composeSchema ? composeSystemPrompt()
+			: (trajectorySchema ? trajectoryFeatureSystemPrompt() : meshSystemPrompt()));
+	const QString userPrompt = recognitionSchema ? recognitionUserPrompt(userText)
+		: (trajectorySchema ? trajectoryFeatureUserPrompt(userText, catalogSliceUtf8) : userText.trimmed());
 
 	nlohmann::json body;
 	body["model"] = config.model.toStdString();
@@ -261,7 +287,7 @@ LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& 
 		return out;
 	}
 
-	if (recognitionSchema)
+	if (recognitionSchema || trajectorySchema)
 	{
 		const std::string extracted = AiCommandSchema::extractJsonObjectText(content);
 		try
@@ -270,12 +296,13 @@ LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& 
 		}
 		catch (...)
 		{
-			out.errorMessage = QStringLiteral("Recognition JSON parse failed.");
+			out.errorMessage = trajectorySchema ? QStringLiteral("Trajectory feature JSON parse failed.")
+				: QStringLiteral("Recognition JSON parse failed.");
 			return out;
 		}
 		if (!out.command.is_object())
 		{
-			out.errorMessage = QStringLiteral("Recognition response must be a JSON object.");
+			out.errorMessage = QStringLiteral("Response must be a JSON object.");
 			return out;
 		}
 	}

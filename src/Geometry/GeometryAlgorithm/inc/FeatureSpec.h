@@ -99,6 +99,23 @@ struct FeatureCatalog
 	std::vector<FeatureCandidate> candidates;
 };
 
+/// 特征标注锚点（STEP 文件坐标 mm）
+struct FeatureAnchor
+{
+	std::string candidateId;
+	double anchorXyzMm[3]{};
+	double labelOffsetXyzMm[3]{};
+	bool hasEdgeSegment = false;
+	double edgeEndAXyzMm[3]{};
+	double edgeEndBXyzMm[3]{};
+};
+
+GEOMETRY_ALGORITHM_API bool computeFeatureAnchor(
+	const WorkpieceRef& workpiece,
+	const FeatureRefs& refs,
+	FeatureAnchor& out,
+	std::string* errMsg = nullptr);
+
 GEOMETRY_ALGORITHM_API const char* featureKindToString(FeatureKind kind);
 GEOMETRY_ALGORITHM_API bool featureKindFromString(const std::string& s, FeatureKind& out);
 

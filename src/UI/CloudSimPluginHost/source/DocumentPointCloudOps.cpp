@@ -4,8 +4,8 @@
 #include "BackendDataManager.h"
 #include "BackendSceneDocumentFacade.h"
 #include "DocumentImportFacade.h"
-#include "DocumentPage.h"
-#include "MainWindow.h"
+#include "DocumentHost.h"
+#include "IPluginMainWindowHost.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
@@ -15,7 +15,7 @@ namespace document_point_cloud_ops
 {
 
 std::shared_ptr<PointCloudBackendData> resolvePointCloud(
-	DocumentPage* page,
+	cloudsim::host::DocumentHost* page,
 	const std::string& backendIdUtf8,
 	std::string* outError)
 {
@@ -49,7 +49,7 @@ std::shared_ptr<PointCloudBackendData> resolvePointCloud(
 }
 
 std::shared_ptr<MeshBackendData> resolveMesh(
-	DocumentPage* page,
+	cloudsim::host::DocumentHost* page,
 	const std::string& backendIdUtf8,
 	std::string* outError)
 {
@@ -90,7 +90,7 @@ std::shared_ptr<MeshBackendData> resolveMesh(
 	return mesh;
 }
 
-void commitPointCloudVisual(DocumentPage* page, const PointCloudBackendData& data)
+void commitPointCloudVisual(cloudsim::host::DocumentHost* page, const PointCloudBackendData& data)
 {
 	if (!page)
 	{
@@ -105,8 +105,8 @@ void commitPointCloudVisual(DocumentPage* page, const PointCloudBackendData& dat
 }
 
 std::string registerReconstructedMesh(
-	DocumentPage* page,
-	MainWindow* mainWindow,
+	cloudsim::host::DocumentHost* page,
+	IPluginMainWindowHost* mainWindowHost,
 	const std::shared_ptr<MeshBackendData>& meshPtr,
 	const PluginMeshCreateOptions& options,
 	std::string* outError)
@@ -151,9 +151,9 @@ std::string registerReconstructedMesh(
 		}
 		return std::string();
 	}
-	if (mainWindow && options.selectInTree)
+	if (mainWindowHost && options.selectInTree)
 	{
-		mainWindow->focusBackendInTreeAfterImport(meshPtr);
+		mainWindowHost->focusBackendInTreeAfterImport(adopted.backendId);
 	}
 	return adopted.backendId.toStdString();
 }
@@ -242,7 +242,7 @@ Eigen::AlignedBox3d toEigenBox(const PluginAxisAlignedBox& box)
 	return b;
 }
 
-bool queryPointCloudInfo(DocumentPage* page, const std::string& backendIdUtf8, PluginPointCloudInfo& out)
+bool queryPointCloudInfo(cloudsim::host::DocumentHost* page, const std::string& backendIdUtf8, PluginPointCloudInfo& out)
 {
 	const auto pc = resolvePointCloud(page, backendIdUtf8);
 	if (!pc)
@@ -253,7 +253,7 @@ bool queryPointCloudInfo(DocumentPage* page, const std::string& backendIdUtf8, P
 	return true;
 }
 
-bool measurePointCloud(DocumentPage* page, const std::string& backendIdUtf8, PluginPointCloudMeasure& out)
+bool measurePointCloud(cloudsim::host::DocumentHost* page, const std::string& backendIdUtf8, PluginPointCloudMeasure& out)
 {
 	const auto pc = resolvePointCloud(page, backendIdUtf8);
 	if (!pc)
@@ -271,7 +271,7 @@ bool measurePointCloud(DocumentPage* page, const std::string& backendIdUtf8, Plu
 }
 
 bool exportMeshToPly(
-	DocumentPage* page,
+	cloudsim::host::DocumentHost* page,
 	const std::string& backendIdUtf8,
 	const std::string& pathUtf8,
 	std::string* outError)

@@ -7,30 +7,23 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 
-#include "BackendDataBase.h"
-#include "BackendDataManager.h"
-#include "BackendPropertyRow.h"
 #include "BackendVisualSync.h"
 #include "DocumentHostEvents.h"
+#include "CoreTypes.h"
 #include "DocumentPage.h"
 #include "IDataService.h"
 #include "BackendPropertySchema.h"
+#include "BackendPropertyRow.h"
 #include "MainWindow_p.h"
-#include "MainWindowSelectionService.h"
-#include "MeshBackendData.h"
-#include "PointCloudBackendData.h"
 #include "OsgWidget.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotInstructionPropertySchema.h"
 #include "RobotInstructionProgram.h"
 #include "RunLogger.h"
 #include "RunInfoPage.h"
-#include "RobotInstructionController.h"
 #include "RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotInstructionPlanningHelpers.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
-
-#include "../../Data/PropertyCore/inc/PropertyTypes.h"
 
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
@@ -1075,25 +1068,24 @@ void MainWindow::updateInstructionPropertyPanel(
 	m_updatingPropertyBrowser = false;
 }
 
-void MainWindow::updatePropertyPanel(const std::shared_ptr<BackendDataBase>& data)
+void MainWindow::updatePropertyPanel(const QString& backendId)
 {
 	if (!m_propertyBrowser || !m_variantManager)
 	{
 		return;
 	}
-	if (data && m_followTargetNameDebounceTimer.isActive()
-		&& QString::fromStdString(data->id()) == m_followTargetNameDebounceBackendId)
+	if (!backendId.isEmpty() && m_followTargetNameDebounceTimer.isActive()
+		&& backendId == m_followTargetNameDebounceBackendId)
 	{
 		return;
 	}
-	if (!data)
+	if (backendId.isEmpty())
 	{
 		m_followTargetNameDebounceTimer.stop();
 		m_followTargetNameDebounceBackendId.clear();
 		m_followTargetNameDebounceText.clear();
 	}
-	else if (!m_followTargetNameDebounceBackendId.isEmpty()
-		&& QString::fromStdString(data->id()) != m_followTargetNameDebounceBackendId)
+	else if (!m_followTargetNameDebounceBackendId.isEmpty() && backendId != m_followTargetNameDebounceBackendId)
 	{
 		m_followTargetNameDebounceTimer.stop();
 		m_followTargetNameDebounceBackendId.clear();
@@ -1101,66 +1093,32 @@ void MainWindow::updatePropertyPanel(const std::shared_ptr<BackendDataBase>& dat
 	}
 	m_updatingPropertyBrowser = true;
 	m_variantManager->clear();
-	if (!data)
+	if (backendId.isEmpty())
 	{
 		m_updatingPropertyBrowser = false;
 		return;
 	}
 
 	DocumentPage* docPage = currentPage();
-	const BackendDataManager* propMgr = docPage ? &docPage->backend() : nullptr;
-	const nlohmann::json rows = data->snapshotPropertyRows(propMgr);
-	if (!rows.is_array())
+	if (!docPage || !docPage->data().isValid(backendId))
 	{
 		m_updatingPropertyBrowser = false;
 		return;
 	}
-	for (const auto& r : rows)
+	const QVector<cloudsim::core::PropertyRowDto> rows = docPage->data().propertyRows(backendId);
+	for (const cloudsim::core::PropertyRowDto& r : rows)
 	{
-		if (!r.is_object())
-		{
-			continue;
-		}
-		const std::string keyStr = r.value(backend_property_json::kKey, std::string());
-		const std::string labelStr = r.value(backend_property_json::kLabelEn, std::string());
-		bool editable = false;
-		if (const auto itEd = r.find(backend_property_json::kEditable); itEd != r.end())
-		{
-			if (itEd->is_boolean())
-			{
-				editable = itEd->get<bool>();
-			}
-			else if (itEd->is_number_integer())
-			{
-				editable = (itEd->get<int>() != 0);
-			}
-		}
-		if (keyStr == "follow.targetName")
+		QString key = r.key;
+		bool editable = r.editable;
+		if (key == QStringLiteral("follow.targetName"))
 		{
 			editable = true;
 		}
-		const std::string valueStr = r.value(backend_property_json::kValue, std::string());
-		const QString key = QString::fromStdString(keyStr);
-		const QString label = propertyDisplayLabelForKey(key, QString::fromStdString(labelStr));
-		QString val = QString::fromStdString(valueStr);
-		if (isPoseComponentKey(key))
-		{
-			const BackendVec3 p = data->poseInFrame(data->poseReferenceFrame(), propMgr);
-			if (key == QStringLiteral("pose.x")) val = QString::number(p.x, 'g', 12);
-			if (key == QStringLiteral("pose.y")) val = QString::number(p.y, 'g', 12);
-			if (key == QStringLiteral("pose.z")) val = QString::number(p.z, 'g', 12);
-		}
-		else if (isRotationComponentKey(key))
-		{
-			const BackendVec3 rFrame = data->rotationInFrame(data->poseReferenceFrame(), propMgr);
-			if (key == QStringLiteral("rotation.x")) val = QString::number(rFrame.x, 'g', 12);
-			if (key == QStringLiteral("rotation.y")) val = QString::number(rFrame.y, 'g', 12);
-			if (key == QStringLiteral("rotation.z")) val = QString::number(rFrame.z, 'g', 12);
-		}
-		appendPropertyBrowserRow(key, label, val, editable);
+		const QString label = propertyDisplayLabelForKey(key, r.labelEn);
+		appendPropertyBrowserRow(key, label, r.value, editable);
 	}
 
-	const bool showAxis = static_cast<bool>(std::dynamic_pointer_cast<PointCloudBackendData>(data));
+	const bool showAxis = docPage->data().geometryKind(backendId) == cloudsim::core::GeometryKind::Points;
 	if (showAxis)
 	{
 		const QString axisKey = QStringLiteral("ui.active_axis");
@@ -1385,8 +1343,8 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	{
 		return;
 	}
-	const std::shared_ptr<BackendDataBase> data = MainWindowSelectionService::selectedBackendData(*this);
-	if (!data)
+	const QString backendId = m_selectionState.selectedBackendId();
+	if (backendId.isEmpty())
 	{
 		return;
 	}
@@ -1394,7 +1352,7 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	const QString propertyKey = property->whatsThis();
 	if (propertyKey == QStringLiteral("follow.targetName"))
 	{
-		m_followTargetNameDebounceBackendId = QString::fromStdString(data->id());
+		m_followTargetNameDebounceBackendId = backendId;
 		m_followTargetNameDebounceText = variantValueToString(value);
 		m_followTargetNameDebounceTimer.start(400);
 		return;
@@ -1411,119 +1369,68 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	const std::string valueUtf8(valueBytes.constData(), static_cast<std::size_t>(valueBytes.size()));
 
 	DocumentPage* docPage = currentPage();
-	BackendDataManager* propMgr = docPage ? &docPage->backend() : nullptr;
-
-	const nlohmann::json rowsBefore = data->snapshotPropertyRows(propMgr);
-	const QString oldValue = snapshotPropertyValueForKey(rowsBefore, propertyKey);
-
-	std::string err;
-	bool applyOk = false;
-	if (isPoseComponentKey(propertyKey))
+	if (!docPage)
 	{
-		const BackendPoseReferenceFrame frame = data->poseReferenceFrame();
-		BackendVec3 poseFrame = data->poseInFrame(frame, propMgr);
-		if (!updateVec3ComponentFromKey(propertyKey, valueText, poseFrame))
-		{
-			updatePropertyPanel(data);
-			return;
-		}
-		data->setPoseInFrame(poseFrame, frame, propMgr);
-		applyOk = true;
-	}
-	else if (isRotationComponentKey(propertyKey))
-	{
-		const BackendPoseReferenceFrame frame = data->poseReferenceFrame();
-		BackendVec3 rotFrame = data->rotationInFrame(frame, propMgr);
-		if (!updateVec3ComponentFromKey(propertyKey, valueText, rotFrame))
-		{
-			updatePropertyPanel(data);
-			return;
-		}
-		data->setRotationInFrame(rotFrame, frame, propMgr);
-		applyOk = true;
-	}
-	else if (!docPage)
-	{
-		RunLogger::debug(std::string("[PropertyCommitDBG] skip commit without document page id=") + data->id()
-			+ " key=" + keyUtf8);
+		RunLogger::debug(std::string("[PropertyCommitDBG] skip commit without document page id=")
+			+ backendId.toStdString() + " key=" + keyUtf8);
 		RunLogger::flush();
 		return;
 	}
-	else
+
+	QString oldValue;
+	for (const cloudsim::core::PropertyRowDto& row : docPage->data().propertyRows(backendId))
 	{
-		QString dsErr;
-		applyOk = docPage->data().applyPropertyChange(QString::fromStdString(data->id()), propertyKey, valueText, &dsErr);
-		if (!applyOk && !dsErr.isEmpty())
+		if (row.key == propertyKey)
 		{
-			err = dsErr.toStdString();
+			oldValue = row.value;
+			break;
 		}
 	}
+
+	QString dsErr;
+	const bool applyOk = docPage->data().applyPropertyChange(backendId, propertyKey, valueText, &dsErr);
 	if (!applyOk)
 	{
-		RunLogger::debug(std::string("[PropertyCommitDBG] apply failed id=") + data->id()
+		RunLogger::debug(std::string("[PropertyCommitDBG] apply failed id=") + backendId.toStdString()
 			+ " key=" + keyUtf8
 			+ " old=" + oldValue.toStdString()
 			+ " new=" + valueUtf8
-			+ " err=" + err);
+			+ " err=" + dsErr.toStdString());
 		RunLogger::flush();
-		updatePropertyPanel(data);
+		updatePropertyPanel(backendId);
 		return;
 	}
-	RunLogger::debug(std::string("[PropertyCommitDBG] apply ok id=") + data->id()
+	RunLogger::debug(std::string("[PropertyCommitDBG] apply ok id=") + backendId.toStdString()
 		+ " key=" + keyUtf8
 		+ " old=" + oldValue.toStdString()
 		+ " new=" + valueUtf8);
 	RunLogger::flush();
 
-	const property_core::PropertyDescriptor* backendDesc = backendPropertyDescriptorForKey(propertyKey);
-	const quint32 semanticU = backendDesc != nullptr
-		? property_core::semanticFlagsBits(backendDesc->semanticFlags)
-		: property_core::semanticFlagsBits(property_core::PropertySemanticFlags::LegacyFullCommitBehavior);
-
 	const bool followKey = propertyKey.startsWith(QStringLiteral("follow."));
-	const bool legacy = (semanticU
-			& property_core::semanticFlagsBits(property_core::PropertySemanticFlags::LegacyFullCommitBehavior))
-		!= 0U;
-	const bool needOsgSync = followKey || legacy
-		|| (semanticU
-			& property_core::semanticFlagsBits(property_core::PropertySemanticFlags::AffectsBackendRootWorldXform))
-			!= 0U
-		|| (semanticU & property_core::semanticFlagsBits(property_core::PropertySemanticFlags::AffectsColorOnly)) != 0U;
-	RunLogger::debug(std::string("[PropertyCommitDBG] semantics id=") + data->id()
-		+ " key=" + keyUtf8
-		+ " semanticBits=" + std::to_string(static_cast<unsigned long long>(semanticU))
-		+ " needOsgSync=" + (needOsgSync ? "true" : "false")
-		+ " followKey=" + (followKey ? "true" : "false")
-		+ " legacy=" + (legacy ? "true" : "false"));
-	RunLogger::flush();
-
 	if (followKey)
 	{
 		afterBackendFollowPropertyEdited(propertyKey, valueText);
 	}
-	else if (docPage && propMgr)
+	else
 	{
-		docPage->markFollowAttachmentDirtyFromBackendMove(*propMgr, data->id());
+		docPage->markFollowAttachmentDirtyFromBackendMove(backendId);
 	}
 
-	if (needOsgSync && docPage
-		&& (isPoseComponentKey(propertyKey) || isRotationComponentKey(propertyKey)))
+	if (cloudsim::host::propertyKeyNeedsVisualSync(propertyKey))
 	{
-		const bool applyColor = (semanticU
-				& property_core::semanticFlagsBits(property_core::PropertySemanticFlags::AffectsColorOnly))
-			!= 0U;
-		cloudsim::host::syncVisualAfterPropertyChange(*docPage, *data, applyColor);
+		const bool applyColor = propertyKey.contains(QStringLiteral("color"), Qt::CaseInsensitive);
+		cloudsim::host::syncVisualAfterPropertyChangeById(*docPage, backendId, applyColor);
 		if (cloudsim::host::propertyKeyCommitsPose(propertyKey))
 		{
-			cloudsim::host::publishPoseCommittedFromBackend(*docPage, *data);
+			cloudsim::host::publishPoseCommittedFromBackendId(*docPage, backendId);
 		}
 	}
 	if (isPoseComponentKey(propertyKey) || isRotationComponentKey(propertyKey))
 	{
-		syncRobotKinematicsAfterPoseEdit(data);
+		syncRobotKinematicsAfterPoseEdit(backendId);
 	}
 
-	schedulePropertyPanelCommitRefresh(data);
+	schedulePropertyPanelCommitRefresh(backendId);
 }
 
 void MainWindow::flushFollowTargetNamePropertyEdit()
@@ -1541,21 +1448,19 @@ void MainWindow::flushFollowTargetNamePropertyEdit()
 		m_followTargetNameDebounceText.clear();
 		return;
 	}
-	const std::shared_ptr<BackendDataBase> data = MainWindowSelectionService::selectedBackendData(*this);
-	if (!data || QString::fromStdString(data->id()) != m_followTargetNameDebounceBackendId)
+	if (m_followTargetNameDebounceBackendId.isEmpty())
 	{
-		m_followTargetNameDebounceBackendId.clear();
-		m_followTargetNameDebounceText.clear();
 		return;
 	}
 
 	DocumentPage* docPage = currentPage();
 	const QString propertyKey = QStringLiteral("follow.targetName");
+	const QString backendId = m_followTargetNameDebounceBackendId;
 
 	if (!docPage)
 	{
 		RunLogger::debug(std::string("[PropertyCommitDBG] skip follow name commit without document page id=")
-			+ data->id());
+			+ backendId.toStdString());
 		RunLogger::flush();
 		m_followTargetNameDebounceBackendId.clear();
 		m_followTargetNameDebounceText.clear();
@@ -1563,12 +1468,12 @@ void MainWindow::flushFollowTargetNamePropertyEdit()
 	}
 
 	QString dsErr;
-	const bool applyOk = docPage->data().applyPropertyChange(QString::fromStdString(data->id()), propertyKey,
-		m_followTargetNameDebounceText, &dsErr);
+	const bool applyOk = docPage->data().applyPropertyChange(backendId, propertyKey, m_followTargetNameDebounceText,
+		&dsErr);
 	if (!applyOk)
 	{
 		m_followTargetNameDebounceBackendId.clear();
-		updatePropertyPanel(data);
+		updatePropertyPanel(backendId);
 		return;
 	}
 
@@ -1576,5 +1481,5 @@ void MainWindow::flushFollowTargetNamePropertyEdit()
 
 	m_followTargetNameDebounceBackendId.clear();
 	m_followTargetNameDebounceText.clear();
-	updatePropertyPanel(data);
+	updatePropertyPanel(backendId);
 }

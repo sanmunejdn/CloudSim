@@ -24,6 +24,7 @@ class BackendDataBase;
 class MeshBackendData;
 class PointCloudBackendData;
 class RobotProgramStore;
+class BackendSceneDocumentFacade;
 
 #include "BackendFollowReverseIndex.h"
 #include "OsgWidgetSceneBridge.h"
@@ -47,6 +48,10 @@ public:
 	cloudsim::core::IRenderView& render() override;
 	cloudsim::core::EventHub& events();
 
+	/// 文档内 OsgWidget（构造期可用，勿经 render().widget()）
+	OsgWidget* osgWidget() { return m_osgWidget; }
+	const OsgWidget* osgWidget() const { return m_osgWidget; }
+
 	/// 存量 backend 入口
 	BackendDataManager& backend();
 	const BackendDataManager& backend() const;
@@ -57,6 +62,8 @@ public:
 	BackendFollowReverseIndex& followReverseIndex();
 	/// 场景桥接
 	OsgWidgetSceneBridge& sceneBridge();
+	/// 场景/后端数据门面（PluginHost 与导入后可见性同步）
+	BackendSceneDocumentFacade sceneFacade();
 
 	/// 网格加载到场景
 	bool loadMeshFromBackendIntoScene(const MeshBackendData& data, QString* errorMessage = nullptr,
@@ -86,6 +93,9 @@ public:
 	/// FK 批量抑制脏通知
 	void setSuppressRobotFollowDirtyNotify(bool suppress);
 	bool suppressRobotFollowDirtyNotify() const;
+
+	void ensureSelectionVisualForBackend(const std::string& backendId, bool urdfLinkMesh = false);
+	bool syncOuterPatFromBackendId(const std::string& backendId);
 
 	/// URDF 导入上下文
 	void setRobotUrdfImportContext(IRobotUrdfImportContext* context);

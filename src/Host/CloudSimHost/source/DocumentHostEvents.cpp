@@ -2,6 +2,7 @@
 
 #include "DocumentHost.h"
 #include "BackendDataBase.h"
+#include "BackendDataManager.h"
 #include "CoreEvents.h"
 #include "CoreTypes.h"
 #include "EventHub.h"
@@ -87,6 +88,16 @@ void publishPoseCommittedFromBackend(DocumentHost& host, const BackendDataBase& 
 	dto.eulerDeg.y = rot.y;
 	dto.eulerDeg.z = rot.z;
 	publishPoseCommitted(host, QString::fromStdString(data.id()), dto);
+}
+
+void publishPoseCommittedFromBackendId(DocumentHost& host, const QString& objectId)
+{
+	const auto obj = host.backend().getData(objectId.toStdString());
+	if (!obj)
+	{
+		return;
+	}
+	publishPoseCommittedFromBackend(host, *obj);
 }
 
 } // namespace cloudsim::host

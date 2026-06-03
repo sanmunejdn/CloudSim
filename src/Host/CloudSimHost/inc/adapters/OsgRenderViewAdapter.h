@@ -6,11 +6,15 @@ class OsgWidget;
 
 namespace cloudsim::host {
 
+class DocumentHost;
+
 /// OsgWidget 渲染适配
 class OsgRenderViewAdapter final : public core::IRenderView
 {
 public:
 	explicit OsgRenderViewAdapter(OsgWidget& widget);
+	explicit OsgRenderViewAdapter(OsgWidget& widget, DocumentHost& host);
+	explicit OsgRenderViewAdapter(DocumentHost& host);
 
 	QWidget* widget() override;
 	const QWidget* widget() const override;
@@ -37,7 +41,13 @@ public:
 	bool selectedPosition(float& outX, float& outY, float& outZ) const override;
 	bool selectedRotationEulerDeg(float& outRx, float& outRy, float& outRz) const override;
 
+	void ensureSelectionVisualForBackend(const core::ObjectId& id, bool urdfLinkMesh = false) override;
+	bool syncOuterPatFromBackend(const core::ObjectId& id) override;
+	core::GeometryKind geometryKindForBackend(const core::ObjectId& id) const override;
+	bool commitGizmoPoseToBackend(const core::ObjectId& id) override;
+
 private:
+	DocumentHost* m_host = nullptr;
 	OsgWidget& m_widget;
 	core::PickHandler m_pickHandler;
 };

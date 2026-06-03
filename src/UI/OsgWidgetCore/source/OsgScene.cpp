@@ -17,6 +17,8 @@
 #include <limits>
 #include <queue>
 #include <cmath>
+#include <cfloat>
+#include <vector>
 
 #include <osg/GL>
 #include <osg/BlendFunc>
@@ -31,8 +33,10 @@
 #include <osg/MatrixTransform>
 #include <osg/NodeCallback>
 #include <osg/PrimitiveSet>
+#include <osg/AutoTransform>
 #include <osg/ShapeDrawable>
 #include <osg/Shape>
+#include <osgText/Text>
 #include <osg/StateSet>
 #include <osg/Transform>
 #include <osg/Drawable>
@@ -323,6 +327,10 @@ void OsgScene::initScene()
 	m_meshPickOverlayGroup = new osg::Group;
 	m_meshPickOverlayGroup->setNodeMask(0u);
 	m_root->addChild(m_meshPickOverlayGroup.get());
+
+	m_featureCatalogOverlayGroup = new osg::Group;
+	m_featureCatalogOverlayGroup->setName("FeatureCatalogOverlay");
+	m_trajectoryOverlayGroup->addChild(m_featureCatalogOverlayGroup.get());
 
 	m_meshPickedFaceGeom = new osg::Geometry;
 	m_meshPickedFaceVertices = new osg::Vec3Array;
@@ -1666,6 +1674,269 @@ void OsgScene::hideMeshElementHighlight()
 	}
 	m_meshPickOverlayGroup->setNodeMask(0u);
 }
+
+namespace
+{
+
+osg::ref_ptr<osg::Geode> makeFeatureOverlayLine(const osg::Vec3f& a, const osg::Vec3f& b, const osg::Vec4& color,
+	float width)
+{
+	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+	osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
+	verts->push_back(a);
+	verts->push_back(b);
+	geom->setVertexArray(verts.get());
+	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+	colors->push_back(color);
+	geom->setColorArray(colors.get(), osg::Array::BIND_OVERALL);
+	geom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, 2));
+	geode->addDrawable(geom.get());
+	geode->getOrCreateStateSet()->setAttribute(new osg::LineWidth(width));
+	geode->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+	return geode;
+}
+
+void spreadFeatureCatalogLabels(std::vector<OsgScene::FeatureCatalogOverlayItem>& items)
+{
+	if (items.empty())
+	{
+		return;
+	}
+
+	osg::Vec3f minB(FLT_MAX, FLT_MAX, FLT_MAX);
+	osg::Vec3f maxB(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+	osg::Vec3f centroid(0.0f, 0.0f, 0.0f);
+	for (const OsgScene::FeatureCatalogOverlayItem& item : items)
+	{
+		centroid += item.anchorWorldMm;
+		minB.x() = std::min(minB.x(), item.anchorWorldMm.x());
+		minB.y() = std::min(minB.y(), item.anchorWorldMm.y());
+		minB.z() = std::min(minB.z(), item.anchorWorldMm.z());
+		maxB.x() = std::max(maxB.x(), item.anchorWorldMm.x());
+		maxB.y() = std::max(maxB.y(), item.anchorWorldMm.y());
+		maxB.z() = std::max(maxB.z(), item.anchorWorldMm.z());
+	}
+	centroid /= static_cast<float>(items.size());
+	const osg::Vec3f extent = maxB - minB;
+	const float diag = extent.length();
+	const float leaderLen = std::max(48.0f, diag * 0.2f);
+	const float minSep = std::max(40.0f, diag * 0.16f);
+	const float maxLeaderLen = leaderLen * 1.75f;
+
+	auto clampLeader = [&](OsgScene::FeatureCatalogOverlayItem& it) {
+		osg::Vec3f lead = it.labelWorldMm - it.anchorWorldMm;
+		const float len = lead.length();
+		if (len > maxLeaderLen && len > 1e-4f)
+		{
+			it.labelWorldMm = it.anchorWorldMm + lead * (maxLeaderLen / len);
+		}
+	};
+
+	if (items.size() == 1)
+	{
+		osg::Vec3f dir = items[0].labelWorldMm - items[0].anchorWorldMm;
+		if (dir.length2() < 1e-6f)
+		{
+			dir = items[0].anchorWorldMm - centroid;
+		}
+		if (dir.length2() < 1e-6f)
+		{
+			dir.set(1.0f, 0.0f, 0.0f);
+		}
+		dir.normalize();
+		items[0].labelWorldMm = items[0].anchorWorldMm + dir * leaderLen;
+		return;
+	}
+
+	int axisA = 0;
+	int axisB = 1;
+	if (extent.y() >= extent.x() && extent.y() >= extent.z())
+	{
+		axisA = 0;
+		axisB = 2;
+	}
+	else if (extent.z() >= extent.x() && extent.z() >= extent.y())
+	{
+		axisA = 0;
+		axisB = 1;
+	}
+
+	struct LayoutSlot
+	{
+		std::size_t itemIndex = 0;
+		osg::Vec3f anchor;
+		float angle = 0.0f;
+	};
+
+	std::vector<LayoutSlot> slots;
+	slots.reserve(items.size());
+	for (std::size_t i = 0; i < items.size(); ++i)
+	{
+		osg::Vec3f outward = items[i].anchorWorldMm - centroid;
+		if (outward.length2() < 1e-8f)
+		{
+			outward.set(1.0f, 0.0f, 0.0f);
+		}
+		outward.normalize();
+		LayoutSlot slot;
+		slot.itemIndex = i;
+		slot.anchor = items[i].anchorWorldMm;
+		const float compA = axisA == 0 ? outward.x() : (axisA == 1 ? outward.y() : outward.z());
+		const float compB = axisB == 0 ? outward.x() : (axisB == 1 ? outward.y() : outward.z());
+		slot.angle = std::atan2(compB, compA);
+		slots.push_back(slot);
+	}
+
+	std::sort(slots.begin(), slots.end(),
+		[](const LayoutSlot& lhs, const LayoutSlot& rhs) { return lhs.angle < rhs.angle; });
+
+	const float twoPi = 6.28318530718f;
+	const float slotCount = static_cast<float>(slots.size());
+	for (std::size_t k = 0; k < slots.size(); ++k)
+	{
+		const float targetAngle = twoPi * static_cast<float>(k) / slotCount;
+		osg::Vec3f dir(0.0f, 0.0f, 0.0f);
+		if (axisA == 0)
+		{
+			dir.x() = std::cos(targetAngle);
+		}
+		else if (axisA == 1)
+		{
+			dir.y() = std::cos(targetAngle);
+		}
+		else
+		{
+			dir.z() = std::cos(targetAngle);
+		}
+		if (axisB == 0)
+		{
+			dir.x() = std::sin(targetAngle);
+		}
+		else if (axisB == 1)
+		{
+			dir.y() = std::sin(targetAngle);
+		}
+		else
+		{
+			dir.z() = std::sin(targetAngle);
+		}
+
+		osg::Vec3f localOut = slots[k].anchor - centroid;
+		if (localOut.length2() > 1e-8f)
+		{
+			localOut.normalize();
+			dir = dir * 0.5f + localOut * 0.5f;
+			dir.normalize();
+		}
+		else
+		{
+			dir.normalize();
+		}
+
+		const float ring = (k % 3 == 2) ? 1.4f : ((k % 3 == 1) ? 1.2f : 1.0f);
+		items[slots[k].itemIndex].labelWorldMm = slots[k].anchor + dir * leaderLen * ring;
+	}
+
+	for (int pass = 0; pass < 24; ++pass)
+	{
+		for (std::size_t i = 0; i < items.size(); ++i)
+		{
+			for (std::size_t j = i + 1; j < items.size(); ++j)
+			{
+				osg::Vec3f delta = items[j].labelWorldMm - items[i].labelWorldMm;
+				const float dist = delta.length();
+				if (dist >= minSep || dist < 1e-4f)
+				{
+					continue;
+				}
+				delta /= dist;
+				const float push = (minSep - dist) * 0.7f;
+				items[i].labelWorldMm -= delta * push;
+				items[j].labelWorldMm += delta * push;
+				clampLeader(items[i]);
+				clampLeader(items[j]);
+			}
+		}
+	}
+}
+
+} // namespace
+
+void OsgScene::clearFeatureCatalogOverlay()
+{
+	if (m_featureCatalogOverlayGroup.valid())
+	{
+		m_featureCatalogOverlayGroup->removeChildren(0, m_featureCatalogOverlayGroup->getNumChildren());
+	}
+}
+
+void OsgScene::setFeatureCatalogOverlay(const std::vector<FeatureCatalogOverlayItem>& items)
+{
+	clearFeatureCatalogOverlay();
+	if (!m_featureCatalogOverlayGroup.valid() || items.empty())
+	{
+		return;
+	}
+
+	std::vector<FeatureCatalogOverlayItem> layoutItems = items;
+	spreadFeatureCatalogLabels(layoutItems);
+
+	for (const FeatureCatalogOverlayItem& item : layoutItems)
+	{
+		osg::ref_ptr<osg::Group> itemGroup = new osg::Group;
+
+		if (item.hasEdgeSegment)
+		{
+			itemGroup->addChild(makeFeatureOverlayLine(item.edgeAWorldMm, item.edgeBWorldMm,
+				osg::Vec4(0.25f, 0.02f, 0.02f, 0.65f), 8.0f).get());
+			itemGroup->addChild(makeFeatureOverlayLine(item.edgeAWorldMm, item.edgeBWorldMm,
+				osg::Vec4(1.0f, 0.18f, 0.12f, 1.0f), 4.5f).get());
+		}
+
+		osg::ref_ptr<osg::Geode> anchorGeode = new osg::Geode;
+		osg::ref_ptr<osg::ShapeDrawable> sphere = new osg::ShapeDrawable(new osg::Sphere(item.anchorWorldMm, 2.5f));
+		sphere->setColor(osg::Vec4(1.0f, 0.15f, 0.1f, 1.0f));
+		anchorGeode->addDrawable(sphere.get());
+		osg::StateSet* anchorSs = anchorGeode->getOrCreateStateSet();
+		anchorSs->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+		anchorSs->setAttribute(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+		anchorSs->setMode(GL_BLEND, osg::StateAttribute::ON);
+		itemGroup->addChild(anchorGeode.get());
+
+		itemGroup->addChild(
+			makeFeatureOverlayLine(item.anchorWorldMm, item.labelWorldMm, osg::Vec4(1.0f, 0.55f, 0.5f, 0.95f), 2.0f)
+				.get());
+
+		osg::ref_ptr<osg::AutoTransform> labelXform = new osg::AutoTransform;
+		labelXform->setAutoRotateMode(osg::AutoTransform::ROTATE_TO_SCREEN);
+		labelXform->setAutoScaleToScreen(true);
+		labelXform->setAutoScaleTransitionWidthRatio(0.25f);
+		labelXform->setMinimumScale(0.35f);
+		labelXform->setMaximumScale(2.0f);
+		labelXform->setPosition(item.labelWorldMm);
+		osg::ref_ptr<osgText::Text> text = new osgText::Text;
+		text->setText(std::to_string(item.displayIndex));
+		text->setCharacterSize(18.0f);
+		text->setFontResolution(96, 96);
+		text->setAxisAlignment(osgText::TextBase::SCREEN);
+		text->setAlignment(osgText::Text::CENTER_CENTER);
+		text->setColor(osg::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+		text->setBackdropType(osgText::Text::NONE);
+		osg::ref_ptr<osg::Geode> textGeode = new osg::Geode;
+		textGeode->addDrawable(text.get());
+		osg::StateSet* textSs = textGeode->getOrCreateStateSet();
+		textSs->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+		textSs->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
+		textSs->setRenderBinDetails(12, "RenderBin");
+		labelXform->addChild(textGeode.get());
+		itemGroup->addChild(labelXform.get());
+
+		m_featureCatalogOverlayGroup->addChild(itemGroup.get());
+	}
+	requestRedraw();
+}
+
 void OsgScene::rebuildPointKdTree()
 {
 	m_kdNodes.clear();

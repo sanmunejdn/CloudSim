@@ -2,8 +2,6 @@
 
 #include "cloudsim_host_global.h"
 
-#include "MeshBackendData.h"
-
 #include <QString>
 
 #include <functional>
@@ -13,6 +11,7 @@
 
 class BackendDataBase;
 class MeshBackendData;
+struct MeshHierarchyPart;
 
 namespace cloudsim::host {
 

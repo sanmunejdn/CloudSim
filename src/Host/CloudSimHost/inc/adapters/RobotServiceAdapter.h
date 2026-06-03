@@ -28,6 +28,12 @@ public:
 	QJsonArray robotProgramsJson() const override;
 	bool setRobotProgramsJson(const QJsonArray& programs, QString* outError = nullptr) override;
 
+	QVector<core::PropertyRowDto> instructionPropertyRows(const QString& instructionId) const override;
+	bool applyInstructionPropertyChange(const QString& instructionId, const QString& key, const QString& value,
+		QString* outError = nullptr) override;
+	QStringList feasibleMotionAxisConfigTokens(const QString& instructionId,
+		const core::MotionInstructionDto& instruction, const core::PlanContextDto& context) const override;
+
 private:
 	DocumentHost& m_host;
 	RobotProgramStore& m_programs;

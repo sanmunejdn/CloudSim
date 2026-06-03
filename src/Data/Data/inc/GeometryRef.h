@@ -49,6 +49,12 @@ DATA_EXPORT bool suggestFeaturesFromCatalog(
 	std::vector<geoalgo::FeatureSpec>& out,
 	std::string* errMsg = nullptr);
 
+DATA_EXPORT bool computeFeatureAnchor(
+	const geoalgo::WorkpieceRef& workpiece,
+	const geoalgo::FeatureRefs& refs,
+	geoalgo::FeatureAnchor& out,
+	std::string* errMsg = nullptr);
+
 DATA_EXPORT bool buildFeatureSpecFromModelPick(
 	const geoalgo::WorkpieceRef& workpiece,
 	bool pickFace,

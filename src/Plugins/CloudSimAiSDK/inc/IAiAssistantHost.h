@@ -30,6 +30,8 @@ public:
 
 	virtual AiParseResult parseUserTextWithRules(const QString& domainId, const QString& text) const = 0;
 
+	virtual AiParseResult parseTrajectoryFeatureRequest(const AiInferenceRequest& request) const = 0;
+
 	virtual void parseUserTextAsync(const AiInferenceRequest& request, const AiConfigDto& config,
 		const AiInferenceProgressFn& progress, std::function<void(AiParseResult)> onFinished) = 0;
 

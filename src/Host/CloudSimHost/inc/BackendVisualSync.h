@@ -19,6 +19,8 @@ CLOUDSIM_HOST_EXPORT bool propertyKeyCommitsPose(const QString& key);
 /// 属性变更后视觉同步
 CLOUDSIM_HOST_EXPORT void syncVisualAfterPropertyChange(DocumentHost& host, const BackendDataBase& data,
 	bool applyColor = false);
+CLOUDSIM_HOST_EXPORT void syncVisualAfterPropertyChangeById(DocumentHost& host, const QString& objectId,
+	bool applyColor = false);
 
 /// IDataService 后处理
 CLOUDSIM_HOST_EXPORT void afterDataServicePropertyChange(DocumentHost& host, const BackendDataBase& data,

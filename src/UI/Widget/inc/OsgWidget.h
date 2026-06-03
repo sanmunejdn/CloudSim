@@ -89,6 +89,9 @@ public:
 	friend class OsgWidgetTransformHierarchyController;
 
 	using AnnotationEntry = OsgScene::AnnotationEntry;
+	using FeatureCatalogOverlayItem = OsgScene::FeatureCatalogOverlayItem;
+	using OsgScene::setFeatureCatalogOverlay;
+	using OsgScene::clearFeatureCatalogOverlay;
 
 public:
 	struct InstructionPoseAxis

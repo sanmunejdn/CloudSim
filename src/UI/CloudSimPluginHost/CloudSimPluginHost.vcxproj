@@ -91,6 +91,7 @@
     <ClInclude Include="inc\Ai\AiLlmConfig.h" />
     <ClInclude Include="inc\Ai\AiProgressSink.h" />
     <ClInclude Include="inc\Ai\GeometryRecognizeDomainHandler.h" />
+    <ClInclude Include="inc\Ai\AiTrajectoryFeatureCatalog.h" />
     <ClInclude Include="inc\Ai\TrajectoryFeatureDomainHandler.h" />
     <ClInclude Include="inc\Ai\MeshComposeDomainHandler.h" />
     <ClInclude Include="inc\Ai\MeshCreateDomainHandler.h" />
@@ -120,6 +121,7 @@
     <ClCompile Include="source\Ai\AiLlmClient.cpp" />
     <ClCompile Include="source\Ai\AiLlmConfig.cpp" />
     <ClCompile Include="source\Ai\AiMeshDefaults.cpp" />
+    <ClCompile Include="source\Ai\AiTrajectoryFeatureCatalog.cpp" />
     <ClCompile Include="source\Ai\GeometryRecognizeDomainHandler.cpp" />
     <ClCompile Include="source\Ai\TrajectoryFeatureDomainHandler.cpp" />
     <ClCompile Include="source\Ai\MeshComposeDomainHandler.cpp" />

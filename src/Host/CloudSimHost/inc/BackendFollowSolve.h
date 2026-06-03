@@ -21,4 +21,8 @@ struct FollowSolveContext {
 CLOUDSIM_HOST_EXPORT void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget& osg,
 	const FollowSolveContext* ctx = nullptr, const std::string* manualPoseAuthorityBackendId = nullptr);
 
+/// follow.* 属性提交后重算局部偏移并置脏
+CLOUDSIM_HOST_EXPORT void afterFollowPropertyEdited(DocumentHost& host, const QString& backendId,
+	const QString& propertyKey, const QString& valueText);
+
 } // namespace cloudsim::host

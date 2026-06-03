@@ -24,6 +24,12 @@ public:
 
 	virtual QJsonArray robotProgramsJson() const = 0;
 	virtual bool setRobotProgramsJson(const QJsonArray& programs, QString* outError = nullptr) = 0;
+
+	virtual QVector<PropertyRowDto> instructionPropertyRows(const QString& instructionId) const = 0;
+	virtual bool applyInstructionPropertyChange(const QString& instructionId, const QString& key,
+		const QString& value, QString* outError = nullptr) = 0;
+	virtual QStringList feasibleMotionAxisConfigTokens(const QString& instructionId,
+		const MotionInstructionDto& instruction, const PlanContextDto& context) const = 0;
 };
 
 } // namespace cloudsim::core

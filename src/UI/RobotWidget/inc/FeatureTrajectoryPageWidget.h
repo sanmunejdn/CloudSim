@@ -56,7 +56,10 @@ class TrajectoryEditSession;
 
 class RobotSimulationController;
 
-
+namespace geoalgo
+{
+struct FeatureCatalog;
+}
 
 class ROBOTWIDGET_EXPORT FeatureTrajectoryPageWidget : public QWidget
 
@@ -82,7 +85,22 @@ public:
 
 	void setStepPathResolver(std::function<QString(const QString& backendId)> resolver);
 
+	/// AI / 宿主：轨迹页 combo 当前 STEP 工件
+	bool currentWorkpiece(QString& backendId, QString& stepPath) const;
 
+	/// 确保当前工件特征目录已枚举（AI 解析前调用）
+	bool ensureFeatureCatalogEnumerated(QString* err = nullptr);
+
+	/// 由 catalog 切片 JSON 构建 3D 编号 overlay
+	bool buildAndShowCandidatePreview(const QByteArray& catalogSliceUtf8);
+
+	void clearCandidatePreview();
+
+	/// 确认离散：features[] → RawTrajectory + 默认工艺流水线
+	bool commitFeaturePlanFromAi(const QByteArray& planJsonUtf8, QString* summary, QString* err);
+
+signals:
+	void workpieceComboChanged();
 
 private slots:
 
@@ -158,6 +176,14 @@ private:
 
 	void refreshPreviewFromSession();
 
+	bool buildPreviewOverlayJson(const QByteArray& catalogSliceUtf8, QByteArray& outPreviewJson, QString* err) const;
+
+	bool enumerateCatalogForBackend(const QString& backendId, geoalgo::FeatureCatalog& out, QString* err) const;
+
+	bool autoEnumerateCatalogForCurrentWorkpiece(bool updateEditor, bool quiet, QString* err);
+
+	bool shouldReplaceEditorWithCatalog() const;
+
 
 
 	IRobotMainWindowHost* m_host = nullptr;
@@ -177,6 +203,10 @@ private:
 	PickSessionKind m_pickSession = PickSessionKind::None;
 
 	std::string m_lastFeatureSpecJson;
+
+	QString m_cachedCatalogBackendId;
+
+	std::string m_cachedCatalogJsonUtf8;
 
 
 

@@ -131,4 +131,32 @@ bool RobotServiceAdapter::setRobotProgramsJson(const QJsonArray& programs, QStri
 	return robotProgramsFromJson(m_programs, programs, *ctx, outError);
 }
 
+QVector<core::PropertyRowDto> RobotServiceAdapter::instructionPropertyRows(const QString& instructionId) const
+{
+	(void)instructionId;
+	return {};
+}
+
+bool RobotServiceAdapter::applyInstructionPropertyChange(const QString& instructionId, const QString& key,
+	const QString& value, QString* outError)
+{
+	(void)instructionId;
+	(void)key;
+	(void)value;
+	if (outError)
+	{
+		*outError = QStringLiteral("instruction property API not wired");
+	}
+	return false;
+}
+
+QStringList RobotServiceAdapter::feasibleMotionAxisConfigTokens(const QString& instructionId,
+	const core::MotionInstructionDto& instruction, const core::PlanContextDto& context) const
+{
+	(void)instructionId;
+	(void)instruction;
+	(void)context;
+	return {};
+}
+
 } // namespace cloudsim::host

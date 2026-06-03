@@ -6,6 +6,7 @@
 
 #include "BackendDataBase.h"
 #include "MeshBackendData.h"
+#include "Types.h"
 #include "OsgWidget.h"
 #include "OsgWidgetCaptureController.h"
 

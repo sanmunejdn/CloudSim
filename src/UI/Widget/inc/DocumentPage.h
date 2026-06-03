@@ -44,11 +44,9 @@ public:
 	explicit DocumentPage(QTabWidget* parentTabs, cloudsim::core::EventHub& events);
 	~DocumentPage() override = default;
 
-	BackendSceneDocumentFacade sceneFacade();
-
 	void invalidateFollowReverseIndex() { followReverseIndex().invalidate(); }
 
-	void markFollowAttachmentDirtyFromBackendMove(const BackendDataManager& mgr, const std::string& seedBackendId);
+	void markFollowAttachmentDirtyFromBackendMove(const QString& seedBackendId);
 
 	void setHierarchicalRobotSimulationContext(
 		const QString& urdfAbsolutePath,

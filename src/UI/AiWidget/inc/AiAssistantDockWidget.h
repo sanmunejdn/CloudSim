@@ -31,9 +31,15 @@ public:
 	void showRecognitionResult(const QByteArray& jsonUtf8, const QString& parserVia);
 	void hideCreateFromRecognitionButton();
 
+	void showTrajectoryFeatureResult(const QByteArray& planJsonUtf8, const QByteArray& catalogSliceUtf8,
+		const QString& parserVia);
+	void hideTrajectoryFeatureConfirmButtons();
+
 signals:
 	void messageSubmitted(const QString& text);
 	void createFromRecognitionClicked();
+	void confirmTrajectoryFeaturesClicked();
+	void retryTrajectoryFeaturesClicked();
 
 private slots:
 	void onSendClicked();
@@ -52,4 +58,6 @@ private:
 	QPushButton* m_settingsBtn = nullptr;
 	QPushButton* m_sendBtn = nullptr;
 	QPushButton* m_createFromRecognitionBtn = nullptr;
+	QPushButton* m_confirmTrajectoryBtn = nullptr;
+	QPushButton* m_retryTrajectoryBtn = nullptr;
 };

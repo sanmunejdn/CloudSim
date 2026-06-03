@@ -16,6 +16,7 @@
 #include "OsgWidgetSceneBridge.h"
 #include "BackendFileImport.h"
 #include "DocumentHostEvents.h"
+#include "BackendSceneDocumentFacade.h"
 #include "IRobotUrdfImportContext.h"
 #include "RobotProgramStore.h"
 
@@ -44,7 +45,7 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 
 	m_dataService = std::make_unique<DataServiceAdapter>(*this);
 	m_robotService = std::make_unique<RobotServiceAdapter>(*this, *m_robotProgramStore);
-	m_renderView = std::make_unique<OsgRenderViewAdapter>(*m_osgWidget);
+	m_renderView = std::make_unique<OsgRenderViewAdapter>(*m_osgWidget, *this);
 }
 
 void DocumentHost::setRobotUrdfImportContext(IRobotUrdfImportContext* context)
@@ -117,6 +118,11 @@ BackendFollowReverseIndex& DocumentHost::followReverseIndex()
 OsgWidgetSceneBridge& DocumentHost::sceneBridge()
 {
 	return m_sceneBridge;
+}
+
+BackendSceneDocumentFacade DocumentHost::sceneFacade()
+{
+	return BackendSceneDocumentFacade(backend(), sceneBridge(), followReverseIndex(), m_osgWidget);
 }
 
 bool DocumentHost::loadMeshFromBackendIntoScene(const MeshBackendData& data, QString* errorMessage,
@@ -275,6 +281,29 @@ void DocumentHost::setSuppressRobotFollowDirtyNotify(const bool suppress)
 bool DocumentHost::suppressRobotFollowDirtyNotify() const
 {
 	return m_suppressRobotFollowDirtyNotify;
+}
+
+void DocumentHost::ensureSelectionVisualForBackend(const std::string& backendId, const bool urdfLinkMesh)
+{
+	const auto obj = m_backend->getData(backendId);
+	if (!obj || !m_osgWidget)
+	{
+		return;
+	}
+	BackendSceneDocumentFacade facade(*m_backend, m_sceneBridge, m_followReverseIndex, m_osgWidget);
+	facade.ensureSelectionVisualForBackend(*obj, urdfLinkMesh);
+}
+
+bool DocumentHost::syncOuterPatFromBackendId(const std::string& backendId)
+{
+	const auto obj = m_backend->getData(backendId);
+	if (!obj)
+	{
+		return false;
+	}
+	BackendSceneDocumentFacade facade(*m_backend, m_sceneBridge, m_followReverseIndex, m_osgWidget);
+	facade.entity(backendId).syncOuterPatFromBackend(*obj);
+	return true;
 }
 
 QMap<QString, QString>& DocumentHost::backendSourcePath()

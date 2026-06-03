@@ -48,6 +48,22 @@ public:
 		return false;
 	}
 
+	bool applyWorldPoseMm(const ObjectId&, const PoseDto&, QString* outError) override
+	{
+		if (outError)
+			*outError = QStringLiteral("NullDataService");
+		return false;
+	}
+
+	bool applyColor(const ObjectId&, const ColorDto&, QString* outError) override
+	{
+		if (outError)
+			*outError = QStringLiteral("NullDataService");
+		return false;
+	}
+
+	PoseDto worldPoseMm(const ObjectId&) const override { return {}; }
+
 	BBoxDto boundingBox(const ObjectId&) const override { return {}; }
 	bool hasVisualBranch(const ObjectId&) const override { return false; }
 
@@ -69,6 +85,25 @@ public:
 	QVector<ObjectId> topoOrder() const override { return {}; }
 	QVector<ObjectId> listAll() const override { return {}; }
 	QVector<ObjectId> parentsOf(const ObjectId&) const override { return {}; }
+
+	BackendObjectDto objectSnapshot(const ObjectId&) const override { return {}; }
+	QVector<BackendObjectDto> listObjectSnapshots() const override { return {}; }
+	GeometryKind geometryKind(const ObjectId&) const override { return GeometryKind::None; }
+	bool hasComponent(const ObjectId&, const QString&) const override { return false; }
+	bool applyFollowTargetByName(const ObjectId&, const QString&, QString* outError) override
+	{
+		if (outError)
+			*outError = QStringLiteral("NullDataService");
+		return false;
+	}
+	void markFollowDirtyFromMove(const ObjectId&) override {}
+	void requestFollowSolveForced() override {}
+	bool runFollowSolveAndSync(const FollowSolveContextDto&, QString* outError) override
+	{
+		if (outError)
+			*outError = QStringLiteral("NullDataService");
+		return false;
+	}
 };
 
 class NullRobotService final : public IRobotService
@@ -103,6 +138,19 @@ public:
 			*outError = QStringLiteral("NullRobotService");
 		return false;
 	}
+
+	QVector<PropertyRowDto> instructionPropertyRows(const QString&) const override { return {}; }
+	bool applyInstructionPropertyChange(const QString&, const QString&, const QString&, QString* outError) override
+	{
+		if (outError)
+			*outError = QStringLiteral("NullRobotService");
+		return false;
+	}
+	QStringList feasibleMotionAxisConfigTokens(const QString&, const MotionInstructionDto&,
+		const PlanContextDto&) const override
+	{
+		return {};
+	}
 };
 
 class NullRenderView final : public IRenderView
@@ -128,6 +176,11 @@ public:
 	SceneNodeInfo sceneGraphSnapshot(int /*maxDepth*/) const override { return {}; }
 	bool selectedPosition(float&, float&, float&) const override { return false; }
 	bool selectedRotationEulerDeg(float&, float&, float&) const override { return false; }
+
+	void ensureSelectionVisualForBackend(const ObjectId&, bool /*urdfLinkMesh*/) override {}
+	bool syncOuterPatFromBackend(const ObjectId&) override { return false; }
+	GeometryKind geometryKindForBackend(const ObjectId&) const override { return GeometryKind::None; }
+	bool commitGizmoPoseToBackend(const ObjectId&) override { return false; }
 
 private:
 	std::unique_ptr<QWidget> m_widget;

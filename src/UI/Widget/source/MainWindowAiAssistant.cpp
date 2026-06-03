@@ -66,6 +66,10 @@ void MainWindow::setupAiAssistantCoordinator()
 		&AiAssistantCoordinator::onUserMessageSubmitted);
 	connect(m_aiAssistantPage, &AiAssistantDockWidget::createFromRecognitionClicked, m_aiCoordinator,
 		&AiAssistantCoordinator::onCreateRecognitionConfirmed);
+	connect(m_aiAssistantPage, &AiAssistantDockWidget::confirmTrajectoryFeaturesClicked, m_aiCoordinator,
+		&AiAssistantCoordinator::onConfirmTrajectoryFeaturesClicked);
+	connect(m_aiAssistantPage, &AiAssistantDockWidget::retryTrajectoryFeaturesClicked, m_aiCoordinator,
+		&AiAssistantCoordinator::onRetryTrajectoryFeaturesClicked);
 
 	refreshAiAssistantHost();
 }
