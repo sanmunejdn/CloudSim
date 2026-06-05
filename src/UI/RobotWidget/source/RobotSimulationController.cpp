@@ -1852,6 +1852,28 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 	}
 	m_tcpDragLastAppliedJointRad.clear();
 	m_lastTcpDragTargetValid = false;
+	if (doc->robotUsesPerLinkBackendsForInstance(instIdx))
+	{
+		const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
+		const int njInst = doc->robotRevoluteJointCountForInstance(instIdx);
+		QVector<double> jointQ;
+		if (njInst > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + njInst)
+		{
+			jointQ.resize(njInst);
+			for (int j = 0; j < njInst; ++j)
+			{
+				jointQ[j] = m_aggregatedJointAnglesRad[jointOffset + j];
+			}
+		}
+		else if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() == njInst)
+		{
+			jointQ = m_host->robotAxisControlPage()->jointAnglesRad();
+		}
+		if (jointQ.size() == njInst)
+		{
+			doc->reconcilePerLinkOuterBindFromScene(instIdx, jointQ);
+		}
+	}
 	doc->setSuppressRobotFollowDirtyNotify(true);
 	doc->clearFollowDirtyBackendIds();
 	osg->beginTcpDragTeach(mountBackendId, targetInBase, modelDiag, resolveRobotBaseWorld, toolLocalPtr);

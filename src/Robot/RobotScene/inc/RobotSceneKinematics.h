@@ -56,4 +56,12 @@ ROBOT_SCENE_API bool applyPerLinkRobotBasePlacement(
 	const QVector<double>& jointAnglesRad,
 	const osg::Matrixd& basePlacementWorld);
 
+/// 由 gizmo 锚点连杆当前世界矩阵反解 basePlacementWorld（W = M0 * inv(T0) * Tq * P）
+ROBOT_SCENE_API bool computeBasePlacementFromAnchorLinkWorld(
+	const RobotPerLinkKinematicsSlice& slice,
+	const QString& anchorLinkBackendId,
+	const QVector<double>& jointAnglesRad,
+	const osg::Matrixd& anchorLinkWorld,
+	osg::Matrixd& outBasePlacementWorld);
+
 } // namespace RobotSceneKinematics

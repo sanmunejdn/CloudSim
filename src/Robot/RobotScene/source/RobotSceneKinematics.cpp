@@ -358,6 +358,48 @@ bool applyJointAnglesViaLinkBackends(
 	return true;
 }
 
+bool computeBasePlacementFromAnchorLinkWorld(
+	const RobotPerLinkKinematicsSlice& slice,
+	const QString& anchorLinkBackendId,
+	const QVector<double>& jointAnglesRad,
+	const osg::Matrixd& anchorLinkWorld,
+	osg::Matrixd& outBasePlacementWorld)
+{
+	if (anchorLinkBackendId.isEmpty() || slice.urdfAbsolutePath.isEmpty())
+	{
+		return false;
+	}
+	QString anchorLinkName;
+	for (auto it = slice.linkNameToBackendId.constBegin(); it != slice.linkNameToBackendId.constEnd(); ++it)
+	{
+		if (it.value() == anchorLinkBackendId)
+		{
+			anchorLinkName = it.key();
+			break;
+		}
+	}
+	if (anchorLinkName.isEmpty())
+	{
+		return false;
+	}
+	QHash<QString, osg::Matrixd> Tq;
+	QString fkErr;
+	if (!UrdfRobotLoader::computeMeshWorldMatrices(
+			slice.urdfAbsolutePath, jointAnglesRad, Tq, &fkErr, slice.meshVerticesInLinkFrame))
+	{
+		return false;
+	}
+	const auto t0It = slice.fkMeshWorldT0.constFind(anchorLinkName);
+	const auto m0It = slice.outerWorldAtBindByBackendId.constFind(anchorLinkBackendId);
+	if (!Tq.contains(anchorLinkName) || t0It == slice.fkMeshWorldT0.constEnd() || m0It == slice.outerWorldAtBindByBackendId.constEnd())
+	{
+		return false;
+	}
+	outBasePlacementWorld =
+		osg::Matrixd::inverse(Tq[anchorLinkName]) * t0It.value() * osg::Matrixd::inverse(m0It.value()) * anchorLinkWorld;
+	return true;
+}
+
 bool applyPerLinkRobotBasePlacement(
 	IRobotBackendPoseSink* osg,
 	BackendDataManager& mgr,

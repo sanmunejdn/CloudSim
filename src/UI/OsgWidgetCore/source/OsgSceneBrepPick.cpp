@@ -161,10 +161,11 @@ bool OsgScene::getWorldPickRay(double mouseX, double mouseY, osg::Vec3d& outStar
 	{
 		return false;
 	}
-	const double x = mouseX;
-	const double y = static_cast<double>(viewportHeight()) - mouseY;
+	double windowX = 0.0;
+	double windowY = 0.0;
+	logicalMouseToPickWindowCoords(mouseX, mouseY, windowX, windowY);
 	osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
-		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, x, y);
+		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, windowX, windowY);
 	osgUtil::IntersectionVisitor iv(intersector.get());
 	iv.setTraversalMask(kMaskPickContent);
 	m_viewer->getCamera()->accept(iv);
@@ -257,10 +258,11 @@ bool OsgScene::tryQueryBrepPick(const PickQuery& query, bool pickFace, PickResul
 		return false;
 	}
 
-	const double x = query.screenX;
-	const double y = static_cast<double>(viewportHeight()) - query.screenY;
+	double windowX = 0.0;
+	double windowY = 0.0;
+	logicalMouseToPickWindowCoords(query.screenX, query.screenY, windowX, windowY);
 	osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
-		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, x, y);
+		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, windowX, windowY);
 	intersector->setIntersectionLimit(osgUtil::Intersector::LIMIT_NEAREST);
 	osgUtil::IntersectionVisitor iv(intersector.get());
 	iv.setTraversalMask(kMaskPickContent);
@@ -371,14 +373,18 @@ bool OsgScene::tryQueryBrepPick(const PickQuery& query, bool pickFace, PickResul
 		};
 		if (brepIndex)
 		{
+			double devicePickX = 0.0;
+			double devicePickY = 0.0;
+			logicalMouseToDeviceCoords(query.screenX, query.screenY, devicePickX, devicePickY);
+			const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
 			(void)brepIndex->pickEdgeByScreen(
 				faceIndex,
-				query.screenX,
-				query.screenY,
+				devicePickX,
+				devicePickY,
 				mvp,
 				viewportWidth(),
 				viewportHeight(),
-				kMeshEdgeHitRadiusPx,
+				kMeshEdgeHitRadiusPx * dpr,
 				modelToWorld,
 				edgeIndex,
 				edgeDistPx,

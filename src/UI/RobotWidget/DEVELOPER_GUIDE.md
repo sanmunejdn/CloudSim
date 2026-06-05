@@ -43,6 +43,8 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 | 项 | 说明 |
 |----|------|
 | `IRobotDocumentHost::robotBackendManagerForKinematics()` | **必须**转发到 `DocumentPage::robotBackendManagerForKinematics()`。默认基类返回 `nullptr` 会导致 `applyJointAnglesViaLinkBackends` 失败，轴控制/拖动/预览均无场景更新。 |
+| **M0 与 P 分离** | bind 表 **M0** 在导入时冻结；整机关节链平移/旋转只更新 **P**（`basePlacementWorld`）。勿在 gizmo 松手或 TCP 前把场景世界矩阵 **W** 直接写入 **M0**。进入 TCP 示教前调用 `reconcilePerLinkOuterBindFromScene` 校正 bind。 |
+| `robotBaseWorldMatrixForInstance` | per-link 时返回 **P**，供 `tcpTeachSetTargetFromToolWorld` 做基座↔世界变换；**勿**用根连杆 OSG 世界矩阵冒充 URDF 基座。 |
 | `IRobotOsgViewHost` 生命周期 | `osgView()` 在文档页变化时重建 `WidgetOsgViewHost`；实现委托 `IRenderView`，勿缓存裸 `OsgWidget*`。 |
 | `IRobotOsgViewHost` 坐标 | `resolvePickScopeBackendId` / `backendSkipsInnerModelCenterRebase` 与 `OsgScene` 一致；`feature_pick_transform` 在 file↔world 前解析 visual backendId 并按 skip-rebase 决定是否加减 `modelCenter`。 |
 | `IRobotDocumentHost` 文档切换 | `document()` 在 `currentPage()` 变化时重建 `DocumentHost`（与 OSG 规则一致）。 |
@@ -115,6 +117,8 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 - 优先从 `m_aggregatedJointAnglesRad` 捕获，否则回退轴滑块。
 
 ### TCP 拖动 IK（`applyTcpDragTeachIkFromPose`）
+
+**进入示教**（`onSimulationTcpDragTeachModeChanged(true)`）：per-link 时先 `doc->reconcilePerLinkOuterBindFromScene(instIdx, jointQ)` 从场景反解 **M0**；`resolveRobotBaseWorld` 经 `robotBaseWorldMatrixForInstance` 取 **P**（勿用根连杆 mesh 世界矩阵）。详见 Widget §13.1。
 
 1. `ctx.T_base_target` 来自罗盘（`tcpDragTeachPoseChanged`），并缓存到 `m_lastTcpDragTargetInBase`。
 2. `RobotTeachIk::solveTeachIk` → 关节角按 URDF 限位 **钳位**（`clampJointAnglesToInstanceLimits`）。

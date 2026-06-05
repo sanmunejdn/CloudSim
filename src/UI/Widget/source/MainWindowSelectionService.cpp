@@ -9,6 +9,7 @@
 #include <QTreeWidgetItem>
 
 #include "BackendSceneDocumentFacade.h"
+#include "CoreEvents.h"
 #include "CoreTypes.h"
 #include "DocumentHostEvents.h"
 #include "DocumentPage.h"
@@ -32,6 +33,68 @@ cloudsim::core::IRenderView* activeRenderView(MainWindow& mainWindow)
 	return renderViewFromPage(mainWindow.currentPage());
 }
 } // namespace
+
+QString MainWindowSelectionService::selectionRootBackendId(MainWindow& mainWindow, const QString& backendId)
+{
+	DocumentPage* doc = mainWindow.currentPage();
+	if (!doc)
+	{
+		return backendId;
+	}
+	return doc->selectionRootBackendId(backendId);
+}
+
+void MainWindowSelectionService::applyBackendSelection(
+	MainWindow& mainWindow,
+	const QString& backendId,
+	const cloudsim::core::SelectionSource source,
+	const bool rowVisible)
+{
+	if (backendId.isEmpty())
+	{
+		return;
+	}
+	const QString effectiveId = selectionRootBackendId(mainWindow, backendId);
+	mainWindow.m_selectionState.setSelectedBackendId(effectiveId);
+	DocumentPage* doc = mainWindow.currentPage();
+	cloudsim::core::IRenderView* rv = activeRenderView(mainWindow);
+	const QString gizmoId = doc ? doc->robotGizmoAnchorBackendId(effectiveId) : effectiveId;
+	const bool urdfLinkMesh =
+		doc && doc->hasRobotSimulationContext() && doc->robotLinkBackendIds().contains(gizmoId);
+	const bool hasSelection = doc && doc->data().isValid(effectiveId);
+
+	if (rv)
+	{
+		if (doc)
+		{
+			doc->sceneFacade().entity(effectiveId.toStdString()).setVisible(rowVisible);
+		}
+		else
+		{
+			rv->setVisible(effectiveId, rowVisible);
+		}
+		rv->setSelectionActive(hasSelection);
+		if (source == cloudsim::core::SelectionSource::OsgPick)
+		{
+			rv->setObjectSelectionMode(true);
+		}
+		if (hasSelection && doc)
+		{
+			if (gizmoId != effectiveId && doc->data().isValid(gizmoId))
+			{
+				cloudsim::host::SelectionVisualService::ensureSelectionVisual(*doc, gizmoId, urdfLinkMesh);
+			}
+			else
+			{
+				cloudsim::host::SelectionVisualService::ensureSelectionVisual(*doc, effectiveId, urdfLinkMesh);
+			}
+		}
+	}
+	if (doc)
+	{
+		cloudsim::host::publishSelectionChanged(*doc, effectiveId, source);
+	}
+}
 
 void MainWindowSelectionService::clearSelection(MainWindow& mainWindow, bool clearTreeSelection)
 {
@@ -222,31 +285,13 @@ void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& m
 		return;
 	}
 	const QString id = current->data(0, kRoleBackendId).toString();
-	mainWindow.m_selectionState.setSelectedBackendId(id);
-	DocumentPage* doc = mainWindow.currentPage();
 	const bool rowVisible = current->checkState(0) != Qt::Unchecked;
-	const bool urdfLinkMesh = doc && doc->hasRobotSimulationContext() && doc->robotLinkBackendIds().contains(id);
-	const bool hasSelection = doc && doc->data().isValid(id);
-
-	if (rv)
+	applyBackendSelection(mainWindow, id, cloudsim::core::SelectionSource::Tree, rowVisible);
+	const QString effectiveId = selectionRootBackendId(mainWindow, id);
+	if (effectiveId != id)
 	{
-		if (doc)
-		{
-			doc->sceneFacade().entity(id.toStdString()).setVisible(rowVisible);
-		}
-		else
-		{
-			rv->setVisible(id, rowVisible);
-		}
-		rv->setSelectionActive(hasSelection);
-		if (hasSelection && doc)
-		{
-			cloudsim::host::SelectionVisualService::ensureSelectionVisual(*doc, id, urdfLinkMesh);
-		}
-	}
-	if (doc)
-	{
-		cloudsim::host::publishSelectionChanged(*doc, id, cloudsim::core::SelectionSource::Tree);
+		const QSignalBlocker guard(mainWindow.m_backendTree);
+		(void)selectBackendById(mainWindow, effectiveId, false);
 	}
 }
 
@@ -348,13 +393,47 @@ void MainWindowSelectionService::handleBackendTreeItemChanged(
 
 void MainWindowSelectionService::handleOsgBackendObjectPicked(MainWindow& mainWindow, const QString& backendId)
 {
-	if (!mainWindow.m_backendTree || backendId.isEmpty())
+	if (backendId.isEmpty())
 	{
 		return;
 	}
-	if (mainWindow.m_selectionState.selectedBackendId() == backendId)
+	const QString effectiveId = selectionRootBackendId(mainWindow, backendId);
+	const bool sameSelection = mainWindow.m_selectionState.selectedBackendId() == effectiveId;
+
+	if (!sameSelection)
 	{
-		return;
+		mainWindow.m_activeInstructionForProperty.reset();
+		if (mainWindow.simulationCommandPage())
+		{
+			mainWindow.simulationCommandPage()->clearInstructionSelection();
+		}
+		if (cloudsim::core::IRenderView* rv = activeRenderView(mainWindow))
+		{
+			rv->clearInstructionPoseAxes();
+		}
 	}
-	(void)selectBackendById(mainWindow, backendId, true);
+
+	bool rowVisible = true;
+	if (mainWindow.m_backendTree)
+	{
+		QTreeWidgetItem* item = mainWindow.m_backendTreeItemsById.value(effectiveId, nullptr);
+		if (!item)
+		{
+			(void)selectBackendById(mainWindow, effectiveId, false);
+			item = mainWindow.m_backendTreeItemsById.value(effectiveId, nullptr);
+		}
+		if (item)
+		{
+			rowVisible = item->checkState(0) != Qt::Unchecked;
+		}
+	}
+
+	// 同一机器人再次点连杆时 pickAndActivate 会临时激活该连杆；须始终把 gizmo 归到锚点
+	applyBackendSelection(mainWindow, backendId, cloudsim::core::SelectionSource::OsgPick, rowVisible);
+
+	if (!sameSelection && mainWindow.m_backendTree)
+	{
+		const QSignalBlocker guard(mainWindow.m_backendTree);
+		(void)selectBackendById(mainWindow, effectiveId, true);
+	}
 }

@@ -47,6 +47,8 @@
 #include "ApplicationStyle.h"
 #include "BackendVisualSync.h"
 #include "DocumentPage.h"
+#include "ObjectGizmoFrame.h"
+#include "OsgWidget.h"
 #include "CoreTypes.h"
 #include "IDataService.h"
 #include "IRenderView.h"
@@ -261,6 +263,14 @@ void MainWindow::applyLanguage()
 	notifyPluginsLanguageChanged();
 }
 
+namespace
+{
+bool robotSelectionUsesGizmoAnchor(const DocumentPage* doc, const QString& selectionId)
+{
+	return doc && !selectionId.isEmpty() && doc->robotGizmoAnchorBackendId(selectionId) != selectionId;
+}
+} // namespace
+
 void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
 {
 	if (sender() != renderWidgetFromPage(currentPage()))
@@ -279,6 +289,10 @@ void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
 	}
 	DocumentPage* doc = currentPage();
 	if (!doc || !doc->data().isValid(snapshot.backendId))
+	{
+		return;
+	}
+	if (robotSelectionUsesGizmoAnchor(doc, snapshot.backendId))
 	{
 		return;
 	}
@@ -319,6 +333,10 @@ void MainWindow::onSelectedObjectRotationChanged(float rx, float ry, float rz)
 	}
 	DocumentPage* doc = currentPage();
 	if (!doc || !doc->data().isValid(snapshot.backendId))
+	{
+		return;
+	}
+	if (robotSelectionUsesGizmoAnchor(doc, snapshot.backendId))
 	{
 		return;
 	}
@@ -393,6 +411,15 @@ void MainWindow::onTransformGizmoCommitted()
 	DocumentPage* doc = currentPage();
 	if (!doc)
 	{
+		return;
+	}
+	bool isSceneRoot = false;
+	const int instIdx = doc->robotInstanceIndexForPerLinkBackend(backendId, &isSceneRoot);
+	if (instIdx >= 0 && isSceneRoot && doc->robotUsesPerLinkBackendsForInstance(instIdx))
+	{
+		doc->data().markFollowDirtyFromMove(backendId);
+		updatePropertyPanel(backendId);
+		cloudsim::host::publishPoseCommittedFromBackendId(*doc, backendId);
 		return;
 	}
 	(void)doc->render().commitGizmoPoseToBackend(backendId);
@@ -818,6 +845,19 @@ void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 	{
 		return;
 	}
+	OsgWidget* osg = page->osgWidget();
+	if (osg)
+	{
+		osg->setRobotObjectGizmoSyncHook([this, page](const ObjectGizmoFrame& /*frame*/, bool /*dragging*/) {
+			return page && isPerLinkRobotObjectGizmoActive(page);
+		});
+		osg->setRobotObjectGizmoFkRefreshHook([this, page](const ObjectGizmoFrame& /*frame*/, bool /*dragging*/) {
+			if (page)
+			{
+				refreshPerLinkRobotObjectGizmoFk(*page);
+			}
+		});
+	}
 	page->render().setPerFrameHook([this, page]() {
 		if (!page || !m_documentTabs || m_documentTabs->currentWidget() != page)
 		{
@@ -834,6 +874,61 @@ void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 		}
 		runFollowSolveAndSyncForPage(*page);
 	});
+}
+
+bool MainWindow::isPerLinkRobotObjectGizmoActive(const DocumentPage* page) const
+{
+	const OsgWidget* osg = page ? page->osgWidget() : nullptr;
+	if (!osg)
+	{
+		return false;
+	}
+	const QString activeId = QString::fromStdString(osg->activeBackendId());
+	if (activeId.isEmpty())
+	{
+		return false;
+	}
+	bool isSceneRoot = false;
+	const int instIdx = page->robotInstanceIndexForPerLinkBackend(activeId, &isSceneRoot);
+	if (instIdx < 0 || !page->robotUsesPerLinkBackendsForInstance(instIdx))
+	{
+		return false;
+	}
+	const QString anchorId = page->robotGizmoAnchorBackendId(page->robotSceneBackendIdForInstance(instIdx));
+	return !anchorId.isEmpty() && activeId == anchorId;
+}
+
+void MainWindow::refreshPerLinkRobotObjectGizmoFk(DocumentPage& doc)
+{
+	const OsgWidget* osg = doc.osgWidget();
+	if (!osg || !m_robotSimulation)
+	{
+		return;
+	}
+	const QString activeId = QString::fromStdString(osg->activeBackendId());
+	bool isSceneRoot = false;
+	const int instIdx = doc.robotInstanceIndexForPerLinkBackend(activeId, &isSceneRoot);
+	if (instIdx < 0)
+	{
+		return;
+	}
+	const QString anchorId = doc.robotGizmoAnchorBackendId(doc.robotSceneBackendIdForInstance(instIdx));
+	if (anchorId.isEmpty())
+	{
+		return;
+	}
+	const QVector<double> all = m_robotSimulation->aggregatedJointAnglesRad();
+	const int offset = doc.robotJointOffsetInAggregatedVector(instIdx);
+	const int nj = doc.robotRevoluteJointNamesForInstance(instIdx).size();
+	QVector<double> q(nj, 0.0);
+	if (nj > 0 && all.size() >= offset + nj)
+	{
+		for (int j = 0; j < nj; ++j)
+		{
+			q[j] = all[offset + j];
+		}
+	}
+	(void)doc.applyPerLinkRobotFkFromGizmoAnchor(instIdx, anchorId, q);
 }
 
 void MainWindow::applyHierarchyFollowBinding(DocumentPage* doc, const std::string& childId, const std::string& parentId)

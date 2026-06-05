@@ -304,38 +304,47 @@ void ObjectTransformOperation::markGizmoSessionModified()
 
 bool ObjectTransformOperation::handleEvent(QObject* watched, QEvent* event)
 {
-	if (!m_owner || watched != m_owner->m_glWidget || !m_owner->m_objectSelectionMode || !m_owner->m_activeBackendOuterPat.valid())
+	if (!m_owner || watched != m_owner->m_glWidget || !m_owner->m_objectSelectionMode)
 	{
 		return false;
 	}
+
+	const bool hasActiveObject = m_owner->m_activeBackendOuterPat.valid();
 
 	if (event->type() == QEvent::MouseButtonPress)
 	{
 		QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
 		if (mouseEvent->button() == Qt::LeftButton)
 		{
-			m_owner->m_dragAxis = m_owner->pickAxisAtScreenPos(mouseEvent->pos(), false);
-			if (m_owner->m_dragAxis != OsgWidget::DragAxis::None)
+			if (hasActiveObject)
 			{
-				beginGizmoDragSession();
-				m_owner->m_dragging = true;
-				m_owner->m_rotating = false;
-				m_owner->m_lastMousePos = mouseEvent->pos();
-				resetGizmoDragSession(m_owner);
-				(void)m_owner->beginGizmoScreenDrag(m_owner->m_dragAxis);
-				m_owner->updateCompassHighlight(m_owner->m_dragAxis, false);
-				emit m_owner->activeAxisChanged(m_owner->axisToString(m_owner->m_dragAxis));
-				m_owner->requestRedraw();
-				return true;
+				m_owner->m_dragAxis = m_owner->pickAxisAtScreenPos(mouseEvent->pos(), false);
+				if (m_owner->m_dragAxis != OsgWidget::DragAxis::None)
+				{
+					beginGizmoDragSession();
+					m_owner->m_dragging = true;
+					m_owner->m_rotating = false;
+					m_owner->m_lastMousePos = mouseEvent->pos();
+					resetGizmoDragSession(m_owner);
+					(void)m_owner->beginGizmoScreenDrag(m_owner->m_dragAxis);
+					m_owner->updateCompassHighlight(m_owner->m_dragAxis, false);
+					emit m_owner->activeAxisChanged(m_owner->axisToString(m_owner->m_dragAxis));
+					m_owner->requestRedraw();
+					return true;
+				}
 			}
 			if (m_owner->pickAndActivateBackendAtScreenPos(mouseEvent->pos()))
 			{
-				return false;
+				return true;
 			}
 			return false;
 		}
 		if (mouseEvent->button() == Qt::RightButton)
 		{
+			if (!hasActiveObject)
+			{
+				return false;
+			}
 			m_owner->m_dragAxis = m_owner->pickAxisAtScreenPos(mouseEvent->pos(), true);
 			if (m_owner->m_dragAxis == OsgWidget::DragAxis::None) m_owner->m_dragAxis = m_owner->m_hoverAxis;
 			if (m_owner->m_dragAxis == OsgWidget::DragAxis::None) m_owner->m_dragAxis = OsgWidget::DragAxis::Z;
@@ -359,6 +368,10 @@ bool ObjectTransformOperation::handleEvent(QObject* watched, QEvent* event)
 
 	if (event->type() == QEvent::MouseMove && (m_owner->m_dragging || m_owner->m_rotating))
 	{
+		if (!hasActiveObject)
+		{
+			return false;
+		}
 		QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
 		const QPoint pos = mouseEvent->pos();
 		if (m_owner->m_dragging)
@@ -431,6 +444,10 @@ bool ObjectTransformOperation::handleEvent(QObject* watched, QEvent* event)
 
 	if (event->type() == QEvent::MouseMove && !m_owner->m_dragging && !m_owner->m_rotating)
 	{
+		if (!hasActiveObject)
+		{
+			return false;
+		}
 		QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
 		if (mouseEvent->buttons().testFlag(Qt::LeftButton)
 			|| mouseEvent->buttons().testFlag(Qt::MiddleButton)

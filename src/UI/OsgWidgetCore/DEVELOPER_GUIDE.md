@@ -155,9 +155,13 @@ m_stagingGroup（导入预览）
 
 ### 5.8 罗盘 Gizmo
 
-| 方法 | 说明 |
+| 方法 / 模块 | 说明 |
 |------|------|
-| `createCompassNode` / `attachCompassGraphics` / `detachCompassGraphics` | 罗盘几何；`m_compassScaleTransform` 仅缩放几何，避免 PAT scale 拉偏枢轴 |
+| `osg_compass::buildTransformCompassNode` | **对象选择与 TCP 示教共用**罗盘网格（实心 torus 环 + 正半轴）；`OsgCompassGeometry.h/.cpp` |
+| `osg_compass::kCompassAxisLength` 等 | 与 `updateCompassScale` / `updateTcpTeachCompassScale` 共用缩放常量 |
+| `createCompassNode` / `attachCompassGraphics` / `detachCompassGraphics` | 委托 `buildTransformCompassNode`；`m_compassScaleTransform` 仅缩放几何，避免 PAT scale 拉偏枢轴 |
+
+**源文件**：`inc/OsgCompassGeometry.h`、`source/OsgCompassGeometry.cpp`（`OsgWidgetCore.vcxproj`）；几何基于 `osg/Shape` torus，勿依赖 `osg/Cone`。改罗盘后须先编 **OsgWidgetCore** 再链式编 Widget/RobotWidget。
 | `syncCompassGizmoOrientation` | World：`compassAtt = R⁻¹`；Local：单位四元数 |
 | `pickAxisAtScreenPos(mouseX, mouseY, preferRing, outPickedRing)` | 轴/环命中 → `kGizmoAxisX/Y/Z` |
 | `computeCameraScreenRayWorld` | Qt 逻辑坐标 × DPR |
@@ -240,5 +244,6 @@ m_stagingGroup（导入预览）
 ## 8. 相关文档
 
 - 可视化构建：[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md)
-- Qt / Host 桥接：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md)（对象罗盘 §6.3.1；属性/EventHub §12a）
+- Qt / Host 桥接：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md)（对象罗盘 §6.3.1–§6.3.2；TCP 示教 §13.1；属性/EventHub §12a）
+- per-link FK / **M0·P**：[`../../Robot/RobotScene/DEVELOPER_GUIDE.md`](../../Robot/RobotScene/DEVELOPER_GUIDE.md) §8
 - Host 组合根：[`../Host/CloudSimHost/DEVELOPER_GUIDE.md`](../Host/CloudSimHost/DEVELOPER_GUIDE.md)

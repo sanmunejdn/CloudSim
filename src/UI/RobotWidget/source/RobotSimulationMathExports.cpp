@@ -165,11 +165,22 @@ bool robotBaseWorldMatrixForInstance(
 	const QVector<double>* jointAnglesRad)
 {
 	(void)jointAnglesRad;
+	(void)osg;
 	if (!doc || instIdx < 0)
 	{
 		return false;
 	}
 	outWorld.makeIdentity();
+	// per-link：基座↔世界须用 basePlacementWorld，根连杆 mesh 世界矩阵含连杆偏置
+	if (doc->robotUsesPerLinkBackendsForInstance(instIdx))
+	{
+		RobotPerLinkKinematicsSlice slice;
+		if (doc->robotPerLinkKinematicsForInstance(instIdx, slice))
+		{
+			outWorld = slice.robotBasePlacementWorld;
+			return true;
+		}
+	}
 	const QString sceneRootId = doc->robotSceneBackendIdForInstance(instIdx);
 	if (osg && !sceneRootId.isEmpty() && osg->getBackendRootWorldMatrix(sceneRootId.toStdString(), outWorld))
 	{

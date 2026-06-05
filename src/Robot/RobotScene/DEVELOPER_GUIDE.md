@@ -208,9 +208,20 @@
 | `urdfAbsolutePath` | URDF 路径 |
 | `sceneRootBackendId` | robot root backend id |
 | `linkNameToBackendId` | link → mesh backend |
-| `fkMeshWorldT0` | bind 时各 link 网格世界矩阵 |
-| `outerWorldAtBindByBackendId` | bind 时 outer 世界矩阵 |
+| `fkMeshWorldT0` | bind 时各 link 网格世界矩阵 **T0**（URDF FK，q=bind） |
+| `outerWorldAtBindByBackendId` | bind 时 outer 参考 **M0**（**不含**后续基座位移 **P**） |
+| `robotBasePlacementWorld` | 场景根位姿 **P**（对象 gizmo 移动整机关节链时只改此项） |
 | `meshVerticesInLinkFrame` | 顶点是否在连杆系 |
+
+**FK 约定（per-link flat OSG）**：
+
+```text
+M_link = M0 · inv(T0) · Tq · P
+```
+
+- **M0** / **T0**：导入 bind 时冻结；关节示教、TCP IK 后仅改 **Tq**。
+- **P**：`DocumentPage::setRobotBasePlacementWorldForInstance`；对象 gizmo 移动整机关节链时由 `applyPerLinkRobotFkFromGizmoAnchor` 反解并 FK（见 Widget §6.3.2）。勿把拖动后的世界矩阵 **W** 直接写入 **M0**（否则 `applyJointAnglesViaLinkBackends` 会双乘 **P**，连杆散开）。
+- 从场景恢复 **M0**：`M0 = W · inv(P) · inv(Tq) · T0`（`DocumentPage::reconcilePerLinkOuterBindFromScene`）。
 
 ### 8.2 `namespace RobotSceneKinematics`
 
@@ -218,7 +229,9 @@
 |------|------|
 | `applyJointAnglesFromDocument(doc, osg, anglesRad)` | 按实例循环 per-link / 层级 |
 | `applyJointAnglesForInstance(doc, osg, instanceIndex, local, aggregated)` | 单机 |
-| `applyJointAnglesViaLinkBackends(doc, osg, mgr, angles, slice)` | `Mnew = M0 * inv(T0) * Tq` 写 outer + `setWorldMatrix` |
+| `applyJointAnglesViaLinkBackends(doc, osg, mgr, angles, slice)` | `Mnew = M0 * inv(T0) * Tq * P` 写 outer + `setWorldMatrix` |
+| `applyPerLinkRobotBasePlacement(osg, mgr, slice, q, P)` | 仅改 **P** 后 FK 全连杆 |
+| `computeBasePlacementFromAnchorLinkWorld(slice, anchorId, q, W_anchor, outP)` | gizmo 锚点世界 **W** 反解 **P** |
 | `applyMeshWorldMatricesRelativeToBind(...)` | 预计算 FK 相对 bind 更新 |
 
 **调试**：`ROBOT_KINEMATICS_DEBUG=1` → `[RobotKinematicsDBG]` 日志。
@@ -388,7 +401,7 @@ flowchart LR
 
 **运行**：`onSimulationStartTriggered` 链式构建 `PlanResult`（`PlanResultCache` 命中则跳过 IK）；`RobotProgramExecutor` 插值执行；tick 内 `currentInstruction()` 驱动指令树高亮 + `tickLookaheadPlanning` 后台预热。程序起点仅在**第一条**运动指令加入时更新（见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)）。
 
-**末端拖动示教**（非运行、不写指令）：屏幕空间平移更新 `T_base_target` → `RobotTeachIk` → 关节钳位 → `applyJointAnglesForInstance`；添加指令时用罗盘位姿 + `currentJointRadCsv` 落盘。见 [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §13.1、[`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)。
+**末端拖动示教**（非运行、不写指令）：进入前 per-link 调用 `reconcilePerLinkOuterBindFromScene`；屏幕空间平移更新 `T_base_target` → `RobotTeachIk` → 关节钳位 → `applyJointAnglesForInstance`；基座世界取 **P**（`robotBaseWorldMatrixForInstance`）。添加指令时用罗盘位姿 + `currentJointRadCsv` 落盘。见 [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §13.1、§6.3.2（**M0**/**P**）、[`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)。
 
 ### 11.1 `RobotTeachIk`
 

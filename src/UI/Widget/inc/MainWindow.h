@@ -243,6 +243,8 @@ private:
 	JobSystem* jobSystem() const;
 	void wireDocumentPageSignals(DocumentPage* page);
 	void installBackendFollowFrameHook(DocumentPage* page);
+	bool isPerLinkRobotObjectGizmoActive(const DocumentPage* page) const;
+	void refreshPerLinkRobotObjectGizmoFk(DocumentPage& page);
 	IRobotOsgViewHost* activeOsgViewHost();
 	cloudsim::core::FollowSolveContextDto makeFollowSolveContextDto(DocumentPage& page) const;
 	void runFollowSolveAndSyncForPage(DocumentPage& page, const std::string* manualPoseAuthorityBackendId = nullptr);

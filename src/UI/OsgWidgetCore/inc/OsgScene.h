@@ -125,6 +125,7 @@ public:
 	/// \a childBackendId 外层 PAT 是否为 \a ancestorBackendId 子节点（走真实父链，避免重复 gizmo 增量）
 	bool backendOuterPatIsUnderOuterPatInSceneGraph(const std::string& childBackendId, const std::string& ancestorBackendId) const;
 	void cacheSelectionGizmoPose();
+	const std::string& activeBackendId() const { return m_activeBackendId; }
 	/// 写活动外层 PAT；非拖拽时将旋转增量传播到子孙根
 	void syncActiveBackendRootFromObjectFrame(const ObjectGizmoFrame& cur, bool dragging);
 	bool readActiveObjectGizmoFrame(ObjectGizmoFrame& out) const;
@@ -186,6 +187,8 @@ public:
 	PickResult queryPick(const PickQuery& query);
 	void setPickVisualAlias(const std::string& logicalBackendId, const std::string& visualBackendId);
 	std::string resolvePickScopeBackendId(const std::string& backendId) const;
+	/// pickVisualAlias 反向：visual id → 唯一 logical id；多 alias 时回退 visualId
+	std::string resolveLogicalBackendIdFromVisualPick(const std::string& visualBackendId, int brepFaceIndex = -1) const;
 	void showMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld);
 	void showMeshFaceHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld, const osg::Vec3f& cWorld);
 	void showMeshEdgeHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld);
@@ -322,6 +325,8 @@ public:
 	osg::ref_ptr<osg::Vec4Array> m_meshPickedEdgeColors;
 
 private:
+	void logicalMouseToDeviceCoords(double logicalX, double logicalY, double& outDeviceX, double& outDeviceY) const;
+	void logicalMouseToPickWindowCoords(double logicalX, double logicalY, double& outWindowX, double& outWindowY) const;
 	bool isBrepPickBackend(const std::string& backendId) const;
 	bool tryQueryBrepPick(const PickQuery& query, bool pickFace, PickResult& out) const;
 	bool getWorldPickRay(double mouseX, double mouseY, osg::Vec3d& outStart, osg::Vec3d& outEnd) const;

@@ -276,6 +276,7 @@ osg::ref_ptr<osg::Geode> createReachabilityOriginGeode(bool reachable)
 	drawable->setColor(color);
 	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 	geode->addDrawable(drawable.get());
+	geode->setNodeMask(OsgScene::kMaskPickOverlay);
 	osg::StateSet* ss = geode->getOrCreateStateSet();
 	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 	return geode;
@@ -314,6 +315,7 @@ osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(
 
 	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 	geode->addDrawable(geom.get());
+	geode->setNodeMask(OsgScene::kMaskPickOverlay);
 
 	osg::StateSet* ss = geode->getOrCreateStateSet();
 	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
@@ -337,6 +339,30 @@ osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(
 void OsgWidget::setPerFrameHook(std::function<void(OsgWidget*)> fn)
 {
 	m_perFrameHook = std::move(fn);
+}
+
+void OsgWidget::setRobotObjectGizmoSyncHook(RobotObjectGizmoSyncFn fn)
+{
+	m_robotObjectGizmoSyncHook = std::move(fn);
+}
+
+void OsgWidget::setRobotObjectGizmoFkRefreshHook(RobotObjectGizmoFkRefreshFn fn)
+{
+	m_robotObjectGizmoFkRefreshHook = std::move(fn);
+}
+
+void OsgWidget::syncActiveBackendRootFromObjectFrame(const ObjectGizmoFrame& cur, bool dragging)
+{
+	if (m_robotObjectGizmoSyncHook && m_robotObjectGizmoSyncHook(cur, dragging))
+	{
+		OsgScene::syncActiveBackendRootFromObjectFrame(cur, true);
+		if (m_robotObjectGizmoFkRefreshHook)
+		{
+			m_robotObjectGizmoFkRefreshHook(cur, dragging);
+		}
+		return;
+	}
+	OsgScene::syncActiveBackendRootFromObjectFrame(cur, dragging);
 }
 
 bool OsgWidget::isTransformGizmoDragging() const
@@ -506,6 +532,7 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<RobotOsgUi::Instruction
 	{
 		m_instructionPoseAxesGroup = new osg::Group;
 		m_instructionPoseAxesGroup->setName("InstructionPoseAxes");
+		m_instructionPoseAxesGroup->setNodeMask(OsgScene::kMaskPickOverlay);
 	}
 	// Waypoints are world-fixed markers on the trajectory overlay (not children of moving robot links).
 	osg::Group* parentGroup = m_trajectoryOverlayGroup.get();
@@ -577,6 +604,7 @@ void OsgWidget::setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTraject
 	{
 		m_rawTrajectoryOverlayGeode = new osg::Geode;
 		m_rawTrajectoryOverlayGeode->setName("RawTrajectoryOverlay");
+		m_rawTrajectoryOverlayGeode->setNodeMask(OsgScene::kMaskPickOverlay);
 		m_trajectoryOverlayGroup->addChild(m_rawTrajectoryOverlayGeode.get());
 	}
 	m_rawTrajectoryOverlayGeode->removeDrawables(0, m_rawTrajectoryOverlayGeode->getNumDrawables());
@@ -640,6 +668,7 @@ void OsgWidget::setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawT
 	{
 		m_rawTrajectoryFramesGroup = new osg::Group;
 		m_rawTrajectoryFramesGroup->setName("RawTrajectoryOverlayFrames");
+		m_rawTrajectoryFramesGroup->setNodeMask(OsgScene::kMaskPickOverlay);
 		m_trajectoryOverlayGroup->addChild(m_rawTrajectoryFramesGroup.get());
 	}
 	m_rawTrajectoryFramesGroup->removeChildren(0, m_rawTrajectoryFramesGroup->getNumChildren());

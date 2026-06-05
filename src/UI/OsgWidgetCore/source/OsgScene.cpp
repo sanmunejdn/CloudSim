@@ -10,6 +10,8 @@
 
 #include "OsgScene.h"
 
+#include "OsgCompassRender.h"
+
 #include <BrepImportArtifacts.h>
 
 #include <algorithm>
@@ -233,6 +235,55 @@ void OsgScene::setViewportPixels(int w, int h)
 	m_viewportHeight = (std::max)(1, h);
 }
 
+void OsgScene::logicalMouseToDeviceCoords(
+	const double logicalX,
+	const double logicalY,
+	double& outDeviceX,
+	double& outDeviceY) const const
+{
+	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
+	outDeviceX = logicalX * dpr;
+	outDeviceY = logicalY * dpr;
+}
+
+void OsgScene::logicalMouseToPickWindowCoords(
+	const double logicalX,
+	const double logicalY,
+	double& outWindowX,
+	double& outWindowY) const const
+{
+	double deviceX = 0.0;
+	double deviceY = 0.0;
+	logicalMouseToDeviceCoords(logicalX, logicalY, deviceX, deviceY);
+	outWindowX = deviceX;
+	outWindowY = static_cast<double>(viewportHeight()) - deviceY;
+}
+
+std::string OsgScene::resolveLogicalBackendIdFromVisualPick(
+	const std::string& visualBackendId,
+	const int brepFaceIndex) const
+{
+	(void)brepFaceIndex;
+	if (visualBackendId.empty())
+	{
+		return {};
+	}
+	std::string soleLogical;
+	for (const auto& entry : m_pickVisualAliases)
+	{
+		if (entry.second != visualBackendId)
+		{
+			continue;
+		}
+		if (!soleLogical.empty())
+		{
+			return visualBackendId;
+		}
+		soleLogical = entry.first;
+	}
+	return soleLogical.empty() ? visualBackendId : soleLogical;
+}
+
 void OsgScene::applyHeadlightToViewer(osgViewer::Viewer* viewer)
 {
 	if (!viewer || !m_headlight.valid())
@@ -298,12 +349,7 @@ void OsgScene::initScene()
 	m_gizmoOverlayGroup = new osg::Group;
 	m_gizmoOverlayGroup->setName("GizmoOverlay");
 	m_gizmoOverlayGroup->setNodeMask(0xffffffffu);
-	m_gizmoOverlayGroup->getOrCreateStateSet()->setMode(
-		GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-	m_gizmoOverlayGroup->getOrCreateStateSet()->setMode(
-		GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-	m_gizmoOverlayGroup->getOrCreateStateSet()->setMode(
-		GL_FOG, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	osg_compass::applyUnlitHighlitStateSet(m_gizmoOverlayGroup->getOrCreateStateSet());
 
 	m_compassTransform = new osg::PositionAttitudeTransform;
 	m_compassTransform->setPosition(osg::Vec3d(0.0, 0.0, 0.0));
@@ -457,18 +503,18 @@ bool OsgScene::resolveBackendIdFromPickedPath(const osg::NodePath& path, std::st
 
 bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
 {
-	static const unsigned int kMaskContent = 0x1u;
 	if (!m_viewer.valid() || !m_viewer->getCamera() || !m_root.valid())
 	{
 		return false;
 	}
-	const double x = mouseX;
-	const double y = static_cast<double>(viewportHeight()) - mouseY;
+	double windowX = 0.0;
+	double windowY = 0.0;
+	logicalMouseToPickWindowCoords(mouseX, mouseY, windowX, windowY);
 	osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
-		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, x, y);
+		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, windowX, windowY);
 	intersector->setIntersectionLimit(osgUtil::Intersector::LIMIT_NEAREST);
 	osgUtil::IntersectionVisitor iv(intersector.get());
-	iv.setTraversalMask(kMaskContent);
+	iv.setTraversalMask(kMaskPickContent);
 	m_viewer->getCamera()->accept(iv);
 	if (!intersector->containsIntersections())
 	{
@@ -477,21 +523,28 @@ bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
 	for (const auto& hit : intersector->getIntersections())
 	{
 		const osg::NodePath& path = hit.nodePath;
-		std::string id;
-		if (!resolveBackendIdFromPickedPath(path, id))
+		std::string visualId;
+		if (!resolveBackendIdFromPickedPath(path, visualId))
 		{
 			continue;
 		}
-		auto rootIt = m_backendObjectRoots.find(id);
+		const std::string logicalId = resolveLogicalBackendIdFromVisualPick(visualId);
+		const std::string scopeId = resolvePickScopeBackendId(logicalId);
+		auto rootIt = m_backendObjectRoots.find(scopeId);
 		if (rootIt == m_backendObjectRoots.end() || !rootIt->second.valid())
 		{
-			continue;
+			rootIt = m_backendObjectRoots.find(visualId);
+			if (rootIt == m_backendObjectRoots.end() || !rootIt->second.valid())
+			{
+				continue;
+			}
 		}
-		m_activeBackendId = id;
+		m_activeBackendId = logicalId;
 		m_activeBackendOuterPat = rootIt->second;
 		attachGizmoOverlayToActiveBackend();
 		cacheSelectionGizmoPose();
-		auto cIt = m_backendModelCenters.find(id);
+		const std::string& centerKey = rootIt->first;
+		auto cIt = m_backendModelCenters.find(centerKey);
 		m_modelCenter = (cIt != m_backendModelCenters.end()) ? cIt->second : osg::Vec3f(0.0f, 0.0f, 0.0f);
 		return true;
 	}
@@ -595,7 +648,8 @@ bool OsgScene::pickPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& ou
 	{
 		return false;
 	}
-	return distancePx <= kPointPickHitRadiusPx;
+	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
+	return distancePx <= kPointPickHitRadiusPx * dpr;
 }
 
 bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx, bool previewOnly) const
@@ -609,6 +663,11 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 	{
 		return false;
 	}
+	double deviceX = 0.0;
+	double deviceY = 0.0;
+	logicalMouseToDeviceCoords(mouseX, mouseY, deviceX, deviceY);
+	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
+	const double hitRadiusPx = kPointPickHitRadiusPx * dpr;
 	const bool hasKdCache = (m_kdRoot >= 0 && !m_pickablePointsCenteredLocal.empty());
 	// hover 有点缓存时跳过射线，避免每帧全场景相交遍历
 	if (!previewOnly || !hasKdCache)
@@ -616,7 +675,7 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 		double rayDistPx = 0.0;
 		osg::Vec3f rayWorld;
 		if (pickPointByRayIntersection(mouseX, mouseY, rayWorld, rayDistPx)
-			&& rayDistPx <= kPointPickHitRadiusPx)
+			&& rayDistPx <= hitRadiusPx)
 		{
 			outPointWorld = rayWorld;
 			outDistancePx = rayDistPx;
@@ -641,8 +700,8 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 		osg::Matrixd proj = camera->getProjectionMatrix();
 		osg::Matrixd view = camera->getViewMatrix();
 		osg::Matrixd inv = osg::Matrixd::inverse(view * proj);
-		const double xNdc = (2.0 * mouseX / static_cast<double>(viewportWidth())) - 1.0;
-		const double yNdc = 1.0 - (2.0 * mouseY / static_cast<double>(viewportHeight()));
+		const double xNdc = (2.0 * deviceX / static_cast<double>(viewportWidth())) - 1.0;
+		const double yNdc = 1.0 - (2.0 * deviceY / static_cast<double>(viewportHeight()));
 		osg::Vec3d clipNearW = osg::Vec3d(xNdc, yNdc, -1.0) * inv;
 		osg::Vec3d clipFarW = osg::Vec3d(xNdc, yNdc, 1.0) * inv;
 		osg::Vec3f rayOriginWorld(static_cast<float>(clipNearW.x()), static_cast<float>(clipNearW.y()), static_cast<float>(clipNearW.z()));
@@ -660,7 +719,7 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 
 		std::vector<int> candidateIndices;
 		nearestCandidatesByKdTree(queryLocal, 96, candidateIndices);
-		const double hitRadiusPx2 = kPointPickHitRadiusPx * kPointPickHitRadiusPx;
+		const double hitRadiusPx2 = hitRadiusPx * hitRadiusPx;
 		const double depthLayerEps = 0.02;
 		const double screenTiePx2 = 9.0;
 		struct InRadCand
@@ -690,8 +749,8 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 			}
 			const double sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
 			const double sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
-			const double dx = sx - mouseX;
-			const double dy = sy - mouseY;
+			const double dx = sx - deviceX;
+			const double dy = sy - deviceY;
 			const double d2 = dx * dx + dy * dy;
 			const double depth = clip.z();
 			if (d2 <= hitRadiusPx2 && inRadCount < 96)
@@ -749,9 +808,9 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 	}
 
 	
-	const double hitRadiusPx2 = kPointPickHitRadiusPx * kPointPickHitRadiusPx;
+	const double hitRadiusPx2 = hitRadiusPx * hitRadiusPx;
 	const double depthLayerEps = 0.02;
-	const double screenTiePx2 = 9.0;
+	const double screenTiePx2 = 9.0 * dpr * dpr;
 	double frontInRadiusDepth = (std::numeric_limits<double>::max)();
 	for (const osg::Vec3f& pLocal : points)
 	{
@@ -763,8 +822,8 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 		}
 		const double sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
 		const double sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
-		const double dx = sx - mouseX;
-		const double dy = sy - mouseY;
+		const double dx = sx - deviceX;
+		const double dy = sy - deviceY;
 		const double d2 = dx * dx + dy * dy;
 		if (d2 <= hitRadiusPx2)
 		{
@@ -788,8 +847,8 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 		}
 		const double sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
 		const double sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
-		const double dx = sx - mouseX;
-		const double dy = sy - mouseY;
+		const double dx = sx - deviceX;
+		const double dy = sy - deviceY;
 		const double d2 = dx * dx + dy * dy;
 		const double depth = clip.z();
 		if (d2 <= hitRadiusPx2
@@ -831,7 +890,6 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 
 bool OsgScene::pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx) const
 {
-	static const unsigned int kMaskContent = 0x1u;
 	ObjectGizmoFrame gizmoFrame;
 	const bool haveGizmoFrame = readActiveObjectGizmoFrame(gizmoFrame);
 	if (!m_viewer.valid() || !m_viewer->getCamera() || !m_root.valid())
@@ -839,13 +897,18 @@ bool OsgScene::pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec
 		return false;
 	}
 
-	const double x = mouseX;
-	const double y = static_cast<double>(viewportHeight()) - mouseY;
+	double deviceX = 0.0;
+	double deviceY = 0.0;
+	logicalMouseToDeviceCoords(mouseX, mouseY, deviceX, deviceY);
+	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
+	double windowX = 0.0;
+	double windowY = 0.0;
+	logicalMouseToPickWindowCoords(mouseX, mouseY, windowX, windowY);
 	osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
-		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, x, y);
+		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, windowX, windowY);
 	intersector->setIntersectionLimit(osgUtil::Intersector::LIMIT_NEAREST);
 	osgUtil::IntersectionVisitor iv(intersector.get());
-	iv.setTraversalMask(kMaskContent);
+	iv.setTraversalMask(kMaskPickContent);
 	m_viewer->getCamera()->accept(iv);
 
 	if (!intersector->containsIntersections())
@@ -867,8 +930,8 @@ bool OsgScene::pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec
 		}
 		const double sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
 		const double sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
-		const double dx = sx - mouseX;
-		const double dy = sy - mouseY;
+		const double dx = sx - deviceX;
+		const double dy = sy - deviceY;
 		d2 = dx * dx + dy * dy;
 		depth = clip.z(); // smaller => visually closer to camera
 		return true;
@@ -878,7 +941,7 @@ bool OsgScene::pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec
 	osg::Vec3f bestWorld(0.0f, 0.0f, 0.0f);
 	double bestD2 = (std::numeric_limits<double>::max)();
 	double bestDepth = (std::numeric_limits<double>::max)();
-	const double kScreenWindowPx = kPointPickHitRadiusPx;
+	const double kScreenWindowPx = kPointPickHitRadiusPx * dpr;
 	const double kScreenWindowPx2 = kScreenWindowPx * kScreenWindowPx;
 	const double kDepthTie = 1e-4;
 	const bool hasKd = (m_kdRoot >= 0 && !m_pickablePointsCenteredLocal.empty());
@@ -1198,19 +1261,19 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 	const std::string* scopeBackendId,
 	int* outPickedTriangleIndex) const
 {
-	static const unsigned int kMaskContent = 0x1u;
 	if (!m_viewer.valid() || !m_viewer->getCamera() || !m_root.valid())
 	{
 		return false;
 	}
 
-	const double x = mouseX;
-	const double y = static_cast<double>(viewportHeight()) - mouseY;
+	double windowX = 0.0;
+	double windowY = 0.0;
+	logicalMouseToPickWindowCoords(mouseX, mouseY, windowX, windowY);
 	osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
-		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, x, y);
+		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, windowX, windowY);
 	intersector->setIntersectionLimit(osgUtil::Intersector::LIMIT_NEAREST);
 	osgUtil::IntersectionVisitor iv(intersector.get());
-	iv.setTraversalMask(kMaskContent);
+	iv.setTraversalMask(kMaskPickContent);
 	m_viewer->getCamera()->accept(iv);
 
 	if (!intersector->containsIntersections())
@@ -1559,8 +1622,12 @@ bool OsgScene::pickMeshEdgeByRayIntersection(double mouseX, double mouseY, osg::
 		sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
 		sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
 	};
-	const double qx = mouseX;
-	const double qy = mouseY;
+	double deviceX = 0.0;
+	double deviceY = 0.0;
+	logicalMouseToDeviceCoords(mouseX, mouseY, deviceX, deviceY);
+	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
+	const double qx = deviceX;
+	const double qy = deviceY;
 
 	struct EdgeCand
 	{
@@ -1603,7 +1670,7 @@ bool OsgScene::pickMeshEdgeByRayIntersection(double mouseX, double mouseY, osg::
 		}
 	}
 
-	if (best.distPx > kMeshEdgeHitRadiusPx)
+	if (best.distPx > kMeshEdgeHitRadiusPx * dpr)
 	{
 		return false;
 	}
@@ -1979,6 +2046,7 @@ void OsgScene::setFeatureCatalogOverlay(const std::vector<FeatureCatalogOverlayI
 	for (const FeatureCatalogOverlayItem& item : layoutItems)
 	{
 		osg::ref_ptr<osg::Group> itemGroup = new osg::Group;
+		itemGroup->setNodeMask(kMaskPickOverlay);
 
 		if (item.hasEdgeSegment)
 		{

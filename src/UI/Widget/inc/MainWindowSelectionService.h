@@ -8,6 +8,10 @@ class QString;
 class MainWindow;
 class QTreeWidgetItem;
 
+namespace cloudsim::core {
+enum class SelectionSource;
+}
+
 /// MainWindow 树/OSG 拾取的选择编排
 class WIDGET_EXPORT MainWindowSelectionService
 {
@@ -37,4 +41,12 @@ public:
 	static bool selectBackendById(MainWindow& mainWindow, const QString& backendId, bool scrollToItem = true);
 	/// 进入点/线/面拾取前：确保有带几何的匹配 backend 被选中
 	static void ensureBackendForPickMode(MainWindow& mainWindow, SelectedBackendKind preferredKind);
+
+private:
+	static QString selectionRootBackendId(MainWindow& mainWindow, const QString& backendId);
+	static void applyBackendSelection(
+		MainWindow& mainWindow,
+		const QString& backendId,
+		cloudsim::core::SelectionSource source,
+		bool rowVisible);
 };

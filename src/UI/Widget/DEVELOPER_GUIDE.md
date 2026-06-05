@@ -99,6 +99,10 @@ Qt 树角色：`kRoleItemType`, `kRoleBackendId`, `kRoleAnnotationId`；项类�
 | `clearRobotSimulationContext` / `clearRobotSimulationIfContains` | 清除仿真 |
 | `robotKinematicInstanceCount` / `robotPerLinkKinematicsForInstance` | 多机 per-link 元数据 |
 | `setRobotPerLinkKinematicsBinding` | 绑定 URDF 切片 |
+| `selectionRootBackendId` | per-link 拾取任意连杆 → 逻辑选中 **scene 根** id |
+| `robotGizmoAnchorBackendId` | 对象 gizmo 实际挂在 **根连杆 mesh**（scene 根无 OSG 分支） |
+| `applyPerLinkRobotFkFromGizmoAnchor` | 由 gizmo 锚点世界位姿反解 `basePlacementWorld` 并 FK 全连杆 |
+| `reconcilePerLinkOuterBindFromScene` | 从当前场景反解 bind 表 **M0**（见 RobotScene §8）；进入 TCP 示教前调用 |
 | `notifyRobotKinematicsAppliedToScene()` | FK 后跟随脏 |
 
 实现 **`IRobotSimulationDocument`**（供 `RobotScene` 使用）。
@@ -172,7 +176,8 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 |------|------|
 | `SelectionSnapshot` | `backendId`, `data`, `kind`（PointCloud/Mesh/Other） |
 | `handleBackendTreeSelectionChanged` | 树 → `sceneFacade` 显隐/选中视觉；末尾 `publishSelectionChanged`（属性面板由 EventHub 订阅刷新） |
-| `handleOsgBackendObjectPicked` | 拾取 → `selectBackendById`（树变更触发上者） |
+| `handleOsgBackendObjectPicked` | 拾取 → `selectBackendById`（per-link 连杆 id 经 `selectionRootBackendId` 归并到 scene 根） |
+| `applyBackendSelection` | 选中闭环：gizmo 挂在 `robotGizmoAnchorBackendId`，非拾取 id |
 | `handleBackendTreeItemChanged` | 勾选 → **子树**显隐（`subtreeIds` 语义） |
 | `clearSelection` / `selectBackendById` | 程序化选择 |
 
@@ -247,6 +252,20 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 | `OsgSceneGizmo.cpp` | 罗盘、`beginGizmoScreen*`、`gizmoCompassUnitAxisWorld` |
 | `ObjectGizmoFrame.cpp` | 位姿数学、轴方向、保枢轴 |
 
+### 6.3.2 per-link 机器人对象 gizmo（整机关节链）
+
+per-link URDF 各连杆 OSG 为**扁平**布局，逻辑父子在 `m_backendParentIds`；各 link 的 outer 由 FK 写入**绝对世界位姿**，**不能**对逻辑子孙做 `syncActiveBackendRootFromObjectFrame(..., false)` 的增量传播（会破坏 `M0·inv(T0)·Tq·P` 链）。
+
+| 环节 | 行为 |
+|------|------|
+| 拾取末端/任意连杆 | `selectionRootBackendId` → 树与 EventHub 选中 **scene 根** |
+| gizmo active backend | `robotGizmoAnchorBackendId` → **根连杆** mesh 的 outer PAT |
+| 拖动每一帧 | `OsgWidget::setRobotObjectGizmoSyncHook` 拦截 → 仅更新锚点 PAT → `applyPerLinkRobotFkFromGizmoAnchor` 用当前关节角 + 新 **P** 刷新全连杆 |
+| 松手 | **只**更新 `basePlacementWorld` 与 scene 根 BackendData 位姿；**禁止**把含 P 的世界矩阵写进 **M0** bind 表 |
+| 属性面板平移/旋转 | `robotSelectionUsesGizmoAnchor` 时跳过对 scene 根的 `applyWorldPoseMm`（避免与 FK 冲突） |
+
+**实现**：`MainWindow::installBackendFollowFrameHook` 注册 `setRobotObjectGizmoSyncHook` / `setRobotObjectGizmoFkRefreshHook`（经 `page->osgWidget()`，非 `IRenderView`）；`RobotSceneKinematics::computeBasePlacementFromAnchorLinkWorld` 反解 P。
+
 ### 6.4 机器人与指令预览
 
 | 方法 | 说明 |
@@ -276,6 +295,7 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 | 方法 | 说明 |
 |------|------|
 | `setPerFrameHook` | 每帧：跟随求解、注释缩放等 |
+| `setRobotObjectGizmoSyncHook` / `setRobotObjectGizmoFkRefreshHook` | per-link 机器人对象 gizmo FK 路径（§6.3.2）；须在 `OsgWidget*` 上注册 |
 | `isTransformGizmoDragging` | 跟随求解跳过正在拖拽的 follower |
 
 ---
@@ -499,8 +519,11 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 **挂载（per-link URDF 常见）**：
 
 1. 优先 `robotSceneBackendId`；若无分支则 **法兰连杆 mesh** `linkMeshBackendIdForInstance`；再回退 `robotFrameWorldReferenceBackendId`。
-2. `resolveRobotBaseWorld`：挂载在法兰时提供 `robotBaseWorldMatrixForInstance`，供 `tcpTeachSetTargetFromToolWorld` 做基座↔世界变换。
-3. `toolLocalOnFlange`：罗盘 PAT 的 `localMatrix = T_flange_tool`（与 `updateRobotFrameOverlays` per-link 一致）；`updateTcpDragTeachFromTarget` 在法兰模式下只刷新该固定局部矩阵，位置随 FK 关节更新。
+2. 进入示教前：`doc->reconcilePerLinkOuterBindFromScene(instIdx, jointQ)`，从当前场景反解 **M0**（修复曾误把 `W` 写入 bind 导致的 FK 双乘 **P**）。
+3. `resolveRobotBaseWorld`：`robotBaseWorldMatrixForInstance` 在 per-link 下**必须**返回 `robotBasePlacementWorld`（**P**），勿用根连杆 mesh 世界矩阵（含连杆偏置，会导致 `toolWorld ↔ base` 与 IK 的 `T_base_target` 不一致）。
+4. `toolLocalOnFlange`：罗盘 PAT 的 `localMatrix = T_flange_tool`；法兰模式下 `updateTcpDragTeachFromTarget` 只刷新该局部矩阵，位置随 FK 更新。
+
+**罗盘几何**：与对象选择共用 `osg_compass::buildTransformCompassNode`（`OsgCompassGeometry.h`），实心 torus 环 + 同一缩放常量；实现于 `OsgWidgetTcpTeach.cpp` / `OsgSceneGizmo.cpp`。
 
 **拖动链路**：
 
@@ -524,7 +547,8 @@ LMB/RMB (RobotTcpDragTeachOperation)
 
 | 文件 | 职责 |
 |------|------|
-| `OsgWidgetTcpTeach.cpp` | 罗盘几何、挂载、`beginTcpTeachScreenDrag`、位姿应用 |
+| `OsgWidgetTcpTeach.cpp` | TCP 挂载、`beginTcpTeachScreenDrag`、位姿应用；罗盘调 `buildTransformCompassNode` |
+| `OsgCompassGeometry.cpp` | 对象/TCP 共用罗盘网格（`OsgWidgetCore`） |
 | `RobotTcpDragTeachOperation.cpp` | 鼠标事件、拾取轴、平移/旋转 |
 | `RobotSimulationController.cpp` | 模式进出、IK、指令预览/回放编排 |
 | `MainWindowRobotHost.cpp` | 宿主：`DocumentHost` 须转发 `robotBackendManagerForKinematics()`；`osgView()` 随当前页 OSG 重建 |

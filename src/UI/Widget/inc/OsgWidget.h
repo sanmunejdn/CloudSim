@@ -230,6 +230,13 @@ public:
 
 	/// 帧定时器回调（如跟随求解）
 	void setPerFrameHook(std::function<void(OsgWidget*)> fn);
+	/// per-link 机器人对象 gizmo：intercept 为 true 时跳过逻辑子孙传播
+	using RobotObjectGizmoSyncFn = std::function<bool(const ObjectGizmoFrame&, bool dragging)>;
+	using RobotObjectGizmoFkRefreshFn = std::function<void(const ObjectGizmoFrame&, bool dragging)>;
+	void setRobotObjectGizmoSyncHook(RobotObjectGizmoSyncFn fn);
+	void setRobotObjectGizmoFkRefreshHook(RobotObjectGizmoFkRefreshFn fn);
+	/// 写活动外层 PAT；per-link 机器人走 FK 钩子而非逻辑父子传播
+	void syncActiveBackendRootFromObjectFrame(const ObjectGizmoFrame& cur, bool dragging);
 	/// 对象/TCP 示教 gizmo 拖拽中，跳过跟随位姿覆写
 	bool isTransformGizmoDragging() const;
 	/// 按缓存质心将 \a data 位姿写到外层 PAT
@@ -400,6 +407,8 @@ private:
 	std::unordered_map<std::string, RobotFrameOverlayNodes> m_robotFrameOverlayNodes;
 
 	std::function<void(OsgWidget*)> m_perFrameHook;
+	RobotObjectGizmoSyncFn m_robotObjectGizmoSyncHook;
+	RobotObjectGizmoFkRefreshFn m_robotObjectGizmoFkRefreshHook;
 	std::string m_cameraFollowBackendId;
 
 	void updateCameraFollowCenter();

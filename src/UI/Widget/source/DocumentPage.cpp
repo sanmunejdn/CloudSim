@@ -13,6 +13,11 @@
 
 #include "IDataService.h"
 #include "IRobotBackendPoseSink.h"
+#include "BackendDataManager.h"
+#include "MeshBackendData.h"
+#include "OsgScene.h"
+#include "RobotSceneKinematics.h"
+#include "UrdfRobotLoader.h"
 
 #include <memory>
 #include <unordered_map>
@@ -473,6 +478,153 @@ QStringList DocumentPage::robotLinkBackendIds() const
 		}
 	}
 	return out;
+}
+
+QString DocumentPage::selectionRootBackendId(const QString& backendId) const
+{
+	if (backendId.isEmpty())
+	{
+		return backendId;
+	}
+	bool isSceneRoot = false;
+	const int instanceIndex = robotInstanceIndexForPerLinkBackend(backendId, &isSceneRoot);
+	if (instanceIndex < 0 || isSceneRoot)
+	{
+		return backendId;
+	}
+	return m_hierarchicalRobots[instanceIndex].sceneBackendId;
+}
+
+QString DocumentPage::robotGizmoAnchorBackendId(const QString& backendId) const
+{
+	if (backendId.isEmpty())
+	{
+		return backendId;
+	}
+	bool isSceneRoot = false;
+	const int instanceIndex = robotInstanceIndexForPerLinkBackend(backendId, &isSceneRoot);
+	if (instanceIndex < 0 || !robotUsesPerLinkBackendsForInstance(instanceIndex))
+	{
+		return backendId;
+	}
+	const QString anchor = robotFrameWorldReferenceBackendId(instanceIndex);
+	return anchor.isEmpty() ? backendId : anchor;
+}
+
+bool DocumentPage::applyPerLinkRobotFkFromGizmoAnchor(
+	const int instanceIndex,
+	const QString& anchorLinkBackendId,
+	const QVector<double>& jointAnglesRad)
+{
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size() || anchorLinkBackendId.isEmpty())
+	{
+		return false;
+	}
+	const HierarchicalRobotInstance& ri = m_hierarchicalRobots[instanceIndex];
+	if (!ri.perLinkBackends)
+	{
+		return false;
+	}
+	IRobotBackendPoseSink* osg = urdfImportScenePoseSink();
+	if (!osg)
+	{
+		return false;
+	}
+	RobotPerLinkKinematicsSlice slice;
+	if (!robotPerLinkKinematicsForInstance(instanceIndex, slice))
+	{
+		return false;
+	}
+	osg::Matrixd anchorWorld;
+	if (!osg->getBackendRootWorldMatrix(anchorLinkBackendId.toStdString(), anchorWorld))
+	{
+		return false;
+	}
+	osg::Matrixd placement;
+	if (!RobotSceneKinematics::computeBasePlacementFromAnchorLinkWorld(
+			slice, anchorLinkBackendId, jointAnglesRad, anchorWorld, placement))
+	{
+		return false;
+	}
+	setRobotBasePlacementWorldForInstance(instanceIndex, placement);
+	slice.robotBasePlacementWorld = placement;
+	if (!RobotSceneKinematics::applyPerLinkRobotBasePlacement(osg, backend(), slice, jointAnglesRad, placement))
+	{
+		return false;
+	}
+	const QString sceneRootId = ri.sceneBackendId;
+	const std::shared_ptr<BackendDataBase> rootData = backend().getData(sceneRootId.toStdString());
+	if (rootData && rootData->hasPoseProperty())
+	{
+		osg::Vec3d trans;
+		osg::Quat rot;
+		osg::Vec3d scale;
+		osg::Quat so;
+		placement.decompose(trans, rot, scale, so);
+		const osg::Vec3f euler = OsgScene::quatToEulerDeg(rot);
+		rootData->setPose(BackendVec3{trans.x(), trans.y(), trans.z()});
+		rootData->setRotation(BackendVec3{
+			static_cast<double>(euler.x()),
+			static_cast<double>(euler.y()),
+			static_cast<double>(euler.z())});
+	}
+	notifyRobotKinematicsAppliedToScene();
+	return true;
+}
+
+void DocumentPage::reconcilePerLinkOuterBindFromScene(
+	const int instanceIndex,
+	const QVector<double>& jointAnglesRad)
+{
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
+	{
+		return;
+	}
+	const HierarchicalRobotInstance& ri = m_hierarchicalRobots[instanceIndex];
+	if (!ri.perLinkBackends || ri.linkNameToBackendId.isEmpty() || ri.urdfAbsolutePath.isEmpty())
+	{
+		return;
+	}
+	IRobotBackendPoseSink* osg = urdfImportScenePoseSink();
+	if (!osg)
+	{
+		return;
+	}
+	RobotPerLinkKinematicsSlice slice;
+	if (!robotPerLinkKinematicsForInstance(instanceIndex, slice))
+	{
+		return;
+	}
+	QHash<QString, osg::Matrixd> Tq;
+	QString fkErr;
+	if (!UrdfRobotLoader::computeMeshWorldMatrices(
+			slice.urdfAbsolutePath, jointAnglesRad, Tq, &fkErr, slice.meshVerticesInLinkFrame))
+	{
+		return;
+	}
+	const osg::Matrixd Pinv = osg::Matrixd::inverse(slice.robotBasePlacementWorld);
+	for (auto it = ri.linkNameToBackendId.constBegin(); it != ri.linkNameToBackendId.constEnd(); ++it)
+	{
+		const QString& linkName = it.key();
+		const QString& linkBackendId = it.value();
+		if (linkName.isEmpty() || linkBackendId.isEmpty())
+		{
+			continue;
+		}
+		const auto t0It = slice.fkMeshWorldT0.constFind(linkName);
+		const auto tqIt = Tq.constFind(linkName);
+		if (t0It == slice.fkMeshWorldT0.constEnd() || tqIt == Tq.constEnd())
+		{
+			continue;
+		}
+		osg::Matrixd world;
+		if (!osg->getBackendRootWorldMatrix(linkBackendId.toStdString(), world))
+		{
+			continue;
+		}
+		const osg::Matrixd m0Bind = world * Pinv * osg::Matrixd::inverse(tqIt.value()) * t0It.value();
+		updateRobotLinkOuterBindFromWorld(instanceIndex, linkBackendId, m0Bind);
+	}
 }
 
 QString DocumentPage::robotJointPrefixRoot() const

@@ -43,6 +43,7 @@ public:
 
 	virtual void setRobotBasePlacementWorldForInstance(int instanceIndex, const osg::Matrixd& placementWorld) = 0;
 	virtual void updateRobotLinkOuterBindFromWorld(int instanceIndex, const QString& linkBackendId, const osg::Matrixd& world) = 0;
+	virtual void reconcilePerLinkOuterBindFromScene(int instanceIndex, const QVector<double>& jointAnglesRad) = 0;
 	virtual void notifyRobotKinematicsAppliedToScene() = 0;
 	virtual void requestFollowSolveForced() = 0;
 
