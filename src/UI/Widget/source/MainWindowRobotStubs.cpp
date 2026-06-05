@@ -1,6 +1,9 @@
 #include "MainWindow.h"
 
+#include "DocumentPage.h"
+#include "IRobotService.h"
 #include "MainWindowRobotHost.h"
+#include "WidgetRenderAccess.h"
 #include "RobotInstructionProgram.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include <QMenuBar>
@@ -192,7 +195,7 @@ void MainWindow::onUrdfImportRequested(const QString& urdfPath)
 	{
 		return;
 	}
-	if (!currentOsgWidget())
+	if (!renderWidgetFromPage(currentPage()))
 	{
 		QMessageBox::warning(this, QStringLiteral("URDF"), QStringLiteral("No active 3D view."));
 		return;
@@ -208,6 +211,32 @@ MainWindow::feasibleMotionAxisConfigurationOptionsForInstruction(
 	const std::shared_ptr<RobotInstruction::Base>& instruction,
 	QVector<double>* outSeedJointRad)
 {
+	if (!instruction)
+	{
+		return {};
+	}
+	DocumentPage* page = currentPage();
+	if (page)
+	{
+		const cloudsim::core::FeasibleMotionAxisOptionsDto dto =
+			page->robot().queryFeasibleMotionAxisOptions(QString::fromStdString(instruction->id()), outSeedJointRad);
+		RobotInstruction::FeasibleMotionAxisConfigurationOptions out;
+		auto fill = [](std::vector<std::string>& dest, const QStringList& src) {
+			dest.reserve(static_cast<size_t>(src.size()));
+			for (const QString& t : src)
+			{
+				dest.push_back(t.toStdString());
+			}
+		};
+		fill(out.presetTokens, dto.presetTokens);
+		fill(out.elbowTokens, dto.elbowTokens);
+		fill(out.wristTokens, dto.wristTokens);
+		fill(out.armTokens, dto.armTokens);
+		fill(out.turnJ1Tokens, dto.turnJ1Tokens);
+		fill(out.turnJ4Tokens, dto.turnJ4Tokens);
+		fill(out.turnJ6Tokens, dto.turnJ6Tokens);
+		return out;
+	}
 	if (m_robotSimulation)
 	{
 		return m_robotSimulation->feasibleMotionAxisConfigurationOptionsForInstruction(

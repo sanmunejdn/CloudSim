@@ -34,6 +34,10 @@ public:
 	QStringList feasibleMotionAxisConfigTokens(const QString& instructionId,
 		const core::MotionInstructionDto& instruction, const core::PlanContextDto& context) const override;
 
+	core::FeasibleMotionAxisOptionsDto queryFeasibleMotionAxisOptions(const QString& instructionId,
+		QVector<double>* outSeedJointRad = nullptr) const override;
+	core::FeasibleMotionAxisOptionsDto cachedFeasibleMotionAxisOptions() const override;
+
 private:
 	DocumentHost& m_host;
 	RobotProgramStore& m_programs;

@@ -46,91 +46,19 @@ inline bool backendWorldRotationMatrix(
 	return true;
 }
 
-inline bool worldPointToStepModelMm(
+ROBOTWIDGET_EXPORT bool worldPointToStepModelMm(
 	IRobotOsgViewHost* osg,
 	const std::string& backendId,
 	const osg::Vec3f& worldMm,
 	geoalgo::Point3d& outModel,
-	std::string* errMsg = nullptr)
-{
-	if (!osg)
-	{
-		if (errMsg)
-		{
-			*errMsg = "no osg host";
-		}
-		return false;
-	}
-	osg::Matrixd worldMat;
-	if (!osg->getBackendRootWorldMatrix(backendId, worldMat))
-	{
-		if (errMsg)
-		{
-			*errMsg = "backend world matrix unavailable";
-		}
-		return false;
-	}
-	osg::Matrixd invMat;
-	if (!invMat.invert(worldMat))
-	{
-		if (errMsg)
-		{
-			*errMsg = "failed to invert backend matrix";
-		}
-		return false;
-	}
-	const osg::Vec3d pw(static_cast<double>(worldMm.x()), static_cast<double>(worldMm.y()),
-		static_cast<double>(worldMm.z()));
-	const osg::Vec3d pOuter = pw * invMat;
-	double cx = 0.0;
-	double cy = 0.0;
-	double cz = 0.0;
-	(void)osg->tryGetBackendModelCenterMm(backendId, cx, cy, cz);
-	outModel.x = pOuter.x() + cx;
-	outModel.y = pOuter.y() + cy;
-	outModel.z = pOuter.z() + cz;
-	return true;
-}
+	std::string* errMsg = nullptr);
 
-inline bool stepModelPointToWorldMm(
+ROBOTWIDGET_EXPORT bool stepModelPointToWorldMm(
 	IRobotOsgViewHost* osg,
 	const std::string& backendId,
 	const geoalgo::Point3d& modelMm,
 	osg::Vec3f& outWorld,
-	std::string* errMsg = nullptr)
-{
-	if (!osg)
-	{
-		if (errMsg)
-		{
-			*errMsg = "no osg host";
-		}
-		return false;
-	}
-	osg::Matrixd worldMat;
-	if (!osg->getBackendRootWorldMatrix(backendId, worldMat))
-	{
-		if (errMsg)
-		{
-			*errMsg = "backend world matrix unavailable";
-		}
-		return false;
-	}
-	double cx = 0.0;
-	double cy = 0.0;
-	double cz = 0.0;
-	(void)osg->tryGetBackendModelCenterMm(backendId, cx, cy, cz);
-	const osg::Vec3d pFile(
-		modelMm.x - cx,
-		modelMm.y - cy,
-		modelMm.z - cz);
-	const osg::Vec3d pw = pFile * worldMat;
-	outWorld.set(
-		static_cast<float>(pw.x()),
-		static_cast<float>(pw.y()),
-		static_cast<float>(pw.z()));
-	return true;
-}
+	std::string* errMsg = nullptr);
 
 inline bool stepModelDirectionToWorld(
 	IRobotOsgViewHost* osg,

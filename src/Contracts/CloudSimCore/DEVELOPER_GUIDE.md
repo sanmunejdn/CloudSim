@@ -110,7 +110,7 @@
 | `requestFollowSolveForced()` | 下一帧强制整图 Follow 求解 |
 | `runFollowSolveAndSync(ctx)` | `FollowSolveContextDto` → Host `runBackendFollowSolveAndSync` |
 
-**未在契约内、由 Host 头文件导出**：`DocumentImportFacade::registerAdoptedMesh` / `registerAdoptedPointCloud`、`PointCloudBackgroundLoadState`（已构造几何 + OSG / 后台 ply Job，供 AI/插件/Widget Job 完成回调）。
+**未在契约内、由 Host 头文件导出**：`DocumentImportFacade::registerAdoptedMesh` / `registerAdoptedPointCloud`、`PointCloudBackgroundLoadState`（已构造几何 + OSG / 后台 ply Job，供 AI/插件/Widget Job 完成回调）、`ModelBackgroundLoadState`（STEP/BREP/Mesh 后台读盘 + artifacts 预热 → UI `finishIntoDocument`）。
 
 ---
 
@@ -166,32 +166,31 @@ struct SceneNodeInfo {
 };
 ```
 
-**Widget 取用 OSG**（推荐 `Widget/inc/WidgetDocumentAccess.h`）：
+**Widget 推荐**：`page->render()`（`IRenderView`）；截图 `render().captureViewportPng`；勿在新代码 `#include OsgWidget.h`。
+
+**插件/存量**（`Widget/inc/WidgetDocumentAccess.h`）：
 
 ```cpp
-#include "WidgetDocumentAccess.h"
-OsgWidget* osg = widgetOsgFromPage(page);
+OsgWidget* osg = widgetOsgFromPage(page);  // qobject_cast 自 render().widget()
 ```
 
-**Host 取用 OSG**（`Host/inc/DocumentHostAccess.h`）：
+**Host 内部**（`Host/inc/DocumentHostAccess.h`）：
 
 ```cpp
-#include "DocumentHostAccess.h"
-OsgWidget* osg = osgWidgetFrom(host);
+OsgWidget* osg = osgWidgetFrom(host);  // 或 host.osgWidget()
 ```
 
-两者均经 `IRenderView::widget()` 转换；头文件须包含 `IRenderView.h`（上述辅助头已包含）。
+更细的选中加载/显隐批量操作在 `BackendSceneDocumentFacade`（Host 编译，非 Core 契约）。
 
-更细的选中加载/显隐批量操作仍在 `BackendSceneDocumentFacade`（Host 编译，非 Core 契约）。
-
-**计划新增方法**（阶段 4，减少 Widget 对 `OsgWidget*` 具体类型依赖）：
+**已扩展 API**（阶段 4，Widget 经 `OsgRenderViewAdapter` 委托）：
 
 | 方法 | 说明 |
 |------|------|
-| `setInstructionPoseAxes(...)` | 运动点坐标轴显示 |
-| `setRobotFrameOverlays(...)` | 工具/用户坐标系叠加 |
-| `beginTcpDragTeach` / `endTcpDragTeach` | TCP 示教模式 |
-| `setRawTrajectoryOverlay(...)` / `clearRawTrajectoryOverlay` | 原始轨迹预览 |
+| `setInstructionPoseAxes` / 轨迹与特征叠加 | 运动点轴、raw 轨迹、特征目录 |
+| `setRobotFrameOverlays` / `clearRobotFrameOverlays` | 工具/用户坐标系叠加 |
+| `beginTcpDragTeach` / `endTcpDragTeach` / `updateTcpDragTeach*` | TCP 示教 |
+| `captureViewportPng` | 视口截图（插件经 `IPluginHostContext`） |
+| `FeasibleMotionAxisOptionsDto` | `IRobotService::queryFeasibleMotionAxisOptions`（Core DTO） |
 
 ---
 

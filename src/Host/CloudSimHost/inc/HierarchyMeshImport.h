@@ -10,7 +10,9 @@
 #include <vector>
 
 class BackendDataBase;
+class BrepBackendData;
 class MeshBackendData;
+struct BrepHierarchyPart;
 struct MeshHierarchyPart;
 
 namespace cloudsim::host {
@@ -21,6 +23,7 @@ struct HierarchyMeshImportResult {
 	bool ok = false;
 	std::shared_ptr<BackendDataBase> importParent; ///< 空壳父，聚焦与树选中用
 	std::shared_ptr<MeshBackendData> lastRegisteredMesh;
+	std::shared_ptr<BrepBackendData> lastRegisteredBrep;
 	int registeredPartCount = 0;
 };
 
@@ -33,9 +36,14 @@ CLOUDSIM_HOST_EXPORT bool importMeshHierarchyParts(DocumentHost& host, const QSt
 	const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out, QString* outError = nullptr,
 	const QString& importParentDisplayName = QString());
 
+CLOUDSIM_HOST_EXPORT bool importBrepHierarchyParts(DocumentHost& host, const QString& sourceFilePath,
+	const QString& catalogTypeName, const std::vector<BrepHierarchyPart>& parts, const QString& defaultBaseName,
+	const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out, QString* outError = nullptr,
+	const QString& importParentDisplayName = QString());
+
 /// 扩展网格导入
 CLOUDSIM_HOST_EXPORT bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const QString& catalogTypeName,
-	bool quietUi, const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
+	bool quietUi, int meshImportQuality, const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
 	QString* outError = nullptr);
 
 } // namespace cloudsim::host

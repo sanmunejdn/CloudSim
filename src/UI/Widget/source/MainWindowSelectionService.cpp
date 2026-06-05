@@ -18,11 +18,20 @@
 #include "MainWindow.h"
 #include "MainWindowObjectRepository.h"
 #include "MainWindow_p.h"
-#include "OsgWidget.h"
+#include "SelectionVisualService.h"
+#include "WidgetRenderAccess.h"
 #include "RunInfoPage.h"
 #include "SimulationCommandWidget.h"
 
 using namespace mainwindow_detail;
+
+namespace
+{
+cloudsim::core::IRenderView* activeRenderView(MainWindow& mainWindow)
+{
+	return renderViewFromPage(mainWindow.currentPage());
+}
+} // namespace
 
 void MainWindowSelectionService::clearSelection(MainWindow& mainWindow, bool clearTreeSelection)
 {
@@ -32,9 +41,9 @@ void MainWindowSelectionService::clearSelection(MainWindow& mainWindow, bool cle
 	{
 		mainWindow.simulationCommandPage()->clearInstructionSelection();
 	}
-	if (OsgWidget* osg = mainWindow.currentOsgWidget())
+	if (cloudsim::core::IRenderView* rv = activeRenderView(mainWindow))
 	{
-		osg->clearInstructionPoseAxes();
+		rv->clearInstructionPoseAxes();
 	}
 	mainWindow.updatePropertyPanel(QString());
 }
@@ -42,9 +51,9 @@ void MainWindowSelectionService::clearSelection(MainWindow& mainWindow, bool cle
 void MainWindowSelectionService::clearBackendObjectSelection(MainWindow& mainWindow, bool clearTreeSelection)
 {
 	mainWindow.m_selectionState.clearBackendSelection();
-	if (OsgWidget* osg = mainWindow.currentOsgWidget())
+	if (cloudsim::core::IRenderView* rv = activeRenderView(mainWindow))
 	{
-		osg->setSelectionActive(false);
+		rv->setSelectionActive(false);
 	}
 	if (clearTreeSelection && mainWindow.m_backendTree)
 	{
@@ -132,12 +141,12 @@ void MainWindowSelectionService::ensureBackendForPickMode(
 	MainWindow& mainWindow,
 	const SelectedBackendKind preferredKind)
 {
-	OsgWidget* osg = mainWindow.currentOsgWidget();
-	if (!osg || !osg->hasImportedContent())
+	cloudsim::core::IRenderView* rv = activeRenderView(mainWindow);
+	if (!rv || !rv->hasImportedContent())
 	{
 		return;
 	}
-	osg->setSelectionActive(true);
+	rv->setSelectionActive(true);
 
 	const SelectionSnapshot current = currentSelection(mainWindow);
 	if (current.valid() && current.hasGeometry)
@@ -193,12 +202,11 @@ void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& m
 	{
 		mainWindow.simulationCommandPage()->clearInstructionSelection();
 	}
-	if (OsgWidget* osg = mainWindow.currentOsgWidget())
+	cloudsim::core::IRenderView* rv = activeRenderView(mainWindow);
+	if (rv)
 	{
-		osg->clearInstructionPoseAxes();
+		rv->clearInstructionPoseAxes();
 	}
-
-	OsgWidget* osg = mainWindow.currentOsgWidget();
 
 	const QList<QTreeWidgetItem*> selected = mainWindow.m_backendTree->selectedItems();
 	if (selected.isEmpty() || selected.first() == mainWindow.m_backendRootItem)
@@ -220,21 +228,20 @@ void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& m
 	const bool urdfLinkMesh = doc && doc->hasRobotSimulationContext() && doc->robotLinkBackendIds().contains(id);
 	const bool hasSelection = doc && doc->data().isValid(id);
 
-	if (osg)
+	if (rv)
 	{
-		const std::string idStd = id.toStdString();
 		if (doc)
 		{
-			doc->sceneFacade().entity(idStd).setVisible(rowVisible);
+			doc->sceneFacade().entity(id.toStdString()).setVisible(rowVisible);
 		}
 		else
 		{
-			osg->setBackendObjectVisible(idStd, rowVisible);
+			rv->setVisible(id, rowVisible);
 		}
-		osg->setSelectionActive(hasSelection);
+		rv->setSelectionActive(hasSelection);
 		if (hasSelection && doc)
 		{
-			doc->render().ensureSelectionVisualForBackend(id, urdfLinkMesh);
+			cloudsim::host::SelectionVisualService::ensureSelectionVisual(*doc, id, urdfLinkMesh);
 		}
 	}
 	if (doc)
@@ -248,9 +255,9 @@ void MainWindowSelectionService::handleBackendTreeItemChanged(
 	QTreeWidgetItem* item,
 	int column)
 {
-	OsgWidget* const osg = mainWindow.currentOsgWidget();
+	cloudsim::core::IRenderView* rv = activeRenderView(mainWindow);
 	DocumentPage* const doc = mainWindow.currentPage();
-	if (!item || column != 0 || !osg)
+	if (!item || column != 0 || !rv)
 	{
 		return;
 	}
@@ -300,7 +307,7 @@ void MainWindowSelectionService::handleBackendTreeItemChanged(
 		{
 			for (const QString& id : idsToUpdate)
 			{
-				osg->setBackendObjectVisible(id.toStdString(), visible);
+				rv->setVisible(id, visible);
 			}
 		}
 		for (const QString& id : idsToUpdate)
@@ -336,7 +343,7 @@ void MainWindowSelectionService::handleBackendTreeItemChanged(
 	}
 	const QString annotationId = item->data(0, kRoleAnnotationId).toString();
 	const bool visible = item->checkState(0) == Qt::Checked;
-	osg->setAnnotationVisible(annotationId, visible);
+	rv->setAnnotationVisible(annotationId, visible);
 }
 
 void MainWindowSelectionService::handleOsgBackendObjectPicked(MainWindow& mainWindow, const QString& backendId)
@@ -351,4 +358,3 @@ void MainWindowSelectionService::handleOsgBackendObjectPicked(MainWindow& mainWi
 	}
 	(void)selectBackendById(mainWindow, backendId, true);
 }
-

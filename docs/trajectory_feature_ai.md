@@ -60,9 +60,20 @@ Coordinator 在 `onUserMessageSubmitted` 开头调用 `tryHandleFeatureFollowUp`
 | 项 | 实现 |
 |----|------|
 | 入口 | `IRobotOsgViewHost::setFeatureCatalogOverlay` → `OsgScene::setFeatureCatalogOverlay` |
-| 数据 | `FeatureTrajectoryPageWidget::buildPreviewOverlayJson`：`computeFeatureAnchor` + 工件世界矩阵 |
+| 数据 | `FeatureTrajectoryPageWidget::buildPreviewOverlayJson`：`computeFeatureAnchor`（STEP 文件坐标）→ `feature_pick_transform::stepModelPointToWorldMm`（`resolvePickScopeBackendId` + `backendSkipsInnerModelCenterRebase`，与 BREP 拾取高亮一致） |
 | 样式 | 候选边/面 **红色** 高亮；编号 **黑色** 文本（`BackdropType::NONE`）；标签沿 bbox 外法向角向展开，带 leader 线 |
 | 清除 | `clearFeatureCatalogOverlay`；确认/取消会话时 Coordinator 调用 `clearAiFeatureCandidatePreview` |
+
+**坐标桥接（file → world）**
+
+| 环节 | 模块 |
+|------|------|
+| 锚点几何 | `geoalgo::computeFeatureAnchor`（OCCT 模型空间 mm） |
+| 变换 | `feature_pick_transform::stepModelPointToWorldMm`（`FeaturePickTransform.cpp`） |
+| 场景状态 | `IRobotOsgViewHost::resolvePickScopeBackendId` / `backendSkipsInnerModelCenterRebase`（`WidgetOsgViewHost` → `OsgWidget`） |
+| 渲染 | `OsgScene::setFeatureCatalogOverlay`（世界坐标 overlay 组） |
+
+与 BREP 面/边拾取高亮（`OsgSceneBrepPick::stepModelPointToWorldMm`）语义一致；勿在 overlay 路径单独加减 `modelCenter`。
 
 ## 编号选择与高亮过滤
 
@@ -125,6 +136,8 @@ Widget 桥接：`MainWindowRobotStubs` → `RobotSimulationController` → `Feat
 | LLM prompt | `UI/CloudSimPluginHost/source/Ai/AiLlmClient.cpp` |
 | 宿主桥 | `UI/CloudSimPluginHost/source/PluginHostContext.cpp`、`UI/Widget/source/MainWindowRobotStubs.cpp` |
 | 轨迹页 | `UI/RobotWidget/source/FeatureTrajectoryPageWidget.cpp` |
+| 坐标变换 | `UI/RobotWidget/source/FeaturePickTransform.cpp`、`UI/RobotWidget/inc/FeaturePickTransform.h` |
+| OSG 桥 | `UI/Widget/source/WidgetOsgViewHost.cpp`（`resolvePickScopeBackendId` / `backendSkipsInnerModelCenterRebase`） |
 | 3D 叠加 | `UI/OsgWidgetCore/source/OsgScene.cpp` |
 | Anchor | `Geometry/GeometryAlgorithm/source/FeatureDiscretize.cpp`（`computeFeatureAnchor`） |
 | 类型 / 请求 | `Plugins/CloudSimAiSDK/inc/AiTrajectoryFeatureTypes.h`、`AiInferenceTypes.h` |

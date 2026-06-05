@@ -153,6 +153,8 @@
     <ClCompile Include="source\adapters\DataServiceAdapter.cpp" />
     <ClCompile Include="source\adapters\OsgRenderViewAdapter.cpp" />
     <ClCompile Include="source\adapters\RobotServiceAdapter.cpp" />
+    <ClCompile Include="source\RobotInstructionPropertyDto.cpp" />
+    <ClCompile Include="source\SelectionVisualService.cpp" />
     <ClCompile Include="source\UrdfRobotImport.cpp" />
     <ClCompile Include="source\BackendFileImport.cpp" />
     <ClCompile Include="source\BackendProjectObjectIo.cpp" />

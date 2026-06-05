@@ -370,7 +370,37 @@ void meshPushTri(std::vector<float>& soup, double ax, double ay, double az, doub
 	soup.push_back(static_cast<float>(cz));
 }
 
-bool meshLoadCgalMeshFile(MeshBackendData& mesh, const std::string& path, const std::string& ext, std::string* errMsg)
+void meshApplyImportQualityToSoup(std::vector<float>& soup, const int meshImportQuality)
+{
+	if (meshImportQuality == 1 || soup.size() < 27U)
+	{
+		return;
+	}
+	const std::size_t triCount = soup.size() / 9U;
+	if (triCount < 2U)
+	{
+		return;
+	}
+	const std::size_t stride = meshImportQuality == 0 ? 4U : 1U;
+	if (stride <= 1U)
+	{
+		return;
+	}
+	std::vector<float> reduced;
+	reduced.reserve((triCount / stride + 1U) * 9U);
+	for (std::size_t t = 0; t < triCount; t += stride)
+	{
+		const std::size_t base = t * 9U;
+		for (std::size_t k = 0; k < 9U; ++k)
+		{
+			reduced.push_back(soup[base + k]);
+		}
+	}
+	soup = std::move(reduced);
+}
+
+bool meshLoadCgalMeshFile(MeshBackendData& mesh, const std::string& path, const std::string& ext, std::string* errMsg,
+	const int meshImportQuality)
 {
 	if (!(ext == "obj" || ext == "stl" || ext == "ply" || ext == "off"))
 	{
@@ -412,6 +442,7 @@ bool meshLoadCgalMeshFile(MeshBackendData& mesh, const std::string& path, const 
 		meshLoadErr(errMsg, "No triangles extracted from mesh file.");
 		return false;
 	}
+	meshApplyImportQualityToSoup(soup, meshImportQuality);
 	mesh.setTriangleSoup(std::move(soup));
 	RunLogger::info("[MeshBackendData] Polygon-soup mesh loaded successfully.");
 	return true;

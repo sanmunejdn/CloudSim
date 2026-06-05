@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BackendRegistry.h"
+#include "BrepBackendData.h"
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 
@@ -29,4 +30,12 @@ inline void ensureBackendBuiltinsRegistered()
 	meshMeta.supportsTransform = true;
 	meshMeta.supportsVisibility = true;
 	BackendRegistry::instance().registerType(meshMeta);
+
+	BackendMeta brepMeta;
+	brepMeta.className = "BrepModel";
+	brepMeta.displayName = "BrepModel";
+	brepMeta.factory = []() { return std::static_pointer_cast<BackendDataBase>(std::make_shared<BrepBackendData>()); };
+	brepMeta.supportsTransform = true;
+	brepMeta.supportsVisibility = true;
+	BackendRegistry::instance().registerType(brepMeta);
 }

@@ -10,6 +10,11 @@
 
 class BackendDataBase;
 
+namespace geoalgo
+{
+struct BrepImportArtifacts;
+}
+
 /// 仅网格构建使用，点云忽略
 struct MeshVisualOptions
 {
@@ -25,6 +30,7 @@ struct BranchBuildResult
 	osg::ref_ptr<osg::MatrixTransform> outer;
 	osg::Vec3f modelCenter{};
 	float diagonal = 1.0f;
+	std::shared_ptr<const geoalgo::BrepImportArtifacts> brepArtifacts;
 };
 
 /// 按后端类型构建场景分支并提取 gizmo/拾取度量

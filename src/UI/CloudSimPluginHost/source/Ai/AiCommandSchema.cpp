@@ -665,4 +665,78 @@ void normalizeComposePlanJson(nlohmann::json& root)
 	}
 }
 
+bool parseModifyObjectCommand(
+	const nlohmann::json& cmd,
+	std::string& outBackendId,
+	nlohmann::json& outPropertyPatch,
+	std::string& errorMessage)
+{
+	errorMessage.clear();
+	outBackendId.clear();
+	outPropertyPatch = nlohmann::json::object();
+	if (!cmd.is_object())
+	{
+		errorMessage = "Command must be a JSON object.";
+		return false;
+	}
+	if (cmd.value("version", 1) != kSchemaVersion)
+	{
+		errorMessage = "Unsupported command version.";
+		return false;
+	}
+	if (cmd.value("action", "") != "modify_object")
+	{
+		errorMessage = "action must be modify_object.";
+		return false;
+	}
+	outBackendId = cmd.value("backend_id", std::string());
+	if (outBackendId.empty())
+	{
+		errorMessage = "modify_object requires backend_id.";
+		return false;
+	}
+	if (cmd.contains("propertyBag") && cmd["propertyBag"].is_object())
+	{
+		outPropertyPatch = cmd["propertyBag"];
+	}
+	else if (cmd.contains("pose") && cmd["pose"].is_object())
+	{
+		outPropertyPatch["pose"] = cmd["pose"];
+	}
+	else
+	{
+		errorMessage = "modify_object requires propertyBag or pose.";
+		return false;
+	}
+	return true;
+}
+
+bool parseImportAssetCommand(const nlohmann::json& cmd, std::string& outFilePath, std::string& errorMessage)
+{
+	errorMessage.clear();
+	outFilePath.clear();
+	if (!cmd.is_object())
+	{
+		errorMessage = "Command must be a JSON object.";
+		return false;
+	}
+	if (cmd.value("version", 1) != kSchemaVersion)
+	{
+		errorMessage = "Unsupported command version.";
+		return false;
+	}
+	if (cmd.value("action", "") != "import_asset")
+	{
+		errorMessage = "action must be import_asset.";
+		return false;
+	}
+	outFilePath = cmd.value("file_path", std::string());
+	if (outFilePath.empty())
+	{
+		errorMessage = "import_asset requires file_path.";
+		return false;
+	}
+	return true;
+}
+
 }

@@ -2,6 +2,7 @@
 
 #include <QString>
 
+class BackendDataBase;
 class OsgWidget;
 class PointCloudBackendData;
 class MeshBackendData;
@@ -12,6 +13,8 @@ class OsgWidgetBackendLoadController
 public:
 	bool loadPointCloudFromBackendData(OsgWidget& self, const PointCloudBackendData& data, QString* errorMessage, bool resetViewToHome);
 	bool loadMeshFromBackendData(OsgWidget& self, const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
+		bool showWireOutline = true, bool useSceneLighting = true, bool skipInnerModelCenterRebase = false);
+	bool loadBackendFromBackendData(OsgWidget& self, const BackendDataBase& data, QString* errorMessage, bool resetViewToHome,
 		bool showWireOutline = true, bool useSceneLighting = true, bool skipInnerModelCenterRebase = false);
 };
 

@@ -37,7 +37,8 @@ CLOUDSIM_HOST_EXPORT bool decodeBackendObjectFromProjectJson(const QJsonObject& 
 /// 内嵌几何注册
 CLOUDSIM_HOST_EXPORT bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& objectJson,
 	const QString& persistedId, const QString& sourcePath, const QString& catalogTypeName, const QString& parentId,
-	bool robotLinkMeshVisual, QString* outVisualError = nullptr, QString* outError = nullptr);
+	bool robotLinkMeshVisual, const QString& projectDir = QString(), QString* outVisualError = nullptr,
+	QString* outError = nullptr);
 
 /// 文件回退导入
 CLOUDSIM_HOST_EXPORT QString importProjectObjectFromFile(DocumentHost& host, const QString& loadPath,
@@ -88,8 +89,8 @@ CLOUDSIM_HOST_EXPORT void finalizeProjectHierarchyAfterObjects(DocumentHost& hos
 
 struct FollowSolveContext;
 
-/// edges Follow 绑定
-CLOUDSIM_HOST_EXPORT void applyProjectEdgesFollowBindingAndSolve(DocumentHost& host, OsgWidget& osg,
+/// edges Follow 绑定（OSG 由 Host 内部解析）
+CLOUDSIM_HOST_EXPORT void applyProjectEdgesFollowBindingAndSolve(DocumentHost& host,
 	const QVector<ProjectHierarchyEdge>& edges, const FollowSolveContext* solveCtx = nullptr);
 
 } // namespace cloudsim::host

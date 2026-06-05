@@ -17,8 +17,8 @@
 #include "DocumentPage.h"
 #include "IDataService.h"
 #include "IRenderView.h"
-#include "OsgWidget.h"
 #include "MainWindow_p.h"
+#include "WidgetRenderAccess.h"
 #include "MainWindowSelectionService.h"
 #include "RunInfoPage.h"
 
@@ -288,10 +288,10 @@ void MainWindow::refreshBackendTree()
 		}
 	}
 
-	if (OsgWidget* osg = currentOsgWidget())
+	if (cloudsim::core::IRenderView* rv = renderViewFromPage(doc))
 	{
-		const QList<OsgWidget::AnnotationSnapshot> snaps = osg->annotationSnapshots();
-		for (const OsgWidget::AnnotationSnapshot& s : snaps)
+		const QVector<cloudsim::core::AnnotationSnapshotDto> snaps = rv->annotationSnapshots();
+		for (const cloudsim::core::AnnotationSnapshotDto& s : snaps)
 		{
 			const QString label = s.displayText.isEmpty() ? s.id : s.displayText;
 			auto* item = new QTreeWidgetItem(QStringList() << label);
@@ -372,7 +372,7 @@ void MainWindow::onOsgBackendObjectPicked(const QString& backendId)
 
 void MainWindow::onAnnotationCreated(const QString& annotationId, const QString& displayText)
 {
-	if (sender() != currentOsgWidget() || !m_annotationRootItem)
+	if (sender() != renderWidgetFromPage(currentPage()) || !m_annotationRootItem)
 	{
 		return;
 	}
@@ -387,7 +387,7 @@ void MainWindow::onAnnotationCreated(const QString& annotationId, const QString&
 
 void MainWindow::onAnnotationRemoved(const QString& annotationId)
 {
-	if (sender() != currentOsgWidget() || !m_annotationRootItem)
+	if (sender() != renderWidgetFromPage(currentPage()) || !m_annotationRootItem)
 	{
 		return;
 	}
@@ -405,7 +405,7 @@ void MainWindow::onAnnotationRemoved(const QString& annotationId)
 
 void MainWindow::onAnnotationVisibilityChanged(const QString& annotationId, bool visible)
 {
-	if (sender() != currentOsgWidget() || !m_annotationRootItem)
+	if (sender() != renderWidgetFromPage(currentPage()) || !m_annotationRootItem)
 	{
 		return;
 	}
@@ -422,8 +422,8 @@ void MainWindow::onAnnotationVisibilityChanged(const QString& annotationId, bool
 
 void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 {
-	OsgWidget* osg = currentOsgWidget();
-	if (!m_backendTree || !osg)
+	cloudsim::core::IRenderView* rv = renderViewFromPage(currentPage());
+	if (!m_backendTree || !rv)
 	{
 		return;
 	}
@@ -440,7 +440,7 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 		QAction* action = menu.exec(m_backendTree->viewport()->mapToGlobal(pos));
 		if (action == clearAll)
 		{
-			osg->clearAllAnnotations();
+			rv->clearAllAnnotations();
 			refreshOsgSceneTree();
 			if (m_runInfoPage)
 			{
@@ -469,7 +469,7 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 			else if (action == focusView)
 			{
 				const QString id = item->data(0, kRoleBackendId).toString();
-				osg->focusCameraOnBackend(id.toStdString());
+				rv->focusCameraOnBackend(id);
 			}
 			else if (action == deleteObj)
 			{
@@ -505,11 +505,11 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 	}
 	if (action == toggle)
 	{
-		osg->setAnnotationVisible(annotationId, !visible);
+		rv->setAnnotationVisible(annotationId, !visible);
 	}
 	else if (action == remove)
 	{
-		osg->removeAnnotation(annotationId);
+		rv->removeAnnotation(annotationId);
 		if (m_runInfoPage)
 		{
 			m_runInfoPage->appendInfo(QStringLiteral("Annotation removed: %1").arg(annotationId));

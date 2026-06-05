@@ -70,6 +70,17 @@ public:
 	}
 	void invalidateFeasibleAxisConfigurationCache();
 
+	enum class FeasibleAxisProbePurpose
+	{
+		PropertyPanel,
+		SelectionAutoSeed,
+	};
+	void scheduleDeferredFeasibleAxisProbe(
+		const std::shared_ptr<RobotInstruction::Base>& instruction,
+		FeasibleAxisProbePurpose purpose = FeasibleAxisProbePurpose::PropertyPanel);
+
+	std::shared_ptr<RobotInstruction::Base> findInstructionById(const QString& instructionId) const;
+
 	bool tryCaptureCurrentRobotTcpPose(
 		RobotInstruction::Vec3& outPoseMm,
 		RobotInstruction::Vec3& outEulerDeg,
@@ -190,6 +201,7 @@ private:
 	QHash<QString, bool> m_motionReachabilityCache;
 	quint64 m_reachabilityJobToken = 0;
 	int m_reachabilityPendingJobs = 0;
+	quint64 m_feasibleAxisJobToken = 0;
 
 	QString computePlanFingerprint(
 		const RobotInstruction::Base& instruction,

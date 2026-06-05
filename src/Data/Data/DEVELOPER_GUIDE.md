@@ -185,15 +185,36 @@ Data 层凡以 `std::string path` 打开磁盘文件的 API（含 `PlyIo`、`Poi
 
 **现象与约定**：`BackendVisual` 在 `useSceneLighting=true` 时，无法线缓冲则用法线 `n = (p1-p0)×(p2-p0)`。绕序局部不一致会导致**部分或整面发黑**；带 `vn` 的 CAD/Max OBJ 必须走文件法线路径。
 
-**Widget 导入**：`MainWindowImportCaptureRenderController` 对 STEP 优先 `loadStepHierarchyFromFile`（多零件层级）；单件 STEP 与上述 `loadFromFile` 一致。`.obj` 等不走 OSG `importModelFile` fallback（见该控制器注释）。
+**Widget 导入**：STEP 优先 `BrepBackendData::loadStepHierarchyFromFile`（B-rep 装配，见 §4.4）；单件 STEP/BREP 走 `BrepBackendData::loadFromStepFile` / `loadFromBrepFile`。网格路径仍可用 `MeshBackendData::loadStepHierarchyFromFile`（tessellated 分件）。`.obj` 等不走 OSG `importModelFile` fallback（见该控制器注释）。
 
 ### 4.3 `struct MeshHierarchyPart`
 
-STEP/DXF 层级导入中间结构：`partPath`, `parentPartPath`, `displayName`, `triangleSoup`。
+STEP/DXF **mesh** 层级导入中间结构：`partPath`, `parentPartPath`, `displayName`, `triangleSoup`。
 
 DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 通常为 **世界坐标**；Host 导入时用 `skipInnerModelCenterRebase` 且**不做** Follow 求解（见 [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.1a）。
 
-### 4.4 CAD 轨迹几何桥接（`GeometryRef.h` / `GeometryBackendOps.cpp`）
+### 4.4 `BrepBackendData`
+
+| 注册名 | `className()` = **`"BrepModel"`**（catalog `BrepModel`） |
+|--------|----------------------------------------------------------|
+
+| 方法 | 说明 |
+|------|------|
+| `setShape` / `shapeRef()` | 持有 `geoalgo::ShapeHandle`；显示与特征离散共用 |
+| `shareShapeFrom(other)` | 装配子零件共享 assembly shape |
+| `loadFromStepFile` / `loadFromBrepFile` / `writeBrepFile` | STEP/BREP 文件 I/O |
+| `loadStepHierarchyFromFile` | 静态；`collectShapeHierarchyTopology` → `BrepHierarchyPart[]`（**无 tessellation**） |
+| `setBrepSidecarRelativePath` | 工程内嵌 `.brep` 相对路径 |
+
+| `BrepHierarchyPart` 字段 | 说明 |
+|-------------------------|------|
+| `partPath` / `parentPartPath` | 装配树路径（与 mesh 层级相同约定） |
+| `displayName` | 树节点显示名 |
+| `shapeRef` | 当前实现为共享整件 assembly shape |
+
+位姿/颜色/属性：`hasPoseProperty` 等均为 `true`。Visual 见 [`BackendVisual/DEVELOPER_GUIDE.md`](../../UI/BackendVisual/DEVELOPER_GUIDE.md) §4.3；Host 装配见 [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.1b。
+
+### 4.5 CAD 轨迹几何桥接（`GeometryRef.h` / `GeometryBackendOps.cpp`）
 
 场景显示仍为 `MeshBackendData` 三角 soup；**特征离散**在运行时从 STEP 临时加载 B-rep（`geoalgo::readStepShape`），不经 Data 持久化 `TopoDS_Shape`。
 

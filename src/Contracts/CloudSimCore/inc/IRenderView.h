@@ -6,6 +6,8 @@
 #include <functional>
 #include <memory>
 
+#include <QByteArray>
+
 class QWidget;
 
 namespace cloudsim::core {
@@ -35,6 +37,16 @@ public:
 
 	virtual void requestRedraw() = 0;
 
+	virtual void setSelectionActive(bool active) = 0;
+	virtual void clearInstructionPoseAxes() = 0;
+	virtual bool hasImportedContent() const = 0;
+	virtual bool isTcpDragTeachActive() const = 0;
+	virtual bool isTransformGizmoDragging() const = 0;
+	virtual void setAnnotationVisible(const ObjectId& annotationId, bool visible) = 0;
+	virtual bool removeAnnotation(const ObjectId& annotationId) = 0;
+	virtual void clearAllAnnotations() = 0;
+	virtual QVector<AnnotationSnapshotDto> annotationSnapshots() const = 0;
+
 	/// 聚焦后端子树
 	virtual void focusCameraOnBackend(const ObjectId& id) = 0;
 	/// 逻辑父链（不改 OSG）
@@ -59,6 +71,44 @@ public:
 	virtual GeometryKind geometryKindForBackend(const ObjectId& id) const = 0;
 	/// gizmo 松手：OSG 选中态写回后端位姿
 	virtual bool commitGizmoPoseToBackend(const ObjectId& id) = 0;
+
+	virtual void setViewerBackgroundForDarkUi(bool dark) = 0;
+	virtual void setPerFrameHook(std::function<void()> hook) = 0;
+	virtual QString pointCloudPluginReport() const = 0;
+
+	virtual void setCameraFollowBackendId(const ObjectId& id) = 0;
+	virtual void clearCameraFollowBackendId() = 0;
+	virtual void setObjectSelectionMode(bool enabled) = 0;
+	virtual bool objectSelectionMode() const = 0;
+	virtual void setPointPickMode(bool enabled) = 0;
+	virtual bool pointPickMode() const = 0;
+	virtual void setMeshLinePickMode(bool enabled) = 0;
+	virtual bool meshLinePickMode() const = 0;
+	virtual void setMeshFacePickMode(bool enabled) = 0;
+	virtual bool meshFacePickMode() const = 0;
+	virtual void syncSelectionForBackend(const ObjectId& id) = 0;
+	virtual bool captureViewportPng(QByteArray& outPng, QString* outError = nullptr, int maxWidth = 768,
+		int maxHeight = 768) = 0;
+
+	virtual void setTransformGizmoFrame(TransformGizmoFrameDto frame) = 0;
+	virtual TransformGizmoFrameDto transformGizmoFrame() const = 0;
+
+	virtual void endTcpDragTeach() = 0;
+	virtual void beginTcpDragTeach(const ObjectId& mountBackendId, const Mat4& targetInBaseColumnMajor,
+		float modelDiagonalMm, RobotBaseWorldResolver resolveRobotBaseWorld = nullptr,
+		const Mat4* toolLocalOnFlangeColumnMajor = nullptr) = 0;
+	virtual void updateTcpDragTeachFromTarget(const Mat4& targetInBaseColumnMajor, bool syncTargetInBase = true) = 0;
+	virtual void updateTcpDragTeachToolLocalOnFlange(const Mat4& toolLocalOnFlangeColumnMajor) = 0;
+
+	virtual void setInstructionPoseAxes(const QVector<InstructionPoseAxisDto>& axes) = 0;
+	virtual void setRawTrajectoryOverlay(const QVector<RawTrajectoryOverlayVertexDto>& points) = 0;
+	virtual void clearRawTrajectoryOverlay() = 0;
+	virtual void setRawTrajectoryOverlayFrames(const QVector<RawTrajectoryOverlayFrameDto>& frames) = 0;
+	virtual void clearRawTrajectoryOverlayFrames() = 0;
+	virtual void setRobotFrameOverlays(const RobotFrameOverlayUpdateDto& update) = 0;
+	virtual void clearRobotFrameOverlays(const ObjectId& robotRootBackendId) = 0;
+	virtual void setFeatureCatalogOverlay(const QVector<FeatureCatalogOverlayItemDto>& items) = 0;
+	virtual void clearFeatureCatalogOverlay() = 0;
 };
 
 /// 渲染视口工厂

@@ -28,13 +28,13 @@
 
 #include "DocumentPage.h"
 #include "IDataService.h"
-#include "WidgetDocumentAccess.h"
-#include "OsgWidget.h"
+#include "IRenderView.h"
 #include "ProjectPackageZip.h"
 #include "RobotInstructionFactory.h"
 #include "RobotProgramStore.h"
 #include "RunInfoPage.h"
 #include "../RobotWidget/inc/IRobotDocumentHost.h"
+#include "../RobotWidget/inc/IRobotOsgViewHost.h"
 #include "../RobotWidget/inc/RobotAxisControlWidget.h"
 #include "../RobotWidget/inc/RobotProjectIoAdapter.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
@@ -105,7 +105,8 @@ void MainWindow::onSaveProject()
 	const QString jsonWritePath = packageMode ? QDir(workRoot).filePath(QStringLiteral("project.json")) : savePath;
 
 	const QString languageCode = m_useChinese ? QStringLiteral("zh") : QStringLiteral("en");
-	const cloudsim::host::ProjectSaveBuildResult built = cloudsim::host::buildProjectSaveRoot(*doc, languageCode);
+	const cloudsim::host::ProjectSaveBuildResult built =
+		cloudsim::host::buildProjectSaveRoot(*doc, languageCode, workRoot);
 	if (!built.abortMessage.isEmpty())
 	{
 		QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
@@ -255,13 +256,13 @@ void MainWindow::onOpenProjectFile()
 	page->backendSourcePath().clear();
 	page->backendSourceType().clear();
 	page->backendParentId().clear();
-	if (OsgWidget* wClear = widgetOsgFromPage(page))
+	page->render().clearAllAnnotations();
+	if (IRobotOsgViewHost* view = activeOsgViewHost())
 	{
-		wClear->clearAllAnnotations();
-		wClear->clearCameraFollowBackendId();
+		view->setCameraFollowBackendId(std::string());
 	}
 
-	OsgWidget* osg = widgetOsgFromPage(page);
+	const bool hasRenderWidget = activeOsgViewHost() != nullptr;
 
 	const QJsonObject root = jsonDoc.object();
 	bool projectHadPrograms = false;
@@ -326,7 +327,7 @@ void MainWindow::onOpenProjectFile()
 	appendLoadWarnings(objectLoadWarnings);
 	appendLoadWarnings(hierarchyWarnings);
 
-	if (osg)
+	if (hasRenderWidget)
 	{
 		const cloudsim::host::RobotKinematicsRestoreResult rkResult =
 			cloudsim::host::restoreRobotKinematicsFromProjectJson(*page, root);
@@ -368,10 +369,10 @@ void MainWindow::onOpenProjectFile()
 		}
 	}
 
-	if (osg)
+	if (hasRenderWidget)
 	{
-		cloudsim::host::FollowSolveContext solveCtx = makeFollowSolveContext(*osg);
-		cloudsim::host::finalizeProjectLoadFollowAndViewport(*page, *osg, root, useEdgesRelation, pendingEdges, &solveCtx);
+		const cloudsim::core::FollowSolveContextDto solveCtx = makeFollowSolveContextDto(*page);
+		cloudsim::host::finalizeProjectLoadFollowAndViewport(*page, root, useEdgesRelation, pendingEdges, &solveCtx);
 	}
 
 	// Follow 求解会改写连杆 mesh 世界矩阵；须在求解后重新按 URDF 关节角同步（与「重置所有关节」同路径）

@@ -19,6 +19,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 | Simulation dock (Instructions / Axis / Frames / **Trajectory Generation** / **Trajectory Edit**) | `RobotSimulationDockWidget`, page widgets |
 | Orchestration | `RobotSimulationController` |
 | Host contracts | `IRobotMainWindowHost`, `IRobotDocumentHost`, `IRobotOsgViewHost` |
+| STEP 坐标变换 | [`inc/FeaturePickTransform.h`](inc/FeaturePickTransform.h) + `source/FeaturePickTransform.cpp`：`stepModelPointToWorldMm` / `worldPointToStepModelMm`（导出，非 header inline） |
 | FK / matrix helpers | `RobotSimulationMath` |
 | Instruction planning context | `RobotInstructionPlanning` |
 | URDF import entry | `RobotUrdfImport::registerUrdfRobot` → host |
@@ -26,21 +27,24 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 | 程序编辑撤销栈 | `ProgramEditService` + `ProgramEditStack`（`RobotScene`） |
 | 轨迹编辑流水线 | `TrajectoryEditPageWidget` / `TrajectoryEditSession` / `TrajectoryPipelineBuilder` |
 | **CAD 轨迹生成** | `FeatureTrajectoryPageWidget`：`FeatureSpec` → 离散 → `RawTrajectory` 写入 `TrajectoryEditSession` |
-| Property-panel feasible-axis query | `RobotInstructionPropertyEditor` |
+| 指令属性面板 UI | `InstructionPropertyPanel` + `MainWindowInstructionPropertyUiHost`（Widget 桥接） |
+| Property-panel feasible-axis query | `RobotInstructionPropertyEditor` / `RobotSimulationController::scheduleDeferredFeasibleAxisProbe` |
 
 ## Widget integration
 
 - `MainWindowRobotHost` implements `IRobotDocumentHost` / `IRobotOsgViewHost` / `IRobotMainWindowHost`.
 - `MainWindowUiSetup` creates `RobotSimulationController`, simulation dock, and attaches `m_robotSimTimer` via `attachPlaybackTimer`.
 - `MainWindowRobotStubs.cpp` forwards slots (`onSimulationInstructionSelectionChanged`, `onRobotAxisJointAnglesChanged`, TCP teach, etc.) to the controller.
-- `MainWindowPropertyPanel` still owns the Qt property browser; the controller calls `refreshInstructionPropertyPanel` on the host.
+- `MainWindowPropertyPanel` owns the Qt property browser shell; simulation instruction rows are built by `InstructionPropertyPanel`.
+- Feasible-axis enum refresh: show cached tokens first, then `scheduleDeferredFeasibleAxisProbe` (background IK via `JobSystem`).
 
 ### Host pitfalls (per-link URDF)
 
 | 项 | 说明 |
 |----|------|
 | `IRobotDocumentHost::robotBackendManagerForKinematics()` | **必须**转发到 `DocumentPage::robotBackendManagerForKinematics()`。默认基类返回 `nullptr` 会导致 `applyJointAnglesViaLinkBackends` 失败，轴控制/拖动/预览均无场景更新。 |
-| `IRobotOsgViewHost` 生命周期 | `osgView()` 在 `currentOsgWidget()` 变化时重建 `OsgViewHost`；勿缓存首次 `OsgWidget*`。 |
+| `IRobotOsgViewHost` 生命周期 | `osgView()` 在文档页变化时重建 `WidgetOsgViewHost`；实现委托 `IRenderView`，勿缓存裸 `OsgWidget*`。 |
+| `IRobotOsgViewHost` 坐标 | `resolvePickScopeBackendId` / `backendSkipsInnerModelCenterRebase` 与 `OsgScene` 一致；`feature_pick_transform` 在 file↔world 前解析 visual backendId 并按 skip-rebase 决定是否加减 `modelCenter`。 |
 | `IRobotDocumentHost` 文档切换 | `document()` 在 `currentPage()` 变化时重建 `DocumentHost`（与 OSG 规则一致）。 |
 
 ## Build
@@ -203,6 +207,18 @@ Run 期间每 tick 在 UI 线程调用；根据 `activeMotion()` 在 `m_currentR
 
 `stopRobotSimulation` 清空 `m_currentRunMotions`、`m_lookaheadPendingJobs`、`m_lastHighlightedInstructionId`。
 
+#### 可行轴 IK 后台探测（`scheduleDeferredFeasibleAxisProbe`）
+
+属性面板 `refreshFeasibleAxisOptions=true` 或指令树首次选中 `AUTO` 未 seed 时触发。
+
+1. UI 线程：`buildChainSeedJointRadForInstruction` + fingerprint；命中 `m_cachedFeasibleAxis*` 则直接刷新面板。
+2. 快照 `PlanJobPayload` + `RobotCoordinateFrameSet` → `enqueueBackgroundJob`（标题 `Feasible axis IK`）。
+3. 工作线程：独立 `RobotInstruction::Controller` + `prepareMotionInstructionForPlanning` + `queryFeasibleMotionAxisConfigurationOptions`（同 lookahead/reachability，**禁止**碰共享 `Base`）。
+4. `onFinished`（UI 线程）：写缓存；若 `activeInstructionForProperty()` 仍匹配则 `applySuggestedAxisPresetFromSeedIfNeeded` + `refreshInstructionPropertyPanel(false)`。
+5. `invalidateFeasibleAxisConfigurationCache` 递增 `m_feasibleAxisJobToken` 丢弃过期结果。
+
+显式 API `IRobotService::queryFeasibleMotionAxisOptions` 仍可走 `feasibleMotionAxisConfigurationOptionsForInstruction` **同步**路径（插件/契约查询）。
+
 #### 关键 API（本模块）
 
 | 符号 | 文件 | 说明 |
@@ -212,6 +228,8 @@ Run 期间每 tick 在 UI 线程调用；根据 `activeMotion()` 在 `m_currentR
 | `tickLookaheadPlanning` | 同上 | Run 中后台预读 |
 | `buildChainSeedJointRadForInstruction` | 同上 | 预览/可行轴：程序起点 → 前序路点链式种子 |
 | `applyRobotPoseForInstructionPreview` | 同上 | 选中预览（链式种子 + 单次 IK 或示教 CSV） |
+| `scheduleDeferredFeasibleAxisProbe` | 同上 | 可行轴 IK 后台 Job + 缓存 |
+| `scheduleAsyncMotionReachabilityRefresh` | 同上 | 全程序 reachability 后台 Job |
 | `onSimulationStartTriggered` | 同上 | Run 启动 + 链式缓存 |
 | `onRobotSimulationTick` | 同上 | 播放 + 树高亮 + 预读调度 |
 
@@ -557,7 +575,7 @@ Dock 页签 **「轨迹生成」**（`FeatureTrajectoryPageWidget`，`kTabIndexT
 
 **3D 拾取数据流**：轨迹页「拾取边/面」→ `IRobotOsgViewHost::setMesh*PickMode` + `setMeshPickScopeBackendId`（当前 combo backend）→ 视口左键 → `MainWindowRobotHost::notifyMeshPickCommitted` → 自动填 `FeatureSpec` 并离散。
 
-**坐标系约定**：`RawTrajectory.points` 与 OCCT 离散结果同在 **STEP 文件坐标**（非视口世界坐标）。预览与 `emitRawTrajectoryToProgram` 前经 `feature_pick_transform::stepModelPointToWorldMm` / `transformRawTrajectoryToWorld` 按 **当前** `workpiece.backendIdUtf8` 的 `getBackendRootWorldMatrix` + `modelCenter` 变换（与 `ObjectGizmoFrame` / `buildOuterBranch` 一致）。session 内 raw 保持 file 坐标；工件移动后重新离散或刷新预览即可跟随。
+**坐标系约定**：`RawTrajectory.points` 与 OCCT 离散结果同在 **STEP 文件坐标**（非视口世界坐标）。预览与 `emitRawTrajectoryToProgram` 前经 `feature_pick_transform::stepModelPointToWorldMm` / `transformRawTrajectoryToWorld`：先 `resolvePickScopeBackendId` 取承载 Geode 的 backendId，再按 `backendSkipsInnerModelCenterRebase` 决定是否加减 `modelCenter`（与 `OsgSceneBrepPick` 一致）。AI 特征编号 overlay（`buildPreviewOverlayJson`）走同一路径。
 
 **预览叠加层**：原始轨迹用 `setRawTrajectoryOverlay`（折线 + 点）+ 可选 `setRawTrajectoryOverlayFrames`（稀疏 TCP 轴，默认 15 mm，X/Y/Z 红/绿/蓝）。
 
@@ -572,7 +590,7 @@ Dock 页签 **「轨迹生成」**（`FeatureTrajectoryPageWidget`，`kTabIndexT
 
 **当前特征锁定**：3D 拾取或离散成功后缓存 `FeatureSpec`；调整离散参数时自动对**上次特征**重新离散（400 ms 防抖），无需再次拾取；编辑器仍为 catalog JSON 时不影响参数调参。
 
-**性能**：指令树选中时 `buildChainSeedJointRadForInstruction` **只算一次**，`feasibleMotionAxisConfigurationOptionsForInstruction` 与 `applyRobotPoseForInstructionPreview` 共用 `PrecomputedChainSeed`；`refreshInstructionPoseAxes(false)`（不算可达性）；链式种子 / 可达性 / Run 复用 `PlanResultCache`（可达性对示教 CSV 路点跳过 IK）。切换激活工具或工具几何时 reachability 经 `enqueueBackgroundJob` 异步计算。树选择 50 ms debounce；程序步数 &gt; 100 时 `rebuildFromProgram` 不 `expandAll`。
+**性能**：指令树选中时 `buildChainSeedJointRadForInstruction` **只算一次**，预览与可行轴探测共用 `PrecomputedChainSeed`；可行轴完整枚举经 **后台 Job**（非 UI 线程 IK）；`refreshInstructionPoseAxes(false)`（不算可达性）；链式种子 / 可达性 / Run 复用 `PlanResultCache`。切换激活工具或工具几何时 reachability 经 `enqueueBackgroundJob` 异步计算。树选择 50 ms debounce；程序步数 &gt; 100 时 `rebuildFromProgram` 不 `expandAll`。
 
 **V1 限制**：单次拾取一条边或一个面；层级 STEP 子件共享整件 STEP 索引；索引解析容差默认 2 mm；已 emit 的 LINE 为发射时刻世界坐标，工件再移动不会自动更新程序。
 
@@ -584,7 +602,7 @@ Dock 页签 **「轨迹生成」**（`FeatureTrajectoryPageWidget`，`kTabIndexT
 | `RawTrajectory` | [`RobotScene/inc/RawTrajectory.h`](../../Robot/RobotScene/inc/RawTrajectory.h) |
 | STEP 路径 | `IRobotDocumentHost::meshBackendStepSourcePath`（`DocumentHost::backendSourcePath`） |
 | 预览 | `applyRawTrajectoryPreviewToOsg` / `applyWorldRawTrajectoryPreviewToOsg`；`clearRawTrajectoryOverlay*`；指令路点 `setInstructionPoseAxes` |
-| `FeaturePickTransform` | `transformRawTrajectoryToWorld` / `transformRawTrajectoryWorldToFile` / `applyWorldRawTrajectoryPreviewToOsg` |
+| `FeaturePickTransform` | `transformRawTrajectoryToWorld` / `transformRawTrajectoryWorldToFile` / `stepModelPointToWorldMm` / `applyWorldRawTrajectoryPreviewToOsg`（实现于 `FeaturePickTransform.cpp`） |
 
 AI 入口：领域 `trajectory.feature`（`TrajectoryFeatureDomainHandler` 校验 `features[]`；确认离散经 `commitFeaturePlanFromAi`）。**完整 AI 流程、3D 编号叠加、编号选择高亮过滤**见 [`docs/trajectory_feature_ai.md`](../../docs/trajectory_feature_ai.md)。
 
@@ -595,7 +613,13 @@ AI 入口：领域 `trajectory.feature`（`TrajectoryFeatureDomainHandler` 校�
 | `clearCandidatePreview` | 清除 3D 特征叠加 |
 | `commitFeaturePlanFromAi` | 计划 JSON → 多特征离散 + 写入 `TrajectoryEditSession` + 默认 pipeline |
 
-3D 叠加经 `IRobotOsgViewHost::setFeatureCatalogOverlay`（红边、黑色编号、leader 线）；锚点 `geometry_backend_ops::computeFeatureAnchor`。
+3D 叠加经 `IRobotOsgViewHost::setFeatureCatalogOverlay`（红边、黑色编号、leader 线）；锚点 `geometry_backend_ops::computeFeatureAnchor`（STEP 文件坐标）→ `buildPreviewOverlayJson` 内 `feature_pick_transform::stepModelPointToWorldMm`（见上「坐标系约定」）。
+
+| `FeaturePickTransform` API | 说明 |
+|----------------------------|------|
+| `stepModelPointToWorldMm` / `worldPointToStepModelMm` | 文件↔世界；经 `IRobotOsgViewHost` 解析 pick alias + skip-rebase |
+| `transformRawTrajectoryToWorld` / `transformRawTrajectoryWorldToFile` | 整条 raw 点列变换 |
+| `applyRawTrajectoryPreviewToOsg` / `applyWorldRawTrajectoryPreviewToOsg` | 轨迹预览叠加 |
 
 ---
 

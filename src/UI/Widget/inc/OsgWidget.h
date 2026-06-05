@@ -33,6 +33,7 @@
 #include "GraphicsWindowQt1.h"
 #include "IRobotBackendPoseSink.h"
 #include "../../OsgWidgetCore/inc/OsgScene.h"
+#include "../../RobotWidget/inc/RobotOsgUiTypes.h"
 #include "../../OsgWidgetCore/inc/PickTypes.h"
 
 #include <QMetaType>
@@ -89,27 +90,8 @@ public:
 	friend class OsgWidgetTransformHierarchyController;
 
 	using AnnotationEntry = OsgScene::AnnotationEntry;
-	using FeatureCatalogOverlayItem = OsgScene::FeatureCatalogOverlayItem;
-	using OsgScene::setFeatureCatalogOverlay;
-	using OsgScene::clearFeatureCatalogOverlay;
 
 public:
-	struct InstructionPoseAxis
-	{
-		osg::Vec3f positionMm;
-		osg::Vec3f eulerDeg;
-		bool lineMotion = false;
-		/// 路点 IK 可达性（原点标记绿/红）
-		bool reachable = true;
-		std::string robotBackendId; /// 局部父节点；空表示世界 overlay
-		/// per-link：T_base_tcp 挂 robotBackendId 的 PAT 下（勿用子装配子图，避免漂到场景原点）
-		bool mountTcpOnPatRoot = false;
-		bool hasLocalMatrix = false;
-		double localMatrix[16]{};
-		/// URDF 连杆名；非空时 \a localMatrix 为该连杆容器系 inv(T_link)*T_tcp，轴挂于 \c "{name}_Container"
-		std::string urdfTcpAttachLinkName;
-	};
-
 	struct AnnotationSnapshot
 	{
 		QString id;
@@ -136,6 +118,8 @@ public:
 	bool loadPointCloudFromBackendData(const PointCloudBackendData& data, QString* errorMessage = nullptr,
 		bool resetViewToHome = true);
 	bool loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage = nullptr, bool resetViewToHome = true,
+		bool showWireOutline = true, bool useSceneLighting = true, bool skipInnerModelCenterRebase = false);
+	bool loadBackendFromBackendData(const BackendDataBase& data, QString* errorMessage = nullptr, bool resetViewToHome = true,
 		bool showWireOutline = true, bool useSceneLighting = true, bool skipInnerModelCenterRebase = false);
 	/// 受光网格后端（如 URDF 连杆）；改色时保留光照材质
 	bool isBackendMeshLit(const std::string& backendId) const;
@@ -175,6 +159,9 @@ public:
 	void syncSelectionFromBackend(const MeshBackendData& data);
 	/// 无自有几何的后端行也可选中（如装配父节点）
 	void syncSelectionForBackendId(const std::string& backendId);
+	/// 逻辑节点映射到已挂载 OSG 分支（装配子件共用父级 visual）
+	void setPickVisualAlias(const std::string& logicalBackendId, const std::string& visualBackendId);
+	bool backendSkipsInnerModelCenterRebase(const std::string& backendId) const;
 	bool setAnnotationVisible(const QString& annotationId, bool visible);
 	bool removeAnnotation(const QString& annotationId);
 	void clearAllAnnotations();
@@ -205,50 +192,16 @@ public:
 
 	/// 移除层级化机器人场景图。
 	void removeHierarchicalRobotScene(const QString& backendId);
-	void setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& axes);
+	void setInstructionPoseAxes(const std::vector<RobotOsgUi::InstructionPoseAxis>& axes);
 	void clearInstructionPoseAxes();
-
-	struct RawTrajectoryOverlayVertex
-	{
-		osg::Vec3f positionMm;
-		bool reachable = true;
-	};
-	void setRawTrajectoryOverlay(const std::vector<RawTrajectoryOverlayVertex>& points);
+	void setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points);
 	void clearRawTrajectoryOverlay();
-
-	struct RawTrajectoryOverlayFrame
-	{
-		osg::Vec3f positionMm;
-		osg::Vec3f eulerDeg;
-		bool reachable = true;
-	};
-	void setRawTrajectoryOverlayFrames(const std::vector<RawTrajectoryOverlayFrame>& frames);
+	void setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& frames);
 	void clearRawTrajectoryOverlayFrames();
-
-	struct RobotFrameOverlayUpdate
-	{
-		std::string robotRootBackendId;
-		bool showToolFrames = false;
-		struct ToolEntry
-		{
-			std::string name;
-			/// 非空时挂到该连杆/后端 PAT；空则挂到 robotRoot 下 URDF 装配子图（层级导入）。
-			std::string mountBackendId;
-			osg::Matrixd localMatrix;
-			bool active = false;
-		};
-		std::vector<ToolEntry> toolFrames;
-		bool showUserFrames = false;
-		struct UserEntry
-		{
-			std::string name;
-			std::string mountBackendId;
-			osg::Matrixd localMatrix;
-		};
-		std::vector<UserEntry> userFrames;
-	};
-	void setRobotFrameOverlays(const RobotFrameOverlayUpdate& update);
+	void setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverlayUpdate& update);
 	void clearRobotFrameOverlays(const std::string& robotRootBackendId);
+	void setFeatureCatalogOverlay(const std::vector<RobotOsgUi::FeatureCatalogOverlayItem>& items);
+	void clearFeatureCatalogOverlay();
 
 	/// TCP 末端拖动示教：场景 overlay 罗盘，拖动发位姿信号（不写指令）
 	bool isTcpDragTeachActive() const { return m_tcpTeachActive; }
@@ -392,6 +345,8 @@ private:
 		bool showWireOutline = true, bool useSceneLighting = false) const;
 	bool upsertMeshBranchInScene(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
 		bool showWireOutline = true, bool useSceneLighting = false, bool skipInnerModelCenterRebase = false);
+	bool upsertBackendBranchInScene(const BackendDataBase& data, QString* errorMessage, bool resetViewToHome,
+		bool showWireOutline = true, bool useSceneLighting = false, bool skipInnerModelCenterRebase = false);
 	osg::Node* stagingGeometryRoot() const;
 	void applyVisibilityMaskForBackend(const std::string& backendId);
 	void updateCompassHighlight(DragAxis axis, bool highlightRing = false);
@@ -419,6 +374,7 @@ private:
 private:
 	QWidgetViewer* m_glWidget = nullptr;
 	QTimer m_frameTimer;
+	QTimer m_idleRenderTimer;
 	mutable QElapsedTimer m_feedbackTimer;
 	QPoint m_lastMousePos;
 	std::unique_ptr<OsgWidgetImportController> m_importController;
@@ -447,6 +403,8 @@ private:
 	std::string m_cameraFollowBackendId;
 
 	void updateCameraFollowCenter();
+
+	void noteViewportInteraction();
 
 	bool pickMeshFaceByRayIntersection(const QPoint& mousePos,
 		osg::Vec3f& outPointWorld,

@@ -29,10 +29,18 @@ public:
 	virtual void clearBackendObjectSelection() = 0;
 	virtual void setSelectionActive(bool active) = 0;
 	virtual void setTransformGizmoFrame(int worldOrLocal) = 0;
+	virtual bool transformGizmoFrameIsLocal() const = 0;
+
+	virtual void setPointPickMode(bool enabled) = 0;
+	virtual bool pointPickMode() const = 0;
 
 	virtual bool hasBackendObjectBranch(const std::string& backendId) const = 0;
 	virtual bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const = 0;
 	virtual bool tryGetBackendModelCenterMm(const std::string& backendId, double& cx, double& cy, double& cz) const = 0;
+	/// 装配子零件无 Geode 时映射到共享 visual；与 OsgScene::resolvePickScopeBackendId 一致
+	virtual std::string resolvePickScopeBackendId(const std::string& backendId) const = 0;
+	/// skipInnerModelCenterRebase 时不应对 STEP 文件坐标加减 modelCenter
+	virtual bool backendSkipsInnerModelCenterRebase(const std::string& backendId) const = 0;
 
 	virtual void setInstructionPoseAxes(const std::vector<RobotOsgUi::InstructionPoseAxis>& axes) = 0;
 	virtual void clearInstructionPoseAxes() = 0;

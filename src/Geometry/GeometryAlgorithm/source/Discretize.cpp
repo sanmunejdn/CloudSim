@@ -1,6 +1,8 @@
 #include "detail/OccIncludes.h"
 
 #include "Discretize.h"
+#include "ShapeHandle.h"
+#include "ShapeQuery.h"
 #include "ShapeIo.h"
 
 #include <algorithm>
@@ -123,6 +125,31 @@ void collectHierarchyRecursive(
 		const TopoDS_Shape child = it.Value();
 		const std::string childPath = path.empty() ? std::to_string(childIndex) : (path + "/" + std::to_string(childIndex));
 		collectHierarchyRecursive(child, childPath, path, params, outParts);
+	}
+}
+
+void collectHierarchyTopologyRecursive(
+	const TopoDS_Shape& shape,
+	const std::string& path,
+	const std::string& parentPath,
+	std::vector<MeshHierarchyPart>& outParts)
+{
+	if (!shapeHasChildren(shape))
+	{
+		MeshHierarchyPart part;
+		part.partPath = path;
+		part.parentPartPath = parentPath;
+		part.displayName = shapeTypeName(shape.ShapeType()) + "_" + path;
+		outParts.push_back(std::move(part));
+		return;
+	}
+
+	int childIndex = 0;
+	for (TopoDS_Iterator it(shape); it.More(); it.Next(), ++childIndex)
+	{
+		const TopoDS_Shape child = it.Value();
+		const std::string childPath = path.empty() ? std::to_string(childIndex) : (path + "/" + std::to_string(childIndex));
+		collectHierarchyTopologyRecursive(child, childPath, path, outParts);
 	}
 }
 
@@ -256,6 +283,79 @@ bool collectShapeHierarchy(
 		return false;
 	}
 	return true;
+}
+
+bool collectShapeHierarchy(
+	const ShapeHandle& shape,
+	const TessellateParams& params,
+	std::vector<MeshHierarchyPart>& outParts,
+	std::string* errMsg)
+{
+	TopoDS_Shape native;
+	if (!ShapeHandleAccess::nativeShape(shape, &native))
+	{
+		detail::setErr(errMsg, "null shape");
+		return false;
+	}
+	return collectShapeHierarchy(native, params, outParts, errMsg);
+}
+
+bool collectShapeHierarchyTopology(
+	const TopoDS_Shape& shape,
+	std::vector<MeshHierarchyPart>& outParts,
+	std::string* errMsg)
+{
+	outParts.clear();
+	if (shape.IsNull())
+	{
+		detail::setErr(errMsg, "null shape");
+		return false;
+	}
+	detail::collectHierarchyTopologyRecursive(shape, "0", std::string(), outParts);
+	if (outParts.empty())
+	{
+		MeshHierarchyPart root;
+		root.partPath = "0";
+		root.parentPartPath.clear();
+		root.displayName = detail::shapeTypeName(shape.ShapeType()) + "_0";
+		outParts.push_back(std::move(root));
+	}
+	return true;
+}
+
+bool collectShapeHierarchyTopology(
+	const ShapeHandle& shape,
+	std::vector<MeshHierarchyPart>& outParts,
+	std::string* errMsg)
+{
+	TopoDS_Shape native;
+	if (!ShapeHandleAccess::nativeShape(shape, &native))
+	{
+		detail::setErr(errMsg, "null shape");
+		return false;
+	}
+	return collectShapeHierarchyTopology(native, outParts, errMsg);
+}
+
+bool discretizeShapeFaceByIndex(
+	const ShapeHandle& shapeHandle,
+	const int faceIndex,
+	const TessellateParams& params,
+	std::vector<float>& soup,
+	std::string* errMsg)
+{
+	TopoDS_Shape shape;
+	if (!ShapeHandleAccess::nativeShape(shapeHandle, &shape))
+	{
+		detail::setErr(errMsg, "null shape");
+		return false;
+	}
+	TopoDS_Face face;
+	if (!shapeFaceAtIndex(shape, faceIndex, face, errMsg))
+	{
+		return false;
+	}
+	return discretizeFaceToSoup(face, params, soup, errMsg);
 }
 
 } // namespace geoalgo

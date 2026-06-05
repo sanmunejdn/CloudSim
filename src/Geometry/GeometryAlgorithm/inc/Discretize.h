@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geometry_algorithm_global.h"
+#include "ShapeHandle.h"
 #include "Types.h"
 
 #include <TopoDS_Edge.hxx>
@@ -34,6 +35,26 @@ GEOMETRY_ALGORITHM_API bool discretizeShapeEdges(
 	std::vector<Polyline3d>& out,
 	std::string* errMsg = nullptr);
 
+GEOMETRY_ALGORITHM_API bool discretizeShapeEdges(
+	const ShapeHandle& shape,
+	const TessellateParams& params,
+	std::vector<Polyline3d>& out,
+	std::string* errMsg = nullptr);
+
+GEOMETRY_ALGORITHM_API bool discretizeShapeFaceByIndex(
+	const ShapeHandle& shape,
+	int faceIndex,
+	const TessellateParams& params,
+	std::vector<float>& soup,
+	std::string* errMsg = nullptr);
+
+GEOMETRY_ALGORITHM_API bool discretizeShapeEdgeByIndex(
+	const ShapeHandle& shape,
+	int edgeIndex,
+	const TessellateParams& params,
+	Polyline3d& out,
+	std::string* errMsg = nullptr);
+
 GEOMETRY_ALGORITHM_API bool discretizeFaceToSoup(
 	const TopoDS_Face& face,
 	const TessellateParams& params,
@@ -61,6 +82,18 @@ GEOMETRY_ALGORITHM_API bool tessellateStepHierarchy(
 GEOMETRY_ALGORITHM_API bool collectShapeHierarchy(
 	const TopoDS_Shape& shape,
 	const TessellateParams& params,
+	std::vector<MeshHierarchyPart>& outParts,
+	std::string* errMsg = nullptr);
+
+GEOMETRY_ALGORITHM_API bool collectShapeHierarchy(
+	const ShapeHandle& shape,
+	const TessellateParams& params,
+	std::vector<MeshHierarchyPart>& outParts,
+	std::string* errMsg = nullptr);
+
+/// 仅拓扑层级（无 tessellation），供 BREP 装配树使用
+GEOMETRY_ALGORITHM_API bool collectShapeHierarchyTopology(
+	const ShapeHandle& shape,
 	std::vector<MeshHierarchyPart>& outParts,
 	std::string* errMsg = nullptr);
 

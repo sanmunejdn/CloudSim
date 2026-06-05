@@ -151,6 +151,12 @@ public:
 	{
 		return {};
 	}
+
+	FeasibleMotionAxisOptionsDto queryFeasibleMotionAxisOptions(const QString&, QVector<double>*) const override
+	{
+		return {};
+	}
+	FeasibleMotionAxisOptionsDto cachedFeasibleMotionAxisOptions() const override { return {}; }
 };
 
 class NullRenderView final : public IRenderView
@@ -170,6 +176,15 @@ public:
 	void setPickHandler(PickHandler) override {}
 	void clearPickHandler() override {}
 	void requestRedraw() override {}
+	void setSelectionActive(bool) override {}
+	void clearInstructionPoseAxes() override {}
+	bool hasImportedContent() const override { return false; }
+	bool isTcpDragTeachActive() const override { return false; }
+	bool isTransformGizmoDragging() const override { return false; }
+	void setAnnotationVisible(const ObjectId&, bool) override {}
+	bool removeAnnotation(const ObjectId&) override { return false; }
+	void clearAllAnnotations() override {}
+	QVector<AnnotationSnapshotDto> annotationSnapshots() const override { return {}; }
 	void focusCameraOnBackend(const ObjectId&) override {}
 	void setBackendLogicalParent(const ObjectId&, const ObjectId&) override {}
 
@@ -181,6 +196,43 @@ public:
 	bool syncOuterPatFromBackend(const ObjectId&) override { return false; }
 	GeometryKind geometryKindForBackend(const ObjectId&) const override { return GeometryKind::None; }
 	bool commitGizmoPoseToBackend(const ObjectId&) override { return false; }
+
+	void setViewerBackgroundForDarkUi(bool) override {}
+	void setPerFrameHook(std::function<void()> hook) override { (void)hook; }
+	QString pointCloudPluginReport() const override { return QStringLiteral("Ready"); }
+
+	void setCameraFollowBackendId(const ObjectId&) override {}
+	void clearCameraFollowBackendId() override {}
+	void setObjectSelectionMode(bool) override {}
+	bool objectSelectionMode() const override { return false; }
+	void setPointPickMode(bool) override {}
+	bool pointPickMode() const override { return false; }
+	void setMeshLinePickMode(bool) override {}
+	bool meshLinePickMode() const override { return false; }
+	void setMeshFacePickMode(bool) override {}
+	bool meshFacePickMode() const override { return false; }
+	void syncSelectionForBackend(const ObjectId&) override {}
+	bool captureViewportPng(QByteArray&, QString*, int, int) override { return false; }
+
+	void setTransformGizmoFrame(TransformGizmoFrameDto) override {}
+	TransformGizmoFrameDto transformGizmoFrame() const override { return TransformGizmoFrameDto::World; }
+	void endTcpDragTeach() override {}
+	void beginTcpDragTeach(const ObjectId&, const Mat4&, float, RobotBaseWorldResolver,
+		const Mat4*) override
+	{
+	}
+	void updateTcpDragTeachFromTarget(const Mat4&, bool) override {}
+	void updateTcpDragTeachToolLocalOnFlange(const Mat4&) override {}
+
+	void setInstructionPoseAxes(const QVector<InstructionPoseAxisDto>&) override {}
+	void setRawTrajectoryOverlay(const QVector<RawTrajectoryOverlayVertexDto>&) override {}
+	void clearRawTrajectoryOverlay() override {}
+	void setRawTrajectoryOverlayFrames(const QVector<RawTrajectoryOverlayFrameDto>&) override {}
+	void clearRawTrajectoryOverlayFrames() override {}
+	void setRobotFrameOverlays(const RobotFrameOverlayUpdateDto&) override {}
+	void clearRobotFrameOverlays(const ObjectId&) override {}
+	void setFeatureCatalogOverlay(const QVector<FeatureCatalogOverlayItemDto>&) override {}
+	void clearFeatureCatalogOverlay() override {}
 
 private:
 	std::unique_ptr<QWidget> m_widget;

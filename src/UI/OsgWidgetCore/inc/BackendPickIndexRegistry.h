@@ -1,19 +1,25 @@
 #pragma once
 
 #include "osgwidgetcore_global.h"
-#include "MeshTopologyIndex.h"
+#include "BrepPickIndex.h"
 #include "PickSpatialIndex.h"
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
 #include <osg/Node>
 
+namespace geoalgo
+{
+struct BrepImportArtifacts;
+}
+
 struct OSGWIDGETCORE_EXPORT BackendPickBundle
 {
 	PickSpatialIndex pointIndex;
-	MeshTopologyIndex meshIndex;
+	BrepPickIndex brepIndex;
 	std::uint64_t generation = 0;
 };
 
@@ -22,6 +28,8 @@ class OSGWIDGETCORE_EXPORT BackendPickIndexRegistry
 {
 public:
 	void bindBackendRoot(const std::string& backendId, osg::Node* rootNode);
+	void bindBackendRoot(const std::string& backendId, osg::Node* rootNode,
+		const std::shared_ptr<const geoalgo::BrepImportArtifacts>& brepArtifacts);
 	void unbindBackend(const std::string& backendId);
 	void clear();
 

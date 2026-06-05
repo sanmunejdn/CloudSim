@@ -2,6 +2,7 @@
 
 #include "BackendDataManager.h"
 #include "BackendFollowReverseIndex.h"
+#include "BrepBackendData.h"
 #include "IBackendSceneBridge.h"
 #include "IRobotBackendPoseSink.h"
 #include "MeshBackendData.h"
@@ -200,6 +201,29 @@ void BackendSceneDocumentFacade::ensureSelectionVisualForBackend(const BackendDa
 				else
 				{
 					osg->loadMeshFromBackendData(*mesh, &geomErr, false);
+				}
+			}
+		}
+		else
+		{
+			osg->syncSelectionForBackendId(idStd);
+		}
+		return;
+	}
+	if (const auto* brep = dynamic_cast<const BrepBackendData*>(&data))
+	{
+		if (brep->hasGeometry())
+		{
+			if (entity(idStd).hasSceneBranch())
+			{
+				osg->syncSelectionForBackendId(idStd);
+			}
+			else
+			{
+				QString geomErr;
+				if (!osg->loadBackendFromBackendData(*brep, &geomErr, false, true, true, true))
+				{
+					osg->syncSelectionForBackendId(idStd);
 				}
 			}
 		}

@@ -43,4 +43,17 @@ AIBACKEND_EXPORT bool tryParseCreateMeshCommandJson(
 	nlohmann::json& outCommand,
 	std::string& errorMessage);
 
+/// 校验 modify_object（propertyBag / pose 补丁，执行由 Host 计划器承接）
+AIBACKEND_EXPORT bool parseModifyObjectCommand(
+	const nlohmann::json& cmd,
+	std::string& outBackendId,
+	nlohmann::json& outPropertyPatch,
+	std::string& errorMessage);
+
+/// 校验 import_asset（文件路径）
+AIBACKEND_EXPORT bool parseImportAssetCommand(
+	const nlohmann::json& cmd,
+	std::string& outFilePath,
+	std::string& errorMessage);
+
 }

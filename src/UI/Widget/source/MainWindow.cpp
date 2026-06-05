@@ -3,6 +3,8 @@
 #include "BackendFollowSolve.h"
 #include "BackendHierarchyFollow.h"
 #include "DocumentHostEvents.h"
+#include "IRenderView.h"
+#include "WidgetRenderAccess.h"
 #include "BackendSceneDocumentFacade.h"
 #include "JobSystem.h"
 #include "RobotInstructionModel.h"
@@ -45,7 +47,6 @@
 #include "ApplicationStyle.h"
 #include "BackendVisualSync.h"
 #include "DocumentPage.h"
-#include "WidgetDocumentAccess.h"
 #include "CoreTypes.h"
 #include "IDataService.h"
 #include "IRenderView.h"
@@ -54,8 +55,8 @@
 #include "../RobotWidget/inc/RobotFrameSettingsWidget.h"
 #include "MainWindow_p.h"
 #include "MainWindowSelectionService.h"
-#include "OsgWidget.h"
 #include "MainWindowRobotHost.h"
+#include "../RobotWidget/inc/IRobotOsgViewHost.h"
 #include "IRobotBackendPoseSink.h"
 #include "RobotInstructionProgram.h"
 #include "RobotCoordinateFrames.h"
@@ -262,7 +263,7 @@ void MainWindow::applyLanguage()
 
 void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
 {
-	if (sender() != currentOsgWidget())
+	if (sender() != renderWidgetFromPage(currentPage()))
 	{
 		return;
 	}
@@ -302,7 +303,7 @@ void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
 
 void MainWindow::onSelectedObjectRotationChanged(float rx, float ry, float rz)
 {
-	if (sender() != currentOsgWidget())
+	if (sender() != renderWidgetFromPage(currentPage()))
 	{
 		return;
 	}
@@ -342,7 +343,7 @@ void MainWindow::onSelectedObjectRotationChanged(float rx, float ry, float rz)
 
 void MainWindow::onSelectedObjectColorChanged(float r, float g, float b, float a)
 {
-	if (sender() != currentOsgWidget())
+	if (sender() != renderWidgetFromPage(currentPage()))
 	{
 		return;
 	}
@@ -376,7 +377,7 @@ void MainWindow::onSelectedObjectColorChanged(float r, float g, float b, float a
 
 void MainWindow::onTransformGizmoCommitted()
 {
-	if (sender() != currentOsgWidget())
+	if (sender() != renderWidgetFromPage(currentPage()))
 	{
 		return;
 	}
@@ -408,16 +409,20 @@ void MainWindow::refreshFollowSolveAndPropertyPanelFromOsgWrite(const QString& b
 		return;
 	}
 	DocumentPage* doc = currentPage();
-	OsgWidget* osg = widgetOsgFromPage(doc);
-	if (doc && osg)
+	if (!doc)
 	{
-		doc->data().markFollowDirtyFromMove(backendId);
-		if (!osg->isTransformGizmoDragging())
-		{
-			runBackendFollowSolveAndSync(*doc, *osg);
-		}
+		return;
 	}
-	if (!osg || !osg->isTransformGizmoDragging())
+	doc->data().markFollowDirtyFromMove(backendId);
+	cloudsim::core::IRenderView* rv = &doc->render();
+	if (!rv->isTransformGizmoDragging())
+	{
+		cloudsim::core::FollowSolveContextDto ctx;
+		ctx.skipAll = rv->isTcpDragTeachActive()
+			|| (m_robotSimulation && m_robotSimulation->programExecutor().isRunning());
+		(void)doc->data().runFollowSolveAndSync(ctx, nullptr);
+	}
+	if (!rv->isTransformGizmoDragging())
 	{
 		updatePropertyPanel(backendId);
 	}
@@ -450,7 +455,7 @@ void MainWindow::onPropertyPanelCommitTimer()
 
 void MainWindow::onActiveAxisChanged(const QString& axisName)
 {
-	if (sender() != currentOsgWidget())
+	if (sender() != renderWidgetFromPage(currentPage()))
 	{
 		return;
 	}
@@ -462,10 +467,21 @@ void MainWindow::onActiveAxisChanged(const QString& axisName)
 	updatePropertyPanel(m_selectionState.selectedBackendId());
 }
 
+namespace
+{
+void resetInteractionPickModes(IRobotOsgViewHost& view)
+{
+	view.setObjectSelectionMode(false);
+	view.setPointPickMode(false);
+	view.setMeshLinePickMode(false);
+	view.setMeshFacePickMode(false);
+}
+} // namespace
+
 void MainWindow::onViewModeTriggered()
 {
-	OsgWidget* osg = currentOsgWidget();
-	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !osg)
+	IRobotOsgViewHost* view = activeOsgViewHost();
+	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !view)
 	{
 		return;
 	}
@@ -474,16 +490,13 @@ void MainWindow::onViewModeTriggered()
 	m_pointPickModeAction->setChecked(false);
 	m_meshLinePickModeAction->setChecked(false);
 	m_meshFacePickModeAction->setChecked(false);
-	osg->setObjectSelectionMode(false);
-	osg->setPointPickMode(false);
-	osg->setMeshLinePickMode(false);
-	osg->setMeshFacePickMode(false);
+	resetInteractionPickModes(*view);
 }
 
 void MainWindow::onObjectModeTriggered()
 {
-	OsgWidget* osg = currentOsgWidget();
-	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !osg)
+	IRobotOsgViewHost* view = activeOsgViewHost();
+	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !view)
 	{
 		return;
 	}
@@ -492,23 +505,23 @@ void MainWindow::onObjectModeTriggered()
 	m_pointPickModeAction->setChecked(false);
 	m_meshLinePickModeAction->setChecked(false);
 	m_meshFacePickModeAction->setChecked(false);
-	osg->setObjectSelectionMode(true);
-	osg->setPointPickMode(false);
-	osg->setMeshLinePickMode(false);
-	osg->setMeshFacePickMode(false);
+	view->setObjectSelectionMode(true);
+	view->setPointPickMode(false);
+	view->setMeshLinePickMode(false);
+	view->setMeshFacePickMode(false);
 
-	// Allow gizmo / transform whenever the scene has a loaded object; tree refresh (e.g. language)
-	// can clear the selection without unloading the scene.
-	if (osg->hasImportedContent())
+	// 场景有内容时允许 gizmo；树刷新可能清空选中但不卸载场景
+	DocumentPage* doc = currentPage();
+	if (doc && doc->render().hasImportedContent())
 	{
-		osg->setSelectionActive(true);
+		view->setSelectionActive(true);
 	}
 }
 
 void MainWindow::onPointPickModeTriggered()
 {
-	OsgWidget* osg = currentOsgWidget();
-	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !osg)
+	IRobotOsgViewHost* view = activeOsgViewHost();
+	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !view)
 	{
 		return;
 	}
@@ -517,18 +530,18 @@ void MainWindow::onPointPickModeTriggered()
 	m_pointPickModeAction->setChecked(true);
 	m_meshLinePickModeAction->setChecked(false);
 	m_meshFacePickModeAction->setChecked(false);
-	osg->setObjectSelectionMode(false);
-	osg->setPointPickMode(true);
-	osg->setMeshLinePickMode(false);
-	osg->setMeshFacePickMode(false);
+	view->setObjectSelectionMode(false);
+	view->setPointPickMode(true);
+	view->setMeshLinePickMode(false);
+	view->setMeshFacePickMode(false);
 	MainWindowSelectionService::ensureBackendForPickMode(
 		*this, MainWindowSelectionService::SelectedBackendKind::PointCloud);
 }
 
 void MainWindow::onMeshLinePickModeTriggered()
 {
-	OsgWidget* osg = currentOsgWidget();
-	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !osg)
+	IRobotOsgViewHost* view = activeOsgViewHost();
+	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !view)
 	{
 		return;
 	}
@@ -537,18 +550,18 @@ void MainWindow::onMeshLinePickModeTriggered()
 	m_pointPickModeAction->setChecked(false);
 	m_meshLinePickModeAction->setChecked(true);
 	m_meshFacePickModeAction->setChecked(false);
-	osg->setObjectSelectionMode(false);
-	osg->setPointPickMode(false);
-	osg->setMeshLinePickMode(true);
-	osg->setMeshFacePickMode(false);
+	view->setObjectSelectionMode(false);
+	view->setPointPickMode(false);
+	view->setMeshLinePickMode(true);
+	view->setMeshFacePickMode(false);
 	MainWindowSelectionService::ensureBackendForPickMode(
 		*this, MainWindowSelectionService::SelectedBackendKind::Mesh);
 }
 
 void MainWindow::onMeshFacePickModeTriggered()
 {
-	OsgWidget* osg = currentOsgWidget();
-	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !osg)
+	IRobotOsgViewHost* view = activeOsgViewHost();
+	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !view)
 	{
 		return;
 	}
@@ -557,35 +570,31 @@ void MainWindow::onMeshFacePickModeTriggered()
 	m_pointPickModeAction->setChecked(false);
 	m_meshLinePickModeAction->setChecked(false);
 	m_meshFacePickModeAction->setChecked(true);
-	osg->setObjectSelectionMode(false);
-	osg->setPointPickMode(false);
-	osg->setMeshLinePickMode(false);
-	osg->setMeshFacePickMode(true);
+	view->setObjectSelectionMode(false);
+	view->setPointPickMode(false);
+	view->setMeshLinePickMode(false);
+	view->setMeshFacePickMode(true);
 	MainWindowSelectionService::ensureBackendForPickMode(
 		*this, MainWindowSelectionService::SelectedBackendKind::Mesh);
 }
 
 void MainWindow::onSelectionCanceledByEsc()
 {
-	if (sender() != currentOsgWidget())
+	if (sender() != renderWidgetFromPage(currentPage()))
 	{
 		return;
 	}
-	OsgWidget* osg = currentOsgWidget();
-	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !osg)
+	IRobotOsgViewHost* view = activeOsgViewHost();
+	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !view)
 	{
 		return;
 	}
-	// OsgWidget emits this from ESC to leave object-select / point-pick; camera stays put (see OsgWidget manipulator attach).
 	m_viewModeAction->setChecked(true);
 	m_objectModeAction->setChecked(false);
 	m_pointPickModeAction->setChecked(false);
 	m_meshLinePickModeAction->setChecked(false);
 	m_meshFacePickModeAction->setChecked(false);
-	osg->setObjectSelectionMode(false);
-	osg->setPointPickMode(false);
-	osg->setMeshLinePickMode(false);
-	osg->setMeshFacePickMode(false);
+	resetInteractionPickModes(*view);
 	MainWindowSelectionService::clearSelection(*this, true);
 }
 
@@ -652,9 +661,9 @@ void MainWindow::setAllDocumentViewerDarkBackground(bool dark)
 	for (int i = 0; i < m_documentTabs->count(); ++i)
 	{
 		auto* p = qobject_cast<DocumentPage*>(m_documentTabs->widget(i));
-		if (OsgWidget* osg = widgetOsgFromPage(p))
+		if (p)
 		{
-			osg->setViewerBackgroundForDarkUi(dark);
+			p->render().setViewerBackgroundForDarkUi(dark);
 		}
 	}
 }
@@ -739,28 +748,13 @@ QDockWidget* MainWindow::addPluginDockWidget(const QString& title, QWidget* widg
 	return dock;
 }
 
-OsgWidget* MainWindow::currentOsgWidget()
-{
-	return const_cast<OsgWidget*>(static_cast<const MainWindow*>(this)->currentOsgWidget());
-}
-
-OsgWidget* MainWindow::currentOsgWidget() const
-{
-	DocumentPage* p = currentPage();
-	if (!p)
-	{
-		return nullptr;
-	}
-	return widgetOsgFromPage(p);
-}
-
 void MainWindow::afterBackendFollowPropertyEdited(const QString& propertyKey, const QString& valueText)
 {
 	(void)propertyKey;
 	(void)valueText;
 	DocumentPage* doc = currentPage();
-	OsgWidget* osg = currentOsgWidget();
-	if (!doc || !osg || !m_selectionState.hasBackendSelection())
+	cloudsim::core::IRenderView* rv = doc ? &doc->render() : nullptr;
+	if (!doc || !rv || !m_selectionState.hasBackendSelection())
 	{
 		return;
 	}
@@ -769,9 +763,9 @@ void MainWindow::afterBackendFollowPropertyEdited(const QString& propertyKey, co
 		return;
 	}
 	cloudsim::core::FollowSolveContextDto ctx;
-	ctx.skipAll = osg->isTcpDragTeachActive()
+	ctx.skipAll = rv->isTcpDragTeachActive()
 		|| (m_robotSimulation && m_robotSimulation->programExecutor().isRunning());
-	if (osg->isTransformGizmoDragging())
+	if (rv->isTransformGizmoDragging())
 	{
 		ctx.gizmoSelectedBackendId = m_selectionState.selectedBackendId();
 	}
@@ -790,87 +784,56 @@ const BackendHierarchyModel* MainWindow::activeHierarchyModel() const
 	return p ? &p->hierarchyModel() : nullptr;
 }
 
-void MainWindow::wireDocumentPageSignals(DocumentPage* page)
+IRobotOsgViewHost* MainWindow::activeOsgViewHost()
 {
-	OsgWidget* o = widgetOsgFromPage(page);
-	if (!o)
+	return m_robotHost ? m_robotHost->osgView() : nullptr;
+}
+
+cloudsim::core::FollowSolveContextDto MainWindow::makeFollowSolveContextDto(DocumentPage& page) const
+{
+	cloudsim::core::FollowSolveContextDto ctx;
+	const cloudsim::core::IRenderView& rv = page.render();
+	ctx.skipAll = rv.isTcpDragTeachActive()
+		|| (m_robotSimulation && m_robotSimulation->programExecutor().isRunning());
+	if (rv.isTransformGizmoDragging() && m_selectionState.hasBackendSelection())
 	{
-		return;
+		ctx.gizmoSelectedBackendId = m_selectionState.selectedBackendId();
 	}
-	connect(o, &OsgWidget::selectedObjectPoseChanged, this, &MainWindow::onSelectedObjectPoseChanged);
-	connect(o, &OsgWidget::selectedObjectRotationChanged, this, &MainWindow::onSelectedObjectRotationChanged);
-	connect(o, &OsgWidget::selectedObjectColorChanged, this, &MainWindow::onSelectedObjectColorChanged);
-	connect(o, &OsgWidget::transformGizmoCommitted, this, &MainWindow::onTransformGizmoCommitted);
-	connect(o, &OsgWidget::tcpDragTeachPoseChanged, this, &MainWindow::onTcpDragTeachPoseChanged);
-	connect(o, &OsgWidget::tcpDragTeachEnded, this, &MainWindow::onTcpDragTeachEnded);
-	connect(o, &OsgWidget::activeAxisChanged, this, &MainWindow::onActiveAxisChanged);
-	connect(o, &OsgWidget::selectionCanceledByEsc, this, &MainWindow::onSelectionCanceledByEsc);
-	connect(o, &OsgWidget::annotationCreated, this, &MainWindow::onAnnotationCreated);
-	connect(o, &OsgWidget::annotationRemoved, this, &MainWindow::onAnnotationRemoved);
-	connect(o, &OsgWidget::annotationVisibilityChanged, this, &MainWindow::onAnnotationVisibilityChanged);
-	connect(o, &OsgWidget::pointPickFeedback, this, &MainWindow::onPointPickFeedback);
-	connect(o, &OsgWidget::meshPickFeedback, this, &MainWindow::onMeshPickFeedback);
-	connect(o, &OsgWidget::meshPickCommitted, this, [this](PickResult pick, int pickKindInt) {
-		if (m_robotHost)
-		{
-			m_robotHost->notifyMeshPickCommitted(pick, static_cast<PickKind>(pickKindInt));
-		}
-	});
-	connect(o, &OsgWidget::backendObjectPicked, this, &MainWindow::onOsgBackendObjectPicked);
-	installBackendFollowFrameHook(page);
+	return ctx;
+}
+
+void MainWindow::runFollowSolveAndSyncForPage(DocumentPage& page, const std::string* manualPoseAuthorityBackendId)
+{
+	cloudsim::core::FollowSolveContextDto ctx = makeFollowSolveContextDto(page);
+	if (manualPoseAuthorityBackendId && !manualPoseAuthorityBackendId->empty())
+	{
+		ctx.manualPoseAuthorityBackendId = QString::fromStdString(*manualPoseAuthorityBackendId);
+	}
+	(void)page.data().runFollowSolveAndSync(ctx, nullptr);
 }
 
 void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 {
-	OsgWidget* osg = widgetOsgFromPage(page);
-	if (!osg)
+	if (!page)
 	{
 		return;
 	}
-	osg->setPerFrameHook([this, page](OsgWidget* o) {
-		if (!page || !o || !m_documentTabs || m_documentTabs->currentWidget() != page)
+	page->render().setPerFrameHook([this, page]() {
+		if (!page || !m_documentTabs || m_documentTabs->currentWidget() != page)
 		{
 			return;
 		}
-		// 末端拖动示教：IK 逐帧写连杆位姿，禁止跟随求解写回以免与 FK 冲突（表现为关节闪回零位）
-		if (o->isTcpDragTeachActive())
+		cloudsim::core::IRenderView& rv = page->render();
+		if (rv.isTcpDragTeachActive())
 		{
 			return;
 		}
-		if (page->followDirtyBackendIds().empty() && !page->followSolveForcedPending() && !o->isTransformGizmoDragging())
+		if (page->followDirtyBackendIds().empty() && !page->followSolveForcedPending() && !rv.isTransformGizmoDragging())
 		{
 			return;
 		}
-		runBackendFollowSolveAndSync(*page, *o);
+		runFollowSolveAndSyncForPage(*page);
 	});
-}
-
-cloudsim::host::FollowSolveContext MainWindow::makeFollowSolveContext(OsgWidget& osg) const
-{
-	cloudsim::host::FollowSolveContext ctx;
-	ctx.skipAll = [this, &osg]() {
-		if (osg.isTcpDragTeachActive())
-		{
-			return true;
-		}
-		return m_robotSimulation && m_robotSimulation->programExecutor().isRunning();
-	};
-	ctx.fillGizmoSelectedId = [this, &osg](std::string& outId) -> bool {
-		if (!osg.isTransformGizmoDragging() || !m_selectionState.hasBackendSelection())
-		{
-			return false;
-		}
-		outId = m_selectionState.selectedBackendId().toStdString();
-		return true;
-	};
-	return ctx;
-}
-
-void MainWindow::runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg,
-	const std::string* manualPoseAuthorityBackendId)
-{
-	cloudsim::host::FollowSolveContext ctx = makeFollowSolveContext(osg);
-	cloudsim::host::runBackendFollowSolveAndSync(page, osg, &ctx, manualPoseAuthorityBackendId);
 }
 
 void MainWindow::applyHierarchyFollowBinding(DocumentPage* doc, const std::string& childId, const std::string& parentId)
@@ -880,10 +843,7 @@ void MainWindow::applyHierarchyFollowBinding(DocumentPage* doc, const std::strin
 		return;
 	}
 	cloudsim::host::applyHierarchyFollowBinding(*doc, childId, parentId);
-	if (OsgWidget* osg = widgetOsgFromPage(doc))
-	{
-		runBackendFollowSolveAndSync(*doc, *osg);
-	}
+	runFollowSolveAndSyncForPage(*doc);
 }
 
 void MainWindow::onNewDocument()
@@ -894,10 +854,7 @@ void MainWindow::onNewDocument()
 	}
 	auto* page = new DocumentPage(m_documentTabs, m_appEvents);
 	wireDocumentPageSignals(page);
-	if (OsgWidget* osg = widgetOsgFromPage(page))
-	{
-		osg->setViewerBackgroundForDarkUi(viewerUsesDarkBackground());
-	}
+	page->render().setViewerBackgroundForDarkUi(viewerUsesDarkBackground());
 	const QString title = i18n(QStringLiteral("Untitled"), QStringLiteral("\u672a\u547d\u540d"));
 	m_documentTabs->addTab(page, title);
 	m_documentTabs->setCurrentWidget(page);
@@ -919,12 +876,12 @@ void MainWindow::onDocumentTabChanged(int)
 
 void MainWindow::syncViewModeActionsFromCurrentOsg()
 {
-	OsgWidget* o = currentOsgWidget();
+	IRobotOsgViewHost* view = activeOsgViewHost();
 	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction)
 	{
 		return;
 	}
-	if (!o)
+	if (!view)
 	{
 		m_viewModeAction->setChecked(true);
 		m_objectModeAction->setChecked(false);
@@ -941,18 +898,19 @@ void MainWindow::syncViewModeActionsFromCurrentOsg()
 		}
 		return;
 	}
-	const bool view = !o->objectSelectionMode() && !o->pointPickMode() && !o->meshLinePickMode() && !o->meshFacePickMode();
-	m_viewModeAction->setChecked(view);
-	m_objectModeAction->setChecked(o->objectSelectionMode());
-	m_pointPickModeAction->setChecked(o->pointPickMode());
-	m_meshLinePickModeAction->setChecked(o->meshLinePickMode());
-	m_meshFacePickModeAction->setChecked(o->meshFacePickMode());
+	const bool inViewMode = !view->objectSelectionMode() && !view->pointPickMode() && !view->meshLinePickMode()
+		&& !view->meshFacePickMode();
+	m_viewModeAction->setChecked(inViewMode);
+	m_objectModeAction->setChecked(view->objectSelectionMode());
+	m_pointPickModeAction->setChecked(view->pointPickMode());
+	m_meshLinePickModeAction->setChecked(view->meshLinePickMode());
+	m_meshFacePickModeAction->setChecked(view->meshFacePickMode());
 	if (m_gizmoFrameGroup && m_gizmoLocalFrameAction && m_gizmoWorldFrameAction)
 	{
 		const QSignalBlocker bg(m_gizmoFrameGroup);
 		const QSignalBlocker b1(m_gizmoLocalFrameAction);
 		const QSignalBlocker b2(m_gizmoWorldFrameAction);
-		if (o->transformGizmoFrame() == OsgWidget::TransformGizmoFrame::Local)
+		if (view->transformGizmoFrameIsLocal())
 		{
 			m_gizmoLocalFrameAction->setChecked(true);
 			m_gizmoWorldFrameAction->setChecked(false);
@@ -967,7 +925,7 @@ void MainWindow::syncViewModeActionsFromCurrentOsg()
 
 void MainWindow::onPointPickFeedback(const QString& text)
 {
-	if (sender() != currentOsgWidget())
+	if (sender() != renderWidgetFromPage(currentPage()))
 	{
 		return;
 	}

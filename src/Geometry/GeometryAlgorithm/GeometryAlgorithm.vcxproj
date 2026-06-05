@@ -161,6 +161,10 @@
     <ClInclude Include="inc\GeoMeshBoolean.h" />
     <ClInclude Include="inc\SelfTest.h" />
     <ClInclude Include="inc\FeatureSpec.h" />
+    <ClInclude Include="inc\ShapeHandle.h" />
+    <ClInclude Include="inc\ShapeIo.h" />
+    <ClInclude Include="inc\ViewTessellate.h" />
+    <ClInclude Include="inc\BrepImportArtifacts.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\ShapeQuery.cpp" />
@@ -175,6 +179,9 @@
     <ClCompile Include="source\MeshBoolean.cpp" />
     <ClCompile Include="source\SelfTest.cpp" />
     <ClCompile Include="source\FeatureDiscretize.cpp" />
+    <ClCompile Include="source\ShapeHandle.cpp" />
+    <ClCompile Include="source\ViewTessellate.cpp" />
+    <ClCompile Include="source\BrepImportArtifacts.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

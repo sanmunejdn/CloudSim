@@ -21,6 +21,7 @@ public:
 	void restartClickHold(QElapsedTimer& holdTimer) const;
 
 	static bool shouldThrottleHover(const QElapsedTimer& feedbackTimer);
+	static bool shouldThrottleHover(const QElapsedTimer& feedbackTimer, int throttleMs);
 
 private:
 	bool m_leftPressed = false;

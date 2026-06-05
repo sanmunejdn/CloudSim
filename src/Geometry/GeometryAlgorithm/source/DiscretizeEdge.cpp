@@ -1,6 +1,8 @@
 #include "detail/OccIncludes.h"
 
 #include "Discretize.h"
+#include "ShapeHandle.h"
+#include "ShapeQuery.h"
 
 #include <cmath>
 
@@ -125,6 +127,48 @@ bool discretizeShapeEdges(
 		out.push_back(std::move(poly));
 	}
 	return !out.empty();
+}
+
+bool discretizeShapeEdges(
+	const ShapeHandle& shapeHandle,
+	const TessellateParams& params,
+	std::vector<Polyline3d>& out,
+	std::string* errMsg)
+{
+	TopoDS_Shape shape;
+	if (!ShapeHandleAccess::nativeShape(shapeHandle, &shape))
+	{
+		if (errMsg)
+		{
+			*errMsg = "null shape";
+		}
+		return false;
+	}
+	return discretizeShapeEdges(shape, params, out, errMsg);
+}
+
+bool discretizeShapeEdgeByIndex(
+	const ShapeHandle& shapeHandle,
+	const int edgeIndex,
+	const TessellateParams& params,
+	Polyline3d& out,
+	std::string* errMsg)
+{
+	TopoDS_Shape shape;
+	if (!ShapeHandleAccess::nativeShape(shapeHandle, &shape))
+	{
+		if (errMsg)
+		{
+			*errMsg = "null shape";
+		}
+		return false;
+	}
+	TopoDS_Edge edge;
+	if (!shapeEdgeAtIndex(shape, edgeIndex, edge, errMsg))
+	{
+		return false;
+	}
+	return discretizeEdge(edge, params, out, errMsg);
 }
 
 } // namespace geoalgo

@@ -45,7 +45,7 @@ flowchart TB
 |----|------|
 | `MainWindowUiSetup` | 菜单、Dock、初始布局；订阅 `EventHub`（`BackendObjectRegistered/Removed`、`SelectionChanged`、`PoseCommitted`） |
 | `MainWindowBackendTree` | 后端树与场景树 |
-| `MainWindowPropertyPanel` | 属性浏览器；仿真指令轴配置枚举过滤 |
+| `MainWindowPropertyPanel` | 属性浏览器壳层；仿真指令行委托 `RobotWidget/InstructionPropertyPanel` |
 | `MainWindowFileImport` | 模型/点云导入 |
 | `MainWindowProjectIo` | `project.json` **v4**、`.pcp`；对象经 `BackendProjectObjectIo` / Host 注册 |
 | `MainWindowImportCaptureRenderController` | 注册 backend、URDF |
@@ -85,8 +85,9 @@ Qt 树角色：`kRoleItemType`, `kRoleBackendId`, `kRoleAnnotationId`；项类�
 | 方法 | 说明 |
 |------|------|
 | `data()` / `robot()` / `render()` | Core 契约入口（`IDataService` / `IRobotService` / `IRenderView`） |
-| `render().widget()`（`widgetOsgFromPage`）/ `hierarchyModel()` | OSG 视图与层级模型 |
-| `sceneFacade()` | 继承自 `DocumentHost::sceneFacade()` → `BackendSceneDocumentFacade` |
+| `render()` / `hierarchyModel()` | `IRenderView` 与层级模型（优先于裸 `OsgWidget*`） |
+| `osgWidget()` | 继承自 `DocumentHost`（Host 内部/URDF 边界；Widget 新代码勿直接依赖） |
+| `sceneFacade()` | `BackendSceneDocumentFacade`；`poseSink()` 供 FK/示教写回 |
 | `robotProgramStore()` | 每机器人指令表 |
 | `invalidateFollowReverseIndex()` | 跟随反向索引失效 |
 | `markFollowAttachmentDirtyFromBackendMove` / `followDirtyBackendIds` | 跟随脏集 |
@@ -102,24 +103,29 @@ Qt 树角色：`kRoleItemType`, `kRoleBackendId`, `kRoleAnnotationId`；项类�
 
 实现 **`IRobotSimulationDocument`**（供 `RobotScene` 使用）。
 
-### 4.1a `WidgetDocumentAccess.h`
+### 4.1a OSG 边界（架构演进后）
 
-Widget 侧 OSG 唯一转换点（与 Host `DocumentHostAccess.h` 的 `osgWidgetFrom` 对齐）：
+| 组件 | 说明 |
+|------|------|
+| `WidgetOsgViewHost` | `IRobotOsgViewHost`：渲染/拾取/TCP/叠加委托 `IRenderView`；`poseSink()` → `sceneFacade().poseSink()` |
+| `WidgetOsgViewHost`（坐标查询） | `resolvePickScopeBackendId` / `backendSkipsInnerModelCenterRebase`：const 路径经私有 `osgWidget()`（`renderView()->widget()`），**不**调非 const `poseSink()`；供 `feature_pick_transform` 与 AI 特征 overlay 对齐 BREP 拾取 |
+| `WidgetSceneSignalWiring.cpp` | **唯一** OsgWidget Qt 信号 → `MainWindow` 槽边界（`wireMainWindowDocumentSceneSignals`） |
+| `DocumentHost::loadUrdfLinkMeshIntoScene` 等 | Host 侧 URDF/场景加载；`UrdfRobotImport` 经 `IRobotUrdfImportContext` 契约调用 |
+
+`tools/check_widget_deps.ps1`：禁止 Widget 新源文件 `#include OsgWidget.h`；过渡白名单见脚本内 `$transitionalIncludeAllow`（**新文件不得加入**）。
+
+### 4.1b `WidgetDocumentAccess.h`（存量/插件）
 
 ```cpp
-#include "WidgetDocumentAccess.h"
-#include "IRenderView.h"  // 由 WidgetDocumentAccess.h 间接包含
-
 OsgWidget* osg = widgetOsgFromPage(page);  // qobject_cast 自 page->render().widget()
 ```
 
 | 说明 | |
 |------|------|
-| 头文件 | `Widget/inc/WidgetDocumentAccess.h` |
-| 参数 | 仅非 const `DocumentPage*`（`render()` 非常量） |
-| 勿用 | Widget 新代码勿 `#include` Data 头；OSG 取指针用 `widgetOsgFromPage`，勿在 Host 构造期经 `render().widget()` 递归 |
-
-`MainWindow::currentOsgWidget()` 内部即 `widgetOsgFromPage(currentPage())`。
+| 调用方 | `CloudSimPluginHost`、部分存量路径 |
+| Widget 新代码 | 优先 `page->render()` / `page->sceneFacade()` / `page->osgWidget()`（继承）；勿新增 `#include "OsgWidget.h"` |
+| 已移除 | `MainWindow` / `DocumentPage` / `MainWindowRobotHost` 对 `OsgWidget.h` 的直接依赖 |
+| 例外 | `WidgetOsgViewHost.cpp` 仅 `#include "OsgWidget.h"` 以 const 查询 pick alias / skip-rebase（实现文件内，头文件仍前向声明） |
 
 ### 4.2 `IBackendSceneBridge`
 
@@ -189,10 +195,11 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 |------|------|
 | `importModelFile` / `importPointCloudFile` | 文件 → staging |
 | `captureImportedPointCloudBackend` / `captureImportedMeshBackend` / `captureImportedMeshBackendHierarchy` | → `BackendDataManager` |
-| `loadPointCloudFromBackendData` / `loadMeshFromBackendData(skipInner...)` | 注册后建 OSG 分支 |
+| `loadPointCloudFromBackendData` / `loadMeshFromBackendData` / `loadBackendFromBackendData` | 注册后建 OSG 分支；后者用于 `BrepModel` |
+| `setPickVisualAlias` | 装配子零件拾取 scope → 共享 visual backendId |
 | `clearImportedContent` / `clearStagingGeometry` | 清空 |
 
-**网格文件路由**（`MainWindowImportCaptureRenderController` → `MeshBackendData::loadFromFile` / `loadStepHierarchyFromFile`）：`.step`/`.stp` 仅 Data 层 OCCT（多零件优先层级导入）；`.obj` 含 `vn` 时 Data 保留文件法线（见 [`../Data/DEVELOPER_GUIDE.md`](../Data/DEVELOPER_GUIDE.md) §4.2.1），避免 URDF/CAD OBJ 在 `useSceneLighting` 下整面发黑；`.dae`/`.fbx` 等仍可为 OSG fallback，与 STEP/OBJ 主路径分离。
+**网格/BREP 文件路由**（`MainWindowImportCaptureRenderController`）：`.step`/`.stp` 优先 `BrepBackendData`（多零件 B-rep 装配，见 Host §4.4.1b）；obj/stl/ply/off 走 `MeshBackendData::loadFromFile`；`.obj` 含 `vn` 时 Data 保留文件法线（见 Data §4.2.1）；`.dae`/`.fbx` 等仍可为 OSG fallback。
 
 ### 6.2 交互模式
 
@@ -336,10 +343,13 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 
 | 格式 | 路径 |
 |------|------|
-| 全部格式（同步） | Host `DocumentImportFacade::importFileIntoDocument`（`registerBackendObject` 内调用） |
+| obj/stl/ply/off（同步） | `DocumentImportFacade::importFileIntoDocument` 或 `page->data().importFromFile` |
+| step/stp/brep（Job 可用） | Widget `JobSystem`：`ModelBackgroundLoadState::executeLoad`（Worker）→ UI `finishIntoDocument` |
+| step/stp/brep/mesh（无 Job） | 同步 `importFileIntoDocument` |
 | ply 大文件点云 | Widget `JobSystem` 异步：`PointCloudBackgroundLoadState::executeLoad`（Host）→ UI 线程 `adoptIntoDocument`（**仅纯顶点** ply；含面时拒绝） |
 | ply 含 `element face` | **不入点云 Job**；`plyFileHasTriangleFaces(nativePath)` 为真时改 `ImportFileKind::Mesh`（catalog `Model`） |
-| dxf/step 层级 | facade 内 `importMeshFileExtended`，**不**做 Follow；`focusCameraOnBackend(importParent)` 在 Host 内完成 |
+| dxf 层级 mesh | facade 内 `importMeshFileExtended`（mesh 分件），**不**做 Follow |
+| step 多零件装配 | BREP 路径：`importBrepHierarchyParts`；单 visual + pick alias；**不**做 Follow |
 
 **路径编码（PLY 及 Data 读盘）**：`nativePath = QFile::encodeName(filePath)` → `std::string`；与 [`Data/Data/DEVELOPER_GUIDE.md`](../Data/Data/DEVELOPER_GUIDE.md) §4.0 一致。**勿**对磁盘路径使用 `toUtf8()`。
 
@@ -349,8 +359,9 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 
 **DXF/STEP 层级（与工程加载区别）**
 
-- 分件顶点为世界坐标 → 导入时**不**调用 `applyHierarchyFollowBinding`（避免 `pose ≈ -质心`）。
-- Data 树：`attachChild` + `setBackendLogicalParent`；OSG 各片仍在 flat 组。
+- **DXF mesh 分件**：顶点为世界坐标 → 导入时**不**调用 `applyHierarchyFollowBinding`（避免 `pose ≈ -质心`）。
+- **STEP B-rep 装配**：多零件时仅 `importParent` 有 OSG visual；子零件经 `setPickVisualAlias` 拾取；`skipInnerModelCenterRebase=true`。
+- Data 树：`attachChild` + `setBackendLogicalParent`；mesh 分件 OSG 各片仍在 flat 组；BREP 装配共享单一 Geode。
 - 工程打开后 `edges[]` 仍由 `MainWindowProjectIo` 批量 `applyHierarchyFollowBinding` + 一次 `runBackendFollowSolveAndSync`。
 
 **已删除（2025 Host 接线 + 无用代码清理，勿再引用）**
@@ -361,7 +372,7 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 | `MainWindow::syncOsgViewerFrom*Backend` | Host `BackendVisualSync` + `doc->data().applyPropertyChange` |
 | `MainWindow::backendPropertyCommitted` 信号 | `EventHub`：`PoseCommittedEvent` / `SelectionChangedEvent` |
 | `DocumentHost::registerAdopted*` 公开成员 | `BackendFileImport::registerAdopted*` 或 `DocumentImportFacade` |
-| Widget 侧取 OSG | `widgetOsgFromPage` / `render().widget()`（Host 内部用 `host.osgWidget()`） |
+| Widget 侧渲染 | `render()` / `sceneFacade()`（Host 内部 `osgWidget()`；插件存量 `widgetOsgFromPage`） |
 | `RobotProjectIo::writeRobotKinematicsAndPrograms` | 保存 kinematics：`mergeRobotKinematicsIntoProjectRoot`；programs：`mergeRobotProgramsIntoProjectRoot` |
 
 要点见 [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §6.1、[`../Host/CloudSimHost/DEVELOPER_GUIDE.md`](../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.1a、§4.4.3。
@@ -408,9 +419,11 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 |----|------|
 | `JobSystem::enqueue(title, work, onFinished)` | `QThreadPool` 执行 `work`；`onFinished` 在 UI 线程 |
 | `ProgressManager` | `jobStarted` / `jobProgress` / `jobFinished`（`QMetaObject::invokeMethod`） |
-| `IRobotMainWindowHost::enqueueBackgroundJob` | RobotWidget 专用包装：`work` 无 progress sink，委托 `MainWindow::jobSystem()->enqueue`；用于 Run 中 `tickLookaheadPlanning` 等 |
+| `IRobotMainWindowHost::enqueueBackgroundJob` | RobotWidget 专用包装：`work` 无 progress sink，委托 `MainWindow::jobSystem()->enqueue` |
 
-**边界**：后台仅填充 `PointCloudBackendData`（非 LAS）；注册 OSG（`registerAdoptedPointCloud`）、刷树仍在 **UI 线程**。机器人规划 Job 仅写局部 `PlanResult`，**缓存写入必须在 `onFinished`（UI 线程）**。
+**已接入 Job**：点云 CGAL 解码（非 LAS）；Run **lookahead** 规划；全程序 **reachability**；**可行轴 IK**（`Feasible axis IK`）。
+
+**边界**：后台用 `PlanJobPayload` / `FeasibleAxisJobPayload` 等快照；注册 OSG、刷树、写 `PlanResultCache` / 可行轴缓存在 **UI 线程** `onFinished`。
 
 ---
 
@@ -423,9 +436,9 @@ RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreen
 | pose/rotation 分量 | `doc->data().worldPoseMm` / `applyWorldPoseMm` + `syncVisualAfterPropertyChangeById` + `publishPoseCommittedFromBackendId`（Host） |
 | 颜色 | `doc->data().applyColor` + `syncVisualAfterPropertyChangeById` |
 | `follow.*` | `afterBackendFollowPropertyEdited` + Follow 求解（Widget） |
-| 仿真指令属性 | 仍直连 `RobotInstruction::applyPropertyChange`（阶段 5 待定：需抽象层隔离 `RobotInstruction` 依赖） |
+| 仿真指令属性 | `InstructionPropertyPanel`（`RobotWidget`）+ `MainWindowInstructionPropertyUiHost`；写回经 `doc->robot().applyInstructionPropertyChange` |
 | 选择刷新 | `SelectionChanged` / `PoseCommitted` 订阅 → `updatePropertyPanel`（`MainWindowUiSetup`） |
-| 当前 OSG 视图 | `widgetOsgFromPage(page)` 或 `MainWindow::currentOsgWidget()` |
+| 当前渲染视口 | `currentPage()->render()`；插件截图 `doc->render().captureViewportPng` |
 
 ---
 
@@ -590,7 +603,7 @@ LMB/RMB (RobotTcpDragTeachOperation)
 | 现象 | 处理 |
 |------|------|
 | `IRenderView` 未定义（`WidgetDocumentAccess.h`） | 确保 `#include "IRenderView.h"`（已由 `WidgetDocumentAccess.h` 包含） |
-| C2662 `render()` 与 `const DocumentPage*` | 仅使用 `widgetOsgFromPage(DocumentPage*)`；无 const 重载 |
+| C2662 `render()` 与 `const DocumentPage*` | 新代码用 `page->render()`（非常量 `DocumentPage*`）；插件存量 `widgetOsgFromPage` |
 | 属性提交无效果且无文档页 | 检查 `currentPage()` 非空；见 §12a |
 
 ---

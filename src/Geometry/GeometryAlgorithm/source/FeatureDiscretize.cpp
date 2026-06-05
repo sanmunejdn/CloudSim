@@ -3,6 +3,7 @@
 #include "Discretize.h"
 #include "FeatureSpec.h"
 #include "Intersection.h"
+#include "ShapeHandle.h"
 #include "ShapeIo.h"
 #include "ShapeQuery.h"
 #include "WireOps.h"
@@ -863,7 +864,7 @@ bool validateFeatureSpec(const FeatureSpec& spec, std::string* errMsg)
 	return true;
 }
 
-bool validateFeatureSpecWithShape(const FeatureSpec& spec, std::string* errMsg)
+bool validateFeatureSpecWithShape(const FeatureSpec& spec, const ShapeHandle& shapeHandle, std::string* errMsg)
 {
 	if (!validateFeatureSpec(spec, errMsg))
 	{
@@ -873,9 +874,21 @@ bool validateFeatureSpecWithShape(const FeatureSpec& spec, std::string* errMsg)
 	{
 		return true;
 	}
-	TopoDS_Shape shape;
-	if (!loadShapeForSpec(spec, shape, errMsg))
+	if (shapeHandle.isNull())
 	{
+		if (errMsg)
+		{
+			*errMsg = "null shape";
+		}
+		return false;
+	}
+	TopoDS_Shape shape;
+	if (!ShapeHandleAccess::nativeShape(shapeHandle, &shape))
+	{
+		if (errMsg)
+		{
+			*errMsg = "shape access failed";
+		}
 		return false;
 	}
 	const int edgeCount = shapeEdgeCount(shape);
@@ -906,7 +919,7 @@ bool validateFeatureSpecWithShape(const FeatureSpec& spec, std::string* errMsg)
 	{
 		for (const FeatureSpec& child : spec.refs.children)
 		{
-			if (!validateFeatureSpecWithShape(child, errMsg))
+			if (!validateFeatureSpecWithShape(child, shapeHandle, errMsg))
 			{
 				return false;
 			}
@@ -915,7 +928,25 @@ bool validateFeatureSpecWithShape(const FeatureSpec& spec, std::string* errMsg)
 	return true;
 }
 
-bool discretizeFeature(const FeatureSpec& spec, RawPath& out, std::string* errMsg)
+bool validateFeatureSpecWithShape(const FeatureSpec& spec, std::string* errMsg)
+{
+	if (!validateFeatureSpec(spec, errMsg))
+	{
+		return false;
+	}
+	if (spec.kind == FeatureKind::SyntheticPolyline)
+	{
+		return true;
+	}
+	TopoDS_Shape shape;
+	if (!loadShapeForSpec(spec, shape, errMsg))
+	{
+		return false;
+	}
+	return validateFeatureSpecWithShape(spec, ShapeHandleAccess::fromNativeShape(&shape), errMsg);
+}
+
+bool discretizeFeature(const FeatureSpec& spec, const ShapeHandle& shapeHandle, RawPath& out, std::string* errMsg)
 {
 	if (!validateFeatureSpec(spec, errMsg))
 	{
@@ -937,7 +968,7 @@ bool discretizeFeature(const FeatureSpec& spec, RawPath& out, std::string* errMs
 		for (const FeatureSpec& child : spec.refs.children)
 		{
 			RawPath part;
-			if (!discretizeFeature(child, part, errMsg))
+			if (!discretizeFeature(child, shapeHandle, part, errMsg))
 			{
 				return false;
 			}
@@ -946,9 +977,21 @@ bool discretizeFeature(const FeatureSpec& spec, RawPath& out, std::string* errMs
 	}
 	else
 	{
-		TopoDS_Shape shape;
-		if (!loadShapeForSpec(spec, shape, errMsg))
+		if (shapeHandle.isNull())
 		{
+			if (errMsg)
+			{
+				*errMsg = "null shape";
+			}
+			return false;
+		}
+		TopoDS_Shape shape;
+		if (!ShapeHandleAccess::nativeShape(shapeHandle, &shape))
+		{
+			if (errMsg)
+			{
+				*errMsg = "shape access failed";
+			}
 			return false;
 		}
 		bool ok = false;
@@ -989,6 +1032,40 @@ bool discretizeFeature(const FeatureSpec& spec, RawPath& out, std::string* errMs
 	return !out.points.empty();
 }
 
+bool discretizeFeature(const FeatureSpec& spec, RawPath& out, std::string* errMsg)
+{
+	if (spec.kind == FeatureKind::SyntheticPolyline)
+	{
+		return discretizeFeature(spec, ShapeHandle{}, out, errMsg);
+	}
+	TopoDS_Shape shape;
+	if (!loadShapeForSpec(spec, shape, errMsg))
+	{
+		return false;
+	}
+	return discretizeFeature(spec, ShapeHandleAccess::fromNativeShape(&shape), out, errMsg);
+}
+
+bool discretizeFeatures(
+	const std::vector<FeatureSpec>& specs,
+	const ShapeHandle& shapeHandle,
+	std::vector<RawPath>& out,
+	std::string* errMsg)
+{
+	out.clear();
+	out.reserve(specs.size());
+	for (const FeatureSpec& spec : specs)
+	{
+		RawPath path;
+		if (!discretizeFeature(spec, shapeHandle, path, errMsg))
+		{
+			return false;
+		}
+		out.push_back(std::move(path));
+	}
+	return true;
+}
+
 bool discretizeFeatures(const std::vector<FeatureSpec>& specs, std::vector<RawPath>& out, std::string* errMsg)
 {
 	out.clear();
@@ -1005,22 +1082,26 @@ bool discretizeFeatures(const std::vector<FeatureSpec>& specs, std::vector<RawPa
 	return true;
 }
 
-bool enumerateFeatureCatalog(const WorkpieceRef& workpiece, FeatureCatalog& out, std::string* errMsg)
+bool enumerateFeatureCatalog(const WorkpieceRef& workpiece, const ShapeHandle& shapeHandle, FeatureCatalog& out, std::string* errMsg)
 {
 	out = FeatureCatalog{};
 	out.backendIdUtf8 = workpiece.backendIdUtf8;
 	out.stepPathUtf8 = workpiece.stepPathUtf8;
-	if (workpiece.stepPathUtf8.empty())
+	if (shapeHandle.isNull())
 	{
 		if (errMsg)
 		{
-			*errMsg = "stepPathUtf8 required for catalog";
+			*errMsg = "null shape";
 		}
 		return false;
 	}
 	TopoDS_Shape shape;
-	if (!readStepShape(workpiece.stepPathUtf8, shape, errMsg))
+	if (!ShapeHandleAccess::nativeShape(shapeHandle, &shape))
 	{
+		if (errMsg)
+		{
+			*errMsg = "shape access failed";
+		}
 		return false;
 	}
 	int edgeIdx = 0;
@@ -1069,6 +1150,24 @@ bool enumerateFeatureCatalog(const WorkpieceRef& workpiece, FeatureCatalog& out,
 		out.candidates.push_back(std::move(c));
 	}
 	return true;
+}
+
+bool enumerateFeatureCatalog(const WorkpieceRef& workpiece, FeatureCatalog& out, std::string* errMsg)
+{
+	if (workpiece.stepPathUtf8.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "stepPathUtf8 or in-memory shape required for catalog";
+		}
+		return false;
+	}
+	ShapeHandle handle;
+	if (!readStepIntoHandle(workpiece.stepPathUtf8, handle, errMsg))
+	{
+		return false;
+	}
+	return enumerateFeatureCatalog(workpiece, handle, out, errMsg);
 }
 
 bool featureSpecFromJson(const std::string& jsonUtf8, FeatureSpec& out, std::string* errMsg)
@@ -1311,20 +1410,29 @@ gp_Vec labelOutwardFromBbox(const TopoDS_Shape& shape, const gp_Pnt& anchor, con
 
 } // namespace
 
-bool computeFeatureAnchor(const WorkpieceRef& workpiece, const FeatureRefs& refs, FeatureAnchor& out, std::string* errMsg)
+bool computeFeatureAnchor(
+	const WorkpieceRef& workpiece,
+	const ShapeHandle& shapeHandle,
+	const FeatureRefs& refs,
+	FeatureAnchor& out,
+	std::string* errMsg)
 {
 	out = FeatureAnchor{};
-	if (workpiece.stepPathUtf8.empty())
+	if (shapeHandle.isNull())
 	{
 		if (errMsg)
 		{
-			*errMsg = "stepPathUtf8 required";
+			*errMsg = "null shape";
 		}
 		return false;
 	}
 	TopoDS_Shape shape;
-	if (!readStepShape(workpiece.stepPathUtf8, shape, errMsg))
+	if (!ShapeHandleAccess::nativeShape(shapeHandle, &shape))
 	{
+		if (errMsg)
+		{
+			*errMsg = "shape access failed";
+		}
 		return false;
 	}
 
@@ -1408,6 +1516,24 @@ bool computeFeatureAnchor(const WorkpieceRef& workpiece, const FeatureRefs& refs
 		*errMsg = "FeatureRefs has no edge or face indices";
 	}
 	return false;
+}
+
+bool computeFeatureAnchor(const WorkpieceRef& workpiece, const FeatureRefs& refs, FeatureAnchor& out, std::string* errMsg)
+{
+	if (workpiece.stepPathUtf8.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "stepPathUtf8 or in-memory shape required";
+		}
+		return false;
+	}
+	ShapeHandle handle;
+	if (!readStepIntoHandle(workpiece.stepPathUtf8, handle, errMsg))
+	{
+		return false;
+	}
+	return computeFeatureAnchor(workpiece, handle, refs, out, errMsg);
 }
 
 } // namespace geoalgo

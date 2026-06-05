@@ -17,7 +17,12 @@
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BrepBackendData.h"
 #include "PointCloudBackendData.h"
+
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 
 #include <QJsonArray>
 #include <QJsonValue>
@@ -30,10 +35,32 @@ namespace cloudsim::host
 
 using ::OsgWidget;
 
-ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& languageCode)
+FollowSolveContext followSolveContextFromDto(const core::FollowSolveContextDto* dto)
+{
+	FollowSolveContext ctx;
+	if (!dto)
+	{
+		return ctx;
+	}
+	const core::FollowSolveContextDto captured = *dto;
+	ctx.skipAll = [captured]() { return captured.skipAll; };
+	ctx.fillGizmoSelectedId = [captured](std::string& outSelectedId) -> bool {
+		if (captured.gizmoSelectedBackendId.isEmpty())
+		{
+			return false;
+		}
+		outSelectedId = captured.gizmoSelectedBackendId.toStdString();
+		return true;
+	};
+	return ctx;
+}
+
+ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& languageCode,
+	const QString& assetOutputDir)
 {
 	ProjectSaveBuildResult out;
 	out.root.insert(QStringLiteral("version"), 4);
+	out.root.insert(QStringLiteral("componentsSchemaVersion"), 1);
 	out.root.insert(QStringLiteral("language"), languageCode);
 
 	QJsonArray objects;
@@ -81,6 +108,34 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 		{
 			continue;
 		}
+		if (!assetOutputDir.isEmpty())
+		{
+			if (const auto brep = std::dynamic_pointer_cast<BrepBackendData>(data))
+			{
+				if (brep->hasGeometry())
+				{
+					const QString rel = QStringLiteral("objects/%1.brep").arg(idQs);
+					const QString abs = QDir(assetOutputDir).filePath(rel);
+					QDir().mkpath(QFileInfo(abs).absolutePath());
+					std::string writeErr;
+					const QByteArray enc = QFile::encodeName(abs);
+					const std::string nativePath(enc.constData(), static_cast<std::size_t>(enc.size()));
+					if (brep->writeBrepFile(nativePath, &writeErr))
+					{
+						obj.insert(QStringLiteral("assetRelativePath"), rel);
+						QJsonObject geom = obj.value(QStringLiteral("geometry")).toObject();
+						geom.insert(QStringLiteral("kind"), QStringLiteral("brep"));
+						geom.insert(QStringLiteral("brepSidecar"), rel);
+						obj.insert(QStringLiteral("geometry"), geom);
+					}
+					else
+					{
+						out.warnings.append(QStringLiteral("B-rep sidecar write failed for %1: %2")
+							.arg(idQs, QString::fromStdString(writeErr)));
+					}
+				}
+			}
+		}
 		objects.push_back(obj);
 	}
 	out.root.insert(QStringLiteral("objects"), objects);
@@ -126,18 +181,25 @@ void mergeRobotKinematicsIntoProjectRoot(::IRobotDocumentHost* robotDoc, QJsonOb
 	RobotProjectIo::writeRobotKinematics(root, robotDoc, aggregatedJointAnglesRad);
 }
 
-void finalizeProjectLoadFollowAndViewport(DocumentHost& host, OsgWidget& osg, const QJsonObject& root,
-	const bool useEdgesRelation, const QVector<ProjectHierarchyEdge>& edges, const FollowSolveContext* solveCtx)
+void finalizeProjectLoadFollowAndViewport(DocumentHost& host, const QJsonObject& root, const bool useEdgesRelation,
+	const QVector<ProjectHierarchyEdge>& edges, const core::FollowSolveContextDto* solveCtxDto)
 {
+	OsgWidget* osg = osgWidgetFrom(host);
+	if (!osg)
+	{
+		return;
+	}
+	FollowSolveContext hostCtx = followSolveContextFromDto(solveCtxDto);
+	const FollowSolveContext* solveCtx = solveCtxDto ? &hostCtx : nullptr;
 	syncOsgBackendParentsFromBackend(host);
 	if (useEdgesRelation)
 	{
-		applyProjectEdgesFollowBindingAndSolve(host, osg, edges, solveCtx);
+		applyProjectEdgesFollowBindingAndSolve(host, edges, solveCtx);
 	}
 	applyProjectViewportFromJson(host, root);
 	host.invalidateFollowReverseIndex();
 	host.requestFollowSolveForced(); // 工程打开首帧须全图求解
-	runBackendFollowSolveAndSync(host, osg, solveCtx);
+	runBackendFollowSolveAndSync(host, *osg, solveCtx);
 }
 
 RobotKinematicsRestoreResult restoreRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx,

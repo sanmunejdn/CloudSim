@@ -58,7 +58,8 @@ public:
 	bool readProjectEmbeddedGeometry(const std::string& triangleSoupBase64);
 
 	/// CGAL polygon soup（.obj/.stl/.ply/.off）；path 本地编码
-	bool loadFromFile(const std::string& path, std::string* errMsg = nullptr);
+	bool loadFromFile(const std::string& path, std::string* errMsg = nullptr,
+		int meshImportQuality = 1);
 	/// 三角 soup 写 PLY（含 face 元素）；path UTF-8
 	bool writeTriangleMeshPly(const std::string& utf8Path, std::string* errMsg = nullptr) const;
 	static bool loadStepHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts, std::string* errMsg = nullptr);

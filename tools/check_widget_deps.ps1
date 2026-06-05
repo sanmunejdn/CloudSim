@@ -34,13 +34,32 @@ $forbiddenInclude = @(
     'PointCloudBackendData\.h',
     'FollowAttachmentComponent\.h',
     'RobotScene/',
+    'RobotInstructionModel\.h',
+    'RobotInstructionProgram\.h',
+    'RobotInstructionPropertySchema\.h',
+    'RobotInstructionPlanningHelpers',
     'OsgWidgetCore/',
-    'BackendVisual/'
+    'BackendVisual/',
+    'OsgWidget\.h'
 )
+
+# 过渡文件：阶段 B/C 迁移完成前仍允许 OsgWidget / RobotInstruction 头（新文件不得加入此表）
+$transitionalIncludeAllow = @{
+    'WidgetSceneSignalWiring.cpp' = $true
+    'MainWindow.cpp' = $true
+    'MainWindowRobotStubs.cpp' = $true
+    'MainWindowUiSetup.cpp' = $true
+    'MainWindowBackendTree.cpp' = $true
+    'MainWindowFileImport.cpp' = $true
+    'MainWindowPropertyPanel.cpp' = $true
+}
 
 foreach ($rel in $compiledSources) {
     $file = Join-Path $widgetSrc $rel
     if (-not (Test-Path $file)) {
+        continue
+    }
+    if ($transitionalIncludeAllow.ContainsKey($rel)) {
         continue
     }
     $lines = Select-String -Path $file -Pattern '#include' -SimpleMatch

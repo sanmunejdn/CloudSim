@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geometry_algorithm_global.h"
+#include "ShapeHandle.h"
 #include "Types.h"
 
 #include <string>
@@ -115,21 +116,46 @@ GEOMETRY_ALGORITHM_API bool computeFeatureAnchor(
 	const FeatureRefs& refs,
 	FeatureAnchor& out,
 	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool computeFeatureAnchor(
+	const WorkpieceRef& workpiece,
+	const ShapeHandle& shape,
+	const FeatureRefs& refs,
+	FeatureAnchor& out,
+	std::string* errMsg = nullptr);
 
 GEOMETRY_ALGORITHM_API const char* featureKindToString(FeatureKind kind);
 GEOMETRY_ALGORITHM_API bool featureKindFromString(const std::string& s, FeatureKind& out);
 
 GEOMETRY_ALGORITHM_API bool validateFeatureSpec(const FeatureSpec& spec, std::string* errMsg = nullptr);
 GEOMETRY_ALGORITHM_API bool validateFeatureSpecWithShape(const FeatureSpec& spec, std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool validateFeatureSpecWithShape(
+	const FeatureSpec& spec,
+	const ShapeHandle& shape,
+	std::string* errMsg = nullptr);
 
 GEOMETRY_ALGORITHM_API bool discretizeFeature(const FeatureSpec& spec, RawPath& out, std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool discretizeFeature(
+	const FeatureSpec& spec,
+	const ShapeHandle& shape,
+	RawPath& out,
+	std::string* errMsg = nullptr);
 GEOMETRY_ALGORITHM_API bool discretizeFeatures(
 	const std::vector<FeatureSpec>& specs,
+	std::vector<RawPath>& out,
+	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool discretizeFeatures(
+	const std::vector<FeatureSpec>& specs,
+	const ShapeHandle& shape,
 	std::vector<RawPath>& out,
 	std::string* errMsg = nullptr);
 
 GEOMETRY_ALGORITHM_API bool enumerateFeatureCatalog(
 	const WorkpieceRef& workpiece,
+	FeatureCatalog& out,
+	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool enumerateFeatureCatalog(
+	const WorkpieceRef& workpiece,
+	const ShapeHandle& shape,
 	FeatureCatalog& out,
 	std::string* errMsg = nullptr);
 

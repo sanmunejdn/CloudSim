@@ -10,7 +10,7 @@
 class BackendDataManager;
 class IRobotBackendPoseSink;
 class IRobotSimulationDocument;
-class OsgWidget;
+class MeshBackendData;
 
 namespace osg {
 class MatrixTransform;
@@ -30,9 +30,14 @@ public:
 	virtual ~IRobotUrdfImportContext() = default;
 
 	virtual BackendDataManager& urdfImportBackend() = 0;
-	virtual OsgWidget* urdfImportOsgWidget() = 0;
 	virtual IRobotSimulationDocument* urdfImportRobotSimulationDocument() = 0;
 	virtual IRobotBackendPoseSink* urdfImportScenePoseSink() = 0;
+
+	/// 连杆网格进场景（无 OSG 时跳过，返回 true）
+	virtual bool urdfImportLoadLinkMeshIntoScene(const MeshBackendData& mesh, QString* errorMessage = nullptr) = 0;
+	virtual void urdfImportSetBackendParent(const std::string& childBackendId, const std::string& parentBackendId) = 0;
+	virtual void urdfImportClearStagingGeometry() = 0;
+	virtual void urdfImportFocusCameraOnBackend(const std::string& backendId) = 0;
 
 	virtual QMap<QString, QString>& urdfImportBackendSourcePath() = 0;
 	virtual QMap<QString, QString>& urdfImportBackendSourceType() = 0;

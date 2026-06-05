@@ -30,6 +30,10 @@ public:
 		const QString& value, QString* outError = nullptr) = 0;
 	virtual QStringList feasibleMotionAxisConfigTokens(const QString& instructionId,
 		const MotionInstructionDto& instruction, const PlanContextDto& context) const = 0;
+
+	virtual FeasibleMotionAxisOptionsDto queryFeasibleMotionAxisOptions(const QString& instructionId,
+		QVector<double>* outSeedJointRad = nullptr) const = 0;
+	virtual FeasibleMotionAxisOptionsDto cachedFeasibleMotionAxisOptions() const = 0;
 };
 
 } // namespace cloudsim::core

@@ -1,21 +1,22 @@
 #include "MainWindowRobotHost.h"
 
 #include "BackendSceneDocumentFacade.h"
+#include "CoreTypes.h"
 #include "DocumentPage.h"
+#include "IDataService.h"
+#include "IRenderView.h"
 #include "IRobotService.h"
-#include "WidgetDocumentAccess.h"
+#include "WidgetOsgViewHost.h"
+#include "WidgetSceneSignalWiring.h"
 #include "MainWindow.h"
 #include "JobSystem.h"
 #include "RunInfoPage.h"
 #include "MainWindowImportCaptureRenderController.h"
 #include "MainWindowSelectionService.h"
-#include "OsgWidget.h"
-
-#include "../RobotWidget/inc/IRobotOsgViewHost.h"
-#include "../RobotWidget/inc/RobotOsgUiTypes.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
 
+#include "RobotInstructionPropertyDto.h"
 #include "RobotPlanInstruction.h"
 #include "UrdfRobotLoader.h"
 #include "RobotMatrixOsgBridge.h"
@@ -412,183 +413,6 @@ private:
 	DocumentPage* m_page = nullptr;
 };
 
-class MainWindowRobotHost::OsgViewHost : public IRobotOsgViewHost
-{
-public:
-	explicit OsgViewHost(OsgWidget* osg) : m_osg(osg) {}
-
-	IRobotBackendPoseSink* poseSink() override { return m_osg; }
-	void requestRedraw() override { m_osg->requestRedraw(); }
-
-	bool objectSelectionMode() const override { return m_osg->objectSelectionMode(); }
-	void setObjectSelectionMode(bool enabled) override { m_osg->setObjectSelectionMode(enabled); }
-	void clearBackendObjectSelection() override { m_osg->setSelectionActive(false); }
-	void setSelectionActive(bool active) override { m_osg->setSelectionActive(active); }
-	void setTransformGizmoFrame(int worldOrLocal) override
-	{
-		m_osg->setTransformGizmoFrame(worldOrLocal == 0 ? OsgWidget::TransformGizmoFrame::World
-														: OsgWidget::TransformGizmoFrame::Local);
-	}
-
-	bool hasBackendObjectBranch(const std::string& backendId) const override
-	{
-		return m_osg->hasBackendObjectBranch(backendId);
-	}
-	bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const override
-	{
-		return m_osg->getBackendRootWorldMatrix(backendId, outWorld);
-	}
-	bool tryGetBackendModelCenterMm(const std::string& backendId, double& cx, double& cy, double& cz) const override
-	{
-		return m_osg->tryGetBackendModelCenterMm(backendId, cx, cy, cz);
-	}
-
-	void setInstructionPoseAxes(const std::vector<RobotOsgUi::InstructionPoseAxis>& axes) override
-	{
-		std::vector<OsgWidget::InstructionPoseAxis> converted;
-		converted.reserve(axes.size());
-		for (const auto& a : axes)
-		{
-			OsgWidget::InstructionPoseAxis o;
-			o.positionMm = a.positionMm;
-			o.eulerDeg = a.eulerDeg;
-			o.lineMotion = a.lineMotion;
-			o.reachable = a.reachable;
-			o.robotBackendId = a.robotBackendId.empty() ? a.backendId : a.robotBackendId;
-			o.mountTcpOnPatRoot = a.mountTcpOnPatRoot;
-			o.hasLocalMatrix = a.hasLocalMatrix;
-			if (a.hasLocalMatrix)
-			{
-				for (int i = 0; i < 16; ++i)
-				{
-					o.localMatrix[i] = a.localMatrix[i];
-				}
-			}
-			o.urdfTcpAttachLinkName = a.urdfTcpAttachLinkName;
-			converted.push_back(o);
-		}
-		m_osg->setInstructionPoseAxes(converted);
-	}
-	void clearInstructionPoseAxes() override { m_osg->clearInstructionPoseAxes(); }
-	void setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points) override
-	{
-		std::vector<OsgWidget::RawTrajectoryOverlayVertex> converted;
-		converted.reserve(points.size());
-		for (const RobotOsgUi::RawTrajectoryOverlayVertex& v : points)
-		{
-			OsgWidget::RawTrajectoryOverlayVertex o;
-			o.positionMm = v.positionMm;
-			o.reachable = v.reachable;
-			converted.push_back(o);
-		}
-		m_osg->setRawTrajectoryOverlay(converted);
-	}
-	void clearRawTrajectoryOverlay() override { m_osg->clearRawTrajectoryOverlay(); }
-	void setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& frames) override
-	{
-		std::vector<OsgWidget::RawTrajectoryOverlayFrame> converted;
-		converted.reserve(frames.size());
-		for (const RobotOsgUi::RawTrajectoryOverlayFrame& f : frames)
-		{
-			OsgWidget::RawTrajectoryOverlayFrame o;
-			o.positionMm = f.positionMm;
-			o.eulerDeg = f.eulerDeg;
-			o.reachable = f.reachable;
-			converted.push_back(o);
-		}
-		m_osg->setRawTrajectoryOverlayFrames(converted);
-	}
-	void clearRawTrajectoryOverlayFrames() override { m_osg->clearRawTrajectoryOverlayFrames(); }
-	void setCameraFollowBackendId(const std::string& backendId) override
-	{
-		m_osg->setCameraFollowBackendId(backendId);
-	}
-
-	void setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverlayUpdate& update) override
-	{
-		OsgWidget::RobotFrameOverlayUpdate u;
-		u.robotRootBackendId = update.robotRootBackendId;
-		u.showToolFrames = update.showToolFrames;
-		u.showUserFrames = update.showUserFrames;
-		for (const auto& te : update.toolFrames)
-		{
-			OsgWidget::RobotFrameOverlayUpdate::ToolEntry e;
-			e.name = te.name;
-			e.mountBackendId = te.mountBackendId;
-			e.localMatrix = te.localMatrix;
-			e.active = te.active;
-			u.toolFrames.push_back(e);
-		}
-		for (const auto& ue : update.userFrames)
-		{
-			OsgWidget::RobotFrameOverlayUpdate::UserEntry e;
-			e.name = ue.name;
-			e.mountBackendId = ue.mountBackendId;
-			e.localMatrix = ue.localMatrix;
-			u.userFrames.push_back(e);
-		}
-		m_osg->setRobotFrameOverlays(u);
-	}
-	void clearRobotFrameOverlays(const std::string& robotRootBackendId) override
-	{
-		m_osg->clearRobotFrameOverlays(robotRootBackendId);
-	}
-
-	void setFeatureCatalogOverlay(const std::vector<RobotOsgUi::FeatureCatalogOverlayItem>& items) override
-	{
-		std::vector<OsgWidget::FeatureCatalogOverlayItem> converted;
-		converted.reserve(items.size());
-		for (const RobotOsgUi::FeatureCatalogOverlayItem& item : items)
-		{
-			OsgWidget::FeatureCatalogOverlayItem o;
-			o.displayIndex = item.displayIndex;
-			o.anchorWorldMm = item.anchorWorldMm;
-			o.labelWorldMm = item.labelWorldMm;
-			o.hasEdgeSegment = item.hasEdgeSegment;
-			o.edgeAWorldMm = item.edgeAWorldMm;
-			o.edgeBWorldMm = item.edgeBWorldMm;
-			converted.push_back(o);
-		}
-		m_osg->setFeatureCatalogOverlay(converted);
-	}
-	void clearFeatureCatalogOverlay() override { m_osg->clearFeatureCatalogOverlay(); }
-
-	bool isTcpDragTeachActive() const override { return m_osg->isTcpDragTeachActive(); }
-	void endTcpDragTeach() override { m_osg->endTcpDragTeach(); }
-	void beginTcpDragTeach(
-		const std::string& mountBackendId,
-		const engine::RigidTransform& T_base_target,
-		float modelDiagonalMm,
-		std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld,
-		const osg::Matrixd* toolLocalOnFlange) override
-	{
-		m_osg->beginTcpDragTeach(mountBackendId, T_base_target, modelDiagonalMm, resolveRobotBaseWorld, toolLocalOnFlange);
-	}
-	void updateTcpDragTeachFromTarget(
-		const engine::RigidTransform& T_base_target,
-		bool syncTargetInBase = true) override
-	{
-		m_osg->updateTcpDragTeachFromTarget(T_base_target, syncTargetInBase);
-	}
-	void updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLocalOnFlange) override
-	{
-		m_osg->updateTcpDragTeachToolLocalOnFlange(toolLocalOnFlange);
-	}
-
-	void setMeshLinePickMode(const bool enabled) override { m_osg->setMeshLinePickMode(enabled); }
-	void setMeshFacePickMode(const bool enabled) override { m_osg->setMeshFacePickMode(enabled); }
-	bool meshLinePickMode() const override { return m_osg->meshLinePickMode(); }
-	bool meshFacePickMode() const override { return m_osg->meshFacePickMode(); }
-	void setMeshPickScopeBackendId(const std::string& backendId) override
-	{
-		m_osg->syncSelectionForBackendId(backendId);
-		m_osg->setSelectionActive(true);
-	}
-
-private:
-	OsgWidget* m_osg = nullptr;
-};
-
 MainWindowRobotHost::MainWindowRobotHost(MainWindow* mw) : m_mw(mw) {}
 
 IRobotDocumentHost* MainWindowRobotHost::document()
@@ -612,18 +436,19 @@ const IRobotDocumentHost* MainWindowRobotHost::document() const
 
 IRobotOsgViewHost* MainWindowRobotHost::osgView()
 {
-	if (OsgWidget* o = m_mw->currentOsgWidget())
+	DocumentPage* page = m_mw->currentPage();
+	if (!page || !page->osgWidget())
 	{
-		if (!m_osgHost || m_osgHostWidget != o)
-		{
-			m_osgHost = std::make_unique<OsgViewHost>(o);
-			m_osgHostWidget = o;
-		}
-		return m_osgHost.get();
+		m_osgHost.reset();
+		m_osgHostPage = nullptr;
+		return nullptr;
 	}
-	m_osgHost.reset();
-	m_osgHostWidget = nullptr;
-	return nullptr;
+	if (!m_osgHost || m_osgHostPage != page)
+	{
+		m_osgHost = std::make_unique<WidgetOsgViewHost>(page);
+		m_osgHostPage = page;
+	}
+	return m_osgHost.get();
 }
 
 bool MainWindowRobotHost::useChinese() const { return m_mw->m_useChinese; }
@@ -685,11 +510,15 @@ void MainWindowRobotHost::refreshBackendTree() { m_mw->refreshBackendTree(); }
 void MainWindowRobotHost::runFollowSolveAndSyncForCurrentDocument()
 {
 	DocumentPage* page = m_mw->currentPage();
-	OsgWidget* osg = widgetOsgFromPage(page);
-	if (page && osg)
+	if (!page)
 	{
-		m_mw->runBackendFollowSolveAndSync(*page, *osg);
+		return;
 	}
+	cloudsim::core::IRenderView* rv = &page->render();
+	cloudsim::core::FollowSolveContextDto ctx;
+	ctx.skipAll = rv->isTcpDragTeachActive()
+		|| (m_mw->robotSimulation() && m_mw->robotSimulation()->programExecutor().isRunning());
+	(void)page->data().runFollowSolveAndSync(ctx, nullptr);
 }
 
 void MainWindowRobotHost::refreshInstructionPropertyPanel(
@@ -799,4 +628,102 @@ void MainWindowRobotHost::notifyMeshPickCommitted(const PickResult& pick, const 
 	{
 		m_meshPickHandler(pick, kind);
 	}
+}
+
+void MainWindowRobotHost::wireDocumentPageSceneSignals(DocumentPage* page)
+{
+	if (!m_mw)
+	{
+		return;
+	}
+	wireMainWindowDocumentSceneSignals(*m_mw, page, this);
+}
+
+namespace
+{
+cloudsim::core::FeasibleMotionAxisOptionsDto toFeasibleAxisDto(
+	const RobotInstruction::FeasibleMotionAxisConfigurationOptions& engine)
+{
+	return cloudsim::host::feasibleAxisOptionsFromEngine(
+		engine.presetTokens,
+		engine.elbowTokens,
+		engine.wristTokens,
+		engine.armTokens,
+		engine.turnJ1Tokens,
+		engine.turnJ4Tokens,
+		engine.turnJ6Tokens);
+}
+} // namespace
+
+QVector<cloudsim::core::PropertyRowDto> MainWindowRobotHost::instructionPropertyRows(const QString& instructionId)
+{
+	if (!m_mw || !m_mw->robotSimulation())
+	{
+		return {};
+	}
+	const std::shared_ptr<RobotInstruction::Base> ins =
+		m_mw->robotSimulation()->findInstructionById(instructionId);
+	if (!ins)
+	{
+		return {};
+	}
+	return cloudsim::host::propertyRowsFromInstructionSnapshotJson(ins->snapshotPropertyRows());
+}
+
+bool MainWindowRobotHost::applyInstructionPropertyChange(const QString& instructionId, const QString& key,
+	const QString& value, QString* outError)
+{
+	if (!m_mw || !m_mw->robotSimulation())
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("no robot simulation");
+		}
+		return false;
+	}
+	const std::shared_ptr<RobotInstruction::Base> ins =
+		m_mw->robotSimulation()->findInstructionById(instructionId);
+	if (!ins)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("instruction not found: %1").arg(instructionId);
+		}
+		return false;
+	}
+	std::string err;
+	const bool ok = ins->applyPropertyChange(key.toStdString(), value.toStdString(), &err);
+	if (!ok && outError)
+	{
+		*outError = QString::fromStdString(err);
+	}
+	return ok;
+}
+
+cloudsim::core::FeasibleMotionAxisOptionsDto MainWindowRobotHost::queryFeasibleMotionAxisOptions(
+	const QString& instructionId,
+	QVector<double>* outSeedJointRad)
+{
+	if (!m_mw || !m_mw->robotSimulation())
+	{
+		return {};
+	}
+	const std::shared_ptr<RobotInstruction::Base> ins =
+		m_mw->robotSimulation()->findInstructionById(instructionId);
+	if (!ins)
+	{
+		return {};
+	}
+	const RobotInstruction::FeasibleMotionAxisConfigurationOptions engine =
+		m_mw->robotSimulation()->feasibleMotionAxisConfigurationOptionsForInstruction(ins, outSeedJointRad);
+	return toFeasibleAxisDto(engine);
+}
+
+cloudsim::core::FeasibleMotionAxisOptionsDto MainWindowRobotHost::cachedFeasibleMotionAxisOptions()
+{
+	if (!m_mw || !m_mw->robotSimulation())
+	{
+		return {};
+	}
+	return toFeasibleAxisDto(m_mw->robotSimulation()->cachedFeasibleAxisConfigurationOptions());
 }

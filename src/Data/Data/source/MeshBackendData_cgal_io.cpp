@@ -7,7 +7,7 @@
 
 using namespace mesh_backend_load;
 
-bool MeshBackendData::loadFromFile(const std::string& path, std::string* errMsg)
+bool MeshBackendData::loadFromFile(const std::string& path, std::string* errMsg, const int meshImportQuality)
 {
 	clearGeometry();
 	const std::string ext = meshLowerExtension(path);
@@ -49,13 +49,18 @@ bool MeshBackendData::loadFromFile(const std::string& path, std::string* errMsg)
 		std::vector<float> objNormals;
 		if (meshTryLoadObjWithVertexNormals(path, objSoup, objNormals))
 		{
+			if (meshImportQuality == 0 && objNormals.size() == objSoup.size())
+			{
+				meshApplyImportQualityToSoup(objNormals, meshImportQuality);
+			}
+			meshApplyImportQualityToSoup(objSoup, meshImportQuality);
 			setTriangleSoupWithNormals(std::move(objSoup), std::move(objNormals));
 			RunLogger::info("[MeshBackendData] OBJ loaded with file vertex normals for lighting.");
 			return !m_triangleSoup.empty();
 		}
 	}
 
-	return meshLoadCgalMeshFile(*this, path, ext, errMsg);
+	return meshLoadCgalMeshFile(*this, path, ext, errMsg, meshImportQuality);
 }
 
 bool MeshBackendData::writeTriangleMeshPly(const std::string& utf8Path, std::string* errMsg) const

@@ -6,6 +6,7 @@
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BrepBackendData.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PlyIo.h"
@@ -138,7 +139,7 @@ core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const
 	auto mesh = std::make_shared<MeshBackendData>();
 	mesh->setName(fileInfo.fileName().toStdString());
 	std::string loadErr;
-	if (!mesh->loadFromFile(nativePath, &loadErr) || !mesh->hasGeometry())
+	if (!mesh->loadFromFile(nativePath, &loadErr, options.meshImportQuality) || !mesh->hasGeometry())
 	{
 		if (outError)
 		{
@@ -336,6 +337,40 @@ bool registerAdoptedMeshAndLoadScene(DocumentHost& host, const std::shared_ptr<M
 			&& outError)
 		{
 			*outError = sceneErr.isEmpty() ? QStringLiteral("OSG mesh display failed") : sceneErr;
+			return false;
+		}
+	}
+	return true;
+}
+
+bool registerAdoptedBrepAndLoadScene(DocumentHost& host, const std::shared_ptr<BrepBackendData>& brep,
+	const QString& sourcePath, const QString& catalogTypeName, const QString& parentId, const bool resetViewToHome,
+	QString* outError, const bool skipInnerModelCenterRebase, const bool linkOsgSceneParent, const bool loadScene)
+{
+	if (!brep)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("null brep");
+		}
+		return false;
+	}
+	const QString catalog = catalogTypeName.isEmpty() ? QStringLiteral("BrepModel") : catalogTypeName;
+	if (!registerAdoptedBackendObject(host, brep, sourcePath, catalog, parentId, outError, linkOsgSceneParent))
+	{
+		return false;
+	}
+	if (!loadScene)
+	{
+		return true;
+	}
+	if (OsgWidget* osg = osgWidgetFrom(host))
+	{
+		QString sceneErr;
+		if (!osg->loadBackendFromBackendData(*brep, &sceneErr, resetViewToHome, true, true, skipInnerModelCenterRebase)
+			&& outError)
+		{
+			*outError = sceneErr.isEmpty() ? QStringLiteral("OSG B-rep display failed") : sceneErr;
 			return false;
 		}
 	}

@@ -108,8 +108,10 @@ m_stagingGroup（导入预览）
 | 方法 | 说明 |
 |------|------|
 | `pickAndActivateBackendAtScreenPos` | 射线 → backendId |
-| `bindBackendVisualRoot` / `unbindBackendVisualRoot` / `clearBackendVisualBindings` | 索引维护 |
+| `bindBackendVisualRoot` / `unbindBackendVisualRoot` / `clearBackendVisualBindings` | 索引维护；BREP  overload 可传入 `brepArtifacts` |
 | `resolveBackendIdFromPickedPath` | 拾取路径解析 |
+| `setPickVisualAlias(logicalId, visualId)` | 装配子零件无独立 Geode 时，射线/索引 scope 映射到共享 visual |
+| `resolvePickScopeBackendId(id)` | `queryPick` 前解析 alias；BREP 坐标变换亦用 visual id |
 
 ### 5.5 拾取 — 统一查询（Phase 4）
 
@@ -124,8 +126,9 @@ m_stagingGroup（导入预览）
 
 | 方法 | 说明 |
 |------|------|
-| `PickSpatialIndex` | `bindBackendVisualRoot` 时从 Geode 构建 KD |
-| `BackendPickIndexRegistry` | `backendId → { pointIndex, meshIndex, generation }` |
+| `PickSpatialIndex` | `bindBackendVisualRoot` 时从 Geode 构建 KD（**BREP 域跳过**） |
+| `BackendPickIndexRegistry` | `backendId → { pointIndex, brepIndex, generation }`；BREP 仅建 `brepIndex`（`buildFromArtifacts`），不建 `meshIndex` |
+| `BrepPickIndex` | 面/边射线拾取；`buildFromArtifacts` 复用 `BrepImportArtifacts`，bind 时不重 tessellate |
 | `cachePickablePointsFromNode` | 优先从 registry 导入，避免选中时重扫 Geode |
 | `pickPointAtScreenPos` / `pickNearestPointAtScreenPos` | 屏幕最近点（legacy，内部仍可用） |
 | `pickPointByRayIntersection` | 射线拾取 |
@@ -134,10 +137,21 @@ m_stagingGroup（导入预览）
 
 | 方法 | 说明 |
 |------|------|
-| `MeshTopologyIndex` | 绑定 Visual 时缓存三角 soup（局部坐标） |
-| `pickMeshFaceByRayIntersection` | 三角命中 + 共面合并 |
+| `MeshTopologyIndex` | 绑定 Visual 时缓存三角 soup（局部坐标）；**BREP 域不使用** |
+| `pickMeshFaceByRayIntersection` | 三角命中 + 共面合并（Mesh / 点云） |
 | `pickMeshEdgeByRayIntersection` | 边段最近（`kMeshEdgeHitRadiusPx`） |
 | `showMeshFaceHighlight` / `showMeshEdgeHighlight` / `hideMeshElementHighlight` | 高亮 overlay（mask `kMaskPickOverlay`） |
+
+### 5.7a 拾取 — B-rep（`BrepModel`）
+
+| 方法 / 字段 | 说明 |
+|-------------|------|
+| `OsgScene::tryQueryBrepPick` | 面/边/点 BREP 射线查询；`xformBackendId = resolvePickScopeBackendId(backendId)` |
+| `stepModelPointToWorldMm` / `worldPointToStepModelMm` | 模型↔世界；读 `m_backendSkipCenterRebase`：装配 `skipInnerModelCenterRebase=true` 时**不再**加减 `modelCenter` |
+| `m_backendSkipCenterRebase` | `upsertBackendBranchInScene` 写入；与 Visual 去心选项对齐，避免线/面高亮偏移 |
+| `BackendPickDomain::Brep` | `BackendIdUserData` 标记；registry bind 时跳过 pointIndex |
+
+装配导入：逻辑 part id 经 `setPickVisualAlias` 指向 `importParent` 的 visual id，保证 hover/click 命中共享 Geode 且高亮坐标正确。轨迹/AI 特征 overlay 经 `feature_pick_transform`（`IRobotOsgViewHost::resolvePickScopeBackendId`）走同一 visual id 与 skip-rebase 规则。
 
 ### 5.8 罗盘 Gizmo
 
@@ -175,6 +189,8 @@ m_stagingGroup（导入预览）
 |------|------|
 | `m_activeBackendId`, `m_activeBackendOuterPat` | 当前选中 |
 | `m_backendParentIds`, `m_backendModelCenters`, `m_backendVisibility` | 每对象状态 |
+| `m_backendSkipCenterRebase` | 与 `skipInnerModelCenterRebase` 对齐；BREP 拾取/高亮坐标变换 |
+| `m_pickVisualAliases` | 逻辑 backendId → 实际承载 Geode 的 visual backendId |
 | `m_backendVisualBindings` | `BackendVisualBindingIndex` |
 | `m_backendPickIndexes` | `BackendPickIndexRegistry`（点云/网格拾取索引） |
 | `m_selectionActive`, `m_objectSelectionMode`, `m_pointPickMode`, `m_mesh*PickMode` | 模式 |

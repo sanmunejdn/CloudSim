@@ -145,7 +145,7 @@ flowchart TD
 主要职责：
 
 - 主窗口编排：菜单、停靠窗、文档标签、属性面板、运行信息面板。
-- 文档隔离：`DocumentPage` **继承** `cloudsim::host::DocumentHost`，每标签页一份 Host 侧 `BackendDataManager + OsgWidget`（Widget 契约入口：**`data()` / `robot()` / `render()`**；OSG 经 `widgetOsgFromPage` → `render().widget()`；**勿**在 Widget 新代码中使用 `backend()` / `activeBackend()`）。
+- 文档隔离：`DocumentPage` **继承** `cloudsim::host::DocumentHost`，每标签页一份 Host 侧 `BackendDataManager + OsgWidget`（Widget 契约入口：**`data()` / `robot()` / `render()`**；Host 内部 `osgWidget()`；Widget 新代码优先 `render()` / `sceneFacade()`，**勿**使用 `backend()` / `activeBackend()`）。
 - 场景交互：对象选择、点拾取、边/面拾取、注释、变换 gizmo、主题/语言切换。
 - 项目 I/O：保存/加载 `.pcp/.pcproj.json`，并打包/解包工程资源。
 - 机器人仿真宿主：`MainWindowRobotHost` + `RobotSimulationController`（`RobotWidget.dll`）；**预览**链式种子 + 对选中点单次 IK（或示教 CSV），**Run** 全程序链式 `plan` + `PlanResultCache` + 后台预读。示教 CSV 仍优先于 IK。`DocumentHost` 必须转发 `robotBackendManagerForKinematics()`（per-link FK）。仿真 Dock 在 **`RobotWidget`**，TCP 示教 OSG 在 **`Widget`**（`OsgWidgetTcpTeach`）。
@@ -155,7 +155,7 @@ flowchart TD
 - `MainWindow.cpp`：主流程与核心逻辑（语言、仿真、同步等）。
 - `MainWindowUiSetup.cpp`：窗口构造、菜单和 Dock 初始化（已拆分）。
 - `MainWindowBackendTree.cpp`：后端树/场景树管理。
-- `MainWindowPropertyPanel.cpp`：属性面板构建与属性同步；**仿真指令**属性含轴配置枚举（可行项过滤、`instructionEnumTokenFromProperty`、切换轴配置时轻量刷新）。
+- `MainWindowPropertyPanel.cpp`：属性面板壳层；**仿真指令** UI 在 `RobotWidget/InstructionPropertyPanel`（可行轴先用缓存枚举，后台 Job 刷新完整列表）。
 - `MainWindowFileImport.cpp`：模型/点云/URDF 导入。
 - `MainWindowProjectIo.cpp`：项目保存与恢复（含 sidecar/zip 打包）。
 - `MainWindowImportCaptureRenderController.*`：导入捕获渲染协作控制器。
@@ -163,7 +163,7 @@ flowchart TD
 - `MainWindowSelectionService.*`：统一树选中、OSG 拾取回填、清理选择、可见性勾选传播。
 - `MainWindowSelectionState.h`：`MainWindow` 侧选择状态容器（当前以 `selectedBackendId` 为真源）。
 - `MainWindowObjectRepository.*`：后端对象查询门面（`IDataService::objectSnapshot` / `listObjectSnapshots` → `BackendObjectDto`）。
-- `MainWindowObjectGraph.*`：对象层级只读关系图（节点/父子/子树查询），作为树构建与可见性传播的统一结构语义。
+- `MainWindowObjectRepository.*`：后端对象 DTO 快照查询；层级语义由 Host 侧 **`BackendHierarchyModel`**（`subtreeIds` 带缓存）提供，作为树构建与可见性传播的统一结构语义。
 - **OSG Qt 桥接**（`OsgWidget*.cpp` 等）已 **迁入 `CloudSimHost` 编译**；Widget 仅保留 UI 编排与对 Host 导出类的链接。
 - **`ObjectTransformOperation`**：对象选择模式下罗盘平移/旋转的鼠标事件处理；读写路径统一为 `readActiveObjectGizmoFrame` → 修改 `ObjectGizmoFrame` → `applyToOuter` → `syncActiveBackendRootFromObjectFrame(..., dragging)`；`MouseButtonRelease` 时 `cacheSelectionGizmoPose` 并发出 `transformGizmoCommitted`。
 - **`OsgWidgetTransformHierarchyController`**：选中 backend 时 `syncSelectionForBackendId` 内调用 `attachGizmoOverlayToActiveBackend` / `cacheSelectionGizmoPose`；层级变更后与 `OsgScene` 传播逻辑配合。
@@ -218,9 +218,10 @@ flowchart TD
 
 核心设计：
 
-- 通过 `IBackendVisual` 策略接口隔离不同后端类型的可视化逻辑。
+- 通过 `IBackendVisual` 策略接口隔离不同后端类型的可视化逻辑（`MeshBackendVisual`、`BrepBackendVisual`、`PointCloudBackendVisual`）。
 - `BackendVisualRegistry` 按 `className` 注册/创建视觉构建器。
-- 输出统一 `BranchBuildResult`（**外层 `osg::MatrixTransform`**、内层 `PositionAttitudeTransform`、模型中心、对角线尺度）供交互层复用；外层存完整刚体局部矩阵，便于 FK / `setBackendRootWorldMatrixFromWorld` 避免 PAT 的 TRS 分解误差。
+- 输出统一 `BranchBuildResult`（**外层 `osg::MatrixTransform`**、内层 `PositionAttitudeTransform`、模型中心、对角线尺度、可选 **`brepArtifacts`**）供交互层复用；外层存完整刚体局部矩阵，便于 FK / `setBackendRootWorldMatrixFromWorld` 避免 PAT 的 TRS 分解误差。
+- **`BrepBackendVisual`**：`getOrBuildBrepImportArtifacts` 一次离散；artifacts 经 bind 传给 `BrepPickIndex`，装配多零件共享同一 `ShapeHandle` 缓存。
 - `MeshVisualOptions`：`showWireOutline`、`useSceneLighting`；**`skipInnerModelCenterRebase`** 为真时不再做「外包络中心 + 内层 `-bboxCenter`」的通用网格去心（用于 **URDF 每连杆**：顶点已在连杆系且由 FK 写外层世界矩阵，与层级导入「仅 `meshToLink`、无去心 PAT」语义对齐）。
 - **程序生成网格**：`MeshBackendData` 默认浅蓝材质色；`useSceneLighting=true` 时按 per-vertex 法线 + `applyLitPlastic` 渲染。绕序局部不一致且无法线缓冲时会出现**部分面发黑**（见 `BackendVisual` §4.2）——基本体由 `BackendPrimitiveGeometry` 保证绕序；**STEP** 在 OCCT 导出时对 `TopAbs_REVERSED` 面翻转三角绕序；**OBJ 含 `vn`** 保留文件法线；无 `vn` 的 OBJ/STL/PLY/OFF 走 CGAL `orient_polygon_soup` + 封闭体有符号体积整体外向修正（详见 `Data` §4.2.1，已移除逐三角质心翻转）。
 
@@ -242,7 +243,7 @@ flowchart TD
 
 - 纯 OSG 核心，不依赖 Qt 事件循环；通过回调方式请求重绘。
 - **`OsgWidget`**（Qt 壳层，源码在 `Widget/`，**由 `CloudSimHost.dll` 编译导出**）负责事件桥接与控件集成；`OsgRenderViewAdapter` 对 Core 侧暴露 `IRenderView`。
-- 拾取链路已从“临时遍历/局部 userData 依赖”升级为“索引解析 + 统一信号回传”。
+- 拾取链路已从“临时遍历/局部 userData 依赖”升级为“索引解析 + 统一信号回传”；BREP（`BrepModel`）经 `BrepPickIndex::buildFromArtifacts` + `setPickVisualAlias` / `m_backendSkipCenterRebase` 支持装配单 visual 拾取与高亮。
 
 **对象变换 Gizmo（`ObjectGizmoFrame` + overlay 挂载）：**
 
@@ -282,7 +283,7 @@ flowchart TD
 - Planner 机制：按指令类型选择规划器并输出 `PlanResult`。
 - **运动点编号**：`RobotInstructionProgram::renumberMotionPointIndices` 为 PTP/LINE 分配 `P1..Pn`（`motion.pointIndex` / JSON `pointIndex`），与 `collectMotionInstructionsRecursive` 遍历顺序一致。
 - **运动轴配置（Axis Configuration）**：`RobotInstructionAxisConfiguration` 用跨品牌通用语义描述 PTP/LINE 的 IK 姿态选择；属性键 `motion.axisConfig.preset` / `.elbow` / `.wrist` / `.arm`；JSON 推荐对象字段 `axisConfiguration`（兼容旧字符串 `axisConfig`）。规划时 `solveIkWithAxisConfiguration(cmd, cfg)` 对多种关节初值做数值 IK，再按 `cfg.matchesClass(classifyJointConfiguration(...))` 筛选；**显式 preset/分项非全 AUTO 时**规划失败即报错，**不再**静默回退到无约束 IK。`AUTO` 在可行解集合中取距种子关节最近者。`suggestMotionAxisPresetToken` 由当前关节构型推断最具体 preset（新建/首次选中时用于默认，见 **6.4**）。
-- **可行轴配置探测**：`RobotInstructionController::queryFeasibleMotionAxisConfigurationOptions` 对目标位姿**单次**多初值 IK，收集互不相同的构型类，再判定各 preset/CUSTOM 分项是否可行（避免对每种配置重复完整 IK）。`MainWindow` 按「指令 id + 目标位姿 + 前序滚动关节角」缓存结果；**仅**在选中指令、修改位姿/速度等非轴属性时刷新；**切换轴配置**时复用缓存并只跑预览规划，保证交互响应。
+- **可行轴配置探测**：`RobotInstructionController::queryFeasibleMotionAxisConfigurationOptions` 对目标位姿**单次**多初值 IK，收集互不相同的构型类，再判定各 preset/CUSTOM 分项是否可行。`RobotSimulationController` 按「指令 id + 目标位姿 + 前序滚动关节角 + 基座世界」缓存；属性面板先用缓存画枚举，完整探测经 **`JobSystem` 后台**（`scheduleDeferredFeasibleAxisProbe`）；显式 `IRobotService::queryFeasibleMotionAxisOptions` 仍可走同步路径；**切换轴配置**时复用缓存并只跑预览规划。
 - 回放引擎：分段插值驱动关节，按定时 tick 更新场景。
 - `RobotSceneKinematics::applyJointAnglesFromDocument`：按 `robotKinematicInstanceCount()` 循环各 `HierarchicalRobotInstance`，对 `perLinkBackends` 实例调用 `applyJointAnglesViaLinkBackends`（`RobotPerLinkKinematicsSlice`）。
 - `applyJointAnglesViaLinkBackends`：按实例内 link→backendId 与 `fkMeshWorldT0` / `outerWorldAtBind` 计算 `Mnew = M0 * inv(T0) * Tq`，`setBackendRootWorldMatrixFromWorld` 后 `MeshBackendData::setWorldMatrix` 分解回 `pose/rotation`。`meshVerticesInLinkFrame` 为真时 FK 传入 `computeMeshWorldMatrices(..., true)`。
@@ -308,6 +309,7 @@ flowchart LR
 | 层 | 模块 | 职责 |
 |----|------|------|
 | 特征来源 | UI 拾取 / `suggestFeaturesFromCatalog` / AI `trajectory.feature` | 产出同一 `FeatureSpec` JSON |
+| 3D 编号 overlay | `FeaturePickTransform` + `IRobotOsgViewHost` | AI 候选高亮：`computeFeatureAnchor`（STEP 坐标）→ file→world；与 BREP 拾取共用 pick alias / skip-rebase |
 | 离散 | `GeometryAlgorithm` | 唯一入口 `discretizeFeature`；B-rep 仅运行时从 STEP 加载 |
 | 显示 | `MeshBackendData` soup | 场景持久化仍为三角网格 |
 | 编辑 | `RobotScene::RawTrajectory` | Resample、偏置、摆焊、可达性标记等 |
@@ -473,11 +475,11 @@ flowchart LR
 ## 6.1 导入与显示流程
 
 1. 用户在 `MainWindow` 发起模型/点云/URDF 导入。  
-2. `Widget` 通过控制器调用 `OsgWidget` 导入/捕获数据。  
-3. 生成 `PointCloudBackendData` 或 `MeshBackendData` 并注册到 `BackendDataManager`。  
-4. `BackendVisual` 根据数据类型构建 OSG 分支。  
-5. `OsgWidgetCore` 将分支挂入场景，并同步更新 `BackendVisualBindingIndex`。  
-6. `Widget` 通过 `ObjectRepository/ObjectGraph` 重建树，属性面板按当前选择刷新。  
+2. `Widget` 经 `MainWindowImportCaptureRenderController`：模型在 `JobSystem` 可用时走 `ModelBackgroundLoadState`（Worker 读盘 + 预热 `BrepImportArtifacts`）；否则同步 `DocumentImportFacade::importFileIntoDocument`。  
+3. 生成 `PointCloudBackendData`、`MeshBackendData` 或 **`BrepBackendData`** 并注册到 `BackendDataManager`。  
+4. `BackendVisual` 按类型构建 OSG 分支；BREP 经 `getOrBuildBrepImportArtifacts`，`BranchBuildResult.brepArtifacts` 传入 bind。  
+5. `OsgWidgetCore` 挂分支、更新 `BackendVisualBindingIndex`；BREP bind 仅建 `BrepPickIndex`（`buildFromArtifacts`），跳过 pointIndex/meshIndex。  
+6. `Widget` 重建树；`ensureSelectionVisualForBackend` 补缺失 visual；装配子零件经 `setPickVisualAlias` 保证拾取/高亮正确。  
 
 **URDF 每连杆导入（`MainWindowImportCaptureRenderController::registerUrdfRobot`）要点：**
 
@@ -490,11 +492,21 @@ flowchart LR
 
 **DXF / STEP / OSG 层级网格（`HierarchyMeshImport` + `MainWindowImportCaptureRenderController`）要点：**
 
-1. obj/stl/ply/off 仍走 `IDataService::importFromFile`；dxf/step 等走 Host `importMeshFileExtended`（`loadDxfHierarchyFromFile` / `loadStepHierarchyFromFile` 或 OSG 捕获）。  
-2. 分件顶点多为 **世界坐标** 烘焙进 `triangleSoup`：每片 `skipInnerModelCenterRebase=true`；`linkOsgSceneParent=false` 时 `setBackendLogicalParent` 同步 `m_backendParentIds`，OSG 分支仍在 flat 组。  
-3. **文件导入阶段不对分件** 调用 `applyHierarchyFollowBinding`（Follow 求解会把 `pose` 写成约负质心，与 skip-rebase 显示冲突）。工程加载的 `edges[]` 仍在 `MainWindowProjectIo` 中批量绑定并一次 `runBackendFollowSolveAndSync`。  
-4. 导入结束：`focusCameraOnBackend(importParent->id())` 合并逻辑子树下全部分件包围球（见 `OsgWidgetCore` `worldBoundOfBackendRoot`）。  
-5. 勿在层级导入后对最后一片再 `loadMeshFromBackendData(..., resetHome)`（`upsertMeshBranchInScene` 会把节点挂回 flat 组并破坏布局）。
+1. obj/stl/ply/off 仍走 `IDataService::importFromFile`；dxf 走 Host `importMeshFileExtended`（`loadDxfHierarchyFromFile` 或 OSG 捕获）。  
+2. **STEP 优先 B-rep**（见下节）；mesh 层级 STEP 为历史/回退路径。  
+3. 分件顶点多为 **世界坐标** 烘焙进 `triangleSoup`：每片 `skipInnerModelCenterRebase=true`；`linkOsgSceneParent=false` 时 `setBackendLogicalParent` 同步 `m_backendParentIds`，OSG 分支仍在 flat 组。  
+4. **文件导入阶段不对分件** 调用 `applyHierarchyFollowBinding`（Follow 求解会把 `pose` 写成约负质心，与 skip-rebase 显示冲突）。工程加载的 `edges[]` 仍在 `MainWindowProjectIo` 中批量绑定并一次 `runBackendFollowSolveAndSync`。  
+5. 导入结束：`focusCameraOnBackend(importParent->id())` 合并逻辑子树下全部分件包围球（见 `OsgWidgetCore` `worldBoundOfBackendRoot`）。  
+6. 勿在层级导入后对最后一片再 `loadMeshFromBackendData(..., resetHome)`（`upsertMeshBranchInScene` 会把节点挂回 flat 组并破坏布局）。
+
+**STEP B-rep 装配（`BrepBackendData` + `BrepImportArtifacts`）要点：**
+
+1. 多零件：`loadStepHierarchyFromFile` → `collectShapeHierarchyTopology`（**无 tessellation**）；单件：`loadFromStepFile` / `.brep` → `loadFromBrepFile`。  
+2. **一次离散**：`getOrBuildBrepImportArtifacts(assembly ShapeHandle)` 供 `BrepBackendVisual` 显示、线框、`BrepPickIndex::buildFromArtifacts` 共用。  
+3. **单 visual**：仅在 `importParent` 上 `loadBackendFromBackendData(..., skipInnerModelCenterRebase=true)`；子零件 `registerAdoptedBrepAndLoadScene(..., loadScene=false)`。  
+4. **拾取 alias**：`setPickVisualAlias(partId → importParentId)` + `resolvePickScopeBackendId`；`m_backendSkipCenterRebase` 避免高亮相对模型偏移。  
+5. 异步：`ModelBackgroundLoadState` Worker 阶段预热 artifacts 缓存，UI 阶段 `finishIntoDocument` 完成注册与场景挂载。  
+6. 工程 sidecar：对象 geometry kind `brep` + `.brep` 文件（`ProjectPackageIo`）。
 
 **PLY 双形态（点云菜单 / `isPointCloud` 导入）要点：**
 
@@ -519,7 +531,7 @@ flowchart TD
   cgal --> osg[loadMeshFromBackendData]
 ```
 
-细节见 [`Data/Data/DEVELOPER_GUIDE.md`](src/Data/Data/DEVELOPER_GUIDE.md) §4.0–4.2.1、[`Widget/DEVELOPER_GUIDE.md`](src/UI/Widget/DEVELOPER_GUIDE.md) §10、[`CloudSimHost/DEVELOPER_GUIDE.md`](src/Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.1。
+细节见 [`Data/Data/DEVELOPER_GUIDE.md`](src/Data/Data/DEVELOPER_GUIDE.md) §4.0–4.5、[`GeometryAlgorithm/DEVELOPER_GUIDE.md`](src/Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.2、[`Widget/DEVELOPER_GUIDE.md`](src/UI/Widget/DEVELOPER_GUIDE.md) §10、[`CloudSimHost/DEVELOPER_GUIDE.md`](src/Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.1–4.4.1b、[`OsgWidgetCore/DEVELOPER_GUIDE.md`](src/UI/OsgWidgetCore/DEVELOPER_GUIDE.md) §5.7a。
 
 ## 6.1.1 AI 助手流程（CloudSimAiSDK + 分域专模）
 
@@ -766,7 +778,7 @@ sequenceDiagram
    - 仿真运行中不抢占预览；Run 时指令树经 `currentInstruction()` + `QSignalBlocker` 跟随当前指令。  
    - 位姿/工具系/Undo 等触发 **`PlanResultCache::invalidateAll`**（与可行轴缓存一并失效）。  
 4. **轴配置属性与规划一致性**  
-   - 可行列表：`feasibleMotionAxisConfigurationOptionsForInstruction` 对选中点附加与前序点相同的 `context.currentJointRadCsv` / `context.urdfPath` / `context.tcpLinkName` 后调用 `queryFeasibleMotionAxisConfigurationOptions`。  
+   - 可行列表：属性面板先用缓存枚举；`scheduleDeferredFeasibleAxisProbe` 在后台对快照指令调用 `queryFeasibleMotionAxisConfigurationOptions`（含 `context.currentJointRadCsv` / `context.urdfPath` / `context.tcpLinkName`）。显式 `queryFeasibleMotionAxisOptions` API 仍可同步查询。  
    - 用户切换 preset/分项后，`plan` 使用指令上已写入的 `MotionAxisConfiguration`；显式构型无解时 Run/预览均失败并提示（如「无满足轴配置的IK解」），与下拉仅展示可启动项一致。  
 5. **Run**：`onSimulationStartTriggered` 链式构建 `PlanResult`，**命中 `PlanResultCache` 跳过 IK**；`RobotProgramExecutor` 插值播放；`tickLookaheadPlanning` 经 `MainWindowRobotHost::enqueueBackgroundJob` 后台预热后续段。  
    - **预览 vs Run**：种子均为程序起点 + 前序链式 `rollingQ`；预览只对选中点 1× IK，Run 全程序链式并缓存。详见 [`RobotWidget/DEVELOPER_GUIDE.md`](RobotWidget/DEVELOPER_GUIDE.md) §指令树点击预览 vs 仿真运行。  
@@ -790,7 +802,7 @@ sequenceDiagram
     Tree->>Sim: instructionSelected(ins)
     Sim->>MW: instructionSelectionChanged(ins)
     MW->>MW: updateInstructionPropertyPanel(refreshFeasibleAxis=true)
-    Note over MW: queryFeasible… 单次 IK 构型集 + 缓存<br/>可选 suggestPresetFromSeed
+    Note over MW: 先用可行轴缓存画枚举<br/>scheduleDeferredFeasibleAxisProbe → JobSystem 后台 IK
     MW->>MW: applyRobotPoseForInstructionPreview
     Note over MW: buildChainSeedJointRadForInstruction<br/>（前序路点 → chainSeedQ）
     alt 选中点示教 CSV 残差合格
@@ -885,34 +897,60 @@ flowchart LR
 ### 当前可持续演进点
 
 - ~~**`EventHub` 贯通（选择/姿态）**~~：已实现 `SelectionChanged` / `PoseCommitted` 发布与 `MainWindow` 订阅；属性改 pose 经 `IDataService` + `BackendVisualSync`。
-- **`IRenderView` 全面替代**：`currentOsgWidget` 已走 `render().widget()`；其余路径可继续收口。
-- **`IRobotService` 实装**：程序 JSON、URDF 注册、规划预览等从 `RobotWidget` 迁入 Host 适配器。
-- **Widget 进一步瘦身**：减少直接 `#include` Data/OSG（CI 门禁已启用）；**过渡**仍链部分引擎 `.lib`；机器人元数据 DTO 化；`DocumentPage` 机器人逻辑迁入 `RobotWidget` 后可收紧 vcxproj。
-- `MainWindowSelectionService` 仍包含部分渲染细节分支（点云/网格具体分支加载），后续可继续下沉到更细粒度应用服务。
-- `ObjectGraph` 当前是按需构建的只读快照，后续可评估增量更新/缓存策略以降低大场景重建成本。
-- `Widget/MainWindow` 仍是高复杂度协调中心，继续按“功能域”拆分有收益。
-- 工程持久化已切 **v4 + 对象多态序列化**；后续可补 `componentsSchemaVersion`、更多组件类型注册与自动化回归。
-- **AI 助手**：Phase 2 已接 LLM；后续可扩展「修改已有对象 / 布尔 / 导入」等命令 schema。
+- ~~**`IRenderView` 全面替代（Widget 主路径）**~~：叠加/TCP/gizmo/拾取/截图经 `IRenderView`；`WidgetOsgViewHost` 委托 `render()`；`poseSink` 经 `sceneFacade()`；OsgWidget Qt 信号收敛至 `WidgetSceneSignalWiring.cpp`（过渡白名单）。
+- ~~**`IRobotService` 指令属性**~~：`instructionPropertyRows` / `applyInstructionPropertyChange` / `queryFeasibleMotionAxisOptions` 经 `IRobotInstructionPropertyDelegate`（`MainWindowRobotHost`）；指令属性 UI 在 `RobotWidget/InstructionPropertyPanel`。
+- **Widget 进一步瘦身（进行中）**：`check_widget_deps.ps1` 禁止新文件 `#include OsgWidget.h`；过渡白名单仅 `WidgetSceneSignalWiring.cpp` 与少量 `MainWindow*`/`PropertyPanel`（`RobotInstruction` 头）；`Widget.vcxproj` 已去掉 `Data`/`GeometryEngine`/`RobotKinematics` 及大部分 `osg*.lib`。
+- ~~**URDF 导入契约化**~~：`UrdfRobotImport` 不再依赖 `OsgWidget*`；`IRobotUrdfImportContext` 提供 `urdfImportLoadLinkMeshIntoScene` / `urdfImportSetBackendParent` / `urdfImportClearStagingGeometry` / `urdfImportFocusCameraOnBackend`；`DocumentHost` 为 OSG 边界。
+- ~~**选择可视化下沉**~~：`SelectionVisualService`（Host）封装 `ensureSelectionVisualForBackend`；树选中经其加载点云/网格。
+- ~~**层级子树缓存**~~：`BackendHierarchyModel::subtreeIds` 带 `m_subtreeCache` 与边变更失效（非每次全量重建）。
+- ~~**可行轴 IK 后台 Job**~~：`scheduleDeferredFeasibleAxisProbe` → `enqueueBackgroundJob`（`PlanJobPayload` 快照 + 独立 `Controller`）；与 reachability / lookahead 同模式。
+- **`Widget/MainWindow` 协调拆分（进行中）**：`MainWindowSceneInteractionCoordinator` 已拆分；`RobotSimulationController` 仍偏大。
+- 工程持久化：**v4** + 根字段 **`componentsSchemaVersion: 1`**；更多组件 codec 与 round-trip 测试待补。
+- **AI 助手**：严格单步 schema 仍 **`create_mesh`**；已增 **`modify_object` / `import_asset`** 校验；布尔/组合仍走 Host **compose plan**（`booleanMesh` 等）。
 
 ## 8. Host 收口迁移路线图（2025-2026）
 
-当前 Widget 层仍有 5 类功能绕过 Host 直达底层模块，计划分阶段收口：
+阶段 **1 / 4 / 5** 与 **§9 可行轴后台 Job** 主体已完成；阶段 **2 / 3** 主路径完成，少量子项与深层 OSG 耦合仍待收口。
 
-| 阶段 | 方向 | 严重度 | 影响范围 |
-|------|------|--------|---------|
-| 1 | `RobotSimulationController` 核心逻辑迁入 Host | 高 | ~3580 行，15 个核心方法 |
-| 2 | `BackendDataManager` 收口到 `IDataService` | 高 | 17 个文件，仅 2 个走契约 |
-| 3 | OSG 头文件解耦 | 高 | 8 个文件，30+ 处 |
-| 4 | `OsgWidget*` 具体类型解耦 | 中 | 7 个文件，32+ 调用点 |
-| 5 | `RobotInstruction` 属性收口 | 高 | PropertyPanel 30+ 处 |
+| 阶段 | 方向 | 状态 | 剩余 |
+|------|------|------|------|
+| 1 | `RobotSimulationController` 核心逻辑迁入 Host | **5/6 完成** | 1.6 导出仍留 Controller |
+| 2 | `BackendDataManager` 收口到 `IDataService` | **主路径完成** | 2.3 `DocumentPage` 存量 |
+| 3 | OSG 头文件解耦 | **主路径完成** | 3.3-3.4 `ObjectTransformOperation` 等 |
+| 4 | `OsgWidget*` 具体类型解耦 | **主路径完成** | `WidgetSceneSignalWiring` 信号边界；`BackendSceneDocumentFacade` 构造 |
+| 5 | `RobotInstruction` 属性收口 | **主体完成** | `MainWindow` 过渡白名单中的 `RobotInstruction*.h` |
+| D | 可行轴 IK 后台 Job | **完成** | 见 §9 `scheduleDeferredFeasibleAxisProbe` |
 
 ```mermaid
-flowchart LR
-    P0[阶段0: 文档审视] --> P1[阶段1: Robot 收口]
-    P1 --> P5[阶段5: 属性收口]
-    P1 --> P2[阶段2: Data 收口]
-    P2 --> P3[阶段3: OSG 解耦]
-    P3 --> P4[阶段4: OsgWidget 解耦]
+flowchart TB
+    subgraph done ["已完成 / 主路径完成"]
+        P0["阶段0 文档审视 ✓"]
+        P1["阶段1 Robot→Host ✓ 5/6"]
+        P2a["阶段2.1-2.2 Data 契约 ✓"]
+        P3a["阶段3.1-3.2 OSG 头解耦 ✓"]
+        P4["阶段4 OsgWidget 解耦 ✓ 主路径"]
+        P5["阶段5 指令属性 ✓ 主体"]
+        PD["阶段D 可行轴 Job ✓"]
+    end
+    subgraph pending ["待办 / 过渡"]
+        P16["1.6 导出留 Controller"]
+        P23["2.3 DocumentPage 存量"]
+        P34["3.3-3.4 ObjectTransformOperation"]
+        P4r["4 余量 WidgetSceneSignalWiring / Facade 构造"]
+        P5r["5 余量 MainWindow RobotInstruction 头"]
+    end
+    P0 --> P1
+    P1 --> P2a
+    P1 --> P5
+    P2a --> P3a
+    P3a --> P4
+    P4 --> P5
+    P5 --> PD
+    P1 -.-> P16
+    P2a -.-> P23
+    P3a -.-> P34
+    P4 -.-> P4r
+    P5 -.-> P5r
 ```
 
 ### 阶段 1：RobotSimulationController → Host（已完成 5/6）
@@ -935,15 +973,21 @@ Controller 核心逻辑已迁入 Host，退化为 UI 事件转发器。
 - `resetToolFrame(instanceIdx, frames)` — 工具帧重置
 - `solveTcpDragTeachIk(instanceIdx, pose, seed, ikLink)` — TCP IK 求解
 
-### 阶段 2-4：Widget 瘦身（已完成 2/3）
+### 阶段 2-4：Widget 瘦身（主路径完成）
 
-- **阶段 2.1**：`MainWindowBackendTree` 改用 `doc->data().topoOrder()`/`parentsOf()` — **完成**
-- **阶段 2.2**：工程 I/O 已通过 Host `ProjectPackageIo` 集中 — **完成**
-- **阶段 2.3**：`DocumentPage` 存量清理 — 需深层重构，待定
-- **阶段 3.1**：`MainWindowBackendTree` 移除 10 个 `osg/` include，改用 `IRenderView::sceneGraphSnapshot` — **完成**
-- **阶段 3.2**：`MainWindow` 移除 4 个 `osg/` include，改用 `IRenderView` 方法 — **完成**
-- **阶段 3.3-3.4**：`DocumentPage`/`ObjectTransformOperation` 等 — 深层 OSG 耦合，待定
-- **阶段 4**：32+ 处 `OsgWidget*` 调用改为 `IRenderView*` — 待定
+| 子阶段 | 内容 | 状态 |
+|--------|------|------|
+| 2.1 | `MainWindowBackendTree` → `doc->data().topoOrder()` / `parentsOf()` | **完成** |
+| 2.2 | 工程 I/O → Host `ProjectPackageIo` | **完成** |
+| 2.3 | `DocumentPage` 存量清理 | 待定 |
+| 3.1 | `MainWindowBackendTree` 移除 `osg/` include → `IRenderView::sceneGraphSnapshot` | **完成** |
+| 3.2 | `MainWindow` 移除 `osg/` include → `IRenderView` | **完成** |
+| 3.3-3.4 | `ObjectTransformOperation` 等深层 OSG | 待定 |
+| 4.1 | `IRenderView` 扩展（选择/示教/gizmo/标注/叠加/截图） | **完成** |
+| 4.2 | `WidgetOsgViewHost` 委托 `render()`；`poseSink` → `sceneFacade()` | **完成** |
+| 4.3 | URDF 导入 `IRobotUrdfImportContext` 契约化（无 `OsgWidget*`） | **完成** |
+| 4.4 | Qt 信号 → `WidgetSceneSignalWiring`（唯一 `OsgWidget.h` 边界） | **完成** |
+| 4.5 | `BackendSceneDocumentFacade` 构造仍收 `OsgWidget*` | 待定 |
 
 **`IDataService` 新增方法**（`src/Contracts/CloudSimCore/inc/IDataService.h`）：
 - `topoOrder()` — 拓扑排序
@@ -955,20 +999,29 @@ Controller 核心逻辑已迁入 Host，退化为 UI 事件转发器。
 - `selectedPosition(outX, outY, outZ)` — 选中对象位置
 - `selectedRotationEulerDeg(outRx, outRy, outRz)` — 选中对象旋转
 
-### 阶段 5：RobotInstruction 属性收口
+### 阶段 5：RobotInstruction 属性收口（主体完成）
 
-`MainWindowPropertyPanel` 中 30+ 处 `RobotInstruction` 直连改为经 `IRobotService`。
-**前置条件**：需抽象层隔离 `RobotInstruction` 依赖。
+| 子阶段 | 内容 | 状态 |
+|--------|------|------|
+| 5.1 | `IRobotService` 指令属性三方法 + `MainWindowRobotHost` 委托 | **完成** |
+| 5.2 | `InstructionPropertyPanel` + `MainWindowInstructionPropertyUiHost` | **完成** |
+| 5.3 | 轴配置写回 / 查询经 `doc->robot()` | **完成** |
+| 5.4 | 可行轴枚举 → `scheduleDeferredFeasibleAxisProbe`（§9） | **完成** |
+| 5.5 | 去掉 Widget 对 `RobotInstruction*.h` 的过渡 include | 待定 |
+
+### 阶段 D：可行轴 IK 后台 Job（完成）
+
+与阶段 5.4 配套：`PlanJobPayload` 快照 + 独立 `Controller::queryFeasibleMotionAxisConfigurationOptions`；`m_feasibleAxisJobToken` 失效；与 reachability / lookahead 同 `JobSystem` 模式。详见 §9。
 
 ---
 
 ## 9. 异步任务与数据并发（演进）
 
 - **JobSystem + ProgressManager（Widget）**：耗时 CPU 工作提交到 `QThreadPool`；`ProgressManager` 通过 `QMetaObject::invokeMethod` 将进度/完成事件投递到 UI 线程。
-- **已接入**：非 LAS/LAZ 点云 CGAL 解码；**Run 中机器人段预读**（`RobotSimulationController::tickLookaheadPlanning` → `MainWindowRobotHost::enqueueBackgroundJob` → `PlanResultCache`，UI 线程写入）。
-- **主线程边界**：`BackendDataManager` 注册、OSG 加载、树与属性刷新仍在 **UI 线程**；后台 Job 不得直接改 `QWidget`/场景图或 `PlanResultCache`。
+- **已接入**：非 LAS/LAZ 点云 CGAL 解码；**Run 中机器人段预读**（`tickLookaheadPlanning` → `PlanResultCache`）；**全程序 reachability**（`scheduleAsyncMotionReachabilityRefresh`）；**可行轴 IK 探测**（`scheduleDeferredFeasibleAxisProbe`，Job 标题 `Feasible axis IK`）。
+- **主线程边界**：`BackendDataManager` 注册、OSG 加载、树与属性刷新、`PlanResultCache` / 可行轴缓存写入仍在 **UI 线程**；后台 Job 用 `PlanJobPayload` 等快照，**禁止**直接改 `QWidget`/场景图或共享指令对象。
 - **BackendDataManager**：容器与层级图由 `shared_mutex` 保护（见原文）。
-- **后续可接 Job 的类型**：网格 CGAL/OCCT 管线、布尔、法线；**可行轴配置探测**长链 IK；**AI 助手 LLM**（Phase 2）。LAS/LAZ 仍走 OSG 同步导入路径。
+- **后续可接 Job 的类型**：网格 CGAL/OCCT 管线、布尔、法线；**AI 助手 LLM**（Phase 2）。LAS/LAZ 仍走 OSG 同步导入路径。
 
 ---
 

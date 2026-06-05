@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "OsgScene.h"
 
+#include "BackendIdUserData.h"
+#include "BackendPickDomain.h"
 #include "PickSpatialIndex.h"
 
 const PickSpatialIndex* OsgScene::activePointPickIndex() const
@@ -56,8 +58,64 @@ void OsgScene::nearestCandidatesByPickIndex(
 	index.nearestCandidates(queryLocalCentered, k, outIndices);
 }
 
-PickResult OsgScene::queryPick(const PickQuery& query)
+void OsgScene::setPickVisualAlias(const std::string& logicalBackendId, const std::string& visualBackendId)
 {
+	if (logicalBackendId.empty() || visualBackendId.empty())
+	{
+		return;
+	}
+	m_pickVisualAliases[logicalBackendId] = visualBackendId;
+}
+
+std::string OsgScene::resolvePickScopeBackendId(const std::string& backendId) const
+{
+	if (backendId.empty())
+	{
+		return {};
+	}
+	const auto aliasIt = m_pickVisualAliases.find(backendId);
+	if (aliasIt != m_pickVisualAliases.end())
+	{
+		return aliasIt->second;
+	}
+	if (m_backendObjectRoots.find(backendId) != m_backendObjectRoots.end())
+	{
+		return backendId;
+	}
+	std::string soleBrepVisual;
+	for (const auto& entry : m_backendObjectRoots)
+	{
+		if (!entry.second.valid())
+		{
+			continue;
+		}
+		const auto* meta = dynamic_cast<const BackendIdUserData*>(entry.second->getUserData());
+		if (!meta || meta->pickDomain() != BackendPickDomain::Brep)
+		{
+			continue;
+		}
+		if (!soleBrepVisual.empty())
+		{
+			soleBrepVisual.clear();
+			break;
+		}
+		soleBrepVisual = entry.first;
+	}
+	return soleBrepVisual.empty() ? backendId : soleBrepVisual;
+}
+
+PickResult OsgScene::queryPick(const PickQuery& queryIn)
+{
+	PickQuery query = queryIn;
+	if (!query.scopeBackendId.empty())
+	{
+		query.scopeBackendId = resolvePickScopeBackendId(query.scopeBackendId);
+	}
+	else if (!m_activeBackendId.empty())
+	{
+		query.scopeBackendId = resolvePickScopeBackendId(m_activeBackendId);
+	}
+
 	PickResult out;
 	const double hitRadius = query.hitRadiusPx > 0.0 ? query.hitRadiusPx : kPointPickHitRadiusPx;
 
@@ -83,11 +141,22 @@ PickResult OsgScene::queryPick(const PickQuery& query)
 	}
 	case PickKind::MeshFace:
 	{
+		const std::string brepScope = query.scopeBackendId.empty() ? m_activeBackendId : query.scopeBackendId;
+		const bool brepBackend = isBrepPickBackend(brepScope);
+		if (tryQueryBrepPick(query, true, out))
+		{
+			return out;
+		}
+		if (brepBackend)
+		{
+			return out;
+		}
 		osg::Vec3f p, a, b, c, n;
 		std::vector<osg::Vec3f> merged;
 		const std::string* scope = query.scopeBackendId.empty() ? nullptr : &query.scopeBackendId;
+		int pickedTri = -1;
 		if (!pickMeshFaceByRayIntersection(
-				query.screenX, query.screenY, p, a, b, c, n, &merged, scope))
+				query.screenX, query.screenY, p, a, b, c, n, &merged, scope, &pickedTri))
 		{
 			return out;
 		}
@@ -95,11 +164,22 @@ PickResult OsgScene::queryPick(const PickQuery& query)
 		out.worldPoint = p;
 		out.meshNormalWorld = n;
 		out.meshFaceVertsWorld = std::move(merged);
+		out.pickedTriangleIndex = pickedTri;
 		out.backendId = query.scopeBackendId.empty() ? m_activeBackendId : query.scopeBackendId;
 		return out;
 	}
 	case PickKind::MeshEdge:
 	{
+		const std::string brepScope = query.scopeBackendId.empty() ? m_activeBackendId : query.scopeBackendId;
+		const bool brepBackend = isBrepPickBackend(brepScope);
+		if (tryQueryBrepPick(query, false, out))
+		{
+			return out;
+		}
+		if (brepBackend)
+		{
+			return out;
+		}
 		osg::Vec3f p, edgeA, edgeB;
 		double edgeDistPx = 0.0;
 		const std::string* scope = query.scopeBackendId.empty() ? nullptr : &query.scopeBackendId;

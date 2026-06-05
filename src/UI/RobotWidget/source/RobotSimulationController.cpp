@@ -5,6 +5,7 @@
 #include "RobotSimulationDockWidget.h"
 #include "RobotSimulationMath.h"
 #include "RobotInstructionPlanningHelpers.h"
+#include "InstructionProgramDocument.h"
 #include "ProgramEditService.h"
 #include "TrajectoryEditSession.h"
 #include "TrajectoryEditPageWidget.h"
@@ -2836,8 +2837,28 @@ void RobotSimulationController::onSimulationAddInstructionRequested(RobotInstruc
 	}
 }
 
+std::shared_ptr<RobotInstruction::Base> RobotSimulationController::findInstructionById(
+	const QString& instructionId) const
+{
+	if (instructionId.isEmpty() || !m_programEditService)
+	{
+		return nullptr;
+	}
+	const std::string idUtf8 = instructionId.toStdString();
+	const RobotInstruction::InstructionProgramDocument doc = m_programEditService->currentDocument();
+	std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>> idMap;
+	doc.collectIdMap(idMap);
+	const auto it = idMap.find(idUtf8);
+	if (it == idMap.end())
+	{
+		return nullptr;
+	}
+	return it->second;
+}
+
 void RobotSimulationController::invalidateFeasibleAxisConfigurationCache()
 {
+	++m_feasibleAxisJobToken;
 	m_cachedFeasibleAxisInstructionId.clear();
 	m_cachedFeasibleAxisFingerprint.clear();
 	m_cachedFeasibleAxisSeedJointRad.clear();
@@ -3022,12 +3043,7 @@ void RobotSimulationController::onSimulationInstructionSelectionChanged(const st
 		if (instruction->motionAxisConfiguration().preset == "AUTO"
 			&& ext.find("context.axisConfigSeeded") == ext.end())
 		{
-			QVector<double> seedQ;
-			const RobotInstruction::FeasibleMotionAxisConfigurationOptions feasible =
-				feasibleMotionAxisConfigurationOptionsForInstruction(instruction, &seedQ, chainPtr);
-			m_host->applySuggestedAxisPresetFromSeedIfNeeded(instruction, seedQ, feasible);
-			instruction->setExtensionProperty("context.axisConfigSeeded", "1");
-			m_host->refreshInstructionPropertyPanel(instruction, false);
+			scheduleDeferredFeasibleAxisProbe(instruction, FeasibleAxisProbePurpose::SelectionAutoSeed);
 		}
 	}
 	const bool tcpDragActive = m_host->simulationCommandPage()
@@ -4283,6 +4299,176 @@ RobotInstruction::PlanResult planLookaheadMotion(const PlanJobPayload& payload)
 	RobotInstructionPlanning::restoreInstructionPose(*ins, backup);
 	return plan;
 }
+
+struct FeasibleAxisJobPayload
+{
+	PlanJobPayload plan;
+	RobotCoordinate::RobotCoordinateFrameSet coordinateFrames;
+};
+
+struct FeasibleAxisJobResult
+{
+	QString instructionId;
+	QString fingerprint;
+	RobotInstruction::FeasibleMotionAxisConfigurationOptions options;
+	QVector<double> seedJointRad;
+};
+
+RobotInstruction::FeasibleMotionAxisConfigurationOptions runFeasibleAxisProbeJob(
+	const FeasibleAxisJobPayload& payload)
+{
+	RobotInstruction::FeasibleMotionAxisConfigurationOptions out;
+	const std::shared_ptr<RobotInstruction::Base> ins = instructionFromPlanJobPayload(payload.plan);
+	if (!ins)
+	{
+		return out;
+	}
+	RobotInstruction::Controller workerCtrl;
+	workerCtrl.buildDefaultPlanners();
+	if (!payload.plan.dhRows.empty())
+	{
+		workerCtrl.setDhRows(payload.plan.dhRows);
+	}
+	const RobotInstructionPlanning::MotionPoseBackup backup =
+		RobotInstructionPlanning::backupInstructionPose(*ins);
+	RobotInstructionPlanning::prepareMotionInstructionForPlanning(
+		*ins,
+		payload.plan.seedJointRad,
+		nullptr,
+		nullptr,
+		0,
+		payload.plan.urdfPath,
+		payload.plan.tcpLinkName.toStdString(),
+		&payload.coordinateFrames);
+	out = workerCtrl.queryFeasibleMotionAxisConfigurationOptions(*ins);
+	RobotInstructionPlanning::restoreInstructionPose(*ins, backup);
+	return out;
+}
+
+} // namespace
+
+void RobotSimulationController::scheduleDeferredFeasibleAxisProbe(
+	const std::shared_ptr<RobotInstruction::Base>& instruction,
+	const FeasibleAxisProbePurpose purpose)
+{
+	if (!instruction || !m_host || !RobotInstruction::isMotionWaypointType(instruction->type()))
+	{
+		return;
+	}
+	IRobotDocumentHost* doc = m_host->document();
+	if (!doc || !m_host->simulationCommandPage() || !doc->hasRobotSimulationContext())
+	{
+		return;
+	}
+	const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		return;
+	}
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	if (urdfPath.isEmpty())
+	{
+		return;
+	}
+	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+	if (nj <= 0)
+	{
+		return;
+	}
+	QVector<double> rollingQ;
+	int targetMotionIndex = -1;
+	if (!buildChainSeedJointRadForInstruction(instruction, rollingQ, &targetMotionIndex))
+	{
+		return;
+	}
+	const QString defaultTcpLinkName = RobotSimulationMath::defaultTcpLinkNameForUrdf(
+		urdfPath,
+		m_host->simulationCommandPage() ? m_host->simulationCommandPage()->selectedTcpLink() : QString());
+	QString fingerprint = QString::fromStdString(instruction->id());
+	if (instruction->hasPoseProperty())
+	{
+		const RobotInstruction::Vec3 p = instruction->pose();
+		const RobotInstruction::Vec3 e = instruction->eulerDeg();
+		fingerprint += QStringLiteral("|%1,%2,%3|%4,%5,%6")
+							.arg(p.x, 0, 'g', 8)
+							.arg(p.y, 0, 'g', 8)
+							.arg(p.z, 0, 'g', 8)
+							.arg(e.x, 0, 'g', 8)
+							.arg(e.y, 0, 'g', 8)
+							.arg(e.z, 0, 'g', 8);
+	}
+	fingerprint += QStringLiteral("|mi=%1").arg(targetMotionIndex);
+	for (int j = 0; j < rollingQ.size(); ++j)
+	{
+		fingerprint += QLatin1Char(',') + QString::number(rollingQ[j], 'g', 8);
+	}
+	osg::Matrixd fpBaseWorld;
+	fpBaseWorld.makeIdentity();
+	if (RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, m_host->osgView(), instIdx, fpBaseWorld, &rollingQ))
+	{
+		fingerprint += QStringLiteral("|bw=%1,%2,%3")
+							.arg(fpBaseWorld(3, 0), 0, 'g', 8)
+							.arg(fpBaseWorld(3, 1), 0, 'g', 8)
+							.arg(fpBaseWorld(3, 2), 0, 'g', 8);
+	}
+	if (m_cachedFeasibleAxisInstructionId == QString::fromStdString(instruction->id())
+		&& m_cachedFeasibleAxisFingerprint == fingerprint && !m_cachedFeasibleAxisOptions.presetTokens.empty())
+	{
+		m_host->applySuggestedAxisPresetFromSeedIfNeeded(
+			instruction, m_cachedFeasibleAxisSeedJointRad, m_cachedFeasibleAxisOptions);
+		if (purpose == FeasibleAxisProbePurpose::SelectionAutoSeed)
+		{
+			instruction->setExtensionProperty("context.axisConfigSeeded", "1");
+		}
+		m_host->refreshInstructionPropertyPanel(instruction, false);
+		return;
+	}
+
+	std::vector<robot_kinematics::DhRow> dhRows;
+	QString dhErr;
+	(void)RobotSimulationMath::buildDhRowsFromUrdf(urdfPath, dhRows, &dhErr);
+
+	FeasibleAxisJobPayload payload;
+	payload.plan = makePlanJobPayload(*instruction, rollingQ, urdfPath, defaultTcpLinkName, dhRows);
+	payload.coordinateFrames = doc->robotCoordinateFramesForInstance(instIdx);
+
+	const quint64 token = m_feasibleAxisJobToken;
+	const auto jobResult = std::make_shared<FeasibleAxisJobResult>();
+	jobResult->instructionId = QString::fromStdString(instruction->id());
+	jobResult->fingerprint = fingerprint;
+	jobResult->seedJointRad = rollingQ;
+	QPointer<RobotSimulationController> guard(this);
+	m_host->enqueueBackgroundJob(
+		QStringLiteral("Feasible axis IK"),
+		[jobResult, payload]() {
+			jobResult->options = runFeasibleAxisProbeJob(payload);
+		},
+		[this, guard, token, jobResult, purpose](const bool threw, const QString&) {
+			if (!guard || threw || token != m_feasibleAxisJobToken || !m_host)
+			{
+				return;
+			}
+			m_cachedFeasibleAxisInstructionId = jobResult->instructionId;
+			m_cachedFeasibleAxisFingerprint = jobResult->fingerprint;
+			m_cachedFeasibleAxisOptions = jobResult->options;
+			m_cachedFeasibleAxisSeedJointRad = jobResult->seedJointRad;
+			const std::shared_ptr<RobotInstruction::Base> active = m_host->activeInstructionForProperty();
+			if (!active || QString::fromStdString(active->id()) != jobResult->instructionId)
+			{
+				return;
+			}
+			m_host->applySuggestedAxisPresetFromSeedIfNeeded(
+				active, jobResult->seedJointRad, jobResult->options);
+			if (purpose == FeasibleAxisProbePurpose::SelectionAutoSeed)
+			{
+				active->setExtensionProperty("context.axisConfigSeeded", "1");
+			}
+			m_host->refreshInstructionPropertyPanel(active, false);
+		});
+}
+
+namespace
+{
 
 struct ReachabilityJobStep
 {

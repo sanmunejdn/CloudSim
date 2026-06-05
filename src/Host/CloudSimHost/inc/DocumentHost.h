@@ -32,6 +32,7 @@ class BackendSceneDocumentFacade;
 namespace cloudsim::host {
 
 class IRobotUrdfImportContext;
+class IRobotInstructionPropertyDelegate;
 
 /// 单文档组合根
 class CLOUDSIM_HOST_EXPORT DocumentHost : public QWidget, public cloudsim::core::IDocumentScope
@@ -68,6 +69,11 @@ public:
 	/// 网格加载到场景
 	bool loadMeshFromBackendIntoScene(const MeshBackendData& data, QString* errorMessage = nullptr,
 		bool resetViewToHome = true, bool showWireOutline = true, bool useSceneLighting = true);
+	/// URDF 连杆：顶点已在 link 系，跳过内层去心
+	bool loadUrdfLinkMeshIntoScene(const MeshBackendData& data, QString* errorMessage = nullptr);
+	void clearStagingGeometry();
+	void syncSceneBackendParent(const std::string& childBackendId, const std::string& parentBackendId);
+	void focusSceneCameraOnBackend(const std::string& backendId);
 
 	/// 工程旁路表
 	QMap<QString, QString>& backendSourcePath();
@@ -101,6 +107,10 @@ public:
 	void setRobotUrdfImportContext(IRobotUrdfImportContext* context);
 	IRobotUrdfImportContext* robotUrdfImportContext() const;
 
+	/// 仿真指令属性（Widget 注入，供 IRobotService 转发）
+	void setInstructionPropertyDelegate(IRobotInstructionPropertyDelegate* delegate);
+	IRobotInstructionPropertyDelegate* instructionPropertyDelegate() const;
+
 private:
 	QString m_documentId;
 	cloudsim::core::EventHub& m_events;
@@ -121,6 +131,7 @@ private:
 	bool m_followSolveForced = false;
 	bool m_suppressRobotFollowDirtyNotify = false;
 	IRobotUrdfImportContext* m_robotUrdfImportContext = nullptr;
+	IRobotInstructionPropertyDelegate* m_instructionPropertyDelegate = nullptr;
 };
 
 } // namespace cloudsim::host

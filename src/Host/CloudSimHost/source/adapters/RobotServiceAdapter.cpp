@@ -3,6 +3,7 @@
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "DocumentHostEvents.h"
+#include "IRobotInstructionPropertyDelegate.h"
 #include "IRobotUrdfImportContext.h"
 #include "RobotPlanInstruction.h"
 #include "RobotProgramJsonIo.h"
@@ -131,32 +132,66 @@ bool RobotServiceAdapter::setRobotProgramsJson(const QJsonArray& programs, QStri
 	return robotProgramsFromJson(m_programs, programs, *ctx, outError);
 }
 
+namespace
+{
+IRobotInstructionPropertyDelegate* mutableInstructionDelegate(const DocumentHost& host)
+{
+	return const_cast<IRobotInstructionPropertyDelegate*>(host.instructionPropertyDelegate());
+}
+} // namespace
+
 QVector<core::PropertyRowDto> RobotServiceAdapter::instructionPropertyRows(const QString& instructionId) const
 {
-	(void)instructionId;
-	return {};
+	IRobotInstructionPropertyDelegate* delegate = mutableInstructionDelegate(m_host);
+	if (!delegate)
+	{
+		return {};
+	}
+	return delegate->instructionPropertyRows(instructionId);
 }
 
 bool RobotServiceAdapter::applyInstructionPropertyChange(const QString& instructionId, const QString& key,
 	const QString& value, QString* outError)
 {
-	(void)instructionId;
-	(void)key;
-	(void)value;
-	if (outError)
+	IRobotInstructionPropertyDelegate* delegate = mutableInstructionDelegate(m_host);
+	if (!delegate)
 	{
-		*outError = QStringLiteral("instruction property API not wired");
+		if (outError)
+		{
+			*outError = QStringLiteral("no instruction property delegate");
+		}
+		return false;
 	}
-	return false;
+	return delegate->applyInstructionPropertyChange(instructionId, key, value, outError);
 }
 
 QStringList RobotServiceAdapter::feasibleMotionAxisConfigTokens(const QString& instructionId,
 	const core::MotionInstructionDto& instruction, const core::PlanContextDto& context) const
 {
-	(void)instructionId;
 	(void)instruction;
 	(void)context;
-	return {};
+	return queryFeasibleMotionAxisOptions(instructionId, nullptr).presetTokens;
+}
+
+core::FeasibleMotionAxisOptionsDto RobotServiceAdapter::queryFeasibleMotionAxisOptions(const QString& instructionId,
+	QVector<double>* outSeedJointRad) const
+{
+	IRobotInstructionPropertyDelegate* delegate = mutableInstructionDelegate(m_host);
+	if (!delegate)
+	{
+		return {};
+	}
+	return delegate->queryFeasibleMotionAxisOptions(instructionId, outSeedJointRad);
+}
+
+core::FeasibleMotionAxisOptionsDto RobotServiceAdapter::cachedFeasibleMotionAxisOptions() const
+{
+	IRobotInstructionPropertyDelegate* delegate = mutableInstructionDelegate(m_host);
+	if (!delegate)
+	{
+		return {};
+	}
+	return delegate->cachedFeasibleMotionAxisOptions();
 }
 
 } // namespace cloudsim::host

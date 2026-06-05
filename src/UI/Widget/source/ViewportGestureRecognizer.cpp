@@ -56,5 +56,10 @@ void ViewportGestureRecognizer::restartClickHold(QElapsedTimer& holdTimer) const
 
 bool ViewportGestureRecognizer::shouldThrottleHover(const QElapsedTimer& feedbackTimer)
 {
-	return feedbackTimer.isValid() && feedbackTimer.elapsed() < OsgScene::kPickHoverThrottleMs;
+	return shouldThrottleHover(feedbackTimer, OsgScene::kPickHoverThrottleMs);
+}
+
+bool ViewportGestureRecognizer::shouldThrottleHover(const QElapsedTimer& feedbackTimer, int throttleMs)
+{
+	return feedbackTimer.isValid() && feedbackTimer.elapsed() < throttleMs;
 }

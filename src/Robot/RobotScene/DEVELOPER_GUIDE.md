@@ -132,7 +132,7 @@
 | `setDhRows` / `clearDhRows` / `hasDhRows` | DH 回退 IK |
 | `registerPlanner` / `buildDefaultPlanners()` | 注册 PTP/LINE |
 | `validate` / `plan` | 逻辑指令 → `plannerName="logic"` |
-| `queryFeasibleMotionAxisConfigurationOptions(cmd)` | **单次**多初值 IK → 可行 preset/分项 token 列表 |
+| `queryFeasibleMotionAxisConfigurationOptions(cmd)` | **单次**多初值 IK → 可行 preset/分项 token 列表；由 `RobotSimulationController` 缓存，UI 枚举刷新经后台 Job 调用 |
 
 ### 5.4 规划上下文（`extensionProperties` 键）
 
@@ -384,7 +384,7 @@ flowchart LR
   E --> F[IRobotBackendPoseSink]
 ```
 
-**预览**（非运行）：`applyRobotPoseForInstructionPreview` 经链式种子对选中点单次 `plan`（或 `shouldUseTaughtJointCsv` + 残差门控）。**坐标系页**添加未激活工具系不触发全程序 reachability；切换激活工具会同步 `active` 路点 context 并失效示教关节。轴配置可行列表仍经 `queryFeasibleMotionAxisConfigurationOptions`（带独立缓存）。
+**预览**（非运行）：`applyRobotPoseForInstructionPreview` 经链式种子对选中点单次 `plan`（或 `shouldUseTaughtJointCsv` + 残差门控）。**坐标系页**添加未激活工具系不触发全程序 reachability；切换激活工具会同步 `active` 路点 context 并失效示教关节。轴配置可行列表经 `queryFeasibleMotionAxisConfigurationOptions`（`RobotSimulationController` 缓存 + **后台 Job** 刷新枚举，见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)）。
 
 **运行**：`onSimulationStartTriggered` 链式构建 `PlanResult`（`PlanResultCache` 命中则跳过 IK）；`RobotProgramExecutor` 插值执行；tick 内 `currentInstruction()` 驱动指令树高亮 + `tickLookaheadPlanning` 后台预热。程序起点仅在**第一条**运动指令加入时更新（见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)）。
 

@@ -1,6 +1,7 @@
 #include "OsgWidgetBackendLoadController.h"
 
 #include "OsgWidget.h"
+#include "BackendDataBase.h"
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 
@@ -37,8 +38,21 @@ bool OsgWidgetBackendLoadController::loadMeshFromBackendData(
 	bool useSceneLighting,
 	bool skipInnerModelCenterRebase)
 {
+	return loadBackendFromBackendData(self, data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting,
+		skipInnerModelCenterRebase);
+}
+
+bool OsgWidgetBackendLoadController::loadBackendFromBackendData(
+	OsgWidget& self,
+	const BackendDataBase& data,
+	QString* errorMessage,
+	bool resetViewToHome,
+	bool showWireOutline,
+	bool useSceneLighting,
+	bool skipInnerModelCenterRebase)
+{
 	self.clearStagingGeometry();
-	if (!self.upsertMeshBranchInScene(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting,
+	if (!self.upsertBackendBranchInScene(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting,
 			skipInnerModelCenterRebase))
 	{
 		return false;

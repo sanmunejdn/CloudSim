@@ -17,6 +17,7 @@
 #include "BackendFileImport.h"
 #include "DocumentHostEvents.h"
 #include "BackendSceneDocumentFacade.h"
+#include "IRobotInstructionPropertyDelegate.h"
 #include "IRobotUrdfImportContext.h"
 #include "RobotProgramStore.h"
 
@@ -56,6 +57,16 @@ void DocumentHost::setRobotUrdfImportContext(IRobotUrdfImportContext* context)
 IRobotUrdfImportContext* DocumentHost::robotUrdfImportContext() const
 {
 	return m_robotUrdfImportContext;
+}
+
+void DocumentHost::setInstructionPropertyDelegate(IRobotInstructionPropertyDelegate* delegate)
+{
+	m_instructionPropertyDelegate = delegate;
+}
+
+IRobotInstructionPropertyDelegate* DocumentHost::instructionPropertyDelegate() const
+{
+	return m_instructionPropertyDelegate;
 }
 
 DocumentHost::~DocumentHost() = default;
@@ -133,6 +144,40 @@ bool DocumentHost::loadMeshFromBackendIntoScene(const MeshBackendData& data, QSt
 		return false;
 	}
 	return m_osgWidget->loadMeshFromBackendData(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting);
+}
+
+bool DocumentHost::loadUrdfLinkMeshIntoScene(const MeshBackendData& data, QString* errorMessage)
+{
+	if (!m_osgWidget)
+	{
+		return true;
+	}
+	return m_osgWidget->loadMeshFromBackendData(data, errorMessage, true, true, true, true);
+}
+
+void DocumentHost::clearStagingGeometry()
+{
+	if (m_osgWidget)
+	{
+		m_osgWidget->clearStagingGeometry();
+	}
+}
+
+void DocumentHost::syncSceneBackendParent(const std::string& childBackendId, const std::string& parentBackendId)
+{
+	if (m_osgWidget)
+	{
+		m_sceneBridge.setBackendParent(childBackendId, parentBackendId);
+	}
+}
+
+void DocumentHost::focusSceneCameraOnBackend(const std::string& backendId)
+{
+	if (backendId.empty() || !m_renderView)
+	{
+		return;
+	}
+	m_renderView->focusCameraOnBackend(QString::fromStdString(backendId));
 }
 
 QStringList DocumentHost::removeBackendSubtree(const QString& rootBackendId)

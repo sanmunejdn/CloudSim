@@ -8,7 +8,6 @@
 /// 与 IPluginHostContext::PluginJobProgressFn 同型，避免 Widget/CloudSim 依赖 PluginSDK 头
 using PluginJobProgressFn = std::function<void(double fraction, const QString& message)>;
 
-class OsgWidget;
 class QMenu;
 class QMenuBar;
 class QObject;
@@ -34,7 +33,6 @@ public:
 	virtual int addPluginSidePanelTab(const QString& title, QWidget* widget) = 0;
 	virtual void removePluginSidePanelTab(QWidget* widget) = 0;
 	virtual QMenuBar* menuBar() = 0;
-	virtual OsgWidget* currentOsgWidget() = 0;
 	virtual void focusBackendInTree(const std::string& backendId) = 0;
 	virtual void focusBackendInTreeAfterImport(const QString& backendId) = 0;
 	virtual bool resolveTrajectoryWorkpieceForAi(QString* outBackendId, QString* outStepPath) = 0;

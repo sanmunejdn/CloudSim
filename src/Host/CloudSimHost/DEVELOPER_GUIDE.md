@@ -96,7 +96,7 @@ flowchart TB
 | 职责边界 | 聚合 `BackendDataManager`、`OsgWidget`、三个 Core 适配器，向上提供统一文档能力 |
 | 生命周期 | 构造时注入 `EventHub` 与 `documentId`；析构时统一释放文档级资源 |
 | 对外契约 | `data()` / `robot()` / `render()` 返回稳定 Core 接口，供 UI 层长期调用 |
-| 兼容接口 | `backend()` 存量直达；`osgWidget()` 供 Host 内部与 `DocumentHostAccess.h::osgWidgetFrom`；Widget 侧用 `widgetOsgFromPage` → `render().widget()` |
+| 兼容接口 | `backend()` 存量直达；`osgWidget()` 供 Host 内部与 `DocumentHostAccess.h::osgWidgetFrom`；Widget 侧优先 `render()` / `sceneFacade()`（插件存量 `widgetOsgFromPage`） |
 | 场景门面 | `sceneFacade()` 返回 `BackendSceneDocumentFacade`（插件 `PluginSceneBridgeAdapter` 亦经此访问） |
 | 事件协作 | 与 `MainWindow` 帧回调配合，处理跟随脏集、场景刷新与选择同步 |
 
@@ -188,7 +188,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | 构造 | `(OsgWidget& widget, DocumentHost& host)`：显式传入已构造的 widget，避免构造期经 `render()` 递归 |
 | 关键转换 | `core::Mat4`（列主序 `16 x double`）与 `osg::Matrixd` 双向转换 |
 | 事件接入 | 拾取回调通过 `setPickHandler` 注入，外层可转发到 `EventHub` |
-| Widget 取用 | `MainWindow::currentOsgWidget()` → `widgetOsgFromPage` → `render().widget()` |
+| Widget 取用 | `currentPage()->render()`；`IRobotOsgViewHost` 经 `WidgetOsgViewHost` 委托 `IRenderView` |
 | Host 内部取用 | `DocumentHostAccess.h::osgWidgetFrom(host)` → `host.osgWidget()` |
 | 设计约束 | 不在 Adapter 内引入业务判断，业务决策放 `DocumentPage` 或上层服务 |
 
@@ -200,7 +200,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 
 | API | 说明 |
 |-----|------|
-| `registerUrdfRobot` | → `UrdfRobotImport`；成功时 `publishBackendObjectRegistered` |
+| `registerUrdfRobot` | → `importUrdfRobot(IRobotUrdfImportContext&)`；场景经契约方法 + `urdfImportScenePoseSink()`；成功时 `publishBackendObjectRegistered` |
 | `applyJointAnglesRad` | → `RobotSceneKinematics::applyJointAnglesForInstance`；`publishRobotKinematicsApplied`；可选 `outAggregated` 返回聚合向量 |
 | `robotProgramsJson` / `setRobotProgramsJson` | → `RobotProgramJsonIo` + `RobotProgramStore` |
 | `planInstruction` | → `RobotPlanInstruction::planMotionInstruction`（`RobotInstruction::Controller::plan`） |
@@ -267,6 +267,26 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 
 `HierarchyFollowBindingFn onParentFollow` 参数保留供 API 稳定；当前分件路径内为 no-op。
 
+### 4.4.1b STEP B-rep 装配（`BrepBackendData` + `importBrepHierarchyParts`）
+
+STEP 多零件优先 **B-rep 路径**（`loadStepHierarchyFromFile` → `collectShapeHierarchyTopology`，**无** tessellation）；单件或层级失败时仍走 `BrepBackendData::loadFromStepFile`；再失败才回退 mesh/OSG（见 `importMeshFileExtended` 末尾）。
+
+| API | 说明 |
+|-----|------|
+| `registerAdoptedBrepAndLoadScene(..., loadScene)` | 注册 `BrepModel`；`loadScene=false` 时仅 Data/逻辑树，不建 OSG |
+| `importBrepHierarchyParts` | 空壳 `importParent` + 各 `BrepHierarchyPart` 逻辑节点 |
+| `registerBrepHierarchyPartMeshes` | 实现细节：见下表 |
+
+**装配优化约定**
+
+1. 各零件 `shapeRef` 共享同一 assembly `ShapeHandle`；`getOrBuildBrepImportArtifacts` 只执行一次。
+2. **仅 `importParent`**：`loadBackendFromBackendData(..., skipInnerModelCenterRebase=true)` 挂载唯一 visual。
+3. 子零件：`registerAdoptedBrepAndLoadScene(..., resetViewToHome=false, loadScene=false)` + `OsgWidget::setPickVisualAlias(partId, importParentId)`。
+4. 导入结束：`focusCameraOnBackend(importParent->id())`；**导入阶段不做** Follow（同 §4.4.1a）。
+5. 工程持久化：sidecar `.brep`（`ProjectPackageIo` / `BackendProjectObjectIo`）。
+
+**异步导入**：`ModelBackgroundLoadState`（Worker：`executeLoad` 读 STEP/BREP/Mesh 并预热 artifacts 缓存；UI：`finishIntoDocument` → `importFileIntoDocument` 同等注册）。Widget 在 `JobSystem` 可用时对模型文件优先走此路径（§10）。
+
 ### 4.4.2 `DocumentHostEvents`
 
 | 函数 | 事件 / 用途 |
@@ -293,6 +313,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | 加载内嵌几何 | `registerEmbeddedProjectObject`（由 load 编排调用） |
 | 工程文件回退 | `importProjectObjectFromFile`（网格 `importMeshFile`；点云 ply/xyz `importPointCloudFile`） |
 | 点云 ply/xyz/las/laz | `importPointCloudFile`（路径 `encodeName`；ply/xyz=CGAL 顶点；**ply 含 face**→`importMeshFile`/`Model`；las/laz=OsgWidget+capture）；大文件**纯顶点** ply 可走 Job 异步（Widget） |
+| STEP/BREP/Mesh 模型 | `ModelBackgroundLoadState` + Widget `JobSystem`（Worker 读盘 + 预热 artifacts；UI `finishIntoDocument`）；无 Job 时同步 `importFileIntoDocument` |
 | `parseProjectEdgesJson` / `applyProjectEdgesToBackend` | 恢复 `edges[]` → `BackendDataManager::attachChild` |
 | `syncOsgBackendParentsFromBackend` | Data 父子 → `OsgWidget::setBackendParent` |
 | `rebuildBackendParentIdMirror` | edges 后重建 `backendParentId` 旁路表 |
@@ -336,7 +357,8 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | 头文件 | 函数 | 调用方 |
 |--------|------|--------|
 | `DocumentHostAccess.h` | `osgWidgetFrom(DocumentHost&)` → `host.osgWidget()`（Host 模块内；构造期勿经 `render().widget()`） |
-| `WidgetDocumentAccess.h`（Widget） | `widgetOsgFromPage(DocumentPage*)` | `MainWindow`、`DocumentPage` 等 |
+| `WidgetDocumentAccess.h`（Widget） | `widgetOsgFromPage(DocumentPage*)` | 插件等存量；`DocumentPage`/`MainWindow` 主路径已改契约 |
+| `IRobotUrdfImportContext` | `urdfImportLoadLinkMeshIntoScene` 等 | `UrdfRobotImport`（**无** `OsgWidget*`）；`DocumentHost` 实现边界 |
 
 **暂勿删除**
 
@@ -496,8 +518,8 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 
 1. ~~**`RobotSimulationController` 核心逻辑迁入 Host**~~：阶段 1.1-1.5 已完成。运动学（6 处）、坐标系管理、TCP IK 已通过 `IRobotDocumentHost` 委托；规划和程序 JSON 已通过 Host 模块集中。阶段 1.6（导出）待定。
 2. **`IRobotSimulationDocument`**：实例元数据仍留 `DocumentPage` / `RobotWidget`（`RobotSimulationController` 编排）。
-3. ~~**`IRenderView` 全面替代**~~：阶段 3.1-3.2 已完成。`MainWindowBackendTree` 和 `MainWindow` 已移除 OSG include，改用 `sceneGraphSnapshot`/`selectedPosition`/`selectedRotationEulerDeg`。阶段 3.3-3.4（DocumentPage/ObjectTransformOperation）待定。
-4. **仿真指令属性**：`MainWindowPropertyPanel` 内 `RobotInstruction` 仍直连（非 `IDataService`），需抽象层隔离依赖。
+3. ~~**`IRenderView` 全面替代（Widget 主路径）**~~：叠加/TCP/拾取/截图经 `IRenderView`；`WidgetOsgViewHost`；Qt 信号在 `WidgetSceneSignalWiring`。阶段 3.3-3.4（`ObjectTransformOperation` 等）待定。
+4. ~~**仿真指令属性 UI**~~：`InstructionPropertyPanel` 在 `RobotWidget`；写回经 `doc->robot()`。`MainWindowPropertyPanel` 仍链 `RobotInstruction` 头（过渡白名单）。
 5. ~~**BackendDataManager 收口**~~：阶段 2.1-2.2 已完成。`MainWindowBackendTree` 改用 `doc->data().topoOrder()`/`parentsOf()`；工程 I/O 已通过 Host 集中。阶段 2.3（DocumentPage 存量清理）待定。
 6. **OSG 头文件解耦**：阶段 3.1-3.2 已完成（2 个文件移除 14 个 OSG include）。阶段 3.3-3.4（DocumentPage 等）待定。
 7. **Host 目录**：`source/osg/` 若存在勿加入 vcxproj；以 `Widget/source` 为唯一 OsgWidget 源码真源。
@@ -519,4 +541,4 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 | `cloudsim::host::IRobotDocumentHost` 与 `IRobotDocumentHost*` 不匹配 | `ProjectPackageIo.h` 须在**全局**前向声明 `IRobotDocumentHost`，API 使用 `::IRobotDocumentHost*` |
 | `IRenderView` 未定义 | 包含 `IRenderView.h`（`DocumentHostAccess.h` / `WidgetDocumentAccess.h` 已包含） |
 | C2662 `render()` 与 `const DocumentHost` | `osgWidgetFrom` 仅接受非 const `DocumentHost&` |
-| C2662 `render()` 与 `const DocumentPage` | Widget 仅用 `widgetOsgFromPage(DocumentPage*)`，勿加 const 重载 |
+| C2662 `render()` 与 `const DocumentPage` | Widget 新代码用非 const `DocumentPage*` + `render()`；插件存量 `widgetOsgFromPage` |

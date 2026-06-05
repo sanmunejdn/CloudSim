@@ -48,7 +48,7 @@ Widget 侧 UI 能力契约（`inc/IPluginMainWindowHost.h`），供 Host 内 `Pl
 |----------|------|
 | 文档 | `documentTabs()`、`currentDocumentHost()`、`documentHostAt(tabIndex)` → `cloudsim::host::DocumentHost*` |
 | UI 注册 | `addPluginSidePanelTab`、`addPluginDockWidget`、`menuBar()` |
-| OSG | `currentOsgWidget()`（截图、STEP 拾取等） |
+| OSG / 渲染 | `currentDocumentHost()->render()`；截图 `captureActiveViewportPng` → `IRenderView::captureViewportPng` |
 | 树/导入 | `focusBackendInTree`、`focusBackendInTreeAfterImport` |
 | 后台任务 | `enqueueBackgroundJob` → Widget `JobSystem` |
 | 运行信息 | `appendRunInfo` |
@@ -65,7 +65,7 @@ Widget 侧 UI 能力契约（`inc/IPluginMainWindowHost.h`），供 Host 内 `Pl
 | 线程 | `enqueueJob` → `IPluginMainWindowHost::enqueueBackgroundJob`；`invokeOnUiThread` → `QMetaObject::invokeMethod` |
 | **导入** | `importFileIntoActiveDocument` → `DocumentImportFacade::importFileIntoDocument`（`ImportOptionsDto::isPointCloud`） |
 | **网格** | `createPrimitiveMesh` / `registerTriangleMesh` → `registerAdoptedMesh`（Host） |
-| **视口截图** | **1.6.0+** `captureActiveViewportPng` → `currentOsgWidget()` → `OsgWidget::captureViewportPng` |
+| **视口截图** | **1.6.0+** `captureActiveViewportPng` → `currentDocumentHost()->render().captureViewportPng` |
 | **几何拾取** | **1.7.0+** `geometryHost()->pickStepElementFromViewport`：`OsgWidget::meshPickCommitted` + 模型坐标反变换 + `resolveStepFace/EdgeIndex` |
 | **类型** | `registerBackendType` → `BackendRegistry` + `PluginDelegatedBackend` 包装 `IPluginBackendObject` |
 | 日志 | `RunLogger` info/warn/error |
@@ -189,7 +189,7 @@ Widget 侧 UI 能力契约（`inc/IPluginMainWindowHost.h`），供 Host 内 `Pl
 |-----|-------------|
 | `resolveTrajectoryWorkpiece` | `MainWindow::resolveTrajectoryWorkpieceForAi` |
 | `buildTrajectoryFeatureCatalogSlice` | `PluginHostContext` → OCCT `enumerateFeatureCatalog` + 切片 |
-| `showAiFeatureCandidatePreview` | → `FeatureTrajectoryPageWidget::buildAndShowCandidatePreview` |
+| `showAiFeatureCandidatePreview` | → `FeatureTrajectoryPageWidget::buildAndShowCandidatePreview`（overlay 坐标经 `feature_pick_transform` + `IRobotOsgViewHost` pick alias / skip-rebase） |
 | `commitAiTrajectoryFeatures` | → `commitFeaturePlanFromAi`（离散 + 默认 pipeline） |
 
 ---

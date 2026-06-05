@@ -7,7 +7,6 @@
 #include "IRobotBackendPoseSink.h"
 #include "IRobotSimulationDocument.h"
 #include "MeshBackendData.h"
-#include "OsgWidget.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotSceneKinematics.h"
 #include "UrdfRobotLoader.h"
@@ -58,7 +57,7 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 	const auto warn = [&warnings](const QString& msg) { warnings.append(msg); };
 
 	const QFileInfo fileInfo(urdfFilePath);
-	OsgWidget* osg = ctx.urdfImportOsgWidget();
+	IRobotBackendPoseSink* poseSink = ctx.urdfImportScenePoseSink();
 	BackendDataManager& backend = ctx.urdfImportBackend();
 	IRobotSimulationDocument* robotDoc = ctx.urdfImportRobotSimulationDocument();
 	if (!robotDoc)
@@ -147,14 +146,11 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 		ctx.urdfImportBackendSourcePath()[bid] = fileInfo.absoluteFilePath();
 		ctx.urdfImportBackendSourceType()[bid] = QStringLiteral("URDF");
 
-		if (osg)
+		QString sceneErr;
+		if (!ctx.urdfImportLoadLinkMeshIntoScene(*mesh, &sceneErr))
 		{
-			QString sceneErr;
-			if (!osg->loadMeshFromBackendData(*mesh, &sceneErr, true, true, true, true))
-			{
-				backend.unregisterData(mesh->id());
-				return fail(QStringLiteral("OSG load failed for link '%1': %2").arg(linkName, sceneErr));
-			}
+			backend.unregisterData(mesh->id());
+			return fail(QStringLiteral("OSG load failed for link '%1': %2").arg(linkName, sceneErr));
 		}
 
 		linkToBackend.insert(linkName, bid);
@@ -224,29 +220,26 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 			const std::vector<std::string> ps = backend.parentsOf(d->id());
 			parentMirror[id] = ps.empty() ? QString() : QString::fromStdString(ps.front());
 		}
-		if (osg)
+		QHash<QString, QString> backendIdToLink;
+		for (auto lit = linkToBackend.constBegin(); lit != linkToBackend.constEnd(); ++lit)
 		{
-			QHash<QString, QString> backendIdToLink;
-			for (auto lit = linkToBackend.constBegin(); lit != linkToBackend.constEnd(); ++lit)
+			backendIdToLink.insert(lit.value(), lit.key());
+		}
+		const std::vector<std::string> topoIds = backend.topoOrder();
+		for (const std::string& bidStd : topoIds)
+		{
+			const QString bid = QString::fromStdString(bidStd);
+			if (!backendIdToLink.contains(bid))
 			{
-				backendIdToLink.insert(lit.value(), lit.key());
+				continue;
 			}
-			const std::vector<std::string> topoIds = backend.topoOrder();
-			for (const std::string& bidStd : topoIds)
-			{
-				const QString bid = QString::fromStdString(bidStd);
-				if (!backendIdToLink.contains(bid))
-				{
-					continue;
-				}
-				const std::vector<std::string> ps = backend.parentsOf(bidStd);
-				const std::string pp = ps.empty() ? std::string() : ps.front();
-				osg->setBackendParent(bidStd, pp);
-			}
+			const std::vector<std::string> ps = backend.parentsOf(bidStd);
+			const std::string pp = ps.empty() ? std::string() : ps.front();
+			ctx.urdfImportSetBackendParent(bidStd, pp);
 		}
 	}
 
-	if (osg)
+	if (poseSink)
 	{
 		QHash<QString, QString> backendIdToLink;
 		for (auto it = linkToBackend.constBegin(); it != linkToBackend.constEnd(); ++it)
@@ -262,7 +255,7 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 			{
 				continue;
 			}
-			osg->setBackendRootWorldMatrixFromWorld(bidStd, Tq[linkName]);
+			poseSink->setBackendRootWorldMatrixFromWorld(bidStd, Tq[linkName]);
 		}
 	}
 
@@ -287,10 +280,10 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 		const QString& linkName = it.key();
 		const QString& bid = it.value();
 		const osg::Matrixd* fkMeshWorld = Tq.contains(linkName) ? &Tq[linkName] : nullptr;
-		if (osg)
+		if (poseSink)
 		{
 			osg::Matrixd worldAtBind;
-			if (osg->getBackendRootWorldMatrix(bid.toStdString(), worldAtBind))
+			if (poseSink->getBackendRootWorldMatrix(bid.toStdString(), worldAtBind))
 			{
 				// OSG 与 FK 偏差大时以外部 world 为准，避免 bind 漂移
 				if (fkMeshWorld && maxMatAbsDiff(worldAtBind, *fkMeshWorld) > 0.5)
@@ -344,13 +337,10 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 		warn(QStringLiteral("URDF: initial kinematics sync failed."));
 	}
 
-	if (osg)
+	ctx.urdfImportClearStagingGeometry();
+	if (!focusBackendId.isEmpty())
 	{
-		osg->clearStagingGeometry();
-		if (!focusBackendId.isEmpty())
-		{
-			osg->focusCameraOnBackend(focusBackendId.toStdString());
-		}
+		ctx.urdfImportFocusCameraOnBackend(focusBackendId.toStdString());
 	}
 
 	core::RobotRegistrationDto out;

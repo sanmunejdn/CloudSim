@@ -10,6 +10,7 @@
 
 #include "BackendVisualRegistry.h"
 
+#include "BrepBackendVisual.h"
 #include "MeshBackendData.h"
 #include "MeshBackendVisual.h"
 #include "PointCloudBackendData.h"
@@ -40,6 +41,8 @@ void registerBuiltins()
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });
 	BackendVisualRegistry::registerType("MeshBackendData",
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });
+	BackendVisualRegistry::registerType("BrepModel",
+		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<BrepBackendVisual>(); });
 }
 
 } // namespace

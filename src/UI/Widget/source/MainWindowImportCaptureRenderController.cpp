@@ -8,9 +8,8 @@
 #include "PlyIo.h"
 
 #include "DocumentPage.h"
-#include "OsgWidget.h"
+#include "IRenderView.h"
 #include "RunInfoPage.h"
-#include "WidgetDocumentAccess.h"
 
 #include <QByteArray>
 #include <QFile>
@@ -60,10 +59,7 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 		}
 		mw.focusBackendInTreeAfterImport(backendId);
 		doc->render().ensureSelectionVisualForBackend(backendId, false);
-		if (OsgWidget* osg = widgetOsgFromPage(doc))
-		{
-			osg->requestRedraw();
-		}
+		doc->render().requestRedraw();
 		mw.refreshSimulationJointListFromCurrentDoc();
 	};
 
@@ -161,10 +157,7 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 					}
 					mwRef.focusBackendInTreeAfterImport(adopted.backendId);
 					docRef.render().ensureSelectionVisualForBackend(adopted.backendId, false);
-					if (OsgWidget* osg = widgetOsgFromPage(&docRef))
-					{
-						osg->requestRedraw();
-					}
+					docRef.render().requestRedraw();
 					mwRef.refreshSimulationJointListFromCurrentDoc();
 				});
 			return true;
@@ -186,11 +179,113 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 		return true;
 	}
 
+	if (mw.jobSystem())
+	{
+		const auto loadState = std::make_shared<cloudsim::host::ModelBackgroundLoadState>(
+			filePath, fileInfo.fileName(), typeName, mw.meshImportQuality());
+		const auto loadOk = std::make_shared<bool>(false);
+		const auto loadErr = std::make_shared<QString>();
+		const QPointer<MainWindow> mwPtr(&mw);
+		const QPointer<DocumentPage> docPtr(doc);
+
+		mw.jobSystem()->enqueue(
+			QStringLiteral("Import model: %1").arg(fileInfo.fileName()),
+			[loadState, loadOk, loadErr](const JobProgressSink& sink) {
+				*loadOk = loadState->executeLoad(
+					[&](const double progress01, const QString& status) { sink(progress01, status); },
+					loadErr.get());
+			},
+			[loadState, loadOk, loadErr, mwPtr, docPtr, filePath, typeName, quietUi, fileInfo](
+				const bool threw, const QString& throwMsg) {
+				if (!mwPtr || !docPtr)
+				{
+					return;
+				}
+				MainWindow& mwRef = *mwPtr;
+				DocumentPage& docRef = *docPtr;
+				const auto uiFail = [&](const QString& title, const QString& msg) {
+					if (quietUi)
+					{
+						if (mwRef.m_runInfoPage)
+						{
+							mwRef.m_runInfoPage->appendWarning(title + QStringLiteral(": ") + msg);
+						}
+					}
+					else
+					{
+						QMessageBox::warning(&mwRef, title, msg);
+					}
+				};
+				if (threw)
+				{
+					uiFail(QStringLiteral("Model"),
+						throwMsg.isEmpty() ? QStringLiteral("Background import failed.") : throwMsg);
+					return;
+				}
+				if (!*loadOk)
+				{
+					uiFail(QStringLiteral("Model"),
+						loadErr->isEmpty() ? QStringLiteral("Failed to load model.") : *loadErr);
+					return;
+				}
+				const MainWindow::ScopedBackendTreeRefreshSuppress treeSuppressGuard(mwRef);
+				cloudsim::core::ImportOptionsDto importOpt;
+				importOpt.quietUi = quietUi;
+				importOpt.resetViewToHome = true;
+				importOpt.catalogTypeName = typeName;
+				importOpt.meshImportQuality = mwRef.meshImportQuality();
+				QString importErr;
+				const cloudsim::host::ImportFileResult imported =
+					loadState->finishIntoDocument(docRef, importOpt, &importErr);
+				if (!imported.ok)
+				{
+					uiFail(QStringLiteral("Model"),
+						importErr.isEmpty() ? QStringLiteral("Import failed.") : importErr);
+					return;
+				}
+				mwRef.refreshBackendTree();
+				if (imported.hierarchyImport)
+				{
+					const QString focusId = imported.hierarchyFocusBackendId();
+					if (!focusId.isEmpty())
+					{
+						mwRef.focusBackendInTreeAfterImport(focusId);
+					}
+					else
+					{
+						const QString meshId = imported.hierarchyLastMeshBackendId();
+						if (!meshId.isEmpty())
+						{
+							mwRef.focusBackendInTreeAfterImport(meshId);
+							docRef.render().ensureSelectionVisualForBackend(meshId, false);
+						}
+					}
+					docRef.render().requestRedraw();
+					mwRef.refreshSimulationJointListFromCurrentDoc();
+					return;
+				}
+				if (!imported.rootBackendId.isEmpty())
+				{
+					if (mwRef.m_runInfoPage && !quietUi)
+					{
+						mwRef.m_runInfoPage->appendInfo(
+							QStringLiteral("Backend object registered: %1").arg(fileInfo.fileName()));
+					}
+					mwRef.focusBackendInTreeAfterImport(imported.rootBackendId);
+					docRef.render().ensureSelectionVisualForBackend(imported.rootBackendId, false);
+					docRef.render().requestRedraw();
+					mwRef.refreshSimulationJointListFromCurrentDoc();
+				}
+			});
+		return true;
+	}
+
 	const MainWindow::ScopedBackendTreeRefreshSuppress treeSuppressGuard(mw);
 	cloudsim::core::ImportOptionsDto importOpt;
 	importOpt.quietUi = quietUi;
 	importOpt.resetViewToHome = true;
 	importOpt.catalogTypeName = typeName;
+	importOpt.meshImportQuality = mw.meshImportQuality();
 	QString importErr;
 	const cloudsim::host::ImportFileResult imported = cloudsim::host::importFileIntoDocument(
 		*doc, filePath, cloudsim::host::ImportFileKind::Mesh, importOpt, &importErr);

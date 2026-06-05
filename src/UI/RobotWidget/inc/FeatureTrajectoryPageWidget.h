@@ -58,7 +58,9 @@ class RobotSimulationController;
 
 namespace geoalgo
 {
+class ShapeHandle;
 struct FeatureCatalog;
+struct WorkpieceRef;
 }
 
 class ROBOTWIDGET_EXPORT FeatureTrajectoryPageWidget : public QWidget
@@ -179,6 +181,9 @@ private:
 	bool buildPreviewOverlayJson(const QByteArray& catalogSliceUtf8, QByteArray& outPreviewJson, QString* err) const;
 
 	bool enumerateCatalogForBackend(const QString& backendId, geoalgo::FeatureCatalog& out, QString* err) const;
+
+	bool resolveWorkpieceShapeForBackend(const QString& backendId, geoalgo::ShapeHandle& outShape,
+		geoalgo::WorkpieceRef& outRef, QString* err) const;
 
 	bool autoEnumerateCatalogForCurrentWorkpiece(bool updateEditor, bool quiet, QString* err);
 

@@ -13,7 +13,9 @@
 
 #include "BackendDataManager.h"
 #include "FeatureSpec.h"
+#include "BrepBackendData.h"
 #include "GeometryRef.h"
+#include <ShapeHandle.h>
 #include "PickTypes.h"
 #include "RawTrajectory.h"
 
@@ -630,18 +632,6 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 		exitPickMode();
 		return;
 	}
-	QString stepPath;
-	if (m_stepPathResolver)
-	{
-		stepPath = m_stepPathResolver(expectedBackendId);
-	}
-	if (stepPath.isEmpty())
-	{
-		QMessageBox::warning(this, QStringLiteral("Pick"), QStringLiteral("无 STEP 源路径"));
-		exitPickMode();
-		return;
-	}
-
 	IRobotOsgViewHost* osg = m_host->osgView();
 	geoalgo::Point3d modelA{};
 	geoalgo::Point3d modelB{};
@@ -667,18 +657,9 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 		modelB = modelA;
 	}
 
-	geometry_backend_ops::GeometryRef ref;
-	ref.backendIdUtf8 = expectedBackendId.toStdString();
-	ref.stepPathUtf8 = stepPath.toStdString();
 	geoalgo::WorkpieceRef wp;
+	QString pickErr;
 	std::string err;
-	if (!geometry_backend_ops::resolveGeometryRef(ref, wp, &err))
-	{
-		QMessageBox::warning(this, QStringLiteral("Pick"), QString::fromStdString(err));
-		exitPickMode();
-		return;
-	}
-
 	geoalgo::FeatureKind faceKind = geoalgo::FeatureKind::FaceBoundary;
 	if (kind == PickKind::MeshFace && m_faceKindCombo)
 	{
@@ -689,9 +670,22 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 		}
 	}
 
+	geoalgo::ShapeHandle shape;
+	geoalgo::WorkpieceRef wpResolved;
+	if (!resolveWorkpieceShapeForBackend(expectedBackendId, shape, wpResolved, &pickErr))
+	{
+		QMessageBox::warning(this, QStringLiteral("Pick"), pickErr);
+		exitPickMode();
+		return;
+	}
+	wp = wpResolved;
+
 	geoalgo::FeatureSpec spec;
+	const int knownFaceIndex = pick.brepNativePick && kind == PickKind::MeshFace ? pick.brepFaceIndex : -1;
+	const int knownEdgeIndex = pick.brepNativePick && kind == PickKind::MeshEdge ? pick.brepEdgeIndex : -1;
 	if (!geometry_backend_ops::buildFeatureSpecFromModelPick(
-			wp, kind == PickKind::MeshFace, faceKind, modelA, modelB, spec, &err))
+			wp, shape, kind == PickKind::MeshFace, faceKind, modelA, modelB, spec, &err,
+			knownFaceIndex, knownEdgeIndex))
 	{
 		QMessageBox::warning(this, QStringLiteral("Pick"), QString::fromStdString(err));
 		exitPickMode();
@@ -742,7 +736,12 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 	int stepCount = 0;
 	for (const auto& data : all)
 	{
-		if (!data || data->className() != "Model")
+		if (!data)
+		{
+			continue;
+		}
+		const QString cn = QString::fromStdString(data->className());
+		if (cn != QStringLiteral("Model") && cn != QStringLiteral("BrepModel"))
 		{
 			continue;
 		}
@@ -751,17 +750,24 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 		{
 			continue;
 		}
-		if (!m_stepPathResolver)
+		QString stepPath;
+		if (m_stepPathResolver)
 		{
-			continue;
+			stepPath = m_stepPathResolver(backendId);
 		}
-		const QString stepPath = m_stepPathResolver(backendId);
-		if (stepPath.isEmpty())
+		if (cn == QStringLiteral("Model"))
 		{
-			continue;
+			if (stepPath.isEmpty())
+			{
+				continue;
+			}
+			const QString ext = QFileInfo(stepPath).suffix().toLower();
+			if (ext != QStringLiteral("step") && ext != QStringLiteral("stp"))
+			{
+				continue;
+			}
 		}
-		const QString ext = QFileInfo(stepPath).suffix().toLower();
-		if (ext != QStringLiteral("step") && ext != QStringLiteral("stp"))
+		else if (!std::dynamic_pointer_cast<BrepBackendData>(data) || !data->hasGeometry())
 		{
 			continue;
 		}
@@ -786,40 +792,54 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 	updatePickUiState();
 }
 
+bool FeatureTrajectoryPageWidget::resolveWorkpieceShapeForBackend(const QString& backendId,
+	geoalgo::ShapeHandle& outShape, geoalgo::WorkpieceRef& outRef, QString* err) const
+{
+	outShape = geoalgo::ShapeHandle{};
+	outRef = geoalgo::WorkpieceRef{};
+	if (!m_host)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("Host 未绑定");
+		}
+		return false;
+	}
+	IRobotDocumentHost* doc = m_host->document();
+	if (!doc)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("文档未就绪");
+		}
+		return false;
+	}
+	const QString stepPath = m_stepPathResolver ? m_stepPathResolver(backendId) : QString();
+	std::string stdErr;
+	const auto src = geometry_backend_ops::resolveWorkpieceShape(
+		backendId.toStdString(), doc->backend(), stepPath.toStdString(), outShape, outRef, &stdErr);
+	if (src == geometry_backend_ops::WorkpieceShapeSource::Unavailable)
+	{
+		if (err)
+		{
+			*err = stdErr.empty() ? QStringLiteral("无法解析工件 B-rep") : QString::fromStdString(stdErr);
+		}
+		return false;
+	}
+	return true;
+}
+
 bool FeatureTrajectoryPageWidget::enumerateCatalogForBackend(const QString& backendId,
 	geoalgo::FeatureCatalog& catalog, QString* err) const
 {
-	if (!m_stepPathResolver)
-	{
-		if (err)
-		{
-			*err = QStringLiteral("STEP 路径解析未就绪");
-		}
-		return false;
-	}
-	const QString stepPath = m_stepPathResolver(backendId);
-	if (stepPath.isEmpty())
-	{
-		if (err)
-		{
-			*err = QStringLiteral("无 STEP 源路径");
-		}
-		return false;
-	}
-	geometry_backend_ops::GeometryRef ref;
-	ref.backendIdUtf8 = backendId.toStdString();
-	ref.stepPathUtf8 = stepPath.toStdString();
+	geoalgo::ShapeHandle shape;
 	geoalgo::WorkpieceRef wp;
-	std::string stdErr;
-	if (!geometry_backend_ops::resolveGeometryRef(ref, wp, &stdErr))
+	if (!resolveWorkpieceShapeForBackend(backendId, shape, wp, err))
 	{
-		if (err)
-		{
-			*err = QString::fromStdString(stdErr);
-		}
 		return false;
 	}
-	if (!geometry_backend_ops::enumerateFeatureCatalog(wp, catalog, &stdErr))
+	std::string stdErr;
+	if (!geometry_backend_ops::enumerateFeatureCatalog(wp, shape, catalog, &stdErr))
 	{
 		if (err)
 		{
@@ -1099,8 +1119,18 @@ bool FeatureTrajectoryPageWidget::discretizeFromEditor()
 		return false;
 	}
 
+	geoalgo::ShapeHandle shape;
+	geoalgo::WorkpieceRef wp;
+	QString shapeErr;
+	const QString backendId = m_backendCombo ? m_backendCombo->currentData().toString() : QString();
+	if (!resolveWorkpieceShapeForBackend(backendId, shape, wp, &shapeErr))
+	{
+		QMessageBox::warning(this, QStringLiteral("离散"), shapeErr);
+		return false;
+	}
+
 	geoalgo::RawPath path;
-	if (!geometry_backend_ops::discretizeFeature(spec, path, &err))
+	if (!geometry_backend_ops::discretizeFeature(spec, shape, path, &err))
 	{
 		QMessageBox::warning(this, QStringLiteral("离散"), QString::fromStdString(err));
 		return false;
@@ -1166,12 +1196,25 @@ bool FeatureTrajectoryPageWidget::currentWorkpiece(QString& backendId, QString& 
 		return false;
 	}
 	backendId = m_backendCombo->currentData().toString();
-	if (backendId.isEmpty() || !m_stepPathResolver)
+	if (backendId.isEmpty())
 	{
 		return false;
 	}
-	stepPath = m_stepPathResolver(backendId);
-	return !backendId.isEmpty() && !stepPath.isEmpty();
+	if (m_stepPathResolver)
+	{
+		stepPath = m_stepPathResolver(backendId);
+	}
+	if (m_host && m_host->document())
+	{
+		if (const auto data = m_host->document()->backend().getData(backendId.toStdString()))
+		{
+			if (data->className() == "BrepModel" && data->hasGeometry())
+			{
+				return true;
+			}
+		}
+	}
+	return !stepPath.isEmpty();
 }
 
 bool FeatureTrajectoryPageWidget::buildPreviewOverlayJson(const QByteArray& catalogSliceUtf8,

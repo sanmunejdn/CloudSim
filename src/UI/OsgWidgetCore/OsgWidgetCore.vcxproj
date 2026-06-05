@@ -93,7 +93,7 @@
       <PreprocessorDefinitions>OSGWIDGETCORE_STATIC;BACKENDVISUAL_STATIC;RUN_LOGGER_STATIC;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../../Data/Data/inc;../BackendVisual/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../Data/Data/inc;../BackendVisual/inc;../../Geometry/GeometryAlgorithm/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/OSG3.6.5/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -106,7 +106,7 @@
       <PreprocessorDefinitions>OSGWIDGETCORE_STATIC;BACKENDVISUAL_STATIC;RUN_LOGGER_STATIC;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../../Data/Data/inc;../BackendVisual/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../Data/Data/inc;../BackendVisual/inc;../../Geometry/GeometryAlgorithm/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/OSG3.6.5/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -123,13 +123,13 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>inc;../../Contracts/CloudSimCore/inc;../../Data/Data/inc;../BackendVisual/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../Contracts/CloudSimCore/inc;../../Data/Data/inc;../BackendVisual/inc;../../Geometry/GeometryAlgorithm/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/OSG3.6.5/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>CloudSimCore.lib;BackendVisual.lib;Data.lib;RunLogger.lib;osg.lib;osgDB.lib;osgUtil.lib;osgViewer.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimCore.lib;BackendVisual.lib;Data.lib;GeometryAlgorithm.lib;RunLogger.lib;osg.lib;osgDB.lib;osgUtil.lib;osgViewer.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -145,19 +145,20 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>inc;../../Contracts/CloudSimCore/inc;../../Data/Data/inc;../BackendVisual/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../Contracts/CloudSimCore/inc;../../Data/Data/inc;../BackendVisual/inc;../../Geometry/GeometryAlgorithm/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/OSG3.6.5/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>CloudSimCore.lib;BackendVisual.lib;Data.lib;RunLogger.lib;osg.lib;osgDB.lib;osgUtil.lib;osgViewer.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimCore.lib;BackendVisual.lib;Data.lib;GeometryAlgorithm.lib;RunLogger.lib;osg.lib;osgDB.lib;osgUtil.lib;osgViewer.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="inc\BackendPickIndexRegistry.h" />
     <ClInclude Include="inc\BackendVisualBindingIndex.h" />
+    <ClInclude Include="inc\BrepPickIndex.h" />
     <ClInclude Include="inc\MeshTopologyIndex.h" />
     <ClInclude Include="inc\ObjectGizmoFrame.h" />
     <ClInclude Include="inc\OsgScene.h" />
@@ -171,6 +172,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="source\BackendPickIndexRegistry.cpp" />
+    <ClCompile Include="source\BrepPickIndex.cpp" />
     <ClCompile Include="source\BackendVisualBindingIndex.cpp" />
     <ClCompile Include="source\MeshTopologyIndex.cpp" />
     <ClCompile Include="source\ObjectGizmoFrame.cpp" />
@@ -182,6 +184,7 @@
     <ClCompile Include="source\OsgSceneCamera.cpp" />
     <ClCompile Include="source\OsgSceneSync.cpp" />
     <ClCompile Include="source\OsgScenePick.cpp" />
+    <ClCompile Include="source\OsgSceneBrepPick.cpp" />
     <ClCompile Include="source\PickSpatialIndex.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -196,6 +199,9 @@
     </ProjectReference>
     <ProjectReference Include="..\..\Infra\RunLogger\RunLogger.vcxproj">
       <Project>{35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Geometry\GeometryAlgorithm\GeometryAlgorithm.vcxproj">
+      <Project>{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

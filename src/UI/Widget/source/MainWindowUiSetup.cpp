@@ -24,7 +24,8 @@
 #include "JobSystem.h"
 #include "MainWindowSelectionService.h"
 #include "MainWindow_p.h"
-#include "OsgWidget.h"
+#include "WidgetRenderAccess.h"
+#include "../RobotWidget/inc/IRobotOsgViewHost.h"
 #include "PluginManager.h"
 #include "ProgressManager.h"
 #include "RunInfoPage.h"
@@ -77,6 +78,7 @@ void setupDockTabWidget(QTabWidget* tabs)
 MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	: QMainWindow(parent)
 	, m_appEvents(appEvents)
+	, m_instructionPropertyUiHost(*this)
 {
 	// RunLogger must live in this DLL (same TU as RunInfoPage::setUiSink). The exe used to link RunLogger.lib
 	// separately, which duplicated globals so file logging initialized in main never matched UI / RobotScene.
@@ -214,7 +216,14 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 		m_lightThemeAction->blockSignals(false);
 		m_darkThemeAction->blockSignals(false);
 	}
-	const QString pluginReport = currentOsgWidget() ? currentOsgWidget()->pointCloudPluginReport() : QStringLiteral("Ready");
+	const QString pluginReport = [this]() {
+		DocumentPage* page = currentPage();
+		if (!page)
+		{
+			return QStringLiteral("Ready");
+		}
+		return page->render().pointCloudPluginReport();
+	}();
 	statusBar()->showMessage(pluginReport, 12000);
 	if (m_runInfoPage)
 	{
@@ -284,9 +293,9 @@ void MainWindow::setupMenuBar()
 		{
 			return;
 		}
-		if (OsgWidget* osg = currentOsgWidget())
+		if (IRobotOsgViewHost* view = activeOsgViewHost())
 		{
-			osg->setTransformGizmoFrame(OsgWidget::TransformGizmoFrame::Local);
+			view->setTransformGizmoFrame(1);
 		}
 	});
 	connect(m_gizmoWorldFrameAction, &QAction::triggered, this, [this](bool checked) {
@@ -294,9 +303,9 @@ void MainWindow::setupMenuBar()
 		{
 			return;
 		}
-		if (OsgWidget* osg = currentOsgWidget())
+		if (IRobotOsgViewHost* view = activeOsgViewHost())
 		{
-			osg->setTransformGizmoFrame(OsgWidget::TransformGizmoFrame::World);
+			view->setTransformGizmoFrame(0);
 		}
 	});
 	 m_viewMenu->addSeparator();

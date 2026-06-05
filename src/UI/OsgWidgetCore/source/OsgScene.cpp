@@ -10,6 +10,8 @@
 
 #include "OsgScene.h"
 
+#include <BrepImportArtifacts.h>
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -359,7 +361,7 @@ void OsgScene::initScene()
 	m_meshPickedEdgeGeom->setVertexArray(m_meshPickedEdgeVertices.get());
 	m_meshPickedEdgeGeom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, 2));
 	m_meshPickedEdgeColors = new osg::Vec4Array;
-	m_meshPickedEdgeColors->push_back(osg::Vec4(0.1f, 1.0f, 0.2f, 0.9f));
+	m_meshPickedEdgeColors->push_back(osg::Vec4(1.0f, 0.15f, 0.1f, 0.95f));
 	m_meshPickedEdgeGeom->setColorArray(m_meshPickedEdgeColors.get(), osg::Array::BIND_OVERALL);
 	m_meshPickedEdgeGeom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 	m_meshPickedEdgeGeom->getOrCreateStateSet()->setAttribute(new osg::LineWidth(3.0f));
@@ -411,18 +413,39 @@ void OsgScene::updateWorldAxesHudViewport(int widgetWidth, int widgetHeight)
 
 void OsgScene::bindBackendVisualRoot(const std::string& backendId, osg::Node* rootNode)
 {
+	bindBackendVisualRoot(backendId, rootNode, {});
+}
+
+void OsgScene::bindBackendVisualRoot(
+	const std::string& backendId,
+	osg::Node* rootNode,
+	const std::shared_ptr<const geoalgo::BrepImportArtifacts>& brepArtifacts)
+{
 	m_backendVisualBindings.bindBackendRoot(backendId, rootNode);
-	m_backendPickIndexes.bindBackendRoot(backendId, rootNode);
+	m_backendPickIndexes.bindBackendRoot(backendId, rootNode, brepArtifacts);
 }
 
 void OsgScene::unbindBackendVisualRoot(const std::string& backendId)
 {
+	for (auto it = m_pickVisualAliases.begin(); it != m_pickVisualAliases.end();)
+	{
+		if (it->first == backendId || it->second == backendId)
+		{
+			it = m_pickVisualAliases.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
 	m_backendVisualBindings.unbindBackend(backendId);
 	m_backendPickIndexes.unbindBackend(backendId);
 }
 
 void OsgScene::clearBackendVisualBindings()
 {
+	m_pickVisualAliases.clear();
+	m_backendSkipCenterRebase.clear();
 	m_backendVisualBindings.clear();
 	m_backendPickIndexes.clear();
 }
@@ -443,6 +466,7 @@ bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
 	const double y = static_cast<double>(viewportHeight()) - mouseY;
 	osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
 		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, x, y);
+	intersector->setIntersectionLimit(osgUtil::Intersector::LIMIT_NEAREST);
 	osgUtil::IntersectionVisitor iv(intersector.get());
 	iv.setTraversalMask(kMaskContent);
 	m_viewer->getCamera()->accept(iv);
@@ -1171,7 +1195,8 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 	osg::Vec3f& outCWorld,
 	osg::Vec3f& outNormalWorld,
 	std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld,
-	const std::string* scopeBackendId) const
+	const std::string* scopeBackendId,
+	int* outPickedTriangleIndex) const
 {
 	static const unsigned int kMaskContent = 0x1u;
 	if (!m_viewer.valid() || !m_viewer->getCamera() || !m_root.valid())
@@ -1202,13 +1227,18 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 	}
 	else
 	{
+		double bestDistance = (std::numeric_limits<double>::max)();
 		for (const auto& candidate : intersector->getIntersections())
 		{
 			std::string id;
-			if (resolveBackendIdFromPickedPath(candidate.nodePath, id) && id == *scopeBackendId)
+			if (!resolveBackendIdFromPickedPath(candidate.nodePath, id) || id != *scopeBackendId)
+			{
+				continue;
+			}
+			if (!chosenHit || candidate.ratio < bestDistance)
 			{
 				chosenHit = &candidate;
-				break;
+				bestDistance = candidate.ratio;
 			}
 		}
 		if (!chosenHit)
@@ -1493,6 +1523,21 @@ bool OsgScene::pickMeshFaceByRayIntersection(double mouseX, double mouseY,
 		n.set(0.0f, 0.0f, 1.0f);
 	}
 	outNormalWorld = n;
+	if (outPickedTriangleIndex)
+	{
+		if (haveHitTriIndex)
+		{
+			*outPickedTriangleIndex = static_cast<int>(hitTriIndex);
+		}
+		else if (hit.primitiveIndex >= 0)
+		{
+			*outPickedTriangleIndex = hit.primitiveIndex;
+		}
+		else
+		{
+			*outPickedTriangleIndex = -1;
+		}
+	}
 	return true;
 }
 
@@ -1611,8 +1656,17 @@ void OsgScene::showMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld)
 		m_meshPickedFaceGeom->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertsWorld.size())));
 	}
 
-	m_meshPickedEdgeVertices->at(0) = osg::Vec3f(0.0f, 0.0f, 0.0f);
-	m_meshPickedEdgeVertices->at(1) = osg::Vec3f(0.0f, 0.0f, 0.0f);
+	m_meshPickedEdgeVertices->clear();
+	m_meshPickedEdgeVertices->push_back(osg::Vec3f(0.0f, 0.0f, 0.0f));
+	m_meshPickedEdgeVertices->push_back(osg::Vec3f(0.0f, 0.0f, 0.0f));
+	if (m_meshPickedEdgeGeom->getNumPrimitiveSets() > 0)
+	{
+		osg::DrawArrays* daEdge = dynamic_cast<osg::DrawArrays*>(m_meshPickedEdgeGeom->getPrimitiveSet(0));
+		if (daEdge)
+		{
+			daEdge->setCount(0);
+		}
+	}
 
 	if (m_meshPickedFaceGeom.valid())
 	{
@@ -1621,6 +1675,7 @@ void OsgScene::showMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld)
 	}
 	if (m_meshPickedEdgeGeom.valid())
 	{
+		m_meshPickedEdgeVertices->dirty();
 		m_meshPickedEdgeGeom->dirtyDisplayList();
 		m_meshPickedEdgeGeom->dirtyBound();
 	}
@@ -1638,6 +1693,15 @@ void OsgScene::showMeshFaceHighlight(const osg::Vec3f& aWorld, const osg::Vec3f&
 
 void OsgScene::showMeshEdgeHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld)
 {
+	showMeshEdgeHighlight(std::vector<osg::Vec3f>{aWorld, bWorld});
+}
+
+void OsgScene::showMeshEdgeHighlight(const std::vector<osg::Vec3f>& polylineWorld)
+{
+	if (polylineWorld.size() < 2U)
+	{
+		return;
+	}
 	if (!m_meshPickOverlayGroup.valid() || !m_meshPickedFaceVertices.valid() || !m_meshPickedEdgeVertices.valid())
 	{
 		return;
@@ -1646,21 +1710,51 @@ void OsgScene::showMeshEdgeHighlight(const osg::Vec3f& aWorld, const osg::Vec3f&
 	constexpr unsigned int kMaskHelper = 0x2u;
 	m_meshPickOverlayGroup->setNodeMask(kMaskHelper);
 
-	// Overlay vertices are set in world space, because m_meshPickOverlayGroup is attached to m_root.
-	m_meshPickedEdgeVertices->at(0) = aWorld;
-	m_meshPickedEdgeVertices->at(1) = bWorld;
+	m_meshPickedEdgeVertices->clear();
+	m_meshPickedEdgeVertices->reserve(polylineWorld.size());
+	for (const osg::Vec3f& v : polylineWorld)
+	{
+		m_meshPickedEdgeVertices->push_back(v);
+	}
 
-	m_meshPickedFaceVertices->at(0) = osg::Vec3f(0.0f, 0.0f, 0.0f);
-	m_meshPickedFaceVertices->at(1) = osg::Vec3f(0.0f, 0.0f, 0.0f);
-	m_meshPickedFaceVertices->at(2) = osg::Vec3f(0.0f, 0.0f, 0.0f);
+	m_meshPickedFaceVertices->clear();
+	m_meshPickedFaceVertices->push_back(osg::Vec3f(0.0f, 0.0f, 0.0f));
+
+	if (m_meshPickedEdgeGeom->getNumPrimitiveSets() > 0)
+	{
+		osg::DrawArrays* da = dynamic_cast<osg::DrawArrays*>(m_meshPickedEdgeGeom->getPrimitiveSet(0));
+		if (da)
+		{
+			da->setFirst(0);
+			da->setCount(static_cast<GLsizei>(polylineWorld.size()));
+			da->setMode(GL_LINE_STRIP);
+		}
+		else
+		{
+			m_meshPickedEdgeGeom->removePrimitiveSet(0, m_meshPickedEdgeGeom->getNumPrimitiveSets());
+			m_meshPickedEdgeGeom->addPrimitiveSet(
+				new osg::DrawArrays(GL_LINE_STRIP, 0, static_cast<GLsizei>(polylineWorld.size())));
+		}
+	}
+	else
+	{
+		m_meshPickedEdgeGeom->addPrimitiveSet(
+			new osg::DrawArrays(GL_LINE_STRIP, 0, static_cast<GLsizei>(polylineWorld.size())));
+	}
 
 	if (m_meshPickedFaceGeom.valid())
 	{
+		osg::DrawArrays* daFace = dynamic_cast<osg::DrawArrays*>(m_meshPickedFaceGeom->getPrimitiveSet(0));
+		if (daFace)
+		{
+			daFace->setCount(0);
+		}
 		m_meshPickedFaceGeom->dirtyDisplayList();
 		m_meshPickedFaceGeom->dirtyBound();
 	}
 	if (m_meshPickedEdgeGeom.valid())
 	{
+		m_meshPickedEdgeVertices->dirty();
 		m_meshPickedEdgeGeom->dirtyDisplayList();
 		m_meshPickedEdgeGeom->dirtyBound();
 	}

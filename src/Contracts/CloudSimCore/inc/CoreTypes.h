@@ -4,9 +4,11 @@
 
 #include <QJsonObject>
 #include <QString>
+#include <QStringList>
 #include <QVector>
 
 #include <array>
+#include <functional>
 
 namespace cloudsim::core {
 
@@ -73,6 +75,8 @@ struct ImportOptionsDto
 	ObjectId parentId;
 	/// 工程稳定 id
 	ObjectId persistedId;
+	/// 网格导入精度：0=Coarse，1=Medium，2=Fine（STL/OBJ/PLY/OFF）
+	int meshImportQuality = 1;
 };
 
 /// 规划结果
@@ -143,12 +147,101 @@ struct BackendObjectDto
 	BBoxDto bbox;
 };
 
+/// 物体变换 gizmo：世界轴 / 局部轴
+enum class TransformGizmoFrameDto
+{
+	World,
+	Local,
+};
+
+using RobotBaseWorldResolver = std::function<bool(Mat4& outRobotBaseWorldColumnMajor)>;
+
 /// Follow 求解上下文（UI 策略经 DTO 传入 Host）
 struct FollowSolveContextDto
 {
 	bool skipAll = false;
 	ObjectId gizmoSelectedBackendId;
 	ObjectId manualPoseAuthorityBackendId;
+};
+
+/// 场景标注快照（树/UI 用，无 OSG 类型）
+struct AnnotationSnapshotDto
+{
+	QString id;
+	QString displayText;
+	bool visible = true;
+};
+
+/// 指令路点叠加轴（仿真预览）
+struct InstructionPoseAxisDto
+{
+	Vec3 positionMm;
+	Vec3 eulerDeg;
+	bool lineMotion = false;
+	bool reachable = true;
+	QString robotBackendId;
+	QString backendId;
+	bool mountTcpOnPatRoot = false;
+	bool hasLocalMatrix = false;
+	Mat4 localMatrix{};
+	QString urdfTcpAttachLinkName;
+};
+
+struct RawTrajectoryOverlayVertexDto
+{
+	Vec3 positionMm;
+	bool reachable = true;
+};
+
+struct RawTrajectoryOverlayFrameDto
+{
+	Vec3 positionMm;
+	Vec3 eulerDeg;
+	bool reachable = true;
+};
+
+struct FeatureCatalogOverlayItemDto
+{
+	int displayIndex = 0;
+	Vec3 anchorWorldMm;
+	Vec3 labelWorldMm;
+	bool hasEdgeSegment = false;
+	Vec3 edgeAWorldMm;
+	Vec3 edgeBWorldMm;
+};
+
+struct RobotFrameOverlayUpdateDto
+{
+	QString robotRootBackendId;
+	bool showToolFrames = false;
+	struct ToolEntryDto
+	{
+		QString name;
+		QString mountBackendId;
+		Mat4 localMatrix{};
+		bool active = false;
+	};
+	QVector<ToolEntryDto> toolFrames;
+	bool showUserFrames = false;
+	struct UserEntryDto
+	{
+		QString name;
+		QString mountBackendId;
+		Mat4 localMatrix{};
+	};
+	QVector<UserEntryDto> userFrames;
+};
+
+/// 运动指令可行轴配置枚举（Widget 不依赖 RobotScene 类型）
+struct FeasibleMotionAxisOptionsDto
+{
+	QStringList presetTokens;
+	QStringList elbowTokens;
+	QStringList wristTokens;
+	QStringList armTokens;
+	QStringList turnJ1Tokens;
+	QStringList turnJ4Tokens;
+	QStringList turnJ6Tokens;
 };
 
 } // namespace cloudsim::core

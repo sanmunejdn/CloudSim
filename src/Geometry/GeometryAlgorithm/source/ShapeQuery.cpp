@@ -4,6 +4,7 @@
 #include "Discretize.h"
 #include "Intersection.h"
 #include "MeshDiscretize.h"
+#include "ShapeHandle.h"
 #include "ShapeIo.h"
 #include "ShapeQuery.h"
 #include "ShellOps.h"
@@ -299,19 +300,192 @@ gp_Pnt toGpPnt(const Point3d& p)
 	return gp_Pnt(p.x, p.y, p.z);
 }
 
+gp_Dir toGpDir(const Point3d& d)
+{
+	const double len = std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
+	if (len < 1e-12)
+	{
+		return gp_Dir(0.0, 0.0, 1.0);
+	}
+	return gp_Dir(d.x / len, d.y / len, d.z / len);
+}
+
+int faceIndexOfFace(const TopoDS_Shape& shape, const TopoDS_Face& target)
+{
+	int idx = 0;
+	for (TopExp_Explorer exp(shape, TopAbs_FACE); exp.More(); exp.Next(), ++idx)
+	{
+		if (TopoDS::Face(exp.Current()).IsSame(target))
+		{
+			return idx;
+		}
+	}
+	return -1;
+}
+
+int edgeIndexOfEdge(const TopoDS_Shape& shape, const TopoDS_Edge& target)
+{
+	int idx = 0;
+	for (TopExp_Explorer exp(shape, TopAbs_EDGE); exp.More(); exp.Next(), ++idx)
+	{
+		if (TopoDS::Edge(exp.Current()).IsSame(target))
+		{
+			return idx;
+		}
+	}
+	return -1;
+}
+
+bool nativeShapeOrErr(const ShapeHandle& handle, TopoDS_Shape& out, std::string* errMsg)
+{
+	if (handle.isNull())
+	{
+		if (errMsg)
+		{
+			*errMsg = "null shape";
+		}
+		return false;
+	}
+	if (!ShapeHandleAccess::nativeShape(handle, &out))
+	{
+		if (errMsg)
+		{
+			*errMsg = "shape access failed";
+		}
+		return false;
+	}
+	return true;
+}
+
+double edgeDistanceToPointMm(const TopoDS_Edge& edge, const gp_Pnt& query, gp_Pnt& outClosest)
+{
+	BRepAdaptor_Curve curve(edge);
+	const Handle(Geom_Curve) geom = curve.Curve().Curve();
+	if (geom.IsNull())
+	{
+		return (std::numeric_limits<double>::max)();
+	}
+	GeomAPI_ProjectPointOnCurve proj(query, geom);
+	if (proj.NbPoints() < 1)
+	{
+		return (std::numeric_limits<double>::max)();
+	}
+	outClosest = proj.NearestPoint();
+	return proj.LowerDistance();
+}
+
+bool shapeRayParameterRange(const TopoDS_Shape& shape, const gp_Lin& line, Standard_Real& tInf, Standard_Real& tSup)
+{
+	Bnd_Box box;
+	BRepBndLib::Add(shape, box);
+	if (box.IsVoid())
+	{
+		tInf = -1.0e6;
+		tSup = 1.0e6;
+		return false;
+	}
+	Standard_Real xmin = 0.0;
+	Standard_Real ymin = 0.0;
+	Standard_Real zmin = 0.0;
+	Standard_Real xmax = 0.0;
+	Standard_Real ymax = 0.0;
+	Standard_Real zmax = 0.0;
+	box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+	const gp_Pnt corners[8] = {
+		gp_Pnt(xmin, ymin, zmin),
+		gp_Pnt(xmax, ymin, zmin),
+		gp_Pnt(xmin, ymax, zmin),
+		gp_Pnt(xmax, ymax, zmin),
+		gp_Pnt(xmin, ymin, zmax),
+		gp_Pnt(xmax, ymin, zmax),
+		gp_Pnt(xmin, ymax, zmax),
+		gp_Pnt(xmax, ymax, zmax),
+	};
+	tInf = (std::numeric_limits<Standard_Real>::max)();
+	tSup = -(std::numeric_limits<Standard_Real>::max)();
+	for (const gp_Pnt& corner : corners)
+	{
+		const Standard_Real t = ElCLib::Parameter(line, corner);
+		if (t < tInf)
+		{
+			tInf = t;
+		}
+		if (t > tSup)
+		{
+			tSup = t;
+		}
+	}
+	const Standard_Real span = tSup - tInf;
+	const Standard_Real margin = (span > 1e-6) ? span * 0.05 : 100.0;
+	tInf -= margin;
+	tSup += margin;
+	return true;
+}
+
+bool pickClosestEdgeInExplorer(
+	const TopoDS_Shape& shape,
+	const TopExp_Explorer& edgeExpStart,
+	const gp_Pnt& query,
+	const double toleranceMm,
+	int& outEdgeIdx,
+	gp_Pnt& outClosest)
+{
+	TopTools_IndexedMapOfShape edgeMap;
+	TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
+	double bestDist = (std::numeric_limits<double>::max)();
+	int bestIdx = -1;
+	gp_Pnt bestPt;
+	for (TopExp_Explorer exp = edgeExpStart; exp.More(); exp.Next())
+	{
+		const TopoDS_Edge edge = TopoDS::Edge(exp.Current());
+		const int globalIdx = edgeMap.FindIndex(edge) - 1;
+		if (globalIdx < 0)
+		{
+			continue;
+		}
+		gp_Pnt closest;
+		const double dist = edgeDistanceToPointMm(edge, query, closest);
+		if (dist < bestDist)
+		{
+			bestDist = dist;
+			bestIdx = globalIdx;
+			bestPt = closest;
+		}
+	}
+	if (bestIdx < 0 || bestDist > toleranceMm)
+	{
+		return false;
+	}
+	outEdgeIdx = bestIdx;
+	outClosest = bestPt;
+	return true;
+}
+
 } // namespace
 
-bool resolveStepFaceIndexFromModelPoint(
-	const std::string& stepPathUtf8,
+bool resolveFaceIndexFromModelPoint(
+	const ShapeHandle& shapeHandle,
 	const Point3d& modelPointMm,
 	int& outFaceIndex,
 	const double toleranceMm,
 	std::string* errMsg)
 {
 	outFaceIndex = -1;
-	TopoDS_Shape shape;
-	if (!loadStepOrErr(stepPathUtf8, shape, errMsg))
+	if (shapeHandle.isNull())
 	{
+		if (errMsg)
+		{
+			*errMsg = "null shape";
+		}
+		return false;
+	}
+	TopoDS_Shape shape;
+	if (!ShapeHandleAccess::nativeShape(shapeHandle, &shape))
+	{
+		if (errMsg)
+		{
+			*errMsg = "shape access failed";
+		}
 		return false;
 	}
 	const gp_Pnt query = toGpPnt(modelPointMm);
@@ -350,8 +524,23 @@ bool resolveStepFaceIndexFromModelPoint(
 	return true;
 }
 
-bool resolveStepEdgeIndexFromModelPoints(
+bool resolveStepFaceIndexFromModelPoint(
 	const std::string& stepPathUtf8,
+	const Point3d& modelPointMm,
+	int& outFaceIndex,
+	const double toleranceMm,
+	std::string* errMsg)
+{
+	ShapeHandle handle;
+	if (!readStepIntoHandle(stepPathUtf8, handle, errMsg))
+	{
+		return false;
+	}
+	return resolveFaceIndexFromModelPoint(handle, modelPointMm, outFaceIndex, toleranceMm, errMsg);
+}
+
+bool resolveEdgeIndexFromModelPoints(
+	const ShapeHandle& shapeHandle,
 	const Point3d& modelPointA,
 	const Point3d& modelPointB,
 	int& outEdgeIndex,
@@ -359,9 +548,21 @@ bool resolveStepEdgeIndexFromModelPoints(
 	std::string* errMsg)
 {
 	outEdgeIndex = -1;
-	TopoDS_Shape shape;
-	if (!loadStepOrErr(stepPathUtf8, shape, errMsg))
+	if (shapeHandle.isNull())
 	{
+		if (errMsg)
+		{
+			*errMsg = "null shape";
+		}
+		return false;
+	}
+	TopoDS_Shape shape;
+	if (!ShapeHandleAccess::nativeShape(shapeHandle, &shape))
+	{
+		if (errMsg)
+		{
+			*errMsg = "shape access failed";
+		}
 		return false;
 	}
 	const gp_Pnt query(
@@ -396,6 +597,243 @@ bool resolveStepEdgeIndexFromModelPoints(
 		return false;
 	}
 	outEdgeIndex = bestIdx;
+	return true;
+}
+
+bool resolveStepEdgeIndexFromModelPoints(
+	const std::string& stepPathUtf8,
+	const Point3d& modelPointA,
+	const Point3d& modelPointB,
+	int& outEdgeIndex,
+	const double toleranceMm,
+	std::string* errMsg)
+{
+	ShapeHandle handle;
+	if (!readStepIntoHandle(stepPathUtf8, handle, errMsg))
+	{
+		return false;
+	}
+	return resolveEdgeIndexFromModelPoints(handle, modelPointA, modelPointB, outEdgeIndex, toleranceMm, errMsg);
+}
+
+bool pickShapeFaceByModelRay(
+	const ShapeHandle& shapeHandle,
+	const Point3d& rayOriginMm,
+	const Point3d& rayDirUnit,
+	ShapeRayPickResult& out,
+	std::string* errMsg)
+{
+	out = ShapeRayPickResult{};
+	TopoDS_Shape shape;
+	if (!nativeShapeOrErr(shapeHandle, shape, errMsg))
+	{
+		return false;
+	}
+	const gp_Pnt origin = toGpPnt(rayOriginMm);
+	const gp_Lin line(origin, toGpDir(rayDirUnit));
+	Standard_Real tInf = 0.0;
+	Standard_Real tSup = 0.0;
+	shapeRayParameterRange(shape, line, tInf, tSup);
+	IntCurvesFace_ShapeIntersector intersector;
+	intersector.Load(shape, 1e-7);
+	intersector.Perform(line, tInf, tSup);
+	if (!intersector.IsDone() || intersector.NbPnt() < 1)
+	{
+		if (errMsg)
+		{
+			*errMsg = "ray does not hit B-rep face";
+		}
+		return false;
+	}
+	Standard_Integer bestIdx = 1;
+	Standard_Real bestW = intersector.WParameter(1);
+	for (Standard_Integer i = 2; i <= intersector.NbPnt(); ++i)
+	{
+		const Standard_Real w = intersector.WParameter(i);
+		if (w < bestW)
+		{
+			bestW = w;
+			bestIdx = i;
+		}
+	}
+	const TopoDS_Face face = intersector.Face(bestIdx);
+	const gp_Pnt hit = intersector.Pnt(bestIdx);
+	const int faceIdx = faceIndexOfFace(shape, face);
+	if (faceIdx < 0)
+	{
+		if (errMsg)
+		{
+			*errMsg = "picked face index unresolved";
+		}
+		return false;
+	}
+	out.hit = true;
+	out.faceIndex = faceIdx;
+	out.hitPointModelMm = {hit.X(), hit.Y(), hit.Z()};
+	return true;
+}
+
+bool pickShapeEdgeByModelPoint(
+	const ShapeHandle& shapeHandle,
+	const Point3d& queryPointModelMm,
+	const double toleranceMm,
+	ShapeRayPickResult& out,
+	std::string* errMsg)
+{
+	out = ShapeRayPickResult{};
+	TopoDS_Shape shape;
+	if (!nativeShapeOrErr(shapeHandle, shape, errMsg))
+	{
+		return false;
+	}
+
+	const gp_Pnt query = toGpPnt(queryPointModelMm);
+	int faceIdx = -1;
+	const bool haveFace = resolveFaceIndexFromModelPoint(shapeHandle, queryPointModelMm, faceIdx, toleranceMm, nullptr);
+
+	int edgeIdx = -1;
+	gp_Pnt closest;
+	if (haveFace && faceIdx >= 0)
+	{
+		TopoDS_Face face;
+		if (shapeFaceAtIndex(shape, faceIdx, face, errMsg))
+		{
+			if (pickClosestEdgeInExplorer(shape, TopExp_Explorer(face, TopAbs_EDGE), query, toleranceMm, edgeIdx, closest))
+			{
+				out.hit = true;
+				out.faceIndex = faceIdx;
+				out.edgeIndex = edgeIdx;
+				out.hitPointModelMm = queryPointModelMm;
+				out.edgePointModelMm = {closest.X(), closest.Y(), closest.Z()};
+				return true;
+			}
+		}
+	}
+
+	if (pickClosestEdgeInExplorer(shape, TopExp_Explorer(shape, TopAbs_EDGE), query, toleranceMm, edgeIdx, closest))
+	{
+		out.hit = true;
+		out.edgeIndex = edgeIdx;
+		out.hitPointModelMm = queryPointModelMm;
+		out.edgePointModelMm = {closest.X(), closest.Y(), closest.Z()};
+		if (haveFace)
+		{
+			out.faceIndex = faceIdx;
+		}
+		return true;
+	}
+
+	if (errMsg)
+	{
+		*errMsg = "no B-rep edge within tolerance";
+	}
+	return false;
+}
+
+bool pickShapeEdgeByModelRay(
+	const ShapeHandle& shapeHandle,
+	const Point3d& rayOriginMm,
+	const Point3d& rayDirUnit,
+	const double toleranceMm,
+	ShapeRayPickResult& out,
+	std::string* errMsg)
+{
+	TopoDS_Shape shape;
+	if (!nativeShapeOrErr(shapeHandle, shape, errMsg))
+	{
+		return false;
+	}
+
+	Bnd_Box box;
+	BRepBndLib::Add(shape, box);
+	Point3d queryPoint = rayOriginMm;
+	if (!box.IsVoid())
+	{
+		Standard_Real xmin = 0.0;
+		Standard_Real ymin = 0.0;
+		Standard_Real zmin = 0.0;
+		Standard_Real xmax = 0.0;
+		Standard_Real ymax = 0.0;
+		Standard_Real zmax = 0.0;
+		box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+		const gp_Pnt center((xmin + xmax) * 0.5, (ymin + ymax) * 0.5, (zmin + zmax) * 0.5);
+		const gp_Pnt origin = toGpPnt(rayOriginMm);
+		const gp_Dir dir = toGpDir(rayDirUnit);
+		const gp_Vec offset(origin, center);
+		const Standard_Real t = offset.Dot(gp_Vec(dir));
+		queryPoint = {
+			rayOriginMm.x + t * dir.X(),
+			rayOriginMm.y + t * dir.Y(),
+			rayOriginMm.z + t * dir.Z(),
+		};
+	}
+
+	return pickShapeEdgeByModelPoint(shapeHandle, queryPoint, toleranceMm, out, errMsg);
+}
+
+bool validateShapeFaceIndex(const ShapeHandle& shapeHandle, const int faceIndex, std::string* errMsg)
+{
+	TopoDS_Shape shape;
+	if (!nativeShapeOrErr(shapeHandle, shape, errMsg))
+	{
+		return false;
+	}
+	TopoDS_Face face;
+	return shapeFaceAtIndex(shape, faceIndex, face, errMsg);
+}
+
+bool validateShapeEdgeIndex(const ShapeHandle& shapeHandle, const int edgeIndex, std::string* errMsg)
+{
+	TopoDS_Shape shape;
+	if (!nativeShapeOrErr(shapeHandle, shape, errMsg))
+	{
+		return false;
+	}
+	TopoDS_Edge edge;
+	return shapeEdgeAtIndex(shape, edgeIndex, edge, errMsg);
+}
+
+bool collectShapeFaceEdgeIndices(
+	const ShapeHandle& shapeHandle,
+	std::vector<std::vector<int>>& outFaceEdgeIndices,
+	std::string* errMsg)
+{
+	outFaceEdgeIndices.clear();
+	TopoDS_Shape shape;
+	if (!nativeShapeOrErr(shapeHandle, shape, errMsg))
+	{
+		return false;
+	}
+	const int faceCount = shapeFaceCount(shape);
+	if (faceCount <= 0)
+	{
+		if (errMsg)
+		{
+			*errMsg = "shape has no faces";
+		}
+		return false;
+	}
+	TopTools_IndexedMapOfShape edgeMap;
+	TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
+	outFaceEdgeIndices.resize(static_cast<std::size_t>(faceCount));
+	for (int faceIdx = 0; faceIdx < faceCount; ++faceIdx)
+	{
+		TopoDS_Face face;
+		if (!shapeFaceAtIndex(shape, faceIdx, face, errMsg))
+		{
+			return false;
+		}
+		std::vector<int>& edges = outFaceEdgeIndices[static_cast<std::size_t>(faceIdx)];
+		for (TopExp_Explorer exp(face, TopAbs_EDGE); exp.More(); exp.Next())
+		{
+			const TopoDS_Edge edge = TopoDS::Edge(exp.Current());
+			const int edgeIdx = edgeMap.FindIndex(edge) - 1;
+			if (edgeIdx >= 0)
+			{
+				edges.push_back(edgeIdx);
+			}
+		}
+	}
 	return true;
 }
 

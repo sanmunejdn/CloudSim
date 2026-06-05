@@ -1,7 +1,6 @@
 #include "DocumentPage.h"
 
 #include "BackendSceneDocumentFacade.h"
-#include "WidgetDocumentAccess.h"
 #include "EventHub.h"
 #include "RobotProgramStore.h"
 
@@ -14,7 +13,6 @@
 
 #include "IDataService.h"
 #include "IRobotBackendPoseSink.h"
-#include "OsgWidget.h"
 
 #include <memory>
 #include <unordered_map>
@@ -27,14 +25,9 @@ DocumentPage::DocumentPage(QTabWidget* parentTabs, cloudsim::core::EventHub& eve
 	setRobotUrdfImportContext(this);
 }
 
-OsgWidget* DocumentPage::urdfImportOsgWidget()
-{
-	return widgetOsgFromPage(this);
-}
-
 IRobotBackendPoseSink* DocumentPage::urdfImportScenePoseSink()
 {
-	return static_cast<IRobotBackendPoseSink*>(widgetOsgFromPage(this));
+	return sceneFacade().poseSink();
 }
 
 void DocumentPage::rebuildHierarchicalRobotAggregates()

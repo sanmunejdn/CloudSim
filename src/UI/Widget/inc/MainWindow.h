@@ -17,12 +17,13 @@
 #include "BackendFollowSolve.h"
 #include "MainWindowSelectionState.h"
 #include "DocumentHost.h"
+#include "CoreTypes.h"
 #include "IPluginMainWindowHost.h"
+#include "MainWindowInstructionPropertyUiHost.h"
 
 #include <json.hpp>
 
 class QWidget;
-class OsgWidget;
 class DocumentPage;
 namespace osg { class Matrixd; }
 class QTabWidget;
@@ -44,6 +45,8 @@ class JobSystem;
 class DevicePageWidget;
 class RobotSimulationController;
 class MainWindowRobotHost;
+class MainWindowInstructionPropertyUiHost;
+class IRobotOsgViewHost;
 class MainWindowSelectionService;
 class MainWindowObjectRepository;
 class AiAssistantDockWidget;
@@ -105,7 +108,8 @@ public:
 	QObject* pluginActionParent() override { return this; }
 	QDockWidget* addPluginDockWidget(const QString& title, QWidget* widget, Qt::DockWidgetArea area) override;
 	JobSystem* jobSystem();
-	OsgWidget* currentOsgWidget() override;
+	int meshImportQuality() const { return m_meshImportQuality; }
+	void setMeshImportQuality(int quality) { m_meshImportQuality = quality; }
 	void focusBackendInTree(const std::string& backendId) override;
 	void focusBackendInTreeAfterImport(const QString& backendId) override;
 	class SimulationCommandWidget* simulationCommandPage() const;
@@ -135,6 +139,7 @@ private:
 	friend class MainWindowObjectRepository;
 	friend class PluginHostContext;
 	friend class MainWindowRobotHost;
+	friend void wireMainWindowDocumentSceneSignals(MainWindow& mw, DocumentPage* page, MainWindowRobotHost* robotHost);
 	void setupMenuBar();
 	void setupDockWidgets();
 	void applyLanguage();
@@ -158,6 +163,8 @@ private:
 		const std::shared_ptr<RobotInstruction::Base>& instruction,
 		const QVector<double>& seedJointRad,
 		const RobotInstruction::FeasibleMotionAxisConfigurationOptions& feasible);
+
+	friend class MainWindowInstructionPropertyUiHost;
 	void appendPropertyBrowserRow(
 		const QString& propertyKey,
 		const QString& displayLabel,
@@ -233,13 +240,12 @@ private:
 
 	BackendHierarchyModel* activeHierarchyModel();
 	const BackendHierarchyModel* activeHierarchyModel() const;
-	OsgWidget* currentOsgWidget() const;
 	JobSystem* jobSystem() const;
 	void wireDocumentPageSignals(DocumentPage* page);
 	void installBackendFollowFrameHook(DocumentPage* page);
-	void runBackendFollowSolveAndSync(DocumentPage& page, OsgWidget& osg,
-		const std::string* manualPoseAuthorityBackendId = nullptr);
-	cloudsim::host::FollowSolveContext makeFollowSolveContext(OsgWidget& osg) const;
+	IRobotOsgViewHost* activeOsgViewHost();
+	cloudsim::core::FollowSolveContextDto makeFollowSolveContextDto(DocumentPage& page) const;
+	void runFollowSolveAndSyncForPage(DocumentPage& page, const std::string* manualPoseAuthorityBackendId = nullptr);
 	/// 属性编辑防抖全量重建（避免每步 spin 都 clear）
 	void schedulePropertyPanelCommitRefresh(const QString& backendId);
 	void refreshFollowSolveAndPropertyPanelFromOsgWrite(const QString& backendId);
@@ -297,6 +303,7 @@ private:
 	QTabWidget* m_unitDockTabs = nullptr;
 	std::unique_ptr<RobotSimulationController> m_robotSimulation;
 	std::unique_ptr<MainWindowRobotHost> m_robotHost;
+	MainWindowInstructionPropertyUiHost m_instructionPropertyUiHost;
 	QTimer m_robotSimTimer;
 	QTimer m_followTargetNameDebounceTimer;
 	QTimer m_propertyPanelCommitTimer;
@@ -314,6 +321,7 @@ private:
 	bool m_updatingPropertyBrowser = false;
 	MainWindowSelectionState m_selectionState;
 	JobSystem* m_jobSystem = nullptr;
+	int m_meshImportQuality = 1;
 	PluginManager* m_pluginManager = nullptr;
 	bool m_pluginsLoadStarted = false;
 	QString m_activeAxisName = QStringLiteral("None");

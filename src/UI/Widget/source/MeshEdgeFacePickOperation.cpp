@@ -7,6 +7,37 @@
 #include "OsgWidget.h"
 #include "PickTypes.h"
 
+namespace
+{
+
+bool hoverPickUnchanged(const PickResult& pick, const PickPreviewState& preview, bool faceMode)
+{
+	if (!preview.valid || !preview.result.hit || !pick.hit)
+	{
+		return false;
+	}
+	const PickResult& prev = preview.result;
+	if (pick.backendId != prev.backendId)
+	{
+		return false;
+	}
+	if (faceMode)
+	{
+		if (pick.brepNativePick)
+		{
+			return pick.brepFaceIndex == prev.brepFaceIndex;
+		}
+		return pick.pickedTriangleIndex >= 0 && pick.pickedTriangleIndex == prev.pickedTriangleIndex;
+	}
+	if (pick.brepNativePick)
+	{
+		return pick.brepEdgeIndex == prev.brepEdgeIndex;
+	}
+	return pick.meshEdgeA == prev.meshEdgeA && pick.meshEdgeB == prev.meshEdgeB;
+}
+
+} // namespace
+
 MeshEdgeFacePickOperation::MeshEdgeFacePickOperation(OsgWidget* owner)
 	: SelectionOperation(owner)
 {
@@ -25,6 +56,7 @@ PickQuery MeshEdgeFacePickOperation::makePickQuery(const QPoint& pos) const
 	PickQuery query;
 	query.screenX = pos.x();
 	query.screenY = pos.y();
+	query.hoverPick = true;
 	query.kind = m_owner->m_meshFacePickMode ? PickKind::MeshFace : PickKind::MeshEdge;
 	if (!m_owner->m_activeBackendId.empty())
 	{
@@ -42,6 +74,10 @@ void MeshEdgeFacePickOperation::applyPickResult(const PickResult& pick)
 	if (m_owner->m_meshFacePickMode)
 	{
 		m_owner->showMeshFaceHighlight(pick.meshFaceVertsWorld);
+	}
+	else if (!pick.meshEdgePolylineWorld.empty())
+	{
+		m_owner->showMeshEdgeHighlight(pick.meshEdgePolylineWorld);
 	}
 	else
 	{
@@ -86,13 +122,23 @@ bool MeshEdgeFacePickOperation::onMouseMove(QMouseEvent* mouseEvent)
 	{
 		return false;
 	}
-	if (ViewportGestureRecognizer::shouldThrottleHover(m_owner->m_feedbackTimer))
+	const int hoverThrottleMs = m_owner->m_meshFacePickMode
+		? OsgScene::kPickHoverThrottleMs
+		: OsgScene::kPickHoverEdgeThrottleMs;
+	if (ViewportGestureRecognizer::shouldThrottleHover(m_owner->m_feedbackTimer, hoverThrottleMs))
 	{
 		return true;
 	}
 
 	const bool inClickHold = m_gesture.inClickHold(m_clickHoldTimer);
 	const PickResult pick = m_owner->queryPick(makePickQuery(mouseEvent->pos()));
+
+	if (pick.hit && hoverPickUnchanged(pick, m_preview, m_owner->m_meshFacePickMode))
+	{
+		emitMeshFeedback(false, pick);
+		m_owner->m_feedbackTimer.restart();
+		return true;
+	}
 
 	if (pick.hit)
 	{
@@ -128,7 +174,9 @@ bool MeshEdgeFacePickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 	PickResult pick = (m_preview.valid && m_preview.result.hit) ? m_preview.result : PickResult{};
 	if (!pick.hit)
 	{
-		pick = m_owner->queryPick(makePickQuery(mouseEvent->pos()));
+		PickQuery query = makePickQuery(mouseEvent->pos());
+		query.hoverPick = false;
+		pick = m_owner->queryPick(query);
 	}
 	if (pick.hit)
 	{

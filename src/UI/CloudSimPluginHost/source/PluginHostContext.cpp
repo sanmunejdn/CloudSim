@@ -9,6 +9,7 @@
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BrepBackendData.h"
 #include "BackendPrimitiveGeometry.h"
 #include "BackendRegistry.h"
 #include "CloudSimPluginVersion.h"
@@ -18,7 +19,7 @@
 #include "MeshBoolean.h"
 #include "BackendFollowMath.h"
 #include "BackendSceneDocumentFacade.h"
-#include "OsgWidget.h"
+#include "IRenderView.h"
 #include "PluginDelegatedBackend.h"
 #include "PluginDocumentAdapter.h"
 #include "Ai/AiAssistantHostImpl.h"
@@ -720,14 +721,16 @@ bool PluginHostContext::captureActiveViewportPng(QByteArray& outPng, QString* ou
 			*outError = QStringLiteral("主窗口未就绪");
 		return false;
 	}
-	OsgWidget* osg = m_mainWindowHost->currentOsgWidget();
-	if (!osg)
+	cloudsim::host::DocumentHost* host = m_mainWindowHost->currentDocumentHost();
+	if (!host)
 	{
 		if (outError)
+		{
 			*outError = QStringLiteral("请先打开含 3D 视口的文档");
+		}
 		return false;
 	}
-	return osg->captureViewportPng(outPng, outError);
+	return host->render().captureViewportPng(outPng, outError);
 }
 
 bool PluginHostContext::resolveTrajectoryWorkpiece(QString& outBackendId, QString& outStepPath, QString* outError)
@@ -756,29 +759,38 @@ bool PluginHostContext::buildTrajectoryFeatureCatalogSlice(const QString& backen
 {
 	outFullCatalogUtf8.clear();
 	outSliceUtf8.clear();
-	if (backendId.isEmpty() || stepPathUtf8.isEmpty())
+	if (backendId.isEmpty())
 	{
 		if (outError)
 		{
-			*outError = QStringLiteral("STEP 工件无效");
+			*outError = QStringLiteral("工件无效");
 		}
 		return false;
 	}
-	geometry_backend_ops::GeometryRef ref;
-	ref.backendIdUtf8 = backendId.toStdString();
-	ref.stepPathUtf8 = stepPathUtf8.toStdString();
-	geoalgo::WorkpieceRef wp;
-	std::string err;
-	if (!geometry_backend_ops::resolveGeometryRef(ref, wp, &err))
+	cloudsim::host::DocumentHost* page = m_mainWindowHost ? m_mainWindowHost->currentDocumentHost() : nullptr;
+	if (!page)
 	{
 		if (outError)
 		{
-			*outError = QString::fromStdString(err);
+			*outError = QStringLiteral("无活动文档");
+		}
+		return false;
+	}
+	geoalgo::ShapeHandle shape;
+	geoalgo::WorkpieceRef wp;
+	std::string err;
+	const geometry_backend_ops::WorkpieceShapeSource src = geometry_backend_ops::resolveWorkpieceShape(
+		backendId.toStdString(), page->backend(), stepPathUtf8.toStdString(), shape, wp, &err);
+	if (src == geometry_backend_ops::WorkpieceShapeSource::Unavailable)
+	{
+		if (outError)
+		{
+			*outError = err.empty() ? QStringLiteral("无法解析工件 B-rep") : QString::fromStdString(err);
 		}
 		return false;
 	}
 	geoalgo::FeatureCatalog catalog;
-	if (!geometry_backend_ops::enumerateFeatureCatalog(wp, catalog, &err))
+	if (!geometry_backend_ops::enumerateFeatureCatalog(wp, shape, catalog, &err))
 	{
 		if (outError)
 		{

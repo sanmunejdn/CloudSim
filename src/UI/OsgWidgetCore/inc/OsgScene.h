@@ -40,6 +40,11 @@ class Geometry;
 
 class BackendDataBase;
 
+namespace geoalgo {
+struct Point3d;
+struct BrepImportArtifacts;
+}
+
 /// OSG 场景图与相机（无 Qt）
 ///
 /// 后端对象绑定、拾取、对象变换罗盘（\c m_gizmoOverlayGroup）及 TCP 示教场景 overlay
@@ -67,6 +72,7 @@ public:
 	static constexpr int kPickDragMoveThresholdPx = 25;
 	static constexpr int kPickClickHoldMs = 150;
 	static constexpr int kPickHoverThrottleMs = 16;
+	static constexpr int kPickHoverEdgeThrottleMs = 40;
 	static constexpr int kPickHoverMinMovePx = 4;
 	static constexpr unsigned int kMaskPickContent = 0x1u;
 	static constexpr unsigned int kMaskPickOverlay = 0x2u;
@@ -172,14 +178,18 @@ public:
 	bool pickMeshFaceByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, osg::Vec3f& outAWorld,
 		osg::Vec3f& outBWorld, osg::Vec3f& outCWorld, osg::Vec3f& outNormalWorld,
 		std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld = nullptr,
-		const std::string* scopeBackendId = nullptr) const;
+		const std::string* scopeBackendId = nullptr,
+		int* outPickedTriangleIndex = nullptr) const;
 	bool pickMeshEdgeByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, osg::Vec3f& outEdgeAWorld,
 		osg::Vec3f& outEdgeBWorld, double* outEdgeDistancePx = nullptr,
 		const std::string* scopeBackendId = nullptr) const;
 	PickResult queryPick(const PickQuery& query);
+	void setPickVisualAlias(const std::string& logicalBackendId, const std::string& visualBackendId);
+	std::string resolvePickScopeBackendId(const std::string& backendId) const;
 	void showMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld);
 	void showMeshFaceHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld, const osg::Vec3f& cWorld);
 	void showMeshEdgeHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld);
+	void showMeshEdgeHighlight(const std::vector<osg::Vec3f>& polylineWorld);
 	void hideMeshElementHighlight();
 
 	struct FeatureCatalogOverlayItem
@@ -195,6 +205,8 @@ public:
 	void clearFeatureCatalogOverlay();
 
 	void bindBackendVisualRoot(const std::string& backendId, osg::Node* rootNode);
+	void bindBackendVisualRoot(const std::string& backendId, osg::Node* rootNode,
+		const std::shared_ptr<const geoalgo::BrepImportArtifacts>& brepArtifacts);
 	void unbindBackendVisualRoot(const std::string& backendId);
 	void clearBackendVisualBindings();
 	bool resolveBackendIdFromPickedPath(const osg::NodePath& path, std::string& outBackendId) const;
@@ -230,9 +242,11 @@ public:
 	std::unordered_map<std::string, osg::ref_ptr<osg::MatrixTransform>> m_backendObjectRoots;
 	std::unordered_map<std::string, std::string> m_backendParentIds;
 	std::unordered_map<std::string, osg::Vec3f> m_backendModelCenters;
+	std::unordered_map<std::string, bool> m_backendSkipCenterRebase;
 	std::unordered_map<std::string, bool> m_backendVisibility;
 	BackendVisualBindingIndex m_backendVisualBindings;
 	BackendPickIndexRegistry m_backendPickIndexes;
+	std::unordered_map<std::string, std::string> m_pickVisualAliases;
 	std::string m_activeBackendId;
 	osg::ref_ptr<osg::MatrixTransform> m_activeBackendOuterPat;
 	/// gizmo overlay 挂内层 PAT 文件原点，attach 前不在场景
@@ -308,6 +322,13 @@ public:
 	osg::ref_ptr<osg::Vec4Array> m_meshPickedEdgeColors;
 
 private:
+	bool isBrepPickBackend(const std::string& backendId) const;
+	bool tryQueryBrepPick(const PickQuery& query, bool pickFace, PickResult& out) const;
+	bool getWorldPickRay(double mouseX, double mouseY, osg::Vec3d& outStart, osg::Vec3d& outEnd) const;
+	bool backendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const;
+	bool worldPointToStepModelMm(const std::string& backendId, const osg::Vec3d& worldMm, geoalgo::Point3d& outModel) const;
+	bool stepModelPointToWorldMm(const std::string& backendId, const geoalgo::Point3d& modelMm, osg::Vec3f& outWorld) const;
+
 	int buildKdNode(std::vector<int>& indices, int begin, int end, int depth);
 	int nearestPointByKdTree(const osg::Vec3f& queryLocalCentered) const;
 

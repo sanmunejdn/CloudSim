@@ -23,7 +23,6 @@ class EventHub;
 class QTabWidget;
 class MeshBackendData;
 class BackendSceneDocumentFacade;
-class OsgWidget;
 class IRobotBackendPoseSink;
 
 namespace osg {
@@ -111,9 +110,18 @@ public:
 	void notifyRobotKinematicsAppliedToScene() override;
 
 	BackendDataManager& urdfImportBackend() override { return DocumentHost::backend(); }
-	OsgWidget* urdfImportOsgWidget() override;
 	IRobotSimulationDocument* urdfImportRobotSimulationDocument() override { return this; }
 	IRobotBackendPoseSink* urdfImportScenePoseSink() override;
+	bool urdfImportLoadLinkMeshIntoScene(const MeshBackendData& mesh, QString* errorMessage = nullptr) override
+	{
+		return loadUrdfLinkMeshIntoScene(mesh, errorMessage);
+	}
+	void urdfImportSetBackendParent(const std::string& childBackendId, const std::string& parentBackendId) override
+	{
+		syncSceneBackendParent(childBackendId, parentBackendId);
+	}
+	void urdfImportClearStagingGeometry() override { clearStagingGeometry(); }
+	void urdfImportFocusCameraOnBackend(const std::string& backendId) override { focusSceneCameraOnBackend(backendId); }
 	QMap<QString, QString>& urdfImportBackendSourcePath() override { return DocumentHost::backendSourcePath(); }
 	QMap<QString, QString>& urdfImportBackendSourceType() override { return DocumentHost::backendSourceType(); }
 	QMap<QString, QString>& urdfImportBackendParentId() override { return DocumentHost::backendParentId(); }

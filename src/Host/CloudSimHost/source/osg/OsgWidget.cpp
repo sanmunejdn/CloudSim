@@ -3,6 +3,8 @@
 #include "BackendDataBase.h"
 #include "BackendVisualRegistry.h"
 
+#include <BrepImportArtifacts.h>
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -787,7 +789,7 @@ bool OsgWidget::upsertPointCloudBranchInScene(const PointCloudBackendData& data,
 	const auto inserted = m_backendObjectRoots.insert(std::make_pair(id, std::move(outer)));
 	if (inserted.second && inserted.first->second.valid())
 	{
-		bindBackendVisualRoot(id, inserted.first->second.get());
+		bindBackendVisualRoot(id, inserted.first->second.get(), built.brepArtifacts);
 	}
 	m_backendModelCenters[id] = center;
 	if (m_activeBackendId == id || m_activeBackendId.empty())
@@ -866,7 +868,7 @@ bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* er
 	const auto inserted = m_backendObjectRoots.insert(std::make_pair(id, std::move(outer)));
 	if (inserted.second && inserted.first->second.valid())
 	{
-		bindBackendVisualRoot(id, inserted.first->second.get());
+		bindBackendVisualRoot(id, inserted.first->second.get(), built.brepArtifacts);
 	}
 	m_backendModelCenters[id] = center;
 	if (m_activeBackendId == id || m_activeBackendId.empty())

@@ -3,6 +3,8 @@
 #include "BackendDataBase.h"
 #include "BackendVisualRegistry.h"
 
+#include <BrepImportArtifacts.h>
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -481,7 +483,7 @@ void OsgWidget::syncRobotMeshBackendPoseAfterKinematics(const BackendDataBase& m
 	}
 }
 
-void OsgWidget::setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& axes)
+void OsgWidget::setInstructionPoseAxes(const std::vector<RobotOsgUi::InstructionPoseAxis>& axes)
 {
 	if (!m_trajectoryOverlayGroup.valid())
 	{
@@ -524,7 +526,7 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<InstructionPoseAxis>& a
 	}
 	m_instructionPoseAxesGroup->removeChildren(0, m_instructionPoseAxesGroup->getNumChildren());
 
-	for (const InstructionPoseAxis& a : axes)
+	for (const RobotOsgUi::InstructionPoseAxis& a : axes)
 	{
 		osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
 		mt->setName(a.lineMotion ? "LINE_TargetAxis" : "PTP_TargetAxis");
@@ -565,7 +567,7 @@ void OsgWidget::clearInstructionPoseAxes()
 	requestRedraw();
 }
 
-void OsgWidget::setRawTrajectoryOverlay(const std::vector<RawTrajectoryOverlayVertex>& points)
+void OsgWidget::setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points)
 {
 	if (!m_trajectoryOverlayGroup.valid())
 	{
@@ -585,7 +587,7 @@ void OsgWidget::setRawTrajectoryOverlay(const std::vector<RawTrajectoryOverlayVe
 	}
 	osg::ref_ptr<osg::Vec3Array> lineVerts = new osg::Vec3Array;
 	lineVerts->reserve(points.size());
-	for (const RawTrajectoryOverlayVertex& v : points)
+	for (const RobotOsgUi::RawTrajectoryOverlayVertex& v : points)
 	{
 		lineVerts->push_back(v.positionMm);
 	}
@@ -603,7 +605,7 @@ void OsgWidget::setRawTrajectoryOverlay(const std::vector<RawTrajectoryOverlayVe
 	osg::ref_ptr<osg::Vec4Array> ptColors = new osg::Vec4Array;
 	ptVerts->reserve(points.size());
 	ptColors->reserve(points.size());
-	for (const RawTrajectoryOverlayVertex& v : points)
+	for (const RobotOsgUi::RawTrajectoryOverlayVertex& v : points)
 	{
 		ptVerts->push_back(v.positionMm);
 		ptColors->push_back(v.reachable ? osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f) : osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
@@ -628,7 +630,7 @@ void OsgWidget::clearRawTrajectoryOverlay()
 	requestRedraw();
 }
 
-void OsgWidget::setRawTrajectoryOverlayFrames(const std::vector<RawTrajectoryOverlayFrame>& frames)
+void OsgWidget::setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& frames)
 {
 	if (!m_trajectoryOverlayGroup.valid())
 	{
@@ -642,7 +644,7 @@ void OsgWidget::setRawTrajectoryOverlayFrames(const std::vector<RawTrajectoryOve
 	}
 	m_rawTrajectoryFramesGroup->removeChildren(0, m_rawTrajectoryFramesGroup->getNumChildren());
 	const float axisLenMm = 15.0f;
-	for (const RawTrajectoryOverlayFrame& f : frames)
+	for (const RobotOsgUi::RawTrajectoryOverlayFrame& f : frames)
 	{
 		osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
 		const osg::Quat q = OsgScene::eulerDegToQuat(f.eulerDeg);
@@ -695,7 +697,7 @@ void OsgWidget::clearRobotFrameOverlays(const std::string& robotRootBackendId)
 	requestRedraw();
 }
 
-void OsgWidget::setRobotFrameOverlays(const RobotFrameOverlayUpdate& update)
+void OsgWidget::setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverlayUpdate& update)
 {
 	if (update.robotRootBackendId.empty())
 	{
@@ -739,7 +741,7 @@ void OsgWidget::setRobotFrameOverlays(const RobotFrameOverlayUpdate& update)
 
 	if (update.showToolFrames)
 	{
-		for (const RobotFrameOverlayUpdate::ToolEntry& te : update.toolFrames)
+		for (const RobotOsgUi::RobotFrameOverlayUpdate::ToolEntry& te : update.toolFrames)
 		{
 			osg::ref_ptr<osg::MatrixTransform> toolMt = new osg::MatrixTransform;
 			toolMt->setName(std::string("RobotToolFrame_") + te.name);
@@ -754,7 +756,7 @@ void OsgWidget::setRobotFrameOverlays(const RobotFrameOverlayUpdate& update)
 	}
 	if (update.showUserFrames)
 	{
-		for (const RobotFrameOverlayUpdate::UserEntry& ue : update.userFrames)
+		for (const RobotOsgUi::RobotFrameOverlayUpdate::UserEntry& ue : update.userFrames)
 		{
 			osg::ref_ptr<osg::MatrixTransform> userMt = new osg::MatrixTransform;
 			userMt->setName(std::string("RobotUserFrame_") + ue.name);
@@ -772,6 +774,29 @@ void OsgWidget::setRobotFrameOverlays(const RobotFrameOverlayUpdate& update)
 		m_robotFrameOverlayNodes[update.robotRootBackendId] = std::move(nodes);
 	}
 	requestRedraw();
+}
+
+void OsgWidget::setFeatureCatalogOverlay(const std::vector<RobotOsgUi::FeatureCatalogOverlayItem>& items)
+{
+	std::vector<FeatureCatalogOverlayItem> converted;
+	converted.reserve(items.size());
+	for (const RobotOsgUi::FeatureCatalogOverlayItem& item : items)
+	{
+		FeatureCatalogOverlayItem row;
+		row.displayIndex = item.displayIndex;
+		row.anchorWorldMm = item.anchorWorldMm;
+		row.labelWorldMm = item.labelWorldMm;
+		row.hasEdgeSegment = item.hasEdgeSegment;
+		row.edgeAWorldMm = item.edgeAWorldMm;
+		row.edgeBWorldMm = item.edgeBWorldMm;
+		converted.push_back(row);
+	}
+	OsgScene::setFeatureCatalogOverlay(converted);
+}
+
+void OsgWidget::clearFeatureCatalogOverlay()
+{
+	OsgScene::clearFeatureCatalogOverlay();
 }
 
 namespace {
@@ -904,6 +929,17 @@ void OsgWidget::syncSelectionForBackendId(const std::string& backendId)
 	OsgWidgetTransformHierarchyController::syncSelectionForBackendId(*this, backendId);
 }
 
+void OsgWidget::setPickVisualAlias(const std::string& logicalBackendId, const std::string& visualBackendId)
+{
+	OsgScene::setPickVisualAlias(logicalBackendId, visualBackendId);
+}
+
+bool OsgWidget::backendSkipsInnerModelCenterRebase(const std::string& backendId) const
+{
+	const auto it = m_backendSkipCenterRebase.find(backendId);
+	return it != m_backendSkipCenterRebase.end() && it->second;
+}
+
 osg::ref_ptr<osg::Geode> OsgWidget::buildPointCloudGeode(const PointCloudBackendData& data, QString* errorMessage) const
 {
 	std::string err;
@@ -943,7 +979,7 @@ bool OsgWidget::upsertPointCloudBranchInScene(const PointCloudBackendData& data,
 	const auto inserted = m_backendObjectRoots.insert(std::make_pair(id, std::move(outer)));
 	if (inserted.second && inserted.first->second.valid())
 	{
-		bindBackendVisualRoot(id, inserted.first->second.get());
+		bindBackendVisualRoot(id, inserted.first->second.get(), built.brepArtifacts);
 	}
 	m_backendModelCenters[id] = center;
 	if (m_activeBackendId == id || m_activeBackendId.empty())
@@ -982,7 +1018,7 @@ osg::ref_ptr<osg::Node> OsgWidget::buildMeshGeode(const MeshBackendData& data, Q
 	return node;
 }
 
-bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
+bool OsgWidget::upsertBackendBranchInScene(const BackendDataBase& data, QString* errorMessage, bool resetViewToHome,
 	bool showWireOutline, bool useSceneLighting, bool skipInnerModelCenterRebase)
 {
 	MeshVisualOptions meshOpts;
@@ -1011,6 +1047,7 @@ bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* er
 	}
 	const osg::Vec3f center = built.modelCenter;
 	const float diagonal = built.diagonal;
+	m_backendSkipCenterRebase[id] = skipInnerModelCenterRebase;
 	auto it = m_backendObjectRoots.find(id);
 	if (it != m_backendObjectRoots.end() && it->second.valid() && m_backendObjectsGroup.valid())
 	{
@@ -1022,7 +1059,7 @@ bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* er
 	const auto inserted = m_backendObjectRoots.insert(std::make_pair(id, std::move(outer)));
 	if (inserted.second && inserted.first->second.valid())
 	{
-		bindBackendVisualRoot(id, inserted.first->second.get());
+		bindBackendVisualRoot(id, inserted.first->second.get(), built.brepArtifacts);
 	}
 	m_backendModelCenters[id] = center;
 	if (m_activeBackendId == id || m_activeBackendId.empty())
@@ -1044,6 +1081,13 @@ bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* er
 		}
 	}
 	return true;
+}
+
+bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
+	bool showWireOutline, bool useSceneLighting, bool skipInnerModelCenterRebase)
+{
+	return upsertBackendBranchInScene(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting,
+		skipInnerModelCenterRebase);
 }
 
 bool OsgWidget::importModelFile(const QString& filePath, QString* errorMessage)
@@ -1305,7 +1349,30 @@ void OsgWidget::initViewer()
 	});
 	m_frameTimer.start(16);
 
+	m_idleRenderTimer.setSingleShot(true);
+	m_idleRenderTimer.setInterval(500);
+	connect(&m_idleRenderTimer, &QTimer::timeout, this, [this]() {
+		if (m_viewer.valid())
+		{
+			m_viewer->setRunFrameScheme(osgViewer::Viewer::ON_DEMAND);
+		}
+	});
+	m_idleRenderTimer.start();
+
 	OsgScene::initWorldAxesHud();
+}
+
+void OsgWidget::noteViewportInteraction()
+{
+	if (!m_viewer.valid())
+	{
+		return;
+	}
+	if (m_viewer->getRunFrameScheme() != osgViewer::Viewer::CONTINUOUS)
+	{
+		m_viewer->setRunFrameScheme(osgViewer::Viewer::CONTINUOUS);
+	}
+	m_idleRenderTimer.start();
 }
 
 osg::Node* OsgWidget::createCompassNode()
@@ -1827,6 +1894,16 @@ void OsgWidget::applyColorToActiveBackendObject(const osg::Vec4& color)
 
 bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 {
+	if (watched == m_glWidget)
+	{
+		const auto type = event->type();
+		if (type == QEvent::MouseMove || type == QEvent::MouseButtonPress || type == QEvent::MouseButtonRelease
+			|| type == QEvent::Wheel || type == QEvent::KeyPress || type == QEvent::KeyRelease)
+		{
+			noteViewportInteraction();
+		}
+	}
+
 	// Escape: never deliver to QWidgetViewer/osgGA. OSG handlers (e.g. StateSetManipulator stack) and
 	// unpaired press/release in the event queue have caused apparent "freezes"; Qt may also propagate
 	// Esc to parent shortcuts. We only use Esc to leave edit modes; in pure view mode it is a no-op.
@@ -1923,6 +2000,7 @@ void OsgWidget::clearImportedContent()
 	clearBackendVisualBindings();
 	m_backendParentIds.clear();
 	m_backendModelCenters.clear();
+	m_backendSkipCenterRebase.clear();
 	m_backendVisibility.clear();
 	m_hasLastSelectionPose = false;
 	m_activeBackendId.clear();
@@ -2038,8 +2116,15 @@ bool OsgWidget::loadPointCloudFromBackendData(const PointCloudBackendData& data,
 bool OsgWidget::loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
 	bool showWireOutline, bool useSceneLighting, bool skipInnerModelCenterRebase)
 {
+	return loadBackendFromBackendData(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting,
+		skipInnerModelCenterRebase);
+}
+
+bool OsgWidget::loadBackendFromBackendData(const BackendDataBase& data, QString* errorMessage, bool resetViewToHome,
+	bool showWireOutline, bool useSceneLighting, bool skipInnerModelCenterRebase)
+{
 	return m_backendLoadController
-		? m_backendLoadController->loadMeshFromBackendData(*this, data, errorMessage, resetViewToHome, showWireOutline,
+		? m_backendLoadController->loadBackendFromBackendData(*this, data, errorMessage, resetViewToHome, showWireOutline,
 			  useSceneLighting, skipInnerModelCenterRebase)
 		: false;
 }

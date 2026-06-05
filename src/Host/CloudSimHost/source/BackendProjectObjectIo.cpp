@@ -12,11 +12,13 @@
 #include "FollowAttachmentComponent.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryBuiltins.h"
+#include "BrepBackendData.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
 
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonValue>
@@ -121,7 +123,7 @@ bool decodeBackendObjectFromProjectJson(const QJsonObject& objectJson, std::shar
 
 bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& objectJson, const QString& persistedId,
 	const QString& sourcePath, const QString& catalogTypeName, const QString& parentId, const bool robotLinkMeshVisual,
-	QString* outVisualError, QString* outError)
+	const QString& projectDir, QString* outVisualError, QString* outError)
 {
 	std::shared_ptr<BackendDataBase> backendObject;
 	if (!decodeBackendObjectFromProjectJson(objectJson, backendObject, outError))
@@ -131,6 +133,38 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 	if (!persistedId.isEmpty())
 	{
 		backendObject->setId(persistedId.toStdString());
+	}
+	if (auto brep = std::dynamic_pointer_cast<BrepBackendData>(backendObject))
+	{
+		if (!brep->hasGeometry())
+		{
+			const QJsonObject emb = objectJson.value(QStringLiteral("geometry")).toObject();
+			QString brepRel = emb.value(QStringLiteral("brepSidecar")).toString();
+			if (brepRel.isEmpty())
+			{
+				brepRel = objectJson.value(QStringLiteral("assetRelativePath")).toString();
+			}
+			const QString brepPath = resolveProjectObjectLoadPath(projectDir, sourcePath, brepRel);
+			if (!brepPath.isEmpty())
+			{
+				const QByteArray enc = QFile::encodeName(brepPath);
+				const std::string nativePath(enc.constData(), static_cast<std::size_t>(enc.size()));
+				std::string loadErr;
+				if (!brep->loadFromBrepFile(nativePath, &loadErr))
+				{
+					if (outError)
+					{
+						*outError = loadErr.empty() ? QStringLiteral("Failed to load B-rep sidecar")
+													: QString::fromStdString(loadErr);
+					}
+					return false;
+				}
+				if (!brepRel.isEmpty())
+				{
+					brep->setBrepSidecarRelativePath(brepRel.toStdString());
+				}
+			}
+		}
 	}
 	OsgWidget* osg = osgWidgetFrom(host);
 	if (!osg)
@@ -151,6 +185,10 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 	{
 		// robotLinkMeshVisual：连杆网格已在 link 系，勿二次中心化
 		visualOk = osg->loadMeshFromBackendData(*mesh, &visualErr, true, true, true, robotLinkMeshVisual);
+	}
+	else if (const auto brep = std::dynamic_pointer_cast<BrepBackendData>(backendObject))
+	{
+		visualOk = osg->loadBackendFromBackendData(*brep, &visualErr, true, true, true, robotLinkMeshVisual);
 	}
 	else
 	{
@@ -348,6 +386,7 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 			const QString catalogType =
 				sourceType.isEmpty()
 				? (classNameVal == QStringLiteral("PointCloudBackendData") ? QStringLiteral("PointCloud")
+					: classNameVal == QStringLiteral("BrepModel") ? QStringLiteral("BrepModel")
 																		  : QStringLiteral("Model"))
 				: sourceType;
 			// edges 模式父链由 edges[] 统一写，勿用 JSON parentId
@@ -355,7 +394,7 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 			QString visualErr;
 			QString regErr;
 			if (registerEmbeddedProjectObject(host, obj, persistedId, sourcePath, catalogType, parentId,
-					options.robotLinkMeshBackendIds.contains(persistedId), &visualErr, &regErr))
+					options.robotLinkMeshBackendIds.contains(persistedId), options.projectDir, &visualErr, &regErr))
 			{
 				if (!parentId.isEmpty() && callbacks.legacyParentFollow)
 				{
@@ -430,7 +469,7 @@ void finalizeProjectHierarchyAfterObjects(DocumentHost& host, const bool useEdge
 	rebuildBackendParentIdMirror(host);
 }
 
-void applyProjectEdgesFollowBindingAndSolve(DocumentHost& host, OsgWidget& osg, const QVector<ProjectHierarchyEdge>& edges,
+void applyProjectEdgesFollowBindingAndSolve(DocumentHost& host, const QVector<ProjectHierarchyEdge>& edges,
 	const FollowSolveContext* solveCtx)
 {
 	for (const ProjectHierarchyEdge& edge : edges)
@@ -443,7 +482,12 @@ void applyProjectEdgesFollowBindingAndSolve(DocumentHost& host, OsgWidget& osg, 
 		}
 		applyHierarchyFollowBinding(host, edge.childId.toStdString(), edge.parentId.toStdString());
 	}
-	runBackendFollowSolveAndSync(host, osg, solveCtx);
+	OsgWidget* osg = osgWidgetFrom(host);
+	if (!osg)
+	{
+		return;
+	}
+	runBackendFollowSolveAndSync(host, *osg, solveCtx);
 }
 
 } // namespace cloudsim::host

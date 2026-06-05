@@ -516,6 +516,17 @@ bool PluginGeometryHostImpl::listComputableBackends(
 		}
 		const std::string backendId = data->id();
 		const QString stepPath = stepPathForBackend(page, backendId);
+		if (data->className() == "BrepModel")
+		{
+			PluginGeometryBackendEntry entry;
+			entry.backendId = backendId;
+			entry.displayName = data->name();
+			entry.className = data->className();
+			entry.stepPathUtf8 = stepPath.toStdString();
+			entry.pickable = true;
+			outBackends.push_back(std::move(entry));
+			continue;
+		}
 		if (!isStepPath(stepPath))
 		{
 			continue;
@@ -653,8 +664,11 @@ void PluginGeometryHostImpl::pickStepElementFromViewport(
 		}
 
 		geoalgo::FeatureSpec spec;
+		const int knownFaceIndex = pick.brepNativePick && pickFace ? pick.brepFaceIndex : -1;
+		const int knownEdgeIndex = pick.brepNativePick && !pickFace ? pick.brepEdgeIndex : -1;
 		if (!geometry_backend_ops::buildFeatureSpecFromModelPick(
-				wp, pickFace, geoalgo::FeatureKind::FaceBoundary, modelA, modelB, spec, &err))
+				wp, pickFace, geoalgo::FeatureKind::FaceBoundary, modelA, modelB, spec, &err,
+				knownFaceIndex, knownEdgeIndex))
 		{
 			complete(false, QString::fromStdString(err), {});
 			return;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geometry_algorithm_global.h"
+#include "ShapeHandle.h"
 #include "Types.h"
 
 #include <TopoDS_Edge.hxx>
@@ -96,6 +97,23 @@ GEOMETRY_ALGORITHM_API bool sewStepFacesToMesh(
 	std::vector<float>& outSoup,
 	std::string* errMsg = nullptr);
 
+/// 模型坐标点 → 面索引（与 shapeFaceAtIndex 遍历顺序一致）
+GEOMETRY_ALGORITHM_API bool resolveFaceIndexFromModelPoint(
+	const ShapeHandle& shape,
+	const Point3d& modelPointMm,
+	int& outFaceIndex,
+	double toleranceMm = 2.0,
+	std::string* errMsg = nullptr);
+
+/// 模型坐标线段 → 边索引（查询点取 AB 中点）
+GEOMETRY_ALGORITHM_API bool resolveEdgeIndexFromModelPoints(
+	const ShapeHandle& shape,
+	const Point3d& modelPointA,
+	const Point3d& modelPointB,
+	int& outEdgeIndex,
+	double toleranceMm = 2.0,
+	std::string* errMsg = nullptr);
+
 /// 模型坐标点 → STEP 面索引（与 shapeFaceAtIndex 遍历顺序一致）
 GEOMETRY_ALGORITHM_API bool resolveStepFaceIndexFromModelPoint(
 	const std::string& stepPathUtf8,
@@ -111,6 +129,56 @@ GEOMETRY_ALGORITHM_API bool resolveStepEdgeIndexFromModelPoints(
 	const Point3d& modelPointB,
 	int& outEdgeIndex,
 	double toleranceMm = 2.0,
+	std::string* errMsg = nullptr);
+
+struct ShapeRayPickResult
+{
+	bool hit = false;
+	int faceIndex = -1;
+	int edgeIndex = -1;
+	Point3d hitPointModelMm;
+	Point3d edgePointModelMm;
+};
+
+/// 模型坐标射线 → BREP 面索引（与 shapeFaceAtIndex 顺序一致）
+GEOMETRY_ALGORITHM_API bool pickShapeFaceByModelRay(
+	const ShapeHandle& shape,
+	const Point3d& rayOriginMm,
+	const Point3d& rayDirUnit,
+	ShapeRayPickResult& out,
+	std::string* errMsg = nullptr);
+
+/// 模型坐标射线 → BREP 边索引；优先在命中面边界上搜索
+GEOMETRY_ALGORITHM_API bool pickShapeEdgeByModelRay(
+	const ShapeHandle& shape,
+	const Point3d& rayOriginMm,
+	const Point3d& rayDirUnit,
+	double toleranceMm,
+	ShapeRayPickResult& out,
+	std::string* errMsg = nullptr);
+
+/// 模型坐标命中点 → BREP 边索引（边拾取首选，不经过 IntCurvesFace）
+GEOMETRY_ALGORITHM_API bool pickShapeEdgeByModelPoint(
+	const ShapeHandle& shape,
+	const Point3d& queryPointModelMm,
+	double toleranceMm,
+	ShapeRayPickResult& out,
+	std::string* errMsg = nullptr);
+
+GEOMETRY_ALGORITHM_API bool validateShapeFaceIndex(
+	const ShapeHandle& shape,
+	int faceIndex,
+	std::string* errMsg = nullptr);
+
+GEOMETRY_ALGORITHM_API bool validateShapeEdgeIndex(
+	const ShapeHandle& shape,
+	int edgeIndex,
+	std::string* errMsg = nullptr);
+
+/// 每个 face 的边界边 global index 列表（与 shapeEdgeAtIndex 顺序一致）
+GEOMETRY_ALGORITHM_API bool collectShapeFaceEdgeIndices(
+	const ShapeHandle& shape,
+	std::vector<std::vector<int>>& outFaceEdgeIndices,
 	std::string* errMsg = nullptr);
 
 } // namespace geoalgo

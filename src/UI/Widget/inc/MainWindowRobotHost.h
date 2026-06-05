@@ -1,19 +1,20 @@
 #pragma once
 
 #include "../RobotWidget/inc/IRobotMainWindowHost.h"
+#include "IRobotInstructionPropertyDelegate.h"
 
 #include <functional>
 #include <memory>
 
 class MainWindow;
 class DocumentPage;
-class OsgWidget;
+class WidgetOsgViewHost;
 
 struct PickResult;
 enum class PickKind;
 
-/// MainWindow 的 IRobotMainWindowHost 实现
-class MainWindowRobotHost : public IRobotMainWindowHost
+/// MainWindow 的 IRobotMainWindowHost + 指令属性 IRobotService 委托实现
+class MainWindowRobotHost : public IRobotMainWindowHost, public cloudsim::host::IRobotInstructionPropertyDelegate
 {
 public:
 	explicit MainWindowRobotHost(MainWindow* mw);
@@ -75,12 +76,21 @@ public:
 	void clearMeshPickCommittedHandler() override;
 	void notifyMeshPickCommitted(const PickResult& pick, PickKind kind);
 
+	/// 文档页 OSG Qt 信号 → MainWindow 槽（Widget 协调层不直接 include OsgWidget）
+	void wireDocumentPageSceneSignals(DocumentPage* page);
+
+	QVector<cloudsim::core::PropertyRowDto> instructionPropertyRows(const QString& instructionId) override;
+	bool applyInstructionPropertyChange(const QString& instructionId, const QString& key, const QString& value,
+		QString* outError = nullptr) override;
+	cloudsim::core::FeasibleMotionAxisOptionsDto queryFeasibleMotionAxisOptions(const QString& instructionId,
+		QVector<double>* outSeedJointRad = nullptr) override;
+	cloudsim::core::FeasibleMotionAxisOptionsDto cachedFeasibleMotionAxisOptions() override;
+
 private:
 	MainWindow* m_mw = nullptr;
 	class DocumentHost;
-	class OsgViewHost;
 	std::unique_ptr<DocumentHost> m_docHost;
-	std::unique_ptr<OsgViewHost> m_osgHost;
-	OsgWidget* m_osgHostWidget = nullptr;
+	std::unique_ptr<WidgetOsgViewHost> m_osgHost;
+	DocumentPage* m_osgHostPage = nullptr;
 	std::function<void(const PickResult&, PickKind)> m_meshPickHandler;
 };

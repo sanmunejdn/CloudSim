@@ -1,10 +1,14 @@
 #include "pch.h"
 #include "GeometryBackendOps.h"
 #include "GeometryRef.h"
+#include "BrepBackendData.h"
+#include "BackendDataManager.h"
+#include "MeshBackendData.h"
 
 #include <FeatureSpec.h>
 #include <MeshDiscretize.h>
 #include <Discretize.h>
+#include <ShapeIo.h>
 #include <ShapeQuery.h>
 
 namespace geometry_backend_ops
@@ -138,11 +142,11 @@ void fillMeshReport(const std::vector<float>& soup, geoalgo::MeshDiscretizeRepor
 
 bool resolveGeometryRef(const GeometryRef& ref, geoalgo::WorkpieceRef& out, std::string* errMsg)
 {
-	if (ref.stepPathUtf8.empty())
+	if (ref.backendIdUtf8.empty() && ref.stepPathUtf8.empty())
 	{
 		if (errMsg)
 		{
-			*errMsg = "geometry ref missing stepPathUtf8";
+			*errMsg = "geometry ref missing backendIdUtf8 and stepPathUtf8";
 		}
 		return false;
 	}
@@ -152,9 +156,72 @@ bool resolveGeometryRef(const GeometryRef& ref, geoalgo::WorkpieceRef& out, std:
 	return true;
 }
 
+WorkpieceShapeSource resolveWorkpieceShape(
+	const std::string& backendIdUtf8,
+	BackendDataManager& mgr,
+	const std::string& stepPathUtf8Optional,
+	geoalgo::ShapeHandle& outShape,
+	geoalgo::WorkpieceRef& outRef,
+	std::string* errMsg)
+{
+	outShape = geoalgo::ShapeHandle{};
+	outRef = geoalgo::WorkpieceRef{};
+	outRef.backendIdUtf8 = backendIdUtf8;
+	outRef.frameId = "workpiece";
+	outRef.stepPathUtf8 = stepPathUtf8Optional;
+
+	const auto data = mgr.getData(backendIdUtf8);
+	if (!data)
+	{
+		if (errMsg)
+		{
+			*errMsg = "backend not found";
+		}
+		return WorkpieceShapeSource::Unavailable;
+	}
+
+	if (auto brep = std::dynamic_pointer_cast<BrepBackendData>(data))
+	{
+		if (!brep->hasGeometry())
+		{
+			if (errMsg)
+			{
+				*errMsg = "BrepModel has no shape";
+			}
+			return WorkpieceShapeSource::Unavailable;
+		}
+		outShape = brep->shapeRef();
+		return WorkpieceShapeSource::InMemoryBrep;
+	}
+
+	if (!stepPathUtf8Optional.empty())
+	{
+		if (!geoalgo::readStepIntoHandle(stepPathUtf8Optional, outShape, errMsg))
+		{
+			return WorkpieceShapeSource::Unavailable;
+		}
+		return WorkpieceShapeSource::StepFileFallback;
+	}
+
+	if (errMsg)
+	{
+		*errMsg = "workpiece has no in-memory B-rep and no STEP path";
+	}
+	return WorkpieceShapeSource::Unavailable;
+}
+
 bool discretizeFeature(const geoalgo::FeatureSpec& spec, geoalgo::RawPath& out, std::string* errMsg)
 {
 	return geoalgo::discretizeFeature(spec, out, errMsg);
+}
+
+bool discretizeFeature(
+	const geoalgo::FeatureSpec& spec,
+	const geoalgo::ShapeHandle& shape,
+	geoalgo::RawPath& out,
+	std::string* errMsg)
+{
+	return geoalgo::discretizeFeature(spec, shape, out, errMsg);
 }
 
 bool discretizeFeatures(
@@ -176,6 +243,15 @@ bool enumerateFeatureCatalog(
 	std::string* errMsg)
 {
 	return geoalgo::enumerateFeatureCatalog(workpiece, out, errMsg);
+}
+
+bool enumerateFeatureCatalog(
+	const geoalgo::WorkpieceRef& workpiece,
+	const geoalgo::ShapeHandle& shape,
+	geoalgo::FeatureCatalog& out,
+	std::string* errMsg)
+{
+	return geoalgo::enumerateFeatureCatalog(workpiece, shape, out, errMsg);
 }
 
 bool featureSpecFromJson(const std::string& jsonUtf8, geoalgo::FeatureSpec& out, std::string* errMsg)
@@ -213,19 +289,29 @@ bool computeFeatureAnchor(
 
 bool buildFeatureSpecFromModelPick(
 	const geoalgo::WorkpieceRef& workpiece,
+	const geoalgo::ShapeHandle& shape,
 	const bool pickFace,
 	const geoalgo::FeatureKind faceKindForPick,
 	const geoalgo::Point3d& modelPointA,
 	const geoalgo::Point3d& modelPointB,
 	geoalgo::FeatureSpec& out,
-	std::string* errMsg)
+	std::string* errMsg,
+	const int knownFaceIndex,
+	const int knownEdgeIndex)
 {
 	out = geoalgo::FeatureSpec{};
 	out.workpiece = workpiece;
 	if (pickFace)
 	{
-		int faceIdx = -1;
-		if (!geoalgo::resolveStepFaceIndexFromModelPoint(workpiece.stepPathUtf8, modelPointA, faceIdx, 2.0, errMsg))
+		int faceIdx = knownFaceIndex;
+		if (faceIdx < 0)
+		{
+			if (!geoalgo::resolveFaceIndexFromModelPoint(shape, modelPointA, faceIdx, 2.0, errMsg))
+			{
+				return false;
+			}
+		}
+		else if (!geoalgo::validateShapeFaceIndex(shape, faceIdx, errMsg))
 		{
 			return false;
 		}
@@ -245,9 +331,15 @@ bool buildFeatureSpecFromModelPick(
 	}
 	else
 	{
-		int edgeIdx = -1;
-		if (!geoalgo::resolveStepEdgeIndexFromModelPoints(
-				workpiece.stepPathUtf8, modelPointA, modelPointB, edgeIdx, 2.0, errMsg))
+		int edgeIdx = knownEdgeIndex;
+		if (edgeIdx < 0)
+		{
+			if (!geoalgo::resolveEdgeIndexFromModelPoints(shape, modelPointA, modelPointB, edgeIdx, 2.0, errMsg))
+			{
+				return false;
+			}
+		}
+		else if (!geoalgo::validateShapeEdgeIndex(shape, edgeIdx, errMsg))
 		{
 			return false;
 		}
@@ -257,6 +349,35 @@ bool buildFeatureSpecFromModelPick(
 		out.discretize.stepMm = 2.0;
 	}
 	return geoalgo::validateFeatureSpec(out, errMsg);
+}
+
+bool buildFeatureSpecFromModelPick(
+	const geoalgo::WorkpieceRef& workpiece,
+	const bool pickFace,
+	const geoalgo::FeatureKind faceKindForPick,
+	const geoalgo::Point3d& modelPointA,
+	const geoalgo::Point3d& modelPointB,
+	geoalgo::FeatureSpec& out,
+	std::string* errMsg,
+	const int knownFaceIndex,
+	const int knownEdgeIndex)
+{
+	if (!workpiece.stepPathUtf8.empty())
+	{
+		geoalgo::ShapeHandle shape;
+		if (!geoalgo::readStepIntoHandle(workpiece.stepPathUtf8, shape, errMsg))
+		{
+			return false;
+		}
+		return buildFeatureSpecFromModelPick(
+			workpiece, shape, pickFace, faceKindForPick, modelPointA, modelPointB, out, errMsg,
+			knownFaceIndex, knownEdgeIndex);
+	}
+	if (errMsg)
+	{
+		*errMsg = "buildFeatureSpecFromModelPick requires shape or stepPath";
+	}
+	return false;
 }
 
 } // namespace geometry_backend_ops

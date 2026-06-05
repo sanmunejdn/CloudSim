@@ -35,8 +35,13 @@ struct PickResult
 	std::uint64_t indexGeneration = 0;
 	osg::Vec3f meshEdgeA;
 	osg::Vec3f meshEdgeB;
-	osg::Vec3f meshNormalWorld;
+	std::vector<osg::Vec3f> meshEdgePolylineWorld;
 	std::vector<osg::Vec3f> meshFaceVertsWorld;
+	osg::Vec3f meshNormalWorld;
+	int brepFaceIndex = -1;
+	int brepEdgeIndex = -1;
+	bool brepNativePick = false;
+	int pickedTriangleIndex = -1;
 };
 
 struct PickPreviewState

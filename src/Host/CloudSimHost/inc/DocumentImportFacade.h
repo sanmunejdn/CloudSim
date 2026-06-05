@@ -8,6 +8,7 @@
 #include <functional>
 #include <memory>
 
+class BrepBackendData;
 class MeshBackendData;
 class PointCloudBackendData;
 
@@ -73,6 +74,30 @@ public:
 	bool executeLoad(const std::function<void(double progress01, const QString& status)>& progress,
 		QString* outError = nullptr);
 	AdoptRegistrationResult adoptIntoDocument(DocumentHost& host, const AdoptPointCloudOptions& options,
+		QString* outError = nullptr);
+
+private:
+	struct Impl;
+	std::unique_ptr<Impl> m_impl;
+};
+
+/// 后台 Job 读 STEP/Mesh/BREP（Widget 不阻塞 UI）
+class CLOUDSIM_HOST_EXPORT ModelBackgroundLoadState
+{
+public:
+	explicit ModelBackgroundLoadState(
+		const QString& filePath,
+		const QString& displayName,
+		const QString& catalogTypeName,
+		int meshImportQuality);
+	~ModelBackgroundLoadState();
+
+	ModelBackgroundLoadState(const ModelBackgroundLoadState&) = delete;
+	ModelBackgroundLoadState& operator=(const ModelBackgroundLoadState&) = delete;
+
+	bool executeLoad(const std::function<void(double progress01, const QString& status)>& progress,
+		QString* outError = nullptr);
+	ImportFileResult finishIntoDocument(DocumentHost& host, const cloudsim::core::ImportOptionsDto& options,
 		QString* outError = nullptr);
 
 private:
