@@ -262,6 +262,15 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 					}
 					docRef.render().requestRedraw();
 					mwRef.refreshSimulationJointListFromCurrentDoc();
+					if (loadState->needsPickArtifactWarm() && mwRef.jobSystem())
+					{
+						mwRef.jobSystem()->enqueue(
+							QStringLiteral("BREP pick warm: %1").arg(fileInfo.fileName()),
+							[loadState](const JobProgressSink&) {
+								(void)loadState->warmPickArtifacts(nullptr);
+							},
+							[](const bool, const QString&) {});
+					}
 					return;
 				}
 				if (!imported.rootBackendId.isEmpty())
@@ -275,6 +284,15 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 					docRef.render().ensureSelectionVisualForBackend(imported.rootBackendId, false);
 					docRef.render().requestRedraw();
 					mwRef.refreshSimulationJointListFromCurrentDoc();
+				}
+				if (loadState->needsPickArtifactWarm() && mwRef.jobSystem())
+				{
+					mwRef.jobSystem()->enqueue(
+						QStringLiteral("BREP pick warm: %1").arg(fileInfo.fileName()),
+						[loadState](const JobProgressSink&) {
+							(void)loadState->warmPickArtifacts(nullptr);
+						},
+						[](const bool, const QString&) {});
 				}
 			});
 		return true;

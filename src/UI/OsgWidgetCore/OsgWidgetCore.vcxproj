@@ -185,6 +185,7 @@
     <ClCompile Include="source\OsgCompassGeometry.cpp" />
     <ClCompile Include="source\OsgSceneGizmo.cpp" />
     <ClCompile Include="source\OsgSceneCamera.cpp" />
+    <ClCompile Include="source\OsgSceneViewCube.cpp" />
     <ClCompile Include="source\OsgSceneSync.cpp" />
     <ClCompile Include="source\OsgScenePick.cpp" />
     <ClCompile Include="source\OsgSceneBrepPick.cpp" />

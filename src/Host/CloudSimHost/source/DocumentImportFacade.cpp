@@ -248,6 +248,82 @@ enum class ModelLoadKind
 	BrepHierarchy,
 };
 
+void logBrepImportTimings(const geoalgo::BrepImportBuildTimings& timings)
+{
+	RunLogger::info("[Import] brep mesh_ms=" + std::to_string(timings.meshMs) + " pick_ms="
+		+ std::to_string(timings.pickMs) + " tri=" + std::to_string(timings.triangleCount));
+}
+
+bool warmBrepImportArtifactsDisplayOnly(
+	const geoalgo::ShapeHandle& shape,
+	const std::function<void(double progress01, const QString& status)>& report,
+	const double progressAfterMesh,
+	const double progressEnd,
+	QString* outError)
+{
+	if (shape.isNull())
+	{
+		report(progressEnd, QString());
+		return true;
+	}
+	geoalgo::BrepImportBuildTimings timings;
+	std::string artifactErr;
+	const std::shared_ptr<geoalgo::BrepImportArtifacts> artifacts =
+		geoalgo::getOrBuildBrepImportArtifacts(shape, &artifactErr, &timings);
+	if (!artifacts)
+	{
+		if (outError)
+		{
+			*outError = artifactErr.empty() ? QStringLiteral("B-rep tessellation failed.")
+											: QString::fromStdString(artifactErr);
+		}
+		return false;
+	}
+	report(progressAfterMesh, QStringLiteral("Meshing B-rep..."));
+	logBrepImportTimings(timings);
+	report(progressEnd, QString());
+	return true;
+}
+
+bool warmBrepImportPickArtifactsForShape(const geoalgo::ShapeHandle& shape, QString* outError)
+{
+	if (shape.isNull())
+	{
+		return true;
+	}
+	std::string artifactErr;
+	const std::shared_ptr<geoalgo::BrepImportArtifacts> artifacts =
+		geoalgo::getOrBuildBrepImportArtifacts(shape, &artifactErr);
+	if (!artifacts)
+	{
+		if (outError)
+		{
+			*outError = artifactErr.empty() ? QStringLiteral("B-rep artifacts missing.")
+											: QString::fromStdString(artifactErr);
+		}
+		return false;
+	}
+	if (artifacts->pickReady.load(std::memory_order_acquire))
+	{
+		return true;
+	}
+	geoalgo::BrepImportBuildTimings timings;
+	std::string pickErr;
+	if (!geoalgo::buildBrepImportArtifactsPick(shape, *artifacts, &timings, &pickErr))
+	{
+		RunLogger::warn("[Import] brep pick warm failed: "
+			+ (pickErr.empty() ? std::string("unknown") : pickErr));
+		if (outError)
+		{
+			*outError = pickErr.empty() ? QStringLiteral("B-rep pick artifacts failed.")
+										: QString::fromStdString(pickErr);
+		}
+		return false;
+	}
+	logBrepImportTimings(timings);
+	return true;
+}
+
 struct ModelBackgroundLoadState::Impl
 {
 	QString filePath;
@@ -307,13 +383,10 @@ bool ModelBackgroundLoadState::executeLoad(
 		{
 			m_impl->kind = ModelLoadKind::BrepHierarchy;
 			m_impl->brepHierarchyParts = std::move(parts);
-			report(0.25, QStringLiteral("Building B-rep artifacts..."));
-			if (!m_impl->brepHierarchyParts.front().shapeRef.isNull())
+			if (!warmBrepImportArtifactsDisplayOnly(m_impl->brepHierarchyParts.front().shapeRef, report, 0.25, 1.0, outError))
 			{
-				std::string artifactErr;
-				(void)geoalgo::getOrBuildBrepImportArtifacts(m_impl->brepHierarchyParts.front().shapeRef, &artifactErr);
+				return false;
 			}
-			report(1.0, QString());
 			return true;
 		}
 		m_impl->brep = std::make_shared<BrepBackendData>();
@@ -328,17 +401,10 @@ bool ModelBackgroundLoadState::executeLoad(
 			return false;
 		}
 		m_impl->kind = ModelLoadKind::SimpleBrep;
-		report(0.35, QStringLiteral("Tessellating B-rep..."));
-		std::string artifactErr;
-		if (!geoalgo::getOrBuildBrepImportArtifacts(m_impl->brep->shapeRef(), &artifactErr))
+		if (!warmBrepImportArtifactsDisplayOnly(m_impl->brep->shapeRef(), report, 0.35, 1.0, outError))
 		{
-			if (outError)
-			{
-				*outError = artifactErr.empty() ? QStringLiteral("B-rep tessellation failed.") : QString::fromStdString(artifactErr);
-			}
 			return false;
 		}
-		report(1.0, QString());
 		return true;
 	}
 
@@ -357,17 +423,10 @@ bool ModelBackgroundLoadState::executeLoad(
 			return false;
 		}
 		m_impl->kind = ModelLoadKind::SimpleBrep;
-		report(0.35, QStringLiteral("Tessellating B-rep..."));
-		std::string artifactErr;
-		if (!geoalgo::getOrBuildBrepImportArtifacts(m_impl->brep->shapeRef(), &artifactErr))
+		if (!warmBrepImportArtifactsDisplayOnly(m_impl->brep->shapeRef(), report, 0.35, 1.0, outError))
 		{
-			if (outError)
-			{
-				*outError = artifactErr.empty() ? QStringLiteral("B-rep tessellation failed.") : QString::fromStdString(artifactErr);
-			}
 			return false;
 		}
-		report(1.0, QString());
 		return true;
 	}
 
@@ -484,6 +543,33 @@ ImportFileResult ModelBackgroundLoadState::finishIntoDocument(
 		*outError = QStringLiteral("Model load state has no geometry.");
 	}
 	return result;
+}
+
+bool ModelBackgroundLoadState::needsPickArtifactWarm() const
+{
+	if (!m_impl)
+	{
+		return false;
+	}
+	return m_impl->kind == ModelLoadKind::SimpleBrep || m_impl->kind == ModelLoadKind::BrepHierarchy;
+}
+
+bool ModelBackgroundLoadState::warmPickArtifacts(QString* outError)
+{
+	if (!needsPickArtifactWarm() || !m_impl)
+	{
+		return true;
+	}
+	geoalgo::ShapeHandle shape;
+	if (m_impl->kind == ModelLoadKind::BrepHierarchy && !m_impl->brepHierarchyParts.empty())
+	{
+		shape = m_impl->brepHierarchyParts.front().shapeRef;
+	}
+	else if (m_impl->kind == ModelLoadKind::SimpleBrep && m_impl->brep)
+	{
+		shape = m_impl->brep->shapeRef();
+	}
+	return warmBrepImportPickArtifactsForShape(shape, outError);
 }
 
 QString ImportFileResult::hierarchyFocusBackendId() const

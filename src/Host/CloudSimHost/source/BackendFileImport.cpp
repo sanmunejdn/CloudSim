@@ -367,7 +367,7 @@ bool registerAdoptedBrepAndLoadScene(DocumentHost& host, const std::shared_ptr<B
 	if (OsgWidget* osg = osgWidgetFrom(host))
 	{
 		QString sceneErr;
-		if (!osg->loadBackendFromBackendData(*brep, &sceneErr, resetViewToHome, true, true, skipInnerModelCenterRebase)
+		if (!osg->loadBackendFromBackendData(*brep, &sceneErr, resetViewToHome, false, true, skipInnerModelCenterRebase)
 			&& outError)
 		{
 			*outError = sceneErr.isEmpty() ? QStringLiteral("OSG B-rep display failed") : sceneErr;

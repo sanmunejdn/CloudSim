@@ -60,11 +60,11 @@
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>PLCCOMM_UI_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>inc;../PlcCommSDK/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../UI/CloudSimUiAssets/inc;../PlcCommSDK/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>PlcCommSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimUiAssets.lib;PlcCommSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(CloudSimBinDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -72,11 +72,11 @@
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>PLCCOMM_UI_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>inc;../PlcCommSDK/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../UI/CloudSimUiAssets/inc;../PlcCommSDK/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>PlcCommSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimUiAssets.lib;PlcCommSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(CloudSimBinDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>

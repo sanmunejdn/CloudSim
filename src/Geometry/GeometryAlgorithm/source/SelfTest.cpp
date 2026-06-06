@@ -6,16 +6,52 @@
 #include "GeoMeshBoolean.h"
 #include "MeshDiscretize.h"
 #include "SelfTest.h"
+#include "ShapeHandle.h"
 #include "ShapeIo.h"
+#include "ViewTessellate.h"
 #include "WireOps.h"
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 
+#include <algorithm>
+#include <cmath>
 #include <sstream>
 
 namespace geoalgo
 {
+namespace
+{
+
+bool soupBoundingBoxDiagonal(const std::vector<float>& soup, double& outDiagonal)
+{
+	if (soup.size() < 9U)
+	{
+		return false;
+	}
+	double minX = soup[0];
+	double minY = soup[1];
+	double minZ = soup[2];
+	double maxX = minX;
+	double maxY = minY;
+	double maxZ = minZ;
+	for (std::size_t i = 0; i + 2 < soup.size(); i += 3U)
+	{
+		minX = std::min(minX, static_cast<double>(soup[i]));
+		minY = std::min(minY, static_cast<double>(soup[i + 1U]));
+		minZ = std::min(minZ, static_cast<double>(soup[i + 2U]));
+		maxX = std::max(maxX, static_cast<double>(soup[i]));
+		maxY = std::max(maxY, static_cast<double>(soup[i + 1U]));
+		maxZ = std::max(maxZ, static_cast<double>(soup[i + 2U]));
+	}
+	const double dx = maxX - minX;
+	const double dy = maxY - minY;
+	const double dz = maxZ - minZ;
+	outDiagonal = std::sqrt(dx * dx + dy * dy + dz * dz);
+	return true;
+}
+
+} // namespace
 
 bool runSelfTest(std::vector<std::string>& failures)
 {
@@ -125,6 +161,69 @@ bool runSelfTest(std::vector<std::string>& failures)
 		if (!fuseWiresToPolyline(wires, TessellateParams{}, poly, &err))
 		{
 			fail("fuseWires", err);
+		}
+	}
+
+	{
+		const TopoDS_Shape box = BRepPrimAPI_MakeBox(100.0, 100.0, 100.0).Shape();
+		const ShapeHandle handle = ShapeHandleAccess::fromNativeShape(&box);
+		std::vector<float> perFaceSoup;
+		std::vector<int> perFaceIndex;
+		std::vector<std::vector<float>> faceSoups;
+		std::string err;
+		if (!tessellateShapePerFaceMedium(handle, perFaceSoup, perFaceIndex, &faceSoups, &err))
+		{
+			fail("tessellatePerFaceBox", err);
+		}
+		else
+		{
+			const std::size_t triCount = perFaceSoup.size() / 9U;
+			if (triCount != perFaceIndex.size())
+			{
+				fail("tessellatePerFaceBox", "triangleFaceIndex size mismatch");
+			}
+			else if (triCount < 10U)
+			{
+				fail("tessellatePerFaceBox", "too few triangles");
+			}
+			else if (faceSoups.size() != 6U)
+			{
+				fail("tessellatePerFaceBox", "box should have 6 faces");
+			}
+			else
+			{
+				double diagPerFace = 0.0;
+				if (!soupBoundingBoxDiagonal(perFaceSoup, diagPerFace))
+				{
+					fail("tessellatePerFaceBox", "bbox failed");
+				}
+				else if (std::abs(diagPerFace - 100.0 * std::sqrt(3.0)) > 1.0)
+				{
+					fail("tessellatePerFaceBox", "bbox diagonal out of tolerance");
+				}
+			}
+		}
+		TessellateParams disc;
+		disc.linearDeflectionMm = 0.01;
+		disc.angularDeflectionDeg = 0.5;
+		disc.linearDeflectionRelative = false;
+		std::vector<float> wholeSoup;
+		std::vector<int> wholeIndex;
+		if (!discretizeShapeToSoupPerFace(box, disc, wholeSoup, wholeIndex, nullptr, &err))
+		{
+			fail("discretizeShapeToSoupPerFace", err);
+		}
+		else
+		{
+			const std::size_t triWhole = wholeSoup.size() / 9U;
+			if (triWhole != wholeIndex.size())
+			{
+				fail("discretizeShapeToSoupPerFace", "triangleFaceIndex size mismatch");
+			}
+			else if (triWhole < 10U)
+			{
+				fail("discretizeShapeToSoupPerFace", "too few triangles");
+			}
 		}
 	}
 

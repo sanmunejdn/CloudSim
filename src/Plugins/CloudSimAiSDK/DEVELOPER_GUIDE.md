@@ -193,9 +193,9 @@ LLM grounding：`catalogSliceUtf8` 中 `displayIndex` / `candidateId` / `summary
 
 ## 7. 外部 AI 插件
 
-- 接口：`ICloudSimPlugin` + `ICloudSimAiPlugin`
+- 接口：`ICloudSimPlugin` + `ICloudSimAiPlugin`（见 `ICloudSimAiPlugin.h`）
 - 清单：`capabilities: ["ai-assistant"]`，`minHostVersion: "1.3.0"`，`minAiSdkVersion: "1.0.0"`
-- 示例：[`HelloAiPlugin/DEVELOPER_GUIDE.md`](../HelloAiPlugin/DEVELOPER_GUIDE.md)
+- 参考实现：`src/Plugins/HelloAiPlugin/`（未编入 `CloudSim.sln`，需单独打开 vcxproj 构建）
 
 ---
 

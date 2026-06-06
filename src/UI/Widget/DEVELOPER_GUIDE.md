@@ -72,7 +72,24 @@ Qt 树角色：`kRoleItemType`, `kRoleBackendId`, `kRoleAnnotationId`；项类�
 | API | 说明 |
 |-----|------|
 | `Theme::Light` / `Dark` | |
-| `applyTheme`, `loadSavedTheme`, `saveTheme` | 全局 QSS/调色 |
+| `applyTheme`, `loadSavedTheme`, `saveTheme` | 全局 Fusion 调色板 |
+
+**与 `CloudSimUiAssets` 联动**：`applyTheme` 末尾会调用 `UiIcons::setTheme`、`UiIcons::invalidateCache`、`UiIconDecorators::refreshAllDecorated()`，主题切换后已装饰的菜单/按钮图标立即刷新，无需重启。
+
+**在 Widget 或其它 UI DLL 使用图标**（链接 `CloudSimUiAssets.lib`，include `../CloudSimUiAssets/inc`）：
+
+```cpp
+#include "UiIcons.h"
+#include "UiIconDecorators.h"
+
+// 菜单 / 工具栏
+UiIconDecorators::apply(action, UiIconId::SaveProject);
+
+// 按钮（保留现有 setText / i18n）
+UiIconDecorators::apply(btn, UiIconId::Run, UiIconDecorators::IconPlacement::IconOnly, UiIcons::Size::Medium);
+```
+
+语义 ID 见 `UiIconId.h`；PNG 嵌入 `CloudSimUiAssets.dll`（`:/cloudsim/icons/{light|dark}/`）。详见 [`../CloudSimUiAssets/README.md`](../CloudSimUiAssets/README.md)。
 
 ---
 
@@ -364,12 +381,14 @@ per-link URDF 各连杆 OSG 为**扁平**布局，逻辑父子在 `m_backendPare
 | 格式 | 路径 |
 |------|------|
 | obj/stl/ply/off（同步） | `DocumentImportFacade::importFileIntoDocument` 或 `page->data().importFromFile` |
-| step/stp/brep（Job 可用） | Widget `JobSystem`：`ModelBackgroundLoadState::executeLoad`（Worker）→ UI `finishIntoDocument` |
-| step/stp/brep/mesh（无 Job） | 同步 `importFileIntoDocument` |
+| step/stp/brep（Job 可用） | Worker：`executeLoad`（读盘 + BREP **Phase1**）→ UI `finishIntoDocument` → 可选 Job `warmPickArtifacts`（**Phase2**） |
+| step/stp/brep/mesh（无 Job） | 同步 `importFileIntoDocument`（UI 线程；BREP 仍 Phase1/2 懒构建，无后台预热） |
 | ply 大文件点云 | Widget `JobSystem` 异步：`PointCloudBackgroundLoadState::executeLoad`（Host）→ UI 线程 `adoptIntoDocument`（**仅纯顶点** ply；含面时拒绝） |
 | ply 含 `element face` | **不入点云 Job**；`plyFileHasTriangleFaces(nativePath)` 为真时改 `ImportFileKind::Mesh`（catalog `Model`） |
 | dxf 层级 mesh | facade 内 `importMeshFileExtended`（mesh 分件），**不**做 Follow |
-| step 多零件装配 | BREP 路径：`importBrepHierarchyParts`；单 visual + pick alias；**不**做 Follow |
+| step 多零件装配 | BREP 路径：`importBrepHierarchyParts`；单 visual + pick alias；首帧 `showWireOutline=false`；**不**做 Follow |
+
+**BREP 导入性能（2025）**：离散在 `GeometryAlgorithm`（整件 mesh + 并行 tessellation）；详见 [`GeometryAlgorithm/DEVELOPER_GUIDE.md`](../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.2、Host §4.4.1b。导入完成后 Run Info 可查看 `[Import] brep mesh_ms=… pick_ms=…`。
 
 **路径编码（PLY 及 Data 读盘）**：`nativePath = QFile::encodeName(filePath)` → `std::string`；与 [`Data/Data/DEVELOPER_GUIDE.md`](../Data/Data/DEVELOPER_GUIDE.md) §4.0 一致。**勿**对磁盘路径使用 `toUtf8()`。
 
@@ -593,7 +612,7 @@ LMB/RMB (RobotTcpDragTeachOperation)
 | 类 | 说明 |
 |----|------|
 | `RunInfoPage` | `appendInfo/Warning/Error`；接 `RunLogger` UiSink |
-| `DevicePageWidget` | 扫描 `resource/models`；`urdfImportRequested` |
+| `DevicePageWidget` | Property Dock「设备」Tab：Combo 筛选 + 缩略图网格；扫描 `resource/models` → `urdfImportRequested` |
 
 ---
 

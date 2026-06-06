@@ -14,9 +14,12 @@
 
 #include <FeatureSpec.h>
 
+#include <QHash>
 #include <QMetaObject>
+#include <QSet>
 #include <QString>
 #include <QTimer>
+#include <QVector>
 
 #include <functional>
 #include <memory>
@@ -39,6 +42,18 @@ bool isStepPath(const QString& path)
 	const QString p = path.trimmed().toLower();
 	return p.endsWith(QStringLiteral(".step")) || p.endsWith(QStringLiteral(".stp"));
 }
+
+bool isTopLevelWorkpieceBackend(const BackendDataManager& mgr, const std::string& backendId)
+{
+	return mgr.parentsOf(backendId).empty();
+}
+
+struct ComputableBackendCandidate
+{
+	PluginGeometryBackendEntry entry;
+	QString dedupeKey;
+	bool isBrepModel = false;
+};
 
 QString stepPathForBackend(cloudsim::host::DocumentHost* page, const std::string& backendIdUtf8)
 {
@@ -507,38 +522,78 @@ bool PluginGeometryHostImpl::listComputableBackends(
 	}
 
 	const std::vector<std::shared_ptr<BackendDataBase>> all = page->backend().listData();
-	outBackends.reserve(all.size());
+	BackendDataManager& mgr = page->backend();
+	QVector<ComputableBackendCandidate> candidates;
+	candidates.reserve(static_cast<int>(all.size()));
 	for (const std::shared_ptr<BackendDataBase>& data : all)
 	{
-		if (!data || !data->hasGeometry())
+		if (!data)
 		{
 			continue;
 		}
 		const std::string backendId = data->id();
-		const QString stepPath = stepPathForBackend(page, backendId);
-		if (data->className() == "BrepModel")
+		if (!isTopLevelWorkpieceBackend(mgr, backendId))
 		{
-			PluginGeometryBackendEntry entry;
-			entry.backendId = backendId;
-			entry.displayName = data->name();
-			entry.className = data->className();
-			entry.stepPathUtf8 = stepPath.toStdString();
-			entry.pickable = true;
-			outBackends.push_back(std::move(entry));
 			continue;
 		}
-		if (!isStepPath(stepPath))
+		const QString stepPath = stepPathForBackend(page, backendId);
+		const bool isBrepModel = data->className() == "BrepModel";
+		if (isBrepModel)
 		{
-			continue;
+			if (!data->hasGeometry())
+			{
+				continue;
+			}
+		}
+		else
+		{
+			if (!data->hasGeometry() || !isStepPath(stepPath))
+			{
+				continue;
+			}
 		}
 
-		PluginGeometryBackendEntry entry;
-		entry.backendId = backendId;
-		entry.displayName = data->name();
-		entry.className = data->className();
-		entry.stepPathUtf8 = stepPath.toStdString();
-		entry.pickable = true;
-		outBackends.push_back(std::move(entry));
+		ComputableBackendCandidate candidate;
+		candidate.entry.backendId = backendId;
+		candidate.entry.displayName = data->name();
+		candidate.entry.className = data->className();
+		candidate.entry.stepPathUtf8 = stepPath.toStdString();
+		candidate.entry.pickable = true;
+		candidate.dedupeKey = stepPath.isEmpty() ? QString::fromStdString(backendId) : stepPath.toLower();
+		candidate.isBrepModel = isBrepModel;
+		candidates.append(candidate);
+	}
+
+	QHash<QString, int> bestIndexByKey;
+	for (int i = 0; i < candidates.size(); ++i)
+	{
+		const ComputableBackendCandidate& candidate = candidates[i];
+		if (!bestIndexByKey.contains(candidate.dedupeKey))
+		{
+			bestIndexByKey.insert(candidate.dedupeKey, i);
+			continue;
+		}
+		const int prev = bestIndexByKey.value(candidate.dedupeKey);
+		if (!candidates[prev].isBrepModel && candidate.isBrepModel)
+		{
+			bestIndexByKey[candidate.dedupeKey] = i;
+		}
+	}
+
+	QSet<int> keepIndices;
+	for (int idx : bestIndexByKey)
+	{
+		keepIndices.insert(idx);
+	}
+
+	outBackends.reserve(static_cast<std::size_t>(keepIndices.size()));
+	for (int i = 0; i < candidates.size(); ++i)
+	{
+		if (!keepIndices.contains(i))
+		{
+			continue;
+		}
+		outBackends.push_back(std::move(candidates[i].entry));
 	}
 
 	if (outBackends.empty() && outError)

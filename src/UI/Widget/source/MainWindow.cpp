@@ -161,6 +161,10 @@ void MainWindow::applyLanguage()
 		m_propertyDockTabs->setTabText(0, i18n(QStringLiteral("Property"), QStringLiteral("属性")));
 		m_propertyDockTabs->setTabText(1, i18n(QStringLiteral("Devices"), QStringLiteral("设备")));
 	}
+	if (m_devicePage)
+	{
+		m_devicePage->setUseChinese(m_useChinese);
+	}
 	if (m_unitDock)
 	{
 		m_unitDock->setWindowTitle(i18n(QStringLiteral("Workspace"), QStringLiteral("工作区")));

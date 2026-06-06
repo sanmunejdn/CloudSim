@@ -239,7 +239,7 @@ void OsgScene::logicalMouseToDeviceCoords(
 	const double logicalX,
 	const double logicalY,
 	double& outDeviceX,
-	double& outDeviceY) const const
+	double& outDeviceY) const
 {
 	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
 	outDeviceX = logicalX * dpr;
@@ -250,13 +250,15 @@ void OsgScene::logicalMouseToPickWindowCoords(
 	const double logicalX,
 	const double logicalY,
 	double& outWindowX,
-	double& outWindowY) const const
+	double& outWindowY) const
 {
 	double deviceX = 0.0;
 	double deviceY = 0.0;
 	logicalMouseToDeviceCoords(logicalX, logicalY, deviceX, deviceY);
+	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
+	const double viewportHeightDevice = static_cast<double>(viewportHeight()) * dpr;
 	outWindowX = deviceX;
-	outWindowY = static_cast<double>(viewportHeight()) - deviceY;
+	outWindowY = viewportHeightDevice - deviceY;
 }
 
 std::string OsgScene::resolveLogicalBackendIdFromVisualPick(
@@ -441,20 +443,104 @@ void OsgScene::initWorldAxesHud()
 	m_worldAxesHudCamera->setUpdateCallback(new WorldAxesHudUpdateCallback(m_viewer->getCamera()));
 	m_worldAxesHudCamera->addChild(createWorldAxesHudGeode());
 	m_root->addChild(m_worldAxesHudCamera.get());
-	updateWorldAxesHudViewport(m_viewportWidth, m_viewportHeight);
+	const double initDpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
+	updateWorldAxesHudViewport(
+		static_cast<int>(std::lround(static_cast<double>(m_viewportWidth) * initDpr)),
+		static_cast<int>(std::lround(static_cast<double>(m_viewportHeight) * initDpr)));
 }
 
-void OsgScene::updateWorldAxesHudViewport(int widgetWidth, int widgetHeight)
+void OsgScene::applyHudSquareOrthoProjection(
+	osg::Camera* camera,
+	const float halfExtent,
+	const int viewportWidth,
+	const int viewportHeight) const
 {
-	(void)widgetWidth;
-	(void)widgetHeight;
+	if (!camera || viewportWidth <= 0 || viewportHeight <= 0)
+	{
+		return;
+	}
+	const double aspect = static_cast<double>(viewportWidth) / static_cast<double>(viewportHeight);
+	const double half = static_cast<double>(halfExtent);
+	if (aspect >= 1.0)
+	{
+		camera->setProjectionMatrixAsOrtho(
+			static_cast<float>(-half * aspect),
+			static_cast<float>(half * aspect),
+			-halfExtent,
+			halfExtent,
+			-10.0,
+			10.0);
+	}
+	else
+	{
+		camera->setProjectionMatrixAsOrtho(
+			-halfExtent,
+			halfExtent,
+			static_cast<float>(-half / aspect),
+			static_cast<float>(half / aspect),
+			-10.0,
+			10.0);
+	}
+}
+
+OsgScene::HudCornerViewport OsgScene::computeHudCornerViewport(
+	const int framebufferWidth,
+	const int framebufferHeight,
+	const int marginLogical,
+	const int nominalSizeLogical,
+	const bool topRight) const
+{
+	const int fbW = (std::max)(1, framebufferWidth);
+	const int fbH = (std::max)(1, framebufferHeight);
+	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
+	const int marginPx = static_cast<int>(std::lround(static_cast<double>(marginLogical) * dpr));
+	const int safeMarginPx = (std::min)(marginPx, (std::max)(0, (std::min)(fbW, fbH) / 2 - 4));
+	const int nominalPx = static_cast<int>(std::lround(static_cast<double>(nominalSizeLogical) * dpr));
+	const int minFb = (std::min)(fbW, fbH);
+	const int capPx = static_cast<int>(static_cast<double>(minFb) * 0.38);
+	const int maxFitPx = (std::min)(fbW - 2 * safeMarginPx, fbH - 2 * safeMarginPx);
+	const int minSizePx = static_cast<int>(std::lround(32.0 * dpr));
+
+	int sizePx = nominalPx;
+	if (maxFitPx > 0)
+	{
+		sizePx = (std::min)({nominalPx, maxFitPx, capPx});
+		sizePx = (std::max)(minSizePx, sizePx);
+		sizePx = (std::min)(sizePx, maxFitPx);
+	}
+	else
+	{
+		sizePx = (std::max)(static_cast<int>(std::lround(16.0 * dpr)), (std::min)(fbW, fbH) / 4);
+	}
+
+	HudCornerViewport out{};
+	out.effectiveLogicalSize = static_cast<int>(std::lround(static_cast<double>(sizePx) / dpr));
+	out.width = sizePx;
+	out.height = sizePx;
+	if (topRight)
+	{
+		out.x = (std::max)(0, fbW - safeMarginPx - sizePx);
+		out.y = (std::max)(0, fbH - safeMarginPx - sizePx);
+	}
+	else
+	{
+		out.x = safeMarginPx;
+		out.y = safeMarginPx;
+	}
+	return out;
+}
+
+void OsgScene::updateWorldAxesHudViewport(int framebufferWidth, int framebufferHeight)
+{
 	if (!m_worldAxesHudCamera.valid())
 	{
 		return;
 	}
-	const int margin = 10;
-	const int sz = 120;
-	m_worldAxesHudCamera->setViewport(margin, margin, sz, sz);
+	const HudCornerViewport vp = computeHudCornerViewport(
+		framebufferWidth, framebufferHeight, m_worldAxesHudMargin, m_worldAxesHudSize, false);
+	m_worldAxesHudEffectiveSize = vp.effectiveLogicalSize;
+	m_worldAxesHudCamera->setViewport(vp.x, vp.y, vp.width, vp.height);
+	applyHudSquareOrthoProjection(m_worldAxesHudCamera.get(), 1.2f, vp.width, vp.height);
 }
 
 void OsgScene::bindBackendVisualRoot(const std::string& backendId, osg::Node* rootNode)
@@ -465,7 +551,7 @@ void OsgScene::bindBackendVisualRoot(const std::string& backendId, osg::Node* ro
 void OsgScene::bindBackendVisualRoot(
 	const std::string& backendId,
 	osg::Node* rootNode,
-	const std::shared_ptr<const geoalgo::BrepImportArtifacts>& brepArtifacts)
+	const std::shared_ptr<geoalgo::BrepImportArtifacts>& brepArtifacts)
 {
 	m_backendVisualBindings.bindBackendRoot(backendId, rootNode);
 	m_backendPickIndexes.bindBackendRoot(backendId, rootNode, brepArtifacts);

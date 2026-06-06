@@ -26,7 +26,7 @@ osg::Node* resolvePickNode(osg::Node* rootNode)
 void bindBrepPickIndex(
 	BrepPickIndex& brepIndex,
 	const BackendIdUserData* meta,
-	const std::shared_ptr<const geoalgo::BrepImportArtifacts>& brepArtifacts)
+	const std::shared_ptr<geoalgo::BrepImportArtifacts>& brepArtifacts)
 {
 	brepIndex = BrepPickIndex{};
 	if (!meta || !meta->hasBrepShape())
@@ -36,6 +36,7 @@ void bindBrepPickIndex(
 	std::string err;
 	if (brepArtifacts)
 	{
+		(void)geoalgo::ensureBrepImportPickArtifacts(meta->brepShape(), *brepArtifacts, &err);
 		(void)brepIndex.buildFromArtifacts(*brepArtifacts, &err);
 		return;
 	}
@@ -52,7 +53,7 @@ void BackendPickIndexRegistry::bindBackendRoot(const std::string& backendId, osg
 void BackendPickIndexRegistry::bindBackendRoot(
 	const std::string& backendId,
 	osg::Node* rootNode,
-	const std::shared_ptr<const geoalgo::BrepImportArtifacts>& brepArtifacts)
+	const std::shared_ptr<geoalgo::BrepImportArtifacts>& brepArtifacts)
 {
 	if (backendId.empty() || !rootNode)
 	{

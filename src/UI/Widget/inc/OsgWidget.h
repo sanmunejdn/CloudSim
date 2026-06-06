@@ -333,10 +333,12 @@ signals:
 
 protected:
 	void showEvent(QShowEvent* event) override;
+	void resizeEvent(QResizeEvent* event) override;
 
 private:
 	void initViewer();
 	void initUi();
+	void syncViewportLayoutFromFramebuffer(int framebufferWidth, int framebufferHeight);
 	osg::Node* loadXyzPointCloud(const QString& filePath, QString* errorMessage);
 	osg::Node* loadAsciiPlyPointCloud(const QString& filePath, QString* errorMessage);
 	osg::Node* createCompassNode();
@@ -414,6 +416,8 @@ private:
 	void updateCameraFollowCenter();
 
 	void noteViewportInteraction();
+
+	void applyViewCubeFaceLabelImagesFromQt();
 
 	bool pickMeshFaceByRayIntersection(const QPoint& mousePos,
 		osg::Vec3f& outPointWorld,

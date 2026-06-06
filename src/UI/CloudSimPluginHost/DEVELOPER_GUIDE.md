@@ -99,7 +99,7 @@ Widget 侧 UI 能力契约（`inc/IPluginMainWindowHost.h`），供 Host 内 `Pl
 |---------------|----------|
 | `importFileIntoActiveDocument(path, isPointCloud)` | `DocumentImportFacade::importFileIntoDocument` |
 | `pointCloudHost()->…` | `PluginPointCloudHostImpl` → `DocumentPointCloudOps` → `point_cloud_backend_ops` → OSG 刷新 |
-| `geometryHost()->listComputableBackends` | `PluginGeometryHostImpl` 读取 `DocumentHost::backend()` + `backendSourcePath()` 过滤 STEP/BRep |
+| `geometryHost()->listComputableBackends` | `PluginGeometryHostImpl` 读取 `DocumentHost::backend()` + `backendSourcePath()`；仅**顶层** STEP/BRep 工件（`parentsOf` 为空），同路径去重优先 `BrepModel` |
 | `geometryHost()->pickStepElementFromViewport` | `PluginGeometryHostImpl` 监听 `OsgWidget::meshPickCommitted` 并回填 `PluginGeometryStepRef` |
 | `IPluginDocument::queryPointCloudInfo` / `measurePointCloud` | `DocumentPointCloudOps` 读 `PointCloudBackendData` |
 | `createPrimitiveMesh` / `registerTriangleMesh` | `DocumentImportFacade::registerAdoptedMesh` |

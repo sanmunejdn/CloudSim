@@ -1,5 +1,9 @@
 #include "ApplicationStyle.h"
 
+#include "UiIcons.h"
+
+#include "UiIconDecorators.h"
+
 #include <QApplication>
 #include <QColor>
 #include <QPalette>
@@ -75,6 +79,10 @@ void applyTheme(QApplication* app, Theme theme)
 	app->setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
 	app->setStyleSheet(QString());
 	app->setPalette(theme == Theme::Dark ? makeDarkPalette() : makeLightPalette());
+
+	UiIcons::setTheme(theme == Theme::Dark ? UiIcons::Theme::Dark : UiIcons::Theme::Light);
+	UiIcons::invalidateCache();
+	UiIconDecorators::refreshAllDecorated();
 }
 
 Theme loadSavedTheme()

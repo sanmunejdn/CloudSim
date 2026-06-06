@@ -1,5 +1,7 @@
 #include "RobotFrameSettingsWidget.h"
 
+#include "UiIconDecorators.h"
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
@@ -208,6 +210,15 @@ RobotFrameSettingsWidget::RobotFrameSettingsWidget(QWidget* parent)
 	connect(m_captureUserBtn, &QPushButton::clicked, this, &RobotFrameSettingsWidget::captureUserFrameFromTcpRequested);
 	connect(m_showToolCheck, &QCheckBox::toggled, this, &RobotFrameSettingsWidget::onShowToggled);
 	connect(m_showUserCheck, &QCheckBox::toggled, this, &RobotFrameSettingsWidget::onShowToggled);
+
+	UiIconDecorators::apply(m_addToolBtn, UiIconId::Add);
+	UiIconDecorators::apply(m_removeToolBtn, UiIconId::Delete);
+	UiIconDecorators::apply(m_duplicateToolBtn, UiIconId::Duplicate);
+	UiIconDecorators::apply(m_setActiveToolBtn, UiIconId::SetActive);
+	UiIconDecorators::apply(m_addUserBtn, UiIconId::Add);
+	UiIconDecorators::apply(m_removeUserBtn, UiIconId::Delete);
+	UiIconDecorators::apply(m_duplicateUserBtn, UiIconId::Duplicate);
+	UiIconDecorators::apply(m_setActiveUserBtn, UiIconId::SetActive);
 }
 
 void RobotFrameSettingsWidget::setUseChinese(bool chinese)

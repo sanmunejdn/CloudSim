@@ -17,6 +17,7 @@
 #include <QWidget>
 
 #include "ApplicationStyle.h"
+#include "UiIconDecorators.h"
 #include "DocumentPage.h"
 #include "CoreEvents.h"
 #include "EventHub.h"
@@ -336,6 +337,17 @@ void MainWindow::setupMenuBar()
 	m_languageChineseAction->setChecked(true);
 	connect(m_languageEnglishAction, &QAction::triggered, this, &MainWindow::onLanguageEnglishTriggered);
 	connect(m_languageChineseAction, &QAction::triggered, this, &MainWindow::onLanguageChineseTriggered);
+
+	UiIconDecorators::apply(m_newDocumentAction, UiIconId::NewDocument);
+	UiIconDecorators::apply(m_openProjectAction, UiIconId::OpenProject);
+	UiIconDecorators::apply(m_saveAction, UiIconId::SaveProject);
+	UiIconDecorators::apply(m_openModelAction, UiIconId::OpenModel);
+	UiIconDecorators::apply(m_openPointCloudAction, UiIconId::OpenPointCloud);
+	UiIconDecorators::apply(m_viewModeAction, UiIconId::ViewMode);
+	UiIconDecorators::apply(m_objectModeAction, UiIconId::ObjectSelect);
+	UiIconDecorators::apply(m_pointPickModeAction, UiIconId::PointPick);
+	UiIconDecorators::apply(m_meshLinePickModeAction, UiIconId::LinePick);
+	UiIconDecorators::apply(m_meshFacePickModeAction, UiIconId::FacePick);
 }
 
 void MainWindow::setupDockWidgets()

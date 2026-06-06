@@ -8,6 +8,7 @@
 
 #include <QString>
 #include "RobotProgramStore.h"
+#include "UiIconDecorators.h"
 
 #include <QComboBox>
 #include <QInputDialog>
@@ -246,6 +247,16 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 	connect(m_runBtn, &QPushButton::clicked, this, &SimulationCommandWidget::runRequested);
 	connect(m_stopBtn, &QPushButton::clicked, this, &SimulationCommandWidget::stopRequested);
 	connect(m_exportBtn, &QPushButton::clicked, this, &SimulationCommandWidget::exportProgramRequested);
+
+	UiIconDecorators::apply(m_programNewBtn, UiIconId::Add, UiIconDecorators::IconPlacement::IconOnly, UiIcons::Size::Small);
+	UiIconDecorators::apply(m_programRenameBtn, UiIconId::Rename);
+	UiIconDecorators::apply(m_programDeleteBtn, UiIconId::Delete);
+	UiIconDecorators::apply(m_tcpDragTeachBtn, UiIconId::TcpDragTeach);
+	UiIconDecorators::apply(m_removeBtn, UiIconId::Delete);
+	UiIconDecorators::apply(m_clearBtn, UiIconId::Clear);
+	UiIconDecorators::apply(m_runBtn, UiIconId::Run, UiIconDecorators::IconPlacement::Leading, UiIcons::Size::Medium);
+	UiIconDecorators::apply(m_stopBtn, UiIconId::Stop, UiIconDecorators::IconPlacement::Leading, UiIcons::Size::Medium);
+	UiIconDecorators::apply(m_exportBtn, UiIconId::Export);
 
 	updateTypeButtonLabels();
 	updateRunStopButtons();
@@ -493,6 +504,14 @@ void SimulationCommandWidget::updateTypeButtonLabels()
 		}
 		const auto t = static_cast<RobotInstruction::Type>(btn->property("instructionType").toInt());
 		btn->setText(instructionTypeLabel(t, zh));
+		if (t == RobotInstruction::Type::PTP)
+		{
+			UiIconDecorators::apply(btn, UiIconId::Ptp, UiIconDecorators::IconPlacement::Leading, UiIcons::Size::Small);
+		}
+		else if (t == RobotInstruction::Type::LINE)
+		{
+			UiIconDecorators::apply(btn, UiIconId::Line, UiIconDecorators::IconPlacement::Leading, UiIcons::Size::Small);
+		}
 		QString tip;
 		switch (t)
 		{

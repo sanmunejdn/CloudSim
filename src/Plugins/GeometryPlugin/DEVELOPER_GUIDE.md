@@ -15,7 +15,7 @@
 ## 关键依赖
 
 - `IPluginGeometryHost` 1.7.0+
-  - `listComputableBackends`
+  - `listComputableBackends`（仅顶层 `Model`/`BrepModel`，不含装配子零件；同 STEP 路径去重时优先 `BrepModel`）
   - `pickStepElementFromViewport`
 - `PluginGeometryHostImpl` 负责：
   - 从 `DocumentPage::backendSourcePath()` 解析 STEP 路径

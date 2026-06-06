@@ -279,13 +279,28 @@ STEP 多零件优先 **B-rep 路径**（`loadStepHierarchyFromFile` → `collect
 
 **装配优化约定**
 
-1. 各零件 `shapeRef` 共享同一 assembly `ShapeHandle`；`getOrBuildBrepImportArtifacts` 只执行一次。
-2. **仅 `importParent`**：`loadBackendFromBackendData(..., skipInnerModelCenterRebase=true)` 挂载唯一 visual。
+1. 各零件 `shapeRef` 共享同一 assembly `ShapeHandle`；`getOrBuildBrepImportArtifacts` 只执行一次（Phase1 缓存）。
+2. **仅 `importParent`**：`loadBackendFromBackendData(..., showWireOutline=false, useSceneLighting=true, skipInnerModelCenterRebase=true)` 挂载唯一 visual（首帧不画线框，避免 UI 等 Phase2）。
 3. 子零件：`registerAdoptedBrepAndLoadScene(..., resetViewToHome=false, loadScene=false)` + `OsgWidget::setPickVisualAlias(partId, importParentId)`。
 4. 导入结束：`focusCameraOnBackend(importParent->id())`；**导入阶段不做** Follow（同 §4.4.1a）。
-5. 工程持久化：sidecar `.brep`（`ProjectPackageIo` / `BackendProjectObjectIo`）。
+5. 工程持久化：sidecar `.brep`（`ProjectPackageIo` / `BackendProjectObjectIo`）；**加载工程仍会重新 tessellation**（未缓存 display soup）。
 
-**异步导入**：`ModelBackgroundLoadState`（Worker：`executeLoad` 读 STEP/BREP/Mesh 并预热 artifacts 缓存；UI：`finishIntoDocument` → `importFileIntoDocument` 同等注册）。Widget 在 `JobSystem` 可用时对模型文件优先走此路径（§10）。
+**异步导入（`ModelBackgroundLoadState` + Widget `JobSystem`）**
+
+| 阶段 | 线程 | 行为 |
+|------|------|------|
+| `executeLoad` | Worker | 读 STEP/BREP/Mesh；BREP 仅 `getOrBuildBrepImportArtifacts`（Phase1）；进度 `Reading STEP` → `Meshing B-rep` |
+| `finishIntoDocument` | UI | 注册 Data + `registerAdoptedBrepAndLoadScene` / `importBrepHierarchyParts` |
+| `warmPickArtifacts` | Worker（可选） | UI 上屏后 Widget 投递 Job `BREP pick warm`；Phase2 边拓扑 + 线框 |
+
+| API | 说明 |
+|-----|------|
+| `executeLoad(progress, err)` | Worker 读盘 + BREP Phase1 |
+| `finishIntoDocument(host, options, err)` | UI 注册与场景挂载 |
+| `needsPickArtifactWarm()` | 是否为 BREP 单件/装配导入 |
+| `warmPickArtifacts(err)` | 对缓存 artifacts 执行 Phase2 |
+
+无 `JobSystem` 时仍走同步 `importFileIntoDocument`（UI 线程完整路径）。Run Info：`[Import] brep mesh_ms=… pick_ms=… tri=…`。
 
 ### 4.4.2 `DocumentHostEvents`
 
@@ -313,7 +328,7 @@ STEP 多零件优先 **B-rep 路径**（`loadStepHierarchyFromFile` → `collect
 | 加载内嵌几何 | `registerEmbeddedProjectObject`（由 load 编排调用） |
 | 工程文件回退 | `importProjectObjectFromFile`（网格 `importMeshFile`；点云 ply/xyz `importPointCloudFile`） |
 | 点云 ply/xyz/las/laz | `importPointCloudFile`（路径 `encodeName`；ply/xyz=CGAL 顶点；**ply 含 face**→`importMeshFile`/`Model`；las/laz=OsgWidget+capture）；大文件**纯顶点** ply 可走 Job 异步（Widget） |
-| STEP/BREP/Mesh 模型 | `ModelBackgroundLoadState` + Widget `JobSystem`（Worker 读盘 + 预热 artifacts；UI `finishIntoDocument`）；无 Job 时同步 `importFileIntoDocument` |
+| STEP/BREP/Mesh 模型 | `ModelBackgroundLoadState` + Widget `JobSystem`（Worker Phase1 → UI `finishIntoDocument` → 可选 `warmPickArtifacts`）；无 Job 时同步 `importFileIntoDocument` |
 | `parseProjectEdgesJson` / `applyProjectEdgesToBackend` | 恢复 `edges[]` → `BackendDataManager::attachChild` |
 | `syncOsgBackendParentsFromBackend` | Data 父子 → `OsgWidget::setBackendParent` |
 | `rebuildBackendParentIdMirror` | edges 后重建 `backendParentId` 旁路表 |

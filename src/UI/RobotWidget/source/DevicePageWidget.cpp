@@ -1,16 +1,23 @@
 #include "DevicePageWidget.h"
+#include "UiIconDecorators.h"
+#include "UiIcons.h"
 
+#include <QComboBox>
 #include <QCoreApplication>
 #include <QDir>
 #include <QDirIterator>
+#include <QEvent>
 #include <QFileInfo>
+#include <QFontMetrics>
 #include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QLabel>
-#include <QListWidget>
 #include <QPixmap>
+#include <QPushButton>
 #include <QRegularExpression>
+#include <QResizeEvent>
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSizePolicy>
@@ -22,6 +29,11 @@
 
 namespace
 {
+constexpr int kTileWidth = 96;
+constexpr int kTileHeight = 88;
+constexpr int kIconSize = 48;
+constexpr int kGridSpacing = 6;
+
 QString applicationDirWithResourceFolder()
 {
 	const QString appDir = QCoreApplication::applicationDirPath();
@@ -201,6 +213,16 @@ QStringList orderedCategoryKeys(const QStringList& categories)
 	return out;
 }
 
+QString elidedButtonText(QToolButton* btn, const QString& text)
+{
+	if (!btn)
+	{
+		return text;
+	}
+	const int maxWidth = kTileWidth - 8;
+	return btn->fontMetrics().elidedText(text, Qt::ElideRight, maxWidth);
+}
+
 } // namespace
 
 DevicePageWidget::DevicePageWidget(QWidget* parent)
@@ -208,73 +230,97 @@ DevicePageWidget::DevicePageWidget(QWidget* parent)
 {
 	auto* root = new QVBoxLayout(this);
 	root->setContentsMargins(6, 6, 6, 6);
-	root->setSpacing(8);
-	auto* hint = new QLabel(QStringLiteral(
-		"从 resource/models 扫描设备包。左侧选择设备类型与品牌，右侧点击型号缩略图导入 URDF。"));
-	hint->setWordWrap(true);
-	hint->setStyleSheet(QStringLiteral("color: palette(mid); font-size: 11px;"));
-	hint->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
-	root->addWidget(hint);
+	root->setSpacing(6);
 
-	setupDeviceColumns(root);
+	setupUi(root);
 
 	const QString resourceBase = applicationDirWithResourceFolder();
 	setModelsRootPath(QDir(resourceBase).filePath(QStringLiteral("resource/models")));
+	setUseChinese(true);
 }
 
-void DevicePageWidget::setupDeviceColumns(QVBoxLayout* rootLayout)
+void DevicePageWidget::setupUi(QVBoxLayout* rootLayout)
 {
-	auto* row = new QWidget(this);
-	auto* h = new QHBoxLayout(row);
-	h->setContentsMargins(0, 0, 0, 0);
-	h->setSpacing(10);
+	auto* filterRow = new QHBoxLayout;
+	filterRow->setContentsMargins(0, 0, 0, 0);
+	filterRow->setSpacing(6);
 
-	auto makeColumn = [&](const QString& title, int stretch) -> QWidget* {
-		auto* col = new QWidget(row);
-		auto* v = new QVBoxLayout(col);
-		v->setContentsMargins(0, 0, 0, 0);
-		v->setSpacing(4);
-		auto* lab = new QLabel(title);
-		lab->setStyleSheet(QStringLiteral("font-weight: bold;"));
-		v->addWidget(lab);
-		return col;
-	};
+	m_typeLabel = new QLabel(this);
+	m_typeCombo = new QComboBox(this);
+	m_typeCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
-	auto* colType = makeColumn(QStringLiteral("设备类型"), 1);
-	auto* colBrand = makeColumn(QStringLiteral("设备品牌"), 1);
-	auto* colModel = makeColumn(QStringLiteral("具体型号"), 3);
+	m_brandLabel = new QLabel(this);
+	m_brandCombo = new QComboBox(this);
+	m_brandCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
-	m_listType = new QListWidget;
-	m_listType->setMinimumWidth(120);
-	m_listType->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
-	static_cast<QVBoxLayout*>(colType->layout())->addWidget(m_listType, 1);
+	m_refreshBtn = new QPushButton(QStringLiteral("↻"), this);
+	m_refreshBtn->setFixedSize(28, 28);
+	m_refreshBtn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
-	m_listBrand = new QListWidget;
-	m_listBrand->setMinimumWidth(120);
-	m_listBrand->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
-	static_cast<QVBoxLayout*>(colBrand->layout())->addWidget(m_listBrand, 1);
+	filterRow->addWidget(m_typeLabel);
+	filterRow->addWidget(m_typeCombo, 1);
+	filterRow->addWidget(m_brandLabel);
+	filterRow->addWidget(m_brandCombo, 1);
+	filterRow->addWidget(m_refreshBtn);
 
-	m_modelsScroll = new QScrollArea;
+	m_modelsScroll = new QScrollArea(this);
 	m_modelsScroll->setWidgetResizable(true);
-	m_modelsScroll->setFrameShape(QFrame::StyledPanel);
+	m_modelsScroll->setFrameShape(QFrame::NoFrame);
+	m_modelsScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
 	m_modelsContainer = new QWidget;
-	m_modelsLayout = new QVBoxLayout(m_modelsContainer);
-	m_modelsLayout->setContentsMargins(4, 4, 4, 4);
-	m_modelsLayout->setSpacing(10);
-	m_modelsLayout->setAlignment(Qt::AlignTop);
+	m_modelsGrid = new QGridLayout(m_modelsContainer);
+	m_modelsGrid->setContentsMargins(0, 0, 0, 0);
+	m_modelsGrid->setHorizontalSpacing(kGridSpacing);
+	m_modelsGrid->setVerticalSpacing(kGridSpacing);
+	m_modelsGrid->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+
+	m_statusLabel = new QLabel(m_modelsContainer);
+	m_statusLabel->setWordWrap(true);
+	m_statusLabel->setStyleSheet(QStringLiteral("color: palette(mid);"));
+	m_statusLabel->hide();
+	m_modelsGrid->addWidget(m_statusLabel, 0, 0, 1, 1);
+
 	m_modelsScroll->setWidget(m_modelsContainer);
-	static_cast<QVBoxLayout*>(colModel->layout())->addWidget(m_modelsScroll, 1);
+	if (QWidget* viewport = m_modelsScroll->viewport())
+	{
+		viewport->installEventFilter(this);
+	}
 
-	h->addWidget(colType, 1);
-	h->addWidget(colBrand, 1);
-	h->addWidget(colModel, 2);
-
-	connect(m_listType, &QListWidget::currentItemChanged, this, &DevicePageWidget::onTypeSelectionChanged);
-	connect(m_listBrand, &QListWidget::currentItemChanged, this, &DevicePageWidget::onBrandSelectionChanged);
+	connect(m_typeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+		this, &DevicePageWidget::onTypeSelectionChanged);
+	connect(m_brandCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+		this, &DevicePageWidget::onBrandSelectionChanged);
+	connect(m_refreshBtn, &QPushButton::clicked, this, &DevicePageWidget::onRefreshClicked);
 
 	if (rootLayout)
 	{
-		rootLayout->addWidget(row, 1);
+		rootLayout->addLayout(filterRow);
+		rootLayout->addWidget(m_modelsScroll, 1);
+	}
+}
+
+void DevicePageWidget::setUseChinese(const bool chinese)
+{
+	m_useChinese = chinese;
+	updateUiLabels();
+}
+
+void DevicePageWidget::updateUiLabels()
+{
+	const bool zh = m_useChinese;
+	if (m_typeLabel)
+	{
+		m_typeLabel->setText(zh ? QStringLiteral("类型") : QStringLiteral("Type"));
+	}
+	if (m_brandLabel)
+	{
+		m_brandLabel->setText(zh ? QStringLiteral("品牌") : QStringLiteral("Brand"));
+	}
+	if (m_refreshBtn)
+	{
+		m_refreshBtn->setToolTip(zh ? QStringLiteral("重新扫描设备包")
+			: QStringLiteral("Rescan device packages"));
 	}
 }
 
@@ -287,6 +333,39 @@ void DevicePageWidget::setModelsRootPath(const QString& absoluteDirPath)
 void DevicePageWidget::refreshButtons()
 {
 	rescanPackagesAndRefreshUi();
+}
+
+void DevicePageWidget::onRefreshClicked()
+{
+	rescanPackagesAndRefreshUi();
+}
+
+QString DevicePageWidget::selectedType() const
+{
+	if (!m_typeCombo || m_typeCombo->currentIndex() < 0)
+	{
+		return {};
+	}
+	return m_typeCombo->currentText();
+}
+
+QString DevicePageWidget::selectedBrand() const
+{
+	if (!m_brandCombo || m_brandCombo->currentIndex() < 0)
+	{
+		return {};
+	}
+	if (!m_brandCombo->isVisible())
+	{
+		const QString type = selectedType();
+		if (!m_packagesByTypeBrand.contains(type))
+		{
+			return {};
+		}
+		const QStringList brands = m_packagesByTypeBrand[type].keys();
+		return brands.isEmpty() ? QString() : brands.front();
+	}
+	return m_brandCombo->currentText();
 }
 
 void DevicePageWidget::rescanPackagesAndRefreshUi()
@@ -313,44 +392,37 @@ void DevicePageWidget::rescanPackagesAndRefreshUi()
 		}
 	}
 
-	fillTypeList();
+	fillTypeCombo();
 
 	{
-		QSignalBlocker bt(m_listType);
-		QSignalBlocker bb(m_listBrand);
-		if (m_listType->count() > 0)
+		QSignalBlocker bt(m_typeCombo);
+		QSignalBlocker bb(m_brandCombo);
+		if (m_typeCombo->count() > 0)
 		{
-			m_listType->setCurrentRow(0);
+			m_typeCombo->setCurrentIndex(0);
 		}
-		fillBrandListForSelectedType();
-		if (m_listBrand->count() > 0)
+		fillBrandComboForSelectedType();
+		if (m_brandCombo->count() > 0)
 		{
-			m_listBrand->setCurrentRow(0);
+			m_brandCombo->setCurrentIndex(0);
 		}
 	}
-	fillModelGridForSelection();
+	updateBrandComboVisibility();
+	rebuildModelTiles();
 
-	if (m_listType->count() == 0)
+	if (m_typeCombo->count() == 0)
 	{
-		QLayoutItem* lit;
-		while ((lit = m_modelsLayout->takeAt(0)) != nullptr)
-		{
-			if (QWidget* w = lit->widget())
-			{
-				w->deleteLater();
-			}
-			delete lit;
-		}
-		auto* empty = new QLabel(
-			QStringLiteral("未找到含 URDF 的设备包。\n%1").arg(m_modelsRoot));
-		empty->setWordWrap(true);
-		m_modelsLayout->addWidget(empty);
+		m_statusLabel->setText(
+			m_useChinese
+				? QStringLiteral("未找到含 URDF 的设备包。\n%1").arg(m_modelsRoot)
+				: QStringLiteral("No URDF device packages found.\n%1").arg(m_modelsRoot));
+		m_statusLabel->show();
 	}
 }
 
-void DevicePageWidget::fillTypeList()
+void DevicePageWidget::fillTypeCombo()
 {
-	m_listType->clear();
+	m_typeCombo->clear();
 	QStringList keys;
 	keys.reserve(m_packagesByTypeBrand.size());
 	for (auto it = m_packagesByTypeBrand.constBegin(); it != m_packagesByTypeBrand.constEnd(); ++it)
@@ -364,20 +436,15 @@ void DevicePageWidget::fillTypeList()
 		{
 			continue;
 		}
-		m_listType->addItem(k);
+		m_typeCombo->addItem(k);
 	}
 }
 
-void DevicePageWidget::fillBrandListForSelectedType()
+void DevicePageWidget::fillBrandComboForSelectedType()
 {
-	m_listBrand->clear();
-	QListWidgetItem* cur = m_listType->currentItem();
-	if (!cur)
-	{
-		return;
-	}
-	const QString type = cur->text();
-	if (!m_packagesByTypeBrand.contains(type))
+	m_brandCombo->clear();
+	const QString type = selectedType();
+	if (type.isEmpty() || !m_packagesByTypeBrand.contains(type))
 	{
 		return;
 	}
@@ -385,59 +452,87 @@ void DevicePageWidget::fillBrandListForSelectedType()
 	std::sort(brands.begin(), brands.end());
 	for (const QString& b : brands)
 	{
-		m_listBrand->addItem(b);
+		m_brandCombo->addItem(b);
 	}
+}
+
+void DevicePageWidget::updateBrandComboVisibility()
+{
+	const QString type = selectedType();
+	const int brandCount =
+		type.isEmpty() || !m_packagesByTypeBrand.contains(type)
+			? 0
+			: m_packagesByTypeBrand[type].size();
+	const bool showBrand = brandCount > 1;
+	m_brandLabel->setVisible(showBrand);
+	m_brandCombo->setVisible(showBrand);
 }
 
 void DevicePageWidget::onTypeSelectionChanged()
 {
-	QSignalBlocker bb(m_listBrand);
-	fillBrandListForSelectedType();
-	if (m_listBrand->count() > 0)
+	QSignalBlocker bb(m_brandCombo);
+	fillBrandComboForSelectedType();
+	if (m_brandCombo->count() > 0)
 	{
-		m_listBrand->setCurrentRow(0);
+		m_brandCombo->setCurrentIndex(0);
 	}
-	fillModelGridForSelection();
+	updateBrandComboVisibility();
+	rebuildModelTiles();
 }
 
 void DevicePageWidget::onBrandSelectionChanged()
 {
-	fillModelGridForSelection();
+	rebuildModelTiles();
 }
 
-void DevicePageWidget::fillModelGridForSelection()
+void DevicePageWidget::rebuildModelTiles()
 {
-	QLayoutItem* lit;
-	while ((lit = m_modelsLayout->takeAt(0)) != nullptr)
+	for (QToolButton* btn : m_modelButtons)
 	{
-		if (QWidget* w = lit->widget())
-		{
-			w->deleteLater();
-		}
-		delete lit;
+		btn->deleteLater();
 	}
+	m_modelButtons.clear();
+	m_statusLabel->hide();
 
-	QListWidgetItem* ti = m_listType->currentItem();
-	QListWidgetItem* bi = m_listBrand->currentItem();
-	if (!ti || !bi)
+	while (QLayoutItem* item = m_modelsGrid->takeAt(0))
+	{
+		if (QWidget* w = item->widget())
+		{
+			if (w != m_statusLabel)
+			{
+				w->deleteLater();
+			}
+		}
+		delete item;
+	}
+	m_modelsGrid->addWidget(m_statusLabel, 0, 0, 1, 1);
+	m_statusLabel->hide();
+
+	const QString type = selectedType();
+	const QString brand = selectedBrand();
+	if (type.isEmpty() || brand.isEmpty())
 	{
 		return;
 	}
-	const QString type = ti->text();
-	const QString brand = bi->text();
 	if (!m_packagesByTypeBrand.contains(type) || !m_packagesByTypeBrand[type].contains(brand))
 	{
 		return;
 	}
 
 	const QStringList packages = m_packagesByTypeBrand[type][brand];
-	int totalButtons = 0;
 
-	auto placeButton = [&](QToolButton* btn) {
-		btn->setFixedSize(118, 108);
-		btn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-		m_modelsLayout->addWidget(btn, 0, Qt::AlignHCenter);
-		++totalButtons;
+	auto makeTile = [&](const QString& labelText, const QString& urdfPath, const QIcon& icon) {
+		auto* btn = new QToolButton(m_modelsContainer);
+		btn->setFixedSize(kTileWidth, kTileHeight);
+		btn->setIconSize(QSize(kIconSize, kIconSize));
+		btn->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+		btn->setIcon(icon);
+		btn->setText(elidedButtonText(btn, labelText));
+		btn->setToolTip(QStringLiteral("%1\n%2").arg(labelText, urdfPath));
+		connect(btn, &QToolButton::clicked, this, [this, urdfPath]() {
+			emit urdfImportRequested(urdfPath);
+		});
+		m_modelButtons.append(btn);
 	};
 
 	for (const QString& packageRoot : packages)
@@ -464,16 +559,9 @@ void DevicePageWidget::fillModelGridForSelection()
 
 		if (images.isEmpty())
 		{
-			auto* btn = new QToolButton(m_modelsContainer);
-			btn->setIconSize(QSize(72, 72));
-			btn->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-			btn->setText(QFileInfo(packageRoot).fileName());
+			const QString label = QFileInfo(packageRoot).fileName();
 			const QString urdfPath = urdfs.front();
-			btn->setToolTip(urdfPath);
-			connect(btn, &QToolButton::clicked, this, [this, urdfPath]() {
-				emit urdfImportRequested(urdfPath);
-			});
-			placeButton(btn);
+			makeTile(label, urdfPath, UiIcons::icon(UiIconId::RobotPlaceholder, UiIcons::Size::Medium));
 			continue;
 		}
 
@@ -485,30 +573,72 @@ void DevicePageWidget::fillModelGridForSelection()
 			{
 				continue;
 			}
-			auto* btn = new QToolButton(m_modelsContainer);
-			btn->setIconSize(QSize(72, 72));
-			btn->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+			const QString label = QFileInfo(imgPath).completeBaseName();
 			QPixmap pm(imgPath);
+			QIcon icon;
 			if (!pm.isNull())
 			{
-				btn->setIcon(QIcon(pm.scaled(72, 72, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+				icon = QIcon(pm.scaled(kIconSize, kIconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation));
 			}
-			btn->setText(QFileInfo(imgPath).completeBaseName());
-			btn->setToolTip(QStringLiteral("%1\n%2").arg(QFileInfo(packageRoot).fileName(), urdfPath));
-			connect(btn, &QToolButton::clicked, this, [this, urdfPath]() {
-				emit urdfImportRequested(urdfPath);
-			});
-			placeButton(btn);
+			makeTile(label, urdfPath, icon);
 		}
 	}
 
-	if (totalButtons == 0)
+	if (m_modelButtons.isEmpty())
 	{
-		auto* empty = new QLabel(QStringLiteral("此品牌下暂无可用型号。"));
-		m_modelsLayout->addWidget(empty);
+		m_statusLabel->setText(m_useChinese ? QStringLiteral("此品牌下暂无可用型号。")
+			: QStringLiteral("No models under this brand."));
+		m_statusLabel->show();
 	}
-	else
+
+	relayoutModelGrid();
+}
+
+void DevicePageWidget::relayoutModelGrid()
+{
+	while (QLayoutItem* item = m_modelsGrid->takeAt(0))
 	{
-		m_modelsLayout->addStretch(1);
+		delete item;
 	}
+
+	if (m_modelButtons.isEmpty())
+	{
+		if (m_statusLabel->isVisible())
+		{
+			const int viewportWidth = m_modelsScroll && m_modelsScroll->viewport()
+				? m_modelsScroll->viewport()->width()
+				: width();
+			const int columns = qMax(1, viewportWidth / (kTileWidth + kGridSpacing));
+			m_modelsGrid->addWidget(m_statusLabel, 0, 0, 1, columns);
+		}
+		return;
+	}
+
+	const int viewportWidth = m_modelsScroll && m_modelsScroll->viewport()
+		? m_modelsScroll->viewport()->width()
+		: width();
+	const int columns = qMax(1, viewportWidth / (kTileWidth + kGridSpacing));
+
+	for (int i = 0; i < m_modelButtons.size(); ++i)
+	{
+		const int row = i / columns;
+		const int col = i % columns;
+		m_modelsGrid->addWidget(m_modelButtons[i], row, col);
+	}
+}
+
+void DevicePageWidget::resizeEvent(QResizeEvent* event)
+{
+	QWidget::resizeEvent(event);
+	relayoutModelGrid();
+}
+
+bool DevicePageWidget::eventFilter(QObject* watched, QEvent* event)
+{
+	if (m_modelsScroll && watched == m_modelsScroll->viewport()
+		&& event->type() == QEvent::Resize)
+	{
+		relayoutModelGrid();
+	}
+	return QWidget::eventFilter(watched, event);
 }

@@ -89,7 +89,8 @@ void applySoupToFillGeometry(
 	osg::Geometry& geometry,
 	osg::Vec3Array& vertices,
 	osg::Vec3Array* normalArray,
-	bool useSceneLighting)
+	bool useSceneLighting,
+	const std::vector<float>* precomputedNormals = nullptr)
 {
 	fillVec3ArrayFromSoup(soup, vertices);
 	geometry.setVertexArray(&vertices);
@@ -116,9 +117,16 @@ void applySoupToFillGeometry(
 
 	if (useSceneLighting && normalArray)
 	{
-		std::vector<float> computed;
-		geoalgo::computeTriangleSoupNormals(soup, computed);
-		fillVec3ArrayFromSoup(computed, *normalArray);
+		if (precomputedNormals && precomputedNormals->size() == soup.size())
+		{
+			fillVec3ArrayFromSoup(*precomputedNormals, *normalArray);
+		}
+		else
+		{
+			std::vector<float> computed;
+			geoalgo::computeTriangleSoupNormals(soup, computed);
+			fillVec3ArrayFromSoup(computed, *normalArray);
+		}
 		geometry.setNormalArray(normalArray, osg::Array::BIND_PER_VERTEX);
 		normalArray->dirty();
 	}
@@ -193,7 +201,7 @@ osg::ref_ptr<osg::Geode> buildBrepEdgeWireGeode(
 }
 
 osg::ref_ptr<osg::Node> buildBrepDisplayNode(const BrepBackendData& data, const MeshVisualOptions& opt,
-	const geoalgo::BrepImportArtifacts& artifacts, std::string* errorMessage)
+	geoalgo::BrepImportArtifacts& artifacts, std::string* errorMessage)
 {
 	const geoalgo::ShapeHandle& shape = data.shapeRef();
 	if (shape.isNull())
@@ -223,7 +231,9 @@ osg::ref_ptr<osg::Node> buildBrepDisplayNode(const BrepBackendData& data, const 
 	osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry;
 	geometry->setUseDisplayList(false);
 	geometry->setUseVertexBufferObjects(true);
-	applySoupToFillGeometry(soup, *geometry, *vertices, normals.get(), opt.useSceneLighting);
+	const std::vector<float>* preNormals =
+		artifacts.displayNormals.size() == soup.size() ? &artifacts.displayNormals : nullptr;
+	applySoupToFillGeometry(soup, *geometry, *vertices, normals.get(), opt.useSceneLighting, preNormals);
 
 	osg::ref_ptr<osg::Vec4Array> mc = new osg::Vec4Array;
 	mc->push_back(fillColor);
@@ -245,10 +255,15 @@ osg::ref_ptr<osg::Node> buildBrepDisplayNode(const BrepBackendData& data, const 
 	osg::ref_ptr<osg::Group> grp = new osg::Group;
 	grp->addChild(geodeFill.get());
 
-	osg::ref_ptr<osg::Geode> wireGeode = buildBrepEdgeWireGeode(artifacts.edgePolylines, fillColor, opt);
-	if (wireGeode.valid())
+	if (opt.showWireOutline)
 	{
-		grp->addChild(wireGeode.get());
+		std::string pickErr;
+		(void)geoalgo::ensureBrepImportPickArtifacts(shape, artifacts, errorMessage ? &pickErr : nullptr);
+		osg::ref_ptr<osg::Geode> wireGeode = buildBrepEdgeWireGeode(artifacts.edgePolylines, fillColor, opt);
+		if (wireGeode.valid())
+		{
+			grp->addChild(wireGeode.get());
+		}
 	}
 
 	return grp;
@@ -274,7 +289,7 @@ bool BrepBackendVisual::buildOuterBranch(const BackendDataBase& data, const Mesh
 		return false;
 	}
 	std::string artifactErr;
-	const std::shared_ptr<const geoalgo::BrepImportArtifacts> artifacts =
+	const std::shared_ptr<geoalgo::BrepImportArtifacts> artifacts =
 		geoalgo::getOrBuildBrepImportArtifacts(brep->shapeRef(), errorMessage ? &artifactErr : nullptr);
 	if (!artifacts)
 	{

@@ -1,4 +1,5 @@
 #include "AiAssistantDockWidget.h"
+#include "UiIconDecorators.h"
 
 #include "AiDomainTypes.h"
 #include "AiLlmSettingsDialog.h"
@@ -67,6 +68,9 @@ AiAssistantDockWidget::AiAssistantDockWidget(QWidget* parent)
 	row->addWidget(m_settingsBtn);
 	row->addWidget(m_sendBtn);
 	root->addLayout(row);
+
+	UiIconDecorators::apply(m_settingsBtn, UiIconId::Settings, UiIconDecorators::IconPlacement::IconOnly, UiIcons::Size::Medium);
+	UiIconDecorators::apply(m_sendBtn, UiIconId::Send, UiIconDecorators::IconPlacement::Leading, UiIcons::Size::Medium);
 
 	setUseChinese(m_useChinese);
 	onDomainChanged(m_domainCombo->currentIndex());

@@ -24,7 +24,6 @@
 | **HelloPlugin** | 官方示例插件（侧栏 + 菜单 + `createPrimitiveMesh`） | [HelloPlugin/DEVELOPER_GUIDE.md](../src/Plugins/HelloPlugin/DEVELOPER_GUIDE.md) |
 | **CloudSimAiSDK** | AI 助手 ABI、分域专模、`ai_config` 与训练文档索引 | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) · [配置](../../tools/ai-training/CONFIGURATION.md) · [训练](../../tools/ai-training/README.md) · [**AI 轨迹特征**](../../docs/trajectory_feature_ai.md) |
 | **AiWidget** | AI 助手 Dock、`AiAssistantCoordinator`（含 `trajectory.feature` 会话） | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) · [trajectory_feature_ai.md](../../docs/trajectory_feature_ai.md) |
-| **HelloAiPlugin** | AI 插件示例（`ICloudSimAiPlugin`） | [HelloAiPlugin/DEVELOPER_GUIDE.md](../src/Plugins/HelloAiPlugin/DEVELOPER_GUIDE.md) |
 
 ## 依赖方向（简图）
 

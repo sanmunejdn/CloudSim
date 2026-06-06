@@ -19,6 +19,8 @@
 #include "PickTypes.h"
 #include "RawTrajectory.h"
 
+#include "UiIconDecorators.h"
+
 #include <json.hpp>
 
 #include <QCheckBox>
@@ -27,14 +29,17 @@
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QHash>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QSet>
 #include <QSpinBox>
 #include <QStackedWidget>
 #include <QTimer>
+#include <QVector>
 #include <QVBoxLayout>
 
 namespace
@@ -43,6 +48,25 @@ namespace
 constexpr double kDefaultStepMm = 2.0;
 constexpr double kDefaultLinearDeflectionMm = 0.01;
 constexpr int kDefaultUvCount = 16;
+
+bool isTopLevelWorkpieceBackend(const BackendDataManager& mgr, const std::string& backendId)
+{
+	return mgr.parentsOf(backendId).empty();
+}
+
+bool isStepSourcePath(const QString& stepPath)
+{
+	const QString ext = QFileInfo(stepPath).suffix().toLower();
+	return ext == QStringLiteral("step") || ext == QStringLiteral("stp");
+}
+
+struct WorkpieceComboCandidate
+{
+	QString backendId;
+	QString label;
+	QString dedupeKey;
+	bool isBrepModel = false;
+};
 
 } // namespace
 
@@ -148,6 +172,12 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent)
 	connect(m_pickEdgeBtn, &QPushButton::clicked, this, &FeatureTrajectoryPageWidget::onPickEdge);
 	connect(m_pickFaceBtn, &QPushButton::clicked, this, &FeatureTrajectoryPageWidget::onPickFace);
 	connect(m_cancelPickBtn, &QPushButton::clicked, this, &FeatureTrajectoryPageWidget::onCancelPick);
+
+	UiIconDecorators::apply(m_pickEdgeBtn, UiIconId::PickEdge);
+	UiIconDecorators::apply(m_pickFaceBtn, UiIconId::PickFace);
+	UiIconDecorators::apply(m_catalogBtn, UiIconId::Refresh);
+	UiIconDecorators::apply(m_discretizeBtn, UiIconId::Discretize);
+
 	connect(m_faceKindCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
 		updateDiscretizeParamMode();
 	});
@@ -733,10 +763,15 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 	}
 	BackendDataManager& mgr = doc->backend();
 	const auto all = mgr.listData();
-	int stepCount = 0;
+	QVector<WorkpieceComboCandidate> candidates;
+	candidates.reserve(static_cast<int>(all.size()));
 	for (const auto& data : all)
 	{
 		if (!data)
+		{
+			continue;
+		}
+		if (!isTopLevelWorkpieceBackend(mgr, data->id()))
 		{
 			continue;
 		}
@@ -755,19 +790,15 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 		{
 			stepPath = m_stepPathResolver(backendId);
 		}
-		if (cn == QStringLiteral("Model"))
+		const bool isBrepModel = cn == QStringLiteral("BrepModel");
+		if (isBrepModel)
 		{
-			if (stepPath.isEmpty())
-			{
-				continue;
-			}
-			const QString ext = QFileInfo(stepPath).suffix().toLower();
-			if (ext != QStringLiteral("step") && ext != QStringLiteral("stp"))
+			if (!std::dynamic_pointer_cast<BrepBackendData>(data) || !data->hasGeometry())
 			{
 				continue;
 			}
 		}
-		else if (!std::dynamic_pointer_cast<BrepBackendData>(data) || !data->hasGeometry())
+		else if (stepPath.isEmpty() || !isStepSourcePath(stepPath))
 		{
 			continue;
 		}
@@ -775,7 +806,45 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 		const QString label = fileName.isEmpty()
 			? backendId
 			: QStringLiteral("%1 (%2)").arg(backendId, fileName);
-		m_backendCombo->addItem(label, backendId);
+		WorkpieceComboCandidate candidate;
+		candidate.backendId = backendId;
+		candidate.label = label;
+		candidate.dedupeKey = stepPath.isEmpty() ? backendId : stepPath.toLower();
+		candidate.isBrepModel = isBrepModel;
+		candidates.append(candidate);
+	}
+
+	QHash<QString, int> bestIndexByKey;
+	for (int i = 0; i < candidates.size(); ++i)
+	{
+		const WorkpieceComboCandidate& candidate = candidates[i];
+		if (!bestIndexByKey.contains(candidate.dedupeKey))
+		{
+			bestIndexByKey.insert(candidate.dedupeKey, i);
+			continue;
+		}
+		const int prev = bestIndexByKey.value(candidate.dedupeKey);
+		if (!candidates[prev].isBrepModel && candidate.isBrepModel)
+		{
+			bestIndexByKey[candidate.dedupeKey] = i;
+		}
+	}
+
+	QSet<int> keepIndices;
+	keepIndices.reserve(bestIndexByKey.size());
+	for (int idx : bestIndexByKey)
+	{
+		keepIndices.insert(idx);
+	}
+
+	int stepCount = 0;
+	for (int i = 0; i < candidates.size(); ++i)
+	{
+		if (!keepIndices.contains(i))
+		{
+			continue;
+		}
+		m_backendCombo->addItem(candidates[i].label, candidates[i].backendId);
 		++stepCount;
 	}
 	if (stepCount == 0)

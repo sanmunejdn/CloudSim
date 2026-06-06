@@ -60,11 +60,11 @@
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>AIWIDGET_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>inc;../../Plugins/CloudSimAiSDK/inc;../../Plugins/CloudSimPluginSDK/inc;../../../../bin/SDK/JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../CloudSimUiAssets/inc;../../Plugins/CloudSimAiSDK/inc;../../Plugins/CloudSimPluginSDK/inc;../../../../bin/SDK/JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>CloudSimAiSDK.lib;CloudSimPluginSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimUiAssets.lib;CloudSimAiSDK.lib;CloudSimPluginSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -72,11 +72,11 @@
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>AIWIDGET_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>inc;../../Plugins/CloudSimAiSDK/inc;../../Plugins/CloudSimPluginSDK/inc;../../../../bin/SDK/JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../CloudSimUiAssets/inc;../../Plugins/CloudSimAiSDK/inc;../../Plugins/CloudSimPluginSDK/inc;../../../../bin/SDK/JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>CloudSimAiSDK.lib;CloudSimPluginSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimUiAssets.lib;CloudSimAiSDK.lib;CloudSimPluginSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>

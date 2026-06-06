@@ -21,9 +21,9 @@
 #include <QFileInfo>
 #include <QMouseEvent>
 #include <QPalette>
+#include <QPainter>
 #include <QShowEvent>
-#include <QPalette>
-#include <QShowEvent>
+#include <QResizeEvent>
 #include <QRegExp>
 #include <QStringList>
 #include <QTextStream>
@@ -71,6 +71,7 @@
 #include "PointCloudBackendData.h"
 
 #include <osg/Image>
+#include <osg/Image>
 #include <osgViewer/Viewer>
 
 #include "OsgWidgetBackendLoadController.h"
@@ -97,6 +98,43 @@ namespace {
 QColor viewerChromeColor(bool dark)
 {
 	return dark ? QColor(102, 102, 107) : QColor(250, 250, 250);
+}
+
+osg::ref_ptr<osg::Image> makeViewCubeLabelImage(const QString& text)
+{
+	const QFont font(QStringLiteral("Microsoft YaHei"), 14, QFont::Bold);
+	const QFontMetrics metrics(font);
+	const QRect bounds = metrics.boundingRect(text);
+	const int w = bounds.width() + 10;
+	const int h = bounds.height() + 8;
+	QImage qimg(w, h, QImage::Format_RGBA8888);
+	qimg.fill(Qt::transparent);
+	QPainter painter(&qimg);
+	painter.setRenderHint(QPainter::Antialiasing, true);
+	painter.setRenderHint(QPainter::TextAntialiasing, true);
+	painter.setFont(font);
+	painter.setPen(QColor(13, 15, 18));
+	painter.drawText(QRect(0, 0, w, h), Qt::AlignCenter, text);
+	painter.end();
+
+	osg::ref_ptr<osg::Image> image = new osg::Image;
+	image->allocateImage(w, h, 1, GL_RGBA, GL_UNSIGNED_BYTE);
+	unsigned char* dst = image->data();
+	for (int y = 0; y < h; ++y)
+	{
+		const unsigned char* srcRow = qimg.constScanLine(y);
+		for (int x = 0; x < w; ++x)
+		{
+			const unsigned char* srcPx = srcRow + x * 4;
+			dst[0] = srcPx[0];
+			dst[1] = srcPx[1];
+			dst[2] = srcPx[2];
+			dst[3] = srcPx[3];
+			dst += 4;
+		}
+	}
+	image->setInternalTextureFormat(GL_RGBA8);
+	return image;
 }
 
 } // namespace
@@ -878,6 +916,38 @@ void OsgWidget::showEvent(QShowEvent* event)
 	setViewerBackgroundForDarkUi(m_darkUiTheme);
 }
 
+void OsgWidget::resizeEvent(QResizeEvent* event)
+{
+	QWidget::resizeEvent(event);
+	if (m_glWidget && m_viewer.valid())
+	{
+		const double dpr = m_glWidget->devicePixelRatio();
+		const int framebufferW = static_cast<int>(std::lround(static_cast<double>(m_glWidget->width()) * dpr));
+		const int framebufferH = static_cast<int>(std::lround(static_cast<double>(m_glWidget->height()) * dpr));
+		syncViewportLayoutFromFramebuffer(framebufferW, framebufferH);
+	}
+}
+
+void OsgWidget::syncViewportLayoutFromFramebuffer(int framebufferWidth, int framebufferHeight)
+{
+	const int fbW = (std::max)(1, framebufferWidth);
+	const int fbH = (std::max)(1, framebufferHeight);
+	const double dpr = m_glWidget ? m_glWidget->devicePixelRatio() : 1.0;
+	const int logicalW = (std::max)(1, static_cast<int>(std::lround(static_cast<double>(fbW) / dpr)));
+	const int logicalH = (std::max)(1, static_cast<int>(std::lround(static_cast<double>(fbH) / dpr)));
+	setViewportPixels(logicalW, logicalH);
+	setDevicePixelRatio(dpr);
+	if (m_viewer.valid() && m_viewer->getCamera())
+	{
+		m_viewer->getCamera()->setViewport(0, 0, fbW, fbH);
+		const double aspect = static_cast<double>(fbW) / static_cast<double>(fbH);
+		m_viewer->getCamera()->setProjectionMatrixAsPerspective(30.0, aspect, 10.0, 1e8);
+	}
+	updateWorldAxesHudViewport(fbW, fbH);
+	updateViewCubeHudViewport(fbW, fbH);
+	requestRedraw();
+}
+
 void OsgWidget::clearStagingGeometry()
 {
 	if (m_stagingGroup.valid())
@@ -1316,32 +1386,23 @@ void OsgWidget::initViewer()
 		{
 			static_cast<GraphicsWindowQt1*>(m_graphicsWindow.get())->updateSize(w, h);
 		}
-		setViewportPixels(w, h);
-		if (m_glWidget)
-		{
-			setDevicePixelRatio(m_glWidget->devicePixelRatio());
-		}
-		if (m_viewer.valid() && m_viewer->getCamera())
-		{
-			m_viewer->getCamera()->setViewport(0, 0, w, h);
-			const double aspect = static_cast<double>((std::max)(1, w))
-				/ static_cast<double>((std::max)(1, h));
-			m_viewer->getCamera()->setProjectionMatrixAsPerspective(30.0, aspect, 10.0, 1e8);
-		}
-		updateWorldAxesHudViewport(w, h);
-		requestRedraw();
+		syncViewportLayoutFromFramebuffer(w, h);
 	});
 
 	m_viewer->getCamera()->setGraphicsContext(m_graphicsWindow.get());
 	m_viewer->getCamera()->setCullMask(0xffffffffu);
 	// Some OSG builds crash in Debug when viewport/projection are set before the graphics context is fully valid.
 	// Defer these calls unless the context reports valid; resize callback will configure them again.
-	if (m_graphicsWindow.valid() && m_graphicsWindow->valid())
+	if (m_graphicsWindow.valid() && m_graphicsWindow->valid() && m_glWidget)
 	{
-		m_viewer->getCamera()->setViewport(0, 0, m_glWidget->width(), m_glWidget->height());
-		const double aspect = static_cast<double>((std::max)(1, m_glWidget->width()))
-			/ static_cast<double>((std::max)(1, m_glWidget->height()));
+		const double dpr = m_glWidget->devicePixelRatio();
+		const int deviceW = static_cast<int>(std::lround(static_cast<double>(m_glWidget->width()) * dpr));
+		const int deviceH = static_cast<int>(std::lround(static_cast<double>(m_glWidget->height()) * dpr));
+		m_viewer->getCamera()->setViewport(0, 0, deviceW, deviceH);
+		const double aspect = static_cast<double>((std::max)(1, deviceW))
+			/ static_cast<double>((std::max)(1, deviceH));
 		m_viewer->getCamera()->setProjectionMatrixAsPerspective(30.0, aspect, 10.0, 1e8);
+		syncViewportLayoutFromFramebuffer(deviceW, deviceH);
 	}
 
 	applyHeadlightToViewer(m_viewer.get());
@@ -1389,6 +1450,26 @@ void OsgWidget::initViewer()
 	m_idleRenderTimer.start();
 
 	OsgScene::initWorldAxesHud();
+	OsgScene::initViewCubeHud();
+	applyViewCubeFaceLabelImagesFromQt();
+}
+
+void OsgWidget::applyViewCubeFaceLabelImagesFromQt()
+{
+	static const QString kLabels[] = {
+		QStringLiteral("\u9876"),
+		QStringLiteral("\u5e95"),
+		QStringLiteral("\u524d"),
+		QStringLiteral("\u540e"),
+		QStringLiteral("\u53f3"),
+		QStringLiteral("\u5de6"),
+	};
+	osg::ref_ptr<osg::Image> images[6];
+	for (int i = 0; i < 6; ++i)
+	{
+		images[i] = makeViewCubeLabelImage(kLabels[i]);
+	}
+	applyViewCubeFaceLabelImages(images);
 }
 
 void OsgWidget::noteViewportInteraction()
@@ -1926,6 +2007,17 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 	if (watched == m_glWidget)
 	{
 		const auto type = event->type();
+		if (type == QEvent::MouseButtonPress)
+		{
+			const auto* mouseEvent = static_cast<QMouseEvent*>(event);
+			if (mouseEvent->button() == Qt::LeftButton
+				&& tryPickViewCubeAtLogicalMouse(static_cast<double>(mouseEvent->x()),
+					static_cast<double>(mouseEvent->y())))
+			{
+				requestRedraw();
+				return true;
+			}
+		}
 		if (type == QEvent::MouseMove || type == QEvent::MouseButtonPress || type == QEvent::MouseButtonRelease
 			|| type == QEvent::Wheel || type == QEvent::KeyPress || type == QEvent::KeyRelease)
 		{

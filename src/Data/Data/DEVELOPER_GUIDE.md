@@ -212,6 +212,8 @@ DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 通常为 **�
 | `displayName` | 树节点显示名 |
 | `shapeRef` | 当前实现为共享整件 assembly shape |
 
+显示 tessellation 在 `GeometryAlgorithm::getOrBuildBrepImportArtifacts`（Phase1/2 分阶段）；Data 层只持久化 BREP shape + 工程 `.brep` sidecar，**不**持久化 display soup。
+
 位姿/颜色/属性：`hasPoseProperty` 等均为 `true`。Visual 见 [`BackendVisual/DEVELOPER_GUIDE.md`](../../UI/BackendVisual/DEVELOPER_GUIDE.md) §4.3；Host 装配见 [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.1b。
 
 ### 4.5 CAD 轨迹几何桥接（`GeometryRef.h` / `GeometryBackendOps.cpp`）

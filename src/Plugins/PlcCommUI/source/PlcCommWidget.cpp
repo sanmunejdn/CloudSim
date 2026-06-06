@@ -1,6 +1,7 @@
 #include "PlcCommWidget.h"
 
 #include "PlcCommController.h"
+#include "UiIconDecorators.h"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -356,6 +357,14 @@ PlcCommWidget::PlcCommWidget(QWidget* parent)
     connect(removeTagBtn_, &QPushButton::clicked, this, &PlcCommWidget::onRemoveTagClicked);
     connect(readBtn_, &QPushButton::clicked, this, &PlcCommWidget::onReadClicked);
     connect(writeBtn_, &QPushButton::clicked, this, &PlcCommWidget::onWriteClicked);
+
+    UiIconDecorators::apply(connectBtn_, UiIconId::Connect);
+    UiIconDecorators::apply(disconnectBtn_, UiIconId::Disconnect);
+    UiIconDecorators::apply(addTagBtn_, UiIconId::Add);
+    UiIconDecorators::apply(removeTagBtn_, UiIconId::Delete);
+    UiIconDecorators::apply(readBtn_, UiIconId::Read);
+    UiIconDecorators::apply(writeBtn_, UiIconId::Write);
+
     connect(pollTimer_, &QTimer::timeout, this, &PlcCommWidget::onPollTimeout);
     connect(pollCheck_, &QCheckBox::toggled, this, [this](bool on) {
         if (on) {

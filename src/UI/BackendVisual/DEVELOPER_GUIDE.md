@@ -46,7 +46,7 @@ outer (osg::MatrixTransform)     ← 唯一位姿写入：T(center+pose) * R
 | `outer` | 外层 `MatrixTransform`，挂到场景并绑定 `backendId` |
 | `modelCenter` | AABB 中心（gizmo / 拾取缓存） |
 | `diagonal` | AABB 对角线，≥ 1.0（罗盘缩放） |
-| `brepArtifacts` | BREP 专用：`getOrBuildBrepImportArtifacts` 结果；经 `bindBackendVisualRoot(..., artifacts)` 传给拾取索引，避免 bind 时重离散 |
+| `brepArtifacts` | BREP 专用：`getOrBuildBrepImportArtifacts`（Phase1）；`shared_ptr<BrepImportArtifacts>` 经 `bindBackendVisualRoot(..., artifacts)` 传给拾取索引 |
 
 ### 3.3 `class IBackendVisual`（抽象策略）
 
@@ -105,10 +105,12 @@ outer (osg::MatrixTransform)     ← 唯一位姿写入：T(center+pose) * R
 | 方法 | 作用 |
 |------|------|
 | `typeKey()` | `"BrepModel"`（与 `BrepBackendData` 注册 catalog 一致） |
-| `buildOuterBranch(...)` | `getOrBuildBrepImportArtifacts` → 填充三角 Geode + 可选 BREP 线框；`out.brepArtifacts` 供 bind 复用 |
-| `computeModelCenterAndDiagonal(...)` | 由 artifacts `displaySoup` 算 AABB |
+| `buildOuterBranch(...)` | `getOrBuildBrepImportArtifacts`（Phase1）→ 填充三角 Geode；优先用 `artifacts.displayNormals`；`out.brepArtifacts` 供 bind |
+| `computeModelCenterAndDiagonal(...)` | 由 `BrepBackendData::geometryBounds()` / artifacts soup 算 AABB |
 
-**数据输入**：`BrepBackendData::shapeRef()`（`geoalgo::ShapeHandle`）。显示与 `BrepPickIndex::buildFromArtifacts` 共用同一份 artifacts，装配导入时多逻辑零件可共享缓存。
+**数据输入**：`BrepBackendData::shapeRef()`（`geoalgo::ShapeHandle`）。显示与 `BrepPickIndex` 共用同一份 artifacts；装配多逻辑零件共享 Phase1 缓存。
+
+**导入显示约定**：Host `registerAdoptedBrepAndLoadScene` / 装配父节点默认 **`showWireOutline=false`**（首帧不等 Phase2）；`useSceneLighting=true` 时用法线自 Phase1 预计算。用户开启线框或首次边拾取时经 `ensureBrepImportPickArtifacts` 补 Phase2。
 
 **装配显示约定**：层级 STEP 仅在 `importParent` 上 `loadBackendFromBackendData(..., skipInnerModelCenterRebase=true)` 建一次 OSG 分支；子零件 `registerAdoptedBrepAndLoadScene(..., loadScene=false)` + `setPickVisualAlias(partId → importParentId)`（见 Host §4.4.1b、OsgWidgetCore §5.7a）。
 

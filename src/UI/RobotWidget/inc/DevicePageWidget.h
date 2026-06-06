@@ -2,15 +2,20 @@
 
 #include <QMap>
 #include <QString>
+#include <QVector>
 #include <QWidget>
 
 #include "robotwidget_global.h"
 
-class QListWidget;
-class QVBoxLayout;
+class QComboBox;
+class QGridLayout;
+class QLabel;
+class QPushButton;
 class QScrollArea;
+class QToolButton;
+class QVBoxLayout;
 
-/// 设备页：三列——设备类型 | 设备品牌 | 具体型号（缩略图按钮），数据来自 resource/models
+/// 设备页：顶栏类型/品牌 Combo + 自适应缩略图网格，数据来自 resource/models
 class ROBOTWIDGET_EXPORT DevicePageWidget : public QWidget
 {
 	Q_OBJECT
@@ -20,26 +25,44 @@ public:
 	void setModelsRootPath(const QString& absoluteDirPath);
 	QString modelsRootPath() const { return m_modelsRoot; }
 	void refreshButtons();
+	void setUseChinese(bool chinese);
 
 signals:
 	void urdfImportRequested(const QString& urdfAbsolutePath);
 
+protected:
+	void resizeEvent(QResizeEvent* event) override;
+	bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
-	void setupDeviceColumns(QVBoxLayout* rootLayout);
+	void setupUi(QVBoxLayout* rootLayout);
 	void rescanPackagesAndRefreshUi();
-	void fillTypeList();
-	void fillBrandListForSelectedType();
-	void fillModelGridForSelection();
+	void fillTypeCombo();
+	void fillBrandComboForSelectedType();
+	void updateBrandComboVisibility();
+	void rebuildModelTiles();
+	void relayoutModelGrid();
+	void updateUiLabels();
+	QString selectedType() const;
+	QString selectedBrand() const;
 	void onTypeSelectionChanged();
 	void onBrandSelectionChanged();
+	void onRefreshClicked();
 
 	QString m_modelsRoot;
 	/// type → brand → 包根路径列表
 	QMap<QString, QMap<QString, QStringList>> m_packagesByTypeBrand;
 
-	QListWidget* m_listType = nullptr;
-	QListWidget* m_listBrand = nullptr;
+	bool m_useChinese = true;
+
+	QLabel* m_typeLabel = nullptr;
+	QLabel* m_brandLabel = nullptr;
+	QComboBox* m_typeCombo = nullptr;
+	QComboBox* m_brandCombo = nullptr;
+	QPushButton* m_refreshBtn = nullptr;
 	QScrollArea* m_modelsScroll = nullptr;
 	QWidget* m_modelsContainer = nullptr;
-	QVBoxLayout* m_modelsLayout = nullptr;
+	QGridLayout* m_modelsGrid = nullptr;
+	QLabel* m_statusLabel = nullptr;
+	QVector<QToolButton*> m_modelButtons;
 };

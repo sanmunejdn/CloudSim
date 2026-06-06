@@ -33,6 +33,7 @@ namespace osg {
 class Group;
 class Node;
 class Geometry;
+class Image;
 }
 
 #include <osgViewer/GraphicsWindow>
@@ -56,6 +57,8 @@ public:
 	enum class DragAxis { None, X, Y, Z };
 	/// Local：物体轴；World：枢轴处对齐世界轴
 	enum class TransformGizmoFrame { World, Local };
+	/// 标准相机视角（Z-up，保持当前 pivot 与视距）
+	enum class CameraViewPreset { Front, Back, Left, Right, Top, Bottom, Iso };
 
 /// Gizmo 轴编号（与历史 OsgWidgetGizmoController 一致）：0=None,1=X,2=Y,3=Z
 	static constexpr int kGizmoAxisNone = 0;
@@ -110,7 +113,15 @@ public:
 	/// 将头灯绑定到 Viewer（osg::View::HEADLIGHT，每帧随主相机视点更新；主场景由 setSceneData 提供，不宜把 LightSource 直接挂到 Camera 子图）。
 	void applyHeadlightToViewer(osgViewer::Viewer* viewer);
 	void initWorldAxesHud();
-	void updateWorldAxesHudViewport(int widgetWidth, int widgetHeight);
+	/// @a framebufferWidth/@a framebufferHeight 为 GL 帧缓冲设备像素
+	void updateWorldAxesHudViewport(int framebufferWidth, int framebufferHeight);
+	void initViewCubeHud();
+	void updateViewCubeHudViewport(int framebufferWidth, int framebufferHeight);
+	/// 用预渲染位图替换 osgText 面标签（OsgWidgetCore 无 freetype 插件时 osgText 无法加载 CJK）
+	void applyViewCubeFaceLabelImages(const osg::ref_ptr<osg::Image> images[6]);
+	/// 视口逻辑坐标（Qt 左上角原点）点击视角立方体；命中则切换相机并返回 true
+	bool tryPickViewCubeAtLogicalMouse(double logicalX, double logicalY);
+	void setCameraViewDirection(const osg::Vec3d& eyeDirectionFromCenter, const osg::Vec3d& upHint);
 
 	static osg::Quat eulerDegToQuat(const osg::Vec3f& eulerDeg);
 	static osg::Vec3f quatToEulerDeg(const osg::Quat& q);
@@ -167,6 +178,7 @@ public:
 	void logGizmoPivotDiagnostics(const char* reasonTag) const;
 
 	void focusCameraOnBackend(const std::string& backendId);
+	void setCameraViewPreset(CameraViewPreset preset);
 	/// 仅写入逻辑父 id（不改 OSG 场景父链），供分件导入后 focusCameraOnBackend 聚合子树包围球
 	void setBackendLogicalParent(const std::string& backendId, const std::string& parentBackendId);
 
@@ -209,7 +221,7 @@ public:
 
 	void bindBackendVisualRoot(const std::string& backendId, osg::Node* rootNode);
 	void bindBackendVisualRoot(const std::string& backendId, osg::Node* rootNode,
-		const std::shared_ptr<const geoalgo::BrepImportArtifacts>& brepArtifacts);
+		const std::shared_ptr<geoalgo::BrepImportArtifacts>& brepArtifacts);
 	void unbindBackendVisualRoot(const std::string& backendId);
 	void clearBackendVisualBindings();
 	bool resolveBackendIdFromPickedPath(const osg::NodePath& path, std::string& outBackendId) const;
@@ -266,6 +278,14 @@ public:
 	osg::ref_ptr<osg::MatrixTransform> m_compassAxisBranch[3];
 	osg::ref_ptr<osg::MatrixTransform> m_compassRingBranch[3];
 	osg::ref_ptr<osg::Camera> m_worldAxesHudCamera;
+	osg::ref_ptr<osg::Camera> m_viewCubeHudCamera;
+	osg::ref_ptr<osg::Group> m_viewCubeLabelsGroup;
+	int m_viewCubeHudMargin = 12;
+	int m_viewCubeHudSize = 220;
+	int m_worldAxesHudMargin = 10;
+	int m_worldAxesHudSize = 120;
+	int m_viewCubeHudEffectiveSize = 220;
+	int m_worldAxesHudEffectiveSize = 120;
 
 	bool m_selectionActive = false;
 	bool m_objectSelectionMode = false;
@@ -325,6 +345,25 @@ public:
 	osg::ref_ptr<osg::Vec4Array> m_meshPickedEdgeColors;
 
 private:
+	struct HudCornerViewport
+	{
+		int x = 0;
+		int y = 0;
+		int width = 0;
+		int height = 0;
+		int effectiveLogicalSize = 0;
+	};
+	HudCornerViewport computeHudCornerViewport(
+		int framebufferWidth,
+		int framebufferHeight,
+		int marginLogical,
+		int nominalSizeLogical,
+		bool topRight) const;
+	void applyHudSquareOrthoProjection(
+		osg::Camera* camera,
+		float halfExtent,
+		int viewportWidth,
+		int viewportHeight) const;
 	void logicalMouseToDeviceCoords(double logicalX, double logicalY, double& outDeviceX, double& outDeviceY) const;
 	void logicalMouseToPickWindowCoords(double logicalX, double logicalY, double& outWindowX, double& outWindowY) const;
 	bool isBrepPickBackend(const std::string& backendId) const;

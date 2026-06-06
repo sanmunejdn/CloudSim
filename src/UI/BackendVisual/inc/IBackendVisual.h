@@ -30,7 +30,7 @@ struct BranchBuildResult
 	osg::ref_ptr<osg::MatrixTransform> outer;
 	osg::Vec3f modelCenter{};
 	float diagonal = 1.0f;
-	std::shared_ptr<const geoalgo::BrepImportArtifacts> brepArtifacts;
+	std::shared_ptr<geoalgo::BrepImportArtifacts> brepArtifacts;
 };
 
 /// 按后端类型构建场景分支并提取 gizmo/拾取度量

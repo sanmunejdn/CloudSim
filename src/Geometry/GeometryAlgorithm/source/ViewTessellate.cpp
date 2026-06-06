@@ -159,60 +159,11 @@ bool tessellateShapePerFaceMedium(
 		}
 		return false;
 	}
-	TopoDS_Shape native;
-	if (!ShapeHandleAccess::nativeShape(shape, &native))
-	{
-		if (errMsg)
-		{
-			*errMsg = "shape access failed";
-		}
-		return false;
-	}
-	const int faceCount = shapeFaceCount(native);
-	if (faceCount <= 0)
-	{
-		if (errMsg)
-		{
-			*errMsg = "shape has no faces";
-		}
-		return false;
-	}
 	TessellateParams disc;
 	disc.linearDeflectionMm = 0.01;
 	disc.angularDeflectionDeg = 0.5;
 	disc.linearDeflectionRelative = false;
-	if (outFaceSoups)
-	{
-		outFaceSoups->resize(static_cast<std::size_t>(faceCount));
-	}
-	for (int faceIdx = 0; faceIdx < faceCount; ++faceIdx)
-	{
-		std::vector<float> faceSoup;
-		if (!discretizeShapeFaceByIndex(shape, faceIdx, disc, faceSoup, errMsg))
-		{
-			return false;
-		}
-		if (faceSoup.size() < 9U || (faceSoup.size() % 9U) != 0U)
-		{
-			continue;
-		}
-		if (outFaceSoups)
-		{
-			(*outFaceSoups)[static_cast<std::size_t>(faceIdx)] = faceSoup;
-		}
-		const std::size_t triCount = faceSoup.size() / 9U;
-		outTriangleFaceIndex.insert(outTriangleFaceIndex.end(), triCount, faceIdx);
-		outSoup.insert(outSoup.end(), faceSoup.begin(), faceSoup.end());
-	}
-	if (outSoup.empty())
-	{
-		if (errMsg)
-		{
-			*errMsg = "per-face tessellation produced empty mesh";
-		}
-		return false;
-	}
-	return true;
+	return discretizeShapeToSoupPerFace(shape, disc, outSoup, outTriangleFaceIndex, outFaceSoups, errMsg);
 }
 
 bool tessellateShapeForView(

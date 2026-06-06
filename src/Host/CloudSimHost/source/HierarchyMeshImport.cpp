@@ -171,7 +171,7 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 		if (OsgWidget* osg = osgWidgetFrom(host))
 		{
 			QString sceneErr;
-			if (!osg->loadBackendFromBackendData(*importParent, &sceneErr, false, true, true, true) && outError)
+			if (!osg->loadBackendFromBackendData(*importParent, &sceneErr, false, false, true, true) && outError)
 			{
 				*outError = sceneErr.isEmpty() ? QStringLiteral("OSG B-rep assembly display failed.") : sceneErr;
 				return false;

@@ -44,35 +44,39 @@ void pushTri(
 	soup.push_back(static_cast<float>(pc.Z()));
 }
 
+void appendFaceTriangles(const TopoDS_Face& face, const TessellateParams& params, std::vector<float>& soup)
+{
+	const bool reverseWinding = params.flipReversedFaces && kFlipReversedFaceWinding
+		&& (face.Orientation() == TopAbs_REVERSED);
+	TopLoc_Location loc;
+	const Handle(Poly_Triangulation) tri = BRep_Tool::Triangulation(face, loc);
+	if (tri.IsNull() || !tri->HasGeometry() || tri->NbTriangles() <= 0)
+	{
+		return;
+	}
+	const gp_Trsf xf = loc.Transformation();
+	for (Standard_Integer ti = 1; ti <= tri->NbTriangles(); ++ti)
+	{
+		const Poly_Triangle& t = tri->Triangle(ti);
+		Standard_Integer n1 = 0;
+		Standard_Integer n2 = 0;
+		Standard_Integer n3 = 0;
+		t.Get(n1, n2, n3);
+		gp_Pnt p1 = tri->Node(n1);
+		gp_Pnt p2 = tri->Node(n2);
+		gp_Pnt p3 = tri->Node(n3);
+		p1.Transform(xf);
+		p2.Transform(xf);
+		p3.Transform(xf);
+		pushTri(soup, p1, p2, p3, reverseWinding);
+	}
+}
+
 void appendShapeTriangles(const TopoDS_Shape& shape, const TessellateParams& params, std::vector<float>& soup)
 {
 	for (TopExp_Explorer exp(shape, TopAbs_FACE); exp.More(); exp.Next())
 	{
-		const TopoDS_Face face = TopoDS::Face(exp.Current());
-		const bool reverseWinding = params.flipReversedFaces && kFlipReversedFaceWinding
-			&& (face.Orientation() == TopAbs_REVERSED);
-		TopLoc_Location loc;
-		const Handle(Poly_Triangulation) tri = BRep_Tool::Triangulation(face, loc);
-		if (tri.IsNull() || !tri->HasGeometry() || tri->NbTriangles() <= 0)
-		{
-			continue;
-		}
-		const gp_Trsf xf = loc.Transformation();
-		for (Standard_Integer ti = 1; ti <= tri->NbTriangles(); ++ti)
-		{
-			const Poly_Triangle& t = tri->Triangle(ti);
-			Standard_Integer n1 = 0;
-			Standard_Integer n2 = 0;
-			Standard_Integer n3 = 0;
-			t.Get(n1, n2, n3);
-			gp_Pnt p1 = tri->Node(n1);
-			gp_Pnt p2 = tri->Node(n2);
-			gp_Pnt p3 = tri->Node(n3);
-			p1.Transform(xf);
-			p2.Transform(xf);
-			p3.Transform(xf);
-			pushTri(soup, p1, p2, p3, reverseWinding);
-		}
+		appendFaceTriangles(TopoDS::Face(exp.Current()), params, soup);
 	}
 }
 
@@ -189,7 +193,7 @@ bool meshShapeIncremental(const TopoDS_Shape& shape, const TessellateParams& par
 	const Standard_Real linDef = params.linearDeflectionMm;
 	const Standard_Boolean isRelative = params.linearDeflectionRelative ? Standard_True : Standard_False;
 	const Standard_Real angDef = params.angularDeflectionDeg;
-	BRepMesh_IncrementalMesh mesher(shape, linDef, isRelative, angDef, Standard_False);
+	BRepMesh_IncrementalMesh mesher(shape, linDef, isRelative, angDef, Standard_True);
 	(void)mesher;
 	return true;
 }
@@ -233,6 +237,86 @@ bool discretizeShapeToSoup(
 		return false;
 	}
 	return true;
+}
+
+bool discretizeShapeToSoupPerFace(
+	const TopoDS_Shape& shape,
+	const TessellateParams& params,
+	std::vector<float>& outSoup,
+	std::vector<int>& outTriangleFaceIndex,
+	std::vector<std::vector<float>>* outFaceSoups,
+	std::string* errMsg)
+{
+	outSoup.clear();
+	outTriangleFaceIndex.clear();
+	if (outFaceSoups)
+	{
+		outFaceSoups->clear();
+	}
+	if (shape.IsNull())
+	{
+		detail::setErr(errMsg, "null shape");
+		return false;
+	}
+	TopoDS_Shape copy = shape;
+	if (!meshShapeIncremental(copy, params, errMsg))
+	{
+		return false;
+	}
+	const int faceCount = shapeFaceCount(copy);
+	if (faceCount <= 0)
+	{
+		detail::setErr(errMsg, "shape has no faces");
+		return false;
+	}
+	if (outFaceSoups)
+	{
+		outFaceSoups->resize(static_cast<std::size_t>(faceCount));
+	}
+	for (int faceIdx = 0; faceIdx < faceCount; ++faceIdx)
+	{
+		TopoDS_Face face;
+		if (!shapeFaceAtIndex(copy, faceIdx, face, errMsg))
+		{
+			return false;
+		}
+		std::vector<float> faceSoup;
+		detail::appendFaceTriangles(face, params, faceSoup);
+		if (faceSoup.size() < 9U || (faceSoup.size() % 9U) != 0U)
+		{
+			continue;
+		}
+		if (outFaceSoups)
+		{
+			(*outFaceSoups)[static_cast<std::size_t>(faceIdx)] = faceSoup;
+		}
+		const std::size_t triCount = faceSoup.size() / 9U;
+		outTriangleFaceIndex.insert(outTriangleFaceIndex.end(), triCount, faceIdx);
+		outSoup.insert(outSoup.end(), faceSoup.begin(), faceSoup.end());
+	}
+	if (outSoup.empty())
+	{
+		detail::setErr(errMsg, "per-face tessellation produced empty mesh");
+		return false;
+	}
+	return true;
+}
+
+bool discretizeShapeToSoupPerFace(
+	const ShapeHandle& shape,
+	const TessellateParams& params,
+	std::vector<float>& outSoup,
+	std::vector<int>& outTriangleFaceIndex,
+	std::vector<std::vector<float>>* outFaceSoups,
+	std::string* errMsg)
+{
+	TopoDS_Shape native;
+	if (!ShapeHandleAccess::nativeShape(shape, &native))
+	{
+		detail::setErr(errMsg, "null shape");
+		return false;
+	}
+	return discretizeShapeToSoupPerFace(native, params, outSoup, outTriangleFaceIndex, outFaceSoups, errMsg);
 }
 
 bool tessellateStepFile(

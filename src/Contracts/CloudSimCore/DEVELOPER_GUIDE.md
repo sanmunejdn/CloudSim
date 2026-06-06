@@ -110,7 +110,7 @@
 | `requestFollowSolveForced()` | 下一帧强制整图 Follow 求解 |
 | `runFollowSolveAndSync(ctx)` | `FollowSolveContextDto` → Host `runBackendFollowSolveAndSync` |
 
-**未在契约内、由 Host 头文件导出**：`DocumentImportFacade::registerAdoptedMesh` / `registerAdoptedPointCloud`、`PointCloudBackgroundLoadState`（已构造几何 + OSG / 后台 ply Job，供 AI/插件/Widget Job 完成回调）、`ModelBackgroundLoadState`（STEP/BREP/Mesh 后台读盘 + artifacts 预热 → UI `finishIntoDocument`）。
+**未在契约内、由 Host 头文件导出**：`DocumentImportFacade::registerAdoptedMesh` / `registerAdoptedPointCloud`、`PointCloudBackgroundLoadState`（后台 ply Job）、`ModelBackgroundLoadState`（STEP/BREP/Mesh：Worker Phase1 → UI `finishIntoDocument` → 可选 `warmPickArtifacts` Phase2）。
 
 ---
 

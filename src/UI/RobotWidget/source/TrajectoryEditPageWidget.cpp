@@ -16,6 +16,7 @@
 #include "TrajectoryPipelineListWidget.h"
 #include "RobotProgramStore.h"
 #include "RobotInstructionProgram.h"
+#include "UiIconDecorators.h"
 
 #include <ITrajectoryOp.h>
 #include "TrajectoryOpBridge.h"
@@ -290,6 +291,16 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	connect(m_loadTemplateBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onLoadTemplateClicked);
 	connect(m_rawApplyBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onRawApplyRecipe);
 	connect(m_rawEmitBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onRawEmitProgram);
+
+	UiIconDecorators::apply(m_newPathPlanBtn, UiIconId::NewPathPlan);
+	UiIconDecorators::apply(m_applyBtn, UiIconId::Apply);
+	UiIconDecorators::apply(m_resetBtn, UiIconId::Reset);
+	UiIconDecorators::apply(m_undoBtn, UiIconId::Undo);
+	UiIconDecorators::apply(m_redoBtn, UiIconId::Redo);
+	UiIconDecorators::apply(m_saveTemplateBtn, UiIconId::SaveTemplate);
+	UiIconDecorators::apply(m_loadTemplateBtn, UiIconId::LoadTemplate);
+	UiIconDecorators::apply(m_rawApplyBtn, UiIconId::FillRecipe);
+	UiIconDecorators::apply(m_rawEmitBtn, UiIconId::EmitProgram);
 
 	connect(m_paramPanel, &TrajectoryOpParamPanel::paramsChanged, this, [this]() {
 		if (!m_loadingParams)

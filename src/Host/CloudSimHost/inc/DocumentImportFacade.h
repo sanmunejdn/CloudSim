@@ -100,6 +100,10 @@ public:
 	ImportFileResult finishIntoDocument(DocumentHost& host, const cloudsim::core::ImportOptionsDto& options,
 		QString* outError = nullptr);
 
+	/// BREP 导入且 Phase1 已缓存时可后台预热 Phase2（边拾取/线框）
+	bool needsPickArtifactWarm() const;
+	bool warmPickArtifacts(QString* outError = nullptr);
+
 private:
 	struct Impl;
 	std::unique_ptr<Impl> m_impl;

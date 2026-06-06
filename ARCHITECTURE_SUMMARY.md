@@ -66,6 +66,9 @@ flowchart LR
     H --> BV[BackendVisual.dll]
     W --> RW[RobotWidget.dll]
     W --> AW[AiWidget.dll]
+    W --> UA[CloudSimUiAssets.dll]
+    RW --> UA
+    AW --> UA
     RW --> RS[RobotScene.dll]
     H --> PH[CloudSimPluginHost 源码]
 ```
@@ -147,6 +150,7 @@ flowchart TD
 - 主窗口编排：菜单、停靠窗、文档标签、属性面板、运行信息面板。
 - 文档隔离：`DocumentPage` **继承** `cloudsim::host::DocumentHost`，每标签页一份 Host 侧 `BackendDataManager + OsgWidget`（Widget 契约入口：**`data()` / `robot()` / `render()`**；Host 内部 `osgWidget()`；Widget 新代码优先 `render()` / `sceneFacade()`，**勿**使用 `backend()` / `activeBackend()`）。
 - 场景交互：对象选择、点拾取、边/面拾取、注释、变换 gizmo、主题/语言切换。
+- **共享 UI 图标**：`CloudSimUiAssets.dll`（Material Outlined PNG，`.qrc` 嵌入）；`UiIcons` / `UiIconDecorators` 供 Widget、RobotWidget、AiWidget、PlcCommUI 链接；主题切换经 `ApplicationStyle::applyTheme` 刷新缓存。
 - 项目 I/O：保存/加载 `.pcp/.pcproj.json`，并打包/解包工程资源。
 - 机器人仿真宿主：`MainWindowRobotHost` + `RobotSimulationController`（`RobotWidget.dll`）；**预览**链式种子 + 对选中点单次 IK（或示教 CSV），**Run** 全程序链式 `plan` + `PlanResultCache` + 后台预读。示教 CSV 仍优先于 IK。`DocumentHost` 必须转发 `robotBackendManagerForKinematics()`（per-link FK）。仿真 Dock 在 **`RobotWidget`**，TCP 示教 OSG 在 **`Widget`**（`OsgWidgetTcpTeach`）。
 
@@ -173,7 +177,7 @@ flowchart TD
   - 编排：`RobotSimulationController`；宿主契约 `IRobotMainWindowHost` / `IRobotDocumentHost` / `IRobotOsgViewHost`。
   - 工程 I/O：保存时 `ProjectPackageIo::mergeRobotKinematicsIntoProjectRoot`（内部 `RobotProjectIo::writeRobotKinematics`）；加载与 programs 仍经 Host `ProjectPackageIo` + `MainWindowProjectIo` 编排。
 - **AI 助手（`CloudSimAiSDK` + `AiWidget` + 宿主 `CloudSimPluginHost` 内 Ai 实现）**：
-  - **`CloudSimAiSDK.dll`**：稳定 ABI（`IAiAssistantHost`、`IAiDomainRegistry`、`ICloudSimAiPlugin`、配置 DTO）。
+  - **`CloudSimAiSDK.dll`**：稳定 ABI（`IAiAssistantHost`、`IAiDomainRegistry`、配置 DTO）。
   - **宿主实现**（编入 **`CloudSimHost.dll`**）：`AiAssistantHostImpl`、`AiActionPlanExecutor`、`AiMeshDefaults`（缺省尺寸补全）、分域 Handler、规则/本地/远程解析链；`ai_config.json` 默认 `hardware_profile: vram_8gb`，可选 `mesh_create_defaults`。
   - **训练**：仓库外 `tools/ai-training/`（`dataset.jsonl` **训练后仍保留在仓库**，见该目录 README §2.1）；见 `CloudSimAiSDK/DEVELOPER_GUIDE.md`。
   - **`AiWidget`（前端）**：`AiAssistantDockWidget`、`AiLlmSettingsDialog`、`AiAssistantCoordinator`（规则/LLM 编排、解析来源提示）。
@@ -221,7 +225,7 @@ flowchart TD
 - 通过 `IBackendVisual` 策略接口隔离不同后端类型的可视化逻辑（`MeshBackendVisual`、`BrepBackendVisual`、`PointCloudBackendVisual`）。
 - `BackendVisualRegistry` 按 `className` 注册/创建视觉构建器。
 - 输出统一 `BranchBuildResult`（**外层 `osg::MatrixTransform`**、内层 `PositionAttitudeTransform`、模型中心、对角线尺度、可选 **`brepArtifacts`**）供交互层复用；外层存完整刚体局部矩阵，便于 FK / `setBackendRootWorldMatrixFromWorld` 避免 PAT 的 TRS 分解误差。
-- **`BrepBackendVisual`**：`getOrBuildBrepImportArtifacts` 一次离散；artifacts 经 bind 传给 `BrepPickIndex`，装配多零件共享同一 `ShapeHandle` 缓存。
+- **`BrepBackendVisual`**：`getOrBuildBrepImportArtifacts` Phase1（整件 mesh + 缓存）；Phase2 边拾取/线框可懒构建或 Worker 预热；artifacts 经 bind 传给 `BrepPickIndex`；装配共享同一 `ShapeHandle` 缓存。
 - `MeshVisualOptions`：`showWireOutline`、`useSceneLighting`；**`skipInnerModelCenterRebase`** 为真时不再做「外包络中心 + 内层 `-bboxCenter`」的通用网格去心（用于 **URDF 每连杆**：顶点已在连杆系且由 FK 写外层世界矩阵，与层级导入「仅 `meshToLink`、无去心 PAT」语义对齐）。
 - **程序生成网格**：`MeshBackendData` 默认浅蓝材质色；`useSceneLighting=true` 时按 per-vertex 法线 + `applyLitPlastic` 渲染。绕序局部不一致且无法线缓冲时会出现**部分面发黑**（见 `BackendVisual` §4.2）——基本体由 `BackendPrimitiveGeometry` 保证绕序；**STEP** 在 OCCT 导出时对 `TopAbs_REVERSED` 面翻转三角绕序；**OBJ 含 `vn`** 保留文件法线；无 `vn` 的 OBJ/STL/PLY/OFF 走 CGAL `orient_polygon_soup` + 封闭体有符号体积整体外向修正（详见 `Data` §4.2.1，已移除逐三角质心翻转）。
 
@@ -475,7 +479,7 @@ flowchart LR
 ## 6.1 导入与显示流程
 
 1. 用户在 `MainWindow` 发起模型/点云/URDF 导入。  
-2. `Widget` 经 `MainWindowImportCaptureRenderController`：模型在 `JobSystem` 可用时走 `ModelBackgroundLoadState`（Worker 读盘 + 预热 `BrepImportArtifacts`）；否则同步 `DocumentImportFacade::importFileIntoDocument`。  
+2. `Widget` 经 `MainWindowImportCaptureRenderController`：模型在 `JobSystem` 可用时走 `ModelBackgroundLoadState`（Worker 读盘 + BREP **Phase1** artifacts；UI `finishIntoDocument` 后可选 Job **Phase2** `warmPickArtifacts`）；否则同步 `DocumentImportFacade::importFileIntoDocument`。  
 3. 生成 `PointCloudBackendData`、`MeshBackendData` 或 **`BrepBackendData`** 并注册到 `BackendDataManager`。  
 4. `BackendVisual` 按类型构建 OSG 分支；BREP 经 `getOrBuildBrepImportArtifacts`，`BranchBuildResult.brepArtifacts` 传入 bind。  
 5. `OsgWidgetCore` 挂分支、更新 `BackendVisualBindingIndex`；BREP bind 仅建 `BrepPickIndex`（`buildFromArtifacts`），跳过 pointIndex/meshIndex。  
@@ -501,12 +505,12 @@ flowchart LR
 
 **STEP B-rep 装配（`BrepBackendData` + `BrepImportArtifacts`）要点：**
 
-1. 多零件：`loadStepHierarchyFromFile` → `collectShapeHierarchyTopology`（**无 tessellation**）；单件：`loadFromStepFile` / `.brep` → `loadFromBrepFile`。  
-2. **一次离散**：`getOrBuildBrepImportArtifacts(assembly ShapeHandle)` 供 `BrepBackendVisual` 显示、线框、`BrepPickIndex::buildFromArtifacts` 共用。  
-3. **单 visual**：仅在 `importParent` 上 `loadBackendFromBackendData(..., skipInnerModelCenterRebase=true)`；子零件 `registerAdoptedBrepAndLoadScene(..., loadScene=false)`。  
-4. **拾取 alias**：`setPickVisualAlias(partId → importParentId)` + `resolvePickScopeBackendId`；`m_backendSkipCenterRebase` 避免高亮相对模型偏移。  
-5. 异步：`ModelBackgroundLoadState` Worker 阶段预热 artifacts 缓存，UI 阶段 `finishIntoDocument` 完成注册与场景挂载。  
-6. 工程 sidecar：对象 geometry kind `brep` + `.brep` 文件（`ProjectPackageIo`）。
+1. 多零件：`loadStepHierarchyFromFile` → `collectShapeHierarchyTopology`（**无 tessellation**）；单件：`loadFromStepFile` / `.brep` → `loadFromBrepFile`。
+2. **分阶段离散**：`getOrBuildBrepImportArtifacts`（Phase1：display + 法线 + 面映射）；Phase2 边/线框由 `warmPickArtifacts` 或 `ensureBrepImportPickArtifacts` 补全；`discretizeShapeToSoupPerFace` 整件 mesh 一次（Medium 0.01mm / 0.5°）。
+3. **单 visual**：仅在 `importParent` 上 `loadBackendFromBackendData(..., showWireOutline=false, skipInnerModelCenterRebase=true)`；子零件 `registerAdoptedBrepAndLoadScene(..., loadScene=false)`。
+4. **拾取 alias**：`setPickVisualAlias(partId → importParentId)` + `resolvePickScopeBackendId`；`m_backendSkipCenterRebase` 避免高亮相对模型偏移。
+5. 异步：`executeLoad` 仅 Phase1 → UI `finishIntoDocument` 上屏 → 可选 `warmPickArtifacts` Job。
+6. 工程 sidecar：对象 geometry kind `brep` + `.brep` 文件（`ProjectPackageIo`）；重载工程仍重新 tessellation。
 
 **PLY 双形态（点云菜单 / `isPointCloud` 导入）要点：**
 
@@ -1041,6 +1045,7 @@ bin/x64(d)/                    # CloudSimBinDir，见 CloudSim/Directory.Build.p
   CloudSimCore.dll
   CloudSimHost.dll             # DocumentHost + OsgWidget + 组合根实现
   Widget.dll
+  CloudSimUiAssets.dll         # 共享 UI 图标（qrc PNG + UiIcons/UiIconDecorators）
   Data.dll
   RunLogger.dll
   GeometryEngine.dll

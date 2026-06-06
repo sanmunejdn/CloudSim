@@ -8,7 +8,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 |------|--------|
 | Output | `RobotWidget.dll` |
 | Defines | `ROBOTWIDGET_LIB` |
-| Links (import lib) | `Data`, `OsgWidgetCore`, `BackendVisual`, `GeometryEngine`, `RobotScene`, `RobotUrdf`, `RobotKinematics`, `RunLogger` + OSG |
+| Links (import lib) | `Data`, `OsgWidgetCore`, `BackendVisual`, `GeometryEngine`, `RobotScene`, `RobotUrdf`, `RobotKinematics`, `RunLogger`, **`CloudSimUiAssets`** + OSG |
 
 与 `Widget.dll` **共享**上述引擎 DLL 运行时实例，不在本 DLL 内重复静态嵌入。
 
@@ -55,7 +55,11 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 - Output: `bin/x64(d)/RobotWidget.dll`.
 - Depends: `RobotScene`, `RobotUrdf`, `RobotKinematics`, `GeometryEngine`, `Data`, `RunLogger`, `OsgWidgetCore`, `BackendVisual`, OSG.
 
-See also [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §13–§16 and [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §6.4.
+See also [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §3.3 / §13–§16 and [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §6.4.
+
+### UI 图标（`CloudSimUiAssets`）
+
+新按钮/菜单优先 `#include "UiIconDecorators.h"`，用 `UiIconDecorators::apply` 绑定 `UiIconId`；**勿**硬编码 `:/cloudsim/icons/...` 路径。文本与 tooltip 仍用现有 i18n（`setText` / `retranslateUi`）；图标 ID 不随语言变化。主题由 `ApplicationStyle::applyTheme`（Widget）统一刷新，RobotWidget 无需额外调用。
 
 ---
 
@@ -315,7 +319,19 @@ Add/Duplicate/Remove 工具系时用 `m_blockSignals` 避免 `setCurrentRow` 触
 | `InstructionProgramTreeWidget` | 层级指令树；`NodeKind::Group` 嵌套显示分组；Ctrl 多选根层级指令 → 右键创建分组；拖放维护 `memberInstructionIds`；`instructionSelected` → 预览 |
 | `TrajectoryEditSession` | 预览（临时改 store 中 pose）与 Apply（Command 落盘）；`reset` / `abandonPreview`；**并行持有** `m_rawTrajectory`（`setRawTrajectory` / `rawTrajectoryChanged`，与 Program 预览快照解耦）；见 §轨迹编辑 |
 | `ProgramEditService` | `execute` / `undo` / `redo`；`revisionChanged` → 轨迹页 `syncUiAfterProgramRevision` + 指令树刷新 |
-| `DevicePageWidget` | URDF 导入 → `onUrdfImportRequested` |
+| `DevicePageWidget` | Property Dock「设备」Tab：类型/品牌 Combo + 自适应缩略图网格；`urdfImportRequested` |
+
+### `DevicePageWidget` 布局（Property Dock）
+
+宿主为 **Property Dock** 第二 Tab（默认宽约 340px），非 RobotSimulationDock。
+
+| 区域 | 控件 | 行为 |
+|------|------|------|
+| 筛选栏 | 类型 / 品牌 `QComboBox`、刷新 | 驱动 `m_packagesByTypeBrand`；仅 1 个品牌时隐藏品牌 Combo |
+| 型号网格 | `QScrollArea` + `QGridLayout` | 缩略图 96×88；列数随 viewport 宽度自适应；点击 → `urdfImportRequested` |
+| 数据源 | `resource/models/{Type}/{Brand}/{Package}` | 扫描与 URDF 匹配逻辑不变 |
+
+i18n：`setUseChinese` ← `MainWindow::applyLanguage`。
 
 TCP 拖动 OSG 实现仍在 [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §13.1。
 
@@ -561,7 +577,7 @@ Dock 页签 **「轨迹生成」**（`FeatureTrajectoryPageWidget`，`kTabIndexT
 
 | 步骤 | UI / API |
 |------|----------|
-| 选 STEP 工件 | `m_backendCombo`：`className=="Model"`、id 非 `RobotURDF_*`、`meshBackendStepSourcePath` 扩展名 `.step`/`.stp` |
+| 选 STEP 工件 | `m_backendCombo`：仅**顶层** `Model`/`BrepModel`（`BackendDataManager::parentsOf` 为空，不含装配子零件）；`Model` 需 `meshBackendStepSourcePath` 为 `.step`/`.stp`；`BrepModel` 需内存 shape；同一路径去重时优先 `BrepModel` |
 | **3D 拾取边/面** | 复用 `MeshEdgeFacePickOperation` → `OsgWidget::meshPickCommitted` → `buildFeatureSpecFromModelPick`（世界坐标经 `feature_pick_transform::worldPointToStepModelMm` 反变换后 `resolveStepFace/EdgeIndex`） |
 | 面离散类型 | 拾取前下拉：`FaceBoundary` / `FaceUVGrid` |
 | 枚举特征目录 | `geometry_backend_ops::enumerateFeatureCatalog`（Catalog JSON ≠ FeatureSpec，须组装或 3D 拾取） |

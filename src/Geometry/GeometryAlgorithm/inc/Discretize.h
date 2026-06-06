@@ -67,6 +67,23 @@ GEOMETRY_ALGORITHM_API bool discretizeShapeToSoup(
 	std::vector<float>& soup,
 	std::string* errMsg = nullptr);
 
+/// 整件 mesh 一次，按 shapeFaceAtIndex 顺序逐面提取并填充 tri→face 映射
+GEOMETRY_ALGORITHM_API bool discretizeShapeToSoupPerFace(
+	const TopoDS_Shape& shape,
+	const TessellateParams& params,
+	std::vector<float>& outSoup,
+	std::vector<int>& outTriangleFaceIndex,
+	std::vector<std::vector<float>>* outFaceSoups = nullptr,
+	std::string* errMsg = nullptr);
+
+GEOMETRY_ALGORITHM_API bool discretizeShapeToSoupPerFace(
+	const ShapeHandle& shape,
+	const TessellateParams& params,
+	std::vector<float>& outSoup,
+	std::vector<int>& outTriangleFaceIndex,
+	std::vector<std::vector<float>>* outFaceSoups = nullptr,
+	std::string* errMsg = nullptr);
+
 GEOMETRY_ALGORITHM_API bool tessellateStepFile(
 	const std::string& pathLocal,
 	const TessellateParams& params,

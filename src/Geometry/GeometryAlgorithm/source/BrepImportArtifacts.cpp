@@ -16,25 +16,33 @@ namespace
 struct CacheEntry
 {
 	ShapeHandle shapeKey;
-	std::shared_ptr<const BrepImportArtifacts> artifacts;
+	std::shared_ptr<BrepImportArtifacts> artifacts;
 };
 
 std::mutex g_cacheMutex;
 std::vector<CacheEntry> g_cacheEntries;
 
+constexpr std::size_t kMaxBrepArtifactsCacheEntries = 16U;
+
+std::int64_t elapsedMs(const std::chrono::steady_clock::time_point t0)
+{
+	return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+}
+
 } // namespace
 
-bool buildBrepImportArtifacts(const ShapeHandle& shape, BrepImportArtifacts& out, std::string* errMsg)
+bool buildBrepImportArtifactsDisplay(
+	const ShapeHandle& shape,
+	BrepImportArtifacts& out,
+	BrepImportBuildTimings* timings,
+	std::string* errMsg)
 {
-	out = {};
-	if (shape.isNull())
-	{
-		if (errMsg)
-		{
-			*errMsg = "null shape";
-		}
-		return false;
-	}
+	out.displaySoup.clear();
+	out.displayNormals.clear();
+	out.triangleFaceIndex.clear();
+	out.faceSoups.clear();
+	out.pickReady.store(false, std::memory_order_release);
+	out.pickShapeKey = shape;
 	const auto t0 = std::chrono::steady_clock::now();
 	if (!tessellateShapePerFaceMedium(shape, out.displaySoup, out.triangleFaceIndex, &out.faceSoups, errMsg))
 	{
@@ -49,6 +57,27 @@ bool buildBrepImportArtifacts(const ShapeHandle& shape, BrepImportArtifacts& out
 		}
 		return false;
 	}
+	if (!out.displaySoup.empty())
+	{
+		computeTriangleSoupNormals(out.displaySoup, out.displayNormals);
+	}
+	if (timings)
+	{
+		timings->meshMs = elapsedMs(t0);
+		timings->triangleCount = triCount;
+	}
+	return true;
+}
+
+bool buildBrepImportArtifactsPick(
+	const ShapeHandle& shape,
+	BrepImportArtifacts& out,
+	BrepImportBuildTimings* timings,
+	std::string* errMsg)
+{
+	const auto t0 = std::chrono::steady_clock::now();
+	out.edgePolylines.clear();
+	out.faceEdgeIndices.clear();
 	if (!collectShapeFaceEdgeIndices(shape, out.faceEdgeIndices, errMsg))
 	{
 		return false;
@@ -62,19 +91,48 @@ bool buildBrepImportArtifacts(const ShapeHandle& shape, BrepImportArtifacts& out
 	{
 		return false;
 	}
-	out.edgePolylines.clear();
 	out.edgePolylines.reserve(polylines.size());
 	for (const Polyline3d& pl : polylines)
 	{
 		out.edgePolylines.push_back(pl.xyz);
 	}
-	(void)t0;
+	out.pickReady.store(true, std::memory_order_release);
+	if (timings)
+	{
+		timings->pickMs = elapsedMs(t0);
+	}
 	return true;
 }
 
-std::shared_ptr<const BrepImportArtifacts> getOrBuildBrepImportArtifacts(
+bool ensureBrepImportPickArtifacts(const ShapeHandle& shape, BrepImportArtifacts& artifacts, std::string* errMsg)
+{
+	if (artifacts.pickReady.load(std::memory_order_acquire))
+	{
+		return true;
+	}
+	std::lock_guard<std::mutex> lock(artifacts.pickBuildMutex);
+	if (artifacts.pickReady.load(std::memory_order_acquire))
+	{
+		return true;
+	}
+	const ShapeHandle source = artifacts.pickShapeKey.isNull() ? shape : artifacts.pickShapeKey;
+	return buildBrepImportArtifactsPick(source, artifacts, nullptr, errMsg);
+}
+
+bool buildBrepImportArtifacts(const ShapeHandle& shape, BrepImportArtifacts& out, std::string* errMsg)
+{
+	BrepImportBuildTimings timings;
+	if (!buildBrepImportArtifactsDisplay(shape, out, &timings, errMsg))
+	{
+		return false;
+	}
+	return buildBrepImportArtifactsPick(shape, out, &timings, errMsg);
+}
+
+std::shared_ptr<BrepImportArtifacts> getOrBuildBrepImportArtifacts(
 	const ShapeHandle& shape,
-	std::string* errMsg)
+	std::string* errMsg,
+	BrepImportBuildTimings* timings)
 {
 	if (shape.isNull())
 	{
@@ -95,7 +153,8 @@ std::shared_ptr<const BrepImportArtifacts> getOrBuildBrepImportArtifacts(
 		}
 	}
 	auto artifacts = std::make_shared<BrepImportArtifacts>();
-	if (!buildBrepImportArtifacts(shape, *artifacts, errMsg))
+	BrepImportBuildTimings localTimings;
+	if (!buildBrepImportArtifactsDisplay(shape, *artifacts, timings ? timings : &localTimings, errMsg))
 	{
 		return {};
 	}
@@ -111,6 +170,10 @@ std::shared_ptr<const BrepImportArtifacts> getOrBuildBrepImportArtifacts(
 		CacheEntry entry;
 		entry.shapeKey = shape;
 		entry.artifacts = artifacts;
+		if (g_cacheEntries.size() >= kMaxBrepArtifactsCacheEntries)
+		{
+			g_cacheEntries.erase(g_cacheEntries.begin());
+		}
 		g_cacheEntries.push_back(std::move(entry));
 	}
 	return artifacts;

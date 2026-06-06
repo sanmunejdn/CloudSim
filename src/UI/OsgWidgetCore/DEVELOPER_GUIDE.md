@@ -127,8 +127,8 @@ m_stagingGroup（导入预览）
 | 方法 | 说明 |
 |------|------|
 | `PickSpatialIndex` | `bindBackendVisualRoot` 时从 Geode 构建 KD（**BREP 域跳过**） |
-| `BackendPickIndexRegistry` | `backendId → { pointIndex, brepIndex, generation }`；BREP 仅建 `brepIndex`（`buildFromArtifacts`），不建 `meshIndex` |
-| `BrepPickIndex` | 面/边射线拾取；`buildFromArtifacts` 复用 `BrepImportArtifacts`，bind 时不重 tessellate |
+| `BackendPickIndexRegistry` | `backendId → { pointIndex, brepIndex, generation }`；BREP 仅建 `brepIndex`；bind 前 `ensureBrepImportPickArtifacts`（Phase2） |
+| `BrepPickIndex` | 面/边射线拾取；`buildFromArtifacts` 复用 `BrepImportArtifacts`；无 artifacts 时 `build()` 仍会全量 tessellate（应避免） |
 | `cachePickablePointsFromNode` | 优先从 registry 导入，避免选中时重扫 Geode |
 | `pickPointAtScreenPos` / `pickNearestPointAtScreenPos` | 屏幕最近点（legacy，内部仍可用） |
 | `pickPointByRayIntersection` | 射线拾取 |

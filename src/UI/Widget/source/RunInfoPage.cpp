@@ -1,4 +1,5 @@
 #include "RunInfoPage.h"
+#include "UiIconDecorators.h"
 
 #include "RunLogger.h"
 
@@ -37,6 +38,7 @@ RunInfoPage::RunInfoPage(QWidget* parent)
 	root->addWidget(m_logEdit, 1);
 
 	connect(m_clearBtn, &QPushButton::clicked, this, &RunInfoPage::clearLogs);
+	UiIconDecorators::apply(m_clearBtn, UiIconId::ClearLog);
 
 	RunLogger::setUiSink([this](RunLogger::LogLevel level, const std::string& message) {
 		const QString levelText = QString::fromLatin1(RunLogger::levelName(level));
