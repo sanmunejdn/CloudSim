@@ -11,7 +11,7 @@
 | 数据契约 | `RobotInstruction::TrajectoryOpDescriptor` / `OpScope` 定义在 [`RobotScene/inc/TrajectoryPipelineTypes.h`](../RobotScene/inc/TrajectoryPipelineTypes.h) |
 | UI 访问 | `RobotWidget` **不**直接链接本库；经 [`RobotScene/inc/TrajectoryOpBridge.h`](../RobotScene/inc/TrajectoryOpBridge.h) 导出 API，保证单例 `TrajectoryOpRegistry` |
 
-**与 CAD 轨迹流水线的边界**：[`RobotScene/inc/RawTrajectory.h`](../RobotScene/inc/RawTrajectory.h) 定义 `RawTrajectoryOpKind`（Resample、OffsetAlongNormal、Weave 等），作用于 **离散后、写入 Program 前** 的 TCP 轨迹；本库的 `ITrajectoryOp` 作用于 **已有 `RobotProgram` 路点** 的装饰编辑（Translate/Rotate/Delete/Duplicate）。二者在 `emitRawTrajectoryToProgram` / 轨迹编辑页汇合。
+**统一执行模型**：所有轨迹块均实现 `ITrajectoryOp::processPath`，在 [`UnifiedTrajectory`](../RobotScene/inc/UnifiedTrajectory.h) 上变换；[`TrajectoryPipelineEngine`](../RobotScene/inc/TrajectoryPipelineEngine.h) 为唯一执行器。CAD 离散结果经 `RawTrajectory` → Ingress → 引擎 → Egress 写入 `RobotProgram`；无 raw 时由程序路点 Ingress 进入同一条管道。`RawTrajectoryOpKind` 已废弃，几何能力以 `TrajectoryOpKind` 原子块注册在本库 Builtins 中。
 
 依赖方向：`TrajectoryAlgorithm` → `GeometryEngine` + RobotScene 头文件；**不得** include `ProgramEditCommand.h` 或 Qt。
 
@@ -22,14 +22,19 @@
 ```
 src/Robot/
 ├── TrajectoryAlgorithm/           # 框架静态库
-│   inc/  ITrajectoryOp.h, TrajectoryOpRegistry.h, TrajectoryOpParamSchema.h,
-│         TrajectoryOpParamAccess.h, TrajectoryApplyAction.h,
-│         TrajectoryOpDescriptorCodec.h, TrajectoryTransformMath.h
-│   source/
-└── TrajectoryAlgorithmBuiltins/   # 内置六种块
-    ops/Translate|Rotate|Delete|Duplicate|Mirror|Reorder/
-    source/TrajectoryOpBuiltinsRegister.cpp
+│   inc/  ITrajectoryOp.h, TrajectoryOpRegistry.h, TrajectoryOpConfigRegistry.h,
+│         IOpParamConfig.h, IOpParamAccess.h, TrajectoryParamJsonIo.h,
+│         TrajectoryOpParamSchema.h, TrajectoryOpParamAccess.h,
+│         TrajectoryOpDescriptorCodec.h,
+│         TrajectoryTransformMath.h
+│   source/  ITrajectoryOp.cpp, TrajectoryOpConfigRegistry.cpp, TrajectoryParamJsonIo.cpp, …
+└── TrajectoryAlgorithmBuiltins/   # 18 种原子块 + 每块四件套
+    inc/  TrajectoryOpConfigImpl.h, TrajectoryUnifiedScope.h, UnifiedTrajectoryPathMath.h
+    ops/<Name>/  <Name>Op / <Name>OpConfig / <Name>OpParamAccess  (.h/.cpp)
+    source/  TrajectoryOpBuiltinsRegister.cpp, TrajectoryUnifiedScope.cpp, …
 ```
+
+每块四件套 + `resource/trajectory/ops/<Name>.json`，由 `TrajectoryOpConfigRegistry` 聚合。详见 [`../RobotScene/resource/trajectory/README.md`](../RobotScene/resource/trajectory/README.md)。
 
 | 工程 | GUID | 链接方 |
 |------|------|--------|
@@ -44,15 +49,14 @@ src/Robot/
 
 ### `ITrajectoryOp`
 
-每个轨迹块实现：`kind()`、`capabilities()`、`makeDefaultDescriptor()`、`paramFields()`、`validate()`、`formatSummary()`、`contributePreviewTransform()`、`buildApplyActions()`。
+每个轨迹块实现：`kind()`、`capabilities()`、`makeDefaultDescriptor()`、`paramFields()`、`validate()`、`formatSummary()`，以及核心 **`processPath(op, UnifiedTrajectory&)`**。预览与 Apply 均经 `TrajectoryPipelineEngine`，无独立 Pose/Command 支路。
 
 ### `TrajectoryOpCapability`
 
 | 标志 | 含义 |
 |------|------|
-| `PreviewPoseTransform` | 参与预览路点收集与 `TransformMotionPoseQuery` |
-| `ApplyPoseTransform` | Apply 可走 `TransformMotionSegmentCommand` |
-| `ApplyStructuralEdit` | Delete/Duplicate 等结构编辑 |
+| `PreviewPoseTransform` | 位姿类块：参与 `collectPreviewWaypointIds` 的 scope 路点收集 |
+| `None` | 几何/结构块：预览由引擎 + overlay 或 ingress 路点探测 |
 
 ### `TransformReferenceFrame`（`TrajectoryPipelineTypes.h`）
 
@@ -62,10 +66,6 @@ src/Robot/
 | `Body` | `delta.composeColumn(target)` |
 
 统一实现：[`TrajectoryTransformMath.cpp`](source/TrajectoryTransformMath.cpp) 中 `applyTransformDelta()`、`rigidDeltaFromTranslate()`、`rigidDeltaFromRotate()`。
-
-### `TrajectoryApplyAction`
-
-算法层中间动作（**不**直接依赖 `ProgramEditCommand`）。RobotScene [`TrajectoryApplyActionConverter`](../RobotScene/source/TrajectoryApplyActionConverter.cpp) 转为 `ProgramEditCommand`。
 
 ---
 
@@ -82,23 +82,21 @@ src/Robot/
 ```mermaid
 flowchart TB
   UI[RobotWidget TrajectoryEditSession]
-  Bridge[RobotScene TrajectoryOpBridge]
-  Reg[TrajectoryOpRegistry]
-  Ops[ITrajectoryOp Builtins]
-  Builder[TrajectoryPipelineBuilder]
-  Conv[TrajectoryApplyActionConverter]
-  Cmd[ProgramEditCommand]
+  Engine[TrajectoryPipelineEngine]
+  Ingress[ingressUnifiedFromProgram / ingressUnifiedFromRaw]
+  Ops[ITrajectoryOp Builtins processPath]
+  Egress[egressUnifiedMergeIntoProgram]
+  Cmd[ReplaceProgramContentCommand]
 
-  UI --> Bridge --> Reg --> Ops
-  UI --> Builder
-  Builder --> Reg
-  Builder -->|buildPreviewPoseQueryChain| Ops
-  Builder -->|buildApplyActions| Ops
-  Builder --> Conv --> Cmd
+  UI --> Ingress --> Engine
+  Engine --> Ops
+  Engine --> Egress --> Cmd
+  UI -->|拓扑变更块| Overlay[unifiedTrajectoryToRaw + OSG 叠加层]
+  UI -->|仅位姿变更| Writeback[临时写回 store 路点]
 ```
 
-- **预览**：`contributePreviewTransform` → `PreviewTransformStep`（含 `frame`）→ `TransformMotionPoseQuery`。
-- **Apply**：`buildApplyActions` → `convertApplyActionsToCommands` → `ProgramEditService::execute`。
+- **预览**：`TrajectoryPipelineEngine::executeFull` 得 `UnifiedTrajectory`；含几何/拓扑块时 OSG 叠加层展示形状，同时可将位姿/工艺属性写回已有路点（混合预览）；无拓扑变更时快照后全量写回 scope 路点。
+- **Apply**：`TrajectoryEditSession::apply` → 同一引擎 → `unifiedTrajectoryMergeIntoProgram` / `ReplaceProgramContentCommand`。
 
 ---
 
@@ -109,7 +107,7 @@ flowchart TB
 RobotInstruction::ensureTrajectoryOpBuiltinsRegistered();
 ```
 
-[`TrajectoryOpBuiltinsRegister.cpp`](../TrajectoryAlgorithmBuiltins/source/TrajectoryOpBuiltinsRegister.cpp) 注册：Translate、Rotate、Delete、Duplicate、Mirror（占位）、Reorder（占位）。
+[`TrajectoryOpBuiltinsRegister.cpp`](../TrajectoryAlgorithmBuiltins/source/TrajectoryOpBuiltinsRegister.cpp) 注册 18 种原子块：Translate / Rotate / Mirror / Delete / Duplicate / Reorder / Resample / OffsetAlongNormal / OffsetLateral / SmoothPose / AssignBlend / AssignSpeedZone / Weave / Approach / Retract / ReachabilityFilter / ExternalAxisSearch；同步注册 `TrajectoryOpConfigRegistry`（Config + ParamAccess）。
 
 调色板顺序：`TrajectoryOpRegistry::paletteKinds()`。
 
@@ -122,7 +120,7 @@ RobotInstruction::ensureTrajectoryOpBuiltinsRegistered();
 | 步骤 | 位置 |
 |------|------|
 | 1 | `TrajectoryPipelineTypes.h` 增加 `TrajectoryOpKind` 与参数字段 |
-| 2 | `ops/<Name>/<Name>Op.{h,cpp}` 实现 `ITrajectoryOp` |
+| 2 | `ops/<Name>/<Name>Op.{h,cpp}` 实现 `ITrajectoryOp`（含 `processPath` 若参与 Unified） |
 | 3 | `TrajectoryOpParamAccess.cpp` 注册 param key |
 | 4 | `TrajectoryOpBuiltinsRegister.cpp` → `registerOp(std::make_unique<...>())` |
 | 5 | x64 编译 `TrajectoryAlgorithmBuiltins` + `RobotScene` |
@@ -131,38 +129,19 @@ RobotInstruction::ensureTrajectoryOpBuiltinsRegistered();
 
 ### 7.2 示例：TranslateOp（平移 + 坐标系）
 
-**capabilities**：`PreviewPoseTransform | ApplyPoseTransform`。
+**capabilities**：`PreviewPoseTransform`。
 
-**paramFields**：`translate.frame`（Enum World/Body）、`translate.dxMm/dyMm/dzMm`。
+**processPath**：`applyUnifiedPathOp` → `applyUnifiedTrajectoryOp`（scope 内渐变平移）。
 
-**预览**：
+### 7.3 示例：DeleteOp（结构编辑）
 
-```cpp
-out.delta = rigidDeltaFromTranslate(op.translate);
-out.frame = op.translate.frame;
-out.kind = PreviewTransformStep::Kind::TranslateOnly;
-```
+- `capabilities()` → `None`。
+- `processPath`：`resolveScopedPointIndices` 后删除 Unified 点。
 
-**Apply**：
+### 7.4 示例：MirrorOp（轴反向）
 
-```cpp
-TrajectoryApplyAction a{};
-a.kind = TrajectoryApplyActionKind::TransformSegment;
-a.transformOps = { op };
-return { a };
-```
-
-### 7.3 示例：DeleteOp（仅结构编辑）
-
-- `capabilities()` → `ApplyStructuralEdit`。
-- `paramFields()` → `{}`（作用域由 `commonScopeFields()` 提供）。
-- `contributePreviewTransform` → `false`。
-- `buildApplyActions` → 多条 `RemoveInstruction`（scope 解析在 RobotScene 转换层）。
-
-### 7.4 示例：MirrorOp（占位）
-
-- `capabilities()` → `None`；`validate` 返回未实现。
-- `paramFields()` 含 `Message` 字段；UI 自动灰显，Preview/Apply 由能力位禁用。
+- `capabilities()` → `PreviewPoseTransform`。
+- `processPath`：`applyUnifiedPathOp` 内 `applyAxisReverse`。
 
 ### 7.5 参数读写与模板 JSON
 
@@ -195,24 +174,60 @@ Codec 形状：`{ "kind":"Translate", "scope":{...}, "params":{ "translate.frame
 | 调色板空 / `get(kind)==nullptr` | 未调用 `ensureTrajectoryOpBuiltinsRegistered()` |
 | LNK2019 `trajectory_algo::...` from RobotWidget | UI 应走 `TrajectoryOpBridge`，勿直接链 `TrajectoryAlgorithm.lib` |
 | 双 Registry / 预览与 Apply 不一致 | 同上；算法静态库只能链入 **一个** 模块（RobotScene） |
-| `Body` 与 `World` 预览不一致 | 检查 `PreviewTransformStep::frame` 与 `applyTransformDelta` |
+| `Body` 与 `World` 预览不一致 | 检查 `applyUnifiedTrajectoryOp` 中 `applyTransformDelta` 的 frame |
 | 参数面板不刷新 | `TrajectoryOpParamPanel::rebuildForOp` 是否在切换块时调用 |
 
 ---
 
 ## 10. 算法作者检查清单
 
-- [ ] `paramFields()` 的 key 已在 `TrajectoryOpParamAccess` 注册
+- [ ] 四件套：`*Op` + `*OpConfig` + `*OpParamAccess` + `ops/<Name>.json`
+- [ ] `*OpParamAccess` 注册到 `TrajectoryOpBuiltinsRegister`（`registerOpParamAccess`）
+- [ ] `*OpConfig` 注册到 `TrajectoryOpBuiltinsRegister`（`registerOpConfig`）
+- [ ] `paramFields()` C++ 实现保留作 JSON 缺失时的兜底（deprecated 方向，勿删）
 - [ ] 平移/旋转预览与 Apply 均经 `applyTransformDelta`
 - [ ] `validate` 覆盖非法输入；`formatSummary` 含 scope / 坐标系 / 主参数
-- [ ] `buildApplyActions` 不直接依赖 `ProgramEditCommand`
-- [ ] 已在 `TrajectoryOpBuiltinsRegister.cpp` 注册
+- [ ] 几何块已实现 `processPath`（或引擎 fallback `applyUnifiedTrajectoryOp`）
+- [ ] 已在 `TrajectoryOpBuiltinsRegister.cpp` 注册（可用 `REGISTER_TRAJECTORY_OP` 宏）
 - [ ] 手动：轨迹页拖块 → 改参 → Preview → Apply → Undo
 
 ---
 
-## 11. 相关文档
+## 11. 管道引擎与 `processPath`
 
+统一 IR 执行由 [`RobotScene/inc/TrajectoryPipelineEngine.h`](../RobotScene/inc/TrajectoryPipelineEngine.h) 负责；算法块通过 `ITrajectoryOp::processPath` 参与 Unified 路径变换。
+
+| API | 说明 |
+|-----|------|
+| `processPath(op, UnifiedTrajectory&, errMsg)` | 几何块 override；默认 `false` 时引擎走 `applyUnifiedTrajectoryOp` |
+| `TrajectoryOpPathApply.h` | Builtins 内 `applyUnifiedPathOp` 薄封装 |
+| `runTrajectoryPipelineEngineSelfCheck()` | 引擎自检（Translate+Rotate 全量 vs `executeFrom`） |
+
+新建几何块示例：
+
+```cpp
+bool FooOp::processPath(
+    const RobotInstruction::TrajectoryOpDescriptor& op,
+    RobotInstruction::UnifiedTrajectory& traj,
+    std::string* errMsg) const
+{
+    return applyUnifiedPathOp(op, traj, errMsg);
+}
+```
+
+## 12. 编码与注释
+
+实施与审阅遵循 Skill：`cpp-coding-standards`、`code-comment`。
+
+- 本库 **不得** include Qt
+- 注释聚焦 Why（如 Recipe 为何走 raw 往返），避免解释字面代码
+- 新枚举使用 `enum class`；错误出参 `bool` + `std::string* errMsg`
+
+---
+
+## 13. 相关文档
+
+- 内置原子块：[`../TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md`](../TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md)
 - UI 编排：[`../UI/RobotWidget/DEVELOPER_GUIDE.md`](../UI/RobotWidget/DEVELOPER_GUIDE.md) §轨迹编辑
 - Command / Builder：[`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md) §13
 - 刚体约定：[`../Geometry/GeometryEngine/CONVENTIONS.md`](../Geometry/GeometryEngine/CONVENTIONS.md)

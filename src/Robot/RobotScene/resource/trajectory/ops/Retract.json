@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "kind": "Retract",
+  "schema": {
+    "fields": [
+      {
+        "key": "retract.distanceMm",
+        "type": "Double",
+        "labelZh": "退刀距离",
+        "unit": "mm",
+        "default": 20.0,
+        "group": "retract",
+        "order": 0
+      }
+    ]
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {
+      "retract.distanceMm": 20.0,
+      "retract.directionMode": 1,
+      "retract.insertMode": 0,
+      "retract.segmentSelectMode": 0,
+      "retract.overrideSpeedEnabled": false,
+      "retract.speedMmPerSec": 100.0
+    }
+  }
+}

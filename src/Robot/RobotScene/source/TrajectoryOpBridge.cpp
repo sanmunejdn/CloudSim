@@ -1,5 +1,6 @@
 #include "TrajectoryOpBridge.h"
 
+#include "TrajectoryOpConfigRegistry.h"
 #include "TrajectoryOpDescriptorCodec.h"
 #include "TrajectoryOpParamAccess.h"
 #include "TrajectoryOpRegistry.h"
@@ -15,6 +16,18 @@ trajectory_algo::TrajectoryOpRegistry& trajectoryOpRegistry()
 void ensureTrajectoryOpBuiltinsRegistered()
 {
 	trajectory_algo::ensureTrajectoryOpBuiltinsRegistered();
+}
+
+bool ensureTrajectoryOpConfigsLoaded(const std::string& resourceBaseDir, std::string* errMsg)
+{
+	trajectory_algo::ensureTrajectoryOpBuiltinsRegistered();
+	return trajectory_algo::TrajectoryOpConfigRegistry::instance().ensureLoaded(resourceBaseDir, errMsg);
+}
+
+TrajectoryOpDescriptor trajectoryOpDefaultUnified(const TrajectoryOpKind kind, const OpScope& scope)
+{
+	trajectory_algo::ensureTrajectoryOpBuiltinsRegistered();
+	return trajectory_algo::TrajectoryOpConfigRegistry::instance().defaultUnifiedOp(kind, scope);
 }
 
 const trajectory_algo::ITrajectoryOp* trajectoryOpGet(const TrajectoryOpKind kind)
@@ -60,6 +73,35 @@ bool trajectoryPipelineFromJson(
 	std::string* errMsg)
 {
 	return trajectory_algo::pipelineFromJson(j, out, errMsg);
+}
+
+bool validateTrajectoryPipeline(
+	const std::vector<TrajectoryOpDescriptor>& ops,
+	std::string* errMsg)
+{
+	ensureTrajectoryOpBuiltinsRegistered();
+	for (const TrajectoryOpDescriptor& op : ops)
+	{
+		const trajectory_algo::ITrajectoryOp* algo = trajectoryOpGet(op.kind);
+		if (!algo)
+		{
+			if (errMsg)
+			{
+				*errMsg = "unknown trajectory operation kind";
+			}
+			return false;
+		}
+		std::string localErr;
+		if (!algo->validate(op, &localErr))
+		{
+			if (errMsg)
+			{
+				*errMsg = localErr.empty() ? "invalid trajectory operation" : localErr;
+			}
+			return false;
+		}
+	}
+	return true;
 }
 
 } // namespace RobotInstruction

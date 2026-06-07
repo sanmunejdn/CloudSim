@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "schema": {
+    "fields": [
+      {
+        "key": "scope.kind",
+        "type": "Enum",
+        "labelZh": "作用域",
+        "defaultInt": 1,
+        "group": "scope",
+        "order": 0
+      },
+      {
+        "key": "scope.groupId",
+        "type": "Enum",
+        "labelZh": "分组",
+        "group": "scope",
+        "order": 1,
+        "visibleWhenScopeKind": "Group"
+      },
+      {
+        "key": "scope.pointFrom",
+        "type": "Int",
+        "labelZh": "P 起",
+        "defaultInt": 1,
+        "group": "scope",
+        "order": 2,
+        "visibleWhenScopeKind": "PointIndexRange"
+      },
+      {
+        "key": "scope.pointTo",
+        "type": "Int",
+        "labelZh": "P 止",
+        "defaultInt": 1,
+        "group": "scope",
+        "order": 3,
+        "visibleWhenScopeKind": "PointIndexRange"
+      }
+    ]
+  }
+}

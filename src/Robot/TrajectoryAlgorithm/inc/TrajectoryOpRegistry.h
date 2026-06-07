@@ -31,4 +31,10 @@ private:
 
 TRAJECTORY_ALGORITHM_API void ensureTrajectoryOpBuiltinsRegistered();
 
+#define REGISTER_TRAJECTORY_OP(OpType) \
+	static const bool OpType##_registered = []() { \
+		trajectory_algo::TrajectoryOpRegistry::instance().registerOp(std::make_unique<OpType>()); \
+		return true; \
+	}()
+
 } // namespace trajectory_algo

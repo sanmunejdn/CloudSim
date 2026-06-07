@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "id": "weld",
+      "labelZh": "焊缝",
+      "labelEn": "Weld",
+      "ops": [
+        "Resample",
+        "OffsetAlongNormal",
+        "SmoothPose",
+        "AssignBlend",
+        "Approach",
+        "Retract"
+      ],
+      "pipeline": [
+        {
+          "kind": "Resample",
+          "params": { "resample.stepMm": 5.0 }
+        },
+        {
+          "kind": "OffsetAlongNormal",
+          "params": { "offset.offsetMm": 0.0 }
+        },
+        { "kind": "SmoothPose" },
+        {
+          "kind": "AssignBlend",
+          "params": { "assign.blendRadiusMm": 2.0 }
+        },
+        {
+          "kind": "Approach",
+          "params": { "approach.distanceMm": 20.0 }
+        },
+        {
+          "kind": "Retract",
+          "params": { "retract.distanceMm": 20.0 }
+        }
+      ]
+    },
+    {
+      "id": "glue",
+      "labelZh": "涂胶",
+      "labelEn": "Glue",
+      "ops": [
+        "Resample",
+        "OffsetAlongNormal",
+        "SmoothPose",
+        "AssignSpeedZone"
+      ],
+      "pipeline": [
+        {
+          "kind": "Resample",
+          "params": { "resample.stepMm": 3.0 }
+        },
+        {
+          "kind": "OffsetAlongNormal",
+          "params": { "offset.offsetMm": 1.0 }
+        },
+        { "kind": "SmoothPose" },
+        {
+          "kind": "AssignSpeedZone",
+          "params": { "assign.speedMmPerSec": 80.0 }
+        }
+      ]
+    },
+    {
+      "id": "grind",
+      "labelZh": "打磨",
+      "labelEn": "Grind",
+      "ops": [
+        "Resample",
+        "OffsetAlongNormal",
+        "SmoothPose",
+        "Weave",
+        "Approach",
+        "Retract"
+      ],
+      "pipeline": [
+        {
+          "kind": "Resample",
+          "params": { "resample.stepMm": 4.0 }
+        },
+        {
+          "kind": "OffsetAlongNormal",
+          "params": { "offset.offsetMm": 0.0 }
+        },
+        { "kind": "SmoothPose" },
+        {
+          "kind": "Weave",
+          "params": { "weave.amplitudeMm": 2.0, "weave.periodMm": 10.0 }
+        },
+        {
+          "kind": "Approach",
+          "params": { "approach.distanceMm": 20.0 }
+        },
+        {
+          "kind": "Retract",
+          "params": { "retract.distanceMm": 20.0 }
+        }
+      ]
+    }
+  ]
+}

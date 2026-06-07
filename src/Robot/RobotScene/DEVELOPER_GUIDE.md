@@ -449,22 +449,24 @@ flowchart LR
 
 | 工程 | 说明 |
 |------|------|
-| [`TrajectoryAlgorithm`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md) | `ITrajectoryOp`、Registry、ParamSchema、Codec、`TrajectoryTransformMath` |
-| [`TrajectoryAlgorithmBuiltins`](../TrajectoryAlgorithmBuiltins/) | Translate / Rotate / Delete / Duplicate / Mirror(轴反向) / Reorder(固定姿态) / RecipeWeld / RecipeGlue / RecipeGrind / Approach / Retract |
+| [`TrajectoryAlgorithm`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md) | `ITrajectoryOp`、Registry、ConfigRegistry、ParamSchema、Codec、`TrajectoryTransformMath` |
+| [`TrajectoryAlgorithmBuiltins`](../TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md) | 18 种原子块（Translate … ExternalAxisSearch）；共享 `UnifiedTrajectoryPathMath` |
 | [`TrajectoryOpBridge.h`](inc/TrajectoryOpBridge.h) | **UI 唯一入口**：Registry、参数读写、模板 JSON（避免 RobotWidget 重复链接静态库） |
+| [`TrajectoryPipelineEngine.h`](inc/TrajectoryPipelineEngine.h) | 唯一管道执行器：`Ingress → processPath × N → Egress` |
 
-`ensureTrajectoryOpBuiltinsRegistered()` 在 `TrajectoryPipelineBuilder::buildApplyCommands` 与 UI 构造时调用。Apply：`ITrajectoryOp::buildApplyActions` → [`TrajectoryApplyActionConverter`](source/TrajectoryApplyActionConverter.cpp) → `ProgramEditCommand`。
+`ensureTrajectoryOpBuiltinsRegistered()` 在引擎执行与 UI 构造时调用。Apply/预览均经 `TrajectoryEditSession` + `TrajectoryPipelineEngine::executeFull`。
 
 ### 13.1 流水线描述符
 
 | 类型 | 说明 |
 |------|------|
-| `TrajectoryOpKind` | Translate / Rotate / Mirror(轴反向) / Delete / Duplicate / Reorder(固定姿态) / RecipeWeld / RecipeGlue / RecipeGrind / Approach / Retract |
-| `TrajectoryOpDescriptor` | `kind` + `OpScope` + `translate` / `rotate` / `duplicateCount` 等 |
+| `TrajectoryOpKind` | Translate / Rotate / Mirror / Delete / Duplicate / Reorder / Approach / Retract / Resample / OffsetAlongNormal / OffsetLateral / SmoothPose / AssignBlend / AssignSpeedZone / Weave / ReachabilityFilter / ExternalAxisSearch |
+| `TrajectoryOpDescriptor` | `kind` + `OpScope` + `translate` / `rotate` / `resample` / `offset` / `weave` 等 |
 | `TransformReferenceFrame` | `World` / `Body`（`TranslateParams` / `RotateParams` 的 `frame`） |
-| `TrajectoryPipelineBuilder` | `setOps` + `buildPreviewPoseQuery` + `buildApplyCommands`（内部走 Registry） |
+| `TrajectoryPipelineEngine` | `UnifiedTrajectory` 管道 IR；Session 持有并驱动预览/Apply（`executeFull` / `executeFrom`） |
+| `ProcessFlowPresets.json` | 工艺预设（焊缝/涂胶/打磨）展开为原子块 `pipeline` 列表 |
 
-预览链：`buildPreviewPoseQueryChain` 按流水线顺序调用各块 `contributePreviewTransform`（`capabilities & PreviewPoseTransform`），叠加到 `TransformMotionPoseQuery`；位姿合成用 `trajectory_algo::applyTransformDelta`。
+工艺模板：`buildRecipePreset(Weld/Glue/Grind)` → `ProcessFlowPresetLoader` 读 JSON，**不再**生成 `RecipeWeld` 等复合 kind。Codec 仍可将旧 JSON 中的 `RecipeWeld` token 展开为原子块列表（迁移兼容）。
 
 ### 13.2 `ProgramEditCommand` / `ProgramEditStack`
 
@@ -478,16 +480,15 @@ flowchart LR
 
 `InstructionProgramDocument`：在 `activeProgram()` 步骤树上按 id 查找/修改。Command 使用 `shared_ptr` 跨 DLL 边界（`ProgramEditStack::CommandPtr`）。
 
-Apply 路径分两支：Program Command 分支（`TrajectoryPipelineBuilder::buildApplyCommands` → `ProgramEditService::executeBatch`）与 Unified IR 分支（`TrajectoryEditSession::apply` 内 `requiresUnifiedApply`）。
+Apply 统一走 **Unified IR + 引擎**（`TrajectoryEditSession::apply`）。
 
 | 条件 | Apply |
 |------|--------|
-| `m_rawTrajectory` 或 `m_bakedWorldRaw` 存在，或流水线含 Recipe/Approach/Retract | **Unified IR**：自 `m_rawTrajectory`（文件坐标→`rebuildUnifiedFromSourceRaw` 世界系）重建 → pending → recipe → **accumulated 历次几何** → 本批 geometry → `unifiedTrajectoryToProgram` |
-| 无 raw，仅平移/旋转等 | Program Command；几何记入 `m_pendingPreRawGeometryOps` |
+| `m_rawTrajectory` 存在 | 引擎 `setUsingRaw(true)`：`ingressUnifiedFromRaw` → `pendingPreRaw` → `committed(accumulated)` → `draft(本批)` → `unifiedTrajectoryToProgram` |
+| 无 raw，程序有路点 | `ingressUnifiedFromProgram` → `committed` → `draft` → materialize |
+| 无 raw 且无路点 | 报错「无原始轨迹且程序中无路点」 |
 
-2026-06：多次 Apply 从**同一 CAD raw** 重放 `m_accumulatedGeometryOps`，不再以 `m_bakedWorldRaw` 为起点（避免第二次移动覆盖第一次）。预览与 Apply 共用 Unified 顺序；有 raw 时 OSG 用世界坐标 `applyWorldRawTrajectoryPreviewToOsg`（见 RobotWidget §预览三分支）。
-
-无 raw 时含配方块：Apply 报错「配方块需要原始轨迹输入」；预览走 `previewUnifiedFromProgramPipeline`（程序路点 → Unified，见 RobotWidget 文档）。
+多次 Apply 从**同一 CAD raw** 重放 `m_accumulatedGeometryOps`（committed），不以 `m_bakedWorldRaw` 为起点。预览与 Apply 共用 `TrajectoryPipelineEngine::executeFull`；有 raw 时 OSG 用 `applyWorldRawTrajectoryPreviewToOsg`；无 raw 且含拓扑变更块时用 OSG 叠加层（见 RobotWidget §预览分支）。
 
 UI 侧：Apply 成功后禁用「生成程序」、`onRawEmitProgram` 硬门禁；清除 raw 叠加层并刷新指令路点轴。
 
@@ -499,11 +500,11 @@ UI 侧：Apply 成功后禁用「生成程序」、`onRawEmitProgram` 硬门禁�
 
 ## 14. CAD 轨迹中间表示（`RawTrajectory.h`）
 
-与 §13 **程序级**轨迹编辑并行，特征→轨迹仍基于 `RawTrajectory`，并新增 UnifiedTrajectory 承接 Recipe 与通用块：
+特征→轨迹基于 `RawTrajectory`，几何编辑在 `UnifiedTrajectory` 上由原子块管道完成：
 
 ```text
 FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → RawTrajectory
-  → Recipe/Approach/Retract/通用块（UnifiedTrajectory）→ ReplaceProgramContentCommand → RobotProgram
+  → Ingress → TrajectoryPipelineEngine（原子块 processPath）→ Egress → RobotProgram
 ```
 
 | 类型 | 说明 |
@@ -511,17 +512,15 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 | `RawTrajectory` | `points` + `TrajectoryContext` + 溯源 `sourceFeature` |
 | `TrajectoryPoint` | `poseMm`、`eulerDeg`、`blendRadiusMm`、`speedMmPerSec`、`reachable` |
 | `TrajectoryContext` | `workpieceFrameId`、`toolFrameId`、`externalAxes[]`（地轨/变位机快照，非工艺字段） |
-| `RawTrajectoryOpKind` | `FrameFromPath`、`Resample`、`OffsetAlongNormal`、`OffsetLateral`、`SmoothPose`、`AssignBlend`、`AssignSpeedZone`、`Weave`、`InsertApproachRetract`、`ReachabilityFilter`、`ExternalAxisSearch`、`EmitToProgram` |
-| `RawTrajectoryOpDescriptor` | 单块参数（步距、偏置、摆焊振幅/周期等） |
-| `UnifiedTrajectory` | 统一点位表示（pose/euler/blend/speed/reachable），用于 Recipe 与通用块的统一执行 |
+| `RawTrajectoryOpKind` | **遗留枚举**；新代码使用 `TrajectoryOpKind` + `ITrajectoryOp::processPath` |
+| `UnifiedTrajectory` | 管道 IR：pose/euler/blend/speed/reachable + `sourceInstructionId` |
 
 | API | 作用 |
 |-----|------|
 | `importRawPathToTrajectory` | `RawPath` + `FrameStrategy`（法向 Z / 固定 Z / 切向 X）→ 姿态 |
-| `applyRawTrajectoryOp` / `applyRawTrajectoryPipeline` | 编辑块；`EmitToProgram` 须用 `emitRawTrajectoryToProgram` |
-| `rawTrajectoryRecipeWeldDefault` / `Glue` / `Grind` | 配方底座（RecipeBlueprint 会按新策略剥离内置进退刀） |
-| `buildRecipePreset` / `applyRecipeDescriptorToRawTrajectory` | 配方模板与 raw 配方映射 |
-| `unifiedTrajectoryFromRaw` / `unifiedTrajectoryFromProgram` | Raw（经 UI 层 world 变换）或程序路点 → Unified |
+| `ingressUnifiedFromRaw` / `ingressUnifiedFromProgram` | Raw 或程序 → Unified（引擎 Ingress） |
+| `buildRecipePreset` | 工艺 UI 入口 → `ProcessFlowPresets.json` 原子 `pipeline` |
+| `unifiedTrajectoryFromRaw` / `unifiedTrajectoryFromProgram` | 同上 Ingress 的薄封装 |
 | `unifiedTrajectoryToRaw` | Unified → 点位列（轨迹编辑预览为世界 mm，由 UI 直接画 OSG） |
 | `applyUnifiedTrajectoryOp` | 平移/旋转/镜像/进退刀等（世界系 Unified 上按点序插值） |
 | `emitRawTrajectoryToProgram` | 可达点 → `LineInstruction` 写入 `steps` 并建分组；无 PathPlan 绑定时清空后整写；绑定 PathPlan 时按该条 `PathPlanOutput` 成员 id 局部替换（与 `unifiedTrajectoryMergeIntoProgram` 一致） |
@@ -529,7 +528,7 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 
 实现：[`source/RawTrajectory.cpp`](source/RawTrajectory.cpp)。
 
-**与 `TrajectoryAlgorithm` 的关系**：`ITrajectoryOp` 是统一块描述入口；Recipe/Approach/Retract 在 Session 的 Unified IR 分支执行，Translate/Rotate/Mirror/Reorder 同时支持 Program 分支与 Unified IR 分支。
+**与 `TrajectoryAlgorithm` 的关系**：全部 `TrajectoryOpKind` 由 Builtins 实现 `processPath`；Session/Builder 仅编排 Ingress、引擎重放与 Egress，不再维护 Pose 预览链或 Recipe 复合块。
 
 **Phase 占位**：`ReachabilityFilter` 当前为轻量启发式标记；完整 IK 可达性可接入 `RobotInstructionController::plan` / `queryFeasibleMotionAxisConfigurationOptions`。
 
@@ -537,7 +536,8 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 
 ## 15. 相关文档
 
-- 轨迹算法：[`../TrajectoryAlgorithm/DEVELOPER_GUIDE.md`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md)
+- 轨迹框架：[`../TrajectoryAlgorithm/DEVELOPER_GUIDE.md`](../TrajectoryAlgorithm/DEVELOPER_GUIDE.md)
+- 内置原子块：[`../TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md`](../TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md)
 - 刚体/工具链：[`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md) · [`../GeometryEngine/CONVENTIONS.md`](../GeometryEngine/CONVENTIONS.md)
 - URDF：[`../RobotUrdf/DEVELOPER_GUIDE.md`](../RobotUrdf/DEVELOPER_GUIDE.md)
 - DH：[`../RobotKinematics/DEVELOPER_GUIDE.md`](../RobotKinematics/DEVELOPER_GUIDE.md)

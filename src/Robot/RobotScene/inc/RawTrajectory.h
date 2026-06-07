@@ -100,10 +100,6 @@ ROBOT_SCENE_API bool applyRawTrajectoryPipeline(
 	RawTrajectory& trajectory,
 	std::string* errMsg = nullptr);
 
-ROBOT_SCENE_API std::vector<RawTrajectoryOpDescriptor> rawTrajectoryRecipeWeldDefault();
-ROBOT_SCENE_API std::vector<RawTrajectoryOpDescriptor> rawTrajectoryRecipeGlueDefault();
-ROBOT_SCENE_API std::vector<RawTrajectoryOpDescriptor> rawTrajectoryRecipeGrindDefault();
-
 ROBOT_SCENE_API std::string rawTrajectoryToPreviewPolylineXyz(const RawTrajectory& trajectory);
 ROBOT_SCENE_API std::string rawTrajectoryReachabilityColorsJson(const RawTrajectory& trajectory);
 

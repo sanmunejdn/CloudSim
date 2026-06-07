@@ -155,6 +155,41 @@ TrajectoryParamBinding TrajectoryParamWidgetFactory::create(
 			return false;
 		};
 	}
+	else if (field.type == TrajectoryParamType::Vec3)
+	{
+		auto* layout = new QHBoxLayout(host);
+		host->setLayout(layout);
+		auto* spinX = new QDoubleSpinBox(host);
+		auto* spinY = new QDoubleSpinBox(host);
+		auto* spinZ = new QDoubleSpinBox(host);
+		for (QDoubleSpinBox* spin : { spinX, spinY, spinZ })
+		{
+			spin->setRange(field.minValue, field.maxValue);
+			spin->setSingleStep(field.step);
+			spin->setDecimals(field.step < 0.1 ? 3 : 2);
+		}
+		layout->addWidget(spinX);
+		layout->addWidget(spinY);
+		layout->addWidget(spinZ);
+		binding.read = [spinX, spinY, spinZ](TrajectoryParamValue& out) {
+			out.kind = TrajectoryParamValue::Kind::Double;
+			out.asDouble = spinX->value();
+			(void)spinY;
+			(void)spinZ;
+			return true;
+		};
+		binding.write = [spinX, spinY, spinZ, field](const TrajectoryParamValue& in) {
+			(void)field;
+			if (in.kind != TrajectoryParamValue::Kind::Double)
+			{
+				return false;
+			}
+			spinX->setValue(in.asDouble);
+			spinY->setValue(0.0);
+			spinZ->setValue(0.0);
+			return true;
+		};
+	}
 
 	return binding;
 }

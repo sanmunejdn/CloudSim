@@ -1,6 +1,8 @@
+// Translate 原子块：程序路点位姿平移
 #include "TranslateOp.h"
 
 #include "TrajectoryOpFormat.h"
+#include "TrajectoryOpPathApply.h"
 
 #include <cmath>
 #include <cstdio>
@@ -42,7 +44,7 @@ const char* TranslateOp::displayName(const bool chinese) const
 
 TrajectoryOpCapability TranslateOp::capabilities() const
 {
-	return TrajectoryOpCapability::PreviewPoseTransform | TrajectoryOpCapability::ApplyPoseTransform;
+	return TrajectoryOpCapability::PreviewPoseTransform;
 }
 
 RobotInstruction::TrajectoryOpDescriptor TranslateOp::makeDefaultDescriptor(
@@ -125,38 +127,12 @@ std::string TranslateOp::formatSummary(
 	return buffer;
 }
 
-bool TranslateOp::contributePreviewTransform(
+bool TranslateOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const std::vector<std::string>& targetIds,
-	PreviewTransformStep& out) const
+	RobotInstruction::UnifiedTrajectory& traj,
+	std::string* errMsg) const
 {
-	if (isTranslateNoOp(op.translate))
-	{
-		return false;
-	}
-	out.kind = PreviewTransformStep::Kind::TranslateOnly;
-	out.targetIds.clear();
-	for (const std::string& id : targetIds)
-	{
-		out.targetIds.insert(id);
-	}
-	out.translate = op.translate;
-	return !out.targetIds.empty();
-}
-
-std::vector<TrajectoryApplyAction> TranslateOp::buildApplyActions(
-	const TrajectoryOpContext& ctx,
-	const RobotInstruction::TrajectoryOpDescriptor& op) const
-{
-	(void)ctx;
-	if (isTranslateNoOp(op.translate))
-	{
-		return {};
-	}
-	TrajectoryApplyAction action{};
-	action.kind = TrajectoryApplyActionKind::TransformSegment;
-	action.transformOps = { op };
-	return { action };
+	return applyUnifiedPathOp(op, traj, errMsg);
 }
 
 } // namespace trajectory_algo

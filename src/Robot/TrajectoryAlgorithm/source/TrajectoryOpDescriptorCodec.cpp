@@ -27,16 +27,28 @@ std::string kindToString(const RobotInstruction::TrajectoryOpKind kind)
 		return "Duplicate";
 	case RobotInstruction::TrajectoryOpKind::Reorder:
 		return "Reorder";
-	case RobotInstruction::TrajectoryOpKind::RecipeWeld:
-		return "RecipeWeld";
-	case RobotInstruction::TrajectoryOpKind::RecipeGlue:
-		return "RecipeGlue";
-	case RobotInstruction::TrajectoryOpKind::RecipeGrind:
-		return "RecipeGrind";
 	case RobotInstruction::TrajectoryOpKind::Approach:
 		return "Approach";
 	case RobotInstruction::TrajectoryOpKind::Retract:
 		return "Retract";
+	case RobotInstruction::TrajectoryOpKind::Resample:
+		return "Resample";
+	case RobotInstruction::TrajectoryOpKind::OffsetAlongNormal:
+		return "OffsetAlongNormal";
+	case RobotInstruction::TrajectoryOpKind::OffsetLateral:
+		return "OffsetLateral";
+	case RobotInstruction::TrajectoryOpKind::SmoothPose:
+		return "SmoothPose";
+	case RobotInstruction::TrajectoryOpKind::AssignBlend:
+		return "AssignBlend";
+	case RobotInstruction::TrajectoryOpKind::AssignSpeedZone:
+		return "AssignSpeedZone";
+	case RobotInstruction::TrajectoryOpKind::Weave:
+		return "Weave";
+	case RobotInstruction::TrajectoryOpKind::ReachabilityFilter:
+		return "ReachabilityFilter";
+	case RobotInstruction::TrajectoryOpKind::ExternalAxisSearch:
+		return "ExternalAxisSearch";
 	default:
 		return "Translate";
 	}
@@ -74,21 +86,6 @@ bool kindFromString(const std::string& s, RobotInstruction::TrajectoryOpKind& ou
 		out = RobotInstruction::TrajectoryOpKind::Reorder;
 		return true;
 	}
-	if (s == "RecipeWeld")
-	{
-		out = RobotInstruction::TrajectoryOpKind::RecipeWeld;
-		return true;
-	}
-	if (s == "RecipeGlue")
-	{
-		out = RobotInstruction::TrajectoryOpKind::RecipeGlue;
-		return true;
-	}
-	if (s == "RecipeGrind")
-	{
-		out = RobotInstruction::TrajectoryOpKind::RecipeGrind;
-		return true;
-	}
 	if (s == "Approach")
 	{
 		out = RobotInstruction::TrajectoryOpKind::Approach;
@@ -97,6 +94,102 @@ bool kindFromString(const std::string& s, RobotInstruction::TrajectoryOpKind& ou
 	if (s == "Retract")
 	{
 		out = RobotInstruction::TrajectoryOpKind::Retract;
+		return true;
+	}
+	if (s == "Resample")
+	{
+		out = RobotInstruction::TrajectoryOpKind::Resample;
+		return true;
+	}
+	if (s == "OffsetAlongNormal")
+	{
+		out = RobotInstruction::TrajectoryOpKind::OffsetAlongNormal;
+		return true;
+	}
+	if (s == "OffsetLateral")
+	{
+		out = RobotInstruction::TrajectoryOpKind::OffsetLateral;
+		return true;
+	}
+	if (s == "SmoothPose")
+	{
+		out = RobotInstruction::TrajectoryOpKind::SmoothPose;
+		return true;
+	}
+	if (s == "AssignBlend")
+	{
+		out = RobotInstruction::TrajectoryOpKind::AssignBlend;
+		return true;
+	}
+	if (s == "AssignSpeedZone")
+	{
+		out = RobotInstruction::TrajectoryOpKind::AssignSpeedZone;
+		return true;
+	}
+	if (s == "Weave")
+	{
+		out = RobotInstruction::TrajectoryOpKind::Weave;
+		return true;
+	}
+	if (s == "ReachabilityFilter")
+	{
+		out = RobotInstruction::TrajectoryOpKind::ReachabilityFilter;
+		return true;
+	}
+	if (s == "ExternalAxisSearch")
+	{
+		out = RobotInstruction::TrajectoryOpKind::ExternalAxisSearch;
+		return true;
+	}
+	return false;
+}
+
+RobotInstruction::TrajectoryOpDescriptor makeLegacyOp(const RobotInstruction::TrajectoryOpKind kind)
+{
+	RobotInstruction::TrajectoryOpDescriptor op{};
+	op.kind = kind;
+	op.scope.kind = RobotInstruction::OpScope::Kind::Group;
+	return op;
+}
+
+bool expandLegacyRecipeKind(
+	const std::string& kindToken,
+	std::vector<RobotInstruction::TrajectoryOpDescriptor>& out,
+	std::string* errMsg)
+{
+	(void)errMsg;
+	if (kindToken == "RecipeWeld")
+	{
+		auto resample = makeLegacyOp(RobotInstruction::TrajectoryOpKind::Resample);
+		resample.resample.stepMm = 5.0;
+		auto offset = makeLegacyOp(RobotInstruction::TrajectoryOpKind::OffsetAlongNormal);
+		auto smooth = makeLegacyOp(RobotInstruction::TrajectoryOpKind::SmoothPose);
+		auto blend = makeLegacyOp(RobotInstruction::TrajectoryOpKind::AssignBlend);
+		blend.assignMotion.blendRadiusMm = 2.0;
+		out = { resample, offset, smooth, blend,
+			makeLegacyOp(RobotInstruction::TrajectoryOpKind::Approach),
+			makeLegacyOp(RobotInstruction::TrajectoryOpKind::Retract) };
+		return true;
+	}
+	if (kindToken == "RecipeGlue")
+	{
+		auto resample = makeLegacyOp(RobotInstruction::TrajectoryOpKind::Resample);
+		resample.resample.stepMm = 3.0;
+		auto offset = makeLegacyOp(RobotInstruction::TrajectoryOpKind::OffsetAlongNormal);
+		offset.pathOffset.offsetMm = 1.0;
+		out = { resample, offset, makeLegacyOp(RobotInstruction::TrajectoryOpKind::SmoothPose),
+			makeLegacyOp(RobotInstruction::TrajectoryOpKind::AssignSpeedZone) };
+		return true;
+	}
+	if (kindToken == "RecipeGrind")
+	{
+		auto resample = makeLegacyOp(RobotInstruction::TrajectoryOpKind::Resample);
+		resample.resample.stepMm = 4.0;
+		auto offset = makeLegacyOp(RobotInstruction::TrajectoryOpKind::OffsetAlongNormal);
+		auto weave = makeLegacyOp(RobotInstruction::TrajectoryOpKind::Weave);
+		out = { resample, offset, makeLegacyOp(RobotInstruction::TrajectoryOpKind::SmoothPose), weave,
+			makeLegacyOp(RobotInstruction::TrajectoryOpKind::Approach),
+			makeLegacyOp(RobotInstruction::TrajectoryOpKind::Retract) };
 		return true;
 	}
 	return false;
@@ -129,6 +222,22 @@ bool readScopeJson(const nlohmann::json& j, RobotInstruction::OpScope& scope)
 		scope.pointTo = j["pointTo"].get<int>();
 	}
 	return true;
+}
+
+void copyDescriptorDefaults(
+	RobotInstruction::TrajectoryOpDescriptor& out,
+	const RobotInstruction::TrajectoryOpDescriptor& defaults)
+{
+	out.translate = defaults.translate;
+	out.rotate = defaults.rotate;
+	out.duplicateCount = defaults.duplicateCount;
+	out.mirrorAxis = defaults.mirrorAxis;
+	out.resample = defaults.resample;
+	out.pathOffset = defaults.pathOffset;
+	out.weave = defaults.weave;
+	out.assignMotion = defaults.assignMotion;
+	out.approach = defaults.approach;
+	out.retract = defaults.retract;
 }
 
 } // namespace
@@ -191,7 +300,22 @@ bool fromJson(const nlohmann::json& j, RobotInstruction::TrajectoryOpDescriptor&
 	{
 		if (j["kind"].is_string())
 		{
-			if (!kindFromString(j["kind"].get<std::string>(), kind))
+			const std::string kindToken = j["kind"].get<std::string>();
+			std::vector<RobotInstruction::TrajectoryOpDescriptor> legacyExpanded;
+			if (expandLegacyRecipeKind(kindToken, legacyExpanded, errMsg))
+			{
+				if (legacyExpanded.empty())
+				{
+					if (errMsg)
+					{
+						*errMsg = "legacy recipe expansion failed";
+					}
+					return false;
+				}
+				out = legacyExpanded.front();
+				return true;
+			}
+			if (!kindFromString(kindToken, kind))
 			{
 				if (errMsg)
 				{
@@ -220,13 +344,7 @@ bool fromJson(const nlohmann::json& j, RobotInstruction::TrajectoryOpDescriptor&
 		return false;
 	}
 	RobotInstruction::TrajectoryOpDescriptor defaults = algo->makeDefaultDescriptor(out.scope);
-	out.translate = defaults.translate;
-	out.rotate = defaults.rotate;
-	out.duplicateCount = defaults.duplicateCount;
-	out.mirrorAxis = defaults.mirrorAxis;
-	out.recipe = defaults.recipe;
-	out.approach = defaults.approach;
-	out.retract = defaults.retract;
+	copyDescriptorDefaults(out, defaults);
 
 	if (j.contains("params") && j["params"].is_object())
 	{
@@ -317,6 +435,15 @@ bool pipelineFromJson(
 	}
 	for (const nlohmann::json& item : j)
 	{
+		if (item.contains("kind") && item["kind"].is_string())
+		{
+			std::vector<RobotInstruction::TrajectoryOpDescriptor> legacyExpanded;
+			if (expandLegacyRecipeKind(item["kind"].get<std::string>(), legacyExpanded, errMsg))
+			{
+				out.insert(out.end(), legacyExpanded.begin(), legacyExpanded.end());
+				continue;
+			}
+		}
 		RobotInstruction::TrajectoryOpDescriptor op{};
 		if (!fromJson(item, op, errMsg))
 		{

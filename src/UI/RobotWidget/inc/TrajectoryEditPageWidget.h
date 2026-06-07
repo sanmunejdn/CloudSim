@@ -40,6 +40,7 @@ class QListWidgetItem;
 class TrajectoryPipelineListWidget;
 
 class TrajectoryEditSession;
+class TrajectoryEditObserver;
 
 class ProgramEditService;
 
@@ -204,6 +205,7 @@ private:
 	ProgramEditService* m_editService = nullptr;
 
 	TrajectoryEditSession* m_session = nullptr;
+	TrajectoryEditObserver* m_observer = nullptr;
 
 	RobotSimulationController* m_simController = nullptr;
 

@@ -24,6 +24,8 @@ struct ROBOT_SCENE_API UnifiedTrajectoryPoint
 struct ROBOT_SCENE_API UnifiedTrajectory
 {
 	std::vector<UnifiedTrajectoryPoint> points;
+	TrajectoryContext ctx{};
+	std::string sourceFeatureJson;
 };
 
 ROBOT_SCENE_API bool unifiedTrajectoryFromRaw(
@@ -36,10 +38,18 @@ ROBOT_SCENE_API bool unifiedTrajectoryFromProgram(
 	UnifiedTrajectory& out,
 	std::string* errMsg = nullptr);
 
+/// 仅导入指定 PathPlan 的 PathPlanOutput 成员路点（顺序与分组一致）
+ROBOT_SCENE_API bool unifiedTrajectoryFromPathPlanOutput(
+	const RobotProgram& program,
+	const std::string& pathPlanInstructionId,
+	UnifiedTrajectory& out,
+	std::string* errMsg = nullptr);
+
 ROBOT_SCENE_API bool unifiedTrajectoryToProgram(
 	const UnifiedTrajectory& traj,
 	RobotProgram& program,
-	std::string* errMsg = nullptr);
+	std::string* errMsg = nullptr,
+	bool skipUnreachable = true);
 
 /// Apply 时保留根级 PathPlan/逻辑指令，替换指定 PathPlan 的运动输出与 PathPlanOutput 分组
 ROBOT_SCENE_API bool unifiedTrajectoryMergeIntoProgram(
@@ -57,7 +67,8 @@ ROBOT_SCENE_API bool unifiedTrajectoryToRaw(
 ROBOT_SCENE_API bool applyUnifiedTrajectoryOp(
 	const TrajectoryOpDescriptor& op,
 	UnifiedTrajectory& traj,
-	std::string* errMsg = nullptr);
+	std::string* errMsg = nullptr,
+	const RobotProgram* program = nullptr);
 
 ROBOT_SCENE_API bool applyUnifiedTrajectoryPipeline(
 	const std::vector<TrajectoryOpDescriptor>& ops,

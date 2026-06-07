@@ -25,7 +25,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 | URDF import entry | `RobotUrdfImport::registerUrdfRobot` → host |
 | 程序 JSON（多程序 / 分组 / v4） | `RobotProgramStore` → `RobotProgramCatalog`；序列化见 `RobotProgramJsonIo` |
 | 程序编辑撤销栈 | `ProgramEditService` + `ProgramEditStack`（`RobotScene`） |
-| 轨迹编辑流水线 | `TrajectoryEditPageWidget` / `TrajectoryEditSession` / `TrajectoryPipelineBuilder` |
+| 轨迹编辑流水线 | `TrajectoryEditPageWidget` / `TrajectoryEditSession` / `TrajectoryPipelineEngine` |
 | **CAD 轨迹生成** | `FeatureTrajectoryPageWidget`：`FeatureSpec` → 离散 → `RawTrajectory` 写入 `TrajectoryEditSession` |
 | 指令属性面板 UI | `InstructionPropertyPanel` + `MainWindowInstructionPropertyUiHost`（Widget 桥接） |
 | Property-panel feasible-axis query | `RobotInstructionPropertyEditor` / `RobotSimulationController::scheduleDeferredFeasibleAxisProbe` |
@@ -317,7 +317,7 @@ Add/Duplicate/Remove 工具系时用 `m_blockSignals` 避免 `setCurrentRow` 触
 |----|------|
 | `TrajectoryEditPageWidget` | 轨迹编辑 Dock 子页：**工艺模板**区 + 调色板 + Program Op 流水线 + 参数区 + 预览勾选/Apply/Reset/Undo |
 | `InstructionProgramTreeWidget` | 层级指令树；`NodeKind::Group` 嵌套显示分组；Ctrl 多选根层级指令 → 右键创建分组；拖放维护 `memberInstructionIds`；`instructionSelected` → 预览 |
-| `TrajectoryEditSession` | 预览（临时改 store 中 pose）与 Apply（Command 落盘）；`reset` / `abandonPreview`；**并行持有** `m_rawTrajectory`（`setRawTrajectory` / `rawTrajectoryChanged`，与 Program 预览快照解耦）；见 §轨迹编辑 |
+| `TrajectoryEditSession` | 预览三分支（raw 叠加 / overlay / 位姿写回）与 Apply（Command 落盘）；`reset` / `abandonPreview`；**并行持有** `m_rawTrajectory`（`setRawTrajectory` / `rawTrajectoryChanged`，与 Program 预览快照解耦）；见 §轨迹编辑 |
 | `ProgramEditService` | `execute` / `undo` / `redo`；`revisionChanged` → 轨迹页 `syncUiAfterProgramRevision` + 指令树刷新 |
 | `DevicePageWidget` | Property Dock「设备」Tab：类型/品牌 Combo + 自适应缩略图网格；`urdfImportRequested` |
 
@@ -357,6 +357,20 @@ Dock **机器人** 页内指令编辑区自上而下：
 
 Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签为 **机器人** / Robot（原「指令仿真」）。默认中文 UI；`MainWindow::applyLanguage` → `trajectoryEditPage()->setUseChinese` / `featureTrajectoryPage()->setUseChinese`；页签索引见 `RobotSimulationDockWidget::kTabIndexTrajectoryGeneration` / `kTabIndexTrajectoryEdit`。
 
+### 管道引擎与 Observer（2026 升级）
+
+| 组件 | 职责 |
+|------|------|
+| `TrajectoryPipelineEngine` | `UnifiedTrajectory` 为管道 IR；`pendingPreRaw → committed → draft` 顺序重放；`executeFrom` 局部重跑 |
+| `TrajectoryEditSession::m_pipelineEngine` | Raw/Unified Apply 与 `buildRawPreviewWithPipeline` 委托引擎 |
+| `TrajectoryEditObserver` | Page/AI 统一入口：`loadPipeline` / `updateNodeParams` / `moveNode*` |
+| `ProcessFlowPresetLoader` | 工艺默认流水线 JSON：`bin/resource/trajectory/ProcessFlowPresets.json` |
+| 原子块实现 | [`TrajectoryAlgorithmBuiltins`](../../Robot/TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md) |
+
+预览收敛为 **单引擎执行 + 多 egress**（OSG raw 叠加 / 临时写回路点轴）。有 raw 时改参可 `runPipelineEngineFrom(nodeIndex)` 再刷新叠加层。
+
+流水线列表支持 **列表内拖拽排序**（`TrajectoryPipelineListWidget::startDrag` + 内部 MIME 行号）。
+
 ### 工艺模板与原始轨迹（CAD 离散结果）
 
 页顶 **「工艺模板」** 区用于将焊缝/涂胶/打磨一键填充到统一流水线；`RawTrajectory` 仍作为离散输入来源：
@@ -364,11 +378,11 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 | 控件 | 行为 |
 |------|------|
 | 状态标签 | `TrajectoryEditSession::hasRawTrajectory()` → 点数；否则提示先在轨迹生成页离散 |
-| 工艺下拉 | 焊缝 / 涂胶 / 打磨（映射 `RecipeWeld/RecipeGlue/RecipeGrind` 模板） |
-| 填充工艺流水线 | `buildRecipePreset` → `m_pipeline->setOps(...)`，插入统一算法块链（焊缝/打磨默认附加 `Approach + Retract`） |
+| 工艺下拉 | 焊缝 / 涂胶 / 打磨（`buildRecipePreset` → `ProcessFlowPresets.json` 原子 `pipeline`） |
+| 填充工艺流水线 | `ProcessFlowPresetLoader` 展开 Resample/Offset/Approach/Retract 等 → `m_pipeline->setOps(...)` |
 | 生成程序 | 保留 `emitRawTrajectoryToProgram` 入口用于 raw 直出；绑定 PathPlan 时仅替换该条 `PathPlanOutput`，不删除其它 PathPlan 的分组与路点；**Apply 成功后自动禁用**，避免覆盖已应用结果；发生新编辑或 Raw 更新后恢复可用 |
 
-`rawTrajectoryChanged` 刷新状态；`reset()` / `abandonPreview` **不清** `m_rawTrajectory`。当流水线含 Recipe/Approach/Retract，或 session 已有 `m_rawTrajectory` / `m_bakedWorldRaw` 时，Apply 走 Unified IR 分支。
+`rawTrajectoryChanged` 刷新状态；`reset()` / `abandonPreview` **不清** `m_rawTrajectory`。Apply 统一走 `TrajectoryPipelineEngine`；有 raw 时引擎 `setUsingRaw(true)`，无 raw 时从程序 Ingress。
 
 ### Session 几何历史（多次 Apply / 预览对齐）
 
@@ -376,14 +390,12 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 
 | 成员 | 何时写入 | 何时用于预览/Apply |
 |------|----------|-------------------|
-| `m_pendingPreRawGeometryOps` | 尚无 raw 时走 **Program Command** Apply 的本批几何块 | 首次 **有 raw** 的 Unified Apply/预览：在 recipe 之前叠加，随后 **清空** |
-| `m_accumulatedGeometryOps` | 每次 **有 raw** 的 Unified Apply 成功后，追加本批全部非配方几何块（含 Approach/Retract/平移/旋转等） | 之后每次 Unified Apply/预览：在 recipe 之后、本批 `geometryOps` 之前重放 |
-| `m_bakedWorldRaw` | 有 raw 的 Unified Apply 成功后由 `unifiedTrajectoryToRaw` 烘焙 | 参与 `requiresUnifiedApply` 判断；**不再**作为 Apply 起点（始终从 `m_rawTrajectory` 重建） |
-| `m_rawTrajectory` | 轨迹生成页 `setRawTrajectory`；有 raw 的 Apply 中 recipe 会更新其点列 | Unified 链的 **文件坐标** 输入；经 `rebuildUnifiedFromSourceRaw` 转世界系再算几何 |
+| `m_pendingPreRawGeometryOps` | 引擎 `pendingPreRaw` 槽位（Program Command 路径已移除，通常为空） | 有 raw 的 Apply/预览经 `setPendingPreRawOps` 传入；Apply 成功后 **清空** |
+| `m_accumulatedGeometryOps` | 每次有 raw 的 Apply 成功后追加本批全部几何块 | 之后每次 Apply/预览作为引擎 `committed` 在 `draft` 之前重放 |
+| `m_bakedWorldRaw` | 有 raw 的 Apply 成功后由 `unifiedTrajectoryToRaw` 烘焙 | 诊断/状态用；**不再**作为 Apply 起点（始终从 `m_rawTrajectory` 重建） |
+| `m_rawTrajectory` | 轨迹生成页 `setRawTrajectory`；有 raw 的 Apply 可更新 `rawWorking` | 引擎 raw 路径的 **文件坐标** 输入；`rebuildUnifiedFromSourceRaw` 转世界系 |
 
 用户点轨迹编辑 **Reset** 时：`clearTrajectoryGeometryHistory()` 清空上述历史 + `m_bakedWorldRaw`（`onResetClicked`）。`setRawTrajectory`（新离散）会清 `m_bakedWorldRaw`，**保留** accumulated（除非用户 Reset）。
-
-**禁止**在 Unified Apply 的 recipe 循环内清空 `m_accumulatedGeometryOps`；本批 recipe 与几何分阶段执行（先全部 recipe → rebuild → accumulated → 本批 geometry）。
 
 **新离散**：`setRawTrajectory` 清几何历史；**已绑定** PathPlan 时只更新该条 raw；无绑定时在根级 PathPlan 序列末尾 `InsertPathPlanCommand` 并自动命名（featureId 去重）。重离散清 `appliedHistory`。`bindPathPlan(id)` 加载 `pipeline` / `appliedHistory` / raw。Apply（有 raw）用 `CompositeProgramEditCommand` 一次撤销。删除 PathPlan：`RemovePathPlanCommand`（指令树删除按钮）。
 
@@ -395,7 +407,7 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 |------|------|
 | `TrajectoryEditPageWidget` | UI：程序/路径规划/分组、调色板、流水线、`TrajectoryOpParamPanel`、预览勾选/Apply/Undo |
 | `TrajectoryPipelineListWidget` | `m_ops` 真源；列表项由 `rebuildItems()` 从 `m_ops` 生成 |
-| `TrajectoryEditSession` | 持有 `m_ops` 副本 + `TrajectoryPipelineBuilder`；Preview 快照 / Apply Command；`reset` / `abandonPreview` |
+| `TrajectoryEditSession` | 持有 `m_ops` + `TrajectoryPipelineEngine`；Preview 快照 / Apply Command；`reset` / `abandonPreview` |
 | `ProgramEditService` | Apply 时优先 `executeBatch(cmds)`（单次 `renumberAndNotify` + `revisionChanged`）；Undo/Redo 恢复程序树 |
 | `RobotProgramStore` | `activeCatalog()` / `activeProgram()`；与 Instructions 页共用 |
 
@@ -432,14 +444,14 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 | API | 何时用 | 行为 |
 |-----|--------|------|
 | `reset()` | 用户点 **Reset**、切换程序、`setPipeline`（结构变更） | 若预览中：先 `restorePreviewSnapshots()` 还原 store，再清快照 |
-| `abandonPreview()` | `syncUiAfterProgramRevision`（undo/redo 后） | 仅清快照与 `m_previewActive`，**不写回** store |
+| `abandonPreview()` | `syncUiAfterProgramRevision`（undo/redo 后） | 仅清快照与 `m_previewActive`，**不** `restorePreviewSnapshots`（程序已被 undo/redo 改写） |
 
 ### 按钮与交互一览
 
 | 控件 | 行为 |
 |------|------|
 | **预览（勾选框，默认勾选）** | `runPreviewIfEnabled`（`reconcile` → `flush` → 见下 §预览三分支）；取消：`session->reset()` 恢复路点。流水线/参数变更且仍勾选时 `schedulePreviewRun` 防抖重跑 |
-| **Apply** | `reconcilePipelineScopes` → `flush` → `apply`：无 raw 且仅平移/旋转等可走 Program Command；否则 Unified IR + `ReplaceProgramContentCommand`；成功后清空流水线、**取消勾选**预览、**关闭 raw 叠加层**并 `refreshInstructionPoseAxes` |
+| **Apply** | `reconcilePipelineScopes` → `flush` → `apply`：统一引擎 + `ReplaceProgramContentCommand`；成功后清空流水线、**取消勾选**预览、**关闭 raw/overlay 叠加层**并 `refreshInstructionPoseAxes` |
 | **Apply 后生成门控** | 页面状态 `m_pipelineAppliedSinceLastRawChange=true`，`m_rawEmitBtn` 禁用；`onRawEmitProgram` 也有硬门禁提示，防止绕过按钮状态覆盖结果 |
 | **Reset** | `session->reset()` + `pipeline->setOps({})`（`opsChanged` → `setPipeline` 同步 Session） |
 | **Undo / Redo** | `ProgramEditService::undo/redo` → `revisionChanged` → `syncUiAfterProgramRevision` |
@@ -468,43 +480,45 @@ flowchart TD
   UI --> HasRaw{hasRawTrajectory?}
   HasRaw -->|是| RawPrev[buildRawPreviewWithPipeline]
   RawPrev --> WorldOsg[applyWorldRawTrajectoryPreviewToOsg]
-  HasRaw -->|否| PipePrev[previewPipeline]
-  PipePrev --> NeedU{requiresUnifiedApply?}
-  NeedU -->|是| ProgU[previewUnifiedFromProgramPipeline]
-  NeedU -->|否| ProgQ[preview + buildPreviewPoseQuery]
-  ProgU --> Axes[refreshInstructionPoseAxes]
-  ProgQ --> Axes
+  HasRaw -->|否| PipePrev[previewPipeline → previewUnifiedFromProgramPipeline]
+  PipePrev --> Engine[TrajectoryPipelineEngine executeFull]
+  Engine --> Topo{含几何/拓扑块?}
+  Topo -->|是| Overlay[showUnifiedOverlayPreview OSG 折线]
+  Topo -->|是| Mixed{含位姿/工艺块?}
+  Mixed -->|是| PartialWB[applyUnifiedPreviewWriteback 写回 store]
+  Topo -->|否| Writeback[快照 + 全量写回 store 路点]
+  Writeback --> Axes[refreshInstructionPoseAxes]
 ```
 
-#### 预览三分支
+#### 预览分支
 
 | 分支 | 条件 | API | 3D 显示 |
 |------|------|-----|---------|
-| **A. Raw 叠加层** | `hasRawTrajectory()` | `buildRawPreviewWithPipeline` → `showRawTrajectoryPreview(traj, posesAlreadyWorldMm=true)` | `applyWorldRawTrajectoryPreviewToOsg`：位姿已是**世界 mm**，不再 `world→file→world` |
-| **B. 程序 + Unified** | 无 raw，流水线含 Recipe/Approach/Retract | `previewPipeline` → `previewUnifiedFromProgramPipeline` | 临时写回 store 路点 + `refreshInstructionPoseAxes`；**不**重放 `pendingPreRaw`（已落盘的在路点里） |
-| **C. 程序 + Pose 链** | 无 raw，仅平移/旋转等可预览块 | `previewPipeline` → `preview()` + `buildPreviewPoseQueryChain` | 快照 → 链式变换 → 写回 scope 内路点 |
+| **A. Raw 叠加层** | `hasRawTrajectory()` | `buildRawPreviewWithPipeline` → `showRawTrajectoryPreview(traj, posesAlreadyWorldMm=true)` | `applyWorldRawTrajectoryPreviewToOsg`：位姿已是**世界 mm** |
+| **B. 程序 + Overlay** | 无 raw，含 Resample/Approach/Retract/Delete/Duplicate/Offset/Smooth/Weave | `previewUnifiedFromProgramPipeline` → `showUnifiedOverlayPreview` | `unifiedTrajectoryToRaw` + OSG 叠加；**不改** store 路点形状；大轨迹自动抽稀 overlay |
+| **B′. 混合预览** | B + AssignBlend/AssignSpeedZone 或 Translate/Rotate | 同上 + `applyUnifiedPreviewWriteback` | 形状仍走 overlay；**工艺/位姿**写回已有 `sourceInstructionId` 路点（属性面板与 reset 可逆） |
+| **C. 程序 + 写回** | 无 raw，仅平移/旋转/工艺属性块 | `previewUnifiedFromProgramPipeline`（无拓扑变更） | 快照 → 引擎结果写回 scope 路点 + `refreshInstructionPoseAxes` |
 
-**Raw 预览 Unified 顺序**（与 Apply 一致，`buildRawPreviewWithPipeline` / `apply` 共有逻辑）：
+**Raw 预览引擎顺序**（与 Apply 一致，`configurePipelineEngineForRaw` + `executeFull`）：
 
-1. `m_rawTrajectory`（文件坐标）→ `rebuildUnifiedFromSourceRaw`（`transformRawTrajectoryToWorld` + `unifiedTrajectoryFromRaw`）
-2. `m_pendingPreRawGeometryOps`（若有）→ `applyUnifiedTrajectoryOp`
-3. 本批 **recipe** → `applyRecipeDescriptorToRawTrajectory` → 再 `rebuildUnifiedFromSourceRaw`
-4. `m_accumulatedGeometryOps`（历次几何）→ `applyUnifiedTrajectoryOp`
-5. 本批 **geometryOps**（当前流水线非配方块）→ `applyUnifiedTrajectoryOp`
-6. `unifiedTrajectoryToRaw` → 世界系 `outPreviewRaw` → 分支 A 直接画 OSG
+1. `ingressUnifiedFromRaw`（`m_rawTrajectory` 文件坐标 → 世界 Unified）
+2. `pendingPreRaw`（`m_pendingPreRawGeometryOps`，通常为空）
+3. `committed`（`m_accumulatedGeometryOps`）
+4. `draft`（当前流水线 `m_ops`）
+5. `unifiedTrajectoryToRaw` → 世界系 `outPreviewRaw` → 分支 A 画 OSG
 
-**注意**：离散后、尚未「生成程序」时，预览只看 **raw 叠加层**（分支 A），不要与指令树路点轴混读；`m_rawTrajectoryPreviewActive` 时 `refreshInstructionPoseAxes` 直接返回，且预览前会 `clearInstructionPoseAxes`。
+**注意**：离散后、尚未「生成程序」时，预览只看 **raw 叠加层**（分支 A），不要与指令树路点轴混读。纯 overlay（B）时 `refreshPreviewVisuals` 跳过路点轴；**混合预览（B′）** 写回 store 但 3D 仍以 overlay 为准，选中路点可在属性面板看到 blend/speed。`m_rawTrajectoryPreviewActive` 时 `refreshInstructionPoseAxes` 直接返回。
 
-#### Apply（Unified 分支，有 raw 时典型：线离散 → 配方 → 移动）
+#### Apply（统一引擎）
 
-与预览步骤 1–5 相同，最后 `unifiedTrajectoryToProgram` + `ReplaceProgramContentCommand`。成功后：
+与 raw 预览相同引擎重放，最后 `unifiedTrajectoryToProgram` / `unifiedTrajectoryMergeIntoProgram` + `ReplaceProgramContentCommand`。成功后：
 
 - `appendGeometryOpsHistory(m_accumulatedGeometryOps, geometryOps)` 记录本批几何；
-- 可选更新 `m_rawTrajectory`（recipe 后的 rawWorking）、写入 `m_bakedWorldRaw`；
+- 有 raw 时更新 `m_rawTrajectory`（`rawWorking`）、写入 `m_bakedWorldRaw`；
 - `syncRenderMatricesForInstructionIds(..., worldFrameTcp=true)`；
 - 页面 `onApplyClicked`：`setRawTrajectoryPreviewActive(false)`、`clearRawTrajectoryOverlay*`、`refreshInstructionPoseAxes`。
 
-无 raw 时：若 `requiresUnifiedApply` 且程序无路点 → 报错「无原始轨迹且程序中无路点」；配方块要求 `usingRaw`（须先离散）。
+无 raw 且程序无路点 → 报错「无原始轨迹且程序中无路点」。有 raw 的 Apply 经 `configurePipelineEngineForRaw` 配置 pending/committed/draft。
 
 #### 坐标系
 
@@ -520,9 +534,10 @@ flowchart TD
 
 | API | 行为 |
 |-----|------|
-| `previewPipeline(ops)` | 设置 `m_ops` 后分派 B/C；有 raw 时返回错误（应用 `buildRawPreviewWithPipeline`） |
-| `rebuildUnifiedFromSourceRaw` | file raw → world unified（Apply/预览/recipe 后重建共用） |
-| `reapplyPreview` | 无 raw 且 `requiresUnifiedApply` → `previewUnifiedFromProgramPipeline`；否则 Pose 链；**有 raw 时返回 false**（由页面 `schedulePreviewRun` 重算） |
+| `previewPipeline(ops)` | 设置 `m_ops` → `previewUnifiedFromProgramPipeline`；有 raw 时返回错误（用 `buildRawPreviewWithPipeline`） |
+| `rebuildUnifiedFromSourceRaw` | file raw → world unified（引擎 raw 路径共用） |
+| `reapplyPreview` | 无 raw → `previewUnifiedFromProgramPipeline`；**有 raw 时返回 false**（由页面 `schedulePreviewRun` 重算） |
+| `clearOverlayPreview` | 清除拓扑预览 OSG 叠加层（`abandonPreview` / `reset` / Apply 后调用） |
 | `updatePipelineOps` | 仅更新 `m_ops` + 失效 scope 缓存，**不**自动 reapply |
 | `syncSessionParams`（页面） | `updatePipelineOps` + 勾选预览时 `schedulePreviewRun(80ms)` |
 
@@ -538,7 +553,7 @@ flowchart TD
 | `m_ops.empty()` | 流水线为空，请先添加算法块 |
 | 无可预览能力块 | 当前流水线无可预览块 |
 | scope 解析无路点（分支 B/C） | 作用域内无运动路点，请先在程序中创建路点或完成轨迹离散 |
-| 无 raw 且配方 Apply | 配方块需要原始轨迹输入 |
+| 无 raw 且无路点 | 无原始轨迹且程序中无路点 |
 
 ### pose 与 targetTransform 一致性约束（2026-05 修订）
 

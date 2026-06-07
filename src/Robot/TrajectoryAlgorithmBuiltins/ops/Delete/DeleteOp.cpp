@@ -1,6 +1,10 @@
+// Delete 原子块：删除 scope 内路点
 #include "DeleteOp.h"
 
 #include "TrajectoryOpFormat.h"
+#include "TrajectoryUnifiedScope.h"
+
+#include <algorithm>
 
 namespace trajectory_algo
 {
@@ -17,7 +21,7 @@ const char* DeleteOp::displayName(const bool chinese) const
 
 TrajectoryOpCapability DeleteOp::capabilities() const
 {
-	return TrajectoryOpCapability::ApplyStructuralEdit;
+	return TrajectoryOpCapability::None;
 }
 
 RobotInstruction::TrajectoryOpDescriptor DeleteOp::makeDefaultDescriptor(
@@ -48,34 +52,29 @@ std::string DeleteOp::formatSummary(
 	return std::string(displayName(chinese)) + " | " + scopeKindLabel(op.scope.kind, chinese);
 }
 
-bool DeleteOp::contributePreviewTransform(
+bool DeleteOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const std::vector<std::string>& targetIds,
-	PreviewTransformStep& out) const
+	RobotInstruction::UnifiedTrajectory& traj,
+	std::string* errMsg) const
 {
-	(void)op;
-	(void)targetIds;
-	(void)out;
-	return false;
-}
-
-std::vector<TrajectoryApplyAction> DeleteOp::buildApplyActions(
-	const TrajectoryOpContext& ctx,
-	const RobotInstruction::TrajectoryOpDescriptor& op) const
-{
-	if (ctx.program)
+	(void)errMsg;
+	const std::vector<std::size_t> indices =
+		resolveScopedPointIndices(traj, op.scope, activeProgramContext());
+	if (indices.empty())
 	{
-		RobotInstruction::RobotProgramCatalog catalog;
-		std::vector<std::string> ids = catalog.resolveOpScopeInstructionIds(op.scope, *ctx.program);
-		if (ids.empty())
+		return true;
+	}
+	std::vector<RobotInstruction::UnifiedTrajectoryPoint> kept;
+	kept.reserve(traj.points.size());
+	for (std::size_t i = 0; i < traj.points.size(); ++i)
+	{
+		if (std::find(indices.begin(), indices.end(), i) == indices.end())
 		{
-			return {};
+			kept.push_back(traj.points[i]);
 		}
 	}
-	TrajectoryApplyAction action{};
-	action.kind = TrajectoryApplyActionKind::RemoveInstruction;
-	action.scope = op.scope;
-	return { action };
+	traj.points = std::move(kept);
+	return true;
 }
 
 } // namespace trajectory_algo

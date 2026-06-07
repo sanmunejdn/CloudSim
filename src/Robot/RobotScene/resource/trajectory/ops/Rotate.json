@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "kind": "Rotate",
+  "schema": {
+    "fields": [
+      {
+        "key": "rotate.angleDeg",
+        "type": "Double",
+        "labelZh": "角度",
+        "unit": "deg",
+        "default": 0.0,
+        "order": 4
+      }
+    ]
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {
+      "rotate.axisZ": 1.0,
+      "rotate.angleDeg": 0.0
+    }
+  }
+}

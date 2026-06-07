@@ -156,6 +156,9 @@
       <AdditionalDependencies>CloudSimCore.lib;GeometryEngine.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;Data.lib;RunLogger.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgUtil.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PostBuildEvent>
+      <Command>powershell -NoProfile -ExecutionPolicy Bypass -Command "$src = Join-Path '$(ProjectDir)' 'resource/trajectory'; $dst = Join-Path '$(OutDir)' 'resource/trajectory'; New-Item -ItemType Directory -Force -Path (Join-Path $dst 'ops') | Out-Null; foreach ($rel in @('CommonScope.json','ProcessFlowPresets.json')) { $s = Join-Path $src $rel; $d = Join-Path $dst $rel; if ((Test-Path $s) -and -not (Test-Path $d)) { Copy-Item $s $d } }; $srcOps = Join-Path $src 'ops'; if (Test-Path $srcOps) { Get-ChildItem $srcOps -Filter *.json | ForEach-Object { $d = Join-Path (Join-Path $dst 'ops') $_.Name; if (-not (Test-Path $d)) { Copy-Item $_.FullName $d } } }"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -175,6 +178,9 @@
       <AdditionalDependencies>CloudSimCore.lib;GeometryEngine.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;Data.lib;RunLogger.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgUtil.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PostBuildEvent>
+      <Command>powershell -NoProfile -ExecutionPolicy Bypass -Command "$src = Join-Path '$(ProjectDir)' 'resource/trajectory'; $dst = Join-Path '$(OutDir)' 'resource/trajectory'; New-Item -ItemType Directory -Force -Path (Join-Path $dst 'ops') | Out-Null; foreach ($rel in @('CommonScope.json','ProcessFlowPresets.json')) { $s = Join-Path $src $rel; $d = Join-Path $dst $rel; if ((Test-Path $s) -and -not (Test-Path $d)) { Copy-Item $s $d } }; $srcOps = Join-Path $src 'ops'; if (Test-Path $srcOps) { Get-ChildItem $srcOps -Filter *.json | ForEach-Object { $d = Join-Path (Join-Path $dst 'ops') $_.Name; if (-not (Test-Path $d)) { Copy-Item $_.FullName $d } } }"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="inc\IRobotBackendPoseSink.h" />
@@ -199,15 +205,40 @@
     <ClInclude Include="inc\RobotProgramCatalog.h" />
     <ClInclude Include="inc\RobotCanonicalProgramExport.h" />
     <ClInclude Include="inc\TrajectoryPipelineTypes.h" />
-    <ClInclude Include="inc\TrajectoryPipelineBuilder.h" />
-    <ClInclude Include="inc\TrajectoryApplyActionConverter.h" />
     <ClInclude Include="inc\TrajectoryOpBridge.h" />
     <ClInclude Include="inc\RobotMatrixOsgBridge.h" />
     <ClInclude Include="inc\RobotSceneKinematics.h" />
     <ClInclude Include="inc\RobotTeachIk.h" />
     <ClInclude Include="inc\RawTrajectory.h" />
+    <ClInclude Include="inc\RawTrajectoryMath.h" />
     <ClInclude Include="inc\RecipeBlueprint.h" />
     <ClInclude Include="inc\UnifiedTrajectory.h" />
+    <ClInclude Include="inc\TrajectoryPathAdapters.h" />
+    <ClInclude Include="inc\TrajectoryPipelineEngine.h" />
+    <ClInclude Include="inc\ProcessFlowPresetLoader.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="resource\trajectory\ProcessFlowPresets.json" />
+    <None Include="resource\trajectory\ProcessFlowPresets.defaults.json" />
+    <None Include="resource\trajectory\CommonScope.json" />
+    <None Include="resource\trajectory\README.md" />
+    <None Include="resource\trajectory\ops\Approach.json" />
+    <None Include="resource\trajectory\ops\Retract.json" />
+    <None Include="resource\trajectory\ops\Translate.json" />
+    <None Include="resource\trajectory\ops\Rotate.json" />
+    <None Include="resource\trajectory\ops\Mirror.json" />
+    <None Include="resource\trajectory\ops\Delete.json" />
+    <None Include="resource\trajectory\ops\Duplicate.json" />
+    <None Include="resource\trajectory\ops\Reorder.json" />
+    <None Include="resource\trajectory\ops\Resample.json" />
+    <None Include="resource\trajectory\ops\OffsetAlongNormal.json" />
+    <None Include="resource\trajectory\ops\OffsetLateral.json" />
+    <None Include="resource\trajectory\ops\SmoothPose.json" />
+    <None Include="resource\trajectory\ops\AssignBlend.json" />
+    <None Include="resource\trajectory\ops\AssignSpeedZone.json" />
+    <None Include="resource\trajectory\ops\Weave.json" />
+    <None Include="resource\trajectory\ops\ReachabilityFilter.json" />
+    <None Include="resource\trajectory\ops\ExternalAxisSearch.json" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp" />
@@ -227,12 +258,14 @@
     <ClCompile Include="source\RobotProgramCatalog.cpp" />
     <ClCompile Include="source\PathPlanRawStore.cpp" />
     <ClCompile Include="source\RobotCanonicalProgramExport.cpp" />
-    <ClCompile Include="source\TrajectoryPipelineBuilder.cpp" />
-    <ClCompile Include="source\TrajectoryApplyActionConverter.cpp" />
     <ClCompile Include="source\TrajectoryOpBridge.cpp" />
     <ClCompile Include="source\RawTrajectory.cpp" />
+    <ClCompile Include="source\RawTrajectoryMath.cpp" />
     <ClCompile Include="source\RecipeBlueprint.cpp" />
     <ClCompile Include="source\UnifiedTrajectory.cpp" />
+    <ClCompile Include="source\TrajectoryPathAdapters.cpp" />
+    <ClCompile Include="source\TrajectoryPipelineEngine.cpp" />
+    <ClCompile Include="source\ProcessFlowPresetLoader.cpp" />
     <ClCompile Include="source\RobotMatrixOsgBridge.cpp" />
     <ClCompile Include="source\RobotSceneKinematics.cpp" />
     <ClCompile Include="source\RobotTeachIk.cpp" />

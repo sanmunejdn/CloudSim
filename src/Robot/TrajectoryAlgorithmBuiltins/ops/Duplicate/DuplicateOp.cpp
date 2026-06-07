@@ -1,6 +1,8 @@
+// Duplicate 原子块：复制 scope 内路点
 #include "DuplicateOp.h"
 
 #include "TrajectoryOpFormat.h"
+#include "TrajectoryUnifiedScope.h"
 
 #include <string>
 
@@ -19,7 +21,7 @@ const char* DuplicateOp::displayName(const bool chinese) const
 
 TrajectoryOpCapability DuplicateOp::capabilities() const
 {
-	return TrajectoryOpCapability::ApplyStructuralEdit;
+	return TrajectoryOpCapability::None;
 }
 
 RobotInstruction::TrajectoryOpDescriptor DuplicateOp::makeDefaultDescriptor(
@@ -60,35 +62,33 @@ std::string DuplicateOp::formatSummary(
 		+ (chinese ? " | 份数=" : " | Count=") + std::to_string(op.duplicateCount);
 }
 
-bool DuplicateOp::contributePreviewTransform(
+bool DuplicateOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const std::vector<std::string>& targetIds,
-	PreviewTransformStep& out) const
+	RobotInstruction::UnifiedTrajectory& traj,
+	std::string* errMsg) const
 {
-	(void)op;
-	(void)targetIds;
-	(void)out;
-	return false;
-}
-
-std::vector<TrajectoryApplyAction> DuplicateOp::buildApplyActions(
-	const TrajectoryOpContext& ctx,
-	const RobotInstruction::TrajectoryOpDescriptor& op) const
-{
-	if (ctx.program)
+	(void)errMsg;
+	const std::vector<std::size_t> indices =
+		resolveScopedPointIndices(traj, op.scope, activeProgramContext());
+	if (indices.empty())
 	{
-		RobotInstruction::RobotProgramCatalog catalog;
-		std::vector<std::string> ids = catalog.resolveOpScopeInstructionIds(op.scope, *ctx.program);
-		if (ids.empty())
-		{
-			return {};
-		}
+		return true;
 	}
-	TrajectoryApplyAction action{};
-	action.kind = TrajectoryApplyActionKind::DuplicateInstruction;
-	action.scope = op.scope;
-	action.duplicateCount = op.duplicateCount;
-	return { action };
+	std::vector<RobotInstruction::UnifiedTrajectoryPoint> chunk;
+	chunk.reserve(indices.size());
+	for (const std::size_t idx : indices)
+	{
+		chunk.push_back(traj.points[idx]);
+	}
+	const std::size_t insertPos = indices.back() + 1U;
+	for (int copy = 0; copy < op.duplicateCount; ++copy)
+	{
+		traj.points.insert(
+			traj.points.begin() + static_cast<std::ptrdiff_t>(insertPos + static_cast<std::size_t>(copy) * chunk.size()),
+			chunk.begin(),
+			chunk.end());
+	}
+	return true;
 }
 
 } // namespace trajectory_algo

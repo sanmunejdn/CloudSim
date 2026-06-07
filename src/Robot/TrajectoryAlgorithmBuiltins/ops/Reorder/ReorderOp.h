@@ -1,3 +1,4 @@
+// Reorder 原子块：重排 scope 内路点顺序
 #pragma once
 
 #include "ITrajectoryOp.h"
@@ -16,13 +17,10 @@ public:
 	std::vector<TrajectoryOpParamField> paramFields() const override;
 	bool validate(const RobotInstruction::TrajectoryOpDescriptor& op, std::string* errMsg) const override;
 	std::string formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op, bool chinese) const override;
-	bool contributePreviewTransform(
+	bool processPath(
 		const RobotInstruction::TrajectoryOpDescriptor& op,
-		const std::vector<std::string>& targetIds,
-		PreviewTransformStep& out) const override;
-	std::vector<TrajectoryApplyAction> buildApplyActions(
-		const TrajectoryOpContext& ctx,
-		const RobotInstruction::TrajectoryOpDescriptor& op) const override;
+		RobotInstruction::UnifiedTrajectory& traj,
+		std::string* errMsg) const override;
 };
 
 } // namespace trajectory_algo

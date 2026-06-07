@@ -16,32 +16,12 @@ namespace
 {
 RobotInstruction::TrajectoryOpKind kindFromInt(const int v)
 {
-	switch (v)
+	const int maxKind = static_cast<int>(RobotInstruction::TrajectoryOpKind::ExternalAxisSearch);
+	if (v < 0 || v > maxKind)
 	{
-	case static_cast<int>(RobotInstruction::TrajectoryOpKind::Rotate):
-		return RobotInstruction::TrajectoryOpKind::Rotate;
-	case static_cast<int>(RobotInstruction::TrajectoryOpKind::Mirror):
-		return RobotInstruction::TrajectoryOpKind::Mirror;
-	case static_cast<int>(RobotInstruction::TrajectoryOpKind::Delete):
-		return RobotInstruction::TrajectoryOpKind::Delete;
-	case static_cast<int>(RobotInstruction::TrajectoryOpKind::Duplicate):
-		return RobotInstruction::TrajectoryOpKind::Duplicate;
-	case static_cast<int>(RobotInstruction::TrajectoryOpKind::Reorder):
-		return RobotInstruction::TrajectoryOpKind::Reorder;
-	case static_cast<int>(RobotInstruction::TrajectoryOpKind::RecipeWeld):
-		return RobotInstruction::TrajectoryOpKind::RecipeWeld;
-	case static_cast<int>(RobotInstruction::TrajectoryOpKind::RecipeGlue):
-		return RobotInstruction::TrajectoryOpKind::RecipeGlue;
-	case static_cast<int>(RobotInstruction::TrajectoryOpKind::RecipeGrind):
-		return RobotInstruction::TrajectoryOpKind::RecipeGrind;
-	case static_cast<int>(RobotInstruction::TrajectoryOpKind::Approach):
-		return RobotInstruction::TrajectoryOpKind::Approach;
-	case static_cast<int>(RobotInstruction::TrajectoryOpKind::Retract):
-		return RobotInstruction::TrajectoryOpKind::Retract;
-	case static_cast<int>(RobotInstruction::TrajectoryOpKind::Translate):
-	default:
 		return RobotInstruction::TrajectoryOpKind::Translate;
 	}
+	return static_cast<RobotInstruction::TrajectoryOpKind>(v);
 }
 } // namespace
 
@@ -51,7 +31,8 @@ TrajectoryPipelineListWidget::TrajectoryPipelineListWidget(QWidget* parent)
 	setSelectionMode(QAbstractItemView::SingleSelection);
 	setAcceptDrops(true);
 	setDropIndicatorShown(true);
-	setDragDropMode(QAbstractItemView::DropOnly);
+	setDragDropMode(QAbstractItemView::DragDrop);
+	setDefaultDropAction(Qt::MoveAction);
 
 	connect(this, &QListWidget::itemSelectionChanged, this, [this]() {
 		emit selectedOpChanged(selectedOpIndex());
@@ -173,8 +154,41 @@ void TrajectoryPipelineListWidget::dropEvent(QDropEvent* event)
 {
 	if (event->mimeData() && event->mimeData()->hasFormat(kMimeType))
 	{
-		RobotInstruction::TrajectoryOpDescriptor op{};
 		const QByteArray raw = event->mimeData()->data(kMimeType);
+		if (raw.size() >= static_cast<int>(sizeof(int) * 2))
+		{
+			int srcRow = -1;
+			std::memcpy(&srcRow, raw.constData() + sizeof(int), sizeof(int));
+			if (srcRow >= 0 && srcRow < static_cast<int>(m_ops.size()))
+			{
+				int insertRow = count();
+				if (QListWidgetItem* target = itemAt(event->pos()))
+				{
+					insertRow = row(target);
+				}
+				if (insertRow > srcRow)
+				{
+					--insertRow;
+				}
+				if (insertRow != srcRow)
+				{
+					RobotInstruction::TrajectoryOpDescriptor moved = m_ops[static_cast<size_t>(srcRow)];
+					m_ops.erase(m_ops.begin() + srcRow);
+					const int clamped = std::max(0, std::min(insertRow, static_cast<int>(m_ops.size())));
+					m_ops.insert(m_ops.begin() + clamped, moved);
+					{
+						QSignalBlocker blocker(this);
+						rebuildItems();
+						setCurrentRow(clamped);
+					}
+					emit selectedOpChanged(selectedOpIndex());
+					emit opsChanged();
+					event->acceptProposedAction();
+					return;
+				}
+			}
+		}
+		RobotInstruction::TrajectoryOpDescriptor op{};
 		if (raw.size() >= static_cast<int>(sizeof(int)))
 		{
 			int kindInt = 0;
@@ -210,7 +224,19 @@ void TrajectoryPipelineListWidget::dropEvent(QDropEvent* event)
 
 void TrajectoryPipelineListWidget::startDrag(Qt::DropActions supportedActions)
 {
-	(void)supportedActions;
+	const int idx = selectedOpIndex();
+	if (idx < 0 || idx >= static_cast<int>(m_ops.size()))
+	{
+		return;
+	}
+	auto* mime = new QMimeData();
+	QByteArray payload = mimeFromOp(m_ops[static_cast<size_t>(idx)]);
+	const int srcRow = idx;
+	payload.append(reinterpret_cast<const char*>(&srcRow), sizeof(int));
+	mime->setData(kMimeType, payload);
+	auto* drag = new QDrag(this);
+	drag->setMimeData(mime);
+	drag->exec(supportedActions, Qt::MoveAction);
 }
 
 void TrajectoryPipelineListWidget::rebuildItems()

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "kind": "OffsetLateral",
+  "schema": {
+    "fields": [
+      {
+        "key": "offset.lateralMm",
+        "type": "Double",
+        "labelZh": "横向偏移",
+        "unit": "mm",
+        "default": 0.0,
+        "order": 0
+      }
+    ]
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {
+      "offset.lateralMm": 0.0
+    }
+  }
+}

@@ -104,6 +104,7 @@
     <ClInclude Include="inc\RobotProgramStore.h" />
     <QtMoc Include="inc\ProgramEditService.h" />
     <QtMoc Include="inc\TrajectoryEditSession.h" />
+    <QtMoc Include="inc\TrajectoryEditObserver.h" />
     <QtMoc Include="inc\TrajectoryEditPageWidget.h" />
     <QtMoc Include="inc\FeatureTrajectoryPageWidget.h" />
     <QtMoc Include="inc\TrajectoryOpParamPanel.h" />
@@ -119,6 +120,7 @@
     <ClCompile Include="source\RobotProgramStore.cpp" />
     <ClCompile Include="source\ProgramEditService.cpp" />
     <ClCompile Include="source\TrajectoryEditSession.cpp" />
+    <ClCompile Include="source\TrajectoryEditObserver.cpp" />
     <ClCompile Include="source\TrajectoryEditPageWidget.cpp" />
     <ClCompile Include="source\FeaturePickTransform.cpp" />
     <ClCompile Include="source\FeatureTrajectoryPageWidget.cpp" />

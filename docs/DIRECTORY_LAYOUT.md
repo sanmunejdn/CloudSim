@@ -25,8 +25,8 @@ CloudSim/
     │   └── CloudSimPluginHost/       # 独立工程；产品仍编译进 Widget.dll
     ├── Robot/
     │   ├── RobotScene/
-    │   ├── TrajectoryAlgorithm/        # 轨迹块框架静态库（ITrajectoryOp、Registry、Codec）
-    │   ├── TrajectoryAlgorithmBuiltins/ # 内置 Translate/Rotate/Delete/Duplicate 等
+    │   ├── TrajectoryAlgorithm/        # 轨迹块框架（ITrajectoryOp、ConfigRegistry、Codec）
+    │   ├── TrajectoryAlgorithmBuiltins/ # 18 种原子块 + UnifiedTrajectoryPathMath
     │   ├── RobotKinematics/
     │   └── RobotUrdf/
     ├── Geometry/

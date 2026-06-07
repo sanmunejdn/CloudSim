@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "kind": "Weave",
+  "schema": {
+    "fields": [
+      {
+        "key": "weave.amplitudeMm",
+        "type": "Double",
+        "labelZh": "振幅",
+        "unit": "mm",
+        "default": 2.0,
+        "order": 0
+      },
+      {
+        "key": "weave.periodMm",
+        "type": "Double",
+        "labelZh": "周期",
+        "unit": "mm",
+        "default": 10.0,
+        "order": 1
+      }
+    ]
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {
+      "weave.amplitudeMm": 2.0,
+      "weave.periodMm": 10.0
+    }
+  }
+}

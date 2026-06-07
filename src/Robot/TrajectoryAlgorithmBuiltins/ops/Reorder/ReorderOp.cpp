@@ -1,4 +1,7 @@
+// Reorder 原子块：重排 scope 内路点顺序
 #include "ReorderOp.h"
+
+#include "TrajectoryOpPathApply.h"
 
 #include <cstdio>
 
@@ -17,7 +20,7 @@ const char* ReorderOp::displayName(const bool chinese) const
 
 TrajectoryOpCapability ReorderOp::capabilities() const
 {
-	return TrajectoryOpCapability::PreviewPoseTransform | TrajectoryOpCapability::ApplyPoseTransform;
+	return TrajectoryOpCapability::PreviewPoseTransform;
 }
 
 RobotInstruction::TrajectoryOpDescriptor ReorderOp::makeDefaultDescriptor(
@@ -54,35 +57,12 @@ std::string ReorderOp::formatSummary(
 	return chinese ? "固定姿态 | 以首点为基准" : "Fixed Orientation | Use first waypoint";
 }
 
-bool ReorderOp::contributePreviewTransform(
+bool ReorderOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const std::vector<std::string>& targetIds,
-	PreviewTransformStep& out) const
+	RobotInstruction::UnifiedTrajectory& traj,
+	std::string* errMsg) const
 {
-	(void)op;
-	if (targetIds.empty())
-	{
-		return false;
-	}
-	out.kind = PreviewTransformStep::Kind::FixedOrientationToFirst;
-	out.referenceId = targetIds.front();
-	out.targetIds.clear();
-	for (const std::string& id : targetIds)
-	{
-		out.targetIds.insert(id);
-	}
-	return !out.targetIds.empty();
-}
-
-std::vector<TrajectoryApplyAction> ReorderOp::buildApplyActions(
-	const TrajectoryOpContext& ctx,
-	const RobotInstruction::TrajectoryOpDescriptor& op) const
-{
-	(void)ctx;
-	TrajectoryApplyAction action{};
-	action.kind = TrajectoryApplyActionKind::TransformSegment;
-	action.transformOps = { op };
-	return { action };
+	return applyUnifiedPathOp(op, traj, errMsg);
 }
 
 } // namespace trajectory_algo

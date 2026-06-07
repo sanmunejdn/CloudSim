@@ -1,4 +1,7 @@
+// Mirror 原子块：镜像 scope 内路点
 #include "MirrorOp.h"
+
+#include "TrajectoryOpPathApply.h"
 
 #include <cstdio>
 
@@ -38,7 +41,7 @@ const char* MirrorOp::displayName(const bool chinese) const
 
 TrajectoryOpCapability MirrorOp::capabilities() const
 {
-	return TrajectoryOpCapability::PreviewPoseTransform | TrajectoryOpCapability::ApplyPoseTransform;
+	return TrajectoryOpCapability::PreviewPoseTransform;
 }
 
 RobotInstruction::TrajectoryOpDescriptor MirrorOp::makeDefaultDescriptor(
@@ -93,38 +96,12 @@ std::string MirrorOp::formatSummary(
 	return buffer;
 }
 
-bool MirrorOp::contributePreviewTransform(
+bool MirrorOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const std::vector<std::string>& targetIds,
-	PreviewTransformStep& out) const
+	RobotInstruction::UnifiedTrajectory& traj,
+	std::string* errMsg) const
 {
-	if (!validMirrorAxis(op.mirrorAxis))
-	{
-		return false;
-	}
-	out.kind = PreviewTransformStep::Kind::AxisReverse;
-	out.targetIds.clear();
-	for (const std::string& id : targetIds)
-	{
-		out.targetIds.insert(id);
-	}
-	out.mirrorAxis = op.mirrorAxis;
-	return !out.targetIds.empty();
-}
-
-std::vector<TrajectoryApplyAction> MirrorOp::buildApplyActions(
-	const TrajectoryOpContext& ctx,
-	const RobotInstruction::TrajectoryOpDescriptor& op) const
-{
-	(void)ctx;
-	if (!validMirrorAxis(op.mirrorAxis))
-	{
-		return {};
-	}
-	TrajectoryApplyAction action{};
-	action.kind = TrajectoryApplyActionKind::TransformSegment;
-	action.transformOps = { op };
-	return { action };
+	return applyUnifiedPathOp(op, traj, errMsg);
 }
 
 } // namespace trajectory_algo

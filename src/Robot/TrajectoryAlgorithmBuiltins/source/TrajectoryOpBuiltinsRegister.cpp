@@ -1,23 +1,106 @@
+// 启动时注册全部内置原子块到 OpRegistry / ConfigRegistry
 #include "TrajectoryOpRegistry.h"
 
-#include "DeleteOp.h"
-#include "DuplicateOp.h"
-#include "MirrorOp.h"
-#include "RecipeGlueOp.h"
-#include "RecipeGrindOp.h"
-#include "RecipeWeldOp.h"
-#include "ReorderOp.h"
-#include "RetractOp.h"
-#include "RotateOp.h"
-#include "TranslateOp.h"
 #include "ApproachOp.h"
+#include "ApproachOpConfig.h"
+#include "ApproachOpParamAccess.h"
+#include "AssignBlendOp.h"
+#include "AssignBlendOpConfig.h"
+#include "AssignBlendOpParamAccess.h"
+#include "AssignSpeedZoneOp.h"
+#include "AssignSpeedZoneOpConfig.h"
+#include "AssignSpeedZoneOpParamAccess.h"
+#include "DeleteOp.h"
+#include "DeleteOpConfig.h"
+#include "DeleteOpParamAccess.h"
+#include "DuplicateOp.h"
+#include "DuplicateOpConfig.h"
+#include "DuplicateOpParamAccess.h"
+#include "ExternalAxisSearchOp.h"
+#include "ExternalAxisSearchOpConfig.h"
+#include "ExternalAxisSearchOpParamAccess.h"
+#include "MirrorOp.h"
+#include "MirrorOpConfig.h"
+#include "MirrorOpParamAccess.h"
+#include "OffsetAlongNormalOp.h"
+#include "OffsetAlongNormalOpConfig.h"
+#include "OffsetAlongNormalOpParamAccess.h"
+#include "OffsetLateralOp.h"
+#include "OffsetLateralOpConfig.h"
+#include "OffsetLateralOpParamAccess.h"
+#include "ReachabilityFilterOp.h"
+#include "ReachabilityFilterOpConfig.h"
+#include "ReachabilityFilterOpParamAccess.h"
+#include "ReorderOp.h"
+#include "ReorderOpConfig.h"
+#include "ReorderOpParamAccess.h"
+#include "ResampleOp.h"
+#include "ResampleOpConfig.h"
+#include "ResampleOpParamAccess.h"
+#include "RetractOp.h"
+#include "RetractOpConfig.h"
+#include "RetractOpParamAccess.h"
+#include "RotateOp.h"
+#include "RotateOpConfig.h"
+#include "RotateOpParamAccess.h"
+#include "SmoothPoseOp.h"
+#include "SmoothPoseOpConfig.h"
+#include "SmoothPoseOpParamAccess.h"
+#include "TranslateOp.h"
+#include "TranslateOpConfig.h"
+#include "TranslateOpParamAccess.h"
+#include "WeaveOp.h"
+#include "WeaveOpConfig.h"
+#include "WeaveOpParamAccess.h"
+
+#include "TrajectoryOpConfigRegistry.h"
 
 namespace trajectory_algo
 {
 namespace
 {
 bool g_builtinsRegistered = false;
+
+void registerOpConfigs()
+{
+	auto& registry = TrajectoryOpConfigRegistry::instance();
+	registry.registerOpConfig(makeTranslateOpConfig());
+	registry.registerOpConfig(makeRotateOpConfig());
+	registry.registerOpConfig(makeMirrorOpConfig());
+	registry.registerOpConfig(makeDeleteOpConfig());
+	registry.registerOpConfig(makeDuplicateOpConfig());
+	registry.registerOpConfig(makeReorderOpConfig());
+	registry.registerOpConfig(makeResampleOpConfig());
+	registry.registerOpConfig(makeOffsetAlongNormalOpConfig());
+	registry.registerOpConfig(makeOffsetLateralOpConfig());
+	registry.registerOpConfig(makeSmoothPoseOpConfig());
+	registry.registerOpConfig(makeAssignBlendOpConfig());
+	registry.registerOpConfig(makeAssignSpeedZoneOpConfig());
+	registry.registerOpConfig(makeWeaveOpConfig());
+	registry.registerOpConfig(makeReachabilityFilterOpConfig());
+	registry.registerOpConfig(makeExternalAxisSearchOpConfig());
+	registry.registerOpConfig(makeApproachOpConfig());
+	registry.registerOpConfig(makeRetractOpConfig());
+
+	registry.registerOpParamAccess(makeTranslateOpParamAccess());
+	registry.registerOpParamAccess(makeRotateOpParamAccess());
+	registry.registerOpParamAccess(makeMirrorOpParamAccess());
+	registry.registerOpParamAccess(makeDeleteOpParamAccess());
+	registry.registerOpParamAccess(makeDuplicateOpParamAccess());
+	registry.registerOpParamAccess(makeReorderOpParamAccess());
+	registry.registerOpParamAccess(makeResampleOpParamAccess());
+	registry.registerOpParamAccess(makeOffsetAlongNormalOpParamAccess());
+	registry.registerOpParamAccess(makeOffsetLateralOpParamAccess());
+	registry.registerOpParamAccess(makeSmoothPoseOpParamAccess());
+	registry.registerOpParamAccess(makeAssignBlendOpParamAccess());
+	registry.registerOpParamAccess(makeAssignSpeedZoneOpParamAccess());
+	registry.registerOpParamAccess(makeWeaveOpParamAccess());
+	registry.registerOpParamAccess(makeReachabilityFilterOpParamAccess());
+	registry.registerOpParamAccess(makeExternalAxisSearchOpParamAccess());
+	registry.registerOpParamAccess(makeApproachOpParamAccess());
+	registry.registerOpParamAccess(makeRetractOpParamAccess());
 }
+} // namespace
 
 void registerTrajectoryOpBuiltins(TrajectoryOpRegistry& registry)
 {
@@ -27,9 +110,15 @@ void registerTrajectoryOpBuiltins(TrajectoryOpRegistry& registry)
 	registry.registerOp(std::make_unique<DuplicateOp>());
 	registry.registerOp(std::make_unique<MirrorOp>());
 	registry.registerOp(std::make_unique<ReorderOp>());
-	registry.registerOp(std::make_unique<RecipeWeldOp>());
-	registry.registerOp(std::make_unique<RecipeGlueOp>());
-	registry.registerOp(std::make_unique<RecipeGrindOp>());
+	registry.registerOp(std::make_unique<ResampleOp>());
+	registry.registerOp(std::make_unique<OffsetAlongNormalOp>());
+	registry.registerOp(std::make_unique<OffsetLateralOp>());
+	registry.registerOp(std::make_unique<SmoothPoseOp>());
+	registry.registerOp(std::make_unique<AssignBlendOp>());
+	registry.registerOp(std::make_unique<AssignSpeedZoneOp>());
+	registry.registerOp(std::make_unique<WeaveOp>());
+	registry.registerOp(std::make_unique<ReachabilityFilterOp>());
+	registry.registerOp(std::make_unique<ExternalAxisSearchOp>());
 	registry.registerOp(std::make_unique<ApproachOp>());
 	registry.registerOp(std::make_unique<RetractOp>());
 }
@@ -41,6 +130,7 @@ void ensureTrajectoryOpBuiltinsRegistered()
 		return;
 	}
 	registerTrajectoryOpBuiltins(TrajectoryOpRegistry::instance());
+	registerOpConfigs();
 	g_builtinsRegistered = true;
 }
 

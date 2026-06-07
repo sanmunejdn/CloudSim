@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "kind": "Mirror",
+  "schema": {
+    "fields": [
+      {
+        "key": "mirror.axis",
+        "type": "Int",
+        "labelZh": "镜像轴",
+        "defaultInt": 0,
+        "order": 0
+      }
+    ]
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {
+      "mirror.axis": 0
+    }
+  }
+}

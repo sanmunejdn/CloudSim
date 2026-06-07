@@ -1,3 +1,4 @@
+// TrajectoryOpFormat 实现
 #include "TrajectoryOpFormat.h"
 
 namespace trajectory_algo

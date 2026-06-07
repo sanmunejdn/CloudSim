@@ -4,7 +4,7 @@
 #include "RobotProgramStore.h"
 #include "RawTrajectory.h"
 #include "UnifiedTrajectory.h"
-#include "TrajectoryPipelineBuilder.h"
+#include "TrajectoryPipelineEngine.h"
 #include "TrajectoryPipelineTypes.h"
 #include "robotwidget_global.h"
 
@@ -17,7 +17,7 @@
 
 class RobotSimulationController;
 
-/// 轨迹编辑流水线编排（Preview 临时改 pose，Apply 走 Command）
+/// 轨迹编辑流水线编排（Preview 三分支 + Apply 走 Command）
 class ROBOTWIDGET_EXPORT TrajectoryEditSession : public QObject
 {
 	Q_OBJECT
@@ -44,8 +44,7 @@ public:
 	bool persistBoundPathPlanPipeline(QString* outError = nullptr);
 	bool loadRawFromBoundPathPlan();
 
-	bool preview(QString* outError = nullptr);
-	/// 尚无 raw 时按流水线预览（含配方时走 Unified，与 Apply 一致）
+	/// 尚无 raw 时按流水线预览（Unified 引擎，与 Apply 一致）
 	bool previewPipeline(
 		const std::vector<RobotInstruction::TrajectoryOpDescriptor>& pipelineOps,
 		QString* outError = nullptr);
@@ -69,6 +68,12 @@ public:
 		RobotInstruction::RawTrajectory& outPreviewRaw,
 		QString* outError = nullptr) const;
 
+	RobotInstruction::TrajectoryPipelineEngine& pipelineEngine() { return m_pipelineEngine; }
+	const RobotInstruction::TrajectoryPipelineEngine& pipelineEngine() const { return m_pipelineEngine; }
+	bool syncPipelineEngine(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& draftOps);
+	bool runPipelineEngineFull(QString* outError = nullptr);
+	bool runPipelineEngineFrom(std::size_t nodeIndex, QString* outError = nullptr);
+
 signals:
 	void previewStateChanged(bool active);
 	void rawTrajectoryChanged();
@@ -79,19 +84,17 @@ private:
 		std::string id;
 		RobotInstruction::Vec3 pose{};
 		RobotInstruction::Vec3 euler{};
+		double blendRadius = 0.0;
+		double speed = 0.0;
 		std::unordered_map<std::string, std::string> extensions;
 	};
 
 	void clearPreviewSnapshots();
 	bool capturePreviewSnapshots(QString* outError);
-	bool applyPreviewTransforms(QString* outError);
 	void restorePreviewSnapshots();
 	void clearPreviewStateWithoutRestore();
 	void syncPreviewRenderMatrices(const std::vector<std::string>* updatedIds = nullptr);
 	void syncRenderMatricesForInstructionIds(const std::vector<std::string>& ids, bool worldFrameTcp = false);
-	void syncRenderMatricesFromFrozenBase(
-		const std::vector<std::string>& ids,
-		const std::unordered_map<std::string, std::string>& frozenBaseWorldCsvById);
 	bool writeRenderMatricesFromSnapshotBase(
 		const PreviewSnapshot& snap,
 		RobotInstruction::Base& raw,
@@ -103,15 +106,30 @@ private:
 		const RobotInstruction::RawTrajectory& sourceRaw,
 		RobotInstruction::UnifiedTrajectory& unified,
 		QString* outError = nullptr) const;
+	bool configurePipelineEngineForRaw(
+		const std::vector<RobotInstruction::TrajectoryOpDescriptor>& draftOps) const;
 	bool previewUnifiedFromProgramPipeline(QString* outError);
+	void clearOverlayPreview();
+	bool showUnifiedOverlayPreview(
+		const RobotInstruction::UnifiedTrajectory& unified,
+		QString* outError);
+	bool applyUnifiedPreviewWriteback(
+		const RobotInstruction::UnifiedTrajectory& unified,
+		bool writePose,
+		bool writeBlendSpeed,
+		std::vector<std::string>& outChangedIds);
 	std::vector<std::string> collectPreviewWaypointIds() const;
+	bool ingressProgramUnified(
+		const RobotInstruction::RobotProgram& program,
+		RobotInstruction::UnifiedTrajectory& unified,
+		std::string* errMsg) const;
 	void invalidatePreviewScopeCache();
 	void updateLightweightPreviewState(bool active);
 
 	RobotProgramStore* m_store = nullptr;
 	ProgramEditService* m_editService = nullptr;
 	RobotSimulationController* m_simController = nullptr;
-	RobotInstruction::TrajectoryPipelineBuilder m_builder;
+	mutable RobotInstruction::TrajectoryPipelineEngine m_pipelineEngine;
 	std::vector<RobotInstruction::TrajectoryOpDescriptor> m_ops;
 	std::string m_contextProgramId;
 	std::string m_defaultGroupId;
@@ -125,6 +143,9 @@ private:
 	std::vector<PreviewSnapshot> m_previewSnapshots;
 	bool m_lightweightPreviewActive = false;
 	bool m_previewActive = false;
+	bool m_overlayPreviewActive = false;
+	/// overlay 预览时是否已写回 store（混合预览，reset 需恢复快照）
+	bool m_overlayStoreWritebackActive = false;
 	bool m_applying = false;
 	std::optional<RobotInstruction::RawTrajectory> m_rawTrajectory;
 	/// 轨迹离散前（session 尚无 raw）Apply 的几何块，首次 raw Apply 时先叠加

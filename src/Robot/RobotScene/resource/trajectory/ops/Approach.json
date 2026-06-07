@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "kind": "Approach",
+  "schema": {
+    "fields": [
+      {
+        "key": "approach.distanceMm",
+        "type": "Double",
+        "labelZh": "进刀距离",
+        "unit": "mm",
+        "min": 0,
+        "max": 10000,
+        "default": 20.0,
+        "group": "approach",
+        "order": 0
+      },
+      {
+        "key": "approach.directionMode",
+        "type": "Enum",
+        "labelZh": "方向模式",
+        "defaultInt": 1,
+        "group": "approach",
+        "order": 1
+      },
+      {
+        "key": "approach.speedMmPerSec",
+        "type": "Double",
+        "labelZh": "速度",
+        "unit": "mm/s",
+        "default": 100.0,
+        "group": "approach",
+        "order": 8
+      }
+    ]
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {
+      "approach.distanceMm": 20.0,
+      "approach.directionMode": 1,
+      "approach.insertMode": 0,
+      "approach.segmentSelectMode": 0,
+      "approach.segmentFrom": 1,
+      "approach.segmentTo": 1,
+      "approach.overrideSpeedEnabled": false,
+      "approach.speedMmPerSec": 100.0
+    }
+  }
+}

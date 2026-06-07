@@ -1,4 +1,7 @@
+// Retract 原子块：在路径尾端插入退刀段
 #include "RetractOp.h"
+
+#include "TrajectoryOpPathApply.h"
 
 #include <cstdio>
 
@@ -160,24 +163,12 @@ std::string RetractOp::formatSummary(const RobotInstruction::TrajectoryOpDescrip
 	return buffer;
 }
 
-bool RetractOp::contributePreviewTransform(
+bool RetractOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const std::vector<std::string>& targetIds,
-	PreviewTransformStep& out) const
+	RobotInstruction::UnifiedTrajectory& traj,
+	std::string* errMsg) const
 {
-	(void)op;
-	(void)targetIds;
-	(void)out;
-	return false;
-}
-
-std::vector<TrajectoryApplyAction> RetractOp::buildApplyActions(
-	const TrajectoryOpContext& ctx,
-	const RobotInstruction::TrajectoryOpDescriptor& op) const
-{
-	(void)ctx;
-	(void)op;
-	return {};
+	return applyUnifiedPathOp(op, traj, errMsg);
 }
 
 } // namespace trajectory_algo

@@ -7,6 +7,12 @@
     <Filter Include="src">
       <UniqueIdentifier>{77E4FD0D-8C67-40A1-84FC-66E24444A2E6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="resource">
+      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-EF0123456703}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resource\trajectory">
+      <UniqueIdentifier>{B2C3D4E5-F6A7-8901-BCDE-F01234567014}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\IRobotBackendPoseSink.h">
@@ -72,12 +78,6 @@
     <ClInclude Include="inc\TrajectoryPipelineTypes.h">
       <Filter>inc</Filter>
     </ClInclude>
-    <ClInclude Include="inc\TrajectoryPipelineBuilder.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryApplyActionConverter.h">
-      <Filter>inc</Filter>
-    </ClInclude>
     <ClInclude Include="inc\TrajectoryOpBridge.h">
       <Filter>inc</Filter>
     </ClInclude>
@@ -91,6 +91,9 @@
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\RawTrajectory.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RawTrajectoryMath.h">
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\RecipeBlueprint.h">
@@ -146,16 +149,13 @@
     <ClCompile Include="source\RobotProgramCatalog.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\TrajectoryPipelineBuilder.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryApplyActionConverter.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
     <ClCompile Include="source\TrajectoryOpBridge.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\RawTrajectory.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RawTrajectoryMath.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\RecipeBlueprint.cpp">
@@ -176,5 +176,13 @@
     <ClCompile Include="source\CloudSimCoreExport.cpp">
       <Filter>src</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="resource\trajectory\ProcessFlowPresets.json">
+      <Filter>resource\trajectory</Filter>
+    </None>
+    <None Include="resource\trajectory\ProcessFlowPresets.defaults.json">
+      <Filter>resource\trajectory</Filter>
+    </None>
   </ItemGroup>
 </Project>

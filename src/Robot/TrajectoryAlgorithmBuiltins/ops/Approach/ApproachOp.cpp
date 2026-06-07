@@ -1,4 +1,7 @@
+// Approach 原子块：在路径首端插入进刀段
 #include "ApproachOp.h"
+
+#include "TrajectoryOpPathApply.h"
 
 #include <cstdio>
 
@@ -160,24 +163,12 @@ std::string ApproachOp::formatSummary(const RobotInstruction::TrajectoryOpDescri
 	return buffer;
 }
 
-bool ApproachOp::contributePreviewTransform(
+bool ApproachOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const std::vector<std::string>& targetIds,
-	PreviewTransformStep& out) const
+	RobotInstruction::UnifiedTrajectory& traj,
+	std::string* errMsg) const
 {
-	(void)op;
-	(void)targetIds;
-	(void)out;
-	return false;
-}
-
-std::vector<TrajectoryApplyAction> ApproachOp::buildApplyActions(
-	const TrajectoryOpContext& ctx,
-	const RobotInstruction::TrajectoryOpDescriptor& op) const
-{
-	(void)ctx;
-	(void)op;
-	return {};
+	return applyUnifiedPathOp(op, traj, errMsg);
 }
 
 } // namespace trajectory_algo

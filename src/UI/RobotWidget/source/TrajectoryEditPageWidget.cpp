@@ -12,6 +12,7 @@
 #include "UnifiedTrajectory.h"
 #include "SimulationCommandWidget.h"
 #include "TrajectoryEditSession.h"
+#include "TrajectoryEditObserver.h"
 #include "TrajectoryOpParamPanel.h"
 #include "TrajectoryPipelineListWidget.h"
 #include "RobotProgramStore.h"
@@ -23,6 +24,7 @@
 
 #include <json.hpp>
 
+#include <QCoreApplication>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QGroupBox>
@@ -95,12 +97,24 @@ QString opKindLabel(RobotInstruction::TrajectoryOpKind kind, bool zh)
 		return zh ? QStringLiteral("复制") : QStringLiteral("Duplicate");
 	case RobotInstruction::TrajectoryOpKind::Reorder:
 		return zh ? QStringLiteral("固定姿态") : QStringLiteral("Fixed Orientation");
-	case RobotInstruction::TrajectoryOpKind::RecipeWeld:
-		return zh ? QStringLiteral("焊缝配方") : QStringLiteral("Weld Recipe");
-	case RobotInstruction::TrajectoryOpKind::RecipeGlue:
-		return zh ? QStringLiteral("涂胶配方") : QStringLiteral("Glue Recipe");
-	case RobotInstruction::TrajectoryOpKind::RecipeGrind:
-		return zh ? QStringLiteral("打磨配方") : QStringLiteral("Grind Recipe");
+	case RobotInstruction::TrajectoryOpKind::Resample:
+		return zh ? QStringLiteral("重采样") : QStringLiteral("Resample");
+	case RobotInstruction::TrajectoryOpKind::OffsetAlongNormal:
+		return zh ? QStringLiteral("法向偏移") : QStringLiteral("Offset Along Normal");
+	case RobotInstruction::TrajectoryOpKind::OffsetLateral:
+		return zh ? QStringLiteral("横向偏移") : QStringLiteral("Offset Lateral");
+	case RobotInstruction::TrajectoryOpKind::SmoothPose:
+		return zh ? QStringLiteral("姿态平滑") : QStringLiteral("Smooth Pose");
+	case RobotInstruction::TrajectoryOpKind::AssignBlend:
+		return zh ? QStringLiteral("过渡半径") : QStringLiteral("Assign Blend");
+	case RobotInstruction::TrajectoryOpKind::AssignSpeedZone:
+		return zh ? QStringLiteral("速度区") : QStringLiteral("Assign Speed");
+	case RobotInstruction::TrajectoryOpKind::Weave:
+		return zh ? QStringLiteral("摆动") : QStringLiteral("Weave");
+	case RobotInstruction::TrajectoryOpKind::ReachabilityFilter:
+		return zh ? QStringLiteral("可达性过滤") : QStringLiteral("Reachability Filter");
+	case RobotInstruction::TrajectoryOpKind::ExternalAxisSearch:
+		return zh ? QStringLiteral("外部轴搜索") : QStringLiteral("External Axis Search");
 	case RobotInstruction::TrajectoryOpKind::Approach:
 		return zh ? QStringLiteral("进刀") : QStringLiteral("Approach");
 	case RobotInstruction::TrajectoryOpKind::Retract:
@@ -116,25 +130,12 @@ bool validatePipelineConstraints(
 	const bool chinese,
 	QString& outError)
 {
-	int recipeCount = 0;
-	for (size_t i = 0; i < ops.size(); ++i)
+	std::string err;
+	if (!RobotInstruction::validateTrajectoryPipeline(ops, &err))
 	{
-		const RobotInstruction::TrajectoryOpDescriptor& op = ops[i];
-		if (RobotInstruction::isRecipeOpKind(op.kind))
-		{
-			++recipeCount;
-			if (i != 0)
-			{
-				outError = chinese ? QStringLiteral("配方块必须位于流水线首位")
-								   : QStringLiteral("Recipe block must be first");
-				return false;
-			}
-		}
-	}
-	if (recipeCount > 1)
-	{
-		outError = chinese ? QStringLiteral("同一流水线只允许一个配方块")
-						   : QStringLiteral("Only one recipe block is allowed");
+		outError = err.empty()
+			? (chinese ? QStringLiteral("流水线参数无效") : QStringLiteral("Invalid pipeline parameters"))
+			: QString::fromStdString(err);
 		return false;
 	}
 	return true;
@@ -147,31 +148,31 @@ void updateTransformActionButtons(
 	const bool readOnly)
 {
 	const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(op.kind);
-	const bool unifiedOnlyOp = RobotInstruction::isRecipeOpKind(op.kind)
-		|| op.kind == RobotInstruction::TrajectoryOpKind::Approach
-		|| op.kind == RobotInstruction::TrajectoryOpKind::Retract;
-	const bool canTransform = algo
-		&& (trajectory_algo::hasCapability(
-				algo->capabilities(),
-				trajectory_algo::TrajectoryOpCapability::PreviewPoseTransform)
-			|| trajectory_algo::hasCapability(
-				algo->capabilities(),
-				trajectory_algo::TrajectoryOpCapability::ApplyPoseTransform)
-			|| trajectory_algo::hasCapability(
-				algo->capabilities(),
-				trajectory_algo::TrajectoryOpCapability::ApplyStructuralEdit))
-		|| unifiedOnlyOp;
+	const bool unifiedOnlyOp = op.kind == RobotInstruction::TrajectoryOpKind::Approach
+		|| op.kind == RobotInstruction::TrajectoryOpKind::Retract
+		|| op.kind == RobotInstruction::TrajectoryOpKind::Resample
+		|| op.kind == RobotInstruction::TrajectoryOpKind::OffsetAlongNormal
+		|| op.kind == RobotInstruction::TrajectoryOpKind::OffsetLateral
+		|| op.kind == RobotInstruction::TrajectoryOpKind::SmoothPose
+		|| op.kind == RobotInstruction::TrajectoryOpKind::AssignBlend
+		|| op.kind == RobotInstruction::TrajectoryOpKind::AssignSpeedZone
+		|| op.kind == RobotInstruction::TrajectoryOpKind::Weave
+		|| op.kind == RobotInstruction::TrajectoryOpKind::ReachabilityFilter
+		|| op.kind == RobotInstruction::TrajectoryOpKind::ExternalAxisSearch
+		|| op.kind == RobotInstruction::TrajectoryOpKind::Delete
+		|| op.kind == RobotInstruction::TrajectoryOpKind::Duplicate;
+	const bool canPosePreview = algo
+		&& trajectory_algo::hasCapability(
+			algo->capabilities(),
+			trajectory_algo::TrajectoryOpCapability::PreviewPoseTransform);
+	const bool canPipelineOp = canPosePreview || unifiedOnlyOp;
 	if (previewCheck)
 	{
-		previewCheck->setEnabled(canTransform && !readOnly
-			&& algo
-			&& trajectory_algo::hasCapability(
-				algo->capabilities(),
-				trajectory_algo::TrajectoryOpCapability::PreviewPoseTransform));
+		previewCheck->setEnabled(canPipelineOp && !readOnly);
 	}
 	if (applyBtn)
 	{
-		applyBtn->setEnabled(canTransform && !readOnly);
+		applyBtn->setEnabled(canPipelineOp && !readOnly);
 	}
 }
 
@@ -181,6 +182,9 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	: QWidget(parent)
 {
 	RobotInstruction::ensureTrajectoryOpBuiltinsRegistered();
+	RobotInstruction::ensureTrajectoryOpConfigsLoaded(
+		QCoreApplication::applicationDirPath().toStdString());
+	m_observer = new TrajectoryEditObserver(this);
 
 	auto* root = new QVBoxLayout(this);
 	root->setContentsMargins(6, 6, 6, 6);
@@ -456,6 +460,10 @@ void TrajectoryEditPageWidget::bindStore(RobotProgramStore* store)
 void TrajectoryEditPageWidget::bindEditService(ProgramEditService* service)
 {
 	m_editService = service;
+	if (m_observer)
+	{
+		m_observer->bindEditService(m_editService);
+	}
 	if (m_editService)
 	{
 		connect(m_editService, &ProgramEditService::revisionChanged, this, [this](int) {
@@ -476,6 +484,11 @@ void TrajectoryEditPageWidget::bindSession(TrajectoryEditSession* session)
 		disconnect(m_session, nullptr, this, nullptr);
 	}
 	m_session = session;
+	if (m_observer)
+	{
+		m_observer->bindSession(m_session);
+		m_observer->bindEditService(m_editService);
+	}
 	if (m_session && m_store)
 	{
 		refreshPathPlanCombo();
@@ -1125,15 +1138,7 @@ void TrajectoryEditPageWidget::syncScopeGroupFromTopBar()
 RobotInstruction::TrajectoryOpDescriptor TrajectoryEditPageWidget::makeDefaultOp(
 	const RobotInstruction::TrajectoryOpKind kind) const
 {
-	const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(kind);
-	if (algo)
-	{
-		return algo->makeDefaultDescriptor(defaultScopeForNewOp());
-	}
-	RobotInstruction::TrajectoryOpDescriptor op{};
-	op.kind = kind;
-	op.scope = defaultScopeForNewOp();
-	return op;
+	return RobotInstruction::trajectoryOpDefaultUnified(kind, defaultScopeForNewOp());
 }
 
 void TrajectoryEditPageWidget::syncSessionPipeline()
@@ -1150,6 +1155,7 @@ void TrajectoryEditPageWidget::syncSessionPipeline()
 	{
 		m_session->setPipeline(m_pipeline->ops());
 	}
+	m_session->syncPipelineEngine(m_pipeline->ops());
 }
 
 void TrajectoryEditPageWidget::syncSessionParams(const bool skipPreviewReapply)
@@ -1159,9 +1165,18 @@ void TrajectoryEditPageWidget::syncSessionParams(const bool skipPreviewReapply)
 		return;
 	}
 	m_session->updatePipelineOps(m_pipeline->ops(), false);
+	m_session->syncPipelineEngine(m_pipeline->ops());
 	if (!skipPreviewReapply && m_previewCheck && m_previewCheck->isChecked() && !m_loadingParams
 		&& !(m_paramPanel && m_paramPanel->isRebuilding()))
 	{
+		if (m_session->hasRawTrajectory())
+		{
+			const int nodeIndex = m_pipeline->selectedOpIndex();
+			if (nodeIndex >= 0)
+			{
+				m_session->runPipelineEngineFrom(static_cast<std::size_t>(nodeIndex), nullptr);
+			}
+		}
 		schedulePreviewRun(80, false);
 	}
 }

@@ -16,11 +16,17 @@ enum class ROBOT_SCENE_API TrajectoryOpKind
 	Delete,
 	Duplicate,
 	Reorder,
-	RecipeWeld,
-	RecipeGlue,
-	RecipeGrind,
 	Approach,
-	Retract
+	Retract,
+	Resample,
+	OffsetAlongNormal,
+	OffsetLateral,
+	SmoothPose,
+	AssignBlend,
+	AssignSpeedZone,
+	Weave,
+	ReachabilityFilter,
+	ExternalAxisSearch
 };
 
 /// 轨迹增量参考系（相对路点当前 T_base_target）
@@ -68,15 +74,27 @@ struct ROBOT_SCENE_API RotateParams
 	double endAngleDeg = 0.0;
 };
 
-/// 配方参数（预留版本与基础参数）
-struct ROBOT_SCENE_API RecipeParams
+struct ROBOT_SCENE_API ResampleParams
 {
-	int version = 1;
-	double resampleStepMm = 0.0;
-	double normalOffsetMm = 0.0;
-	double lateralOffsetMm = 0.0;
-	double speedMmPerSec = 0.0;
-	double blendRadiusMm = 0.0;
+	double stepMm = 5.0;
+};
+
+struct ROBOT_SCENE_API PathOffsetParams
+{
+	double offsetMm = 0.0;
+	double lateralMm = 0.0;
+};
+
+struct ROBOT_SCENE_API WeaveParams
+{
+	double amplitudeMm = 2.0;
+	double periodMm = 10.0;
+};
+
+struct ROBOT_SCENE_API AssignMotionParams
+{
+	double blendRadiusMm = 2.0;
+	double speedMmPerSec = 100.0;
 };
 
 /// 方向模式：路径切向 / 法向 / 工具Z
@@ -133,7 +151,10 @@ struct ROBOT_SCENE_API TrajectoryOpDescriptor
 	RotateParams rotate{};
 	int duplicateCount = 1;
 	int mirrorAxis = 0;
-	RecipeParams recipe{};
+	ResampleParams resample{};
+	PathOffsetParams pathOffset{};
+	WeaveParams weave{};
+	AssignMotionParams assignMotion{};
 	ApproachParams approach{};
 	RetractParams retract{};
 };

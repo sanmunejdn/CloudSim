@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "id": "weld",
+      "labelZh": "焊缝",
+      "labelEn": "Weld",
+      "ops": ["RecipeWeld", "Approach", "Retract"]
+    },
+    {
+      "id": "glue",
+      "labelZh": "涂胶",
+      "labelEn": "Glue",
+      "ops": ["RecipeGlue"]
+    },
+    {
+      "id": "grind",
+      "labelZh": "打磨",
+      "labelEn": "Grind",
+      "ops": ["RecipeGrind", "Approach", "Retract"]
+    }
+  ]
+}

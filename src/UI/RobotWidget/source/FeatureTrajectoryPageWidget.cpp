@@ -9,8 +9,6 @@
 #include "RobotSimulationDockWidget.h"
 #include "TrajectoryEditPageWidget.h"
 #include "TrajectoryEditSession.h"
-#include "TrajectoryPipelineBuilder.h"
-
 #include "BackendDataManager.h"
 #include "FeatureSpec.h"
 #include "BrepBackendData.h"

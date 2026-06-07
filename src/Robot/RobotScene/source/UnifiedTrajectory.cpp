@@ -1,15 +1,18 @@
 #include "UnifiedTrajectory.h"
 
+#include "RobotProgramCatalog.h"
 #include "RobotInstructionFactory.h"
 #include "RobotInstructionProgram.h"
 #include "RobotInstructionTransform.h"
 
 #include <TrajectoryTransformMath.h>
+#include <TrajectoryUnifiedScope.h>
 
 #include <RigidTransform.h>
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace RobotInstruction
@@ -124,40 +127,83 @@ bool matchesSegmentSelection(const SegmentSelectMode mode, const int from, const
 	return from <= 1 && to >= 1;
 }
 
-void insertApproachPoint(UnifiedTrajectory& traj, const ApproachParams& params)
+bool unifiedPointFromMotionInstruction(const Base& base, UnifiedTrajectoryPoint& out)
+{
+	if (!isMotionWaypointType(base.type()))
+	{
+		return false;
+	}
+	engine::RigidTransform target = engine::RigidTransform::identity();
+	if (!readTargetTransformFromInstruction(base, target))
+	{
+		return false;
+	}
+	pointFromRigid(target, out);
+	out.sourceInstructionId = base.id();
+	out.blendRadiusMm = base.blendRadius();
+	out.speedMmPerSec = base.speed();
+	out.reachable = true;
+	return true;
+}
+
+void insertApproachPoint(
+	UnifiedTrajectory& traj,
+	const ApproachParams& params,
+	const OpScope& scope,
+	const RobotProgram* program)
 {
 	if (traj.points.empty() || !matchesSegmentSelection(params.segmentSelectMode, params.segmentFrom, params.segmentTo))
 	{
 		return;
 	}
-	UnifiedTrajectoryPoint point = traj.points.front();
-	const Eigen::Vector3d dir = directionByMode(traj, 0, params.directionMode);
+	const std::vector<std::size_t> indices =
+		trajectory_algo::resolveScopedPointIndices(traj, scope, program);
+	if (indices.empty())
+	{
+		return;
+	}
+	const std::size_t anchor = indices.front();
+	UnifiedTrajectoryPoint point = traj.points[anchor];
+	const Eigen::Vector3d dir = directionByMode(traj, anchor, params.directionMode);
 	point.poseMm.x -= dir.x() * params.distanceMm;
 	point.poseMm.y -= dir.y() * params.distanceMm;
 	point.poseMm.z -= dir.z() * params.distanceMm;
+	point.sourceInstructionId.clear();
 	if (params.overrideSpeedEnabled && params.speedMmPerSec > 0.0)
 	{
 		point.speedMmPerSec = params.speedMmPerSec;
 	}
-	traj.points.insert(traj.points.begin(), point);
+	traj.points.insert(traj.points.begin() + static_cast<std::ptrdiff_t>(anchor), point);
 }
 
-void insertRetractPoint(UnifiedTrajectory& traj, const RetractParams& params)
+void insertRetractPoint(
+	UnifiedTrajectory& traj,
+	const RetractParams& params,
+	const OpScope& scope,
+	const RobotProgram* program)
 {
 	if (traj.points.empty() || !matchesSegmentSelection(params.segmentSelectMode, params.segmentFrom, params.segmentTo))
 	{
 		return;
 	}
-	UnifiedTrajectoryPoint point = traj.points.back();
-	const Eigen::Vector3d dir = directionByMode(traj, traj.points.size() - 1, params.directionMode);
+	const std::vector<std::size_t> indices =
+		trajectory_algo::resolveScopedPointIndices(traj, scope, program);
+	if (indices.empty())
+	{
+		return;
+	}
+	const std::size_t anchor = indices.back();
+	UnifiedTrajectoryPoint point = traj.points[anchor];
+	const Eigen::Vector3d dir = directionByMode(traj, anchor, params.directionMode);
 	point.poseMm.x += dir.x() * params.distanceMm;
 	point.poseMm.y += dir.y() * params.distanceMm;
 	point.poseMm.z += dir.z() * params.distanceMm;
+	point.sourceInstructionId.clear();
 	if (params.overrideSpeedEnabled && params.speedMmPerSec > 0.0)
 	{
 		point.speedMmPerSec = params.speedMmPerSec;
 	}
-	traj.points.push_back(point);
+	traj.points.insert(traj.points.begin() + static_cast<std::ptrdiff_t>(anchor + 1U), point);
 }
 
 void applyAxisReverse(UnifiedTrajectoryPoint& point, const int mirrorAxis)
@@ -198,6 +244,8 @@ bool unifiedTrajectoryFromRaw(const RawTrajectory& raw, UnifiedTrajectory& out, 
 {
 	(void)errMsg;
 	out.points.clear();
+	out.ctx = raw.ctx;
+	out.sourceFeatureJson = raw.sourceFeatureJson;
 	out.points.reserve(raw.points.size());
 	for (const TrajectoryPoint& point : raw.points)
 	{
@@ -219,19 +267,16 @@ bool unifiedTrajectoryFromProgram(const RobotProgram& program, UnifiedTrajectory
 	flattenInstructionsRecursive(program.steps, flat);
 	for (const std::shared_ptr<Base>& base : flat)
 	{
-		if (!base || !isMotionWaypointType(base->type()))
-		{
-			continue;
-		}
-		engine::RigidTransform target = engine::RigidTransform::identity();
-		if (!readTargetTransformFromInstruction(*base, target))
+		if (!base)
 		{
 			continue;
 		}
 		UnifiedTrajectoryPoint p{};
-		pointFromRigid(target, p);
-		p.sourceInstructionId = base->id();
-		out.points.push_back(p);
+		if (!unifiedPointFromMotionInstruction(*base, p))
+		{
+			continue;
+		}
+		out.points.push_back(std::move(p));
 	}
 	if (out.points.empty())
 	{
@@ -244,7 +289,75 @@ bool unifiedTrajectoryFromProgram(const RobotProgram& program, UnifiedTrajectory
 	return true;
 }
 
-bool unifiedTrajectoryToProgram(const UnifiedTrajectory& traj, RobotProgram& program, std::string* errMsg)
+bool unifiedTrajectoryFromPathPlanOutput(
+	const RobotProgram& program,
+	const std::string& pathPlanInstructionId,
+	UnifiedTrajectory& out,
+	std::string* errMsg)
+{
+	out.points.clear();
+	const InstructionGroup* outputGroup = nullptr;
+	for (const InstructionGroup& group : program.groups)
+	{
+		if (group.role == InstructionGroupRole::PathPlanOutput
+			&& group.pathPlanInstructionId == pathPlanInstructionId)
+		{
+			outputGroup = &group;
+			break;
+		}
+	}
+	if (!outputGroup || outputGroup->memberInstructionIds.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "path plan output group empty";
+		}
+		return false;
+	}
+	std::vector<std::shared_ptr<Base>> flat;
+	flattenInstructionsRecursive(program.steps, flat);
+	std::unordered_map<std::string, std::shared_ptr<Base>> byId;
+	byId.reserve(flat.size());
+	for (const std::shared_ptr<Base>& base : flat)
+	{
+		if (base)
+		{
+			byId.emplace(base->id(), base);
+		}
+	}
+	RobotProgramCatalog catalog;
+	const std::vector<std::string> motionIds =
+		catalog.expandToMotionWaypointIds(program, outputGroup->memberInstructionIds);
+	for (const std::string& id : motionIds)
+	{
+		const auto it = byId.find(id);
+		if (it == byId.end() || !it->second)
+		{
+			continue;
+		}
+		UnifiedTrajectoryPoint p{};
+		if (!unifiedPointFromMotionInstruction(*it->second, p))
+		{
+			continue;
+		}
+		out.points.push_back(std::move(p));
+	}
+	if (out.points.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "no motion waypoints in path plan output";
+		}
+		return false;
+	}
+	return true;
+}
+
+bool unifiedTrajectoryToProgram(
+	const UnifiedTrajectory& traj,
+	RobotProgram& program,
+	std::string* errMsg,
+	const bool skipUnreachable)
 {
 	if (traj.points.empty())
 	{
@@ -261,6 +374,10 @@ bool unifiedTrajectoryToProgram(const UnifiedTrajectory& traj, RobotProgram& pro
 	int idx = 0;
 	for (const UnifiedTrajectoryPoint& p : traj.points)
 	{
+		if (skipUnreachable && !p.reachable)
+		{
+			continue;
+		}
 		auto ins = std::make_shared<LineInstruction>();
 		ins->setName("P" + std::to_string(++idx));
 		const engine::RigidTransform target = rigidFromPoint(p);
@@ -272,6 +389,14 @@ bool unifiedTrajectoryToProgram(const UnifiedTrajectory& traj, RobotProgram& pro
 		}
 		memberIds.push_back(ins->id());
 		program.steps.push_back(ins);
+	}
+	if (memberIds.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "no reachable points";
+		}
+		return false;
 	}
 	InstructionGroup group;
 	group.id = makeGroupId();
@@ -351,6 +476,8 @@ bool unifiedTrajectoryToRaw(const UnifiedTrajectory& traj, RawTrajectory& raw, s
 		return false;
 	}
 	raw.points.clear();
+	raw.ctx = traj.ctx;
+	raw.sourceFeatureJson = traj.sourceFeatureJson;
 	raw.points.reserve(traj.points.size());
 	for (const UnifiedTrajectoryPoint& p : traj.points)
 	{
@@ -365,7 +492,29 @@ bool unifiedTrajectoryToRaw(const UnifiedTrajectory& traj, RawTrajectory& raw, s
 	return true;
 }
 
-bool applyUnifiedTrajectoryOp(const TrajectoryOpDescriptor& op, UnifiedTrajectory& traj, std::string* errMsg)
+bool pointMatchesScope(
+	const UnifiedTrajectoryPoint& point,
+	const OpScope& scope,
+	const RobotProgram* program)
+{
+	if (!program)
+	{
+		return true;
+	}
+	RobotProgramCatalog catalog;
+	const std::vector<std::string> ids = catalog.resolveOpScopeInstructionIds(scope, *program);
+	if (ids.empty())
+	{
+		return true;
+	}
+	return std::find(ids.begin(), ids.end(), point.sourceInstructionId) != ids.end();
+}
+
+bool applyUnifiedTrajectoryOp(
+	const TrajectoryOpDescriptor& op,
+	UnifiedTrajectory& traj,
+	std::string* errMsg,
+	const RobotProgram* program)
 {
 	(void)errMsg;
 	if (traj.points.empty())
@@ -374,11 +523,25 @@ bool applyUnifiedTrajectoryOp(const TrajectoryOpDescriptor& op, UnifiedTrajector
 	}
 	if (op.kind == TrajectoryOpKind::Translate || op.kind == TrajectoryOpKind::Rotate)
 	{
-		for (size_t i = 0; i < traj.points.size(); ++i)
+		std::vector<std::size_t> scoped;
+		for (std::size_t i = 0; i < traj.points.size(); ++i)
 		{
-			const double t = traj.points.size() <= 1
+			if (pointMatchesScope(traj.points[i], op.scope, program))
+			{
+				scoped.push_back(i);
+			}
+		}
+		if (scoped.empty())
+		{
+			return true;
+		}
+		const std::size_t scopeCount = scoped.size();
+		for (std::size_t j = 0; j < scopeCount; ++j)
+		{
+			const std::size_t i = scoped[j];
+			const double t = scopeCount <= 1
 				? 0.0
-				: static_cast<double>(i) / static_cast<double>(traj.points.size() - 1);
+				: static_cast<double>(j) / static_cast<double>(scopeCount - 1);
 			const TrajectoryOpDescriptor current = interpolateDescriptor(op, t);
 			engine::RigidTransform tf = rigidFromPoint(traj.points[i]);
 			if (current.kind == TrajectoryOpKind::Translate)
@@ -399,6 +562,10 @@ bool applyUnifiedTrajectoryOp(const TrajectoryOpDescriptor& op, UnifiedTrajector
 	{
 		for (UnifiedTrajectoryPoint& point : traj.points)
 		{
+			if (!pointMatchesScope(point, op.scope, program))
+			{
+				continue;
+			}
 			applyAxisReverse(point, op.mirrorAxis);
 		}
 		return true;
@@ -409,21 +576,33 @@ bool applyUnifiedTrajectoryOp(const TrajectoryOpDescriptor& op, UnifiedTrajector
 		{
 			return false;
 		}
-		const Vec3 refEuler = traj.points.front().eulerDeg;
+		Vec3 refEuler = traj.points.front().eulerDeg;
+		for (const UnifiedTrajectoryPoint& point : traj.points)
+		{
+			if (pointMatchesScope(point, op.scope, program))
+			{
+				refEuler = point.eulerDeg;
+				break;
+			}
+		}
 		for (UnifiedTrajectoryPoint& point : traj.points)
 		{
+			if (!pointMatchesScope(point, op.scope, program))
+			{
+				continue;
+			}
 			point.eulerDeg = refEuler;
 		}
 		return true;
 	}
 	if (op.kind == TrajectoryOpKind::Approach)
 	{
-		insertApproachPoint(traj, op.approach);
+		insertApproachPoint(traj, op.approach, op.scope, program);
 		return true;
 	}
 	if (op.kind == TrajectoryOpKind::Retract)
 	{
-		insertRetractPoint(traj, op.retract);
+		insertRetractPoint(traj, op.retract, op.scope, program);
 		return true;
 	}
 	return true;

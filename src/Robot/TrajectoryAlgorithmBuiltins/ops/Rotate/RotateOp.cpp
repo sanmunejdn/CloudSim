@@ -1,6 +1,8 @@
+// Rotate 原子块：程序路点位姿旋转
 #include "RotateOp.h"
 
 #include "TrajectoryOpFormat.h"
+#include "TrajectoryOpPathApply.h"
 
 #include <cmath>
 #include <cstdio>
@@ -36,7 +38,7 @@ const char* RotateOp::displayName(const bool chinese) const
 
 TrajectoryOpCapability RotateOp::capabilities() const
 {
-	return TrajectoryOpCapability::PreviewPoseTransform | TrajectoryOpCapability::ApplyPoseTransform;
+	return TrajectoryOpCapability::PreviewPoseTransform;
 }
 
 RobotInstruction::TrajectoryOpDescriptor RotateOp::makeDefaultDescriptor(
@@ -129,38 +131,12 @@ std::string RotateOp::formatSummary(
 	return buffer;
 }
 
-bool RotateOp::contributePreviewTransform(
+bool RotateOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const std::vector<std::string>& targetIds,
-	PreviewTransformStep& out) const
+	RobotInstruction::UnifiedTrajectory& traj,
+	std::string* errMsg) const
 {
-	if (isRotateNoOp(op.rotate))
-	{
-		return false;
-	}
-	out.kind = PreviewTransformStep::Kind::RotateOnly;
-	out.targetIds.clear();
-	for (const std::string& id : targetIds)
-	{
-		out.targetIds.insert(id);
-	}
-	out.rotate = op.rotate;
-	return !out.targetIds.empty();
-}
-
-std::vector<TrajectoryApplyAction> RotateOp::buildApplyActions(
-	const TrajectoryOpContext& ctx,
-	const RobotInstruction::TrajectoryOpDescriptor& op) const
-{
-	(void)ctx;
-	if (isRotateNoOp(op.rotate))
-	{
-		return {};
-	}
-	TrajectoryApplyAction action{};
-	action.kind = TrajectoryApplyActionKind::TransformSegment;
-	action.transformOps = { op };
-	return { action };
+	return applyUnifiedPathOp(op, traj, errMsg);
 }
 
 } // namespace trajectory_algo

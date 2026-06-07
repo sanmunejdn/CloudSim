@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="inc">
@@ -9,45 +9,63 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="inc\trajectory_algorithm_global.h">
+    <ClInclude Include="inc\IOpParamAccess.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IOpParamConfig.h">
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\ITrajectoryOp.h">
       <Filter>inc</Filter>
     </ClInclude>
-    <ClInclude Include="inc\TrajectoryApplyAction.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryOpParamSchema.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryOpParamAccess.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryOpRegistry.h">
+    <ClInclude Include="inc\TrajectoryOpConfigRegistry.h">
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\TrajectoryOpDescriptorCodec.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\TrajectoryOpParamAccess.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryOpParamSchema.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryOpRegistry.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryParamJsonIo.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\TrajectoryTransformMath.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\trajectory_algorithm_global.h">
       <Filter>inc</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\TrajectoryTransformMath.cpp">
+    <ClCompile Include="source\ITrajectoryOp.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\TrajectoryOpParamSchema.cpp">
+    <ClCompile Include="source\TrajectoryOpConfigRegistry.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryOpDescriptorCodec.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\TrajectoryOpParamAccess.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="source\TrajectoryOpParamSchema.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClCompile Include="source\TrajectoryOpRegistry.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\TrajectoryOpDescriptorCodec.cpp">
+    <ClCompile Include="source\TrajectoryParamJsonIo.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryTransformMath.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>

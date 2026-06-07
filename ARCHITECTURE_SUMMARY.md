@@ -766,8 +766,8 @@ sequenceDiagram
 2b. **轨迹编辑（`TrajectoryEditPageWidget`，Dock「轨迹编辑」页）**  
    - **PathPlan（可多实例）**：指令树「路径规划」文件夹集中展示；每条独立 `pipeline`/`appliedHistory`/raw；顶栏下拉或树选中绑定；离散写入当前绑定项；Apply 经 `unifiedTrajectoryMergeIntoProgram` 仅替换该条 `PathPlanOutput`。  
    - 装饰器流水线：Translate/Rotate/Delete/Duplicate 等块 + `OpScope`（全程序/分组/P 范围）；绑定 PathPlan 时 scope 优先其输出组。  
-   - **Preview**：`reconcilePipelineScopes` → `TrajectoryEditSession` 临时改 store 中路点 `pose` → `syncPreviewRenderMatrices` → `refreshInstructionPoseAxes`；参数变更走 `updatePipelineOps`（绑定 PathPlan 时不 `reset`）。  
-   - **Apply**：有 raw 时 Unified 六步 + `CompositeProgramEditCommand`（流水线/raw/phase + `ReplaceProgramContent`）；无 raw 时 `TrajectoryPipelineBuilder::buildApplyCommands`。  
+   - **Preview**：`reconcilePipelineScopes` → `TrajectoryEditSession` 三分支（raw OSG 叠加 / 程序 overlay / 位姿写回 store）；几何块 overlay 时可混合写回工艺/位姿（`applyUnifiedPreviewWriteback`）→ `refreshInstructionPoseAxes`；参数变更走 `updatePipelineOps`（绑定 PathPlan 时不 `reset`）。  
+   - **Apply**：`TrajectoryEditSession::apply` → 引擎 `executeFull` → `CompositeProgramEditCommand`（PathPlan 状态 + `ReplaceProgramContent`）。  
    - **Undo/Redo**：`revisionChanged` → `syncUiAfterProgramRevision`（`abandonPreview` + 从 PathPlan 重载流水线）。  
    - 分组 scope：`RobotProgramCatalog::expandToMotionWaypointIds`；PathPlan 仅允许根级拖放排序。  
    - **Canonical 导出**：`buildCanonicalProgramExportV1`（`nested_tree` + `flatMotionSequence`）；品牌后处理见 `RobotWidget/tools/robot_postprocess/`。  

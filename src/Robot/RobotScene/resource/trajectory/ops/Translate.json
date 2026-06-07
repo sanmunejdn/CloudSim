@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "kind": "Translate",
+  "schema": {
+    "fields": [
+      {
+        "key": "translate.dxMm",
+        "type": "Double",
+        "labelZh": "ΔX(起点)",
+        "unit": "mm",
+        "default": 0.0,
+        "order": 1
+      },
+      {
+        "key": "translate.dyMm",
+        "type": "Double",
+        "labelZh": "ΔY(起点)",
+        "unit": "mm",
+        "default": 0.0,
+        "order": 2
+      },
+      {
+        "key": "translate.dzMm",
+        "type": "Double",
+        "labelZh": "ΔZ(起点)",
+        "unit": "mm",
+        "default": 0.0,
+        "order": 3
+      }
+    ]
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {}
+  }
+}

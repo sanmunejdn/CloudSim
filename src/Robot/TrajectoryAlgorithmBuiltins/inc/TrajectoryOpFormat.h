@@ -1,3 +1,4 @@
+// 轨迹块参数在 JSON/UI 中的字段格式化
 #pragma once
 
 #include "TrajectoryPipelineTypes.h"

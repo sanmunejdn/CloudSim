@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "kind": "SmoothPose",
+  "schema": {
+    "fields": []
+  },
+  "defaults": {
+    "scope": {
+      "kind": 1
+    },
+    "params": {}
+  }
+}
