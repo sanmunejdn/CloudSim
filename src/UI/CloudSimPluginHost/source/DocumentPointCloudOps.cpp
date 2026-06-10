@@ -2,7 +2,9 @@
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BackendGeometryMetrics.h"
 #include "BackendSceneDocumentFacade.h"
+#include "BackendVisualMath.h"
 #include "DocumentImportFacade.h"
 #include "DocumentHost.h"
 #include "IPluginMainWindowHost.h"
@@ -12,6 +14,7 @@
 #include "WidgetDocumentAccess.h"
 
 #include <osg/Matrixd>
+#include <osg/Quat>
 #include <osg/Vec3d>
 
 namespace document_point_cloud_ops
@@ -598,6 +601,38 @@ bool exportMeshToPly(
 	if (!mesh->writeTriangleMeshPly(pathUtf8, outError))
 	{
 		return false;
+	}
+	return true;
+}
+
+bool buildPointCloudModelToWorld(const PointCloudBackendData& data, PluginMat4& outModelToWorld)
+{
+	const std::vector<float>& xyz = data.pointPositionsXyz();
+	if (xyz.size() < 3U)
+	{
+		return false;
+	}
+	const osg::Vec3f center = backend_geometry_metrics::pointCloudCenterFromXyz(xyz);
+	const BackendVec3 p = data.pose();
+	const BackendVec3 r = data.rotation();
+	const osg::Quat q = backendvisual_math::eulerDegToQuat(
+		osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
+	const osg::Matrixd rot = osg::Matrixd::rotate(q);
+	const osg::Matrixd negCenter = osg::Matrixd::translate(
+		-static_cast<double>(center.x()),
+		-static_cast<double>(center.y()),
+		-static_cast<double>(center.z()));
+	const osg::Matrixd pos = osg::Matrixd::translate(
+		static_cast<double>(center.x()) + p.x,
+		static_cast<double>(center.y()) + p.y,
+		static_cast<double>(center.z()) + p.z);
+	const osg::Matrixd modelToWorld = pos * rot * negCenter;
+	for (int col = 0; col < 4; ++col)
+	{
+		for (int row = 0; row < 4; ++row)
+		{
+			outModelToWorld.v[col * 4 + row] = modelToWorld(row, col);
+		}
 	}
 	return true;
 }

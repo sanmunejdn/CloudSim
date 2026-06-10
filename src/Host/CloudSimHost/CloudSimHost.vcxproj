@@ -213,6 +213,7 @@
     <ClCompile Include="..\..\UI\Widget\source\OsgWidgetSceneBridge.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\OsgWidgetTransformHierarchyController.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\PointPickOperation.cpp" />
+    <ClCompile Include="..\..\UI\Widget\source\PolylinePickOperation.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\MeshEdgeFacePickOperation.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\ViewportGestureRecognizer.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\QWidgetViewer.cpp" />

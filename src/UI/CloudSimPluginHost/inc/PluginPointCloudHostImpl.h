@@ -157,6 +157,24 @@ public:
 		const PluginMeshRemeshParams& params,
 		PluginMeshFinishedFn onFinished) override;
 
+	void analyzeMeshDefects(
+		IPluginDocument* doc,
+		const std::string& backendIdUtf8,
+		const PluginMeshDefectParams& params,
+		PluginMeshDefectFinishedFn onFinished) override;
+
+	void clearMeshDefectHighlight(IPluginDocument* doc) override;
+
+	void pickPolylineFromViewport(
+		IPluginDocument* doc,
+		PluginPointCloudPolylinePickFinishedFn onFinished) override;
+
+	void cropPointCloudByPolyline(
+		IPluginDocument* doc,
+		const std::string& backendIdUtf8,
+		const PluginPointCloudCropPolylineParams& params,
+		PluginPointCloudFinishedFn onFinished) override;
+
 private:
 	struct TemplateBrepAlignCache
 	{

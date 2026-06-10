@@ -171,6 +171,24 @@ PluginPointCloudHostImpl::simplifyMesh(...)
 | `inc/DocumentPointCloudOps.h` | 新增 `resolveMesh`、`queryMeshInfo` |
 | `inc/PluginPointCloudHostImpl.h` | 新增 5 个 override 方法 |
 
+### 3.9 网格缺陷分析（1.10.0+，只读）
+
+| API | 说明 |
+|-----|------|
+| `analyzeMeshDefects` | `runMeshAnalyzeJob` → `point_cloud_backend_ops::analyzeMeshDefects` → `vcgalgo::detectMeshDefects` |
+| `clearMeshDefectHighlight` | `OsgWidget::hideMeshElementHighlight()` |
+
+**调用链路**：
+
+```text
+PluginPointCloudHostImpl::analyzeMeshDefects(...)
+  → runMeshAnalyzeJob（只读，不 registerReconstructedMesh）
+    → [后台] point_cloud_backend_ops::analyzeMeshDefects(soupIn, ...)
+    → [UI] defectFacesToWorldVerts → showMeshFaceHighlight
+```
+
+切换网格目标或点击「清除高亮」时调用 `clearMeshDefectHighlight`。
+
 ---
 
 ## 4. 文件布局

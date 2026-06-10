@@ -17,6 +17,8 @@ class QSpinBox;
 class QComboBox;
 class QPushButton;
 class QGroupBox;
+class QCheckBox;
+class QSlider;
 
 class PointCloudDockWidget : public QWidget
 {
@@ -36,6 +38,7 @@ public:
 	void triggerExportMesh();
 	void triggerMeshSimplify();
 	void triggerMeshSmoothLaplacian();
+	void triggerMeshDefectAnalyze();
 
 protected:
 	void showEvent(QShowEvent* event) override;
@@ -48,6 +51,7 @@ private slots:
 	void onRandomDownsampleClicked();
 	void onBoxCropClicked();
 	void onSphereCropClicked();
+	void onPolylineCropClicked();
 	void onRemoveOutliersClicked();
 	void onSmoothClicked();
 	void onNormalsPcaClicked();
@@ -65,6 +69,8 @@ private slots:
 	void onMeshSmoothImplicitClicked();
 	void onMeshRepairClicked();
 	void onMeshRemeshClicked();
+	void onMeshDefectAnalyzeClicked();
+	void onMeshDefectClearClicked();
 
 private:
 	QString i18n(const QString& en, const QString& zh) const;
@@ -75,6 +81,8 @@ private:
 	std::string selectedMeshTargetId() const;
 	void refreshMeshExportList(const std::string& preferBackendId = std::string());
 	void refreshMeshInfo();
+	void refreshMeshDefectSummary(const PluginMeshDefectReport& report);
+	void clearMeshDefectUi();
 	IPluginDocument* activeDoc() const;
 	IPluginPointCloudHost* pointCloudHost() const;
 	void runFinished(bool ok, const QString& error, const PluginPointCloudJobResult& result);
@@ -111,6 +119,8 @@ private:
 	QPushButton* m_randomBtn = nullptr;
 	QPushButton* m_boxCropBtn = nullptr;
 	QPushButton* m_sphereCropBtn = nullptr;
+	QPushButton* m_polylineCropBtn = nullptr;
+	QComboBox* m_polylineCropModeCombo = nullptr;
 	QPushButton* m_outlierBtn = nullptr;
 	QPushButton* m_smoothBtn = nullptr;
 	QPushButton* m_pcaBtn = nullptr;
@@ -166,4 +176,17 @@ private:
 	QDoubleSpinBox* m_remeshEdgeSpin = nullptr;
 	QPushButton* m_remeshBtn = nullptr;
 	QLabel* m_meshInfoLabel = nullptr;
+
+	// 网格缺陷分析 UI
+	QGroupBox* m_meshDefectGroup = nullptr;
+	QLabel* m_defectSensitivityLabel = nullptr;
+	QSlider* m_defectSensitivitySlider = nullptr;
+	QLabel* m_defectSensitivityValueLabel = nullptr;
+	QCheckBox* m_defectNeedleCheck = nullptr;
+	QCheckBox* m_defectProtrusionCheck = nullptr;
+	QCheckBox* m_defectBoundaryCheck = nullptr;
+	QPushButton* m_defectAnalyzeBtn = nullptr;
+	QPushButton* m_defectClearBtn = nullptr;
+	QLabel* m_defectSummaryLabel = nullptr;
+	QListWidget* m_defectList = nullptr;
 };

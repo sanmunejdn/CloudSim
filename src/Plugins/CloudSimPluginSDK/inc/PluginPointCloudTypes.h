@@ -74,6 +74,43 @@ struct PluginPointCloudCropSphereParams
 	double radiusMm = 10.0;
 };
 
+/// 1.11.0+：屏幕多边形裁剪（封闭折线，Qt 逻辑像素）
+struct PluginPointCloudCropPolylineParams
+{
+	std::vector<float> polylineScreenXy;
+	double mvpMatrix[16] = {
+		1.0, 0.0, 0.0, 0.0,
+		0.0, 1.0, 0.0, 0.0,
+		0.0, 0.0, 1.0, 0.0,
+		0.0, 0.0, 0.0, 1.0};
+	double modelToWorld[16] = {
+		1.0, 0.0, 0.0, 0.0,
+		0.0, 1.0, 0.0, 0.0,
+		0.0, 0.0, 1.0, 0.0,
+		0.0, 0.0, 0.0, 1.0};
+	int viewportWidth = 0;
+	int viewportHeight = 0;
+	/// true=保留多边形内部；false=删除内部
+	bool keepInside = true;
+};
+
+struct PluginPointCloudPolylinePickResult
+{
+	std::vector<float> polylineScreenXy;
+	double mvpMatrix[16] = {
+		1.0, 0.0, 0.0, 0.0,
+		0.0, 1.0, 0.0, 0.0,
+		0.0, 0.0, 1.0, 0.0,
+		0.0, 0.0, 0.0, 1.0};
+	int viewportWidth = 0;
+	int viewportHeight = 0;
+};
+
+using PluginPointCloudPolylinePickFinishedFn = std::function<void(
+	bool ok,
+	const QString& error,
+	const PluginPointCloudPolylinePickResult& result)>;
+
 struct PluginPointCloudOutlierParams
 {
 	double removalPercent = 5.0;
@@ -244,6 +281,40 @@ using PluginMeshFinishedFn = std::function<void(
 	bool ok,
 	const QString& error,
 	const PluginPointCloudJobResult& result)>;
+
+// === 网格缺陷分析（vcglib，1.10.0+） ===
+
+struct PluginMeshDefectFace
+{
+	int faceIndex = -1;
+	int kind = 0;
+	double score = 0.0;
+};
+
+struct PluginMeshDefectParams
+{
+	double sensitivity = 0.08;
+	int minClusterFaces = 3;
+	bool detectNeedle = true;
+	bool detectProtrusion = true;
+	bool detectBoundarySpike = true;
+};
+
+struct PluginMeshDefectReport
+{
+	int totalFaces = 0;
+	int defectFaceCount = 0;
+	double defectAreaRatio = 0.0;
+	int needleCount = 0;
+	int protrusionCount = 0;
+	int boundarySpikeCount = 0;
+	std::vector<PluginMeshDefectFace> defects;
+};
+
+using PluginMeshDefectFinishedFn = std::function<void(
+	bool ok,
+	const QString& error,
+	const PluginMeshDefectReport& report)>;
 
 using PluginPointCloudFinishedFn = std::function<void(
 	bool ok,

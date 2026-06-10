@@ -60,6 +60,16 @@ DATA_EXPORT bool cropPointCloudBySphere(
 	double radiusMm,
 	std::string* errMsg = nullptr);
 
+DATA_EXPORT bool cropPointCloudByPolyline2D(
+	PointCloudBackendData& data,
+	const std::vector<float>& polylineScreenXy,
+	const double mvpMatrix[16],
+	const double modelToWorld[16],
+	int viewportWidth,
+	int viewportHeight,
+	bool keepInside,
+	std::string* errMsg = nullptr);
+
 DATA_EXPORT bool measurePointCloud(
 	const PointCloudBackendData& data,
 	PointCloudMeasureResult& out,
@@ -198,6 +208,24 @@ DATA_EXPORT bool reconstructMeshFromPointCloudPoissonAndPostProcess(
 	int targetFaceCount = 0,
 	bool doRepair = true,
 	bool doSmooth = false,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool analyzeMeshDefects(
+	const std::vector<float>& soupIn,
+	std::vector<int>& defectFaceIndices,
+	std::vector<float>& defectScores,
+	std::vector<int>& defectKinds,
+	int& outTotalFaces,
+	int& outDefectFaceCount,
+	double& outDefectAreaRatio,
+	int& outNeedleCount,
+	int& outProtrusionCount,
+	int& outBoundarySpikeCount,
+	double sensitivity,
+	int minClusterFaces,
+	bool detectNeedle,
+	bool detectProtrusion,
+	bool detectBoundarySpike,
 	std::string* errMsg = nullptr);
 
 } // namespace point_cloud_backend_ops

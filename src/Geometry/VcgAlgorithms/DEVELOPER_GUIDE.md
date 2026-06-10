@@ -146,6 +146,7 @@ $(CloudSimBinDir)VcgAlgorithms.dll
 | `smoothMeshLaplacian` | Laplacian 平滑 |
 | `repairMesh` | 网格修复 |
 | `remeshMeshIsotropic` | 各向同性重网格 |
+| `analyzeMeshDefects` | 多信号缺陷检测（针状/突起/边界尖刺），只读报告 |
 | `reconstructMeshFromPointCloudPoissonAndPostProcess` | 重建 + 后处理管线 |
 
 ---
@@ -165,6 +166,7 @@ const bool ok = vcgalgo::runSelfTest(failures);
 5. 网格修复
 6. 各向同性重网格
 7. 空输入处理
+8. 缺陷检测（人造针状三角 cube+needle soup）
 
 ---
 

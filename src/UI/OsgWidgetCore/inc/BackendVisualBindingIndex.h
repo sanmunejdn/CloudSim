@@ -21,6 +21,8 @@ public:
 	/// 解析拾取路径的后端 id；无绑定根则 false
 	bool resolveBackendIdFromNodePath(const osg::NodePath& path, std::string& outBackendId) const;
 
+	osg::Node* findBackendRoot(const std::string& backendId) const;
+
 private:
 	std::unordered_map<std::string, osg::observer_ptr<osg::Node>> m_backendToRoot;
 	std::unordered_map<const osg::Node*, std::string> m_rootToBackend;

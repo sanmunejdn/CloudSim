@@ -13,8 +13,15 @@
 #include "OsgWidget.h"
 #include "WidgetDocumentAccess.h"
 
+#include "PointCloudBackendOps.h"
+
+#include <Adapters.h>
 #include <BrepImportArtifacts.h>
 #include <GeometryBackendOps.h>
+
+#include <osg/Matrixd>
+#include <osg/Quat>
+#include <osg/Vec3f>
 
 #include <functional>
 #include <memory>
@@ -1219,6 +1226,213 @@ void runMeshMutateJob(
 		});
 }
 
+osg::Vec3f meshSoupCenter(const std::vector<float>& soup)
+{
+	if (soup.size() < 9U)
+	{
+		return osg::Vec3f(0.0f, 0.0f, 0.0f);
+	}
+	osg::Vec3f sum(0.0f, 0.0f, 0.0f);
+	const std::size_t vertCount = soup.size() / 3U;
+	for (std::size_t i = 0; i + 2U < soup.size(); i += 3U)
+	{
+		sum.x() += soup[i];
+		sum.y() += soup[i + 1U];
+		sum.z() += soup[i + 2U];
+	}
+	const float inv = 1.0f / static_cast<float>(vertCount);
+	sum *= inv;
+	return sum;
+}
+
+osg::Matrixd meshBackendWorldMatrix(const MeshBackendData& mesh)
+{
+	const osg::Vec3f center = meshSoupCenter(mesh.triangleSoup());
+	const BackendVec3 p = mesh.pose();
+	const BackendVec3 r = mesh.rotation();
+	const osg::Vec3d trans(
+		static_cast<double>(center.x()) + p.x,
+		static_cast<double>(center.y()) + p.y,
+		static_cast<double>(center.z()) + p.z);
+	const osg::Quat q = engine::eulerDegToQuat(r.x, r.y, r.z);
+	return osg::Matrixd::translate(trans) * osg::Matrixd::rotate(q);
+}
+
+std::vector<osg::Vec3f> defectFacesToWorldVerts(
+	const MeshBackendData& mesh,
+	const std::vector<int>& faceIndices)
+{
+	const std::vector<float>& soup = mesh.triangleSoup();
+	const osg::Vec3f center = meshSoupCenter(soup);
+	const osg::Matrixd world = meshBackendWorldMatrix(mesh);
+	std::vector<osg::Vec3f> verts;
+	verts.reserve(faceIndices.size() * 3U);
+	for (const int faceIndex : faceIndices)
+	{
+		if (faceIndex < 0)
+		{
+			continue;
+		}
+		const std::size_t base = static_cast<std::size_t>(faceIndex) * 9U;
+		if (base + 8U >= soup.size())
+		{
+			continue;
+		}
+		for (int v = 0; v < 3; ++v)
+		{
+			const std::size_t i = base + static_cast<std::size_t>(v) * 3U;
+			const osg::Vec3d local(
+				static_cast<double>(soup[i]) - static_cast<double>(center.x()),
+				static_cast<double>(soup[i + 1U]) - static_cast<double>(center.y()),
+				static_cast<double>(soup[i + 2U]) - static_cast<double>(center.z()));
+			verts.push_back(osg::Vec3f(world.preMult(local)));
+		}
+	}
+	return verts;
+}
+
+PluginMeshDefectReport toPluginDefectReport(
+	const std::vector<int>& faceIndices,
+	const std::vector<float>& scores,
+	const std::vector<int>& kinds,
+	const int totalFaces,
+	const int defectFaceCount,
+	const double defectAreaRatio,
+	const int needleCount,
+	const int protrusionCount,
+	const int boundarySpikeCount)
+{
+	PluginMeshDefectReport report;
+	report.totalFaces = totalFaces;
+	report.defectFaceCount = defectFaceCount;
+	report.defectAreaRatio = defectAreaRatio;
+	report.needleCount = needleCount;
+	report.protrusionCount = protrusionCount;
+	report.boundarySpikeCount = boundarySpikeCount;
+	const std::size_t n = faceIndices.size();
+	report.defects.reserve(n);
+	for (std::size_t i = 0; i < n; ++i)
+	{
+		PluginMeshDefectFace face;
+		face.faceIndex = faceIndices[i];
+		face.kind = kinds[i];
+		face.score = static_cast<double>(scores[i]);
+		report.defects.push_back(face);
+	}
+	return report;
+}
+
+void runMeshAnalyzeJob(
+	PluginHostContext* host,
+	IPluginDocument* doc,
+	const std::string& backendIdUtf8,
+	const PluginMeshDefectParams& params,
+	PluginMeshDefectFinishedFn onFinished)
+{
+	if (!host || !onFinished)
+	{
+		return;
+	}
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	std::string resolveErr;
+	const auto mesh = document_point_cloud_ops::resolveMesh(page, backendIdUtf8, &resolveErr);
+	if (!mesh)
+	{
+		onFinished(false, QString::fromStdString(resolveErr), {});
+		return;
+	}
+
+	struct WorkResult
+	{
+		std::vector<int> faceIndices;
+		std::vector<float> scores;
+		std::vector<int> kinds;
+		int totalFaces = 0;
+		int defectFaceCount = 0;
+		double defectAreaRatio = 0.0;
+		int needleCount = 0;
+		int protrusionCount = 0;
+		int boundarySpikeCount = 0;
+		std::string error;
+		bool ok = false;
+	};
+	auto result = std::make_shared<WorkResult>();
+	const std::vector<float> soupIn = mesh->triangleSoup();
+
+	host->enqueueJob(
+		QStringLiteral("Mesh defect analysis"),
+		[soupIn, params, result](const PluginJobProgressFn& report) {
+			report(0.2, QStringLiteral("Preparing mesh..."));
+			report(0.3, QStringLiteral("Computing curvature..."));
+			result->ok = point_cloud_backend_ops::analyzeMeshDefects(
+				soupIn,
+				result->faceIndices,
+				result->scores,
+				result->kinds,
+				result->totalFaces,
+				result->defectFaceCount,
+				result->defectAreaRatio,
+				result->needleCount,
+				result->protrusionCount,
+				result->boundarySpikeCount,
+				params.sensitivity,
+				params.minClusterFaces,
+				params.detectNeedle,
+				params.detectProtrusion,
+				params.detectBoundarySpike,
+				&result->error);
+			report(1.0, QStringLiteral("Done"));
+		},
+		[host, page, mesh, backendIdUtf8, result, onFinished = std::move(onFinished)](
+			const bool threw, const QString& throwMessage) {
+			if (threw)
+			{
+				onFinished(false, throwMessage, {});
+				return;
+			}
+			if (!result->ok)
+			{
+				onFinished(false, QString::fromStdString(result->error), {});
+				return;
+			}
+			const PluginMeshDefectReport report = toPluginDefectReport(
+				result->faceIndices,
+				result->scores,
+				result->kinds,
+				result->totalFaces,
+				result->defectFaceCount,
+				result->defectAreaRatio,
+				result->needleCount,
+				result->protrusionCount,
+				result->boundarySpikeCount);
+			if (OsgWidget* osg = widgetOsgFromPage(page))
+			{
+				const std::vector<osg::Vec3f> verts = defectFacesToWorldVerts(*mesh, result->faceIndices);
+				if (!verts.empty())
+				{
+					osg->showMeshFaceHighlight(verts);
+				}
+				else
+				{
+					osg->hideMeshElementHighlight();
+				}
+			}
+			if (host)
+			{
+				host->logInfo(
+					QStringLiteral("[MeshDefect] %1 faces=%2 defects=%3 (%.1f%%) needle=%4 protrusion=%5 boundary=%6")
+						.arg(QString::fromStdString(backendIdUtf8))
+						.arg(report.totalFaces)
+						.arg(report.defectFaceCount)
+						.arg(report.defectAreaRatio * 100.0, 0, 'f', 1)
+						.arg(report.needleCount)
+						.arg(report.protrusionCount)
+						.arg(report.boundarySpikeCount));
+			}
+			onFinished(true, QString(), report);
+		});
+}
+
 } // namespace
 
 bool PluginPointCloudHostImpl::queryMeshInfo(
@@ -1302,6 +1516,158 @@ void PluginPointCloudHostImpl::remeshMeshIsotropic(
 		[params](const std::vector<float>& soupIn, std::vector<float>& soupOut, std::string* err) {
 			return point_cloud_backend_ops::remeshMeshIsotropic(
 				soupIn, soupOut, params.targetEdgeLengthMm, params.iterations, err);
+		},
+		std::move(onFinished));
+}
+
+void PluginPointCloudHostImpl::analyzeMeshDefects(
+	IPluginDocument* doc,
+	const std::string& backendIdUtf8,
+	const PluginMeshDefectParams& params,
+	PluginMeshDefectFinishedFn onFinished)
+{
+	runMeshAnalyzeJob(m_host, doc, backendIdUtf8, params, std::move(onFinished));
+}
+
+void PluginPointCloudHostImpl::clearMeshDefectHighlight(IPluginDocument* doc)
+{
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	if (OsgWidget* osg = widgetOsgFromPage(page))
+	{
+		osg->hideMeshElementHighlight();
+	}
+}
+
+void PluginPointCloudHostImpl::pickPolylineFromViewport(
+	IPluginDocument* doc,
+	PluginPointCloudPolylinePickFinishedFn onFinished)
+{
+	if (!onFinished)
+	{
+		return;
+	}
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	if (!page || !m_host)
+	{
+		onFinished(false, QStringLiteral("No active document"), {});
+		return;
+	}
+	OsgWidget* osg = widgetOsgFromPage(page);
+	if (!osg)
+	{
+		onFinished(false, QStringLiteral("3D viewport unavailable"), {});
+		return;
+	}
+
+	struct PickState
+	{
+		bool done = false;
+		QMetaObject::Connection connCommitted;
+		QMetaObject::Connection connCanceled;
+	};
+	const auto state = std::make_shared<PickState>();
+	const auto complete = [state, osg, onFinished](
+							  const bool ok, const QString& err, const PluginPointCloudPolylinePickResult& result) {
+		if (state->done)
+		{
+			return;
+		}
+		state->done = true;
+		QObject::disconnect(state->connCommitted);
+		QObject::disconnect(state->connCanceled);
+		if (osg)
+		{
+			osg->setPolylinePickMode(false);
+		}
+		onFinished(ok, err, result);
+	};
+
+	osg->setPolylinePickMode(true);
+
+	state->connCommitted = QObject::connect(
+		osg,
+		&OsgWidget::polylinePickCommitted,
+		m_host,
+		[=](const QVector<float>& polylineScreenXy, const QVector<double>& mvpMatrix, const int viewportWidth, const int viewportHeight) {
+			PluginPointCloudPolylinePickResult result;
+			result.polylineScreenXy.assign(polylineScreenXy.begin(), polylineScreenXy.end());
+			const int n = std::min(16, mvpMatrix.size());
+			for (int i = 0; i < n; ++i)
+			{
+				result.mvpMatrix[i] = mvpMatrix[i];
+			}
+			result.viewportWidth = viewportWidth;
+			result.viewportHeight = viewportHeight;
+			complete(true, QString(), result);
+		});
+
+	state->connCanceled = QObject::connect(osg, &OsgWidget::polylinePickCanceled, m_host, [=]() {
+		complete(false, QStringLiteral("Polyline pick canceled"), {});
+	});
+}
+
+void PluginPointCloudHostImpl::cropPointCloudByPolyline(
+	IPluginDocument* doc,
+	const std::string& backendIdUtf8,
+	const PluginPointCloudCropPolylineParams& params,
+	PluginPointCloudFinishedFn onFinished)
+{
+	if (params.polylineScreenXy.size() < 6U || params.viewportWidth <= 0 || params.viewportHeight <= 0)
+	{
+		if (onFinished)
+		{
+			onFinished(false, QStringLiteral("Invalid polyline crop parameters"), {});
+		}
+		return;
+	}
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	std::string resolveErr;
+	const auto pc = document_point_cloud_ops::resolvePointCloud(page, backendIdUtf8, &resolveErr);
+	if (!pc)
+	{
+		if (onFinished)
+		{
+			onFinished(false, QString::fromStdString(resolveErr), {});
+		}
+		return;
+	}
+	PluginPointCloudCropPolylineParams jobParams = params;
+	bool haveModelToWorld = false;
+	if (OsgWidget* osg = widgetOsgFromPage(page))
+	{
+		haveModelToWorld = osg->tryGetBackendPointLocalToWorldMatrix(backendIdUtf8, jobParams.modelToWorld);
+	}
+	if (!haveModelToWorld)
+	{
+		PluginMat4 modelToWorld;
+		if (!document_point_cloud_ops::buildPointCloudModelToWorld(*pc, modelToWorld))
+		{
+			if (onFinished)
+			{
+				onFinished(false, QStringLiteral("Failed to build point cloud world transform"), {});
+			}
+			return;
+		}
+		for (int i = 0; i < 16; ++i)
+		{
+			jobParams.modelToWorld[i] = modelToWorld.v[i];
+		}
+	}
+	runMutateJob(
+		m_host,
+		doc,
+		backendIdUtf8,
+		QStringLiteral("Polyline crop"),
+		[jobParams](PointCloudBackendData& data, std::string* err) {
+			return point_cloud_backend_ops::cropPointCloudByPolyline2D(
+				data,
+				jobParams.polylineScreenXy,
+				jobParams.mvpMatrix,
+				jobParams.modelToWorld,
+				jobParams.viewportWidth,
+				jobParams.viewportHeight,
+				jobParams.keepInside,
+				err);
 		},
 		std::move(onFinished));
 }

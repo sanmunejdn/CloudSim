@@ -70,4 +70,9 @@ bool applyScanIcpAlignmentToStoredPoints(
 	PointCloudBackendData& inOutScan,
 	std::string* outError = nullptr);
 
+/// 点云 backend 存储坐标 → 世界 mm（与 OSG 外层 PAT 一致）
+bool buildPointCloudModelToWorld(
+	const PointCloudBackendData& data,
+	PluginMat4& outModelToWorld);
+
 } // namespace document_point_cloud_ops

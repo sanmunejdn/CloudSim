@@ -6,9 +6,9 @@
 
 ## 版本
 
-- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00010900` = 1.9.0）
+- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00010B00` = 1.11.0）
 - `IPluginDocument`：`documentId()`、`removeBackendObject()`；**1.2.0+** `queryPointCloudInfo` / `measurePointCloud` / `exportMeshToPly`（UI 线程）
-- `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()`；**1.4.0+** 末尾追加 `buildPrimitiveMeshSoup` / `booleanMeshSoups` / `booleanPrimitiveMeshes`；**1.5.0+** `geometryHost()`；**1.6.0+** `captureActiveViewportPng()`（活动文档 3D 视口 PNG，供 geometry.recognize 等多模态域）；**1.7.0+** `IPluginGeometryHost` 新增 `listComputableBackends` / `pickStepElementFromViewport`（几何插件可直接驱动后端对象 + 视图拾取）；**1.8.0+** `IPluginPointCloudHost` 将模板 B-rep 更新拆为 `registerScanToCadTemplate` + `updateTemplateBrepFromAlignedScan`（移除 `updateBrepFromCadTemplate`）；**1.9.0+** `IPluginPointCloudHost` 新增网格后处理：`queryMeshInfo` / `simplifyMesh` / `smoothMesh` / `repairMesh` / `remeshMeshIsotropic`（需宿主链接 `VcgAlgorithms.dll`）；新 API 均追加在 vtable 末尾，勿插入中间；升级宿主后须**重编译全部插件 DLL**
+- `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()`；**1.4.0+** 末尾追加 `buildPrimitiveMeshSoup` / `booleanMeshSoups` / `booleanPrimitiveMeshes`；**1.5.0+** `geometryHost()`；**1.6.0+** `captureActiveViewportPng()`（活动文档 3D 视口 PNG，供 geometry.recognize 等多模态域）；**1.7.0+** `IPluginGeometryHost` 新增 `listComputableBackends` / `pickStepElementFromViewport`（几何插件可直接驱动后端对象 + 视图拾取）；**1.8.0+** `IPluginPointCloudHost` 将模板 B-rep 更新拆为 `registerScanToCadTemplate` + `updateTemplateBrepFromAlignedScan`（移除 `updateBrepFromCadTemplate`）；**1.9.0+** `IPluginPointCloudHost` 新增网格后处理：`queryMeshInfo` / `simplifyMesh` / `smoothMesh` / `repairMesh` / `remeshMeshIsotropic`（需宿主链接 `VcgAlgorithms.dll`）；**1.10.0+** `analyzeMeshDefects` / `clearMeshDefectHighlight`（只读缺陷分析 + 视口 overlay，不修改原网格）；**1.11.0+** `pickPolylineFromViewport` / `cropPointCloudByPolyline`（3D 视口多边形线框裁剪，屏幕投影）；新 API 均追加在 vtable 末尾，勿插入中间；升级宿主后须**重编译全部插件 DLL**
 - 清单 `plugin.json` 中 `minHostVersion` 使用字符串 `"1.0.0"`
 - 运行时调用 `IPluginHostContext::hostVersion()` 比对
 
@@ -81,6 +81,8 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 |------------------------------|------|
 | `downsamplePointCloudVoxel/Random` | 体素/随机下采样，原地写回 |
 | `cropPointCloudByBox/Sphere` | AABB/球裁剪 |
+| `pickPolylineFromViewport` | **1.11.0+** 3D 视图绘制封闭多边形（左键顶点、右键/双击闭合） |
+| `cropPointCloudByPolyline` | **1.11.0+** 屏幕多边形裁剪（`keepInside` 保留/删除内部） |
 | `applyRigidTransformToPointCloud` | 刚体变换（列主序 `PluginMat4`） |
 | `removePointCloudOutliers` / `smoothPointCloudBilateral` | 离群/平滑 |
 | `estimatePointCloudNormalsPca/Jet` / `orientPointCloudNormalsMst` | 法线估计与定向 |
@@ -95,8 +97,10 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 | `smoothMesh` | **1.9.0+** Laplacian / Implicit Fairing 平滑 |
 | `repairMesh` | **1.9.0+** 去退化面/重复顶点/非流形/填孔 |
 | `remeshMeshIsotropic` | **1.9.0+** 各向同性重网格 |
+| `analyzeMeshDefects` | **1.10.0+** 多信号缺陷检测（针状/突起/边界尖刺），回调 `PluginMeshDefectReport` |
+| `clearMeshDefectHighlight` | **1.10.0+** 清除 `OsgScene::showMeshFaceHighlight` overlay |
 
-回调 `PluginPointCloudFinishedFn` 在 **UI 线程**；算法在宿主 `enqueueJob` 内执行。插件 **不得** 链接 `PointCloudAlgorithm` / `Data`。
+回调 `PluginPointCloudFinishedFn` / `PluginMeshDefectFinishedFn` 在 **UI 线程**；算法在宿主 `enqueueJob` 内执行。插件 **不得** 链接 `PointCloudAlgorithm` / `Data`。
 
 宿主实现细节：[`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)。
 

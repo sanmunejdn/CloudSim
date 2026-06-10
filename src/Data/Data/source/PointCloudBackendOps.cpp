@@ -19,6 +19,7 @@
 #include "MeshRepair.h"
 #include "MeshSimplify.h"
 #include "MeshSmooth.h"
+#include "MeshDefectDetect.h"
 #endif
 
 namespace point_cloud_backend_ops
@@ -175,6 +176,57 @@ bool cropPointCloudBySphere(
 		}
 	}
 	writeBack(data, std::move(outXyz), std::move(outRgba), std::move(outNormals));
+	return !data.pointPositionsXyz().empty();
+}
+
+bool cropPointCloudByPolyline2D(
+	PointCloudBackendData& data,
+	const std::vector<float>& polylineScreenXy,
+	const double mvpMatrix[16],
+	const double modelToWorld[16],
+	const int viewportWidth,
+	const int viewportHeight,
+	const bool keepInside,
+	std::string* errMsg)
+{
+	(void)errMsg;
+	const std::vector<float>& srcXyz = data.pointPositionsXyz();
+	std::vector<float> outXyz;
+	std::vector<float> outRgba;
+	std::vector<float> rgba = data.pointVertexRgba();
+	if (data.hasPerVertexColors())
+	{
+		pclalgo::cropXyzByPolyline2D(
+			srcXyz,
+			rgba,
+			polylineScreenXy,
+			mvpMatrix,
+			modelToWorld,
+			viewportWidth,
+			viewportHeight,
+			keepInside,
+			outXyz,
+			outRgba,
+			nullptr);
+	}
+	else
+	{
+		const std::vector<float> emptyRgba;
+		pclalgo::cropXyzByPolyline2D(
+			srcXyz,
+			emptyRgba,
+			polylineScreenXy,
+			mvpMatrix,
+			modelToWorld,
+			viewportWidth,
+			viewportHeight,
+			keepInside,
+			outXyz,
+			outRgba,
+			nullptr);
+	}
+	std::vector<float> normals;
+	writeBack(data, std::move(outXyz), std::move(outRgba), std::move(normals));
 	return !data.pointPositionsXyz().empty();
 }
 
@@ -495,6 +547,59 @@ bool remeshMeshIsotropic(
 	return ::vcgalgo::isotropicRemesh(soupIn, targetEdgeLengthMm, soupOut, iterations, errMsg);
 }
 
+bool analyzeMeshDefects(
+	const std::vector<float>& soupIn,
+	std::vector<int>& defectFaceIndices,
+	std::vector<float>& defectScores,
+	std::vector<int>& defectKinds,
+	int& outTotalFaces,
+	int& outDefectFaceCount,
+	double& outDefectAreaRatio,
+	int& outNeedleCount,
+	int& outProtrusionCount,
+	int& outBoundarySpikeCount,
+	const double sensitivity,
+	const int minClusterFaces,
+	const bool detectNeedle,
+	const bool detectProtrusion,
+	const bool detectBoundarySpike,
+	std::string* errMsg)
+{
+	::vcgalgo::DefectDetectParams params;
+	params.sensitivity = sensitivity;
+	params.minClusterFaces = minClusterFaces;
+	params.detectNeedle = detectNeedle;
+	params.detectProtrusion = detectProtrusion;
+	params.detectBoundarySpike = detectBoundarySpike;
+
+	::vcgalgo::DefectDetectReport report;
+	if (!::vcgalgo::detectMeshDefects(soupIn, report, params, errMsg))
+	{
+		return false;
+	}
+
+	outTotalFaces = report.totalFaces;
+	outDefectFaceCount = report.defectFaceCount;
+	outDefectAreaRatio = report.defectAreaRatio;
+	outNeedleCount = report.needleCount;
+	outProtrusionCount = report.protrusionCount;
+	outBoundarySpikeCount = report.boundarySpikeCount;
+
+	defectFaceIndices.clear();
+	defectScores.clear();
+	defectKinds.clear();
+	defectFaceIndices.reserve(report.defects.size());
+	defectScores.reserve(report.defects.size());
+	defectKinds.reserve(report.defects.size());
+	for (const ::vcgalgo::MeshDefectFace& d : report.defects)
+	{
+		defectFaceIndices.push_back(d.faceIndex);
+		defectScores.push_back(static_cast<float>(d.score));
+		defectKinds.push_back(static_cast<int>(d.kind));
+	}
+	return true;
+}
+
 bool reconstructMeshFromPointCloudPoissonAndPostProcess(
 	const PointCloudBackendData& pointCloud,
 	MeshBackendData& meshOut,
@@ -598,6 +703,31 @@ bool reconstructMeshFromPointCloudPoissonAndPostProcess(
 	if (errMsg != nullptr)
 	{
 		*errMsg = "mesh post-processing requires x64 build";
+	}
+	return false;
+}
+
+bool analyzeMeshDefects(
+	const std::vector<float>&,
+	std::vector<int>&,
+	std::vector<float>&,
+	std::vector<int>&,
+	int&,
+	int&,
+	double&,
+	int&,
+	int&,
+	int&,
+	double,
+	int,
+	bool,
+	bool,
+	bool,
+	std::string* errMsg)
+{
+	if (errMsg != nullptr)
+	{
+		*errMsg = "mesh defect analysis requires x64 build";
 	}
 	return false;
 }

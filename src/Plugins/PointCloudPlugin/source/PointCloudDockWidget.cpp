@@ -7,6 +7,7 @@
 #include "PluginGeometryTypes.h"
 #include "PluginPointCloudTypes.h"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFileDialog>
@@ -19,9 +20,12 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QShowEvent>
+#include <QSlider>
 #include <QSpinBox>
 #include <QSizePolicy>
 #include <QVBoxLayout>
+
+#include <algorithm>
 
 namespace
 {
@@ -144,11 +148,19 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	layout->addWidget(m_downGroup);
 
 	m_cropGroup = new QGroupBox(m_scrollContent);
-	auto* cropLayout = new QHBoxLayout(m_cropGroup);
+	auto* cropLayout = new QVBoxLayout(m_cropGroup);
+	auto* cropRow1 = new QHBoxLayout();
 	m_boxCropBtn = new QPushButton(m_cropGroup);
 	m_sphereCropBtn = new QPushButton(m_cropGroup);
-	cropLayout->addWidget(m_boxCropBtn);
-	cropLayout->addWidget(m_sphereCropBtn);
+	cropRow1->addWidget(m_boxCropBtn);
+	cropRow1->addWidget(m_sphereCropBtn);
+	cropLayout->addLayout(cropRow1);
+	auto* cropRow2 = new QHBoxLayout();
+	m_polylineCropModeCombo = new QComboBox(m_cropGroup);
+	m_polylineCropBtn = new QPushButton(m_cropGroup);
+	cropRow2->addWidget(m_polylineCropModeCombo, 1);
+	cropRow2->addWidget(m_polylineCropBtn);
+	cropLayout->addLayout(cropRow2);
 	layout->addWidget(m_cropGroup);
 
 	m_preGroup = new QGroupBox(m_scrollContent);
@@ -362,6 +374,50 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 
 	layout->addWidget(m_meshPostGroup);
 
+	// === 网格缺陷分析组 ===
+	m_meshDefectGroup = new QGroupBox(m_scrollContent);
+	auto* defectLayout = new QVBoxLayout(m_meshDefectGroup);
+
+	auto* sensitivityRow = new QHBoxLayout;
+	m_defectSensitivityLabel = new QLabel(m_meshDefectGroup);
+	m_defectSensitivitySlider = new QSlider(Qt::Horizontal, m_meshDefectGroup);
+	m_defectSensitivitySlider->setRange(1, 20);
+	m_defectSensitivitySlider->setValue(8);
+	m_defectSensitivityValueLabel = new QLabel(m_meshDefectGroup);
+	sensitivityRow->addWidget(m_defectSensitivityLabel);
+	sensitivityRow->addWidget(m_defectSensitivitySlider, 1);
+	sensitivityRow->addWidget(m_defectSensitivityValueLabel);
+	defectLayout->addLayout(sensitivityRow);
+
+	auto* defectKindRow = new QHBoxLayout;
+	m_defectNeedleCheck = new QCheckBox(m_meshDefectGroup);
+	m_defectProtrusionCheck = new QCheckBox(m_meshDefectGroup);
+	m_defectBoundaryCheck = new QCheckBox(m_meshDefectGroup);
+	m_defectNeedleCheck->setChecked(true);
+	m_defectProtrusionCheck->setChecked(true);
+	m_defectBoundaryCheck->setChecked(true);
+	defectKindRow->addWidget(m_defectNeedleCheck);
+	defectKindRow->addWidget(m_defectProtrusionCheck);
+	defectKindRow->addWidget(m_defectBoundaryCheck);
+	defectLayout->addLayout(defectKindRow);
+
+	auto* defectBtnRow = new QHBoxLayout;
+	m_defectAnalyzeBtn = new QPushButton(m_meshDefectGroup);
+	m_defectClearBtn = new QPushButton(m_meshDefectGroup);
+	defectBtnRow->addWidget(m_defectAnalyzeBtn);
+	defectBtnRow->addWidget(m_defectClearBtn);
+	defectLayout->addLayout(defectBtnRow);
+
+	m_defectSummaryLabel = new QLabel(m_meshDefectGroup);
+	m_defectSummaryLabel->setWordWrap(true);
+	defectLayout->addWidget(m_defectSummaryLabel);
+
+	m_defectList = new QListWidget(m_meshDefectGroup);
+	m_defectList->setMaximumHeight(120);
+	defectLayout->addWidget(m_defectList);
+
+	layout->addWidget(m_meshDefectGroup);
+
 	m_statusLabel = new QLabel(m_scrollContent);
 	m_statusLabel->setWordWrap(true);
 	m_statusLabel->setMaximumHeight(48);
@@ -380,6 +436,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	connect(m_randomBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onRandomDownsampleClicked);
 	connect(m_boxCropBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onBoxCropClicked);
 	connect(m_sphereCropBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onSphereCropClicked);
+	connect(m_polylineCropBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onPolylineCropClicked);
 	connect(m_outlierBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onRemoveOutliersClicked);
 	connect(m_smoothBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onSmoothClicked);
 	connect(m_pcaBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onNormalsPcaClicked);
@@ -399,7 +456,23 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	connect(m_remeshBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onMeshRemeshClicked);
 	connect(m_meshTargetCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
 		refreshMeshInfo();
+		if (IPluginPointCloudHost* pch = pointCloudHost())
+		{
+			if (IPluginDocument* doc = activeDoc())
+			{
+				pch->clearMeshDefectHighlight(doc);
+			}
+		}
+		clearMeshDefectUi();
 	});
+	connect(m_defectSensitivitySlider, &QSlider::valueChanged, this, [this](const int value) {
+		if (m_defectSensitivityValueLabel)
+		{
+			m_defectSensitivityValueLabel->setText(QStringLiteral("%1%").arg(value));
+		}
+	});
+	connect(m_defectAnalyzeBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onMeshDefectAnalyzeClicked);
+	connect(m_defectClearBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onMeshDefectClearClicked);
 
 	applyLanguage();
 	refreshDocumentLabel();
@@ -438,6 +511,19 @@ void PointCloudDockWidget::applyLanguage()
 	m_repairBtn->setText(i18n(QStringLiteral("Repair mesh"), QStringLiteral("网格修复")));
 	m_remeshEdgeLabel->setText(i18n(QStringLiteral("Edge len (mm):"), QStringLiteral("目标边长(mm):")));
 	m_remeshBtn->setText(i18n(QStringLiteral("Isotropic remesh"), QStringLiteral("各向同性重网格")));
+	m_meshDefectGroup->setTitle(i18n(QStringLiteral("Mesh defect analysis"), QStringLiteral("网格缺陷分析")));
+	m_defectSensitivityLabel->setText(i18n(QStringLiteral("Sensitivity:"), QStringLiteral("灵敏度:")));
+	m_defectNeedleCheck->setText(i18n(QStringLiteral("Needle triangles"), QStringLiteral("针状三角")));
+	m_defectProtrusionCheck->setText(
+		i18n(QStringLiteral("Protrusions / burrs"), QStringLiteral("突起/毛刺")));
+	m_defectBoundaryCheck->setText(i18n(QStringLiteral("Boundary spikes"), QStringLiteral("边界尖刺")));
+	m_defectAnalyzeBtn->setText(i18n(QStringLiteral("Analyze defects"), QStringLiteral("分析缺陷")));
+	m_defectClearBtn->setText(i18n(QStringLiteral("Clear highlight"), QStringLiteral("清除高亮")));
+	if (m_defectSensitivitySlider && m_defectSensitivityValueLabel)
+	{
+		m_defectSensitivityValueLabel->setText(QStringLiteral("%1%").arg(m_defectSensitivitySlider->value()));
+	}
+	clearMeshDefectUi();
 	m_templateBrepLabel->setText(i18n(QStringLiteral("Template B-rep:"), QStringLiteral("CAD 模板:")));
 	m_faceBandLabel->setText(i18n(QStringLiteral("Face band (mm):"), QStringLiteral("面归属带(mm):")));
 	m_reMinPtsLabel->setText(i18n(QStringLiteral("Min pts per face:"), QStringLiteral("每面最少点:")));
@@ -459,6 +545,23 @@ void PointCloudDockWidget::applyLanguage()
 	m_randomBtn->setText(i18n(QStringLiteral("Random downsample"), QStringLiteral("随机下采样")));
 	m_boxCropBtn->setText(i18n(QStringLiteral("Crop to bbox"), QStringLiteral("按包围盒裁剪")));
 	m_sphereCropBtn->setText(i18n(QStringLiteral("Crop sphere (r=50)"), QStringLiteral("球裁剪 (r=50)")));
+	m_polylineCropBtn->setText(i18n(QStringLiteral("Draw polygon crop..."), QStringLiteral("多边形裁剪…")));
+	if (m_polylineCropModeCombo->count() == 0)
+	{
+		m_polylineCropModeCombo->addItem(
+			i18n(QStringLiteral("Keep inside"), QStringLiteral("保留内部")),
+			true);
+		m_polylineCropModeCombo->addItem(
+			i18n(QStringLiteral("Delete inside"), QStringLiteral("删除内部")),
+			false);
+	}
+	else
+	{
+		m_polylineCropModeCombo->setItemText(
+			0, i18n(QStringLiteral("Keep inside"), QStringLiteral("保留内部")));
+		m_polylineCropModeCombo->setItemText(
+			1, i18n(QStringLiteral("Delete inside"), QStringLiteral("删除内部")));
+	}
 	m_outlierBtn->setText(i18n(QStringLiteral("Remove outliers"), QStringLiteral("离群移除")));
 	m_smoothBtn->setText(i18n(QStringLiteral("Bilateral smooth"), QStringLiteral("双边平滑")));
 	m_pcaBtn->setText(i18n(QStringLiteral("Normals PCA"), QStringLiteral("法线 PCA")));
@@ -806,6 +909,11 @@ void PointCloudDockWidget::triggerMeshSmoothLaplacian()
 	onMeshSmoothLaplacianClicked();
 }
 
+void PointCloudDockWidget::triggerMeshDefectAnalyze()
+{
+	onMeshDefectAnalyzeClicked();
+}
+
 void PointCloudDockWidget::onImportClicked()
 {
 	if (!m_host)
@@ -946,6 +1054,63 @@ void PointCloudDockWidget::onSphereCropClicked()
 		params,
 		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
 			runFinished(ok, error, result);
+		});
+}
+
+void PointCloudDockWidget::onPolylineCropClicked()
+{
+	if (!m_host || m_host->hostVersion() < 0x00010B00U)
+	{
+		if (m_host)
+		{
+			m_host->logWarn(i18n(
+				QStringLiteral("Polyline crop requires host 1.11.0+"),
+				QStringLiteral("多边形裁剪需要宿主 1.11.0+")));
+		}
+		return;
+	}
+	IPluginPointCloudHost* pch = pointCloudHost();
+	IPluginDocument* doc = activeDoc();
+	const std::string id = selectedBackendId();
+	if (!pch || !doc || id.empty())
+	{
+		return;
+	}
+	const bool keepInside = m_polylineCropModeCombo
+		? m_polylineCropModeCombo->currentData().toBool()
+		: true;
+	m_host->logInfo(i18n(
+		QStringLiteral("Draw polygon in 3D view: left-click vertices, right-click/double-click close, Esc cancel"),
+		QStringLiteral("请在 3D 视图绘制多边形：左键加点，右键/双击闭合，Esc 取消")));
+	pch->pickPolylineFromViewport(
+		doc,
+		[this, pch, doc, id, keepInside](
+			const bool ok, const QString& error, const PluginPointCloudPolylinePickResult& pick) {
+			if (!ok)
+			{
+				if (!error.isEmpty() && m_host)
+				{
+					m_host->logWarn(error);
+				}
+				return;
+			}
+			setBusy(true);
+			PluginPointCloudCropPolylineParams params;
+			params.polylineScreenXy = pick.polylineScreenXy;
+			for (int i = 0; i < 16; ++i)
+			{
+				params.mvpMatrix[i] = pick.mvpMatrix[i];
+			}
+			params.viewportWidth = pick.viewportWidth;
+			params.viewportHeight = pick.viewportHeight;
+			params.keepInside = keepInside;
+			pch->cropPointCloudByPolyline(
+				doc,
+				id,
+				params,
+				[this](const bool cropOk, const QString& cropError, const PluginPointCloudJobResult& result) {
+					runFinished(cropOk, cropError, result);
+				});
 		});
 }
 
@@ -1588,4 +1753,155 @@ void PointCloudDockWidget::onMeshRemeshClicked()
 			runFinished(ok, error, result);
 			refreshMeshInfo();
 		});
+}
+
+namespace
+{
+
+QString defectKindLabel(const bool useChinese, const int kind)
+{
+	switch (kind)
+	{
+	case 0:
+		return useChinese ? QStringLiteral("针状") : QStringLiteral("needle");
+	case 1:
+		return useChinese ? QStringLiteral("突起") : QStringLiteral("protrusion");
+	case 2:
+		return useChinese ? QStringLiteral("边界") : QStringLiteral("boundary");
+	default:
+		return useChinese ? QStringLiteral("未知") : QStringLiteral("unknown");
+	}
+}
+
+} // namespace
+
+void PointCloudDockWidget::clearMeshDefectUi()
+{
+	if (m_defectSummaryLabel)
+	{
+		m_defectSummaryLabel->setText(
+			i18n(QStringLiteral("Heuristic geometry check; confirm manually."),
+				QStringLiteral("几何启发式检测，需人工确认。")));
+	}
+	if (m_defectList)
+	{
+		m_defectList->clear();
+	}
+}
+
+void PointCloudDockWidget::refreshMeshDefectSummary(const PluginMeshDefectReport& report)
+{
+	if (!m_defectSummaryLabel)
+	{
+		return;
+	}
+	const double pct = report.defectAreaRatio * 100.0;
+	m_defectSummaryLabel->setText(
+		i18n(QStringLiteral("Total %1 | Defects %2 (%3%)\n  Needle: %4  Protrusion: %5  Boundary: %6"),
+			QStringLiteral("总面 %1 | 缺陷 %2 (%3%)\n  针状三角: %4  突起/毛刺: %5  边界尖刺: %6"))
+			.arg(report.totalFaces)
+			.arg(report.defectFaceCount)
+			.arg(pct, 0, 'f', 1)
+			.arg(report.needleCount)
+			.arg(report.protrusionCount)
+			.arg(report.boundarySpikeCount));
+
+	if (!m_defectList)
+	{
+		return;
+	}
+	m_defectList->clear();
+	std::vector<PluginMeshDefectFace> top = report.defects;
+	std::sort(
+		top.begin(),
+		top.end(),
+		[](const PluginMeshDefectFace& a, const PluginMeshDefectFace& b) { return a.score > b.score; });
+	const std::size_t showN = std::min<std::size_t>(top.size(), 20U);
+	for (std::size_t i = 0; i < showN; ++i)
+	{
+		const PluginMeshDefectFace& d = top[i];
+		const QString line = i18n(
+			QStringLiteral("#%1 %2 score=%3"),
+			QStringLiteral("#%1 %2 score=%3"))
+								 .arg(d.faceIndex)
+								 .arg(defectKindLabel(m_useChinese, d.kind))
+								 .arg(d.score, 0, 'f', 2);
+		m_defectList->addItem(line);
+	}
+}
+
+void PointCloudDockWidget::onMeshDefectAnalyzeClicked()
+{
+	IPluginPointCloudHost* pch = pointCloudHost();
+	IPluginDocument* doc = activeDoc();
+	const std::string id = selectedMeshTargetId();
+	if (!pch || !doc || id.empty())
+	{
+		return;
+	}
+	setBusy(true);
+	PluginMeshDefectParams params;
+	params.sensitivity = static_cast<double>(m_defectSensitivitySlider->value()) * 0.01;
+	params.minClusterFaces = 3;
+	params.detectNeedle = m_defectNeedleCheck->isChecked();
+	params.detectProtrusion = m_defectProtrusionCheck->isChecked();
+	params.detectBoundarySpike = m_defectBoundaryCheck->isChecked();
+	pch->analyzeMeshDefects(
+		doc,
+		id,
+		params,
+		[this](const bool ok, const QString& error, const PluginMeshDefectReport& report) {
+			setBusy(false);
+			if (!m_host)
+			{
+				return;
+			}
+			if (ok)
+			{
+				refreshMeshDefectSummary(report);
+				const QString msg = i18n(
+					QStringLiteral("Defect analysis done: %1 defects (%2%)"),
+					QStringLiteral("缺陷分析完成: %1 处 (%2%)"))
+										.arg(report.defectFaceCount)
+										.arg(report.defectAreaRatio * 100.0, 0, 'f', 1);
+				m_host->logInfo(msg);
+				if (m_statusLabel)
+				{
+					m_statusLabel->setText(msg);
+				}
+				if (m_progress)
+				{
+					m_progress->setValue(100);
+				}
+			}
+			else
+			{
+				m_host->logError(error.isEmpty()
+					? i18n(QStringLiteral("Mesh defect analysis failed"), QStringLiteral("网格缺陷分析失败"))
+					: error);
+				if (m_statusLabel)
+				{
+					m_statusLabel->setText(error);
+				}
+				if (m_progress)
+				{
+					m_progress->setValue(0);
+				}
+			}
+		});
+}
+
+void PointCloudDockWidget::onMeshDefectClearClicked()
+{
+	IPluginPointCloudHost* pch = pointCloudHost();
+	IPluginDocument* doc = activeDoc();
+	if (pch && doc)
+	{
+		pch->clearMeshDefectHighlight(doc);
+	}
+	clearMeshDefectUi();
+	if (m_host)
+	{
+		m_host->logInfo(i18n(QStringLiteral("Defect highlight cleared"), QStringLiteral("已清除缺陷高亮")));
+	}
 }

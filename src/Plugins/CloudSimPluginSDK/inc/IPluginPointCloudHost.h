@@ -162,4 +162,28 @@ public:
 		const std::string& backendIdUtf8,
 		const PluginMeshRemeshParams& params,
 		PluginMeshFinishedFn onFinished) = 0;
+
+	// === 网格缺陷分析（1.10.0+，只读，overlay 高亮） ===
+
+	virtual void analyzeMeshDefects(
+		IPluginDocument* doc,
+		const std::string& backendIdUtf8,
+		const PluginMeshDefectParams& params,
+		PluginMeshDefectFinishedFn onFinished) = 0;
+
+	virtual void clearMeshDefectHighlight(IPluginDocument* doc) = 0;
+
+	// === 多边形裁剪（1.11.0+） ===
+
+	/// 进入 3D 视图多边形绘制；左键加点、右键/双击闭合、Esc 取消
+	virtual void pickPolylineFromViewport(
+		IPluginDocument* doc,
+		PluginPointCloudPolylinePickFinishedFn onFinished) = 0;
+
+	/// 屏幕多边形裁剪（须先 pickPolylineFromViewport 或自行填充 params）
+	virtual void cropPointCloudByPolyline(
+		IPluginDocument* doc,
+		const std::string& backendIdUtf8,
+		const PluginPointCloudCropPolylineParams& params,
+		PluginPointCloudFinishedFn onFinished) = 0;
 };

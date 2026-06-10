@@ -47,6 +47,16 @@ void BackendVisualBindingIndex::clear()
 	m_rootToBackend.clear();
 }
 
+osg::Node* BackendVisualBindingIndex::findBackendRoot(const std::string& backendId) const
+{
+	const auto it = m_backendToRoot.find(backendId);
+	if (it == m_backendToRoot.end() || !it->second.valid())
+	{
+		return nullptr;
+	}
+	return it->second.get();
+}
+
 bool BackendVisualBindingIndex::resolveBackendIdFromNodePath(const osg::NodePath& path, std::string& outBackendId) const
 {
 	for (auto it = path.rbegin(); it != path.rend(); ++it)

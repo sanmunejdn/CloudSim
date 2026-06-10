@@ -33,6 +33,7 @@
 #include <osg/Light>
 #include <osg/View>
 #include <osg/LineWidth>
+#include <osg/Point>
 #include <osg/Matrix>
 #include <osg/MatrixTransform>
 #include <osg/NodeCallback>
@@ -585,6 +586,56 @@ void OsgScene::clearBackendVisualBindings()
 bool OsgScene::resolveBackendIdFromPickedPath(const osg::NodePath& path, std::string& outBackendId) const
 {
 	return m_backendVisualBindings.resolveBackendIdFromNodePath(path, outBackendId);
+}
+
+namespace
+{
+
+osg::NodePath nodePathToSceneRootFromLeaf(const osg::Node* leaf)
+{
+	osg::NodePath path;
+	for (const osg::Node* n = leaf; n != nullptr; n = n->getNumParents() > 0 ? n->getParent(0) : nullptr)
+	{
+		path.insert(path.begin(), const_cast<osg::Node*>(n));
+	}
+	return path;
+}
+
+void copyOsgMatrixColMajor16(const osg::Matrixd& m, double outColMajor16[16])
+{
+	for (int col = 0; col < 4; ++col)
+	{
+		for (int row = 0; row < 4; ++row)
+		{
+			outColMajor16[col * 4 + row] = m(row, col);
+		}
+	}
+}
+
+} // namespace
+
+bool OsgScene::tryGetBackendPointLocalToWorldMatrix(const std::string& backendId, double outColMajor16[16]) const
+{
+	if (backendId.empty() || outColMajor16 == nullptr)
+	{
+		return false;
+	}
+	osg::Node* const outerNode = m_backendVisualBindings.findBackendRoot(backendId);
+	osg::Group* const outerGroup = outerNode ? outerNode->asGroup() : nullptr;
+	if (!outerGroup || outerGroup->getNumChildren() < 1)
+	{
+		return false;
+	}
+	osg::NodePath path = nodePathToSceneRootFromLeaf(outerGroup);
+	osg::Node* const innerNode = outerGroup->getChild(0);
+	path.push_back(innerNode);
+	osg::Group* const innerGroup = innerNode ? innerNode->asGroup() : nullptr;
+	if (innerGroup && innerGroup->getNumChildren() >= 1)
+	{
+		path.push_back(innerGroup->getChild(0));
+	}
+	copyOsgMatrixColMajor16(osg::computeLocalToWorld(path), outColMajor16);
+	return true;
 }
 
 bool OsgScene::pickAndActivateBackendAtScreenPos(double mouseX, double mouseY)
@@ -1832,6 +1883,7 @@ void OsgScene::showMeshFaceHighlight(const std::vector<osg::Vec3f>& vertsWorld)
 		m_meshPickedEdgeGeom->dirtyDisplayList();
 		m_meshPickedEdgeGeom->dirtyBound();
 	}
+	requestRedraw();
 }
 
 void OsgScene::showMeshFaceHighlight(const osg::Vec3f& aWorld, const osg::Vec3f& bWorld, const osg::Vec3f& cWorld)
@@ -1911,6 +1963,7 @@ void OsgScene::showMeshEdgeHighlight(const std::vector<osg::Vec3f>& polylineWorl
 		m_meshPickedEdgeGeom->dirtyDisplayList();
 		m_meshPickedEdgeGeom->dirtyBound();
 	}
+	requestRedraw();
 }
 
 void OsgScene::hideMeshElementHighlight()
@@ -1920,6 +1973,230 @@ void OsgScene::hideMeshElementHighlight()
 		return;
 	}
 	m_meshPickOverlayGroup->setNodeMask(0u);
+	requestRedraw();
+}
+
+namespace
+{
+
+void applyPolylinePickHudStateSet(osg::StateSet* ss)
+{
+	if (!ss)
+	{
+		return;
+	}
+	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	ss->setMode(GL_BLEND, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	ss->setAttributeAndModes(
+		new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA),
+		osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+	osg::ref_ptr<osg::Depth> depth = new osg::Depth;
+	depth->setFunction(osg::Depth::ALWAYS);
+	depth->setWriteMask(false);
+	ss->setAttributeAndModes(depth.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+}
+
+float polylinePickHudY(const int viewportHeight, const float qtY)
+{
+	return static_cast<float>(viewportHeight) - qtY;
+}
+
+osg::Vec3f polylinePickHudPoint(const int viewportHeight, const float x, const float qtY)
+{
+	return osg::Vec3f(x, polylinePickHudY(viewportHeight, qtY), 0.0f);
+}
+
+void buildPolylinePickHudKnots(
+	const std::vector<float>& screenXy,
+	const float* cursorX,
+	const float* cursorY,
+	const int viewportHeight,
+	std::vector<osg::Vec3f>& outKnots)
+{
+	outKnots.clear();
+	for (std::size_t i = 0; i + 1U < screenXy.size(); i += 2U)
+	{
+		outKnots.push_back(polylinePickHudPoint(viewportHeight, screenXy[i], screenXy[i + 1U]));
+	}
+	if (cursorX != nullptr && cursorY != nullptr && !outKnots.empty())
+	{
+		outKnots.push_back(polylinePickHudPoint(viewportHeight, *cursorX, *cursorY));
+	}
+}
+
+void markPolylinePickHudGeometryDirty(osg::Geometry* geom, osg::Array* verts)
+{
+	if (!geom || !verts)
+	{
+		return;
+	}
+	verts->dirty();
+	geom->dirtyBound();
+	geom->dirtyDisplayList();
+}
+
+} // namespace
+
+void OsgScene::updatePolylinePickScreenOverlay(
+	const std::vector<float>& screenXy,
+	const float* cursorX,
+	const float* cursorY)
+{
+	if (screenXy.size() < 2U && cursorX == nullptr)
+	{
+		clearPolylinePickScreenOverlay();
+		return;
+	}
+	if (!m_viewer.valid() || !m_graphicsWindow.valid() || !m_root.valid())
+	{
+		return;
+	}
+	const int w = viewportWidth();
+	const int h = viewportHeight();
+	if (w <= 0 || h <= 0)
+	{
+		return;
+	}
+
+	m_polylinePickOverlayScreenXy = screenXy;
+	m_polylinePickOverlayHasCursor = cursorX != nullptr && cursorY != nullptr;
+	if (m_polylinePickOverlayHasCursor)
+	{
+		m_polylinePickOverlayCursorX = *cursorX;
+		m_polylinePickOverlayCursorY = *cursorY;
+	}
+	m_polylinePickOverlayActive = true;
+
+	if (!m_polylinePickHudCamera.valid())
+	{
+		m_polylinePickHudCamera = new osg::Camera;
+		m_polylinePickHudCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+		m_polylinePickHudCamera->setRenderOrder(osg::Camera::POST_RENDER);
+		m_polylinePickHudCamera->setClearMask(0);
+		m_polylinePickHudCamera->setAllowEventFocus(false);
+		m_polylinePickHudCamera->setGraphicsContext(m_graphicsWindow.get());
+		m_polylinePickHudCamera->setViewMatrix(osg::Matrix::identity());
+		m_polylinePickHudCamera->setCullMask(0xffffffffu);
+
+		m_polylinePickFillVerts = new osg::Vec3Array;
+		m_polylinePickFillGeom = new osg::Geometry;
+		m_polylinePickFillGeom->setVertexArray(m_polylinePickFillVerts.get());
+		m_polylinePickFillGeom->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_FAN, 0, 0));
+		m_polylinePickFillGeom->setUseDisplayList(false);
+		osg::ref_ptr<osg::Vec4Array> fillColor = new osg::Vec4Array;
+		fillColor->push_back(osg::Vec4(1.0f, 0.77f, 0.0f, 0.18f));
+		m_polylinePickFillGeom->setColorArray(fillColor.get(), osg::Array::BIND_OVERALL);
+		applyPolylinePickHudStateSet(m_polylinePickFillGeom->getOrCreateStateSet());
+
+		m_polylinePickLineVerts = new osg::Vec3Array;
+		m_polylinePickLineGeom = new osg::Geometry;
+		m_polylinePickLineGeom->setVertexArray(m_polylinePickLineVerts.get());
+		m_polylinePickLineGeom->addPrimitiveSet(new osg::DrawArrays(GL_LINES, 0, 0));
+		m_polylinePickLineGeom->setUseDisplayList(false);
+		osg::ref_ptr<osg::Vec4Array> lineColor = new osg::Vec4Array;
+		lineColor->push_back(osg::Vec4(1.0f, 0.77f, 0.0f, 0.95f));
+		m_polylinePickLineGeom->setColorArray(lineColor.get(), osg::Array::BIND_OVERALL);
+		applyPolylinePickHudStateSet(m_polylinePickLineGeom->getOrCreateStateSet());
+		m_polylinePickLineGeom->getOrCreateStateSet()->setAttribute(new osg::LineWidth(2.5f));
+
+		m_polylinePickPointVerts = new osg::Vec3Array;
+		m_polylinePickPointGeom = new osg::Geometry;
+		m_polylinePickPointGeom->setVertexArray(m_polylinePickPointVerts.get());
+		m_polylinePickPointGeom->addPrimitiveSet(new osg::DrawArrays(GL_POINTS, 0, 0));
+		m_polylinePickPointGeom->setUseDisplayList(false);
+		osg::ref_ptr<osg::Vec4Array> pointColor = new osg::Vec4Array;
+		pointColor->push_back(osg::Vec4(1.0f, 0.35f, 0.0f, 1.0f));
+		m_polylinePickPointGeom->setColorArray(pointColor.get(), osg::Array::BIND_OVERALL);
+		applyPolylinePickHudStateSet(m_polylinePickPointGeom->getOrCreateStateSet());
+		m_polylinePickPointGeom->getOrCreateStateSet()->setAttribute(new osg::Point(9.0f));
+
+		osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+		geode->addDrawable(m_polylinePickFillGeom.get());
+		geode->addDrawable(m_polylinePickLineGeom.get());
+		geode->addDrawable(m_polylinePickPointGeom.get());
+		m_polylinePickHudCamera->addChild(geode.get());
+		m_root->addChild(m_polylinePickHudCamera.get());
+	}
+
+	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
+	const int fbW = static_cast<int>(std::lround(static_cast<double>(w) * dpr));
+	const int fbH = static_cast<int>(std::lround(static_cast<double>(h) * dpr));
+	m_polylinePickHudCamera->setViewport(0, 0, fbW, fbH);
+	m_polylinePickHudCamera->setProjectionMatrixAsOrtho2D(0.0, static_cast<double>(w), 0.0, static_cast<double>(h));
+
+	std::vector<osg::Vec3f> knots;
+	buildPolylinePickHudKnots(
+		screenXy,
+		cursorX,
+		cursorY,
+		h,
+		knots);
+
+	m_polylinePickPointVerts->clear();
+	for (std::size_t i = 0; i + 1U < screenXy.size(); i += 2U)
+	{
+		m_polylinePickPointVerts->push_back(polylinePickHudPoint(h, screenXy[i], screenXy[i + 1U]));
+	}
+
+	m_polylinePickLineVerts->clear();
+	for (std::size_t i = 1; i < knots.size(); ++i)
+	{
+		m_polylinePickLineVerts->push_back(knots[i - 1U]);
+		m_polylinePickLineVerts->push_back(knots[i]);
+	}
+
+	m_polylinePickFillVerts->clear();
+	if (knots.size() >= 3U)
+	{
+		for (const osg::Vec3f& v : knots)
+		{
+			m_polylinePickFillVerts->push_back(v);
+		}
+	}
+
+	osg::DrawArrays* linePrim =
+		static_cast<osg::DrawArrays*>(m_polylinePickLineGeom->getPrimitiveSet(0));
+	linePrim->setCount(static_cast<GLsizei>(m_polylinePickLineVerts->size()));
+	markPolylinePickHudGeometryDirty(m_polylinePickLineGeom.get(), m_polylinePickLineVerts.get());
+
+	osg::DrawArrays* fillPrim =
+		static_cast<osg::DrawArrays*>(m_polylinePickFillGeom->getPrimitiveSet(0));
+	fillPrim->setCount(static_cast<GLsizei>(m_polylinePickFillVerts->size()));
+	markPolylinePickHudGeometryDirty(m_polylinePickFillGeom.get(), m_polylinePickFillVerts.get());
+
+	osg::DrawArrays* pointPrim =
+		static_cast<osg::DrawArrays*>(m_polylinePickPointGeom->getPrimitiveSet(0));
+	pointPrim->setCount(static_cast<GLsizei>(m_polylinePickPointVerts->size()));
+	markPolylinePickHudGeometryDirty(m_polylinePickPointGeom.get(), m_polylinePickPointVerts.get());
+
+	m_polylinePickHudCamera->setNodeMask(0xffffffffu);
+	requestRedraw();
+}
+
+void OsgScene::refreshPolylinePickScreenOverlayLayout()
+{
+	if (!m_polylinePickOverlayActive)
+	{
+		return;
+	}
+	const float* cursorX = m_polylinePickOverlayHasCursor ? &m_polylinePickOverlayCursorX : nullptr;
+	const float* cursorY = m_polylinePickOverlayHasCursor ? &m_polylinePickOverlayCursorY : nullptr;
+	updatePolylinePickScreenOverlay(m_polylinePickOverlayScreenXy, cursorX, cursorY);
+}
+
+void OsgScene::clearPolylinePickScreenOverlay()
+{
+	m_polylinePickOverlayActive = false;
+	m_polylinePickOverlayScreenXy.clear();
+	m_polylinePickOverlayHasCursor = false;
+	if (!m_polylinePickHudCamera.valid())
+	{
+		return;
+	}
+	m_polylinePickHudCamera->setNodeMask(0u);
+	requestRedraw();
 }
 
 namespace

@@ -100,11 +100,11 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)../bin/x64d/</OutDir>
-    <IntDir>$(SolutionDir)../bin/x64dmiddle/</IntDir>
+    <IntDir>$(CloudSimIntRoot)Widget\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IntDir>$(SolutionDir)../bin/x64middle/</IntDir>
+    <IntDir>$(CloudSimIntRoot)Widget\</IntDir>
     <OutDir>$(SolutionDir)../bin/x64/</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

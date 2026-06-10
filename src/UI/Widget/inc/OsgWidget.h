@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QVector>
 #include <QWidget>
 #include <QTimer>
 #include <QString>
@@ -79,6 +80,7 @@ class OSG_WIDGET_API OsgWidget : public QWidget, public IRobotBackendPoseSink, p
 public:
 	using DragAxis = OsgScene::DragAxis;
 	friend class PointPickOperation;
+	friend class PolylinePickOperation;
 	friend class ObjectTransformOperation;
 	friend class RobotTcpDragTeachOperation;
 	friend class MeshEdgeFacePickOperation;
@@ -135,6 +137,11 @@ public:
 	TransformGizmoFrame transformGizmoFrame() const { return m_transformGizmoFrame; }
 	void setPointPickMode(bool enabled);
 	bool pointPickMode() const;
+	void setPolylinePickMode(bool enabled);
+	bool polylinePickMode() const;
+	void updatePolylinePickOverlay(const std::vector<QPoint>& vertices, const QPoint* cursorPos);
+	void commitPolylinePick(const std::vector<QPoint>& vertices);
+	void clearPolylinePickOverlay();
 	void setMeshLinePickMode(bool enabled);
 	bool meshLinePickMode() const;
 	void setMeshFacePickMode(bool enabled);
@@ -250,6 +257,10 @@ public:
 	void clearCameraFollowBackendId();
 	const std::string& cameraFollowBackendId() const { return m_cameraFollowBackendId; }
 
+	using OsgScene::showMeshFaceHighlight;
+	using OsgScene::showMeshEdgeHighlight;
+	using OsgScene::hideMeshElementHighlight;
+
 /// TCP 示教罗盘（RobotTcpDragTeachOperation 友元，同 OsgScene 对象 gizmo）
 	void updateTcpTeachCompassHighlight(DragAxis axis, bool highlightRing = false);
 	void updateTcpTeachCompassScale();
@@ -323,6 +334,9 @@ signals:
 	void activeAxisChanged(const QString& axisName);
 	void selectionCanceledByEsc();
 	void pointPickFeedback(const QString& text);
+	void polylinePickFeedback(const QString& text);
+	void polylinePickCommitted(QVector<float> polylineScreenXy, QVector<double> mvpMatrix, int viewportWidth, int viewportHeight);
+	void polylinePickCanceled();
 	void meshPickFeedback(const QString& text);
 	void meshPickCommitted(PickResult pick, int pickKind);
 	void annotationCreated(const QString& annotationId, const QString& displayText);
@@ -391,6 +405,7 @@ private:
 	std::unique_ptr<OsgWidgetCaptureController> m_captureController;
 	std::unique_ptr<OsgWidgetPickAnnotationController> m_pickAnnotationController;
 	std::unique_ptr<SelectionOperation> m_pointPickOperation;
+	std::unique_ptr<SelectionOperation> m_polylinePickOperation;
 	std::unique_ptr<SelectionOperation> m_objectTransformOperation;
 	std::unique_ptr<SelectionOperation> m_tcpDragTeachOperation;
 	std::unique_ptr<SelectionOperation> m_meshElementPickOperation;
@@ -434,9 +449,5 @@ private:
 		osg::Vec3f& outEdgeBWorld,
 		double* outEdgeDistancePx = nullptr,
 		const std::string* scopeBackendId = nullptr) const;
-
-	using OsgScene::showMeshFaceHighlight;
-	using OsgScene::showMeshEdgeHighlight;
-	using OsgScene::hideMeshElementHighlight;
 };
 

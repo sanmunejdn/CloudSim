@@ -207,6 +207,15 @@ public:
 	void showMeshEdgeHighlight(const std::vector<osg::Vec3f>& polylineWorld);
 	void hideMeshElementHighlight();
 
+	/// 多边形裁剪预览（Qt 逻辑像素 screenXy: x0,y0,x1,y1,...）；cursor 可空
+	void updatePolylinePickScreenOverlay(
+		const std::vector<float>& screenXy,
+		const float* cursorX,
+		const float* cursorY);
+	void clearPolylinePickScreenOverlay();
+	/// 视口/DPI 变化后按缓存坐标重绘多边形 HUD
+	void refreshPolylinePickScreenOverlayLayout();
+
 	struct FeatureCatalogOverlayItem
 	{
 		int displayIndex = 0;
@@ -225,6 +234,8 @@ public:
 	void unbindBackendVisualRoot(const std::string& backendId);
 	void clearBackendVisualBindings();
 	bool resolveBackendIdFromPickedPath(const osg::NodePath& path, std::string& outBackendId) const;
+	/// 点云 Geode 局部坐标 → 世界（与渲染 PAT 一致）；失败时回退解析矩阵
+	bool tryGetBackendPointLocalToWorldMatrix(const std::string& backendId, double outColMajor16[16]) const;
 
 	void rebuildPointKdTree();
 	void nearestCandidatesByKdTree(const osg::Vec3f& queryLocalCentered, int k, std::vector<int>& outIndices) const;
@@ -290,6 +301,7 @@ public:
 	bool m_selectionActive = false;
 	bool m_objectSelectionMode = false;
 	bool m_pointPickMode = false;
+	bool m_polylinePickMode = false;
 	bool m_meshLinePickMode = false;
 	bool m_meshFacePickMode = false;
 	bool m_dragging = false;
@@ -343,6 +355,19 @@ public:
 	osg::ref_ptr<osg::Vec3Array> m_meshPickedEdgeVertices;
 	osg::ref_ptr<osg::Vec4Array> m_meshPickedFaceColors;
 	osg::ref_ptr<osg::Vec4Array> m_meshPickedEdgeColors;
+
+	osg::ref_ptr<osg::Camera> m_polylinePickHudCamera;
+	osg::ref_ptr<osg::Geometry> m_polylinePickLineGeom;
+	osg::ref_ptr<osg::Geometry> m_polylinePickFillGeom;
+	osg::ref_ptr<osg::Geometry> m_polylinePickPointGeom;
+	osg::ref_ptr<osg::Vec3Array> m_polylinePickLineVerts;
+	osg::ref_ptr<osg::Vec3Array> m_polylinePickFillVerts;
+	osg::ref_ptr<osg::Vec3Array> m_polylinePickPointVerts;
+	std::vector<float> m_polylinePickOverlayScreenXy;
+	float m_polylinePickOverlayCursorX = 0.0f;
+	float m_polylinePickOverlayCursorY = 0.0f;
+	bool m_polylinePickOverlayHasCursor = false;
+	bool m_polylinePickOverlayActive = false;
 
 private:
 	struct HudCornerViewport

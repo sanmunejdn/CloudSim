@@ -27,6 +27,7 @@ class VcgVertex : public vcg::Vertex<VcgUsedTypes,
 	vcg::vertex::Normal3d,
 	vcg::vertex::Mark,
 	vcg::vertex::Qualityd,
+	vcg::vertex::CurvatureDird,
 	vcg::vertex::BitFlags>
 {
 public:
@@ -54,6 +55,7 @@ namespace internal
 bool soupToVcgMesh(const std::vector<float>& soup, VcgMesh& mesh, std::string* errMsg);
 void vcgMeshToSoup(const VcgMesh& mesh, std::vector<float>& soup);
 VcgMesh createEmptyVcgMesh();
+bool prepareMeshTopology(VcgMesh& mesh, std::string* errMsg = nullptr);
 
 } // namespace internal
 

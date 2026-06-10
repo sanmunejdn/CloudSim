@@ -85,6 +85,7 @@
 #include "ObjectTransformOperation.h"
 #include "RobotTcpDragTeachOperation.h"
 #include "PointPickOperation.h"
+#include "PolylinePickOperation.h"
 #include "MeshEdgeFacePickOperation.h"
 #include "PickTypes.h"
 #include "QWidgetViewer.h"
@@ -145,6 +146,7 @@ OsgWidget::OsgWidget(QWidget* parent)
 	qRegisterMetaType<PickResult>("PickResult");
 	m_feedbackTimer.start();
 	m_pointPickOperation = std::make_unique<PointPickOperation>(this);
+	m_polylinePickOperation = std::make_unique<PolylinePickOperation>(this);
 	m_objectTransformOperation = std::make_unique<ObjectTransformOperation>(this);
 	m_tcpDragTeachOperation = std::make_unique<RobotTcpDragTeachOperation>(this);
 	m_meshElementPickOperation = std::make_unique<MeshEdgeFacePickOperation>(this);
@@ -945,6 +947,7 @@ void OsgWidget::syncViewportLayoutFromFramebuffer(int framebufferWidth, int fram
 	}
 	updateWorldAxesHudViewport(fbW, fbH);
 	updateViewCubeHudViewport(fbW, fbH);
+	refreshPolylinePickScreenOverlayLayout();
 	requestRedraw();
 }
 
@@ -1537,9 +1540,8 @@ void OsgWidget::syncCameraManipulatorForModes()
 	{
 		return;
 	}
-	// Keep camera navigation enabled in all modes. Specific edit operations
-	// consume events only when they really need to (e.g. dragging gizmo axis).
-	const bool blockCameraNav = false;
+	// 多边形裁剪：左键用于加点，须禁用轨道球避免拖动转视图
+	const bool blockCameraNav = m_polylinePickMode;
 	// resetPosition=false keeps the current camera when re-attaching the trackball after object/point modes
 	// or ESC (OSG default true would jump to viewer "home" every time).
 	m_viewer->setCameraManipulator(blockCameraNav ? nullptr : m_trackballManipulator.get(), false);
@@ -1620,6 +1622,11 @@ void OsgWidget::setPointPickMode(bool enabled)
 	if (enabled)
 	{
 		m_objectSelectionMode = false;
+		if (m_polylinePickMode)
+		{
+			m_polylinePickMode = false;
+			clearPolylinePickOverlay();
+		}
 		m_meshLinePickMode = false;
 		m_meshFacePickMode = false;
 		m_dragging = false;
@@ -1644,6 +1651,98 @@ bool OsgWidget::pointPickMode() const
 	return m_pointPickMode;
 }
 
+void OsgWidget::setPolylinePickMode(bool enabled)
+{
+	m_polylinePickMode = enabled;
+	if (enabled)
+	{
+		m_objectSelectionMode = false;
+		m_pointPickMode = false;
+		m_meshLinePickMode = false;
+		m_meshFacePickMode = false;
+		m_dragging = false;
+		m_rotating = false;
+		m_dragAxis = DragAxis::None;
+		updateCompassHighlight(DragAxis::None);
+		emit activeAxisChanged(QStringLiteral("None"));
+		emit polylinePickFeedback(
+			QStringLiteral("Polyline crop: left-click vertices, right-click/double-click close, Esc cancel"));
+		resetNavigationInputQueues();
+		clearPolylinePickScreenOverlay();
+	}
+	else
+	{
+		clearPolylinePickScreenOverlay();
+		emit polylinePickFeedback(QStringLiteral("Polyline crop: off"));
+	}
+	syncCameraManipulatorForModes();
+	refreshCompassDrawVisibility();
+}
+
+bool OsgWidget::polylinePickMode() const
+{
+	return m_polylinePickMode;
+}
+
+void OsgWidget::updatePolylinePickOverlay(const std::vector<QPoint>& vertices, const QPoint* cursorPos)
+{
+	std::vector<float> screenXy;
+	screenXy.reserve(vertices.size() * 2U);
+	for (const QPoint& p : vertices)
+	{
+		screenXy.push_back(static_cast<float>(p.x()));
+		screenXy.push_back(static_cast<float>(p.y()));
+	}
+	float cursorX = 0.0f;
+	float cursorY = 0.0f;
+	const float* cursorXPtr = nullptr;
+	const float* cursorYPtr = nullptr;
+	if (cursorPos != nullptr)
+	{
+		cursorX = static_cast<float>(cursorPos->x());
+		cursorY = static_cast<float>(cursorPos->y());
+		cursorXPtr = &cursorX;
+		cursorYPtr = &cursorY;
+	}
+	updatePolylinePickScreenOverlay(screenXy, cursorXPtr, cursorYPtr);
+}
+
+void OsgWidget::commitPolylinePick(const std::vector<QPoint>& vertices)
+{
+	if (vertices.size() < 3U || !m_viewer.valid() || !m_viewer->getCamera())
+	{
+		emit polylinePickCanceled();
+		return;
+	}
+	QVector<float> polylineScreenXy;
+	polylineScreenXy.reserve(static_cast<int>(vertices.size() * 2U));
+	for (const QPoint& p : vertices)
+	{
+		polylineScreenXy.push_back(static_cast<float>(p.x()));
+		polylineScreenXy.push_back(static_cast<float>(p.y()));
+	}
+	const osg::Matrixd mvp =
+		m_viewer->getCamera()->getViewMatrix() * m_viewer->getCamera()->getProjectionMatrix();
+	QVector<double> mvpOut;
+	mvpOut.resize(16);
+	for (int col = 0; col < 4; ++col)
+	{
+		for (int row = 0; row < 4; ++row)
+		{
+			mvpOut[col * 4 + row] = mvp(row, col);
+		}
+	}
+	const int vw = viewportWidth();
+	const int vh = viewportHeight();
+	setPolylinePickMode(false);
+	emit polylinePickCommitted(polylineScreenXy, mvpOut, vw, vh);
+}
+
+void OsgWidget::clearPolylinePickOverlay()
+{
+	clearPolylinePickScreenOverlay();
+}
+
 void OsgWidget::setMeshLinePickMode(bool enabled)
 {
 	m_meshLinePickMode = enabled;
@@ -1651,6 +1750,11 @@ void OsgWidget::setMeshLinePickMode(bool enabled)
 	{
 		m_objectSelectionMode = false;
 		m_pointPickMode = false;
+		if (m_polylinePickMode)
+		{
+			m_polylinePickMode = false;
+			clearPolylinePickOverlay();
+		}
 		m_meshFacePickMode = false;
 		m_dragging = false;
 		m_rotating = false;
@@ -1682,6 +1786,11 @@ void OsgWidget::setMeshFacePickMode(bool enabled)
 	{
 		m_objectSelectionMode = false;
 		m_pointPickMode = false;
+		if (m_polylinePickMode)
+		{
+			m_polylinePickMode = false;
+			clearPolylinePickOverlay();
+		}
 		m_meshLinePickMode = false;
 		m_dragging = false;
 		m_rotating = false;
@@ -2060,6 +2169,13 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 					requestRedraw();
 					return true;
 				}
+				if (m_polylinePickMode)
+				{
+					setPolylinePickMode(false);
+					emit polylinePickCanceled();
+					requestRedraw();
+					return true;
+				}
 				if (m_meshLinePickMode || m_meshFacePickMode)
 				{
 					m_meshLinePickMode = false;
@@ -2075,6 +2191,11 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 	}
 
 	if (m_pointPickOperation && m_pointPickOperation->handleEvent(watched, event))
+	{
+		return true;
+	}
+
+	if (m_polylinePickOperation && m_polylinePickOperation->handleEvent(watched, event))
 	{
 		return true;
 	}

@@ -4,6 +4,11 @@
 #include <unordered_map>
 #include <cmath>
 #include <cstdint>
+#include <exception>
+
+#include <vcg/complex/algorithms/update/flag.h>
+#include <vcg/complex/algorithms/update/normal.h>
+#include <vcg/complex/algorithms/update/topology.h>
 
 namespace vcgalgo
 {
@@ -223,6 +228,27 @@ void vcgMeshToSoup(const VcgMesh& mesh, std::vector<float>& soup)
 VcgMesh createEmptyVcgMesh()
 {
 	return VcgMesh{};
+}
+
+bool prepareMeshTopology(VcgMesh& mesh, std::string* errMsg)
+{
+	try
+	{
+		vcg::tri::UpdateTopology<VcgMesh>::FaceFace(mesh);
+		vcg::tri::UpdateTopology<VcgMesh>::VertexFace(mesh);
+		vcg::tri::UpdateFlags<VcgMesh>::FaceBorderFromFF(mesh);
+		vcg::tri::UpdateFlags<VcgMesh>::VertexBorderFromFaceBorder(mesh);
+		vcg::tri::UpdateNormal<VcgMesh>::PerVertexNormalizedPerFaceNormalized(mesh);
+		return true;
+	}
+	catch (const std::exception& e)
+	{
+		if (errMsg)
+		{
+			*errMsg = e.what();
+		}
+		return false;
+	}
 }
 
 } // namespace internal
