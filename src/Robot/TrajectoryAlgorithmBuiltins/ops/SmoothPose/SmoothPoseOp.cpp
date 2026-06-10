@@ -54,6 +54,7 @@ std::string SmoothPoseOp::formatSummary(
 bool SmoothPoseOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
 	(void)op;
@@ -62,7 +63,7 @@ bool SmoothPoseOp::processPath(
 	{
 		return false;
 	}
-	smoothPoseUnifiedInScope(traj, op.scope, activeProgramContext());
+	smoothPoseUnifiedInScope(traj, op.scope, ctx.program);
 	return true;
 }
 

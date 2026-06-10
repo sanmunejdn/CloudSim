@@ -7,6 +7,8 @@
 #include "BackendDataBase.h"
 #include <ShapeHandle.h>
 
+#include <unordered_map>
+
 struct DATA_EXPORT BrepHierarchyPart
 {
 	std::string partPath;
@@ -42,6 +44,10 @@ public:
 	void setColor(const BackendColor& color) override;
 	BackendColor color() const override;
 
+	void setFaceHighlightColors(std::unordered_map<int, BackendColor> colorsByFaceIndex);
+	const std::unordered_map<int, BackendColor>& faceHighlightColors() const;
+	void clearFaceHighlightColors();
+
 	bool hasPoseProperty() const override { return true; }
 	bool hasRotationProperty() const override { return true; }
 	bool hasColorProperty() const override { return true; }
@@ -70,4 +76,5 @@ private:
 	BackendVec3 m_position;
 	BackendVec3 m_rotation;
 	BackendColor m_color;
+	std::unordered_map<int, BackendColor> m_faceHighlightColors;
 };

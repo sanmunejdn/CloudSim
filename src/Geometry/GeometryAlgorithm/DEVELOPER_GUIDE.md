@@ -33,6 +33,7 @@
 | `WireOps.h` / `ShellOps.h` | 线融合、面缝合 |
 | `GeoMeshBoolean.h` | CGAL 三角网格布尔 |
 | `FeatureSpec.h` | **CAD 轨迹特征**：`FeatureSpec` / `RawPath` / `FeatureCatalog`；统一离散入口 `discretizeFeature` |
+| `TemplateBrepUpdate.h` | **扫描驱动 B-rep 更新**：面采样、点面归属、特征类型驱动面调整（Plane/Cylinder/Cone/Sphere/Toroid/BSpline） |
 | `SelfTest.h` | `runSelfTest` |
 
 ### 网格离散模式（`MeshDiscretizeMode`）
@@ -128,9 +129,51 @@ Widget JobSystem（可选）
 
 带 tessellation 的 `collectShapeHierarchy` 仍供网格路径（DXF/旧 STEP mesh 回退）使用。
 
+### 3.3 模板 B-rep 面更新（`TemplateBrepUpdate.h`）
+
+扫描点云（STEP 模型坐标 mm）驱动模板 shape 逐面调整。编排与 ICP 在 `Data/GeometryBackendOps.cpp`；**完整流程与守卫逻辑**见 [`docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md) §4。
+
+| API | 说明 |
+|-----|------|
+| `sampleShapeSurfacePoints` | 按 `spacingMm` 在 `TopoDS_Face` 参数域网格采样 → `outXyz`（STEP 坐标） |
+| `updateShapeFromPointCloud` | 并行点归属 → 并行逐面 `adjustFaceGeometryDispatch` → **增量试应用** → `updatedShape` |
+| `TemplateBrepUpdateResult` | `perFace[]`、`updatedFaceCount`、`skippedBadBboxFaceCount`、`globalMaxDeviationMm`、`qualityPassed` |
+
+**点归属**（`assignScanPointsParallel`）：面 bbox 预筛 + 单面投影，OpenMP 并行；全工件时 `effectiveAssignPointsPerFace` 按面数摊薄采样预算。
+
+**增量写回**：每面 `BRepTools_ReShape::Apply` 试替换后检查整体 bbox；失败则跳过该面，避免批量 Apply 后包围盒爆炸。单面 bbox、ShapeFix 膨胀、最终全局 bbox 均有守卫（见专题文档 §4.4）。
+
+**选择性面重构**：`selectedFaceIndices` 为空处理所有面；非空仅调整指定面。`qualityPassed` 在 selective 模式下仅统计已更新面归属点偏差。
+
+**BSpline**：`bsplineAdjustThresholdMm`、`bsplineMaxPoleMoveMm`、`bsplineUvGridCellsU/V`、`bsplinePoleSmoothPasses`；超阈值点经 UV 网格聚合后 `SetPole`，保留原 wire。
+
+**报告**：`FaceUpdateReport::surfaceTypeName` 为 OCCT 曲面类型名；`action` 见下表。
+
+**面调整策略**（`adjustFaceGeometryDispatch`）：根据原始 CAD 面类型选择不同调整方式，而非统一拟合：
+
+| 面类型（`GeomAbs_SurfaceType`） | 调整方式 | `FaceUpdateAction` |
+|-------------------------------|----------|-------------------|
+| `Plane` | 最小二乘拟合平面 + 原始 wire | `PlaneAdjusted` |
+| `Cylinder` | PCA 轴线 + 径向均值半径，保留 UV 范围 | `CylinderAdjusted` |
+| `Cone` | PCA 轴线 + 半角估算，保留 UV 范围 | `ConeAdjusted` |
+| `Sphere` | 质心 + 径向均值半径，保留 UV 范围 | `SphereAdjusted` |
+| `Torus` | PCA 轴线 + 中位数主半径 + 偏差次半径 | `ToroidAdjusted` |
+| `BSplineSurface` | 扫描点投影原面；超 `bsplineAdjustThresholdMm` 的点经基函数加权调整控制点（`SetPole`），保留结点/wire | `BSplineAdjusted` |
+| 其他 | 降级为 `refitFaceFromPoints`（全拟合） | `PlaneRefit` 等 |
+
+| `FaceUpdateAction` | 含义 |
+|--------------------|------|
+| `PlaneAdjusted` ~ `BSplineAdjusted` | 特征类型驱动调整（新） |
+| `PlaneRefit` / `CylinderRefit` / `FreeformRefit` | 全拟合（旧，Other 类型降级路径） |
+| `ConeRefit` / `SphereRefit` / `ToroidRefit` | 预留拟合枚举 |
+| `SkippedNoPoints` | 带内无足够扫描点 |
+| `Unchanged` | 未改 |
+
 ## 4. Data 薄包装
 
 [`GeometryBackendOps.h`](../Data/inc/GeometryBackendOps.h)（`geometry_backend_ops`）转发 STEP 路径级 API，供 `CloudSimPluginHost` 调用。STEP 导入仍经 `MeshBackendData::loadFromFile` → `geoalgo::tessellateStepFile`。
+
+**模板 B-rep 更新**另含 `registerScanToCadTemplate` / `updateBrepFromAlignedScan`（见 [`Data/DEVELOPER_GUIDE.md`](../Data/DEVELOPER_GUIDE.md) §4.6）。
 
 特征轨迹 API 另见 [`GeometryRef.h`](../Data/inc/GeometryRef.h)：`resolveGeometryRef`、`discretizeFeature`、`enumerateFeatureCatalog` 等（`geometry_backend_ops` 命名空间）。
 
@@ -151,4 +194,5 @@ const bool ok = geoalgo::runSelfTest(&err);
 
 - [`CloudSimPluginSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md)
 - [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)
+- [`docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md)
 - [`RobotScene/DEVELOPER_GUIDE.md`](../../Robot/RobotScene/DEVELOPER_GUIDE.md) §14 — `RawTrajectory` 编辑流水线

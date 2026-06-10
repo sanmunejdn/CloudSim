@@ -2,7 +2,7 @@
 #include "TranslateOp.h"
 
 #include "TrajectoryOpFormat.h"
-#include "TrajectoryOpPathApply.h"
+#include "UnifiedTrajectorySemanticMath.h"
 
 #include <cmath>
 #include <cstdio>
@@ -130,9 +130,10 @@ std::string TranslateOp::formatSummary(
 bool TranslateOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
-	return applyUnifiedPathOp(op, traj, errMsg);
+	return applyTranslateRotateInScope(op, traj, ctx.program);
 }
 
 } // namespace trajectory_algo

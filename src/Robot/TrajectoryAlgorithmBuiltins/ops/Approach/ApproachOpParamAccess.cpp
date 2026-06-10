@@ -30,6 +30,30 @@ bool ApproachOpParamAccess::read(
 		return true;
 	
 	}
+	if (field.key == "approach.directionFrame")
+	{
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = static_cast<int>(op.approach.directionFrame);
+		return true;
+	}
+	if (field.key == "approach.customDirection.x")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.approach.customDirectionX;
+		return true;
+	}
+	if (field.key == "approach.customDirection.y")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.approach.customDirectionY;
+		return true;
+	}
+	if (field.key == "approach.customDirection.z")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.approach.customDirectionZ;
+		return true;
+	}
 	if (field.key == "approach.insertMode")
 	{
 		out.kind = TrajectoryParamValue::Kind::Int;
@@ -91,6 +115,26 @@ bool ApproachOpParamAccess::write(
 		op.approach.directionMode = static_cast<RobotInstruction::ApproachDirectionMode>(in.asInt);
 		return true;
 	
+	}
+	if (field.key == "approach.directionFrame")
+	{
+		op.approach.directionFrame = static_cast<RobotInstruction::TransformReferenceFrame>(in.asInt);
+		return true;
+	}
+	if (field.key == "approach.customDirection.x")
+	{
+		op.approach.customDirectionX = in.asDouble;
+		return true;
+	}
+	if (field.key == "approach.customDirection.y")
+	{
+		op.approach.customDirectionY = in.asDouble;
+		return true;
+	}
+	if (field.key == "approach.customDirection.z")
+	{
+		op.approach.customDirectionZ = in.asDouble;
+		return true;
 	}
 	if (field.key == "approach.insertMode")
 	{

@@ -1,8 +1,9 @@
-// Retract 原子块：在路径尾端插入退刀段
+// Retract 原子块：在路径尾端插入退刀点
 #include "RetractOp.h"
 
-#include "TrajectoryOpPathApply.h"
+#include "UnifiedTrajectorySemanticMath.h"
 
+#include <cmath>
 #include <cstdio>
 
 namespace trajectory_algo
@@ -17,6 +18,8 @@ const char* directionLabel(const int mode, const bool chinese)
 		return chinese ? "切向" : "Tangent";
 	case static_cast<int>(RobotInstruction::ApproachDirectionMode::ToolZ):
 		return chinese ? "工具Z" : "ToolZ";
+	case static_cast<int>(RobotInstruction::ApproachDirectionMode::Custom):
+		return chinese ? "自定义" : "Custom";
 	case static_cast<int>(RobotInstruction::ApproachDirectionMode::SurfaceNormal):
 	default:
 		return chinese ? "法向" : "Normal";
@@ -28,7 +31,7 @@ const char* segmentLabel(const int mode, const bool chinese)
 	switch (mode)
 	{
 	case static_cast<int>(RobotInstruction::SegmentSelectMode::IndexRange):
-		return chinese ? "区间" : "Range";
+		return chinese ? "范围" : "Range";
 	case static_cast<int>(RobotInstruction::SegmentSelectMode::AllSegments):
 	default:
 		return chinese ? "全部" : "All";
@@ -51,6 +54,24 @@ TrajectoryOpParamField boolField(
 	field.defaultBool = defaultValue;
 	field.order = order;
 	field.group = group;
+	return field;
+}
+
+TrajectoryOpParamField customDirectionField()
+{
+	TrajectoryOpParamField field{};
+	field.key = "retract.customDirection";
+	field.type = TrajectoryParamType::Vec3;
+	field.labelEn = "Custom Direction";
+	field.labelZh = "自定义方向";
+	field.minValue = -1.0;
+	field.maxValue = 1.0;
+	field.step = 0.01;
+	field.defaultDouble = 0.0;
+	field.order = 2;
+	field.group = "retract";
+	field.visibleWhenFieldKey = "retract.directionMode";
+	field.visibleWhenIntValue = static_cast<int>(RobotInstruction::ApproachDirectionMode::Custom);
 	return field;
 }
 } // namespace
@@ -78,6 +99,10 @@ RobotInstruction::TrajectoryOpDescriptor RetractOp::makeDefaultDescriptor(
 	op.scope = defaultScope;
 	op.retract.distanceMm = 20.0;
 	op.retract.directionMode = RobotInstruction::ApproachDirectionMode::SurfaceNormal;
+	op.retract.directionFrame = RobotInstruction::TransformReferenceFrame::World;
+	op.retract.customDirectionX = 0.0;
+	op.retract.customDirectionY = 0.0;
+	op.retract.customDirectionZ = 1.0;
 	op.retract.insertMode = RobotInstruction::InsertMode::Trajectory;
 	op.retract.segmentSelectMode = RobotInstruction::SegmentSelectMode::AllSegments;
 	op.retract.segmentFrom = 1;
@@ -89,24 +114,71 @@ RobotInstruction::TrajectoryOpDescriptor RetractOp::makeDefaultDescriptor(
 
 std::vector<TrajectoryOpParamField> RetractOp::paramFields() const
 {
+	TrajectoryOpParamField directionFrameField = enumParamField(
+		"retract.directionFrame",
+		"Direction Frame",
+		"方向参考系",
+		{ "0", "1" },
+		{ "世界", "体" },
+		{ "World", "Body" },
+		0,
+		3,
+		"retract");
+	directionFrameField.visibleWhenFieldKey = "retract.directionMode";
+	directionFrameField.visibleWhenIntValue =
+		static_cast<int>(RobotInstruction::ApproachDirectionMode::Custom);
+	TrajectoryOpParamField segmentFromField = intParamField(
+		"retract.segmentFrom",
+		"Segment From",
+		"段起始",
+		1,
+		100000,
+		1,
+		4,
+		"retract");
+	segmentFromField.visibleWhenFieldKey = "retract.segmentSelectMode";
+	segmentFromField.visibleWhenIntValue = 1;
+	TrajectoryOpParamField segmentToField = intParamField(
+		"retract.segmentTo",
+		"Segment To",
+		"段结束",
+		1,
+		100000,
+		1,
+		5,
+		"retract");
+	segmentToField.visibleWhenFieldKey = "retract.segmentSelectMode";
+	segmentToField.visibleWhenIntValue = 1;
 	return {
-		doubleParamField("retract.distanceMm", "Distance", "退刀距离", "mm", 0.0, 10000.0, 0.1, 20.0, 0, "retract"),
+		doubleParamField(
+			"retract.distanceMm",
+			"Distance",
+			"退刀距离",
+			"mm",
+			0.0,
+			10000.0,
+			0.1,
+			20.0,
+			0,
+			"retract"),
 		enumParamField(
 			"retract.directionMode",
 			"Direction",
 			"方向模式",
-			{ "0", "1", "2" },
-			{ "切向", "法向", "工具Z" },
-			{ "PathTangent", "SurfaceNormal", "ToolZ" },
+			{ "0", "1", "2", "3" },
+			{ "切向", "法向", "工具Z", "自定义" },
+			{ "PathTangent", "SurfaceNormal", "ToolZ", "Custom" },
 			1,
 			1,
 			"retract"),
+		customDirectionField(),
+		directionFrameField,
 		enumParamField(
 			"retract.insertMode",
 			"Insert Mode",
 			"插入模式",
 			{ "0", "1" },
-			{ "轨迹尾", "分段尾" },
+			{ "轨迹尾", "段尾" },
 			{ "TrajectoryTail", "SegmentTail" },
 			0,
 			2,
@@ -114,17 +186,27 @@ std::vector<TrajectoryOpParamField> RetractOp::paramFields() const
 		enumParamField(
 			"retract.segmentSelectMode",
 			"Segment Scope",
-			"分段范围",
+			"段选择",
 			{ "0", "1" },
-			{ "全部分段", "区间" },
+			{ "全部段", "范围" },
 			{ "AllSegments", "IndexRange" },
 			0,
 			3,
 			"retract"),
-		intParamField("retract.segmentFrom", "Segment From", "起始段", 1, 100000, 1, 4, "retract"),
-		intParamField("retract.segmentTo", "Segment To", "结束段", 1, 100000, 1, 5, "retract"),
-		boolField("retract.overrideSpeedEnabled", "Override Speed", "速度覆盖", false, 6, "retract"),
-		doubleParamField("retract.speedMmPerSec", "Speed", "退刀速度", "mm/s", 1.0, 5000.0, 1.0, 100.0, 7, "retract"),
+		segmentFromField,
+		segmentToField,
+		boolField("retract.overrideSpeedEnabled", "Override Speed", "覆盖速度", false, 6, "retract"),
+		doubleParamField(
+			"retract.speedMmPerSec",
+			"Speed",
+			"速度",
+			"mm/s",
+			1.0,
+			5000.0,
+			1.0,
+			100.0,
+			7,
+			"retract"),
 	};
 }
 
@@ -146,10 +228,27 @@ bool RetractOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, std
 		}
 		return false;
 	}
+	if (op.retract.directionMode == RobotInstruction::ApproachDirectionMode::Custom)
+	{
+		const double len = std::sqrt(
+			op.retract.customDirectionX * op.retract.customDirectionX
+			+ op.retract.customDirectionY * op.retract.customDirectionY
+			+ op.retract.customDirectionZ * op.retract.customDirectionZ);
+		if (len < 1e-6)
+		{
+			if (errMsg)
+			{
+				*errMsg = "retract custom direction must be non-zero";
+			}
+			return false;
+		}
+	}
 	return true;
 }
 
-std::string RetractOp::formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op, const bool chinese) const
+std::string RetractOp::formatSummary(
+	const RobotInstruction::TrajectoryOpDescriptor& op,
+	const bool chinese) const
 {
 	char buffer[256];
 	std::snprintf(
@@ -166,10 +265,12 @@ std::string RetractOp::formatSummary(const RobotInstruction::TrajectoryOpDescrip
 bool RetractOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
-	return applyUnifiedPathOp(op, traj, errMsg);
+	(void)errMsg;
+	insertRetractInScope(traj, op.retract, op.scope, ctx.program);
+	return true;
 }
 
 } // namespace trajectory_algo
-

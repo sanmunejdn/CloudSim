@@ -7,6 +7,7 @@
 #include <CGAL/random_simplify_point_set.h>
 
 #include <algorithm>
+#include <map>
 
 namespace pclalgo
 {
@@ -34,16 +35,24 @@ bool syncRgbaAfterPointErase(
 		return false;
 	}
 
+	// 构建索引映射 O(n log n)
+	std::map<CgalPoint, std::size_t> indexMap;
+	for (std::size_t i = 0; i < pointsBefore.size(); ++i)
+	{
+		indexMap[pointsBefore[i]] = i;
+	}
+
+	// 使用映射查找 O(n log n)
 	std::vector<float> newRgba;
 	newRgba.reserve(pointsAfter.size() * 4U);
 	for (const CgalPoint& p : pointsAfter)
 	{
-		const auto it = std::find(pointsBefore.begin(), pointsBefore.end(), p);
-		if (it == pointsBefore.end())
+		const auto it = indexMap.find(p);
+		if (it == indexMap.end())
 		{
 			continue;
 		}
-		const std::size_t idx = static_cast<std::size_t>(std::distance(pointsBefore.begin(), it));
+		const std::size_t idx = it->second;
 		const std::size_t b = idx * 4U;
 		newRgba.push_back(rgba[b]);
 		newRgba.push_back(rgba[b + 1U]);

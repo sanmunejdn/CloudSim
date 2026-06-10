@@ -48,6 +48,7 @@ public:
 	void invalidateInstructionPropertyCache() override;
 
 	void clearBackendObjectSelection(bool clearTreeSelection) override;
+	QString selectedBackendId() const override;
 
 	std::shared_ptr<RobotInstruction::Base> activeInstructionForProperty() const override;
 	void applySuggestedAxisPresetFromSeedIfNeeded(

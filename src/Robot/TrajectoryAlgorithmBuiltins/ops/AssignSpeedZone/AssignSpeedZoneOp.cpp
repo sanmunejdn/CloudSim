@@ -56,6 +56,7 @@ std::string AssignSpeedZoneOp::formatSummary(
 bool AssignSpeedZoneOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
 	(void)op;
@@ -67,7 +68,7 @@ bool AssignSpeedZoneOp::processPath(
 	assignSpeedUnifiedInScope(
 		traj,
 		op.scope,
-		activeProgramContext(),
+		ctx.program,
 		op.assignMotion.speedMmPerSec);
 	return true;
 }

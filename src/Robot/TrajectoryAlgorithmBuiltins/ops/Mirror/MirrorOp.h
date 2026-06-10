@@ -1,4 +1,4 @@
-// Mirror 原子块：镜像 scope 内路点
+// Mirror 原子块：按 scope 对路点做轴反向
 #pragma once
 
 #include "ITrajectoryOp.h"
@@ -20,6 +20,7 @@ public:
 	bool processPath(
 		const RobotInstruction::TrajectoryOpDescriptor& op,
 		RobotInstruction::UnifiedTrajectory& traj,
+		const TrajectoryOpExecutionContext& ctx,
 		std::string* errMsg) const override;
 };
 

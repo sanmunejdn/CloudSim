@@ -147,13 +147,13 @@
       <PreprocessorDefinitions>ROBOT_SCENE_LIB;TRAJECTORY_ALGORITHM_STATIC;TRAJECTORY_ALGORITHM_BUILTINS_STATIC;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../TrajectoryAlgorithm/inc;../TrajectoryAlgorithmBuiltins/inc;../../Contracts/CloudSimCore/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../TrajectoryAlgorithm/inc;../TrajectoryAlgorithmBuiltins/inc;../../Contracts/CloudSimCore/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>CloudSimCore.lib;GeometryEngine.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;Data.lib;RunLogger.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgUtil.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimCore.lib;GeometryEngine.lib;GeometryAlgorithm.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;Data.lib;RunLogger.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgUtil.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
@@ -169,13 +169,13 @@
       <PreprocessorDefinitions>ROBOT_SCENE_LIB;TRAJECTORY_ALGORITHM_STATIC;TRAJECTORY_ALGORITHM_BUILTINS_STATIC;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../TrajectoryAlgorithm/inc;../TrajectoryAlgorithmBuiltins/inc;../../Contracts/CloudSimCore/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../TrajectoryAlgorithm/inc;../TrajectoryAlgorithmBuiltins/inc;../../Contracts/CloudSimCore/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../RobotUrdf/inc;../../Data/Data/inc;../RobotKinematics/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>CloudSimCore.lib;GeometryEngine.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;Data.lib;RunLogger.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgUtil.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimCore.lib;GeometryEngine.lib;GeometryAlgorithm.lib;TrajectoryAlgorithm.lib;TrajectoryAlgorithmBuiltins.lib;Data.lib;RunLogger.lib;RobotUrdf.lib;RobotKinematics.lib;osg.lib;osgUtil.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
@@ -213,8 +213,10 @@
     <ClInclude Include="inc\RawTrajectoryMath.h" />
     <ClInclude Include="inc\RecipeBlueprint.h" />
     <ClInclude Include="inc\UnifiedTrajectory.h" />
+    <ClInclude Include="inc\RobotSceneGeometryProjection.h" />
     <ClInclude Include="inc\TrajectoryPathAdapters.h" />
     <ClInclude Include="inc\TrajectoryPipelineEngine.h" />
+    <ClInclude Include="inc\TrajectoryGeometryResolver.h" />
     <ClInclude Include="inc\ProcessFlowPresetLoader.h" />
   </ItemGroup>
   <ItemGroup>
@@ -239,6 +241,7 @@
     <None Include="resource\trajectory\ops\Weave.json" />
     <None Include="resource\trajectory\ops\ReachabilityFilter.json" />
     <None Include="resource\trajectory\ops\ExternalAxisSearch.json" />
+    <None Include="resource\trajectory\ops\ProjectToGeometry.json" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp" />
@@ -265,6 +268,7 @@
     <ClCompile Include="source\UnifiedTrajectory.cpp" />
     <ClCompile Include="source\TrajectoryPathAdapters.cpp" />
     <ClCompile Include="source\TrajectoryPipelineEngine.cpp" />
+    <ClCompile Include="source\TrajectoryGeometryResolver.cpp" />
     <ClCompile Include="source\ProcessFlowPresetLoader.cpp" />
     <ClCompile Include="source\RobotMatrixOsgBridge.cpp" />
     <ClCompile Include="source\RobotSceneKinematics.cpp" />
@@ -277,6 +281,9 @@
     </ProjectReference>
     <ProjectReference Include="..\..\Geometry\GeometryEngine\GeometryEngine.vcxproj">
       <Project>{d4e5f6a7-b8c9-4d0e-9f1a-2b3c4d5e6f70}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Geometry\GeometryAlgorithm\GeometryAlgorithm.vcxproj">
+      <Project>{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}</Project>
     </ProjectReference>
     <ProjectReference Include="..\TrajectoryAlgorithm\TrajectoryAlgorithm.vcxproj">
       <Project>{c1a2b3d4-e5f6-7890-abcd-ef0123456702}</Project>

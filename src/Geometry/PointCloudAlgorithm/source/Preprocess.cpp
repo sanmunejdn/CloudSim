@@ -13,6 +13,7 @@
 #include <CGAL/IO/io.h>
 
 #include <algorithm>
+#include <map>
 #include <utility>
 
 #ifdef max
@@ -32,6 +33,16 @@ using Kernel = CGAL::Simple_cartesian<double>;
 using Point_3 = Kernel::Point_3;
 using Vector_3 = Kernel::Vector_3;
 using Point_with_normal = std::pair<Point_3, Vector_3>;
+
+struct PointCompare
+{
+	bool operator()(const Point_3& a, const Point_3& b) const
+	{
+		if (a.x() != b.x()) return a.x() < b.x();
+		if (a.y() != b.y()) return a.y() < b.y();
+		return a.z() < b.z();
+	}
+};
 
 bool buildPointNormal(
 	const std::vector<float>& xyz,
@@ -85,19 +96,25 @@ void syncRgbaAfterErase(
 	{
 		return;
 	}
+	
+	// 构建索引映射 O(n log n)
+	std::map<Point_3, std::size_t, PointCompare> indexMap;
+	for (std::size_t i = 0; i < before.size(); ++i)
+	{
+		indexMap[before[i].first] = i;
+	}
+	
+	// 使用映射查找 O(n log n)
 	std::vector<float> newRgba;
 	newRgba.reserve(after.size() * 4U);
 	for (const Point_with_normal& pn : after)
 	{
-		const auto it = std::find_if(
-			before.begin(),
-			before.end(),
-			[&pn](const Point_with_normal& x) { return x.first == pn.first; });
-		if (it == before.end())
+		const auto it = indexMap.find(pn.first);
+		if (it == indexMap.end())
 		{
 			continue;
 		}
-		const std::size_t idx = static_cast<std::size_t>(std::distance(before.begin(), it));
+		const std::size_t idx = it->second;
 		const std::size_t b = idx * 4U;
 		if (b + 3U < rgba.size())
 		{
@@ -125,7 +142,11 @@ bool estimateNormalsPca(
 	}
 
 	const unsigned int k = (std::max)(3U, kNeighbors);
+#ifdef CGAL_LINKED_WITH_TBB
+	CGAL::pca_estimate_normals<CGAL::Parallel_tag>(
+#else
 	CGAL::pca_estimate_normals<CGAL::Sequential_tag>(
+#endif
 		points,
 		k,
 		CGAL::parameters::point_map(CGAL::First_of_pair_property_map<Point_with_normal>())
@@ -150,7 +171,11 @@ bool estimateNormalsJet(
 	}
 
 	const unsigned int k = (std::max)(3U, kNeighbors);
+#ifdef CGAL_LINKED_WITH_TBB
+	CGAL::jet_estimate_normals<CGAL::Parallel_tag>(
+#else
 	CGAL::jet_estimate_normals<CGAL::Sequential_tag>(
+#endif
 		points,
 		k,
 		CGAL::parameters::point_map(CGAL::First_of_pair_property_map<Point_with_normal>())
@@ -230,7 +255,11 @@ bool removeOutliers(
 	}
 
 	const std::vector<Point_with_normal> before = points;
+#ifdef CGAL_LINKED_WITH_TBB
+	const auto endIt = CGAL::remove_outliers<CGAL::Parallel_tag>(
+#else
 	const auto endIt = CGAL::remove_outliers<CGAL::Sequential_tag>(
+#endif
 		points,
 		kNeighbors,
 		CGAL::parameters::point_map(CGAL::First_of_pair_property_map<Point_with_normal>())
@@ -274,7 +303,11 @@ bool smoothBilateral(
 		}
 	}
 
+#ifdef CGAL_LINKED_WITH_TBB
+	CGAL::bilateral_smooth_point_set<CGAL::Parallel_tag>(
+#else
 	CGAL::bilateral_smooth_point_set<CGAL::Sequential_tag>(
+#endif
 		points,
 		12U,
 		CGAL::parameters::point_map(CGAL::First_of_pair_property_map<Point_with_normal>())

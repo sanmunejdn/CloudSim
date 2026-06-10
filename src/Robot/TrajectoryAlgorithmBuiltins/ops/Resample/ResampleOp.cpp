@@ -62,6 +62,7 @@ std::string ResampleOp::formatSummary(
 bool ResampleOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
 	(void)op;
@@ -73,7 +74,7 @@ bool ResampleOp::processPath(
 	resampleUnifiedTrajectoryInScope(
 		traj,
 		op.scope,
-		activeProgramContext(),
+		ctx.program,
 		op.resample.stepMm);
 	return true;
 }

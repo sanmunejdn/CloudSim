@@ -55,11 +55,12 @@ std::string DeleteOp::formatSummary(
 bool DeleteOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
 	(void)errMsg;
 	const std::vector<std::size_t> indices =
-		resolveScopedPointIndices(traj, op.scope, activeProgramContext());
+		resolveScopedPointIndices(traj, op.scope, ctx.program);
 	if (indices.empty())
 	{
 		return true;

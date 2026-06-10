@@ -49,7 +49,7 @@ src/Robot/
 
 ### `ITrajectoryOp`
 
-每个轨迹块实现：`kind()`、`capabilities()`、`makeDefaultDescriptor()`、`paramFields()`、`validate()`、`formatSummary()`，以及核心 **`processPath(op, UnifiedTrajectory&)`**。预览与 Apply 均经 `TrajectoryPipelineEngine`，无独立 Pose/Command 支路。
+每个轨迹块实现：`kind()`、`capabilities()`、`makeDefaultDescriptor()`、`paramFields()`、`validate()`、`formatSummary()`，以及核心 **`processPath(op, UnifiedTrajectory&, TrajectoryOpExecutionContext&)`**。预览与 Apply 均经 `TrajectoryPipelineEngine`，无独立 Pose/Command 支路。
 
 ### `TrajectoryOpCapability`
 
@@ -131,7 +131,7 @@ RobotInstruction::ensureTrajectoryOpBuiltinsRegistered();
 
 **capabilities**：`PreviewPoseTransform`。
 
-**processPath**：`applyUnifiedPathOp` → `applyUnifiedTrajectoryOp`（scope 内渐变平移）。
+**processPath**：`applyTranslateRotateInScope`（`UnifiedTrajectorySemanticMath`，scope 内渐变平移）。
 
 ### 7.3 示例：DeleteOp（结构编辑）
 
@@ -141,7 +141,7 @@ RobotInstruction::ensureTrajectoryOpBuiltinsRegistered();
 ### 7.4 示例：MirrorOp（轴反向）
 
 - `capabilities()` → `PreviewPoseTransform`。
-- `processPath`：`applyUnifiedPathOp` 内 `applyAxisReverse`。
+- `processPath`：`applyMirrorInScope`（`UnifiedTrajectorySemanticMath`）。
 
 ### 7.5 参数读写与模板 JSON
 
@@ -174,7 +174,7 @@ Codec 形状：`{ "kind":"Translate", "scope":{...}, "params":{ "translate.frame
 | 调色板空 / `get(kind)==nullptr` | 未调用 `ensureTrajectoryOpBuiltinsRegistered()` |
 | LNK2019 `trajectory_algo::...` from RobotWidget | UI 应走 `TrajectoryOpBridge`，勿直接链 `TrajectoryAlgorithm.lib` |
 | 双 Registry / 预览与 Apply 不一致 | 同上；算法静态库只能链入 **一个** 模块（RobotScene） |
-| `Body` 与 `World` 预览不一致 | 检查 `applyUnifiedTrajectoryOp` 中 `applyTransformDelta` 的 frame |
+| `Body` 与 `World` 预览不一致 | 检查 `UnifiedTrajectorySemanticMath` 中 `applyTransformDelta` 的 frame |
 | 参数面板不刷新 | `TrajectoryOpParamPanel::rebuildForOp` 是否在切换块时调用 |
 
 ---
@@ -187,7 +187,7 @@ Codec 形状：`{ "kind":"Translate", "scope":{...}, "params":{ "translate.frame
 - [ ] `paramFields()` C++ 实现保留作 JSON 缺失时的兜底（deprecated 方向，勿删）
 - [ ] 平移/旋转预览与 Apply 均经 `applyTransformDelta`
 - [ ] `validate` 覆盖非法输入；`formatSummary` 含 scope / 坐标系 / 主参数
-- [ ] 几何块已实现 `processPath`（或引擎 fallback `applyUnifiedTrajectoryOp`）
+- [ ] 几何块已实现 `processPath`（未实现时引擎报明确错误，无 fallback）
 - [ ] 已在 `TrajectoryOpBuiltinsRegister.cpp` 注册（可用 `REGISTER_TRAJECTORY_OP` 宏）
 - [ ] 手动：轨迹页拖块 → 改参 → Preview → Apply → Undo
 
@@ -199,8 +199,8 @@ Codec 形状：`{ "kind":"Translate", "scope":{...}, "params":{ "translate.frame
 
 | API | 说明 |
 |-----|------|
-| `processPath(op, UnifiedTrajectory&, errMsg)` | 几何块 override；默认 `false` 时引擎走 `applyUnifiedTrajectoryOp` |
-| `TrajectoryOpPathApply.h` | Builtins 内 `applyUnifiedPathOp` 薄封装 |
+| `TrajectoryOpExecutionContext` | `program` + `geometryProjection`（`IGeometryProjection`） |
+| `processPath(op, UnifiedTrajectory&, ctx, errMsg)` | 几何块 override；默认 `false` 时引擎报错 |
 | `runTrajectoryPipelineEngineSelfCheck()` | 引擎自检（Translate+Rotate 全量 vs `executeFrom`） |
 
 新建几何块示例：
@@ -209,9 +209,11 @@ Codec 形状：`{ "kind":"Translate", "scope":{...}, "params":{ "translate.frame
 bool FooOp::processPath(
     const RobotInstruction::TrajectoryOpDescriptor& op,
     RobotInstruction::UnifiedTrajectory& traj,
+    const TrajectoryOpExecutionContext& ctx,
     std::string* errMsg) const
 {
-    return applyUnifiedPathOp(op, traj, errMsg);
+    resampleUnifiedTrajectoryInScope(traj, op.scope, ctx.program, op.resample.stepMm);
+    return true;
 }
 ```
 

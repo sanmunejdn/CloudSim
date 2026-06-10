@@ -1,7 +1,7 @@
-// Reorder 原子块：重排 scope 内路点顺序
+// Reorder 原子块：按 scope 统一姿态
 #include "ReorderOp.h"
 
-#include "TrajectoryOpPathApply.h"
+#include "UnifiedTrajectorySemanticMath.h"
 
 #include <cstdio>
 
@@ -38,7 +38,7 @@ std::vector<TrajectoryOpParamField> ReorderOp::paramFields() const
 		messageParamField(
 			"reorder.fixedPoseHint",
 			"Lock all orientations to the first waypoint orientation in current scope.",
-			"将作用域内所有姿态固定为首个轨迹点姿态。"),
+			"将当前作用域内所有路点姿态锁定为第一个路点的姿态。"),
 	};
 }
 
@@ -54,15 +54,16 @@ std::string ReorderOp::formatSummary(
 	const bool chinese) const
 {
 	(void)op;
-	return chinese ? "固定姿态 | 以首点为基准" : "Fixed Orientation | Use first waypoint";
+	return chinese ? "固定姿态 | 首点姿态" : "Fixed Orientation | Use first waypoint";
 }
 
 bool ReorderOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
-	return applyUnifiedPathOp(op, traj, errMsg);
+	return applyReorderInScope(op, traj, ctx.program);
 }
 
 } // namespace trajectory_algo

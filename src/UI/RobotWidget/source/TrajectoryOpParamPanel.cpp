@@ -6,7 +6,9 @@
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
+#include <QHBoxLayout>
 #include <QLabel>
+#include <QPushButton>
 #include <QSpinBox>
 #include <QVBoxLayout>
 
@@ -55,6 +57,18 @@ void TrajectoryOpParamPanel::setScopeGroupCombo(QComboBox* combo)
 	m_scopeGroupComboParent = combo ? combo->parentWidget() : nullptr;
 }
 
+void TrajectoryOpParamPanel::setGeometryBackendCombo(QComboBox* combo)
+{
+	m_geometryBackendCombo = combo;
+	m_geometryBackendComboParent = combo ? combo->parentWidget() : nullptr;
+}
+
+void TrajectoryOpParamPanel::setGeometryBackendPickButton(QPushButton* button)
+{
+	m_geometryBackendPickBtn = button;
+	m_geometryBackendPickBtnParent = button ? button->parentWidget() : nullptr;
+}
+
 void TrajectoryOpParamPanel::clear()
 {
 	clearRows();
@@ -76,11 +90,17 @@ void TrajectoryOpParamPanel::clearRows()
 	}
 
 	QLabel* scopeLabel = nullptr;
+	QLabel* geometryBackendLabel = nullptr;
 	for (trajectory_algo::TrajectoryParamBinding& row : m_rows)
 	{
 		if (row.field.key == "scope.groupId")
 		{
 			scopeLabel = row.label;
+			continue;
+		}
+		if (row.field.key == "project.targetBackendId")
+		{
+			geometryBackendLabel = row.label;
 			continue;
 		}
 		QLabel* lbl = row.label;
@@ -118,6 +138,31 @@ void TrajectoryOpParamPanel::clearRows()
 	{
 		m_scopeGroupCombo->setParent(m_scopeGroupComboParent);
 	}
+	if (geometryBackendLabel)
+	{
+		if (m_form->indexOf(geometryBackendLabel) >= 0)
+		{
+			m_form->removeWidget(geometryBackendLabel);
+		}
+		delete geometryBackendLabel;
+		geometryBackendLabel = nullptr;
+	}
+	if (m_geometryBackendCombo && m_form->indexOf(m_geometryBackendCombo) >= 0)
+	{
+		m_form->removeWidget(m_geometryBackendCombo);
+	}
+	if (m_geometryBackendCombo && m_geometryBackendComboParent)
+	{
+		m_geometryBackendCombo->setParent(m_geometryBackendComboParent);
+	}
+	if (m_geometryBackendPickBtn && m_form->indexOf(m_geometryBackendPickBtn) >= 0)
+	{
+		m_form->removeWidget(m_geometryBackendPickBtn);
+	}
+	if (m_geometryBackendPickBtn && m_geometryBackendPickBtnParent)
+	{
+		m_geometryBackendPickBtn->setParent(m_geometryBackendPickBtnParent);
+	}
 
 	m_rows.clear();
 	m_clearingRows = false;
@@ -140,6 +185,23 @@ std::string TrajectoryOpParamPanel::currentScopeKindToken() const
 	return "Group";
 }
 
+int TrajectoryOpParamPanel::currentIntFieldValue(const std::string& key) const
+{
+	for (const trajectory_algo::TrajectoryParamBinding& row : m_rows)
+	{
+		if (row.field.key != key || !row.read)
+		{
+			continue;
+		}
+		trajectory_algo::TrajectoryParamValue value{};
+		if (row.read(value) && value.kind == trajectory_algo::TrajectoryParamValue::Kind::Int)
+		{
+			return value.asInt;
+		}
+	}
+	return -1;
+}
+
 void TrajectoryOpParamPanel::updateFieldVisibility()
 {
 	const std::string scopeToken = currentScopeKindToken();
@@ -158,8 +220,12 @@ void TrajectoryOpParamPanel::updateFieldVisibility()
 			}
 			continue;
 		}
-		const bool visible = row.field.visibleWhenScopeKind.empty()
+		bool visible = row.field.visibleWhenScopeKind.empty()
 			|| row.field.visibleWhenScopeKind == scopeToken;
+		if (visible && !row.field.visibleWhenFieldKey.empty() && row.field.visibleWhenIntValue >= 0)
+		{
+			visible = currentIntFieldValue(row.field.visibleWhenFieldKey) == row.field.visibleWhenIntValue;
+		}
 		if (row.label)
 		{
 			row.label->setVisible(visible);
@@ -207,6 +273,40 @@ void TrajectoryOpParamPanel::rebuildForOp(
 			}
 			continue;
 		}
+		if (field.key == "project.targetBackendId")
+		{
+			if (m_geometryBackendCombo)
+			{
+				auto* label = new QLabel(
+					m_useChinese ? QStringLiteral("几何对象") : QStringLiteral("Geometry Backend"),
+					this);
+				auto* rowWidget = new QWidget(this);
+				auto* rowLayout = new QHBoxLayout(rowWidget);
+				rowLayout->setContentsMargins(0, 0, 0, 0);
+				rowLayout->addWidget(m_geometryBackendCombo, 1);
+				if (m_geometryBackendPickBtn)
+				{
+					rowLayout->addWidget(m_geometryBackendPickBtn);
+				}
+				m_form->addRow(label, rowWidget);
+				const int idx = m_geometryBackendCombo->findData(
+					QString::fromStdString(op.project.targetBackendId));
+				if (idx >= 0)
+				{
+					m_geometryBackendCombo->setCurrentIndex(idx);
+				}
+				trajectory_algo::TrajectoryParamBinding binding{};
+				binding.label = label;
+				binding.widget = m_geometryBackendCombo;
+				binding.field = field;
+				m_rows.push_back(binding);
+			}
+			continue;
+		}
+		if (field.type == trajectory_algo::TrajectoryParamType::Message)
+		{
+			continue;
+		}
 		trajectory_algo::TrajectoryParamBinding binding =
 			trajectory_algo::TrajectoryParamWidgetFactory::create(field, m_useChinese);
 		if (!binding.widget)
@@ -214,10 +314,37 @@ void TrajectoryOpParamPanel::rebuildForOp(
 			continue;
 		}
 		m_form->addRow(binding.label, binding.widget);
-		trajectory_algo::TrajectoryParamValue value{};
-		if (RobotInstruction::trajectoryOpParamRead(op, field, value) && binding.write)
+		if (field.type == trajectory_algo::TrajectoryParamType::Vec3 && binding.writeVec3)
 		{
-			binding.write(value);
+			trajectory_algo::TrajectoryOpParamField fx = field;
+			fx.key = field.key + field.vec3SuffixX;
+			trajectory_algo::TrajectoryParamValue vx{};
+			double x = field.defaultDouble;
+			double y = 0.0;
+			double z = -1.0;
+			if (RobotInstruction::trajectoryOpParamRead(op, fx, vx) && vx.kind == trajectory_algo::TrajectoryParamValue::Kind::Double)
+			{
+				x = vx.asDouble;
+			}
+			fx.key = field.key + field.vec3SuffixY;
+			if (RobotInstruction::trajectoryOpParamRead(op, fx, vx) && vx.kind == trajectory_algo::TrajectoryParamValue::Kind::Double)
+			{
+				y = vx.asDouble;
+			}
+			fx.key = field.key + field.vec3SuffixZ;
+			if (RobotInstruction::trajectoryOpParamRead(op, fx, vx) && vx.kind == trajectory_algo::TrajectoryParamValue::Kind::Double)
+			{
+				z = vx.asDouble;
+			}
+			binding.writeVec3(x, y, z);
+		}
+		else
+		{
+			trajectory_algo::TrajectoryParamValue value{};
+			if (RobotInstruction::trajectoryOpParamRead(op, field, value) && binding.write)
+			{
+				binding.write(value);
+			}
 		}
 		if (field.type != trajectory_algo::TrajectoryParamType::Message)
 		{
@@ -279,6 +406,40 @@ bool TrajectoryOpParamPanel::applyTo(
 			{
 				op.scope.groupId = m_scopeGroupCombo->currentData().toString().toStdString();
 			}
+			continue;
+		}
+		if (row.field.key == "project.targetBackendId")
+		{
+			const int comboIdx = m_geometryBackendCombo ? m_geometryBackendCombo->currentIndex() : -1;
+			if (m_geometryBackendCombo && comboIdx >= 0)
+			{
+				op.project.targetBackendId =
+					m_geometryBackendCombo->currentData().toString().toStdString();
+			}
+			continue;
+		}
+		if (row.field.type == trajectory_algo::TrajectoryParamType::Vec3 && row.readVec3)
+		{
+			double x = 0.0;
+			double y = 0.0;
+			double z = 0.0;
+			if (!row.readVec3(x, y, z))
+			{
+				continue;
+			}
+			trajectory_algo::TrajectoryOpParamField fx = row.field;
+			fx.type = trajectory_algo::TrajectoryParamType::Double;
+			trajectory_algo::TrajectoryParamValue vx{};
+			vx.kind = trajectory_algo::TrajectoryParamValue::Kind::Double;
+			fx.key = row.field.key + row.field.vec3SuffixX;
+			vx.asDouble = x;
+			RobotInstruction::trajectoryOpParamWrite(op, fx, vx);
+			fx.key = row.field.key + row.field.vec3SuffixY;
+			vx.asDouble = y;
+			RobotInstruction::trajectoryOpParamWrite(op, fx, vx);
+			fx.key = row.field.key + row.field.vec3SuffixZ;
+			vx.asDouble = z;
+			RobotInstruction::trajectoryOpParamWrite(op, fx, vx);
 			continue;
 		}
 		if (!row.read)

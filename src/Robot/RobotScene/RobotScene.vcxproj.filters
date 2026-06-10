@@ -13,6 +13,9 @@
     <Filter Include="resource\trajectory">
       <UniqueIdentifier>{B2C3D4E5-F6A7-8901-BCDE-F01234567014}</UniqueIdentifier>
     </Filter>
+    <Filter Include="resource\UI">
+      <UniqueIdentifier>{99088e03-1f89-465a-b1d2-c1de60997050}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\IRobotBackendPoseSink.h">
@@ -102,6 +105,24 @@
     <ClInclude Include="inc\UnifiedTrajectory.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\ProcessFlowPresetLoader.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotSceneGeometryProjection.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotCanonicalProgramExport.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryGeometryResolver.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryPathAdapters.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryPipelineEngine.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp">
@@ -176,6 +197,24 @@
     <ClCompile Include="source\CloudSimCoreExport.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="source\PathPlanRawStore.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProcessFlowPresetLoader.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotCanonicalProgramExport.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryGeometryResolver.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryPathAdapters.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryPipelineEngine.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="resource\trajectory\ProcessFlowPresets.json">
@@ -183,6 +222,66 @@
     </None>
     <None Include="resource\trajectory\ProcessFlowPresets.defaults.json">
       <Filter>resource\trajectory</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Approach.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\AssignBlend.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\AssignSpeedZone.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\CommonScope.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Delete.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Duplicate.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\ExternalAxisSearch.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Mirror.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\OffsetAlongNormal.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\OffsetLateral.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\ProjectToGeometry.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\ReachabilityFilter.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\README.md">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Reorder.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Resample.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Retract.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Rotate.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\SmoothPose.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Translate.json">
+      <Filter>resource\UI</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Weave.json">
+      <Filter>resource\UI</Filter>
     </None>
   </ItemGroup>
 </Project>

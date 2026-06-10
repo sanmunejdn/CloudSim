@@ -522,7 +522,7 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 | `buildRecipePreset` | 工艺 UI 入口 → `ProcessFlowPresets.json` 原子 `pipeline` |
 | `unifiedTrajectoryFromRaw` / `unifiedTrajectoryFromProgram` | 同上 Ingress 的薄封装 |
 | `unifiedTrajectoryToRaw` | Unified → 点位列（轨迹编辑预览为世界 mm，由 UI 直接画 OSG） |
-| `applyUnifiedTrajectoryOp` | 平移/旋转/镜像/进退刀等（世界系 Unified 上按点序插值） |
+| `RobotSceneGeometryProjection` | `IGeometryProjection` 适配，封装 `projectUnifiedToGeometry` |
 | `emitRawTrajectoryToProgram` | 可达点 → `LineInstruction` 写入 `steps` 并建分组；无 PathPlan 绑定时清空后整写；绑定 PathPlan 时按该条 `PathPlanOutput` 成员 id 局部替换（与 `unifiedTrajectoryMergeIntoProgram` 一致） |
 | `rawTrajectoryToPreviewPolylineXyz` / `rawTrajectoryReachabilityColorsJson` | UI/OSG 预览 |
 

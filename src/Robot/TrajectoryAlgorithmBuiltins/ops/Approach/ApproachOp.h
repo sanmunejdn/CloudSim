@@ -1,4 +1,4 @@
-// Approach 原子块：在路径首端插入进刀段
+// Approach 原子块：在路径首端插入进刀点
 #pragma once
 
 #include "ITrajectoryOp.h"
@@ -20,8 +20,8 @@ public:
 	bool processPath(
 		const RobotInstruction::TrajectoryOpDescriptor& op,
 		RobotInstruction::UnifiedTrajectory& traj,
+		const TrajectoryOpExecutionContext& ctx,
 		std::string* errMsg) const override;
 };
 
 } // namespace trajectory_algo
-

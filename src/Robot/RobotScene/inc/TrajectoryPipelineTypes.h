@@ -26,7 +26,8 @@ enum class ROBOT_SCENE_API TrajectoryOpKind
 	AssignSpeedZone,
 	Weave,
 	ReachabilityFilter,
-	ExternalAxisSearch
+	ExternalAxisSearch,
+	ProjectToGeometry
 };
 
 /// 轨迹增量参考系（相对路点当前 T_base_target）
@@ -97,12 +98,13 @@ struct ROBOT_SCENE_API AssignMotionParams
 	double speedMmPerSec = 100.0;
 };
 
-/// 方向模式：路径切向 / 法向 / 工具Z
+/// 方向模式：路径切向 / 法向 / 工具Z / 自定义向量
 enum class ROBOT_SCENE_API ApproachDirectionMode : int
 {
 	PathTangent = 0,
 	SurfaceNormal = 1,
-	ToolZ = 2
+	ToolZ = 2,
+	Custom = 3
 };
 
 /// 插点范围：整条轨迹头尾 或 分段头尾
@@ -123,6 +125,10 @@ struct ROBOT_SCENE_API ApproachParams
 {
 	double distanceMm = 20.0;
 	ApproachDirectionMode directionMode = ApproachDirectionMode::SurfaceNormal;
+	TransformReferenceFrame directionFrame = TransformReferenceFrame::World;
+	double customDirectionX = 0.0;
+	double customDirectionY = 0.0;
+	double customDirectionZ = -1.0;
 	InsertMode insertMode = InsertMode::Trajectory;
 	SegmentSelectMode segmentSelectMode = SegmentSelectMode::AllSegments;
 	int segmentFrom = 1;
@@ -135,12 +141,27 @@ struct ROBOT_SCENE_API RetractParams
 {
 	double distanceMm = 20.0;
 	ApproachDirectionMode directionMode = ApproachDirectionMode::SurfaceNormal;
+	TransformReferenceFrame directionFrame = TransformReferenceFrame::World;
+	double customDirectionX = 0.0;
+	double customDirectionY = 0.0;
+	double customDirectionZ = 1.0;
 	InsertMode insertMode = InsertMode::Trajectory;
 	SegmentSelectMode segmentSelectMode = SegmentSelectMode::AllSegments;
 	int segmentFrom = 1;
 	int segmentTo = 1;
 	bool overrideSpeedEnabled = false;
 	double speedMmPerSec = 100.0;
+};
+
+struct ROBOT_SCENE_API ProjectToGeometryParams
+{
+	std::string targetBackendId;
+	TransformReferenceFrame directionFrame = TransformReferenceFrame::World;
+	double directionX = 0.0;
+	double directionY = 0.0;
+	double directionZ = -1.0;
+	double maxDistanceMm = 5000.0;
+	double pointCloudHitRadiusMm = 2.0;
 };
 
 struct ROBOT_SCENE_API TrajectoryOpDescriptor
@@ -157,6 +178,7 @@ struct ROBOT_SCENE_API TrajectoryOpDescriptor
 	AssignMotionParams assignMotion{};
 	ApproachParams approach{};
 	RetractParams retract{};
+	ProjectToGeometryParams project{};
 };
 
 } // namespace RobotInstruction

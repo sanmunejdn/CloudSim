@@ -8,9 +8,18 @@
 #include "Measure.h"
 #include "Preprocess.h"
 #include "Reconstruction.h"
+#include "ReconstructionConfig.h"
 #include "RegistrationNonRigid.h"
 #include "RegistrationRigid.h"
 #include "Transform.h"
+
+#if defined(_WIN64)
+#include "MeshReconstruct.h"
+#include "MeshRemesh.h"
+#include "MeshRepair.h"
+#include "MeshSimplify.h"
+#include "MeshSmooth.h"
+#endif
 
 namespace point_cloud_backend_ops
 {
@@ -410,5 +419,189 @@ bool reconstructMeshScaleSpace(
 	meshOut.setTriangleSoup(std::move(soup));
 	return true;
 }
+
+bool reconstructMeshFromPointCloudPoissonWithConfig(
+	const PointCloudBackendData& pointCloud,
+	MeshBackendData& meshOut,
+	const pclalgo::ReconstructionConfig& config,
+	std::string* errMsg)
+{
+	std::vector<float> xyz = pointCloud.pointPositionsXyz();
+	std::vector<float> soup;
+	if (!pclalgo::reconstructPoissonAutoWithConfig(std::move(xyz), soup, config, errMsg))
+	{
+		return false;
+	}
+	meshOut.setTriangleSoup(std::move(soup));
+	return true;
+}
+
+// === vcglib 网格后处理（x64 链接 VcgAlgorithms.dll） ===
+
+#if defined(_WIN64)
+
+bool simplifyMesh(
+	const std::vector<float>& soupIn,
+	std::vector<float>& soupOut,
+	int targetFaceCount,
+	double qualityThreshold,
+	std::string* errMsg)
+{
+	::vcgalgo::SimplifyParams params;
+	params.targetFaceCount = targetFaceCount;
+	params.qualityThreshold = qualityThreshold;
+	params.preserveBoundary = true;
+	params.preserveTopology = true;
+	return ::vcgalgo::simplifyQuadricEdgeCollapse(soupIn, soupOut, params, errMsg);
+}
+
+bool smoothMesh(
+	const std::vector<float>& soupIn,
+	std::vector<float>& soupOut,
+	int iterations,
+	bool useImplicitFairing,
+	std::string* errMsg)
+{
+	if (useImplicitFairing)
+	{
+		return ::vcgalgo::smoothImplicitFairing(soupIn, 0.2, soupOut, errMsg);
+	}
+	return ::vcgalgo::smoothLaplacian(soupIn, iterations, soupOut, errMsg);
+}
+
+bool repairMesh(
+	const std::vector<float>& soupIn,
+	std::vector<float>& soupOut,
+	bool removeDegenerate,
+	bool removeDuplicate,
+	bool removeNonManifold,
+	std::string* errMsg)
+{
+	::vcgalgo::RepairParams params;
+	params.removeDegenerate = removeDegenerate;
+	params.removeDuplicate = removeDuplicate;
+	params.removeNonManifold = removeNonManifold;
+	params.fillHoles = false;
+	return ::vcgalgo::repairMesh(soupIn, soupOut, params, errMsg);
+}
+
+bool remeshMeshIsotropic(
+	const std::vector<float>& soupIn,
+	std::vector<float>& soupOut,
+	double targetEdgeLengthMm,
+	int iterations,
+	std::string* errMsg)
+{
+	return ::vcgalgo::isotropicRemesh(soupIn, targetEdgeLengthMm, soupOut, iterations, errMsg);
+}
+
+bool reconstructMeshFromPointCloudPoissonAndPostProcess(
+	const PointCloudBackendData& pointCloud,
+	MeshBackendData& meshOut,
+	int targetFaceCount,
+	bool doRepair,
+	bool doSmooth,
+	std::string* errMsg)
+{
+	std::vector<float> xyz = pointCloud.pointPositionsXyz();
+	std::vector<float> rawSoup;
+	if (!pclalgo::reconstructPoissonAuto(std::move(xyz), rawSoup, 0.0, 5.0, errMsg))
+	{
+		return false;
+	}
+	if (rawSoup.empty())
+	{
+		if (errMsg != nullptr)
+		{
+			*errMsg = "Poisson reconstruction produced empty mesh";
+		}
+		return false;
+	}
+
+	std::vector<float> processed;
+	if (!::vcgalgo::postProcessReconstructedMesh(
+			rawSoup, processed, targetFaceCount, doRepair, doSmooth, errMsg))
+	{
+		return false;
+	}
+	meshOut.setTriangleSoup(std::move(processed));
+	return true;
+}
+
+#else
+
+bool simplifyMesh(
+	const std::vector<float>&,
+	std::vector<float>&,
+	int,
+	double,
+	std::string* errMsg)
+{
+	if (errMsg != nullptr)
+	{
+		*errMsg = "mesh post-processing requires x64 build";
+	}
+	return false;
+}
+
+bool smoothMesh(
+	const std::vector<float>&,
+	std::vector<float>&,
+	int,
+	bool,
+	std::string* errMsg)
+{
+	if (errMsg != nullptr)
+	{
+		*errMsg = "mesh post-processing requires x64 build";
+	}
+	return false;
+}
+
+bool repairMesh(
+	const std::vector<float>&,
+	std::vector<float>&,
+	bool,
+	bool,
+	bool,
+	std::string* errMsg)
+{
+	if (errMsg != nullptr)
+	{
+		*errMsg = "mesh post-processing requires x64 build";
+	}
+	return false;
+}
+
+bool remeshMeshIsotropic(
+	const std::vector<float>&,
+	std::vector<float>&,
+	double,
+	int,
+	std::string* errMsg)
+{
+	if (errMsg != nullptr)
+	{
+		*errMsg = "mesh post-processing requires x64 build";
+	}
+	return false;
+}
+
+bool reconstructMeshFromPointCloudPoissonAndPostProcess(
+	const PointCloudBackendData&,
+	MeshBackendData&,
+	int,
+	bool,
+	bool,
+	std::string* errMsg)
+{
+	if (errMsg != nullptr)
+	{
+		*errMsg = "mesh post-processing requires x64 build";
+	}
+	return false;
+}
+
+#endif
 
 } // namespace point_cloud_backend_ops

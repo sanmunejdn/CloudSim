@@ -94,6 +94,7 @@
     <ClInclude Include="inc\RobotUrdfImportCoordinator.h" />
     <ClInclude Include="inc\IRobotOsgViewHost.h" />
     <ClInclude Include="inc\RobotOsgUiTypes.h" />
+    <ClInclude Include="inc\TrajectoryGeometryResolverHost.h" />
     <ClInclude Include="inc\RobotSimulationMath.h" />
     <QtMoc Include="inc\RobotSimulationController.h" />
     <QtMoc Include="inc\RobotSimulationDockWidget.h" />
@@ -123,6 +124,7 @@
     <ClCompile Include="source\TrajectoryEditObserver.cpp" />
     <ClCompile Include="source\TrajectoryEditPageWidget.cpp" />
     <ClCompile Include="source\FeaturePickTransform.cpp" />
+    <ClCompile Include="source\TrajectoryGeometryResolverHost.cpp" />
     <ClCompile Include="source\FeatureTrajectoryPageWidget.cpp" />
     <ClCompile Include="source\TrajectoryOpParamPanel.cpp" />
     <ClCompile Include="source\TrajectoryParamWidgetFactory.cpp" />

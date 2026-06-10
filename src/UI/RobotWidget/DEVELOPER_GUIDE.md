@@ -525,7 +525,7 @@ flowchart TD
 | 数据 | 坐标系 |
 |------|--------|
 | `m_rawTrajectory.points`（session 持久） | STEP **文件**坐标（轨迹生成页离散结果） |
-| Unified 上 `applyUnifiedTrajectoryOp` | **世界** mm（`rebuildUnifiedFromSourceRaw` 之后） |
+| Unified 上 `ITrajectoryOp::processPath` | **世界** mm（`rebuildUnifiedFromSourceRaw` 之后） |
 | `buildRawPreview` / Apply 写入程序 | 世界 targetTransform；渲染 `syncInstructionRenderMatricesFromWorldPose` |
 | 轨迹生成页首次预览 | `applyRawTrajectoryPreviewToOsg`：file → world（[`FeaturePickTransform`](inc/FeaturePickTransform.h)） |
 | 轨迹编辑页 raw 预览（分支 A） | `applyWorldRawTrajectoryPreviewToOsg`：**已是世界坐标**，避免往返变换抹掉平移 |
@@ -568,6 +568,8 @@ flowchart TD
 | `TrajectoryOpParamPanel` | 根据 `ITrajectoryOp::paramFields()` 动态建控件；读写经 [`TrajectoryOpBridge.h`](../../Robot/RobotScene/inc/TrajectoryOpBridge.h) |
 | `TrajectoryParamWidgetFactory` | Double / Int / Enum / Vec3 / Message 等控件工厂 |
 | 顶栏分组 Combo | 页级持有；`scope.groupId` 行复用同一控件，面板 `clearRows` 时不销毁 |
+| 几何 Backend Combo | `project.targetBackendId`：列出点云 / mesh / BREP；「从选中填充」读 `IRobotMainWindowHost::selectedBackendId()` |
+| `TrajectoryGeometryResolverHost` | 预览/Apply 前 `bindTrajectoryGeometryResolver(document, osg)`，将 backend 烘焙到世界 mm |
 
 构造时 `RobotInstruction::ensureTrajectoryOpBuiltinsRegistered()`。调色板种类来自 `trajectoryOpPaletteKinds()`；默认块 `makeDefaultDescriptor(defaultScopeForNewOp())`。
 

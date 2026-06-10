@@ -22,9 +22,9 @@ TrajectoryAlgorithmBuiltins/
 ├── inc/
 │   ├── TrajectoryOpConfigImpl.h      # IOpParamConfig 通用 JSON 绑定
 │   ├── TrajectoryOpFormat.h          # paramFields 辅助工厂
-│   ├── TrajectoryOpPathApply.h       # applyUnifiedPathOp 薄封装
-│   ├── TrajectoryUnifiedScope.h      # scope 解析 + 活动程序上下文
-│   └── UnifiedTrajectoryPathMath.h   # 路径几何原语（重采样/偏移/摆动等）
+│   ├── TrajectoryUnifiedScope.h      # scope 解析（点序 / 指令 id）
+│   ├── UnifiedTrajectoryPathMath.h   # 路径几何原语（重采样/偏移/摆动等）
+│   └── UnifiedTrajectorySemanticMath.h # 位姿语义（平移/镜像/进退刀等）
 ├── ops/<Name>/
 │   ├── <Name>Op.h / .cpp             # ITrajectoryOp 实现（核心 processPath）
 │   ├── <Name>OpConfig.h / .cpp       # make<Name>OpConfig() → JSON schema
@@ -34,7 +34,8 @@ TrajectoryAlgorithmBuiltins/
     ├── TrajectoryOpConfigImpl.cpp
     ├── TrajectoryOpFormat.cpp
     ├── TrajectoryUnifiedScope.cpp
-    └── UnifiedTrajectoryPathMath.cpp
+    ├── UnifiedTrajectoryPathMath.cpp
+    └── UnifiedTrajectorySemanticMath.cpp
 ```
 
 VS 筛选器：`inc` 放所有 `.h`，`src` 放所有 `.cpp`（含 `ops/` 下源文件）。
@@ -53,15 +54,16 @@ VS 筛选器：`inc` 放所有 `.h`，`src` 放所有 `.cpp`（含 `ops/` 下源
 
 | 分类 | Kind | 目录 | processPath 实现方式 | 预览拓扑变更 |
 |------|------|------|----------------------|--------------|
-| 位姿编辑 | Translate / Rotate | `ops/Translate` `ops/Rotate` | `applyUnifiedPathOp` | 否（写回路点） |
+| 位姿编辑 | Translate / Rotate | `ops/Translate` `ops/Rotate` | `UnifiedTrajectorySemanticMath` | 否（写回路点） |
 | 结构编辑 | Delete / Duplicate | `ops/Delete` `ops/Duplicate` | 自有逻辑 | **是**（OSG overlay） |
-| 姿态策略 | Mirror / Reorder | `ops/Mirror` `ops/Reorder` | `applyUnifiedPathOp` | 否 |
+| 姿态策略 | Mirror / Reorder | `ops/Mirror` `ops/Reorder` | `UnifiedTrajectorySemanticMath` | 否 |
 | 路径几何 | Resample | `ops/Resample` | `resampleUnifiedTrajectory` | **是** |
 | 路径几何 | OffsetAlongNormal / OffsetLateral | `ops/Offset*` | `*InScope`（`TrajectoryUnifiedScope`） | **是**（OSG overlay） |
 | 路径几何 | SmoothPose | `ops/SmoothPose` | `smoothPoseUnifiedInScope` | **是** |
 | 工艺属性 | AssignBlend / AssignSpeedZone | `ops/Assign*` | `assign*InScope` | 否（写回 blend/speed） |
 | 工艺属性 | Weave | `ops/Weave` | `weaveUnifiedInScope` | **是** |
-| 进退刀 | Approach / Retract | `ops/Approach` `ops/Retract` | `applyUnifiedPathOp` | **是** |
+| 进退刀 | Approach / Retract | `ops/Approach` `ops/Retract` | `UnifiedTrajectorySemanticMath`（含 Custom 方向、Segment 分段） | **是** |
+| 几何投影 | ProjectToGeometry | `ops/ProjectToGeometry` | `ctx.geometryProjection`（`IGeometryProjection` 注入） | **是** |
 | 可达性 | ReachabilityFilter | `ops/ReachabilityFilter` | `reachabilityFilterUnified` | 否 |
 | 可达性 | ExternalAxisSearch | `ops/ExternalAxisSearch` | `externalAxisSearchUnified` | 否 |
 
@@ -100,18 +102,11 @@ void ensureTrajectoryOpBuiltinsRegistered()
 
 ### `TrajectoryUnifiedScope`
 
-引擎执行前 `setActiveProgramContext(program)`；`resolveScopeInstructionIds` / `resolveScopedPointIndices` 将 `OpScope` 映射到 Unified 点序或指令 id。
+`resolveScopeInstructionIds` / `resolveScopedPointIndices` 将 `OpScope` 映射到 Unified 点序或指令 id；`program` 由 `TrajectoryOpExecutionContext` 传入。
 
-### `TrajectoryOpPathApply.h`
+### `UnifiedTrajectorySemanticMath`
 
-```cpp
-inline bool applyUnifiedPathOp(op, traj, errMsg)
-{
-    return RobotInstruction::applyUnifiedTrajectoryOp(op, traj, errMsg);
-}
-```
-
-Translate / Rotate / Mirror / Reorder / Approach / Retract 等 **程序语义块** 统一走 RobotScene 的 `applyUnifiedTrajectoryOp`（scope 内插值、进退刀插入等）。
+Translate / Rotate / Mirror / Reorder / Approach / Retract 的 `processPath` 直接调用本库（scope 内插值、进退刀插入等），**禁止**在 RobotScene 增加 `TrajectoryOpKind` 分支。
 
 ### `TrajectoryOpConfigImpl`
 
@@ -124,15 +119,15 @@ Translate / Rotate / Mirror / Reorder / Approach / Retract 等 **程序语义块
 ```mermaid
 flowchart LR
   Engine[TrajectoryPipelineEngine]
-  Scope[TrajectoryUnifiedScope]
+  Ctx[TrajectoryOpExecutionContext]
   Op[FooOp processPath]
-  Math[UnifiedTrajectoryPathMath]
-  Apply[applyUnifiedTrajectoryOp]
+  PathMath[UnifiedTrajectoryPathMath]
+  SemMath[UnifiedTrajectorySemanticMath]
 
-  Engine --> Scope
+  Engine --> Ctx
   Engine --> Op
-  Op --> Math
-  Op --> Apply
+  Op --> PathMath
+  Op --> SemMath
 ```
 
 引擎逐步调用 `processPath`；块内不得直接修改 `RobotProgram`，只读写 `UnifiedTrajectory&`。
@@ -168,6 +163,7 @@ python CloudSim/tools/gen_trajectory_json.py
 bool ResampleOp::processPath(
     const RobotInstruction::TrajectoryOpDescriptor& op,
     RobotInstruction::UnifiedTrajectory& traj,
+    const TrajectoryOpExecutionContext& ctx,
     std::string* errMsg) const
 {
     if (traj.points.empty()) { return false; }
@@ -182,9 +178,9 @@ bool ResampleOp::processPath(
 ### 8.2 位姿块（Translate）
 
 ```cpp
-bool TranslateOp::processPath(...) const
+bool TranslateOp::processPath(..., const TrajectoryOpExecutionContext& ctx, ...) const
 {
-    return applyUnifiedPathOp(op, traj, errMsg);
+    return applyTranslateRotateInScope(op, traj, ctx.program);
 }
 ```
 
@@ -210,6 +206,17 @@ std::unique_ptr<IOpParamConfig> makeFooOpConfig()
 
 `Resample → OffsetAlongNormal → SmoothPose → AssignBlend → Approach → Retract`
 
+### 验收场景（手工）
+
+| ID | 场景 | 期望 |
+|----|------|------|
+| T-AR1 | 两块 Approach 各设 Custom 方向 | 各块方向独立，overlay 点数正确 |
+| T-AR2 | Approach Custom + Body 帧 | 方向随锚点姿态旋转 |
+| T-AR3 | Segment + IndexRange 进退刀 | 仅指定段首尾插点 |
+| T-PJ1~3 | ProjectToGeometry 点云/mesh/BREP | scope 点落到对应几何 |
+| T-PJ4 | 射线未命中 | 原点保留，RunInfo 警告，Apply 成功 |
+| T-PJ5 | Resample → ProjectToGeometry → AssignBlend | 混合预览与 Apply 一致 |
+
 `buildRecipePreset(Weld/Glue/Grind)` 仅加载预设 JSON，**不再**存在 `RecipeWeld` 复合 Op。
 
 ---
@@ -231,7 +238,7 @@ std::unique_ptr<IOpParamConfig> makeFooOpConfig()
 - [ ] 四件套：Op + OpConfig + OpParamAccess + `ops/<Name>.json`
 - [ ] `processPath` 有明确失败路径（`errMsg` + `false`）
 - [ ] 路径几何优先复用 `UnifiedTrajectoryPathMath`
-- [ ] 程序语义块优先 `applyUnifiedPathOp`
+- [ ] 程序语义块调用 `UnifiedTrajectorySemanticMath`；几何投影用 `ctx.geometryProjection`
 - [ ] `TrajectoryOpBuiltinsRegister.cpp` 三处注册
 - [ ] vcxproj / filters 已更新
 - [ ] 手动：拖入块 → 改参 → Preview → Apply → Undo

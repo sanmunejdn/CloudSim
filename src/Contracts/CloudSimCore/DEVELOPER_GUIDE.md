@@ -207,6 +207,8 @@ OsgWidget* osg = osgWidgetFrom(host);  // 或 host.osgWidget()
 
 `SelectionChangedEvent::source`：`Tree` / `OsgPick` / `Programmatic`。
 
+**面级拾取（插件）**：Core 选中事件不含 B-rep 面索引。插件经 `IPluginGeometryHost::pickStepElementFromViewport`（底层 `IRenderView` → `OsgWidget::meshPickCommitted` + `resolveStepFaceIndex`）获取 STEP 面索引；点云模板 B-rep 更新用此 API 累积 `selectedFaceIndices`。
+
 ---
 
 ## `ImportOptionsDto` 要点

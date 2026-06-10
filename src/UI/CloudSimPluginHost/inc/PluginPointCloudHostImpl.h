@@ -2,6 +2,11 @@
 
 #include "IPluginPointCloudHost.h"
 
+#include <TemplateBrepUpdate.h>
+
+#include <string>
+#include <vector>
+
 class PluginHostContext;
 
 class PluginPointCloudHostImpl : public IPluginPointCloudHost
@@ -110,6 +115,64 @@ public:
 		const PluginPointCloudReconstructScaleSpaceParams& params,
 		PluginPointCloudFinishedFn onFinished) override;
 
+	void registerScanToCadTemplate(
+		IPluginDocument* doc,
+		const std::string& scanBackendIdUtf8,
+		const PluginPointCloudTemplateBrepUpdateParams& params,
+		PluginPointCloudTemplateBrepRegisterFinishedFn onFinished) override;
+
+	void updateTemplateBrepFromAlignedScan(
+		IPluginDocument* doc,
+		const std::string& scanBackendIdUtf8,
+		const PluginPointCloudTemplateBrepUpdateParams& params,
+		PluginPointCloudTemplateBrepUpdateFinishedFn onFinished) override;
+
+	// 网格后处理（1.9.0+）
+	bool queryMeshInfo(
+		IPluginDocument* doc,
+		const std::string& backendIdUtf8,
+		PluginMeshInfo& out) const override;
+
+	void simplifyMesh(
+		IPluginDocument* doc,
+		const std::string& backendIdUtf8,
+		const PluginMeshSimplifyParams& params,
+		PluginMeshFinishedFn onFinished) override;
+
+	void smoothMesh(
+		IPluginDocument* doc,
+		const std::string& backendIdUtf8,
+		const PluginMeshSmoothParams& params,
+		PluginMeshFinishedFn onFinished) override;
+
+	void repairMesh(
+		IPluginDocument* doc,
+		const std::string& backendIdUtf8,
+		const PluginMeshRepairParams& params,
+		PluginMeshFinishedFn onFinished) override;
+
+	void remeshMeshIsotropic(
+		IPluginDocument* doc,
+		const std::string& backendIdUtf8,
+		const PluginMeshRemeshParams& params,
+		PluginMeshFinishedFn onFinished) override;
+
 private:
+	struct TemplateBrepAlignCache
+	{
+		IPluginDocument* doc = nullptr;
+		std::string scanId;
+		std::string templateId;
+		std::vector<float> alignedWorkXyz;
+		std::vector<float> alignedWorkNormals;
+		geoalgo::TemplateBrepUpdateResult report;
+	};
+
+	bool cacheMatches(
+		IPluginDocument* doc,
+		const std::string& scanId,
+		const std::string& templateId) const;
+
 	PluginHostContext* m_host = nullptr;
+	TemplateBrepAlignCache m_templateBrepAlignCache;
 };

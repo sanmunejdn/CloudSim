@@ -1,4 +1,4 @@
-// Retract 原子块：在路径尾端插入退刀段
+// Retract 原子块：在路径尾端插入退刀点
 #pragma once
 
 #include "ITrajectoryOp.h"
@@ -20,8 +20,8 @@ public:
 	bool processPath(
 		const RobotInstruction::TrajectoryOpDescriptor& op,
 		RobotInstruction::UnifiedTrajectory& traj,
+		const TrajectoryOpExecutionContext& ctx,
 		std::string* errMsg) const override;
 };
 
 } // namespace trajectory_algo
-

@@ -1,6 +1,11 @@
 #include "TrajectoryEditPageWidget.h"
 
 #include "FeaturePickTransform.h"
+
+#include "BackendDataManager.h"
+#include "BrepBackendData.h"
+#include "MeshBackendData.h"
+#include "PointCloudBackendData.h"
 #include "IRobotMainWindowHost.h"
 #include "IRobotOsgViewHost.h"
 #include "ProgramEditCommand.h"
@@ -119,6 +124,8 @@ QString opKindLabel(RobotInstruction::TrajectoryOpKind kind, bool zh)
 		return zh ? QStringLiteral("进刀") : QStringLiteral("Approach");
 	case RobotInstruction::TrajectoryOpKind::Retract:
 		return zh ? QStringLiteral("退刀") : QStringLiteral("Retract");
+	case RobotInstruction::TrajectoryOpKind::ProjectToGeometry:
+		return zh ? QStringLiteral("轨迹投影") : QStringLiteral("ProjectToGeometry");
 	case RobotInstruction::TrajectoryOpKind::Translate:
 	default:
 		return zh ? QStringLiteral("平移") : QStringLiteral("Translate");
@@ -160,7 +167,8 @@ void updateTransformActionButtons(
 		|| op.kind == RobotInstruction::TrajectoryOpKind::ReachabilityFilter
 		|| op.kind == RobotInstruction::TrajectoryOpKind::ExternalAxisSearch
 		|| op.kind == RobotInstruction::TrajectoryOpKind::Delete
-		|| op.kind == RobotInstruction::TrajectoryOpKind::Duplicate;
+		|| op.kind == RobotInstruction::TrajectoryOpKind::Duplicate
+		|| op.kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry;
 	const bool canPosePreview = algo
 		&& trajectory_algo::hasCapability(
 			algo->capabilities(),
@@ -238,8 +246,12 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	m_paramGroupBox = new QGroupBox(QStringLiteral("参数"), this);
 	auto* paramBoxLayout = new QVBoxLayout(m_paramGroupBox);
 	m_scopeGroupCombo = new QComboBox(m_paramGroupBox);
+	m_geometryBackendCombo = new QComboBox(m_paramGroupBox);
+	m_geometryBackendPickBtn = new QPushButton(m_paramGroupBox);
 	m_paramPanel = new TrajectoryOpParamPanel(m_paramGroupBox);
 	m_paramPanel->setScopeGroupCombo(m_scopeGroupCombo);
+	m_paramPanel->setGeometryBackendCombo(m_geometryBackendCombo);
+	m_paramPanel->setGeometryBackendPickButton(m_geometryBackendPickBtn);
 	paramBoxLayout->addWidget(m_paramPanel);
 	root->addWidget(m_paramGroupBox);
 
@@ -330,6 +342,50 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 			}
 		}
 	});
+	const auto onGeometryBackendComboChanged = [this]() {
+		if (!m_loadingParams)
+		{
+			setPipelineAppliedState(false, false);
+			applyParamsToSelectedOp();
+			if (!m_flushingParams && m_previewCheck && m_previewCheck->isChecked()
+				&& m_session && !m_session->isPreviewActive())
+			{
+				schedulePreviewRun(100, false);
+			}
+		}
+	};
+	connect(
+		m_geometryBackendCombo,
+		QOverload<int>::of(&QComboBox::currentIndexChanged),
+		this,
+		onGeometryBackendComboChanged);
+	connect(
+		m_geometryBackendCombo,
+		QOverload<int>::of(&QComboBox::activated),
+		this,
+		onGeometryBackendComboChanged);
+	connect(m_geometryBackendPickBtn, &QPushButton::clicked, this, [this]() {
+		if (!m_host || !m_geometryBackendCombo)
+		{
+			return;
+		}
+		const QString selectedId = m_host->selectedBackendId();
+		if (selectedId.isEmpty())
+		{
+			return;
+		}
+		const int idx = m_geometryBackendCombo->findData(selectedId);
+		if (idx < 0)
+		{
+			return;
+		}
+		m_geometryBackendCombo->setCurrentIndex(idx);
+		if (!m_loadingParams)
+		{
+			setPipelineAppliedState(false, false);
+			applyParamsToSelectedOp();
+		}
+	});
 	setUseChinese(m_useChinese);
 }
 
@@ -361,6 +417,11 @@ void TrajectoryEditPageWidget::updateUiLabels()
 	if (m_paramPanel)
 	{
 		m_paramPanel->setUseChinese(zh);
+	}
+	if (m_geometryBackendPickBtn)
+	{
+		m_geometryBackendPickBtn->setText(
+			zh ? QStringLiteral("从选中填充") : QStringLiteral("Use selection"));
 	}
 	if (m_previewCheck)
 	{
@@ -1023,6 +1084,64 @@ void TrajectoryEditPageWidget::refreshProgramAndGroupCombos()
 	{
 		m_session->setContextProgramId(activeId);
 	}
+	refreshGeometryBackendCombo();
+}
+
+void TrajectoryEditPageWidget::refreshGeometryBackendCombo()
+{
+	if (!m_geometryBackendCombo)
+	{
+		return;
+	}
+	QString prevBackendId;
+	if (m_pipeline && m_pipeline->selectedOpIndex() >= 0)
+	{
+		prevBackendId = QString::fromStdString(m_pipeline->selectedOp().project.targetBackendId);
+	}
+	if (prevBackendId.isEmpty() && m_geometryBackendCombo->currentIndex() >= 0)
+	{
+		prevBackendId = m_geometryBackendCombo->currentData().toString();
+	}
+	m_geometryBackendCombo->blockSignals(true);
+	m_geometryBackendCombo->clear();
+	if (m_host && m_host->document())
+	{
+		BackendDataManager& mgr = m_host->document()->backend();
+		for (const std::shared_ptr<BackendDataBase>& data : mgr.listData())
+		{
+			if (!data || !data->hasGeometry())
+			{
+				continue;
+			}
+			const bool isPointCloud = static_cast<bool>(std::dynamic_pointer_cast<PointCloudBackendData>(data));
+			const bool isMesh = static_cast<bool>(std::dynamic_pointer_cast<MeshBackendData>(data));
+			const bool isBrep = static_cast<bool>(std::dynamic_pointer_cast<BrepBackendData>(data));
+			if (!isPointCloud && !isMesh && !isBrep)
+			{
+				continue;
+			}
+			const QString backendId = QString::fromStdString(data->id());
+			if (backendId.startsWith(QStringLiteral("RobotURDF_")))
+			{
+				continue;
+			}
+			const QString label = QString::fromStdString(data->name()).isEmpty()
+				? backendId
+				: QStringLiteral("%1 (%2)").arg(
+					QString::fromStdString(data->name()),
+					backendId);
+			m_geometryBackendCombo->addItem(label, backendId);
+		}
+	}
+	if (!prevBackendId.isEmpty())
+	{
+		const int idx = m_geometryBackendCombo->findData(prevBackendId);
+		if (idx >= 0)
+		{
+			m_geometryBackendCombo->setCurrentIndex(idx);
+		}
+	}
+	m_geometryBackendCombo->blockSignals(false);
 }
 
 void TrajectoryEditPageWidget::rebuildPalette()
@@ -1193,6 +1312,7 @@ void TrajectoryEditPageWidget::flushPipelineToSession(const bool forApply)
 	{
 		m_pipeline->setOps(m_pipeline->ops());
 	}
+	syncProjectBackendFromComboToPipeline(forApply);
 	if (m_pipeline->selectedOpIndex() >= 0)
 	{
 		applyParamsToSelectedOp(forApply);
@@ -1252,13 +1372,86 @@ void TrajectoryEditPageWidget::loadSelectedOpToParamsImpl()
 	updateTransformActionButtons(op, m_previewCheck, m_applyBtn, m_readOnly);
 }
 
+void TrajectoryEditPageWidget::syncProjectBackendFromComboToPipeline(const bool allProjectOps)
+{
+	if (!m_pipeline || !m_geometryBackendCombo || m_geometryBackendCombo->currentIndex() < 0)
+	{
+		return;
+	}
+	const std::string backendId =
+		m_geometryBackendCombo->currentData().toString().toStdString();
+	if (backendId.empty())
+	{
+		return;
+	}
+	const int sel = m_pipeline->selectedOpIndex();
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> ops = m_pipeline->ops();
+	bool changed = false;
+	for (std::size_t i = 0; i < ops.size(); ++i)
+	{
+		if (ops[i].kind != RobotInstruction::TrajectoryOpKind::ProjectToGeometry)
+		{
+			continue;
+		}
+		if (!allProjectOps && sel >= 0 && static_cast<int>(i) != sel)
+		{
+			continue;
+		}
+		if (ops[i].project.targetBackendId == backendId)
+		{
+			continue;
+		}
+		ops[i].project.targetBackendId = backendId;
+		changed = true;
+	}
+	if (!changed)
+	{
+		return;
+	}
+	m_pipeline->blockSignals(true);
+	m_pipeline->setOps(ops);
+	if (sel >= 0 && sel < m_pipeline->count())
+	{
+		m_pipeline->setCurrentRow(sel);
+	}
+	m_pipeline->blockSignals(false);
+}
+
+std::vector<RobotInstruction::TrajectoryOpDescriptor> TrajectoryEditPageWidget::buildPipelineOpsForApply() const
+{
+	if (!m_pipeline)
+	{
+		return {};
+	}
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> ops = m_pipeline->ops();
+	if (!m_geometryBackendCombo || m_geometryBackendCombo->currentIndex() < 0)
+	{
+		return ops;
+	}
+	const std::string backendId =
+		m_geometryBackendCombo->currentData().toString().toStdString();
+	if (backendId.empty())
+	{
+		return ops;
+	}
+	for (RobotInstruction::TrajectoryOpDescriptor& op : ops)
+	{
+		if (op.kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry)
+		{
+			op.project.targetBackendId = backendId;
+		}
+	}
+	return ops;
+}
+
 void TrajectoryEditPageWidget::applyParamsToSelectedOp(const bool skipPreviewReapply)
 {
 	if (!m_pipeline || m_pipeline->selectedOpIndex() < 0 || !m_paramPanel)
 	{
 		return;
 	}
-	RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->selectedOp();
+	const int opIndex = m_pipeline->selectedOpIndex();
+	RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->opAt(opIndex);
 	const std::string storedGroupId = op.scope.groupId;
 	const trajectory_algo::ITrajectoryOp* algo =
 		RobotInstruction::trajectoryOpGet(op.kind);
@@ -1286,9 +1479,10 @@ void TrajectoryEditPageWidget::applyParamsToSelectedOp(const bool skipPreviewRea
 			}
 		}
 	}
+	syncProjectBackendFromComboToPipeline(false);
 	m_loadingParams = true;
 	m_paramPanel->setLoading(true);
-	m_pipeline->updateSelectedOp(op);
+	m_pipeline->updateOpAt(opIndex, op);
 	m_paramPanel->setLoading(false);
 	m_loadingParams = false;
 	updateTransformActionButtons(op, m_previewCheck, m_applyBtn, m_readOnly);
@@ -1414,6 +1608,26 @@ void TrajectoryEditPageWidget::syncScopeComboFromSelectedOp()
 	m_scopeGroupCombo->blockSignals(false);
 }
 
+void TrajectoryEditPageWidget::syncGeometryBackendComboFromSelectedOp()
+{
+	if (!m_pipeline || !m_geometryBackendCombo || m_pipeline->selectedOpIndex() < 0)
+	{
+		return;
+	}
+	const RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->selectedOp();
+	m_geometryBackendCombo->blockSignals(true);
+	if (!op.project.targetBackendId.empty())
+	{
+		const int idx = m_geometryBackendCombo->findData(
+			QString::fromStdString(op.project.targetBackendId));
+		if (idx >= 0)
+		{
+			m_geometryBackendCombo->setCurrentIndex(idx);
+		}
+	}
+	m_geometryBackendCombo->blockSignals(false);
+}
+
 void TrajectoryEditPageWidget::syncUiAfterProgramRevision()
 {
 	if (m_committingApply || (m_session && m_session->isApplying()))
@@ -1449,6 +1663,7 @@ void TrajectoryEditPageWidget::syncUiAfterProgramRevision()
 			const RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->selectedOp();
 			m_pipeline->updateSelectedOp(op);
 			syncScopeComboFromSelectedOp();
+			syncGeometryBackendComboFromSelectedOp();
 		}
 	}
 	if (m_paramPanel)
@@ -1660,21 +1875,18 @@ void TrajectoryEditPageWidget::onApplyClicked()
 	{
 		return;
 	}
+	syncProjectBackendFromComboToPipeline(true);
+	if (m_pipeline && m_pipeline->selectedOpIndex() >= 0)
+	{
+		applyParamsToSelectedOp(true);
+	}
 	m_committingApply = true;
-	if (m_pipeline)
-	{
-		const QSignalBlocker pipelineBlocker(m_pipeline);
-		m_pipeline->setCurrentRow(-1);
-	}
-	if (m_paramPanel)
-	{
-		m_paramPanel->clear();
-	}
 	reconcilePipelineScopes();
-	if (m_pipeline)
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> applyOps = buildPipelineOpsForApply();
+	if (!applyOps.empty())
 	{
 		QString constraintErr;
-		if (!validatePipelineConstraints(m_pipeline->ops(), m_useChinese, constraintErr))
+		if (!validatePipelineConstraints(applyOps, m_useChinese, constraintErr))
 		{
 			m_committingApply = false;
 			QMessageBox::warning(
@@ -1684,7 +1896,20 @@ void TrajectoryEditPageWidget::onApplyClicked()
 			return;
 		}
 	}
-	flushPipelineToSession(true);
+	if (m_pipeline)
+	{
+		const QSignalBlocker pipelineBlocker(m_pipeline);
+		m_pipeline->setOps(applyOps);
+		m_pipeline->setCurrentRow(-1);
+	}
+	if (m_paramPanel)
+	{
+		m_paramPanel->clear();
+	}
+	if (m_session)
+	{
+		m_session->updatePipelineOps(applyOps, true);
+	}
 	QString err;
 	if (!m_session->apply(&err))
 	{

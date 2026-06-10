@@ -54,9 +54,11 @@ std::string ExternalAxisSearchOp::formatSummary(
 bool ExternalAxisSearchOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
 	(void)op;
+	(void)ctx;
 	(void)errMsg;
 	if (traj.points.empty())
 	{

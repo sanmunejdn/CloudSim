@@ -9,6 +9,8 @@
 #include "RobotSimulationController.h"
 #include "RobotSimulationMath.h"
 #include "FeaturePickTransform.h"
+#include "TrajectoryGeometryResolver.h"
+#include "TrajectoryGeometryResolverHost.h"
 #include "TrajectoryPathAdapters.h"
 #include "UnifiedTrajectory.h"
 
@@ -26,6 +28,51 @@
 
 namespace
 {
+
+/// committed 中早期 Apply 可能留下空 backend，用 draft 里最新非空投影参数补齐
+void patchEmptyCommittedProjectBackends(
+	std::vector<RobotInstruction::TrajectoryOpDescriptor>& committed,
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& draft)
+{
+	RobotInstruction::ProjectToGeometryParams patch{};
+	bool havePatch = false;
+	for (auto it = draft.rbegin(); it != draft.rend(); ++it)
+	{
+		if (it->kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry
+			&& !it->project.targetBackendId.empty())
+		{
+			patch = it->project;
+			havePatch = true;
+			break;
+		}
+	}
+	if (!havePatch)
+	{
+		return;
+	}
+	for (RobotInstruction::TrajectoryOpDescriptor& op : committed)
+	{
+		if (op.kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry
+			&& op.project.targetBackendId.empty())
+		{
+			op.project = patch;
+		}
+	}
+}
+
+std::vector<RobotInstruction::TrajectoryOpDescriptor> allEngineOps(
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& pending,
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& committed,
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& draft)
+{
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> out;
+	out.reserve(pending.size() + committed.size() + draft.size());
+	out.insert(out.end(), pending.begin(), pending.end());
+	out.insert(out.end(), committed.begin(), committed.end());
+	out.insert(out.end(), draft.begin(), draft.end());
+	return out;
+}
+
 using InstructionIndex = std::unordered_map<std::string, std::shared_ptr<RobotInstruction::Base>>;
 constexpr size_t kLightweightPreviewGuardThreshold = 2000;
 constexpr size_t kLightweightPreviewMaxWaypoints = 1200;
@@ -105,6 +152,7 @@ bool isUnifiedPathOpKind(const RobotInstruction::TrajectoryOpKind kind)
 	case RobotInstruction::TrajectoryOpKind::ExternalAxisSearch:
 	case RobotInstruction::TrajectoryOpKind::Delete:
 	case RobotInstruction::TrajectoryOpKind::Duplicate:
+	case RobotInstruction::TrajectoryOpKind::ProjectToGeometry:
 		return true;
 	default:
 		return false;
@@ -136,9 +184,22 @@ bool pipelineNeedsOverlayPreview(const std::vector<RobotInstruction::TrajectoryO
 		case RobotInstruction::TrajectoryOpKind::OffsetLateral:
 		case RobotInstruction::TrajectoryOpKind::SmoothPose:
 		case RobotInstruction::TrajectoryOpKind::Weave:
+		case RobotInstruction::TrajectoryOpKind::ProjectToGeometry:
 			return true;
 		default:
 			break;
+		}
+	}
+	return false;
+}
+
+bool pipelineHasProjectToGeometry(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops)
+{
+	for (const RobotInstruction::TrajectoryOpDescriptor& op : ops)
+	{
+		if (op.kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry)
+		{
+			return true;
 		}
 	}
 	return false;
@@ -260,12 +321,50 @@ void TrajectoryEditSession::bindEditService(ProgramEditService* service)
 void TrajectoryEditSession::bindSimulationController(RobotSimulationController* controller)
 {
 	m_simController = controller;
+	ensureGeometryResolverBound();
+}
+
+void TrajectoryEditSession::ensureGeometryResolverBound() const
+{
+	if (!m_simController)
+	{
+		trajectory_geometry_host::clearTrajectoryGeometryResolverBinding();
+		return;
+	}
+	IRobotMainWindowHost* host = m_simController->host();
+	if (!host)
+	{
+		trajectory_geometry_host::clearTrajectoryGeometryResolverBinding();
+		return;
+	}
+	trajectory_geometry_host::bindTrajectoryGeometryResolver(host->document(), host->osgView());
+}
+
+void TrajectoryEditSession::reportProjectionMissesIfAny() const
+{
+	if (!pipelineHasProjectToGeometry(m_ops) || !m_simController)
+	{
+		return;
+	}
+	IRobotMainWindowHost* host = m_simController->host();
+	if (!host)
+	{
+		return;
+	}
+	const std::size_t misses = RobotInstruction::trajectoryProjectionMissCount();
+	if (misses == 0)
+	{
+		return;
+	}
+	host->appendRunWarning(
+		QStringLiteral("轨迹投影：%1 个点未命中几何，已保留原位置").arg(static_cast<qulonglong>(misses)));
 }
 
 void TrajectoryEditSession::updatePipelineOps(
 	std::vector<RobotInstruction::TrajectoryOpDescriptor> ops,
 	const bool /*allowPreviewReapply*/)
 {
+	patchEmptyCommittedProjectBackends(m_accumulatedGeometryOps, ops);
 	m_ops = std::move(ops);
 	invalidatePreviewScopeCache();
 	syncPipelineToBoundPathPlan();
@@ -589,6 +688,7 @@ bool TrajectoryEditSession::previewUnifiedFromProgramPipeline(QString* outError)
 	m_pipelineEngine.setUsingRaw(false);
 	m_pipelineEngine.setUnifiedBaseline(unified);
 	m_pipelineEngine.setDraftOps(m_ops);
+	ensureGeometryResolverBound();
 	if (!m_pipelineEngine.executeFull(&err))
 	{
 		if (outError)
@@ -597,6 +697,7 @@ bool TrajectoryEditSession::previewUnifiedFromProgramPipeline(QString* outError)
 		}
 		return false;
 	}
+	reportProjectionMissesIfAny();
 	unified = m_pipelineEngine.result();
 	const bool lightweight = unified.points.size() > kLightweightPreviewGuardThreshold;
 	updateLightweightPreviewState(lightweight);
@@ -807,8 +908,12 @@ bool TrajectoryEditSession::apply(QString* outError)
 		}
 		return false;
 	}
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> committedOps = m_accumulatedGeometryOps;
+	patchEmptyCommittedProjectBackends(committedOps, m_ops);
 	std::string validateErr;
-	if (!RobotInstruction::validateTrajectoryPipeline(m_ops, &validateErr))
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor> engineOps =
+		allEngineOps(m_pendingPreRawGeometryOps, committedOps, m_ops);
+	if (!RobotInstruction::validateTrajectoryPipeline(engineOps, &validateErr))
 	{
 		if (outError)
 		{
@@ -836,6 +941,7 @@ bool TrajectoryEditSession::apply(QString* outError)
 		if (m_rawTrajectory.has_value())
 		{
 			usingRaw = true;
+			m_accumulatedGeometryOps = committedOps;
 			if (!configurePipelineEngineForRaw(m_ops))
 			{
 				if (outError)
@@ -844,6 +950,7 @@ bool TrajectoryEditSession::apply(QString* outError)
 				}
 				return false;
 			}
+			ensureGeometryResolverBound();
 			if (!m_pipelineEngine.executeFull(&pipelineErr))
 			{
 				if (outError)
@@ -853,6 +960,7 @@ bool TrajectoryEditSession::apply(QString* outError)
 				}
 				return false;
 			}
+			reportProjectionMissesIfAny();
 			unified = m_pipelineEngine.result();
 			rawWorking = m_pipelineEngine.rawWorking();
 			m_pendingPreRawGeometryOps.clear();
@@ -892,8 +1000,10 @@ bool TrajectoryEditSession::apply(QString* outError)
 			m_pipelineEngine.setProgramContext(activeProgram);
 			m_pipelineEngine.setUsingRaw(false);
 			m_pipelineEngine.setUnifiedBaseline(unified);
-			m_pipelineEngine.setCommittedOps(m_accumulatedGeometryOps);
+			m_accumulatedGeometryOps = committedOps;
+			m_pipelineEngine.setCommittedOps(committedOps);
 			m_pipelineEngine.setDraftOps(geometryOps);
+			ensureGeometryResolverBound();
 			if (!m_pipelineEngine.executeFull(&pipelineErr))
 			{
 				if (outError)
@@ -903,6 +1013,7 @@ bool TrajectoryEditSession::apply(QString* outError)
 				}
 				return false;
 			}
+			reportProjectionMissesIfAny();
 			unified = m_pipelineEngine.result();
 		}
 		RobotInstruction::RobotProgram replacement = *activeProgram;
@@ -1325,8 +1436,10 @@ bool TrajectoryEditSession::configurePipelineEngineForRaw(
 	{
 		m_pipelineEngine.setProgramContext(prog);
 	}
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> committedOps = m_accumulatedGeometryOps;
+	patchEmptyCommittedProjectBackends(committedOps, draftOps);
 	m_pipelineEngine.setPendingPreRawOps(m_pendingPreRawGeometryOps);
-	m_pipelineEngine.setCommittedOps(m_accumulatedGeometryOps);
+	m_pipelineEngine.setCommittedOps(std::move(committedOps));
 	m_pipelineEngine.setDraftOps(draftOps);
 	return true;
 }
@@ -1343,6 +1456,7 @@ bool TrajectoryEditSession::syncPipelineEngine(
 
 bool TrajectoryEditSession::runPipelineEngineFull(QString* outError)
 {
+	ensureGeometryResolverBound();
 	std::string err;
 	if (!m_pipelineEngine.executeFull(&err))
 	{
@@ -1352,6 +1466,7 @@ bool TrajectoryEditSession::runPipelineEngineFull(QString* outError)
 		}
 		return false;
 	}
+	reportProjectionMissesIfAny();
 	return true;
 }
 
@@ -1383,6 +1498,7 @@ bool TrajectoryEditSession::buildRawPreviewWithPipeline(
 		}
 		return false;
 	}
+	ensureGeometryResolverBound();
 	std::string err;
 	if (!m_pipelineEngine.executeFull(&err))
 	{
@@ -1392,6 +1508,7 @@ bool TrajectoryEditSession::buildRawPreviewWithPipeline(
 		}
 		return false;
 	}
+	reportProjectionMissesIfAny();
 	RobotInstruction::RawTrajectory worldPreview{};
 	if (!RobotInstruction::unifiedTrajectoryToRaw(m_pipelineEngine.result(), worldPreview, &err))
 	{

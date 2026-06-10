@@ -114,8 +114,62 @@ Widget 侧 UI 能力契约（`inc/IPluginMainWindowHost.h`），供 Host 内 `Pl
 
 | 路径 | 说明 |
 |------|------|
-| `inc/DocumentPointCloudOps.h` | 解析 `PointCloudBackendData`、OSG 提交、mesh 注册 |
+| `inc/DocumentPointCloudOps.h` | 解析 `PointCloudBackendData`、OSG 提交、mesh 注册、**模板配准坐标变换** |
 | `inc/PluginPointCloudHostImpl.h` | `IPluginPointCloudHost` 实现 |
+
+### 3.7 模板 B-rep 更新（点云 → CAD 面拟合）
+
+**专题文档**：[`docs/template_brep_pointcloud_update.md`](../../../docs/template_brep_pointcloud_update.md)
+
+| API | 说明 |
+|-----|------|
+| `registerScanToCadTemplate` | 单 Job 配准 + ICP 写回 + `TemplateBrepAlignCache` |
+| `updateTemplateBrepFromAlignedScan` | 校验缓存 → Job `updateBrepFromAlignedScan` → **`registerAdoptedBrepAndLoadScene` 注册新 B-rep**（`{模板名}_updated`），原模板不修改 |
+| `transformScanPointsToTemplateModelFrame` | 扫描 stored xyz → **STEP 模型坐标**（与 B-rep 拾取同规则） |
+| `applyScanIcpAlignmentToStoredPoints` | `scanToTemplate`（STEP 系）烘焙回点云 stored 并 `commitPointCloudVisual` |
+
+面重构显示约定：`skipInnerModelCenterRebase=false`（与点云去心一致）、`resetViewToHome=false`；`clearBrepImportArtifactsCache()` 后加载；模板/点云/新工件均保持可见。`updatedFaceCount==0` 时按 `skippedBadBboxFaceCount` 区分 bbox 守卫失败与其它原因。
+
+坐标变换要点（`DocumentPointCloudOps.cpp`）：
+
+- 模板/扫描 backend id 经 **`OsgWidget::resolvePickScopeBackendId`** 解析 visual id（装配 alias）。
+- **`backendSkipsInnerModelCenterRebase`** 决定是否加减 `modelCenter`（与 `feature_pick_transform` 一致）。
+- 禁止对模板 id 直接使用 logical id 取 world 矩阵而不 resolve，否则装配体子件会出现 `frameCheck pairHits=0`。
+
+配准编排与日志见 `geometry_backend_ops::registerScanToCadTemplate`（`Data/GeometryBackendOps.cpp`）。
+
+### 3.8 网格后处理（1.9.0+，VcgAlgorithms）
+
+基于 vcglib 的网格后处理能力，通过 `VcgAlgorithms.dll` 实现。
+
+| API | 说明 |
+|-----|------|
+| `queryMeshInfo` | UI 线程查询面数/顶点数（`DocumentPointCloudOps::queryMeshInfo`） |
+| `simplifyMesh` | `runMeshMutateJob` → `point_cloud_backend_ops::simplifyMesh` → vcglib quadric-edge-collapse |
+| `smoothMesh` | Laplacian 或 Implicit Fairing 平滑 |
+| `repairMesh` | 去退化面/重复顶点/非流形/填孔 |
+| `remeshMeshIsotropic` | 各向同性重网格（均匀三角形分布） |
+
+**调用链路**：
+
+```text
+PluginPointCloudHostImpl::simplifyMesh(...)
+  → runMeshMutateJob(通用模板)
+    → [后台线程] point_cloud_backend_ops::simplifyMesh(soupIn, soupOut, ...)
+      → LoadLibrary("VcgAlgorithms.dll")
+      → vcgalgo::simplifyQuadricEdgeCollapse(...)
+    → [UI线程] registerReconstructedMesh(新 mesh 对象)
+```
+
+**关键设计**：
+- `runMeshMutateJob` 是网格异步操作通用模式：读 soup → 后台处理 → 注册新 mesh
+- `point_cloud_backend_ops` 通过运行时 `LoadLibrary` 加载 `VcgAlgorithms.dll`，避免硬依赖
+- 操作结果创建新 mesh 对件，不修改原始对象（与重建一致）
+
+| 路径 | 说明 |
+|------|------|
+| `inc/DocumentPointCloudOps.h` | 新增 `resolveMesh`、`queryMeshInfo` |
+| `inc/PluginPointCloudHostImpl.h` | 新增 5 个 override 方法 |
 
 ---
 
@@ -144,6 +198,7 @@ Widget 侧 UI 能力契约（`inc/IPluginMainWindowHost.h`），供 Host 内 `Pl
 | [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) | `IDataService`、`EventHub` |
 | [`Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) | `MainWindow` 实现 `IPluginMainWindowHost`、JobSystem |
 | [`ARCHITECTURE_SUMMARY.md`](../../../ARCHITECTURE_SUMMARY.md) §10 | 插件运行时与目录约定 |
+| [`docs/template_brep_pointcloud_update.md`](../../../docs/template_brep_pointcloud_update.md) | 模板 B-rep + 点云配准与面更新 |
 | [`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) | AI 助手、`ai_config`、训练索引 |
 | [`tools/ai-training/CONFIGURATION.md`](../../tools/ai-training/CONFIGURATION.md) | `ai_config.json` 字段 |
 | [`tools/ai-training/README.md`](../../tools/ai-training/README.md) | 离线训练与 Ollama 部署 |

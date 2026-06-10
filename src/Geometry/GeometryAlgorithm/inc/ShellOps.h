@@ -3,6 +3,7 @@
 #include "geometry_algorithm_global.h"
 #include "Types.h"
 
+#include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
 
 #include <string>

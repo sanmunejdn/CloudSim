@@ -56,6 +56,7 @@ std::string OffsetLateralOp::formatSummary(
 bool OffsetLateralOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
 	(void)op;
@@ -67,7 +68,7 @@ bool OffsetLateralOp::processPath(
 	offsetLateralUnifiedInScope(
 		traj,
 		op.scope,
-		activeProgramContext(),
+		ctx.program,
 		op.pathOffset.lateralMm);
 	return true;
 }

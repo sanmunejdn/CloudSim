@@ -134,7 +134,7 @@
 
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
 
-      <PreprocessorDefinitions>TRAJECTORY_ALGORITHM_LIB;ROBOT_SCENE_LIB;GEOMETRY_ENGINE_STATIC;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>TRAJECTORY_ALGORITHM_LIB;ROBOT_SCENE_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
 
       <ConformanceMode>true</ConformanceMode>
 
@@ -154,7 +154,7 @@
 
       <WarningLevel>Level3</WarningLevel>
 
-      <PreprocessorDefinitions>TRAJECTORY_ALGORITHM_LIB;ROBOT_SCENE_LIB;GEOMETRY_ENGINE_STATIC;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>TRAJECTORY_ALGORITHM_LIB;ROBOT_SCENE_LIB;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
 
       <ConformanceMode>true</ConformanceMode>
 
@@ -182,6 +182,9 @@
 
     </ClInclude>
 
+    <ClInclude Include="inc\TrajectoryOpExecutionContext.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\ITrajectoryOp.h">
 
       <Filter>inc</Filter>

@@ -20,6 +20,7 @@ public:
 	bool processPath(
 		const RobotInstruction::TrajectoryOpDescriptor& op,
 		RobotInstruction::UnifiedTrajectory& traj,
+		const TrajectoryOpExecutionContext& ctx,
 		std::string* errMsg) const override;
 };
 

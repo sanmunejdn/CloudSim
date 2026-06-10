@@ -23,6 +23,21 @@
         "order": 1
       },
       {
+        "key": "approach.direction",
+        "type": "Vec3",
+        "labelZh": "自定义方向",
+        "group": "approach",
+        "order": 2
+      },
+      {
+        "key": "approach.directionFrame",
+        "type": "Enum",
+        "labelZh": "方向参考系",
+        "defaultInt": 0,
+        "group": "approach",
+        "order": 3
+      },
+      {
         "key": "approach.speedMmPerSec",
         "type": "Double",
         "labelZh": "速度",

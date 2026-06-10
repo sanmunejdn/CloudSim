@@ -1,9 +1,10 @@
 #include "TrajectoryPipelineEngine.h"
 
+#include "RobotSceneGeometryProjection.h"
 #include "TrajectoryOpBridge.h"
 
 #include <ITrajectoryOp.h>
-#include <TrajectoryUnifiedScope.h>
+#include <TrajectoryOpExecutionContext.h>
 
 #include <cmath>
 
@@ -194,14 +195,28 @@ bool TrajectoryPipelineEngine::applyGeometryOp(
 	UnifiedTrajectory& unified,
 	std::string* errMsg)
 {
-	trajectory_algo::setActiveProgramContext(m_program);
 	ensureTrajectoryOpBuiltinsRegistered();
 	const trajectory_algo::ITrajectoryOp* impl = trajectoryOpGet(op.kind);
-	if (impl && impl->processPath(op, unified, errMsg))
+	if (!impl)
+	{
+		if (errMsg)
+		{
+			*errMsg = "trajectory op not registered";
+		}
+		return false;
+	}
+	trajectory_algo::TrajectoryOpExecutionContext ctx{};
+	ctx.program = m_program;
+	ctx.geometryProjection = &robotSceneGeometryProjection();
+	if (impl->processPath(op, unified, ctx, errMsg))
 	{
 		return true;
 	}
-	return applyUnifiedTrajectoryOp(op, unified, errMsg, m_program);
+	if (errMsg && errMsg->empty())
+	{
+		*errMsg = std::string("trajectory op failed: ") + impl->displayName(false);
+	}
+	return false;
 }
 
 bool TrajectoryPipelineEngine::runStep(

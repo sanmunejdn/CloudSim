@@ -119,13 +119,14 @@
       <PreprocessorDefinitions>GEOMETRY_ALGORITHM_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;source;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OpenMP>true</OpenMP>
+      <AdditionalIncludeDirectories>inc;source;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-gd-x64-1_79.lib;boost_date_time-vc142-mt-gd-x64-1_79.lib;libboost_exception-vc142-mt-gd-x64-1_79.lib;boost_filesystem-vc142-mt-gd-x64-1_79.lib;boost_graph-vc142-mt-gd-x64-1_79.lib;boost_iostreams-vc142-mt-gd-x64-1_79.lib;boost_locale-vc142-mt-gd-x64-1_79.lib;boost_math_c99-vc142-mt-gd-x64-1_79.lib;boost_math_c99f-vc142-mt-gd-x64-1_79.lib;boost_math_c99l-vc142-mt-gd-x64-1_79.lib;boost_math_tr1-vc142-mt-gd-x64-1_79.lib;boost_math_tr1f-vc142-mt-gd-x64-1_79.lib;boost_math_tr1l-vc142-mt-gd-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_random-vc142-mt-gd-x64-1_79.lib;boost_regex-vc142-mt-gd-x64-1_79.lib;boost_serialization-vc142-mt-gd-x64-1_79.lib;boost_system-vc142-mt-gd-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_thread-vc142-mt-gd-x64-1_79.lib;boost_unit_test_framework-vc142-mt-gd-x64-1_79.lib;boost_wserialization-vc142-mt-gd-x64-1_79.lib;TKernel.lib;TKMath.lib;TKG2d.lib;TKG3d.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKMesh.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKShHealing.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>RunLogger.lib;libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-gd-x64-1_79.lib;boost_date_time-vc142-mt-gd-x64-1_79.lib;libboost_exception-vc142-mt-gd-x64-1_79.lib;boost_filesystem-vc142-mt-gd-x64-1_79.lib;boost_graph-vc142-mt-gd-x64-1_79.lib;boost_iostreams-vc142-mt-gd-x64-1_79.lib;boost_locale-vc142-mt-gd-x64-1_79.lib;boost_math_c99-vc142-mt-gd-x64-1_79.lib;boost_math_c99f-vc142-mt-gd-x64-1_79.lib;boost_math_c99l-vc142-mt-gd-x64-1_79.lib;boost_math_tr1-vc142-mt-gd-x64-1_79.lib;boost_math_tr1f-vc142-mt-gd-x64-1_79.lib;boost_math_tr1l-vc142-mt-gd-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_random-vc142-mt-gd-x64-1_79.lib;boost_regex-vc142-mt-gd-x64-1_79.lib;boost_serialization-vc142-mt-gd-x64-1_79.lib;boost_system-vc142-mt-gd-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_thread-vc142-mt-gd-x64-1_79.lib;boost_unit_test_framework-vc142-mt-gd-x64-1_79.lib;boost_wserialization-vc142-mt-gd-x64-1_79.lib;TKernel.lib;TKMath.lib;TKG2d.lib;TKG3d.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKMesh.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKShHealing.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/lib;../../../../bin/SDK/boost_1_79_0/lib64-msvc-14.2;../../../../bin/SDK/opencascade-7.9.3-vc14-64/win64/vc14/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -138,13 +139,14 @@
       <PreprocessorDefinitions>GEOMETRY_ALGORITHM_LIB;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;source;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OpenMP>true</OpenMP>
+      <AdditionalIncludeDirectories>inc;source;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-x64-1_79.lib;boost_date_time-vc142-mt-x64-1_79.lib;libboost_exception-vc142-mt-x64-1_79.lib;boost_filesystem-vc142-mt-x64-1_79.lib;boost_graph-vc142-mt-x64-1_79.lib;boost_iostreams-vc142-mt-x64-1_79.lib;boost_locale-vc142-mt-x64-1_79.lib;boost_math_c99-vc142-mt-x64-1_79.lib;boost_math_c99f-vc142-mt-x64-1_79.lib;boost_math_c99l-vc142-mt-x64-1_79.lib;boost_math_tr1-vc142-mt-x64-1_79.lib;boost_math_tr1f-vc142-mt-x64-1_79.lib;boost_math_tr1l-vc142-mt-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-x64-1_79.lib;boost_random-vc142-mt-x64-1_79.lib;boost_regex-vc142-mt-x64-1_79.lib;boost_serialization-vc142-mt-x64-1_79.lib;boost_system-vc142-mt-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-x64-1_79.lib;boost_thread-vc142-mt-x64-1_79.lib;boost_unit_test_framework-vc142-mt-x64-1_79.lib;boost_wserialization-vc142-mt-x64-1_79.lib;TKernel.lib;TKMath.lib;TKG2d.lib;TKG3d.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKMesh.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKShHealing.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>RunLogger.lib;libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-x64-1_79.lib;boost_date_time-vc142-mt-x64-1_79.lib;libboost_exception-vc142-mt-x64-1_79.lib;boost_filesystem-vc142-mt-x64-1_79.lib;boost_graph-vc142-mt-x64-1_79.lib;boost_iostreams-vc142-mt-x64-1_79.lib;boost_locale-vc142-mt-x64-1_79.lib;boost_math_c99-vc142-mt-x64-1_79.lib;boost_math_c99f-vc142-mt-x64-1_79.lib;boost_math_c99l-vc142-mt-x64-1_79.lib;boost_math_tr1-vc142-mt-x64-1_79.lib;boost_math_tr1f-vc142-mt-x64-1_79.lib;boost_math_tr1l-vc142-mt-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-x64-1_79.lib;boost_random-vc142-mt-x64-1_79.lib;boost_regex-vc142-mt-x64-1_79.lib;boost_serialization-vc142-mt-x64-1_79.lib;boost_system-vc142-mt-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-x64-1_79.lib;boost_thread-vc142-mt-x64-1_79.lib;boost_unit_test_framework-vc142-mt-x64-1_79.lib;boost_wserialization-vc142-mt-x64-1_79.lib;TKernel.lib;TKMath.lib;TKG2d.lib;TKG3d.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKMesh.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKShHealing.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/lib;../../../../bin/SDK/boost_1_79_0/lib64-msvc-14.2;../../../../bin/SDK/opencascade-7.9.3-vc14-64/win64/vc14/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -165,6 +167,8 @@
     <ClInclude Include="inc\ShapeIo.h" />
     <ClInclude Include="inc\ViewTessellate.h" />
     <ClInclude Include="inc\BrepImportArtifacts.h" />
+    <ClInclude Include="inc\TrajectoryProjection.h" />
+    <ClInclude Include="inc\TemplateBrepUpdate.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\ShapeQuery.cpp" />
@@ -182,6 +186,13 @@
     <ClCompile Include="source\ShapeHandle.cpp" />
     <ClCompile Include="source\ViewTessellate.cpp" />
     <ClCompile Include="source\BrepImportArtifacts.cpp" />
+    <ClCompile Include="source\TrajectoryProjection.cpp" />
+    <ClCompile Include="source\TemplateBrepUpdate.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Infra\RunLogger\RunLogger.vcxproj">
+      <Project>{35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

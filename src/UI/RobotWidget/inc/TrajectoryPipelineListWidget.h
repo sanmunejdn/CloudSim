@@ -24,11 +24,13 @@ public:
 
 	int selectedOpIndex() const;
 	RobotInstruction::TrajectoryOpDescriptor selectedOp() const;
+	RobotInstruction::TrajectoryOpDescriptor opAt(int index) const;
 
 	void appendOp(RobotInstruction::TrajectoryOpDescriptor op);
 	void removeSelectedOp();
 	void moveSelectedOp(int delta);
 	void updateSelectedOp(const RobotInstruction::TrajectoryOpDescriptor& op);
+	void updateOpAt(int index, const RobotInstruction::TrajectoryOpDescriptor& op);
 
 	using DefaultOpFactory = std::function<RobotInstruction::TrajectoryOpDescriptor(RobotInstruction::TrajectoryOpKind)>;
 	void setDefaultOpFactory(DefaultOpFactory factory);

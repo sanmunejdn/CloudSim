@@ -33,6 +33,7 @@
 
 #include <cmath>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace
@@ -235,17 +236,49 @@ osg::ref_ptr<osg::Node> buildBrepDisplayNode(const BrepBackendData& data, const 
 		artifacts.displayNormals.size() == soup.size() ? &artifacts.displayNormals : nullptr;
 	applySoupToFillGeometry(soup, *geometry, *vertices, normals.get(), opt.useSceneLighting, preNormals);
 
-	osg::ref_ptr<osg::Vec4Array> mc = new osg::Vec4Array;
-	mc->push_back(fillColor);
-	geometry->setColorArray(mc.get(), osg::Array::BIND_OVERALL);
+	const std::unordered_map<int, BackendColor>& faceHighlights = data.faceHighlightColors();
+	const bool useFaceHighlights =
+		!faceHighlights.empty() && !artifacts.triangleFaceIndex.empty();
+	if (useFaceHighlights)
+	{
+		const std::size_t triCount = soup.size() / 9U;
+		osg::ref_ptr<osg::Vec4Array> vertexColors = new osg::Vec4Array;
+		vertexColors->reserve(triCount * 3U);
+		for (std::size_t ti = 0; ti < triCount; ++ti)
+		{
+			osg::Vec4 c(fillColor);
+			if (ti < artifacts.triangleFaceIndex.size())
+			{
+				const auto it = faceHighlights.find(artifacts.triangleFaceIndex[ti]);
+				if (it != faceHighlights.end())
+				{
+					c = osg::Vec4(it->second.r, it->second.g, it->second.b, it->second.a);
+				}
+			}
+			vertexColors->push_back(c);
+			vertexColors->push_back(c);
+			vertexColors->push_back(c);
+		}
+		geometry->setColorArray(vertexColors.get(), osg::Array::BIND_PER_VERTEX);
+	}
+	else
+	{
+		osg::ref_ptr<osg::Vec4Array> mc = new osg::Vec4Array;
+		mc->push_back(fillColor);
+		geometry->setColorArray(mc.get(), osg::Array::BIND_OVERALL);
+	}
 
 	osg::ref_ptr<osg::Geode> geodeFill = new osg::Geode;
 	geodeFill->addDrawable(geometry.get());
-	if (opt.useSceneLighting)
+	osg::StateSet* ssFill = geodeFill->getOrCreateStateSet();
+	if (useFaceHighlights)
+	{
+		ssFill->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	}
+	else if (opt.useSceneLighting)
 	{
 		osg::ref_ptr<osg::Material> mat = new osg::Material;
 		applyLitPlastic(*mat, fillColor);
-		osg::StateSet* ssFill = geodeFill->getOrCreateStateSet();
 		ssFill->setAttributeAndModes(mat.get(), osg::StateAttribute::ON);
 		ssFill->setMode(GL_LIGHTING, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 		ssFill->setMode(GL_LIGHT0, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);

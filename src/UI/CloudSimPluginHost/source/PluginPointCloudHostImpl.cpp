@@ -1,5 +1,8 @@
 #include "PluginPointCloudHostImpl.h"
 
+#include "BackendDataManager.h"
+#include "BackendFileImport.h"
+#include "BrepBackendData.h"
 #include "DocumentImportFacade.h"
 #include "DocumentPointCloudOps.h"
 #include "DocumentHost.h"
@@ -7,6 +10,11 @@
 #include "PluginDocumentAdapter.h"
 #include "PluginHostContext.h"
 #include "PointCloudBackendData.h"
+#include "OsgWidget.h"
+#include "WidgetDocumentAccess.h"
+
+#include <BrepImportArtifacts.h>
+#include <GeometryBackendOps.h>
 
 #include <functional>
 #include <memory>
@@ -14,6 +22,23 @@
 
 namespace
 {
+
+QString makeUniqueBrepDisplayName(cloudsim::host::DocumentHost& page, const QString& baseName)
+{
+	const QString root = baseName.isEmpty() ? QStringLiteral("BrepUpdated") : baseName;
+	QString candidate = root;
+	int suffix = 2;
+	for (;;)
+	{
+		const std::vector<std::shared_ptr<BackendDataBase>> found =
+			page.backend().findByName(candidate.toStdString());
+		if (found.empty())
+		{
+			return candidate;
+		}
+		candidate = root + QStringLiteral("_%1").arg(suffix++);
+	}
+}
 
 cloudsim::host::DocumentHost* pageFromDoc(IPluginDocument* doc)
 {
@@ -93,6 +118,120 @@ void runMutateJob(
 			(void)backendIdUtf8;
 			onFinished(true, QString(), jobResult);
 		});
+}
+
+geoalgo::TemplateBrepUpdateParams buildTemplateBrepGeoParams(
+	const PluginPointCloudTemplateBrepUpdateParams& params)
+{
+	geoalgo::TemplateBrepUpdateParams geoParams;
+	geoParams.voxelPrefilterMm = params.voxelPrefilterMm;
+	geoParams.faceBandMm = params.faceBandMm;
+	geoParams.normalThresholdDeg = params.normalThresholdDeg;
+	geoParams.minPointsPerFace = params.minPointsPerFace;
+	geoParams.maxAllowedDeviationMm = params.maxAllowedDeviationMm;
+	geoParams.selectedFaceIndices = params.selectedFaceIndices;
+	geoParams.maxAssignPointsPerFace = params.maxAssignPointsPerFace;
+	geoParams.bsplineUvGridCellsU = params.bsplineUvGridCellsU;
+	geoParams.bsplineUvGridCellsV = params.bsplineUvGridCellsV;
+	geoParams.bsplinePoleSmoothPasses = params.bsplinePoleSmoothPasses;
+	geoParams.scanAlreadyInTemplateFrame = true;
+	return geoParams;
+}
+
+const char* faceUpdateActionName(const geoalgo::FaceUpdateAction action)
+{
+	switch (action)
+	{
+	case geoalgo::FaceUpdateAction::Unchanged:
+		return "Unchanged";
+	case geoalgo::FaceUpdateAction::PlaneRefit:
+		return "PlaneRefit";
+	case geoalgo::FaceUpdateAction::CylinderRefit:
+		return "CylinderRefit";
+	case geoalgo::FaceUpdateAction::FreeformRefit:
+		return "FreeformRefit";
+	case geoalgo::FaceUpdateAction::SkippedNoPoints:
+		return "SkippedNoPoints";
+	case geoalgo::FaceUpdateAction::ConeRefit:
+		return "ConeRefit";
+	case geoalgo::FaceUpdateAction::SphereRefit:
+		return "SphereRefit";
+	case geoalgo::FaceUpdateAction::ToroidRefit:
+		return "ToroidRefit";
+	case geoalgo::FaceUpdateAction::PlaneAdjusted:
+		return "PlaneAdjusted";
+	case geoalgo::FaceUpdateAction::CylinderAdjusted:
+		return "CylinderAdjusted";
+	case geoalgo::FaceUpdateAction::ConeAdjusted:
+		return "ConeAdjusted";
+	case geoalgo::FaceUpdateAction::SphereAdjusted:
+		return "SphereAdjusted";
+	case geoalgo::FaceUpdateAction::ToroidAdjusted:
+		return "ToroidAdjusted";
+	case geoalgo::FaceUpdateAction::BSplineAdjusted:
+		return "BSplineAdjusted";
+	default:
+		return "Unknown";
+	}
+}
+
+void fillPerFaceReports(
+	const geoalgo::TemplateBrepUpdateResult& report,
+	std::vector<PluginPointCloudFaceUpdateReport>& outPerFace)
+{
+	outPerFace.clear();
+	outPerFace.reserve(report.perFace.size());
+	for (const geoalgo::FaceUpdateReport& faceReport : report.perFace)
+	{
+		PluginPointCloudFaceUpdateReport sdkReport;
+		sdkReport.faceIndex = faceReport.faceIndex;
+		sdkReport.surfaceTypeName = faceReport.surfaceTypeName;
+		sdkReport.action = faceUpdateActionName(faceReport.action);
+		sdkReport.maxDeviationMm = faceReport.maxDeviationMm;
+		outPerFace.push_back(std::move(sdkReport));
+	}
+}
+
+std::shared_ptr<BrepBackendData> resolveBrep(
+	cloudsim::host::DocumentHost* page,
+	const std::string& backendIdUtf8,
+	std::string* outError)
+{
+	if (!page)
+	{
+		if (outError)
+		{
+			*outError = "invalid document page";
+		}
+		return nullptr;
+	}
+	const auto obj = page->backend().getData(backendIdUtf8);
+	if (!obj)
+	{
+		if (outError)
+		{
+			*outError = "backend object not found";
+		}
+		return nullptr;
+	}
+	auto brep = std::dynamic_pointer_cast<BrepBackendData>(obj);
+	if (!brep)
+	{
+		if (outError)
+		{
+			*outError = "backend is not B-rep data";
+		}
+		return nullptr;
+	}
+	if (!brep->hasGeometry())
+	{
+		if (outError)
+		{
+			*outError = "B-rep backend has no shape geometry";
+		}
+		return nullptr;
+	}
+	return brep;
 }
 
 } // namespace
@@ -684,4 +823,485 @@ void PluginPointCloudHostImpl::reconstructMeshScaleSpace(
 			}
 			onFinished(true, QString(), jobResult);
 		});
+}
+
+bool PluginPointCloudHostImpl::cacheMatches(
+	IPluginDocument* doc,
+	const std::string& scanId,
+	const std::string& templateId) const
+{
+	return m_templateBrepAlignCache.doc == doc
+		&& m_templateBrepAlignCache.scanId == scanId
+		&& m_templateBrepAlignCache.templateId == templateId
+		&& !m_templateBrepAlignCache.alignedWorkXyz.empty();
+}
+
+void PluginPointCloudHostImpl::registerScanToCadTemplate(
+	IPluginDocument* doc,
+	const std::string& scanBackendIdUtf8,
+	const PluginPointCloudTemplateBrepUpdateParams& params,
+	PluginPointCloudTemplateBrepRegisterFinishedFn onFinished)
+{
+	if (!m_host || !onFinished)
+	{
+		return;
+	}
+	if (params.templateBrepBackendIdUtf8.empty())
+	{
+		onFinished(false, QStringLiteral("CAD template B-rep not selected"), {});
+		return;
+	}
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	std::string resolveErr;
+	const auto scan = document_point_cloud_ops::resolvePointCloud(page, scanBackendIdUtf8, &resolveErr);
+	if (!scan)
+	{
+		onFinished(false, QString::fromStdString(resolveErr), {});
+		return;
+	}
+	const auto templateBrep = resolveBrep(page, params.templateBrepBackendIdUtf8, &resolveErr);
+	if (!templateBrep)
+	{
+		onFinished(false, QString::fromStdString(resolveErr), {});
+		return;
+	}
+	const QString templateStepPath =
+		page->backendSourcePath().value(QString::fromStdString(params.templateBrepBackendIdUtf8));
+
+	std::vector<float> scanXyzInTemplateFrame = scan->pointPositionsXyz();
+	std::string frameErr;
+	if (!document_point_cloud_ops::transformScanPointsToTemplateModelFrame(
+			page,
+			scanBackendIdUtf8,
+			params.templateBrepBackendIdUtf8,
+			scanXyzInTemplateFrame,
+			&frameErr))
+	{
+		onFinished(false, QString::fromStdString(frameErr), {});
+		return;
+	}
+
+	struct RegisterResult
+	{
+		geoalgo::TemplateBrepUpdateResult report;
+		std::vector<float> alignedWorkXyz;
+		std::vector<float> alignedWorkNormals;
+		std::string error;
+		bool registerOk = false;
+	};
+	auto result = std::make_shared<RegisterResult>();
+	PluginPointCloudTemplateBrepRegisterFinishedFn onFinishedFinal = std::move(onFinished);
+
+	m_host->enqueueJob(
+		QStringLiteral("Register scan to CAD template"),
+		[scan, templateBrep, params, templateStepPath, scanXyzInTemplateFrame, result](
+			const PluginJobProgressFn& report) {
+			report(0.05, QStringLiteral("Preparing..."));
+
+			PointCloudBackendData scanWork;
+			std::vector<float> scanRgba = scan->pointVertexRgba();
+			scanWork.setPointBuffers(scanXyzInTemplateFrame, std::move(scanRgba), {});
+
+			const geoalgo::TemplateBrepUpdateParams geoParams = buildTemplateBrepGeoParams(params);
+
+			report(0.2, QStringLiteral("ICP registration..."));
+			result->registerOk = geometry_backend_ops::registerScanToCadTemplate(
+				*templateBrep,
+				scanWork,
+				geoParams,
+				result->report,
+				result->alignedWorkXyz,
+				result->alignedWorkNormals,
+				&result->error,
+				templateStepPath.toStdString());
+			report(1.0, QStringLiteral("Registration done"));
+		},
+		[this, m_host = m_host, page, scan, doc, params, scanBackendIdUtf8, result, onFinished = onFinishedFinal](
+			const bool threw, const QString& throwMessage) {
+			PluginPointCloudTemplateBrepRegisterResult registerResult;
+			if (threw)
+			{
+				onFinished(false, throwMessage, registerResult);
+				return;
+			}
+
+			if (result->registerOk)
+			{
+				std::string applyErr;
+				if (document_point_cloud_ops::applyScanIcpAlignmentToStoredPoints(
+						page,
+						scanBackendIdUtf8,
+						params.templateBrepBackendIdUtf8,
+						result->report.scanToTemplate,
+						*scan,
+						&applyErr))
+				{
+					document_point_cloud_ops::commitPointCloudVisual(page, *scan);
+					if (m_host)
+					{
+						m_host->logInfo(
+							QStringLiteral("Point cloud aligned to CAD template (ICP RMSE %1 mm)")
+								.arg(result->report.icpRmseMm, 0, 'f', 3));
+					}
+				}
+				else if (m_host)
+				{
+					m_host->logWarn(QString::fromStdString(
+						"ICP result could not be applied to point cloud display: " + applyErr));
+				}
+
+				m_templateBrepAlignCache.doc = doc;
+				m_templateBrepAlignCache.scanId = scanBackendIdUtf8;
+				m_templateBrepAlignCache.templateId = params.templateBrepBackendIdUtf8;
+				m_templateBrepAlignCache.alignedWorkXyz = result->alignedWorkXyz;
+				m_templateBrepAlignCache.alignedWorkNormals = result->alignedWorkNormals;
+				m_templateBrepAlignCache.report = result->report;
+			}
+
+			registerResult.icpRmseMm = result->report.icpRmseMm;
+			if (!result->registerOk)
+			{
+				onFinished(false, QString::fromStdString(result->error), registerResult);
+				return;
+			}
+			onFinished(true, QString(), registerResult);
+		});
+}
+
+void PluginPointCloudHostImpl::updateTemplateBrepFromAlignedScan(
+	IPluginDocument* doc,
+	const std::string& scanBackendIdUtf8,
+	const PluginPointCloudTemplateBrepUpdateParams& params,
+	PluginPointCloudTemplateBrepUpdateFinishedFn onFinished)
+{
+	if (!m_host || !onFinished)
+	{
+		return;
+	}
+	if (params.templateBrepBackendIdUtf8.empty())
+	{
+		onFinished(false, QStringLiteral("CAD template B-rep not selected"), {});
+		return;
+	}
+	if (!cacheMatches(doc, scanBackendIdUtf8, params.templateBrepBackendIdUtf8))
+	{
+		onFinished(
+			false,
+			QStringLiteral("Run scan-to-template registration first (matching step)"),
+			{});
+		return;
+	}
+
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	std::string resolveErr;
+	const auto templateBrep = resolveBrep(page, params.templateBrepBackendIdUtf8, &resolveErr);
+	if (!templateBrep)
+	{
+		onFinished(false, QString::fromStdString(resolveErr), {});
+		return;
+	}
+	const QString templateStepPath =
+		page->backendSourcePath().value(QString::fromStdString(params.templateBrepBackendIdUtf8));
+
+	struct BrepUpdateResult
+	{
+		geoalgo::TemplateBrepUpdateResult report;
+		std::shared_ptr<BrepBackendData> brep;
+		std::string error;
+		bool ok = false;
+	};
+	auto result = std::make_shared<BrepUpdateResult>();
+	result->brep = std::make_shared<BrepBackendData>();
+	PluginPointCloudTemplateBrepUpdateFinishedFn onFinishedFinal = std::move(onFinished);
+
+	const TemplateBrepAlignCache cacheCopy = m_templateBrepAlignCache;
+
+	m_host->enqueueJob(
+		QStringLiteral("Update B-rep faces"),
+		[templateBrep, params, templateStepPath, cacheCopy, result](const PluginJobProgressFn& report) {
+			report(0.1, QStringLiteral("Updating faces..."));
+			const geoalgo::TemplateBrepUpdateParams geoParams = buildTemplateBrepGeoParams(params);
+			result->report = cacheCopy.report;
+			result->ok = geometry_backend_ops::updateBrepFromAlignedScan(
+				*templateBrep,
+				cacheCopy.alignedWorkXyz,
+				cacheCopy.alignedWorkNormals,
+				geoParams,
+				*result->brep,
+				result->report,
+				&result->error,
+				templateStepPath.toStdString());
+			report(1.0, QStringLiteral("Done"));
+		},
+		[m_host = m_host,
+			page,
+			templateBrep,
+			params,
+			templateStepPath,
+			scanBackendIdUtf8,
+			result,
+			onFinished = onFinishedFinal](const bool threw, const QString& throwMessage) {
+			PluginPointCloudTemplateBrepUpdateResult updateResult;
+			if (threw)
+			{
+				onFinished(false, throwMessage, updateResult);
+				return;
+			}
+			if (!result->ok)
+			{
+				onFinished(false, QString::fromStdString(result->error), updateResult);
+				return;
+			}
+			if (result->report.updatedFaceCount == 0U)
+			{
+				updateResult.updatedFaceCount = 0;
+				updateResult.skippedBadBboxFaceCount = result->report.skippedBadBboxFaceCount;
+				updateResult.globalMaxDeviationMm = result->report.globalMaxDeviationMm;
+				updateResult.qualityGatePassed = result->report.qualityPassed;
+				fillPerFaceReports(result->report, updateResult.perFace);
+				QString zeroFaceError;
+				if (result->report.skippedBadBboxFaceCount > 0U)
+				{
+					zeroFaceError = QStringLiteral(
+						"%1 face(s) skipped: model bounds guard. Try fewer faces or fix ICP/face band.")
+						.arg(result->report.skippedBadBboxFaceCount);
+				}
+				else
+				{
+					zeroFaceError = QStringLiteral(
+						"No template faces were updated. Check face selection, ICP alignment, "
+						"min points per face, or BSpline adjust threshold.");
+				}
+				onFinished(false, zeroFaceError, updateResult);
+				return;
+			}
+
+			// 注册新 B-rep 工件，保留原模板；点云流程固定去心显示
+			result->brep->setPose(templateBrep->pose());
+			result->brep->setRotation(templateBrep->rotation());
+			result->brep->setColor(templateBrep->color());
+			const QString templateName = QString::fromStdString(templateBrep->name());
+			const QString displayBase = params.displayNameUtf8.empty()
+				? (templateName.isEmpty() ? QStringLiteral("BrepUpdated")
+										  : templateName + QStringLiteral("_updated"))
+				: QString::fromStdString(params.displayNameUtf8);
+			const QString displayName = makeUniqueBrepDisplayName(*page, displayBase);
+			result->brep->setName(displayName.toStdString());
+			geoalgo::clearBrepImportArtifactsCache();
+
+			const QString sourcePath = templateStepPath.isEmpty()
+				? QStringLiteral("plugin://template-brep-update")
+				: templateStepPath;
+			constexpr bool kSkipRebase = true;
+			constexpr bool kResetViewToHome = false;
+			QString regErr;
+			const bool registerOk = cloudsim::host::registerAdoptedBrepAndLoadScene(
+				*page,
+				result->brep,
+				sourcePath,
+				QStringLiteral("BrepModel"),
+				QString(),
+				kResetViewToHome,
+				&regErr,
+				kSkipRebase);
+			if (!registerOk)
+			{
+				onFinished(
+					false,
+					regErr.isEmpty() ? QStringLiteral("Register updated B-rep failed") : regErr,
+					updateResult);
+				return;
+			}
+			if (OsgWidget* osg = widgetOsgFromPage(page))
+			{
+				osg->setBackendObjectVisible(templateBrep->id(), true);
+				osg->setBackendObjectVisible(result->brep->id(), true);
+				osg->focusCameraOnBackend(result->brep->id());
+			}
+			if (const auto scan = document_point_cloud_ops::resolvePointCloud(page, scanBackendIdUtf8, nullptr))
+			{
+				document_point_cloud_ops::commitPointCloudVisual(page, *scan);
+				if (OsgWidget* osg = widgetOsgFromPage(page))
+				{
+					osg->setBackendObjectVisible(scan->id(), true);
+				}
+			}
+			if (m_host)
+			{
+				m_host->logInfo(
+					QStringLiteral("[TemplateBrepUpdate] new B-rep id=%1 name=%2 (template %3 kept)")
+						.arg(QString::fromStdString(result->brep->id()))
+						.arg(displayName)
+						.arg(QString::fromStdString(templateBrep->id())));
+			}
+
+			updateResult.newBrepBackendId = result->brep->id();
+			updateResult.updatedFaceCount = result->report.updatedFaceCount;
+			updateResult.skippedBadBboxFaceCount = result->report.skippedBadBboxFaceCount;
+			updateResult.globalMaxDeviationMm = result->report.globalMaxDeviationMm;
+			updateResult.qualityGatePassed = result->report.qualityPassed;
+			fillPerFaceReports(result->report, updateResult.perFace);
+			onFinished(true, QString(), updateResult);
+		});
+}
+
+// === 网格后处理（1.9.0+） ===
+
+namespace
+{
+
+// 网格异步操作通用模式：读 soup → 后台处理 → 注册新 mesh
+using MeshMutateFn = std::function<bool(const std::vector<float>& soupIn, std::vector<float>& soupOut, std::string* err)>;
+
+void runMeshMutateJob(
+	PluginHostContext* host,
+	IPluginDocument* doc,
+	const std::string& backendIdUtf8,
+	const QString& jobTitle,
+	const PluginMeshCreateOptions& resultOptions,
+	MeshMutateFn mutate,
+	PluginMeshFinishedFn onFinished)
+{
+	if (!host || !onFinished)
+	{
+		return;
+	}
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	std::string resolveErr;
+	const auto mesh = document_point_cloud_ops::resolveMesh(page, backendIdUtf8, &resolveErr);
+	if (!mesh)
+	{
+		onFinished(false, QString::fromStdString(resolveErr), {});
+		return;
+	}
+
+	struct WorkResult
+	{
+		std::vector<float> soupOut;
+		std::string error;
+		bool ok = false;
+	};
+	auto result = std::make_shared<WorkResult>();
+	const std::vector<float> soupIn = mesh->triangleSoup();
+
+	host->enqueueJob(
+		jobTitle,
+		[soupIn, result, mutate = std::move(mutate)](const PluginJobProgressFn& report) {
+			report(0.2, QStringLiteral("Running..."));
+			result->ok = mutate(soupIn, result->soupOut, &result->error);
+			report(1.0, QStringLiteral("Done"));
+		},
+		[host, page, resultOptions, result, onFinished = std::move(onFinished)](
+			const bool threw, const QString& throwMessage) {
+			PluginPointCloudJobResult jobResult;
+			if (threw)
+			{
+				onFinished(false, throwMessage, jobResult);
+				return;
+			}
+			if (!result->ok)
+			{
+				onFinished(false, QString::fromStdString(result->error), jobResult);
+				return;
+			}
+			auto meshPtr = std::make_shared<MeshBackendData>();
+			meshPtr->setTriangleSoup(std::move(result->soupOut));
+			std::string regErr;
+			jobResult.newBackendId = document_point_cloud_ops::registerReconstructedMesh(
+				page, host->mainWindowHost(), meshPtr, resultOptions, &regErr);
+			if (jobResult.newBackendId.empty())
+			{
+				onFinished(false, QString::fromStdString(regErr), jobResult);
+				return;
+			}
+			jobResult.pointCountAfter = meshPtr->triangleSoup().size() / 9;
+			onFinished(true, QString(), jobResult);
+		});
+}
+
+} // namespace
+
+bool PluginPointCloudHostImpl::queryMeshInfo(
+	IPluginDocument* doc,
+	const std::string& backendIdUtf8,
+	PluginMeshInfo& out) const
+{
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	return document_point_cloud_ops::queryMeshInfo(page, backendIdUtf8, out);
+}
+
+void PluginPointCloudHostImpl::simplifyMesh(
+	IPluginDocument* doc,
+	const std::string& backendIdUtf8,
+	const PluginMeshSimplifyParams& params,
+	PluginMeshFinishedFn onFinished)
+{
+	runMeshMutateJob(
+		m_host,
+		doc,
+		backendIdUtf8,
+		QStringLiteral("Mesh simplify"),
+		params.resultOptions,
+		[params](const std::vector<float>& soupIn, std::vector<float>& soupOut, std::string* err) {
+			return point_cloud_backend_ops::simplifyMesh(
+				soupIn, soupOut, params.targetFaceCount, params.qualityThreshold, err);
+		},
+		std::move(onFinished));
+}
+
+void PluginPointCloudHostImpl::smoothMesh(
+	IPluginDocument* doc,
+	const std::string& backendIdUtf8,
+	const PluginMeshSmoothParams& params,
+	PluginMeshFinishedFn onFinished)
+{
+	runMeshMutateJob(
+		m_host,
+		doc,
+		backendIdUtf8,
+		params.useImplicitFairing ? QStringLiteral("Mesh implicit fairing") : QStringLiteral("Mesh Laplacian smooth"),
+		params.resultOptions,
+		[params](const std::vector<float>& soupIn, std::vector<float>& soupOut, std::string* err) {
+			return point_cloud_backend_ops::smoothMesh(
+				soupIn, soupOut, params.iterations, params.useImplicitFairing, err);
+		},
+		std::move(onFinished));
+}
+
+void PluginPointCloudHostImpl::repairMesh(
+	IPluginDocument* doc,
+	const std::string& backendIdUtf8,
+	const PluginMeshRepairParams& params,
+	PluginMeshFinishedFn onFinished)
+{
+	runMeshMutateJob(
+		m_host,
+		doc,
+		backendIdUtf8,
+		QStringLiteral("Mesh repair"),
+		params.resultOptions,
+		[params](const std::vector<float>& soupIn, std::vector<float>& soupOut, std::string* err) {
+			return point_cloud_backend_ops::repairMesh(
+				soupIn, soupOut, params.removeDegenerate, params.removeDuplicate, params.removeNonManifold, err);
+		},
+		std::move(onFinished));
+}
+
+void PluginPointCloudHostImpl::remeshMeshIsotropic(
+	IPluginDocument* doc,
+	const std::string& backendIdUtf8,
+	const PluginMeshRemeshParams& params,
+	PluginMeshFinishedFn onFinished)
+{
+	runMeshMutateJob(
+		m_host,
+		doc,
+		backendIdUtf8,
+		QStringLiteral("Isotropic remesh"),
+		params.resultOptions,
+		[params](const std::vector<float>& soupIn, std::vector<float>& soupOut, std::string* err) {
+			return point_cloud_backend_ops::remeshMeshIsotropic(
+				soupIn, soupOut, params.targetEdgeLengthMm, params.iterations, err);
+		},
+		std::move(onFinished));
 }

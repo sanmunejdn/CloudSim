@@ -125,6 +125,8 @@ private:
 		std::string* errMsg) const;
 	void invalidatePreviewScopeCache();
 	void updateLightweightPreviewState(bool active);
+	void ensureGeometryResolverBound() const;
+	void reportProjectionMissesIfAny() const;
 
 	RobotProgramStore* m_store = nullptr;
 	ProgramEditService* m_editService = nullptr;

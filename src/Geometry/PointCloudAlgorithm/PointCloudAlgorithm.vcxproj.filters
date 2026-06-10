@@ -30,6 +30,9 @@
     <ClInclude Include="inc\RegistrationRigid.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\RegistrationGlobal.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\RegistrationNonRigid.h">
       <Filter>inc</Filter>
     </ClInclude>
@@ -60,6 +63,9 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\RegistrationRigid.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RegistrationGlobal.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\RegistrationNonRigid.cpp">

@@ -13,6 +13,7 @@
 
 class QComboBox;
 class QFormLayout;
+class QPushButton;
 
 class ROBOTWIDGET_EXPORT TrajectoryOpParamPanel : public QWidget
 {
@@ -24,6 +25,8 @@ public:
 	void setUseChinese(bool chinese);
 	void setLoading(bool loading);
 	void setScopeGroupCombo(QComboBox* combo);
+	void setGeometryBackendCombo(QComboBox* combo);
+	void setGeometryBackendPickButton(QPushButton* button);
 
 	void rebuildForOp(
 		const RobotInstruction::TrajectoryOpDescriptor& op,
@@ -44,6 +47,7 @@ private:
 	void clearRows();
 	void updateFieldVisibility();
 	std::string currentScopeKindToken() const;
+	int currentIntFieldValue(const std::string& key) const;
 
 	bool m_useChinese = true;
 	bool m_loading = false;
@@ -51,6 +55,10 @@ private:
 	bool m_rebuilding = false;
 	QComboBox* m_scopeGroupCombo = nullptr;
 	QWidget* m_scopeGroupComboParent = nullptr;
+	QComboBox* m_geometryBackendCombo = nullptr;
+	QWidget* m_geometryBackendComboParent = nullptr;
+	QPushButton* m_geometryBackendPickBtn = nullptr;
+	QWidget* m_geometryBackendPickBtnParent = nullptr;
 	QFormLayout* m_form = nullptr;
 	std::vector<trajectory_algo::TrajectoryParamBinding> m_rows;
 };

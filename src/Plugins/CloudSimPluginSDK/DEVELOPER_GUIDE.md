@@ -6,9 +6,9 @@
 
 ## 版本
 
-- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00010700` = 1.7.0）
+- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00010900` = 1.9.0）
 - `IPluginDocument`：`documentId()`、`removeBackendObject()`；**1.2.0+** `queryPointCloudInfo` / `measurePointCloud` / `exportMeshToPly`（UI 线程）
-- `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()`；**1.4.0+** 末尾追加 `buildPrimitiveMeshSoup` / `booleanMeshSoups` / `booleanPrimitiveMeshes`；**1.5.0+** `geometryHost()`；**1.6.0+** `captureActiveViewportPng()`（活动文档 3D 视口 PNG，供 geometry.recognize 等多模态域）；**1.7.0+** `IPluginGeometryHost` 新增 `listComputableBackends` / `pickStepElementFromViewport`（几何插件可直接驱动后端对象 + 视图拾取）；新 API 均追加在 vtable 末尾，勿插入中间；升级宿主后须**重编译全部插件 DLL**
+- `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()`；**1.4.0+** 末尾追加 `buildPrimitiveMeshSoup` / `booleanMeshSoups` / `booleanPrimitiveMeshes`；**1.5.0+** `geometryHost()`；**1.6.0+** `captureActiveViewportPng()`（活动文档 3D 视口 PNG，供 geometry.recognize 等多模态域）；**1.7.0+** `IPluginGeometryHost` 新增 `listComputableBackends` / `pickStepElementFromViewport`（几何插件可直接驱动后端对象 + 视图拾取）；**1.8.0+** `IPluginPointCloudHost` 将模板 B-rep 更新拆为 `registerScanToCadTemplate` + `updateTemplateBrepFromAlignedScan`（移除 `updateBrepFromCadTemplate`）；**1.9.0+** `IPluginPointCloudHost` 新增网格后处理：`queryMeshInfo` / `simplifyMesh` / `smoothMesh` / `repairMesh` / `remeshMeshIsotropic`（需宿主链接 `VcgAlgorithms.dll`）；新 API 均追加在 vtable 末尾，勿插入中间；升级宿主后须**重编译全部插件 DLL**
 - 清单 `plugin.json` 中 `minHostVersion` 使用字符串 `"1.0.0"`
 - 运行时调用 `IPluginHostContext::hostVersion()` 比对
 
@@ -88,6 +88,13 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 | `rigidRegisterPointCloudsIcp` | ICP 配准，可选应用到源 |
 | `deformPointCloudTpsFromControls` / `deformPointCloudTpsFitAndDeform` | TPS 形变 |
 | `reconstructMeshPoisson/PoissonAuto/ScaleSpace` | 重建 mesh 并 `registerAdoptedMesh` |
+| `registerScanToCadTemplate` | **1.8.0+** 扫描与 CAD 模板 ICP 配准；写回点云显示；Host 缓存对齐点云供下一步 |
+| `updateTemplateBrepFromAlignedScan` | **1.8.0+** 基于缓存逐面重构 → 新 `BrepModel`；`selectedFaceIndices` 空=全部面（见 [`docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md)） |
+| `queryMeshInfo` | **1.9.0+** 查询网格面数/顶点数（UI 线程） |
+| `simplifyMesh` | **1.9.0+** quadric-edge-collapse 简化，创建新 mesh |
+| `smoothMesh` | **1.9.0+** Laplacian / Implicit Fairing 平滑 |
+| `repairMesh` | **1.9.0+** 去退化面/重复顶点/非流形/填孔 |
+| `remeshMeshIsotropic` | **1.9.0+** 各向同性重网格 |
 
 回调 `PluginPointCloudFinishedFn` 在 **UI 线程**；算法在宿主 `enqueueJob` 内执行。插件 **不得** 链接 `PointCloudAlgorithm` / `Data`。
 
@@ -102,4 +109,4 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 ## 示例
 
 - [`HelloPlugin/DEVELOPER_GUIDE.md`](../HelloPlugin/DEVELOPER_GUIDE.md)（网格、`createPrimitiveMesh`）
-- [`PointCloudPlugin/DEVELOPER_GUIDE.md`](../PointCloudPlugin/DEVELOPER_GUIDE.md)（点云导入、下采样、重建）
+- [`PointCloudPlugin/DEVELOPER_GUIDE.md`](../PointCloudPlugin/DEVELOPER_GUIDE.md)（点云导入、下采样、重建、模板 B-rep 更新）

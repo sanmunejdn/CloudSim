@@ -43,6 +43,7 @@ void BrepBackendData::clearGeometry()
 {
 	m_shape = geoalgo::ShapeHandle{};
 	m_bounds = BackendBoundingBox{};
+	m_faceHighlightColors.clear();
 }
 
 void BrepBackendData::setShape(geoalgo::ShapeHandle shape)
@@ -85,6 +86,21 @@ void BrepBackendData::setColor(const BackendColor& color)
 BackendColor BrepBackendData::color() const
 {
 	return m_color;
+}
+
+void BrepBackendData::setFaceHighlightColors(std::unordered_map<int, BackendColor> colorsByFaceIndex)
+{
+	m_faceHighlightColors = std::move(colorsByFaceIndex);
+}
+
+const std::unordered_map<int, BackendColor>& BrepBackendData::faceHighlightColors() const
+{
+	return m_faceHighlightColors;
+}
+
+void BrepBackendData::clearFaceHighlightColors()
+{
+	m_faceHighlightColors.clear();
 }
 
 void BrepBackendData::recomputeBounds()

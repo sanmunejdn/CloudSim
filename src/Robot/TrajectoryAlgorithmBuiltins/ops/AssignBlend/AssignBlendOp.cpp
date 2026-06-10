@@ -56,6 +56,7 @@ std::string AssignBlendOp::formatSummary(
 bool AssignBlendOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
 	(void)op;
@@ -67,7 +68,7 @@ bool AssignBlendOp::processPath(
 	assignBlendUnifiedInScope(
 		traj,
 		op.scope,
-		activeProgramContext(),
+		ctx.program,
 		op.assignMotion.blendRadiusMm);
 	return true;
 }

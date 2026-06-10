@@ -67,7 +67,11 @@ double computeAverageSpacingMm(const std::vector<float>& xyz, const unsigned int
 	}
 
 	const unsigned int k = (std::max)(2U, (std::min)(kNeighbors, static_cast<unsigned int>(points.size() - 1U)));
+#ifdef CGAL_LINKED_WITH_TBB
+	return CGAL::compute_average_spacing<CGAL::Parallel_tag>(points, k);
+#else
 	return CGAL::compute_average_spacing<CGAL::Sequential_tag>(points, k);
+#endif
 }
 
 } // namespace pclalgo

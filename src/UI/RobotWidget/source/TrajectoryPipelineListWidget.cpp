@@ -16,7 +16,7 @@ namespace
 {
 RobotInstruction::TrajectoryOpKind kindFromInt(const int v)
 {
-	const int maxKind = static_cast<int>(RobotInstruction::TrajectoryOpKind::ExternalAxisSearch);
+	const int maxKind = static_cast<int>(RobotInstruction::TrajectoryOpKind::ProjectToGeometry);
 	if (v < 0 || v > maxKind)
 	{
 		return RobotInstruction::TrajectoryOpKind::Translate;
@@ -64,12 +64,16 @@ int TrajectoryPipelineListWidget::selectedOpIndex() const
 
 RobotInstruction::TrajectoryOpDescriptor TrajectoryPipelineListWidget::selectedOp() const
 {
-	const int idx = selectedOpIndex();
-	if (idx < 0 || idx >= static_cast<int>(m_ops.size()))
+	return opAt(selectedOpIndex());
+}
+
+RobotInstruction::TrajectoryOpDescriptor TrajectoryPipelineListWidget::opAt(const int index) const
+{
+	if (index < 0 || index >= static_cast<int>(m_ops.size()))
 	{
 		return {};
 	}
-	return m_ops[static_cast<size_t>(idx)];
+	return m_ops[static_cast<size_t>(index)];
 }
 
 void TrajectoryPipelineListWidget::appendOp(RobotInstruction::TrajectoryOpDescriptor op)
@@ -112,14 +116,20 @@ void TrajectoryPipelineListWidget::moveSelectedOp(const int delta)
 
 void TrajectoryPipelineListWidget::updateSelectedOp(const RobotInstruction::TrajectoryOpDescriptor& op)
 {
-	const int idx = selectedOpIndex();
-	if (idx < 0 || idx >= static_cast<int>(m_ops.size()))
+	updateOpAt(selectedOpIndex(), op);
+}
+
+void TrajectoryPipelineListWidget::updateOpAt(
+	const int index,
+	const RobotInstruction::TrajectoryOpDescriptor& op)
+{
+	if (index < 0 || index >= static_cast<int>(m_ops.size()))
 	{
 		return;
 	}
-	m_ops[static_cast<size_t>(idx)] = op;
+	m_ops[static_cast<size_t>(index)] = op;
 	// 仅改参数时不重建列表，避免 itemSelectionChanged → loadSelectedOpToParams → clearRows 重入
-	if (QListWidgetItem* listItem = QListWidget::item(idx))
+	if (QListWidgetItem* listItem = QListWidget::item(index))
 	{
 		listItem->setText(formatOpSummary(op));
 	}

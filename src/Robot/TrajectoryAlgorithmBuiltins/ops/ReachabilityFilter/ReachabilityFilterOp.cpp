@@ -54,6 +54,7 @@ std::string ReachabilityFilterOp::formatSummary(
 bool ReachabilityFilterOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
 	(void)op;
@@ -62,7 +63,7 @@ bool ReachabilityFilterOp::processPath(
 	{
 		return false;
 	}
-	reachabilityFilterUnifiedInScope(traj, op.scope, activeProgramContext());
+	reachabilityFilterUnifiedInScope(traj, op.scope, ctx.program);
 	return true;
 }
 

@@ -1,4 +1,4 @@
-// 管道执行期 scope 解析与活动程序上下文
+// 管道执行期 scope 解析
 #pragma once
 
 #include "RobotProgramCatalog.h"
@@ -11,9 +11,6 @@
 
 namespace trajectory_algo
 {
-
-void setActiveProgramContext(const RobotInstruction::RobotProgram* program);
-const RobotInstruction::RobotProgram* activeProgramContext();
 
 std::unordered_set<std::string> resolveScopeInstructionIds(
 	const RobotInstruction::OpScope& scope,

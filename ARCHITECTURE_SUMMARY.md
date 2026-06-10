@@ -234,6 +234,27 @@ flowchart TD
 - 解决“数据模型”和“OSG可渲染节点”之间的转换问题。
 - 使 `OsgWidgetCore` 不需要硬编码各类数据对象细节。
 
+## 4.4.1 `VcgAlgorithms`（vcglib 网格后处理）
+
+- 路径：`src/Geometry/VcgAlgorithms/`；产物：`bin/x64(d)/VcgAlgorithms.dll`。
+- 基于 [vcglib](https://github.com/cnr-isti-vclab/vcglib)（GPL-3.0，头文件库，`bin/SDK/vcglib`）。
+- 命名空间 `vcgalgo`；数据契约与 `PointCloudAlgorithm` 对齐（`9*T` float triangle soup）。
+- vcglib 头文件仅在 `.cpp` 中 include，公开 `.h` 不暴露 vcglib 类型。
+
+| API | 功能 |
+|-----|------|
+| `simplifyQuadricEdgeCollapse` | quadric-error 边折叠简化 |
+| `smoothLaplacian` / `smoothImplicitFairing` | Laplacian / Implicit Fairing 平滑 |
+| `repairMesh` | 去退化面/重复顶点/非流形/填孔 |
+| `isotropicRemesh` | 各向同性重网格 |
+| `reconstructAndPostProcess` | CGAL Poisson + vcglib 后处理管线 |
+
+集成方式：
+- `Data.dll` 通过运行时 `LoadLibrary("VcgAlgorithms.dll")` 调用，避免硬依赖
+- `PointCloudBackendOps.h` 暴露 soup-based 接口：`simplifyMesh`、`smoothMesh`、`repairMesh`、`remeshMeshIsotropic`
+- `IPluginPointCloudHost` 1.9.0+ 新增 `queryMeshInfo` / `simplifyMesh` / `smoothMesh` / `repairMesh` / `remeshMeshIsotropic`
+- 详见 [`VcgAlgorithms/DEVELOPER_GUIDE.md`](src/Geometry/VcgAlgorithms/DEVELOPER_GUIDE.md)
+
 ## 4.5 `OsgWidgetCore`（OSG 场景核心）
 
 核心能力：
@@ -382,7 +403,7 @@ FANUC Turn 0–7 表示 90° 带宽而非简单 `round(Δ/2π)`；若未来需�
 
 **x64 链接形态（2025 起）**：下列引擎模块在 x64 为 **独立 DLL**，运行时与 `CloudSimHost.dll` / `Data.dll` / `RobotWidget.dll` 等 **共享单实例**（不再静态嵌入多份）：
 
-`CloudSimCore`、`CloudSimHost`、`RunLogger`、`GeometryEngine`、`GeometryAlgorithm`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`BackendVisual`、`OsgWidgetCore`。
+`CloudSimCore`、`CloudSimHost`、`RunLogger`、`GeometryEngine`、`GeometryAlgorithm`、`VcgAlgorithms`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`BackendVisual`、`OsgWidgetCore`。
 
 **`Widget.dll` 编译期链接（目标态）**：`CloudSimCore`、`CloudSimHost`、`RunLogger`、`RobotWidget`、`AiWidget`（及 OSG/Qt 系统库）；**不**链接 `BackendVisual` / `GeometryAlgorithm` 等（CI 门禁 `check_widget_deps.ps1` 禁止 vcxproj 出现）。**过渡态**仍链 `Data` / `OsgWidgetCore` / `RobotScene` / `RobotUrdf` / `RobotKinematics` / `GeometryEngine` 直至 `DocumentPage` 机器人与属性面板逻辑迁入 `RobotWidget` 或 Host 契约。新代码仍应经 `doc->data()` / `doc->render()` / `doc->robot()` 访问，勿新增 Data 头 `#include`。
 
@@ -433,6 +454,7 @@ flowchart LR
     Data --> RunLogger
     Data --> PointCloudAlgorithm
     Data --> GeometryAlgorithm
+    Data -. 运行时加载 .-> VcgAlgorithms[VcgAlgorithms.dll]
 ```
 
 依赖特征总结：

@@ -8,6 +8,12 @@
 #include <string>
 #include <vector>
 
+// 前置声明
+namespace pclalgo
+{
+struct ReconstructionConfig;
+}
+
 class PointCloudBackendData;
 class MeshBackendData;
 
@@ -138,6 +144,13 @@ DATA_EXPORT bool reconstructMeshScaleSpace(
 	double meshingRadiusMm,
 	std::string* errMsg = nullptr);
 
+// 配置版本API
+DATA_EXPORT bool reconstructMeshFromPointCloudPoissonWithConfig(
+	const PointCloudBackendData& pointCloud,
+	MeshBackendData& meshOut,
+	const pclalgo::ReconstructionConfig& config,
+	std::string* errMsg = nullptr);
+
 // 兼容旧名
 inline bool downsamplePointCloud(
 	PointCloudBackendData& data,
@@ -146,5 +159,45 @@ inline bool downsamplePointCloud(
 {
 	return downsamplePointCloudVoxel(data, voxelSizeMm, 1U, errMsg);
 }
+
+// === vcglib 网格后处理（x64：Data.dll 链接 VcgAlgorithms.dll） ===
+// 使用 raw soup 接口，便于宿主异步调用
+
+DATA_EXPORT bool simplifyMesh(
+	const std::vector<float>& soupIn,
+	std::vector<float>& soupOut,
+	int targetFaceCount,
+	double qualityThreshold = 0.3,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool smoothMesh(
+	const std::vector<float>& soupIn,
+	std::vector<float>& soupOut,
+	int iterations,
+	bool useImplicitFairing = false,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool repairMesh(
+	const std::vector<float>& soupIn,
+	std::vector<float>& soupOut,
+	bool removeDegenerate = true,
+	bool removeDuplicate = true,
+	bool removeNonManifold = true,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool remeshMeshIsotropic(
+	const std::vector<float>& soupIn,
+	std::vector<float>& soupOut,
+	double targetEdgeLengthMm,
+	int iterations = 3,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool reconstructMeshFromPointCloudPoissonAndPostProcess(
+	const PointCloudBackendData& pointCloud,
+	MeshBackendData& meshOut,
+	int targetFaceCount = 0,
+	bool doRepair = true,
+	bool doSmooth = false,
+	std::string* errMsg = nullptr);
 
 } // namespace point_cloud_backend_ops

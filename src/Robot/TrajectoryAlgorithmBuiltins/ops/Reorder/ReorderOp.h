@@ -1,4 +1,4 @@
-// Reorder 原子块：重排 scope 内路点顺序
+// Reorder 原子块：按 scope 统一姿态
 #pragma once
 
 #include "ITrajectoryOp.h"
@@ -20,6 +20,7 @@ public:
 	bool processPath(
 		const RobotInstruction::TrajectoryOpDescriptor& op,
 		RobotInstruction::UnifiedTrajectory& traj,
+		const TrajectoryOpExecutionContext& ctx,
 		std::string* errMsg) const override;
 };
 

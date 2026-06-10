@@ -4,11 +4,16 @@
 #include "Crop.h"
 #include "Downsample.h"
 #include "Measure.h"
+#include "ParallelUtils.h"
 #include "Preprocess.h"
 #include "Reconstruction.h"
+#include "ReconstructionConfig.h"
 #include "RegistrationNonRigid.h"
 #include "RegistrationRigid.h"
+#include "RegistrationGlobal.h"
 #include "Transform.h"
+
+#include <Eigen/Geometry>
 
 #include <cmath>
 #include <sstream>
@@ -126,6 +131,83 @@ bool runSelfTest(std::vector<std::string>& failures)
 		std::string err;
 		expectTrue(failures, "scalespace.ok", reconstructScaleSpace(xyz, soup, 3, 0.0, &err));
 		expectTrue(failures, "scalespace.soup", soup.size() % 9U == 0U && !soup.empty());
+	}
+
+	{
+		std::vector<float> src = makePlanePointCloud(50, 0.0);
+		std::vector<float> tgt = src;
+		Eigen::Isometry3d gt = Eigen::Isometry3d::Identity();
+		gt.linear() = Eigen::AngleAxisd(0.25, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+		gt.translation() = Eigen::Vector3d(12.0, -8.0, 5.0);
+		transformXyzInPlace(tgt, gt);
+
+		std::vector<float> srcNormals;
+		std::vector<float> tgtNormals;
+		expectTrue(failures, "ransac.normals.src", estimateNormalsPca(src, srcNormals, 12U));
+		expectTrue(failures, "ransac.normals.tgt", estimateNormalsPca(tgt, tgtNormals, 12U));
+		(void)orientNormalsMst(src, srcNormals, 12U, nullptr, nullptr);
+		(void)orientNormalsMst(tgt, tgtNormals, 12U, nullptr, nullptr);
+
+		Eigen::Isometry3d est = Eigen::Isometry3d::Identity();
+		double inlierRatio = 0.0;
+		RigidRegisterRansacParams ransacParams;
+		ransacParams.minInliers = 30U;
+		ransacParams.maxIterations = 3000;
+		expectTrue(
+			failures,
+			"ransac.ok",
+			rigidRegisterFeatureRansac(
+				src,
+				srcNormals,
+				tgt,
+				tgtNormals,
+				est,
+				&inlierRatio,
+				ransacParams));
+		expectTrue(failures, "ransac.inlierRatio", inlierRatio > 0.5);
+		expectNear(failures, "ransac.tx", est.translation().x(), gt.translation().x(), 1.0);
+		expectNear(failures, "ransac.ty", est.translation().y(), gt.translation().y(), 1.0);
+		expectNear(failures, "ransac.tz", est.translation().z(), gt.translation().z(), 1.0);
+	}
+
+	// 测试并行化工具类
+	{
+		const bool tbbAvailable = ParallelUtils::isTbbAvailable();
+		expectTrue(failures, "parallel.tbbAvailable", tbbAvailable);
+		
+		const int threads = ParallelUtils::getThreadCount();
+		expectTrue(failures, "parallel.threads", threads >= 1);
+		
+		const bool enabled = ParallelUtils::isParallelEnabled();
+		expectTrue(failures, "parallel.enabled", enabled);
+	}
+
+	// 测试配置API
+	{
+		ReconstructionConfig config;
+		config.quality = ReconstructionQuality::Fast;
+		config.maxPointsForReconstruction = 100000;
+		config.enableParallel = true;
+		
+		expectNear(failures, "config.voxelPrefilter", config.getVoxelPrefilterMm(), 2.0, 1e-3);
+		expectNear(failures, "config.outlierRemoval", config.getOutlierRemovalPercent(), 3.0, 1e-3);
+		expectTrue(failures, "config.smoothIterations", config.getSmoothIterations() == 2);
+	}
+
+	// 测试配置版本的重建API
+	{
+		std::vector<float> xyz = makePlanePointCloud(20, 0.0);
+		std::vector<float> normals;
+		expectTrue(failures, "config.normals", estimateNormalsPca(xyz, normals, 8));
+		
+		ReconstructionConfig config;
+		config.quality = ReconstructionQuality::Fast;
+		config.maxPointsForReconstruction = 1000;  // 强制下采样
+		
+		std::vector<float> soup;
+		std::string err;
+		expectTrue(failures, "config.poisson", reconstructPoissonWithConfig(xyz, normals, soup, config, &err));
+		expectTrue(failures, "config.poisson.soup", soup.size() % 9U == 0U && !soup.empty());
 	}
 
 	return failures.empty();

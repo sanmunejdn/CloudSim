@@ -52,6 +52,9 @@ struct TRAJECTORY_ALGORITHM_API TrajectoryOpParamField
 	std::string vec3SuffixZ = ".z";
 
 	std::string visibleWhenScopeKind;
+	/// 当另一参数字段等于 visibleWhenIntValue 时显示（如 directionMode==Custom）
+	std::string visibleWhenFieldKey;
+	int visibleWhenIntValue = -1;
 	std::string messageEn;
 	std::string messageZh;
 

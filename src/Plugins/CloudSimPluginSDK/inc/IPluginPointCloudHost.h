@@ -112,4 +112,54 @@ public:
 		const std::string& backendIdUtf8,
 		const PluginPointCloudReconstructScaleSpaceParams& params,
 		PluginPointCloudFinishedFn onFinished) = 0;
+
+	/// 1.8.0+：扫描点云与 CAD 模板 ICP 配准（不写回 B-rep）
+	virtual void registerScanToCadTemplate(
+		IPluginDocument* doc,
+		const std::string& scanBackendIdUtf8,
+		const PluginPointCloudTemplateBrepUpdateParams& params,
+		PluginPointCloudTemplateBrepRegisterFinishedFn onFinished) = 0;
+
+	/// 1.8.0+：基于已配准缓存更新模板 B-rep 面（须先 registerScanToCadTemplate）
+	virtual void updateTemplateBrepFromAlignedScan(
+		IPluginDocument* doc,
+		const std::string& scanBackendIdUtf8,
+		const PluginPointCloudTemplateBrepUpdateParams& params,
+		PluginPointCloudTemplateBrepUpdateFinishedFn onFinished) = 0;
+
+	// === 网格后处理（1.9.0+，需宿主链接 VcgAlgorithms.dll） ===
+
+	/// 查询网格信息（UI 线程）
+	virtual bool queryMeshInfo(
+		IPluginDocument* doc,
+		const std::string& backendIdUtf8,
+		PluginMeshInfo& out) const = 0;
+
+	/// quadric-edge-collapse 网格简化
+	virtual void simplifyMesh(
+		IPluginDocument* doc,
+		const std::string& backendIdUtf8,
+		const PluginMeshSimplifyParams& params,
+		PluginMeshFinishedFn onFinished) = 0;
+
+	/// 网格平滑（Laplacian 或 Implicit Fairing）
+	virtual void smoothMesh(
+		IPluginDocument* doc,
+		const std::string& backendIdUtf8,
+		const PluginMeshSmoothParams& params,
+		PluginMeshFinishedFn onFinished) = 0;
+
+	/// 网格修复（去退化/重复/非流形/填孔）
+	virtual void repairMesh(
+		IPluginDocument* doc,
+		const std::string& backendIdUtf8,
+		const PluginMeshRepairParams& params,
+		PluginMeshFinishedFn onFinished) = 0;
+
+	/// 各向同性重网格
+	virtual void remeshMeshIsotropic(
+		IPluginDocument* doc,
+		const std::string& backendIdUtf8,
+		const PluginMeshRemeshParams& params,
+		PluginMeshFinishedFn onFinished) = 0;
 };

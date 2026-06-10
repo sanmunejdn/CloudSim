@@ -2,7 +2,7 @@
 #include "RotateOp.h"
 
 #include "TrajectoryOpFormat.h"
-#include "TrajectoryOpPathApply.h"
+#include "UnifiedTrajectorySemanticMath.h"
 
 #include <cmath>
 #include <cstdio>
@@ -66,9 +66,9 @@ std::vector<TrajectoryOpParamField> RotateOp::paramFields() const
 			0,
 			0,
 			"transform"),
-		doubleParamField("rotate.axisX", "Axis X", "轴 X", "", -1.0, 1.0, 0.001, 0.0, 1),
-		doubleParamField("rotate.axisY", "Axis Y", "轴 Y", "", -1.0, 1.0, 0.001, 0.0, 2),
-		doubleParamField("rotate.axisZ", "Axis Z", "轴 Z", "", -1.0, 1.0, 0.001, 1.0, 3),
+		doubleParamField("rotate.axisX", "Axis X", "轴X", "", -1.0, 1.0, 0.001, 0.0, 1),
+		doubleParamField("rotate.axisY", "Axis Y", "轴Y", "", -1.0, 1.0, 0.001, 0.0, 2),
+		doubleParamField("rotate.axisZ", "Axis Z", "轴Z", "", -1.0, 1.0, 0.001, 1.0, 3),
 		doubleParamField("rotate.angleDeg", "Angle(Start)", "角度(起点)", "°", -360.0, 360.0, 0.01, 0.0, 4),
 		doubleParamField("rotate.endAngleDeg", "Angle(End)", "角度(终点)", "°", -360.0, 360.0, 0.01, 0.0, 5),
 	};
@@ -134,9 +134,10 @@ std::string RotateOp::formatSummary(
 bool RotateOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
-	return applyUnifiedPathOp(op, traj, errMsg);
+	return applyTranslateRotateInScope(op, traj, ctx.program);
 }
 
 } // namespace trajectory_algo

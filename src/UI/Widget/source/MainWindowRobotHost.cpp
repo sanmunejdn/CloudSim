@@ -544,6 +544,11 @@ void MainWindowRobotHost::clearBackendObjectSelection(const bool clearTreeSelect
 	MainWindowSelectionService::clearBackendObjectSelection(*m_mw, clearTreeSelection);
 }
 
+QString MainWindowRobotHost::selectedBackendId() const
+{
+	return m_mw ? m_mw->m_selectionState.selectedBackendId() : QString();
+}
+
 std::shared_ptr<RobotInstruction::Base> MainWindowRobotHost::activeInstructionForProperty() const
 {
 	return m_mw->m_activeInstructionForProperty;

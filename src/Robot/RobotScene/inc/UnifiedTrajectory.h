@@ -64,16 +64,5 @@ ROBOT_SCENE_API bool unifiedTrajectoryToRaw(
 	RawTrajectory& raw,
 	std::string* errMsg = nullptr);
 
-ROBOT_SCENE_API bool applyUnifiedTrajectoryOp(
-	const TrajectoryOpDescriptor& op,
-	UnifiedTrajectory& traj,
-	std::string* errMsg = nullptr,
-	const RobotProgram* program = nullptr);
-
-ROBOT_SCENE_API bool applyUnifiedTrajectoryPipeline(
-	const std::vector<TrajectoryOpDescriptor>& ops,
-	UnifiedTrajectory& traj,
-	std::string* errMsg = nullptr);
-
 } // namespace RobotInstruction
 

@@ -93,6 +93,7 @@ public:
 
 
 	void refreshProgramAndGroupCombos();
+	void refreshGeometryBackendCombo();
 
 	void syncBoundPathPlanFromSession();
 
@@ -138,6 +139,9 @@ private:
 	bool reconcilePipelineScopes();
 
 	void syncScopeComboFromSelectedOp();
+	void syncGeometryBackendComboFromSelectedOp();
+	void syncProjectBackendFromComboToPipeline(bool allProjectOps = false);
+	std::vector<RobotInstruction::TrajectoryOpDescriptor> buildPipelineOpsForApply() const;
 
 	void updateUiLabels();
 
@@ -252,6 +256,8 @@ private:
 
 
 	QComboBox* m_scopeGroupCombo = nullptr;
+	QComboBox* m_geometryBackendCombo = nullptr;
+	QPushButton* m_geometryBackendPickBtn = nullptr;
 
 	TrajectoryOpParamPanel* m_paramPanel = nullptr;
 

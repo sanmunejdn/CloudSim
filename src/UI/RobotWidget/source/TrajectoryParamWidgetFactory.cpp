@@ -171,22 +171,16 @@ TrajectoryParamBinding TrajectoryParamWidgetFactory::create(
 		layout->addWidget(spinX);
 		layout->addWidget(spinY);
 		layout->addWidget(spinZ);
-		binding.read = [spinX, spinY, spinZ](TrajectoryParamValue& out) {
-			out.kind = TrajectoryParamValue::Kind::Double;
-			out.asDouble = spinX->value();
-			(void)spinY;
-			(void)spinZ;
+		binding.readVec3 = [spinX, spinY, spinZ](double& x, double& y, double& z) {
+			x = spinX->value();
+			y = spinY->value();
+			z = spinZ->value();
 			return true;
 		};
-		binding.write = [spinX, spinY, spinZ, field](const TrajectoryParamValue& in) {
-			(void)field;
-			if (in.kind != TrajectoryParamValue::Kind::Double)
-			{
-				return false;
-			}
-			spinX->setValue(in.asDouble);
-			spinY->setValue(0.0);
-			spinZ->setValue(0.0);
+		binding.writeVec3 = [spinX, spinY, spinZ](const double x, const double y, const double z) {
+			spinX->setValue(x);
+			spinY->setValue(y);
+			spinZ->setValue(z);
 			return true;
 		};
 	}

@@ -781,7 +781,7 @@ bool featureKindFromString(const std::string& s, FeatureKind& out)
 	return false;
 }
 
-bool validateFeatureSpec(const FeatureSpec& spec, std::string* errMsg)
+bool validateFeatureSpecInternal(const FeatureSpec& spec, bool requireStepPath, std::string* errMsg)
 {
 	if (spec.schemaVersion != 1)
 	{
@@ -791,7 +791,7 @@ bool validateFeatureSpec(const FeatureSpec& spec, std::string* errMsg)
 		}
 		return false;
 	}
-	if (spec.kind != FeatureKind::SyntheticPolyline && spec.workpiece.stepPathUtf8.empty())
+	if (spec.kind != FeatureKind::SyntheticPolyline && requireStepPath && spec.workpiece.stepPathUtf8.empty())
 	{
 		if (errMsg)
 		{
@@ -864,9 +864,14 @@ bool validateFeatureSpec(const FeatureSpec& spec, std::string* errMsg)
 	return true;
 }
 
+bool validateFeatureSpec(const FeatureSpec& spec, std::string* errMsg)
+{
+	return validateFeatureSpecInternal(spec, true, errMsg);
+}
+
 bool validateFeatureSpecWithShape(const FeatureSpec& spec, const ShapeHandle& shapeHandle, std::string* errMsg)
 {
-	if (!validateFeatureSpec(spec, errMsg))
+	if (!validateFeatureSpecInternal(spec, false, errMsg))
 	{
 		return false;
 	}
@@ -948,7 +953,7 @@ bool validateFeatureSpecWithShape(const FeatureSpec& spec, std::string* errMsg)
 
 bool discretizeFeature(const FeatureSpec& spec, const ShapeHandle& shapeHandle, RawPath& out, std::string* errMsg)
 {
-	if (!validateFeatureSpec(spec, errMsg))
+	if (!validateFeatureSpecInternal(spec, false, errMsg))
 	{
 		return false;
 	}

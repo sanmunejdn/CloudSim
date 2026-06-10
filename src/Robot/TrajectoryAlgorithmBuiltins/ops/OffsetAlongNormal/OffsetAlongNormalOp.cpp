@@ -56,6 +56,7 @@ std::string OffsetAlongNormalOp::formatSummary(
 bool OffsetAlongNormalOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
 	(void)op;
@@ -67,7 +68,7 @@ bool OffsetAlongNormalOp::processPath(
 	offsetAlongNormalUnifiedInScope(
 		traj,
 		op.scope,
-		activeProgramContext(),
+		ctx.program,
 		op.pathOffset.offsetMm);
 	return true;
 }

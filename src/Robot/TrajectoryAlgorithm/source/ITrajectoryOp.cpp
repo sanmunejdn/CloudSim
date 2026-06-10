@@ -7,10 +7,12 @@ namespace trajectory_algo
 bool ITrajectoryOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
 	(void)op;
 	(void)traj;
+	(void)ctx;
 	(void)errMsg;
 	return false;
 }

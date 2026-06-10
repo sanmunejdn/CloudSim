@@ -141,10 +141,109 @@ struct PluginPointCloudReconstructScaleSpaceParams
 	PluginMeshCreateOptions meshOptions{};
 };
 
+struct PluginPointCloudTemplateBrepUpdateParams
+{
+	std::string templateBrepBackendIdUtf8;
+	double voxelPrefilterMm = 1.0;
+	double faceBandMm = 2.0;
+	double normalThresholdDeg = 35.0;
+	std::size_t minPointsPerFace = 30U;
+	double maxAllowedDeviationMm = 0.5;
+	std::string displayNameUtf8;
+	/// 0-based 面索引；空表示处理全部面
+	std::vector<int> selectedFaceIndices;
+	/// 选择性重构时每面扫描归属点数上限
+	std::size_t maxAssignPointsPerFace = 800U;
+	/// BSpline UV 聚合网格（越大越平滑、越慢）
+	int bsplineUvGridCellsU = 24;
+	int bsplineUvGridCellsV = 12;
+	/// BSpline 极点位移场平滑迭代次数
+	int bsplinePoleSmoothPasses = 2;
+};
+
+struct PluginPointCloudFaceUpdateReport
+{
+	int faceIndex = -1;
+	std::string surfaceTypeName;
+	std::string action;
+	double maxDeviationMm = 0.0;
+};
+
+struct PluginPointCloudTemplateBrepRegisterResult
+{
+	double icpRmseMm = 0.0;
+};
+
+struct PluginPointCloudTemplateBrepUpdateResult
+{
+	std::string newBrepBackendId;
+	std::size_t updatedFaceCount = 0U;
+	std::size_t skippedBadBboxFaceCount = 0U;
+	double globalMaxDeviationMm = 0.0;
+	bool qualityGatePassed = false;
+	std::vector<PluginPointCloudFaceUpdateReport> perFace;
+};
+
+using PluginPointCloudTemplateBrepRegisterFinishedFn = std::function<void(
+	bool ok,
+	const QString& error,
+	const PluginPointCloudTemplateBrepRegisterResult& result)>;
+
+using PluginPointCloudTemplateBrepUpdateFinishedFn = std::function<void(
+	bool ok,
+	const QString& error,
+	const PluginPointCloudTemplateBrepUpdateResult& result)>;
+
 struct PluginPointCloudRigidTransformParams
 {
 	PluginMat4 transform{};
 };
+
+// === 网格后处理类型（vcglib，1.9.0+） ===
+
+struct PluginMeshInfo
+{
+	std::size_t faceCount = 0U;
+	std::size_t vertexCount = 0U;
+};
+
+struct PluginMeshSimplifyParams
+{
+	int targetFaceCount = 0;           // 目标面数，0=保留原面数一半
+	double qualityThreshold = 0.3;     // 质量阈值 0-1
+	bool preserveBoundary = true;
+	bool preserveTopology = true;
+	PluginMeshCreateOptions resultOptions{}; // 结果对象创建选项
+};
+
+struct PluginMeshSmoothParams
+{
+	int iterations = 3;                // 迭代次数
+	double lambda = 0.2;               // Implicit fairing 强度（仅 implicit 模式）
+	bool useImplicitFairing = false;   // false=Laplacian, true=Implicit Fairing
+	PluginMeshCreateOptions resultOptions{};
+};
+
+struct PluginMeshRepairParams
+{
+	bool removeDegenerate = true;
+	bool removeDuplicate = true;
+	bool removeNonManifold = true;
+	bool fillHoles = false;
+	PluginMeshCreateOptions resultOptions{};
+};
+
+struct PluginMeshRemeshParams
+{
+	double targetEdgeLengthMm = 2.0;
+	int iterations = 3;
+	PluginMeshCreateOptions resultOptions{};
+};
+
+using PluginMeshFinishedFn = std::function<void(
+	bool ok,
+	const QString& error,
+	const PluginPointCloudJobResult& result)>;
 
 using PluginPointCloudFinishedFn = std::function<void(
 	bool ok,

@@ -30,6 +30,30 @@ bool RetractOpParamAccess::read(
 		return true;
 	
 	}
+	if (field.key == "retract.directionFrame")
+	{
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = static_cast<int>(op.retract.directionFrame);
+		return true;
+	}
+	if (field.key == "retract.customDirection.x")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.retract.customDirectionX;
+		return true;
+	}
+	if (field.key == "retract.customDirection.y")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.retract.customDirectionY;
+		return true;
+	}
+	if (field.key == "retract.customDirection.z")
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = op.retract.customDirectionZ;
+		return true;
+	}
 	if (field.key == "retract.insertMode")
 	{
 		out.kind = TrajectoryParamValue::Kind::Int;
@@ -91,6 +115,26 @@ bool RetractOpParamAccess::write(
 		op.retract.directionMode = static_cast<RobotInstruction::ApproachDirectionMode>(in.asInt);
 		return true;
 	
+	}
+	if (field.key == "retract.directionFrame")
+	{
+		op.retract.directionFrame = static_cast<RobotInstruction::TransformReferenceFrame>(in.asInt);
+		return true;
+	}
+	if (field.key == "retract.customDirection.x")
+	{
+		op.retract.customDirectionX = in.asDouble;
+		return true;
+	}
+	if (field.key == "retract.customDirection.y")
+	{
+		op.retract.customDirectionY = in.asDouble;
+		return true;
+	}
+	if (field.key == "retract.customDirection.z")
+	{
+		op.retract.customDirectionZ = in.asDouble;
+		return true;
 	}
 	if (field.key == "retract.insertMode")
 	{

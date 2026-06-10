@@ -11,6 +11,9 @@
 #include "PointCloudBackendData.h"
 #include "WidgetDocumentAccess.h"
 
+#include <osg/Matrixd>
+#include <osg/Vec3d>
+
 namespace document_point_cloud_ops
 {
 
@@ -242,6 +245,299 @@ Eigen::AlignedBox3d toEigenBox(const PluginAxisAlignedBox& box)
 	return b;
 }
 
+namespace
+{
+
+std::string templateTransformBackendId(OsgWidget* osg, const std::string& templateBackendIdUtf8)
+{
+	if (!osg || templateBackendIdUtf8.empty())
+	{
+		return templateBackendIdUtf8;
+	}
+	return osg->resolvePickScopeBackendId(templateBackendIdUtf8);
+}
+
+std::string scanTransformBackendId(OsgWidget* osg, const std::string& scanBackendIdUtf8)
+{
+	if (!osg || scanBackendIdUtf8.empty())
+	{
+		return scanBackendIdUtf8;
+	}
+	return osg->resolvePickScopeBackendId(scanBackendIdUtf8);
+}
+
+bool backendStoredPointToWorldMm(
+	OsgWidget* osg,
+	const std::string& backendIdUtf8,
+	const double x,
+	const double y,
+	const double z,
+	osg::Vec3d& outWorld)
+{
+	const std::string xformId = scanTransformBackendId(osg, backendIdUtf8);
+	osg::Matrixd worldMat;
+	if (!osg->getBackendRootWorldMatrix(xformId, worldMat))
+	{
+		return false;
+	}
+	double cx = 0.0;
+	double cy = 0.0;
+	double cz = 0.0;
+	if (!osg->backendSkipsInnerModelCenterRebase(xformId))
+	{
+		(void)osg->tryGetBackendModelCenterMm(xformId, cx, cy, cz);
+	}
+	const osg::Vec3d pInner(x - cx, y - cy, z - cz);
+	outWorld = pInner * worldMat;
+	return true;
+}
+
+bool worldPointToTemplateModelMm(
+	OsgWidget* osg,
+	const std::string& templateBackendIdUtf8,
+	const osg::Vec3d& worldMm,
+	double& outX,
+	double& outY,
+	double& outZ)
+{
+	const std::string xformId = templateTransformBackendId(osg, templateBackendIdUtf8);
+	osg::Matrixd worldMat;
+	if (!osg->getBackendRootWorldMatrix(xformId, worldMat))
+	{
+		return false;
+	}
+	osg::Matrixd invMat;
+	if (!invMat.invert(worldMat))
+	{
+		return false;
+	}
+	const osg::Vec3d pOuter = worldMm * invMat;
+	double cx = 0.0;
+	double cy = 0.0;
+	double cz = 0.0;
+	if (!osg->backendSkipsInnerModelCenterRebase(xformId))
+	{
+		(void)osg->tryGetBackendModelCenterMm(xformId, cx, cy, cz);
+	}
+	outX = pOuter.x() + cx;
+	outY = pOuter.y() + cy;
+	outZ = pOuter.z() + cz;
+	return true;
+}
+
+bool templateModelPointToWorldMm(
+	OsgWidget* osg,
+	const std::string& templateBackendIdUtf8,
+	const double modelX,
+	const double modelY,
+	const double modelZ,
+	osg::Vec3d& outWorld)
+{
+	const std::string xformId = templateTransformBackendId(osg, templateBackendIdUtf8);
+	osg::Matrixd worldMat;
+	if (!osg->getBackendRootWorldMatrix(xformId, worldMat))
+	{
+		return false;
+	}
+	double cx = 0.0;
+	double cy = 0.0;
+	double cz = 0.0;
+	if (!osg->backendSkipsInnerModelCenterRebase(xformId))
+	{
+		(void)osg->tryGetBackendModelCenterMm(xformId, cx, cy, cz);
+	}
+	const osg::Vec3d pOuter(modelX - cx, modelY - cy, modelZ - cz);
+	outWorld = pOuter * worldMat;
+	return true;
+}
+
+bool worldPointToScanStoredMm(
+	OsgWidget* osg,
+	const std::string& scanBackendIdUtf8,
+	const osg::Vec3d& worldMm,
+	double& outX,
+	double& outY,
+	double& outZ)
+{
+	const std::string xformId = scanTransformBackendId(osg, scanBackendIdUtf8);
+	osg::Matrixd worldMat;
+	if (!osg->getBackendRootWorldMatrix(xformId, worldMat))
+	{
+		return false;
+	}
+	osg::Matrixd invMat;
+	if (!invMat.invert(worldMat))
+	{
+		return false;
+	}
+	const osg::Vec3d pInner = worldMm * invMat;
+	double cx = 0.0;
+	double cy = 0.0;
+	double cz = 0.0;
+	if (!osg->backendSkipsInnerModelCenterRebase(xformId))
+	{
+		(void)osg->tryGetBackendModelCenterMm(xformId, cx, cy, cz);
+	}
+	outX = pInner.x() + cx;
+	outY = pInner.y() + cy;
+	outZ = pInner.z() + cz;
+	return true;
+}
+
+} // namespace
+
+bool transformScanPointsToTemplateModelFrame(
+	cloudsim::host::DocumentHost* page,
+	const std::string& scanBackendIdUtf8,
+	const std::string& templateBackendIdUtf8,
+	std::vector<float>& inOutScanXyz,
+	std::string* outError)
+{
+	if (inOutScanXyz.size() < 9U || (inOutScanXyz.size() % 3U) != 0U)
+	{
+		if (outError)
+		{
+			*outError = "invalid scan xyz buffer";
+		}
+		return false;
+	}
+	OsgWidget* osg = widgetOsgFromPage(page);
+	if (!osg)
+	{
+		if (outError)
+		{
+			*outError = "no active 3D view";
+		}
+		return false;
+	}
+	for (std::size_t i = 0; i + 2U < inOutScanXyz.size(); i += 3U)
+	{
+		osg::Vec3d world;
+		if (!backendStoredPointToWorldMm(
+				osg,
+				scanBackendIdUtf8,
+				static_cast<double>(inOutScanXyz[i]),
+				static_cast<double>(inOutScanXyz[i + 1U]),
+				static_cast<double>(inOutScanXyz[i + 2U]),
+				world))
+		{
+			if (outError)
+			{
+				*outError = "scan backend world transform unavailable";
+			}
+			return false;
+		}
+		double mx = 0.0;
+		double my = 0.0;
+		double mz = 0.0;
+		if (!worldPointToTemplateModelMm(osg, templateBackendIdUtf8, world, mx, my, mz))
+		{
+			if (outError)
+			{
+				*outError = "template backend model transform unavailable";
+			}
+			return false;
+		}
+		inOutScanXyz[i] = static_cast<float>(mx);
+		inOutScanXyz[i + 1U] = static_cast<float>(my);
+		inOutScanXyz[i + 2U] = static_cast<float>(mz);
+	}
+	return true;
+}
+
+bool applyScanIcpAlignmentToStoredPoints(
+	cloudsim::host::DocumentHost* page,
+	const std::string& scanBackendIdUtf8,
+	const std::string& templateBackendIdUtf8,
+	const Eigen::Isometry3d& scanToTemplateInModelFrame,
+	PointCloudBackendData& inOutScan,
+	std::string* outError)
+{
+	OsgWidget* osg = widgetOsgFromPage(page);
+	if (!osg)
+	{
+		if (outError)
+		{
+			*outError = "no active 3D view";
+		}
+		return false;
+	}
+
+	std::vector<float> xyz = inOutScan.pointPositionsXyz();
+	if (xyz.size() < 9U || (xyz.size() % 3U) != 0U)
+	{
+		if (outError)
+		{
+			*outError = "invalid scan xyz buffer";
+		}
+		return false;
+	}
+
+	for (std::size_t i = 0; i + 2U < xyz.size(); i += 3U)
+	{
+		osg::Vec3d world;
+		if (!backendStoredPointToWorldMm(
+				osg,
+				scanBackendIdUtf8,
+				static_cast<double>(xyz[i]),
+				static_cast<double>(xyz[i + 1U]),
+				static_cast<double>(xyz[i + 2U]),
+				world))
+		{
+			if (outError)
+			{
+				*outError = "scan backend world transform unavailable";
+			}
+			return false;
+		}
+
+		double mx = 0.0;
+		double my = 0.0;
+		double mz = 0.0;
+		if (!worldPointToTemplateModelMm(osg, templateBackendIdUtf8, world, mx, my, mz))
+		{
+			if (outError)
+			{
+				*outError = "template backend model transform unavailable";
+			}
+			return false;
+		}
+
+		const Eigen::Vector3d aligned = scanToTemplateInModelFrame * Eigen::Vector3d(mx, my, mz);
+		osg::Vec3d worldAligned;
+		if (!templateModelPointToWorldMm(
+				osg, templateBackendIdUtf8, aligned.x(), aligned.y(), aligned.z(), worldAligned))
+		{
+			if (outError)
+			{
+				*outError = "template world transform unavailable";
+			}
+			return false;
+		}
+
+		double sx = 0.0;
+		double sy = 0.0;
+		double sz = 0.0;
+		if (!worldPointToScanStoredMm(osg, scanBackendIdUtf8, worldAligned, sx, sy, sz))
+		{
+			if (outError)
+			{
+				*outError = "scan stored transform unavailable";
+			}
+			return false;
+		}
+
+		xyz[i] = static_cast<float>(sx);
+		xyz[i + 1U] = static_cast<float>(sy);
+		xyz[i + 2U] = static_cast<float>(sz);
+	}
+
+	std::vector<float> rgba = inOutScan.pointVertexRgba();
+	std::vector<float> normals = inOutScan.pointNormalsNxNyNz();
+	inOutScan.setPointBuffers(std::move(xyz), std::move(rgba), std::move(normals));
+	return true;
+}
+
 bool queryPointCloudInfo(cloudsim::host::DocumentHost* page, const std::string& backendIdUtf8, PluginPointCloudInfo& out)
 {
 	const auto pc = resolvePointCloud(page, backendIdUtf8);
@@ -267,6 +563,19 @@ bool measurePointCloud(cloudsim::host::DocumentHost* page, const std::string& ba
 		return false;
 	}
 	out = toPluginMeasure(m);
+	return true;
+}
+
+bool queryMeshInfo(cloudsim::host::DocumentHost* page, const std::string& backendIdUtf8, PluginMeshInfo& out)
+{
+	const auto mesh = resolveMesh(page, backendIdUtf8);
+	if (!mesh)
+	{
+		return false;
+	}
+	const auto soup = mesh->triangleSoup();
+	out.faceCount = soup.size() / 9;
+	out.vertexCount = out.faceCount * 3; // triangle soup 无去重，近似值
 	return true;
 }
 

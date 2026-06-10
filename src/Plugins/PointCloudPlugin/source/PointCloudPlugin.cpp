@@ -78,6 +78,8 @@ void PointCloudPlugin::shutdown()
 	m_reconstructAction = nullptr;
 	m_exportMeshAction = nullptr;
 	m_refreshAction = nullptr;
+	m_simplifyAction = nullptr;
+	m_smoothAction = nullptr;
 }
 
 void PointCloudPlugin::registerMenus()
@@ -105,6 +107,10 @@ void PointCloudPlugin::registerMenus()
 			m_dockWidget->refreshPointCloudList();
 		}
 	});
+	m_simplifyAction = m_host->registerAction(
+		m_pointCloudMenu, QStringLiteral("Simplify Mesh"), [this]() { simplifyMeshOnSelection(); });
+	m_smoothAction = m_host->registerAction(
+		m_pointCloudMenu, QStringLiteral("Smooth Mesh"), [this]() { smoothMeshOnSelection(); });
 }
 
 void PointCloudPlugin::applyLanguage()
@@ -147,6 +153,14 @@ void PointCloudPlugin::applyLanguage()
 	{
 		m_refreshAction->setText(zh ? QStringLiteral("刷新列表") : QStringLiteral("Refresh List"));
 	}
+	if (m_simplifyAction)
+	{
+		m_simplifyAction->setText(zh ? QStringLiteral("网格简化") : QStringLiteral("Simplify Mesh"));
+	}
+	if (m_smoothAction)
+	{
+		m_smoothAction->setText(zh ? QStringLiteral("网格平滑") : QStringLiteral("Smooth Mesh"));
+	}
 }
 
 void PointCloudPlugin::importPointCloud()
@@ -178,5 +192,21 @@ void PointCloudPlugin::exportMeshOnSelection()
 	if (m_dockWidget)
 	{
 		m_dockWidget->triggerExportMesh();
+	}
+}
+
+void PointCloudPlugin::simplifyMeshOnSelection()
+{
+	if (m_dockWidget)
+	{
+		m_dockWidget->triggerMeshSimplify();
+	}
+}
+
+void PointCloudPlugin::smoothMeshOnSelection()
+{
+	if (m_dockWidget)
+	{
+		m_dockWidget->triggerMeshSmoothLaplacian();
 	}
 }

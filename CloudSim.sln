@@ -85,6 +85,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PointCloudAlgorithm", "src\
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GeometryAlgorithm", "src\Geometry\GeometryAlgorithm\GeometryAlgorithm.vcxproj", "{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VcgAlgorithms", "src\Geometry\VcgAlgorithms\VcgAlgorithms.vcxproj", "{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RunLogger", "src\Infra\RunLogger\RunLogger.vcxproj", "{35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSimUiAssets", "src\UI\CloudSimUiAssets\CloudSimUiAssets.vcxproj", "{A1C2E3F4-B5D6-7890-ABCD-EF0123456799}"
@@ -269,6 +271,14 @@ Global
 		{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}.Release|x64.Build.0 = Release|x64
 		{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}.Release|x86.ActiveCfg = Release|Win32
 		{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}.Release|x86.Build.0 = Release|Win32
+		{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}.Debug|x64.ActiveCfg = Debug|x64
+		{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}.Debug|x64.Build.0 = Debug|x64
+		{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}.Debug|x86.ActiveCfg = Debug|Win32
+		{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}.Debug|x86.Build.0 = Debug|Win32
+		{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}.Release|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}.Release|x64.Build.0 = Release|x64
+		{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}.Release|x86.ActiveCfg = Release|Win32
+		{A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D}.Release|x86.Build.0 = Release|Win32
 		{35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1}.Debug|x64.ActiveCfg = Debug|x64
 		{35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1}.Debug|x64.Build.0 = Debug|x64
 		{35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1}.Debug|x86.ActiveCfg = Debug|Win32

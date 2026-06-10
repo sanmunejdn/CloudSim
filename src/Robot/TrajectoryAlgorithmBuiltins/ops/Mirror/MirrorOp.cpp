@@ -1,7 +1,7 @@
-// Mirror 原子块：镜像 scope 内路点
+// Mirror 原子块：按 scope 对路点做轴反向
 #include "MirrorOp.h"
 
-#include "TrajectoryOpPathApply.h"
+#include "UnifiedTrajectorySemanticMath.h"
 
 #include <cstdio>
 
@@ -19,12 +19,12 @@ const char* axisLabel(const int axis, const bool chinese)
 	switch (axis)
 	{
 	case 0:
-		return chinese ? "X 轴反向" : "Reverse X";
+		return chinese ? "X 反向" : "Reverse X";
 	case 1:
-		return chinese ? "Y 轴反向" : "Reverse Y";
+		return chinese ? "Y 反向" : "Reverse Y";
 	case 2:
 	default:
-		return chinese ? "Z 轴反向" : "Reverse Z";
+		return chinese ? "Z 反向" : "Reverse Z";
 	}
 }
 } // namespace
@@ -62,7 +62,7 @@ std::vector<TrajectoryOpParamField> MirrorOp::paramFields() const
 			"Reverse Axis",
 			"反向轴",
 			{ "0", "1", "2" },
-			{ "X 轴", "Y 轴", "Z 轴" },
+			{ "X 反向", "Y 反向", "Z 反向" },
 			{ "Axis X", "Axis Y", "Axis Z" },
 			0,
 			0,
@@ -99,9 +99,10 @@ std::string MirrorOp::formatSummary(
 bool MirrorOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
-	return applyUnifiedPathOp(op, traj, errMsg);
+	return applyMirrorInScope(op, traj, ctx.program);
 }
 
 } // namespace trajectory_algo

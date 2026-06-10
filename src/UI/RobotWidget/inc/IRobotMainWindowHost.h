@@ -58,6 +58,7 @@ public:
 	virtual void refreshBackendTree() = 0;
 	virtual void runFollowSolveAndSyncForCurrentDocument() = 0;
 	virtual void clearBackendObjectSelection(bool clearTreeSelection) = 0;
+	virtual QString selectedBackendId() const = 0;
 
 	virtual std::shared_ptr<RobotInstruction::Base> activeInstructionForProperty() const = 0;
 	virtual void applySuggestedAxisPresetFromSeedIfNeeded(

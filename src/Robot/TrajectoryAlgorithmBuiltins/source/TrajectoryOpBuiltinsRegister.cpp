@@ -28,6 +28,9 @@
 #include "OffsetLateralOp.h"
 #include "OffsetLateralOpConfig.h"
 #include "OffsetLateralOpParamAccess.h"
+#include "ProjectToGeometryOp.h"
+#include "ProjectToGeometryOpConfig.h"
+#include "ProjectToGeometryOpParamAccess.h"
 #include "ReachabilityFilterOp.h"
 #include "ReachabilityFilterOpConfig.h"
 #include "ReachabilityFilterOpParamAccess.h"
@@ -81,6 +84,7 @@ void registerOpConfigs()
 	registry.registerOpConfig(makeExternalAxisSearchOpConfig());
 	registry.registerOpConfig(makeApproachOpConfig());
 	registry.registerOpConfig(makeRetractOpConfig());
+	registry.registerOpConfig(makeProjectToGeometryOpConfig());
 
 	registry.registerOpParamAccess(makeTranslateOpParamAccess());
 	registry.registerOpParamAccess(makeRotateOpParamAccess());
@@ -99,6 +103,7 @@ void registerOpConfigs()
 	registry.registerOpParamAccess(makeExternalAxisSearchOpParamAccess());
 	registry.registerOpParamAccess(makeApproachOpParamAccess());
 	registry.registerOpParamAccess(makeRetractOpParamAccess());
+	registry.registerOpParamAccess(makeProjectToGeometryOpParamAccess());
 }
 } // namespace
 
@@ -121,6 +126,7 @@ void registerTrajectoryOpBuiltins(TrajectoryOpRegistry& registry)
 	registry.registerOp(std::make_unique<ExternalAxisSearchOp>());
 	registry.registerOp(std::make_unique<ApproachOp>());
 	registry.registerOp(std::make_unique<RetractOp>());
+	registry.registerOp(std::make_unique<ProjectToGeometryOp>());
 }
 
 void ensureTrajectoryOpBuiltinsRegistered()

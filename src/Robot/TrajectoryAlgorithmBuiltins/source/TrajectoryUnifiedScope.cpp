@@ -5,20 +5,6 @@
 
 namespace trajectory_algo
 {
-namespace
-{
-const RobotInstruction::RobotProgram* g_activeProgramContext = nullptr;
-} // namespace
-
-void setActiveProgramContext(const RobotInstruction::RobotProgram* program)
-{
-	g_activeProgramContext = program;
-}
-
-const RobotInstruction::RobotProgram* activeProgramContext()
-{
-	return g_activeProgramContext;
-}
 
 std::unordered_set<std::string> resolveScopeInstructionIds(
 	const RobotInstruction::OpScope& scope,

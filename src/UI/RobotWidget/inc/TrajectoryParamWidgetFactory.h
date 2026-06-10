@@ -18,6 +18,8 @@ struct TrajectoryParamBinding
 	TrajectoryOpParamField field{};
 	std::function<bool(const TrajectoryParamValue&)> write;
 	std::function<bool(TrajectoryParamValue&)> read;
+	std::function<bool(double&, double&, double&)> readVec3;
+	std::function<bool(double, double, double)> writeVec3;
 };
 
 class TrajectoryParamWidgetFactory

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{FC235678-ABCD-4E5F-9A8B-1C2D3E4F5A6B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source">
+      <UniqueIdentifier>{DE98ABCD-1234-5678-9ABC-DEF012345678}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\vcg_algorithms_global.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\VcgMeshAdapter.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshSimplify.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshSmooth.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshRepair.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshRemesh.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshReconstruct.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SelfTest.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\VcgMeshAdapter.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSimplify.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSmooth.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshRepair.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshRemesh.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshReconstruct.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SelfTest.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

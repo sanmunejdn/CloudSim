@@ -1,0 +1,21 @@
+{
+  "kind": "ProjectToGeometry",
+  "defaults": {
+    "scope": { "kind": 1, "groupId": "", "pointFrom": 1, "pointTo": 1 },
+    "params": {
+      "project.targetBackendId": "",
+      "project.direction.x": 0.0,
+      "project.direction.y": 0.0,
+      "project.direction.z": -1.0,
+      "project.directionFrame": 0,
+      "project.maxDistanceMm": 5000.0,
+      "project.pointCloudHitRadiusMm": 2.0
+    }
+  },
+  "schema": {
+    "fields": [
+      { "key": "project.maxDistanceMm", "type": "double", "labelEn": "Max Distance", "labelZh": "最大距离" },
+      { "key": "project.pointCloudHitRadiusMm", "type": "double", "labelEn": "Hit Radius", "labelZh": "点云命中半径" }
+    ]
+  }
+}

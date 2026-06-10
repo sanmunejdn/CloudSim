@@ -49,6 +49,8 @@ std::string kindToString(const RobotInstruction::TrajectoryOpKind kind)
 		return "ReachabilityFilter";
 	case RobotInstruction::TrajectoryOpKind::ExternalAxisSearch:
 		return "ExternalAxisSearch";
+	case RobotInstruction::TrajectoryOpKind::ProjectToGeometry:
+		return "ProjectToGeometry";
 	default:
 		return "Translate";
 	}
@@ -139,6 +141,11 @@ bool kindFromString(const std::string& s, RobotInstruction::TrajectoryOpKind& ou
 	if (s == "ExternalAxisSearch")
 	{
 		out = RobotInstruction::TrajectoryOpKind::ExternalAxisSearch;
+		return true;
+	}
+	if (s == "ProjectToGeometry")
+	{
+		out = RobotInstruction::TrajectoryOpKind::ProjectToGeometry;
 		return true;
 	}
 	return false;
@@ -238,6 +245,7 @@ void copyDescriptorDefaults(
 	out.assignMotion = defaults.assignMotion;
 	out.approach = defaults.approach;
 	out.retract = defaults.retract;
+	out.project = defaults.project;
 }
 
 } // namespace

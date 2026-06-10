@@ -51,20 +51,34 @@ bool buildPointNormalFromBuffers(
 void surfaceMeshToTriangleSoup(const Surface_mesh& mesh, std::vector<float>& triangleSoupOut)
 {
 	triangleSoupOut.clear();
+	if (mesh.is_empty())
+	{
+		return;
+	}
+	
+	// 预分配内存：假设大部分面是三角形
+	const std::size_t estimatedTriangles = mesh.num_faces();
+	triangleSoupOut.reserve(estimatedTriangles * 9U);
+	
 	for (const auto face : mesh.faces())
 	{
-		std::vector<Surface_mesh::Vertex_index> verts;
-		for (const auto v : vertices_around_face(mesh.halfedge(face), mesh))
+		// 直接访问顶点，避免创建临时vector
+		auto halfedge = mesh.halfedge(face);
+		auto v0 = mesh.target(halfedge);
+		auto v1 = mesh.target(mesh.next(halfedge));
+		auto v2 = mesh.target(mesh.next(mesh.next(halfedge)));
+		
+		// 检查是否为三角形（通过检查next(next(next(h)))是否回到h）
+		if (mesh.next(mesh.next(mesh.next(halfedge))) != halfedge)
 		{
-			verts.push_back(v);
-		}
-		if (verts.size() < 3U)
-		{
+			// 非三角形面，跳过或处理
 			continue;
 		}
-		const Point_3& p0 = mesh.point(verts[0]);
-		const Point_3& p1 = mesh.point(verts[1]);
-		const Point_3& p2 = mesh.point(verts[2]);
+		
+		const Point_3& p0 = mesh.point(v0);
+		const Point_3& p1 = mesh.point(v1);
+		const Point_3& p2 = mesh.point(v2);
+		
 		triangleSoupOut.push_back(static_cast<float>(p0.x()));
 		triangleSoupOut.push_back(static_cast<float>(p0.y()));
 		triangleSoupOut.push_back(static_cast<float>(p0.z()));

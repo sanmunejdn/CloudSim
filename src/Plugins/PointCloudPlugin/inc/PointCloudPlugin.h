@@ -28,6 +28,8 @@ private:
 	void downsampleVoxelOnSelection();
 	void reconstructPoissonOnSelection();
 	void exportMeshOnSelection();
+	void simplifyMeshOnSelection();
+	void smoothMeshOnSelection();
 
 	IPluginHostContext* m_host = nullptr;
 	PointCloudDockWidget* m_dockWidget = nullptr;
@@ -37,4 +39,6 @@ private:
 	QAction* m_reconstructAction = nullptr;
 	QAction* m_exportMeshAction = nullptr;
 	QAction* m_refreshAction = nullptr;
+	QAction* m_simplifyAction = nullptr;
+	QAction* m_smoothAction = nullptr;
 };

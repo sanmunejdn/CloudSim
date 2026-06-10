@@ -232,6 +232,32 @@ DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 通常为 **�
 
 UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP 路径（`MainWindowRobotHost::DocumentHost` 转发 `DocumentPage::backendSourcePath()`）。
 
+### 4.6 CAD 模板 + 扫描点云 B-rep 更新
+
+**专题文档**：[`docs/template_brep_pointcloud_update.md`](../../../docs/template_brep_pointcloud_update.md)
+
+| API（`geometry_backend_ops`） | 说明 |
+|-------------------------------|------|
+| `registerScanToCadTemplate` | 预处理 + 模板面采样 + ICP；输出 `scanToTemplate`、`icpRmseMm`、`outAlignedWorkXyz/Normals` |
+| `updateBrepFromAlignedScan` | 已对齐扫描 → `updateShapeFromPointCloud` → 写入 `brepOut`（shape + 高亮色）；**不**注册场景 |
+| `updateBrepFromCadTemplate` | 上述两步合并（单次调用场景） |
+
+配准实现于 `GeometryBackendOps.cpp` 匿名命名空间：`alignScanToTemplateRegistration`、`alignScanPreAlignedInTemplateFrame`。模板几何来自 `templateBrep.shapeRef()`（STEP 坐标），**不是** display soup。
+
+面更新算法（归属、特征调整、增量 bbox 守卫）见专题文档 [`docs/template_brep_pointcloud_update.md`](../../../docs/template_brep_pointcloud_update.md) §4。
+
+| `TemplateBrepUpdateParams`（常用） | 说明 |
+|-----------------------------------|------|
+| `scanAlreadyInTemplateFrame` | 插件 Host 固定 `true` |
+| `faceBandMm` / `normalThresholdDeg` | 面归属带与精 ICP 法线门控 |
+| `maxAssignPointsPerFace` | 每面归属点预算（全工件自动摊薄） |
+| `selectedFaceIndices` | 空=全工件；非空=选择性面 |
+| `bsplineUvGridCellsU/V`、`bsplinePoleSmoothPasses` | BSpline UV 聚合与极点平滑 |
+
+`TemplateBrepUpdateResult::skippedBadBboxFaceCount`：因单面或试应用全局 bbox 守卫而跳过的面数。
+
+插件经 `PluginPointCloudHostImpl` 分步调用；面重构成功后 Host 侧 `registerAdoptedBrepAndLoadScene` 注册**新** `BrepModel`（模板保留）。见 [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) §3.7。
+
 ---
 
 ## 5. 属性基础设施
@@ -376,6 +402,7 @@ UI 侧增量镜像：`resyncFrom(mgr)`，`subtreeIds(root)`（结构变更后缓
 | `CloudSimPluginHost` | 插件经 SDK；宿主内 `unregisterSubtree`、`importFileIntoActiveDocument`、`registerAdoptedMesh`（见 [`../CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md)） |
 | `BackendVisual` | 读几何缓冲建 OSG |
 | `PointCloudAlgorithm` | 经 `PointCloudBackendOps` 做点云下采样/裁剪/配准/重建等（见 [`../PointCloudAlgorithm/DEVELOPER_GUIDE.md`](../PointCloudAlgorithm/DEVELOPER_GUIDE.md)）；插件经 SDK `IPluginPointCloudHost` 间接调用 |
+| `VcgAlgorithms` | 经 `PointCloudBackendOps` 做网格后处理：简化/平滑/修复/重网格（运行时加载 `VcgAlgorithms.dll`；见 [`../VcgAlgorithms/DEVELOPER_GUIDE.md`](../VcgAlgorithms/DEVELOPER_GUIDE.md)） |
 | `RobotUrdf` | 每连杆 `MeshBackendData` |
 | `RobotScene` | 读关节/连杆 id，写 `worldMatrix` |
 

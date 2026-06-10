@@ -57,6 +57,7 @@ std::string WeaveOp::formatSummary(
 bool WeaveOp::processPath(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	RobotInstruction::UnifiedTrajectory& traj,
+	const TrajectoryOpExecutionContext& ctx,
 	std::string* errMsg) const
 {
 	(void)op;
@@ -68,7 +69,7 @@ bool WeaveOp::processPath(
 	weaveUnifiedInScope(
 		traj,
 		op.scope,
-		activeProgramContext(),
+		ctx.program,
 		op.weave.amplitudeMm,
 		op.weave.periodMm);
 	return true;

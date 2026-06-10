@@ -11,6 +11,29 @@
         "default": 20.0,
         "group": "retract",
         "order": 0
+      },
+      {
+        "key": "retract.directionMode",
+        "type": "Enum",
+        "labelZh": "方向模式",
+        "defaultInt": 1,
+        "group": "retract",
+        "order": 1
+      },
+      {
+        "key": "retract.direction",
+        "type": "Vec3",
+        "labelZh": "自定义方向",
+        "group": "retract",
+        "order": 2
+      },
+      {
+        "key": "retract.directionFrame",
+        "type": "Enum",
+        "labelZh": "方向参考系",
+        "defaultInt": 0,
+        "group": "retract",
+        "order": 3
       }
     ]
   },
