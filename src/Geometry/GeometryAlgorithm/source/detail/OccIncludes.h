@@ -42,6 +42,7 @@
 #include <IntTools_FaceFace.hxx>
 #include <Poly_Triangulation.hxx>
 #include <STEPControl_Reader.hxx>
+#include <STEPControl_Writer.hxx>
 #include <ShapeFix_Shape.hxx>
 #include <ShapeFix_Wire.hxx>
 #include <TopAbs_ShapeEnum.hxx>

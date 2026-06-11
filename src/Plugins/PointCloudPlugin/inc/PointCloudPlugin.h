@@ -30,7 +30,7 @@ private:
 	void exportMeshOnSelection();
 	void simplifyMeshOnSelection();
 	void smoothMeshOnSelection();
-	void analyzeMeshDefectsOnSelection();
+	void surfaceReconstructOnSelection();
 
 	IPluginHostContext* m_host = nullptr;
 	PointCloudDockWidget* m_dockWidget = nullptr;
@@ -42,5 +42,5 @@ private:
 	QAction* m_refreshAction = nullptr;
 	QAction* m_simplifyAction = nullptr;
 	QAction* m_smoothAction = nullptr;
-	QAction* m_defectAnalyzeAction = nullptr;
+	QAction* m_surfaceReconstructAction = nullptr;
 };

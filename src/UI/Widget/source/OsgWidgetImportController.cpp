@@ -117,7 +117,7 @@ bool OsgWidgetImportController::importPointCloudFile(OsgWidget& self, const QStr
 			std::string meshErr;
 			if (meshBackend.loadFromFile(nativePath, &meshErr) && meshBackend.hasGeometry())
 			{
-				return self.loadMeshFromBackendData(meshBackend, errorMessage, true, true, true, false);
+				return self.loadMeshFromBackendData(meshBackend, errorMessage, true, true, true);
 			}
 			if (errorMessage)
 			{

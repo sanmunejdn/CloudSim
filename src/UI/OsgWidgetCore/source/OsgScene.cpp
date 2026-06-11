@@ -578,7 +578,6 @@ void OsgScene::unbindBackendVisualRoot(const std::string& backendId)
 void OsgScene::clearBackendVisualBindings()
 {
 	m_pickVisualAliases.clear();
-	m_backendSkipCenterRebase.clear();
 	m_backendVisualBindings.clear();
 	m_backendPickIndexes.clear();
 }

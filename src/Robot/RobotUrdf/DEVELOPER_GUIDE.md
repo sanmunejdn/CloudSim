@@ -112,12 +112,21 @@
 
 ## 9. 层级 vs 每连杆（约定一致性）
 
+> 权威说明：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §5。
+
 | 路径 | 位姿表达 |
 |------|----------|
 | 层级 | 关节 MT + 几何 MT |
-| 每连杆 | `BackendDataManager` 父子边 + outer 世界矩阵 |
+| 每连杆（**当前默认**） | 顶点世界烘焙 + FK 写 outer；`meshVerticesInLinkFrame=false` |
 
-**必须一致**：mesh 文件系 / 连杆系 / 世界系；否则会出现「矩阵日志正确但模型散开」。导入时：`linkMeshFileToLinkColumnMajor16` + `transformVertices` + `skipInnerModelCenterRebase`。
+**世界烘焙导入（`UrdfRobotImport`）**：
+
+1. `computeMeshWorldMatrices(urdf, q0, Tbind, …, meshVerticesAlreadyInLinkFrame=false)` 得 OSG 行向量 `Tbind`。
+2. `osgMatrixToColumnMajor16`：**转置**后 `transformVerticesColumnMajorHomogeneous4x4`（禁止 `m(row,col)` 直拷，平移会错位）。
+3. **禁止** `linkMeshFileToLinkColumnMajor16` + 全量 `Tbind` 双重烘焙 visual。
+4. `pose=0`；`setRobotPerLinkKinematicsBinding(..., meshVerticesInLinkFrame=false)`。
+
+**连杆系顶点（`meshVerticesInLinkFrame=true`，遗留工程）**：`linkMeshFileToLinkColumnMajor16` 仅烘焙 visual origin；FK 写 outer 含 bind 姿态。
 
 ---
 
@@ -142,6 +151,7 @@ CAD 轨迹的外部轴上下文写入 [`RawTrajectory::TrajectoryContext::extern
 
 ## 11. 相关文档
 
+- 空间契约：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md)
 - 场景 FK 写回：[`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md)
 - UI 导入：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §`registerUrdfRobot`
 - 架构 §6.1：[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md)

@@ -316,7 +316,7 @@ bool registerAdoptedBackendObject(DocumentHost& host, const std::shared_ptr<Back
 
 bool registerAdoptedMeshAndLoadScene(DocumentHost& host, const std::shared_ptr<MeshBackendData>& mesh,
 	const QString& sourcePath, const QString& catalogTypeName, const QString& parentId, const bool resetViewToHome,
-	QString* outError, const bool skipInnerModelCenterRebase, const bool linkOsgSceneParent)
+	QString* outError, const bool linkOsgSceneParent)
 {
 	if (!mesh)
 	{
@@ -333,7 +333,7 @@ bool registerAdoptedMeshAndLoadScene(DocumentHost& host, const std::shared_ptr<M
 	if (OsgWidget* osg = osgWidgetFrom(host))
 	{
 		QString sceneErr;
-		if (!osg->loadMeshFromBackendData(*mesh, &sceneErr, resetViewToHome, true, true, skipInnerModelCenterRebase)
+		if (!osg->loadMeshFromBackendData(*mesh, &sceneErr, resetViewToHome, true, true)
 			&& outError)
 		{
 			*outError = sceneErr.isEmpty() ? QStringLiteral("OSG mesh display failed") : sceneErr;
@@ -345,7 +345,7 @@ bool registerAdoptedMeshAndLoadScene(DocumentHost& host, const std::shared_ptr<M
 
 bool registerAdoptedBrepAndLoadScene(DocumentHost& host, const std::shared_ptr<BrepBackendData>& brep,
 	const QString& sourcePath, const QString& catalogTypeName, const QString& parentId, const bool resetViewToHome,
-	QString* outError, const bool skipInnerModelCenterRebase, const bool linkOsgSceneParent, const bool loadScene)
+	QString* outError, const bool linkOsgSceneParent, const bool loadScene)
 {
 	if (!brep)
 	{
@@ -367,7 +367,7 @@ bool registerAdoptedBrepAndLoadScene(DocumentHost& host, const std::shared_ptr<B
 	if (OsgWidget* osg = osgWidgetFrom(host))
 	{
 		QString sceneErr;
-		if (!osg->loadBackendFromBackendData(*brep, &sceneErr, resetViewToHome, false, true, skipInnerModelCenterRebase)
+		if (!osg->loadBackendFromBackendData(*brep, &sceneErr, resetViewToHome, false, true)
 			&& outError)
 		{
 			*outError = sceneErr.isEmpty() ? QStringLiteral("OSG B-rep display failed") : sceneErr;

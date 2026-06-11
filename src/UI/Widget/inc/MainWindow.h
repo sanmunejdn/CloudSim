@@ -208,6 +208,7 @@ private:
 	void onAnnotationVisibilityChanged(const QString& annotationId, bool visible);
 	void onBackendTreeContextMenu(const QPoint& pos);
 	void removeBackendObjectFromDocument(const QString& backendId);
+	void exportBackendObjectFromTree(const QString& backendId);
 	void onLanguageEnglishTriggered();
 	void onLanguageChineseTriggered();
 	void onThemeActionGroupTriggered(QAction* action);

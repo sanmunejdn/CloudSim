@@ -16,5 +16,6 @@ GEOMETRY_ALGORITHM_API bool readStepIntoHandle(const std::string& pathLocal, Sha
 
 GEOMETRY_ALGORITHM_API bool readBrepFile(const std::string& pathLocal, ShapeHandle& outShape, std::string* errMsg);
 GEOMETRY_ALGORITHM_API bool writeBrepFile(const std::string& pathLocal, const ShapeHandle& shape, std::string* errMsg);
+GEOMETRY_ALGORITHM_API bool writeStepFile(const std::string& pathLocal, const ShapeHandle& shape, std::string* errMsg);
 
 } // namespace geoalgo

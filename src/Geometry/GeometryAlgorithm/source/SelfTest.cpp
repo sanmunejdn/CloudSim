@@ -8,22 +8,73 @@
 #include "SelfTest.h"
 #include "ShapeQuery.h"
 #include "TemplateBrepUpdate.h"
+#include "TemplateBrepRegistration.h"
+#include "BrepImportArtifacts.h"
 #include "ShapeHandle.h"
 #include "ShapeIo.h"
 #include "ViewTessellate.h"
 #include "WireOps.h"
+#include "MeshSurfaceReconstruction.h"
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <sstream>
+
+#include <Eigen/Geometry>
 
 namespace geoalgo
 {
 namespace
 {
+
+void applyIsometryInPlace(std::vector<float>& xyz, const Eigen::Isometry3d& transform)
+{
+	const std::size_t n = xyz.size() / 3U;
+	for (std::size_t i = 0U; i < n; ++i)
+	{
+		const std::size_t b = i * 3U;
+		Eigen::Vector3d p(xyz[b], xyz[b + 1U], xyz[b + 2U]);
+		p = transform * p;
+		xyz[b] = static_cast<float>(p.x());
+		xyz[b + 1U] = static_cast<float>(p.y());
+		xyz[b + 2U] = static_cast<float>(p.z());
+	}
+}
+
+double maxSampledPairDistanceMm(
+	const std::vector<float>& aXyz,
+	const std::vector<float>& bXyz,
+	const std::size_t maxSamples = 512U)
+{
+	if (aXyz.size() < 9U || bXyz.size() < 9U)
+	{
+		return std::numeric_limits<double>::max();
+	}
+	const std::size_t nA = aXyz.size() / 3U;
+	const std::size_t nB = bXyz.size() / 3U;
+	const std::size_t strideA = std::max<std::size_t>(1U, nA / maxSamples);
+	const std::size_t strideB = std::max<std::size_t>(1U, nB / 512U);
+	double maxDist = 0.0;
+	for (std::size_t i = 0U; i < nA; i += strideA)
+	{
+		const std::size_t b = i * 3U;
+		const Eigen::Vector3d query(aXyz[b], aXyz[b + 1U], aXyz[b + 2U]);
+		double bestSq = std::numeric_limits<double>::max();
+		for (std::size_t j = 0U; j < nB; j += strideB)
+		{
+			const std::size_t tb = j * 3U;
+			const double d2 =
+				(query - Eigen::Vector3d(bXyz[tb], bXyz[tb + 1U], bXyz[tb + 2U])).squaredNorm();
+			bestSq = std::min(bestSq, d2);
+		}
+		maxDist = std::max(maxDist, std::sqrt(bestSq));
+	}
+	return maxDist;
+}
 
 bool soupBoundingBoxDiagonal(const std::vector<float>& soup, double& outDiagonal)
 {
@@ -541,6 +592,93 @@ bool runSelfTest(std::vector<std::string>& failures)
 			else if (result.updatedShape.isNull())
 			{
 				fail("templateBrepSkip", "null updated shape");
+			}
+		}
+	}
+
+	// displaySoup 点云 + shape 变换一致性（配准输入路径）
+	{
+		const TopoDS_Shape box = BRepPrimAPI_MakeBox(100.0, 100.0, 100.0).Shape();
+		const ShapeHandle templateShape = ShapeHandleAccess::fromNativeShape(&box);
+
+		std::vector<float> soupXyz;
+		std::vector<float> soupNormals;
+		std::size_t triCount = 0U;
+		std::string extractErr;
+		if (!extractDisplaySoupPointCloud(templateShape, soupXyz, soupNormals, 5000U, &triCount, &extractErr))
+		{
+			fail("reverseTemplateSoupIcp", extractErr.empty() ? "soup extract failed" : extractErr);
+		}
+		else if (soupXyz.size() < 900U || triCount < 10U)
+		{
+			fail("reverseTemplateSoupIcp", "display soup too sparse");
+		}
+		else
+		{
+			Eigen::Isometry3d offset = Eigen::Isometry3d::Identity();
+			offset.translation() = Eigen::Vector3d(2.0, 1.0, 0.5);
+
+			std::vector<float> shiftedSoup = soupXyz;
+			applyIsometryInPlace(shiftedSoup, offset);
+
+			ShapeHandle misaligned;
+			std::string transformErr;
+			if (!applyIsometryToShapeHandle(templateShape, offset, misaligned, &transformErr))
+			{
+				fail("reverseTemplateSoupIcp", transformErr.empty() ? "offset template failed" : transformErr);
+			}
+			else
+			{
+				std::vector<float> soupFromShape;
+				std::vector<float> normsFromShape;
+				if (!extractDisplaySoupPointCloud(misaligned, soupFromShape, normsFromShape, 5000U, nullptr, &extractErr))
+				{
+					fail("reverseTemplateSoupIcp", extractErr.empty() ? "re-extract failed" : extractErr);
+				}
+				else
+				{
+					const double maxDev = maxSampledPairDistanceMm(shiftedSoup, soupFromShape);
+					if (maxDev > 0.5)
+					{
+						std::ostringstream oss;
+						oss << "soup/shape transform mismatch maxDev=" << maxDev << "mm";
+						fail("reverseTemplateSoupIcp", oss.str());
+					}
+				}
+			}
+		}
+	}
+
+	{
+		const TopoDS_Shape box = BRepPrimAPI_MakeBox(80.0, 60.0, 40.0).Shape();
+		MeshDiscretizeParams discParams;
+		discParams.quality = MeshQualityPreset::Medium;
+		std::vector<float> boxSoup;
+		MeshDiscretizeReport discReport;
+		std::string discErr;
+		if (!discretizeShapeToMesh(box, discParams, boxSoup, discReport, &discErr))
+		{
+			fail("meshSurfaceReconstruct", discErr.empty() ? "box tessellation failed" : discErr);
+		}
+		else
+		{
+			MeshSurfaceReconstructParams reconParams;
+			reconParams.patchCountHint = 2;
+			reconParams.samplesPerPatchEdge = 8;
+			ShapeHandle brepShape;
+			MeshSurfaceReconstructReport reconReport;
+			std::string reconErr;
+			if (!reconstructBrepFromMeshSoup(boxSoup, reconParams, brepShape, reconReport, &reconErr))
+			{
+				fail("meshSurfaceReconstruct", reconErr.empty() ? "reconstruct failed" : reconErr);
+			}
+			else if (brepShape.isNull())
+			{
+				fail("meshSurfaceReconstruct", "null output shape");
+			}
+			else if (reconReport.patchCount < 1)
+			{
+				fail("meshSurfaceReconstruct", "patchCount < 1");
 			}
 		}
 	}

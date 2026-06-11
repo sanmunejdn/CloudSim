@@ -124,7 +124,6 @@ void OsgWidgetTransformHierarchyController::removeBackendObjectVisual(
 		}
 	}
 	self.m_backendModelCenters.erase(backendId);
-	self.m_backendSkipCenterRebase.erase(backendId);
 	self.m_backendVisibility.erase(backendId);
 	self.m_litMeshBackendIds.erase(backendId);
 	if (self.m_activeBackendId == backendId)

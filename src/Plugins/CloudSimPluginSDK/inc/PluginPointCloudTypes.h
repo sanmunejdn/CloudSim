@@ -178,9 +178,18 @@ struct PluginPointCloudReconstructScaleSpaceParams
 	PluginMeshCreateOptions meshOptions{};
 };
 
+enum class PluginPointCloudTemplateBrepRegistrationStage : int
+{
+	Full = 0,
+	CoarseOnly = 1,
+	FineOnly = 2,
+};
+
 struct PluginPointCloudTemplateBrepUpdateParams
 {
 	std::string templateBrepBackendIdUtf8;
+	PluginPointCloudTemplateBrepRegistrationStage registrationStage =
+		PluginPointCloudTemplateBrepRegistrationStage::Full;
 	double voxelPrefilterMm = 1.0;
 	double faceBandMm = 2.0;
 	double normalThresholdDeg = 35.0;
@@ -320,3 +329,33 @@ using PluginPointCloudFinishedFn = std::function<void(
 	bool ok,
 	const QString& error,
 	const PluginPointCloudJobResult& result)>;
+
+struct PluginMeshSurfaceReconstructParams
+{
+	int normalSmoothIterations = 6;
+	double featureThresholdC0 = 0.8;
+	bool runVcgRepairFirst = true;
+	int patchCountHint = 0;
+	int samplesPerPatchEdge = 16;
+	double blendStripWidth = 0.0;
+	double fairingEpsilon = 1e-3;
+	int fairingMaxIterations = 50;
+	QString displayName;
+	bool selectInTree = true;
+};
+
+struct PluginMeshSurfaceReconstructReport
+{
+	int patchCount = 0;
+	int junctionCount = 0;
+	double maxDeviationMm = 0.0;
+	double globalFairingMetric = 0.0;
+	double normalSmoothGapVolume = 0.0;
+	bool c2BlendSucceeded = false;
+	std::string newBrepBackendId;
+};
+
+using PluginMeshSurfaceReconstructFinishedFn = std::function<void(
+	bool ok,
+	const QString& error,
+	const PluginMeshSurfaceReconstructReport& report)>;

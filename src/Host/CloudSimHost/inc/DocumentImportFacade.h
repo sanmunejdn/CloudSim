@@ -39,7 +39,6 @@ struct AdoptMeshOptions {
 	QString catalogTypeName = QStringLiteral("Model");
 	QString parentId;
 	bool resetViewToHome = true;
-	bool skipInnerModelCenterRebase = false;
 	bool linkOsgSceneParent = true;
 };
 

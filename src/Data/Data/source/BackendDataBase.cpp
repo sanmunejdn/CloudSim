@@ -45,59 +45,6 @@ std::string toLowerAscii(std::string s)
 	return s;
 }
 
-BackendVec3 modelCenterForData(const BackendDataBase& data)
-{
-	if (const auto* pc = dynamic_cast<const PointCloudBackendData*>(&data))
-	{
-		const auto& xyz = pc->pointPositionsXyz();
-		if (xyz.size() < 3U || (xyz.size() % 3U) != 0U)
-		{
-			return BackendVec3{};
-		}
-		float minx = xyz[0], maxx = xyz[0], miny = xyz[1], maxy = xyz[1], minz = xyz[2], maxz = xyz[2];
-		for (std::size_t i = 0; i + 2 < xyz.size(); i += 3U)
-		{
-			const float x = xyz[i], y = xyz[i + 1], z = xyz[i + 2];
-			minx = std::min(minx, x);
-			maxx = std::max(maxx, x);
-			miny = std::min(miny, y);
-			maxy = std::max(maxy, y);
-			minz = std::min(minz, z);
-			maxz = std::max(maxz, z);
-		}
-		return BackendVec3{ 0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
-			0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
-			0.5 * (static_cast<double>(minz) + static_cast<double>(maxz)) };
-	}
-	if (const auto* mesh = dynamic_cast<const MeshBackendData*>(&data))
-	{
-		if (mesh->transformPivotAtOrigin())  // URDF 枢轴在原点
-		{
-			return BackendVec3{};
-		}
-		const auto& soup = mesh->triangleSoup();
-		if (soup.size() < 3U || (soup.size() % 3U) != 0U)
-		{
-			return BackendVec3{};
-		}
-		float minx = soup[0], maxx = soup[0], miny = soup[1], maxy = soup[1], minz = soup[2], maxz = soup[2];
-		for (std::size_t i = 0; i + 2 < soup.size(); i += 3U)
-		{
-			const float x = soup[i], y = soup[i + 1], z = soup[i + 2];
-			minx = std::min(minx, x);
-			maxx = std::max(maxx, x);
-			miny = std::min(miny, y);
-			maxy = std::max(maxy, y);
-			minz = std::min(minz, z);
-			maxz = std::max(maxz, z);
-		}
-		return BackendVec3{ 0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
-			0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
-			0.5 * (static_cast<double>(minz) + static_cast<double>(maxz)) };
-	}
-	return BackendVec3{};
-}
-
 bool buildWorldPoseInFrame(
 	const BackendDataBase& owner,
 	const BackendVec3& poseFrame,
@@ -107,7 +54,6 @@ bool buildWorldPoseInFrame(
 	BackendVec3& outWorldPose,
 	BackendVec3& outWorldEuler)
 {
-	const BackendVec3 center = modelCenterForData(owner);
 	if (frame == BackendPoseReferenceFrame::World || mgr == nullptr)
 	{
 		outWorldPose = poseFrame;
@@ -130,12 +76,11 @@ bool buildWorldPoseInFrame(
 		return true;
 	}
 
-	const BackendVec3 parentCenter = modelCenterForData(*parent);
-	const BackendMat4 parentWorld = backend_world_mat_from_pose(parentCenter, parent->pose(), parent->rotation());
-	const BackendMat4 local = backend_world_mat_from_pose(center, poseFrame, rotFrame);
+	const BackendMat4 parentWorld = backend_world_mat_from_pose(parent->pose(), parent->rotation());
+	const BackendMat4 local = backend_world_mat_from_pose(poseFrame, rotFrame);
 	BackendMat4 world{};
 	backend_mat4_multiply(parentWorld, local, world);
-	backend_pose_euler_from_world_mat(world, center, outWorldPose, outWorldEuler);
+	backend_pose_euler_from_world_mat(world, outWorldPose, outWorldEuler);
 	return true;
 }
 
@@ -146,8 +91,7 @@ double maxAbsVec3Diff(const BackendVec3& a, const BackendVec3& b)
 
 BackendMat4 worldMatrixFromData(const BackendDataBase& data)
 {
-	const BackendVec3 center = modelCenterForData(data);
-	return backend_world_mat_from_pose(center, data.pose(), data.rotation());
+	return backend_world_mat_from_pose(data.pose(), data.rotation());
 }
 
 bool jsonToVec3(const nlohmann::json& in, BackendVec3& out)
@@ -456,17 +400,15 @@ BackendVec3 BackendDataBase::poseInFrame(BackendPoseReferenceFrame frame, const 
 		return pose();
 	}
 
-	const BackendVec3 selfCenter = modelCenterForData(*this);
-	const BackendVec3 parentCenter = modelCenterForData(*parent);
-	const BackendMat4 selfWorld = backend_world_mat_from_pose(selfCenter, pose(), rotation());
-	const BackendMat4 parentWorld = backend_world_mat_from_pose(parentCenter, parent->pose(), parent->rotation());
+	const BackendMat4 selfWorld = backend_world_mat_from_pose(pose(), rotation());
+	const BackendMat4 parentWorld = backend_world_mat_from_pose(parent->pose(), parent->rotation());
 	BackendMat4 invParent{};
 	backend_mat4_invert_rigid(parentWorld, invParent);
 	BackendMat4 selfLocal{};
 	backend_mat4_multiply(invParent, selfWorld, selfLocal);
 	BackendVec3 localPose{};
 	BackendVec3 localEuler{};
-	backend_pose_euler_from_world_mat(selfLocal, selfCenter, localPose, localEuler);
+	backend_pose_euler_from_world_mat(selfLocal, localPose, localEuler);
 	return localPose;
 }
 
@@ -491,17 +433,15 @@ BackendVec3 BackendDataBase::rotationInFrame(BackendPoseReferenceFrame frame, co
 		return rotation();
 	}
 
-	const BackendVec3 selfCenter = modelCenterForData(*this);
-	const BackendVec3 parentCenter = modelCenterForData(*parent);
-	const BackendMat4 selfWorld = backend_world_mat_from_pose(selfCenter, pose(), rotation());
-	const BackendMat4 parentWorld = backend_world_mat_from_pose(parentCenter, parent->pose(), parent->rotation());
+	const BackendMat4 selfWorld = backend_world_mat_from_pose(pose(), rotation());
+	const BackendMat4 parentWorld = backend_world_mat_from_pose(parent->pose(), parent->rotation());
 	BackendMat4 invParent{};
 	backend_mat4_invert_rigid(parentWorld, invParent);
 	BackendMat4 selfLocal{};
 	backend_mat4_multiply(invParent, selfWorld, selfLocal);
 	BackendVec3 localPose{};
 	BackendVec3 localEuler{};
-	backend_pose_euler_from_world_mat(selfLocal, selfCenter, localPose, localEuler);
+	backend_pose_euler_from_world_mat(selfLocal, localPose, localEuler);
 	return localEuler;
 }
 
@@ -592,10 +532,9 @@ BackendMat4 BackendDataBase::worldMatrix(const BackendDataManager* mgr) const
 void BackendDataBase::setWorldMatrix(const BackendMat4& world, const BackendDataManager* mgr)
 {
 	(void)mgr;
-	const BackendVec3 center = modelCenterForData(*this);
 	BackendVec3 poseWorld{};
 	BackendVec3 rotWorld{};
-	backend_pose_euler_from_world_mat(world, center, poseWorld, rotWorld);
+	backend_pose_euler_from_world_mat(world, poseWorld, rotWorld);
 	if (hasPoseProperty())
 	{
 		setPose(poseWorld);

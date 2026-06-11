@@ -1,5 +1,7 @@
 # RobotWidget Developer Guide
 
+> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — per-link FK、工具轴叠加、TCP 拖动示教均须遵守；实现见 `RobotSimulationMathExports.cpp`、`refreshRobotCoordinateFrameOverlays`。
+
 Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWIDGET_LIB`). Widget keeps `DocumentPage`, `OsgWidget`, and TCP drag teach; orchestration uses host interfaces.
 
 ## Build (x64)
@@ -46,7 +48,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 | **M0 与 P 分离** | bind 表 **M0** 在导入时冻结；整机关节链平移/旋转只更新 **P**（`basePlacementWorld`）。勿在 gizmo 松手或 TCP 前把场景世界矩阵 **W** 直接写入 **M0**。进入 TCP 示教前调用 `reconcilePerLinkOuterBindFromScene` 校正 bind。 |
 | `robotBaseWorldMatrixForInstance` | per-link 时返回 **P**，供 `tcpTeachSetTargetFromToolWorld` 做基座↔世界变换；**勿**用根连杆 OSG 世界矩阵冒充 URDF 基座。 |
 | `IRobotOsgViewHost` 生命周期 | `osgView()` 在文档页变化时重建 `WidgetOsgViewHost`；实现委托 `IRenderView`，勿缓存裸 `OsgWidget*`。 |
-| `IRobotOsgViewHost` 坐标 | `resolvePickScopeBackendId` / `backendSkipsInnerModelCenterRebase` 与 `OsgScene` 一致；`feature_pick_transform` 在 file↔world 前解析 visual backendId 并按 skip-rebase 决定是否加减 `modelCenter`。 |
+| `IRobotOsgViewHost` 坐标 | `feature_pick_transform` 经 `resolvePickScopeBackendId` + `getBackendRootWorldMatrix` 做 STEP 文件坐标↔世界（**不**加减 `modelCenter`）；`backendSkipsInnerModelCenterRebase` 已恒 `false`（遗留 API）。 |
 | `IRobotDocumentHost` 文档切换 | `document()` 在 `currentPage()` 变化时重建 `DocumentHost`（与 OSG 规则一致）。 |
 
 ## Build
@@ -311,7 +313,14 @@ Add/Duplicate/Remove 工具系时用 `m_blockSignals` 避免 `setCurrentRow` 触
 | 单项勾选 | 仅隐藏该条坐标系轴；属 **DisplayOnly**，经 `coordinateFrameSetPlanningEquals` 忽略后对比 |
 | 持久化 | 工程 JSON 每帧可选字段 `showInScene`；缺省视为显示 |
 
-3D 叠加由 `refreshRobotCoordinateFrameOverlays` → `OsgWidget::setRobotFrameOverlays`：全局开关开启且该项 `showInScene` 才入队；per-link 工具系挂法兰 link backend，用户系挂 **URDF 根连杆**（`T_base_user` 相对基座）；工具/用户轴 `createInstructionPoseAxisGeode(..., alwaysVisible=true)` 关闭深度测试以免被 mesh 遮挡。Run 期间工具系与预览一致显示（不再按 highlight 工具 id 跳过）。
+3D 叠加由 `refreshRobotCoordinateFrameOverlays` → `OsgWidget::setRobotFrameOverlays`：全局开关开启且该项 `showInScene` 才入队。
+
+| per-link 模式 | 工具系 mount | 工具系 local |
+|---------------|--------------|--------------|
+| `meshVerticesInLinkFrame=false`（世界烘焙，**默认**） | `urdfRootLinkBackendId` | `toolTcpInBaseFromFk(urdf, q, **该 tool**)` |
+| `meshVerticesInLinkFrame=true` | 法兰 link backend | `T_flange_tool` |
+
+用户系挂 **URDF 根连杆**，`local = T_base_user`。多工具时 **必须** per-tool 计算 TCP（禁止共用激活工具矩阵）。TCP 拖动后须 `updateTcpDragTeachFromTarget` + IK 后 `refreshRobotCoordinateFrameOverlays`。Run 期间工具系与预览一致显示。
 
 | 类 | 说明 |
 |----|------|
@@ -612,7 +621,7 @@ Dock 页签 **「轨迹生成」**（`FeatureTrajectoryPageWidget`，`kTabIndexT
 
 **3D 拾取数据流**：轨迹页「拾取边/面」→ `IRobotOsgViewHost::setMesh*PickMode` + `setMeshPickScopeBackendId`（当前 combo backend）→ 视口左键 → `MainWindowRobotHost::notifyMeshPickCommitted` → 自动填 `FeatureSpec` 并离散。
 
-**坐标系约定**：`RawTrajectory.points` 与 OCCT 离散结果同在 **STEP 文件坐标**（非视口世界坐标）。预览与 `emitRawTrajectoryToProgram` 前经 `feature_pick_transform::stepModelPointToWorldMm` / `transformRawTrajectoryToWorld`：先 `resolvePickScopeBackendId` 取承载 Geode 的 backendId，再按 `backendSkipsInnerModelCenterRebase` 决定是否加减 `modelCenter`（与 `OsgSceneBrepPick` 一致）。AI 特征编号 overlay（`buildPreviewOverlayJson`）走同一路径。
+**坐标系约定**：`RawTrajectory.points` 与 OCCT 离散结果同在 **STEP 文件坐标**。预览与 `emitRawTrajectoryToProgram` 前经 `feature_pick_transform::stepModelPointToWorldMm` / `transformRawTrajectoryToWorld`：`resolvePickScopeBackendId` 后乘 `getBackendRootWorldMatrix`（统一世界坐标契约，**不**加减 `modelCenter`）。AI 特征编号 overlay 走同一路径。
 
 **预览叠加层**：原始轨迹用 `setRawTrajectoryOverlay`（折线 + 点）+ 可选 `setRawTrajectoryOverlayFrames`（稀疏 TCP 轴，默认 15 mm，X/Y/Z 红/绿/蓝）。
 

@@ -169,6 +169,8 @@
     <ClInclude Include="inc\BrepImportArtifacts.h" />
     <ClInclude Include="inc\TrajectoryProjection.h" />
     <ClInclude Include="inc\TemplateBrepUpdate.h" />
+    <ClInclude Include="inc\TemplateBrepRegistration.h" />
+    <ClInclude Include="inc\MeshSurfaceReconstruction.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\ShapeQuery.cpp" />
@@ -188,6 +190,17 @@
     <ClCompile Include="source\BrepImportArtifacts.cpp" />
     <ClCompile Include="source\TrajectoryProjection.cpp" />
     <ClCompile Include="source\TemplateBrepUpdate.cpp" />
+    <ClCompile Include="source\TemplateBrepRegistration.cpp" />
+    <ClCompile Include="source\MeshSurfaceReconstruction.cpp" />
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionUtils.cpp" />
+    <ClCompile Include="source\MeshSurfaceReconstruction\PatchParameterize.cpp" />
+    <ClCompile Include="source\MeshSurfaceReconstruction\InitialBsplinePatch.cpp" />
+    <ClCompile Include="source\MeshSurfaceReconstruction\BoundaryBlend.cpp" />
+    <ClCompile Include="source\MeshSurfaceReconstruction\JunctionBlend.cpp" />
+    <ClCompile Include="source\MeshSurfaceReconstruction\BsplineSurfaceFairing.cpp" />
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionAssemble.cpp" />
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionOcct.cpp" />
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionValidate.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Infra\RunLogger\RunLogger.vcxproj">

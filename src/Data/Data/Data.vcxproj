@@ -171,6 +171,7 @@
     <ClInclude Include="inc\GeometryBackendOps.h" />
     <ClInclude Include="inc\GeometryRef.h" />
     <ClInclude Include="inc\BackendFollowTransformSolver.h" />
+    <ClInclude Include="inc\BackendSpatial.h" />
     <ClInclude Include="inc\FollowAttachmentComponent.h" />
     <ClInclude Include="inc\BackendDataBase.h" />
     <ClInclude Include="inc\BackendObjectAttribute.h" />
@@ -194,6 +195,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="source\BackendFollowMath.cpp" />
+    <ClCompile Include="source\BackendSpatial.cpp" />
     <ClCompile Include="source\BackendFollowTransformSolver.cpp" />
     <ClCompile Include="source\FollowAttachmentComponent.cpp" />
     <ClCompile Include="source\BackendDataBase.cpp" />

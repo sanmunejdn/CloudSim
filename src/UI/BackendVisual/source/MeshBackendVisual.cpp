@@ -195,19 +195,15 @@ bool MeshBackendVisual::buildOuterBranch(const BackendDataBase& data, const Mesh
 	{
 		return false;
 	}
-	const bool skipCenter = meshOptions.skipInnerModelCenterRebase;
-	const osg::Vec3f center =
-		skipCenter ? osg::Vec3f(0.0f, 0.0f, 0.0f) : backend_geometry_metrics::meshCenterFromSoup(mesh->triangleSoup());
+	const osg::Vec3f center = backend_geometry_metrics::meshCenterFromSoup(mesh->triangleSoup());
 	const float diagonal = backend_geometry_metrics::meshDiagonalFromSoup(mesh->triangleSoup());
 	osg::ref_ptr<osg::PositionAttitudeTransform> inner = new osg::PositionAttitudeTransform;
-	inner->setPosition(skipCenter ? osg::Vec3f(0.0f, 0.0f, 0.0f) : -center);
+	inner->setPosition(osg::Vec3f(0.0f, 0.0f, 0.0f));
 	inner->addChild(meshRoot.get());
 	osg::ref_ptr<osg::MatrixTransform> outer = new osg::MatrixTransform;
 	const BackendVec3 p = mesh->pose();
 	const BackendVec3 r = mesh->rotation();
-	const osg::Vec3d trans(skipCenter ? static_cast<double>(p.x) : static_cast<double>(center.x()) + static_cast<double>(p.x),
-		skipCenter ? static_cast<double>(p.y) : static_cast<double>(center.y()) + static_cast<double>(p.y),
-		skipCenter ? static_cast<double>(p.z) : static_cast<double>(center.z()) + static_cast<double>(p.z));
+	const osg::Vec3d trans(static_cast<double>(p.x), static_cast<double>(p.y), static_cast<double>(p.z));
 	const osg::Quat q = backendvisual_math::eulerDegToQuat(
 		osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
 	outer->setMatrix(osg::Matrixd::translate(trans) * osg::Matrixd::rotate(q));

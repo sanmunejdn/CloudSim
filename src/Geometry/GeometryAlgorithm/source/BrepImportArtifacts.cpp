@@ -185,4 +185,100 @@ void clearBrepImportArtifactsCache()
 	g_cacheEntries.clear();
 }
 
+bool extractDisplaySoupPointCloud(
+	const ShapeHandle& shape,
+	std::vector<float>& outXyz,
+	std::vector<float>& outNormals,
+	const std::size_t maxPoints,
+	std::size_t* outTriangleCount,
+	std::string* errMsg)
+{
+	outXyz.clear();
+	outNormals.clear();
+	if (outTriangleCount)
+	{
+		*outTriangleCount = 0U;
+	}
+	if (shape.isNull())
+	{
+		if (errMsg)
+		{
+			*errMsg = "null shape";
+		}
+		return false;
+	}
+	if (maxPoints < 3U)
+	{
+		if (errMsg)
+		{
+			*errMsg = "maxPoints too small";
+		}
+		return false;
+	}
+
+	const std::shared_ptr<BrepImportArtifacts> artifacts = getOrBuildBrepImportArtifacts(shape, errMsg);
+	if (!artifacts || !artifacts->hasDisplayData())
+	{
+		if (errMsg && errMsg->empty())
+		{
+			*errMsg = "B-rep display soup unavailable";
+		}
+		return false;
+	}
+
+	const std::vector<float>& soup = artifacts->displaySoup;
+	const std::vector<float>& norms = artifacts->displayNormals;
+	const bool hasNormals = norms.size() == soup.size();
+	const std::size_t triCount = soup.size() / 9U;
+	if (outTriangleCount)
+	{
+		*outTriangleCount = triCount;
+	}
+
+	outXyz.reserve(std::min(maxPoints, triCount) * 3U);
+	if (hasNormals)
+	{
+		outNormals.reserve(std::min(maxPoints, triCount) * 3U);
+	}
+
+	const std::size_t triStep = std::max<std::size_t>(1U, triCount / maxPoints);
+	for (std::size_t tri = 0U; tri < triCount; tri += triStep)
+	{
+		if ((outXyz.size() / 3U) >= maxPoints)
+		{
+			break;
+		}
+		const std::size_t base = tri * 9U;
+		for (std::size_t corner = 0U; corner < 3U; ++corner)
+		{
+			if ((outXyz.size() / 3U) >= maxPoints)
+			{
+				break;
+			}
+			const std::size_t vb = base + corner * 3U;
+			outXyz.push_back(soup[vb]);
+			outXyz.push_back(soup[vb + 1U]);
+			outXyz.push_back(soup[vb + 2U]);
+			if (hasNormals)
+			{
+				outNormals.push_back(norms[vb]);
+				outNormals.push_back(norms[vb + 1U]);
+				outNormals.push_back(norms[vb + 2U]);
+			}
+		}
+	}
+
+	if (outXyz.size() < 9U)
+	{
+		if (errMsg)
+		{
+			*errMsg = "display soup produced too few points";
+		}
+		outXyz.clear();
+		outNormals.clear();
+		return false;
+	}
+	return true;
+}
+
 } // namespace geoalgo

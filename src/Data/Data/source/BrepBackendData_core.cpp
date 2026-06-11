@@ -136,6 +136,11 @@ bool BrepBackendData::writeBrepFile(const std::string& path, std::string* errMsg
 	return geoalgo::writeBrepFile(path, m_shape, errMsg);
 }
 
+bool BrepBackendData::writeStepFile(const std::string& path, std::string* errMsg) const
+{
+	return geoalgo::writeStepFile(path, m_shape, errMsg);
+}
+
 nlohmann::json BrepBackendData::snapshotPropertyRows(const BackendDataManager* mgr) const
 {
 	nlohmann::json rows = BackendDataBase::snapshotPropertyRows(mgr);

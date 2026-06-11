@@ -19,23 +19,6 @@ std::string transformBackendId(IRobotOsgViewHost* osg, const std::string& backen
 	return osg->resolvePickScopeBackendId(backendId);
 }
 
-void modelCenterOffsetMm(
-	IRobotOsgViewHost* osg,
-	const std::string& xformBackendId,
-	double& outCx,
-	double& outCy,
-	double& outCz)
-{
-	outCx = 0.0;
-	outCy = 0.0;
-	outCz = 0.0;
-	if (!osg || osg->backendSkipsInnerModelCenterRebase(xformBackendId))
-	{
-		return;
-	}
-	(void)osg->tryGetBackendModelCenterMm(xformBackendId, outCx, outCy, outCz);
-}
-
 } // namespace
 
 bool worldPointToStepModelMm(
@@ -75,13 +58,9 @@ bool worldPointToStepModelMm(
 	const osg::Vec3d pw(static_cast<double>(worldMm.x()), static_cast<double>(worldMm.y()),
 		static_cast<double>(worldMm.z()));
 	const osg::Vec3d pOuter = pw * invMat;
-	double cx = 0.0;
-	double cy = 0.0;
-	double cz = 0.0;
-	modelCenterOffsetMm(osg, xformId, cx, cy, cz);
-	outModel.x = pOuter.x() + cx;
-	outModel.y = pOuter.y() + cy;
-	outModel.z = pOuter.z() + cz;
+	outModel.x = pOuter.x();
+	outModel.y = pOuter.y();
+	outModel.z = pOuter.z();
 	return true;
 }
 
@@ -110,11 +89,7 @@ bool stepModelPointToWorldMm(
 		}
 		return false;
 	}
-	double cx = 0.0;
-	double cy = 0.0;
-	double cz = 0.0;
-	modelCenterOffsetMm(osg, xformId, cx, cy, cz);
-	const osg::Vec3d pFile(modelMm.x - cx, modelMm.y - cy, modelMm.z - cz);
+	const osg::Vec3d pFile(modelMm.x, modelMm.y, modelMm.z);
 	const osg::Vec3d pw = pFile * worldMat;
 	outWorld.set(
 		static_cast<float>(pw.x()),

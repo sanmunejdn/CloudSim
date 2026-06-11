@@ -186,4 +186,13 @@ public:
 		const std::string& backendIdUtf8,
 		const PluginPointCloudCropPolylineParams& params,
 		PluginPointCloudFinishedFn onFinished) = 0;
+
+	// === 网格曲面重构（1.12.0+） ===
+
+	/// 三角网格 → B-rep 曲面重构（输出新 BrepModel，源网格保留）
+	virtual void reconstructSurfaceFromMesh(
+		IPluginDocument* doc,
+		const std::string& meshBackendIdUtf8,
+		const PluginMeshSurfaceReconstructParams& params,
+		PluginMeshSurfaceReconstructFinishedFn onFinished) = 0;
 };

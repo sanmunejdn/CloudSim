@@ -80,15 +80,7 @@ bool fillBrepModelToWorld(
 		}
 		return false;
 	}
-	double cx = 0.0;
-	double cy = 0.0;
-	double cz = 0.0;
-	if (!osg->backendSkipsInnerModelCenterRebase(xformId))
-	{
-		(void)osg->tryGetBackendModelCenterMm(xformId, cx, cy, cz);
-	}
 	osgMatrixToColMajor16(worldMat, out.modelToWorldColMajor16);
-	adjustColMajorTranslationForModelCenter(out.modelToWorldColMajor16, cx, cy, cz);
 	out.hasModelToWorld = true;
 	return true;
 }

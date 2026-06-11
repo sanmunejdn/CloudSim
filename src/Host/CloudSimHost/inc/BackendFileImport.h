@@ -31,12 +31,11 @@ CLOUDSIM_HOST_EXPORT bool registerAdoptedBackendObject(DocumentHost& host, const
 /// 注册 mesh 并加载
 CLOUDSIM_HOST_EXPORT bool registerAdoptedMeshAndLoadScene(DocumentHost& host, const std::shared_ptr<MeshBackendData>& mesh,
 	const QString& sourcePath, const QString& catalogTypeName, const QString& parentId, bool resetViewToHome,
-	QString* outError = nullptr, bool skipInnerModelCenterRebase = false, bool linkOsgSceneParent = true);
+	QString* outError = nullptr, bool linkOsgSceneParent = true);
 
 CLOUDSIM_HOST_EXPORT bool registerAdoptedBrepAndLoadScene(DocumentHost& host, const std::shared_ptr<BrepBackendData>& brep,
 	const QString& sourcePath, const QString& catalogTypeName, const QString& parentId, const bool resetViewToHome,
-	QString* outError = nullptr, const bool skipInnerModelCenterRebase = false, const bool linkOsgSceneParent = true,
-	const bool loadScene = true);
+	QString* outError = nullptr, const bool linkOsgSceneParent = true, const bool loadScene = true);
 
 /// 注册点云并加载
 CLOUDSIM_HOST_EXPORT bool registerAdoptedPointCloudAndLoadScene(DocumentHost& host,

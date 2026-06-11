@@ -99,4 +99,45 @@ bool writeBrepFile(const std::string& pathLocal, const ShapeHandle& shape, std::
 	return true;
 }
 
+bool writeStepFile(const std::string& pathLocal, const ShapeHandle& shape, std::string* errMsg)
+{
+	if (shape.isNull())
+	{
+		if (errMsg)
+		{
+			*errMsg = "null shape";
+		}
+		return false;
+	}
+	TopoDS_Shape native;
+	if (!ShapeHandleAccess::nativeShape(shape, &native))
+	{
+		if (errMsg)
+		{
+			*errMsg = "shape access failed";
+		}
+		return false;
+	}
+	STEPControl_Writer writer;
+	const IFSelect_ReturnStatus transferStatus = writer.Transfer(native, STEPControl_AsIs);
+	if (transferStatus != IFSelect_RetDone)
+	{
+		if (errMsg)
+		{
+			*errMsg = "OCCT STEP transfer failed";
+		}
+		return false;
+	}
+	const IFSelect_ReturnStatus writeStatus = writer.Write(pathLocal.c_str());
+	if (writeStatus != IFSelect_RetDone)
+	{
+		if (errMsg)
+		{
+			*errMsg = "OCCT STEP write failed";
+		}
+		return false;
+	}
+	return true;
+}
+
 } // namespace geoalgo

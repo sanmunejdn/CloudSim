@@ -166,6 +166,34 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 			}
 		}
 	}
+	if (auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(backendObject))
+	{
+		if (pc->pointPositionsXyz().empty())
+		{
+			const QJsonObject emb = objectJson.value(QStringLiteral("geometry")).toObject();
+			QString plyRel = emb.value(QStringLiteral("plySidecar")).toString();
+			if (plyRel.isEmpty())
+			{
+				plyRel = objectJson.value(QStringLiteral("assetRelativePath")).toString();
+			}
+			const QString plyPath = resolveProjectObjectLoadPath(projectDir, sourcePath, plyRel);
+			if (!plyPath.isEmpty())
+			{
+				const QByteArray enc = QFile::encodeName(plyPath);
+				const std::string nativePath(enc.constData(), static_cast<std::size_t>(enc.size()));
+				std::string loadErr;
+				if (!pc->readPointCloudPlySidecar(nativePath, &loadErr))
+				{
+					if (outError)
+					{
+						*outError = loadErr.empty() ? QStringLiteral("Failed to load point cloud PLY sidecar")
+													: QString::fromStdString(loadErr);
+					}
+					return false;
+				}
+			}
+		}
+	}
 	OsgWidget* osg = osgWidgetFrom(host);
 	if (!osg)
 	{
@@ -179,16 +207,24 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 	bool visualOk = false;
 	if (const auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(backendObject))
 	{
+		if (pc->pointPositionsXyz().empty())
+		{
+			if (outError)
+			{
+				*outError = QStringLiteral("Point cloud has no geometry (missing PLY sidecar and embedded data).");
+			}
+			return false;
+		}
 		visualOk = osg->loadPointCloudFromBackendData(*pc, &visualErr, true);
 	}
 	else if (const auto mesh = std::dynamic_pointer_cast<MeshBackendData>(backendObject))
 	{
-		// robotLinkMeshVisual：连杆网格已在 link 系，勿二次中心化
-		visualOk = osg->loadMeshFromBackendData(*mesh, &visualErr, true, true, true, robotLinkMeshVisual);
+		(void)robotLinkMeshVisual;
+		visualOk = osg->loadMeshFromBackendData(*mesh, &visualErr, true, true, true);
 	}
 	else if (const auto brep = std::dynamic_pointer_cast<BrepBackendData>(backendObject))
 	{
-		visualOk = osg->loadBackendFromBackendData(*brep, &visualErr, true, true, true, robotLinkMeshVisual);
+		visualOk = osg->loadBackendFromBackendData(*brep, &visualErr, true, true, true);
 	}
 	else
 	{

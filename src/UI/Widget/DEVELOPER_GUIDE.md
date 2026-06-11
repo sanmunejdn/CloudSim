@@ -1,5 +1,7 @@
 # Widget 模块开发文档
 
+> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — gizmo/属性面板读写 `pose`；per-link 整机 gizmo 只改 **P**；`DocumentPage` 实现 `IRobotSimulationDocument` 中的 FK 绑定。
+
 ## 1. 模块定位
 
 `Widget` 是 **Qt 桌面前端与流程协调中心**：主窗口、多文档标签、后端树/属性面板、OSG 视图桥接、项目 I/O、机器人仿真 UI、异步任务与进度。对应架构中的「前端 UI 层」；本地引擎在 `Data` / `OsgWidgetCore` / `RobotScene` 等子工程。
@@ -44,7 +46,7 @@ flowchart TB
 | 类 | 职责 |
 |----|------|
 | `MainWindowUiSetup` | 菜单、Dock、初始布局；订阅 `EventHub`（`BackendObjectRegistered/Removed`、`SelectionChanged`、`PoseCommitted`） |
-| `MainWindowBackendTree` | 后端树与场景树 |
+| `MainWindowBackendTree` | 后端树与场景树；单元部件右键：`PointCloudBackendData` → 导出 PLY，`BrepModel` → 导出 STEP（`exportBackendObjectFromTree` → `DocumentPointCloudOps`）；`Model` 网格无导出项 |
 | `MainWindowPropertyPanel` | 属性浏览器壳层；仿真指令行委托 `RobotWidget/InstructionPropertyPanel` |
 | `MainWindowFileImport` | 模型/点云导入 |
 | `MainWindowProjectIo` | `project.json` **v4**、`.pcp`；对象经 `BackendProjectObjectIo` / Host 注册 |
@@ -204,6 +206,8 @@ OSG 操作抽象；矩阵为 **列主序 16 double**。
 |----------|------|
 | `findSnapshot(mw, id)` | 活动文档 `BackendObjectDto`（`doc->data().objectSnapshot`） |
 | `listSnapshots(mw)` | 全表快照（`doc->data().listObjectSnapshots`） |
+
+**后端树右键导出**（`MainWindowBackendTree::onBackendTreeContextMenu`）：类型由 `objectSnapshot(id).className` + `hasGeometry` 判定（勿 `dynamic_cast` Data）。点云 → `document_point_cloud_ops::exportPointCloudToPly`；B-rep 工件 → `exportBrepToStep`；结果写入 `RunInfoPage`。
 
 ---
 
@@ -399,7 +403,7 @@ per-link URDF 各连杆 OSG 为**扁平**布局，逻辑父子在 `m_backendPare
 **DXF/STEP 层级（与工程加载区别）**
 
 - **DXF mesh 分件**：顶点为世界坐标 → 导入时**不**调用 `applyHierarchyFollowBinding`（避免 `pose ≈ -质心`）。
-- **STEP B-rep 装配**：多零件时仅 `importParent` 有 OSG visual；子零件经 `setPickVisualAlias` 拾取；`skipInnerModelCenterRebase=true`。
+- **STEP B-rep 装配**：多零件时仅 `importParent` 有 OSG visual；子零件经 `setPickVisualAlias` 拾取；顶点/显示遵循统一世界坐标契约。
 - Data 树：`attachChild` + `setBackendLogicalParent`；mesh 分件 OSG 各片仍在 flat 组；BREP 装配共享单一 Geode。
 - 工程打开后 `edges[]` 仍由 `MainWindowProjectIo` 批量 `applyHierarchyFollowBinding` + 一次 `runBackendFollowSolveAndSync`。
 

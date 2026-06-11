@@ -1,5 +1,7 @@
 # CloudSimHost 模块开发文档
 
+> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — URDF 导入（`UrdfRobotImport`）、层级 mesh/BREP 导入、配准写回均须遵守。
+
 ## 1. 模块定位
 
 `CloudSimHost` 是 **本地引擎宿主 DLL**：把 `Data`、`OsgWidget`（Qt 壳层）与 `CloudSimCore` 契约接在一起，并导出应用组合根。对应架构中的「契约与宿主层」；**不是**远程服务。
@@ -150,6 +152,8 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | `runBackendFollowSolveAndSync` | Follow 求解 + `sceneBridge().syncOuterPatFromBackend`；`FollowSolveContext` 由 Widget 注入守卫 |
 | `applyProjectEdgesFollowBindingAndSolve` | 工程 `edges[]` 批量 binding + 一次求解（`BackendProjectObjectIo`） |
 
+**对象导出**（`DocumentPointCloudOps`，Widget 后端树右键复用）：`exportPointCloudToPly`（`writePointCloudPlySidecar`）、`exportBrepToStep`（`BrepBackendData::writeStepFile` → `geoalgo::writeStepFile`）；路径 `QFile::encodeName`。
+
 ### 4.2b `BackendVisualSync`
 
 属性提交后的场景一致性与事件出口（供 `DataServiceAdapter::applyPropertyChange` 与 Widget pose 分量编辑后调用）。
@@ -165,7 +169,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 
 | API | 说明 |
 |-----|------|
-| `buildProjectSaveRoot` | 生成 v4 的 objects/edges/annotations/camera；点云无坐标时 `abortMessage` |
+| `buildProjectSaveRoot` | 生成 v4 的 objects/edges/annotations/camera；点云保存前 `ensurePointCloudGeometryForSave`（scene→staging→sourcePath 重读），写 `objects/{id}.ply`；无坐标时 `abortMessage` |
 | `mergeRobotKinematicsIntoProjectRoot` | 保存前写入 `robotKinematics` / `robotKinematicsInstances`（委托 `RobotProjectIo::writeRobotKinematics`；参数为全局 `::IRobotDocumentHost*`） |
 | `applyProjectViewportFromJson` | 恢复标注与 `cameraFollowBackendId`（经 `AnnotationProjectIo`） |
 | `finalizeProjectLoadFollowAndViewport` | OSG 父链、edges 跟随、视口、强制 Follow 求解 |
@@ -200,7 +204,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 
 | API | 说明 |
 |-----|------|
-| `registerUrdfRobot` | → `importUrdfRobot(IRobotUrdfImportContext&)`；场景经契约方法 + `urdfImportScenePoseSink()`；成功时 `publishBackendObjectRegistered` |
+| `registerUrdfRobot` | → `importUrdfRobot`（q0 世界烘焙、`meshVerticesInLinkFrame=false`；见契约 §5 与下文 §4.4.4） |
 | `applyJointAnglesRad` | → `RobotSceneKinematics::applyJointAnglesForInstance`；`publishRobotKinematicsApplied`；可选 `outAggregated` 返回聚合向量 |
 | `robotProgramsJson` / `setRobotProgramsJson` | → `RobotProgramJsonIo` + `RobotProgramStore` |
 | `planInstruction` | → `RobotPlanInstruction::planMotionInstruction`（`RobotInstruction::Controller::plan`） |
@@ -243,7 +247,8 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | 参数 | 默认 | 说明 |
 |------|------|------|
 | `linkOsgSceneParent` | `true` | `false` 时仅 `BackendDataManager::attachChild` + `OsgWidget::setBackendLogicalParent`（不改 OSG 场景父链） |
-| `skipInnerModelCenterRebase` | `false` | `true` 时顶点按文件世界坐标显示（DXF 分件）；与 URDF 每连杆语义相近 |
+
+**说明**：`skipInnerModelCenterRebase` 参数已从主路径移除（inner PAT 恒 `(0,0,0)`）。世界坐标分件依赖顶点烘焙 + `pose=0`，见契约 §3。
 
 **层级跟随绑定**（工程 `edges` / 属性编辑，**非** DXF 分件导入）由 `cloudsim::host::applyHierarchyFollowBinding` 写入 `FollowAttachment`；`MainWindow::applyHierarchyFollowBinding` 再调用 `runBackendFollowSolveAndSync`。
 
@@ -261,8 +266,8 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 **DXF/STEP 分件约定（勿与工程 `edges` 跟随混用）**
 
 1. 顶点已在 **世界坐标**（`dxfExpandInsertRecursive` 等烘焙进 `triangleSoup`）。
-2. 每片：`skipInnerModelCenterRebase=true`、`linkOsgSceneParent=false`、`setBackendLogicalParent` 写入 `m_backendParentIds`。
-3. **导入阶段不调用** `onParentFollow` / `applyHierarchyFollowBinding`（Follow 求解会把 `pose` 写成约 `-质心`，导致 3D 错位）。
+2. 每片：顶点世界坐标、`pose=0`、`linkOsgSceneParent=false`、`setBackendLogicalParent` 写入 `m_backendParentIds`。
+3. **导入阶段不调用** `onParentFollow` / `applyHierarchyFollowBinding`（Follow 求解会改写 `pose`，与世界坐标顶点冲突）。
 4. 导入结束：`OsgWidget::focusCameraOnBackend(importParent->id())` 聚合逻辑子树下全部分件包围球（依赖 `setBackendLogicalParent` + `worldBoundOfBackendRoot` 对世界坐标顶点取变换后中心）。
 
 `HierarchyFollowBindingFn onParentFollow` 参数保留供 API 稳定；当前分件路径内为 no-op。
@@ -280,7 +285,7 @@ STEP 多零件优先 **B-rep 路径**（`loadStepHierarchyFromFile` → `collect
 **装配优化约定**
 
 1. 各零件 `shapeRef` 共享同一 assembly `ShapeHandle`；`getOrBuildBrepImportArtifacts` 只执行一次（Phase1 缓存）。
-2. **仅 `importParent`**：`loadBackendFromBackendData(..., showWireOutline=false, useSceneLighting=true, skipInnerModelCenterRebase=true)` 挂载唯一 visual（首帧不画线框，避免 UI 等 Phase2）。
+2. **仅 `importParent`**：`loadBackendFromBackendData(..., showWireOutline=false, useSceneLighting=true)` 挂载唯一 visual（首帧不画线框，避免 UI 等 Phase2）。
 3. 子零件：`registerAdoptedBrepAndLoadScene(..., resetViewToHome=false, loadScene=false)` + `OsgWidget::setPickVisualAlias(partId, importParentId)`。
 4. 导入结束：`focusCameraOnBackend(importParent->id())`；**导入阶段不做** Follow（同 §4.4.1a）。
 5. 工程持久化：sidecar `.brep`（`ProjectPackageIo` / `BackendProjectObjectIo`）；**加载工程仍会重新 tessellation**（未缓存 display soup）。
@@ -323,7 +328,8 @@ STEP 多零件优先 **B-rep 路径**（`loadStepHierarchyFromFile` → `collect
 |------|-----|
 | 保存 `robotPrograms` | `page->robot().robotProgramsJson()` |
 | 加载 `robotPrograms` | `setRobotProgramsJson` |
-| 保存 `objects[]` | `BackendProjectObjectIo::saveProjectObject` |
+| 保存 `objects[]` | `BackendProjectObjectIo::saveProjectObject`；点云 PLY 由 `buildProjectSaveRoot` 写入 `objects/{id}.ply` |
+| 内嵌点云加载 | `registerEmbeddedProjectObject`：`plySidecar` / `assetRelativePath` → `readPointCloudPlySidecar`（兼容 `xyzBase64`） |
 | 加载 `objects[]` | `loadProjectObjectsFromJson` + `finalizeProjectHierarchyAfterObjects` |
 | 加载内嵌几何 | `registerEmbeddedProjectObject`（由 load 编排调用） |
 | 工程文件回退 | `importProjectObjectFromFile`（网格 `importMeshFile`；点云 ply/xyz `importPointCloudFile`） |
@@ -333,7 +339,7 @@ STEP 多零件优先 **B-rep 路径**（`loadStepHierarchyFromFile` → `collect
 | `syncOsgBackendParentsFromBackend` | Data 父子 → `OsgWidget::setBackendParent` |
 | `rebuildBackendParentIdMirror` | edges 后重建 `backendParentId` 旁路表 |
 | `applyPointCloudPoseFromProjectJson` | 文件回退点云的 pose/rotation/color |
-| `collectRobotLinkMeshBackendIds` | 工程内 perLink 连杆网格 id（`meshInLinkFrame`） |
+| `collectRobotLinkMeshBackendIds` | 工程内 perLink 连杆网格 id |
 | `restorePerLinkRobotKinematicsFromProjectJson` | 恢复 `robotKinematicsInstances[]` / 旧 `robotKinematics` |
 | `rekeyBackendObject` | Data/OSG/旁路表迁移 + remove/register 事件 |
 | 删除子树 | `page->data().unregisterSubtree()` |
@@ -355,7 +361,7 @@ STEP 多零件优先 **B-rep 路径**（`loadStepHierarchyFromFile` → `collect
 | 工程 `objects[]` 整批加载 | `loadProjectObjectsFromJson` + `finalizeProjectHierarchyAfterObjects` | las/laz 经 Widget 回调 |
 | 工程稳定 id | `rekeyBackendObject` 或导入前 `setId` | |
 | 删子树 | `page->data().unregisterSubtree` | |
-| DXF/STEP/OSG 层级 / CGAL+OSG 回退 | `importMeshFileExtended` / `importMeshHierarchyParts`（`HierarchyMeshImport`） | 世界坐标分件：`skipInnerModelCenterRebase` + `setBackendLogicalParent` + 导入时不做 Follow；导入后 `focusCameraOnBackend(importParent)`；工程 `edges` 仍走 `applyHierarchyFollowBinding` |
+| DXF/STEP/OSG 层级 / CGAL+OSG 回退 | `importMeshFileExtended` / `importMeshHierarchyParts` | 世界坐标分件 + `setBackendLogicalParent`；导入时不做 Follow；导入后 `focusCameraOnBackend(importParent)` |
 | 跟随（层级边 / legacy parentId） | `applyHierarchyFollowBinding`（Host） | 工程加载 edges 批量绑定后一次 `runBackendFollowSolveAndSync`；属性编辑仍经 `MainWindow::applyHierarchyFollowBinding` |
 
 **已删除（勿再引用）**
@@ -366,6 +372,20 @@ STEP 多零件优先 **B-rep 路径**（`loadStepHierarchyFromFile` → `collect
 | `MainWindow::registerExistingBackendObject` | 无调用方 |
 | `MainWindow::syncOsgViewerFrom*Backend`、`backendPropertyCommitted` | 由 `BackendVisualSync` + EventHub 替代 |
 | `RobotProjectIo::writeRobotKinematicsAndPrograms` | 保存拆分为 `mergeRobotKinematicsIntoProjectRoot` + `mergeRobotProgramsIntoProjectRoot` |
+
+### 4.4.4 URDF 每连杆导入（`UrdfRobotImport.cpp`）
+
+实现 `importUrdfRobot`；**无** `OsgWidget*` 依赖，经 `IRobotUrdfImportContext` 挂场景。
+
+| 步骤 | 行为 |
+|------|------|
+| FK bind | `computeMeshWorldMatrices(urdf, q0, Tbind, …, false)` |
+| 顶点烘焙 | `osgMatrixToColumnMajor16(Tbind)` **转置** → `transformVerticesColumnMajorHomogeneous4x4` |
+| **禁止** | `linkMeshFileToLinkColumnMajor16` + 全量 `Tbind`（visual 双重烘焙） |
+| 后端 | `pose=0`；`setRobotPerLinkKinematicsBinding(..., meshVerticesInLinkFrame=false)` |
+| FK 运行时 | `M = M0·inv(T0)·Tq·P`；q0 时 **M0=I**、outer=I |
+
+详见 [`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §5。
 
 **访问辅助头**
 
@@ -550,7 +570,8 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 | 重复项目项 `DocumentHost.h` | 从 `ClInclude` 移除，仅保留 `QtMoc` |
 | OsgWidget 符号链接错误 | Host 编时必须有 `CLOUDSIM_HOST_LIB`；Widget 侧 include `widget_global.h` 且 **不要** 再编 OsgWidget.cpp |
 | LNK1104 `CloudSimCore.lib` | 并行生成时先单独编 `CloudSimCore`，再编 Host |
-| DXF 导入后 3D 错位 | 勿对分件开 Follow 求解；确认 `skipInnerModelCenterRebase` 且未误调 `applyHierarchyFollowBinding` |
+| DXF 导入后 3D 错位 | 勿对分件开 Follow 求解；确认顶点为世界坐标且 `pose=0`，未误调 `applyHierarchyFollowBinding` |
+| URDF 连杆散开 | 检查 `osgMatrixToColumnMajor16` 是否转置；是否双重烘焙 visual |
 | DXF 导入后相机不对 | 应对 `importParent` 调 `focusCameraOnBackend`；分件须 `setBackendLogicalParent`（见 §4.4.1a） |
 | `cloudsim::host::MeshBackendData` 编译错误 | 头文件前向声明须在**全局**命名空间（见 §4.4.3） |
 | `cloudsim::host::IRobotDocumentHost` 与 `IRobotDocumentHost*` 不匹配 | `ProjectPackageIo.h` 须在**全局**前向声明 `IRobotDocumentHost`，API 使用 `::IRobotDocumentHost*` |

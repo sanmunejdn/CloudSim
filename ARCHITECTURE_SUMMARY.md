@@ -3,11 +3,29 @@
 > **目录布局**：源码在 `src/` 按功能域分组（App / UI / Robot / Geometry / Data / AI / Plugins / Infra），见 [`docs/DIRECTORY_LAYOUT.md`](docs/DIRECTORY_LAYOUT.md)。
 >
 > **子模块开发文档（类/接口详解）**：见 [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md)。各工程目录下均有 `DEVELOPER_GUIDE.md`。
+>
+> **统一世界坐标契约（必读）**：[`docs/spatial_contract_world_pose.md`](docs/spatial_contract_world_pose.md) — `geometry` 存世界绝对坐标，`pose` 为唯一刚体偏移；URDF/FK/工具轴/TCP 均须遵守。
 
 ## 1. 项目定位
 
 `CloudSim` 是一个基于 **Qt + OSG + CGAL/OpenCascade** 的桌面端三维点云/网格处理与机器人仿真应用。  
 它不是典型的 Web B/S 架构，而是 **单机 C++ 客户端**，内部采用“前端 UI + 后端数据/渲染/仿真引擎”的分层设计。
+
+### 1.1 统一世界坐标（空间契约摘要）
+
+```text
+世界点 = objectWorldMatrix × v_stored
+objectWorldMatrix = T(pose) × R(rotationEuler)
+```
+
+| 层级 | 约定 |
+|------|------|
+| **Data** | 顶点/点云为世界绝对坐标；`backend_world_mat_from_pose` = `T(pose)×R`（**无** `+modelCenter`） |
+| **BackendVisual / OSG** | outer 写入 `T(pose)×R`；inner PAT 恒 `(0,0,0)`；`modelCenter` 仅相机聚焦与外包络 |
+| **URDF per-link** | 导入 q0：`Tbind` 单次烘焙 → `pose=I`、`meshVerticesInLinkFrame=false`；FK：`M = M0·inv(T0)·Tq·P` |
+| **工具 / TCP** | 世界烘焙：工具轴挂根连杆 + per-tool `toolTcpInBaseFromFk`；指令/IK 仍用基座系 `T_base_target` |
+
+完整矩阵约定、反模式与 API 索引见 [`docs/spatial_contract_world_pose.md`](docs/spatial_contract_world_pose.md)。
 
 ---
 
@@ -190,7 +208,7 @@ flowchart TD
 - backend 树勾选不再按 UI 节点递归推断关系，而是按 `ObjectGraph` 子树语义级联到 OSG。
 - OSG 拾取得到的 backend id 会直接回填树与属性面板，形成稳定闭环。
 - **URDF 每连杆 / 多机**：`DocumentPage::m_hierarchicalRobots`（`HierarchicalRobotInstance`）按台登记 URDF、关节前缀、`perLinkBackends` 与 `RobotPerLinkKinematicsSlice`（link 映射、`fkT0`、`outerBind`、`meshVerticesInLinkFrame`）；`appendHierarchicalRobotSimulationContext` **追加**实例、二次导入 **不** 调用 `clearRobotSimulationContext`。聚合字段 `robotLinkNameToBackendId` 等仍暴露给 `IRobotSimulationDocument`，由 `rebuildHierarchicalRobotAggregates` 合并各实例（兼容旧 UI）。
-- **选择**：`handleBackendTreeSelectionChanged` 经 `sceneFacade().ensureSelectionVisualForBackend` 加载/同步几何，并 `publishSelectionChanged`；`MainWindowUiSetup` 订阅事件刷新属性面板。URDF 连杆首次加载仍 `skipInnerModelCenterRebase`。**层级子节点**在 `syncGizmoAndPickFromBackend` 内走 `fromOuter`（见 **6.2.0**）。
+- **选择**：`handleBackendTreeSelectionChanged` 经 `sceneFacade().ensureSelectionVisualForBackend` 加载/同步几何，并 `publishSelectionChanged`；`MainWindowUiSetup` 订阅事件刷新属性面板。URDF 连杆顶点为世界烘焙（契约 §5）。**层级子节点**在 `syncGizmoAndPickFromBackend` 内走 `fromOuter`（见 **6.2.0**）。
 
 ## 4.3 `Data`（后端数据域模型）
 
@@ -198,7 +216,7 @@ flowchart TD
 
 - `BackendDataBase` 抽象统一对象：`id/name/className/pose/rotation/color/propertyRows`。
 - `PointCloudBackendData`、`MeshBackendData` 提供具体几何与属性实现。  
-  - **URDF 每连杆导入**：在写入 `MeshBackendData` 后、挂 OSG 前，可对三角顶点执行 `transformVerticesColumnMajorHomogeneous4x4`（与 `RobotUrdf::meshFileToLinkFrameFromVisual` 同源的列主序 4×4），将顶点从 **mesh 文件系** 变换到 **连杆系**；并 `setTransformPivotAtOrigin(true)`，使 `modelCenterForData` 为 **(0,0,0)**，与 `skipInnerModelCenterRebase` 及 FK 写回一致。
+  - **URDF 每连杆导入**：`Tbind`（q0 FK）经 **转置** 列主序烘焙顶点到**世界绝对坐标**；`pose=0`；`meshVerticesInLinkFrame=false`；FK 写 outer（契约 §5）。
 - **`BackendPrimitiveGeometry`（程序生成基本体）**：`Data` 模块内将 box / cylinder / cone / sphere 参数化为 **三角 soup**（每三角 9 个 float：xyz×3），单位 **mm**，默认几何中心在原点，**Z 轴为高度方向**（圆柱/圆锥/长方体高度沿 Z）。`makePrimitiveTriangleSoup` 为统一入口；细分由 `PrimitiveMeshQuality`（`segments`、`rings`）控制。三角绕序按 **从外侧 CCW** 写入，与 `MeshBackendVisual` 中 `n = (p1-p0) × (p2-p0)` 及 OSG 正面一致，避免开启场景光照后整面发黑。
 - `BackendDataManager` 管理对象注册/查询/删除（`std::shared_mutex`：只读查询共享锁，结构变更独占锁）。
 - 属性编辑协议通过 JSON 行快照 + key/value 更新（便于 UI 解耦）。
@@ -226,7 +244,7 @@ flowchart TD
 - `BackendVisualRegistry` 按 `className` 注册/创建视觉构建器。
 - 输出统一 `BranchBuildResult`（**外层 `osg::MatrixTransform`**、内层 `PositionAttitudeTransform`、模型中心、对角线尺度、可选 **`brepArtifacts`**）供交互层复用；外层存完整刚体局部矩阵，便于 FK / `setBackendRootWorldMatrixFromWorld` 避免 PAT 的 TRS 分解误差。
 - **`BrepBackendVisual`**：`getOrBuildBrepImportArtifacts` Phase1（整件 mesh + 缓存）；Phase2 边拾取/线框可懒构建或 Worker 预热；artifacts 经 bind 传给 `BrepPickIndex`；装配共享同一 `ShapeHandle` 缓存。
-- `MeshVisualOptions`：`showWireOutline`、`useSceneLighting`；**`skipInnerModelCenterRebase`** 为真时不再做「外包络中心 + 内层 `-bboxCenter`」的通用网格去心（用于 **URDF 每连杆**：顶点已在连杆系且由 FK 写外层世界矩阵，与层级导入「仅 `meshToLink`、无去心 PAT」语义对齐）。
+- `MeshVisualOptions`：`showWireOutline`、`useSceneLighting`；outer = `T(pose)×R`，inner PAT 恒 `(0,0,0)`（统一世界坐标，见契约 §3）。
 - **程序生成网格**：`MeshBackendData` 默认浅蓝材质色；`useSceneLighting=true` 时按 per-vertex 法线 + `applyLitPlastic` 渲染。绕序局部不一致且无法线缓冲时会出现**部分面发黑**（见 `BackendVisual` §4.2）——基本体由 `BackendPrimitiveGeometry` 保证绕序；**STEP** 在 OCCT 导出时对 `TopAbs_REVERSED` 面翻转三角绕序；**OBJ 含 `vn`** 保留文件法线；无 `vn` 的 OBJ/STL/PLY/OFF 走 CGAL `orient_polygon_soup` + 封闭体有符号体积整体外向修正（详见 `Data` §4.2.1，已移除逐三角质心翻转）。
 
 模块定位：
@@ -272,9 +290,9 @@ flowchart TD
 
 **对象变换 Gizmo（`ObjectGizmoFrame` + overlay 挂载）：**
 
-- **`ObjectGizmoFrame`**（`OsgWidgetCore/inc|source/ObjectGizmoFrame.*`）：集中 outer 分支位姿数学，约定与 `MeshBackendVisual::buildOuterBranch` 一致——外层局部矩阵为 **`T(trans) * R`**，`trans` = `centerPlusPose` = `modelCenter + pose`（行向量 OSG）。文件原点在 outer 父节点下为 **`(inner + trans) * R`**。`fromOuter` 用 **`trans = (fileInOuterParent - inner*R) * inv(R)`** 恢复（不可用 `decompose` 的平移分量）。提供屏幕/父空间旋转轴（`dragAxisDirectionSceneWorld` / `dragAxisDirectionOuterParent`）、`translateAlongWorldDirection`、`adjustCenterPlusPoseForRotationDelta`（保枢轴）等。
+- **`ObjectGizmoFrame`**（`OsgWidgetCore/inc|source/ObjectGizmoFrame.*`）：outer 分支位姿数学，与 `MeshBackendVisual::buildOuterBranch` 一致——**`T(pose) * R`**（行向量 OSG）；inner 恒 `(0,0,0)`。`setFromBackend` 直接写 `pose`；`fromOuter` 从场景反解。提供屏幕/父空间旋转轴、`translateAlongWorldDirection`、`adjustCenterPlusPoseForRotationDelta` 等（见契约 §3）。
 - **场景图位姿真源**：活动后端的 **`m_activeBackendOuterPat`**（`osg::MatrixTransform`）为唯一 OSG 位姿写入点；已移除与根级平行的 `m_selectedTransform` 及与之相关的双向同步 API。
-- **Overlay 结构**：`initScene` 创建 `m_gizmoOverlayGroup`（含罗盘 `m_compassTransform`、拾取反馈 `m_pickFeedbackTransform`），默认不挂场景；选中时由 **`attachGizmoOverlayToActiveBackend`** 挂到 **inner PAT**（outer 的 child0，局部 `-modelCenter`）下，使罗盘枢轴与**网格/点云文件原点**一致。取消选择或导入替换场景时 **`detachGizmoOverlay`**。
+- **Overlay 结构**：`initScene` 创建 `m_gizmoOverlayGroup`；选中时 **`attachGizmoOverlayToActiveBackend`** 挂到 **inner PAT**（child0，恒 `(0,0,0)`）下，罗盘枢轴与几何原点一致。取消选择或导入替换场景时 **`detachGizmoOverlay`**。
 - **同步入口**：`readActiveObjectGizmoFrame`、`syncActiveBackendRootFromObjectFrame`（非拖动时将旋转增量传播到 OSG 逻辑子孙；**per-link 机器人**由 `OsgWidget` 钩子改走 FK）、`cacheSelectionGizmoPose`、`syncGizmoAndPickFromBackend`（选中/加载：无 `m_backendParentIds` 父节点时 `setFromBackend`+`applyToOuter`；**有父节点**时仅 `fromOuter`+挂 overlay，不覆盖 FK/层级局部矩阵）、`setBackendRootWorldMatrixFromWorld`（行向量：`local = world * inv(parentWorld)`，父矩阵优先 `m_backendParentIds`）。
 - **诊断**：环境变量 **`POINTCLOUD_GIZMO_PIVOT_DIAG`** 非空且不为 `"0"` 时，`logGizmoPivotDiagnostics` 经 RunLogger 输出枢轴与文件原点对比（见 `OsgSceneGizmo.cpp`）。
 
@@ -507,21 +525,21 @@ flowchart LR
 5. `OsgWidgetCore` 挂分支、更新 `BackendVisualBindingIndex`；BREP bind 仅建 `BrepPickIndex`（`buildFromArtifacts`），跳过 pointIndex/meshIndex。  
 6. `Widget` 重建树；`ensureSelectionVisualForBackend` 补缺失 visual；装配子零件经 `setPickVisualAlias` 保证拾取/高亮正确。  
 
-**URDF 每连杆导入（`MainWindowImportCaptureRenderController::registerUrdfRobot`）要点：**
+**URDF 每连杆导入（`UrdfRobotImport::importUrdfRobot`，经 `registerUrdfRobot`）要点：**
 
-0. **机器人根（无几何）**：注册 `MeshBackendData` 父对象，id 为 `RobotURDF_<模型基名>`（`makeUniqueBackendId` 冲突时 `_2`、`_3`…）；显示名为模型基名；**不**再附加时间戳或 `_link_` 段。二次导入 **不** 清空已有机器人/连杆。  
-1. 对每个 link：id = `robotRootId + "_" + linkName`；`loadFromFile`（`.obj` 含 `vn` 时保留 `triangleVertexNormals`，见 Data §4.2.1）→ `linkMeshFileToLinkColumnMajor16` → **`transformVerticesColumnMajorHomogeneous4x4`**（顶点与法线一并旋转）+ **`setTransformPivotAtOrigin(true)`**。  
-2. `loadMeshFromBackendData(..., useSceneLighting=true, skipInnerModelCenterRebase = true)`：避免与 FK 重复去心/平移；连杆网格依赖文件法线或绕序修正后的 soup。  
-3. `BackendDataManager::attachChild`：无网格 URDF 父 link 挂到 **robotRootId**；有网格父 link 挂到对应 link backend。`OsgWidget::setBackendParent` 按拓扑序同步 OSG 父链；**不在** reparent 时强行恢复扁平布局世界（由后续 FK 拓扑写回）。  
-4. 拓扑序 `setBackendRootWorldMatrixFromWorld` 写 bind 姿态，采集 **M0**（`outerBind`，与 FK `Tq` 校验 `maxAbsDiff` 应 ≈0）；初始化 **P**=`robotBasePlacementWorld`（通常为单位阵，对象 gizmo 移动整机关节链时更新）。
-5. `appendHierarchicalRobotSimulationContext(..., robotRootId, robotRootId)`；`setRobotPerLinkKinematicsBinding(robotRootId + "_ctx", ...)`；`applyJointAnglesFromDocument` 首帧同步。相机 `focusCameraOnBackend` 仍对准 **根 link 网格** id，非 robot root。  
+0. **机器人根（无几何）**：注册 `MeshBackendData` 父对象，id 为 `RobotURDF_<模型基名>`；二次导入 **不** 清空已有机器人/连杆。  
+1. 对每个 link：`loadFromFile` → **单次** `computeMeshWorldMatrices(q0, meshVerticesAlreadyInLinkFrame=false)` 得 `Tbind` → `osgMatrixToColumnMajor16`（**须转置**，见契约 §2）烘焙顶点 → `pose=0`、`rotation=0`。**禁止**先 `linkMeshFileToLinkColumnMajor16` 再烘焙完整 `Tbind`（visual 双重应用，底座与臂体分离）。  
+2. `loadMeshFromBackendData(..., useSceneLighting=true)`：inner PAT 恒 `(0,0,0)`，outer 仅 `T(pose)×R`；q0 时 outer 为 **I**。  
+3. `BackendDataManager::attachChild` + `setBackendParent` 按 URDF 拓扑；FK 写回 outer，勿在 reparent 时强行恢复扁平世界。  
+4. 冻结 **T0**=`fkMeshWorldT0`、**M0**=**I**（世界烘焙）、**P**=`robotBasePlacementWorld`；`setRobotPerLinkKinematicsBinding(..., meshVerticesInLinkFrame=false)`。  
+5. `applyJointAnglesFromDocument(q0)` 首帧同步；工具轴叠加见契约 §6（挂根连杆 + `toolTcpInBaseFromFk`）。相机 `focusCameraOnBackend` 对准 **根 link 网格** id。  
 
 **DXF / STEP / OSG 层级网格（`HierarchyMeshImport` + `MainWindowImportCaptureRenderController`）要点：**
 
 1. obj/stl/ply/off 仍走 `IDataService::importFromFile`；dxf 走 Host `importMeshFileExtended`（`loadDxfHierarchyFromFile` 或 OSG 捕获）。  
 2. **STEP 优先 B-rep**（见下节）；mesh 层级 STEP 为历史/回退路径。  
-3. 分件顶点多为 **世界坐标** 烘焙进 `triangleSoup`：每片 `skipInnerModelCenterRebase=true`；`linkOsgSceneParent=false` 时 `setBackendLogicalParent` 同步 `m_backendParentIds`，OSG 分支仍在 flat 组。  
-4. **文件导入阶段不对分件** 调用 `applyHierarchyFollowBinding`（Follow 求解会把 `pose` 写成约负质心，与 skip-rebase 显示冲突）。工程加载的 `edges[]` 仍在 `MainWindowProjectIo` 中批量绑定并一次 `runBackendFollowSolveAndSync`。  
+3. 分件顶点多为 **世界坐标** 烘焙进 `triangleSoup`；`pose=0`，inner PAT `(0,0,0)`；`linkOsgSceneParent=false` 时 `setBackendLogicalParent` 同步 `m_backendParentIds`。  
+4. **文件导入阶段不对分件** 调用 `applyHierarchyFollowBinding`（Follow 求解会改写 `pose`，与世界坐标顶点冲突）。工程 `edges[]` 加载后仍走 `applyHierarchyFollowBinding` + `runBackendFollowSolveAndSync`。  
 5. 导入结束：`focusCameraOnBackend(importParent->id())` 合并逻辑子树下全部分件包围球（见 `OsgWidgetCore` `worldBoundOfBackendRoot`）。  
 6. 勿在层级导入后对最后一片再 `loadMeshFromBackendData(..., resetHome)`（`upsertMeshBranchInScene` 会把节点挂回 flat 组并破坏布局）。
 
@@ -529,8 +547,8 @@ flowchart LR
 
 1. 多零件：`loadStepHierarchyFromFile` → `collectShapeHierarchyTopology`（**无 tessellation**）；单件：`loadFromStepFile` / `.brep` → `loadFromBrepFile`。
 2. **分阶段离散**：`getOrBuildBrepImportArtifacts`（Phase1：display + 法线 + 面映射）；Phase2 边/线框由 `warmPickArtifacts` 或 `ensureBrepImportPickArtifacts` 补全；`discretizeShapeToSoupPerFace` 整件 mesh 一次（Medium 0.01mm / 0.5°）。
-3. **单 visual**：仅在 `importParent` 上 `loadBackendFromBackendData(..., showWireOutline=false, skipInnerModelCenterRebase=true)`；子零件 `registerAdoptedBrepAndLoadScene(..., loadScene=false)`。
-4. **拾取 alias**：`setPickVisualAlias(partId → importParentId)` + `resolvePickScopeBackendId`；`m_backendSkipCenterRebase` 避免高亮相对模型偏移。
+3. **单 visual**：仅在 `importParent` 上 `loadBackendFromBackendData(..., showWireOutline=false)`；子零件 `registerAdoptedBrepAndLoadScene(..., loadScene=false)`。  
+4. **拾取 alias**：`setPickVisualAlias(partId → importParentId)` + `resolvePickScopeBackendId`；`feature_pick_transform` 经 `getBackendRootWorldMatrix` 做模型↔世界（**不**加减 `modelCenter`）。
 5. 异步：`executeLoad` 仅 Phase1 → UI `finishIntoDocument` 上屏 → 可选 `warmPickArtifacts` Job。
 6. 工程 sidecar：对象 geometry kind `brep` + `.brep` 文件（`ProjectPackageIo`）；重载工程仍重新 tessellation。
 
@@ -652,32 +670,32 @@ sequenceDiagram
 4. `MainWindowUiSetup` 订阅 `SelectionChanged` / `PoseCommitted` 刷新属性面板；树、属性、场景共享 `SelectionState` 真源。  
 
 **嵌套后端写回 OSG（`OsgWidget::syncOuterPatFromBackend`）：**  
-将后端 `pose/rotation` 与缓存的模型中心先拼为 **`backend_world_mat_from_pose`**，再 **`setBackendRootWorldMatrixFromWorld`**（`inv(parentWorld) * world`），避免在父级非单位矩阵时把「世界系平移」误当作外层局部矩阵（旧写法 `translate(center+pose)*rotate` 仅适用于挂在场景根下的物体）。
+将后端 `pose/rotation` 经 **`backend_world_mat_from_pose`**（`T(pose)×R`，无 `modelCenter`）拼世界矩阵，再 **`setBackendRootWorldMatrixFromWorld`**（`inv(parentWorld) * world`），避免在父级非单位矩阵时误写外层局部矩阵。
 
 ### 6.2.0 对象 Gizmo / 罗盘（位姿真源与场景图）
 
 **设计原则：** 活动对象的 OSG 位姿只由 **backend outer `MatrixTransform`** 表达；UI 罗盘是挂在 **inner PAT** 上的可视化 overlay，不再维护根级 `m_selectedTransform` 平行树或 `syncSelectedTransformFromActiveOuter` 类双向同步。
 
-**分支结构（与 `BackendVisual::buildOuterBranch` 对齐）：**
+**分支结构（与 `BackendVisual::buildOuterBranch` 对齐，见契约 §3）：**
 
 ```text
-m_activeBackendOuterPat          ← 唯一位姿写入：T(center+pose) * R
-└─ inner PAT (child0)            ← 平移 -modelCenter，几何在文件原点
+m_activeBackendOuterPat          ← 唯一位姿写入：T(pose) * R
+└─ inner PAT (child0)            ← 恒 (0,0,0)；几何顶点已为世界绝对坐标
    ├─ 网格/点云 Geode …
    └─ m_gizmoOverlayGroup        ← attach 时挂入；局部恒等，罗盘/拾取反馈
-        ├─ m_compassTransform    ← 仅姿态/高亮；位置由 inner 保证枢轴
+        ├─ m_compassTransform    ← 仅姿态/高亮
         └─ m_pickFeedbackTransform
 ```
 
-**`ObjectGizmoFrame` 字段语义：**
+**`ObjectGizmoFrame` 字段语义（统一世界坐标）：**
 
 | 字段 | 含义 |
 |------|------|
-| `modelCenter` | 外包络中心（与 `m_backendModelCenters` 一致） |
-| `centerPlusPose` | outer 平移 `trans`：`modelCenter + backend.pose`（非 `decompose` 的 `trans*R`） |
+| `centerPlusPose` | outer 平移 `trans`：即 **`backend.pose`**（`setFromBackend` 不再加 `modelCenter`） |
 | `attitude` | outer 旋转 `R` |
-| `backendPoseRelativeToCenter()` | 即后端 `pose`（相对几何中心） |
-| 文件原点（枢轴） | outer 父空间：`(inner + centerPlusPose) * R` |
+| `modelCenter` | 外包络中心缓存；**仅**聚焦/诊断；gizmo 读写 **不**参与 |
+| `backendPoseRelativeToCenter()` | 与 `backend.pose` 同义（inner=0 时） |
+| 枢轴 | 几何文件原点 = inner 局部原点 = outer 父空间 `trans * R` 作用点 |
 
 **主要 API（`OsgScene` / `OsgWidget` 委托）：**
 
@@ -879,7 +897,7 @@ flowchart LR
 **保存（`onSaveProject`）**：
 
 1. 遍历 `BackendDataManager::listData()`，对每个对象调用 `saveToJson()`，再附加 `sourcePath`、`sourceType`、`parentId`。
-2. 几何内嵌在对象的 **`geometry`** 字段（点云/网格 Base64；不再写点云 PLY sidecar）。
+2. 几何持久化：**点云**写 `objects/{id}.ply` + JSON `assetRelativePath` / `geometry.storage=ply_sidecar`（不写 `xyzBase64`）；**网格**仍内嵌 `geometry.xyzBase64`；**B-rep** 写 `objects/{id}.brep` sidecar。
 3. 根级 **`edges`**：`parentId` / `childId`。
 4. 根级 **`robotPrograms`**、**`robotKinematicsInstances`**（见下）、**`annotations`**、**`cameraFollowBackendId`** 等。
 
@@ -896,7 +914,7 @@ flowchart LR
 - `id` / `name` / `className`
 - `pose` / `rotation` / `color` / `worldMatrix` / `poseReferenceFrame`
 - **`propertyBag`**：可编辑属性真源（非仅属性面板快照）
-- **`geometry`**：`kind=points|triangles`，`xyzBase64` 等（派生类 `saveDerivedJson`）
+- **`geometry`**：点云 `kind=points`、`storage=ply_sidecar`、`plySidecar`（兼容旧工程 `xyzBase64`）；网格 `kind=triangles`、`xyzBase64`
 - **`components`**：`[{ "type": "FollowAttachment", "data": { ... } }]`
 - 兼容：无 `components` 时仍可读旧字段 **`followAttachment`**
 
@@ -905,7 +923,7 @@ flowchart LR
 - **推荐**：根数组 **`robotKinematicsInstances`**，每项一台机器人，字段同下单机对象。  
 - **兼容**：单对象 **`robotKinematics`**（首台实例的聚合快照）。  
 - 每项字段：`mode: "perLink"`、`urdf`、`sceneRootBackendId`（**robot root** backend id）、`jointPrefixRoot`（与 root id 相同，关节键 `root::joint`）、`importKey`（`root + "_ctx"`）、`links`（link 名 → mesh 后端 id，形如 `RobotURDF_xxx_linkname`）。  
-- **`meshInLinkFrame: true`**：顶点已在连杆系；加载时 `computeMeshWorldMatrices(..., true)`、`setRobotPerLinkKinematicsBinding(..., true)`、`skipInnerModelCenterRebase`。旧工程缺省为 **false**。  
+- **`meshVerticesInLinkFrame`**（JSON 字段可能仍为 `meshInLinkFrame`）：**新导入默认 `false`**（顶点世界烘焙，q0 时 outer=I）；`true` 为连杆系顶点（工具轴挂法兰）。见契约 §5。  
 - 旧工程若仍含带时间戳 / `_link_` 的 backend id，按 JSON 中 id 原样恢复，**不会**自动迁移为新命名；新导入才使用 `RobotURDF_<模型名>` 规则。  
 
 ---

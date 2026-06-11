@@ -6,9 +6,9 @@
 
 ## 版本
 
-- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00010B00` = 1.11.0）
+- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00010C00` = 1.12.0）
 - `IPluginDocument`：`documentId()`、`removeBackendObject()`；**1.2.0+** `queryPointCloudInfo` / `measurePointCloud` / `exportMeshToPly`（UI 线程）
-- `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()`；**1.4.0+** 末尾追加 `buildPrimitiveMeshSoup` / `booleanMeshSoups` / `booleanPrimitiveMeshes`；**1.5.0+** `geometryHost()`；**1.6.0+** `captureActiveViewportPng()`（活动文档 3D 视口 PNG，供 geometry.recognize 等多模态域）；**1.7.0+** `IPluginGeometryHost` 新增 `listComputableBackends` / `pickStepElementFromViewport`（几何插件可直接驱动后端对象 + 视图拾取）；**1.8.0+** `IPluginPointCloudHost` 将模板 B-rep 更新拆为 `registerScanToCadTemplate` + `updateTemplateBrepFromAlignedScan`（移除 `updateBrepFromCadTemplate`）；**1.9.0+** `IPluginPointCloudHost` 新增网格后处理：`queryMeshInfo` / `simplifyMesh` / `smoothMesh` / `repairMesh` / `remeshMeshIsotropic`（需宿主链接 `VcgAlgorithms.dll`）；**1.10.0+** `analyzeMeshDefects` / `clearMeshDefectHighlight`（只读缺陷分析 + 视口 overlay，不修改原网格）；**1.11.0+** `pickPolylineFromViewport` / `cropPointCloudByPolyline`（3D 视口多边形线框裁剪，屏幕投影）；新 API 均追加在 vtable 末尾，勿插入中间；升级宿主后须**重编译全部插件 DLL**
+- `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()`；**1.4.0+** 末尾追加 `buildPrimitiveMeshSoup` / `booleanMeshSoups` / `booleanPrimitiveMeshes`；**1.5.0+** `geometryHost()`；**1.6.0+** `captureActiveViewportPng()`（活动文档 3D 视口 PNG，供 geometry.recognize 等多模态域）；**1.7.0+** `IPluginGeometryHost` 新增 `listComputableBackends` / `pickStepElementFromViewport`（几何插件可直接驱动后端对象 + 视图拾取）；**1.8.0+** `IPluginPointCloudHost` 将模板 B-rep 更新拆为 `registerScanToCadTemplate` + `updateTemplateBrepFromAlignedScan`（移除 `updateBrepFromCadTemplate`）；**1.9.0+** `IPluginPointCloudHost` 新增网格后处理：`queryMeshInfo` / `simplifyMesh` / `smoothMesh` / `repairMesh` / `remeshMeshIsotropic`（需宿主链接 `VcgAlgorithms.dll`）；**1.10.0+** `analyzeMeshDefects` / `clearMeshDefectHighlight`（只读缺陷分析 + 视口 overlay，不修改原网格）；**1.11.0+** `pickPolylineFromViewport` / `cropPointCloudByPolyline`（3D 视口多边形线框裁剪，屏幕投影）；**1.12.0+** `reconstructSurfaceFromMesh`（网格 → 新 `BrepModel`，源网格保留）；新 API 均追加在 vtable 末尾，勿插入中间；升级宿主后须**重编译全部插件 DLL**
 - 清单 `plugin.json` 中 `minHostVersion` 使用字符串 `"1.0.0"`
 - 运行时调用 `IPluginHostContext::hostVersion()` 比对
 
@@ -90,7 +90,7 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 | `rigidRegisterPointCloudsIcp` | ICP 配准，可选应用到源 |
 | `deformPointCloudTpsFromControls` / `deformPointCloudTpsFitAndDeform` | TPS 形变 |
 | `reconstructMeshPoisson/PoissonAuto/ScaleSpace` | 重建 mesh 并 `registerAdoptedMesh` |
-| `registerScanToCadTemplate` | **1.8.0+** 扫描与 CAD 模板 ICP 配准；写回点云显示；Host 缓存对齐点云供下一步 |
+| `registerScanToCadTemplate` | **1.8.0+** 反向 ICP（固定扫描、变换 CAD 模板预览）；Host 缓存 `alignedTemplateShape` 与对齐点云供面重构 |
 | `updateTemplateBrepFromAlignedScan` | **1.8.0+** 基于缓存逐面重构 → 新 `BrepModel`；`selectedFaceIndices` 空=全部面（见 [`docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md)） |
 | `queryMeshInfo` | **1.9.0+** 查询网格面数/顶点数（UI 线程） |
 | `simplifyMesh` | **1.9.0+** quadric-edge-collapse 简化，创建新 mesh |

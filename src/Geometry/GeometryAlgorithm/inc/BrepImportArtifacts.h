@@ -72,4 +72,13 @@ GEOMETRY_ALGORITHM_API std::shared_ptr<BrepImportArtifacts> getOrBuildBrepImport
 
 GEOMETRY_ALGORITHM_API void clearBrepImportArtifactsCache();
 
+/// 从 displaySoup 抽取模板点云（STEP 坐标，与 OSG 显示一致）
+GEOMETRY_ALGORITHM_API bool extractDisplaySoupPointCloud(
+	const ShapeHandle& shape,
+	std::vector<float>& outXyz,
+	std::vector<float>& outNormals,
+	std::size_t maxPoints,
+	std::size_t* outTriangleCount = nullptr,
+	std::string* errMsg = nullptr);
+
 } // namespace geoalgo

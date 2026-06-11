@@ -87,8 +87,7 @@ bool tryWorldMatForData(const BackendDataBase& data, const std::function<bool(co
 	{
 		return false;
 	}
-	const BackendVec3 c = modelCenterForData(data);
-	const BackendMat4 w = backend_world_mat_from_pose(c, data.pose(), data.rotation());
+	const BackendMat4 w = backend_world_mat_from_pose(data.pose(), data.rotation());
 	outWorld = w;
 	return true;
 }

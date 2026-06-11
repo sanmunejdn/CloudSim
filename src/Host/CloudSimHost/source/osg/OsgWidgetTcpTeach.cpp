@@ -790,6 +790,10 @@ void OsgWidget::applyTcpTeachTranslationWorld(const int axisIndex, const double 
 	}
 	const engine::RigidTransform baseW = engine::rigidTransformFromOsg(baseWorldOsg);
 	m_tcpTeachTargetInBase = baseW.inverse().composeColumn(toolW);
+	if (!m_tcpTeachUseFlangeLocalPlacement)
+	{
+		updateTcpDragTeachFromTarget(m_tcpTeachTargetInBase, false);
+	}
 }
 
 void OsgWidget::applyTcpTeachTranslationBody(const int axisIndex, const double dsWorld)
@@ -811,6 +815,10 @@ void OsgWidget::applyTcpTeachTranslationBody(const int axisIndex, const double d
 	Eigen::Vector3d t = m_tcpTeachTargetInBase.translationMm();
 	t += delta;
 	m_tcpTeachTargetInBase.setTranslationMm(t);
+	if (!m_tcpTeachUseFlangeLocalPlacement)
+	{
+		updateTcpDragTeachFromTarget(m_tcpTeachTargetInBase, false);
+	}
 }
 
 void OsgWidget::applyTcpTeachRotationWorld(const int axisIndex, const double deltaRad)
@@ -852,6 +860,10 @@ void OsgWidget::applyTcpTeachRotationWorld(const int axisIndex, const double del
 		}
 	}
 	tcpTeachSetTargetFromToolWorld(toolWorld);
+	if (!m_tcpTeachUseFlangeLocalPlacement)
+	{
+		updateTcpDragTeachFromTarget(m_tcpTeachTargetInBase, false);
+	}
 }
 
 void OsgWidget::syncTcpTeachCompassAttitude()
@@ -889,4 +901,8 @@ void OsgWidget::applyTcpTeachRotationBody(const int axisIndex, const double delt
 	const Eigen::AngleAxisd aa(deltaRad, axis.normalized());
 	Eigen::Quaterniond qNew = m_tcpTeachTargetInBase.rotation() * Eigen::Quaterniond(aa);
 	m_tcpTeachTargetInBase.setRotation(qNew);
+	if (!m_tcpTeachUseFlangeLocalPlacement)
+	{
+		updateTcpDragTeachFromTarget(m_tcpTeachTargetInBase, false);
+	}
 }

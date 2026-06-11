@@ -1,5 +1,7 @@
 # Data 模块开发文档
 
+> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — `geometry` 存世界绝对坐标，`pose`/`rotation` 为唯一刚体偏移；权威 API：`BackendSpatial.h`、`backend_world_mat_from_pose`。
+
 ## 1. 模块定位
 
 `Data` 是应用内 **后端数据真源（Single Source of Truth）**：统一描述场景中的点云/网格对象、属性面板协议、DAG 父子关系、可选跟随约束组件。不处理 Qt 事件、不持有 OSG 节点。
@@ -25,7 +27,8 @@
 | `BackendPoseValue` | `position` + `eulerDeg` |
 | `BackendPoseReferenceFrame` | `World` / `Parent` |
 | `BackendMat4` | `v[16]` 列主序（遗留）；`backend_mat4_multiply` 用 Eigen 列向量语义（与 GeometryEngine `composeColumn` 一致） |
-| `backend_world_mat_from_pose` 等 | 与 Visual 外层矩阵 `T(center+pose)*R` 一致；新刚体链在模块边界用 GeometryEngine（工具法兰×工具见 [`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md)，勿与 `composeScene` 混用） |
+| `objectWorldMatrix` / `transformPointToWorld` | 世界点 = `objectWorldMatrix × v_stored`（见 `BackendSpatial.h`） |
+| `backend_world_mat_from_pose` | **`T(pose)×R`**，与 Visual outer 一致；**无** `+modelCenter`；工具链用 GeometryEngine（见 [`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md)） |
 
 ---
 
@@ -105,7 +108,7 @@
 
 | 类型 | `geometry` 字段 |
 |------|-----------------|
-| `PointCloudBackendData` | `kind=points`，`xyzBase64`，可选 `rgbaPerVertexBase64` |
+| `PointCloudBackendData` | `kind=points`，`storage=ply_sidecar`，`pointCount`；几何真源 `objects/{id}.ply`（兼容旧工程 `xyzBase64`） |
 | `MeshBackendData` | `kind=triangles`，`xyzBase64`；另 `mesh.transformPivotAtOrigin` |
 
 仍保留 `writeProjectEmbeddedGeometry` / `readProjectEmbeddedGeometry` 供派生类内部使用。
@@ -137,7 +140,8 @@ Data 层凡以 `std::string path` 打开磁盘文件的 API（含 `PlyIo`、`Poi
 | `pointPositionsXyz()` / `pointVertexRgba()` | 只读缓冲 |
 | `loadFromFile` | `.ply`, `.xyz`（CGAL）；路径见 §4.0 |
 | `readPointCloudFromPlyFile` / `writePointCloudPlySidecar` | PLY 专用（**仅顶点**，忽略 `element face`）；路径见 §4.0 |
-| `writeProjectEmbeddedGeometry` / `readProjectEmbeddedGeometry` | 工程内嵌 Base64 |
+| `writeProjectEmbeddedGeometry` / `readProjectEmbeddedGeometry` | 旧工程内嵌 Base64（新保存走 PLY sidecar） |
+| `writePointCloudPlySidecar` / `readPointCloudPlySidecar` | 工程 `objects/{id}.ply` 读写 |
 
 **PLY 双形态（`PlyIo.h`，路径 §4.0）**
 
@@ -159,8 +163,8 @@ Data 层凡以 `std::string path` 打开磁盘文件的 API（含 `PlyIo`、`Poi
 |------|------|
 | `setTriangleSoup` / `triangleSoup()` | 每三角 9 float（v0,v1,v2 各 xyz） |
 | `setTriangleSoupWithNormals` / `triangleVertexNormals()` / `hasTriangleVertexNormals()` | 可选每顶点法线（9 float/三角，与 soup 下标对齐）；OBJ 含 `vn` 时写入 |
-| `transformVerticesColumnMajorHomogeneous4x4(colMajor16)` | URDF：mesh 文件系 → 连杆系；**同时**变换 `triangleVertexNormals`（3×3 旋转，无平移） |
-| `setTransformPivotAtOrigin(true)` | 枢轴在原点；`modelCenter` 为 (0,0,0) |
+| `transformVerticesColumnMajorHomogeneous4x4(colMajor16)` | 列主序 4×4 烘焙顶点（URDF 世界烘焙、配准等）；**同时**旋转 `triangleVertexNormals` |
+| `setTransformPivotAtOrigin(true)` | 烘焙后枢轴在原点；外包络 `modelCenter` 仍可非零，**不参与** pose 分解 |
 | `loadFromFile` | 见 §4.2.1 |
 | `loadStepHierarchyFromFile` / `loadDxfHierarchyFromFile` | 静态，输出 `MeshHierarchyPart` 列表 |
 
@@ -191,7 +195,7 @@ Data 层凡以 `std::string path` 打开磁盘文件的 API（含 `PlyIo`、`Poi
 
 STEP/DXF **mesh** 层级导入中间结构：`partPath`, `parentPartPath`, `displayName`, `triangleSoup`。
 
-DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 通常为 **世界坐标**；Host 导入时用 `skipInnerModelCenterRebase` 且**不做** Follow 求解（见 [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.1a）。
+DXF 分件经 `dxfExpandInsertRecursive` 写入的 `triangleSoup` 为 **世界绝对坐标**；导入时 `pose=0`，**不做** Follow 求解（见 [`CloudSimHost/DEVELOPER_GUIDE.md`](../../Host/CloudSimHost/DEVELOPER_GUIDE.md) §4.4.1a）。
 
 ### 4.4 `BrepBackendData`
 
@@ -238,11 +242,13 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 | API（`geometry_backend_ops`） | 说明 |
 |-------------------------------|------|
-| `registerScanToCadTemplate` | 预处理 + 模板面采样 + ICP；输出 `scanToTemplate`、`icpRmseMm`、`outAlignedWorkXyz/Normals` |
-| `updateBrepFromAlignedScan` | 已对齐扫描 → `updateShapeFromPointCloud` → 写入 `brepOut`（shape + 高亮色）；**不**注册场景 |
+| `registerScanToCadTemplate` | 扫描预处理 + displaySoup 模板点云 + 反向 soup ICP；输出 `templateToScan`、`alignedTemplateShape`、`registrationPreviewOk`、`icpRmseGatePassed` |
+| `updateBrepFromAlignedScan` | cache 中 aligned 扫描 + `alignedTemplateShape` → `updateShapeFromPointCloud` → 写入 `brepOut`；**不**注册场景 |
 | `updateBrepFromCadTemplate` | 上述两步合并（单次调用场景） |
 
-配准实现于 `GeometryBackendOps.cpp` 匿名命名空间：`alignScanToTemplateRegistration`、`alignScanPreAlignedInTemplateFrame`。模板几何来自 `templateBrep.shapeRef()`（STEP 坐标），**不是** display soup。
+配准实现于 `GeometryBackendOps.cpp`：`runCoarseAlignmentPipeline` 编排粗配（`coarseStage=modeSelect/bbox/pca/frameCheck/ransac/soupMulti/coarseIcpLadder/soupRefine`）、`resolveRegistrationAlignMode`（**`pairHits=0` → `autoRecover`**，仅 `pairHits∈[1,31]` 且 maxDev 适中才 `manualPartial`）、`runReverseSoupMultiStageIcp`、**coarse ICP ladder 回退**（soup rollback 或 post-soup overlap 不足）。重叠度量与 PCA 评分使用 `KdTreePointSet` 加速。合成自检：`registrationCoarsePipelineSelfTest`（`pairHits=0 → autoRecover`、ladder maxPair 升序）。
+
+Host 插件固定 `scanAlreadyInTemplateFrame=true`；扫描变换用 OSG 快照 `RegistrationWorldFrameSnapshot` 转 STEP 模型系（非世界系直接 ICP）。
 
 面更新算法（归属、特征调整、增量 bbox 守卫）见专题文档 [`docs/template_brep_pointcloud_update.md`](../../../docs/template_brep_pointcloud_update.md) §4。
 
@@ -256,7 +262,7 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 `TemplateBrepUpdateResult::skippedBadBboxFaceCount`：因单面或试应用全局 bbox 守卫而跳过的面数。
 
-插件经 `PluginPointCloudHostImpl` 分步调用；面重构成功后 Host 侧 `registerAdoptedBrepAndLoadScene` 注册**新** `BrepModel`（模板保留）。见 [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) §3.7。
+插件经 `PluginPointCloudHostImpl` 分步调用；面重构成功后 `registerAdoptedBrepAndLoadScene` + `alignFaceUpdatedBrepWithTemplateVisual` 注册**新** `BrepModel`（模板保留）。见 [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) §3.7 与专题 §2.2。
 
 ---
 

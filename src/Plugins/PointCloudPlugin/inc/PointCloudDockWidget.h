@@ -17,8 +17,6 @@ class QSpinBox;
 class QComboBox;
 class QPushButton;
 class QGroupBox;
-class QCheckBox;
-class QSlider;
 
 class PointCloudDockWidget : public QWidget
 {
@@ -38,7 +36,7 @@ public:
 	void triggerExportMesh();
 	void triggerMeshSimplify();
 	void triggerMeshSmoothLaplacian();
-	void triggerMeshDefectAnalyze();
+	void triggerSurfaceReconstruct();
 
 protected:
 	void showEvent(QShowEvent* event) override;
@@ -60,7 +58,8 @@ private slots:
 	void onReconstructPoissonAutoClicked();
 	void onReconstructScaleSpaceClicked();
 	void onExportMeshClicked();
-	void onRegisterScanToTemplateClicked();
+	void onCoarseRegisterScanToTemplateClicked();
+	void onFineRegisterScanToTemplateClicked();
 	void onUpdateTemplateBrepClicked();
 	void onPickTemplateFaceClicked();
 	void onClearSelectedFacesClicked();
@@ -69,8 +68,7 @@ private slots:
 	void onMeshSmoothImplicitClicked();
 	void onMeshRepairClicked();
 	void onMeshRemeshClicked();
-	void onMeshDefectAnalyzeClicked();
-	void onMeshDefectClearClicked();
+	void onSurfaceReconstructClicked();
 
 private:
 	QString i18n(const QString& en, const QString& zh) const;
@@ -81,12 +79,12 @@ private:
 	std::string selectedMeshTargetId() const;
 	void refreshMeshExportList(const std::string& preferBackendId = std::string());
 	void refreshMeshInfo();
-	void refreshMeshDefectSummary(const PluginMeshDefectReport& report);
-	void clearMeshDefectUi();
+	void refreshSurfaceReconstructSummary(const PluginMeshSurfaceReconstructReport& report);
 	IPluginDocument* activeDoc() const;
 	IPluginPointCloudHost* pointCloudHost() const;
 	void runFinished(bool ok, const QString& error, const PluginPointCloudJobResult& result);
 	PluginPointCloudTemplateBrepUpdateParams buildTemplateBrepParams() const;
+	void runTemplateBrepRegistration(PluginPointCloudTemplateBrepRegistrationStage stage);
 	std::vector<int> selectedFaceIndices() const;
 	void addSelectedFaceIndex(int faceIndex);
 
@@ -134,7 +132,8 @@ private:
 	QPushButton* m_pickFaceBtn = nullptr;
 	QListWidget* m_selectedFacesList = nullptr;
 	QPushButton* m_clearFacesBtn = nullptr;
-	QPushButton* m_matchBtn = nullptr;
+	QPushButton* m_coarseMatchBtn = nullptr;
+	QPushButton* m_fineMatchBtn = nullptr;
 	QPushButton* m_refactorBtn = nullptr;
 	QLabel* m_matchStatusLabel = nullptr;
 	QDoubleSpinBox* m_faceBandSpin = nullptr;
@@ -177,16 +176,20 @@ private:
 	QPushButton* m_remeshBtn = nullptr;
 	QLabel* m_meshInfoLabel = nullptr;
 
-	// 网格缺陷分析 UI
-	QGroupBox* m_meshDefectGroup = nullptr;
-	QLabel* m_defectSensitivityLabel = nullptr;
-	QSlider* m_defectSensitivitySlider = nullptr;
-	QLabel* m_defectSensitivityValueLabel = nullptr;
-	QCheckBox* m_defectNeedleCheck = nullptr;
-	QCheckBox* m_defectProtrusionCheck = nullptr;
-	QCheckBox* m_defectBoundaryCheck = nullptr;
-	QPushButton* m_defectAnalyzeBtn = nullptr;
-	QPushButton* m_defectClearBtn = nullptr;
-	QLabel* m_defectSummaryLabel = nullptr;
-	QListWidget* m_defectList = nullptr;
+	// 曲面重构 UI
+	QGroupBox* m_surfaceReconGroup = nullptr;
+	QLabel* m_normalSmoothIterLabel = nullptr;
+	QSpinBox* m_normalSmoothIterSpin = nullptr;
+	QLabel* m_featureThresholdLabel = nullptr;
+	QDoubleSpinBox* m_featureThresholdSpin = nullptr;
+	QLabel* m_patchCountLabel = nullptr;
+	QSpinBox* m_patchCountSpin = nullptr;
+	QLabel* m_samplesPerEdgeLabel = nullptr;
+	QSpinBox* m_samplesPerEdgeSpin = nullptr;
+	QLabel* m_fairingEpsilonLabel = nullptr;
+	QDoubleSpinBox* m_fairingEpsilonSpin = nullptr;
+	QLabel* m_fairingMaxIterLabel = nullptr;
+	QSpinBox* m_fairingMaxIterSpin = nullptr;
+	QPushButton* m_surfaceReconBtn = nullptr;
+	QLabel* m_surfaceReconSummaryLabel = nullptr;
 };

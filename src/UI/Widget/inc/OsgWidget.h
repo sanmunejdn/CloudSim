@@ -113,6 +113,10 @@ public:
 	bool importModelFile(const QString& filePath, QString* errorMessage = nullptr);
 	bool importPointCloudFile(const QString& filePath, QString* errorMessage = nullptr);
 	bool captureImportedPointCloudBackend(PointCloudBackendData& out, QString* errorMessage = nullptr);
+	bool capturePointCloudBackendFromScene(
+		const std::string& backendId,
+		PointCloudBackendData& out,
+		QString* errorMessage = nullptr);
 	bool captureImportedMeshBackend(MeshBackendData& out, QString* errorMessage = nullptr);
 	bool captureImportedMeshBackendHierarchy(std::vector<MeshCapturedPart>& outParts, QString* errorMessage = nullptr);
 	bool captureViewportPng(QByteArray& outPng, QString* errorMessage = nullptr, int maxWidth = 768,
@@ -120,9 +124,9 @@ public:
 	bool loadPointCloudFromBackendData(const PointCloudBackendData& data, QString* errorMessage = nullptr,
 		bool resetViewToHome = true);
 	bool loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage = nullptr, bool resetViewToHome = true,
-		bool showWireOutline = true, bool useSceneLighting = true, bool skipInnerModelCenterRebase = false);
+		bool showWireOutline = true, bool useSceneLighting = true);
 	bool loadBackendFromBackendData(const BackendDataBase& data, QString* errorMessage = nullptr, bool resetViewToHome = true,
-		bool showWireOutline = true, bool useSceneLighting = true, bool skipInnerModelCenterRebase = false);
+		bool showWireOutline = true, bool useSceneLighting = true);
 	/// 受光网格后端（如 URDF 连杆）；改色时保留光照材质
 	bool isBackendMeshLit(const std::string& backendId) const;
 	void clearImportedContent();
@@ -189,6 +193,8 @@ public:
 	/// 设外层 PAT 世界矩阵为 \a worldMat（含父链）
 	void setBackendRootWorldMatrixFromWorld(const std::string& backendId, const osg::Matrixd& worldMat) override;
 	bool tryGetBackendModelCenterMm(const std::string& backendId, double& outCx, double& outCy, double& outCz) const override;
+	/// 将 target 内层去心质心改为与 source 一致（两者均需 skipInnerModelCenterRebase=false）
+	bool alignBackendInnerModelCenterFrom(const std::string& targetBackendId, const std::string& sourceBackendId);
 	void syncRobotMeshBackendPoseAfterKinematics(const BackendDataBase& mesh) override;
 
 	/// 添加层级机器人场景，返回后端 id
@@ -367,9 +373,9 @@ private:
 	osg::ref_ptr<osg::Node> buildMeshGeode(const MeshBackendData& data, QString* errorMessage,
 		bool showWireOutline = true, bool useSceneLighting = false) const;
 	bool upsertMeshBranchInScene(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
-		bool showWireOutline = true, bool useSceneLighting = false, bool skipInnerModelCenterRebase = false);
+		bool showWireOutline = true, bool useSceneLighting = false);
 	bool upsertBackendBranchInScene(const BackendDataBase& data, QString* errorMessage, bool resetViewToHome,
-		bool showWireOutline = true, bool useSceneLighting = false, bool skipInnerModelCenterRebase = false);
+		bool showWireOutline = true, bool useSceneLighting = false);
 	osg::Node* stagingGeometryRoot() const;
 	void applyVisibilityMaskForBackend(const std::string& backendId);
 	void updateCompassHighlight(DragAxis axis, bool highlightRing = false);

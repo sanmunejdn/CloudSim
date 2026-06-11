@@ -1,5 +1,7 @@
 # OsgWidgetCore 模块开发文档
 
+> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — gizmo/拾取直接读写 `pose`；inner PAT 恒 `(0,0,0)`；`modelCenter` 仅聚焦与外包络。
+
 ## 1. 模块定位
 
 `OsgWidgetCore` 是 **与 Qt 无关** 的 OSG 场景核心：分层场景根、相机导航、后端对象绑定与拾取、点/边/面拾取、注释、gizmo 罗盘、`ObjectGizmoFrame` 位姿数学。重绘通过 `setRequestRedraw` 回调由 `Widget::OsgWidget` 注入。
@@ -38,18 +40,18 @@ m_stagingGroup（导入预览）
 
 ## 3. `class ObjectGizmoFrame`
 
-**语义**：outer 局部矩阵 = **`T(centerPlusPose) * R(attitude)`**（行向量 OSG）；文件原点在 inner 局部 (0,0,0)。inner PAT 平移为 **`-modelCenter`**（`MeshBackendVisual::buildOuterBranch`）。
+**语义（统一世界坐标）**：outer 局部矩阵 = **`T(pose) * R(attitude)`**（行向量 OSG）；inner PAT 恒 **`(0,0,0)`**；几何顶点为世界绝对坐标。
 
-**枢轴（文件原点）在 outer 父节点下**：`(inner + centerPlusPose) * R`，其中 `inner` 为 inner 在 outer 局部的平移（通常 `-modelCenter`）。**禁止**用 `centerPlusPose + inner*R` 或 `decompose(outer).translation` 当作 `centerPlusPose`：`decompose` 得到的是原点位置 `trans*R`，不是 `trans`。
+**`setFromBackend`**：`centerPlusPose = backend.pose`（**不**加 `modelCenter`）。**`fromOuter`** 仍兼容读 inner 偏移（旧工程或非零 inner）；新分支 inner 恒零。
 
 | 字段 / 方法 | 说明 |
 |-------------|------|
-| `modelCenter` | 与 `m_backendModelCenters` 一致 |
-| `centerPlusPose` | outer 平移分量 `trans`：`modelCenter + backend.pose`（与 `buildOuterBranch` 的 `T(trans)*R` 一致） |
+| `centerPlusPose` | outer 平移 `trans`：即 **`backend.pose`** |
 | `attitude` | outer 旋转 `R` |
-| `backendPoseRelativeToCenter()` | 即后端 `pose`（`centerPlusPose - modelCenter`） |
-| `fromOuter(outer, modelCenter, out)` | 从场景读帧：`trans = (fileInOuterParent - inner*R) * inv(R)` |
-| `setFromBackend(poseRelCenter, attitude, modelCenter)` | 从后端写帧 |
+| `modelCenter` | 外包络缓存；gizmo **不**参与读写 |
+| `backendPoseRelativeToCenter()` | 与 `backend.pose` 同义（inner=0） |
+| `fromOuter(outer, modelCenter, out)` | 从场景反解 `trans`；inner=0 时 `trans` 即 pose |
+| `setFromBackend(pose, attitude, modelCenter)` | `modelCenter` 参数忽略 |
 | `applyToOuter(outer)` | `setMatrix(T(centerPlusPose)*R)` |
 | `translateAlongWorldDirection` | 沿**场景世界**方向移动枢轴（内部 `worldDirectionToOuterParent`） |
 | `translateAlongWorldAxis` / `translateAlongBodyAxis` | 沿世界/物体轴索引平移 |
@@ -147,8 +149,8 @@ m_stagingGroup（导入预览）
 | 方法 / 字段 | 说明 |
 |-------------|------|
 | `OsgScene::tryQueryBrepPick` | 面/边/点 BREP 射线查询；`xformBackendId = resolvePickScopeBackendId(backendId)` |
-| `stepModelPointToWorldMm` / `worldPointToStepModelMm` | 模型↔世界；读 `m_backendSkipCenterRebase`：装配 `skipInnerModelCenterRebase=true` 时**不再**加减 `modelCenter` |
-| `m_backendSkipCenterRebase` | `upsertBackendBranchInScene` 写入；与 Visual 去心选项对齐，避免线/面高亮偏移 |
+| `stepModelPointToWorldMm` / `worldPointToStepModelMm` | 模型↔世界：经 `getBackendRootWorldMatrix`（**不**加减 `modelCenter`） |
+| `m_backendSkipCenterRebase` | **遗留**旁路表；`backendSkipsInnerModelCenterRebase` 恒 `false` |
 | `BackendPickDomain::Brep` | `BackendIdUserData` 标记；registry bind 时跳过 pointIndex |
 
 装配导入：逻辑 part id 经 `setPickVisualAlias` 指向 `importParent` 的 visual id，保证 hover/click 命中共享 Geode 且高亮坐标正确。轨迹/AI 特征 overlay 经 `feature_pick_transform`（`IRobotOsgViewHost::resolvePickScopeBackendId`）走同一 visual id 与 skip-rebase 规则。
@@ -184,7 +186,7 @@ m_stagingGroup（导入预览）
 
 | 方法 | 说明 |
 |------|------|
-| `focusCameraOnBackend(backendId)` | 合并 `isBackendDescendantOf` 下各 OSG 分支世界包围球并移动 Trackball；空壳父（无几何）依赖逻辑父链；世界坐标顶点（`skipInnerModelCenterRebase`）用 `loc.center()` 变换求中心，勿仅用 outer 平移 |
+| `focusCameraOnBackend(backendId)` | 合并逻辑子树下各分支世界包围球；世界坐标顶点用 Geode 变换求中心，勿仅用 outer 平移 |
 | `hasPointAnnotations()` | 是否有注释（帧回调缩放） |
 
 ### 5.9 关键公共成员（控制器直接读写）
@@ -193,7 +195,7 @@ m_stagingGroup（导入预览）
 |------|------|
 | `m_activeBackendId`, `m_activeBackendOuterPat` | 当前选中 |
 | `m_backendParentIds`, `m_backendModelCenters`, `m_backendVisibility` | 每对象状态 |
-| `m_backendSkipCenterRebase` | 与 `skipInnerModelCenterRebase` 对齐；BREP 拾取/高亮坐标变换 |
+| `m_backendSkipCenterRebase` | 遗留；拾取/高亮经 `getBackendRootWorldMatrix` |
 | `m_pickVisualAliases` | 逻辑 backendId → 实际承载 Geode 的 visual backendId |
 | `m_backendVisualBindings` | `BackendVisualBindingIndex` |
 | `m_backendPickIndexes` | `BackendPickIndexRegistry`（点云/网格拾取索引） |

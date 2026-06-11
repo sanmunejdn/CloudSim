@@ -234,10 +234,9 @@ void BackendFollowTransformSolver::solve(
 		{
 			continue;
 		}
-		const BackendVec3 c = modelCenterForData(*follower);
 		BackendVec3 newPose{};
 		BackendVec3 newEuler{};
-		backend_pose_euler_from_world_mat(wF, c, newPose, newEuler);
+		backend_pose_euler_from_world_mat(wF, newPose, newEuler);
 		follower->setPose(newPose);
 		follower->setRotation(newEuler);
 	}

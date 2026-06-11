@@ -9,7 +9,7 @@
 | 工程 | `PointCloudPlugin.vcxproj`（x64，v142，Qt 5.14.2） |
 | 链接 | **仅** `CloudSimPluginSDK.lib` |
 | 部署 | `bin/x64(d)/plugins/com.cloudsim.pointcloud/plugin.json` + `PointCloudPlugin.dll` |
-| `minHostVersion` | `"1.11.0"`（多边形裁剪） |
+| `minHostVersion` | `"1.12.0"`（曲面重构） |
 
 ## 运行时
 
@@ -62,25 +62,27 @@
 
 宿主需链接 `VcgAlgorithms.dll`；未链接时操作返回错误提示。
 
-## 网格缺陷分析（1.10.0+）
+## 曲面重构（1.12.0+）
 
-侧栏「网格缺陷分析」区（与「网格后处理」共用 `m_meshTargetCombo`）：
+侧栏「曲面重构」区（与「网格后处理」共用 `m_meshTargetCombo`）：
 
-| 控件 | 说明 |
+| 控件 | 参数 |
 |------|------|
-| 灵敏度滑条 | 1–20%，映射 `PluginMeshDefectParams::sensitivity` |
-| 分类开关 | 针状三角 / 突起毛刺 / 边界尖刺 |
-| 分析缺陷 | `analyzeMeshDefects`；摘要 + Top20 列表；视口 overlay |
-| 清除高亮 | `clearMeshDefectHighlight` |
+| 法矢光顺迭代 / 特征阈值 c0 | `normalSmoothIterations` / `featureThresholdC0` |
+| 分块数（0=自动）/ 每边采样 n | `patchCountHint` / `samplesPerPatchEdge` |
+| 光顺 ε / 最大迭代 | `fairingEpsilon` / `fairingMaxIterations` |
+| **重构曲面** | `reconstructSurfaceFromMesh` |
 
-**手工验收（Poisson 网格）**：
+典型流程：
 
-1. 点云 → Poisson Auto 重建 → 选中 `Model` 网格
-2. 侧栏「分析缺陷」→ 日志无 `Missing Component`，摘要缺陷数 > 0
-3. 视口缺陷三角 overlay 可见；「清除高亮」后恢复
-4. 原网格 backend id、面数不变（不创建新对象）
+1. Poisson 重建或导入 → 选中 `Model` 网格
+2. 默认参数 → **重构曲面**
+3. 生成新 **`BrepModel`** 后端（源网格保留）；树中自动选中
+4. 摘要显示分块数、最大偏差、光顺指标
 
-菜单：**Tools → 点云 → 分析网格缺陷**
+菜单：**Tools → 点云 → 曲面重构**
+
+详见 [`docs/mesh_surface_reconstruction.md`](../../docs/mesh_surface_reconstruction.md)。
 
 ## 相关文档
 

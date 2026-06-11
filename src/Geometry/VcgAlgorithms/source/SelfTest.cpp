@@ -5,6 +5,7 @@
 #include "MeshRepair.h"
 #include "MeshRemesh.h"
 #include "MeshDefectDetect.h"
+#include "MeshNormalSmooth.h"
 
 #include <array>
 #include <cmath>
@@ -265,6 +266,24 @@ bool runSelfTest(std::vector<std::string>& failures)
 		{
 			failures.push_back("Test7b: sphere defect area ratio too high: "
 				+ std::to_string(defectReport.defectAreaRatio));
+		}
+	}
+
+	// 测试8a：法矢光顺
+	{
+		const auto soup = makeSphereSoup();
+		std::vector<float> smoothed;
+		MeshNormalSmoothParams params;
+		params.iterations = 2;
+		double gap = 0.0;
+		std::string err;
+		if (!smoothMeshByNormalAdjustment(soup, smoothed, params, &gap, &err))
+		{
+			failures.push_back("Test8a: normal smooth failed");
+		}
+		else if (smoothed.size() != soup.size())
+		{
+			failures.push_back("Test8a: soup size changed");
 		}
 	}
 

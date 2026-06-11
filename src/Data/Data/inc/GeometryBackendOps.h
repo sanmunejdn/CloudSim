@@ -7,6 +7,7 @@
 
 
 #include <TemplateBrepUpdate.h>
+#include <MeshSurfaceReconstruction.h>
 
 #include <Types.h>
 
@@ -208,7 +209,8 @@ DATA_EXPORT bool registerScanToCadTemplate(
 	std::vector<float>& outAlignedWorkXyz,
 	std::vector<float>& outAlignedWorkNormals,
 	std::string* errMsg = nullptr,
-	const std::string& templateStepPathUtf8 = std::string());
+	const std::string& templateStepPathUtf8 = std::string(),
+	geoalgo::TemplateBrepRegistrationCheckpoint* registrationCheckpoint = nullptr);
 
 DATA_EXPORT bool updateBrepFromAlignedScan(
 	const BrepBackendData& templateBrep,
@@ -237,6 +239,16 @@ DATA_EXPORT bool updateBrepFromCadTemplate(
 	const std::string& templateStepPathUtf8 = std::string());
 
 
+
+DATA_EXPORT bool registrationCoarsePipelineSelfTest(std::string* errMsg = nullptr);
+
+/// 网格 soup → B 样条 B-rep 曲面重构（含可选 vcg 预处理）
+DATA_EXPORT bool reconstructBrepFromMeshSoup(
+	const std::vector<float>& soup,
+	const geoalgo::MeshSurfaceReconstructParams& params,
+	std::shared_ptr<BrepBackendData>& outBrep,
+	geoalgo::MeshSurfaceReconstructReport& report,
+	std::string* errMsg = nullptr);
 
 } // namespace geometry_backend_ops
 

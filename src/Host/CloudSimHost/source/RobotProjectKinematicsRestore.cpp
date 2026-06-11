@@ -23,8 +23,7 @@ namespace {
 
 void collectRobotLinkIdsFromKinematicsObject(const QJsonObject& rkObj, QSet<QString>& outIds)
 {
-	if (rkObj.value(QStringLiteral("mode")).toString() != QStringLiteral("perLink")
-		|| !rkObj.value(QStringLiteral("meshInLinkFrame")).toBool())
+	if (rkObj.value(QStringLiteral("mode")).toString() != QStringLiteral("perLink"))
 	{
 		return;
 	}
@@ -85,7 +84,6 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 	{
 		return false;
 	}
-	const bool meshInLinkFrame = rk.value(QStringLiteral("meshInLinkFrame")).toBool();
 	QStringList jn;
 	QVector<double> lo;
 	QVector<double> hi;
@@ -101,7 +99,7 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 	}
 	QHash<QString, osg::Matrixd> Tq;
 	QString fkErr;
-	if (!UrdfRobotLoader::computeMeshWorldMatrices(urdf, q0, Tq, &fkErr, meshInLinkFrame))
+	if (!UrdfRobotLoader::computeMeshWorldMatrices(urdf, q0, Tq, &fkErr, false))
 	{
 		if (outWarning)
 		{
@@ -137,29 +135,14 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 		const osg::Matrixd& meshWorld0 = Tq[lname];
 		fkT0.insert(lname, meshWorld0);
 		const QString& bid = it.value();
-		if (sink)
-		{
-			osg::Matrixd worldAtLoad;
-			if (sink->getBackendRootWorldMatrix(bid.toStdString(), worldAtLoad))
-			{
-				// 与 UrdfRobotImport 一致：工程 mesh 已加载时用 OSG 真值作绑定，避免仅用 FK 与持久化位姿脱节
-				if (maxMatAbsDiff(worldAtLoad, meshWorld0) > 0.5)
-				{
-					outer.insert(bid, meshWorld0);
-				}
-				else
-				{
-					outer.insert(bid, worldAtLoad);
-				}
-				continue;
-			}
-		}
-		outer.insert(bid, meshWorld0);
+		(void)sink;
+		(void)maxMatAbsDiff;
+		outer.insert(bid, osg::Matrixd::identity());
 	}
 	// 无 OSG 关节节点：perLink 模式靠 backend 位姿驱动
 	ctx.appendHierarchicalRobotSimulationContext(
 		urdf, jn, lo, hi, QHash<QString, osg::MatrixTransform*>(), sceneRoot, jointRoot);
-	ctx.setRobotPerLinkKinematicsBinding(importKey, linkMap, fkT0, outer, meshInLinkFrame);
+	ctx.setRobotPerLinkKinematicsBinding(importKey, linkMap, fkT0, outer, false);
 	const QJsonObject cfObj = rk.value(QStringLiteral("coordinateFrames")).toObject();
 	if (!cfObj.isEmpty())
 	{

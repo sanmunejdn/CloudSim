@@ -2,6 +2,22 @@
 
 本文档列出各 Visual Studio 子工程（子模块）的 **DEVELOPER_GUIDE.md**。总架构与业务流程见 [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md)。目录说明见 [`DIRECTORY_LAYOUT.md`](DIRECTORY_LAYOUT.md)。
 
+---
+
+## 统一世界坐标契约（必读）
+
+全工程空间语义以 **[`spatial_contract_world_pose.md`](spatial_contract_world_pose.md)** 为权威说明。凡涉及导入、显示、FK、配准、拾取、坐标系叠加、TCP 示教，**须先对照该文档**，再改代码。
+
+| 要点 | 约定 |
+|------|------|
+| 几何 | `geometry` 存**世界绝对坐标**；`pose` + `rotation` 为**唯一**刚体偏移 |
+| 显示 | outer = `T(pose)×R`；inner PAT 恒 `(0,0,0)`（**不再** `-modelCenter`） |
+| URDF per-link | q0 单次 `Tbind` 烘焙顶点 → `pose=I`；FK：`M = M0·inv(T0)·Tq·P`；**禁止**双重 visual 烘焙 |
+| 工具轴 | 世界烘焙顶点：挂根连杆 + `toolTcpInBaseFromFk(该工具)`；连杆系顶点：挂法兰 + `T_flange_tool` |
+| 已废弃 | `skipInnerModelCenterRebase` 主路径、`meshInLinkFrame` 导入分支、质心 rebase 配准主路径 |
+
+**强相关模块文档**：[`Data`](../src/Data/Data/DEVELOPER_GUIDE.md) · [`BackendVisual`](../src/UI/BackendVisual/DEVELOPER_GUIDE.md) · [`OsgWidgetCore`](../src/UI/OsgWidgetCore/DEVELOPER_GUIDE.md) · [`CloudSimHost`](../src/Host/CloudSimHost/DEVELOPER_GUIDE.md) · [`RobotUrdf`](../src/Robot/RobotUrdf/DEVELOPER_GUIDE.md) · [`RobotScene`](../src/Robot/RobotScene/DEVELOPER_GUIDE.md) · [`RobotWidget`](../src/UI/RobotWidget/DEVELOPER_GUIDE.md)
+
 | 子工程 | 职责简述 | 开发文档 |
 |--------|----------|----------|
 | **CloudSim** | 可执行入口、`main` 生命周期 | [CloudSim/DEVELOPER_GUIDE.md](../src/App/CloudSim/DEVELOPER_GUIDE.md) |

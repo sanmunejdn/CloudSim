@@ -107,15 +107,12 @@ bool PointCloudBackendVisual::buildOuterBranch(const BackendDataBase& data, cons
 	const osg::Vec3f center = backend_geometry_metrics::pointCloudCenterFromXyz(pc->pointPositionsXyz());
 	const float diagonal = backend_geometry_metrics::pointCloudDiagonalFromXyz(pc->pointPositionsXyz());
 	osg::ref_ptr<osg::PositionAttitudeTransform> inner = new osg::PositionAttitudeTransform;
-	inner->setPosition(-center);
+	inner->setPosition(osg::Vec3f(0.0f, 0.0f, 0.0f));
 	inner->addChild(geode.get());
 	const BackendVec3 p = pc->pose();
 	const BackendVec3 r = pc->rotation();
 	osg::ref_ptr<osg::MatrixTransform> outer = new osg::MatrixTransform;
-	const osg::Vec3d trans(
-		static_cast<double>(center.x()) + static_cast<double>(p.x),
-		static_cast<double>(center.y()) + static_cast<double>(p.y),
-		static_cast<double>(center.z()) + static_cast<double>(p.z));
+	const osg::Vec3d trans(static_cast<double>(p.x), static_cast<double>(p.y), static_cast<double>(p.z));
 	const osg::Quat q = backendvisual_math::eulerDegToQuat(
 		osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
 	outer->setMatrix(osg::Matrixd::translate(trans) * osg::Matrixd::rotate(q));

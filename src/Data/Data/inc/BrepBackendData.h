@@ -55,6 +55,7 @@ public:
 	bool loadFromStepFile(const std::string& path, std::string* errMsg = nullptr);
 	bool loadFromBrepFile(const std::string& path, std::string* errMsg = nullptr);
 	bool writeBrepFile(const std::string& path, std::string* errMsg = nullptr) const;
+	bool writeStepFile(const std::string& path, std::string* errMsg = nullptr) const;
 
 	static bool loadStepHierarchyFromFile(
 		const std::string& path,

@@ -3,6 +3,7 @@
 #include "../RobotWidget/inc/RobotSimulationController.h"
 
 #include <QAction>
+#include <QFileDialog>
 #include <QList>
 #include <QMenu>
 #include <QMessageBox>
@@ -15,6 +16,7 @@
 #include "BackendHierarchyModel.h"
 #include "CoreTypes.h"
 #include "DocumentPage.h"
+#include "DocumentPointCloudOps.h"
 #include "IDataService.h"
 #include "IRenderView.h"
 #include "MainWindow_p.h"
@@ -455,11 +457,31 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 		if (item->data(0, kRoleItemType).toInt() == kItemTypeBackend)
 		{
 			const bool visible = item->checkState(0) == Qt::Checked;
+			const QString backendId = item->data(0, kRoleBackendId).toString();
+			DocumentPage* doc = currentPage();
 			QMenu menu(this);
 			QAction* toggle = menu.addAction(visible
 				? i18n(QStringLiteral("Hide Object"), QStringLiteral("隐藏对象"))
 				: i18n(QStringLiteral("Show Object"), QStringLiteral("显示对象")));
 			QAction* focusView = menu.addAction(i18n(QStringLiteral("Focus View"), QStringLiteral("聚焦显示")));
+			QAction* exportObj = nullptr;
+			if (doc && doc->data().isValid(backendId))
+			{
+				const cloudsim::core::BackendObjectDto dto = doc->data().objectSnapshot(backendId);
+				if (dto.hasGeometry)
+				{
+					if (dto.className == QStringLiteral("PointCloudBackendData"))
+					{
+						exportObj = menu.addAction(
+							i18n(QStringLiteral("Export Point Cloud…"), QStringLiteral("导出点云…")));
+					}
+					else if (dto.className == QStringLiteral("BrepModel"))
+					{
+						exportObj = menu.addAction(
+							i18n(QStringLiteral("Export STEP…"), QStringLiteral("导出 STEP…")));
+					}
+				}
+			}
 			QAction* deleteObj = menu.addAction(i18n(QStringLiteral("Delete"), QStringLiteral("删除")));
 			QAction* action = menu.exec(m_backendTree->viewport()->mapToGlobal(pos));
 			if (action == toggle)
@@ -468,12 +490,14 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 			}
 			else if (action == focusView)
 			{
-				const QString id = item->data(0, kRoleBackendId).toString();
-				rv->focusCameraOnBackend(id);
+				rv->focusCameraOnBackend(backendId);
+			}
+			else if (action == exportObj)
+			{
+				exportBackendObjectFromTree(backendId);
 			}
 			else if (action == deleteObj)
 			{
-				const QString id = item->data(0, kRoleBackendId).toString();
 				const QMessageBox::StandardButton r = QMessageBox::question(
 					this,
 					i18n(QStringLiteral("Delete object"), QStringLiteral("删除对象")),
@@ -484,7 +508,7 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 					QMessageBox::No);
 				if (r == QMessageBox::Yes)
 				{
-					removeBackendObjectFromDocument(id);
+					removeBackendObjectFromDocument(backendId);
 				}
 			}
 		}
@@ -555,4 +579,71 @@ void MainWindow::removeBackendObjectFromDocument(const QString& backendId)
 				QStringLiteral("已删除后端对象: %1").arg(removed.join(QStringLiteral(", ")))));
 	}
 	refreshSimulationJointListFromCurrentDoc();
+}
+
+void MainWindow::exportBackendObjectFromTree(const QString& backendId)
+{
+	DocumentPage* doc = currentPage();
+	if (!doc || backendId.isEmpty() || !doc->data().isValid(backendId))
+	{
+		return;
+	}
+	const cloudsim::core::BackendObjectDto dto = doc->data().objectSnapshot(backendId);
+	if (!dto.hasGeometry)
+	{
+		return;
+	}
+	const bool isPointCloud = dto.className == QStringLiteral("PointCloudBackendData");
+	const bool isBrep = dto.className == QStringLiteral("BrepModel");
+	if (!isPointCloud && !isBrep)
+	{
+		return;
+	}
+
+	const QString baseName = dto.name.isEmpty() ? backendId : dto.name;
+	QString savePath;
+	if (isPointCloud)
+	{
+		savePath = QFileDialog::getSaveFileName(
+			this,
+			i18n(QStringLiteral("Export Point Cloud"), QStringLiteral("导出点云")),
+			baseName + QStringLiteral(".ply"),
+			QStringLiteral("PLY Files (*.ply);;All Files (*.*)"));
+	}
+	else
+	{
+		savePath = QFileDialog::getSaveFileName(
+			this,
+			i18n(QStringLiteral("Export STEP"), QStringLiteral("导出 STEP")),
+			baseName + QStringLiteral(".step"),
+			QStringLiteral("STEP Files (*.step *.stp);;All Files (*.*)"));
+	}
+	if (savePath.isEmpty())
+	{
+		return;
+	}
+
+	const std::string idUtf8 = backendId.toUtf8().constData();
+	const std::string pathUtf8 = savePath.toUtf8().constData();
+	std::string err;
+	const bool ok = isPointCloud
+		? document_point_cloud_ops::exportPointCloudToPly(doc, idUtf8, pathUtf8, &err)
+		: document_point_cloud_ops::exportBrepToStep(doc, idUtf8, pathUtf8, &err);
+	if (!m_runInfoPage)
+	{
+		return;
+	}
+	if (ok)
+	{
+		m_runInfoPage->appendInfo(
+			i18n(QStringLiteral("Exported to %1").arg(savePath),
+				QStringLiteral("已导出到 %1").arg(savePath)));
+	}
+	else
+	{
+		const QString errQs = err.empty() ? QStringLiteral("unknown error") : QString::fromStdString(err);
+		m_runInfoPage->appendWarning(
+			i18n(QStringLiteral("Export failed: %1").arg(errQs),
+				QStringLiteral("导出失败: %1").arg(errQs)));
+	}
 }

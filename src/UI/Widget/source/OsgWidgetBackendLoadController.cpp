@@ -35,11 +35,9 @@ bool OsgWidgetBackendLoadController::loadMeshFromBackendData(
 	QString* errorMessage,
 	bool resetViewToHome,
 	bool showWireOutline,
-	bool useSceneLighting,
-	bool skipInnerModelCenterRebase)
+	bool useSceneLighting)
 {
-	return loadBackendFromBackendData(self, data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting,
-		skipInnerModelCenterRebase);
+	return loadBackendFromBackendData(self, data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting);
 }
 
 bool OsgWidgetBackendLoadController::loadBackendFromBackendData(
@@ -48,12 +46,10 @@ bool OsgWidgetBackendLoadController::loadBackendFromBackendData(
 	QString* errorMessage,
 	bool resetViewToHome,
 	bool showWireOutline,
-	bool useSceneLighting,
-	bool skipInnerModelCenterRebase)
+	bool useSceneLighting)
 {
 	self.clearStagingGeometry();
-	if (!self.upsertBackendBranchInScene(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting,
-			skipInnerModelCenterRebase))
+	if (!self.upsertBackendBranchInScene(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting))
 	{
 		return false;
 	}

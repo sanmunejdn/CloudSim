@@ -1,6 +1,6 @@
 # CAD 模板 + 扫描点云 → B-rep 面重构
 
-点云插件「CAD 模板 B-rep 更新」：用户在 3D 视图手动对齐扫描点云与 STEP 工件后，后台 ICP 精化（可选）+ 逐面几何调整，**注册新的 `BrepModel` 工件**（原模板保持不变）。
+点云插件「CAD 模板 B-rep 更新」：**反向配准**（固定扫描、变换 CAD 模板）；用户在 3D 视图拖动 **CAD 工件** 与扫描大致对齐后，后台 soup ICP 精化（可选）+ 逐面几何调整，**注册新的 `BrepModel` 工件**（原模板保持不变）。
 
 ## 1. 端到端流程
 
@@ -10,92 +10,169 @@ UI 拆为两步：**匹配 (ICP)** 与 **面重构**；面选择经 `geometryHos
 PointCloudDockWidget
   ├─ [匹配] IPluginPointCloudHost::registerScanToCadTemplate
   │    PluginPointCloudHostImpl
-  │      ├─ transformScanPointsToTemplateModelFrame
-  │      ├─ Job: geometry_backend_ops::registerScanToCadTemplate
-  │      ├─ applyScanIcpAlignmentToStoredPoints
-  │      └─ TemplateBrepAlignCache（alignedWorkXyz/Normals + report）
+  │      ├─ prepareScanPointCloudForRegistration（校验/必要时从 PLY 重载）
+  │      ├─ transformScanPointsToTemplateModelFrame（扫描→STEP，固定不动）
+  │      ├─ captureRegistrationWorldFrameSnapshot（OSG 世界矩阵快照）
+  │      ├─ Job: geometry_backend_ops::registerScanToCadTemplate（反向 soup ICP）
+  │      ├─ applyTemplateRegistrationToVisual（模板 OSG + backend pose/rotation）
+  │      ├─ 预览失败时 restoreTemplateShapeFromStep（恢复原始 STEP 几何）
+  │      └─ TemplateBrepAlignCache（alignedWorkXyz/Normals + alignedTemplateShape + report）
   │
   └─ [面重构] IPluginPointCloudHost::updateTemplateBrepFromAlignedScan
        PluginPointCloudHostImpl（校验缓存 scan+template+doc）
          ├─ Job: geometry_backend_ops::updateBrepFromAlignedScan
-         │      └─ geoalgo::updateShapeFromPointCloud
-         └─ registerAdoptedBrepAndLoadScene（新 B-rep，模板不修改）
+         │      └─ geoalgo::updateShapeFromPointCloud（基于 cache 中 alignedTemplateShape）
+         ├─ registerAdoptedBrepAndLoadScene（新 B-rep，模板不修改）
+         └─ alignFaceUpdatedBrepWithTemplateVisual（新工件世界位姿与模板一致）
 ```
 
-| 阶段 | 入口 | 坐标系 |
-|------|------|--------|
-| 手动对齐 | 用户拖动点云 `pose/rotation` | OSG 世界 |
+| 阶段 | 入口 | 坐标系 / 表示 |
+|------|------|----------------|
+| 手动对齐 | 用户拖动 **CAD 工件** `pose/rotation` | OSG 世界 |
 | 配准输入 | `transformScanPointsToTemplateModelFrame` | **STEP 文件坐标**（与 `shapeRef()`、`FeaturePickTransform` 一致） |
-| ICP 目标 | `sampleShapeSurfacePoints(templateShape)` | 同上 |
-| 面更新 | `updateShapeFromPointCloud` | 同上 |
-| 场景注册 | `registerAdoptedBrepAndLoadScene` | 显示：`skipInnerModelCenterRebase=false`（与点云去心一致） |
+| 反向 ICP | displaySoup 点云 + FPFH/RANSAC + 点-面 ICP（`pclalgo`） | 输出 `templateToScan`；扫描 stored **不变** |
+| 匹配预览 | `applyTemplateRegistrationToVisual` | 见 §2.1（装配 STEP 与常规模型分支不同） |
+| 面更新输入 | `updateShapeFromPointCloud(alignedTemplateShape, …)` | **ICP 对齐后的模型坐标**（aligned 系） |
+| 新工件显示 | `alignFaceUpdatedBrepWithTemplateVisual` | aligned 几何 + 与模板等价的世界矩阵（§2.2） |
 
 ### 1.1 新工件注册（Host）
 
 面重构成功后 `PluginPointCloudHostImpl`：
 
-1. 从 `result->brep` 取更新后 shape（`updateBrepFromAlignedScan` 已写入）
-2. 复制模板 `pose` / `rotation` / `color`
-3. 命名：`{模板名}_updated`（重名自动 `_2`、`_3`…），或 `displayNameUtf8`
-4. `clearBrepImportArtifactsCache()` 后 `registerAdoptedBrepAndLoadScene(..., resetViewToHome=false, skipRebase=false)`
+1. `updateBrepFromAlignedScan` 将 `updatedShape` 写入 `result->brep`（**aligned 系**）
+2. 复制模板 `color`；命名 `{模板名}_updated`（或 `displayNameUtf8`）
+3. `clearBrepImportArtifactsCache()` 后 `registerAdoptedBrepAndLoadScene(..., resetViewToHome=false, skipRebase=true)`
+4. **`alignFaceUpdatedBrepWithTemplateVisual`**：按 §2.2 设置新工件 `pose/rotation` 与 OSG 根矩阵（**勿**直接 `setPose(templateBrep->pose())`，否则会重复叠 ICP）
 5. 模板、点云、新工件均保持可见；相机对焦新工件
 
 `updateResult.newBrepBackendId` 为新 backend id，**不是**模板 id。
+
+### 1.2 配准结果门控（Host）
+
+| 字段 | 含义 |
+|------|------|
+| `registerOk` | 算法流水线完成 |
+| `registrationPreviewOk` | 重叠预览通过（inlier 统计，见 §3.4）→ 才调用 `applyTemplateRegistrationToVisual` |
+| `icpRmseGatePassed` | RMSE ≤ `max(faceBand×8, 12)` mm → 才写入 `TemplateBrepAlignCache` 供面重构 |
+
+预览通过但 RMSE 超门限时：模板显示已更新，面重构按钮仍会因缓存未写入而要求重新匹配。
 
 ## 2. 坐标变换（关键）
 
 与 B-rep 拾取、轨迹 AI overlay 共用规则（`feature_pick_transform` / `DocumentPointCloudOps`）：
 
 1. **`resolvePickScopeBackendId`**：装配子零件无 Geode 时 alias 到 `importParent` visual id。
-2. **`backendSkipsInnerModelCenterRebase`**：为真时不加减 `modelCenter`（装配 STEP 导入、`skipInnerModelCenterRebase=true`）。
-3. 扫描：`stored → world`（减 scan modelCenter 后乘 worldMat）。
-4. 模板：`world → STEP model`（乘 inv(worldMat) 后加 template modelCenter）。
+2. **统一世界坐标**（[`spatial_contract_world_pose.md`](spatial_contract_world_pose.md)）：`stored` 为世界绝对坐标；经 `getBackendRootWorldMatrix` 做 stored↔world，**不**加减 `modelCenter`。
+3. 扫描/模板配准：世界系 ICP，结果只写 `template.pose`。
 
 实现：`CloudSimPluginHost/source/DocumentPointCloudOps.cpp`  
 头文件：`inc/DocumentPointCloudOps.h`
 
-**常见故障**：3D 里看起来对齐，但 `frameCheck pairHits=0` → 变换 id 或 skip-rebase 与显示不一致；修复后 `pairHits` 应 ≥ 32（512 点采样内）。
+**常见故障**：3D 里看起来对齐，但 `frameCheck pairHits=0` → 变换 id 或 skip-rebase 与显示不一致；修复后 `pairHits` 应 ≥ 32（512 点采样内）。手动对齐应拖动 **CAD 工件**，不是点云。
 
-## 3. 配准流水线（`alignScanToTemplateRegistration`）
+### 2.1 匹配预览：`applyTemplateRegistrationToVisual`
 
-实现：`Data/source/GeometryBackendOps.cpp`
+实现：`DocumentPointCloudOps.cpp`。输入 `alignedTemplateShape`（ICP 烘焙后的 shape，供 cache/面重构）与 `templateToScanInModelFrame`（STEP 模型系）。
+
+**行向量 OSG 约定**（与 `engine::osgMatrixFromRigidTransform` 一致）：
+
+```text
+worldAfter = icpOsg × worldBefore
+p_world = p_model × worldAfter   （原始 STEP 几何）
+p_world = p_aligned × worldBefore （ICP 已烘焙进几何时）
+```
+
+| 分支 | 条件 | backend shape | OSG 根矩阵 | backend pose/rotation |
+|------|------|---------------|------------|------------------------|
+| **originalPose**（装配 STEP 默认） | `skipRebase && hasIcp`，且能重载原始 STEP | 保持 **原始 STEP** | `worldAfter` | 由 `worldAfter` 分解写入 |
+| **bakedAligned**（fallback） | 上述 STEP 重载失败 | `alignedTemplateShape` | 保持 `worldBefore` | 不更新（几何已含 ICP） |
+| **常规模型** | `!skipRebase` | `alignedTemplateShape` | `worldAfter` | 由 `worldAfter` 分解（含 modelCenter 扣除） |
+
+要点：
+
+- `alignedTemplateShape` **始终**写入 `TemplateBrepAlignCache.report`，面重构只用 cache，不依赖模板 backend 是否仍为原始几何。
+- Eigen→OSG 必须用 `RigidTransform::fromIsometry` + `osgMatrixFromRigidTransform`，禁止手写列主序拷贝（会导致旋转爆炸）。
+- 预览失败时 Host 调用 `restoreTemplateShapeFromStep` 恢复模板原始几何。
+
+### 2.2 面重构新工件：`alignFaceUpdatedBrepWithTemplateVisual`
+
+面更新输出 `updatedShape` 与 `alignedTemplateShape` 同系（**ICP 对齐坐标**）。注册后若直接复制模板 `pose/rotation`（对应 **originalPose** 路径下的 `worldAfter`），会在 aligned 几何上 **重复施加 ICP**。
+
+算法（`registerAdoptedBrepAndLoadScene` **之后**调用）：
+
+1. 读取模板 visual 的 `templateWorld`（OSG 根世界矩阵）
+2. 若模板 backend `pose/rotation` 与 `templateWorld` 分解结果一致（originalPose 路径）  
+   → `worldForAligned = inverse(icpOsg) × templateWorld`（即配准前的 `worldBefore`）
+3. 否则（bakedAligned fallback）→ `worldForAligned = templateWorld`
+4. `writeBackendPoseFromWorldMatrix` + `setBackendRootWorldMatrixFromWorld` 作用于新工件
+
+新工件与模板在 3D 中应 **世界位姿重合**（面形可因重构而变化）。
+
+## 3. 配准流水线（反向 `alignScanToTemplateRegistration`）
+
+实现：`Data/source/GeometryBackendOps.cpp`；模板点云：`GeometryAlgorithm/BrepImportArtifacts.cpp`（`extractDisplaySoupPointCloud`）；ICP 核心：`PointCloudAlgorithm/RegistrationRigid.h`（`pclalgo::rigidRegisterPointToPlaneIcp`）。
+
+**方向**：固定扫描点（STEP 系），ICP 输出 `templateToScan` 作用于模板 B-rep；`scanToTemplate = inverse(templateToScan)` 仅作兼容字段。
+
+**模板侧数据源**：导入时缓存的 `displaySoup` / `displayNormals`（与 OSG 显示同一套三角网格顶点），均匀下采样至约 40000 点；**不再**调用 `sampleShapeSurfacePoints` 或配准阶段的 `BRepExtrema` 投影。
 
 ### 3.1 非预对齐（`scanAlreadyInTemplateFrame=false`）
 
 ```text
-bbox 中心对齐 → PCA 朝向 → [可选 RANSAC] → 粗 ICP（modelDiag 比例档）→ 精 ICP（点-面）
+extractDisplaySoupPointCloud → bbox 居中 → PCA 朝向 → [可选 RANSAC 反向] → 粗反向 ICP → 点-面精 ICP（soup）
 ```
 
 ### 3.2 预对齐（插件固定 `scanAlreadyInTemplateFrame=true`）
 
+`resolveRegistrationAlignMode` 根据初始 overlap 选择策略（日志字段 `alignMode`）：
+
+| 模式 | 条件（概要） | 行为 |
+|------|--------------|------|
+| `manualTrusted` | overlap 充足，用户 CAD 预对齐可信 | 跳 bbox/PCA/RANSAC；多尺度 soup ICP |
+| `manualPartial` | `pairHits∈[1,31]` 且 maxDev 适中 | 跳 bbox/PCA；soup ICP |
+| `autoRecover` | **`pairHits=0`** 或 maxDev 过大 | bbox+PCA → [RANSAC] → soup ICP → **coarse ICP ladder 回退** → 可选 tight soup |
+| `coldStart` | `scanAlreadyInTemplateFrame=false` | 完整粗配 + RANSAC + soup ICP |
+
 ```text
-跳过 bbox/PCA/RANSAC
-→ frameCheck（pairHits、centroidDistMm）
-→ 分支 A：pairHits ≥ 32 → 仅试精 ICP；改善且平移/旋转在门限内才应用
-→ 分支 B：pairHits < 32 → recovery：bbox 居中 + PCA 朝向 + RANSAC + modelDiag 档粗 ICP + 精 ICP
+coarseStage=modeSelect → bbox → pca → frameCheck → ransac? → soupMulti → [fallback] coarseIcpLadder → [optional] soupRefine
+→ applyIsometryToShapeHandle → alignedTemplateShape + templateToScan
 ```
 
 | 参数 / 行为 | 说明 |
 |-------------|------|
-| `enableRansacCoarseMatch` | 预对齐且 overlap 充足时**不运行** RANSAC；recovery 路径**运行** RANSAC |
-| recovery 粗 ICP 档位 | `modelDiag × [0.5, 0.75, 1.0, 1.25]`（与非预对齐路径一致） |
-| recovery 精 ICP maxPair | `max(modelDiag × 0.05, 2.0)` |
-| 粗 ICP 法线门控 | 关闭（`normalGateDeg=0`） |
-| 精 ICP 法线门控 | `normalThresholdDeg`（默认 35°） |
-| 预对齐精 ICP 采纳 | `trialOverlapRmse + 0.02 < baseline` 且 `trans ≤ max(faceBand×5,8)mm`、`rot ≤ 5°` |
-| `overlapRmseMm` | 重叠区 RMSE（`pair ≤ max(faceBand×2.5, 2)mm`）；预对齐成功路径用作 `icpRmseMm` |
+| `enableRansacCoarseMatch` | `manualTrusted` 不跑；`autoRecover` 在 recovery 后 overlap 仍不足时跑；**`overlapHits=0` 时放大 inlierDistanceMm / featureVoxelMm** |
+| soup 首档 maxPair | `allowLargeCorrection` 且 baselineMaxDev > modelDiag×0.1 时：`min(baseline×0.95, modelDiag×0.4)` |
+| coarse ICP ladder | soup rollback 或 post-soup `pairHits<32` 时触发（`autoRecover` / `coldStart`） |
+| 精 ICP | `runReversePointToPlaneIcpStage` → `pclalgo::rigidRegisterPointToPlaneIcp`（模板 soup 点-面） |
+| 粗 ICP 后跳过精配 | 粗 RMSE ≤ `max(faceBand×8, 12)` mm 时跳过 fine ICP |
+| 预对齐采纳 | `trialMaxDev` 改善 + 位移/转角门控；`autoRecover` 允许 `allowLargeCorrection` |
+| 匹配预览 | `registrationPreviewOk` 为真时 `applyTemplateRegistrationToVisual`；**点云 stored 不变** |
 
-### 3.3 诊断日志（RunLogger `[TemplateBrepUpdate]`）
+### 3.3 重叠预览（`registrationPreviewOk`）
+
+在 ICP 下采样扫描上，对 template soup 做 **inlier 统计**（`measureScanToCloudInlierStats`），避免全云 maxDev 被离群点主导：
+
+- `registrationOverlapMaxDevMm`：inlier 足够时用 inlier maxDev，否则用全局 maxDev
+- `registrationPreviewOk`：`inlierHits ≥ 32` 且 inlier maxDev ≤ `max(faceBand×10, 25)` mm
+
+### 3.4 诊断日志（RunLogger `[TemplateBrepUpdate]`）
 
 | 日志 | 含义 |
 |------|------|
-| `frameCheck pairHits=x/512 centroidDistMm=y` | STEP 系重叠探测；`x=0` 表示坐标或对齐问题 |
-| `recovery ICP: … overlap insufficient` | 走 bbox + PCA + RANSAC + modelDiag 档粗/精 ICP |
-| `pre-aligned ICP applied/skipped` | 轻量精 ICP 是否写回 |
-| `overlapRmseMm=` | 重叠区质量（非全点云最大偏差） |
-| `registration done, icpRmseMm=` | 配准结束 |
+| `baseline mode=manualTrusted/autoRecover/…` | 配准策略（`RegistrationAlignMode`）；日志前缀 `coarseStage=` |
+| `coarseStage=coarseIcpLadder` | soup 未改善时的 coarse ICP 多档回退 |
+| `coarseStage=ransac enlarged` | 零重叠时放大 RANSAC 门限 |
+| `template soup pts=N (from T tris)` | 从 displaySoup 提取的模板点云规模 |
+| `frameCheck pairHits=… maxDevMm=…` | STEP 系重叠与扫描→soup 最近邻最大/平均偏差 |
+| `autoRecover bbox+PCA` | 无 overlap 时自动粗对齐 |
+| `coarse reverse ICP ok, rmseMm=` | 粗反向离散 ICP 完成 |
+| `multi-stage soup ICP` / `reverse soup ICP applied/skipped` | 预对齐多尺度 soup ICP |
+| `reverse registration done, icpRmseMm=` | 配准结束 |
+| `registration preview ok, inlierMaxDevMm=` | 预览门控通过 |
+| `registration overlap inlierHits=` | inlier 命中数与偏差 |
+| `assembly STEP: original geometry + ICP pose` | 匹配预览走 originalPose 分支 |
 
-**注意**：`icpRmseMm=0` 且 `pairHits=0` 表示**无有效配对**，不是完美对齐。面更新质量看 `globalMaxDeviationMm` 与 `qualityPassed`。
+**注意**：`icpRmseMm=0` 且 `pairHits=0` 表示**无有效配对**，不是完美对齐。面更新质量看 `globalMaxDeviationMm` 与 `qualityPassed`。`rigidRegisterTemplateToScanPointToPlane` 仍保留于 `TemplateBrepRegistration.cpp`，供面重构等非配准路径使用。
 
 ## 4. 面重构核心逻辑（`updateShapeFromPointCloud`）
 
@@ -220,7 +297,8 @@ Host 另设：`scanAlreadyInTemplateFrame=true`；`sampleSpacingMm=2.0`；`enabl
 
 | 门控 | 条件 |
 |------|------|
-| 配准 | `icpRmseMm > max(faceBand×8, 12)` → `registerScanToCadTemplate` 失败 |
+| 配准 RMSE | `icpRmseMm > max(faceBand×8, 12)` → `icpRmseGatePassed=false`（不写面重构缓存） |
+| 配准预览 | `registrationPreviewOk=false` → 不刷新模板显示，尝试 `restoreTemplateShapeFromStep` |
 | 面更新 | `globalMaxDeviationMm` vs `maxAllowedDeviationMm` → `qualityPassed` |
 | 零面更新 | `updatedFaceCount==0`：若有 `skippedBadBboxFaceCount>0` 提示包围盒守卫；否则提示 ICP/面带/点数/阈值 |
 
@@ -241,10 +319,13 @@ Host 另设：`scanAlreadyInTemplateFrame=true`；`sampleSpacingMm=2.0`；`enabl
 | 路径 | 说明 |
 |------|------|
 | `Plugins/PointCloudPlugin/source/PointCloudDockWidget.cpp` | 侧栏 UI、参数、摘要日志 |
-| `UI/CloudSimPluginHost/source/PluginPointCloudHostImpl.cpp` | 双 Job、新 B-rep 注册 |
-| `UI/CloudSimPluginHost/source/DocumentPointCloudOps.cpp` | 坐标变换 |
-| `Data/source/GeometryBackendOps.cpp` | 配准编排、`updateBrepFromAlignedScan` |
+| `UI/CloudSimPluginHost/source/PluginPointCloudHostImpl.cpp` | 双 Job、新 B-rep 注册、缓存 |
+| `UI/CloudSimPluginHost/source/DocumentPointCloudOps.cpp` | 坐标变换、`applyTemplateRegistrationToVisual`、`alignFaceUpdatedBrepWithTemplateVisual` |
+| `Data/source/GeometryBackendOps.cpp` | 配准编排（`RegistrationAlignMode`、soup ICP）、`updateBrepFromAlignedScan` |
+| `Geometry/GeometryAlgorithm/source/BrepImportArtifacts.cpp` | `extractDisplaySoupPointCloud` |
+| `Geometry/PointCloudAlgorithm/` | FPFH/RANSAC、点-面 ICP |
 | `Geometry/GeometryAlgorithm/source/TemplateBrepUpdate.cpp` | 面归属、调整、增量应用 |
+| `Geometry/GeometryAlgorithm/source/TemplateBrepRegistration.cpp` | `applyIsometryToShapeHandle`（配准/面更新 shape 变换） |
 | `Host/CloudSimHost/source/BackendFileImport.cpp` | `registerAdoptedBrepAndLoadScene` |
 
 ## 9. 相关文档

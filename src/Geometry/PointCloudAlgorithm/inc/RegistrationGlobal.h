@@ -23,6 +23,7 @@ struct RigidRegisterRansacParams
 	double modelDiagMm = 0.0;
 	double faceBandMm = 2.0;
 	bool refineWithIcp = true;
+	bool skipTranslationCap = false;
 };
 
 POINT_CLOUD_ALGORITHM_API bool rigidRegisterFeatureRansac(

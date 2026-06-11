@@ -163,9 +163,10 @@ bool ObjectGizmoFrame::fromOuter(osg::MatrixTransform* outer, const osg::Vec3f& 
 void ObjectGizmoFrame::setFromBackend(const osg::Vec3f& poseRelativeToCenter, const osg::Quat& attitude,
 	const osg::Vec3f& modelCenter)
 {
-	m_modelCenter = modelCenter;
-	m_innerOriginInOuterLocal.set(-modelCenter.x(), -modelCenter.y(), -modelCenter.z());
-	m_centerPlusPose = modelCenter + poseRelativeToCenter;
+	(void)modelCenter;
+	m_modelCenter.set(0.0f, 0.0f, 0.0f);
+	m_innerOriginInOuterLocal.set(0.0f, 0.0f, 0.0f);
+	m_centerPlusPose = poseRelativeToCenter;
 	m_attitude = attitude;
 }
 

@@ -1,5 +1,7 @@
 # BackendVisual 模块开发文档
 
+> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — outer = `T(pose)×R`；inner PAT 恒 `(0,0,0)`；顶点为世界绝对坐标。
+
 ## 1. 模块定位
 
 `BackendVisual` 解决 **「后端数据对象」与「OSG 可渲染场景分支」** 之间的转换。通过策略接口 `IBackendVisual` + 注册表 `BackendVisualRegistry`，使 `OsgWidgetCore` 不必硬编码点云/网格构建细节。
@@ -16,16 +18,17 @@
 ## 2. 场景分支约定（与 Gizmo/FK 对齐）
 
 ```text
-outer (osg::MatrixTransform)     ← 唯一位姿写入：T(center+pose) * R
-└─ inner (PositionAttitudeTransform)  ← 默认 position = -modelCenter
-   └─ Geode / Group（几何）
+outer (osg::MatrixTransform)     ← 唯一位姿写入：T(pose) * R(rotationEuler)
+└─ inner (PositionAttitudeTransform)  ← 恒 position = (0,0,0)
+   └─ Geode / Group（geometry 已为世界绝对坐标）
 ```
 
 | 选项 | 结构体字段 | 效果 |
 |------|------------|------|
-| URDF 每连杆 | `MeshVisualOptions::skipInnerModelCenterRebase = true` | inner 不再 `-bboxCenter`；outer 平移仅含 `pose`（顶点已在连杆系） |
 | 网格线框 | `showWireOutline` | 附加 feature-edge 线框 Geode |
 | 光照 | `useSceneLighting` | per-vertex 法线 + `GL_LIGHTING`（见 §4.2） |
+
+**已移除**：`MeshVisualOptions::skipInnerModelCenterRebase` 及 inner `-modelCenter` 主路径。世界烘焙导入（URDF q0、DXF 分件、装配 STEP）依赖顶点坐标 + `pose`，而非内层去心。
 
 ---
 
@@ -37,7 +40,6 @@ outer (osg::MatrixTransform)     ← 唯一位姿写入：T(center+pose) * R
 |------|------|------|
 | `showWireOutline` | `true` | 线框叠加 |
 | `useSceneLighting` | `false` | 塑料光照材质 |
-| `skipInnerModelCenterRebase` | `false` | 跳过内层去心（每连杆 URDF） |
 
 ### 3.2 `struct BranchBuildResult`
 
@@ -77,7 +79,7 @@ outer (osg::MatrixTransform)     ← 唯一位姿写入：T(center+pose) * R
 |------|------|
 | `typeKey()` | `"Model"`（与 `MeshBackendData::className()` 一致） |
 | `makeDisplayNode(data, options, err)` | 无 outer 的显示 `Group`（填充 + 可选线框） |
-| `buildOuterBranch(...)` | 完整分支；尊重 `skipInnerModelCenterRebase` |
+| `buildOuterBranch(...)` | 完整分支；outer=`T(pose)×R`，inner=(0,0,0) |
 | `computeModelCenterAndDiagonal(...)` | 三角 soup AABB |
 
 **数据输入**：`MeshBackendData::triangleSoup()`（每三角 9 float：v0,v1,v2 各 xyz）。
@@ -112,7 +114,7 @@ outer (osg::MatrixTransform)     ← 唯一位姿写入：T(center+pose) * R
 
 **导入显示约定**：Host `registerAdoptedBrepAndLoadScene` / 装配父节点默认 **`showWireOutline=false`**（首帧不等 Phase2）；`useSceneLighting=true` 时用法线自 Phase1 预计算。用户开启线框或首次边拾取时经 `ensureBrepImportPickArtifacts` 补 Phase2。
 
-**装配显示约定**：层级 STEP 仅在 `importParent` 上 `loadBackendFromBackendData(..., skipInnerModelCenterRebase=true)` 建一次 OSG 分支；子零件 `registerAdoptedBrepAndLoadScene(..., loadScene=false)` + `setPickVisualAlias(partId → importParentId)`（见 Host §4.4.1b、OsgWidgetCore §5.7a）。
+**装配显示约定**：层级 STEP 仅在 `importParent` 上 `loadBackendFromBackendData(...)` 建一次 OSG 分支；子零件 `registerAdoptedBrepAndLoadScene(..., loadScene=false)` + `setPickVisualAlias(partId → importParentId)`（见 Host §4.4.1b、OsgWidgetCore §5.7a）。
 
 ---
 

@@ -1638,6 +1638,8 @@ bool updateShapeFromPointCloud(
 	std::string* errMsg)
 {
 	const Eigen::Isometry3d savedTransform = out.scanToTemplate;
+	const Eigen::Isometry3d savedTemplateToScan = out.templateToScan;
+	const geoalgo::ShapeHandle savedAlignedTemplate = out.alignedTemplateShape;
 	const double savedRmse = out.icpRmseMm;
 	out.updatedShape = ShapeHandle{};
 	out.perFace.clear();
@@ -1646,6 +1648,8 @@ bool updateShapeFromPointCloud(
 	out.updatedFaceCount = 0U;
 	out.qualityPassed = false;
 	out.scanToTemplate = savedTransform;
+	out.templateToScan = savedTemplateToScan;
+	out.alignedTemplateShape = savedAlignedTemplate;
 	out.icpRmseMm = savedRmse;
 
 	TopoDS_Shape templateNative;

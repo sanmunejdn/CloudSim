@@ -221,7 +221,7 @@ void BackendSceneDocumentFacade::ensureSelectionVisualForBackend(const BackendDa
 			else
 			{
 				QString geomErr;
-				if (!osg->loadBackendFromBackendData(*brep, &geomErr, false, true, true, true))
+				if (!osg->loadBackendFromBackendData(*brep, &geomErr, false, true, true))
 				{
 					osg->syncSelectionForBackendId(idStd);
 				}

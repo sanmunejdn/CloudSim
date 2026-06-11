@@ -57,7 +57,7 @@ bool registerHierarchyPartMeshes(DocumentHost& host, const QString& sourceFilePa
 			pathToBackendId.contains(parentPartPath) ? pathToBackendId.value(parentPartPath) : importParentId;
 		QString meshRegErr;
 		if (!registerAdoptedMeshAndLoadScene(host, partMesh, sourceFilePath, catalogTypeName, parentId, false, &meshRegErr,
-				true, false))
+				false))
 		{
 			if (outError)
 			{
@@ -117,7 +117,7 @@ bool registerCapturedHierarchyParts(DocumentHost& host, const QString& sourceFil
 			pathToBackendId.contains(p.parentPartPath) ? pathToBackendId.value(p.parentPartPath) : importParentId;
 		QString meshRegErr;
 		if (!registerAdoptedMeshAndLoadScene(host, partMesh, sourceFilePath, catalogTypeName, parentId, false, &meshRegErr,
-				true, false))
+				false))
 		{
 			if (outError)
 			{
@@ -171,7 +171,7 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 		if (OsgWidget* osg = osgWidgetFrom(host))
 		{
 			QString sceneErr;
-			if (!osg->loadBackendFromBackendData(*importParent, &sceneErr, false, false, true, true) && outError)
+			if (!osg->loadBackendFromBackendData(*importParent, &sceneErr, false, false, true) && outError)
 			{
 				*outError = sceneErr.isEmpty() ? QStringLiteral("OSG B-rep assembly display failed.") : sceneErr;
 				return false;
@@ -197,7 +197,7 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 			pathToBackendId.contains(parentPartPath) ? pathToBackendId.value(parentPartPath) : importParentId;
 		QString regErr;
 		if (!registerAdoptedBrepAndLoadScene(host, partBrep, sourceFilePath, QStringLiteral("BrepModel"), parentId,
-				false, &regErr, true, false, false))
+				false, &regErr, true, false))
 		{
 			if (outError)
 			{

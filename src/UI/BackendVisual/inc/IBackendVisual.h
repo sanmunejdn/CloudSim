@@ -20,8 +20,6 @@ struct MeshVisualOptions
 {
 	bool showWireOutline = true;
 	bool useSceneLighting = false;
-	/// skipInnerModelCenterRebase：URDF 逐连杆顶点已在连杆系，FK 写外层世界矩阵
-	bool skipInnerModelCenterRebase = false;
 };
 
 struct BranchBuildResult

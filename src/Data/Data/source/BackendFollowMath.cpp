@@ -111,10 +111,9 @@ bool backend_mat4_invert_rigid(const BackendMat4& m, BackendMat4& out)
 	return true;
 }
 
-BackendMat4 backend_world_mat_from_pose(
-	const BackendVec3& modelCenter, const BackendVec3& pose, const BackendVec3& rotationEulerDeg)
+BackendMat4 backend_world_mat_from_pose(const BackendVec3& pose, const BackendVec3& rotationEulerDeg)
 {
-	const BackendMat4 t = BackendMat4::translate(modelCenter.x + pose.x, modelCenter.y + pose.y, modelCenter.z + pose.z);
+	const BackendMat4 t = BackendMat4::translate(pose.x, pose.y, pose.z);
 	const BackendMat4 r = BackendMat4::rotateEulerDeg(rotationEulerDeg.x, rotationEulerDeg.y, rotationEulerDeg.z);
 	BackendMat4 out{};
 	backend_mat4_multiply(t, r, out);
@@ -163,15 +162,11 @@ static void mat3_to_euler_deg(const BackendMat4& w, double& outX, double& outY, 
 	outZ = z * (180.0 / kPi);
 }
 
-void backend_pose_euler_from_world_mat(
-	const BackendMat4& world, const BackendVec3& modelCenter, BackendVec3& outPose, BackendVec3& outEulerDeg)
+void backend_pose_euler_from_world_mat(const BackendMat4& world, BackendVec3& outPose, BackendVec3& outEulerDeg)
 {
-	const double tx = world.v[12];
-	const double ty = world.v[13];
-	const double tz = world.v[14];
-	outPose.x = tx - modelCenter.x;
-	outPose.y = ty - modelCenter.y;
-	outPose.z = tz - modelCenter.z;
+	outPose.x = world.v[12];
+	outPose.y = world.v[13];
+	outPose.z = world.v[14];
 	mat3_to_euler_deg(world, outEulerDeg.x, outEulerDeg.y, outEulerDeg.z);
 }
 

@@ -14,11 +14,21 @@
 #include <Measure.h>
 #include <RegistrationRigid.h>
 #include <RegistrationGlobal.h>
+#include <KdTreePointSet.h>
 #include <TemplateBrepUpdate.h>
+#include <TemplateBrepRegistration.h>
+#include <MeshSurfaceReconstruction.h>
+#include <BrepImportArtifacts.h>
+#if defined(_WIN64)
+#include <MeshNormalSmooth.h>
+#include <MeshRepair.h>
+#endif
 #include <ShapeIo.h>
 #include <ShapeQuery.h>
 #include "RunLogger.h"
 
+#include <array>
+#include <algorithm>
 #include <sstream>
 
 #include <limits>
@@ -75,6 +85,93 @@ double boundingBoxDiagonalMm(const std::vector<float>& xyz)
 	return pclalgo::computeBoundingBox(xyz).diagonal().norm();
 }
 
+void applyRowMatToWorldInPlace(std::vector<float>& xyz, const double rootWorldMat[16])
+{
+	const auto at = [rootWorldMat](const int row, const int col) {
+		return rootWorldMat[row * 4 + col];
+	};
+	const std::size_t n = xyz.size() / 3U;
+	for (std::size_t i = 0U; i < n; ++i)
+	{
+		const std::size_t b = i * 3U;
+		const double x = xyz[b];
+		const double y = xyz[b + 1U];
+		const double z = xyz[b + 2U];
+		xyz[b] = static_cast<float>(x * at(0, 0) + y * at(1, 0) + z * at(2, 0) + at(3, 0));
+		xyz[b + 1U] = static_cast<float>(x * at(0, 1) + y * at(1, 1) + z * at(2, 1) + at(3, 1));
+		xyz[b + 2U] = static_cast<float>(x * at(0, 2) + y * at(1, 2) + z * at(2, 2) + at(3, 2));
+	}
+}
+
+void applyWorldRowToTemplateModelInPlace(std::vector<float>& worldXyz, const double templateRootWorldMat[16])
+{
+	Eigen::Matrix4d tplMat = Eigen::Matrix4d::Identity();
+	for (int row = 0; row < 4; ++row)
+	{
+		for (int col = 0; col < 4; ++col)
+		{
+			tplMat(row, col) = templateRootWorldMat[row * 4 + col];
+		}
+	}
+	const Eigen::Matrix4d invTplMat = tplMat.inverse();
+	const std::size_t n = worldXyz.size() / 3U;
+	for (std::size_t i = 0U; i < n; ++i)
+	{
+		const std::size_t b = i * 3U;
+		const Eigen::RowVector4d world(
+			worldXyz[b], worldXyz[b + 1U], worldXyz[b + 2U], 1.0);
+		const Eigen::RowVector4d outer = world * invTplMat;
+		worldXyz[b] = static_cast<float>(outer(0));
+		worldXyz[b + 1U] = static_cast<float>(outer(1));
+		worldXyz[b + 2U] = static_cast<float>(outer(2));
+	}
+}
+
+void applyStoredToTemplateModelFrameInPlace(
+	std::vector<float>& storedScanXyz,
+	const geoalgo::RegistrationWorldFrameSnapshot& snap)
+{
+	applyRowMatToWorldInPlace(storedScanXyz, snap.scanRootWorldMat);
+	applyWorldRowToTemplateModelInPlace(storedScanXyz, snap.templateRootWorldMat);
+}
+
+Eigen::Isometry3d modelToWorldIsometryFromSnapshot(const double rootWorldMat[16])
+{
+	const auto mapRow = [&](const double x, const double y, const double z) {
+		const auto at = [rootWorldMat](const int row, const int col) {
+			return rootWorldMat[row * 4 + col];
+		};
+		return Eigen::Vector3d(
+			x * at(0, 0) + y * at(1, 0) + z * at(2, 0) + at(3, 0),
+			x * at(0, 1) + y * at(1, 1) + z * at(2, 1) + at(3, 1),
+			x * at(0, 2) + y * at(1, 2) + z * at(2, 2) + at(3, 2));
+	};
+	const Eigen::Vector3d origin = mapRow(0.0, 0.0, 0.0);
+	const Eigen::Vector3d px = mapRow(100.0, 0.0, 0.0) - origin;
+	const Eigen::Vector3d py = mapRow(0.0, 100.0, 0.0) - origin;
+	Eigen::Vector3d ex = px;
+	Eigen::Vector3d ey = py;
+	if (ex.norm() < 1e-3 || ey.norm() < 1e-3)
+	{
+		return Eigen::Isometry3d::Identity();
+	}
+	ex.normalize();
+	ey -= ey.dot(ex) * ex;
+	if (ey.norm() < 1e-3)
+	{
+		return Eigen::Isometry3d::Identity();
+	}
+	ey.normalize();
+	Eigen::Matrix3d rot;
+	rot.col(0) = ex;
+	rot.col(1) = ey;
+	rot.col(2) = ex.cross(ey);
+	Eigen::Isometry3d iso = Eigen::Isometry3d::Identity();
+	iso.linear() = rot;
+	iso.translation() = origin;
+	return iso;
+}
+
 void subsampleXyzUniform(std::vector<float>& xyz, const std::size_t maxPoints)
 {
 	const std::size_t n = xyz.size() / 3U;
@@ -97,6 +194,53 @@ void subsampleXyzUniform(std::vector<float>& xyz, const std::size_t maxPoints)
 		reduced.push_back(xyz[b + 2U]);
 	}
 	xyz.swap(reduced);
+}
+
+void subsampleXyzWithNormalsUniform(
+	std::vector<float>& xyz,
+	std::vector<float>& normals,
+	const std::size_t maxPoints)
+{
+	const std::size_t n = xyz.size() / 3U;
+	if (n <= maxPoints || maxPoints < 3U)
+	{
+		return;
+	}
+	const bool hasNormals = normals.size() == xyz.size();
+	std::vector<float> reducedXyz;
+	std::vector<float> reducedNormals;
+	reducedXyz.reserve(maxPoints * 3U);
+	if (hasNormals)
+	{
+		reducedNormals.reserve(maxPoints * 3U);
+	}
+	const std::size_t step = std::max<std::size_t>(1U, n / maxPoints);
+	for (std::size_t i = 0; i < n; i += step)
+	{
+		if ((reducedXyz.size() / 3U) >= maxPoints)
+		{
+			break;
+		}
+		const std::size_t b = i * 3U;
+		reducedXyz.push_back(xyz[b]);
+		reducedXyz.push_back(xyz[b + 1U]);
+		reducedXyz.push_back(xyz[b + 2U]);
+		if (hasNormals)
+		{
+			reducedNormals.push_back(normals[b]);
+			reducedNormals.push_back(normals[b + 1U]);
+			reducedNormals.push_back(normals[b + 2U]);
+		}
+	}
+	xyz.swap(reducedXyz);
+	if (hasNormals)
+	{
+		normals.swap(reducedNormals);
+	}
+	else
+	{
+		normals.clear();
+	}
 }
 
 geoalgo::ShapeHandle resolveTemplateShapeForUpdate(
@@ -135,12 +279,30 @@ geoalgo::ShapeHandle resolveTemplateShapeForIcp(
 	const std::string& templateStepPathUtf8,
 	std::string* errMsg)
 {
+	if (!templateStepPathUtf8.empty())
+	{
+		geoalgo::ShapeHandle fromStep;
+		std::string stepErr;
+		if (geoalgo::readStepIntoHandle(templateStepPathUtf8, fromStep, &stepErr) && !fromStep.isNull())
+		{
+			return fromStep;
+		}
+		if (errMsg && !stepErr.empty())
+		{
+			*errMsg = "STEP template load failed: " + stepErr;
+		}
+	}
+
 	const geoalgo::ShapeHandle& inMemory = templateBrep.shapeRef();
 	if (!inMemory.isNull())
 	{
 		return inMemory;
 	}
-	return resolveTemplateShapeForUpdate(templateBrep, templateStepPathUtf8, errMsg);
+	if (errMsg)
+	{
+		*errMsg = "template B-rep has no shape";
+	}
+	return geoalgo::ShapeHandle{};
 }
 
 std::size_t countPointsWithinPairDistance(
@@ -153,33 +315,184 @@ std::size_t countPointsWithinPairDistance(
 	{
 		return 0U;
 	}
+	const pclalgo::KdTreePointSet tgtTree(tgtXyz);
+	if (tgtTree.empty())
+	{
+		return 0U;
+	}
 	const double maxPairDistSq = maxPairMm * maxPairMm;
 	const std::size_t nSrc = srcXyz.size() / 3U;
-	const std::size_t nTgt = tgtXyz.size() / 3U;
 	const std::size_t sampleCount = std::min(nSrc, maxSamples);
 	const std::size_t srcStride = std::max<std::size_t>(1U, nSrc / sampleCount);
-	const std::size_t tgtStride = std::max<std::size_t>(1U, nTgt / 512U);
 	std::size_t hits = 0U;
 	for (std::size_t i = 0; i < nSrc; i += srcStride)
 	{
 		const std::size_t b = i * 3U;
-		const Eigen::Vector3d query(srcXyz[b], srcXyz[b + 1U], srcXyz[b + 2U]);
 		double bestSq = maxPairDistSq;
-		for (std::size_t j = 0; j < nTgt; j += tgtStride)
-		{
-			const std::size_t tb = j * 3U;
-			const double d2 = (query - Eigen::Vector3d(tgtXyz[tb], tgtXyz[tb + 1U], tgtXyz[tb + 2U])).squaredNorm();
-			if (d2 < bestSq)
-			{
-				bestSq = d2;
-			}
-		}
-		if (bestSq < maxPairDistSq)
+		const std::size_t nnIdx = tgtTree.findNearest(
+			static_cast<double>(srcXyz[b]),
+			static_cast<double>(srcXyz[b + 1U]),
+			static_cast<double>(srcXyz[b + 2U]),
+			maxPairDistSq,
+			bestSq);
+		if (nnIdx != static_cast<std::size_t>(-1))
 		{
 			++hits;
 		}
 	}
 	return hits;
+}
+
+void measureScanToCloudDistance(
+	const std::vector<float>& scanXyz,
+	const std::vector<float>& cloudXyz,
+	double& outMaxMm,
+	double& outAvgMm,
+	const std::size_t maxScanSamples = 512U)
+{
+	outMaxMm = 0.0;
+	outAvgMm = 0.0;
+	if (scanXyz.size() < 9U || cloudXyz.size() < 9U)
+	{
+		return;
+	}
+	const pclalgo::KdTreePointSet cloudTree(cloudXyz);
+	if (cloudTree.empty())
+	{
+		return;
+	}
+	const double unlimitedSq = std::numeric_limits<double>::max();
+	const std::size_t nScan = scanXyz.size() / 3U;
+	const std::size_t sampleCount = std::min(nScan, maxScanSamples);
+	const std::size_t scanStride = std::max<std::size_t>(1U, nScan / std::max<std::size_t>(1U, sampleCount));
+	double sumDist = 0.0;
+	std::size_t count = 0U;
+	for (std::size_t i = 0U; i < nScan; i += scanStride)
+	{
+		const std::size_t b = i * 3U;
+		double bestSq = unlimitedSq;
+		const std::size_t nnIdx = cloudTree.findNearest(
+			static_cast<double>(scanXyz[b]),
+			static_cast<double>(scanXyz[b + 1U]),
+			static_cast<double>(scanXyz[b + 2U]),
+			unlimitedSq,
+			bestSq);
+		if (nnIdx == static_cast<std::size_t>(-1))
+		{
+			continue;
+		}
+		const double dist = std::sqrt(bestSq);
+		outMaxMm = std::max(outMaxMm, dist);
+		sumDist += dist;
+		++count;
+	}
+	outAvgMm = count > 0U ? (sumDist / static_cast<double>(count)) : 0.0;
+}
+
+/// 仅统计距模板 soup 在 inlierGateMm 内的扫描点（与 ICP 重叠区一致，避免全云离群点拉高 maxDev）
+void measureScanToCloudInlierStats(
+	const std::vector<float>& scanXyz,
+	const std::vector<float>& cloudXyz,
+	const double inlierGateMm,
+	double& outInlierMaxMm,
+	double& outInlierAvgMm,
+	std::size_t& outInlierHits,
+	const std::size_t maxScanSamples = 512U)
+{
+	outInlierMaxMm = 0.0;
+	outInlierAvgMm = 0.0;
+	outInlierHits = 0U;
+	if (scanXyz.size() < 9U || cloudXyz.size() < 9U || inlierGateMm <= 0.0)
+	{
+		return;
+	}
+	const double gateSq = inlierGateMm * inlierGateMm;
+	const std::size_t nScan = scanXyz.size() / 3U;
+	const std::size_t nCloud = cloudXyz.size() / 3U;
+	const std::size_t sampleCount = std::min(nScan, maxScanSamples);
+	const std::size_t scanStride = std::max<std::size_t>(1U, nScan / std::max<std::size_t>(1U, sampleCount));
+	const std::size_t cloudStride = std::max<std::size_t>(1U, nCloud / 512U);
+	double sumInlier = 0.0;
+	for (std::size_t i = 0U; i < nScan; i += scanStride)
+	{
+		const std::size_t b = i * 3U;
+		const Eigen::Vector3d query(scanXyz[b], scanXyz[b + 1U], scanXyz[b + 2U]);
+		double bestSq = std::numeric_limits<double>::max();
+		for (std::size_t j = 0U; j < nCloud; j += cloudStride)
+		{
+			const std::size_t cb = j * 3U;
+			const double d2 =
+				(query - Eigen::Vector3d(cloudXyz[cb], cloudXyz[cb + 1U], cloudXyz[cb + 2U])).squaredNorm();
+			if (d2 < bestSq)
+			{
+				bestSq = d2;
+			}
+		}
+		if (bestSq > gateSq)
+		{
+			continue;
+		}
+		const double dist = std::sqrt(bestSq);
+		outInlierMaxMm = std::max(outInlierMaxMm, dist);
+		sumInlier += dist;
+		++outInlierHits;
+	}
+	outInlierAvgMm =
+		outInlierHits > 0U ? (sumInlier / static_cast<double>(outInlierHits)) : 0.0;
+}
+
+constexpr std::size_t kMinRegistrationOverlapHits = 32U;
+// 重叠采样命中足够时保留 globalPreAlign 结果，避免 reset 丢弃 PCA/RANSAC 偏航修正
+constexpr std::size_t kMinResetOverlapHits = 96U;
+
+enum class RegistrationAlignMode
+{
+	ManualTrusted,
+	AutoRecover,
+	ManualPartial,
+	ColdStart,
+};
+
+const char* registrationAlignModeName(const RegistrationAlignMode mode)
+{
+	switch (mode)
+	{
+	case RegistrationAlignMode::ManualTrusted:
+		return "manualTrusted";
+	case RegistrationAlignMode::AutoRecover:
+		return "autoRecover";
+	case RegistrationAlignMode::ManualPartial:
+		return "manualPartial";
+	case RegistrationAlignMode::ColdStart:
+		return "coldStart";
+	default:
+		return "unknown";
+	}
+}
+
+RegistrationAlignMode resolveRegistrationAlignMode(
+	const geoalgo::TemplateBrepUpdateParams& params,
+	const std::size_t initialOverlapHits,
+	const double initialMaxDevMm,
+	const double preAlignGateMm)
+{
+	if (!params.scanAlreadyInTemplateFrame)
+	{
+		return RegistrationAlignMode::ColdStart;
+	}
+	if (initialOverlapHits >= kMinRegistrationOverlapHits)
+	{
+		return RegistrationAlignMode::ManualTrusted;
+	}
+	if (initialOverlapHits == 0U)
+	{
+		return RegistrationAlignMode::AutoRecover;
+	}
+	if (initialMaxDevMm > preAlignGateMm * 2.0)
+	{
+		return RegistrationAlignMode::AutoRecover;
+	}
+	return RegistrationAlignMode::ManualPartial;
 }
 
 Eigen::Vector3d pointAtXyz(const std::vector<float>& xyz, const std::size_t i)
@@ -309,6 +622,127 @@ std::unordered_map<int, BackendColor> buildRefittedFaceHighlightColors(
 		}
 	}
 	return out;
+}
+
+bool runReverseIcpStage(
+	const char* stageLabel,
+	std::vector<float>& templateSampleXyz,
+	std::vector<float>& templateSampleNormals,
+	const std::vector<float>& scanXyz,
+	const std::vector<float>& scanNormals,
+	const geoalgo::TemplateBrepUpdateParams& params,
+	const double maxPairMm,
+	const int maxIterations,
+	Eigen::Isometry3d& outTemplateToScanStep,
+	double& outRmseMm,
+	std::string* errMsg,
+	const double normalGateDegOverride = -1.0)
+{
+	outTemplateToScanStep = Eigen::Isometry3d::Identity();
+	outRmseMm = 0.0;
+	std::string stageErr;
+	const std::vector<float>* tplNormalsPtr =
+		(templateSampleNormals.size() == templateSampleXyz.size() && !templateSampleNormals.empty())
+			? &templateSampleNormals
+			: nullptr;
+	const std::vector<float>* scanNormalsPtr =
+		(scanNormals.size() == scanXyz.size() && !scanNormals.empty()) ? &scanNormals : nullptr;
+	const double normalGateDeg = normalGateDegOverride >= 0.0
+		? normalGateDegOverride
+		: (params.normalThresholdDeg > 0.0 ? params.normalThresholdDeg : 0.0);
+	if (!pclalgo::rigidRegisterIcp(
+			templateSampleXyz,
+			scanXyz,
+			outTemplateToScanStep,
+			&outRmseMm,
+			maxIterations,
+			0.01,
+			maxPairMm,
+			params.icpMaxPoints,
+			&stageErr,
+			tplNormalsPtr,
+			scanNormalsPtr,
+			normalGateDeg))
+	{
+		if (errMsg)
+		{
+			const std::size_t pairHits =
+				countPointsWithinPairDistance(scanXyz, templateSampleXyz, maxPairMm, 512U);
+			std::ostringstream oss;
+			oss << stageLabel << ": " << (stageErr.empty() ? "reverse ICP failed" : stageErr)
+				<< " [maxPairMm=" << maxPairMm << " pairHits=" << pairHits << "/512]";
+			*errMsg = oss.str();
+		}
+		return false;
+	}
+	applyIsometryInPlace(templateSampleXyz, outTemplateToScanStep);
+	if (!templateSampleNormals.empty())
+	{
+		applyIsometryInPlaceNormals(templateSampleNormals, outTemplateToScanStep);
+	}
+	return true;
+}
+
+bool runReversePointToPlaneIcpStage(
+	const char* stageLabel,
+	std::vector<float>& templateSampleXyz,
+	std::vector<float>& templateSampleNormals,
+	const std::vector<float>& scanXyz,
+	const std::vector<float>& scanNormals,
+	const geoalgo::TemplateBrepUpdateParams& params,
+	const double maxPairMm,
+	const int maxIterations,
+	Eigen::Isometry3d& outTemplateToScanStep,
+	double& outRmseMm,
+	std::string* errMsg,
+	const double normalGateDegOverride = -1.0)
+{
+	outTemplateToScanStep = Eigen::Isometry3d::Identity();
+	outRmseMm = 0.0;
+	if (templateSampleNormals.empty() || scanNormals.empty())
+	{
+		return runReverseIcpStage(
+			stageLabel,
+			templateSampleXyz,
+			templateSampleNormals,
+			scanXyz,
+			scanNormals,
+			params,
+			maxPairMm,
+			maxIterations,
+			outTemplateToScanStep,
+			outRmseMm,
+			errMsg,
+			normalGateDegOverride >= 0.0 ? normalGateDegOverride : 0.0);
+	}
+	std::string stageErr;
+	const double normalGateDeg = normalGateDegOverride >= 0.0
+		? normalGateDegOverride
+		: (params.normalThresholdDeg > 0.0 ? params.normalThresholdDeg : 0.0);
+	if (!pclalgo::rigidRegisterPointToPlaneIcp(
+			templateSampleXyz,
+			templateSampleNormals,
+			scanXyz,
+			scanNormals,
+			outTemplateToScanStep,
+			&outRmseMm,
+			maxIterations,
+			0.005,
+			maxPairMm,
+			params.icpMaxPoints,
+			&stageErr,
+			normalGateDeg))
+	{
+		if (errMsg)
+		{
+			*errMsg = std::string(stageLabel) + ": "
+				+ (stageErr.empty() ? "reverse point-to-plane ICP failed" : stageErr);
+		}
+		return false;
+	}
+	applyIsometryInPlace(templateSampleXyz, outTemplateToScanStep);
+	applyIsometryInPlaceNormals(templateSampleNormals, outTemplateToScanStep);
+	return true;
 }
 
 bool runIcpStage(
@@ -476,11 +910,16 @@ double meanNearestDistanceAfterTransform(
 	const std::size_t maxSamples)
 {
 	const std::size_t nSrc = srcXyz.size() / 3U;
-	const std::size_t nTgt = tgtXyz.size() / 3U;
-	if (nSrc == 0U || nTgt == 0U)
+	if (nSrc == 0U || tgtXyz.size() < 9U)
 	{
 		return std::numeric_limits<double>::max();
 	}
+	const pclalgo::KdTreePointSet tgtTree(tgtXyz);
+	if (tgtTree.empty())
+	{
+		return std::numeric_limits<double>::max();
+	}
+	const double unlimitedSq = std::numeric_limits<double>::max();
 	const std::size_t step = std::max<std::size_t>(1U, nSrc / std::max<std::size_t>(1U, maxSamples));
 	double sum = 0.0;
 	std::size_t count = 0U;
@@ -489,21 +928,533 @@ double meanNearestDistanceAfterTransform(
 		const std::size_t b = i * 3U;
 		const Eigen::Vector3d p =
 			transform * Eigen::Vector3d(srcXyz[b], srcXyz[b + 1U], srcXyz[b + 2U]);
-		double bestSq = std::numeric_limits<double>::max();
-		const std::size_t tgtStep = std::max<std::size_t>(1U, nTgt / 4000U);
-		for (std::size_t j = 0; j < nTgt; j += tgtStep)
+		double bestSq = unlimitedSq;
+		const std::size_t nnIdx = tgtTree.findNearest(p.x(), p.y(), p.z(), unlimitedSq, bestSq);
+		if (nnIdx == static_cast<std::size_t>(-1))
 		{
-			const std::size_t tb = j * 3U;
-			const double d2 = (p - Eigen::Vector3d(tgtXyz[tb], tgtXyz[tb + 1U], tgtXyz[tb + 2U])).squaredNorm();
-			if (d2 < bestSq)
-			{
-				bestSq = d2;
-			}
+			continue;
 		}
 		sum += std::sqrt(bestSq);
 		++count;
 	}
 	return count > 0U ? (sum / static_cast<double>(count)) : std::numeric_limits<double>::max();
+}
+
+double rotationAngleDeg(const Eigen::Isometry3d& transform);
+
+struct PcaAlignmentScore
+{
+	double maxDevMm = std::numeric_limits<double>::max();
+	double meanDistMm = std::numeric_limits<double>::max();
+	std::size_t pairHits = 0U;
+};
+
+PcaAlignmentScore scoreTemplatePcaCandidate(
+	const std::vector<float>& templateXyz,
+	const std::vector<float>& scanXyz,
+	const Eigen::Isometry3d& candidate,
+	const double gateMm)
+{
+	PcaAlignmentScore score;
+	std::vector<float> trial = templateXyz;
+	applyIsometryInPlace(trial, candidate);
+	measureScanToCloudDistance(scanXyz, trial, score.maxDevMm, score.meanDistMm);
+	score.pairHits = countPointsWithinPairDistance(scanXyz, trial, gateMm, 512U);
+	return score;
+}
+
+bool pcaAlignmentScoreBetter(const PcaAlignmentScore& candidate, const PcaAlignmentScore& best)
+{
+	if (best.maxDevMm >= std::numeric_limits<double>::max() * 0.5)
+	{
+		return true;
+	}
+	if (candidate.maxDevMm + 3.0 < best.maxDevMm)
+	{
+		return true;
+	}
+	if (best.maxDevMm + 3.0 < candidate.maxDevMm)
+	{
+		return false;
+	}
+	if (candidate.pairHits >= kMinRegistrationOverlapHits
+		&& best.pairHits < kMinRegistrationOverlapHits)
+	{
+		return true;
+	}
+	if (best.pairHits >= kMinRegistrationOverlapHits
+		&& candidate.pairHits < kMinRegistrationOverlapHits)
+	{
+		return false;
+	}
+	if (candidate.pairHits != best.pairHits)
+	{
+		return candidate.pairHits > best.pairHits;
+	}
+	return candidate.meanDistMm < best.meanDistMm;
+}
+
+bool tryCoarseQuarterTurnAlignment(
+	const std::vector<float>& workXyz,
+	std::vector<float>& templateSoupXyz,
+	std::vector<float>& templateSoupNormals,
+	const geoalgo::ShapeHandle& templateShape,
+	geoalgo::ShapeHandle& workingTemplate,
+	const double preAlignGateMm,
+	Eigen::Isometry3d& inOutTemplateToScan,
+	PcaAlignmentScore& ioScore)
+{
+	const Eigen::AlignedBox3d scanBox = pclalgo::computeBoundingBox(workXyz);
+	if (scanBox.isEmpty())
+	{
+		return false;
+	}
+	const Eigen::Vector3d pivot = scanBox.center();
+
+	auto rotationAboutPivot = [&](const Eigen::Vector3d& axisUnit, const double deg) {
+		Eigen::Isometry3d step = Eigen::Isometry3d::Identity();
+		step.linear() =
+			Eigen::AngleAxisd(deg * 3.14159265358979323846 / 180.0, axisUnit.normalized()).toRotationMatrix();
+		step.translation() = pivot - step.linear() * pivot;
+		return step;
+	};
+
+	PcaAlignmentScore bestCandidate = ioScore;
+	Eigen::Isometry3d bestStep = Eigen::Isometry3d::Identity();
+	bool found = false;
+
+	const Eigen::Vector3d axes[] = {
+		Eigen::Vector3d::UnitX(), Eigen::Vector3d::UnitY(), Eigen::Vector3d::UnitZ()};
+	const double degs[] = {90.0, 180.0, 270.0};
+
+	for (const Eigen::Vector3d& axis : axes)
+	{
+		for (const double deg : degs)
+		{
+			const Eigen::Isometry3d step = rotationAboutPivot(axis, deg);
+			const PcaAlignmentScore candidate =
+				scoreTemplatePcaCandidate(templateSoupXyz, workXyz, step, preAlignGateMm);
+			if (pcaAlignmentScoreBetter(candidate, bestCandidate))
+			{
+				bestCandidate = candidate;
+				bestStep = step;
+				found = true;
+			}
+		}
+	}
+
+	if (!found || !pcaAlignmentScoreBetter(bestCandidate, ioScore))
+	{
+		if (found)
+		{
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] coarseStage=quarterTurn rejected maxDevMm=")
+				+ std::to_string(bestCandidate.maxDevMm) + " pairHits="
+				+ std::to_string(bestCandidate.pairHits) + "/512");
+		}
+		return false;
+	}
+
+	const std::vector<float> soupBefore = templateSoupXyz;
+	const std::vector<float> normalsBefore = templateSoupNormals;
+	const Eigen::Isometry3d transformBefore = inOutTemplateToScan;
+	const geoalgo::ShapeHandle templateBefore = workingTemplate.clone();
+
+	applyIsometryInPlace(templateSoupXyz, bestStep);
+	if (!templateSoupNormals.empty())
+	{
+		applyIsometryInPlaceNormals(templateSoupNormals, bestStep);
+	}
+	inOutTemplateToScan = bestStep * inOutTemplateToScan;
+	std::string transformErr;
+	if (!geoalgo::applyIsometryToShapeHandle(workingTemplate, bestStep, workingTemplate, &transformErr))
+	{
+		templateSoupXyz = soupBefore;
+		templateSoupNormals = normalsBefore;
+		inOutTemplateToScan = transformBefore;
+		workingTemplate = templateBefore;
+		return false;
+	}
+
+	ioScore = bestCandidate;
+	const double rotDeg = rotationAngleDeg(bestStep);
+	RunLogger::info(
+		std::string("[TemplateBrepUpdate] coarseStage=quarterTurn ok pairHits=")
+		+ std::to_string(bestCandidate.pairHits) + "/512 maxDevMm="
+		+ std::to_string(bestCandidate.maxDevMm) + " rotDeg=" + std::to_string(rotDeg));
+	return true;
+}
+
+bool coarseOverlapQualityPoor(
+	const std::size_t pairHits,
+	const double maxDevMm,
+	const double maxDevGateMm)
+{
+	return pairHits < kMinRegistrationOverlapHits || maxDevMm > maxDevGateMm;
+}
+
+bool tryCoarseFeatureRansacAlign(
+	const char* stageLabel,
+	const std::vector<float>& workXyz,
+	const std::vector<float>& workNormals,
+	std::vector<float>& templateSoupXyz,
+	std::vector<float>& templateSoupNormals,
+	const geoalgo::ShapeHandle& templateShape,
+	geoalgo::ShapeHandle& workingTemplate,
+	const geoalgo::TemplateBrepUpdateParams& params,
+	const double modelDiag,
+	const double preAlignGateMm,
+	const double baselineMaxDevMm,
+	Eigen::Isometry3d& inOutTemplateToScan,
+	PcaAlignmentScore& ioScore,
+	std::string* errMsg)
+{
+	if (!params.enableRansacCoarseMatch)
+	{
+		return false;
+	}
+
+	const double fb = std::max(params.faceBandMm, 1.0);
+	pclalgo::RigidRegisterRansacParams ransacParams;
+	ransacParams.maxFeaturePoints = params.icpMaxPoints;
+	ransacParams.modelDiagMm = modelDiag;
+	ransacParams.faceBandMm = params.faceBandMm;
+	ransacParams.maxIterations = params.ransacMaxIterations;
+	ransacParams.inlierDistanceMm = std::min(
+		std::max({preAlignGateMm * 1.25, fb * 4.0, baselineMaxDevMm * 0.45}),
+		modelDiag * 0.12);
+	ransacParams.featureVoxelMm = std::max(modelDiag * 0.015, fb * 2.0);
+	ransacParams.skipTranslationCap = true;
+	const double transCapMm = std::max(modelDiag * 0.25, preAlignGateMm * 2.0);
+
+	struct RansacCandidate
+	{
+		Eigen::Isometry3d step = Eigen::Isometry3d::Identity();
+		PcaAlignmentScore score;
+		double inlierRatio = 0.0;
+		bool reverse = false;
+	};
+
+	auto scoreRansacStep = [&](const Eigen::Isometry3d& step, PcaAlignmentScore& outScore) {
+		std::vector<float> trialSoup = templateSoupXyz;
+		std::vector<float> trialNormals = templateSoupNormals;
+		applyIsometryInPlace(trialSoup, step);
+		if (!trialNormals.empty())
+		{
+			applyIsometryInPlaceNormals(trialNormals, step);
+		}
+		measureScanToCloudDistance(workXyz, trialSoup, outScore.maxDevMm, outScore.meanDistMm);
+		outScore.pairHits =
+			countPointsWithinPairDistance(workXyz, trialSoup, preAlignGateMm, 512U);
+	};
+
+	std::vector<RansacCandidate> candidates;
+	auto tryDirection = [&](const bool reverse) {
+		Eigen::Isometry3d rawStep = Eigen::Isometry3d::Identity();
+		double inlierRatio = 0.0;
+		std::string ransacErr;
+		const bool ok = reverse
+			? pclalgo::rigidRegisterFeatureRansac(
+				  workXyz,
+				  workNormals,
+				  templateSoupXyz,
+				  templateSoupNormals,
+				  rawStep,
+				  &inlierRatio,
+				  ransacParams,
+				  &ransacErr)
+			: pclalgo::rigidRegisterFeatureRansac(
+				  templateSoupXyz,
+				  templateSoupNormals,
+				  workXyz,
+				  workNormals,
+				  rawStep,
+				  &inlierRatio,
+				  ransacParams,
+				  &ransacErr);
+		if (!ok)
+		{
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] coarseStage=") + stageLabel
+				+ (reverse ? " reverse ransac failed: " : " ransac failed: ")
+				+ (ransacErr.empty() ? "unknown" : ransacErr));
+			return;
+		}
+		const Eigen::Isometry3d step = reverse ? rawStep.inverse() : rawStep;
+		RansacCandidate candidate;
+		candidate.step = step;
+		candidate.inlierRatio = inlierRatio;
+		candidate.reverse = reverse;
+		scoreRansacStep(step, candidate.score);
+		candidates.push_back(std::move(candidate));
+	};
+
+	tryDirection(false);
+	tryDirection(true);
+	if (candidates.empty())
+	{
+		return false;
+	}
+
+	const RansacCandidate* bestCandidate = &candidates.front();
+	for (const RansacCandidate& candidate : candidates)
+	{
+		if (pcaAlignmentScoreBetter(candidate.score, bestCandidate->score))
+		{
+			bestCandidate = &candidate;
+		}
+	}
+	if (!pcaAlignmentScoreBetter(bestCandidate->score, ioScore))
+	{
+		return false;
+	}
+	if (bestCandidate->step.translation().norm() > transCapMm
+		&& bestCandidate->score.maxDevMm > preAlignGateMm * 2.0)
+	{
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] coarseStage=") + stageLabel
+			+ " ransac best rejected transMm=" + std::to_string(bestCandidate->step.translation().norm())
+			+ " maxDevMm=" + std::to_string(bestCandidate->score.maxDevMm));
+		return false;
+	}
+
+	const std::vector<float> soupBefore = templateSoupXyz;
+	const std::vector<float> normalsBefore = templateSoupNormals;
+	const Eigen::Isometry3d transformBefore = inOutTemplateToScan;
+	const geoalgo::ShapeHandle templateBefore = workingTemplate.clone();
+
+	applyIsometryInPlace(templateSoupXyz, bestCandidate->step);
+	applyIsometryInPlaceNormals(templateSoupNormals, bestCandidate->step);
+	inOutTemplateToScan = bestCandidate->step * inOutTemplateToScan;
+	std::string transformErr;
+	if (!geoalgo::applyIsometryToShapeHandle(
+			workingTemplate, bestCandidate->step, workingTemplate, &transformErr))
+	{
+		templateSoupXyz = soupBefore;
+		templateSoupNormals = normalsBefore;
+		inOutTemplateToScan = transformBefore;
+		workingTemplate = templateBefore;
+		if (errMsg)
+		{
+			*errMsg = transformErr.empty() ? "RANSAC template transform failed" : transformErr;
+		}
+		return false;
+	}
+
+	ioScore = bestCandidate->score;
+	const double rotDeg = rotationAngleDeg(bestCandidate->step);
+	RunLogger::info(
+		std::string("[TemplateBrepUpdate] coarseStage=") + stageLabel
+		+ (bestCandidate->reverse ? " reverse ransac ok " : " ransac ok ")
+		+ "inlierRatio=" + std::to_string(bestCandidate->inlierRatio) + " pairHits="
+		+ std::to_string(ioScore.pairHits) + "/512 maxDevMm=" + std::to_string(ioScore.maxDevMm)
+		+ " transMm=" + std::to_string(bestCandidate->step.translation().norm())
+		+ " rotDeg=" + std::to_string(rotDeg));
+	return true;
+}
+
+void normalizeCoarseTemplateToScanMatrix(
+	const std::vector<float>& originalSoupXyz,
+	const std::vector<float>& finalSoupXyz,
+	const std::vector<float>& scanXyz,
+	const double modelDiag,
+	const double preAlignGateMm,
+	Eigen::Isometry3d& inOutTemplateToScan)
+{
+	const double transCapMm = std::max(modelDiag * 0.25, preAlignGateMm * 2.0);
+	const double accumTransMm = inOutTemplateToScan.translation().norm();
+	if (accumTransMm <= transCapMm)
+	{
+		return;
+	}
+	if (originalSoupXyz.size() >= 9U && originalSoupXyz.size() == finalSoupXyz.size() && scanXyz.size() >= 9U)
+	{
+		Eigen::Isometry3d estimated = Eigen::Isometry3d::Identity();
+		double icpRmse = 0.0;
+		const double maxPairMm = std::max(
+			{modelDiag * 0.6, accumTransMm * 1.25, preAlignGateMm * 4.0, 50.0});
+		if (pclalgo::rigidRegisterIcp(
+				originalSoupXyz,
+				finalSoupXyz,
+				estimated,
+				&icpRmse,
+				25,
+				0.01,
+				maxPairMm,
+				60000U,
+				nullptr,
+				nullptr,
+				nullptr,
+				0.0))
+		{
+			std::vector<float> verifyXyz = originalSoupXyz;
+			applyIsometryInPlace(verifyXyz, estimated);
+			double scanMaxMm = 0.0;
+			double scanAvgMm = 0.0;
+			measureScanToCloudDistance(scanXyz, verifyXyz, scanMaxMm, scanAvgMm);
+			const std::size_t scanHits =
+				countPointsWithinPairDistance(scanXyz, verifyXyz, preAlignGateMm, 512U);
+			const double estimatedTransMm = estimated.translation().norm();
+			const double verifyGateMm = std::max({preAlignGateMm * 1.5, modelDiag * 0.03, 20.0});
+			if (estimatedTransMm <= transCapMm && scanMaxMm <= verifyGateMm * 2.0
+				&& scanHits >= kMinRegistrationOverlapHits / 2U)
+			{
+				inOutTemplateToScan = estimated;
+				RunLogger::info(
+					std::string("[TemplateBrepUpdate] coarseStage=templateToScan normalized transMm=")
+					+ std::to_string(estimatedTransMm) + " scanMaxMm=" + std::to_string(scanMaxMm));
+				return;
+			}
+		}
+	}
+	inOutTemplateToScan = Eigen::Isometry3d::Identity();
+	RunLogger::info(
+		std::string("[TemplateBrepUpdate] coarseStage=templateToScan clamped to identity (was ")
+		+ std::to_string(accumTransMm) + "mm); alignment carried by baked shape");
+}
+
+void reconcileTemplateToScanWithSoup(
+	const geoalgo::ShapeHandle& templateShape,
+	const std::vector<float>& originalSoupXyz,
+	const std::vector<float>& finalSoupXyz,
+	const std::vector<float>& scanXyz,
+	const double modelDiag,
+	const double preAlignGateMm,
+	Eigen::Isometry3d& inOutTemplateToScan,
+	geoalgo::ShapeHandle& inOutAlignedTemplateShape)
+{
+	(void)templateShape;
+	(void)inOutAlignedTemplateShape;
+	if (originalSoupXyz.size() < 9U || originalSoupXyz.size() != finalSoupXyz.size() || scanXyz.size() < 9U)
+	{
+		return;
+	}
+	Eigen::Isometry3d estimated = Eigen::Isometry3d::Identity();
+	double icpRmse = 0.0;
+	const double accumTransMm = inOutTemplateToScan.translation().norm();
+	const double maxPairMm = std::max(
+		{modelDiag * 0.6, accumTransMm * 1.25, preAlignGateMm * 4.0, 50.0});
+	if (!pclalgo::rigidRegisterIcp(
+			originalSoupXyz,
+			finalSoupXyz,
+			estimated,
+			&icpRmse,
+			25,
+			0.01,
+			maxPairMm,
+			60000U,
+			nullptr,
+			nullptr,
+			nullptr,
+			0.0))
+	{
+		return;
+	}
+	std::vector<float> verifyXyz = originalSoupXyz;
+	applyIsometryInPlace(verifyXyz, estimated);
+	double scanMaxMm = 0.0;
+	double scanAvgMm = 0.0;
+	measureScanToCloudDistance(scanXyz, verifyXyz, scanMaxMm, scanAvgMm);
+	const std::size_t scanHits =
+		countPointsWithinPairDistance(scanXyz, verifyXyz, preAlignGateMm, 512U);
+	const double estimatedTransMm = estimated.translation().norm();
+	const double transDeltaMm = (inOutTemplateToScan.translation() - estimated.translation()).norm();
+	const double estimatedRotDeg = rotationAngleDeg(estimated);
+	const double verifyGateMm = std::max({preAlignGateMm * 1.5, modelDiag * 0.03, 20.0});
+	const double transCapMm = std::max(modelDiag * 0.25, preAlignGateMm * 2.0);
+	if (estimatedTransMm > transCapMm || scanMaxMm > verifyGateMm * 2.0
+		|| scanHits < kMinRegistrationOverlapHits / 2U)
+	{
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] coarseStage=reconcile rejected scanMaxMm=")
+			+ std::to_string(scanMaxMm) + " scanHits=" + std::to_string(scanHits) + "/512 transMm="
+			+ std::to_string(estimatedTransMm) + " (cap=" + std::to_string(transCapMm)
+			+ "mm); keep pipeline templateToScan");
+		return;
+	}
+	RunLogger::info(
+		std::string("[TemplateBrepUpdate] coarseStage=reconcile templateToScan accumTransMm=")
+		+ std::to_string(accumTransMm) + " estimatedTransMm=" + std::to_string(estimatedTransMm)
+		+ " deltaMm=" + std::to_string(transDeltaMm) + " scanMaxMm=" + std::to_string(scanMaxMm)
+		+ " scanHits=" + std::to_string(scanHits) + "/512 rotDeg=" + std::to_string(estimatedRotDeg));
+	inOutTemplateToScan = estimated;
+}
+
+Eigen::Isometry3d alignTemplatePcaToScan(
+	std::vector<float>& templateSampleXyz,
+	std::vector<float>& templateSampleNormals,
+	const std::vector<float>& scanXyz)
+{
+	Eigen::Vector3d scanCentroid = Eigen::Vector3d::Zero();
+	Eigen::Vector3d templateCentroid = Eigen::Vector3d::Zero();
+	Eigen::Matrix3d scanAxes = Eigen::Matrix3d::Identity();
+	Eigen::Matrix3d templateAxes = Eigen::Matrix3d::Identity();
+	if (!computeCloudPcaFrame(scanXyz, scanCentroid, scanAxes)
+		|| !computeCloudPcaFrame(templateSampleXyz, templateCentroid, templateAxes))
+	{
+		return Eigen::Isometry3d::Identity();
+	}
+
+	const double modelDiag = std::max(
+		boundingBoxDiagonalMm(scanXyz), boundingBoxDiagonalMm(templateSampleXyz));
+	const double gateMm = std::max({modelDiag * 0.02, 15.0});
+
+	Eigen::Isometry3d best = Eigen::Isometry3d::Identity();
+	PcaAlignmentScore bestScore;
+	const int axisPermutations[6][3] = {
+		{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0},
+	};
+	for (const int (&perm)[3] : axisPermutations)
+	{
+		Eigen::Matrix3d permutedTemplateAxes;
+		for (int col = 0; col < 3; ++col)
+		{
+			permutedTemplateAxes.col(col) = templateAxes.col(perm[col]);
+		}
+		if (permutedTemplateAxes.determinant() < 0.0)
+		{
+			continue;
+		}
+		for (const int sx : {-1, 1})
+		{
+			for (const int sy : {-1, 1})
+			{
+				for (const int sz : {-1, 1})
+				{
+					Eigen::Matrix3d signedTemplateAxes =
+						permutedTemplateAxes * Eigen::DiagonalMatrix<double, 3>(sx, sy, sz);
+					Eigen::Matrix3d rot = scanAxes * signedTemplateAxes.transpose();
+					if (rot.determinant() < 0.0)
+					{
+						continue;
+					}
+					Eigen::Isometry3d candidate = Eigen::Isometry3d::Identity();
+					candidate.linear() = rot;
+					candidate.translation() = scanCentroid - rot * templateCentroid;
+					const PcaAlignmentScore candidateScore =
+						scoreTemplatePcaCandidate(templateSampleXyz, scanXyz, candidate, gateMm);
+					if (pcaAlignmentScoreBetter(candidateScore, bestScore))
+					{
+						bestScore = candidateScore;
+						best = candidate;
+					}
+				}
+			}
+		}
+	}
+
+	const double rotDeg = rotationAngleDeg(best);
+	RunLogger::info(
+		std::string("[TemplateBrepUpdate] coarseStage=pca selected pairHits=")
+		+ std::to_string(bestScore.pairHits) + "/512 maxDevMm=" + std::to_string(bestScore.maxDevMm)
+		+ " meanDistMm=" + std::to_string(bestScore.meanDistMm) + " rotDeg=" + std::to_string(rotDeg));
+
+	applyIsometryInPlace(templateSampleXyz, best);
+	if (!templateSampleNormals.empty())
+	{
+		applyIsometryInPlaceNormals(templateSampleNormals, best);
+	}
+	return best;
 }
 
 Eigen::Isometry3d alignScanPcaToTemplate(
@@ -562,125 +1513,1635 @@ double rotationAngleDeg(const Eigen::Isometry3d& transform)
 	return aa.angle() * 180.0 / 3.14159265358979323846;
 }
 
-bool alignScanPreAlignedInTemplateFrame(
-	std::vector<float>& workXyz,
-	std::vector<float>& workNormals,
-	const std::vector<float>& templateSampleXyz,
-	const std::vector<float>& templateSampleNormals,
+bool runReverseSoupMultiStageIcp(
+	const std::vector<float>& workXyz,
+	const std::vector<float>& workNormals,
+	std::vector<float>& templateSoupXyz,
+	std::vector<float>& templateSoupNormals,
+	geoalgo::ShapeHandle& workingTemplate,
 	const geoalgo::TemplateBrepUpdateParams& params,
-	Eigen::Isometry3d& outScanToTemplate,
-	double& outRmseMm)
+	const double modelDiag,
+	Eigen::Isometry3d& outTemplateToScan,
+	geoalgo::ShapeHandle& outAlignedTemplateShape,
+	double& outRmseMm,
+	const bool allowLargeCorrection,
+	bool& outSoupApplied)
 {
-	outScanToTemplate = Eigen::Isometry3d::Identity();
+	const Eigen::Isometry3d priorStep = outTemplateToScan;
+	outTemplateToScan = Eigen::Isometry3d::Identity();
+	outRmseMm = 0.0;
+	outSoupApplied = false;
 	const double fb = std::max(params.faceBandMm, 1.0);
-	const double evalPairMm = std::max(fb * 2.5, 2.0);
-	const double baselineRmse = computeMatchedRmseMm(
-		workXyz,
-		workNormals,
-		templateSampleXyz,
-		templateSampleNormals,
-		Eigen::Isometry3d::Identity(),
-		evalPairMm,
-		0.0);
 
-	std::vector<float> trialXyz = workXyz;
-	std::vector<float> trialNormals = workNormals;
-	Eigen::Isometry3d refineStep = Eigen::Isometry3d::Identity();
-	double icpRmse = 0.0;
-	const double fineMaxPairMm = std::max(fb * 2.0, 1.5);
-	const bool icpRan = runPointToPlaneIcpStage(
-		"fine ICP",
-		trialXyz,
-		trialNormals,
-		templateSampleXyz,
-		templateSampleNormals,
-		params,
-		fineMaxPairMm,
-		25,
-		refineStep,
-		icpRmse,
-		nullptr,
-		0.0);
+	const geoalgo::ShapeHandle originalTemplate = workingTemplate.clone();
+	const std::vector<float> originalSoupXyz = templateSoupXyz;
+	const std::vector<float> originalSoupNormals = templateSoupNormals;
 
-	const double trialOverlapRmse = computeMatchedRmseMm(
-		trialXyz,
-		trialNormals,
-		templateSampleXyz,
-		templateSampleNormals,
-		Eigen::Isometry3d::Identity(),
-		evalPairMm,
-		0.0);
-	const double transMm = refineStep.translation().norm();
-	const double rotDeg = rotationAngleDeg(refineStep);
-	const double maxTransMm = std::max(fb * 5.0, 8.0);
-	const bool improved = icpRan && trialOverlapRmse > 0.0 && trialOverlapRmse + 0.02 < baselineRmse;
-	const bool sane = transMm <= maxTransMm && rotDeg <= 5.0;
+	double baselineAvgDist = 0.0;
+	double baselineMaxDist = 0.0;
+	measureScanToCloudDistance(workXyz, templateSoupXyz, baselineMaxDist, baselineAvgDist);
+	RunLogger::info(
+		std::string("[TemplateBrepUpdate] reverse pre-align baseline maxDevMm=")
+		+ std::to_string(baselineMaxDist) + " avgDevMm=" + std::to_string(baselineAvgDist));
+
+	std::vector<double> maxPairStages;
+	if (allowLargeCorrection && baselineMaxDist > modelDiag * 0.1)
+	{
+		maxPairStages.push_back(std::min(baselineMaxDist * 0.95, modelDiag * 0.4));
+	}
+	else if (allowLargeCorrection && baselineMaxDist > fb * 10.0)
+	{
+		maxPairStages.push_back(std::min(baselineMaxDist * 0.85, modelDiag * 0.25));
+	}
+	if (baselineMaxDist > fb * 6.0)
+	{
+		maxPairStages.push_back(std::max(fb * 10.0, 8.0));
+	}
+	maxPairStages.push_back(std::max(fb * 6.0, 3.0));
+	maxPairStages.push_back(std::max(fb * 3.0, 2.0));
+	maxPairStages.push_back(std::max(fb * 1.5, 1.5));
+
+	Eigen::Isometry3d cumulative = Eigen::Isometry3d::Identity();
+	double bestRmse = baselineMaxDist;
+	bool anyStageOk = false;
+
+	for (std::size_t stage = 0; stage < maxPairStages.size(); ++stage)
+	{
+		Eigen::Isometry3d stageStep = Eigen::Isometry3d::Identity();
+		double stageRmse = 0.0;
+		std::string stageErr;
+		const int maxIter = (stage + 1U == maxPairStages.size()) ? 50 : 35;
+		const double normalGate =
+			(stage + 1U >= maxPairStages.size()) ? params.normalThresholdDeg : 0.0;
+		if (!runReversePointToPlaneIcpStage(
+				"pre-aligned soup ICP",
+				templateSoupXyz,
+				templateSoupNormals,
+				workXyz,
+				workNormals,
+				params,
+				maxPairStages[stage],
+				maxIter,
+				stageStep,
+				stageRmse,
+				&stageErr,
+				normalGate))
+		{
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] soup ICP stage ") + std::to_string(stage) + " failed: "
+				+ (stageErr.empty() ? "unknown" : stageErr));
+			continue;
+		}
+
+		std::string transformErr;
+		if (!geoalgo::applyIsometryToShapeHandle(workingTemplate, stageStep, workingTemplate, &transformErr))
+		{
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] soup ICP stage ") + std::to_string(stage)
+				+ " shape transform failed: " + (transformErr.empty() ? "unknown" : transformErr));
+			continue;
+		}
+
+		cumulative = stageStep * cumulative;
+		bestRmse = stageRmse;
+		anyStageOk = true;
+	}
+
+	double trialAvgDist = 0.0;
+	double trialMaxDist = 0.0;
+	measureScanToCloudDistance(workXyz, templateSoupXyz, trialMaxDist, trialAvgDist);
+	const double transMm = cumulative.translation().norm();
+	const double rotDeg = rotationAngleDeg(cumulative);
+	// autoRecover 初距大时 cumulative 平移可达数百 mm，旧 cap(modelDiag×0.5) 会误拒有效解
+	const double maxTransMm = allowLargeCorrection
+		? std::max({modelDiag * 0.85, baselineMaxDist * 2.5, fb * 25.0})
+		: std::max({fb * 5.0, modelDiag * 0.01, 8.0});
+	const double maxRotDeg = allowLargeCorrection ? 60.0 : 8.0;
+	const bool improved = anyStageOk && trialMaxDist + 0.1 < baselineMaxDist;
+	const bool sane = transMm <= maxTransMm && rotDeg <= maxRotDeg;
 
 	if (improved && sane)
 	{
-		workXyz = std::move(trialXyz);
-		workNormals = std::move(trialNormals);
-		outScanToTemplate = refineStep;
-		outRmseMm = trialOverlapRmse;
+		outTemplateToScan = cumulative * priorStep;
+		outAlignedTemplateShape = workingTemplate.clone();
+		outRmseMm = bestRmse > 0.0 ? bestRmse : trialMaxDist;
+		outSoupApplied = true;
 		RunLogger::info(
-			std::string("[TemplateBrepUpdate] pre-aligned ICP applied: overlapRmseMm=")
-			+ std::to_string(trialOverlapRmse)
-			+ " (was " + std::to_string(baselineRmse)
-			+ ") transMm=" + std::to_string(transMm)
-			+ " rotDeg=" + std::to_string(rotDeg));
+			std::string("[TemplateBrepUpdate] coarseStage=soupMulti reverse soup ICP applied: maxDevMm=")
+			+ std::to_string(trialMaxDist) + " (was " + std::to_string(baselineMaxDist)
+			+ ") transMm=" + std::to_string(transMm) + " rotDeg=" + std::to_string(rotDeg));
 	}
 	else
 	{
-		outRmseMm = baselineRmse > 0.0 ? baselineRmse : icpRmse;
+		workingTemplate = originalTemplate.clone();
+		templateSoupXyz = originalSoupXyz;
+		templateSoupNormals = originalSoupNormals;
+		outAlignedTemplateShape = originalTemplate.clone();
+		outTemplateToScan = priorStep;
+		outRmseMm = baselineMaxDist;
+		outSoupApplied = false;
 		RunLogger::info(
-			std::string("[TemplateBrepUpdate] pre-aligned ICP skipped (manual alignment kept): baselineRmseMm=")
-			+ std::to_string(baselineRmse)
-			+ " trialRmseMm=" + std::to_string(trialOverlapRmse)
-			+ " transMm=" + std::to_string(transMm)
-			+ " rotDeg=" + std::to_string(rotDeg));
+			std::string("[TemplateBrepUpdate] coarseStage=soupMulti reverse soup ICP skipped (rollback): baselineMaxDevMm=")
+			+ std::to_string(baselineMaxDist) + " trialMaxDevMm=" + std::to_string(trialMaxDist)
+			+ " transMm=" + std::to_string(transMm) + " rotDeg=" + std::to_string(rotDeg)
+			+ " maxTransMm=" + std::to_string(maxTransMm) + " sane=" + (sane ? "true" : "false"));
 	}
 
 	if (outRmseMm > 0.0)
 	{
 		RunLogger::info(
-			std::string("[TemplateBrepUpdate] overlapRmseMm=") + std::to_string(outRmseMm)
-			+ " (pair<=" + std::to_string(evalPairMm) + "mm)");
+			std::string("[TemplateBrepUpdate] overlapRmseMm=") + std::to_string(outRmseMm));
 	}
 	return true;
 }
 
-Eigen::Isometry3d alignScanToTemplateBBoxOverlap(
-	std::vector<float>& workXyz,
-	std::vector<float>& workNormals,
-	const std::vector<float>& templateSampleXyz)
+bool runCoarseGlobalPreAlign(
+	const std::vector<float>& workXyz,
+	const std::vector<float>& workNormals,
+	std::vector<float>& templateSoupXyz,
+	std::vector<float>& templateSoupNormals,
+	const geoalgo::ShapeHandle& templateShape,
+	geoalgo::ShapeHandle& workingTemplate,
+	const geoalgo::TemplateBrepUpdateParams& params,
+	const double modelDiag,
+	const double initialMaxDevMm,
+	const double preAlignGateMm,
+	Eigen::Isometry3d& inOutTemplateToScan,
+	std::string* errMsg)
 {
+	double frameMaxDevMm = 0.0;
+	double frameAvgDevMm = 0.0;
+	measureScanToCloudDistance(workXyz, templateSoupXyz, frameMaxDevMm, frameAvgDevMm);
+	std::size_t overlapHits =
+		countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+	PcaAlignmentScore bestScore{frameMaxDevMm, frameAvgDevMm, overlapHits};
+
+	if (params.enableRansacCoarseMatch)
+	{
+		pclalgo::RigidRegisterRansacParams ransacParams;
+		ransacParams.maxFeaturePoints = params.icpMaxPoints;
+		ransacParams.modelDiagMm = modelDiag;
+		ransacParams.faceBandMm = params.faceBandMm;
+		ransacParams.maxIterations = params.ransacMaxIterations;
+		const double fb = std::max(params.faceBandMm, 1.0);
+		ransacParams.inlierDistanceMm = std::min(
+			std::max({initialMaxDevMm * 0.6, modelDiag * 0.04, fb * 3.0}),
+			modelDiag * 0.15);
+		ransacParams.featureVoxelMm = std::max(modelDiag * 0.025, fb * 4.0);
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] coarseStage=ransac globalPreAlign inlierDistanceMm=")
+			+ std::to_string(ransacParams.inlierDistanceMm) + " featureVoxelMm="
+			+ std::to_string(ransacParams.featureVoxelMm) + " (initialMaxDevMm="
+			+ std::to_string(initialMaxDevMm) + ")");
+
+		Eigen::Isometry3d ransacStep = Eigen::Isometry3d::Identity();
+		double inlierRatio = 0.0;
+		std::string ransacErr;
+		if (pclalgo::rigidRegisterFeatureRansac(
+				templateSoupXyz,
+				templateSoupNormals,
+				workXyz,
+				workNormals,
+				ransacStep,
+				&inlierRatio,
+				ransacParams,
+				&ransacErr))
+		{
+			const std::vector<float> originalSoupBeforeRansac = templateSoupXyz;
+			const std::vector<float> normalsBeforeRansac = templateSoupNormals;
+			const Eigen::Isometry3d transformBeforeRansac = inOutTemplateToScan;
+			applyIsometryInPlace(templateSoupXyz, ransacStep);
+			applyIsometryInPlaceNormals(templateSoupNormals, ransacStep);
+			inOutTemplateToScan = ransacStep * inOutTemplateToScan;
+			std::string transformErr;
+			if (!geoalgo::applyIsometryToShapeHandle(
+					workingTemplate, ransacStep, workingTemplate, &transformErr))
+			{
+				if (errMsg)
+				{
+					*errMsg = transformErr.empty() ? "RANSAC template transform failed" : transformErr;
+				}
+				return false;
+			}
+			measureScanToCloudDistance(workXyz, templateSoupXyz, frameMaxDevMm, frameAvgDevMm);
+			overlapHits =
+				countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+			const double ransacTransMm = ransacStep.translation().norm();
+			const double ransacTransCapMm = std::max(modelDiag * 0.25, preAlignGateMm * 2.0);
+			if (ransacTransMm > ransacTransCapMm)
+			{
+				templateSoupXyz = originalSoupBeforeRansac;
+				templateSoupNormals = normalsBeforeRansac;
+				inOutTemplateToScan = transformBeforeRansac;
+				workingTemplate = templateShape.clone();
+				if (!transformBeforeRansac.matrix().isApprox(Eigen::Isometry3d::Identity().matrix()))
+				{
+					if (!geoalgo::applyIsometryToShapeHandle(
+							workingTemplate, transformBeforeRansac, workingTemplate, &transformErr))
+					{
+						if (errMsg)
+						{
+							*errMsg = transformErr.empty() ? "RANSAC rollback transform failed" : transformErr;
+						}
+						return false;
+					}
+				}
+				measureScanToCloudDistance(workXyz, templateSoupXyz, frameMaxDevMm, frameAvgDevMm);
+				overlapHits =
+					countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+				RunLogger::info(
+					std::string("[TemplateBrepUpdate] coarseStage=ransac globalPreAlign rejected transMm=")
+					+ std::to_string(ransacTransMm) + " (cap=" + std::to_string(ransacTransCapMm)
+					+ "mm); try PCA fallback");
+			}
+			else
+			{
+				bestScore = {frameMaxDevMm, frameAvgDevMm, overlapHits};
+				RunLogger::info(
+					std::string("[TemplateBrepUpdate] coarseStage=ransac globalPreAlign ok inlierRatio=")
+					+ std::to_string(inlierRatio) + " pairHits=" + std::to_string(overlapHits) + "/512 maxDevMm="
+					+ std::to_string(frameMaxDevMm) + " transMm=" + std::to_string(ransacTransMm));
+			}
+		}
+		else
+		{
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] coarseStage=ransac globalPreAlign failed: ")
+				+ (ransacErr.empty() ? "unknown" : ransacErr));
+		}
+	}
+
+	if (params.enableRansacCoarseMatch && overlapHits < kMinRegistrationOverlapHits)
+	{
+		pclalgo::RigidRegisterRansacParams reverseParams;
+		reverseParams.maxFeaturePoints = params.icpMaxPoints;
+		reverseParams.modelDiagMm = modelDiag;
+		reverseParams.faceBandMm = params.faceBandMm;
+		reverseParams.maxIterations = params.ransacMaxIterations;
+		const double fb = std::max(params.faceBandMm, 1.0);
+		reverseParams.inlierDistanceMm = std::min(
+			std::max({initialMaxDevMm * 0.6, modelDiag * 0.04, fb * 3.0}),
+			modelDiag * 0.15);
+		reverseParams.featureVoxelMm = std::max(modelDiag * 0.025, fb * 4.0);
+
+		Eigen::Isometry3d scanToTemplate = Eigen::Isometry3d::Identity();
+		double reverseInlierRatio = 0.0;
+		std::string reverseErr;
+		if (pclalgo::rigidRegisterFeatureRansac(
+				workXyz,
+				workNormals,
+				templateSoupXyz,
+				templateSoupNormals,
+				scanToTemplate,
+				&reverseInlierRatio,
+				reverseParams,
+				&reverseErr))
+		{
+			const std::vector<float> soupBeforeReverse = templateSoupXyz;
+			const std::vector<float> normalsBeforeReverse = templateSoupNormals;
+			const Eigen::Isometry3d transformBeforeReverse = inOutTemplateToScan;
+			const PcaAlignmentScore scoreBeforeReverse{bestScore.maxDevMm, bestScore.meanDistMm, overlapHits};
+
+			const Eigen::Isometry3d ransacStep = scanToTemplate.inverse();
+			applyIsometryInPlace(templateSoupXyz, ransacStep);
+			applyIsometryInPlaceNormals(templateSoupNormals, ransacStep);
+			inOutTemplateToScan = ransacStep * inOutTemplateToScan;
+			std::string transformErr;
+			if (!geoalgo::applyIsometryToShapeHandle(
+					workingTemplate, ransacStep, workingTemplate, &transformErr))
+			{
+				if (errMsg)
+				{
+					*errMsg = transformErr.empty() ? "reverse RANSAC template transform failed" : transformErr;
+				}
+				return false;
+			}
+
+			measureScanToCloudDistance(workXyz, templateSoupXyz, frameMaxDevMm, frameAvgDevMm);
+			overlapHits =
+				countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+			const PcaAlignmentScore reverseScore{frameMaxDevMm, frameAvgDevMm, overlapHits};
+			const double ransacTransMm = ransacStep.translation().norm();
+			const double ransacTransCapMm = std::max(modelDiag * 0.25, preAlignGateMm * 2.0);
+			if (ransacTransMm <= ransacTransCapMm && pcaAlignmentScoreBetter(reverseScore, scoreBeforeReverse))
+			{
+				bestScore = reverseScore;
+				RunLogger::info(
+					std::string("[TemplateBrepUpdate] coarseStage=ransac reverse globalPreAlign ok inlierRatio=")
+					+ std::to_string(reverseInlierRatio) + " pairHits=" + std::to_string(overlapHits)
+					+ "/512 maxDevMm=" + std::to_string(frameMaxDevMm) + " transMm="
+					+ std::to_string(ransacTransMm));
+			}
+			else
+			{
+				templateSoupXyz = soupBeforeReverse;
+				templateSoupNormals = normalsBeforeReverse;
+				inOutTemplateToScan = transformBeforeReverse;
+				workingTemplate = templateShape.clone();
+				if (!transformBeforeReverse.matrix().isApprox(Eigen::Isometry3d::Identity().matrix()))
+				{
+					if (!geoalgo::applyIsometryToShapeHandle(
+							workingTemplate, transformBeforeReverse, workingTemplate, &transformErr))
+					{
+						if (errMsg)
+						{
+							*errMsg = transformErr.empty() ? "reverse RANSAC rollback failed" : transformErr;
+						}
+						return false;
+					}
+				}
+				measureScanToCloudDistance(workXyz, templateSoupXyz, frameMaxDevMm, frameAvgDevMm);
+				overlapHits =
+					countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+				RunLogger::info(
+					std::string("[TemplateBrepUpdate] coarseStage=ransac reverse globalPreAlign rejected transMm=")
+					+ std::to_string(ransacTransMm));
+			}
+		}
+		else
+		{
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] coarseStage=ransac reverse globalPreAlign failed: ")
+				+ (reverseErr.empty() ? "unknown" : reverseErr));
+		}
+	}
+
+	if (overlapHits < kMinRegistrationOverlapHits)
+	{
+		const std::vector<float> soupBeforePca = templateSoupXyz;
+		const std::vector<float> normalsBeforePca = templateSoupNormals;
+		const Eigen::Isometry3d transformBeforePca = inOutTemplateToScan;
+		const PcaAlignmentScore scoreBeforePca = bestScore;
+
+		RunLogger::info("[TemplateBrepUpdate] coarseStage=pca globalPreAlign fallback");
+		const Eigen::Isometry3d pcaStep =
+			alignTemplatePcaToScan(templateSoupXyz, templateSoupNormals, workXyz);
+		inOutTemplateToScan = pcaStep * inOutTemplateToScan;
+		std::string transformErr;
+		if (!geoalgo::applyIsometryToShapeHandle(
+				workingTemplate, pcaStep, workingTemplate, &transformErr))
+		{
+			if (errMsg)
+			{
+				*errMsg = transformErr.empty() ? "PCA template transform failed" : transformErr;
+			}
+			return false;
+		}
+
+		double pcaMaxDevMm = 0.0;
+		double pcaAvgDevMm = 0.0;
+		measureScanToCloudDistance(workXyz, templateSoupXyz, pcaMaxDevMm, pcaAvgDevMm);
+		const std::size_t pcaHits =
+			countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+		const PcaAlignmentScore pcaScore{pcaMaxDevMm, pcaAvgDevMm, pcaHits};
+		const double pcaAcceptMaxDevMm = preAlignGateMm * 2.0;
+		if (!pcaAlignmentScoreBetter(pcaScore, scoreBeforePca)
+			|| pcaMaxDevMm > pcaAcceptMaxDevMm)
+		{
+			templateSoupXyz = soupBeforePca;
+			templateSoupNormals = normalsBeforePca;
+			inOutTemplateToScan = transformBeforePca;
+			workingTemplate = templateShape.clone();
+			if (!transformBeforePca.matrix().isApprox(Eigen::Isometry3d::Identity().matrix()))
+			{
+				if (!geoalgo::applyIsometryToShapeHandle(
+						workingTemplate, transformBeforePca, workingTemplate, &transformErr))
+				{
+					if (errMsg)
+					{
+						*errMsg = transformErr.empty() ? "PCA rollback transform failed" : transformErr;
+					}
+					return false;
+				}
+			}
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] coarseStage=pca rejected (keep prior pairHits=")
+				+ std::to_string(scoreBeforePca.pairHits) + " vs " + std::to_string(pcaHits)
+				+ " maxDevMm=" + std::to_string(pcaMaxDevMm) + " need<=" + std::to_string(pcaAcceptMaxDevMm)
+				+ ")");
+		}
+	}
+	else
+	{
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] coarseStage=pca skip (globalPreAlign sufficient pairHits=")
+			+ std::to_string(overlapHits) + "/512 maxDevMm=" + std::to_string(frameMaxDevMm) + ")");
+	}
+
+	measureScanToCloudDistance(workXyz, templateSoupXyz, frameMaxDevMm, frameAvgDevMm);
+	overlapHits = countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
 	const Eigen::AlignedBox3d scanBox = pclalgo::computeBoundingBox(workXyz);
-	const Eigen::AlignedBox3d templateBox = pclalgo::computeBoundingBox(templateSampleXyz);
-	Eigen::Isometry3d overlap = Eigen::Isometry3d::Identity();
-	if (scanBox.isEmpty() || templateBox.isEmpty())
+	const Eigen::AlignedBox3d templateBox = pclalgo::computeBoundingBox(templateSoupXyz);
+	const double centroidDistMm =
+		(scanBox.isEmpty() || templateBox.isEmpty())
+			? 0.0
+			: (scanBox.center() - templateBox.center()).norm();
+	if (centroidDistMm > preAlignGateMm * 0.5)
 	{
-		return overlap;
+		const Eigen::Vector3d shift = scanBox.center() - templateBox.center();
+		const double shiftMm = shift.norm();
+		const double shiftCapMm = std::max(modelDiag * 0.25, preAlignGateMm * 2.0);
+		if (shiftMm > 0.0 && shiftMm <= shiftCapMm)
+		{
+			const std::vector<float> soupBeforeSnap = templateSoupXyz;
+			const std::vector<float> normalsBeforeSnap = templateSoupNormals;
+			const Eigen::Isometry3d transformBeforeSnap = inOutTemplateToScan;
+			const PcaAlignmentScore scoreBeforeSnap{frameMaxDevMm, frameAvgDevMm, overlapHits};
+
+			Eigen::Isometry3d snapStep = Eigen::Isometry3d::Identity();
+			snapStep.translation() = shift;
+			applyIsometryInPlace(templateSoupXyz, snapStep);
+			applyIsometryInPlaceNormals(templateSoupNormals, snapStep);
+			inOutTemplateToScan = snapStep * inOutTemplateToScan;
+			std::string transformErr;
+			if (!geoalgo::applyIsometryToShapeHandle(
+					workingTemplate, snapStep, workingTemplate, &transformErr))
+			{
+				if (errMsg)
+				{
+					*errMsg = transformErr.empty() ? "centroid snap transform failed" : transformErr;
+				}
+				return false;
+			}
+
+			double snapMaxDevMm = 0.0;
+			double snapAvgDevMm = 0.0;
+			measureScanToCloudDistance(workXyz, templateSoupXyz, snapMaxDevMm, snapAvgDevMm);
+			const std::size_t snapHits =
+				countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+			const PcaAlignmentScore snapScore{snapMaxDevMm, snapAvgDevMm, snapHits};
+			if (pcaAlignmentScoreBetter(snapScore, scoreBeforeSnap))
+			{
+				frameMaxDevMm = snapMaxDevMm;
+				frameAvgDevMm = snapAvgDevMm;
+				overlapHits = snapHits;
+				RunLogger::info(
+					std::string("[TemplateBrepUpdate] coarseStage=centroidSnap ok shiftMm=")
+					+ std::to_string(shiftMm) + " pairHits=" + std::to_string(snapHits) + "/512 maxDevMm="
+					+ std::to_string(snapMaxDevMm));
+			}
+			else
+			{
+				templateSoupXyz = soupBeforeSnap;
+				templateSoupNormals = normalsBeforeSnap;
+				inOutTemplateToScan = transformBeforeSnap;
+				workingTemplate = templateShape.clone();
+				if (!transformBeforeSnap.matrix().isApprox(Eigen::Isometry3d::Identity().matrix()))
+				{
+					if (!geoalgo::applyIsometryToShapeHandle(
+							workingTemplate, transformBeforeSnap, workingTemplate, &transformErr))
+					{
+						if (errMsg)
+						{
+							*errMsg = transformErr.empty() ? "centroid snap rollback failed" : transformErr;
+						}
+						return false;
+					}
+				}
+				RunLogger::info(
+					std::string("[TemplateBrepUpdate] coarseStage=centroidSnap rejected shiftMm=")
+					+ std::to_string(shiftMm));
+			}
+		}
 	}
-	overlap.translation() = templateBox.center() - scanBox.center();
-	applyIsometryInPlace(workXyz, overlap);
-	if (!workNormals.empty())
+
+	if (overlapHits >= kMinRegistrationOverlapHits && frameMaxDevMm > preAlignGateMm * 1.2)
 	{
-		applyIsometryInPlaceNormals(workNormals, overlap);
+		const std::vector<float> soupBeforeRefine = templateSoupXyz;
+		const std::vector<float> normalsBeforeRefine = templateSoupNormals;
+		const Eigen::Isometry3d transformBeforeRefine = inOutTemplateToScan;
+		const geoalgo::ShapeHandle templateBeforeRefine = workingTemplate.clone();
+		const PcaAlignmentScore scoreBeforeRefine{frameMaxDevMm, frameAvgDevMm, overlapHits};
+
+		const double maxPairMm = std::min(
+			{frameMaxDevMm * 0.9, modelDiag * 0.2, preAlignGateMm * 8.0});
+		Eigen::Isometry3d refineStep = Eigen::Isometry3d::Identity();
+		double refineRmse = 0.0;
+		std::string refineErr;
+		if (runReversePointToPlaneIcpStage(
+				"globalPreAlign refine",
+				templateSoupXyz,
+				templateSoupNormals,
+				workXyz,
+				workNormals,
+				params,
+				maxPairMm,
+				40,
+				refineStep,
+				refineRmse,
+				&refineErr,
+				0.0))
+		{
+			std::string transformErr;
+			if (!geoalgo::applyIsometryToShapeHandle(
+					workingTemplate, refineStep, workingTemplate, &transformErr))
+			{
+				if (errMsg)
+				{
+					*errMsg = transformErr.empty() ? "globalPreAlign refine shape failed" : transformErr;
+				}
+				return false;
+			}
+			inOutTemplateToScan = refineStep * inOutTemplateToScan;
+
+			double refineMaxDevMm = 0.0;
+			double refineAvgDevMm = 0.0;
+			measureScanToCloudDistance(workXyz, templateSoupXyz, refineMaxDevMm, refineAvgDevMm);
+			const std::size_t refineHits =
+				countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+			const PcaAlignmentScore refineScore{refineMaxDevMm, refineAvgDevMm, refineHits};
+			const double refineTransMm = refineStep.translation().norm();
+			const double refineRotDeg = rotationAngleDeg(refineStep);
+			const double refineTransCapMm = std::max(modelDiag * 0.25, preAlignGateMm * 2.0);
+			if (pcaAlignmentScoreBetter(refineScore, scoreBeforeRefine)
+				&& refineTransMm <= refineTransCapMm && refineRotDeg <= 45.0)
+			{
+				frameMaxDevMm = refineMaxDevMm;
+				frameAvgDevMm = refineAvgDevMm;
+				overlapHits = refineHits;
+				RunLogger::info(
+					std::string("[TemplateBrepUpdate] coarseStage=globalPreAlign refine ok maxPairMm=")
+					+ std::to_string(maxPairMm) + " pairHits=" + std::to_string(refineHits) + "/512 maxDevMm="
+					+ std::to_string(refineMaxDevMm));
+			}
+			else
+			{
+				templateSoupXyz = soupBeforeRefine;
+				templateSoupNormals = normalsBeforeRefine;
+				inOutTemplateToScan = transformBeforeRefine;
+				workingTemplate = templateBeforeRefine;
+				RunLogger::info(
+					std::string("[TemplateBrepUpdate] coarseStage=globalPreAlign refine rejected maxDevMm=")
+					+ std::to_string(refineMaxDevMm) + " transMm=" + std::to_string(refineTransMm));
+			}
+		}
+		else
+		{
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] coarseStage=globalPreAlign refine failed: ")
+				+ (refineErr.empty() ? "unknown" : refineErr));
+		}
 	}
-	return overlap;
+	return true;
 }
 
-bool alignScanToTemplateRegistration(
-	std::vector<float>& workXyz,
-	std::vector<float>& workNormals,
-	const std::vector<float>& templateSampleXyz,
+std::vector<double> buildCoarseIcpLadderMaxPairsMm(
+	const double postCoarseMaxDevMm,
+	const double centroidDistMm,
+	const double modelDiag,
+	const double preAlignGateMm,
+	const double faceBandMm)
+{
+	const double fb = std::max(faceBandMm, 1.0);
+	const double gapMm = std::max(postCoarseMaxDevMm, centroidDistMm);
+	std::vector<double> out;
+	const auto add = [&](const double v) {
+		if (v > 0.0)
+		{
+			out.push_back(v);
+		}
+	};
+	for (const double factor : {0.55, 0.75, 0.95, 1.05})
+	{
+		add(gapMm * factor);
+	}
+	for (const double factor : {0.25, 0.5})
+	{
+		add(modelDiag * factor);
+	}
+	add(preAlignGateMm);
+	for (const double factor : {10.0, 15.0})
+	{
+		add(fb * factor);
+	}
+	for (const double factor : {8.0, 5.0, 3.0, 2.0, 1.25})
+	{
+		add(preAlignGateMm * factor);
+	}
+	std::sort(out.begin(), out.end());
+	out.erase(std::unique(out.begin(), out.end()), out.end());
+	return out;
+}
+
+bool applyCoarseCentroidSnap(
+	const std::vector<float>& workXyz,
+	std::vector<float>& templateSoupXyz,
+	std::vector<float>& templateSoupNormals,
+	const geoalgo::ShapeHandle& templateShape,
+	geoalgo::ShapeHandle& workingTemplate,
+	Eigen::Isometry3d& inOutTemplateToScan,
+	std::string* errMsg)
+{
+	const Eigen::AlignedBox3d scanBox = pclalgo::computeBoundingBox(workXyz);
+	const Eigen::AlignedBox3d templateBox = pclalgo::computeBoundingBox(templateSoupXyz);
+	if (scanBox.isEmpty() || templateBox.isEmpty())
+	{
+		return false;
+	}
+	const Eigen::Vector3d shift = scanBox.center() - templateBox.center();
+	if (shift.norm() < 1e-3)
+	{
+		return false;
+	}
+	Eigen::Isometry3d snapStep = Eigen::Isometry3d::Identity();
+	snapStep.translation() = shift;
+	applyIsometryInPlace(templateSoupXyz, snapStep);
+	if (!templateSoupNormals.empty())
+	{
+		applyIsometryInPlaceNormals(templateSoupNormals, snapStep);
+	}
+	inOutTemplateToScan = snapStep * inOutTemplateToScan;
+	std::string transformErr;
+	if (!geoalgo::applyIsometryToShapeHandle(
+			workingTemplate, snapStep, workingTemplate, &transformErr))
+	{
+		if (errMsg)
+		{
+			*errMsg = transformErr.empty() ? "centroid snap transform failed" : transformErr;
+		}
+		return false;
+	}
+	RunLogger::info(
+		std::string("[TemplateBrepUpdate] coarseStage=centroidSnap shiftMm=")
+		+ std::to_string(shift.norm()));
+	return true;
+}
+
+bool runCoarseTightIcpRefinement(
+	const std::vector<float>& workXyz,
+	const std::vector<float>& workNormals,
+	std::vector<float>& templateSoupXyz,
+	std::vector<float>& templateSoupNormals,
+	geoalgo::ShapeHandle& workingTemplate,
 	const geoalgo::TemplateBrepUpdateParams& params,
-	Eigen::Isometry3d& outScanToTemplate,
+	const double preAlignGateMm,
+	const double baselineMaxDevMm,
+	Eigen::Isometry3d& inOutTemplateToScan,
+	double& outRmseMm)
+{
+	const double maxPairMm = std::max(preAlignGateMm * 2.0, baselineMaxDevMm * 0.45);
+	const std::vector<float> soupBefore = templateSoupXyz;
+	const std::vector<float> normalsBefore = templateSoupNormals;
+	const geoalgo::ShapeHandle shapeBefore = workingTemplate.clone();
+	const Eigen::Isometry3d transformBefore = inOutTemplateToScan;
+
+	Eigen::Isometry3d step = Eigen::Isometry3d::Identity();
+	double rmse = 0.0;
+	std::string stageErr;
+	if (!runReversePointToPlaneIcpStage(
+			"tight ICP refine",
+			templateSoupXyz,
+			templateSoupNormals,
+			workXyz,
+			workNormals,
+			params,
+			maxPairMm,
+			50,
+			step,
+			rmse,
+			&stageErr,
+			params.normalThresholdDeg > 0.0 ? params.normalThresholdDeg : 0.0))
+	{
+		return false;
+	}
+
+	std::string transformErr;
+	if (!geoalgo::applyIsometryToShapeHandle(workingTemplate, step, workingTemplate, &transformErr))
+	{
+		templateSoupXyz = soupBefore;
+		templateSoupNormals = normalsBefore;
+		workingTemplate = shapeBefore;
+		return false;
+	}
+	inOutTemplateToScan = step * inOutTemplateToScan;
+
+	double maxDevMm = 0.0;
+	double avgDevMm = 0.0;
+	measureScanToCloudDistance(workXyz, templateSoupXyz, maxDevMm, avgDevMm);
+	const std::size_t hits =
+		countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+	if (maxDevMm + 0.5 >= baselineMaxDevMm)
+	{
+		templateSoupXyz = soupBefore;
+		templateSoupNormals = normalsBefore;
+		workingTemplate = shapeBefore;
+		inOutTemplateToScan = transformBefore;
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] coarseStage=tightIcpRefine rejected maxDevMm=")
+			+ std::to_string(maxDevMm) + " (baseline=" + std::to_string(baselineMaxDevMm) + ")");
+		return false;
+	}
+
+	outRmseMm = rmse > 0.0 ? rmse : maxDevMm;
+	RunLogger::info(
+		std::string("[TemplateBrepUpdate] coarseStage=tightIcpRefine ok maxPairMm=")
+		+ std::to_string(maxPairMm) + " pairHits=" + std::to_string(hits) + "/512 maxDevMm="
+		+ std::to_string(maxDevMm));
+	return true;
+}
+
+bool runCoarseIcpLadderFallback(
+	const std::vector<float>& workXyz,
+	const std::vector<float>& workNormals,
+	std::vector<float>& templateSoupXyz,
+	std::vector<float>& templateSoupNormals,
+	geoalgo::ShapeHandle& workingTemplate,
+	const geoalgo::TemplateBrepUpdateParams& params,
+	const double modelDiag,
+	const double preAlignGateMm,
+	const double postCoarseMaxDevMm,
+	const double centroidDistMm,
+	const double baselineMaxDevMm,
+	Eigen::Isometry3d& inOutTemplateToScan,
 	double& outRmseMm,
 	std::string* errMsg)
 {
-	outScanToTemplate = Eigen::Isometry3d::Identity();
+	RunLogger::info(
+		std::string("[TemplateBrepUpdate] coarseStage=coarseIcpLadder postMaxDevMm=")
+		+ std::to_string(postCoarseMaxDevMm) + " centroidDistMm=" + std::to_string(centroidDistMm));
+
+	const std::vector<double> maxPairCandidatesMm = buildCoarseIcpLadderMaxPairsMm(
+		postCoarseMaxDevMm, centroidDistMm, modelDiag, preAlignGateMm, params.faceBandMm);
+
+	const double ladderQualityGateMm = std::max(preAlignGateMm * 2.0, 30.0);
+	Eigen::Isometry3d ladderCumulative = Eigen::Isometry3d::Identity();
+	double coarseRmse = 0.0;
+	bool coarseOk = false;
+	std::string coarseErr;
+	double bestMaxDev = baselineMaxDevMm;
+	std::size_t bestHits = 0U;
+
+	for (std::size_t li = maxPairCandidatesMm.size(); li > 0U; --li)
+	{
+		const double maxPairMm = maxPairCandidatesMm[li - 1U];
+		const std::vector<float> soupBeforeStage = templateSoupXyz;
+		const std::vector<float> normalsBeforeStage = templateSoupNormals;
+		const geoalgo::ShapeHandle shapeBeforeStage = workingTemplate.clone();
+		const Eigen::Isometry3d cumulativeBeforeStage = ladderCumulative;
+
+		coarseErr.clear();
+		Eigen::Isometry3d stageStep = Eigen::Isometry3d::Identity();
+		if (!runReverseIcpStage(
+				"coarse ICP ladder",
+				templateSoupXyz,
+				templateSoupNormals,
+				workXyz,
+				workNormals,
+				params,
+				maxPairMm,
+				30,
+				stageStep,
+				coarseRmse,
+				&coarseErr,
+				0.0))
+		{
+			continue;
+		}
+
+		std::string transformErr;
+		if (!geoalgo::applyIsometryToShapeHandle(
+				workingTemplate, stageStep, workingTemplate, &transformErr))
+		{
+			if (errMsg)
+			{
+				*errMsg = transformErr.empty() ? "coarse ICP ladder shape transform failed" : transformErr;
+			}
+			return false;
+		}
+
+		ladderCumulative = stageStep * ladderCumulative;
+
+		const std::size_t hits =
+			countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+		double maxDevMm = 0.0;
+		double avgDevMm = 0.0;
+		measureScanToCloudDistance(workXyz, templateSoupXyz, maxDevMm, avgDevMm);
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] coarse ICP ladder stage ok maxPairMm=")
+			+ std::to_string(maxPairMm) + " pairHits=" + std::to_string(hits) + "/512 maxDevMm="
+			+ std::to_string(maxDevMm));
+
+		if (maxDevMm > bestMaxDev + 2.0 && maxDevMm > ladderQualityGateMm)
+		{
+			templateSoupXyz = soupBeforeStage;
+			templateSoupNormals = normalsBeforeStage;
+			workingTemplate = shapeBeforeStage;
+			ladderCumulative = cumulativeBeforeStage;
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] coarse ICP ladder stage rollback maxDevMm=")
+				+ std::to_string(maxDevMm) + " (best=" + std::to_string(bestMaxDev) + ")");
+			continue;
+		}
+
+		coarseOk = true;
+		bestMaxDev = maxDevMm;
+		bestHits = hits;
+		if (hits >= kMinRegistrationOverlapHits && maxDevMm <= ladderQualityGateMm)
+		{
+			break;
+		}
+	}
+
+	if (!coarseOk)
+	{
+		if (errMsg)
+		{
+			*errMsg = coarseErr.empty() ? "coarse ICP ladder failed" : coarseErr;
+		}
+		return false;
+	}
+
+	inOutTemplateToScan = ladderCumulative * inOutTemplateToScan;
+	outRmseMm = coarseRmse > 0.0 ? coarseRmse : bestMaxDev;
+	RunLogger::info(
+		std::string("[TemplateBrepUpdate] coarseStage=coarseIcpLadder done pairHits=")
+		+ std::to_string(bestHits) + "/512 maxDevMm=" + std::to_string(bestMaxDev));
+	return true;
+}
+
+bool runColdStartCoarseIcpPath(
+	const std::vector<float>& workXyz,
+	const std::vector<float>& workNormals,
+	std::vector<float>& templateSoupXyz,
+	std::vector<float>& templateSoupNormals,
+	geoalgo::ShapeHandle& workingTemplate,
+	const geoalgo::TemplateBrepUpdateParams& params,
+	const RegistrationAlignMode alignMode,
+	const double modelDiag,
+	const double preAlignGateMm,
+	const double initialMaxDevMm,
+	const double centroidDistMm,
+	Eigen::Isometry3d& inOutTemplateToScan,
+	geoalgo::ShapeHandle& outAlignedTemplateShape,
+	double& outRmseMm,
+	std::string* errMsg)
+{
+	std::vector<double> coarseMaxPairCandidatesMm;
+	if (params.icpMaxPairDistanceMm > 0.0)
+	{
+		coarseMaxPairCandidatesMm.push_back(std::max(params.icpMaxPairDistanceMm, modelDiag * 0.25));
+	}
+	else if (params.scanAlreadyInTemplateFrame)
+	{
+		const double fb = std::max(params.faceBandMm, 1.0);
+		coarseMaxPairCandidatesMm.push_back(preAlignGateMm);
+		for (const double mm : {fb * 1.5, fb * 2.5, fb * 4.0, fb * 6.0, fb * 10.0, fb * 15.0})
+		{
+			coarseMaxPairCandidatesMm.push_back(mm);
+		}
+		if (alignMode == RegistrationAlignMode::AutoRecover && initialMaxDevMm > preAlignGateMm * 2.0)
+		{
+			const double gapMm = std::max(initialMaxDevMm, centroidDistMm);
+			coarseMaxPairCandidatesMm.push_back(gapMm * 0.55);
+			coarseMaxPairCandidatesMm.push_back(gapMm * 0.75);
+			coarseMaxPairCandidatesMm.push_back(gapMm * 0.95);
+			coarseMaxPairCandidatesMm.push_back(gapMm * 1.05);
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] extend coarse maxPair for large gap, gapMm=")
+				+ std::to_string(gapMm));
+		}
+	}
+	else
+	{
+		for (const double frac : {0.5, 0.75, 1.0, 1.25})
+		{
+			coarseMaxPairCandidatesMm.push_back(std::max(modelDiag * frac, 10.0));
+		}
+	}
+
+	std::sort(coarseMaxPairCandidatesMm.begin(), coarseMaxPairCandidatesMm.end());
+
+	Eigen::Isometry3d coarseStep = Eigen::Isometry3d::Identity();
+	double coarseRmse = 0.0;
+	bool coarseOk = false;
+	std::string coarseErr;
+	for (std::size_t ci = coarseMaxPairCandidatesMm.size(); ci > 0U; --ci)
+	{
+		const double maxPairMm = coarseMaxPairCandidatesMm[ci - 1U];
+		coarseErr.clear();
+		if (runReverseIcpStage(
+				"coarse reverse ICP",
+				templateSoupXyz,
+				templateSoupNormals,
+				workXyz,
+				workNormals,
+				params,
+				maxPairMm,
+				30,
+				coarseStep,
+				coarseRmse,
+				&coarseErr,
+				0.0))
+		{
+			coarseOk = true;
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] coarse reverse ICP ok, maxPairMm=")
+				+ std::to_string(maxPairMm) + " rmseMm=" + std::to_string(coarseRmse));
+			break;
+		}
+	}
+	if (!coarseOk)
+	{
+		if (errMsg)
+		{
+			std::ostringstream oss;
+			oss << coarseErr << " [scanPts=" << (workXyz.size() / 3U)
+				<< " templatePts=" << (templateSoupXyz.size() / 3U)
+				<< " modelDiagMm=" << modelDiag << " centroidDistMm=" << centroidDistMm << "]";
+			*errMsg = oss.str();
+		}
+		return false;
+	}
+	inOutTemplateToScan = coarseStep * inOutTemplateToScan;
+	std::string transformErr;
+	if (!geoalgo::applyIsometryToShapeHandle(workingTemplate, coarseStep, workingTemplate, &transformErr))
+	{
+		if (errMsg)
+		{
+			*errMsg = transformErr.empty() ? "coarse template transform failed" : transformErr;
+		}
+		return false;
+	}
+
+	double fineMaxPairMm = params.icpMaxPairDistanceMm;
+	if (fineMaxPairMm <= 0.0)
+	{
+		if (params.scanAlreadyInTemplateFrame)
+		{
+			fineMaxPairMm = std::max(params.faceBandMm * 2.0, 1.5);
+		}
+		else
+		{
+			fineMaxPairMm = std::max(modelDiag * 0.05, 2.0);
+		}
+	}
+	if (!coarseMaxPairCandidatesMm.empty())
+	{
+		fineMaxPairMm = std::min(fineMaxPairMm, coarseMaxPairCandidatesMm.back());
+	}
+
+	const double icpGateHintMm = std::max(
+		params.faceBandMm * params.maxIcpRmseToFaceBandRatio,
+		params.minIcpRmseGateMm);
+	const bool skipFineIcp =
+		coarseOk && coarseRmse > 0.0 && !params.scanAlreadyInTemplateFrame
+		&& (params.maxIcpRmseToFaceBandRatio <= 0.0 || coarseRmse <= icpGateHintMm);
+
+	if (skipFineIcp)
+	{
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] skip fine ICP (coarse rmseMm=")
+			+ std::to_string(coarseRmse) + " <= gate " + std::to_string(icpGateHintMm) + ")");
+		outRmseMm = coarseRmse;
+	}
+	else
+	{
+		RunLogger::info("[TemplateBrepUpdate] fine reverse soup point-to-plane ICP...");
+		Eigen::Isometry3d fineStep = Eigen::Isometry3d::Identity();
+		double fineRmse = coarseRmse;
+		std::string fineErr;
+		const int fineIterations = params.scanAlreadyInTemplateFrame ? 35 : 20;
+		if (runReversePointToPlaneIcpStage(
+				"fine reverse soup ICP",
+				templateSoupXyz,
+				templateSoupNormals,
+				workXyz,
+				workNormals,
+				params,
+				fineMaxPairMm,
+				fineIterations,
+				fineStep,
+				fineRmse,
+				&fineErr))
+		{
+			inOutTemplateToScan = fineStep * inOutTemplateToScan;
+			if (!geoalgo::applyIsometryToShapeHandle(workingTemplate, fineStep, workingTemplate, &transformErr))
+			{
+				if (errMsg)
+				{
+					*errMsg = transformErr.empty() ? "fine template transform failed" : transformErr;
+				}
+				return false;
+			}
+			outRmseMm = fineRmse;
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] fine reverse soup ICP ok, rmseMm=")
+				+ std::to_string(fineRmse));
+		}
+		else
+		{
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] fine reverse soup ICP skipped: ")
+				+ (fineErr.empty() ? "unknown" : fineErr));
+			outRmseMm = coarseRmse;
+		}
+	}
+
+	outAlignedTemplateShape = std::move(workingTemplate);
+
+	if (!skipFineIcp)
+	{
+		double avgDist = 0.0;
+		double maxDist = 0.0;
+		measureScanToCloudDistance(workXyz, templateSoupXyz, maxDist, avgDist);
+		if (maxDist > 0.0)
+		{
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] overlap maxDevMm=") + std::to_string(maxDist)
+				+ " avgDevMm=" + std::to_string(avgDist));
+			if (outRmseMm <= 0.0)
+			{
+				outRmseMm = maxDist;
+			}
+		}
+	}
+	return true;
+}
+
+void saveRegistrationCheckpoint(
+	geoalgo::TemplateBrepRegistrationCheckpoint* checkpoint,
+	const std::vector<float>& templateSoupXyz,
+	const std::vector<float>& templateSoupNormals,
+	const geoalgo::ShapeHandle& alignedTemplateShape,
+	const Eigen::Isometry3d& templateToScan)
+{
+	if (!checkpoint)
+	{
+		return;
+	}
+	checkpoint->templateSoupXyz = templateSoupXyz;
+	checkpoint->templateSoupNormals = templateSoupNormals;
+	checkpoint->alignedTemplateShape = alignedTemplateShape.clone();
+	checkpoint->templateToScan = templateToScan;
+	checkpoint->valid = !templateSoupXyz.empty() && !alignedTemplateShape.isNull();
+}
+
+bool runFineRegistrationStage(
+	const std::vector<float>& workXyz,
+	const std::vector<float>& workNormals,
+	std::vector<float>& templateSoupXyz,
+	std::vector<float>& templateSoupNormals,
+	geoalgo::ShapeHandle& workingTemplate,
+	const geoalgo::TemplateBrepUpdateParams& params,
+	const double modelDiag,
+	Eigen::Isometry3d& inOutTemplateToScan,
+	geoalgo::ShapeHandle& outAlignedTemplateShape,
+	double& outRmseMm,
+	std::string* errMsg)
+{
+	RunLogger::info("[TemplateBrepUpdate] coarseStage=fine soup multi-stage ICP");
+	bool soupApplied = false;
+	if (!runReverseSoupMultiStageIcp(
+			workXyz,
+			workNormals,
+			templateSoupXyz,
+			templateSoupNormals,
+			workingTemplate,
+			params,
+			modelDiag,
+			inOutTemplateToScan,
+			outAlignedTemplateShape,
+			outRmseMm,
+			false,
+			soupApplied))
+	{
+		return false;
+	}
+	if (!soupApplied)
+	{
+		RunLogger::info("[TemplateBrepUpdate] coarseStage=fine soup skipped (no improvement)");
+		outAlignedTemplateShape = workingTemplate.clone();
+	}
+	return true;
+}
+
+bool runCoarseAlignmentPipeline(
+	const std::vector<float>& workXyz,
+	const std::vector<float>& workNormals,
+	const geoalgo::ShapeHandle& templateShape,
+	std::vector<float>& templateSoupXyz,
+	std::vector<float>& templateSoupNormals,
+	const geoalgo::TemplateBrepUpdateParams& params,
+	const RegistrationAlignMode alignMode,
+	const double modelDiag,
+	const double preAlignGateMm,
+	const std::size_t initialOverlapHits,
+	const double initialMaxDevMm,
+	Eigen::Isometry3d& outTemplateToScan,
+	geoalgo::ShapeHandle& outAlignedTemplateShape,
+	double& outRmseMm,
+	std::string* errMsg)
+{
+	outTemplateToScan = Eigen::Isometry3d::Identity();
 	outRmseMm = 0.0;
+	outAlignedTemplateShape = templateShape.clone();
+	geoalgo::ShapeHandle workingTemplate = templateShape.clone();
+
+	std::vector<float> originalSoupXyz;
+	std::vector<float> originalSoupNormalsAtStart;
+	bool coarsePreTransformApplied = false;
+
+	if (alignMode == RegistrationAlignMode::ManualTrusted)
+	{
+		RunLogger::info("[TemplateBrepUpdate] coarseStage=globalPreAlign skip (CAD pre-aligned in 3D view)");
+	}
+	else if (alignMode == RegistrationAlignMode::ManualPartial)
+	{
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] coarseStage=globalPreAlign skip (partial overlap pairHits=")
+			+ std::to_string(initialOverlapHits) + "/512); drag CAD workpiece to improve match");
+	}
+	else
+	{
+		originalSoupXyz = templateSoupXyz;
+		originalSoupNormalsAtStart = templateSoupNormals;
+		coarsePreTransformApplied = true;
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] coarseStage=globalPreAlign ransac+pca (mode=")
+			+ registrationAlignModeName(alignMode) + " initialMaxDevMm=" + std::to_string(initialMaxDevMm)
+			+ ")");
+		if (!runCoarseGlobalPreAlign(
+				workXyz,
+				workNormals,
+				templateSoupXyz,
+				templateSoupNormals,
+				templateShape,
+				workingTemplate,
+				params,
+				modelDiag,
+				initialMaxDevMm,
+				preAlignGateMm,
+				outTemplateToScan,
+				errMsg))
+		{
+			return false;
+		}
+	}
+
+	std::size_t overlapHits =
+		countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+	const Eigen::AlignedBox3d scanBox = pclalgo::computeBoundingBox(workXyz);
+	const Eigen::AlignedBox3d templateBox = pclalgo::computeBoundingBox(templateSoupXyz);
+	const double centroidDistMm =
+		(scanBox.isEmpty() || templateBox.isEmpty())
+			? 0.0
+			: (scanBox.center() - templateBox.center()).norm();
+
+	double frameMaxDevMm = 0.0;
+	double frameAvgDevMm = 0.0;
+	measureScanToCloudDistance(workXyz, templateSoupXyz, frameMaxDevMm, frameAvgDevMm);
+	RunLogger::info(
+		std::string("[TemplateBrepUpdate] coarseStage=frameCheck pairHits=") + std::to_string(overlapHits)
+		+ "/512 centroidDistMm=" + std::to_string(centroidDistMm) + " maxDevMm=" + std::to_string(frameMaxDevMm)
+		+ " avgDevMm=" + std::to_string(frameAvgDevMm));
+
+	const double ransacMaxDevGateMm =
+		std::max(preAlignGateMm * 2.0, std::max(params.faceBandMm * 8.0, 25.0));
+	const bool overlapQualityPoor =
+		coarseOverlapQualityPoor(overlapHits, frameMaxDevMm, ransacMaxDevGateMm);
+	const bool globalPreAlignInsufficient =
+		coarsePreTransformApplied && overlapQualityPoor && !originalSoupXyz.empty()
+		&& overlapHits < kMinResetOverlapHits;
+	bool skipSoupForLadder = false;
+	if (globalPreAlignInsufficient)
+	{
+		templateSoupXyz = originalSoupXyz;
+		templateSoupNormals = originalSoupNormalsAtStart;
+		workingTemplate = templateShape.clone();
+		outTemplateToScan = Eigen::Isometry3d::Identity();
+		if (centroidDistMm > preAlignGateMm * 2.0)
+		{
+			std::string snapErr;
+			if (!applyCoarseCentroidSnap(
+					workXyz,
+					templateSoupXyz,
+					templateSoupNormals,
+					templateShape,
+					workingTemplate,
+					outTemplateToScan,
+					&snapErr))
+			{
+				RunLogger::info(
+					std::string("[TemplateBrepUpdate] coarseStage=centroidSnap skipped: ")
+					+ (snapErr.empty() ? "unknown" : snapErr));
+			}
+		}
+		measureScanToCloudDistance(workXyz, templateSoupXyz, frameMaxDevMm, frameAvgDevMm);
+		overlapHits =
+			countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+		PcaAlignmentScore resetScore{frameMaxDevMm, frameAvgDevMm, overlapHits};
+		if (coarseOverlapQualityPoor(overlapHits, frameMaxDevMm, ransacMaxDevGateMm))
+		{
+			(void)tryCoarseQuarterTurnAlignment(
+				workXyz,
+				templateSoupXyz,
+				templateSoupNormals,
+				templateShape,
+				workingTemplate,
+				preAlignGateMm,
+				outTemplateToScan,
+				resetScore);
+			frameMaxDevMm = resetScore.maxDevMm;
+			frameAvgDevMm = resetScore.meanDistMm;
+			overlapHits = resetScore.pairHits;
+		}
+		if (coarseOverlapQualityPoor(overlapHits, frameMaxDevMm, ransacMaxDevGateMm))
+		{
+			std::string ransacErr;
+			(void)tryCoarseFeatureRansacAlign(
+				"postSnapRansac",
+				workXyz,
+				workNormals,
+				templateSoupXyz,
+				templateSoupNormals,
+				templateShape,
+				workingTemplate,
+				params,
+				modelDiag,
+				preAlignGateMm,
+				frameMaxDevMm,
+				outTemplateToScan,
+				resetScore,
+				&ransacErr);
+			frameMaxDevMm = resetScore.maxDevMm;
+			frameAvgDevMm = resetScore.meanDistMm;
+			overlapHits = resetScore.pairHits;
+		}
+		if (coarseOverlapQualityPoor(overlapHits, frameMaxDevMm, ransacMaxDevGateMm))
+		{
+			const std::vector<float> soupBeforePca = templateSoupXyz;
+			const std::vector<float> normalsBeforePca = templateSoupNormals;
+			const Eigen::Isometry3d transformBeforePca = outTemplateToScan;
+			const geoalgo::ShapeHandle templateBeforePca = workingTemplate.clone();
+			const PcaAlignmentScore scoreBeforePca = resetScore;
+
+			RunLogger::info("[TemplateBrepUpdate] coarseStage=pca after postSnapRansac");
+			const Eigen::Isometry3d pcaStep =
+				alignTemplatePcaToScan(templateSoupXyz, templateSoupNormals, workXyz);
+			std::string transformErr;
+			if (!geoalgo::applyIsometryToShapeHandle(
+					workingTemplate, pcaStep, workingTemplate, &transformErr))
+			{
+				if (errMsg)
+				{
+					*errMsg = transformErr.empty() ? "PCA after snap failed" : transformErr;
+				}
+				return false;
+			}
+			outTemplateToScan = pcaStep * outTemplateToScan;
+
+			double pcaMaxDevMm = 0.0;
+			double pcaAvgDevMm = 0.0;
+			measureScanToCloudDistance(workXyz, templateSoupXyz, pcaMaxDevMm, pcaAvgDevMm);
+			const std::size_t pcaHits =
+				countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+			const PcaAlignmentScore pcaScore{pcaMaxDevMm, pcaAvgDevMm, pcaHits};
+			const double pcaAcceptMaxDevMm = ransacMaxDevGateMm;
+			if (!pcaAlignmentScoreBetter(pcaScore, scoreBeforePca) || pcaMaxDevMm > pcaAcceptMaxDevMm)
+			{
+				templateSoupXyz = soupBeforePca;
+				templateSoupNormals = normalsBeforePca;
+				outTemplateToScan = transformBeforePca;
+				workingTemplate = templateBeforePca;
+				measureScanToCloudDistance(workXyz, templateSoupXyz, frameMaxDevMm, frameAvgDevMm);
+				overlapHits =
+					countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+				RunLogger::info(
+					std::string("[TemplateBrepUpdate] coarseStage=pca after snap rejected maxDevMm=")
+					+ std::to_string(pcaMaxDevMm));
+			}
+			else
+			{
+				frameMaxDevMm = pcaMaxDevMm;
+				frameAvgDevMm = pcaAvgDevMm;
+				overlapHits = pcaHits;
+			}
+		}
+		skipSoupForLadder = true;
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] coarseStage=globalPreAlign reset (maxDevMm=")
+			+ std::to_string(frameMaxDevMm) + " pairHits=" + std::to_string(overlapHits)
+			+ "/512); run coarse ICP ladder from identity");
+	}
+	else if (coarsePreTransformApplied && overlapQualityPoor)
+	{
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] coarseStage=globalPreAlign keep (pairHits=")
+			+ std::to_string(overlapHits) + "/512 maxDevMm=" + std::to_string(frameMaxDevMm)
+			+ "); refine in place");
+		PcaAlignmentScore refineScore{frameMaxDevMm, frameAvgDevMm, overlapHits};
+		if (tryCoarseQuarterTurnAlignment(
+				workXyz,
+				templateSoupXyz,
+				templateSoupNormals,
+				templateShape,
+				workingTemplate,
+				preAlignGateMm,
+				outTemplateToScan,
+				refineScore))
+		{
+			frameMaxDevMm = refineScore.maxDevMm;
+			frameAvgDevMm = refineScore.meanDistMm;
+			overlapHits = refineScore.pairHits;
+		}
+	}
+	const bool runRansacCoarse =
+		params.enableRansacCoarseMatch
+		&& !coarsePreTransformApplied
+		&& (alignMode == RegistrationAlignMode::ColdStart
+			|| (alignMode == RegistrationAlignMode::AutoRecover && overlapQualityPoor));
+	const bool useSoupMultiStage =
+		alignMode == RegistrationAlignMode::ManualTrusted
+		|| alignMode == RegistrationAlignMode::ManualPartial
+		|| alignMode == RegistrationAlignMode::AutoRecover
+		|| (alignMode == RegistrationAlignMode::ColdStart
+			&& overlapHits >= kMinRegistrationOverlapHits);
+	const bool allowLargeSoupIcp =
+		alignMode == RegistrationAlignMode::AutoRecover
+		|| alignMode == RegistrationAlignMode::ColdStart;
+	const bool allowLadderFallback =
+		alignMode == RegistrationAlignMode::AutoRecover
+		|| alignMode == RegistrationAlignMode::ColdStart;
+
+	if (!coarsePreTransformApplied
+		&& !outTemplateToScan.matrix().isApprox(Eigen::Isometry3d::Identity().matrix()))
+	{
+		std::string transformErr;
+		if (!geoalgo::applyIsometryToShapeHandle(
+				workingTemplate, outTemplateToScan, workingTemplate, &transformErr))
+		{
+			if (errMsg)
+			{
+				*errMsg = transformErr.empty() ? "failed to apply coarse template transform" : transformErr;
+			}
+			return false;
+		}
+	}
+
+	double postCoarseMaxDevMm = frameMaxDevMm;
+	if (runRansacCoarse)
+	{
+		pclalgo::RigidRegisterRansacParams ransacParams;
+		ransacParams.maxFeaturePoints = params.icpMaxPoints;
+		ransacParams.modelDiagMm = modelDiag;
+		ransacParams.faceBandMm = params.faceBandMm;
+		ransacParams.maxIterations = params.ransacMaxIterations;
+		if (overlapHits == 0U || frameMaxDevMm > ransacMaxDevGateMm)
+		{
+			const double fb = std::max(params.faceBandMm, 1.0);
+			const double defaultInlier = std::max({modelDiag * 0.04, fb * 3.0, 3.0});
+			ransacParams.inlierDistanceMm = std::min(
+				std::max(frameMaxDevMm * 0.6, defaultInlier),
+				modelDiag * 0.15);
+			ransacParams.featureVoxelMm = std::max(modelDiag * 0.025, fb * 4.0);
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] coarseStage=ransac enlarged inlierDistanceMm=")
+				+ std::to_string(ransacParams.inlierDistanceMm) + " featureVoxelMm="
+				+ std::to_string(ransacParams.featureVoxelMm)
+				+ " (maxDevMm=" + std::to_string(frameMaxDevMm) + ")");
+		}
+
+		Eigen::Isometry3d ransacStep = Eigen::Isometry3d::Identity();
+		double inlierRatio = 0.0;
+		std::string ransacErr;
+		if (pclalgo::rigidRegisterFeatureRansac(
+				templateSoupXyz,
+				templateSoupNormals,
+				workXyz,
+				workNormals,
+				ransacStep,
+				&inlierRatio,
+				ransacParams,
+				&ransacErr))
+		{
+			applyIsometryInPlace(templateSoupXyz, ransacStep);
+			applyIsometryInPlaceNormals(templateSoupNormals, ransacStep);
+			outTemplateToScan = ransacStep * outTemplateToScan;
+			std::string transformErr;
+			if (!geoalgo::applyIsometryToShapeHandle(
+					workingTemplate, ransacStep, workingTemplate, &transformErr))
+			{
+				if (errMsg)
+				{
+					*errMsg = transformErr.empty() ? "RANSAC template transform failed" : transformErr;
+				}
+				return false;
+			}
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] coarseStage=ransac ok inlierRatio=")
+				+ std::to_string(inlierRatio));
+			measureScanToCloudDistance(workXyz, templateSoupXyz, postCoarseMaxDevMm, frameAvgDevMm);
+		}
+		else
+		{
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] coarseStage=ransac skipped/failed: ")
+				+ (ransacErr.empty() ? "unknown" : ransacErr));
+		}
+	}
+	else if (params.enableRansacCoarseMatch && coarsePreTransformApplied)
+	{
+		RunLogger::info("[TemplateBrepUpdate] coarseStage=ransac skip (globalPreAlign already applied)");
+	}
+	else if (params.enableRansacCoarseMatch && alignMode == RegistrationAlignMode::ManualTrusted)
+	{
+		RunLogger::info("[TemplateBrepUpdate] coarseStage=ransac skip (CAD pre-aligned in 3D view)");
+	}
+	else if (params.enableRansacCoarseMatch && alignMode == RegistrationAlignMode::AutoRecover
+		&& !overlapQualityPoor)
+	{
+		RunLogger::info("[TemplateBrepUpdate] coarseStage=ransac skip (autoRecover overlap quality sufficient)");
+	}
+
+	if (useSoupMultiStage)
+	{
+		bool soupApplied = false;
+		if (!skipSoupForLadder)
+		{
+			(void)runReverseSoupMultiStageIcp(
+					workXyz,
+					workNormals,
+					templateSoupXyz,
+					templateSoupNormals,
+					workingTemplate,
+					params,
+					modelDiag,
+					outTemplateToScan,
+					outAlignedTemplateShape,
+					outRmseMm,
+					allowLargeSoupIcp,
+					soupApplied);
+		}
+
+		const std::size_t postSoupHits =
+			countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+		double postSoupMaxDevMm = postCoarseMaxDevMm;
+		double postSoupAvgDevMm = 0.0;
+		measureScanToCloudDistance(workXyz, templateSoupXyz, postSoupMaxDevMm, postSoupAvgDevMm);
+		const Eigen::AlignedBox3d postScanBox = pclalgo::computeBoundingBox(workXyz);
+		const Eigen::AlignedBox3d postTplBox = pclalgo::computeBoundingBox(templateSoupXyz);
+		const double postCentroidDistMm =
+			(postScanBox.isEmpty() || postTplBox.isEmpty())
+				? 0.0
+				: (postScanBox.center() - postTplBox.center()).norm();
+		const bool needLadder =
+			allowLadderFallback
+			&& (skipSoupForLadder || !soupApplied
+				|| coarseOverlapQualityPoor(postSoupHits, postSoupMaxDevMm, ransacMaxDevGateMm));
+		if (needLadder)
+		{
+			const double ladderBaselineMaxDev = postCoarseMaxDevMm;
+			std::string ladderErr;
+			if (runCoarseIcpLadderFallback(
+					workXyz,
+					workNormals,
+					templateSoupXyz,
+					templateSoupNormals,
+					workingTemplate,
+					params,
+					modelDiag,
+					preAlignGateMm,
+					postSoupMaxDevMm,
+					postCentroidDistMm,
+					ladderBaselineMaxDev,
+					outTemplateToScan,
+					outRmseMm,
+					&ladderErr))
+			{
+				outAlignedTemplateShape = workingTemplate.clone();
+
+				const std::size_t postLadderHits =
+					countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
+				double postLadderMaxDevMm = postSoupMaxDevMm;
+				double postLadderAvgDevMm = 0.0;
+				measureScanToCloudDistance(
+					workXyz, templateSoupXyz, postLadderMaxDevMm, postLadderAvgDevMm);
+				const bool needPostLadderRefine =
+					postLadderHits >= kMinRegistrationOverlapHits
+					&& postLadderMaxDevMm > ransacMaxDevGateMm;
+				if (needPostLadderRefine)
+				{
+					RunLogger::info("[TemplateBrepUpdate] coarseStage=soupRefine after ladder");
+					bool refineApplied = false;
+					(void)runReverseSoupMultiStageIcp(
+						workXyz,
+						workNormals,
+						templateSoupXyz,
+						templateSoupNormals,
+						workingTemplate,
+						params,
+						modelDiag,
+						outTemplateToScan,
+						outAlignedTemplateShape,
+						outRmseMm,
+						false,
+						refineApplied);
+					measureScanToCloudDistance(
+						workXyz, templateSoupXyz, postLadderMaxDevMm, postLadderAvgDevMm);
+				}
+				if (postLadderMaxDevMm > ransacMaxDevGateMm)
+				{
+					const double tightBaseline = postLadderMaxDevMm;
+					(void)runCoarseTightIcpRefinement(
+						workXyz,
+						workNormals,
+						templateSoupXyz,
+						templateSoupNormals,
+						workingTemplate,
+						params,
+						preAlignGateMm,
+						tightBaseline,
+						outTemplateToScan,
+						outRmseMm);
+				}
+			}
+			else
+			{
+				RunLogger::info(
+					std::string("[TemplateBrepUpdate] coarseStage=coarseIcpLadder failed: ")
+					+ (ladderErr.empty() ? "unknown" : ladderErr));
+			}
+		}
+		if (coarsePreTransformApplied)
+		{
+			outAlignedTemplateShape = workingTemplate.clone();
+			reconcileTemplateToScanWithSoup(
+				templateShape,
+				originalSoupXyz,
+				templateSoupXyz,
+				workXyz,
+				modelDiag,
+				preAlignGateMm,
+				outTemplateToScan,
+				outAlignedTemplateShape);
+			normalizeCoarseTemplateToScanMatrix(
+				originalSoupXyz,
+				templateSoupXyz,
+				workXyz,
+				modelDiag,
+				preAlignGateMm,
+				outTemplateToScan);
+		}
+		return true;
+	}
+
+	if (!runColdStartCoarseIcpPath(
+			workXyz,
+			workNormals,
+			templateSoupXyz,
+			templateSoupNormals,
+			workingTemplate,
+			params,
+			alignMode,
+			modelDiag,
+			preAlignGateMm,
+			initialMaxDevMm,
+			centroidDistMm,
+			outTemplateToScan,
+			outAlignedTemplateShape,
+			outRmseMm,
+			errMsg))
+	{
+		return false;
+	}
+	if (coarsePreTransformApplied)
+	{
+		outAlignedTemplateShape = workingTemplate.clone();
+		reconcileTemplateToScanWithSoup(
+			templateShape,
+			originalSoupXyz,
+			templateSoupXyz,
+			workXyz,
+			modelDiag,
+			preAlignGateMm,
+			outTemplateToScan,
+			outAlignedTemplateShape);
+		normalizeCoarseTemplateToScanMatrix(
+			originalSoupXyz,
+			templateSoupXyz,
+			workXyz,
+			modelDiag,
+			preAlignGateMm,
+			outTemplateToScan);
+	}
+	return true;
+}
+
+bool alignScanToTemplateRegistration(
+	const std::vector<float>& workXyz,
+	const std::vector<float>& workNormals,
+	const geoalgo::ShapeHandle& templateShape,
+	std::vector<float>& templateSampleXyz,
+	std::vector<float>& templateSampleNormals,
+	const geoalgo::TemplateBrepUpdateParams& params,
+	Eigen::Isometry3d& outTemplateToScan,
+	geoalgo::ShapeHandle& outAlignedTemplateShape,
+	double& outRmseMm,
+	std::string* errMsg)
+{
+	outTemplateToScan = Eigen::Isometry3d::Identity();
+	outRmseMm = 0.0;
+	outAlignedTemplateShape = templateShape.clone();
 
 	const double scanDiag = boundingBoxDiagonalMm(workXyz);
 	const double templateDiag = boundingBoxDiagonalMm(templateSampleXyz);
@@ -694,266 +3155,128 @@ bool alignScanToTemplateRegistration(
 		return false;
 	}
 
-	if (params.scanAlreadyInTemplateFrame)
-	{
-		RunLogger::info("[TemplateBrepUpdate] skip bbox centering (scan pre-aligned in 3D view)");
-	}
-	else
-	{
-		const Eigen::Isometry3d bboxStep =
-			alignScanToTemplateBBoxOverlap(workXyz, workNormals, templateSampleXyz);
-		outScanToTemplate = bboxStep;
-		const Eigen::Isometry3d pcaStep =
-			alignScanPcaToTemplate(workXyz, workNormals, templateSampleXyz);
-		outScanToTemplate = pcaStep * outScanToTemplate;
-	}
-
-	std::vector<float> templateSampleNormals;
-	if (!pclalgo::estimateNormalsPca(templateSampleXyz, templateSampleNormals, 16U, nullptr))
+	if (templateSampleNormals.size() != templateSampleXyz.size() || templateSampleNormals.empty())
 	{
 		templateSampleNormals.clear();
-	}
-	else
-	{
-		std::vector<float> templateForOrient = templateSampleXyz;
-		(void)pclalgo::orientNormalsMst(templateForOrient, templateSampleNormals, 16U, nullptr, nullptr);
+		if (!pclalgo::estimateNormalsPca(templateSampleXyz, templateSampleNormals, 16U, nullptr))
+		{
+			templateSampleNormals.clear();
+		}
+		else
+		{
+			std::vector<float> templateForOrient = templateSampleXyz;
+			(void)pclalgo::orientNormalsMst(templateForOrient, templateSampleNormals, 16U, nullptr, nullptr);
+		}
 	}
 
-	const double evalPairMm = std::max(params.faceBandMm * 2.5, 2.0);
-	const std::size_t overlapHits =
-		countPointsWithinPairDistance(workXyz, templateSampleXyz, evalPairMm, 512U);
-	const Eigen::AlignedBox3d scanBox = pclalgo::computeBoundingBox(workXyz);
-	const Eigen::AlignedBox3d templateBox = pclalgo::computeBoundingBox(templateSampleXyz);
-	const double centroidDistMm =
-		(scanBox.isEmpty() || templateBox.isEmpty())
-			? 0.0
-			: (scanBox.center() - templateBox.center()).norm();
+	const double preAlignGateMm = std::max({params.faceBandMm * 6.0, modelDiag * 0.02, 15.0});
+	const std::size_t initialOverlapHits =
+		countPointsWithinPairDistance(workXyz, templateSampleXyz, preAlignGateMm, 512U);
+	double initialMaxDevMm = 0.0;
+	double initialAvgDevMm = 0.0;
+	measureScanToCloudDistance(workXyz, templateSampleXyz, initialMaxDevMm, initialAvgDevMm);
+	const RegistrationAlignMode alignMode =
+		resolveRegistrationAlignMode(params, initialOverlapHits, initialMaxDevMm, preAlignGateMm);
 	RunLogger::info(
-		std::string("[TemplateBrepUpdate] frameCheck pairHits=") + std::to_string(overlapHits)
-		+ "/512 centroidDistMm=" + std::to_string(centroidDistMm));
+		std::string("[TemplateBrepUpdate] coarseStage=modeSelect mode=") + registrationAlignModeName(alignMode)
+		+ " pairHits=" + std::to_string(initialOverlapHits) + "/512 maxDevMm=" + std::to_string(initialMaxDevMm)
+		+ " avgDevMm=" + std::to_string(initialAvgDevMm));
 
-	constexpr std::size_t kMinPreAlignedOverlapHits = 32U;
-	const bool usePreAlignedFineOnly =
-		params.scanAlreadyInTemplateFrame && overlapHits >= kMinPreAlignedOverlapHits;
-	bool useRansacInRecovery = false;
-	if (params.scanAlreadyInTemplateFrame && !usePreAlignedFineOnly)
+	if (!runCoarseAlignmentPipeline(
+		workXyz,
+		workNormals,
+		templateShape,
+		templateSampleXyz,
+		templateSampleNormals,
+		params,
+		alignMode,
+		modelDiag,
+		preAlignGateMm,
+		initialOverlapHits,
+		initialMaxDevMm,
+		outTemplateToScan,
+		outAlignedTemplateShape,
+		outRmseMm,
+		errMsg))
 	{
-		RunLogger::info(
-			"[TemplateBrepUpdate] recovery: overlap insufficient, running full coarse alignment");
-		const Eigen::Isometry3d bboxStep =
-			alignScanToTemplateBBoxOverlap(workXyz, workNormals, templateSampleXyz);
-		outScanToTemplate = bboxStep * outScanToTemplate;
-		const Eigen::Isometry3d pcaStep =
-			alignScanPcaToTemplate(workXyz, workNormals, templateSampleXyz);
-		outScanToTemplate = pcaStep * outScanToTemplate;
-		useRansacInRecovery = true;
+		return false;
 	}
+	return true;
+}
 
-	if (params.enableRansacCoarseMatch && (!params.scanAlreadyInTemplateFrame || useRansacInRecovery))
-	{
-		pclalgo::RigidRegisterRansacParams ransacParams;
-		ransacParams.maxFeaturePoints = params.icpMaxPoints;
-		ransacParams.modelDiagMm = modelDiag;
-		ransacParams.faceBandMm = params.faceBandMm;
-		ransacParams.maxIterations = params.ransacMaxIterations;
-
-		Eigen::Isometry3d ransacStep = Eigen::Isometry3d::Identity();
-		double inlierRatio = 0.0;
-		std::string ransacErr;
-		if (pclalgo::rigidRegisterFeatureRansac(
-				workXyz,
-				workNormals,
-				templateSampleXyz,
-				templateSampleNormals,
-				ransacStep,
-				&inlierRatio,
-				ransacParams,
-				&ransacErr))
-		{
-			applyIsometryInPlace(workXyz, ransacStep);
-			applyIsometryInPlaceNormals(workNormals, ransacStep);
-			outScanToTemplate = ransacStep * outScanToTemplate;
-			RunLogger::info(
-				std::string("[TemplateBrepUpdate] RANSAC coarse: inlierRatio=")
-				+ std::to_string(inlierRatio));
-		}
-		else
-		{
-			RunLogger::info(
-				std::string("[TemplateBrepUpdate] RANSAC coarse skipped/failed: ")
-				+ (ransacErr.empty() ? "unknown" : ransacErr));
-		}
-	}
-	else if (params.enableRansacCoarseMatch && params.scanAlreadyInTemplateFrame && !useRansacInRecovery)
-	{
-		RunLogger::info("[TemplateBrepUpdate] skip RANSAC (scan pre-aligned, overlap sufficient)");
-	}
-
-	if (usePreAlignedFineOnly)
-	{
-		return alignScanPreAlignedInTemplateFrame(
-			workXyz,
-			workNormals,
-			templateSampleXyz,
-			templateSampleNormals,
-			params,
-			outScanToTemplate,
-			outRmseMm);
-	}
-
-	std::vector<double> coarseMaxPairCandidatesMm;
-	if (params.icpMaxPairDistanceMm > 0.0)
-	{
-		coarseMaxPairCandidatesMm.push_back(std::max(params.icpMaxPairDistanceMm, modelDiag * 0.25));
-	}
-	else if (params.scanAlreadyInTemplateFrame)
-	{
-		if (useRansacInRecovery)
-		{
-			for (const double frac : {0.5, 0.75, 1.0, 1.25})
-			{
-				coarseMaxPairCandidatesMm.push_back(std::max(modelDiag * frac, 10.0));
-			}
-		}
-		else
-		{
-			const double fb = std::max(params.faceBandMm, 1.0);
-			for (const double mm : {fb * 1.5, fb * 2.5, fb * 4.0, fb * 6.0, std::max(fb * 10.0, 8.0)})
-			{
-				coarseMaxPairCandidatesMm.push_back(mm);
-			}
-		}
-	}
-	else
-	{
-		for (const double frac : {0.5, 0.75, 1.0, 1.25})
-		{
-			coarseMaxPairCandidatesMm.push_back(std::max(modelDiag * frac, 10.0));
-		}
-	}
-
-	Eigen::Isometry3d coarseStep = Eigen::Isometry3d::Identity();
-	double coarseRmse = 0.0;
-	bool coarseOk = false;
-	std::string coarseErr;
-	const std::vector<float>* tplNormalsForIcp =
-		templateSampleNormals.empty() ? nullptr : &templateSampleNormals;
-
-	for (const double maxPairMm : coarseMaxPairCandidatesMm)
-	{
-		coarseErr.clear();
-		if (runIcpStage(
-				"coarse ICP",
-				workXyz,
-				workNormals,
-				templateSampleXyz,
-				tplNormalsForIcp,
-				params,
-				maxPairMm,
-				30,
-				coarseStep,
-				coarseRmse,
-				&coarseErr,
-				0.0))
-		{
-			coarseOk = true;
-			break;
-		}
-	}
-	if (!coarseOk)
+bool runRegistrationCoarsePipelineSelfTestImpl(std::string* errMsg)
+{
+	geoalgo::TemplateBrepUpdateParams modeParams;
+	modeParams.scanAlreadyInTemplateFrame = true;
+	if (resolveRegistrationAlignMode(modeParams, 0U, 50.0, 25.0) != RegistrationAlignMode::AutoRecover)
 	{
 		if (errMsg)
 		{
-			const Eigen::AlignedBox3d scanBox = pclalgo::computeBoundingBox(workXyz);
-			const Eigen::AlignedBox3d templateBox = pclalgo::computeBoundingBox(templateSampleXyz);
-			const double centroidDistMm = (scanBox.center() - templateBox.center()).norm();
-			std::ostringstream oss;
-			oss << coarseErr << " [scanPts=" << (workXyz.size() / 3U)
-				<< " templatePts=" << (templateSampleXyz.size() / 3U)
-				<< " modelDiagMm=" << modelDiag << " centroidDistMm=" << centroidDistMm << "]";
-			*errMsg = oss.str();
+			*errMsg = "pairHits=0 must select autoRecover";
 		}
 		return false;
 	}
-	outScanToTemplate = coarseStep * outScanToTemplate;
-
-	double fineMaxPairMm = params.icpMaxPairDistanceMm;
-	if (fineMaxPairMm <= 0.0)
+	if (resolveRegistrationAlignMode(modeParams, 16U, 50.0, 25.0) != RegistrationAlignMode::ManualPartial)
 	{
-		if (params.scanAlreadyInTemplateFrame)
+		if (errMsg)
 		{
-			if (useRansacInRecovery)
-			{
-				fineMaxPairMm = std::max(modelDiag * 0.05, 2.0);
-			}
-			else
-			{
-				fineMaxPairMm = std::max(params.faceBandMm * 2.0, 1.5);
-			}
+			*errMsg = "partial overlap with moderate maxDev must stay manualPartial";
 		}
-		else
+		return false;
+	}
+	if (resolveRegistrationAlignMode(modeParams, 0U, 200.0, 25.0) != RegistrationAlignMode::AutoRecover)
+	{
+		if (errMsg)
 		{
-			fineMaxPairMm = std::max(modelDiag * 0.05, 2.0);
+			*errMsg = "pairHits=0 with large maxDev must stay autoRecover";
 		}
+		return false;
 	}
-	if (!coarseMaxPairCandidatesMm.empty())
+	if (resolveRegistrationAlignMode(modeParams, 40U, 10.0, 25.0) != RegistrationAlignMode::ManualTrusted)
 	{
-		fineMaxPairMm = std::min(fineMaxPairMm, coarseMaxPairCandidatesMm.back());
+		if (errMsg)
+		{
+			*errMsg = "pairHits>=32 must select manualTrusted";
+		}
+		return false;
 	}
 
-	Eigen::Isometry3d fineStep = Eigen::Isometry3d::Identity();
-	double fineRmse = coarseRmse;
-	if (runPointToPlaneIcpStage(
-			"fine ICP",
-			workXyz,
-			workNormals,
-			templateSampleXyz,
-			templateSampleNormals,
-			params,
-			fineMaxPairMm,
-			50,
-			fineStep,
-			fineRmse,
-			nullptr))
+	const std::vector<double> ladderPairs =
+		buildCoarseIcpLadderMaxPairsMm(350.0, 400.0, 500.0, 30.0, 2.0);
+	if (ladderPairs.empty() || ladderPairs.front() >= ladderPairs.back())
 	{
-		outScanToTemplate = fineStep * outScanToTemplate;
-		outRmseMm = fineRmse;
+		if (errMsg)
+		{
+			*errMsg = "coarse ICP ladder maxPair candidates must be non-empty and ascending";
+		}
+		return false;
 	}
-	else
-	{
-		outRmseMm = coarseRmse;
-	}
-
-	const double overlapPairMm = std::max(params.faceBandMm * 2.5, 2.0);
-	const double overlapRmseMm = computeMatchedRmseMm(
-		workXyz,
-		workNormals,
-		templateSampleXyz,
-		templateSampleNormals,
-		Eigen::Isometry3d::Identity(),
-		overlapPairMm,
-		params.normalThresholdDeg);
-	if (overlapRmseMm > 0.0)
-	{
-		RunLogger::info(
-			std::string("[TemplateBrepUpdate] overlapRmseMm=") + std::to_string(overlapRmseMm)
-			+ " (pair<=" + std::to_string(overlapPairMm) + "mm)");
-	}
-
 	return true;
 }
 
 bool alignScanToTemplateIcp(
 	std::vector<float>& workXyz,
 	std::vector<float>& workNormals,
-	const std::vector<float>& templateSampleXyz,
+	const geoalgo::ShapeHandle& templateShape,
+	std::vector<float>& templateSampleXyz,
+	std::vector<float>& templateSampleNormals,
 	const geoalgo::TemplateBrepUpdateParams& params,
-	Eigen::Isometry3d& outScanToTemplate,
+	Eigen::Isometry3d& outTemplateToScan,
+	geoalgo::ShapeHandle& outAlignedTemplateShape,
 	double& outRmseMm,
 	std::string* errMsg)
 {
 	return alignScanToTemplateRegistration(
-		workXyz, workNormals, templateSampleXyz, params, outScanToTemplate, outRmseMm, errMsg);
+		workXyz,
+		workNormals,
+		templateShape,
+		templateSampleXyz,
+		templateSampleNormals,
+		params,
+		outTemplateToScan,
+		outAlignedTemplateShape,
+		outRmseMm,
+		errMsg);
 }
 
 bool preparePointCloudWork(
@@ -1407,7 +3730,8 @@ bool registerScanToCadTemplate(
 	std::vector<float>& outAlignedWorkXyz,
 	std::vector<float>& outAlignedWorkNormals,
 	std::string* errMsg,
-	const std::string& templateStepPathUtf8)
+	const std::string& templateStepPathUtf8,
+	geoalgo::TemplateBrepRegistrationCheckpoint* registrationCheckpoint)
 {
 	outReport = {};
 	outAlignedWorkXyz.clear();
@@ -1438,42 +3762,243 @@ bool registerScanToCadTemplate(
 	}
 	RunLogger::info("[TemplateBrepUpdate] preprocess done, workPts=" + std::to_string(workPointCount));
 
+	const bool useSnapshotModelFrame = params.worldFrameSnapshot.valid;
+	if (useSnapshotModelFrame)
+	{
+		applyStoredToTemplateModelFrameInPlace(workXyz, params.worldFrameSnapshot);
+		if (!workNormals.empty())
+		{
+			workNormals.clear();
+		}
+		RunLogger::info(
+			"[TemplateBrepUpdate] scan → STEP model frame via OSG snapshot (same as 3D view drag)");
+	}
+	else if (params.registrationInWorldFrame)
+	{
+		const geoalgo::RegistrationWorldFrameSnapshot& snap = params.worldFrameSnapshot;
+		applyRowMatToWorldInPlace(workXyz, snap.scanRootWorldMat);
+		if (!workNormals.empty())
+		{
+			workNormals.clear();
+		}
+	}
+
 	std::vector<float> templateSampleXyz;
-	if (!geoalgo::sampleShapeSurfacePoints(
-			templateShapeForIcp, params.sampleSpacingMm, templateSampleXyz, errMsg))
+	std::vector<float> templateSampleNormals;
+	std::size_t templateTriCount = 0U;
+	constexpr std::size_t kMaxTemplateSoupPoints = 40000U;
+	if (!geoalgo::extractDisplaySoupPointCloud(
+			templateShapeForIcp,
+			templateSampleXyz,
+			templateSampleNormals,
+			kMaxTemplateSoupPoints,
+			&templateTriCount,
+			errMsg))
 	{
 		return false;
 	}
-	subsampleXyzUniform(templateSampleXyz, 40000U);
 	RunLogger::info(
-		"[TemplateBrepUpdate] template samples=" + std::to_string(templateSampleXyz.size() / 3U));
+		std::string("[TemplateBrepUpdate] template soup pts=") + std::to_string(templateSampleXyz.size() / 3U)
+		+ " (from " + std::to_string(templateTriCount) + " tris)");
 
-	if (!alignScanToTemplateRegistration(
-			workXyz, workNormals, templateSampleXyz, params, outReport.scanToTemplate, outReport.icpRmseMm, errMsg))
+	if (params.registrationInWorldFrame && params.worldFrameSnapshot.valid && !useSnapshotModelFrame)
+	{
+		const geoalgo::RegistrationWorldFrameSnapshot& snap = params.worldFrameSnapshot;
+		applyRowMatToWorldInPlace(templateSampleXyz, snap.templateRootWorldMat);
+		if (!templateSampleNormals.empty())
+		{
+			templateSampleNormals.clear();
+		}
+		RunLogger::info("[TemplateBrepUpdate] registration in world frame (OSG row matrix, matches 3D view)");
+	}
+
+	std::vector<float> icpWorkXyz = workXyz;
+	std::vector<float> icpWorkNormals = workNormals;
+	constexpr std::size_t kMaxIcpScanPoints = 60000U;
+	subsampleXyzWithNormalsUniform(icpWorkXyz, icpWorkNormals, kMaxIcpScanPoints);
+	if (icpWorkXyz.size() / 3U < workXyz.size() / 3U)
+	{
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] ICP scan subsampled to ")
+			+ std::to_string(icpWorkXyz.size() / 3U) + " pts");
+	}
+
+	const double modelDiag = std::max(
+		boundingBoxDiagonalMm(icpWorkXyz), boundingBoxDiagonalMm(templateSampleXyz));
+
+	if (params.registrationStage == geoalgo::TemplateBrepRegistrationStage::FineOnly)
+	{
+		if (!registrationCheckpoint || !registrationCheckpoint->valid)
+		{
+			if (errMsg)
+			{
+				*errMsg = "run coarse registration first (FineOnly requires checkpoint)";
+			}
+			return false;
+		}
+		templateSampleXyz = registrationCheckpoint->templateSoupXyz;
+		templateSampleNormals = registrationCheckpoint->templateSoupNormals;
+		outReport.templateToScan = registrationCheckpoint->templateToScan;
+		outReport.alignedTemplateShape = registrationCheckpoint->alignedTemplateShape.clone();
+		geoalgo::ShapeHandle workingTemplate = outReport.alignedTemplateShape.clone();
+		if (!runFineRegistrationStage(
+				icpWorkXyz,
+				icpWorkNormals,
+				templateSampleXyz,
+				templateSampleNormals,
+				workingTemplate,
+				params,
+				modelDiag,
+				outReport.templateToScan,
+				outReport.alignedTemplateShape,
+				outReport.icpRmseMm,
+				errMsg))
+		{
+			return false;
+		}
+	}
+	else if (!alignScanToTemplateRegistration(
+			icpWorkXyz,
+			icpWorkNormals,
+			templateShapeForIcp,
+			templateSampleXyz,
+			templateSampleNormals,
+			params,
+			outReport.templateToScan,
+			outReport.alignedTemplateShape,
+			outReport.icpRmseMm,
+			errMsg))
 	{
 		return false;
 	}
-	RunLogger::info(
-		"[TemplateBrepUpdate] registration done, icpRmseMm=" + std::to_string(outReport.icpRmseMm));
 
-	outAlignedWorkXyz = std::move(workXyz);
-	outAlignedWorkNormals = std::move(workNormals);
+	saveRegistrationCheckpoint(
+		registrationCheckpoint,
+		templateSampleXyz,
+		templateSampleNormals,
+		outReport.alignedTemplateShape,
+		outReport.templateToScan);
+
+	if (params.registrationStage == geoalgo::TemplateBrepRegistrationStage::CoarseOnly)
+	{
+		RunLogger::info("[TemplateBrepUpdate] coarse-only registration stage complete");
+	}
+	outReport.scanToTemplate = outReport.templateToScan.inverse();
+	Eigen::Isometry3d worldToModel = Eigen::Isometry3d::Identity();
+	if (params.registrationInWorldFrame && params.worldFrameSnapshot.valid && !useSnapshotModelFrame)
+	{
+		const geoalgo::RegistrationWorldFrameSnapshot& snap = params.worldFrameSnapshot;
+		const Eigen::Isometry3d templateToWorld = modelToWorldIsometryFromSnapshot(snap.templateRootWorldMat);
+		worldToModel = templateToWorld.inverse();
+		outReport.templateToScan = worldToModel * outReport.templateToScan * templateToWorld;
+		outReport.scanToTemplate = outReport.templateToScan.inverse();
+		RunLogger::info("[TemplateBrepUpdate] ICP result conjugated to STEP model frame");
+	}
+	RunLogger::info(
+		std::string("[TemplateBrepUpdate] reverse registration done, icpRmseMm=")
+		+ std::to_string(outReport.icpRmseMm));
+
+	const double previewOverlapGateMm = std::max(params.faceBandMm * 10.0, 25.0);
+	const double overlapModelDiag = std::max(
+		boundingBoxDiagonalMm(icpWorkXyz), boundingBoxDiagonalMm(templateSampleXyz));
+	const double inlierGateMm =
+		std::max({params.faceBandMm * 6.0, overlapModelDiag * 0.02, 15.0});
+
+	double overlapMaxAll = 0.0;
+	double overlapAvgAll = 0.0;
+	measureScanToCloudDistance(icpWorkXyz, templateSampleXyz, overlapMaxAll, overlapAvgAll);
+
+	double inlierMax = 0.0;
+	double inlierAvg = 0.0;
+	std::size_t inlierHits = 0U;
+	measureScanToCloudInlierStats(
+		icpWorkXyz, templateSampleXyz, inlierGateMm, inlierMax, inlierAvg, inlierHits);
+
+	const double pipelineIcpRmseMm = outReport.icpRmseMm;
+	if (inlierHits >= kMinRegistrationOverlapHits && inlierAvg > 0.0)
+	{
+		outReport.icpRmseMm = inlierAvg;
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] icpRmseMm from inlier overlap avg=")
+			+ std::to_string(inlierAvg) + "mm (pipeline reported "
+			+ std::to_string(pipelineIcpRmseMm) + "mm)");
+	}
+
+	outReport.registrationOverlapMaxDevMm =
+		inlierHits >= kMinRegistrationOverlapHits ? inlierMax : overlapMaxAll;
+	RunLogger::info(
+		std::string("[TemplateBrepUpdate] registration overlap inlierHits=") + std::to_string(inlierHits)
+		+ "/512 inlierMaxDevMm=" + std::to_string(inlierMax) + " inlierAvgDevMm=" + std::to_string(inlierAvg)
+		+ " globalMaxDevMm=" + std::to_string(overlapMaxAll));
+
+	outAlignedWorkXyz = workXyz;
+	outAlignedWorkNormals = workNormals;
+	if (params.registrationInWorldFrame)
+	{
+		applyIsometryInPlace(outAlignedWorkXyz, worldToModel);
+		if (!outAlignedWorkNormals.empty())
+		{
+			applyIsometryInPlaceNormals(outAlignedWorkNormals, worldToModel);
+		}
+	}
 
 	const double icpGateMm = std::max(
 		params.faceBandMm * params.maxIcpRmseToFaceBandRatio,
 		params.minIcpRmseGateMm);
-	if (params.maxIcpRmseToFaceBandRatio > 0.0 && outReport.icpRmseMm > icpGateMm)
+	outReport.icpRmseGatePassed =
+		params.maxIcpRmseToFaceBandRatio <= 0.0 || outReport.icpRmseMm <= icpGateMm;
+
+	const double effectiveOverlapMaxMm = std::max(inlierMax, overlapMaxAll);
+	outReport.registrationPreviewOk =
+		inlierHits >= kMinRegistrationOverlapHits && effectiveOverlapMaxMm > 0.0
+		&& effectiveOverlapMaxMm <= previewOverlapGateMm;
+	if (params.registrationStage != geoalgo::TemplateBrepRegistrationStage::CoarseOnly)
 	{
+		outReport.registrationPreviewOk =
+			outReport.registrationPreviewOk && outReport.icpRmseGatePassed;
+	}
+
+	if (outReport.registrationPreviewOk)
+	{
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] registration preview ok, inlierMaxDevMm=")
+			+ std::to_string(inlierMax));
+	}
+
+	if (!outReport.icpRmseGatePassed)
+	{
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] ICP RMSE gate failed: rmse=")
+			+ std::to_string(outReport.icpRmseMm) + "mm, need <= " + std::to_string(icpGateMm) + "mm");
 		if (errMsg)
 		{
 			std::ostringstream oss;
-			oss << "ICP alignment insufficient: rmse=" << outReport.icpRmseMm << "mm, need <= " << icpGateMm
+			oss << "ICP RMSE above face-update gate: rmse=" << outReport.icpRmseMm << "mm, need <= " << icpGateMm
 				<< "mm (faceBand=" << params.faceBandMm << "mm). "
-				<< "RMSE is averaged over all scan points; partial scans often need a larger face band. "
-				<< "ICP transform will still be applied to the point cloud for preview.";
+				<< "Template preview may still update; drag CAD to align with scan in 3D view or increase face band.";
 			*errMsg = oss.str();
 		}
-		return false;
+	}
+
+	if (!outReport.registrationPreviewOk)
+	{
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] registration preview rejected: inlierHits=")
+			+ std::to_string(inlierHits) + "/512 effectiveMaxDevMm="
+			+ std::to_string(effectiveOverlapMaxMm) + " (gate<="
+			+ std::to_string(previewOverlapGateMm)
+			+ "mm; inlierMax=" + std::to_string(inlierMax) + " globalMax="
+			+ std::to_string(overlapMaxAll)
+			+ "). Drag CAD workpiece to align with scan in 3D view until overlap is good, then retry.");
+		if (errMsg && errMsg->empty())
+		{
+			std::ostringstream oss;
+			oss << "Registration overlap too poor (inlierMaxDev="
+				<< outReport.registrationOverlapMaxDevMm
+				<< "mm, inlierHits=" << inlierHits
+				<< "/512). Drag CAD workpiece to align with scan in 3D view, then retry matching.";
+			*errMsg = oss.str();
+		}
 	}
 
 	return true;
@@ -1491,11 +4016,15 @@ bool updateBrepFromAlignedScan(
 {
 	brepOut.clearGeometry();
 
-	const geoalgo::ShapeHandle templateShape =
-		resolveTemplateShapeForUpdate(templateBrep, templateStepPathUtf8, errMsg);
+	geoalgo::ShapeHandle templateShape = inOutReport.alignedTemplateShape;
 	if (templateShape.isNull())
 	{
-		return false;
+		templateShape = resolveTemplateShapeForUpdate(templateBrep, templateStepPathUtf8, errMsg);
+		if (templateShape.isNull())
+		{
+			return false;
+		}
+		RunLogger::info("[TemplateBrepUpdate] warning: using original template shape (no aligned cache)");
 	}
 
 	RunLogger::info("[TemplateBrepUpdate] assigning scan points to template faces...");
@@ -1556,6 +4085,101 @@ bool updateBrepFromCadTemplate(
 		outReport,
 		errMsg,
 		templateStepPathUtf8);
+}
+
+bool reconstructBrepFromMeshSoup(
+	const std::vector<float>& soup,
+	const geoalgo::MeshSurfaceReconstructParams& params,
+	std::shared_ptr<BrepBackendData>& outBrep,
+	geoalgo::MeshSurfaceReconstructReport& report,
+	std::string* errMsg)
+{
+	report = {};
+	outBrep.reset();
+	if (soup.size() < 9U)
+	{
+		if (errMsg)
+		{
+			*errMsg = "mesh soup too small";
+		}
+		return false;
+	}
+
+	std::vector<float> working = soup;
+#if defined(_WIN64)
+	if (params.runVcgRepairFirst)
+	{
+		std::vector<float> repaired;
+		vcgalgo::RepairParams repairParams;
+		if (!vcgalgo::repairMesh(working, repaired, repairParams, errMsg))
+		{
+			return false;
+		}
+		working = std::move(repaired);
+	}
+
+	if (params.normalSmoothIterations > 0)
+	{
+		vcgalgo::MeshNormalSmoothParams smoothParams;
+		smoothParams.iterations = params.normalSmoothIterations;
+		smoothParams.featureThresholdC0 = params.featureThresholdC0;
+		std::vector<float> smoothed;
+		if (!vcgalgo::smoothMeshByNormalAdjustment(
+				working, smoothed, smoothParams, &report.normalSmoothGapVolume, errMsg))
+		{
+			return false;
+		}
+		working = std::move(smoothed);
+	}
+#else
+	if (errMsg)
+	{
+		*errMsg = "mesh surface reconstruction requires x64";
+	}
+	return false;
+#endif
+
+	try
+	{
+		geoalgo::ShapeHandle shape;
+		if (!geoalgo::reconstructBrepFromMeshSoup(working, params, shape, report, errMsg))
+		{
+			return false;
+		}
+		if (shape.isNull())
+		{
+			if (errMsg)
+			{
+				*errMsg = "reconstruction produced null shape";
+			}
+			return false;
+		}
+
+		outBrep = std::make_shared<BrepBackendData>();
+		outBrep->setShape(shape);
+		return true;
+	}
+	catch (const std::exception& ex)
+	{
+		if (errMsg)
+		{
+			*errMsg = ex.what();
+		}
+		return false;
+	}
+	catch (...)
+	{
+		if (errMsg)
+		{
+			*errMsg = "mesh surface reconstruction internal error";
+		}
+		return false;
+	}
+}
+
+bool registrationCoarsePipelineSelfTest(std::string* errMsg)
+{
+	return runRegistrationCoarsePipelineSelfTestImpl(errMsg);
 }
 
 } // namespace geometry_backend_ops

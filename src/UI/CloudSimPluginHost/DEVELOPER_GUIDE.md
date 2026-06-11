@@ -114,7 +114,7 @@ Widget 侧 UI 能力契约（`inc/IPluginMainWindowHost.h`），供 Host 内 `Pl
 
 | 路径 | 说明 |
 |------|------|
-| `inc/DocumentPointCloudOps.h` | 解析 `PointCloudBackendData`、OSG 提交、mesh 注册、**模板配准坐标变换** |
+| `inc/DocumentPointCloudOps.h` | 解析 `PointCloudBackendData`、OSG 提交、mesh 注册、**模板配准坐标变换**、**树/插件导出**（`exportPointCloudToPly` / `exportBrepToStep`） |
 | `inc/PluginPointCloudHostImpl.h` | `IPluginPointCloudHost` 实现 |
 
 ### 3.7 模板 B-rep 更新（点云 → CAD 面拟合）
@@ -123,17 +123,20 @@ Widget 侧 UI 能力契约（`inc/IPluginMainWindowHost.h`），供 Host 内 `Pl
 
 | API | 说明 |
 |-----|------|
-| `registerScanToCadTemplate` | 单 Job 配准 + ICP 写回 + `TemplateBrepAlignCache` |
-| `updateTemplateBrepFromAlignedScan` | 校验缓存 → Job `updateBrepFromAlignedScan` → **`registerAdoptedBrepAndLoadScene` 注册新 B-rep**（`{模板名}_updated`），原模板不修改 |
+| `registerScanToCadTemplate` | 单 Job 配准 + `applyTemplateRegistrationToVisual` + `TemplateBrepAlignCache` |
+| `updateTemplateBrepFromAlignedScan` | 校验缓存 → Job `updateBrepFromAlignedScan` → `registerAdoptedBrepAndLoadScene` → **`alignFaceUpdatedBrepWithTemplateVisual`** |
 | `transformScanPointsToTemplateModelFrame` | 扫描 stored xyz → **STEP 模型坐标**（与 B-rep 拾取同规则） |
-| `applyScanIcpAlignmentToStoredPoints` | `scanToTemplate`（STEP 系）烘焙回点云 stored 并 `commitPointCloudVisual` |
+| `applyTemplateRegistrationToVisual` | 反向配准预览：模板 OSG + `pose/rotation`（见专题 §2.1） |
+| `alignFaceUpdatedBrepWithTemplateVisual` | 面重构新工件世界位姿与模板一致（aligned 系，§2.2） |
+| `restoreTemplateShapeFromStep` | 预览失败时恢复模板原始 STEP 几何 |
+| `applyScanIcpAlignmentToStoredPoints` | 正向兼容：将 `scanToTemplate` 烘焙回点云（当前匹配流程**不**调用） |
 
-面重构显示约定：`skipInnerModelCenterRebase=false`（与点云去心一致）、`resetViewToHome=false`；`clearBrepImportArtifactsCache()` 后加载；模板/点云/新工件均保持可见。`updatedFaceCount==0` 时按 `skippedBadBboxFaceCount` 区分 bbox 守卫失败与其它原因。
+面重构注册：`resetViewToHome=false`（装配 STEP 与模板一致，遵循统一世界坐标契约）；注册后 **必须** 调用 `alignFaceUpdatedBrepWithTemplateVisual`，不可直接复制模板 `pose`。`clearBrepImportArtifactsCache()` 后 load；模板/点云/新工件均保持可见。
 
 坐标变换要点（`DocumentPointCloudOps.cpp`）：
 
 - 模板/扫描 backend id 经 **`OsgWidget::resolvePickScopeBackendId`** 解析 visual id（装配 alias）。
-- **`backendSkipsInnerModelCenterRebase`** 决定是否加减 `modelCenter`（与 `feature_pick_transform` 一致）。
+- 坐标变换遵循 [`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md)；`feature_pick_transform` 经 `getBackendRootWorldMatrix`（**不**加减 `modelCenter`）。
 - 禁止对模板 id 直接使用 logical id 取 world 矩阵而不 resolve，否则装配体子件会出现 `frameCheck pairHits=0`。
 
 配准编排与日志见 `geometry_backend_ops::registerScanToCadTemplate`（`Data/GeometryBackendOps.cpp`）。

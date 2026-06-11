@@ -7,7 +7,7 @@
 #include <osg/Quat>
 #include <osg/Vec3f>
 
-/// 对象变换罗盘位姿单一来源：外层 \c T(center+pose)*R（与 \c MeshBackendVisual::buildOuterBranch 一致，行向量 OSG）
+/// 对象变换罗盘位姿单一来源：外层 \c T(pose)*R（geometry 存世界坐标，行向量 OSG）
 class OSGWIDGETCORE_EXPORT ObjectGizmoFrame
 {
 public:
@@ -17,7 +17,7 @@ public:
 	const osg::Vec3f& centerPlusPose() const { return m_centerPlusPose; }
 	const osg::Quat& attitude() const { return m_attitude; }
 
-	osg::Vec3f backendPoseRelativeToCenter() const { return m_centerPlusPose - m_modelCenter; }
+	osg::Vec3f backendPoseRelativeToCenter() const { return m_centerPlusPose; }
 
 	/// 从外层 MatrixTransform 还原 center+pose 与 R（child0 为 -modelCenter 内层 PAT）
 	static bool fromOuter(osg::MatrixTransform* outer, const osg::Vec3f& modelCenter, ObjectGizmoFrame& out);

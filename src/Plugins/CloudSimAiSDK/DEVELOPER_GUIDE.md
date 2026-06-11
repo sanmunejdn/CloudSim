@@ -164,7 +164,7 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 1. 用户在 AI 面板选「轨迹特征」；**须**在轨迹生成页 combo 已选 STEP 工件。
 2. `AiAssistantCoordinator::prepareTrajectoryFeatureRequest` 注入 `catalogFullUtf8` / `catalogSliceUtf8`；轨迹页自动 `ensureFeatureCatalogEnumerated`。
 3. 解析链 `["rules","local"]`（可选 `remote`）：rules 走 `parseTrajectoryFeatureRequest`；LLM user 消息含 catalog 切片 JSON。
-4. 成功 → 3D **全部**候选编号高亮（`showAiFeatureCandidatePreview`）+ Dock「确认并离散」。叠加坐标：`buildPreviewOverlayJson` → `feature_pick_transform::stepModelPointToWorldMm`（与 BREP 拾取同规则：pick alias + `skipInnerModelCenterRebase`）。
+4. 成功 → 3D **全部**候选编号高亮（`showAiFeatureCandidatePreview`）+ Dock「确认并离散」。叠加坐标：`buildPreviewOverlayJson` → `feature_pick_transform::stepModelPointToWorldMm`（pick alias + `getBackendRootWorldMatrix`，见 [`spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md)）。
 5. 用户「选 1 和 3」→ `filterCatalogSliceByCandidateIds` → 3D **仅**选中项高亮；可多次调整编号。
 6. 「确认并离散」→ `commitAiTrajectoryFeatures` → `discretizeFeature` + 默认工艺 pipeline 写入 `TrajectoryEditSession`。
 7. catalog 为空或 LLM 未收到 catalog 时，Coordinator **一次** rules 自动重试。
@@ -203,7 +203,7 @@ LLM grounding：`catalogSliceUtf8` 中 `displayIndex` / `candidateId` / `summary
 
 | 现象 | 原因 / 处理 |
 |------|-------------|
-| 轨迹特征编号/红边相对模型偏移 | 须用当前 `feature_pick_transform`（`resolvePickScopeBackendId` + `backendSkipsInnerModelCenterRebase`）；BREP 装配子件无 Geode 时 alias 须指向 `importParent`；见 [`RobotWidget/DEVELOPER_GUIDE.md`](../../UI/RobotWidget/DEVELOPER_GUIDE.md) §CAD 轨迹生成 |
+| 轨迹特征编号/红边相对模型偏移 | 须用 `feature_pick_transform`（`resolvePickScopeBackendId` + `getBackendRootWorldMatrix`）；BREP 装配子件 alias 须指向 `importParent`；见契约 [`spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) |
 | 输入后完全无反应 | 旧版未绑定 `IAiAssistantHost`；需 `loadPlugins` 后 `refreshAiAssistantHost` |
 | 闲聊崩溃 | 已修复悬空指针与跨线程 UI；请用最新 `Widget.dll` |
 | 创建句无模型仍可用 | `rules` 解析成功，不访问 Ollama |

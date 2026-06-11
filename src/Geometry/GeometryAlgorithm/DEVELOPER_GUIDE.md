@@ -169,6 +169,23 @@ Widget JobSystem（可选）
 | `SkippedNoPoints` | 带内无足够扫描点 |
 | `Unchanged` | 未改 |
 
+### 3.4 网格曲面重构（`MeshSurfaceReconstruction.h`）
+
+三角 soup（mm）→ 分块 B 样条（或平面回退）→ C² 混合 → 局部光顺 → `ShapeHandle`。预处理（Vcg 修复 + 法矢光顺）在 **Data** 层 `reconstructBrepFromMeshSoup` 调用前完成。
+
+| 阶段 | 源文件 | 说明 |
+|------|--------|------|
+| Ch2 法矢光顺 | `VcgAlgorithms/MeshNormalSmooth.*` | Kuwahara + 法矢拉普拉斯 |
+| Ch3.2 分块/参数化/初始片 | `MeshSurfaceReconstruction/*` | 法向分块、UV 分箱采样、`GeomAPI_PointsToBSplineSurface` + 平面回退 |
+| Ch3.3 边界/交汇 C² | `BoundaryBlend.cpp` / `JunctionBlend.cpp` | Bezier 权混合（首版简化） |
+| Ch4 光顺 | `BsplineSurfaceFairing.cpp` | Hahmann 式局部指标（首版简化） |
+| 装配 | `MeshSurfaceReconstructionAssemble.cpp` | `TopoDS_Compound`（开放曲面不 Sewing） |
+| 输出校验 | `MeshSurfaceReconstructionValidate.cpp` | 三角化非空、单面 ≤8000 三角、包围盒比例 ≤3 |
+
+入口：`geoalgo::reconstructBrepFromMeshSoup(soup, params, outShape, report, errMsg)`。自检：`SelfTest.cpp` 中 `meshSurfaceReconstruct`（盒体 soup）。
+
+详见 [`docs/mesh_surface_reconstruction.md`](../../docs/mesh_surface_reconstruction.md)。
+
 ## 4. Data 薄包装
 
 [`GeometryBackendOps.h`](../Data/inc/GeometryBackendOps.h)（`geometry_backend_ops`）转发 STEP 路径级 API，供 `CloudSimPluginHost` 调用。STEP 导入仍经 `MeshBackendData::loadFromFile` → `geoalgo::tessellateStepFile`。
@@ -195,4 +212,5 @@ const bool ok = geoalgo::runSelfTest(&err);
 - [`CloudSimPluginSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md)
 - [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)
 - [`docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md)
+- [`docs/mesh_surface_reconstruction.md`](../../docs/mesh_surface_reconstruction.md)
 - [`RobotScene/DEVELOPER_GUIDE.md`](../../Robot/RobotScene/DEVELOPER_GUIDE.md) §14 — `RawTrajectory` 编辑流水线

@@ -356,6 +356,70 @@ bool OsgWidgetCaptureController::captureImportedPointCloudBackend(
 	return true;
 }
 
+bool OsgWidgetCaptureController::capturePointCloudBackendFromScene(
+	OsgWidget& self,
+	const std::string& backendId,
+	PointCloudBackendData& out,
+	QString* errorMessage)
+{
+	const auto it = self.m_backendObjectRoots.find(backendId);
+	if (it == self.m_backendObjectRoots.end() || !it->second.valid())
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("No backend visual branch for point cloud.");
+		}
+		return false;
+	}
+
+	osg::Node* src = it->second.get();
+	std::vector<float> xyz;
+	std::vector<float> rgba;
+	const osg::Matrixd identity;
+	struct BackendPointCaptureVisitor : osg::NodeVisitor
+	{
+		std::vector<float>& xyzR;
+		std::vector<float>& rgbaR;
+		const osg::Matrixd& localM;
+		BackendPointCaptureVisitor(std::vector<float>& x, std::vector<float>& r, const osg::Matrixd& m)
+			: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
+			, xyzR(x)
+			, rgbaR(r)
+			, localM(m)
+		{
+		}
+		void apply(osg::Geode& geode) override
+		{
+			for (unsigned int di = 0; di < geode.getNumDrawables(); ++di)
+			{
+				osg::Geometry* geom = geode.getDrawable(di) ? geode.getDrawable(di)->asGeometry() : nullptr;
+				if (!geom)
+				{
+					continue;
+				}
+				processGeometryForPoints<osg::Vec3Array>(geom, localM, xyzR, rgbaR);
+				processGeometryForPoints<osg::Vec3dArray>(geom, localM, xyzR, rgbaR);
+			}
+			traverse(geode);
+		}
+	} visitor(xyz, rgba, identity);
+	src->accept(visitor);
+	if (rgba.size() != xyz.size() / 3U * 4U)
+	{
+		rgba.clear();
+	}
+	if (xyz.empty())
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("No point positions found in backend visual branch.");
+		}
+		return false;
+	}
+	out.setPointBuffers(std::move(xyz), std::move(rgba));
+	return true;
+}
+
 bool OsgWidgetCaptureController::captureImportedMeshBackend(
 	OsgWidget& self,
 	MeshBackendData& out,

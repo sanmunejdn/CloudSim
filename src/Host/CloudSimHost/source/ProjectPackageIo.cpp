@@ -27,13 +27,75 @@
 #include <QJsonArray>
 #include <QJsonValue>
 
-#include <algorithm>
 #include <osg/Vec3f>
 
 namespace cloudsim::host
 {
 
 using ::OsgWidget;
+
+namespace
+{
+
+bool isReloadablePointCloudSourcePath(const QString& path)
+{
+	if (path.isEmpty() || path.startsWith(QStringLiteral("plugin://")))
+	{
+		return false;
+	}
+	return QFileInfo::exists(path);
+}
+
+bool ensurePointCloudGeometryForSave(
+	DocumentHost& host,
+	PointCloudBackendData& pc,
+	const std::string& backendId,
+	OsgWidget* osg,
+	QStringList& warnings)
+{
+	if (!pc.pointPositionsXyz().empty())
+	{
+		return true;
+	}
+	const QString idQs = QString::fromStdString(backendId);
+	if (osg)
+	{
+		QString sceneErr;
+		if (osg->capturePointCloudBackendFromScene(backendId, pc, &sceneErr))
+		{
+			return true;
+		}
+		if (!sceneErr.isEmpty())
+		{
+			warnings.append(QStringLiteral("Save: scene resync for %1: %2").arg(idQs, sceneErr));
+		}
+		QString stagingErr;
+		if (osg->captureImportedPointCloudBackend(pc, &stagingErr))
+		{
+			return true;
+		}
+		if (!stagingErr.isEmpty())
+		{
+			warnings.append(QStringLiteral("Save: staging resync for %1: %2").arg(idQs, stagingErr));
+		}
+	}
+	const QString srcPath = host.backendSourcePath().value(idQs);
+	if (isReloadablePointCloudSourcePath(srcPath))
+	{
+		const QByteArray enc = QFile::encodeName(srcPath);
+		const std::string nativePath(enc.constData(), static_cast<std::size_t>(enc.size()));
+		std::string loadErr;
+		if (pc.loadFromFile(nativePath, &loadErr))
+		{
+			return true;
+		}
+		warnings.append(QStringLiteral("Save: reload %1 from source failed: %2")
+			.arg(idQs, loadErr.empty() ? QStringLiteral("unknown") : QString::fromStdString(loadErr)));
+	}
+	return !pc.pointPositionsXyz().empty();
+}
+
+} // namespace
 
 FollowSolveContext followSolveContextFromDto(const core::FollowSolveContextDto* dto)
 {
@@ -65,10 +127,6 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 
 	QJsonArray objects;
 	const auto dataList = host.backend().listData();
-	const int pointCloudObjectCount = static_cast<int>(std::count_if(dataList.begin(), dataList.end(),
-		[](const std::shared_ptr<BackendDataBase>& d) {
-			return d && std::dynamic_pointer_cast<PointCloudBackendData>(d);
-		}));
 
 	OsgWidget* osg = osgWidgetFrom(host);
 	for (const auto& data : dataList)
@@ -85,19 +143,11 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 
 		if (auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(data))
 		{
-			// 单点云且后端无坐标：尝试从 OSG 分支回灌再落盘
-			if (pc->pointPositionsXyz().empty() && pointCloudObjectCount == 1 && osg)
-			{
-				QString resyncErr;
-				if (!osg->captureImportedPointCloudBackend(*pc, &resyncErr))
-				{
-					out.warnings.append(QStringLiteral("Save: could not embed point cloud from viewer: %1").arg(resyncErr));
-				}
-			}
-			if (pc->pointPositionsXyz().empty())
+			if (!ensurePointCloudGeometryForSave(host, *pc, id, osg, out.warnings))
 			{
 				out.abortMessage = QStringLiteral(
-					"Point cloud has no coordinates in the backend; cannot save. Re-import the file while it still exists on disk.");
+					"Point cloud '%1' has no coordinates; cannot save. Re-import or ensure the object is visible.")
+					.arg(idQs);
 				return out;
 			}
 		}
@@ -110,7 +160,34 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 		}
 		if (!assetOutputDir.isEmpty())
 		{
-			if (const auto brep = std::dynamic_pointer_cast<BrepBackendData>(data))
+			if (const auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(data))
+			{
+				const QString rel = QStringLiteral("objects/%1.ply").arg(idQs);
+				const QString abs = QDir(assetOutputDir).filePath(rel);
+				QDir().mkpath(QFileInfo(abs).absolutePath());
+				std::string writeErr;
+				const QByteArray enc = QFile::encodeName(abs);
+				const std::string nativePath(enc.constData(), static_cast<std::size_t>(enc.size()));
+				if (pc->writePointCloudPlySidecar(nativePath, &writeErr))
+				{
+					obj.insert(QStringLiteral("assetRelativePath"), rel);
+					QJsonObject geom = obj.value(QStringLiteral("geometry")).toObject();
+					geom.remove(QStringLiteral("xyzBase64"));
+					geom.remove(QStringLiteral("rgbaPerVertexBase64"));
+					geom.insert(QStringLiteral("kind"), QStringLiteral("points"));
+					geom.insert(QStringLiteral("storage"), QStringLiteral("ply_sidecar"));
+					geom.insert(QStringLiteral("plySidecar"), rel);
+					geom.insert(QStringLiteral("pointCount"), static_cast<qint64>(pc->geometryElementCount()));
+					obj.insert(QStringLiteral("geometry"), geom);
+				}
+				else
+				{
+					out.abortMessage = QStringLiteral("Point cloud PLY write failed for %1: %2")
+						.arg(idQs, QString::fromStdString(writeErr));
+					return out;
+				}
+			}
+			else if (const auto brep = std::dynamic_pointer_cast<BrepBackendData>(data))
 			{
 				if (brep->hasGeometry())
 				{

@@ -782,6 +782,24 @@ bool rigidRegisterFeatureRansac(
 	{
 		*inlierRatio = static_cast<double>(bestInliers) / static_cast<double>(pointCountFromXyz(srcXyz));
 	}
+
+	const double transCapMm = std::max(params.modelDiagMm * 0.25, params.inlierDistanceMm * 2.0);
+	const double transMm = sourceToTarget.translation().norm();
+	if (!params.skipTranslationCap && transMm > transCapMm)
+	{
+		if (errMsg)
+		{
+			std::ostringstream oss;
+			oss << "RANSAC translation exceeds cap: " << transMm << "mm > " << transCapMm << "mm";
+			*errMsg = oss.str();
+		}
+		sourceToTarget = Eigen::Isometry3d::Identity();
+		if (inlierRatio)
+		{
+			*inlierRatio = 0.0;
+		}
+		return false;
+	}
 	return true;
 }
 

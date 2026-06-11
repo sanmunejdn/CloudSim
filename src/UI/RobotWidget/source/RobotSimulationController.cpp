@@ -43,11 +43,11 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <sstream>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <osg/Matrixd>
-#include <sstream>
 #include <string>
 
 using namespace RobotSimulation;
@@ -1446,6 +1446,7 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 		}
 	}
 	const bool perLink = doc->robotUsesPerLinkBackendsForInstance(instIdx);
+	const bool worldBakedPerLink = RobotSimulationMath::perLinkUsesWorldBakedMeshVertices(doc, instIdx);
 	const QString baseLinkBackendId = doc->robotFrameWorldReferenceBackendId(instIdx);
 	std::string highlightToolId = frames.activeToolFrameId;
 	if (highlightInstruction && highlightInstruction->hasPoseProperty())
@@ -1470,12 +1471,11 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 		te.name = tool.name;
 		te.active = (tool.id == highlightToolId);
 		// Waypoint axes (refreshInstructionPoseAxes) mark instruction TCP; tool overlays use flange+T_flange_tool only.
-		if (perLink)
+		if (perLink && !worldBakedPerLink)
 		{
 			const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, tool);
 			te.mountBackendId = RobotSimulationMath::linkMeshBackendIdForInstance(doc, instIdx, flangeLink).toStdString();
 			te.localMatrix = RobotSimulationMath::osgMatrixFromRobotRigidFrame(tool.T_flange_tool);
-			// H2: empty mount would fall back to asm root with flange-local matrix → wrong link (e.g. Link3).
 			if (te.mountBackendId.empty())
 			{
 				continue;
@@ -1483,8 +1483,22 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 		}
 		else
 		{
-			te.mountBackendId.clear();
-			te.localMatrix = RobotSimulationMath::osgMatrixFromBackendMat4(RobotSimulationMath::toolTcpInBaseFromFk(urdfPath, jointQ, frames, tool));
+			if (perLink)
+			{
+				te.mountBackendId = RobotSimulationMath::urdfRootLinkBackendIdForInstance(
+											doc, instIdx, urdfPath, baseLinkBackendId)
+										.toStdString();
+				if (te.mountBackendId.empty())
+				{
+					continue;
+				}
+			}
+			else
+			{
+				te.mountBackendId.clear();
+			}
+			te.localMatrix = RobotSimulationMath::osgMatrixFromBackendMat4(
+				RobotSimulationMath::toolTcpInBaseFromFk(urdfPath, jointQ, frames, tool));
 		}
 		upd.toolFrames.push_back(std::move(te));
 	}
@@ -1746,6 +1760,7 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 	}
 	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
 	const bool perLink = doc->robotUsesPerLinkBackendsForInstance(instIdx);
+	const bool worldBakedPerLink = RobotSimulationMath::perLinkUsesWorldBakedMeshVertices(doc, instIdx);
 	engine::RigidTransform targetInBase{};
 	QString flangeLinkQ;
 	if (const RobotCoordinate::RobotToolFrame* activeTool = RobotCoordinate::activeToolFrame(frames))
@@ -1793,7 +1808,7 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 	(void)modelDiag;
 	std::string mountBackendId = robotRootId.toStdString();
 	bool mountOnFlange = false;
-	if (perLink && !m_tcpDragTeachFlangeLink.isEmpty())
+	if (perLink && !worldBakedPerLink && !m_tcpDragTeachFlangeLink.isEmpty())
 	{
 		const std::string flangeId = RobotSimulationMath::linkMeshBackendIdForInstance(
 			doc, instIdx, m_tcpDragTeachFlangeLink.toStdString())
@@ -1802,6 +1817,15 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 		{
 			mountBackendId = flangeId;
 			mountOnFlange = true;
+		}
+	}
+	else if (perLink && worldBakedPerLink)
+	{
+		const QString rootBid = RobotSimulationMath::urdfRootLinkBackendIdForInstance(
+			doc, instIdx, urdfPath, doc->robotFrameWorldReferenceBackendId(instIdx));
+		if (!rootBid.isEmpty() && osg->hasBackendObjectBranch(rootBid.toStdString()))
+		{
+			mountBackendId = rootBid.toStdString();
 		}
 	}
 	if (!mountOnFlange && !osg->hasBackendObjectBranch(mountBackendId))
@@ -2094,6 +2118,15 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(
 	}
 	m_suppressMotionPreviewStartCapture = false;
 	m_tcpDragApplyingIk = false;
+	if (RobotSimulationMath::perLinkUsesWorldBakedMeshVertices(doc, instIdx))
+	{
+		osg->updateTcpDragTeachFromTarget(m_lastTcpDragTargetInBase, false);
+	}
+	else
+	{
+		syncTcpDragTeachAnchorFromCurrentJoints();
+	}
+	refreshRobotCoordinateFrameOverlays();
 	osg->requestRedraw();
 	return true;
 }

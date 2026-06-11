@@ -156,6 +156,7 @@
     <ClInclude Include="inc\MeshReconstruct.h" />
     <ClInclude Include="inc\MeshDefectDetect.h" />
     <ClInclude Include="inc\SelfTest.h" />
+    <ClInclude Include="inc\MeshNormalSmooth.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\VcgMeshAdapter.cpp" />
@@ -166,6 +167,7 @@
     <ClCompile Include="source\MeshReconstruct.cpp" />
     <ClCompile Include="source\MeshDefectDetect.cpp" />
     <ClCompile Include="source\SelfTest.cpp" />
+    <ClCompile Include="source\MeshNormalSmooth.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

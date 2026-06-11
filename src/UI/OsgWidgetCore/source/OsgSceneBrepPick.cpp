@@ -202,24 +202,9 @@ bool OsgScene::worldPointToStepModelMm(const std::string& backendId, const osg::
 		return false;
 	}
 	const osg::Vec3d pOuter = worldMm * invMat;
-	double cx = 0.0;
-	double cy = 0.0;
-	double cz = 0.0;
-	const auto skipIt = m_backendSkipCenterRebase.find(backendId);
-	const bool skipCenter = skipIt != m_backendSkipCenterRebase.end() && skipIt->second;
-	if (!skipCenter)
-	{
-		const auto cit = m_backendModelCenters.find(backendId);
-		if (cit != m_backendModelCenters.end())
-		{
-			cx = static_cast<double>(cit->second.x());
-			cy = static_cast<double>(cit->second.y());
-			cz = static_cast<double>(cit->second.z());
-		}
-	}
-	outModel.x = pOuter.x() + cx;
-	outModel.y = pOuter.y() + cy;
-	outModel.z = pOuter.z() + cz;
+	outModel.x = pOuter.x();
+	outModel.y = pOuter.y();
+	outModel.z = pOuter.z();
 	return true;
 }
 
@@ -230,22 +215,7 @@ bool OsgScene::stepModelPointToWorldMm(const std::string& backendId, const geoal
 	{
 		return false;
 	}
-	double cx = 0.0;
-	double cy = 0.0;
-	double cz = 0.0;
-	const auto skipIt = m_backendSkipCenterRebase.find(backendId);
-	const bool skipCenter = skipIt != m_backendSkipCenterRebase.end() && skipIt->second;
-	if (!skipCenter)
-	{
-		const auto cit = m_backendModelCenters.find(backendId);
-		if (cit != m_backendModelCenters.end())
-		{
-			cx = static_cast<double>(cit->second.x());
-			cy = static_cast<double>(cit->second.y());
-			cz = static_cast<double>(cit->second.z());
-		}
-	}
-	const osg::Vec3d pFile(modelMm.x - cx, modelMm.y - cy, modelMm.z - cz);
+	const osg::Vec3d pFile(modelMm.x, modelMm.y, modelMm.z);
 	const osg::Vec3d pw = pFile * worldMat;
 	outWorld.set(static_cast<float>(pw.x()), static_cast<float>(pw.y()), static_cast<float>(pw.z()));
 	return true;

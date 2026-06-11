@@ -47,10 +47,6 @@ void writeRobotKinematics(
 				linksObj.insert(it.key(), it.value());
 			}
 			rk.insert(QStringLiteral("links"), linksObj);
-			if (pl.meshVerticesInLinkFrame)
-			{
-				rk.insert(QStringLiteral("meshInLinkFrame"), true);
-			}
 			nlohmann::json cfJ;
 			RobotCoordinate::writeCoordinateFrameSetToJson(doc->robotCoordinateFramesForInstance(ri), cfJ);
 			const QByteArray cfRaw = QByteArray::fromStdString(cfJ.dump());
@@ -96,7 +92,6 @@ void writeRobotKinematics(
 		rk.insert(QStringLiteral("links"), linksObj);
 		if (doc->robotUrdfMeshVerticesInLinkFrame())
 		{
-			rk.insert(QStringLiteral("meshInLinkFrame"), true);
 		}
 		root.insert(QStringLiteral("robotKinematics"), rk);
 	}

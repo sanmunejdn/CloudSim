@@ -268,7 +268,6 @@ public:
 	std::unordered_map<std::string, osg::ref_ptr<osg::MatrixTransform>> m_backendObjectRoots;
 	std::unordered_map<std::string, std::string> m_backendParentIds;
 	std::unordered_map<std::string, osg::Vec3f> m_backendModelCenters;
-	std::unordered_map<std::string, bool> m_backendSkipCenterRebase;
 	std::unordered_map<std::string, bool> m_backendVisibility;
 	BackendVisualBindingIndex m_backendVisualBindings;
 	BackendPickIndexRegistry m_backendPickIndexes;

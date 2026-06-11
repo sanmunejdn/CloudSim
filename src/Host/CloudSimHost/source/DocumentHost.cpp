@@ -152,7 +152,7 @@ bool DocumentHost::loadUrdfLinkMeshIntoScene(const MeshBackendData& data, QStrin
 	{
 		return true;
 	}
-	return m_osgWidget->loadMeshFromBackendData(data, errorMessage, true, true, true, true);
+	return m_osgWidget->loadMeshFromBackendData(data, errorMessage, true, true, true);
 }
 
 void DocumentHost::clearStagingGeometry()

@@ -82,6 +82,15 @@ ROBOTWIDGET_EXPORT QString linkMeshBackendIdForInstance(
 	int instIdx,
 	const std::string& linkName);
 
+/// per-link 且顶点已烘焙到世界系（meshVerticesInLinkFrame=false）时，法兰 OSG 外矩阵仅为 FK 增量，工具轴须走 FK 基系矩阵
+ROBOTWIDGET_EXPORT bool perLinkUsesWorldBakedMeshVertices(IRobotDocumentHost* doc, int instIdx);
+
+ROBOTWIDGET_EXPORT QString urdfRootLinkBackendIdForInstance(
+	IRobotDocumentHost* doc,
+	int instIdx,
+	const QString& urdfPath,
+	const QString& fallbackBackendId);
+
 ROBOTWIDGET_EXPORT bool tcpInBaseFromLinkWorldAndToolFrames(
 	const QHash<QString, osg::Matrixd>& linkWorldByName,
 	const RobotCoordinate::RobotCoordinateFrameSet& frames,

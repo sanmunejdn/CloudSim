@@ -1,5 +1,7 @@
 # RobotScene 模块开发文档
 
+> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — per-link FK：`M = M0·inv(T0)·Tq·P`（§8.1）；**P** 与 **M0** 分离，禁止把场景 **W** 写入 **M0**。
+
 ## 1. 模块定位
 
 `RobotScene` 承担 **仿真业务逻辑**：机器人指令模型、校验、规划（Planner）、程序执行状态机、将关节角/FK 结果写回文档与 OSG。不依赖 Qt Widget，通过 `IRobotSimulationDocument` / `IRobotBackendPoseSink` 与 `Widget` 解耦。

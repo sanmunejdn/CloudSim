@@ -92,10 +92,9 @@ void transformSoupByMat4(std::vector<float>& soup, const BackendMat4& M)
 
 BackendMat4 placementWorldMatrix(const PluginMeshCreateOptions& placement)
 {
-	const BackendVec3 center{};
 	const BackendVec3 pose{ placement.poseMm.x, placement.poseMm.y, placement.poseMm.z };
 	const BackendVec3 rot{ placement.rotationDeg.x, placement.rotationDeg.y, placement.rotationDeg.z };
-	return backend_world_mat_from_pose(center, pose, rot);
+	return backend_world_mat_from_pose(pose, rot);
 }
 
 std::vector<float> worldTriangleSoupForMesh(const MeshBackendData& mesh, BackendDataManager& mgr)

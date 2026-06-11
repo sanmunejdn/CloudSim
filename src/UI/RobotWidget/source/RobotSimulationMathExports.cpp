@@ -157,6 +157,40 @@ QString linkMeshBackendIdForInstance(IRobotDocumentHost* doc, int instIdx, const
 	return doc->robotLinkNameToBackendId().value(QString::fromStdString(linkName));
 }
 
+bool perLinkUsesWorldBakedMeshVertices(IRobotDocumentHost* doc, int instIdx)
+{
+	if (!doc || instIdx < 0 || !doc->robotUsesPerLinkBackendsForInstance(instIdx))
+	{
+		return false;
+	}
+	RobotPerLinkKinematicsSlice slice;
+	if (!doc->robotPerLinkKinematicsForInstance(instIdx, slice))
+	{
+		return false;
+	}
+	return !slice.meshVerticesInLinkFrame;
+}
+
+QString urdfRootLinkBackendIdForInstance(
+	IRobotDocumentHost* doc,
+	int instIdx,
+	const QString& urdfPath,
+	const QString& fallbackBackendId)
+{
+	QString rootLinkName;
+	QHash<QString, QString> linkMeshes;
+	if (UrdfRobotLoader::enumerateLinkVisualMeshes(urdfPath, rootLinkName, linkMeshes, nullptr)
+		&& !rootLinkName.isEmpty())
+	{
+		const QString rootBackendId = linkMeshBackendIdForInstance(doc, instIdx, rootLinkName.toStdString());
+		if (!rootBackendId.isEmpty())
+		{
+			return rootBackendId;
+		}
+	}
+	return fallbackBackendId;
+}
+
 bool robotBaseWorldMatrixForInstance(
 	IRobotDocumentHost* doc,
 	IRobotOsgViewHost* osg,
@@ -236,8 +270,29 @@ BackendMat4 toolTcpInBaseFromFk(
 	const RobotCoordinate::RobotToolFrame& tool)
 {
 	BackendMat4 out = BackendMat4::identity();
-	const QString fallback = QString::fromStdString(RobotCoordinate::effectiveFlangeLinkName(frames, tool));
-	(void)targetInBaseFromUrdfFlangeFk(urdfPath, jointQ, frames, fallback, out, nullptr, nullptr);
+	const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, tool);
+	if (flangeLink.empty())
+	{
+		return out;
+	}
+	QHash<QString, osg::Matrixd> linkWorld;
+	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, jointQ, linkWorld, nullptr))
+	{
+		return out;
+	}
+	const QString flangeQ = QString::fromStdString(flangeLink);
+	if (!linkWorld.contains(flangeQ))
+	{
+		return out;
+	}
+	const BackendMat4 T_tool = RobotCoordinate::frameToMat4(tool.T_flange_tool);
+	const engine::RigidTransform T_base_flange =
+		engine::rigidTransformFromOsg(linkWorld.value(flangeQ));
+	const engine::RigidTransform T_flange_tool =
+		RobotCoordinate::rigidTransformFromBackendMat4(T_tool);
+	const engine::RigidTransform T_base_target =
+		engine::toolOriginFromFlange(T_base_flange, T_flange_tool);
+	out = RobotCoordinate::backendMat4FromRigidTransform(T_base_target);
 	return out;
 }
 

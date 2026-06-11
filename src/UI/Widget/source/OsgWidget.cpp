@@ -422,26 +422,13 @@ bool OsgWidget::syncOuterPatFromBackend(const BackendDataBase& data)
 	{
 		return false;
 	}
-	const auto cIt = m_backendModelCenters.find(id);
-	if (cIt == m_backendModelCenters.end())
-	{
-		return false;
-	}
-	const osg::Vec3f center = cIt->second;
 	const BackendVec3 p = data.pose();
 	const BackendVec3 r = data.rotation();
-	const osg::Vec3d centerPlusPose(
-		static_cast<double>(center.x()) + p.x,
-		static_cast<double>(center.y()) + p.y,
-		static_cast<double>(center.z()) + p.z);
+	const osg::Vec3d trans(static_cast<double>(p.x), static_cast<double>(p.y), static_cast<double>(p.z));
 	const osg::Quat q = backendvisual_math::eulerDegToQuat(
 		osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
-	// Same row-vector convention as ObjectGizmoFrame / MeshBackendVisual::buildOuterBranch.
-	const osg::Matrixd targetWorld =
-		ObjectGizmoFrame::outerLocalMatrix(
-			osg::Vec3f(static_cast<float>(centerPlusPose.x()), static_cast<float>(centerPlusPose.y()),
-				static_cast<float>(centerPlusPose.z())),
-			q);
+	const osg::Matrixd targetWorld = ObjectGizmoFrame::outerLocalMatrix(
+		osg::Vec3f(static_cast<float>(trans.x()), static_cast<float>(trans.y()), static_cast<float>(trans.z())), q);
 	setBackendRootWorldMatrixFromWorld(id, targetWorld);
 	requestRedraw();
 	return true;
@@ -538,6 +525,15 @@ bool OsgWidget::tryGetBackendModelCenterMm(const std::string& backendId, double&
 	outCx = static_cast<double>(it->second.x());
 	outCy = static_cast<double>(it->second.y());
 	outCz = static_cast<double>(it->second.z());
+	return true;
+}
+
+bool OsgWidget::alignBackendInnerModelCenterFrom(
+	const std::string& targetBackendId,
+	const std::string& sourceBackendId)
+{
+	(void)targetBackendId;
+	(void)sourceBackendId;
 	return true;
 }
 
@@ -1038,8 +1034,8 @@ void OsgWidget::setPickVisualAlias(const std::string& logicalBackendId, const st
 
 bool OsgWidget::backendSkipsInnerModelCenterRebase(const std::string& backendId) const
 {
-	const auto it = m_backendSkipCenterRebase.find(backendId);
-	return it != m_backendSkipCenterRebase.end() && it->second;
+	(void)backendId;
+	return false;
 }
 
 osg::ref_ptr<osg::Geode> OsgWidget::buildPointCloudGeode(const PointCloudBackendData& data, QString* errorMessage) const
@@ -1121,12 +1117,11 @@ osg::ref_ptr<osg::Node> OsgWidget::buildMeshGeode(const MeshBackendData& data, Q
 }
 
 bool OsgWidget::upsertBackendBranchInScene(const BackendDataBase& data, QString* errorMessage, bool resetViewToHome,
-	bool showWireOutline, bool useSceneLighting, bool skipInnerModelCenterRebase)
+	bool showWireOutline, bool useSceneLighting)
 {
 	MeshVisualOptions meshOpts;
 	meshOpts.showWireOutline = showWireOutline;
 	meshOpts.useSceneLighting = useSceneLighting;
-	meshOpts.skipInnerModelCenterRebase = skipInnerModelCenterRebase;
 	BranchBuildResult built;
 	std::string err;
 	if (!BackendVisualRegistry::buildOuterBranch(data, meshOpts, built, errorMessage ? &err : nullptr))
@@ -1149,7 +1144,6 @@ bool OsgWidget::upsertBackendBranchInScene(const BackendDataBase& data, QString*
 	}
 	const osg::Vec3f center = built.modelCenter;
 	const float diagonal = built.diagonal;
-	m_backendSkipCenterRebase[id] = skipInnerModelCenterRebase;
 	auto it = m_backendObjectRoots.find(id);
 	if (it != m_backendObjectRoots.end() && it->second.valid() && m_backendObjectsGroup.valid())
 	{
@@ -1186,10 +1180,9 @@ bool OsgWidget::upsertBackendBranchInScene(const BackendDataBase& data, QString*
 }
 
 bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
-	bool showWireOutline, bool useSceneLighting, bool skipInnerModelCenterRebase)
+	bool showWireOutline, bool useSceneLighting)
 {
-	return upsertBackendBranchInScene(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting,
-		skipInnerModelCenterRebase);
+	return upsertBackendBranchInScene(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting);
 }
 
 bool OsgWidget::importModelFile(const QString& filePath, QString* errorMessage)
@@ -1855,7 +1848,7 @@ void OsgWidget::setSelectedPosition(const osg::Vec3f& position)
 	{
 		return;
 	}
-	f.setFromBackend(position, f.attitude(), m_modelCenter);
+	f.setFromBackend(position, f.attitude(), osg::Vec3f(0.0f, 0.0f, 0.0f));
 	f.applyToOuter(m_activeBackendOuterPat.get());
 	syncActiveBackendRootFromObjectFrame(f, false);
 	refreshAnnotationTexts();
@@ -2242,7 +2235,6 @@ void OsgWidget::clearImportedContent()
 	clearBackendVisualBindings();
 	m_backendParentIds.clear();
 	m_backendModelCenters.clear();
-	m_backendSkipCenterRebase.clear();
 	m_backendVisibility.clear();
 	m_hasLastSelectionPose = false;
 	m_activeBackendId.clear();
@@ -2262,6 +2254,16 @@ bool OsgWidget::captureImportedPointCloudBackend(PointCloudBackendData& out, QSt
 {
 	return m_captureController
 		? m_captureController->captureImportedPointCloudBackend(*this, out, errorMessage)
+		: false;
+}
+
+bool OsgWidget::capturePointCloudBackendFromScene(
+	const std::string& backendId,
+	PointCloudBackendData& out,
+	QString* errorMessage)
+{
+	return m_captureController
+		? m_captureController->capturePointCloudBackendFromScene(*this, backendId, out, errorMessage)
 		: false;
 }
 
@@ -2356,18 +2358,17 @@ bool OsgWidget::loadPointCloudFromBackendData(const PointCloudBackendData& data,
 }
 
 bool OsgWidget::loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
-	bool showWireOutline, bool useSceneLighting, bool skipInnerModelCenterRebase)
+	bool showWireOutline, bool useSceneLighting)
 {
-	return loadBackendFromBackendData(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting,
-		skipInnerModelCenterRebase);
+	return loadBackendFromBackendData(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting);
 }
 
 bool OsgWidget::loadBackendFromBackendData(const BackendDataBase& data, QString* errorMessage, bool resetViewToHome,
-	bool showWireOutline, bool useSceneLighting, bool skipInnerModelCenterRebase)
+	bool showWireOutline, bool useSceneLighting)
 {
 	return m_backendLoadController
 		? m_backendLoadController->loadBackendFromBackendData(*this, data, errorMessage, resetViewToHome, showWireOutline,
-			  useSceneLighting, skipInnerModelCenterRebase)
+			  useSceneLighting)
 		: false;
 }
 

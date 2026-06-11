@@ -45,16 +45,119 @@
 | `ParallelUtils.h` | 并行化工具类（TBB检测、线程数管理） |
 | `SelfTest.h` | `runSelfTest(failures)` |
 
-### 重建推荐流程
+### 重建推荐流程（速查）
 
-1. `voxelPrefilterMm > 0` 时 `downsampleVoxelGrid`
-2. `preprocessForReconstruction`（离群 + PCA 法线 + MST 定向）
-3. `reconstructPoisson` 或 `reconstructScaleSpace`
-4. 一键：`reconstructPoissonAuto`
+| 路径 | 入口 API | 适用场景 |
+|------|----------|----------|
+| Poisson 一键 | `reconstructPoissonAuto` / `reconstructPoissonAutoWithConfig` | 闭合曲面、可估法线；插件默认重建 |
+| Poisson 手动 | `reconstructPoisson`（自带法线） | 已预处理、法线质量可控 |
+| Scale-space | `reconstructScaleSpace` / `reconstructScaleSpaceWithConfig` | 噪声大、无法线或法线不可靠 |
 
-闭合良好、法线可靠 → **Poisson**；噪声大 → 先试 **Scale-space** 或加大体素预滤波。
+闭合良好、法线可靠 → **Poisson**；噪声大、缺法线 → **Scale-space** 或 Poisson 前加大体素预滤波。
 
-### 3.1 配置版本 API（推荐）
+---
+
+### 3.1 Poisson 与 Scale-space：流程与区别
+
+二者均基于 CGAL，输出统一为 **triangle soup**（`9*T` float，每三角 3 顶点 xyz，单位 mm）。实现见 [`Reconstruction.cpp`](source/Reconstruction.cpp)。
+
+#### 算法本质
+
+| 维度 | Poisson（隐式重建） | Scale-space（尺度空间重建） |
+|------|---------------------|-----------------------------|
+| CGAL 入口 | `CGAL::poisson_surface_reconstruction_delaunay` | `CGAL::Scale_space_surface_reconstruction_3` |
+| 输入 | **点坐标 + 定向法线**（`Point_with_normal`） | **仅点坐标**（`Point_3`） |
+| 原理 | 将定向点云视为泊松方程约束，求解隐式指示函数后提取等值面 | 多尺度平滑点集，在尺度序列上提取稳定表面 |
+| 对法线要求 | **强依赖**；法线方向错误会导致翻面或空洞 | **不依赖法线**；内部自行平滑与连面 |
+| 典型优势 | 闭合、水密倾向好；细节与平滑度可通过 spacing / 平滑参数调节 | 对噪声、非均匀采样更宽容；无需 MST 定向 |
+| 典型劣势 | 法线差或开口扫描易失败；需预处理链 | 尖锐特征易钝化；`smoothIterations` 过大可能过度平滑 |
+
+#### Poisson 流程
+
+```
+xyz [+ 可选已有 normals]
+    │
+    ├─ reconstructPoissonAuto / AutoWithConfig
+    │       └─ preprocessForReconstruction
+    │              1. voxelPrefilterMm > 0 → downsampleVoxelGrid
+    │              2. outlierRemovalPercent > 0 → removeOutliers (k=24)
+    │              3. estimateNormalsPca (k=12)
+    │              4. orientNormalsMst (k=12)
+    │
+    ├─ reconstructPoissonWithConfig
+    │       └─ 超 maxPointsForReconstruction 时自动体素下采样 + 重算法线
+    │       └─ reconstructPoisson（调用方已提供 normals）
+    │
+    └─ reconstructPoisson（底层）
+            spacingMm ≤ 0 → computeAverageSpacingMm(xyz, 6)
+            poisson_surface_reconstruction_delaunay → Surface_mesh → triangleSoup
+```
+
+**默认 Poisson 参数**（`reconstructPoissonAuto` / `WithConfig`）：
+
+| 参数 | 默认值 | 含义 |
+|------|--------|------|
+| `spacingMm` | 0（自动平均间距） | 八叉树深度 / 体素尺度 |
+| `smAngleDeg` | 20° | 表面平滑：角度阈值 |
+| `smRadiusRel` | 30 | 表面平滑：半径（相对 spacing） |
+| `smDistanceRel` | 0.375 | 表面平滑：距离（相对 spacing） |
+
+Data 层：`reconstructMeshFromPointCloudPoisson` → `reconstructPoissonAuto`；若点云**无法线**且走显式 Poisson 路径会报错 `"Poisson requires normals"`。
+
+#### Scale-space 流程
+
+```
+xyz
+    │
+    ├─ reconstructScaleSpaceWithConfig
+    │       └─ 超 maxPointsForReconstruction 时自动体素下采样（无法线重算）
+    │
+    └─ reconstructScaleSpace（底层）
+            构造 Scale_space_surface_reconstruction_3
+            increase_scale(smoothIterations)   // 尺度提升 / 平滑迭代
+            reconstruct_surface()              // 在当前尺度提取三角面
+            facets → triangleSoup（直接写顶点，不经 Surface_mesh）
+            orientTriangleSoupWinding（焊点 + repair/orient_polygon_soup + 封闭体体积整体翻转）
+```
+
+**默认 Scale-space 参数**：
+
+| 参数 | 默认值（Balanced） | 含义 |
+|------|-------------------|------|
+| `smoothIterations` | Fast=2 / Balanced=4 / Quality=6 | `increase_scale` 迭代次数；越大曲面越平滑、细节越少 |
+| `meshingRadiusMm` | 0（自动：包围盒对角线 × 0.05） | 当前实现中仅计算默认值，**未传入 CGAL**（见 `Reconstruction.cpp` 中 `(void)meshingRadiusMm`） |
+
+Scale-space **不调用** `preprocessForReconstruction`；离群剔除、法线估计、MST 定向均不在此路径内。需要时可由调用方在重建前自行 `downsampleVoxelGrid` / `removeOutliers`。
+
+#### 配置 API 对比
+
+| API | 预处理 | 超点数处理 | 质量档位影响 |
+|-----|--------|------------|--------------|
+| `reconstructPoissonAutoWithConfig` | 完整 `preprocessForReconstruction` | 体素下采样 | 体素、离群%、（间接影响法线） |
+| `reconstructPoissonWithConfig` | 无（调用方提供 normals） | 体素下采样 + `estimateNormalsPca` | 仅下采样阈值 |
+| `reconstructScaleSpaceWithConfig` | 无 | 体素下采样 | `smoothIterations` |
+
+```cpp
+// Poisson 一键（推荐默认）
+pclalgo::ReconstructionConfig config;
+config.quality = pclalgo::ReconstructionQuality::Balanced;
+pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
+
+// Scale-space（噪声 / 无法线）
+pclalgo::reconstructScaleSpaceWithConfig(xyz, soup, config, &err);
+// 或底层：reconstructScaleSpace(xyz, soup, /*smoothIterations=*/4, /*meshingRadiusMm=*/0.0, &err);
+```
+
+#### 选型建议
+
+1. **扫描闭合、密度均匀**：`reconstructPoissonAutoWithConfig`，`Quality` 档 + 适当 `voxelPrefilterMm`。
+2. **开口工件、法线难定向**：先试 `reconstructScaleSpaceWithConfig`，`smoothIterations` 从 4 起调。
+3. **点云已带可靠法线**（如激光标定输出）：可直接 `reconstructPoisson`，跳过 Auto 预处理以保留细节。
+4. **重建后网格质量**：本模块只负责 soup；简化 / 平滑 / 修复见 [`VcgAlgorithms`](../VcgAlgorithms/DEVELOPER_GUIDE.md) 与 `reconstructAndPostProcess`（当前后处理管线绑定 **Poisson**，非 Scale-space）。
+
+---
+
+### 3.2 配置版本 API（推荐）
 
 使用 `ReconstructionConfig` 进行更精细的控制：
 
@@ -75,7 +178,7 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 | Balanced | 1.0 mm | 4 | 5% |
 | Quality | 0.5 mm | 6 | 7% |
 
-### 3.2 并行化
+### 3.3 并行化
 
 当 `CGAL_LINKED_WITH_TBB` 定义时（需链接 TBB），以下算法自动使用 `CGAL::Parallel_tag`：
 
@@ -85,7 +188,7 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 
 通过 `ParallelUtils::isParallelEnabled()` 可运行时控制。
 
-### 3.1 全局粗配准（`RegistrationGlobal.h`）
+### 3.4 全局粗配准（`RegistrationGlobal.h`）
 
 用于 `geometry_backend_ops::alignScanToTemplateRegistration` 的非预对齐路径（`enableRansacCoarseMatch=true` 且 `scanAlreadyInTemplateFrame=false`）。
 

@@ -2,17 +2,26 @@
 
 #include "PluginPointCloudTypes.h"
 #include "PointCloudBackendOps.h"
+#include "cloudsim_host_global.h"
 
 #include <Eigen/Geometry>
 
 #include <memory>
 #include <string>
+#include <vector>
+
+namespace geoalgo
+{
+class ShapeHandle;
+struct RegistrationWorldFrameSnapshot;
+}
 
 namespace cloudsim::host {
 class DocumentHost;
 }
 
 class IPluginMainWindowHost;
+class BrepBackendData;
 class MeshBackendData;
 class PointCloudBackendData;
 
@@ -53,6 +62,57 @@ bool exportMeshToPly(
 	const std::string& pathUtf8,
 	std::string* outError = nullptr);
 
+CLOUDSIM_HOST_EXPORT bool exportPointCloudToPly(
+	cloudsim::host::DocumentHost* page,
+	const std::string& backendIdUtf8,
+	const std::string& pathUtf8,
+	std::string* outError = nullptr);
+
+CLOUDSIM_HOST_EXPORT bool exportBrepToStep(
+	cloudsim::host::DocumentHost* page,
+	const std::string& backendIdUtf8,
+	const std::string& pathUtf8,
+	std::string* outError = nullptr);
+
+/// 当前 OSG 位姿下：STEP/存储坐标 → 世界 mm（与显示一致，供世界系配准）
+bool captureRegistrationWorldFrameSnapshot(
+	cloudsim::host::DocumentHost* page,
+	const std::string& scanBackendIdUtf8,
+	const std::string& templateBackendIdUtf8,
+	geoalgo::RegistrationWorldFrameSnapshot& outSnapshot,
+	std::string* outError = nullptr);
+
+/// 512 点采样：模型系 vs 世界系 overlap（诊断 OSG 变换是否与显示一致）
+void logRegistrationOverlapDiagnostic(
+	cloudsim::host::DocumentHost* page,
+	const std::string& scanBackendIdUtf8,
+	const std::string& templateBackendIdUtf8,
+	const std::vector<float>& scanStoredXyz,
+	const std::vector<float>& templateModelXyz,
+	double gateMm);
+
+/// 扫描/模板质心世界距离（诊断 3D 视图是否已手动对齐）
+void logRegistrationCentroidDiagnostic(
+	cloudsim::host::DocumentHost* page,
+	const std::string& scanBackendIdUtf8,
+	const std::string& templateBackendIdUtf8,
+	const std::vector<float>& scanStoredXyz,
+	double templateModelCenterX,
+	double templateModelCenterY,
+	double templateModelCenterZ);
+
+bool queryTemplateModelToWorldIsometry(
+	cloudsim::host::DocumentHost* page,
+	const std::string& templateBackendIdUtf8,
+	Eigen::Isometry3d& outModelToWorld,
+	std::string* outError = nullptr);
+
+bool queryScanStoredToWorldIsometry(
+	cloudsim::host::DocumentHost* page,
+	const std::string& scanBackendIdUtf8,
+	Eigen::Isometry3d& outStoredToWorld,
+	std::string* outError = nullptr);
+
 /// 将扫描点云从 backend 存储坐标变换到 CAD 模板 STEP 模型坐标（与 B-rep 拾取同规则）
 bool transformScanPointsToTemplateModelFrame(
 	cloudsim::host::DocumentHost* page,
@@ -68,6 +128,47 @@ bool applyScanIcpAlignmentToStoredPoints(
 	const std::string& templateBackendIdUtf8,
 	const Eigen::Isometry3d& scanToTemplateInModelFrame,
 	PointCloudBackendData& inOutScan,
+	std::string* outError = nullptr);
+
+/// 反向配准：将对齐后的模板 shape 写回 backend 并刷新 OSG 显示（点云不动）
+bool applyTemplateRegistrationToVisual(
+	cloudsim::host::DocumentHost* page,
+	const std::string& templateBackendIdUtf8,
+	const geoalgo::ShapeHandle& alignedTemplateShape,
+	const Eigen::Isometry3d& templateToScanInModelFrame,
+	std::string* outError = nullptr);
+
+/// 曲面重构新 B-rep：内层质心与源网格对齐并继承 OSG 世界位姿（registerAdoptedBrepAndLoadScene 之后调用）
+bool inheritBrepVisualPoseFromSourceMesh(
+	cloudsim::host::DocumentHost* page,
+	const std::string& sourceMeshBackendIdUtf8,
+	const std::string& newBrepBackendIdUtf8,
+	BrepBackendData& newBrep,
+	std::string* outError = nullptr);
+
+/// 面重构新工件：几何在 ICP 对齐系，同步与模板一致的世界位姿（注册并 loadScene 之后调用）
+bool alignFaceUpdatedBrepWithTemplateVisual(
+	cloudsim::host::DocumentHost* page,
+	const std::string& templateBackendIdUtf8,
+	const std::string& updatedBrepBackendIdUtf8,
+	const BrepBackendData& templateBrep,
+	BrepBackendData& updatedBrep,
+	const Eigen::Isometry3d& templateToScanInModelFrame,
+	std::string* outError = nullptr);
+
+/// 从 STEP 恢复模板原始几何并刷新显示（保留当前 OSG 位姿）
+bool restoreTemplateShapeFromStep(
+	cloudsim::host::DocumentHost* page,
+	const std::string& templateBackendIdUtf8,
+	const std::string& templateStepPathUtf8,
+	std::string* outError = nullptr);
+
+/// 校验点云 backend 缓冲；异常时从源 PLY 重载，输出 stored 系 xyz
+bool prepareScanPointCloudForRegistration(
+	cloudsim::host::DocumentHost* page,
+	const std::string& scanBackendIdUtf8,
+	std::vector<float>& outStoredXyz,
+	std::size_t& outPointCount,
 	std::string* outError = nullptr);
 
 /// 点云 backend 存储坐标 → 世界 mm（与 OSG 外层 PAT 一致）

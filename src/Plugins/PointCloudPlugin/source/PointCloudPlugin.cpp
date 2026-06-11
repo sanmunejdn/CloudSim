@@ -111,8 +111,13 @@ void PointCloudPlugin::registerMenus()
 		m_pointCloudMenu, QStringLiteral("Simplify Mesh"), [this]() { simplifyMeshOnSelection(); });
 	m_smoothAction = m_host->registerAction(
 		m_pointCloudMenu, QStringLiteral("Smooth Mesh"), [this]() { smoothMeshOnSelection(); });
-	m_defectAnalyzeAction = m_host->registerAction(
-		m_pointCloudMenu, QStringLiteral("Analyze Mesh Defects"), [this]() { analyzeMeshDefectsOnSelection(); });
+	if (m_host->hostVersion() >= 0x00010C00U)
+	{
+		m_surfaceReconstructAction = m_host->registerAction(
+			m_pointCloudMenu,
+			QStringLiteral("Surface Reconstruct"),
+			[this]() { surfaceReconstructOnSelection(); });
+	}
 }
 
 void PointCloudPlugin::applyLanguage()
@@ -163,10 +168,10 @@ void PointCloudPlugin::applyLanguage()
 	{
 		m_smoothAction->setText(zh ? QStringLiteral("网格平滑") : QStringLiteral("Smooth Mesh"));
 	}
-	if (m_defectAnalyzeAction)
+	if (m_surfaceReconstructAction)
 	{
-		m_defectAnalyzeAction->setText(
-			zh ? QStringLiteral("分析网格缺陷") : QStringLiteral("Analyze Mesh Defects"));
+		m_surfaceReconstructAction->setText(
+			zh ? QStringLiteral("曲面重构") : QStringLiteral("Surface Reconstruct"));
 	}
 }
 
@@ -218,10 +223,10 @@ void PointCloudPlugin::smoothMeshOnSelection()
 	}
 }
 
-void PointCloudPlugin::analyzeMeshDefectsOnSelection()
+void PointCloudPlugin::surfaceReconstructOnSelection()
 {
 	if (m_dockWidget)
 	{
-		m_dockWidget->triggerMeshDefectAnalyze();
+		m_dockWidget->triggerSurfaceReconstruct();
 	}
 }

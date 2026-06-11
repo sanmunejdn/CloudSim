@@ -175,6 +175,12 @@ public:
 		const PluginPointCloudCropPolylineParams& params,
 		PluginPointCloudFinishedFn onFinished) override;
 
+	void reconstructSurfaceFromMesh(
+		IPluginDocument* doc,
+		const std::string& meshBackendIdUtf8,
+		const PluginMeshSurfaceReconstructParams& params,
+		PluginMeshSurfaceReconstructFinishedFn onFinished) override;
+
 private:
 	struct TemplateBrepAlignCache
 	{
@@ -184,6 +190,7 @@ private:
 		std::vector<float> alignedWorkXyz;
 		std::vector<float> alignedWorkNormals;
 		geoalgo::TemplateBrepUpdateResult report;
+		geoalgo::TemplateBrepRegistrationCheckpoint registrationCheckpoint;
 	};
 
 	bool cacheMatches(

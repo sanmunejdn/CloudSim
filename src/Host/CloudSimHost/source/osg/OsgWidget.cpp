@@ -829,12 +829,11 @@ osg::ref_ptr<osg::Node> OsgWidget::buildMeshGeode(const MeshBackendData& data, Q
 }
 
 bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
-	bool showWireOutline, bool useSceneLighting, bool skipInnerModelCenterRebase)
+	bool showWireOutline, bool useSceneLighting)
 {
 	MeshVisualOptions meshOpts;
 	meshOpts.showWireOutline = showWireOutline;
 	meshOpts.useSceneLighting = useSceneLighting;
-	meshOpts.skipInnerModelCenterRebase = skipInnerModelCenterRebase;
 	BranchBuildResult built;
 	std::string err;
 	if (!BackendVisualRegistry::buildOuterBranch(data, meshOpts, built, errorMessage ? &err : nullptr))
@@ -1804,11 +1803,11 @@ bool OsgWidget::loadPointCloudFromBackendData(const PointCloudBackendData& data,
 }
 
 bool OsgWidget::loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
-	bool showWireOutline, bool useSceneLighting, bool skipInnerModelCenterRebase)
+	bool showWireOutline, bool useSceneLighting)
 {
 	return m_backendLoadController
 		? m_backendLoadController->loadMeshFromBackendData(*this, data, errorMessage, resetViewToHome, showWireOutline,
-			  useSceneLighting, skipInnerModelCenterRebase)
+			  useSceneLighting)
 		: false;
 }
 

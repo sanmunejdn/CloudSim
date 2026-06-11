@@ -127,7 +127,7 @@ public:
 	bool loadPointCloudFromBackendData(const PointCloudBackendData& data, QString* errorMessage = nullptr,
 		bool resetViewToHome = true);
 	bool loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage = nullptr, bool resetViewToHome = true,
-		bool showWireOutline = true, bool useSceneLighting = true, bool skipInnerModelCenterRebase = false);
+		bool showWireOutline = true, bool useSceneLighting = true);
 	/// URDF 等光照网格；改色时保留材质
 	bool isBackendMeshLit(const std::string& backendId) const;
 	void clearImportedContent();
@@ -358,7 +358,7 @@ private:
 	osg::ref_ptr<osg::Node> buildMeshGeode(const MeshBackendData& data, QString* errorMessage,
 		bool showWireOutline = true, bool useSceneLighting = false) const;
 	bool upsertMeshBranchInScene(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
-		bool showWireOutline = true, bool useSceneLighting = false, bool skipInnerModelCenterRebase = false);
+		bool showWireOutline = true, bool useSceneLighting = false);
 	osg::Node* stagingGeometryRoot() const;
 	void applyVisibilityMaskForBackend(const std::string& backendId);
 	void updateCompassHighlight(DragAxis axis, bool highlightRing = false);

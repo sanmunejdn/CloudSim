@@ -132,7 +132,7 @@ AdoptRegistrationResult registerAdoptedMesh(DocumentHost& host, const std::share
 	}
 	QString regErr;
 	if (!registerAdoptedMeshAndLoadScene(host, mesh, options.sourcePath, options.catalogTypeName, options.parentId,
-			options.resetViewToHome, &regErr, options.skipInnerModelCenterRebase, options.linkOsgSceneParent))
+			options.resetViewToHome, &regErr, options.linkOsgSceneParent))
 	{
 		if (outError)
 		{

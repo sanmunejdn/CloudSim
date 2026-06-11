@@ -8,7 +8,13 @@
 #include <CGAL/Surface_mesh.h>
 #include <CGAL/poisson_surface_reconstruction.h>
 #include <CGAL/Scale_space_surface_reconstruction_3.h>
+#include <CGAL/Polygon_mesh_processing/orient_polygon_soup.h>
+#include <CGAL/Polygon_mesh_processing/repair_polygon_soup.h>
 #include <CGAL/property_map.h>
+
+#include <algorithm>
+#include <map>
+#include <tuple>
 
 namespace pclalgo
 {
@@ -89,6 +95,191 @@ void surfaceMeshToTriangleSoup(const Surface_mesh& mesh, std::vector<float>& tri
 		triangleSoupOut.push_back(static_cast<float>(p2.y()));
 		triangleSoupOut.push_back(static_cast<float>(p2.z()));
 	}
+}
+
+void pushTriToSoup(std::vector<float>& soup, const Point_3& p0, const Point_3& p1, const Point_3& p2)
+{
+	soup.push_back(static_cast<float>(p0.x()));
+	soup.push_back(static_cast<float>(p0.y()));
+	soup.push_back(static_cast<float>(p0.z()));
+	soup.push_back(static_cast<float>(p1.x()));
+	soup.push_back(static_cast<float>(p1.y()));
+	soup.push_back(static_cast<float>(p1.z()));
+	soup.push_back(static_cast<float>(p2.x()));
+	soup.push_back(static_cast<float>(p2.y()));
+	soup.push_back(static_cast<float>(p2.z()));
+}
+
+void buildSoupFromPolygons(
+	const std::vector<Point_3>& points,
+	const std::vector<std::vector<std::size_t>>& polygons,
+	std::vector<float>& soup)
+{
+	soup.clear();
+	soup.reserve(polygons.size() * 9U);
+	for (const auto& poly : polygons)
+	{
+		if (poly.size() < 3U)
+		{
+			continue;
+		}
+		for (std::size_t k = 1U; k + 1U < poly.size(); ++k)
+		{
+			const std::size_t i0 = poly[0];
+			const std::size_t i1 = poly[k];
+			const std::size_t i2 = poly[k + 1U];
+			if (i0 >= points.size() || i1 >= points.size() || i2 >= points.size())
+			{
+				continue;
+			}
+			pushTriToSoup(soup, points[i0], points[i1], points[i2]);
+		}
+	}
+}
+
+double signedVolumeOfSoupAboutPoint(
+	const std::vector<float>& soup,
+	const double cx,
+	const double cy,
+	const double cz)
+{
+	double vol = 0.0;
+	for (std::size_t i = 0; i + 8U < soup.size(); i += 9U)
+	{
+		const double ax = static_cast<double>(soup[i]) - cx;
+		const double ay = static_cast<double>(soup[i + 1U]) - cy;
+		const double az = static_cast<double>(soup[i + 2U]) - cz;
+		const double bx = static_cast<double>(soup[i + 3U]) - cx;
+		const double by = static_cast<double>(soup[i + 4U]) - cy;
+		const double bz = static_cast<double>(soup[i + 5U]) - cz;
+		const double ccx = static_cast<double>(soup[i + 6U]) - cx;
+		const double ccy = static_cast<double>(soup[i + 7U]) - cy;
+		const double ccz = static_cast<double>(soup[i + 8U]) - cz;
+		vol += ax * (by * ccz - bz * ccy) - ay * (bx * ccz - bz * ccx) + az * (bx * ccy - by * ccx);
+	}
+	return vol / 6.0;
+}
+
+void flipAllTriangleWindingInSoup(std::vector<float>& soup)
+{
+	for (std::size_t i = 0; i + 8U < soup.size(); i += 9U)
+	{
+		std::swap(soup[i + 3U], soup[i + 6U]);
+		std::swap(soup[i + 4U], soup[i + 7U]);
+		std::swap(soup[i + 5U], soup[i + 8U]);
+	}
+}
+
+// 封闭体整体内外翻转；逐三角质心翻转在非凸网格上会导致部分面发黑
+void orientSoupOutwardIfClosed(
+	std::vector<float>& soup,
+	const double refX,
+	const double refY,
+	const double refZ)
+{
+	if (soup.size() < 9U)
+	{
+		return;
+	}
+	double minX = soup[0];
+	double minY = soup[1];
+	double minZ = soup[2];
+	double maxX = minX;
+	double maxY = minY;
+	double maxZ = minZ;
+	for (std::size_t i = 0; i + 2U < soup.size(); i += 3U)
+	{
+		minX = std::min(minX, static_cast<double>(soup[i]));
+		maxX = std::max(maxX, static_cast<double>(soup[i]));
+		minY = std::min(minY, static_cast<double>(soup[i + 1U]));
+		maxY = std::max(maxY, static_cast<double>(soup[i + 1U]));
+		minZ = std::min(minZ, static_cast<double>(soup[i + 2U]));
+		maxZ = std::max(maxZ, static_cast<double>(soup[i + 2U]));
+	}
+	const double scale = std::max({maxX - minX, maxY - minY, maxZ - minZ, 1e-6});
+	const double volEps = scale * scale * scale * 1e-9;
+	const double vol = signedVolumeOfSoupAboutPoint(soup, refX, refY, refZ);
+	if (vol < -volEps)
+	{
+		flipAllTriangleWindingInSoup(soup);
+	}
+}
+
+// Scale-space 输出为展开 soup，须先焊点再 orient_polygon_soup 才能沿共享边传播绕序
+bool orientTriangleSoupWinding(std::vector<float>& soup)
+{
+	if (soup.size() < 9U || (soup.size() % 9U) != 0U)
+	{
+		return false;
+	}
+
+	namespace PMP = CGAL::Polygon_mesh_processing;
+
+	const auto quantKey = [](const Point_3& p) {
+		return std::make_tuple(
+			static_cast<long long>(std::llround(p.x() / 1e-4)),
+			static_cast<long long>(std::llround(p.y() / 1e-4)),
+			static_cast<long long>(std::llround(p.z() / 1e-4)));
+	};
+
+	std::map<std::tuple<long long, long long, long long>, std::size_t> pointIndex;
+	std::vector<Point_3> points;
+	std::vector<std::vector<std::size_t>> polygons;
+	points.reserve(soup.size() / 3U);
+	polygons.reserve(soup.size() / 9U);
+
+	const auto vertexIndex = [&](const Point_3& p) -> std::size_t {
+		const auto key = quantKey(p);
+		const auto it = pointIndex.find(key);
+		if (it != pointIndex.end())
+		{
+			return it->second;
+		}
+		const std::size_t idx = points.size();
+		points.push_back(p);
+		pointIndex.emplace(key, idx);
+		return idx;
+	};
+
+	for (std::size_t i = 0; i + 8U < soup.size(); i += 9U)
+	{
+		const Point_3 p0(soup[i], soup[i + 1U], soup[i + 2U]);
+		const Point_3 p1(soup[i + 3U], soup[i + 4U], soup[i + 5U]);
+		const Point_3 p2(soup[i + 6U], soup[i + 7U], soup[i + 8U]);
+		polygons.push_back({vertexIndex(p0), vertexIndex(p1), vertexIndex(p2)});
+	}
+
+	if (points.empty() || polygons.empty())
+	{
+		return false;
+	}
+
+	PMP::repair_polygon_soup(points, polygons);
+	(void)PMP::orient_polygon_soup(points, polygons);
+
+	const std::vector<float> backup = soup;
+	buildSoupFromPolygons(points, polygons, soup);
+	if (soup.empty())
+	{
+		soup = backup;
+		return false;
+	}
+
+	double refX = 0.0;
+	double refY = 0.0;
+	double refZ = 0.0;
+	for (const Point_3& p : points)
+	{
+		refX += p.x();
+		refY += p.y();
+		refZ += p.z();
+	}
+	const double inv = 1.0 / static_cast<double>(points.size());
+	refX *= inv;
+	refY *= inv;
+	refZ *= inv;
+	orientSoupOutwardIfClosed(soup, refX, refY, refZ);
+	return true;
 }
 
 } // namespace
@@ -217,6 +408,7 @@ bool reconstructScaleSpace(
 		}
 		return false;
 	}
+	(void)orientTriangleSoupWinding(triangleSoupOut);
 	(void)meshingRadiusMm;
 	return true;
 }
