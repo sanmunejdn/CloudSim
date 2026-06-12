@@ -328,6 +328,16 @@ bool DocumentHost::suppressRobotFollowDirtyNotify() const
 	return m_suppressRobotFollowDirtyNotify;
 }
 
+void DocumentHost::setDeferPropertyPanelVisualFullSync(const bool defer)
+{
+	m_deferPropertyPanelVisualFullSync = defer;
+}
+
+bool DocumentHost::deferPropertyPanelVisualFullSync() const
+{
+	return m_deferPropertyPanelVisualFullSync;
+}
+
 void DocumentHost::ensureSelectionVisualForBackend(const std::string& backendId, const bool urdfLinkMesh)
 {
 	const auto obj = m_backend->getData(backendId);

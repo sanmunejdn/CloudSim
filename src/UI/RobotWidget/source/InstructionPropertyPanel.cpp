@@ -287,6 +287,7 @@ void InstructionPropertyPanel::update(
 	}
 	host.updatingPropertyBrowserFlag() = true;
 	host.propertyEnumTokens().clear();
+	host.clearPropertyKeyVariantMap();
 	host.variantManager()->clear();
 	if (!instruction)
 	{
@@ -836,13 +837,21 @@ bool InstructionPropertyPanel::handleVariantPropertyValueChanged(
 		host.simulationCommandPage()->refreshInstructionList();
 	}
 	host.refreshInstructionPoseAxes();
-	host.applyRobotPoseForInstructionPreview(instruction);
 	const bool axisConfigOnly = propertyKey.startsWith(QStringLiteral("motion.axisConfig"));
 	if (!axisConfigOnly)
 	{
 		host.invalidateFeasibleAxisConfigurationCache();
 	}
-	host.scheduleInstructionPropertyRefresh(instruction, !axisConfigOnly);
+	if (isMotionTargetPoseKey(propertyKey))
+	{
+		const QString instructionId = QString::fromStdString(instruction->id());
+		host.notifyPropertyPanelNumericEditStarted(instructionId, propertyKey);
+	}
+	else
+	{
+		host.applyRobotPoseForInstructionPreview(instruction);
+		host.scheduleInstructionPropertyRefresh(instruction, !axisConfigOnly);
+	}
 	return true;
 }
 

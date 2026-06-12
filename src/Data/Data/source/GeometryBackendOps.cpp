@@ -85,6 +85,107 @@ double boundingBoxDiagonalMm(const std::vector<float>& xyz)
 	return pclalgo::computeBoundingBox(xyz).diagonal().norm();
 }
 
+constexpr std::size_t kRegistrationPairTargetPoints = 12000U;
+
+double voxelDownsampleXyzToTargetCount(std::vector<float>& xyz, const std::size_t targetCount)
+{
+	const std::size_t pointCount = xyz.size() / 3U;
+	const double diag = boundingBoxDiagonalMm(xyz);
+	if (pointCount == 0U)
+	{
+		return std::max(diag, 1e-9);
+	}
+	if (pointCount <= targetCount || diag < 1e-15)
+	{
+		return std::max(diag / std::max(std::cbrt(static_cast<double>(pointCount)), 1.0), 1e-9);
+	}
+
+	double lo = std::max(diag * 1e-7, 1e-9);
+	double hi = diag;
+	double bestVoxel = lo;
+	std::size_t bestDiff = pointCount - targetCount;
+	std::vector<float> bestXyz = xyz;
+
+	for (int iter = 0; iter < 40; ++iter)
+	{
+		const double mid = (lo + hi) * 0.5;
+		std::vector<float> trial = xyz;
+		if (!pclalgo::downsampleVoxelGrid(trial, mid))
+		{
+			hi = mid;
+			continue;
+		}
+		const std::size_t trialCount = trial.size() / 3U;
+		if (trialCount == 0U)
+		{
+			hi = mid;
+			continue;
+		}
+		const std::size_t diff =
+			trialCount > targetCount ? trialCount - targetCount : targetCount - trialCount;
+		if (diff < bestDiff)
+		{
+			bestDiff = diff;
+			bestXyz = std::move(trial);
+			bestVoxel = mid;
+		}
+		if (trialCount > targetCount)
+		{
+			lo = mid;
+		}
+		else
+		{
+			hi = mid;
+		}
+		if (hi - lo < std::max(diag * 1e-10, 1e-12))
+		{
+			break;
+		}
+	}
+	xyz = std::move(bestXyz);
+	return bestVoxel;
+}
+
+double downsampleRegistrationPairToTarget(
+	std::vector<float>& scanXyz,
+	std::vector<float>& scanNormals,
+	std::vector<float>& templateXyz,
+	std::vector<float>& templateNormals,
+	const std::size_t targetCount = kRegistrationPairTargetPoints)
+{
+	const double scanVoxel = voxelDownsampleXyzToTargetCount(scanXyz, targetCount);
+	const double templateVoxel = voxelDownsampleXyzToTargetCount(templateXyz, targetCount);
+	scanNormals.clear();
+	templateNormals.clear();
+	(void)pclalgo::estimateNormalsPca(scanXyz, scanNormals, 12U, nullptr);
+	(void)pclalgo::estimateNormalsPca(templateXyz, templateNormals, 12U, nullptr);
+	const double matchVoxel = std::max({scanVoxel, templateVoxel, 1e-9});
+	const std::size_t scanPts = scanXyz.size() / 3U;
+	const std::size_t templatePts = templateXyz.size() / 3U;
+	const std::size_t minPts = std::min(scanPts, templatePts);
+	const double countRatio =
+		minPts > 0U ? static_cast<double>(std::max(scanPts, templatePts)) / static_cast<double>(minPts) : 0.0;
+	RunLogger::info(
+		std::string("[TemplateBrepUpdate] paired downsample scanPts=") + std::to_string(scanPts)
+		+ " templatePts=" + std::to_string(templatePts) + " scanVoxelMm=" + std::to_string(scanVoxel)
+		+ " templateVoxelMm=" + std::to_string(templateVoxel) + " matchVoxelMm=" + std::to_string(matchVoxel)
+		+ " countRatio=" + std::to_string(countRatio));
+	return matchVoxel;
+}
+
+double ransacTranslationCapMm(
+	const double modelDiag,
+	const double preAlignGateMm,
+	const double initialMaxDevMm)
+{
+	const double baseCap = std::max(modelDiag * 0.25, preAlignGateMm * 2.0);
+	if (initialMaxDevMm > modelDiag * 0.12)
+	{
+		return std::max({modelDiag * 0.85, initialMaxDevMm * 1.15, baseCap});
+	}
+	return baseCap;
+}
+
 void applyRowMatToWorldInPlace(std::vector<float>& xyz, const double rootWorldMat[16])
 {
 	const auto at = [rootWorldMat](const int row, const int col) {
@@ -994,6 +1095,16 @@ bool pcaAlignmentScoreBetter(const PcaAlignmentScore& candidate, const PcaAlignm
 	return candidate.meanDistMm < best.meanDistMm;
 }
 
+bool pcaStrongOverlapAccept(
+	const PcaAlignmentScore& pcaScore,
+	const PcaAlignmentScore& priorScore,
+	const double initialMaxDevMm)
+{
+	return pcaScore.pairHits >= kMinRegistrationOverlapHits
+		&& pcaScore.pairHits >= priorScore.pairHits + 32U
+		&& pcaScore.maxDevMm < initialMaxDevMm * 0.2;
+}
+
 bool tryCoarseQuarterTurnAlignment(
 	const std::vector<float>& workXyz,
 	std::vector<float>& templateSoupXyz,
@@ -1261,9 +1372,9 @@ void normalizeCoarseTemplateToScanMatrix(
 	const double preAlignGateMm,
 	Eigen::Isometry3d& inOutTemplateToScan)
 {
-	const double transCapMm = std::max(modelDiag * 0.25, preAlignGateMm * 2.0);
 	const double accumTransMm = inOutTemplateToScan.translation().norm();
-	if (accumTransMm <= transCapMm)
+	const double transCapMm = ransacTranslationCapMm(modelDiag, preAlignGateMm, accumTransMm);
+	if (accumTransMm <= std::max(modelDiag * 0.25, preAlignGateMm * 2.0))
 	{
 		return;
 	}
@@ -1296,8 +1407,9 @@ void normalizeCoarseTemplateToScanMatrix(
 				countPointsWithinPairDistance(scanXyz, verifyXyz, preAlignGateMm, 512U);
 			const double estimatedTransMm = estimated.translation().norm();
 			const double verifyGateMm = std::max({preAlignGateMm * 1.5, modelDiag * 0.03, 20.0});
-			if (estimatedTransMm <= transCapMm && scanMaxMm <= verifyGateMm * 2.0
-				&& scanHits >= kMinRegistrationOverlapHits / 2U)
+			const bool overlapOk =
+				scanHits >= kMinRegistrationOverlapHits / 2U && scanMaxMm <= verifyGateMm * 2.0;
+			if (overlapOk && estimatedTransMm <= transCapMm)
 			{
 				inOutTemplateToScan = estimated;
 				RunLogger::info(
@@ -1307,10 +1419,10 @@ void normalizeCoarseTemplateToScanMatrix(
 			}
 		}
 	}
-	inOutTemplateToScan = Eigen::Isometry3d::Identity();
+	// originalPose 写回：显示层用 pose 承载 ICP，不能钳为 Identity
 	RunLogger::info(
-		std::string("[TemplateBrepUpdate] coarseStage=templateToScan clamped to identity (was ")
-		+ std::to_string(accumTransMm) + "mm); alignment carried by baked shape");
+		std::string("[TemplateBrepUpdate] coarseStage=templateToScan keep pipeline matrix (was ")
+		+ std::to_string(accumTransMm) + "mm); normalize verify failed");
 }
 
 void reconcileTemplateToScanWithSoup(
@@ -1361,9 +1473,10 @@ void reconcileTemplateToScanWithSoup(
 	const double transDeltaMm = (inOutTemplateToScan.translation() - estimated.translation()).norm();
 	const double estimatedRotDeg = rotationAngleDeg(estimated);
 	const double verifyGateMm = std::max({preAlignGateMm * 1.5, modelDiag * 0.03, 20.0});
-	const double transCapMm = std::max(modelDiag * 0.25, preAlignGateMm * 2.0);
-	if (estimatedTransMm > transCapMm || scanMaxMm > verifyGateMm * 2.0
-		|| scanHits < kMinRegistrationOverlapHits / 2U)
+	const double transCapMm = ransacTranslationCapMm(modelDiag, preAlignGateMm, accumTransMm);
+	const bool overlapOk =
+		scanHits >= kMinRegistrationOverlapHits / 2U && scanMaxMm <= verifyGateMm * 2.0;
+	if (!overlapOk || estimatedTransMm > transCapMm)
 	{
 		RunLogger::info(
 			std::string("[TemplateBrepUpdate] coarseStage=reconcile rejected scanMaxMm=")
@@ -1525,6 +1638,7 @@ bool runReverseSoupMultiStageIcp(
 	geoalgo::ShapeHandle& outAlignedTemplateShape,
 	double& outRmseMm,
 	const bool allowLargeCorrection,
+	const bool fineRefinementStage,
 	bool& outSoupApplied)
 {
 	const Eigen::Isometry3d priorStep = outTemplateToScan;
@@ -1540,12 +1654,44 @@ bool runReverseSoupMultiStageIcp(
 	double baselineAvgDist = 0.0;
 	double baselineMaxDist = 0.0;
 	measureScanToCloudDistance(workXyz, templateSoupXyz, baselineMaxDist, baselineAvgDist);
+	const double inlierGateMm =
+		params.registrationMatchVoxelMm > 0.0
+		? std::max({params.registrationMatchVoxelMm * 2.5, fb * 3.0, 15.0})
+		: std::max({fb * 6.0, modelDiag * 0.02, 15.0});
+	double baselineInlierMax = 0.0;
+	double baselineInlierAvg = 0.0;
+	std::size_t baselineInlierHits = 0U;
+	if (fineRefinementStage)
+	{
+		measureScanToCloudInlierStats(
+			workXyz, templateSoupXyz, inlierGateMm, baselineInlierMax, baselineInlierAvg, baselineInlierHits);
+	}
 	RunLogger::info(
 		std::string("[TemplateBrepUpdate] reverse pre-align baseline maxDevMm=")
-		+ std::to_string(baselineMaxDist) + " avgDevMm=" + std::to_string(baselineAvgDist));
+		+ std::to_string(baselineMaxDist) + " avgDevMm=" + std::to_string(baselineAvgDist)
+		+ (fineRefinementStage
+			? " inlierHits=" + std::to_string(baselineInlierHits) + "/512 inlierAvgMm="
+				+ std::to_string(baselineInlierAvg)
+			: ""));
 
 	std::vector<double> maxPairStages;
-	if (allowLargeCorrection && baselineMaxDist > modelDiag * 0.1)
+	if (fineRefinementStage && params.registrationMatchVoxelMm > 0.0)
+	{
+		const double v = params.registrationMatchVoxelMm;
+		maxPairStages.push_back(std::max(v * 1.0, 1e-9));
+		maxPairStages.push_back(std::max(v * 1.5, 1e-9));
+		maxPairStages.push_back(std::max(v * 2.5, 1e-9));
+		maxPairStages.push_back(std::max(v * 5.0, 1e-9));
+	}
+	else if (params.registrationMatchVoxelMm > 0.0)
+	{
+		const double v = params.registrationMatchVoxelMm;
+		maxPairStages.push_back(std::max(v * 5.0, 1e-9));
+		maxPairStages.push_back(std::max(v * 2.5, 1e-9));
+		maxPairStages.push_back(std::max(v * 1.5, 1e-9));
+		maxPairStages.push_back(std::max(v * 1.0, 1e-9));
+	}
+	else if (allowLargeCorrection && baselineMaxDist > modelDiag * 0.1)
 	{
 		maxPairStages.push_back(std::min(baselineMaxDist * 0.95, modelDiag * 0.4));
 	}
@@ -1553,13 +1699,16 @@ bool runReverseSoupMultiStageIcp(
 	{
 		maxPairStages.push_back(std::min(baselineMaxDist * 0.85, modelDiag * 0.25));
 	}
-	if (baselineMaxDist > fb * 6.0)
+	if (params.registrationMatchVoxelMm <= 0.0)
 	{
-		maxPairStages.push_back(std::max(fb * 10.0, 8.0));
+		if (baselineMaxDist > fb * 6.0)
+		{
+			maxPairStages.push_back(std::max(fb * 10.0, 8.0));
+		}
+		maxPairStages.push_back(std::max(fb * 6.0, 3.0));
+		maxPairStages.push_back(std::max(fb * 3.0, 2.0));
+		maxPairStages.push_back(std::max(fb * 1.5, 1.5));
 	}
-	maxPairStages.push_back(std::max(fb * 6.0, 3.0));
-	maxPairStages.push_back(std::max(fb * 3.0, 2.0));
-	maxPairStages.push_back(std::max(fb * 1.5, 1.5));
 
 	Eigen::Isometry3d cumulative = Eigen::Isometry3d::Identity();
 	double bestRmse = baselineMaxDist;
@@ -1570,11 +1719,13 @@ bool runReverseSoupMultiStageIcp(
 		Eigen::Isometry3d stageStep = Eigen::Isometry3d::Identity();
 		double stageRmse = 0.0;
 		std::string stageErr;
-		const int maxIter = (stage + 1U == maxPairStages.size()) ? 50 : 35;
+		const int maxIter = fineRefinementStage ? 60 : ((stage + 1U == maxPairStages.size()) ? 50 : 35);
 		const double normalGate =
-			(stage + 1U >= maxPairStages.size()) ? params.normalThresholdDeg : 0.0;
+			fineRefinementStage && params.normalThresholdDeg > 0.0
+			? params.normalThresholdDeg
+			: ((stage + 1U >= maxPairStages.size()) ? params.normalThresholdDeg : 0.0);
 		if (!runReversePointToPlaneIcpStage(
-				"pre-aligned soup ICP",
+				fineRefinementStage ? "fine soup ICP" : "pre-aligned soup ICP",
 				templateSoupXyz,
 				templateSoupNormals,
 				workXyz,
@@ -1613,12 +1764,37 @@ bool runReverseSoupMultiStageIcp(
 	const double transMm = cumulative.translation().norm();
 	const double rotDeg = rotationAngleDeg(cumulative);
 	// autoRecover 初距大时 cumulative 平移可达数百 mm，旧 cap(modelDiag×0.5) 会误拒有效解
-	const double maxTransMm = allowLargeCorrection
-		? std::max({modelDiag * 0.85, baselineMaxDist * 2.5, fb * 25.0})
-		: std::max({fb * 5.0, modelDiag * 0.01, 8.0});
-	const double maxRotDeg = allowLargeCorrection ? 60.0 : 8.0;
-	const bool improved = anyStageOk && trialMaxDist + 0.1 < baselineMaxDist;
-	const bool sane = transMm <= maxTransMm && rotDeg <= maxRotDeg;
+	const double maxTransMm =
+		fineRefinementStage
+		? std::max({params.registrationMatchVoxelMm * 12.0, baselineMaxDist * 0.85, fb * 5.0})
+		: (allowLargeCorrection
+			? std::max({modelDiag * 0.85, baselineMaxDist * 2.5, fb * 25.0})
+			: std::max({fb * 5.0, modelDiag * 0.01, 8.0}));
+	const double maxRotDeg = fineRefinementStage ? 12.0 : (allowLargeCorrection ? 60.0 : 8.0);
+	double trialInlierMax = 0.0;
+	double trialInlierAvg = 0.0;
+	std::size_t trialInlierHits = 0U;
+	if (fineRefinementStage)
+	{
+		measureScanToCloudInlierStats(
+			workXyz, templateSoupXyz, inlierGateMm, trialInlierMax, trialInlierAvg, trialInlierHits);
+	}
+	bool improved = false;
+	if (fineRefinementStage && anyStageOk)
+	{
+		improved = trialMaxDist + 0.05 < baselineMaxDist
+			|| (trialInlierAvg > 0.0 && baselineInlierAvg > 0.0
+				&& trialInlierAvg < baselineInlierAvg * 0.995)
+			|| trialInlierHits + 4U > baselineInlierHits;
+	}
+	else
+	{
+		improved = anyStageOk && trialMaxDist + 0.1 < baselineMaxDist;
+	}
+	const bool saneTrans =
+		transMm <= maxTransMm
+		|| (improved && transMm <= maxTransMm * 1.25 && rotDeg <= 8.0);
+	const bool sane = saneTrans && rotDeg <= maxRotDeg;
 
 	if (improved && sane)
 	{
@@ -1627,9 +1803,14 @@ bool runReverseSoupMultiStageIcp(
 		outRmseMm = bestRmse > 0.0 ? bestRmse : trialMaxDist;
 		outSoupApplied = true;
 		RunLogger::info(
-			std::string("[TemplateBrepUpdate] coarseStage=soupMulti reverse soup ICP applied: maxDevMm=")
-			+ std::to_string(trialMaxDist) + " (was " + std::to_string(baselineMaxDist)
-			+ ") transMm=" + std::to_string(transMm) + " rotDeg=" + std::to_string(rotDeg));
+			std::string("[TemplateBrepUpdate] ")
+			+ (fineRefinementStage ? "fineStage=soupMulti" : "coarseStage=soupMulti")
+			+ " reverse soup ICP applied: maxDevMm=" + std::to_string(trialMaxDist) + " (was "
+			+ std::to_string(baselineMaxDist) + ") transMm=" + std::to_string(transMm) + " rotDeg="
+			+ std::to_string(rotDeg)
+			+ (fineRefinementStage
+				? " inlierAvg=" + std::to_string(trialInlierAvg) + " hits=" + std::to_string(trialInlierHits)
+				: ""));
 	}
 	else
 	{
@@ -1641,10 +1822,12 @@ bool runReverseSoupMultiStageIcp(
 		outRmseMm = baselineMaxDist;
 		outSoupApplied = false;
 		RunLogger::info(
-			std::string("[TemplateBrepUpdate] coarseStage=soupMulti reverse soup ICP skipped (rollback): baselineMaxDevMm=")
-			+ std::to_string(baselineMaxDist) + " trialMaxDevMm=" + std::to_string(trialMaxDist)
-			+ " transMm=" + std::to_string(transMm) + " rotDeg=" + std::to_string(rotDeg)
-			+ " maxTransMm=" + std::to_string(maxTransMm) + " sane=" + (sane ? "true" : "false"));
+			std::string("[TemplateBrepUpdate] ")
+			+ (fineRefinementStage ? "fineStage=soupMulti" : "coarseStage=soupMulti")
+			+ " reverse soup ICP skipped (rollback): baselineMaxDevMm=" + std::to_string(baselineMaxDist)
+			+ " trialMaxDevMm=" + std::to_string(trialMaxDist) + " transMm=" + std::to_string(transMm)
+			+ " rotDeg=" + std::to_string(rotDeg) + " maxTransMm=" + std::to_string(maxTransMm)
+			+ " sane=" + (sane ? "true" : "false"));
 	}
 
 	if (outRmseMm > 0.0)
@@ -1684,10 +1867,20 @@ bool runCoarseGlobalPreAlign(
 		ransacParams.faceBandMm = params.faceBandMm;
 		ransacParams.maxIterations = params.ransacMaxIterations;
 		const double fb = std::max(params.faceBandMm, 1.0);
-		ransacParams.inlierDistanceMm = std::min(
-			std::max({initialMaxDevMm * 0.6, modelDiag * 0.04, fb * 3.0}),
-			modelDiag * 0.15);
-		ransacParams.featureVoxelMm = std::max(modelDiag * 0.025, fb * 4.0);
+		if (params.registrationMatchVoxelMm > 0.0)
+		{
+			const double baseDist = params.registrationMatchVoxelMm * 2.5;
+			ransacParams.inlierDistanceMm = baseDist * 2.4;
+			ransacParams.featureVoxelMm = params.registrationMatchVoxelMm;
+		}
+		else
+		{
+			ransacParams.inlierDistanceMm = std::min(
+				std::max({initialMaxDevMm * 0.6, modelDiag * 0.04, fb * 3.0}),
+				modelDiag * 0.15);
+			ransacParams.featureVoxelMm = std::max(modelDiag * 0.025, fb * 4.0);
+		}
+		ransacParams.skipTranslationCap = true;
 		RunLogger::info(
 			std::string("[TemplateBrepUpdate] coarseStage=ransac globalPreAlign inlierDistanceMm=")
 			+ std::to_string(ransacParams.inlierDistanceMm) + " featureVoxelMm="
@@ -1727,7 +1920,8 @@ bool runCoarseGlobalPreAlign(
 			overlapHits =
 				countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
 			const double ransacTransMm = ransacStep.translation().norm();
-			const double ransacTransCapMm = std::max(modelDiag * 0.25, preAlignGateMm * 2.0);
+			const double ransacTransCapMm =
+				ransacTranslationCapMm(modelDiag, preAlignGateMm, initialMaxDevMm);
 			if (ransacTransMm > ransacTransCapMm)
 			{
 				templateSoupXyz = originalSoupBeforeRansac;
@@ -1779,10 +1973,20 @@ bool runCoarseGlobalPreAlign(
 		reverseParams.faceBandMm = params.faceBandMm;
 		reverseParams.maxIterations = params.ransacMaxIterations;
 		const double fb = std::max(params.faceBandMm, 1.0);
-		reverseParams.inlierDistanceMm = std::min(
-			std::max({initialMaxDevMm * 0.6, modelDiag * 0.04, fb * 3.0}),
-			modelDiag * 0.15);
-		reverseParams.featureVoxelMm = std::max(modelDiag * 0.025, fb * 4.0);
+		if (params.registrationMatchVoxelMm > 0.0)
+		{
+			const double baseDist = params.registrationMatchVoxelMm * 2.5;
+			reverseParams.inlierDistanceMm = baseDist * 2.4;
+			reverseParams.featureVoxelMm = params.registrationMatchVoxelMm;
+		}
+		else
+		{
+			reverseParams.inlierDistanceMm = std::min(
+				std::max({initialMaxDevMm * 0.6, modelDiag * 0.04, fb * 3.0}),
+				modelDiag * 0.15);
+			reverseParams.featureVoxelMm = std::max(modelDiag * 0.025, fb * 4.0);
+		}
+		reverseParams.skipTranslationCap = true;
 
 		Eigen::Isometry3d scanToTemplate = Eigen::Isometry3d::Identity();
 		double reverseInlierRatio = 0.0;
@@ -1822,7 +2026,8 @@ bool runCoarseGlobalPreAlign(
 				countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
 			const PcaAlignmentScore reverseScore{frameMaxDevMm, frameAvgDevMm, overlapHits};
 			const double ransacTransMm = ransacStep.translation().norm();
-			const double ransacTransCapMm = std::max(modelDiag * 0.25, preAlignGateMm * 2.0);
+			const double ransacTransCapMm =
+				ransacTranslationCapMm(modelDiag, preAlignGateMm, initialMaxDevMm);
 			if (ransacTransMm <= ransacTransCapMm && pcaAlignmentScoreBetter(reverseScore, scoreBeforeReverse))
 			{
 				bestScore = reverseScore;
@@ -1895,8 +2100,8 @@ bool runCoarseGlobalPreAlign(
 			countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
 		const PcaAlignmentScore pcaScore{pcaMaxDevMm, pcaAvgDevMm, pcaHits};
 		const double pcaAcceptMaxDevMm = preAlignGateMm * 2.0;
-		if (!pcaAlignmentScoreBetter(pcaScore, scoreBeforePca)
-			|| pcaMaxDevMm > pcaAcceptMaxDevMm)
+		if ((!pcaAlignmentScoreBetter(pcaScore, scoreBeforePca) || pcaMaxDevMm > pcaAcceptMaxDevMm)
+			&& !pcaStrongOverlapAccept(pcaScore, scoreBeforePca, initialMaxDevMm))
 		{
 			templateSoupXyz = soupBeforePca;
 			templateSoupNormals = normalsBeforePca;
@@ -2589,7 +2794,8 @@ bool runFineRegistrationStage(
 	double& outRmseMm,
 	std::string* errMsg)
 {
-	RunLogger::info("[TemplateBrepUpdate] coarseStage=fine soup multi-stage ICP");
+	RunLogger::info(
+		"[TemplateBrepUpdate] fineStage=soupMulti point-to-plane ICP (PointCloudMatch.py multiscale)");
 	bool soupApplied = false;
 	if (!runReverseSoupMultiStageIcp(
 			workXyz,
@@ -2602,7 +2808,8 @@ bool runFineRegistrationStage(
 			inOutTemplateToScan,
 			outAlignedTemplateShape,
 			outRmseMm,
-			false,
+			true,
+			true,
 			soupApplied))
 	{
 		return false;
@@ -2797,7 +3004,8 @@ bool runCoarseAlignmentPipeline(
 				countPointsWithinPairDistance(workXyz, templateSoupXyz, preAlignGateMm, 512U);
 			const PcaAlignmentScore pcaScore{pcaMaxDevMm, pcaAvgDevMm, pcaHits};
 			const double pcaAcceptMaxDevMm = ransacMaxDevGateMm;
-			if (!pcaAlignmentScoreBetter(pcaScore, scoreBeforePca) || pcaMaxDevMm > pcaAcceptMaxDevMm)
+			if ((!pcaAlignmentScoreBetter(pcaScore, scoreBeforePca) || pcaMaxDevMm > pcaAcceptMaxDevMm)
+				&& !pcaStrongOverlapAccept(pcaScore, scoreBeforePca, initialMaxDevMm))
 			{
 				templateSoupXyz = soupBeforePca;
 				templateSoupNormals = normalsBeforePca;
@@ -2858,7 +3066,10 @@ bool runCoarseAlignmentPipeline(
 			&& overlapHits >= kMinRegistrationOverlapHits);
 	const bool allowLargeSoupIcp =
 		alignMode == RegistrationAlignMode::AutoRecover
-		|| alignMode == RegistrationAlignMode::ColdStart;
+		|| alignMode == RegistrationAlignMode::ColdStart
+		|| ((alignMode == RegistrationAlignMode::ManualTrusted
+				|| alignMode == RegistrationAlignMode::ManualPartial)
+			&& frameMaxDevMm > ransacMaxDevGateMm);
 	const bool allowLadderFallback =
 		alignMode == RegistrationAlignMode::AutoRecover
 		|| alignMode == RegistrationAlignMode::ColdStart;
@@ -2886,6 +3097,7 @@ bool runCoarseAlignmentPipeline(
 		ransacParams.modelDiagMm = modelDiag;
 		ransacParams.faceBandMm = params.faceBandMm;
 		ransacParams.maxIterations = params.ransacMaxIterations;
+		ransacParams.skipTranslationCap = true;
 		if (overlapHits == 0U || frameMaxDevMm > ransacMaxDevGateMm)
 		{
 			const double fb = std::max(params.faceBandMm, 1.0);
@@ -2970,6 +3182,7 @@ bool runCoarseAlignmentPipeline(
 					outAlignedTemplateShape,
 					outRmseMm,
 					allowLargeSoupIcp,
+					false,
 					soupApplied);
 		}
 
@@ -2984,10 +3197,24 @@ bool runCoarseAlignmentPipeline(
 			(postScanBox.isEmpty() || postTplBox.isEmpty())
 				? 0.0
 				: (postScanBox.center() - postTplBox.center()).norm();
+		const bool preAlignGoodEnough =
+			postSoupHits >= 128U
+			&& postSoupMaxDevMm
+				<= std::max(ransacMaxDevGateMm * 2.5, preAlignGateMm * 4.0)
+			&& !soupApplied
+			&& (!skipSoupForLadder || postSoupHits >= kMinRegistrationOverlapHits);
 		const bool needLadder =
 			allowLadderFallback
+			&& !preAlignGoodEnough
 			&& (skipSoupForLadder || !soupApplied
 				|| coarseOverlapQualityPoor(postSoupHits, postSoupMaxDevMm, ransacMaxDevGateMm));
+		if (preAlignGoodEnough)
+		{
+			RunLogger::info(
+				std::string("[TemplateBrepUpdate] coarseStage=coarseIcpLadder skip (preAlign ok pairHits=")
+				+ std::to_string(postSoupHits) + "/512 maxDevMm=" + std::to_string(postSoupMaxDevMm)
+				+ ")");
+		}
 		if (needLadder)
 		{
 			const double ladderBaselineMaxDev = postCoarseMaxDevMm;
@@ -3034,6 +3261,7 @@ bool runCoarseAlignmentPipeline(
 						outTemplateToScan,
 						outAlignedTemplateShape,
 						outRmseMm,
+						false,
 						false,
 						refineApplied);
 					measureScanToCloudDistance(
@@ -3823,6 +4051,13 @@ bool registerScanToCadTemplate(
 			+ std::to_string(icpWorkXyz.size() / 3U) + " pts");
 	}
 
+	params.registrationMatchVoxelMm = downsampleRegistrationPairToTarget(
+		icpWorkXyz,
+		icpWorkNormals,
+		templateSampleXyz,
+		templateSampleNormals,
+		kRegistrationPairTargetPoints);
+
 	const double modelDiag = std::max(
 		boundingBoxDiagonalMm(icpWorkXyz), boundingBoxDiagonalMm(templateSampleXyz));
 
@@ -3836,11 +4071,15 @@ bool registerScanToCadTemplate(
 			}
 			return false;
 		}
-		templateSampleXyz = registrationCheckpoint->templateSoupXyz;
-		templateSampleNormals = registrationCheckpoint->templateSoupNormals;
-		outReport.templateToScan = registrationCheckpoint->templateToScan;
+		// originalPose：精配 ICP 用原始 STEP soup + 当前快照扫描；粗配位姿已在 templateRootWorldMat
+		// templateToScan 仅输出相对当前 OSG 的增量；面重构 shape 从 checkpoint aligned 继续烘焙
+		outReport.templateToScan = Eigen::Isometry3d::Identity();
 		outReport.alignedTemplateShape = registrationCheckpoint->alignedTemplateShape.clone();
-		geoalgo::ShapeHandle workingTemplate = outReport.alignedTemplateShape.clone();
+		geoalgo::ShapeHandle workingTemplate = registrationCheckpoint->alignedTemplateShape.clone();
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] fineStage=originalStepSoup pts=")
+			+ std::to_string(templateSampleXyz.size() / 3U)
+			+ " (checkpoint baked soup not used for ICP pairing)");
 		if (!runFineRegistrationStage(
 				icpWorkXyz,
 				icpWorkNormals,
@@ -3948,7 +4187,8 @@ bool registerScanToCadTemplate(
 	outReport.icpRmseGatePassed =
 		params.maxIcpRmseToFaceBandRatio <= 0.0 || outReport.icpRmseMm <= icpGateMm;
 
-	const double effectiveOverlapMaxMm = std::max(inlierMax, overlapMaxAll);
+	const double effectiveOverlapMaxMm =
+		inlierHits >= kMinRegistrationOverlapHits ? inlierMax : overlapMaxAll;
 	outReport.registrationPreviewOk =
 		inlierHits >= kMinRegistrationOverlapHits && effectiveOverlapMaxMm > 0.0
 		&& effectiveOverlapMaxMm <= previewOverlapGateMm;

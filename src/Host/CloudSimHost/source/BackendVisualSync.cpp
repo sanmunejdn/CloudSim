@@ -101,6 +101,12 @@ void syncVisualAfterPropertyChangeById(DocumentHost& host, const QString& object
 
 void afterDataServicePropertyChange(DocumentHost& host, const BackendDataBase& data, const QString& key)
 {
+	// 属性面板连续 spin：数据已写入，全量 OSG/Follow/PoseCommitted 延至失焦（见 MainWindow flushPropertyPanelVisualCommit）
+	if (host.deferPropertyPanelVisualFullSync()
+		&& (key.startsWith(QStringLiteral("pose.")) || key.startsWith(QStringLiteral("rotation."))))
+	{
+		return;
+	}
 	if (!propertyKeyNeedsVisualSync(key))
 	{
 		if (propertyKeyCommitsPose(key))

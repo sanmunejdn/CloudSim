@@ -1,6 +1,6 @@
 # OsgWidgetCore 模块开发文档
 
-> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — gizmo/拾取直接读写 `pose`；inner PAT 恒 `(0,0,0)`；`modelCenter` 仅聚焦与外包络。
+> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1 — gizmo 读写总位姿；内旋 ZYX 存盘；Gizmo World/Local 仅交互方式不同；`modelCenter` 仅聚焦与外包络。
 
 ## 1. 模块定位
 
@@ -40,27 +40,25 @@ m_stagingGroup（导入预览）
 
 ## 3. `class ObjectGizmoFrame`
 
-**语义（统一世界坐标）**：outer 局部矩阵 = **`T(pose) * R(attitude)`**（行向量 OSG）；inner PAT 恒 **`(0,0,0)`**；几何顶点为世界绝对坐标。
+**语义（契约 §1.1）**：`centerPlusPose` = **`backend.pose`**（模型原点在外层父系）；`attitude` = 内旋 ZYX 总旋转；outer 矩阵 = `osgMatrixFromRigidTransform`（行向量，主动 `p'=p×R+pose`）。绕模型原点旋转时 **只改 `attitude`，不改 `centerPlusPose`**。
 
-**`setFromBackend`**：`centerPlusPose = backend.pose`（**不**加 `modelCenter`）。**`fromOuter`** 仍兼容读 inner 偏移（旧工程或非零 inner）；新分支 inner 恒零。
+**`setFromBackend`**：`centerPlusPose = backend.pose`（**不**加 `modelCenter`）。**`fromOuter`**：`rigidTransformFromOsg(outer->getMatrix())` 反解 pose + 四元数。
 
 | 字段 / 方法 | 说明 |
 |-------------|------|
-| `centerPlusPose` | outer 平移 `trans`：即 **`backend.pose`** |
-| `attitude` | outer 旋转 `R` |
+| `centerPlusPose` | 即 **`backend.pose`**（模型原点，非 bbox 中心） |
+| `attitude` | outer 旋转四元数（内旋 ZYX 总姿态） |
 | `modelCenter` | 外包络缓存；gizmo **不**参与读写 |
 | `backendPoseRelativeToCenter()` | 与 `backend.pose` 同义（inner=0） |
-| `fromOuter(outer, modelCenter, out)` | 从场景反解 `trans`；inner=0 时 `trans` 即 pose |
-| `setFromBackend(pose, attitude, modelCenter)` | `modelCenter` 参数忽略 |
-| `applyToOuter(outer)` | `setMatrix(T(centerPlusPose)*R)` |
-| `translateAlongWorldDirection` | 沿**场景世界**方向移动枢轴（内部 `worldDirectionToOuterParent`） |
-| `translateAlongWorldAxis` / `translateAlongBodyAxis` | 沿世界/物体轴索引平移 |
-| `dragAxisDirectionSceneWorld` | 环法向 / **屏幕转角**用：经 `parentWorld` 转到场景世界 |
-| `dragAxisDirectionOuterParent` | **四元数旋转**用：World 为场景轴投到 outer 父空间；Local 为 `R*localAxis` |
-| `adjustCenterPlusPoseForRotationDelta` | 保枢轴：固定 `(inner+trans)*R`，更新 `trans` 与 `R` |
-| `rotatePreMultiplyWorldAxis` / `rotatePostMultiplyLocalAxis` | 属性面板等：`δq*R` / `R*δq`（轴在 outer 局部） |
-| `setRotationKeepingPivotInOuterParent` | 给定父空间枢轴与 `R_new` 反解 `trans` |
-| `pivotWorldFromOuter` / `pivotInOuterParentFromOuter` | 枢轴诊断 |
+| `fromOuter` / `applyToOuter` | `rigidTransformFromOsg` / `osgMatrixFromRigidTransform` |
+| `translateAlongWorldDirection` | 沿世界方向改 `centerPlusPose`（改 pose） |
+| `translateAlongWorldAxis` / `translateAlongBodyAxis` | 沿世界/物体轴平移 pose |
+| `dragAxisDirectionSceneWorld` / `dragAxisDirectionOuterParent` | World/Local 罗盘轴方向（交互，见 §1.1 Gizmo 表） |
+| `adjustCenterPlusPoseForRotationDelta` | 绕模型原点：仅 `m_attitude = R_new` |
+| `setRotationKeepingPivotInOuterParent` | 同上，仅更新 attitude |
+| `rotatePreMultiplyWorldAxis` | 绕**世界轴**增量（外旋式交互） |
+| `rotatePostMultiplyLocalAxis` | 绕**物体轴**增量（内旋式交互） |
+| `pivotWorldFromOuter` / `pivotInOuterParentFromOuter` | 模型原点世界/父系坐标（诊断） |
 
 ---
 

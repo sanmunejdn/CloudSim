@@ -4,6 +4,7 @@
 #include "BackendDataManager.h"
 #include "BackendGeometryMetrics.h"
 #include "BackendSceneDocumentFacade.h"
+#include "BackendPoseOsg.h"
 #include "BackendVisualMath.h"
 #include "DocumentImportFacade.h"
 #include "DocumentHost.h"
@@ -842,22 +843,13 @@ bool writeBackendPoseFromWorldMatrix(
 	BrepBackendData& brep,
 	const osg::Matrixd& worldMat)
 {
-	if (!osg)
-	{
-		return false;
-	}
-	osg::Quat q;
-	osg::Vec3d td;
-	osg::Vec3d s;
-	osg::Quat so;
-	worldMat.decompose(td, q, s, so);
-	const BackendVec3 pose{td.x(), td.y(), td.z()};
-	const osg::Vec3f euler = engine::quatToEulerDegVec3f(q);
+	(void)osg;
+	(void)visualId;
+	BackendVec3 pose{};
+	BackendVec3 euler{};
+	backend_pose_osg::backendPoseEulerFromWorldMatrix(worldMat, pose, euler);
 	brep.setPose(pose);
-	brep.setRotation(BackendVec3{
-		static_cast<double>(euler.x()),
-		static_cast<double>(euler.y()),
-		static_cast<double>(euler.z())});
+	brep.setRotation(euler);
 	return true;
 }
 
@@ -1108,10 +1100,27 @@ bool applyTemplateRegistrationToVisual(
 	}
 	const osg::Matrixd worldAfter = hasIcpTransform ? icpOsg * worldBefore : worldBefore;
 
-	brep->setShape(alignedTemplateShape.clone());
-	if (displayBrep != brep)
+	geoalgo::ShapeHandle originalStepShape;
+	const bool useOriginalPose =
+		tryLoadOriginalStepShape(page, templateBackendIdUtf8, originalStepShape);
+
+	if (useOriginalPose)
 	{
-		displayBrep->setShape(alignedTemplateShape.clone());
+		brep->setShape(originalStepShape.clone());
+		if (displayBrep != brep)
+		{
+			displayBrep->setShape(originalStepShape.clone());
+		}
+	}
+	else
+	{
+		RunLogger::info(
+			"[TemplateBrepUpdate] applyVisual fallback=bakedAligned (STEP reload unavailable)");
+		brep->setShape(alignedTemplateShape.clone());
+		if (displayBrep != brep)
+		{
+			displayBrep->setShape(alignedTemplateShape.clone());
+		}
 	}
 
 	geoalgo::clearBrepImportArtifactsCache();
@@ -1126,12 +1135,26 @@ bool applyTemplateRegistrationToVisual(
 		return false;
 	}
 
-	osg->setBackendRootWorldMatrixFromWorld(visualId, worldAfter);
-	(void)writeBackendPoseFromWorldMatrix(osg, visualId, *displayBrep, worldAfter);
-	if (brep != displayBrep)
+	if (useOriginalPose)
 	{
-		(void)writeBackendPoseFromWorldMatrix(osg, visualId, *brep, worldAfter);
+		osg->setBackendRootWorldMatrixFromWorld(visualId, worldAfter);
+		(void)writeBackendPoseFromWorldMatrix(osg, visualId, *displayBrep, worldAfter);
+		if (brep != displayBrep)
+		{
+			(void)writeBackendPoseFromWorldMatrix(osg, visualId, *brep, worldAfter);
+		}
+		const osg::Matrixd poseRebuild =
+			backend_pose_osg::worldMatrixFromBackendPoseEuler(displayBrep->pose(), displayBrep->rotation());
+		const double poseRoundTripMm = (poseRebuild.getTrans() - worldAfter.getTrans()).length();
+		RunLogger::info(
+			std::string("[TemplateBrepUpdate] assembly STEP: original geometry + ICP pose poseRoundTripMm=")
+			+ std::to_string(poseRoundTripMm));
 	}
+	else
+	{
+		osg->setBackendRootWorldMatrixFromWorld(visualId, worldBefore);
+	}
+
 	osg->setBackendObjectVisible(visualId, true);
 	return true;
 }
@@ -1231,6 +1254,11 @@ bool restoreTemplateShapeFromStep(
 		return false;
 	}
 	osg->setBackendRootWorldMatrixFromWorld(visualId, worldBefore);
+	(void)writeBackendPoseFromWorldMatrix(osg, visualId, *displayBrep, worldBefore);
+	if (brep != displayBrep)
+	{
+		(void)writeBackendPoseFromWorldMatrix(osg, visualId, *brep, worldBefore);
+	}
 	osg->setBackendObjectVisible(visualId, true);
 	return true;
 }

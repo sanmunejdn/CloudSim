@@ -4,7 +4,7 @@
 >
 > **子模块开发文档（类/接口详解）**：见 [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md)。各工程目录下均有 `DEVELOPER_GUIDE.md`。
 >
-> **统一世界坐标契约（必读）**：[`docs/spatial_contract_world_pose.md`](docs/spatial_contract_world_pose.md) — `geometry` 存世界绝对坐标，`pose` 为唯一刚体偏移；URDF/FK/工具轴/TCP 均须遵守。
+> **统一世界坐标契约（必读）**：[`docs/spatial_contract_world_pose.md`](docs/spatial_contract_world_pose.md) §1.1 — `pose`=模型原点世界坐标；内旋 ZYX、主动旋转、行/列向量；权威 API `BackendWorldPose.h`；URDF/FK/工具轴/TCP 均须遵守。
 
 ## 1. 项目定位
 
@@ -14,18 +14,20 @@
 ### 1.1 统一世界坐标（空间契约摘要）
 
 ```text
-世界点 = objectWorldMatrix × v_stored
-objectWorldMatrix = T(pose) × R(rotationEuler)
+p_world = R(rotation) × p_model + pose          // 列向量（Data / ICP / Eigen）
+p_world = p_model × R(rotation) + pose          // OSG 行向量（经 Adapters 等价）
 ```
 
-| 层级 | 约定 |
-|------|------|
-| **Data** | 顶点/点云为世界绝对坐标；`backend_world_mat_from_pose` = `T(pose)×R`（**无** `+modelCenter`） |
-| **BackendVisual / OSG** | outer 写入 `T(pose)×R`；inner PAT 恒 `(0,0,0)`；`modelCenter` 仅相机聚焦与外包络 |
-| **URDF per-link** | 导入 q0：`Tbind` 单次烘焙 → `pose=I`、`meshVerticesInLinkFrame=false`；FK：`M = M0·inv(T0)·Tq·P` |
+| 项 | 约定 |
+|----|------|
+| **`pose`** | 模型坐标原点 `(0,0,0)_model` 在世界中的位置 (mm) |
+| **`rotation`** | 内禀 **ZYX 内旋**；`R = Rz·Ry·Rx`；绕模型原点转时 **`pose` 不变** |
+| **Data** | 顶点/点云为世界绝对坐标；`backend_world_mat_from_pose` 委托 `rigidTransformFromBackendPoseEuler`（**无** `+modelCenter`） |
+| **BackendVisual / OSG** | outer = `osgMatrixFromRigidTransform`；inner PAT 恒 `(0,0,0)`；`modelCenter` 仅聚焦与外包络 |
+| **URDF per-link** | 导入 q0：`Tbind` 单次烘焙 → `pose=I`；FK：`M = M0·inv(T0)·Tq·P` |
 | **工具 / TCP** | 世界烘焙：工具轴挂根连杆 + per-tool `toolTcpInBaseFromFk`；指令/IK 仍用基座系 `T_base_target` |
 
-完整矩阵约定、反模式与 API 索引见 [`docs/spatial_contract_world_pose.md`](docs/spatial_contract_world_pose.md)。
+完整语义表、行/列向量桥接、Gizmo 与反模式见 [`docs/spatial_contract_world_pose.md`](docs/spatial_contract_world_pose.md) §1.1。
 
 ---
 
@@ -244,7 +246,7 @@ flowchart TD
 - `BackendVisualRegistry` 按 `className` 注册/创建视觉构建器。
 - 输出统一 `BranchBuildResult`（**外层 `osg::MatrixTransform`**、内层 `PositionAttitudeTransform`、模型中心、对角线尺度、可选 **`brepArtifacts`**）供交互层复用；外层存完整刚体局部矩阵，便于 FK / `setBackendRootWorldMatrixFromWorld` 避免 PAT 的 TRS 分解误差。
 - **`BrepBackendVisual`**：`getOrBuildBrepImportArtifacts` Phase1（整件 mesh + 缓存）；Phase2 边拾取/线框可懒构建或 Worker 预热；artifacts 经 bind 传给 `BrepPickIndex`；装配共享同一 `ShapeHandle` 缓存。
-- `MeshVisualOptions`：`showWireOutline`、`useSceneLighting`；outer = `T(pose)×R`，inner PAT 恒 `(0,0,0)`（统一世界坐标，见契约 §3）。
+- `MeshVisualOptions`：`showWireOutline`、`useSceneLighting`；outer = `worldMatrixFromBackendPoseEuler`，inner PAT 恒 `(0,0,0)`（契约 §1.1 / §3）。
 - **程序生成网格**：`MeshBackendData` 默认浅蓝材质色；`useSceneLighting=true` 时按 per-vertex 法线 + `applyLitPlastic` 渲染。绕序局部不一致且无法线缓冲时会出现**部分面发黑**（见 `BackendVisual` §4.2）——基本体由 `BackendPrimitiveGeometry` 保证绕序；**STEP** 在 OCCT 导出时对 `TopAbs_REVERSED` 面翻转三角绕序；**OBJ 含 `vn`** 保留文件法线；无 `vn` 的 OBJ/STL/PLY/OFF 走 CGAL `orient_polygon_soup` + 封闭体有符号体积整体外向修正（详见 `Data` §4.2.1，已移除逐三角质心翻转）。
 
 模块定位：
@@ -290,7 +292,7 @@ flowchart TD
 
 **对象变换 Gizmo（`ObjectGizmoFrame` + overlay 挂载）：**
 
-- **`ObjectGizmoFrame`**（`OsgWidgetCore/inc|source/ObjectGizmoFrame.*`）：outer 分支位姿数学，与 `MeshBackendVisual::buildOuterBranch` 一致——**`T(pose) * R`**（行向量 OSG）；inner 恒 `(0,0,0)`。`setFromBackend` 直接写 `pose`；`fromOuter` 从场景反解。提供屏幕/父空间旋转轴、`translateAlongWorldDirection`、`adjustCenterPlusPoseForRotationDelta` 等（见契约 §3）。
+- **`ObjectGizmoFrame`**（`OsgWidgetCore/inc|source/ObjectGizmoFrame.*`）：与 `buildOuterBranch` 同路径——`osgMatrixFromRigidTransform`（行向量主动 `p'=p×R+pose`）；inner 恒 `(0,0,0)`。绕模型原点旋转**只改 `attitude`，不改 `centerPlusPose`**。Gizmo World/Local 仅交互方式不同，存盘为内旋 ZYX 总姿态（契约 §1.1）。
 - **场景图位姿真源**：活动后端的 **`m_activeBackendOuterPat`**（`osg::MatrixTransform`）为唯一 OSG 位姿写入点；已移除与根级平行的 `m_selectedTransform` 及与之相关的双向同步 API。
 - **Overlay 结构**：`initScene` 创建 `m_gizmoOverlayGroup`；选中时 **`attachGizmoOverlayToActiveBackend`** 挂到 **inner PAT**（child0，恒 `(0,0,0)`）下，罗盘枢轴与几何原点一致。取消选择或导入替换场景时 **`detachGizmoOverlay`**。
 - **同步入口**：`readActiveObjectGizmoFrame`、`syncActiveBackendRootFromObjectFrame`（非拖动时将旋转增量传播到 OSG 逻辑子孙；**per-link 机器人**由 `OsgWidget` 钩子改走 FK）、`cacheSelectionGizmoPose`、`syncGizmoAndPickFromBackend`（选中/加载：无 `m_backendParentIds` 父节点时 `setFromBackend`+`applyToOuter`；**有父节点**时仅 `fromOuter`+挂 overlay，不覆盖 FK/层级局部矩阵）、`setBackendRootWorldMatrixFromWorld`（行向量：`local = world * inv(parentWorld)`，父矩阵优先 `m_backendParentIds`）。
@@ -529,7 +531,7 @@ flowchart LR
 
 0. **机器人根（无几何）**：注册 `MeshBackendData` 父对象，id 为 `RobotURDF_<模型基名>`；二次导入 **不** 清空已有机器人/连杆。  
 1. 对每个 link：`loadFromFile` → **单次** `computeMeshWorldMatrices(q0, meshVerticesAlreadyInLinkFrame=false)` 得 `Tbind` → `osgMatrixToColumnMajor16`（**须转置**，见契约 §2）烘焙顶点 → `pose=0`、`rotation=0`。**禁止**先 `linkMeshFileToLinkColumnMajor16` 再烘焙完整 `Tbind`（visual 双重应用，底座与臂体分离）。  
-2. `loadMeshFromBackendData(..., useSceneLighting=true)`：inner PAT 恒 `(0,0,0)`，outer 仅 `T(pose)×R`；q0 时 outer 为 **I**。  
+2. `loadMeshFromBackendData(..., useSceneLighting=true)`：inner PAT 恒 `(0,0,0)`，outer = `osgMatrixFromRigidTransform(pose, rotation)`；q0 时 outer 为 **I**。  
 3. `BackendDataManager::attachChild` + `setBackendParent` 按 URDF 拓扑；FK 写回 outer，勿在 reparent 时强行恢复扁平世界。  
 4. 冻结 **T0**=`fkMeshWorldT0`、**M0**=**I**（世界烘焙）、**P**=`robotBasePlacementWorld`；`setRobotPerLinkKinematicsBinding(..., meshVerticesInLinkFrame=false)`。  
 5. `applyJointAnglesFromDocument(q0)` 首帧同步；工具轴叠加见契约 §6（挂根连杆 + `toolTcpInBaseFromFk`）。相机 `focusCameraOnBackend` 对准 **根 link 网格** id。  
@@ -670,7 +672,7 @@ sequenceDiagram
 4. `MainWindowUiSetup` 订阅 `SelectionChanged` / `PoseCommitted` 刷新属性面板；树、属性、场景共享 `SelectionState` 真源。  
 
 **嵌套后端写回 OSG（`OsgWidget::syncOuterPatFromBackend`）：**  
-将后端 `pose/rotation` 经 **`backend_world_mat_from_pose`**（`T(pose)×R`，无 `modelCenter`）拼世界矩阵，再 **`setBackendRootWorldMatrixFromWorld`**（`inv(parentWorld) * world`），避免在父级非单位矩阵时误写外层局部矩阵。
+将后端 `pose/rotation` 经 **`backend_world_mat_from_pose`**（`R×p+pose`，无 `modelCenter`）拼世界矩阵，再 **`setBackendRootWorldMatrixFromWorld`**（`inv(parentWorld) * world`），避免在父级非单位矩阵时误写外层局部矩阵。
 
 ### 6.2.0 对象 Gizmo / 罗盘（位姿真源与场景图）
 
@@ -679,23 +681,23 @@ sequenceDiagram
 **分支结构（与 `BackendVisual::buildOuterBranch` 对齐，见契约 §3）：**
 
 ```text
-m_activeBackendOuterPat          ← 唯一位姿写入：T(pose) * R
-└─ inner PAT (child0)            ← 恒 (0,0,0)；几何顶点已为世界绝对坐标
+m_activeBackendOuterPat          ← 唯一位姿写入：osgMatrixFromRigidTransform（行向量 R×T）
+└─ inner PAT (child0)            ← 恒 (0,0,0)；旋转绕模型原点
    ├─ 网格/点云 Geode …
    └─ m_gizmoOverlayGroup        ← attach 时挂入；局部恒等，罗盘/拾取反馈
         ├─ m_compassTransform    ← 仅姿态/高亮
         └─ m_pickFeedbackTransform
 ```
 
-**`ObjectGizmoFrame` 字段语义（统一世界坐标）：**
+**`ObjectGizmoFrame` 字段语义（契约 §1.1）：**
 
 | 字段 | 含义 |
 |------|------|
-| `centerPlusPose` | outer 平移 `trans`：即 **`backend.pose`**（`setFromBackend` 不再加 `modelCenter`） |
-| `attitude` | outer 旋转 `R` |
-| `modelCenter` | 外包络中心缓存；**仅**聚焦/诊断；gizmo 读写 **不**参与 |
-| `backendPoseRelativeToCenter()` | 与 `backend.pose` 同义（inner=0 时） |
-| 枢轴 | 几何文件原点 = inner 局部原点 = outer 父空间 `trans * R` 作用点 |
+| `centerPlusPose` | **`backend.pose`**（模型原点世界坐标，非 bbox 中心） |
+| `attitude` | 内旋 ZYX 总旋转（四元数） |
+| `modelCenter` | 外包络缓存；**仅**聚焦/诊断 |
+| `backendPoseRelativeToCenter()` | 与 `backend.pose` 同义（inner=0） |
+| 枢轴 | 模型坐标原点；绕原点转时 `centerPlusPose` 不变 |
 
 **主要 API（`OsgScene` / `OsgWidget` 委托）：**
 
@@ -713,7 +715,7 @@ m_activeBackendOuterPat          ← 唯一位姿写入：T(pose) * R
 **端到端流程：**
 
 1. **选中**：树/OSG 拾取 → `syncSelectionFromBackend` → `syncGizmoAndPickFromBackend`：根级或孤立对象 `setFromBackend`+`applyToOuter`；**URDF/层级子连杆** 若已有父 backend id，则 **`fromOuter` 保留当前局部矩阵**（FK 已写世界位姿，后端 `pose` 为世界分解值，不可直接 `applyToOuter`）→ `attachGizmoOverlayToActiveBackend`。
-2. **拖拽**：`ObjectTransformOperation` — **LMB** `beginGizmoScreenDrag` + `gizmoScreenDragDs`（屏幕轴平移，避免平面求交发散）；**RMB** 冻结 `m_gizmoRotatePivotWorld` + `gizmoScreenRotateDeltaRad`（屏幕角），`adjustCenterPlusPoseForRotationDelta` 保枢轴，旋转轴经 `dragAxisDirectionOuterParent` 写入父空间四元数（屏幕法向经 `dragAxisDirectionSceneWorld`）。拖动中 `syncActiveBackendRootFromObjectFrame(..., true)`；**per-link 整机关节链**时 `OsgWidget::setRobotObjectGizmoSyncHook` 拦截传播并 `applyPerLinkRobotFkFromGizmoAnchor` 刷新全连杆（仅更新 **P**，不改 bind **M0**）。**旋转不写** `selectedObjectPoseChanged`（仅平移写）。**跟随求解**对正在拖拽的 follower 跳过写回（见 **6.2.1**）。
+2. **拖拽**：`ObjectTransformOperation` — **LMB** 屏幕轴平移（改 `centerPlusPose`）；**RMB** 屏幕角旋转（`adjustCenterPlusPoseForRotationDelta` 仅更新 `attitude`，模型原点 `pose` 不变）。World/Local 模式决定沿世界轴或物体轴交互。拖动中 `syncActiveBackendRootFromObjectFrame(..., true)`；**per-link 机器人**由 `setRobotObjectGizmoSyncHook` 走 FK。**旋转不写** `selectedObjectPoseChanged`（仅平移写）。跟随求解对正在拖拽的 follower 跳过写回（见 **6.2.1**）。
 3. **属性面板**：`selectedPosition` / `setSelectedRotation` 等经 `readActiveObjectGizmoFrame` 与 `applyToOuter`，与罗盘同一数学路径。
 4. **松手**：`cacheSelectionGizmoPose` → `transformGizmoCommitted` → MainWindow 刷新属性面板（per-link scene 根：**不** capture 世界矩阵到 **M0**）。
 5. **导入/清空选择**：`OsgWidgetImportController` 等路径调用 `detachGizmoOverlay`，避免 overlay 留在已卸载的 inner 上。

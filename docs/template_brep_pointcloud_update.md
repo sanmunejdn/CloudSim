@@ -57,18 +57,20 @@ PointCloudDockWidget
 
 预览通过但 RMSE 超门限时：模板显示已更新，面重构按钮仍会因缓存未写入而要求重新匹配。
 
+`CoarseOnly` 阶段：即使 `registrationPreviewOk=false` 也会写回预览；模板 backend 几何为**原始 STEP**（originalPose），位姿为 `worldAfter`。
+
 ## 2. 坐标变换（关键）
 
 与 B-rep 拾取、轨迹 AI overlay 共用规则（`feature_pick_transform` / `DocumentPointCloudOps`）：
 
 1. **`resolvePickScopeBackendId`**：装配子零件无 Geode 时 alias 到 `importParent` visual id。
-2. **统一世界坐标**（[`spatial_contract_world_pose.md`](spatial_contract_world_pose.md)）：`stored` 为世界绝对坐标；经 `getBackendRootWorldMatrix` 做 stored↔world，**不**加减 `modelCenter`。
-3. 扫描/模板配准：世界系 ICP，结果只写 `template.pose`。
+2. **统一世界坐标**（[`spatial_contract_world_pose.md`](spatial_contract_world_pose.md) §1.1）：`pose`=模型原点世界坐标；点云 `stored` 为世界绝对坐标；经 `getBackendRootWorldMatrix` 做 stored↔world，**不**加减 `modelCenter`。
+3. **CAD 模板 B-rep**：`shapeRef` 为 STEP 文件坐标（模型系）；配准写回走 **originalPose**（几何不变，ICP 只写 `template.pose`）。与 mesh/点云「顶点已世界烘焙」分工见契约 §4。
 
 实现：`CloudSimPluginHost/source/DocumentPointCloudOps.cpp`  
 头文件：`inc/DocumentPointCloudOps.h`
 
-**常见故障**：3D 里看起来对齐，但 `frameCheck pairHits=0` → 变换 id 或 skip-rebase 与显示不一致；修复后 `pairHits` 应 ≥ 32（512 点采样内）。手动对齐应拖动 **CAD 工件**，不是点云。
+**常见故障**：3D 里看起来对齐，但 `frameCheck pairHits=0` → 变换 id 与显示不一致，或曾用「烘焙几何 + worldAfter」双重施加 ICP；修复后 `pairHits` 应 ≥ 32（512 点采样内）。手动对齐应拖动 **CAD 工件**，不是点云。
 
 ### 2.1 匹配预览：`applyTemplateRegistrationToVisual`
 
@@ -84,15 +86,16 @@ p_world = p_aligned × worldBefore （ICP 已烘焙进几何时）
 
 | 分支 | 条件 | backend shape | OSG 根矩阵 | backend pose/rotation |
 |------|------|---------------|------------|------------------------|
-| **originalPose**（装配 STEP 默认） | `skipRebase && hasIcp`，且能重载原始 STEP | 保持 **原始 STEP** | `worldAfter` | 由 `worldAfter` 分解写入 |
-| **bakedAligned**（fallback） | 上述 STEP 重载失败 | `alignedTemplateShape` | 保持 `worldBefore` | 不更新（几何已含 ICP） |
-| **常规模型** | `!skipRebase` | `alignedTemplateShape` | `worldAfter` | 由 `worldAfter` 分解（含 modelCenter 扣除） |
+| **originalPose**（默认） | `backendSourcePath` 可经 `tryLoadOriginalStepShape` 重载 | 保持 **原始 STEP** | `worldAfter` | 由 `worldAfter` 分解写入 |
+| **bakedAligned**（fallback） | STEP 重载失败 | `alignedTemplateShape` | 保持 `worldBefore` | 不更新（几何已含 ICP） |
+
+**禁止**：`alignedTemplateShape` + `worldAfter`（ICP 双重施加）。
 
 要点：
 
 - `alignedTemplateShape` **始终**写入 `TemplateBrepAlignCache.report`，面重构只用 cache，不依赖模板 backend 是否仍为原始几何。
 - Eigen→OSG 必须用 `RigidTransform::fromIsometry` + `osgMatrixFromRigidTransform`，禁止手写列主序拷贝（会导致旋转爆炸）。
-- 预览失败时 Host 调用 `restoreTemplateShapeFromStep` 恢复模板原始几何。
+- 预览失败时 Host 调用 `restoreTemplateShapeFromStep` 恢复模板原始 STEP，并 `writeBackendPoseFromWorldMatrix` 与当前 OSG 同步。
 
 ### 2.2 面重构新工件：`alignFaceUpdatedBrepWithTemplateVisual`
 
@@ -115,6 +118,8 @@ p_world = p_aligned × worldBefore （ICP 已烘焙进几何时）
 **方向**：固定扫描点（STEP 系），ICP 输出 `templateToScan` 作用于模板 B-rep；`scanToTemplate = inverse(templateToScan)` 仅作兼容字段。
 
 **模板侧数据源**：导入时缓存的 `displaySoup` / `displayNormals`（与 OSG 显示同一套三角网格顶点），均匀下采样至约 40000 点；**不再**调用 `sampleShapeSurfacePoints` 或配准阶段的 `BRepExtrema` 投影。
+
+**配对降采样**（对齐 `PointCloudMatch.py`）：扫描与模板 soup 各自体素二分至约 **12000** 点，`registrationMatchVoxelMm = max(v_scan, v_template)`；RANSAC 门限 `2.5×2.4×voxel`，soup ICP 多档 `5/2.5/1.5/1.0×voxel`。
 
 ### 3.1 非预对齐（`scanAlreadyInTemplateFrame=false`）
 
@@ -148,6 +153,20 @@ coarseStage=modeSelect → bbox → pca → frameCheck → ransac? → soupMulti
 | 预对齐采纳 | `trialMaxDev` 改善 + 位移/转角门控；`autoRecover` 允许 `allowLargeCorrection` |
 | 匹配预览 | `registrationPreviewOk` 为真时 `applyTemplateRegistrationToVisual`；**点云 stored 不变** |
 
+### 3.2.1 精配（`FineOnly` + checkpoint）
+
+与 originalPose 写回一致（见契约 §4.1）：
+
+| 项 | 做法 |
+|----|------|
+| 模板 soup | 每次从 **原始 STEP** 重提 `extractDisplaySoupPointCloud`；**不用** checkpoint 烘焙 soup 做点对 |
+| 扫描 | 当前 OSG 快照 → STEP 模型系（粗配位姿已在 `templateRootWorldMat`） |
+| `templateToScan` 输出 | 相对**当前** OSG 的**增量**（精配从 Identity 起算） |
+| `alignedTemplateShape` | 从 checkpoint 粗配 baked shape 继续烘焙精配增量（面重构 cache） |
+| 显示写回 | 与粗配相同：**originalPose**（原始几何 + `worldAfter`） |
+
+checkpoint 仍保存 `templateSoupXyz` 供调试，但 `FineOnly` 不将其用于 ICP 配对。
+
 ### 3.3 重叠预览（`registrationPreviewOk`）
 
 在 ICP 下采样扫描上，对 template soup 做 **inlier 统计**（`measureScanToCloudInlierStats`），避免全云 maxDev 被离群点主导：
@@ -171,6 +190,7 @@ coarseStage=modeSelect → bbox → pca → frameCheck → ransac? → soupMulti
 | `registration preview ok, inlierMaxDevMm=` | 预览门控通过 |
 | `registration overlap inlierHits=` | inlier 命中数与偏差 |
 | `assembly STEP: original geometry + ICP pose` | 匹配预览走 originalPose 分支 |
+| `fineStage=originalStepSoup` | 精配使用原始 STEP soup，不用 checkpoint 烘焙 soup |
 
 **注意**：`icpRmseMm=0` 且 `pairHits=0` 表示**无有效配对**，不是完美对齐。面更新质量看 `globalMaxDeviationMm` 与 `qualityPassed`。`rigidRegisterTemplateToScanPointToPlane` 仍保留于 `TemplateBrepRegistration.cpp`，供面重构等非配准路径使用。
 

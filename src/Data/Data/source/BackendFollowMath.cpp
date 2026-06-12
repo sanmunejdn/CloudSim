@@ -1,6 +1,9 @@
 #include "BackendFollowMath.h"
 #include "BackendDataBase.h"
 
+#include <Adapters.h>
+#include <BackendWorldPose.h>
+
 #include <Eigen/Geometry>
 
 #include <algorithm>
@@ -113,10 +116,19 @@ bool backend_mat4_invert_rigid(const BackendMat4& m, BackendMat4& out)
 
 BackendMat4 backend_world_mat_from_pose(const BackendVec3& pose, const BackendVec3& rotationEulerDeg)
 {
-	const BackendMat4 t = BackendMat4::translate(pose.x, pose.y, pose.z);
-	const BackendMat4 r = BackendMat4::rotateEulerDeg(rotationEulerDeg.x, rotationEulerDeg.y, rotationEulerDeg.z);
+	const engine::RigidTransform rt = engine::rigidTransformFromBackendPoseEuler(
+		pose.x,
+		pose.y,
+		pose.z,
+		rotationEulerDeg.x,
+		rotationEulerDeg.y,
+		rotationEulerDeg.z);
+	const engine::ColMajorMat4 cm = engine::colMajorFromRigidTransform(rt);
 	BackendMat4 out{};
-	backend_mat4_multiply(t, r, out);
+	for (int i = 0; i < 16; ++i)
+	{
+		out.v[i] = cm[static_cast<size_t>(i)];
+	}
 	return out;
 }
 
@@ -164,10 +176,25 @@ static void mat3_to_euler_deg(const BackendMat4& w, double& outX, double& outY, 
 
 void backend_pose_euler_from_world_mat(const BackendMat4& world, BackendVec3& outPose, BackendVec3& outEulerDeg)
 {
-	outPose.x = world.v[12];
-	outPose.y = world.v[13];
-	outPose.z = world.v[14];
-	mat3_to_euler_deg(world, outEulerDeg.x, outEulerDeg.y, outEulerDeg.z);
+	engine::ColMajorMat4 cm{};
+	for (int i = 0; i < 16; ++i)
+	{
+		cm[static_cast<size_t>(i)] = world.v[i];
+	}
+	const engine::RigidTransform rt = engine::rigidTransformFromColMajor(cm);
+	double px = 0.0;
+	double py = 0.0;
+	double pz = 0.0;
+	double ex = 0.0;
+	double ey = 0.0;
+	double ez = 0.0;
+	engine::backendPoseEulerFromRigidTransform(rt, px, py, pz, ex, ey, ez);
+	outPose.x = px;
+	outPose.y = py;
+	outPose.z = pz;
+	outEulerDeg.x = ex;
+	outEulerDeg.y = ey;
+	outEulerDeg.z = ez;
 }
 
 void backend_trans_euler_from_rigid_mat(const BackendMat4& m, BackendVec3& outTrans, BackendVec3& outEulerDeg)

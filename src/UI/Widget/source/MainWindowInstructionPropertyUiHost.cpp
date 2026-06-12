@@ -160,7 +160,23 @@ void MainWindowInstructionPropertyUiHost::refreshRobotCoordinateFrameOverlays(
 void MainWindowInstructionPropertyUiHost::scheduleInstructionPropertyRefresh(
 	const std::shared_ptr<RobotInstruction::Base>& instruction, const bool refreshFeasibleAxisOptions)
 {
-	InstructionPropertyPanel::update(*this, instruction, refreshFeasibleAxisOptions);
+	m_mw.scheduleInstructionPropertyRefreshDebounced(instruction, refreshFeasibleAxisOptions);
+}
+
+void MainWindowInstructionPropertyUiHost::notifyPropertyPanelNumericEditStarted(
+	const QString& contextId, const QString& propertyKey)
+{
+	m_mw.beginPropertyPanelNumericEdit(contextId, propertyKey);
+}
+
+bool MainWindowInstructionPropertyUiHost::deferPropertyPanelVisualFullSync(const QString& contextId) const
+{
+	return m_mw.shouldDeferPropertyPanelRebuild(contextId);
+}
+
+void MainWindowInstructionPropertyUiHost::clearPropertyKeyVariantMap()
+{
+	m_mw.clearPropertyKeyVariantMap();
 }
 
 void MainWindowInstructionPropertyUiHost::scheduleDeferredFeasibleAxisProbe(

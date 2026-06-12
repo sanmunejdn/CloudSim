@@ -181,7 +181,12 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 		{
 			return;
 		}
-		updatePropertyPanel(m_selectionState.selectedBackendId());
+		if (shouldDeferPropertyPanelRebuild(ev.objectId))
+		{
+			syncPropertyPanelRowValues(ev.objectId);
+			return;
+		}
+		schedulePropertyPanelCommitRefresh(ev.objectId);
 	});
 
 	setCentralWidget(central);
@@ -193,6 +198,10 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	connect(&m_followTargetNameDebounceTimer, &QTimer::timeout, this, &MainWindow::flushFollowTargetNamePropertyEdit);
 	m_propertyPanelCommitTimer.setSingleShot(true);
 	connect(&m_propertyPanelCommitTimer, &QTimer::timeout, this, &MainWindow::onPropertyPanelCommitTimer);
+	m_instructionPropertyRefreshTimer.setSingleShot(true);
+	connect(&m_instructionPropertyRefreshTimer, &QTimer::timeout, this, &MainWindow::onInstructionPropertyRefreshTimer);
+	m_propertyVisualPreviewTimer.setSingleShot(true);
+	connect(&m_propertyVisualPreviewTimer, &QTimer::timeout, this, &MainWindow::onPropertyVisualPreviewTimer);
 	m_jobSystem = new JobSystem(this);
 	if (m_jobSystem->progressManager())
 	{
@@ -370,6 +379,7 @@ void MainWindow::setupDockWidgets()
 			| QAbstractItemView::EditKeyPressed | QAbstractItemView::AnyKeyPressed);
 	}
 	connect(m_variantManager, &QtVariantPropertyManager::valueChanged, this, &MainWindow::onVariantPropertyValueChanged);
+	installPropertyPanelEventFilter();
 	m_propertyDockTabs = new QTabWidget(m_propertyDock);
 	setupDockTabWidget(m_propertyDockTabs);
 	m_propertyDockTabs->addTab(m_propertyBrowser, QStringLiteral("Property"));

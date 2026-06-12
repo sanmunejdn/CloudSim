@@ -82,6 +82,7 @@
 
 #include "BackendFollowMath.h"
 #include "BackendVisualMath.h"
+#include "BackendPoseOsg.h"
 #include "ObjectGizmoFrame.h"
 
 OsgWidget::OsgWidget(QWidget* parent)
@@ -334,26 +335,8 @@ bool OsgWidget::syncOuterPatFromBackend(const BackendDataBase& data)
 	{
 		return false;
 	}
-	const auto cIt = m_backendModelCenters.find(id);
-	if (cIt == m_backendModelCenters.end())
-	{
-		return false;
-	}
-	const osg::Vec3f center = cIt->second;
-	const BackendVec3 p = data.pose();
-	const BackendVec3 r = data.rotation();
-	const osg::Vec3d centerPlusPose(
-		static_cast<double>(center.x()) + p.x,
-		static_cast<double>(center.y()) + p.y,
-		static_cast<double>(center.z()) + p.z);
-	const osg::Quat q = backendvisual_math::eulerDegToQuat(
-		osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
-	// Same row-vector convention as ObjectGizmoFrame / MeshBackendVisual::buildOuterBranch.
 	const osg::Matrixd targetWorld =
-		ObjectGizmoFrame::outerLocalMatrix(
-			osg::Vec3f(static_cast<float>(centerPlusPose.x()), static_cast<float>(centerPlusPose.y()),
-				static_cast<float>(centerPlusPose.z())),
-			q);
+		backend_pose_osg::worldMatrixFromBackendPoseEuler(data.pose(), data.rotation());
 	setBackendRootWorldMatrixFromWorld(id, targetWorld);
 	requestRedraw();
 	return true;
@@ -1440,9 +1423,7 @@ void OsgWidget::setSelectedRotationEulerDeg(const osg::Vec3f& eulerDeg)
 		return;
 	}
 	const osg::Quat q = OsgScene::eulerDegToQuat(eulerDeg);
-	const osg::Vec3d pivotInParent = ObjectGizmoFrame::pivotInOuterParentFromOuter(
-		m_activeBackendOuterPat.get(), f.modelCenter());
-	f.setRotationKeepingPivotInOuterParent(pivotInParent, q);
+	f.setCenterPlusPoseAndAttitude(f.centerPlusPose(), q);
 	f.applyToOuter(m_activeBackendOuterPat.get());
 	syncActiveBackendRootFromObjectFrame(f, false);
 	refreshAnnotationTexts();
@@ -1466,16 +1447,14 @@ bool OsgWidget::writeActiveBackendPoseFromOsg(BackendDataBase& data)
 	{
 		return false;
 	}
-	const osg::Vec3f pose = selectedPosition();
-	const osg::Vec3f euler = selectedRotationEulerDeg();
-	const BackendVec3 poseB{
-		static_cast<double>(pose.x()),
-		static_cast<double>(pose.y()),
-		static_cast<double>(pose.z())};
-	const BackendVec3 eulerB{
-		static_cast<double>(euler.x()),
-		static_cast<double>(euler.y()),
-		static_cast<double>(euler.z())};
+	osg::Matrixd world;
+	if (!getBackendRootWorldMatrix(m_activeBackendId, world))
+	{
+		return false;
+	}
+	BackendVec3 poseB{};
+	BackendVec3 eulerB{};
+	backend_pose_osg::backendPoseEulerFromWorldMatrix(world, poseB, eulerB);
 	if (data.supportsBackendTransform())
 	{
 		data.applyBackendWorldPose(poseB, eulerB);
@@ -1483,6 +1462,10 @@ bool OsgWidget::writeActiveBackendPoseFromOsg(BackendDataBase& data)
 	else
 	{
 		data.setPose(poseB);
+		if (data.hasRotationProperty())
+		{
+			data.setRotation(eulerB);
+		}
 	}
 	return true;
 }

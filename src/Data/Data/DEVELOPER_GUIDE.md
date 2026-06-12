@@ -1,6 +1,6 @@
 # Data 模块开发文档
 
-> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — `geometry` 存世界绝对坐标，`pose`/`rotation` 为唯一刚体偏移；权威 API：`BackendSpatial.h`、`backend_world_mat_from_pose`。
+> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1 — `pose`=模型原点世界坐标；内旋 ZYX、主动旋转、列向量 `p'=M×p`；权威 API：`BackendWorldPose.h`、`backend_world_mat_from_pose`、`BackendSpatial.h`。
 
 ## 1. 模块定位
 
@@ -28,7 +28,7 @@
 | `BackendPoseReferenceFrame` | `World` / `Parent` |
 | `BackendMat4` | `v[16]` 列主序（遗留）；`backend_mat4_multiply` 用 Eigen 列向量语义（与 GeometryEngine `composeColumn` 一致） |
 | `objectWorldMatrix` / `transformPointToWorld` | 世界点 = `objectWorldMatrix × v_stored`（见 `BackendSpatial.h`） |
-| `backend_world_mat_from_pose` | **`T(pose)×R`**，与 Visual outer 一致；**无** `+modelCenter`；工具链用 GeometryEngine（见 [`../GeometryEngine/DEVELOPER_GUIDE.md`](../GeometryEngine/DEVELOPER_GUIDE.md)） |
+| `backend_world_mat_from_pose` | 列向量 `p'=R×p_model+pose`；委托 `rigidTransformFromBackendPoseEuler` + `colMajorFromRigidTransform`；**无** `+modelCenter`（见契约 §1.1） |
 
 ---
 

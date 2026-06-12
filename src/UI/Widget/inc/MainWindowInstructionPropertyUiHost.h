@@ -56,6 +56,10 @@ public:
 	void scheduleInstructionPropertyRefresh(const std::shared_ptr<RobotInstruction::Base>& instruction,
 		bool refreshFeasibleAxisOptions) override;
 
+	void notifyPropertyPanelNumericEditStarted(const QString& contextId, const QString& propertyKey) override;
+	bool deferPropertyPanelVisualFullSync(const QString& contextId) const override;
+	void clearPropertyKeyVariantMap() override;
+
 	void scheduleDeferredFeasibleAxisProbe(const std::shared_ptr<RobotInstruction::Base>& instruction) override;
 
 private:

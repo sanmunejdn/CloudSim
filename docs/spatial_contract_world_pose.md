@@ -8,15 +8,88 @@
 
 ```text
 世界点 = objectWorldMatrix × v_stored
-objectWorldMatrix = T(pose) × R(rotationEuler)
+p_world = p_model × R(rotation) + pose          // OSG 行向量
+p_world = R(rotation) × p_model + pose          // BackendMat4 列向量（经 Adapters 与 OSG 等价）
 ```
 
 | 项 | 约定 |
 |----|------|
 | `geometry`（soup / shape / 点云） | 存**世界绝对坐标**；导入烘焙后**不再**为显示而平移顶点 |
-| `pose` + `rotation` | 相对 identity 的**唯一**刚体偏移（属性面板 / gizmo 读写对象） |
+| `pose` + `rotation` | **`pose` = 模型坐标原点在世界中的位置 (mm)**；`rotation` = 绕模型原点旋转（内禀 ZYX 度）。权威 API：`engine::rigidTransformFromBackendPoseEuler` / `backendPoseEulerFromRigidTransform`（`BackendWorldPose.h`）；包装：`backend_pose_osg::*`、`backend_world_mat_from_pose` |
 | 普通 mesh/点云导入 | `pose = 0`，`rotation = 0`，顶点保持文件坐标 |
 | `m_backendModelCenters` | **仅**相机聚焦与外包络；**不参与** pose 分解、拾取反算 |
+
+### 1.1 pose / rotation 基础语义（开发必读）
+
+本节为属性面板、`ObjectGizmoFrame`、ICP、Follow 共用的**唯一口径**；实现以 `engine::RigidTransform` 为真值，禁止各模块自写欧拉或矩阵拼装。
+
+#### pose 是什么
+
+| 概念 | 约定 |
+|------|------|
+| `pose` | **模型坐标原点** `(0,0,0)_model` 在世界系中的位置 (mm) |
+| `rotation` | 将**模型系**下的点/方向变到**世界系**的旋转 R（见下） |
+| 枢轴 | 旋转绕**模型原点**，不是 AABB 中心；`inner PAT` 恒 `(0,0,0)` |
+| `modelCenter` | 仅相机聚焦、外包络、拾取缓存；**不参与** pose 读写 |
+
+绕模型原点旋转时：**`rotation` 变、`pose` 不变**（R×T 语义，见 §3）。
+
+#### 点变换：主动旋转，模型系 → 世界系
+
+采用**主动旋转**（旋点、动刚体），不是被动「只转坐标轴、点不动」：
+
+```text
+p_world = R(rotation) × p_model + pose     // 列向量 / Eigen / BackendMat4 / ICP
+p_world = p_model × R(rotation) + pose     // OSG 行向量
+```
+
+OSG 外层矩阵由 `engine::osgMatrixFromRigidTransform` 生成，等价于行向量 **`Rotate(q) × Translate(pose)`**（先转后移；与上式同一刚体）。
+
+#### 欧拉角：内旋（intrinsic）ZYX
+
+| 项 | 约定 |
+|----|------|
+| 名称 | **内禀 Tait-Bryan ZYX**（内旋） |
+| 顺序 | 先绕物体 **Z** 转 `rotation.z`，再绕新 **Y** 转 `rotation.y`，再绕新 **X** 转 `rotation.x` |
+| 矩阵（列） | `R = Rz(ez) · Ry(ey) · Rx(ex)` |
+| 四元数 | `q = qz · qy · qx`（`BackendVisualMath` / `Adapters`） |
+| 与外旋关系 | 与**外旋 XYZ**（固定世界轴 X→Y→Z）得到**同一 R**；工程文档统一称为**内旋 ZYX** |
+
+属性面板手输 `rotation.x/y/z` 表示上述**总姿态**的 ZYX 分解，不是增量欧拉。
+
+#### 行向量 vs 列向量
+
+同一刚体，两层写法（**禁止**直接拷贝矩阵元素互转）：
+
+| 层 | 乘法 | 平移在矩阵中的位置 | 模块 |
+|----|------|-------------------|------|
+| **列向量** | `p' = M × p` | `BackendMat4` 列主序 `v[12..14]`；`RigidTransform` 的 `translation()` | `Data`、`GeometryEngine`、ICP、`backend_world_mat_from_pose` |
+| **行向量** | `p' = p × M` | OSG `m(3,0..2)`（第 3 行） | `OsgWidget`、`BackendVisual` outer、URDF FK 输出 |
+
+桥接（`Adapters.cpp`）：`R_eigen = R_osg^T`，平移取 OSG 底行；**唯一**互转入口 `rigidTransformFromOsg` / `osgMatrixFromRigidTransform` / `colMajorFromRigidTransform`。
+
+#### 权威 API（单一路径）
+
+```text
+engine::rigidTransformFromBackendPoseEuler(pose, rotation)
+    → osgMatrixFromRigidTransform        // BackendPoseOsg / ObjectGizmoFrame / buildOuterBranch
+    → colMajorFromRigidTransform         // backend_world_mat_from_pose
+engine::backendPoseEulerFromRigidTransform  // 从 RigidTransform 反解 pose + euler
+```
+
+#### Gizmo 与存储语义
+
+| 场景 | 说明 |
+|------|------|
+| **存盘 `pose` / `rotation`** | 物体在世界中的总位姿；`rotation` 为内旋 ZYX 分解 |
+| **Gizmo World** | 交互时沿**世界轴**平移/旋转（外旋式操作） |
+| **Gizmo Local** | 交互时沿**物体轴**平移/旋转（内旋式操作） |
+| **写回 backend** | 总姿态 → `writeActiveBackendPoseFromOsg` → 再分解为 ZYX；与拖动方式无关 |
+
+#### `poseReferenceFrame`（可选）
+
+- 默认 `World`：`pose` / `rotation` 即世界系总位姿。
+- `Parent`：属性面板可显示相对父对象位姿；写入 backend 前仍换算为世界系（`setPoseInFrame` / `BackendDataManager`）。
 
 ---
 
@@ -41,13 +114,13 @@ objectWorldMatrix = T(pose) × R(rotationEuler)
 ## 3. 显示（OSG / BackendVisual）
 
 ```text
-outer (MatrixTransform)     ← T(pose) × R(rotation)；inner 枢轴 = (0,0,0)
+outer (MatrixTransform)     ← engine::osgMatrixFromRigidTransform(pose, rotation)；inner 枢轴 = (0,0,0)
 └─ inner (PAT)              ← position = (0,0,0)（不再 -bboxCenter）
    └─ Geode（几何已世界坐标）
 ```
 
 - 已删除 `skipInnerModelCenterRebase`、`m_backendSkipCenterRebase` 主路径。
-- Gizmo / 拾取：直接读写 `pose` / `rotation`，**不**对顶点或 `modelCenter` 做加减。
+- Gizmo / 拾取：直接读写 `pose` / `rotation`；**绕模型原点旋转时 `pose` 不变**。
 
 ---
 
@@ -57,6 +130,19 @@ outer (MatrixTransform)     ← T(pose) × R(rotation)；inner 枢轴 = (0,0,0)
 - `RegistrationWorldFrameSnapshot`：仅 `scanRootWorldMat` / `templateRootWorldMat`。
 - 曲面重构 / B-rep 更新：输出世界几何，`pose = identity`。
 - 派生件显示对齐：`inheritBrepVisualPoseFromSourceMesh` 复制源 `pose` / `rotation`。
+
+### 4.1 CAD 模板 B-rep 配准写回
+
+与 mesh/点云「顶点已世界烘焙」不同，CAD 模板 `shapeRef` 保持 **STEP 文件坐标**（模型系）：
+
+| 对象 | 坐标约定 | 配准后写回 |
+|------|----------|------------|
+| 点云 `stored` | 世界绝对坐标 | **不变**；配准前经 snapshot 转到 STEP 模型系参与 ICP |
+| 模板 backend | 模型系几何 + `pose` | **originalPose**：原始 STEP + `worldAfter`（ICP 只写 pose） |
+| 面重构 cache | `alignedTemplateShape`（aligned 系） | 仅 cache；不依赖模板 backend 是否烘焙 |
+| 精配 `FineOnly` | 原始 STEP soup + 当前快照扫描 | `templateToScan` 为相对当前 pose 的增量；显示仍 originalPose |
+
+详见 [`template_brep_pointcloud_update.md`](template_brep_pointcloud_update.md) §2.1、§3.2.1。
 
 ---
 
@@ -128,6 +214,8 @@ M_link = M0 · inv(T0) · Tq · P
 
 | API | 模块 |
 |-----|------|
+| `rigidTransformFromBackendPoseEuler` / `backendPoseEulerFromRigidTransform` | `GeometryEngine/BackendWorldPose` |
+| `worldMatrixFromBackendPoseEuler` / `backendPoseEulerFromWorldMatrix` | `BackendPoseOsg` |
 | `objectWorldMatrix` / `transformPointToWorld` | `BackendSpatial` |
 | `backend_world_mat_from_pose` | `BackendFollowMath` |
 | `computeMeshWorldMatrices` / `linkMeshFileToLinkColumnMajor16` | `RobotUrdf` |
@@ -149,6 +237,8 @@ M_link = M0 · inv(T0) · Tq · P
 | 多工具 overlay 共用激活工具矩阵 | 多工具重合 |
 | 把场景 **W** 写入 **M0** | FK 双乘 **P** |
 | 拾取/配准对顶点加减 `modelCenter` | 与世界契约不一致 |
+| 手写 `Translate(pose)×Rotate` 或 OSG/BackendMat4 直接拷贝 | 与 `RigidTransform` 不一致；须走 §1.1 权威 API |
+| 把 `pose` 当成 T×R 分解参数或模型中心世界坐标 | 与 §1.1 语义冲突；手输/旋转后视觉错位 |
 
 ---
 

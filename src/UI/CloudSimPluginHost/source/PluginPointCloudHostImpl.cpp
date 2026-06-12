@@ -1011,6 +1011,8 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 			{
 				const bool isCoarseStage =
 					params.registrationStage == PluginPointCloudTemplateBrepRegistrationStage::CoarseOnly;
+				const bool isFineStage =
+					params.registrationStage == PluginPointCloudTemplateBrepRegistrationStage::FineOnly;
 				const bool applyVisual =
 					result->report.registrationPreviewOk || isCoarseStage;
 				std::string applyErr;
@@ -1044,6 +1046,10 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 								isCoarseStage
 									? stageLabel
 									: stageLabel.arg(result->report.icpRmseMm, 0, 'f', 3));
+							if (IPluginMainWindowHost* mw = m_host->mainWindowHost())
+							{
+								mw->focusBackendInTree(params.templateBrepBackendIdUtf8);
+							}
 						}
 					}
 					else if (m_host)
@@ -1052,7 +1058,7 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 							"ICP result could not be applied to template display: " + applyErr));
 					}
 				}
-				else
+				else if (!isFineStage)
 				{
 					std::string restoreErr;
 					if (document_point_cloud_ops::restoreTemplateShapeFromStep(
@@ -1075,6 +1081,13 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 						m_host->logWarn(QString::fromStdString(
 							"Registration overlap too poor and template restore failed: " + restoreErr));
 					}
+				}
+				else if (m_host)
+				{
+					m_host->logWarn(
+						QStringLiteral(
+							"Fine match preview gate not met; coarse CAD pose kept. "
+							"Adjust alignment in 3D view or retry coarse match."));
 				}
 
 				if (isCoarseStage)
@@ -1120,12 +1133,23 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 				onFinished(false, QString::fromStdString(result->error), registerResult);
 				return;
 			}
+			const bool isFineStage =
+				params.registrationStage == PluginPointCloudTemplateBrepRegistrationStage::FineOnly;
 			if (!result->report.registrationPreviewOk)
 			{
 				const QString warn = result->error.empty()
 					? QStringLiteral(
 						  "Registration overlap too poor; drag CAD workpiece to align with scan in 3D view and retry")
 					: QString::fromStdString(result->error);
+				if (isFineStage)
+				{
+					onFinished(
+						true,
+						QStringLiteral(
+							"Fine match gate not met; coarse CAD pose kept. Adjust in 3D view or retry."),
+						registerResult);
+					return;
+				}
 				onFinished(false, warn, registerResult);
 				return;
 			}

@@ -123,13 +123,13 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>inc;../../Contracts/CloudSimCore/inc;../../Data/Data/inc;../BackendVisual/inc;../../Geometry/GeometryAlgorithm/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/OSG3.6.5/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../Contracts/CloudSimCore/inc;../../Data/Data/inc;../BackendVisual/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>CloudSimCore.lib;BackendVisual.lib;Data.lib;GeometryAlgorithm.lib;RunLogger.lib;osg.lib;osgDB.lib;osgUtil.lib;osgViewer.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimCore.lib;GeometryEngine.lib;BackendVisual.lib;Data.lib;GeometryAlgorithm.lib;RunLogger.lib;osg.lib;osgDB.lib;osgUtil.lib;osgViewer.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -145,13 +145,13 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>inc;../../Contracts/CloudSimCore/inc;../../Data/Data/inc;../BackendVisual/inc;../../Geometry/GeometryAlgorithm/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/OSG3.6.5/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../../Contracts/CloudSimCore/inc;../../Data/Data/inc;../BackendVisual/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/OSG3.6.5/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>CloudSimCore.lib;BackendVisual.lib;Data.lib;GeometryAlgorithm.lib;RunLogger.lib;osg.lib;osgDB.lib;osgUtil.lib;osgViewer.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>CloudSimCore.lib;GeometryEngine.lib;BackendVisual.lib;Data.lib;GeometryAlgorithm.lib;RunLogger.lib;osg.lib;osgDB.lib;osgUtil.lib;osgViewer.lib;osgGA.lib;osgText.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -203,6 +203,9 @@
     </ProjectReference>
     <ProjectReference Include="..\..\Infra\RunLogger\RunLogger.vcxproj">
       <Project>{35F6E3C1-7F9A-4D93-9FAF-74BAE4A0C2D1}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Geometry\GeometryEngine\GeometryEngine.vcxproj">
+      <Project>{d4e5f6a7-b8c9-4d0e-9f1a-2b3c4d5e6f70}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\Geometry\GeometryAlgorithm\GeometryAlgorithm.vcxproj">
       <Project>{A1B2C3D4-E5F6-4789-ABCD-EF0123456789}</Project>

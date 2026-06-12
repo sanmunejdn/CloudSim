@@ -1,6 +1,6 @@
 # CloudSimHost 模块开发文档
 
-> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — URDF 导入（`UrdfRobotImport`）、层级 mesh/BREP 导入、配准写回均须遵守。
+> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1 — `pose`=模型原点世界坐标；URDF 导入、层级 mesh/BREP、配准写回须走 `BackendWorldPose` / `osgMatrixFromRigidTransform` 单一路径。
 
 ## 1. 模块定位
 

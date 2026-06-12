@@ -46,7 +46,26 @@
 |------|------|
 | `rigidTransformFromOsg` / `osgMatrixFromRigidTransform` | OSG 行向量 ↔ Eigen（3×3 转置 + 底行平移） |
 | `rigidTransformFromColMajor` / `colMajorFromRigidTransform` | `BackendMat4::v` 列主序 ↔ `RigidTransform` |
-| `eulerDegToQuat` / `quatToEulerDeg` | 与 `BackendVisualMath` / URDF 分支一致的欧拉 |
+| `eulerDegToQuat` / `quatToEulerDeg` | 内禀 ZYX（`qz·qy·qx`），与 `BackendVisualMath` / 契约 §1.1 一致 |
+
+### 2.4 `BackendWorldPose.h`（backend pose/rotation 真值）
+
+Data、BackendVisual、OsgWidgetCore、ICP 共用的 **pose + 欧拉** 入口；语义见 [`spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1。
+
+| API | 说明 |
+|-----|------|
+| `rigidTransformFromBackendPoseEuler(px,py,pz, ex,ey,ez)` | `pose` = 模型原点世界坐标 (mm)；`euler` = 内旋 ZYX 度；列向量 `p' = R×p + pose` |
+| `backendPoseEulerFromRigidTransform(rt, …)` | 从 `RigidTransform` 反解 pose + ZYX 欧拉（显示/落盘） |
+
+**包装（禁止重复拼装矩阵）：**
+
+```text
+rigidTransformFromBackendPoseEuler
+  → osgMatrixFromRigidTransform     // BackendPoseOsg、ObjectGizmoFrame、buildOuterBranch
+  → colMajorFromRigidTransform      // backend_world_mat_from_pose
+```
+
+`SelfTest.cpp` 覆盖：往返、Data/OSG 一致、绕原点旋转保 `pose`、与旧 `T×R` 区分。
 
 ---
 
@@ -66,7 +85,7 @@ UI：`RobotFrameSettingsWidget` 标签为 `X/Y/Z (mm, flange)`；列表行尾勾
 
 | API | 说明 |
 |-----|------|
-| `engine::runSelfTest(failures)` | 含 URDF 式 compose、OSG 往返、**Ry=90° 法兰 + (0,0,-200) 工具**（基座 ΔX≈+200，非仅 ΔZ） |
+| `engine::runSelfTest(failures)` | 含 `BackendWorldPose` 往返、Data/OSG 一致、旋转保 pose、URDF compose、**Ry=90° 法兰 + (0,0,-200) 工具** |
 | `RobotMatrixOsg::runConventionSelfTest` | 桥接 `RobotScene` 的 `targetInBaseFromFlange` 往返 |
 
 构建后可在调试入口触发（见 `MainWindow` 矩阵自检日志）。
@@ -105,6 +124,7 @@ flowchart LR
 
 ## 7. 相关文档
 
+- [`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1（pose/rotation 基础语义）
 - [`CONVENTIONS.md`](CONVENTIONS.md)
 - [`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md) §8.3
 - [`../RobotUrdf/DEVELOPER_GUIDE.md`](../RobotUrdf/DEVELOPER_GUIDE.md) §10

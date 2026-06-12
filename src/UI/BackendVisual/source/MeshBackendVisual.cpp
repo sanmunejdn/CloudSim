@@ -13,6 +13,7 @@
 #include "BackendDataBase.h"
 #include "BackendGeometryMetrics.h"
 #include "BackendIdUserData.h"
+#include "BackendPoseOsg.h"
 #include "BackendVisualMath.h"
 #include "MeshBackendData.h"
 
@@ -201,12 +202,7 @@ bool MeshBackendVisual::buildOuterBranch(const BackendDataBase& data, const Mesh
 	inner->setPosition(osg::Vec3f(0.0f, 0.0f, 0.0f));
 	inner->addChild(meshRoot.get());
 	osg::ref_ptr<osg::MatrixTransform> outer = new osg::MatrixTransform;
-	const BackendVec3 p = mesh->pose();
-	const BackendVec3 r = mesh->rotation();
-	const osg::Vec3d trans(static_cast<double>(p.x), static_cast<double>(p.y), static_cast<double>(p.z));
-	const osg::Quat q = backendvisual_math::eulerDegToQuat(
-		osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
-	outer->setMatrix(osg::Matrixd::translate(trans) * osg::Matrixd::rotate(q));
+	outer->setMatrix(backend_pose_osg::worldMatrixFromBackendPoseEuler(mesh->pose(), mesh->rotation()));
 	outer->addChild(inner.get());
 	osg::StateSet* oss = outer->getOrCreateStateSet();
 	if (meshOptions.useSceneLighting)

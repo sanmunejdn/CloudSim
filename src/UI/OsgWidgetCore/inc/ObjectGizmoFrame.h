@@ -7,7 +7,7 @@
 #include <osg/Quat>
 #include <osg/Vec3f>
 
-/// 对象变换罗盘位姿单一来源：外层 \c T(pose)*R（geometry 存世界坐标，行向量 OSG）
+/// 对象变换罗盘位姿单一来源：pose=模型原点在外层父系坐标；矩阵见 engine::osgMatrixFromRigidTransform
 class OSGWIDGETCORE_EXPORT ObjectGizmoFrame
 {
 public:
@@ -38,7 +38,7 @@ public:
 
 	static osg::Matrixd outerLocalMatrix(const osg::Vec3f& centerPlusPose, const osg::Quat& attitude);
 
-	/// 外层父系平移内层原点枢轴（行向量 T(cpp)*R）
+	/// 外层父系平移模型原点（pose）
 	void translateAlongWorldAxis(osg::MatrixTransform* outer, int axisIndex, double deltaWorld);
 	void translateAlongBodyAxis(osg::MatrixTransform* outer, int axisIndex, double deltaWorld);
 	/// 沿世界单位方向平移枢轴（屏幕拖拽轴）
@@ -57,10 +57,10 @@ public:
 	void rotatePreMultiplyWorldAxis(int axisIndex, double deltaRad);
 	void rotatePostMultiplyLocalAxis(int axisIndex, double deltaRad);
 
-	/// 外层父系保文件原点枢轴：(inner+trans_new)*R_new = (inner+trans_old)*R_old
+	/// 绕模型原点旋转：仅更新 attitude，pose 不变
 	void adjustCenterPlusPoseForRotationDelta(const osg::Quat& R_old, const osg::Quat& R_new);
 
-	/// 保枢轴：由 (inner+trans)*R = pivotInOuterParent 解 trans
+	/// 绕模型原点旋转：仅更新 attitude
 	void setRotationKeepingPivotInOuterParent(const osg::Vec3d& pivotInOuterParent, const osg::Quat& newAttitude);
 
 private:

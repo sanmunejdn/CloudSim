@@ -23,6 +23,9 @@
     <ClInclude Include="inc\BackendIdUserData.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\BackendPoseOsg.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\BackendVisualMath.h">
       <Filter>inc</Filter>
     </ClInclude>
@@ -44,6 +47,9 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendIdUserData.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendPoseOsg.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendVisualMath.cpp">

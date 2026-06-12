@@ -259,6 +259,23 @@ private:
 	void syncViewModeActionsFromCurrentOsg();
 	void setAllDocumentViewerDarkBackground(bool dark);
 	bool viewerUsesDarkBackground() const;
+	bool shouldDeferPropertyPanelRebuild(const QString& contextId) const;
+	void beginPropertyPanelNumericEdit(const QString& contextId, const QString& propertyKey);
+	void endPropertyPanelNumericEdit();
+	void flushPropertyPanelRefresh(const QString& contextId);
+	void syncPropertyPanelRowValues(const QString& backendId);
+	void clearPropertyKeyVariantMap();
+	void scheduleInstructionPropertyRefreshDebounced(
+		const std::shared_ptr<RobotInstruction::Base>& instruction,
+		bool refreshFeasibleAxisOptions);
+	void onInstructionPropertyRefreshTimer();
+	void scheduleThrottledPropertyVisualPreview(const QString& backendId);
+	void onPropertyVisualPreviewTimer();
+	void flushPropertyPanelVisualCommit(const QString& contextId);
+	void installPropertyPanelEventFilter();
+
+protected:
+	bool eventFilter(QObject* watched, QEvent* event) override;
 
 	cloudsim::core::EventHub& m_appEvents;
 	int m_backendTreeEventRefreshSuppress = 0;
@@ -310,7 +327,16 @@ private:
 	QTimer m_robotSimTimer;
 	QTimer m_followTargetNameDebounceTimer;
 	QTimer m_propertyPanelCommitTimer;
+	QTimer m_instructionPropertyRefreshTimer;
+	QTimer m_propertyVisualPreviewTimer;
+	QString m_propertyVisualPreviewBackendId;
 	QString m_propertyPanelCommitPendingBackendId;
+	QString m_instructionPropertyRefreshPendingInstructionId;
+	bool m_instructionPropertyRefreshFeasibleAxis = true;
+	QString m_propertyPanelActiveEditKey;
+	QString m_propertyPanelActiveEditContextId;
+	bool m_propertyPanelDeferFullRebuild = false;
+	QHash<QString, QtProperty*> m_propertyKeyToVariant;
 	QString m_followTargetNameDebounceBackendId;
 	QString m_followTargetNameDebounceText;
 	QDockWidget* m_runDock = nullptr;

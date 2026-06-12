@@ -126,7 +126,7 @@ Widget 侧 UI 能力契约（`inc/IPluginMainWindowHost.h`），供 Host 内 `Pl
 | `registerScanToCadTemplate` | 单 Job 配准 + `applyTemplateRegistrationToVisual` + `TemplateBrepAlignCache` |
 | `updateTemplateBrepFromAlignedScan` | 校验缓存 → Job `updateBrepFromAlignedScan` → `registerAdoptedBrepAndLoadScene` → **`alignFaceUpdatedBrepWithTemplateVisual`** |
 | `transformScanPointsToTemplateModelFrame` | 扫描 stored xyz → **STEP 模型坐标**（与 B-rep 拾取同规则） |
-| `applyTemplateRegistrationToVisual` | 反向配准预览：模板 OSG + `pose/rotation`（见专题 §2.1） |
+| `applyTemplateRegistrationToVisual` | 反向配准预览：STEP 模板走 **originalPose**（原始几何 + `worldAfter`）；见专题 §2.1 与契约 §4.1 |
 | `alignFaceUpdatedBrepWithTemplateVisual` | 面重构新工件世界位姿与模板一致（aligned 系，§2.2） |
 | `restoreTemplateShapeFromStep` | 预览失败时恢复模板原始 STEP 几何 |
 | `applyScanIcpAlignmentToStoredPoints` | 正向兼容：将 `scanToTemplate` 烘焙回点云（当前匹配流程**不**调用） |

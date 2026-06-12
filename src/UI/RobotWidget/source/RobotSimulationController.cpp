@@ -594,13 +594,18 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 		m_simulationDock->trajectoryEditPage()->bindStore(&doc->robotProgramStore());
 		m_simulationDock->trajectoryEditPage()->refreshProgramAndGroupCombos();
 	}
-	if (m_simulationDock && m_simulationDock->featureTrajectoryPage() && doc && m_host)
+	if (m_simulationDock && m_simulationDock->featureTrajectoryPage() && m_host)
 	{
 		auto* feat = m_simulationDock->featureTrajectoryPage();
-		feat->bindHost(m_host);
+		IRobotMainWindowHost* host = m_host;
 		feat->bindSession(m_trajectoryEditSession);
 		feat->bindSimulationController(this);
-		feat->setStepPathResolver([doc](const QString& backendId) { return doc->meshBackendStepSourcePath(backendId); });
+		// 须在 bindHost 之前更新 resolver：bindHost 内会 refreshBackendCombo
+		feat->setStepPathResolver([host](const QString& backendId) -> QString {
+			IRobotDocumentHost* liveDoc = host ? host->document() : nullptr;
+			return liveDoc ? liveDoc->meshBackendStepSourcePath(backendId) : QString();
+		});
+		feat->bindHost(m_host);
 	}
 	if (m_simulationDock && m_simulationDock->trajectoryEditPage() && m_host)
 	{

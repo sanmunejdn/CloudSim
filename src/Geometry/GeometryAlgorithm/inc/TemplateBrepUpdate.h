@@ -57,7 +57,7 @@ enum class TemplateBrepRegistrationStage
 	FineOnly = 2,
 };
 
-/// 粗配完成后保存，供精配继续
+/// 粗配完成后保存，供精配继续（精配 ICP 用原始 STEP soup；本结构主要提供 alignedTemplateShape）
 struct TemplateBrepRegistrationCheckpoint
 {
 	std::vector<float> templateSoupXyz;
@@ -91,6 +91,8 @@ struct TemplateBrepUpdateParams
 	int ransacMaxIterations = 5000;
 	/// Full=粗+精一步；CoarseOnly=仅 bbox/PCA/RANSAC/soup/ladder；FineOnly=紧 soup（需 checkpoint）
 	TemplateBrepRegistrationStage registrationStage = TemplateBrepRegistrationStage::Full;
+	/// 扫描/模板配对体素下采样后的匹配体素（0=未启用）；RANSAC/ICP 门限参照 PointCloudMatch.py
+	double registrationMatchVoxelMm = 0.0;
 	/// 用户选择的面索引（0-based）；为空时处理所有面
 	std::vector<int> selectedFaceIndices;
 	/// BSpline 调整：扫描点到原面距离超过此值才驱动控制点；0=固定默认 0.5mm（与 maxAllowedDeviationMm 无关）

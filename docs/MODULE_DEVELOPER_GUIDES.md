@@ -6,15 +6,20 @@
 
 ## 统一世界坐标契约（必读）
 
-全工程空间语义以 **[`spatial_contract_world_pose.md`](spatial_contract_world_pose.md)** 为权威说明。凡涉及导入、显示、FK、配准、拾取、坐标系叠加、TCP 示教，**须先对照该文档**，再改代码。
+全工程空间语义以 **[`spatial_contract_world_pose.md`](spatial_contract_world_pose.md) §1.1** 为权威说明。凡涉及导入、显示、FK、配准、拾取、坐标系叠加、TCP 示教，**须先对照该文档**，再改代码。
 
 | 要点 | 约定 |
 |------|------|
+| **`pose`** | 模型坐标原点在世界中的位置 (mm) |
+| **`rotation`** | 内禀 **ZYX 内旋**（`R=Rz·Ry·Rx`）；主动旋转：模型系 → 世界系 |
+| 点变换 | `p_world = R×p_model + pose`（列）/ `p_model×R + pose`（OSG 行）；桥接见 `Adapters` |
 | 几何 | `geometry` 存**世界绝对坐标**；`pose` + `rotation` 为**唯一**刚体偏移 |
-| 显示 | outer = `T(pose)×R`；inner PAT 恒 `(0,0,0)`（**不再** `-modelCenter`） |
+| 显示 | outer = `osgMatrixFromRigidTransform`；inner PAT 恒 `(0,0,0)`；绕原点转时 `pose` 不变 |
+| 权威 API | `engine::rigidTransformFromBackendPoseEuler` / `backendPoseEulerFromRigidTransform`（`BackendWorldPose.h`） |
+| Gizmo | World/Local 仅交互方式；存盘为总姿态 ZYX 分解 |
 | URDF per-link | q0 单次 `Tbind` 烘焙顶点 → `pose=I`；FK：`M = M0·inv(T0)·Tq·P`；**禁止**双重 visual 烘焙 |
 | 工具轴 | 世界烘焙顶点：挂根连杆 + `toolTcpInBaseFromFk(该工具)`；连杆系顶点：挂法兰 + `T_flange_tool` |
-| 已废弃 | `skipInnerModelCenterRebase` 主路径、`meshInLinkFrame` 导入分支、质心 rebase 配准主路径 |
+| 已废弃 | `T(pose)×R` 手写拼装、枢轴补偿改 `pose`、`skipInnerModelCenterRebase` 主路径、质心 rebase 配准 |
 
 **强相关模块文档**：[`Data`](../src/Data/Data/DEVELOPER_GUIDE.md) · [`BackendVisual`](../src/UI/BackendVisual/DEVELOPER_GUIDE.md) · [`OsgWidgetCore`](../src/UI/OsgWidgetCore/DEVELOPER_GUIDE.md) · [`CloudSimHost`](../src/Host/CloudSimHost/DEVELOPER_GUIDE.md) · [`RobotUrdf`](../src/Robot/RobotUrdf/DEVELOPER_GUIDE.md) · [`RobotScene`](../src/Robot/RobotScene/DEVELOPER_GUIDE.md) · [`RobotWidget`](../src/UI/RobotWidget/DEVELOPER_GUIDE.md)
 
@@ -28,7 +33,7 @@
 | **Data** | 后端对象模型、属性、层级、跟随求解；**`geometry_backend_ops` / `GeometryRef`**；工程 v4 序列化 | [Data/DEVELOPER_GUIDE.md](../src/Data/Data/DEVELOPER_GUIDE.md) · [backend_persistence/](backend_persistence/) |
 | **BackendVisual** | 数据 → OSG 分支构建策略 | [BackendVisual/DEVELOPER_GUIDE.md](../src/UI/BackendVisual/DEVELOPER_GUIDE.md) |
 | **OsgWidgetCore** | 纯 OSG 场景、拾取、gizmo、绑定索引 | [OsgWidgetCore/DEVELOPER_GUIDE.md](../src/UI/OsgWidgetCore/DEVELOPER_GUIDE.md) |
-| **GeometryEngine** | `RigidTransform`、工具链 FK、`OSG`/`BackendMat4` 适配 | [GeometryEngine/DEVELOPER_GUIDE.md](../src/Geometry/GeometryEngine/DEVELOPER_GUIDE.md) · [CONVENTIONS.md](../src/Geometry/GeometryEngine/CONVENTIONS.md) |
+| **GeometryEngine** | `RigidTransform`、`BackendWorldPose`、工具链 FK、`OSG`/`BackendMat4` 适配 | [GeometryEngine/DEVELOPER_GUIDE.md](../src/Geometry/GeometryEngine/DEVELOPER_GUIDE.md) · [CONVENTIONS.md](../src/Geometry/GeometryEngine/CONVENTIONS.md) |
 | **GeometryAlgorithm** | OCC/CGAL 离散、求交、布尔；**FeatureSpec / discretizeFeature / FeatureCatalog** | [GeometryAlgorithm/DEVELOPER_GUIDE.md](../src/Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) |
 | **RobotKinematics** | DH 串联 FK / 数值 IK | [RobotKinematics/DEVELOPER_GUIDE.md](../src/Robot/RobotKinematics/DEVELOPER_GUIDE.md) |
 | **RobotUrdf** | URDF 解析、层级场景、**prismatic FK**、每连杆后端 | [RobotUrdf/DEVELOPER_GUIDE.md](../src/Robot/RobotUrdf/DEVELOPER_GUIDE.md) |

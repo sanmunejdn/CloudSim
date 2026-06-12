@@ -153,6 +153,7 @@
     <ClInclude Include="inc\backendvisual_global.h" />
     <ClInclude Include="inc\BackendGeometryMetrics.h" />
     <ClInclude Include="inc\BackendIdUserData.h" />
+    <ClInclude Include="inc\BackendPoseOsg.h" />
     <ClInclude Include="inc\BackendVisualMath.h" />
     <ClInclude Include="inc\BackendVisualRegistry.h" />
     <ClInclude Include="inc\IBackendVisual.h" />
@@ -164,6 +165,7 @@
   <ItemGroup>
     <ClCompile Include="source\BackendGeometryMetrics.cpp" />
     <ClCompile Include="source\BackendIdUserData.cpp" />
+    <ClCompile Include="source\BackendPoseOsg.cpp" />
     <ClCompile Include="source\BackendVisualMath.cpp" />
     <ClCompile Include="source\BackendVisualRegistry.cpp" />
     <ClCompile Include="source\BrepBackendVisual.cpp" />

@@ -24,8 +24,14 @@
     <ClInclude Include="inc\SelfTest.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\BackendWorldPose.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\BackendWorldPose.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClCompile Include="source\RigidTransform.cpp">
       <Filter>src</Filter>
     </ClCompile>

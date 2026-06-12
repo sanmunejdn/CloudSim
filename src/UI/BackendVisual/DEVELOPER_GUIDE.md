@@ -1,6 +1,6 @@
 # BackendVisual 模块开发文档
 
-> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — outer = `T(pose)×R`；inner PAT 恒 `(0,0,0)`；顶点为世界绝对坐标。
+> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1 — `pose`=模型原点世界坐标；内旋 ZYX、主动旋转、行/列向量见契约；outer=`osgMatrixFromRigidTransform`；inner PAT 恒 `(0,0,0)`。
 
 ## 1. 模块定位
 
@@ -18,10 +18,12 @@
 ## 2. 场景分支约定（与 Gizmo/FK 对齐）
 
 ```text
-outer (osg::MatrixTransform)     ← 唯一位姿写入：T(pose) * R(rotationEuler)
-└─ inner (PositionAttitudeTransform)  ← 恒 position = (0,0,0)
+outer (osg::MatrixTransform)     ← worldMatrixFromBackendPoseEuler → osgMatrixFromRigidTransform（行向量 R×T）
+└─ inner (PositionAttitudeTransform)  ← 恒 position = (0,0,0)；旋转绕模型原点
    └─ Geode / Group（geometry 已为世界绝对坐标）
 ```
+
+**pose/rotation 口径**（详表见契约 §1.1）：`pose`=模型原点世界坐标；`rotation`=内禀 ZYX（`R=Rz·Ry·Rx`）；**主动**把 `p_model` 变到 `p_world`；绕原点转时 `pose` 不变。
 
 | 选项 | 结构体字段 | 效果 |
 |------|------------|------|
@@ -79,7 +81,7 @@ outer (osg::MatrixTransform)     ← 唯一位姿写入：T(pose) * R(rotationEu
 |------|------|
 | `typeKey()` | `"Model"`（与 `MeshBackendData::className()` 一致） |
 | `makeDisplayNode(data, options, err)` | 无 outer 的显示 `Group`（填充 + 可选线框） |
-| `buildOuterBranch(...)` | 完整分支；outer=`T(pose)×R`，inner=(0,0,0) |
+| `buildOuterBranch(...)` | 完整分支；outer=`worldMatrixFromBackendPoseEuler`，inner=(0,0,0) |
 | `computeModelCenterAndDiagonal(...)` | 三角 soup AABB |
 
 **数据输入**：`MeshBackendData::triangleSoup()`（每三角 9 float：v0,v1,v2 各 xyz）。
@@ -161,7 +163,8 @@ outer (osg::MatrixTransform)     ← 唯一位姿写入：T(pose) * R(rotationEu
 
 | 函数 | 约定 |
 |------|------|
-| `eulerDegToQuat` / `quatToEulerDeg` | 内禀 ZYX，与 `OsgScene` / `ObjectGizmoFrame` 一致 |
+| `eulerDegToQuat` / `quatToEulerDeg` | 内禀 ZYX（`qz·qy·qx`），与 `Adapters` / `ObjectGizmoFrame` 一致；见契约 §1.1 |
+| `worldMatrixFromBackendPoseEuler` | 委托 `engine::rigidTransformFromBackendPoseEuler` + `osgMatrixFromRigidTransform` |
 
 ---
 

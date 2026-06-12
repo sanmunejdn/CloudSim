@@ -154,8 +154,10 @@
     <ClInclude Include="inc\Adapters.h" />
     <ClInclude Include="inc\ToolKinematics.h" />
     <ClInclude Include="inc\SelfTest.h" />
+    <ClInclude Include="inc\BackendWorldPose.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\BackendWorldPose.cpp" />
     <ClCompile Include="source\RigidTransform.cpp" />
     <ClCompile Include="source\Adapters.cpp" />
     <ClCompile Include="source\ToolKinematics.cpp" />

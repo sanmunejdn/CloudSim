@@ -3,9 +3,13 @@
 #include <algorithm>
 #include <memory>
 
+#include <QAbstractItemView>
+#include <QEvent>
 #include <QList>
+#include <QSignalBlocker>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
+#include <QWidget>
 
 #include "BackendVisualSync.h"
 #include "DocumentHostEvents.h"
@@ -189,6 +193,39 @@ bool isRotationComponentKey(const QString& key)
 	return key == QStringLiteral("rotation.x") || key == QStringLiteral("rotation.y") || key == QStringLiteral("rotation.z");
 }
 
+QVariant propertyRowValueToVariant(const QString& key, const QString& value, bool editable)
+{
+	const int editorType = propertyEditorTypeForKey(key, editable);
+	if (editorType == QVariant::Double)
+	{
+		bool ok = false;
+		const double dv = value.toDouble(&ok);
+		if (ok)
+		{
+			return dv;
+		}
+	}
+	else if (editorType == QVariant::Int)
+	{
+		bool ok = false;
+		const int iv = value.toInt(&ok);
+		if (ok)
+		{
+			return iv;
+		}
+	}
+	else if (editorType == QVariant::Bool)
+	{
+		const QString lower = value.trimmed().toLower();
+		if (lower == QStringLiteral("true") || lower == QStringLiteral("false") || lower == QStringLiteral("1")
+			|| lower == QStringLiteral("0"))
+		{
+			return lower == QStringLiteral("true") || lower == QStringLiteral("1");
+		}
+	}
+	return value;
+}
+
 bool updateVec3ComponentFromKey(const QString& key, const QString& valueText, BackendVec3& ioVec)
 {
 	bool ok = false;
@@ -342,6 +379,7 @@ void MainWindow::appendPropertyBrowserRow(
 	{
 		prop->setToolTip(toolTip);
 	}
+	m_propertyKeyToVariant.insert(propertyKey, prop);
 	m_propertyBrowser->addProperty(prop);
 }
 
@@ -542,13 +580,291 @@ void MainWindow::updateInstructionPropertyPanel(
 	const std::shared_ptr<RobotInstruction::Base>& instruction,
 	const bool refreshFeasibleAxisOptions)
 {
+	if (instruction)
+	{
+		const QString instructionId = QString::fromStdString(instruction->id());
+		if (m_propertyPanelDeferFullRebuild && instructionId != m_propertyPanelActiveEditContextId)
+		{
+			m_propertyPanelActiveEditKey.clear();
+			m_propertyPanelActiveEditContextId.clear();
+			m_propertyPanelDeferFullRebuild = false;
+			m_propertyVisualPreviewTimer.stop();
+			m_propertyVisualPreviewBackendId.clear();
+			if (DocumentPage* docPage = currentPage())
+			{
+				docPage->setDeferPropertyPanelVisualFullSync(false);
+			}
+		}
+		if (shouldDeferPropertyPanelRebuild(instructionId))
+		{
+			return;
+		}
+	}
+	else if (m_propertyPanelDeferFullRebuild)
+	{
+		m_propertyPanelActiveEditKey.clear();
+		m_propertyPanelActiveEditContextId.clear();
+		m_propertyPanelDeferFullRebuild = false;
+		m_propertyVisualPreviewTimer.stop();
+		m_propertyVisualPreviewBackendId.clear();
+		if (DocumentPage* docPage = currentPage())
+		{
+			docPage->setDeferPropertyPanelVisualFullSync(false);
+		}
+	}
 	InstructionPropertyPanel::update(m_instructionPropertyUiHost, instruction, refreshFeasibleAxisOptions);
+}
+
+void MainWindow::clearPropertyKeyVariantMap()
+{
+	m_propertyKeyToVariant.clear();
+}
+
+bool MainWindow::shouldDeferPropertyPanelRebuild(const QString& contextId) const
+{
+	return m_propertyPanelDeferFullRebuild && !m_propertyPanelActiveEditKey.isEmpty()
+		&& contextId == m_propertyPanelActiveEditContextId;
+}
+
+void MainWindow::beginPropertyPanelNumericEdit(const QString& contextId, const QString& propertyKey)
+{
+	m_propertyPanelActiveEditContextId = contextId;
+	m_propertyPanelActiveEditKey = propertyKey;
+	m_propertyPanelDeferFullRebuild = true;
+	m_propertyPanelCommitTimer.stop();
+	m_propertyPanelCommitPendingBackendId.clear();
+	if (DocumentPage* docPage = currentPage())
+	{
+		docPage->setDeferPropertyPanelVisualFullSync(true);
+	}
+}
+
+void MainWindow::endPropertyPanelNumericEdit()
+{
+	if (!m_propertyPanelDeferFullRebuild)
+	{
+		return;
+	}
+	const QString contextId = m_propertyPanelActiveEditContextId;
+	m_propertyPanelActiveEditKey.clear();
+	m_propertyPanelActiveEditContextId.clear();
+	m_propertyPanelDeferFullRebuild = false;
+	m_propertyVisualPreviewTimer.stop();
+	m_propertyVisualPreviewBackendId.clear();
+	if (DocumentPage* docPage = currentPage())
+	{
+		docPage->setDeferPropertyPanelVisualFullSync(false);
+	}
+	flushPropertyPanelVisualCommit(contextId);
+	flushPropertyPanelRefresh(contextId);
+}
+
+void MainWindow::scheduleThrottledPropertyVisualPreview(const QString& backendId)
+{
+	if (backendId.isEmpty())
+	{
+		return;
+	}
+	m_propertyVisualPreviewBackendId = backendId;
+	m_propertyVisualPreviewTimer.start(33);
+}
+
+void MainWindow::onPropertyVisualPreviewTimer()
+{
+	const QString backendId = m_propertyVisualPreviewBackendId;
+	m_propertyVisualPreviewBackendId.clear();
+	if (backendId.isEmpty() || !shouldDeferPropertyPanelRebuild(backendId))
+	{
+		return;
+	}
+	DocumentPage* docPage = currentPage();
+	if (!docPage || !docPage->data().isValid(backendId))
+	{
+		return;
+	}
+	(void)docPage->syncOuterPatFromBackendId(backendId.toStdString());
+}
+
+void MainWindow::flushPropertyPanelVisualCommit(const QString& contextId)
+{
+	if (contextId.isEmpty())
+	{
+		return;
+	}
+	DocumentPage* docPage = currentPage();
+	if (!docPage)
+	{
+		return;
+	}
+	if (m_activeInstructionForProperty
+		&& QString::fromStdString(m_activeInstructionForProperty->id()) == contextId)
+	{
+		applyRobotPoseForInstructionPreview(m_activeInstructionForProperty);
+		refreshInstructionPoseAxes();
+		return;
+	}
+	if (!m_selectionState.hasBackendSelection() || m_selectionState.selectedBackendId() != contextId)
+	{
+		return;
+	}
+	const QString backendId = contextId;
+	cloudsim::host::syncVisualAfterPropertyChangeById(*docPage, backendId, false);
+	cloudsim::host::publishPoseCommittedFromBackendId(*docPage, backendId);
+	syncRobotKinematicsAfterPoseEdit(backendId);
+	cloudsim::core::IRenderView* rv = &docPage->render();
+	if (!rv->isTransformGizmoDragging())
+	{
+		(void)docPage->data().runFollowSolveAndSync(makeFollowSolveContextDto(*docPage), nullptr);
+	}
+}
+
+void MainWindow::flushPropertyPanelRefresh(const QString& contextId)
+{
+	if (contextId.isEmpty())
+	{
+		return;
+	}
+	if (m_activeInstructionForProperty
+		&& QString::fromStdString(m_activeInstructionForProperty->id()) == contextId)
+	{
+		updateInstructionPropertyPanel(m_activeInstructionForProperty, false);
+		return;
+	}
+	if (m_selectionState.hasBackendSelection() && m_selectionState.selectedBackendId() == contextId)
+	{
+		updatePropertyPanel(contextId);
+	}
+}
+
+void MainWindow::syncPropertyPanelRowValues(const QString& backendId)
+{
+	if (!m_variantManager || backendId.isEmpty())
+	{
+		return;
+	}
+	DocumentPage* docPage = currentPage();
+	if (!docPage || !docPage->data().isValid(backendId))
+	{
+		return;
+	}
+	m_updatingPropertyBrowser = true;
+	const QVector<cloudsim::core::PropertyRowDto> rows = docPage->data().propertyRows(backendId);
+	for (const cloudsim::core::PropertyRowDto& r : rows)
+	{
+		if (r.key == m_propertyPanelActiveEditKey)
+		{
+			continue;
+		}
+		QtProperty* prop = m_propertyKeyToVariant.value(r.key);
+		if (!prop)
+		{
+			continue;
+		}
+		const QVariant v = propertyRowValueToVariant(r.key, r.value, r.editable);
+		QSignalBlocker blocker(m_variantManager);
+		m_variantManager->setValue(prop, v);
+	}
+	m_updatingPropertyBrowser = false;
+}
+
+void MainWindow::scheduleInstructionPropertyRefreshDebounced(
+	const std::shared_ptr<RobotInstruction::Base>& instruction,
+	const bool refreshFeasibleAxisOptions)
+{
+	if (!instruction)
+	{
+		return;
+	}
+	m_instructionPropertyRefreshPendingInstructionId = QString::fromStdString(instruction->id());
+	m_instructionPropertyRefreshFeasibleAxis = refreshFeasibleAxisOptions;
+	m_instructionPropertyRefreshTimer.start(220);
+}
+
+void MainWindow::onInstructionPropertyRefreshTimer()
+{
+	const QString wantId = m_instructionPropertyRefreshPendingInstructionId;
+	m_instructionPropertyRefreshPendingInstructionId.clear();
+	if (wantId.isEmpty() || !m_activeInstructionForProperty)
+	{
+		return;
+	}
+	if (QString::fromStdString(m_activeInstructionForProperty->id()) != wantId)
+	{
+		return;
+	}
+	if (shouldDeferPropertyPanelRebuild(wantId))
+	{
+		m_instructionPropertyRefreshPendingInstructionId = wantId;
+		m_instructionPropertyRefreshTimer.start(220);
+		return;
+	}
+	updateInstructionPropertyPanel(m_activeInstructionForProperty, m_instructionPropertyRefreshFeasibleAxis);
+}
+
+void MainWindow::installPropertyPanelEventFilter()
+{
+	if (!m_propertyBrowser)
+	{
+		return;
+	}
+	m_propertyBrowser->installEventFilter(this);
+	if (QTreeWidget* propTree = m_propertyBrowser->findChild<QTreeWidget*>())
+	{
+		propTree->installEventFilter(this);
+	}
+}
+
+bool MainWindow::eventFilter(QObject* watched, QEvent* event)
+{
+	if (event->type() == QEvent::FocusOut && m_propertyPanelDeferFullRebuild && m_propertyBrowser)
+	{
+		QTreeWidget* propTree = m_propertyBrowser->findChild<QTreeWidget*>();
+		if (propTree && (watched == propTree || watched == m_propertyBrowser
+				|| (qobject_cast<QWidget*>(watched) && propTree->isAncestorOf(qobject_cast<QWidget*>(watched)))))
+		{
+			QTimer::singleShot(0, this, [this]() {
+				if (!m_propertyPanelDeferFullRebuild || !m_propertyBrowser)
+				{
+					return;
+				}
+				QTreeWidget* tree = m_propertyBrowser->findChild<QTreeWidget*>();
+				if (!tree)
+				{
+					endPropertyPanelNumericEdit();
+					return;
+				}
+				QWidget* focusWidget = tree->focusWidget();
+				if (!focusWidget || !tree->isAncestorOf(focusWidget))
+				{
+					endPropertyPanelNumericEdit();
+				}
+			});
+		}
+	}
+	return QMainWindow::eventFilter(watched, event);
 }
 
 void MainWindow::updatePropertyPanel(const QString& backendId)
 {
 	if (!m_propertyBrowser || !m_variantManager)
 	{
+		return;
+	}
+	if (m_propertyPanelDeferFullRebuild && backendId != m_propertyPanelActiveEditContextId)
+	{
+		m_propertyPanelActiveEditKey.clear();
+		m_propertyPanelActiveEditContextId.clear();
+		m_propertyPanelDeferFullRebuild = false;
+		m_propertyVisualPreviewTimer.stop();
+		m_propertyVisualPreviewBackendId.clear();
+		if (DocumentPage* docPage = currentPage())
+		{
+			docPage->setDeferPropertyPanelVisualFullSync(false);
+		}
+	}
+	if (!backendId.isEmpty() && shouldDeferPropertyPanelRebuild(backendId))
+	{
+		syncPropertyPanelRowValues(backendId);
 		return;
 	}
 	if (!backendId.isEmpty() && m_followTargetNameDebounceTimer.isActive()
@@ -569,6 +885,7 @@ void MainWindow::updatePropertyPanel(const QString& backendId)
 		m_followTargetNameDebounceText.clear();
 	}
 	m_updatingPropertyBrowser = true;
+	clearPropertyKeyVariantMap();
 	m_variantManager->clear();
 	if (backendId.isEmpty())
 	{
@@ -647,48 +964,34 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 	}
 	const QString valueText = variantValueToString(value);
 
-	const QByteArray keyBytes = propertyKey.toUtf8();
-	const std::string keyUtf8(keyBytes.constData(), static_cast<std::size_t>(keyBytes.size()));
-	const QByteArray valueBytes = valueText.toUtf8();
-	const std::string valueUtf8(valueBytes.constData(), static_cast<std::size_t>(valueBytes.size()));
-
 	DocumentPage* docPage = currentPage();
 	if (!docPage)
 	{
-		RunLogger::debug(std::string("[PropertyCommitDBG] skip commit without document page id=")
-			+ backendId.toStdString() + " key=" + keyUtf8);
-		RunLogger::flush();
 		return;
 	}
 
-	QString oldValue;
-	for (const cloudsim::core::PropertyRowDto& row : docPage->data().propertyRows(backendId))
+	const bool isPoseRotEdit = isPoseComponentKey(propertyKey) || isRotationComponentKey(propertyKey);
+	if (isPoseRotEdit)
 	{
-		if (row.key == propertyKey)
-		{
-			oldValue = row.value;
-			break;
-		}
+		beginPropertyPanelNumericEdit(backendId, propertyKey);
 	}
 
 	QString dsErr;
 	const bool applyOk = docPage->data().applyPropertyChange(backendId, propertyKey, valueText, &dsErr);
 	if (!applyOk)
 	{
-		RunLogger::debug(std::string("[PropertyCommitDBG] apply failed id=") + backendId.toStdString()
-			+ " key=" + keyUtf8
-			+ " old=" + oldValue.toStdString()
-			+ " new=" + valueUtf8
-			+ " err=" + dsErr.toStdString());
-		RunLogger::flush();
+		if (isPoseRotEdit)
+		{
+			m_propertyPanelActiveEditKey.clear();
+			m_propertyPanelActiveEditContextId.clear();
+			m_propertyPanelDeferFullRebuild = false;
+			m_propertyVisualPreviewTimer.stop();
+			m_propertyVisualPreviewBackendId.clear();
+			docPage->setDeferPropertyPanelVisualFullSync(false);
+		}
 		updatePropertyPanel(backendId);
 		return;
 	}
-	RunLogger::debug(std::string("[PropertyCommitDBG] apply ok id=") + backendId.toStdString()
-		+ " key=" + keyUtf8
-		+ " old=" + oldValue.toStdString()
-		+ " new=" + valueUtf8);
-	RunLogger::flush();
 
 	const bool followKey = propertyKey.startsWith(QStringLiteral("follow."));
 	if (followKey)
@@ -700,21 +1003,14 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 		docPage->markFollowAttachmentDirtyFromBackendMove(backendId);
 	}
 
-	if (cloudsim::host::propertyKeyNeedsVisualSync(propertyKey))
+	if (isPoseRotEdit)
 	{
-		const bool applyColor = propertyKey.contains(QStringLiteral("color"), Qt::CaseInsensitive);
-		cloudsim::host::syncVisualAfterPropertyChangeById(*docPage, backendId, applyColor);
-		if (cloudsim::host::propertyKeyCommitsPose(propertyKey))
-		{
-			cloudsim::host::publishPoseCommittedFromBackendId(*docPage, backendId);
-		}
+		scheduleThrottledPropertyVisualPreview(backendId);
 	}
-	if (isPoseComponentKey(propertyKey) || isRotationComponentKey(propertyKey))
+	else
 	{
-		syncRobotKinematicsAfterPoseEdit(backendId);
+		schedulePropertyPanelCommitRefresh(backendId);
 	}
-
-	schedulePropertyPanelCommitRefresh(backendId);
 }
 
 void MainWindow::flushFollowTargetNamePropertyEdit()

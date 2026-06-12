@@ -130,7 +130,7 @@ bool applyScanIcpAlignmentToStoredPoints(
 	PointCloudBackendData& inOutScan,
 	std::string* outError = nullptr);
 
-/// 反向配准：将对齐后的模板 shape 写回 backend 并刷新 OSG 显示（点云不动）
+/// 反向配准预览：STEP 可走 originalPose（原始几何 + worldAfter）；fallback 为 bakedAligned（点云不动）
 bool applyTemplateRegistrationToVisual(
 	cloudsim::host::DocumentHost* page,
 	const std::string& templateBackendIdUtf8,

@@ -99,6 +99,9 @@ public:
 	/// FK 批量抑制脏通知
 	void setSuppressRobotFollowDirtyNotify(bool suppress);
 	bool suppressRobotFollowDirtyNotify() const;
+	/// 属性面板连续数值编辑：跳过逐步全量 OSG 同步，失焦后一次性提交
+	void setDeferPropertyPanelVisualFullSync(bool defer);
+	bool deferPropertyPanelVisualFullSync() const;
 
 	void ensureSelectionVisualForBackend(const std::string& backendId, bool urdfLinkMesh = false);
 	bool syncOuterPatFromBackendId(const std::string& backendId);
@@ -130,6 +133,7 @@ private:
 	std::unordered_set<std::string> m_followDirtyBackendIds;
 	bool m_followSolveForced = false;
 	bool m_suppressRobotFollowDirtyNotify = false;
+	bool m_deferPropertyPanelVisualFullSync = false;
 	IRobotUrdfImportContext* m_robotUrdfImportContext = nullptr;
 	IRobotInstructionPropertyDelegate* m_instructionPropertyDelegate = nullptr;
 };

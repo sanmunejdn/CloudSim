@@ -455,7 +455,14 @@ void MainWindow::refreshFollowSolveAndPropertyPanelFromOsgWrite(const QString& b
 	}
 	if (!rv->isTransformGizmoDragging())
 	{
-		updatePropertyPanel(backendId);
+		if (shouldDeferPropertyPanelRebuild(backendId))
+		{
+			syncPropertyPanelRowValues(backendId);
+		}
+		else
+		{
+			updatePropertyPanel(backendId);
+		}
 	}
 }
 
@@ -479,6 +486,12 @@ void MainWindow::onPropertyPanelCommitTimer()
 	}
 	if (!m_selectionState.hasBackendSelection() || m_selectionState.selectedBackendId() != want)
 	{
+		return;
+	}
+	if (shouldDeferPropertyPanelRebuild(want))
+	{
+		m_propertyPanelCommitPendingBackendId = want;
+		m_propertyPanelCommitTimer.start(220);
 		return;
 	}
 	updatePropertyPanel(want);
