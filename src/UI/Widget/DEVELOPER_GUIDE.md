@@ -258,7 +258,7 @@ LMB → beginGizmoScreenDrag → gizmoScreenDragDs × gain → translateAlongWor
 
 RMB → cacheRotatePivotInParentSpace → beginGizmoScreenRotate → gizmoScreenRotateDeltaRad × gain
     → dragAxisDirectionOuterParent → adjustCenterPlusPoseForRotationDelta → applyToOuter
-    → syncCompassGizmoOrientation（不写 selectedObjectPoseChanged）
+    → syncActiveBackendRootFromObjectFrame(..., true) → selectedObjectRotationChanged
 ```
 
 **平移不用平面求交**：物体与 outer 一体运动，移动枢轴时射线-平面求交会发散（与 TCP 相同）。按下时冻结 `gizmoCompassUnitAxisWorld` 方向的屏幕轴与 `mmPerPixel`。
@@ -306,9 +306,9 @@ per-link URDF 各连杆 OSG 为**扁平**布局，逻辑父子在 `m_backendPare
 | 信号 | 说明 |
 |------|------|
 | `backendObjectPicked(backendId)` | OSG 拾取 |
-| `transformGizmoCommitted` | 罗盘释放 → 刷新属性面板 |
+| `transformGizmoCommitted` | 罗盘释放 → `commitGizmoPoseToBackend` + 全量 `updatePropertyPanel` |
 | `tcpDragTeachPoseChanged` / `tcpDragTeachEnded` | TCP 示教拖动 / ESC 退出 |
-| `selectedObjectPoseChanged` / `Rotation` / `Color` | 平移拖动中写后端；**旋转拖动中不写**（松手 `transformGizmoCommitted`） |
+| `selectedObjectPoseChanged` / `Rotation` / `Color` | 拖动中写 backend（`applyWorldPoseMm`）并触发属性行实时刷新（见 §12a） |
 | `annotationCreated` / `Removed` / `visibilityChanged` | 注释 |
 
 ### 6.6 帧钩子
@@ -481,6 +481,7 @@ per-link URDF 各连杆 OSG 为**扁平**布局，逻辑父子在 `m_backendPare
 | `follow.*` | `afterBackendFollowPropertyEdited` + Follow 求解（Widget） |
 | 仿真指令属性 | `InstructionPropertyPanel`（`RobotWidget`）+ `MainWindowInstructionPropertyUiHost`；写回经 `doc->robot().applyInstructionPropertyChange` |
 | 选择刷新 | `SelectionChanged` / `PoseCommitted` 订阅 → `updatePropertyPanel`（`MainWindowUiSetup`） |
+| **gizmo 拖动中刷新** | `refreshFollowSolveAndPropertyPanelFromOsgWrite`：`isTransformGizmoDragging()` 时跳过 follow-solve，调用 `syncPropertyPanelGizmoLiveValues` 从 `IRenderView::selectedPosition` / `selectedRotationEulerDeg` 直写 `pose.*` / `rotation.*` 六行（OSG 为拖动真源；松手前 backend 可能滞后）。**勿**对 `m_variantManager` 使用 `QSignalBlocker`——会阻断 `valueChanged`，属性树不重绘；`m_updatingPropertyBrowser` 已防回写 |
 | 当前渲染视口 | `currentPage()->render()`；插件截图 `doc->render().captureViewportPng` |
 
 ---

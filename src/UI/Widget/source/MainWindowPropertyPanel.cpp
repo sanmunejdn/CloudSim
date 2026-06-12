@@ -6,7 +6,6 @@
 #include <QAbstractItemView>
 #include <QEvent>
 #include <QList>
-#include <QSignalBlocker>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 #include <QWidget>
@@ -761,10 +760,68 @@ void MainWindow::syncPropertyPanelRowValues(const QString& backendId)
 			continue;
 		}
 		const QVariant v = propertyRowValueToVariant(r.key, r.value, r.editable);
-		QSignalBlocker blocker(m_variantManager);
 		m_variantManager->setValue(prop, v);
 	}
 	m_updatingPropertyBrowser = false;
+	if (m_propertyBrowser)
+	{
+		m_propertyBrowser->update();
+	}
+}
+
+void MainWindow::syncPropertyPanelGizmoLiveValues(const QString& backendId)
+{
+	if (!m_variantManager || backendId.isEmpty())
+	{
+		return;
+	}
+	DocumentPage* docPage = currentPage();
+	if (!docPage || !docPage->data().isValid(backendId))
+	{
+		return;
+	}
+	cloudsim::core::IRenderView* rv = &docPage->render();
+	if (!rv->isTransformGizmoDragging())
+	{
+		return;
+	}
+	float px = 0.0f;
+	float py = 0.0f;
+	float pz = 0.0f;
+	float rx = 0.0f;
+	float ry = 0.0f;
+	float rz = 0.0f;
+	(void)rv->selectedPosition(px, py, pz);
+	(void)rv->selectedRotationEulerDeg(rx, ry, rz);
+
+	m_updatingPropertyBrowser = true;
+	const auto applyKey = [&](const QString& key, const double v) {
+		if (key == m_propertyPanelActiveEditKey)
+		{
+			return;
+		}
+		QtProperty* prop = m_propertyKeyToVariant.value(key);
+		if (!prop)
+		{
+			return;
+		}
+		m_variantManager->setValue(prop, v);
+	};
+	applyKey(QStringLiteral("pose.x"), static_cast<double>(px));
+	applyKey(QStringLiteral("pose.y"), static_cast<double>(py));
+	applyKey(QStringLiteral("pose.z"), static_cast<double>(pz));
+	applyKey(QStringLiteral("rotation.x"), static_cast<double>(rx));
+	applyKey(QStringLiteral("rotation.y"), static_cast<double>(ry));
+	applyKey(QStringLiteral("rotation.z"), static_cast<double>(rz));
+	m_updatingPropertyBrowser = false;
+	if (m_propertyBrowser)
+	{
+		m_propertyBrowser->update();
+		if (QTreeWidget* tree = m_propertyBrowser->findChild<QTreeWidget*>())
+		{
+			tree->viewport()->update();
+		}
+	}
 }
 
 void MainWindow::scheduleInstructionPropertyRefreshDebounced(

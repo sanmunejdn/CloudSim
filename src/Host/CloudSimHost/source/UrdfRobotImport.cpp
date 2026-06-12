@@ -8,6 +8,7 @@
 #include "IRobotSimulationDocument.h"
 #include "MeshBackendData.h"
 #include "RobotCoordinateFrames.h"
+#include "RobotMatrixOsgBridge.h"
 #include "RobotSceneKinematics.h"
 #include "UrdfRobotLoader.h"
 
@@ -43,18 +44,6 @@ QString makeUniqueBackendId(BackendDataManager& mgr, const QString& baseId)
 core::RobotRegistrationDto fail(const QString& error)
 {
 	return {false, error, {}, {}, 0, 0, {}};
-}
-
-// OSG 行向量 v'=v*M，平移在 m(3,0..2)；顶点烘焙用列主序左乘 M*v，需转置
-void osgMatrixToColumnMajor16(const osg::Matrixd& m, double out[16])
-{
-	for (int col = 0; col < 4; ++col)
-	{
-		for (int row = 0; row < 4; ++row)
-		{
-			out[col * 4 + row] = m(col, row);
-		}
-	}
 }
 
 } // namespace
@@ -118,11 +107,13 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 	QVector<double> q0(revoluteJointNames.size(), 0.0);
 
 	QHash<QString, osg::Matrixd> Tbind;
-	if (!UrdfRobotLoader::computeMeshWorldMatrices(fileInfo.absoluteFilePath(), q0, Tbind, &urdfErr, false))
+	// 几何为 mesh 文件系（未烘焙 visual origin），FK 须在矩阵中带 visual→link 变换
+	const bool kFkMeshVerticesInLinkFrame = false;
+	if (!UrdfRobotLoader::computeMeshWorldMatrices(
+			fileInfo.absoluteFilePath(), q0, Tbind, &urdfErr, kFkMeshVerticesInLinkFrame))
 	{
 		return fail(urdfErr.isEmpty() ? QStringLiteral("Forward kinematics (bind pose) failed.") : urdfErr);
 	}
-
 	QHash<QString, QString> linkToBackend;
 	QHash<QString, osg::Matrixd> fkT0;
 	QHash<QString, osg::Matrixd> outerBind;
@@ -146,15 +137,15 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 		{
 			mesh->setColor(linkMaterialColors.value(linkName));
 		}
-		// Tbind 已含 visual origin + 关节链世界位姿；勿再先 linkMeshFileToLinkColumnMajor16，否则 base 等会重复烘焙 visual
+		// Tbind 含 visual origin 与关节链世界位姿；几何保持 mesh 文件系，位姿写入 worldMatrix
 		if (Tbind.contains(linkName))
 		{
-			double worldBake16[16];
-			osgMatrixToColumnMajor16(Tbind[linkName], worldBake16);
-			mesh->transformVerticesColumnMajorHomogeneous4x4(worldBake16);
+			mesh->setWorldMatrix(RobotMatrixOsg::backendColMajorFromMatrix(Tbind[linkName]), &backend);
 		}
-		mesh->setPose(BackendVec3{});
-		mesh->setRotation(BackendVec3{});
+		else
+		{
+			mesh->setWorldMatrix(BackendMat4::identity(), &backend);
+		}
 		if (!backend.registerData(mesh))
 		{
 			return fail(QStringLiteral("Backend id collision for link '%1'.").arg(linkName));
@@ -263,14 +254,24 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 			{
 				continue;
 			}
-			poseSink->setBackendRootWorldMatrixFromWorld(bidStd, osg::Matrixd::identity());
+			const auto meshPtr = std::dynamic_pointer_cast<MeshBackendData>(backend.getData(bidStd));
+			if (!meshPtr)
+			{
+				continue;
+			}
+			poseSink->setBackendRootWorldMatrixFromWorld(
+				bidStd, RobotMatrixOsg::matrixFromBackendColMajor(meshPtr->worldMatrix(&backend)));
 		}
 	}
 
 	outerBind.clear();
 	for (auto it = linkToBackend.constBegin(); it != linkToBackend.constEnd(); ++it)
 	{
-		outerBind.insert(it.value(), osg::Matrixd::identity());
+		const auto meshPtr = std::dynamic_pointer_cast<MeshBackendData>(backend.getData(it.value().toStdString()));
+		if (meshPtr)
+		{
+			outerBind.insert(it.value(), RobotMatrixOsg::matrixFromBackendColMajor(meshPtr->worldMatrix(&backend)));
+		}
 	}
 
 	QString focusBackendId = linkToBackend.value(rootLink);
@@ -298,7 +299,8 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 		}
 	}
 
-	ctx.setRobotPerLinkKinematicsBinding(robotRootId + QStringLiteral("_ctx"), linkToBackend, fkT0, outerBind, false);
+	ctx.setRobotPerLinkKinematicsBinding(
+		robotRootId + QStringLiteral("_ctx"), linkToBackend, fkT0, outerBind, kFkMeshVerticesInLinkFrame);
 
 	if (!RobotSceneKinematics::applyJointAnglesFromDocument(robotDoc, ctx.urdfImportScenePoseSink(), q0))
 	{

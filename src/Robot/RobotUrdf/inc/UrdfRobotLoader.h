@@ -59,6 +59,10 @@ namespace UrdfRobotLoader
 	ROBOT_URDF_API bool linkMeshFileToLinkColumnMajor16(
 		const QString& urdfFilePath, const QString& linkName, double outColumnMajor16[16], QString* errorMessage = nullptr);
 
+	/// mesh 文件系→连杆系 OSG 行向量矩阵（与 computeMeshWorldMatrices / 连杆 outer 同约定）
+	ROBOT_URDF_API bool linkMeshFileToLinkOsgMatrix(
+		const QString& urdfFilePath, const QString& linkName, osg::Matrixd& out, QString* errorMessage = nullptr);
+
 	/// 连杆坐标系（非 visual mesh 系）世界位姿
 	ROBOT_URDF_API bool computeLinkWorldMatrices(
 		const QString& urdfFilePath,

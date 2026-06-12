@@ -715,9 +715,9 @@ m_activeBackendOuterPat          ← 唯一位姿写入：osgMatrixFromRigidTran
 **端到端流程：**
 
 1. **选中**：树/OSG 拾取 → `syncSelectionFromBackend` → `syncGizmoAndPickFromBackend`：根级或孤立对象 `setFromBackend`+`applyToOuter`；**URDF/层级子连杆** 若已有父 backend id，则 **`fromOuter` 保留当前局部矩阵**（FK 已写世界位姿，后端 `pose` 为世界分解值，不可直接 `applyToOuter`）→ `attachGizmoOverlayToActiveBackend`。
-2. **拖拽**：`ObjectTransformOperation` — **LMB** 屏幕轴平移（改 `centerPlusPose`）；**RMB** 屏幕角旋转（`adjustCenterPlusPoseForRotationDelta` 仅更新 `attitude`，模型原点 `pose` 不变）。World/Local 模式决定沿世界轴或物体轴交互。拖动中 `syncActiveBackendRootFromObjectFrame(..., true)`；**per-link 机器人**由 `setRobotObjectGizmoSyncHook` 走 FK。**旋转不写** `selectedObjectPoseChanged`（仅平移写）。跟随求解对正在拖拽的 follower 跳过写回（见 **6.2.1**）。
-3. **属性面板**：`selectedPosition` / `setSelectedRotation` 等经 `readActiveObjectGizmoFrame` 与 `applyToOuter`，与罗盘同一数学路径。
-4. **松手**：`cacheSelectionGizmoPose` → `transformGizmoCommitted` → MainWindow 刷新属性面板（per-link scene 根：**不** capture 世界矩阵到 **M0**）。
+2. **拖拽**：`ObjectTransformOperation` — **LMB** 屏幕轴平移（改 `centerPlusPose`）；**RMB** 屏幕角旋转（`adjustCenterPlusPoseForRotationDelta` 仅更新 `attitude`，模型原点 `pose` 不变）。World/Local 模式决定沿世界轴或物体轴交互。拖动中 `syncActiveBackendRootFromObjectFrame(..., true)`；每帧 `selectedObjectPoseChanged` / `selectedObjectRotationChanged` → `applyWorldPoseMm`；**per-link 机器人**由 `setRobotObjectGizmoSyncHook` 走 FK。跟随求解对正在拖拽的 follower 跳过写回（见 **6.2.1**）。
+3. **属性面板（拖动中）**：`MainWindow::syncPropertyPanelGizmoLiveValues` 从 OSG gizmo 直写 Pose/Rotation 六行（不重建属性树）；`m_updatingPropertyBrowser` 防回写，**不用** `QSignalBlocker` 挡 `valueChanged`。
+4. **属性面板（编辑/松手）**：`selectedPosition` / `setSelectedRotation` 等经 `readActiveObjectGizmoFrame` 与 `applyToOuter`，与罗盘同一数学路径；松手 `cacheSelectionGizmoPose` → `transformGizmoCommitted` → `commitGizmoPoseToBackend` + 全量 `updatePropertyPanel`（per-link scene 根：**不** capture 世界矩阵到 **M0**）。
 5. **导入/清空选择**：`OsgWidgetImportController` 等路径调用 `detachGizmoOverlay`，避免 overlay 留在已卸载的 inner 上。
 
 ```mermaid
@@ -759,7 +759,7 @@ sequenceDiagram
 4. 工程 `project.json` 中每对象可含 `followAttachment`（含可选 `hierarchyDriven`）；根级可选 `cameraFollowBackendId` 驱动轨道相机 `setCenter` 跟踪目标世界原点。  
 5. 属性面板仅暴露一项 **`follow.targetName`**（跟随目标的 **对象名称**，与 `BackendDataBase::name()` 精确匹配）；`BackendDataManager::findByName` 解析为 `targetId` 后绑定；名称留空则移除跟随组件。内部仍存 `targetId` 与局部刚体偏移；`follow.targetId` 等键仍可在程序化/旧脚本中 `applyPropertyChange`，但不再出现在默认属性行中。  
 6. 当 `BackendDataManager::attachChild` / 工程 `edges` 建立父子关系时，`MainWindow::applyHierarchyFollowBinding` 会为子对象自动启用跟随（`hierarchyDriven=true`）并按当前世界位姿计算局部偏移；若该对象 JSON 中已有非空的 `followAttachment`，则以文件中的跟随配置为准而不被边覆盖。用户通过名称显式指定跟随目标会清除 `hierarchyDriven`。  
-7. **属性提交刷新**：gizmo 平移/旋转在 `MouseButtonRelease` 时发出 `OsgWidget::transformGizmoCommitted`，由 `MainWindow` 单次 `updatePropertyPanel`；拖动过程中 `selectedObjectPoseChanged` / `Rotation` / `Color` 只写后端与 OSG，不重建属性浏览器。属性行编辑通过 `schedulePropertyPanelCommitRefresh` 防抖后统一刷新（`follow.targetName` 仍走原有独立防抖提交）。  
+7. **属性提交刷新**：拖动中 `selectedObjectPoseChanged` / `Rotation` / `Color` 写 backend + OSG，并由 `syncPropertyPanelGizmoLiveValues` 实时刷新 Pose/Rotation 数值行（不 `clear` 属性浏览器）；松手 `transformGizmoCommitted` → `commitGizmoPoseToBackend` + 全量 `updatePropertyPanel`。用户在属性行内连续编辑时走 `schedulePropertyPanelCommitRefresh` 防抖（`follow.targetName` 仍走原有独立防抖提交）。  
 8. **脏集传播**：`DocumentPage::markFollowAttachmentDirtyFromBackendMove` 将种子 id、沿「target→followers」可达的 follower、以及 `BackendDataManager::childrenOf` 链上的子 id 并入脏集；属性提交、gizmo 释放、`applyHierarchyFollowBinding`、非 `follow.*` 的属性变更等路径置脏。显式 `FollowAttachment` 与层级边并存时，仍以组件与求解器为位姿真源；层级边通过 `applyHierarchyFollowBinding` 写入/清除 `hierarchyDriven` 跟随。  
 9. **Transform 多态**：`BackendDataBase::supportsBackendTransform` / `applyBackendWorldPose` 为窄接口（默认 `hasPoseProperty()` 为真时委托 `setPose`+`setRotation`）。`MainWindow` 在 OSG 位姿写回点云/网格时使用该接口，便于后续在子类中扩展变换副作用而不散落 `setPose` 调用。
 

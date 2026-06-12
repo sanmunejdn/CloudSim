@@ -2,6 +2,7 @@
 
 #include "IPluginPointCloudHost.h"
 
+#include <BackendFollowMath.h>
 #include <TemplateBrepUpdate.h>
 
 #include <string>
@@ -187,8 +188,8 @@ private:
 		IPluginDocument* doc = nullptr;
 		std::string scanId;
 		std::string templateId;
-		std::vector<float> alignedWorkXyz;
-		std::vector<float> alignedWorkNormals;
+		BackendMat4 templateWorldMatrixAtRegister = BackendMat4::identity();
+		double icpRmseMm = 0.0;
 		geoalgo::TemplateBrepUpdateResult report;
 		geoalgo::TemplateBrepRegistrationCheckpoint registrationCheckpoint;
 	};

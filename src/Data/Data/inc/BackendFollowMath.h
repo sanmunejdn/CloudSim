@@ -27,5 +27,15 @@ DATA_EXPORT BackendMat4 backend_world_mat_from_pose(const BackendVec3& pose, con
 /// 从世界矩阵反解 pose 平移与欧拉角（度）
 DATA_EXPORT void backend_pose_euler_from_world_mat(const BackendMat4& world, BackendVec3& outPose, BackendVec3& outEulerDeg);
 
+/// v2 别名：composeWorldMatrix / decomposeWorldMatrix（UI 分解视图，非独立存储）
+inline BackendMat4 composeWorldMatrix(const BackendVec3& pose, const BackendVec3& rotationEulerDeg)
+{
+	return backend_world_mat_from_pose(pose, rotationEulerDeg);
+}
+inline void decomposeWorldMatrix(const BackendMat4& world, BackendVec3& outPose, BackendVec3& outEulerDeg)
+{
+	backend_pose_euler_from_world_mat(world, outPose, outEulerDeg);
+}
+
 /// 无模型中心项的 T(trans)*R(euler)，提取平移与欧拉角
 DATA_EXPORT void backend_trans_euler_from_rigid_mat(const BackendMat4& m, BackendVec3& outTrans, BackendVec3& outEulerDeg);

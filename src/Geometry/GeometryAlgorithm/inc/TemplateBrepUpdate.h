@@ -41,14 +41,6 @@ struct FaceUpdateReport
 	std::string surfaceTypeName;
 };
 
-/// OSG 行向量 root 矩阵快照（与 DocumentPointCloudOps / feature_pick_transform 一致）
-struct RegistrationWorldFrameSnapshot
-{
-	double scanRootWorldMat[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-	double templateRootWorldMat[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-	bool valid = false;
-};
-
 /// 配准阶段：调试时可分粗配 / 精配两步执行
 enum class TemplateBrepRegistrationStage
 {
@@ -57,13 +49,12 @@ enum class TemplateBrepRegistrationStage
 	FineOnly = 2,
 };
 
-/// 粗配完成后保存，供精配继续（精配 ICP 用原始 STEP soup；本结构主要提供 alignedTemplateShape）
+/// 粗配完成后保存，供精配继续（soup 为世界系；icpDeltaWorld 为粗配增量）
 struct TemplateBrepRegistrationCheckpoint
 {
 	std::vector<float> templateSoupXyz;
 	std::vector<float> templateSoupNormals;
-	ShapeHandle alignedTemplateShape;
-	Eigen::Isometry3d templateToScan = Eigen::Isometry3d::Identity();
+	Eigen::Isometry3d icpDeltaWorld = Eigen::Isometry3d::Identity();
 	bool valid = false;
 };
 
@@ -78,11 +69,6 @@ struct TemplateBrepUpdateParams
 	std::size_t minPointsPerFace = 30U;
 	double maxAllowedDeviationMm = 0.5;
 	double sampleSpacingMm = 2.0;
-	/// 插件 Host 固定 true：扫描经 OSG 快照变换到 STEP 模型系后再做反向 ICP
-	bool scanAlreadyInTemplateFrame = false;
-	/// 已弃用：配准使用 worldFrameSnapshot 行矩阵变换到 STEP 模型系（registrationInWorldFrame 保持 false）
-	bool registrationInWorldFrame = false;
-	RegistrationWorldFrameSnapshot worldFrameSnapshot;
 	/// ICP RMSE 超过 max(faceBand*ratio, minIcpRmseGateMm) 时拒绝面更新
 	double maxIcpRmseToFaceBandRatio = 8.0;
 	double minIcpRmseGateMm = 12.0;
@@ -111,11 +97,10 @@ struct TemplateBrepUpdateParams
 struct TemplateBrepUpdateResult
 {
 	ShapeHandle updatedShape;
-	/// 反向配准后模板几何（面重构输入）
-	ShapeHandle alignedTemplateShape;
+	/// 世界系 ICP 增量：newTemplateWorld = icpDeltaWorld × templateWorld
+	Eigen::Isometry3d icpDeltaWorld = Eigen::Isometry3d::Identity();
+	/// 调试：与 icpDeltaWorld 同义（世界系）
 	Eigen::Isometry3d templateToScan = Eigen::Isometry3d::Identity();
-	/// 兼容字段：scanToTemplate = inverse(templateToScan)
-	Eigen::Isometry3d scanToTemplate = Eigen::Isometry3d::Identity();
 	double icpRmseMm = 0.0;
 	/// ICP RMSE 是否通过面重构门限（未通过时仍可刷新匹配预览）
 	bool icpRmseGatePassed = false;

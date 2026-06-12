@@ -264,6 +264,8 @@ private:
 	void endPropertyPanelNumericEdit();
 	void flushPropertyPanelRefresh(const QString& contextId);
 	void syncPropertyPanelRowValues(const QString& backendId);
+	/// 拖动中从 OSG gizmo 直写 Pose/Rotation 行（backend 在松手前可能滞后）
+	void syncPropertyPanelGizmoLiveValues(const QString& backendId);
 	void clearPropertyKeyVariantMap();
 	void scheduleInstructionPropertyRefreshDebounced(
 		const std::shared_ptr<RobotInstruction::Base>& instruction,

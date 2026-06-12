@@ -32,6 +32,7 @@ GEOMETRY_ALGORITHM_API bool rigidRegisterTemplateToScanPointToPlane(
 	const TemplateBrepRegistrationParams& params,
 	std::string* errMsg = nullptr);
 
+/// 配准路径不再对外输出烘焙 shape；仍供内部 ICP 临时体与单测
 GEOMETRY_ALGORITHM_API bool applyIsometryToShapeHandle(
 	const ShapeHandle& shape,
 	const Eigen::Isometry3d& transform,

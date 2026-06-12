@@ -1452,6 +1452,22 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 	}
 	const bool perLink = doc->robotUsesPerLinkBackendsForInstance(instIdx);
 	const bool worldBakedPerLink = RobotSimulationMath::perLinkUsesWorldBakedMeshVertices(doc, instIdx);
+	bool meshVerticesInLinkFrame = true;
+	if (perLink)
+	{
+		RobotPerLinkKinematicsSlice plSlice;
+		if (doc->robotPerLinkKinematicsForInstance(instIdx, plSlice))
+		{
+			meshVerticesInLinkFrame = plSlice.meshVerticesInLinkFrame;
+		}
+	}
+	QString urdfRootLinkName;
+	if (perLink)
+	{
+		QHash<QString, QString> linkMeshes;
+		QString urdfListErr;
+		(void)UrdfRobotLoader::enumerateLinkVisualMeshes(urdfPath, urdfRootLinkName, linkMeshes, &urdfListErr);
+	}
 	const QString baseLinkBackendId = doc->robotFrameWorldReferenceBackendId(instIdx);
 	std::string highlightToolId = frames.activeToolFrameId;
 	if (highlightInstruction && highlightInstruction->hasPoseProperty())
@@ -1480,7 +1496,11 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 		{
 			const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, tool);
 			te.mountBackendId = RobotSimulationMath::linkMeshBackendIdForInstance(doc, instIdx, flangeLink).toStdString();
-			te.localMatrix = RobotSimulationMath::osgMatrixFromRobotRigidFrame(tool.T_flange_tool);
+			te.localMatrix = RobotSimulationMath::linkFrameLocalOnMeshBackend(
+				urdfPath,
+				QString::fromStdString(flangeLink),
+				RobotSimulationMath::osgMatrixFromRobotRigidFrame(tool.T_flange_tool),
+				meshVerticesInLinkFrame);
 			if (te.mountBackendId.empty())
 			{
 				continue;
@@ -1502,8 +1522,13 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 			{
 				te.mountBackendId.clear();
 			}
-			te.localMatrix = RobotSimulationMath::osgMatrixFromBackendMat4(
+			const osg::Matrixd tcpInBase = RobotSimulationMath::osgMatrixFromBackendMat4(
 				RobotSimulationMath::toolTcpInBaseFromFk(urdfPath, jointQ, frames, tool));
+			const QString mountLink = urdfRootLinkName.isEmpty() ? QStringLiteral("base_link") : urdfRootLinkName;
+			te.localMatrix = perLink
+				? RobotSimulationMath::linkFrameLocalOnMeshBackend(
+					  urdfPath, mountLink, tcpInBase, meshVerticesInLinkFrame)
+				: tcpInBase;
 		}
 		upd.toolFrames.push_back(std::move(te));
 	}
@@ -1515,18 +1540,19 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 		}
 		RobotOsgUi::RobotFrameOverlayUpdate::UserEntry ue;
 		ue.name = uf.name;
-		ue.localMatrix = RobotSimulationMath::osgMatrixFromRobotRigidFrame(uf.T_base_user);
+		const QString userMountLink = urdfRootLinkName.isEmpty() ? QStringLiteral("base_link") : urdfRootLinkName;
+		const osg::Matrixd userLinkLocal = RobotSimulationMath::osgMatrixFromRobotRigidFrame(uf.T_base_user);
+		ue.localMatrix = perLink
+			? RobotSimulationMath::linkFrameLocalOnMeshBackend(
+				  urdfPath, userMountLink, userLinkLocal, meshVerticesInLinkFrame)
+			: userLinkLocal;
 		if (perLink)
 		{
 			// per-link 的 robot root 无 OSG 节点，须挂 URDF 根连杆（FK 下基座不动）
-			QString rootLinkName;
-			QHash<QString, QString> linkMeshes;
-			QString urdfListErr;
-			if (UrdfRobotLoader::enumerateLinkVisualMeshes(urdfPath, rootLinkName, linkMeshes, &urdfListErr)
-				&& !rootLinkName.isEmpty())
+			if (!urdfRootLinkName.isEmpty())
 			{
 				const QString rootBackendId = RobotSimulationMath::linkMeshBackendIdForInstance(
-					doc, instIdx, rootLinkName.toStdString());
+					doc, instIdx, urdfRootLinkName.toStdString());
 				ue.mountBackendId = rootBackendId.isEmpty() ? baseLinkBackendId.toStdString() : rootBackendId.toStdString();
 			}
 			else

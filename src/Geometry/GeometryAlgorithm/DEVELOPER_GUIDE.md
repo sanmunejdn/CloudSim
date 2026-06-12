@@ -14,6 +14,8 @@
 
 ## 2. 数据契约
 
+**Breaking v2**：本 DLL **不持有 `worldMatrix`**。调用方（Data/Host）负责将点云/shape 变换到同一坐标系后再调用；配准输出 `icpDeltaWorld` 由 Host 写入 `template.worldMatrix`。
+
 | 类型 | 布局 |
 |------|------|
 | 折线 | `3*N` float（有序顶点，mm） |

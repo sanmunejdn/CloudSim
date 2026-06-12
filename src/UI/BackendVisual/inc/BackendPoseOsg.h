@@ -14,6 +14,11 @@ BACKENDVISUAL_EXPORT osg::Matrixd worldMatrixFromBackendPoseEuler(
 	const BackendVec3& pose,
 	const BackendVec3& eulerDeg);
 
+/// 权威 BackendMat4 → OSG 世界矩阵（显示/syncOuterPat 须走 worldMatrix，勿再分解 pose/rotation）
+BACKENDVISUAL_EXPORT osg::Matrixd osgMatrixFromBackendWorldMatrix(const BackendMat4& world);
+
+BACKENDVISUAL_EXPORT BackendMat4 backendWorldMatrixFromOsgMatrix(const osg::Matrixd& world);
+
 BACKENDVISUAL_EXPORT void backendPoseEulerFromWorldMatrix(
 	const osg::Matrixd& world,
 	BackendVec3& outPose,

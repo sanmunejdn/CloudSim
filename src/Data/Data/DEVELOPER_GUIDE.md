@@ -1,6 +1,16 @@
 # Data 模块开发文档
 
-> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1 — `pose`=模型原点世界坐标；内旋 ZYX、主动旋转、列向量 `p'=M×p`；权威 API：`BackendWorldPose.h`、`backend_world_mat_from_pose`、`BackendSpatial.h`。
+> **空间契约 v2**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — **Breaking**：JSON 仅 `worldMatrix`（16 元）；`pose`/`rotation` 为分解视图；`p_world = p_geometry × worldMatrix`。
+
+### Breaking: v2 坐标模型
+
+| 变更 | 说明 |
+|------|------|
+| 权威存储 | `BackendDataBase::m_worldMatrix`；`setPose`/`setRotation` 重建矩阵 |
+| JSON | `saveToJson` 只写 `worldMatrix`；缺字段 `loadFromJson` 失败并提示重导入 |
+| 配准 | 世界系 ICP → `icpDeltaWorld`；不输出 `alignedTemplateShape` |
+| 面重构 | `scanPointsToTemplateModelFrame`：`v_model = v_geo × M_scan × inv(M_tpl)` |
+| UI 工具 | `composeWorldMatrix` / `decomposeWorldMatrix`（`BackendFollowMath.h` 别名） |
 
 ## 1. 模块定位
 
@@ -242,19 +252,18 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 | API（`geometry_backend_ops`） | 说明 |
 |-------------------------------|------|
-| `registerScanToCadTemplate` | 扫描预处理 + displaySoup 模板点云 + 反向 soup ICP；输出 `templateToScan`、`alignedTemplateShape`、`registrationPreviewOk`、`icpRmseGatePassed` |
-| `updateBrepFromAlignedScan` | cache 中 aligned 扫描 + `alignedTemplateShape` → `updateShapeFromPointCloud` → 写入 `brepOut`；**不**注册场景 |
+| `registerScanToCadTemplate` | 世界系 soup ICP；输出 `icpDeltaWorld`、`registrationPreviewOk`、`icpRmseGatePassed` |
+| `updateBrepFromAlignedScan` | 原始 STEP + `scanPointsToTemplateModelFrame` → `updateShapeFromPointCloud` → `brepOut`；**不**注册场景 |
 | `updateBrepFromCadTemplate` | 上述两步合并（单次调用场景） |
 
 配准实现于 `GeometryBackendOps.cpp`：`runCoarseAlignmentPipeline` 编排粗配（`coarseStage=modeSelect/bbox/pca/frameCheck/ransac/soupMulti/coarseIcpLadder/soupRefine`）、`resolveRegistrationAlignMode`（**`pairHits=0` → `autoRecover`**，仅 `pairHits∈[1,31]` 且 maxDev 适中才 `manualPartial`）、`runReverseSoupMultiStageIcp`、**coarse ICP ladder 回退**（soup rollback 或 post-soup overlap 不足）。重叠度量与 PCA 评分使用 `KdTreePointSet` 加速。合成自检：`registrationCoarsePipelineSelfTest`（`pairHits=0 → autoRecover`、ladder maxPair 升序）。
 
-Host 插件固定 `scanAlreadyInTemplateFrame=true`；扫描变换用 OSG 快照 `RegistrationWorldFrameSnapshot` 转 STEP 模型系（非世界系直接 ICP）。
+配准在 Data 层将扫描/模板 soup 变换到世界系（`worldMatrix`）后 ICP；面归属前 `scanPointsToTemplateModelFrame` 变到模板文件系。
 
-面更新算法（归属、特征调整、增量 bbox 守卫）见专题文档 [`docs/template_brep_pointcloud_update.md`](../../../docs/template_brep_pointcloud_update.md) §4。
+面更新算法见 [`docs/template_brep_pointcloud_update.md`](../../../docs/template_brep_pointcloud_update.md) §3。
 
 | `TemplateBrepUpdateParams`（常用） | 说明 |
 |-----------------------------------|------|
-| `scanAlreadyInTemplateFrame` | 插件 Host 固定 `true` |
 | `faceBandMm` / `normalThresholdDeg` | 面归属带与精 ICP 法线门控 |
 | `maxAssignPointsPerFace` | 每面归属点预算（全工件自动摊薄） |
 | `selectedFaceIndices` | 空=全工件；非空=选择性面 |

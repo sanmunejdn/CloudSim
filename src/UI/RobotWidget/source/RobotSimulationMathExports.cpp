@@ -296,6 +296,24 @@ BackendMat4 toolTcpInBaseFromFk(
 	return out;
 }
 
+osg::Matrixd linkFrameLocalOnMeshBackend(
+	const QString& urdfPath,
+	const QString& linkName,
+	const osg::Matrixd& linkFrameLocal,
+	bool meshVerticesInLinkFrame)
+{
+	if (meshVerticesInLinkFrame || urdfPath.isEmpty() || linkName.isEmpty())
+	{
+		return linkFrameLocal;
+	}
+	osg::Matrixd meshToLink;
+	if (!UrdfRobotLoader::linkMeshFileToLinkOsgMatrix(urdfPath, linkName, meshToLink, nullptr))
+	{
+		return linkFrameLocal;
+	}
+	return linkFrameLocal * osg::Matrixd::inverse(meshToLink);
+}
+
 bool captureTcpFromSceneFlangeBackend(
 	IRobotDocumentHost* doc,
 	IRobotOsgViewHost* osg,

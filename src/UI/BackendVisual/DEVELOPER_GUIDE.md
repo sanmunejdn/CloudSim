@@ -1,6 +1,6 @@
 # BackendVisual 模块开发文档
 
-> **空间契约**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) §1.1 — `pose`=模型原点世界坐标；内旋 ZYX、主动旋转、行/列向量见契约；outer=`osgMatrixFromRigidTransform`；inner PAT 恒 `(0,0,0)`。
+> **空间契约 v2**：[`../../../docs/spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md) — outer 来自 `data.worldMatrix()`（`osgMatrixFromBackendWorldMatrix`）；inner PAT 恒 `(0,0,0)`；geometry 为文件出生坐标。
 
 ## 1. 模块定位
 
@@ -18,9 +18,9 @@
 ## 2. 场景分支约定（与 Gizmo/FK 对齐）
 
 ```text
-outer (osg::MatrixTransform)     ← worldMatrixFromBackendPoseEuler → osgMatrixFromRigidTransform（行向量 R×T）
-└─ inner (PositionAttitudeTransform)  ← 恒 position = (0,0,0)；旋转绕模型原点
-   └─ Geode / Group（geometry 已为世界绝对坐标）
+outer (osg::MatrixTransform)     ← backend worldMatrix → osgMatrixFromBackendWorldMatrix
+└─ inner (PositionAttitudeTransform)  ← 恒 position = (0,0,0)
+   └─ Geode / Group（geometry = 文件/出生坐标）
 ```
 
 **pose/rotation 口径**（详表见契约 §1.1）：`pose`=模型原点世界坐标；`rotation`=内禀 ZYX（`R=Rz·Ry·Rx`）；**主动**把 `p_model` 变到 `p_world`；绕原点转时 `pose` 不变。

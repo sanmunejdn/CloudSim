@@ -234,8 +234,8 @@ m_stagingGroup（导入预览）
 
 1. 拾取 → `resolveBackendIdFromPickedPath` → `syncGizmoAndPickFromBackend` → Host `publishSelectionChanged`
 2. **LMB 平移** → `beginGizmoScreenDrag` → 每帧 `gizmoScreenDragDs` → `translateAlongWorldDirection(冻结轴)` → `applyToOuter`
-3. **RMB 旋转** → `cacheRotatePivot`（世界枢轴）→ `beginGizmoScreenRotate` → `gizmoScreenRotateDeltaRad` → `adjustCenterPlusPoseForRotationDelta` → `applyToOuter`（拖动中**不** `emit selectedObjectPoseChanged`）
-4. 释放 → `writeActiveBackendPoseFromOsg` → `publishPoseCommittedFromBackend` → `EventHub` → `MainWindow` 刷新属性面板
+3. **RMB 旋转** → `cacheRotatePivot`（世界枢轴）→ `beginGizmoScreenRotate` → `gizmoScreenRotateDeltaRad` → `adjustCenterPlusPoseForRotationDelta` → `applyToOuter` → `selectedObjectRotationChanged`
+4. 拖动中 → `MainWindow::syncPropertyPanelGizmoLiveValues` 从 gizmo 直写属性行；释放 → `writeActiveBackendPoseFromOsg` → `transformGizmoCommitted` → 全量 `updatePropertyPanel`
 
 详见 [`../../ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md) §6.2.0。
 

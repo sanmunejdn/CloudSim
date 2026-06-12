@@ -423,8 +423,7 @@ bool OsgWidget::syncOuterPatFromBackend(const BackendDataBase& data)
 	{
 		return false;
 	}
-	const osg::Matrixd targetWorld =
-		backend_pose_osg::worldMatrixFromBackendPoseEuler(data.pose(), data.rotation());
+	const osg::Matrixd targetWorld = backend_pose_osg::osgMatrixFromBackendWorldMatrix(data.worldMatrix());
 	setBackendRootWorldMatrixFromWorld(id, targetWorld);
 	requestRedraw();
 	return true;

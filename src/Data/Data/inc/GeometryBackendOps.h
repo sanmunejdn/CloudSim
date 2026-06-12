@@ -206,16 +206,13 @@ DATA_EXPORT bool registerScanToCadTemplate(
 	const PointCloudBackendData& scanCloud,
 	geoalgo::TemplateBrepUpdateParams params,
 	geoalgo::TemplateBrepUpdateResult& outReport,
-	std::vector<float>& outAlignedWorkXyz,
-	std::vector<float>& outAlignedWorkNormals,
 	std::string* errMsg = nullptr,
 	const std::string& templateStepPathUtf8 = std::string(),
 	geoalgo::TemplateBrepRegistrationCheckpoint* registrationCheckpoint = nullptr);
 
 DATA_EXPORT bool updateBrepFromAlignedScan(
 	const BrepBackendData& templateBrep,
-	const std::vector<float>& alignedWorkXyz,
-	const std::vector<float>& alignedWorkNormals,
+	const PointCloudBackendData& scanCloud,
 	geoalgo::TemplateBrepUpdateParams params,
 	BrepBackendData& brepOut,
 	geoalgo::TemplateBrepUpdateResult& outReport,

@@ -345,7 +345,7 @@ bool BrepBackendVisual::buildOuterBranch(const BackendDataBase& data, const Mesh
 	inner->setPosition(osg::Vec3f(0.0f, 0.0f, 0.0f));
 	inner->addChild(root.get());
 	osg::ref_ptr<osg::MatrixTransform> outer = new osg::MatrixTransform;
-	outer->setMatrix(backend_pose_osg::worldMatrixFromBackendPoseEuler(brep->pose(), brep->rotation()));
+	outer->setMatrix(backend_pose_osg::osgMatrixFromBackendWorldMatrix(data.worldMatrix()));
 	outer->addChild(inner.get());
 	osg::StateSet* oss = outer->getOrCreateStateSet();
 	if (meshOptions.useSceneLighting)

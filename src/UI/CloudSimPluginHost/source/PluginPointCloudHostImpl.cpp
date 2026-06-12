@@ -144,8 +144,6 @@ geoalgo::TemplateBrepUpdateParams buildTemplateBrepGeoParams(
 	geoParams.bsplineUvGridCellsU = params.bsplineUvGridCellsU;
 	geoParams.bsplineUvGridCellsV = params.bsplineUvGridCellsV;
 	geoParams.bsplinePoleSmoothPasses = params.bsplinePoleSmoothPasses;
-	geoParams.scanAlreadyInTemplateFrame = true;
-	geoParams.registrationInWorldFrame = false;
 	geoParams.registrationStage =
 		static_cast<geoalgo::TemplateBrepRegistrationStage>(static_cast<int>(params.registrationStage));
 	return geoParams;
@@ -846,7 +844,7 @@ bool PluginPointCloudHostImpl::cacheMatches(
 	return m_templateBrepAlignCache.doc == doc
 		&& m_templateBrepAlignCache.scanId == scanId
 		&& m_templateBrepAlignCache.templateId == templateId
-		&& !m_templateBrepAlignCache.alignedWorkXyz.empty();
+		&& m_templateBrepAlignCache.report.icpRmseGatePassed;
 }
 
 void PluginPointCloudHostImpl::registerScanToCadTemplate(
@@ -911,15 +909,6 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 		return;
 	}
 
-	geoalgo::RegistrationWorldFrameSnapshot worldSnap;
-	std::string isoErr;
-	if (!document_point_cloud_ops::captureRegistrationWorldFrameSnapshot(
-			page, scanBackendIdUtf8, params.templateBrepBackendIdUtf8, worldSnap, &isoErr))
-	{
-		onFinished(false, QString::fromStdString(isoErr), {});
-		return;
-	}
-
 	{
 		std::vector<float> templateSoupXyz;
 		std::vector<float> templateSoupNormals;
@@ -959,8 +948,6 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 	struct RegisterResult
 	{
 		geoalgo::TemplateBrepUpdateResult report;
-		std::vector<float> alignedWorkXyz;
-		std::vector<float> alignedWorkNormals;
 		std::string error;
 		bool registerOk = false;
 	};
@@ -968,22 +955,21 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 	PluginPointCloudTemplateBrepRegisterFinishedFn onFinishedFinal = std::move(onFinished);
 	geoalgo::TemplateBrepRegistrationCheckpoint* const registrationCheckpointPtr =
 		&m_templateBrepAlignCache.registrationCheckpoint;
+	const geoalgo::TemplateBrepRegistrationCheckpoint checkpointBeforeJob =
+		m_templateBrepAlignCache.registrationCheckpoint;
 
 	m_host->enqueueJob(
 		QStringLiteral("Register scan to CAD template"),
-		[scan, templateBrep, params, templateStepPath, scanXyzStored, worldSnap, result, registrationCheckpointPtr](
+		[scan, templateBrep, params, templateStepPath, scanXyzStored, result, registrationCheckpointPtr](
 			const PluginJobProgressFn& report) {
 			report(0.05, QStringLiteral("Preparing..."));
 
 			PointCloudBackendData scanWork;
 			std::vector<float> scanRgba = scan->pointVertexRgba();
 			scanWork.setPointBuffers(scanXyzStored, std::move(scanRgba), {});
+			scanWork.setWorldMatrix(scan->worldMatrix());
 
-			const geoalgo::TemplateBrepUpdateParams geoParams = [&]() {
-				geoalgo::TemplateBrepUpdateParams p = buildTemplateBrepGeoParams(params);
-				p.worldFrameSnapshot = worldSnap;
-				return p;
-			}();
+			const geoalgo::TemplateBrepUpdateParams geoParams = buildTemplateBrepGeoParams(params);
 
 			report(0.2, QStringLiteral("ICP registration..."));
 			result->registerOk = geometry_backend_ops::registerScanToCadTemplate(
@@ -991,14 +977,12 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 				scanWork,
 				geoParams,
 				result->report,
-				result->alignedWorkXyz,
-				result->alignedWorkNormals,
 				&result->error,
 				templateStepPath.toStdString(),
 				registrationCheckpointPtr);
 			report(1.0, QStringLiteral("Registration done"));
 		},
-		[this, m_host = m_host, page, scan, doc, params, scanBackendIdUtf8, templateStepPath, templateBrep, scanXyzStored, result, onFinished = onFinishedFinal](
+		[this, m_host = m_host, page, scan, doc, params, scanBackendIdUtf8, templateStepPath, templateBrep, scanXyzStored, result, checkpointBeforeJob, onFinished = onFinishedFinal](
 			const bool threw, const QString& throwMessage) {
 			PluginPointCloudTemplateBrepRegisterResult registerResult;
 			if (threw)
@@ -1018,11 +1002,16 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 				std::string applyErr;
 				if (applyVisual)
 				{
+					Eigen::Isometry3d deltaToApply = result->report.icpDeltaWorld;
+					if (isFineStage && checkpointBeforeJob.valid)
+					{
+						deltaToApply =
+							result->report.icpDeltaWorld * checkpointBeforeJob.icpDeltaWorld.inverse();
+					}
 					if (document_point_cloud_ops::applyTemplateRegistrationToVisual(
 							page,
 							params.templateBrepBackendIdUtf8,
-							result->report.alignedTemplateShape,
-							result->report.templateToScan,
+							deltaToApply,
 							&applyErr))
 					{
 						const BackendBoundingBox tplBounds = templateBrep->geometryBounds();
@@ -1095,8 +1084,8 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 					m_templateBrepAlignCache.doc = doc;
 					m_templateBrepAlignCache.scanId = scanBackendIdUtf8;
 					m_templateBrepAlignCache.templateId = params.templateBrepBackendIdUtf8;
-					m_templateBrepAlignCache.alignedWorkXyz = result->alignedWorkXyz;
-					m_templateBrepAlignCache.alignedWorkNormals = result->alignedWorkNormals;
+					m_templateBrepAlignCache.templateWorldMatrixAtRegister = templateBrep->worldMatrix();
+					m_templateBrepAlignCache.icpRmseMm = result->report.icpRmseMm;
 					m_templateBrepAlignCache.report = result->report;
 					registerResult.icpRmseMm = result->report.icpRmseMm;
 					if (m_host)
@@ -1121,8 +1110,8 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 					m_templateBrepAlignCache.doc = doc;
 					m_templateBrepAlignCache.scanId = scanBackendIdUtf8;
 					m_templateBrepAlignCache.templateId = params.templateBrepBackendIdUtf8;
-					m_templateBrepAlignCache.alignedWorkXyz = result->alignedWorkXyz;
-					m_templateBrepAlignCache.alignedWorkNormals = result->alignedWorkNormals;
+					m_templateBrepAlignCache.templateWorldMatrixAtRegister = templateBrep->worldMatrix();
+					m_templateBrepAlignCache.icpRmseMm = result->report.icpRmseMm;
 					m_templateBrepAlignCache.report = result->report;
 				}
 			}
@@ -1220,17 +1209,22 @@ void PluginPointCloudHostImpl::updateTemplateBrepFromAlignedScan(
 	PluginPointCloudTemplateBrepUpdateFinishedFn onFinishedFinal = std::move(onFinished);
 
 	const TemplateBrepAlignCache cacheCopy = m_templateBrepAlignCache;
+	const auto scan = document_point_cloud_ops::resolvePointCloud(page, scanBackendIdUtf8, &resolveErr);
+	if (!scan)
+	{
+		onFinished(false, QString::fromStdString(resolveErr), {});
+		return;
+	}
 
 	m_host->enqueueJob(
 		QStringLiteral("Update B-rep faces"),
-		[templateBrep, params, templateStepPath, cacheCopy, result](const PluginJobProgressFn& report) {
+		[templateBrep, scan, params, templateStepPath, cacheCopy, result](const PluginJobProgressFn& report) {
 			report(0.1, QStringLiteral("Updating faces..."));
 			const geoalgo::TemplateBrepUpdateParams geoParams = buildTemplateBrepGeoParams(params);
 			result->report = cacheCopy.report;
 			result->ok = geometry_backend_ops::updateBrepFromAlignedScan(
 				*templateBrep,
-				cacheCopy.alignedWorkXyz,
-				cacheCopy.alignedWorkNormals,
+				*scan,
 				geoParams,
 				*result->brep,
 				result->report,
@@ -1321,7 +1315,6 @@ void PluginPointCloudHostImpl::updateTemplateBrepFromAlignedScan(
 					result->brep->id(),
 					*templateBrep,
 					*result->brep,
-					cacheCopy.report.templateToScan,
 					&alignVisualErr))
 			{
 				onFinished(

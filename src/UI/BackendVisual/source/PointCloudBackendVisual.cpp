@@ -111,7 +111,7 @@ bool PointCloudBackendVisual::buildOuterBranch(const BackendDataBase& data, cons
 	inner->setPosition(osg::Vec3f(0.0f, 0.0f, 0.0f));
 	inner->addChild(geode.get());
 	osg::ref_ptr<osg::MatrixTransform> outer = new osg::MatrixTransform;
-	outer->setMatrix(backend_pose_osg::worldMatrixFromBackendPoseEuler(pc->pose(), pc->rotation()));
+	outer->setMatrix(backend_pose_osg::osgMatrixFromBackendWorldMatrix(data.worldMatrix()));
 	outer->addChild(inner.get());
 	osg::StateSet* oss = outer->getOrCreateStateSet();
 	oss->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);

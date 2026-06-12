@@ -58,26 +58,6 @@ void BrepBackendData::shareShapeFrom(const BrepBackendData& other)
 	recomputeBounds();
 }
 
-void BrepBackendData::setPose(const BackendVec3& position)
-{
-	m_position = position;
-}
-
-BackendVec3 BrepBackendData::pose() const
-{
-	return m_position;
-}
-
-void BrepBackendData::setRotation(const BackendVec3& eulerDeg)
-{
-	m_rotation = eulerDeg;
-}
-
-BackendVec3 BrepBackendData::rotation() const
-{
-	return m_rotation;
-}
-
 void BrepBackendData::setColor(const BackendColor& color)
 {
 	m_color = color;

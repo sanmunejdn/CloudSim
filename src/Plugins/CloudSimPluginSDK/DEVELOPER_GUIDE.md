@@ -90,7 +90,7 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 | `rigidRegisterPointCloudsIcp` | ICP 配准，可选应用到源 |
 | `deformPointCloudTpsFromControls` / `deformPointCloudTpsFitAndDeform` | TPS 形变 |
 | `reconstructMeshPoisson/PoissonAuto/ScaleSpace` | 重建 mesh 并 `registerAdoptedMesh` |
-| `registerScanToCadTemplate` | **1.8.0+** 反向 ICP（固定扫描、变换 CAD 模板预览）；Host 缓存 `alignedTemplateShape` 与对齐点云供面重构 |
+| `registerScanToCadTemplate` | **v2** 世界系反向 ICP；只更新模板 `worldMatrix`；cache 存 `icpRmseMm` + `templateWorldMatrixAtRegister` |
 | `updateTemplateBrepFromAlignedScan` | **1.8.0+** 基于缓存逐面重构 → 新 `BrepModel`；`selectedFaceIndices` 空=全部面（见 [`docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md)） |
 | `queryMeshInfo` | **1.9.0+** 查询网格面数/顶点数（UI 线程） |
 | `simplifyMesh` | **1.9.0+** quadric-edge-collapse 简化，创建新 mesh |

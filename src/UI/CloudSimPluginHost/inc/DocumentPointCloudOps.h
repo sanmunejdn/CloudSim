@@ -13,7 +13,6 @@
 namespace geoalgo
 {
 class ShapeHandle;
-struct RegistrationWorldFrameSnapshot;
 }
 
 namespace cloudsim::host {
@@ -74,15 +73,7 @@ CLOUDSIM_HOST_EXPORT bool exportBrepToStep(
 	const std::string& pathUtf8,
 	std::string* outError = nullptr);
 
-/// 当前 OSG 位姿下：STEP/存储坐标 → 世界 mm（与显示一致，供世界系配准）
-bool captureRegistrationWorldFrameSnapshot(
-	cloudsim::host::DocumentHost* page,
-	const std::string& scanBackendIdUtf8,
-	const std::string& templateBackendIdUtf8,
-	geoalgo::RegistrationWorldFrameSnapshot& outSnapshot,
-	std::string* outError = nullptr);
-
-/// 512 点采样：模型系 vs 世界系 overlap（诊断 OSG 变换是否与显示一致）
+/// 512 点采样：世界系 overlap（scan/template worldMatrix）
 void logRegistrationOverlapDiagnostic(
 	cloudsim::host::DocumentHost* page,
 	const std::string& scanBackendIdUtf8,
@@ -113,29 +104,11 @@ bool queryScanStoredToWorldIsometry(
 	Eigen::Isometry3d& outStoredToWorld,
 	std::string* outError = nullptr);
 
-/// 将扫描点云从 backend 存储坐标变换到 CAD 模板 STEP 模型坐标（与 B-rep 拾取同规则）
-bool transformScanPointsToTemplateModelFrame(
-	cloudsim::host::DocumentHost* page,
-	const std::string& scanBackendIdUtf8,
-	const std::string& templateBackendIdUtf8,
-	std::vector<float>& inOutScanXyz,
-	std::string* outError = nullptr);
-
-/// 将 ICP 结果（CAD 模型坐标系）烘焙回点云 backend 存储坐标并刷新显示
-bool applyScanIcpAlignmentToStoredPoints(
-	cloudsim::host::DocumentHost* page,
-	const std::string& scanBackendIdUtf8,
-	const std::string& templateBackendIdUtf8,
-	const Eigen::Isometry3d& scanToTemplateInModelFrame,
-	PointCloudBackendData& inOutScan,
-	std::string* outError = nullptr);
-
-/// 反向配准预览：STEP 可走 originalPose（原始几何 + worldAfter）；fallback 为 bakedAligned（点云不动）
+/// 反向配准预览：仅更新模板 worldMatrix + OSG 同步（几何不变）
 bool applyTemplateRegistrationToVisual(
 	cloudsim::host::DocumentHost* page,
 	const std::string& templateBackendIdUtf8,
-	const geoalgo::ShapeHandle& alignedTemplateShape,
-	const Eigen::Isometry3d& templateToScanInModelFrame,
+	const Eigen::Isometry3d& icpDeltaWorld,
 	std::string* outError = nullptr);
 
 /// 曲面重构新 B-rep：内层质心与源网格对齐并继承 OSG 世界位姿（registerAdoptedBrepAndLoadScene 之后调用）
@@ -146,14 +119,13 @@ bool inheritBrepVisualPoseFromSourceMesh(
 	BrepBackendData& newBrep,
 	std::string* outError = nullptr);
 
-/// 面重构新工件：几何在 ICP 对齐系，同步与模板一致的世界位姿（注册并 loadScene 之后调用）
+/// 面重构新工件：复制模板 worldMatrix 并同步 OSG（注册 loadScene 之后调用）
 bool alignFaceUpdatedBrepWithTemplateVisual(
 	cloudsim::host::DocumentHost* page,
 	const std::string& templateBackendIdUtf8,
 	const std::string& updatedBrepBackendIdUtf8,
 	const BrepBackendData& templateBrep,
 	BrepBackendData& updatedBrep,
-	const Eigen::Isometry3d& templateToScanInModelFrame,
 	std::string* outError = nullptr);
 
 /// 从 STEP 恢复模板原始几何并刷新显示（保留当前 OSG 位姿）

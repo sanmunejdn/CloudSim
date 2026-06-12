@@ -37,10 +37,6 @@ public:
 	void setBrepSidecarRelativePath(std::string relativePath) { m_brepSidecarRel = std::move(relativePath); }
 	const std::string& brepSidecarRelativePath() const { return m_brepSidecarRel; }
 
-	void setPose(const BackendVec3& position) override;
-	BackendVec3 pose() const override;
-	void setRotation(const BackendVec3& eulerDeg) override;
-	BackendVec3 rotation() const override;
 	void setColor(const BackendColor& color) override;
 	BackendColor color() const override;
 
@@ -74,8 +70,6 @@ private:
 	geoalgo::ShapeHandle m_shape;
 	std::string m_brepSidecarRel;
 	BackendBoundingBox m_bounds;
-	BackendVec3 m_position;
-	BackendVec3 m_rotation;
 	BackendColor m_color;
 	std::unordered_map<int, BackendColor> m_faceHighlightColors;
 };

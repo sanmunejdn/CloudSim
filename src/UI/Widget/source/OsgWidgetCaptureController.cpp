@@ -1,6 +1,7 @@
 #include "OsgWidgetCaptureController.h"
 
 #include "OsgWidget.h"
+#include "BackendPoseOsg.h"
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 
@@ -221,7 +222,7 @@ void processGeometryForPoints(osg::Geometry* geom, const osg::Matrixd& l2w, std:
 	}
 }
 
-void collectAllDrawableVerticesToFloats(osg::Node* node, std::vector<float>& xyz)
+void collectAllDrawableVerticesToFloats(osg::Node* node, std::vector<float>& xyz, const osg::Matrixd& stagingRootWorld)
 {
 	if (!node)
 	{
@@ -230,14 +231,17 @@ void collectAllDrawableVerticesToFloats(osg::Node* node, std::vector<float>& xyz
 	struct AllVertsVisitor : osg::NodeVisitor
 	{
 		std::vector<float>& out;
-		explicit AllVertsVisitor(std::vector<float>& o)
+		const osg::Matrixd& stagingWorld;
+		explicit AllVertsVisitor(std::vector<float>& o, const osg::Matrixd& stagingW)
 			: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
 			, out(o)
+			, stagingWorld(stagingW)
 		{
 		}
 		void apply(osg::Geode& geode) override
 		{
 			const osg::Matrixd l2w = osg::computeLocalToWorld(getNodePath());
+			const osg::Matrixd geomToStaging = l2w * osg::Matrixd::inverse(stagingWorld);
 			for (unsigned int di = 0; di < geode.getNumDrawables(); ++di)
 			{
 				osg::Geometry* geom = geode.getDrawable(di) ? geode.getDrawable(di)->asGeometry() : nullptr;
@@ -251,7 +255,7 @@ void collectAllDrawableVerticesToFloats(osg::Node* node, std::vector<float>& xyz
 					out.reserve(out.size() + va->size() * 3U);
 					for (const osg::Vec3& v : *va)
 					{
-						const osg::Vec3d p = osg::Vec3d(v.x(), v.y(), v.z()) * l2w;
+						const osg::Vec3d p = osg::Vec3d(v.x(), v.y(), v.z()) * geomToStaging;
 						out.push_back(static_cast<float>(p.x()));
 						out.push_back(static_cast<float>(p.y()));
 						out.push_back(static_cast<float>(p.z()));
@@ -264,7 +268,7 @@ void collectAllDrawableVerticesToFloats(osg::Node* node, std::vector<float>& xyz
 					out.reserve(out.size() + vd->size() * 3U);
 					for (const osg::Vec3d& v : *vd)
 					{
-						const osg::Vec3d p = v * l2w;
+						const osg::Vec3d p = v * geomToStaging;
 						out.push_back(static_cast<float>(p.x()));
 						out.push_back(static_cast<float>(p.y()));
 						out.push_back(static_cast<float>(p.z()));
@@ -273,8 +277,22 @@ void collectAllDrawableVerticesToFloats(osg::Node* node, std::vector<float>& xyz
 			}
 			traverse(geode);
 		}
-	} visitor(xyz);
+	} visitor(xyz, stagingRootWorld);
 	node->accept(visitor);
+}
+
+osg::Matrixd stagingRootWorldMatrix(OsgWidget& self, osg::Node* src)
+{
+	osg::NodePath path;
+	if (self.m_stagingGroup.valid())
+	{
+		path.push_back(self.m_stagingGroup.get());
+	}
+	if (src)
+	{
+		path.push_back(src);
+	}
+	return path.empty() ? osg::Matrixd::identity() : osg::computeLocalToWorld(path);
 }
 
 } // namespace
@@ -295,19 +313,23 @@ bool OsgWidgetCaptureController::captureImportedPointCloudBackend(
 	}
 	std::vector<float> xyz;
 	std::vector<float> rgba;
+	const osg::Matrixd stagingRootWorld = stagingRootWorldMatrix(self, src);
 	struct PointCloudCaptureVisitor : osg::NodeVisitor
 	{
 		std::vector<float>& xyzR;
 		std::vector<float>& rgbaR;
-		PointCloudCaptureVisitor(std::vector<float>& x, std::vector<float>& r)
+		const osg::Matrixd& stagingWorld;
+		PointCloudCaptureVisitor(std::vector<float>& x, std::vector<float>& r, const osg::Matrixd& stagingW)
 			: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
 			, xyzR(x)
 			, rgbaR(r)
+			, stagingWorld(stagingW)
 		{
 		}
 		void apply(osg::Geode& geode) override
 		{
 			const osg::Matrixd l2w = osg::computeLocalToWorld(getNodePath());
+			const osg::Matrixd geomToStaging = l2w * osg::Matrixd::inverse(stagingWorld);
 			for (unsigned int di = 0; di < geode.getNumDrawables(); ++di)
 			{
 				osg::Geometry* geom = geode.getDrawable(di) ? geode.getDrawable(di)->asGeometry() : nullptr;
@@ -315,12 +337,12 @@ bool OsgWidgetCaptureController::captureImportedPointCloudBackend(
 				{
 					continue;
 				}
-				processGeometryForPoints<osg::Vec3Array>(geom, l2w, xyzR, rgbaR);
-				processGeometryForPoints<osg::Vec3dArray>(geom, l2w, xyzR, rgbaR);
+				processGeometryForPoints<osg::Vec3Array>(geom, geomToStaging, xyzR, rgbaR);
+				processGeometryForPoints<osg::Vec3dArray>(geom, geomToStaging, xyzR, rgbaR);
 			}
 			traverse(geode);
 		}
-	} visitor(xyz, rgba);
+	} visitor(xyz, rgba, stagingRootWorld);
 	src->accept(visitor);
 	if (rgba.size() != xyz.size() / 3U * 4U)
 	{
@@ -341,7 +363,7 @@ bool OsgWidgetCaptureController::captureImportedPointCloudBackend(
 	}
 	if (xyz.empty() && src)
 	{
-		collectAllDrawableVerticesToFloats(src, xyz);
+		collectAllDrawableVerticesToFloats(src, xyz, stagingRootWorld);
 		rgba.clear();
 	}
 	if (xyz.empty())
@@ -353,6 +375,7 @@ bool OsgWidgetCaptureController::captureImportedPointCloudBackend(
 		return false;
 	}
 	out.setPointBuffers(std::move(xyz), std::move(rgba));
+	out.setWorldMatrix(backend_pose_osg::backendWorldMatrixFromOsgMatrix(stagingRootWorld));
 	return true;
 }
 

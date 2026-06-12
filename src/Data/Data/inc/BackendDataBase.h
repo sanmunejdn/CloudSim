@@ -75,10 +75,10 @@ public:
 	virtual std::size_t geometryElementCount() const = 0;
 	virtual void clearGeometry() = 0;
 
-	virtual BackendVec3 pose() const { return BackendVec3{}; }
-	virtual void setPose(const BackendVec3& position) { (void)position; }
-	virtual BackendVec3 rotation() const { return BackendVec3{}; }
-	virtual void setRotation(const BackendVec3& eulerDeg) { (void)eulerDeg; }
+	virtual BackendVec3 pose() const;
+	virtual void setPose(const BackendVec3& position);
+	virtual BackendVec3 rotation() const;
+	virtual void setRotation(const BackendVec3& eulerDeg);
 	virtual BackendColor color() const { return BackendColor{}; }
 	virtual void setColor(const BackendColor& c) { (void)c; }
 
@@ -100,6 +100,8 @@ public:
 	void setPoseValue(const BackendPoseValue& value, BackendPoseReferenceFrame frame, const BackendDataManager* mgr = nullptr);
 	BackendMat4 worldMatrix(const BackendDataManager* mgr = nullptr) const;
 	void setWorldMatrix(const BackendMat4& world, const BackendDataManager* mgr = nullptr);
+	/// 用户拖动/Gizmo：后乘增量，geometry 不变
+	void applyWorldMatrixIncrement(const BackendMat4& incrementLocal, const BackendDataManager* mgr = nullptr);
 	bool validatePoseFrameRoundTrip(const BackendDataManager* mgr, double epsilon = 1e-6) const;
 
 	PropertyBag& propertyBag() { return m_propertyBag; }
@@ -156,9 +158,7 @@ private:
 	std::string m_id;
 	std::string m_name;
 	BackendPoseReferenceFrame m_poseReferenceFrame = BackendPoseReferenceFrame::World;
-	mutable std::shared_mutex m_worldMatrixMutex;
-	mutable bool m_worldMatrixDirty = true;
-	mutable BackendMat4 m_worldMatrixCache = BackendMat4::identity();
+	BackendMat4 m_worldMatrix = BackendMat4::identity();
 	mutable PropertyBag m_propertyBag;
 	mutable std::mutex m_componentMutex;
 	std::unordered_map<std::string, BackendComponentPtr> m_components;

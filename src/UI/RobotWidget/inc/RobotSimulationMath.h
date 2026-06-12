@@ -105,4 +105,11 @@ ROBOTWIDGET_EXPORT BackendMat4 toolTcpInBaseFromFk(
 	const RobotCoordinate::RobotCoordinateFrameSet& frames,
 	const RobotCoordinate::RobotToolFrame& tool);
 
+/// per-link 且几何在 mesh 文件系时：连杆系局部矩阵 → 挂 mesh backend 的 OSG 局部矩阵
+ROBOTWIDGET_EXPORT osg::Matrixd linkFrameLocalOnMeshBackend(
+	const QString& urdfPath,
+	const QString& linkName,
+	const osg::Matrixd& linkFrameLocal,
+	bool meshVerticesInLinkFrame);
+
 } // namespace RobotSimulationMath

@@ -123,15 +123,15 @@ Widget 侧 UI 能力契约（`inc/IPluginMainWindowHost.h`），供 Host 内 `Pl
 
 | API | 说明 |
 |-----|------|
-| `registerScanToCadTemplate` | 单 Job 配准 + `applyTemplateRegistrationToVisual` + `TemplateBrepAlignCache` |
-| `updateTemplateBrepFromAlignedScan` | 校验缓存 → Job `updateBrepFromAlignedScan` → `registerAdoptedBrepAndLoadScene` → **`alignFaceUpdatedBrepWithTemplateVisual`** |
-| `transformScanPointsToTemplateModelFrame` | 扫描 stored xyz → **STEP 模型坐标**（与 B-rep 拾取同规则） |
-| `applyTemplateRegistrationToVisual` | 反向配准预览：STEP 模板走 **originalPose**（原始几何 + `worldAfter`）；见专题 §2.1 与契约 §4.1 |
-| `alignFaceUpdatedBrepWithTemplateVisual` | 面重构新工件世界位姿与模板一致（aligned 系，§2.2） |
+| `registerScanToCadTemplate` | 世界系 ICP Job + `applyTemplateRegistrationToVisual` + `TemplateBrepAlignCache` |
+| `updateTemplateBrepFromAlignedScan` | 校验缓存 → `updateBrepFromAlignedScan` → `registerAdoptedBrepAndLoadScene` → `alignFaceUpdatedBrepWithTemplateVisual` |
+| `applyTemplateRegistrationToVisual` | `applyWorldMatrixIncrement(icpDeltaWorld)` + OSG 同步（几何不变） |
+| `alignFaceUpdatedBrepWithTemplateVisual` | `new.worldMatrix = template.worldMatrix` |
 | `restoreTemplateShapeFromStep` | 预览失败时恢复模板原始 STEP 几何 |
-| `applyScanIcpAlignmentToStoredPoints` | 正向兼容：将 `scanToTemplate` 烘焙回点云（当前匹配流程**不**调用） |
 
-面重构注册：`resetViewToHome=false`（装配 STEP 与模板一致，遵循统一世界坐标契约）；注册后 **必须** 调用 `alignFaceUpdatedBrepWithTemplateVisual`，不可直接复制模板 `pose`。`clearBrepImportArtifactsCache()` 后 load；模板/点云/新工件均保持可见。
+**Breaking v2**：cache 仅存 `templateWorldMatrixAtRegister` + `icpRmseMm`；无 `alignedWorkXyz` / 烘焙 shape。
+
+面重构注册：`resetViewToHome=false`；注册后调用 `alignFaceUpdatedBrepWithTemplateVisual` 同步 `worldMatrix`。`clearBrepImportArtifactsCache()` 后 load。
 
 坐标变换要点（`DocumentPointCloudOps.cpp`）：
 

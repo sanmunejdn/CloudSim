@@ -14,6 +14,8 @@
 
 ## 2. 数据契约
 
+**Breaking v2**：ICP/RANSAC 输入应为**同一坐标系**下两组 `xyz`（推荐世界系，由 Data/Host 经 `worldMatrix` 变换后传入）。本库不感知 `worldMatrix`。
+
 与 [`PointCloudBackendData`](../Data/inc/PointCloudBackendData.h) 对齐：
 
 | 缓冲 | 布局 |
@@ -190,7 +192,7 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 
 ### 3.4 全局粗配准（`RegistrationGlobal.h`）
 
-用于 `geometry_backend_ops::alignScanToTemplateRegistration` 的非预对齐路径（`enableRansacCoarseMatch=true` 且 `scanAlreadyInTemplateFrame=false`）。
+用于 `geometry_backend_ops::alignScanToTemplateRegistration` 世界系粗配（`enableRansacCoarseMatch=true`）。
 
 | 项 | 说明 |
 |----|------|

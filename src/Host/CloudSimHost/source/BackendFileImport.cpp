@@ -31,8 +31,7 @@ std::shared_ptr<PointCloudBackendData> makeEmptyPointCloudShell(const QString& d
 	color.b = 0.95f;
 	color.a = 1.0f;
 	pointCloud->setColor(color);
-	pointCloud->setPose(BackendVec3{});
-	pointCloud->setRotation(BackendVec3{});
+	pointCloud->setWorldMatrix(BackendMat4::identity());
 	return pointCloud;
 }
 
@@ -138,6 +137,7 @@ core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const
 
 	auto mesh = std::make_shared<MeshBackendData>();
 	mesh->setName(fileInfo.fileName().toStdString());
+	mesh->setWorldMatrix(BackendMat4::identity());
 	std::string loadErr;
 	if (!mesh->loadFromFile(nativePath, &loadErr, options.meshImportQuality) || !mesh->hasGeometry())
 	{
@@ -248,6 +248,7 @@ core::ObjectId importPointCloudFile(DocumentHost& host, const QString& filePath,
 		}
 		return {};
 	}
+	pointCloud->setWorldMatrix(BackendMat4::identity());
 
 	const QString catalog =
 		options.catalogTypeName.isEmpty() ? QStringLiteral("PointCloud") : options.catalogTypeName;

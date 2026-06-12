@@ -42,11 +42,6 @@ public:
 	/// 列主序 4×4（mesh 系→连杆系）烘焙到 soup 顶点并重算包围
 	void transformVerticesColumnMajorHomogeneous4x4(const double colMajor16[16]);
 
-	void setPose(const BackendVec3& position) override;
-	BackendVec3 pose() const override;
-	void setRotation(const BackendVec3& eulerDeg) override;
-	BackendVec3 rotation() const override;
-
 	void setColor(const BackendColor& color) override;
 	BackendColor color() const override;
 
@@ -81,8 +76,6 @@ private:
 	std::vector<float> m_triangleSoup;
 	std::vector<float> m_triangleNormals;
 	BackendBoundingBox m_bounds;
-	BackendVec3 m_position;
-	BackendVec3 m_rotation;
 	BackendColor m_color;
 	bool m_transformPivotAtOrigin = false;
 };

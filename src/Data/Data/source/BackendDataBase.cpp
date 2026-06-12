@@ -76,7 +76,7 @@ bool buildWorldPoseInFrame(
 		return true;
 	}
 
-	const BackendMat4 parentWorld = backend_world_mat_from_pose(parent->pose(), parent->rotation());
+	const BackendMat4 parentWorld = parent->worldMatrix(mgr);
 	const BackendMat4 local = backend_world_mat_from_pose(poseFrame, rotFrame);
 	BackendMat4 world{};
 	backend_mat4_multiply(parentWorld, local, world);
@@ -89,9 +89,9 @@ double maxAbsVec3Diff(const BackendVec3& a, const BackendVec3& b)
 	return std::max({ std::abs(a.x - b.x), std::abs(a.y - b.y), std::abs(a.z - b.z) });
 }
 
-BackendMat4 worldMatrixFromData(const BackendDataBase& data)
+void multiplyBackendMat4(const BackendMat4& a, const BackendMat4& b, BackendMat4& out)
 {
-	return backend_world_mat_from_pose(data.pose(), data.rotation());
+	(void)backend_mat4_multiply(a, b, out);
 }
 
 bool jsonToVec3(const nlohmann::json& in, BackendVec3& out)
@@ -238,16 +238,6 @@ nlohmann::json BackendDataBase::saveToJson() const
 		out["components"] = std::move(components);
 	}
 
-	if (hasPoseProperty())
-	{
-		const BackendVec3 p = pose();
-		out["pose"] = nlohmann::json{ { "x", p.x }, { "y", p.y }, { "z", p.z } };
-	}
-	if (hasRotationProperty())
-	{
-		const BackendVec3 r = rotation();
-		out["rotation"] = nlohmann::json{ { "x", r.x }, { "y", r.y }, { "z", r.z } };
-	}
 	if (hasColorProperty())
 	{
 		const BackendColor c = color();
@@ -290,22 +280,6 @@ bool BackendDataBase::loadFromJson(const nlohmann::json& in, std::string* errMsg
 	const std::string frame = toLowerAscii(in.value("poseReferenceFrame", std::string("world")));
 	setPoseReferenceFrame(frame == "parent" ? BackendPoseReferenceFrame::Parent : BackendPoseReferenceFrame::World);
 
-	if (hasPoseProperty())
-	{
-		BackendVec3 p{};
-		if (jsonToVec3(in.value("pose", nlohmann::json::object()), p))
-		{
-			setPose(p);
-		}
-	}
-	if (hasRotationProperty())
-	{
-		BackendVec3 r{};
-		if (jsonToVec3(in.value("rotation", nlohmann::json::object()), r))
-		{
-			setRotation(r);
-		}
-	}
 	if (hasColorProperty())
 	{
 		BackendColor c{};
@@ -339,34 +313,97 @@ bool BackendDataBase::loadFromJson(const nlohmann::json& in, std::string* errMsg
 	if (in.contains("worldMatrix"))
 	{
 		const nlohmann::json wm = in["worldMatrix"];
-		if (wm.is_array() && wm.size() == 16)
+		if (!wm.is_array() || wm.size() != 16)
 		{
-			BackendMat4 world{};
-			bool ok = true;
-			for (std::size_t i = 0; i < 16U; ++i)
+			if (errMsg)
 			{
-				if (!wm[i].is_number())
-				{
-					ok = false;
-					break;
-				}
-				world.v[i] = wm[i].get<double>();
+				*errMsg = "worldMatrix must be 16-element array.";
 			}
-			if (ok)
-			{
-				setWorldMatrix(world);
-			}
+			return false;
 		}
+		BackendMat4 world{};
+		for (std::size_t i = 0; i < 16U; ++i)
+		{
+			if (!wm[i].is_number())
+			{
+				if (errMsg)
+				{
+					*errMsg = "worldMatrix contains non-number.";
+				}
+				return false;
+			}
+			world.v[i] = wm[i].get<double>();
+		}
+		setWorldMatrix(world);
+	}
+	else if (hasPoseProperty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "Backend json v2 requires worldMatrix for transformable objects. Re-import scene.";
+		}
+		return false;
 	}
 	return loadDerivedJson(in, errMsg);
 }
 
+BackendVec3 BackendDataBase::pose() const
+{
+	if (!hasPoseProperty())
+	{
+		return BackendVec3{};
+	}
+	BackendVec3 p{};
+	BackendVec3 r{};
+	backend_pose_euler_from_world_mat(m_worldMatrix, p, r);
+	return p;
+}
+
+void BackendDataBase::setPose(const BackendVec3& position)
+{
+	if (!hasPoseProperty())
+	{
+		return;
+	}
+	BackendVec3 p{};
+	BackendVec3 r{};
+	backend_pose_euler_from_world_mat(m_worldMatrix, p, r);
+	p = position;
+	m_worldMatrix = backend_world_mat_from_pose(p, r);
+}
+
+BackendVec3 BackendDataBase::rotation() const
+{
+	if (!hasRotationProperty())
+	{
+		return BackendVec3{};
+	}
+	BackendVec3 p{};
+	BackendVec3 r{};
+	backend_pose_euler_from_world_mat(m_worldMatrix, p, r);
+	return r;
+}
+
+void BackendDataBase::setRotation(const BackendVec3& eulerDeg)
+{
+	if (!hasRotationProperty())
+	{
+		return;
+	}
+	BackendVec3 p{};
+	BackendVec3 r{};
+	backend_pose_euler_from_world_mat(m_worldMatrix, p, r);
+	r = eulerDeg;
+	m_worldMatrix = backend_world_mat_from_pose(p, r);
+}
+
 void BackendDataBase::applyBackendWorldPose(const BackendVec3& centerWorld, const BackendVec3& eulerDegWorld)
 {
-	setPose(centerWorld);
-	setRotation(eulerDegWorld);
-	std::unique_lock<std::shared_mutex> lock(m_worldMatrixMutex);
-	m_worldMatrixDirty = true;
+	if (!hasPoseProperty())
+	{
+		return;
+	}
+	m_worldMatrix = backend_world_mat_from_pose(centerWorld, eulerDegWorld);
 }
 
 BackendPoseReferenceFrame BackendDataBase::poseReferenceFrame() const
@@ -400,8 +437,8 @@ BackendVec3 BackendDataBase::poseInFrame(BackendPoseReferenceFrame frame, const 
 		return pose();
 	}
 
-	const BackendMat4 selfWorld = backend_world_mat_from_pose(pose(), rotation());
-	const BackendMat4 parentWorld = backend_world_mat_from_pose(parent->pose(), parent->rotation());
+	const BackendMat4 selfWorld = worldMatrix(mgr);
+	const BackendMat4 parentWorld = parent->worldMatrix(mgr);
 	BackendMat4 invParent{};
 	backend_mat4_invert_rigid(parentWorld, invParent);
 	BackendMat4 selfLocal{};
@@ -433,8 +470,8 @@ BackendVec3 BackendDataBase::rotationInFrame(BackendPoseReferenceFrame frame, co
 		return rotation();
 	}
 
-	const BackendMat4 selfWorld = backend_world_mat_from_pose(pose(), rotation());
-	const BackendMat4 parentWorld = backend_world_mat_from_pose(parent->pose(), parent->rotation());
+	const BackendMat4 selfWorld = worldMatrix(mgr);
+	const BackendMat4 parentWorld = parent->worldMatrix(mgr);
 	BackendMat4 invParent{};
 	backend_mat4_invert_rigid(parentWorld, invParent);
 	BackendMat4 selfLocal{};
@@ -454,15 +491,7 @@ void BackendDataBase::setPoseInFrame(const BackendVec3& value, BackendPoseRefere
 	BackendVec3 worldPose{};
 	BackendVec3 worldEuler{};
 	buildWorldPoseInFrame(*this, value, rotationInFrame(frame, mgr), frame, mgr, worldPose, worldEuler);
-	setPose(worldPose);
-	if (hasRotationProperty())
-	{
-		setRotation(worldEuler);
-	}
-	{
-		std::unique_lock<std::shared_mutex> lock(m_worldMatrixMutex);
-		m_worldMatrixDirty = true;
-	}
+	m_worldMatrix = backend_world_mat_from_pose(worldPose, worldEuler);
 }
 
 void BackendDataBase::setRotationInFrame(const BackendVec3& value, BackendPoseReferenceFrame frame, const BackendDataManager* mgr)
@@ -474,15 +503,7 @@ void BackendDataBase::setRotationInFrame(const BackendVec3& value, BackendPoseRe
 	BackendVec3 worldPose{};
 	BackendVec3 worldEuler{};
 	buildWorldPoseInFrame(*this, poseInFrame(frame, mgr), value, frame, mgr, worldPose, worldEuler);
-	if (hasPoseProperty())
-	{
-		setPose(worldPose);
-	}
-	setRotation(worldEuler);
-	{
-		std::unique_lock<std::shared_mutex> lock(m_worldMatrixMutex);
-		m_worldMatrixDirty = true;
-	}
+	m_worldMatrix = backend_world_mat_from_pose(worldPose, worldEuler);
 }
 
 BackendPoseValue BackendDataBase::poseValue(BackendPoseReferenceFrame frame, const BackendDataManager* mgr) const
@@ -498,54 +519,39 @@ void BackendDataBase::setPoseValue(const BackendPoseValue& value, BackendPoseRef
 	BackendVec3 worldPose{};
 	BackendVec3 worldEuler{};
 	buildWorldPoseInFrame(*this, value.position, value.eulerDeg, frame, mgr, worldPose, worldEuler);
-	if (hasPoseProperty())
-	{
-		setPose(worldPose);
-	}
-	if (hasRotationProperty())
-	{
-		setRotation(worldEuler);
-	}
-	std::unique_lock<std::shared_mutex> lock(m_worldMatrixMutex);
-	m_worldMatrixDirty = true;
+	m_worldMatrix = backend_world_mat_from_pose(worldPose, worldEuler);
 }
 
 BackendMat4 BackendDataBase::worldMatrix(const BackendDataManager* mgr) const
 {
 	(void)mgr;
+	if (!hasPoseProperty())
 	{
-		std::shared_lock<std::shared_mutex> lock(m_worldMatrixMutex);
-		if (!m_worldMatrixDirty)
-		{
-			return m_worldMatrixCache;
-		}
+		return BackendMat4::identity();
 	}
-	const BackendMat4 computed = worldMatrixFromData(*this);
-	{
-		std::unique_lock<std::shared_mutex> lock(m_worldMatrixMutex);
-		m_worldMatrixCache = computed;
-		m_worldMatrixDirty = false;
-		return m_worldMatrixCache;
-	}
+	return m_worldMatrix;
 }
 
 void BackendDataBase::setWorldMatrix(const BackendMat4& world, const BackendDataManager* mgr)
 {
 	(void)mgr;
-	BackendVec3 poseWorld{};
-	BackendVec3 rotWorld{};
-	backend_pose_euler_from_world_mat(world, poseWorld, rotWorld);
-	if (hasPoseProperty())
+	if (!hasPoseProperty())
 	{
-		setPose(poseWorld);
+		return;
 	}
-	if (hasRotationProperty())
+	m_worldMatrix = world;
+}
+
+void BackendDataBase::applyWorldMatrixIncrement(const BackendMat4& incrementLocal, const BackendDataManager* mgr)
+{
+	(void)mgr;
+	if (!hasPoseProperty())
 	{
-		setRotation(rotWorld);
+		return;
 	}
-	std::unique_lock<std::shared_mutex> lock(m_worldMatrixMutex);
-	m_worldMatrixCache = world;
-	m_worldMatrixDirty = false;
+	BackendMat4 combined{};
+	backend_mat4_multiply(incrementLocal, m_worldMatrix, combined);
+	m_worldMatrix = combined;
 }
 
 bool BackendDataBase::validatePoseFrameRoundTrip(const BackendDataManager* mgr, double epsilon) const

@@ -423,6 +423,8 @@ bool ObjectTransformOperation::handleEvent(QObject* watched, QEvent* event)
 				markGizmoSessionModified();
 				m_owner->syncActiveBackendRootFromObjectFrame(f, true);
 				m_owner->syncCompassGizmoOrientation();
+				const osg::Vec3f euler = m_owner->selectedRotationEulerDeg();
+				emit m_owner->selectedObjectRotationChanged(euler.x(), euler.y(), euler.z());
 				m_owner->requestRedraw();
 			}
 		}

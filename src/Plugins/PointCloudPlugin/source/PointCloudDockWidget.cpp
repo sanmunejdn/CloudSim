@@ -30,6 +30,33 @@ bool isInactiveFaceAction(const std::string& action)
 	return action == "Unchanged" || action == "SkippedNoPoints";
 }
 
+void logBrepUpdateSkippedFaceDiagnostic(
+	IPluginHostContext* host,
+	const std::vector<PluginPointCloudFaceUpdateReport>& perFace)
+{
+	if (!host)
+	{
+		return;
+	}
+	constexpr int kMaxSkippedLines = 16;
+	int logged = 0;
+	for (const PluginPointCloudFaceUpdateReport& faceReport : perFace)
+	{
+		if (faceReport.action != "SkippedNoPoints")
+		{
+			continue;
+		}
+		host->logInfo(
+			QStringLiteral("  F%1 SkippedNoPoints (%2)")
+				.arg(faceReport.faceIndex)
+				.arg(QString::fromStdString(faceReport.surfaceTypeName)));
+		if (++logged >= kMaxSkippedLines)
+		{
+			break;
+		}
+	}
+}
+
 void logBrepUpdateFaceSummary(
 	IPluginHostContext* host,
 	const std::vector<PluginPointCloudFaceUpdateReport>& perFace)
@@ -1609,6 +1636,7 @@ void PointCloudDockWidget::onUpdateTemplateBrepClicked()
 							QStringLiteral("%1 面因包围盒守卫被跳过"))
 							.arg(result.skippedBadBboxFaceCount));
 				}
+				logBrepUpdateSkippedFaceDiagnostic(m_host, result.perFace);
 				logBrepUpdateFaceSummary(m_host, result.perFace);
 				if (m_statusLabel)
 				{

@@ -20,11 +20,6 @@ public:
 	std::size_t geometryElementCount() const override;
 	void clearGeometry() override;
 
-	void setPose(const BackendVec3& position) override;
-	BackendVec3 pose() const override;
-	void setRotation(const BackendVec3& eulerDeg) override;
-	BackendVec3 rotation() const override;
-
 	void setColor(const BackendColor& color) override;
 	BackendColor color() const override;
 
@@ -65,8 +60,6 @@ private:
 	void saveDerivedJson(nlohmann::json& out) const override;
 	bool loadDerivedJson(const nlohmann::json& in, std::string* errMsg) override;
 
-	BackendVec3 m_position;
-	BackendVec3 m_rotation;
 	BackendColor m_color;
 	BackendBoundingBox m_bounds;
 	std::size_t m_pointCount = 0U;

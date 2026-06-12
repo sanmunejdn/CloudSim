@@ -1414,6 +1414,27 @@ bool UrdfRobotLoader::linkMeshFileToLinkColumnMajor16(
 	return true;
 }
 
+bool UrdfRobotLoader::linkMeshFileToLinkOsgMatrix(
+	const QString& urdfFilePath, const QString& linkName, osg::Matrixd& out, QString* errorMessage)
+{
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		return false;
+	}
+	const auto it = model->linkVisuals.find(linkName);
+	if (it == model->linkVisuals.end() || !it->second.hasMesh)
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("URDF has no mesh visual for link '%1'.").arg(linkName);
+		}
+		return false;
+	}
+	out = mat4ToOsg(meshFileToLinkFrameFromVisual(it->second));
+	return true;
+}
+
 bool UrdfRobotLoader::computeLinkWorldMatrices(
 	const QString& urdfFilePath,
 	const QVector<double>& jointAnglesRad,

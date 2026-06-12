@@ -1637,9 +1637,7 @@ bool updateShapeFromPointCloud(
 	TemplateBrepUpdateResult& out,
 	std::string* errMsg)
 {
-	const Eigen::Isometry3d savedTransform = out.scanToTemplate;
 	const Eigen::Isometry3d savedTemplateToScan = out.templateToScan;
-	const geoalgo::ShapeHandle savedAlignedTemplate = out.alignedTemplateShape;
 	const double savedRmse = out.icpRmseMm;
 	out.updatedShape = ShapeHandle{};
 	out.perFace.clear();
@@ -1647,9 +1645,7 @@ bool updateShapeFromPointCloud(
 	out.globalAvgDeviationMm = 0.0;
 	out.updatedFaceCount = 0U;
 	out.qualityPassed = false;
-	out.scanToTemplate = savedTransform;
 	out.templateToScan = savedTemplateToScan;
-	out.alignedTemplateShape = savedAlignedTemplate;
 	out.icpRmseMm = savedRmse;
 
 	TopoDS_Shape templateNative;
@@ -1747,6 +1743,26 @@ bool updateShapeFromPointCloud(
 		" perFaceBudget=" + std::to_string(perFaceBudget) +
 		" selective=" + (hasSelection ? "yes" : "no") +
 		" threads=" + std::to_string(threadCount) + " ms=" + std::to_string(assignMs));
+
+	if (hasSelection)
+	{
+		std::size_t loggedFaces = 0U;
+		for (int fi : selectedSet)
+		{
+			if (fi < 0 || static_cast<std::size_t>(fi) >= facePoints.size())
+			{
+				continue;
+			}
+			RunLogger::info(
+				"[TemplateBrepUpdate] faceAssign fi=" + std::to_string(fi) + " pts="
+				+ std::to_string(facePoints[static_cast<std::size_t>(fi)].size())
+				+ " need>=" + std::to_string(params.minPointsPerFace));
+			if (++loggedFaces >= 16U)
+			{
+				break;
+			}
+		}
+	}
 
 	std::size_t updatedCount = 0U;
 	out.perFace.resize(faces.size());

@@ -1,6 +1,8 @@
 #include "DocumentPointCloudOps.h"
 
 #include "BackendDataBase.h"
+#include "BackendFollowMath.h"
+#include "BackendSpatial.h"
 #include "BackendDataManager.h"
 #include "BackendGeometryMetrics.h"
 #include "BackendSceneDocumentFacade.h"
@@ -34,6 +36,83 @@
 #include <functional>
 #include <sstream>
 #include <cmath>
+
+namespace
+{
+
+BackendMat4 backendMat4FromColMajorRigid(const engine::RigidTransform& rt)
+{
+	const engine::ColMajorMat4 cm = engine::colMajorFromRigidTransform(rt);
+	BackendMat4 out{};
+	for (int i = 0; i < 16; ++i)
+	{
+		out.v[i] = cm[static_cast<std::size_t>(i)];
+	}
+	return out;
+}
+
+engine::RigidTransform rigidFromBackendWorldMat(const BackendMat4& world)
+{
+	engine::ColMajorMat4 cm{};
+	for (int i = 0; i < 16; ++i)
+	{
+		cm[static_cast<std::size_t>(i)] = world.v[i];
+	}
+	return engine::rigidTransformFromColMajor(cm);
+}
+
+/// 世界 mm → 几何存储坐标（backend worldMatrix 逆）
+bool worldToGeometryFrame(
+	const BackendMat4& worldMat,
+	const double worldX,
+	const double worldY,
+	const double worldZ,
+	double& outGeoX,
+	double& outGeoY,
+	double& outGeoZ)
+{
+	BackendMat4 invWorld{};
+	if (!backend_mat4_invert_rigid(worldMat, invWorld))
+	{
+		return false;
+	}
+	outGeoX = invWorld.v[0] * worldX + invWorld.v[4] * worldY + invWorld.v[8] * worldZ + invWorld.v[12];
+	outGeoY = invWorld.v[1] * worldX + invWorld.v[5] * worldY + invWorld.v[9] * worldZ + invWorld.v[13];
+	outGeoZ = invWorld.v[2] * worldX + invWorld.v[6] * worldY + invWorld.v[10] * worldZ + invWorld.v[14];
+	return true;
+}
+
+BackendMat4 backendMat4FromIsometry(const Eigen::Isometry3d& iso)
+{
+	const engine::ColMajorMat4 cm =
+		engine::colMajorFromRigidTransform(engine::RigidTransform::fromIsometry(iso));
+	BackendMat4 out{};
+	for (int i = 0; i < 16; ++i)
+	{
+		out.v[i] = cm[static_cast<std::size_t>(i)];
+	}
+	return out;
+}
+
+void transformXyzByEngineWorldMatrix(std::vector<float>& xyz, const BackendMat4& world)
+{
+	const Eigen::Isometry3d iso = rigidFromBackendWorldMat(world).isometry();
+	const std::size_t n = xyz.size() / 3U;
+	for (std::size_t i = 0U; i < n; ++i)
+	{
+		const std::size_t b = i * 3U;
+		Eigen::Vector3d p(
+			static_cast<double>(xyz[b]),
+			static_cast<double>(xyz[b + 1U]),
+			static_cast<double>(xyz[b + 2U]));
+		p = iso * p;
+		xyz[b] = static_cast<float>(p.x());
+		xyz[b + 1U] = static_cast<float>(p.y());
+		xyz[b + 2U] = static_cast<float>(p.z());
+	}
+}
+
+} // namespace
 
 namespace document_point_cloud_ops
 {
@@ -437,51 +516,6 @@ bool worldPointToScanStoredMm(
 
 } // namespace
 
-bool captureRegistrationWorldFrameSnapshot(
-	cloudsim::host::DocumentHost* page,
-	const std::string& scanBackendIdUtf8,
-	const std::string& templateBackendIdUtf8,
-	geoalgo::RegistrationWorldFrameSnapshot& outSnapshot,
-	std::string* outError)
-{
-	outSnapshot = {};
-	OsgWidget* osg = widgetOsgFromPage(page);
-	if (!osg)
-	{
-		if (outError)
-		{
-			*outError = "no active 3D view";
-		}
-		return false;
-	}
-	const auto copyMat = [](const osg::Matrixd& m, double out[16]) {
-		for (int row = 0; row < 4; ++row)
-		{
-			for (int col = 0; col < 4; ++col)
-			{
-				out[row * 4 + col] = m(row, col);
-			}
-		}
-	};
-	const std::string scanXformId = scanTransformBackendId(osg, scanBackendIdUtf8);
-	const std::string templateXformId = templateTransformBackendId(osg, templateBackendIdUtf8);
-	osg::Matrixd scanMat;
-	osg::Matrixd templateMat;
-	if (!osg->getBackendRootWorldMatrix(scanXformId, scanMat)
-		|| !osg->getBackendRootWorldMatrix(templateXformId, templateMat))
-	{
-		if (outError)
-		{
-			*outError = "backend world matrix unavailable for registration snapshot";
-		}
-		return false;
-	}
-	copyMat(scanMat, outSnapshot.scanRootWorldMat);
-	copyMat(templateMat, outSnapshot.templateRootWorldMat);
-	outSnapshot.valid = true;
-	return true;
-}
-
 void logRegistrationOverlapDiagnostic(
 	cloudsim::host::DocumentHost* page,
 	const std::string& scanBackendIdUtf8,
@@ -494,67 +528,43 @@ void logRegistrationOverlapDiagnostic(
 	{
 		return;
 	}
-	OsgWidget* osg = widgetOsgFromPage(page);
-	if (!osg)
+	const auto scan = resolvePointCloud(page, scanBackendIdUtf8, nullptr);
+	const auto obj = page ? page->backend().getData(templateBackendIdUtf8) : nullptr;
+	const auto templateBrep = std::dynamic_pointer_cast<BrepBackendData>(obj);
+	if (!scan || !templateBrep)
 	{
 		return;
 	}
+	std::vector<float> templateWorldXyz = templateModelXyz;
+	transformXyzByEngineWorldMatrix(templateWorldXyz, templateBrep->worldMatrix());
+
 	const std::size_t nScan = scanStoredXyz.size() / 3U;
-	const std::size_t nTpl = templateModelXyz.size() / 3U;
+	const std::size_t nTpl = templateWorldXyz.size() / 3U;
 	const std::size_t scanStride = std::max<std::size_t>(1U, nScan / 512U);
 	const std::size_t tplStride = std::max<std::size_t>(1U, nTpl / 512U);
 	const double gateSq = gateMm * gateMm;
-	std::size_t modelHits = 0U;
 	std::size_t worldHits = 0U;
 	for (std::size_t i = 0U; i < nScan; i += scanStride)
 	{
 		const std::size_t b = i * 3U;
-		std::vector<float> scanOne = {
-			scanStoredXyz[b],
-			scanStoredXyz[b + 1U],
-			scanStoredXyz[b + 2U]};
-		std::vector<float> scanModel = scanOne;
-		if (!transformScanPointsToTemplateModelFrame(
-				page, scanBackendIdUtf8, templateBackendIdUtf8, scanModel, nullptr))
-		{
-			break;
-		}
-		osg::Vec3d scanWorld;
-		if (!backendStoredPointToWorldMm(
-				osg, scanBackendIdUtf8, scanOne[0], scanOne[1], scanOne[2], scanWorld))
-		{
-			break;
-		}
-		const Eigen::Vector3d qModel(scanModel[0], scanModel[1], scanModel[2]);
-		const Eigen::Vector3d qWorld(scanWorld.x(), scanWorld.y(), scanWorld.z());
-		double bestModelSq = gateSq;
+		const BackendVec3 scanWorldPt = transformPointToWorld(
+			*scan,
+			BackendVec3{
+				static_cast<double>(scanStoredXyz[b]),
+				static_cast<double>(scanStoredXyz[b + 1U]),
+				static_cast<double>(scanStoredXyz[b + 2U])});
+		const Eigen::Vector3d qWorld(scanWorldPt.x, scanWorldPt.y, scanWorldPt.z);
 		double bestWorldSq = gateSq;
 		for (std::size_t j = 0U; j < nTpl; j += tplStride)
 		{
 			const std::size_t tb = j * 3U;
-			const Eigen::Vector3d tModel(
-				templateModelXyz[tb], templateModelXyz[tb + 1U], templateModelXyz[tb + 2U]);
-			osg::Vec3d tWorld;
-			if (!templateModelPointToWorldMm(
-					osg, templateBackendIdUtf8, tModel.x(), tModel.y(), tModel.z(), tWorld))
-			{
-				continue;
-			}
-			const Eigen::Vector3d tWorldVec(tWorld.x(), tWorld.y(), tWorld.z());
-			const double dModelSq = (qModel - tModel).squaredNorm();
-			const double dWorldSq = (qWorld - tWorldVec).squaredNorm();
-			if (dModelSq < bestModelSq)
-			{
-				bestModelSq = dModelSq;
-			}
+			const Eigen::Vector3d tWorld(
+				templateWorldXyz[tb], templateWorldXyz[tb + 1U], templateWorldXyz[tb + 2U]);
+			const double dWorldSq = (qWorld - tWorld).squaredNorm();
 			if (dWorldSq < bestWorldSq)
 			{
 				bestWorldSq = dWorldSq;
 			}
-		}
-		if (bestModelSq < gateSq)
-		{
-			++modelHits;
 		}
 		if (bestWorldSq < gateSq)
 		{
@@ -562,8 +572,8 @@ void logRegistrationOverlapDiagnostic(
 		}
 	}
 	RunLogger::info(
-		std::string("[TemplateBrepUpdate] overlap diagnostic modelHits=") + std::to_string(modelHits)
-		+ "/512 worldHits=" + std::to_string(worldHits) + "/512 gateMm=" + std::to_string(gateMm));
+		std::string("[TemplateBrepUpdate] overlap diagnostic worldHits=") + std::to_string(worldHits)
+		+ "/512 gateMm=" + std::to_string(gateMm));
 }
 
 void logRegistrationCentroidDiagnostic(
@@ -575,17 +585,17 @@ void logRegistrationCentroidDiagnostic(
 	const double templateModelCenterY,
 	const double templateModelCenterZ)
 {
-	if (scanStoredXyz.size() < 9U)
+	if (scanStoredXyz.size() < 9U || !page)
 	{
 		return;
 	}
-	OsgWidget* osg = widgetOsgFromPage(page);
-	if (!osg)
+	const auto scan = resolvePointCloud(page, scanBackendIdUtf8, nullptr);
+	const auto tplObj = page->backend().getData(templateBackendIdUtf8);
+	const auto templateBrep = std::dynamic_pointer_cast<BrepBackendData>(tplObj);
+	if (!scan || !templateBrep)
 	{
 		return;
 	}
-	const std::string scanXformId = scanTransformBackendId(osg, scanBackendIdUtf8);
-	const std::string templateXformId = templateTransformBackendId(osg, templateBackendIdUtf8);
 	const std::size_t nScan = scanStoredXyz.size() / 3U;
 	const std::size_t stride = std::max<std::size_t>(1U, nScan / 10000U);
 	double sumWx = 0.0;
@@ -595,42 +605,34 @@ void logRegistrationCentroidDiagnostic(
 	for (std::size_t i = 0U; i < nScan; i += stride)
 	{
 		const std::size_t b = i * 3U;
-		osg::Vec3d world;
-		if (!backendStoredPointToWorldMm(
-				osg,
-				scanBackendIdUtf8,
+		const BackendVec3 world = transformPointToWorld(
+			*scan,
+			BackendVec3{
 				static_cast<double>(scanStoredXyz[b]),
 				static_cast<double>(scanStoredXyz[b + 1U]),
-				static_cast<double>(scanStoredXyz[b + 2U]),
-				world))
-		{
-			break;
-		}
-		sumWx += world.x();
-		sumWy += world.y();
-		sumWz += world.z();
+				static_cast<double>(scanStoredXyz[b + 2U])});
+		sumWx += world.x;
+		sumWy += world.y;
+		sumWz += world.z;
 		++count;
 	}
 	if (count == 0U)
 	{
 		return;
 	}
-	osg::Vec3d templateWorld;
-	if (!templateModelPointToWorldMm(
-			osg, templateBackendIdUtf8, templateModelCenterX, templateModelCenterY, templateModelCenterZ, templateWorld))
-	{
-		return;
-	}
+	const BackendVec3 templateWorld = transformPointToWorld(
+		*templateBrep,
+		BackendVec3{templateModelCenterX, templateModelCenterY, templateModelCenterZ});
 	const double scanCx = sumWx / static_cast<double>(count);
 	const double scanCy = sumWy / static_cast<double>(count);
 	const double scanCz = sumWz / static_cast<double>(count);
 	const double distMm = std::hypot(
-		scanCx - templateWorld.x(),
-		std::hypot(scanCy - templateWorld.y(), scanCz - templateWorld.z()));
+		scanCx - templateWorld.x,
+		std::hypot(scanCy - templateWorld.y, scanCz - templateWorld.z));
 	RunLogger::info(
 		std::string("[TemplateBrepUpdate] centroid diagnostic worldDistMm=") + std::to_string(distMm)
-		+ " scanXform=" + scanXformId + " templateXform=" + templateXformId
-		+ " templateSkipRebase=" + (osg->backendSkipsInnerModelCenterRebase(templateXformId) ? "true" : "false"));
+		+ " scanBackend=" + scanBackendIdUtf8 + " templateBackend=" + templateBackendIdUtf8
+		+ " (backend worldMatrix)");
 }
 
 bool queryTemplateModelToWorldIsometry(
@@ -685,158 +687,6 @@ bool queryScanStoredToWorldIsometry(
 	return isometryFromThreeCalibrationPoints(storedToWorld, 0.0, 0.0, 0.0, outStoredToWorld, outError);
 }
 
-bool transformScanPointsToTemplateModelFrame(
-	cloudsim::host::DocumentHost* page,
-	const std::string& scanBackendIdUtf8,
-	const std::string& templateBackendIdUtf8,
-	std::vector<float>& inOutScanXyz,
-	std::string* outError)
-{
-	if (inOutScanXyz.size() < 9U || (inOutScanXyz.size() % 3U) != 0U)
-	{
-		if (outError)
-		{
-			*outError = "invalid scan xyz buffer";
-		}
-		return false;
-	}
-	OsgWidget* osg = widgetOsgFromPage(page);
-	if (!osg)
-	{
-		if (outError)
-		{
-			*outError = "no active 3D view";
-		}
-		return false;
-	}
-	for (std::size_t i = 0; i + 2U < inOutScanXyz.size(); i += 3U)
-	{
-		osg::Vec3d world;
-		if (!backendStoredPointToWorldMm(
-				osg,
-				scanBackendIdUtf8,
-				static_cast<double>(inOutScanXyz[i]),
-				static_cast<double>(inOutScanXyz[i + 1U]),
-				static_cast<double>(inOutScanXyz[i + 2U]),
-				world))
-		{
-			if (outError)
-			{
-				*outError = "scan backend world transform unavailable";
-			}
-			return false;
-		}
-		double mx = 0.0;
-		double my = 0.0;
-		double mz = 0.0;
-		if (!worldPointToTemplateModelMm(osg, templateBackendIdUtf8, world, mx, my, mz))
-		{
-			if (outError)
-			{
-				*outError = "template backend model transform unavailable";
-			}
-			return false;
-		}
-		inOutScanXyz[i] = static_cast<float>(mx);
-		inOutScanXyz[i + 1U] = static_cast<float>(my);
-		inOutScanXyz[i + 2U] = static_cast<float>(mz);
-	}
-	return true;
-}
-
-bool applyScanIcpAlignmentToStoredPoints(
-	cloudsim::host::DocumentHost* page,
-	const std::string& scanBackendIdUtf8,
-	const std::string& templateBackendIdUtf8,
-	const Eigen::Isometry3d& scanToTemplateInModelFrame,
-	PointCloudBackendData& inOutScan,
-	std::string* outError)
-{
-	OsgWidget* osg = widgetOsgFromPage(page);
-	if (!osg)
-	{
-		if (outError)
-		{
-			*outError = "no active 3D view";
-		}
-		return false;
-	}
-
-	std::vector<float> xyz = inOutScan.pointPositionsXyz();
-	if (xyz.size() < 9U || (xyz.size() % 3U) != 0U)
-	{
-		if (outError)
-		{
-			*outError = "invalid scan xyz buffer";
-		}
-		return false;
-	}
-
-	for (std::size_t i = 0; i + 2U < xyz.size(); i += 3U)
-	{
-		osg::Vec3d world;
-		if (!backendStoredPointToWorldMm(
-				osg,
-				scanBackendIdUtf8,
-				static_cast<double>(xyz[i]),
-				static_cast<double>(xyz[i + 1U]),
-				static_cast<double>(xyz[i + 2U]),
-				world))
-		{
-			if (outError)
-			{
-				*outError = "scan backend world transform unavailable";
-			}
-			return false;
-		}
-
-		double mx = 0.0;
-		double my = 0.0;
-		double mz = 0.0;
-		if (!worldPointToTemplateModelMm(osg, templateBackendIdUtf8, world, mx, my, mz))
-		{
-			if (outError)
-			{
-				*outError = "template backend model transform unavailable";
-			}
-			return false;
-		}
-
-		const Eigen::Vector3d aligned = scanToTemplateInModelFrame * Eigen::Vector3d(mx, my, mz);
-		osg::Vec3d worldAligned;
-		if (!templateModelPointToWorldMm(
-				osg, templateBackendIdUtf8, aligned.x(), aligned.y(), aligned.z(), worldAligned))
-		{
-			if (outError)
-			{
-				*outError = "template world transform unavailable";
-			}
-			return false;
-		}
-
-		double sx = 0.0;
-		double sy = 0.0;
-		double sz = 0.0;
-		if (!worldPointToScanStoredMm(osg, scanBackendIdUtf8, worldAligned, sx, sy, sz))
-		{
-			if (outError)
-			{
-				*outError = "scan stored transform unavailable";
-			}
-			return false;
-		}
-
-		xyz[i] = static_cast<float>(sx);
-		xyz[i + 1U] = static_cast<float>(sy);
-		xyz[i + 2U] = static_cast<float>(sz);
-	}
-
-	std::vector<float> rgba = inOutScan.pointVertexRgba();
-	std::vector<float> normals = inOutScan.pointNormalsNxNyNz();
-	inOutScan.setPointBuffers(std::move(xyz), std::move(rgba), std::move(normals));
-	return true;
-}
-
 bool writeBackendPoseFromWorldMatrix(
 	OsgWidget* osg,
 	const std::string& visualId,
@@ -872,51 +722,6 @@ bool tryLoadOriginalStepShape(
 	std::string stepErr;
 	return geoalgo::readStepIntoHandle(stepPath.toStdString(), outShape, &stepErr) && !outShape.isNull();
 }
-
-namespace
-{
-
-bool backendPoseNear(
-	const BackendVec3& a,
-	const BackendVec3& b,
-	const double tolMm = 0.05)
-{
-	return std::abs(a.x - b.x) <= tolMm && std::abs(a.y - b.y) <= tolMm && std::abs(a.z - b.z) <= tolMm;
-}
-
-bool computeWorldMatrixForAlignedUpdatedShape(
-	OsgWidget* osg,
-	const std::string& templateVisualId,
-	const BrepBackendData& templateBrep,
-	const osg::Matrixd& templateWorld,
-	const Eigen::Isometry3d& templateToScanInModelFrame,
-	osg::Matrixd& outWorldMatrix)
-{
-	const bool hasIcpTransform =
-		!templateToScanInModelFrame.matrix().isApprox(Eigen::Isometry3d::Identity().matrix());
-	if (!hasIcpTransform)
-	{
-		outWorldMatrix = templateWorld;
-		return true;
-	}
-
-	const engine::RigidTransform icpRt =
-		engine::RigidTransform::fromIsometry(templateToScanInModelFrame);
-	const osg::Matrixd icpOsg = engine::osgMatrixFromRigidTransform(icpRt);
-
-	BrepBackendData worldPoseProbe;
-	(void)writeBackendPoseFromWorldMatrix(osg, templateVisualId, worldPoseProbe, templateWorld);
-	const bool templateUsesOriginalGeometryPose =
-		backendPoseNear(templateBrep.pose(), worldPoseProbe.pose())
-		&& backendPoseNear(templateBrep.rotation(), worldPoseProbe.rotation());
-
-	// 模板若是「原始 STEP + ICP 外层矩阵」，面重构 aligned 几何应使用 worldBefore
-	outWorldMatrix =
-		templateUsesOriginalGeometryPose ? osg::Matrixd::inverse(icpOsg) * templateWorld : templateWorld;
-	return true;
-}
-
-} // namespace
 
 bool inheritBrepVisualPoseFromSourceMesh(
 	cloudsim::host::DocumentHost* page,
@@ -959,9 +764,9 @@ bool alignFaceUpdatedBrepWithTemplateVisual(
 	const std::string& updatedBrepBackendIdUtf8,
 	const BrepBackendData& templateBrep,
 	BrepBackendData& updatedBrep,
-	const Eigen::Isometry3d& templateToScanInModelFrame,
 	std::string* outError)
 {
+	(void)templateBackendIdUtf8;
 	if (!page)
 	{
 		if (outError)
@@ -980,50 +785,18 @@ bool alignFaceUpdatedBrepWithTemplateVisual(
 		return false;
 	}
 
-	const std::string templateVisualId = templateTransformBackendId(osg, templateBackendIdUtf8);
-	osg::Matrixd templateWorld;
-	if (!osg->getBackendRootWorldMatrix(templateVisualId, templateWorld))
-	{
-		if (outError)
-		{
-			*outError = "template world transform unavailable";
-		}
-		return false;
-	}
-
-	osg::Matrixd worldForAligned;
-	if (!computeWorldMatrixForAlignedUpdatedShape(
-			osg, templateVisualId, templateBrep, templateWorld, templateToScanInModelFrame, worldForAligned))
-	{
-		if (outError)
-		{
-			*outError = "failed to derive aligned-shape world matrix";
-		}
-		return false;
-	}
-
-	(void)writeBackendPoseFromWorldMatrix(osg, templateVisualId, updatedBrep, worldForAligned);
-	osg->setBackendRootWorldMatrixFromWorld(updatedBrepBackendIdUtf8, worldForAligned);
+	updatedBrep.setWorldMatrix(templateBrep.worldMatrix());
+	(void)osg->syncOuterPatFromBackend(updatedBrep);
 	osg->setBackendObjectVisible(updatedBrepBackendIdUtf8, true);
-
 	return true;
 }
 
 bool applyTemplateRegistrationToVisual(
 	cloudsim::host::DocumentHost* page,
 	const std::string& templateBackendIdUtf8,
-	const geoalgo::ShapeHandle& alignedTemplateShape,
-	const Eigen::Isometry3d& templateToScanInModelFrame,
+	const Eigen::Isometry3d& icpDeltaWorld,
 	std::string* outError)
 {
-	if (alignedTemplateShape.isNull())
-	{
-		if (outError)
-		{
-			*outError = "aligned template shape is null";
-		}
-		return false;
-	}
 	if (!page)
 	{
 		if (outError)
@@ -1078,84 +851,28 @@ bool applyTemplateRegistrationToVisual(
 	}
 
 	const bool hasIcpTransform =
-		!templateToScanInModelFrame.matrix().isApprox(Eigen::Isometry3d::Identity().matrix());
-
-	osg::Matrixd worldBefore;
-	if (!osg->getBackendRootWorldMatrix(visualId, worldBefore))
-	{
-		if (outError)
-		{
-			*outError = "template world transform unavailable";
-		}
-		return false;
-	}
-
-	osg::Matrixd icpOsg;
-	icpOsg.makeIdentity();
+		!icpDeltaWorld.matrix().isApprox(Eigen::Isometry3d::Identity().matrix());
+	const BackendMat4 worldBefore = displayBrep->worldMatrix();
 	if (hasIcpTransform)
 	{
-		const engine::RigidTransform icpRt =
-			engine::RigidTransform::fromIsometry(templateToScanInModelFrame);
-		icpOsg = engine::osgMatrixFromRigidTransform(icpRt);
-	}
-	const osg::Matrixd worldAfter = hasIcpTransform ? icpOsg * worldBefore : worldBefore;
-
-	geoalgo::ShapeHandle originalStepShape;
-	const bool useOriginalPose =
-		tryLoadOriginalStepShape(page, templateBackendIdUtf8, originalStepShape);
-
-	if (useOriginalPose)
-	{
-		brep->setShape(originalStepShape.clone());
-		if (displayBrep != brep)
-		{
-			displayBrep->setShape(originalStepShape.clone());
-		}
-	}
-	else
-	{
-		RunLogger::info(
-			"[TemplateBrepUpdate] applyVisual fallback=bakedAligned (STEP reload unavailable)");
-		brep->setShape(alignedTemplateShape.clone());
-		if (displayBrep != brep)
-		{
-			displayBrep->setShape(alignedTemplateShape.clone());
-		}
-	}
-
-	geoalgo::clearBrepImportArtifactsCache();
-
-	QString sceneErr;
-	if (!osg->loadBackendFromBackendData(*displayBrep, &sceneErr, false, false, true))
-	{
-		if (outError)
-		{
-			*outError = sceneErr.isEmpty() ? "OSG B-rep display failed" : sceneErr.toStdString();
-		}
-		return false;
-	}
-
-	if (useOriginalPose)
-	{
-		osg->setBackendRootWorldMatrixFromWorld(visualId, worldAfter);
-		(void)writeBackendPoseFromWorldMatrix(osg, visualId, *displayBrep, worldAfter);
+		const engine::RigidTransform deltaRt = engine::RigidTransform::fromIsometry(icpDeltaWorld);
+		const engine::RigidTransform curRt = rigidFromBackendWorldMat(displayBrep->worldMatrix());
+		const BackendMat4 worldAfter =
+			backendMat4FromColMajorRigid(deltaRt.composeColumn(curRt));
+		displayBrep->setWorldMatrix(worldAfter);
 		if (brep != displayBrep)
 		{
-			(void)writeBackendPoseFromWorldMatrix(osg, visualId, *brep, worldAfter);
+			brep->setWorldMatrix(worldAfter);
 		}
-		const osg::Matrixd poseRebuild =
-			backend_pose_osg::worldMatrixFromBackendPoseEuler(displayBrep->pose(), displayBrep->rotation());
-		const double poseRoundTripMm = (poseRebuild.getTrans() - worldAfter.getTrans()).length();
-		RunLogger::info(
-			std::string("[TemplateBrepUpdate] assembly STEP: original geometry + ICP pose poseRoundTripMm=")
-			+ std::to_string(poseRoundTripMm));
-	}
-	else
-	{
-		osg->setBackendRootWorldMatrixFromWorld(visualId, worldBefore);
 	}
 
+	(void)osg->syncOuterPatFromBackend(*displayBrep);
+	if (brep != displayBrep)
+	{
+		(void)osg->syncOuterPatFromBackend(*brep);
+	}
 	osg->setBackendObjectVisible(visualId, true);
+	RunLogger::info("[TemplateBrepUpdate] applyVisual worldMatrix ICP increment (geometry unchanged)");
 	return true;
 }
 

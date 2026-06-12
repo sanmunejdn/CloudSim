@@ -3,12 +3,40 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 
+#include <Adapters.h>
+
+namespace
+{
+
+engine::RigidTransform rigidFromBackendMat4(const BackendMat4& m)
+{
+	engine::ColMajorMat4 cm{};
+	for (int i = 0; i < 16; ++i)
+	{
+		cm[static_cast<size_t>(i)] = m.v[i];
+	}
+	return engine::rigidTransformFromColMajor(cm);
+}
+
+BackendMat4 backendMat4FromRigid(const engine::RigidTransform& rt)
+{
+	const engine::ColMajorMat4 cm = engine::colMajorFromRigidTransform(rt);
+	BackendMat4 out{};
+	for (int i = 0; i < 16; ++i)
+	{
+		out.v[i] = cm[static_cast<size_t>(i)];
+	}
+	return out;
+}
+
+} // namespace
+
 BackendVec3 backend_mat4_transform_point(const BackendMat4& m, const BackendVec3& p)
 {
-	return BackendVec3{
-		m.v[0] * p.x + m.v[4] * p.y + m.v[8] * p.z + m.v[12],
-		m.v[1] * p.x + m.v[5] * p.y + m.v[9] * p.z + m.v[13],
-		m.v[2] * p.x + m.v[6] * p.y + m.v[10] * p.z + m.v[14]};
+	const engine::RigidTransform rt = rigidFromBackendMat4(m);
+	const Eigen::Vector3d out =
+		rt.isometry() * Eigen::Vector3d(p.x, p.y, p.z);
+	return BackendVec3{out.x(), out.y(), out.z()};
 }
 
 BackendMat4 objectWorldMatrix(const BackendDataBase& obj, const BackendDataManager* mgr)
@@ -24,10 +52,8 @@ BackendVec3 transformPointToWorld(const BackendDataBase& obj, const BackendVec3&
 
 BackendVec3 transformPointToStored(const BackendDataBase& obj, const BackendVec3& vWorld, const BackendDataManager* mgr)
 {
-	BackendMat4 inv{};
-	if (!backend_mat4_invert_rigid(objectWorldMatrix(obj, mgr), inv))
-	{
-		return vWorld;
-	}
-	return backend_mat4_transform_point(inv, vWorld);
+	const engine::RigidTransform inv = rigidFromBackendMat4(objectWorldMatrix(obj, mgr)).inverse();
+	const Eigen::Vector3d out =
+		inv.isometry() * Eigen::Vector3d(vWorld.x, vWorld.y, vWorld.z);
+	return BackendVec3{out.x(), out.y(), out.z()};
 }

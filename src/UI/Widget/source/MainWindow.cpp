@@ -273,6 +273,7 @@ bool robotSelectionUsesGizmoAnchor(const DocumentPage* doc, const QString& selec
 {
 	return doc && !selectionId.isEmpty() && doc->robotGizmoAnchorBackendId(selectionId) != selectionId;
 }
+
 } // namespace
 
 void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
@@ -446,23 +447,32 @@ void MainWindow::refreshFollowSolveAndPropertyPanelFromOsgWrite(const QString& b
 	}
 	doc->data().markFollowDirtyFromMove(backendId);
 	cloudsim::core::IRenderView* rv = &doc->render();
-	if (!rv->isTransformGizmoDragging())
+	const bool dragging = rv->isTransformGizmoDragging();
+	if (!dragging)
 	{
 		cloudsim::core::FollowSolveContextDto ctx;
 		ctx.skipAll = rv->isTcpDragTeachActive()
 			|| (m_robotSimulation && m_robotSimulation->programExecutor().isRunning());
 		(void)doc->data().runFollowSolveAndSync(ctx, nullptr);
 	}
-	if (!rv->isTransformGizmoDragging())
+	if (dragging || shouldDeferPropertyPanelRebuild(backendId))
 	{
-		if (shouldDeferPropertyPanelRebuild(backendId))
-		{
-			syncPropertyPanelRowValues(backendId);
-		}
-		else
+		if (dragging && m_propertyKeyToVariant.isEmpty())
 		{
 			updatePropertyPanel(backendId);
 		}
+		else if (dragging)
+		{
+			syncPropertyPanelGizmoLiveValues(backendId);
+		}
+		else
+		{
+			syncPropertyPanelRowValues(backendId);
+		}
+	}
+	else
+	{
+		updatePropertyPanel(backendId);
 	}
 }
 

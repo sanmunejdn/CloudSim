@@ -67,26 +67,6 @@ void PointCloudBackendData::clearGeometry()
 	m_normals.clear();
 }
 
-void PointCloudBackendData::setPose(const BackendVec3& position)
-{
-	m_position = position;
-}
-
-BackendVec3 PointCloudBackendData::pose() const
-{
-	return m_position;
-}
-
-void PointCloudBackendData::setRotation(const BackendVec3& eulerDeg)
-{
-	m_rotation = eulerDeg;
-}
-
-BackendVec3 PointCloudBackendData::rotation() const
-{
-	return m_rotation;
-}
-
 void PointCloudBackendData::setColor(const BackendColor& color)
 {
 	m_color = color;

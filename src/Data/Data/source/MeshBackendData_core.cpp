@@ -49,26 +49,6 @@ void MeshBackendData::clearGeometry()
 	m_bounds = BackendBoundingBox{};
 }
 
-void MeshBackendData::setPose(const BackendVec3& position)
-{
-	m_position = position;
-}
-
-BackendVec3 MeshBackendData::pose() const
-{
-	return m_position;
-}
-
-void MeshBackendData::setRotation(const BackendVec3& eulerDeg)
-{
-	m_rotation = eulerDeg;
-}
-
-BackendVec3 MeshBackendData::rotation() const
-{
-	return m_rotation;
-}
-
 void MeshBackendData::setColor(const BackendColor& color)
 {
 	m_color = color;

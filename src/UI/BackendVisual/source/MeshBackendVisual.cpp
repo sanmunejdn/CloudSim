@@ -202,7 +202,7 @@ bool MeshBackendVisual::buildOuterBranch(const BackendDataBase& data, const Mesh
 	inner->setPosition(osg::Vec3f(0.0f, 0.0f, 0.0f));
 	inner->addChild(meshRoot.get());
 	osg::ref_ptr<osg::MatrixTransform> outer = new osg::MatrixTransform;
-	outer->setMatrix(backend_pose_osg::worldMatrixFromBackendPoseEuler(mesh->pose(), mesh->rotation()));
+	outer->setMatrix(backend_pose_osg::osgMatrixFromBackendWorldMatrix(data.worldMatrix()));
 	outer->addChild(inner.get());
 	osg::StateSet* oss = outer->getOrCreateStateSet();
 	if (meshOptions.useSceneLighting)
