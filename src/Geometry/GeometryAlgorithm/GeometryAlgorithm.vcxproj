@@ -195,6 +195,7 @@
     <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionUtils.cpp" />
     <ClCompile Include="source\MeshSurfaceReconstruction\PatchParameterize.cpp" />
     <ClCompile Include="source\MeshSurfaceReconstruction\InitialBsplinePatch.cpp" />
+    <ClCompile Include="source\MeshSurfaceReconstruction\NurbsSurfaceFitting.cpp" />
     <ClCompile Include="source\MeshSurfaceReconstruction\BoundaryBlend.cpp" />
     <ClCompile Include="source\MeshSurfaceReconstruction\JunctionBlend.cpp" />
     <ClCompile Include="source\MeshSurfaceReconstruction\BsplineSurfaceFairing.cpp" />

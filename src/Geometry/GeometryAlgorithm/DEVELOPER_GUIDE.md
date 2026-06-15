@@ -173,18 +173,31 @@ Widget JobSystem（可选）
 
 ### 3.4 网格曲面重构（`MeshSurfaceReconstruction.h`）
 
-三角 soup（mm）→ 分块 B 样条（或平面回退）→ C² 混合 → 局部光顺 → `ShapeHandle`。预处理（Vcg 修复 + 法矢光顺）在 **Data** 层 `reconstructBrepFromMeshSoup` 调用前完成。
+三角 soup（mm）→ 分块 B 样条（或平面回退）→ C² 混合 → 局部光顺 → `ShapeHandle`。预处理（Vcg 修复 → 各向同性重网格 → 法矢光顺）在 **Data** 层完成，可单独调用 `preprocessMeshSoupForSurfaceReconstruct`。
 
-| 阶段 | 源文件 | 说明 |
-|------|--------|------|
-| Ch2 法矢光顺 | `VcgAlgorithms/MeshNormalSmooth.*` | Kuwahara + 法矢拉普拉斯 |
-| Ch3.2 分块/参数化/初始片 | `MeshSurfaceReconstruction/*` | 法向分块、UV 分箱采样、`GeomAPI_PointsToBSplineSurface` + 平面回退 |
-| Ch3.3 边界/交汇 C² | `BoundaryBlend.cpp` / `JunctionBlend.cpp` | Bezier 权混合（首版简化） |
-| Ch4 光顺 | `BsplineSurfaceFairing.cpp` | Hahmann 式局部指标（首版简化） |
-| 装配 | `MeshSurfaceReconstructionAssemble.cpp` | `TopoDS_Compound`（开放曲面不 Sewing） |
+| `MeshSurfaceReconstructStage` | 源文件 | 说明 |
+|-------------------------------|--------|------|
+| Preprocess（Data 层） | `VcgAlgorithms/MeshRepair.*` + `MeshRemesh.*` + `MeshNormalSmooth.*` | 修复 → 均匀化（边长中位数/手动）→ Kuwahara + 法矢拉普拉斯 |
+| Partition / Sample / Fit | `MeshSurfaceReconstruction/*` | O(F) 邻接建图 + 特征棱检测 + FPS 种子 + 质量感知合并；**AMRTO 调和 UV 栅格采样**（`amrto-harmonic` / harmonic / PCA 回退）+ **`NurbsSurfaceFitting` centripetal 最小二乘** + 平面回退；分 patch `fitRejectReason` 聚合 |
+| BoundaryBlend / JunctionBlend | `BoundaryBlend.cpp` / `JunctionBlend.cpp` | Bezier 权混合（首版简化） |
+| Fair | `BsplineSurfaceFairing.cpp` | Hahmann 式局部指标（首版简化） |
+| Assemble | `MeshSurfaceReconstructionAssemble.cpp` | `TopoDS_Compound`（开放曲面不 Sewing） |
 | 输出校验 | `MeshSurfaceReconstructionValidate.cpp` | 三角化非空、单面 ≤8000 三角、包围盒比例 ≤3 |
 
-入口：`geoalgo::reconstructBrepFromMeshSoup(soup, params, outShape, report, errMsg)`。自检：`SelfTest.cpp` 中 `meshSurfaceReconstruct`（盒体 soup）。
+**会话式分阶段**（1.13.0+）：`createMeshSurfaceReconstructSession(soup)` → `runMeshSurfaceReconstructStage(session, stage, …)` 按序执行；`reconstructBrepFromMeshSoup` 内部复用同一会话流水线。
+
+入口：`geoalgo::reconstructBrepFromMeshSoup`（全流程）或 `runMeshSurfaceReconstructStage`（单步）。自检：`SelfTest.cpp` 中 `meshSurfaceReconstruct`（盒体 soup）。
+
+**栅格采样**（`PatchParameterize.cpp`）：
+
+| 函数 / 组件 | 说明 |
+|-------------|------|
+| `buildPatchPcaFrame` | 顶点 + 面心扩展 PCA 切平面框 |
+| `sampleUniformPhysicalGrid` | 默认：物理等距栅格 + `PatchClosestAccel` 曲面投影 |
+| `solveHarmonicUv` / `sampleHarmonicFaceCentroidGrid` | 小 patch 可选调和 UV（≤3000 面，80 轮迭代） |
+| `sampleCentroidAnchoredPcaGrid` | 质量门禁失败时的面心锚定回退 |
+| `passesSampleQuality` | `diagRatio ≥ 0.75` 且 `unique ≥ 0.65` |
+| `buildSamplePointsCloud` | 合并各 patch 采样点为场景点云 |
 
 详见 [`docs/mesh_surface_reconstruction.md`](../../docs/mesh_surface_reconstruction.md)。
 

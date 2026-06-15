@@ -90,7 +90,7 @@ double bboxDiagonal(const Bbox3& bb)
 
 } // namespace
 
-bool validateTessellationSanity(const ShapeHandle& shape, std::string* errMsg)
+bool validateTessellationSanity(const ShapeHandle& shape, const MeshSurfaceReconstructParams& params, std::string* errMsg)
 {
 	TopoDS_Shape native;
 	if (!ShapeHandleAccess::nativeShape(shape, &native))
@@ -112,14 +112,24 @@ bool validateTessellationSanity(const ShapeHandle& shape, std::string* errMsg)
 	}
 
 	TessellateParams disc;
-	disc.linearDeflectionMm = 0.01;
-	disc.angularDeflectionDeg = 0.5;
+	// 自适应离散精度：大尺寸形状用更粗的偏差，避免产生过多三角形
+	const ShapeHandle::BoundsMm bb = shape.boundingBoxMm();
+	const double diag = bb.valid
+		? std::sqrt((bb.maxX - bb.minX) * (bb.maxX - bb.minX)
+			+ (bb.maxY - bb.minY) * (bb.maxY - bb.minY)
+			+ (bb.maxZ - bb.minZ) * (bb.maxZ - bb.minZ))
+		: 100.0;
+	const double adaptiveDeflection = std::max(0.1, diag * 0.003);
+	disc.linearDeflectionMm = std::max(adaptiveDeflection, params.tessellateLinearDeflectionMm);
+	disc.angularDeflectionDeg = 5.0;
 	disc.linearDeflectionRelative = false;
 	TopoDS_Shape meshed = native;
 	(void)meshShapeIncremental(meshed, disc, nullptr);
 
 	constexpr int kMaxTrisPerFace = 8000;
 	int nonemptyFaces = 0;
+	int maxTriCount = 0;
+	int maxTriFaceIdx = -1;
 	for (int faceIdx = 0; faceIdx < faceCount; ++faceIdx)
 	{
 		TopoDS_Face face;
@@ -134,6 +144,11 @@ bool validateTessellationSanity(const ShapeHandle& shape, std::string* errMsg)
 		if (triCount > 0)
 		{
 			++nonemptyFaces;
+		}
+		if (triCount > maxTriCount)
+		{
+			maxTriCount = triCount;
+			maxTriFaceIdx = faceIdx;
 		}
 		if (triCount > kMaxTrisPerFace)
 		{

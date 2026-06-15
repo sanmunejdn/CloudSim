@@ -224,6 +224,11 @@ bool runSelfTest(std::vector<std::string>& failures)
 	// 测试6：各向同性重网格
 	{
 		const auto soup = makeSphereSoup();
+		double medianLen = 0.0;
+		if (!computeMedianEdgeLengthMm(soup, medianLen) || medianLen <= 0.0)
+		{
+			failures.push_back("Test6a: computeMedianEdgeLengthMm failed");
+		}
 		std::vector<float> remeshed;
 		if (!isotropicRemesh(soup, 2.0, remeshed, 2))
 		{

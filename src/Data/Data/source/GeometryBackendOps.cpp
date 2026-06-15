@@ -24,6 +24,7 @@
 #if defined(_WIN64)
 #include <MeshNormalSmooth.h>
 #include <MeshRepair.h>
+#include <MeshRemesh.h>
 #endif
 #include <ShapeIo.h>
 #include <ShapeQuery.h>
@@ -4639,15 +4640,68 @@ bool updateBrepFromCadTemplate(
 		templateStepPathUtf8);
 }
 
-bool reconstructBrepFromMeshSoup(
+namespace
+{
+
+double soupBBoxDiagonalMm(const std::vector<float>& soup)
+{
+	if (soup.size() < 9U)
+	{
+		return 0.0;
+	}
+	double xmin = soup[0];
+	double ymin = soup[1];
+	double zmin = soup[2];
+	double xmax = xmin;
+	double ymax = ymin;
+	double zmax = zmin;
+	for (std::size_t i = 0U; i + 2U < soup.size(); i += 3U)
+	{
+		xmin = std::min(xmin, static_cast<double>(soup[i]));
+		ymin = std::min(ymin, static_cast<double>(soup[i + 1U]));
+		zmin = std::min(zmin, static_cast<double>(soup[i + 2U]));
+		xmax = std::max(xmax, static_cast<double>(soup[i]));
+		ymax = std::max(ymax, static_cast<double>(soup[i + 1U]));
+		zmax = std::max(zmax, static_cast<double>(soup[i + 2U]));
+	}
+	const double dx = xmax - xmin;
+	const double dy = ymax - ymin;
+	const double dz = zmax - zmin;
+	return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+double resolveRemeshFeatureAngleDeg(const geoalgo::MeshSurfaceReconstructParams& params)
+{
+	if (params.remeshFeatureAngleDeg > 0.0)
+	{
+		return params.remeshFeatureAngleDeg;
+	}
+	if (params.featureThresholdC0 > 0.0)
+	{
+		return params.featureThresholdC0 * 180.0 / 3.141592653589793;
+	}
+	return 30.0;
+}
+
+double clampRemeshTargetEdgeLengthMm(const double targetLen, const std::vector<float>& soup)
+{
+	constexpr double kMinEdgeMm = 0.05;
+	const double bboxDiag = soupBBoxDiagonalMm(soup);
+	const double maxEdge = bboxDiag > 1e-6 ? bboxDiag / 50.0 : 1000.0;
+	return std::max(kMinEdgeMm, std::min(targetLen, std::max(kMinEdgeMm, maxEdge)));
+}
+
+} // namespace
+
+bool preprocessMeshSoupForSurfaceReconstruct(
 	const std::vector<float>& soup,
 	const geoalgo::MeshSurfaceReconstructParams& params,
-	std::shared_ptr<BrepBackendData>& outBrep,
+	std::vector<float>& outSoup,
 	geoalgo::MeshSurfaceReconstructReport& report,
 	std::string* errMsg)
 {
-	report = {};
-	outBrep.reset();
+	outSoup.clear();
+	report.inputTriangleCount = static_cast<int>(soup.size() / 9U);
 	if (soup.size() < 9U)
 	{
 		if (errMsg)
@@ -4668,6 +4722,35 @@ bool reconstructBrepFromMeshSoup(
 			return false;
 		}
 		working = std::move(repaired);
+	}
+	report.repairedTriangleCount = static_cast<int>(working.size() / 9U);
+
+	if (params.runIsotropicRemesh)
+	{
+		double targetLen = params.remeshTargetEdgeLengthMm;
+		if (targetLen <= 0.0)
+		{
+			if (!vcgalgo::computeMedianEdgeLengthMm(working, targetLen, errMsg))
+			{
+				return false;
+			}
+		}
+		targetLen = clampRemeshTargetEdgeLengthMm(targetLen, working);
+		const double featureAngleDeg = resolveRemeshFeatureAngleDeg(params);
+		std::vector<float> remeshed;
+		if (!vcgalgo::isotropicRemesh(
+				working,
+				targetLen,
+				remeshed,
+				params.remeshIterations,
+				featureAngleDeg,
+				errMsg))
+		{
+			return false;
+		}
+		working = std::move(remeshed);
+		report.remeshedTriangleCount = static_cast<int>(working.size() / 9U);
+		report.remeshTargetEdgeLengthUsedMm = targetLen;
 	}
 
 	if (params.normalSmoothIterations > 0)
@@ -4691,6 +4774,115 @@ bool reconstructBrepFromMeshSoup(
 	return false;
 #endif
 
+	outSoup = std::move(working);
+	if (report.repairedTriangleCount <= 0)
+	{
+		report.repairedTriangleCount = static_cast<int>(outSoup.size() / 9U);
+	}
+	return true;
+}
+
+geoalgo::MeshSurfaceReconstructSessionPtr createMeshSurfaceReconstructSession(std::vector<float> preprocessedSoup)
+{
+	return geoalgo::createMeshSurfaceReconstructSession(std::move(preprocessedSoup));
+}
+
+bool runMeshSurfaceReconstructStage(
+	geoalgo::MeshSurfaceReconstructSession& session,
+	const geoalgo::MeshSurfaceReconstructStage stage,
+	const geoalgo::MeshSurfaceReconstructParams& params,
+	geoalgo::ShapeHandle* outShape,
+	geoalgo::MeshSurfaceReconstructReport& report,
+	std::string* errMsg)
+{
+	if (!geoalgo::runMeshSurfaceReconstructStage(session, stage, params, outShape, errMsg))
+	{
+		return false;
+	}
+	report = session.report();
+	return true;
+}
+
+bool buildPartitionColoredMeshSoup(
+	const geoalgo::MeshSurfaceReconstructSession& session,
+	std::vector<float>& outSoup,
+	std::vector<float>& outRgbPerVertex,
+	std::string* errMsg)
+{
+	return geoalgo::buildPartitionColoredMeshSoup(session, outSoup, outRgbPerVertex, errMsg);
+}
+
+bool buildSamplePointsCloud(
+	const geoalgo::MeshSurfaceReconstructSession& session,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg)
+{
+	return geoalgo::buildSamplePointsCloud(session, outXyz, outRgba, errMsg);
+}
+
+bool buildFitPreviewShape(
+	const geoalgo::MeshSurfaceReconstructSession& session,
+	geoalgo::ShapeHandle& outShape,
+	std::string* errMsg)
+{
+	return geoalgo::buildFitPreviewShape(session, outShape, errMsg);
+}
+
+bool meshSurfaceReconstructShapeToBrep(
+	const geoalgo::ShapeHandle& shape,
+	std::shared_ptr<BrepBackendData>& outBrep,
+	std::string* errMsg)
+{
+	outBrep.reset();
+	if (shape.isNull())
+	{
+		if (errMsg)
+		{
+			*errMsg = "reconstruction produced null shape";
+		}
+		return false;
+	}
+	try
+	{
+		outBrep = std::make_shared<BrepBackendData>();
+		outBrep->setShape(shape);
+		return true;
+	}
+	catch (const std::exception& ex)
+	{
+		if (errMsg)
+		{
+			*errMsg = ex.what();
+		}
+		return false;
+	}
+	catch (...)
+	{
+		if (errMsg)
+		{
+			*errMsg = "mesh surface reconstruction internal error";
+		}
+		return false;
+	}
+}
+
+bool reconstructBrepFromMeshSoup(
+	const std::vector<float>& soup,
+	const geoalgo::MeshSurfaceReconstructParams& params,
+	std::shared_ptr<BrepBackendData>& outBrep,
+	geoalgo::MeshSurfaceReconstructReport& report,
+	std::string* errMsg)
+{
+	report = {};
+	outBrep.reset();
+
+	std::vector<float> working;
+	if (!preprocessMeshSoupForSurfaceReconstruct(soup, params, working, report, errMsg))
+	{
+		return false;
+	}
+
 	try
 	{
 		geoalgo::ShapeHandle shape;
@@ -4698,18 +4890,7 @@ bool reconstructBrepFromMeshSoup(
 		{
 			return false;
 		}
-		if (shape.isNull())
-		{
-			if (errMsg)
-			{
-				*errMsg = "reconstruction produced null shape";
-			}
-			return false;
-		}
-
-		outBrep = std::make_shared<BrepBackendData>();
-		outBrep->setShape(shape);
-		return true;
+		return meshSurfaceReconstructShapeToBrep(shape, outBrep, errMsg);
 	}
 	catch (const std::exception& ex)
 	{

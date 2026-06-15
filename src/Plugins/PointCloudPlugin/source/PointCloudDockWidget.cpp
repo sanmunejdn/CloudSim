@@ -7,10 +7,12 @@
 #include "PluginGeometryTypes.h"
 #include "PluginPointCloudTypes.h"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QGroupBox>
+#include <QTextEdit>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
@@ -18,6 +20,7 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QSignalBlocker>
 #include <QShowEvent>
 #include <QSpinBox>
 #include <QSizePolicy>
@@ -403,6 +406,10 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_surfaceReconGroup = new QGroupBox(m_scrollContent);
 	auto* surfaceReconLayout = new QVBoxLayout(m_surfaceReconGroup);
 
+	m_surfaceReconPreprocessSectionLabel = new QLabel(m_surfaceReconGroup);
+	m_surfaceReconPreprocessSectionLabel->setStyleSheet(QStringLiteral("font-weight: bold; margin-top: 2px;"));
+	surfaceReconLayout->addWidget(m_surfaceReconPreprocessSectionLabel);
+
 	auto* normalSmoothRow = new QHBoxLayout;
 	m_normalSmoothIterLabel = new QLabel(m_surfaceReconGroup);
 	m_normalSmoothIterSpin = new QSpinBox(m_surfaceReconGroup);
@@ -413,27 +420,170 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_featureThresholdSpin->setRange(0.1, 2.0);
 	m_featureThresholdSpin->setDecimals(2);
 	m_featureThresholdSpin->setValue(0.8);
+	m_featureThresholdSpin->setToolTip(
+		QStringLiteral("预处理重网格特征边与分块特征棱共用；越小切分越多"));
 	normalSmoothRow->addWidget(m_normalSmoothIterLabel);
 	normalSmoothRow->addWidget(m_normalSmoothIterSpin);
 	normalSmoothRow->addWidget(m_featureThresholdLabel);
 	normalSmoothRow->addWidget(m_featureThresholdSpin);
 	surfaceReconLayout->addLayout(normalSmoothRow);
 
-	auto* patchSampleRow = new QHBoxLayout;
+	m_runVcgRepairCheck = new QCheckBox(m_surfaceReconGroup);
+	m_runVcgRepairCheck->setChecked(true);
+	surfaceReconLayout->addWidget(m_runVcgRepairCheck);
+
+	m_runIsotropicRemeshCheck = new QCheckBox(m_surfaceReconGroup);
+	m_runIsotropicRemeshCheck->setChecked(true);
+	surfaceReconLayout->addWidget(m_runIsotropicRemeshCheck);
+
+	auto* remeshRow = new QHBoxLayout;
+	m_remeshTargetEdgeLabel = new QLabel(m_surfaceReconGroup);
+	m_remeshTargetEdgeSpin = new QDoubleSpinBox(m_surfaceReconGroup);
+	m_remeshTargetEdgeSpin->setRange(0.0, 1000.0);
+	m_remeshTargetEdgeSpin->setDecimals(3);
+	m_remeshTargetEdgeSpin->setValue(0.0);
+	m_remeshTargetEdgeSpin->setSpecialValueText(QStringLiteral("Auto"));
+	m_remeshTargetEdgeSpin->setToolTip(
+		QStringLiteral("0 = use median edge length after repair"));
+	m_remeshIterLabel = new QLabel(m_surfaceReconGroup);
+	m_remeshIterSpin = new QSpinBox(m_surfaceReconGroup);
+	m_remeshIterSpin->setRange(1, 20);
+	m_remeshIterSpin->setValue(3);
+	remeshRow->addWidget(m_remeshTargetEdgeLabel);
+	remeshRow->addWidget(m_remeshTargetEdgeSpin);
+	remeshRow->addWidget(m_remeshIterLabel);
+	remeshRow->addWidget(m_remeshIterSpin);
+	surfaceReconLayout->addLayout(remeshRow);
+
+	m_exportPreprocessedMeshCheck = new QCheckBox(m_surfaceReconGroup);
+	m_exportPreprocessedMeshCheck->setChecked(true);
+	surfaceReconLayout->addWidget(m_exportPreprocessedMeshCheck);
+
+	m_surfaceReconPartitionSectionLabel = new QLabel(m_surfaceReconGroup);
+	m_surfaceReconPartitionSectionLabel->setStyleSheet(QStringLiteral("font-weight: bold; margin-top: 6px;"));
+	surfaceReconLayout->addWidget(m_surfaceReconPartitionSectionLabel);
+
+	auto* partitionRow = new QHBoxLayout;
 	m_patchCountLabel = new QLabel(m_surfaceReconGroup);
 	m_patchCountSpin = new QSpinBox(m_surfaceReconGroup);
-	m_patchCountSpin->setRange(0, 256);
+	m_patchCountSpin->setRange(0, 9999);
 	m_patchCountSpin->setValue(0);
 	m_patchCountSpin->setSpecialValueText(QStringLiteral("Auto"));
+	m_patchCountSpin->setToolTip(QStringLiteral("0=自动 sqrt(面数/80)；增大可让凹坑等区域单独成块"));
+	m_partitionNormalSmoothLabel = new QLabel(m_surfaceReconGroup);
+	m_partitionNormalSmoothSpin = new QSpinBox(m_surfaceReconGroup);
+	m_partitionNormalSmoothSpin->setRange(0, 10);
+	m_partitionNormalSmoothSpin->setValue(2);
+	m_partitionNormalSmoothSpin->setToolTip(
+		QStringLiteral("分块前法向平滑；0=保留锐角，2=默认抑制 confetti"));
+	partitionRow->addWidget(m_patchCountLabel);
+	partitionRow->addWidget(m_patchCountSpin);
+	partitionRow->addWidget(m_partitionNormalSmoothLabel);
+	partitionRow->addWidget(m_partitionNormalSmoothSpin);
+	surfaceReconLayout->addLayout(partitionRow);
+
+	auto* partitionRow2 = new QHBoxLayout;
+	m_featureAnglePercentileLabel = new QLabel(m_surfaceReconGroup);
+	m_featureAnglePercentileSpin = new QDoubleSpinBox(m_surfaceReconGroup);
+	m_featureAnglePercentileSpin->setRange(0.50, 0.99);
+	m_featureAnglePercentileSpin->setDecimals(2);
+	m_featureAnglePercentileSpin->setSingleStep(0.01);
+	m_featureAnglePercentileSpin->setValue(0.88);
+	m_featureAnglePercentileSpin->setToolTip(
+		QStringLiteral("特征棱角度百分位；越低切分越多（如 0.75），越高越合并"));
+	partitionRow2->addWidget(m_featureAnglePercentileLabel);
+	partitionRow2->addWidget(m_featureAnglePercentileSpin);
+	partitionRow2->addStretch();
+	surfaceReconLayout->addLayout(partitionRow2);
+
+	m_surfaceReconSampleSectionLabel = new QLabel(m_surfaceReconGroup);
+	m_surfaceReconSampleSectionLabel->setStyleSheet(QStringLiteral("font-weight: bold; margin-top: 6px;"));
+	surfaceReconLayout->addWidget(m_surfaceReconSampleSectionLabel);
+
+	auto* patchSampleRow = new QHBoxLayout;
 	m_samplesPerEdgeLabel = new QLabel(m_surfaceReconGroup);
 	m_samplesPerEdgeSpin = new QSpinBox(m_surfaceReconGroup);
 	m_samplesPerEdgeSpin->setRange(4, 32);
 	m_samplesPerEdgeSpin->setValue(16);
-	patchSampleRow->addWidget(m_patchCountLabel);
-	patchSampleRow->addWidget(m_patchCountSpin);
 	patchSampleRow->addWidget(m_samplesPerEdgeLabel);
 	patchSampleRow->addWidget(m_samplesPerEdgeSpin);
+	patchSampleRow->addStretch();
 	surfaceReconLayout->addLayout(patchSampleRow);
+
+	auto* uvAdaptiveRow = new QHBoxLayout;
+	m_uvSpacingLabel = new QLabel(m_surfaceReconGroup);
+	m_uvSpacingSpin = new QDoubleSpinBox(m_surfaceReconGroup);
+	m_uvSpacingSpin->setRange(0.0, 500.0);
+	m_uvSpacingSpin->setDecimals(1);
+	m_uvSpacingSpin->setValue(30.0);
+	m_uvSpacingSpin->setSpecialValueText(QStringLiteral("Off"));
+	m_minSamplesLabel = new QLabel(m_surfaceReconGroup);
+	m_minSamplesSpin = new QSpinBox(m_surfaceReconGroup);
+	m_minSamplesSpin->setRange(4, 32);
+	m_minSamplesSpin->setValue(4);
+	m_maxSamplesLabel = new QLabel(m_surfaceReconGroup);
+	m_maxSamplesSpin = new QSpinBox(m_surfaceReconGroup);
+	m_maxSamplesSpin->setRange(0, 9999);
+	m_maxSamplesSpin->setValue(0);
+	m_maxSamplesSpin->setSpecialValueText(i18n(QStringLiteral("No limit"), QStringLiteral("无上限")));
+	uvAdaptiveRow->addWidget(m_uvSpacingLabel);
+	uvAdaptiveRow->addWidget(m_uvSpacingSpin);
+	uvAdaptiveRow->addWidget(m_minSamplesLabel);
+	uvAdaptiveRow->addWidget(m_minSamplesSpin);
+	uvAdaptiveRow->addWidget(m_maxSamplesLabel);
+	uvAdaptiveRow->addWidget(m_maxSamplesSpin);
+	surfaceReconLayout->addLayout(uvAdaptiveRow);
+
+	m_surfaceReconFitSectionLabel = new QLabel(m_surfaceReconGroup);
+	m_surfaceReconFitSectionLabel->setStyleSheet(QStringLiteral("font-weight: bold; margin-top: 6px;"));
+	surfaceReconLayout->addWidget(m_surfaceReconFitSectionLabel);
+
+	auto* fitGridRow = new QHBoxLayout;
+	m_maxFitGridLabel = new QLabel(m_surfaceReconGroup);
+	m_maxFitGridSpin = new QSpinBox(m_surfaceReconGroup);
+	m_maxFitGridSpin->setRange(0, 9999);
+	m_maxFitGridSpin->setValue(9);
+	m_maxFitGridSpin->setSpecialValueText(i18n(QStringLiteral("No limit"), QStringLiteral("无上限")));
+	m_fitUvSpacingLabel = new QLabel(m_surfaceReconGroup);
+	m_fitUvSpacingSpin = new QDoubleSpinBox(m_surfaceReconGroup);
+	m_fitUvSpacingSpin->setRange(0.0, 500.0);
+	m_fitUvSpacingSpin->setDecimals(1);
+	m_fitUvSpacingSpin->setValue(0.0);
+	m_fitUvSpacingSpin->setSpecialValueText(QStringLiteral("Off"));
+	fitGridRow->addWidget(m_maxFitGridLabel);
+	fitGridRow->addWidget(m_maxFitGridSpin);
+	fitGridRow->addWidget(m_fitUvSpacingLabel);
+	fitGridRow->addWidget(m_fitUvSpacingSpin);
+	surfaceReconLayout->addLayout(fitGridRow);
+
+	auto* amrtoRow = new QHBoxLayout();
+	m_sampleRateLabel = new QLabel(m_surfaceReconGroup);
+	m_sampleRateSpin = new QDoubleSpinBox(m_surfaceReconGroup);
+	m_sampleRateSpin->setRange(0.1, 20.0);
+	m_sampleRateSpin->setDecimals(1);
+	m_sampleRateSpin->setValue(2.0);
+	m_ctrlPtDensityLabel = new QLabel(m_surfaceReconGroup);
+	m_ctrlPtDensitySpin = new QDoubleSpinBox(m_surfaceReconGroup);
+	m_ctrlPtDensitySpin->setRange(0.1, 2.0);
+	m_ctrlPtDensitySpin->setDecimals(2);
+	m_ctrlPtDensitySpin->setValue(0.5);
+	m_nurbsFitModeLabel = new QLabel(m_surfaceReconGroup);
+	m_nurbsFitModeCombo = new QComboBox(m_surfaceReconGroup);
+	m_nurbsFitModeCombo->addItem(QStringLiteral("LSQ+ctrlpts"), static_cast<int>(PluginMeshSurfaceNurbsFitMode::ApproxFixedCtrlpts));
+	m_nurbsFitModeCombo->addItem(QStringLiteral("Centripetal"), static_cast<int>(PluginMeshSurfaceNurbsFitMode::ApproxCentripetal));
+	m_nurbsFitModeCombo->addItem(QStringLiteral("Centripetal+ctrlpts"), static_cast<int>(PluginMeshSurfaceNurbsFitMode::ApproxCentripetalFixedCtrlpts));
+	m_nurbsFitModeCombo->addItem(QStringLiteral("Interpolate"), static_cast<int>(PluginMeshSurfaceNurbsFitMode::Interpolate));
+	amrtoRow->addWidget(m_sampleRateLabel);
+	amrtoRow->addWidget(m_sampleRateSpin);
+	amrtoRow->addWidget(m_ctrlPtDensityLabel);
+	amrtoRow->addWidget(m_ctrlPtDensitySpin);
+	amrtoRow->addWidget(m_nurbsFitModeLabel);
+	amrtoRow->addWidget(m_nurbsFitModeCombo);
+	surfaceReconLayout->addLayout(amrtoRow);
+
+	m_surfaceReconBlendSectionLabel = new QLabel(m_surfaceReconGroup);
+	m_surfaceReconBlendSectionLabel->setStyleSheet(QStringLiteral("font-weight: bold; margin-top: 6px;"));
+	surfaceReconLayout->addWidget(m_surfaceReconBlendSectionLabel);
 
 	auto* fairingRow = new QHBoxLayout;
 	m_fairingEpsilonLabel = new QLabel(m_surfaceReconGroup);
@@ -451,8 +601,61 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	fairingRow->addWidget(m_fairingMaxIterSpin);
 	surfaceReconLayout->addLayout(fairingRow);
 
+	auto* blendRow = new QHBoxLayout;
+	m_blendStripWidthLabel = new QLabel(m_surfaceReconGroup);
+	m_blendStripWidthSpin = new QDoubleSpinBox(m_surfaceReconGroup);
+	m_blendStripWidthSpin->setRange(0.0, 10.0);
+	m_blendStripWidthSpin->setDecimals(3);
+	m_blendStripWidthSpin->setValue(0.0);
+	m_blendStripWidthSpin->setSpecialValueText(QStringLiteral("Auto"));
+	blendRow->addWidget(m_blendStripWidthLabel);
+	blendRow->addWidget(m_blendStripWidthSpin);
+	surfaceReconLayout->addLayout(blendRow);
+
+	auto* tessRow = new QHBoxLayout;
+	m_tessellateDeflectionLabel = new QLabel(m_surfaceReconGroup);
+	m_tessellateDeflectionSpin = new QDoubleSpinBox(m_surfaceReconGroup);
+	m_tessellateDeflectionSpin->setRange(0.001, 5.0);
+	m_tessellateDeflectionSpin->setDecimals(3);
+	m_tessellateDeflectionSpin->setValue(0.1);
+	tessRow->addWidget(m_tessellateDeflectionLabel);
+	tessRow->addWidget(m_tessellateDeflectionSpin);
+	surfaceReconLayout->addLayout(tessRow);
+
+	auto* stageRow1 = new QHBoxLayout;
+	m_surfaceReconPreprocessBtn = new QPushButton(m_surfaceReconGroup);
+	m_surfaceReconPartitionBtn = new QPushButton(m_surfaceReconGroup);
+	m_surfaceReconSampleBtn = new QPushButton(m_surfaceReconGroup);
+	m_surfaceReconFitBtn = new QPushButton(m_surfaceReconGroup);
+	stageRow1->addWidget(m_surfaceReconPreprocessBtn);
+	stageRow1->addWidget(m_surfaceReconPartitionBtn);
+	stageRow1->addWidget(m_surfaceReconSampleBtn);
+	stageRow1->addWidget(m_surfaceReconFitBtn);
+	surfaceReconLayout->addLayout(stageRow1);
+
+	auto* stageRow2 = new QHBoxLayout;
+	m_surfaceReconBoundaryBtn = new QPushButton(m_surfaceReconGroup);
+	m_surfaceReconJunctionBtn = new QPushButton(m_surfaceReconGroup);
+	m_surfaceReconFairBtn = new QPushButton(m_surfaceReconGroup);
+	m_surfaceReconAssembleBtn = new QPushButton(m_surfaceReconGroup);
+	stageRow2->addWidget(m_surfaceReconBoundaryBtn);
+	stageRow2->addWidget(m_surfaceReconJunctionBtn);
+	stageRow2->addWidget(m_surfaceReconFairBtn);
+	stageRow2->addWidget(m_surfaceReconAssembleBtn);
+	surfaceReconLayout->addLayout(stageRow2);
+
+	auto* stageRow3 = new QHBoxLayout;
 	m_surfaceReconBtn = new QPushButton(m_surfaceReconGroup);
-	surfaceReconLayout->addWidget(m_surfaceReconBtn);
+	m_surfaceReconResetBtn = new QPushButton(m_surfaceReconGroup);
+	stageRow3->addWidget(m_surfaceReconBtn);
+	stageRow3->addWidget(m_surfaceReconResetBtn);
+	surfaceReconLayout->addLayout(stageRow3);
+
+	m_surfaceReconLog = new QTextEdit(m_surfaceReconGroup);
+	m_surfaceReconLog->setReadOnly(true);
+	m_surfaceReconLog->setMaximumHeight(120);
+	surfaceReconLayout->addWidget(m_surfaceReconLog);
+
 	m_surfaceReconSummaryLabel = new QLabel(m_surfaceReconGroup);
 	m_surfaceReconSummaryLabel->setWordWrap(true);
 	surfaceReconLayout->addWidget(m_surfaceReconSummaryLabel);
@@ -497,7 +700,44 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	connect(m_repairBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onMeshRepairClicked);
 	connect(m_remeshBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onMeshRemeshClicked);
 	connect(m_surfaceReconBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onSurfaceReconstructClicked);
-	connect(m_meshTargetCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
+	connect(m_surfaceReconResetBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onSurfaceReconstructResetSessionClicked);
+	connect(m_surfaceReconPreprocessBtn, &QPushButton::clicked, this, [this]() {
+		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Preprocess);
+	});
+	connect(m_surfaceReconPartitionBtn, &QPushButton::clicked, this, [this]() {
+		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Partition);
+	});
+	connect(m_surfaceReconSampleBtn, &QPushButton::clicked, this, [this]() {
+		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Sample);
+	});
+	connect(m_surfaceReconFitBtn, &QPushButton::clicked, this, [this]() {
+		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Fit);
+	});
+	connect(m_surfaceReconBoundaryBtn, &QPushButton::clicked, this, [this]() {
+		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::BoundaryBlend);
+	});
+	connect(m_surfaceReconJunctionBtn, &QPushButton::clicked, this, [this]() {
+		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::JunctionBlend);
+	});
+	connect(m_surfaceReconFairBtn, &QPushButton::clicked, this, [this]() {
+		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Fair);
+	});
+	connect(m_surfaceReconAssembleBtn, &QPushButton::clicked, this, [this]() {
+		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Assemble);
+	});
+	connect(m_meshTargetCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](const int index) {
+		if (index < 0)
+		{
+			return;
+		}
+		const std::string meshId = selectedMeshTargetId();
+		// 刷新列表时重选同一网格不应清空分阶段会话
+		if (m_surfaceReconSessionId.valid() && !meshId.empty() && meshId == m_surfaceReconMeshBackendId)
+		{
+			refreshMeshInfo();
+			return;
+		}
+		resetSurfaceReconSessionUi();
 		refreshMeshInfo();
 	});
 
@@ -530,20 +770,179 @@ void PointCloudDockWidget::applyLanguage()
 	if (m_surfaceReconGroup)
 	{
 		const bool surfaceReconAvailable = m_host && m_host->hostVersion() >= 0x00010C00U;
+		const bool stagedApi = m_host && m_host->hostVersion() >= 0x00010D00U;
 		m_surfaceReconGroup->setVisible(surfaceReconAvailable);
 		m_surfaceReconGroup->setTitle(i18n(QStringLiteral("Surface reconstruct"), QStringLiteral("曲面重构")));
+		if (m_surfaceReconPreprocessSectionLabel)
+		{
+			m_surfaceReconPreprocessSectionLabel->setText(
+				i18n(QStringLiteral("Preprocess"), QStringLiteral("预处理")));
+		}
+		if (m_surfaceReconPartitionSectionLabel)
+		{
+			m_surfaceReconPartitionSectionLabel->setText(
+				i18n(QStringLiteral("Partition"), QStringLiteral("分块")));
+		}
+		if (m_surfaceReconSampleSectionLabel)
+		{
+			m_surfaceReconSampleSectionLabel->setText(
+				i18n(QStringLiteral("Grid sample"), QStringLiteral("栅格采样")));
+		}
+		if (m_surfaceReconFitSectionLabel)
+		{
+			m_surfaceReconFitSectionLabel->setText(
+				i18n(QStringLiteral("NURBS fit"), QStringLiteral("NURBS 拟合")));
+		}
+		if (m_surfaceReconBlendSectionLabel)
+		{
+			m_surfaceReconBlendSectionLabel->setText(
+				i18n(QStringLiteral("Blend / fair / assemble"), QStringLiteral("混合 / 光顺 / 装配")));
+		}
 		m_normalSmoothIterLabel->setText(
 			i18n(QStringLiteral("Normal smooth iter:"), QStringLiteral("法矢光顺迭代:")));
 		m_featureThresholdLabel->setText(i18n(QStringLiteral("Feature c0:"), QStringLiteral("特征阈值 c0:")));
+		if (m_featureThresholdSpin)
+		{
+			m_featureThresholdSpin->setToolTip(
+				i18n(QStringLiteral("Shared by remesh feature edges and partition; lower = more splits"),
+					QStringLiteral("预处理重网格特征边与分块特征棱共用；越小切分越多")));
+		}
 		m_patchCountLabel->setText(i18n(QStringLiteral("Patches (0=auto):"), QStringLiteral("分块数(0=自动):")));
-		m_samplesPerEdgeLabel->setText(i18n(QStringLiteral("Samples/edge:"), QStringLiteral("每边采样 n:")));
+		if (m_patchCountSpin)
+		{
+			m_patchCountSpin->setToolTip(
+				i18n(QStringLiteral("0=auto sqrt(faces/80); increase to split pits/corners"),
+					QStringLiteral("0=自动 sqrt(面数/80)；增大可让凹坑等区域单独成块")));
+		}
+		if (m_partitionNormalSmoothLabel)
+		{
+			m_partitionNormalSmoothLabel->setText(
+				i18n(QStringLiteral("Part. norm smooth:"), QStringLiteral("分块法向平滑:")));
+		}
+		if (m_partitionNormalSmoothSpin)
+		{
+			m_partitionNormalSmoothSpin->setToolTip(
+				i18n(QStringLiteral("Pre-partition normal smooth; 0=sharp corners, 2=default"),
+					QStringLiteral("分块前法向平滑；0=保留锐角，2=默认抑制 confetti")));
+		}
+		if (m_featureAnglePercentileLabel)
+		{
+			m_featureAnglePercentileLabel->setText(
+				i18n(QStringLiteral("Feature P%:"), QStringLiteral("特征百分位:")));
+		}
+		if (m_featureAnglePercentileSpin)
+		{
+			m_featureAnglePercentileSpin->setToolTip(
+				i18n(QStringLiteral("Dihedral percentile; lower (e.g. 0.75) = more feature edges"),
+					QStringLiteral("特征棱角度百分位；越低切分越多（如 0.75），越高越合并")));
+		}
+		m_samplesPerEdgeLabel->setText(
+			i18n(QStringLiteral("Samples/edge (spacing=0):"), QStringLiteral("每边 n(间距0):")));
+		m_uvSpacingLabel->setText(
+			i18n(QStringLiteral("UV spacing mm (0=fixed):"), QStringLiteral("UV间距mm(0=固定):")));
+		m_minSamplesLabel->setText(i18n(QStringLiteral("Min/edge:"), QStringLiteral("最少/边:")));
+		m_maxSamplesLabel->setText(i18n(QStringLiteral("Max/edge:"), QStringLiteral("最多/边:")));
+		if (m_maxSamplesSpin)
+		{
+			m_maxSamplesSpin->setSpecialValueText(i18n(QStringLiteral("No limit"), QStringLiteral("无上限")));
+		}
+		if (m_maxFitGridLabel)
+		{
+			m_maxFitGridLabel->setText(
+				i18n(QStringLiteral("Fit max/edge (0=none):"), QStringLiteral("拟合最多/边(0=无):")));
+		}
+		if (m_maxFitGridSpin)
+		{
+			m_maxFitGridSpin->setSpecialValueText(i18n(QStringLiteral("No limit"), QStringLiteral("无上限")));
+		}
+		if (m_fitUvSpacingLabel)
+		{
+			m_fitUvSpacingLabel->setText(
+				i18n(QStringLiteral("Fit UV spacing mm (0=off):"), QStringLiteral("拟合UV间距mm(0=关):")));
+		}
+		if (m_sampleRateLabel)
+		{
+			m_sampleRateLabel->setText(
+				i18n(QStringLiteral("Sample rate k:"), QStringLiteral("采样率 k:")));
+		}
+		if (m_ctrlPtDensityLabel)
+		{
+			m_ctrlPtDensityLabel->setText(
+				i18n(QStringLiteral("Ctrl pt density:"), QStringLiteral("控制点密度:")));
+		}
+		if (m_nurbsFitModeLabel)
+		{
+			m_nurbsFitModeLabel->setText(
+				i18n(QStringLiteral("NURBS fit mode:"), QStringLiteral("NURBS 拟合模式:")));
+		}
+		if (m_nurbsFitModeCombo)
+		{
+			const int idx = m_nurbsFitModeCombo->currentIndex();
+			m_nurbsFitModeCombo->setItemText(0, i18n(QStringLiteral("LSQ+ctrlpts"), QStringLiteral("最小二乘+控制点")));
+			m_nurbsFitModeCombo->setItemText(1, i18n(QStringLiteral("Centripetal"), QStringLiteral("Centripetal")));
+			m_nurbsFitModeCombo->setItemText(2, i18n(QStringLiteral("Centripetal+ctrlpts"), QStringLiteral("Centripetal+控制点")));
+			m_nurbsFitModeCombo->setItemText(3, i18n(QStringLiteral("Interpolate"), QStringLiteral("插值")));
+			m_nurbsFitModeCombo->setCurrentIndex(idx);
+		}
 		m_fairingEpsilonLabel->setText(i18n(QStringLiteral("Fairing eps:"), QStringLiteral("光顺 ε:")));
 		m_fairingMaxIterLabel->setText(
 			i18n(QStringLiteral("Fairing max iter:"), QStringLiteral("光顺最大迭代:")));
+		m_runVcgRepairCheck->setText(
+			i18n(QStringLiteral("Vcg repair before partition"), QStringLiteral("分块前 Vcg 修复")));
+		if (m_runIsotropicRemeshCheck)
+		{
+			m_runIsotropicRemeshCheck->setText(
+				i18n(QStringLiteral("Isotropic remesh in preprocess"), QStringLiteral("预处理均匀化重网格")));
+		}
+		if (m_remeshTargetEdgeLabel)
+		{
+			m_remeshTargetEdgeLabel->setText(
+				i18n(QStringLiteral("Remesh edge mm (0=auto):"), QStringLiteral("目标边长mm(0=自动):")));
+		}
+		if (m_remeshIterLabel)
+		{
+			m_remeshIterLabel->setText(
+				i18n(QStringLiteral("Remesh iter:"), QStringLiteral("重网格迭代:")));
+		}
+		if (m_remeshTargetEdgeSpin)
+		{
+			m_remeshTargetEdgeSpin->setSpecialValueText(
+				i18n(QStringLiteral("Auto"), QStringLiteral("自动")));
+			m_remeshTargetEdgeSpin->setToolTip(
+				i18n(QStringLiteral("0 = median edge length after repair"),
+					QStringLiteral("0 = 修复后网格边长中位数")));
+		}
+		m_blendStripWidthLabel->setText(
+			i18n(QStringLiteral("Blend strip width (0=auto):"), QStringLiteral("混合带宽度(0=自动):")));
+		m_tessellateDeflectionLabel->setText(
+			i18n(QStringLiteral("Tessellate deflection (mm):"), QStringLiteral("装配离散精度(mm):")));
+		m_exportPreprocessedMeshCheck->setText(
+			i18n(QStringLiteral("Write preprocessed mesh to scene"), QStringLiteral("预处理后写入场景网格")));
+		m_surfaceReconPreprocessBtn->setText(i18n(QStringLiteral("Preprocess"), QStringLiteral("预处理")));
+		m_surfaceReconPartitionBtn->setText(i18n(QStringLiteral("Partition"), QStringLiteral("分块")));
+		m_surfaceReconSampleBtn->setText(i18n(QStringLiteral("Sample"), QStringLiteral("栅格采样")));
+		m_surfaceReconFitBtn->setText(i18n(QStringLiteral("NURBS fit"), QStringLiteral("NURBS拟合")));
+		m_surfaceReconBoundaryBtn->setText(i18n(QStringLiteral("Boundary blend"), QStringLiteral("边界混合")));
+		m_surfaceReconJunctionBtn->setText(i18n(QStringLiteral("Junction blend"), QStringLiteral("交汇混合")));
+		m_surfaceReconFairBtn->setText(i18n(QStringLiteral("Fair"), QStringLiteral("光顺")));
+		m_surfaceReconAssembleBtn->setText(i18n(QStringLiteral("Assemble"), QStringLiteral("装配输出")));
 		m_surfaceReconBtn->setText(
-			i18n(QStringLiteral("Reconstruct surface"), QStringLiteral("重构曲面")));
+			i18n(QStringLiteral("Full pipeline"), QStringLiteral("全流程")));
+		m_surfaceReconResetBtn->setText(i18n(QStringLiteral("Reset session"), QStringLiteral("重置会话")));
 		m_surfaceReconSummaryLabel->setText(
 			i18n(QStringLiteral("No reconstruction yet"), QStringLiteral("尚未执行曲面重构")));
+		m_surfaceReconPreprocessBtn->setVisible(stagedApi);
+		m_surfaceReconPartitionBtn->setVisible(stagedApi);
+		m_surfaceReconSampleBtn->setVisible(stagedApi);
+		m_surfaceReconFitBtn->setVisible(stagedApi);
+		m_surfaceReconBoundaryBtn->setVisible(stagedApi);
+		m_surfaceReconJunctionBtn->setVisible(stagedApi);
+		m_surfaceReconFairBtn->setVisible(stagedApi);
+		m_surfaceReconAssembleBtn->setVisible(stagedApi);
+		m_surfaceReconResetBtn->setVisible(stagedApi);
+		m_exportPreprocessedMeshCheck->setVisible(stagedApi);
+		m_surfaceReconLog->setVisible(stagedApi);
+		updateSurfaceReconButtonStates();
 	}
 	m_meshTargetLabel->setText(i18n(QStringLiteral("Mesh:"), QStringLiteral("网格对象:")));
 	m_meshInfoLabel->setText(i18n(QStringLiteral("Select a mesh"), QStringLiteral("请选择网格")));
@@ -816,7 +1215,15 @@ void PointCloudDockWidget::refreshMeshExportList(const std::string& preferBacken
 	{
 		return;
 	}
-	const std::string prev = preferBackendId.empty() ? selectedMeshBackendId() : preferBackendId;
+	const std::string prevMeshTargetId =
+		m_meshTargetCombo ? selectedMeshTargetId() : std::string();
+	const std::string prevExportId = preferBackendId.empty() ? selectedMeshBackendId() : preferBackendId;
+	const std::string restoreMeshTargetId =
+		!prevMeshTargetId.empty() ? prevMeshTargetId : prevExportId;
+
+	const QSignalBlocker exportBlocker(m_meshExportCombo);
+	const QSignalBlocker targetBlocker(m_meshTargetCombo);
+
 	m_meshExportCombo->clear();
 	if (m_meshTargetCombo)
 	{
@@ -840,14 +1247,22 @@ void PointCloudDockWidget::refreshMeshExportList(const std::string& preferBacken
 			m_meshTargetCombo->addItem(label, QString::fromStdString(id));
 		}
 	}
-	for (int i = 0; i < m_meshExportCombo->count(); ++i)
-	{
-		if (m_meshExportCombo->itemData(i).toString().toStdString() == prev)
+	auto selectComboById = [](QComboBox* combo, const std::string& backendId) {
+		if (!combo || backendId.empty())
 		{
-			m_meshExportCombo->setCurrentIndex(i);
-			break;
+			return;
 		}
-	}
+		for (int i = 0; i < combo->count(); ++i)
+		{
+			if (combo->itemData(i).toString().toStdString() == backendId)
+			{
+				combo->setCurrentIndex(i);
+				break;
+			}
+		}
+	};
+	selectComboById(m_meshExportCombo, prevExportId);
+	selectComboById(m_meshTargetCombo, restoreMeshTargetId);
 	refreshMeshInfo();
 }
 
@@ -865,6 +1280,7 @@ void PointCloudDockWidget::setBusy(const bool busy)
 			busy ? i18n(QStringLiteral("Running..."), QStringLiteral("运行中…"))
 				 : i18n(QStringLiteral("Ready"), QStringLiteral("就绪")));
 	}
+	updateSurfaceReconButtonStates();
 }
 
 void PointCloudDockWidget::runFinished(const bool ok, const QString& error, const PluginPointCloudJobResult& result)
@@ -1855,15 +2271,7 @@ void PointCloudDockWidget::onSurfaceReconstructClicked()
 		return;
 	}
 	setBusy(true);
-	PluginMeshSurfaceReconstructParams params;
-	params.normalSmoothIterations = m_normalSmoothIterSpin->value();
-	params.featureThresholdC0 = m_featureThresholdSpin->value();
-	params.patchCountHint = m_patchCountSpin->value();
-	params.samplesPerPatchEdge = m_samplesPerEdgeSpin->value();
-	params.fairingEpsilon = m_fairingEpsilonSpin->value();
-	params.fairingMaxIterations = m_fairingMaxIterSpin->value();
-	params.displayName = i18n(QStringLiteral("Reconstructed B-rep"), QStringLiteral("重构曲面"));
-	params.selectInTree = true;
+	const PluginMeshSurfaceReconstructParams params = buildSurfaceReconParams();
 	pch->reconstructSurfaceFromMesh(
 		doc,
 		id,
@@ -1897,4 +2305,283 @@ void PointCloudDockWidget::onSurfaceReconstructClicked()
 				}
 			}
 		});
+}
+
+namespace
+{
+QString surfaceReconStageTitleZh(const PluginMeshSurfaceReconstructStage stage)
+{
+	switch (stage)
+	{
+	case PluginMeshSurfaceReconstructStage::Preprocess:
+		return QStringLiteral("预处理");
+	case PluginMeshSurfaceReconstructStage::Partition:
+		return QStringLiteral("分块");
+	case PluginMeshSurfaceReconstructStage::Sample:
+		return QStringLiteral("栅格采样");
+	case PluginMeshSurfaceReconstructStage::Fit:
+		return QStringLiteral("NURBS拟合");
+	case PluginMeshSurfaceReconstructStage::BoundaryBlend:
+		return QStringLiteral("边界混合");
+	case PluginMeshSurfaceReconstructStage::JunctionBlend:
+		return QStringLiteral("交汇混合");
+	case PluginMeshSurfaceReconstructStage::Fair:
+		return QStringLiteral("光顺");
+	case PluginMeshSurfaceReconstructStage::Assemble:
+		return QStringLiteral("装配输出");
+	default:
+		return QStringLiteral("未知阶段");
+	}
+}
+} // namespace
+
+PluginMeshSurfaceReconstructParams PointCloudDockWidget::buildSurfaceReconParams() const
+{
+	PluginMeshSurfaceReconstructParams params;
+	params.normalSmoothIterations = m_normalSmoothIterSpin->value();
+	params.featureThresholdC0 = m_featureThresholdSpin->value();
+	params.runVcgRepairFirst = m_runVcgRepairCheck->isChecked();
+	if (m_runIsotropicRemeshCheck)
+	{
+		params.runIsotropicRemesh = m_runIsotropicRemeshCheck->isChecked();
+	}
+	if (m_remeshTargetEdgeSpin)
+	{
+		params.remeshTargetEdgeLengthMm = m_remeshTargetEdgeSpin->value();
+	}
+	if (m_remeshIterSpin)
+	{
+		params.remeshIterations = m_remeshIterSpin->value();
+	}
+	params.patchCountHint = m_patchCountSpin->value();
+	if (m_partitionNormalSmoothSpin)
+	{
+		params.partitionNormalSmoothIters = m_partitionNormalSmoothSpin->value();
+	}
+	if (m_featureAnglePercentileSpin)
+	{
+		params.featureAnglePercentile = m_featureAnglePercentileSpin->value();
+	}
+	params.samplesPerPatchEdge = m_samplesPerEdgeSpin->value();
+	params.targetUvSpacingMm = m_uvSpacingSpin->value();
+	params.minSamplesPerEdge = m_minSamplesSpin->value();
+	params.maxSamplesPerEdge = m_maxSamplesSpin->value();
+	params.maxFitGridPerEdge = m_maxFitGridSpin->value();
+	params.fitUvSpacingMm = m_fitUvSpacingSpin->value();
+	if (m_sampleRateSpin)
+	{
+		params.sampleRateFactor = m_sampleRateSpin->value();
+	}
+	if (m_ctrlPtDensitySpin)
+	{
+		params.controlPointDensityFactor = m_ctrlPtDensitySpin->value();
+	}
+	if (m_nurbsFitModeCombo)
+	{
+		params.fitMode = static_cast<PluginMeshSurfaceNurbsFitMode>(m_nurbsFitModeCombo->currentData().toInt());
+	}
+	params.blendStripWidth = m_blendStripWidthSpin->value();
+	params.fairingEpsilon = m_fairingEpsilonSpin->value();
+	params.fairingMaxIterations = m_fairingMaxIterSpin->value();
+	params.tessellateLinearDeflectionMm = m_tessellateDeflectionSpin->value();
+	params.displayName = i18n(QStringLiteral("Reconstructed B-rep"), QStringLiteral("重构曲面"));
+	params.selectInTree = true;
+	if (m_exportPreprocessedMeshCheck)
+	{
+		params.exportPreprocessedMeshToScene = m_exportPreprocessedMeshCheck->isChecked();
+	}
+	return params;
+}
+
+void PointCloudDockWidget::appendSurfaceReconLog(const QString& line)
+{
+	if (!m_surfaceReconLog)
+	{
+		return;
+	}
+	m_surfaceReconLog->append(line);
+}
+
+void PointCloudDockWidget::resetSurfaceReconSessionUi()
+{
+	IPluginPointCloudHost* pch = pointCloudHost();
+	IPluginDocument* doc = activeDoc();
+	if (pch && doc && m_surfaceReconSessionId.valid())
+	{
+		pch->clearMeshSurfaceReconstructSession(doc, m_surfaceReconSessionId);
+	}
+	m_surfaceReconSessionId = {};
+	m_surfaceReconLastStage = PluginMeshSurfaceReconstructStage::None;
+	m_surfaceReconMeshBackendId.clear();
+	if (m_surfaceReconLog)
+	{
+		m_surfaceReconLog->clear();
+	}
+	if (m_surfaceReconSummaryLabel)
+	{
+		m_surfaceReconSummaryLabel->setText(
+			i18n(QStringLiteral("No reconstruction yet"), QStringLiteral("尚未执行曲面重构")));
+	}
+	updateSurfaceReconButtonStates();
+}
+
+void PointCloudDockWidget::updateSurfaceReconButtonStates()
+{
+	if (!m_surfaceReconGroup || !m_host || m_host->hostVersion() < 0x00010D00U)
+	{
+		return;
+	}
+	const bool hasMesh = !selectedMeshTargetId().empty();
+	const bool busy = m_busy;
+	const auto last = m_surfaceReconLastStage;
+
+	auto canRunStage = [&](const PluginMeshSurfaceReconstructStage stage) {
+		if (busy || !hasMesh)
+		{
+			return false;
+		}
+		if (stage == PluginMeshSurfaceReconstructStage::Preprocess)
+		{
+			return last == PluginMeshSurfaceReconstructStage::None;
+		}
+		return static_cast<int>(stage) == static_cast<int>(last) + 1;
+	};
+
+	m_surfaceReconPreprocessBtn->setEnabled(canRunStage(PluginMeshSurfaceReconstructStage::Preprocess));
+	m_surfaceReconPartitionBtn->setEnabled(canRunStage(PluginMeshSurfaceReconstructStage::Partition));
+	m_surfaceReconSampleBtn->setEnabled(canRunStage(PluginMeshSurfaceReconstructStage::Sample));
+	m_surfaceReconFitBtn->setEnabled(canRunStage(PluginMeshSurfaceReconstructStage::Fit));
+	m_surfaceReconBoundaryBtn->setEnabled(canRunStage(PluginMeshSurfaceReconstructStage::BoundaryBlend));
+	m_surfaceReconJunctionBtn->setEnabled(canRunStage(PluginMeshSurfaceReconstructStage::JunctionBlend));
+	m_surfaceReconFairBtn->setEnabled(canRunStage(PluginMeshSurfaceReconstructStage::Fair));
+	m_surfaceReconAssembleBtn->setEnabled(canRunStage(PluginMeshSurfaceReconstructStage::Assemble));
+	m_surfaceReconResetBtn->setEnabled(!busy && m_surfaceReconSessionId.valid());
+	if (m_surfaceReconBtn)
+	{
+		m_surfaceReconBtn->setEnabled(!busy && hasMesh);
+	}
+}
+
+void PointCloudDockWidget::ensureSurfaceReconSession()
+{
+	IPluginPointCloudHost* pch = pointCloudHost();
+	IPluginDocument* doc = activeDoc();
+	const std::string meshId = selectedMeshTargetId();
+	if (!pch || !doc || meshId.empty())
+	{
+		return;
+	}
+	if (m_surfaceReconSessionId.valid() && m_surfaceReconMeshBackendId == meshId)
+	{
+		return;
+	}
+	if (m_surfaceReconSessionId.valid())
+	{
+		pch->clearMeshSurfaceReconstructSession(doc, m_surfaceReconSessionId);
+		m_surfaceReconSessionId = {};
+		m_surfaceReconLastStage = PluginMeshSurfaceReconstructStage::None;
+	}
+	m_surfaceReconSessionId = pch->beginMeshSurfaceReconstructSession(doc, meshId);
+	m_surfaceReconMeshBackendId = meshId;
+	m_surfaceReconLastStage = PluginMeshSurfaceReconstructStage::None;
+}
+
+void PointCloudDockWidget::runSurfaceReconStage(const PluginMeshSurfaceReconstructStage stage)
+{
+	if (!m_host || m_host->hostVersion() < 0x00010D00U)
+	{
+		if (m_host)
+		{
+			m_host->logWarn(i18n(
+				QStringLiteral("Staged surface reconstruct requires host 1.13.0+"),
+				QStringLiteral("分阶段曲面重构需要宿主 1.13.0+")));
+		}
+		return;
+	}
+	IPluginPointCloudHost* pch = pointCloudHost();
+	IPluginDocument* doc = activeDoc();
+	const std::string id = selectedMeshTargetId();
+	if (!pch || !doc || id.empty())
+	{
+		return;
+	}
+	ensureSurfaceReconSession();
+	if (!m_surfaceReconSessionId.valid())
+	{
+		if (m_host)
+		{
+			m_host->logError(i18n(
+				QStringLiteral("Failed to begin surface reconstruct session"),
+				QStringLiteral("无法创建曲面重构会话")));
+		}
+		return;
+	}
+
+	setBusy(true);
+	appendSurfaceReconLog(
+		i18n(QStringLiteral("Running %1..."), QStringLiteral("正在执行 %1…"))
+			.arg(surfaceReconStageTitleZh(stage)));
+
+	const PluginMeshSurfaceReconstructParams params = buildSurfaceReconParams();
+	pch->runMeshSurfaceReconstructStage(
+		doc,
+		m_surfaceReconSessionId,
+		stage,
+		params,
+		[this, stage](const bool ok, const QString& error, const PluginMeshSurfaceReconstructReport& report) {
+			setBusy(false);
+			if (!m_host)
+			{
+				return;
+			}
+			if (ok)
+			{
+				m_surfaceReconLastStage = report.lastCompletedStage;
+				const QString summary = report.stageSummaryZh.isEmpty()
+					? surfaceReconStageTitleZh(stage)
+					: report.stageSummaryZh;
+				appendSurfaceReconLog(summary);
+				refreshSurfaceReconstructSummary(report);
+				m_host->logInfo(
+					i18n(QStringLiteral("[Surface reconstruct] %1"), QStringLiteral("[曲面重构] %1"))
+						.arg(summary));
+				if (m_statusLabel)
+				{
+					m_statusLabel->setText(summary);
+				}
+				if ((stage == PluginMeshSurfaceReconstructStage::Preprocess
+						&& !report.preprocessedMeshBackendId.empty())
+					|| (stage == PluginMeshSurfaceReconstructStage::Partition
+						&& !report.partitionColoredMeshBackendId.empty())
+					|| (stage == PluginMeshSurfaceReconstructStage::Fit
+						&& !report.fitPreviewBrepBackendId.empty()))
+				{
+					// 仅刷新列表；会话仍绑定源网格
+					refreshMeshExportList(m_surfaceReconMeshBackendId);
+				}
+			}
+			else
+			{
+				appendSurfaceReconLog(
+					i18n(QStringLiteral("Failed: %1"), QStringLiteral("失败: %1")).arg(error));
+				m_host->logError(error);
+				if (m_statusLabel)
+				{
+					m_statusLabel->setText(error);
+				}
+			}
+			updateSurfaceReconButtonStates();
+		});
+}
+
+void PointCloudDockWidget::onSurfaceReconstructResetSessionClicked()
+{
+	resetSurfaceReconSessionUi();
+	appendSurfaceReconLog(i18n(QStringLiteral("Session reset"), QStringLiteral("会话已重置")));
+	if (m_host)
+	{
+		m_host->logInfo(i18n(
+			QStringLiteral("[Surface reconstruct] Session reset"),
+			QStringLiteral("[曲面重构] 会话已重置")));
+	}
 }

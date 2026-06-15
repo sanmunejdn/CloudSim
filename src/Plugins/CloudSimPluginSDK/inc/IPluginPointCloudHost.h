@@ -195,4 +195,21 @@ public:
 		const std::string& meshBackendIdUtf8,
 		const PluginMeshSurfaceReconstructParams& params,
 		PluginMeshSurfaceReconstructFinishedFn onFinished) = 0;
+
+	// === 网格曲面重构分阶段（1.13.0+） ===
+
+	virtual PluginMeshSurfaceReconstructSessionId beginMeshSurfaceReconstructSession(
+		IPluginDocument* doc,
+		const std::string& meshBackendIdUtf8) = 0;
+
+	virtual void runMeshSurfaceReconstructStage(
+		IPluginDocument* doc,
+		const PluginMeshSurfaceReconstructSessionId& sessionId,
+		PluginMeshSurfaceReconstructStage stage,
+		const PluginMeshSurfaceReconstructParams& params,
+		PluginMeshSurfaceReconstructFinishedFn onFinished) = 0;
+
+	virtual void clearMeshSurfaceReconstructSession(
+		IPluginDocument* doc,
+		const PluginMeshSurfaceReconstructSessionId& sessionId) = 0;
 };

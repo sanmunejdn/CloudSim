@@ -330,22 +330,76 @@ using PluginPointCloudFinishedFn = std::function<void(
 	const QString& error,
 	const PluginPointCloudJobResult& result)>;
 
+enum class PluginMeshSurfaceNurbsFitMode : int
+{
+	Interpolate = 1,
+	ApproxFixedCtrlpts = 2,
+	ApproxCentripetal = 3,
+	ApproxCentripetalFixedCtrlpts = 4,
+};
+
 struct PluginMeshSurfaceReconstructParams
 {
 	int normalSmoothIterations = 6;
 	double featureThresholdC0 = 0.8;
 	bool runVcgRepairFirst = true;
+	bool runIsotropicRemesh = true;
+	double remeshTargetEdgeLengthMm = 0.0;
+	int remeshIterations = 3;
+	double remeshFeatureAngleDeg = 0.0;
 	int patchCountHint = 0;
+	/// 分块前法向平滑迭代，0=保留锐角
+	int partitionNormalSmoothIters = 2;
+	/// 特征棱角度百分位 [0.5,0.99]
+	double featureAnglePercentile = 0.88;
 	int samplesPerPatchEdge = 16;
+	double targetUvSpacingMm = 0.0;
+	int minSamplesPerEdge = 4;
+	int maxSamplesPerEdge = 0;
+	int maxFitGridPerEdge = 9;
+	double fitUvSpacingMm = 0.0;
+	double sampleRateFactor = 2.0;
+	int sampleGridMin = 10;
+	int sampleGridMax = 2000;
+	double controlPointDensityFactor = 0.5;
+	int minControlPointsPerDirection = 6;
+	int nurbsDegreeU = 3;
+	int nurbsDegreeV = 3;
+	PluginMeshSurfaceNurbsFitMode fitMode = PluginMeshSurfaceNurbsFitMode::ApproxFixedCtrlpts;
+	int parameterGridMode = 1;
+	double fitEvaluationDelta = 0.05;
 	double blendStripWidth = 0.0;
 	double fairingEpsilon = 1e-3;
 	int fairingMaxIterations = 50;
+	double tessellateLinearDeflectionMm = 0.1;
 	QString displayName;
 	bool selectInTree = true;
+	bool exportPreprocessedMeshToScene = true;
+};
+
+enum class PluginMeshSurfaceReconstructStage : int
+{
+	None = 0,
+	Preprocess = 1,
+	Partition = 2,
+	Sample = 3,
+	Fit = 4,
+	BoundaryBlend = 5,
+	JunctionBlend = 6,
+	Fair = 7,
+	Assemble = 8,
+};
+
+struct PluginMeshSurfaceReconstructSessionId
+{
+	std::string value;
+	bool valid() const { return !value.empty(); }
 };
 
 struct PluginMeshSurfaceReconstructReport
 {
+	PluginMeshSurfaceReconstructStage lastCompletedStage = PluginMeshSurfaceReconstructStage::None;
+	QString stageSummaryZh;
 	int patchCount = 0;
 	int junctionCount = 0;
 	double maxDeviationMm = 0.0;
@@ -353,6 +407,33 @@ struct PluginMeshSurfaceReconstructReport
 	double normalSmoothGapVolume = 0.0;
 	bool c2BlendSucceeded = false;
 	std::string newBrepBackendId;
+	std::string preprocessedMeshBackendId;
+	std::string partitionColoredMeshBackendId;
+	std::string fitPreviewBrepBackendId;
+
+	int inputTriangleCount = 0;
+	int repairedTriangleCount = 0;
+	int remeshedTriangleCount = 0;
+	double remeshTargetEdgeLengthUsedMm = 0.0;
+	int totalSamplePoints = 0;
+	int bsplinePatchCount = 0;
+	int nurbsPatchCount = 0;
+	int planeFallbackCount = 0;
+	int amrtoHarmonicSampleCount = 0;
+	int outputFaceCount = 0;
+	double avgFacesPerPatch = 0.0;
+	int minFacesPerPatch = 0;
+	int maxFacesPerPatch = 0;
+	int smallPatchCount = 0;
+	int gridN = 0;
+	int gridNuMax = 0;
+	int gridNvMax = 0;
+
+	int fitRejectApprox = 0;
+	int fitRejectPole = 0;
+	int fitRejectFitGrid = 0;
+	int fitRejectFullGrid = 0;
+	int fitRejectMakeFace = 0;
 };
 
 using PluginMeshSurfaceReconstructFinishedFn = std::function<void(

@@ -26,6 +26,7 @@
 #include <osg/Quat>
 #include <osg/Vec3f>
 
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -1438,27 +1439,436 @@ geoalgo::MeshSurfaceReconstructParams buildMeshSurfaceReconstructGeoParams(
 	geoParams.normalSmoothIterations = params.normalSmoothIterations;
 	geoParams.featureThresholdC0 = params.featureThresholdC0;
 	geoParams.runVcgRepairFirst = params.runVcgRepairFirst;
+	geoParams.runIsotropicRemesh = params.runIsotropicRemesh;
+	geoParams.remeshTargetEdgeLengthMm = params.remeshTargetEdgeLengthMm;
+	geoParams.remeshIterations = params.remeshIterations;
+	geoParams.remeshFeatureAngleDeg = params.remeshFeatureAngleDeg;
 	geoParams.patchCountHint = params.patchCountHint;
+	geoParams.partitionNormalSmoothIters = params.partitionNormalSmoothIters;
+	geoParams.featureAnglePercentile = params.featureAnglePercentile;
 	geoParams.samplesPerPatchEdge = params.samplesPerPatchEdge;
+	geoParams.targetUvSpacingMm = params.targetUvSpacingMm;
+	geoParams.minSamplesPerEdge = params.minSamplesPerEdge;
+	geoParams.maxSamplesPerEdge = params.maxSamplesPerEdge;
+	geoParams.maxFitGridPerEdge = params.maxFitGridPerEdge;
+	geoParams.fitUvSpacingMm = params.fitUvSpacingMm;
+	geoParams.sampleRateFactor = params.sampleRateFactor;
+	geoParams.sampleGridMin = params.sampleGridMin;
+	geoParams.sampleGridMax = params.sampleGridMax;
+	geoParams.controlPointDensityFactor = params.controlPointDensityFactor;
+	geoParams.minControlPointsPerDirection = params.minControlPointsPerDirection;
+	geoParams.nurbsDegreeU = params.nurbsDegreeU;
+	geoParams.nurbsDegreeV = params.nurbsDegreeV;
+	switch (params.fitMode)
+	{
+	case PluginMeshSurfaceNurbsFitMode::Interpolate:
+		geoParams.fitMode = geoalgo::MeshSurfaceNurbsFitMode::Interpolate;
+		break;
+	case PluginMeshSurfaceNurbsFitMode::ApproxCentripetal:
+		geoParams.fitMode = geoalgo::MeshSurfaceNurbsFitMode::ApproxCentripetal;
+		break;
+	case PluginMeshSurfaceNurbsFitMode::ApproxCentripetalFixedCtrlpts:
+		geoParams.fitMode = geoalgo::MeshSurfaceNurbsFitMode::ApproxCentripetalFixedCtrlpts;
+		break;
+	case PluginMeshSurfaceNurbsFitMode::ApproxFixedCtrlpts:
+	default:
+		geoParams.fitMode = geoalgo::MeshSurfaceNurbsFitMode::ApproxFixedCtrlpts;
+		break;
+	}
+	geoParams.parameterGridMode = params.parameterGridMode;
+	geoParams.fitEvaluationDelta = params.fitEvaluationDelta;
 	geoParams.blendStripWidth = params.blendStripWidth;
 	geoParams.fairingEpsilon = params.fairingEpsilon;
 	geoParams.fairingMaxIterations = params.fairingMaxIterations;
+	geoParams.tessellateLinearDeflectionMm = params.tessellateLinearDeflectionMm;
 	return geoParams;
 }
 
-PluginMeshSurfaceReconstructReport toPluginMeshSurfaceReconstructReport(
-	const geoalgo::MeshSurfaceReconstructReport& report,
-	const std::string& newBrepBackendId)
+void copyGeoReportFields(PluginMeshSurfaceReconstructReport& out, const geoalgo::MeshSurfaceReconstructReport& report)
 {
-	PluginMeshSurfaceReconstructReport out;
 	out.patchCount = report.patchCount;
 	out.junctionCount = report.junctionCount;
 	out.maxDeviationMm = report.maxDeviationMm;
 	out.globalFairingMetric = report.globalFairingMetric;
 	out.normalSmoothGapVolume = report.normalSmoothGapVolume;
 	out.c2BlendSucceeded = report.c2BlendSucceeded;
+	out.inputTriangleCount = report.inputTriangleCount;
+	out.repairedTriangleCount = report.repairedTriangleCount;
+	out.remeshedTriangleCount = report.remeshedTriangleCount;
+	out.remeshTargetEdgeLengthUsedMm = report.remeshTargetEdgeLengthUsedMm;
+	out.totalSamplePoints = report.totalSamplePoints;
+	out.bsplinePatchCount = report.bsplinePatchCount;
+	out.nurbsPatchCount = report.nurbsPatchCount;
+	out.planeFallbackCount = report.planeFallbackCount;
+	out.amrtoHarmonicSampleCount = report.amrtoHarmonicSampleCount;
+	out.outputFaceCount = report.outputFaceCount;
+	out.avgFacesPerPatch = report.avgFacesPerPatch;
+	out.minFacesPerPatch = report.minFacesPerPatch;
+	out.maxFacesPerPatch = report.maxFacesPerPatch;
+	out.smallPatchCount = report.smallPatchCount;
+	out.gridN = report.gridN;
+	out.gridNuMax = report.gridNuMax;
+	out.gridNvMax = report.gridNvMax;
+	out.fitRejectApprox = report.fitRejectApprox;
+	out.fitRejectPole = report.fitRejectPole;
+	out.fitRejectFitGrid = report.fitRejectFitGrid;
+	out.fitRejectFullGrid = report.fitRejectFullGrid;
+	out.fitRejectMakeFace = report.fitRejectMakeFace;
+}
+
+QString formatSurfaceReconStageSummaryZh(
+	const PluginMeshSurfaceReconstructStage stage,
+	const PluginMeshSurfaceReconstructReport& report,
+	const int samplesPerPatchEdge)
+{
+	switch (stage)
+	{
+	case PluginMeshSurfaceReconstructStage::Preprocess:
+		if (report.remeshedTriangleCount > 0)
+		{
+			return QStringLiteral(
+				"预处理完成：输入三角 %1 个，修复后 %2 个，均匀化后 %3 个（目标边长 %4 mm），光顺间隙体积 %5")
+				.arg(report.inputTriangleCount)
+				.arg(report.repairedTriangleCount)
+				.arg(report.remeshedTriangleCount)
+				.arg(report.remeshTargetEdgeLengthUsedMm, 0, 'f', 4)
+				.arg(report.normalSmoothGapVolume, 0, 'g', 6);
+		}
+		return QStringLiteral("预处理完成：输入三角 %1 个，修复后 %2 个，光顺间隙体积 %3")
+			.arg(report.inputTriangleCount)
+			.arg(report.repairedTriangleCount)
+			.arg(report.normalSmoothGapVolume, 0, 'g', 6);
+	case PluginMeshSurfaceReconstructStage::Partition:
+		return QStringLiteral("分块完成：%1 片，交汇 %2 处，三角 %3~%4（平均 %5），合并前碎片 %6 个（场景已按片着色）")
+			.arg(report.patchCount)
+			.arg(report.junctionCount)
+			.arg(report.minFacesPerPatch)
+			.arg(report.maxFacesPerPatch)
+			.arg(report.avgFacesPerPatch, 0, 'f', 1)
+			.arg(report.smallPatchCount);
+	case PluginMeshSurfaceReconstructStage::Sample:
+		if (report.amrtoHarmonicSampleCount > 0)
+		{
+			return QStringLiteral("栅格采样完成：AMRTO 调和 %1 片，UV 最大 %2×%3，总采样点 %4 个")
+				.arg(report.amrtoHarmonicSampleCount)
+				.arg(report.gridNuMax > 0 ? report.gridNuMax + 1 : samplesPerPatchEdge + 1)
+				.arg(report.gridNvMax > 0 ? report.gridNvMax + 1 : samplesPerPatchEdge + 1)
+				.arg(report.totalSamplePoints);
+		}
+		if (report.gridNuMax > 0 || report.gridNvMax > 0)
+		{
+			return QStringLiteral("栅格采样完成：UV 最大 %1×%2，总采样点 %3 个")
+				.arg(report.gridNuMax > 0 ? report.gridNuMax + 1 : samplesPerPatchEdge + 1)
+				.arg(report.gridNvMax > 0 ? report.gridNvMax + 1 : samplesPerPatchEdge + 1)
+				.arg(report.totalSamplePoints);
+		}
+		return QStringLiteral("栅格采样完成：每边 %1 点，总采样点 %2 个")
+			.arg(report.gridN > 0 ? report.gridN : samplesPerPatchEdge)
+			.arg(report.totalSamplePoints);
+	case PluginMeshSurfaceReconstructStage::Fit:
+	{
+		const int rejectTotal = report.fitRejectApprox + report.fitRejectPole + report.fitRejectFitGrid
+			+ report.fitRejectFullGrid + report.fitRejectMakeFace;
+		if (rejectTotal > 0)
+		{
+			return QStringLiteral(
+				"拟合完成：NURBS %1 片，三角回退 %2 片；拒因 approxFail=%3 pole=%4 fitGrid=%5 fullGrid=%6 makeFace=%7")
+				.arg(report.nurbsPatchCount > 0 ? report.nurbsPatchCount : report.bsplinePatchCount)
+				.arg(report.planeFallbackCount)
+				.arg(report.fitRejectApprox)
+				.arg(report.fitRejectPole)
+				.arg(report.fitRejectFitGrid)
+				.arg(report.fitRejectFullGrid)
+				.arg(report.fitRejectMakeFace);
+		}
+		return QStringLiteral("拟合完成：NURBS %1 片，三角回退 %2 片")
+			.arg(report.nurbsPatchCount > 0 ? report.nurbsPatchCount : report.bsplinePatchCount)
+			.arg(report.planeFallbackCount);
+	}
+	case PluginMeshSurfaceReconstructStage::BoundaryBlend:
+		return QStringLiteral("边界混合完成：%1")
+			.arg(report.c2BlendSucceeded ? QStringLiteral("成功") : QStringLiteral("失败"));
+	case PluginMeshSurfaceReconstructStage::JunctionBlend:
+		return QStringLiteral("交汇混合完成：处理交汇 %1 处").arg(report.junctionCount);
+	case PluginMeshSurfaceReconstructStage::Fair:
+		return QStringLiteral("光顺完成：全局指标 %1").arg(report.globalFairingMetric, 0, 'g', 6);
+	case PluginMeshSurfaceReconstructStage::Assemble:
+		return QStringLiteral("装配完成：最大偏差 %1 mm，新 B-rep id=%2，面数 %3")
+			.arg(report.maxDeviationMm, 0, 'f', 4)
+			.arg(QString::fromStdString(report.newBrepBackendId))
+			.arg(report.outputFaceCount);
+	default:
+		return QStringLiteral("会话已重置");
+	}
+}
+
+QString translateSurfaceReconErrorZh(const QString& error)
+{
+	if (error.contains(QStringLiteral("stage out of order"), Qt::CaseInsensitive))
+	{
+		return QStringLiteral("请先完成上一阶段");
+	}
+	if (error.contains(QStringLiteral("mesh soup too small"), Qt::CaseInsensitive))
+	{
+		return QStringLiteral("网格三角数过少");
+	}
+	if (error.contains(QStringLiteral("Missing Component"), Qt::CaseInsensitive)
+		|| error.contains(QStringLiteral("missing required VCG component"), Qt::CaseInsensitive))
+	{
+		return QStringLiteral("均匀化重网格失败：网格数据结构不兼容");
+	}
+	if (error.contains(QStringLiteral("isotropic remesh"), Qt::CaseInsensitive))
+	{
+		return QStringLiteral("均匀化重网格失败：%1").arg(error);
+	}
+	return error;
+}
+
+geoalgo::MeshSurfaceReconstructStage mapPluginStageToGeo(const PluginMeshSurfaceReconstructStage stage)
+{
+	switch (stage)
+	{
+	case PluginMeshSurfaceReconstructStage::Partition:
+		return geoalgo::MeshSurfaceReconstructStage::Partition;
+	case PluginMeshSurfaceReconstructStage::Sample:
+		return geoalgo::MeshSurfaceReconstructStage::Sample;
+	case PluginMeshSurfaceReconstructStage::Fit:
+		return geoalgo::MeshSurfaceReconstructStage::Fit;
+	case PluginMeshSurfaceReconstructStage::BoundaryBlend:
+		return geoalgo::MeshSurfaceReconstructStage::BoundaryBlend;
+	case PluginMeshSurfaceReconstructStage::JunctionBlend:
+		return geoalgo::MeshSurfaceReconstructStage::JunctionBlend;
+	case PluginMeshSurfaceReconstructStage::Fair:
+		return geoalgo::MeshSurfaceReconstructStage::Fair;
+	case PluginMeshSurfaceReconstructStage::Assemble:
+		return geoalgo::MeshSurfaceReconstructStage::Assemble;
+	default:
+		return geoalgo::MeshSurfaceReconstructStage::None;
+	}
+}
+
+bool isNextPluginStage(
+	const PluginMeshSurfaceReconstructStage lastCompleted,
+	const PluginMeshSurfaceReconstructStage want)
+{
+	if (want == PluginMeshSurfaceReconstructStage::Preprocess
+		&& lastCompleted == PluginMeshSurfaceReconstructStage::None)
+	{
+		return true;
+	}
+	return static_cast<int>(want) == static_cast<int>(lastCompleted) + 1;
+}
+
+std::string makeSurfaceReconSessionId()
+{
+	static std::atomic<uint64_t> counter{0U};
+	return "sr_" + std::to_string(counter.fetch_add(1U) + 1U);
+}
+
+PluginMeshSurfaceReconstructReport toPluginMeshSurfaceReconstructReport(
+	const geoalgo::MeshSurfaceReconstructReport& report,
+	const std::string& newBrepBackendId,
+	const PluginMeshSurfaceReconstructStage lastStage)
+{
+	PluginMeshSurfaceReconstructReport out;
+	copyGeoReportFields(out, report);
+	out.lastCompletedStage = lastStage;
 	out.newBrepBackendId = newBrepBackendId;
 	return out;
+}
+
+bool registerPreprocessedMeshFromSoup(
+	PluginHostContext* host,
+	cloudsim::host::DocumentHost* page,
+	const std::shared_ptr<MeshBackendData>& sourceMesh,
+	const std::vector<float>& soup,
+	const PluginMeshSurfaceReconstructParams& params,
+	std::string& outBackendId,
+	std::string* errMsg)
+{
+	if (!page || !sourceMesh)
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid mesh session";
+		}
+		return false;
+	}
+	auto meshPtr = std::make_shared<MeshBackendData>();
+	meshPtr->setTriangleSoup(soup);
+	meshPtr->setColor(sourceMesh->color());
+	PluginMeshCreateOptions options;
+	const QString baseName = QString::fromStdString(sourceMesh->name());
+	options.displayName =
+		baseName.isEmpty() ? QStringLiteral("预处理后") : baseName + QStringLiteral("_预处理后");
+	options.selectInTree = false;
+	options.sourcePath = QStringLiteral("plugin://pointcloud/surface-reconstruct-preprocess");
+	outBackendId = document_point_cloud_ops::registerReconstructedMesh(
+		page, host ? host->mainWindowHost() : nullptr, meshPtr, options, errMsg);
+	return !outBackendId.empty();
+}
+
+bool registerPartitionColoredMeshFromSoup(
+	PluginHostContext* host,
+	cloudsim::host::DocumentHost* page,
+	const std::shared_ptr<MeshBackendData>& sourceMesh,
+	const std::vector<float>& soup,
+	const std::vector<float>& rgbPerVertex,
+	std::string& outBackendId,
+	std::string* errMsg)
+{
+	if (!page || !sourceMesh || soup.empty() || rgbPerVertex.size() != soup.size())
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid partition colored mesh";
+		}
+		return false;
+	}
+	auto meshPtr = std::make_shared<MeshBackendData>();
+	meshPtr->setTriangleSoupWithVertexColors(soup, rgbPerVertex);
+	PluginMeshCreateOptions options;
+	const QString baseName = QString::fromStdString(sourceMesh->name());
+	options.displayName =
+		baseName.isEmpty() ? QStringLiteral("分块着色") : baseName + QStringLiteral("_分块着色");
+	options.selectInTree = true;
+	options.sourcePath = QStringLiteral("plugin://pointcloud/surface-reconstruct-partition");
+	outBackendId = document_point_cloud_ops::registerReconstructedMesh(
+		page, host ? host->mainWindowHost() : nullptr, meshPtr, options, errMsg);
+	return !outBackendId.empty();
+}
+
+bool registerReconstructedBrepFromShape(
+	PluginHostContext* host,
+	cloudsim::host::DocumentHost* page,
+	const std::shared_ptr<MeshBackendData>& sourceMesh,
+	const std::string& sourceMeshBackendId,
+	const std::shared_ptr<BrepBackendData>& brep,
+	const PluginMeshSurfaceReconstructParams& params,
+	std::string* errMsg)
+{
+	if (!page || !sourceMesh || !brep)
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid brep registration context";
+		}
+		return false;
+	}
+	brep->setColor(sourceMesh->color());
+	const QString meshName = QString::fromStdString(sourceMesh->name());
+	const QString displayBase = params.displayName.isEmpty()
+		? (meshName.isEmpty() ? QStringLiteral("ReconstructedBrep") : meshName + QStringLiteral("_brep"))
+		: params.displayName;
+	const QString displayName = makeUniqueBrepDisplayName(*page, displayBase);
+	brep->setName(displayName.toStdString());
+	geoalgo::clearBrepImportArtifactsCache();
+
+	constexpr bool kResetViewToHome = false;
+	QString regErr;
+	const bool registerOk = cloudsim::host::registerAdoptedBrepAndLoadScene(
+		*page,
+		brep,
+		QStringLiteral("plugin://pointcloud/surface-reconstruct"),
+		QStringLiteral("BrepModel"),
+		QString(),
+		kResetViewToHome,
+		&regErr);
+	if (!registerOk)
+	{
+		if (errMsg)
+		{
+			*errMsg = regErr.toStdString();
+		}
+		return false;
+	}
+
+	std::string alignErr;
+	if (!document_point_cloud_ops::inheritBrepVisualPoseFromSourceMesh(
+			page, sourceMeshBackendId, brep->id(), *brep, &alignErr))
+	{
+		if (errMsg)
+		{
+			*errMsg = alignErr.empty() ? "Reconstructed B-rep visual placement failed" : alignErr;
+		}
+		return false;
+	}
+
+	if (OsgWidget* osg = widgetOsgFromPage(page))
+	{
+		osg->setBackendObjectVisible(sourceMesh->id(), true);
+		osg->focusCameraOnBackend(brep->id());
+	}
+	if (params.selectInTree && host && host->mainWindowHost())
+	{
+		host->mainWindowHost()->focusBackendInTreeAfterImport(QString::fromStdString(brep->id()));
+	}
+	return true;
+}
+
+bool registerFitPreviewBrepFromShape(
+	PluginHostContext* host,
+	cloudsim::host::DocumentHost* page,
+	const std::shared_ptr<MeshBackendData>& sourceMesh,
+	const std::string& sourceMeshBackendId,
+	const std::shared_ptr<BrepBackendData>& brep,
+	std::string* errMsg)
+{
+	if (!page || !sourceMesh || !brep)
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid fit preview brep context";
+		}
+		return false;
+	}
+	brep->setColor(sourceMesh->color());
+	const QString meshName = QString::fromStdString(sourceMesh->name());
+	const QString displayBase =
+		meshName.isEmpty() ? QStringLiteral("拟合曲面") : meshName + QStringLiteral("_拟合曲面");
+	brep->setName(makeUniqueBrepDisplayName(*page, displayBase).toStdString());
+	geoalgo::clearBrepImportArtifactsCache();
+
+	constexpr bool kResetViewToHome = false;
+	QString regErr;
+	const bool registerOk = cloudsim::host::registerAdoptedBrepAndLoadScene(
+		*page,
+		brep,
+		QStringLiteral("plugin://pointcloud/surface-reconstruct-fit"),
+		QStringLiteral("BrepModel"),
+		QString(),
+		kResetViewToHome,
+		&regErr);
+	if (!registerOk)
+	{
+		if (errMsg)
+		{
+			*errMsg = regErr.toStdString();
+		}
+		return false;
+	}
+
+	std::string alignErr;
+	if (!document_point_cloud_ops::inheritBrepVisualPoseFromSourceMesh(
+			page, sourceMeshBackendId, brep->id(), *brep, &alignErr))
+	{
+		if (errMsg)
+		{
+			*errMsg = alignErr.empty() ? "Fit preview B-rep visual placement failed" : alignErr;
+		}
+		return false;
+	}
+
+	if (OsgWidget* osg = widgetOsgFromPage(page))
+	{
+		osg->setBackendObjectVisible(sourceMesh->id(), true);
+		osg->focusCameraOnBackend(brep->id());
+	}
+	if (host && host->mainWindowHost())
+	{
+		host->mainWindowHost()->focusBackendInTreeAfterImport(QString::fromStdString(brep->id()));
+	}
+	return true;
 }
 
 void runMeshToBrepJob(
@@ -1593,10 +2003,12 @@ void runMeshToBrepJob(
 						.arg(result->report.maxDeviationMm, 0, 'f', 4));
 			}
 
-			onFinished(
-				true,
-				QString(),
-				toPluginMeshSurfaceReconstructReport(result->report, result->brep->id()));
+			PluginMeshSurfaceReconstructReport pluginReport =
+				toPluginMeshSurfaceReconstructReport(
+					result->report, result->brep->id(), PluginMeshSurfaceReconstructStage::Assemble);
+			pluginReport.stageSummaryZh =
+				formatSurfaceReconStageSummaryZh(PluginMeshSurfaceReconstructStage::Assemble, pluginReport, 0);
+			onFinished(true, QString(), pluginReport);
 		});
 }
 
@@ -1882,6 +2294,376 @@ void PluginPointCloudHostImpl::reconstructSurfaceFromMesh(
 	PluginMeshSurfaceReconstructFinishedFn onFinished)
 {
 	runMeshToBrepJob(m_host, doc, meshBackendIdUtf8, params, std::move(onFinished));
+}
+
+PluginPointCloudHostImpl::SurfaceReconHostSession* PluginPointCloudHostImpl::findSurfaceReconSession(
+	const std::string& sessionId,
+	IPluginDocument* doc)
+{
+	if (sessionId.empty() || !doc)
+	{
+		return nullptr;
+	}
+	const auto it = m_surfaceReconSessions.find(sessionId);
+	if (it == m_surfaceReconSessions.end() || it->second.docId != doc->documentId())
+	{
+		return nullptr;
+	}
+	return &it->second;
+}
+
+void PluginPointCloudHostImpl::eraseSurfaceReconSession(const std::string& sessionId, IPluginDocument* doc)
+{
+	SurfaceReconHostSession* session = findSurfaceReconSession(sessionId, doc);
+	if (!session)
+	{
+		m_surfaceReconSessions.erase(sessionId);
+		return;
+	}
+	if (!session->preprocessedMeshBackendId.empty() && doc)
+	{
+		std::string removeErr;
+		(void)doc->removeBackendObject(session->preprocessedMeshBackendId, &removeErr);
+	}
+	if (!session->partitionColoredMeshBackendId.empty() && doc)
+	{
+		std::string removeErr;
+		(void)doc->removeBackendObject(session->partitionColoredMeshBackendId, &removeErr);
+	}
+	if (!session->samplePointsBackendId.empty() && doc)
+	{
+		std::string removeErr;
+		(void)doc->removeBackendObject(session->samplePointsBackendId, &removeErr);
+	}
+	if (!session->fitPreviewBrepBackendId.empty() && doc)
+	{
+		std::string removeErr;
+		(void)doc->removeBackendObject(session->fitPreviewBrepBackendId, &removeErr);
+	}
+	m_surfaceReconSessions.erase(sessionId);
+}
+
+PluginMeshSurfaceReconstructSessionId PluginPointCloudHostImpl::beginMeshSurfaceReconstructSession(
+	IPluginDocument* doc,
+	const std::string& meshBackendIdUtf8)
+{
+	PluginMeshSurfaceReconstructSessionId out;
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	if (!page || meshBackendIdUtf8.empty())
+	{
+		return out;
+	}
+	std::string resolveErr;
+	const auto mesh = document_point_cloud_ops::resolveMesh(page, meshBackendIdUtf8, &resolveErr);
+	if (!mesh)
+	{
+		return out;
+	}
+
+	const std::string newSessionId = makeSurfaceReconSessionId();
+	SurfaceReconHostSession session;
+	session.sessionId = newSessionId;
+	session.docId = doc->documentId();
+	session.meshBackendId = meshBackendIdUtf8;
+	session.rawSoup = mesh->triangleSoup();
+	session.lastCompleted = PluginMeshSurfaceReconstructStage::None;
+	m_surfaceReconSessions[newSessionId] = std::move(session);
+	out.value = newSessionId;
+	return out;
+}
+
+void PluginPointCloudHostImpl::clearMeshSurfaceReconstructSession(
+	IPluginDocument* doc,
+	const PluginMeshSurfaceReconstructSessionId& sessionId)
+{
+	eraseSurfaceReconSession(sessionId.value, doc);
+}
+
+void PluginPointCloudHostImpl::runMeshSurfaceReconstructStage(
+	IPluginDocument* doc,
+	const PluginMeshSurfaceReconstructSessionId& sessionId,
+	const PluginMeshSurfaceReconstructStage stage,
+	const PluginMeshSurfaceReconstructParams& params,
+	PluginMeshSurfaceReconstructFinishedFn onFinished)
+{
+	if (!m_host || !onFinished || !sessionId.valid())
+	{
+		return;
+	}
+	SurfaceReconHostSession* session = findSurfaceReconSession(sessionId.value, doc);
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	if (!session || !page)
+	{
+		onFinished(false, QStringLiteral("曲面重构会话无效"), {});
+		return;
+	}
+	if (!isNextPluginStage(session->lastCompleted, stage))
+	{
+		onFinished(false, QStringLiteral("请先完成上一阶段"), {});
+		return;
+	}
+
+	std::string resolveErr;
+	const auto mesh = document_point_cloud_ops::resolveMesh(page, session->meshBackendId, &resolveErr);
+	if (!mesh)
+	{
+		onFinished(false, QString::fromStdString(resolveErr), {});
+		return;
+	}
+
+	const geoalgo::MeshSurfaceReconstructParams geoParams = buildMeshSurfaceReconstructGeoParams(params);
+	struct WorkResult
+	{
+		geoalgo::MeshSurfaceReconstructReport report;
+		std::vector<float> workingSoup;
+		std::shared_ptr<BrepBackendData> brep;
+		std::string preprocessedMeshBackendId;
+		std::string partitionColoredMeshBackendId;
+		std::string samplePointsBackendId;
+		std::string fitPreviewBrepBackendId;
+		std::string newBrepBackendId;
+		std::string error;
+		bool ok = false;
+	};
+	auto result = std::make_shared<WorkResult>();
+
+	const QString jobTitle = QStringLiteral("曲面重构");
+	m_host->enqueueJob(
+		jobTitle,
+		[session, stage, geoParams, result](const PluginJobProgressFn& progress) {
+			try
+			{
+				progress(0.1, QStringLiteral("执行中..."));
+				if (stage == PluginMeshSurfaceReconstructStage::Preprocess)
+				{
+					result->ok = geometry_backend_ops::preprocessMeshSoupForSurfaceReconstruct(
+						session->rawSoup, geoParams, result->workingSoup, result->report, &result->error);
+				}
+				else
+				{
+					if (!session->geoSession)
+					{
+						result->error = "surface reconstruction session not preprocessed";
+						result->ok = false;
+					}
+					else
+					{
+						const geoalgo::MeshSurfaceReconstructStage geoStage = mapPluginStageToGeo(stage);
+						geoalgo::ShapeHandle shape;
+						geoalgo::ShapeHandle* shapeOut =
+							(stage == PluginMeshSurfaceReconstructStage::Assemble) ? &shape : nullptr;
+						result->ok = geometry_backend_ops::runMeshSurfaceReconstructStage(
+							*session->geoSession, geoStage, geoParams, shapeOut, result->report, &result->error);
+						if (result->ok && stage == PluginMeshSurfaceReconstructStage::Assemble)
+						{
+							result->brep = std::make_shared<BrepBackendData>();
+							result->ok = geometry_backend_ops::meshSurfaceReconstructShapeToBrep(
+								shape, result->brep, &result->error);
+						}
+					}
+				}
+				progress(1.0, QStringLiteral("完成"));
+			}
+			catch (const std::exception& ex)
+			{
+				result->ok = false;
+				result->error = ex.what();
+			}
+			catch (...)
+			{
+				result->ok = false;
+				result->error = "surface reconstruction failed with internal error";
+			}
+		},
+		[this,
+			doc,
+			session,
+			stage,
+			params,
+			mesh,
+			page,
+			result,
+			onFinished = std::move(onFinished)](const bool threw, const QString& throwMessage) {
+			if (threw)
+			{
+				onFinished(false, translateSurfaceReconErrorZh(throwMessage), {});
+				return;
+			}
+			if (!result->ok)
+			{
+				onFinished(false, translateSurfaceReconErrorZh(QString::fromStdString(result->error)), {});
+				return;
+			}
+
+			if (stage == PluginMeshSurfaceReconstructStage::Preprocess)
+			{
+				session->workingSoup = std::move(result->workingSoup);
+				session->geoSession =
+					geometry_backend_ops::createMeshSurfaceReconstructSession(session->workingSoup);
+				if (params.exportPreprocessedMeshToScene)
+				{
+					if (!session->preprocessedMeshBackendId.empty() && doc)
+					{
+						std::string removeErr;
+						(void)doc->removeBackendObject(session->preprocessedMeshBackendId, &removeErr);
+					}
+					std::string regErr;
+					if (!registerPreprocessedMeshFromSoup(
+							m_host,
+							page,
+							mesh,
+							session->workingSoup,
+							params,
+							result->preprocessedMeshBackendId,
+							&regErr))
+					{
+						onFinished(false, translateSurfaceReconErrorZh(QString::fromStdString(regErr)), {});
+						return;
+					}
+					session->preprocessedMeshBackendId = result->preprocessedMeshBackendId;
+				}
+			}
+			else if (stage == PluginMeshSurfaceReconstructStage::Partition && session->geoSession)
+			{
+				std::vector<float> coloredSoup;
+				std::vector<float> coloredRgb;
+				std::string colorErr;
+				if (geometry_backend_ops::buildPartitionColoredMeshSoup(
+						*session->geoSession, coloredSoup, coloredRgb, &colorErr))
+				{
+					if (!session->partitionColoredMeshBackendId.empty() && doc)
+					{
+						std::string removeErr;
+						(void)doc->removeBackendObject(session->partitionColoredMeshBackendId, &removeErr);
+					}
+					std::string regErr;
+					if (!registerPartitionColoredMeshFromSoup(
+							m_host,
+							page,
+							mesh,
+							coloredSoup,
+							coloredRgb,
+							result->partitionColoredMeshBackendId,
+							&regErr))
+					{
+						onFinished(false, translateSurfaceReconErrorZh(QString::fromStdString(regErr)), {});
+						return;
+					}
+					session->partitionColoredMeshBackendId = result->partitionColoredMeshBackendId;
+				}
+			}
+			else if (stage == PluginMeshSurfaceReconstructStage::Sample && session->geoSession)
+			{
+				std::vector<float> sampleXyz;
+				std::vector<float> sampleRgba;
+				std::string sampleErr;
+				if (geometry_backend_ops::buildSamplePointsCloud(
+						*session->geoSession, sampleXyz, sampleRgba, &sampleErr))
+				{
+					if (!session->samplePointsBackendId.empty() && doc)
+					{
+						std::string removeErr;
+						(void)doc->removeBackendObject(session->samplePointsBackendId, &removeErr);
+					}
+					auto pcPtr = std::make_shared<PointCloudBackendData>();
+					const QString baseName = QString::fromStdString(mesh->name());
+					pcPtr->setName((baseName.isEmpty()
+						? QStringLiteral("采样栅格") : baseName + QStringLiteral("_采样栅格")).toStdString());
+					pcPtr->setPointBuffers(std::move(sampleXyz), std::move(sampleRgba));
+					pcPtr->setPose(mesh->pose());
+					pcPtr->setRotation(mesh->rotation());
+					cloudsim::host::AdoptPointCloudOptions adoptOpt;
+					adoptOpt.sourcePath = QStringLiteral("plugin://pointcloud/surface-reconstruct-sample");
+					adoptOpt.resetViewToHome = false;
+					QString adoptErr;
+					const cloudsim::host::AdoptRegistrationResult adopted =
+						cloudsim::host::registerAdoptedPointCloud(*page, pcPtr, adoptOpt, &adoptErr);
+					if (!adopted.ok)
+					{
+						onFinished(false, adoptErr, {});
+						return;
+					}
+					result->samplePointsBackendId = adopted.backendId.toStdString();
+					session->samplePointsBackendId = result->samplePointsBackendId;
+				}
+			}
+			else if (stage == PluginMeshSurfaceReconstructStage::Fit && session->geoSession)
+			{
+				geoalgo::ShapeHandle fitShape;
+				std::string fitShapeErr;
+				if (geometry_backend_ops::buildFitPreviewShape(*session->geoSession, fitShape, &fitShapeErr))
+				{
+					auto fitBrep = std::make_shared<BrepBackendData>();
+					std::string brepErr;
+					if (geometry_backend_ops::meshSurfaceReconstructShapeToBrep(fitShape, fitBrep, &brepErr))
+					{
+						if (!session->fitPreviewBrepBackendId.empty() && doc)
+						{
+							std::string removeErr;
+							(void)doc->removeBackendObject(session->fitPreviewBrepBackendId, &removeErr);
+						}
+						std::string regErr;
+						if (!registerFitPreviewBrepFromShape(
+								m_host,
+								page,
+								mesh,
+								session->meshBackendId,
+								fitBrep,
+								&regErr))
+						{
+							onFinished(false, translateSurfaceReconErrorZh(QString::fromStdString(regErr)), {});
+							return;
+						}
+						result->fitPreviewBrepBackendId = fitBrep->id();
+						session->fitPreviewBrepBackendId = result->fitPreviewBrepBackendId;
+					}
+				}
+			}
+			else if (stage == PluginMeshSurfaceReconstructStage::Assemble && result->brep)
+			{
+				std::string regErr;
+				if (!registerReconstructedBrepFromShape(
+						m_host,
+						page,
+						mesh,
+						session->meshBackendId,
+						result->brep,
+						params,
+						&regErr))
+				{
+					onFinished(false, translateSurfaceReconErrorZh(QString::fromStdString(regErr)), {});
+					return;
+				}
+				result->newBrepBackendId = result->brep->id();
+				if (m_host)
+				{
+					m_host->logInfo(
+						QStringLiteral("[曲面重构] 装配完成 id=%1 分块=%2 最大偏差=%3 mm")
+							.arg(QString::fromStdString(result->newBrepBackendId))
+							.arg(result->report.patchCount)
+							.arg(result->report.maxDeviationMm, 0, 'f', 4));
+				}
+			}
+
+			session->lastCompleted = stage;
+			PluginMeshSurfaceReconstructReport pluginReport =
+				toPluginMeshSurfaceReconstructReport(result->report, result->newBrepBackendId, stage);
+			pluginReport.preprocessedMeshBackendId = session->preprocessedMeshBackendId;
+			pluginReport.partitionColoredMeshBackendId = session->partitionColoredMeshBackendId;
+			pluginReport.fitPreviewBrepBackendId = session->fitPreviewBrepBackendId;
+			pluginReport.stageSummaryZh =
+				formatSurfaceReconStageSummaryZh(stage, pluginReport, params.samplesPerPatchEdge);
+			if (stage == PluginMeshSurfaceReconstructStage::Fit
+				&& !session->fitPreviewBrepBackendId.empty())
+			{
+				pluginReport.stageSummaryZh += QStringLiteral("（场景已显示拟合曲面）");
+			}
+			if (m_host)
+			{
+				m_host->logInfo(QStringLiteral("[曲面重构] %1").arg(pluginReport.stageSummaryZh));
+			}
+			onFinished(true, QString(), pluginReport);
+		});
 }
 
 void PluginPointCloudHostImpl::remeshMeshIsotropic(

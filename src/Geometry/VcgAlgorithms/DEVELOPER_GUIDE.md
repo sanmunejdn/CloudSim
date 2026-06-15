@@ -33,7 +33,7 @@
 | `MeshSimplify.h` | `simplifyQuadricEdgeCollapse` — quadric-error 边折叠简化 |
 | `MeshSmooth.h` | `smoothLaplacian` / `smoothImplicitFairing` |
 | `MeshRepair.h` | `repairMesh` — 去重/退化/非流形/填孔 |
-| `MeshRemesh.h` | `isotropicRemesh` — 各向同性重网格 |
+| `MeshRemesh.h` | `isotropicRemesh` — 各向同性重网格；`computeMedianEdgeLengthMm` — 边长中位数 |
 | `MeshReconstruct.h` | `reconstructAndPostProcess` — CGAL Poisson + vcglib 后处理管线 |
 | `SelfTest.h` | `runSelfTest` |
 
@@ -89,6 +89,8 @@ vcgalgo::reconstructAndPostProcess(
     false    // doSmooth
 );
 ```
+
+**说明**：点云 Poisson/Scale-space 重建在本模块；**网格 → NURBS B-rep 曲面重构** 在 [`GeometryAlgorithm/MeshSurfaceReconstruction`](../GeometryAlgorithm/inc/MeshSurfaceReconstruction.h)（插件「曲面重构」分阶段 API）。
 
 ---
 

@@ -15,6 +15,7 @@
 #include "ViewTessellate.h"
 #include "WireOps.h"
 #include "MeshSurfaceReconstruction.h"
+#include "MeshSurfaceReconstruction/NurbsSurfaceFitting.h"
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
@@ -680,6 +681,40 @@ bool runSelfTest(std::vector<std::string>& failures)
 			{
 				fail("meshSurfaceReconstruct", "patchCount < 1");
 			}
+			else if (reconReport.nurbsPatchCount < 1 && reconReport.bsplinePatchCount < 1)
+			{
+				fail("meshSurfaceReconstruct", "no NURBS patches fitted");
+			}
+		}
+	}
+
+	{
+		TColgp_Array2OfPnt grid(1, 5, 1, 5);
+		for (int iu = 1; iu <= 5; ++iu)
+		{
+			for (int iv = 1; iv <= 5; ++iv)
+			{
+				const double u = static_cast<double>(iu - 1);
+				const double v = static_cast<double>(iv - 1);
+				grid.SetValue(iu, iv, gp_Pnt(u, v, 0.1 * u * v));
+			}
+		}
+		Handle(Geom_BSplineSurface) surface;
+		if (!meshrecon::fitNurbsSurfaceFromGrid(
+				grid,
+				6,
+				6,
+				meshrecon::NurbsFitMode::ApproxCentripetalFixedCtrlpts,
+				3,
+				3,
+				surface)
+			|| surface.IsNull())
+		{
+			fail("nurbsSurfaceFitting", "fitNurbsSurfaceFromGrid failed");
+		}
+		else if (surface->NbUPoles() < 4 || surface->NbVPoles() < 4)
+		{
+			fail("nurbsSurfaceFitting", "too few control points");
 		}
 	}
 

@@ -14,13 +14,15 @@ namespace vcgalgo
 
 class VcgVertex;
 class VcgFace;
+class VcgEdge;
 
 struct VcgUsedTypes : public vcg::UsedTypes<
 	vcg::Use<VcgVertex>::AsVertexType,
-	vcg::Use<VcgFace>::AsFaceType>
+	vcg::Use<VcgFace>::AsFaceType,
+	vcg::Use<VcgEdge>::AsEdgeType>
 {};
 
-// 顶点：含 VFAdj（简化）、Qualityd（重网格，与 Coord3d 标量一致）、内置 Quadric（QEM 简化）
+// 顶点：含 VFAdj、Qualityd（重网格）、Quadric（QEM 简化）
 class VcgVertex : public vcg::Vertex<VcgUsedTypes,
 	vcg::vertex::VFAdj,
 	vcg::vertex::Coord3d,
@@ -38,7 +40,9 @@ private:
 	vcg::math::Quadric<double> q_;
 };
 
+// 面：对齐 VCG IsotropicRemeshing 样例所需 Mark/Quality/FFAdj
 class VcgFace : public vcg::Face<VcgUsedTypes,
+	vcg::face::Mark,
 	vcg::face::VFAdj,
 	vcg::face::FFAdj,
 	vcg::face::VertexRef,
@@ -47,7 +51,13 @@ class VcgFace : public vcg::Face<VcgUsedTypes,
 	vcg::face::BitFlags>
 {};
 
-using VcgMesh = vcg::tri::TriMesh<std::vector<VcgVertex>, std::vector<VcgFace>>;
+class VcgEdge : public vcg::Edge<VcgUsedTypes>
+{};
+
+using VcgMesh = vcg::tri::TriMesh<
+	std::vector<VcgVertex>,
+	std::vector<VcgFace>,
+	std::vector<VcgEdge>>;
 
 namespace internal
 {

@@ -9,7 +9,7 @@
 | 工程 | `PointCloudPlugin.vcxproj`（x64，v142，Qt 5.14.2） |
 | 链接 | **仅** `CloudSimPluginSDK.lib` |
 | 部署 | `bin/x64(d)/plugins/com.cloudsim.pointcloud/plugin.json` + `PointCloudPlugin.dll` |
-| `minHostVersion` | `"1.12.0"`（曲面重构） |
+| `minHostVersion` | `"1.14.0"`（UV 自适应采样） |
 
 ## 运行时
 
@@ -62,25 +62,48 @@
 
 宿主需链接 `VcgAlgorithms.dll`；未链接时操作返回错误提示。
 
-## 曲面重构（1.12.0+）
+## 曲面重构（1.12.0+ 全流程，1.13.0+ 分阶段）
 
 侧栏「曲面重构」区（与「网格后处理」共用 `m_meshTargetCombo`）：
 
-| 控件 | 参数 |
-|------|------|
+| 控件 | 参数 / API |
+|------|------------|
 | 法矢光顺迭代 / 特征阈值 c0 | `normalSmoothIterations` / `featureThresholdC0` |
-| 分块数（0=自动）/ 每边采样 n | `patchCountHint` / `samplesPerPatchEdge` |
+| 分块数（0=自动）/ 分块法向平滑 / 特征百分位 | `patchCountHint` / `partitionNormalSmoothIters` / `featureAnglePercentile` |
+| 每边采样 n（间距=0 时） | `samplesPerPatchEdge` |
+| UV 目标间距 / 最少·最多每边 | `targetUvSpacingMm`（0=固定 n）/ `minSamplesPerEdge` / `maxSamplesPerEdge`（0=无上限） |
+| 拟合最多/边 / 拟合 UV 间距 | `maxFitGridPerEdge`（默认 9，0=不降采样上限）/ `fitUvSpacingMm`（0=仅用最多/边） |
+| 采样率 k / 控制点密度 | `sampleRateFactor`（默认 2.0）/ `controlPointDensityFactor`（默认 0.5，AMRTO k_sample/k_type_gemodl） |
+| NURBS 拟合模式 | `fitMode`（默认最小二乘+指定控制点数） |
+| 混合带宽度（0=自动）| `blendStripWidth`（边界/交汇混合阶段） |
 | 光顺 ε / 最大迭代 | `fairingEpsilon` / `fairingMaxIterations` |
-| **重构曲面** | `reconstructSurfaceFromMesh` |
+| 装配离散精度 (mm) | `tessellateLinearDeflectionMm`（装配阶段 B-rep 三角化精度） |
+| **预处理后写入场景网格** | `exportPreprocessedMeshToScene`（临时 `Model`，名 `源名_预处理后`） |
+| **预处理 → 装配输出**（8 按钮） | `beginMeshSurfaceReconstructSession` + `runMeshSurfaceReconstructStage` |
+| **全流程** | `reconstructSurfaceFromMesh`（一次跑完，兼容 1.12） |
+| **重置会话** | `clearMeshSurfaceReconstructSession` |
 
-典型流程：
+分阶段顺序（须按序执行，切换网格对象自动重置会话）：
+
+1. **预处理** — Vcg 修复 + 法矢光顺；可选写入场景网格
+2. **分块** — 四边域划分
+3. **栅格采样** — PCA 物理等距栅格 + 曲面投影；质量未过时调和 UV（小 patch）或面心锚定回退（`pca-centroid`）
+4. **NURBS 拟合** — AMRTO 式 centripetal 最小二乘（`NurbsSurfaceFitting`）；摘要含 `fitRejectApprox/Pole/FitGrid/FullGrid/MakeFace` 拒因统计
+5. **边界混合** — 片间边界 C²
+6. **交汇混合** — 多片交汇 C²
+7. **光顺** — B 样条局部光顺
+8. **装配输出** — Compound 装配 → 新 `BrepModel`
+
+每阶段中文摘要写入：侧栏日志区、状态栏、RunInfo `[曲面重构]`（`PluginMeshSurfaceReconstructReport::stageSummaryZh`）。
+
+典型调试流程：
 
 1. Poisson 重建或导入 → 选中 `Model` 网格
-2. 默认参数 → **重构曲面**
-3. 生成新 **`BrepModel`** 后端（源网格保留）；树中自动选中
-4. 摘要显示分块数、最大偏差、光顺指标
+2. 勾选「预处理后写入场景网格」→ 点 **预处理**，检查 `*_预处理后` 网格
+3. 依次点 **分块** … **装配输出**，观察侧栏日志与 RunInfo
+4. 或直接用 **全流程** 一次完成（菜单入口仍走全流程）
 
-菜单：**Tools → 点云 → 曲面重构**
+菜单：**Tools → 点云 → 曲面重构**（触发全流程）
 
 详见 [`docs/mesh_surface_reconstruction.md`](../../docs/mesh_surface_reconstruction.md)。
 

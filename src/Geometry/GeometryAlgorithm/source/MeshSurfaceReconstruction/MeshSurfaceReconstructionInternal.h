@@ -19,15 +19,44 @@ struct IndexedMeshLite
 	std::vector<int> faces;
 };
 
+enum class PatchFitRejectReason : int
+{
+	None = 0,
+	Approx,
+	Pole,
+	FitGrid,
+	FullGrid,
+	MakeFace,
+	Skipped,
+};
+
 struct QuadPatch
 {
 	std::vector<int> faceIndices;
 	std::vector<float> sampleXyz;
 	int gridN = 0;
+	int gridNu = 0;
+	int gridNv = 0;
+	double uvUSpanMm = 0.0;
+	double uvVSpanMm = 0.0;
+	double uvNormMinU = 0.0;
+	double uvNormMaxU = 1.0;
+	double uvNormMinV = 0.0;
+	double uvNormMaxV = 1.0;
+	int computedCtrlPtsU = 0;
+	int computedCtrlPtsV = 0;
+	std::string samplingPath;
 	Handle(Geom_BSplineSurface) surface;
 	TopoDS_Face face;
+	bool meshFallback = false;
+	std::vector<TopoDS_Face> meshFallbackFaces;
+	PatchFitRejectReason fitRejectReason = PatchFitRejectReason::None;
 	std::vector<int> neighborPatchIds;
 };
+
+void aggregateFitRejectStats(
+	MeshSurfaceReconstructReport& report,
+	const std::vector<QuadPatch>& patches);
 
 bool soupToIndexed(const std::vector<float>& soup, IndexedMeshLite& out, std::string* errMsg);
 
@@ -36,6 +65,7 @@ bool partitionQuadDomains(
 	const MeshSurfaceReconstructParams& params,
 	std::vector<QuadPatch>& patches,
 	int& outJunctionCount,
+	MeshSurfaceReconstructReport* partitionStats,
 	std::string* errMsg);
 
 bool samplePatchGrids(
@@ -45,9 +75,13 @@ bool samplePatchGrids(
 	std::string* errMsg);
 
 bool buildInitialBsplinePatches(
+	const IndexedMeshLite& mesh,
 	std::vector<QuadPatch>& patches,
 	const MeshSurfaceReconstructParams& params,
 	std::string* errMsg);
+
+/// 光顺/装配前按采样尺度重建面，避免全参数域建面产生失控薄片
+bool rebuildPatchFace(const IndexedMeshLite& mesh, QuadPatch& patch);
 
 bool applyBoundaryC2Blend(
 	std::vector<QuadPatch>& patches,
@@ -68,6 +102,7 @@ bool fairBsplinePatches(
 	std::string* errMsg);
 
 bool assembleBrepShape(
+	const IndexedMeshLite& mesh,
 	const std::vector<QuadPatch>& patches,
 	ShapeHandle& outShape,
 	std::string* errMsg);
@@ -86,7 +121,7 @@ bool validateOutputBbox(
 	const ShapeHandle& shape,
 	double maxDiagRatio,
 	std::string* errMsg);
-bool validateTessellationSanity(const ShapeHandle& shape, std::string* errMsg);
+bool validateTessellationSanity(const ShapeHandle& shape, const MeshSurfaceReconstructParams& params, std::string* errMsg);
 
 } // namespace meshrecon
 } // namespace geoalgo

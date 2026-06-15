@@ -239,6 +239,47 @@ DATA_EXPORT bool updateBrepFromCadTemplate(
 
 DATA_EXPORT bool registrationCoarsePipelineSelfTest(std::string* errMsg = nullptr);
 
+/// Vcg 修复 + 法矢光顺（曲面重构预处理）
+DATA_EXPORT bool preprocessMeshSoupForSurfaceReconstruct(
+	const std::vector<float>& soup,
+	const geoalgo::MeshSurfaceReconstructParams& params,
+	std::vector<float>& outSoup,
+	geoalgo::MeshSurfaceReconstructReport& report,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT geoalgo::MeshSurfaceReconstructSessionPtr createMeshSurfaceReconstructSession(
+	std::vector<float> preprocessedSoup);
+
+DATA_EXPORT bool runMeshSurfaceReconstructStage(
+	geoalgo::MeshSurfaceReconstructSession& session,
+	geoalgo::MeshSurfaceReconstructStage stage,
+	const geoalgo::MeshSurfaceReconstructParams& params,
+	geoalgo::ShapeHandle* outShape,
+	geoalgo::MeshSurfaceReconstructReport& report,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool buildPartitionColoredMeshSoup(
+	const geoalgo::MeshSurfaceReconstructSession& session,
+	std::vector<float>& outSoup,
+	std::vector<float>& outRgbPerVertex,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool buildSamplePointsCloud(
+	const geoalgo::MeshSurfaceReconstructSession& session,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool buildFitPreviewShape(
+	const geoalgo::MeshSurfaceReconstructSession& session,
+	geoalgo::ShapeHandle& outShape,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool meshSurfaceReconstructShapeToBrep(
+	const geoalgo::ShapeHandle& shape,
+	std::shared_ptr<BrepBackendData>& outBrep,
+	std::string* errMsg = nullptr);
+
 /// 网格 soup → B 样条 B-rep 曲面重构（含可选 vcg 预处理）
 DATA_EXPORT bool reconstructBrepFromMeshSoup(
 	const std::vector<float>& soup,

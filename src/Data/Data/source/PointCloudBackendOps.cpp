@@ -544,7 +544,7 @@ bool remeshMeshIsotropic(
 	int iterations,
 	std::string* errMsg)
 {
-	return ::vcgalgo::isotropicRemesh(soupIn, targetEdgeLengthMm, soupOut, iterations, errMsg);
+	return ::vcgalgo::isotropicRemesh(soupIn, targetEdgeLengthMm, soupOut, iterations, 30.0, errMsg);
 }
 
 bool analyzeMeshDefects(

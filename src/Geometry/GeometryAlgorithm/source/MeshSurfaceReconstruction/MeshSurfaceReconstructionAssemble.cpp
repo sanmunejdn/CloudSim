@@ -5,7 +5,6 @@
 #include "detail/OccIncludes.h"
 
 #include <BRep_Builder.hxx>
-#include <BRepBuilderAPI_MakeFace.hxx>
 
 #include <cmath>
 #include <limits>
@@ -27,42 +26,43 @@ struct Vec3d
 	double length() const { return std::sqrt(dot(*this)); }
 };
 
-bool rebuildFaceFromSurface(QuadPatch& patch)
-{
-	if (patch.surface.IsNull())
-	{
-		return !patch.face.IsNull();
-	}
-	double u1 = 0.0;
-	double u2 = 0.0;
-	double v1 = 0.0;
-	double v2 = 0.0;
-	patch.surface->Bounds(u1, u2, v1, v2);
-	if (u2 - u1 < 1e-9 || v2 - v1 < 1e-9)
-	{
-		return !patch.face.IsNull();
-	}
-	BRepBuilderAPI_MakeFace mk(patch.surface, u1, u2, v1, v2, 1e-3);
-	if (!mk.IsDone())
-	{
-		return !patch.face.IsNull();
-	}
-	patch.face = mk.Face();
-	return !patch.face.IsNull();
-}
-
 } // namespace
 
 bool assembleBrepShape(
+	const IndexedMeshLite& mesh,
 	const std::vector<QuadPatch>& patches,
 	ShapeHandle& outShape,
 	std::string* errMsg)
 {
 	std::vector<TopoDS_Face> faces;
-	faces.reserve(patches.size());
-	for (QuadPatch patch : patches)
+	std::size_t faceReserve = patches.size();
+	for (const QuadPatch& patch : patches)
 	{
-		if (!rebuildFaceFromSurface(patch) || patch.face.IsNull())
+		if (patch.meshFallback)
+		{
+			faceReserve += patch.meshFallbackFaces.size();
+		}
+	}
+	faces.reserve(faceReserve);
+	for (const QuadPatch& patchIn : patches)
+	{
+		QuadPatch patch = patchIn;
+		if (patch.meshFallback)
+		{
+			if (!rebuildPatchFace(mesh, patch))
+			{
+				continue;
+			}
+			for (const TopoDS_Face& triFace : patch.meshFallbackFaces)
+			{
+				if (!triFace.IsNull())
+				{
+					faces.push_back(triFace);
+				}
+			}
+			continue;
+		}
+		if (!rebuildPatchFace(mesh, patch) || patch.face.IsNull())
 		{
 			continue;
 		}

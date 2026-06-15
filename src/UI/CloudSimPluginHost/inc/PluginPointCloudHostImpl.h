@@ -5,7 +5,10 @@
 #include <BackendFollowMath.h>
 #include <TemplateBrepUpdate.h>
 
+#include <MeshSurfaceReconstruction.h>
+
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 class PluginHostContext;
@@ -182,7 +185,37 @@ public:
 		const PluginMeshSurfaceReconstructParams& params,
 		PluginMeshSurfaceReconstructFinishedFn onFinished) override;
 
+	PluginMeshSurfaceReconstructSessionId beginMeshSurfaceReconstructSession(
+		IPluginDocument* doc,
+		const std::string& meshBackendIdUtf8) override;
+
+	void runMeshSurfaceReconstructStage(
+		IPluginDocument* doc,
+		const PluginMeshSurfaceReconstructSessionId& sessionId,
+		PluginMeshSurfaceReconstructStage stage,
+		const PluginMeshSurfaceReconstructParams& params,
+		PluginMeshSurfaceReconstructFinishedFn onFinished) override;
+
+	void clearMeshSurfaceReconstructSession(
+		IPluginDocument* doc,
+		const PluginMeshSurfaceReconstructSessionId& sessionId) override;
+
 private:
+	struct SurfaceReconHostSession
+	{
+		std::string sessionId;
+		std::string docId;
+		std::string meshBackendId;
+		std::vector<float> rawSoup;
+		std::vector<float> workingSoup;
+		geoalgo::MeshSurfaceReconstructSessionPtr geoSession;
+		PluginMeshSurfaceReconstructStage lastCompleted = PluginMeshSurfaceReconstructStage::None;
+		std::string preprocessedMeshBackendId;
+		std::string partitionColoredMeshBackendId;
+		std::string samplePointsBackendId;
+		std::string fitPreviewBrepBackendId;
+	};
+
 	struct TemplateBrepAlignCache
 	{
 		IPluginDocument* doc = nullptr;
@@ -199,6 +232,10 @@ private:
 		const std::string& scanId,
 		const std::string& templateId) const;
 
+	void eraseSurfaceReconSession(const std::string& sessionId, IPluginDocument* doc);
+	SurfaceReconHostSession* findSurfaceReconSession(const std::string& sessionId, IPluginDocument* doc);
+
 	PluginHostContext* m_host = nullptr;
 	TemplateBrepAlignCache m_templateBrepAlignCache;
+	std::unordered_map<std::string, SurfaceReconHostSession> m_surfaceReconSessions;
 };

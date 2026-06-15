@@ -115,20 +115,38 @@ osg::ref_ptr<osg::Node> buildMeshDisplayNodeImpl(const MeshBackendData& data, co
 		}
 		geometry->setNormalArray(na.get(), osg::Array::BIND_PER_VERTEX);
 	}
-	osg::ref_ptr<osg::Vec4Array> mc = new osg::Vec4Array;
 	const BackendColor c = data.color();
 	const osg::Vec4 fillColor(c.r, c.g, c.b, c.a);
-	mc->push_back(fillColor);
-	geometry->setColorArray(mc.get(), osg::Array::BIND_OVERALL);
+	const bool useVertexColors = data.hasTriangleVertexColors();
+	if (useVertexColors)
+	{
+		osg::ref_ptr<osg::Vec4Array> vertexColors = new osg::Vec4Array;
+		vertexColors->reserve(va->size());
+		const std::vector<float>& rgb = data.triangleVertexColors();
+		for (std::size_t i = 0; i + 2 < rgb.size(); i += 3U)
+		{
+			vertexColors->push_back(osg::Vec4(rgb[i], rgb[i + 1U], rgb[i + 2U], 1.0f));
+		}
+		geometry->setColorArray(vertexColors.get(), osg::Array::BIND_PER_VERTEX);
+	}
+	else
+	{
+		osg::ref_ptr<osg::Vec4Array> mc = new osg::Vec4Array;
+		mc->push_back(fillColor);
+		geometry->setColorArray(mc.get(), osg::Array::BIND_OVERALL);
+	}
 	osg::ref_ptr<osg::Geode> geodeFill = new osg::Geode;
 	geodeFill->addDrawable(geometry.get());
-	if (opt.useSceneLighting)
+	osg::StateSet* ssFill = geodeFill->getOrCreateStateSet();
+	if (useVertexColors)
+	{
+		ssFill->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	}
+	else if (opt.useSceneLighting)
 	{
 		osg::ref_ptr<osg::Material> mat = new osg::Material;
 		applyLitPlastic(*mat, fillColor);
-		osg::StateSet* ssFill = geodeFill->getOrCreateStateSet();
 		ssFill->setAttributeAndModes(mat.get(), osg::StateAttribute::ON);
-		//ssFill->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 		ssFill->setMode(GL_LIGHTING, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 		ssFill->setMode(GL_LIGHT0, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 		ssFill->setMode(GL_NORMALIZE, osg::StateAttribute::ON);

@@ -247,6 +247,8 @@ const int threads = pclalgo::ParallelUtils::getThreadCount();
 | 各向同性重网格 | `VcgAlgorithms` | 均匀三角形分布 |
 | 重建+后处理管线 | `VcgAlgorithms` | `reconstructAndPostProcess` 调用本模块 Poisson + vcglib 后处理 |
 
+**曲面重构（网格 → NURBS B-rep）** 不在本模块，而在 [`GeometryAlgorithm/MeshSurfaceReconstruction`](../GeometryAlgorithm/inc/MeshSurfaceReconstruction.h)（AMRTO 式调和 UV 栅格 + NURBS 最小二乘拟合）。插件侧栏「曲面重构」经 Data → `geoalgo::reconstructBrepFromMeshSoup` 调用。详见 [`docs/mesh_surface_reconstruction.md`](../../docs/mesh_surface_reconstruction.md)。
+
 `Data.dll` 的 `PointCloudBackendOps` 暴露统一 soup-based 接口，运行时 `LoadLibrary("VcgAlgorithms.dll")` 调用。
 
 ---

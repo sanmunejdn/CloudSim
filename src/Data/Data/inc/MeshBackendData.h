@@ -32,11 +32,20 @@ public:
 	void setTriangleSoup(std::vector<float> xyzPerTriangleVertex);
 	/// 可选每三角法线（9 float，与 soup 对齐），OBJ vn 光照
 	void setTriangleSoupWithNormals(std::vector<float> xyzPerTriangleVertex, std::vector<float> normalPerTriangleVertex);
+	/// 每顶点 rgb（与 soup 同长度、同顶点顺序）
+	void setTriangleSoupWithVertexColors(
+		std::vector<float> xyzPerTriangleVertex,
+		std::vector<float> rgbPerTriangleVertex);
 	const std::vector<float>& triangleSoup() const { return m_triangleSoup; }
 	const std::vector<float>& triangleVertexNormals() const { return m_triangleNormals; }
+	const std::vector<float>& triangleVertexColors() const { return m_triangleVertexColors; }
 	bool hasTriangleVertexNormals() const
 	{
 		return !m_triangleNormals.empty() && m_triangleNormals.size() == m_triangleSoup.size();
+	}
+	bool hasTriangleVertexColors() const
+	{
+		return !m_triangleVertexColors.empty() && m_triangleVertexColors.size() == m_triangleSoup.size();
 	}
 
 	/// 列主序 4×4（mesh 系→连杆系）烘焙到 soup 顶点并重算包围
@@ -75,6 +84,7 @@ private:
 
 	std::vector<float> m_triangleSoup;
 	std::vector<float> m_triangleNormals;
+	std::vector<float> m_triangleVertexColors;
 	BackendBoundingBox m_bounds;
 	BackendColor m_color;
 	bool m_transformPivotAtOrigin = false;

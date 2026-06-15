@@ -46,6 +46,7 @@ void MeshBackendData::clearGeometry()
 {
 	m_triangleSoup.clear();
 	m_triangleNormals.clear();
+	m_triangleVertexColors.clear();
 	m_bounds = BackendBoundingBox{};
 }
 
@@ -100,6 +101,27 @@ void MeshBackendData::setTriangleSoupWithNormals(std::vector<float> xyzPerTriang
 	}
 	m_triangleSoup = std::move(xyzPerTriangleVertex);
 	m_triangleNormals = std::move(normalPerTriangleVertex);
+	m_triangleVertexColors.clear();
+	recomputeBounds();
+}
+
+void MeshBackendData::setTriangleSoupWithVertexColors(
+	std::vector<float> xyzPerTriangleVertex,
+	std::vector<float> rgbPerTriangleVertex)
+{
+	if (xyzPerTriangleVertex.size() % 9U != 0U)
+	{
+		clearGeometry();
+		return;
+	}
+	if (rgbPerTriangleVertex.size() != xyzPerTriangleVertex.size())
+	{
+		clearGeometry();
+		return;
+	}
+	m_triangleSoup = std::move(xyzPerTriangleVertex);
+	m_triangleVertexColors = std::move(rgbPerTriangleVertex);
+	m_triangleNormals.clear();
 	recomputeBounds();
 }
 
