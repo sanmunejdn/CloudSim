@@ -58,6 +58,9 @@ void appendProjectLoadWarning(QStringList* outWarnings, const QString& message)
 	}
 }
 
+// 加载工程时用于共享 stepSidecar 对应 Shape 的缓存
+QMap<QString, std::shared_ptr<BrepBackendData>> g_stepSidecarCache;
+
 } // namespace
 
 QJsonObject saveProjectObject(DocumentHost& host, const QString& objectId, const QString& sourcePath,
@@ -139,29 +142,66 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 		if (!brep->hasGeometry())
 		{
 			const QJsonObject emb = objectJson.value(QStringLiteral("geometry")).toObject();
-			QString brepRel = emb.value(QStringLiteral("brepSidecar")).toString();
-			if (brepRel.isEmpty())
+
+			// 优先尝试 stepSidecar（新保存格式，原始 STEP 拷贝），并支持多个 BREP 共享同一个 Shape
+			QString stepRel = emb.value(QStringLiteral("stepSidecar")).toString();
+			if (!stepRel.isEmpty())
 			{
-				brepRel = objectJson.value(QStringLiteral("assetRelativePath")).toString();
-			}
-			const QString brepPath = resolveProjectObjectLoadPath(projectDir, sourcePath, brepRel);
-			if (!brepPath.isEmpty())
-			{
-				const QByteArray enc = QFile::encodeName(brepPath);
-				const std::string nativePath(enc.constData(), static_cast<std::size_t>(enc.size()));
-				std::string loadErr;
-				if (!brep->loadFromBrepFile(nativePath, &loadErr))
+				if (g_stepSidecarCache.contains(stepRel))
 				{
-					if (outError)
-					{
-						*outError = loadErr.empty() ? QStringLiteral("Failed to load B-rep sidecar")
-													: QString::fromStdString(loadErr);
-					}
-					return false;
+					// 直接共享已加载的 Shape
+					brep->shareShapeFrom(*g_stepSidecarCache.value(stepRel));
+					brep->setBrepSidecarRelativePath(stepRel.toStdString());
 				}
-				if (!brepRel.isEmpty())
+				else
 				{
-					brep->setBrepSidecarRelativePath(brepRel.toStdString());
+					const QString stepPath = resolveProjectObjectLoadPath(projectDir, sourcePath, stepRel);
+					if (!stepPath.isEmpty())
+					{
+						const QByteArray enc = QFile::encodeName(stepPath);
+						const std::string nativePath(enc.constData(), static_cast<std::size_t>(enc.size()));
+						std::string loadErr;
+						if (!brep->loadFromStepFile(nativePath, &loadErr))
+						{
+							if (outError)
+							{
+								*outError = loadErr.empty() ? QStringLiteral("Failed to load STEP sidecar")
+															: QString::fromStdString(loadErr);
+							}
+							return false;
+						}
+						brep->setBrepSidecarRelativePath(stepRel.toStdString());
+						g_stepSidecarCache.insert(stepRel, brep); // 缓存以供后续对象共享
+					}
+				}
+			}
+			else
+			{
+				// 回退到旧的 brepSidecar 格式
+				QString brepRel = emb.value(QStringLiteral("brepSidecar")).toString();
+				if (brepRel.isEmpty())
+				{
+					brepRel = objectJson.value(QStringLiteral("assetRelativePath")).toString();
+				}
+				const QString brepPath = resolveProjectObjectLoadPath(projectDir, sourcePath, brepRel);
+				if (!brepPath.isEmpty())
+				{
+					const QByteArray enc = QFile::encodeName(brepPath);
+					const std::string nativePath(enc.constData(), static_cast<std::size_t>(enc.size()));
+					std::string loadErr;
+					if (!brep->loadFromBrepFile(nativePath, &loadErr))
+					{
+						if (outError)
+						{
+							*outError = loadErr.empty() ? QStringLiteral("Failed to load B-rep sidecar")
+														: QString::fromStdString(loadErr);
+						}
+						return false;
+					}
+					if (!brepRel.isEmpty())
+					{
+						brep->setBrepSidecarRelativePath(brepRel.toStdString());
+					}
 				}
 			}
 		}
@@ -382,6 +422,9 @@ void applyPointCloudPoseFromProjectJson(PointCloudBackendData& pc, OsgWidget* os
 void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, const ProjectObjectLoadOptions& options,
 	const ProjectObjectLoadCallbacks& callbacks, QStringList* outWarnings)
 {
+	// 每次加载新工程时清空 stepSidecar 缓存，避免跨工程污染
+	g_stepSidecarCache.clear();
+
 	OsgWidget* osg = osgWidgetFrom(host);
 	for (const QJsonValue& v : objects)
 	{

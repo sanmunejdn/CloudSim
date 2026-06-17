@@ -27,6 +27,8 @@
 #include <QJsonArray>
 #include <QJsonValue>
 
+#include <chrono>
+#include <fstream>
 #include <osg/Vec3f>
 
 namespace cloudsim::host
@@ -122,6 +124,9 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 {
 	ProjectSaveBuildResult out;
 	out.root.insert(QStringLiteral("version"), 4);
+
+	// 用于 BREP/STEP 源文件去重：同一个原始 STEP 文件只拷贝一次
+	QMap<QString, QString> stepSourceCache; // srcPath -> relPath
 	out.root.insert(QStringLiteral("componentsSchemaVersion"), 1);
 	out.root.insert(QStringLiteral("language"), languageCode);
 
@@ -189,27 +194,47 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 			}
 			else if (const auto brep = std::dynamic_pointer_cast<BrepBackendData>(data))
 			{
-				if (brep->hasGeometry())
+				// 优化：同一个原始 STEP 源文件只拷贝一次，后续对象复用同一个 stepSidecar
+				const QString srcPath = host.backendSourcePath().value(idQs);
+				if (!srcPath.isEmpty() && QFileInfo::exists(srcPath))
 				{
-					const QString rel = QStringLiteral("objects/%1.brep").arg(idQs);
-					const QString abs = QDir(assetOutputDir).filePath(rel);
-					QDir().mkpath(QFileInfo(abs).absolutePath());
-					std::string writeErr;
-					const QByteArray enc = QFile::encodeName(abs);
-					const std::string nativePath(enc.constData(), static_cast<std::size_t>(enc.size()));
-					if (brep->writeBrepFile(nativePath, &writeErr))
+					QString rel;
+					if (stepSourceCache.contains(srcPath))
+					{
+						// 复用已分配的 sidecar 路径
+						rel = stepSourceCache.value(srcPath);
+					}
+					else
+					{
+						const QString originalExt = QFileInfo(srcPath).suffix();
+						const QString safeExt = originalExt.isEmpty() ? QStringLiteral("stp") : originalExt;
+						rel = QStringLiteral("objects/%1.%2").arg(idQs, safeExt);
+						const QString abs = QDir(assetOutputDir).filePath(rel);
+						QDir().mkpath(QFileInfo(abs).absolutePath());
+
+						if (QFile::copy(srcPath, abs))
+						{
+							stepSourceCache.insert(srcPath, rel);
+						}
+						else
+						{
+							out.warnings.append(QStringLiteral("Failed to copy STEP source for BREP %1").arg(idQs));
+							rel.clear();
+						}
+					}
+
+					if (!rel.isEmpty())
 					{
 						obj.insert(QStringLiteral("assetRelativePath"), rel);
 						QJsonObject geom = obj.value(QStringLiteral("geometry")).toObject();
 						geom.insert(QStringLiteral("kind"), QStringLiteral("brep"));
-						geom.insert(QStringLiteral("brepSidecar"), rel);
+						geom.insert(QStringLiteral("stepSidecar"), rel);
 						obj.insert(QStringLiteral("geometry"), geom);
 					}
-					else
-					{
-						out.warnings.append(QStringLiteral("B-rep sidecar write failed for %1: %2")
-							.arg(idQs, QString::fromStdString(writeErr)));
-					}
+				}
+				else
+				{
+					out.warnings.append(QStringLiteral("BREP object %1 has no valid source path, skipping stepSidecar").arg(idQs));
 				}
 			}
 		}

@@ -109,7 +109,9 @@ void collectHierarchyRecursive(
 	const TessellateParams& params,
 	std::vector<MeshHierarchyPart>& outParts)
 {
-	if (!shapeHasChildren(shape))
+	// Solid 及以下层级（Solid/Shell/Face/Edge/Vertex）作为叶子零件，
+	// 不再递归到 Face/Edge 级别，避免产生大量无意义碎片。
+	if (shape.ShapeType() <= TopAbs_SOLID || !shapeHasChildren(shape))
 	{
 		MeshHierarchyPart part;
 		part.partPath = path;
@@ -138,7 +140,8 @@ void collectHierarchyTopologyRecursive(
 	const std::string& parentPath,
 	std::vector<MeshHierarchyPart>& outParts)
 {
-	if (!shapeHasChildren(shape))
+	// Solid 及以下层级作为叶子零件，不再递归到 Face/Edge 级别。
+	if (shape.ShapeType() <= TopAbs_SOLID || !shapeHasChildren(shape))
 	{
 		MeshHierarchyPart part;
 		part.partPath = path;
