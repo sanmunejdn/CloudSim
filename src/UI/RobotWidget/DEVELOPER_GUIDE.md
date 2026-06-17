@@ -695,6 +695,23 @@ AI 入口：领域 `trajectory.feature`（`TrajectoryFeatureDomainHandler` 校�
 
 ---
 
+## 预留：管状铸件打磨 ingress（Phase 5）
+
+V1 **不在**「轨迹生成」Tab 暴露入口；数据流预留如下：
+
+```text
+TubularGrinding 投影点位（Plugin / geoalgo）
+  → importTubularGrindingPointsToRawTrajectory（RobotScene，当前桩）
+  → TrajectoryEditSession::setRawTrajectory
+  → 现有轨迹编辑 / pipeline 流水线
+```
+
+头文件：[`../RobotScene/inc/TubularGrindingTrajectoryIngress.h`](../RobotScene/inc/TubularGrindingTrajectoryIngress.h)。坐标系与 CAD 轨迹一致：mesh/STEP 文件坐标 ↔ 世界坐标经 [`FeaturePickTransform`](inc/FeaturePickTransform.h)（`stepModelPointToWorldMm` / `transformRawTrajectoryToWorld`）。
+
+MVP 桩 `importTubularGrindingPointsToRawTrajectory` 返回 `false`，`errMsg = "not implemented"`。
+
+---
+
 ## 相关文档
 
 - 总架构：[`../../ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md)

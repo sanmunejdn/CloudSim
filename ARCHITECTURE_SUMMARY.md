@@ -506,7 +506,7 @@ flowchart LR
 | Host（含插件宿主） | `CloudSimHost` | 含 `PluginHost`、`Ai` 宿主实现、`OsgWidget` 源码等筛选器。 |
 | Robot | `RobotScene`、`RobotUrdf`、`RobotKinematics` | 以 `Robot`、`Urdf`、`Core` 等子域拆分。 |
 | Geometry / Data | `GeometryEngine`、`GeometryAlgorithm`、`PointCloudAlgorithm`、`Data` | `Data` 最细（含 `Backend`、`MeshIo`、`ThirdParty\\dxflib`、`pch`）；几何工程按 `Geometry`、`adapters` 组织。 |
-| Plugin / Infra | `CloudSimAiSDK`、`CloudSimPluginSDK`、`HelloPlugin`、`PlcCommSDK/UI/Plugin`、`RunLogger` | 统一 `inc`/`src`，插件类工程通常再细分 `Plugin` 子筛选器。 |
+| Plugin / Infra | `CloudSimAiSDK`、`CloudSimPluginSDK`、`CloudSimLabelingSDK`、`HelloPlugin`、`LabelingPlugin`、`PlcCommSDK/UI/Plugin`、`RunLogger` | 统一 `inc`/`src`，插件类工程通常再细分 `Plugin` 子筛选器。 |
 
 维护建议：
 
@@ -1110,6 +1110,14 @@ bin/x64(d)/                    # CloudSimBinDir，见 CloudSim/Directory.Build.p
     com.cloudsim.plccomm/
       plugin.json
       PlcCommPlugin.dll
+    com.cloudsim.pointnet/
+      plugin.json
+      PointNetPlugin.dll
+      LabelingPlugin.dll   # 交互分割标注 + 训练 UI（v1.16.0 labelingHost）
+      pointnet_config.json
+      models/
+        pointnet_cls.onnx
+        pointnet_seg.onnx
 ```
 
 ### 10.3 生命周期

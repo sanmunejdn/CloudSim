@@ -70,6 +70,17 @@ DATA_EXPORT bool cropPointCloudByPolyline2D(
 	bool keepInside,
 	std::string* errMsg = nullptr);
 
+DATA_EXPORT bool collectPointCloudIndicesByPolyline2D(
+	const PointCloudBackendData& data,
+	const std::vector<float>& polylineScreenXy,
+	const double mvpMatrix[16],
+	const double modelToWorld[16],
+	int viewportWidth,
+	int viewportHeight,
+	bool keepInside,
+	std::vector<std::size_t>& outIndices,
+	std::string* errMsg = nullptr);
+
 DATA_EXPORT bool measurePointCloud(
 	const PointCloudBackendData& data,
 	PointCloudMeasureResult& out,

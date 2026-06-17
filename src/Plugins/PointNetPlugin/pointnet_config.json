@@ -1,0 +1,18 @@
+{
+  "models": {
+    "classify": {
+      "path": "models/pointnet_cls.onnx",
+      "num_points": 1024,
+      "classes": ["box", "cylinder", "sphere", "cone", "complex"]
+    },
+    "segment": {
+      "path": "models/pointnet_seg.onnx",
+      "num_points": 2048,
+      "num_classes": 6
+    }
+  },
+  "inference": {
+    "provider": "cpu",
+    "fallback": "cpu"
+  }
+}

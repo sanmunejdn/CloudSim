@@ -87,12 +87,14 @@ bool applyBoundaryC2Blend(
 	std::vector<QuadPatch>& patches,
 	const MeshSurfaceReconstructParams& params,
 	bool& outBlendOk,
+	MeshSurfaceReconstructReport* report,
 	std::string* errMsg);
 
 bool applyJunctionC2Blend(
 	std::vector<QuadPatch>& patches,
 	int junctionCount,
 	const MeshSurfaceReconstructParams& params,
+	MeshSurfaceReconstructReport* report,
 	std::string* errMsg);
 
 bool fairBsplinePatches(

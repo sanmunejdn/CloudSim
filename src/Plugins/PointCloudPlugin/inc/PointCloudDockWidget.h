@@ -19,6 +19,7 @@ class QPushButton;
 class QGroupBox;
 class QTextEdit;
 class QCheckBox;
+class QWidget;
 
 class PointCloudDockWidget : public QWidget
 {
@@ -72,6 +73,7 @@ private slots:
 	void onMeshRemeshClicked();
 	void onSurfaceReconstructClicked();
 	void onSurfaceReconstructResetSessionClicked();
+	void onPartitionModeChanged();
 
 private:
 	QString i18n(const QString& en, const QString& zh) const;
@@ -89,6 +91,7 @@ private:
 	void updateSurfaceReconButtonStates();
 	void appendSurfaceReconLog(const QString& line);
 	void runSurfaceReconStage(PluginMeshSurfaceReconstructStage stage);
+	void updatePartitionModeUi();
 	IPluginDocument* activeDoc() const;
 	IPluginPointCloudHost* pointCloudHost() const;
 	void runFinished(bool ok, const QString& error, const PluginPointCloudJobResult& result);
@@ -198,10 +201,39 @@ private:
 	QLabel* m_surfaceReconBlendSectionLabel = nullptr;
 	QLabel* m_patchCountLabel = nullptr;
 	QSpinBox* m_patchCountSpin = nullptr;
+	QLabel* m_partitionModeLabel = nullptr;
+	QComboBox* m_partitionModeCombo = nullptr;
+	QWidget* m_v3PartitionParamsWidget = nullptr;
 	QLabel* m_partitionNormalSmoothLabel = nullptr;
 	QSpinBox* m_partitionNormalSmoothSpin = nullptr;
 	QLabel* m_featureAnglePercentileLabel = nullptr;
 	QDoubleSpinBox* m_featureAnglePercentileSpin = nullptr;
+	QWidget* m_hybridPartitionParamsWidget = nullptr;
+	QLabel* m_hybridFeatureAngleLabel = nullptr;
+	QDoubleSpinBox* m_hybridFeatureAngleSpin = nullptr;
+	QLabel* m_hybridClusterItersLabel = nullptr;
+	QSpinBox* m_hybridClusterItersSpin = nullptr;
+	QLabel* m_hybridSampleScaleLabel = nullptr;
+	QDoubleSpinBox* m_hybridSampleScaleSpin = nullptr;
+	QCheckBox* m_hybridRegionAdjustCheck = nullptr;
+	QLabel* m_hybridMergeCosHighLabel = nullptr;
+	QDoubleSpinBox* m_hybridMergeCosHighSpin = nullptr;
+	QLabel* m_hybridMergeCosLowBaseLabel = nullptr;
+	QDoubleSpinBox* m_hybridMergeCosLowBaseSpin = nullptr;
+	QLabel* m_hybridMergeCosLowScaleLabel = nullptr;
+	QDoubleSpinBox* m_hybridMergeCosLowScaleSpin = nullptr;
+	QLabel* m_hybridSmallRegionRatioLabel = nullptr;
+	QDoubleSpinBox* m_hybridSmallRegionRatioSpin = nullptr;
+	QLabel* m_hybridSmallRegionMinLabel = nullptr;
+	QSpinBox* m_hybridSmallRegionMinSpin = nullptr;
+	QLabel* m_hybridSmallRegionMaxLabel = nullptr;
+	QSpinBox* m_hybridSmallRegionMaxSpin = nullptr;
+	QLabel* m_hybridCollapseValenceLabel = nullptr;
+	QSpinBox* m_hybridCollapseValenceSpin = nullptr;
+	QLabel* m_hybridCollapseLengthRatioLabel = nullptr;
+	QDoubleSpinBox* m_hybridCollapseLengthRatioSpin = nullptr;
+	QLabel* m_hybridAdjustPassesLabel = nullptr;
+	QSpinBox* m_hybridAdjustPassesSpin = nullptr;
 	QLabel* m_samplesPerEdgeLabel = nullptr;
 	QSpinBox* m_samplesPerEdgeSpin = nullptr;
 	QLabel* m_uvSpacingLabel = nullptr;

@@ -212,4 +212,21 @@ public:
 	virtual void clearMeshSurfaceReconstructSession(
 		IPluginDocument* doc,
 		const PluginMeshSurfaceReconstructSessionId& sessionId) = 0;
+
+	// === 管状铸件特征构建分阶段（1.15.0+） ===
+
+	virtual PluginTubularGrindingSessionId beginTubularGrindingSession(
+		IPluginDocument* doc,
+		const std::string& meshBackendIdUtf8) = 0;
+
+	virtual void runTubularGrindingStage(
+		IPluginDocument* doc,
+		const PluginTubularGrindingSessionId& sessionId,
+		PluginTubularGrindingStage stage,
+		const PluginTubularGrindingParams& params,
+		PluginTubularGrindingFinishedFn onFinished) = 0;
+
+	virtual void clearTubularGrindingSession(
+		IPluginDocument* doc,
+		const PluginTubularGrindingSessionId& sessionId) = 0;
 };

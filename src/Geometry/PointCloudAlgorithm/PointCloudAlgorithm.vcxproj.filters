@@ -45,6 +45,15 @@
     <ClInclude Include="inc\SelfTest.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\ParallelUtils.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PerformanceTest.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ReconstructionConfig.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\PointCloudBuffer.cpp">
@@ -78,6 +87,15 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\SelfTest.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ParallelUtils.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PerformanceTest.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ReconstructionConfig.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>

@@ -520,6 +520,7 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 | API | 作用 |
 |-----|------|
 | `importRawPathToTrajectory` | `RawPath` + `FrameStrategy`（法向 Z / 固定 Z / 切向 X）→ 姿态 |
+| `importTubularGrindingPointsToRawTrajectory` | **预留（桩）**：`geoalgo::TubularGrindingProjectedPoints` → `RawTrajectory`；见 [`inc/TubularGrindingTrajectoryIngress.h`](inc/TubularGrindingTrajectoryIngress.h) |
 | `ingressUnifiedFromRaw` / `ingressUnifiedFromProgram` | Raw 或程序 → Unified（引擎 Ingress） |
 | `buildRecipePreset` | 工艺 UI 入口 → `ProcessFlowPresets.json` 原子 `pipeline` |
 | `unifiedTrajectoryFromRaw` / `unifiedTrajectoryFromProgram` | 同上 Ingress 的薄封装 |

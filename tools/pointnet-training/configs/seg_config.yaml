@@ -1,0 +1,38 @@
+# PointNet++ 分割训练配置
+task: segmentation
+num_points: 2048
+batch_size: 16
+epochs: 100
+learning_rate: 0.001
+lr_scheduler: cosine
+weight_decay: 0.0001
+num_workers: 4
+
+# 数据集
+dataset:
+  root: datasets/segmentation
+  train_split: train
+  val_split: val
+  test_split: test
+
+# 分割类别数
+num_classes: 6
+
+# 模型
+model:
+  name: pointnet2_seg
+  dropout: 0.5
+
+# 数据增强
+augmentation:
+  random_rotate_z: true
+  random_scale: true
+  scale_range: [0.8, 1.2]
+  random_translate: true
+  translate_range: 0.1
+  jitter: true
+  jitter_std: 0.01
+
+# 输出
+output_dir: output/seg
+checkpoint_every: 10

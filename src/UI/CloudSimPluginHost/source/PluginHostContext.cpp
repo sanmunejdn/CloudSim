@@ -24,6 +24,7 @@
 #include "PluginDocumentAdapter.h"
 #include "Ai/AiAssistantHostImpl.h"
 #include "IAiAssistantHost.h"
+#include "PluginLabelingHostImpl.h"
 #include "PluginPointCloudHostImpl.h"
 #include "PluginGeometryHostImpl.h"
 #include "RunLogger.h"
@@ -127,6 +128,7 @@ PluginHostContext::PluginHostContext(IPluginMainWindowHost* mainWindowHost, QObj
 	, m_mainWindowHost(mainWindowHost)
 	, m_pointCloudHost(std::make_unique<PluginPointCloudHostImpl>(this))
 	, m_geometryHost(std::make_unique<PluginGeometryHostImpl>(this))
+	, m_labelingHost(std::make_unique<PluginLabelingHostImpl>(this))
 	, m_aiHost(std::make_unique<AiAssistantHostImpl>(this))
 {
 }
@@ -700,6 +702,16 @@ IPluginGeometryHost* PluginHostContext::geometryHost()
 const IPluginGeometryHost* PluginHostContext::geometryHost() const
 {
 	return m_geometryHost.get();
+}
+
+IPluginLabelingHost* PluginHostContext::labelingHost()
+{
+	return m_labelingHost.get();
+}
+
+const IPluginLabelingHost* PluginHostContext::labelingHost() const
+{
+	return m_labelingHost.get();
 }
 
 IAiAssistantHost* PluginHostContext::aiAssistantHost()

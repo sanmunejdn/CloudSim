@@ -338,6 +338,12 @@ enum class PluginMeshSurfaceNurbsFitMode : int
 	ApproxCentripetalFixedCtrlpts = 4,
 };
 
+enum class PluginMeshSurfacePartitionMode : int
+{
+	GeodesicVoronoiV3 = 0,
+	HybridNormalCvt = 1,
+};
+
 struct PluginMeshSurfaceReconstructParams
 {
 	int normalSmoothIterations = 6;
@@ -348,10 +354,24 @@ struct PluginMeshSurfaceReconstructParams
 	int remeshIterations = 3;
 	double remeshFeatureAngleDeg = 0.0;
 	int patchCountHint = 0;
+	PluginMeshSurfacePartitionMode partitionMode = PluginMeshSurfacePartitionMode::GeodesicVoronoiV3;
 	/// 分块前法向平滑迭代，0=保留锐角
 	int partitionNormalSmoothIters = 2;
 	/// 特征棱角度百分位 [0.5,0.99]
 	double featureAnglePercentile = 0.88;
+	double hybridFeatureAngleDeg = 60.0;
+	int hybridClusterMaxIters = 30;
+	double hybridSecondarySampleScale = 10.0;
+	double hybridMergeCosHigh = 0.70;
+	double hybridMergeCosLowBase = 0.20;
+	double hybridMergeCosLowScale = 0.30;
+	double hybridSmallRegionRatio = 0.01;
+	int hybridSmallRegionMin = 10;
+	int hybridSmallRegionMax = 100;
+	bool hybridEnableRegionAdjust = true;
+	int hybridCollapseValenceSumMax = 6;
+	double hybridCollapseLengthRatio = 0.60;
+	int hybridRegionAdjustMaxPasses = 10;
 	int samplesPerPatchEdge = 16;
 	double targetUvSpacingMm = 0.0;
 	int minSamplesPerEdge = 4;
@@ -406,10 +426,22 @@ struct PluginMeshSurfaceReconstructReport
 	double globalFairingMetric = 0.0;
 	double normalSmoothGapVolume = 0.0;
 	bool c2BlendSucceeded = false;
+	/// 边界混合：实际处理的相邻 patch 对数
+	int boundaryBlendPairCount = 0;
+	/// 边界混合：被修改的控制点总数
+	int boundaryBlendCtrlPtCount = 0;
+	/// 边界混合：控制点最大移动距离（mm）
+	double boundaryBlendMaxMoveMm = 0.0;
+	/// 交汇混合：实际处理的交汇点数
+	int junctionBlendAppliedCount = 0;
+	/// 交汇混合：角点控制点最大移动距离（mm）
+	double junctionBlendMaxMoveMm = 0.0;
 	std::string newBrepBackendId;
 	std::string preprocessedMeshBackendId;
 	std::string partitionColoredMeshBackendId;
 	std::string fitPreviewBrepBackendId;
+	std::string boundaryBlendPreviewBrepBackendId;
+	std::string junctionBlendPreviewBrepBackendId;
 
 	int inputTriangleCount = 0;
 	int repairedTriangleCount = 0;
@@ -425,6 +457,11 @@ struct PluginMeshSurfaceReconstructReport
 	int minFacesPerPatch = 0;
 	int maxFacesPerPatch = 0;
 	int smallPatchCount = 0;
+	int initialRegionCount = 0;
+	int quadPatchCount = 0;
+	int triPatchCount = 0;
+	int pentPatchCount = 0;
+	int hexPatchCount = 0;
 	int gridN = 0;
 	int gridNuMax = 0;
 	int gridNvMax = 0;
@@ -440,3 +477,74 @@ using PluginMeshSurfaceReconstructFinishedFn = std::function<void(
 	bool ok,
 	const QString& error,
 	const PluginMeshSurfaceReconstructReport& report)>;
+
+enum class PluginTubularGrindingTemplateKind : int
+{
+	Helical = 0,
+	Circumferential = 1,
+	AxialParallel = 2,
+	Zigzag = 3,
+	Auto = 4,
+};
+
+struct PluginTubularGrindingParams
+{
+	double ringCenterClusterEpsMm = 0.0;
+	double minRingFaces = 4.0;
+	double ringRayConvergenceEpsMm = 0.0;
+	double faceNormalAxisLengthMm = 0.0;
+	double regionGrowAxisAngleDeg = 28.0;
+	double axisMergeAngleDeg = 28.0;
+	double junctionAxisSpreadDeg = 38.0;
+	double minSegmentFaces = 40.0;
+	double sectionSpacingMm = 2.0;
+	int minSectionPoints = 8;
+	PluginTubularGrindingTemplateKind templateKind = PluginTubularGrindingTemplateKind::Auto;
+	int helicalCoils = 8;
+	int circumferentialRings = 30;
+	int axialMeridians = 24;
+	int zigzagPasses = 40;
+	double projectionMaxDistMm = 10.0;
+};
+
+enum class PluginTubularGrindingStage : int
+{
+	None = 0,
+	Segment = 1,
+	Centerline = 2,
+	TemplatePoints = 3,
+	Project = 4,
+};
+
+struct PluginTubularGrindingSessionId
+{
+	std::string value;
+	bool valid() const { return !value.empty(); }
+};
+
+struct PluginTubularGrindingReport
+{
+	PluginTubularGrindingStage lastCompletedStage = PluginTubularGrindingStage::None;
+	QString stageSummaryZh;
+	int pipeCount = 0;
+	int ringCount = 0;
+	int junctionFaceCount = 0;
+	int regionCountBeforeFilter = 0;
+	int centerlinePointCount = 0;
+	int templatePointCount = 0;
+	int projectedPointCount = 0;
+	int sectionFitFailCount = 0;
+	double projectionHitRate = 0.0;
+	std::string segmentColoredMeshBackendId;
+	std::string ringColoredMeshBackendId;
+	std::string ringCenterPointsBackendId;
+	std::string normalAxisLinesBackendId;
+	std::string centerlinePointsBackendId;
+	std::string templatePointsBackendId;
+	std::string projectedPointsBackendId;
+};
+
+using PluginTubularGrindingFinishedFn = std::function<void(
+	bool ok,
+	const QString& error,
+	const PluginTubularGrindingReport& report)>;

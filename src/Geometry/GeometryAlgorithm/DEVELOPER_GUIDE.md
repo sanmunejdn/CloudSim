@@ -201,6 +201,78 @@ Widget JobSystem（可选）
 
 详见 [`docs/mesh_surface_reconstruction.md`](../../docs/mesh_surface_reconstruction.md)。
 
+### 3.5 管状铸件特征构建（`TubularGrinding.h`，1.15.0+）
+
+三角 soup（mm）→ **环分割管段** → 中心线 → 模板理想点位 → 表面投影。会话式 API 对齐曲面重构。
+
+| `TubularGrindingStage` | 源文件 | 说明 |
+|------------------------|--------|------|
+| Segment | `TubularGrinding/PipeSegmentation.cpp` | 法向汇聚 → 环心 DBSCAN → 环链合并 → `TubularPipeSegment` |
+| Centerline | `TubularGrinding/CenterlineExtraction.cpp` | 沿管轴切片圆拟合 → 弧长重采样 + Frenet 标架 |
+| TemplatePoints | `TubularGrinding/TrajectoryTemplates.cpp` | 螺旋/环形/轴向/锯齿 + Auto 策略 |
+| Project | `TubularGrinding/MeshProjection.cpp` | 沿 ±模板法向射线投影（`TrajectoryProjection.h`） |
+
+#### 管段分割（环分割，Phase 1）
+
+实现：`runPipeSegmentation`（`PipeSegmentation.cpp`）；网格预处理与射线汇聚在 `TubularGrindingCommon.cpp`。
+
+```text
+buildIndexedMeshLite（坐标量化焊接顶点 → faceNeighbors）
+  → orientMeshFaceNormals（BFS 法向一致化）
+  → 逐面 2-hop 向内射线 → approximateRayBundleCenter（放松汇聚，非严格交点）
+  → 有效面环心 DBSCAN（ringCenterClusterEpsMm）
+  → 簇内 mesh 连通性拆环 → TubularCrossSectionRing
+  → 环邻接图 + 交汇环判定（junctionAxisSpreadDeg）
+  → Union-Find 环链合并（axisMergeAngleDeg）→ TubularPipeSegment
+```
+
+| 步骤 | 函数 / 要点 |
+|------|-------------|
+| 邻接建图 | `buildIndexedMeshLite`：顶点坐标量化（scale=1000）焊接，避免 soup 展开后邻接断裂 |
+| 法向一致化 | `orientMeshFaceNormals` |
+| 环心估计 | `computeFaceInwardCenter` → `collectInwardRaySamples`（2-hop）→ `approximateRayBundleCenter` |
+| 汇聚容差 | `ringRayConvergenceEpsMm`；0 时自动 ≈ `max(3mm, 局部跨度×55%)` |
+| 环聚类 | `runDbscan` on 环心；`ringCenterClusterEpsMm` 为 0 时按最近邻距离自动估计 |
+| 拆环 | `splitClusterByConnectivity`；`minRingFaces` 过滤过小环 |
+| 交汇面 | 邻接环 ≥ 3 且轴线散布 > `junctionAxisSpreadDeg` → `kFaceJunction` |
+| 管段合并 | `mergeRingsIntoSegments`；`minSegmentFaces` 不足时自动放宽一次 |
+
+**主要参数**（`TubularGrindingParams`）：
+
+| 字段 | 默认 | 含义 |
+|------|------|------|
+| `ringCenterClusterEpsMm` | 0（自动） | 环心 DBSCAN 半径（mm） |
+| `ringRayConvergenceEpsMm` | 0（自动） | 法向射线汇聚容差（mm） |
+| `minRingFaces` | 4 | 有效环最少面数 |
+| `axisMergeAngleDeg` | 28 | 相邻环轴线夹角上限（°），环链合并 |
+| `junctionAxisSpreadDeg` | 38 | 三通交汇判定轴线散布（°） |
+| `minSegmentFaces` | 40 | 有效管段最少面数 |
+| `faceNormalAxisLengthMm` | 0（自动） | 法向轴可视化长度（mm） |
+| `regionGrowAxisAngleDeg` | 28 | 保留兼容，环分割未使用 |
+
+**报告字段**（`TubularGrindingReport`）：`pipeCount`、`ringCount`、`junctionFaceCount`、`regionCountBeforeFilter`（DBSCAN 簇数）。
+
+#### 可视化导出
+
+| API | 用途 |
+|-----|------|
+| `buildSegmentColoredMeshSoup` | 按管段 HSV 着色 mesh |
+| `buildRingColoredMeshSoup` | 按环着色（调试验证） |
+| `buildRingCenterPointsCloud` | 环心点云 |
+| `buildFaceNormalAxisLineSegments` | 每面法向轴线（6 float/段，供 overlay 线渲染） |
+| `buildCenterlinePointsCloud` / `buildCenterlinePolylineXyz` | 中心线点云 / 折线 |
+| `buildTemplatePointsCloud` / `buildProjectedPointsCloud` | 模板点 / 投影点 |
+
+入口：`createTubularGrindingSession` → `runTubularGrindingStage`。
+
+**Data 转发**：`geometry_backend_ops::createTubularGrindingSession`、`buildTubularGrindingRingColoredMeshSoup`、`buildTubularGrindingFaceNormalAxisLineSegments` 等（[`GeometryBackendOps.h`](../Data/inc/GeometryBackendOps.h)）。
+
+**调参提示**：分割过碎时优先增大 `ringRayConvergenceEpsMm`（常见 8–25 mm）或 `ringCenterClusterEpsMm`；交汇误判可增大 `junctionAxisSpreadDeg`。
+
+**后续方向（未实现）**：深度学习（如 PointNet++ 面/点语义分割）可替代或并联 Segment 阶段；当前仓库无 ONNX/LibTorch 推理管线，需独立 Python 训练 + ONNX Runtime 接入。
+
+自检：`SelfTest.cpp` 中 `tubularGrinding*`（OCCT 圆柱离散 → 四阶段 + 投影命中率门禁）。
+
 ## 4. Data 薄包装
 
 [`GeometryBackendOps.h`](../Data/inc/GeometryBackendOps.h)（`geometry_backend_ops`）转发 STEP 路径级 API，供 `CloudSimPluginHost` 调用。STEP 导入仍经 `MeshBackendData::loadFromFile` → `geoalgo::tessellateStepFile`。
@@ -226,6 +298,7 @@ const bool ok = geoalgo::runSelfTest(&err);
 
 - [`CloudSimPluginSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md)
 - [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)
+- [`PointCloudPlugin/DEVELOPER_GUIDE.md`](../../Plugins/PointCloudPlugin/DEVELOPER_GUIDE.md) — 特征构建 UI 与调参
 - [`docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md)
 - [`docs/mesh_surface_reconstruction.md`](../../docs/mesh_surface_reconstruction.md)
-- [`RobotScene/DEVELOPER_GUIDE.md`](../../Robot/RobotScene/DEVELOPER_GUIDE.md) §14 — `RawTrajectory` 编辑流水线
+- [`RobotScene/DEVELOPER_GUIDE.md`](../../Robot/RobotScene/DEVELOPER_GUIDE.md) §14 — `RawTrajectory` 编辑流水线；`TubularGrindingTrajectoryIngress`（桩）

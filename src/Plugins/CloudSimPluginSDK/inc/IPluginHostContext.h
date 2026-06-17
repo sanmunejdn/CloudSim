@@ -19,6 +19,7 @@ class ICloudSimPlugin;
 class IAiAssistantHost;
 class IPluginDocument;
 class IPluginGeometryHost;
+class IPluginLabelingHost;
 class IPluginPointCloudHost;
 class QDockWidget;
 class QMenu;
@@ -143,4 +144,8 @@ public:
 	/// 1.7.0+：离散选中特征并注入轨迹编辑 session + 默认工艺流水线
 	virtual bool commitAiTrajectoryFeatures(const QByteArray& featurePlanJsonUtf8, QString* outSummary,
 		QString* outError = nullptr) = 0;
+
+	/// 1.16.0+：交互式分割标注宿主；宿主版本不足时可为 null
+	virtual IPluginLabelingHost* labelingHost() = 0;
+	virtual const IPluginLabelingHost* labelingHost() const = 0;
 };

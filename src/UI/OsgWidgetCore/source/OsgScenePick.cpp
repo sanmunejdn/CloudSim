@@ -125,7 +125,8 @@ PickResult OsgScene::queryPick(const PickQuery& queryIn)
 	{
 		osg::Vec3f worldPoint;
 		double distPx = 0.0;
-		if (!pickNearestPointAtScreenPos(query.screenX, query.screenY, worldPoint, distPx, query.hoverPick))
+		int pickedIdx = -1;
+		if (!pickNearestPointAtScreenPos(query.screenX, query.screenY, worldPoint, distPx, query.hoverPick, &pickedIdx))
 		{
 			return out;
 		}
@@ -133,6 +134,7 @@ PickResult OsgScene::queryPick(const PickQuery& queryIn)
 		out.worldPoint = worldPoint;
 		out.hit = distPx <= hitRadius;
 		out.backendId = m_activeBackendId;
+		out.pointIndex = pickedIdx;
 		if (const BackendPickBundle* bundle = m_backendPickIndexes.find(m_activeBackendId))
 		{
 			out.indexGeneration = bundle->generation;
@@ -165,6 +167,7 @@ PickResult OsgScene::queryPick(const PickQuery& queryIn)
 		out.meshNormalWorld = n;
 		out.meshFaceVertsWorld = std::move(merged);
 		out.pickedTriangleIndex = pickedTri;
+		out.meshTriangleIndex = pickedTri;
 		out.backendId = query.scopeBackendId.empty() ? m_activeBackendId : query.scopeBackendId;
 		return out;
 	}

@@ -149,6 +149,19 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 | `geometry.recognize` | qwen2.5vl:3b | StructuredJson → 可转 ActionPlan |
 | `trajectory.feature` | qwen2.5:3b（建议） | StructuredJson：`selectedCandidateIds` + `features[]` + `suggestedPipelineTemplate` |
 
+### 外部插件 Domain
+
+| domain_id | 插件 | 模型 | 输出 |
+|-----------|------|------|------|
+| `pointnet.classify` | PointNetPlugin | ONNX（PointNet++） | StructuredJson：`class_id` + `class_name` + `confidence` |
+| `pointnet.segment` | PointNetPlugin | ONNX（PointNet++） | StructuredJson：`labels[]` + `class_statistics` |
+
+**PointNet++ 插件（`com.cloudsim.pointnet`）：**
+- 源码：`src/Plugins/PointNetPlugin/`，开发指南：[`PointNetPlugin/DEVELOPER_GUIDE.md`](../Plugins/PointNetPlugin/DEVELOPER_GUIDE.md)
+- 训练工程：`tools/pointnet-training/`，详见 [`tools/pointnet-training/README.md`](../../tools/pointnet-training/README.md)
+- 使用 ONNX Runtime 进行本地推理（不依赖 Ollama）
+- 支持点云/网格分类（5 类：box/cylinder/sphere/cone/complex）和语义分割
+
 **geometry.recognize 运行时数据流（V1）：**
 
 1. AI 面板选「几何识别」→ `AiAssistantCoordinator` 经 `IPluginHostContext::captureActiveViewportPng` 截取活动文档 OSG 视口（768 边长 PNG）。

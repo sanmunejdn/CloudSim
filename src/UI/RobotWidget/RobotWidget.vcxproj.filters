@@ -51,6 +51,15 @@
     <ClInclude Include="inc\SimulationLogIoSink.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\InstructionPropertyPanel.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IRobotInstructionPropertyUiHost.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryGeometryResolverHost.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\DevicePageWidget.cpp">
@@ -125,6 +134,39 @@
     <ClCompile Include="source\RobotUrdfImportCoordinator.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="source\InstructionPropertyPanel.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\moc_qtpropertybrowserutils_p.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qrc_qtpropertybrowser.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qteditorfactory.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertybrowser.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertybrowserutils.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertymanager.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qttreepropertybrowser.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtvariantproperty.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryEditObserver.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryGeometryResolverHost.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="inc\RobotSimulationController.h">
@@ -164,6 +206,9 @@
       <Filter>inc</Filter>
     </QtMoc>
     <QtMoc Include="inc\RobotAxisControlWidget.h">
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\TrajectoryEditObserver.h">
       <Filter>inc</Filter>
     </QtMoc>
   </ItemGroup>

@@ -84,6 +84,7 @@
 #include "GraphicsWindowQt1.h"
 #include "ObjectTransformOperation.h"
 #include "RobotTcpDragTeachOperation.h"
+#include "LabelingPickOperation.h"
 #include "PointPickOperation.h"
 #include "PolylinePickOperation.h"
 #include "MeshEdgeFacePickOperation.h"
@@ -151,6 +152,7 @@ OsgWidget::OsgWidget(QWidget* parent)
 	m_objectTransformOperation = std::make_unique<ObjectTransformOperation>(this);
 	m_tcpDragTeachOperation = std::make_unique<RobotTcpDragTeachOperation>(this);
 	m_meshElementPickOperation = std::make_unique<MeshEdgeFacePickOperation>(this);
+	m_labelingPickOperation = std::make_unique<LabelingPickOperation>(this);
 	m_importController = std::make_unique<OsgWidgetImportController>();
 	m_backendLoadController = std::make_unique<OsgWidgetBackendLoadController>();
 	m_captureController = std::make_unique<OsgWidgetCaptureController>();
@@ -1529,7 +1531,7 @@ void OsgWidget::syncCameraManipulatorForModes()
 		return;
 	}
 	// 多边形裁剪：左键用于加点，须禁用轨道球避免拖动转视图
-	const bool blockCameraNav = m_polylinePickMode;
+	const bool blockCameraNav = m_polylinePickMode || m_labelingBrushPickMode;
 	// resetPosition=false keeps the current camera when re-attaching the trackball after object/point modes
 	// or ESC (OSG default true would jump to viewer "home" every time).
 	m_viewer->setCameraManipulator(blockCameraNav ? nullptr : m_trackballManipulator.get(), false);
@@ -1801,6 +1803,45 @@ void OsgWidget::setMeshFacePickMode(bool enabled)
 bool OsgWidget::meshFacePickMode() const
 {
 	return m_meshFacePickMode;
+}
+
+void OsgWidget::setLabelingClickPickMode(const bool enabled, const bool meshFace)
+{
+	m_labelingClickPickMode = enabled;
+	m_labelingBrushPickMode = false;
+	m_labelingMeshFaceMode = meshFace;
+	if (enabled)
+	{
+		m_objectSelectionMode = false;
+		m_pointPickMode = false;
+		m_polylinePickMode = false;
+		m_meshLinePickMode = false;
+		m_meshFacePickMode = false;
+		clearPolylinePickOverlay();
+		resetNavigationInputQueues();
+	}
+	syncCameraManipulatorForModes();
+	refreshCompassDrawVisibility();
+}
+
+void OsgWidget::setLabelingBrushPickMode(const bool enabled, const bool meshFace, const float radiusPx)
+{
+	m_labelingBrushPickMode = enabled;
+	m_labelingClickPickMode = false;
+	m_labelingMeshFaceMode = meshFace;
+	m_labelingBrushRadiusPx = radiusPx;
+	if (enabled)
+	{
+		m_objectSelectionMode = false;
+		m_pointPickMode = false;
+		m_polylinePickMode = false;
+		m_meshLinePickMode = false;
+		m_meshFacePickMode = false;
+		clearPolylinePickOverlay();
+		resetNavigationInputQueues();
+	}
+	syncCameraManipulatorForModes();
+	refreshCompassDrawVisibility();
 }
 
 PickResult OsgWidget::queryPick(const PickQuery& query)
@@ -2176,6 +2217,11 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 			}
 			return true;
 		}
+	}
+
+	if (m_labelingPickOperation && m_labelingPickOperation->handleEvent(watched, event))
+	{
+		return true;
 	}
 
 	if (m_pointPickOperation && m_pointPickOperation->handleEvent(watched, event))

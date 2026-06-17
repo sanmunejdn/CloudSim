@@ -45,6 +45,30 @@
     <ClInclude Include="inc\FeatureSpec.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\BrepImportArtifacts.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshSurfaceReconstruction.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ShapeHandle.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ShapeIo.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TemplateBrepRegistration.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TemplateBrepUpdate.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryProjection.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ViewTessellate.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\ShapeQuery.cpp">
@@ -81,6 +105,66 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\FeatureDiscretize.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\BoundaryBlend.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BrepImportArtifacts.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\BsplineSurfaceFairing.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\InitialBsplinePatch.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\JunctionBlend.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionAssemble.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionOcct.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionPartitionCommon.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionPartitionHybrid.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionPatchDualGraph.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionUtils.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionValidate.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\NurbsSurfaceFitting.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\PatchParameterize.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ShapeHandle.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TemplateBrepRegistration.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TemplateBrepUpdate.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryProjection.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ViewTessellate.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>

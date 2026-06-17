@@ -273,6 +273,18 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 插件经 `PluginPointCloudHostImpl` 分步调用；面重构成功后 `registerAdoptedBrepAndLoadScene` + `alignFaceUpdatedBrepWithTemplateVisual` 注册**新** `BrepModel`（模板保留）。见 [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) §3.7 与专题 §2.2。
 
+### 4.7 管状铸件特征构建（1.15.0+）
+
+`geometry_backend_ops` 转发 `geoalgo::TubularGrinding*`（[`GeometryBackendOps.cpp`](source/GeometryBackendOps.cpp) / [`GeometryBackendOps.h`](../inc/GeometryBackendOps.h)）：
+
+| API | 说明 |
+|-----|------|
+| `createTubularGrindingSession` | soup 快照 → `TubularGrindingSessionPtr` |
+| `runTubularGrindingStage` | 单阶段执行（Segment / Centerline / TemplatePoints / Project） |
+| `buildTubularGrindingSegmentColoredMeshSoup` 等 | 管段/环着色 mesh、环心点云、法向轴线、中心线/模板/投影点云 |
+
+宿主 `PluginPointCloudHostImpl` 在 Segment 完成后注册 `_管段着色` / `_环着色` / `_环圆心` / `_法向` 等临时 `MeshBackendData`。算法与参数见 [`GeometryAlgorithm/DEVELOPER_GUIDE.md`](../../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.5；UI 见 [`PointCloudPlugin/DEVELOPER_GUIDE.md`](../../Plugins/PointCloudPlugin/DEVELOPER_GUIDE.md)。
+
 ---
 
 ## 5. 属性基础设施

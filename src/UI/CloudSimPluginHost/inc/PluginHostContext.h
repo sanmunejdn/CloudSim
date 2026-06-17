@@ -10,6 +10,7 @@
 
 class AiAssistantHostImpl;
 class PluginGeometryHostImpl;
+class PluginLabelingHostImpl;
 class PluginPointCloudHostImpl;
 class BackendDataBase;
 class DocumentPage;
@@ -105,6 +106,9 @@ public:
 	bool commitAiTrajectoryFeatures(const QByteArray& featurePlanJsonUtf8, QString* outSummary,
 		QString* outError = nullptr) override;
 
+	IPluginLabelingHost* labelingHost() override;
+	const IPluginLabelingHost* labelingHost() const override;
+
 	void notifyLanguageChanged();
 
 	IPluginMainWindowHost* mainWindowHost() const { return m_mainWindowHost; }
@@ -120,6 +124,7 @@ private:
 	IPluginMainWindowHost* m_mainWindowHost = nullptr;
 	std::unique_ptr<PluginPointCloudHostImpl> m_pointCloudHost;
 	std::unique_ptr<PluginGeometryHostImpl> m_geometryHost;
+	std::unique_ptr<PluginLabelingHostImpl> m_labelingHost;
 	std::unique_ptr<AiAssistantHostImpl> m_aiHost;
 	std::vector<std::function<void(bool useChinese)>> m_languageCallbacks;
 	std::vector<std::unique_ptr<PluginDocumentAdapter>> m_documents;

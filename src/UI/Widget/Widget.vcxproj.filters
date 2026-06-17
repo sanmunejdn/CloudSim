@@ -1,340 +1,188 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-
   <ItemGroup>
-
     <Filter Include="inc">
-
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-
     </Filter>
-
     <Filter Include="src">
-
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-
     </Filter>
-
   </ItemGroup>
-
   <ItemGroup>
-
     <ClInclude Include="inc\ApplicationStyle.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="..\..\Host\CloudSimHost\inc\CloudSimHost.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="..\..\Host\CloudSimHost\inc\DocumentHost.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\MainWindow_p.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\ObjectTransformOperation.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\RobotTcpDragTeachOperation.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\MeshEdgeFacePickOperation.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\MainWindowImportCaptureRenderController.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\JobSystem.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\MainWindowObjectRepository.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\MainWindowSelectionService.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\BackendFollowReverseIndex.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\BackendSceneDocumentFacade.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\IBackendSceneBridge.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\MainWindowSelectionState.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\OsgWidgetSceneBridge.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\SelectionOperation.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\widget_global.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
     <ClInclude Include="inc\ProjectPackageZip.h">
-
       <Filter>inc</Filter>
-
     </ClInclude>
-
+    <ClInclude Include="inc\MainWindowInstructionPropertyUiHost.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\WidgetOsgViewHost.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
-
   <ItemGroup>
-
     <ClCompile Include="source\pch.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\ApplicationStyle.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\DocumentPage.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\MainWindow.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\MainWindowRobotHost.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\MainWindowRobotStubs.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\MainWindowAiAssistant.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\MainWindowUiSetup.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\MainWindowPlugins.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\MainWindowBackendTree.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\MainWindowObjectRepository.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\MainWindowSelectionService.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\MainWindowFileImport.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\MainWindowProjectIo.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\ProjectPackageZip.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\MainWindowPropertyPanel.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\MainWindowImportCaptureRenderController.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\JobSystem.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\ProgressManager.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="source\RunInfoPage.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertybrowser.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertybrowserutils.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertymanager.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qteditorfactory.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtvariantproperty.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qttreepropertybrowser.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qrc_qtpropertybrowser.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
     <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\moc_qtpropertybrowserutils_p.cpp">
-
       <Filter>src</Filter>
-
     </ClCompile>
-
+    <ClCompile Include="source\MainWindowInstructionPropertyUiHost.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MainWindowSceneInteractionCoordinator.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\WidgetOsgViewHost.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\WidgetSceneSignalWiring.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
-
   <ItemGroup>
-
     <QtMoc Include="inc\DocumentPage.h">
-
       <Filter>inc</Filter>
-
     </QtMoc>
-
     <QtMoc Include="inc\MainWindow.h">
-
       <Filter>inc</Filter>
-
     </QtMoc>
-
     <QtMoc Include="inc\ProgressManager.h">
-
       <Filter>inc</Filter>
-
     </QtMoc>
-
     <QtMoc Include="inc\RunInfoPage.h">
-
       <Filter>inc</Filter>
-
     </QtMoc>
-
   </ItemGroup>
-
 </Project>
-

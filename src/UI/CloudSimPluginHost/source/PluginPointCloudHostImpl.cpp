@@ -21,6 +21,7 @@
 #include <BrepImportArtifacts.h>
 #include <GeometryBackendOps.h>
 #include <MeshSurfaceReconstruction.h>
+#include <TubularGrinding.h>
 
 #include <osg/Matrixd>
 #include <osg/Quat>
@@ -1444,8 +1445,31 @@ geoalgo::MeshSurfaceReconstructParams buildMeshSurfaceReconstructGeoParams(
 	geoParams.remeshIterations = params.remeshIterations;
 	geoParams.remeshFeatureAngleDeg = params.remeshFeatureAngleDeg;
 	geoParams.patchCountHint = params.patchCountHint;
+	switch (params.partitionMode)
+	{
+	case PluginMeshSurfacePartitionMode::HybridNormalCvt:
+		geoParams.partitionMode = geoalgo::MeshSurfacePartitionMode::HybridNormalCvt;
+		break;
+	case PluginMeshSurfacePartitionMode::GeodesicVoronoiV3:
+	default:
+		geoParams.partitionMode = geoalgo::MeshSurfacePartitionMode::GeodesicVoronoiV3;
+		break;
+	}
 	geoParams.partitionNormalSmoothIters = params.partitionNormalSmoothIters;
 	geoParams.featureAnglePercentile = params.featureAnglePercentile;
+	geoParams.hybridFeatureAngleDeg = params.hybridFeatureAngleDeg;
+	geoParams.hybridClusterMaxIters = params.hybridClusterMaxIters;
+	geoParams.hybridSecondarySampleScale = params.hybridSecondarySampleScale;
+	geoParams.hybridMergeCosHigh = params.hybridMergeCosHigh;
+	geoParams.hybridMergeCosLowBase = params.hybridMergeCosLowBase;
+	geoParams.hybridMergeCosLowScale = params.hybridMergeCosLowScale;
+	geoParams.hybridSmallRegionRatio = params.hybridSmallRegionRatio;
+	geoParams.hybridSmallRegionMin = params.hybridSmallRegionMin;
+	geoParams.hybridSmallRegionMax = params.hybridSmallRegionMax;
+	geoParams.hybridEnableRegionAdjust = params.hybridEnableRegionAdjust;
+	geoParams.hybridCollapseValenceSumMax = params.hybridCollapseValenceSumMax;
+	geoParams.hybridCollapseLengthRatio = params.hybridCollapseLengthRatio;
+	geoParams.hybridRegionAdjustMaxPasses = params.hybridRegionAdjustMaxPasses;
 	geoParams.samplesPerPatchEdge = params.samplesPerPatchEdge;
 	geoParams.targetUvSpacingMm = params.targetUvSpacingMm;
 	geoParams.minSamplesPerEdge = params.minSamplesPerEdge;
@@ -1492,6 +1516,11 @@ void copyGeoReportFields(PluginMeshSurfaceReconstructReport& out, const geoalgo:
 	out.globalFairingMetric = report.globalFairingMetric;
 	out.normalSmoothGapVolume = report.normalSmoothGapVolume;
 	out.c2BlendSucceeded = report.c2BlendSucceeded;
+	out.boundaryBlendPairCount = report.boundaryBlendPairCount;
+	out.boundaryBlendCtrlPtCount = report.boundaryBlendCtrlPtCount;
+	out.boundaryBlendMaxMoveMm = report.boundaryBlendMaxMoveMm;
+	out.junctionBlendAppliedCount = report.junctionBlendAppliedCount;
+	out.junctionBlendMaxMoveMm = report.junctionBlendMaxMoveMm;
 	out.inputTriangleCount = report.inputTriangleCount;
 	out.repairedTriangleCount = report.repairedTriangleCount;
 	out.remeshedTriangleCount = report.remeshedTriangleCount;
@@ -1506,6 +1535,11 @@ void copyGeoReportFields(PluginMeshSurfaceReconstructReport& out, const geoalgo:
 	out.minFacesPerPatch = report.minFacesPerPatch;
 	out.maxFacesPerPatch = report.maxFacesPerPatch;
 	out.smallPatchCount = report.smallPatchCount;
+	out.initialRegionCount = report.initialRegionCount;
+	out.quadPatchCount = report.quadPatchCount;
+	out.triPatchCount = report.triPatchCount;
+	out.pentPatchCount = report.pentPatchCount;
+	out.hexPatchCount = report.hexPatchCount;
 	out.gridN = report.gridN;
 	out.gridNuMax = report.gridNuMax;
 	out.gridNvMax = report.gridNvMax;
@@ -1539,6 +1573,18 @@ QString formatSurfaceReconStageSummaryZh(
 			.arg(report.repairedTriangleCount)
 			.arg(report.normalSmoothGapVolume, 0, 'g', 6);
 	case PluginMeshSurfaceReconstructStage::Partition:
+		if (report.initialRegionCount > 0 || report.quadPatchCount > 0)
+		{
+			return QStringLiteral(
+				"分块完成：%1 片，交汇 %2 处，三角 %3~%4（平均 %5），初始区 %6，四边 %7 片（场景已按片着色）")
+				.arg(report.patchCount)
+				.arg(report.junctionCount)
+				.arg(report.minFacesPerPatch)
+				.arg(report.maxFacesPerPatch)
+				.arg(report.avgFacesPerPatch, 0, 'f', 1)
+				.arg(report.initialRegionCount)
+				.arg(report.quadPatchCount);
+		}
 		return QStringLiteral("分块完成：%1 片，交汇 %2 处，三角 %3~%4（平均 %5），合并前碎片 %6 个（场景已按片着色）")
 			.arg(report.patchCount)
 			.arg(report.junctionCount)
@@ -1586,10 +1632,22 @@ QString formatSurfaceReconStageSummaryZh(
 			.arg(report.planeFallbackCount);
 	}
 	case PluginMeshSurfaceReconstructStage::BoundaryBlend:
-		return QStringLiteral("边界混合完成：%1")
-			.arg(report.c2BlendSucceeded ? QStringLiteral("成功") : QStringLiteral("失败"));
+		if (report.c2BlendSucceeded)
+		{
+			return QStringLiteral("边界混合完成：%1 对相邻片，%2 个控制点，最大移动 %3 mm")
+				.arg(report.boundaryBlendPairCount)
+				.arg(report.boundaryBlendCtrlPtCount)
+				.arg(report.boundaryBlendMaxMoveMm, 0, 'f', 4);
+		}
+		return QStringLiteral("边界混合完成：失败（%1 对相邻片，%2 个控制点，最大移动 %3 mm）")
+			.arg(report.boundaryBlendPairCount)
+			.arg(report.boundaryBlendCtrlPtCount)
+			.arg(report.boundaryBlendMaxMoveMm, 0, 'f', 4);
 	case PluginMeshSurfaceReconstructStage::JunctionBlend:
-		return QStringLiteral("交汇混合完成：处理交汇 %1 处").arg(report.junctionCount);
+		return QStringLiteral("交汇混合完成：处理交汇 %1/%2 处，最大移动 %3 mm")
+			.arg(report.junctionBlendAppliedCount)
+			.arg(report.junctionCount)
+			.arg(report.junctionBlendMaxMoveMm, 0, 'f', 4);
 	case PluginMeshSurfaceReconstructStage::Fair:
 		return QStringLiteral("光顺完成：全局指标 %1").arg(report.globalFairingMetric, 0, 'g', 6);
 	case PluginMeshSurfaceReconstructStage::Assemble:
@@ -1663,6 +1721,212 @@ std::string makeSurfaceReconSessionId()
 {
 	static std::atomic<uint64_t> counter{0U};
 	return "sr_" + std::to_string(counter.fetch_add(1U) + 1U);
+}
+
+std::string makeTubularGrindingSessionId()
+{
+	static std::atomic<uint64_t> counter{0U};
+	return "tg_" + std::to_string(counter.fetch_add(1U) + 1U);
+}
+
+bool isNextTubularGrindingStage(
+	const PluginTubularGrindingStage lastCompleted,
+	const PluginTubularGrindingStage want)
+{
+	if (want == PluginTubularGrindingStage::Segment
+		&& lastCompleted == PluginTubularGrindingStage::None)
+	{
+		return true;
+	}
+	return static_cast<int>(want) == static_cast<int>(lastCompleted) + 1
+		|| want == lastCompleted;
+}
+
+geoalgo::TubularGrindingParams buildTubularGrindingGeoParams(const PluginTubularGrindingParams& params)
+{
+	geoalgo::TubularGrindingParams geoParams;
+	geoParams.ringCenterClusterEpsMm = params.ringCenterClusterEpsMm;
+	geoParams.minRingFaces = params.minRingFaces;
+	geoParams.regionGrowAxisAngleDeg = params.regionGrowAxisAngleDeg;
+	geoParams.axisMergeAngleDeg = params.axisMergeAngleDeg;
+	geoParams.junctionAxisSpreadDeg = params.junctionAxisSpreadDeg;
+	geoParams.minSegmentFaces = params.minSegmentFaces;
+	geoParams.ringRayConvergenceEpsMm = params.ringRayConvergenceEpsMm;
+	geoParams.faceNormalAxisLengthMm = params.faceNormalAxisLengthMm;
+	geoParams.sectionSpacingMm = params.sectionSpacingMm;
+	geoParams.minSectionPoints = params.minSectionPoints;
+	geoParams.helicalCoils = params.helicalCoils;
+	geoParams.circumferentialRings = params.circumferentialRings;
+	geoParams.axialMeridians = params.axialMeridians;
+	geoParams.zigzagPasses = params.zigzagPasses;
+	geoParams.projectionMaxDistMm = params.projectionMaxDistMm;
+	switch (params.templateKind)
+	{
+	case PluginTubularGrindingTemplateKind::Helical:
+		geoParams.templateKind = geoalgo::TubularGrindingTemplateKind::Helical;
+		break;
+	case PluginTubularGrindingTemplateKind::Circumferential:
+		geoParams.templateKind = geoalgo::TubularGrindingTemplateKind::Circumferential;
+		break;
+	case PluginTubularGrindingTemplateKind::AxialParallel:
+		geoParams.templateKind = geoalgo::TubularGrindingTemplateKind::AxialParallel;
+		break;
+	case PluginTubularGrindingTemplateKind::Zigzag:
+		geoParams.templateKind = geoalgo::TubularGrindingTemplateKind::Zigzag;
+		break;
+	default:
+		geoParams.templateKind = geoalgo::TubularGrindingTemplateKind::Auto;
+		break;
+	}
+	return geoParams;
+}
+
+geoalgo::TubularGrindingStage mapPluginTubularStageToGeo(const PluginTubularGrindingStage stage)
+{
+	switch (stage)
+	{
+	case PluginTubularGrindingStage::Segment:
+		return geoalgo::TubularGrindingStage::Segment;
+	case PluginTubularGrindingStage::Centerline:
+		return geoalgo::TubularGrindingStage::Centerline;
+	case PluginTubularGrindingStage::TemplatePoints:
+		return geoalgo::TubularGrindingStage::TemplatePoints;
+	case PluginTubularGrindingStage::Project:
+		return geoalgo::TubularGrindingStage::Project;
+	default:
+		return geoalgo::TubularGrindingStage::None;
+	}
+}
+
+QString formatTubularGrindingStageSummaryZh(
+	const PluginTubularGrindingStage stage,
+	const PluginTubularGrindingReport& report)
+{
+	switch (stage)
+	{
+	case PluginTubularGrindingStage::Segment:
+		return QStringLiteral("管段分割完成：%1 个管段，%2 个环，交汇面 %3，环心簇 %4")
+			.arg(report.pipeCount)
+			.arg(report.ringCount)
+			.arg(report.junctionFaceCount)
+			.arg(report.regionCountBeforeFilter);
+	case PluginTubularGrindingStage::Centerline:
+		return QStringLiteral("中心线提取完成：%1 个采样点，%2 个截面拟合失败")
+			.arg(report.centerlinePointCount)
+			.arg(report.sectionFitFailCount);
+	case PluginTubularGrindingStage::TemplatePoints:
+		return QStringLiteral("模板点位生成完成：%1 个点").arg(report.templatePointCount);
+	case PluginTubularGrindingStage::Project:
+		return QStringLiteral("表面投影完成：%1 个点，命中率 %2%")
+			.arg(report.projectedPointCount)
+			.arg(report.projectionHitRate * 100.0, 0, 'f', 1);
+	default:
+		return QString();
+	}
+}
+
+bool registerTubularGrindingColoredMeshFromSoup(
+	PluginHostContext* host,
+	cloudsim::host::DocumentHost* page,
+	const std::shared_ptr<MeshBackendData>& sourceMesh,
+	const std::vector<float>& soup,
+	const std::vector<float>& rgbPerVertex,
+	const QString& displaySuffix,
+	std::string& outBackendId,
+	std::string* errMsg)
+{
+	if (!page || !sourceMesh || soup.empty() || rgbPerVertex.size() != soup.size())
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid tubular grinding colored mesh";
+		}
+		return false;
+	}
+	auto meshPtr = std::make_shared<MeshBackendData>();
+	meshPtr->setTriangleSoupWithVertexColors(soup, rgbPerVertex);
+	PluginMeshCreateOptions options;
+	const QString baseName = QString::fromStdString(sourceMesh->name());
+	options.displayName =
+		baseName.isEmpty() ? displaySuffix : baseName + displaySuffix;
+	options.selectInTree = true;
+	options.sourcePath = QStringLiteral("plugin://pointcloud/tubular-grinding-segment");
+	outBackendId = document_point_cloud_ops::registerReconstructedMesh(
+		page, host ? host->mainWindowHost() : nullptr, meshPtr, options, errMsg);
+	return !outBackendId.empty();
+}
+
+bool registerTubularGrindingNormalAxisLines(
+	PluginHostContext* host,
+	cloudsim::host::DocumentHost* page,
+	const std::shared_ptr<MeshBackendData>& sourceMesh,
+	const std::vector<float>& lineXyz,
+	std::string& outBackendId,
+	std::string* errMsg)
+{
+	if (!page || !sourceMesh || lineXyz.size() < 6U || (lineXyz.size() % 6U) != 0U)
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid tubular grinding normal axis lines";
+		}
+		return false;
+	}
+	auto meshPtr = std::make_shared<MeshBackendData>();
+	meshPtr->setOverlayLineSegments(lineXyz);
+	BackendColor c;
+	c.r = 0.25f;
+	c.g = 0.85f;
+	c.b = 1.0f;
+	c.a = 1.0f;
+	meshPtr->setColor(c);
+	meshPtr->setPose(sourceMesh->pose());
+	meshPtr->setRotation(sourceMesh->rotation());
+	PluginMeshCreateOptions options;
+	const QString baseName = QString::fromStdString(sourceMesh->name());
+	options.displayName = baseName.isEmpty() ? QStringLiteral("_法向") : baseName + QStringLiteral("_法向");
+	options.selectInTree = false;
+	options.sourcePath = QStringLiteral("plugin://pointcloud/tubular-grinding-normals");
+	outBackendId = document_point_cloud_ops::registerReconstructedMesh(
+		page, host ? host->mainWindowHost() : nullptr, meshPtr, options, errMsg);
+	return !outBackendId.empty();
+}
+
+bool registerTubularGrindingPointCloud(
+	cloudsim::host::DocumentHost* page,
+	const std::shared_ptr<MeshBackendData>& sourceMesh,
+	const QString& displaySuffix,
+	const QString& sourcePath,
+	std::vector<float> xyz,
+	std::vector<float> rgba,
+	std::string& outBackendId,
+	QString* errMsg)
+{
+	if (!page || !sourceMesh || xyz.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = QStringLiteral("invalid tubular grinding point cloud");
+		}
+		return false;
+	}
+	auto pcPtr = std::make_shared<PointCloudBackendData>();
+	const QString baseName = QString::fromStdString(sourceMesh->name());
+	pcPtr->setName((baseName.isEmpty() ? displaySuffix.mid(1) : baseName + displaySuffix).toStdString());
+	pcPtr->setPointBuffers(std::move(xyz), std::move(rgba));
+	pcPtr->setPose(sourceMesh->pose());
+	pcPtr->setRotation(sourceMesh->rotation());
+	cloudsim::host::AdoptPointCloudOptions adoptOpt;
+	adoptOpt.sourcePath = sourcePath;
+	adoptOpt.resetViewToHome = false;
+	const cloudsim::host::AdoptRegistrationResult adopted =
+		cloudsim::host::registerAdoptedPointCloud(*page, pcPtr, adoptOpt, errMsg);
+	if (!adopted.ok)
+	{
+		return false;
+	}
+	outBackendId = adopted.backendId.toStdString();
+	return true;
 }
 
 PluginMeshSurfaceReconstructReport toPluginMeshSurfaceReconstructReport(
@@ -1812,7 +2076,9 @@ bool registerFitPreviewBrepFromShape(
 	const std::shared_ptr<MeshBackendData>& sourceMesh,
 	const std::string& sourceMeshBackendId,
 	const std::shared_ptr<BrepBackendData>& brep,
-	std::string* errMsg)
+	std::string* errMsg,
+	const QString& displayNameSuffix = QStringLiteral("拟合曲面"),
+	const QString& sourceUri = QStringLiteral("plugin://pointcloud/surface-reconstruct-fit"))
 {
 	if (!page || !sourceMesh || !brep)
 	{
@@ -1825,7 +2091,7 @@ bool registerFitPreviewBrepFromShape(
 	brep->setColor(sourceMesh->color());
 	const QString meshName = QString::fromStdString(sourceMesh->name());
 	const QString displayBase =
-		meshName.isEmpty() ? QStringLiteral("拟合曲面") : meshName + QStringLiteral("_拟合曲面");
+		meshName.isEmpty() ? displayNameSuffix : meshName + QStringLiteral("_") + displayNameSuffix;
 	brep->setName(makeUniqueBrepDisplayName(*page, displayBase).toStdString());
 	geoalgo::clearBrepImportArtifactsCache();
 
@@ -1834,7 +2100,7 @@ bool registerFitPreviewBrepFromShape(
 	const bool registerOk = cloudsim::host::registerAdoptedBrepAndLoadScene(
 		*page,
 		brep,
-		QStringLiteral("plugin://pointcloud/surface-reconstruct-fit"),
+		sourceUri,
 		QStringLiteral("BrepModel"),
 		QString(),
 		kResetViewToHome,
@@ -1867,6 +2133,73 @@ bool registerFitPreviewBrepFromShape(
 	if (host && host->mainWindowHost())
 	{
 		host->mainWindowHost()->focusBackendInTreeAfterImport(QString::fromStdString(brep->id()));
+	}
+	return true;
+}
+
+bool registerSurfaceReconStagePreviewBrep(
+	PluginHostContext* host,
+	cloudsim::host::DocumentHost* page,
+	IPluginDocument* doc,
+	const std::shared_ptr<MeshBackendData>& sourceMesh,
+	const std::string& sourceMeshBackendId,
+	geoalgo::MeshSurfaceReconstructSession& geoSession,
+	std::string& sessionPreviewBackendId,
+	const QString& displayNameSuffix,
+	const QString& sourceUri,
+	std::string* outPreviewBackendId,
+	std::string* errMsg)
+{
+	geoalgo::ShapeHandle previewShape;
+	std::string shapeErr;
+	if (!geometry_backend_ops::buildFitPreviewShape(geoSession, previewShape, &shapeErr))
+	{
+		if (errMsg)
+		{
+			*errMsg = shapeErr;
+		}
+		return false;
+	}
+
+	auto previewBrep = std::make_shared<BrepBackendData>();
+	std::string brepErr;
+	if (!geometry_backend_ops::meshSurfaceReconstructShapeToBrep(previewShape, previewBrep, &brepErr))
+	{
+		if (errMsg)
+		{
+			*errMsg = brepErr;
+		}
+		return false;
+	}
+
+	if (!sessionPreviewBackendId.empty() && doc)
+	{
+		std::string removeErr;
+		(void)doc->removeBackendObject(sessionPreviewBackendId, &removeErr);
+	}
+
+	std::string regErr;
+	if (!registerFitPreviewBrepFromShape(
+			host,
+			page,
+			sourceMesh,
+			sourceMeshBackendId,
+			previewBrep,
+			&regErr,
+			displayNameSuffix,
+			sourceUri))
+	{
+		if (errMsg)
+		{
+			*errMsg = regErr;
+		}
+		return false;
+	}
+
+	sessionPreviewBackendId = previewBrep->id();
+	if (outPreviewBackendId)
+	{
+		*outPreviewBackendId = sessionPreviewBackendId;
 	}
 	return true;
 }
@@ -2340,6 +2673,16 @@ void PluginPointCloudHostImpl::eraseSurfaceReconSession(const std::string& sessi
 		std::string removeErr;
 		(void)doc->removeBackendObject(session->fitPreviewBrepBackendId, &removeErr);
 	}
+	if (!session->boundaryBlendPreviewBrepBackendId.empty() && doc)
+	{
+		std::string removeErr;
+		(void)doc->removeBackendObject(session->boundaryBlendPreviewBrepBackendId, &removeErr);
+	}
+	if (!session->junctionBlendPreviewBrepBackendId.empty() && doc)
+	{
+		std::string removeErr;
+		(void)doc->removeBackendObject(session->junctionBlendPreviewBrepBackendId, &removeErr);
+	}
 	m_surfaceReconSessions.erase(sessionId);
 }
 
@@ -2421,6 +2764,8 @@ void PluginPointCloudHostImpl::runMeshSurfaceReconstructStage(
 		std::string partitionColoredMeshBackendId;
 		std::string samplePointsBackendId;
 		std::string fitPreviewBrepBackendId;
+		std::string boundaryBlendPreviewBrepBackendId;
+		std::string junctionBlendPreviewBrepBackendId;
 		std::string newBrepBackendId;
 		std::string error;
 		bool ok = false;
@@ -2589,33 +2934,73 @@ void PluginPointCloudHostImpl::runMeshSurfaceReconstructStage(
 			}
 			else if (stage == PluginMeshSurfaceReconstructStage::Fit && session->geoSession)
 			{
-				geoalgo::ShapeHandle fitShape;
-				std::string fitShapeErr;
-				if (geometry_backend_ops::buildFitPreviewShape(*session->geoSession, fitShape, &fitShapeErr))
+				std::string regErr;
+				if (!registerSurfaceReconStagePreviewBrep(
+						m_host,
+						page,
+						doc,
+						mesh,
+						session->meshBackendId,
+						*session->geoSession,
+						session->fitPreviewBrepBackendId,
+						QStringLiteral("拟合曲面"),
+						QStringLiteral("plugin://pointcloud/surface-reconstruct-fit"),
+						&result->fitPreviewBrepBackendId,
+						&regErr))
 				{
-					auto fitBrep = std::make_shared<BrepBackendData>();
-					std::string brepErr;
-					if (geometry_backend_ops::meshSurfaceReconstructShapeToBrep(fitShape, fitBrep, &brepErr))
+					if (m_host)
 					{
-						if (!session->fitPreviewBrepBackendId.empty() && doc)
-						{
-							std::string removeErr;
-							(void)doc->removeBackendObject(session->fitPreviewBrepBackendId, &removeErr);
-						}
-						std::string regErr;
-						if (!registerFitPreviewBrepFromShape(
-								m_host,
-								page,
-								mesh,
-								session->meshBackendId,
-								fitBrep,
-								&regErr))
-						{
-							onFinished(false, translateSurfaceReconErrorZh(QString::fromStdString(regErr)), {});
-							return;
-						}
-						result->fitPreviewBrepBackendId = fitBrep->id();
-						session->fitPreviewBrepBackendId = result->fitPreviewBrepBackendId;
+						m_host->logWarn(
+							QStringLiteral("[曲面重构] 拟合预览未写入场景: %1")
+								.arg(QString::fromStdString(regErr)));
+					}
+				}
+			}
+			else if (stage == PluginMeshSurfaceReconstructStage::BoundaryBlend && session->geoSession)
+			{
+				std::string regErr;
+				if (!registerSurfaceReconStagePreviewBrep(
+						m_host,
+						page,
+						doc,
+						mesh,
+						session->meshBackendId,
+						*session->geoSession,
+						session->boundaryBlendPreviewBrepBackendId,
+						QStringLiteral("边界混合"),
+						QStringLiteral("plugin://pointcloud/surface-reconstruct-boundary-blend"),
+						&result->boundaryBlendPreviewBrepBackendId,
+						&regErr))
+				{
+					if (m_host)
+					{
+						m_host->logWarn(
+							QStringLiteral("[曲面重构] 边界混合预览未写入场景: %1")
+								.arg(QString::fromStdString(regErr)));
+					}
+				}
+			}
+			else if (stage == PluginMeshSurfaceReconstructStage::JunctionBlend && session->geoSession)
+			{
+				std::string regErr;
+				if (!registerSurfaceReconStagePreviewBrep(
+						m_host,
+						page,
+						doc,
+						mesh,
+						session->meshBackendId,
+						*session->geoSession,
+						session->junctionBlendPreviewBrepBackendId,
+						QStringLiteral("交汇混合"),
+						QStringLiteral("plugin://pointcloud/surface-reconstruct-junction-blend"),
+						&result->junctionBlendPreviewBrepBackendId,
+						&regErr))
+				{
+					if (m_host)
+					{
+						m_host->logWarn(
+							QStringLiteral("[曲面重构] 交汇混合预览未写入场景: %1")
+								.arg(QString::fromStdString(regErr)));
 					}
 				}
 			}
@@ -2651,6 +3036,8 @@ void PluginPointCloudHostImpl::runMeshSurfaceReconstructStage(
 			pluginReport.preprocessedMeshBackendId = session->preprocessedMeshBackendId;
 			pluginReport.partitionColoredMeshBackendId = session->partitionColoredMeshBackendId;
 			pluginReport.fitPreviewBrepBackendId = session->fitPreviewBrepBackendId;
+			pluginReport.boundaryBlendPreviewBrepBackendId = session->boundaryBlendPreviewBrepBackendId;
+			pluginReport.junctionBlendPreviewBrepBackendId = session->junctionBlendPreviewBrepBackendId;
 			pluginReport.stageSummaryZh =
 				formatSurfaceReconStageSummaryZh(stage, pluginReport, params.samplesPerPatchEdge);
 			if (stage == PluginMeshSurfaceReconstructStage::Fit
@@ -2658,9 +3045,416 @@ void PluginPointCloudHostImpl::runMeshSurfaceReconstructStage(
 			{
 				pluginReport.stageSummaryZh += QStringLiteral("（场景已显示拟合曲面）");
 			}
+			if (stage == PluginMeshSurfaceReconstructStage::BoundaryBlend
+				&& !session->boundaryBlendPreviewBrepBackendId.empty())
+			{
+				pluginReport.stageSummaryZh += QStringLiteral("（场景已显示边界混合曲面）");
+			}
+			if (stage == PluginMeshSurfaceReconstructStage::JunctionBlend
+				&& !session->junctionBlendPreviewBrepBackendId.empty())
+			{
+				pluginReport.stageSummaryZh += QStringLiteral("（场景已显示交汇混合曲面）");
+			}
+			else if (stage == PluginMeshSurfaceReconstructStage::JunctionBlend)
+			{
+				pluginReport.stageSummaryZh += QStringLiteral("（交汇混合场景预览未生成）");
+			}
 			if (m_host)
 			{
 				m_host->logInfo(QStringLiteral("[曲面重构] %1").arg(pluginReport.stageSummaryZh));
+			}
+			onFinished(true, QString(), pluginReport);
+		});
+}
+
+PluginPointCloudHostImpl::TubularGrindingHostSession* PluginPointCloudHostImpl::findTubularGrindingSession(
+	const std::string& sessionId,
+	IPluginDocument* doc)
+{
+	const auto it = m_tubularGrindingSessions.find(sessionId);
+	if (it == m_tubularGrindingSessions.end())
+	{
+		return nullptr;
+	}
+	if (doc && it->second.docId != doc->documentId())
+	{
+		return nullptr;
+	}
+	return &it->second;
+}
+
+void PluginPointCloudHostImpl::eraseTubularGrindingSession(
+	const std::string& sessionId,
+	IPluginDocument* doc)
+{
+	TubularGrindingHostSession* session = findTubularGrindingSession(sessionId, doc);
+	if (!session)
+	{
+		m_tubularGrindingSessions.erase(sessionId);
+		return;
+	}
+	const auto removeId = [&](const std::string& backendId) {
+		if (!backendId.empty() && doc)
+		{
+			std::string removeErr;
+			(void)doc->removeBackendObject(backendId, &removeErr);
+		}
+	};
+	removeId(session->segmentColoredMeshBackendId);
+	removeId(session->ringColoredMeshBackendId);
+	removeId(session->ringCenterPointsBackendId);
+	removeId(session->normalAxisLinesBackendId);
+	removeId(session->centerlinePointsBackendId);
+	removeId(session->templatePointsBackendId);
+	removeId(session->projectedPointsBackendId);
+	m_tubularGrindingSessions.erase(sessionId);
+}
+
+PluginTubularGrindingSessionId PluginPointCloudHostImpl::beginTubularGrindingSession(
+	IPluginDocument* doc,
+	const std::string& meshBackendIdUtf8)
+{
+	PluginTubularGrindingSessionId out;
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	if (!page || meshBackendIdUtf8.empty())
+	{
+		return out;
+	}
+	std::string resolveErr;
+	const auto mesh = document_point_cloud_ops::resolveMesh(page, meshBackendIdUtf8, &resolveErr);
+	if (!mesh)
+	{
+		return out;
+	}
+
+	const std::string newSessionId = makeTubularGrindingSessionId();
+	TubularGrindingHostSession session;
+	session.sessionId = newSessionId;
+	session.docId = doc->documentId();
+	session.meshBackendId = meshBackendIdUtf8;
+	session.rawSoup = mesh->triangleSoup();
+	session.geoSession = geometry_backend_ops::createTubularGrindingSession(session.rawSoup);
+	session.lastCompleted = PluginTubularGrindingStage::None;
+	m_tubularGrindingSessions[newSessionId] = std::move(session);
+	out.value = newSessionId;
+	return out;
+}
+
+void PluginPointCloudHostImpl::clearTubularGrindingSession(
+	IPluginDocument* doc,
+	const PluginTubularGrindingSessionId& sessionId)
+{
+	eraseTubularGrindingSession(sessionId.value, doc);
+}
+
+void PluginPointCloudHostImpl::runTubularGrindingStage(
+	IPluginDocument* doc,
+	const PluginTubularGrindingSessionId& sessionId,
+	const PluginTubularGrindingStage stage,
+	const PluginTubularGrindingParams& params,
+	PluginTubularGrindingFinishedFn onFinished)
+{
+	if (!m_host || !onFinished || !sessionId.valid())
+	{
+		return;
+	}
+	TubularGrindingHostSession* session = findTubularGrindingSession(sessionId.value, doc);
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	if (!session || !page || !session->geoSession)
+	{
+		onFinished(false, QStringLiteral("特征构建会话无效"), {});
+		return;
+	}
+	if (!isNextTubularGrindingStage(session->lastCompleted, stage))
+	{
+		onFinished(false, QStringLiteral("请先完成上一阶段"), {});
+		return;
+	}
+
+	std::string resolveErr;
+	const auto mesh = document_point_cloud_ops::resolveMesh(page, session->meshBackendId, &resolveErr);
+	if (!mesh)
+	{
+		onFinished(false, QString::fromStdString(resolveErr), {});
+		return;
+	}
+
+	const geoalgo::TubularGrindingParams geoParams = buildTubularGrindingGeoParams(params);
+	struct WorkResult
+	{
+		geoalgo::TubularGrindingReport report;
+		std::string segmentColoredMeshBackendId;
+		std::string ringColoredMeshBackendId;
+		std::string ringCenterPointsBackendId;
+		std::string normalAxisLinesBackendId;
+		std::string centerlinePointsBackendId;
+		std::string templatePointsBackendId;
+		std::string projectedPointsBackendId;
+		std::string error;
+		bool ok = false;
+	};
+	auto result = std::make_shared<WorkResult>();
+
+	m_host->enqueueJob(
+		QStringLiteral("特征构建"),
+		[session, stage, geoParams, result](const PluginJobProgressFn& progress) {
+			try
+			{
+				progress(0.1, QStringLiteral("执行中..."));
+				const geoalgo::TubularGrindingStage geoStage = mapPluginTubularStageToGeo(stage);
+				result->ok = geometry_backend_ops::runTubularGrindingStage(
+					*session->geoSession, geoStage, geoParams, result->report, &result->error);
+				progress(1.0, QStringLiteral("完成"));
+			}
+			catch (const std::exception& ex)
+			{
+				result->ok = false;
+				result->error = ex.what();
+			}
+			catch (...)
+			{
+				result->ok = false;
+				result->error = "tubular grinding failed with internal error";
+			}
+		},
+		[this, doc, session, stage, mesh, page, geoParams, result, onFinished = std::move(onFinished)](
+			const bool threw, const QString& throwMessage) {
+			if (threw)
+			{
+				onFinished(false, throwMessage, {});
+				return;
+			}
+			if (!result->ok)
+			{
+				onFinished(false, QString::fromStdString(result->error), {});
+				return;
+			}
+
+			if (stage == PluginTubularGrindingStage::Segment)
+			{
+				std::vector<float> coloredSoup;
+				std::vector<float> coloredRgb;
+				std::string colorErr;
+				if (geometry_backend_ops::buildTubularGrindingSegmentColoredMeshSoup(
+						*session->geoSession, coloredSoup, coloredRgb, &colorErr))
+				{
+					if (!session->segmentColoredMeshBackendId.empty() && doc)
+					{
+						std::string removeErr;
+						(void)doc->removeBackendObject(session->segmentColoredMeshBackendId, &removeErr);
+					}
+					std::string regErr;
+					if (!registerTubularGrindingColoredMeshFromSoup(
+							m_host,
+							page,
+							mesh,
+							coloredSoup,
+							coloredRgb,
+							QStringLiteral("_管段着色"),
+							result->segmentColoredMeshBackendId,
+							&regErr))
+					{
+						onFinished(false, QString::fromStdString(regErr), {});
+						return;
+					}
+					session->segmentColoredMeshBackendId = result->segmentColoredMeshBackendId;
+				}
+
+				std::vector<float> ringColoredSoup;
+				std::vector<float> ringColoredRgb;
+				std::string ringColorErr;
+				if (geometry_backend_ops::buildTubularGrindingRingColoredMeshSoup(
+						*session->geoSession, ringColoredSoup, ringColoredRgb, &ringColorErr))
+				{
+					if (!session->ringColoredMeshBackendId.empty() && doc)
+					{
+						std::string removeErr;
+						(void)doc->removeBackendObject(session->ringColoredMeshBackendId, &removeErr);
+					}
+					std::string regErr;
+					if (!registerTubularGrindingColoredMeshFromSoup(
+							m_host,
+							page,
+							mesh,
+							ringColoredSoup,
+							ringColoredRgb,
+							QStringLiteral("_环着色"),
+							result->ringColoredMeshBackendId,
+							&regErr))
+					{
+						onFinished(false, QString::fromStdString(regErr), {});
+						return;
+					}
+					session->ringColoredMeshBackendId = result->ringColoredMeshBackendId;
+				}
+
+				std::vector<float> ringCenterXyz;
+				std::vector<float> ringCenterRgba;
+				std::string ringCenterErr;
+				if (geometry_backend_ops::buildTubularGrindingRingCenterPointsCloud(
+						*session->geoSession, ringCenterXyz, ringCenterRgba, &ringCenterErr))
+				{
+					if (!session->ringCenterPointsBackendId.empty() && doc)
+					{
+						std::string removeErr;
+						(void)doc->removeBackendObject(session->ringCenterPointsBackendId, &removeErr);
+					}
+					QString adoptErr;
+					if (!registerTubularGrindingPointCloud(
+							page,
+							mesh,
+							QStringLiteral("_环圆心"),
+							QStringLiteral("plugin://pointcloud/tubular-grinding-ring-centers"),
+							std::move(ringCenterXyz),
+							std::move(ringCenterRgba),
+							result->ringCenterPointsBackendId,
+							&adoptErr))
+					{
+						onFinished(false, adoptErr, {});
+						return;
+					}
+					session->ringCenterPointsBackendId = result->ringCenterPointsBackendId;
+				}
+
+				std::vector<float> normalAxisLines;
+				std::string normalAxisErr;
+				if (geometry_backend_ops::buildTubularGrindingFaceNormalAxisLineSegments(
+						*session->geoSession, geoParams, normalAxisLines, &normalAxisErr))
+				{
+					if (!session->normalAxisLinesBackendId.empty() && doc)
+					{
+						std::string removeErr;
+						(void)doc->removeBackendObject(session->normalAxisLinesBackendId, &removeErr);
+					}
+					std::string regErr;
+					if (!registerTubularGrindingNormalAxisLines(
+							m_host,
+							page,
+							mesh,
+							normalAxisLines,
+							result->normalAxisLinesBackendId,
+							&regErr))
+					{
+						onFinished(false, QString::fromStdString(regErr), {});
+						return;
+					}
+					session->normalAxisLinesBackendId = result->normalAxisLinesBackendId;
+				}
+			}
+			else if (stage == PluginTubularGrindingStage::Centerline)
+			{
+				std::vector<float> xyz;
+				std::vector<float> rgba;
+				std::string pcErr;
+				if (geometry_backend_ops::buildTubularGrindingCenterlinePointsCloud(
+						*session->geoSession, xyz, rgba, &pcErr))
+				{
+					if (!session->centerlinePointsBackendId.empty() && doc)
+					{
+						std::string removeErr;
+						(void)doc->removeBackendObject(session->centerlinePointsBackendId, &removeErr);
+					}
+					QString adoptErr;
+					if (!registerTubularGrindingPointCloud(
+							page,
+							mesh,
+							QStringLiteral("_中心线"),
+							QStringLiteral("plugin://pointcloud/tubular-grinding-centerline"),
+							std::move(xyz),
+							std::move(rgba),
+							result->centerlinePointsBackendId,
+							&adoptErr))
+					{
+						onFinished(false, adoptErr, {});
+						return;
+					}
+					session->centerlinePointsBackendId = result->centerlinePointsBackendId;
+				}
+			}
+			else if (stage == PluginTubularGrindingStage::TemplatePoints)
+			{
+				std::vector<float> xyz;
+				std::vector<float> rgba;
+				std::string pcErr;
+				if (geometry_backend_ops::buildTubularGrindingTemplatePointsCloud(
+						*session->geoSession, xyz, rgba, &pcErr))
+				{
+					if (!session->templatePointsBackendId.empty() && doc)
+					{
+						std::string removeErr;
+						(void)doc->removeBackendObject(session->templatePointsBackendId, &removeErr);
+					}
+					QString adoptErr;
+					if (!registerTubularGrindingPointCloud(
+							page,
+							mesh,
+							QStringLiteral("_模板点位"),
+							QStringLiteral("plugin://pointcloud/tubular-grinding-template"),
+							std::move(xyz),
+							std::move(rgba),
+							result->templatePointsBackendId,
+							&adoptErr))
+					{
+						onFinished(false, adoptErr, {});
+						return;
+					}
+					session->templatePointsBackendId = result->templatePointsBackendId;
+				}
+			}
+			else if (stage == PluginTubularGrindingStage::Project)
+			{
+				std::vector<float> xyz;
+				std::vector<float> rgba;
+				std::string pcErr;
+				if (geometry_backend_ops::buildTubularGrindingProjectedPointsCloud(
+						*session->geoSession, xyz, rgba, &pcErr))
+				{
+					if (!session->projectedPointsBackendId.empty() && doc)
+					{
+						std::string removeErr;
+						(void)doc->removeBackendObject(session->projectedPointsBackendId, &removeErr);
+					}
+					QString adoptErr;
+					if (!registerTubularGrindingPointCloud(
+							page,
+							mesh,
+							QStringLiteral("_投影点位"),
+							QStringLiteral("plugin://pointcloud/tubular-grinding-project"),
+							std::move(xyz),
+							std::move(rgba),
+							result->projectedPointsBackendId,
+							&adoptErr))
+					{
+						onFinished(false, adoptErr, {});
+						return;
+					}
+					session->projectedPointsBackendId = result->projectedPointsBackendId;
+				}
+			}
+
+			session->lastCompleted = stage;
+			PluginTubularGrindingReport pluginReport;
+			pluginReport.lastCompletedStage = stage;
+			pluginReport.pipeCount = result->report.pipeCount;
+			pluginReport.ringCount = result->report.ringCount;
+			pluginReport.junctionFaceCount = result->report.junctionFaceCount;
+			pluginReport.regionCountBeforeFilter = result->report.regionCountBeforeFilter;
+			pluginReport.centerlinePointCount = result->report.centerlinePointCount;
+			pluginReport.templatePointCount = result->report.templatePointCount;
+			pluginReport.projectedPointCount = result->report.projectedPointCount;
+			pluginReport.sectionFitFailCount = result->report.sectionFitFailCount;
+			pluginReport.projectionHitRate = result->report.projectionHitRate;
+			pluginReport.segmentColoredMeshBackendId = session->segmentColoredMeshBackendId;
+			pluginReport.ringColoredMeshBackendId = session->ringColoredMeshBackendId;
+			pluginReport.ringCenterPointsBackendId = session->ringCenterPointsBackendId;
+			pluginReport.normalAxisLinesBackendId = session->normalAxisLinesBackendId;
+			pluginReport.centerlinePointsBackendId = session->centerlinePointsBackendId;
+			pluginReport.templatePointsBackendId = session->templatePointsBackendId;
+			pluginReport.projectedPointsBackendId = session->projectedPointsBackendId;
+			pluginReport.stageSummaryZh = formatTubularGrindingStageSummaryZh(stage, pluginReport);
+			if (m_host)
+			{
+				m_host->logInfo(QStringLiteral("[特征构建] %1").arg(pluginReport.stageSummaryZh));
 			}
 			onFinished(true, QString(), pluginReport);
 		});

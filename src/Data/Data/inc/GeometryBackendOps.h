@@ -8,6 +8,7 @@
 
 #include <TemplateBrepUpdate.h>
 #include <MeshSurfaceReconstruction.h>
+#include <TubularGrinding.h>
 
 #include <Types.h>
 
@@ -286,6 +287,58 @@ DATA_EXPORT bool reconstructBrepFromMeshSoup(
 	const geoalgo::MeshSurfaceReconstructParams& params,
 	std::shared_ptr<BrepBackendData>& outBrep,
 	geoalgo::MeshSurfaceReconstructReport& report,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT geoalgo::TubularGrindingSessionPtr createTubularGrindingSession(
+	std::vector<float> sourceSoup);
+
+DATA_EXPORT bool runTubularGrindingStage(
+	geoalgo::TubularGrindingSession& session,
+	geoalgo::TubularGrindingStage stage,
+	const geoalgo::TubularGrindingParams& params,
+	geoalgo::TubularGrindingReport& report,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool buildTubularGrindingSegmentColoredMeshSoup(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outSoup,
+	std::vector<float>& outRgbPerVertex,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool buildTubularGrindingRingColoredMeshSoup(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outSoup,
+	std::vector<float>& outRgbPerVertex,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool buildTubularGrindingRingCenterPointsCloud(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool buildTubularGrindingFaceNormalAxisLineSegments(
+	const geoalgo::TubularGrindingSession& session,
+	const geoalgo::TubularGrindingParams& params,
+	std::vector<float>& outLineXyz,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool buildTubularGrindingCenterlinePointsCloud(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool buildTubularGrindingTemplatePointsCloud(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool buildTubularGrindingProjectedPointsCloud(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
 	std::string* errMsg = nullptr);
 
 } // namespace geometry_backend_ops

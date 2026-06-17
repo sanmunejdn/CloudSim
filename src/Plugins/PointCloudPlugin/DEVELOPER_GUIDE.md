@@ -9,11 +9,12 @@
 | 工程 | `PointCloudPlugin.vcxproj`（x64，v142，Qt 5.14.2） |
 | 链接 | **仅** `CloudSimPluginSDK.lib` |
 | 部署 | `bin/x64(d)/plugins/com.cloudsim.pointcloud/plugin.json` + `PointCloudPlugin.dll` |
-| `minHostVersion` | `"1.14.0"`（UV 自适应采样） |
+| `minHostVersion` | `"1.15.0"`（管状铸件特征构建 Tab） |
 
 ## 运行时
 
 - 侧栏 Tab **点云** / **Point Cloud**：导入、列表、下采样、裁剪（包围盒/球/多边形）、预处理、ICP、重建
+- 侧栏 Tab **特征构建** / **Feature Build**（**1.15.0+**）：管状铸件 Phase 1–4 分阶段调试（见下节）
 - 菜单 **Tools → Point Cloud**（中文下子菜单标题为 **点云**）
 - 语言：默认中文；切换 **设置 → Language → 中文/English** 时侧栏与菜单同步更新
 - **重建网格 → 导出 PLY**：侧栏「重建网格」区选网格对象，点 **导出 PLY…**（或菜单 **Tools → 点云 → 导出网格 PLY…`）
@@ -106,6 +107,36 @@
 菜单：**Tools → 点云 → 曲面重构**（触发全流程）
 
 详见 [`docs/mesh_surface_reconstruction.md`](../../docs/mesh_surface_reconstruction.md)。
+
+## 特征构建（1.15.0+，管状铸件打磨 MVP）
+
+侧栏 **特征构建** Tab（`TubularGrindingDockWidget`），与「点云」并列；需宿主 **1.15.0+**。
+
+| 按钮 | 阶段 | 场景对象（Segment 阶段一次注册多个） |
+|------|------|--------------------------------------|
+| 管段分割 | `Segment` | `源名_管段着色`（HSV 管段 mesh）、`源名_环着色`、`源名_环圆心`、`源名_法向`（青色法向轴线 overlay） |
+| 中心线 | `Centerline` | `源名_中心线`（点云） |
+| 模板点位 | `TemplatePoints` | `源名_模板点位`（点云） |
+| 表面投影 | `Project` | `源名_投影点位`（点云） |
+| 重置会话 | — | 清除上述全部临时对象 |
+
+API：`beginTubularGrindingSession` → `runTubularGrindingStage`（须按序）；切换网格或重置时 `clearTubularGrindingSession`。摘要写入侧栏日志 + RunInfo `[特征构建]`（Segment 含 `pipeCount` / `ringCount` / `junctionFaceCount`）。
+
+**管段分割参数**（侧栏）：
+
+| 控件 | `PluginTubularGrindingParams` | 说明 |
+|------|------------------------------|------|
+| 环心簇半径(0自动) | `ringCenterClusterEpsMm` | 环心 DBSCAN 半径（mm） |
+| 法向汇聚容差(0自动) | `ringRayConvergenceEpsMm` | 向内射线汇聚容差；过碎可试 8–25 mm |
+| 环链合并角 | `axisMergeAngleDeg` | 相邻环轴线夹角上限（°） |
+| 三通判定角 | `junctionAxisSpreadDeg` | 交汇环轴线散布阈值（°） |
+| 最小管段面数 | `minSegmentFaces` | 过滤过小管段 |
+
+**轨迹参数**：模板类型（Auto/螺旋/环形/轴向/锯齿）、截面间距、螺旋圈数、投影最大距离。
+
+典型调试：先看 `_环着色` / `_法向` 验证环与法向，再确认 `_管段着色`；日志中 `regionCountBeforeFilter` 接近面数说明聚类过碎，应增大汇聚容差或环心簇半径。
+
+算法实现：[`GeometryAlgorithm/DEVELOPER_GUIDE.md`](../../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.5。轨迹 ingress 预留：[`RobotScene/inc/TubularGrindingTrajectoryIngress.h`](../../Robot/RobotScene/inc/TubularGrindingTrajectoryIngress.h)（Phase 5，当前桩）。
 
 ## 相关文档
 

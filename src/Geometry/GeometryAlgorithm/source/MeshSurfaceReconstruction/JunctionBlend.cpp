@@ -1,5 +1,4 @@
 #include "MeshSurfaceReconstructionInternal.h"
-
 #include "detail/OccIncludes.h"
 
 #include <TColgp_Array2OfPnt.hxx>
@@ -27,6 +26,7 @@ bool applyJunctionC2Blend(
 	std::vector<QuadPatch>& patches,
 	int junctionCount,
 	const MeshSurfaceReconstructParams& params,
+	MeshSurfaceReconstructReport* report,
 	std::string* errMsg)
 {
 	(void)params;
@@ -45,6 +45,7 @@ bool applyJunctionC2Blend(
 	}
 
 	int blended = 0;
+	double maxMove = 0.0;
 	for (std::size_t i = 0; i < patches.size() && blended < junctionCount; ++i)
 	{
 		const auto it = adjacency.find(static_cast<int>(i));
@@ -99,10 +100,21 @@ bool applyJunctionC2Blend(
 				c0.X() * (1.0 - wt) + avg.X() * wt,
 				c0.Y() * (1.0 - wt) + avg.Y() * wt,
 				c0.Z() * (1.0 - wt) + avg.Z() * wt);
+			const double d = c0.Distance(blend);
+			if (d > maxMove)
+			{
+				maxMove = d;
+			}
 			poles.SetValue(1, 1, blend);
 			(void)tryRebuildBsplineSurface(patch.surface, poles, patch.surface);
 		}
 		++blended;
+	}
+
+	if (report)
+	{
+		report->junctionBlendAppliedCount = blended;
+		report->junctionBlendMaxMoveMm = maxMove;
 	}
 
 	(void)errMsg;

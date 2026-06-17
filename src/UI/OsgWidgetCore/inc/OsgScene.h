@@ -186,7 +186,8 @@ public:
 	void cachePickablePointsFromNode(osg::Node* node);
 	bool pickPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& outPointWorld) const;
 	bool pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx,
-		bool previewOnly) const;
+		bool previewOnly, int* outPointIndex = nullptr) const;
+	void collectPointIndicesInScreenRadius(double mouseX, double mouseY, double radiusPx, std::vector<int>& outIndices) const;
 	bool pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx) const;
 	bool pickMeshFaceByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, osg::Vec3f& outAWorld,
 		osg::Vec3f& outBWorld, osg::Vec3f& outCWorld, osg::Vec3f& outNormalWorld,
@@ -303,6 +304,10 @@ public:
 	bool m_polylinePickMode = false;
 	bool m_meshLinePickMode = false;
 	bool m_meshFacePickMode = false;
+	bool m_labelingClickPickMode = false;
+	bool m_labelingBrushPickMode = false;
+	bool m_labelingMeshFaceMode = false;
+	float m_labelingBrushRadiusPx = 16.f;
 	bool m_dragging = false;
 	bool m_rotating = false;
 	DragAxis m_dragAxis = DragAxis::None;

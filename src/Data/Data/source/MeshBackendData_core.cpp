@@ -29,7 +29,7 @@ std::string MeshBackendData::className() const
 
 bool MeshBackendData::hasGeometry() const
 {
-	return !m_triangleSoup.empty();
+	return !m_triangleSoup.empty() || hasOverlayLineSegments();
 }
 
 BackendBoundingBox MeshBackendData::geometryBounds() const
@@ -39,7 +39,11 @@ BackendBoundingBox MeshBackendData::geometryBounds() const
 
 std::size_t MeshBackendData::geometryElementCount() const
 {
-	return m_triangleSoup.size() / 9U;
+	if (!m_triangleSoup.empty())
+	{
+		return m_triangleSoup.size() / 9U;
+	}
+	return m_overlayLineSegments.size() / 6U;
 }
 
 void MeshBackendData::clearGeometry()
@@ -47,6 +51,7 @@ void MeshBackendData::clearGeometry()
 	m_triangleSoup.clear();
 	m_triangleNormals.clear();
 	m_triangleVertexColors.clear();
+	m_overlayLineSegments.clear();
 	m_bounds = BackendBoundingBox{};
 }
 
@@ -125,6 +130,18 @@ void MeshBackendData::setTriangleSoupWithVertexColors(
 	recomputeBounds();
 }
 
+void MeshBackendData::setOverlayLineSegments(std::vector<float> xyzLinePairs)
+{
+	if (xyzLinePairs.size() % 6U != 0U)
+	{
+		m_overlayLineSegments.clear();
+		recomputeBounds();
+		return;
+	}
+	m_overlayLineSegments = std::move(xyzLinePairs);
+	recomputeBounds();
+}
+
 void MeshBackendData::transformVerticesColumnMajorHomogeneous4x4(const double M[16])
 {
 	if (m_triangleSoup.size() < 3U || (m_triangleSoup.size() % 3U) != 0U)
@@ -164,35 +181,33 @@ void MeshBackendData::transformVerticesColumnMajorHomogeneous4x4(const double M[
 void MeshBackendData::recomputeBounds()
 {
 	m_bounds = BackendBoundingBox{};
-	if (m_triangleSoup.size() < 3U)
-	{
-		return;
-	}
-	double minX = m_triangleSoup[0];
-	double minY = m_triangleSoup[1];
-	double minZ = m_triangleSoup[2];
-	double maxX = minX;
-	double maxY = minY;
-	double maxZ = minZ;
+	auto expand = [&](const double x, const double y, const double z) {
+		if (!m_bounds.valid)
+		{
+			m_bounds.min.x = x;
+			m_bounds.min.y = y;
+			m_bounds.min.z = z;
+			m_bounds.max.x = x;
+			m_bounds.max.y = y;
+			m_bounds.max.z = z;
+			m_bounds.valid = true;
+			return;
+		}
+		m_bounds.min.x = std::min(m_bounds.min.x, x);
+		m_bounds.min.y = std::min(m_bounds.min.y, y);
+		m_bounds.min.z = std::min(m_bounds.min.z, z);
+		m_bounds.max.x = std::max(m_bounds.max.x, x);
+		m_bounds.max.y = std::max(m_bounds.max.y, y);
+		m_bounds.max.z = std::max(m_bounds.max.z, z);
+	};
 	for (std::size_t i = 0; i + 2 < m_triangleSoup.size(); i += 3)
 	{
-		const double x = m_triangleSoup[i];
-		const double y = m_triangleSoup[i + 1];
-		const double z = m_triangleSoup[i + 2];
-		minX = std::min(minX, x);
-		minY = std::min(minY, y);
-		minZ = std::min(minZ, z);
-		maxX = std::max(maxX, x);
-		maxY = std::max(maxY, y);
-		maxZ = std::max(maxZ, z);
+		expand(m_triangleSoup[i], m_triangleSoup[i + 1], m_triangleSoup[i + 2]);
 	}
-	m_bounds.min.x = minX;
-	m_bounds.min.y = minY;
-	m_bounds.min.z = minZ;
-	m_bounds.max.x = maxX;
-	m_bounds.max.y = maxY;
-	m_bounds.max.z = maxZ;
-	m_bounds.valid = true;
+	for (std::size_t i = 0; i + 2 < m_overlayLineSegments.size(); i += 3)
+	{
+		expand(m_overlayLineSegments[i], m_overlayLineSegments[i + 1], m_overlayLineSegments[i + 2]);
+	}
 }
 
 bool MeshBackendData::writeProjectEmbeddedGeometry(std::string& outTriangleSoupBase64) const

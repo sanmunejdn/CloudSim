@@ -788,7 +788,7 @@ bool OsgScene::pickPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& ou
 	return distancePx <= kPointPickHitRadiusPx * dpr;
 }
 
-bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx, bool previewOnly) const
+bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx, bool previewOnly, int* outPointIndex) const
 {
 	ObjectGizmoFrame gizmoFrame;
 	if (!readActiveObjectGizmoFrame(gizmoFrame))
@@ -863,12 +863,14 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 			double d2;
 			double depth;
 			osg::Vec3f world;
+			int pointIdx;
 		};
 		InRadCand inRad[96];
 		int inRadCount = 0;
 		double bestFallbackD2 = (std::numeric_limits<double>::max)();
 		double bestFallbackDepth = (std::numeric_limits<double>::max)();
 		osg::Vec3f bestFallbackWorld;
+		int bestFallbackIdx = -1;
 		bool fallbackFound = false;
 		for (int idx : candidateIndices)
 		{
@@ -891,7 +893,7 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 			const double depth = clip.z();
 			if (d2 <= hitRadiusPx2 && inRadCount < 96)
 			{
-				inRad[inRadCount++] = {d2, depth, world};
+				inRad[inRadCount++] = {d2, depth, world, idx};
 			}
 			else if (!previewOnly
 				&& (!fallbackFound
@@ -902,6 +904,7 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 				bestFallbackD2 = d2;
 				bestFallbackDepth = depth;
 				bestFallbackWorld = world;
+				bestFallbackIdx = idx;
 			}
 		}
 		double frontInRadiusDepth = (std::numeric_limits<double>::max)();
@@ -911,6 +914,7 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 		}
 		double bestInRadiusD2 = (std::numeric_limits<double>::max)();
 		osg::Vec3f bestInRadiusWorld;
+		int bestInRadiusIdx = -1;
 		bool inRadiusFound = false;
 		for (int i = 0; i < inRadCount; ++i)
 		{
@@ -922,6 +926,7 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 					inRadiusFound = true;
 					bestInRadiusD2 = inRad[i].d2;
 					bestInRadiusWorld = inRad[i].world;
+					bestInRadiusIdx = inRad[i].pointIdx;
 				}
 			}
 		}
@@ -929,12 +934,20 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 		{
 			outPointWorld = bestInRadiusWorld;
 			outDistancePx = std::sqrt(bestInRadiusD2);
+			if (outPointIndex)
+			{
+				*outPointIndex = bestInRadiusIdx;
+			}
 			return true;
 		}
 		if (fallbackFound && !previewOnly)
 		{
 			outPointWorld = bestFallbackWorld;
 			outDistancePx = std::sqrt(bestFallbackD2);
+			if (outPointIndex)
+			{
+				*outPointIndex = bestFallbackIdx;
+			}
 			return true;
 		}
 		if (previewOnly)
@@ -1022,6 +1035,47 @@ bool OsgScene::pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Ve
 		return true;
 	}
 	return false;
+}
+
+void OsgScene::collectPointIndicesInScreenRadius(double mouseX, double mouseY, double radiusPx, std::vector<int>& outIndices) const
+{
+	outIndices.clear();
+	ObjectGizmoFrame gizmoFrame;
+	if (!readActiveObjectGizmoFrame(gizmoFrame) || !m_viewer.valid() || !m_viewer->getCamera())
+	{
+		return;
+	}
+	if (m_pickablePointsCenteredLocal.empty())
+	{
+		return;
+	}
+	double deviceX = 0.0;
+	double deviceY = 0.0;
+	logicalMouseToDeviceCoords(mouseX, mouseY, deviceX, deviceY);
+	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
+	const double radius2 = (radiusPx * dpr) * (radiusPx * dpr);
+	osg::Camera* camera = m_viewer->getCamera();
+	const osg::Matrixd mvp = camera->getViewMatrix() * camera->getProjectionMatrix();
+	const osg::Quat attitude = gizmoFrame.attitude();
+	const osg::Vec3f selectedPos = gizmoFrame.centerPlusPose();
+	outIndices.reserve(256);
+	for (int idx = 0; idx < static_cast<int>(m_pickablePointsCenteredLocal.size()); ++idx)
+	{
+		const osg::Vec3f world = selectedPos + (attitude * m_pickablePointsCenteredLocal[static_cast<std::size_t>(idx)]);
+		const osg::Vec3d clip = osg::Vec3d(world) * mvp;
+		if (clip.z() < -1.0 || clip.z() > 1.0)
+		{
+			continue;
+		}
+		const double sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
+		const double sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
+		const double dx = sx - deviceX;
+		const double dy = sy - deviceY;
+		if (dx * dx + dy * dy <= radius2)
+		{
+			outIndices.push_back(idx);
+		}
+	}
 }
 
 bool OsgScene::pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx) const

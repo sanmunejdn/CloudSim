@@ -153,6 +153,9 @@
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\MeshCreateDomainHandler.h">
       <Filter>inc\PluginHost</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\IPluginMainWindowHost.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\pch.cpp">
@@ -357,6 +360,12 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="..\..\UI\Widget\source\QWidgetViewer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionPropertyDto.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SelectionVisualService.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>

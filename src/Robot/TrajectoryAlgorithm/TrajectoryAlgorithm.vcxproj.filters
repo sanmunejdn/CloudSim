@@ -42,6 +42,9 @@
     <ClInclude Include="inc\trajectory_algorithm_global.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\TrajectoryOpExecutionContext.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\ITrajectoryOp.cpp">

@@ -36,6 +36,13 @@ public:
 	void setTriangleSoupWithVertexColors(
 		std::vector<float> xyzPerTriangleVertex,
 		std::vector<float> rgbPerTriangleVertex);
+	/// 叠加线段（每段 6 float：起点 xyz + 终点 xyz），GL_LINES 绘制
+	void setOverlayLineSegments(std::vector<float> xyzLinePairs);
+	const std::vector<float>& overlayLineSegments() const { return m_overlayLineSegments; }
+	bool hasOverlayLineSegments() const
+	{
+		return m_overlayLineSegments.size() >= 6U && (m_overlayLineSegments.size() % 6U) == 0U;
+	}
 	const std::vector<float>& triangleSoup() const { return m_triangleSoup; }
 	const std::vector<float>& triangleVertexNormals() const { return m_triangleNormals; }
 	const std::vector<float>& triangleVertexColors() const { return m_triangleVertexColors; }
@@ -85,6 +92,7 @@ private:
 	std::vector<float> m_triangleSoup;
 	std::vector<float> m_triangleNormals;
 	std::vector<float> m_triangleVertexColors;
+	std::vector<float> m_overlayLineSegments;
 	BackendBoundingBox m_bounds;
 	BackendColor m_color;
 	bool m_transformPivotAtOrigin = false;

@@ -171,6 +171,7 @@
     <ClInclude Include="inc\TemplateBrepUpdate.h" />
     <ClInclude Include="inc\TemplateBrepRegistration.h" />
     <ClInclude Include="inc\MeshSurfaceReconstruction.h" />
+    <ClInclude Include="inc\TubularGrinding.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\ShapeQuery.cpp" />
@@ -193,6 +194,9 @@
     <ClCompile Include="source\TemplateBrepRegistration.cpp" />
     <ClCompile Include="source\MeshSurfaceReconstruction.cpp" />
     <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionUtils.cpp" />
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionPartitionCommon.cpp" />
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionPartitionHybrid.cpp" />
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionPatchDualGraph.cpp" />
     <ClCompile Include="source\MeshSurfaceReconstruction\PatchParameterize.cpp" />
     <ClCompile Include="source\MeshSurfaceReconstruction\InitialBsplinePatch.cpp" />
     <ClCompile Include="source\MeshSurfaceReconstruction\NurbsSurfaceFitting.cpp" />
@@ -202,6 +206,12 @@
     <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionAssemble.cpp" />
     <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionOcct.cpp" />
     <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionValidate.cpp" />
+    <ClCompile Include="source\TubularGrinding\TubularGrindingCommon.cpp" />
+    <ClCompile Include="source\TubularGrinding\PipeSegmentation.cpp" />
+    <ClCompile Include="source\TubularGrinding\CenterlineExtraction.cpp" />
+    <ClCompile Include="source\TubularGrinding\TrajectoryTemplates.cpp" />
+    <ClCompile Include="source\TubularGrinding\MeshProjection.cpp" />
+    <ClCompile Include="source\TubularGrinding\TubularGrindingSession.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Infra\RunLogger\RunLogger.vcxproj">

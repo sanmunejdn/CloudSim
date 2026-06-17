@@ -266,7 +266,7 @@ bool runMeshSurfaceReconstructStage(
 			s.lastCompleted = MeshSurfaceReconstructStage::Fit;
 			return true;
 		case MeshSurfaceReconstructStage::BoundaryBlend:
-			if (!meshrecon::applyBoundaryC2Blend(s.patches, params, s.boundaryBlendOk, errMsg))
+			if (!meshrecon::applyBoundaryC2Blend(s.patches, params, s.boundaryBlendOk, &s.report, errMsg))
 			{
 				return false;
 			}
@@ -274,7 +274,8 @@ bool runMeshSurfaceReconstructStage(
 			s.lastCompleted = MeshSurfaceReconstructStage::BoundaryBlend;
 			return true;
 		case MeshSurfaceReconstructStage::JunctionBlend:
-			if (!meshrecon::applyJunctionC2Blend(s.patches, s.report.junctionCount, params, errMsg))
+			if (!meshrecon::applyJunctionC2Blend(
+					s.patches, s.report.junctionCount, params, &s.report, errMsg))
 			{
 				return false;
 			}

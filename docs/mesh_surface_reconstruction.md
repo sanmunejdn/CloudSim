@@ -55,9 +55,20 @@
 | `remeshTargetEdgeLengthMm` | 0 | 预处理 | 目标边长 mm；0=修复后边长中位数 |
 | `remeshIterations` | 3 | 预处理 | VCG 重网格迭代次数 |
 | `remeshFeatureAngleDeg` | 0 | 预处理 | 特征边保护角（度）；0=由 `featureThresholdC0` 推导 |
-| `patchCountHint` | 0（自动） | 分块 | 目标分块数，0=自动 `sqrt(面数/80)` |
-| `partitionNormalSmoothIters` | 2 | 分块 | 分块前法向平滑迭代；UI 可调，0=保留锐角 |
-| `featureAnglePercentile` | 0.88 | 分块 | 特征棱角度百分位；UI 可调，越低切分越多 |
+| `patchCountHint` | 0（自动） | 分块 | v3：目标分块数；Hybrid：二次 CVT 密度缩放 |
+| `partitionMode` | GeodesicVoronoiV3 | 分块 | v3 测地 Voronoi / Hybrid 混合策略 |
+| `partitionNormalSmoothIters` | 2 | 分块（v3） | 分块前法向平滑迭代 |
+| `featureAnglePercentile` | 0.88 | 分块（v3） | 特征棱角度百分位 |
+| `hybridFeatureAngleDeg` | 60 | 分块（Hybrid） | 特征广义边二面角（度） |
+| `hybridClusterMaxIters` | 30 | 分块（Hybrid） | 法向/欧氏聚类最大迭代 |
+| `hybridSecondarySampleScale` | 10 | 分块（Hybrid） | 二次 CVT 采样系数 |
+| `hybridMergeCosHigh` | 0.70 | 分块（Hybrid） | 初始区清理合并阈值（高） |
+| `hybridMergeCosLowBase` / `hybridMergeCosLowScale` | 0.20 / 0.30 | 分块（Hybrid） | 小片合并余弦公式 |
+| `hybridSmallRegionRatio` / min / max | 0.01 / 10 / 100 | 分块（Hybrid） | 小片判定 Nthresh |
+| `hybridEnableRegionAdjust` | true | 分块（Hybrid） | 是否执行四边区域调整 §3.3 |
+| `hybridCollapseValenceSumMax` | 6 | 分块（Hybrid） | 广义边收缩度数和上限 |
+| `hybridCollapseLengthRatio` | 0.60 | 分块（Hybrid） | 收缩邻边长度比 |
+| `hybridRegionAdjustMaxPasses` | 10 | 分块（Hybrid） | 区域调整最大轮数 |
 | `samplesPerPatchEdge` | 16 | 栅格采样 | 每边采样点数（`targetUvSpacingMm=0` 时生效） |
 | `targetUvSpacingMm` | 0 | 栅格采样 | UV 目标间距 mm；>0 时按物理间距自适应每边格数 |
 | `minSamplesPerEdge` | 4 | 栅格采样 | 自适应间距时每边最少格数 |
@@ -145,7 +156,25 @@ const bool ok = geoalgo::runSelfTest(&err);  // 含 meshSurfaceReconstruct
 |------|------|
 | `minFacesPerPatch` / `maxFacesPerPatch` | 合并后各片三角数范围 |
 | `smallPatchCount` | 合并前小于阈值的碎片片数 |
+| `initialRegionCount` | Hybrid：Phase1 清理后初始区数量 |
+| `quadPatchCount` / `triPatchCount` / … | Hybrid：dual-loop 边数统计 |
 | `avgFacesPerPatch` | 平均每片三角数 |
+
+## 分块算法（Hybrid，吕汉明 2007）
+
+`partitionMode=HybridNormalCvt` 时启用，保留 v3 不变。三阶段：
+
+1. **法向聚类**：6 轴生成元 + 算法 1 迭代 → BFS 连通区 → 按法向/小片阈值清理
+2. **区域内欧氏 CVT**：按面积自适应采样数，算法 1 用质心欧氏距离二次分块
+3. **四边区域调整**（`MeshSurfaceReconstructionPatchDualGraph.cpp`）：构建 patch dual-graph（角点 / 广义边 / 特征边），迭代执行：
+   - **§3.3-1**：邻接度 1 或 2 的低价 patch 合并
+   - **§3.3-2**：两端角点均为度 3、邻域为 4/4 或 4/5 边的特殊广义边删除
+   - **§3.3-3**：按广义边长度升序尝试收缩（条件 a：端点度数和 ≤ `hybridCollapseValenceSumMax`；条件 b：邻边长度比 ≤ `hybridCollapseLengthRatio`）；双端满足时按三角质量择优收缩方向
+   - **§3.3-4**：三边 patch 调整 — (a) 单个度 3 角删最长非特征边；(b) 两个度 3 角优先删连接边；(c) 三个度 3 角优先删边界边；(d) 无度 3 角时按邻域度 3 角 + 四边形质量 [7] 择优；(e) 相邻两片均为三边时合并
+
+**实现说明**：广义边收缩语义为 **patch 级合并**（`collapsePatchPair`），每轮合并后重建 dual-graph；未做论文 §1.2 的 mesh 边链路径更新（B–D 最短路径、特征边链并入 AC）。
+
+适用：棱柱/CAD 特征面、长方体六面分块；自由曲面大片 chart 仍建议 v3。
 
 ## 栅格采样（v3）
 

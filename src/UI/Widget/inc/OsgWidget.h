@@ -84,6 +84,7 @@ public:
 	friend class ObjectTransformOperation;
 	friend class RobotTcpDragTeachOperation;
 	friend class MeshEdgeFacePickOperation;
+	friend class LabelingPickOperation;
 	friend class OsgWidgetImportController;
 	friend class OsgWidgetBackendLoadController;
 	friend class OsgWidgetCaptureController;
@@ -150,6 +151,8 @@ public:
 	bool meshLinePickMode() const;
 	void setMeshFacePickMode(bool enabled);
 	bool meshFacePickMode() const;
+	void setLabelingClickPickMode(bool enabled, bool meshFace);
+	void setLabelingBrushPickMode(bool enabled, bool meshFace, float radiusPx);
 	PickResult queryPick(const PickQuery& query);
 	osg::Vec3f selectedPosition() const;
 	void setSelectedPosition(const osg::Vec3f& position);
@@ -345,6 +348,9 @@ signals:
 	void polylinePickCanceled();
 	void meshPickFeedback(const QString& text);
 	void meshPickCommitted(PickResult pick, int pickKind);
+	void labelingClickCommitted(PickResult pick);
+	void labelingBrushStroke(QVector<int> indices);
+	void labelingBrushFinished();
 	void annotationCreated(const QString& annotationId, const QString& displayText);
 	void annotationRemoved(const QString& annotationId);
 	void annotationVisibilityChanged(const QString& annotationId, bool visible);
@@ -415,6 +421,7 @@ private:
 	std::unique_ptr<SelectionOperation> m_objectTransformOperation;
 	std::unique_ptr<SelectionOperation> m_tcpDragTeachOperation;
 	std::unique_ptr<SelectionOperation> m_meshElementPickOperation;
+	std::unique_ptr<SelectionOperation> m_labelingPickOperation;
 	/// 使用场景光照加载的网格后端（如 URDF 连杆），改色时保留 Material+LIGHTING。
 	std::unordered_set<std::string> m_litMeshBackendIds;
 	osg::ref_ptr<osg::Group> m_instructionPoseAxesGroup;

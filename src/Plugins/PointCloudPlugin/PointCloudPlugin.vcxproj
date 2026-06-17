@@ -86,10 +86,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <QtMoc Include="inc\PointCloudDockWidget.h" />
+    <QtMoc Include="inc\TubularGrindingDockWidget.h" />
     <QtMoc Include="inc\PointCloudPlugin.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\PointCloudDockWidget.cpp" />
+    <ClCompile Include="source\TubularGrindingDockWidget.cpp" />
     <ClCompile Include="source\PointCloudPlugin.cpp" />
   </ItemGroup>
   <ItemGroup>

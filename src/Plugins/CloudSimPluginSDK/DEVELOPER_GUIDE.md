@@ -6,9 +6,9 @@
 
 ## 版本
 
-- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00010D00` = 1.13.0）
+- 宿主版本宏：`CLOUDSIM_PLUGIN_HOST_VERSION`（当前 `0x00011000` = 1.16.0）
 - `IPluginDocument`：`documentId()`、`removeBackendObject()`；**1.2.0+** `queryPointCloudInfo` / `measurePointCloud` / `exportMeshToPly`（UI 线程）
-- `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()`；**1.4.0+** 末尾追加 `buildPrimitiveMeshSoup` / `booleanMeshSoups` / `booleanPrimitiveMeshes`；**1.5.0+** `geometryHost()`；**1.6.0+** `captureActiveViewportPng()`（活动文档 3D 视口 PNG，供 geometry.recognize 等多模态域）；**1.7.0+** `IPluginGeometryHost` 新增 `listComputableBackends` / `pickStepElementFromViewport`（几何插件可直接驱动后端对象 + 视图拾取）；**1.8.0+** `IPluginPointCloudHost` 将模板 B-rep 更新拆为 `registerScanToCadTemplate` + `updateTemplateBrepFromAlignedScan`（移除 `updateBrepFromCadTemplate`）；**1.9.0+** `IPluginPointCloudHost` 新增网格后处理：`queryMeshInfo` / `simplifyMesh` / `smoothMesh` / `repairMesh` / `remeshMeshIsotropic`（需宿主链接 `VcgAlgorithms.dll`）；**1.10.0+** `analyzeMeshDefects` / `clearMeshDefectHighlight`（只读缺陷分析 + 视口 overlay，不修改原网格）；**1.11.0+** `pickPolylineFromViewport` / `cropPointCloudByPolyline`（3D 视口多边形线框裁剪，屏幕投影）；**1.12.0+** `reconstructSurfaceFromMesh`（网格 → 新 `BrepModel`，源网格保留）；**1.13.0+** `beginMeshSurfaceReconstructSession` / `runMeshSurfaceReconstructStage` / `clearMeshSurfaceReconstructSession`（曲面重构分阶段调试，`PluginMeshSurfaceReconstructStage`）；新 API 均追加在 vtable 末尾，勿插入中间；升级宿主后须**重编译全部插件 DLL**
+- `IPluginHostContext`：`importFileIntoActiveDocument()`；**1.2.0+** `pointCloudHost()`；**1.4.0+** 末尾追加 `buildPrimitiveMeshSoup` / `booleanMeshSoups` / `booleanPrimitiveMeshes`；**1.5.0+** `geometryHost()`；**1.6.0+** `captureActiveViewportPng()`（活动文档 3D 视口 PNG，供 geometry.recognize 等多模态域）；**1.7.0+** `IPluginGeometryHost` 新增 `listComputableBackends` / `pickStepElementFromViewport`（几何插件可直接驱动后端对象 + 视图拾取）；**1.8.0+** `IPluginPointCloudHost` 将模板 B-rep 更新拆为 `registerScanToCadTemplate` + `updateTemplateBrepFromAlignedScan`（移除 `updateBrepFromCadTemplate`）；**1.9.0+** `IPluginPointCloudHost` 新增网格后处理：`queryMeshInfo` / `simplifyMesh` / `smoothMesh` / `repairMesh` / `remeshMeshIsotropic`（需宿主链接 `VcgAlgorithms.dll`）；**1.10.0+** `analyzeMeshDefects` / `clearMeshDefectHighlight`（只读缺陷分析 + 视口 overlay，不修改原网格）；**1.11.0+** `pickPolylineFromViewport` / `cropPointCloudByPolyline`（3D 视口多边形线框裁剪，屏幕投影）；**1.12.0+** `reconstructSurfaceFromMesh`（网格 → 新 `BrepModel`，源网格保留）；**1.13.0+** `beginMeshSurfaceReconstructSession` / `runMeshSurfaceReconstructStage` / `clearMeshSurfaceReconstructSession`（曲面重构分阶段调试，`PluginMeshSurfaceReconstructStage`）；**1.15.0+** `beginTubularGrindingSession` / `runTubularGrindingStage` / `clearTubularGrindingSession`（管状铸件特征构建 Phase 1–4，`PluginTubularGrindingStage`）；新 API 均追加在 vtable 末尾；升级宿主后须**重编译全部插件 DLL**
 - 清单 `plugin.json` 中 `minHostVersion` 使用字符串 `"1.0.0"`
 - 运行时调用 `IPluginHostContext::hostVersion()` 比对
 
@@ -103,10 +103,17 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 | `beginMeshSurfaceReconstructSession` | **1.13.0+** 绑定 `docId + meshBackendId`，返回 `PluginMeshSurfaceReconstructSessionId` |
 | `runMeshSurfaceReconstructStage` | **1.13.0+** 按 `PluginMeshSurfaceReconstructStage` 单步执行；回调 `PluginMeshSurfaceReconstructReport`（含 `stageSummaryZh`） |
 | `clearMeshSurfaceReconstructSession` | **1.13.0+** 清除会话及临时 `*_预处理后` 网格 |
+| `beginTubularGrindingSession` | **1.15.0+** 绑定 `docId + meshBackendId`，返回 `PluginTubularGrindingSessionId` |
+| `runTubularGrindingStage` | **1.15.0+** 按 `PluginTubularGrindingStage` 单步执行；回调 `PluginTubularGrindingReport`（含 `stageSummaryZh` 与各阶段场景 backendId） |
+| `clearTubularGrindingSession` | **1.15.0+** 清除会话及临时着色/辅助对象 |
 
-回调 `PluginPointCloudFinishedFn` / `PluginMeshDefectFinishedFn` / `PluginMeshSurfaceReconstructFinishedFn` 在 **UI 线程**；算法在宿主 `enqueueJob` 内执行。插件 **不得** 链接 `PointCloudAlgorithm` / `Data`。
+## 分割标注 SDK（1.16.0+）
 
-宿主实现细节：[`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md)。
+头文件：[`PluginLabelingTypes.h`](inc/PluginLabelingTypes.h)、[`IPluginLabelingHost.h`](inc/IPluginLabelingHost.h)。
+
+经 `IPluginHostContext::labelingHost()` 获取。支持点云/网格交互标注（点选、刷选、套索）、Undo、导出 `pointnet-training` 数据集。UI 见 [`LabelingPlugin`](../LabelingPlugin/)。
+
+回调均在 **UI 线程**。
 
 ## 线程
 
@@ -118,3 +125,4 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 
 - [`HelloPlugin/DEVELOPER_GUIDE.md`](../HelloPlugin/DEVELOPER_GUIDE.md)（网格、`createPrimitiveMesh`）
 - [`PointCloudPlugin/DEVELOPER_GUIDE.md`](../PointCloudPlugin/DEVELOPER_GUIDE.md)（点云导入、下采样、重建、模板 B-rep 更新）
+- [`CloudSimLabelingSDK/DEVELOPER_GUIDE.md`](../CloudSimLabelingSDK/DEVELOPER_GUIDE.md) + [`LabelingPlugin`](../LabelingPlugin/)（交互分割标注与训练 UI）

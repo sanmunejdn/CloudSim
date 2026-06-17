@@ -55,11 +55,43 @@ static void applyLitPlastic(osg::Material& mat, const osg::Vec4& baseColor)
 
 #include "MeshWireGeometry.inc"
 
+osg::ref_ptr<osg::Geode> buildOverlayLineGeode(
+	const std::vector<float>& lineSegments,
+	const osg::Vec4& lineColor,
+	const float lineWidth)
+{
+	if (lineSegments.size() < 6U || (lineSegments.size() % 6U) != 0U)
+	{
+		return nullptr;
+	}
+	osg::ref_ptr<osg::Vec3Array> lineVerts = new osg::Vec3Array;
+	lineVerts->reserve(lineSegments.size() / 3U);
+	for (std::size_t i = 0; i + 2 < lineSegments.size(); i += 3U)
+	{
+		lineVerts->push_back(osg::Vec3(lineSegments[i], lineSegments[i + 1U], lineSegments[i + 2U]));
+	}
+	osg::ref_ptr<osg::Geometry> geometryWire = new osg::Geometry;
+	geometryWire->setVertexArray(lineVerts.get());
+	geometryWire->addPrimitiveSet(new osg::DrawArrays(
+		GL_LINES, 0, static_cast<GLsizei>(lineVerts->size())));
+	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+	colors->push_back(lineColor);
+	geometryWire->setColorArray(colors.get(), osg::Array::BIND_OVERALL);
+	osg::ref_ptr<osg::Geode> geodeWire = new osg::Geode;
+	geodeWire->setName("meshOverlayLines");
+	geodeWire->addDrawable(geometryWire.get());
+	osg::StateSet* ssWire = geodeWire->getOrCreateStateSet();
+	ssWire->setAttributeAndModes(new osg::LineWidth(lineWidth));
+	ssWire->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	return geodeWire;
+}
+
 osg::ref_ptr<osg::Node> buildMeshDisplayNodeImpl(const MeshBackendData& data, const MeshVisualOptions& opt,
 	std::string* errorMessage)
 {
 	const std::vector<float>& soup = data.triangleSoup();
-	if (soup.size() < 9U || (soup.size() % 9U) != 0U)
+	const bool hasSoup = soup.size() >= 9U && (soup.size() % 9U) == 0U;
+	if (!hasSoup && !data.hasOverlayLineSegments())
 	{
 		if (errorMessage)
 		{
@@ -67,6 +99,9 @@ osg::ref_ptr<osg::Node> buildMeshDisplayNodeImpl(const MeshBackendData& data, co
 		}
 		return nullptr;
 	}
+	osg::ref_ptr<osg::Group> grp = new osg::Group;
+	if (hasSoup)
+	{
 	osg::ref_ptr<osg::Vec3Array> va = new osg::Vec3Array;
 	va->reserve(soup.size() / 3U);
 	for (std::size_t i = 0; i + 2 < soup.size(); i += 3)
@@ -152,7 +187,6 @@ osg::ref_ptr<osg::Node> buildMeshDisplayNodeImpl(const MeshBackendData& data, co
 		ssFill->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
 	}
 
-	osg::ref_ptr<osg::Group> grp = new osg::Group;
 	grp->addChild(geodeFill.get());
 	if (opt.showWireOutline)
 	{
@@ -179,6 +213,18 @@ osg::ref_ptr<osg::Node> buildMeshDisplayNodeImpl(const MeshBackendData& data, co
 			ssWire->setAttributeAndModes(new osg::LineWidth(1.0f));
 			ssWire->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 			grp->addChild(geodeWire.get());
+		}
+	}
+	}
+	if (data.hasOverlayLineSegments())
+	{
+		const BackendColor c = data.color();
+		const osg::Vec4 lineColor(c.r, c.g, c.b, c.a);
+		osg::ref_ptr<osg::Geode> overlayGeode =
+			buildOverlayLineGeode(data.overlayLineSegments(), lineColor, 1.8f);
+		if (overlayGeode.valid())
+		{
+			grp->addChild(overlayGeode.get());
 		}
 	}
 	return grp;

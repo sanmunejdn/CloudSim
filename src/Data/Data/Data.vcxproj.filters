@@ -63,6 +63,12 @@
     <ClInclude Include="inc\PointCloudBackendOps.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\BackendSpatial.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BrepBackendData.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\pch.cpp">
@@ -132,6 +138,15 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\..\bin\SDK\dxfSolution\dxflib\Source\dl_writer_ascii.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendSpatial.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BrepBackendData_core.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BrepBackendData_step.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>

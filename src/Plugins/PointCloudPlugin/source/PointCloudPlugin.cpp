@@ -1,6 +1,7 @@
 #include "PointCloudPlugin.h"
 
 #include "PointCloudDockWidget.h"
+#include "TubularGrindingDockWidget.h"
 #include "CloudSimPluginVersion.h"
 #include "IPluginHostContext.h"
 #include "IPluginPointCloudHost.h"
@@ -46,16 +47,34 @@ bool PointCloudPlugin::initialize(IPluginHostContext* host)
 		return false;
 	}
 
+	m_featureBuildWidget = new TubularGrindingDockWidget(host, nullptr);
+	const char* featureTabTitle = host->useChinese() ? "特征构建" : "Feature Build";
+	if (host->hostVersion() >= 0x00010F00U)
+	{
+		if (host->registerSidePanelTab(featureTabTitle, m_featureBuildWidget) < 0)
+		{
+			return false;
+		}
+	}
+
 	host->onActiveDocumentChanged([this](IPluginDocument*) {
 		if (m_dockWidget)
 		{
 			m_dockWidget->refreshDocumentLabel();
 			m_dockWidget->refreshPointCloudList();
 		}
+		if (m_featureBuildWidget)
+		{
+			m_featureBuildWidget->refreshMeshList();
+		}
 	});
 
 	host->onLanguageChanged([this](const bool) {
 		applyLanguage();
+		if (m_featureBuildWidget)
+		{
+			m_featureBuildWidget->applyLanguage();
+		}
 	});
 
 	registerMenus();
@@ -70,7 +89,12 @@ void PointCloudPlugin::shutdown()
 	{
 		m_host->unregisterSidePanelTab(m_dockWidget);
 	}
+	if (m_host && m_featureBuildWidget)
+	{
+		m_host->unregisterSidePanelTab(m_featureBuildWidget);
+	}
 	m_dockWidget = nullptr;
+	m_featureBuildWidget = nullptr;
 	m_host = nullptr;
 	m_pointCloudMenu = nullptr;
 	m_importAction = nullptr;

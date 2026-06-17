@@ -18,6 +18,12 @@ enum class MeshSurfaceNurbsFitMode : int
 	ApproxCentripetalFixedCtrlpts = 4,
 };
 
+enum class MeshSurfacePartitionMode : int
+{
+	GeodesicVoronoiV3 = 0,
+	HybridNormalCvt = 1,
+};
+
 struct MeshSurfaceReconstructParams
 {
 	int normalSmoothIterations = 6;
@@ -31,10 +37,26 @@ struct MeshSurfaceReconstructParams
 	double remeshFeatureAngleDeg = 0.0;
 
 	int patchCountHint = 0;
+	MeshSurfacePartitionMode partitionMode = MeshSurfacePartitionMode::GeodesicVoronoiV3;
 	/// 分块前法向平滑迭代，稳定特征棱判定
 	int partitionNormalSmoothIters = 2;
 	/// 特征棱角度百分位 [0.5,0.99]，默认 P88
 	double featureAnglePercentile = 0.88;
+
+	/// 混合策略：特征广义边二面角（度）
+	double hybridFeatureAngleDeg = 60.0;
+	int hybridClusterMaxIters = 30;
+	double hybridSecondarySampleScale = 10.0;
+	double hybridMergeCosHigh = 0.70;
+	double hybridMergeCosLowBase = 0.20;
+	double hybridMergeCosLowScale = 0.30;
+	double hybridSmallRegionRatio = 0.01;
+	int hybridSmallRegionMin = 10;
+	int hybridSmallRegionMax = 100;
+	bool hybridEnableRegionAdjust = true;
+	int hybridCollapseValenceSumMax = 6;
+	double hybridCollapseLengthRatio = 0.60;
+	int hybridRegionAdjustMaxPasses = 10;
 	int samplesPerPatchEdge = 16;
 	/// UV 目标间距(mm)；≤0 时用固定 samplesPerPatchEdge
 	double targetUvSpacingMm = 0.0;
@@ -88,6 +110,16 @@ struct MeshSurfaceReconstructReport
 	double globalFairingMetric = 0.0;
 	double normalSmoothGapVolume = 0.0;
 	bool c2BlendSucceeded = false;
+	/// 边界混合：实际处理的相邻 patch 对数
+	int boundaryBlendPairCount = 0;
+	/// 边界混合：被修改的控制点总数
+	int boundaryBlendCtrlPtCount = 0;
+	/// 边界混合：控制点最大移动距离（mm）
+	double boundaryBlendMaxMoveMm = 0.0;
+	/// 交汇混合：实际处理的交汇点数
+	int junctionBlendAppliedCount = 0;
+	/// 交汇混合：角点控制点最大移动距离（mm）
+	double junctionBlendMaxMoveMm = 0.0;
 
 	int inputTriangleCount = 0;
 	int repairedTriangleCount = 0;
@@ -104,6 +136,11 @@ struct MeshSurfaceReconstructReport
 	int minFacesPerPatch = 0;
 	int maxFacesPerPatch = 0;
 	int smallPatchCount = 0;
+	int initialRegionCount = 0;
+	int quadPatchCount = 0;
+	int triPatchCount = 0;
+	int pentPatchCount = 0;
+	int hexPatchCount = 0;
 	int gridN = 0;
 	int gridNuMax = 0;
 	int gridNvMax = 0;

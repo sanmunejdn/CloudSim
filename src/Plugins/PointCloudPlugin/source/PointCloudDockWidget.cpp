@@ -463,28 +463,47 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_surfaceReconPartitionSectionLabel->setStyleSheet(QStringLiteral("font-weight: bold; margin-top: 6px;"));
 	surfaceReconLayout->addWidget(m_surfaceReconPartitionSectionLabel);
 
-	auto* partitionRow = new QHBoxLayout;
+	auto* partitionModeRow = new QHBoxLayout;
+	m_partitionModeLabel = new QLabel(m_surfaceReconGroup);
+	m_partitionModeCombo = new QComboBox(m_surfaceReconGroup);
+	m_partitionModeCombo->addItem(
+		QStringLiteral("Geodesic Voronoi (v3)"),
+		static_cast<int>(PluginMeshSurfacePartitionMode::GeodesicVoronoiV3));
+	m_partitionModeCombo->addItem(
+		QStringLiteral("Hybrid (normal+CVT)"),
+		static_cast<int>(PluginMeshSurfacePartitionMode::HybridNormalCvt));
+	partitionModeRow->addWidget(m_partitionModeLabel);
+	partitionModeRow->addWidget(m_partitionModeCombo);
+	partitionModeRow->addStretch();
+	surfaceReconLayout->addLayout(partitionModeRow);
+
+	auto* patchCountRow = new QHBoxLayout;
 	m_patchCountLabel = new QLabel(m_surfaceReconGroup);
 	m_patchCountSpin = new QSpinBox(m_surfaceReconGroup);
 	m_patchCountSpin->setRange(0, 9999);
 	m_patchCountSpin->setValue(0);
 	m_patchCountSpin->setSpecialValueText(QStringLiteral("Auto"));
 	m_patchCountSpin->setToolTip(QStringLiteral("0=自动 sqrt(面数/80)；增大可让凹坑等区域单独成块"));
-	m_partitionNormalSmoothLabel = new QLabel(m_surfaceReconGroup);
-	m_partitionNormalSmoothSpin = new QSpinBox(m_surfaceReconGroup);
+	patchCountRow->addWidget(m_patchCountLabel);
+	patchCountRow->addWidget(m_patchCountSpin);
+	patchCountRow->addStretch();
+	surfaceReconLayout->addLayout(patchCountRow);
+
+	m_v3PartitionParamsWidget = new QWidget(m_surfaceReconGroup);
+	auto* v3PartitionLayout = new QVBoxLayout(m_v3PartitionParamsWidget);
+	v3PartitionLayout->setContentsMargins(0, 0, 0, 0);
+	auto* partitionRow = new QHBoxLayout;
+	m_partitionNormalSmoothLabel = new QLabel(m_v3PartitionParamsWidget);
+	m_partitionNormalSmoothSpin = new QSpinBox(m_v3PartitionParamsWidget);
 	m_partitionNormalSmoothSpin->setRange(0, 10);
 	m_partitionNormalSmoothSpin->setValue(2);
 	m_partitionNormalSmoothSpin->setToolTip(
 		QStringLiteral("分块前法向平滑；0=保留锐角，2=默认抑制 confetti"));
-	partitionRow->addWidget(m_patchCountLabel);
-	partitionRow->addWidget(m_patchCountSpin);
 	partitionRow->addWidget(m_partitionNormalSmoothLabel);
 	partitionRow->addWidget(m_partitionNormalSmoothSpin);
-	surfaceReconLayout->addLayout(partitionRow);
-
 	auto* partitionRow2 = new QHBoxLayout;
-	m_featureAnglePercentileLabel = new QLabel(m_surfaceReconGroup);
-	m_featureAnglePercentileSpin = new QDoubleSpinBox(m_surfaceReconGroup);
+	m_featureAnglePercentileLabel = new QLabel(m_v3PartitionParamsWidget);
+	m_featureAnglePercentileSpin = new QDoubleSpinBox(m_v3PartitionParamsWidget);
 	m_featureAnglePercentileSpin->setRange(0.50, 0.99);
 	m_featureAnglePercentileSpin->setDecimals(2);
 	m_featureAnglePercentileSpin->setSingleStep(0.01);
@@ -494,7 +513,120 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	partitionRow2->addWidget(m_featureAnglePercentileLabel);
 	partitionRow2->addWidget(m_featureAnglePercentileSpin);
 	partitionRow2->addStretch();
-	surfaceReconLayout->addLayout(partitionRow2);
+	v3PartitionLayout->addLayout(partitionRow);
+	v3PartitionLayout->addLayout(partitionRow2);
+	surfaceReconLayout->addWidget(m_v3PartitionParamsWidget);
+
+	m_hybridPartitionParamsWidget = new QWidget(m_surfaceReconGroup);
+	auto* hybridPartitionLayout = new QVBoxLayout(m_hybridPartitionParamsWidget);
+	hybridPartitionLayout->setContentsMargins(0, 0, 0, 0);
+
+	auto* hybridRow1 = new QHBoxLayout;
+	m_hybridFeatureAngleLabel = new QLabel(m_hybridPartitionParamsWidget);
+	m_hybridFeatureAngleSpin = new QDoubleSpinBox(m_hybridPartitionParamsWidget);
+	m_hybridFeatureAngleSpin->setRange(15.0, 90.0);
+	m_hybridFeatureAngleSpin->setDecimals(1);
+	m_hybridFeatureAngleSpin->setValue(60.0);
+	m_hybridClusterItersLabel = new QLabel(m_hybridPartitionParamsWidget);
+	m_hybridClusterItersSpin = new QSpinBox(m_hybridPartitionParamsWidget);
+	m_hybridClusterItersSpin->setRange(1, 100);
+	m_hybridClusterItersSpin->setValue(30);
+	hybridRow1->addWidget(m_hybridFeatureAngleLabel);
+	hybridRow1->addWidget(m_hybridFeatureAngleSpin);
+	hybridRow1->addWidget(m_hybridClusterItersLabel);
+	hybridRow1->addWidget(m_hybridClusterItersSpin);
+	hybridPartitionLayout->addLayout(hybridRow1);
+
+	auto* hybridRow2 = new QHBoxLayout;
+	m_hybridSampleScaleLabel = new QLabel(m_hybridPartitionParamsWidget);
+	m_hybridSampleScaleSpin = new QDoubleSpinBox(m_hybridPartitionParamsWidget);
+	m_hybridSampleScaleSpin->setRange(1.0, 50.0);
+	m_hybridSampleScaleSpin->setDecimals(1);
+	m_hybridSampleScaleSpin->setValue(10.0);
+	m_hybridRegionAdjustCheck = new QCheckBox(m_hybridPartitionParamsWidget);
+	m_hybridRegionAdjustCheck->setChecked(true);
+	hybridRow2->addWidget(m_hybridSampleScaleLabel);
+	hybridRow2->addWidget(m_hybridSampleScaleSpin);
+	hybridRow2->addWidget(m_hybridRegionAdjustCheck);
+	hybridPartitionLayout->addLayout(hybridRow2);
+
+	auto* hybridRow3 = new QHBoxLayout;
+	m_hybridMergeCosHighLabel = new QLabel(m_hybridPartitionParamsWidget);
+	m_hybridMergeCosHighSpin = new QDoubleSpinBox(m_hybridPartitionParamsWidget);
+	m_hybridMergeCosHighSpin->setRange(0.50, 0.99);
+	m_hybridMergeCosHighSpin->setDecimals(2);
+	m_hybridMergeCosHighSpin->setValue(0.70);
+	m_hybridMergeCosLowBaseLabel = new QLabel(m_hybridPartitionParamsWidget);
+	m_hybridMergeCosLowBaseSpin = new QDoubleSpinBox(m_hybridPartitionParamsWidget);
+	m_hybridMergeCosLowBaseSpin->setRange(0.00, 0.50);
+	m_hybridMergeCosLowBaseSpin->setDecimals(2);
+	m_hybridMergeCosLowBaseSpin->setValue(0.20);
+	m_hybridMergeCosLowScaleLabel = new QLabel(m_hybridPartitionParamsWidget);
+	m_hybridMergeCosLowScaleSpin = new QDoubleSpinBox(m_hybridPartitionParamsWidget);
+	m_hybridMergeCosLowScaleSpin->setRange(0.00, 0.50);
+	m_hybridMergeCosLowScaleSpin->setDecimals(2);
+	m_hybridMergeCosLowScaleSpin->setValue(0.30);
+	hybridRow3->addWidget(m_hybridMergeCosHighLabel);
+	hybridRow3->addWidget(m_hybridMergeCosHighSpin);
+	hybridRow3->addWidget(m_hybridMergeCosLowBaseLabel);
+	hybridRow3->addWidget(m_hybridMergeCosLowBaseSpin);
+	hybridRow3->addWidget(m_hybridMergeCosLowScaleLabel);
+	hybridRow3->addWidget(m_hybridMergeCosLowScaleSpin);
+	hybridPartitionLayout->addLayout(hybridRow3);
+
+	auto* hybridRow4 = new QHBoxLayout;
+	m_hybridSmallRegionRatioLabel = new QLabel(m_hybridPartitionParamsWidget);
+	m_hybridSmallRegionRatioSpin = new QDoubleSpinBox(m_hybridPartitionParamsWidget);
+	m_hybridSmallRegionRatioSpin->setRange(0.001, 0.05);
+	m_hybridSmallRegionRatioSpin->setDecimals(3);
+	m_hybridSmallRegionRatioSpin->setValue(0.01);
+	m_hybridSmallRegionMinLabel = new QLabel(m_hybridPartitionParamsWidget);
+	m_hybridSmallRegionMinSpin = new QSpinBox(m_hybridPartitionParamsWidget);
+	m_hybridSmallRegionMinSpin->setRange(1, 500);
+	m_hybridSmallRegionMinSpin->setValue(10);
+	m_hybridSmallRegionMaxLabel = new QLabel(m_hybridPartitionParamsWidget);
+	m_hybridSmallRegionMaxSpin = new QSpinBox(m_hybridPartitionParamsWidget);
+	m_hybridSmallRegionMaxSpin->setRange(10, 10000);
+	m_hybridSmallRegionMaxSpin->setValue(100);
+	hybridRow4->addWidget(m_hybridSmallRegionRatioLabel);
+	hybridRow4->addWidget(m_hybridSmallRegionRatioSpin);
+	hybridRow4->addWidget(m_hybridSmallRegionMinLabel);
+	hybridRow4->addWidget(m_hybridSmallRegionMinSpin);
+	hybridRow4->addWidget(m_hybridSmallRegionMaxLabel);
+	hybridRow4->addWidget(m_hybridSmallRegionMaxSpin);
+	hybridPartitionLayout->addLayout(hybridRow4);
+
+	auto* hybridRow5 = new QHBoxLayout;
+	m_hybridCollapseValenceLabel = new QLabel(m_hybridPartitionParamsWidget);
+	m_hybridCollapseValenceSpin = new QSpinBox(m_hybridPartitionParamsWidget);
+	m_hybridCollapseValenceSpin->setRange(4, 12);
+	m_hybridCollapseValenceSpin->setValue(6);
+	m_hybridCollapseLengthRatioLabel = new QLabel(m_hybridPartitionParamsWidget);
+	m_hybridCollapseLengthRatioSpin = new QDoubleSpinBox(m_hybridPartitionParamsWidget);
+	m_hybridCollapseLengthRatioSpin->setRange(0.30, 1.00);
+	m_hybridCollapseLengthRatioSpin->setDecimals(2);
+	m_hybridCollapseLengthRatioSpin->setValue(0.60);
+	m_hybridAdjustPassesLabel = new QLabel(m_hybridPartitionParamsWidget);
+	m_hybridAdjustPassesSpin = new QSpinBox(m_hybridPartitionParamsWidget);
+	m_hybridAdjustPassesSpin->setRange(1, 50);
+	m_hybridAdjustPassesSpin->setValue(10);
+	hybridRow5->addWidget(m_hybridCollapseValenceLabel);
+	hybridRow5->addWidget(m_hybridCollapseValenceSpin);
+	hybridRow5->addWidget(m_hybridCollapseLengthRatioLabel);
+	hybridRow5->addWidget(m_hybridCollapseLengthRatioSpin);
+	hybridRow5->addWidget(m_hybridAdjustPassesLabel);
+	hybridRow5->addWidget(m_hybridAdjustPassesSpin);
+	hybridPartitionLayout->addLayout(hybridRow5);
+
+	surfaceReconLayout->addWidget(m_hybridPartitionParamsWidget);
+	m_hybridPartitionParamsWidget->hide();
+
+	connect(
+		m_partitionModeCombo,
+		QOverload<int>::of(&QComboBox::currentIndexChanged),
+		this,
+		&PointCloudDockWidget::onPartitionModeChanged);
+	updatePartitionModeUi();
 
 	m_surfaceReconSampleSectionLabel = new QLabel(m_surfaceReconGroup);
 	m_surfaceReconSampleSectionLabel->setStyleSheet(QStringLiteral("font-weight: bold; margin-top: 6px;"));
@@ -836,6 +968,78 @@ void PointCloudDockWidget::applyLanguage()
 				i18n(QStringLiteral("Dihedral percentile; lower (e.g. 0.75) = more feature edges"),
 					QStringLiteral("特征棱角度百分位；越低切分越多（如 0.75），越高越合并")));
 		}
+		if (m_partitionModeLabel)
+		{
+			m_partitionModeLabel->setText(i18n(QStringLiteral("Partition algo:"), QStringLiteral("分块算法:")));
+		}
+		if (m_partitionModeCombo)
+		{
+			const int idx = m_partitionModeCombo->currentIndex();
+			m_partitionModeCombo->blockSignals(true);
+			m_partitionModeCombo->clear();
+			m_partitionModeCombo->addItem(
+				i18n(QStringLiteral("Geodesic Voronoi (v3)"), QStringLiteral("测地 Voronoi (v3)")),
+				static_cast<int>(PluginMeshSurfacePartitionMode::GeodesicVoronoiV3));
+			m_partitionModeCombo->addItem(
+				i18n(QStringLiteral("Hybrid (normal+CVT)"), QStringLiteral("混合策略 (法向+CVT)")),
+				static_cast<int>(PluginMeshSurfacePartitionMode::HybridNormalCvt));
+			m_partitionModeCombo->setCurrentIndex(idx >= 0 ? idx : 0);
+			m_partitionModeCombo->blockSignals(false);
+		}
+		if (m_hybridFeatureAngleLabel)
+		{
+			m_hybridFeatureAngleLabel->setText(i18n(QStringLiteral("Feat. angle°:"), QStringLiteral("特征广义角°:")));
+		}
+		if (m_hybridClusterItersLabel)
+		{
+			m_hybridClusterItersLabel->setText(i18n(QStringLiteral("Cluster iters:"), QStringLiteral("聚类迭代:")));
+		}
+		if (m_hybridSampleScaleLabel)
+		{
+			m_hybridSampleScaleLabel->setText(i18n(QStringLiteral("CVT scale:"), QStringLiteral("二次采样系数:")));
+		}
+		if (m_hybridRegionAdjustCheck)
+		{
+			m_hybridRegionAdjustCheck->setText(i18n(QStringLiteral("Quad adjust"), QStringLiteral("四边区域调整")));
+		}
+		if (m_hybridMergeCosHighLabel)
+		{
+			m_hybridMergeCosHighLabel->setText(i18n(QStringLiteral("Merge cos high:"), QStringLiteral("合并阈值高:")));
+		}
+		if (m_hybridMergeCosLowBaseLabel)
+		{
+			m_hybridMergeCosLowBaseLabel->setText(i18n(QStringLiteral("Merge base:"), QStringLiteral("合并基线:")));
+		}
+		if (m_hybridMergeCosLowScaleLabel)
+		{
+			m_hybridMergeCosLowScaleLabel->setText(i18n(QStringLiteral("Merge slope:"), QStringLiteral("合并斜率:")));
+		}
+		if (m_hybridSmallRegionRatioLabel)
+		{
+			m_hybridSmallRegionRatioLabel->setText(i18n(QStringLiteral("Small ratio:"), QStringLiteral("小片比例:")));
+		}
+		if (m_hybridSmallRegionMinLabel)
+		{
+			m_hybridSmallRegionMinLabel->setText(i18n(QStringLiteral("Small min:"), QStringLiteral("小片下限:")));
+		}
+		if (m_hybridSmallRegionMaxLabel)
+		{
+			m_hybridSmallRegionMaxLabel->setText(i18n(QStringLiteral("Small max:"), QStringLiteral("小片上限:")));
+		}
+		if (m_hybridCollapseValenceLabel)
+		{
+			m_hybridCollapseValenceLabel->setText(i18n(QStringLiteral("Valence≤:"), QStringLiteral("收缩度数和≤:")));
+		}
+		if (m_hybridCollapseLengthRatioLabel)
+		{
+			m_hybridCollapseLengthRatioLabel->setText(
+				i18n(QStringLiteral("Neigh len ratio:"), QStringLiteral("邻边长度比:")));
+		}
+		if (m_hybridAdjustPassesLabel)
+		{
+			m_hybridAdjustPassesLabel->setText(i18n(QStringLiteral("Adjust passes:"), QStringLiteral("调整轮数:")));
+		}
+		updatePartitionModeUi();
 		m_samplesPerEdgeLabel->setText(
 			i18n(QStringLiteral("Samples/edge (spacing=0):"), QStringLiteral("每边 n(间距0):")));
 		m_uvSpacingLabel->setText(
@@ -2335,6 +2539,32 @@ QString surfaceReconStageTitleZh(const PluginMeshSurfaceReconstructStage stage)
 }
 } // namespace
 
+void PointCloudDockWidget::onPartitionModeChanged()
+{
+	updatePartitionModeUi();
+}
+
+void PointCloudDockWidget::updatePartitionModeUi()
+{
+	if (!m_partitionModeCombo || !m_v3PartitionParamsWidget || !m_hybridPartitionParamsWidget)
+	{
+		return;
+	}
+	const auto mode = static_cast<PluginMeshSurfacePartitionMode>(m_partitionModeCombo->currentData().toInt());
+	const bool hybrid = mode == PluginMeshSurfacePartitionMode::HybridNormalCvt;
+	m_v3PartitionParamsWidget->setVisible(!hybrid);
+	m_hybridPartitionParamsWidget->setVisible(hybrid);
+	if (m_patchCountSpin)
+	{
+		m_patchCountSpin->setToolTip(
+			hybrid
+				? i18n(QStringLiteral("0=paper adaptive CVT; >0 scales secondary sample density"),
+					QStringLiteral("0=论文自适应二次 CVT；>0 缩放采样密度"))
+				: i18n(QStringLiteral("0=auto sqrt(faces/80); increase to split pits/corners"),
+					QStringLiteral("0=自动 sqrt(面数/80)；增大可让凹坑等区域单独成块")));
+	}
+}
+
 PluginMeshSurfaceReconstructParams PointCloudDockWidget::buildSurfaceReconParams() const
 {
 	PluginMeshSurfaceReconstructParams params;
@@ -2354,6 +2584,10 @@ PluginMeshSurfaceReconstructParams PointCloudDockWidget::buildSurfaceReconParams
 		params.remeshIterations = m_remeshIterSpin->value();
 	}
 	params.patchCountHint = m_patchCountSpin->value();
+	if (m_partitionModeCombo)
+	{
+		params.partitionMode = static_cast<PluginMeshSurfacePartitionMode>(m_partitionModeCombo->currentData().toInt());
+	}
 	if (m_partitionNormalSmoothSpin)
 	{
 		params.partitionNormalSmoothIters = m_partitionNormalSmoothSpin->value();
@@ -2361,6 +2595,58 @@ PluginMeshSurfaceReconstructParams PointCloudDockWidget::buildSurfaceReconParams
 	if (m_featureAnglePercentileSpin)
 	{
 		params.featureAnglePercentile = m_featureAnglePercentileSpin->value();
+	}
+	if (m_hybridFeatureAngleSpin)
+	{
+		params.hybridFeatureAngleDeg = m_hybridFeatureAngleSpin->value();
+	}
+	if (m_hybridClusterItersSpin)
+	{
+		params.hybridClusterMaxIters = m_hybridClusterItersSpin->value();
+	}
+	if (m_hybridSampleScaleSpin)
+	{
+		params.hybridSecondarySampleScale = m_hybridSampleScaleSpin->value();
+	}
+	if (m_hybridRegionAdjustCheck)
+	{
+		params.hybridEnableRegionAdjust = m_hybridRegionAdjustCheck->isChecked();
+	}
+	if (m_hybridMergeCosHighSpin)
+	{
+		params.hybridMergeCosHigh = m_hybridMergeCosHighSpin->value();
+	}
+	if (m_hybridMergeCosLowBaseSpin)
+	{
+		params.hybridMergeCosLowBase = m_hybridMergeCosLowBaseSpin->value();
+	}
+	if (m_hybridMergeCosLowScaleSpin)
+	{
+		params.hybridMergeCosLowScale = m_hybridMergeCosLowScaleSpin->value();
+	}
+	if (m_hybridSmallRegionRatioSpin)
+	{
+		params.hybridSmallRegionRatio = m_hybridSmallRegionRatioSpin->value();
+	}
+	if (m_hybridSmallRegionMinSpin)
+	{
+		params.hybridSmallRegionMin = m_hybridSmallRegionMinSpin->value();
+	}
+	if (m_hybridSmallRegionMaxSpin)
+	{
+		params.hybridSmallRegionMax = m_hybridSmallRegionMaxSpin->value();
+	}
+	if (m_hybridCollapseValenceSpin)
+	{
+		params.hybridCollapseValenceSumMax = m_hybridCollapseValenceSpin->value();
+	}
+	if (m_hybridCollapseLengthRatioSpin)
+	{
+		params.hybridCollapseLengthRatio = m_hybridCollapseLengthRatioSpin->value();
+	}
+	if (m_hybridAdjustPassesSpin)
+	{
+		params.hybridRegionAdjustMaxPasses = m_hybridAdjustPassesSpin->value();
 	}
 	params.samplesPerPatchEdge = m_samplesPerEdgeSpin->value();
 	params.targetUvSpacingMm = m_uvSpacingSpin->value();
@@ -2554,7 +2840,11 @@ void PointCloudDockWidget::runSurfaceReconStage(const PluginMeshSurfaceReconstru
 					|| (stage == PluginMeshSurfaceReconstructStage::Partition
 						&& !report.partitionColoredMeshBackendId.empty())
 					|| (stage == PluginMeshSurfaceReconstructStage::Fit
-						&& !report.fitPreviewBrepBackendId.empty()))
+						&& !report.fitPreviewBrepBackendId.empty())
+					|| (stage == PluginMeshSurfaceReconstructStage::BoundaryBlend
+						&& !report.boundaryBlendPreviewBrepBackendId.empty())
+					|| (stage == PluginMeshSurfaceReconstructStage::JunctionBlend
+						&& !report.junctionBlendPreviewBrepBackendId.empty()))
 				{
 					// 仅刷新列表；会话仍绑定源网格
 					refreshMeshExportList(m_surfaceReconMeshBackendId);

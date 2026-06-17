@@ -230,6 +230,60 @@ bool cropPointCloudByPolyline2D(
 	return !data.pointPositionsXyz().empty();
 }
 
+bool collectPointCloudIndicesByPolyline2D(
+	const PointCloudBackendData& data,
+	const std::vector<float>& polylineScreenXy,
+	const double mvpMatrix[16],
+	const double modelToWorld[16],
+	const int viewportWidth,
+	const int viewportHeight,
+	const bool keepInside,
+	std::vector<std::size_t>& outIndices,
+	std::string* errMsg)
+{
+	(void)errMsg;
+	outIndices.clear();
+	const std::vector<float>& srcXyz = data.pointPositionsXyz();
+	if (srcXyz.size() < 3U || polylineScreenXy.size() < 6U)
+	{
+		return false;
+	}
+	std::vector<float> dummyXyz;
+	std::vector<float> dummyRgba;
+	if (data.hasPerVertexColors())
+	{
+		pclalgo::cropXyzByPolyline2D(
+			srcXyz,
+			data.pointVertexRgba(),
+			polylineScreenXy,
+			mvpMatrix,
+			modelToWorld,
+			viewportWidth,
+			viewportHeight,
+			keepInside,
+			dummyXyz,
+			dummyRgba,
+			&outIndices);
+	}
+	else
+	{
+		const std::vector<float> emptyRgba;
+		pclalgo::cropXyzByPolyline2D(
+			srcXyz,
+			emptyRgba,
+			polylineScreenXy,
+			mvpMatrix,
+			modelToWorld,
+			viewportWidth,
+			viewportHeight,
+			keepInside,
+			dummyXyz,
+			dummyRgba,
+			&outIndices);
+	}
+	return true;
+}
+
 bool measurePointCloud(const PointCloudBackendData& data, PointCloudMeasureResult& out, std::string* errMsg)
 {
 	(void)errMsg;

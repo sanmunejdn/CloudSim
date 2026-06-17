@@ -11,6 +11,15 @@ namespace geoalgo
 {
 namespace meshrecon
 {
+
+bool partitionQuadDomainsHybrid(
+	const IndexedMeshLite& mesh,
+	const MeshSurfaceReconstructParams& params,
+	std::vector<QuadPatch>& patches,
+	int& outJunctionCount,
+	MeshSurfaceReconstructReport* partitionStats,
+	std::string* errMsg);
+
 namespace
 {
 
@@ -928,7 +937,30 @@ bool soupToIndexed(const std::vector<float>& soup, IndexedMeshLite& out, std::st
 	return true;
 }
 
+static bool partitionQuadDomainsGeodesicV3(
+	const IndexedMeshLite& mesh,
+	const MeshSurfaceReconstructParams& params,
+	std::vector<QuadPatch>& patches,
+	int& outJunctionCount,
+	MeshSurfaceReconstructReport* partitionStats,
+	std::string* errMsg);
+
 bool partitionQuadDomains(
+	const IndexedMeshLite& mesh,
+	const MeshSurfaceReconstructParams& params,
+	std::vector<QuadPatch>& patches,
+	int& outJunctionCount,
+	MeshSurfaceReconstructReport* partitionStats,
+	std::string* errMsg)
+{
+	if (params.partitionMode == MeshSurfacePartitionMode::HybridNormalCvt)
+	{
+		return partitionQuadDomainsHybrid(mesh, params, patches, outJunctionCount, partitionStats, errMsg);
+	}
+	return partitionQuadDomainsGeodesicV3(mesh, params, patches, outJunctionCount, partitionStats, errMsg);
+}
+
+static bool partitionQuadDomainsGeodesicV3(
 	const IndexedMeshLite& mesh,
 	const MeshSurfaceReconstructParams& params,
 	std::vector<QuadPatch>& patches,

@@ -1,0 +1,10 @@
+{
+  "python_executable": "",
+  "dataset_root": "",
+  "training_root": "../../CloudSim/tools/pointnet-training",
+  "default_seg_config": "configs/seg_config.yaml",
+  "deploy": {
+    "onnx_output": "models/pointnet_seg.onnx",
+    "plugin_config": "plugins/com.cloudsim.pointnet/pointnet_config.json"
+  }
+}

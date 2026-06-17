@@ -42,6 +42,8 @@ struct PickResult
 	int brepEdgeIndex = -1;
 	bool brepNativePick = false;
 	int pickedTriangleIndex = -1;
+	int pointIndex = -1;
+	int meshTriangleIndex = -1;
 };
 
 struct PickPreviewState

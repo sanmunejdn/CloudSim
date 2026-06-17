@@ -33,6 +33,15 @@
     <ClInclude Include="inc\osgwidgetcore_global.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\BrepPickIndex.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgCompassGeometry.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgCompassRender.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\pch.cpp">
@@ -75,6 +84,18 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\PickSpatialIndex.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BrepPickIndex.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgCompassGeometry.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneBrepPick.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneViewCube.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>

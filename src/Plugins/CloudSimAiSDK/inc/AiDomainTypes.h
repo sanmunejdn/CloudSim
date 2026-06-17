@@ -22,6 +22,8 @@ inline QString pointCloudOps() { return QStringLiteral("pointcloud.ops"); }
 inline QString geometryRecognize() { return QStringLiteral("geometry.recognize"); }
 inline QString trajectoryFeature() { return QStringLiteral("trajectory.feature"); }
 inline QString robotCommand() { return QStringLiteral("robot.command"); }
+inline QString pointNetClassify() { return QStringLiteral("pointnet.classify"); }
+inline QString pointNetSegment() { return QStringLiteral("pointnet.segment"); }
 inline QString autoDomain() { return QStringLiteral("auto"); }
 }
 

@@ -192,6 +192,30 @@ PluginPointCloudHostImpl::analyzeMeshDefects(...)
 
 切换网格目标或点击「清除高亮」时调用 `clearMeshDefectHighlight`。
 
+### 3.10 管状铸件特征构建（1.15.0+）
+
+| API | 说明 |
+|-----|------|
+| `beginTubularGrindingSession` | 绑定 `docId + meshBackendId`，创建 `geoalgo::TubularGrindingSession` |
+| `runTubularGrindingStage` | 后台 `geometry_backend_ops::runTubularGrindingStage`；UI 注册各阶段场景对象 |
+| `clearTubularGrindingSession` | 移除会话及全部临时对象（见下表） |
+
+**场景注册**（`PluginPointCloudHostImpl.cpp`）：
+
+| 阶段 | 注册方式 | 显示名后缀 |
+|------|----------|------------|
+| Segment | `registerTubularGrindingColoredMeshFromSoup` | `_管段着色` |
+| Segment | `registerTubularGrindingColoredMeshFromSoup` | `_环着色`（环验证） |
+| Segment | `registerTubularGrindingPointCloud` | `_环圆心` |
+| Segment | `registerTubularGrindingNormalAxisLines`（`MeshBackendData::setOverlayLineSegments`） | `_法向` |
+| Centerline / TemplatePoints / Project | `registerTubularGrindingPointCloud`（继承源 mesh 位姿） | `_中心线` / `_模板点位` / `_投影点位` |
+
+`PluginTubularGrindingReport` 回填各 `*BackendId` 供插件查询。Segment 摘要示例：`管段分割完成：N 个管段，M 个环，交汇面 K，环心簇 C`。
+
+会话 id 前缀 `tg_<n>`；阶段顺序门禁与曲面重构 `isNextPluginStage` 同模式。RunInfo 前缀 `[特征构建]`。
+
+算法（环分割）：[`GeometryAlgorithm/DEVELOPER_GUIDE.md`](../../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.5。
+
 ---
 
 ## 4. 文件布局

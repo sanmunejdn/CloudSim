@@ -20,6 +20,7 @@
 #include <TemplateBrepUpdate.h>
 #include <TemplateBrepRegistration.h>
 #include <MeshSurfaceReconstruction.h>
+#include <TubularGrinding.h>
 #include <BrepImportArtifacts.h>
 #if defined(_WIN64)
 #include <MeshNormalSmooth.h>
@@ -4908,6 +4909,89 @@ bool reconstructBrepFromMeshSoup(
 		}
 		return false;
 	}
+}
+
+geoalgo::TubularGrindingSessionPtr createTubularGrindingSession(std::vector<float> sourceSoup)
+{
+	return geoalgo::createTubularGrindingSession(std::move(sourceSoup));
+}
+
+bool runTubularGrindingStage(
+	geoalgo::TubularGrindingSession& session,
+	const geoalgo::TubularGrindingStage stage,
+	const geoalgo::TubularGrindingParams& params,
+	geoalgo::TubularGrindingReport& report,
+	std::string* errMsg)
+{
+	if (!geoalgo::runTubularGrindingStage(session, stage, params, errMsg))
+	{
+		return false;
+	}
+	report = session.report();
+	return true;
+}
+
+bool buildTubularGrindingSegmentColoredMeshSoup(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outSoup,
+	std::vector<float>& outRgbPerVertex,
+	std::string* errMsg)
+{
+	return geoalgo::buildSegmentColoredMeshSoup(session, outSoup, outRgbPerVertex, errMsg);
+}
+
+bool buildTubularGrindingRingColoredMeshSoup(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outSoup,
+	std::vector<float>& outRgbPerVertex,
+	std::string* errMsg)
+{
+	return geoalgo::buildRingColoredMeshSoup(session, outSoup, outRgbPerVertex, errMsg);
+}
+
+bool buildTubularGrindingRingCenterPointsCloud(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg)
+{
+	return geoalgo::buildRingCenterPointsCloud(session, outXyz, outRgba, errMsg);
+}
+
+bool buildTubularGrindingFaceNormalAxisLineSegments(
+	const geoalgo::TubularGrindingSession& session,
+	const geoalgo::TubularGrindingParams& params,
+	std::vector<float>& outLineXyz,
+	std::string* errMsg)
+{
+	return geoalgo::buildFaceNormalAxisLineSegments(session, params, outLineXyz, errMsg);
+}
+
+bool buildTubularGrindingCenterlinePointsCloud(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg)
+{
+	return geoalgo::buildCenterlinePointsCloud(session, outXyz, outRgba, errMsg);
+}
+
+bool buildTubularGrindingTemplatePointsCloud(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg)
+{
+	return geoalgo::buildTemplatePointsCloud(session, outXyz, outRgba, errMsg);
+}
+
+bool buildTubularGrindingProjectedPointsCloud(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg)
+{
+	return geoalgo::buildProjectedPointsCloud(session, outXyz, outRgba, errMsg);
 }
 
 bool runWorldMatrixV2SelfTestImpl(std::string* errMsg)

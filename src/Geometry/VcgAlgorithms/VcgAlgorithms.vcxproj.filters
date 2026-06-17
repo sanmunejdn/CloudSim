@@ -36,6 +36,9 @@
     <ClInclude Include="inc\MeshDefectDetect.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\MeshNormalSmooth.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\VcgMeshAdapter.cpp">
@@ -60,6 +63,9 @@
       <Filter>source</Filter>
     </ClCompile>
     <ClCompile Include="source\MeshDefectDetect.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshNormalSmooth.cpp">
       <Filter>source</Filter>
     </ClCompile>
   </ItemGroup>

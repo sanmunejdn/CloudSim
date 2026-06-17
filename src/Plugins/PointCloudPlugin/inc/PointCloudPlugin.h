@@ -6,6 +6,7 @@
 
 class QAction;
 class PointCloudDockWidget;
+class TubularGrindingDockWidget;
 class IPluginHostContext;
 class QMenu;
 
@@ -34,6 +35,7 @@ private:
 
 	IPluginHostContext* m_host = nullptr;
 	PointCloudDockWidget* m_dockWidget = nullptr;
+	TubularGrindingDockWidget* m_featureBuildWidget = nullptr;
 	QMenu* m_pointCloudMenu = nullptr;
 	QAction* m_importAction = nullptr;
 	QAction* m_downsampleAction = nullptr;

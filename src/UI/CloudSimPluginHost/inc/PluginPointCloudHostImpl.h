@@ -6,6 +6,7 @@
 #include <TemplateBrepUpdate.h>
 
 #include <MeshSurfaceReconstruction.h>
+#include <TubularGrinding.h>
 
 #include <string>
 #include <unordered_map>
@@ -200,6 +201,21 @@ public:
 		IPluginDocument* doc,
 		const PluginMeshSurfaceReconstructSessionId& sessionId) override;
 
+	PluginTubularGrindingSessionId beginTubularGrindingSession(
+		IPluginDocument* doc,
+		const std::string& meshBackendIdUtf8) override;
+
+	void runTubularGrindingStage(
+		IPluginDocument* doc,
+		const PluginTubularGrindingSessionId& sessionId,
+		PluginTubularGrindingStage stage,
+		const PluginTubularGrindingParams& params,
+		PluginTubularGrindingFinishedFn onFinished) override;
+
+	void clearTubularGrindingSession(
+		IPluginDocument* doc,
+		const PluginTubularGrindingSessionId& sessionId) override;
+
 private:
 	struct SurfaceReconHostSession
 	{
@@ -214,6 +230,25 @@ private:
 		std::string partitionColoredMeshBackendId;
 		std::string samplePointsBackendId;
 		std::string fitPreviewBrepBackendId;
+		std::string boundaryBlendPreviewBrepBackendId;
+		std::string junctionBlendPreviewBrepBackendId;
+	};
+
+	struct TubularGrindingHostSession
+	{
+		std::string sessionId;
+		std::string docId;
+		std::string meshBackendId;
+		std::vector<float> rawSoup;
+		geoalgo::TubularGrindingSessionPtr geoSession;
+		PluginTubularGrindingStage lastCompleted = PluginTubularGrindingStage::None;
+		std::string segmentColoredMeshBackendId;
+		std::string ringColoredMeshBackendId;
+		std::string ringCenterPointsBackendId;
+		std::string normalAxisLinesBackendId;
+		std::string centerlinePointsBackendId;
+		std::string templatePointsBackendId;
+		std::string projectedPointsBackendId;
 	};
 
 	struct TemplateBrepAlignCache
@@ -235,7 +270,11 @@ private:
 	void eraseSurfaceReconSession(const std::string& sessionId, IPluginDocument* doc);
 	SurfaceReconHostSession* findSurfaceReconSession(const std::string& sessionId, IPluginDocument* doc);
 
+	void eraseTubularGrindingSession(const std::string& sessionId, IPluginDocument* doc);
+	TubularGrindingHostSession* findTubularGrindingSession(const std::string& sessionId, IPluginDocument* doc);
+
 	PluginHostContext* m_host = nullptr;
 	TemplateBrepAlignCache m_templateBrepAlignCache;
 	std::unordered_map<std::string, SurfaceReconHostSession> m_surfaceReconSessions;
+	std::unordered_map<std::string, TubularGrindingHostSession> m_tubularGrindingSessions;
 };

@@ -16,6 +16,7 @@
 #include "WireOps.h"
 #include "MeshSurfaceReconstruction.h"
 #include "MeshSurfaceReconstruction/NurbsSurfaceFitting.h"
+#include "TubularGrinding.h"
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
@@ -684,6 +685,97 @@ bool runSelfTest(std::vector<std::string>& failures)
 			else if (reconReport.nurbsPatchCount < 1 && reconReport.bsplinePatchCount < 1)
 			{
 				fail("meshSurfaceReconstruct", "no NURBS patches fitted");
+			}
+
+			MeshSurfaceReconstructParams hybridParams;
+			hybridParams.partitionMode = MeshSurfacePartitionMode::HybridNormalCvt;
+			hybridParams.hybridEnableRegionAdjust = true;
+			auto hybridSession = createMeshSurfaceReconstructSession(boxSoup);
+			std::string hybridErr;
+			if (!runMeshSurfaceReconstructStage(
+					*hybridSession,
+					MeshSurfaceReconstructStage::Partition,
+					hybridParams,
+					nullptr,
+					&hybridErr))
+			{
+				fail("meshSurfaceHybridPartition", hybridErr.empty() ? "hybrid partition failed" : hybridErr);
+			}
+			else if (hybridSession->report().patchCount < 4)
+			{
+				fail("meshSurfaceHybridPartition", "box hybrid patchCount < 4");
+			}
+			else if (hybridSession->report().initialRegionCount < 4)
+			{
+				fail("meshSurfaceHybridPartition", "box hybrid initialRegionCount < 4");
+			}
+			else if (hybridSession->report().quadPatchCount < 1)
+			{
+				fail("meshSurfaceHybridPartition", "box hybrid quadPatchCount < 1 after adjust");
+			}
+		}
+	}
+
+	{
+		const TopoDS_Shape cylinder = BRepPrimAPI_MakeCylinder(15.0, 120.0).Shape();
+		MeshDiscretizeParams cylDiscParams;
+		cylDiscParams.quality = MeshQualityPreset::Medium;
+		std::vector<float> cylSoup;
+		MeshDiscretizeReport cylDiscReport;
+		std::string cylDiscErr;
+		if (!discretizeShapeToMesh(cylinder, cylDiscParams, cylSoup, cylDiscReport, &cylDiscErr))
+		{
+			fail("tubularGrinding", cylDiscErr.empty() ? "cylinder tessellation failed" : cylDiscErr);
+		}
+		else
+		{
+			auto tgSession = createTubularGrindingSession(cylSoup);
+			TubularGrindingParams tgParams;
+			tgParams.minSegmentFaces = 8.0;
+			tgParams.regionGrowAxisAngleDeg = 35.0;
+			tgParams.sectionSpacingMm = 4.0;
+			std::string tgErr;
+			if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::Segment, tgParams, &tgErr))
+			{
+				fail("tubularGrindingSegment", tgErr.empty() ? "segment failed" : tgErr);
+			}
+			else if (tgSession->report().pipeCount < 1)
+			{
+				fail("tubularGrindingSegment", "pipeCount < 1");
+			}
+			else if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::Centerline, tgParams, &tgErr))
+			{
+				fail("tubularGrindingCenterline", tgErr.empty() ? "centerline failed" : tgErr);
+			}
+			else if (tgSession->report().centerlinePointCount < 4)
+			{
+				fail("tubularGrindingCenterline", "centerlinePointCount < 4");
+			}
+			else if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::TemplatePoints, tgParams, &tgErr))
+			{
+				fail("tubularGrindingTemplate", tgErr.empty() ? "template failed" : tgErr);
+			}
+			else if (tgSession->report().templatePointCount < 8)
+			{
+				fail("tubularGrindingTemplate", "templatePointCount < 8");
+			}
+			else if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::Project, tgParams, &tgErr))
+			{
+				fail("tubularGrindingProject", tgErr.empty() ? "project failed" : tgErr);
+			}
+			else if (tgSession->report().projectedPointCount < 8)
+			{
+				fail("tubularGrindingProject", "projectedPointCount < 8");
+			}
+			else if (tgSession->report().projectionHitRate < 0.5)
+			{
+				fail("tubularGrindingProject", "projectionHitRate < 0.5");
+			}
+			std::vector<float> coloredSoup;
+			std::vector<float> coloredRgb;
+			if (!buildSegmentColoredMeshSoup(*tgSession, coloredSoup, coloredRgb, &tgErr))
+			{
+				fail("tubularGrindingColoredMesh", tgErr.empty() ? "colored mesh failed" : tgErr);
 			}
 		}
 	}
