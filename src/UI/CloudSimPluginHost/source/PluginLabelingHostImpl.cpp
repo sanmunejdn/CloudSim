@@ -160,6 +160,10 @@ PluginLabelingSessionId PluginLabelingHostImpl::beginLabelingSession(
 
 void PluginLabelingHostImpl::clearLabelingSession(const PluginLabelingSessionId sessionId)
 {
+	if (m_activePickSessionId == sessionId)
+	{
+		abandonActiveLabelingPick();
+	}
 	m_sessions.erase(sessionId);
 	if (m_activePickSessionId == sessionId)
 	{
@@ -395,6 +399,50 @@ bool PluginLabelingHostImpl::exportPointNetDataset(
 	return ok;
 }
 
+void PluginLabelingHostImpl::setPickCancelledNotifier(PluginLabelingPickCancelledFn notifier)
+{
+	m_pickCancelledNotifier = std::move(notifier);
+}
+
+void PluginLabelingHostImpl::clearActivePickState(const bool notify)
+{
+	if (!m_pickState)
+	{
+		return;
+	}
+	OsgWidget* widget = m_pickState->viewportWidget;
+	if (widget)
+	{
+		widget->setLabelingClickPickMode(false, m_pickState->meshFace);
+		widget->setLabelingBrushPickMode(false, m_pickState->meshFace, m_pickState->brushRadius);
+	}
+	QObject::disconnect(m_pickState->clickConn);
+	QObject::disconnect(m_pickState->brushStrokeConn);
+	QObject::disconnect(m_pickState->brushFinishConn);
+	QObject::disconnect(m_pickState->cancelConn);
+	if (m_pickState->brushFinished)
+	{
+		m_pickState->brushFinished(false, QString(), {});
+		m_pickState->brushFinished = nullptr;
+	}
+	m_pickState.reset();
+	m_activePickSessionId = 0U;
+	if (notify && m_pickCancelledNotifier)
+	{
+		m_pickCancelledNotifier();
+	}
+}
+
+void PluginLabelingHostImpl::cancelActiveLabelingPick()
+{
+	clearActivePickState(true);
+}
+
+void PluginLabelingHostImpl::abandonActiveLabelingPick()
+{
+	clearActivePickState(false);
+}
+
 void PluginLabelingHostImpl::pickPointsOnce(const PluginLabelingSessionId sessionId, PluginLabelingPickFinishedFn onFinished)
 {
 	if (!onFinished)
@@ -415,33 +463,33 @@ void PluginLabelingHostImpl::pickPointsOnce(const PluginLabelingSessionId sessio
 		return;
 	}
 
+	abandonActiveLabelingPick();
+	m_pickState = std::make_unique<ActivePickState>();
+	m_pickState->viewportWidget = osg;
+	m_pickState->meshFace = false;
+	m_pickState->sessionId = sessionId;
 	m_activePickSessionId = sessionId;
 	osg->setLabelingClickPickMode(true, false);
 
-	struct State
-	{
-		bool done = false;
-		QMetaObject::Connection conn;
-	};
-	const auto state = std::make_shared<State>();
-	state->conn = QObject::connect(
+	m_pickState->clickConn = QObject::connect(
 		osg,
 		&OsgWidget::labelingClickCommitted,
 		m_host,
 		[=](const PickResult& pick) {
-			if (state->done)
-			{
-				return;
-			}
-			state->done = true;
-			QObject::disconnect(state->conn);
-			osg->setLabelingClickPickMode(false, false);
 			PluginLabelingSelectionResult sel;
 			if (pick.hit && pick.pointIndex >= 0)
 			{
 				sel.pointIndices.push_back(static_cast<std::size_t>(pick.pointIndex));
 			}
 			onFinished(pick.hit, pick.hit ? QString() : QStringLiteral("No point hit"), sel);
+		});
+
+	m_pickState->cancelConn = QObject::connect(
+		osg,
+		&OsgWidget::labelingPickCanceled,
+		m_host,
+		[this]() {
+			clearActivePickState(true);
 		});
 }
 
@@ -469,19 +517,17 @@ void PluginLabelingHostImpl::brushStroke(
 		return;
 	}
 
+	abandonActiveLabelingPick();
+	m_pickState = std::make_unique<ActivePickState>();
+	m_pickState->viewportWidget = osg;
+	m_pickState->meshFace = false;
+	m_pickState->brushRadius = radiusPx;
+	m_pickState->sessionId = sessionId;
+	m_pickState->brushFinished = onFinished;
 	m_activePickSessionId = sessionId;
 	osg->setLabelingBrushPickMode(true, false, radiusPx);
 
-	struct State
-	{
-		bool done = false;
-		PluginLabelingSelectionResult total;
-		QMetaObject::Connection strokeConn;
-		QMetaObject::Connection finishConn;
-	};
-	const auto state = std::make_shared<State>();
-
-	state->strokeConn = QObject::connect(
+	m_pickState->brushStrokeConn = QObject::connect(
 		osg,
 		&OsgWidget::labelingBrushStroke,
 		m_host,
@@ -497,30 +543,26 @@ void PluginLabelingHostImpl::brushStroke(
 				if (idx >= 0)
 				{
 					stroke.pointIndices.push_back(static_cast<std::size_t>(idx));
-					state->total.pointIndices.push_back(static_cast<std::size_t>(idx));
 				}
 			}
 			onStroke(stroke);
 		});
 
-	state->finishConn = QObject::connect(
+	m_pickState->brushFinishConn = QObject::connect(
 		osg,
 		&OsgWidget::labelingBrushFinished,
 		m_host,
-		[=]() {
-			if (state->done)
-			{
-				return;
-			}
-			state->done = true;
-			QObject::disconnect(state->strokeConn);
-			QObject::disconnect(state->finishConn);
-			osg->setLabelingBrushPickMode(false, false, radiusPx);
-			std::sort(state->total.pointIndices.begin(), state->total.pointIndices.end());
-			state->total.pointIndices.erase(
-				std::unique(state->total.pointIndices.begin(), state->total.pointIndices.end()),
-				state->total.pointIndices.end());
-			onFinished(true, QString(), state->total);
+		[]()
+		{
+			// 单次刷选结束，保持刷选模式直至 Esc
+		});
+
+	m_pickState->cancelConn = QObject::connect(
+		osg,
+		&OsgWidget::labelingPickCanceled,
+		m_host,
+		[this]() {
+			clearActivePickState(true);
 		});
 }
 
@@ -607,31 +649,33 @@ void PluginLabelingHostImpl::pickMeshFaceOnce(const PluginLabelingSessionId sess
 		return;
 	}
 
+	abandonActiveLabelingPick();
+	m_pickState = std::make_unique<ActivePickState>();
+	m_pickState->viewportWidget = osg;
+	m_pickState->meshFace = true;
+	m_pickState->sessionId = sessionId;
+	m_activePickSessionId = sessionId;
 	osg->setLabelingClickPickMode(true, true);
-	struct State
-	{
-		bool done = false;
-		QMetaObject::Connection conn;
-	};
-	const auto state = std::make_shared<State>();
-	state->conn = QObject::connect(
+
+	m_pickState->clickConn = QObject::connect(
 		osg,
 		&OsgWidget::labelingClickCommitted,
 		m_host,
 		[=](const PickResult& pick) {
-			if (state->done)
-			{
-				return;
-			}
-			state->done = true;
-			QObject::disconnect(state->conn);
-			osg->setLabelingClickPickMode(false, true);
 			PluginLabelingSelectionResult sel;
 			if (pick.hit && pick.meshTriangleIndex >= 0)
 			{
 				sel.triangleIndices.push_back(pick.meshTriangleIndex);
 			}
 			onFinished(pick.hit, pick.hit ? QString() : QStringLiteral("No face hit"), sel);
+		});
+
+	m_pickState->cancelConn = QObject::connect(
+		osg,
+		&OsgWidget::labelingPickCanceled,
+		m_host,
+		[this]() {
+			clearActivePickState(true);
 		});
 }
 
@@ -659,18 +703,17 @@ void PluginLabelingHostImpl::brushMeshFaces(
 		return;
 	}
 
-	struct State
-	{
-		bool done = false;
-		PluginLabelingSelectionResult total;
-		QMetaObject::Connection strokeConn;
-		QMetaObject::Connection finishConn;
-	};
-	const auto state = std::make_shared<State>();
-
+	abandonActiveLabelingPick();
+	m_pickState = std::make_unique<ActivePickState>();
+	m_pickState->viewportWidget = osg;
+	m_pickState->meshFace = true;
+	m_pickState->brushRadius = radiusPx;
+	m_pickState->sessionId = sessionId;
+	m_pickState->brushFinished = onFinished;
+	m_activePickSessionId = sessionId;
 	osg->setLabelingBrushPickMode(true, true, radiusPx);
 
-	state->strokeConn = QObject::connect(
+	m_pickState->brushStrokeConn = QObject::connect(
 		osg,
 		&OsgWidget::labelingBrushStroke,
 		m_host,
@@ -685,25 +728,24 @@ void PluginLabelingHostImpl::brushMeshFaces(
 				if (idx >= 0)
 				{
 					stroke.triangleIndices.push_back(idx);
-					state->total.triangleIndices.push_back(idx);
 				}
 			}
 			onStroke(stroke);
 		});
 
-	state->finishConn = QObject::connect(
+	m_pickState->brushFinishConn = QObject::connect(
 		osg,
 		&OsgWidget::labelingBrushFinished,
 		m_host,
-		[=]() {
-			if (state->done)
-			{
-				return;
-			}
-			state->done = true;
-			QObject::disconnect(state->strokeConn);
-			QObject::disconnect(state->finishConn);
-			osg->setLabelingBrushPickMode(false, true, radiusPx);
-			onFinished(true, QString(), state->total);
+		[]()
+		{
+		});
+
+	m_pickState->cancelConn = QObject::connect(
+		osg,
+		&OsgWidget::labelingPickCanceled,
+		m_host,
+		[this]() {
+			clearActivePickState(true);
 		});
 }

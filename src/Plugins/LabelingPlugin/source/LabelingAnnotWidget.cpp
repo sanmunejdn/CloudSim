@@ -21,6 +21,7 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QMessageBox>
+#include <QMetaObject>
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QScrollArea>
@@ -37,6 +38,12 @@
 
 namespace
 {
+
+bool isLabelingTargetClass(const std::string& cls)
+{
+	// MeshBackendData::className() 为 "Model"，与 PointCloudPlugin 等模块一致
+	return cls == "PointCloudBackendData" || cls == "Model";
+}
 
 bool parseAsciiPlyPoints(const QString& path, std::vector<float>& outPoints, int& outCount)
 {
@@ -224,6 +231,8 @@ LabelingAnnotWidget::LabelingAnnotWidget(IPluginHostContext* host, QWidget* pare
 	toolRow->addWidget(m_lassoTool);
 	toolRow->addWidget(m_eraseTool);
 	toolLayout->addLayout(toolRow);
+	m_cancelPickBtn = new QPushButton(m_toolGroup);
+	toolLayout->addWidget(m_cancelPickBtn);
 	m_brushRadiusSpin = new QDoubleSpinBox(m_toolGroup);
 	m_brushRadiusSpin->setRange(4.0, 128.0);
 	m_brushRadiusSpin->setValue(16.0);
@@ -260,6 +269,18 @@ LabelingAnnotWidget::LabelingAnnotWidget(IPluginHostContext* host, QWidget* pare
 	connect(m_redoBtn, &QPushButton::clicked, this, &LabelingAnnotWidget::onRedoClicked);
 	connect(m_exportBtn, &QPushButton::clicked, this, &LabelingAnnotWidget::onExportClicked);
 	connect(m_prelabelBtn, &QPushButton::clicked, this, &LabelingAnnotWidget::onPrelabelClicked);
+	connect(m_cancelPickBtn, &QPushButton::clicked, this, [this]() {
+		if (m_labelingHost)
+		{
+			m_labelingHost->cancelActiveLabelingPick();
+		}
+	});
+	if (m_labelingHost)
+	{
+		m_labelingHost->setPickCancelledNotifier([this]() {
+			onToolPickCancelled();
+		});
+	}
 	connect(m_classTable, &QTableWidget::cellDoubleClicked, this, [this](int row, int column) {
 		if (column != 2 || row < 0)
 		{
@@ -281,7 +302,14 @@ LabelingAnnotWidget::LabelingAnnotWidget(IPluginHostContext* host, QWidget* pare
 	m_clickTool->setChecked(true);
 }
 
-LabelingAnnotWidget::~LabelingAnnotWidget() = default;
+LabelingAnnotWidget::~LabelingAnnotWidget()
+{
+	if (m_labelingHost)
+	{
+		m_labelingHost->setPickCancelledNotifier(nullptr);
+		m_labelingHost->abandonActiveLabelingPick();
+	}
+}
 
 QString LabelingAnnotWidget::i18n(const QString& en, const QString& zh) const
 {
@@ -298,6 +326,7 @@ void LabelingAnnotWidget::applyLanguage()
 	m_brushTool->setText(i18n(QStringLiteral("Brush"), QStringLiteral("刷选")));
 	m_lassoTool->setText(i18n(QStringLiteral("Lasso"), QStringLiteral("套索")));
 	m_eraseTool->setText(i18n(QStringLiteral("Erase"), QStringLiteral("擦除")));
+	m_cancelPickBtn->setText(i18n(QStringLiteral("Cancel Pick"), QStringLiteral("取消选择")));
 	m_undoBtn->setText(i18n(QStringLiteral("Undo"), QStringLiteral("撤销")));
 	m_redoBtn->setText(i18n(QStringLiteral("Redo"), QStringLiteral("重做")));
 	m_prelabelBtn->setText(i18n(QStringLiteral("PointNet Pre-label"), QStringLiteral("PointNet 预标注")));
@@ -374,7 +403,7 @@ void LabelingAnnotWidget::refreshBackendList()
 	for (const std::string& id : doc->backendIds())
 	{
 		const std::string cls = doc->backendClassName(id);
-		if (cls == "PointCloudBackendData" || cls == "MeshBackendData")
+		if (isLabelingTargetClass(cls))
 		{
 			const QString label = QString::fromStdString(doc->backendDisplayName(id)) + QStringLiteral(" [")
 				+ QString::fromStdString(id) + QStringLiteral("]");
@@ -419,6 +448,11 @@ PluginLabelingSessionConfig LabelingAnnotWidget::buildSessionConfig() const
 
 void LabelingAnnotWidget::clearSession()
 {
+	if (m_labelingHost)
+	{
+		m_labelingHost->abandonActiveLabelingPick();
+	}
+	m_toolPickActive = false;
 	if (m_labelingHost && m_sessionId != kInvalidLabelingSessionId)
 	{
 		m_labelingHost->clearLabelingSession(m_sessionId);
@@ -578,29 +612,69 @@ void LabelingAnnotWidget::applySelection(const PluginLabelingSelectionResult& se
 	refreshSummary();
 }
 
+void LabelingAnnotWidget::onToolPickCancelled()
+{
+	m_toolPickActive = false;
+	if (QAbstractButton* checked = m_toolButtons->checkedButton())
+	{
+		QSignalBlocker blocker(m_toolButtons);
+		checked->setChecked(false);
+	}
+}
+
+void LabelingAnnotWidget::checkToolButton(const PluginLabelingTool tool)
+{
+	if (QAbstractButton* btn = m_toolButtons->button(static_cast<int>(tool)))
+	{
+		QSignalBlocker blocker(m_toolButtons);
+		btn->setChecked(true);
+	}
+}
+
+void LabelingAnnotWidget::armActiveTool()
+{
+	if (!m_toolPickActive || m_sessionId == kInvalidLabelingSessionId)
+	{
+		return;
+	}
+	activateTool(m_activeTool);
+}
+
 void LabelingAnnotWidget::activateTool(PluginLabelingTool tool)
 {
 	if (!ensureSession())
 	{
 		return;
 	}
+	if (m_labelingHost)
+	{
+		m_labelingHost->abandonActiveLabelingPick();
+	}
 	m_activeTool = tool;
 	m_eraseMode = (tool == PluginLabelingTool::Erase);
+	m_toolPickActive = true;
+	checkToolButton(tool);
+
 	const float radius = static_cast<float>(m_brushRadiusSpin->value());
 	const bool erase = m_eraseMode;
 
 	if (tool == PluginLabelingTool::Click || tool == PluginLabelingTool::Erase)
 	{
 		const auto onFinished = [this, erase](bool ok, const QString& error, const PluginLabelingSelectionResult& result) {
-			if (!ok)
+			if (!m_toolPickActive)
 			{
-				if (m_host && !error.isEmpty())
-				{
-					m_host->logWarn(error);
-				}
 				return;
 			}
-			applySelection(result, erase);
+			if (ok)
+			{
+				applySelection(result, erase);
+			}
+			else if (m_host && !error.isEmpty()
+				&& error != QStringLiteral("No point hit")
+				&& error != QStringLiteral("No face hit"))
+			{
+				m_host->logWarn(error);
+			}
 		};
 		if (m_geometryKind == PluginLabelingGeometryKind::TriangleMesh)
 		{
@@ -617,14 +691,9 @@ void LabelingAnnotWidget::activateTool(PluginLabelingTool tool)
 	{
 		const auto onStroke = [this](const PluginLabelingSelectionResult& stroke) {
 			applySelection(stroke, m_eraseMode);
-		};
-		const auto onFinished = [this](bool ok, const QString& error, const PluginLabelingSelectionResult& total) {
-			(void)total;
-			if (!ok && m_host && !error.isEmpty())
-			{
-				m_host->logWarn(error);
-			}
 			refreshSummary();
+		};
+		const auto onFinished = [](bool, const QString&, const PluginLabelingSelectionResult&) {
 		};
 		if (m_geometryKind == PluginLabelingGeometryKind::TriangleMesh)
 		{
@@ -640,19 +709,27 @@ void LabelingAnnotWidget::activateTool(PluginLabelingTool tool)
 	if (tool == PluginLabelingTool::Polyline)
 	{
 		m_labelingHost->pickPolylineRegion(m_sessionId, [this](bool ok, const QString& error, const PluginLabelingSelectionResult& result) {
+			if (!m_toolPickActive)
+			{
+				return;
+			}
 			if (!ok)
 			{
-				if (m_host && !error.isEmpty())
+				if (error == QStringLiteral("Polyline pick canceled"))
+				{
+					onToolPickCancelled();
+				}
+				else if (m_host && !error.isEmpty())
 				{
 					m_host->logWarn(error);
 				}
 				return;
 			}
 			applySelection(result, m_eraseMode);
+			refreshSummary();
+			QMetaObject::invokeMethod(this, [this]() { armActiveTool(); }, Qt::QueuedConnection);
 		});
-		return;
 	}
-
 }
 
 void LabelingAnnotWidget::onToolClicked(int toolId)

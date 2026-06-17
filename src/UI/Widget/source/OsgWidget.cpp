@@ -2214,6 +2214,14 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 					requestRedraw();
 					return true;
 				}
+				if (m_labelingClickPickMode || m_labelingBrushPickMode)
+				{
+					setLabelingClickPickMode(false, m_labelingMeshFaceMode);
+					setLabelingBrushPickMode(false, m_labelingMeshFaceMode, m_labelingBrushRadiusPx);
+					emit labelingPickCanceled();
+					requestRedraw();
+					return true;
+				}
 			}
 			return true;
 		}

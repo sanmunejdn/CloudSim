@@ -55,6 +55,9 @@ private:
 	void refreshSummary();
 	void selectClassRowById(int classId);
 	void activateTool(PluginLabelingTool tool);
+	void onToolPickCancelled();
+	void armActiveTool();
+	void checkToolButton(PluginLabelingTool tool);
 	bool loadPointNetSegmentModel(QString* err);
 	bool extractBackendPoints(const std::string& backendId, std::vector<float>& outPoints, int& outCount) const;
 	void applySelection(const PluginLabelingSelectionResult& selection, bool erase);
@@ -77,6 +80,7 @@ private:
 	QToolButton* m_brushTool = nullptr;
 	QToolButton* m_lassoTool = nullptr;
 	QToolButton* m_eraseTool = nullptr;
+	QPushButton* m_cancelPickBtn = nullptr;
 	QDoubleSpinBox* m_brushRadiusSpin = nullptr;
 	QPushButton* m_undoBtn = nullptr;
 	QPushButton* m_redoBtn = nullptr;
@@ -89,5 +93,6 @@ private:
 	PluginLabelingGeometryKind m_geometryKind = PluginLabelingGeometryKind::PointCloud;
 	PluginLabelingTool m_activeTool = PluginLabelingTool::Click;
 	bool m_eraseMode = false;
+	bool m_toolPickActive = false;
 	QString m_lastExportDir;
 };

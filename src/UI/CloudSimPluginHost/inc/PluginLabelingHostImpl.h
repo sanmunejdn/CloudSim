@@ -2,12 +2,17 @@
 
 #include "IPluginLabelingHost.h"
 
+#include <QMetaObject>
+
 #include <atomic>
 #include <memory>
 #include <unordered_map>
 
+#include "PluginLabelingTypes.h"
+
 class PluginHostContext;
 class LabelingSession;
+class OsgWidget;
 
 class PluginLabelingHostImpl : public IPluginLabelingHost
 {
@@ -77,7 +82,25 @@ public:
 		PluginLabelingBrushStrokeFn onStroke,
 		PluginLabelingBrushFinishedFn onFinished) override;
 
+	void cancelActiveLabelingPick() override;
+	void abandonActiveLabelingPick() override;
+	void setPickCancelledNotifier(PluginLabelingPickCancelledFn notifier) override;
+
 private:
+	struct ActivePickState
+	{
+		OsgWidget* viewportWidget = nullptr;
+		bool meshFace = false;
+		float brushRadius = 16.f;
+		PluginLabelingSessionId sessionId = 0U;
+		QMetaObject::Connection clickConn;
+		QMetaObject::Connection brushStrokeConn;
+		QMetaObject::Connection brushFinishConn;
+		QMetaObject::Connection cancelConn;
+		PluginLabelingBrushFinishedFn brushFinished;
+	};
+
+	void clearActivePickState(bool notify);
 	struct SessionEntry
 	{
 		PluginLabelingSessionId id = 0U;
@@ -95,4 +118,6 @@ private:
 	std::atomic<PluginLabelingSessionId> m_nextSessionId{ 1U };
 	std::unordered_map<PluginLabelingSessionId, SessionEntry> m_sessions;
 	PluginLabelingSessionId m_activePickSessionId = 0U;
+	std::unique_ptr<ActivePickState> m_pickState;
+	PluginLabelingPickCancelledFn m_pickCancelledNotifier;
 };

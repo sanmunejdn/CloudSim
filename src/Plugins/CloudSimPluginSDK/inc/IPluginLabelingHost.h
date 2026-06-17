@@ -81,4 +81,12 @@ public:
 		float radiusPx,
 		PluginLabelingBrushStrokeFn onStroke,
 		PluginLabelingBrushFinishedFn onFinished) = 0;
+
+	/// 结束当前视口拾取（Esc / 取消按钮），并触发 setPickCancelledNotifier
+	virtual void cancelActiveLabelingPick() = 0;
+
+	/// 切换工具前静默结束拾取，不触发取消通知
+	virtual void abandonActiveLabelingPick() = 0;
+
+	virtual void setPickCancelledNotifier(PluginLabelingPickCancelledFn notifier) = 0;
 };

@@ -351,6 +351,7 @@ signals:
 	void labelingClickCommitted(PickResult pick);
 	void labelingBrushStroke(QVector<int> indices);
 	void labelingBrushFinished();
+	void labelingPickCanceled();
 	void annotationCreated(const QString& annotationId, const QString& displayText);
 	void annotationRemoved(const QString& annotationId);
 	void annotationVisibilityChanged(const QString& annotationId, bool visible);

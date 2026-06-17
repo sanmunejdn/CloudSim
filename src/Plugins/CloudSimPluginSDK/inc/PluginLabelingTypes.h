@@ -85,3 +85,5 @@ using PluginLabelingBrushFinishedFn = std::function<void(
 	bool ok,
 	const QString& error,
 	const PluginLabelingSelectionResult& total)>;
+
+using PluginLabelingPickCancelledFn = std::function<void()>;
