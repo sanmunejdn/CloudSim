@@ -14,6 +14,7 @@
 #include "IDataService.h"
 #include "IRobotBackendPoseSink.h"
 #include "BackendDataManager.h"
+#include "CoreTypes.h"
 #include "MeshBackendData.h"
 #include "OsgScene.h"
 #include "RobotSceneKinematics.h"
@@ -23,16 +24,75 @@
 #include <unordered_map>
 #include <vector>
 
+namespace {
+cloudsim::core::Mat4 mat4FromOsg(const osg::Matrixd& m)
+{
+	cloudsim::core::Mat4 out{};
+	for (int i = 0; i < 16; ++i)
+	{
+		out[static_cast<size_t>(i)] = m.ptr()[i];
+	}
+	return out;
+}
+
+osg::Matrixd osgFromMat4(const cloudsim::core::Mat4& m)
+{
+	osg::Matrixd out;
+	for (int i = 0; i < 16; ++i)
+	{
+		out.ptr()[i] = m[static_cast<size_t>(i)];
+	}
+	return out;
+}
+} // namespace
+
 DocumentPage::DocumentPage(QTabWidget* parentTabs, cloudsim::core::EventHub& events)
 	: DocumentHost(parentTabs, events,
 		  QStringLiteral("doc-%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces)))
 {
 	setRobotUrdfImportContext(this);
+	setPerLinkKinematicsHost(this);
+	setPerLinkRobotStateAccessor(this);
 }
 
 IRobotBackendPoseSink* DocumentPage::urdfImportScenePoseSink()
 {
 	return sceneFacade().poseSink();
+}
+
+cloudsim::host::PerLinkRobotStateSnapshot DocumentPage::extractPerLinkStateSnapshot(int instanceIndex) const
+{
+	cloudsim::host::PerLinkRobotStateSnapshot snap;
+	snap.instanceIndex = instanceIndex;
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
+	{
+		return snap;
+	}
+	const HierarchicalRobotInstance& ri = m_hierarchicalRobots[instanceIndex];
+	snap.urdfAbsolutePath = ri.urdfAbsolutePath;
+	snap.linkNameToBackendId = ri.linkNameToBackendId;
+	for (auto it = ri.fkMeshWorldT0.constBegin(); it != ri.fkMeshWorldT0.constEnd(); ++it)
+	{
+		snap.fkMeshWorldT0.insert(it.key(), mat4FromOsg(it.value()));
+	}
+	for (auto it = ri.outerWorldAtBindByBackendId.constBegin(); it != ri.outerWorldAtBindByBackendId.constEnd(); ++it)
+	{
+		snap.outerWorldAtBindByBackendId.insert(it.key(), mat4FromOsg(it.value()));
+	}
+	snap.basePlacementWorld = mat4FromOsg(ri.basePlacementWorld);
+	snap.meshVerticesInLinkFrame = ri.meshVerticesInLinkFrame;
+	return snap;
+}
+
+void DocumentPage::applyPerLinkFkResult(const cloudsim::host::PerLinkRobotFkResult& result)
+{
+	// 简化实现：仅更新 basePlacementWorld（实际可扩展 updatedOuterWorlds 处理）
+	if (!result.success)
+	{
+		return;
+	}
+	// 此处可根据需要更新 m_hierarchicalRobots 和 backend pose
+	(void)result;
 }
 
 void DocumentPage::rebuildHierarchicalRobotAggregates()
@@ -312,6 +372,31 @@ bool DocumentPage::robotPerLinkKinematicsForInstance(int instanceIndex, RobotPer
 	return true;
 }
 
+bool DocumentPage::robotPerLinkKinematicsDtoForInstance(int instanceIndex, cloudsim::core::RobotPerLinkKinematicsSliceDto& out) const
+{
+	RobotPerLinkKinematicsSlice slice;
+	if (!robotPerLinkKinematicsForInstance(instanceIndex, slice))
+	{
+		return false;
+	}
+	out.urdfAbsolutePath = slice.urdfAbsolutePath;
+	out.sceneRootBackendId = slice.sceneRootBackendId;
+	out.linkNameToBackendId = slice.linkNameToBackendId;
+	out.fkMeshWorldT0.clear();
+	for (auto it = slice.fkMeshWorldT0.constBegin(); it != slice.fkMeshWorldT0.constEnd(); ++it)
+	{
+		out.fkMeshWorldT0.insert(it.key(), mat4FromOsg(it.value()));
+	}
+	out.outerWorldAtBindByBackendId.clear();
+	for (auto it = slice.outerWorldAtBindByBackendId.constBegin(); it != slice.outerWorldAtBindByBackendId.constEnd(); ++it)
+	{
+		out.outerWorldAtBindByBackendId.insert(it.key(), mat4FromOsg(it.value()));
+	}
+	out.robotBasePlacementWorld = mat4FromOsg(slice.robotBasePlacementWorld);
+	out.meshVerticesInLinkFrame = slice.meshVerticesInLinkFrame;
+	return true;
+}
+
 int DocumentPage::robotInstanceIndexForPerLinkBackend(const QString& backendId, bool* outIsSceneRoot) const
 {
 	if (outIsSceneRoot)
@@ -453,6 +538,26 @@ const QHash<QString, osg::Matrixd>& DocumentPage::robotOuterWorldAtBind() const
 	return m_robotOuterWorldAtBind;
 }
 
+QHash<QString, cloudsim::core::Mat4> DocumentPage::robotFkMeshWorldT0Dto() const
+{
+	QHash<QString, cloudsim::core::Mat4> out;
+	for (auto it = m_robotFkMeshWorldT0.constBegin(); it != m_robotFkMeshWorldT0.constEnd(); ++it)
+	{
+		out.insert(it.key(), mat4FromOsg(it.value()));
+	}
+	return out;
+}
+
+QHash<QString, cloudsim::core::Mat4> DocumentPage::robotOuterWorldAtBindDto() const
+{
+	QHash<QString, cloudsim::core::Mat4> out;
+	for (auto it = m_robotOuterWorldAtBind.constBegin(); it != m_robotOuterWorldAtBind.constEnd(); ++it)
+	{
+		out.insert(it.key(), mat4FromOsg(it.value()));
+	}
+	return out;
+}
+
 bool DocumentPage::robotUrdfMeshVerticesInLinkFrame() const
 {
 	return m_robotUrdfMeshVerticesInLinkFrame;
@@ -552,8 +657,7 @@ bool DocumentPage::applyPerLinkRobotFkFromGizmoAnchor(
 	{
 		return false;
 	}
-	const QString sceneRootId = ri.sceneBackendId;
-	const std::shared_ptr<BackendDataBase> rootData = backend().getData(sceneRootId.toStdString());
+	const std::shared_ptr<BackendDataBase> rootData = backend().getData(ri.sceneBackendId.toStdString());
 	if (rootData && rootData->hasPoseProperty())
 	{
 		osg::Vec3d trans;
@@ -656,6 +760,22 @@ void DocumentPage::notifyRobotKinematicsAppliedToScene()
 	}
 }
 
+void DocumentPage::setBackendVisible(const QString& backendId, bool visible)
+{
+	sceneFacade().entity(backendId.toStdString()).setVisible(visible);
+}
+
+void DocumentPage::setBackendsVisible(const QStringList& backendIds, bool visible)
+{
+	std::vector<std::string> ids;
+	ids.reserve(backendIds.size());
+	for (const QString& id : backendIds)
+	{
+		ids.push_back(id.toStdString());
+	}
+	sceneFacade().setBackendsVisible(ids, visible);
+}
+
 void DocumentPage::markFollowAttachmentDirtyFromBackendMove(const QString& seedBackendId)
 {
 	data().markFollowDirtyFromMove(seedBackendId);
@@ -686,4 +806,5 @@ const RobotCoordinate::RobotUserFrame* DocumentPage::robotActiveUserFrameForInst
 {
 	return RobotCoordinate::activeUserFrame(robotCoordinateFramesForInstance(instanceIndex));
 }
+
 

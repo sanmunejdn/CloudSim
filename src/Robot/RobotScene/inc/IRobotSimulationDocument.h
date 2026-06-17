@@ -2,6 +2,8 @@
 
 #include "robot_scene_global.h"
 
+#include "CoreTypes.h"
+
 #include <QHash>
 #include <QString>
 #include <QStringList>
@@ -25,6 +27,11 @@ struct RobotPerLinkKinematicsSlice
 	osg::Matrixd robotBasePlacementWorld;
 	bool meshVerticesInLinkFrame = false;
 };
+
+/// DTO 版本（供 Core 接口使用，Widget 不依赖 osg）
+namespace cloudsim::core {
+struct RobotPerLinkKinematicsSliceDto;
+}
 
 /// 机器人仿真文档只读视图（Widget DocumentPage 实现）；动态层级法存关节 MT 节点
 class ROBOT_SCENE_API IRobotSimulationDocument
@@ -71,11 +78,23 @@ public:
 		return false;
 	}
 
+	/// DTO 版本（Widget 优先调用，避免 osg 依赖）
+	virtual bool robotPerLinkKinematicsDtoForInstance(int instanceIndex, cloudsim::core::RobotPerLinkKinematicsSliceDto& out) const
+	{
+		(void)instanceIndex;
+		(void)out;
+		return false;
+	}
+
 	/// 动态层级：直接改关节角的 MatrixTransform
 	virtual osg::MatrixTransform* robotJointMatrixTransform(const QString& jointName) const = 0;
 
 	virtual const QHash<QString, osg::Matrixd>& robotFkMeshWorldT0() const = 0;
 	virtual const QHash<QString, osg::Matrixd>& robotOuterWorldAtBind() const = 0;
+
+	/// DTO 版本（Widget 优先调用，避免 osg 依赖）
+	virtual QHash<QString, cloudsim::core::Mat4> robotFkMeshWorldT0Dto() const { return {}; }
+	virtual QHash<QString, cloudsim::core::Mat4> robotOuterWorldAtBindDto() const { return {}; }
 
 	/// mesh 顶点已烘焙到连杆系，FK 须 identity visual
 	virtual bool robotUrdfMeshVerticesInLinkFrame() const { return false; }

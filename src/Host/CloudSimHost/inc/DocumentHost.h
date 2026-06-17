@@ -3,6 +3,8 @@
 #include "cloudsim_host_global.h"
 
 #include "IDocumentScope.h"
+#include "IPerLinkKinematicsHost.h"
+#include "IPerLinkRobotStateAccessor.h"
 
 #include <QHash>
 #include <QMap>
@@ -114,6 +116,14 @@ public:
 	void setInstructionPropertyDelegate(IRobotInstructionPropertyDelegate* delegate);
 	IRobotInstructionPropertyDelegate* instructionPropertyDelegate() const;
 
+	/// per-link 机器人运动学宿主注入（由 DocumentPage 实现或 Host 内部实现）
+	void setPerLinkKinematicsHost(IPerLinkKinematicsHost* host);
+	IPerLinkKinematicsHost* perLinkKinematicsHost() const;
+
+	/// per-link 机器人状态访问器注入（由 DocumentPage 实现，供 Host 实现类访问状态）
+	void setPerLinkRobotStateAccessor(IPerLinkRobotStateAccessor* accessor);
+	IPerLinkRobotStateAccessor* perLinkRobotStateAccessor() const;
+
 private:
 	QString m_documentId;
 	cloudsim::core::EventHub& m_events;
@@ -136,6 +146,8 @@ private:
 	bool m_deferPropertyPanelVisualFullSync = false;
 	IRobotUrdfImportContext* m_robotUrdfImportContext = nullptr;
 	IRobotInstructionPropertyDelegate* m_instructionPropertyDelegate = nullptr;
+	IPerLinkKinematicsHost* m_perLinkKinematicsHost = nullptr;
+	IPerLinkRobotStateAccessor* m_perLinkRobotStateAccessor = nullptr;
 };
 
 } // namespace cloudsim::host

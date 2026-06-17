@@ -59,6 +59,14 @@ public:
 	{
 		return m_page->robotOuterWorldAtBind();
 	}
+	QHash<QString, cloudsim::core::Mat4> robotFkMeshWorldT0Dto() const override
+	{
+		return m_page->robotFkMeshWorldT0Dto();
+	}
+	QHash<QString, cloudsim::core::Mat4> robotOuterWorldAtBindDto() const override
+	{
+		return m_page->robotOuterWorldAtBindDto();
+	}
 	bool robotUrdfMeshVerticesInLinkFrame() const override
 	{
 		return m_page->robotUrdfMeshVerticesInLinkFrame();

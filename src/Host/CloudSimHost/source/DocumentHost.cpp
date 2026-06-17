@@ -69,6 +69,26 @@ IRobotInstructionPropertyDelegate* DocumentHost::instructionPropertyDelegate() c
 	return m_instructionPropertyDelegate;
 }
 
+void DocumentHost::setPerLinkKinematicsHost(IPerLinkKinematicsHost* host)
+{
+	m_perLinkKinematicsHost = host;
+}
+
+IPerLinkKinematicsHost* DocumentHost::perLinkKinematicsHost() const
+{
+	return m_perLinkKinematicsHost;
+}
+
+void DocumentHost::setPerLinkRobotStateAccessor(IPerLinkRobotStateAccessor* accessor)
+{
+	m_perLinkRobotStateAccessor = accessor;
+}
+
+IPerLinkRobotStateAccessor* DocumentHost::perLinkRobotStateAccessor() const
+{
+	return m_perLinkRobotStateAccessor;
+}
+
 DocumentHost::~DocumentHost() = default;
 
 QString DocumentHost::documentId() const

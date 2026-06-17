@@ -40,18 +40,27 @@ $forbiddenInclude = @(
     'RobotInstructionPlanningHelpers',
     'OsgWidgetCore/',
     'BackendVisual/',
-    'OsgWidget\.h'
+    'OsgWidget\.h',
+    'RobotSceneKinematics\.h',
+    'UrdfRobotLoader\.h',
+    'BackendHierarchyModel\.h',
+    'BackendProjectObjectIo\.h',
+    'OsgScene\.h'
 )
 
 # 过渡文件：阶段 B/C 迁移完成前仍允许 OsgWidget / RobotInstruction 头（新文件不得加入此表）
 $transitionalIncludeAllow = @{
     'WidgetSceneSignalWiring.cpp' = $true
-    'MainWindow.cpp' = $true
     'MainWindowRobotStubs.cpp' = $true
     'MainWindowUiSetup.cpp' = $true
     'MainWindowBackendTree.cpp' = $true
     'MainWindowFileImport.cpp' = $true
     'MainWindowPropertyPanel.cpp' = $true
+    'DocumentPage.cpp' = $true
+    'MainWindowRobotHost.cpp' = $true
+    'WidgetOsgViewHost.cpp' = $true
+    'MainWindowSelectionService.cpp' = $true
+    'MainWindowProjectIo.cpp' = $true
 }
 
 foreach ($rel in $compiledSources) {

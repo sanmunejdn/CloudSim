@@ -109,6 +109,15 @@ public:
 	virtual void clearRobotFrameOverlays(const ObjectId& robotRootBackendId) = 0;
 	virtual void setFeatureCatalogOverlay(const QVector<FeatureCatalogOverlayItemDto>& items) = 0;
 	virtual void clearFeatureCatalogOverlay() = 0;
+
+	/// pick alias / skip-rebase 查询（供 WidgetOsgViewHost 避免直连 OsgWidget）
+	virtual std::string resolvePickScopeBackendId(const std::string& backendId) const = 0;
+	virtual bool backendSkipsInnerModelCenterRebase(const std::string& backendId) const = 0;
+
+	/// 机器人 gizmo / active id（Phase B 收口）
+	virtual std::string activeBackendId() const = 0;
+	virtual void setRobotObjectGizmoSyncHook(std::function<bool()> hook) = 0;
+	virtual void setRobotObjectGizmoFkRefreshHook(std::function<void()> hook) = 0;
 };
 
 /// 渲染视口工厂

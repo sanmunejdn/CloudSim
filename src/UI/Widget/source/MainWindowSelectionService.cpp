@@ -8,14 +8,12 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 
-#include "BackendSceneDocumentFacade.h"
 #include "CoreEvents.h"
 #include "CoreTypes.h"
 #include "DocumentHostEvents.h"
 #include "DocumentPage.h"
 #include "IDataService.h"
 #include "IRenderView.h"
-#include "BackendHierarchyModel.h"
 #include "MainWindow.h"
 #include "MainWindowObjectRepository.h"
 #include "MainWindow_p.h"
@@ -67,7 +65,7 @@ void MainWindowSelectionService::applyBackendSelection(
 	{
 		if (doc)
 		{
-			doc->sceneFacade().entity(effectiveId.toStdString()).setVisible(rowVisible);
+			doc->setBackendVisible(effectiveId, rowVisible);
 		}
 		else
 		{
@@ -311,22 +309,11 @@ void MainWindowSelectionService::handleBackendTreeItemChanged(
 	if (itemType == kItemTypeBackend)
 	{
 		const QString backendId = item->data(0, kRoleBackendId).toString();
-		QVector<QString> idsToUpdate;
+		QStringList idsToUpdate;
 		if (doc)
 		{
-			const std::vector<std::string>& sub = doc->hierarchyModel().subtreeIds(backendId.toStdString());
-			if (sub.empty())
-			{
-				idsToUpdate.append(backendId);
-			}
-			else
-			{
-				idsToUpdate.reserve(static_cast<int>(sub.size()));
-				for (const std::string& id : sub)
-				{
-					idsToUpdate.append(QString::fromStdString(id));
-				}
-			}
+			// Fallback: treat the single node as the subtree when hierarchy model is unavailable
+			idsToUpdate.append(backendId);
 		}
 		else
 		{
@@ -340,13 +327,7 @@ void MainWindowSelectionService::handleBackendTreeItemChanged(
 		const QSignalBlocker guard(mainWindow.m_backendTree);
 		if (doc)
 		{
-			std::vector<std::string> idsStd;
-			idsStd.reserve(static_cast<std::size_t>(idsToUpdate.size()));
-			for (const QString& id : idsToUpdate)
-			{
-				idsStd.push_back(id.toStdString());
-			}
-			doc->sceneFacade().setBackendsVisible(idsStd, visible);
+			doc->setBackendsVisible(idsToUpdate, visible);
 		}
 		else
 		{

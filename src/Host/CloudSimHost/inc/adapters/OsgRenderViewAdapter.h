@@ -92,6 +92,13 @@ public:
 	void setFeatureCatalogOverlay(const QVector<core::FeatureCatalogOverlayItemDto>& items) override;
 	void clearFeatureCatalogOverlay() override;
 
+	std::string resolvePickScopeBackendId(const std::string& backendId) const override;
+	bool backendSkipsInnerModelCenterRebase(const std::string& backendId) const override;
+
+	std::string activeBackendId() const override;
+	void setRobotObjectGizmoSyncHook(std::function<bool()> hook) override;
+	void setRobotObjectGizmoFkRefreshHook(std::function<void()> hook) override;
+
 private:
 	DocumentHost* m_host = nullptr;
 	OsgWidget& m_widget;

@@ -2,6 +2,7 @@
 
 #include "cloudsim_core_global.h"
 
+#include <QHash>
 #include <QJsonObject>
 #include <QString>
 #include <QStringList>
@@ -242,6 +243,18 @@ struct FeasibleMotionAxisOptionsDto
 	QStringList turnJ1Tokens;
 	QStringList turnJ4Tokens;
 	QStringList turnJ6Tokens;
+};
+
+/// 机器人 per-link FK 切片 DTO（osg::Matrixd → Mat4，供 Widget 不依赖 RobotScene）
+struct RobotPerLinkKinematicsSliceDto
+{
+	QString urdfAbsolutePath;
+	ObjectId sceneRootBackendId;
+	QHash<QString, QString> linkNameToBackendId;
+	QHash<QString, Mat4> fkMeshWorldT0;
+	QHash<QString, Mat4> outerWorldAtBindByBackendId;
+	Mat4 robotBasePlacementWorld{};
+	bool meshVerticesInLinkFrame = false;
 };
 
 } // namespace cloudsim::core

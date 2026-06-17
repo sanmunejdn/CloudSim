@@ -7,7 +7,6 @@
 #include "WidgetRenderAccess.h"
 #include "BackendSceneDocumentFacade.h"
 #include "JobSystem.h"
-#include "RobotInstructionModel.h"
 
 #include <algorithm>
 #include <cmath>
@@ -47,8 +46,6 @@
 #include "ApplicationStyle.h"
 #include "BackendVisualSync.h"
 #include "DocumentPage.h"
-#include "ObjectGizmoFrame.h"
-#include "OsgWidget.h"
 #include "CoreTypes.h"
 #include "IDataService.h"
 #include "IRenderView.h"
@@ -60,7 +57,6 @@
 #include "MainWindowRobotHost.h"
 #include "../RobotWidget/inc/IRobotOsgViewHost.h"
 #include "IRobotBackendPoseSink.h"
-#include "RobotInstructionProgram.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotInstructionTransform.h"
 #include "RobotMatrixOsgBridge.h"
@@ -70,7 +66,6 @@
 #include <RigidTransform.h>
 #include <ToolKinematics.h>
 #include "RobotProgramExport.h"
-#include "UrdfRobotLoader.h"
 #include "RunInfoPage.h"
 #include "RunLogger.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
@@ -872,19 +867,15 @@ void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 	{
 		return;
 	}
-	OsgWidget* osg = page->osgWidget();
-	if (osg)
-	{
-		osg->setRobotObjectGizmoSyncHook([this, page](const ObjectGizmoFrame& /*frame*/, bool /*dragging*/) {
-			return page && isPerLinkRobotObjectGizmoActive(page);
-		});
-		osg->setRobotObjectGizmoFkRefreshHook([this, page](const ObjectGizmoFrame& /*frame*/, bool /*dragging*/) {
-			if (page)
-			{
-				refreshPerLinkRobotObjectGizmoFk(*page);
-			}
-		});
-	}
+	page->render().setRobotObjectGizmoSyncHook([this, page]() -> bool {
+		return page && isPerLinkRobotObjectGizmoActive(page);
+	});
+	page->render().setRobotObjectGizmoFkRefreshHook([this, page]() {
+		if (page)
+		{
+			refreshPerLinkRobotObjectGizmoFk(*page);
+		}
+	});
 	page->render().setPerFrameHook([this, page]() {
 		if (!page || !m_documentTabs || m_documentTabs->currentWidget() != page)
 		{
@@ -905,12 +896,12 @@ void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 
 bool MainWindow::isPerLinkRobotObjectGizmoActive(const DocumentPage* page) const
 {
-	const OsgWidget* osg = page ? page->osgWidget() : nullptr;
-	if (!osg)
+	if (!page)
 	{
 		return false;
 	}
-	const QString activeId = QString::fromStdString(osg->activeBackendId());
+	const std::string activeIdStd = const_cast<DocumentPage*>(page)->render().activeBackendId();
+	const QString activeId = QString::fromStdString(activeIdStd);
 	if (activeId.isEmpty())
 	{
 		return false;
@@ -927,12 +918,16 @@ bool MainWindow::isPerLinkRobotObjectGizmoActive(const DocumentPage* page) const
 
 void MainWindow::refreshPerLinkRobotObjectGizmoFk(DocumentPage& doc)
 {
-	const OsgWidget* osg = doc.osgWidget();
-	if (!osg || !m_robotSimulation)
+	if (!m_robotSimulation)
 	{
 		return;
 	}
-	const QString activeId = QString::fromStdString(osg->activeBackendId());
+	const std::string activeIdStd = doc.render().activeBackendId();
+	const QString activeId = QString::fromStdString(activeIdStd);
+	if (activeId.isEmpty())
+	{
+		return;
+	}
 	bool isSceneRoot = false;
 	const int instIdx = doc.robotInstanceIndexForPerLinkBackend(activeId, &isSceneRoot);
 	if (instIdx < 0)

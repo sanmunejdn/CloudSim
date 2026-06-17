@@ -45,11 +45,15 @@ CloudSimHost/
 │       ├── DataServiceAdapter.h
 │       ├── OsgRenderViewAdapter.h
 │       └── RobotServiceAdapter.h
+│   ├── IPerLinkKinematicsHost.h          # per-link 机器人运动学宿主接口（2026）
+│   ├── IPerLinkRobotStateAccessor.h      # 状态快照访问器 + DTO（2026）
+│   └── PerLinkKinematicsHostImpl.h       # Host 实现类声明
 └── source/
     ├── DocumentHost.cpp
     ├── CloudSimApplicationContext.cpp   # cloudsimCreateApplicationContext
     ├── CloudSimHostExport.cpp           # cloudsimCreateRenderViewFactory (C ABI)
-    └── adapters/*.cpp
+    ├── adapters/*.cpp
+    └── PerLinkKinematicsHostImpl.cpp     # Host 实现类（调用 RobotSceneKinematics/UrdfRobotLoader）
 ```
 
 **自 `Widget` 编入本工程的源码**（路径仍为 `src/UI/Widget/`，勿在 Host 下维护第二份副本）：
@@ -402,6 +406,23 @@ STEP 多零件优先 **B-rep 路径**（`loadStepHierarchyFromFile` → `collect
 
 头文件中类型前向声明必须写在**全局**命名空间（勿在 `namespace cloudsim::host { class OsgWidget; }` 内声明，否则会与 `::OsgWidget` 冲突）。
 
+### 4.4.5 `IPerLinkKinematicsHost` / `IPerLinkRobotStateAccessor`（2026）
+
+**目的**：将 `DocumentPage` 中的 `RobotSceneKinematics` / `UrdfRobotLoader` 调用通过接口抽象收口到 Host 编译单元，实现 Widget 与 Robot 引擎的进一步解耦。
+
+| 接口 | 职责 |
+|------|------|
+| `IPerLinkKinematicsHost` | 定义 `applyPerLinkRobotFkFromGizmoAnchor` / `reconcilePerLinkOuterBindFromScene` |
+| `IPerLinkRobotStateAccessor` | 定义状态快照提取（`PerLinkRobotStateSnapshot`）与结果应用（`PerLinkRobotFkResult`） |
+| `PerLinkKinematicsHostImpl` | Host 实现类，依赖访问器接口，内部调用 `RobotSceneKinematics` / `UrdfRobotLoader` |
+
+**集成方式**：
+- `DocumentHost` 新增 `setPerLinkKinematicsHost` / `setPerLinkRobotStateAccessor`
+- `DocumentPage` 同时实现两个接口，构造时注入自己
+- `MainWindow` / 其他调用方通过 `doc->robot()` 或 `doc->render()` 间接触发，无需直接 include Robot* 头
+
+**状态访问器模式优势**：Host 实现类完全不依赖 `DocumentPage` 具体类型，仅通过 `IPerLinkRobotStateAccessor` 操作状态，符合依赖倒置原则。
+
 ---
 
 ### 4.5 `ApplicationContextImpl`
@@ -559,6 +580,7 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 6. **OSG 头文件解耦**：阶段 3.1-3.2 已完成（2 个文件移除 14 个 OSG include）。阶段 3.3-3.4（DocumentPage 等）待定。
 7. **Host 目录**：`source/osg/` 若存在勿加入 vcxproj；以 `Widget/source` 为唯一 OsgWidget 源码真源。
 8. **`.pcp` zip**：仍在 Widget（`project_package_zip`），非 Host 职责。
+9. **per-link 机器人运动学收口**：通过 `IPerLinkKinematicsHost` + `IPerLinkRobotStateAccessor` 实现 `DocumentPage` 调用封装；`PerLinkKinematicsHostImpl` 位于 Host 编译单元（2026 已落地）。
 
 ---
 

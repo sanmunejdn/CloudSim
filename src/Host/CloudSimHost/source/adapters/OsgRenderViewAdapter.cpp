@@ -4,6 +4,7 @@
 #include "DocumentHostAccess.h"
 #include "IDataService.h"
 #include "OsgWidget.h"
+#include "ObjectGizmoFrame.h"
 
 #include "RobotOsgUiTypes.h"
 
@@ -607,6 +608,35 @@ void OsgRenderViewAdapter::setFeatureCatalogOverlay(const QVector<core::FeatureC
 void OsgRenderViewAdapter::clearFeatureCatalogOverlay()
 {
 	m_widget.clearFeatureCatalogOverlay();
+}
+
+std::string OsgRenderViewAdapter::resolvePickScopeBackendId(const std::string& backendId) const
+{
+	return m_widget.resolvePickScopeBackendId(backendId);
+}
+
+bool OsgRenderViewAdapter::backendSkipsInnerModelCenterRebase(const std::string& backendId) const
+{
+	return m_widget.backendSkipsInnerModelCenterRebase(backendId);
+}
+
+std::string OsgRenderViewAdapter::activeBackendId() const
+{
+	return m_widget.activeBackendId();
+}
+
+void OsgRenderViewAdapter::setRobotObjectGizmoSyncHook(std::function<bool()> hook)
+{
+	m_widget.setRobotObjectGizmoSyncHook([hook](const ObjectGizmoFrame&, bool) -> bool {
+		return hook ? hook() : false;
+	});
+}
+
+void OsgRenderViewAdapter::setRobotObjectGizmoFkRefreshHook(std::function<void()> hook)
+{
+	m_widget.setRobotObjectGizmoFkRefreshHook([hook](const ObjectGizmoFrame&, bool) {
+		if (hook) hook();
+	});
 }
 
 } // namespace cloudsim::host

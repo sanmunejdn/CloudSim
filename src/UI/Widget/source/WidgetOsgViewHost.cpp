@@ -68,7 +68,7 @@ const OsgWidget* WidgetOsgViewHost::osgWidget() const
 {
 	if (cloudsim::core::IRenderView* rv = renderView())
 	{
-		return dynamic_cast<const OsgWidget*>(rv->widget());
+		return qobject_cast<const OsgWidget*>(rv->widget());
 	}
 	return nullptr;
 }
@@ -178,18 +178,18 @@ bool WidgetOsgViewHost::tryGetBackendModelCenterMm(const std::string& backendId,
 
 std::string WidgetOsgViewHost::resolvePickScopeBackendId(const std::string& backendId) const
 {
-	if (const OsgWidget* widget = osgWidget())
+	if (cloudsim::core::IRenderView* rv = renderView())
 	{
-		return widget->resolvePickScopeBackendId(backendId);
+		return rv->resolvePickScopeBackendId(backendId);
 	}
 	return backendId;
 }
 
 bool WidgetOsgViewHost::backendSkipsInnerModelCenterRebase(const std::string& backendId) const
 {
-	if (const OsgWidget* widget = osgWidget())
+	if (cloudsim::core::IRenderView* rv = renderView())
 	{
-		return widget->backendSkipsInnerModelCenterRebase(backendId);
+		return rv->backendSkipsInnerModelCenterRebase(backendId);
 	}
 	return false;
 }

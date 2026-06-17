@@ -234,6 +234,12 @@ public:
 	void setFeatureCatalogOverlay(const QVector<FeatureCatalogOverlayItemDto>&) override {}
 	void clearFeatureCatalogOverlay() override {}
 
+	std::string resolvePickScopeBackendId(const std::string& backendId) const override { return backendId; }
+	bool backendSkipsInnerModelCenterRebase(const std::string&) const override { return false; }
+	std::string activeBackendId() const override { return {}; }
+	void setRobotObjectGizmoSyncHook(std::function<bool()>) override {}
+	void setRobotObjectGizmoFkRefreshHook(std::function<void()>) override {}
+
 private:
 	std::unique_ptr<QWidget> m_widget;
 };

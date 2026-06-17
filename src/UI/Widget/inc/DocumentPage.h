@@ -10,6 +10,7 @@
 
 #include "DocumentHost.h"
 #include "IRobotUrdfImportContext.h"
+#include "IPerLinkRobotStateAccessor.h"
 
 namespace cloudsim::core {
 class EventHub;
@@ -35,7 +36,9 @@ class ref_ptr;
 /// 单文档页：宿主层 DocumentHost + 机器人仿真元数据（IRobotSimulationDocument）
 class WIDGET_EXPORT DocumentPage : public cloudsim::host::DocumentHost,
 								  public IRobotSimulationDocument,
-								  public cloudsim::host::IRobotUrdfImportContext
+								  public cloudsim::host::IRobotUrdfImportContext,
+								  public cloudsim::host::IPerLinkKinematicsHost,
+								  public cloudsim::host::IPerLinkRobotStateAccessor
 {
 	Q_OBJECT
 
@@ -46,6 +49,10 @@ public:
 	void invalidateFollowReverseIndex() { followReverseIndex().invalidate(); }
 
 	void markFollowAttachmentDirtyFromBackendMove(const QString& seedBackendId);
+
+	/// 可见性委托（避免 MainWindowSelectionService 直接 include BackendSceneDocumentFacade.h）
+	void setBackendVisible(const QString& backendId, bool visible);
+	void setBackendsVisible(const QStringList& backendIds, bool visible);
 
 	void setHierarchicalRobotSimulationContext(
 		const QString& urdfAbsolutePath,
@@ -82,6 +89,7 @@ public:
 	QString robotJointKeyPrefixForInstance(int instanceIndex) const override;
 	bool robotUsesPerLinkBackendsForInstance(int instanceIndex) const override;
 	bool robotPerLinkKinematicsForInstance(int instanceIndex, RobotPerLinkKinematicsSlice& out) const override;
+	bool robotPerLinkKinematicsDtoForInstance(int instanceIndex, cloudsim::core::RobotPerLinkKinematicsSliceDto& out) const override;
 
 	QString robotSceneBackendId() const { return m_robotSceneBackendId; }
 
@@ -97,6 +105,10 @@ public:
 	const QHash<QString, QString>& robotLinkNameToBackendId() const override;
 	const QHash<QString, osg::Matrixd>& robotFkMeshWorldT0() const override;
 	const QHash<QString, osg::Matrixd>& robotOuterWorldAtBind() const override;
+
+	/// DTO 版本（Widget 优先调用，避免 osg 依赖）
+	QHash<QString, cloudsim::core::Mat4> robotFkMeshWorldT0Dto() const override;
+	QHash<QString, cloudsim::core::Mat4> robotOuterWorldAtBindDto() const override;
 	bool robotUrdfMeshVerticesInLinkFrame() const override;
 
 	QString robotImportParentId() const;
@@ -106,17 +118,18 @@ public:
 	/// per-link 机器人 gizmo 挂在根连杆 mesh（scene 根无 OSG 分支）
 	QString robotGizmoAnchorBackendId(const QString& backendId) const;
 	/// 按当前场景位姿反解 bind 表 M0（M = M0·inv(T0)·Tq·P，勿把含 P 的世界矩阵直接写入 M0）
-	void reconcilePerLinkOuterBindFromScene(int instanceIndex, const QVector<double>& jointAnglesRad);
+	void reconcilePerLinkOuterBindFromScene(int instanceIndex, const QVector<double>& jointAnglesRad) override;
 	/// per-link 机器人对象 gizmo：由锚点连杆世界位姿反解 basePlacement 并 FK 全连杆
 	bool applyPerLinkRobotFkFromGizmoAnchor(
 		int instanceIndex,
 		const QString& anchorLinkBackendId,
-		const QVector<double>& jointAnglesRad);
+		const QVector<double>& jointAnglesRad) override;
 	QString robotJointPrefixRoot() const;
 	const QVector<double>& robotJointLowerRad() const { return m_robotJointLowerRad; }
 	const QVector<double>& robotJointUpperRad() const { return m_robotJointUpperRad; }
 
-	BackendDataManager* robotBackendManagerForKinematics() override { return &backend(); }
+	BackendDataManager* robotBackendManagerForKinematics() override { return &DocumentHost::backend(); }
+	BackendDataManager& backend() override { return DocumentHost::backend(); }
 
 	void notifyRobotKinematicsAppliedToScene() override;
 
@@ -134,6 +147,10 @@ public:
 	void urdfImportClearStagingGeometry() override { clearStagingGeometry(); }
 	void urdfImportFocusCameraOnBackend(const std::string& backendId) override { focusSceneCameraOnBackend(backendId); }
 	QMap<QString, QString>& urdfImportBackendSourcePath() override { return DocumentHost::backendSourcePath(); }
+
+	/// IPerLinkRobotStateAccessor
+	cloudsim::host::PerLinkRobotStateSnapshot extractPerLinkStateSnapshot(int instanceIndex) const override;
+	void applyPerLinkFkResult(const cloudsim::host::PerLinkRobotFkResult& result) override;
 	QMap<QString, QString>& urdfImportBackendSourceType() override { return DocumentHost::backendSourceType(); }
 	QMap<QString, QString>& urdfImportBackendParentId() override { return DocumentHost::backendParentId(); }
 
