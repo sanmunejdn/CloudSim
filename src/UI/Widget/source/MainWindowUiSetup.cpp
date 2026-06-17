@@ -120,7 +120,7 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	m_documentTabs = new QTabWidget(central);
 	m_documentTabs->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	m_documentTabs->setDocumentMode(true);
-	m_documentTabs->setTabsClosable(false);
+	m_documentTabs->setTabsClosable(true);
 	rootLayout->addWidget(m_documentTabs, 1);
 
 	auto* firstPage = new DocumentPage(m_documentTabs, m_appEvents);
@@ -194,6 +194,7 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	m_robotSimTimer.setInterval(kPlaybackTimerIntervalMs);
 	m_robotSimulation->attachPlaybackTimer(&m_robotSimTimer);
 	connect(m_documentTabs, &QTabWidget::currentChanged, this, &MainWindow::onDocumentTabChanged);
+	connect(m_documentTabs, &QTabWidget::tabCloseRequested, this, &MainWindow::closeDocumentTab);
 	m_followTargetNameDebounceTimer.setSingleShot(true);
 	connect(&m_followTargetNameDebounceTimer, &QTimer::timeout, this, &MainWindow::flushFollowTargetNamePropertyEdit);
 	m_propertyPanelCommitTimer.setSingleShot(true);

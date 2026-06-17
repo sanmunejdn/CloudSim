@@ -214,6 +214,7 @@ private:
 	void onThemeActionGroupTriggered(QAction* action);
 	void onNewDocument();
 	void onDocumentTabChanged(int index);
+	void closeDocumentTab(int index);
 	void onPointPickFeedback(const QString& text);
 	void onMeshPickFeedback(const QString& text);
 	void onOsgBackendObjectPicked(const QString& backendId);

@@ -991,6 +991,76 @@ void MainWindow::onDocumentTabChanged(int)
 	refreshSimulationJointListFromCurrentDoc();
 }
 
+void MainWindow::closeDocumentTab(int index)
+{
+	if (!m_documentTabs || index < 0 || index >= m_documentTabs->count())
+	{
+		return;
+	}
+
+	// 如果只剩最后一个标签，不允许关闭（保持至少一个文档）
+	if (m_documentTabs->count() <= 1)
+	{
+		return;
+	}
+
+	auto* page = qobject_cast<DocumentPage*>(m_documentTabs->widget(index));
+	if (!page)
+	{
+		return;
+	}
+
+	// 检查文档是否有内容需要保存
+	const bool hasContent = !page->data().listAll().isEmpty();
+	if (hasContent)
+	{
+		const QString title = m_documentTabs->tabText(index);
+		const QString msg = i18n(
+			QStringLiteral("Save changes to '%1' before closing?").arg(title),
+			QStringLiteral("关闭前是否保存对 '%1' 的更改？").arg(title));
+
+		QMessageBox::StandardButton result = QMessageBox::question(
+			this,
+			i18n(QStringLiteral("Close Document"), QStringLiteral("关闭文档")),
+			msg,
+			QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
+			QMessageBox::Save);
+
+		if (result == QMessageBox::Cancel)
+		{
+			return;
+		}
+
+		if (result == QMessageBox::Save)
+		{
+			// 先切换到目标标签，触发保存，再关闭
+			m_documentTabs->setCurrentIndex(index);
+			onSaveProject();
+			// 如果用户取消了保存对话框（文件路径为空），不关闭
+			if (page->projectFilePath().isEmpty() && m_documentTabs->count() > 1)
+			{
+				return;
+			}
+		}
+	}
+
+	// 停止仿真并清理状态（无论关闭的是哪个标签）
+	if (index == m_documentTabs->currentIndex())
+	{
+		stopRobotSimulation();
+		MainWindowSelectionService::clearSelection(*this, true);
+	}
+
+	m_documentTabs->removeTab(index);
+	page->deleteLater();
+
+	// 关闭后刷新当前标签的状态
+	if (m_documentTabs->count() > 0)
+	{
+		onDocumentTabChanged(m_documentTabs->currentIndex());
+	}
+}
+
 void MainWindow::syncViewModeActionsFromCurrentOsg()
 {
 	IRobotOsgViewHost* view = activeOsgViewHost();
