@@ -1,4 +1,4 @@
-﻿#include "MainWindow.h"
+#include "MainWindow.h"
 
 #include "BackendFollowSolve.h"
 #include "BackendHierarchyFollow.h"
