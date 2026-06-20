@@ -55,6 +55,9 @@ public:
 	virtual int robotKinematicInstanceCount() const = 0;
 	virtual int robotInstanceIndexForSceneBackendId(const QString& sceneBackendId) const = 0;
 	virtual RobotCoordinate::RobotCoordinateFrameSet& robotCoordinateFramesForInstance(int instanceIndex) = 0;
+
+	/// 设置机器人基座放置位姿 P（工程恢复时从 project.json 还原）
+	virtual void setRobotBasePlacementWorldForInstance(int instanceIndex, const osg::Matrixd& placementWorld) = 0;
 };
 
 } // namespace cloudsim::host

@@ -36,6 +36,8 @@ class QPushButton;
 
 class QLabel;
 
+class QScrollArea;
+
 class RobotProgramStore;
 
 class InstructionProgramTreeWidget;
@@ -208,11 +210,9 @@ private:
 
 
 
-	QLabel* m_hintLabel = nullptr;
+	QGroupBox* m_instructionGroupBox = nullptr;
 
 	QLabel* m_programLabel = nullptr;
-
-	QGroupBox* m_instructionGroupBox = nullptr;
 
 	QGroupBox* m_functionGroupBox = nullptr;
 
@@ -247,6 +247,8 @@ private:
 	QPushButton* m_tcpDragTeachBtn = nullptr;
 
 	bool m_tcpDragTeachMode = false;
+
+	QScrollArea* m_scrollArea = nullptr;
 
 };
 

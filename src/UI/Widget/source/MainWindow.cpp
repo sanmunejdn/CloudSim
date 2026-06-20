@@ -142,10 +142,6 @@ void MainWindow::applyLanguage()
 	{
 		m_gizmoWorldFrameAction->setText(i18n(QStringLiteral("Transform: World"), QStringLiteral("变换：世界系")));
 	}
-	if (m_simulationStartAction)
-	{
-		m_simulationStartAction->setText(i18n(QStringLiteral("Start Simulation"), QStringLiteral("开始仿真")));
-	}
 
 	if (m_propertyDock)
 	{
@@ -164,10 +160,15 @@ void MainWindow::applyLanguage()
 	{
 		m_unitDock->setWindowTitle(i18n(QStringLiteral("Workspace"), QStringLiteral("工作区")));
 	}
-	if (m_rightPanelTabs && m_rightPanelTabs->count() >= 2)
+	if (m_rightPanelTabs && m_rightPanelTabs->count() >= 1)
 	{
 		m_rightPanelTabs->setTabText(0, i18n(QStringLiteral("Workspace"), QStringLiteral("工作区")));
-		m_rightPanelTabs->setTabText(1, i18n(QStringLiteral("AI"), QStringLiteral("AI")));
+	}
+	if (m_aiAssistantPage)
+	{
+		setPluginSidePanelTabTitle(
+			m_aiAssistantPage,
+			i18n(QStringLiteral("AI Assistant"), QStringLiteral("AI 助手")));
 	}
 	if (m_unitDockTabs && m_unitDockTabs->count() >= 3)
 	{
@@ -226,12 +227,14 @@ void MainWindow::applyLanguage()
 	{
 		m_runDock->setWindowTitle(i18n(QStringLiteral("Runtime Output"), QStringLiteral("运行信息")));
 	}
-	if (m_toggleAiAssistantAction)
+	if (m_aiAssistantPage)
 	{
-		m_toggleAiAssistantAction->setText(i18n(QStringLiteral("AI Assistant"), QStringLiteral("AI 助手")));
+		m_aiAssistantPage->setUseChinese(m_useChinese);
 	}
-	if (m_runInfoPage) m_runInfoPage->setUiLanguage(m_useChinese);
-	if (m_aiAssistantPage) m_aiAssistantPage->setUseChinese(m_useChinese);
+	if (m_runInfoPage)
+	{
+		m_runInfoPage->setUiLanguage(m_useChinese);
+	}
 
 	if (m_propertyBrowser)
 	{

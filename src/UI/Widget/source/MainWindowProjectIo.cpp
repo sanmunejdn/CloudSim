@@ -386,7 +386,9 @@ void MainWindow::onOpenProjectFile()
 		}
 	}
 
-	if (m_robotSimulation && projectHadPrograms)
+	// 仅当文档中没有保存的关节角时，才用程序起始位姿覆盖
+	// 避免覆盖用户在文档中手动调整的关节位置
+	if (m_robotSimulation && projectHadPrograms && (!projectRobotKinematicsRestored || projectLoadedJointAngles.isEmpty()))
 	{
 		m_robotSimulation->applyProgramStartPoseAfterProjectLoad();
 	}

@@ -5,6 +5,7 @@
 #include <QDoubleSpinBox>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QSizePolicy>
 #include <QSpinBox>
 #include <QWidget>
 
@@ -20,6 +21,26 @@ public:
 	std::function<bool(const TrajectoryParamValue&)> write;
 	std::function<bool(TrajectoryParamValue&)> read;
 };
+
+constexpr int kParamControlHeight = 26;
+
+QHBoxLayout* makeCompactRowLayout(QWidget* host)
+{
+	auto* layout = new QHBoxLayout(host);
+	layout->setContentsMargins(0, 0, 0, 0);
+	layout->setSpacing(2);
+	host->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	return layout;
+}
+
+void applyCompactControlHeight(QWidget* widget)
+{
+	if (widget)
+	{
+		widget->setFixedHeight(kParamControlHeight);
+		widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	}
+}
 
 } // namespace
 
@@ -57,8 +78,8 @@ TrajectoryParamBinding TrajectoryParamWidgetFactory::create(
 			spin->setSuffix(QStringLiteral(" ") + QString::fromStdString(field.unit));
 		}
 		spin->setDecimals(field.step < 0.1 ? 3 : 2);
-		host->layout() ? static_cast<void>(0) : host->setLayout(new QHBoxLayout(host));
-		host->layout()->addWidget(spin);
+		applyCompactControlHeight(spin);
+		makeCompactRowLayout(host)->addWidget(spin, 1);
 		binding.read = [spin](TrajectoryParamValue& out) {
 			out.kind = TrajectoryParamValue::Kind::Double;
 			out.asDouble = spin->value();
@@ -77,8 +98,8 @@ TrajectoryParamBinding TrajectoryParamWidgetFactory::create(
 	{
 		auto* spin = new QSpinBox(host);
 		spin->setRange(field.minInt, field.maxInt);
-		host->setLayout(new QHBoxLayout(host));
-		host->layout()->addWidget(spin);
+		applyCompactControlHeight(spin);
+		makeCompactRowLayout(host)->addWidget(spin, 1);
 		binding.read = [spin](TrajectoryParamValue& out) {
 			out.kind = TrajectoryParamValue::Kind::Int;
 			out.asInt = spin->value();
@@ -96,8 +117,9 @@ TrajectoryParamBinding TrajectoryParamWidgetFactory::create(
 	else if (field.type == TrajectoryParamType::Bool)
 	{
 		auto* box = new QCheckBox(host);
-		host->setLayout(new QHBoxLayout(host));
-		host->layout()->addWidget(box);
+		auto* rowLayout = makeCompactRowLayout(host);
+		rowLayout->addWidget(box);
+		rowLayout->addStretch(1);
 		binding.read = [box](TrajectoryParamValue& out) {
 			out.kind = TrajectoryParamValue::Kind::Bool;
 			out.asBool = box->isChecked();
@@ -115,8 +137,8 @@ TrajectoryParamBinding TrajectoryParamWidgetFactory::create(
 	else if (field.type == TrajectoryParamType::Enum)
 	{
 		auto* combo = new QComboBox(host);
-		host->setLayout(new QHBoxLayout(host));
-		host->layout()->addWidget(combo);
+		applyCompactControlHeight(combo);
+		makeCompactRowLayout(host)->addWidget(combo, 1);
 		for (size_t i = 0; i < field.enumValues.size(); ++i)
 		{
 			const QString label = (useChinese && i < field.enumLabelsZh.size())
@@ -157,8 +179,7 @@ TrajectoryParamBinding TrajectoryParamWidgetFactory::create(
 	}
 	else if (field.type == TrajectoryParamType::Vec3)
 	{
-		auto* layout = new QHBoxLayout(host);
-		host->setLayout(layout);
+		auto* layout = makeCompactRowLayout(host);
 		auto* spinX = new QDoubleSpinBox(host);
 		auto* spinY = new QDoubleSpinBox(host);
 		auto* spinZ = new QDoubleSpinBox(host);
@@ -167,10 +188,11 @@ TrajectoryParamBinding TrajectoryParamWidgetFactory::create(
 			spin->setRange(field.minValue, field.maxValue);
 			spin->setSingleStep(field.step);
 			spin->setDecimals(field.step < 0.1 ? 3 : 2);
+			applyCompactControlHeight(spin);
 		}
-		layout->addWidget(spinX);
-		layout->addWidget(spinY);
-		layout->addWidget(spinZ);
+		layout->addWidget(spinX, 1);
+		layout->addWidget(spinY, 1);
+		layout->addWidget(spinZ, 1);
 		binding.readVec3 = [spinX, spinY, spinZ](double& x, double& y, double& z) {
 			x = spinX->value();
 			y = spinY->value();

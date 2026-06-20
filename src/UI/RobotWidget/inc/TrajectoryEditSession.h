@@ -70,7 +70,7 @@ public:
 
 	RobotInstruction::TrajectoryPipelineEngine& pipelineEngine() { return m_pipelineEngine; }
 	const RobotInstruction::TrajectoryPipelineEngine& pipelineEngine() const { return m_pipelineEngine; }
-	bool syncPipelineEngine(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& draftOps);
+	bool syncPipelineEngine(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops);
 	bool runPipelineEngineFull(QString* outError = nullptr);
 	bool runPipelineEngineFrom(std::size_t nodeIndex, QString* outError = nullptr);
 
@@ -107,7 +107,7 @@ private:
 		RobotInstruction::UnifiedTrajectory& unified,
 		QString* outError = nullptr) const;
 	bool configurePipelineEngineForRaw(
-		const std::vector<RobotInstruction::TrajectoryOpDescriptor>& draftOps) const;
+		const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops) const;
 	bool previewUnifiedFromProgramPipeline(QString* outError);
 	void clearOverlayPreview();
 	bool showUnifiedOverlayPreview(
@@ -150,9 +150,5 @@ private:
 	bool m_overlayStoreWritebackActive = false;
 	bool m_applying = false;
 	std::optional<RobotInstruction::RawTrajectory> m_rawTrajectory;
-	/// 轨迹离散前（session 尚无 raw）Apply 的几何块，首次 raw Apply 时先叠加
-	std::vector<RobotInstruction::TrajectoryOpDescriptor> m_pendingPreRawGeometryOps;
-	/// 历次 raw Apply 的几何块（含进退刀等），下次从 CAD raw 重放
-	std::vector<RobotInstruction::TrajectoryOpDescriptor> m_accumulatedGeometryOps;
 	std::optional<RobotInstruction::RawTrajectory> m_bakedWorldRaw;
 };

@@ -872,16 +872,7 @@ void PluginHostContext::setSidePanelTabTitle(QWidget* widget, const char* titleU
 	{
 		return;
 	}
-	QTabWidget* tabs = m_mainWindowHost->rightPanelTabs();
-	if (!tabs)
-	{
-		return;
-	}
-	const int idx = tabs->indexOf(widget);
-	if (idx >= 0)
-	{
-		tabs->setTabText(idx, QString::fromUtf8(titleUtf8));
-	}
+	m_mainWindowHost->setPluginSidePanelTabTitle(widget, QString::fromUtf8(titleUtf8));
 }
 
 void PluginHostContext::notifyLanguageChanged()

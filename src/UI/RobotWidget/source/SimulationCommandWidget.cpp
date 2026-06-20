@@ -13,6 +13,7 @@
 #include <QComboBox>
 #include <QInputDialog>
 #include <QLineEdit>
+#include <QScrollArea>
 #include <QSignalBlocker>
 #include <QFrame>
 #include <QGroupBox>
@@ -40,14 +41,14 @@ QString instructionTypeLabel(RobotInstruction::Type t, bool zh)
 	case RobotInstruction::Type::WHILE:
 		return zh ? QStringLiteral("循环") : QStringLiteral("WHILE");
 	case RobotInstruction::Type::SET_DO:
-		return zh ? QStringLiteral("数字输出") : QStringLiteral("SET_DO");
+		return zh ? QStringLiteral("DO") : QStringLiteral("SET_DO");
 	case RobotInstruction::Type::SET_AO:
-		return zh ? QStringLiteral("模拟输出") : QStringLiteral("SET_AO");
+		return zh ? QStringLiteral("AO") : QStringLiteral("SET_AO");
 	case RobotInstruction::Type::PathPlan:
-		return zh ? QStringLiteral("路径规划") : QStringLiteral("PATH_PLAN");
+		return zh ? QStringLiteral("路径") : QStringLiteral("PATH");
 	case RobotInstruction::Type::PTP:
 	default:
-		return zh ? QStringLiteral("点到点") : QStringLiteral("PTP");
+		return zh ? QStringLiteral("PTP") : QStringLiteral("PTP");
 	}
 }
 
@@ -125,35 +126,55 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 	: QWidget(parent)
 {
 	auto* root = new QVBoxLayout(this);
-	root->setContentsMargins(6, 6, 6, 6);
-	root->setSpacing(6);
+	root->setContentsMargins(4, 4, 4, 4);
+	root->setSpacing(4);
 
-	auto* hint = new QLabel(QStringLiteral("Select robot, add instructions, then Run."));
-	hint->setWordWrap(true);
-	root->addWidget(hint);
-	m_hintLabel = hint;
+	// 运行按钮固定在底部
+	auto* rowRun = new QHBoxLayout;
+	rowRun->setSpacing(4);
+	m_runBtn = new QPushButton(QStringLiteral("Run"));
+	m_stopBtn = new QPushButton(QStringLiteral("Stop"));
+	m_exportBtn = new QPushButton(QStringLiteral("Export"));
+	m_stopBtn->setEnabled(false);
+	rowRun->addWidget(m_runBtn);
+	rowRun->addWidget(m_stopBtn);
+	rowRun->addWidget(m_exportBtn);
+	rowRun->addStretch(1);
+	root->addLayout(rowRun);
+
+	// 可滚动的内容区域
+	m_scrollArea = new QScrollArea(this);
+	m_scrollArea->setWidgetResizable(true);
+	m_scrollArea->setFrameShape(QFrame::NoFrame);
+	m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+	auto* scrollContent = new QWidget();
+	auto* contentLayout = new QVBoxLayout(scrollContent);
+	contentLayout->setContentsMargins(0, 0, 0, 0);
+	contentLayout->setSpacing(4);
 
 	m_robotCombo = new QComboBox(this);
-	root->addWidget(m_robotCombo);
+	contentLayout->addWidget(m_robotCombo);
 
 	auto* tcpRow = new QHBoxLayout;
 	tcpRow->addWidget(new QLabel(QStringLiteral("TCP"), this));
 	m_tcpLinkCombo = new QComboBox(this);
 	tcpRow->addWidget(m_tcpLinkCombo, 1);
-	root->addLayout(tcpRow);
+	contentLayout->addLayout(tcpRow);
 
 	auto* programRow = new QHBoxLayout;
+	programRow->setSpacing(2);
 	m_programLabel = new QLabel(QStringLiteral("程序"), this);
 	programRow->addWidget(m_programLabel);
 	m_programCombo = new QComboBox(this);
 	programRow->addWidget(m_programCombo, 1);
 	m_programNewBtn = new QPushButton(QStringLiteral("+"), this);
-	m_programRenameBtn = new QPushButton(QStringLiteral("重命名"), this);
-	m_programDeleteBtn = new QPushButton(QStringLiteral("删除"), this);
+	m_programRenameBtn = new QPushButton(QStringLiteral("名"), this);
+	m_programDeleteBtn = new QPushButton(QStringLiteral("删"), this);
 	programRow->addWidget(m_programNewBtn);
 	programRow->addWidget(m_programRenameBtn);
 	programRow->addWidget(m_programDeleteBtn);
-	root->addLayout(programRow);
+	contentLayout->addLayout(programRow);
 
 	const RobotInstruction::Type types[] = {
 		RobotInstruction::Type::PTP,
@@ -167,8 +188,8 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 	};
 	m_instructionGroupBox = new QGroupBox(QStringLiteral("Instructions"), this);
 	auto* addRow = new QHBoxLayout(m_instructionGroupBox);
-	addRow->setContentsMargins(6, 4, 6, 6);
-	addRow->setSpacing(4);
+	addRow->setContentsMargins(4, 2, 4, 4);
+	addRow->setSpacing(2);
 	for (const RobotInstruction::Type t : types)
 	{
 		if (t == RobotInstruction::Type::WAIT)
@@ -176,19 +197,19 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 			auto* sep = new QFrame(m_instructionGroupBox);
 			sep->setFrameShape(QFrame::VLine);
 			sep->setFrameShadow(QFrame::Sunken);
-			sep->setFixedWidth(2);
+			sep->setFixedWidth(1);
 			addRow->addWidget(sep);
 		}
 		addRow->addWidget(createTypeButton(t));
 	}
 	addRow->addStretch(1);
-	root->addWidget(m_instructionGroupBox);
+	contentLayout->addWidget(m_instructionGroupBox);
 
 	m_functionGroupBox = new QGroupBox(QStringLiteral("Functions"), this);
 	auto* funcRow = new QHBoxLayout(m_functionGroupBox);
-	funcRow->setContentsMargins(6, 4, 6, 6);
-	funcRow->setSpacing(4);
-	m_tcpDragTeachBtn = new QPushButton(QStringLiteral("End-effector drag"), m_functionGroupBox);
+	funcRow->setContentsMargins(4, 2, 4, 4);
+	funcRow->setSpacing(2);
+	m_tcpDragTeachBtn = new QPushButton(QStringLiteral("Drag"), m_functionGroupBox);
 	m_tcpDragTeachBtn->setCheckable(true);
 	m_tcpDragTeachBtn->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
 	connect(m_tcpDragTeachBtn, &QPushButton::toggled, this, [this](const bool checked) {
@@ -207,21 +228,14 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 	funcRow->addWidget(m_removeBtn);
 	funcRow->addWidget(m_clearBtn);
 	funcRow->addStretch(1);
-	root->addWidget(m_functionGroupBox);
+	contentLayout->addWidget(m_functionGroupBox);
 
 	m_tree = new InstructionProgramTreeWidget(this);
-	root->addWidget(m_tree, 1);
+	contentLayout->addWidget(m_tree, 1);
 
-	auto* rowRun = new QHBoxLayout;
-	m_runBtn = new QPushButton(QStringLiteral("Run"));
-	m_stopBtn = new QPushButton(QStringLiteral("Stop"));
-	m_exportBtn = new QPushButton(QStringLiteral("Export..."));
-	m_stopBtn->setEnabled(false);
-	rowRun->addWidget(m_runBtn);
-	rowRun->addWidget(m_stopBtn);
-	rowRun->addWidget(m_exportBtn);
-	rowRun->addStretch(1);
-	root->addLayout(rowRun);
+	// 设置滚动区域
+	m_scrollArea->setWidget(scrollContent);
+	root->addWidget(m_scrollArea, 1);
 
 	connect(m_robotCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SimulationCommandWidget::onRobotComboChanged);
 	connect(m_programCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SimulationCommandWidget::onProgramComboChanged);
@@ -438,12 +452,6 @@ QString SimulationCommandWidget::selectedTcpLink() const
 void SimulationCommandWidget::setUseChinese(bool chinese)
 {
 	m_useChinese = chinese;
-	if (m_hintLabel)
-	{
-		m_hintLabel->setText(chinese
-			? QStringLiteral("选择机器人后，点击上方按钮插入指令；Ctrl 多选指令后右键可创建分组；树中可拖动调整顺序。")
-			: QStringLiteral("Select a robot and insert instructions. Ctrl+select items, right-click to create a group. Drag to reorder."));
-	}
 	updateProgramGroupUi();
 	if (m_instructionGroupBox)
 	{
@@ -459,11 +467,11 @@ void SimulationCommandWidget::setUseChinese(bool chinese)
 	m_stopBtn->setText(chinese ? QStringLiteral("停止") : QStringLiteral("Stop"));
 	if (m_exportBtn)
 	{
-		m_exportBtn->setText(chinese ? QStringLiteral("导出...") : QStringLiteral("Export..."));
+		m_exportBtn->setText(chinese ? QStringLiteral("导出") : QStringLiteral("Export"));
 	}
 	if (m_tcpDragTeachBtn)
 	{
-		m_tcpDragTeachBtn->setText(chinese ? QStringLiteral("末端拖动") : QStringLiteral("End-effector drag"));
+		m_tcpDragTeachBtn->setText(chinese ? QStringLiteral("拖动") : QStringLiteral("Drag"));
 		m_tcpDragTeachBtn->setToolTip(
 			chinese ? QStringLiteral("在 3D 视图中拖动 TCP 罗盘示教（不写指令）")
 					: QStringLiteral("Drag TCP gizmo in 3D view to teach pose (does not edit program)"));

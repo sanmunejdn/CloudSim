@@ -121,6 +121,8 @@ public:
 	void applyViewCubeFaceLabelImages(const osg::ref_ptr<osg::Image> images[6]);
 	/// 视口逻辑坐标（Qt 左上角原点）点击视角立方体；命中则切换相机并返回 true
 	bool tryPickViewCubeAtLogicalMouse(double logicalX, double logicalY);
+	/// 检测鼠标是否悬停在视角立方体上（用于光标样式反馈）
+	bool isMouseOverViewCube(double logicalX, double logicalY) const;
 	void setCameraViewDirection(const osg::Vec3d& eyeDirectionFromCenter, const osg::Vec3d& upHint);
 
 	static osg::Quat eulerDegToQuat(const osg::Vec3f& eulerDeg);

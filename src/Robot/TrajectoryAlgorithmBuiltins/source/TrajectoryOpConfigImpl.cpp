@@ -101,6 +101,9 @@ RobotInstruction::TrajectoryOpDescriptor TrajectoryOpConfigImpl::defaultDescript
 	}
 	std::string err;
 	fromJson(patch, op, &err);
+	// 恢复 UI 传入的 scope，不被 JSON defaults 覆盖
+	// JSON 中的 scope 仅作为模板参考，实际作用域由调用方决定
+	op.scope = scope;
 	return op;
 }
 

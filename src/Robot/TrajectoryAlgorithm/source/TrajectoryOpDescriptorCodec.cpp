@@ -253,6 +253,10 @@ void copyDescriptorDefaults(
 nlohmann::json toJson(const RobotInstruction::TrajectoryOpDescriptor& op)
 {
 	nlohmann::json j;
+	if (!op.opId.empty())
+	{
+		j["opId"] = op.opId;
+	}
 	j["kind"] = kindToString(op.kind);
 	writeScopeJson(op.scope, j["scope"]);
 
@@ -338,6 +342,10 @@ bool fromJson(const nlohmann::json& j, RobotInstruction::TrajectoryOpDescriptor&
 		}
 	}
 	out.kind = kind;
+	if (j.contains("opId") && j["opId"].is_string())
+	{
+		out.opId = j["opId"].get<std::string>();
+	}
 	if (j.contains("scope"))
 	{
 		readScopeJson(j["scope"], out.scope);

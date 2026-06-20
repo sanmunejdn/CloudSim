@@ -32,6 +32,7 @@ public:
 	virtual QTabWidget* rightPanelTabs() = 0;
 	virtual int addPluginSidePanelTab(const QString& title, QWidget* widget) = 0;
 	virtual void removePluginSidePanelTab(QWidget* widget) = 0;
+	virtual void setPluginSidePanelTabTitle(QWidget* widget, const QString& title) = 0;
 	virtual QMenuBar* menuBar() = 0;
 	virtual void focusBackendInTree(const std::string& backendId) = 0;
 	virtual void focusBackendInTreeAfterImport(const QString& backendId) = 0;

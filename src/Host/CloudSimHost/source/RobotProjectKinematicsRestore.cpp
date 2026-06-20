@@ -4,7 +4,9 @@
 #include "IRobotBackendPoseSink.h"
 
 #include "BackendDataManager.h"
+#include "MeshBackendData.h"
 #include "RobotCoordinateFrames.h"
+#include "RobotMatrixOsgBridge.h"
 #include "UrdfRobotLoader.h"
 
 #include <QFileInfo>
@@ -137,12 +139,43 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 		const QString& bid = it.value();
 		(void)sink;
 		(void)maxMatAbsDiff;
-		outer.insert(bid, osg::Matrixd::identity());
+		// 从已加载的 backend 读取 worldMatrix（project.json 恢复时已还原），
+		// 而非用 identity；否则 applyJointAnglesViaLinkBackends 的公式
+		// Mnew = M0 * inv(T0) * Tq * P 会使所有 link 坍缩到原点。
+		const auto meshPtr = std::dynamic_pointer_cast<MeshBackendData>(backend.getData(bid.toStdString()));
+		if (meshPtr)
+		{
+			outer.insert(bid, RobotMatrixOsg::matrixFromBackendColMajor(meshPtr->worldMatrix(&backend)));
+		}
+		else
+		{
+			outer.insert(bid, osg::Matrixd::identity());
+		}
 	}
 	// 无 OSG 关节节点：perLink 模式靠 backend 位姿驱动
 	ctx.appendHierarchicalRobotSimulationContext(
 		urdf, jn, lo, hi, QHash<QString, osg::MatrixTransform*>(), sceneRoot, jointRoot);
 	ctx.setRobotPerLinkKinematicsBinding(importKey, linkMap, fkT0, outer, false);
+
+	// 恢复机器人基座放置位姿 P
+	const QJsonArray basePlacementArr = rk.value(QStringLiteral("basePlacementWorld")).toArray();
+	if (basePlacementArr.size() == 16)
+	{
+		osg::Matrixd basePlacement;
+		for (int c = 0; c < 4; ++c)
+		{
+			for (int r = 0; r < 4; ++r)
+			{
+				basePlacement(r, c) = basePlacementArr.at(c * 4 + r).toDouble(c == r ? 1.0 : 0.0);
+			}
+		}
+		const int instIdx = ctx.robotKinematicInstanceCount() - 1;
+		if (instIdx >= 0)
+		{
+			ctx.setRobotBasePlacementWorldForInstance(instIdx, basePlacement);
+		}
+	}
+
 	const QJsonObject cfObj = rk.value(QStringLiteral("coordinateFrames")).toObject();
 	if (!cfObj.isEmpty())
 	{

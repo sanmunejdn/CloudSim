@@ -166,6 +166,7 @@ struct ROBOT_SCENE_API ProjectToGeometryParams
 
 struct ROBOT_SCENE_API TrajectoryOpDescriptor
 {
+	std::string opId;
 	TrajectoryOpKind kind = TrajectoryOpKind::Translate;
 	OpScope scope{};
 	TranslateParams translate{};

@@ -32,6 +32,7 @@
 #include <QCoreApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QFont>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -40,6 +41,8 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSettings>
+#include <QSizePolicy>
+#include <QUuid>
 #include <QSignalBlocker>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -52,6 +55,9 @@
 
 namespace
 {
+constexpr int kTrajectoryBlockPaletteMinWidth = 158;
+constexpr int kTrajectoryControlHeight = 26;
+
 /// 调色板拖放须携带 kMimeType，否则流水线只会出现“幽灵项”（有显示无数据）
 class TrajectoryOpPaletteWidget : public QListWidget
 {
@@ -61,6 +67,8 @@ public:
 	{
 		setDragEnabled(true);
 		setSpacing(2);
+		setTextElideMode(Qt::ElideNone);
+		setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 	}
 
 protected:
@@ -195,86 +203,124 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	m_observer = new TrajectoryEditObserver(this);
 
 	auto* root = new QVBoxLayout(this);
-	root->setContentsMargins(6, 6, 6, 6);
-	root->setSpacing(6);
+	root->setContentsMargins(4, 4, 4, 4);
+	root->setSpacing(3);
 
+	// 工艺模板 - 紧凑布局
 	m_rawGroupBox = new QGroupBox(QStringLiteral("工艺模板"), this);
-	auto* rawLayout = new QVBoxLayout(m_rawGroupBox);
+	auto* rawLayout = new QHBoxLayout(m_rawGroupBox);
+	rawLayout->setContentsMargins(4, 2, 4, 2);
+	rawLayout->setSpacing(3);
 	m_rawStatusLabel = new QLabel(this);
-	rawLayout->addWidget(m_rawStatusLabel);
+	rawLayout->addWidget(m_rawStatusLabel, 1);
 	m_rawRecipeCombo = new QComboBox(m_rawGroupBox);
-	m_rawRecipeCombo->addItem(QStringLiteral("焊缝默认"), QStringLiteral("weld"));
-	m_rawRecipeCombo->addItem(QStringLiteral("涂胶默认"), QStringLiteral("glue"));
-	m_rawRecipeCombo->addItem(QStringLiteral("打磨默认"), QStringLiteral("grind"));
+	m_rawRecipeCombo->addItem(QStringLiteral("焊缝"), QStringLiteral("weld"));
+	m_rawRecipeCombo->addItem(QStringLiteral("涂胶"), QStringLiteral("glue"));
+	m_rawRecipeCombo->addItem(QStringLiteral("打磨"), QStringLiteral("grind"));
 	rawLayout->addWidget(m_rawRecipeCombo);
-	m_rawApplyBtn = new QPushButton(QStringLiteral("填充工艺流水线"), m_rawGroupBox);
-	m_rawEmitBtn = new QPushButton(QStringLiteral("生成程序"), m_rawGroupBox);
+	m_rawApplyBtn = new QPushButton(QStringLiteral("填充"), m_rawGroupBox);
 	rawLayout->addWidget(m_rawApplyBtn);
+	m_rawEmitBtn = new QPushButton(QStringLiteral("生成"), m_rawGroupBox);
 	rawLayout->addWidget(m_rawEmitBtn);
 	root->addWidget(m_rawGroupBox);
 
+	// 作用域行 - 单行紧凑布局
 	auto* scopeRow = new QHBoxLayout;
+	scopeRow->setSpacing(3);
 	m_programLabel = new QLabel(QStringLiteral("程序"), this);
 	scopeRow->addWidget(m_programLabel);
 	m_programCombo = new QComboBox(this);
 	scopeRow->addWidget(m_programCombo, 1);
-	m_pathPlanLabel = new QLabel(QStringLiteral("路径规划"), this);
+	m_pathPlanLabel = new QLabel(QStringLiteral("规划"), this);
 	scopeRow->addWidget(m_pathPlanLabel);
 	m_pathPlanCombo = new QComboBox(this);
 	scopeRow->addWidget(m_pathPlanCombo, 1);
-	m_newPathPlanBtn = new QPushButton(QStringLiteral("新建"), this);
+	m_newPathPlanBtn = new QPushButton(QStringLiteral("+"), this);
 	m_newPathPlanBtn->setToolTip(QStringLiteral("插入空路径规划并绑定编辑"));
+	m_newPathPlanBtn->setFixedWidth(28);
 	scopeRow->addWidget(m_newPathPlanBtn);
-	m_groupLabel = new QLabel(QStringLiteral("分组"), this);
+	m_groupLabel = new QLabel(QStringLiteral("组"), this);
 	scopeRow->addWidget(m_groupLabel);
 	m_groupCombo = new QComboBox(this);
 	scopeRow->addWidget(m_groupCombo, 1);
 	root->addLayout(scopeRow);
 
+	// 调色板 + 流水线 - 主要区域，最大拉伸
 	auto* bodyRow = new QHBoxLayout;
+	bodyRow->setSpacing(3);
+	const QFont blockFont = font();
 	m_palette = new TrajectoryOpPaletteWidget(this);
-	m_palette->setFixedWidth(120);
-	bodyRow->addWidget(m_palette);
+	m_palette->setFont(blockFont);
+	m_palette->setMinimumWidth(kTrajectoryBlockPaletteMinWidth);
+	m_palette->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+	bodyRow->addWidget(m_palette, 1);
 
 	m_pipeline = new TrajectoryPipelineListWidget(this);
+	m_pipeline->setFont(blockFont);
+	m_pipeline->setTextElideMode(Qt::ElideNone);
+	m_pipeline->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 	m_pipeline->setDefaultOpFactory([this](const RobotInstruction::TrajectoryOpKind kind) {
 		return makeDefaultOp(kind);
 	});
-	bodyRow->addWidget(m_pipeline, 1);
-	root->addLayout(bodyRow, 1);
+	bodyRow->addWidget(m_pipeline, 2);
+	root->addLayout(bodyRow, 3);
 
+	// 参数区域 - 可折叠，有限高度
 	m_paramGroupBox = new QGroupBox(QStringLiteral("参数"), this);
+	m_paramGroupBox->setCheckable(true);
+	m_paramGroupBox->setChecked(true);
+	m_paramGroupBox->setFont(blockFont);
+	// 字号继承算法块，仅覆盖控件尺寸
+	m_paramGroupBox->setStyleSheet(QStringLiteral(
+		"QGroupBox { font-weight: 500; }"
+		"QGroupBox QComboBox { min-height: %1px; max-height: %1px; padding: 2px 6px; }"
+		"QGroupBox QSpinBox, QGroupBox QDoubleSpinBox { min-height: %1px; max-height: %1px; padding: 2px 6px; }"
+		"QGroupBox QPushButton { padding: 2px 8px; min-height: %1px; max-height: %1px; }"
+		"QGroupBox QCheckBox { spacing: 4px; }"
+	).arg(kTrajectoryControlHeight));
 	auto* paramBoxLayout = new QVBoxLayout(m_paramGroupBox);
+	paramBoxLayout->setContentsMargins(4, 2, 4, 2);
+	paramBoxLayout->setSpacing(0);
 	m_scopeGroupCombo = new QComboBox(m_paramGroupBox);
+	m_scopeGroupCombo->setFixedHeight(kTrajectoryControlHeight);
+	m_scopeGroupCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 	m_geometryBackendCombo = new QComboBox(m_paramGroupBox);
+	m_geometryBackendCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 	m_geometryBackendPickBtn = new QPushButton(m_paramGroupBox);
 	m_paramPanel = new TrajectoryOpParamPanel(m_paramGroupBox);
+	m_paramPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	m_paramPanel->setScopeGroupCombo(m_scopeGroupCombo);
 	m_paramPanel->setGeometryBackendCombo(m_geometryBackendCombo);
 	m_paramPanel->setGeometryBackendPickButton(m_geometryBackendPickBtn);
-	paramBoxLayout->addWidget(m_paramPanel);
-	root->addWidget(m_paramGroupBox);
+	paramBoxLayout->addWidget(m_paramPanel, 1);
+	root->addWidget(m_paramGroupBox, 1);
 
 	m_pipeline->setContextMenuPolicy(Qt::CustomContextMenu);
 
-	auto* actionRow = new QHBoxLayout;
+	// 操作按钮行 - 水平拉伸填满
+	auto* actionRow1 = new QHBoxLayout;
+	actionRow1->setSpacing(3);
+	actionRow1->setContentsMargins(0, 0, 0, 0);
 	m_previewCheck = new QCheckBox(QStringLiteral("预览"), this);
 	m_previewCheck->setChecked(true);
 	m_applyBtn = new QPushButton(QStringLiteral("应用"), this);
 	m_resetBtn = new QPushButton(QStringLiteral("重置"), this);
 	m_undoBtn = new QPushButton(QStringLiteral("撤销"), this);
 	m_redoBtn = new QPushButton(QStringLiteral("重做"), this);
-	m_saveTemplateBtn = new QPushButton(QStringLiteral("保存模板"), this);
-	m_loadTemplateBtn = new QPushButton(QStringLiteral("加载模板"), this);
-	actionRow->addWidget(m_previewCheck);
-	actionRow->addWidget(m_applyBtn);
-	actionRow->addWidget(m_resetBtn);
-	actionRow->addWidget(m_undoBtn);
-	actionRow->addWidget(m_redoBtn);
-	actionRow->addWidget(m_saveTemplateBtn);
-	actionRow->addWidget(m_loadTemplateBtn);
-	actionRow->addStretch(1);
-	root->addLayout(actionRow);
+	m_saveTemplateBtn = new QPushButton(QStringLiteral("保存"), this);
+	m_loadTemplateBtn = new QPushButton(QStringLiteral("加载"), this);
+	actionRow1->addWidget(m_previewCheck);
+	actionRow1->addWidget(m_applyBtn, 1);
+	actionRow1->addWidget(m_resetBtn, 1);
+	actionRow1->addWidget(m_undoBtn, 1);
+	actionRow1->addWidget(m_redoBtn, 1);
+	auto* actionRow2 = new QHBoxLayout;
+	actionRow2->setSpacing(3);
+	actionRow2->setContentsMargins(0, 0, 0, 0);
+	actionRow2->addWidget(m_saveTemplateBtn, 1);
+	actionRow2->addWidget(m_loadTemplateBtn, 1);
+	root->addLayout(actionRow1);
+	root->addLayout(actionRow2);
 
 	rebuildPalette();
 
@@ -398,17 +444,17 @@ void TrajectoryEditPageWidget::updateUiLabels()
 	}
 	if (m_pathPlanLabel)
 	{
-		m_pathPlanLabel->setText(zh ? QStringLiteral("路径规划") : QStringLiteral("Path plan"));
+		m_pathPlanLabel->setText(zh ? QStringLiteral("规划") : QStringLiteral("Path"));
 	}
 	if (m_newPathPlanBtn)
 	{
-		m_newPathPlanBtn->setText(zh ? QStringLiteral("新建") : QStringLiteral("New"));
+		m_newPathPlanBtn->setText(QStringLiteral("+"));
 		m_newPathPlanBtn->setToolTip(
 			zh ? QStringLiteral("插入空路径规划并绑定编辑") : QStringLiteral("Insert empty path plan and bind"));
 	}
 	if (m_groupLabel)
 	{
-		m_groupLabel->setText(zh ? QStringLiteral("分组") : QStringLiteral("Group"));
+		m_groupLabel->setText(zh ? QStringLiteral("组") : QStringLiteral("Grp"));
 	}
 	if (m_paramGroupBox)
 	{
@@ -421,7 +467,7 @@ void TrajectoryEditPageWidget::updateUiLabels()
 	if (m_geometryBackendPickBtn)
 	{
 		m_geometryBackendPickBtn->setText(
-			zh ? QStringLiteral("从选中填充") : QStringLiteral("Use selection"));
+			zh ? QStringLiteral("选中填充") : QStringLiteral("Fill"));
 	}
 	if (m_previewCheck)
 	{
@@ -445,23 +491,23 @@ void TrajectoryEditPageWidget::updateUiLabels()
 	}
 	if (m_saveTemplateBtn)
 	{
-		m_saveTemplateBtn->setText(zh ? QStringLiteral("保存模板") : QStringLiteral("Save template"));
+		m_saveTemplateBtn->setText(zh ? QStringLiteral("保存") : QStringLiteral("Save"));
 	}
 	if (m_loadTemplateBtn)
 	{
-		m_loadTemplateBtn->setText(zh ? QStringLiteral("加载模板") : QStringLiteral("Load template"));
+		m_loadTemplateBtn->setText(zh ? QStringLiteral("加载") : QStringLiteral("Load"));
 	}
 	if (m_rawGroupBox)
 	{
-		m_rawGroupBox->setTitle(zh ? QStringLiteral("工艺模板") : QStringLiteral("Recipe Preset"));
+		m_rawGroupBox->setTitle(zh ? QStringLiteral("工艺模板") : QStringLiteral("Recipe"));
 	}
 	if (m_rawApplyBtn)
 	{
-		m_rawApplyBtn->setText(zh ? QStringLiteral("填充工艺流水线") : QStringLiteral("Fill recipe pipeline"));
+		m_rawApplyBtn->setText(zh ? QStringLiteral("填充") : QStringLiteral("Fill"));
 	}
 	if (m_rawEmitBtn)
 	{
-		m_rawEmitBtn->setText(zh ? QStringLiteral("生成程序") : QStringLiteral("Emit program"));
+		m_rawEmitBtn->setText(zh ? QStringLiteral("生成") : QStringLiteral("Emit"));
 	}
 	refreshRawTrajectoryStatus();
 }
@@ -1257,7 +1303,9 @@ void TrajectoryEditPageWidget::syncScopeGroupFromTopBar()
 RobotInstruction::TrajectoryOpDescriptor TrajectoryEditPageWidget::makeDefaultOp(
 	const RobotInstruction::TrajectoryOpKind kind) const
 {
-	return RobotInstruction::trajectoryOpDefaultUnified(kind, defaultScopeForNewOp());
+	auto op = RobotInstruction::trajectoryOpDefaultUnified(kind, defaultScopeForNewOp());
+	op.opId = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString();
+	return op;
 }
 
 void TrajectoryEditPageWidget::syncSessionPipeline()
@@ -1536,7 +1584,14 @@ bool TrajectoryEditPageWidget::reconcilePipelineScopes()
 	bool changed = false;
 	for (RobotInstruction::TrajectoryOpDescriptor& op : ops)
 	{
-		if (op.scope.kind != RobotInstruction::OpScope::Kind::Group || op.scope.groupId.empty())
+		// 防御性修正：Group + 空 groupId 是无效状态，回退到 EntireProgram
+		if (op.scope.kind == RobotInstruction::OpScope::Kind::Group && op.scope.groupId.empty())
+		{
+			op.scope.kind = RobotInstruction::OpScope::Kind::EntireProgram;
+			changed = true;
+			continue;
+		}
+		if (op.scope.kind != RobotInstruction::OpScope::Kind::Group)
 		{
 			continue;
 		}

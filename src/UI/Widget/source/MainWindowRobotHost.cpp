@@ -510,7 +510,7 @@ RobotFrameSettingsWidget* MainWindowRobotHost::robotFrameSettingsPage()
 
 DevicePageWidget* MainWindowRobotHost::devicePage() { return m_mw->m_devicePage; }
 
-QAction* MainWindowRobotHost::simulationStartAction() { return m_mw->m_simulationStartAction; }
+QAction* MainWindowRobotHost::simulationStartAction() { return nullptr; }
 
 int MainWindowRobotHost::currentSimulationRobotInstanceIndex() const
 {

@@ -137,10 +137,6 @@ RULES: dict[str, list[tuple[str, str]]] = {
         ("../RunLogger/", "../../Infra/RunLogger/"),
         ("../../bin/", "../../../bin/"),
     ],
-    "src/Plugins/HelloPlugin": [
-        ("../../CloudSimPluginSDK/", "../CloudSimPluginSDK/"),
-        ("..\\..\\CloudSimPluginSDK\\", "..\\CloudSimPluginSDK\\"),
-    ],
     "src/Plugins/CloudSimPluginSDK": [],
 }
 

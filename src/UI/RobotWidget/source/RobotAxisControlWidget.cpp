@@ -81,12 +81,8 @@ void RobotAxisControlWidget::emitAllJointAnglesNow()
 void RobotAxisControlWidget::createUI()
 {
 	QVBoxLayout* mainLayout = new QVBoxLayout(this);
-	mainLayout->setContentsMargins(8, 6, 8, 8);
-	mainLayout->setSpacing(6);
-
-	QLabel* descLabel = new QLabel(tr("使用滑块或输入框调整各关节角度"), this);
-	descLabel->setStyleSheet("color: gray; font-size: 11px;");
-	mainLayout->addWidget(descLabel);
+	mainLayout->setContentsMargins(4, 4, 4, 4);
+	mainLayout->setSpacing(4);
 
 	m_scrollArea = new QScrollArea(this);
 	m_scrollArea->setWidgetResizable(true);
@@ -121,8 +117,6 @@ void RobotAxisControlWidget::setupJointControls(
 {
 	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it) {
 		JointControl& jc = it.value();
-		if (jc.nameLabel) delete jc.nameLabel;
-		if (jc.limitLabel) delete jc.limitLabel;
 		if (jc.slider) delete jc.slider;
 		if (jc.spinBox) delete jc.spinBox;
 		if (jc.inputEdit) delete jc.inputEdit;
@@ -164,33 +158,26 @@ void RobotAxisControlWidget::setupJointControls(
 		groupBox->setObjectName("jointGroup_" + name);
 
 		QVBoxLayout* groupLayout = new QVBoxLayout(groupBox);
-		groupLayout->setContentsMargins(8, 12, 8, 8);
-		groupLayout->setSpacing(6);
-
-		QHBoxLayout* limitLayout = new QHBoxLayout();
-		jc.limitLabel = new QLabel(groupBox);
-		updateLimitLabel(jc); // 更新显示上下限
-		jc.limitLabel->setStyleSheet("color: gray; font-size: 10px;");
-		limitLayout->addWidget(jc.limitLabel);
-		limitLayout->addStretch();
-		groupLayout->addLayout(limitLayout);
+		groupLayout->setContentsMargins(4, 8, 4, 4);
+		groupLayout->setSpacing(4);
 
 		QHBoxLayout* sliderLayout = new QHBoxLayout();
 		QLabel* minLabel = new QLabel(QString::number(lower * 180.0 / kPi, 'f', 1) + "°", groupBox);
-		minLabel->setStyleSheet("font-size: 10px;");
+		minLabel->setStyleSheet(QStringLiteral("font-size: 15px; font-weight: 500;"));
 		jc.slider = new QSlider(Qt::Horizontal, groupBox);
 		jc.slider->setMinimum(angleToSliderValue(lower));
 		jc.slider->setMaximum(angleToSliderValue(upper));
 		jc.slider->setValue(0);
-		jc.slider->setTracking(true); // 实时跟踪
+		jc.slider->setTracking(true);
 		QLabel* maxLabel = new QLabel(QString::number(upper * 180.0 / kPi, 'f', 1) + "°", groupBox);
-		maxLabel->setStyleSheet("font-size: 10px;");
+		maxLabel->setStyleSheet(QStringLiteral("font-size: 15px; font-weight: 500;"));
 		sliderLayout->addWidget(minLabel);
 		sliderLayout->addWidget(jc.slider, 1);
 		sliderLayout->addWidget(maxLabel);
 		groupLayout->addLayout(sliderLayout);
 
 		QHBoxLayout* inputLayout = new QHBoxLayout();
+		inputLayout->setSpacing(2);
 		QLabel* valueLabel = new QLabel(tr("角度:"), groupBox);
 		jc.spinBox = new QDoubleSpinBox(groupBox);
 		jc.spinBox->setDecimals(3);
@@ -201,17 +188,17 @@ void RobotAxisControlWidget::setupJointControls(
 		QLabel* radLabel = new QLabel(tr("弧度:"), groupBox);
 		jc.inputEdit = new QLineEdit(groupBox);
 		jc.inputEdit->setText("0.000");
-		jc.inputEdit->setFixedWidth(80);
+		jc.inputEdit->setFixedWidth(70);
 		jc.inputEdit->setValidator(new QDoubleValidator(lower, upper, 6, jc.inputEdit));
 		QLabel* radUnitLabel = new QLabel("rad", groupBox);
 		
 		jc.resetButton = new QPushButton(tr("重置"), groupBox);
-		jc.resetButton->setFixedWidth(50);
+		jc.resetButton->setFixedWidth(40);
 		jc.resetButton->setToolTip(tr("将关节重置到零位"));
 
 		inputLayout->addWidget(valueLabel);
 		inputLayout->addWidget(jc.spinBox);
-		inputLayout->addSpacing(10);
+		inputLayout->addSpacing(4);
 		inputLayout->addWidget(radLabel);
 		inputLayout->addWidget(jc.inputEdit);
 		inputLayout->addWidget(radUnitLabel);
@@ -226,18 +213,6 @@ void RobotAxisControlWidget::setupJointControls(
 		connect(jc.resetButton, &QPushButton::clicked, this, &RobotAxisControlWidget::onResetButtonClicked);
 
 		m_contentLayout->insertWidget(m_contentLayout->count() - 1, groupBox);
-	}
-}
-
-void RobotAxisControlWidget::updateLimitLabel(JointControl& jc)
-{
-	if (jc.limitLabel) {
-		QString limitText = QString(tr("范围: %1° ~ %2° (%3 ~ %4 rad)"))
-			.arg(jc.lowerLimit * 180.0 / kPi, 0, 'f', 1)
-			.arg(jc.upperLimit * 180.0 / kPi, 0, 'f', 1)
-			.arg(jc.lowerLimit, 0, 'f', 4)
-			.arg(jc.upperLimit, 0, 'f', 4);
-		jc.limitLabel->setText(limitText);
 	}
 }
 

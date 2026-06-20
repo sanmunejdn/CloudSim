@@ -9,6 +9,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QSizePolicy>
 #include <QSpinBox>
 #include <QVBoxLayout>
 
@@ -31,14 +32,44 @@ std::string scopeKindToken(const RobotInstruction::OpScope::Kind kind)
 	}
 }
 
+void applyFieldWidthPolicy(QWidget* widget)
+{
+	if (!widget)
+	{
+		return;
+	}
+	widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	for (QDoubleSpinBox* spin : widget->findChildren<QDoubleSpinBox*>())
+	{
+		spin->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	}
+	for (QSpinBox* spin : widget->findChildren<QSpinBox*>())
+	{
+		spin->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	}
+	for (QComboBox* combo : widget->findChildren<QComboBox*>())
+	{
+		combo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	}
+}
+
 } // namespace
 
 TrajectoryOpParamPanel::TrajectoryOpParamPanel(QWidget* parent)
 	: QWidget(parent)
 {
+	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 	auto* layout = new QVBoxLayout(this);
+	layout->setContentsMargins(0, 0, 0, 0);
+	layout->setSpacing(0);
 	m_form = new QFormLayout();
-	layout->addLayout(m_form);
+	m_form->setContentsMargins(0, 0, 0, 0);
+	m_form->setSpacing(1);
+	m_form->setVerticalSpacing(1);
+	m_form->setHorizontalSpacing(8);
+	m_form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+	m_form->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+	layout->addLayout(m_form, 1);
 }
 
 void TrajectoryOpParamPanel::setUseChinese(const bool chinese)
@@ -265,6 +296,7 @@ void TrajectoryOpParamPanel::rebuildForOp(
 			{
 				auto* label = new QLabel(m_useChinese ? QStringLiteral("分组") : QStringLiteral("Group"), this);
 				m_form->addRow(label, m_scopeGroupCombo);
+				applyFieldWidthPolicy(m_scopeGroupCombo);
 				trajectory_algo::TrajectoryParamBinding binding{};
 				binding.label = label;
 				binding.widget = m_scopeGroupCombo;
@@ -281,8 +313,12 @@ void TrajectoryOpParamPanel::rebuildForOp(
 					m_useChinese ? QStringLiteral("几何对象") : QStringLiteral("Geometry Backend"),
 					this);
 				auto* rowWidget = new QWidget(this);
+				applyFieldWidthPolicy(rowWidget);
 				auto* rowLayout = new QHBoxLayout(rowWidget);
 				rowLayout->setContentsMargins(0, 0, 0, 0);
+				rowLayout->setSpacing(2);
+				m_geometryBackendCombo->setFixedHeight(26);
+				applyFieldWidthPolicy(m_geometryBackendCombo);
 				rowLayout->addWidget(m_geometryBackendCombo, 1);
 				if (m_geometryBackendPickBtn)
 				{
@@ -314,6 +350,7 @@ void TrajectoryOpParamPanel::rebuildForOp(
 			continue;
 		}
 		m_form->addRow(binding.label, binding.widget);
+		applyFieldWidthPolicy(binding.widget);
 		if (field.type == trajectory_algo::TrajectoryParamType::Vec3 && binding.writeVec3)
 		{
 			trajectory_algo::TrajectoryOpParamField fx = field;

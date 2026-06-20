@@ -1,55 +1,55 @@
-# CloudSim å­æ¨¡å—å¼€å‘æ–‡æ¡£ç´¢å¼•
+# CloudSim ×ÓÄ£¿é¿ª·¢ÎÄµµË÷??
 
-æœ¬æ–‡æ¡£åˆ—å‡ºå„ Visual Studio å­å·¥ç¨‹ï¼ˆå­æ¨¡å—ï¼‰çš„ **DEVELOPER_GUIDE.md**ã€‚æ€»æ¶æ„ä¸ä¸šåŠ¡æµç¨‹è§ [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md)ã€‚ç›®å½•è¯´æ˜è§ [`DIRECTORY_LAYOUT.md`](DIRECTORY_LAYOUT.md)ã€‚
+±¾ÎÄµµÁĞ³ö¸÷ Visual Studio ×Ó¹¤³Ì£¨×ÓÄ£¿é£©??**DEVELOPER_GUIDE.md**¡£×Ü¼Ü¹¹ÓëÒµÎñÁ÷³Ì??[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md)¡£Ä¿Â¼ËµÃ÷¼û [`DIRECTORY_LAYOUT.md`](DIRECTORY_LAYOUT.md)??
 
 ---
 
-## ç»Ÿä¸€ä¸–ç•Œåæ ‡å¥‘çº¦ï¼ˆå¿…è¯»ï¼‰
+## Í³Ò»ÊÀ½ç×ø±êÆõÔ¼£¨±Ø¶Á£©
 
-å…¨å·¥ç¨‹ç©ºé—´è¯­ä¹‰ä»¥ **[`spatial_contract_world_pose.md`](spatial_contract_world_pose.md) Â§1.1** ä¸ºæƒå¨è¯´æ˜ã€‚å‡¡æ¶‰åŠå¯¼å…¥ã€æ˜¾ç¤ºã€FKã€é…å‡†ã€æ‹¾å–ã€åæ ‡ç³»å åŠ ã€TCP ç¤ºæ•™ï¼Œ**é¡»å…ˆå¯¹ç…§è¯¥æ–‡æ¡£**ï¼Œå†æ”¹ä»£ç ã€‚
+È«¹¤³Ì¿Õ¼äÓïÒåÒÔ **[`spatial_contract_world_pose.md`](spatial_contract_world_pose.md) ¡ì1.1** ÎªÈ¨ÍşËµÃ÷¡£·²Éæ¼°µ¼Èë¡¢ÏÔÊ¾¡¢FK¡¢Åä×¼¡¢Ê°È¡¡¢×ø±êÏµµş¼Ó¡¢TCP Ê¾½Ì??*ĞëÏÈ¶ÔÕÕ¸ÃÎÄ??*£¬ÔÙ¸Ä´úÂë??
 
-| è¦ç‚¹ | çº¦å®š |
+| Òªµã | Ô¼¶¨ |
 |------|------|
-| **`pose`** | æ¨¡å‹åæ ‡åŸç‚¹åœ¨ä¸–ç•Œä¸­çš„ä½ç½® (mm) |
-| **`rotation`** | å†…ç¦€ **ZYX å†…æ—‹**ï¼ˆ`R=RzÂ·RyÂ·Rx`ï¼‰ï¼›ä¸»åŠ¨æ—‹è½¬ï¼šæ¨¡å‹ç³» â†’ ä¸–ç•Œç³» |
-| ç‚¹å˜æ¢ | `p_world = RÃ—p_model + pose`ï¼ˆåˆ—ï¼‰/ `p_modelÃ—R + pose`ï¼ˆOSG è¡Œï¼‰ï¼›æ¡¥æ¥è§ `Adapters` |
-| å‡ ä½• | `geometry` å­˜**ä¸–ç•Œç»å¯¹åæ ‡**ï¼›`pose` + `rotation` ä¸º**å”¯ä¸€**åˆšä½“åç§» |
-| æ˜¾ç¤º | outer = `osgMatrixFromRigidTransform`ï¼›inner PAT æ’ `(0,0,0)`ï¼›ç»•åŸç‚¹è½¬æ—¶ `pose` ä¸å˜ |
-| æƒå¨ API | `engine::rigidTransformFromBackendPoseEuler` / `backendPoseEulerFromRigidTransform`ï¼ˆ`BackendWorldPose.h`ï¼‰ |
-| Gizmo | World/Local ä»…äº¤äº’æ–¹å¼ï¼›å­˜ç›˜ä¸ºæ€»å§¿æ€ ZYX åˆ†è§£ |
-| URDF per-link | q0 å•æ¬¡ `Tbind` çƒ˜ç„™é¡¶ç‚¹ â†’ `pose=I`ï¼›FKï¼š`M = M0Â·inv(T0)Â·TqÂ·P`ï¼›**ç¦æ­¢**åŒé‡ visual çƒ˜ç„™ |
-| å·¥å…·è½´ | ä¸–ç•Œçƒ˜ç„™é¡¶ç‚¹ï¼šæŒ‚æ ¹è¿æ† + `toolTcpInBaseFromFk(è¯¥å·¥å…·)`ï¼›è¿æ†ç³»é¡¶ç‚¹ï¼šæŒ‚æ³•å…° + `T_flange_tool` |
-| å·²åºŸå¼ƒ | `T(pose)Ã—R` æ‰‹å†™æ‹¼è£…ã€æ¢è½´è¡¥å¿æ”¹ `pose`ã€`skipInnerModelCenterRebase` ä¸»è·¯å¾„ã€è´¨å¿ƒ rebase é…å‡† |
+| **`pose`** | Ä£ĞÍ×ø±êÔ­µãÔÚÊÀ½çÖĞµÄÎ»??(mm) |
+| **`rotation`** | ÄÚÙ÷ **ZYX ÄÚĞı**£¨`R=Rz¡¤Ry¡¤Rx`£©£»Ö÷¶¯Ğı×ª£ºÄ£ĞÍÏµ ??ÊÀ½ç??|
+| µã±ä??| `p_world = R¡Áp_model + pose`£¨ÁĞ?? `p_model¡ÁR + pose`£¨OSG ĞĞ£©£»ÇÅ½Ó¼û `Adapters` |
+| ¼¸ºÎ | `geometry` ??*ÊÀ½ç¾ø¶Ô×ø±ê**£»`pose` + `rotation` ??*Î¨Ò»**¸ÕÌåÆ«ÒÆ |
+| ÏÔÊ¾ | outer = `osgMatrixFromRigidTransform`£»inner PAT ??`(0,0,0)`£»ÈÆÔ­µã×ªÊ± `pose` ²»±ä |
+| È¨Íş API | `engine::rigidTransformFromBackendPoseEuler` / `backendPoseEulerFromRigidTransform`£¨`BackendWorldPose.h`??|
+| Gizmo | World/Local ½ö½»»¥·½Ê½£»´æÅÌÎª×Ü×Ë??ZYX ·Ö½â |
+| URDF per-link | q0 µ¥´Î `Tbind` ºæ±º¶¥µã ??`pose=I`£»FK£º`M = M0¡¤inv(T0)¡¤Tq¡¤P`??*½ûÖ¹**Ë«ÖØ visual ºæ±º |
+| ¹¤¾ß??| ÊÀ½çºæ±º¶¥µã£º¹Ò¸ùÁ¬??+ `toolTcpInBaseFromFk(¸Ã¹¤??`£»Á¬¸ËÏµ¶¥µã£º¹Ò·¨À¼ + `T_flange_tool` |
+| ÒÑ·Ï??| `T(pose)¡ÁR` ÊÖĞ´Æ´×°¡¢ÊàÖá²¹³¥¸Ä `pose`¡¢`skipInnerModelCenterRebase` Ö÷Â·¾¶¡¢ÖÊ??rebase Åä×¼ |
 
-**å¼ºç›¸å…³æ¨¡å—æ–‡æ¡£**ï¼š[`Data`](../src/Data/Data/DEVELOPER_GUIDE.md) Â· [`BackendVisual`](../src/UI/BackendVisual/DEVELOPER_GUIDE.md) Â· [`OsgWidgetCore`](../src/UI/OsgWidgetCore/DEVELOPER_GUIDE.md) Â· [`CloudSimHost`](../src/Host/CloudSimHost/DEVELOPER_GUIDE.md) Â· [`RobotUrdf`](../src/Robot/RobotUrdf/DEVELOPER_GUIDE.md) Â· [`RobotScene`](../src/Robot/RobotScene/DEVELOPER_GUIDE.md) Â· [`RobotWidget`](../src/UI/RobotWidget/DEVELOPER_GUIDE.md)
+**Ç¿Ïà¹ØÄ£¿éÎÄ??*£º[`Data`](../src/Data/Data/DEVELOPER_GUIDE.md) ¡¤ [`BackendVisual`](../src/UI/BackendVisual/DEVELOPER_GUIDE.md) ¡¤ [`OsgWidgetCore`](../src/UI/OsgWidgetCore/DEVELOPER_GUIDE.md) ¡¤ [`CloudSimHost`](../src/Host/CloudSimHost/DEVELOPER_GUIDE.md) ¡¤ [`RobotUrdf`](../src/Robot/RobotUrdf/DEVELOPER_GUIDE.md) ¡¤ [`RobotScene`](../src/Robot/RobotScene/DEVELOPER_GUIDE.md) ¡¤ [`RobotWidget`](../src/UI/RobotWidget/DEVELOPER_GUIDE.md)
 
-| å­å·¥ç¨‹ | èŒè´£ç®€è¿° | å¼€å‘æ–‡æ¡£ |
+| ×Ó¹¤??| Ö°Ôğ¼ò??| ¿ª·¢ÎÄ??|
 |--------|----------|----------|
-| **CloudSim** | å¯æ‰§è¡Œå…¥å£ã€`main` ç”Ÿå‘½å‘¨æœŸ | [CloudSim/DEVELOPER_GUIDE.md](../src/App/CloudSim/DEVELOPER_GUIDE.md) |
-| **CloudSimCore** | å‰åç«¯å¥‘çº¦ DLLï¼ˆDTOã€`EventHub`ã€æœåŠ¡æ¥å£ï¼‰ | [CloudSimCore/DEVELOPER_GUIDE.md](../src/Contracts/CloudSimCore/DEVELOPER_GUIDE.md) |
-| **CloudSimHost** | æ–‡æ¡£å®¿ä¸»ã€`OsgWidget` ç¼–è¯‘ã€Core é€‚é…å™¨ã€ç»„åˆæ ¹å®ç° | [CloudSimHost/DEVELOPER_GUIDE.md](../src/Host/CloudSimHost/DEVELOPER_GUIDE.md) |
-| **Widget** | Qt ä¸»çª—å£ã€æ–‡æ¡£é¡µã€æµç¨‹åè°ƒï¼›å¥‘çº¦ç» `data()`/`robot()`/`render()`ï¼›OsgWidget ä¿¡å·è¾¹ç•Œ `WidgetSceneSignalWiring`ï¼ˆOSG æºç ç”± Host ç¼–è¯‘ï¼‰ | [Widget/DEVELOPER_GUIDE.md](../src/UI/Widget/DEVELOPER_GUIDE.md) |
-| **RobotWidget** | ä»¿çœŸ/è®¾å¤‡ Dock UIã€`RobotSimulationController`ã€**CAD è½¨è¿¹ç”Ÿæˆ**ã€**è½¨è¿¹ç¼–è¾‘**ã€å·¥ç¨‹æœºå™¨äºº JSON | [RobotWidget/DEVELOPER_GUIDE.md](../src/UI/RobotWidget/DEVELOPER_GUIDE.md) |
-| **Data** | åç«¯å¯¹è±¡æ¨¡å‹ã€å±æ€§ã€å±‚çº§ã€è·Ÿéšæ±‚è§£ï¼›**`geometry_backend_ops` / `GeometryRef`**ï¼›å·¥ç¨‹ v4 åºåˆ—åŒ– | [Data/DEVELOPER_GUIDE.md](../src/Data/Data/DEVELOPER_GUIDE.md) Â· [backend_persistence/](backend_persistence/) |
-| **BackendVisual** | æ•°æ® â†’ OSG åˆ†æ”¯æ„å»ºç­–ç•¥ | [BackendVisual/DEVELOPER_GUIDE.md](../src/UI/BackendVisual/DEVELOPER_GUIDE.md) |
-| **OsgWidgetCore** | çº¯ OSG åœºæ™¯ã€æ‹¾å–ã€gizmoã€ç»‘å®šç´¢å¼• | [OsgWidgetCore/DEVELOPER_GUIDE.md](../src/UI/OsgWidgetCore/DEVELOPER_GUIDE.md) |
-| **GeometryEngine** | `RigidTransform`ã€`BackendWorldPose`ã€å·¥å…·é“¾ FKã€`OSG`/`BackendMat4` é€‚é… | [GeometryEngine/DEVELOPER_GUIDE.md](../src/Geometry/GeometryEngine/DEVELOPER_GUIDE.md) Â· [CONVENTIONS.md](../src/Geometry/GeometryEngine/CONVENTIONS.md) |
-| **GeometryAlgorithm** | OCC/CGAL ç¦»æ•£ã€æ±‚äº¤ã€å¸ƒå°”ï¼›**FeatureSpec**ï¼›ç½‘æ ¼æ›²é¢é‡æ„ï¼›**ç®¡çŠ¶é“¸ä»¶ç‰¹å¾æ„å»ºï¼ˆç¯åˆ†å‰²ï¼‰** | [GeometryAlgorithm/DEVELOPER_GUIDE.md](../src/Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) Â§3.4â€“3.5 |
-| **RobotKinematics** | DH ä¸²è” FK / æ•°å€¼ IK | [RobotKinematics/DEVELOPER_GUIDE.md](../src/Robot/RobotKinematics/DEVELOPER_GUIDE.md) |
-| **RobotUrdf** | URDF è§£æã€å±‚çº§åœºæ™¯ã€**prismatic FK**ã€æ¯è¿æ†åç«¯ | [RobotUrdf/DEVELOPER_GUIDE.md](../src/Robot/RobotUrdf/DEVELOPER_GUIDE.md) |
-| **RobotScene** | æŒ‡ä»¤æ¨¡å‹ã€è§„åˆ’ã€å›æ”¾ã€**RawTrajectory**ã€å¤šç¨‹åº/åˆ†ç»„/è½¨è¿¹æµæ°´çº¿ Command | [RobotScene/DEVELOPER_GUIDE.md](../src/Robot/RobotScene/DEVELOPER_GUIDE.md) |
-| **TrajectoryAlgorithm** | `ITrajectoryOp` æ¡†æ¶ã€Registryã€Codecã€ConfigRegistry | [TrajectoryAlgorithm/DEVELOPER_GUIDE.md](../src/Robot/TrajectoryAlgorithm/DEVELOPER_GUIDE.md) |
-| **TrajectoryAlgorithmBuiltins** | 18 ç§åŸå­å—å®ç°ã€`UnifiedTrajectoryPathMath`ã€å¯åŠ¨æ³¨å†Œ | [TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md](../src/Robot/TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md) |
-| **RunLogger** | æ–‡ä»¶/æ§åˆ¶å°/UI æ—¥å¿—ï¼ˆx64 å…±äº« DLLï¼‰ | [RunLogger/DEVELOPER_GUIDE.md](../src/Infra/RunLogger/DEVELOPER_GUIDE.md) |
-| **CloudSimPluginSDK** | åŠ¨æ€æ’ä»¶ ABIï¼ˆå®¿ä¸»ä¸Šä¸‹æ–‡ã€æ–‡æ¡£/åœºæ™¯ APIï¼‰ | [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) |
-| **CloudSimPluginHost** | æ’ä»¶æ‰«æã€`QPluginLoader`ã€`PluginHostContext`ï¼ˆç¼–è¿› **`CloudSimHost.dll`**ï¼›UI ç» `IPluginMainWindowHost`ï¼‰ | [CloudSimPluginHost/DEVELOPER_GUIDE.md](../src/UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) Â· [ARCHITECTURE_SUMMARY.md Â§10](../ARCHITECTURE_SUMMARY.md) |
-| **HelloPlugin** | å®˜æ–¹ç¤ºä¾‹æ’ä»¶ï¼ˆä¾§æ  + èœå• + `createPrimitiveMesh`ï¼‰ | [HelloPlugin/DEVELOPER_GUIDE.md](../src/Plugins/HelloPlugin/DEVELOPER_GUIDE.md) |
-| **CloudSimAiSDK** | AI åŠ©æ‰‹ ABIã€åˆ†åŸŸä¸“æ¨¡ã€`ai_config` ä¸è®­ç»ƒæ–‡æ¡£ç´¢å¼• | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) Â· [é…ç½®](../../tools/ai-training/CONFIGURATION.md) Â· [è®­ç»ƒ](../../tools/ai-training/README.md) Â· [**AI è½¨è¿¹ç‰¹å¾**](../../docs/trajectory_feature_ai.md) |
-| **AiWidget** | AI åŠ©æ‰‹ Dockã€`AiAssistantCoordinator`ï¼ˆå« `trajectory.feature` ä¼šè¯ï¼‰ | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) Â· [trajectory_feature_ai.md](../../docs/trajectory_feature_ai.md) |
+| **CloudSim** | ¿ÉÖ´ĞĞÈë¿Ú¡¢`main` ÉúÃüÖÜÆÚ | [CloudSim/DEVELOPER_GUIDE.md](../src/App/CloudSim/DEVELOPER_GUIDE.md) |
+| **CloudSimCore** | Ç°ºó¶ËÆõ??DLL£¨DTO¡¢`EventHub`¡¢·şÎñ½Ó¿Ú£© | [CloudSimCore/DEVELOPER_GUIDE.md](../src/Contracts/CloudSimCore/DEVELOPER_GUIDE.md) |
+| **CloudSimHost** | ÎÄµµËŞÖ÷¡¢`OsgWidget` ±àÒë¡¢Core ÊÊÅäÆ÷¡¢×éºÏ¸ùÊµÏÖ | [CloudSimHost/DEVELOPER_GUIDE.md](../src/Host/CloudSimHost/DEVELOPER_GUIDE.md) |
+| **Widget** | Qt Ö÷´°¿Ú¡¢ÎÄµµÒ³¡¢Á÷³ÌĞ­µ÷£»ÆõÔ¼??`data()`/`robot()`/`render()`£»OsgWidget ĞÅºÅ±ß½ç `WidgetSceneSignalWiring`£¨OSG Ô´Âë??Host ±àÒë??| [Widget/DEVELOPER_GUIDE.md](../src/UI/Widget/DEVELOPER_GUIDE.md) |
+| **RobotWidget** | ·ÂÕæ/Éè±¸ Dock UI¡¢`RobotSimulationController`??*CAD ¹ì¼£Éú³É**??*¹ì¼£±à¼­**¡¢¹¤³Ì»úÆ÷ÈË JSON | [RobotWidget/DEVELOPER_GUIDE.md](../src/UI/RobotWidget/DEVELOPER_GUIDE.md) |
+| **Data** | ºó¶Ë¶ÔÏóÄ£ĞÍ¡¢ÊôĞÔ¡¢²ã¼¶¡¢¸úËæÇó½â£»**`geometry_backend_ops` / `GeometryRef`**£»¹¤??v4 ĞòÁĞ??| [Data/DEVELOPER_GUIDE.md](../src/Data/Data/DEVELOPER_GUIDE.md) ¡¤ [backend_persistence/](backend_persistence/) |
+| **BackendVisual** | Êı¾İ ??OSG ·ÖÖ§¹¹½¨²ßÂÔ | [BackendVisual/DEVELOPER_GUIDE.md](../src/UI/BackendVisual/DEVELOPER_GUIDE.md) |
+| **OsgWidgetCore** | ??OSG ³¡¾°¡¢Ê°È¡¡¢gizmo¡¢°ó¶¨Ë÷??| [OsgWidgetCore/DEVELOPER_GUIDE.md](../src/UI/OsgWidgetCore/DEVELOPER_GUIDE.md) |
+| **GeometryEngine** | `RigidTransform`¡¢`BackendWorldPose`¡¢¹¤¾ßÁ´ FK¡¢`OSG`/`BackendMat4` ÊÊÅä | [GeometryEngine/DEVELOPER_GUIDE.md](../src/Geometry/GeometryEngine/DEVELOPER_GUIDE.md) ¡¤ [CONVENTIONS.md](../src/Geometry/GeometryEngine/CONVENTIONS.md) |
+| **GeometryAlgorithm** | OCC/CGAL ÀëÉ¢¡¢Çó½»¡¢²¼¶û£»**FeatureSpec**£»Íø¸ñÇúÃæÖØ¹¹£»**¹Ü×´Öı¼şÌØÕ÷¹¹½¨£¨»··Ö¸î??* | [GeometryAlgorithm/DEVELOPER_GUIDE.md](../src/Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) ¡ì3.4??.5 |
+| **RobotKinematics** | DH ´®Áª FK / Êı??IK | [RobotKinematics/DEVELOPER_GUIDE.md](../src/Robot/RobotKinematics/DEVELOPER_GUIDE.md) |
+| **RobotUrdf** | URDF ½âÎö¡¢²ã¼¶³¡¾°??*prismatic FK**¡¢Ã¿Á¬¸Ëºó¶Ë | [RobotUrdf/DEVELOPER_GUIDE.md](../src/Robot/RobotUrdf/DEVELOPER_GUIDE.md) |
+| **RobotScene** | Ö¸ÁîÄ£ĞÍ¡¢¹æ»®¡¢»Ø·Å??*RawTrajectory**¡¢¶à³ÌĞò/·Ö×é/¹ì¼£Á÷Ë®??Command | [RobotScene/DEVELOPER_GUIDE.md](../src/Robot/RobotScene/DEVELOPER_GUIDE.md) |
+| **TrajectoryAlgorithm** | `ITrajectoryOp` ¿ò¼Ü¡¢Registry¡¢Codec¡¢ConfigRegistry | [TrajectoryAlgorithm/DEVELOPER_GUIDE.md](../src/Robot/TrajectoryAlgorithm/DEVELOPER_GUIDE.md) |
+| **TrajectoryAlgorithmBuiltins** | 18 ÖÖÔ­×Ó¿éÊµÏÖ¡¢`UnifiedTrajectoryPathMath`¡¢Æô¶¯×¢??| [TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md](../src/Robot/TrajectoryAlgorithmBuiltins/DEVELOPER_GUIDE.md) |
+| **RunLogger** | ÎÄ¼ş/¿ØÖÆ??UI ÈÕÖ¾£¨x64 ¹²Ïí DLL??| [RunLogger/DEVELOPER_GUIDE.md](../src/Infra/RunLogger/DEVELOPER_GUIDE.md) |
+| **CloudSimPluginSDK** | ¶¯Ì¬²å??ABI£¨ËŞÖ÷ÉÏÏÂÎÄ¡¢ÎÄ??³¡¾° API??| [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) |
+| **CloudSimPluginHost** | ²å¼şÉ¨Ãè¡¢`QPluginLoader`¡¢`PluginHostContext`£¨±à??**`CloudSimHost.dll`**£»UI ??`IPluginMainWindowHost`??| [CloudSimPluginHost/DEVELOPER_GUIDE.md](../src/UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) ¡¤ [ARCHITECTURE_SUMMARY.md ¡ì10](../ARCHITECTURE_SUMMARY.md) |
+|| **²å¼ş¿ª·¢Ê¾Àı** | ²Î¼û CloudSimPluginSDK ¿ª·¢Ö¸ÄÏÖĞµÄ²å¼şÄ£°åºÍÊ¾Àı´úÂë | [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) |
+| **CloudSimAiSDK** | AI ÖúÊÖ ABI¡¢·ÖÓò×¨Ä£¡¢`ai_config` ÓëÑµÁ·ÎÄµµË÷??| [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) ¡¤ [ÅäÖÃ](../../tools/ai-training/CONFIGURATION.md) ¡¤ [ÑµÁ·](../../tools/ai-training/README.md) ¡¤ [**AI ¹ì¼£ÌØÕ÷**](../../docs/trajectory_feature_ai.md) |
+| **AiWidget** | AI ÖúÊÖ Dock¡¢`AiAssistantCoordinator`£¨º¬ `trajectory.feature` »á»°??| [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) ¡¤ [trajectory_feature_ai.md](../../docs/trajectory_feature_ai.md) |
 
-## ä¾èµ–æ–¹å‘ï¼ˆç®€å›¾ï¼‰
+## ÒÀÀµ·½Ïò£¨¼òÍ¼£©
 
-x64 ä¸‹ `RunLogger`ï½`OsgWidgetCore` ä¸º **ç‹¬ç«‹ DLL**ï¼ˆè§ä¸‹è¡¨ï¼‰ï¼›ç®­å¤´ä¸ºç¼–è¯‘æœŸä¾èµ–ï¼Œè¿è¡Œæ—¶å„æ¶ˆè´¹è€… `LoadLibrary` åŒä¸€ä»½ DLLã€‚
+x64 ??`RunLogger`¡«`OsgWidgetCore` ??**¶ÀÁ¢ DLL**£¨¼ûÏÂ±í£©£»¼ıÍ·Îª±àÒëÆÚÒÀÀµ£¬ÔËĞĞÊ±¸÷Ïû·Ñ??`LoadLibrary` Í¬Ò»??DLL??
 
 ```mermaid
 flowchart TB
@@ -71,7 +71,7 @@ flowchart TB
   W --> RK
   W --> GE[GeometryEngine.dll]
   W --> RL[RunLogger.dll]
-  W --> PH[CloudSimPluginHost ç¼–è¿› Widget]
+  W --> PH[CloudSimPluginHost ±à½ø Widget]
   PH --> SDK[CloudSimPluginSDK.dll]
   PLG[plugins/*.dll] --> SDK
   O --> BV
@@ -79,7 +79,7 @@ flowchart TB
   O --> RL
   BV --> GE
   RS --> GE
-  RS --> TA[TrajectoryAlgorithm + Builtins é™æ€]
+  RS --> TA[TrajectoryAlgorithm + Builtins ¾²Ì¬]
   RS --> RU --> D
   RS --> RK
   RS --> RL
@@ -87,67 +87,67 @@ flowchart TB
   RU --> GE
   RU --> RL
   D --> RL
-  D --> PCA[PointCloudAlgorithm é™æ€]
+  D --> PCA[PointCloudAlgorithm ¾²Ì¬]
   D --> GA[GeometryAlgorithm.dll]
 ```
 
-## x64 åŠ¨æ€åº“çº¦å®š
+## x64 ¶¯Ì¬¿âÔ¼¶¨
 
-| å·¥ç¨‹ | x64 äº§ç‰© | æ„å»ºæ—¶å®šä¹‰ | æ¶ˆè´¹è€…ï¼ˆé»˜è®¤ dllimportï¼‰ |
+| ¹¤³Ì | x64 ²úÎï | ¹¹½¨Ê±¶¨??| Ïû·ÑÕß£¨Ä¬ÈÏ dllimport??|
 |------|---------|-----------|-------------------------|
-| RunLogger | `RunLogger.dll` | `RUN_LOGGER_LIB` | æ—  |
-| GeometryEngine | `GeometryEngine.dll` | `GEOMETRY_ENGINE_LIB` | æ—  |
-| RobotKinematics | `RobotKinematics.dll` | `ROBOT_KINEMATICS_LIB` | æ—  |
-| RobotUrdf | `RobotUrdf.dll` | `ROBOT_URDF_LIB` | æ—  |
-| RobotScene | `RobotScene.dll` | `ROBOT_SCENE_LIB` | æ—  |
-| BackendVisual | `BackendVisual.dll` | `BACKENDVISUAL_LIB` | æ—  |
-| OsgWidgetCore | `OsgWidgetCore.dll` | `OSGWIDGETCORE_LIB` | æ—  |
-| Data | `Data.dll` | `DATA_LIB` | æ—  |
-| Widget | `Widget.dll` | `WIDGET_LIB` | æ—  |
-| PointCloudAlgorithm | `.lib`ï¼ˆé™æ€ï¼‰ | `POINT_CLOUD_ALGORITHM_STATIC` | ä»… `Data` æ„å»ºä¾§ |
-| TrajectoryAlgorithm + Builtins | `.lib`ï¼ˆé™æ€ï¼‰ | `TRAJECTORY_ALGORITHM_LIB` / `ROBOT_SCENE_LIB`ï¼ˆTUï¼‰ | ä»… `RobotScene` é“¾æ¥ï¼›UI ç» `TrajectoryOpBridge` |
+| RunLogger | `RunLogger.dll` | `RUN_LOGGER_LIB` | ??|
+| GeometryEngine | `GeometryEngine.dll` | `GEOMETRY_ENGINE_LIB` | ??|
+| RobotKinematics | `RobotKinematics.dll` | `ROBOT_KINEMATICS_LIB` | ??|
+| RobotUrdf | `RobotUrdf.dll` | `ROBOT_URDF_LIB` | ??|
+| RobotScene | `RobotScene.dll` | `ROBOT_SCENE_LIB` | ??|
+| BackendVisual | `BackendVisual.dll` | `BACKENDVISUAL_LIB` | ??|
+| OsgWidgetCore | `OsgWidgetCore.dll` | `OSGWIDGETCORE_LIB` | ??|
+| Data | `Data.dll` | `DATA_LIB` | ??|
+| Widget | `Widget.dll` | `WIDGET_LIB` | ??|
+| PointCloudAlgorithm | `.lib`£¨¾²Ì¬£© | `POINT_CLOUD_ALGORITHM_STATIC` | ??`Data` ¹¹½¨??|
+| TrajectoryAlgorithm + Builtins | `.lib`£¨¾²Ì¬£© | `TRAJECTORY_ALGORITHM_LIB` / `ROBOT_SCENE_LIB`£¨TU??| ??`RobotScene` Á´½Ó£»UI ??`TrajectoryOpBridge` |
 
-- å¯¼å‡ºå®è§å„ `inc/*_global.h`ï¼ˆ`RUN_LOGGER_API`ã€`GEOMETRY_ENGINE_API`ã€`BACKENDVISUAL_EXPORT`ã€`OSGWIDGETCORE_EXPORT` ç­‰ï¼‰ã€‚
-- **å‹¿**åœ¨å¤´æ–‡ä»¶ä¸­ç”¨ `*_API` æ ‡è®° `constexpr` å­—ç¬¦ä¸²å¸¸é‡ï¼ˆMSVC dllimport é™åˆ¶ï¼‰ï¼›æ”¹ç”¨ `inline constexpr`ï¼ˆè§ `RobotInstructionProgram.h` ä¸­ `kMotionPointIndexKey`ï¼‰ã€‚
-- Win32 é—ç•™é…ç½®ä»å¯ç”¨ `*_STATIC` / `BUILD_STATIC` å…³é—­å¯¼å…¥å¯¼å‡ºã€‚
-- æ–°å¢è·¨ DLL ç±»/å‡½æ•°ï¼šåœ¨å¯¹åº” `*_global.h` åŠ å¯¼å‡ºå®ï¼Œvcxproj æ„å»ºä¾§åŠ  `*_LIB`ï¼Œæ¶ˆè´¹è€…é€šè¿‡ `ProjectReference` + import `.lib` é“¾æ¥ã€‚
+- µ¼³öºê¼û??`inc/*_global.h`£¨`RUN_LOGGER_API`¡¢`GEOMETRY_ENGINE_API`¡¢`BACKENDVISUAL_EXPORT`¡¢`OSGWIDGETCORE_EXPORT` µÈ£©??
+- **??*ÔÚÍ·ÎÄ¼şÖĞÓÃ `*_API` ±ê¼Ç `constexpr` ×Ö·û´®³£Á¿£¨MSVC dllimport ÏŞÖÆ£©£»¸ÄÓÃ `inline constexpr`£¨¼û `RobotInstructionProgram.h` ??`kMotionPointIndexKey`£©??
+- Win32 ÒÅÁôÅäÖÃÈÔ¿É??`*_STATIC` / `BUILD_STATIC` ¹Ø±Õµ¼Èëµ¼³ö??
+- ĞÂÔö??DLL ??º¯Êı£ºÔÚ¶ÔÓ¦ `*_global.h` ¼Óµ¼³öºê£¬vcxproj ¹¹½¨²à¼Ó `*_LIB`£¬Ïû·ÑÕßÍ¨¹ı `ProjectReference` + import `.lib` Á´½Ó??
 
-## Visual Studio è§£å†³æ–¹æ¡ˆç­›é€‰å™¨
+## Visual Studio ½â¾ö·½°¸É¸Ñ¡Æ÷
 
-å„å­å·¥ç¨‹ `.vcxproj.filters` ç»Ÿä¸€ä¸ºä¸¤å±‚ç»“æ„ï¼š
+¸÷×Ó¹¤³Ì `.vcxproj.filters` Í³Ò»ÎªÁ½²ã½á¹¹£º
 
-1. é¡¶å±‚ï¼š**`inc`**ï¼ˆå¤´æ–‡ä»¶ï¼‰ã€**`src`**ï¼ˆæºæ–‡ä»¶ / Qt Mocï¼‰
-2. å­å±‚ï¼šæŒ‰åŠŸèƒ½åˆ’åˆ†ï¼ˆå¦‚ `inc\adapters`ã€`src\MainWindow`ã€`src\OsgWidget`ã€`src\Backend`ã€`src\ThirdParty\qtpropertybrowser` ç­‰ï¼‰
+1. ¶¥²ã??*`inc`**£¨Í·ÎÄ¼ş£©??*`src`**£¨Ô´ÎÄ¼ş / Qt Moc??
+2. ×Ó²ã£º°´¹¦ÄÜ»®·Ö£¨Èç `inc\adapters`¡¢`src\MainWindow`¡¢`src\OsgWidget`¡¢`src\Backend`¡¢`src\ThirdParty\qtpropertybrowser` µÈ£©
 
-è·¨å·¥ç¨‹å¼•ç”¨ï¼ˆå¦‚ Widget ç¼–å…¥çš„ `CloudSimPluginHost`ã€`Host` å¼•ç”¨çš„ Widget OSG æºï¼‰ä½¿ç”¨ `inc\HostRef`ã€`src\WidgetBorrowed`ã€`inc\PluginHost` ç­‰ç­›é€‰å™¨ï¼Œä¸æœ¬åœ° `inc`/`src` åŒºåˆ†ã€‚
+¿ç¹¤³ÌÒıÓÃ£¨??Widget ±àÈë??`CloudSimPluginHost`¡¢`Host` ÒıÓÃ??Widget OSG Ô´£©Ê¹ÓÃ `inc\HostRef`¡¢`src\WidgetBorrowed`¡¢`inc\PluginHost` µÈÉ¸Ñ¡Æ÷£¬Óë±¾µØ `inc`/`src` Çø·Ö??
 
-æ–°å¢/ç§»åŠ¨æºæ–‡ä»¶åï¼Œåœ¨ `CloudSim` ç›®å½•æ‰§è¡Œï¼š
+ĞÂÔö/ÒÆ¶¯Ô´ÎÄ¼şºó£¬ÔÚ `CloudSim` Ä¿Â¼Ö´ĞĞ??
 
 ```bash
 python scripts/generate_vcxproj_filters.py
 ```
 
-è„šæœ¬ä¼šæ‰«æå…¨éƒ¨ `*.vcxproj` å¹¶é‡å†™å¯¹åº”çš„ `.vcxproj.filters`ï¼ˆä¸ä¿®æ”¹ `.vcxproj` æœ¬èº«ï¼‰ã€‚
+½Å±¾»áÉ¨ÃèÈ«??`*.vcxproj` ²¢ÖØĞ´¶ÔÓ¦µÄ `.vcxproj.filters`£¨²»ĞŞ¸Ä `.vcxproj` ±¾Éí£©??
 
-## æºç æ³¨é‡Šçº¦å®šï¼ˆcode-commentï¼‰
+## Ô´Âë×¢ÊÍÔ¼¶¨£¨code-comment??
 
-- åªå†™ **Why**ï¼šä¸šåŠ¡èƒŒæ™¯ã€éæ˜¾ç„¶ç®—æ³•ã€è¾¹ç•Œå…œåº•ã€å±é™©æ“ä½œï¼›ä¸å†™ã€Œä»£ç åœ¨åšä»€ä¹ˆã€
-- å¤´æ–‡ä»¶å…¬å¼€ APIï¼šç²¾ç®€ä¸­æ–‡ `///`ï¼ˆçº¦ 5â€“15 å­—ï¼‰ï¼›`@param` ä¿ç•™ä½†æè¿°ç”¨ä¸­æ–‡
-- å®ç°æ–‡ä»¶ï¼šéæ˜¾ç„¶å¤„ç”¨çŸ­ `//`ï¼Œè¡Œå†…æ³¨é‡Šå°½é‡ â‰¤5 è¯
-- é¿å…ã€Œç”¨äºâ€¦ã€ã€Œè¯¥æ–¹æ³•â€¦ã€ç­‰ç¿»è¯‘è…”ï¼›è¡Œæœ« `//` ä¸åŠ å¥å·
-- æ‰¹é‡æ¸…ç†ï¼ˆä»…åˆ  `ã€ä¸­æ–‡ã€‘` æ ‡ç­¾ç­‰ï¼‰ï¼š`python scripts/apply_code_comment_style.py`ï¼ˆæ…ç”¨ï¼Œæ”¹åéœ€ diff å¤æ ¸ï¼‰
+- Ö»Ğ´ **Why**£ºÒµÎñ±³¾°¡¢·ÇÏÔÈ»Ëã·¨¡¢±ß½ç¶µµ×¡¢Î£ÏÕ²Ù×÷£»²»Ğ´¡¸´úÂëÔÚ×öÊ²Ã´??
+- Í·ÎÄ¼ş¹«¿ª API£º¾«¼òÖĞÎÄ `///`£¨Ô¼ 5??5 ×Ö£©£»`@param` ±£Áôµ«ÃèÊöÓÃÖĞÎÄ
+- ÊµÏÖÎÄ¼ş£º·ÇÏÔÈ»´¦ÓÃ??`//`£¬ĞĞÄÚ×¢ÊÍ¾¡???? ??
+- ±ÜÃâ¡¸ÓÃÓÚ¡­¡¹¡¸¸Ã·½·¨¡­¡¹µÈ·­ÒëÇ»£»ĞĞÄ© `//` ²»¼Ó¾äºÅ
+- ÅúÁ¿ÇåÀí£¨½ö??`¡¾ÖĞÎÄ¡¿` ±êÇ©µÈ£©£º`python scripts/apply_code_comment_style.py`£¨É÷ÓÃ£¬¸ÄºóĞè diff ¸´ºË??
 
-## å¤´æ–‡ä»¶çº¦å®š
+## Í·ÎÄ¼şÔ¼??
 
-- å…¬å…± APIï¼š`å„å·¥ç¨‹/inc/*.h`
-- å®ç°ï¼š`å„å·¥ç¨‹/source/*.cpp`
-- è·¨ DLLï¼šä½¿ç”¨å„ `*_global.h` ä¸­çš„ `*_EXPORT` å®ï¼›è·¨åŸŸå¼•ç”¨ä¼˜å…ˆé€šè¿‡ vcxproj `AdditionalIncludeDirectories`ï¼Œæºç å†…ç›¸å¯¹è·¯å¾„éœ€æŒ‰ `src/` æ·±åº¦ä¹¦å†™ï¼ˆè§ `DIRECTORY_LAYOUT.md`ï¼‰ã€‚
+- ¹«¹² API£º`¸÷¹¤??inc/*.h`
+- ÊµÏÖ£º`¸÷¹¤??source/*.cpp`
+- ??DLL£ºÊ¹ÓÃ¸÷ `*_global.h` ÖĞµÄ `*_EXPORT` ºê£»¿çÓòÒıÓÃÓÅÏÈÍ¨¹ı vcxproj `AdditionalIncludeDirectories`£¬Ô´ÂëÄÚÏà¶ÔÂ·¾¶Ğè??`src/` Éî¶ÈÊéĞ´£¨¼û `DIRECTORY_LAYOUT.md`£©??
 
-## å·¥ç¨‹æŒä¹…åŒ–ï¼ˆv4ï¼‰
+## ¹¤³Ì³Ö¾Ã»¯£¨v4??
 
-è®¾è®¡ä¸éªŒæ”¶è§ [`backend_persistence/`](backend_persistence/)ï¼ˆ`DESIGN_*`ã€`TASK_*`ã€`REGRESSION_CHECKLIST_*`ã€`ACCEPTANCE_*`ï¼‰ã€‚æ¶æ„æ€»è§ˆï¼š[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) Â§6.5ã€‚
+Éè¼ÆÓëÑéÊÕ¼û [`backend_persistence/`](backend_persistence/)£¨`DESIGN_*`¡¢`TASK_*`¡¢`REGRESSION_CHECKLIST_*`¡¢`ACCEPTANCE_*`£©¡£¼Ü¹¹×ÜÀÀ£º[`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) ¡ì6.5??
 
-## çº¦å®šä¸è§„åˆ™
+## Ô¼¶¨Óë¹æ??
 
-- C++ / Qt ç¼–ç çº¦å®šï¼š`.cursor/rules/cloudsim-cpp-conventions.mdc`
-- è§£å†³æ–¹æ¡ˆç»“æ„ï¼š`.cursor/rules/cloudsim-architecture.mdc`
+- C++ / Qt ±àÂëÔ¼¶¨£º`.cursor/rules/cloudsim-cpp-conventions.mdc`
+- ½â¾ö·½°¸½á¹¹£º`.cursor/rules/cloudsim-architecture.mdc`

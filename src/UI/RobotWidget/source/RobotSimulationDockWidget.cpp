@@ -6,7 +6,22 @@
 #include "TrajectoryEditPageWidget.h"
 #include "FeatureTrajectoryPageWidget.h"
 
+#include <QScrollArea>
 #include <QVBoxLayout>
+
+namespace {
+
+QScrollArea* wrapInScrollArea(QWidget* content, QWidget* parent)
+{
+	auto* scroll = new QScrollArea(parent);
+	scroll->setWidget(content);
+	scroll->setWidgetResizable(true);
+	scroll->setFrameShape(QFrame::NoFrame);
+	scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	return scroll;
+}
+
+} // namespace
 
 RobotSimulationDockWidget::RobotSimulationDockWidget(QWidget* parent)
 	: QWidget(parent)
@@ -14,6 +29,8 @@ RobotSimulationDockWidget::RobotSimulationDockWidget(QWidget* parent)
 	auto* layout = new QVBoxLayout(this);
 	layout->setContentsMargins(0, 0, 0, 0);
 	m_tabs = new QTabWidget(this);
+	// 允许标签页拖动重排
+	m_tabs->setMovable(true);
 	layout->addWidget(m_tabs);
 	m_commandPage = new SimulationCommandWidget(m_tabs);
 	m_axisPage = new RobotAxisControlWidget(m_tabs);
@@ -22,7 +39,7 @@ RobotSimulationDockWidget::RobotSimulationDockWidget(QWidget* parent)
 	m_featurePage = new FeatureTrajectoryPageWidget(m_tabs);
 	m_tabs->addTab(m_commandPage, QStringLiteral("Instructions"));
 	m_tabs->addTab(m_axisPage, QStringLiteral("Axis control"));
-	m_tabs->addTab(m_framePage, QStringLiteral("Frames"));
-	m_tabs->addTab(m_featurePage, QStringLiteral("轨迹生成"));
-	m_tabs->addTab(m_trajectoryPage, QStringLiteral("轨迹编辑"));
+	m_tabs->addTab(wrapInScrollArea(m_framePage, m_tabs), QStringLiteral("Frames"));
+	m_tabs->addTab(wrapInScrollArea(m_featurePage, m_tabs), QStringLiteral("轨迹生成"));
+	m_tabs->addTab(wrapInScrollArea(m_trajectoryPage, m_tabs), QStringLiteral("轨迹编辑"));
 }

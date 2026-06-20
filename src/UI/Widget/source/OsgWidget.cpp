@@ -312,7 +312,7 @@ osg::Group* findUrdfLinkContainer(osg::Group* sceneSubtree, const std::string& u
 
 osg::ref_ptr<osg::Geode> createReachabilityOriginGeode(bool reachable)
 {
-	const float r = reachable ? 6.0f : 7.0f;
+	const float r = 4.0f;
 	const osg::Vec4 color = reachable ? osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f) : osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f);
 	osg::ref_ptr<osg::Sphere> sphere = new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.0f), r);
 	osg::ref_ptr<osg::ShapeDrawable> drawable = new osg::ShapeDrawable(sphere.get());
@@ -327,14 +327,13 @@ osg::ref_ptr<osg::Geode> createReachabilityOriginGeode(bool reachable)
 
 osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(
 	float axisLengthMm,
-	bool lineMotion,
 	bool alwaysVisible = false)
 {
 	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
 	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
-	const osg::Vec4 xColor = lineMotion ? osg::Vec4(1.0f, 0.4f, 0.4f, 1.0f) : osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f);
-	const osg::Vec4 yColor = lineMotion ? osg::Vec4(0.4f, 1.0f, 0.4f, 1.0f) : osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
-	const osg::Vec4 zColor = lineMotion ? osg::Vec4(0.4f, 0.6f, 1.0f, 1.0f) : osg::Vec4(0.1f, 0.3f, 1.0f, 1.0f);
+	const osg::Vec4 xColor = osg::Vec4(1.0f, 0.4f, 0.4f, 1.0f);
+	const osg::Vec4 yColor = osg::Vec4(0.4f, 1.0f, 0.4f, 1.0f);
+	const osg::Vec4 zColor = osg::Vec4(0.4f, 0.6f, 1.0f, 1.0f);
 
 	verts->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
 	verts->push_back(osg::Vec3(axisLengthMm, 0.0f, 0.0f));
@@ -372,7 +371,7 @@ osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(
 		ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::ON);
 	}
 	ss->setMode(GL_BLEND, osg::StateAttribute::ON);
-	osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth(lineMotion ? 3.0f : 2.5f);
+	osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth(2.5f);
 	ss->setAttributeAndModes(lw.get(), osg::StateAttribute::ON);
 	return geode;
 }
@@ -599,7 +598,7 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<RobotOsgUi::Instruction
 		(void)robotAsmRoot;
 		mt->setMatrix(m);
 		mt->addChild(createReachabilityOriginGeode(a.reachable).get());
-		mt->addChild(createInstructionPoseAxisGeode(a.lineMotion ? 100.0f : 80.0f, a.lineMotion).get());
+		mt->addChild(createInstructionPoseAxisGeode(40.0f).get());
 		m_instructionPoseAxesGroup->addChild(mt.get());
 		m_instructionPoseAxisNodes.push_back(mt);
 	}
@@ -677,7 +676,7 @@ void OsgWidget::setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTraject
 	ptGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::POINTS, 0, static_cast<GLsizei>(ptVerts->size())));
 	osg::StateSet* ptSs = ptGeom->getOrCreateStateSet();
 	ptSs->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-	ptSs->setAttribute(new osg::Point(5.0f));
+	ptSs->setAttribute(new osg::Point(4.0f));
 	m_rawTrajectoryOverlayGeode->addDrawable(ptGeom.get());
 	requestRedraw();
 }
@@ -705,7 +704,7 @@ void OsgWidget::setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawT
 		m_trajectoryOverlayGroup->addChild(m_rawTrajectoryFramesGroup.get());
 	}
 	m_rawTrajectoryFramesGroup->removeChildren(0, m_rawTrajectoryFramesGroup->getNumChildren());
-	const float axisLenMm = 15.0f;
+	const float axisLenMm = 40.0f;
 	for (const RobotOsgUi::RawTrajectoryOverlayFrame& f : frames)
 	{
 		osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
@@ -715,7 +714,8 @@ void OsgWidget::setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawT
 		m.setTrans(static_cast<double>(f.positionMm.x()), static_cast<double>(f.positionMm.y()),
 			static_cast<double>(f.positionMm.z()));
 		mt->setMatrix(m);
-		mt->addChild(createInstructionPoseAxisGeode(axisLenMm, true).get());
+		mt->addChild(createReachabilityOriginGeode(f.reachable).get());
+		mt->addChild(createInstructionPoseAxisGeode(axisLenMm).get());
 		m_rawTrajectoryFramesGroup->addChild(mt.get());
 	}
 	requestRedraw();
@@ -809,7 +809,7 @@ void OsgWidget::setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverlayUpdate&
 			toolMt->setName(std::string("RobotToolFrame_") + te.name);
 			toolMt->setMatrix(te.localMatrix);
 			const float axisLen = te.active ? 100.0f : 75.0f;
-			toolMt->addChild(createInstructionPoseAxisGeode(axisLen, false, true).get());
+			toolMt->addChild(createInstructionPoseAxisGeode(axisLen, true).get());
 			if (mountOnParent(te.mountBackendId, toolMt.get()))
 			{
 				nodes.toolNodes.push_back(toolMt);
@@ -823,7 +823,7 @@ void OsgWidget::setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverlayUpdate&
 			osg::ref_ptr<osg::MatrixTransform> userMt = new osg::MatrixTransform;
 			userMt->setName(std::string("RobotUserFrame_") + ue.name);
 			userMt->setMatrix(ue.localMatrix);
-			userMt->addChild(createInstructionPoseAxisGeode(110.0f, false, true).get());
+			userMt->addChild(createInstructionPoseAxisGeode(110.0f, true).get());
 			if (mountOnParent(ue.mountBackendId, userMt.get()))
 			{
 				nodes.userNodes.push_back(userMt);
@@ -879,6 +879,110 @@ void syncGlWidgetChrome(QWidgetViewer* glWidget, bool dark)
 
 } // namespace
 
+void OsgWidget::createGradientBackground()
+{
+	if (!m_viewer.valid() || !m_viewer->getCamera())
+	{
+		return;
+	}
+
+	// 创建专用的背景相机（渲染在最底层）
+	m_gradientBackgroundCamera = new osg::Camera;
+	m_gradientBackgroundCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+	m_gradientBackgroundCamera->setProjectionMatrixAsOrtho2D(-1.0, 1.0, -1.0, 1.0);
+	m_gradientBackgroundCamera->setViewMatrix(osg::Matrix::identity());
+	m_gradientBackgroundCamera->setRenderOrder(osg::Camera::PRE_RENDER);
+	m_gradientBackgroundCamera->setClearMask(GL_DEPTH_BUFFER_BIT);
+	m_gradientBackgroundCamera->setGraphicsContext(m_viewer->getCamera()->getGraphicsContext());
+	m_gradientBackgroundCamera->setViewport(m_viewer->getCamera()->getViewport());
+
+	// 创建渐变几何体
+	m_gradientBackgroundGeode = new osg::Geode;
+	m_gradientBackgroundGeom = new osg::Geometry;
+
+	// 6顶点三段式渐变：底部暖灰 → 中间过渡 → 顶部冷蓝灰
+	// 比4顶点渐变更自然，层次感更强
+	osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
+	// 底部条带
+	vertices->push_back(osg::Vec3(-1.0f, -1.0f, 0.0f));   // 左下
+	vertices->push_back(osg::Vec3(1.0f, -1.0f, 0.0f));    // 右下
+	// 中间条带
+	vertices->push_back(osg::Vec3(1.0f, -0.15f, 0.0f));   // 右中
+	vertices->push_back(osg::Vec3(-1.0f, -0.15f, 0.0f));  // 左中
+	// 顶部条带
+	vertices->push_back(osg::Vec3(1.0f, 1.0f, 0.0f));     // 右上
+	vertices->push_back(osg::Vec3(-1.0f, 1.0f, 0.0f));    // 左上
+	m_gradientBackgroundGeom->setVertexArray(vertices);
+
+	// 默认亮色主题渐变（三段式）
+	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+	colors->push_back(osg::Vec4(0.96f, 0.95f, 0.94f, 1.0f));  // 左下 - 暖灰白
+	colors->push_back(osg::Vec4(0.96f, 0.95f, 0.94f, 1.0f));  // 右下 - 暖灰白
+	colors->push_back(osg::Vec4(0.92f, 0.93f, 0.94f, 1.0f));  // 右中 - 中性灰
+	colors->push_back(osg::Vec4(0.92f, 0.93f, 0.94f, 1.0f));  // 左中 - 中性灰
+	colors->push_back(osg::Vec4(0.84f, 0.87f, 0.92f, 1.0f));  // 右上 - 冷蓝灰
+	colors->push_back(osg::Vec4(0.84f, 0.87f, 0.92f, 1.0f));  // 左上 - 冷蓝灰
+	m_gradientBackgroundGeom->setColorArray(colors);
+	m_gradientBackgroundGeom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+
+	// 法线
+	osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
+	normals->push_back(osg::Vec3(0.0f, 0.0f, 1.0f));
+	m_gradientBackgroundGeom->setNormalArray(normals);
+	m_gradientBackgroundGeom->setNormalBinding(osg::Geometry::BIND_OVERALL);
+
+	// 绘制两个三角形条带（6顶点）
+	m_gradientBackgroundGeom->addPrimitiveSet(new osg::DrawArrays(osg::DrawArrays::TRIANGLE_STRIP, 0, 6));
+
+	// 禁用深度测试和光照，确保背景始终在最底层
+	osg::ref_ptr<osg::StateSet> ss = m_gradientBackgroundGeom->getOrCreateStateSet();
+	ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
+	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+	ss->setRenderBinDetails(-1, "RenderBin");
+
+	m_gradientBackgroundGeode->addDrawable(m_gradientBackgroundGeom);
+	m_gradientBackgroundCamera->addChild(m_gradientBackgroundGeode);
+
+	m_root->addChild(m_gradientBackgroundCamera);
+}
+
+void OsgWidget::updateGradientColors(bool dark)
+{
+	if (!m_gradientBackgroundGeom.valid())
+	{
+		return;
+	}
+
+	osg::ref_ptr<osg::Vec4Array> colors = dynamic_cast<osg::Vec4Array*>(m_gradientBackgroundGeom->getColorArray());
+	if (!colors.valid() || colors->size() < 6)
+	{
+		return;
+	}
+
+	if (dark)
+	{
+		// 暗色主题三段式渐变：底部深灰 → 中间过渡 → 顶部深蓝灰
+		(*colors)[0] = osg::Vec4(0.10f, 0.10f, 0.11f, 1.0f);  // 左下 - 深灰
+		(*colors)[1] = osg::Vec4(0.10f, 0.10f, 0.11f, 1.0f);  // 右下 - 深灰
+		(*colors)[2] = osg::Vec4(0.15f, 0.16f, 0.18f, 1.0f);  // 右中 - 中性深灰
+		(*colors)[3] = osg::Vec4(0.15f, 0.16f, 0.18f, 1.0f);  // 左中 - 中性深灰
+		(*colors)[4] = osg::Vec4(0.22f, 0.24f, 0.29f, 1.0f);  // 右上 - 深蓝灰
+		(*colors)[5] = osg::Vec4(0.22f, 0.24f, 0.29f, 1.0f);  // 左上 - 深蓝灰
+	}
+	else
+	{
+		// 亮色主题三段式渐变：底部暖灰白 → 中间过渡 → 顶部冷蓝灰
+		(*colors)[0] = osg::Vec4(0.96f, 0.95f, 0.94f, 1.0f);  // 左下 - 暖灰白
+		(*colors)[1] = osg::Vec4(0.96f, 0.95f, 0.94f, 1.0f);  // 右下 - 暖灰白
+		(*colors)[2] = osg::Vec4(0.92f, 0.93f, 0.94f, 1.0f);  // 右中 - 中性灰
+		(*colors)[3] = osg::Vec4(0.92f, 0.93f, 0.94f, 1.0f);  // 左中 - 中性灰
+		(*colors)[4] = osg::Vec4(0.84f, 0.87f, 0.92f, 1.0f);  // 右上 - 冷蓝灰
+		(*colors)[5] = osg::Vec4(0.84f, 0.87f, 0.92f, 1.0f);  // 左上 - 冷蓝灰
+	}
+
+	m_gradientBackgroundGeom->dirtyDisplayList();
+}
+
 void OsgWidget::setViewerBackgroundForDarkUi(bool dark)
 {
 	m_darkUiTheme = dark;
@@ -888,9 +992,17 @@ void OsgWidget::setViewerBackgroundForDarkUi(bool dark)
 	{
 		return;
 	}
-	// Dark UI: medium-light gray canvas (readable vs. ~53 dock gray). Light UI: near-white.
-	const osg::Vec4 color = dark ? osg::Vec4(0.40f, 0.40f, 0.42f, 1.0f) : osg::Vec4(0.98f, 0.98f, 0.98f, 1.0f);
-	m_viewer->getCamera()->setClearColor(color);
+
+	// 更新渐变背景颜色
+	updateGradientColors(dark);
+
+	// 主相机清除颜色兜底，与渐变色调一致
+	const osg::Vec4 clearColor = dark
+		? osg::Vec4(0.14f, 0.14f, 0.16f, 1.0f)
+		: osg::Vec4(0.93f, 0.93f, 0.94f, 1.0f);
+	m_viewer->getCamera()->setClearColor(clearColor);
+
+	// 更新注释文本颜色
 	const osg::Vec4 annotationTextColor = dark
 		? osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f)
 		: osg::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -937,6 +1049,11 @@ void OsgWidget::syncViewportLayoutFromFramebuffer(int framebufferWidth, int fram
 		m_viewer->getCamera()->setViewport(0, 0, fbW, fbH);
 		const double aspect = static_cast<double>(fbW) / static_cast<double>(fbH);
 		m_viewer->getCamera()->setProjectionMatrixAsPerspective(30.0, aspect, 10.0, 1e8);
+	}
+	// 更新渐变背景相机视口
+	if (m_gradientBackgroundCamera.valid())
+	{
+		m_gradientBackgroundCamera->setViewport(0, 0, fbW, fbH);
 	}
 	updateWorldAxesHudViewport(fbW, fbH);
 	updateViewCubeHudViewport(fbW, fbH);
@@ -1407,6 +1524,8 @@ void OsgWidget::initViewer()
 	m_viewer->setCameraManipulator(m_trackballManipulator.get());
 	m_viewer->getEventQueue()->syncWindowRectangleWithGraphicsContext();
 
+	// 创建渐变背景（在 setViewerBackgroundForDarkUi 之前）
+	createGradientBackground();
 	setViewerBackgroundForDarkUi(m_darkUiTheme);
 	m_viewer->getCamera()->setViewMatrixAsLookAt(
 		osg::Vec3(3, 3, 3),
@@ -2156,7 +2275,22 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 				return true;
 			}
 		}
-		if (type == QEvent::MouseMove || type == QEvent::MouseButtonPress || type == QEvent::MouseButtonRelease
+		if (type == QEvent::MouseMove)
+		{
+			const auto* mouseEvent = static_cast<QMouseEvent*>(event);
+			// 悬停在ViewCube上时显示手型光标
+			if (isMouseOverViewCube(static_cast<double>(mouseEvent->x()),
+				static_cast<double>(mouseEvent->y())))
+			{
+				m_glWidget->setCursor(Qt::PointingHandCursor);
+			}
+			else
+			{
+				m_glWidget->setCursor(Qt::ArrowCursor);
+			}
+			noteViewportInteraction();
+		}
+		else if (type == QEvent::MouseButtonPress || type == QEvent::MouseButtonRelease
 			|| type == QEvent::Wheel || type == QEvent::KeyPress || type == QEvent::KeyRelease)
 		{
 			noteViewportInteraction();

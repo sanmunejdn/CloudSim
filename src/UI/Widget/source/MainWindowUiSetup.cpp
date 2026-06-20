@@ -72,7 +72,10 @@ void setupDockTabWidget(QTabWidget* tabs)
 		return;
 	}
 	tabs->setDocumentMode(true);
-	tabs->setContentsMargins(0, 2, 0, 0);
+	// 允许标签页拖动重排
+	tabs->setMovable(true);
+	// 增加标签页内边距
+	tabs->setContentsMargins(4, 4, 4, 4);
 }
 } // namespace
 
@@ -114,18 +117,23 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	auto* central = new QWidget(this);
 	central->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	auto* rootLayout = new QVBoxLayout(central);
-	rootLayout->setContentsMargins(8, 8, 8, 8);
-	rootLayout->setSpacing(8);
+	// 增加边距和间距，让界面更有呼吸感
+	rootLayout->setContentsMargins(12, 12, 12, 12);
+	rootLayout->setSpacing(12);
 
 	m_documentTabs = new QTabWidget(central);
 	m_documentTabs->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	m_documentTabs->setDocumentMode(true);
 	m_documentTabs->setTabsClosable(true);
+	// 设置文档标签栏属性，确保文档名称完整显示
+	m_documentTabs->setElideMode(Qt::ElideNone);
+	m_documentTabs->setUsesScrollButtons(true);
+	m_documentTabs->setMovable(true);
 	rootLayout->addWidget(m_documentTabs, 1);
 
 	auto* firstPage = new DocumentPage(m_documentTabs, m_appEvents);
 	wireDocumentPageSignals(firstPage);
-	m_documentTabs->addTab(firstPage, QStringLiteral("Untitled"));
+	m_documentTabs->addTab(firstPage, i18n(QStringLiteral("Untitled"), QStringLiteral("\u672a\u547d\u540d")));
 
 	m_appEvents.subscribe<cloudsim::core::BackendObjectRegisteredEvent>(
 		[this](const cloudsim::core::BackendObjectRegisteredEvent& ev) {
@@ -244,9 +252,9 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	}
 	onDocumentTabChanged(m_documentTabs ? m_documentTabs->currentIndex() : -1);
 
-	// Reasonable default geometry so the window does not maximize overly wide on first show.
-	resize(1180, 760);
-	setMinimumSize(900, 560);
+	// 默认窗口大小：1400x800，确保3D视口有足够空间
+	resize(1400, 800);
+	setMinimumSize(1024, 640);
 }
 
 void MainWindow::setupMenuBar()
@@ -319,9 +327,6 @@ void MainWindow::setupMenuBar()
 			view->setTransformGizmoFrame(0);
 		}
 	});
-	 m_viewMenu->addSeparator();
-	 m_simulationStartAction = m_viewMenu->addAction(QStringLiteral("Start Simulation"), this, &MainWindow::onSimulationStartTriggered);
-
 	m_settingsMenu = menuBar()->addMenu(QStringLiteral("Settings"));
 	m_appearanceMenu = m_settingsMenu->addMenu(QStringLiteral("Theme"));
 	m_themeActionGroup = new QActionGroup(this);
@@ -367,17 +372,20 @@ void MainWindow::setupDockWidgets()
 	m_propertyDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 	m_variantManager = new QtVariantPropertyManager(this);
 	m_variantFactory = new QtVariantEditorFactory(this);
-	m_propertyBrowser = new QtTreePropertyBrowser();
-	m_propertyBrowser->setFactoryForManager(m_variantManager, m_variantFactory);
-	m_propertyBrowser->setResizeMode(QtTreePropertyBrowser::ResizeToContents);
-	m_propertyBrowser->setAlternatingRowColors(true);
-	m_propertyBrowser->setHeaderVisible(true);
-	m_propertyBrowser->setRootIsDecorated(false);
-	m_propertyBrowser->setSplitterPosition(160);
+m_propertyBrowser = new QtTreePropertyBrowser();
+		m_propertyBrowser->setFactoryForManager(m_variantManager, m_variantFactory);
+		m_propertyBrowser->setResizeMode(QtTreePropertyBrowser::ResizeToContents);
+		m_propertyBrowser->setAlternatingRowColors(true);
+		m_propertyBrowser->setHeaderVisible(true);
+		m_propertyBrowser->setRootIsDecorated(false);
+		// 分割位置适应240px面板
+		m_propertyBrowser->setSplitterPosition(100);
 	if (QTreeWidget* propTree = m_propertyBrowser->findChild<QTreeWidget*>())
 	{
 		propTree->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::SelectedClicked
 			| QAbstractItemView::EditKeyPressed | QAbstractItemView::AnyKeyPressed);
+		// 增加行高
+		propTree->setUniformRowHeights(true);
 	}
 	connect(m_variantManager, &QtVariantPropertyManager::valueChanged, this, &MainWindow::onVariantPropertyValueChanged);
 	installPropertyPanelEventFilter();
@@ -390,95 +398,81 @@ void MainWindow::setupDockWidgets()
 	hideDockTitleBar(m_propertyDock);
 	connect(m_devicePage, &DevicePageWidget::urdfImportRequested, this, &MainWindow::onUrdfImportRequested);
 	addDockWidget(Qt::LeftDockWidgetArea, m_propertyDock);
-	resizeDocks({ m_propertyDock }, { 340 }, Qt::Horizontal);
+	// 左侧属性面板宽度：240px
+	resizeDocks({ m_propertyDock }, { 240 }, Qt::Horizontal);
 
 	m_unitDock = new QDockWidget(QStringLiteral("Workspace"), this);
 	m_unitDock->setObjectName(QStringLiteral("UnitDock"));
 	m_unitDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 	m_unitDockTabs = new QTabWidget(m_unitDock);
 	setupDockTabWidget(m_unitDockTabs);
-	m_backendTree = new QTreeWidget();
-	m_backendTree->setHeaderHidden(true);
-	m_backendRootItem = new QTreeWidgetItem(QStringList() << QStringLiteral("BackendDataManager"));
-	m_backendTree->addTopLevelItem(m_backendRootItem);
-	m_annotationRootItem = new QTreeWidgetItem(QStringList() << QStringLiteral("Annotations"));
-	m_backendRootItem->addChild(m_annotationRootItem);
-	m_backendRootItem->setExpanded(true);
-	m_annotationRootItem->setExpanded(true);
-	connect(m_backendTree, &QTreeWidget::itemSelectionChanged, this, &MainWindow::onBackendTreeSelectionChanged);
-	connect(m_backendTree, &QTreeWidget::itemChanged, this, [this](QTreeWidgetItem* item, int column) {
-		MainWindowSelectionService::handleBackendTreeItemChanged(*this, item, column);
-	});
-	m_backendTree->setContextMenuPolicy(Qt::CustomContextMenu);
-	connect(m_backendTree, &QTreeWidget::customContextMenuRequested, this, &MainWindow::onBackendTreeContextMenu);
+m_backendTree = new QTreeWidget();
+		m_backendTree->setHeaderHidden(true);
+		m_backendTree->setIndentation(16);
+		m_backendTree->setAnimated(true);
+		m_backendRootItem = new QTreeWidgetItem(QStringList() << QStringLiteral("BackendDataManager"));
+		m_backendTree->addTopLevelItem(m_backendRootItem);
+		m_annotationRootItem = new QTreeWidgetItem(QStringList() << QStringLiteral("Annotations"));
+		m_backendRootItem->addChild(m_annotationRootItem);
+		m_backendRootItem->setExpanded(true);
+		m_annotationRootItem->setExpanded(true);
+		connect(m_backendTree, &QTreeWidget::itemSelectionChanged, this, &MainWindow::onBackendTreeSelectionChanged);
+		connect(m_backendTree, &QTreeWidget::itemChanged, this, [this](QTreeWidgetItem* item, int column) {
+			MainWindowSelectionService::handleBackendTreeItemChanged(*this, item, column);
+		});
+		m_backendTree->setContextMenuPolicy(Qt::CustomContextMenu);
+		connect(m_backendTree, &QTreeWidget::customContextMenuRequested, this, &MainWindow::onBackendTreeContextMenu);
 	m_robotSimulation->createSimulationDock(m_unitDockTabs);
 	m_unitDockTabs->addTab(m_backendTree, QStringLiteral("Units"));
 	m_unitDockTabs->addTab(m_robotSimulation->simulationDock(), QStringLiteral("Simulation"));
 	m_robotSimulation->wireSimulationSignals();
-	m_osgSceneTree = new QTreeWidget();
-	m_osgSceneTree->setColumnCount(2);
-	m_osgSceneTree->setHeaderHidden(false);
-	m_osgSceneTree->header()->setStretchLastSection(true);
-	m_osgSceneTree->setColumnWidth(0, 260);
-	m_osgSceneTree->setUniformRowHeights(false);
-	m_osgSceneTree->setWordWrap(true);
-	m_osgSceneTree->setAnimated(false);
-	m_osgSceneTree->setHeaderLabels(QStringList() << QStringLiteral("Node") << QStringLiteral("Local transform"));
+m_osgSceneTree = new QTreeWidget();
+		m_osgSceneTree->setColumnCount(2);
+		m_osgSceneTree->setHeaderHidden(false);
+		m_osgSceneTree->header()->setStretchLastSection(true);
+		// 列宽适应240px右侧面板
+		m_osgSceneTree->setColumnWidth(0, 130);
+		m_osgSceneTree->setUniformRowHeights(true);
+		m_osgSceneTree->setWordWrap(true);
+		m_osgSceneTree->setAnimated(true);
+		m_osgSceneTree->setIndentation(14);
+		m_osgSceneTree->setHeaderLabels(QStringList() << QStringLiteral("Node") << QStringLiteral("Local transform"));
 	m_unitDockTabs->addTab(m_osgSceneTree, QStringLiteral("Scene"));
 
 	m_rightPanelTabs = new QTabWidget(m_unitDock);
 	setupDockTabWidget(m_rightPanelTabs);
 	m_rightPanelTabs->addTab(m_unitDockTabs, QStringLiteral("Workspace"));
 	m_aiAssistantPage = new AiAssistantDockWidget(m_rightPanelTabs);
-	m_rightPanelTabs->addTab(m_aiAssistantPage, QStringLiteral("AI"));
 	m_unitDock->setWidget(m_rightPanelTabs);
 	hideDockTitleBar(m_unitDock);
 	addDockWidget(Qt::RightDockWidgetArea, m_unitDock);
+	// 右侧面板宽度：240px，最大化3D视口空间
+	resizeDocks({ m_unitDock }, { 240 }, Qt::Horizontal);
 	setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
 	setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
 	setTabPosition(Qt::BottomDockWidgetArea, QTabWidget::North);
 
-	m_runDock = new QDockWidget(QStringLiteral("Runtime Output"), this);
-	m_runDock->setObjectName(QStringLiteral("RunDock"));
-	m_runDock->setAllowedAreas(Qt::BottomDockWidgetArea);
-	m_runInfoPage = new RunInfoPage(m_runDock);
-	m_runDock->setWidget(m_runInfoPage);
-	hideDockTitleBar(m_runDock);
-	addDockWidget(Qt::BottomDockWidgetArea, m_runDock);
-	resizeDocks({ m_runDock }, { 160 }, Qt::Vertical);
+m_runDock = new QDockWidget(QStringLiteral("Runtime Output"), this);
+		m_runDock->setObjectName(QStringLiteral("RunDock"));
+		m_runDock->setAllowedAreas(Qt::BottomDockWidgetArea);
+		m_runInfoPage = new RunInfoPage(m_runDock);
+		m_runDock->setWidget(m_runInfoPage);
+		hideDockTitleBar(m_runDock);
+		addDockWidget(Qt::BottomDockWidgetArea, m_runDock);
+		// 底部输出区高度：100px
+		resizeDocks({ m_runDock }, { 100 }, Qt::Vertical);
 
 	setupAiAssistantCoordinator();
 
-	m_toggleAiAssistantAction = m_viewMenu->addAction(QStringLiteral("AI Assistant"));
-	m_toggleAiAssistantAction->setCheckable(true);
-	m_toggleAiAssistantAction->setChecked(true);
-	connect(m_toggleAiAssistantAction, &QAction::toggled, this, [this](const bool visible) {
-		if (!m_rightPanelTabs || !m_aiAssistantPage)
-		{
-			return;
-		}
-		int aiTab = m_rightPanelTabs->indexOf(m_aiAssistantPage);
-		if (visible)
-		{
-			if (aiTab < 0)
-			{
-				aiTab = m_rightPanelTabs->addTab(
-					m_aiAssistantPage,
-					i18n(QStringLiteral("AI"), QStringLiteral("AI")));
-			}
-			m_rightPanelTabs->setCurrentIndex(aiTab);
-		}
-		else if (aiTab >= 0)
-		{
-			if (m_rightPanelTabs->currentWidget() == m_aiAssistantPage)
-			{
-				m_rightPanelTabs->setCurrentIndex(0);
-			}
-			m_rightPanelTabs->removeTab(aiTab);
-		}
-	});
+	m_viewMenu->addSeparator();
+	registerSidePanelTabToggle(
+		m_aiAssistantPage,
+		i18n(QStringLiteral("AI Assistant"), QStringLiteral("AI 助手")),
+		true);
+	m_toggleAiAssistantAction = m_sidePanelTabToggles.value(m_aiAssistantPage).viewAction;
+	m_viewPanelToggleInsertBefore = m_toggleAiAssistantAction;
 
-	m_runDock->setMinimumHeight(72);
+	m_runDock->setMinimumHeight(50);
 
 	// Defer plugin load until the dock/tab hierarchy is fully attached (avoids addTab crash at startup).
 	QTimer::singleShot(0, this, [this]() { loadPlugins(); });

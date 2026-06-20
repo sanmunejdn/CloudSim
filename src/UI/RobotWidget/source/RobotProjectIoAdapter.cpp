@@ -55,6 +55,18 @@ void writeRobotKinematics(
 			{
 				rk.insert(QStringLiteral("coordinateFrames"), cfDoc.object());
 			}
+			// 保存机器人基座放置位姿 P（列主序 16 元素）
+			{
+				QJsonArray baseArr;
+				for (int c = 0; c < 4; ++c)
+				{
+					for (int r = 0; r < 4; ++r)
+					{
+						baseArr.append(pl.robotBasePlacementWorld(r, c));
+					}
+				}
+				rk.insert(QStringLiteral("basePlacementWorld"), baseArr);
+			}
 			if (aggregatedJointAnglesRad && !aggregatedJointAnglesRad->isEmpty())
 			{
 				const int offset = doc->robotJointOffsetInAggregatedVector(ri);

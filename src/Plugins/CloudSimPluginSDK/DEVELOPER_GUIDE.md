@@ -41,11 +41,11 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 
 ```json
 {
-  "id": "com.example.hello",
-  "name": "Hello",
+  "id": "com.example.myplugin",
+  "name": "MyPlugin",
   "version": "1.0.0",
   "minHostVersion": "1.0.0",
-  "library": "HelloPlugin.dll",
+  "library": "MyPlugin.dll",
   "enabled": true
 }
 ```
@@ -123,6 +123,6 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 
 ## 示例
 
-- [`HelloPlugin/DEVELOPER_GUIDE.md`](../HelloPlugin/DEVELOPER_GUIDE.md)（网格、`createPrimitiveMesh`）
 - [`PointCloudPlugin/DEVELOPER_GUIDE.md`](../PointCloudPlugin/DEVELOPER_GUIDE.md)（点云导入、下采样、重建、模板 B-rep 更新）
 - [`CloudSimLabelingSDK/DEVELOPER_GUIDE.md`](../CloudSimLabelingSDK/DEVELOPER_GUIDE.md) + [`LabelingPlugin`](../LabelingPlugin/)（交互分割标注与训练 UI）
+- 插件开发模板：参见本指南中的 `ICloudSimPlugin` 接口定义和 `plugin.json` 示例

@@ -162,7 +162,7 @@ public:
 
 	int robotInstanceIndexForPerLinkBackend(const QString& backendId, bool* outIsSceneRoot = nullptr) const;
 
-	void setRobotBasePlacementWorldForInstance(int instanceIndex, const osg::Matrixd& placementWorld);
+	void setRobotBasePlacementWorldForInstance(int instanceIndex, const osg::Matrixd& placementWorld) override;
 
 	void updateRobotLinkOuterBindFromWorld(int instanceIndex, const QString& linkBackendId, const osg::Matrixd& world);
 

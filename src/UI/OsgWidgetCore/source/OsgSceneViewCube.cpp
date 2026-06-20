@@ -21,6 +21,7 @@
 #include <osg/Geometry>
 #include <osg/Group>
 #include <osg/Image>
+#include <osg/LineWidth>
 #include <osg/MatrixTransform>
 #include <osg/PolygonOffset>
 #include <osg/StateSet>
@@ -104,6 +105,16 @@ void applyFaceStateSet(osg::StateSet* ss)
 	ss->setAttribute(new osg::PolygonOffset(1.0f, 1.0f));
 }
 
+void applyEdgeStateSet(osg::StateSet* ss)
+{
+	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	ss->setMode(GL_BLEND, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA),
+		osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	ss->setRenderBinDetails(26, "RenderBin");
+}
+
 osg::Geode* makeFaceGeode(const std::vector<osg::Vec3>& quad, const osg::Vec4& color,
 	const osg::Vec3d& eyeDir, const osg::Vec3d& upHint)
 {
@@ -120,17 +131,36 @@ osg::Geode* makeFaceGeode(const std::vector<osg::Vec3>& quad, const osg::Vec4& c
 	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
 	colors->push_back(color);
 
-	osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
-	geom->setVertexArray(verts.get());
-	geom->setColorArray(colors.get(), osg::Array::BIND_OVERALL);
-	geom->addPrimitiveSet(new osg::DrawArrays(GL_QUADS, 0, 4));
-	applyFaceStateSet(geom->getOrCreateStateSet());
+	osg::ref_ptr<osg::Geometry> faceGeom = new osg::Geometry;
+	faceGeom->setVertexArray(verts.get());
+	faceGeom->setColorArray(colors.get(), osg::Array::BIND_OVERALL);
+	faceGeom->addPrimitiveSet(new osg::DrawArrays(GL_QUADS, 0, 4));
+	applyFaceStateSet(faceGeom->getOrCreateStateSet());
 
 	osg::ref_ptr<ViewCubePickData> pickData = new ViewCubePickData(eyeDir, upHint);
-	geom->setUserData(pickData.get());
+	faceGeom->setUserData(pickData.get());
+
+	// 边框线 - 增强立体感
+	osg::ref_ptr<osg::Vec3Array> edgeVerts = new osg::Vec3Array;
+	for (const osg::Vec3& v : quad)
+	{
+		edgeVerts->push_back(v);
+	}
+	edgeVerts->push_back(quad[0]);  // 闭合
+
+	osg::ref_ptr<osg::Vec4Array> edgeColors = new osg::Vec4Array;
+	edgeColors->push_back(osg::Vec4(0.0f, 0.0f, 0.0f, 0.15f));  // 半透明黑边框
+
+	osg::ref_ptr<osg::Geometry> edgeGeom = new osg::Geometry;
+	edgeGeom->setVertexArray(edgeVerts.get());
+	edgeGeom->setColorArray(edgeColors.get(), osg::Array::BIND_OVERALL);
+	edgeGeom->addPrimitiveSet(new osg::DrawArrays(GL_LINE_LOOP, 0, 4));
+	applyEdgeStateSet(edgeGeom->getOrCreateStateSet());
+	edgeGeom->getOrCreateStateSet()->setAttribute(new osg::LineWidth(1.5f));
 
 	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-	geode->addDrawable(geom.get());
+	geode->addDrawable(faceGeom.get());
+	geode->addDrawable(edgeGeom.get());
 	geode->setUserData(pickData.get());
 	return geode.release();
 }
@@ -381,4 +411,28 @@ bool OsgScene::tryPickViewCubeAtLogicalMouse(double logicalX, double logicalY)
 		}
 	}
 	return false;
+}
+
+bool OsgScene::isMouseOverViewCube(double logicalX, double logicalY) const
+{
+	if (!m_viewCubeHudCamera.valid())
+	{
+		return false;
+	}
+	if (!containsViewCubeLogicalRect(static_cast<int>(logicalX), static_cast<int>(logicalY), viewportWidth(),
+			m_viewCubeHudMargin, m_viewCubeHudEffectiveSize))
+	{
+		return false;
+	}
+
+	double windowX = 0.0;
+	double windowY = 0.0;
+	logicalMouseToPickWindowCoords(logicalX, logicalY, windowX, windowY);
+
+	osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
+		new osgUtil::LineSegmentIntersector(osgUtil::Intersector::WINDOW, windowX, windowY);
+	intersector->setIntersectionLimit(osgUtil::Intersector::LIMIT_NEAREST);
+	osgUtil::IntersectionVisitor iv(intersector.get());
+	m_viewCubeHudCamera->accept(iv);
+	return intersector->containsIntersections();
 }

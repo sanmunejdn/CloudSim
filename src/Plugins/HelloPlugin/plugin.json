@@ -1,8 +1,0 @@
-{
-  "id": "com.cloudsim.hello",
-  "name": "Hello",
-  "version": "1.0.0",
-  "minHostVersion": "1.1.0",
-  "library": "HelloPlugin.dll",
-  "enabled": true
-}

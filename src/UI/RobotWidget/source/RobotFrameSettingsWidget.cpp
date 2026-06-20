@@ -85,6 +85,8 @@ RobotFrameSettingsWidget::RobotFrameSettingsWidget(QWidget* parent)
 	connect(m_framesDebounceTimer, &QTimer::timeout, this, &RobotFrameSettingsWidget::onFramesChangeDebounce);
 
 	auto* root = new QVBoxLayout(this);
+	root->setContentsMargins(4, 4, 4, 4);
+	root->setSpacing(4);
 
 	m_toolGroup = new QGroupBox(QStringLiteral("Tool frames (flange)"), this);
 	auto* toolLayout = new QVBoxLayout(m_toolGroup);
@@ -106,6 +108,7 @@ RobotFrameSettingsWidget::RobotFrameSettingsWidget(QWidget* parent)
 	m_toolForm->addRow(QStringLiteral("Rz (deg)"), m_toolEuler[2]);
 	toolLayout->addLayout(m_toolForm);
 	auto* toolBtnRow = new QHBoxLayout;
+	toolBtnRow->setSpacing(2);
 	m_addToolBtn = new QPushButton(QStringLiteral("Add"), m_toolGroup);
 	m_removeToolBtn = new QPushButton(QStringLiteral("Remove"), m_toolGroup);
 	m_duplicateToolBtn = new QPushButton(QStringLiteral("Duplicate"), m_toolGroup);
@@ -141,6 +144,7 @@ RobotFrameSettingsWidget::RobotFrameSettingsWidget(QWidget* parent)
 	m_userForm->addRow(QStringLiteral("Rz (deg)"), m_userEuler[2]);
 	userLayout->addLayout(m_userForm);
 	auto* userBtnRow = new QHBoxLayout;
+	userBtnRow->setSpacing(2);
 	m_addUserBtn = new QPushButton(QStringLiteral("Add"), m_userGroup);
 	m_removeUserBtn = new QPushButton(QStringLiteral("Remove"), m_userGroup);
 	m_duplicateUserBtn = new QPushButton(QStringLiteral("Duplicate"), m_userGroup);

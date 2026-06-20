@@ -442,6 +442,14 @@ private:
 	RobotObjectGizmoFkRefreshFn m_robotObjectGizmoFkRefreshHook;
 	std::string m_cameraFollowBackendId;
 
+	// 渐变背景
+	osg::ref_ptr<osg::Camera> m_gradientBackgroundCamera;
+	osg::ref_ptr<osg::Geode> m_gradientBackgroundGeode;
+	osg::ref_ptr<osg::Geometry> m_gradientBackgroundGeom;
+	bool m_darkUiTheme = false;
+	void createGradientBackground();
+	void updateGradientColors(bool dark);
+
 	void updateCameraFollowCenter();
 
 	void noteViewportInteraction();

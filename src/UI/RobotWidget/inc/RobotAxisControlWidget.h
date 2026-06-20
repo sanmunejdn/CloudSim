@@ -86,8 +86,6 @@ private:
 		double currentAngle;
 		osg::MatrixTransform* transformNode;
 		
-		QLabel* nameLabel = nullptr;
-		QLabel* limitLabel = nullptr;
 		QSlider* slider = nullptr;
 		QDoubleSpinBox* spinBox = nullptr;
 		QLineEdit* inputEdit = nullptr;
@@ -106,7 +104,6 @@ private:
 	static constexpr double SLIDER_SCALE = 1000.0;
 
 	void createUI();
-	void updateLimitLabel(JointControl& jc);
 	void updateJointTransform(const QString& jointName, double angleRad);
 	void emitAllJointAnglesNow();
 	int angleToSliderValue(double angleRad) const;

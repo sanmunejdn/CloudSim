@@ -89,6 +89,7 @@ public:
 	/// 工作区/AI 旁插件页签（返回索引，失败 -1）
 	int addPluginSidePanelTab(const QString& title, QWidget* widget) override;
 	void removePluginSidePanelTab(QWidget* widget) override;
+	void setPluginSidePanelTabTitle(QWidget* widget, const QString& title) override;
 	QTabWidget* rightPanelTabs() override { return m_rightPanelTabs; }
 	int currentSimulationRobotInstanceIndex() const;
 	RobotSimulationController* robotSimulation() { return m_robotSimulation.get(); }
@@ -237,6 +238,9 @@ private:
 	void onTcpDragTeachEnded();
 	void setupAiAssistantCoordinator();
 	void refreshAiAssistantHost();
+	void registerSidePanelTabToggle(QWidget* widget, const QString& title, bool visible);
+	void unregisterSidePanelTabToggle(QWidget* widget);
+	void applySidePanelTabToggleVisibility(QWidget* widget, bool visible);
 	void onAiParseFailed(const QString& message, const QString& parserVia);
 	void finishAiAssistantReply(const QString& reply, bool isError, const QString& parserVia = QString());
 
@@ -348,7 +352,13 @@ protected:
 	AiAssistantDockWidget* m_aiAssistantPage = nullptr;
 	AiAssistantCoordinator* m_aiCoordinator = nullptr;
 	QAction* m_toggleAiAssistantAction = nullptr;
-	QAction* m_simulationStartAction = nullptr;
+	struct SidePanelTabToggleEntry
+	{
+		QAction* viewAction = nullptr;
+		QString title;
+	};
+	QHash<QWidget*, SidePanelTabToggleEntry> m_sidePanelTabToggles;
+	QAction* m_viewPanelToggleInsertBefore = nullptr;
 	bool m_useChinese = true;
 	bool m_updatingPropertyBrowser = false;
 	MainWindowSelectionState m_selectionState;

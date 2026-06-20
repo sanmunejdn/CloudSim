@@ -58,9 +58,7 @@ void TrajectoryPipelineEngine::clear()
 	m_rawWorking = {};
 	m_rawRebuild = nullptr;
 	m_program = nullptr;
-	m_pendingPreRaw.clear();
-	m_committedOps.clear();
-	m_draftOps.clear();
+	m_ops.clear();
 	m_steps.clear();
 	m_result = {};
 	m_baseline = {};
@@ -95,38 +93,18 @@ void TrajectoryPipelineEngine::setUnifiedBaseline(UnifiedTrajectory baseline)
 	m_baselineValid = !m_baseline.points.empty();
 }
 
-void TrajectoryPipelineEngine::setPendingPreRawOps(std::vector<TrajectoryOpDescriptor> ops)
+void TrajectoryPipelineEngine::setOps(std::vector<TrajectoryOpDescriptor> ops)
 {
-	m_pendingPreRaw = std::move(ops);
-	rebuildStepList();
-}
-
-void TrajectoryPipelineEngine::setCommittedOps(std::vector<TrajectoryOpDescriptor> ops)
-{
-	m_committedOps = std::move(ops);
-	rebuildStepList();
-}
-
-void TrajectoryPipelineEngine::setDraftOps(std::vector<TrajectoryOpDescriptor> ops)
-{
-	m_draftOps = std::move(ops);
+	m_ops = std::move(ops);
 	rebuildStepList();
 }
 
 void TrajectoryPipelineEngine::rebuildStepList()
 {
 	m_steps.clear();
-	for (const TrajectoryOpDescriptor& op : m_pendingPreRaw)
+	for (const TrajectoryOpDescriptor& op : m_ops)
 	{
-		m_steps.push_back(PipelineStep{ op, StepKind::CommittedGeometry, {} });
-	}
-	for (const TrajectoryOpDescriptor& op : m_committedOps)
-	{
-		m_steps.push_back(PipelineStep{ op, StepKind::CommittedGeometry, {} });
-	}
-	for (const TrajectoryOpDescriptor& op : m_draftOps)
-	{
-		m_steps.push_back(PipelineStep{ op, StepKind::DraftGeometry, {} });
+		m_steps.push_back(PipelineStep{ op, {} });
 	}
 	invalidateFrom(0);
 }
@@ -335,7 +313,7 @@ bool runTrajectoryPipelineEngineSelfCheck(std::string* errMsg)
 	translate.translate.endDyMm = 0.0;
 	translate.translate.endDzMm = 0.0;
 
-	engine.setDraftOps({ resample, translate });
+	engine.setOps({ resample, translate });
 	if (!engine.executeFull(errMsg))
 	{
 		return false;
@@ -350,7 +328,7 @@ bool runTrajectoryPipelineEngineSelfCheck(std::string* errMsg)
 		return false;
 	}
 
-	engine.setDraftOps({ resample, translate });
+	engine.setOps({ resample, translate });
 	engine.invalidateFrom(1);
 	if (!engine.executeFrom(1, errMsg))
 	{
