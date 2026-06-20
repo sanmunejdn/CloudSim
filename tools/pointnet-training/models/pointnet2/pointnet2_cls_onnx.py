@@ -28,34 +28,44 @@ class SetAbstractionOnnx(nn.Module):
             self.mlp_bns.append(nn.BatchNorm2d(out_channel))
             last_channel = out_channel
 
+    @staticmethod
+    def _gather_by_index(src: torch.Tensor, idx: torch.Tensor) -> torch.Tensor:
+        """沿 dim=1 取点；idx 必须为 int64，避免 ONNX GatherElements 索引变成 float。"""
+        idx = idx.to(dtype=torch.int64)
+        idx_expand = idx.unsqueeze(-1).repeat(1, 1, src.shape[-1])
+        return torch.gather(src, 1, idx_expand)
+
+    @staticmethod
+    def _gather_neighbors(src: torch.Tensor, idx: torch.Tensor) -> torch.Tensor:
+        """src [B,N,C], idx [B,S,K] int64 -> [B,S,K,C]"""
+        idx = idx.to(dtype=torch.int64)
+        npoint = idx.shape[1]
+        src_exp = src.unsqueeze(1).repeat(1, npoint, 1, 1)
+        idx_exp = idx.unsqueeze(-1).repeat(1, 1, 1, src.shape[-1])
+        return torch.gather(src_exp, 2, idx_exp)
+
     def forward(self, xyz: torch.Tensor, features: torch.Tensor = None):
         if self.group_all:
-            new_xyz = None
+            new_xyz = xyz.mean(dim=1, keepdim=True)
             grouped_xyz = xyz.unsqueeze(1)
             if features is not None:
                 grouped_features = torch.cat([grouped_xyz, features.unsqueeze(1)], dim=-1)
             else:
                 grouped_features = grouped_xyz
         else:
-            # 均匀采样（ONNX 兼容）
-            B, N, _ = xyz.shape
-            indices = torch.linspace(0, N - 1, self.npoint, dtype=torch.long, device=xyz.device)
-            indices = indices.unsqueeze(0).expand(B, -1)
-            new_xyz = torch.gather(xyz, 1, indices.unsqueeze(-1).expand(-1, -1, 3))
+            _, n_points, _ = xyz.shape
+            # index_select 导出为 Gather，比 gather+expand 更稳定
+            sample_idx = torch.linspace(
+                0, n_points - 1, self.npoint, dtype=torch.int64, device=xyz.device)
+            new_xyz = torch.index_select(xyz, 1, sample_idx)
 
-            # 简化的邻域查询：取最近的 nsample 个点
-            # 计算距离矩阵
-            dist = torch.cdist(new_xyz, xyz)  # [B, npoint, N]
-            _, idx = dist.topk(self.nsample, dim=-1, largest=False)  # [B, npoint, nsample]
-
-            grouped_xyz = torch.gather(xyz.unsqueeze(1).expand(-1, self.npoint, -1, -1),
-                                       2, idx.unsqueeze(-1).expand(-1, -1, -1, 3))
+            dist = torch.cdist(new_xyz, xyz)
+            _, idx = dist.topk(self.nsample, dim=-1, largest=False)
+            grouped_xyz = self._gather_neighbors(xyz, idx)
             grouped_xyz = grouped_xyz - new_xyz.unsqueeze(2)
 
             if features is not None:
-                grouped_features = torch.gather(
-                    features.unsqueeze(1).expand(-1, self.npoint, -1, -1),
-                    2, idx.unsqueeze(-1).expand(-1, -1, -1, features.shape[-1]))
+                grouped_features = self._gather_neighbors(features, idx)
                 grouped_features = torch.cat([grouped_xyz, grouped_features], dim=-1)
             else:
                 grouped_features = grouped_xyz

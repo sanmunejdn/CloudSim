@@ -143,5 +143,10 @@ bool PluginDocumentAdapter::exportMeshToPly(
 	const std::string& pathUtf8,
 	std::string* outError) const
 {
-	return document_point_cloud_ops::exportMeshToPly(m_host, backendIdUtf8, pathUtf8, outError);
+	if (document_point_cloud_ops::exportMeshToPly(m_host, backendIdUtf8, pathUtf8, outError))
+	{
+		return true;
+	}
+	// 点云 backend 无三角网格，回退到顶点 PLY 导出
+	return document_point_cloud_ops::exportPointCloudToPly(m_host, backendIdUtf8, pathUtf8, outError);
 }

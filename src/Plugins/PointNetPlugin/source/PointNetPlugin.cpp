@@ -99,25 +99,24 @@ bool PointNetPlugin::loadConfig(QString* err)
 	if (m_host)
 		pluginDir = m_host->applicationDirPath();
 
-	// 候选路径列表
+	// 候选路径：exe 目录、plugins/com.cloudsim.pointnet、bin/com.cloudsim.pointnet
 	QStringList searchPaths;
-
-	// 插件目录
-	if (!pluginDir.isEmpty())
-		searchPaths.append(pluginDir);
-
-	// exe 目录（plugins/ 的父目录，即 bin/x64d/）
 	if (!pluginDir.isEmpty())
 	{
-		QDir dir(pluginDir);
-		if (dir.cdUp())
-			searchPaths.append(dir.absolutePath());
+		searchPaths.append(pluginDir);
+		searchPaths.append(QDir::cleanPath(pluginDir + QStringLiteral("/plugins/com.cloudsim.pointnet")));
+		QDir parentDir(pluginDir);
+		if (parentDir.cdUp())
+		{
+			searchPaths.append(parentDir.absolutePath());
+			searchPaths.append(QDir::cleanPath(parentDir.absolutePath() + QStringLiteral("/com.cloudsim.pointnet")));
+		}
 	}
 
 	QString configPath;
 	for (const QString& dir : searchPaths)
 	{
-		QString candidate = dir + QStringLiteral("/pointnet_config.json");
+		const QString candidate = QDir::cleanPath(dir + QStringLiteral("/pointnet_config.json"));
 		if (QFile::exists(candidate))
 		{
 			configPath = candidate;

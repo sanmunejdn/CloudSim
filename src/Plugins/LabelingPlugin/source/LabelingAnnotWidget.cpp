@@ -33,8 +33,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <fstream>
 #include <sstream>
+#include <string>
+#include <vector>
 
 namespace
 {
@@ -45,44 +48,178 @@ bool isLabelingTargetClass(const std::string& cls)
 	return cls == "PointCloudBackendData" || cls == "Model";
 }
 
-bool parseAsciiPlyPoints(const QString& path, std::vector<float>& outPoints, int& outCount)
+struct PlyVertexProperty
 {
-	std::ifstream file(path.toStdString());
+	std::string type;
+	std::string name;
+
+	std::size_t byteSize() const
+	{
+		if (type == "char" || type == "uchar" || type == "int8" || type == "uint8")
+		{
+			return 1U;
+		}
+		if (type == "short" || type == "ushort" || type == "int16" || type == "uint16")
+		{
+			return 2U;
+		}
+		if (type == "int" || type == "uint" || type == "float" || type == "int32" || type == "uint32")
+		{
+			return 4U;
+		}
+		if (type == "double" || type == "int64" || type == "uint64")
+		{
+			return 8U;
+		}
+		return 4U;
+	}
+
+	bool isFloatingPoint() const
+	{
+		return type == "float" || type == "double";
+	}
+};
+
+bool parsePlyVertexPositions(const QString& path, std::vector<float>& outPoints, int& outCount)
+{
+	std::ifstream file(path.toStdString(), std::ios::binary);
 	if (!file.is_open())
 	{
 		return false;
 	}
-	std::string line;
+
 	int vertexCount = 0;
-	bool inHeader = true;
+	bool isBinary = false;
+	bool inVertexElement = false;
+	std::vector<PlyVertexProperty> vertexProps;
+
+	std::string line;
 	while (std::getline(file, line))
 	{
-		if (line.substr(0, 15) == "element vertex ")
+		if (line.size() >= 7U && line.compare(0, 7, "format ") == 0)
+		{
+			isBinary = line.find("binary") != std::string::npos;
+		}
+		else if (line.size() >= 15U && line.compare(0, 15, "element vertex ") == 0)
 		{
 			vertexCount = std::stoi(line.substr(15));
+			inVertexElement = true;
+			vertexProps.clear();
+		}
+		else if (line.size() >= 8U && line.compare(0, 8, "element ") == 0
+			&& line.compare(0, 15, "element vertex ") != 0)
+		{
+			inVertexElement = false;
+		}
+		else if (inVertexElement && line.size() >= 9U && line.compare(0, 9, "property ") == 0)
+		{
+			std::istringstream iss(line.substr(9));
+			PlyVertexProperty prop;
+			iss >> prop.type >> prop.name;
+			if (!prop.type.empty())
+			{
+				vertexProps.push_back(std::move(prop));
+			}
 		}
 		else if (line == "end_header")
 		{
-			inHeader = false;
 			break;
 		}
 	}
-	if (vertexCount <= 0 || inHeader)
+
+	if (vertexCount <= 0 || vertexProps.empty())
 	{
 		return false;
 	}
+
+	outPoints.clear();
 	outPoints.resize(static_cast<std::size_t>(vertexCount) * 3U);
 	outCount = vertexCount;
+
+	int xyzIndex[3] = { -1, -1, -1 };
+	int floatSeen = 0;
+	for (int i = 0; i < static_cast<int>(vertexProps.size()) && floatSeen < 3; ++i)
+	{
+		if (vertexProps[static_cast<std::size_t>(i)].isFloatingPoint())
+		{
+			xyzIndex[floatSeen++] = i;
+		}
+	}
+	if (xyzIndex[0] < 0 || xyzIndex[1] < 0 || xyzIndex[2] < 0)
+	{
+		return false;
+	}
+
+	const std::size_t stride = [&vertexProps]() {
+		std::size_t total = 0U;
+		for (const auto& prop : vertexProps)
+		{
+			total += prop.byteSize();
+		}
+		return total;
+	}();
+
+	if (!isBinary)
+	{
+		for (int i = 0; i < vertexCount; ++i)
+		{
+			if (!std::getline(file, line))
+			{
+				return false;
+			}
+			std::istringstream iss(line);
+			std::vector<double> values(vertexProps.size(), 0.0);
+			for (std::size_t p = 0; p < vertexProps.size(); ++p)
+			{
+				if (vertexProps[p].isFloatingPoint())
+				{
+					iss >> values[p];
+				}
+				else
+				{
+					int iv = 0;
+					iss >> iv;
+					values[p] = static_cast<double>(iv);
+				}
+			}
+			outPoints[static_cast<std::size_t>(i) * 3U + 0U] = static_cast<float>(values[static_cast<std::size_t>(xyzIndex[0])]);
+			outPoints[static_cast<std::size_t>(i) * 3U + 1U] = static_cast<float>(values[static_cast<std::size_t>(xyzIndex[1])]);
+			outPoints[static_cast<std::size_t>(i) * 3U + 2U] = static_cast<float>(values[static_cast<std::size_t>(xyzIndex[2])]);
+		}
+		return true;
+	}
+
+	std::vector<std::uint8_t> row(stride);
 	for (int i = 0; i < vertexCount; ++i)
 	{
-		if (!std::getline(file, line))
+		if (!file.read(reinterpret_cast<char*>(row.data()), static_cast<std::streamsize>(stride)))
 		{
-			break;
+			return false;
 		}
-		std::istringstream iss(line);
-		iss >> outPoints[static_cast<std::size_t>(i) * 3U + 0U]
-			>> outPoints[static_cast<std::size_t>(i) * 3U + 1U]
-			>> outPoints[static_cast<std::size_t>(i) * 3U + 2U];
+		auto readFloatAt = [&](int propIndex) -> float {
+			std::size_t off = 0U;
+			for (int p = 0; p < propIndex; ++p)
+			{
+				off += vertexProps[static_cast<std::size_t>(p)].byteSize();
+			}
+			const auto& prop = vertexProps[static_cast<std::size_t>(propIndex)];
+			if (prop.type == "float")
+			{
+				float value = 0.f;
+				std::memcpy(&value, row.data() + off, sizeof(float));
+				return value;
+			}
+			if (prop.type == "double")
+			{
+				double value = 0.0;
+				std::memcpy(&value, row.data() + off, sizeof(double));
+				return static_cast<float>(value);
+			}
+			return 0.f;
+		};
+		outPoints[static_cast<std::size_t>(i) * 3U + 0U] = readFloatAt(xyzIndex[0]);
+		outPoints[static_cast<std::size_t>(i) * 3U + 1U] = readFloatAt(xyzIndex[1]);
+		outPoints[static_cast<std::size_t>(i) * 3U + 2U] = readFloatAt(xyzIndex[2]);
 	}
 	return true;
 }
@@ -103,7 +240,11 @@ QString findPointNetConfigPath(IPluginHostContext* host)
 		{
 			searchPaths.append(info.dir().absolutePath());
 		}
-		searchPaths.append(pluginDir + QStringLiteral("/../com.cloudsim.pointnet"));
+		searchPaths.append(pluginDir + QStringLiteral("/plugins/com.cloudsim.pointnet"));
+		if (!pluginDir.isEmpty())
+		{
+			searchPaths.append(QDir::cleanPath(pluginDir + QStringLiteral("/../com.cloudsim.pointnet")));
+		}
 	}
 	for (const QString& dir : searchPaths)
 	{
@@ -782,7 +923,7 @@ bool LabelingAnnotWidget::extractBackendPoints(const std::string& backendId, std
 	{
 		return false;
 	}
-	const bool ok = parseAsciiPlyPoints(tmpPath, outPoints, outCount);
+	const bool ok = parsePlyVertexPositions(tmpPath, outPoints, outCount);
 	QFile::remove(tmpPath);
 	return ok;
 }
