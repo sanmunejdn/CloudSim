@@ -183,6 +183,11 @@ public:
 	void restoreAnnotations(const QList<AnnotationSnapshot>& snapshots);
 /// 随 Qt 深/浅主题设置 OSG 背景色
 	void setViewerBackgroundForDarkUi(bool dark);
+	/// GL 视口控件，供浮动工具栏等 overlay 挂载
+	QWidget* viewportWidget() const { return m_glWidget; }
+	/// 线框/实体切换
+	void setWireframeMode(bool enabled);
+	bool wireframeMode() const { return m_wireframeMode; }
 	/// 至少一个后端有几何或存在导入预览
 	bool hasImportedContent() const;
 	/// Viewer 根节点（\c setSceneData），供场景树 UI/调试
@@ -407,6 +412,10 @@ private:
 	void refreshAnnotationTexts();
 	void emitTcpDragTeachPoseChanged();
 
+public slots:
+	void onViewportFocusRequested();
+	void onViewportScreenshotRequested();
+
 private:
 	QWidgetViewer* m_glWidget = nullptr;
 	QTimer m_frameTimer;
@@ -447,6 +456,7 @@ private:
 	osg::ref_ptr<osg::Geode> m_gradientBackgroundGeode;
 	osg::ref_ptr<osg::Geometry> m_gradientBackgroundGeom;
 	bool m_darkUiTheme = false;
+	bool m_wireframeMode = false;
 	void createGradientBackground();
 	void updateGradientColors(bool dark);
 

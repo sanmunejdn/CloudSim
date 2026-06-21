@@ -1,0 +1,18 @@
+<RCC>
+    <qresource prefix="/cloudsim/logo">
+        <file alias="light/cloudsim_logo_16.png">logo/light/cloudsim_logo_16.png</file>
+        <file alias="light/cloudsim_logo_24.png">logo/light/cloudsim_logo_24.png</file>
+        <file alias="light/cloudsim_logo_32.png">logo/light/cloudsim_logo_32.png</file>
+        <file alias="light/cloudsim_logo_48.png">logo/light/cloudsim_logo_48.png</file>
+        <file alias="light/cloudsim_logo_64.png">logo/light/cloudsim_logo_64.png</file>
+        <file alias="light/cloudsim_logo_128.png">logo/light/cloudsim_logo_128.png</file>
+        <file alias="light/cloudsim_logo_256.png">logo/light/cloudsim_logo_256.png</file>
+        <file alias="dark/cloudsim_logo_16.png">logo/dark/cloudsim_logo_16.png</file>
+        <file alias="dark/cloudsim_logo_24.png">logo/dark/cloudsim_logo_24.png</file>
+        <file alias="dark/cloudsim_logo_32.png">logo/dark/cloudsim_logo_32.png</file>
+        <file alias="dark/cloudsim_logo_48.png">logo/dark/cloudsim_logo_48.png</file>
+        <file alias="dark/cloudsim_logo_64.png">logo/dark/cloudsim_logo_64.png</file>
+        <file alias="dark/cloudsim_logo_128.png">logo/dark/cloudsim_logo_128.png</file>
+        <file alias="dark/cloudsim_logo_256.png">logo/dark/cloudsim_logo_256.png</file>
+    </qresource>
+</RCC>

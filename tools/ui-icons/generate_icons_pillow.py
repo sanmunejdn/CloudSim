@@ -17,6 +17,7 @@ ICON_BASENAMES: list[str] = [
     "view_mode", "object_select", "point_pick", "line_pick", "face_pick",
     "send", "settings", "robot_placeholder", "connect", "disconnect",
     "read", "write", "clear_log", "set_active",
+    "focus_camera", "wireframe", "screenshot",
 ]
 
 THEMES = {"light": "#424242", "dark": "#E0E0E0"}
@@ -219,6 +220,57 @@ def draw_icon(name: str, size: int, color: str) -> Image.Image:
                  (x + s(1.5), y), (x - s(1.5), y)],
                 fill=rgb,
             )
+    elif name == "focus_camera":
+        # 十字准心 + 四角括号
+        cx, cy = size / 2, size / 2
+        r = s(7)
+        # 中心圆点
+        dot = s(1.5)
+        draw.ellipse([cx - dot, cy - dot, cx + dot, cy + dot], fill=rgb)
+        # 十字线
+        draw.line([(cx, cy - s(4)), (cx, cy + s(4))], fill=rgb, width=1)
+        draw.line([(cx - s(4), cy), (cx + s(4), cy)], fill=rgb, width=1)
+        # 四角括号
+        corner = s(2.5)
+        gap = s(3)
+        # 左上
+        draw.line([(cx - r, cy - r + corner), (cx - r, cy - r)], fill=rgb, width=sw)
+        draw.line([(cx - r, cy - r), (cx - r + corner, cy - r)], fill=rgb, width=sw)
+        # 右上
+        draw.line([(cx + r - corner, cy - r), (cx + r, cy - r)], fill=rgb, width=sw)
+        draw.line([(cx + r, cy - r), (cx + r, cy - r + corner)], fill=rgb, width=sw)
+        # 左下
+        draw.line([(cx - r, cy + r - corner), (cx - r, cy + r)], fill=rgb, width=sw)
+        draw.line([(cx - r, cy + r), (cx - r + corner, cy + r)], fill=rgb, width=sw)
+        # 右下
+        draw.line([(cx + r - corner, cy + r), (cx + r, cy + r)], fill=rgb, width=sw)
+        draw.line([(cx + r, cy + r - corner), (cx + r, cy + r)], fill=rgb, width=sw)
+    elif name == "wireframe":
+        # 立方体线框（等轴测透视）
+        s0 = s(5)
+        s1 = s(19)
+        # 前面矩形
+        draw.rectangle([s(5), s(8), s(15), s(18)], outline=rgb, width=sw)
+        # 后面矩形（偏移）
+        draw.rectangle([s(9), s(4), s(19), s(14)], outline=rgb, width=sw)
+        # 连接线
+        draw.line([(s(5), s(8)), (s(9), s(4))], fill=rgb, width=sw)
+        draw.line([(s(15), s(8)), (s(19), s(4))], fill=rgb, width=sw)
+        draw.line([(s(5), s(18)), (s(9), s(14))], fill=rgb, width=sw)
+        draw.line([(s(15), s(18)), (s(19), s(14))], fill=rgb, width=sw)
+    elif name == "screenshot":
+        # 相机图标
+        # 机身
+        draw.rounded_rectangle([s(4), s(8), s(20), s(18)], radius=s(1.5), outline=rgb, width=sw)
+        # 镜头凸起
+        draw.polygon([(s(8), s(8)), (s(10), s(5)), (s(14), s(5)), (s(16), s(8))], outline=rgb, width=sw)
+        # 镜头圆
+        cx_lens = size / 2
+        cy_lens = s(13)
+        r_lens = s(2.5)
+        draw.ellipse([cx_lens - r_lens, cy_lens - r_lens, cx_lens + r_lens, cy_lens + r_lens], outline=rgb, width=sw)
+        # 闪光灯小圆
+        draw.ellipse([s(16), s(9.5), s(17.5), s(11)], fill=rgb)
     else:
         draw.ellipse(box, outline=rgb, width=sw)
 

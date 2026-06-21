@@ -77,13 +77,16 @@
     <ClInclude Include="inc\UiIconId.h" />
     <ClInclude Include="inc\UiIcons.h" />
     <ClInclude Include="inc\UiIconDecorators.h" />
+    <ClInclude Include="inc\AppIcon.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\UiIcons.cpp" />
     <ClCompile Include="source\UiIconDecorators.cpp" />
+    <ClCompile Include="source\AppIcon.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtRcc Include="resources\cloudsim_icons.qrc" />
+    <QtRcc Include="resources\cloudsim_logo.qrc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="$(QtMsBuild)\qt.targets" Condition="Exists('$(QtMsBuild)\qt.targets')" />

@@ -17,7 +17,10 @@
 #include <unordered_map>
 
 #include <QBuffer>
+#include <QFile>
+#include <QFileDialog>
 #include <QImage>
+#include <QMessageBox>
 #include <QFileInfo>
 #include <QMouseEvent>
 #include <QPalette>
@@ -43,6 +46,7 @@
 #include <osg/MatrixTransform>
 #include <osg/Node>
 #include <osg/Point>
+#include <osg/PolygonMode>
 #include <osg/PolygonOffset>
 #include <osg/PositionAttitudeTransform>
 #include <osg/ShapeDrawable>
@@ -1014,6 +1018,61 @@ void OsgWidget::setViewerBackgroundForDarkUi(bool dark)
 		}
 	}
 	requestRedraw();
+}
+
+void OsgWidget::setWireframeMode(bool enabled)
+{
+	m_wireframeMode = enabled;
+	if (!m_root.valid())
+	{
+		return;
+	}
+	osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode;
+	pm->setMode(osg::PolygonMode::FRONT_AND_BACK,
+		enabled ? osg::PolygonMode::LINE : osg::PolygonMode::FILL);
+	m_root->getOrCreateStateSet()->setAttributeAndModes(
+		pm, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	requestRedraw();
+}
+
+void OsgWidget::onViewportFocusRequested()
+{
+	// 有选中后端时聚焦；否则切等轴测
+	const std::string& activeId = activeBackendId();
+	if (!activeId.empty())
+	{
+		focusCameraOnBackend(activeId);
+	}
+	else
+	{
+		setCameraViewPreset(CameraViewPreset::Iso);
+	}
+}
+
+void OsgWidget::onViewportScreenshotRequested()
+{
+	QByteArray png;
+	QString err;
+	if (!captureViewportPng(png, &err, 0, 0))
+	{
+		QMessageBox::warning(this, QStringLiteral("截图"), err.isEmpty()
+			? QStringLiteral("无法捕获视口图像")
+			: err);
+		return;
+	}
+	const QString path = QFileDialog::getSaveFileName(
+		this, QStringLiteral("截图 / Save Screenshot"), QString(),
+		QStringLiteral("PNG (*.png)"));
+	if (path.isEmpty())
+	{
+		return;
+	}
+	QFile file(path);
+	if (!file.open(QIODevice::WriteOnly) || file.write(png) != png.size())
+	{
+		QMessageBox::warning(this, QStringLiteral("截图"),
+			QStringLiteral("无法写入文件：%1").arg(path));
+	}
 }
 
 void OsgWidget::showEvent(QShowEvent* event)
@@ -2473,13 +2532,6 @@ bool OsgWidget::captureViewportPng(QByteArray& outPng, QString* errorMessage, in
 			*errorMessage = QStringLiteral("3D 视口未就绪");
 		return false;
 	}
-	if (maxWidth <= 0 || maxHeight <= 0)
-	{
-		if (errorMessage)
-			*errorMessage = QStringLiteral("无效的截图尺寸");
-		return false;
-	}
-
 	if (!m_graphicsWindow->makeCurrent())
 	{
 		if (errorMessage)
@@ -2489,38 +2541,24 @@ bool OsgWidget::captureViewportPng(QByteArray& outPng, QString* errorMessage, in
 
 	m_viewer->frame();
 
-	osg::Camera* cam = m_viewer->getCamera();
-	if (!cam)
-	{
-		if (errorMessage)
-			*errorMessage = QStringLiteral("相机未就绪");
-		return false;
-	}
-	const osg::Viewport* vp = cam->getViewport();
-	if (!vp || vp->width() <= 0 || vp->height() <= 0)
-	{
-		if (errorMessage)
-			*errorMessage = QStringLiteral("视口尺寸无效");
-		return false;
-	}
-
-	osg::ref_ptr<osg::Image> image = new osg::Image;
-	image->readPixels(static_cast<int>(vp->x()), static_cast<int>(vp->y()), static_cast<int>(vp->width()),
-		static_cast<int>(vp->height()), GL_RGBA, GL_UNSIGNED_BYTE);
-	image->flipVertical();
-
-	QImage qimg(image->data(), image->s(), image->t(), static_cast<int>(image->getRowSizeInBytes()),
-		QImage::Format_RGBA8888);
-	QImage copy = qimg.copy();
+	QImage copy = m_glWidget->grabFrameBuffer(false);
 	if (copy.isNull())
 	{
 		if (errorMessage)
 			*errorMessage = QStringLiteral("读取帧缓冲失败");
 		return false;
 	}
+	if (copy.format() != QImage::Format_RGB888)
+	{
+		copy = copy.convertToFormat(QImage::Format_RGB888);
+	}
 
-	if (copy.width() > maxWidth || copy.height() > maxHeight)
+	// maxWidth/maxHeight <= 0 表示按视口原始分辨率输出，不做缩放
+	if (maxWidth > 0 && maxHeight > 0
+		&& (copy.width() > maxWidth || copy.height() > maxHeight))
+	{
 		copy = copy.scaled(maxWidth, maxHeight, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+	}
 
 	QBuffer buf(&outPng);
 	if (!buf.open(QIODevice::WriteOnly) || !copy.save(&buf, "PNG"))

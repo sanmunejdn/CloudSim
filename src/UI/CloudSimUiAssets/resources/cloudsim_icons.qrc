@@ -172,5 +172,17 @@
         <file alias="light/set_active_24.png">icons/light/set_active_24.png</file>
         <file alias="dark/set_active_16.png">icons/dark/set_active_16.png</file>
         <file alias="dark/set_active_24.png">icons/dark/set_active_24.png</file>
+        <file alias="light/focus_camera_16.png">icons/light/focus_camera_16.png</file>
+        <file alias="light/focus_camera_24.png">icons/light/focus_camera_24.png</file>
+        <file alias="dark/focus_camera_16.png">icons/dark/focus_camera_16.png</file>
+        <file alias="dark/focus_camera_24.png">icons/dark/focus_camera_24.png</file>
+        <file alias="light/wireframe_16.png">icons/light/wireframe_16.png</file>
+        <file alias="light/wireframe_24.png">icons/light/wireframe_24.png</file>
+        <file alias="dark/wireframe_16.png">icons/dark/wireframe_16.png</file>
+        <file alias="dark/wireframe_24.png">icons/dark/wireframe_24.png</file>
+        <file alias="light/screenshot_16.png">icons/light/screenshot_16.png</file>
+        <file alias="light/screenshot_24.png">icons/light/screenshot_24.png</file>
+        <file alias="dark/screenshot_16.png">icons/dark/screenshot_16.png</file>
+        <file alias="dark/screenshot_24.png">icons/dark/screenshot_24.png</file>
     </qresource>
 </RCC>

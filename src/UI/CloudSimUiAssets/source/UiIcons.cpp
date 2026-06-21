@@ -114,6 +114,9 @@ const QHash<UiIconId, QString>& iconBasenameMap()
 		{UiIconId::Write, QStringLiteral("write")},
 		{UiIconId::ClearLog, QStringLiteral("clear_log")},
 		{UiIconId::SetActive, QStringLiteral("set_active")},
+		{UiIconId::FocusCamera, QStringLiteral("focus_camera")},
+		{UiIconId::Wireframe, QStringLiteral("wireframe")},
+		{UiIconId::Screenshot, QStringLiteral("screenshot")},
 	};
 	return map;
 }

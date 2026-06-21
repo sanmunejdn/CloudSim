@@ -16,6 +16,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include "AppIcon.h"
 #include "ApplicationStyle.h"
 #include "UiIconDecorators.h"
 #include "DocumentPage.h"
@@ -107,6 +108,9 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 			RunLogger::flush();
 		}
 	});
+
+	// 设置应用 Logo（标题栏 + 任务栏 + QMessageBox 图标）
+	QApplication::setWindowIcon(AppIcon::logo());
 
 	m_robotHost = std::make_unique<MainWindowRobotHost>(this);
 	m_robotSimulation = std::make_unique<RobotSimulationController>(this);
@@ -226,6 +230,13 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	const ApplicationStyle::Theme savedTheme = ApplicationStyle::loadSavedTheme();
 	ApplicationStyle::applyTheme(qApp, savedTheme);
 	setAllDocumentViewerDarkBackground(savedTheme == ApplicationStyle::Theme::Dark);
+	// 首文档在 applyTheme 前创建，延迟重刷视口按钮样式
+	QTimer::singleShot(0, this, [this]() {
+		setAllDocumentViewerDarkBackground(viewerUsesDarkBackground());
+	});
+	QTimer::singleShot(100, this, [this]() {
+		setAllDocumentViewerDarkBackground(viewerUsesDarkBackground());
+	});
 	if (m_lightThemeAction && m_darkThemeAction)
 	{
 		m_lightThemeAction->blockSignals(true);

@@ -3,6 +3,7 @@
 #include "BackendSceneDocumentFacade.h"
 #include "EventHub.h"
 #include "RobotProgramStore.h"
+#include "ViewportToolBar.h"
 
 #include <osg/Group>
 #include <osg/MatrixTransform>
@@ -13,6 +14,7 @@
 
 #include "IDataService.h"
 #include "IRobotBackendPoseSink.h"
+#include "OsgWidget.h"
 #include "BackendDataManager.h"
 #include "CoreTypes.h"
 #include "MeshBackendData.h"
@@ -53,6 +55,26 @@ DocumentPage::DocumentPage(QTabWidget* parentTabs, cloudsim::core::EventHub& eve
 	setRobotUrdfImportContext(this);
 	setPerLinkKinematicsHost(this);
 	setPerLinkRobotStateAccessor(this);
+
+	// 视口浮动按钮（无容器 QWidget，避免 Windows 透明层黑块）
+	if (OsgWidget* ow = osgWidget())
+	{
+		auto* toolbar = new ViewportToolBar(ow);
+		connect(toolbar, &ViewportToolBar::focusRequested, ow, &OsgWidget::onViewportFocusRequested);
+		connect(toolbar, &ViewportToolBar::wireframeToggled, ow, &OsgWidget::setWireframeMode);
+		connect(toolbar, &ViewportToolBar::screenshotRequested, ow, &OsgWidget::onViewportScreenshotRequested);
+	}
+}
+
+void DocumentPage::setViewportToolBarDarkTheme(bool dark)
+{
+	if (OsgWidget* ow = osgWidget())
+	{
+		if (auto* toolbar = ow->findChild<ViewportToolBar*>())
+		{
+			toolbar->setDarkTheme(dark);
+		}
+	}
 }
 
 IRobotBackendPoseSink* DocumentPage::urdfImportScenePoseSink()

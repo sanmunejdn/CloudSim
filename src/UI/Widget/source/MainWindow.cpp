@@ -716,6 +716,7 @@ void MainWindow::setAllDocumentViewerDarkBackground(bool dark)
 		if (p)
 		{
 			p->render().setViewerBackgroundForDarkUi(dark);
+			p->setViewportToolBarDarkTheme(dark);
 		}
 	}
 }
@@ -975,6 +976,7 @@ void MainWindow::onNewDocument()
 	auto* page = new DocumentPage(m_documentTabs, m_appEvents);
 	wireDocumentPageSignals(page);
 	page->render().setViewerBackgroundForDarkUi(viewerUsesDarkBackground());
+	page->setViewportToolBarDarkTheme(viewerUsesDarkBackground());
 	const QString title = i18n(QStringLiteral("Untitled"), QStringLiteral("\u672a\u547d\u540d"));
 	m_documentTabs->addTab(page, title);
 	m_documentTabs->setCurrentWidget(page);

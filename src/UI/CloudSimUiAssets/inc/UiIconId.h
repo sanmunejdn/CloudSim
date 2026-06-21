@@ -62,5 +62,9 @@ enum class UiIconId
 	ClearLog,
 	SetActive,
 
+	FocusCamera,
+	Wireframe,
+	Screenshot,
+
 	Count
 };

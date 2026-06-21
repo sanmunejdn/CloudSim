@@ -48,6 +48,9 @@ public:
 
 	void invalidateFollowReverseIndex() { followReverseIndex().invalidate(); }
 
+	/// 同步视口工具栏深/浅主题
+	void setViewportToolBarDarkTheme(bool dark);
+
 	void markFollowAttachmentDirtyFromBackendMove(const QString& seedBackendId);
 
 	/// 可见性委托（避免 MainWindowSelectionService 直接 include BackendSceneDocumentFacade.h）
