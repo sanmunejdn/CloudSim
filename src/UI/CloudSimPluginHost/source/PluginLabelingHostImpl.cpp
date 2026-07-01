@@ -625,6 +625,37 @@ void PluginLabelingHostImpl::pickPolylineRegion(const PluginLabelingSessionId se
 					&cropErr);
 				sel.pointIndices = std::move(kept);
 			}
+			else if (entry->kind == PluginLabelingGeometryKind::TriangleMesh)
+			{
+				const auto mesh = document_point_cloud_ops::resolveMesh(page, entry->backendId, nullptr);
+				if (!mesh)
+				{
+					onFinished(false, QStringLiteral("Mesh gone"), {});
+					return;
+				}
+				std::vector<int> kept;
+				double modelToWorld[16] = {
+					1.0, 0.0, 0.0, 0.0,
+					0.0, 1.0, 0.0, 0.0,
+					0.0, 0.0, 1.0, 0.0,
+					0.0, 0.0, 0.0, 1.0};
+				if (OsgWidget* osg = widgetOsgFromPage(page))
+				{
+					(void)osg->tryGetBackendPointLocalToWorldMatrix(entry->backendId, modelToWorld);
+				}
+				std::string cropErr;
+				(void)point_cloud_backend_ops::collectMeshTriangleIndicesByPolyline2D(
+					*mesh,
+					poly.polylineScreenXy,
+					poly.mvpMatrix,
+					modelToWorld,
+					poly.viewportWidth,
+					poly.viewportHeight,
+					true,
+					kept,
+					&cropErr);
+				sel.triangleIndices = std::move(kept);
+			}
 			onFinished(true, QString(), sel);
 		});
 }

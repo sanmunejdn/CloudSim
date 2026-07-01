@@ -14,10 +14,10 @@
 
 namespace {
 
-constexpr int kBtnSize = 44;
-constexpr int kIconSize = 24;
-constexpr int kBarSpacing = 8;
-constexpr int kTopMargin = 12;
+constexpr int kBtnSize = 32;
+constexpr int kIconSize = 18;
+constexpr int kBarSpacing = 6;
+constexpr int kTopMargin = 8;
 constexpr int kBtnRadius = 8;
 constexpr int kTipShowDelayMs = 380;
 constexpr int kTipRadius = 8;

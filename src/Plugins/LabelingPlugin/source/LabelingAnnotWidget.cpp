@@ -33,6 +33,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <sstream>
@@ -222,6 +223,49 @@ bool parsePlyVertexPositions(const QString& path, std::vector<float>& outPoints,
 		outPoints[static_cast<std::size_t>(i) * 3U + 2U] = readFloatAt(xyzIndex[2]);
 	}
 	return true;
+}
+
+bool buildMeshCentroidsFromExpandedVertices(
+	const std::vector<float>& vertices,
+	const int vertexCount,
+	std::vector<float>& outCentroids,
+	int& outTriCount)
+{
+	if (vertexCount <= 0 || (vertexCount % 3) != 0)
+	{
+		return false;
+	}
+	outTriCount = vertexCount / 3;
+	outCentroids.clear();
+	outCentroids.reserve(static_cast<std::size_t>(outTriCount) * 3U);
+	for (int tri = 0; tri < outTriCount; ++tri)
+	{
+		const std::size_t b = static_cast<std::size_t>(tri) * 9U;
+		outCentroids.push_back((vertices[b] + vertices[b + 3U] + vertices[b + 6U]) / 3.f);
+		outCentroids.push_back((vertices[b + 1U] + vertices[b + 4U] + vertices[b + 7U]) / 3.f);
+		outCentroids.push_back((vertices[b + 2U] + vertices[b + 5U] + vertices[b + 8U]) / 3.f);
+	}
+	return true;
+}
+
+void upsampleSegmentLabelsToElements(
+	const std::vector<int>& sampledLabels,
+	const int elementCount,
+	std::vector<int>& outFullLabels)
+{
+	const int sampleCount = static_cast<int>(sampledLabels.size());
+	outFullLabels.assign(static_cast<std::size_t>(elementCount), 0);
+	if (sampleCount <= 0 || elementCount <= 0)
+	{
+		return;
+	}
+	for (int i = 0; i < elementCount; ++i)
+	{
+		const int srcIdx = std::min(
+			static_cast<int>(static_cast<std::int64_t>(i) * sampleCount / elementCount),
+			sampleCount - 1);
+		outFullLabels[static_cast<std::size_t>(i)] = sampledLabels[static_cast<std::size_t>(srcIdx)];
+	}
 }
 
 QString findPointNetConfigPath(IPluginHostContext* host)
@@ -992,8 +1036,8 @@ void LabelingAnnotWidget::onPrelabelClicked()
 		return;
 	}
 	std::vector<float> points;
-	int pointCount = 0;
-	if (!extractBackendPoints(m_backendId, points, pointCount) || pointCount <= 0)
+	int elementCount = 0;
+	if (!extractBackendPoints(m_backendId, points, elementCount) || elementCount <= 0)
 	{
 		QMessageBox::warning(
 			this,
@@ -1001,7 +1045,22 @@ void LabelingAnnotWidget::onPrelabelClicked()
 			i18n(QStringLiteral("Failed to extract points."), QStringLiteral("提取点云失败。")));
 		return;
 	}
-	const PointNetSegmentResult result = m_inference->segment(points, pointCount);
+	if (m_geometryKind == PluginLabelingGeometryKind::TriangleMesh)
+	{
+		std::vector<float> centroids;
+		int triCount = 0;
+		if (!buildMeshCentroidsFromExpandedVertices(points, elementCount, centroids, triCount))
+		{
+			QMessageBox::warning(
+				this,
+				i18n(QStringLiteral("Pre-label"), QStringLiteral("预标注")),
+				i18n(QStringLiteral("Failed to extract points."), QStringLiteral("提取点云失败。")));
+			return;
+		}
+		points = std::move(centroids);
+		elementCount = triCount;
+	}
+	const PointNetSegmentResult result = m_inference->segment(points, elementCount);
 	if (result.labels.empty())
 	{
 		QMessageBox::warning(
@@ -1010,14 +1069,8 @@ void LabelingAnnotWidget::onPrelabelClicked()
 			i18n(QStringLiteral("Inference returned no labels."), QStringLiteral("推理未返回标签。")));
 		return;
 	}
-	std::vector<int> fullLabels(static_cast<std::size_t>(pointCount), 0);
-	const int sampleCount = static_cast<int>(result.labels.size());
-	const float step = static_cast<float>(pointCount) / static_cast<float>(sampleCount);
-	for (int i = 0; i < pointCount; ++i)
-	{
-		const int srcIdx = std::min(static_cast<int>(static_cast<float>(i) / step), sampleCount - 1);
-		fullLabels[static_cast<std::size_t>(i)] = result.labels[static_cast<std::size_t>(srcIdx)];
-	}
+	std::vector<int> fullLabels;
+	upsampleSegmentLabelsToElements(result.labels, elementCount, fullLabels);
 	if (!m_labelingHost->importPerPointLabels(m_sessionId, fullLabels, result.numClasses, &err))
 	{
 		QMessageBox::warning(this, i18n(QStringLiteral("Pre-label"), QStringLiteral("预标注")), err);

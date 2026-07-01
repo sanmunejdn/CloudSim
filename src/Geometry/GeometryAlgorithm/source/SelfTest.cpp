@@ -771,14 +771,72 @@ bool runSelfTest(std::vector<std::string>& failures)
 			{
 				fail("tubularGrindingProject", "projectionHitRate < 0.5");
 			}
-			std::vector<float> coloredSoup;
-			std::vector<float> coloredRgb;
-			if (!buildSegmentColoredMeshSoup(*tgSession, coloredSoup, coloredRgb, &tgErr))
+		std::vector<float> coloredSoup;
+		std::vector<float> coloredRgb;
+		if (!buildSegmentColoredMeshSoup(*tgSession, coloredSoup, coloredRgb, &tgErr))
+		{
+			fail("tubularGrindingColoredMesh", tgErr.empty() ? "colored mesh failed" : tgErr);
+		}
+	}
+
+	// 测试自适应邻域模式（广义管状分析）
+	{
+		const TopoDS_Shape cylinder = BRepPrimAPI_MakeCylinder(15.0, 120.0).Shape();
+		MeshDiscretizeParams cylDiscParams;
+		cylDiscParams.quality = MeshQualityPreset::Medium;
+		std::vector<float> cylSoup;
+		MeshDiscretizeReport cylDiscReport;
+		std::string cylDiscErr;
+		if (discretizeShapeToMesh(cylinder, cylDiscParams, cylSoup, cylDiscReport, &cylDiscErr))
+		{
+			auto tgSession = createTubularGrindingSession(cylSoup);
+			TubularGrindingParams tgParams;
+			tgParams.minSegmentFaces = 8.0;
+			tgParams.sectionSpacingMm = 4.0;
+			// 使用自适应模式 + 椭圆拟合
+			tgParams.neighborhoodMode = NeighborhoodMode::Adaptive;
+			tgParams.sectionFitMode = SectionFitMode::Ellipse;
+			tgParams.centerlineIterations = 2;
+			std::string tgErr;
+			if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::Segment, tgParams, &tgErr))
 			{
-				fail("tubularGrindingColoredMesh", tgErr.empty() ? "colored mesh failed" : tgErr);
+				fail("tubularGrindingAdaptiveSegment", tgErr.empty() ? "adaptive segment failed" : tgErr);
+			}
+			else if (tgSession->report().pipeCount < 1)
+			{
+				fail("tubularGrindingAdaptiveSegment", "adaptive pipeCount < 1");
+			}
+			else if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::Centerline, tgParams, &tgErr))
+			{
+				fail("tubularGrindingAdaptiveCenterline", tgErr.empty() ? "adaptive centerline failed" : tgErr);
+			}
+			else if (tgSession->report().centerlinePointCount < 4)
+			{
+				fail("tubularGrindingAdaptiveCenterline", "adaptive centerlinePointCount < 4");
+			}
+			else if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::TemplatePoints, tgParams, &tgErr))
+			{
+				fail("tubularGrindingAdaptiveTemplate", tgErr.empty() ? "adaptive template failed" : tgErr);
+			}
+			else if (tgSession->report().templatePointCount < 8)
+			{
+				fail("tubularGrindingAdaptiveTemplate", "adaptive templatePointCount < 8");
+			}
+			else if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::Project, tgParams, &tgErr))
+			{
+				fail("tubularGrindingAdaptiveProject", tgErr.empty() ? "adaptive project failed" : tgErr);
+			}
+			else if (tgSession->report().projectedPointCount < 8)
+			{
+				fail("tubularGrindingAdaptiveProject", "adaptive projectedPointCount < 8");
+			}
+			else if (tgSession->report().projectionHitRate < 0.5)
+			{
+				fail("tubularGrindingAdaptiveProject", "adaptive projectionHitRate < 0.5");
 			}
 		}
 	}
+}
 
 	{
 		TColgp_Array2OfPnt grid(1, 5, 1, 5);

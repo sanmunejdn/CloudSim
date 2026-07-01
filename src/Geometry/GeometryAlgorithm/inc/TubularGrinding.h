@@ -29,6 +29,27 @@ enum class TubularGrindingTemplateKind : int
 	Auto = 4,
 };
 
+/// 邻域搜索模式
+enum class NeighborhoodMode : int
+{
+	Fixed2Hop = 0,		// 原有固定 2-hop（兼容）
+	Adaptive = 1,		// 自适应测地线距离
+};
+
+/// 截面拟合模式
+enum class SectionFitMode : int
+{
+	Circle = 0,			// 原有圆拟合（兼容）
+	Ellipse = 1,		// 椭圆拟合
+	ConvexHull = 2,		// 凸包拟合（通用回退）
+};
+
+enum class TubularGrindingCenterlineMethod : int
+{
+	Laplacian = 0,
+	OtLc = 1,
+};
+
 struct TubularGrindingParams
 {
 	/// 环心 DBSCAN 半径（mm）；0 表示按网格尺度自动估计
@@ -49,7 +70,8 @@ struct TubularGrindingParams
 	double regionGrowAxisAngleDeg = 28.0;
 
 	double sectionSpacingMm = 2.0;
-	int minSectionPoints = 8;
+	/// 局部轴线估计最少邻居面数（原截面圆拟合最少点数）
+	int minSectionPoints = 4;
 
 	TubularGrindingTemplateKind templateKind = TubularGrindingTemplateKind::Auto;
 	int helicalCoils = 8;
@@ -58,6 +80,43 @@ struct TubularGrindingParams
 	int zigzagPasses = 40;
 
 	double projectionMaxDistMm = 10.0;
+
+	// === 广义管状分析新增参数 ===
+
+	/// 邻域搜索模式
+	NeighborhoodMode neighborhoodMode = NeighborhoodMode::Adaptive;
+	/// 测地线搜索半径（mm）；0 表示自动估计
+	double geodesicRadiusMm = 0.0;
+	/// 截面拟合模式
+	SectionFitMode sectionFitMode = SectionFitMode::Ellipse;
+	/// 长短轴比突变阈值，用于过渡区检测
+	double transitionAspectRatioThreshold = 0.3;
+	/// 中心线曲率突变阈值（°），用于过渡区检测
+	double transitionCurvatureThresholdDeg = 15.0;
+	/// 中心线迭代平滑次数（Laplacian 收缩 + 拓扑塌缩迭代次数）
+	int centerlineIterations = 80;
+	/// 中心线迭代收敛阈值（mm）（已废弃，保留向后兼容）
+	double centerlineConvergenceEpsMm = 0.01;
+
+	// === 拉普拉斯收缩新增参数 ===
+	/// 收缩强度：映射为中期锚定权重峰值（10–200，越大收得越快）
+	double laplacianLambda = 0.1;
+	/// 初始锚定强度（越大前期越稳）
+	double laplacianAttraction = 0.2;
+	/// KNN 邻域大小
+	int laplacianKNeighbors = 8;
+
+	TubularGrindingCenterlineMethod centerlineMethod = TubularGrindingCenterlineMethod::Laplacian;
+
+	double otSampleRate = 0.10;
+	double otCostBeta = 3.0;
+	int otcPreSteps = 3;
+	int otcOuterLoops = 3;
+	int otLcOuterMaxIters = 40;
+	int pointCloudKnnK = 30;
+
+	/// 根点合并下限（0 = 自动：max(40, sampleCount×0.15)）
+	int minRootsBySamples = 0;
 };
 
 struct TubularPipeSegment
@@ -74,6 +133,13 @@ struct TubularCrossSectionRing
 	std::array<double, 3> centerMm{{0.0, 0.0, 0.0}};
 	std::array<double, 3> axisHint{{0.0, 0.0, 1.0}};
 	double radiusMm = 0.0;
+	/// 截面参数（椭圆拟合结果）
+	double semiMajorMm = 0.0;
+	double semiMinorMm = 0.0;
+	double sectionRotationDeg = 0.0;
+	double aspectRatio = 1.0;
+	/// 是否为过渡区（变径、弯头、连接件）
+	bool isTransition = false;
 };
 
 struct TubularCenterlineSample
@@ -85,6 +151,21 @@ struct TubularCenterlineSample
 	std::array<double, 3> tangent{{0.0, 0.0, 1.0}};
 	std::array<double, 3> normal{{1.0, 0.0, 0.0}};
 	std::array<double, 3> binormal{{0.0, 1.0, 0.0}};
+	/// 截面参数（椭圆拟合结果）
+	double semiMajorMm = 0.0;
+	double semiMinorMm = 0.0;
+	double sectionRotationDeg = 0.0;
+	double aspectRatio = 1.0;
+};
+
+/// 中心线 Stage C 所用全局 PCA（收缩后点云的主轴，供调试可视化）
+struct TubularCenterlinePcaAxis
+{
+	std::array<double, 3> centroidMm{{0.0, 0.0, 0.0}};
+	std::array<double, 3> axis{{1.0, 0.0, 0.0}};
+	double extentMinMm = 0.0;
+	double extentMaxMm = 0.0;
+	bool valid = false;
 };
 
 struct TubularTemplatePoint
@@ -118,12 +199,32 @@ struct TubularGrindingReport
 	int projectedPointCount = 0;
 	int sectionFitFailCount = 0;
 	double projectionHitRate = 0.0;
+	/// OTLC 中心线是否走了 PCA 分箱兜底（false 表示 OT sample 图最长路径）
+	bool centerlinePcaFallback = false;
+	/// 中心线是否由 OTLC 算法提取（用于摘要区分 Laplacian）
+	bool centerlineOtLcExtraction = false;
+	/// OTLC 提线调试：活跃 sample 根数
+	int centerlineOtRootCount = 0;
+	/// OTLC 提线调试：sample 图无向边数
+	int centerlineOtEdgeCount = 0;
+	/// OTLC 提线调试：sample 图连通分量数
+	int centerlineOtComponentCount = 0;
+	/// OTLC 提线是否用 KNN 补边（sampleEdges 为空时）
+	bool centerlineOtKnnFallbackEdges = false;
+	/// OTLC 提线路径：0=收缩点云截面质心(全局PCA) 1=OT 分簇链 2=有序折线兜底
+	int centerlineOtPathKind = 0;
+	/// 过渡区面数
+	int transitionFaceCount = 0;
+	/// 中心线迭代收敛次数
+	int centerlineIterationCount = 0;
 };
 
 class GEOMETRY_ALGORITHM_API TubularGrindingSession
 {
 public:
 	explicit TubularGrindingSession(std::vector<float> sourceSoup);
+	/// 内部使用：点云路径构造（isPointCloud 仅作标记）
+	TubularGrindingSession(std::vector<float> pointXyz, bool isPointCloud);
 	~TubularGrindingSession();
 
 	TubularGrindingSession(const TubularGrindingSession&) = delete;
@@ -169,6 +270,12 @@ private:
 		std::vector<float>& outLineXyz,
 		std::string* errMsg);
 
+	friend GEOMETRY_ALGORITHM_API bool buildLocalAxisLineSegments(
+		const TubularGrindingSession& session,
+		const TubularGrindingParams& params,
+		std::vector<float>& outLineXyz,
+		std::string* errMsg);
+
 	friend GEOMETRY_ALGORITHM_API bool buildCenterlinePointsCloud(
 		const TubularGrindingSession& session,
 		std::vector<float>& outXyz,
@@ -178,6 +285,11 @@ private:
 	friend GEOMETRY_ALGORITHM_API bool buildCenterlinePolylineXyz(
 		const TubularGrindingSession& session,
 		std::vector<float>& outXyz,
+		std::string* errMsg);
+
+	friend GEOMETRY_ALGORITHM_API bool buildCenterlinePcaAxisArrowLineSegments(
+		const TubularGrindingSession& session,
+		std::vector<float>& outLineXyz,
 		std::string* errMsg);
 
 	friend GEOMETRY_ALGORITHM_API bool buildTemplatePointsCloud(
@@ -192,6 +304,34 @@ private:
 		std::vector<float>& outRgba,
 		std::string* errMsg);
 
+	friend GEOMETRY_ALGORITHM_API bool buildIterationSnapshotPointsCloud(
+		const TubularGrindingSession& session,
+		int snapshotIndex,
+		std::vector<float>& outXyz,
+		std::vector<float>& outRgba,
+		std::string* errMsg);
+
+	friend GEOMETRY_ALGORITHM_API bool buildIterationSnapshotContractedPointsCloud(
+		const TubularGrindingSession& session,
+		int snapshotIndex,
+		std::vector<float>& outXyz,
+		std::vector<float>& outRgba,
+		std::string* errMsg);
+
+	friend GEOMETRY_ALGORITHM_API int iterationSnapshotCount(
+		const TubularGrindingSession& session);
+
+	friend GEOMETRY_ALGORITHM_API int iterationSnapshotIteration(
+		const TubularGrindingSession& session,
+		int snapshotIndex);
+
+	friend GEOMETRY_ALGORITHM_API bool computeEllipseFittingResidualReport(
+		const TubularGrindingSession& session,
+		const TubularGrindingParams& params,
+		std::vector<double>& outPerRingRmsResiduals,
+		std::string& outSummaryText,
+		std::string* errMsg);
+
 	struct Impl;
 	std::unique_ptr<Impl> m_impl;
 };
@@ -200,6 +340,10 @@ using TubularGrindingSessionPtr = std::shared_ptr<TubularGrindingSession>;
 
 GEOMETRY_ALGORITHM_API TubularGrindingSessionPtr createTubularGrindingSession(
 	std::vector<float> sourceSoup);
+
+/// 从点云 xyz 创建会话（双源支持）
+GEOMETRY_ALGORITHM_API TubularGrindingSessionPtr createTubularGrindingSessionFromPointCloud(
+	std::vector<float> pointXyz);
 
 GEOMETRY_ALGORITHM_API bool runTubularGrindingStage(
 	TubularGrindingSession& session,
@@ -231,6 +375,13 @@ GEOMETRY_ALGORITHM_API bool buildFaceNormalAxisLineSegments(
 	std::vector<float>& outLineXyz,
 	std::string* errMsg = nullptr);
 
+/// 构建 Phase 1 计算的局部轴线线段（双向，正方向青色/反方向品红）
+GEOMETRY_ALGORITHM_API bool buildLocalAxisLineSegments(
+	const TubularGrindingSession& session,
+	const TubularGrindingParams& params,
+	std::vector<float>& outLineXyz,
+	std::string* errMsg = nullptr);
+
 GEOMETRY_ALGORITHM_API bool buildCenterlinePointsCloud(
 	const TubularGrindingSession& session,
 	std::vector<float>& outXyz,
@@ -240,6 +391,12 @@ GEOMETRY_ALGORITHM_API bool buildCenterlinePointsCloud(
 GEOMETRY_ALGORITHM_API bool buildCenterlinePolylineXyz(
 	const TubularGrindingSession& session,
 	std::vector<float>& outXyz,
+	std::string* errMsg = nullptr);
+
+/// 中心线 PCA 主轴箭头（overlay 线段，6 float/段）
+GEOMETRY_ALGORITHM_API bool buildCenterlinePcaAxisArrowLineSegments(
+	const TubularGrindingSession& session,
+	std::vector<float>& outLineXyz,
 	std::string* errMsg = nullptr);
 
 GEOMETRY_ALGORITHM_API bool buildTemplatePointsCloud(
@@ -252,6 +409,36 @@ GEOMETRY_ALGORITHM_API bool buildProjectedPointsCloud(
 	const TubularGrindingSession& session,
 	std::vector<float>& outXyz,
 	std::vector<float>& outRgba,
+	std::string* errMsg = nullptr);
+
+/// 迭代快照：OT 活跃 sample 根点云（`_迭代N`）
+GEOMETRY_ALGORITHM_API bool buildIterationSnapshotPointsCloud(
+	const TubularGrindingSession& session,
+	int snapshotIndex,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg = nullptr);
+
+/// 迭代快照：LC 收缩 original 子采样（`_迭代N_收缩`）
+GEOMETRY_ALGORITHM_API bool buildIterationSnapshotContractedPointsCloud(
+	const TubularGrindingSession& session,
+	int snapshotIndex,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg = nullptr);
+
+/// 迭代快照数量
+GEOMETRY_ALGORITHM_API int iterationSnapshotCount(const TubularGrindingSession& session);
+
+/// 迭代快照的迭代编号
+GEOMETRY_ALGORITHM_API int iterationSnapshotIteration(const TubularGrindingSession& session, int snapshotIndex);
+
+/// 计算每个环的椭圆拟合残差（RMS），输出摘要文本
+GEOMETRY_ALGORITHM_API bool computeEllipseFittingResidualReport(
+	const TubularGrindingSession& session,
+	const TubularGrindingParams& params,
+	std::vector<double>& outPerRingRmsResiduals,
+	std::string& outSummaryText,
 	std::string* errMsg = nullptr);
 
 } // namespace geoalgo

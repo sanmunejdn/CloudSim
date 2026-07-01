@@ -7,6 +7,8 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QGuiApplication>
+#include <QtGlobal>
 
 #include <cstring>
 #include <memory>
@@ -96,6 +98,12 @@ int main(int argc, char* argv[])
 	{
 		(void)qputenv("POINTCLOUD_PROCESS_DEBUG", QByteArray("0"));
 	}
+	// QGLWidget/OSG 视口须与系统 DPI 对齐，否则 125%/150% 缩放下会出现黑边
+	QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+	QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+	QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+#endif
 	QApplication a(argc, argv);
 #ifdef Q_OS_WIN
 	configureWindowsDllSearchPath();

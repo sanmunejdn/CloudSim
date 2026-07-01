@@ -57,3 +57,50 @@ BackendVec3 transformPointToStored(const BackendDataBase& obj, const BackendVec3
 		inv.isometry() * Eigen::Vector3d(vWorld.x, vWorld.y, vWorld.z);
 	return BackendVec3{out.x(), out.y(), out.z()};
 }
+
+void transformXyzToWorld(std::vector<float>& xyz, const BackendMat4& worldMatrix)
+{
+	if (xyz.empty())
+	{
+		return;
+	}
+	const Eigen::Isometry3d iso = rigidFromBackendMat4(worldMatrix).isometry();
+	const std::size_t n = xyz.size() / 3U;
+	for (std::size_t i = 0U; i < n; ++i)
+	{
+		const std::size_t b = i * 3U;
+		Eigen::Vector3d p(
+			static_cast<double>(xyz[b]),
+			static_cast<double>(xyz[b + 1U]),
+			static_cast<double>(xyz[b + 2U]));
+		p = iso * p;
+		xyz[b] = static_cast<float>(p.x());
+		xyz[b + 1U] = static_cast<float>(p.y());
+		xyz[b + 2U] = static_cast<float>(p.z());
+	}
+}
+
+void transformTriangleSoupToWorld(std::vector<float>& triangleSoup, const BackendMat4& worldMatrix)
+{
+	if (triangleSoup.empty())
+	{
+		return;
+	}
+	const Eigen::Isometry3d iso = rigidFromBackendMat4(worldMatrix).isometry();
+	const std::size_t triCount = triangleSoup.size() / 9U;
+	for (std::size_t t = 0U; t < triCount; ++t)
+	{
+		for (int v = 0; v < 3; ++v)
+		{
+			const std::size_t base = t * 9U + static_cast<std::size_t>(v) * 3U;
+			Eigen::Vector3d p(
+				static_cast<double>(triangleSoup[base]),
+				static_cast<double>(triangleSoup[base + 1U]),
+				static_cast<double>(triangleSoup[base + 2U]));
+			p = iso * p;
+			triangleSoup[base] = static_cast<float>(p.x());
+			triangleSoup[base + 1U] = static_cast<float>(p.y());
+			triangleSoup[base + 2U] = static_cast<float>(p.z());
+		}
+	}
+}

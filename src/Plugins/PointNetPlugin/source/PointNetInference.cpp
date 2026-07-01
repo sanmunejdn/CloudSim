@@ -14,6 +14,112 @@ PointNetInference::PointNetInference()
 
 PointNetInference::~PointNetInference() = default;
 
+namespace
+{
+
+bool queryFixedPointInputCount(Ort::Session& session, int& outPoints, QString* err)
+{
+	Ort::AllocatorWithDefaultOptions allocator;
+	const Ort::TypeInfo typeInfo = session.GetInputTypeInfo(0);
+	const auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
+	const std::vector<int64_t> shape = tensorInfo.GetShape();
+	if (shape.size() != 3)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("ONNX 输入 shape 应为 [1,N,3]");
+		}
+		return false;
+	}
+	if (shape[2] != 3)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("ONNX 输入末维应为 3（xyz）");
+		}
+		return false;
+	}
+	if (shape[1] <= 0)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("ONNX 输入点数 N 须为固定正整数，请用与 num_points 一致的配置重新导出 ONNX");
+		}
+		return false;
+	}
+	outPoints = static_cast<int>(shape[1]);
+	return true;
+}
+
+bool validateConfigNumPoints(const int configNumPoints, const int onnxNumPoints, QString* err)
+{
+	if (configNumPoints <= 0)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("pointnet_config.json 中 num_points 须为正整数");
+		}
+		return false;
+	}
+	if (configNumPoints != onnxNumPoints)
+	{
+		if (err)
+		{
+			*err = QStringLiteral(
+				"num_points 与 ONNX 不一致：配置=%1，模型输入 N=%2（请重新部署或修改 pointnet_config.json）")
+						.arg(configNumPoints)
+						.arg(onnxNumPoints);
+		}
+		return false;
+	}
+	return true;
+}
+
+bool querySegmentOutputCounts(
+	Ort::Session& session,
+	const int expectedPoints,
+	const int expectedClasses,
+	QString* err)
+{
+	Ort::AllocatorWithDefaultOptions allocator;
+	const Ort::TypeInfo typeInfo = session.GetOutputTypeInfo(0);
+	const auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
+	const std::vector<int64_t> shape = tensorInfo.GetShape();
+	if (shape.size() != 3 || shape[2] <= 0)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("ONNX 分割输出 shape 应为 [1,N,num_classes]");
+		}
+		return false;
+	}
+	if (shape[1] > 0 && shape[1] != expectedPoints)
+	{
+		if (err)
+		{
+			*err = QStringLiteral(
+				"分割输出点数与 num_points 不一致：配置=%1，模型输出 N=%2")
+						.arg(expectedPoints)
+						.arg(static_cast<int>(shape[1]));
+		}
+		return false;
+	}
+	if (shape[2] != expectedClasses)
+	{
+		if (err)
+		{
+			*err = QStringLiteral(
+				"num_classes 与 ONNX 不一致：配置=%1，模型输出 C=%2")
+						.arg(expectedClasses)
+						.arg(static_cast<int>(shape[2]));
+		}
+		return false;
+	}
+	return true;
+}
+
+} // namespace
+
 bool PointNetInference::loadClassifyModel(const QString& onnxPath, int numPoints,
 	const QStringList& classes, QString* err)
 {
@@ -24,8 +130,16 @@ bool PointNetInference::loadClassifyModel(const QString& onnxPath, int numPoints
 		opts->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
 		std::wstring wPath = onnxPath.toStdWString();
-		m_clsSession = std::make_unique<Ort::Session>(*m_env, wPath.c_str(), *opts);
-		m_clsNumPoints = numPoints;
+		auto session = std::make_unique<Ort::Session>(*m_env, wPath.c_str(), *opts);
+		int onnxNumPoints = 0;
+		if (!queryFixedPointInputCount(*session, onnxNumPoints, err)
+			|| !validateConfigNumPoints(numPoints, onnxNumPoints, err))
+		{
+			m_clsLoaded = false;
+			return false;
+		}
+		m_clsSession = std::move(session);
+		m_clsNumPoints = onnxNumPoints;
 		m_clsClasses = classes;
 		m_clsLoaded = true;
 		return true;
@@ -49,8 +163,17 @@ bool PointNetInference::loadSegmentModel(const QString& onnxPath, int numPoints,
 		opts->SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
 		std::wstring wPath = onnxPath.toStdWString();
-		m_segSession = std::make_unique<Ort::Session>(*m_env, wPath.c_str(), *opts);
-		m_segNumPoints = numPoints;
+		auto session = std::make_unique<Ort::Session>(*m_env, wPath.c_str(), *opts);
+		int onnxNumPoints = 0;
+		if (!queryFixedPointInputCount(*session, onnxNumPoints, err)
+			|| !validateConfigNumPoints(numPoints, onnxNumPoints, err)
+			|| !querySegmentOutputCounts(*session, onnxNumPoints, numClasses, err))
+		{
+			m_segLoaded = false;
+			return false;
+		}
+		m_segSession = std::move(session);
+		m_segNumPoints = onnxNumPoints;
 		m_segNumClasses = numClasses;
 		m_segLoaded = true;
 		return true;

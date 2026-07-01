@@ -343,18 +343,14 @@ bool OsgScene::tryQueryBrepPick(const PickQuery& query, bool pickFace, PickResul
 		};
 		if (brepIndex)
 		{
-			double devicePickX = 0.0;
-			double devicePickY = 0.0;
-			logicalMouseToDeviceCoords(query.screenX, query.screenY, devicePickX, devicePickY);
-			const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
 			(void)brepIndex->pickEdgeByScreen(
 				faceIndex,
-				devicePickX,
-				devicePickY,
+				query.screenX,
+				query.screenY,
 				mvp,
 				viewportWidth(),
 				viewportHeight(),
-				kMeshEdgeHitRadiusPx * dpr,
+				kMeshEdgeHitRadiusPx,
 				modelToWorld,
 				edgeIndex,
 				edgeDistPx,

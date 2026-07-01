@@ -4916,6 +4916,11 @@ geoalgo::TubularGrindingSessionPtr createTubularGrindingSession(std::vector<floa
 	return geoalgo::createTubularGrindingSession(std::move(sourceSoup));
 }
 
+geoalgo::TubularGrindingSessionPtr createTubularGrindingSessionFromPointCloud(std::vector<float> pointXyz)
+{
+	return geoalgo::createTubularGrindingSessionFromPointCloud(std::move(pointXyz));
+}
+
 bool runTubularGrindingStage(
 	geoalgo::TubularGrindingSession& session,
 	const geoalgo::TubularGrindingStage stage,
@@ -4967,6 +4972,26 @@ bool buildTubularGrindingFaceNormalAxisLineSegments(
 	return geoalgo::buildFaceNormalAxisLineSegments(session, params, outLineXyz, errMsg);
 }
 
+bool buildTubularGrindingLocalAxisLineSegments(
+	const geoalgo::TubularGrindingSession& session,
+	const geoalgo::TubularGrindingParams& params,
+	std::vector<float>& outLineXyz,
+	std::string* errMsg)
+{
+	return geoalgo::buildLocalAxisLineSegments(session, params, outLineXyz, errMsg);
+}
+
+bool computeTubularGrindingEllipseResidualReport(
+	const geoalgo::TubularGrindingSession& session,
+	const geoalgo::TubularGrindingParams& params,
+	std::vector<double>& outPerRingRmsResiduals,
+	std::string& outSummaryText,
+	std::string* errMsg)
+{
+	return geoalgo::computeEllipseFittingResidualReport(
+		session, params, outPerRingRmsResiduals, outSummaryText, errMsg);
+}
+
 bool buildTubularGrindingCenterlinePointsCloud(
 	const geoalgo::TubularGrindingSession& session,
 	std::vector<float>& outXyz,
@@ -4974,6 +4999,22 @@ bool buildTubularGrindingCenterlinePointsCloud(
 	std::string* errMsg)
 {
 	return geoalgo::buildCenterlinePointsCloud(session, outXyz, outRgba, errMsg);
+}
+
+bool buildTubularGrindingCenterlinePolylineXyz(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outXyz,
+	std::string* errMsg)
+{
+	return geoalgo::buildCenterlinePolylineXyz(session, outXyz, errMsg);
+}
+
+bool buildTubularGrindingCenterlinePcaAxisArrowLineSegments(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outLineXyz,
+	std::string* errMsg)
+{
+	return geoalgo::buildCenterlinePcaAxisArrowLineSegments(session, outLineXyz, errMsg);
 }
 
 bool buildTubularGrindingTemplatePointsCloud(
@@ -4992,6 +5033,41 @@ bool buildTubularGrindingProjectedPointsCloud(
 	std::string* errMsg)
 {
 	return geoalgo::buildProjectedPointsCloud(session, outXyz, outRgba, errMsg);
+}
+
+int tubularGrindingIterationSnapshotCount(
+	const geoalgo::TubularGrindingSession& session)
+{
+	return geoalgo::iterationSnapshotCount(session);
+}
+
+int tubularGrindingIterationSnapshotIteration(
+	const geoalgo::TubularGrindingSession& session,
+	int snapshotIndex)
+{
+	return geoalgo::iterationSnapshotIteration(session, snapshotIndex);
+}
+
+bool buildTubularGrindingIterationSnapshotPointsCloud(
+	const geoalgo::TubularGrindingSession& session,
+	int snapshotIndex,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg)
+{
+	return geoalgo::buildIterationSnapshotPointsCloud(
+		session, snapshotIndex, outXyz, outRgba, errMsg);
+}
+
+bool buildTubularGrindingIterationSnapshotContractedPointsCloud(
+	const geoalgo::TubularGrindingSession& session,
+	int snapshotIndex,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg)
+{
+	return geoalgo::buildIterationSnapshotContractedPointsCloud(
+		session, snapshotIndex, outXyz, outRgba, errMsg);
 }
 
 bool runWorldMatrixV2SelfTestImpl(std::string* errMsg)

@@ -15,7 +15,8 @@ bool runPipeSegmentation(
 	std::vector<int>& outFaceSegmentId,
 	int& outJunctionFaceCount,
 	int& outRegionCountBeforeFilter,
-	std::string* errMsg);
+	std::string* errMsg,
+	std::vector<Vec3>* outFaceLocalAxes = nullptr);
 
 } // namespace tg
 } // namespace geoalgo

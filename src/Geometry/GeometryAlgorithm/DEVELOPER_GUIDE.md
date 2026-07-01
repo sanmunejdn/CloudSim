@@ -203,18 +203,153 @@ Widget JobSystem（可选）
 
 ### 3.5 管状铸件特征构建（`TubularGrinding.h`，1.15.0+）
 
-三角 soup（mm）→ **环分割管段** → 中心线 → 模板理想点位 → 表面投影。会话式 API 对齐曲面重构。
+三角 soup（mm）→ **中心线** → 模板理想点位 → 表面投影。会话式 API 对齐曲面重构。
+
+**当前 UI 流水线**（`PointCloudPlugin/TubularGrindingDockWidget`）：`None → Centerline → TemplatePoints → Project`。Segment 阶段已从 UI 移除，但 **API 与 `runPipeSegmentation` 仍保留**，自检 `SelfTest` 仍走四阶段。
 
 | `TubularGrindingStage` | 源文件 | 说明 |
 |------------------------|--------|------|
-| Segment | `TubularGrinding/PipeSegmentation.cpp` | 法向汇聚 → 环心 DBSCAN → 环链合并 → `TubularPipeSegment` |
-| Centerline | `TubularGrinding/CenterlineExtraction.cpp` | 沿管轴切片圆拟合 → 弧长重采样 + Frenet 标架 |
-| TemplatePoints | `TubularGrinding/TrajectoryTemplates.cpp` | 螺旋/环形/轴向/锯齿 + Auto 策略 |
-| Project | `TubularGrinding/MeshProjection.cpp` | 沿 ±模板法向射线投影（`TrajectoryProjection.h`） |
+| Segment（可选 / 自检） | `TubularGrinding/PipeSegmentation.cpp` | 法向汇聚 → 环心 DBSCAN → 环链合并 → `TubularPipeSegment`；**Y/T 歧管多管分割** |
+| Centerline | `TubularGrinding/CenterlineExtraction.cpp` + `TubularGrindingCommon.cpp` | **Laplacian 收缩骨架** → 全局 PCA 质心分箱 / 最长路径 → 弧长重采样 + Frenet 标架 |
+| TemplatePoints | `TubularGrinding/TrajectoryTemplates.cpp` | 螺旋/环形/轴向/锯齿 + Auto 策略（按 `pipeId` 分组，依赖 `segments`） |
+| Project | `TubularGrinding/MeshProjection.cpp` | 沿 ±模板法向投影；**网格**走射线-三角求交，**点云**走 Kd-tree top-K 最近邻（queryK=200，`runPointCloudProjection`） |
 
-#### 管段分割（环分割，Phase 1）
+---
 
-实现：`runPipeSegmentation`（`PipeSegmentation.cpp`）；网格预处理与射线汇聚在 `TubularGrindingCommon.cpp`。
+#### 中心线提取：Laplacian 收缩骨架（当前默认）
+
+入口：`runCenterlineExtraction` → `runLaplacianSkeletonCenterline`（`TubularGrindingCommon.cpp`）。  
+**设计目标**：在**不假设圆柱、不做管段分割**的前提下，从三角 mesh 直接提取一条中心折线，供后续模板点与投影使用。
+
+##### 总体数据流
+
+```text
+buildIndexedMeshLite（量化焊接顶点 + 面邻接）
+  → buildSkeletonGraphFromMesh（positions / anchors / faces / edges）
+  → 迭代 centerlineIterations 次：
+       contractSkeletonGraphStep（Cao 式拉普拉斯收缩 + 锚定）
+       collapseAllBelowLength（短边塌缩）
+       removeDegenerateFaces（退化面剔除）
+  → 最终塌缩 + pruneShortLeafBranches（短叶枝剪枝）
+  → extractCenterlineBySliceCentroids（主）或 extractLongestPathPolyline（备）
+  → resamplePolylineToSamples（按 sectionSpacingMm 弧长重采样）
+  → buildFrenetFrames（切向 / 法向 / 副法向）
+```
+
+##### 1. 骨架图 `SkeletonGraph`
+
+从 `IndexedMeshLite` 构建，与原始 mesh 共享拓扑：
+
+| 字段 | 含义 |
+|------|------|
+| `positions` | 当前顶点坐标（收缩过程中不断更新） |
+| `anchors` | 锚定点（初始 = 原始表面顶点；中后期同步为收缩后位置，避免被拉回表面） |
+| `faces` | 三角面顶点索引 |
+| `edges` / `adjacency` | 无向边与邻接表 |
+
+顶点经 **坐标量化焊接**（`buildIndexedMeshLite`，scale=1000），避免 soup 展开后邻接断裂。
+
+##### 2. Cao 式拉普拉斯收缩（`contractSkeletonGraphStep`）
+
+对每个顶点 \(v_i\)，设邻域 \(\mathcal{N}(i)\)，锚定权重 \(w\)（由 `computeContractionAnchorWeight` 调度）：
+
+\[
+v_i \leftarrow \frac{\sum_{j \in \mathcal{N}(i)} v_j + w \cdot a_i}{|\mathcal{N}(i)| + w}
+\]
+
+其中 \(a_i\) 为 `anchors[i]`。  
+\(w\) 大 → 更贴近锚点（前期稳、贴壳）；\(w\) 小 → 更贴近邻域质心（后期向骨架收缩）。
+
+**权重调度**（`computeContractionAnchorWeight`）：
+
+| 阶段 | 迭代区间 | 行为 |
+|------|----------|------|
+| 爬升 | 前 60% | \(w\) 从 `weightStart` 对数增至 `weightPeak` |
+| 释放 | 后 40% | \(w\) 线性降至 0 |
+
+映射关系：
+
+- `weightStart = max(1, laplacianAttraction × 5)`
+- `weightPeak = clamp(laplacianLambda × 500, 10, 200)`
+
+当 \(w \le 0.25 \times weightPeak\) 时，执行 `anchors = positions`，使锚点跟随收缩位置，**避免末期被拉回原始外表面**。
+
+##### 3. 拓扑塌缩与剪枝
+
+每轮迭代后：
+
+- **边塌缩** `collapseAllBelowLength`：合并长度 < 阈值的边，阈值随迭代进度与 `bboxDiag`、平均边长成比例增大。
+- **退化面剔除** `removeDegenerateFaces`：剔除面积或边长过小的三角面。
+
+迭代结束后 **最终塌缩**（`finalCollapse = max(bboxDiag×0.02, avgEdge×0.85)`，最多 128 pass）+ **短叶枝剪枝** `pruneShortLeafBranches`（叶边长度 < `bboxDiag×0.02` 的 degree=1 顶点被移除）。
+
+> **注意**：短枝剪枝 + 单路径提取，使当前实现**天然偏向单管**，Y/T 歧管支路会被削弱或忽略（见下文「已知限制」）。
+
+##### 4. 中心折线提取（Stage C）
+
+**主路径 — 全局 PCA 质心分箱**（`extractCenterlineBySliceCentroids`）：
+
+1. 对收缩后全体顶点求质心 \(\bar{p}\) 与协方差主方向 \(\mathbf{u}\)（幂迭代，`computePrincipalAxisFromPoints`）。
+2. 将各点标量投影 \(t_i = (\mathbf{p}_i - \bar{p}) \cdot \mathbf{u}\)，按 \(t\) 排序。
+3. 以宽度 `sectionSpacingMm` 分箱，每箱内 3D 坐标算术平均 → 一个质心点。
+4. 质心序列即中心折线（至少 2 个有效箱）。
+
+**适用**：直管、弱弯管；点云沿单一主方向展开时效果较好。
+
+**失效**：U 型弯 / 强分支时，全局 \(\mathbf{u}\) 近似「弦方向」，分箱平面斜切管壁，质心偏移；或收缩后沿主轴跨度 < `sectionSpacingMm/2` 导致函数返回 false。
+
+**备路径 — 收缩图最长路径**（`extractLongestPathPolyline`）：
+
+1. 在 `adjacency` 上从任意种子 BFS 找最远点 A，再从 A BFS 找最远点 B（图直径近似）。
+2. Dijkstra(A → B) 得顶点路径，取 `positions` 序列。
+
+仅在 PCA 分箱失败时启用；仍只输出 **一条** 路径，且路径沿图边，可能锯齿、贴壳。
+
+##### 5. 重采样与标架
+
+- `resamplePolylineToSamples`：沿折线弧长每 `sectionSpacingMm` 插入 `TubularCenterlineSample`（当前 `pipeId` 恒为 0，`radiusMm` 占位 1.0）。
+- `buildFrenetFrames`：逐点构造 Frenet 标架（切向 / 法向 / 副法向），供模板点生成使用。
+
+**成功条件**：`outSamples.size() >= 2`。若折线物理长度 < `sectionSpacingMm`，重采样可能只剩 1 点 → 整体失败（报错 `laplacian skeleton centerline extraction failed`）。
+
+##### 6. 中心线相关参数
+
+| 字段 | 默认 | 含义 |
+|------|------|------|
+| `centerlineIterations` | 80 | Laplacian 收缩 + 塌缩迭代次数 |
+| `laplacianLambda` | 0.1 | 映射为中期锚定峰值权重（越大收缩越快） |
+| `laplacianAttraction` | 0.2 | 初始锚定强度（越大前期越贴原网格） |
+| `laplacianKNeighbors` | 8 | 保留字段；当前骨架图使用 **mesh 边邻接**，非 KNN |
+| `sectionSpacingMm` | 2.0 | PCA 分箱宽度 + 输出中心线采样间距（mm） |
+| `centerlineConvergenceEpsMm` | 0.01 | 已废弃，保留兼容 |
+
+**调参提示**：
+
+| 现象 | 建议 |
+|------|------|
+| 中心线贴外表面 | 略增 `laplacianLambda` 或迭代次数；确认锚点同步逻辑已生效 |
+| 提取失败 / 塌没 | 降低 `centerlineIterations` 或 `laplacianLambda`；减小 `sectionSpacingMm`（短管） |
+| 弯头锯齿 | 全局 PCA 固有限制；需局部切平面或分段中心线（未默认启用） |
+| Y/T 只出一条臂 | 算法为单折线；需 Segment 多管或骨架树（见限制） |
+
+##### 7. 可视化（Host 层）
+
+中心线不以点云展示，而注册为 **overlay 线段**（`registerTubularGrindingCenterlineLines`）：
+
+- `buildTubularGrindingCenterlinePolylineXyz` → 连续 `3×N` float
+- 转为 `GL_LINES` 段，`overlayLinesAlwaysOnTop` + 深度 ALWAYS，避免被 mesh 遮挡
+
+**PCA 主轴箭头**（`buildCenterlinePcaAxisArrowLineSegments` / `registerTubularGrindingPcaAxisArrowLines`）：
+
+- 对 Laplacian 收缩后点云计算全局 PCA（与质心分箱相同）
+- 箭头沿主方向从 `extentMin` 到 `extentMax`，箭头尖在 `extentMax` 端（绿色 overlay）
+
+---
+
+#### 管段分割（环分割，Segment 阶段 — 可选）
+
+实现：`runPipeSegmentation`（`PipeSegmentation.cpp`）；网格预处理与射线汇聚在 `TubularGrindingCommon.cpp`。  
+**与中心线的关系**：Segment 产出 `TubularPipeSegment[]` 与交汇面标记，是 **Y/T 歧管多 `pipeId` 中心线** 的既有路径；UI 默认跳过，导致 `TemplatePoints` 阶段 `segments` 常为空，仅 `pipeId=0` 的单管模板可工作。
 
 ```text
 buildIndexedMeshLite（坐标量化焊接顶点 → faceNeighbors）
@@ -237,7 +372,7 @@ buildIndexedMeshLite（坐标量化焊接顶点 → faceNeighbors）
 | 交汇面 | 邻接环 ≥ 3 且轴线散布 > `junctionAxisSpreadDeg` → `kFaceJunction` |
 | 管段合并 | `mergeRingsIntoSegments`；`minSegmentFaces` 不足时自动放宽一次 |
 
-**主要参数**（`TubularGrindingParams`）：
+**Segment 主要参数**：
 
 | 字段 | 默认 | 含义 |
 |------|------|------|
@@ -250,7 +385,138 @@ buildIndexedMeshLite（坐标量化焊接顶点 → faceNeighbors）
 | `faceNormalAxisLengthMm` | 0（自动） | 法向轴可视化长度（mm） |
 | `regionGrowAxisAngleDeg` | 28 | 保留兼容，环分割未使用 |
 
-**报告字段**（`TubularGrindingReport`）：`pipeCount`、`ringCount`、`junctionFaceCount`、`regionCountBeforeFilter`（DBSCAN 簇数）。
+**广义截面分析**（Segment 内 `NeighborhoodMode::Adaptive` 路径，`analyzeCrossSection`）：在局部切平面上投影面心，椭圆/凸包拟合得环心与半径，与中心线阶段的「全局 PCA 分箱」相互独立。
+
+---
+
+#### 已知限制与失败模式
+
+| 限制 | 说明 |
+|------|------|
+| **单折线输出** | 仅一条 `polyline`，无法表达 Y/T 树形中心线 |
+| **全局 PCA** | 弯管/歧管上质心分箱可能斜切管壁；U 型弯尤甚 |
+| **最长路径兜底** | 只覆盖图上一支，沿边锯齿 |
+| **短枝剪枝** | 削弱歧管支路，利于单管、不利多分支 |
+| **Template 依赖 Segment** | `runTrajectoryTemplates` 按 `segments` × `pipeId` 生成；无 Segment 时模板阶段易空或仅单管 |
+| **统一错误文案** | Laplacian 失败时 `"laplacian skeleton centerline extraction failed"`；OTLC 失败时 `"otlc centerline polyline extraction failed"`，不区分建图 / 提线 / 重采样 |
+| **点云仅 OTLC** | 点云输入只能用 `TubularGrindingCenterlineMethod::OtLc`，Laplacian 路径返回错误 |
+| **点云无 Segment** | 点云没有 mesh 拓扑，Segment 阶段不可用（`ensureMesh` 返回 false） |
+| **点云投影 top-K** | 点云投影使用 Kd-tree top-200 最近邻（非全遍历），大点云性能优于网格射线求交 |
+
+**OTLC 双源中心线（新增）**：
+
+入口 `runOtLcSkeletonCenterline`（`OtLcSkeleton.cpp`），支持 Mesh / PointCloud 双输入。网格走 welding-edge 邻接图，点云走 KNN + 互惠 DKNN 滤波。**点云必须走 OTLC**；Laplacian 路径对点云返回 `laplacian centerline requires mesh input`。
+
+##### OTLC 算法流程
+
+```
+buildOriginalFromInput（原始点集 + 邻接图）
+  → voxelDownsamplePoints（体素滤波降采样，bboxDiag/(N×rate)^(1/3)）
+  → 每个体素 centroid → Kd-tree 找最近原始点作为 sample（snapping，确保 sample 在原始点位置）
+  → 初始化 OtSkeletonState（sample / original / mass / union-find / sampleTree）
+  → emitIterationSnapshot：活跃根 + 收缩 original 子采样
+  → 迭代快照 onIteration(snap) ← 记录根点与收缩点云
+  → estimatePointCloudInwardNormals（局部 PCA + 指向质心）
+  → 预处理阶段（otcPreSteps 次）：
+       assignOriginalPointsToSamples（Kd-tree 最近邻聚类，始终重建树确保索引一致）
+       updateSamplePositionsFromClusters（Sinkhorn OT 更新）
+       refreshSampleMedialPositions（射线束融合）
+       otcClusterMergeStep（距离门控合并）
+  → OTLC 外循环（最多 otLcOuterMaxIters 次，至少 5 次）：
+       [Laplacian 收缩] contractPointCloudInwardLc（KNN 邻域 + 向内步进）
+       [刷新法向] estimatePointCloudInwardNormals
+       [OT 循环] otcOuterLoops 次 OT 更新 + 聚类合并
+       [稀疏合并] sparseMergeSampleRoots（目标根数 ≈ bboxDiag/sectionSpacing × 0.6，受 minRootsBySamples 保护）
+       → emitIterationSnapshot(outer+1) ← 活跃根 + 收缩 original 子采样
+  → 终止条件（outer ≥ 5 后）：
+       1. sampleRootCount ≤ targetRoots（根数达标）
+       2. !anyMerge（拓扑稳定，无合并）
+  → 最终合并 + rebuildSampleGraphEdges（PCA 对齐 + KNN 补边 + 跨分量桥接）
+  → collectActiveSampleRoots + refineRootPositionsInward（射线束精炼）
+  → 三级折线提取兜底（降序尝试）：
+       1. extractClusterOrderedPolyline（PCA 排序合并，弧弦比门控 ≤4.5）
+       2. extractCenterlineFromOtSkeleton（根图最长路径，isSampleGraphUsable 门控）
+       3. extractSliceCentroidPolyline（全局 PCA 分箱）
+          → extractOrderedCenterlinePolyline（KNN 最长路径兜底）
+  → resamplePolylineToSamples + buildFrenetFrames
+```
+
+| 阶段 | 说明 |
+|------|------|
+| 降采样 | `voxelDownsamplePoints`：体素滤波 → 每个 centroid 找最近原始点（snapping）；确定性的密度保持降采样 |
+| 法向估计 | 局部 PCA（KNN 邻域）最小特征向量 → 指向全局质心为 inward |
+| Laplacian 收缩 | `contractPointCloudInwardLc`：约束 Laplacian（固定 mask 点不动）+ 向内步进 |
+| OT 分配 | `updateSamplePositionsFromClusters`：Sinkhorn 软分配（sample 为原始点，w=exp(0)≈1 正常） |
+| 聚类合并 | `otcClusterMergeStep`：距离门控合并 + 贪婪合并 `sparseMergeSampleRoots` |
+| 迭代终止 | 前 5 轮强制运行（`outer >= 5` 保护），之后根数 ≤ targetRoots 或 `!anyMerge` 时退出 |
+| 图建边 | `rebuildSampleGraphEdges`：PCA 方向对齐 + 排序串联 + KNN 补边 + `bridgeSampleEdgeComponents` 保证连通 |
+| 根点精炼 | `refineRootPositionsInward`：所属原始点的 inward 射线束汇聚 |
+| 折线提取 | 3 级兜底，质量门控 `isCenterlinePolylineReasonable`（弧弦比 ≤ 4.5） |
+
+OTLC 参数（`OtLcParams`，由 `buildOtLcParams` 从 `TubularGrindingParams` 映射）：
+
+| 字段 | 默认 | 映射来源 | 说明 |
+|------|------|----------|------|
+| `otSampleRate` | 0.10 | `params.otSampleRate` | 体素降采样比例，公式 `bboxDiag/(N×rate)^(1/3)`（越小体素越大，sample 越少） |
+| `otCostBeta` | 3.0 | `params.otCostBeta` | OT 代价距离指数（越大簇边界越硬） |
+| `pointCloudKnnK` | 30 | `params.pointCloudKnnK` | 点云 KNN 邻域大小 |
+| `otcPreSteps` | 3 | `params.otcPreSteps` | 预处理 OT+合并轮次 |
+| `otcOuterLoops` | 3 | `params.otcOuterLoops` | 每轮外循环内 OT+合并次数 |
+| `otLcOuterMaxIters` | 40 | `params.otLcOuterMaxIters` | OTLC 外循环上限 |
+| `minRootsBySamples` | 0（自动） | `params.minRootsBySamples` | 根点合并下限；0=auto: min(sampleCount, max(15, sampleCount×0.05)) |
+| `skelConvergenceEps` | 1e-4 | 固定 | OT 能量收敛阈值 |
+
+**迭代快照**：`runOtLcSkeletonCenterline` 的 `OtLcIterationCallback` 每轮传出 `OtLcIterationSnapshot`（`samplePositions`=活跃根，`contractedPositions`=收缩 original 子采样）。Host 注册 `_迭代N`（根，绿/黄/红）与 `_迭代N_收缩`（蓝）。
+
+**限制**：
+- 体素降采样 + snapping 需要点云有足够密度以保证每个体素 centroid 附近存在原始点；稀疏点云可能导致 snap 后 sample 重叠或不足
+- 点云需足够稠密以支持 KNN 邻接图建边；稀疏点云易导致根图碎裂 + 全局 PCA 兜底
+
+---
+
+#### 点云投影（Project 阶段 — 点云路径）
+
+实现：`runPointCloudProjection`（`MeshProjection.cpp`）。入口在 `TubularGrindingSession::runTubularGrindingStage(Project)` 中根据 `inputKind` 分流。
+
+```text
+对每个模板点 tp：
+  origin = tp.positionMm
+  direction = ±tp.normalMm（正反双向）
+  → Kd-tree 搜索 top-200 最近点（pclalgo::KdTreePointSet）：
+       沿 direction 投影距离 ≤ projectionMaxDistMm
+       垂直距离 ≤ 0.5 × projectionMaxDistMm
+       保留最近点（分别记正/反方向最近）
+  → 选取双向中距离最近者作为投影点位
+  → hitRate = 命中模板数 / 总模板数
+```
+
+| 参数 | 默认 | 说明 |
+|------|------|------|
+| `projectionMaxDistMm` | 10.0 | 最大搜索半径（mm）；沿法向 + 垂直偏离均受此限制 |
+
+**与网格投影的区别**：
+- 网格投影走射线-三角求交（`BRepExtrema_ShapeProximity`），精度高但需 mesh 拓扑
+- 点云投影走 **Kd-tree top-K 最近邻**（queryK=200，非全遍历），大点云性能优于网格射线求交
+
+**`runLaplacianSkeletonCenterline` 返回 false 的典型原因**：
+
+1. `buildSkeletonGraphFromMesh`：mesh 无效或无边。
+2. PCA 与最长路径均失败：收缩后点数 < 3、主轴跨度不足、图不连通。
+3. `resamplePolylineToSamples` 后样本数 < 2：折线过短相对 `sectionSpacingMm`。
+
+---
+
+#### 后续方向（未默认实现）
+
+| 方向 | 说明 |
+|------|------|
+| Segment + 分段中心线 | 恢复或内部调用 `runPipeSegmentation`，每管段独立提线，`pipeId` 区分，交汇点共点 |
+| 骨架树提取 | 保留分支、在 junction（degree≥3）分叉，输出多段折线 |
+| 局部切平面质心 | 以 guide 折线定切向，在**原 mesh 面心**上切片；需质量门控与平滑 guide |
+| 树形 overlay 显示 | 分支间不连线，`buildCenterlinePolylineXyz` 按 branch 断开 |
+| 深度学习分割 | PointNet++ 等面语义 → 替代/并联 Segment |
+
+---
 
 #### 可视化导出
 
@@ -265,13 +531,13 @@ buildIndexedMeshLite（坐标量化焊接顶点 → faceNeighbors）
 
 入口：`createTubularGrindingSession` → `runTubularGrindingStage`。
 
-**Data 转发**：`geometry_backend_ops::createTubularGrindingSession`、`buildTubularGrindingRingColoredMeshSoup`、`buildTubularGrindingFaceNormalAxisLineSegments` 等（[`GeometryBackendOps.h`](../Data/inc/GeometryBackendOps.h)）。
+**Data 转发**：`geometry_backend_ops::createTubularGrindingSession`、`buildTubularGrindingRingColoredMeshSoup`、`buildTubularGrindingFaceNormalAxisLineSegments`、`buildTubularGrindingCenterlinePolylineXyz` 等（[`GeometryBackendOps.h`](../Data/inc/GeometryBackendOps.h)）。
 
-**调参提示**：分割过碎时优先增大 `ringRayConvergenceEpsMm`（常见 8–25 mm）或 `ringCenterClusterEpsMm`；交汇误判可增大 `junctionAxisSpreadDeg`。
+**调参提示**：分割过碎时优先增大 `ringRayConvergenceEpsMm`（常见 8–25 mm）或 `ringCenterClusterEpsMm`；交汇误判可增大 `junctionAxisSpreadDeg`。中心线失败时优先降低收缩强度或 `sectionSpacingMm`。
 
-**后续方向（未实现）**：深度学习（如 PointNet++ 面/点语义分割）可替代或并联 Segment 阶段；当前仓库无 ONNX/LibTorch 推理管线，需独立 Python 训练 + ONNX Runtime 接入。
+**报告字段**（`TubularGrindingReport`）：`pipeCount`、`ringCount`、`junctionFaceCount`、`regionCountBeforeFilter`、`centerlinePointCount`、`sectionFitFailCount` 等。
 
-自检：`SelfTest.cpp` 中 `tubularGrinding*`（OCCT 圆柱离散 → 四阶段 + 投影命中率门禁）。
+自检：`SelfTest.cpp` 中 `tubularGrinding*`（OCCT 圆柱离散 → Segment + Centerline + Template + Project + 投影命中率门禁）。
 
 ## 4. Data 薄包装
 

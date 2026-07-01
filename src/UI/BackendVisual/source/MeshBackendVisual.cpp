@@ -23,6 +23,8 @@
 #include <osg/Matrixd>
 #include <osg/MatrixTransform>
 #include <osg/LineWidth>
+#include <osg/Depth>
+#include <osg/BlendFunc>
 #include <osg/Material>
 #include <osg/PolygonOffset>
 #include <osg/PositionAttitudeTransform>
@@ -55,10 +57,29 @@ static void applyLitPlastic(osg::Material& mat, const osg::Vec4& baseColor)
 
 #include "MeshWireGeometry.inc"
 
+void applyAlwaysOnTopStateSet(osg::StateSet* ss)
+{
+	if (!ss)
+	{
+		return;
+	}
+	ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	ss->setMode(GL_BLEND, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	ss->setAttributeAndModes(
+		new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA),
+		osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+	osg::ref_ptr<osg::Depth> depth = new osg::Depth;
+	depth->setFunction(osg::Depth::ALWAYS);
+	depth->setWriteMask(false);
+	ss->setAttributeAndModes(depth.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+}
+
 osg::ref_ptr<osg::Geode> buildOverlayLineGeode(
 	const std::vector<float>& lineSegments,
 	const osg::Vec4& lineColor,
-	const float lineWidth)
+	const float lineWidth,
+	const bool alwaysOnTop)
 {
 	if (lineSegments.size() < 6U || (lineSegments.size() % 6U) != 0U)
 	{
@@ -83,6 +104,10 @@ osg::ref_ptr<osg::Geode> buildOverlayLineGeode(
 	osg::StateSet* ssWire = geodeWire->getOrCreateStateSet();
 	ssWire->setAttributeAndModes(new osg::LineWidth(lineWidth));
 	ssWire->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	if (alwaysOnTop)
+	{
+		applyAlwaysOnTopStateSet(ssWire);
+	}
 	return geodeWire;
 }
 
@@ -221,7 +246,11 @@ osg::ref_ptr<osg::Node> buildMeshDisplayNodeImpl(const MeshBackendData& data, co
 		const BackendColor c = data.color();
 		const osg::Vec4 lineColor(c.r, c.g, c.b, c.a);
 		osg::ref_ptr<osg::Geode> overlayGeode =
-			buildOverlayLineGeode(data.overlayLineSegments(), lineColor, 1.8f);
+			buildOverlayLineGeode(
+				data.overlayLineSegments(),
+				lineColor,
+				3.0f,
+				data.overlayLinesAlwaysOnTop());
 		if (overlayGeode.valid())
 		{
 			grp->addChild(overlayGeode.get());

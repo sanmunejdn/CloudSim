@@ -4,23 +4,24 @@
 
 #include "widget_global.h"
 
-#include <QGLWidget>
+#include <QOpenGLWidget>
+#include <QSurfaceFormat>
 #include <osg/Referenced>
 #include <osgViewer/Viewer>
 
 class GraphicsWindowQt1;
 
-/// OpenGL/OSG 嵌入 Qt；Qt 输入事件转发 osgViewer，供 GraphicsWindowQt1 使用
-class OSG_WIDGET_API QWidgetViewer : public QGLWidget
+/// OpenGL/OSG 嵌入 Qt（QOpenGLWidget）；输入事件转发 osgViewer，供 GraphicsWindowQt1 使用
+class OSG_WIDGET_API QWidgetViewer : public QOpenGLWidget
 {
 	Q_OBJECT
-	typedef QGLWidget inherited;
+	typedef QOpenGLWidget inherited;
 
 public:
 
-	QWidgetViewer(QWidget* parent = NULL, const QGLWidget* shareWidget = NULL, Qt::WindowFlags f = 0, bool forwardKeyEvents = false);
-	QWidgetViewer(QGLContext* context, QWidget* parent = NULL, const QGLWidget* shareWidget = NULL, Qt::WindowFlags f = 0, bool forwardKeyEvents = false);
-	QWidgetViewer(const QGLFormat& format, QWidget* parent = NULL, const QGLWidget* shareWidget = NULL, Qt::WindowFlags f = 0, bool forwardKeyEvents = false);
+	explicit QWidgetViewer(QWidget* parent = nullptr, Qt::WindowFlags f = Qt::WindowFlags(), bool forwardKeyEvents = false);
+	QWidgetViewer(const QSurfaceFormat& format, QWidget* parent = nullptr, Qt::WindowFlags f = Qt::WindowFlags(),
+		bool forwardKeyEvents = false);
 	virtual ~QWidgetViewer();
 
 	inline void setGraphicsWindow(GraphicsWindowQt1* gw) { _gw = gw; }
@@ -35,6 +36,12 @@ public:
 
 	void setKeyboardModifiers(QInputEvent* event);
 
+	static qreal effectiveDevicePixelRatio(const QWidget* widget);
+
+	/// 返回 OSG viewport 应使用的 framebuffer 像素尺寸
+	bool queryFramebufferPixelSize(int& outWidth, int& outHeight) const;
+	bool resolveOpenGlFramebufferSize(int& outWidth, int& outHeight) const;
+
 	virtual void keyPressEvent(QKeyEvent* event);
 	virtual void keyReleaseEvent(QKeyEvent* event);
 	virtual void mousePressEvent(QMouseEvent* event);
@@ -42,13 +49,12 @@ public:
 	virtual void mouseDoubleClickEvent(QMouseEvent* event);
 	virtual void mouseMoveEvent(QMouseEvent* event);
 	virtual void wheelEvent(QWheelEvent* event);
-	virtual bool gestureEvent(QGestureEvent* event);
+	bool gestureEvent(QGestureEvent* event);
 
 signals:
 	void windowResized(int width, int height);
 
 protected:
-
 	int getNumDeferredEvents()
 	{
 		QMutexLocker lock(&_deferredEventQueueMutex);
@@ -61,7 +67,9 @@ protected:
 		if (removeEventType != QEvent::None)
 		{
 			if (_deferredEventQueue.removeOne(removeEventType))
+			{
 				_eventCompressor.remove(eventType);
+			}
 		}
 
 		if (_eventCompressor.find(eventType) == _eventCompressor.end())
@@ -82,12 +90,20 @@ protected:
 	bool _touchEventsEnabled;
 
 	bool _forwardKeyEvents;
-	qreal _devicePixelRatio;
+	qreal _devicePixelRatio = 1.0;
+	int _lastSyncedFramebufferWidth = 0;
+	int _lastSyncedFramebufferHeight = 0;
+	int _lastSyncedLogicalWidth = 0;
+	int _lastSyncedLogicalHeight = 0;
 
-	virtual void resizeEvent(QResizeEvent* event)override;
-	virtual void moveEvent(QMoveEvent* event);
-	virtual void glDraw();
-	virtual bool event(QEvent* event);
+	void syncFramebufferSize(int deviceFramebufferWidth = 0, int deviceFramebufferHeight = 0);
+	void emitFramebufferResizeIfChanged(int framebufferWidth, int framebufferHeight);
+
+	void initializeGL() override;
+	void resizeGL(int w, int h) override;
+	void paintGL() override;
+	void showEvent(QShowEvent* event) override;
+	bool event(QEvent* event) override;
 
 };
 #endif//_POINTCLOUDPROCESS_WIDGET_QWIDGETVIEWER_H_

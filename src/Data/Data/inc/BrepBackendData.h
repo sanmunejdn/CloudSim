@@ -53,6 +53,9 @@ public:
 	bool writeBrepFile(const std::string& path, std::string* errMsg = nullptr) const;
 	bool writeStepFile(const std::string& path, std::string* errMsg = nullptr) const;
 
+	/// 返回世界坐标系下的 shape（应用 worldMatrix 变换后的副本）
+	geoalgo::ShapeHandle worldShape() const;
+
 	static bool loadStepHierarchyFromFile(
 		const std::string& path,
 		std::vector<BrepHierarchyPart>& outParts,

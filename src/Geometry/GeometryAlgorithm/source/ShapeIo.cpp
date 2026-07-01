@@ -3,6 +3,8 @@
 #include "ShapeIo.h"
 
 #include <BRepTools.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+#include <gp_Trsf.hxx>
 
 namespace geoalgo
 {
@@ -138,6 +140,31 @@ bool writeStepFile(const std::string& pathLocal, const ShapeHandle& shape, std::
 		return false;
 	}
 	return true;
+}
+
+ShapeHandle transformShape(const ShapeHandle& shape, const Eigen::Isometry3d& iso)
+{
+	if (shape.isNull())
+	{
+		return {};
+	}
+
+	// 构建 OCCT gp_Trsf
+	gp_Trsf trsf;
+	trsf.SetValues(
+		iso(0, 0), iso(0, 1), iso(0, 2), iso(0, 3),
+		iso(1, 0), iso(1, 1), iso(1, 2), iso(1, 3),
+		iso(2, 0), iso(2, 1), iso(2, 2), iso(2, 3));
+
+	// 获取原始 shape 并应用变换
+	TopoDS_Shape native;
+	if (!ShapeHandleAccess::nativeShape(shape, &native))
+	{
+		return {};
+	}
+
+	BRepBuilderAPI_Transform transformer(native, trsf, true);
+	return ShapeHandleAccess::fromNativeShape(&transformer.Shape());
 }
 
 } // namespace geoalgo

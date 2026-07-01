@@ -97,78 +97,6 @@ double estimateRingClusterEpsMm(const IndexedMeshLite& mesh, const std::vector<V
 	return std::clamp(nnDist[mid] * 0.72, 4.0, meshBBoxDiagonalMm(mesh) * 0.08);
 }
 
-void collectInwardRaySamples(
-	const IndexedMeshLite& mesh,
-	const int faceIndex,
-	const int neighborHop,
-	std::vector<Vec3>& outOrigins,
-	std::vector<Vec3>& outInwardDirs)
-{
-	outOrigins.clear();
-	outInwardDirs.clear();
-	if (isPlanarStencilFace(mesh, faceIndex, kPlanarNormalSpreadDeg))
-	{
-		return;
-	}
-	std::vector<int> stack;
-	stack.push_back(faceIndex);
-	for (int hop = 0; hop < neighborHop; ++hop)
-	{
-		const std::size_t stackSize = stack.size();
-		for (std::size_t si = 0; si < stackSize; ++si)
-		{
-			const int f = stack[si];
-			for (const int nb : mesh.faceNeighbors[static_cast<std::size_t>(f)])
-			{
-				if (isPlanarStencilFace(mesh, nb, kPlanarNormalSpreadDeg))
-				{
-					continue;
-				}
-				stack.push_back(nb);
-			}
-		}
-	}
-	std::sort(stack.begin(), stack.end());
-	stack.erase(std::unique(stack.begin(), stack.end()), stack.end());
-	outOrigins.reserve(stack.size());
-	outInwardDirs.reserve(stack.size());
-	for (const int f : stack)
-	{
-		outOrigins.push_back(mesh.faceCentroids[static_cast<std::size_t>(f)]);
-		outInwardDirs.push_back(scale(mesh.faceNormals[static_cast<std::size_t>(f)], -1.0));
-	}
-}
-
-bool computeFaceInwardCenter(
-	const IndexedMeshLite& mesh,
-	const int faceIndex,
-	const double rayConvergenceEpsMm,
-	Vec3& outCenter,
-	double& outRadius)
-{
-	std::vector<Vec3> origins;
-	std::vector<Vec3> dirs;
-	collectInwardRaySamples(mesh, faceIndex, 2, origins, dirs);
-	if (origins.size() < 2U)
-	{
-		return false;
-	}
-	Vec3 center;
-	if (!approximateRayBundleCenter(origins, dirs, rayConvergenceEpsMm, center))
-	{
-		return false;
-	}
-	const Vec3 c = mesh.faceCentroids[static_cast<std::size_t>(faceIndex)];
-	outRadius = length(sub(c, center));
-	const double diag = meshBBoxDiagonalMm(mesh);
-	if (outRadius < 1e-3 || outRadius > diag * 0.55)
-	{
-		return false;
-	}
-	outCenter = center;
-	return true;
-}
-
 void splitClusterByConnectivity(
 	const IndexedMeshLite& mesh,
 	const std::vector<int>& clusterFaces,
@@ -230,6 +158,9 @@ void finalizeRing(
 	const std::vector<int>& faceIndices,
 	const std::vector<Vec3>& faceCenters,
 	const std::vector<double>& faceRadii,
+	const std::vector<double>& faceSemiMajor,
+	const std::vector<double>& faceSemiMinor,
+	const std::vector<double>& faceRotationDeg,
 	const int ringId,
 	TubularCrossSectionRing& outRing)
 {
@@ -237,10 +168,17 @@ void finalizeRing(
 	outRing.faceIndices = faceIndices;
 	Vec3 centerSum{0.0, 0.0, 0.0};
 	double radiusSum = 0.0;
+	double semiMajorSum = 0.0;
+	double semiMinorSum = 0.0;
+	double rotSum = 0.0;
 	for (const int f : faceIndices)
 	{
-		centerSum = add(centerSum, faceCenters[static_cast<std::size_t>(f)]);
-		radiusSum += faceRadii[static_cast<std::size_t>(f)];
+		const std::size_t fi = static_cast<std::size_t>(f);
+		centerSum = add(centerSum, faceCenters[fi]);
+		radiusSum += faceRadii[fi];
+		semiMajorSum += faceSemiMajor[fi];
+		semiMinorSum += faceSemiMinor[fi];
+		rotSum += faceRotationDeg[fi];
 	}
 	const double inv = 1.0 / static_cast<double>(faceIndices.size());
 	const Vec3 center = scale(centerSum, inv);
@@ -248,6 +186,11 @@ void finalizeRing(
 	outRing.centerMm[1] = center.y;
 	outRing.centerMm[2] = center.z;
 	outRing.radiusMm = radiusSum * inv;
+	outRing.semiMajorMm = semiMajorSum * inv;
+	outRing.semiMinorMm = semiMinorSum * inv;
+	outRing.sectionRotationDeg = rotSum * inv;
+	outRing.aspectRatio = (outRing.semiMinorMm > 1e-6)
+		? outRing.semiMajorMm / outRing.semiMinorMm : 1.0;
 	outRing.axisHint = {0.0, 0.0, 1.0};
 	(void)mesh;
 }
@@ -469,13 +412,19 @@ bool runPipeSegmentation(
 	std::vector<int>& outFaceSegmentId,
 	int& outJunctionFaceCount,
 	int& outRegionCountBeforeFilter,
-	std::string* errMsg)
+	std::string* errMsg,
+	std::vector<Vec3>* outFaceLocalAxes)
 {
 	outSegments.clear();
 	outRings.clear();
 	outJunctionFaceCount = 0;
 	outRegionCountBeforeFilter = 0;
 	outFaceSegmentId.assign(static_cast<std::size_t>(mesh.faceCount), kFaceUnassigned);
+	// 初始化局部轴线输出
+	if (outFaceLocalAxes)
+	{
+		outFaceLocalAxes->assign(static_cast<std::size_t>(mesh.faceCount), Vec3{0.0, 0.0, 0.0});
+	}
 	if (mesh.faceCount < 3)
 	{
 		if (errMsg)
@@ -494,18 +443,61 @@ bool runPipeSegmentation(
 	std::vector<Vec3> validCenterPoints;
 	validCenterPoints.reserve(static_cast<std::size_t>(mesh.faceCount));
 
+	// 截面分析相关
+	std::vector<double> faceSemiMajor(static_cast<std::size_t>(mesh.faceCount), 0.0);
+	std::vector<double> faceSemiMinor(static_cast<std::size_t>(mesh.faceCount), 0.0);
+	std::vector<double> faceRotationDeg(static_cast<std::size_t>(mesh.faceCount), 0.0);
+
 	for (int f = 0; f < mesh.faceCount; ++f)
 	{
 		Vec3 center;
 		double radius = 0.0;
-		if (!computeFaceInwardCenter(mesh, f, params.ringRayConvergenceEpsMm, center, radius))
+		Vec3 localAxis{0.0, 0.0, 0.0};
+
+		if (params.neighborhoodMode == NeighborhoodMode::Adaptive)
 		{
-			continue;
+			// 自适应邻域 + 加权PCA + 广义截面分析
+			std::vector<double> geodesics;
+			const std::vector<int> neighborhood = collectAdaptiveNeighborhood(
+				mesh, f, params.geodesicRadiusMm, geodesics);
+			if (neighborhood.size() < 3)
+			{
+				continue;
+			}
+
+			localAxis = computeLocalAxisFromWeightedPCA(mesh, f, neighborhood, geodesics);
+
+			double semiMajor = 0.0, semiMinor = 0.0, rotDeg = 0.0;
+			if (!analyzeCrossSection(mesh, neighborhood, localAxis, params.sectionFitMode,
+				semiMajor, semiMinor, rotDeg, center))
+			{
+				continue;
+			}
+
+			radius = (semiMajor + semiMinor) * 0.5;
+			faceSemiMajor[static_cast<std::size_t>(f)] = semiMajor;
+			faceSemiMinor[static_cast<std::size_t>(f)] = semiMinor;
+			faceRotationDeg[static_cast<std::size_t>(f)] = rotDeg;
 		}
+		else
+		{
+			// 原有逻辑：固定 2-hop 叉积
+			localAxis = computeLocalAxisFromNormalCrossProducts(mesh, f, 2);
+			if (!computeFaceCenterFromNormals(mesh, f, params.ringRayConvergenceEpsMm, center, radius))
+			{
+				continue;
+			}
+		}
+
 		faceValid[static_cast<std::size_t>(f)] = 1U;
 		faceCenters[static_cast<std::size_t>(f)] = center;
 		faceRadii[static_cast<std::size_t>(f)] = radius;
 		validCenterPoints.push_back(center);
+		// 存储局部轴线
+		if (outFaceLocalAxes)
+		{
+			(*outFaceLocalAxes)[static_cast<std::size_t>(f)] = localAxis;
+		}
 	}
 
 	if (validCenterPoints.size() < static_cast<std::size_t>(minRingFaces))
@@ -534,8 +526,30 @@ bool runPipeSegmentation(
 		}
 	}
 
+	// 根据模式选择聚类算法
 	std::vector<int> dbLabels;
-	const int clusterCount = runDbscan(dbPoints, clusterEps, minRingFaces, dbLabels);
+	int clusterCount = 0;
+	if (params.neighborhoodMode == NeighborhoodMode::Adaptive &&
+		params.sectionFitMode != SectionFitMode::Circle)
+	{
+		// 扩展DBSCAN：空间坐标 + 截面特征联合聚类
+		std::vector<double> validSemiMajor, validSemiMinor;
+		validSemiMajor.reserve(validCenterPoints.size());
+		validSemiMinor.reserve(validCenterPoints.size());
+		for (const int fi : validFaceIndex)
+		{
+			validSemiMajor.push_back(faceSemiMajor[static_cast<std::size_t>(fi)]);
+			validSemiMinor.push_back(faceSemiMinor[static_cast<std::size_t>(fi)]);
+		}
+		// 特征缩放：截面参数与空间坐标的权重比
+		const double featureScale = 1.0 / std::max(1.0, clusterEps);
+		clusterCount = runDbscanEnhanced(dbPoints, validSemiMajor, validSemiMinor,
+			clusterEps, minRingFaces, featureScale, dbLabels);
+	}
+	else
+	{
+		clusterCount = runDbscan(dbPoints, clusterEps, minRingFaces, dbLabels);
+	}
 	outRegionCountBeforeFilter = clusterCount;
 
 	std::map<int, std::vector<int>> clusterFaces;
@@ -563,7 +577,9 @@ bool runPipeSegmentation(
 				continue;
 			}
 			TubularCrossSectionRing ring;
-			finalizeRing(mesh, comp, faceCenters, faceRadii, nextRingId, ring);
+			finalizeRing(mesh, comp, faceCenters, faceRadii,
+				faceSemiMajor, faceSemiMinor, faceRotationDeg,
+				nextRingId, ring);
 			for (const int f : comp)
 			{
 				faceRingLabel[static_cast<std::size_t>(f)] = nextRingId;

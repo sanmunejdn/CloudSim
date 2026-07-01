@@ -1171,7 +1171,9 @@ bool exportMeshToPly(
 		}
 		return false;
 	}
-	if (!mesh->writeTriangleMeshPly(pathUtf8, outError))
+	// 导出世界坐标系下的网格（应用 worldMatrix 变换）
+	const std::vector<float> worldSoup = mesh->worldTriangleSoup();
+	if (!mesh->writeTriangleMeshPly(pathUtf8, worldSoup, outError))
 	{
 		return false;
 	}
@@ -1203,7 +1205,9 @@ bool exportPointCloudToPly(
 		return false;
 	}
 	const std::string nativePath = nativePathFromUtf8Path(pathUtf8);
-	if (!pc->writePointCloudPlySidecar(nativePath, outError))
+	// 导出世界坐标系下的点云（应用 worldMatrix 变换）
+	const std::vector<float> worldXyz = pc->worldPositionsXyz();
+	if (!pc->writePointCloudPlySidecar(nativePath, worldXyz, outError))
 	{
 		return false;
 	}
@@ -1251,7 +1255,9 @@ bool exportBrepToStep(
 		return false;
 	}
 	const std::string nativePath = nativePathFromUtf8Path(pathUtf8);
-	if (!brep->writeStepFile(nativePath, outError))
+	// 导出世界坐标系下的 B-rep（应用 worldMatrix 变换）
+	const geoalgo::ShapeHandle worldShape = brep->worldShape();
+	if (!geoalgo::writeStepFile(nativePath, worldShape, outError))
 	{
 		return false;
 	}

@@ -112,31 +112,182 @@
 
 侧栏 **特征构建** Tab（`TubularGrindingDockWidget`），与「点云」并列；需宿主 **1.15.0+**。
 
-| 按钮 | 阶段 | 场景对象（Segment 阶段一次注册多个） |
-|------|------|--------------------------------------|
-| 管段分割 | `Segment` | `源名_管段着色`（HSV 管段 mesh）、`源名_环着色`、`源名_环圆心`、`源名_法向`（青色法向轴线 overlay） |
-| 中心线 | `Centerline` | `源名_中心线`（点云） |
+**当前 UI 阶段顺序**：`None → Centerline → TemplatePoints → Project`（管段分割按钮已移除；Segment API 仍可用于自检或二次开发）。
+
+| 按钮 | 阶段 | 场景对象 |
+|------|------|----------|
+| 中心线 | `Centerline` | `源名_中心线`（**红色 overlay 折线**）、`源名_PCA轴`（**绿色 PCA 主轴箭头**） |
 | 模板点位 | `TemplatePoints` | `源名_模板点位`（点云） |
 | 表面投影 | `Project` | `源名_投影点位`（点云） |
 | 重置会话 | — | 清除上述全部临时对象 |
 
-API：`beginTubularGrindingSession` → `runTubularGrindingStage`（须按序）；切换网格或重置时 `clearTubularGrindingSession`。摘要写入侧栏日志 + RunInfo `[特征构建]`（Segment 含 `pipeCount` / `ringCount` / `junctionFaceCount`）。
+中心线算法分两套，由「提取算法」下拉切换：
 
-**管段分割参数**（侧栏）：
+| 算法 | 数据源支持 | 原理（摘要） |
+|------|-----------|--------------|
+| **Laplacian**（默认） | 仅 Mesh（三角网格） | 网格边 Laplacian 收缩 + 边塌缩 → 全局 PCA 截面质心分箱 → 弧长重采样 |
+| **OTLC** | Mesh + **点云** | 体素降采样 sample → OT 软分配 + 向心 LC + OTC 合并 → **四级提线兜底**（见下节） |
 
-| 控件 | `PluginTubularGrindingParams` | 说明 |
-|------|------------------------------|------|
-| 环心簇半径(0自动) | `ringCenterClusterEpsMm` | 环心 DBSCAN 半径（mm） |
-| 法向汇聚容差(0自动) | `ringRayConvergenceEpsMm` | 向内射线汇聚容差；过碎可试 8–25 mm |
-| 环链合并角 | `axisMergeAngleDeg` | 相邻环轴线夹角上限（°） |
-| 三通判定角 | `junctionAxisSpreadDeg` | 交汇环轴线散布阈值（°） |
-| 最小管段面数 | `minSegmentFaces` | 过滤过小管段 |
+**点云只能选 OTLC**；源为点云时 UI 自动切换，Laplacian 不可用。算法实现细节见 [`GeometryAlgorithm/DEVELOPER_GUIDE.md`](../../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) **§3.5**；本节侧重 **插件侧调用链** 与 **文档/认知 vs 代码** 差异。
 
-**轨迹参数**：模板类型（Auto/螺旋/环形/轴向/锯齿）、截面间距、螺旋圈数、投影最大距离。
+API：`beginTubularGrindingSession` → `runTubularGrindingStage`（须按序）；切换数据源或重置时 `clearTubularGrindingSession`。摘要写入侧栏日志 + RunInfo `[特征构建]`。
 
-典型调试：先看 `_环着色` / `_法向` 验证环与法向，再确认 `_管段着色`；日志中 `regionCountBeforeFilter` 接近面数说明聚类过碎，应增大汇聚容差或环心簇半径。
+**侧栏布局**：`QTabWidget` 两页 — **中心线提取**（算法切换 + 参数同步切换）、**轨迹与投影**（模板、螺旋圈数、投影距离）。
 
-算法实现：[`GeometryAlgorithm/DEVELOPER_GUIDE.md`](../../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.5。轨迹 ingress 预留：[`RobotScene/inc/TubularGrindingTrajectoryIngress.h`](../../Robot/RobotScene/inc/TubularGrindingTrajectoryIngress.h)（Phase 5，当前桩）。
+---
+
+### 点云中心线：调用链（插件 → 几何库）
+
+```text
+TubularGrindingDockWidget::collectParams()
+  → PluginTubularGrindingParams
+  → PluginPointCloudHostImpl::buildTubularGrindingGeoParams()
+  → TubularGrindingParams { centerlineMethod = OtLc, inputKind = PointCloud }
+
+runTubularGrindingStage(Centerline)
+  → TubularGrindingSession（inputKind=PointCloud，跳过 mesh 构建）
+  → runOtLcSkeletonCenterline(SkeletonInput{ pointXyz }, params, …, onIteration)
+  → resamplePolylineToSamples + buildFrenetFrames
+
+Host 可视化（Centerline 阶段完成后）：
+  → registerTubularGrindingCenterlineLines   // 红色折线 overlay
+  → registerTubularGrindingCenterlinePcaAxis // 绿色 PCA 箭头（仅调试，非提线算法）
+  → buildIterationSnapshotPointsCloud × N    // OTLC 迭代 sample 点云 _迭代N
+```
+
+---
+
+### 点云 OTLC 实际算法流程（`OtLcSkeleton.cpp`）
+
+与论文/早期设计稿的差异见下一节「文档 vs 代码」表。
+
+```text
+1. 输入
+   buildOriginalFromInput → 全量点坐标 originalPositions
+   KNN(k=30) + 互 KNN 滤波 → lcAdjacency（LC 收缩用）
+
+2. Sample 初始化（非随机下采样）
+   voxelSize = bboxDiag / (N × otSampleRate)^(1/3)
+   voxelDownsamplePoints → 体素质心
+   每个质心 Kd-tree snap 到最近原始点 → samplePositions（仍在壳上）
+
+3. 预处理 × otcPreSteps
+   assignOriginalPointsToSamples   // 活跃 sample 根 KNN 1-NN 分簇（非完整 OT 传输矩阵）
+   updateSamplePositionsFromClusters // 簇内 Sinkhorn 式迭代软权重质心
+   refreshSampleMedialPositions    // 射线束 inward 融合 → 簇心内推
+   otcClusterMergeStep             // 距离门控 Union-Find 合并
+
+4. OTLC 外循环 × otLcOuterMaxIters（前 5 轮强制，之后根数达标或无合并则停）
+   contractPointCloudInwardLc      // 多步约束 Laplacian + 内向法向步进
+   estimatePointCloudInwardNormals // 刷新法向
+   OT+合并 × otcOuterLoops
+   sparseMergeSampleRoots          // 目标根数 = max(8, minRoots, bboxDiag/sectionSpacing×0.6)
+   onIteration(outer+1)            // 迭代快照
+
+5. 收尾
+   sparseMergeSampleRoots（最终，×0.45 系数）
+   rebuildSampleGraphEdges         // PCA 对齐边 + 排序骨干链 + 根 KNN + bridgeSampleEdgeComponents
+   refineRootPositionsInward       // 各簇射线束精炼 sample 根位置
+
+6. 四级提线（按序尝试，均过弧弦比 ≤ 4.5 门控）
+   ① extractClusterOrderedPolyline(rootPositions)     → pathKind=1  「OT 分簇链」
+   ② extractCenterlineFromOtSkeleton(rootAdjacency)   → pathKind=1  （须单连通且边≥根−1）
+   ③ extractSliceCentroidPolyline(contractedCloud≤12k) → pathKind=0  「收缩点云截面质心」
+   ④ extractOrderedCenterlinePolyline(contractedCloud)  → pathKind=2  「有序折线兜底」
+
+7. resamplePolylineToSamples(sectionSpacingMm) → TubularCenterlineSample[]
+```
+
+**RunInfo 摘要字段**（`formatTubularGrindingStageSummaryZh`）：
+
+| 字段 | 含义 |
+|------|------|
+| `centerlineOtPathKind` | 0=全局 PCA 点云截面 / 1=OT 分簇链或 sample 图 / 2=KNN 有序折线兜底 |
+| `centerlineOtRootCount` | 最终活跃 sample **根**数（合并后） |
+| `centerlineOtEdgeCount` | 根图无向边数（`buildRootAdjacencyFromSampleEdges` 统计） |
+| `centerlineOtComponentCount` | 根图连通分量数（桥接后通常应为 1；>1 表示建边仍不足） |
+| `centerlineOtKnnFallbackEdges` | **已废弃语义**：当前 OT 提线不再走 KNN 补边，该标志恒为 false |
+
+---
+
+### 文档 / 认知 vs 代码差异（点云中心线）
+
+| 话题 | 文档或 UI 常见说法 | 代码实际行为 |
+|------|-------------------|--------------|
+| **降采样** | 早期文档写「随机下采样 otSampleRate」 | **体素滤波** + snap 最近原始点；`otSampleRate` 控制体素尺寸，非随机索引比例 |
+| **OT 传输** | 「最优传输 Sinkhorn M×N」 | **最近 sample 根 1-NN 分簇** + 簇内 `exp(−‖x−y‖^2β/ε)` 加权质心迭代；无完整传输计划 |
+| **提线路径「OT 分簇链」** | 易被理解为 sample 图最长路径 | **多数情况**是 `extractClusterOrderedPolyline`：合并后的 **簇心按全局 PCA 投影排序** 连成折线；**不依赖** sample 图连通 |
+| **提线路径 vs 调试统计** | 「pathKind=1 且 连通分量=16」看似矛盾 | 分簇链走 ① 时 **不检查** 根图连通；摘要里的 根/边/分量 仅为调试，**不代表实际走了 sample 图最长路径** |
+| **「收缩点云截面质心」** | 听起来像 OT 结果 | 实为 **LC 收缩后点云（≤12k）的全局 PCA 分箱质心**，与 Laplacian 网格路径同类兜底，**不是** OT 分簇 |
+| **绿色 `_PCA轴`** | 易当成提线主轴 | 仅对 **最终折线** 做 PCA 可视化；与 OT 分簇 / 全局 PCA 兜底均无关 |
+| **`centerlinePcaFallback`** | 旧注释写「false=OT sample 图」 | 现映射为 `extractPathKind != 1`；pathKind=0/2 时为 true |
+| **K 邻域 UI** | 侧栏无 `pointCloudKnnK` | 代码默认 **30**（`OtLcParams.pointCloudKnnK`），未暴露 UI |
+| **Laplacian K 邻域** | 侧栏控件存在 | **预留**，点云/网格 Laplacian 均不读该字段 |
+| **LC 收缩** | 与网格 Laplacian 同类 | 点云 **无边塌缩/删面**；仅 KNN 图上的内向 LC + 法向步进 |
+| **sample 图最长路径** | 论文主路径 | 代码为 **二级兜底**；且 `isSampleGraphUsable` 要求 **单连通 + 边≥根−1**，否则跳过 |
+| **迭代快照 `_迭代N`** | 全部 sample | **活跃 sample 根**（射线束精炼后） |
+| **迭代快照 `_迭代N_收缩`** | — | **LC 收缩 original 子采样**（蓝，≤8k） |
+
+---
+
+### 提线路径判读（调试建议）
+
+| RunInfo 提线路径 | 实际几何来源 | 弯管/歧管预期 |
+|-----------------|-------------|--------------|
+| **OT 分簇链** | OT 合并根 + 射线束精炼 → PCA 排序链 | 直/弱弯管通常可用；强弯管依赖全局 PCA 排序，可能偏壳或锯齿（见弧弦比门控） |
+| **收缩点云截面质心** | 收缩点云全局 PCA 分箱 | 分簇链/ sample 图均未过门控时的兜底；弯管全局 PCA 固有限制 |
+| **有序折线兜底** | 收缩点云 KNN 最长路径 | 最后手段，质量最不可控 |
+
+**采样点数**：由 `弧长 / sectionSpacingMm` 决定（通常几十～百余），**不应**出现数千点（若出现，说明折线锯齿导致弧长虚高，检查提线路径是否为 0/2）。
+
+**调参优先级（点云）**：
+
+1. `sectionSpacingMm` — 输出密度 + 合并/建边尺度基准  
+2. `minRootsBySamples` — 防止过度合并（Auto 时 `max(15, sampleCount×5%)`）  
+3. `otSampleRate` — 体素密度（越小 sample 越少、合并压力越大）  
+4. `otLcOuterMaxIters` / `laplacianLambda` — 收缩与合并充分度  
+
+---
+
+**中心线提取页参数**（`PluginTubularGrindingParams` → `buildTubularGrindingGeoParams`）：
+
+| 控件 | 字段 | Laplacian | OTLC（点云） |
+|------|------|-----------|--------------|
+| 截面间距 | `sectionSpacingMm` | PCA 分箱 + 重采样间距 | 合并/建边尺度 + 重采样间距 |
+| 提取算法 | `centerlineMethod` | — | 点云强制 OtLc |
+| 收缩迭代次数 | `centerlineIterations` | 网格 LC 主循环次数 | 映射为 **每轮外循环内 LC 内层步数**（`÷ otLcOuterMaxIters`） |
+| 收缩强度 λ | `laplacianLambda` | 锚定权重峰值 | 同左 |
+| 初始锚定强度 | `laplacianAttraction` | 前期贴原网格 | 同左 |
+| K 邻域大小 | `laplacianKNeighbors` | **预留（未用）** | **预留（未用）** |
+| OT 采样率 | `otSampleRate` | — | 体素降采样比例（见上） |
+| OT 代价 β | `otCostBeta` | — | 簇内距离指数权重 |
+| 最小根点数 | `minRootsBySamples` | — | 合并下限；0=Auto |
+| OTC 预迭代 | `otcPreSteps` | — | 预处理 OT+合并轮次 |
+| OTC 内层循环 | `otcOuterLoops` | — | 每轮外循环内 OT+合并次数 |
+| OTLC 外层迭代 | `otLcOuterMaxIters` | — | 外循环上限（≥5 才允许早停） |
+
+**代码默认、UI 未暴露**：`pointCloudKnnK=30`（LC 邻接 KNN）。
+
+**轨迹与投影页**：模板类型、螺旋圈数、投影最大距离。点云投影走 Kd-tree top-K 最近邻（queryK=200，网格走射线-三角求交）。
+
+**OTLC 迭代快照**（OSG 场景点云）：
+
+- `_迭代N`：**活跃 sample 根**（射线束精炼后，绿/黄/红按迭代轮次）
+- `_迭代N_收缩`：**LC 收缩后的 original 子采样**（蓝色，≤8k 点，观察全点云向心）
+- 每轮外循环末尾 + 初始态各捕获一次；可通过点云列表显隐对比
+
+**已知限制**（点云路径）：
+
+- 中心线为 **单折线**，Y/T 歧管无法树形分支（Segment 对点云不可用）。  
+- 未跑 Segment 时 `segments` 为空，模板阶段可能仅单管。  
+- 投影为 KNN 近似，非精确射线求交。  
+- 失败统一文案：`otlc centerline polyline extraction failed`（不区分建图/提线/重采样）。  
+
+**Segment 阶段（API 保留，UI 未暴露）**：仍可通过 `runTubularGrindingStage(Segment)` 注册调试用 mesh 着色对象；点云输入 `ensureMesh` 失败。
+
+典型调试：先看 RunInfo **提线路径** 与 **采样点数**；再看 `_迭代N` 颜色判断 sample 是否过度合并；直管验证红色 overlay 是否进腔心。
+
+算法与参数完整表：[`GeometryAlgorithm/DEVELOPER_GUIDE.md`](../../Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.5。轨迹 ingress 预留：[`RobotScene/inc/TubularGrindingTrajectoryIngress.h`](../../Robot/RobotScene/inc/TubularGrindingTrajectoryIngress.h)（Phase 5，当前桩）。
 
 ## 相关文档
 

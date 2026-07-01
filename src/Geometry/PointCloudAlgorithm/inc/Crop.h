@@ -30,6 +30,17 @@ POINT_CLOUD_ALGORITHM_API void cropXyzBySphere(
 	std::vector<float>& outXyz,
 	std::vector<std::size_t>* keptIndices = nullptr);
 
+/// 屏幕多边形索引收集：投影规则同 cropXyzByPolyline2D
+POINT_CLOUD_ALGORITHM_API void collectXyzIndicesByPolyline2D(
+	const std::vector<float>& srcXyz,
+	const std::vector<float>& polylineScreenXy,
+	const double mvpMatrix[16],
+	const double modelToWorld[16],
+	int viewportWidth,
+	int viewportHeight,
+	bool keepInside,
+	std::vector<std::size_t>& outIndices);
+
 /// 屏幕多边形裁剪：点先经 modelToWorld 再乘 mvp 投影，射线法判多边形内外
 POINT_CLOUD_ALGORITHM_API void cropXyzByPolyline2D(
 	const std::vector<float>& srcXyz,

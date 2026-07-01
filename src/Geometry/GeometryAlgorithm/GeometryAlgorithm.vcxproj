@@ -120,7 +120,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <OpenMP>true</OpenMP>
-      <AdditionalIncludeDirectories>inc;source;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;source;../PointCloudAlgorithm/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -140,7 +140,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <OpenMP>true</OpenMP>
-      <AdditionalIncludeDirectories>inc;source;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;source;../PointCloudAlgorithm/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -172,6 +172,7 @@
     <ClInclude Include="inc\TemplateBrepRegistration.h" />
     <ClInclude Include="inc\MeshSurfaceReconstruction.h" />
     <ClInclude Include="inc\TubularGrinding.h" />
+    <ClInclude Include="source\TubularGrinding\OtLcSkeleton.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\ShapeQuery.cpp" />
@@ -207,6 +208,7 @@
     <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionOcct.cpp" />
     <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionValidate.cpp" />
     <ClCompile Include="source\TubularGrinding\TubularGrindingCommon.cpp" />
+    <ClCompile Include="source\TubularGrinding\OtLcSkeleton.cpp" />
     <ClCompile Include="source\TubularGrinding\PipeSegmentation.cpp" />
     <ClCompile Include="source\TubularGrinding\CenterlineExtraction.cpp" />
     <ClCompile Include="source\TubularGrinding\TrajectoryTemplates.cpp" />

@@ -29,6 +29,7 @@
 #include <QResizeEvent>
 #include <QRegExp>
 #include <QStringList>
+#include <QSurfaceFormat>
 #include <QTextStream>
 #include <QVBoxLayout>
 
@@ -177,7 +178,7 @@ OsgWidget::OsgWidget(QWidget* parent)
 	if (m_glWidget)
 	{
 		setViewportPixels(m_glWidget->width(), m_glWidget->height());
-		setDevicePixelRatio(m_glWidget->devicePixelRatio());
+		setDevicePixelRatio(QWidgetViewer::effectiveDevicePixelRatio(m_glWidget));
 	}
 	initViewer();
 }
@@ -867,18 +868,31 @@ void OsgWidget::clearFeatureCatalogOverlay()
 
 namespace {
 
+void syncWidgetChrome(QWidget* widget, bool dark)
+{
+	if (!widget)
+	{
+		return;
+	}
+	const QColor bg = viewerChromeColor(dark);
+	QPalette pal = widget->palette();
+	pal.setColor(QPalette::Window, bg);
+	widget->setPalette(pal);
+	widget->setAutoFillBackground(true);
+	widget->setStyleSheet(QStringLiteral("background-color: %1;").arg(bg.name()));
+}
+
 void syncGlWidgetChrome(QWidgetViewer* glWidget, bool dark)
 {
 	if (!glWidget)
 	{
 		return;
 	}
+	// QOpenGLWidget 上 AutoFillBackground/styleSheet 会在高 DPI 下与 GL 绘制区域错位
 	const QColor bg = viewerChromeColor(dark);
 	QPalette pal = glWidget->palette();
 	pal.setColor(QPalette::Window, bg);
 	glWidget->setPalette(pal);
-	glWidget->setAutoFillBackground(true);
-	glWidget->setStyleSheet(QStringLiteral("background-color: %1;").arg(bg.name()));
 }
 
 } // namespace
@@ -990,6 +1004,7 @@ void OsgWidget::updateGradientColors(bool dark)
 void OsgWidget::setViewerBackgroundForDarkUi(bool dark)
 {
 	m_darkUiTheme = dark;
+	syncWidgetChrome(this, dark);
 	syncGlWidgetChrome(m_glWidget, dark);
 	const bool viewerOk = m_viewer.valid() && m_viewer->getCamera();
 	if (!viewerOk)
@@ -1037,16 +1052,8 @@ void OsgWidget::setWireframeMode(bool enabled)
 
 void OsgWidget::onViewportFocusRequested()
 {
-	// 有选中后端时聚焦；否则切等轴测
-	const std::string& activeId = activeBackendId();
-	if (!activeId.empty())
-	{
-		focusCameraOnBackend(activeId);
-	}
-	else
-	{
-		setCameraViewPreset(CameraViewPreset::Iso);
-	}
+	// 视角自适应：总是聚焦到所有可见对象
+	focusCameraOnAllVisibleBackends();
 }
 
 void OsgWidget::onViewportScreenshotRequested()
@@ -1075,32 +1082,52 @@ void OsgWidget::onViewportScreenshotRequested()
 	}
 }
 
+void OsgWidget::syncViewportFromGlWidget()
+{
+	if (!m_glWidget)
+	{
+		return;
+	}
+
+	int framebufferW = 0;
+	int framebufferH = 0;
+	if (!m_glWidget->resolveOpenGlFramebufferSize(framebufferW, framebufferH)
+		&& !m_glWidget->queryFramebufferPixelSize(framebufferW, framebufferH))
+	{
+		return;
+	}
+
+	syncViewportLayoutFromFramebuffer(framebufferW, framebufferH);
+}
+
+void OsgWidget::scheduleDeferredViewportLayoutSync()
+{
+	QTimer::singleShot(0, this, [this]() {
+		syncViewportFromGlWidget();
+	});
+}
+
 void OsgWidget::showEvent(QShowEvent* event)
 {
 	QWidget::showEvent(event);
 	// m_darkUiTheme 由 MainWindow（主题切换 / 新建文档）写入，Host DLL 不链 ApplicationStyle
 	setViewerBackgroundForDarkUi(m_darkUiTheme);
+	scheduleDeferredViewportLayoutSync();
 }
 
 void OsgWidget::resizeEvent(QResizeEvent* event)
 {
 	QWidget::resizeEvent(event);
-	if (m_glWidget && m_viewer.valid())
-	{
-		const double dpr = m_glWidget->devicePixelRatio();
-		const int framebufferW = static_cast<int>(std::lround(static_cast<double>(m_glWidget->width()) * dpr));
-		const int framebufferH = static_cast<int>(std::lround(static_cast<double>(m_glWidget->height()) * dpr));
-		syncViewportLayoutFromFramebuffer(framebufferW, framebufferH);
-	}
+	scheduleDeferredViewportLayoutSync();
 }
 
 void OsgWidget::syncViewportLayoutFromFramebuffer(int framebufferWidth, int framebufferHeight)
 {
 	const int fbW = (std::max)(1, framebufferWidth);
 	const int fbH = (std::max)(1, framebufferHeight);
-	const double dpr = m_glWidget ? m_glWidget->devicePixelRatio() : 1.0;
-	const int logicalW = (std::max)(1, static_cast<int>(std::lround(static_cast<double>(fbW) / dpr)));
-	const int logicalH = (std::max)(1, static_cast<int>(std::lround(static_cast<double>(fbH) / dpr)));
+	const int logicalW = (std::max)(1, m_glWidget ? m_glWidget->width() : fbW);
+	const int logicalH = (std::max)(1, m_glWidget ? m_glWidget->height() : fbH);
+	const double dpr = static_cast<double>(fbW) / static_cast<double>(logicalW);
 	setViewportPixels(logicalW, logicalH);
 	setDevicePixelRatio(dpr);
 	if (m_viewer.valid() && m_viewer->getCamera())
@@ -1525,14 +1552,18 @@ void OsgWidget::initUi()
 	layout->setContentsMargins(0, 0, 0, 0);
 	layout->setSpacing(0);
 
-	QGLFormat fmt;
+	QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
 	fmt.setDepthBufferSize(24);
-	fmt.setDoubleBuffer(true);
+	fmt.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
+	fmt.setRenderableType(QSurfaceFormat::OpenGL);
+	fmt.setProfile(QSurfaceFormat::CompatibilityProfile);
 
 	m_glWidget = new QWidgetViewer(fmt, this);
 	// 勿用过大 minimumSize，否则会占满主窗口垂直空间、底部运行信息 Dock 无法拉高
 	m_glWidget->setMinimumSize(200, 120);
 	m_glWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+	m_glWidget->setAttribute(Qt::WA_OpaquePaintEvent);
+	m_glWidget->setAttribute(Qt::WA_NoSystemBackground, true);
 	layout->addWidget(m_glWidget, 1);
 	m_glWidget->installEventFilter(this);
 }
@@ -1564,9 +1595,15 @@ void OsgWidget::initViewer()
 	// Defer these calls unless the context reports valid; resize callback will configure them again.
 	if (m_graphicsWindow.valid() && m_graphicsWindow->valid() && m_glWidget)
 	{
-		const double dpr = m_glWidget->devicePixelRatio();
-		const int deviceW = static_cast<int>(std::lround(static_cast<double>(m_glWidget->width()) * dpr));
-		const int deviceH = static_cast<int>(std::lround(static_cast<double>(m_glWidget->height()) * dpr));
+		int deviceW = 0;
+		int deviceH = 0;
+		if (!m_glWidget->resolveOpenGlFramebufferSize(deviceW, deviceH)
+			&& !m_glWidget->queryFramebufferPixelSize(deviceW, deviceH))
+		{
+			const double dpr = QWidgetViewer::effectiveDevicePixelRatio(m_glWidget);
+			deviceW = static_cast<int>(std::lround(static_cast<double>(m_glWidget->width()) * dpr));
+			deviceH = static_cast<int>(std::lround(static_cast<double>(m_glWidget->height()) * dpr));
+		}
 		m_viewer->getCamera()->setViewport(0, 0, deviceW, deviceH);
 		const double aspect = static_cast<double>((std::max)(1, deviceW))
 			/ static_cast<double>((std::max)(1, deviceH));
@@ -1623,6 +1660,7 @@ void OsgWidget::initViewer()
 	OsgScene::initWorldAxesHud();
 	OsgScene::initViewCubeHud();
 	applyViewCubeFaceLabelImagesFromQt();
+	scheduleDeferredViewportLayoutSync();
 }
 
 void OsgWidget::applyViewCubeFaceLabelImagesFromQt()
@@ -2541,7 +2579,7 @@ bool OsgWidget::captureViewportPng(QByteArray& outPng, QString* errorMessage, in
 
 	m_viewer->frame();
 
-	QImage copy = m_glWidget->grabFrameBuffer(false);
+	QImage copy = m_glWidget->grabFramebuffer();
 	if (copy.isNull())
 	{
 		if (errorMessage)

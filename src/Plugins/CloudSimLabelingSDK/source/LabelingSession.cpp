@@ -56,6 +56,19 @@ bool writeNpyInt64(const std::string& path, const std::vector<int>& labels)
 	return true;
 }
 
+int majorityLabelOfThree(const int a, const int b, const int c)
+{
+	if (a == b || a == c)
+	{
+		return a;
+	}
+	if (b == c)
+	{
+		return b;
+	}
+	return a;
+}
+
 } // namespace
 
 bool LabelingSession::beginPointCloud(const std::vector<float>& xyz, const LabelingSessionConfig& config)
@@ -233,59 +246,31 @@ bool LabelingSession::importPointLabels(const std::vector<int>& labels, int numC
 		m_redoStack.clear();
 		return true;
 	}
-	// 网格：采样点标签多数投票到三角
+	// 网格：逐面写标签；预标注 PLY 为每面 3 顶点，标签数 = 3×面数
 	if (labels.empty())
 	{
 		return false;
 	}
-	std::vector<float> sampledXyz;
-	std::vector<int> sampledLabels;
-	if (!sampleMeshLabelsToPointCloud(m_triangleSoup, m_triangleLabels, static_cast<int>(labels.size()), sampledXyz, sampledLabels))
+	const std::size_t triCount = m_triangleLabels.size();
+	if (triCount == 0U)
 	{
-		(void)sampledXyz;
+		return false;
 	}
-	if (labels.size() != sampledLabels.size())
+	if (labels.size() == triCount)
 	{
-		// 直接按三角数匹配时回退：均匀分桶
-		const std::size_t triCount = m_triangleLabels.size();
-		if (labels.size() != triCount)
+		m_triangleLabels = labels;
+	}
+	else if (labels.size() == triCount * 3U)
+	{
+		for (std::size_t tri = 0; tri < triCount; ++tri)
 		{
-			return false;
-		}
-		for (std::size_t i = 0; i < triCount; ++i)
-		{
-			m_triangleLabels[i] = labels[i];
+			const std::size_t b = tri * 3U;
+			m_triangleLabels[tri] = majorityLabelOfThree(labels[b], labels[b + 1U], labels[b + 2U]);
 		}
 	}
 	else
 	{
-		std::vector<int> voteCounts(m_triangleLabels.size(), 0);
-		std::vector<std::map<int, int>> votes(m_triangleLabels.size());
-		const std::size_t triCount = m_triangleLabels.size();
-		std::mt19937 rng(42);
-		std::uniform_int_distribution<int> triDist(0, static_cast<int>(triCount) - 1);
-		for (std::size_t i = 0; i < labels.size(); ++i)
-		{
-			const int tri = triDist(rng) % static_cast<int>(triCount);
-			++votes[static_cast<std::size_t>(tri)][labels[i]];
-		}
-		for (std::size_t t = 0; t < triCount; ++t)
-		{
-			int bestLabel = m_config.unlabeledClassId;
-			int bestCount = 0;
-			for (const auto& kv : votes[t])
-			{
-				if (kv.second > bestCount)
-				{
-					bestCount = kv.second;
-					bestLabel = kv.first;
-				}
-			}
-			if (bestCount > 0)
-			{
-				m_triangleLabels[t] = bestLabel;
-			}
-		}
+		return false;
 	}
 	m_undoStack.clear();
 	m_redoStack.clear();

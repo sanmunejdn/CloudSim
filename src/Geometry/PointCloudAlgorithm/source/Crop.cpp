@@ -191,7 +191,70 @@ bool projectToScreen(
 	return true;
 }
 
+void collectXyzIndicesByPolyline2DImpl(
+	const std::vector<float>& srcXyz,
+	const std::vector<float>& polylineScreenXy,
+	const double mvpMatrix[16],
+	const double modelToWorld[16],
+	const int viewportWidth,
+	const int viewportHeight,
+	const bool keepInside,
+	std::vector<std::size_t>& outIndices)
+{
+	outIndices.clear();
+	if (!validXyzLength(srcXyz) || polylineScreenXy.size() < 6U || viewportWidth <= 0 || viewportHeight <= 0)
+	{
+		return;
+	}
+
+	const std::size_t n = pointCountFromXyz(srcXyz);
+	outIndices.reserve(n);
+	for (std::size_t i = 0; i < n; ++i)
+	{
+		const std::size_t b = i * 3U;
+		double sx = 0.0;
+		double sy = 0.0;
+		const bool visible = projectToScreen(
+			mvpMatrix,
+			modelToWorld,
+			viewportWidth,
+			viewportHeight,
+			static_cast<double>(srcXyz[b]),
+			static_cast<double>(srcXyz[b + 1U]),
+			static_cast<double>(srcXyz[b + 2U]),
+			sx,
+			sy);
+		const bool inside = visible && pointInPolygon2D(sx, sy, polylineScreenXy);
+		const bool keep = keepInside ? inside : !inside;
+		if (keep)
+		{
+			outIndices.push_back(i);
+		}
+	}
+}
+
 } // namespace
+
+void collectXyzIndicesByPolyline2D(
+	const std::vector<float>& srcXyz,
+	const std::vector<float>& polylineScreenXy,
+	const double mvpMatrix[16],
+	const double modelToWorld[16],
+	const int viewportWidth,
+	const int viewportHeight,
+	const bool keepInside,
+	std::vector<std::size_t>& outIndices)
+{
+	collectXyzIndicesByPolyline2DImpl(
+		srcXyz,
+		polylineScreenXy,
+		mvpMatrix,
+		modelToWorld,
+		viewportWidth,
+		viewportHeight,
+		keepInside,
+		outIndices);
+}
 
 void cropXyzByPolyline2D(
 	const std::vector<float>& srcXyz,
@@ -220,29 +283,15 @@ void cropXyzByPolyline2D(
 	const std::size_t n = pointCountFromXyz(srcXyz);
 	const bool hasRgba = validRgbaLength(srcRgba, n);
 	std::vector<std::size_t> kept;
-	kept.reserve(n);
-	for (std::size_t i = 0; i < n; ++i)
-	{
-		const std::size_t b = i * 3U;
-		double sx = 0.0;
-		double sy = 0.0;
-		const bool visible = projectToScreen(
-			mvpMatrix,
-			modelToWorld,
-			viewportWidth,
-			viewportHeight,
-			static_cast<double>(srcXyz[b]),
-			static_cast<double>(srcXyz[b + 1U]),
-			static_cast<double>(srcXyz[b + 2U]),
-			sx,
-			sy);
-		const bool inside = visible && pointInPolygon2D(sx, sy, polylineScreenXy);
-		const bool keep = keepInside ? inside : !inside;
-		if (keep)
-		{
-			kept.push_back(i);
-		}
-	}
+	collectXyzIndicesByPolyline2D(
+		srcXyz,
+		polylineScreenXy,
+		mvpMatrix,
+		modelToWorld,
+		viewportWidth,
+		viewportHeight,
+		keepInside,
+		kept);
 
 	compactXyzByIndices(srcXyz, kept, outXyz);
 	if (hasRgba)

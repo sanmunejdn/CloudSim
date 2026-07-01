@@ -4,7 +4,8 @@
 
 #include "widget_global.h"
 
-#include <QGLWidget>
+#include <QOpenGLWidget>
+#include <QSurfaceFormat>
 #include <osg/Referenced>
 #include <QtCore>
 #include <QtWidgets>
@@ -14,11 +15,11 @@
 
 #include "QWidgetViewer.h"
 
-/// OSG 图形窗口适配：实现 osgViewer::GraphicsWindow，与 QWidgetViewer 同步尺寸与事件
+/// OSG 图形窗口适配：实现 osgViewer::GraphicsWindow，与 QOpenGLWidget 同步尺寸与事件
 class WIDGET_EXPORT GraphicsWindowQt1 : public osgViewer::GraphicsWindow
 {
 public:
-	GraphicsWindowQt1(osg::GraphicsContext::Traits* traits, QWidget* parent = NULL, const QGLWidget* shareWidget = NULL, Qt::WindowFlags f = 0);
+	GraphicsWindowQt1(osg::GraphicsContext::Traits* traits, QWidget* parent = NULL, Qt::WindowFlags f = 0);
 	GraphicsWindowQt1(QWidgetViewer* widget);
 	virtual ~GraphicsWindowQt1();
 
@@ -42,16 +43,17 @@ public:
 	{
 		_traits->width = width;
 		_traits->height = height;
-		if (isRealized()) {
+		if (isRealized())
+		{
 			resized(_traits->x, _traits->y, width, height);
 		}
 	}
 
-	bool init(QWidget* parent, const QGLWidget* shareWidget, Qt::WindowFlags f);
+	bool init(QWidget* parent, Qt::WindowFlags f);
 
-	static QGLFormat traits2qglFormat(const osg::GraphicsContext::Traits* traits);
-	static void qglFormat2traits(const QGLFormat& format, osg::GraphicsContext::Traits* traits);
-	static osg::GraphicsContext::Traits* createTraits(const QGLWidget* widget);
+	static QSurfaceFormat traits2qSurfaceFormat(const osg::GraphicsContext::Traits* traits);
+	static void qSurfaceFormat2traits(const QSurfaceFormat& format, osg::GraphicsContext::Traits* traits);
+	static osg::GraphicsContext::Traits* createTraits(const QWidgetViewer* widget);
 
 	virtual bool setWindowRectangleImplementation(int x, int y, int width, int height);
 	virtual void getWindowRectangle(int& x, int& y, int& width, int& height);
@@ -89,7 +91,7 @@ protected:
 	QCursor _currentCursor;
 	bool _realized;
 
-	 osg::observer_ptr<osgViewer::Viewer> _viewer;
+	osg::observer_ptr<osgViewer::Viewer> _viewer;
 };
 
 #endif//_POINTCLOUDPROCESS_WIDGET_GRAPHICSWINDOWQT1_H_

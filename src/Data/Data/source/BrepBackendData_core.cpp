@@ -1,9 +1,12 @@
 #include "pch.h"
 #include "BrepBackendData.h"
 #include <ShapeIo.h>
+#include "BackendSpatial.h"
 #include "BackendObjectAttribute.h"
 #include "BackendPropertyRow.h"
 #include "../../PropertyCore/inc/PropertyAttribute.h"
+
+#include <Adapters.h>
 
 BrepBackendData::BrepBackendData()
 {
@@ -119,6 +122,29 @@ bool BrepBackendData::writeBrepFile(const std::string& path, std::string* errMsg
 bool BrepBackendData::writeStepFile(const std::string& path, std::string* errMsg) const
 {
 	return geoalgo::writeStepFile(path, m_shape, errMsg);
+}
+
+geoalgo::ShapeHandle BrepBackendData::worldShape() const
+{
+	if (m_shape.isNull())
+	{
+		return {};
+	}
+
+	// 获取 worldMatrix 并转换为 Eigen Isometry
+	const BackendMat4 world = worldMatrix();
+	const engine::ColMajorMat4 cm = [&world]() {
+		engine::ColMajorMat4 out{};
+		for (int i = 0; i < 16; ++i)
+		{
+			out[static_cast<size_t>(i)] = world.v[i];
+		}
+		return out;
+	}();
+	const Eigen::Isometry3d iso = engine::rigidTransformFromColMajor(cm).isometry();
+
+	// 调用 GeometryAlgorithm 的变换函数
+	return geoalgo::transformShape(m_shape, iso);
 }
 
 nlohmann::json BrepBackendData::snapshotPropertyRows(const BackendDataManager* mgr) const

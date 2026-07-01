@@ -7,8 +7,8 @@
     },
     "segment": {
       "path": "models/pointnet_seg.onnx",
-      "num_points": 2048,
-      "num_classes": 6
+      "num_points": 4096,
+      "num_classes": 4
     }
   },
   "inference": {

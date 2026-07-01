@@ -240,15 +240,17 @@ private:
 		std::string docId;
 		std::string meshBackendId;
 		std::vector<float> rawSoup;
+		std::vector<float> rawPointXyz;
+		int inputKind = 0; // 0=mesh, 1=pointcloud
 		geoalgo::TubularGrindingSessionPtr geoSession;
 		PluginTubularGrindingStage lastCompleted = PluginTubularGrindingStage::None;
-		std::string segmentColoredMeshBackendId;
-		std::string ringColoredMeshBackendId;
-		std::string ringCenterPointsBackendId;
 		std::string normalAxisLinesBackendId;
+		std::string localAxisLinesBackendId;
 		std::string centerlinePointsBackendId;
+		std::string centerlinePcaAxisBackendId;
 		std::string templatePointsBackendId;
 		std::string projectedPointsBackendId;
+		std::vector<std::string> iterationSnapshotBackendIds;
 	};
 
 	struct TemplateBrepAlignCache

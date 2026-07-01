@@ -542,7 +542,8 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 
 1. **跨模块数据**：经 `CoreTypes` DTO 与 `IDataService` / `IRenderView`，禁止 `void*` 或全 API JSON 穿透 UI。
 2. **OSG 修改**：改 `Widget/source/OsgWidget*.cpp`（由 Host 编译）；核心场景改 `OsgWidgetCore`。
-3. **事件**：向 `EventHub` 发布/订阅（`CoreEvents.h`）；选择/姿态刷新优先走 `SelectionChanged` / `PoseCommitted`，避免新增 `MainWindow`↔`OsgWidget` 硬编码信号链。
+3. **HiDPI / 视口**：`QWidgetViewer`（`QOpenGLWidget`）负责 framebuffer 与 DPR 同步；gizmo/TCP 屏幕数学在 `OsgWidgetCore` 用 **逻辑像素**（见 [`OsgWidgetCore/DEVELOPER_GUIDE.md`](../../UI/OsgWidgetCore/DEVELOPER_GUIDE.md) §5.1），勿在 gizmo 路径对 Qt 鼠标再乘 DPR。
+4. **事件**：向 `EventHub` 发布/订阅（`CoreEvents.h`）；选择/姿态刷新优先走 `SelectionChanged` / `PoseCommitted`，避免新增 `MainWindow`↔`OsgWidget` 硬编码信号链。
 
 ---
 
@@ -554,7 +555,12 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 | [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) | `IDataService` / `IRenderView` / `EventHub` 与 Host 行为对照 |
 | [`Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md) | 主窗口与 `DocumentPage`（UI 仍描述 OsgWidget 行为，实现位于 Host） |
 | [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) | 动态插件宿主（**编入 Host**）、`PluginHostContext` 与 Facade 接线 |
-| [`OsgWidgetCore/DEVELOPER_GUIDE.md`](../../UI/OsgWidgetCore/DEVELOPER_GUIDE.md) | 场景核心、gizmo、拾取索引 |
+| [`OsgWidgetCore/DEVELOPER_GUIDE.md`](../../UI/OsgWidgetCore/DEVELOPER_GUIDE.md) | 场景核心、gizmo、拾取索引、HiDPI 屏幕坐标约定 |
+
+### 变更历史（2026-06）
+
+- **HiDPI viewport**：`QWidgetViewer` 迁移 `QOpenGLWidget`，framebuffer 尺寸经 `windowResized` 同步至 `OsgWidget::syncViewportLayoutFromFramebuffer`。
+- **Gizmo 跟手**：DPR 正确后，`OsgScene` gizmo/TCP 屏幕交互须与 `viewportWidth/Height`（逻辑）一致；详见 OsgWidgetCore §5.1。
 
 ---
 
@@ -588,6 +594,8 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 
 | 现象 | 处理 |
 |------|------|
+| 150% 缩放下 HUD 错位 | 查 `QWidgetViewer::resizeGL` / `syncViewportLayoutFromFramebuffer`；FBO 与 OSG viewport 须为设备像素 |
+| 150% 下 gizmo/TCP 拖动不跟手 | 勿对 Qt 逻辑鼠标再乘 DPR；gizmo `projectToScreen` 与 `gizmoScreenDragDs` 须同系（OsgWidgetCore §5.1） |
 | LNK1181 `CloudSimHost.lib` | 先编 Host；确认 `bin/x64d/CloudSimHost.lib` 存在；检查 `Directory.Build.props` 是否生效 |
 | 重复项目项 `DocumentHost.h` | 从 `ClInclude` 移除，仅保留 `QtMoc` |
 | OsgWidget 符号链接错误 | Host 编时必须有 `CLOUDSIM_HOST_LIB`；Widget 侧 include `widget_global.h` 且 **不要** 再编 OsgWidget.cpp |

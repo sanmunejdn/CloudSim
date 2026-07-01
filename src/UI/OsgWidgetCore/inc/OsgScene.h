@@ -180,6 +180,8 @@ public:
 	void logGizmoPivotDiagnostics(const char* reasonTag) const;
 
 	void focusCameraOnBackend(const std::string& backendId);
+	/// 聚焦到所有可见后端对象的合并包围球（视角自适应）
+	void focusCameraOnAllVisibleBackends();
 	void setCameraViewPreset(CameraViewPreset preset);
 	/// 仅写入逻辑父 id（不改 OSG 场景父链），供分件导入后 focusCameraOnBackend 聚合子树包围球
 	void setBackendLogicalParent(const std::string& backendId, const std::string& parentBackendId);
@@ -293,12 +295,12 @@ public:
 	osg::ref_ptr<osg::Camera> m_worldAxesHudCamera;
 	osg::ref_ptr<osg::Camera> m_viewCubeHudCamera;
 	osg::ref_ptr<osg::Group> m_viewCubeLabelsGroup;
-	int m_viewCubeHudMargin = 12;
-	int m_viewCubeHudSize = 220;
-	int m_worldAxesHudMargin = 10;
-	int m_worldAxesHudSize = 120;
-	int m_viewCubeHudEffectiveSize = 220;
-	int m_worldAxesHudEffectiveSize = 120;
+	int m_viewCubeHudMargin = 10;
+	int m_viewCubeHudSize = 132;
+	int m_worldAxesHudMargin = 8;
+	int m_worldAxesHudSize = 80;
+	int m_viewCubeHudEffectiveSize = 132;
+	int m_worldAxesHudEffectiveSize = 80;
 
 	bool m_selectionActive = false;
 	bool m_objectSelectionMode = false;

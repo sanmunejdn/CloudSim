@@ -49,7 +49,12 @@ public:
 	bool loadFromFile(const std::string& path, std::string* errMsg = nullptr);
 
 	bool writePointCloudPlySidecar(const std::string& path, std::string* errMsg) const;
+	/// 写入指定的 xyz 坐标到 PLY 文件（用于导出世界坐标系下的点云）
+	bool writePointCloudPlySidecar(const std::string& path, const std::vector<float>& xyzOverride, std::string* errMsg) const;
 	bool readPointCloudPlySidecar(const std::string& path, std::string* errMsg);
+
+	/// 返回世界坐标系下的 xyz 坐标（应用 worldMatrix 变换后的副本）
+	std::vector<float> worldPositionsXyz() const;
 
 	nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const override;
 	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,

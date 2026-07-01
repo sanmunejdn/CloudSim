@@ -248,38 +248,60 @@ bool collectPointCloudIndicesByPolyline2D(
 	{
 		return false;
 	}
-	std::vector<float> dummyXyz;
-	std::vector<float> dummyRgba;
-	if (data.hasPerVertexColors())
+	pclalgo::collectXyzIndicesByPolyline2D(
+		srcXyz,
+		polylineScreenXy,
+		mvpMatrix,
+		modelToWorld,
+		viewportWidth,
+		viewportHeight,
+		keepInside,
+		outIndices);
+	return true;
+}
+
+bool collectMeshTriangleIndicesByPolyline2D(
+	const MeshBackendData& mesh,
+	const std::vector<float>& polylineScreenXy,
+	const double mvpMatrix[16],
+	const double modelToWorld[16],
+	const int viewportWidth,
+	const int viewportHeight,
+	const bool keepInside,
+	std::vector<int>& outTriangleIndices,
+	std::string* errMsg)
+{
+	(void)errMsg;
+	outTriangleIndices.clear();
+	const std::vector<float>& soup = mesh.triangleSoup();
+	if (soup.size() < 9U || (soup.size() % 9U) != 0U || polylineScreenXy.size() < 6U)
 	{
-		pclalgo::cropXyzByPolyline2D(
-			srcXyz,
-			data.pointVertexRgba(),
-			polylineScreenXy,
-			mvpMatrix,
-			modelToWorld,
-			viewportWidth,
-			viewportHeight,
-			keepInside,
-			dummyXyz,
-			dummyRgba,
-			&outIndices);
+		return false;
 	}
-	else
+	const std::size_t triCount = soup.size() / 9U;
+	std::vector<float> centroids;
+	centroids.reserve(triCount * 3U);
+	for (std::size_t tri = 0; tri < triCount; ++tri)
 	{
-		const std::vector<float> emptyRgba;
-		pclalgo::cropXyzByPolyline2D(
-			srcXyz,
-			emptyRgba,
-			polylineScreenXy,
-			mvpMatrix,
-			modelToWorld,
-			viewportWidth,
-			viewportHeight,
-			keepInside,
-			dummyXyz,
-			dummyRgba,
-			&outIndices);
+		const std::size_t b = tri * 9U;
+		centroids.push_back((soup[b] + soup[b + 3U] + soup[b + 6U]) / 3.f);
+		centroids.push_back((soup[b + 1U] + soup[b + 4U] + soup[b + 7U]) / 3.f);
+		centroids.push_back((soup[b + 2U] + soup[b + 5U] + soup[b + 8U]) / 3.f);
+	}
+	std::vector<std::size_t> kept;
+	pclalgo::collectXyzIndicesByPolyline2D(
+		centroids,
+		polylineScreenXy,
+		mvpMatrix,
+		modelToWorld,
+		viewportWidth,
+		viewportHeight,
+		keepInside,
+		kept);
+	outTriangleIndices.reserve(kept.size());
+	for (std::size_t idx : kept)
+	{
+		outTriangleIndices.push_back(static_cast<int>(idx));
 	}
 	return true;
 }

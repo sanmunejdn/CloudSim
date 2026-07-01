@@ -21,6 +21,8 @@
 #include <QTableWidget>
 #include <QVBoxLayout>
 
+#include <climits>
+
 namespace
 {
 
@@ -67,7 +69,7 @@ LabelingTrainWidget::LabelingTrainWidget(IPluginHostContext* host, QWidget* pare
 	m_resumeEdit = new QLineEdit(m_configGroup);
 	m_numClassesSpin->setRange(2, 64);
 	m_numClassesSpin->setValue(4);
-	m_numPointsSpin->setRange(256, 8192);
+	m_numPointsSpin->setRange(256, INT_MAX);
 	m_numPointsSpin->setValue(2048);
 	m_epochsSpin->setRange(1, 10000);
 	m_epochsSpin->setValue(100);

@@ -277,10 +277,9 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing,
 	{
 		return kGizmoAxisNone;
 	}
-	// Viewport is device pixels (see QWidgetViewer::windowResized); Qt mouse is logical — match OSG.
-	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
-	const double mx = mouseX * dpr;
-	const double my = mouseY * dpr;
+	// projectToScreen 与 Qt 鼠标同为逻辑像素（viewportWidth/Height），勿再乘 DPR
+	const double mx = mouseX;
+	const double my = mouseY;
 
 	float gizmoScale = 1.0f;
 	if (m_compassScaleTransform.valid())
@@ -500,9 +499,8 @@ bool OsgScene::beginGizmoScreenDrag(const DragAxis axis)
 
 double OsgScene::gizmoScreenDragDs(double mouseXCur, double mouseYCur, double mouseXLast, double mouseYLast) const
 {
-	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
-	const double dx = (mouseXCur - mouseXLast) * dpr;
-	const double dy = (mouseYCur - mouseYLast) * dpr;
+	const double dx = mouseXCur - mouseXLast;
+	const double dy = mouseYCur - mouseYLast;
 	const double dPx = dx * m_gizmoDragScreenAxisUx + dy * m_gizmoDragScreenAxisUy;
 	return dPx * m_gizmoDragMmPerPixel;
 }
@@ -553,9 +551,8 @@ bool OsgScene::gizmoScreenAngleAtMouse(const DragAxis axis, double mouseX, doubl
 		sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
 	};
 
-	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
-	const double mx = mouseX * dpr;
-	const double my = mouseY * dpr;
+	const double mx = mouseX;
+	const double my = mouseY;
 
 	double px = 0.0;
 	double py = 0.0;
@@ -845,12 +842,9 @@ bool OsgScene::computeCameraScreenRayWorld(double mouseX, double mouseY, osg::Ve
 	{
 		return false;
 	}
-	const double dpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
-	const double mx = mouseX * dpr;
-	const double my = mouseY * dpr;
 	const osg::Matrixd invVP = osg::Matrixd::inverse(camera->getViewMatrix() * camera->getProjectionMatrix());
-	const double clipX = 2.0 * mx / static_cast<double>(W) - 1.0;
-	const double clipY = 1.0 - 2.0 * my / static_cast<double>(H);
+	const double clipX = 2.0 * mouseX / static_cast<double>(W) - 1.0;
+	const double clipY = 1.0 - 2.0 * mouseY / static_cast<double>(H);
 	const osg::Vec4d n4(clipX, clipY, -1.0, 1.0);
 	const osg::Vec4d f4(clipX, clipY, 1.0, 1.0);
 	osg::Vec4d nw = n4 * invVP;

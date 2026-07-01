@@ -1,6 +1,6 @@
 # PointNet++ 分割训练配置
 task: segmentation
-num_points: 2048
+num_points: 4096
 batch_size: 16
 epochs: 100
 learning_rate: 0.001

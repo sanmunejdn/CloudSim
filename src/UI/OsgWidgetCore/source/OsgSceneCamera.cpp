@@ -210,6 +210,103 @@ void OsgScene::focusCameraOnBackend(const std::string& backendId)
 	requestRedraw();
 }
 
+void OsgScene::focusCameraOnAllVisibleBackends()
+{
+	if (!m_root.valid() || !m_trackballManipulator.valid()
+		|| !m_viewer.valid() || !m_viewer->getCamera())
+	{
+		return;
+	}
+
+	// 计算场景根节点的包围球（包含所有内容：后端对象、机器人、轨迹等）
+	m_root->dirtyBound();
+	const osg::BoundingSphere bs = m_root->getBound();
+
+	if (!bs.valid())
+	{
+		setCameraViewPreset(CameraViewPreset::Iso);
+		return;
+	}
+
+	osg::Vec3d center(bs.center());
+	double radius = static_cast<double>(bs.radius());
+
+	static constexpr double kMaxFocusRadius = 5.0e5;
+	static constexpr double kMaxEyeDistance = 2.0e6;
+	if (!std::isfinite(center.x()) || !std::isfinite(center.y()) || !std::isfinite(center.z()) || !std::isfinite(radius))
+	{
+		return;
+	}
+	if (radius > kMaxFocusRadius)
+	{
+		radius = kMaxFocusRadius;
+	}
+	if (radius < 1e-3)
+	{
+		radius = 1.0;
+	}
+
+	osg::Camera* cam = m_viewer->getCamera();
+	static constexpr double kFocusFovyDeg = 30.0;
+	static constexpr double kNearPlane = 0.1;
+	double aspect = 1.0;
+	const osg::Viewport* vp = cam->getViewport();
+	if (vp && vp->width() > 0 && vp->height() > 0)
+	{
+		aspect = static_cast<double>(vp->width()) / static_cast<double>(vp->height());
+	}
+	else if (viewportWidth() > 0 && viewportHeight() > 0)
+	{
+		const double dpr = devicePixelRatio();
+		const double vw = std::max(1.0, static_cast<double>(viewportWidth()) * dpr);
+		const double vh = std::max(1.0, static_cast<double>(viewportHeight()) * dpr);
+		aspect = vw / vh;
+	}
+
+	const double fovYRad = osg::DegreesToRadians(kFocusFovyDeg);
+	const double tanHalfY = std::tan(fovYRad * 0.5);
+	const double fovXRad = 2.0 * std::atan(std::tan(fovYRad * 0.5) * aspect);
+	const double tanHalfX = std::tan(fovXRad * 0.5);
+	double distY = radius / std::max(1e-8, tanHalfY);
+	double distX = radius / std::max(1e-8, tanHalfX);
+	double dist = std::max(distY, distX) * 1.12;
+	dist = std::max(dist, kNearPlane * 2.0 + radius);
+	dist = std::min(dist, kMaxEyeDistance);
+
+	// 等轴测方向
+	osg::Vec3d dir(1.0, 1.0, 1.05);
+	dir.normalize();
+	osg::Vec3d eye = center + dir * dist;
+	osg::Vec3d up(0.0, 0.0, 1.0);
+	osg::Vec3d forward = center - eye;
+	if (forward.length2() < 1e-12)
+	{
+		forward = -dir;
+	}
+	forward.normalize();
+	if (std::abs(forward * up) > 0.95)
+	{
+		up = osg::Vec3d(0.0, 1.0, 0.0);
+	}
+	m_trackballManipulator->setTransformation(eye, center, up);
+
+	// 设置投影矩阵
+	{
+		const double surfaceDist = std::max(1.0, dist - radius);
+		double zNearProj = std::max(10.0, surfaceDist * 0.02);
+		zNearProj = std::min(zNearProj, std::max(10.0, dist * 0.45));
+		double zFarNeeded = std::min(1e9, std::max(1e4, (dist + radius * 8.0) * 1.25));
+		if (zNearProj >= zFarNeeded * 0.5)
+		{
+			zNearProj = std::max(1.0, zFarNeeded * 1e-4);
+		}
+		cam->setProjectionMatrixAsPerspective(kFocusFovyDeg, aspect, zNearProj, zFarNeeded);
+	}
+
+	updateCompassScale();
+	requestRedraw();
+}
+
 void OsgScene::setCameraViewPreset(CameraViewPreset preset)
 {
 	if (!m_trackballManipulator.valid() || !m_viewer.valid() || !m_viewer->getCamera())

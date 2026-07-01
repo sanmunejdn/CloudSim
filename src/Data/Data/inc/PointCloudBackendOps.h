@@ -81,6 +81,18 @@ DATA_EXPORT bool collectPointCloudIndicesByPolyline2D(
 	std::vector<std::size_t>& outIndices,
 	std::string* errMsg = nullptr);
 
+/// 套索选三角面：质心投影到屏幕后判多边形内外
+DATA_EXPORT bool collectMeshTriangleIndicesByPolyline2D(
+	const MeshBackendData& mesh,
+	const std::vector<float>& polylineScreenXy,
+	const double mvpMatrix[16],
+	const double modelToWorld[16],
+	int viewportWidth,
+	int viewportHeight,
+	bool keepInside,
+	std::vector<int>& outTriangleIndices,
+	std::string* errMsg = nullptr);
+
 DATA_EXPORT bool measurePointCloud(
 	const PointCloudBackendData& data,
 	PointCloudMeasureResult& out,

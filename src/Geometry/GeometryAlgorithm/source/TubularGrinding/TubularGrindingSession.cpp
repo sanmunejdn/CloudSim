@@ -7,6 +7,8 @@
 #include "TubularGrindingCommon.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -16,6 +18,8 @@ namespace geoalgo
 struct TubularGrindingSession::Impl
 {
 	std::vector<float> sourceSoup;
+	std::vector<float> sourcePointXyz;
+	tg::SkeletonInputKind inputKind = tg::SkeletonInputKind::Mesh;
 	tg::IndexedMeshLite mesh;
 	bool hasMesh = false;
 	std::vector<int> faceSegmentId;
@@ -23,16 +27,36 @@ struct TubularGrindingSession::Impl
 	std::vector<TubularPipeSegment> segments;
 	std::vector<TubularCrossSectionRing> rings;
 	std::vector<TubularCenterlineSample> centerlineSamples;
+	TubularCenterlinePcaAxis centerlinePca;
 	std::vector<TubularTemplatePoint> templatePoints;
 	std::vector<TubularProjectedPoint> projectedPoints;
+	std::vector<tg::OtLcIterationSnapshot> iterationSnapshots;
 	TubularGrindingReport report;
 	TubularGrindingStage lastCompleted = TubularGrindingStage::None;
+	// Phase 1 局部轴线（每面一个，无效面为零向量）
+	std::vector<tg::Vec3> faceLocalAxes;
 };
 
 TubularGrindingSession::TubularGrindingSession(std::vector<float> sourceSoup)
 	: m_impl(std::make_unique<Impl>())
 {
 	m_impl->sourceSoup = std::move(sourceSoup);
+	m_impl->inputKind = tg::SkeletonInputKind::Mesh;
+}
+
+TubularGrindingSession::TubularGrindingSession(std::vector<float> sourceSoup, bool fromPointCloud)
+	: m_impl(std::make_unique<Impl>())
+{
+	if (fromPointCloud)
+	{
+		m_impl->sourcePointXyz = std::move(sourceSoup);
+		m_impl->inputKind = tg::SkeletonInputKind::PointCloud;
+	}
+	else
+	{
+		m_impl->sourceSoup = std::move(sourceSoup);
+		m_impl->inputKind = tg::SkeletonInputKind::Mesh;
+	}
 }
 
 TubularGrindingSession::~TubularGrindingSession() = default;
@@ -82,6 +106,11 @@ TubularGrindingSessionPtr createTubularGrindingSession(std::vector<float> source
 	return std::make_shared<TubularGrindingSession>(std::move(sourceSoup));
 }
 
+TubularGrindingSessionPtr createTubularGrindingSessionFromPointCloud(std::vector<float> pointXyz)
+{
+	return std::make_shared<TubularGrindingSession>(std::move(pointXyz), true);
+}
+
 namespace
 {
 
@@ -89,10 +118,9 @@ bool isNextStage(const TubularGrindingStage last, const TubularGrindingStage wan
 {
 	switch (want)
 	{
-	case TubularGrindingStage::Segment:
-		return last == TubularGrindingStage::None;
+	// Centerline is now the first stage (no Segment stage)
 	case TubularGrindingStage::Centerline:
-		return last == TubularGrindingStage::Segment;
+		return last == TubularGrindingStage::None;
 	case TubularGrindingStage::TemplatePoints:
 		return last == TubularGrindingStage::Centerline;
 	case TubularGrindingStage::Project:
@@ -139,19 +167,38 @@ bool runTubularGrindingStage(
 		}
 		return false;
 	}
-	if (!session.m_impl->hasMesh)
-	{
+
+	const bool isPointCloudInput =
+		session.m_impl->inputKind == tg::SkeletonInputKind::PointCloud;
+	auto ensureMesh = [&]() -> bool {
+		if (session.m_impl->hasMesh)
+		{
+			return true;
+		}
+		if (isPointCloudInput)
+		{
+			if (errMsg)
+			{
+				*errMsg = "mesh topology required for this stage";
+			}
+			return false;
+		}
 		if (!tg::buildIndexedMeshLite(session.m_impl->sourceSoup, session.m_impl->mesh, errMsg))
 		{
 			return false;
 		}
 		session.m_impl->hasMesh = true;
-	}
+		return true;
+	};
 
 	switch (stage)
 	{
 	case TubularGrindingStage::Segment:
 	{
+		if (!ensureMesh())
+		{
+			return false;
+		}
 		int junctionCount = 0;
 		int regionCount = 0;
 		if (!tg::runPipeSegmentation(
@@ -162,7 +209,8 @@ bool runTubularGrindingStage(
 				session.m_impl->faceSegmentId,
 				junctionCount,
 				regionCount,
-				errMsg))
+				errMsg,
+				&session.m_impl->faceLocalAxes))
 		{
 			return false;
 		}
@@ -182,23 +230,81 @@ bool runTubularGrindingStage(
 	}
 	case TubularGrindingStage::Centerline:
 	{
-		if (session.m_impl->segments.empty())
+		tg::SkeletonInput input;
+		input.kind = session.m_impl->inputKind;
+		if (session.m_impl->inputKind == tg::SkeletonInputKind::Mesh)
+		{
+			if (!session.m_impl->hasMesh)
+			{
+				if (!tg::buildIndexedMeshLite(session.m_impl->sourceSoup, session.m_impl->mesh, errMsg))
+				{
+					return false;
+				}
+				session.m_impl->hasMesh = true;
+			}
+			input.mesh = &session.m_impl->mesh;
+		}
+		else
+		{
+			input.pointXyz = &session.m_impl->sourcePointXyz;
+		}
+
+		int failCount = 0;
+		const bool useOtLc =
+			params.centerlineMethod == TubularGrindingCenterlineMethod::OtLc;
+		if (useOtLc)
+		{
+			std::string otErr;
+			tg::OtLcGraphDiagnostics graphDiag;
+			session.m_impl->iterationSnapshots.clear();
+			tg::OtLcIterationCallback snapCb =
+				[&snapshots = session.m_impl->iterationSnapshots](
+					const tg::OtLcIterationSnapshot& snap)
+				{
+					snapshots.push_back(snap);
+				};
+			if (!tg::runOtLcSkeletonCenterline(
+					input,
+					params,
+					session.m_impl->centerlineSamples,
+					&session.m_impl->centerlinePca,
+					&otErr,
+					&session.m_impl->report.centerlinePcaFallback,
+					&graphDiag,
+					snapCb))
+			{
+				if (errMsg)
+				{
+					*errMsg = otErr.empty() ? "otlc centerline failed" : otErr;
+				}
+				return false;
+			}
+			session.m_impl->report.centerlineOtLcExtraction = true;
+			session.m_impl->report.centerlineOtRootCount = graphDiag.rootSampleCount;
+			session.m_impl->report.centerlineOtEdgeCount = graphDiag.undirectedEdgeCount;
+			session.m_impl->report.centerlineOtComponentCount = graphDiag.connectedComponentCount;
+			session.m_impl->report.centerlineOtKnnFallbackEdges = graphDiag.usedKnnFallbackEdges;
+			session.m_impl->report.centerlineOtPathKind = graphDiag.extractPathKind;
+		}
+		else if (session.m_impl->inputKind == tg::SkeletonInputKind::Mesh)
+		{
+			if (!tg::runCenterlineExtraction(
+					session.m_impl->mesh,
+					params,
+					session.m_impl->centerlineSamples,
+					failCount,
+					errMsg,
+					&session.m_impl->centerlinePca))
+			{
+				return false;
+			}
+		}
+		else
 		{
 			if (errMsg)
 			{
-				*errMsg = "run segment stage first";
+				*errMsg = "laplacian centerline requires mesh input";
 			}
-			return false;
-		}
-		int failCount = 0;
-		if (!tg::runCenterlineExtraction(
-				session.m_impl->mesh,
-				session.m_impl->segments,
-				params,
-				session.m_impl->centerlineSamples,
-				failCount,
-				errMsg))
-		{
 			return false;
 		}
 		session.m_impl->report.centerlinePointCount =
@@ -216,8 +322,23 @@ bool runTubularGrindingStage(
 			}
 			return false;
 		}
+		std::vector<TubularPipeSegment> templateSegments = session.m_impl->segments;
+		if (templateSegments.empty())
+		{
+			std::map<int, bool> pipeIds;
+			for (const TubularCenterlineSample& s : session.m_impl->centerlineSamples)
+			{
+				pipeIds[s.pipeId] = true;
+			}
+			for (const auto& entry : pipeIds)
+			{
+				TubularPipeSegment virtualPipe;
+				virtualPipe.id = entry.first;
+				templateSegments.push_back(virtualPipe);
+			}
+		}
 		if (!tg::runTrajectoryTemplates(
-				session.m_impl->segments,
+				templateSegments,
 				session.m_impl->centerlineSamples,
 				params,
 				session.m_impl->templatePoints,
@@ -240,13 +361,23 @@ bool runTubularGrindingStage(
 			return false;
 		}
 		double hitRate = 0.0;
-		if (!tg::runMeshProjection(
-				session.m_impl->mesh,
+		const bool projected = isPointCloudInput
+			? tg::runPointCloudProjection(
+				session.m_impl->sourcePointXyz,
 				session.m_impl->templatePoints,
 				params,
 				session.m_impl->projectedPoints,
 				hitRate,
-				errMsg))
+				errMsg)
+			: (ensureMesh()
+				&& tg::runMeshProjection(
+					session.m_impl->mesh,
+					session.m_impl->templatePoints,
+					params,
+					session.m_impl->projectedPoints,
+					hitRate,
+					errMsg));
+		if (!projected)
 		{
 			return false;
 		}
@@ -435,6 +566,69 @@ bool buildFaceNormalAxisLineSegments(
 	return !outLineXyz.empty();
 }
 
+bool buildLocalAxisLineSegments(
+	const TubularGrindingSession& session,
+	const TubularGrindingParams& params,
+	std::vector<float>& outLineXyz,
+	std::string* errMsg)
+{
+	if (!session.m_impl->hasMesh || session.m_impl->mesh.faceCount <= 0)
+	{
+		if (errMsg)
+		{
+			*errMsg = "mesh not built";
+		}
+		return false;
+	}
+	if (session.m_impl->faceLocalAxes.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "local axes not available (feature removed)";
+		}
+		return false;
+	}
+	const tg::IndexedMeshLite& mesh = session.m_impl->mesh;
+	outLineXyz.clear();
+	const double dx = mesh.bboxMax[0] - mesh.bboxMin[0];
+	const double dy = mesh.bboxMax[1] - mesh.bboxMin[1];
+	const double dz = mesh.bboxMax[2] - mesh.bboxMin[2];
+	const double diag = std::sqrt(dx * dx + dy * dy + dz * dz);
+	double axisLen = params.faceNormalAxisLengthMm;
+	if (axisLen <= 0.0)
+	{
+		axisLen = std::max(2.0, diag * 0.012);
+	}
+	outLineXyz.reserve(static_cast<std::size_t>(mesh.faceCount) * 6U);
+	for (int f = 0; f < mesh.faceCount; ++f)
+	{
+		const tg::Vec3 axis = session.m_impl->faceLocalAxes[static_cast<std::size_t>(f)];
+		// 跳过无效面（零向量）
+		if (tg::length(axis) < 1e-6)
+		{
+			continue;
+		}
+		const tg::Vec3 c = mesh.faceCentroids[static_cast<std::size_t>(f)];
+		const tg::Vec3 tipA = tg::add(c, tg::scale(axis, axisLen));
+		const tg::Vec3 tipB = tg::add(c, tg::scale(axis, -axisLen));
+		// 正方向（青色端）
+		outLineXyz.push_back(static_cast<float>(c.x));
+		outLineXyz.push_back(static_cast<float>(c.y));
+		outLineXyz.push_back(static_cast<float>(c.z));
+		outLineXyz.push_back(static_cast<float>(tipA.x));
+		outLineXyz.push_back(static_cast<float>(tipA.y));
+		outLineXyz.push_back(static_cast<float>(tipA.z));
+		// 反方向（品红端）
+		outLineXyz.push_back(static_cast<float>(c.x));
+		outLineXyz.push_back(static_cast<float>(c.y));
+		outLineXyz.push_back(static_cast<float>(c.z));
+		outLineXyz.push_back(static_cast<float>(tipB.x));
+		outLineXyz.push_back(static_cast<float>(tipB.y));
+		outLineXyz.push_back(static_cast<float>(tipB.z));
+	}
+	return !outLineXyz.empty();
+}
+
 bool buildCenterlinePointsCloud(
 	const TubularGrindingSession& session,
 	std::vector<float>& outXyz,
@@ -466,6 +660,104 @@ bool buildCenterlinePointsCloud(
 		outRgba.push_back(g);
 		outRgba.push_back(b);
 		outRgba.push_back(a);
+	}
+	return true;
+}
+
+namespace
+{
+
+void appendLineSegment3(
+	std::vector<float>& outLineXyz,
+	const tg::Vec3& a,
+	const tg::Vec3& b)
+{
+	outLineXyz.push_back(static_cast<float>(a.x));
+	outLineXyz.push_back(static_cast<float>(a.y));
+	outLineXyz.push_back(static_cast<float>(a.z));
+	outLineXyz.push_back(static_cast<float>(b.x));
+	outLineXyz.push_back(static_cast<float>(b.y));
+	outLineXyz.push_back(static_cast<float>(b.z));
+}
+
+void appendPcaAxisArrow(
+	std::vector<float>& outLineXyz,
+	const TubularCenterlinePcaAxis& pca,
+	const double bboxDiagMm)
+{
+	if (!pca.valid)
+	{
+		return;
+	}
+	const tg::Vec3 centroid{
+		pca.centroidMm[0],
+		pca.centroidMm[1],
+		pca.centroidMm[2]};
+	tg::Vec3 axis{
+		pca.axis[0],
+		pca.axis[1],
+		pca.axis[2]};
+	axis = tg::normalizeVec3(axis);
+	if (tg::length(axis) < 1e-9)
+	{
+		return;
+	}
+
+	const double span = pca.extentMaxMm - pca.extentMinMm;
+	const tg::Vec3 tail = tg::add(centroid, tg::scale(axis, pca.extentMinMm));
+	const tg::Vec3 tip = tg::add(centroid, tg::scale(axis, pca.extentMaxMm));
+	const double headLen = std::max(2.0, std::min(span * 0.12, bboxDiagMm * 0.035));
+	const tg::Vec3 headBase = tg::add(tip, tg::scale(axis, -headLen));
+
+	tg::Vec3 n0 = tg::normalizeVec3(tg::cross(axis, tg::Vec3{0.0, 0.0, 1.0}));
+	if (tg::length(n0) < 1e-6)
+	{
+		n0 = tg::normalizeVec3(tg::cross(axis, tg::Vec3{0.0, 1.0, 0.0}));
+	}
+	const tg::Vec3 b0 = tg::normalizeVec3(tg::cross(axis, n0));
+	const double wing = headLen * 0.45;
+
+	appendLineSegment3(outLineXyz, tail, headBase);
+	appendLineSegment3(outLineXyz, headBase, tip);
+	appendLineSegment3(outLineXyz, tip, tg::add(headBase, tg::scale(n0, wing)));
+	appendLineSegment3(outLineXyz, tip, tg::add(headBase, tg::scale(n0, -wing)));
+	appendLineSegment3(outLineXyz, tip, tg::add(headBase, tg::scale(b0, wing)));
+	appendLineSegment3(outLineXyz, tip, tg::add(headBase, tg::scale(b0, -wing)));
+}
+
+} // namespace
+
+bool buildCenterlinePcaAxisArrowLineSegments(
+	const TubularGrindingSession& session,
+	std::vector<float>& outLineXyz,
+	std::string* errMsg)
+{
+	if (!session.m_impl->centerlinePca.valid)
+	{
+		if (errMsg)
+		{
+			*errMsg = "centerline PCA axis not available";
+		}
+		return false;
+	}
+	outLineXyz.clear();
+	double bboxDiag = 20.0;
+	if (session.m_impl->hasMesh)
+	{
+		const tg::IndexedMeshLite& mesh = session.m_impl->mesh;
+		const double dx = mesh.bboxMax[0] - mesh.bboxMin[0];
+		const double dy = mesh.bboxMax[1] - mesh.bboxMin[1];
+		const double dz = mesh.bboxMax[2] - mesh.bboxMin[2];
+		bboxDiag = std::sqrt(dx * dx + dy * dy + dz * dz);
+	}
+	appendPcaAxisArrow(outLineXyz, session.m_impl->centerlinePca, bboxDiag);
+	if (outLineXyz.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "failed to build PCA axis arrow";
+		}
+		return false;
 	}
 	return true;
 }
@@ -565,6 +857,235 @@ bool buildProjectedPointsCloud(
 		outRgba.push_back(b);
 		outRgba.push_back(a);
 	}
+	return true;
+}
+
+int iterationSnapshotCount(const TubularGrindingSession& session)
+{
+	return static_cast<int>(session.m_impl->iterationSnapshots.size());
+}
+
+int iterationSnapshotIteration(const TubularGrindingSession& session, int snapshotIndex)
+{
+	if (snapshotIndex < 0 || snapshotIndex >= iterationSnapshotCount(session))
+	{
+		return 0;
+	}
+	return session.m_impl->iterationSnapshots[static_cast<std::size_t>(snapshotIndex)].iteration;
+}
+
+bool buildIterationSnapshotPointsCloud(
+	const TubularGrindingSession& session,
+	int snapshotIndex,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg)
+{
+	if (snapshotIndex < 0 || snapshotIndex >= iterationSnapshotCount(session))
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid snapshot index";
+		}
+		return false;
+	}
+	const auto& snap = session.m_impl->iterationSnapshots[static_cast<std::size_t>(snapshotIndex)];
+	if (snap.samplePositions.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "snapshot empty";
+		}
+		return false;
+	}
+	float r = 0.8f, g = 0.8f, b = 0.8f;
+	if (snap.iteration <= 10)
+	{
+		r = 0.2f; g = 0.8f; b = 0.2f;
+	}
+	else if (snap.iteration <= 20)
+	{
+		r = 0.8f; g = 0.8f; b = 0.2f;
+	}
+	else
+	{
+		r = 0.8f; g = 0.2f; b = 0.2f;
+	}
+	outXyz.clear();
+	outRgba.clear();
+	outXyz.reserve(snap.samplePositions.size() * 3U);
+	outRgba.reserve(snap.samplePositions.size() * 4U);
+	for (const tg::Vec3& pos : snap.samplePositions)
+	{
+		outXyz.push_back(static_cast<float>(pos.x));
+		outXyz.push_back(static_cast<float>(pos.y));
+		outXyz.push_back(static_cast<float>(pos.z));
+		outRgba.push_back(r);
+		outRgba.push_back(g);
+		outRgba.push_back(b);
+		outRgba.push_back(1.0f);
+	}
+	return true;
+}
+
+bool buildIterationSnapshotContractedPointsCloud(
+	const TubularGrindingSession& session,
+	int snapshotIndex,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg)
+{
+	if (snapshotIndex < 0 || snapshotIndex >= iterationSnapshotCount(session))
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid snapshot index";
+		}
+		return false;
+	}
+	const auto& snap = session.m_impl->iterationSnapshots[static_cast<std::size_t>(snapshotIndex)];
+	if (snap.contractedPositions.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "contracted snapshot empty";
+		}
+		return false;
+	}
+	const float r = 0.25f;
+	const float g = 0.55f;
+	const float b = 0.95f;
+	outXyz.clear();
+	outRgba.clear();
+	outXyz.reserve(snap.contractedPositions.size() * 3U);
+	outRgba.reserve(snap.contractedPositions.size() * 4U);
+	for (const tg::Vec3& pos : snap.contractedPositions)
+	{
+		outXyz.push_back(static_cast<float>(pos.x));
+		outXyz.push_back(static_cast<float>(pos.y));
+		outXyz.push_back(static_cast<float>(pos.z));
+		outRgba.push_back(r);
+		outRgba.push_back(g);
+		outRgba.push_back(b);
+		outRgba.push_back(1.0f);
+	}
+	return true;
+}
+
+bool computeEllipseFittingResidualReport(
+	const TubularGrindingSession& session,
+	const TubularGrindingParams& params,
+	std::vector<double>& outPerRingRmsResiduals,
+	std::string& outSummaryText,
+	std::string* errMsg)
+{
+	outPerRingRmsResiduals.clear();
+	outSummaryText.clear();
+
+	if (!session.m_impl->hasMesh || session.m_impl->rings.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "segment stage not completed";
+		}
+		return false;
+	}
+
+	const tg::IndexedMeshLite& mesh = session.m_impl->mesh;
+	outPerRingRmsResiduals.reserve(session.m_impl->rings.size());
+
+	double totalSumSq = 0.0;
+	int totalCount = 0;
+
+	for (std::size_t ri = 0; ri < session.m_impl->rings.size(); ++ri)
+	{
+		const TubularCrossSectionRing& ring = session.m_impl->rings[ri];
+		if (ring.faceIndices.size() < 3)
+		{
+			outPerRingRmsResiduals.push_back(0.0);
+			continue;
+		}
+
+		// 收集环内面的邻域和轴线
+		std::vector<tg::Vec3> neighborhoodAxes;
+		std::vector<int> neighborhoodFaces;
+		for (const int f : ring.faceIndices)
+		{
+			if (static_cast<std::size_t>(f) < session.m_impl->faceLocalAxes.size())
+			{
+				const tg::Vec3 ax = session.m_impl->faceLocalAxes[static_cast<std::size_t>(f)];
+				if (tg::length(ax) > 1e-6)
+				{
+					neighborhoodAxes.push_back(ax);
+					neighborhoodFaces.push_back(f);
+				}
+			}
+		}
+
+		if (neighborhoodFaces.size() < 3)
+		{
+			outPerRingRmsResiduals.push_back(0.0);
+			continue;
+		}
+
+		// 聚合主轴
+		tg::Vec3 mainAxis = tg::computeMainAxisFromFaceAxes(neighborhoodAxes);
+		mainAxis = tg::normalizeVec3(mainAxis);
+
+		// 构建切平面
+		tg::Vec3 n0 = tg::normalizeVec3(tg::cross(mainAxis, tg::Vec3{0.0, 0.0, 1.0}));
+		if (tg::length(n0) < 1e-6)
+		{
+			n0 = tg::normalizeVec3(tg::cross(mainAxis, tg::Vec3{0.0, 1.0, 0.0}));
+		}
+		const tg::Vec3 b0 = tg::normalizeVec3(tg::cross(mainAxis, n0));
+
+		// 投影到切平面
+		tg::Vec3 centerSum{0.0, 0.0, 0.0};
+		for (const int f : neighborhoodFaces)
+		{
+			centerSum = tg::add(centerSum, mesh.faceCentroids[static_cast<std::size_t>(f)]);
+		}
+		const tg::Vec3 sliceCenter = tg::scale(centerSum, 1.0 / static_cast<double>(neighborhoodFaces.size()));
+
+		std::vector<std::array<double, 2>> projPts;
+		projPts.reserve(neighborhoodFaces.size());
+		for (const int f : neighborhoodFaces)
+		{
+			const tg::Vec3 d = tg::sub(mesh.faceCentroids[static_cast<std::size_t>(f)], sliceCenter);
+			const double u = tg::dot(d, n0);
+			const double v = tg::dot(d, b0);
+			projPts.push_back({u, v});
+		}
+
+		// 椭圆拟合
+		double semiMajor = 0.0, semiMinor = 0.0, cx = 0.0, cy = 0.0, rotRad = 0.0;
+		if (!tg::fitEllipse2D(projPts, semiMajor, semiMinor, cx, cy, rotRad))
+		{
+			outPerRingRmsResiduals.push_back(0.0);
+			continue;
+		}
+
+		// 计算残差
+		std::vector<double> residuals;
+		const double rms = tg::computeEllipseFittingResiduals(
+			projPts, semiMajor, semiMinor, cx, cy, rotRad, residuals);
+
+		outPerRingRmsResiduals.push_back(rms);
+		totalSumSq += rms * rms * static_cast<double>(residuals.size());
+		totalCount += static_cast<int>(residuals.size());
+	}
+
+	// 生成摘要文本
+	const double globalRms = (totalCount > 0)
+		? std::sqrt(totalSumSq / static_cast<double>(totalCount)) : 0.0;
+
+	char buf[256];
+	std::snprintf(buf, sizeof(buf),
+		"椭圆拟合残差: 全局RMS=%.4f mm, %zu 个环",
+		globalRms, session.m_impl->rings.size());
+	outSummaryText = buf;
+
 	return true;
 }
 

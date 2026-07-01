@@ -292,6 +292,9 @@ DATA_EXPORT bool reconstructBrepFromMeshSoup(
 DATA_EXPORT geoalgo::TubularGrindingSessionPtr createTubularGrindingSession(
 	std::vector<float> sourceSoup);
 
+DATA_EXPORT geoalgo::TubularGrindingSessionPtr createTubularGrindingSessionFromPointCloud(
+	std::vector<float> pointXyz);
+
 DATA_EXPORT bool runTubularGrindingStage(
 	geoalgo::TubularGrindingSession& session,
 	geoalgo::TubularGrindingStage stage,
@@ -323,10 +326,35 @@ DATA_EXPORT bool buildTubularGrindingFaceNormalAxisLineSegments(
 	std::vector<float>& outLineXyz,
 	std::string* errMsg = nullptr);
 
+/// Phase 1 局部轴线线段（双向可视化）
+DATA_EXPORT bool buildTubularGrindingLocalAxisLineSegments(
+	const geoalgo::TubularGrindingSession& session,
+	const geoalgo::TubularGrindingParams& params,
+	std::vector<float>& outLineXyz,
+	std::string* errMsg = nullptr);
+
+/// 椭圆拟合残差报告（每环 RMS + 全局摘要）
+DATA_EXPORT bool computeTubularGrindingEllipseResidualReport(
+	const geoalgo::TubularGrindingSession& session,
+	const geoalgo::TubularGrindingParams& params,
+	std::vector<double>& outPerRingRmsResiduals,
+	std::string& outSummaryText,
+	std::string* errMsg = nullptr);
+
 DATA_EXPORT bool buildTubularGrindingCenterlinePointsCloud(
 	const geoalgo::TubularGrindingSession& session,
 	std::vector<float>& outXyz,
 	std::vector<float>& outRgba,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool buildTubularGrindingCenterlinePolylineXyz(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outXyz,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool buildTubularGrindingCenterlinePcaAxisArrowLineSegments(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outLineXyz,
 	std::string* errMsg = nullptr);
 
 DATA_EXPORT bool buildTubularGrindingTemplatePointsCloud(
@@ -337,6 +365,27 @@ DATA_EXPORT bool buildTubularGrindingTemplatePointsCloud(
 
 DATA_EXPORT bool buildTubularGrindingProjectedPointsCloud(
 	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT int tubularGrindingIterationSnapshotCount(
+	const geoalgo::TubularGrindingSession& session);
+
+DATA_EXPORT int tubularGrindingIterationSnapshotIteration(
+	const geoalgo::TubularGrindingSession& session,
+	int snapshotIndex);
+
+DATA_EXPORT bool buildTubularGrindingIterationSnapshotPointsCloud(
+	const geoalgo::TubularGrindingSession& session,
+	int snapshotIndex,
+	std::vector<float>& outXyz,
+	std::vector<float>& outRgba,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool buildTubularGrindingIterationSnapshotContractedPointsCloud(
+	const geoalgo::TubularGrindingSession& session,
+	int snapshotIndex,
 	std::vector<float>& outXyz,
 	std::vector<float>& outRgba,
 	std::string* errMsg = nullptr);

@@ -370,7 +370,9 @@ protected:
 private:
 	void initViewer();
 	void initUi();
+	void syncViewportFromGlWidget();
 	void syncViewportLayoutFromFramebuffer(int framebufferWidth, int framebufferHeight);
+	void scheduleDeferredViewportLayoutSync();
 	osg::Node* loadXyzPointCloud(const QString& filePath, QString* errorMessage);
 	osg::Node* loadAsciiPlyPointCloud(const QString& filePath, QString* errorMessage);
 	osg::Node* createCompassNode();

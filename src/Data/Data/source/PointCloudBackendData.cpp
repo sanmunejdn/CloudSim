@@ -1,6 +1,7 @@
 #include "PointCloudBackendData.h"
 
 #include "PlyIo.h"
+#include "BackendSpatial.h"
 #include "geometry_base64.h"
 #include "../../PropertyCore/inc/PropertyAttribute.h"
 
@@ -613,9 +614,80 @@ bool PointCloudBackendData::writePointCloudPlySidecar(const std::string& utf8Pat
 	return true;
 }
 
+bool PointCloudBackendData::writePointCloudPlySidecar(const std::string& utf8Path, const std::vector<float>& xyzOverride, std::string* errMsg) const
+{
+	if (xyzOverride.empty() || (xyzOverride.size() % 3U) != 0U)
+	{
+		setErr(errMsg, "No point coordinates to write.");
+		return false;
+	}
+	const std::size_t n = xyzOverride.size() / 3U;
+	const bool hasRgba = hasPerVertexColors() && m_rgbaVertex.size() == n * 4U;
+
+	std::ofstream ofs(std::filesystem::path(utf8Path), std::ios::binary);
+	if (!ofs)
+	{
+		setErr(errMsg, "Cannot open file for writing.");
+		return false;
+	}
+	CGAL::IO::set_mode(ofs, CGAL::IO::BINARY);
+
+	bool ok = false;
+	if (hasRgba)
+	{
+		std::vector<VtxRgbWrite> verts;
+		verts.reserve(n);
+		for (std::size_t i = 0; i < n; ++i)
+		{
+			const float x = xyzOverride[i * 3U];
+			const float y = xyzOverride[i * 3U + 1U];
+			const float z = xyzOverride[i * 3U + 2U];
+			const float rf = m_rgbaVertex[i * 4U];
+			const float gf = m_rgbaVertex[i * 4U + 1U];
+			const float bf = m_rgbaVertex[i * 4U + 2U];
+			verts.emplace_back(PlyWritePoint_3(x, y, z), floatChannelToU8(rf), floatChannelToU8(gf), floatChannelToU8(bf));
+		}
+		VtxRgbWrite keyTpl{};
+		ok = CGAL::IO::write_PLY_with_properties(ofs, verts,
+			CGAL::IO::make_ply_point_writer(CGAL::make_nth_of_tuple_property_map<0>(keyTpl)),
+			std::make_pair(CGAL::make_nth_of_tuple_property_map<1>(keyTpl), CGAL::IO::PLY_property<boost::uint8_t>("red")),
+			std::make_pair(CGAL::make_nth_of_tuple_property_map<2>(keyTpl), CGAL::IO::PLY_property<boost::uint8_t>("green")),
+			std::make_pair(CGAL::make_nth_of_tuple_property_map<3>(keyTpl), CGAL::IO::PLY_property<boost::uint8_t>("blue")));
+	}
+	else
+	{
+		std::vector<PlyWritePoint_3> verts;
+		verts.reserve(n);
+		for (std::size_t i = 0; i < n; ++i)
+		{
+			verts.emplace_back(xyzOverride[i * 3U], xyzOverride[i * 3U + 1U], xyzOverride[i * 3U + 2U]);
+		}
+		ok = CGAL::IO::write_PLY_with_properties(ofs, verts,
+			CGAL::IO::make_ply_point_writer(CGAL::Identity_property_map<PlyWritePoint_3>()));
+	}
+
+	if (!ok)
+	{
+		setErr(errMsg, "Failed to write PLY point data.");
+		return false;
+	}
+	return true;
+}
+
 bool PointCloudBackendData::readPointCloudPlySidecar(const std::string& utf8Path, std::string* errMsg)
 {
 	return readPointCloudFromPlyFile(utf8Path, errMsg);
+}
+
+std::vector<float> PointCloudBackendData::worldPositionsXyz() const
+{
+	if (m_xyz.empty())
+	{
+		return {};
+	}
+	std::vector<float> transformed = m_xyz;
+	transformXyzToWorld(transformed, worldMatrix());
+	return transformed;
 }
 
 nlohmann::json PointCloudBackendData::snapshotPropertyRows(const BackendDataManager* mgr) const

@@ -422,9 +422,8 @@ bool OsgWidget::beginTcpTeachScreenDrag()
 
 double OsgWidget::tcpTeachScreenDragDsMm(const QPoint& curPos, const QPoint& lastPos) const
 {
-	const double dpr = (OsgScene::devicePixelRatio() > 0.0) ? OsgScene::devicePixelRatio() : 1.0;
-	const double dx = (static_cast<double>(curPos.x()) - static_cast<double>(lastPos.x())) * dpr;
-	const double dy = (static_cast<double>(curPos.y()) - static_cast<double>(lastPos.y())) * dpr;
+	const double dx = static_cast<double>(curPos.x()) - static_cast<double>(lastPos.x());
+	const double dy = static_cast<double>(curPos.y()) - static_cast<double>(lastPos.y());
 	const double dPx = dx * m_tcpTeachDragScreenAxisUx + dy * m_tcpTeachDragScreenAxisUy;
 	return dPx * m_tcpTeachDragMmPerPixel;
 }
@@ -517,10 +516,8 @@ int OsgWidget::pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, const bool pr
 	{
 		return kGizmoAxisNone;
 	}
-	const double dpr =
-		(OsgScene::devicePixelRatio() > 0.0) ? OsgScene::devicePixelRatio() : 1.0;
-	const double mx = static_cast<double>(mousePos.x()) * dpr;
-	const double my = static_cast<double>(mousePos.y()) * dpr;
+	const double mx = static_cast<double>(mousePos.x());
+	const double my = static_cast<double>(mousePos.y());
 
 	float gizmoScale = 1.0f;
 	if (m_tcpTeachCompassScaleTransform.valid())

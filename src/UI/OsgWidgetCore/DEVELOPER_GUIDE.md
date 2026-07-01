@@ -79,7 +79,18 @@ m_stagingGroup（导入预览）
 | 方法 | 说明 |
 |------|------|
 | `setRequestRedraw(fn)` / `requestRedraw()` | 宿主重绘 |
-| `setViewportPixels(w,h)` / `setDevicePixelRatio(dpr)` | 逻辑像素与 HiDPI |
+| `setViewportPixels(w,h)` / `setDevicePixelRatio(dpr)` | 逻辑视口与 HiDPI 比例（`dpr = fbW / logicalW`） |
+
+**屏幕坐标约定（HiDPI 必读）**
+
+| 用途 | 坐标空间 | 入口 |
+|------|----------|------|
+| 罗盘 gizmo / TCP 示教：`projectToScreen`、`pickAxisAtScreenPos`、`gizmoScreenDragDs`、`computeCameraScreenRayWorld` | **逻辑像素**（与 `viewportWidth/Height`、Qt `QMouseEvent::pos()` 一致） | 传入 Qt 逻辑坐标，**勿再乘 DPR** |
+| 点云/网格屏幕距离、`kPointPickHitRadiusPx` 等阈值 | **逻辑像素** | 与 `projectToScreen` 输出同系 |
+| OSG `LineSegmentIntersector::WINDOW` 射线拾取 | **设备像素**（对齐主相机 `setViewport(0,0,fbW,fbH)`） | `logicalMouseToPickWindowCoords` |
+| osgGA 轨道相机（`QWidgetViewer` 转发） | **设备像素** | `deviceCoord(logical, _devicePixelRatio)` |
+
+主相机渲染 viewport 为设备像素；`OsgWidget::syncViewportLayoutFromFramebuffer` 同时写入逻辑 `setViewportPixels` 与 OSG viewport。修改 gizmo/拾取时勿混用「逻辑投影 + 设备鼠标」。
 
 ### 5.2 初始化与 HUD
 
@@ -119,7 +130,7 @@ m_stagingGroup（导入预览）
 |-------------|------|
 | `PickKind` / `PickQuery` / `PickResult` / `PickPreviewState` | 见 `PickTypes.h` |
 | `OsgScene::queryPick` | 点 / 面 / 边 / 对象统一入口；hover 与 click 同路径 |
-| `OsgScene::kPointPickHitRadiusPx` 等 | 共用阈值（32px 点、18px 线边距、25px 点击容差） |
+| `OsgScene::kPointPickHitRadiusPx` 等 | 共用阈值（32px 点、18px 线边距、25px 点击容差），均为 **逻辑像素** |
 | Widget `ViewportGestureRecognizer` | click/drag/release 吞没与 clickHold |
 
 ### 5.6 拾取 — 点云索引（Phase 5）
@@ -163,8 +174,8 @@ m_stagingGroup（导入预览）
 
 **源文件**：`inc/OsgCompassGeometry.h`、`source/OsgCompassGeometry.cpp`（`OsgWidgetCore.vcxproj`）；几何基于 `osg/Shape` torus，勿依赖 `osg/Cone`。改罗盘后须先编 **OsgWidgetCore** 再链式编 Widget/RobotWidget。
 | `syncCompassGizmoOrientation` | World：`compassAtt = R⁻¹`；Local：单位四元数 |
-| `pickAxisAtScreenPos(mouseX, mouseY, preferRing, outPickedRing)` | 轴/环命中 → `kGizmoAxisX/Y/Z` |
-| `computeCameraScreenRayWorld` | Qt 逻辑坐标 × DPR |
+| `pickAxisAtScreenPos(mouseX, mouseY, preferRing, outPickedRing)` | 轴/环命中 → `kGizmoAxisX/Y/Z`（逻辑像素） |
+| `computeCameraScreenRayWorld` | Qt **逻辑**鼠标 → 世界射线（NDC 用 `mouse / viewportWidth`） |
 | `computeGizmoPivotWorld` / `logGizmoPivotDiagnostics` | inner 原点世界坐标；`POINTCLOUD_GIZMO_PIVOT_DIAG` |
 | `gizmoCompassUnitAxisWorld` | 委托 `ObjectGizmoFrame::dragAxisDirectionSceneWorld`（**场景世界**，与 `computeGizmoPivotWorld` 同系） |
 | `beginGizmoScreenDrag` / `gizmoScreenDragDs` | 平移：冻结屏幕轴 + `mmPerPixel`（与 TCP 示教同思路） |
@@ -238,6 +249,14 @@ m_stagingGroup（导入预览）
 4. 拖动中 → `MainWindow::syncPropertyPanelGizmoLiveValues` 从 gizmo 直写属性行；释放 → `writeActiveBackendPoseFromOsg` → `transformGizmoCommitted` → 全量 `updatePropertyPanel`
 
 详见 [`../../ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md) §6.2.0。
+
+---
+
+## 变更历史（2026-06）
+
+### 屏幕坐标 / HiDPI
+- gizmo、TCP 示教、屏幕投影拾取统一为 **逻辑像素**；DPR 修正后不再对 Qt 鼠标二次乘 `devicePixelRatio`。
+- OSG `WINDOW` 拾取与 `QWidgetViewer` 仍用设备像素（见 §5.1 屏幕坐标约定）。
 
 ---
 

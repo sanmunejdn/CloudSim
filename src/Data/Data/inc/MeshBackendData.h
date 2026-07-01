@@ -38,6 +38,9 @@ public:
 		std::vector<float> rgbPerTriangleVertex);
 	/// 叠加线段（每段 6 float：起点 xyz + 终点 xyz），GL_LINES 绘制
 	void setOverlayLineSegments(std::vector<float> xyzLinePairs);
+	/// 叠加线始终可见（关闭深度测试）
+	void setOverlayLinesAlwaysOnTop(const bool alwaysOnTop) { m_overlayLinesAlwaysOnTop = alwaysOnTop; }
+	bool overlayLinesAlwaysOnTop() const { return m_overlayLinesAlwaysOnTop; }
 	const std::vector<float>& overlayLineSegments() const { return m_overlayLineSegments; }
 	bool hasOverlayLineSegments() const
 	{
@@ -73,6 +76,11 @@ public:
 		int meshImportQuality = 1);
 	/// 三角 soup 写 PLY（含 face 元素）；path UTF-8
 	bool writeTriangleMeshPly(const std::string& utf8Path, std::string* errMsg = nullptr) const;
+	/// 写入指定的三角形 soup 到 PLY 文件（用于导出世界坐标系下的网格）
+	bool writeTriangleMeshPly(const std::string& utf8Path, const std::vector<float>& soupOverride, std::string* errMsg = nullptr) const;
+
+	/// 返回世界坐标系下的三角形 soup（应用 worldMatrix 变换后的副本）
+	std::vector<float> worldTriangleSoup() const;
 	static bool loadStepHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts, std::string* errMsg = nullptr);
 	static bool loadDxfHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts, std::string* errMsg = nullptr);
 
@@ -93,6 +101,7 @@ private:
 	std::vector<float> m_triangleNormals;
 	std::vector<float> m_triangleVertexColors;
 	std::vector<float> m_overlayLineSegments;
+	bool m_overlayLinesAlwaysOnTop = false;
 	BackendBoundingBox m_bounds;
 	BackendColor m_color;
 	bool m_transformPivotAtOrigin = false;

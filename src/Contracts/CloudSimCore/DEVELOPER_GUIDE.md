@@ -10,5 +10,8 @@
 
 实现：`OsgRenderViewAdapter` 委托 `OsgWidget`。
 
+### 屏幕交互（HiDPI）
+- gizmo / TCP 拖动、屏幕投影拾取：`OsgWidgetCore` 使用 Qt **逻辑像素**；OSG `WINDOW` 拾取经 `logicalMouseToPickWindowCoords`（设备像素）。详见 [`OsgWidgetCore/DEVELOPER_GUIDE.md`](../../UI/OsgWidgetCore/DEVELOPER_GUIDE.md) §5.1。
+
 ### CoreTypes 新增 DTO
 - `RobotPerLinkKinematicsSliceDto`：per-link FK 切片 DTO（`Mat4` 版本）

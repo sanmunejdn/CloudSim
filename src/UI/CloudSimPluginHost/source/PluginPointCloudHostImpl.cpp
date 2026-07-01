@@ -1733,7 +1733,8 @@ bool isNextTubularGrindingStage(
 	const PluginTubularGrindingStage lastCompleted,
 	const PluginTubularGrindingStage want)
 {
-	if (want == PluginTubularGrindingStage::Segment
+	// Centerline is now the first stage (Segment stage has been removed)
+	if (want == PluginTubularGrindingStage::Centerline
 		&& lastCompleted == PluginTubularGrindingStage::None)
 	{
 		return true;
@@ -1760,6 +1761,26 @@ geoalgo::TubularGrindingParams buildTubularGrindingGeoParams(const PluginTubular
 	geoParams.axialMeridians = params.axialMeridians;
 	geoParams.zigzagPasses = params.zigzagPasses;
 	geoParams.projectionMaxDistMm = params.projectionMaxDistMm;
+	geoParams.centerlineIterations = params.centerlineIterations;
+	geoParams.laplacianLambda = params.laplacianLambda;
+	geoParams.laplacianAttraction = params.laplacianAttraction;
+	geoParams.laplacianKNeighbors = params.laplacianKNeighbors;
+	geoParams.otSampleRate = params.otSampleRate;
+	geoParams.otCostBeta = params.otCostBeta;
+	geoParams.otcPreSteps = params.otcPreSteps;
+	geoParams.otcOuterLoops = params.otcOuterLoops;
+	geoParams.otLcOuterMaxIters = params.otLcOuterMaxIters;
+	geoParams.minRootsBySamples = params.minRootsBySamples;
+	geoParams.pointCloudKnnK = params.pointCloudKnnK;
+	switch (params.centerlineMethod)
+	{
+	case PluginTubularGrindingCenterlineMethod::OtLc:
+		geoParams.centerlineMethod = geoalgo::TubularGrindingCenterlineMethod::OtLc;
+		break;
+	default:
+		geoParams.centerlineMethod = geoalgo::TubularGrindingCenterlineMethod::Laplacian;
+		break;
+	}
 	switch (params.templateKind)
 	{
 	case PluginTubularGrindingTemplateKind::Helical:
@@ -1811,9 +1832,35 @@ QString formatTubularGrindingStageSummaryZh(
 			.arg(report.junctionFaceCount)
 			.arg(report.regionCountBeforeFilter);
 	case PluginTubularGrindingStage::Centerline:
-		return QStringLiteral("中心线提取完成：%1 个采样点，%2 个截面拟合失败")
+	{
+		QString summary = QStringLiteral("中心线提取完成：%1 个采样点，%2 个截面拟合失败")
 			.arg(report.centerlinePointCount)
 			.arg(report.sectionFitFailCount);
+		if (report.centerlineOtLcExtraction)
+		{
+			switch (report.centerlineOtPathKind)
+			{
+			case 1:
+				summary += QStringLiteral("；提线路径：OT 分簇链");
+				break;
+			case 0:
+				summary += QStringLiteral("；提线路径：收缩点云截面质心");
+				break;
+			default:
+				summary += QStringLiteral("；提线路径：有序折线兜底");
+				break;
+			}
+			summary += QStringLiteral("；sample 根 %1，边 %2，连通分量 %3")
+				.arg(report.centerlineOtRootCount)
+				.arg(report.centerlineOtEdgeCount)
+				.arg(report.centerlineOtComponentCount);
+			if (report.centerlineOtKnnFallbackEdges)
+			{
+				summary += QStringLiteral("（KNN 补边）");
+			}
+		}
+		return summary;
+	}
 	case PluginTubularGrindingStage::TemplatePoints:
 		return QStringLiteral("模板点位生成完成：%1 个点").arg(report.templatePointCount);
 	case PluginTubularGrindingStage::Project:
@@ -1892,6 +1939,212 @@ bool registerTubularGrindingNormalAxisLines(
 	return !outBackendId.empty();
 }
 
+bool registerTubularGrindingLocalAxisLines(
+	PluginHostContext* host,
+	cloudsim::host::DocumentHost* page,
+	const std::shared_ptr<MeshBackendData>& sourceMesh,
+	const std::vector<float>& lineXyz,
+	std::string& outBackendId,
+	std::string* errMsg)
+{
+	if (!page || !sourceMesh || lineXyz.size() < 6U || (lineXyz.size() % 6U) != 0U)
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid tubular grinding local axis lines";
+		}
+		return false;
+	}
+	auto meshPtr = std::make_shared<MeshBackendData>();
+	meshPtr->setOverlayLineSegments(lineXyz);
+	BackendColor c;
+	c.r = 1.0f;
+	c.g = 0.6f;
+	c.b = 0.1f;
+	c.a = 1.0f;
+	meshPtr->setColor(c);
+	meshPtr->setPose(sourceMesh->pose());
+	meshPtr->setRotation(sourceMesh->rotation());
+	PluginMeshCreateOptions options;
+	const QString baseName = QString::fromStdString(sourceMesh->name());
+	options.displayName = baseName.isEmpty() ? QStringLiteral("_局部轴线") : baseName + QStringLiteral("_局部轴线");
+	options.selectInTree = false;
+	options.sourcePath = QStringLiteral("plugin://pointcloud/tubular-grinding-local-axes");
+	outBackendId = document_point_cloud_ops::registerReconstructedMesh(
+		page, host ? host->mainWindowHost() : nullptr, meshPtr, options, errMsg);
+	return !outBackendId.empty();
+}
+
+bool registerTubularGrindingCenterlineLines(
+	PluginHostContext* host,
+	cloudsim::host::DocumentHost* page,
+	const std::shared_ptr<MeshBackendData>& sourceMesh,
+	const std::vector<float>& polylineXyz,
+	std::string& outBackendId,
+	std::string* errMsg)
+{
+	if (!page || !sourceMesh || polylineXyz.size() < 6U || (polylineXyz.size() % 3U) != 0U)
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid tubular grinding centerline polyline";
+		}
+		return false;
+	}
+	std::vector<float> lineXyz;
+	lineXyz.reserve((polylineXyz.size() / 3U - 1U) * 6U);
+	for (std::size_t i = 0; i + 5U < polylineXyz.size(); i += 3U)
+	{
+		lineXyz.push_back(polylineXyz[i]);
+		lineXyz.push_back(polylineXyz[i + 1U]);
+		lineXyz.push_back(polylineXyz[i + 2U]);
+		lineXyz.push_back(polylineXyz[i + 3U]);
+		lineXyz.push_back(polylineXyz[i + 4U]);
+		lineXyz.push_back(polylineXyz[i + 5U]);
+	}
+	auto meshPtr = std::make_shared<MeshBackendData>();
+	meshPtr->setOverlayLineSegments(std::move(lineXyz));
+	meshPtr->setOverlayLinesAlwaysOnTop(true);
+	BackendColor c;
+	c.r = 1.0f;
+	c.g = 0.15f;
+	c.b = 0.1f;
+	c.a = 1.0f;
+	meshPtr->setColor(c);
+	meshPtr->setPose(sourceMesh->pose());
+	meshPtr->setRotation(sourceMesh->rotation());
+	PluginMeshCreateOptions options;
+	const QString baseName = QString::fromStdString(sourceMesh->name());
+	options.displayName = baseName.isEmpty() ? QStringLiteral("中心线") : baseName + QStringLiteral("_中心线");
+	options.selectInTree = false;
+	options.sourcePath = QStringLiteral("plugin://pointcloud/tubular-grinding-centerline");
+	outBackendId = document_point_cloud_ops::registerReconstructedMesh(
+		page, host ? host->mainWindowHost() : nullptr, meshPtr, options, errMsg);
+	return !outBackendId.empty();
+}
+
+bool registerTubularGrindingCenterlineLines(
+	PluginHostContext* host,
+	cloudsim::host::DocumentHost* page,
+	const std::shared_ptr<PointCloudBackendData>& sourcePointCloud,
+	const std::vector<float>& polylineXyz,
+	std::string& outBackendId,
+	std::string* errMsg)
+{
+	if (!page || !sourcePointCloud || polylineXyz.size() < 6U || (polylineXyz.size() % 3U) != 0U)
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid tubular grinding centerline polyline";
+		}
+		return false;
+	}
+	std::vector<float> lineXyz;
+	lineXyz.reserve((polylineXyz.size() / 3U - 1U) * 6U);
+	for (std::size_t i = 0; i + 5U < polylineXyz.size(); i += 3U)
+	{
+		lineXyz.push_back(polylineXyz[i]);
+		lineXyz.push_back(polylineXyz[i + 1U]);
+		lineXyz.push_back(polylineXyz[i + 2U]);
+		lineXyz.push_back(polylineXyz[i + 3U]);
+		lineXyz.push_back(polylineXyz[i + 4U]);
+		lineXyz.push_back(polylineXyz[i + 5U]);
+	}
+	auto meshPtr = std::make_shared<MeshBackendData>();
+	meshPtr->setOverlayLineSegments(std::move(lineXyz));
+	meshPtr->setOverlayLinesAlwaysOnTop(true);
+	BackendColor c;
+	c.r = 1.0f;
+	c.g = 0.15f;
+	c.b = 0.1f;
+	c.a = 1.0f;
+	meshPtr->setColor(c);
+	meshPtr->setPose(sourcePointCloud->pose());
+	meshPtr->setRotation(sourcePointCloud->rotation());
+	PluginMeshCreateOptions options;
+	const QString baseName = QString::fromStdString(sourcePointCloud->name());
+	options.displayName = baseName.isEmpty() ? QStringLiteral("中心线") : baseName + QStringLiteral("_中心线");
+	options.selectInTree = false;
+	options.sourcePath = QStringLiteral("plugin://pointcloud/tubular-grinding-centerline");
+	outBackendId = document_point_cloud_ops::registerReconstructedMesh(
+		page, host ? host->mainWindowHost() : nullptr, meshPtr, options, errMsg);
+	return !outBackendId.empty();
+}
+
+bool registerTubularGrindingPcaAxisArrowLines(
+	PluginHostContext* host,
+	cloudsim::host::DocumentHost* page,
+	const std::shared_ptr<MeshBackendData>& sourceMesh,
+	const std::vector<float>& lineXyz,
+	std::string& outBackendId,
+	std::string* errMsg)
+{
+	if (!page || !sourceMesh || lineXyz.size() < 6U || (lineXyz.size() % 6U) != 0U)
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid tubular grinding PCA axis arrow lines";
+		}
+		return false;
+	}
+	auto meshPtr = std::make_shared<MeshBackendData>();
+	meshPtr->setOverlayLineSegments(lineXyz);
+	meshPtr->setOverlayLinesAlwaysOnTop(true);
+	BackendColor c;
+	c.r = 0.15f;
+	c.g = 0.95f;
+	c.b = 0.25f;
+	c.a = 1.0f;
+	meshPtr->setColor(c);
+	meshPtr->setPose(sourceMesh->pose());
+	meshPtr->setRotation(sourceMesh->rotation());
+	PluginMeshCreateOptions options;
+	const QString baseName = QString::fromStdString(sourceMesh->name());
+	options.displayName = baseName.isEmpty() ? QStringLiteral("PCA轴") : baseName + QStringLiteral("_PCA轴");
+	options.selectInTree = false;
+	options.sourcePath = QStringLiteral("plugin://pointcloud/tubular-grinding-pca-axis");
+	outBackendId = document_point_cloud_ops::registerReconstructedMesh(
+		page, host ? host->mainWindowHost() : nullptr, meshPtr, options, errMsg);
+	return !outBackendId.empty();
+}
+
+bool registerTubularGrindingPcaAxisArrowLines(
+	PluginHostContext* host,
+	cloudsim::host::DocumentHost* page,
+	const std::shared_ptr<PointCloudBackendData>& sourcePointCloud,
+	const std::vector<float>& lineXyz,
+	std::string& outBackendId,
+	std::string* errMsg)
+{
+	if (!page || !sourcePointCloud || lineXyz.size() < 6U || (lineXyz.size() % 6U) != 0U)
+	{
+		if (errMsg)
+		{
+			*errMsg = "invalid tubular grinding PCA axis arrow lines";
+		}
+		return false;
+	}
+	auto meshPtr = std::make_shared<MeshBackendData>();
+	meshPtr->setOverlayLineSegments(lineXyz);
+	meshPtr->setOverlayLinesAlwaysOnTop(true);
+	BackendColor c;
+	c.r = 0.15f;
+	c.g = 0.95f;
+	c.b = 0.25f;
+	c.a = 1.0f;
+	meshPtr->setColor(c);
+	meshPtr->setPose(sourcePointCloud->pose());
+	meshPtr->setRotation(sourcePointCloud->rotation());
+	PluginMeshCreateOptions options;
+	const QString baseName = QString::fromStdString(sourcePointCloud->name());
+	options.displayName = baseName.isEmpty() ? QStringLiteral("PCA轴") : baseName + QStringLiteral("_PCA轴");
+	options.selectInTree = false;
+	options.sourcePath = QStringLiteral("plugin://pointcloud/tubular-grinding-pca-axis");
+	outBackendId = document_point_cloud_ops::registerReconstructedMesh(
+		page, host ? host->mainWindowHost() : nullptr, meshPtr, options, errMsg);
+	return !outBackendId.empty();
+}
+
 bool registerTubularGrindingPointCloud(
 	cloudsim::host::DocumentHost* page,
 	const std::shared_ptr<MeshBackendData>& sourceMesh,
@@ -1916,6 +2169,43 @@ bool registerTubularGrindingPointCloud(
 	pcPtr->setPointBuffers(std::move(xyz), std::move(rgba));
 	pcPtr->setPose(sourceMesh->pose());
 	pcPtr->setRotation(sourceMesh->rotation());
+	cloudsim::host::AdoptPointCloudOptions adoptOpt;
+	adoptOpt.sourcePath = sourcePath;
+	adoptOpt.resetViewToHome = false;
+	const cloudsim::host::AdoptRegistrationResult adopted =
+		cloudsim::host::registerAdoptedPointCloud(*page, pcPtr, adoptOpt, errMsg);
+	if (!adopted.ok)
+	{
+		return false;
+	}
+	outBackendId = adopted.backendId.toStdString();
+	return true;
+}
+
+bool registerTubularGrindingPointCloud(
+	cloudsim::host::DocumentHost* page,
+	const std::shared_ptr<PointCloudBackendData>& sourcePointCloud,
+	const QString& displaySuffix,
+	const QString& sourcePath,
+	std::vector<float> xyz,
+	std::vector<float> rgba,
+	std::string& outBackendId,
+	QString* errMsg)
+{
+	if (!page || !sourcePointCloud || xyz.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = QStringLiteral("invalid tubular grinding point cloud");
+		}
+		return false;
+	}
+	auto pcPtr = std::make_shared<PointCloudBackendData>();
+	const QString baseName = QString::fromStdString(sourcePointCloud->name());
+	pcPtr->setName((baseName.isEmpty() ? displaySuffix.mid(1) : baseName + displaySuffix).toStdString());
+	pcPtr->setPointBuffers(std::move(xyz), std::move(rgba));
+	pcPtr->setPose(sourcePointCloud->pose());
+	pcPtr->setRotation(sourcePointCloud->rotation());
 	cloudsim::host::AdoptPointCloudOptions adoptOpt;
 	adoptOpt.sourcePath = sourcePath;
 	adoptOpt.resetViewToHome = false;
@@ -3100,13 +3390,17 @@ void PluginPointCloudHostImpl::eraseTubularGrindingSession(
 			(void)doc->removeBackendObject(backendId, &removeErr);
 		}
 	};
-	removeId(session->segmentColoredMeshBackendId);
-	removeId(session->ringColoredMeshBackendId);
-	removeId(session->ringCenterPointsBackendId);
 	removeId(session->normalAxisLinesBackendId);
+	removeId(session->localAxisLinesBackendId);
 	removeId(session->centerlinePointsBackendId);
+	removeId(session->centerlinePcaAxisBackendId);
 	removeId(session->templatePointsBackendId);
 	removeId(session->projectedPointsBackendId);
+	for (const auto& bid : session->iterationSnapshotBackendIds)
+	{
+		removeId(bid);
+	}
+	session->iterationSnapshotBackendIds.clear();
 	m_tubularGrindingSessions.erase(sessionId);
 }
 
@@ -3122,18 +3416,35 @@ PluginTubularGrindingSessionId PluginPointCloudHostImpl::beginTubularGrindingSes
 	}
 	std::string resolveErr;
 	const auto mesh = document_point_cloud_ops::resolveMesh(page, meshBackendIdUtf8, &resolveErr);
-	if (!mesh)
+	if (mesh)
+	{
+		const std::string newSessionId = makeTubularGrindingSessionId();
+		TubularGrindingHostSession session;
+		session.sessionId = newSessionId;
+		session.docId = doc->documentId();
+		session.meshBackendId = meshBackendIdUtf8;
+		session.rawSoup = mesh->triangleSoup();
+		session.inputKind = 0; // mesh
+		session.geoSession = geometry_backend_ops::createTubularGrindingSession(session.rawSoup);
+		session.lastCompleted = PluginTubularGrindingStage::None;
+		m_tubularGrindingSessions[newSessionId] = std::move(session);
+		out.value = newSessionId;
+		return out;
+	}
+	// 点云 fallback
+	const auto pc = document_point_cloud_ops::resolvePointCloud(page, meshBackendIdUtf8, &resolveErr);
+	if (!pc)
 	{
 		return out;
 	}
-
 	const std::string newSessionId = makeTubularGrindingSessionId();
 	TubularGrindingHostSession session;
 	session.sessionId = newSessionId;
 	session.docId = doc->documentId();
 	session.meshBackendId = meshBackendIdUtf8;
-	session.rawSoup = mesh->triangleSoup();
-	session.geoSession = geometry_backend_ops::createTubularGrindingSession(session.rawSoup);
+	session.rawPointXyz = pc->pointPositionsXyz();
+	session.inputKind = 1; // point cloud
+	session.geoSession = geometry_backend_ops::createTubularGrindingSessionFromPointCloud(session.rawPointXyz);
 	session.lastCompleted = PluginTubularGrindingStage::None;
 	m_tubularGrindingSessions[newSessionId] = std::move(session);
 	out.value = newSessionId;
@@ -3171,23 +3482,42 @@ void PluginPointCloudHostImpl::runTubularGrindingStage(
 		return;
 	}
 
+	const bool usePointCloud = session->inputKind == 1;
+	std::shared_ptr<MeshBackendData> mesh;
+	std::shared_ptr<PointCloudBackendData> sourcePointCloud;
 	std::string resolveErr;
-	const auto mesh = document_point_cloud_ops::resolveMesh(page, session->meshBackendId, &resolveErr);
-	if (!mesh)
+	if (usePointCloud)
 	{
-		onFinished(false, QString::fromStdString(resolveErr), {});
-		return;
+		sourcePointCloud =
+			document_point_cloud_ops::resolvePointCloud(page, session->meshBackendId, &resolveErr);
+		if (!sourcePointCloud)
+		{
+			onFinished(
+				false,
+				resolveErr.empty() ? QStringLiteral("点云对象无效") : QString::fromStdString(resolveErr),
+				{});
+			return;
+		}
+	}
+	else
+	{
+		mesh = document_point_cloud_ops::resolveMesh(page, session->meshBackendId, &resolveErr);
+		if (!mesh)
+		{
+			onFinished(false, QString::fromStdString(resolveErr), {});
+			return;
+		}
 	}
 
 	const geoalgo::TubularGrindingParams geoParams = buildTubularGrindingGeoParams(params);
 	struct WorkResult
 	{
 		geoalgo::TubularGrindingReport report;
-		std::string segmentColoredMeshBackendId;
-		std::string ringColoredMeshBackendId;
-		std::string ringCenterPointsBackendId;
 		std::string normalAxisLinesBackendId;
+		std::string localAxisLinesBackendId;
+		std::string ellipseResidualSummary;
 		std::string centerlinePointsBackendId;
+		std::string centerlinePcaAxisBackendId;
 		std::string templatePointsBackendId;
 		std::string projectedPointsBackendId;
 		std::string error;
@@ -3217,7 +3547,7 @@ void PluginPointCloudHostImpl::runTubularGrindingStage(
 				result->error = "tubular grinding failed with internal error";
 			}
 		},
-		[this, doc, session, stage, mesh, page, geoParams, result, onFinished = std::move(onFinished)](
+		[this, doc, session, stage, mesh, sourcePointCloud, usePointCloud, page, geoParams, result, onFinished = std::move(onFinished)](
 			const bool threw, const QString& throwMessage) {
 			if (threw)
 			{
@@ -3230,145 +3560,141 @@ void PluginPointCloudHostImpl::runTubularGrindingStage(
 				return;
 			}
 
-			if (stage == PluginTubularGrindingStage::Segment)
+			if (stage == PluginTubularGrindingStage::Centerline)
 			{
-				std::vector<float> coloredSoup;
-				std::vector<float> coloredRgb;
-				std::string colorErr;
-				if (geometry_backend_ops::buildTubularGrindingSegmentColoredMeshSoup(
-						*session->geoSession, coloredSoup, coloredRgb, &colorErr))
-				{
-					if (!session->segmentColoredMeshBackendId.empty() && doc)
-					{
-						std::string removeErr;
-						(void)doc->removeBackendObject(session->segmentColoredMeshBackendId, &removeErr);
-					}
-					std::string regErr;
-					if (!registerTubularGrindingColoredMeshFromSoup(
-							m_host,
-							page,
-							mesh,
-							coloredSoup,
-							coloredRgb,
-							QStringLiteral("_管段着色"),
-							result->segmentColoredMeshBackendId,
-							&regErr))
-					{
-						onFinished(false, QString::fromStdString(regErr), {});
-						return;
-					}
-					session->segmentColoredMeshBackendId = result->segmentColoredMeshBackendId;
-				}
-
-				std::vector<float> ringColoredSoup;
-				std::vector<float> ringColoredRgb;
-				std::string ringColorErr;
-				if (geometry_backend_ops::buildTubularGrindingRingColoredMeshSoup(
-						*session->geoSession, ringColoredSoup, ringColoredRgb, &ringColorErr))
-				{
-					if (!session->ringColoredMeshBackendId.empty() && doc)
-					{
-						std::string removeErr;
-						(void)doc->removeBackendObject(session->ringColoredMeshBackendId, &removeErr);
-					}
-					std::string regErr;
-					if (!registerTubularGrindingColoredMeshFromSoup(
-							m_host,
-							page,
-							mesh,
-							ringColoredSoup,
-							ringColoredRgb,
-							QStringLiteral("_环着色"),
-							result->ringColoredMeshBackendId,
-							&regErr))
-					{
-						onFinished(false, QString::fromStdString(regErr), {});
-						return;
-					}
-					session->ringColoredMeshBackendId = result->ringColoredMeshBackendId;
-				}
-
-				std::vector<float> ringCenterXyz;
-				std::vector<float> ringCenterRgba;
-				std::string ringCenterErr;
-				if (geometry_backend_ops::buildTubularGrindingRingCenterPointsCloud(
-						*session->geoSession, ringCenterXyz, ringCenterRgba, &ringCenterErr))
-				{
-					if (!session->ringCenterPointsBackendId.empty() && doc)
-					{
-						std::string removeErr;
-						(void)doc->removeBackendObject(session->ringCenterPointsBackendId, &removeErr);
-					}
-					QString adoptErr;
-					if (!registerTubularGrindingPointCloud(
-							page,
-							mesh,
-							QStringLiteral("_环圆心"),
-							QStringLiteral("plugin://pointcloud/tubular-grinding-ring-centers"),
-							std::move(ringCenterXyz),
-							std::move(ringCenterRgba),
-							result->ringCenterPointsBackendId,
-							&adoptErr))
-					{
-						onFinished(false, adoptErr, {});
-						return;
-					}
-					session->ringCenterPointsBackendId = result->ringCenterPointsBackendId;
-				}
-
-				std::vector<float> normalAxisLines;
-				std::string normalAxisErr;
-				if (geometry_backend_ops::buildTubularGrindingFaceNormalAxisLineSegments(
-						*session->geoSession, geoParams, normalAxisLines, &normalAxisErr))
-				{
-					if (!session->normalAxisLinesBackendId.empty() && doc)
-					{
-						std::string removeErr;
-						(void)doc->removeBackendObject(session->normalAxisLinesBackendId, &removeErr);
-					}
-					std::string regErr;
-					if (!registerTubularGrindingNormalAxisLines(
-							m_host,
-							page,
-							mesh,
-							normalAxisLines,
-							result->normalAxisLinesBackendId,
-							&regErr))
-					{
-						onFinished(false, QString::fromStdString(regErr), {});
-						return;
-					}
-					session->normalAxisLinesBackendId = result->normalAxisLinesBackendId;
-				}
-			}
-			else if (stage == PluginTubularGrindingStage::Centerline)
-			{
-				std::vector<float> xyz;
-				std::vector<float> rgba;
-				std::string pcErr;
-				if (geometry_backend_ops::buildTubularGrindingCenterlinePointsCloud(
-						*session->geoSession, xyz, rgba, &pcErr))
+				std::vector<float> polylineXyz;
+				std::string polyErr;
+				if (geometry_backend_ops::buildTubularGrindingCenterlinePolylineXyz(
+						*session->geoSession, polylineXyz, &polyErr))
 				{
 					if (!session->centerlinePointsBackendId.empty() && doc)
 					{
 						std::string removeErr;
 						(void)doc->removeBackendObject(session->centerlinePointsBackendId, &removeErr);
 					}
-					QString adoptErr;
-					if (!registerTubularGrindingPointCloud(
+					std::string adoptErr;
+					const bool centerlineRegistered = usePointCloud
+						? registerTubularGrindingCenterlineLines(
+							m_host,
+							page,
+							sourcePointCloud,
+							polylineXyz,
+							result->centerlinePointsBackendId,
+							&adoptErr)
+						: registerTubularGrindingCenterlineLines(
+							m_host,
 							page,
 							mesh,
-							QStringLiteral("_中心线"),
-							QStringLiteral("plugin://pointcloud/tubular-grinding-centerline"),
-							std::move(xyz),
-							std::move(rgba),
+							polylineXyz,
 							result->centerlinePointsBackendId,
-							&adoptErr))
+							&adoptErr);
+					if (!centerlineRegistered)
 					{
-						onFinished(false, adoptErr, {});
+						onFinished(false, QString::fromStdString(adoptErr), {});
 						return;
 					}
 					session->centerlinePointsBackendId = result->centerlinePointsBackendId;
+				}
+
+				std::vector<float> pcaLineXyz;
+				std::string pcaErr;
+				if (geometry_backend_ops::buildTubularGrindingCenterlinePcaAxisArrowLineSegments(
+						*session->geoSession, pcaLineXyz, &pcaErr))
+				{
+					if (!session->centerlinePcaAxisBackendId.empty() && doc)
+					{
+						std::string removeErr;
+						(void)doc->removeBackendObject(session->centerlinePcaAxisBackendId, &removeErr);
+					}
+					std::string pcaAdoptErr;
+					const bool pcaRegistered = usePointCloud
+						? registerTubularGrindingPcaAxisArrowLines(
+							m_host,
+							page,
+							sourcePointCloud,
+							pcaLineXyz,
+							result->centerlinePcaAxisBackendId,
+							&pcaAdoptErr)
+						: registerTubularGrindingPcaAxisArrowLines(
+							m_host,
+							page,
+							mesh,
+							pcaLineXyz,
+							result->centerlinePcaAxisBackendId,
+							&pcaAdoptErr);
+					if (!pcaRegistered)
+					{
+						onFinished(false, QString::fromStdString(pcaAdoptErr), {});
+						return;
+					}
+					session->centerlinePcaAxisBackendId = result->centerlinePcaAxisBackendId;
+				}
+
+				for (const auto& bid : session->iterationSnapshotBackendIds)
+				{
+					if (!bid.empty() && doc)
+					{
+						(void)doc->removeBackendObject(bid, nullptr);
+					}
+				}
+				session->iterationSnapshotBackendIds.clear();
+				const int snapCount =
+					geometry_backend_ops::tubularGrindingIterationSnapshotCount(*session->geoSession);
+				for (int si = 0; si < snapCount; ++si)
+				{
+					const int iteration =
+						geometry_backend_ops::tubularGrindingIterationSnapshotIteration(
+							*session->geoSession, si);
+					std::vector<float> snapXyz;
+					std::vector<float> snapRgba;
+					std::string snapErr;
+					if (!geometry_backend_ops::buildTubularGrindingIterationSnapshotPointsCloud(
+							*session->geoSession, si, snapXyz, snapRgba, &snapErr))
+					{
+						continue;
+					}
+					const QString suffix = QStringLiteral("_迭代%1").arg(iteration);
+					std::string backendId;
+					QString adoptErr;
+					const bool registered = usePointCloud
+						? registerTubularGrindingPointCloud(
+							page, sourcePointCloud, suffix,
+							QStringLiteral("plugin://pointcloud/tubular-grinding-iteration"),
+							std::move(snapXyz), std::move(snapRgba),
+							backendId, &adoptErr)
+						: registerTubularGrindingPointCloud(
+							page, mesh, suffix,
+							QStringLiteral("plugin://pointcloud/tubular-grinding-iteration"),
+							std::move(snapXyz), std::move(snapRgba),
+							backendId, &adoptErr);
+					if (registered && !backendId.empty())
+					{
+						session->iterationSnapshotBackendIds.push_back(backendId);
+					}
+					std::vector<float> contractedXyz;
+					std::vector<float> contractedRgba;
+					if (geometry_backend_ops::buildTubularGrindingIterationSnapshotContractedPointsCloud(
+							*session->geoSession, si, contractedXyz, contractedRgba, &snapErr))
+					{
+						const QString contractedSuffix =
+							QStringLiteral("_迭代%1_收缩").arg(iteration);
+						std::string contractedBackendId;
+						const bool contractedRegistered = usePointCloud
+							? registerTubularGrindingPointCloud(
+								page, sourcePointCloud, contractedSuffix,
+								QStringLiteral("plugin://pointcloud/tubular-grinding-iteration-contracted"),
+								std::move(contractedXyz), std::move(contractedRgba),
+								contractedBackendId, &adoptErr)
+							: registerTubularGrindingPointCloud(
+								page, mesh, contractedSuffix,
+								QStringLiteral("plugin://pointcloud/tubular-grinding-iteration-contracted"),
+								std::move(contractedXyz), std::move(contractedRgba),
+								contractedBackendId, &adoptErr);
+						if (contractedRegistered && !contractedBackendId.empty())
+						{
+							session->iterationSnapshotBackendIds.push_back(contractedBackendId);
+						}
+					}
 				}
 			}
 			else if (stage == PluginTubularGrindingStage::TemplatePoints)
@@ -3385,7 +3711,17 @@ void PluginPointCloudHostImpl::runTubularGrindingStage(
 						(void)doc->removeBackendObject(session->templatePointsBackendId, &removeErr);
 					}
 					QString adoptErr;
-					if (!registerTubularGrindingPointCloud(
+					const bool templateRegistered = usePointCloud
+						? registerTubularGrindingPointCloud(
+							page,
+							sourcePointCloud,
+							QStringLiteral("_模板点位"),
+							QStringLiteral("plugin://pointcloud/tubular-grinding-template"),
+							std::move(xyz),
+							std::move(rgba),
+							result->templatePointsBackendId,
+							&adoptErr)
+						: registerTubularGrindingPointCloud(
 							page,
 							mesh,
 							QStringLiteral("_模板点位"),
@@ -3393,7 +3729,8 @@ void PluginPointCloudHostImpl::runTubularGrindingStage(
 							std::move(xyz),
 							std::move(rgba),
 							result->templatePointsBackendId,
-							&adoptErr))
+							&adoptErr);
+					if (!templateRegistered)
 					{
 						onFinished(false, adoptErr, {});
 						return;
@@ -3415,7 +3752,17 @@ void PluginPointCloudHostImpl::runTubularGrindingStage(
 						(void)doc->removeBackendObject(session->projectedPointsBackendId, &removeErr);
 					}
 					QString adoptErr;
-					if (!registerTubularGrindingPointCloud(
+					const bool projectRegistered = usePointCloud
+						? registerTubularGrindingPointCloud(
+							page,
+							sourcePointCloud,
+							QStringLiteral("_投影点位"),
+							QStringLiteral("plugin://pointcloud/tubular-grinding-project"),
+							std::move(xyz),
+							std::move(rgba),
+							result->projectedPointsBackendId,
+							&adoptErr)
+						: registerTubularGrindingPointCloud(
 							page,
 							mesh,
 							QStringLiteral("_投影点位"),
@@ -3423,7 +3770,8 @@ void PluginPointCloudHostImpl::runTubularGrindingStage(
 							std::move(xyz),
 							std::move(rgba),
 							result->projectedPointsBackendId,
-							&adoptErr))
+							&adoptErr);
+					if (!projectRegistered)
 					{
 						onFinished(false, adoptErr, {});
 						return;
@@ -3444,9 +3792,13 @@ void PluginPointCloudHostImpl::runTubularGrindingStage(
 			pluginReport.projectedPointCount = result->report.projectedPointCount;
 			pluginReport.sectionFitFailCount = result->report.sectionFitFailCount;
 			pluginReport.projectionHitRate = result->report.projectionHitRate;
-			pluginReport.segmentColoredMeshBackendId = session->segmentColoredMeshBackendId;
-			pluginReport.ringColoredMeshBackendId = session->ringColoredMeshBackendId;
-			pluginReport.ringCenterPointsBackendId = session->ringCenterPointsBackendId;
+			pluginReport.centerlinePcaFallback = result->report.centerlinePcaFallback;
+			pluginReport.centerlineOtLcExtraction = result->report.centerlineOtLcExtraction;
+			pluginReport.centerlineOtRootCount = result->report.centerlineOtRootCount;
+			pluginReport.centerlineOtEdgeCount = result->report.centerlineOtEdgeCount;
+			pluginReport.centerlineOtComponentCount = result->report.centerlineOtComponentCount;
+			pluginReport.centerlineOtKnnFallbackEdges = result->report.centerlineOtKnnFallbackEdges;
+			pluginReport.centerlineOtPathKind = result->report.centerlineOtPathKind;
 			pluginReport.normalAxisLinesBackendId = session->normalAxisLinesBackendId;
 			pluginReport.centerlinePointsBackendId = session->centerlinePointsBackendId;
 			pluginReport.templatePointsBackendId = session->templatePointsBackendId;
@@ -3455,6 +3807,12 @@ void PluginPointCloudHostImpl::runTubularGrindingStage(
 			if (m_host)
 			{
 				m_host->logInfo(QStringLiteral("[特征构建] %1").arg(pluginReport.stageSummaryZh));
+				// 输出椭圆拟合残差摘要
+				if (!result->ellipseResidualSummary.empty())
+				{
+					m_host->logInfo(QStringLiteral("[特征构建] %1")
+						.arg(QString::fromStdString(result->ellipseResidualSummary)));
+				}
 			}
 			onFinished(true, QString(), pluginReport);
 		});

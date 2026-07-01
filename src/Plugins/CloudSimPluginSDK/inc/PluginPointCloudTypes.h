@@ -487,6 +487,28 @@ enum class PluginTubularGrindingTemplateKind : int
 	Auto = 4,
 };
 
+/// 邻域搜索模式
+enum class PluginNeighborhoodMode : int
+{
+	Fixed2Hop = 0,
+	Adaptive = 1,
+};
+
+/// 截面拟合模式
+enum class PluginSectionFitMode : int
+{
+	Circle = 0,
+	Ellipse = 1,
+	ConvexHull = 2,
+};
+
+/// 中心线提取算法
+enum class PluginTubularGrindingCenterlineMethod : int
+{
+	Laplacian = 0,
+	OtLc = 1,
+};
+
 struct PluginTubularGrindingParams
 {
 	double ringCenterClusterEpsMm = 0.0;
@@ -505,6 +527,33 @@ struct PluginTubularGrindingParams
 	int axialMeridians = 24;
 	int zigzagPasses = 40;
 	double projectionMaxDistMm = 10.0;
+
+	// 广义管状分析新增参数
+	PluginNeighborhoodMode neighborhoodMode = PluginNeighborhoodMode::Adaptive;
+	double geodesicRadiusMm = 0.0;
+	PluginSectionFitMode sectionFitMode = PluginSectionFitMode::Ellipse;
+	double transitionAspectRatioThreshold = 0.3;
+	int centerlineIterations = 80;
+	double centerlineConvergenceEpsMm = 0.01;
+
+	// 拉普拉斯收缩新增参数
+	double laplacianLambda = 0.1;
+	double laplacianAttraction = 0.2;
+	int laplacianKNeighbors = 8;
+
+	PluginTubularGrindingCenterlineMethod centerlineMethod =
+		PluginTubularGrindingCenterlineMethod::Laplacian;
+
+	// OTLC 中心线（点云 / 可选网格）
+	double otSampleRate = 0.10;
+	double otCostBeta = 3.0;
+	int otcPreSteps = 3;
+	int otcOuterLoops = 3;
+	int otLcOuterMaxIters = 40;
+	int pointCloudKnnK = 30;
+
+	/// 根点合并下限（0 = 自动：max(40, sampleCount×0.15)）
+	int minRootsBySamples = 0;
 };
 
 enum class PluginTubularGrindingStage : int
@@ -535,10 +584,15 @@ struct PluginTubularGrindingReport
 	int projectedPointCount = 0;
 	int sectionFitFailCount = 0;
 	double projectionHitRate = 0.0;
-	std::string segmentColoredMeshBackendId;
-	std::string ringColoredMeshBackendId;
-	std::string ringCenterPointsBackendId;
+	bool centerlinePcaFallback = false;
+	bool centerlineOtLcExtraction = false;
+	int centerlineOtRootCount = 0;
+	int centerlineOtEdgeCount = 0;
+	int centerlineOtComponentCount = 0;
+	bool centerlineOtKnnFallbackEdges = false;
+	int centerlineOtPathKind = 0;
 	std::string normalAxisLinesBackendId;
+	std::string localAxisLinesBackendId;
 	std::string centerlinePointsBackendId;
 	std::string templatePointsBackendId;
 	std::string projectedPointsBackendId;
