@@ -4,6 +4,7 @@
 #include "KdTreePointSet.h"
 #include "Measure.h"
 #include "PointCloudBuffer.h"
+#include "PointFeatures.h"
 #include "Preprocess.h"
 #include "RegistrationRigid.h"
 #include "Transform.h"
@@ -24,7 +25,6 @@ namespace
 {
 
 constexpr std::size_t kFpfhDim = 33U;
-constexpr std::size_t kFpfhBinsPerFeature = 11U;
 
 Eigen::Vector3d pointAt(const std::vector<float>& xyz, const std::size_t i)
 {
@@ -52,19 +52,6 @@ double boundingBoxDiagonalMm(const std::vector<float>& xyz)
 		return 0.0;
 	}
 	return box.diagonal().norm();
-}
-
-// 使用 KD-tree 加速的 K 近邻搜索
-void findKNearest(
-	const KdTreePointSet& tree,
-	const std::vector<float>& xyz,
-	const std::size_t queryIndex,
-	const unsigned int k,
-	std::vector<std::size_t>& outIndices,
-	std::vector<double>& outDistSq)
-{
-	const Eigen::Vector3d query = pointAt(xyz, queryIndex);
-	tree.findKNearest(query.x(), query.y(), query.z(), k, outIndices, outDistSq);
 }
 
 // 原始暴力搜索版本（保留用于小点云或 KD-tree 不可用时）
@@ -116,143 +103,6 @@ void findKNearestBruteForce(
 	}
 }
 
-std::size_t histogramBin(const double value)
-{
-	const double clamped = (std::max)(-1.0, (std::min)(1.0, value));
-	const double scaled = (clamped + 1.0) * 0.5 * static_cast<double>(kFpfhBinsPerFeature);
-	std::size_t bin = static_cast<std::size_t>(scaled);
-	if (bin >= kFpfhBinsPerFeature)
-	{
-		bin = kFpfhBinsPerFeature - 1U;
-	}
-	return bin;
-}
-
-void accumulatePairFeatures(
-	const Eigen::Vector3d& p1,
-	const Eigen::Vector3d& n1,
-	const Eigen::Vector3d& p2,
-	const Eigen::Vector3d& n2,
-	std::vector<float>& hist)
-{
-	const Eigen::Vector3d dp = p2 - p1;
-	const double dist = dp.norm();
-	if (dist < 1e-9)
-	{
-		return;
-	}
-	const Eigen::Vector3d dpN = dp / dist;
-	const double f1 = n1.dot(dpN);
-	const double f2 = dpN.dot(n2);
-	const double f3 = n1.dot(n2);
-
-	hist[histogramBin(f1)] += 100.0f;
-	hist[kFpfhBinsPerFeature + histogramBin(f2)] += 100.0f;
-	hist[2U * kFpfhBinsPerFeature + histogramBin(f3)] += 100.0f;
-}
-
-void computeSpfhForCloud(
-	const std::vector<float>& xyz,
-	const std::vector<float>& normals,
-	const unsigned int kNeighbors,
-	std::vector<float>& outSpfh)
-{
-	const std::size_t n = pointCountFromXyz(xyz);
-	outSpfh.assign(n * kFpfhDim, 0.0f);
-
-	// 构建 KD-tree 加速 K 近邻搜索
-	const KdTreePointSet tree(xyz);
-
-	std::vector<std::size_t> nnIdx;
-	std::vector<double> nnDistSq;
-	for (std::size_t i = 0; i < n; ++i)
-	{
-		findKNearest(tree, xyz, i, kNeighbors, nnIdx, nnDistSq);
-		std::vector<float> hist(kFpfhDim, 0.0f);
-		const Eigen::Vector3d pi = pointAt(xyz, i);
-		const Eigen::Vector3d ni = normalAt(normals, i);
-		for (const std::size_t j : nnIdx)
-		{
-			accumulatePairFeatures(pi, ni, pointAt(xyz, j), normalAt(normals, j), hist);
-		}
-		float sum = 0.0f;
-		for (const float v : hist)
-		{
-			sum += v;
-		}
-		if (sum > 1e-6f)
-		{
-			for (float& v : hist)
-			{
-				v /= sum;
-			}
-		}
-		std::copy(hist.begin(), hist.end(), outSpfh.begin() + i * kFpfhDim);
-	}
-}
-
-void computeFpfhForCloud(
-	const std::vector<float>& xyz,
-	const std::vector<float>& normals,
-	const std::vector<float>& spfh,
-	const unsigned int kNeighbors,
-	std::vector<float>& outFpfh)
-{
-	const std::size_t n = pointCountFromXyz(xyz);
-	outFpfh.assign(n * kFpfhDim, 0.0f);
-
-	// 构建 KD-tree 加速 K 近邻搜索
-	const KdTreePointSet tree(xyz);
-
-	std::vector<std::size_t> nnIdx;
-	std::vector<double> nnDistSq;
-	for (std::size_t i = 0; i < n; ++i)
-	{
-		findKNearest(tree, xyz, i, kNeighbors, nnIdx, nnDistSq);
-		std::vector<float> feat(kFpfhDim, 0.0f);
-		float weightSum = 0.0f;
-		for (std::size_t k = 0; k < nnIdx.size(); ++k)
-		{
-			const std::size_t j = nnIdx[k];
-			const float w = 1.0f / static_cast<float>(std::sqrt((std::max)(nnDistSq[k], 1e-12)));
-			weightSum += w;
-			for (std::size_t d = 0; d < kFpfhDim; ++d)
-			{
-				feat[d] += w * spfh[j * kFpfhDim + d];
-			}
-		}
-		for (std::size_t d = 0; d < kFpfhDim; ++d)
-		{
-			const float self = spfh[i * kFpfhDim + d];
-			const float neighborPart = weightSum > 1e-6f ? (feat[d] / weightSum) : 0.0f;
-			outFpfh[i * kFpfhDim + d] = self + neighborPart;
-		}
-		float sum = 0.0f;
-		for (std::size_t d = 0; d < kFpfhDim; ++d)
-		{
-			sum += outFpfh[i * kFpfhDim + d];
-		}
-		if (sum > 1e-6f)
-		{
-			for (std::size_t d = 0; d < kFpfhDim; ++d)
-			{
-				outFpfh[i * kFpfhDim + d] /= sum;
-			}
-		}
-	}
-}
-
-float featureDistance(const float* a, const float* b)
-{
-	float sum = 0.0f;
-	for (std::size_t d = 0; d < kFpfhDim; ++d)
-	{
-		const float diff = a[d] - b[d];
-		sum += diff * diff;
-	}
-	return sum;
-}
-
 void buildFeatureCorrespondences(
 	const std::vector<float>& srcFpfh,
 	const std::vector<float>& tgtFpfh,
@@ -269,7 +119,7 @@ void buildFeatureCorrespondences(
 		float second = std::numeric_limits<float>::max();
 		for (std::size_t j = 0; j < nSrc; ++j)
 		{
-			const float d = featureDistance(
+			const float d = fpfhL2Distance(
 				tgtFpfh.data() + i * kFpfhDim,
 				srcFpfh.data() + j * kFpfhDim);
 			if (d < best)
@@ -294,7 +144,7 @@ void buildFeatureCorrespondences(
 		std::size_t bestTgt = static_cast<std::size_t>(-1);
 		for (std::size_t j = 0; j < nTgt; ++j)
 		{
-			const float d = featureDistance(
+			const float d = fpfhL2Distance(
 				srcFpfh.data() + i * kFpfhDim,
 				tgtFpfh.data() + j * kFpfhDim);
 			if (d < best)

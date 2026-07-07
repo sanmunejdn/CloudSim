@@ -8,6 +8,8 @@
 #include <functional>
 #include <memory>
 
+#include <QVector>
+
 struct PickResult;
 enum class PickKind;
 
@@ -85,4 +87,18 @@ public:
 
 	virtual void setMeshPickCommittedHandler(std::function<void(const PickResult&, PickKind)> handler) = 0;
 	virtual void clearMeshPickCommittedHandler() = 0;
+
+	struct MeshTriangleLabelingPickHandlers
+	{
+		std::function<void(const PickResult&)> onClick;
+		std::function<void(const std::vector<int>&)> onBrushStroke;
+		std::function<void(const QVector<float>&, const QVector<double>&, int, int)> onPolylineClosed;
+	};
+
+	virtual void setMeshTriangleLabelingPickHandlers(MeshTriangleLabelingPickHandlers handlers) = 0;
+	virtual void clearMeshTriangleLabelingPickHandlers() = 0;
+
+	/// 直接结束 OSG 截面编辑（退出阶段勿走 osgView 重建/reset）
+	virtual void endMeshSectionPlaneEditDirect() = 0;
+	virtual void hideMeshSectionPlaneDirect() = 0;
 };

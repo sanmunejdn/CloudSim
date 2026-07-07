@@ -12,6 +12,14 @@
 struct PickResult;
 enum class PickKind;
 
+enum class MeshTrianglePickTool
+{
+	None = 0,
+	Click,
+	Brush,
+	Polyline
+};
+
 class IRobotBackendPoseSink;
 namespace engine { class RigidTransform; }
 
@@ -44,7 +52,9 @@ public:
 
 	virtual void setInstructionPoseAxes(const std::vector<RobotOsgUi::InstructionPoseAxis>& axes) = 0;
 	virtual void clearInstructionPoseAxes() = 0;
-	virtual void setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points) = 0;
+	virtual void setRawTrajectoryOverlay(
+		const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
+		const std::vector<std::size_t>& segmentEndExclusive = {}) = 0;
 	virtual void clearRawTrajectoryOverlay() = 0;
 	virtual void setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& frames) = 0;
 	virtual void clearRawTrajectoryOverlayFrames() = 0;
@@ -71,6 +81,37 @@ public:
 	virtual bool meshLinePickMode() const = 0;
 	virtual bool meshFacePickMode() const = 0;
 	virtual void setMeshPickScopeBackendId(const std::string& backendId) = 0;
+
+	/// mesh 轨迹/区域三角面拾取（委托 OsgWidget 标注拾取模式）
+	virtual void setMeshTrianglePickTool(MeshTrianglePickTool tool, float brushRadiusPx = 12.f) = 0;
+	virtual void cancelMeshTrianglePick() = 0;
+	virtual MeshTrianglePickTool meshTrianglePickTool() const = 0;
+
+	virtual void setPolylinePickMode(bool enabled) = 0;
+	virtual bool polylinePickMode() const = 0;
+
+	virtual void showMeshTriangleHighlight(const std::vector<osg::Vec3f>& triangleVertsWorld) = 0;
+	virtual void clearMeshTriangleHighlight() = 0;
+
+	virtual void showMeshFittedSurfacePreview(const std::vector<osg::Vec3f>& triangleVertsWorld) = 0;
+	virtual void clearMeshFittedSurfacePreview() = 0;
+
+	virtual void showMeshSectionPlane(
+		const std::string& backendIdUtf8,
+		const double originModelMm[3],
+		const double normalModel[3]) = 0;
+	virtual void beginMeshSectionPlaneEdit(
+		const std::string& backendIdUtf8,
+		const double originModelMm[3],
+		const double normalModel[3],
+		std::function<void(const double origin[3], const double normal[3])> onChanged) = 0;
+	virtual void updateMeshSectionPlanePose(const double originModelMm[3], const double normalModel[3]) = 0;
+	virtual void endMeshSectionPlaneEdit() = 0;
+	virtual void hideMeshSectionPlane() = 0;
+	virtual void setMeshSectionPlanePreviewVisible(bool visible) = 0;
+	virtual bool getCameraViewDirectionInBackendModel(
+		const std::string& backendIdUtf8,
+		double outDirModel[3]) const = 0;
 
 	virtual void setFeatureCatalogOverlay(const std::vector<RobotOsgUi::FeatureCatalogOverlayItem>& items) = 0;
 	virtual void clearFeatureCatalogOverlay() = 0;

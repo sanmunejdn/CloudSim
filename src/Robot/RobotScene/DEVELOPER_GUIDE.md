@@ -511,7 +511,7 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 
 | 类型 | 说明 |
 |------|------|
-| `RawTrajectory` | `points` + `TrajectoryContext` + 溯源 `sourceFeature` |
+| `RawTrajectory` | `points` + `TrajectoryContext` + 溯源 `sourceFeature`；可选 `segmentEndExclusive`（Mesh 截面多交线段） |
 | `TrajectoryPoint` | `poseMm`、`eulerDeg`、`blendRadiusMm`、`speedMmPerSec`、`reachable` |
 | `TrajectoryContext` | `workpieceFrameId`、`toolFrameId`、`externalAxes[]`（地轨/变位机快照，非工艺字段） |
 | `RawTrajectoryOpKind` | **遗留枚举**；新代码使用 `TrajectoryOpKind` + `ITrajectoryOp::processPath` |
@@ -519,14 +519,15 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 
 | API | 作用 |
 |-----|------|
-| `importRawPathToTrajectory` | `RawPath` + `FrameStrategy`（法向 Z / 固定 Z / 切向 X）→ 姿态 |
+| `importRawPathToTrajectory` | `RawPath` + `FrameStrategy`（法向 Z / 固定 Z / 切向 X）→ 姿态；复制 `segmentEndExclusive` |
+| `importMeshRawPathToRawTrajectory` | Mesh 轨迹：`generateRawPath` → `RawTrajectory`（见 MeshTrajectorySDK） |
 | `importTubularGrindingPointsToRawTrajectory` | **预留（桩）**：`geoalgo::TubularGrindingProjectedPoints` → `RawTrajectory`；见 [`inc/TubularGrindingTrajectoryIngress.h`](inc/TubularGrindingTrajectoryIngress.h) |
 | `ingressUnifiedFromRaw` / `ingressUnifiedFromProgram` | Raw 或程序 → Unified（引擎 Ingress） |
 | `buildRecipePreset` | 工艺 UI 入口 → `ProcessFlowPresets.json` 原子 `pipeline` |
 | `unifiedTrajectoryFromRaw` / `unifiedTrajectoryFromProgram` | 同上 Ingress 的薄封装 |
 | `unifiedTrajectoryToRaw` | Unified → 点位列（轨迹编辑预览为世界 mm，由 UI 直接画 OSG） |
 | `RobotSceneGeometryProjection` | `IGeometryProjection` 适配，封装 `projectUnifiedToGeometry` |
-| `emitRawTrajectoryToProgram` | 可达点 → `LineInstruction` 写入 `steps` 并建分组；无 PathPlan 绑定时清空后整写；绑定 PathPlan 时按该条 `PathPlanOutput` 成员 id 局部替换（与 `unifiedTrajectoryMergeIntoProgram` 一致） |
+| `emitRawTrajectoryToProgram` | 可达点 → `LineInstruction`；多段时按 `segmentEndExclusive` 建多个输出分组（`*_S1`…）；PathPlan 绑定行为同前 |
 | `rawTrajectoryToPreviewPolylineXyz` / `rawTrajectoryReachabilityColorsJson` | UI/OSG 预览 |
 
 实现：[`source/RawTrajectory.cpp`](source/RawTrajectory.cpp)。

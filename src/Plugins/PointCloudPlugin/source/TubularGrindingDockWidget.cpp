@@ -259,14 +259,129 @@ TubularGrindingDockWidget::TubularGrindingDockWidget(IPluginHostContext* host, Q
 		QString(),
 		QString());
 	m_paramTabs->addTab(trajectoryPage, QStringLiteral("Trajectory"));
+	// --- FPFH Mesh 区域划分 ---
+	auto* fpfhPage = new QWidget(m_paramTabs);
+	auto* fpfhForm = new QFormLayout(fpfhPage);
+	fpfhForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+	fpfhForm->setLabelAlignment(Qt::AlignTop);
+	m_fpfhFeatureVoxelSpin = new QDoubleSpinBox(fpfhPage);
+	m_fpfhFeatureVoxelSpin->setRange(0.0, 50.0);
+	m_fpfhFeatureVoxelSpin->setSingleStep(0.1);
+	m_fpfhFeatureVoxelSpin->setDecimals(2);
+	m_fpfhFeatureVoxelSpin->setValue(0.0);
+	m_fpfhFeatureVoxelSpin->setSpecialValueText(QStringLiteral("Auto"));
+	m_fpfhFeatureVoxelSpin->setSuffix(QStringLiteral(" mm"));
+	addParamRow(
+		fpfhForm,
+		m_fpfhFeatureVoxelLabel,
+		m_fpfhFeatureVoxelSpin,
+		m_fpfhFeatureVoxelHint,
+		QString(),
+		QString());
+	m_fpfhMaxSamplePointsSpin = new QSpinBox(fpfhPage);
+	m_fpfhMaxSamplePointsSpin->setRange(0, 50000);
+	m_fpfhMaxSamplePointsSpin->setSingleStep(500);
+	m_fpfhMaxSamplePointsSpin->setValue(0);
+	m_fpfhMaxSamplePointsSpin->setSpecialValueText(QStringLiteral("Auto"));
+	addParamRow(
+		fpfhForm,
+		m_fpfhMaxSamplePointsLabel,
+		m_fpfhMaxSamplePointsSpin,
+		m_fpfhMaxSamplePointsHint,
+		QString(),
+		QString());
+	m_fpfhNeighborsSpin = new QSpinBox(fpfhPage);
+	m_fpfhNeighborsSpin->setRange(5, 100);
+	m_fpfhNeighborsSpin->setValue(20);
+	addParamRow(
+		fpfhForm,
+		m_fpfhNeighborsLabel,
+		m_fpfhNeighborsSpin,
+		m_fpfhNeighborsHint,
+		QString(),
+		QString());
+	m_fpfhSaliencyNeighborsSpin = new QSpinBox(fpfhPage);
+	m_fpfhSaliencyNeighborsSpin->setRange(5, 50);
+	m_fpfhSaliencyNeighborsSpin->setValue(10);
+	addParamRow(
+		fpfhForm,
+		m_fpfhSaliencyNeighborsLabel,
+		m_fpfhSaliencyNeighborsSpin,
+		m_fpfhSaliencyNeighborsHint,
+		QString(),
+		QString());
+	m_fpfhKeypointCountSpin = new QSpinBox(fpfhPage);
+	m_fpfhKeypointCountSpin->setRange(0, 256);
+	m_fpfhKeypointCountSpin->setValue(0);
+	m_fpfhKeypointCountSpin->setSpecialValueText(QStringLiteral("Auto"));
+	addParamRow(
+		fpfhForm,
+		m_fpfhKeypointCountLabel,
+		m_fpfhKeypointCountSpin,
+		m_fpfhKeypointCountHint,
+		QString(),
+		QString());
+	m_fpfhKeypointMinSepSpin = new QDoubleSpinBox(fpfhPage);
+	m_fpfhKeypointMinSepSpin->setRange(0.0, 100.0);
+	m_fpfhKeypointMinSepSpin->setSingleStep(0.5);
+	m_fpfhKeypointMinSepSpin->setDecimals(2);
+	m_fpfhKeypointMinSepSpin->setValue(0.0);
+	m_fpfhKeypointMinSepSpin->setSpecialValueText(QStringLiteral("Auto"));
+	m_fpfhKeypointMinSepSpin->setSuffix(QStringLiteral(" mm"));
+	addParamRow(
+		fpfhForm,
+		m_fpfhKeypointMinSepLabel,
+		m_fpfhKeypointMinSepSpin,
+		m_fpfhKeypointMinSepHint,
+		QString(),
+		QString());
+	m_fpfhRegionGrowDistSpin = new QDoubleSpinBox(fpfhPage);
+	m_fpfhRegionGrowDistSpin->setRange(0.0, 2.0);
+	m_fpfhRegionGrowDistSpin->setSingleStep(0.05);
+	m_fpfhRegionGrowDistSpin->setDecimals(2);
+	m_fpfhRegionGrowDistSpin->setValue(0.0);
+	m_fpfhRegionGrowDistSpin->setSpecialValueText(QStringLiteral("Auto"));
+	addParamRow(
+		fpfhForm,
+		m_fpfhRegionGrowDistLabel,
+		m_fpfhRegionGrowDistSpin,
+		m_fpfhRegionGrowDistHint,
+		QString(),
+		QString());
+	m_fpfhRegionGrowAngleSpin = new QDoubleSpinBox(fpfhPage);
+	m_fpfhRegionGrowAngleSpin->setRange(5.0, 90.0);
+	m_fpfhRegionGrowAngleSpin->setSingleStep(5.0);
+	m_fpfhRegionGrowAngleSpin->setDecimals(1);
+	m_fpfhRegionGrowAngleSpin->setValue(45.0);
+	m_fpfhRegionGrowAngleSpin->setSuffix(QStringLiteral(" deg"));
+	addParamRow(
+		fpfhForm,
+		m_fpfhRegionGrowAngleLabel,
+		m_fpfhRegionGrowAngleSpin,
+		m_fpfhRegionGrowAngleHint,
+		QString(),
+		QString());
+	m_fpfhMinRegionFacesSpin = new QSpinBox(fpfhPage);
+	m_fpfhMinRegionFacesSpin->setRange(1, 10000);
+	m_fpfhMinRegionFacesSpin->setValue(10);
+	addParamRow(
+		fpfhForm,
+		m_fpfhMinRegionFacesLabel,
+		m_fpfhMinRegionFacesSpin,
+		m_fpfhMinRegionFacesHint,
+		QString(),
+		QString());
+	m_paramTabs->addTab(fpfhPage, QStringLiteral("Mesh region"));
 	groupLayout->addWidget(m_paramTabs);
 	auto* stageRow = new QHBoxLayout();
 	m_centerlineBtn = new QPushButton(m_rootGroup);
 	m_templateBtn = new QPushButton(m_rootGroup);
 	m_projectBtn = new QPushButton(m_rootGroup);
+	m_fpfhPartitionBtn = new QPushButton(m_rootGroup);
 	stageRow->addWidget(m_centerlineBtn);
 	stageRow->addWidget(m_templateBtn);
 	stageRow->addWidget(m_projectBtn);
+	stageRow->addWidget(m_fpfhPartitionBtn);
 	groupLayout->addLayout(stageRow);
 	m_resetBtn = new QPushButton(m_rootGroup);
 	groupLayout->addWidget(m_resetBtn);
@@ -288,6 +403,7 @@ TubularGrindingDockWidget::TubularGrindingDockWidget(IPluginHostContext* host, Q
 	connect(m_centerlineBtn, &QPushButton::clicked, this, &TubularGrindingDockWidget::onCenterlineClicked);
 	connect(m_templateBtn, &QPushButton::clicked, this, &TubularGrindingDockWidget::onTemplateClicked);
 	connect(m_projectBtn, &QPushButton::clicked, this, &TubularGrindingDockWidget::onProjectClicked);
+	connect(m_fpfhPartitionBtn, &QPushButton::clicked, this, &TubularGrindingDockWidget::onFpfhPartitionClicked);
 	applyLanguage();
 	syncCenterlineMethodForSource();
 	updateCenterlineParamVisibility();
@@ -449,6 +565,19 @@ PluginTubularGrindingParams TubularGrindingDockWidget::buildParams() const
 		params.templateKind = static_cast<PluginTubularGrindingTemplateKind>(
 			m_templateCombo->currentData().toInt());
 	}
+	params.fpfhFeatureVoxelMm = m_fpfhFeatureVoxelSpin ? m_fpfhFeatureVoxelSpin->value() : 0.0;
+	params.fpfhMaxSamplePoints = m_fpfhMaxSamplePointsSpin ? m_fpfhMaxSamplePointsSpin->value() : 0;
+	params.fpfhNeighbors = m_fpfhNeighborsSpin
+		? static_cast<unsigned int>(m_fpfhNeighborsSpin->value())
+		: 20U;
+	params.fpfhSaliencyNeighbors = m_fpfhSaliencyNeighborsSpin
+		? static_cast<unsigned int>(m_fpfhSaliencyNeighborsSpin->value())
+		: 10U;
+	params.fpfhKeypointCount = m_fpfhKeypointCountSpin ? m_fpfhKeypointCountSpin->value() : 0;
+	params.fpfhKeypointMinSeparationMm = m_fpfhKeypointMinSepSpin ? m_fpfhKeypointMinSepSpin->value() : 0.0;
+	params.fpfhRegionGrowDist = m_fpfhRegionGrowDistSpin ? m_fpfhRegionGrowDistSpin->value() : 0.0;
+	params.fpfhRegionGrowNormalAngleDeg = m_fpfhRegionGrowAngleSpin ? m_fpfhRegionGrowAngleSpin->value() : 45.0;
+	params.fpfhMinRegionFaces = m_fpfhMinRegionFacesSpin ? m_fpfhMinRegionFacesSpin->value() : 10;
 	return params;
 }
 
@@ -475,6 +604,7 @@ void TubularGrindingDockWidget::applyLanguage()
 	{
 		m_paramTabs->setTabText(0, zh ? QStringLiteral("中心线提取") : QStringLiteral("Centerline"));
 		m_paramTabs->setTabText(1, zh ? QStringLiteral("轨迹与投影") : QStringLiteral("Trajectory"));
+		m_paramTabs->setTabText(2, zh ? QStringLiteral("Mesh 区域划分") : QStringLiteral("Mesh region"));
 	}
 	if (m_sectionSpacingLabel)
 	{
@@ -665,6 +795,100 @@ void TubularGrindingDockWidget::applyLanguage()
 	{
 		m_projectionDistSpin->setToolTip(m_projectionDistHint->text());
 	}
+	if (m_fpfhFeatureVoxelLabel)
+	{
+		m_fpfhFeatureVoxelLabel->setText(zh ? QStringLiteral("特征体素") : QStringLiteral("Feature voxel"));
+	}
+	if (m_fpfhFeatureVoxelHint)
+	{
+		m_fpfhFeatureVoxelHint->setText(zh
+			? QStringLiteral("面心采样降采样体素边长。Auto 取包围盒对角线的 2%。")
+			: QStringLiteral("Voxel size for face-centroid downsampling. Auto uses 2% of bbox diagonal."));
+	}
+	if (m_fpfhMaxSamplePointsLabel)
+	{
+		m_fpfhMaxSamplePointsLabel->setText(zh ? QStringLiteral("最大采样点") : QStringLiteral("Max sample points"));
+	}
+	if (m_fpfhMaxSamplePointsHint)
+	{
+		m_fpfhMaxSamplePointsHint->setText(zh
+			? QStringLiteral("降采样后面心点上限。Auto 为 4000。")
+			: QStringLiteral("Cap on downsampled face-centroid points. Auto is 4000."));
+	}
+	if (m_fpfhNeighborsLabel)
+	{
+		m_fpfhNeighborsLabel->setText(zh ? QStringLiteral("FPFH 邻域") : QStringLiteral("FPFH neighbors"));
+	}
+	if (m_fpfhNeighborsHint)
+	{
+		m_fpfhNeighborsHint->setText(zh
+			? QStringLiteral("计算 SPFH/FPFH 时的邻域点数，越大特征越平滑。")
+			: QStringLiteral("Neighbor count for SPFH/FPFH; larger values smooth features."));
+	}
+	if (m_fpfhSaliencyNeighborsLabel)
+	{
+		m_fpfhSaliencyNeighborsLabel->setText(zh ? QStringLiteral("显著性邻域") : QStringLiteral("Saliency neighbors"));
+	}
+	if (m_fpfhSaliencyNeighborsHint)
+	{
+		m_fpfhSaliencyNeighborsHint->setText(zh
+			? QStringLiteral("关键点显著性评分时的邻域大小。")
+			: QStringLiteral("Neighborhood size for keypoint saliency scoring."));
+	}
+	if (m_fpfhKeypointCountLabel)
+	{
+		m_fpfhKeypointCountLabel->setText(zh ? QStringLiteral("关键点数量") : QStringLiteral("Keypoint count"));
+	}
+	if (m_fpfhKeypointCountHint)
+	{
+		m_fpfhKeypointCountHint->setText(zh
+			? QStringLiteral("区域种子数。Auto 按采样点数估算，范围 8–64。")
+			: QStringLiteral("Region seed count. Auto scales with samples, clamped to 8–64."));
+	}
+	if (m_fpfhKeypointMinSepLabel)
+	{
+		m_fpfhKeypointMinSepLabel->setText(zh ? QStringLiteral("关键点最小间距") : QStringLiteral("Keypoint min separation"));
+	}
+	if (m_fpfhKeypointMinSepHint)
+	{
+		m_fpfhKeypointMinSepHint->setText(zh
+			? QStringLiteral("种子点之间的最小空间距离。Auto 为 2×特征体素。")
+			: QStringLiteral("Minimum spatial separation between seeds. Auto is 2× feature voxel."));
+	}
+	if (m_fpfhRegionGrowDistLabel)
+	{
+		m_fpfhRegionGrowDistLabel->setText(zh ? QStringLiteral("区域生长 FPFH 距离") : QStringLiteral("Region grow FPFH dist"));
+	}
+	if (m_fpfhRegionGrowDistHint)
+	{
+		m_fpfhRegionGrowDistHint->setText(zh
+			? QStringLiteral("面邻接生长时 FPFH L2 距离阈值。Auto 为 0.35。")
+			: QStringLiteral("FPFH L2 distance threshold for face-adjacency grow. Auto is 0.35."));
+	}
+	if (m_fpfhRegionGrowAngleLabel)
+	{
+		m_fpfhRegionGrowAngleLabel->setText(zh ? QStringLiteral("区域生长法向角") : QStringLiteral("Region grow normal angle"));
+	}
+	if (m_fpfhRegionGrowAngleHint)
+	{
+		m_fpfhRegionGrowAngleHint->setText(zh
+			? QStringLiteral("相邻面法向夹角上限，防止跨锐边生长。")
+			: QStringLiteral("Max normal angle between adjacent faces to block grow across sharp edges."));
+	}
+	if (m_fpfhMinRegionFacesLabel)
+	{
+		m_fpfhMinRegionFacesLabel->setText(zh ? QStringLiteral("最小区域面数") : QStringLiteral("Min region faces"));
+	}
+	if (m_fpfhMinRegionFacesHint)
+	{
+		m_fpfhMinRegionFacesHint->setText(zh
+			? QStringLiteral("小于该面数的碎片区域会合并到最近邻域。")
+			: QStringLiteral("Fragments with fewer faces merge into the nearest neighbor region."));
+	}
+	if (m_fpfhPartitionBtn)
+	{
+		m_fpfhPartitionBtn->setText(zh ? QStringLiteral("运行区域划分") : QStringLiteral("Run region partition"));
+	}
 	if (m_centerlineBtn)
 	{
 		m_centerlineBtn->setText(zh ? QStringLiteral("运行中心线") : QStringLiteral("Run centerline"));
@@ -810,6 +1034,28 @@ void TubularGrindingDockWidget::updateButtonStates()
 	{
 		m_projectBtn->setEnabled(canRun(PluginTubularGrindingStage::Project));
 	}
+	if (m_fpfhPartitionBtn)
+	{
+		const bool hostOk = m_host && m_host->hostVersion() >= 0x00010F00U;
+		const bool meshOnly = hasMesh && !selectedSourceIsPointCloud();
+		m_fpfhPartitionBtn->setEnabled(hostOk && meshOnly && !m_busy);
+		if (!hostOk)
+		{
+			m_fpfhPartitionBtn->setToolTip(i18n(
+				QStringLiteral("Requires host 1.15.0 or newer."),
+				QStringLiteral("需要宿主 1.15.0 或更高版本。")));
+		}
+		else if (hasMesh && selectedSourceIsPointCloud())
+		{
+			m_fpfhPartitionBtn->setToolTip(i18n(
+				QStringLiteral("FPFH region partition requires mesh input."),
+				QStringLiteral("FPFH 区域划分仅支持网格输入。")));
+		}
+		else
+		{
+			m_fpfhPartitionBtn->setToolTip(QString());
+		}
+	}
 	if (m_resetBtn)
 	{
 		m_resetBtn->setEnabled(!m_busy && m_sessionId.valid());
@@ -874,7 +1120,10 @@ void TubularGrindingDockWidget::runStage(const PluginTubularGrindingStage stage)
 			}
 			else
 			{
-				m_lastStage = report.lastCompletedStage;
+				if (report.lastCompletedStage != PluginTubularGrindingStage::FpfhRegionPartition)
+				{
+					m_lastStage = report.lastCompletedStage;
+				}
 				refreshSummary(report);
 				if (!report.stageSummaryZh.isEmpty())
 				{
@@ -929,4 +1178,9 @@ void TubularGrindingDockWidget::onTemplateClicked()
 void TubularGrindingDockWidget::onProjectClicked()
 {
 	runStage(PluginTubularGrindingStage::Project);
+}
+
+void TubularGrindingDockWidget::onFpfhPartitionClicked()
+{
+	runStage(PluginTubularGrindingStage::FpfhRegionPartition);
 }

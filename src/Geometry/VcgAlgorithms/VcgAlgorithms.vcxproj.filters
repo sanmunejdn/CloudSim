@@ -53,6 +53,9 @@
     <ClCompile Include="source\MeshRepair.cpp">
       <Filter>source</Filter>
     </ClCompile>
+    <ClCompile Include="source\MeshRepairInternal.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
     <ClCompile Include="source\MeshRemesh.cpp">
       <Filter>source</Filter>
     </ClCompile>

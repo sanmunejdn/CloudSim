@@ -410,6 +410,38 @@ AmrtoGridResolution computeAmrtoGridResolution(
 	return out;
 }
 
+NurbsFitMode nurbsFitModeFromMeshSurface(const MeshSurfaceNurbsFitMode mode)
+{
+	switch (mode)
+	{
+	case MeshSurfaceNurbsFitMode::Interpolate:
+		return NurbsFitMode::Interpolate;
+	case MeshSurfaceNurbsFitMode::ApproxCentripetal:
+		return NurbsFitMode::ApproxCentripetal;
+	case MeshSurfaceNurbsFitMode::ApproxCentripetalFixedCtrlpts:
+		return NurbsFitMode::ApproxCentripetalFixedCtrlpts;
+	case MeshSurfaceNurbsFitMode::ApproxFixedCtrlpts:
+	default:
+		return NurbsFitMode::ApproxFixedCtrlpts;
+	}
+}
+
+int resolveControlPointCountFromFitGrid(
+	const int gridPointsPerEdge,
+	const int degree,
+	const double controlPointDensityFactor,
+	const int minControlPointsPerDirection)
+{
+	const int pts = std::max(2, gridPointsPerEdge);
+	const int maxFromFit = std::max(degree + 1, static_cast<int>(0.75 * static_cast<double>(pts)));
+	const int densityCtrl = static_cast<int>(std::lround(
+		controlPointDensityFactor * static_cast<double>(pts) * 2.0));
+	int ctrl = std::max(minControlPointsPerDirection, degree + 1);
+	ctrl = std::max(ctrl, densityCtrl);
+	ctrl = std::min(ctrl, maxFromFit);
+	return std::max(degree + 1, ctrl);
+}
+
 bool fitNurbsSurfaceFromGrid(
 	const TColgp_Array2OfPnt& grid,
 	const int numCtrlU,

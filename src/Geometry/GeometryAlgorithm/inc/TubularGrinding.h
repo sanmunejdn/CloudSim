@@ -18,6 +18,7 @@ enum class TubularGrindingStage : int
 	Centerline = 2,
 	TemplatePoints = 3,
 	Project = 4,
+	FpfhRegionPartition = 5,
 };
 
 enum class TubularGrindingTemplateKind : int
@@ -117,6 +118,17 @@ struct TubularGrindingParams
 
 	/// 根点合并下限（0 = 自动：max(40, sampleCount×0.15)）
 	int minRootsBySamples = 0;
+
+	// FPFH 区域划分
+	double fpfhFeatureVoxelMm = 0.0;
+	int fpfhMaxSamplePoints = 0;
+	unsigned int fpfhNeighbors = 20U;
+	unsigned int fpfhSaliencyNeighbors = 10U;
+	int fpfhKeypointCount = 0;
+	double fpfhKeypointMinSeparationMm = 0.0;
+	double fpfhRegionGrowDist = 0.0;
+	double fpfhRegionGrowNormalAngleDeg = 45.0;
+	int fpfhMinRegionFaces = 10;
 };
 
 struct TubularPipeSegment
@@ -217,6 +229,8 @@ struct TubularGrindingReport
 	int transitionFaceCount = 0;
 	/// 中心线迭代收敛次数
 	int centerlineIterationCount = 0;
+	int fpfhRegionCount = 0;
+	int fpfhKeypointCount = 0;
 };
 
 class GEOMETRY_ALGORITHM_API TubularGrindingSession
@@ -253,6 +267,12 @@ private:
 		std::string* errMsg);
 
 	friend GEOMETRY_ALGORITHM_API bool buildRingColoredMeshSoup(
+		const TubularGrindingSession& session,
+		std::vector<float>& outSoup,
+		std::vector<float>& outRgbPerVertex,
+		std::string* errMsg);
+
+	friend GEOMETRY_ALGORITHM_API bool buildFpfhRegionColoredMeshSoup(
 		const TubularGrindingSession& session,
 		std::vector<float>& outSoup,
 		std::vector<float>& outRgbPerVertex,
@@ -358,6 +378,12 @@ GEOMETRY_ALGORITHM_API bool buildSegmentColoredMeshSoup(
 	std::string* errMsg = nullptr);
 
 GEOMETRY_ALGORITHM_API bool buildRingColoredMeshSoup(
+	const TubularGrindingSession& session,
+	std::vector<float>& outSoup,
+	std::vector<float>& outRgbPerVertex,
+	std::string* errMsg = nullptr);
+
+GEOMETRY_ALGORITHM_API bool buildFpfhRegionColoredMeshSoup(
 	const TubularGrindingSession& session,
 	std::vector<float>& outSoup,
 	std::vector<float>& outRgbPerVertex,

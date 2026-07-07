@@ -16,6 +16,7 @@
 #include "WireOps.h"
 #include "MeshSurfaceReconstruction.h"
 #include "MeshSurfaceReconstruction/NurbsSurfaceFitting.h"
+#include "MeshTrajectory.h"
 #include "TubularGrinding.h"
 
 #include <BRepPrimAPI_MakeBox.hxx>
@@ -865,6 +866,79 @@ bool runSelfTest(std::vector<std::string>& failures)
 		else if (surface->NbUPoles() < 4 || surface->NbVPoles() < 4)
 		{
 			fail("nurbsSurfaceFitting", "too few control points");
+		}
+	}
+
+	{
+		// 单位立方体 z=0.5 平面截面
+		std::vector<float> boxSoup = {
+			0, 0, 0, 1, 0, 0, 1, 1, 0,
+			0, 0, 0, 1, 1, 0, 0, 1, 0,
+			0, 0, 1, 1, 0, 1, 1, 1, 1,
+			0, 0, 1, 1, 1, 1, 0, 1, 1};
+		const double origin[3] = {0.5, 0.5, 0.5};
+		const double normal[3] = {0, 0, 1};
+		std::vector<MeshTrajectoryPolyline> polylines;
+		std::string err;
+		if (!intersectPlaneWithTriangleSoup(boxSoup, origin, normal, nullptr, polylines, &err)
+			|| polylines.empty())
+		{
+			fail("meshTrajectoryCrossSection", err.empty() ? "no intersection" : err);
+		}
+		else
+		{
+			MeshTrajectorySpec spec;
+			spec.workpiece.backendIdUtf8 = "test";
+			spec.method = MeshTrajectoryMethod::CrossSection;
+			spec.crossSection.planeOriginMm[0] = 0.5;
+			spec.crossSection.planeOriginMm[1] = 0.5;
+			spec.crossSection.planeOriginMm[2] = 0.5;
+			spec.crossSection.planeNormal[0] = 0;
+			spec.crossSection.planeNormal[1] = 0;
+			spec.crossSection.planeNormal[2] = 1;
+			spec.discretize.stepMm = 0.25;
+			RawPath path;
+			if (!generateMeshTrajectory(spec, boxSoup, path, &err) || path.points.size() < 4U)
+			{
+				fail("meshTrajectoryGenerate", err.empty() ? "too few points" : err);
+			}
+		}
+	}
+
+	{
+		std::vector<float> fanSoup;
+		std::vector<int> tris;
+		for (int i = 0; i < 6; ++i)
+		{
+			const double a0 = 3.14159265358979323846 * static_cast<double>(i) / 6.0;
+			const double a1 = 3.14159265358979323846 * static_cast<double>(i + 1) / 6.0;
+			const float r = 30.f;
+			const float x0 = static_cast<float>(std::cos(a0) * r);
+			const float y0 = static_cast<float>(std::sin(a0) * r);
+			const float x1 = static_cast<float>(std::cos(a1) * r);
+			const float y1 = static_cast<float>(std::sin(a1) * r);
+			const int ti = static_cast<int>(fanSoup.size() / 9U);
+			tris.push_back(ti);
+			fanSoup.insert(fanSoup.end(), {0.f, 0.f, 0.f, x0, y0, 0.f, x1, y1, 0.f});
+		}
+		MeshTrajectorySpec bspec;
+		bspec.workpiece.backendIdUtf8 = "test";
+		bspec.method = MeshTrajectoryMethod::BsplineRegion;
+		bspec.region.triangleIndices = tris;
+		bspec.bspline.uvCountU = 6;
+		bspec.bspline.uvCountV = 6;
+		bspec.bspline.traceMode = MeshTrajectoryUvTraceMode::UvGrid;
+		std::string err;
+		RawPath bpath;
+		if (!generateMeshTrajectory(bspec, fanSoup, bpath, &err) || bpath.points.size() != 36U)
+		{
+			fail("meshTrajectoryBsplineGrid", err.empty() ? "grid point count" : err);
+		}
+		bspec.bspline.traceMode = MeshTrajectoryUvTraceMode::USerpentine;
+		RawPath serpPath;
+		if (!generateMeshTrajectory(bspec, fanSoup, serpPath, &err) || serpPath.points.size() != 36U)
+		{
+			fail("meshTrajectoryBsplineUSerpentine", err.empty() ? "serpentine count" : err);
 		}
 	}
 

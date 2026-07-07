@@ -1,5 +1,6 @@
 #pragma once
 
+#include "MeshRepair.h"
 #include "vcg_algorithms_global.h"
 
 #include <string>
@@ -8,19 +9,45 @@
 namespace vcgalgo
 {
 
-// Laplacian 平滑：快速，适合轻度噪声
+struct VCg_ALGORITHMS_API MeshSmoothParams
+{
+	int iterations = 3;
+	double lambda = 0.2;
+	bool useTaubin = false;
+	bool preserveBoundary = true;
+	bool cotangentWeight = true;
+	bool repairBeforeSmooth = false;
+	RepairParams repairParams{};
+};
+
+VCg_ALGORITHMS_API bool applyMeshSmooth(
+	const std::vector<float>& triangleSoup,
+	std::vector<float>& outSoup,
+	const MeshSmoothParams& params,
+	RepairReport* repairReport = nullptr,
+	std::string* errMsg = nullptr);
+
 VCg_ALGORITHMS_API bool smoothLaplacian(
 	const std::vector<float>& triangleSoup,
 	int iterations,
 	std::vector<float>& outSoup,
 	std::string* errMsg = nullptr);
 
-// Implicit Fairing 平滑：保形，适合重度噪声
-// lambda 越大平滑越强（典型 0.1 ~ 0.5）
-VCg_ALGORITHMS_API bool smoothImplicitFairing(
+// Taubin λ/μ 平滑；保留旧名供自检与外部兼容
+VCg_ALGORITHMS_API bool smoothTaubin(
 	const std::vector<float>& triangleSoup,
+	int iterations,
 	double lambda,
 	std::vector<float>& outSoup,
 	std::string* errMsg = nullptr);
+
+inline bool smoothImplicitFairing(
+	const std::vector<float>& triangleSoup,
+	double lambda,
+	std::vector<float>& outSoup,
+	std::string* errMsg = nullptr)
+{
+	return smoothTaubin(triangleSoup, 3, lambda, outSoup, errMsg);
+}
 
 } // namespace vcgalgo

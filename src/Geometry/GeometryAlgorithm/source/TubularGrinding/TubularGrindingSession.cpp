@@ -2,6 +2,7 @@
 
 #include "CenterlineExtraction.h"
 #include "MeshProjection.h"
+#include "MeshFpfhRegionPartition.h"
 #include "PipeSegmentation.h"
 #include "TrajectoryTemplates.h"
 #include "TubularGrindingCommon.h"
@@ -24,6 +25,8 @@ struct TubularGrindingSession::Impl
 	bool hasMesh = false;
 	std::vector<int> faceSegmentId;
 	std::vector<int> faceRingId;
+	std::vector<int> faceFpfhRegionId;
+	int fpfhRegionCount = 0;
 	std::vector<TubularPipeSegment> segments;
 	std::vector<TubularCrossSectionRing> rings;
 	std::vector<TubularCenterlineSample> centerlineSamples;
@@ -118,6 +121,10 @@ bool isNextStage(const TubularGrindingStage last, const TubularGrindingStage wan
 {
 	switch (want)
 	{
+	case TubularGrindingStage::FpfhRegionPartition:
+		return true;
+	case TubularGrindingStage::Segment:
+		return last == TubularGrindingStage::None || last == TubularGrindingStage::Segment;
 	// Centerline is now the first stage (no Segment stage)
 	case TubularGrindingStage::Centerline:
 		return last == TubularGrindingStage::None;
@@ -386,6 +393,47 @@ bool runTubularGrindingStage(
 		session.m_impl->report.projectionHitRate = hitRate;
 		break;
 	}
+	case TubularGrindingStage::FpfhRegionPartition:
+	{
+		if (isPointCloudInput)
+		{
+			if (errMsg)
+			{
+				*errMsg = "mesh topology required for this stage";
+			}
+			return false;
+		}
+		if (!ensureMesh())
+		{
+			return false;
+		}
+		tg::MeshFpfhPartitionParams fpfhParams;
+		fpfhParams.featureVoxelMm = params.fpfhFeatureVoxelMm;
+		fpfhParams.maxSamplePoints = params.fpfhMaxSamplePoints;
+		fpfhParams.fpfhNeighbors = params.fpfhNeighbors;
+		fpfhParams.saliencyNeighbors = params.fpfhSaliencyNeighbors;
+		fpfhParams.keypointCount = params.fpfhKeypointCount;
+		fpfhParams.keypointMinSeparationMm = params.fpfhKeypointMinSeparationMm;
+		fpfhParams.regionGrowDist = params.fpfhRegionGrowDist;
+		fpfhParams.regionGrowNormalAngleDeg = params.fpfhRegionGrowNormalAngleDeg;
+		fpfhParams.minRegionFaces = params.fpfhMinRegionFaces;
+		int regionCount = 0;
+		int keypointCount = 0;
+		if (!tg::runMeshFpfhRegionPartition(
+				session.m_impl->mesh,
+				fpfhParams,
+				session.m_impl->faceFpfhRegionId,
+				regionCount,
+				keypointCount,
+				errMsg))
+		{
+			return false;
+		}
+		session.m_impl->fpfhRegionCount = regionCount;
+		session.m_impl->report.fpfhRegionCount = regionCount;
+		session.m_impl->report.fpfhKeypointCount = keypointCount;
+		return true;
+	}
 	default:
 		if (errMsg)
 		{
@@ -479,6 +527,45 @@ bool buildRingColoredMeshSoup(
 		else if (rid >= 0)
 		{
 			tg::segmentDisplayRgb(rid, ringCount, r, g, b);
+		}
+		const std::size_t base = static_cast<std::size_t>(f) * 9U;
+		for (int k = 0; k < 3; ++k)
+		{
+			outRgbPerVertex[base + static_cast<std::size_t>(k) * 3U + 0U] = r;
+			outRgbPerVertex[base + static_cast<std::size_t>(k) * 3U + 1U] = g;
+			outRgbPerVertex[base + static_cast<std::size_t>(k) * 3U + 2U] = b;
+		}
+	}
+	return true;
+}
+
+bool buildFpfhRegionColoredMeshSoup(
+	const TubularGrindingSession& session,
+	std::vector<float>& outSoup,
+	std::vector<float>& outRgbPerVertex,
+	std::string* errMsg)
+{
+	if (session.m_impl->faceFpfhRegionId.empty() || session.m_impl->fpfhRegionCount <= 0)
+	{
+		if (errMsg)
+		{
+			*errMsg = "fpfh region partition not completed";
+		}
+		return false;
+	}
+	const std::vector<float>& soup = session.m_impl->sourceSoup;
+	outSoup = soup;
+	outRgbPerVertex.assign(soup.size(), 0.75f);
+	const int regionCount = session.m_impl->fpfhRegionCount;
+	for (int f = 0; f < session.m_impl->mesh.faceCount; ++f)
+	{
+		const int rid = session.m_impl->faceFpfhRegionId[static_cast<std::size_t>(f)];
+		float r = 0.75f;
+		float g = 0.75f;
+		float b = 0.75f;
+		if (rid >= 0)
+		{
+			tg::segmentDisplayRgb(rid, regionCount, r, g, b);
 		}
 		const std::size_t base = static_cast<std::size_t>(f) * 9U;
 		for (int k = 0; k < 3; ++k)

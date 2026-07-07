@@ -40,5 +40,14 @@ bool fitNurbsSurfaceFromGrid(
 	int degreeV,
 	Handle(Geom_BSplineSurface)& outSurface);
 
+NurbsFitMode nurbsFitModeFromMeshSurface(MeshSurfaceNurbsFitMode mode);
+
+/// 由拟合格网每边点数推导控制点数（对齐 AMRTO controlPointDensityFactor 语义）
+int resolveControlPointCountFromFitGrid(
+	int gridPointsPerEdge,
+	int degree,
+	double controlPointDensityFactor,
+	int minControlPointsPerDirection = 4);
+
 } // namespace meshrecon
 } // namespace geoalgo

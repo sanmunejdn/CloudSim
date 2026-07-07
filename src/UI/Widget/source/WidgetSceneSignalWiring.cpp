@@ -33,5 +33,38 @@ void wireMainWindowDocumentSceneSignals(MainWindow& mw, DocumentPage* page, Main
 			robotHost->notifyMeshPickCommitted(pick, static_cast<PickKind>(pickKindInt));
 		}
 	});
+	QObject::connect(o, &OsgWidget::labelingClickCommitted, &mw, [robotHost](const PickResult pick) {
+		if (robotHost)
+		{
+			robotHost->notifyMeshTriangleLabelingClick(pick);
+		}
+	});
+	QObject::connect(o, &OsgWidget::labelingBrushStroke, &mw, [robotHost](const QVector<int> triIndices) {
+		if (robotHost)
+		{
+			std::vector<int> indices;
+			indices.reserve(static_cast<std::size_t>(triIndices.size()));
+			for (int ti : triIndices)
+			{
+				indices.push_back(ti);
+			}
+			robotHost->notifyMeshTriangleLabelingBrush(indices);
+		}
+	});
+	QObject::connect(
+		o,
+		&OsgWidget::polylinePickCommitted,
+		&mw,
+		[robotHost](
+			const QVector<float> polylineScreenXy,
+			const QVector<double> mvpMatrix,
+			const int viewportWidth,
+			const int viewportHeight) {
+			if (robotHost)
+			{
+				robotHost->notifyMeshTriangleLabelingPolyline(
+					polylineScreenXy, mvpMatrix, viewportWidth, viewportHeight);
+			}
+		});
 	QObject::connect(o, &OsgWidget::backendObjectPicked, &mw, &MainWindow::onOsgBackendObjectPicked);
 }

@@ -77,6 +77,28 @@ void DocumentPage::setViewportToolBarDarkTheme(bool dark)
 	}
 }
 
+void DocumentPage::setViewportToolBarUseChinese(bool useChinese)
+{
+	if (OsgWidget* ow = osgWidget())
+	{
+		if (auto* toolbar = ow->findChild<ViewportToolBar*>())
+		{
+			toolbar->setUseChinese(useChinese);
+		}
+	}
+}
+
+void DocumentPage::syncViewportSidePanelToggleState(const bool leftVisible, const bool rightVisible)
+{
+	if (OsgWidget* ow = osgWidget())
+	{
+		if (auto* toolbar = ow->findChild<ViewportToolBar*>())
+		{
+			toolbar->setSidePanelToggleState(leftVisible, rightVisible);
+		}
+	}
+}
+
 IRobotBackendPoseSink* DocumentPage::urdfImportScenePoseSink()
 {
 	return sceneFacade().poseSink();

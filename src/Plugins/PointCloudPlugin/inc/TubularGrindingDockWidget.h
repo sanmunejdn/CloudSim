@@ -37,6 +37,7 @@ private slots:
 	void onCenterlineClicked();
 	void onTemplateClicked();
 	void onProjectClicked();
+	void onFpfhPartitionClicked();
 
 private:
 	QString i18n(const QString& en, const QString& zh) const;
@@ -141,6 +142,36 @@ private:
 	QLabel* m_projectionDistLabel = nullptr;
 	QDoubleSpinBox* m_projectionDistSpin = nullptr;
 	QLabel* m_projectionDistHint = nullptr;
+
+	// FPFH Mesh 区域划分
+	QLabel* m_fpfhFeatureVoxelLabel = nullptr;
+	QDoubleSpinBox* m_fpfhFeatureVoxelSpin = nullptr;
+	QLabel* m_fpfhFeatureVoxelHint = nullptr;
+	QLabel* m_fpfhMaxSamplePointsLabel = nullptr;
+	QSpinBox* m_fpfhMaxSamplePointsSpin = nullptr;
+	QLabel* m_fpfhMaxSamplePointsHint = nullptr;
+	QLabel* m_fpfhNeighborsLabel = nullptr;
+	QSpinBox* m_fpfhNeighborsSpin = nullptr;
+	QLabel* m_fpfhNeighborsHint = nullptr;
+	QLabel* m_fpfhSaliencyNeighborsLabel = nullptr;
+	QSpinBox* m_fpfhSaliencyNeighborsSpin = nullptr;
+	QLabel* m_fpfhSaliencyNeighborsHint = nullptr;
+	QLabel* m_fpfhKeypointCountLabel = nullptr;
+	QSpinBox* m_fpfhKeypointCountSpin = nullptr;
+	QLabel* m_fpfhKeypointCountHint = nullptr;
+	QLabel* m_fpfhKeypointMinSepLabel = nullptr;
+	QDoubleSpinBox* m_fpfhKeypointMinSepSpin = nullptr;
+	QLabel* m_fpfhKeypointMinSepHint = nullptr;
+	QLabel* m_fpfhRegionGrowDistLabel = nullptr;
+	QDoubleSpinBox* m_fpfhRegionGrowDistSpin = nullptr;
+	QLabel* m_fpfhRegionGrowDistHint = nullptr;
+	QLabel* m_fpfhRegionGrowAngleLabel = nullptr;
+	QDoubleSpinBox* m_fpfhRegionGrowAngleSpin = nullptr;
+	QLabel* m_fpfhRegionGrowAngleHint = nullptr;
+	QLabel* m_fpfhMinRegionFacesLabel = nullptr;
+	QSpinBox* m_fpfhMinRegionFacesSpin = nullptr;
+	QLabel* m_fpfhMinRegionFacesHint = nullptr;
+	QPushButton* m_fpfhPartitionBtn = nullptr;
 
 	QPushButton* m_centerlineBtn = nullptr;
 	QPushButton* m_templateBtn = nullptr;

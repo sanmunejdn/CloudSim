@@ -308,6 +308,12 @@ DATA_EXPORT bool buildTubularGrindingSegmentColoredMeshSoup(
 	std::vector<float>& outRgbPerVertex,
 	std::string* errMsg = nullptr);
 
+DATA_EXPORT bool buildTubularGrindingFpfhRegionColoredMeshSoup(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outSoup,
+	std::vector<float>& outRgbPerVertex,
+	std::string* errMsg = nullptr);
+
 DATA_EXPORT bool buildTubularGrindingRingColoredMeshSoup(
 	const geoalgo::TubularGrindingSession& session,
 	std::vector<float>& outSoup,

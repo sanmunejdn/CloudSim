@@ -1,4 +1,5 @@
 #include "MeshSmooth.h"
+#include "MeshRepairInternal.h"
 #include "VcgMeshTypes.h"
 
 #include <vcg/complex/algorithms/smooth.h>
@@ -12,27 +13,121 @@ namespace vcgalgo
 namespace
 {
 
-bool runSmoothPipeline(
+void markBoundaryVertices(VcgMesh& mesh)
+{
+	for (auto& vertex : mesh.vert)
+	{
+		vertex.ClearB();
+	}
+	vcg::tri::UpdateFlags<VcgMesh>::VertexBorderFromFaceBorder(mesh);
+}
+
+void runLaplacianOnMesh(
 	VcgMesh& mesh,
 	int iterations,
-	bool useTaubin,
+	bool cotangentWeight,
+	bool preserveBoundary)
+{
+	if (iterations <= 0)
+	{
+		iterations = 3;
+	}
+
+	std::vector<std::pair<typename VcgMesh::VertexType*, typename VcgMesh::VertexType::CoordType>> borderPositions;
+	if (preserveBoundary)
+	{
+		markBoundaryVertices(mesh);
+		for (auto& vertex : mesh.vert)
+		{
+			if (!vertex.IsD() && vertex.IsB())
+			{
+				borderPositions.emplace_back(&vertex, vertex.cP());
+			}
+		}
+	}
+
+	vcg::tri::Smooth<VcgMesh>::VertexCoordLaplacian(
+		mesh,
+		iterations,
+		false,
+		cotangentWeight);
+
+	if (preserveBoundary)
+	{
+		for (const auto& entry : borderPositions)
+		{
+			entry.first->P() = entry.second;
+		}
+	}
+}
+
+void runTaubinOnMesh(
+	VcgMesh& mesh,
+	int iterations,
 	float lambda,
 	float mu,
-	std::string* errMsg)
+	bool preserveBoundary)
+{
+	if (iterations <= 0)
+	{
+		iterations = 3;
+	}
+
+	std::vector<std::pair<typename VcgMesh::VertexType*, typename VcgMesh::VertexType::CoordType>> borderPositions;
+	if (preserveBoundary)
+	{
+		markBoundaryVertices(mesh);
+		for (auto& vertex : mesh.vert)
+		{
+			if (!vertex.IsD() && vertex.IsB())
+			{
+				borderPositions.emplace_back(&vertex, vertex.cP());
+			}
+		}
+	}
+
+	vcg::tri::Smooth<VcgMesh>::VertexCoordTaubin(mesh, iterations, lambda, mu);
+
+	if (preserveBoundary)
+	{
+		for (const auto& entry : borderPositions)
+		{
+			entry.first->P() = entry.second;
+		}
+	}
+}
+
+bool runSmoothOnMesh(VcgMesh& mesh, const MeshSmoothParams& params, std::string* errMsg)
 {
 	try
 	{
-		vcg::tri::UpdateTopology<VcgMesh>::FaceFace(mesh);
-		vcg::tri::UpdateTopology<VcgMesh>::VertexFace(mesh);
-		vcg::tri::UpdateFlags<VcgMesh>::FaceBorderFromFF(mesh);
-
-		if (useTaubin)
+		if (!internal::prepareMeshTopology(mesh, errMsg))
 		{
-			vcg::tri::Smooth<VcgMesh>::VertexCoordTaubin(mesh, iterations, lambda, mu);
+			return false;
+		}
+
+		if (params.useTaubin)
+		{
+			double lambda = params.lambda;
+			if (lambda <= 0.0)
+			{
+				lambda = 0.2;
+			}
+			if (lambda > 1.0)
+			{
+				lambda = 1.0;
+			}
+			const float lambdaF = static_cast<float>(lambda);
+			const float mu = -lambdaF * 1.05f;
+			runTaubinOnMesh(mesh, params.iterations, lambdaF, mu, params.preserveBoundary);
 		}
 		else
 		{
-			vcg::tri::Smooth<VcgMesh>::VertexCoordLaplacian(mesh, iterations);
+			runLaplacianOnMesh(
+				mesh,
+				params.iterations,
+				params.cotangentWeight,
+				params.preserveBoundary);
 		}
 
 		vcg::tri::UpdateNormal<VcgMesh>::PerVertexNormalized(mesh);
@@ -40,7 +135,7 @@ bool runSmoothPipeline(
 	}
 	catch (const std::exception& e)
 	{
-		if (errMsg)
+		if (errMsg != nullptr)
 		{
 			*errMsg = e.what();
 		}
@@ -50,10 +145,11 @@ bool runSmoothPipeline(
 
 } // namespace
 
-bool smoothLaplacian(
+bool applyMeshSmooth(
 	const std::vector<float>& triangleSoup,
-	int iterations,
 	std::vector<float>& outSoup,
+	const MeshSmoothParams& params,
+	RepairReport* repairReport,
 	std::string* errMsg)
 {
 	outSoup.clear();
@@ -64,9 +160,19 @@ bool smoothLaplacian(
 		return false;
 	}
 
-	if (iterations <= 0) iterations = 3;
+	if (params.repairBeforeSmooth)
+	{
+		if (!internal::repairVcgMeshInPlace(mesh, params.repairParams, repairReport))
+		{
+			if (errMsg != nullptr)
+			{
+				*errMsg = "applyMeshSmooth: repair before smooth failed";
+			}
+			return false;
+		}
+	}
 
-	if (!runSmoothPipeline(mesh, iterations, false, 0.0f, 0.0f, errMsg))
+	if (!runSmoothOnMesh(mesh, params, errMsg))
 	{
 		return false;
 	}
@@ -75,32 +181,31 @@ bool smoothLaplacian(
 	return !outSoup.empty();
 }
 
-bool smoothImplicitFairing(
+bool smoothLaplacian(
 	const std::vector<float>& triangleSoup,
+	int iterations,
+	std::vector<float>& outSoup,
+	std::string* errMsg)
+{
+	MeshSmoothParams params;
+	params.iterations = iterations;
+	params.useTaubin = false;
+	return applyMeshSmooth(triangleSoup, outSoup, params, nullptr, errMsg);
+}
+
+bool smoothTaubin(
+	const std::vector<float>& triangleSoup,
+	int iterations,
 	double lambda,
 	std::vector<float>& outSoup,
 	std::string* errMsg)
 {
-	outSoup.clear();
-
-	VcgMesh mesh;
-	if (!internal::soupToVcgMesh(triangleSoup, mesh, errMsg))
-	{
-		return false;
-	}
-
-	if (lambda <= 0.0) lambda = 0.2;
-	if (lambda > 1.0) lambda = 1.0;
-
-	const float mu = -1.0f * static_cast<float>(lambda) * 1.05f;
-	const int steps = 3;
-	if (!runSmoothPipeline(mesh, steps, true, static_cast<float>(lambda), mu, errMsg))
-	{
-		return false;
-	}
-
-	internal::vcgMeshToSoup(mesh, outSoup);
-	return !outSoup.empty();
+	MeshSmoothParams params;
+	params.iterations = iterations;
+	params.lambda = lambda;
+	params.useTaubin = true;
+	params.cotangentWeight = false;
+	return applyMeshSmooth(triangleSoup, outSoup, params, nullptr, errMsg);
 }
 
 } // namespace vcgalgo

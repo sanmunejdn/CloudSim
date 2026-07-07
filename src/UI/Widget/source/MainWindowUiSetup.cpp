@@ -283,6 +283,14 @@ void MainWindow::setupMenuBar()
 
 	m_viewMenu = menuBar()->addMenu(QStringLiteral("View"));
 	m_resetLayoutAction = m_viewMenu->addAction(QStringLiteral("Reset Layout"));
+	m_toggleLeftPanelAction = m_viewMenu->addAction(QStringLiteral("Left Panel"));
+	m_toggleLeftPanelAction->setCheckable(true);
+	m_toggleLeftPanelAction->setChecked(true);
+	m_toggleRightPanelAction = m_viewMenu->addAction(QStringLiteral("Right Panel"));
+	m_toggleRightPanelAction->setCheckable(true);
+	m_toggleRightPanelAction->setChecked(true);
+	connect(m_toggleLeftPanelAction, &QAction::toggled, this, &MainWindow::setLeftSidePanelVisible);
+	connect(m_toggleRightPanelAction, &QAction::toggled, this, &MainWindow::setRightSidePanelVisible);
 	m_viewMenu->addSeparator();
 
 	m_interactionModeGroup = new QActionGroup(this);

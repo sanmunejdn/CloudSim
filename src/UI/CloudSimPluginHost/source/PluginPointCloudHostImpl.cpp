@@ -1365,7 +1365,51 @@ namespace
 {
 
 // 网格异步操作通用模式：读 soup → 后台处理 → 注册新 mesh
-using MeshMutateFn = std::function<bool(const std::vector<float>& soupIn, std::vector<float>& soupOut, std::string* err)>;
+struct MeshMutateWorkResult
+{
+	std::vector<float> soupOut;
+	std::string error;
+	PluginMeshRepairReport repairReport{};
+	bool hasRepairReport = false;
+};
+
+using MeshMutateFn = std::function<bool(const std::vector<float>& soupIn, MeshMutateWorkResult& out)>;
+
+point_cloud_backend_ops::MeshRepairRequest buildMeshRepairRequest(const PluginMeshRepairParams& params)
+{
+	point_cloud_backend_ops::MeshRepairRequest request;
+	request.removeDegenerate = params.removeDegenerate;
+	request.removeDuplicate = params.removeDuplicate;
+	request.removeNonManifold = params.removeNonManifold;
+	request.fillHoles = params.fillHoles;
+	request.holeMaxEdgeCount = params.holeMaxEdgeCount;
+	return request;
+}
+
+point_cloud_backend_ops::MeshSmoothRequest buildMeshSmoothRequest(const PluginMeshSmoothParams& params)
+{
+	point_cloud_backend_ops::MeshSmoothRequest request;
+	request.iterations = params.iterations;
+	request.lambda = params.lambda;
+	request.useTaubin = params.useTaubinSmooth;
+	request.preserveBoundary = params.preserveBoundary;
+	request.cotangentWeight = params.cotangentWeight;
+	request.repairBeforeSmooth = params.repairBeforeSmooth;
+	request.repairParams = buildMeshRepairRequest(params.repairParams);
+	return request;
+}
+
+void copyPluginRepairReport(
+	const point_cloud_backend_ops::MeshRepairStatistics& stats,
+	PluginMeshRepairReport& out)
+{
+	out.inputFaceCount = stats.inputFaceCount;
+	out.outputFaceCount = stats.outputFaceCount;
+	out.removedDuplicateFaces = stats.removedDuplicateFaces;
+	out.removedDegenerateFaces = stats.removedDegenerateFaces;
+	out.removedNonManifoldFaces = stats.removedNonManifoldFaces;
+	out.facesAddedByFill = stats.facesAddedByFill;
+}
 
 void runMeshMutateJob(
 	PluginHostContext* host,
@@ -1391,8 +1435,7 @@ void runMeshMutateJob(
 
 	struct WorkResult
 	{
-		std::vector<float> soupOut;
-		std::string error;
+		MeshMutateWorkResult mutateResult;
 		bool ok = false;
 	};
 	auto result = std::make_shared<WorkResult>();
@@ -1402,7 +1445,7 @@ void runMeshMutateJob(
 		jobTitle,
 		[soupIn, result, mutate = std::move(mutate)](const PluginJobProgressFn& report) {
 			report(0.2, QStringLiteral("Running..."));
-			result->ok = mutate(soupIn, result->soupOut, &result->error);
+			result->ok = mutate(soupIn, result->mutateResult);
 			report(1.0, QStringLiteral("Done"));
 		},
 		[host, page, resultOptions, result, onFinished = std::move(onFinished)](
@@ -1415,11 +1458,11 @@ void runMeshMutateJob(
 			}
 			if (!result->ok)
 			{
-				onFinished(false, QString::fromStdString(result->error), jobResult);
+				onFinished(false, QString::fromStdString(result->mutateResult.error), jobResult);
 				return;
 			}
 			auto meshPtr = std::make_shared<MeshBackendData>();
-			meshPtr->setTriangleSoup(std::move(result->soupOut));
+			meshPtr->setTriangleSoup(std::move(result->mutateResult.soupOut));
 			std::string regErr;
 			jobResult.newBackendId = document_point_cloud_ops::registerReconstructedMesh(
 				page, host->mainWindowHost(), meshPtr, resultOptions, &regErr);
@@ -1429,6 +1472,11 @@ void runMeshMutateJob(
 				return;
 			}
 			jobResult.pointCountAfter = meshPtr->triangleSoup().size() / 9;
+			if (result->mutateResult.hasRepairReport)
+			{
+				jobResult.hasMeshRepairReport = true;
+				jobResult.meshRepairReport = result->mutateResult.repairReport;
+			}
 			onFinished(true, QString(), jobResult);
 		});
 }
@@ -1733,6 +1781,11 @@ bool isNextTubularGrindingStage(
 	const PluginTubularGrindingStage lastCompleted,
 	const PluginTubularGrindingStage want)
 {
+	// FpfhRegionPartition is independent and always allowed for mesh input
+	if (want == PluginTubularGrindingStage::FpfhRegionPartition)
+	{
+		return true;
+	}
 	// Centerline is now the first stage (Segment stage has been removed)
 	if (want == PluginTubularGrindingStage::Centerline
 		&& lastCompleted == PluginTubularGrindingStage::None)
@@ -1772,6 +1825,15 @@ geoalgo::TubularGrindingParams buildTubularGrindingGeoParams(const PluginTubular
 	geoParams.otLcOuterMaxIters = params.otLcOuterMaxIters;
 	geoParams.minRootsBySamples = params.minRootsBySamples;
 	geoParams.pointCloudKnnK = params.pointCloudKnnK;
+	geoParams.fpfhFeatureVoxelMm = params.fpfhFeatureVoxelMm;
+	geoParams.fpfhMaxSamplePoints = params.fpfhMaxSamplePoints;
+	geoParams.fpfhNeighbors = params.fpfhNeighbors;
+	geoParams.fpfhSaliencyNeighbors = params.fpfhSaliencyNeighbors;
+	geoParams.fpfhKeypointCount = params.fpfhKeypointCount;
+	geoParams.fpfhKeypointMinSeparationMm = params.fpfhKeypointMinSeparationMm;
+	geoParams.fpfhRegionGrowDist = params.fpfhRegionGrowDist;
+	geoParams.fpfhRegionGrowNormalAngleDeg = params.fpfhRegionGrowNormalAngleDeg;
+	geoParams.fpfhMinRegionFaces = params.fpfhMinRegionFaces;
 	switch (params.centerlineMethod)
 	{
 	case PluginTubularGrindingCenterlineMethod::OtLc:
@@ -1814,6 +1876,8 @@ geoalgo::TubularGrindingStage mapPluginTubularStageToGeo(const PluginTubularGrin
 		return geoalgo::TubularGrindingStage::TemplatePoints;
 	case PluginTubularGrindingStage::Project:
 		return geoalgo::TubularGrindingStage::Project;
+	case PluginTubularGrindingStage::FpfhRegionPartition:
+		return geoalgo::TubularGrindingStage::FpfhRegionPartition;
 	default:
 		return geoalgo::TubularGrindingStage::None;
 	}
@@ -1867,6 +1931,10 @@ QString formatTubularGrindingStageSummaryZh(
 		return QStringLiteral("表面投影完成：%1 个点，命中率 %2%")
 			.arg(report.projectedPointCount)
 			.arg(report.projectionHitRate * 100.0, 0, 'f', 1);
+	case PluginTubularGrindingStage::FpfhRegionPartition:
+		return QStringLiteral("FPFH 区域划分完成：%1 个区域，%2 个关键点")
+			.arg(report.fpfhRegionCount)
+			.arg(report.fpfhKeypointCount);
 	default:
 		return QString();
 	}
@@ -1880,7 +1948,8 @@ bool registerTubularGrindingColoredMeshFromSoup(
 	const std::vector<float>& rgbPerVertex,
 	const QString& displaySuffix,
 	std::string& outBackendId,
-	std::string* errMsg)
+	std::string* errMsg,
+	const QString& sourcePath = QStringLiteral("plugin://pointcloud/tubular-grinding-segment"))
 {
 	if (!page || !sourceMesh || soup.empty() || rgbPerVertex.size() != soup.size())
 	{
@@ -1897,7 +1966,7 @@ bool registerTubularGrindingColoredMeshFromSoup(
 	options.displayName =
 		baseName.isEmpty() ? displaySuffix : baseName + displaySuffix;
 	options.selectInTree = true;
-	options.sourcePath = QStringLiteral("plugin://pointcloud/tubular-grinding-segment");
+	options.sourcePath = sourcePath;
 	outBackendId = document_point_cloud_ops::registerReconstructedMesh(
 		page, host ? host->mainWindowHost() : nullptr, meshPtr, options, errMsg);
 	return !outBackendId.empty();
@@ -2865,9 +2934,15 @@ void PluginPointCloudHostImpl::simplifyMesh(
 		backendIdUtf8,
 		QStringLiteral("Mesh simplify"),
 		params.resultOptions,
-		[params](const std::vector<float>& soupIn, std::vector<float>& soupOut, std::string* err) {
-			return point_cloud_backend_ops::simplifyMesh(
-				soupIn, soupOut, params.targetFaceCount, params.qualityThreshold, err);
+		[params](const std::vector<float>& soupIn, MeshMutateWorkResult& out) {
+			std::string err;
+			const bool ok = point_cloud_backend_ops::simplifyMesh(
+				soupIn, out.soupOut, params.targetFaceCount, params.qualityThreshold, &err);
+			if (!ok)
+			{
+				out.error = std::move(err);
+			}
+			return ok;
 		},
 		std::move(onFinished));
 }
@@ -2882,11 +2957,30 @@ void PluginPointCloudHostImpl::smoothMesh(
 		m_host,
 		doc,
 		backendIdUtf8,
-		params.useImplicitFairing ? QStringLiteral("Mesh implicit fairing") : QStringLiteral("Mesh Laplacian smooth"),
+		params.useTaubinSmooth ? QStringLiteral("Mesh Taubin smooth") : QStringLiteral("Mesh Laplacian smooth"),
 		params.resultOptions,
-		[params](const std::vector<float>& soupIn, std::vector<float>& soupOut, std::string* err) {
-			return point_cloud_backend_ops::smoothMesh(
-				soupIn, soupOut, params.iterations, params.useImplicitFairing, err);
+		[params](const std::vector<float>& soupIn, MeshMutateWorkResult& out) {
+			std::string err;
+			point_cloud_backend_ops::MeshRepairStatistics stats;
+			point_cloud_backend_ops::MeshRepairStatistics* statsPtr =
+				params.repairBeforeSmooth ? &stats : nullptr;
+			const bool ok = point_cloud_backend_ops::smoothMesh(
+				soupIn,
+				out.soupOut,
+				buildMeshSmoothRequest(params),
+				statsPtr,
+				&err);
+			if (!ok)
+			{
+				out.error = std::move(err);
+				return false;
+			}
+			if (statsPtr != nullptr)
+			{
+				copyPluginRepairReport(stats, out.repairReport);
+				out.hasRepairReport = true;
+			}
+			return true;
 		},
 		std::move(onFinished));
 }
@@ -2903,9 +2997,23 @@ void PluginPointCloudHostImpl::repairMesh(
 		backendIdUtf8,
 		QStringLiteral("Mesh repair"),
 		params.resultOptions,
-		[params](const std::vector<float>& soupIn, std::vector<float>& soupOut, std::string* err) {
-			return point_cloud_backend_ops::repairMesh(
-				soupIn, soupOut, params.removeDegenerate, params.removeDuplicate, params.removeNonManifold, err);
+		[params](const std::vector<float>& soupIn, MeshMutateWorkResult& out) {
+			std::string err;
+			point_cloud_backend_ops::MeshRepairStatistics stats;
+			const bool ok = point_cloud_backend_ops::repairMesh(
+				soupIn,
+				out.soupOut,
+				buildMeshRepairRequest(params),
+				&stats,
+				&err);
+			if (!ok)
+			{
+				out.error = std::move(err);
+				return false;
+			}
+			copyPluginRepairReport(stats, out.repairReport);
+			out.hasRepairReport = true;
+			return true;
 		},
 		std::move(onFinished));
 }
@@ -3396,6 +3504,7 @@ void PluginPointCloudHostImpl::eraseTubularGrindingSession(
 	removeId(session->centerlinePcaAxisBackendId);
 	removeId(session->templatePointsBackendId);
 	removeId(session->projectedPointsBackendId);
+	removeId(session->fpfhRegionColoredMeshBackendId);
 	for (const auto& bid : session->iterationSnapshotBackendIds)
 	{
 		removeId(bid);
@@ -3507,6 +3616,11 @@ void PluginPointCloudHostImpl::runTubularGrindingStage(
 			onFinished(false, QString::fromStdString(resolveErr), {});
 			return;
 		}
+	}
+	if (stage == PluginTubularGrindingStage::FpfhRegionPartition && usePointCloud)
+	{
+		onFinished(false, QStringLiteral("FPFH 区域划分仅支持网格输入"), {});
+		return;
 	}
 
 	const geoalgo::TubularGrindingParams geoParams = buildTubularGrindingGeoParams(params);
@@ -3779,10 +3893,61 @@ void PluginPointCloudHostImpl::runTubularGrindingStage(
 					session->projectedPointsBackendId = result->projectedPointsBackendId;
 				}
 			}
+			else if (stage == PluginTubularGrindingStage::FpfhRegionPartition)
+			{
+				if (!mesh)
+				{
+					onFinished(false, QStringLiteral("FPFH 区域划分需要网格对象"), {});
+					return;
+				}
+				std::vector<float> soup;
+				std::vector<float> rgb;
+				std::string meshErr;
+				if (geometry_backend_ops::buildTubularGrindingFpfhRegionColoredMeshSoup(
+						*session->geoSession, soup, rgb, &meshErr))
+				{
+					if (!session->fpfhRegionColoredMeshBackendId.empty() && doc)
+					{
+						std::string removeErr;
+						(void)doc->removeBackendObject(session->fpfhRegionColoredMeshBackendId, &removeErr);
+					}
+					std::string backendId;
+					std::string adoptErr;
+					if (registerTubularGrindingColoredMeshFromSoup(
+							m_host,
+							page,
+							mesh,
+							soup,
+							rgb,
+							QStringLiteral("_区域划分"),
+							backendId,
+							&adoptErr,
+							QStringLiteral("plugin://pointcloud/fpfh-region-partition")))
+					{
+						session->fpfhRegionColoredMeshBackendId = backendId;
+					}
+					else
+					{
+						onFinished(false, QString::fromStdString(adoptErr), {});
+						return;
+					}
+				}
+				else if (!meshErr.empty())
+				{
+					onFinished(false, QString::fromStdString(meshErr), {});
+					return;
+				}
+			}
 
-			session->lastCompleted = stage;
+			if (stage != PluginTubularGrindingStage::FpfhRegionPartition)
+			{
+				session->lastCompleted = stage;
+			}
 			PluginTubularGrindingReport pluginReport;
-			pluginReport.lastCompletedStage = stage;
+			pluginReport.lastCompletedStage =
+				stage == PluginTubularGrindingStage::FpfhRegionPartition
+				? session->lastCompleted
+				: stage;
 			pluginReport.pipeCount = result->report.pipeCount;
 			pluginReport.ringCount = result->report.ringCount;
 			pluginReport.junctionFaceCount = result->report.junctionFaceCount;
@@ -3803,6 +3968,9 @@ void PluginPointCloudHostImpl::runTubularGrindingStage(
 			pluginReport.centerlinePointsBackendId = session->centerlinePointsBackendId;
 			pluginReport.templatePointsBackendId = session->templatePointsBackendId;
 			pluginReport.projectedPointsBackendId = session->projectedPointsBackendId;
+			pluginReport.fpfhRegionCount = result->report.fpfhRegionCount;
+			pluginReport.fpfhKeypointCount = result->report.fpfhKeypointCount;
+			pluginReport.fpfhRegionColoredMeshBackendId = session->fpfhRegionColoredMeshBackendId;
 			pluginReport.stageSummaryZh = formatTubularGrindingStageSummaryZh(stage, pluginReport);
 			if (m_host)
 			{
@@ -3830,9 +3998,15 @@ void PluginPointCloudHostImpl::remeshMeshIsotropic(
 		backendIdUtf8,
 		QStringLiteral("Isotropic remesh"),
 		params.resultOptions,
-		[params](const std::vector<float>& soupIn, std::vector<float>& soupOut, std::string* err) {
-			return point_cloud_backend_ops::remeshMeshIsotropic(
-				soupIn, soupOut, params.targetEdgeLengthMm, params.iterations, err);
+		[params](const std::vector<float>& soupIn, MeshMutateWorkResult& out) {
+			std::string err;
+			const bool ok = point_cloud_backend_ops::remeshMeshIsotropic(
+				soupIn, out.soupOut, params.targetEdgeLengthMm, params.iterations, &err);
+			if (!ok)
+			{
+				out.error = std::move(err);
+			}
+			return ok;
 		},
 		std::move(onFinished));
 }

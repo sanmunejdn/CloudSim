@@ -9,6 +9,7 @@
 #include "ProgramEditService.h"
 #include "TrajectoryEditSession.h"
 #include "TrajectoryEditPageWidget.h"
+#include "TrajectoryGenerationPageWidget.h"
 #include "FeatureTrajectoryPageWidget.h"
 #include "IRobotMainWindowHost.h"
 #include "IRobotOsgViewHost.h"
@@ -384,10 +385,10 @@ void RobotSimulationController::wireSimulationSignals()
 		traj->bindHost(m_host);
 		traj->bindSimulationController(this);
 	}
-	if (FeatureTrajectoryPageWidget* feat = m_simulationDock->featureTrajectoryPage())
+	if (TrajectoryGenerationPageWidget* gen = m_simulationDock->trajectoryGenerationPage())
 	{
-		feat->bindSession(m_trajectoryEditSession);
-		feat->bindSimulationController(this);
+		gen->bindSession(m_trajectoryEditSession);
+		gen->bindSimulationController(this);
 	}
 	if (cmd)
 	{
@@ -594,18 +595,17 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 		m_simulationDock->trajectoryEditPage()->bindStore(&doc->robotProgramStore());
 		m_simulationDock->trajectoryEditPage()->refreshProgramAndGroupCombos();
 	}
-	if (m_simulationDock && m_simulationDock->featureTrajectoryPage() && m_host)
+	if (m_simulationDock && m_simulationDock->trajectoryGenerationPage() && m_host)
 	{
-		auto* feat = m_simulationDock->featureTrajectoryPage();
+		auto* genPage = m_simulationDock->trajectoryGenerationPage();
 		IRobotMainWindowHost* host = m_host;
-		feat->bindSession(m_trajectoryEditSession);
-		feat->bindSimulationController(this);
-		// 须在 bindHost 之前更新 resolver：bindHost 内会 refreshBackendCombo
-		feat->setStepPathResolver([host](const QString& backendId) -> QString {
+		genPage->bindSession(m_trajectoryEditSession);
+		genPage->bindSimulationController(this);
+		genPage->setStepPathResolver([host](const QString& backendId) -> QString {
 			IRobotDocumentHost* liveDoc = host ? host->document() : nullptr;
 			return liveDoc ? liveDoc->meshBackendStepSourcePath(backendId) : QString();
 		});
-		feat->bindHost(m_host);
+		genPage->bindHost(m_host);
 	}
 	if (m_simulationDock && m_simulationDock->trajectoryEditPage() && m_host)
 	{

@@ -20,6 +20,36 @@ class MeshBackendData;
 namespace point_cloud_backend_ops
 {
 
+struct MeshRepairRequest
+{
+	bool removeDegenerate = true;
+	bool removeDuplicate = true;
+	bool removeNonManifold = true;
+	bool fillHoles = false;
+	int holeMaxEdgeCount = 30;
+};
+
+struct MeshRepairStatistics
+{
+	int inputFaceCount = 0;
+	int outputFaceCount = 0;
+	int removedDuplicateFaces = 0;
+	int removedDegenerateFaces = 0;
+	int removedNonManifoldFaces = 0;
+	int facesAddedByFill = 0;
+};
+
+struct MeshSmoothRequest
+{
+	int iterations = 3;
+	double lambda = 0.2;
+	bool useTaubin = false;
+	bool preserveBoundary = true;
+	bool cotangentWeight = true;
+	bool repairBeforeSmooth = false;
+	MeshRepairRequest repairParams{};
+};
+
 struct PointCloudMeasureResult
 {
 	Eigen::Vector3d centroidMm{ Eigen::Vector3d::Zero() };
@@ -206,16 +236,15 @@ DATA_EXPORT bool simplifyMesh(
 DATA_EXPORT bool smoothMesh(
 	const std::vector<float>& soupIn,
 	std::vector<float>& soupOut,
-	int iterations,
-	bool useImplicitFairing = false,
+	const MeshSmoothRequest& params,
+	MeshRepairStatistics* repairReport = nullptr,
 	std::string* errMsg = nullptr);
 
 DATA_EXPORT bool repairMesh(
 	const std::vector<float>& soupIn,
 	std::vector<float>& soupOut,
-	bool removeDegenerate = true,
-	bool removeDuplicate = true,
-	bool removeNonManifold = true,
+	const MeshRepairRequest& params,
+	MeshRepairStatistics* report = nullptr,
 	std::string* errMsg = nullptr);
 
 DATA_EXPORT bool remeshMeshIsotropic(

@@ -162,6 +162,7 @@
     <ClInclude Include="inc\MeshTopologyIndex.h" />
     <ClInclude Include="inc\ObjectGizmoFrame.h" />
     <ClInclude Include="inc\OsgCompassGeometry.h" />
+    <ClInclude Include="inc\OsgSectionPlaneGeometry.h" />
     <ClInclude Include="inc\OsgCompassRender.h" />
     <ClInclude Include="inc\OsgScene.h" />
     <ClInclude Include="inc\PickSpatialIndex.h" />
@@ -183,6 +184,7 @@
     <ClCompile Include="source\OsgSceneNavigation.cpp" />
     <ClCompile Include="source\OsgSceneHierarchy.cpp" />
     <ClCompile Include="source\OsgCompassGeometry.cpp" />
+    <ClCompile Include="source\OsgSectionPlaneGeometry.cpp" />
     <ClCompile Include="source\OsgSceneGizmo.cpp" />
     <ClCompile Include="source\OsgSceneCamera.cpp" />
     <ClCompile Include="source\OsgSceneViewCube.cpp" />

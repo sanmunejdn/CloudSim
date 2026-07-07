@@ -250,6 +250,7 @@ private:
 		std::string centerlinePcaAxisBackendId;
 		std::string templatePointsBackendId;
 		std::string projectedPointsBackendId;
+		std::string fpfhRegionColoredMeshBackendId;
 		std::vector<std::string> iterationSnapshotBackendIds;
 	};
 

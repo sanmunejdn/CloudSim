@@ -421,6 +421,28 @@ void OsgScene::initScene()
 	overlayGeode->setNodeMask(kMaskHelper);
 	m_meshPickOverlayGroup->addChild(overlayGeode.get());
 
+	m_meshFittedSurfaceOverlayGroup = new osg::Group;
+	m_meshFittedSurfaceOverlayGroup->setName("MeshFittedSurfacePreview");
+	m_meshFittedSurfaceOverlayGroup->setNodeMask(0u);
+	m_trajectoryOverlayGroup->addChild(m_meshFittedSurfaceOverlayGroup.get());
+
+	m_meshFittedSurfaceGeom = new osg::Geometry;
+	m_meshFittedSurfaceVertices = new osg::Vec3Array;
+	m_meshFittedSurfaceGeom->setVertexArray(m_meshFittedSurfaceVertices.get());
+	m_meshFittedSurfaceColors = new osg::Vec4Array;
+	m_meshFittedSurfaceColors->push_back(osg::Vec4(0.25f, 0.92f, 0.45f, 0.42f));
+	m_meshFittedSurfaceGeom->setColorArray(m_meshFittedSurfaceColors.get(), osg::Array::BIND_OVERALL);
+	m_meshFittedSurfaceGeom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_meshFittedSurfaceGeom->getOrCreateStateSet()->setMode(GL_CULL_FACE, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+	m_meshFittedSurfaceGeom->getOrCreateStateSet()->setMode(GL_DEPTH_TEST, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	m_meshFittedSurfaceGeom->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	m_meshFittedSurfaceGeom->getOrCreateStateSet()->setAttributeAndModes(
+		new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
+	m_meshFittedSurfaceGeom->getOrCreateStateSet()->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+	osg::ref_ptr<osg::Geode> fittedGeode = new osg::Geode;
+	fittedGeode->addDrawable(m_meshFittedSurfaceGeom.get());
+	m_meshFittedSurfaceOverlayGroup->addChild(fittedGeode.get());
+
 	m_selectionActive = false;
 	m_gizmoReferenceDistance = -1.0;
 	m_gizmoReferenceScale = 1.0;
@@ -2009,6 +2031,68 @@ void OsgScene::hideMeshElementHighlight()
 		return;
 	}
 	m_meshPickOverlayGroup->setNodeMask(0u);
+	requestRedraw();
+}
+
+void OsgScene::showMeshFittedSurfacePreview(const std::vector<osg::Vec3f>& triangleVertsWorld)
+{
+	if (!m_meshFittedSurfaceOverlayGroup.valid() || !m_meshFittedSurfaceVertices.valid() || triangleVertsWorld.empty())
+	{
+		return;
+	}
+	m_meshFittedSurfaceOverlayGroup->setNodeMask(0xffffffffu);
+	m_meshFittedSurfaceVertices->clear();
+	m_meshFittedSurfaceVertices->reserve(triangleVertsWorld.size());
+	for (const osg::Vec3f& v : triangleVertsWorld)
+	{
+		m_meshFittedSurfaceVertices->push_back(osg::Vec3(v.x(), v.y(), v.z()));
+	}
+	if (m_meshFittedSurfaceGeom->getNumPrimitiveSets() > 0)
+	{
+		osg::DrawArrays* da = dynamic_cast<osg::DrawArrays*>(m_meshFittedSurfaceGeom->getPrimitiveSet(0));
+		if (da)
+		{
+			da->setFirst(0);
+			da->setCount(static_cast<GLsizei>(triangleVertsWorld.size()));
+		}
+		else
+		{
+			m_meshFittedSurfaceGeom->removePrimitiveSet(0u, 1u);
+			m_meshFittedSurfaceGeom->addPrimitiveSet(
+				new osg::DrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(triangleVertsWorld.size())));
+		}
+	}
+	else
+	{
+		m_meshFittedSurfaceGeom->addPrimitiveSet(
+			new osg::DrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(triangleVertsWorld.size())));
+	}
+	m_meshFittedSurfaceGeom->dirtyDisplayList();
+	m_meshFittedSurfaceGeom->dirtyBound();
+	requestRedraw();
+}
+
+void OsgScene::clearMeshFittedSurfacePreview()
+{
+	if (!m_meshFittedSurfaceOverlayGroup.valid())
+	{
+		return;
+	}
+	m_meshFittedSurfaceOverlayGroup->setNodeMask(0u);
+	if (m_meshFittedSurfaceVertices.valid())
+	{
+		m_meshFittedSurfaceVertices->clear();
+	}
+	if (m_meshFittedSurfaceGeom.valid() && m_meshFittedSurfaceGeom->getNumPrimitiveSets() > 0)
+	{
+		osg::DrawArrays* da = dynamic_cast<osg::DrawArrays*>(m_meshFittedSurfaceGeom->getPrimitiveSet(0));
+		if (da)
+		{
+			da->setCount(0);
+		}
+		m_meshFittedSurfaceGeom->dirtyDisplayList();
+		m_meshFittedSurfaceGeom->dirtyBound();
+	}
 	requestRedraw();
 }
 

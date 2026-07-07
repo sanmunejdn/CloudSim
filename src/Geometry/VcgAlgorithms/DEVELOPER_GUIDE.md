@@ -31,8 +31,8 @@
 |--------|------|
 | `VcgMeshAdapter.h` | `IndexedMesh` 结构 + `triangleSoupToIndexedMesh` / `indexedMeshToTriangleSoup` |
 | `MeshSimplify.h` | `simplifyQuadricEdgeCollapse` — quadric-error 边折叠简化 |
-| `MeshSmooth.h` | `smoothLaplacian` / `smoothImplicitFairing` |
-| `MeshRepair.h` | `repairMesh` — 去重/退化/非流形/填孔 |
+| `MeshSmooth.h` | `smoothLaplacian` / `smoothTaubin` / `applyMeshSmooth` |
+| `MeshRepair.h` | `repairMesh` — 去重/退化/重复面/非流形/填孔 |
 | `MeshRemesh.h` | `isotropicRemesh` — 各向同性重网格；`computeMedianEdgeLengthMm` — 边长中位数 |
 | `MeshReconstruct.h` | `reconstructAndPostProcess` — CGAL Poisson + vcglib 后处理管线 |
 | `SelfTest.h` | `runSelfTest` |
@@ -53,11 +53,18 @@ vcgalgo::simplifyQuadricEdgeCollapse(soup, simplified, params);
 ### 3.2 网格平滑
 
 ```cpp
-// Laplacian（快速）
-vcgalgo::smoothLaplacian(soup, 3, smoothed);
+// Laplacian（快速，余切权重 + 边界保护）
+vcgalgo::MeshSmoothParams lapParams;
+lapParams.iterations = 3;
+lapParams.useTaubin = false;
+vcgalgo::applyMeshSmooth(soup, smoothed, lapParams);
 
-// Implicit Fairing（保形）
-vcgalgo::smoothImplicitFairing(soup, 0.2, smoothed);
+// Taubin（保形，λ/μ）
+vcgalgo::MeshSmoothParams taubinParams;
+taubinParams.iterations = 3;
+taubinParams.lambda = 0.2;
+taubinParams.useTaubin = true;
+vcgalgo::applyMeshSmooth(soup, fairing, taubinParams);
 ```
 
 ### 3.3 网格修复
@@ -66,10 +73,12 @@ vcgalgo::smoothImplicitFairing(soup, 0.2, smoothed);
 vcgalgo::RepairParams params;
 params.removeDegenerate = true;
 params.removeDuplicate = true;
+params.removeDuplicateFaces = true;
 params.fillHoles = true;
 params.holeMaxEdgeCount = 30;
 
-vcgalgo::repairMesh(soup, repaired, params);
+vcgalgo::RepairReport report;
+vcgalgo::repairMesh(soup, repaired, params, &report);
 ```
 
 ### 3.4 各向同性重网格

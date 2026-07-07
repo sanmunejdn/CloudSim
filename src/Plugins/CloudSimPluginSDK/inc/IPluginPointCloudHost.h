@@ -142,7 +142,7 @@ public:
 		const PluginMeshSimplifyParams& params,
 		PluginMeshFinishedFn onFinished) = 0;
 
-	/// 网格平滑（Laplacian 或 Implicit Fairing）
+	/// 网格平滑（Laplacian 或 Taubin）
 	virtual void smoothMesh(
 		IPluginDocument* doc,
 		const std::string& backendIdUtf8,

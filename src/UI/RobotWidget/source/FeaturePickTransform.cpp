@@ -334,7 +334,7 @@ void applyRawTrajectoryPreviewToOsg(
 		return;
 	}
 	osg->clearInstructionPoseAxes();
-	osg->setRawTrajectoryOverlay(overlay);
+	osg->setRawTrajectoryOverlay(overlay, fileTraj.segmentEndExclusive);
 	if (options.showAxes && !frames.empty())
 	{
 		osg->setRawTrajectoryOverlayFrames(frames);
@@ -413,7 +413,7 @@ void applyWorldRawTrajectoryPreviewToOsg(
 		}
 	}
 	osg->clearInstructionPoseAxes();
-	osg->setRawTrajectoryOverlay(overlay);
+	osg->setRawTrajectoryOverlay(overlay, worldTraj.segmentEndExclusive);
 	if (options.showAxes && !frames.empty())
 	{
 		osg->setRawTrajectoryOverlayFrames(frames);

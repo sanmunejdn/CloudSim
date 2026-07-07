@@ -47,6 +47,8 @@ struct ROBOT_SCENE_API TrajectoryPoint
 struct ROBOT_SCENE_API RawTrajectory
 {
 	std::vector<TrajectoryPoint> points;
+	/// 各子折线在 points 中的结束下标（不含）；空表示整条为一段
+	std::vector<std::size_t> segmentEndExclusive;
 	TrajectoryContext ctx;
 	/// FeatureSpec JSON（与 geometry_backend_ops::featureSpecToJson 契约一致）
 	std::string sourceFeatureJson;

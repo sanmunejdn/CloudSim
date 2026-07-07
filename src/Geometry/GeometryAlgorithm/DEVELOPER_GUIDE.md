@@ -35,6 +35,7 @@
 | `WireOps.h` / `ShellOps.h` | 线融合、面缝合 |
 | `GeoMeshBoolean.h` | CGAL 三角网格布尔 |
 | `FeatureSpec.h` | **CAD 轨迹特征**：`FeatureSpec` / `RawPath` / `FeatureCatalog`；统一离散入口 `discretizeFeature` |
+| `MeshTrajectory.h` | **Mesh 轨迹**：截面法平面求交、B 样条区域拟合；见 §3.2 |
 | `TemplateBrepUpdate.h` | **扫描驱动 B-rep 更新**：面采样、点面归属、特征类型驱动面调整（Plane/Cylinder/Cone/Sphere/Toroid/BSpline） |
 | `SelfTest.h` | `runSelfTest` |
 
@@ -82,6 +83,65 @@
   "discretize": { "stepMm": 2.0, "outputTangent": true, "outputNormal": true }
 }
 ```
+
+### 3.1a Mesh 轨迹（`MeshTrajectory.h`）
+
+**定位**：在 **三角 soup（模型坐标 mm）** 上生成机器人原始路径，与 CAD `FeatureSpec` 并列；入口 `generateMeshTrajectory`，输出 `RawPath`（可含多段 `segmentEndExclusive`）。
+
+**坐标**：输入 soup 与 `MeshTrajectoryCrossSection` 均为 **mesh 模型系**；Host 预览/程序发射时乘 backend `worldMatrix`（见 RobotWidget `FeaturePickTransform`）。
+
+#### 方法对比
+
+| | **截面法** `CrossSection` | **B 样条区域** `BsplineRegion` |
+|---|---------------------------|--------------------------------|
+| 输入 | 平面原点 + 法向；可选 `region.triangleIndices` 过滤求交三角面 | 必选 ≥3 个选中三角面 |
+| 几何 | 平面 ∩ 三角网格 → 多条折线 | 区域投影拟合 `Geom_BSplineSurface` → 参数域 UV 采样 |
+| 离散 | 每条交线按 `discretize.stepMm` 弧长重采样 | **不用** `stepMm`；密度由 `uvCountU/V`、`fitUvSpacingMm` 与 `traceMode` 决定 |
+| 输出段 | 每条交线一段，`RawPath.segmentEndExclusive` 标记分界 | 单段（蛇形/栅格顺序写入 `points`） |
+
+#### 截面法流水线
+
+```text
+intersectPlaneWithTriangleSoup(soup, origin, normal, triFilter?)
+  → 每三角最多 1 线段 → chainSegmentsToPolylines
+  → discretizeAllMeshTrajectoryPolylines（按弧长降序，逐条 discretizeMeshTrajectoryPolyline）
+  → RawPath.points + segmentEndExclusive[]
+```
+
+| API | 说明 |
+|-----|------|
+| `intersectPlaneWithTriangleSoup` | 平面-三角求交；`triangleIndexFilter` 非空时仅处理选中三角（交线在选区边界会断开） |
+| `discretizeMeshTrajectoryPolyline` | 单折线 `stepMm` 重采样；法向默认取截面法向 |
+| `generateMeshTrajectory` | 按 `spec.method` 分派；截面法走上述链路 |
+
+**注意**：不再只保留最长交线；**所有**连通交线段均离散并追加。段间切向在 `importRawPathToTrajectory` 时不跨段取下一点。
+
+#### B 样条区域流水线
+
+```text
+buildRegionFrame（选中三角质心 + 平均法向 → 区域 UV 系）
+  → 投影网格：每个 (u,v) 格点 projectGridPointToRegion（最近三角面投影）
+  → NurbsSurfaceFitting::fitNurbsSurfaceFromGrid（与曲面重构同源 AMRTO centripetal 最小二乘）
+  → 参数域 [uMin,uMax]×[vMin,vMax] 均匀 outU×outV 采样（sampleSurfaceAtUv）
+  → appendTraceModePoints（USerpentine / VSerpentine / UvGrid）
+```
+
+| 字段 | 说明 |
+|------|------|
+| `bspline.uvCountU/V` | 拟合采样格网基数（≥4，可被 `fitUvSpacingMm` 收紧） |
+| `bspline.gridAngleDeg` | 区域 UV 系内扫描方向旋转 |
+| `bspline.fitUvSpacingMm` | >0 时按区域 UV 跨度自动增加格点数（上限为 uvCount） |
+| `bspline.traceMode` | JSON：`USerpentine` / `VSerpentine` / `UvGrid` |
+| `bspline.fitMode` | 与 `MeshSurfaceNurbsFitMode` 同枚举；默认 `ApproxCentripetalFixedCtrlpts`（centripetal + 指定控制点） |
+| `bspline.controlPointDensityFactor` | 控制点密度系数（默认 0.5，对齐曲面重构 AMRTO） |
+| `bspline.nurbsDegreeU/V` | B 样条阶数（默认 3） |
+
+| API | 说明 |
+|-----|------|
+| `buildBsplineRegionSurfacePreview` | 拟合同一曲面并三角化（16~48 细分），供 OSG 半透明预览 |
+| `meshTrajectorySpecFromJson` / `meshTrajectorySpecToJson` | UI / PathPlan 持久化 |
+
+实现：`source/MeshTrajectory.cpp`；SelfTest：`meshTrajectoryCrossSection`（立方体截面）、B 样条 fan 区域。
 
 ### 3.2 BREP 导入预处理（`BrepImportArtifacts.h` / `Discretize.h`）
 

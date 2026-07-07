@@ -64,11 +64,11 @@ cloudsim::core::IRenderView* WidgetOsgViewHost::renderView() const
 	return m_page ? &m_page->render() : nullptr;
 }
 
-const OsgWidget* WidgetOsgViewHost::osgWidget() const
+OsgWidget* WidgetOsgViewHost::osgWidget() const
 {
 	if (cloudsim::core::IRenderView* rv = renderView())
 	{
-		return qobject_cast<const OsgWidget*>(rv->widget());
+		return qobject_cast<OsgWidget*>(rv->widget());
 	}
 	return nullptr;
 }
@@ -218,8 +218,15 @@ void WidgetOsgViewHost::clearInstructionPoseAxes()
 	}
 }
 
-void WidgetOsgViewHost::setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points)
+void WidgetOsgViewHost::setRawTrajectoryOverlay(
+	const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
+	const std::vector<std::size_t>& segmentEndExclusive)
 {
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->setRawTrajectoryOverlay(points, segmentEndExclusive);
+		return;
+	}
 	cloudsim::core::IRenderView* rv = renderView();
 	if (!rv)
 	{
@@ -460,4 +467,162 @@ void WidgetOsgViewHost::setMeshPickScopeBackendId(const std::string& backendId)
 	{
 		rv->syncSelectionForBackend(QString::fromStdString(backendId));
 	}
+}
+
+void WidgetOsgViewHost::setMeshTrianglePickTool(const MeshTrianglePickTool tool, const float brushRadiusPx)
+{
+	m_meshTrianglePickTool = tool;
+	OsgWidget* osg = osgWidget();
+	if (!osg)
+	{
+		return;
+	}
+	switch (tool)
+	{
+	case MeshTrianglePickTool::Click:
+		osg->setLabelingClickPickMode(true, true);
+		break;
+	case MeshTrianglePickTool::Brush:
+		osg->setLabelingBrushPickMode(true, true, brushRadiusPx);
+		break;
+	case MeshTrianglePickTool::Polyline:
+		osg->setPolylinePickMode(true);
+		break;
+	default:
+		cancelMeshTrianglePick();
+		break;
+	}
+}
+
+void WidgetOsgViewHost::cancelMeshTrianglePick()
+{
+	m_meshTrianglePickTool = MeshTrianglePickTool::None;
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->setLabelingClickPickMode(false, true);
+		osg->setLabelingBrushPickMode(false, true, 12.f);
+		osg->setPolylinePickMode(false);
+	}
+}
+
+MeshTrianglePickTool WidgetOsgViewHost::meshTrianglePickTool() const
+{
+	return m_meshTrianglePickTool;
+}
+
+void WidgetOsgViewHost::setPolylinePickMode(const bool enabled)
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->setPolylinePickMode(enabled);
+	}
+	if (enabled)
+	{
+		m_meshTrianglePickTool = MeshTrianglePickTool::Polyline;
+	}
+	else if (m_meshTrianglePickTool == MeshTrianglePickTool::Polyline)
+	{
+		m_meshTrianglePickTool = MeshTrianglePickTool::None;
+	}
+}
+
+bool WidgetOsgViewHost::polylinePickMode() const
+{
+	const OsgWidget* osg = osgWidget();
+	return osg && osg->polylinePickMode();
+}
+
+void WidgetOsgViewHost::showMeshTriangleHighlight(const std::vector<osg::Vec3f>& triangleVertsWorld)
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->showMeshFaceHighlight(triangleVertsWorld);
+	}
+}
+
+void WidgetOsgViewHost::clearMeshTriangleHighlight()
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->hideMeshElementHighlight();
+	}
+}
+
+void WidgetOsgViewHost::showMeshFittedSurfacePreview(const std::vector<osg::Vec3f>& triangleVertsWorld)
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->showMeshFittedSurfacePreview(triangleVertsWorld);
+	}
+}
+
+void WidgetOsgViewHost::clearMeshFittedSurfacePreview()
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->clearMeshFittedSurfacePreview();
+	}
+}
+
+void WidgetOsgViewHost::showMeshSectionPlane(
+	const std::string& backendIdUtf8,
+	const double originModelMm[3],
+	const double normalModel[3])
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->showMeshSectionPlane(backendIdUtf8, originModelMm, normalModel);
+	}
+}
+
+void WidgetOsgViewHost::beginMeshSectionPlaneEdit(
+	const std::string& backendIdUtf8,
+	const double originModelMm[3],
+	const double normalModel[3],
+	std::function<void(const double origin[3], const double normal[3])> onChanged)
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->beginMeshSectionPlaneEdit(backendIdUtf8, originModelMm, normalModel, std::move(onChanged));
+	}
+}
+
+void WidgetOsgViewHost::updateMeshSectionPlanePose(const double originModelMm[3], const double normalModel[3])
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->updateMeshSectionPlanePose(originModelMm, normalModel);
+	}
+}
+
+void WidgetOsgViewHost::endMeshSectionPlaneEdit()
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->endMeshSectionPlaneEdit();
+	}
+}
+
+void WidgetOsgViewHost::hideMeshSectionPlane()
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->hideMeshSectionPlane();
+	}
+}
+
+void WidgetOsgViewHost::setMeshSectionPlanePreviewVisible(const bool visible)
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->setMeshSectionPlanePreviewVisible(visible);
+	}
+}
+
+bool WidgetOsgViewHost::getCameraViewDirectionInBackendModel(
+	const std::string& backendIdUtf8,
+	double outDirModel[3]) const
+{
+	const OsgWidget* osg = osgWidget();
+	return osg && osg->getCameraViewDirectionInBackendModel(backendIdUtf8, outDirModel);
 }

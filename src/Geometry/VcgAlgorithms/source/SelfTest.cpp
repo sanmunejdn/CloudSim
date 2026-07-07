@@ -189,13 +189,13 @@ bool runSelfTest(std::vector<std::string>& failures)
 		}
 	}
 
-	// 测试4：Implicit Fairing 平滑
+	// 测试4：Taubin 平滑
 	{
 		const auto soup = makeSphereSoup();
 		std::vector<float> smoothed;
-		if (!smoothImplicitFairing(soup, 0.2, smoothed))
+		if (!smoothTaubin(soup, 3, 0.2, smoothed))
 		{
-			failures.push_back("Test4: smoothImplicitFairing failed");
+			failures.push_back("Test4: smoothTaubin failed");
 		}
 		else if (smoothed.size() != soup.size())
 		{
@@ -210,8 +210,10 @@ bool runSelfTest(std::vector<std::string>& failures)
 		RepairParams params;
 		params.removeDegenerate = true;
 		params.removeDuplicate = true;
+		params.removeDuplicateFaces = true;
 		params.removeNonManifold = true;
-		if (!repairMesh(soup, repaired, params))
+		RepairReport report;
+		if (!repairMesh(soup, repaired, params, &report))
 		{
 			failures.push_back("Test5: repairMesh failed");
 		}

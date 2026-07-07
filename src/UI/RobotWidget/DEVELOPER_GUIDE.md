@@ -28,7 +28,8 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 | 程序 JSON（多程序 / 分组 / v4） | `RobotProgramStore` → `RobotProgramCatalog`；序列化见 `RobotProgramJsonIo` |
 | 程序编辑撤销栈 | `ProgramEditService` + `ProgramEditStack`（`RobotScene`） |
 | 轨迹编辑流水线 | `TrajectoryEditPageWidget` / `TrajectoryEditSession` / `TrajectoryPipelineEngine` |
-| **CAD 轨迹生成** | `FeatureTrajectoryPageWidget`：`FeatureSpec` → 离散 → `RawTrajectory` 写入 `TrajectoryEditSession` |
+| **CAD 轨迹生成** | `FeatureTrajectoryPageWidget`（子页 CAD）：`FeatureSpec` → 离散 → `RawTrajectory` |
+| **Mesh 轨迹生成** | `MeshTrajectoryPageWidget`（子页 Mesh）：截面法 / B 样条 → `MeshTrajectorySession` → `RawTrajectory` |
 | 指令属性面板 UI | `InstructionPropertyPanel` + `MainWindowInstructionPropertyUiHost`（Widget 桥接） |
 | Property-panel feasible-axis query | `RobotInstructionPropertyEditor` / `RobotSimulationController::scheduleDeferredFeasibleAxisProbe` |
 
@@ -597,9 +598,9 @@ flowchart TD
 
 ---
 
-## CAD 轨迹生成（Trajectory Generation）
+## CAD 轨迹生成（Trajectory Generation → CAD）
 
-Dock 页签 **「轨迹生成」**（`FeatureTrajectoryPageWidget`，`kTabIndexTrajectoryGeneration`）。与 §轨迹编辑 区分：本页仅 **特征离散 → 原始 `RawTrajectory` 预览**；配方流水线与 `emitRawTrajectoryToProgram` 在轨迹编辑页完成。
+Dock 页签 **「轨迹生成」** 内 **CAD** 子页（`FeatureTrajectoryPageWidget`，`TrajectoryGenerationPageWidget` 子 Tab）。与 §Mesh 轨迹生成、§轨迹编辑 区分：本页 **STEP/BREP FeatureSpec 离散 → 原始 `RawTrajectory` 预览**；配方与 `emitRawTrajectoryToProgram` 在轨迹编辑页完成。
 
 | 步骤 | UI / API |
 |------|----------|
@@ -666,6 +667,42 @@ AI 入口：领域 `trajectory.feature`（`TrajectoryFeatureDomainHandler` 校�
 | `stepModelPointToWorldMm` / `worldPointToStepModelMm` | 文件↔世界；经 `IRobotOsgViewHost` 解析 pick alias + skip-rebase |
 | `transformRawTrajectoryToWorld` / `transformRawTrajectoryWorldToFile` | 整条 raw 点列变换 |
 | `applyRawTrajectoryPreviewToOsg` / `applyWorldRawTrajectoryPreviewToOsg` | 轨迹预览叠加 |
+
+---
+
+## Mesh 轨迹生成（Trajectory Generation → Mesh）
+
+Dock **「轨迹生成」** 内 [`TrajectoryGenerationPageWidget`](inc/TrajectoryGenerationPageWidget.h) 子页 **Mesh**（`MeshTrajectoryPageWidget`）。与 §CAD 轨迹生成 共用 `TrajectoryEditSession::setRawTrajectory`；坐标为 **mesh 模型系 mm**（非 STEP 文件坐标）。
+
+### 页签结构
+
+```text
+TrajectoryGenerationPageWidget
+  ├─ CAD  → FeatureTrajectoryPageWidget
+  └─ Mesh → MeshTrajectoryPageWidget
+```
+
+### 方法分栏
+
+| 方法 | UI | 3D 预览 |
+|------|-----|---------|
+| **截面法** | 平面参数 + stepMm；隐藏选区 | 「显示截面」→ `showMeshSectionPlane`；「编辑截面」→ 罗盘 |
+| **B 样条** | 点选/刷选/套索 + UV/trace/**NURBS 拟合模式** | 选中高亮 + `showMeshFittedSurfacePreview` |
+
+### 生成数据流
+
+```text
+onGenerateClicked → MeshTrajectorySpec → generateRawPath
+  → importMeshRawPathToRawTrajectory → setRawTrajectory
+  → applyMeshLocalRawTrajectoryPreviewToOsg(segmentEndExclusive)
+```
+
+截面法输出 **全部** 平面交线段（`segmentEndExclusive`）；B 样条在拟合曲面 UV 域采样，不用 `stepMm`。
+
+### 注意
+
+- 截面法会话若残留 `m_selectedTriangles`，求交会被过滤——生成前应清除选择。
+- 完整算法/UI/API：[`CloudSimMeshTrajectorySDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimMeshTrajectorySDK/DEVELOPER_GUIDE.md)。
 
 ---
 

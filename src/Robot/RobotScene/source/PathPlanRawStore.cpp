@@ -36,6 +36,10 @@ nlohmann::json rawTrajectoryToJson(const RawTrajectory& raw)
 		pts.push_back(std::move(pj));
 	}
 	j["points"] = std::move(pts);
+	if (!raw.segmentEndExclusive.empty())
+	{
+		j["segmentEndExclusive"] = raw.segmentEndExclusive;
+	}
 	nlohmann::json ctx = nlohmann::json::object();
 	ctx["workpieceFrameId"] = raw.ctx.workpieceFrameId;
 	ctx["toolFrameId"] = raw.ctx.toolFrameId;
@@ -82,6 +86,16 @@ bool rawTrajectoryFromJson(const nlohmann::json& j, RawTrajectory& out, std::str
 			pt.speedMmPerSec = pj.value("speedMmPerSec", 0.0);
 			pt.reachable = pj.value("reachable", true);
 			out.points.push_back(pt);
+		}
+	}
+	if (j.contains("segmentEndExclusive") && j["segmentEndExclusive"].is_array())
+	{
+		for (const auto& end : j["segmentEndExclusive"])
+		{
+			if (end.is_number_unsigned())
+			{
+				out.segmentEndExclusive.push_back(end.get<std::size_t>());
+			}
 		}
 	}
 	if (j.contains("ctx") && j["ctx"].is_object())

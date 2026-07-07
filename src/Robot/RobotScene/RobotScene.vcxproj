@@ -210,6 +210,7 @@
     <ClInclude Include="inc\RobotSceneKinematics.h" />
     <ClInclude Include="inc\RobotTeachIk.h" />
     <ClInclude Include="inc\RawTrajectory.h" />
+    <ClInclude Include="inc\MeshTrajectoryIngress.h" />
     <ClInclude Include="inc\TubularGrindingTrajectoryIngress.h" />
     <ClInclude Include="inc\RawTrajectoryMath.h" />
     <ClInclude Include="inc\RecipeBlueprint.h" />
@@ -264,6 +265,7 @@
     <ClCompile Include="source\RobotCanonicalProgramExport.cpp" />
     <ClCompile Include="source\TrajectoryOpBridge.cpp" />
     <ClCompile Include="source\RawTrajectory.cpp" />
+    <ClCompile Include="source\MeshTrajectoryIngress.cpp" />
     <ClCompile Include="source\TubularGrindingTrajectoryIngress.cpp" />
     <ClCompile Include="source\RawTrajectoryMath.cpp" />
     <ClCompile Include="source\RecipeBlueprint.cpp" />

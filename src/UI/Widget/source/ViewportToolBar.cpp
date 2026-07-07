@@ -7,6 +7,7 @@
 #include <QLabel>
 #include <QPainter>
 #include <QPainterPath>
+#include <QSignalBlocker>
 #include <QStyle>
 #include <QTimer>
 #include <QToolButton>
@@ -17,6 +18,7 @@ namespace {
 constexpr int kBtnSize = 32;
 constexpr int kIconSize = 18;
 constexpr int kBarSpacing = 6;
+constexpr int kGroupGap = 14;
 constexpr int kTopMargin = 8;
 constexpr int kBtnRadius = 8;
 constexpr int kTipShowDelayMs = 380;
@@ -236,6 +238,12 @@ public:
 		m_tipSubtitle = subtitle;
 	}
 
+	void setTextGlyph(const QString& glyph)
+	{
+		m_textGlyph = glyph;
+		update();
+	}
+
 	void setChromeDark(bool dark)
 	{
 		m_darkTheme = dark;
@@ -281,7 +289,16 @@ protected:
 		p.fillPath(path, fill);
 
 		const QIcon icon = this->icon();
-		if (!icon.isNull())
+		if (!m_textGlyph.isEmpty())
+		{
+			QFont font = p.font();
+			font.setPointSize(13);
+			font.setWeight(QFont::DemiBold);
+			p.setFont(font);
+			p.setPen(m_darkTheme ? QColor(242, 242, 247) : QColor(28, 28, 30));
+			p.drawText(rect(), Qt::AlignCenter, m_textGlyph);
+		}
+		else if (!icon.isNull())
 		{
 			const QRect iconRect = QStyle::alignedRect(layoutDirection(), Qt::AlignCenter, iconSize(), rect());
 			icon.paint(&p, iconRect, Qt::AlignCenter, isEnabled() ? QIcon::Normal : QIcon::Disabled);
@@ -311,6 +328,7 @@ protected:
 	ViewportActionTip* m_actionTip = nullptr;
 	QString m_tipTitle;
 	QString m_tipSubtitle;
+	QString m_textGlyph;
 	bool m_darkTheme = false;
 };
 
@@ -364,9 +382,94 @@ ViewportToolBar::ViewportToolBar(QWidget* host)
 	});
 	connect(m_captureBtn, &QToolButton::clicked, this, &ViewportToolBar::screenshotRequested);
 
+	m_leftPanelBtn = createToolButton(actionTip, m_host);
+	m_leftPanelBtn->setCheckable(true);
+	m_leftPanelBtn->setChecked(true);
+	static_cast<ViewportIconButton*>(m_leftPanelBtn)->setTextGlyph(QStringLiteral("\u00ab"));
+	updateLeftPanelChrome(true);
+
+	m_rightPanelBtn = createToolButton(actionTip, m_host);
+	m_rightPanelBtn->setCheckable(true);
+	m_rightPanelBtn->setChecked(true);
+	static_cast<ViewportIconButton*>(m_rightPanelBtn)->setTextGlyph(QStringLiteral("\u00bb"));
+	updateRightPanelChrome(true);
+
+	connect(m_leftPanelBtn, &QToolButton::toggled, this, [this](const bool visible) {
+		updateLeftPanelChrome(visible);
+		emit leftPanelVisibilityToggled(visible);
+	});
+	connect(m_rightPanelBtn, &QToolButton::toggled, this, [this](const bool visible) {
+		updateRightPanelChrome(visible);
+		emit rightPanelVisibilityToggled(visible);
+	});
+
+	updateSidePanelButtonTips();
+
 	m_host->installEventFilter(this);
 	applyButtonStyle();
 	showButtons();
+}
+
+void ViewportToolBar::setUseChinese(bool useChinese)
+{
+	m_useChinese = useChinese;
+	updateSidePanelButtonTips();
+}
+
+void ViewportToolBar::setSidePanelToggleState(const bool leftVisible, const bool rightVisible)
+{
+	if (m_leftPanelBtn)
+	{
+		const QSignalBlocker blocker(m_leftPanelBtn);
+		m_leftPanelBtn->setChecked(leftVisible);
+		updateLeftPanelChrome(leftVisible);
+	}
+	if (m_rightPanelBtn)
+	{
+		const QSignalBlocker blocker(m_rightPanelBtn);
+		m_rightPanelBtn->setChecked(rightVisible);
+		updateRightPanelChrome(rightVisible);
+	}
+}
+
+void ViewportToolBar::updateLeftPanelChrome(const bool visible)
+{
+	if (!m_leftPanelBtn)
+	{
+		return;
+	}
+	auto* btn = static_cast<ViewportIconButton*>(m_leftPanelBtn);
+	btn->setTextGlyph(visible ? QStringLiteral("\u00ab") : QStringLiteral("\u00bb"));
+	btn->setActionTipText(
+		visible
+			? (m_useChinese ? QStringLiteral("\u9690\u85cf\u5de6\u4fa7\u9762\u677f")
+							: QStringLiteral("Hide left panel"))
+			: (m_useChinese ? QStringLiteral("\u663e\u793a\u5de6\u4fa7\u9762\u677f")
+							: QStringLiteral("Show left panel")),
+		m_useChinese ? QStringLiteral("\u5c5e\u6027\u3001\u8bbe\u5907") : QStringLiteral("Property, Devices"));
+}
+
+void ViewportToolBar::updateRightPanelChrome(const bool visible)
+{
+	if (!m_rightPanelBtn)
+	{
+		return;
+	}
+	auto* btn = static_cast<ViewportIconButton*>(m_rightPanelBtn);
+	btn->setTextGlyph(visible ? QStringLiteral("\u00bb") : QStringLiteral("\u00ab"));
+	btn->setActionTipText(
+		visible
+			? (m_useChinese ? QStringLiteral("\u9690\u85cf\u53f3\u4fa7\u9762\u677f")
+							: QStringLiteral("Hide right panel"))
+			: (m_useChinese ? QStringLiteral("\u663e\u793a\u53f3\u4fa7\u9762\u677f")
+							: QStringLiteral("Show right panel")),
+		m_useChinese ? QStringLiteral("\u5de5\u4f5c\u533a\u3001\u63d2\u4ef6") : QStringLiteral("Workspace, Plugins"));
+}
+
+void ViewportToolBar::updateSidePanelButtonTips()
+{
+	updateLeftPanelChrome(m_leftPanelBtn && m_leftPanelBtn->isChecked());
+	updateRightPanelChrome(m_rightPanelBtn && m_rightPanelBtn->isChecked());
 }
 
 void ViewportToolBar::setDarkTheme(bool dark)
@@ -388,13 +491,15 @@ void ViewportToolBar::refreshChrome()
 
 void ViewportToolBar::showButtons()
 {
-	if (!m_focusBtn || !m_wireBtn || !m_captureBtn)
+	if (!m_focusBtn || !m_wireBtn || !m_captureBtn || !m_leftPanelBtn || !m_rightPanelBtn)
 	{
 		return;
 	}
 	m_focusBtn->show();
 	m_wireBtn->show();
 	m_captureBtn->show();
+	m_leftPanelBtn->show();
+	m_rightPanelBtn->show();
 	raiseButtons();
 	reposition();
 }
@@ -430,19 +535,31 @@ void ViewportToolBar::raiseButtons()
 	{
 		m_captureBtn->raise();
 	}
+	if (m_leftPanelBtn)
+	{
+		m_leftPanelBtn->raise();
+	}
+	if (m_rightPanelBtn)
+	{
+		m_rightPanelBtn->raise();
+	}
 }
 
 void ViewportToolBar::reposition()
 {
-	if (!m_host || !m_focusBtn || !m_wireBtn || !m_captureBtn)
+	if (!m_host || !m_focusBtn || !m_wireBtn || !m_captureBtn || !m_leftPanelBtn || !m_rightPanelBtn)
 	{
 		return;
 	}
-	const int totalW = kBtnSize * 3 + kBarSpacing * 2;
+	const int viewGroupW = kBtnSize * 3 + kBarSpacing * 2;
+	const int totalW = viewGroupW + kGroupGap + kBtnSize * 2 + kBarSpacing;
 	const int x0 = (m_host->width() - totalW) / 2;
 	m_focusBtn->move(x0, kTopMargin);
 	m_wireBtn->move(x0 + kBtnSize + kBarSpacing, kTopMargin);
 	m_captureBtn->move(x0 + (kBtnSize + kBarSpacing) * 2, kTopMargin);
+	const int sideX = x0 + viewGroupW + kGroupGap;
+	m_leftPanelBtn->move(sideX, kTopMargin);
+	m_rightPanelBtn->move(sideX + kBtnSize + kBarSpacing, kTopMargin);
 }
 
 void ViewportToolBar::applyButtonStyle()
@@ -450,4 +567,6 @@ void ViewportToolBar::applyButtonStyle()
 	applyChromeToButton(m_focusBtn, m_darkTheme);
 	applyChromeToButton(m_wireBtn, m_darkTheme);
 	applyChromeToButton(m_captureBtn, m_darkTheme);
+	applyChromeToButton(m_leftPanelBtn, m_darkTheme);
+	applyChromeToButton(m_rightPanelBtn, m_darkTheme);
 }

@@ -202,6 +202,8 @@
     <ClCompile Include="..\..\UI\Widget\source\GraphicsWindowQt1.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\ObjectTransformOperation.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\RobotTcpDragTeachOperation.cpp" />
+    <ClCompile Include="..\..\UI\Widget\source\MeshSectionPlaneEditOperation.cpp" />
+    <ClCompile Include="..\..\UI\Widget\source\OsgWidgetMeshSectionPlane.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\OsgWidgetTcpTeach.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\OsgWidget.cpp" />
     <ClCompile Include="..\..\UI\Widget\source\OsgWidgetBackendLoadController.cpp" />

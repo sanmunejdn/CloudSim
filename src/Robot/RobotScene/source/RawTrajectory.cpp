@@ -16,6 +16,27 @@
 namespace RobotInstruction
 {
 
+namespace
+{
+
+bool isRawPathSegmentStart(const std::size_t index, const std::vector<std::size_t>& segmentEndExclusive)
+{
+	if (index == 0U)
+	{
+		return true;
+	}
+	for (const std::size_t end : segmentEndExclusive)
+	{
+		if (index == end)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+} // namespace
+
 bool importRawPathToTrajectory(
 	const geoalgo::RawPath& path,
 	FrameStrategy strategy,
@@ -31,6 +52,7 @@ bool importRawPathToTrajectory(
 		return false;
 	}
 	out = RawTrajectory{};
+	out.segmentEndExclusive = path.segmentEndExclusive;
 	out.sourceFeatureJson = geometry_backend_ops::featureSpecToJson(path.sourceSpec);
 	out.points.reserve(path.points.size());
 	for (std::size_t i = 0; i < path.points.size(); ++i)
@@ -48,7 +70,7 @@ bool importRawPathToTrajectory(
 		{
 			xHint = Vec3{rp.tangent.x, rp.tangent.y, rp.tangent.z};
 		}
-		else if (i + 1U < path.points.size())
+		else if (i + 1U < path.points.size() && !isRawPathSegmentStart(i + 1U, path.segmentEndExclusive))
 		{
 			const auto& n = path.points[i + 1U].positionMm;
 			xHint = Vec3{n.x - rp.positionMm.x, n.y - rp.positionMm.y, n.z - rp.positionMm.z};
@@ -135,36 +157,100 @@ bool emitRawTrajectoryToProgram(
 		program.steps.clear();
 		program.groups.clear();
 	}
-	std::vector<std::string> memberIds;
-	std::vector<std::shared_ptr<Base>> newMotion;
-	memberIds.reserve(trajectory.points.size());
-	newMotion.reserve(trajectory.points.size());
-	int idx = 0;
-	for (const TrajectoryPoint& tp : trajectory.points)
+
+	std::vector<std::pair<std::size_t, std::size_t>> segments;
+	segments.reserve(trajectory.segmentEndExclusive.size() + 1U);
+	std::size_t segStart = 0U;
+	if (trajectory.segmentEndExclusive.empty())
 	{
-		if (!tp.reachable)
+		segments.emplace_back(0U, trajectory.points.size());
+	}
+	else
+	{
+		for (const std::size_t end : trajectory.segmentEndExclusive)
+		{
+			if (end > segStart && end <= trajectory.points.size())
+			{
+				segments.emplace_back(segStart, end);
+				segStart = end;
+			}
+		}
+	}
+	if (segments.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "empty trajectory segments";
+		}
+		return false;
+	}
+
+	std::vector<std::shared_ptr<Base>> newMotion;
+	newMotion.reserve(trajectory.points.size());
+	const std::string featureId = rawTrajectoryFeatureId(trajectory);
+	int idx = 0;
+	int segIdx = 0;
+	std::string firstGroupId;
+	for (const auto& seg : segments)
+	{
+		std::vector<std::string> memberIds;
+		memberIds.reserve(seg.second - seg.first);
+		for (std::size_t i = seg.first; i < seg.second; ++i)
+		{
+			const TrajectoryPoint& tp = trajectory.points[i];
+			if (!tp.reachable)
+			{
+				continue;
+			}
+			auto ins = std::make_shared<LineInstruction>();
+			ins->setName("P" + std::to_string(++idx));
+			const engine::RigidTransform target = engine::RigidTransform::fromTranslationEulerDeg(
+				tp.poseMm.x,
+				tp.poseMm.y,
+				tp.poseMm.z,
+				tp.eulerDeg.x,
+				tp.eulerDeg.y,
+				tp.eulerDeg.z);
+			writeTargetTransformToInstruction(*ins, target);
+			ins->setBlendRadius(tp.blendRadiusMm);
+			if (tp.speedMmPerSec > 0.0)
+			{
+				ins->setSpeed(tp.speedMmPerSec);
+			}
+			memberIds.push_back(ins->id());
+			newMotion.push_back(std::move(ins));
+		}
+		if (memberIds.empty())
 		{
 			continue;
 		}
-		auto ins = std::make_shared<LineInstruction>();
-		ins->setName("P" + std::to_string(++idx));
-		const engine::RigidTransform target = engine::RigidTransform::fromTranslationEulerDeg(
-			tp.poseMm.x,
-			tp.poseMm.y,
-			tp.poseMm.z,
-			tp.eulerDeg.x,
-			tp.eulerDeg.y,
-			tp.eulerDeg.z);
-		writeTargetTransformToInstruction(*ins, target);
-		ins->setBlendRadius(tp.blendRadiusMm);
-		if (tp.speedMmPerSec > 0.0)
+		InstructionGroup group;
+		group.id = makeGroupId();
+		if (segments.size() > 1U)
 		{
-			ins->setSpeed(tp.speedMmPerSec);
+			++segIdx;
+			group.name = featureId.empty()
+				? ("RawTrajectory_S" + std::to_string(segIdx))
+				: (featureId + "_S" + std::to_string(segIdx));
 		}
-		memberIds.push_back(ins->id());
-		newMotion.push_back(std::move(ins));
+		else
+		{
+			group.name = featureId.empty() ? "RawTrajectory" : featureId;
+		}
+		group.memberInstructionIds = std::move(memberIds);
+		if (pathPlanInstructionId && !pathPlanInstructionId->empty())
+		{
+			group.role = InstructionGroupRole::PathPlanOutput;
+			group.pathPlanInstructionId = *pathPlanInstructionId;
+		}
+		if (firstGroupId.empty())
+		{
+			firstGroupId = group.id;
+		}
+		program.groups.push_back(std::move(group));
 	}
-	if (memberIds.empty())
+
+	if (newMotion.empty())
 	{
 		if (errMsg)
 		{
@@ -184,20 +270,9 @@ bool emitRawTrajectoryToProgram(
 		}
 		return false;
 	}
-	InstructionGroup group;
-	group.id = makeGroupId();
-	const std::string featureId = rawTrajectoryFeatureId(trajectory);
-	group.name = featureId.empty() ? "RawTrajectory" : featureId;
-	group.memberInstructionIds = std::move(memberIds);
-	if (pathPlanInstructionId && !pathPlanInstructionId->empty())
-	{
-		group.role = InstructionGroupRole::PathPlanOutput;
-		group.pathPlanInstructionId = *pathPlanInstructionId;
-	}
-	program.groups.push_back(std::move(group));
 	if (outGroupId)
 	{
-		*outGroupId = program.groups.back().id;
+		*outGroupId = firstGroupId;
 	}
 	return true;
 }

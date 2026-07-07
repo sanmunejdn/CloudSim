@@ -80,6 +80,8 @@ struct RawPath
 	FeatureSpec sourceSpec;
 	std::vector<RawPathPoint> points;
 	bool closed = false;
+	/// 各子折线在 points 中的结束下标（不含）；空表示整条为一段
+	std::vector<std::size_t> segmentEndExclusive;
 };
 
 struct FeatureCandidate

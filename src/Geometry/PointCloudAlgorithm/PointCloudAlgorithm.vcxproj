@@ -159,6 +159,7 @@
     <ClInclude Include="inc\Downsample.h" />
     <ClInclude Include="inc\RegistrationRigid.h" />
     <ClInclude Include="inc\RegistrationGlobal.h" />
+    <ClInclude Include="inc\PointFeatures.h" />
     <ClInclude Include="inc\RegistrationNonRigid.h" />
     <ClInclude Include="inc\Preprocess.h" />
     <ClInclude Include="inc\Reconstruction.h" />
@@ -175,6 +176,7 @@
     <ClCompile Include="source\Downsample.cpp" />
     <ClCompile Include="source\RegistrationRigid.cpp" />
     <ClCompile Include="source\RegistrationGlobal.cpp" />
+    <ClCompile Include="source\PointFeatures.cpp" />
     <ClCompile Include="source\RegistrationNonRigid.cpp" />
     <ClCompile Include="source\Preprocess.cpp" />
     <ClCompile Include="source\Reconstruction.cpp" />

@@ -22,6 +22,8 @@ public:
 	IRobotDocumentHost* document() override;
 	const IRobotDocumentHost* document() const override;
 	IRobotOsgViewHost* osgView() override;
+	void endMeshSectionPlaneEditDirect() override;
+	void hideMeshSectionPlaneDirect() override;
 
 	bool useChinese() const override;
 	QString i18n(const QString& en, const QString& zh) const override;
@@ -77,6 +79,16 @@ public:
 	void clearMeshPickCommittedHandler() override;
 	void notifyMeshPickCommitted(const PickResult& pick, PickKind kind);
 
+	void setMeshTriangleLabelingPickHandlers(MeshTriangleLabelingPickHandlers handlers) override;
+	void clearMeshTriangleLabelingPickHandlers() override;
+	void notifyMeshTriangleLabelingClick(const PickResult& pick);
+	void notifyMeshTriangleLabelingBrush(const std::vector<int>& triangleIndices);
+	void notifyMeshTriangleLabelingPolyline(
+		const QVector<float>& polylineScreenXy,
+		const QVector<double>& mvpMatrix,
+		int viewportWidth,
+		int viewportHeight);
+
 	/// 文档页 OSG Qt 信号 → MainWindow 槽（Widget 协调层不直接 include OsgWidget）
 	void wireDocumentPageSceneSignals(DocumentPage* page);
 
@@ -94,4 +106,5 @@ private:
 	std::unique_ptr<WidgetOsgViewHost> m_osgHost;
 	DocumentPage* m_osgHostPage = nullptr;
 	std::function<void(const PickResult&, PickKind)> m_meshPickHandler;
+	IRobotMainWindowHost::MeshTriangleLabelingPickHandlers m_meshTriangleLabelingHandlers;
 };

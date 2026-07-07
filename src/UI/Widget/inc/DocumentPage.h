@@ -50,6 +50,8 @@ public:
 
 	/// 同步视口工具栏深/浅主题
 	void setViewportToolBarDarkTheme(bool dark);
+	void setViewportToolBarUseChinese(bool useChinese);
+	void syncViewportSidePanelToggleState(bool leftVisible, bool rightVisible);
 
 	void markFollowAttachmentDirtyFromBackendMove(const QString& seedBackendId);
 

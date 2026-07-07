@@ -68,8 +68,9 @@ private slots:
 	void onClearSelectedFacesClicked();
 	void onMeshSimplifyClicked();
 	void onMeshSmoothLaplacianClicked();
-	void onMeshSmoothImplicitClicked();
+	void onMeshSmoothTaubinClicked();
 	void onMeshRepairClicked();
+	PluginMeshRepairParams collectMeshRepairParams() const;
 	void onMeshRemeshClicked();
 	void onSurfaceReconstructClicked();
 	void onSurfaceReconstructResetSessionClicked();
@@ -180,9 +181,15 @@ private:
 	QPushButton* m_simplifyBtn = nullptr;
 	QLabel* m_smoothIterLabel = nullptr;
 	QSpinBox* m_smoothIterSpin = nullptr;
+	QLabel* m_smoothLambdaLabel = nullptr;
+	QDoubleSpinBox* m_smoothLambdaSpin = nullptr;
+	QCheckBox* m_repairBeforeSmoothCheck = nullptr;
 	QPushButton* m_smoothLaplacianBtn = nullptr;
-	QPushButton* m_smoothImplicitBtn = nullptr;
+	QPushButton* m_smoothTaubinBtn = nullptr;
 	QPushButton* m_repairBtn = nullptr;
+	QCheckBox* m_fillHolesCheck = nullptr;
+	QLabel* m_holeMaxEdgeLabel = nullptr;
+	QSpinBox* m_holeMaxEdgeSpin = nullptr;
 	QLabel* m_remeshEdgeLabel = nullptr;
 	QDoubleSpinBox* m_remeshEdgeSpin = nullptr;
 	QPushButton* m_remeshBtn = nullptr;

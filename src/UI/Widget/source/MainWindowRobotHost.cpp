@@ -7,6 +7,7 @@
 #include "IRenderView.h"
 #include "IRobotService.h"
 #include "WidgetOsgViewHost.h"
+#include "OsgWidget.h"
 #include "WidgetSceneSignalWiring.h"
 #include "MainWindow.h"
 #include "JobSystem.h"
@@ -449,10 +450,14 @@ const IRobotDocumentHost* MainWindowRobotHost::document() const
 IRobotOsgViewHost* MainWindowRobotHost::osgView()
 {
 	DocumentPage* page = m_mw->currentPage();
-	if (!page || !page->osgWidget())
+	if (!page)
 	{
 		m_osgHost.reset();
 		m_osgHostPage = nullptr;
+		return nullptr;
+	}
+	if (!page->osgWidget())
+	{
 		return nullptr;
 	}
 	if (!m_osgHost || m_osgHostPage != page)
@@ -461,6 +466,48 @@ IRobotOsgViewHost* MainWindowRobotHost::osgView()
 		m_osgHostPage = page;
 	}
 	return m_osgHost.get();
+}
+
+void MainWindowRobotHost::endMeshSectionPlaneEditDirect()
+{
+	auto tryEndOnPage = [](DocumentPage* page) -> bool {
+		if (!page)
+		{
+			return false;
+		}
+		if (OsgWidget* w = page->osgWidget())
+		{
+			w->endMeshSectionPlaneEdit();
+			return true;
+		}
+		return false;
+	};
+	if (tryEndOnPage(m_osgHostPage))
+	{
+		return;
+	}
+	(void)tryEndOnPage(m_mw->currentPage());
+}
+
+void MainWindowRobotHost::hideMeshSectionPlaneDirect()
+{
+	auto tryHideOnPage = [](DocumentPage* page) -> bool {
+		if (!page)
+		{
+			return false;
+		}
+		if (OsgWidget* w = page->osgWidget())
+		{
+			w->hideMeshSectionPlane();
+			return true;
+		}
+		return false;
+	};
+	if (tryHideOnPage(m_osgHostPage))
+	{
+		return;
+	}
+	(void)tryHideOnPage(m_mw->currentPage());
 }
 
 bool MainWindowRobotHost::useChinese() const { return m_mw->m_useChinese; }
@@ -644,6 +691,46 @@ void MainWindowRobotHost::notifyMeshPickCommitted(const PickResult& pick, const 
 	if (m_meshPickHandler)
 	{
 		m_meshPickHandler(pick, kind);
+	}
+}
+
+void MainWindowRobotHost::setMeshTriangleLabelingPickHandlers(
+	const IRobotMainWindowHost::MeshTriangleLabelingPickHandlers handlers)
+{
+	m_meshTriangleLabelingHandlers = std::move(handlers);
+}
+
+void MainWindowRobotHost::clearMeshTriangleLabelingPickHandlers()
+{
+	m_meshTriangleLabelingHandlers = {};
+}
+
+void MainWindowRobotHost::notifyMeshTriangleLabelingClick(const PickResult& pick)
+{
+	if (m_meshTriangleLabelingHandlers.onClick)
+	{
+		m_meshTriangleLabelingHandlers.onClick(pick);
+	}
+}
+
+void MainWindowRobotHost::notifyMeshTriangleLabelingBrush(const std::vector<int>& triangleIndices)
+{
+	if (m_meshTriangleLabelingHandlers.onBrushStroke)
+	{
+		m_meshTriangleLabelingHandlers.onBrushStroke(triangleIndices);
+	}
+}
+
+void MainWindowRobotHost::notifyMeshTriangleLabelingPolyline(
+	const QVector<float>& polylineScreenXy,
+	const QVector<double>& mvpMatrix,
+	const int viewportWidth,
+	const int viewportHeight)
+{
+	if (m_meshTriangleLabelingHandlers.onPolylineClosed)
+	{
+		m_meshTriangleLabelingHandlers.onPolylineClosed(
+			polylineScreenXy, mvpMatrix, viewportWidth, viewportHeight);
 	}
 }
 

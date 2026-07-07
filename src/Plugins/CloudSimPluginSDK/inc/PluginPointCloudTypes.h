@@ -44,12 +44,24 @@ struct PluginMat4
 		0.0, 0.0, 0.0, 1.0};
 };
 
+struct PluginMeshRepairReport
+{
+	int inputFaceCount = 0;
+	int outputFaceCount = 0;
+	int removedDuplicateFaces = 0;
+	int removedDegenerateFaces = 0;
+	int removedNonManifoldFaces = 0;
+	int facesAddedByFill = 0;
+};
+
 struct PluginPointCloudJobResult
 {
 	std::string newBackendId;
 	PluginMat4 icpTransform{};
 	double rmseMm = 0.0;
 	std::size_t pointCountAfter = 0U;
+	bool hasMeshRepairReport = false;
+	PluginMeshRepairReport meshRepairReport{};
 };
 
 struct PluginPointCloudDownsampleVoxelParams
@@ -262,20 +274,25 @@ struct PluginMeshSimplifyParams
 	PluginMeshCreateOptions resultOptions{}; // 结果对象创建选项
 };
 
-struct PluginMeshSmoothParams
-{
-	int iterations = 3;                // 迭代次数
-	double lambda = 0.2;               // Implicit fairing 强度（仅 implicit 模式）
-	bool useImplicitFairing = false;   // false=Laplacian, true=Implicit Fairing
-	PluginMeshCreateOptions resultOptions{};
-};
-
 struct PluginMeshRepairParams
 {
 	bool removeDegenerate = true;
 	bool removeDuplicate = true;
 	bool removeNonManifold = true;
 	bool fillHoles = false;
+	int holeMaxEdgeCount = 30;
+	PluginMeshCreateOptions resultOptions{};
+};
+
+struct PluginMeshSmoothParams
+{
+	int iterations = 3;
+	double lambda = 0.2;
+	bool useTaubinSmooth = false;
+	bool preserveBoundary = true;
+	bool cotangentWeight = true;
+	bool repairBeforeSmooth = false;
+	PluginMeshRepairParams repairParams{};
 	PluginMeshCreateOptions resultOptions{};
 };
 
@@ -554,6 +571,17 @@ struct PluginTubularGrindingParams
 
 	/// 根点合并下限（0 = 自动：max(40, sampleCount×0.15)）
 	int minRootsBySamples = 0;
+
+	// FPFH 区域划分参数
+	double fpfhFeatureVoxelMm = 0.0;
+	int fpfhMaxSamplePoints = 0;
+	unsigned int fpfhNeighbors = 20U;
+	unsigned int fpfhSaliencyNeighbors = 10U;
+	int fpfhKeypointCount = 0;
+	double fpfhKeypointMinSeparationMm = 0.0;
+	double fpfhRegionGrowDist = 0.0;
+	double fpfhRegionGrowNormalAngleDeg = 45.0;
+	int fpfhMinRegionFaces = 10;
 };
 
 enum class PluginTubularGrindingStage : int
@@ -563,6 +591,7 @@ enum class PluginTubularGrindingStage : int
 	Centerline = 2,
 	TemplatePoints = 3,
 	Project = 4,
+	FpfhRegionPartition = 5,
 };
 
 struct PluginTubularGrindingSessionId
@@ -591,6 +620,9 @@ struct PluginTubularGrindingReport
 	int centerlineOtComponentCount = 0;
 	bool centerlineOtKnnFallbackEdges = false;
 	int centerlineOtPathKind = 0;
+	int fpfhRegionCount = 0;
+	int fpfhKeypointCount = 0;
+	std::string fpfhRegionColoredMeshBackendId;
 	std::string normalAxisLinesBackendId;
 	std::string localAxisLinesBackendId;
 	std::string centerlinePointsBackendId;

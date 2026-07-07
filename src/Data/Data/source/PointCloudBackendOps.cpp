@@ -22,6 +22,54 @@
 #include "MeshDefectDetect.h"
 #endif
 
+#if defined(_WIN64)
+
+namespace
+{
+
+::vcgalgo::RepairParams toVcgalgoRepair(const point_cloud_backend_ops::MeshRepairRequest& request)
+{
+	::vcgalgo::RepairParams params;
+	params.removeDegenerate = request.removeDegenerate;
+	params.removeDuplicate = request.removeDuplicate;
+	params.removeDuplicateFaces = true;
+	params.removeNonManifold = request.removeNonManifold;
+	params.fillHoles = request.fillHoles;
+	params.holeMaxEdgeCount = request.holeMaxEdgeCount;
+	return params;
+}
+
+::vcgalgo::MeshSmoothParams toVcgalgoSmooth(const point_cloud_backend_ops::MeshSmoothRequest& request)
+{
+	::vcgalgo::MeshSmoothParams params;
+	params.iterations = request.iterations;
+	params.lambda = request.lambda;
+	params.useTaubin = request.useTaubin;
+	params.preserveBoundary = request.preserveBoundary;
+	params.cotangentWeight = request.cotangentWeight;
+	params.repairBeforeSmooth = request.repairBeforeSmooth;
+	params.repairParams = toVcgalgoRepair(request.repairParams);
+	return params;
+}
+
+void copyRepairStatistics(const ::vcgalgo::RepairReport& report, point_cloud_backend_ops::MeshRepairStatistics* out)
+{
+	if (out == nullptr)
+	{
+		return;
+	}
+	out->inputFaceCount = report.inputFaceCount;
+	out->outputFaceCount = report.outputFaceCount;
+	out->removedDuplicateFaces = report.removedDuplicateFaces;
+	out->removedDegenerateFaces = report.removedDegenerateFaces;
+	out->removedNonManifoldFaces = report.removedNonManifoldFaces;
+	out->facesAddedByFill = report.facesAddedByFill;
+}
+
+} // namespace
+
+#endif
+
 namespace point_cloud_backend_ops
 {
 
@@ -586,31 +634,45 @@ bool simplifyMesh(
 bool smoothMesh(
 	const std::vector<float>& soupIn,
 	std::vector<float>& soupOut,
-	int iterations,
-	bool useImplicitFairing,
+	const MeshSmoothRequest& params,
+	MeshRepairStatistics* repairReport,
 	std::string* errMsg)
 {
-	if (useImplicitFairing)
+	::vcgalgo::RepairReport report;
+	::vcgalgo::RepairReport* reportPtr = repairReport != nullptr ? &report : nullptr;
+	const bool ok = ::vcgalgo::applyMeshSmooth(
+		soupIn,
+		soupOut,
+		toVcgalgoSmooth(params),
+		reportPtr,
+		errMsg);
+	if (ok && repairReport != nullptr)
 	{
-		return ::vcgalgo::smoothImplicitFairing(soupIn, 0.2, soupOut, errMsg);
+		copyRepairStatistics(report, repairReport);
 	}
-	return ::vcgalgo::smoothLaplacian(soupIn, iterations, soupOut, errMsg);
+	return ok;
 }
 
 bool repairMesh(
 	const std::vector<float>& soupIn,
 	std::vector<float>& soupOut,
-	bool removeDegenerate,
-	bool removeDuplicate,
-	bool removeNonManifold,
+	const MeshRepairRequest& params,
+	MeshRepairStatistics* report,
 	std::string* errMsg)
 {
-	::vcgalgo::RepairParams params;
-	params.removeDegenerate = removeDegenerate;
-	params.removeDuplicate = removeDuplicate;
-	params.removeNonManifold = removeNonManifold;
-	params.fillHoles = false;
-	return ::vcgalgo::repairMesh(soupIn, soupOut, params, errMsg);
+	::vcgalgo::RepairReport vcgalgoReport;
+	::vcgalgo::RepairReport* reportPtr = report != nullptr ? &vcgalgoReport : nullptr;
+	const bool ok = ::vcgalgo::repairMesh(
+		soupIn,
+		soupOut,
+		toVcgalgoRepair(params),
+		reportPtr,
+		errMsg);
+	if (ok && report != nullptr)
+	{
+		copyRepairStatistics(vcgalgoReport, report);
+	}
+	return ok;
 }
 
 bool remeshMeshIsotropic(
@@ -728,8 +790,8 @@ bool simplifyMesh(
 bool smoothMesh(
 	const std::vector<float>&,
 	std::vector<float>&,
-	int,
-	bool,
+	const MeshSmoothRequest&,
+	MeshRepairStatistics*,
 	std::string* errMsg)
 {
 	if (errMsg != nullptr)
@@ -742,9 +804,8 @@ bool smoothMesh(
 bool repairMesh(
 	const std::vector<float>&,
 	std::vector<float>&,
-	bool,
-	bool,
-	bool,
+	const MeshRepairRequest&,
+	MeshRepairStatistics*,
 	std::string* errMsg)
 {
 	if (errMsg != nullptr)

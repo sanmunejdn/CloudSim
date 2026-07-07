@@ -4718,7 +4718,7 @@ bool preprocessMeshSoupForSurfaceReconstruct(
 	{
 		std::vector<float> repaired;
 		vcgalgo::RepairParams repairParams;
-		if (!vcgalgo::repairMesh(working, repaired, repairParams, errMsg))
+		if (!vcgalgo::repairMesh(working, repaired, repairParams, nullptr, errMsg))
 		{
 			return false;
 		}
@@ -4943,6 +4943,15 @@ bool buildTubularGrindingSegmentColoredMeshSoup(
 	std::string* errMsg)
 {
 	return geoalgo::buildSegmentColoredMeshSoup(session, outSoup, outRgbPerVertex, errMsg);
+}
+
+bool buildTubularGrindingFpfhRegionColoredMeshSoup(
+	const geoalgo::TubularGrindingSession& session,
+	std::vector<float>& outSoup,
+	std::vector<float>& outRgbPerVertex,
+	std::string* errMsg)
+{
+	return geoalgo::buildFpfhRegionColoredMeshSoup(session, outSoup, outRgbPerVertex, errMsg);
 }
 
 bool buildTubularGrindingRingColoredMeshSoup(

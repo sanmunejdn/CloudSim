@@ -212,6 +212,10 @@ public:
 	void showMeshEdgeHighlight(const std::vector<osg::Vec3f>& polylineWorld);
 	void hideMeshElementHighlight();
 
+	/// Mesh 轨迹 B 样条拟合曲面预览（世界坐标三角顶点）
+	void showMeshFittedSurfacePreview(const std::vector<osg::Vec3f>& triangleVertsWorld);
+	void clearMeshFittedSurfacePreview();
+
 	/// 多边形裁剪预览（Qt 逻辑像素 screenXy: x0,y0,x1,y1,...）；cursor 可空
 	void updatePolylinePickScreenOverlay(
 		const std::vector<float>& screenXy,
@@ -363,6 +367,11 @@ public:
 	osg::ref_ptr<osg::Vec3Array> m_meshPickedEdgeVertices;
 	osg::ref_ptr<osg::Vec4Array> m_meshPickedFaceColors;
 	osg::ref_ptr<osg::Vec4Array> m_meshPickedEdgeColors;
+
+	osg::ref_ptr<osg::Group> m_meshFittedSurfaceOverlayGroup;
+	osg::ref_ptr<osg::Geometry> m_meshFittedSurfaceGeom;
+	osg::ref_ptr<osg::Vec3Array> m_meshFittedSurfaceVertices;
+	osg::ref_ptr<osg::Vec4Array> m_meshFittedSurfaceColors;
 
 	osg::ref_ptr<osg::Camera> m_polylinePickHudCamera;
 	osg::ref_ptr<osg::Geometry> m_polylinePickLineGeom;

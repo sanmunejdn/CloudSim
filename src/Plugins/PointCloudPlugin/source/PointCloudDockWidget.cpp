@@ -377,24 +377,50 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_smoothIterSpin = new QSpinBox(m_meshPostGroup);
 	m_smoothIterSpin->setRange(1, 100);
 	m_smoothIterSpin->setValue(3);
+	m_smoothLambdaLabel = new QLabel(m_meshPostGroup);
+	m_smoothLambdaSpin = new QDoubleSpinBox(m_meshPostGroup);
+	m_smoothLambdaSpin->setRange(0.05, 1.0);
+	m_smoothLambdaSpin->setValue(0.2);
+	m_smoothLambdaSpin->setDecimals(2);
+	m_smoothLambdaSpin->setSingleStep(0.05);
 	m_smoothLaplacianBtn = new QPushButton(m_meshPostGroup);
-	m_smoothImplicitBtn = new QPushButton(m_meshPostGroup);
+	m_smoothTaubinBtn = new QPushButton(m_meshPostGroup);
 	smoothRow->addWidget(m_smoothIterLabel);
 	smoothRow->addWidget(m_smoothIterSpin);
+	smoothRow->addWidget(m_smoothLambdaLabel);
+	smoothRow->addWidget(m_smoothLambdaSpin);
 	smoothRow->addWidget(m_smoothLaplacianBtn);
-	smoothRow->addWidget(m_smoothImplicitBtn);
+	smoothRow->addWidget(m_smoothTaubinBtn);
 	meshPostLayout->addLayout(smoothRow);
 
+	auto* smoothRepairRow = new QHBoxLayout;
+	m_repairBeforeSmoothCheck = new QCheckBox(m_meshPostGroup);
+	smoothRepairRow->addWidget(m_repairBeforeSmoothCheck);
+	smoothRepairRow->addStretch(1);
+	meshPostLayout->addLayout(smoothRepairRow);
+
 	// 修复 + 重网格行
-	auto* repairRemeshRow = new QHBoxLayout;
+	auto* repairRow = new QHBoxLayout;
 	m_repairBtn = new QPushButton(m_meshPostGroup);
+	m_fillHolesCheck = new QCheckBox(m_meshPostGroup);
+	m_holeMaxEdgeLabel = new QLabel(m_meshPostGroup);
+	m_holeMaxEdgeSpin = new QSpinBox(m_meshPostGroup);
+	m_holeMaxEdgeSpin->setRange(3, 500);
+	m_holeMaxEdgeSpin->setValue(30);
+	m_holeMaxEdgeSpin->setEnabled(false);
+	repairRow->addWidget(m_repairBtn);
+	repairRow->addWidget(m_fillHolesCheck);
+	repairRow->addWidget(m_holeMaxEdgeLabel);
+	repairRow->addWidget(m_holeMaxEdgeSpin);
+	meshPostLayout->addLayout(repairRow);
+
+	auto* repairRemeshRow = new QHBoxLayout;
 	m_remeshEdgeLabel = new QLabel(m_meshPostGroup);
 	m_remeshEdgeSpin = new QDoubleSpinBox(m_meshPostGroup);
 	m_remeshEdgeSpin->setRange(0.01, 1000.0);
 	m_remeshEdgeSpin->setValue(2.0);
 	m_remeshEdgeSpin->setDecimals(2);
 	m_remeshBtn = new QPushButton(m_meshPostGroup);
-	repairRemeshRow->addWidget(m_repairBtn);
 	repairRemeshRow->addWidget(m_remeshEdgeLabel);
 	repairRemeshRow->addWidget(m_remeshEdgeSpin);
 	repairRemeshRow->addWidget(m_remeshBtn);
@@ -828,8 +854,9 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	connect(m_refactorBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onUpdateTemplateBrepClicked);
 	connect(m_simplifyBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onMeshSimplifyClicked);
 	connect(m_smoothLaplacianBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onMeshSmoothLaplacianClicked);
-	connect(m_smoothImplicitBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onMeshSmoothImplicitClicked);
+	connect(m_smoothTaubinBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onMeshSmoothTaubinClicked);
 	connect(m_repairBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onMeshRepairClicked);
+	connect(m_fillHolesCheck, &QCheckBox::toggled, m_holeMaxEdgeSpin, &QSpinBox::setEnabled);
 	connect(m_remeshBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onMeshRemeshClicked);
 	connect(m_surfaceReconBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onSurfaceReconstructClicked);
 	connect(m_surfaceReconResetBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onSurfaceReconstructResetSessionClicked);
@@ -1154,9 +1181,14 @@ void PointCloudDockWidget::applyLanguage()
 	m_simplifyQualityLabel->setText(i18n(QStringLiteral("Quality:"), QStringLiteral("质量阈值:")));
 	m_simplifyBtn->setText(i18n(QStringLiteral("Simplify"), QStringLiteral("网格简化")));
 	m_smoothIterLabel->setText(i18n(QStringLiteral("Iterations:"), QStringLiteral("迭代次数:")));
+	m_smoothLambdaLabel->setText(i18n(QStringLiteral("λ (Taubin):"), QStringLiteral("λ (Taubin):")));
 	m_smoothLaplacianBtn->setText(i18n(QStringLiteral("Laplacian smooth"), QStringLiteral("Laplacian 平滑")));
-	m_smoothImplicitBtn->setText(i18n(QStringLiteral("Implicit fairing"), QStringLiteral("隐式平滑")));
+	m_smoothTaubinBtn->setText(i18n(QStringLiteral("Taubin smooth"), QStringLiteral("Taubin 平滑")));
+	m_repairBeforeSmoothCheck->setText(
+		i18n(QStringLiteral("Repair before smooth"), QStringLiteral("平滑前修复")));
 	m_repairBtn->setText(i18n(QStringLiteral("Repair mesh"), QStringLiteral("网格修复")));
+	m_fillHolesCheck->setText(i18n(QStringLiteral("Fill holes"), QStringLiteral("填孔")));
+	m_holeMaxEdgeLabel->setText(i18n(QStringLiteral("Max hole edges:"), QStringLiteral("孔洞最大边数:")));
 	m_remeshEdgeLabel->setText(i18n(QStringLiteral("Edge len (mm):"), QStringLiteral("目标边长(mm):")));
 	m_remeshBtn->setText(i18n(QStringLiteral("Isotropic remesh"), QStringLiteral("各向同性重网格")));
 	m_templateBrepLabel->setText(i18n(QStringLiteral("Template B-rep:"), QStringLiteral("CAD 模板:")));
@@ -1507,6 +1539,19 @@ void PointCloudDockWidget::runFinished(const bool ok, const QString& error, cons
 		{
 			msg += i18n(QStringLiteral("; RMSE: %1 mm"), QStringLiteral("；RMSE: %1 mm"))
 					   .arg(result.rmseMm, 0, 'f', 3);
+		}
+		if (result.hasMeshRepairReport)
+		{
+			const PluginMeshRepairReport& r = result.meshRepairReport;
+			msg += i18n(
+				QStringLiteral("; repair %1→%2 faces (dup %3, deg %4, nm %5, fill +%6)"),
+				QStringLiteral("；修复 %1→%2 面（重复 %3，退化 %4，非流形 %5，填孔 +%6）"))
+				.arg(r.inputFaceCount)
+				.arg(r.outputFaceCount)
+				.arg(r.removedDuplicateFaces)
+				.arg(r.removedDegenerateFaces)
+				.arg(r.removedNonManifoldFaces)
+				.arg(r.facesAddedByFill);
 		}
 		m_host->logInfo(msg);
 		if (m_statusLabel)
@@ -2273,6 +2318,23 @@ void PointCloudDockWidget::onUpdateTemplateBrepClicked()
 
 // === 网格后处理 ===
 
+PluginMeshRepairParams PointCloudDockWidget::collectMeshRepairParams() const
+{
+	PluginMeshRepairParams params;
+	params.removeDegenerate = true;
+	params.removeDuplicate = true;
+	params.removeNonManifold = true;
+	if (m_fillHolesCheck)
+	{
+		params.fillHoles = m_fillHolesCheck->isChecked();
+	}
+	if (m_holeMaxEdgeSpin)
+	{
+		params.holeMaxEdgeCount = m_holeMaxEdgeSpin->value();
+	}
+	return params;
+}
+
 std::string PointCloudDockWidget::selectedMeshTargetId() const
 {
 	if (!m_meshTargetCombo || m_meshTargetCombo->currentIndex() < 0)
@@ -2351,7 +2413,10 @@ void PointCloudDockWidget::onMeshSmoothLaplacianClicked()
 	setBusy(true);
 	PluginMeshSmoothParams params;
 	params.iterations = m_smoothIterSpin->value();
-	params.useImplicitFairing = false;
+	params.lambda = m_smoothLambdaSpin->value();
+	params.useTaubinSmooth = false;
+	params.repairBeforeSmooth = m_repairBeforeSmoothCheck->isChecked();
+	params.repairParams = collectMeshRepairParams();
 	params.resultOptions.displayName = i18n(QStringLiteral("Smoothed"), QStringLiteral("平滑网格"));
 	params.resultOptions.selectInTree = true;
 	pch->smoothMesh(
@@ -2364,7 +2429,7 @@ void PointCloudDockWidget::onMeshSmoothLaplacianClicked()
 		});
 }
 
-void PointCloudDockWidget::onMeshSmoothImplicitClicked()
+void PointCloudDockWidget::onMeshSmoothTaubinClicked()
 {
 	IPluginPointCloudHost* pch = pointCloudHost();
 	IPluginDocument* doc = activeDoc();
@@ -2376,8 +2441,12 @@ void PointCloudDockWidget::onMeshSmoothImplicitClicked()
 	setBusy(true);
 	PluginMeshSmoothParams params;
 	params.iterations = m_smoothIterSpin->value();
-	params.useImplicitFairing = true;
-	params.resultOptions.displayName = i18n(QStringLiteral("Fairing"), QStringLiteral("隐式平滑"));
+	params.lambda = m_smoothLambdaSpin->value();
+	params.useTaubinSmooth = true;
+	params.cotangentWeight = false;
+	params.repairBeforeSmooth = m_repairBeforeSmoothCheck->isChecked();
+	params.repairParams = collectMeshRepairParams();
+	params.resultOptions.displayName = i18n(QStringLiteral("Taubin smoothed"), QStringLiteral("Taubin 平滑"));
 	params.resultOptions.selectInTree = true;
 	pch->smoothMesh(
 		doc,
@@ -2399,7 +2468,7 @@ void PointCloudDockWidget::onMeshRepairClicked()
 		return;
 	}
 	setBusy(true);
-	PluginMeshRepairParams params;
+	PluginMeshRepairParams params = collectMeshRepairParams();
 	params.resultOptions.displayName = i18n(QStringLiteral("Repaired"), QStringLiteral("修复网格"));
 	params.resultOptions.selectInTree = true;
 	pch->repairMesh(

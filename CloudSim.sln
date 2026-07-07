@@ -148,6 +148,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PointNetPlugin", "src\Plugi
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSimLabelingSDK", "src\Plugins\CloudSimLabelingSDK\CloudSimLabelingSDK.vcxproj", "{A1B2C3D4-E5F6-7890-ABCD-123456789DEF}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CloudSimMeshTrajectorySDK", "src\Plugins\CloudSimMeshTrajectorySDK\CloudSimMeshTrajectorySDK.vcxproj", "{B2C3D4E5-F6A7-8901-BCDE-234567890ABC}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LabelingPlugin", "src\Plugins\LabelingPlugin\LabelingPlugin.vcxproj", "{D1E2F3A4-B5C6-7890-DEF0-123456789ABC}"
 	ProjectSection(ProjectDependencies) = postProject
 		{C3D4E5F6-A7B8-9012-CDEF-123456789ABC} = {C3D4E5F6-A7B8-9012-CDEF-123456789ABC}
@@ -369,6 +371,12 @@ Global
 		{A1B2C3D4-E5F6-7890-ABCD-123456789DEF}.Release|x64.ActiveCfg = Release|x64
 		{A1B2C3D4-E5F6-7890-ABCD-123456789DEF}.Release|x64.Build.0 = Release|x64
 		{A1B2C3D4-E5F6-7890-ABCD-123456789DEF}.Release|x86.ActiveCfg = Release|x64
+		{B2C3D4E5-F6A7-8901-BCDE-234567890ABC}.Debug|x64.ActiveCfg = Debug|x64
+		{B2C3D4E5-F6A7-8901-BCDE-234567890ABC}.Debug|x64.Build.0 = Debug|x64
+		{B2C3D4E5-F6A7-8901-BCDE-234567890ABC}.Debug|x86.ActiveCfg = Debug|x64
+		{B2C3D4E5-F6A7-8901-BCDE-234567890ABC}.Release|x64.ActiveCfg = Release|x64
+		{B2C3D4E5-F6A7-8901-BCDE-234567890ABC}.Release|x64.Build.0 = Release|x64
+		{B2C3D4E5-F6A7-8901-BCDE-234567890ABC}.Release|x86.ActiveCfg = Release|x64
 		{D1E2F3A4-B5C6-7890-DEF0-123456789ABC}.Debug|x64.ActiveCfg = Debug|x64
 		{D1E2F3A4-B5C6-7890-DEF0-123456789ABC}.Debug|x64.Build.0 = Debug|x64
 		{D1E2F3A4-B5C6-7890-DEF0-123456789ABC}.Debug|x86.ActiveCfg = Debug|x64

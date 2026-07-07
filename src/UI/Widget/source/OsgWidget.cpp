@@ -89,6 +89,7 @@
 #include "GraphicsWindowQt1.h"
 #include "ObjectTransformOperation.h"
 #include "RobotTcpDragTeachOperation.h"
+#include "MeshSectionPlaneEditOperation.h"
 #include "LabelingPickOperation.h"
 #include "PointPickOperation.h"
 #include "PolylinePickOperation.h"
@@ -156,6 +157,7 @@ OsgWidget::OsgWidget(QWidget* parent)
 	m_polylinePickOperation = std::make_unique<PolylinePickOperation>(this);
 	m_objectTransformOperation = std::make_unique<ObjectTransformOperation>(this);
 	m_tcpDragTeachOperation = std::make_unique<RobotTcpDragTeachOperation>(this);
+	m_meshSectionPlaneOperation = std::make_unique<MeshSectionPlaneEditOperation>(this);
 	m_meshElementPickOperation = std::make_unique<MeshEdgeFacePickOperation>(this);
 	m_labelingPickOperation = std::make_unique<LabelingPickOperation>(this);
 	m_importController = std::make_unique<OsgWidgetImportController>();
@@ -183,7 +185,11 @@ OsgWidget::OsgWidget(QWidget* parent)
 	initViewer();
 }
 
-OsgWidget::~OsgWidget() = default;
+OsgWidget::~OsgWidget()
+{
+	hideMeshSectionPlane();
+	clearMeshFittedSurfacePreview();
+}
 
 bool OsgWidget::hasImportedContent() const
 {
@@ -631,7 +637,9 @@ void OsgWidget::clearInstructionPoseAxes()
 	requestRedraw();
 }
 
-void OsgWidget::setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points)
+void OsgWidget::setRawTrajectoryOverlay(
+	const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
+	const std::vector<std::size_t>& segmentEndExclusive)
 {
 	if (!m_trajectoryOverlayGroup.valid())
 	{
@@ -650,22 +658,50 @@ void OsgWidget::setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTraject
 		requestRedraw();
 		return;
 	}
-	osg::ref_ptr<osg::Vec3Array> lineVerts = new osg::Vec3Array;
-	lineVerts->reserve(points.size());
-	for (const RobotOsgUi::RawTrajectoryOverlayVertex& v : points)
+
+	auto addLineStrip = [&](const std::size_t begin, const std::size_t endExclusive) {
+		if (endExclusive <= begin + 1U)
+		{
+			return;
+		}
+		osg::ref_ptr<osg::Vec3Array> lineVerts = new osg::Vec3Array;
+		lineVerts->reserve(endExclusive - begin);
+		for (std::size_t i = begin; i < endExclusive; ++i)
+		{
+			lineVerts->push_back(points[i].positionMm);
+		}
+		osg::ref_ptr<osg::Geometry> lineGeom = new osg::Geometry;
+		lineGeom->setVertexArray(lineVerts.get());
+		osg::ref_ptr<osg::Vec4Array> lineColor = new osg::Vec4Array;
+		lineColor->push_back(osg::Vec4(0.2f, 0.85f, 1.0f, 1.0f));
+		lineGeom->setColorArray(lineColor.get(), osg::Array::BIND_OVERALL);
+		lineGeom->addPrimitiveSet(new osg::DrawArrays(
+			osg::PrimitiveSet::LINE_STRIP,
+			0,
+			static_cast<GLsizei>(lineVerts->size())));
+		osg::StateSet* ss = lineGeom->getOrCreateStateSet();
+		ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+		ss->setAttribute(new osg::LineWidth(2.0f));
+		m_rawTrajectoryOverlayGeode->addDrawable(lineGeom.get());
+	};
+
+	if (segmentEndExclusive.empty())
 	{
-		lineVerts->push_back(v.positionMm);
+		addLineStrip(0U, points.size());
 	}
-	osg::ref_ptr<osg::Geometry> lineGeom = new osg::Geometry;
-	lineGeom->setVertexArray(lineVerts.get());
-	osg::ref_ptr<osg::Vec4Array> lineColor = new osg::Vec4Array;
-	lineColor->push_back(osg::Vec4(0.2f, 0.85f, 1.0f, 1.0f));
-	lineGeom->setColorArray(lineColor.get(), osg::Array::BIND_OVERALL);
-	lineGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::LINE_STRIP, 0, static_cast<GLsizei>(lineVerts->size())));
-	osg::StateSet* ss = lineGeom->getOrCreateStateSet();
-	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-	ss->setAttribute(new osg::LineWidth(2.0f));
-	m_rawTrajectoryOverlayGeode->addDrawable(lineGeom.get());
+	else
+	{
+		std::size_t segStart = 0U;
+		for (const std::size_t end : segmentEndExclusive)
+		{
+			if (end > segStart && end <= points.size())
+			{
+				addLineStrip(segStart, end);
+				segStart = end;
+			}
+		}
+	}
+
 	osg::ref_ptr<osg::Vec3Array> ptVerts = new osg::Vec3Array;
 	osg::ref_ptr<osg::Vec4Array> ptColors = new osg::Vec4Array;
 	ptVerts->reserve(points.size());
@@ -2412,6 +2448,12 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 					requestRedraw();
 					return true;
 				}
+				if (m_sectionPlaneEditActive)
+				{
+					endMeshSectionPlaneEdit();
+					requestRedraw();
+					return true;
+				}
 				if (m_objectSelectionMode)
 				{
 					m_dragging = false;
@@ -2483,6 +2525,11 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 		return true;
 	}
 
+	if (m_meshSectionPlaneOperation && m_meshSectionPlaneOperation->handleEvent(watched, event))
+	{
+		return true;
+	}
+
 	if (m_objectTransformOperation && m_objectTransformOperation->handleEvent(watched, event))
 	{
 		return true;
@@ -2494,6 +2541,7 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 void OsgWidget::clearImportedContent()
 {
 	endTcpDragTeach();
+	hideMeshSectionPlane();
 	clearInstructionPoseAxes();
 	clearStagingGeometry();
 	hideMeshElementHighlight();

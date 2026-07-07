@@ -171,8 +171,6 @@ m_stagingGroup（导入预览）
 | `osg_compass::buildTransformCompassNode` | **对象选择与 TCP 示教共用**罗盘网格（实心 torus 环 + 正半轴）；`OsgCompassGeometry.h/.cpp` |
 | `osg_compass::kCompassAxisLength` 等 | 与 `updateCompassScale` / `updateTcpTeachCompassScale` 共用缩放常量 |
 | `createCompassNode` / `attachCompassGraphics` / `detachCompassGraphics` | 委托 `buildTransformCompassNode`；`m_compassScaleTransform` 仅缩放几何，避免 PAT scale 拉偏枢轴 |
-
-**源文件**：`inc/OsgCompassGeometry.h`、`source/OsgCompassGeometry.cpp`（`OsgWidgetCore.vcxproj`）；几何基于 `osg/Shape` torus，勿依赖 `osg/Cone`。改罗盘后须先编 **OsgWidgetCore** 再链式编 Widget/RobotWidget。
 | `syncCompassGizmoOrientation` | World：`compassAtt = R⁻¹`；Local：单位四元数 |
 | `pickAxisAtScreenPos(mouseX, mouseY, preferRing, outPickedRing)` | 轴/环命中 → `kGizmoAxisX/Y/Z`（逻辑像素） |
 | `computeCameraScreenRayWorld` | Qt **逻辑**鼠标 → 世界射线（NDC 用 `mouse / viewportWidth`） |
@@ -181,6 +179,21 @@ m_stagingGroup（导入预览）
 | `beginGizmoScreenDrag` / `gizmoScreenDragDs` | 平移：冻结屏幕轴 + `mmPerPixel`（与 TCP 示教同思路） |
 | `beginGizmoScreenRotate` / `gizmoScreenRotateDeltaRad` | 旋转：绕冻结的 `m_gizmoRotatePivotWorld` 的屏幕角增量 |
 | `gizmoScreenAngleAtMouse` | 在垂直于环法向的屏幕平面内 `atan2`；法向来自 `gizmoCompassUnitAxisWorld` |
+
+**源文件**：`inc/OsgCompassGeometry.h`、`source/OsgCompassGeometry.cpp`（`OsgWidgetCore.vcxproj`）；几何基于 `osg/Shape` torus，勿依赖 `osg/Cone`。改罗盘后须先编 **OsgWidgetCore** 再链式编 Widget/RobotWidget。
+
+### 5.8b Mesh 轨迹 overlay（截面 / 拟合面 / raw 折线）
+
+几何：`OsgSectionPlaneGeometry`（`buildSectionPlaneQuadNode`）；Widget 层 `OsgWidgetMeshSectionPlane.cpp`；拟合面 geode 在 `OsgScene::initSceneGraph`。
+
+| 节点 / API | 说明 |
+|------------|------|
+| `showMeshSectionPlane` | 半透明截面片 + 可选罗盘；平面片挂 `backendObjectsGroup`，`Depth::LEQUAL` 参与遮挡 |
+| `beginMeshSectionPlaneEdit` | 罗盘 `applyUnlitHighlitStateSet`（不参与深度遮挡，始终可见） |
+| `showMeshFittedSurfacePreview` | `m_meshFittedSurfaceOverlayGroup` 上三角 soup，绿色半透明 |
+| `setRawTrajectoryOverlay(..., segmentEndExclusive)` | 每段独立 `LINE_STRIP` + 全点 POINTS；空 segment 列表时单条折线 |
+
+UI 同步见 RobotWidget §Mesh 轨迹生成（`syncSectionPlanePreview` / `syncBsplineSurfacePreview`）。
 
 **坐标系分工（对象 gizmo 旋转）**：
 

@@ -70,6 +70,7 @@
 #include "RunLogger.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
+#include "../RobotWidget/inc/TrajectoryGenerationPageWidget.h"
 #include "../RobotWidget/inc/FeatureTrajectoryPageWidget.h"
 #include "../RobotWidget/inc/TrajectoryEditPageWidget.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
@@ -108,6 +109,14 @@ void MainWindow::applyLanguage()
 	if (m_resetLayoutAction)
 	{
 		m_resetLayoutAction->setText(i18n(QStringLiteral("Reset Layout"), QStringLiteral("重置布局")));
+	}
+	if (m_toggleLeftPanelAction)
+	{
+		m_toggleLeftPanelAction->setText(i18n(QStringLiteral("Left Panel"), QStringLiteral("左侧面板")));
+	}
+	if (m_toggleRightPanelAction)
+	{
+		m_toggleRightPanelAction->setText(i18n(QStringLiteral("Right Panel"), QStringLiteral("右侧面板")));
 	}
 	if (m_settingsMenu) m_settingsMenu->setTitle(i18n(QStringLiteral("Settings"), QStringLiteral("设置")));
 	if (m_appearanceMenu)
@@ -194,9 +203,9 @@ void MainWindow::applyLanguage()
 		{
 			traj->setUseChinese(m_useChinese);
 		}
-		if (FeatureTrajectoryPageWidget* feat = simDock->featureTrajectoryPage())
+		if (TrajectoryGenerationPageWidget* gen = simDock->trajectoryGenerationPage())
 		{
-			feat->setUseChinese(m_useChinese);
+			gen->setUseChinese(m_useChinese);
 		}
 		QTabWidget* tabs = simDock->tabWidget();
 		if (tabs && tabs->count() >= 2)
@@ -263,6 +272,16 @@ void MainWindow::applyLanguage()
 	}
 	refreshBackendTree();
 	notifyPluginsLanguageChanged();
+	if (m_documentTabs)
+	{
+		for (int i = 0; i < m_documentTabs->count(); ++i)
+		{
+			if (auto* page = qobject_cast<DocumentPage*>(m_documentTabs->widget(i)))
+			{
+				page->setViewportToolBarUseChinese(m_useChinese);
+			}
+		}
+	}
 }
 
 namespace
@@ -717,6 +736,102 @@ void MainWindow::setAllDocumentViewerDarkBackground(bool dark)
 		{
 			p->render().setViewerBackgroundForDarkUi(dark);
 			p->setViewportToolBarDarkTheme(dark);
+		}
+	}
+}
+
+namespace
+{
+constexpr int kDefaultSideDockWidth = 240;
+constexpr int kMinRestorableDockWidth = 160;
+
+void showSideDock(QDockWidget* dock, int& savedWidth)
+{
+	if (!dock || dock->isVisible())
+	{
+		return;
+	}
+	dock->show();
+	const int w = savedWidth >= kMinRestorableDockWidth ? savedWidth : kDefaultSideDockWidth;
+	savedWidth = w;
+}
+
+void hideSideDock(QDockWidget* dock, int& savedWidth)
+{
+	if (!dock || !dock->isVisible())
+	{
+		return;
+	}
+	const int w = dock->width();
+	if (w >= kMinRestorableDockWidth)
+	{
+		savedWidth = w;
+	}
+	dock->hide();
+}
+} // namespace
+
+void MainWindow::setLeftSidePanelVisible(const bool visible)
+{
+	if (!m_propertyDock)
+	{
+		return;
+	}
+	if (visible)
+	{
+		showSideDock(m_propertyDock, m_leftDockSavedWidth);
+		resizeDocks({ m_propertyDock }, { m_leftDockSavedWidth }, Qt::Horizontal);
+	}
+	else
+	{
+		hideSideDock(m_propertyDock, m_leftDockSavedWidth);
+	}
+	syncSidePanelToggleUi();
+}
+
+void MainWindow::setRightSidePanelVisible(const bool visible)
+{
+	if (!m_unitDock)
+	{
+		return;
+	}
+	if (visible)
+	{
+		showSideDock(m_unitDock, m_rightDockSavedWidth);
+		resizeDocks({ m_unitDock }, { m_rightDockSavedWidth }, Qt::Horizontal);
+	}
+	else
+	{
+		hideSideDock(m_unitDock, m_rightDockSavedWidth);
+	}
+	syncSidePanelToggleUi();
+}
+
+void MainWindow::syncSidePanelToggleUi()
+{
+	const bool leftVisible = m_propertyDock && m_propertyDock->isVisible();
+	const bool rightVisible = m_unitDock && m_unitDock->isVisible();
+
+	if (m_toggleLeftPanelAction)
+	{
+		const QSignalBlocker blocker(m_toggleLeftPanelAction);
+		m_toggleLeftPanelAction->setChecked(leftVisible);
+	}
+	if (m_toggleRightPanelAction)
+	{
+		const QSignalBlocker blocker(m_toggleRightPanelAction);
+		m_toggleRightPanelAction->setChecked(rightVisible);
+	}
+	if (!m_documentTabs)
+	{
+		return;
+	}
+	for (int i = 0; i < m_documentTabs->count(); ++i)
+	{
+		auto* page = qobject_cast<DocumentPage*>(m_documentTabs->widget(i));
+		if (page)
+		{
+			page->syncViewportSidePanelToggleState(leftVisible, rightVisible);
 		}
 	}
 }

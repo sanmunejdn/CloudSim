@@ -5,11 +5,11 @@
 #include <QTabWidget>
 #include <QWidget>
 
-class SimulationCommandWidget;
-class RobotAxisControlWidget;
-class RobotFrameSettingsWidget;
-class TrajectoryEditPageWidget;
-class FeatureTrajectoryPageWidget;
+#include "SimulationCommandWidget.h"
+#include "RobotAxisControlWidget.h"
+#include "RobotFrameSettingsWidget.h"
+#include "TrajectoryEditPageWidget.h"
+#include "TrajectoryGenerationPageWidget.h"
 
 /// 仿真 Dock：指令/轴控制/坐标系/轨迹生成/轨迹编辑页签
 class ROBOTWIDGET_EXPORT RobotSimulationDockWidget : public QWidget
@@ -30,7 +30,15 @@ public:
 	RobotAxisControlWidget* axisPage() const { return m_axisPage; }
 	RobotFrameSettingsWidget* framePage() const { return m_framePage; }
 	TrajectoryEditPageWidget* trajectoryEditPage() const { return m_trajectoryPage; }
-	FeatureTrajectoryPageWidget* featureTrajectoryPage() const { return m_featurePage; }
+	FeatureTrajectoryPageWidget* featureTrajectoryPage() const
+	{
+		return m_generationPage ? m_generationPage->brepPage() : nullptr;
+	}
+	MeshTrajectoryPageWidget* meshTrajectoryPage() const
+	{
+		return m_generationPage ? m_generationPage->meshPage() : nullptr;
+	}
+	TrajectoryGenerationPageWidget* trajectoryGenerationPage() const { return m_generationPage; }
 
 private:
 	QTabWidget* m_tabs = nullptr;
@@ -38,5 +46,5 @@ private:
 	RobotAxisControlWidget* m_axisPage = nullptr;
 	RobotFrameSettingsWidget* m_framePage = nullptr;
 	TrajectoryEditPageWidget* m_trajectoryPage = nullptr;
-	FeatureTrajectoryPageWidget* m_featurePage = nullptr;
+	TrajectoryGenerationPageWidget* m_generationPage = nullptr;
 };

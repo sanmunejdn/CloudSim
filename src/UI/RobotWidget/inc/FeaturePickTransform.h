@@ -145,4 +145,25 @@ ROBOTWIDGET_EXPORT void applyWorldRawTrajectoryPreviewToOsg(
 	const RobotOsgUi::RawTrajectoryPreviewOptions& options,
 	std::string* errMsg = nullptr);
 
+/// mesh 模型系 raw 预览（与 STEP 文件系共用 backend worldMatrix 变换）
+inline void applyMeshLocalRawTrajectoryPreviewToOsg(
+	IRobotOsgViewHost* osg,
+	const std::string& backendId,
+	const RobotInstruction::RawTrajectory& meshLocalTraj,
+	const RobotOsgUi::RawTrajectoryPreviewOptions& options,
+	std::string* errMsg = nullptr)
+{
+	applyRawTrajectoryPreviewToOsg(osg, backendId, meshLocalTraj, options, errMsg);
+}
+
+inline bool transformMeshLocalRawTrajectoryToWorld(
+	IRobotOsgViewHost* osg,
+	const std::string& backendId,
+	const RobotInstruction::RawTrajectory& meshLocalTraj,
+	RobotInstruction::RawTrajectory& outWorld,
+	std::string* errMsg = nullptr)
+{
+	return transformRawTrajectoryToWorld(osg, backendId, meshLocalTraj, outWorld, errMsg);
+}
+
 } // namespace feature_pick_transform

@@ -122,6 +122,8 @@ public:
 	void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void refreshInstructionPoseAxes();
 	void stopRobotSimulation();
+	void setLeftSidePanelVisible(bool visible);
+	void setRightSidePanelVisible(bool visible);
 	/// 层级/工程批量导入时抑制逐对象 refreshBackendTree
 	class ScopedBackendTreeRefreshSuppress
 	{
@@ -263,6 +265,7 @@ private:
 	void flushFollowTargetNamePropertyEdit();
 	void syncViewModeActionsFromCurrentOsg();
 	void setAllDocumentViewerDarkBackground(bool dark);
+	void syncSidePanelToggleUi();
 	bool viewerUsesDarkBackground() const;
 	bool shouldDeferPropertyPanelRebuild(const QString& contextId) const;
 	void beginPropertyPanelNumericEdit(const QString& contextId, const QString& propertyKey);
@@ -297,6 +300,10 @@ protected:
 	QtVariantEditorFactory* m_variantFactory = nullptr;
 	RunInfoPage* m_runInfoPage = nullptr;
 	QAction* m_resetLayoutAction = nullptr;
+	QAction* m_toggleLeftPanelAction = nullptr;
+	QAction* m_toggleRightPanelAction = nullptr;
+	int m_leftDockSavedWidth = 240;
+	int m_rightDockSavedWidth = 240;
 	QAction* m_viewModeAction = nullptr;
 	QAction* m_objectModeAction = nullptr;
 	QAction* m_pointPickModeAction = nullptr;

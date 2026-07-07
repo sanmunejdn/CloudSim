@@ -59,6 +59,7 @@ class PointPickOperation;
 class ObjectTransformOperation;
 class RobotTcpDragTeachOperation;
 class MeshEdgeFacePickOperation;
+class MeshSectionPlaneEditOperation;
 class BackendDataBase;
 class PointCloudBackendData;
 class MeshBackendData;
@@ -84,6 +85,7 @@ public:
 	friend class ObjectTransformOperation;
 	friend class RobotTcpDragTeachOperation;
 	friend class MeshEdgeFacePickOperation;
+	friend class MeshSectionPlaneEditOperation;
 	friend class LabelingPickOperation;
 	friend class OsgWidgetImportController;
 	friend class OsgWidgetBackendLoadController;
@@ -215,7 +217,9 @@ public:
 	void removeHierarchicalRobotScene(const QString& backendId);
 	void setInstructionPoseAxes(const std::vector<RobotOsgUi::InstructionPoseAxis>& axes);
 	void clearInstructionPoseAxes();
-	void setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points);
+	void setRawTrajectoryOverlay(
+		const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
+		const std::vector<std::size_t>& segmentEndExclusive = {});
 	void clearRawTrajectoryOverlay();
 	void setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& frames);
 	void clearRawTrajectoryOverlayFrames();
@@ -249,6 +253,24 @@ public:
 	void updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLocalOnFlange);
 	engine::RigidTransform tcpDragTeachTargetInBase() const { return m_tcpTeachTargetInBase; }
 
+	/// Mesh 轨迹截面编辑（模型系原点+法向，罗盘拖动）
+	bool isMeshSectionPlaneEditActive() const;
+	void showMeshSectionPlane(
+		const std::string& backendIdUtf8,
+		const double originModelMm[3],
+		const double normalModel[3]);
+	void beginMeshSectionPlaneEdit(
+		const std::string& backendIdUtf8,
+		const double originModelMm[3],
+		const double normalModel[3],
+		std::function<void(const double origin[3], const double normal[3])> onChanged);
+	void updateMeshSectionPlanePose(const double originModelMm[3], const double normalModel[3]);
+	void endMeshSectionPlaneEdit();
+	void hideMeshSectionPlane();
+	void setMeshSectionPlanePreviewVisible(bool visible);
+	bool getCameraViewDirectionWorld(double outDirUnit[3]) const;
+	bool getCameraViewDirectionInBackendModel(const std::string& backendIdUtf8, double outDirModel[3]) const;
+
 	/// 帧定时器回调（如跟随求解）
 	void setPerFrameHook(std::function<void(OsgWidget*)> fn);
 	/// per-link 机器人对象 gizmo：intercept 为 true 时跳过逻辑子孙传播
@@ -274,6 +296,8 @@ public:
 	using OsgScene::showMeshFaceHighlight;
 	using OsgScene::showMeshEdgeHighlight;
 	using OsgScene::hideMeshElementHighlight;
+	using OsgScene::showMeshFittedSurfacePreview;
+	using OsgScene::clearMeshFittedSurfacePreview;
 
 /// TCP 示教罗盘（RobotTcpDragTeachOperation 友元，同 OsgScene 对象 gizmo）
 	void updateTcpTeachCompassHighlight(DragAxis axis, bool highlightRing = false);
@@ -334,6 +358,56 @@ public:
 	osg::ref_ptr<osg::Node> m_tcpTeachCompassNode;
 	osg::ref_ptr<osg::MatrixTransform> m_tcpTeachAxisBranch[3];
 	osg::ref_ptr<osg::MatrixTransform> m_tcpTeachRingBranch[3];
+
+/// Mesh 截面罗盘（MeshSectionPlaneEditOperation 友元）
+	void setMeshSectionPlaneCompassVisible(bool visible);
+	void ensureMeshSectionPlaneOverlay(const std::string& backendIdUtf8);
+	void notifyMeshSectionPlaneChanged();
+	void syncMeshSectionPlaneOverlayFromModel();
+	void updateMeshSectionPlaneCompassHighlight(DragAxis axis, bool highlightRing = false);
+	void updateMeshSectionPlaneCompassScale();
+	void computeMeshSectionPlanePivotWorld(osg::Vec3d& outPivotWorld) const;
+	bool meshSectionPlaneCompassUnitAxisWorld(DragAxis axis, osg::Vec3d& outAxisWorld) const;
+	bool beginMeshSectionPlaneScreenDrag();
+	double meshSectionPlaneScreenDragDsMm(const QPoint& curPos, const QPoint& lastPos) const;
+	void applyMeshSectionPlaneTranslationAxis(int axisIndex, double dsWorld);
+	void applyMeshSectionPlaneTranslationWorld(
+		const osg::Vec3d& hitWorld,
+		const osg::Vec3d& lastHitWorld);
+	void applyMeshSectionPlaneRotationAxis(int axisIndex, double deltaRad);
+	bool pickMeshSectionPlaneDragPoint(const QPoint& mousePos, osg::Vec3d& outHitWorld) const;
+	int pickMeshSectionPlaneAxisAtScreenPos(const QPoint& mousePos, bool preferRing, bool* outPickedRing = nullptr) const;
+	bool m_sectionPlaneVisible = false;
+	bool m_sectionPlaneEditActive = false;
+	std::string m_sectionPlaneBackendId;
+	std::function<void(const double[3], const double[3])> m_sectionPlaneOnChanged;
+	osg::Vec3d m_sectionPlaneOriginModel{};
+	osg::Vec3d m_sectionPlaneNormalModel{0.0, 0.0, 1.0};
+	osg::Vec3d m_sectionPlaneAxisUModel{1.0, 0.0, 0.0};
+	float m_sectionPlaneModelDiagonal = 1000.f;
+	double m_sectionPlaneGizmoRefDistance = -1.0;
+	double m_sectionPlaneGizmoRefScale = 1.0;
+	bool m_sectionPlaneDragging = false;
+	bool m_sectionPlaneRotating = false;
+	bool m_sectionPlanePlaneDragging = false;
+	DragAxis m_sectionPlaneDragAxis = DragAxis::None;
+	DragAxis m_sectionPlaneHoverAxis = DragAxis::None;
+	osg::Vec3d m_sectionPlaneScreenDragAxisWorld{};
+	double m_sectionPlaneDragScreenAxisUx = 1.0;
+	double m_sectionPlaneDragScreenAxisUy = 0.0;
+	double m_sectionPlaneDragMmPerPixel = 1.0;
+	osg::Vec3d m_sectionPlaneTransDragPlaneO{};
+	osg::Vec3d m_sectionPlaneTransDragPlaneN{};
+	osg::Vec3d m_sectionPlaneDragLastHitWorld{};
+	osg::Vec3d m_sectionPlaneRotatePivotWorld{};
+	osg::ref_ptr<osg::Group> m_sectionPlaneOverlayGroup;
+	osg::ref_ptr<osg::MatrixTransform> m_sectionPlaneWorldPat;
+	osg::ref_ptr<osg::Node> m_sectionPlaneQuadNode;
+	osg::ref_ptr<osg::PositionAttitudeTransform> m_sectionPlaneCompassTransform;
+	osg::ref_ptr<osg::MatrixTransform> m_sectionPlaneCompassScaleTransform;
+	osg::ref_ptr<osg::Node> m_sectionPlaneCompassNode;
+	osg::ref_ptr<osg::MatrixTransform> m_sectionPlaneAxisBranch[3];
+	osg::ref_ptr<osg::MatrixTransform> m_sectionPlaneRingBranch[3];
 
 signals:
 	void selectedObjectPoseChanged(float x, float y, float z);
@@ -432,6 +506,7 @@ private:
 	std::unique_ptr<SelectionOperation> m_polylinePickOperation;
 	std::unique_ptr<SelectionOperation> m_objectTransformOperation;
 	std::unique_ptr<SelectionOperation> m_tcpDragTeachOperation;
+	std::unique_ptr<SelectionOperation> m_meshSectionPlaneOperation;
 	std::unique_ptr<SelectionOperation> m_meshElementPickOperation;
 	std::unique_ptr<SelectionOperation> m_labelingPickOperation;
 	/// 使用场景光照加载的网格后端（如 URDF 连杆），改色时保留 Material+LIGHTING。
