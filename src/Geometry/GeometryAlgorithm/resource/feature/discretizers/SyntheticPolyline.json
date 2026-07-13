@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "strategyId": "SyntheticPolyline",
+  "schema": {
+    "fields": [
+      { "key": "stepMm", "type": "Double", "labelZh": "步距", "unit": "mm", "default": 2.0, "order": 1 },
+      { "key": "outputTangent", "type": "Bool", "labelZh": "输出切向", "defaultBool": true, "order": 2 },
+      { "key": "outputNormal", "type": "Bool", "labelZh": "输出法向", "defaultBool": true, "order": 3 }
+    ]
+  },
+  "defaults": { "params": { "stepMm": 2.0, "outputTangent": true, "outputNormal": true } }
+}

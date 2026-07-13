@@ -849,9 +849,11 @@ bool TrajectoryEditSession::showUnifiedOverlayPreview(
 	}
 	osg->clearInstructionPoseAxes();
 	RobotOsgUi::RawTrajectoryPreviewOptions options;
+	options.showAxisX = true;
+	options.showAxisY = true;
+	options.showAxisZ = true;
 	options.showAxes = true;
 	options.axisInterval = 0;
-	options.maxAxes = 50;
 	feature_pick_transform::applyWorldRawTrajectoryPreviewToOsg(osg, worldPreview, options, &err);
 	if (!err.empty())
 	{
@@ -1158,7 +1160,27 @@ void TrajectoryEditSession::bindPathPlan(const std::string& pathPlanInstructionI
 	{
 		m_defaultGroupId = pp->outputGroupId();
 	}
-	loadRawFromBoundPathPlan();
+	(void)loadRawFromBoundPathPlan();
+	emit pathPlanBound(pathPlanInstructionId);
+}
+
+std::string TrajectoryEditSession::boundSourceFeatureJson() const
+{
+	if (m_rawTrajectory.has_value() && !m_rawTrajectory->sourceFeatureJson.empty())
+	{
+		return m_rawTrajectory->sourceFeatureJson;
+	}
+	if (!m_store || m_boundPathPlanId.empty())
+	{
+		return {};
+	}
+	if (const RobotInstruction::PathPlanInstruction* pp = m_store->activeCatalog().findPathPlan(
+			m_store->activeCatalog().activeProgramId(),
+			m_boundPathPlanId))
+	{
+		return pp->sourceFeatureJson();
+	}
+	return {};
 }
 
 void TrajectoryEditSession::clearPathPlanBinding()
@@ -1200,6 +1222,29 @@ bool TrajectoryEditSession::syncPipelineToBoundPathPlan()
 	return true;
 }
 
+bool TrajectoryEditSession::reloadBoundPathPlanFromStore()
+{
+	if (!m_store || m_boundPathPlanId.empty())
+	{
+		return false;
+	}
+	RobotInstruction::PathPlanInstruction* pp = m_store->activeCatalog().findPathPlan(
+		m_store->activeCatalog().activeProgramId(),
+		m_boundPathPlanId);
+	if (!pp)
+	{
+		return false;
+	}
+	m_ops = pp->pipeline();
+	if (!pp->outputGroupId().empty())
+	{
+		m_defaultGroupId = pp->outputGroupId();
+	}
+	(void)loadRawFromBoundPathPlan();
+	invalidatePreviewScopeCache();
+	return true;
+}
+
 bool TrajectoryEditSession::loadRawFromBoundPathPlan()
 {
 	if (!m_store || m_boundPathPlanId.empty())
@@ -1209,6 +1254,9 @@ bool TrajectoryEditSession::loadRawFromBoundPathPlan()
 	RobotInstruction::RawTrajectory raw;
 	if (!m_store->activeCatalog().pathPlanRaws().load(m_boundPathPlanId, raw))
 	{
+		m_rawTrajectory.reset();
+		m_bakedWorldRaw.reset();
+		emit rawTrajectoryChanged();
 		return false;
 	}
 	m_rawTrajectory = std::move(raw);
@@ -1262,6 +1310,18 @@ std::string makeUniquePathPlanName(
 
 void TrajectoryEditSession::setRawTrajectory(RobotInstruction::RawTrajectory traj)
 {
+	++m_deferProgramRevisionUiSync;
+	struct DeferGuard
+	{
+		int* counter;
+		~DeferGuard()
+		{
+			if (counter)
+			{
+				--(*counter);
+			}
+		}
+	} defer{&m_deferProgramRevisionUiSync};
 	clearTrajectoryGeometryHistory();
 	m_rawTrajectory = std::move(traj);
 	m_bakedWorldRaw.reset();

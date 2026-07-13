@@ -3,6 +3,8 @@
 
 #include "TrajectoryOpFormat.h"
 #include "UnifiedTrajectoryPathMath.h"
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -28,6 +30,8 @@ RobotInstruction::TrajectoryOpDescriptor ResampleOp::makeDefaultDescriptor(
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Resample;
 	op.scope = defaultScope;
+	TrajectoryOpParamAccess::applyDefaults(op, *this);
+
 	return op;
 }
 
@@ -40,7 +44,7 @@ std::vector<TrajectoryOpParamField> ResampleOp::paramFields() const
 
 bool ResampleOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, std::string* errMsg) const
 {
-	if (op.resample.stepMm <= 0.0)
+	if (parseResampleParams(op.params).stepMm <= 0.0)
 	{
 		if (errMsg)
 		{
@@ -75,7 +79,7 @@ bool ResampleOp::processPath(
 		traj,
 		op.scope,
 		ctx.program,
-		op.resample.stepMm);
+		parseResampleParams(op.params).stepMm);
 	return true;
 }
 

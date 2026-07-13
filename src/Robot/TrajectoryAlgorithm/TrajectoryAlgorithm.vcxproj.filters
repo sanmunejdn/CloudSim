@@ -24,6 +24,9 @@
     <ClInclude Include="inc\TrajectoryOpDescriptorCodec.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\TrajectoryOpParamsParse.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\TrajectoryOpParamAccess.h">
       <Filter>inc</Filter>
     </ClInclude>
@@ -55,6 +58,9 @@
     </ClCompile>
     <ClCompile Include="source\TrajectoryOpDescriptorCodec.cpp">
       <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryOpParamsParse.cpp">
+      <Filter>source</Filter>
     </ClCompile>
     <ClCompile Include="source\TrajectoryOpParamAccess.cpp">
       <Filter>src</Filter>

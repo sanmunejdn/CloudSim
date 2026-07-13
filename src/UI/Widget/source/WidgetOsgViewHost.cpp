@@ -252,6 +252,14 @@ void WidgetOsgViewHost::clearRawTrajectoryOverlay()
 	}
 }
 
+void WidgetOsgViewHost::setRawTrajectoryOverlayAxisComponents(bool showX, bool showY, bool showZ)
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->setRawTrajectoryOverlayAxisComponents(showX, showY, showZ);
+	}
+}
+
 void WidgetOsgViewHost::setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& frames)
 {
 	cloudsim::core::IRenderView* rv = renderView();

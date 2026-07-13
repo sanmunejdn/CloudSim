@@ -1,5 +1,6 @@
 #include "UnifiedTrajectorySemanticMath.h"
 
+#include "TrajectoryOpParamsParse.h"
 #include "TrajectoryTransformMath.h"
 #include "TrajectoryUnifiedScope.h"
 
@@ -24,20 +25,7 @@ RobotInstruction::TrajectoryOpDescriptor interpolateDescriptor(
 	const double t)
 {
 	RobotInstruction::TrajectoryOpDescriptor out = op;
-	if (op.kind == RobotInstruction::TrajectoryOpKind::Translate)
-	{
-		out.translate.dxMm = lerp(op.translate.dxMm, op.translate.endDxMm, t);
-		out.translate.dyMm = lerp(op.translate.dyMm, op.translate.endDyMm, t);
-		out.translate.dzMm = lerp(op.translate.dzMm, op.translate.endDzMm, t);
-		out.translate.endDxMm = out.translate.dxMm;
-		out.translate.endDyMm = out.translate.dyMm;
-		out.translate.endDzMm = out.translate.dzMm;
-	}
-	else if (op.kind == RobotInstruction::TrajectoryOpKind::Rotate)
-	{
-		out.rotate.angleDeg = lerp(op.rotate.angleDeg, op.rotate.endAngleDeg, t);
-		out.rotate.endAngleDeg = out.rotate.angleDeg;
-	}
+	interpolateTransformParamsInPlace(out, t);
 	return out;
 }
 
@@ -301,13 +289,15 @@ bool applyTranslateRotateInScope(
 		engine::RigidTransform tf = rigidFromPoint(traj.points[i]);
 		if (current.kind == RobotInstruction::TrajectoryOpKind::Translate)
 		{
-			const engine::RigidTransform delta = rigidDeltaFromTranslate(current.translate);
-			tf = applyTransformDelta(tf, delta, current.translate.frame);
+			const RobotInstruction::TranslateParams translate = parseTranslateParams(current.params);
+			const engine::RigidTransform delta = rigidDeltaFromTranslate(translate);
+			tf = applyTransformDelta(tf, delta, translate.frame);
 		}
 		else
 		{
-			const engine::RigidTransform delta = rigidDeltaFromRotate(current.rotate);
-			tf = applyTransformDelta(tf, delta, current.rotate.frame);
+			const RobotInstruction::RotateParams rotate = parseRotateParams(current.params);
+			const engine::RigidTransform delta = rigidDeltaFromRotate(rotate);
+			tf = applyTransformDelta(tf, delta, rotate.frame);
 		}
 		pointFromRigid(tf, traj.points[i]);
 	}
@@ -327,7 +317,7 @@ bool applyMirrorInScope(
 		resolveScopedPointIndices(traj, op.scope, program);
 	for (const std::size_t i : scoped)
 	{
-		applyAxisReverse(traj.points[i], op.mirrorAxis);
+		applyAxisReverse(traj.points[i], parseMirrorAxis(op.params));
 	}
 	return true;
 }

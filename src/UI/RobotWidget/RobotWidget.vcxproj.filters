@@ -92,6 +92,12 @@
     <ClCompile Include="source\FeatureTrajectoryPageWidget.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="source\FeatureTableModel.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizerParamPanel.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClCompile Include="source\TrajectoryOpParamPanel.cpp">
       <Filter>src</Filter>
     </ClCompile>
@@ -197,6 +203,12 @@
       <Filter>inc</Filter>
     </QtMoc>
     <QtMoc Include="inc\FeatureTrajectoryPageWidget.h">
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\FeatureTableModel.h">
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\FeatureDiscretizerParamPanel.h">
       <Filter>inc</Filter>
     </QtMoc>
     <QtMoc Include="inc\TrajectoryOpParamPanel.h">

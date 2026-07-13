@@ -60,6 +60,7 @@ struct PluginPointCloudJobResult
 	PluginMat4 icpTransform{};
 	double rmseMm = 0.0;
 	std::size_t pointCountAfter = 0U;
+	int spareDeformationNodeCount = 0;
 	bool hasMeshRepairReport = false;
 	PluginMeshRepairReport meshRepairReport{};
 };
@@ -149,6 +150,41 @@ struct PluginPointCloudIcpParams
 	double convergenceTransMm = 0.01;
 	double maxPairDistanceMm = 0.0;
 	std::size_t icpMaxPoints = 4000U;
+};
+
+enum class PluginSpareSourceKind : int
+{
+	PointCloud = 0,
+	Mesh = 1,
+};
+
+enum class PluginSpareTargetKind : int
+{
+	PointCloud = 0,
+	Mesh = 1,
+};
+
+struct PluginPointCloudSpareParams
+{
+	PluginSpareSourceKind sourceKind = PluginSpareSourceKind::PointCloud;
+	PluginSpareTargetKind targetKind = PluginSpareTargetKind::PointCloud;
+	std::string targetBackendIdUtf8;
+	double sampleRadiusRatio = 0.0;
+	double wSmo = 0.01;
+	double wRot = 1e-4;
+	double wArapCoarse = 500.0;
+	double wArapFine = 200.0;
+	bool useSymmetricPointToPlane = true;
+	bool useCoarseReg = true;
+	bool useFineReg = true;
+	bool normalizeScale = true;
+	bool rigidPreAlign = false;
+	bool coarseGlobalAlign = false;
+	double voxelPrefilterMm = 0.0;
+	int maxOuterIters = 30;
+	bool applyDeformationToSource = true;
+	bool createNewObject = false;
+	PluginMeshCreateOptions newObjectOptions{};
 };
 
 struct PluginPointCloudTpsControlParams
@@ -359,6 +395,21 @@ enum class PluginMeshSurfacePartitionMode : int
 {
 	GeodesicVoronoiV3 = 0,
 	HybridNormalCvt = 1,
+	CgalChartHybrid = 2,
+	AmrtoImGmcg = 3,
+};
+
+enum class PluginMeshSurfaceGmcgBackend : int
+{
+	GoldenLoader = 0,
+	Exe = 1,
+	Native = 2,
+};
+
+enum class PluginMeshSurfaceHarmonicBoundaryMode : int
+{
+	Circular = 0,
+	GeodesicSquare = 1,
 };
 
 struct PluginMeshSurfaceReconstructParams
@@ -409,6 +460,20 @@ struct PluginMeshSurfaceReconstructParams
 	double fairingEpsilon = 1e-3;
 	int fairingMaxIterations = 50;
 	double tessellateLinearDeflectionMm = 0.1;
+	PluginMeshSurfaceHarmonicBoundaryMode harmonicBoundaryMode =
+		PluginMeshSurfaceHarmonicBoundaryMode::GeodesicSquare;
+	int harmonicMaxFaces = 8000;
+	double sdfSeedBlendWeight = 0.35;
+	int sdfSegmentCount = 0;
+	PluginMeshSurfaceGmcgBackend gmcgBackend = PluginMeshSurfaceGmcgBackend::Native;
+	int instantMeshesTargetQuads = 0;
+	std::string instantMeshesExePath;
+	bool amrtoFallbackGoldenOnImFailure = false;
+	bool enableMultiResolutionFit = true;
+	int multiResolutionLayers = 1;
+	double multiResolutionDensityScale = 0.5;
+	bool fairingProtectBoundaries = true;
+	int blendStripDepth = 0;
 	QString displayName;
 	bool selectInTree = true;
 	bool exportPreprocessedMeshToScene = true;
@@ -488,6 +553,11 @@ struct PluginMeshSurfaceReconstructReport
 	int fitRejectFitGrid = 0;
 	int fitRejectFullGrid = 0;
 	int fitRejectMakeFace = 0;
+
+	double avgCtrlPtsPerPatch = 0.0;
+	int totalCtrlPts = 0;
+	int multiResolutionReducedCount = 0;
+	int geodesicSquareHarmonicCount = 0;
 };
 
 using PluginMeshSurfaceReconstructFinishedFn = std::function<void(

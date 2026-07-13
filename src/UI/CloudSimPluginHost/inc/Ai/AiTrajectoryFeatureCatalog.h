@@ -13,8 +13,8 @@ namespace geoalgo
 {
 struct FeatureCatalog;
 struct FeatureCandidate;
-struct FeatureSpec;
-enum class FeatureKind;
+struct FeatureEntry;
+struct FeatureListDocument;
 }
 
 /// trajectory.feature 规则解析、catalog 切片与编号映射
@@ -44,10 +44,10 @@ AiParseResult buildFeaturePlanFromCandidateIds(const std::vector<std::string>& c
 	const QByteArray& catalogFullUtf8, const QString& backendId, const QString& stepPath,
 	const QString& pipelineTemplate);
 
-bool candidateToFeatureSpec(const geoalgo::FeatureCandidate& candidate, const std::string& backendId,
-	const std::string& stepPath, geoalgo::FeatureSpec& out);
+bool candidateToFeatureEntry(const geoalgo::FeatureCandidate& candidate, const std::string& backendId,
+	const std::string& stepPath, geoalgo::FeatureEntry& out);
 
-bool isLineKind(geoalgo::FeatureKind kind);
-bool isSurfaceKind(geoalgo::FeatureKind kind);
+bool isLineStrategy(const std::string& strategyId);
+bool isSurfaceStrategy(const std::string& strategyId);
 
 } // namespace AiTrajectoryFeatureCatalog

@@ -5,6 +5,8 @@
 
 #include <cmath>
 #include <cstdio>
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -97,18 +99,18 @@ RobotInstruction::TrajectoryOpDescriptor RetractOp::makeDefaultDescriptor(
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Retract;
 	op.scope = defaultScope;
-	op.retract.distanceMm = 20.0;
-	op.retract.directionMode = RobotInstruction::ApproachDirectionMode::SurfaceNormal;
-	op.retract.directionFrame = RobotInstruction::TransformReferenceFrame::World;
-	op.retract.customDirectionX = 0.0;
-	op.retract.customDirectionY = 0.0;
-	op.retract.customDirectionZ = 1.0;
-	op.retract.insertMode = RobotInstruction::InsertMode::Trajectory;
-	op.retract.segmentSelectMode = RobotInstruction::SegmentSelectMode::AllSegments;
-	op.retract.segmentFrom = 1;
-	op.retract.segmentTo = 1;
-	op.retract.overrideSpeedEnabled = false;
-	op.retract.speedMmPerSec = 100.0;
+	TrajectoryOpParamAccess::applyDefaults(op, *this);
+	RobotInstruction::RetractParams retract = parseRetractParams(op.params);
+	retract.distanceMm = 20.0;
+	retract.directionMode = RobotInstruction::ApproachDirectionMode::SurfaceNormal;
+	retract.directionFrame = RobotInstruction::TransformReferenceFrame::World;
+	retract.customDirectionZ = 1.0;
+	retract.insertMode = RobotInstruction::InsertMode::Trajectory;
+	retract.segmentSelectMode = RobotInstruction::SegmentSelectMode::AllSegments;
+	retract.segmentFrom = 1;
+	retract.segmentTo = 1;
+	writeRetractParams(op.params, retract);
+
 	return op;
 }
 
@@ -212,7 +214,7 @@ std::vector<TrajectoryOpParamField> RetractOp::paramFields() const
 
 bool RetractOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, std::string* errMsg) const
 {
-	if (op.retract.distanceMm < 0.0)
+	if (parseRetractParams(op.params).distanceMm < 0.0)
 	{
 		if (errMsg)
 		{
@@ -220,7 +222,7 @@ bool RetractOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, std
 		}
 		return false;
 	}
-	if (op.retract.segmentFrom < 1 || op.retract.segmentTo < op.retract.segmentFrom)
+	if (parseRetractParams(op.params).segmentFrom < 1 || parseRetractParams(op.params).segmentTo < parseRetractParams(op.params).segmentFrom)
 	{
 		if (errMsg)
 		{
@@ -228,12 +230,12 @@ bool RetractOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, std
 		}
 		return false;
 	}
-	if (op.retract.directionMode == RobotInstruction::ApproachDirectionMode::Custom)
+	if (parseRetractParams(op.params).directionMode == RobotInstruction::ApproachDirectionMode::Custom)
 	{
 		const double len = std::sqrt(
-			op.retract.customDirectionX * op.retract.customDirectionX
-			+ op.retract.customDirectionY * op.retract.customDirectionY
-			+ op.retract.customDirectionZ * op.retract.customDirectionZ);
+			parseRetractParams(op.params).customDirectionX * parseRetractParams(op.params).customDirectionX
+			+ parseRetractParams(op.params).customDirectionY * parseRetractParams(op.params).customDirectionY
+			+ parseRetractParams(op.params).customDirectionZ * parseRetractParams(op.params).customDirectionZ);
 		if (len < 1e-6)
 		{
 			if (errMsg)
@@ -256,9 +258,9 @@ std::string RetractOp::formatSummary(
 		sizeof(buffer),
 		chinese ? "退刀 | 距离%.2f | %s | 段:%s"
 				: "Retract | Dist %.2f | %s | Seg:%s",
-		op.retract.distanceMm,
-		directionLabel(static_cast<int>(op.retract.directionMode), chinese),
-		segmentLabel(static_cast<int>(op.retract.segmentSelectMode), chinese));
+		parseRetractParams(op.params).distanceMm,
+		directionLabel(static_cast<int>(parseRetractParams(op.params).directionMode), chinese),
+		segmentLabel(static_cast<int>(parseRetractParams(op.params).segmentSelectMode), chinese));
 	return buffer;
 }
 
@@ -269,7 +271,7 @@ bool RetractOp::processPath(
 	std::string* errMsg) const
 {
 	(void)errMsg;
-	insertRetractInScope(traj, op.retract, op.scope, ctx.program);
+	insertRetractInScope(traj, parseRetractParams(op.params), op.scope, ctx.program);
 	return true;
 }
 

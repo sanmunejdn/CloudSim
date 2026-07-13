@@ -3,6 +3,7 @@
 #include "TrajectoryOpConfigRegistry.h"
 #include "TrajectoryOpDescriptorCodec.h"
 #include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 #include "TrajectoryOpRegistry.h"
 
 namespace RobotInstruction
@@ -38,6 +39,16 @@ const trajectory_algo::ITrajectoryOp* trajectoryOpGet(const TrajectoryOpKind kin
 std::vector<TrajectoryOpKind> trajectoryOpPaletteKinds()
 {
 	return trajectory_algo::TrajectoryOpRegistry::instance().paletteKinds();
+}
+
+std::string trajectoryOpKindToString(const TrajectoryOpKind kind)
+{
+	return trajectory_algo::TrajectoryOpRegistry::instance().kindToString(kind);
+}
+
+bool trajectoryOpKindFromString(const std::string& token, TrajectoryOpKind& out)
+{
+	return trajectory_algo::TrajectoryOpRegistry::instance().kindFromString(token, out);
 }
 
 std::vector<trajectory_algo::TrajectoryOpParamField> trajectoryOpAllParamFields(
@@ -102,6 +113,16 @@ bool validateTrajectoryPipeline(
 		}
 	}
 	return true;
+}
+
+std::string trajectoryOpProjectTargetBackendId(const TrajectoryOpDescriptor& op)
+{
+	return trajectory_algo::parseProjectParams(op.params).targetBackendId;
+}
+
+void trajectoryOpSetProjectTargetBackendId(TrajectoryOpDescriptor& op, const std::string& backendId)
+{
+	trajectory_algo::setTrajectoryParamString(op.params, "project.targetBackendId", backendId);
 }
 
 } // namespace RobotInstruction

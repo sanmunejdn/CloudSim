@@ -7,6 +7,12 @@
     <Filter Include="src">
       <UniqueIdentifier>{C86CDAA3-8C72-46AA-87A5-86D90CFF3B67}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\spare">
+      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\spare">
+      <UniqueIdentifier>{B2C3D4E5-F6A7-8901-BCDE-F12345678901}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\point_cloud_algorithm_global.h">
@@ -54,6 +60,21 @@
     <ClInclude Include="inc\ReconstructionConfig.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\KdTreePointSet.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\spare\SpareInternal.h">
+      <Filter>inc\spare</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\spare\SpareNodeSampler.h">
+      <Filter>inc\spare</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\spare\SpareSolver.h">
+      <Filter>inc\spare</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\spare\SpareSurface.h">
+      <Filter>inc\spare</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\PointCloudBuffer.cpp">
@@ -97,6 +118,15 @@
     </ClCompile>
     <ClCompile Include="source\ReconstructionConfig.cpp">
       <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\spare\SpareNodeSampler.cpp">
+      <Filter>src\spare</Filter>
+    </ClCompile>
+    <ClCompile Include="source\spare\SpareSolver.cpp">
+      <Filter>src\spare</Filter>
+    </ClCompile>
+    <ClCompile Include="source\spare\SpareSurfaceBuild.cpp">
+      <Filter>src\spare</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -314,58 +314,66 @@ private:
 
 将几何实体转换为 ToolPath 点集：
 
-| 策略类名 | 策略名称 | 功能描述 |
-|---------|---------|---------|
-| HPLTPDiscretizerEdgeStrategy | 边线离散策略 | 将边线离散为路径点 |
-| HPLTPDiscretizerFaceStrategy | 面离散策略 | 将曲面离散为路径点 |
-| HPLTPDiscretizerSplineStrategy | 样条曲线离散策略 | 将样条曲线离散为路径点 |
-| HPLTPStrategyDiscretizerProjCurve | 曲线投影离散策略 | 将曲线投影到曲面后离散 |
-| HPLTPDiscretizerParamSurfaceStrategy | 参数面离散策略 | 参数化曲面离散 |
+
+| 策略类名                                 | 策略名称     | 功能描述        |
+| ------------------------------------ | -------- | ----------- |
+| HPLTPDiscretizerEdgeStrategy         | 边线离散策略   | 将边线离散为路径点   |
+| HPLTPDiscretizerFaceStrategy         | 面离散策略    | 将曲面离散为路径点   |
+| HPLTPDiscretizerSplineStrategy       | 样条曲线离散策略 | 将样条曲线离散为路径点 |
+| HPLTPStrategyDiscretizerProjCurve    | 曲线投影离散策略 | 将曲线投影到曲面后离散 |
+| HPLTPDiscretizerParamSurfaceStrategy | 参数面离散策略  | 参数化曲面离散     |
+
 
 ### 4.2 加工变换策略 (Processing)
 
 对 ToolPath 进行各种变换：
 
-| 策略类名 | 策略名称 | 功能描述 |
-|---------|---------|---------|
-| HPLTPPostureCopyStrategy | 复制策略 | 复制路径点 |
-| HPLTPFixedPostureStrategy | 固定加工姿态策略 | 固定加工姿态 |
-| HPLTPStartPointAdjustStrategy | 轨迹起点调整策略 | 调整轨迹起点 |
-| HPLTPPostureReversalStrategy | 反向变换策略 | 反向路径 |
-| HPLTPPostureRotationStrategy | 旋转变换策略 | 旋转路径 |
-| HPLTPPositionMovementStrategy | 移动变换策略 | 移动路径 |
-| HPLTPCorrectionStrategy | 点云纠偏策略 | 基于点云纠偏 |
-| HPLTPLinearFeedApproachStrategy | 直线进刀工艺策略 | 直线进刀 |
-| HPLTPLinearRetractionStrategy | 直线退刀工艺策略 | 直线退刀 |
-| HPLTPArcFeedApproachStrategy | 圆弧进刀工艺策略 | 圆弧进刀 |
-| HPLTPArcRetractionStrategy | 圆弧退刀工艺策略 | 圆弧退刀 |
-| HPLTPToWorkpieceInHandStrategy | 转换工件型策略 | 转换为工件型轨迹 |
-| HPLTPNonRigidRegistrationStrategy | 非刚性配准策略 | 非刚性配准 |
-| HPLTPTrajectoryExtensionStrategy | 轨迹延长策略 | 延长轨迹 |
-| HPLTPPointCuttingStrategy | 轨迹裁剪策略 | 裁剪轨迹 |
-| HPLTPTrajectoryIntervalDeleteStrategy | 轨迹区间删除策略 | 删除轨迹区间 |
-| HPLTPSucculentHandlingStrategy | 多肉处理策略 | 多肉处理 |
-| HPLTPSetScopeStrategy | 设置作用域策略 | 设置作用域 |
-| HPLTPInsertCommentStrategy | 插入指令策略 | 插入注释指令 |
-| HPLTPCallPythonStrategy | 调用脚本策略 | 调用 Python 脚本 |
+
+| 策略类名                                  | 策略名称     | 功能描述         |
+| ------------------------------------- | -------- | ------------ |
+| HPLTPPostureCopyStrategy              | 复制策略     | 复制路径点        |
+| HPLTPFixedPostureStrategy             | 固定加工姿态策略 | 固定加工姿态       |
+| HPLTPStartPointAdjustStrategy         | 轨迹起点调整策略 | 调整轨迹起点       |
+| HPLTPPostureReversalStrategy          | 反向变换策略   | 反向路径         |
+| HPLTPPostureRotationStrategy          | 旋转变换策略   | 旋转路径         |
+| HPLTPPositionMovementStrategy         | 移动变换策略   | 移动路径         |
+| HPLTPCorrectionStrategy               | 点云纠偏策略   | 基于点云纠偏       |
+| HPLTPLinearFeedApproachStrategy       | 直线进刀工艺策略 | 直线进刀         |
+| HPLTPLinearRetractionStrategy         | 直线退刀工艺策略 | 直线退刀         |
+| HPLTPArcFeedApproachStrategy          | 圆弧进刀工艺策略 | 圆弧进刀         |
+| HPLTPArcRetractionStrategy            | 圆弧退刀工艺策略 | 圆弧退刀         |
+| HPLTPToWorkpieceInHandStrategy        | 转换工件型策略  | 转换为工件型轨迹     |
+| HPLTPNonRigidRegistrationStrategy     | 非刚性配准策略  | 非刚性配准        |
+| HPLTPTrajectoryExtensionStrategy      | 轨迹延长策略   | 延长轨迹         |
+| HPLTPPointCuttingStrategy             | 轨迹裁剪策略   | 裁剪轨迹         |
+| HPLTPTrajectoryIntervalDeleteStrategy | 轨迹区间删除策略 | 删除轨迹区间       |
+| HPLTPSucculentHandlingStrategy        | 多肉处理策略   | 多肉处理         |
+| HPLTPSetScopeStrategy                 | 设置作用域策略  | 设置作用域        |
+| HPLTPInsertCommentStrategy            | 插入指令策略   | 插入注释指令       |
+| HPLTPCallPythonStrategy               | 调用脚本策略   | 调用 Python 脚本 |
+
 
 ### 4.3 预显示策略 (PreDisplay)
 
 在 Hoops 中渲染路径预览：
 
-| 策略类名 | 策略名称 | 功能描述 |
-|---------|---------|---------|
+
+| 策略类名                   | 策略名称    | 功能描述           |
+| ---------------------- | ------- | -------------- |
 | HPLTPPreviewerStrategy | 通用预显示策略 | 预览路径、轴、箭头、工具模型 |
+
 
 ### 4.4 创建策略 (Create)
 
 生成加工指令：
 
-| 策略类名 | 策略名称 | 功能描述 |
-|---------|---------|---------|
-| HPLTPCreatorApproachStrategy | 进刀指令创建策略 | 生成进刀指令 |
+
+| 策略类名                          | 策略名称     | 功能描述   |
+| ----------------------------- | -------- | ------ |
+| HPLTPCreatorApproachStrategy  | 进刀指令创建策略 | 生成进刀指令 |
 | HPLTPCreatorMachiningStrategy | 加工指令创建策略 | 生成加工指令 |
-| HPLTPCreatorRetractStrategy | 退刀指令创建策略 | 生成退刀指令 |
+| HPLTPCreatorRetractStrategy   | 退刀指令创建策略 | 生成退刀指令 |
+
 
 ## 5. 配置系统
 
@@ -393,6 +401,7 @@ HPLTPPreviewerStrategy,通用预显示策略,启用,启用,启用,启用,启用,
 ```
 
 **参数类型**:
+
 - `数值`: 数值参数 (double)
 - `布尔`: 布尔参数 (true/false)
 - `多选`: 枚举参数
@@ -464,6 +473,7 @@ HPLTPPreviewerStrategy,通用预显示策略,启用,启用,启用,启用,启用,
 ### 7.1 创建新策略
 
 1. **头文件** (`inc/HPLTPStrategy/HPLTPStrategy/HPLTPMyStrategy.h`):
+
 ```cpp
 #ifndef _HPLTPSTRATEGY_HPLTPMYSTRATEGY_H_
 #define _HPLTPSTRATEGY_HPLTPMYSTRATEGY_H_
@@ -491,7 +501,8 @@ REGISTER_STRATEGY(HPLTPMyStrategy);
 #endif
 ```
 
-2. **实现文件** (`src/HPLTPStrategy/HPLTPStrategy/src/HPLTPMyStrategy.cpp`):
+1. **实现文件** (`src/HPLTPStrategy/HPLTPStrategy/src/HPLTPMyStrategy.cpp`):
+
 ```cpp
 #include "HPLTPMyStrategy.h"
 
@@ -516,14 +527,16 @@ std::string HPLTPMyStrategy::getName() const {
 }
 ```
 
-3. **CSV 配置** (`HPLTPStrategyWidgetCsv/NodeWidget/我的策略.csv`):
+1. **CSV 配置** (`HPLTPStrategyWidgetCsv/NodeWidget/我的策略.csv`):
+
 ```csv
 我的策略,组合,
 参数1,数值,0,-9999,9999
 参数2,布尔,TRUE
 ```
 
-4. **注册到 StrategyConfig.csv**:
+1. **注册到 StrategyConfig.csv**:
+
 ```csv
 HPLTPMyStrategy,我的策略,启用,启用,启用,启用,启用,启用
 ```
@@ -609,3 +622,4 @@ HPLProgram/
 - 检查 `m_para_data` 中的参数值
 - 使用 `HC_Show_Segment()` 查看 HOOPS segment 结构
 - 查看 `HPLTPStrategyObserverUI.cpp` 了解事件处理流程
+

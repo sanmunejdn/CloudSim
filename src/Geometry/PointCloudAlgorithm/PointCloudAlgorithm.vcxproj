@@ -161,12 +161,18 @@
     <ClInclude Include="inc\RegistrationGlobal.h" />
     <ClInclude Include="inc\PointFeatures.h" />
     <ClInclude Include="inc\RegistrationNonRigid.h" />
+    <ClInclude Include="inc\RegistrationSpare.h" />
     <ClInclude Include="inc\Preprocess.h" />
     <ClInclude Include="inc\Reconstruction.h" />
     <ClInclude Include="inc\SelfTest.h" />
     <ClInclude Include="inc\ParallelUtils.h" />
     <ClInclude Include="inc\ReconstructionConfig.h" />
     <ClInclude Include="inc\PerformanceTest.h" />
+    <ClInclude Include="inc\spare\SpareInternal.h" />
+    <ClInclude Include="inc\spare\SpareNodeSampler.h" />
+    <ClInclude Include="inc\spare\SpareSolver.h" />
+    <ClInclude Include="inc\spare\SpareSurface.h" />
+    <ClInclude Include="inc\KdTreePointSet.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\PointCloudBuffer.cpp" />
@@ -178,12 +184,16 @@
     <ClCompile Include="source\RegistrationGlobal.cpp" />
     <ClCompile Include="source\PointFeatures.cpp" />
     <ClCompile Include="source\RegistrationNonRigid.cpp" />
+    <ClCompile Include="source\RegistrationSpare.cpp" />
     <ClCompile Include="source\Preprocess.cpp" />
     <ClCompile Include="source\Reconstruction.cpp" />
     <ClCompile Include="source\SelfTest.cpp" />
     <ClCompile Include="source\ParallelUtils.cpp" />
     <ClCompile Include="source\ReconstructionConfig.cpp" />
     <ClCompile Include="source\PerformanceTest.cpp" />
+    <ClCompile Include="source\spare\SpareNodeSampler.cpp" />
+    <ClCompile Include="source\spare\SpareSolver.cpp" />
+    <ClCompile Include="source\spare\SpareSurfaceBuild.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

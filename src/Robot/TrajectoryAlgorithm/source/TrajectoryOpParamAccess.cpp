@@ -2,11 +2,18 @@
 
 #include "ITrajectoryOp.h"
 #include "TrajectoryOpConfigRegistry.h"
+#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
 namespace
 {
+
+bool endsWith(const std::string& text, const std::string& suffix)
+{
+	return text.size() >= suffix.size()
+		&& text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
 
 bool readScopeKind(const RobotInstruction::TrajectoryOpDescriptor& op, TrajectoryParamValue& out)
 {
@@ -78,6 +85,154 @@ bool writeScopeField(
 	return false;
 }
 
+bool readJsonParamField(
+	const nlohmann::json& params,
+	const TrajectoryOpParamField& field,
+	TrajectoryParamValue& out)
+{
+	if (field.type == TrajectoryParamType::Vec3)
+	{
+		return false;
+	}
+
+	if (!params.contains(field.key))
+	{
+		return false;
+	}
+	const nlohmann::json& item = params.at(field.key);
+	switch (field.type)
+	{
+	case TrajectoryParamType::Double:
+		if (!item.is_number())
+		{
+			return false;
+		}
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = item.get<double>();
+		return true;
+	case TrajectoryParamType::Int:
+	case TrajectoryParamType::Enum:
+		if (!item.is_number_integer() && !item.is_number())
+		{
+			return false;
+		}
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = item.get<int>();
+		return true;
+	case TrajectoryParamType::Bool:
+		if (!item.is_boolean())
+		{
+			return false;
+		}
+		out.kind = TrajectoryParamValue::Kind::Bool;
+		out.asBool = item.get<bool>();
+		return true;
+	default:
+		return false;
+	}
+}
+
+bool writeJsonParamField(
+	nlohmann::json& params,
+	const TrajectoryOpParamField& field,
+	const TrajectoryParamValue& in)
+{
+	if (field.type == TrajectoryParamType::Vec3)
+	{
+		return false;
+	}
+
+	switch (field.type)
+	{
+	case TrajectoryParamType::Double:
+		if (in.kind != TrajectoryParamValue::Kind::Double)
+		{
+			return false;
+		}
+		setTrajectoryParamDouble(params, field.key.c_str(), in.asDouble);
+		return true;
+	case TrajectoryParamType::Int:
+	case TrajectoryParamType::Enum:
+		if (in.kind != TrajectoryParamValue::Kind::Int)
+		{
+			return false;
+		}
+		setTrajectoryParamInt(params, field.key.c_str(), in.asInt);
+		return true;
+	case TrajectoryParamType::Bool:
+		if (in.kind != TrajectoryParamValue::Kind::Bool)
+		{
+			return false;
+		}
+		setTrajectoryParamBool(params, field.key.c_str(), in.asBool);
+		return true;
+	default:
+		return false;
+	}
+}
+
+
+bool readExpandedParamField(
+	const nlohmann::json& params,
+	const std::string& key,
+	TrajectoryParamValue& out)
+{
+	if (!params.contains(key))
+	{
+		return false;
+	}
+	const nlohmann::json& item = params.at(key);
+	if (item.is_number())
+	{
+		out.kind = TrajectoryParamValue::Kind::Double;
+		out.asDouble = item.get<double>();
+		return true;
+	}
+	if (item.is_number_integer())
+	{
+		out.kind = TrajectoryParamValue::Kind::Int;
+		out.asInt = item.get<int>();
+		return true;
+	}
+	if (item.is_boolean())
+	{
+		out.kind = TrajectoryParamValue::Kind::Bool;
+		out.asBool = item.get<bool>();
+		return true;
+	}
+	if (item.is_string())
+	{
+		out.kind = TrajectoryParamValue::Kind::String;
+		out.asString = item.get<std::string>();
+		return true;
+	}
+	return false;
+}
+
+bool writeExpandedParamField(
+	nlohmann::json& params,
+	const std::string& key,
+	const TrajectoryParamValue& in)
+{
+	switch (in.kind)
+	{
+	case TrajectoryParamValue::Kind::Double:
+		setTrajectoryParamDouble(params, key.c_str(), in.asDouble);
+		return true;
+	case TrajectoryParamValue::Kind::Int:
+		setTrajectoryParamInt(params, key.c_str(), in.asInt);
+		return true;
+	case TrajectoryParamValue::Kind::Bool:
+		setTrajectoryParamBool(params, key.c_str(), in.asBool);
+		return true;
+	case TrajectoryParamValue::Kind::String:
+		setTrajectoryParamString(params, key.c_str(), in.asString);
+		return true;
+	default:
+		return false;
+	}
+}
+
 } // namespace
 
 bool TrajectoryOpParamAccess::read(
@@ -89,7 +244,11 @@ bool TrajectoryOpParamAccess::read(
 	{
 		return true;
 	}
-	return TrajectoryOpConfigRegistry::instance().paramRead(op, field, out);
+	if (endsWith(field.key, ".x") || endsWith(field.key, ".y") || endsWith(field.key, ".z"))
+	{
+		return readExpandedParamField(op.params, field.key, out);
+	}
+	return readJsonParamField(op.params, field, out);
 }
 
 bool TrajectoryOpParamAccess::write(
@@ -101,18 +260,33 @@ bool TrajectoryOpParamAccess::write(
 	{
 		return true;
 	}
-	return TrajectoryOpConfigRegistry::instance().paramWrite(op, field, in);
+	if (endsWith(field.key, ".x") || endsWith(field.key, ".y") || endsWith(field.key, ".z"))
+	{
+		return writeExpandedParamField(op.params, field.key, in);
+	}
+	return writeJsonParamField(op.params, field, in);
 }
 
 void TrajectoryOpParamAccess::applyDefaults(
 	RobotInstruction::TrajectoryOpDescriptor& op,
 	const ITrajectoryOp& algo)
 {
+	if (!op.params.is_object())
+	{
+		op.params = nlohmann::json::object();
+	}
 	const std::vector<TrajectoryOpParamField> fields = allFieldsForOp(algo);
 	for (const TrajectoryOpParamField& field : fields)
 	{
 		if (field.type == TrajectoryParamType::Message)
 		{
+			continue;
+		}
+		if (field.type == TrajectoryParamType::Vec3)
+		{
+			setTrajectoryParamDouble(op.params, (field.key + field.vec3SuffixX).c_str(), field.defaultDouble);
+			setTrajectoryParamDouble(op.params, (field.key + field.vec3SuffixY).c_str(), field.defaultDouble);
+			setTrajectoryParamDouble(op.params, (field.key + field.vec3SuffixZ).c_str(), field.defaultDouble);
 			continue;
 		}
 		TrajectoryParamValue value{};
@@ -136,6 +310,7 @@ void TrajectoryOpParamAccess::applyDefaults(
 		}
 		write(op, field, value);
 	}
+	finalizeTransformDefaultParams(op);
 }
 
 const TrajectoryOpParamField* TrajectoryOpParamAccess::findField(
@@ -145,6 +320,13 @@ const TrajectoryOpParamField* TrajectoryOpParamAccess::findField(
 	for (const TrajectoryOpParamField& field : fields)
 	{
 		if (field.key == key)
+		{
+			return &field;
+		}
+		const std::string xKey = field.key + field.vec3SuffixX;
+		const std::string yKey = field.key + field.vec3SuffixY;
+		const std::string zKey = field.key + field.vec3SuffixZ;
+		if (key == xKey || key == yKey || key == zKey)
 		{
 			return &field;
 		}

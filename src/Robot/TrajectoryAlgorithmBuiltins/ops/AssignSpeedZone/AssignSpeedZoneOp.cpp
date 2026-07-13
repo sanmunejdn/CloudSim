@@ -3,6 +3,8 @@
 
 #include "TrajectoryOpFormat.h"
 #include "UnifiedTrajectoryPathMath.h"
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -28,6 +30,8 @@ RobotInstruction::TrajectoryOpDescriptor AssignSpeedZoneOp::makeDefaultDescripto
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::AssignSpeedZone;
 	op.scope = defaultScope;
+	TrajectoryOpParamAccess::applyDefaults(op, *this);
+
 	return op;
 }
 
@@ -69,7 +73,7 @@ bool AssignSpeedZoneOp::processPath(
 		traj,
 		op.scope,
 		ctx.program,
-		op.assignMotion.speedMmPerSec);
+		parseAssignMotionParams(op.params).speedMmPerSec);
 	return true;
 }
 

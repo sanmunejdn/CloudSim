@@ -325,8 +325,10 @@ void TrajectoryOpParamPanel::rebuildForOp(
 					rowLayout->addWidget(m_geometryBackendPickBtn);
 				}
 				m_form->addRow(label, rowWidget);
+				const std::string targetBackendId =
+					RobotInstruction::trajectoryOpProjectTargetBackendId(op);
 				const int idx = m_geometryBackendCombo->findData(
-					QString::fromStdString(op.project.targetBackendId));
+					QString::fromStdString(targetBackendId));
 				if (idx >= 0)
 				{
 					m_geometryBackendCombo->setCurrentIndex(idx);
@@ -450,8 +452,9 @@ bool TrajectoryOpParamPanel::applyTo(
 			const int comboIdx = m_geometryBackendCombo ? m_geometryBackendCombo->currentIndex() : -1;
 			if (m_geometryBackendCombo && comboIdx >= 0)
 			{
-				op.project.targetBackendId =
-					m_geometryBackendCombo->currentData().toString().toStdString();
+				RobotInstruction::trajectoryOpSetProjectTargetBackendId(
+					op,
+					m_geometryBackendCombo->currentData().toString().toStdString());
 			}
 			continue;
 		}

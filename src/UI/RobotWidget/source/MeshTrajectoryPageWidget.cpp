@@ -811,6 +811,24 @@ void MeshTrajectoryPageWidget::onClearSelectionClicked()
 	}
 }
 
+void MeshTrajectoryPageWidget::resetAfterTrajectoryCommit()
+{
+	cancelActivePick();
+	endSectionPlaneEdit();
+	clearMethodPreview();
+	if (m_meshSession)
+	{
+		(void)m_meshSession->clearSelection();
+	}
+	syncSelectionHighlight();
+	if (m_statusLabel)
+	{
+		m_statusLabel->setText(m_chinese ? QStringLiteral("轨迹已提交，请重新选择 mesh 区域")
+			: QStringLiteral("Trajectory committed; reselect mesh region"));
+	}
+	updateUiLabels();
+}
+
 void MeshTrajectoryPageWidget::onInvertSelectionClicked()
 {
 	if (m_meshSession)

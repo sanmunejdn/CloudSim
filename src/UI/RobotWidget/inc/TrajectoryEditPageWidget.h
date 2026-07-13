@@ -97,6 +97,9 @@ public:
 
 	void syncBoundPathPlanFromSession();
 
+	/// 「开始修改」：从 PathPlan 恢复算子流程并同步 UI 状态
+	void restoreBoundPathPlanForEdit();
+
 	void applyRecipePresetByKind(RobotInstruction::RecipeKind kind);
 
 
@@ -162,13 +165,7 @@ private:
 
 	void onProgramChanged(int index);
 
-	void onPathPlanChanged(int index);
-
-	void onNewPathPlanClicked();
-
 	void onGroupChanged(int index);
-
-	void refreshPathPlanCombo();
 
 	void onPaletteDoubleClicked(QListWidgetItem* item);
 
@@ -195,6 +192,8 @@ private:
 	void onLoadTemplateClicked();
 
 	void showPipelineContextMenu(const QPoint& pos);
+
+	void resetTrajectoryGenerationPages();
 
 
 
@@ -233,8 +232,6 @@ private:
 
 	QLabel* m_programLabel = nullptr;
 
-	QLabel* m_pathPlanLabel = nullptr;
-
 	QLabel* m_groupLabel = nullptr;
 
 	QGroupBox* m_paramGroupBox = nullptr;
@@ -242,10 +239,6 @@ private:
 
 
 	QComboBox* m_programCombo = nullptr;
-
-	QComboBox* m_pathPlanCombo = nullptr;
-
-	QPushButton* m_newPathPlanBtn = nullptr;
 
 	QComboBox* m_groupCombo = nullptr;
 

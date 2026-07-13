@@ -9,11 +9,11 @@
 | 工程 | `PointCloudPlugin.vcxproj`（x64，v142，Qt 5.14.2） |
 | 链接 | **仅** `CloudSimPluginSDK.lib` |
 | 部署 | `bin/x64(d)/plugins/com.cloudsim.pointcloud/plugin.json` + `PointCloudPlugin.dll` |
-| `minHostVersion` | `"1.15.0"`（管状铸件特征构建 Tab） |
+| `minHostVersion` | `"1.16.0"`（SPARE 非刚性配准 + 分割标注宿主 API） |
 
 ## 运行时
 
-- 侧栏 Tab **点云** / **Point Cloud**：导入、列表、下采样、裁剪（包围盒/球/多边形）、预处理、ICP、重建
+- 侧栏 Tab **点云** / **Point Cloud**：导入、列表、下采样、裁剪（包围盒/球/多边形）、预处理、**ICP / SPARE 配准**、重建
 - 侧栏 Tab **特征构建** / **Feature Build**（**1.15.0+**）：管状铸件 Phase 1–4 分阶段调试（见下节）
 - 菜单 **Tools → Point Cloud**（中文下子菜单标题为 **点云**）
 - 语言：默认中文；切换 **设置 → Language → 中文/English** 时侧栏与菜单同步更新
@@ -34,11 +34,31 @@
 
 **模板 B-rep 更新**（侧栏「CAD 模板 B-rep 更新」区）：
 
-1. 导入 STEP → `BrepModel`、扫描 PLY → 点云
-2. 3D 视图手动对齐点云与 CAD
-3. 选择模板 B-rep；可选 **选择面…**（`geometryHost()->pickStepElementFromViewport`）累积面索引，空列表=全部面
+1. 导入 STEP → `BrepModel`、扫描 PLY → 点云，或 Poisson/导入 → `Model` 网格
+2. 3D 视图手动对齐点云/网格与 CAD
+3. 侧栏「CAD 模板 B-rep 更新」：**扫描数据** 下拉选点云或网格；选择模板 B-rep；可选 **选择面…**（`geometryHost()->pickStepElementFromViewport`）累积面索引，空列表=全部面
 4. **匹配 (ICP)** → `registerScanToCadTemplate`
 5. **面重构** → `updateTemplateBrepFromAlignedScan`（须先匹配）；详见 [`docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md)
+
+## SPARE 非刚性配准（1.16.0+）
+
+侧栏「配准」区：**方法** 下拉可选 **刚性 ICP** 或 **SPARE 非刚性**（**1.16.0+** 宿主）。
+
+| 控件 | 说明 |
+|------|------|
+| 源类型 | 点云（列表选中项）或网格（`m_meshTargetCombo` 同源列表） |
+| 目标 | 点云 + 网格下拉（与 ICP 目标列表一致） |
+| SPARE 选项 | 体素预滤波 (mm)、刚性预对齐、输出为新对象 |
+| 执行 | `nonRigidRegisterSpare(doc, sourceBackendId, PluginPointCloudSpareParams, onFinished)` |
+
+典型流程：
+
+1. 选中源点云或网格；目标选已对齐的另一对象（须含法线或可由宿主估计）
+2. 方法选 **SPARE**；可选体素预滤波、刚性 ICP 预对齐
+3. 勾选「输出为新对象」则生成 `*_SPARE` / `*_spare` 后缀对象
+4. 回调 `PluginPointCloudJobResult`：`rmseMm`（平均对称点-面误差）、`spareDeformationNodeCount`
+
+算法与参数映射见 [`PointCloudAlgorithm/DEVELOPER_GUIDE.md`](../../Geometry/PointCloudAlgorithm/DEVELOPER_GUIDE.md) §3.5。
 
 ## 网格后处理（1.9.0+，需 VcgAlgorithms.dll）
 
@@ -77,6 +97,8 @@
 | 采样率 k / 控制点密度 | `sampleRateFactor`（默认 2.0）/ `controlPointDensityFactor`（默认 0.5，AMRTO k_sample/k_type_gemodl） |
 | NURBS 拟合模式 | `fitMode`（默认最小二乘+指定控制点数） |
 | 混合带宽度（0=自动）| `blendStripWidth`（边界/交汇混合阶段） |
+| 分块算法 | `partitionMode`（v3 / Hybrid / **CgalChartHybrid**） |
+| 调和边界模式 | `harmonicBoundaryMode`（默认 GeodesicSquare，AMRTO 测地 square-border） |
 | 光顺 ε / 最大迭代 | `fairingEpsilon` / `fairingMaxIterations` |
 | 装配离散精度 (mm) | `tessellateLinearDeflectionMm`（装配阶段 B-rep 三角化精度） |
 | **预处理后写入场景网格** | `exportPreprocessedMeshToScene`（临时 `Model`，名 `源名_预处理后`） |

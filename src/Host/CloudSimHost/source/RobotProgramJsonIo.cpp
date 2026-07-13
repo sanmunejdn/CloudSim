@@ -48,6 +48,10 @@ QJsonArray robotProgramsToJson(const RobotProgramStore& store)
 			{
 				entry.insert(QStringLiteral("programs"), obj.value(QStringLiteral("programs")));
 			}
+			if (obj.contains(QStringLiteral("pathPlanRaws")))
+			{
+				entry.insert(QStringLiteral("pathPlanRaws"), obj.value(QStringLiteral("pathPlanRaws")));
+			}
 		}
 		programsArr.append(entry);
 	}

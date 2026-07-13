@@ -20,6 +20,7 @@ class QGroupBox;
 class QTextEdit;
 class QCheckBox;
 class QWidget;
+class QLineEdit;
 
 class PointCloudDockWidget : public QWidget
 {
@@ -58,6 +59,8 @@ private slots:
 	void onNormalsPcaClicked();
 	void onNormalsOrientClicked();
 	void onIcpClicked();
+	void onSpareRegisterClicked();
+	void onRegistrationMethodChanged();
 	void onReconstructPoissonAutoClicked();
 	void onReconstructScaleSpaceClicked();
 	void onExportMeshClicked();
@@ -81,6 +84,8 @@ private:
 	QString formatInfo(const PluginPointCloudInfo& info, const PluginPointCloudMeasure* measure) const;
 	void setBusy(bool busy);
 	std::string selectedBackendId() const;
+	std::string selectedTemplateScanId() const;
+	void refreshTemplateScanList();
 	std::string selectedMeshBackendId() const;
 	std::string selectedMeshTargetId() const;
 	void refreshMeshExportList(const std::string& preferBackendId = std::string());
@@ -96,6 +101,7 @@ private:
 	IPluginDocument* activeDoc() const;
 	IPluginPointCloudHost* pointCloudHost() const;
 	void runFinished(bool ok, const QString& error, const PluginPointCloudJobResult& result);
+	void updateRegistrationUi();
 	PluginPointCloudTemplateBrepUpdateParams buildTemplateBrepParams() const;
 	void runTemplateBrepRegistration(PluginPointCloudTemplateBrepRegistrationStage stage);
 	std::vector<int> selectedFaceIndices() const;
@@ -119,10 +125,18 @@ private:
 	QLabel* m_prefilterLabel = nullptr;
 	QLabel* m_meshExportLabel = nullptr;
 	QLabel* m_icpTargetLabel = nullptr;
+	QLabel* m_regMethodLabel = nullptr;
+	QLabel* m_spareSourceKindLabel = nullptr;
+	QComboBox* m_regMethodCombo = nullptr;
+	QComboBox* m_spareSourceKindCombo = nullptr;
 	QDoubleSpinBox* m_voxelSpin = nullptr;
 	QDoubleSpinBox* m_randomSpin = nullptr;
 	QDoubleSpinBox* m_prefilterSpin = nullptr;
 	QComboBox* m_icpTargetCombo = nullptr;
+	QDoubleSpinBox* m_spareVoxelSpin = nullptr;
+	QCheckBox* m_spareRigidPreAlignCheck = nullptr;
+	QCheckBox* m_spareCreateNewCheck = nullptr;
+	QWidget* m_spareOptionsWidget = nullptr;
 	QComboBox* m_meshExportCombo = nullptr;
 	QPushButton* m_importBtn = nullptr;
 	QPushButton* m_refreshBtn = nullptr;
@@ -141,6 +155,8 @@ private:
 	QPushButton* m_scaleBtn = nullptr;
 	QPushButton* m_exportMeshBtn = nullptr;
 	QGroupBox* m_reGroup = nullptr;
+	QLabel* m_templateScanLabel = nullptr;
+	QComboBox* m_templateScanCombo = nullptr;
 	QComboBox* m_templateBrepCombo = nullptr;
 	QPushButton* m_pickFaceBtn = nullptr;
 	QListWidget* m_selectedFacesList = nullptr;
@@ -216,6 +232,14 @@ private:
 	QLabel* m_featureAnglePercentileLabel = nullptr;
 	QDoubleSpinBox* m_featureAnglePercentileSpin = nullptr;
 	QWidget* m_hybridPartitionParamsWidget = nullptr;
+	QWidget* m_amrtoPartitionParamsWidget = nullptr;
+	QLabel* m_gmcgBackendLabel = nullptr;
+	QComboBox* m_gmcgBackendCombo = nullptr;
+	QLabel* m_instantMeshesTargetQuadsLabel = nullptr;
+	QSpinBox* m_instantMeshesTargetQuadsSpin = nullptr;
+	QLabel* m_instantMeshesExeLabel = nullptr;
+	QLineEdit* m_instantMeshesExeEdit = nullptr;
+	QLabel* m_amrtoHintLabel = nullptr;
 	QLabel* m_hybridFeatureAngleLabel = nullptr;
 	QDoubleSpinBox* m_hybridFeatureAngleSpin = nullptr;
 	QLabel* m_hybridClusterItersLabel = nullptr;

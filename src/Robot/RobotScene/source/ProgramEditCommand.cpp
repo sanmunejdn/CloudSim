@@ -4,6 +4,7 @@
 #include "RobotInstructionProgram.h"
 #include "RobotInstructionTransform.h"
 
+#include <TrajectoryOpParamsParse.h>
 #include <TrajectoryTransformMath.h>
 
 #include <RigidTransform.h>
@@ -43,11 +44,11 @@ engine::RigidTransform deltaFromOp(const TrajectoryOpDescriptor& op)
 {
 	if (op.kind == TrajectoryOpKind::Translate)
 	{
-		return trajectory_algo::rigidDeltaFromTranslate(op.translate);
+		return trajectory_algo::rigidDeltaFromTranslate(trajectory_algo::parseTranslateParams(op.params));
 	}
 	if (op.kind == TrajectoryOpKind::Rotate)
 	{
-		return trajectory_algo::rigidDeltaFromRotate(op.rotate);
+		return trajectory_algo::rigidDeltaFromRotate(trajectory_algo::parseRotateParams(op.params));
 	}
 	return engine::RigidTransform::identity();
 }
@@ -56,11 +57,11 @@ TransformReferenceFrame frameForOp(const TrajectoryOpDescriptor& op)
 {
 	if (op.kind == TrajectoryOpKind::Translate)
 	{
-		return op.translate.frame;
+		return trajectory_algo::parseTranslateParams(op.params).frame;
 	}
 	if (op.kind == TrajectoryOpKind::Rotate)
 	{
-		return op.rotate.frame;
+		return trajectory_algo::parseRotateParams(op.params).frame;
 	}
 	return TransformReferenceFrame::World;
 }
@@ -128,20 +129,7 @@ void applyDeltaToInstruction(Base& ins, const engine::RigidTransform& delta, con
 TrajectoryOpDescriptor interpolatedDescriptor(const TrajectoryOpDescriptor& op, const double t)
 {
 	TrajectoryOpDescriptor out = op;
-	if (op.kind == TrajectoryOpKind::Translate)
-	{
-		out.translate.dxMm = op.translate.dxMm + (op.translate.endDxMm - op.translate.dxMm) * t;
-		out.translate.dyMm = op.translate.dyMm + (op.translate.endDyMm - op.translate.dyMm) * t;
-		out.translate.dzMm = op.translate.dzMm + (op.translate.endDzMm - op.translate.dzMm) * t;
-		out.translate.endDxMm = out.translate.dxMm;
-		out.translate.endDyMm = out.translate.dyMm;
-		out.translate.endDzMm = out.translate.dzMm;
-	}
-	else if (op.kind == TrajectoryOpKind::Rotate)
-	{
-		out.rotate.angleDeg = op.rotate.angleDeg + (op.rotate.endAngleDeg - op.rotate.angleDeg) * t;
-		out.rotate.endAngleDeg = out.rotate.angleDeg;
-	}
+	trajectory_algo::interpolateTransformParamsInPlace(out, t);
 	return out;
 }
 
@@ -427,7 +415,7 @@ bool TransformMotionSegmentCommand::execute(InstructionProgramDocument& doc, std
 			{
 				if (op.kind == TrajectoryOpKind::Mirror)
 				{
-					applyAxisReverseToInstruction(*raw, op.mirrorAxis);
+					applyAxisReverseToInstruction(*raw, trajectory_algo::parseMirrorAxis(op.params));
 				}
 				else if (op.kind == TrajectoryOpKind::Reorder)
 				{

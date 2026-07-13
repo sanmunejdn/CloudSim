@@ -1,5 +1,6 @@
 #include "MeshSurfaceReconstruction.h"
 #include "MeshSurfaceReconstruction/MeshSurfaceReconstructionInternal.h"
+#include "MeshSurfaceReconstruction/MeshSurfaceReconstructionAmrtoPartition.h"
 #include "ShapeHandle.h"
 
 #include <TopExp_Explorer.hxx>
@@ -154,9 +155,13 @@ void updateSampleStats(MeshSurfaceReconstructReport& report, const std::vector<m
 		gridNvMax = std::max(gridNvMax, nv);
 		gridN = std::max(gridN, std::max(nu, nv));
 		totalSamples += static_cast<int>(patch.sampleXyz.size() / 3U);
-		if (patch.samplingPath == "amrto-harmonic")
+		if (patch.samplingPath == "amrto-harmonic" || patch.samplingPath == "amrto-harmonic-geo")
 		{
 			++report.amrtoHarmonicSampleCount;
+		}
+		if (patch.samplingPath == "amrto-harmonic-geo")
+		{
+			++report.geodesicSquareHarmonicCount;
 		}
 	}
 	report.totalSamplePoints = totalSamples;
@@ -173,6 +178,9 @@ struct MeshSurfaceReconstructSession::Impl
 	meshrecon::IndexedMeshLite mesh;
 	bool hasIndexed = false;
 	std::vector<meshrecon::QuadPatch> patches;
+	meshrecon::QuadMeshLite amrtoQuadMesh;
+	meshrecon::GmcgResult amrtoGmcgResult;
+	bool hasAmrtoCache = false;
 	MeshSurfaceReconstructReport report;
 	MeshSurfaceReconstructStage lastCompleted = MeshSurfaceReconstructStage::None;
 	bool boundaryBlendOk = false;
@@ -239,7 +247,26 @@ bool runMeshSurfaceReconstructStage(
 				}
 				s.hasIndexed = true;
 			}
-			if (!meshrecon::partitionQuadDomains(s.mesh, params, s.patches, s.report.junctionCount, &s.report, errMsg))
+			bool partitionOk = false;
+			if (params.partitionMode == MeshSurfacePartitionMode::AmrtoImGmcg)
+			{
+				partitionOk = meshrecon::partitionQuadDomainsAmrtoImGmcg(
+					s.mesh,
+					params,
+					s.patches,
+					s.report.junctionCount,
+					&s.report,
+					errMsg,
+					&s.amrtoQuadMesh,
+					&s.amrtoGmcgResult);
+				s.hasAmrtoCache = partitionOk;
+			}
+			else
+			{
+				partitionOk = meshrecon::partitionQuadDomains(
+					s.mesh, params, s.patches, s.report.junctionCount, &s.report, errMsg);
+			}
+			if (!partitionOk)
 			{
 				return false;
 			}
@@ -257,6 +284,10 @@ bool runMeshSurfaceReconstructStage(
 			return true;
 		case MeshSurfaceReconstructStage::Fit:
 			if (!meshrecon::buildInitialBsplinePatches(s.mesh, s.patches, params, errMsg))
+			{
+				return false;
+			}
+			if (!meshrecon::applyMultiResolutionFit(s.mesh, s.patches, params, &s.report, errMsg))
 			{
 				return false;
 			}

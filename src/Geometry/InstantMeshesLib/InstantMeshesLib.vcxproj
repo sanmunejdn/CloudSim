@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{C8D5E4F3-A2B1-4C5D-9E8F-7A6B5C4D3E2F}</ProjectGuid>
+    <RootNamespace>InstantMeshesLib</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <Import Project="$(MSBuildThisFileDirectory)..\..\..\Directory.Build.props" Condition="'$(CloudSimBinDir)'=='' and Exists('$(MSBuildThisFileDirectory)..\..\..\Directory.Build.props')" />
+  <PropertyGroup Condition="'$(CloudSimBinDir)'=='' and '$(Configuration)|$(Platform)'=='Debug|x64'">
+    <CloudSimBinDir>$(ProjectDir)..\..\..\..\bin\x64d\</CloudSimBinDir>
+    <CloudSimIntRoot>$(ProjectDir)..\..\..\..\bin\x64dmiddle\</CloudSimIntRoot>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(CloudSimBinDir)'=='' and '$(Configuration)|$(Platform)'=='Release|x64'">
+    <CloudSimBinDir>$(ProjectDir)..\..\..\..\bin\x64\</CloudSimBinDir>
+    <CloudSimIntRoot>$(ProjectDir)..\..\..\..\bin\x64middle\</CloudSimIntRoot>
+  </PropertyGroup>
+  <PropertyGroup>
+    <IMSdkRoot>$(ProjectDir)../../../../bin/SDK/instant-meshes</IMSdkRoot>
+    <IMIncludeDirs>$(IMSdkRoot)/src;$(IMSdkRoot)/ext/dset;$(IMSdkRoot)/ext/pss;$(IMSdkRoot)/ext/pcg32;$(IMSdkRoot)/ext/half;$(IMSdkRoot)/ext/rply;$(IMSdkRoot)/ext/tbb/include;$(ProjectDir)../../../../bin/SDK/eigen</IMIncludeDirs>
+    <IMTbbLibDir>$(IMSdkRoot)/ext/tbb/build-vs2019-x64</IMTbbLibDir>
+    <IMDefines>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_USE_MATH_DEFINES;__TBB_NO_IMPLICIT_LINKAGE;__TBB_BUILD=1;USE_WINTHREAD</IMDefines>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)InstantMeshesLib\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)InstantMeshesLib\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(SolutionDir)../bin/x86d/</OutDir>
+    <IntDir>$(SolutionDir)../bin/x86dmiddle/InstantMeshesLib/</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(SolutionDir)../bin/x86/</OutDir>
+    <IntDir>$(SolutionDir)../bin/x86middle/InstantMeshesLib/</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>false</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;$(IMDefines);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp14</LanguageStandard>
+      <AdditionalIncludeDirectories>$(IMIncludeDirs);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244;4018;4100;4267;4127;4512;4146;4503;4800;4706;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>false</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;$(IMDefines);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp14</LanguageStandard>
+      <AdditionalIncludeDirectories>$(IMIncludeDirs);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244;4018;4100;4267;4127;4512;4146;4503;4800;4706;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>false</SDLCheck>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PreprocessorDefinitions>_LIB;$(IMDefines);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp14</LanguageStandard>
+      <AdditionalIncludeDirectories>$(IMIncludeDirs);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244;4018;4100;4267;4127;4512;4146;4503;4800;4706;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Lib>
+      <AdditionalDependencies>tbb_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(IMTbbLibDir)/Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>false</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_LIB;$(IMDefines);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp14</LanguageStandard>
+      <AdditionalIncludeDirectories>$(IMIncludeDirs);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4244;4018;4100;4267;4127;4512;4146;4503;4800;4706;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Lib>
+      <AdditionalDependencies>tbb_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(IMTbbLibDir)/Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="$(IMSdkRoot)\src\adjacency.cpp" />
+    <ClCompile Include="$(IMSdkRoot)\src\batch.cpp" />
+    <ClCompile Include="$(IMSdkRoot)\src\bvh.cpp" />
+    <ClCompile Include="$(IMSdkRoot)\src\cleanup.cpp" />
+    <ClCompile Include="$(IMSdkRoot)\src\dedge.cpp" />
+    <ClCompile Include="$(IMSdkRoot)\src\extract.cpp" />
+    <ClCompile Include="$(IMSdkRoot)\src\field.cpp" />
+    <ClCompile Include="$(IMSdkRoot)\src\hierarchy.cpp" />
+    <ClCompile Include="$(IMSdkRoot)\src\meshio.cpp" />
+    <ClCompile Include="$(IMSdkRoot)\src\meshstats.cpp" />
+    <ClCompile Include="$(IMSdkRoot)\src\normal.cpp" />
+    <ClCompile Include="$(IMSdkRoot)\src\reorder.cpp" />
+    <ClCompile Include="$(IMSdkRoot)\src\serializer.cpp" />
+    <ClCompile Include="$(IMSdkRoot)\src\smoothcurve.cpp" />
+    <ClCompile Include="$(IMSdkRoot)\src\subdivide.cpp" />
+    <ClCompile Include="$(IMSdkRoot)\ext\rply\rply.c">
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

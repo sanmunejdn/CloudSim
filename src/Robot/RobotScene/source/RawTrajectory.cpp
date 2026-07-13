@@ -6,7 +6,7 @@
 #include "RobotProgramCatalog.h"
 #include "RobotInstructionProgram.h"
 
-#include <FeatureSpec.h>
+#include <FeatureListDocument.h>
 #include <RigidTransform.h>
 
 #include <json.hpp>
@@ -53,7 +53,13 @@ bool importRawPathToTrajectory(
 	}
 	out = RawTrajectory{};
 	out.segmentEndExclusive = path.segmentEndExclusive;
-	out.sourceFeatureJson = geometry_backend_ops::featureSpecToJson(path.sourceSpec);
+	if (!path.sourceFeatureId.empty())
+	{
+		nlohmann::json j;
+		j["schemaVersion"] = 2;
+		j["features"] = nlohmann::json::array({{{"featureId", path.sourceFeatureId}}});
+		out.sourceFeatureJson = j.dump();
+	}
 	out.points.reserve(path.points.size());
 	for (std::size_t i = 0; i < path.points.size(); ++i)
 	{
@@ -295,13 +301,13 @@ std::string rawTrajectoryWorkpieceBackendId(const RawTrajectory& trajectory)
 	{
 		return {};
 	}
-	geoalgo::FeatureSpec spec{};
+	geoalgo::FeatureListDocument doc{};
 	std::string err;
-	if (!geometry_backend_ops::featureSpecFromJson(trajectory.sourceFeatureJson, spec, &err))
+	if (!geometry_backend_ops::featureListFromJson(trajectory.sourceFeatureJson, doc, &err))
 	{
 		return {};
 	}
-	return spec.workpiece.backendIdUtf8;
+	return doc.workpiece.backendIdUtf8;
 }
 
 std::string rawTrajectoryFeatureId(const RawTrajectory& trajectory)
@@ -310,13 +316,17 @@ std::string rawTrajectoryFeatureId(const RawTrajectory& trajectory)
 	{
 		return {};
 	}
-	geoalgo::FeatureSpec spec{};
+	geoalgo::FeatureListDocument doc{};
 	std::string err;
-	if (!geometry_backend_ops::featureSpecFromJson(trajectory.sourceFeatureJson, spec, &err))
+	if (!geometry_backend_ops::featureListFromJson(trajectory.sourceFeatureJson, doc, &err))
 	{
 		return {};
 	}
-	return spec.featureId;
+	if (!doc.features.empty())
+	{
+		return doc.features.front().featureId;
+	}
+	return {};
 }
 
 std::string rawTrajectoryReachabilityColorsJson(const RawTrajectory& trajectory)

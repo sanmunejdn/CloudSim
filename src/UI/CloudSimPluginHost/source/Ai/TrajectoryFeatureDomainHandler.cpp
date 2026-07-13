@@ -6,7 +6,7 @@
 
 #include <json.hpp>
 
-#include <FeatureSpec.h>
+#include <FeatureListDocument.h>
 
 QString TrajectoryFeatureDomainHandler::domainId() const
 {
@@ -38,9 +38,12 @@ bool TrajectoryFeatureDomainHandler::validateOutput(const QByteArray& jsonUtf8, 
 	}
 	for (const auto& f : j["features"])
 	{
-		geoalgo::FeatureSpec spec;
+		geoalgo::FeatureListDocument doc;
 		std::string parseErr;
-		if (!geometry_backend_ops::featureSpecFromJson(f.dump(), spec, &parseErr))
+		nlohmann::json wrap = nlohmann::json::object();
+		wrap["schemaVersion"] = 2;
+		wrap["features"] = nlohmann::json::array({f});
+		if (!geometry_backend_ops::featureListFromJson(wrap.dump(), doc, &parseErr))
 		{
 			if (err)
 			{
@@ -54,6 +57,7 @@ bool TrajectoryFeatureDomainHandler::validateOutput(const QByteArray& jsonUtf8, 
 
 bool TrajectoryFeatureDomainHandler::adaptToActionPlan(const QByteArray& domainJson, QByteArray* outPlan, QString* err) const
 {
+	(void)err;
 	nlohmann::json j;
 	try
 	{
@@ -69,9 +73,14 @@ bool TrajectoryFeatureDomainHandler::adaptToActionPlan(const QByteArray& domainJ
 	}
 	nlohmann::json plan;
 	plan["version"] = 2;
+	plan["schemaVersion"] = 2;
 	plan["domain"] = "trajectory.feature";
 	plan["features"] = j.value("features", nlohmann::json::array());
 	plan["suggestedPipelineTemplate"] = j.value("suggestedPipelineTemplate", "weld_default");
+	if (j.contains("workpiece"))
+	{
+		plan["workpiece"] = j["workpiece"];
+	}
 	if (outPlan)
 	{
 		*outPlan = QByteArray::fromStdString(plan.dump());

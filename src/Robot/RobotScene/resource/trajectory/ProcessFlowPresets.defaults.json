@@ -5,19 +5,38 @@
       "id": "weld",
       "labelZh": "焊缝",
       "labelEn": "Weld",
-      "ops": ["RecipeWeld", "Approach", "Retract"]
+      "ops": [
+        "Resample",
+        "OffsetAlongNormal",
+        "SmoothPose",
+        "AssignBlend",
+        "Approach",
+        "Retract"
+      ]
     },
     {
       "id": "glue",
       "labelZh": "涂胶",
       "labelEn": "Glue",
-      "ops": ["RecipeGlue"]
+      "ops": [
+        "Resample",
+        "OffsetAlongNormal",
+        "SmoothPose",
+        "AssignSpeedZone"
+      ]
     },
     {
       "id": "grind",
       "labelZh": "打磨",
       "labelEn": "Grind",
-      "ops": ["RecipeGrind", "Approach", "Retract"]
+      "ops": [
+        "Resample",
+        "OffsetAlongNormal",
+        "SmoothPose",
+        "Weave",
+        "Approach",
+        "Retract"
+      ]
     }
   ]
 }

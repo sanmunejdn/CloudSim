@@ -34,7 +34,7 @@
 | `BrepBoolean.h` | OCC Fuse/Common/Cut → Shape 或 mesh |
 | `WireOps.h` / `ShellOps.h` | 线融合、面缝合 |
 | `GeoMeshBoolean.h` | CGAL 三角网格布尔 |
-| `FeatureSpec.h` | **CAD 轨迹特征**：`FeatureSpec` / `RawPath` / `FeatureCatalog`；统一离散入口 `discretizeFeature` |
+| `FeatureSpec.h` | **CAD 轨迹特征 v2**：`FeatureListDocument` / `RawPath` / `FeatureCatalog`；见 `FeatureDiscretizerBridge.h` |
 | `MeshTrajectory.h` | **Mesh 轨迹**：截面法平面求交、B 样条区域拟合；见 §3.2 |
 | `TemplateBrepUpdate.h` | **扫描驱动 B-rep 更新**：面采样、点面归属、特征类型驱动面调整（Plane/Cylinder/Cone/Sphere/Toroid/BSpline） |
 | `SelfTest.h` | `runSelfTest` |
@@ -46,30 +46,47 @@
 - `WireTubeMesh` / `WireRibbonMesh`：折线扫掠
 - `RemeshSoup` / `PointCloudSurface`：预留（当前构建返回未实现）
 
-## 3.1 CAD 轨迹特征离散（`FeatureSpec.h`）
+## 3.1 CAD 轨迹特征离散（v2 策略框架）
 
-**设计原则**：对机器人执行层只有轨迹；工艺（焊缝/涂胶/打磨）不在本 DLL 区分，仅通过下游 `RawTrajectory` 编辑配方体现。
+**设计原则**：对机器人执行层只有轨迹；工艺不在本 DLL 区分。离散策略通过 **Registry + 外置 JSON** 注册（对齐 HPLTPStrategy / TrajectoryAlgorithmBuiltins），**无 `FeatureKind` switch**。
 
-| API | 职责 |
+| API（`FeatureDiscretizerBridge.h`） | 职责 |
 |-----|------|
-| `validateFeatureSpec` / `validateFeatureSpecWithShape` | 结构校验；后者加载 STEP 检查边/面索引 |
-| `discretizeFeature` | **唯一离散入口**；按 `FeatureKind` 内部分派 |
-| `discretizeFeatures` | 批量离散 |
-| `enumerateFeatureCatalog` | 边/面拓扑摘要 + 启发式标签（焊缝/涂胶/打磨候选） |
-| `featureSpecFromJson` / `featureSpecToJson` | UI / AI / 配置文件共用 JSON |
-| `suggestFeaturesFromCatalog` | 规则回退：按意图从目录生成 `FeatureSpec[]` |
+| `ensureFeatureDiscretizersRegistered` | 加载全部内置离散策略 |
+| `discretizeFeatureList` | **唯一离散入口**；Coordinator 按 mergePolicy 合并 |
+| `featureListFromJson` / `featureListToJson` | v2 文档 JSON |
+| `validateFeatureListDocument` | 结构 + 策略校验 |
+| `enumerateFeatureCatalog` / `suggestFeaturesFromCatalog` | 候选目录 + 意图启发式 |
 
-| `FeatureKind` | 说明 |
-|---------------|------|
-| `EdgeChain` | 单边或有序边链 |
-| `FaceBoundary` | 面外轮廓 |
-| `FaceIntersection` | 两面交线 |
-| `FaceOffsetCurve` | 面内边沿法向偏置 |
-| `FaceUVGrid` | 面内 UV 扫描点族（打磨栅格） |
-| `Composite` | 子特征顺序拼接 |
-| `SyntheticPolyline` | 外部/LLM 点列透传（无 STEP 降级路径） |
+**v2 文档**（`FeatureListDocument`，schemaVersion=2）：
 
-实现：`source/FeatureDiscretize.cpp`；复用 `Discretize` / `Intersection` / `ShapeQuery` / `WireOps`，不对外暴露按类型的顶层 API。
+```json
+{
+  "schemaVersion": 2,
+  "workpiece": { "backendIdUtf8": "...", "stepPathUtf8": "..." },
+  "defaultStrategyId": "EdgeChain",
+  "features": [
+    {
+      "featureId": "edge_001",
+      "strategyId": "EdgeChain",
+      "geometry": { "edgeIndices": [3, 7] },
+      "params": { "stepMm": 2.0, "linearDeflectionMm": 0.01 }
+    }
+  ]
+}
+```
+
+| strategyId | mergePolicy | 说明 |
+|------------|-------------|------|
+| `EdgeChain` | LineConnectivity | 相连边合并 wire；不相连分量分段后拼接 |
+| `FaceBoundary` / `FaceSection` / `FaceParamSurface` | FaceUnion | 多面 fuse 后离散 |
+| `FaceIntersection` / `FaceOffsetCurve` / `SyntheticPolyline` | None | 逐行离散后拼接 |
+
+外置参数：`resource/feature/discretizers/<StrategyId>.json`（PostBuild 拷贝至 `bin/x64(d)/resource/feature/`）。
+
+实现：`discretizers/*Discretizer.cpp` + `FeatureDiscretizeCoordinator.cpp` + `FaceSectionDiscretize.cpp` / `ParamSurfaceDiscretize.cpp`。
+
+**Breaking**：v1 `FeatureSpec` / `FeatureKind` / `discretizeFeature` 已移除。
 
 **JSON 示例**（与计划文档一致）：
 

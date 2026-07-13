@@ -1,4 +1,5 @@
 #include "MeshSurfaceReconstructionPartitionCommon.h"
+#include "MeshSurfaceReconstructionPartitionCgal.h"
 #include "MeshSurfaceReconstructionPatchDualGraph.h"
 
 #include <algorithm>
@@ -376,6 +377,29 @@ bool partitionQuadDomainsHybrid(
 	axisGenerators[3].c = {0, -1, 0};
 	axisGenerators[4].c = {0, 0, 1};
 	axisGenerators[5].c = {0, 0, -1};
+
+	if (params.partitionMode == MeshSurfacePartitionMode::CgalChartHybrid
+		|| params.sdfSeedBlendWeight > 1e-6)
+	{
+		std::vector<int> sdfSeeds;
+		const int segCount = params.sdfSegmentCount > 0
+			? params.sdfSegmentCount
+			: std::max(6, params.patchCountHint > 0 ? params.patchCountHint : 8);
+		if (collectSdfSegmentSeedFaces(mesh, segCount, sdfSeeds, nullptr))
+		{
+			for (const int sf : sdfSeeds)
+			{
+				if (sf < 0 || static_cast<std::size_t>(sf) >= faceCentroids.size())
+				{
+					continue;
+				}
+				GeneratorCluster g;
+				g.c = faceCentroids[static_cast<std::size_t>(sf)];
+				g.count = 1;
+				axisGenerators.push_back(g);
+			}
+		}
+	}
 
 	std::vector<int> allFaces(static_cast<std::size_t>(faceCount));
 	for (int f = 0; f < faceCount; ++f)

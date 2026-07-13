@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "strategies": [
+    {
+      "strategyId": "EdgeChain",
+      "displayNameZh": "边链",
+      "affinity": "Line",
+      "mergePolicy": "LineConnectivity"
+    },
+    {
+      "strategyId": "FaceBoundary",
+      "displayNameZh": "面外轮廓",
+      "affinity": "Face",
+      "mergePolicy": "FaceUnion"
+    },
+    {
+      "strategyId": "FaceSection",
+      "displayNameZh": "面截面阵列",
+      "affinity": "Face",
+      "mergePolicy": "FaceUnion"
+    },
+    {
+      "strategyId": "FaceParamSurface",
+      "displayNameZh": "参数面扫描",
+      "affinity": "Face",
+      "mergePolicy": "FaceUnion"
+    },
+    {
+      "strategyId": "FaceIntersection",
+      "displayNameZh": "两面交线",
+      "affinity": "Face",
+      "mergePolicy": "None"
+    },
+    {
+      "strategyId": "FaceOffsetCurve",
+      "displayNameZh": "面内偏置曲线",
+      "affinity": "Any",
+      "mergePolicy": "None"
+    },
+    {
+      "strategyId": "SyntheticPolyline",
+      "displayNameZh": "合成折线",
+      "affinity": "Any",
+      "mergePolicy": "None"
+    }
+  ]
+}

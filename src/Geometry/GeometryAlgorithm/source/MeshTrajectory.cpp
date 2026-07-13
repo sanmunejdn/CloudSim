@@ -1,5 +1,7 @@
 #include "MeshTrajectory.h"
 
+#include "detail/FeatureDiscretizeFrame.h"
+
 #include "MeshSurfaceReconstruction/NurbsSurfaceFitting.h"
 
 #include "detail/OccIncludes.h"
@@ -784,7 +786,10 @@ bool generateBsplineRegionPath(
 		}
 	}
 	appendTraceModePoints(gridPts, outU, outV, spec.bspline.traceMode);
-	outPath.points = std::move(gridPts);
+	RawPath framed;
+	framed.points = std::move(gridPts);
+	detail::assignPathChordTangents(framed, false, spec.discretize.outputTangent);
+	outPath.points = std::move(framed.points);
 	return true;
 }
 
@@ -953,7 +958,7 @@ bool discretizeMeshTrajectoryPolyline(
 	bool outputNormal,
 	const double planeNormalUnit[3])
 {
-	const Vec3 n = normalizeOrDefault(planeNormalUnit);
+	const Vec3 n = normalizeOrDefault(planeNormalUnit) * -1.0;
 	if (polyline.points.size() >= 2U && outputTangent)
 	{
 		for (std::size_t i = 0; i < polyline.points.size(); ++i)

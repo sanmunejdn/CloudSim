@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "strategyId": "FaceParamSurface",
+  "schema": {
+    "fields": [
+      { "key": "stepMm", "type": "Double", "labelZh": "行间距", "unit": "mm", "default": 10.0, "order": 1, "group": "discretize" },
+      { "key": "colSpacingMm", "type": "Double", "labelZh": "列间距", "unit": "mm", "default": 1.0, "order": 2, "group": "scan" },
+      { "key": "linearDeflectionMm", "type": "Double", "labelZh": "弦高", "unit": "mm", "default": 0.01, "order": 3, "group": "discretize" },
+      { "key": "gridAngleDeg", "type": "Double", "labelZh": "扫描偏角", "unit": "deg", "default": 0.0, "order": 4, "group": "scan" },
+      { "key": "trackStartPct", "type": "Double", "labelZh": "轨迹起点%", "default": 0.0, "order": 5, "group": "scan" },
+      { "key": "trackEndPct", "type": "Double", "labelZh": "轨迹终点%", "default": 100.0, "order": 6, "group": "scan" },
+      { "key": "unifySameBasis", "type": "Bool", "labelZh": "同母面统一域", "defaultBool": true, "order": 7, "group": "scan" },
+      { "key": "heteroCombineMode", "type": "Enum", "labelZh": "异母拼接", "enumValues": ["Auto", "RowStitch", "PerFace"], "enumLabelsZh": ["自动", "逐行拼接", "逐面"], "defaultInt": 0, "order": 8, "group": "scan" },
+      { "key": "edgeDiscretizeMode", "type": "Enum", "labelZh": "边离散模式", "enumValues": ["Uniform", "ChordHeight"], "enumLabelsZh": ["均匀", "等弦高"], "defaultInt": 0, "order": 9, "group": "scan" },
+      { "key": "trajConnectMode", "type": "Enum", "labelZh": "行间连接", "enumValues": ["Bow", "Z"], "enumLabelsZh": ["弓", "Z"], "defaultInt": 0, "order": 10, "group": "scan" },
+      { "key": "reverseLayer", "type": "Bool", "labelZh": "反转行", "defaultBool": false, "order": 11, "group": "scan" }
+    ]
+  },
+  "defaults": {
+    "params": {
+      "stepMm": 10.0,
+      "colSpacingMm": 1.0,
+      "linearDeflectionMm": 0.01,
+      "heteroCombineMode": "Auto",
+      "unifySameBasis": true,
+      "trajConnectMode": "Bow"
+    }
+  }
+}

@@ -7,6 +7,8 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -47,9 +49,13 @@ RobotInstruction::TrajectoryOpDescriptor RotateOp::makeDefaultDescriptor(
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Rotate;
 	op.scope = defaultScope;
-	op.rotate.frame = RobotInstruction::TransformReferenceFrame::World;
-	op.rotate.axisZ = 1.0;
-	op.rotate.endAngleDeg = op.rotate.angleDeg;
+	TrajectoryOpParamAccess::applyDefaults(op, *this);
+	RobotInstruction::RotateParams rotate = parseRotateParams(op.params);
+	rotate.frame = RobotInstruction::TransformReferenceFrame::World;
+	rotate.axisZ = 1.0;
+	rotate.endAngleDeg = rotate.angleDeg;
+	writeRotateParams(op.params, rotate);
+
 	return op;
 }
 
@@ -76,13 +82,13 @@ std::vector<TrajectoryOpParamField> RotateOp::paramFields() const
 
 bool RotateOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, std::string* errMsg) const
 {
-	if (isRotateNoOp(op.rotate))
+	const RobotInstruction::RotateParams rotate = parseRotateParams(op.params);
+	if (isRotateNoOp(rotate))
 	{
 		return true;
 	}
 	const double len = std::sqrt(
-		op.rotate.axisX * op.rotate.axisX + op.rotate.axisY * op.rotate.axisY
-		+ op.rotate.axisZ * op.rotate.axisZ);
+		rotate.axisX * rotate.axisX + rotate.axisY * rotate.axisY + rotate.axisZ * rotate.axisZ);
 	if (len < 1e-9)
 	{
 		if (errMsg)
@@ -98,8 +104,9 @@ std::string RotateOp::formatSummary(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	const bool chinese) const
 {
+	const RobotInstruction::RotateParams rotate = parseRotateParams(op.params);
 	char buffer[256];
-	if (isRotateInterpolated(op.rotate))
+	if (isRotateInterpolated(rotate))
 	{
 		std::snprintf(
 			buffer,
@@ -107,12 +114,12 @@ std::string RotateOp::formatSummary(
 			chinese ? "%s | %s | 起点%.2f° -> 终点%.2f° @(%.2f,%.2f,%.2f)"
 					: "%s | %s | Start%.2f° -> End%.2f° @(%.2f,%.2f,%.2f)",
 			displayName(chinese),
-			frameLabel(op.rotate.frame, chinese).c_str(),
-			op.rotate.angleDeg,
-			op.rotate.endAngleDeg,
-			op.rotate.axisX,
-			op.rotate.axisY,
-			op.rotate.axisZ);
+			frameLabel(rotate.frame, chinese).c_str(),
+			rotate.angleDeg,
+			rotate.endAngleDeg,
+			rotate.axisX,
+			rotate.axisY,
+			rotate.axisZ);
 	}
 	else
 	{
@@ -122,11 +129,11 @@ std::string RotateOp::formatSummary(
 			chinese ? "%s | %s | %.2f° @(%.2f,%.2f,%.2f)"
 					: "%s | %s | %.2f° @(%.2f,%.2f,%.2f)",
 			displayName(chinese),
-			frameLabel(op.rotate.frame, chinese).c_str(),
-			op.rotate.angleDeg,
-			op.rotate.axisX,
-			op.rotate.axisY,
-			op.rotate.axisZ);
+			frameLabel(rotate.frame, chinese).c_str(),
+			rotate.angleDeg,
+			rotate.axisX,
+			rotate.axisY,
+			rotate.axisZ);
 	}
 	return buffer;
 }

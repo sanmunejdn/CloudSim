@@ -4,6 +4,8 @@
 #include "trajectory_algorithm_global.h"
 
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace trajectory_algo
@@ -18,6 +20,9 @@ public:
 	const ITrajectoryOp* get(RobotInstruction::TrajectoryOpKind kind) const;
 	std::vector<RobotInstruction::TrajectoryOpKind> paletteKinds() const;
 
+	std::string kindToString(RobotInstruction::TrajectoryOpKind kind) const;
+	bool kindFromString(const std::string& token, RobotInstruction::TrajectoryOpKind& out) const;
+
 	TrajectoryOpRegistry(const TrajectoryOpRegistry&) = delete;
 	TrajectoryOpRegistry& operator=(const TrajectoryOpRegistry&) = delete;
 	TrajectoryOpRegistry(TrajectoryOpRegistry&&) = delete;
@@ -27,6 +32,8 @@ public:
 private:
 	TrajectoryOpRegistry() = default;
 	std::vector<std::unique_ptr<ITrajectoryOp>> m_ops;
+	std::unordered_map<RobotInstruction::TrajectoryOpKind, std::string> m_kindToToken;
+	std::unordered_map<std::string, RobotInstruction::TrajectoryOpKind> m_tokenToKind;
 };
 
 TRAJECTORY_ALGORITHM_API void ensureTrajectoryOpBuiltinsRegistered();

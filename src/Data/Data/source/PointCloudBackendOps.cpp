@@ -10,6 +10,8 @@
 #include "Reconstruction.h"
 #include "ReconstructionConfig.h"
 #include "RegistrationNonRigid.h"
+#include "RegistrationSpare.h"
+#include "spare/SpareSurface.h"
 #include "RegistrationRigid.h"
 #include "Transform.h"
 
@@ -486,6 +488,130 @@ bool rigidRegisterPointCloudsIcp(
 		maxPairDistanceMm,
 		icpMaxPoints,
 		errMsg);
+}
+
+namespace
+{
+
+pclalgo::SpareRegisterParams toSpareRegisterParams(const PointCloudSpareParams& params)
+{
+	pclalgo::SpareRegisterParams out;
+	out.sampleRadiusRatio = params.sampleRadiusRatio;
+	out.wSmo = params.wSmo;
+	out.wRot = params.wRot;
+	out.wArapCoarse = params.wArapCoarse;
+	out.wArapFine = params.wArapFine;
+	out.useSymmetricPointToPlane = params.useSymmetricPointToPlane;
+	out.useCoarseReg = params.useCoarseReg;
+	out.useFineReg = params.useFineReg;
+	out.normalizeScale = params.normalizeScale;
+	out.rigidPreAlign = params.rigidPreAlign;
+	out.coarseGlobalAlign = params.coarseGlobalAlign;
+	out.voxelPrefilterMm = params.voxelPrefilterMm;
+	out.maxOuterIters = params.maxOuterIters;
+	return out;
+}
+
+} // namespace
+
+bool nonRigidRegisterPointCloudsSpare(
+	PointCloudBackendData& sourceInOut,
+	const PointCloudBackendData& target,
+	PointCloudSpareResult& out,
+	const PointCloudSpareParams& params,
+	std::string* errMsg)
+{
+	const pclalgo::SpareRegisterParams coreParams = toSpareRegisterParams(params);
+	std::vector<float> deformed;
+	std::vector<float> deformedNormals;
+	pclalgo::SpareRegisterResult stats;
+	if (!pclalgo::spareRegisterPointClouds(
+			sourceInOut.pointPositionsXyz(),
+			sourceInOut.pointNormalsNxNyNz(),
+			target.pointPositionsXyz(),
+			target.pointNormalsNxNyNz(),
+			deformed,
+			deformedNormals,
+			coreParams,
+			&stats,
+			errMsg))
+	{
+		return false;
+	}
+	sourceInOut.setPointBuffers(std::move(deformed), sourceInOut.pointVertexRgba(), std::move(deformedNormals));
+	out.meanErrorMm = stats.meanErrorMm;
+	out.deformationNodeCount = stats.deformationNodeCount;
+	return true;
+}
+
+bool nonRigidRegisterPointCloudToMeshSpare(
+	PointCloudBackendData& sourceInOut,
+	const MeshBackendData& targetMesh,
+	PointCloudSpareResult& out,
+	const PointCloudSpareParams& params,
+	std::string* errMsg)
+{
+	pclalgo::spare::SpareSurface targetSurface;
+	if (!pclalgo::spare::buildSpareSurfaceFromMeshSoup(targetSurface, targetMesh.triangleSoup(), errMsg))
+	{
+		return false;
+	}
+	if (!pclalgo::spare::ensureSpareSurfaceNormals(targetSurface, errMsg))
+	{
+		return false;
+	}
+	std::vector<float> tgtXyz;
+	std::vector<float> tgtNormals;
+	pclalgo::spare::spareSurfaceToXyz(targetSurface, tgtXyz, tgtNormals);
+	PointCloudBackendData targetTmp;
+	targetTmp.setPointBuffers(std::move(tgtXyz), {}, std::move(tgtNormals));
+	return nonRigidRegisterPointCloudsSpare(sourceInOut, targetTmp, out, params, errMsg);
+}
+
+bool nonRigidRegisterMeshSpare(
+	MeshBackendData& sourceMeshInOut,
+	const PointCloudBackendData* targetPointCloud,
+	const MeshBackendData* targetMesh,
+	PointCloudSpareResult& out,
+	const PointCloudSpareParams& params,
+	std::string* errMsg)
+{
+	if ((targetPointCloud == nullptr) == (targetMesh == nullptr))
+	{
+		if (errMsg)
+		{
+			*errMsg = "exactly one target (point cloud or mesh) required";
+		}
+		return false;
+	}
+
+	const pclalgo::SpareRegisterParams coreParams = toSpareRegisterParams(params);
+	std::vector<float> soupOut;
+	pclalgo::SpareRegisterResult stats;
+	const bool ok = targetPointCloud != nullptr
+		? pclalgo::spareRegisterMeshSoupToTarget(
+			  sourceMeshInOut.triangleSoup(),
+			  targetPointCloud->pointPositionsXyz(),
+			  targetPointCloud->pointNormalsNxNyNz(),
+			  soupOut,
+			  coreParams,
+			  &stats,
+			  errMsg)
+		: pclalgo::spareRegisterMeshSoupToMeshSoup(
+			  sourceMeshInOut.triangleSoup(),
+			  targetMesh->triangleSoup(),
+			  soupOut,
+			  coreParams,
+			  &stats,
+			  errMsg);
+	if (!ok)
+	{
+		return false;
+	}
+	sourceMeshInOut.setTriangleSoup(std::move(soupOut));
+	out.meanErrorMm = stats.meanErrorMm;
+	out.deformationNodeCount = stats.deformationNodeCount;
+	return true;
 }
 
 bool deformPointCloudTpsFromControls(

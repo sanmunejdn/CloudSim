@@ -41,6 +41,8 @@ public:
 	virtual ~ITrajectoryOp() = default;
 
 	virtual RobotInstruction::TrajectoryOpKind kind() const = 0;
+	/// JSON / 预设文件中的 kind 字符串（与 REGISTER 时写入 Registry 映射表）
+	virtual const char* kindToken() const = 0;
 	virtual const char* displayName(bool chinese) const = 0;
 	virtual TrajectoryOpCapability capabilities() const = 0;
 

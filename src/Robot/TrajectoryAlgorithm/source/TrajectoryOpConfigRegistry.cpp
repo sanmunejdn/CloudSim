@@ -2,7 +2,6 @@
 #include "TrajectoryOpConfigRegistry.h"
 
 #include "ITrajectoryOp.h"
-#include "TrajectoryOpDescriptorCodec.h"
 #include "TrajectoryOpRegistry.h"
 #include "TrajectoryParamJsonIo.h"
 
@@ -22,15 +21,6 @@ void TrajectoryOpConfigRegistry::registerOpConfig(std::unique_ptr<IOpParamConfig
 		return;
 	}
 	m_configs.push_back(std::move(config));
-}
-
-void TrajectoryOpConfigRegistry::registerOpParamAccess(std::unique_ptr<IOpParamAccess> access)
-{
-	if (!access)
-	{
-		return;
-	}
-	m_accesses.push_back(std::move(access));
 }
 
 bool TrajectoryOpConfigRegistry::ensureLoaded(const std::string& resourceBaseDir, std::string* errMsg)
@@ -94,36 +84,6 @@ RobotInstruction::TrajectoryOpDescriptor TrajectoryOpConfigRegistry::defaultUnif
 	op.kind = kind;
 	op.scope = scope;
 	return op;
-}
-
-bool TrajectoryOpConfigRegistry::paramRead(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const TrajectoryOpParamField& field,
-	TrajectoryParamValue& out) const
-{
-	for (const std::unique_ptr<IOpParamAccess>& access : m_accesses)
-	{
-		if (access && access->handlesKey(field.key) && access->read(op, field, out))
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-bool TrajectoryOpConfigRegistry::paramWrite(
-	RobotInstruction::TrajectoryOpDescriptor& op,
-	const TrajectoryOpParamField& field,
-	const TrajectoryParamValue& in) const
-{
-	for (const std::unique_ptr<IOpParamAccess>& access : m_accesses)
-	{
-		if (access && access->handlesKey(field.key) && access->write(op, field, in))
-		{
-			return true;
-		}
-	}
-	return false;
 }
 
 } // namespace trajectory_algo

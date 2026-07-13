@@ -13,11 +13,13 @@
 #include "RecipeBlueprint.h"
 #include "RobotOsgUiTypes.h"
 #include "RobotSimulationController.h"
+#include "RobotSimulationDockWidget.h"
 #include "RawTrajectory.h"
 #include "UnifiedTrajectory.h"
 #include "SimulationCommandWidget.h"
 #include "TrajectoryEditSession.h"
 #include "TrajectoryEditObserver.h"
+#include "TrajectoryGenerationPageWidget.h"
 #include "TrajectoryOpParamPanel.h"
 #include "TrajectoryPipelineListWidget.h"
 #include "RobotProgramStore.h"
@@ -231,14 +233,6 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	scopeRow->addWidget(m_programLabel);
 	m_programCombo = new QComboBox(this);
 	scopeRow->addWidget(m_programCombo, 1);
-	m_pathPlanLabel = new QLabel(QStringLiteral("规划"), this);
-	scopeRow->addWidget(m_pathPlanLabel);
-	m_pathPlanCombo = new QComboBox(this);
-	scopeRow->addWidget(m_pathPlanCombo, 1);
-	m_newPathPlanBtn = new QPushButton(QStringLiteral("+"), this);
-	m_newPathPlanBtn->setToolTip(QStringLiteral("插入空路径规划并绑定编辑"));
-	m_newPathPlanBtn->setFixedWidth(28);
-	scopeRow->addWidget(m_newPathPlanBtn);
 	m_groupLabel = new QLabel(QStringLiteral("组"), this);
 	scopeRow->addWidget(m_groupLabel);
 	m_groupCombo = new QComboBox(this);
@@ -325,8 +319,6 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	rebuildPalette();
 
 	connect(m_programCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &TrajectoryEditPageWidget::onProgramChanged);
-	connect(m_pathPlanCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &TrajectoryEditPageWidget::onPathPlanChanged);
-	connect(m_newPathPlanBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onNewPathPlanClicked);
 	connect(m_groupCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &TrajectoryEditPageWidget::onGroupChanged);
 	connect(m_palette, &QListWidget::itemDoubleClicked, this, &TrajectoryEditPageWidget::onPaletteDoubleClicked);
 	connect(m_pipeline, &TrajectoryPipelineListWidget::opsChanged, this, [this]() {
@@ -354,7 +346,6 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	connect(m_rawApplyBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onRawApplyRecipe);
 	connect(m_rawEmitBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onRawEmitProgram);
 
-	UiIconDecorators::apply(m_newPathPlanBtn, UiIconId::NewPathPlan);
 	UiIconDecorators::apply(m_applyBtn, UiIconId::Apply);
 	UiIconDecorators::apply(m_resetBtn, UiIconId::Reset);
 	UiIconDecorators::apply(m_undoBtn, UiIconId::Undo);
@@ -442,16 +433,6 @@ void TrajectoryEditPageWidget::updateUiLabels()
 	{
 		m_programLabel->setText(zh ? QStringLiteral("程序") : QStringLiteral("Program"));
 	}
-	if (m_pathPlanLabel)
-	{
-		m_pathPlanLabel->setText(zh ? QStringLiteral("规划") : QStringLiteral("Path"));
-	}
-	if (m_newPathPlanBtn)
-	{
-		m_newPathPlanBtn->setText(QStringLiteral("+"));
-		m_newPathPlanBtn->setToolTip(
-			zh ? QStringLiteral("插入空路径规划并绑定编辑") : QStringLiteral("Insert empty path plan and bind"));
-	}
 	if (m_groupLabel)
 	{
 		m_groupLabel->setText(zh ? QStringLiteral("组") : QStringLiteral("Grp"));
@@ -531,8 +512,6 @@ void TrajectoryEditPageWidget::setReadOnly(const bool readOnly)
 	m_readOnly = readOnly;
 	QWidget* widgets[] = {
 		m_programCombo,
-		m_pathPlanCombo,
-		m_newPathPlanBtn,
 		m_groupCombo,
 		m_palette,
 		m_pipeline,
@@ -598,11 +577,24 @@ void TrajectoryEditPageWidget::bindSession(TrajectoryEditSession* session)
 	}
 	if (m_session && m_store)
 	{
-		refreshPathPlanCombo();
+		syncBoundPathPlanFromSession();
 	}
 	if (m_session)
 	{
 		connect(m_session, &TrajectoryEditSession::rawTrajectoryChanged, this, [this]() {
+			setPipelineAppliedState(false, false);
+			refreshRawTrajectoryStatus();
+		});
+		connect(m_session, &TrajectoryEditSession::pathPlanBound, this, [this](const std::string&) {
+			if (m_pipeline)
+			{
+				m_loadingParams = true;
+				m_pipeline->blockSignals(true);
+				m_pipeline->setOps({});
+				m_pipeline->blockSignals(false);
+				m_loadingParams = false;
+			}
+			refreshProgramAndGroupCombos();
 			setPipelineAppliedState(false, false);
 			refreshRawTrajectoryStatus();
 		});
@@ -712,9 +704,11 @@ void TrajectoryEditPageWidget::showRawTrajectoryPreview(
 		return;
 	}
 	RobotOsgUi::RawTrajectoryPreviewOptions options;
+	options.showAxisX = true;
+	options.showAxisY = true;
+	options.showAxisZ = true;
 	options.showAxes = true;
 	options.axisInterval = 0;
-	options.maxAxes = 50;
 	std::string err;
 	if (posesAlreadyWorldMm)
 	{
@@ -894,6 +888,19 @@ void TrajectoryEditPageWidget::onRawEmitProgram()
 			? QStringLiteral("已写入主程序，分组「%1」").arg(groupName)
 			: QStringLiteral("Written to main program, group \"%1\"").arg(groupName));
 	}
+	resetTrajectoryGenerationPages();
+}
+
+void TrajectoryEditPageWidget::resetTrajectoryGenerationPages()
+{
+	if (!m_simController || !m_simController->simulationDock())
+	{
+		return;
+	}
+	if (TrajectoryGenerationPageWidget* gen = m_simController->simulationDock()->trajectoryGenerationPage())
+	{
+		gen->resetAfterTrajectoryCommit();
+	}
 }
 
 void TrajectoryEditPageWidget::bindCommandPage(SimulationCommandWidget* commandPage)
@@ -921,7 +928,6 @@ void TrajectoryEditPageWidget::bindCommandPage(SimulationCommandWidget* commandP
 
 void TrajectoryEditPageWidget::syncBoundPathPlanFromSession()
 {
-	refreshPathPlanCombo();
 	if (!m_session || !m_store || !m_pipeline)
 	{
 		return;
@@ -943,72 +949,37 @@ void TrajectoryEditPageWidget::syncBoundPathPlanFromSession()
 	}
 }
 
-namespace
+void TrajectoryEditPageWidget::restoreBoundPathPlanForEdit()
 {
-QString pathPlanComboLabel(const RobotInstruction::PathPlanInstruction& pp, const bool chinese)
-{
-	QString title = QString::fromStdString(pp.name().empty() ? pp.id() : pp.name());
-	if (!pp.sourceFeatureJson().empty())
-	{
-		const nlohmann::json fj = nlohmann::json::parse(pp.sourceFeatureJson(), nullptr, false);
-		if (!fj.is_discarded() && fj.contains("featureId") && fj["featureId"].is_string())
-		{
-			title += QStringLiteral(" · ") + QString::fromStdString(fj["featureId"].get<std::string>());
-		}
-	}
-	const QString phase = pp.phase() == RobotInstruction::PathPlanPhase::Applied
-		? (chinese ? QStringLiteral("已应用") : QStringLiteral("applied"))
-		: (pp.phase() == RobotInstruction::PathPlanPhase::RawReady
-			? (chinese ? QStringLiteral("已离散") : QStringLiteral("raw_ready"))
-			: (chinese ? QStringLiteral("草稿") : QStringLiteral("draft")));
-	return title + QStringLiteral(" · ") + phase;
-}
-} // namespace
-
-void TrajectoryEditPageWidget::refreshPathPlanCombo()
-{
-	if (!m_pathPlanCombo || !m_store)
+	if (!m_session)
 	{
 		return;
 	}
-	const std::string activeId = m_store->activeProgramIdUtf8();
-	const std::vector<RobotInstruction::PathPlanInstruction*> plans =
-		m_store->activeCatalog().listPathPlans(activeId);
-	QString prevId;
-	if (m_session && !m_session->boundPathPlanId().empty())
+	(void)m_session->reloadBoundPathPlanFromStore();
+	syncBoundPathPlanFromSession();
+	refreshProgramAndGroupCombos();
+
+	bool applied = false;
+	if (m_store && !m_session->boundPathPlanId().empty())
 	{
-		prevId = QString::fromStdString(m_session->boundPathPlanId());
-	}
-	else if (m_pathPlanCombo->currentIndex() >= 0)
-	{
-		prevId = m_pathPlanCombo->currentData().toString();
-	}
-	m_pathPlanCombo->blockSignals(true);
-	m_pathPlanCombo->clear();
-	int selectIdx = -1;
-	for (size_t i = 0; i < plans.size(); ++i)
-	{
-		const RobotInstruction::PathPlanInstruction* pp = plans[i];
-		if (!pp)
+		if (const RobotInstruction::PathPlanInstruction* pp = m_store->activeCatalog().findPathPlan(
+				m_store->activeCatalog().activeProgramId(),
+				m_session->boundPathPlanId()))
 		{
-			continue;
-		}
-		m_pathPlanCombo->addItem(pathPlanComboLabel(*pp, m_useChinese), QString::fromStdString(pp->id()));
-		if (!prevId.isEmpty() && prevId == QString::fromStdString(pp->id()))
-		{
-			selectIdx = static_cast<int>(i);
+			applied = pp->phase() == RobotInstruction::PathPlanPhase::Applied;
 		}
 	}
-	if (selectIdx >= 0)
+	setPipelineAppliedState(applied, false);
+	refreshRawTrajectoryStatus();
+
+	if (m_session && m_pipeline)
 	{
-		m_pathPlanCombo->setCurrentIndex(selectIdx);
+		m_session->syncPipelineEngine(m_pipeline->ops());
 	}
-	m_pathPlanCombo->setEnabled(!m_readOnly);
-	if (m_newPathPlanBtn)
+	if (m_previewCheck && m_previewCheck->isChecked() && m_session && m_session->hasRawTrajectory())
 	{
-		m_newPathPlanBtn->setEnabled(!m_readOnly);
+		schedulePreviewRun(120, false);
 	}
-	m_pathPlanCombo->blockSignals(false);
 }
 
 void TrajectoryEditPageWidget::refreshProgramAndGroupCombos()
@@ -1019,7 +990,6 @@ void TrajectoryEditPageWidget::refreshProgramAndGroupCombos()
 	}
 	const std::string activeId = m_store->activeProgramIdUtf8();
 	const auto& catalog = m_store->activeCatalog();
-	refreshPathPlanCombo();
 
 	m_programCombo->blockSignals(true);
 	m_programCombo->clear();
@@ -1142,7 +1112,8 @@ void TrajectoryEditPageWidget::refreshGeometryBackendCombo()
 	QString prevBackendId;
 	if (m_pipeline && m_pipeline->selectedOpIndex() >= 0)
 	{
-		prevBackendId = QString::fromStdString(m_pipeline->selectedOp().project.targetBackendId);
+		prevBackendId = QString::fromStdString(
+			RobotInstruction::trajectoryOpProjectTargetBackendId(m_pipeline->selectedOp()));
 	}
 	if (prevBackendId.isEmpty() && m_geometryBackendCombo->currentIndex() >= 0)
 	{
@@ -1445,11 +1416,13 @@ void TrajectoryEditPageWidget::syncProjectBackendFromComboToPipeline(const bool 
 		{
 			continue;
 		}
-		if (ops[i].project.targetBackendId == backendId)
+		const std::string currentBackendId =
+			RobotInstruction::trajectoryOpProjectTargetBackendId(ops[i]);
+		if (currentBackendId == backendId)
 		{
 			continue;
 		}
-		ops[i].project.targetBackendId = backendId;
+		RobotInstruction::trajectoryOpSetProjectTargetBackendId(ops[i], backendId);
 		changed = true;
 	}
 	if (!changed)
@@ -1486,7 +1459,7 @@ std::vector<RobotInstruction::TrajectoryOpDescriptor> TrajectoryEditPageWidget::
 	{
 		if (op.kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry)
 		{
-			op.project.targetBackendId = backendId;
+			RobotInstruction::trajectoryOpSetProjectTargetBackendId(op, backendId);
 		}
 	}
 	return ops;
@@ -1670,11 +1643,13 @@ void TrajectoryEditPageWidget::syncGeometryBackendComboFromSelectedOp()
 		return;
 	}
 	const RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->selectedOp();
+	const std::string targetBackendId =
+		RobotInstruction::trajectoryOpProjectTargetBackendId(op);
 	m_geometryBackendCombo->blockSignals(true);
-	if (!op.project.targetBackendId.empty())
+	if (!targetBackendId.empty())
 	{
 		const int idx = m_geometryBackendCombo->findData(
-			QString::fromStdString(op.project.targetBackendId));
+			QString::fromStdString(targetBackendId));
 		if (idx >= 0)
 		{
 			m_geometryBackendCombo->setCurrentIndex(idx);
@@ -1689,12 +1664,17 @@ void TrajectoryEditPageWidget::syncUiAfterProgramRevision()
 	{
 		return;
 	}
+	refreshUndoButtons();
+	if (m_session && m_session->defersProgramRevisionUiSync())
+	{
+		refreshProgramAndGroupCombos();
+		return;
+	}
 	m_loadingParams = true;
 	if (m_paramPanel)
 	{
 		m_paramPanel->setLoading(true);
 	}
-	refreshUndoButtons();
 	refreshProgramAndGroupCombos();
 	if (m_session)
 	{
@@ -1726,82 +1706,6 @@ void TrajectoryEditPageWidget::syncUiAfterProgramRevision()
 		m_paramPanel->setLoading(false);
 	}
 	m_loadingParams = false;
-}
-
-void TrajectoryEditPageWidget::onNewPathPlanClicked()
-{
-	if (!m_store || !m_editService || !m_session || m_readOnly)
-	{
-		return;
-	}
-	size_t insertIdx = 0;
-	for (const std::shared_ptr<RobotInstruction::Base>& step : m_store->activeProgram())
-	{
-		if (step && step->type() == RobotInstruction::Type::PathPlan)
-		{
-			++insertIdx;
-		}
-	}
-	auto pathPlan = std::make_shared<RobotInstruction::PathPlanInstruction>();
-	std::string baseName = m_useChinese ? "路径规划" : "path_plan";
-	pathPlan->setName(baseName + "_" + std::to_string(insertIdx + 1));
-	pathPlan->setRawTrajectoryKey(pathPlan->id());
-	std::shared_ptr<RobotInstruction::ProgramEditCommand> cmd =
-		std::make_shared<RobotInstruction::InsertPathPlanCommand>(pathPlan, insertIdx);
-	QString err;
-	if (!m_editService->execute(cmd, &err))
-	{
-		if (!err.isEmpty() && m_host)
-		{
-			m_host->appendRunInfo(err);
-		}
-		return;
-	}
-	if (m_commandPage)
-	{
-		m_commandPage->refreshInstructionList();
-	}
-	m_session->bindPathPlan(pathPlan->id());
-	if (m_pipeline)
-	{
-		m_pipeline->blockSignals(true);
-		m_pipeline->setOps({});
-		m_pipeline->blockSignals(false);
-	}
-	m_session->clearRawTrajectory();
-	refreshProgramAndGroupCombos();
-	setPipelineAppliedState(false, false);
-}
-
-void TrajectoryEditPageWidget::onPathPlanChanged(int index)
-{
-	(void)index;
-	if (!m_store || !m_pathPlanCombo || !m_session || m_pathPlanCombo->currentIndex() < 0)
-	{
-		return;
-	}
-	const std::string pathPlanId = m_pathPlanCombo->currentData().toString().toStdString();
-	if (pathPlanId.empty())
-	{
-		return;
-	}
-	m_session->bindPathPlan(pathPlanId);
-	if (m_pipeline)
-	{
-		if (RobotInstruction::PathPlanInstruction* pp = m_store->activeCatalog().findPathPlan(
-				m_store->activeCatalog().activeProgramId(),
-				pathPlanId))
-		{
-			m_loadingParams = true;
-			m_pipeline->blockSignals(true);
-			m_pipeline->setOps(pp->pipeline());
-			m_pipeline->blockSignals(false);
-			m_loadingParams = false;
-		}
-	}
-	refreshProgramAndGroupCombos();
-	setPipelineAppliedState(false, false);
-	schedulePreviewRun(120, false);
 }
 
 void TrajectoryEditPageWidget::onProgramChanged(int index)
@@ -2035,6 +1939,7 @@ void TrajectoryEditPageWidget::onApplyClicked()
 		}
 	}
 	refreshProgramAndGroupCombos();
+	resetTrajectoryGenerationPages();
 }
 
 void TrajectoryEditPageWidget::onResetClicked()

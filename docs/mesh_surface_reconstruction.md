@@ -56,7 +56,13 @@
 | `remeshIterations` | 3 | 预处理 | VCG 重网格迭代次数 |
 | `remeshFeatureAngleDeg` | 0 | 预处理 | 特征边保护角（度）；0=由 `featureThresholdC0` 推导 |
 | `patchCountHint` | 0（自动） | 分块 | v3：目标分块数；Hybrid：二次 CVT 密度缩放 |
-| `partitionMode` | GeodesicVoronoiV3 | 分块 | v3 测地 Voronoi / Hybrid 混合策略 |
+| `partitionMode` | GeodesicVoronoiV3 | 分块 | v3 / Hybrid / CgalChartHybrid / **AmrtoImGmcg**（IM+GMCG） |
+| `gmcgBackend` | Native | 分块（AmrtoImGmcg） | GoldenLoader（金标准 OBJ）/ Exe（SDK 工具）/ Native（内置 GMCG） |
+| `instantMeshesTargetQuads` | 0 | 分块（AmrtoImGmcg） | IM 目标 quad 顶点数；0=自动 |
+| `instantMeshesExePath` | 空 | 分块（AmrtoImGmcg） | 外部 instant-meshes.exe；空=进程内 **InstantMeshesLib** |
+| `amrtoFallbackGoldenOnImFailure` | false | 分块（AmrtoImGmcg） | IM 失败时回退 GoldenLoader（默认关，仅匹配 mesh） |
+| `gmcgExePath` / `gmcgWorkDir` | 空 | 分块（AmrtoImGmcg） | GMCG exe 与工作目录；空=SDK 默认 + `%TEMP%` |
+| `amrtoGoldenDataPath` | 空 | 分块（GoldenLoader） | CODE_AMRTO 数据根；空=`bin/SDK/CODE_AMRTO/data_smooth` |
 | `partitionNormalSmoothIters` | 2 | 分块（v3） | 分块前法向平滑迭代 |
 | `featureAnglePercentile` | 0.88 | 分块（v3） | 特征棱角度百分位 |
 | `hybridFeatureAngleDeg` | 60 | 分块（Hybrid） | 特征广义边二面角（度） |
@@ -83,6 +89,41 @@
 | `fairingEpsilon` | 1e-3 | 光顺 | 光顺收敛阈值 |
 | `fairingMaxIterations` | 50 | 光顺 | 光顺最大迭代数 |
 | `tessellateLinearDeflectionMm` | 0.1 | 装配 | B-rep 三角化线性偏差精度 |
+| `harmonicBoundaryMode` | GeodesicSquare | 栅格采样 | Circular=圆周边界初值；GeodesicSquare=测地四边 square-border（AMRTO §3） |
+| `harmonicMaxFaces` | 8000 | 栅格采样 | 单 patch 调和 UV 最大三角面数 |
+| `sdfSeedBlendWeight` | 0.35 | 分块 | CGAL SDF 种子融合权重；CgalChartHybrid 默认启用 |
+| `sdfSegmentCount` | 0（自动） | 分块 | SDF 分割段数 |
+| `enableMultiResolutionFit` | true | NURBS 拟合 | AMRTO 多分辨率控制点缩减（Algorithm 2 简化） |
+| `multiResolutionLayers` | 1 | NURBS 拟合 | 多分辨率层数 |
+| `multiResolutionDensityScale` | 0.5 | NURBS 拟合 | 每层控制点密度缩放 |
+| `fairingProtectBoundaries` | true | 光顺 | 冻结边界控制点 |
+| `blendStripDepth` | 0（自动=3） | 边界混合 | C² 混合带深度 |
+
+## AMRTO 对齐（CMAME 2025）
+
+相对论文/PYTOCAD 的实现映射：
+
+| 论文步骤 | CloudSim 实现 |
+|---------|---------------|
+| 表面光顺 + 重网格 | Data 层 Vcg 修复 + 各向同性重网格 + 法矢光顺 |
+| GMCG 稀疏四边域 | **AmrtoImGmcg**：Instant-Meshes（`InstantMeshesCore`）+ GMCG（Native/Exe/GoldenLoader）；**CgalChartHybrid** 为三角 mesh 近似 |
+| 测地参数域初始化 | `harmonicBoundaryMode=GeodesicSquare` + cotan 调和 |
+| 自适应采样 `k_sample` | `sampleRateFactor` + `computeAmrtoGridResolution` |
+| NURBS 最小二乘 | `NurbsSurfaceFitting` / `fitMode` |
+| 多分辨率控制策略 | `applyMultiResolutionFit`（Fit 后） |
+| 片间 C² | `BoundaryBlend`（位置+二阶导代理）+ `JunctionBlend` + `fairBsplinePatches` |
+
+### Instant Meshes 进程内库
+
+构建与 pin 版本见 [`docs/instant_meshes_build.md`](instant_meshes_build.md)。简要步骤：
+
+1. `CloudSim/scripts/init_instant_meshes.ps1`（克隆 `bin/SDK/instant-meshes` + ext 子模块 + `tbb_static.lib`）
+2. VS x64 顺序：`InstantMeshesLib` → `InstantMeshesCore`（`INSTANT_MESHES_HAS_LIB`）→ `GeometryAlgorithm`
+3. SelfTest：`meshSurfaceImRemesh`（data_2 quad 数 ±15%）、`meshSurfaceAmrtoOnlinePartition`（在线 IM+Native GMCG）
+
+Native GMCG 使用 motorcycle graph 管线（`GmcgQuadGraph` / `GmcgMotorcycleTrace` / `GmcgChartExtract` / `GmcgUvPack`）。GoldenLoader 仅在与 `data_smooth/smooth_060` 几何匹配的输入上有效。
+
+报告新增字段：`geodesicSquareHarmonicCount`、`multiResolutionReducedCount`、`avgCtrlPtsPerPatch`、`totalCtrlPts`。
 
 ## 手工验收
 

@@ -1,5 +1,6 @@
 #include "InstructionProgramTreeWidget.h"
 #include "RobotInstructionProgram.h"
+#include "RawTrajectory.h"
 
 #include <QContextMenuEvent>
 #include <QDragEnterEvent>
@@ -111,6 +112,37 @@ void InstructionProgramTreeWidget::setProgram(std::vector<std::shared_ptr<RobotI
 void InstructionProgramTreeWidget::setGroupMembership(std::vector<RobotInstruction::InstructionGroup>* groups)
 {
 	m_groups = groups;
+}
+
+void InstructionProgramTreeWidget::setGroupVisibilityQuery(std::function<bool(const std::string& groupId)> query)
+{
+	m_groupVisibilityQuery = std::move(query);
+}
+
+std::string InstructionProgramTreeWidget::resolveGroupIdForContextItem(const QTreeWidgetItem* item) const
+{
+	if (!item)
+	{
+		return {};
+	}
+	const NodeKind kind = nodeKind(item);
+	if (kind == NodeKind::Group)
+	{
+		return groupIdFromItem(item);
+	}
+	if (kind == NodeKind::PathPlanOutputRef && m_groups)
+	{
+		const std::string pathPlanId = item->data(0, kGroupIdRole).toString().toStdString();
+		for (const RobotInstruction::InstructionGroup& group : *m_groups)
+		{
+			if (group.role == RobotInstruction::InstructionGroupRole::PathPlanOutput
+				&& group.pathPlanInstructionId == pathPlanId)
+			{
+				return group.id;
+			}
+		}
+	}
+	return {};
 }
 
 InstructionProgramTreeWidget::NodeKind InstructionProgramTreeWidget::nodeKind(const QTreeWidgetItem* item)
@@ -278,10 +310,12 @@ QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruct
 		}
 		if (pp && !pp->sourceFeatureJson().empty())
 		{
-			const nlohmann::json fj = nlohmann::json::parse(pp->sourceFeatureJson(), nullptr, false);
-			if (!fj.is_discarded() && fj.contains("featureId") && fj["featureId"].is_string())
+			RobotInstruction::RawTrajectory traj;
+			traj.sourceFeatureJson = pp->sourceFeatureJson();
+			const std::string featureId = RobotInstruction::rawTrajectoryFeatureId(traj);
+			if (!featureId.empty())
 			{
-				title += QStringLiteral(" · ") + QString::fromStdString(fj["featureId"].get<std::string>());
+				title += QStringLiteral(" · ") + QString::fromStdString(featureId);
 			}
 		}
 		return title + QStringLiteral(" · ") + phase;
@@ -359,9 +393,13 @@ QTreeWidgetItem* InstructionProgramTreeWidget::createGroupItem(const RobotInstru
 {
 	auto* item = new QTreeWidgetItem();
 	setGroupPtr(item, group.id);
-	const QString label = m_useChinese
+	QString label = m_useChinese
 		? QStringLiteral("分组: %1").arg(QString::fromStdString(group.name))
 		: QStringLiteral("Group: %1").arg(QString::fromStdString(group.name));
+	if (m_groupVisibilityQuery && !m_groupVisibilityQuery(group.id))
+	{
+		label = (m_useChinese ? QStringLiteral("[隐藏] ") : QStringLiteral("[hidden] ")) + label;
+	}
 	item->setText(0, label);
 	item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsDropEnabled);
 	item->setExpanded(true);
@@ -1404,9 +1442,28 @@ void InstructionProgramTreeWidget::showContextMenu(const QPoint& globalPos)
 	QTreeWidgetItem* item = itemAt(viewport()->mapFromGlobal(globalPos));
 	QMenu menu(this);
 
+	const std::string groupId = resolveGroupIdForContextItem(item);
+	if (!groupId.empty())
+	{
+		const bool visible = !m_groupVisibilityQuery || m_groupVisibilityQuery(groupId);
+		const QString hideText = m_useChinese ? QStringLiteral("隐藏分组") : QStringLiteral("Hide group");
+		const QString showText = m_useChinese ? QStringLiteral("显示分组") : QStringLiteral("Show group");
+		if (visible)
+		{
+			menu.addAction(hideText, this, [this, groupId]() {
+				emit groupVisibilityChangeRequested(groupId, false);
+			});
+		}
+		else
+		{
+			menu.addAction(showText, this, [this, groupId]() {
+				emit groupVisibilityChangeRequested(groupId, true);
+			});
+		}
+	}
+
 	if (item && nodeKind(item) == NodeKind::Group)
 	{
-		const std::string groupId = groupIdFromItem(item);
 		const QString renameText = m_useChinese ? QStringLiteral("重命名分组…") : QStringLiteral("Rename group…");
 		const QString dissolveText = m_useChinese ? QStringLiteral("解散分组") : QStringLiteral("Dissolve group");
 		menu.addAction(renameText, this, [this, groupId]() {

@@ -6,6 +6,7 @@
 #include <cmath>
 #include <algorithm>
 #include <array>
+#include <limits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -19,7 +20,7 @@ namespace
 {
 
 constexpr int kHarmonicMaxIters = 80;
-constexpr int kHarmonicMaxFaces = 3000;
+constexpr int kDefaultHarmonicMaxFaces = 8000;
 constexpr int kMaxGridPointsPerPatch = 4096;
 constexpr int kDefaultMaxEdgeWhenUnlimited = 48;
 
@@ -713,6 +714,7 @@ bool passesSampleQuality(const std::vector<float>& sampleXyz, const std::vector<
 struct PatchLocalMesh
 {
 	std::vector<Vec3d> pos;
+	std::vector<int> globalVertexIndices;
 	std::vector<std::array<int, 3>> tris;
 	std::vector<std::vector<int>> adj;
 	std::vector<Vec2d> uv;
@@ -736,6 +738,7 @@ EdgeKey normEdgeKey(const int a, const int b)
 bool buildPatchLocalMesh(const IndexedMeshLite& mesh, const QuadPatch& patch, PatchLocalMesh& out)
 {
 	out.pos.clear();
+	out.globalVertexIndices.clear();
 	out.tris.clear();
 	out.adj.clear();
 	out.uv.clear();
@@ -761,6 +764,7 @@ bool buildPatchLocalMesh(const IndexedMeshLite& mesh, const QuadPatch& patch, Pa
 				const int li = static_cast<int>(out.pos.size());
 				globalToLocal[gv] = li;
 				out.pos.push_back(readV(mesh.vertices, gv));
+				out.globalVertexIndices.push_back(gv);
 				tri[static_cast<std::size_t>(c)] = li;
 			}
 			else
@@ -916,6 +920,7 @@ void accumulateCotanWeights(
 bool solveHarmonicUv(
 	const PatchLocalMesh& local,
 	const std::vector<int>& boundaryLoop,
+	const MeshSurfaceHarmonicBoundaryMode boundaryMode,
 	std::vector<Vec2d>& outUv)
 {
 	const int n = static_cast<int>(local.pos.size());
@@ -946,12 +951,107 @@ bool solveHarmonicUv(
 	{
 		return false;
 	}
-	for (std::size_t i = 0; i < boundaryLoop.size(); ++i)
+
+	if (boundaryMode == MeshSurfaceHarmonicBoundaryMode::GeodesicSquare && boundaryLoop.size() >= 4)
 	{
-		const double t = arcLen[i] / totalLen;
-		const double ang = t * 6.283185307179586;
-		const int li = boundaryLoop[i];
-		outUv[static_cast<std::size_t>(li)] = Vec2d{0.5 + 0.5 * std::cos(ang), 0.5 + 0.5 * std::sin(ang)};
+		const auto cornerAtFraction = [&](const double frac) -> int {
+			const double target = frac * totalLen;
+			for (std::size_t i = 0; i < arcLen.size(); ++i)
+			{
+				if (arcLen[i] + 1e-9 >= target)
+				{
+					return boundaryLoop[i];
+				}
+			}
+			return boundaryLoop.back();
+		};
+		const int c0 = cornerAtFraction(0.0);
+		const int c1 = cornerAtFraction(0.25);
+		const int c2 = cornerAtFraction(0.50);
+		const int c3 = cornerAtFraction(0.75);
+		const int corners[4] = {c0, c1, c2, c3};
+
+		auto sideRange = [&](const int startCorner, const int endCorner) {
+			std::vector<int> side;
+			bool started = false;
+			for (const int vi : boundaryLoop)
+			{
+				if (vi == startCorner)
+				{
+					started = true;
+				}
+				if (started)
+				{
+					side.push_back(vi);
+				}
+				if (started && vi == endCorner)
+				{
+					break;
+				}
+			}
+			return side;
+		};
+
+		const std::array<std::vector<int>, 4> sides = {
+			sideRange(corners[0], corners[1]),
+			sideRange(corners[1], corners[2]),
+			sideRange(corners[2], corners[3]),
+			sideRange(corners[3], corners[0])};
+
+		const auto mapSideToSquare = [&](const std::vector<int>& side, const int sideIdx) {
+			if (side.size() < 2)
+			{
+				return;
+			}
+			double sideLen = 0.0;
+			std::vector<double> sideArc(side.size(), 0.0);
+			for (std::size_t i = 1; i < side.size(); ++i)
+			{
+				const Vec3d& p0 = local.pos[static_cast<std::size_t>(side[i - 1])];
+				const Vec3d& p1 = local.pos[static_cast<std::size_t>(side[i])];
+				sideLen += (p1 - p0).length();
+				sideArc[i] = sideLen;
+			}
+			if (sideLen < 1e-9)
+			{
+				sideLen = 1.0;
+			}
+			for (std::size_t i = 0; i < side.size(); ++i)
+			{
+				const double t = sideArc[i] / sideLen;
+				const int li = side[i];
+				switch (sideIdx)
+				{
+				case 0:
+					outUv[static_cast<std::size_t>(li)] = Vec2d{t, 0.0};
+					break;
+				case 1:
+					outUv[static_cast<std::size_t>(li)] = Vec2d{1.0, t};
+					break;
+				case 2:
+					outUv[static_cast<std::size_t>(li)] = Vec2d{1.0 - t, 1.0};
+					break;
+				default:
+					outUv[static_cast<std::size_t>(li)] = Vec2d{0.0, 1.0 - t};
+					break;
+				}
+			}
+		};
+
+		for (int si = 0; si < 4; ++si)
+		{
+			mapSideToSquare(sides[static_cast<std::size_t>(si)], si);
+		}
+	}
+	else
+	{
+		for (std::size_t i = 0; i < boundaryLoop.size(); ++i)
+		{
+			const double t = arcLen[i] / totalLen;
+			const double ang = t * 6.283185307179586;
+			const int li = boundaryLoop[i];
+			outUv[static_cast<std::size_t>(li)] = Vec2d{0.5 + 0.5 * std::cos(ang), 0.5 + 0.5 * std::sin(ang)};
+		}
 	}
 
 	std::vector<std::vector<std::pair<int, double>>> weights;
@@ -1171,14 +1271,18 @@ bool sampleHarmonicFaceCentroidGrid(
 	return !outXyz.empty();
 }
 
-bool computeHarmonicPatchUv(const IndexedMeshLite& mesh, const QuadPatch& patch, PatchLocalMesh& local)
+bool computeHarmonicPatchUv(
+	const IndexedMeshLite& mesh,
+	const QuadPatch& patch,
+	const MeshSurfaceReconstructParams& params,
+	PatchLocalMesh& local)
 {
 	if (!buildPatchLocalMesh(mesh, patch, local))
 	{
 		return false;
 	}
 	const std::vector<int> boundaryLoop = findLongestBoundaryLoop(local);
-	if (!solveHarmonicUv(local, boundaryLoop, local.uv))
+	if (!solveHarmonicUv(local, boundaryLoop, params.harmonicBoundaryMode, local.uv))
 	{
 		return false;
 	}
@@ -1296,6 +1400,9 @@ bool samplePatchGrids(
 		fixedN = std::min(maxEdge, fixedN);
 	}
 	const bool useAdaptiveSpacing = params.targetUvSpacingMm > 1e-6;
+	const int harmonicFaceLimit = params.harmonicMaxFaces > 0
+		? params.harmonicMaxFaces
+		: kDefaultHarmonicMaxFaces;
 
 	int patchIdx = 0;
 	const int patchTotal = static_cast<int>(patches.size());
@@ -1333,8 +1440,8 @@ bool samplePatchGrids(
 		double huMax = 1.0;
 		double hvMin = 0.0;
 		double hvMax = 1.0;
-		const bool harmonicOk = static_cast<int>(patch.faceIndices.size()) <= kHarmonicMaxFaces
-			&& computeHarmonicPatchUv(mesh, patch, local);
+		const bool harmonicOk = static_cast<int>(patch.faceIndices.size()) <= harmonicFaceLimit
+			&& computeHarmonicPatchUv(mesh, patch, params, local);
 		double uvAspect = 1.0;
 		if (harmonicOk)
 		{
@@ -1414,7 +1521,9 @@ bool samplePatchGrids(
 				&& passesSampleQuality(amrtoXyz, patchPts))
 			{
 				patch.sampleXyz = std::move(amrtoXyz);
-				samplingPath = "amrto-harmonic";
+				samplingPath = params.harmonicBoundaryMode == MeshSurfaceHarmonicBoundaryMode::GeodesicSquare
+					? "amrto-harmonic-geo"
+					: "amrto-harmonic";
 				usedAmrtoHarmonic = true;
 			}
 		}
@@ -1502,6 +1611,69 @@ bool samplePatchGrids(
 		return false;
 	}
 	return true;
+}
+
+void assignPatchCornerMetadata(const IndexedMeshLite& mesh, QuadPatch& patch)
+{
+	patch.cornerMeshVertices = {-1, -1, -1, -1};
+	patch.hasSquareCorners = false;
+	PatchLocalMesh local;
+	if (!buildPatchLocalMesh(mesh, patch, local))
+	{
+		return;
+	}
+	const std::vector<int> boundaryLoop = findLongestBoundaryLoop(local);
+	if (boundaryLoop.size() < 4 || local.globalVertexIndices.size() != local.pos.size())
+	{
+		return;
+	}
+	double totalLen = 0.0;
+	std::vector<double> arcLen(boundaryLoop.size(), 0.0);
+	for (std::size_t i = 1; i < boundaryLoop.size(); ++i)
+	{
+		const Vec3d& p0 = local.pos[static_cast<std::size_t>(boundaryLoop[i - 1])];
+		const Vec3d& p1 = local.pos[static_cast<std::size_t>(boundaryLoop[i])];
+		totalLen += (p1 - p0).length();
+		arcLen[i] = totalLen;
+	}
+	if (totalLen < 1e-9)
+	{
+		return;
+	}
+	const auto cornerLocalAt = [&](const double frac) -> int {
+		const double target = frac * totalLen;
+		for (std::size_t i = 0; i < arcLen.size(); ++i)
+		{
+			if (arcLen[i] + 1e-9 >= target)
+			{
+				return boundaryLoop[i];
+			}
+		}
+		return boundaryLoop.back();
+	};
+	const int locals[4] = {
+		cornerLocalAt(0.0),
+		cornerLocalAt(0.25),
+		cornerLocalAt(0.50),
+		cornerLocalAt(0.75)};
+	for (int i = 0; i < 4; ++i)
+	{
+		const int li = locals[i];
+		if (li >= 0 && static_cast<std::size_t>(li) < local.globalVertexIndices.size())
+		{
+			patch.cornerMeshVertices[static_cast<std::size_t>(i)] = local.globalVertexIndices[static_cast<std::size_t>(li)];
+		}
+	}
+	patch.hasSquareCorners = true;
+	(void)mesh;
+}
+
+void assignAllPatchCornerMetadata(const IndexedMeshLite& mesh, std::vector<QuadPatch>& patches)
+{
+	for (QuadPatch& patch : patches)
+	{
+		assignPatchCornerMetadata(mesh, patch);
+	}
 }
 
 } // namespace meshrecon

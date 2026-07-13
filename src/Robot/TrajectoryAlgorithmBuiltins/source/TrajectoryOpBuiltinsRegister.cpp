@@ -3,58 +3,40 @@
 
 #include "ApproachOp.h"
 #include "ApproachOpConfig.h"
-#include "ApproachOpParamAccess.h"
 #include "AssignBlendOp.h"
 #include "AssignBlendOpConfig.h"
-#include "AssignBlendOpParamAccess.h"
 #include "AssignSpeedZoneOp.h"
 #include "AssignSpeedZoneOpConfig.h"
-#include "AssignSpeedZoneOpParamAccess.h"
 #include "DeleteOp.h"
 #include "DeleteOpConfig.h"
-#include "DeleteOpParamAccess.h"
 #include "DuplicateOp.h"
 #include "DuplicateOpConfig.h"
-#include "DuplicateOpParamAccess.h"
 #include "ExternalAxisSearchOp.h"
 #include "ExternalAxisSearchOpConfig.h"
-#include "ExternalAxisSearchOpParamAccess.h"
 #include "MirrorOp.h"
 #include "MirrorOpConfig.h"
-#include "MirrorOpParamAccess.h"
 #include "OffsetAlongNormalOp.h"
 #include "OffsetAlongNormalOpConfig.h"
-#include "OffsetAlongNormalOpParamAccess.h"
 #include "OffsetLateralOp.h"
 #include "OffsetLateralOpConfig.h"
-#include "OffsetLateralOpParamAccess.h"
 #include "ProjectToGeometryOp.h"
 #include "ProjectToGeometryOpConfig.h"
-#include "ProjectToGeometryOpParamAccess.h"
 #include "ReachabilityFilterOp.h"
 #include "ReachabilityFilterOpConfig.h"
-#include "ReachabilityFilterOpParamAccess.h"
 #include "ReorderOp.h"
 #include "ReorderOpConfig.h"
-#include "ReorderOpParamAccess.h"
 #include "ResampleOp.h"
 #include "ResampleOpConfig.h"
-#include "ResampleOpParamAccess.h"
 #include "RetractOp.h"
 #include "RetractOpConfig.h"
-#include "RetractOpParamAccess.h"
 #include "RotateOp.h"
 #include "RotateOpConfig.h"
-#include "RotateOpParamAccess.h"
 #include "SmoothPoseOp.h"
 #include "SmoothPoseOpConfig.h"
-#include "SmoothPoseOpParamAccess.h"
 #include "TranslateOp.h"
 #include "TranslateOpConfig.h"
-#include "TranslateOpParamAccess.h"
 #include "WeaveOp.h"
 #include "WeaveOpConfig.h"
-#include "WeaveOpParamAccess.h"
 
 #include "TrajectoryOpConfigRegistry.h"
 
@@ -85,25 +67,6 @@ void registerOpConfigs()
 	registry.registerOpConfig(makeApproachOpConfig());
 	registry.registerOpConfig(makeRetractOpConfig());
 	registry.registerOpConfig(makeProjectToGeometryOpConfig());
-
-	registry.registerOpParamAccess(makeTranslateOpParamAccess());
-	registry.registerOpParamAccess(makeRotateOpParamAccess());
-	registry.registerOpParamAccess(makeMirrorOpParamAccess());
-	registry.registerOpParamAccess(makeDeleteOpParamAccess());
-	registry.registerOpParamAccess(makeDuplicateOpParamAccess());
-	registry.registerOpParamAccess(makeReorderOpParamAccess());
-	registry.registerOpParamAccess(makeResampleOpParamAccess());
-	registry.registerOpParamAccess(makeOffsetAlongNormalOpParamAccess());
-	registry.registerOpParamAccess(makeOffsetLateralOpParamAccess());
-	registry.registerOpParamAccess(makeSmoothPoseOpParamAccess());
-	registry.registerOpParamAccess(makeAssignBlendOpParamAccess());
-	registry.registerOpParamAccess(makeAssignSpeedZoneOpParamAccess());
-	registry.registerOpParamAccess(makeWeaveOpParamAccess());
-	registry.registerOpParamAccess(makeReachabilityFilterOpParamAccess());
-	registry.registerOpParamAccess(makeExternalAxisSearchOpParamAccess());
-	registry.registerOpParamAccess(makeApproachOpParamAccess());
-	registry.registerOpParamAccess(makeRetractOpParamAccess());
-	registry.registerOpParamAccess(makeProjectToGeometryOpParamAccess());
 }
 } // namespace
 

@@ -16,15 +16,21 @@
 #include "WireOps.h"
 #include "MeshSurfaceReconstruction.h"
 #include "MeshSurfaceReconstruction/NurbsSurfaceFitting.h"
+#include "MeshSurfaceReconstruction/MeshSurfaceReconstructionAmrtoLoader.h"
+#include "MeshSurfaceReconstruction/MeshSurfaceReconstructionInstantMeshes.h"
 #include "MeshTrajectory.h"
 #include "TubularGrinding.h"
+#include "FeatureDiscretizerBridge.h"
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <limits>
+#include <sstream>
 #include <sstream>
 
 #include <Eigen/Geometry>
@@ -104,6 +110,75 @@ bool soupBoundingBoxDiagonal(const std::vector<float>& soup, double& outDiagonal
 	const double dy = maxY - minY;
 	const double dz = maxZ - minZ;
 	outDiagonal = std::sqrt(dx * dx + dy * dy + dz * dz);
+	return true;
+}
+
+bool loadTriObjIndexedMesh(const std::string& objPath, meshrecon::IndexedMeshLite& outMesh, std::string* errMsg)
+{
+	outMesh = {};
+	std::ifstream in(objPath);
+	if (!in)
+	{
+		if (errMsg)
+		{
+			*errMsg = "cannot open tri obj: " + objPath;
+		}
+		return false;
+	}
+	std::string line;
+	while (std::getline(in, line))
+	{
+		if (line.size() < 2U || line[0] == '#')
+		{
+			continue;
+		}
+		if (line[0] == 'v' && line[1] == ' ')
+		{
+			std::istringstream iss(line.substr(2));
+			double x = 0.0;
+			double y = 0.0;
+			double z = 0.0;
+			iss >> x >> y >> z;
+			outMesh.vertices.push_back(static_cast<float>(x));
+			outMesh.vertices.push_back(static_cast<float>(y));
+			outMesh.vertices.push_back(static_cast<float>(z));
+		}
+		else if (line[0] == 'f')
+		{
+			std::istringstream iss(line.substr(2));
+			std::vector<int> verts;
+			std::string tok;
+			while (iss >> tok)
+			{
+				const std::size_t slash = tok.find('/');
+				const int vi = std::stoi(slash == std::string::npos ? tok : tok.substr(0, slash)) - 1;
+				verts.push_back(vi);
+			}
+			if (verts.size() == 3U)
+			{
+				outMesh.faces.push_back(verts[0]);
+				outMesh.faces.push_back(verts[1]);
+				outMesh.faces.push_back(verts[2]);
+			}
+			else if (verts.size() >= 4U)
+			{
+				for (std::size_t i = 1; i + 1U < verts.size(); ++i)
+				{
+					outMesh.faces.push_back(verts[0]);
+					outMesh.faces.push_back(verts[static_cast<std::size_t>(i)]);
+					outMesh.faces.push_back(verts[static_cast<std::size_t>(i) + 1U]);
+				}
+			}
+		}
+	}
+	if (outMesh.vertices.empty() || outMesh.faces.empty())
+	{
+		if (errMsg)
+		{
+			*errMsg = "tri obj empty: " + objPath;
+		}
+		return false;
+	}
 	return true;
 }
 
@@ -714,6 +789,192 @@ bool runSelfTest(std::vector<std::string>& failures)
 			{
 				fail("meshSurfaceHybridPartition", "box hybrid quadPatchCount < 1 after adjust");
 			}
+
+			MeshSurfaceReconstructParams cgalParams;
+			cgalParams.partitionMode = MeshSurfacePartitionMode::CgalChartHybrid;
+			cgalParams.harmonicBoundaryMode = MeshSurfaceHarmonicBoundaryMode::GeodesicSquare;
+			cgalParams.enableMultiResolutionFit = true;
+			auto cgalSession = createMeshSurfaceReconstructSession(boxSoup);
+			std::string cgalErr;
+			if (!runMeshSurfaceReconstructStage(
+					*cgalSession,
+					MeshSurfaceReconstructStage::Partition,
+					cgalParams,
+					nullptr,
+					&cgalErr))
+			{
+				fail("meshSurfaceCgalChartPartition", cgalErr.empty() ? "cgal chart partition failed" : cgalErr);
+			}
+			else if (cgalSession->report().patchCount < 1)
+			{
+				fail("meshSurfaceCgalChartPartition", "cgal chart patchCount < 1");
+			}
+
+			const std::string goldenRoot = geoalgo::meshrecon::defaultAmrtoGoldenDataDirectory();
+			const std::filesystem::path goldenObj = std::filesystem::path(goldenRoot) / "smooth_060.obj";
+			if (std::filesystem::exists(goldenObj))
+			{
+				geoalgo::meshrecon::QuadMeshLite goldenQuad;
+				std::string goldenLoadErr;
+				if (!geoalgo::meshrecon::loadObjQuadMeshWithVt(goldenObj.string(), goldenQuad, &goldenLoadErr))
+				{
+					fail("meshSurfaceAmrtoGoldenPartition", goldenLoadErr.empty() ? "load smooth_060 failed" : goldenLoadErr);
+				}
+				else
+				{
+					geoalgo::meshrecon::IndexedMeshLite goldenTri;
+					if (!geoalgo::meshrecon::triangulateQuadMeshToIndexed(goldenQuad, goldenTri, &goldenLoadErr))
+					{
+						fail("meshSurfaceAmrtoGoldenPartition", goldenLoadErr.empty() ? "triangulate failed" : goldenLoadErr);
+					}
+					else
+					{
+						std::vector<float> goldenSoup;
+						goldenSoup.reserve(goldenTri.faces.size() * 3U);
+						const int faceCount = static_cast<int>(goldenTri.faces.size() / 3U);
+						for (int fi = 0; fi < faceCount; ++fi)
+						{
+							const std::size_t b = static_cast<std::size_t>(fi) * 3U;
+							for (int k = 0; k < 3; ++k)
+							{
+								const int vi = goldenTri.faces[b + static_cast<std::size_t>(k)];
+								const std::size_t vb = static_cast<std::size_t>(vi) * 3U;
+								goldenSoup.push_back(goldenTri.vertices[vb]);
+								goldenSoup.push_back(goldenTri.vertices[vb + 1U]);
+								goldenSoup.push_back(goldenTri.vertices[vb + 2U]);
+							}
+						}
+						MeshSurfaceReconstructParams amrtoGoldenParams;
+						amrtoGoldenParams.partitionMode = MeshSurfacePartitionMode::AmrtoImGmcg;
+						amrtoGoldenParams.gmcgBackend = MeshSurfaceGmcgBackend::GoldenLoader;
+						amrtoGoldenParams.amrtoGoldenDataPath = goldenRoot;
+						amrtoGoldenParams.samplesPerPatchEdge = 8;
+						auto amrtoSession = createMeshSurfaceReconstructSession(goldenSoup);
+						std::string amrtoErr;
+						if (!runMeshSurfaceReconstructStage(
+								*amrtoSession,
+								MeshSurfaceReconstructStage::Partition,
+								amrtoGoldenParams,
+								nullptr,
+								&amrtoErr))
+						{
+							fail("meshSurfaceAmrtoGoldenPartition", amrtoErr.empty() ? "golden partition failed" : amrtoErr);
+						}
+						else if (amrtoSession->report().patchCount < 140)
+						{
+							fail("meshSurfaceAmrtoGoldenPartition", "golden patchCount < 140");
+						}
+						else if (!runMeshSurfaceReconstructStage(
+								*amrtoSession,
+								MeshSurfaceReconstructStage::Sample,
+								amrtoGoldenParams,
+								nullptr,
+								&amrtoErr))
+						{
+							fail("meshSurfaceAmrtoGoldenPartition", amrtoErr.empty() ? "golden sample failed" : amrtoErr);
+						}
+					}
+				}
+			}
+		}
+
+		{
+			const std::filesystem::path data2Tri =
+				std::filesystem::path(geoalgo::meshrecon::resolveCloudSimSdkRoot()) / "CODE_AMRTO" / "data_2"
+				/ "meshlab_suitable_catmull.obj";
+			const std::filesystem::path goldenQuad =
+				std::filesystem::path(geoalgo::meshrecon::resolveCloudSimSdkRoot()) / "CODE_AMRTO" / "data_2"
+				/ "Hole_quad_InstantMeshes_7.87k.obj";
+			if (std::filesystem::exists(data2Tri) && std::filesystem::exists(goldenQuad))
+			{
+				geoalgo::meshrecon::IndexedMeshLite triMesh;
+				std::string imErr;
+				if (!loadTriObjIndexedMesh(data2Tri.string(), triMesh, &imErr))
+				{
+					fail("meshSurfaceImRemesh", imErr.empty() ? "load data_2 tri failed" : imErr);
+				}
+				else
+				{
+					geoalgo::meshrecon::QuadMeshLite quadOut;
+					geoalgo::meshrecon::InstantMeshesParams imParams;
+					imParams.deterministic = true;
+					imParams.pureQuad = true;
+					if (!geoalgo::meshrecon::remeshToQuadMesh(triMesh, quadOut, imParams, &imErr))
+					{
+						fail("meshSurfaceImRemesh", imErr.empty() ? "instant meshes remesh failed" : imErr);
+					}
+					else
+					{
+						geoalgo::meshrecon::QuadMeshLite goldenRef;
+						if (!geoalgo::meshrecon::loadObjQuadMeshWithVt(goldenQuad.string(), goldenRef, &imErr))
+						{
+							fail("meshSurfaceImRemesh", imErr.empty() ? "load golden quad failed" : imErr);
+						}
+						else
+						{
+							const int outQuads = static_cast<int>(quadOut.quadFaces.size() / 4U);
+							const int refQuads = static_cast<int>(goldenRef.quadFaces.size() / 4U);
+							const int lo = static_cast<int>(static_cast<double>(refQuads) * 0.85);
+							const int hi = static_cast<int>(static_cast<double>(refQuads) * 1.15);
+							if (outQuads < lo || outQuads > hi)
+							{
+								fail(
+									"meshSurfaceImRemesh",
+									"quad count " + std::to_string(outQuads) + " outside ["
+										+ std::to_string(lo) + "," + std::to_string(hi) + "] vs golden "
+										+ std::to_string(refQuads));
+							}
+						}
+					}
+				}
+			}
+		}
+
+		{
+			const TopoDS_Shape onlineBox = BRepPrimAPI_MakeBox(80.0, 60.0, 40.0).Shape();
+			MeshDiscretizeParams onlineDisc;
+			onlineDisc.quality = MeshQualityPreset::Medium;
+			std::vector<float> onlineSoup;
+			MeshDiscretizeReport onlineDiscReport;
+			std::string onlineDiscErr;
+			if (!discretizeShapeToMesh(onlineBox, onlineDisc, onlineSoup, onlineDiscReport, &onlineDiscErr))
+			{
+				fail("meshSurfaceAmrtoOnlinePartition", onlineDiscErr.empty() ? "box tessellation failed" : onlineDiscErr);
+			}
+			else
+			{
+				MeshSurfaceReconstructParams onlineParams;
+				onlineParams.partitionMode = MeshSurfacePartitionMode::AmrtoImGmcg;
+				onlineParams.gmcgBackend = MeshSurfaceGmcgBackend::Native;
+				onlineParams.amrtoFallbackGoldenOnImFailure = false;
+				onlineParams.samplesPerPatchEdge = 8;
+				auto onlineSession = createMeshSurfaceReconstructSession(onlineSoup);
+				std::string onlineErr;
+				if (!runMeshSurfaceReconstructStage(
+						*onlineSession,
+						MeshSurfaceReconstructStage::Partition,
+						onlineParams,
+						nullptr,
+						&onlineErr))
+				{
+					fail(
+						"meshSurfaceAmrtoOnlinePartition",
+						onlineErr.empty() ? "online amrto partition failed" : onlineErr);
+				}
+				else if (onlineSession->report().patchCount < 2)
+				{
+					fail("meshSurfaceAmrtoOnlinePartition", "online patchCount < 2");
+				}
+				else
+				{
+					const int maxPatch = onlineSession->report().maxFacesPerPatch;
+					const int totalFaces = static_cast<int>(onlineSoup.size() / 9U);
+					if (totalFaces > 0 && maxPatch > static_cast<int>(totalFaces * 0.6))
+					{
+						fail("meshSurfaceAmrtoOnlinePartition", "largest patch > 60% faces");
+					}
+				}
+			}
 		}
 	}
 
@@ -939,6 +1200,31 @@ bool runSelfTest(std::vector<std::string>& failures)
 		if (!generateMeshTrajectory(bspec, fanSoup, serpPath, &err) || serpPath.points.size() != 36U)
 		{
 			fail("meshTrajectoryBsplineUSerpentine", err.empty() ? "serpentine count" : err);
+		}
+	}
+
+	{
+		ensureFeatureDiscretizersRegistered();
+		const std::vector<std::string> ids = featureDiscretizerListStrategyIds();
+		if (ids.empty())
+		{
+			fail("featureDiscretizerRegistry", "no strategies registered");
+		}
+		const TopoDS_Shape box = BRepPrimAPI_MakeBox(100.0, 100.0, 100.0).Shape();
+		FeatureListDocument doc;
+		doc.workpiece.stepPathUtf8 = "selftest_box";
+		FeatureEntry edgeEntry;
+		edgeEntry.featureId = "edge_0";
+		edgeEntry.strategyId = "EdgeChain";
+		edgeEntry.geometry.edgeIndices = {1, 2};
+		edgeEntry.params["stepMm"] = 5.0;
+		edgeEntry.params["linearDeflectionMm"] = 0.1;
+		doc.features.push_back(edgeEntry);
+		RawPath path;
+		std::string err;
+		if (!discretizeFeatureList(doc, ShapeHandleAccess::fromNativeShape(&box), path, &err) || path.points.size() < 2U)
+		{
+			fail("featureDiscretizeEdgeChain", err.empty() ? "too few points" : err);
 		}
 	}
 

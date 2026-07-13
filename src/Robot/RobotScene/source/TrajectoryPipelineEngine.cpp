@@ -6,6 +6,8 @@
 #include <ITrajectoryOp.h>
 #include <TrajectoryOpExecutionContext.h>
 
+#include <TrajectoryOpParamsParse.h>
+
 #include <cmath>
 
 namespace RobotInstruction
@@ -301,17 +303,15 @@ bool runTrajectoryPipelineEngineSelfCheck(std::string* errMsg)
 
 	TrajectoryOpDescriptor resample{};
 	resample.kind = TrajectoryOpKind::Resample;
-	resample.resample.stepMm = 10.0;
+	trajectory_algo::writeResampleParams(resample.params, RobotInstruction::ResampleParams{ 10.0 });
 
 	TrajectoryOpDescriptor translate{};
 	translate.kind = TrajectoryOpKind::Translate;
-	translate.translate.frame = TransformReferenceFrame::World;
-	translate.translate.dxMm = 10.0;
-	translate.translate.dyMm = 0.0;
-	translate.translate.dzMm = 0.0;
-	translate.translate.endDxMm = 10.0;
-	translate.translate.endDyMm = 0.0;
-	translate.translate.endDzMm = 0.0;
+	RobotInstruction::TranslateParams translateParams{};
+	translateParams.frame = TransformReferenceFrame::World;
+	translateParams.dxMm = 10.0;
+	translateParams.endDxMm = 10.0;
+	trajectory_algo::writeTranslateParams(translate.params, translateParams);
 
 	engine.setOps({ resample, translate });
 	if (!engine.executeFull(errMsg))

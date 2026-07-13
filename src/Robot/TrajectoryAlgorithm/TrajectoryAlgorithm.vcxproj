@@ -203,6 +203,9 @@
 
     </ClInclude>
 
+    <ClInclude Include="inc\TrajectoryOpParamsParse.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\TrajectoryOpParamAccess.h">
 
       <Filter>inc</Filter>
@@ -261,6 +264,9 @@
 
     </ClCompile>
 
+    <ClCompile Include="source\TrajectoryOpParamsParse.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
     <ClCompile Include="source\TrajectoryOpParamAccess.cpp">
 
       <Filter>src</Filter>

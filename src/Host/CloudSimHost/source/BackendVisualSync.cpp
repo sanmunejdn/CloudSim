@@ -72,16 +72,18 @@ void syncVisualAfterPropertyChange(DocumentHost& host, const BackendDataBase& da
 	}
 	const std::string backendId = data.id();
 	osg->syncSelectionForBackendId(backendId);
+	if (applyColor)
+	{
+		const BackendColor color = data.color();
+		osg->applyColorToBackendObject(backendId, osg::Vec4(color.r, color.g, color.b, color.a));
+		osg->requestRedraw();
+		return;
+	}
 	if (!osg->hasBackendObjectBranch(backendId))
 	{
 		return;
 	}
 	(void)host.sceneBridge().syncOuterPatFromBackend(data);
-	if (applyColor)
-	{
-		const BackendColor color = data.color();
-		osg->setSelectedColor(color.r, color.g, color.b, color.a);
-	}
 	osg->requestRedraw();
 }
 
@@ -116,9 +118,14 @@ void afterDataServicePropertyChange(DocumentHost& host, const BackendDataBase& d
 		return;
 	}
 	const bool applyColor = key.contains(QStringLiteral("color"), Qt::CaseInsensitive);
+	if (applyColor)
+	{
+		syncVisualAfterPropertyChange(host, data, true);
+		return;
+	}
 	if (dynamic_cast<const PointCloudBackendData*>(&data) || dynamic_cast<const MeshBackendData*>(&data))
 	{
-		syncVisualAfterPropertyChange(host, data, applyColor);
+		syncVisualAfterPropertyChange(host, data, false);
 	}
 	if (propertyKeyCommitsPose(key))
 	{

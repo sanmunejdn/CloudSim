@@ -1,4 +1,6 @@
 #include "MeshSurfaceReconstructionInternal.h"
+#include "MeshSurfaceReconstructionAmrtoPartition.h"
+#include "MeshSurfaceReconstructionPartitionCgal.h"
 
 #include <algorithm>
 #include <cmath>
@@ -740,8 +742,11 @@ void mergeSmallPatches(
 	const IndexedMeshLite& mesh,
 	const std::vector<Vec3d>& faceNormals,
 	const int faceCount,
-	const int targetPatches)
+	const int targetPatches,
+	const MeshSurfaceReconstructParams& params)
 {
+	const bool useQuadScore = params.partitionMode == MeshSurfacePartitionMode::CgalChartHybrid
+		|| params.sdfSeedBlendWeight > 1e-6;
 	const int minFaces = std::max(100, faceCount / std::max(1, targetPatches * 2));
 	const int targetAvg = std::max(minFaces, faceCount / std::max(1, targetPatches));
 	const int forceMergeBelow = std::max(1, targetAvg / 4);
@@ -810,7 +815,17 @@ void mergeSmallPatches(
 				smallFaces,
 				patches[static_cast<std::size_t>(ni)].faceIndices,
 				faceNormals);
-			const double score = 0.5 * flat + 0.2 * aspect + 0.3 * normalSim;
+			double quadScore = 1.0;
+			if (useQuadScore)
+			{
+				QuadPatch probe;
+				probe.faceIndices = mergedFaces;
+				assignPatchCornerMetadata(mesh, probe);
+				quadScore = probe.hasSquareCorners ? 1.0 : 0.35;
+			}
+			const double score = useQuadScore
+				? (0.4 * flat + 0.15 * aspect + 0.25 * normalSim + 0.2 * quadScore)
+				: (0.5 * flat + 0.2 * aspect + 0.3 * normalSim);
 			if (score > bestScore)
 			{
 				bestScore = score;
@@ -955,9 +970,31 @@ bool partitionQuadDomains(
 {
 	if (params.partitionMode == MeshSurfacePartitionMode::HybridNormalCvt)
 	{
-		return partitionQuadDomainsHybrid(mesh, params, patches, outJunctionCount, partitionStats, errMsg);
+		const bool ok = partitionQuadDomainsHybrid(
+			mesh, params, patches, outJunctionCount, partitionStats, errMsg);
+		if (ok)
+		{
+			assignAllPatchCornerMetadata(mesh, patches);
+		}
+		return ok;
 	}
-	return partitionQuadDomainsGeodesicV3(mesh, params, patches, outJunctionCount, partitionStats, errMsg);
+	if (params.partitionMode == MeshSurfacePartitionMode::CgalChartHybrid)
+	{
+		return partitionQuadDomainsCgalChartHybrid(
+			mesh, params, patches, outJunctionCount, partitionStats, errMsg);
+	}
+	if (params.partitionMode == MeshSurfacePartitionMode::AmrtoImGmcg)
+	{
+		return partitionQuadDomainsAmrtoImGmcg(
+			mesh, params, patches, outJunctionCount, partitionStats, errMsg, nullptr, nullptr);
+	}
+	const bool ok = partitionQuadDomainsGeodesicV3(
+		mesh, params, patches, outJunctionCount, partitionStats, errMsg);
+	if (ok)
+	{
+		assignAllPatchCornerMetadata(mesh, patches);
+	}
+	return ok;
 }
 
 static bool partitionQuadDomainsGeodesicV3(
@@ -1096,7 +1133,26 @@ static bool partitionQuadDomainsGeodesicV3(
 	const int maxFacesPerPatch = std::max(100, (faceCount + targetPatches - 1) / targetPatches);
 	const int minFacesThreshold = std::max(100, faceCount / std::max(1, targetPatches * 2));
 
-	const std::vector<int> seeds = selectFpsSeeds(faceCentroids, targetPatches);
+	const std::vector<int> fpsSeeds = selectFpsSeeds(faceCentroids, targetPatches);
+	std::vector<int> seeds = fpsSeeds;
+	if (params.partitionMode == MeshSurfacePartitionMode::CgalChartHybrid
+		|| params.sdfSeedBlendWeight > 1e-6)
+	{
+		std::vector<int> sdfSeeds;
+		const int segCount = params.sdfSegmentCount > 0
+			? params.sdfSegmentCount
+			: std::max(4, targetPatches);
+		if (collectSdfSegmentSeedFaces(mesh, segCount, sdfSeeds, nullptr))
+		{
+			for (const int sf : sdfSeeds)
+			{
+				if (std::find(seeds.begin(), seeds.end(), sf) == seeds.end())
+				{
+					seeds.push_back(sf);
+				}
+			}
+		}
+	}
 	std::vector<int> chart = multiSourceGeodesicVoronoi(smoothAdj, faceCentroids, seeds);
 	assignOrphanChartFaces(chart, fullAdj);
 	chartToPatches(chart, patches);
@@ -1120,7 +1176,7 @@ static bool partitionQuadDomainsGeodesicV3(
 
 	splitOversizedPatches(patches, smoothAdj, faceCentroids, maxFacesPerPatch);
 	cleanupDisconnectedComponents(patches, fullAdj, rawFaceNormals, minFacesThreshold);
-	mergeSmallPatches(patches, fullAdj, mesh, rawFaceNormals, faceCount, targetPatches);
+	mergeSmallPatches(patches, fullAdj, mesh, rawFaceNormals, faceCount, targetPatches, params);
 
 	if (patches.empty())
 	{

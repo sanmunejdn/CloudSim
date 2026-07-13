@@ -2,7 +2,7 @@
 
 #include "AiDomainTypes.h"
 
-#include <FeatureSpec.h>
+#include <FeatureListDocument.h>
 #include <GeometryRef.h>
 
 #include <json.hpp>
@@ -25,49 +25,27 @@ bool containsAny(const QString& text, const QStringList& keys)
 	return false;
 }
 
-void writeRefsJson(nlohmann::json& refs, const geoalgo::FeatureRefs& r)
+void writeGeometryJson(nlohmann::json& geometry, const geoalgo::FeatureGeometry& g)
 {
-	if (!r.edgeIndices.empty())
+	if (!g.edgeIndices.empty())
 	{
-		refs["edgeIndices"] = r.edgeIndices;
+		geometry["edgeIndices"] = g.edgeIndices;
 	}
-	if (!r.faceIndices.empty())
+	if (!g.faceIndices.empty())
 	{
-		refs["faceIndices"] = r.faceIndices;
-	}
-	if (r.uvCountU > 0)
-	{
-		refs["uvCountU"] = r.uvCountU;
-	}
-	if (r.uvCountV > 0)
-	{
-		refs["uvCountV"] = r.uvCountV;
-	}
-	if (r.gridAngleDeg != 0.0)
-	{
-		refs["gridAngleDeg"] = r.gridAngleDeg;
+		geometry["faceIndices"] = g.faceIndices;
 	}
 }
 
-nlohmann::json featureSpecToJsonObj(const geoalgo::FeatureSpec& spec)
+nlohmann::json featureEntryToJsonObj(const geoalgo::FeatureEntry& entry)
 {
 	nlohmann::json j;
-	j["schemaVersion"] = spec.schemaVersion;
-	j["featureId"] = spec.featureId;
-	j["kind"] = geoalgo::featureKindToString(spec.kind);
-	nlohmann::json wp;
-	wp["backendIdUtf8"] = spec.workpiece.backendIdUtf8;
-	wp["stepPathUtf8"] = spec.workpiece.stepPathUtf8;
-	j["workpiece"] = wp;
-	nlohmann::json refs;
-	writeRefsJson(refs, spec.refs);
-	j["refs"] = refs;
-	nlohmann::json disc;
-	disc["stepMm"] = spec.discretize.stepMm;
-	disc["linearDeflectionMm"] = spec.discretize.linearDeflectionMm;
-	disc["outputTangent"] = spec.discretize.outputTangent;
-	disc["outputNormal"] = spec.discretize.outputNormal;
-	j["discretize"] = disc;
+	j["featureId"] = entry.featureId;
+	j["strategyId"] = entry.strategyId;
+	nlohmann::json geometry;
+	writeGeometryJson(geometry, entry.geometry);
+	j["geometry"] = geometry;
+	j["params"] = entry.params;
 	return j;
 }
 
@@ -88,28 +66,27 @@ bool parseCatalogJson(const QByteArray& jsonUtf8, geoalgo::FeatureCatalog& out)
 			geoalgo::FeatureCandidate c;
 			c.candidateId = item.value("candidateId", std::string());
 			c.summary = item.value("summary", std::string());
-			const std::string kindStr = item.value("suggestedKind", std::string());
-			geoalgo::featureKindFromString(kindStr, c.suggestedKind);
-			if (item.contains("refs") && item["refs"].is_object())
+			c.suggestedStrategyId = item.value("suggestedStrategyId", std::string("EdgeChain"));
+			if (item.contains("geometry") && item["geometry"].is_object())
 			{
-				const auto& refs = item["refs"];
-				if (refs.contains("edgeIndices") && refs["edgeIndices"].is_array())
+				const auto& geometry = item["geometry"];
+				if (geometry.contains("edgeIndices") && geometry["edgeIndices"].is_array())
 				{
-					for (const auto& ei : refs["edgeIndices"])
+					for (const auto& ei : geometry["edgeIndices"])
 					{
 						if (ei.is_number_integer())
 						{
-							c.refs.edgeIndices.push_back(ei.get<int>());
+							c.geometry.edgeIndices.push_back(ei.get<int>());
 						}
 					}
 				}
-				if (refs.contains("faceIndices") && refs["faceIndices"].is_array())
+				if (geometry.contains("faceIndices") && geometry["faceIndices"].is_array())
 				{
-					for (const auto& fi : refs["faceIndices"])
+					for (const auto& fi : geometry["faceIndices"])
 					{
 						if (fi.is_number_integer())
 						{
-							c.refs.faceIndices.push_back(fi.get<int>());
+							c.geometry.faceIndices.push_back(fi.get<int>());
 						}
 					}
 				}
@@ -144,30 +121,16 @@ const geoalgo::FeatureCandidate* findCandidateById(const geoalgo::FeatureCatalog
 namespace AiTrajectoryFeatureCatalog
 {
 
-bool isLineKind(const geoalgo::FeatureKind kind)
+bool isLineStrategy(const std::string& strategyId)
 {
-	switch (kind)
-	{
-	case geoalgo::FeatureKind::EdgeChain:
-	case geoalgo::FeatureKind::FaceIntersection:
-	case geoalgo::FeatureKind::FaceBoundary:
-		return true;
-	default:
-		return false;
-	}
+	return strategyId == "EdgeChain" || strategyId == "FaceIntersection" || strategyId == "FaceBoundary"
+		|| strategyId == "SyntheticPolyline";
 }
 
-bool isSurfaceKind(const geoalgo::FeatureKind kind)
+bool isSurfaceStrategy(const std::string& strategyId)
 {
-	switch (kind)
-	{
-	case geoalgo::FeatureKind::FaceUVGrid:
-	case geoalgo::FeatureKind::FaceOffsetCurve:
-	case geoalgo::FeatureKind::FaceBoundary:
-		return true;
-	default:
-		return false;
-	}
+	return strategyId == "FaceSection" || strategyId == "FaceParamSurface" || strategyId == "FaceOffsetCurve"
+		|| strategyId == "FaceBoundary";
 }
 
 AiFeatureAxis inferFeatureAxisFromText(const QString& userText)
@@ -251,8 +214,8 @@ QByteArray buildCatalogSliceJson(const geoalgo::FeatureCatalog& catalog, const A
 		{
 			break;
 		}
-		const bool lineCandidate = !c.refs.edgeIndices.empty();
-		const bool surfaceCandidate = !c.refs.faceIndices.empty() && c.refs.edgeIndices.empty();
+		const bool lineCandidate = !c.geometry.edgeIndices.empty();
+		const bool surfaceCandidate = !c.geometry.faceIndices.empty() && c.geometry.edgeIndices.empty();
 		if (axis == AiFeatureAxis::Line && !lineCandidate)
 		{
 			continue;
@@ -264,11 +227,11 @@ QByteArray buildCatalogSliceJson(const geoalgo::FeatureCatalog& catalog, const A
 		nlohmann::json item;
 		item["displayIndex"] = displayIndex;
 		item["candidateId"] = c.candidateId;
-		item["suggestedKind"] = geoalgo::featureKindToString(c.suggestedKind);
+		item["suggestedStrategyId"] = c.suggestedStrategyId;
 		item["summary"] = c.summary;
-		nlohmann::json refs;
-		writeRefsJson(refs, c.refs);
-		item["refs"] = refs;
+		nlohmann::json geometry;
+		writeGeometryJson(geometry, c.geometry);
+		item["geometry"] = geometry;
 		item["lengthMm"] = c.lengthMm;
 		item["areaMm2"] = c.areaMm2;
 		item["dihedralDeg"] = c.dihedralDeg;
@@ -300,32 +263,39 @@ QString suggestedPipelineTemplateForAxis(const AiFeatureAxis axis, const QString
 	return QStringLiteral("weld_default");
 }
 
-bool candidateToFeatureSpec(const geoalgo::FeatureCandidate& candidate, const std::string& backendId,
-	const std::string& stepPath, geoalgo::FeatureSpec& out)
+bool candidateToFeatureEntry(const geoalgo::FeatureCandidate& candidate, const std::string& backendId,
+	const std::string& stepPath, geoalgo::FeatureEntry& out)
 {
-	out = geoalgo::FeatureSpec{};
-	out.workpiece.backendIdUtf8 = backendId;
-	out.workpiece.stepPathUtf8 = stepPath;
+	(void)backendId;
+	(void)stepPath;
+	out = geoalgo::FeatureEntry{};
 	out.featureId = candidate.candidateId;
-	out.kind = candidate.suggestedKind;
-	out.refs = candidate.refs;
-	if (out.kind == geoalgo::FeatureKind::FaceUVGrid)
+	out.strategyId = candidate.suggestedStrategyId;
+	out.geometry = candidate.geometry;
+	out.params = geometry_backend_ops::featureDiscretizerDefaultParams(out.strategyId);
+	if (out.strategyId == "FaceSection")
 	{
-		out.refs.uvCountU = 16;
-		out.refs.uvCountV = 16;
-		out.discretize.stepMm = 0.0;
+		out.params["stepMm"] = 10.0;
+		out.params["linearDeflectionMm"] = 1.0;
+		out.params["uvCountU"] = 3;
 	}
-	else if (out.kind == geoalgo::FeatureKind::FaceBoundary)
+	else if (out.strategyId == "FaceParamSurface")
 	{
-		out.discretize.stepMm = 2.0;
+		out.params["stepMm"] = 10.0;
+		out.params["colSpacingMm"] = 1.0;
+		out.params["linearDeflectionMm"] = 1.0;
+	}
+	else if (out.strategyId == "FaceBoundary")
+	{
+		out.params["stepMm"] = 2.0;
 	}
 	else
 	{
-		out.discretize.stepMm = 5.0;
+		out.params["stepMm"] = 5.0;
 	}
-	out.discretize.linearDeflectionMm = 0.01;
-	out.discretize.outputTangent = true;
-	out.discretize.outputNormal = true;
+	out.params["linearDeflectionMm"] = 0.01;
+	out.params["outputTangent"] = true;
+	out.params["outputNormal"] = true;
 	return true;
 }
 
@@ -340,7 +310,7 @@ AiParseResult tryParseTrajectoryFeatureRules(const QString& userText, const AiFe
 	{
 		r.ok = true;
 		nlohmann::json j;
-		j["version"] = 1;
+		j["version"] = 2;
 		j["featureAxis"] = "ambiguous";
 		j["clarifyMessage"] = "请说明需要线特征（边/焊缝/轮廓）还是面特征（平面/打磨栅格）。";
 		j["features"] = nlohmann::json::array();
@@ -359,33 +329,33 @@ AiParseResult tryParseTrajectoryFeatureRules(const QString& userText, const AiFe
 		return r;
 	}
 
-	std::vector<geoalgo::FeatureSpec> specs;
 	const std::string backend = backendId.toStdString();
 	const std::string step = stepPath.toStdString();
 	const std::string intent = userText.toUtf8().constData();
 
-	std::vector<geoalgo::FeatureSpec> suggested;
+	geoalgo::FeatureListDocument suggestedDoc;
 	std::string suggestErr;
-	if (geometry_backend_ops::suggestFeaturesFromCatalog(sliceCatalog, intent, suggested, &suggestErr)
-		&& !suggested.empty())
+	std::vector<geoalgo::FeatureEntry> entries;
+	if (geometry_backend_ops::suggestFeaturesFromCatalog(sliceCatalog, intent, suggestedDoc, &suggestErr)
+		&& !suggestedDoc.features.empty())
 	{
-		specs = std::move(suggested);
+		entries = suggestedDoc.features;
 	}
 	else
 	{
 		for (const geoalgo::FeatureCandidate& c : sliceCatalog.candidates)
 		{
-			geoalgo::FeatureSpec spec;
-			candidateToFeatureSpec(c, backend, step, spec);
-			specs.push_back(std::move(spec));
-			if (static_cast<int>(specs.size()) >= 8)
+			geoalgo::FeatureEntry entry;
+			candidateToFeatureEntry(c, backend, step, entry);
+			entries.push_back(std::move(entry));
+			if (static_cast<int>(entries.size()) >= 8)
 			{
 				break;
 			}
 		}
 	}
 
-	if (specs.empty())
+	if (entries.empty())
 	{
 		r.ok = false;
 		r.errorMessage = QStringLiteral("未找到匹配的特征候选。");
@@ -394,20 +364,25 @@ AiParseResult tryParseTrajectoryFeatureRules(const QString& userText, const AiFe
 	}
 
 	std::vector<std::string> selectedIds;
-	for (const geoalgo::FeatureSpec& s : specs)
+	for (const geoalgo::FeatureEntry& e : entries)
 	{
-		selectedIds.push_back(s.featureId);
+		selectedIds.push_back(e.featureId);
 	}
 
 	nlohmann::json j;
-	j["version"] = 1;
+	j["version"] = 2;
+	j["schemaVersion"] = 2;
 	j["featureAxis"] = aiFeatureAxisToString(axis).toStdString();
 	j["selectedCandidateIds"] = selectedIds;
 	j["suggestedPipelineTemplate"] = suggestedPipelineTemplateForAxis(axis, userText).toStdString();
+	nlohmann::json wp;
+	wp["backendIdUtf8"] = backend;
+	wp["stepPathUtf8"] = step;
+	j["workpiece"] = wp;
 	nlohmann::json feats = nlohmann::json::array();
-	for (const geoalgo::FeatureSpec& s : specs)
+	for (const geoalgo::FeatureEntry& e : entries)
 	{
-		feats.push_back(featureSpecToJsonObj(s));
+		feats.push_back(featureEntryToJsonObj(e));
 	}
 	j["features"] = feats;
 	r.ok = true;
@@ -508,9 +483,14 @@ AiParseResult buildFeaturePlanFromCandidateIds(const std::vector<std::string>& c
 	const std::string backend = backendId.toStdString();
 	const std::string step = stepPath.toStdString();
 	nlohmann::json j;
-	j["version"] = 1;
+	j["version"] = 2;
+	j["schemaVersion"] = 2;
 	j["selectedCandidateIds"] = candidateIds;
 	j["suggestedPipelineTemplate"] = pipelineTemplate.toStdString();
+	nlohmann::json wp;
+	wp["backendIdUtf8"] = backend;
+	wp["stepPathUtf8"] = step;
+	j["workpiece"] = wp;
 	nlohmann::json feats = nlohmann::json::array();
 	for (const std::string& id : candidateIds)
 	{
@@ -519,9 +499,9 @@ AiParseResult buildFeaturePlanFromCandidateIds(const std::vector<std::string>& c
 		{
 			continue;
 		}
-		geoalgo::FeatureSpec spec;
-		candidateToFeatureSpec(*c, backend, step, spec);
-		feats.push_back(featureSpecToJsonObj(spec));
+		geoalgo::FeatureEntry entry;
+		candidateToFeatureEntry(*c, backend, step, entry);
+		feats.push_back(featureEntryToJsonObj(entry));
 	}
 	if (feats.empty())
 	{

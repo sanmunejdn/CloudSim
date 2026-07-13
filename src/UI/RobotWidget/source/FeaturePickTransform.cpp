@@ -3,7 +3,9 @@
 #include "RobotOsgUiTypes.h"
 
 #include "../../OsgWidgetCore/inc/OsgScene.h"
+#include <algorithm>
 #include <sstream>
+#include <vector>
 
 namespace feature_pick_transform
 {
@@ -17,6 +19,112 @@ std::string transformBackendId(IRobotOsgViewHost* osg, const std::string& backen
 		return backendId;
 	}
 	return osg->resolvePickScopeBackendId(backendId);
+}
+
+void appendUniqueIndex(std::vector<std::size_t>& indices, const std::size_t index)
+{
+	if (indices.empty() || indices.back() != index)
+	{
+		indices.push_back(index);
+	}
+}
+
+std::vector<std::size_t> collectPreviewAxisPointIndices(
+	const std::size_t pointCount,
+	const int axisInterval,
+	const std::vector<std::size_t>& segmentEndExclusive)
+{
+	std::vector<std::size_t> indices;
+	if (pointCount == 0U)
+	{
+		return indices;
+	}
+	if (pointCount == 1U)
+	{
+		indices.push_back(0U);
+		return indices;
+	}
+
+	const int autoStride = std::max(1, static_cast<int>(pointCount / 20U));
+	const int stride = axisInterval > 0 ? axisInterval : autoStride;
+
+	indices.reserve(pointCount / static_cast<std::size_t>(stride) + segmentEndExclusive.size() + 2U);
+	appendUniqueIndex(indices, 0U);
+	for (const std::size_t segmentStart : segmentEndExclusive)
+	{
+		if (segmentStart < pointCount)
+		{
+			appendUniqueIndex(indices, segmentStart);
+		}
+	}
+	for (std::size_t i = static_cast<std::size_t>(stride); i < pointCount; i += static_cast<std::size_t>(stride))
+	{
+		appendUniqueIndex(indices, i);
+	}
+	appendUniqueIndex(indices, pointCount - 1U);
+	return indices;
+}
+
+bool appendPreviewFramesForIndices(
+	const std::vector<std::size_t>& indices,
+	const std::vector<RobotInstruction::TrajectoryPoint>& points,
+	IRobotOsgViewHost* osg,
+	const std::string& backendId,
+	std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& outFrames,
+	std::string* errMsg)
+{
+	outFrames.reserve(indices.size());
+	for (const std::size_t index : indices)
+	{
+		if (index >= points.size())
+		{
+			continue;
+		}
+		RobotInstruction::TrajectoryPoint worldTp;
+		if (!transformTrajectoryPointToWorld(osg, backendId, points[index], worldTp, errMsg))
+		{
+			return false;
+		}
+		RobotOsgUi::RawTrajectoryOverlayFrame frame;
+		frame.positionMm.set(
+			static_cast<float>(worldTp.poseMm.x),
+			static_cast<float>(worldTp.poseMm.y),
+			static_cast<float>(worldTp.poseMm.z));
+		frame.eulerDeg.set(
+			static_cast<float>(worldTp.eulerDeg.x),
+			static_cast<float>(worldTp.eulerDeg.y),
+			static_cast<float>(worldTp.eulerDeg.z));
+		frame.reachable = worldTp.reachable;
+		outFrames.push_back(frame);
+	}
+	return true;
+}
+
+void appendPreviewFramesForIndicesWorld(
+	const std::vector<std::size_t>& indices,
+	const std::vector<RobotInstruction::TrajectoryPoint>& points,
+	std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& outFrames)
+{
+	outFrames.reserve(indices.size());
+	for (const std::size_t index : indices)
+	{
+		if (index >= points.size())
+		{
+			continue;
+		}
+		const RobotInstruction::TrajectoryPoint& tp = points[index];
+		RobotOsgUi::RawTrajectoryOverlayFrame frame;
+		frame.positionMm.set(
+			static_cast<float>(tp.poseMm.x),
+			static_cast<float>(tp.poseMm.y),
+			static_cast<float>(tp.poseMm.z));
+		frame.eulerDeg.set(
+			static_cast<float>(tp.eulerDeg.x),
+			static_cast<float>(tp.eulerDeg.y),
+			static_cast<float>(tp.eulerDeg.z));
+		frame.reachable = tp.reachable;
+		outFrames.push_back(frame);
+	}
 }
 
 } // namespace
@@ -234,18 +342,31 @@ bool buildRawTrajectoryOverlayWorld(
 	std::string* errMsg)
 {
 	outOverlay.clear();
+	std::vector<std::size_t> emptySegments;
+	return appendRawTrajectoryOverlayWorld(osg, backendId, fileTraj, outOverlay, emptySegments, errMsg);
+}
+
+bool appendRawTrajectoryOverlayWorld(
+	IRobotOsgViewHost* osg,
+	const std::string& backendId,
+	const RobotInstruction::RawTrajectory& fileTraj,
+	std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& inOutOverlay,
+	std::vector<std::size_t>& inOutSegmentEndExclusive,
+	std::string* errMsg)
+{
 	if (fileTraj.points.empty())
 	{
-		if (errMsg)
-		{
-			*errMsg = "empty trajectory";
-		}
-		return false;
+		return true;
 	}
-	outOverlay.reserve(fileTraj.points.size());
+	const std::size_t baseCount = inOutOverlay.size();
+	if (baseCount > 0U)
+	{
+		inOutSegmentEndExclusive.push_back(baseCount);
+	}
+	inOutOverlay.reserve(baseCount + fileTraj.points.size());
 	for (const RobotInstruction::TrajectoryPoint& tp : fileTraj.points)
 	{
-		geoalgo::Point3d filePos{tp.poseMm.x, tp.poseMm.y, tp.poseMm.z};
+		const geoalgo::Point3d filePos{tp.poseMm.x, tp.poseMm.y, tp.poseMm.z};
 		osg::Vec3f worldPos;
 		if (!stepModelPointToWorldMm(osg, backendId, filePos, worldPos, errMsg))
 		{
@@ -254,7 +375,11 @@ bool buildRawTrajectoryOverlayWorld(
 		RobotOsgUi::RawTrajectoryOverlayVertex v;
 		v.positionMm = worldPos;
 		v.reachable = tp.reachable;
-		outOverlay.push_back(v);
+		inOutOverlay.push_back(v);
+	}
+	for (const std::size_t endExclusive : fileTraj.segmentEndExclusive)
+	{
+		inOutSegmentEndExclusive.push_back(baseCount + endExclusive);
 	}
 	return true;
 }
@@ -277,39 +402,130 @@ bool buildRawTrajectoryPreviewWorld(
 	{
 		return true;
 	}
-	const std::size_t n = fileTraj.points.size();
-	const int autoInterval = std::max(1, static_cast<int>(n / 20U));
-	const int interval = options.axisInterval > 0 ? options.axisInterval : autoInterval;
-	const int maxAxes = options.maxAxes > 0 ? options.maxAxes : 50;
-	for (std::size_t i = 0; i < n; ++i)
+	const std::vector<std::size_t> axisIndices = collectPreviewAxisPointIndices(
+		fileTraj.points.size(),
+		options.axisInterval,
+		fileTraj.segmentEndExclusive);
+	return appendPreviewFramesForIndices(
+		axisIndices,
+		fileTraj.points,
+		osg,
+		backendId,
+		outFrames,
+		errMsg);
+}
+
+namespace
+{
+void finalizeOverlaySegmentEndsImpl(
+	const std::size_t totalPoints,
+	std::vector<std::size_t>& segmentEndExclusive)
+{
+	if (totalPoints < 2U)
 	{
-		const bool isEnd = (i == 0U || i + 1U == n);
-		if (!isEnd && interval > 1 && static_cast<int>(i % static_cast<std::size_t>(interval)) != 0)
-		{
-			continue;
-		}
-		if (static_cast<int>(outFrames.size()) >= maxAxes)
-		{
-			break;
-		}
-		RobotInstruction::TrajectoryPoint worldTp;
-		if (!transformTrajectoryPointToWorld(osg, backendId, fileTraj.points[i], worldTp, errMsg))
-		{
-			return false;
-		}
-		RobotOsgUi::RawTrajectoryOverlayFrame frame;
-		frame.positionMm.set(
-			static_cast<float>(worldTp.poseMm.x),
-			static_cast<float>(worldTp.poseMm.y),
-			static_cast<float>(worldTp.poseMm.z));
-		frame.eulerDeg.set(
-			static_cast<float>(worldTp.eulerDeg.x),
-			static_cast<float>(worldTp.eulerDeg.y),
-			static_cast<float>(worldTp.eulerDeg.z));
-		frame.reachable = worldTp.reachable;
-		outFrames.push_back(frame);
+		segmentEndExclusive.clear();
+		return;
 	}
-	return true;
+	if (segmentEndExclusive.empty() || segmentEndExclusive.back() != totalPoints)
+	{
+		segmentEndExclusive.push_back(totalPoints);
+	}
+}
+} // namespace
+
+void finalizeOverlaySegmentEnds(
+	const std::size_t totalPoints,
+	std::vector<std::size_t>& segmentEndExclusive)
+{
+	finalizeOverlaySegmentEndsImpl(totalPoints, segmentEndExclusive);
+}
+
+void applyMergedRawTrajectoryPreviewToOsg(
+	IRobotOsgViewHost* osg,
+	const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& overlay,
+	const std::vector<std::size_t>& segmentEndExclusive,
+	const std::vector<std::pair<std::string, const RobotInstruction::RawTrajectory*>>& axesSources,
+	const RobotOsgUi::RawTrajectoryPreviewOptions& options,
+	std::string* errMsg)
+{
+	if (!osg)
+	{
+		if (errMsg)
+		{
+			*errMsg = "no osg host";
+		}
+		return;
+	}
+	if (overlay.empty())
+	{
+		osg->clearRawTrajectoryOverlay();
+		osg->clearRawTrajectoryOverlayFrames();
+		osg->requestRedraw();
+		return;
+	}
+	std::vector<RobotOsgUi::RawTrajectoryOverlayFrame> frames;
+	if (options.showAxes)
+	{
+		for (const auto& source : axesSources)
+		{
+			if (!source.second || source.second->points.empty() || source.first.empty())
+			{
+				continue;
+			}
+			std::vector<RobotOsgUi::RawTrajectoryOverlayVertex> unusedOverlay;
+			std::vector<RobotOsgUi::RawTrajectoryOverlayFrame> batchFrames;
+			if (!buildRawTrajectoryPreviewWorld(
+					osg,
+					source.first,
+					*source.second,
+					options,
+					unusedOverlay,
+					batchFrames,
+					errMsg))
+			{
+				continue;
+			}
+			frames.insert(frames.end(), batchFrames.begin(), batchFrames.end());
+		}
+	}
+	osg->clearInstructionPoseAxes();
+	osg->setRawTrajectoryOverlay(overlay, segmentEndExclusive);
+	if (options.showAxes && !frames.empty())
+	{
+		osg->setRawTrajectoryOverlayAxisComponents(
+			options.showAxisX,
+			options.showAxisY,
+			options.showAxisZ);
+		osg->setRawTrajectoryOverlayFrames(frames);
+	}
+	else
+	{
+		osg->clearRawTrajectoryOverlayFrames();
+	}
+	osg->requestRedraw();
+}
+
+void applyMergedRawTrajectoryPreviewToOsg(
+	IRobotOsgViewHost* osg,
+	const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& overlay,
+	const std::vector<std::size_t>& segmentEndExclusive,
+	const std::string& axesBackendId,
+	const RobotInstruction::RawTrajectory* axesTraj,
+	const RobotOsgUi::RawTrajectoryPreviewOptions& options,
+	std::string* errMsg)
+{
+	std::vector<std::pair<std::string, const RobotInstruction::RawTrajectory*>> axesSources;
+	if (axesTraj && !axesTraj->points.empty() && !axesBackendId.empty())
+	{
+		axesSources.emplace_back(axesBackendId, axesTraj);
+	}
+	applyMergedRawTrajectoryPreviewToOsg(
+		osg,
+		overlay,
+		segmentEndExclusive,
+		axesSources,
+		options,
+		errMsg);
 }
 
 void applyRawTrajectoryPreviewToOsg(
@@ -328,22 +544,20 @@ void applyRawTrajectoryPreviewToOsg(
 		return;
 	}
 	std::vector<RobotOsgUi::RawTrajectoryOverlayVertex> overlay;
-	std::vector<RobotOsgUi::RawTrajectoryOverlayFrame> frames;
-	if (!buildRawTrajectoryPreviewWorld(osg, backendId, fileTraj, options, overlay, frames, errMsg))
+	std::vector<std::size_t> segmentEnds;
+	if (!appendRawTrajectoryOverlayWorld(osg, backendId, fileTraj, overlay, segmentEnds, errMsg))
 	{
 		return;
 	}
-	osg->clearInstructionPoseAxes();
-	osg->setRawTrajectoryOverlay(overlay, fileTraj.segmentEndExclusive);
-	if (options.showAxes && !frames.empty())
-	{
-		osg->setRawTrajectoryOverlayFrames(frames);
-	}
-	else
-	{
-		osg->clearRawTrajectoryOverlayFrames();
-	}
-	osg->requestRedraw();
+	feature_pick_transform::finalizeOverlaySegmentEnds(overlay.size(), segmentEnds);
+	applyMergedRawTrajectoryPreviewToOsg(
+		osg,
+		overlay,
+		segmentEnds,
+		backendId,
+		&fileTraj,
+		options,
+		errMsg);
 }
 
 void applyWorldRawTrajectoryPreviewToOsg(
@@ -383,39 +597,20 @@ void applyWorldRawTrajectoryPreviewToOsg(
 	std::vector<RobotOsgUi::RawTrajectoryOverlayFrame> frames;
 	if (options.showAxes)
 	{
-		const std::size_t n = worldTraj.points.size();
-		const int autoInterval = std::max(1, static_cast<int>(n / 20U));
-		const int interval = options.axisInterval > 0 ? options.axisInterval : autoInterval;
-		const int maxAxes = options.maxAxes > 0 ? options.maxAxes : 50;
-		for (std::size_t i = 0; i < n; ++i)
-		{
-			const bool isEnd = (i == 0U || i + 1U == n);
-			if (!isEnd && interval > 1 && static_cast<int>(i % static_cast<std::size_t>(interval)) != 0)
-			{
-				continue;
-			}
-			if (static_cast<int>(frames.size()) >= maxAxes)
-			{
-				break;
-			}
-			const RobotInstruction::TrajectoryPoint& tp = worldTraj.points[i];
-			RobotOsgUi::RawTrajectoryOverlayFrame frame;
-			frame.positionMm.set(
-				static_cast<float>(tp.poseMm.x),
-				static_cast<float>(tp.poseMm.y),
-				static_cast<float>(tp.poseMm.z));
-			frame.eulerDeg.set(
-				static_cast<float>(tp.eulerDeg.x),
-				static_cast<float>(tp.eulerDeg.y),
-				static_cast<float>(tp.eulerDeg.z));
-			frame.reachable = tp.reachable;
-			frames.push_back(frame);
-		}
+		const std::vector<std::size_t> axisIndices = collectPreviewAxisPointIndices(
+			worldTraj.points.size(),
+			options.axisInterval,
+			worldTraj.segmentEndExclusive);
+		appendPreviewFramesForIndicesWorld(axisIndices, worldTraj.points, frames);
 	}
 	osg->clearInstructionPoseAxes();
 	osg->setRawTrajectoryOverlay(overlay, worldTraj.segmentEndExclusive);
 	if (options.showAxes && !frames.empty())
 	{
+		osg->setRawTrajectoryOverlayAxisComponents(
+			options.showAxisX,
+			options.showAxisY,
+			options.showAxisZ);
 		osg->setRawTrajectoryOverlayFrames(frames);
 	}
 	else

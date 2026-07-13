@@ -1,5 +1,8 @@
 #include "RawTrajectoryMath.h"
 
+#include <Adapters.h>
+
+#include <Eigen/Geometry>
 #include <cmath>
 
 namespace RobotInstruction
@@ -30,32 +33,36 @@ Vec3 crossVec(const Vec3& a, const Vec3& b)
 
 Vec3 eulerFromFrame(const Vec3& zAxis, const Vec3& xHint)
 {
-	const Vec3 z = normalizeVec(zAxis);
+	Vec3 z = normalizeVec(zAxis);
 	Vec3 x = xHint;
 	const double dot = x.x * z.x + x.y * z.y + x.z * z.z;
 	x.x -= dot * z.x;
 	x.y -= dot * z.y;
 	x.z -= dot * z.z;
 	x = normalizeVec(x);
-	const Vec3 y = crossVec(z, x);
-	(void)y;
-	const double sy = std::sqrt(x.x * x.x + x.y * x.y);
-	const bool singular = sy < 1e-6;
-	double yaw = 0.0;
-	double pitch = 0.0;
-	double roll = 0.0;
-	if (!singular)
+	if (std::sqrt(x.x * x.x + x.y * x.y + x.z * x.z) < 1e-6)
 	{
-		yaw = std::atan2(x.y, x.x) * 180.0 / rawTrajectoryPi();
-		pitch = std::atan2(-x.z, sy) * 180.0 / rawTrajectoryPi();
-		roll = std::atan2(z.x * x.y - z.y * x.x, z.x * x.x + z.y * x.y) * 180.0 / rawTrajectoryPi();
+		x = crossVec(Vec3{0.0, 0.0, 1.0}, z);
+		if (std::sqrt(x.x * x.x + x.y * x.y + x.z * x.z) < 1e-6)
+		{
+			x = crossVec(Vec3{0.0, 1.0, 0.0}, z);
+		}
+		x = normalizeVec(x);
 	}
-	else
-	{
-		yaw = std::atan2(-z.y, z.x) * 180.0 / rawTrajectoryPi();
-		pitch = std::atan2(-x.z, sy) * 180.0 / rawTrajectoryPi();
-	}
-	return Vec3{roll, pitch, yaw};
+	Vec3 y = crossVec(z, x);
+	x = normalizeVec(crossVec(y, z));
+
+	Eigen::Matrix3d rot = Eigen::Matrix3d::Identity();
+	rot.col(0) = Eigen::Vector3d(x.x, x.y, x.z);
+	rot.col(1) = Eigen::Vector3d(y.x, y.y, y.z);
+	rot.col(2) = Eigen::Vector3d(z.x, z.y, z.z);
+	const Eigen::Quaterniond eq(rot);
+	osg::Quat q(eq.x(), eq.y(), eq.z(), eq.w());
+	double ex = 0.0;
+	double ey = 0.0;
+	double ez = 0.0;
+	engine::quatToEulerDeg(q, ex, ey, ez);
+	return Vec3{ex, ey, ez};
 }
 
 void resampleTrajectory(RawTrajectory& traj, double stepMm)

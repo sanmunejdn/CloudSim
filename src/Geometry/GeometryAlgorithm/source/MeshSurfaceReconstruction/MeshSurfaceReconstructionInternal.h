@@ -5,6 +5,7 @@
 #include <TopoDS_Face.hxx>
 #include <Geom_BSplineSurface.hxx>
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -52,6 +53,9 @@ struct QuadPatch
 	std::vector<TopoDS_Face> meshFallbackFaces;
 	PatchFitRejectReason fitRejectReason = PatchFitRejectReason::None;
 	std::vector<int> neighborPatchIds;
+	/// patch 网格顶点索引（IndexedMeshLite），-1 表示未检测到
+	std::array<int, 4> cornerMeshVertices = {-1, -1, -1, -1};
+	bool hasSquareCorners = false;
 };
 
 void aggregateFitRejectStats(
@@ -79,6 +83,17 @@ bool buildInitialBsplinePatches(
 	std::vector<QuadPatch>& patches,
 	const MeshSurfaceReconstructParams& params,
 	std::string* errMsg);
+
+bool applyMultiResolutionFit(
+	const IndexedMeshLite& mesh,
+	std::vector<QuadPatch>& patches,
+	const MeshSurfaceReconstructParams& params,
+	MeshSurfaceReconstructReport* report,
+	std::string* errMsg);
+
+void assignPatchCornerMetadata(const IndexedMeshLite& mesh, QuadPatch& patch);
+
+void assignAllPatchCornerMetadata(const IndexedMeshLite& mesh, std::vector<QuadPatch>& patches);
 
 /// 光顺/装配前按采样尺度重建面，避免全参数域建面产生失控薄片
 bool rebuildPatchFace(const IndexedMeshLite& mesh, QuadPatch& patch);

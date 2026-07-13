@@ -11,6 +11,7 @@
 #include "TrajectoryEditPageWidget.h"
 #include "TrajectoryGenerationPageWidget.h"
 #include "FeatureTrajectoryPageWidget.h"
+#include "FeaturePickTransform.h"
 #include "IRobotMainWindowHost.h"
 #include "IRobotOsgViewHost.h"
 #include "RobotMatrixOsgBridge.h"
@@ -20,6 +21,7 @@
 #include "RobotProgramExport.h"
 #include "RobotCanonicalProgramExport.h"
 #include "RobotInstructionProgram.h"
+#include "RawTrajectory.h"
 #include "RobotInstructionTransform.h"
 #include "RobotSceneKinematics.h"
 #include "RobotTeachIk.h"
@@ -389,6 +391,23 @@ void RobotSimulationController::wireSimulationSignals()
 	{
 		gen->bindSession(m_trajectoryEditSession);
 		gen->bindSimulationController(this);
+		if (m_host && m_host->document())
+		{
+			gen->bindStore(&m_host->document()->robotProgramStore());
+		}
+		gen->bindEditService(m_programEditService);
+		gen->bindCommandPage(cmd);
+	}
+	if (cmd && cmd->instructionTree())
+	{
+		cmd->instructionTree()->setGroupVisibilityQuery([this](const std::string& groupId) {
+			return isInstructionGroupVisible(groupId);
+		});
+		connect(
+			cmd->instructionTree(),
+			&InstructionProgramTreeWidget::groupVisibilityChangeRequested,
+			this,
+			&RobotSimulationController::onInstructionGroupVisibilityChangeRequested);
 	}
 	if (cmd)
 	{
@@ -408,6 +427,16 @@ void RobotSimulationController::wireSimulationSignals()
 	connect(frame, &RobotFrameSettingsWidget::captureUserFrameFromTcpRequested, this,
 		&RobotSimulationController::onCaptureUserFrameFromTcp);
 	connect(frame, &RobotFrameSettingsWidget::resetToolFrameRequested, this, &RobotSimulationController::onResetToolFrame);
+	connect(m_trajectoryEditSession, &TrajectoryEditSession::pathPlanBound, this, [this](const std::string&) {
+		refreshPathPlanPreviewForActiveTab();
+	});
+	connect(m_trajectoryEditSession, &TrajectoryEditSession::rawTrajectoryChanged, this, [this]() {
+		refreshPathPlanPreviewForActiveTab();
+	});
+	if (QTabWidget* tabs = m_simulationDock->tabWidget())
+	{
+		connect(tabs, &QTabWidget::currentChanged, this, &RobotSimulationController::onSimulationDockTabChanged);
+	}
 	if (m_programEditService)
 	{
 		connect(m_programEditService, &ProgramEditService::revisionChanged, this, [this](int) {
@@ -601,6 +630,15 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 		IRobotMainWindowHost* host = m_host;
 		genPage->bindSession(m_trajectoryEditSession);
 		genPage->bindSimulationController(this);
+		if (doc)
+		{
+			genPage->bindStore(&doc->robotProgramStore());
+		}
+		genPage->bindEditService(m_programEditService);
+		if (m_simulationDock->commandPage())
+		{
+			genPage->bindCommandPage(m_simulationDock->commandPage());
+		}
 		genPage->setStepPathResolver([host](const QString& backendId) -> QString {
 			IRobotDocumentHost* liveDoc = host ? host->document() : nullptr;
 			return liveDoc ? liveDoc->meshBackendStepSourcePath(backendId) : QString();
@@ -3089,6 +3127,14 @@ void RobotSimulationController::onSimulationInstructionSelectionChanged(const st
 			{
 				m_simulationDock->trajectoryEditPage()->syncBoundPathPlanFromSession();
 			}
+			if (const RobotInstruction::PathPlanInstruction* pp = RobotInstruction::asPathPlan(*instruction))
+			{
+				if (!pp->sourceFeatureJson().empty() && m_simulationDock && m_simulationDock->tabWidget())
+				{
+					m_simulationDock->tabWidget()->setCurrentIndex(
+						RobotSimulationDockWidget::kTabIndexTrajectoryGeneration);
+				}
+			}
 		}
 		else if (!instruction)
 		{
@@ -3735,6 +3781,10 @@ void RobotSimulationController::refreshInstructionPoseAxesWithReachability(const
 		{
 			continue;
 		}
+		if (!isInstructionVisibleIn3d(ins->id()))
+		{
+			continue;
+		}
 		const auto itReach = reachability.constFind(QString::fromStdString(ins->id()));
 		const bool reachable = (itReach == reachability.constEnd()) ? true : itReach.value();
 		RobotOsgUi::InstructionPoseAxis a;
@@ -3763,6 +3813,336 @@ void RobotSimulationController::refreshInstructionPoseAxesWithReachability(const
 		return;
 	}
 	osg->setInstructionPoseAxes(axes);
+}
+
+bool RobotSimulationController::isInstructionGroupVisible(const std::string& groupId) const
+{
+	return !m_hiddenInstructionGroupIds.contains(QString::fromStdString(groupId));
+}
+
+void RobotSimulationController::setInstructionGroupVisible(const std::string& groupId, const bool visible)
+{
+	const QString qid = QString::fromStdString(groupId);
+	if (visible)
+	{
+		m_hiddenInstructionGroupIds.remove(qid);
+	}
+	else
+	{
+		m_hiddenInstructionGroupIds.insert(qid);
+	}
+	refreshPathPlanRawOverlays();
+	refreshInstructionPoseAxes(false);
+	if (m_simulationDock && m_simulationDock->commandPage())
+	{
+		m_simulationDock->commandPage()->refreshInstructionList();
+	}
+}
+
+void RobotSimulationController::onInstructionGroupVisibilityChangeRequested(
+	const std::string& groupId,
+	const bool visible)
+{
+	if (groupId.empty())
+	{
+		return;
+	}
+	setInstructionGroupVisible(groupId, visible);
+}
+
+bool RobotSimulationController::isInstructionVisibleIn3d(const std::string& instructionId) const
+{
+	if (!m_host || !m_host->document())
+	{
+		return true;
+	}
+	const RobotInstruction::RobotProgramCatalog& catalog = m_host->document()->robotProgramStore().activeCatalog();
+	const RobotInstruction::RobotProgram* prog = catalog.findProgram(catalog.activeProgramId());
+	if (!prog)
+	{
+		return true;
+	}
+	for (const RobotInstruction::InstructionGroup& group : prog->groups)
+	{
+		if (isInstructionGroupVisible(group.id))
+		{
+			continue;
+		}
+		for (const std::string& memberId : group.memberInstructionIds)
+		{
+			if (memberId == instructionId)
+			{
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+bool RobotSimulationController::isPathPlanRawVisible(const std::string& pathPlanId) const
+{
+	if (!m_host || !m_host->document() || pathPlanId.empty())
+	{
+		return true;
+	}
+	const RobotInstruction::RobotProgramCatalog& catalog = m_host->document()->robotProgramStore().activeCatalog();
+	const RobotInstruction::RobotProgram* prog = catalog.findProgram(catalog.activeProgramId());
+	if (!prog)
+	{
+		return true;
+	}
+	for (const RobotInstruction::InstructionGroup& group : prog->groups)
+	{
+		if (group.role != RobotInstruction::InstructionGroupRole::PathPlanOutput)
+		{
+			continue;
+		}
+		if (group.pathPlanInstructionId == pathPlanId)
+		{
+			return isInstructionGroupVisible(group.id);
+		}
+	}
+	return true;
+}
+
+bool RobotSimulationController::isTrajectoryGenerationTabActive() const
+{
+	if (!m_simulationDock || !m_simulationDock->tabWidget())
+	{
+		return false;
+	}
+	return m_simulationDock->tabWidget()->currentIndex()
+		== RobotSimulationDockWidget::kTabIndexTrajectoryGeneration;
+}
+
+bool RobotSimulationController::shouldShowTrajectoryGenerationPreview() const
+{
+	if (!m_simulationDock)
+	{
+		return false;
+	}
+	const FeatureTrajectoryPageWidget* feat = m_simulationDock->featureTrajectoryPage();
+	return feat && feat->isFeatureEditActive();
+}
+
+void RobotSimulationController::onSimulationDockTabChanged(int index)
+{
+	(void)index;
+	refreshPathPlanPreviewForActiveTab();
+}
+
+void RobotSimulationController::refreshPathPlanPreviewForActiveTab(
+	const RobotInstruction::RawTrajectory* preferRaw)
+{
+	if (isTrajectoryGenerationTabActive())
+	{
+		if (shouldShowTrajectoryGenerationPreview())
+		{
+			refreshBoundPathPlanPreview(preferRaw);
+		}
+		else
+		{
+			clearBoundPathPlanPreview();
+		}
+	}
+	else
+	{
+		refreshPathPlanRawOverlays();
+	}
+}
+
+void RobotSimulationController::clearBoundPathPlanPreview()
+{
+	if (!m_host)
+	{
+		return;
+	}
+	IRobotOsgViewHost* osg = m_host->osgView();
+	if (!osg)
+	{
+		return;
+	}
+	m_rawTrajectoryPreviewActive = false;
+	osg->clearRawTrajectoryOverlay();
+	osg->clearRawTrajectoryOverlayFrames();
+	osg->requestRedraw();
+}
+
+void RobotSimulationController::refreshBoundPathPlanPreview(
+	const RobotInstruction::RawTrajectory* preferRaw)
+{
+	if (!m_host)
+	{
+		return;
+	}
+	IRobotOsgViewHost* osg = m_host->osgView();
+	if (!osg)
+	{
+		return;
+	}
+
+	const RobotInstruction::RawTrajectory* src = preferRaw;
+	RobotInstruction::RawTrajectory stored;
+	if ((!src || src->points.empty()) && m_trajectoryEditSession)
+	{
+		if (const RobotInstruction::RawTrajectory* sessionRaw = m_trajectoryEditSession->rawTrajectory())
+		{
+			if (!sessionRaw->points.empty())
+			{
+				src = sessionRaw;
+			}
+		}
+	}
+	if ((!src || src->points.empty()) && m_trajectoryEditSession && m_host->document())
+	{
+		const std::string boundId = m_trajectoryEditSession->boundPathPlanId();
+		if (!boundId.empty()
+			&& m_host->document()->robotProgramStore().activeCatalog().pathPlanRaws().load(
+				boundId,
+				stored)
+			&& !stored.points.empty())
+		{
+			src = &stored;
+		}
+	}
+	if (!src || src->points.empty())
+	{
+		clearBoundPathPlanPreview();
+		return;
+	}
+
+	const std::string backendId = RobotInstruction::rawTrajectoryWorkpieceBackendId(*src);
+	if (backendId.empty())
+	{
+		m_rawTrajectoryPreviewActive = false;
+		return;
+	}
+
+	RobotOsgUi::RawTrajectoryPreviewOptions options;
+	if (FeatureTrajectoryPageWidget* feat = m_simulationDock ? m_simulationDock->featureTrajectoryPage() : nullptr)
+	{
+		options = feat->previewOptions();
+	}
+
+	std::string err;
+	feature_pick_transform::applyRawTrajectoryPreviewToOsg(osg, backendId, *src, options, &err);
+	if (!err.empty())
+	{
+		m_host->appendRunWarning(QString::fromStdString(err));
+		m_rawTrajectoryPreviewActive = false;
+		return;
+	}
+	m_rawTrajectoryPreviewActive = true;
+}
+
+void RobotSimulationController::refreshPathPlanRawOverlays()
+{
+	if (isTrajectoryGenerationTabActive())
+	{
+		if (shouldShowTrajectoryGenerationPreview())
+		{
+			refreshBoundPathPlanPreview();
+		}
+		else
+		{
+			clearBoundPathPlanPreview();
+		}
+		return;
+	}
+	if (!m_host)
+	{
+		return;
+	}
+	IRobotOsgViewHost* osg = m_host->osgView();
+	IRobotDocumentHost* doc = m_host->document();
+	if (!osg || !doc)
+	{
+		return;
+	}
+	RobotInstruction::RobotProgramCatalog& catalog = doc->robotProgramStore().activeCatalog();
+	const std::string programId = catalog.activeProgramId();
+	const std::vector<RobotInstruction::PathPlanInstruction*> pathPlans = catalog.listPathPlans(programId);
+
+	RobotOsgUi::RawTrajectoryPreviewOptions options;
+	if (FeatureTrajectoryPageWidget* feat = m_simulationDock ? m_simulationDock->featureTrajectoryPage() : nullptr)
+	{
+		options = feat->previewOptions();
+	}
+
+	std::vector<RobotOsgUi::RawTrajectoryOverlayVertex> mergedOverlay;
+	std::vector<std::size_t> mergedSegmentEnds;
+	std::vector<RobotInstruction::RawTrajectory> axisRawStore;
+	std::vector<std::pair<std::string, const RobotInstruction::RawTrajectory*>> axesSources;
+	axisRawStore.reserve(pathPlans.size());
+	axesSources.reserve(pathPlans.size());
+
+	for (const RobotInstruction::PathPlanInstruction* pp : pathPlans)
+	{
+		if (!pp)
+		{
+			continue;
+		}
+		if (!isPathPlanRawVisible(pp->id()))
+		{
+			continue;
+		}
+		RobotInstruction::RawTrajectory raw;
+		if (!catalog.pathPlanRaws().load(pp->id(), raw) || raw.points.empty())
+		{
+			continue;
+		}
+		const std::string backendId = RobotInstruction::rawTrajectoryWorkpieceBackendId(raw);
+		if (backendId.empty())
+		{
+			continue;
+		}
+		std::string err;
+		if (!feature_pick_transform::appendRawTrajectoryOverlayWorld(
+				osg,
+				backendId,
+				raw,
+				mergedOverlay,
+				mergedSegmentEnds,
+				&err))
+		{
+			if (!err.empty())
+			{
+				m_host->appendRunWarning(QString::fromStdString(err));
+			}
+			continue;
+		}
+		axisRawStore.push_back(std::move(raw));
+		axesSources.emplace_back(
+			backendId,
+			&axisRawStore.back());
+	}
+
+	if (mergedOverlay.empty())
+	{
+		m_rawTrajectoryPreviewActive = false;
+		osg->clearRawTrajectoryOverlay();
+		osg->clearRawTrajectoryOverlayFrames();
+		osg->requestRedraw();
+		return;
+	}
+
+	feature_pick_transform::finalizeOverlaySegmentEnds(mergedOverlay.size(), mergedSegmentEnds);
+
+	std::string err;
+	feature_pick_transform::applyMergedRawTrajectoryPreviewToOsg(
+		osg,
+		mergedOverlay,
+		mergedSegmentEnds,
+		axesSources,
+		options,
+		&err);
+	if (!err.empty())
+	{
+		m_host->appendRunWarning(QString::fromStdString(err));
+		m_rawTrajectoryPreviewActive = false;
+		return;
+	}
+	m_rawTrajectoryPreviewActive = true;
 }
 
 void RobotSimulationController::setRawTrajectoryPreviewActive(const bool active)

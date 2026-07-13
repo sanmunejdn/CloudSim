@@ -2,6 +2,8 @@
 #include "ProjectToGeometryOp.h"
 
 #include <cmath>
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -27,12 +29,16 @@ RobotInstruction::TrajectoryOpDescriptor ProjectToGeometryOp::makeDefaultDescrip
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::ProjectToGeometry;
 	op.scope = defaultScope;
-	op.project.directionFrame = RobotInstruction::TransformReferenceFrame::World;
-	op.project.directionX = 0.0;
-	op.project.directionY = 0.0;
-	op.project.directionZ = -1.0;
-	op.project.maxDistanceMm = 5000.0;
-	op.project.pointCloudHitRadiusMm = 2.0;
+	TrajectoryOpParamAccess::applyDefaults(op, *this);
+	RobotInstruction::ProjectToGeometryParams project = parseProjectParams(op.params);
+	project.directionFrame = RobotInstruction::TransformReferenceFrame::World;
+	project.directionX = 0.0;
+	project.directionY = 0.0;
+	project.directionZ = -1.0;
+	project.maxDistanceMm = 5000.0;
+	project.pointCloudHitRadiusMm = 2.0;
+	writeProjectParams(op.params, project);
+
 	return op;
 }
 
@@ -94,7 +100,7 @@ bool ProjectToGeometryOp::validate(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	std::string* errMsg) const
 {
-	if (op.project.targetBackendId.empty())
+	if (parseProjectParams(op.params).targetBackendId.empty())
 	{
 		if (errMsg)
 		{
@@ -103,9 +109,9 @@ bool ProjectToGeometryOp::validate(
 		return false;
 	}
 	const double len = std::sqrt(
-		op.project.directionX * op.project.directionX
-		+ op.project.directionY * op.project.directionY
-		+ op.project.directionZ * op.project.directionZ);
+		parseProjectParams(op.params).directionX * parseProjectParams(op.params).directionX
+		+ parseProjectParams(op.params).directionY * parseProjectParams(op.params).directionY
+		+ parseProjectParams(op.params).directionZ * parseProjectParams(op.params).directionZ);
 	if (len < 1e-6)
 	{
 		if (errMsg)
@@ -114,7 +120,7 @@ bool ProjectToGeometryOp::validate(
 		}
 		return false;
 	}
-	if (op.project.maxDistanceMm <= 0.0)
+	if (parseProjectParams(op.params).maxDistanceMm <= 0.0)
 	{
 		if (errMsg)
 		{
@@ -130,7 +136,7 @@ std::string ProjectToGeometryOp::formatSummary(
 	const bool chinese) const
 {
 	(void)chinese;
-	return std::string("ProjectToGeometry -> ") + op.project.targetBackendId;
+	return std::string("ProjectToGeometry -> ") + parseProjectParams(op.params).targetBackendId;
 }
 
 bool ProjectToGeometryOp::processPath(
@@ -150,7 +156,7 @@ bool ProjectToGeometryOp::processPath(
 	std::size_t missCount = 0;
 	return ctx.geometryProjection->project(
 		traj,
-		op.project,
+		parseProjectParams(op.params),
 		op.scope,
 		ctx.program,
 		&missCount,

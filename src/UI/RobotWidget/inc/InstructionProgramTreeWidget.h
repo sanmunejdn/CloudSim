@@ -15,6 +15,8 @@
 
 
 
+#include <functional>
+
 #include <memory>
 
 #include <string>
@@ -67,6 +69,8 @@ public:
 
 	void setGroupMembership(std::vector<RobotInstruction::InstructionGroup>* groups);
 
+	void setGroupVisibilityQuery(std::function<bool(const std::string& groupId)> query);
+
 	void rebuildFromProgram();
 
 	void syncToProgram();
@@ -109,6 +113,8 @@ signals:
 	void dissolveGroupRequested(const std::string& groupId);
 
 	void renameGroupRequested(const std::string& groupId, const QString& newName);
+
+	void groupVisibilityChangeRequested(const std::string& groupId, bool visible);
 
 
 
@@ -192,11 +198,15 @@ private:
 
 	void showContextMenu(const QPoint& globalPos);
 
+	std::string resolveGroupIdForContextItem(const QTreeWidgetItem* item) const;
+
 
 
 	std::vector<std::shared_ptr<RobotInstruction::Base>>* m_program = nullptr;
 
 	std::vector<RobotInstruction::InstructionGroup>* m_groups = nullptr;
+
+	std::function<bool(const std::string& groupId)> m_groupVisibilityQuery;
 
 	bool m_useChinese = false;
 

@@ -338,6 +338,9 @@ osg::ref_ptr<osg::Geode> createReachabilityOriginGeode(bool reachable)
 
 osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(
 	float axisLengthMm,
+	bool showX,
+	bool showY,
+	bool showZ,
 	bool alwaysVisible = false)
 {
 	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
@@ -346,20 +349,32 @@ osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(
 	const osg::Vec4 yColor = osg::Vec4(0.4f, 1.0f, 0.4f, 1.0f);
 	const osg::Vec4 zColor = osg::Vec4(0.4f, 0.6f, 1.0f, 1.0f);
 
-	verts->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
-	verts->push_back(osg::Vec3(axisLengthMm, 0.0f, 0.0f));
-	colors->push_back(xColor);
-	colors->push_back(xColor);
+	if (showX)
+	{
+		verts->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
+		verts->push_back(osg::Vec3(axisLengthMm, 0.0f, 0.0f));
+		colors->push_back(xColor);
+		colors->push_back(xColor);
+	}
+	if (showY)
+	{
+		verts->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
+		verts->push_back(osg::Vec3(0.0f, axisLengthMm, 0.0f));
+		colors->push_back(yColor);
+		colors->push_back(yColor);
+	}
+	if (showZ)
+	{
+		verts->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
+		verts->push_back(osg::Vec3(0.0f, 0.0f, axisLengthMm));
+		colors->push_back(zColor);
+		colors->push_back(zColor);
+	}
 
-	verts->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
-	verts->push_back(osg::Vec3(0.0f, axisLengthMm, 0.0f));
-	colors->push_back(yColor);
-	colors->push_back(yColor);
-
-	verts->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
-	verts->push_back(osg::Vec3(0.0f, 0.0f, axisLengthMm));
-	colors->push_back(zColor);
-	colors->push_back(zColor);
+	if (verts->empty())
+	{
+		return new osg::Geode;
+	}
 
 	osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
 	geom->setVertexArray(verts.get());
@@ -609,7 +624,7 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<RobotOsgUi::Instruction
 		(void)robotAsmRoot;
 		mt->setMatrix(m);
 		mt->addChild(createReachabilityOriginGeode(a.reachable).get());
-		mt->addChild(createInstructionPoseAxisGeode(40.0f).get());
+		mt->addChild(createInstructionPoseAxisGeode(40.0f, true, true, true).get());
 		m_instructionPoseAxesGroup->addChild(mt.get());
 		m_instructionPoseAxisNodes.push_back(mt);
 	}
@@ -700,6 +715,10 @@ void OsgWidget::setRawTrajectoryOverlay(
 				segStart = end;
 			}
 		}
+		if (segStart + 1U < points.size())
+		{
+			addLineStrip(segStart, points.size());
+		}
 	}
 
 	osg::ref_ptr<osg::Vec3Array> ptVerts = new osg::Vec3Array;
@@ -731,6 +750,13 @@ void OsgWidget::clearRawTrajectoryOverlay()
 	requestRedraw();
 }
 
+void OsgWidget::setRawTrajectoryOverlayAxisComponents(bool showX, bool showY, bool showZ)
+{
+	m_rawTrajShowAxisX = showX;
+	m_rawTrajShowAxisY = showY;
+	m_rawTrajShowAxisZ = showZ;
+}
+
 void OsgWidget::setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& frames)
 {
 	if (!m_trajectoryOverlayGroup.valid())
@@ -756,7 +782,14 @@ void OsgWidget::setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawT
 			static_cast<double>(f.positionMm.z()));
 		mt->setMatrix(m);
 		mt->addChild(createReachabilityOriginGeode(f.reachable).get());
-		mt->addChild(createInstructionPoseAxisGeode(axisLenMm).get());
+		if (m_rawTrajShowAxisX || m_rawTrajShowAxisY || m_rawTrajShowAxisZ)
+		{
+			mt->addChild(createInstructionPoseAxisGeode(
+				axisLenMm,
+				m_rawTrajShowAxisX,
+				m_rawTrajShowAxisY,
+				m_rawTrajShowAxisZ).get());
+		}
 		m_rawTrajectoryFramesGroup->addChild(mt.get());
 	}
 	requestRedraw();
@@ -850,7 +883,7 @@ void OsgWidget::setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverlayUpdate&
 			toolMt->setName(std::string("RobotToolFrame_") + te.name);
 			toolMt->setMatrix(te.localMatrix);
 			const float axisLen = te.active ? 100.0f : 75.0f;
-			toolMt->addChild(createInstructionPoseAxisGeode(axisLen, true).get());
+			toolMt->addChild(createInstructionPoseAxisGeode(axisLen, true, true, true, true).get());
 			if (mountOnParent(te.mountBackendId, toolMt.get()))
 			{
 				nodes.toolNodes.push_back(toolMt);
@@ -864,7 +897,7 @@ void OsgWidget::setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverlayUpdate&
 			osg::ref_ptr<osg::MatrixTransform> userMt = new osg::MatrixTransform;
 			userMt->setName(std::string("RobotUserFrame_") + ue.name);
 			userMt->setMatrix(ue.localMatrix);
-			userMt->addChild(createInstructionPoseAxisGeode(110.0f, true).get());
+			userMt->addChild(createInstructionPoseAxisGeode(110.0f, true, true, true, true).get());
 			if (mountOnParent(ue.mountBackendId, userMt.get()))
 			{
 				nodes.userNodes.push_back(userMt);

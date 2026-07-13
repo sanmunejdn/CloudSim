@@ -151,6 +151,69 @@ geoalgo::TemplateBrepUpdateParams buildTemplateBrepGeoParams(
 	return geoParams;
 }
 
+struct TemplateBrepScanSource
+{
+	std::shared_ptr<PointCloudBackendData> pointCloud;
+	std::shared_ptr<MeshBackendData> mesh;
+};
+
+bool resolveTemplateBrepScanSource(
+	cloudsim::host::DocumentHost* page,
+	const std::string& scanBackendIdUtf8,
+	TemplateBrepScanSource& out,
+	std::string* outError)
+{
+	out.pointCloud.reset();
+	out.mesh.reset();
+	if (!page)
+	{
+		if (outError)
+		{
+			*outError = "invalid document page";
+		}
+		return false;
+	}
+	out.pointCloud = document_point_cloud_ops::resolvePointCloud(page, scanBackendIdUtf8, nullptr);
+	if (out.pointCloud)
+	{
+		return true;
+	}
+	if (outError)
+	{
+		outError->clear();
+	}
+	out.mesh = document_point_cloud_ops::resolveMesh(page, scanBackendIdUtf8, outError);
+	if (out.mesh)
+	{
+		return true;
+	}
+	if (outError && outError->empty())
+	{
+		*outError = "scan must be a point cloud or mesh (Model)";
+	}
+	return false;
+}
+
+void buildScanWorkForTemplateBrep(
+	const TemplateBrepScanSource& source,
+	const std::vector<float>& storedXyz,
+	const std::vector<float>& storedNormals,
+	PointCloudBackendData& outWork)
+{
+	if (source.pointCloud)
+	{
+		std::vector<float> rgba = source.pointCloud->pointVertexRgba();
+		outWork.setPointBuffers(storedXyz, std::move(rgba), storedNormals);
+		outWork.setWorldMatrix(source.pointCloud->worldMatrix());
+		return;
+	}
+	outWork.setPointBuffers(storedXyz, {}, storedNormals);
+	if (source.mesh)
+	{
+		outWork.setWorldMatrix(source.mesh->worldMatrix());
+	}
+}
+
 const char* faceUpdateActionName(const geoalgo::FaceUpdateAction action)
 {
 	switch (action)
@@ -521,6 +584,246 @@ void PluginPointCloudHostImpl::rigidRegisterPointCloudsIcp(
 		});
 }
 
+namespace
+{
+
+point_cloud_backend_ops::PointCloudSpareParams buildSpareParams(const PluginPointCloudSpareParams& params)
+{
+	point_cloud_backend_ops::PointCloudSpareParams out;
+	out.sampleRadiusRatio = params.sampleRadiusRatio;
+	out.wSmo = params.wSmo;
+	out.wRot = params.wRot;
+	out.wArapCoarse = params.wArapCoarse;
+	out.wArapFine = params.wArapFine;
+	out.useSymmetricPointToPlane = params.useSymmetricPointToPlane;
+	out.useCoarseReg = params.useCoarseReg;
+	out.useFineReg = params.useFineReg;
+	out.normalizeScale = params.normalizeScale;
+	out.rigidPreAlign = params.rigidPreAlign;
+	out.coarseGlobalAlign = params.coarseGlobalAlign;
+	out.voxelPrefilterMm = params.voxelPrefilterMm;
+	out.maxOuterIters = params.maxOuterIters;
+	return out;
+}
+
+} // namespace
+
+void PluginPointCloudHostImpl::nonRigidRegisterSpare(
+	IPluginDocument* doc,
+	const std::string& sourceBackendIdUtf8,
+	const PluginPointCloudSpareParams& params,
+	PluginPointCloudFinishedFn onFinished)
+{
+	if (!m_host || !onFinished)
+	{
+		return;
+	}
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	std::string resolveErr;
+
+	struct SpareWorkResult
+	{
+		point_cloud_backend_ops::PointCloudSpareResult spare;
+		std::vector<float> newPointCloudXyz;
+		std::vector<float> newPointCloudNormals;
+		std::vector<float> newMeshSoup;
+		std::string error;
+		bool ok = false;
+	};
+	auto result = std::make_shared<SpareWorkResult>();
+	const point_cloud_backend_ops::PointCloudSpareParams coreParams = buildSpareParams(params);
+
+	const bool sourceIsMesh = params.sourceKind == PluginSpareSourceKind::Mesh;
+	const bool targetIsMesh = params.targetKind == PluginSpareTargetKind::Mesh;
+
+	std::shared_ptr<PointCloudBackendData> sourcePc;
+	std::shared_ptr<MeshBackendData> sourceMesh;
+	if (sourceIsMesh)
+	{
+		sourceMesh = document_point_cloud_ops::resolveMesh(page, sourceBackendIdUtf8, &resolveErr);
+		if (!sourceMesh)
+		{
+			onFinished(false, QString::fromStdString(resolveErr), {});
+			return;
+		}
+	}
+	else
+	{
+		sourcePc = document_point_cloud_ops::resolvePointCloud(page, sourceBackendIdUtf8, &resolveErr);
+		if (!sourcePc)
+		{
+			onFinished(false, QString::fromStdString(resolveErr), {});
+			return;
+		}
+	}
+
+	std::shared_ptr<PointCloudBackendData> targetPc;
+	std::shared_ptr<MeshBackendData> targetMesh;
+	if (targetIsMesh)
+	{
+		targetMesh = document_point_cloud_ops::resolveMesh(page, params.targetBackendIdUtf8, &resolveErr);
+		if (!targetMesh)
+		{
+			onFinished(false, QString::fromStdString(resolveErr), {});
+			return;
+		}
+	}
+	else
+	{
+		targetPc = document_point_cloud_ops::resolvePointCloud(page, params.targetBackendIdUtf8, &resolveErr);
+		if (!targetPc)
+		{
+			onFinished(false, QString::fromStdString(resolveErr), {});
+			return;
+		}
+	}
+
+	m_host->enqueueJob(
+		QStringLiteral("SPARE non-rigid registration"),
+		[sourceIsMesh, targetIsMesh, sourcePc, sourceMesh, targetPc, targetMesh, coreParams, result](
+			const PluginJobProgressFn& report) {
+			report(0.15, QStringLiteral("Running SPARE..."));
+			if (sourceIsMesh)
+			{
+				auto meshCopy = std::make_shared<MeshBackendData>();
+				meshCopy->setTriangleSoup(sourceMesh->triangleSoup());
+				result->ok = point_cloud_backend_ops::nonRigidRegisterMeshSpare(
+					*meshCopy,
+					targetIsMesh ? nullptr : targetPc.get(),
+					targetIsMesh ? targetMesh.get() : nullptr,
+					result->spare,
+					coreParams,
+					&result->error);
+				if (result->ok)
+				{
+					result->newMeshSoup = meshCopy->triangleSoup();
+				}
+			}
+			else if (targetIsMesh)
+			{
+				auto pcCopy = std::make_shared<PointCloudBackendData>();
+				pcCopy->setPointBuffers(
+					sourcePc->pointPositionsXyz(),
+					sourcePc->pointVertexRgba(),
+					sourcePc->pointNormalsNxNyNz());
+				result->ok = point_cloud_backend_ops::nonRigidRegisterPointCloudToMeshSpare(
+					*pcCopy,
+					*targetMesh,
+					result->spare,
+					coreParams,
+					&result->error);
+				if (result->ok)
+				{
+					result->newPointCloudXyz = pcCopy->pointPositionsXyz();
+					result->newPointCloudNormals = pcCopy->pointNormalsNxNyNz();
+				}
+			}
+			else
+			{
+				auto pcCopy = std::make_shared<PointCloudBackendData>();
+				pcCopy->setPointBuffers(
+					sourcePc->pointPositionsXyz(),
+					sourcePc->pointVertexRgba(),
+					sourcePc->pointNormalsNxNyNz());
+				result->ok = point_cloud_backend_ops::nonRigidRegisterPointCloudsSpare(
+					*pcCopy,
+					*targetPc,
+					result->spare,
+					coreParams,
+					&result->error);
+				if (result->ok)
+				{
+					result->newPointCloudXyz = pcCopy->pointPositionsXyz();
+					result->newPointCloudNormals = pcCopy->pointNormalsNxNyNz();
+				}
+			}
+			report(1.0, QStringLiteral("Done"));
+		},
+		[m_host = m_host, page, sourceIsMesh, sourcePc, sourceMesh, params, result, onFinished = std::move(onFinished)](
+			const bool threw, const QString& throwMessage) {
+			PluginPointCloudJobResult jobResult;
+			if (threw)
+			{
+				onFinished(false, throwMessage, jobResult);
+				return;
+			}
+			if (!result->ok)
+			{
+				onFinished(false, QString::fromStdString(result->error), jobResult);
+				return;
+			}
+			jobResult.rmseMm = result->spare.meanErrorMm;
+			jobResult.spareDeformationNodeCount = result->spare.deformationNodeCount;
+
+			if (sourceIsMesh)
+			{
+				if (params.createNewObject)
+				{
+					auto meshPtr = std::make_shared<MeshBackendData>();
+					meshPtr->setTriangleSoup(result->newMeshSoup);
+					PluginMeshCreateOptions options = params.newObjectOptions;
+					if (options.displayName.isEmpty())
+					{
+						const QString base = QString::fromStdString(sourceMesh->name());
+						options.displayName = base.isEmpty() ? QStringLiteral("SPARE") : base + QStringLiteral("_SPARE");
+					}
+					options.selectInTree = true;
+					options.sourcePath = QStringLiteral("plugin://pointcloud/spare");
+					std::string regErr;
+					jobResult.newBackendId = document_point_cloud_ops::registerReconstructedMesh(
+						page, m_host->mainWindowHost(), meshPtr, options, &regErr);
+					if (jobResult.newBackendId.empty())
+					{
+						onFinished(false, QString::fromStdString(regErr), jobResult);
+						return;
+					}
+					jobResult.pointCountAfter = meshPtr->triangleSoup().size() / 9U;
+				}
+				else if (params.applyDeformationToSource)
+				{
+					sourceMesh->setTriangleSoup(result->newMeshSoup);
+					if (OsgWidget* osg = widgetOsgFromPage(page))
+					{
+						QString geomErr;
+						(void)osg->loadMeshFromBackendData(*sourceMesh, &geomErr, false, true, true);
+					}
+					jobResult.pointCountAfter = sourceMesh->triangleSoup().size() / 9U;
+				}
+			}
+			else if (params.createNewObject)
+			{
+				auto newPc = std::make_shared<PointCloudBackendData>();
+				newPc->setName(sourcePc->name() + "_spare");
+				newPc->setPointBuffers(
+					std::move(result->newPointCloudXyz),
+					sourcePc->pointVertexRgba(),
+					std::move(result->newPointCloudNormals));
+				cloudsim::host::AdoptPointCloudOptions adoptOpt;
+				adoptOpt.sourcePath = QStringLiteral("plugin://pointcloud/spare");
+				QString regErr;
+				const cloudsim::host::AdoptRegistrationResult adopted =
+					cloudsim::host::registerAdoptedPointCloud(*page, newPc, adoptOpt, &regErr);
+				if (!adopted.ok)
+				{
+					onFinished(false, regErr, jobResult);
+					return;
+				}
+				jobResult.newBackendId = adopted.backendId.toStdString();
+				jobResult.pointCountAfter = newPc->geometryElementCount();
+			}
+			else if (params.applyDeformationToSource)
+			{
+				sourcePc->setPointBuffers(
+					std::move(result->newPointCloudXyz),
+					sourcePc->pointVertexRgba(),
+					std::move(result->newPointCloudNormals));
+				document_point_cloud_ops::commitPointCloudVisual(page, *sourcePc);
+				jobResult.pointCountAfter = sourcePc->geometryElementCount();
+			}
+			onFinished(true, QString(), jobResult);
+		});
+}
+
 void PluginPointCloudHostImpl::deformPointCloudTpsFromControls(
 	IPluginDocument* doc,
 	const std::string& backendIdUtf8,
@@ -866,8 +1169,8 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 	}
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
 	std::string resolveErr;
-	const auto scan = document_point_cloud_ops::resolvePointCloud(page, scanBackendIdUtf8, &resolveErr);
-	if (!scan)
+	TemplateBrepScanSource scanSource;
+	if (!resolveTemplateBrepScanSource(page, scanBackendIdUtf8, scanSource, &resolveErr))
 	{
 		onFinished(false, QString::fromStdString(resolveErr), {});
 		return;
@@ -902,14 +1205,23 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 	}
 
 	std::vector<float> scanXyzStored;
+	std::vector<float> scanNormalsStored;
 	std::size_t scanPointCount = 0U;
+	bool scanIsMesh = false;
 	std::string scanPrepErr;
-	if (!document_point_cloud_ops::prepareScanPointCloudForRegistration(
-			page, scanBackendIdUtf8, scanXyzStored, scanPointCount, &scanPrepErr))
+	if (!document_point_cloud_ops::prepareScanForTemplateRegistration(
+			page,
+			scanBackendIdUtf8,
+			scanXyzStored,
+			scanNormalsStored,
+			scanPointCount,
+			scanIsMesh,
+			&scanPrepErr))
 	{
 		onFinished(false, QString::fromStdString(scanPrepErr), {});
 		return;
 	}
+	(void)scanIsMesh;
 
 	{
 		std::vector<float> templateSoupXyz;
@@ -962,14 +1274,12 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 
 	m_host->enqueueJob(
 		QStringLiteral("Register scan to CAD template"),
-		[scan, templateBrep, params, templateStepPath, scanXyzStored, result, registrationCheckpointPtr](
+		[scanSource, templateBrep, params, templateStepPath, scanXyzStored, scanNormalsStored, result, registrationCheckpointPtr](
 			const PluginJobProgressFn& report) {
 			report(0.05, QStringLiteral("Preparing..."));
 
 			PointCloudBackendData scanWork;
-			std::vector<float> scanRgba = scan->pointVertexRgba();
-			scanWork.setPointBuffers(scanXyzStored, std::move(scanRgba), {});
-			scanWork.setWorldMatrix(scan->worldMatrix());
+			buildScanWorkForTemplateBrep(scanSource, scanXyzStored, scanNormalsStored, scanWork);
 
 			const geoalgo::TemplateBrepUpdateParams geoParams = buildTemplateBrepGeoParams(params);
 
@@ -984,7 +1294,7 @@ void PluginPointCloudHostImpl::registerScanToCadTemplate(
 				registrationCheckpointPtr);
 			report(1.0, QStringLiteral("Registration done"));
 		},
-		[this, m_host = m_host, page, scan, doc, params, scanBackendIdUtf8, templateStepPath, templateBrep, scanXyzStored, result, checkpointBeforeJob, onFinished = onFinishedFinal](
+		[this, m_host = m_host, page, scanSource, doc, params, scanBackendIdUtf8, templateStepPath, templateBrep, scanXyzStored, result, checkpointBeforeJob, onFinished = onFinishedFinal](
 			const bool threw, const QString& throwMessage) {
 			PluginPointCloudTemplateBrepRegisterResult registerResult;
 			if (threw)
@@ -1183,7 +1493,7 @@ void PluginPointCloudHostImpl::updateTemplateBrepFromAlignedScan(
 	{
 		onFinished(
 			false,
-			QStringLiteral("Last registration RMSE is too high for face update; re-run matching after re-aligning the point cloud"),
+			QStringLiteral("Last registration RMSE is too high for face update; re-run matching after re-aligning the scan data"),
 			{});
 		return;
 	}
@@ -1211,22 +1521,44 @@ void PluginPointCloudHostImpl::updateTemplateBrepFromAlignedScan(
 	PluginPointCloudTemplateBrepUpdateFinishedFn onFinishedFinal = std::move(onFinished);
 
 	const TemplateBrepAlignCache cacheCopy = m_templateBrepAlignCache;
-	const auto scan = document_point_cloud_ops::resolvePointCloud(page, scanBackendIdUtf8, &resolveErr);
-	if (!scan)
+	TemplateBrepScanSource scanSource;
+	if (!resolveTemplateBrepScanSource(page, scanBackendIdUtf8, scanSource, &resolveErr))
 	{
 		onFinished(false, QString::fromStdString(resolveErr), {});
 		return;
 	}
 
+	std::vector<float> scanXyzStored;
+	std::vector<float> scanNormalsStored;
+	std::size_t scanPointCount = 0U;
+	bool scanIsMesh = false;
+	std::string scanPrepErr;
+	if (!document_point_cloud_ops::prepareScanForTemplateRegistration(
+			page,
+			scanBackendIdUtf8,
+			scanXyzStored,
+			scanNormalsStored,
+			scanPointCount,
+			scanIsMesh,
+			&scanPrepErr))
+	{
+		onFinished(false, QString::fromStdString(scanPrepErr), {});
+		return;
+	}
+	(void)scanIsMesh;
+
 	m_host->enqueueJob(
 		QStringLiteral("Update B-rep faces"),
-		[templateBrep, scan, params, templateStepPath, cacheCopy, result](const PluginJobProgressFn& report) {
+		[templateBrep, scanSource, scanXyzStored, scanNormalsStored, params, templateStepPath, cacheCopy, result](
+			const PluginJobProgressFn& report) {
 			report(0.1, QStringLiteral("Updating faces..."));
 			const geoalgo::TemplateBrepUpdateParams geoParams = buildTemplateBrepGeoParams(params);
 			result->report = cacheCopy.report;
+			PointCloudBackendData scanWork;
+			buildScanWorkForTemplateBrep(scanSource, scanXyzStored, scanNormalsStored, scanWork);
 			result->ok = geometry_backend_ops::updateBrepFromAlignedScan(
 				*templateBrep,
-				*scan,
+				scanWork,
 				geoParams,
 				*result->brep,
 				result->report,
@@ -1237,6 +1569,7 @@ void PluginPointCloudHostImpl::updateTemplateBrepFromAlignedScan(
 		[m_host = m_host,
 			page,
 			templateBrep,
+			scanSource,
 			params,
 			templateStepPath,
 			scanBackendIdUtf8,
@@ -1332,12 +1665,19 @@ void PluginPointCloudHostImpl::updateTemplateBrepFromAlignedScan(
 				osg->setBackendObjectVisible(result->brep->id(), true);
 				osg->focusCameraOnBackend(result->brep->id());
 			}
-			if (const auto scan = document_point_cloud_ops::resolvePointCloud(page, scanBackendIdUtf8, nullptr))
+			if (const auto scan = scanSource.pointCloud)
 			{
 				document_point_cloud_ops::commitPointCloudVisual(page, *scan);
 				if (OsgWidget* osg = widgetOsgFromPage(page))
 				{
 					osg->setBackendObjectVisible(scan->id(), true);
+				}
+			}
+			else if (const auto mesh = scanSource.mesh)
+			{
+				if (OsgWidget* osg = widgetOsgFromPage(page))
+				{
+					osg->setBackendObjectVisible(mesh->id(), true);
 				}
 			}
 			if (m_host)
@@ -1498,6 +1838,12 @@ geoalgo::MeshSurfaceReconstructParams buildMeshSurfaceReconstructGeoParams(
 	case PluginMeshSurfacePartitionMode::HybridNormalCvt:
 		geoParams.partitionMode = geoalgo::MeshSurfacePartitionMode::HybridNormalCvt;
 		break;
+	case PluginMeshSurfacePartitionMode::CgalChartHybrid:
+		geoParams.partitionMode = geoalgo::MeshSurfacePartitionMode::CgalChartHybrid;
+		break;
+	case PluginMeshSurfacePartitionMode::AmrtoImGmcg:
+		geoParams.partitionMode = geoalgo::MeshSurfacePartitionMode::AmrtoImGmcg;
+		break;
 	case PluginMeshSurfacePartitionMode::GeodesicVoronoiV3:
 	default:
 		geoParams.partitionMode = geoalgo::MeshSurfacePartitionMode::GeodesicVoronoiV3;
@@ -1553,6 +1899,21 @@ geoalgo::MeshSurfaceReconstructParams buildMeshSurfaceReconstructGeoParams(
 	geoParams.fairingEpsilon = params.fairingEpsilon;
 	geoParams.fairingMaxIterations = params.fairingMaxIterations;
 	geoParams.tessellateLinearDeflectionMm = params.tessellateLinearDeflectionMm;
+	geoParams.harmonicBoundaryMode = params.harmonicBoundaryMode == PluginMeshSurfaceHarmonicBoundaryMode::Circular
+		? geoalgo::MeshSurfaceHarmonicBoundaryMode::Circular
+		: geoalgo::MeshSurfaceHarmonicBoundaryMode::GeodesicSquare;
+	geoParams.harmonicMaxFaces = params.harmonicMaxFaces;
+	geoParams.sdfSeedBlendWeight = params.sdfSeedBlendWeight;
+	geoParams.sdfSegmentCount = params.sdfSegmentCount;
+	geoParams.gmcgBackend = static_cast<geoalgo::MeshSurfaceGmcgBackend>(static_cast<int>(params.gmcgBackend));
+	geoParams.instantMeshesTargetQuads = params.instantMeshesTargetQuads;
+	geoParams.instantMeshesExePath = params.instantMeshesExePath;
+	geoParams.amrtoFallbackGoldenOnImFailure = params.amrtoFallbackGoldenOnImFailure;
+	geoParams.enableMultiResolutionFit = params.enableMultiResolutionFit;
+	geoParams.multiResolutionLayers = params.multiResolutionLayers;
+	geoParams.multiResolutionDensityScale = params.multiResolutionDensityScale;
+	geoParams.fairingProtectBoundaries = params.fairingProtectBoundaries;
+	geoParams.blendStripDepth = params.blendStripDepth;
 	return geoParams;
 }
 
@@ -1596,6 +1957,10 @@ void copyGeoReportFields(PluginMeshSurfaceReconstructReport& out, const geoalgo:
 	out.fitRejectFitGrid = report.fitRejectFitGrid;
 	out.fitRejectFullGrid = report.fitRejectFullGrid;
 	out.fitRejectMakeFace = report.fitRejectMakeFace;
+	out.avgCtrlPtsPerPatch = report.avgCtrlPtsPerPatch;
+	out.totalCtrlPts = report.totalCtrlPts;
+	out.multiResolutionReducedCount = report.multiResolutionReducedCount;
+	out.geodesicSquareHarmonicCount = report.geodesicSquareHarmonicCount;
 }
 
 QString formatSurfaceReconStageSummaryZh(
@@ -1641,6 +2006,16 @@ QString formatSurfaceReconStageSummaryZh(
 			.arg(report.avgFacesPerPatch, 0, 'f', 1)
 			.arg(report.smallPatchCount);
 	case PluginMeshSurfaceReconstructStage::Sample:
+		if (report.geodesicSquareHarmonicCount > 0)
+		{
+			return QStringLiteral(
+				"栅格采样完成：测地 square-border 调和 %1 片，AMRTO 调和共 %2 片，UV 最大 %3×%4，总采样点 %5 个")
+				.arg(report.geodesicSquareHarmonicCount)
+				.arg(report.amrtoHarmonicSampleCount)
+				.arg(report.gridNuMax > 0 ? report.gridNuMax + 1 : samplesPerPatchEdge + 1)
+				.arg(report.gridNvMax > 0 ? report.gridNvMax + 1 : samplesPerPatchEdge + 1)
+				.arg(report.totalSamplePoints);
+		}
 		if (report.amrtoHarmonicSampleCount > 0)
 		{
 			return QStringLiteral("栅格采样完成：AMRTO 调和 %1 片，UV 最大 %2×%3，总采样点 %4 个")
@@ -1674,6 +2049,14 @@ QString formatSurfaceReconStageSummaryZh(
 				.arg(report.fitRejectFitGrid)
 				.arg(report.fitRejectFullGrid)
 				.arg(report.fitRejectMakeFace);
+		}
+		if (report.multiResolutionReducedCount > 0 || report.avgCtrlPtsPerPatch > 0.0)
+		{
+			return QStringLiteral("拟合完成：NURBS %1 片，三角回退 %2 片，多分辨率缩减 %3 片，平均控制点 %4")
+				.arg(report.nurbsPatchCount > 0 ? report.nurbsPatchCount : report.bsplinePatchCount)
+				.arg(report.planeFallbackCount)
+				.arg(report.multiResolutionReducedCount)
+				.arg(report.avgCtrlPtsPerPatch, 0, 'f', 1);
 		}
 		return QStringLiteral("拟合完成：NURBS %1 片，三角回退 %2 片")
 			.arg(report.nurbsPatchCount > 0 ? report.nurbsPatchCount : report.bsplinePatchCount)

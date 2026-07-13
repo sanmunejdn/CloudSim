@@ -135,6 +135,16 @@ bool restoreTemplateShapeFromStep(
 	const std::string& templateStepPathUtf8,
 	std::string* outError = nullptr);
 
+/// 校验扫描 backend（点云或 mesh）；输出几何系 xyz（mesh 为 soup 采样）
+bool prepareScanForTemplateRegistration(
+	cloudsim::host::DocumentHost* page,
+	const std::string& scanBackendIdUtf8,
+	std::vector<float>& outStoredXyz,
+	std::vector<float>& outStoredNormals,
+	std::size_t& outPointCount,
+	bool& outIsMeshScan,
+	std::string* outError = nullptr);
+
 /// 校验点云 backend 缓冲；异常时从源 PLY 重载，输出 stored 系 xyz
 bool prepareScanPointCloudForRegistration(
 	cloudsim::host::DocumentHost* page,

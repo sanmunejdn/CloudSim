@@ -242,23 +242,24 @@ bool blendMatchedBorderPair(
 	TColgp_Array2OfPnt& pa,
 	TColgp_Array2OfPnt& pb,
 	const MatchedBorder& match,
+	const int stripDepth,
 	int& outCtrlPtCount,
 	double& outMaxMove)
 {
 	const int countA = borderSampleCount(pa, match.borderA);
 	const int countB = borderSampleCount(pb, match.borderB);
-	const int stripDepth = std::min(
-		3,
+	const int depthLimit = std::min(
+		stripDepth,
 		std::min(maxInwardDepth(pa, match.borderA), maxInwardDepth(pb, match.borderB)));
-	if (stripDepth < 1 || match.resampleCount < 2)
+	if (depthLimit < 1 || match.resampleCount < 2)
 	{
 		return false;
 	}
 
 	bool moved = false;
-	for (int depth = 1; depth <= stripDepth; ++depth)
+	for (int depth = 1; depth <= depthLimit; ++depth)
 	{
-		const double w = boundaryBlendWeight(static_cast<double>(depth) / 3.0);
+		const double w = boundaryBlendWeight(static_cast<double>(depth) / static_cast<double>(std::max(1, depthLimit)));
 		for (int i = 0; i < match.resampleCount; ++i)
 		{
 			const int ia = mapBorderSampleIndex(countA, i, match.resampleCount, match.reverseA);
@@ -280,6 +281,38 @@ bool blendMatchedBorderPair(
 			}
 			setStripPole(pa, match.borderA, ia, depth, blend);
 			setStripPole(pb, match.borderB, ib, depth, blend);
+
+			// 二阶导代理：对齐边界内侧一行
+			if (depth == 1 && depthLimit >= 2)
+			{
+				const gp_Pnt bA = borderPole(pa, match.borderA, ia);
+				const gp_Pnt bB = borderPole(pb, match.borderB, ib);
+				const gp_Pnt innerA = stripPole(pa, match.borderA, ia, 2);
+				const gp_Pnt innerB = stripPole(pb, match.borderB, ib, 2);
+				const gp_Pnt curvA(
+					innerA.X() - 2.0 * bA.X() + pA.X(),
+					innerA.Y() - 2.0 * bA.Y() + pA.Y(),
+					innerA.Z() - 2.0 * bA.Z() + pA.Z());
+				const gp_Pnt curvB(
+					innerB.X() - 2.0 * bB.X() + pB.X(),
+					innerB.Y() - 2.0 * bB.Y() + pB.Y(),
+					innerB.Z() - 2.0 * bB.Z() + pB.Z());
+				const gp_Pnt curvBlend(
+					curvA.X() * w + curvB.X() * (1.0 - w),
+					curvA.Y() * w + curvB.Y() * (1.0 - w),
+					curvA.Z() * w + curvB.Z() * (1.0 - w));
+				const gp_Pnt innerBlendA(
+					2.0 * bA.X() - pA.X() + curvBlend.X(),
+					2.0 * bA.Y() - pA.Y() + curvBlend.Y(),
+					2.0 * bA.Z() - pA.Z() + curvBlend.Z());
+				const gp_Pnt innerBlendB(
+					2.0 * bB.X() - pB.X() + curvBlend.X(),
+					2.0 * bB.Y() - pB.Y() + curvBlend.Y(),
+					2.0 * bB.Z() - pB.Z() + curvBlend.Z());
+				setStripPole(pa, match.borderA, ia, 2, innerBlendA);
+				setStripPole(pb, match.borderB, ib, 2, innerBlendB);
+				outCtrlPtCount += 2;
+			}
 		}
 	}
 	return moved;
@@ -294,8 +327,8 @@ bool applyBoundaryC2Blend(
 	MeshSurfaceReconstructReport* report,
 	std::string* errMsg)
 {
-	(void)params;
 	outBlendOk = true;
+	const int stripDepth = params.blendStripDepth > 0 ? params.blendStripDepth : 3;
 
 	int pairCount = 0;
 	int ctrlPtCount = 0;
@@ -324,7 +357,7 @@ bool applyBoundaryC2Blend(
 				continue;
 			}
 
-			bool pairHasMove = blendMatchedBorderPair(pa, pb, match, ctrlPtCount, maxMove);
+			bool pairHasMove = blendMatchedBorderPair(pa, pb, match, stripDepth, ctrlPtCount, maxMove);
 			if (!tryRebuildBsplineSurface(a.surface, pa, a.surface)
 				|| !tryRebuildBsplineSurface(b.surface, pb, b.surface))
 			{

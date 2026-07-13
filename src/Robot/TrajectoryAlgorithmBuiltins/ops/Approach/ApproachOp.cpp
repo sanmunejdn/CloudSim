@@ -5,6 +5,8 @@
 
 #include <cmath>
 #include <cstdio>
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -97,18 +99,18 @@ RobotInstruction::TrajectoryOpDescriptor ApproachOp::makeDefaultDescriptor(
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Approach;
 	op.scope = defaultScope;
-	op.approach.distanceMm = 20.0;
-	op.approach.directionMode = RobotInstruction::ApproachDirectionMode::SurfaceNormal;
-	op.approach.insertMode = RobotInstruction::InsertMode::Trajectory;
-	op.approach.segmentSelectMode = RobotInstruction::SegmentSelectMode::AllSegments;
-	op.approach.segmentFrom = 1;
-	op.approach.segmentTo = 1;
-	op.approach.directionFrame = RobotInstruction::TransformReferenceFrame::World;
-	op.approach.customDirectionX = 0.0;
-	op.approach.customDirectionY = 0.0;
-	op.approach.customDirectionZ = -1.0;
-	op.approach.overrideSpeedEnabled = false;
-	op.approach.speedMmPerSec = 100.0;
+	TrajectoryOpParamAccess::applyDefaults(op, *this);
+	RobotInstruction::ApproachParams approach = parseApproachParams(op.params);
+	approach.distanceMm = 20.0;
+	approach.directionMode = RobotInstruction::ApproachDirectionMode::SurfaceNormal;
+	approach.directionFrame = RobotInstruction::TransformReferenceFrame::World;
+	approach.customDirectionZ = -1.0;
+	approach.insertMode = RobotInstruction::InsertMode::Trajectory;
+	approach.segmentSelectMode = RobotInstruction::SegmentSelectMode::AllSegments;
+	approach.segmentFrom = 1;
+	approach.segmentTo = 1;
+	writeApproachParams(op.params, approach);
+
 	return op;
 }
 
@@ -212,7 +214,7 @@ std::vector<TrajectoryOpParamField> ApproachOp::paramFields() const
 
 bool ApproachOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, std::string* errMsg) const
 {
-	if (op.approach.distanceMm < 0.0)
+	if (parseApproachParams(op.params).distanceMm < 0.0)
 	{
 		if (errMsg)
 		{
@@ -220,7 +222,7 @@ bool ApproachOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, st
 		}
 		return false;
 	}
-	if (op.approach.segmentFrom < 1 || op.approach.segmentTo < op.approach.segmentFrom)
+	if (parseApproachParams(op.params).segmentFrom < 1 || parseApproachParams(op.params).segmentTo < parseApproachParams(op.params).segmentFrom)
 	{
 		if (errMsg)
 		{
@@ -228,12 +230,12 @@ bool ApproachOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, st
 		}
 		return false;
 	}
-	if (op.approach.directionMode == RobotInstruction::ApproachDirectionMode::Custom)
+	if (parseApproachParams(op.params).directionMode == RobotInstruction::ApproachDirectionMode::Custom)
 	{
 		const double len = std::sqrt(
-			op.approach.customDirectionX * op.approach.customDirectionX
-			+ op.approach.customDirectionY * op.approach.customDirectionY
-			+ op.approach.customDirectionZ * op.approach.customDirectionZ);
+			parseApproachParams(op.params).customDirectionX * parseApproachParams(op.params).customDirectionX
+			+ parseApproachParams(op.params).customDirectionY * parseApproachParams(op.params).customDirectionY
+			+ parseApproachParams(op.params).customDirectionZ * parseApproachParams(op.params).customDirectionZ);
 		if (len < 1e-6)
 		{
 			if (errMsg)
@@ -256,9 +258,9 @@ std::string ApproachOp::formatSummary(
 		sizeof(buffer),
 		chinese ? "进刀 | 距离%.2f | %s | 段:%s"
 				: "Approach | Dist %.2f | %s | Seg:%s",
-		op.approach.distanceMm,
-		directionLabel(static_cast<int>(op.approach.directionMode), chinese),
-		segmentLabel(static_cast<int>(op.approach.segmentSelectMode), chinese));
+		parseApproachParams(op.params).distanceMm,
+		directionLabel(static_cast<int>(parseApproachParams(op.params).directionMode), chinese),
+		segmentLabel(static_cast<int>(parseApproachParams(op.params).segmentSelectMode), chinese));
 	return buffer;
 }
 
@@ -269,7 +271,7 @@ bool ApproachOp::processPath(
 	std::string* errMsg) const
 {
 	(void)errMsg;
-	insertApproachInScope(traj, op.approach, op.scope, ctx.program);
+	insertApproachInScope(traj, parseApproachParams(op.params), op.scope, ctx.program);
 	return true;
 }
 

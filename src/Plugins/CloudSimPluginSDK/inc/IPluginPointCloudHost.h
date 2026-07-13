@@ -113,7 +113,7 @@ public:
 		const PluginPointCloudReconstructScaleSpaceParams& params,
 		PluginPointCloudFinishedFn onFinished) = 0;
 
-	/// 1.8.0+：扫描点云与 CAD 模板 ICP 配准（不写回 B-rep）
+	/// 1.8.0+：扫描数据（点云或 Model 网格）与 CAD 模板 ICP 配准（不写回 B-rep）
 	virtual void registerScanToCadTemplate(
 		IPluginDocument* doc,
 		const std::string& scanBackendIdUtf8,
@@ -229,4 +229,12 @@ public:
 	virtual void clearTubularGrindingSession(
 		IPluginDocument* doc,
 		const PluginTubularGrindingSessionId& sessionId) = 0;
+
+	/// 1.16.0+：SPARE 非刚性配准（点云/网格源 → 点云/网格目标）
+	/// 必须追加在接口末尾，禁止在中间插入虚函数（会破坏插件/宿主 vtable 兼容）
+	virtual void nonRigidRegisterSpare(
+		IPluginDocument* doc,
+		const std::string& sourceBackendIdUtf8,
+		const PluginPointCloudSpareParams& params,
+		PluginPointCloudFinishedFn onFinished) = 0;
 };

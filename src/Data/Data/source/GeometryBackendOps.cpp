@@ -8,7 +8,8 @@
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 
-#include <FeatureSpec.h>
+#include <FeatureDiscretizerBridge.h>
+#include <ShapeQuery.h>
 #include <MeshDiscretize.h>
 #include <Discretize.h>
 #include <Downsample.h>
@@ -4048,31 +4049,33 @@ WorkpieceShapeSource resolveWorkpieceShape(
 	return WorkpieceShapeSource::Unavailable;
 }
 
-bool discretizeFeature(const geoalgo::FeatureSpec& spec, geoalgo::RawPath& out, std::string* errMsg)
+bool discretizeFeatureList(const geoalgo::FeatureListDocument& doc, geoalgo::RawPath& out, std::string* errMsg)
 {
-	return geoalgo::discretizeFeature(spec, out, errMsg);
+	return geoalgo::discretizeFeatureList(doc, out, errMsg);
 }
 
-bool discretizeFeature(
-	const geoalgo::FeatureSpec& spec,
+bool discretizeFeatureList(
+	const geoalgo::FeatureListDocument& doc,
 	const geoalgo::ShapeHandle& shape,
 	geoalgo::RawPath& out,
 	std::string* errMsg)
 {
-	return geoalgo::discretizeFeature(spec, shape, out, errMsg);
+	return geoalgo::discretizeFeatureList(doc, shape, out, errMsg);
 }
 
-bool discretizeFeatures(
-	const std::vector<geoalgo::FeatureSpec>& specs,
-	std::vector<geoalgo::RawPath>& out,
-	std::string* errMsg)
+bool featureListFromJson(const std::string& jsonUtf8, geoalgo::FeatureListDocument& out, std::string* errMsg)
 {
-	return geoalgo::discretizeFeatures(specs, out, errMsg);
+	return geoalgo::featureListFromJson(jsonUtf8, out, errMsg);
 }
 
-bool validateFeatureSpec(const geoalgo::FeatureSpec& spec, std::string* errMsg)
+std::string featureListToJson(const geoalgo::FeatureListDocument& doc)
 {
-	return geoalgo::validateFeatureSpecWithShape(spec, errMsg);
+	return geoalgo::featureListToJson(doc);
+}
+
+bool validateFeatureListDocument(const geoalgo::FeatureListDocument& doc, std::string* errMsg)
+{
+	return geoalgo::validateFeatureListDocument(doc, errMsg);
 }
 
 bool enumerateFeatureCatalog(
@@ -4092,16 +4095,6 @@ bool enumerateFeatureCatalog(
 	return geoalgo::enumerateFeatureCatalog(workpiece, shape, out, errMsg);
 }
 
-bool featureSpecFromJson(const std::string& jsonUtf8, geoalgo::FeatureSpec& out, std::string* errMsg)
-{
-	return geoalgo::featureSpecFromJson(jsonUtf8, out, errMsg);
-}
-
-std::string featureSpecToJson(const geoalgo::FeatureSpec& spec)
-{
-	return geoalgo::featureSpecToJson(spec);
-}
-
 std::string featureCatalogToJson(const geoalgo::FeatureCatalog& catalog)
 {
 	return geoalgo::featureCatalogToJson(catalog);
@@ -4110,7 +4103,7 @@ std::string featureCatalogToJson(const geoalgo::FeatureCatalog& catalog)
 bool suggestFeaturesFromCatalog(
 	const geoalgo::FeatureCatalog& catalog,
 	const std::string& intentUtf8,
-	std::vector<geoalgo::FeatureSpec>& out,
+	geoalgo::FeatureListDocument& out,
 	std::string* errMsg)
 {
 	return geoalgo::suggestFeaturesFromCatalog(catalog, intentUtf8, out, errMsg);
@@ -4118,27 +4111,81 @@ bool suggestFeaturesFromCatalog(
 
 bool computeFeatureAnchor(
 	const geoalgo::WorkpieceRef& workpiece,
-	const geoalgo::FeatureRefs& refs,
+	const geoalgo::FeatureGeometry& geometry,
 	geoalgo::FeatureAnchor& out,
 	std::string* errMsg)
 {
-	return geoalgo::computeFeatureAnchor(workpiece, refs, out, errMsg);
+	return geoalgo::computeFeatureAnchor(workpiece, geometry, out, errMsg);
 }
 
-bool buildFeatureSpecFromModelPick(
+bool computeFeatureAnchor(
 	const geoalgo::WorkpieceRef& workpiece,
 	const geoalgo::ShapeHandle& shape,
+	const geoalgo::FeatureGeometry& geometry,
+	geoalgo::FeatureAnchor& out,
+	std::string* errMsg)
+{
+	return geoalgo::computeFeatureAnchor(workpiece, shape, geometry, out, errMsg);
+}
+
+void ensureFeatureDiscretizersRegistered()
+{
+	geoalgo::ensureFeatureDiscretizersRegistered();
+}
+
+bool ensureFeatureDiscretizerConfigsLoaded(const std::string& resourceBaseDir, std::string* errMsg)
+{
+	return geoalgo::ensureFeatureDiscretizerConfigsLoaded(resourceBaseDir, errMsg);
+}
+
+std::vector<std::string> featureDiscretizerListStrategyIds()
+{
+	return geoalgo::featureDiscretizerListStrategyIds();
+}
+
+std::vector<geoalgo::FeatureDiscretizerParamField> featureDiscretizerAllParamFields(const std::string& strategyId)
+{
+	return geoalgo::featureDiscretizerAllParamFields(strategyId);
+}
+
+std::string featureDiscretizerDisplayNameZh(const std::string& strategyId)
+{
+	if (const geoalgo::IFeatureDiscretizer* algo = geoalgo::featureDiscretizerGet(strategyId))
+	{
+		return algo->displayNameZh();
+	}
+	return strategyId;
+}
+
+geoalgo::GeometryAffinity featureDiscretizerAffinity(const std::string& strategyId)
+{
+	if (const geoalgo::IFeatureDiscretizer* algo = geoalgo::featureDiscretizerGet(strategyId))
+	{
+		return algo->affinity();
+	}
+	return geoalgo::GeometryAffinity::Any;
+}
+
+nlohmann::json featureDiscretizerDefaultParams(const std::string& strategyId)
+{
+	return geoalgo::featureDiscretizerConfigRegistry().defaultParamsForStrategy(strategyId);
+}
+
+bool buildFeatureEntryFromModelPick(
+	const geoalgo::WorkpieceRef& workpiece,
+	const geoalgo::ShapeHandle& shape,
+	const std::string& strategyId,
 	const bool pickFace,
-	const geoalgo::FeatureKind faceKindForPick,
 	const geoalgo::Point3d& modelPointA,
 	const geoalgo::Point3d& modelPointB,
-	geoalgo::FeatureSpec& out,
+	geoalgo::FeatureEntry& out,
 	std::string* errMsg,
 	const int knownFaceIndex,
 	const int knownEdgeIndex)
 {
-	out = geoalgo::FeatureSpec{};
-	out.workpiece = workpiece;
+	out = geoalgo::FeatureEntry{};
+	out.strategyId = strategyId;
+	out.params = geoalgo::featureDiscretizerConfigRegistry().defaultParamsForStrategy(strategyId);
 	if (pickFace)
 	{
 		int faceIdx = knownFaceIndex;
@@ -4154,18 +4201,7 @@ bool buildFeatureSpecFromModelPick(
 			return false;
 		}
 		out.featureId = "face_" + std::to_string(faceIdx);
-		out.kind = faceKindForPick;
-		out.refs.faceIndices = {faceIdx};
-		if (faceKindForPick == geoalgo::FeatureKind::FaceUVGrid)
-		{
-			out.refs.uvCountU = 16;
-			out.refs.uvCountV = 16;
-			out.discretize.stepMm = 0.0;
-		}
-		else
-		{
-			out.discretize.stepMm = 2.0;
-		}
+		out.geometry.faceIndices = {faceIdx};
 	}
 	else
 	{
@@ -4182,40 +4218,138 @@ bool buildFeatureSpecFromModelPick(
 			return false;
 		}
 		out.featureId = "edge_" + std::to_string(edgeIdx);
-		out.kind = geoalgo::FeatureKind::EdgeChain;
-		out.refs.edgeIndices = {edgeIdx};
-		out.discretize.stepMm = 2.0;
+		out.geometry.edgeIndices = {edgeIdx};
 	}
-	return geoalgo::validateFeatureSpec(out, errMsg);
+	(void)workpiece;
+	return true;
 }
 
-bool buildFeatureSpecFromModelPick(
-	const geoalgo::WorkpieceRef& workpiece,
-	const bool pickFace,
-	const geoalgo::FeatureKind faceKindForPick,
-	const geoalgo::Point3d& modelPointA,
-	const geoalgo::Point3d& modelPointB,
-	geoalgo::FeatureSpec& out,
-	std::string* errMsg,
-	const int knownFaceIndex,
-	const int knownEdgeIndex)
+bool sampleTriangleSoupToPointBuffers(
+	const std::vector<float>& soup,
+	const std::vector<float>& soupNormals,
+	std::vector<float>& outXyz,
+	std::vector<float>& outNormals,
+	const std::size_t maxPoints,
+	std::string* errMsg)
 {
-	if (!workpiece.stepPathUtf8.empty())
+	outXyz.clear();
+	outNormals.clear();
+	if (soup.size() < 9U || soup.size() % 9U != 0U)
 	{
-		geoalgo::ShapeHandle shape;
-		if (!geoalgo::readStepIntoHandle(workpiece.stepPathUtf8, shape, errMsg))
+		if (errMsg)
 		{
-			return false;
+			*errMsg = "sampleTriangleSoupToPointBuffers: invalid triangle soup";
 		}
-		return buildFeatureSpecFromModelPick(
-			workpiece, shape, pickFace, faceKindForPick, modelPointA, modelPointB, out, errMsg,
-			knownFaceIndex, knownEdgeIndex);
+		return false;
 	}
-	if (errMsg)
+	if (maxPoints < 3U)
 	{
-		*errMsg = "buildFeatureSpecFromModelPick requires shape or stepPath";
+		if (errMsg)
+		{
+			*errMsg = "sampleTriangleSoupToPointBuffers: maxPoints too small";
+		}
+		return false;
 	}
-	return false;
+
+	const bool hasNormals = soupNormals.size() == soup.size();
+	const std::size_t triCount = soup.size() / 9U;
+	const std::size_t triStep = std::max<std::size_t>(1U, triCount / std::max<std::size_t>(1U, maxPoints / 3U));
+	outXyz.reserve(std::min(maxPoints, triCount * 3U) * 3U);
+	if (hasNormals)
+	{
+		outNormals.reserve(outXyz.capacity());
+	}
+
+	for (std::size_t tri = 0U; tri < triCount; tri += triStep)
+	{
+		if ((outXyz.size() / 3U) >= maxPoints)
+		{
+			break;
+		}
+		const std::size_t base = tri * 9U;
+		for (std::size_t corner = 0U; corner < 3U; ++corner)
+		{
+			if ((outXyz.size() / 3U) >= maxPoints)
+			{
+				break;
+			}
+			const std::size_t vb = base + corner * 3U;
+			outXyz.push_back(soup[vb]);
+			outXyz.push_back(soup[vb + 1U]);
+			outXyz.push_back(soup[vb + 2U]);
+			if (hasNormals)
+			{
+				outNormals.push_back(soupNormals[vb]);
+				outNormals.push_back(soupNormals[vb + 1U]);
+				outNormals.push_back(soupNormals[vb + 2U]);
+			}
+			else
+			{
+				const float* p0 = &soup[base];
+				const float* p1 = &soup[base + 3U];
+				const float* p2 = &soup[base + 6U];
+				const double e1x = static_cast<double>(p1[0] - p0[0]);
+				const double e1y = static_cast<double>(p1[1] - p0[1]);
+				const double e1z = static_cast<double>(p1[2] - p0[2]);
+				const double e2x = static_cast<double>(p2[0] - p0[0]);
+				const double e2y = static_cast<double>(p2[1] - p0[1]);
+				const double e2z = static_cast<double>(p2[2] - p0[2]);
+				double nx = e1y * e2z - e1z * e2y;
+				double ny = e1z * e2x - e1x * e2z;
+				double nz = e1x * e2y - e1y * e2x;
+				const double len = std::sqrt(nx * nx + ny * ny + nz * nz);
+				if (len > 1e-12)
+				{
+					nx /= len;
+					ny /= len;
+					nz /= len;
+				}
+				else
+				{
+					nx = 0.0;
+					ny = 0.0;
+					nz = 1.0;
+				}
+				outNormals.push_back(static_cast<float>(nx));
+				outNormals.push_back(static_cast<float>(ny));
+				outNormals.push_back(static_cast<float>(nz));
+			}
+		}
+	}
+
+	if (outXyz.size() < 9U)
+	{
+		if (errMsg)
+		{
+			*errMsg = "sampleTriangleSoupToPointBuffers: no points sampled";
+		}
+		return false;
+	}
+	return true;
+}
+
+bool buildPointCloudFromMeshForTemplateBrep(
+	const MeshBackendData& mesh,
+	PointCloudBackendData& outScan,
+	const std::size_t maxPoints,
+	std::string* errMsg)
+{
+	outScan.clearGeometry();
+	std::vector<float> xyz;
+	std::vector<float> normals;
+	if (!sampleTriangleSoupToPointBuffers(
+			mesh.triangleSoup(),
+			mesh.triangleVertexNormals(),
+			xyz,
+			normals,
+			maxPoints,
+			errMsg))
+	{
+		return false;
+	}
+	outScan.setPointBuffers(std::move(xyz), {}, std::move(normals));
+	outScan.setWorldMatrix(mesh.worldMatrix());
+	return true;
 }
 
 bool registerScanToCadTemplate(

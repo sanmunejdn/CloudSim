@@ -40,9 +40,14 @@ public:
 	void bindPathPlan(const std::string& pathPlanInstructionId);
 	void clearPathPlanBinding();
 	const std::string& boundPathPlanId() const { return m_boundPathPlanId; }
+	std::size_t boundPipelineOpCount() const { return m_ops.size(); }
 	bool syncPipelineToBoundPathPlan();
 	bool persistBoundPathPlanPipeline(QString* outError = nullptr);
 	bool loadRawFromBoundPathPlan();
+	/// 从已绑定 PathPlan 重载算子表与 raw，不触发 pathPlanBound
+	bool reloadBoundPathPlanFromStore();
+	/// 当前绑定 PathPlan 的 sourceFeatureJson：优先 raw，回退 PathPlan 指令字段
+	std::string boundSourceFeatureJson() const;
 
 	/// 尚无 raw 时按流水线预览（Unified 引擎，与 Apply 一致）
 	bool previewPipeline(
@@ -55,6 +60,7 @@ public:
 	void abandonPreview();
 	void clearPipelineAfterCommit();
 	bool isApplying() const { return m_applying; }
+	bool defersProgramRevisionUiSync() const { return m_deferProgramRevisionUiSync > 0; }
 	bool isPreviewActive() const { return m_previewActive; }
 	bool canApply() const;
 
@@ -77,6 +83,7 @@ public:
 signals:
 	void previewStateChanged(bool active);
 	void rawTrajectoryChanged();
+	void pathPlanBound(const std::string& pathPlanInstructionId);
 
 private:
 	struct PreviewSnapshot
@@ -149,6 +156,7 @@ private:
 	/// overlay 预览时是否已写回 store（混合预览，reset 需恢复快照）
 	bool m_overlayStoreWritebackActive = false;
 	bool m_applying = false;
+	int m_deferProgramRevisionUiSync = 0;
 	std::optional<RobotInstruction::RawTrajectory> m_rawTrajectory;
 	std::optional<RobotInstruction::RawTrajectory> m_bakedWorldRaw;
 };

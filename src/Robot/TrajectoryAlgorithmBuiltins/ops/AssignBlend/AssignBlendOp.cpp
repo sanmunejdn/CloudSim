@@ -3,6 +3,8 @@
 
 #include "TrajectoryOpFormat.h"
 #include "UnifiedTrajectoryPathMath.h"
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -28,6 +30,8 @@ RobotInstruction::TrajectoryOpDescriptor AssignBlendOp::makeDefaultDescriptor(
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::AssignBlend;
 	op.scope = defaultScope;
+	TrajectoryOpParamAccess::applyDefaults(op, *this);
+
 	return op;
 }
 
@@ -69,7 +73,7 @@ bool AssignBlendOp::processPath(
 		traj,
 		op.scope,
 		ctx.program,
-		op.assignMotion.blendRadiusMm);
+		parseAssignMotionParams(op.params).blendRadiusMm);
 	return true;
 }
 

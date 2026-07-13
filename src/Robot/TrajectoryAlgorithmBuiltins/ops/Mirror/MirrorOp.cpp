@@ -4,6 +4,8 @@
 #include "UnifiedTrajectorySemanticMath.h"
 
 #include <cstdio>
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -50,7 +52,9 @@ RobotInstruction::TrajectoryOpDescriptor MirrorOp::makeDefaultDescriptor(
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Mirror;
 	op.scope = defaultScope;
-	op.mirrorAxis = 0;
+	TrajectoryOpParamAccess::applyDefaults(op, *this);
+	writeMirrorAxis(op.params, 0);
+
 	return op;
 }
 
@@ -72,7 +76,7 @@ std::vector<TrajectoryOpParamField> MirrorOp::paramFields() const
 
 bool MirrorOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, std::string* errMsg) const
 {
-	if (!validMirrorAxis(op.mirrorAxis))
+	if (!validMirrorAxis(parseMirrorAxis(op.params)))
 	{
 		if (errMsg)
 		{
@@ -92,7 +96,7 @@ std::string MirrorOp::formatSummary(
 		buffer,
 		sizeof(buffer),
 		chinese ? "轴反向 | %s" : "Axis Reverse | %s",
-		axisLabel(op.mirrorAxis, chinese));
+		axisLabel(parseMirrorAxis(op.params), chinese));
 	return buffer;
 }
 

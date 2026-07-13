@@ -32,6 +32,9 @@ ROBOT_SCENE_API TrajectoryOpDescriptor trajectoryOpDefaultUnified(
 ROBOT_SCENE_API const trajectory_algo::ITrajectoryOp* trajectoryOpGet(TrajectoryOpKind kind);
 ROBOT_SCENE_API std::vector<TrajectoryOpKind> trajectoryOpPaletteKinds();
 
+ROBOT_SCENE_API std::string trajectoryOpKindToString(TrajectoryOpKind kind);
+ROBOT_SCENE_API bool trajectoryOpKindFromString(const std::string& token, TrajectoryOpKind& out);
+
 ROBOT_SCENE_API std::vector<trajectory_algo::TrajectoryOpParamField> trajectoryOpAllParamFields(
 	const trajectory_algo::ITrajectoryOp& op);
 ROBOT_SCENE_API bool trajectoryOpParamRead(
@@ -53,5 +56,10 @@ ROBOT_SCENE_API bool trajectoryPipelineFromJson(
 ROBOT_SCENE_API bool validateTrajectoryPipeline(
 	const std::vector<TrajectoryOpDescriptor>& ops,
 	std::string* errMsg = nullptr);
+
+ROBOT_SCENE_API std::string trajectoryOpProjectTargetBackendId(const TrajectoryOpDescriptor& op);
+ROBOT_SCENE_API void trajectoryOpSetProjectTargetBackendId(
+	TrajectoryOpDescriptor& op,
+	const std::string& backendId);
 
 } // namespace RobotInstruction

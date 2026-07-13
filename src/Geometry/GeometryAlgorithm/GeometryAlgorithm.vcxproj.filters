@@ -7,6 +7,9 @@
     <Filter Include="src">
       <UniqueIdentifier>{CF885F7D-0668-4EAB-99E3-54CC79FD21F7}</UniqueIdentifier>
     </Filter>
+    <Filter Include="discretizers">
+      <UniqueIdentifier>{A1E2F3B4-C5D6-7890-ABCD-EF1234567890}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\geometry_algorithm_global.h">
@@ -45,6 +48,33 @@
     <ClInclude Include="inc\FeatureSpec.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\FeatureListDocument.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IFeatureDiscretizer.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FeatureDiscretizerRegistry.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IFeatureDiscretizerConfig.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FeatureDiscretizerConfigRegistry.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FeatureDiscretizerParamJsonIo.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FeatureDiscretizerConfigImpl.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FeatureDiscretizerBridge.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FeatureDiscretizeParamUtils.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\BrepImportArtifacts.h">
       <Filter>inc</Filter>
     </ClInclude>
@@ -68,6 +98,27 @@
     </ClInclude>
     <ClInclude Include="inc\ViewTessellate.h">
       <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="discretizers\EdgeChainDiscretizer.h">
+      <Filter>discretizers</Filter>
+    </ClInclude>
+    <ClInclude Include="discretizers\FaceBoundaryDiscretizer.h">
+      <Filter>discretizers</Filter>
+    </ClInclude>
+    <ClInclude Include="discretizers\FaceSectionDiscretizer.h">
+      <Filter>discretizers</Filter>
+    </ClInclude>
+    <ClInclude Include="discretizers\FaceParamSurfaceDiscretizer.h">
+      <Filter>discretizers</Filter>
+    </ClInclude>
+    <ClInclude Include="discretizers\FaceIntersectionDiscretizer.h">
+      <Filter>discretizers</Filter>
+    </ClInclude>
+    <ClInclude Include="discretizers\FaceOffsetCurveDiscretizer.h">
+      <Filter>discretizers</Filter>
+    </ClInclude>
+    <ClInclude Include="discretizers\SyntheticPolylineDiscretizer.h">
+      <Filter>discretizers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -105,6 +156,63 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\FeatureDiscretize.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizerRegistry.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IFeatureDiscretizer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizerConfigRegistry.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizerParamJsonIo.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizerConfigImpl.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizerBridge.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizeCoordinator.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizerBuiltinsRegister.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizeParamUtils.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\detail\FeatureDiscretizeCommon.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="discretizers\EdgeChainDiscretizer.cpp">
+      <Filter>discretizers</Filter>
+    </ClCompile>
+    <ClCompile Include="discretizers\FaceBoundaryDiscretizer.cpp">
+      <Filter>discretizers</Filter>
+    </ClCompile>
+    <ClCompile Include="discretizers\FaceSectionDiscretizer.cpp">
+      <Filter>discretizers</Filter>
+    </ClCompile>
+    <ClCompile Include="discretizers\FaceParamSurfaceDiscretizer.cpp">
+      <Filter>discretizers</Filter>
+    </ClCompile>
+    <ClCompile Include="discretizers\FaceIntersectionDiscretizer.cpp">
+      <Filter>discretizers</Filter>
+    </ClCompile>
+    <ClCompile Include="discretizers\FaceOffsetCurveDiscretizer.cpp">
+      <Filter>discretizers</Filter>
+    </ClCompile>
+    <ClCompile Include="discretizers\SyntheticPolylineDiscretizer.cpp">
+      <Filter>discretizers</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FaceSectionDiscretize.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ParamSurfaceDiscretize.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\MeshSurfaceReconstruction\BoundaryBlend.cpp">

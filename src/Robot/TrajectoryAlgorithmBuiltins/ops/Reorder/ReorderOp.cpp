@@ -4,6 +4,8 @@
 #include "UnifiedTrajectorySemanticMath.h"
 
 #include <cstdio>
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -29,6 +31,8 @@ RobotInstruction::TrajectoryOpDescriptor ReorderOp::makeDefaultDescriptor(
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Reorder;
 	op.scope = defaultScope;
+	TrajectoryOpParamAccess::applyDefaults(op, *this);
+
 	return op;
 }
 

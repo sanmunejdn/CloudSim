@@ -2,7 +2,10 @@
 
 #include "data_global.h"
 
-#include <FeatureSpec.h>
+#include <FeatureListDocument.h>
+
+#include <json.hpp>
+
 #include <ShapeHandle.h>
 
 #include <string>
@@ -40,23 +43,25 @@ DATA_EXPORT WorkpieceShapeSource resolveWorkpieceShape(
 	geoalgo::WorkpieceRef& outRef,
 	std::string* errMsg = nullptr);
 
-DATA_EXPORT bool discretizeFeature(
-	const geoalgo::FeatureSpec& spec,
+DATA_EXPORT bool discretizeFeatureList(
+	const geoalgo::FeatureListDocument& doc,
 	geoalgo::RawPath& out,
 	std::string* errMsg = nullptr);
 
-DATA_EXPORT bool discretizeFeature(
-	const geoalgo::FeatureSpec& spec,
+DATA_EXPORT bool discretizeFeatureList(
+	const geoalgo::FeatureListDocument& doc,
 	const geoalgo::ShapeHandle& shape,
 	geoalgo::RawPath& out,
 	std::string* errMsg = nullptr);
 
-DATA_EXPORT bool discretizeFeatures(
-	const std::vector<geoalgo::FeatureSpec>& specs,
-	std::vector<geoalgo::RawPath>& out,
+DATA_EXPORT bool featureListFromJson(
+	const std::string& jsonUtf8,
+	geoalgo::FeatureListDocument& out,
 	std::string* errMsg = nullptr);
 
-DATA_EXPORT bool validateFeatureSpec(const geoalgo::FeatureSpec& spec, std::string* errMsg = nullptr);
+DATA_EXPORT std::string featureListToJson(const geoalgo::FeatureListDocument& doc);
+
+DATA_EXPORT bool validateFeatureListDocument(const geoalgo::FeatureListDocument& doc, std::string* errMsg = nullptr);
 
 DATA_EXPORT bool enumerateFeatureCatalog(
 	const geoalgo::WorkpieceRef& workpiece,
@@ -69,41 +74,52 @@ DATA_EXPORT bool enumerateFeatureCatalog(
 	geoalgo::FeatureCatalog& out,
 	std::string* errMsg = nullptr);
 
-DATA_EXPORT bool featureSpecFromJson(const std::string& jsonUtf8, geoalgo::FeatureSpec& out, std::string* errMsg = nullptr);
-DATA_EXPORT std::string featureSpecToJson(const geoalgo::FeatureSpec& spec);
 DATA_EXPORT std::string featureCatalogToJson(const geoalgo::FeatureCatalog& catalog);
 
 DATA_EXPORT bool suggestFeaturesFromCatalog(
 	const geoalgo::FeatureCatalog& catalog,
 	const std::string& intentUtf8,
-	std::vector<geoalgo::FeatureSpec>& out,
+	geoalgo::FeatureListDocument& out,
 	std::string* errMsg = nullptr);
 
 DATA_EXPORT bool computeFeatureAnchor(
 	const geoalgo::WorkpieceRef& workpiece,
-	const geoalgo::FeatureRefs& refs,
+	const geoalgo::FeatureGeometry& geometry,
 	geoalgo::FeatureAnchor& out,
 	std::string* errMsg = nullptr);
 
-DATA_EXPORT bool buildFeatureSpecFromModelPick(
-	const geoalgo::WorkpieceRef& workpiece,
-	bool pickFace,
-	geoalgo::FeatureKind faceKindForPick,
-	const geoalgo::Point3d& modelPointA,
-	const geoalgo::Point3d& modelPointB,
-	geoalgo::FeatureSpec& out,
-	std::string* errMsg = nullptr,
-	int knownFaceIndex = -1,
-	int knownEdgeIndex = -1);
-
-DATA_EXPORT bool buildFeatureSpecFromModelPick(
+DATA_EXPORT bool computeFeatureAnchor(
 	const geoalgo::WorkpieceRef& workpiece,
 	const geoalgo::ShapeHandle& shape,
+	const geoalgo::FeatureGeometry& geometry,
+	geoalgo::FeatureAnchor& out,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT void ensureFeatureDiscretizersRegistered();
+
+DATA_EXPORT bool ensureFeatureDiscretizerConfigsLoaded(
+	const std::string& resourceBaseDir,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT std::vector<std::string> featureDiscretizerListStrategyIds();
+
+DATA_EXPORT std::vector<geoalgo::FeatureDiscretizerParamField> featureDiscretizerAllParamFields(
+	const std::string& strategyId);
+
+DATA_EXPORT std::string featureDiscretizerDisplayNameZh(const std::string& strategyId);
+
+DATA_EXPORT geoalgo::GeometryAffinity featureDiscretizerAffinity(const std::string& strategyId);
+
+DATA_EXPORT nlohmann::json featureDiscretizerDefaultParams(const std::string& strategyId);
+
+DATA_EXPORT bool buildFeatureEntryFromModelPick(
+	const geoalgo::WorkpieceRef& workpiece,
+	const geoalgo::ShapeHandle& shape,
+	const std::string& strategyId,
 	bool pickFace,
-	geoalgo::FeatureKind faceKindForPick,
 	const geoalgo::Point3d& modelPointA,
 	const geoalgo::Point3d& modelPointB,
-	geoalgo::FeatureSpec& out,
+	geoalgo::FeatureEntry& out,
 	std::string* errMsg = nullptr,
 	int knownFaceIndex = -1,
 	int knownEdgeIndex = -1);

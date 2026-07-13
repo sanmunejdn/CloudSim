@@ -24,6 +24,7 @@
 #include <json.hpp>
 
 class QWidget;
+class QColor;
 class DocumentPage;
 namespace osg { class Matrixd; }
 class QTabWidget;
@@ -176,6 +177,7 @@ private:
 		const std::vector<std::string>* enumOptionTokens = nullptr,
 		const QStringList* enumDisplayNames = nullptr,
 		const QString& toolTip = QString());
+	void appendColorPropertyBrowserRow(const QColor& color);
 	RobotInstruction::FeasibleMotionAxisConfigurationOptions feasibleMotionAxisConfigurationOptionsForInstruction(
 		const std::shared_ptr<RobotInstruction::Base>& instruction,
 		QVector<double>* outSeedJointRad = nullptr);

@@ -22,6 +22,23 @@ enum class MeshSurfacePartitionMode : int
 {
 	GeodesicVoronoiV3 = 0,
 	HybridNormalCvt = 1,
+	/// Hybrid + CGAL SDF 种子融合，面向 TO/棱柱面
+	CgalChartHybrid = 2,
+	/// AMRTO：Instant-Meshes + GMCG 稀疏四边域
+	AmrtoImGmcg = 3,
+};
+
+enum class MeshSurfaceGmcgBackend : int
+{
+	GoldenLoader = 0,
+	Exe = 1,
+	Native = 2,
+};
+
+enum class MeshSurfaceHarmonicBoundaryMode : int
+{
+	Circular = 0,
+	GeodesicSquare = 1,
 };
 
 struct MeshSurfaceReconstructParams
@@ -88,6 +105,38 @@ struct MeshSurfaceReconstructParams
 	int fairingMaxIterations = 50;
 
 	double tessellateLinearDeflectionMm = 0.1;
+
+	/// 调和 UV 边界初值：Circular=圆周边界；GeodesicSquare=测地四边 square-border（AMRTO §3）
+	MeshSurfaceHarmonicBoundaryMode harmonicBoundaryMode = MeshSurfaceHarmonicBoundaryMode::GeodesicSquare;
+	/// 单 patch 调和 UV 最大三角面数；≤0 用内置默认 8000
+	int harmonicMaxFaces = 8000;
+
+	/// CGAL SDF 分块种子权重 [0,1]；CgalChartHybrid 或 >0 时启用
+	double sdfSeedBlendWeight = 0.35;
+	int sdfSegmentCount = 0;
+
+	/// AMRTO IM+GMCG：GMCG 后端（GoldenLoader=金标准 OBJ / Exe=外部工具 / Native=内置）
+	MeshSurfaceGmcgBackend gmcgBackend = MeshSurfaceGmcgBackend::Native;
+	/// IM 目标 quad 顶点数；0=自动
+	int instantMeshesTargetQuads = 0;
+	double instantMeshesCreaseAngleDeg = 30.0;
+	std::string gmcgExePath;
+	std::string gmcgWorkDir;
+	std::string amrtoGoldenDataPath;
+	std::string amrtoGoldenResultObj;
+	std::string instantMeshesExePath;
+	/// IM 不可用时回退到 CODE_AMRTO 金标准分块（适用于 data_smooth 等样例）
+	bool amrtoFallbackGoldenOnImFailure = false;
+
+	/// 多分辨率拟合（AMRTO Algorithm 2 简化版）
+	bool enableMultiResolutionFit = true;
+	int multiResolutionLayers = 1;
+	double multiResolutionDensityScale = 0.5;
+
+	/// 光顺时冻结边界控制点（multi-res / C² 混合后）
+	bool fairingProtectBoundaries = true;
+	/// 边界混合带深度；≤0 自动
+	int blendStripDepth = 0;
 };
 
 enum class MeshSurfaceReconstructStage : int
@@ -150,6 +199,11 @@ struct MeshSurfaceReconstructReport
 	int fitRejectFitGrid = 0;
 	int fitRejectFullGrid = 0;
 	int fitRejectMakeFace = 0;
+
+	double avgCtrlPtsPerPatch = 0.0;
+	int totalCtrlPts = 0;
+	int multiResolutionReducedCount = 0;
+	int geodesicSquareHarmonicCount = 0;
 };
 
 class GEOMETRY_ALGORITHM_API MeshSurfaceReconstructSession

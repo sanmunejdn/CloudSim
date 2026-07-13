@@ -5,6 +5,8 @@
 #include "TrajectoryUnifiedScope.h"
 
 #include <string>
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -30,7 +32,9 @@ RobotInstruction::TrajectoryOpDescriptor DuplicateOp::makeDefaultDescriptor(
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Duplicate;
 	op.scope = defaultScope;
-	op.duplicateCount = 1;
+	TrajectoryOpParamAccess::applyDefaults(op, *this);
+	writeDuplicateCount(op.params, 1);
+
 	return op;
 }
 
@@ -43,7 +47,7 @@ std::vector<TrajectoryOpParamField> DuplicateOp::paramFields() const
 
 bool DuplicateOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, std::string* errMsg) const
 {
-	if (op.duplicateCount < 1)
+	if (parseDuplicateCount(op.params) < 1)
 	{
 		if (errMsg)
 		{
@@ -59,7 +63,7 @@ std::string DuplicateOp::formatSummary(
 	const bool chinese) const
 {
 	return std::string(displayName(chinese)) + " | " + scopeKindLabel(op.scope.kind, chinese)
-		+ (chinese ? " | 份数=" : " | Count=") + std::to_string(op.duplicateCount);
+		+ (chinese ? " | 份数=" : " | Count=") + std::to_string(parseDuplicateCount(op.params));
 }
 
 bool DuplicateOp::processPath(
@@ -82,7 +86,7 @@ bool DuplicateOp::processPath(
 		chunk.push_back(traj.points[idx]);
 	}
 	const std::size_t insertPos = indices.back() + 1U;
-	for (int copy = 0; copy < op.duplicateCount; ++copy)
+	for (int copy = 0; copy < parseDuplicateCount(op.params); ++copy)
 	{
 		traj.points.insert(
 			traj.points.begin() + static_cast<std::ptrdiff_t>(insertPos + static_cast<std::size_t>(copy) * chunk.size()),

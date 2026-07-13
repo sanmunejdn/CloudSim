@@ -63,6 +63,29 @@ struct PointCloudIcpResult
 	double rmseMm = 0.0;
 };
 
+struct PointCloudSpareResult
+{
+	double meanErrorMm = 0.0;
+	int deformationNodeCount = 0;
+};
+
+struct PointCloudSpareParams
+{
+	double sampleRadiusRatio = 0.0;
+	double wSmo = 0.01;
+	double wRot = 1e-4;
+	double wArapCoarse = 500.0;
+	double wArapFine = 200.0;
+	bool useSymmetricPointToPlane = true;
+	bool useCoarseReg = true;
+	bool useFineReg = true;
+	bool normalizeScale = true;
+	bool rigidPreAlign = false;
+	bool coarseGlobalAlign = false;
+	double voxelPrefilterMm = 0.0;
+	int maxOuterIters = 30;
+};
+
 DATA_EXPORT bool downsamplePointCloudVoxel(
 	PointCloudBackendData& data,
 	double voxelSizeMm,
@@ -168,6 +191,28 @@ DATA_EXPORT bool rigidRegisterPointCloudsIcp(
 	double convergenceTransMm,
 	double maxPairDistanceMm,
 	std::size_t icpMaxPoints,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool nonRigidRegisterPointCloudsSpare(
+	PointCloudBackendData& sourceInOut,
+	const PointCloudBackendData& target,
+	PointCloudSpareResult& out,
+	const PointCloudSpareParams& params,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool nonRigidRegisterPointCloudToMeshSpare(
+	PointCloudBackendData& sourceInOut,
+	const MeshBackendData& targetMesh,
+	PointCloudSpareResult& out,
+	const PointCloudSpareParams& params,
+	std::string* errMsg = nullptr);
+
+DATA_EXPORT bool nonRigidRegisterMeshSpare(
+	MeshBackendData& sourceMeshInOut,
+	const PointCloudBackendData* targetPointCloud,
+	const MeshBackendData* targetMesh,
+	PointCloudSpareResult& out,
+	const PointCloudSpareParams& params,
 	std::string* errMsg = nullptr);
 
 DATA_EXPORT bool deformPointCloudTpsFromControls(

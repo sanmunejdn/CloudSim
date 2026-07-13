@@ -1,16 +1,17 @@
 #include "FeatureTrajectoryPageWidget.h"
 
+#include "FeatureDiscretizerParamPanel.h"
 #include "FeaturePickTransform.h"
+#include "RecipeBlueprint.h"
+#include "FeatureTableModel.h"
 #include "IRobotMainWindowHost.h"
 #include "IRobotOsgViewHost.h"
-#include "RecipeBlueprint.h"
 #include "RobotOsgUiTypes.h"
 #include "RobotSimulationController.h"
 #include "RobotSimulationDockWidget.h"
 #include "TrajectoryEditPageWidget.h"
 #include "TrajectoryEditSession.h"
 #include "BackendDataManager.h"
-#include "FeatureSpec.h"
 #include "BrepBackendData.h"
 #include "GeometryRef.h"
 #include <ShapeHandle.h>
@@ -21,31 +22,31 @@
 
 #include <json.hpp>
 
+#include <algorithm>
+#include <QAbstractItemView>
 #include <QCheckBox>
 #include <QComboBox>
-#include <QDoubleSpinBox>
+#include <QCoreApplication>
 #include <QFileInfo>
-#include <QFormLayout>
 #include <QGroupBox>
-#include <QHash>
 #include <QHBoxLayout>
+#include <QHeaderView>
+#include <QHash>
+#include <QHeaderView>
+#include <QItemSelectionModel>
 #include <QLabel>
+#include <QMenu>
 #include <QMessageBox>
-#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSet>
+#include <QSignalBlocker>
 #include <QSpinBox>
-#include <QStackedWidget>
+#include <QTableView>
 #include <QTimer>
-#include <QVector>
 #include <QVBoxLayout>
 
 namespace
 {
-
-constexpr double kDefaultStepMm = 2.0;
-constexpr double kDefaultLinearDeflectionMm = 0.01;
-constexpr int kDefaultUvCount = 16;
 
 bool isTopLevelWorkpieceBackend(const BackendDataManager& mgr, const std::string& backendId)
 {
@@ -66,6 +67,48 @@ struct WorkpieceComboCandidate
 	bool isBrepModel = false;
 };
 
+bool readGeometryFromCandidateJson(const nlohmann::json& candidate, geoalgo::FeatureGeometry& out)
+{
+	out = geoalgo::FeatureGeometry{};
+	if (candidate.contains("geometry"))
+	{
+		const auto& g = candidate["geometry"];
+		if (g.contains("edgeIndices") && g["edgeIndices"].is_array())
+		{
+			for (const auto& v : g["edgeIndices"])
+			{
+				out.edgeIndices.push_back(v.get<int>());
+			}
+		}
+		if (g.contains("faceIndices") && g["faceIndices"].is_array())
+		{
+			for (const auto& v : g["faceIndices"])
+			{
+				out.faceIndices.push_back(v.get<int>());
+			}
+		}
+	}
+	else if (candidate.contains("refs"))
+	{
+		const auto& r = candidate["refs"];
+		if (r.contains("edgeIndices") && r["edgeIndices"].is_array())
+		{
+			for (const auto& v : r["edgeIndices"])
+			{
+				out.edgeIndices.push_back(v.get<int>());
+			}
+		}
+		if (r.contains("faceIndices") && r["faceIndices"].is_array())
+		{
+			for (const auto& v : r["faceIndices"])
+			{
+				out.faceIndices.push_back(v.get<int>());
+			}
+		}
+	}
+	return !out.edgeIndices.empty() || !out.faceIndices.empty();
+}
+
 } // namespace
 
 FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent)
@@ -76,8 +119,22 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent)
 	m_backendCombo = new QComboBox(this);
 	layout->addWidget(m_backendCombo);
 
+	m_featureModel = new FeatureTableModel(this);
+	m_featureModel->setStrategyDisplayNameResolver([this](const std::string& strategyId) {
+		return strategyDisplayName(strategyId);
+	});
+	m_featureTable = new QTableView(this);
+	m_featureTable->setModel(m_featureModel);
+	m_featureTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+	m_featureTable->setSelectionMode(QAbstractItemView::ExtendedSelection);
+	m_featureTable->horizontalHeader()->setStretchLastSection(true);
+	m_featureTable->verticalHeader()->setVisible(false);
+	m_featureTable->setContextMenuPolicy(Qt::CustomContextMenu);
+	m_featureTable->setMinimumHeight(140);
+	layout->addWidget(m_featureTable);
+
 	auto* pickRow = new QHBoxLayout;
-	m_pickEdgeBtn = new QPushButton(QStringLiteral("拾取边"), this);
+	m_pickEdgeBtn = new QPushButton(QStringLiteral("拾取线"), this);
 	m_pickFaceBtn = new QPushButton(QStringLiteral("拾取面"), this);
 	m_cancelPickBtn = new QPushButton(QStringLiteral("取消拾取"), this);
 	pickRow->addWidget(m_pickEdgeBtn);
@@ -85,158 +142,130 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent)
 	pickRow->addWidget(m_cancelPickBtn);
 	layout->addLayout(pickRow);
 
-	m_faceKindCombo = new QComboBox(this);
-	m_faceKindCombo->addItem(QStringLiteral("面外轮廓 (FaceBoundary)"), QStringLiteral("FaceBoundary"));
-	m_faceKindCombo->addItem(QStringLiteral("面内网格 (FaceUVGrid)"), QStringLiteral("FaceUVGrid"));
-	layout->addWidget(m_faceKindCombo);
-
 	m_pickStatusLabel = new QLabel(this);
 	layout->addWidget(m_pickStatusLabel);
 
-	m_activeFeatureLabel = new QLabel(this);
-	m_activeFeatureLabel->setWordWrap(true);
-	layout->addWidget(m_activeFeatureLabel);
+	auto* strategyRow = new QHBoxLayout;
+	strategyRow->addWidget(new QLabel(QStringLiteral("离散策略"), this));
+	m_strategyCombo = new QComboBox(this);
+	strategyRow->addWidget(m_strategyCombo, 1);
+	layout->addLayout(strategyRow);
 
-	m_discretizeGroup = new QGroupBox(QStringLiteral("离散参数"), this);
-	auto* discLayout = new QVBoxLayout(m_discretizeGroup);
-	m_discretizeStack = new QStackedWidget(m_discretizeGroup);
+	m_paramPanel = new FeatureDiscretizerParamPanel(this);
+	layout->addWidget(m_paramPanel);
 
-	auto* linePage = new QWidget(m_discretizeStack);
-	auto* lineForm = new QFormLayout(linePage);
-	m_stepMmSpin = new QDoubleSpinBox(linePage);
-	m_stepMmSpin->setRange(0.1, 500.0);
-	m_stepMmSpin->setDecimals(2);
-	m_stepMmSpin->setSingleStep(0.5);
-	m_stepMmSpin->setValue(kDefaultStepMm);
-	lineForm->addRow(QStringLiteral("步距 (mm)"), m_stepMmSpin);
-
-	m_linearDeflectionSpin = new QDoubleSpinBox(linePage);
-	m_linearDeflectionSpin->setRange(0.001, 10.0);
-	m_linearDeflectionSpin->setDecimals(3);
-	m_linearDeflectionSpin->setSingleStep(0.001);
-	m_linearDeflectionSpin->setValue(kDefaultLinearDeflectionMm);
-	lineForm->addRow(QStringLiteral("曲线精度 (mm)"), m_linearDeflectionSpin);
-	m_discretizeStack->addWidget(linePage);
-
-	auto* gridPage = new QWidget(m_discretizeStack);
-	auto* gridForm = new QFormLayout(gridPage);
-	m_uvCountUSpin = new QSpinBox(gridPage);
-	m_uvCountUSpin->setRange(2, 256);
-	m_uvCountUSpin->setValue(kDefaultUvCount);
-	gridForm->addRow(QStringLiteral("U 向点数"), m_uvCountUSpin);
-
-	m_uvCountVSpin = new QSpinBox(gridPage);
-	m_uvCountVSpin->setRange(2, 256);
-	m_uvCountVSpin->setValue(kDefaultUvCount);
-	gridForm->addRow(QStringLiteral("V 向点数"), m_uvCountVSpin);
-
-	m_gridAngleSpin = new QDoubleSpinBox(gridPage);
-	m_gridAngleSpin->setRange(-180.0, 180.0);
-	m_gridAngleSpin->setDecimals(1);
-	m_gridAngleSpin->setValue(0.0);
-	gridForm->addRow(QStringLiteral("网格旋转 (°)"), m_gridAngleSpin);
-	m_discretizeStack->addWidget(gridPage);
-
-	discLayout->addWidget(m_discretizeStack);
-
-	auto* previewRow = new QHBoxLayout;
-	m_showAxesCheck = new QCheckBox(QStringLiteral("显示坐标轴"), m_discretizeGroup);
-	m_showAxesCheck->setChecked(true);
-	previewRow->addWidget(m_showAxesCheck);
-	previewRow->addWidget(new QLabel(QStringLiteral("轴间隔"), m_discretizeGroup));
-	m_axisIntervalSpin = new QSpinBox(m_discretizeGroup);
-	m_axisIntervalSpin->setRange(0, 9999);
+	m_previewGroup = new QGroupBox(QStringLiteral("预览"), this);
+	auto* previewLayout = new QVBoxLayout(m_previewGroup);
+	auto* axisRow = new QHBoxLayout;
+	m_showAxisXCheck = new QCheckBox(QStringLiteral("X"), m_previewGroup);
+	m_showAxisYCheck = new QCheckBox(QStringLiteral("Y"), m_previewGroup);
+	m_showAxisZCheck = new QCheckBox(QStringLiteral("Z"), m_previewGroup);
+	m_showAxisXCheck->setChecked(true);
+	m_showAxisYCheck->setChecked(true);
+	m_showAxisZCheck->setChecked(true);
+	axisRow->addWidget(m_showAxisXCheck);
+	axisRow->addWidget(m_showAxisYCheck);
+	axisRow->addWidget(m_showAxisZCheck);
+	axisRow->addWidget(new QLabel(QStringLiteral("轴间隔"), m_previewGroup));
+	m_axisIntervalSpin = new QSpinBox(m_previewGroup);
+	m_axisIntervalSpin->setRange(0, 999999);
 	m_axisIntervalSpin->setValue(0);
-	m_axisIntervalSpin->setToolTip(QStringLiteral("0 = 自动 (约 n/20)"));
-	previewRow->addWidget(m_axisIntervalSpin);
-	previewRow->addStretch();
-	discLayout->addLayout(previewRow);
+	m_axisIntervalSpin->setToolTip(QStringLiteral("0 = 自动 (约 n/20)，按点索引间隔显示坐标轴"));
+	axisRow->addWidget(m_axisIntervalSpin);
+	axisRow->addStretch();
+	previewLayout->addLayout(axisRow);
+	m_discretizeBtn = new QPushButton(QStringLiteral("离散预览"), m_previewGroup);
+	previewLayout->addWidget(m_discretizeBtn);
+	layout->addWidget(m_previewGroup);
 
-	layout->addWidget(m_discretizeGroup);
-
-	m_catalogBtn = new QPushButton(QStringLiteral("刷新特征目录"), this);
-	layout->addWidget(m_catalogBtn);
-
-	layout->addWidget(new QLabel(QStringLiteral("FeatureSpec JSON")));
-	m_specEditor = new QPlainTextEdit(this);
-	m_specEditor->setMinimumHeight(160);
-	layout->addWidget(m_specEditor);
-
-	m_discretizeBtn = new QPushButton(QStringLiteral("离散预览"), this);
-	layout->addWidget(m_discretizeBtn);
-
-	connect(m_catalogBtn, &QPushButton::clicked, this, &FeatureTrajectoryPageWidget::onLoadCatalog);
-	connect(m_discretizeBtn, &QPushButton::clicked, this, &FeatureTrajectoryPageWidget::onDiscretize);
 	connect(m_pickEdgeBtn, &QPushButton::clicked, this, &FeatureTrajectoryPageWidget::onPickEdge);
 	connect(m_pickFaceBtn, &QPushButton::clicked, this, &FeatureTrajectoryPageWidget::onPickFace);
 	connect(m_cancelPickBtn, &QPushButton::clicked, this, &FeatureTrajectoryPageWidget::onCancelPick);
+	connect(m_discretizeBtn, &QPushButton::clicked, this, &FeatureTrajectoryPageWidget::onDiscretize);
+	connect(m_strategyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+		&FeatureTrajectoryPageWidget::onStrategyComboChanged);
 
-	UiIconDecorators::apply(m_pickEdgeBtn, UiIconId::PickEdge);
-	UiIconDecorators::apply(m_pickFaceBtn, UiIconId::PickFace);
-	UiIconDecorators::apply(m_catalogBtn, UiIconId::Refresh);
-	UiIconDecorators::apply(m_discretizeBtn, UiIconId::Discretize);
-
-	connect(m_faceKindCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
-		updateDiscretizeParamMode();
-	});
-	connect(m_specEditor, &QPlainTextEdit::textChanged, this, [this]() {
-		syncDiscretizeUiFromSpecJson();
-		if (editorHasValidFeatureSpec())
-		{
-			commitLastFeatureSpec(m_specEditor->toPlainText().toStdString());
-		}
+	connect(m_featureTable->selectionModel(), &QItemSelectionModel::currentRowChanged, this,
+		[this](const QModelIndex& current, const QModelIndex& previous) {
+			(void)previous;
+			m_featureModel->setSelectedRow(current.isValid() ? current.row() : -1);
+			onTableSelectionChanged();
+		});
+	connect(m_featureModel, &FeatureTableModel::selectionRowChanged, this,
+		&FeatureTrajectoryPageWidget::onTableSelectionChanged);
+	connect(m_featureTable, &QTableView::customContextMenuRequested, this, [this](const QPoint& pos) {
+		QMenu menu(this);
+		menu.addAction(m_chinese ? QStringLiteral("删除选中行") : QStringLiteral("Delete selected"),
+			this, &FeatureTrajectoryPageWidget::onDeleteSelectedRows);
+		menu.addAction(m_chinese ? QStringLiteral("删除全部") : QStringLiteral("Delete all"),
+			this, &FeatureTrajectoryPageWidget::onDeleteAllRows);
+		menu.exec(m_featureTable->viewport()->mapToGlobal(pos));
 	});
 
 	m_rediscretizeTimer = new QTimer(this);
 	m_rediscretizeTimer->setSingleShot(true);
 	m_rediscretizeTimer->setInterval(400);
 	connect(m_rediscretizeTimer, &QTimer::timeout, this, &FeatureTrajectoryPageWidget::onParameterRediscretize);
+	connect(m_paramPanel, &FeatureDiscretizerParamPanel::paramsChanged, this, [this]() {
+		applyParamsToSelectedRow();
+		scheduleParameterRediscretize();
+	});
+	connect(m_showAxisXCheck, &QCheckBox::toggled, this, [this]() { refreshPreviewFromSession(); });
+	connect(m_showAxisYCheck, &QCheckBox::toggled, this, [this]() { refreshPreviewFromSession(); });
+	connect(m_showAxisZCheck, &QCheckBox::toggled, this, [this]() { refreshPreviewFromSession(); });
+	connect(m_axisIntervalSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, [this]() {
+		refreshPreviewFromSession();
+	});
 
-	const auto paramChanged = [this]() { scheduleParameterRediscretize(); };
-	connect(m_stepMmSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, paramChanged);
-	connect(m_linearDeflectionSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, paramChanged);
-	connect(m_uvCountUSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, paramChanged);
-	connect(m_uvCountVSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, paramChanged);
-	connect(m_gridAngleSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, paramChanged);
-	connect(m_showAxesCheck, &QCheckBox::toggled, this, [this]() { refreshPreviewFromSession(); });
-	connect(m_axisIntervalSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, [this]() { refreshPreviewFromSession(); });
-
-	setUseChinese(m_chinese);
-	updateDiscretizeParamMode();
-	updateActiveFeatureLabel();
+	UiIconDecorators::apply(m_pickEdgeBtn, UiIconId::PickEdge);
+	UiIconDecorators::apply(m_pickFaceBtn, UiIconId::PickFace);
+	UiIconDecorators::apply(m_discretizeBtn, UiIconId::Discretize);
 
 	connect(m_backendCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
 		clearCandidatePreview();
 		m_cachedCatalogBackendId.clear();
 		m_cachedCatalogJsonUtf8.clear();
-		if (m_backendCombo && m_backendCombo->currentIndex() >= 0)
-		{
-			(void)autoEnumerateCatalogForCurrentWorkpiece(true, true, nullptr);
-		}
+		m_featureModel->clearAll();
+		(void)autoEnumerateCatalogForCurrentWorkpiece(true, nullptr);
 		emit workpieceComboChanged();
 	});
+
+	setUseChinese(m_chinese);
+	ensureDiscretizerRuntimeLoaded();
+	refreshStrategyCombo();
+	updatePickUiState();
+}
+
+void FeatureTrajectoryPageWidget::ensureDiscretizerRuntimeLoaded() const
+{
+	if (m_runtimeLoaded)
+	{
+		return;
+	}
+	geometry_backend_ops::ensureFeatureDiscretizersRegistered();
+	const std::string appDir = QCoreApplication::applicationDirPath().toStdString();
+	(void)geometry_backend_ops::ensureFeatureDiscretizerConfigsLoaded(appDir, nullptr);
+	m_runtimeLoaded = true;
 }
 
 void FeatureTrajectoryPageWidget::setUseChinese(const bool chinese)
 {
 	m_chinese = chinese;
+	m_featureModel->setUseChinese(chinese);
+	m_paramPanel->setUseChinese(chinese);
 	updateUiLabels();
 }
 
 void FeatureTrajectoryPageWidget::updateUiLabels()
 {
 	const bool zh = m_chinese;
-	if (m_catalogBtn)
-	{
-		m_catalogBtn->setText(zh ? QStringLiteral("刷新特征目录") : QStringLiteral("Refresh catalog"));
-	}
 	if (m_discretizeBtn)
 	{
 		m_discretizeBtn->setText(zh ? QStringLiteral("离散预览") : QStringLiteral("Discretize preview"));
 	}
 	if (m_pickEdgeBtn)
 	{
-		m_pickEdgeBtn->setText(zh ? QStringLiteral("拾取边") : QStringLiteral("Pick edge"));
+		m_pickEdgeBtn->setText(zh ? QStringLiteral("拾取线") : QStringLiteral("Pick edge"));
 	}
 	if (m_pickFaceBtn)
 	{
@@ -246,15 +275,62 @@ void FeatureTrajectoryPageWidget::updateUiLabels()
 	{
 		m_cancelPickBtn->setText(zh ? QStringLiteral("取消拾取") : QStringLiteral("Cancel pick"));
 	}
-	if (m_discretizeGroup)
+	if (m_previewGroup)
 	{
-		m_discretizeGroup->setTitle(zh ? QStringLiteral("离散参数") : QStringLiteral("Discretize params"));
+		m_previewGroup->setTitle(zh ? QStringLiteral("预览") : QStringLiteral("Preview"));
 	}
-	if (m_showAxesCheck)
+	if (m_showAxisXCheck)
 	{
-		m_showAxesCheck->setText(zh ? QStringLiteral("显示坐标轴") : QStringLiteral("Show axes"));
+		m_showAxisXCheck->setText(zh ? QStringLiteral("X 轴") : QStringLiteral("X axis"));
+	}
+	if (m_showAxisYCheck)
+	{
+		m_showAxisYCheck->setText(zh ? QStringLiteral("Y 轴") : QStringLiteral("Y axis"));
+	}
+	if (m_showAxisZCheck)
+	{
+		m_showAxisZCheck->setText(zh ? QStringLiteral("Z 轴") : QStringLiteral("Z axis"));
 	}
 	updatePickUiState();
+}
+
+QString FeatureTrajectoryPageWidget::strategyDisplayName(const std::string& strategyId) const
+{
+	ensureDiscretizerRuntimeLoaded();
+	if (m_chinese)
+	{
+		return QString::fromStdString(geometry_backend_ops::featureDiscretizerDisplayNameZh(strategyId));
+	}
+	return QString::fromStdString(strategyId);
+}
+
+void FeatureTrajectoryPageWidget::refreshStrategyCombo(const geoalgo::GeometryAffinity filterAffinity)
+{
+	ensureDiscretizerRuntimeLoaded();
+	const QString previous = m_strategyCombo->currentData().toString();
+	m_strategyCombo->blockSignals(true);
+	m_strategyCombo->clear();
+	const std::vector<std::string> ids = geometry_backend_ops::featureDiscretizerListStrategyIds();
+	for (const std::string& id : ids)
+	{
+		const geoalgo::GeometryAffinity affinity = geometry_backend_ops::featureDiscretizerAffinity(id);
+		if (filterAffinity != geoalgo::GeometryAffinity::Any && affinity != filterAffinity
+			&& affinity != geoalgo::GeometryAffinity::Any)
+		{
+			continue;
+		}
+		m_strategyCombo->addItem(strategyDisplayName(id), QString::fromStdString(id));
+	}
+	int restoreIdx = previous.isEmpty() ? -1 : m_strategyCombo->findData(previous);
+	if (restoreIdx < 0 && m_strategyCombo->count() > 0)
+	{
+		restoreIdx = 0;
+	}
+	if (restoreIdx >= 0)
+	{
+		m_strategyCombo->setCurrentIndex(restoreIdx);
+	}
+	m_strategyCombo->blockSignals(false);
 }
 
 void FeatureTrajectoryPageWidget::bindHost(IRobotMainWindowHost* host)
@@ -275,7 +351,16 @@ void FeatureTrajectoryPageWidget::bindHost(IRobotMainWindowHost* host)
 
 void FeatureTrajectoryPageWidget::bindSession(TrajectoryEditSession* session)
 {
+	if (m_session)
+	{
+		disconnect(m_session, nullptr, this, nullptr);
+	}
 	m_session = session;
+	if (m_session)
+	{
+		connect(m_session, &TrajectoryEditSession::pathPlanBound, this,
+			&FeatureTrajectoryPageWidget::onPathPlanBound);
+	}
 }
 
 void FeatureTrajectoryPageWidget::bindSimulationController(RobotSimulationController* controller)
@@ -289,86 +374,301 @@ void FeatureTrajectoryPageWidget::setStepPathResolver(std::function<QString(cons
 	refreshBackendCombo();
 }
 
-bool FeatureTrajectoryPageWidget::editorHasValidFeatureSpec() const
+void FeatureTrajectoryPageWidget::onTableSelectionChanged()
 {
-	try
+	loadParamsForSelectedRow();
+}
+
+void FeatureTrajectoryPageWidget::syncStrategyComboToEntry(const geoalgo::FeatureEntry& entry)
+{
+	if (!m_strategyCombo || entry.strategyId.empty())
 	{
-		const nlohmann::json j = nlohmann::json::parse(m_specEditor->toPlainText().toStdString());
-		return j.contains("kind") && j["kind"].is_string();
+		return;
 	}
-	catch (...)
+	const bool faceOnly = !entry.geometry.faceIndices.empty() && entry.geometry.edgeIndices.empty();
+	const bool lineOnly = !entry.geometry.edgeIndices.empty() && entry.geometry.faceIndices.empty();
+	geoalgo::GeometryAffinity filter = geoalgo::GeometryAffinity::Any;
+	if (faceOnly)
 	{
-		return false;
+		filter = geoalgo::GeometryAffinity::Face;
+	}
+	else if (lineOnly)
+	{
+		filter = geoalgo::GeometryAffinity::Line;
+	}
+	else
+	{
+		const geoalgo::GeometryAffinity affinity = geometry_backend_ops::featureDiscretizerAffinity(entry.strategyId);
+		filter = affinity == geoalgo::GeometryAffinity::Any ? geoalgo::GeometryAffinity::Any : affinity;
+	}
+	const QSignalBlocker blocker(m_strategyCombo);
+	refreshStrategyCombo(filter);
+	const int idx = m_strategyCombo->findData(QString::fromStdString(entry.strategyId));
+	if (idx >= 0)
+	{
+		m_strategyCombo->setCurrentIndex(idx);
 	}
 }
 
-bool FeatureTrajectoryPageWidget::resolveDiscretizeBaseJson(std::string& outJson) const
+std::string FeatureTrajectoryPageWidget::defaultStrategyIdForGeometry(
+	const geoalgo::GeometryAffinity required) const
 {
-	if (editorHasValidFeatureSpec())
+	ensureDiscretizerRuntimeLoaded();
+	const char* preferred = required == geoalgo::GeometryAffinity::Face ? "FaceBoundary" : "EdgeChain";
+	const std::string preferredId(preferred);
+	if (geometry_backend_ops::featureDiscretizerAffinity(preferredId) == required)
 	{
-		outJson = m_specEditor->toPlainText().toStdString();
-		return true;
+		return preferredId;
 	}
-	if (m_hasLastFeatureSpec && !m_lastFeatureSpecJson.empty())
+	for (const std::string& id : geometry_backend_ops::featureDiscretizerListStrategyIds())
 	{
-		outJson = m_lastFeatureSpecJson;
-		return true;
-	}
-	return false;
-}
-
-void FeatureTrajectoryPageWidget::commitLastFeatureSpec(const std::string& jsonText)
-{
-	try
-	{
-		const nlohmann::json j = nlohmann::json::parse(jsonText);
-		if (!j.contains("kind") || !j["kind"].is_string())
+		if (geometry_backend_ops::featureDiscretizerAffinity(id) == required)
 		{
-			return;
+			return id;
 		}
 	}
-	catch (...)
-	{
-		return;
-	}
-	m_lastFeatureSpecJson = jsonText;
-	m_hasLastFeatureSpec = true;
-	updateActiveFeatureLabel();
+	return {};
 }
 
-void FeatureTrajectoryPageWidget::updateActiveFeatureLabel()
+void FeatureTrajectoryPageWidget::normalizeEntryStrategyForGeometry(geoalgo::FeatureEntry& entry) const
 {
-	if (!m_activeFeatureLabel)
+	const bool hasFace = !entry.geometry.faceIndices.empty();
+	const bool hasEdge = !entry.geometry.edgeIndices.empty();
+	if (hasFace == hasEdge)
 	{
 		return;
 	}
-	if (!m_hasLastFeatureSpec)
+	const geoalgo::GeometryAffinity required = hasFace ? geoalgo::GeometryAffinity::Face : geoalgo::GeometryAffinity::Line;
+	const geoalgo::GeometryAffinity current = geometry_backend_ops::featureDiscretizerAffinity(entry.strategyId);
+	const bool strategyKnown = std::find(
+		geometry_backend_ops::featureDiscretizerListStrategyIds().begin(),
+		geometry_backend_ops::featureDiscretizerListStrategyIds().end(),
+		entry.strategyId)
+		!= geometry_backend_ops::featureDiscretizerListStrategyIds().end();
+	const bool mismatch = !strategyKnown
+		|| (current == geoalgo::GeometryAffinity::Line && required == geoalgo::GeometryAffinity::Face)
+		|| (current == geoalgo::GeometryAffinity::Face && required == geoalgo::GeometryAffinity::Line);
+	if (!mismatch)
 	{
-		m_activeFeatureLabel->setText(m_chinese ? QStringLiteral("当前特征：未选择（请 3D 拾取或编辑 FeatureSpec）")
-			: QStringLiteral("Active feature: none (pick in 3D or edit FeatureSpec)"));
 		return;
 	}
-	try
+	const std::string fixedId = defaultStrategyIdForGeometry(required);
+	if (fixedId.empty())
 	{
-		const nlohmann::json j = nlohmann::json::parse(m_lastFeatureSpecJson);
-		const std::string featureId = j.value("featureId", "");
-		const std::string kind = j.value("kind", "");
-		const QString idText = featureId.empty() ? QStringLiteral("—") : QString::fromStdString(featureId);
-		m_activeFeatureLabel->setText(m_chinese
-			? QStringLiteral("当前特征：%1（%2）— 参数调整将自动重新离散")
-				.arg(idText, QString::fromStdString(kind))
-			: QStringLiteral("Active feature: %1 (%2) — param changes re-discretize automatically")
-				.arg(idText, QString::fromStdString(kind)));
+		return;
 	}
-	catch (...)
+	entry.strategyId = fixedId;
+	entry.params = geometry_backend_ops::featureDiscretizerDefaultParams(entry.strategyId);
+}
+
+std::string FeatureTrajectoryPageWidget::resolveStrategyIdForPick(const bool pickFace) const
+{
+	ensureDiscretizerRuntimeLoaded();
+	const geoalgo::GeometryAffinity required = pickFace
+		? geoalgo::GeometryAffinity::Face
+		: geoalgo::GeometryAffinity::Line;
+	const std::string fallback = defaultStrategyIdForGeometry(required);
+	if (m_strategyCombo && m_strategyCombo->currentIndex() >= 0)
 	{
-		m_activeFeatureLabel->clear();
+		const std::string currentId = m_strategyCombo->currentData().toString().toStdString();
+		if (!currentId.empty()
+			&& geometry_backend_ops::featureDiscretizerAffinity(currentId) == required)
+		{
+			return currentId;
+		}
 	}
+	for (const std::string& id : geometry_backend_ops::featureDiscretizerListStrategyIds())
+	{
+		if (geometry_backend_ops::featureDiscretizerAffinity(id) == required)
+		{
+			return id;
+		}
+	}
+	return fallback;
+}
+
+void FeatureTrajectoryPageWidget::loadParamsForSelectedRow()
+{
+	const int row = m_featureModel->selectedRow();
+	if (row < 0)
+	{
+		m_paramPanel->clear();
+		return;
+	}
+	const geoalgo::FeatureEntry entry = m_featureModel->entryAt(row);
+	++m_strategyRowSyncDepth;
+	syncStrategyComboToEntry(entry);
+	m_paramPanel->rebuildForStrategy(entry.strategyId);
+	m_paramPanel->setLoading(true);
+	m_paramPanel->loadParams(entry.params);
+	m_paramPanel->setLoading(false);
+	--m_strategyRowSyncDepth;
+}
+
+void FeatureTrajectoryPageWidget::applyParamsToSelectedRow()
+{
+	const int row = m_featureModel->selectedRow();
+	if (row < 0 || m_paramPanel->isRebuilding())
+	{
+		return;
+	}
+	geoalgo::FeatureEntry entry = m_featureModel->entryAt(row);
+	nlohmann::json params = entry.params.is_object() ? entry.params : nlohmann::json::object();
+	(void)m_paramPanel->applyParams(params);
+	entry.params = params;
+	(void)m_featureModel->updateEntry(row, entry);
+}
+
+void FeatureTrajectoryPageWidget::onStrategyComboChanged()
+{
+	if (m_strategyRowSyncDepth > 0)
+	{
+		return;
+	}
+	const int row = m_featureModel->selectedRow();
+	if (row < 0)
+	{
+		return;
+	}
+	geoalgo::FeatureEntry entry = m_featureModel->entryAt(row);
+	const QString strategyId = m_strategyCombo->currentData().toString();
+	if (strategyId.isEmpty())
+	{
+		return;
+	}
+	const std::string strategyIdUtf8 = strategyId.toStdString();
+	const geoalgo::GeometryAffinity affinity = geometry_backend_ops::featureDiscretizerAffinity(strategyIdUtf8);
+	const bool hasFace = !entry.geometry.faceIndices.empty();
+	const bool hasEdge = !entry.geometry.edgeIndices.empty();
+	if (affinity == geoalgo::GeometryAffinity::Line && hasFace && !hasEdge)
+	{
+		setStatus(m_chinese ? QStringLiteral("线策略不能用于面特征，请选择面离散策略")
+			: QStringLiteral("Line strategy cannot discretize face features"));
+		syncStrategyComboToEntry(entry);
+		return;
+	}
+	if (affinity == geoalgo::GeometryAffinity::Face && hasEdge && !hasFace)
+	{
+		setStatus(m_chinese ? QStringLiteral("面策略不能用于线特征，请选择线离散策略")
+			: QStringLiteral("Face strategy cannot discretize edge features"));
+		syncStrategyComboToEntry(entry);
+		return;
+	}
+	entry.strategyId = strategyIdUtf8;
+	entry.params = geometry_backend_ops::featureDiscretizerDefaultParams(entry.strategyId);
+	(void)m_featureModel->updateEntry(row, entry);
+	loadParamsForSelectedRow();
+	scheduleParameterRediscretize();
+}
+
+void FeatureTrajectoryPageWidget::onDeleteSelectedRows()
+{
+	const QModelIndexList selected = m_featureTable->selectionModel()->selectedRows();
+	QList<int> rows;
+	rows.reserve(selected.size());
+	for (const QModelIndex& idx : selected)
+	{
+		rows.push_back(idx.row());
+	}
+	m_featureModel->removeRows(rows);
+}
+
+void FeatureTrajectoryPageWidget::onDeleteAllRows()
+{
+	m_featureModel->clearAll();
+	m_paramPanel->clear();
+}
+
+void FeatureTrajectoryPageWidget::resetAfterTrajectoryCommit()
+{
+	exitPickMode();
+	clearCandidatePreview();
+	m_featureEditActive = false;
+	m_suppressParamRediscretize = true;
+	m_featureModel->clearAll();
+	m_paramPanel->clear();
+	m_suppressParamRediscretize = false;
+	m_lastLoadedPathPlanId.clear();
+	m_lastLoadedSourceJson.clear();
+	if (m_simController)
+	{
+		m_simController->clearBoundPathPlanPreview();
+	}
+	setStatus(m_chinese ? QStringLiteral("轨迹已提交，请重新拾取或导入特征")
+		: QStringLiteral("Trajectory committed; pick or import features again"));
+}
+
+bool FeatureTrajectoryPageWidget::beginEditBoundPathPlan(QString* err)
+{
+	if (!m_session || m_session->boundPathPlanId().empty())
+	{
+		if (err)
+		{
+			*err = m_chinese ? QStringLiteral("请先选择路径规划") : QStringLiteral("Select a path plan first");
+		}
+		setStatus(err ? *err : QString());
+		return false;
+	}
+	const std::string pathPlanId = m_session->boundPathPlanId();
+	const std::string json = m_session->boundSourceFeatureJson();
+
+	if (m_simController && m_simController->simulationDock())
+	{
+		if (TrajectoryEditPageWidget* edit = m_simController->simulationDock()->trajectoryEditPage())
+		{
+			edit->restoreBoundPathPlanForEdit();
+		}
+	}
+
+	if (json.empty())
+	{
+		m_featureEditActive = true;
+		m_lastLoadedPathPlanId = pathPlanId;
+		m_lastLoadedSourceJson.clear();
+		refreshPreviewFromSession();
+		setStatus(m_chinese ? QStringLiteral("已加载算子流程，请拾取或导入特征")
+			: QStringLiteral("Pipeline loaded; pick or import features"));
+		return true;
+	}
+
+	if (pathPlanId == m_lastLoadedPathPlanId && json == m_lastLoadedSourceJson && m_featureEditActive)
+	{
+		refreshPreviewFromSession();
+		setStatus(m_chinese ? QStringLiteral("已在修改模式")
+			: QStringLiteral("Already in edit mode"));
+		return true;
+	}
+	QString loadErr;
+	if (!loadFeatureListFromJson(json, &loadErr))
+	{
+		if (err)
+		{
+			*err = loadErr.isEmpty()
+				? (m_chinese ? QStringLiteral("特征 JSON 解析失败") : QStringLiteral("Failed to parse feature JSON"))
+				: loadErr;
+		}
+		setStatus(err ? *err : loadErr);
+		m_featureEditActive = false;
+		return false;
+	}
+	m_featureEditActive = true;
+	m_lastLoadedPathPlanId = pathPlanId;
+	m_lastLoadedSourceJson = json;
+	refreshPreviewFromSession();
+	const int featureCount = static_cast<int>(m_featureModel->entries().size());
+	const int pipelineCount = m_session ? static_cast<int>(m_session->boundPipelineOpCount()) : 0;
+	setStatus(m_chinese
+		? QStringLiteral("已加载 %1 个特征与 %2 个算子；修改离散参数将自动更新预览")
+			.arg(featureCount).arg(pipelineCount)
+		: QStringLiteral("Loaded %1 features and %2 ops; param edits refresh preview")
+			.arg(featureCount).arg(pipelineCount));
+	return true;
 }
 
 void FeatureTrajectoryPageWidget::scheduleParameterRediscretize()
 {
-	if (m_suppressParamRediscretize || !m_hasLastFeatureSpec || !m_rediscretizeTimer)
+	if (!m_featureEditActive || m_suppressParamRediscretize || m_featureModel->entries().empty()
+		|| !m_rediscretizeTimer)
 	{
 		return;
 	}
@@ -377,19 +677,24 @@ void FeatureTrajectoryPageWidget::scheduleParameterRediscretize()
 
 void FeatureTrajectoryPageWidget::onParameterRediscretize()
 {
-	if (!m_hasLastFeatureSpec)
+	if (m_featureModel->entries().empty())
 	{
 		return;
 	}
 	m_suppressParamRediscretize = true;
-	(void)discretizeFromEditor();
+	(void)discretizeFromTable(true);
 	m_suppressParamRediscretize = false;
 }
 
 void FeatureTrajectoryPageWidget::refreshPreviewFromSession()
 {
+	if (!m_simController)
+	{
+		return;
+	}
 	if (!m_session || !m_session->hasRawTrajectory())
 	{
+		m_simController->refreshBoundPathPlanPreview();
 		return;
 	}
 	const RobotInstruction::RawTrajectory* traj = m_session->rawTrajectory();
@@ -399,138 +704,145 @@ void FeatureTrajectoryPageWidget::refreshPreviewFromSession()
 	}
 }
 
-bool FeatureTrajectoryPageWidget::isFaceUvGridKind() const
+bool FeatureTrajectoryPageWidget::selectBackendComboById(const QString& backendId)
 {
-	std::string baseJson;
-	if (resolveDiscretizeBaseJson(baseJson))
+	if (!m_backendCombo || backendId.isEmpty())
 	{
-		try
-		{
-			const nlohmann::json j = nlohmann::json::parse(baseJson);
-			if (j.contains("kind") && j["kind"].is_string())
-			{
-				return j["kind"].get<std::string>() == "FaceUVGrid";
-			}
-		}
-		catch (...)
-		{
-		}
+		return false;
 	}
-	if (m_faceKindCombo)
+	for (int i = 0; i < m_backendCombo->count(); ++i)
 	{
-		return m_faceKindCombo->currentData().toString() == QStringLiteral("FaceUVGrid");
+		if (m_backendCombo->itemData(i).toString() == backendId)
+		{
+			if (m_backendCombo->currentIndex() != i)
+			{
+				m_backendCombo->setCurrentIndex(i);
+			}
+			return true;
+		}
 	}
 	return false;
 }
 
-void FeatureTrajectoryPageWidget::updateDiscretizeParamMode()
+bool FeatureTrajectoryPageWidget::applyFeatureListDocument(
+	const geoalgo::FeatureListDocument& doc,
+	const bool restoreWorkpiece)
 {
-	if (!m_discretizeStack)
+	if (doc.features.empty())
 	{
-		return;
-	}
-	m_discretizeStack->setCurrentIndex(isFaceUvGridKind() ? 1 : 0);
-}
-
-void FeatureTrajectoryPageWidget::syncDiscretizeUiFromSpecJson()
-{
-	std::string baseJson;
-	if (!resolveDiscretizeBaseJson(baseJson))
-	{
-		updateDiscretizeParamMode();
-		return;
-	}
-	try
-	{
-		const nlohmann::json j = nlohmann::json::parse(baseJson);
-		if (j.contains("discretize") && j["discretize"].is_object())
-		{
-			const auto& d = j["discretize"];
-			if (m_stepMmSpin && d.contains("stepMm"))
-			{
-				m_stepMmSpin->blockSignals(true);
-				m_stepMmSpin->setValue(d["stepMm"].get<double>());
-				m_stepMmSpin->blockSignals(false);
-			}
-			if (m_linearDeflectionSpin && d.contains("linearDeflectionMm"))
-			{
-				m_linearDeflectionSpin->blockSignals(true);
-				m_linearDeflectionSpin->setValue(d["linearDeflectionMm"].get<double>());
-				m_linearDeflectionSpin->blockSignals(false);
-			}
-		}
-		if (j.contains("refs") && j["refs"].is_object())
-		{
-			const auto& r = j["refs"];
-			if (m_uvCountUSpin && r.contains("uvCountU"))
-			{
-				m_uvCountUSpin->blockSignals(true);
-				m_uvCountUSpin->setValue(r["uvCountU"].get<int>());
-				m_uvCountUSpin->blockSignals(false);
-			}
-			if (m_uvCountVSpin && r.contains("uvCountV"))
-			{
-				m_uvCountVSpin->blockSignals(true);
-				m_uvCountVSpin->setValue(r["uvCountV"].get<int>());
-				m_uvCountVSpin->blockSignals(false);
-			}
-			if (m_gridAngleSpin && r.contains("gridAngleDeg"))
-			{
-				m_gridAngleSpin->blockSignals(true);
-				m_gridAngleSpin->setValue(r["gridAngleDeg"].get<double>());
-				m_gridAngleSpin->blockSignals(false);
-			}
-		}
-		if (j.contains("kind") && j["kind"].is_string() && m_faceKindCombo)
-		{
-			const std::string kind = j["kind"].get<std::string>();
-			const int idx = m_faceKindCombo->findData(QString::fromStdString(kind));
-			if (idx >= 0)
-			{
-				m_faceKindCombo->blockSignals(true);
-				m_faceKindCombo->setCurrentIndex(idx);
-				m_faceKindCombo->blockSignals(false);
-			}
-		}
-	}
-	catch (...)
-	{
-	}
-	updateDiscretizeParamMode();
-}
-
-bool FeatureTrajectoryPageWidget::applyDiscretizeUiToJson(std::string& jsonText)
-{
-	try
-	{
-		nlohmann::json j = nlohmann::json::parse(jsonText);
-		if (!j.contains("discretize") || !j["discretize"].is_object())
-		{
-			j["discretize"] = nlohmann::json::object();
-		}
-		if (!j.contains("refs") || !j["refs"].is_object())
-		{
-			j["refs"] = nlohmann::json::object();
-		}
-		if (isFaceUvGridKind())
-		{
-			j["refs"]["uvCountU"] = m_uvCountUSpin ? m_uvCountUSpin->value() : kDefaultUvCount;
-			j["refs"]["uvCountV"] = m_uvCountVSpin ? m_uvCountVSpin->value() : kDefaultUvCount;
-			j["refs"]["gridAngleDeg"] = m_gridAngleSpin ? m_gridAngleSpin->value() : 0.0;
-		}
-		else
-		{
-			j["discretize"]["stepMm"] = m_stepMmSpin ? m_stepMmSpin->value() : kDefaultStepMm;
-			j["discretize"]["linearDeflectionMm"] =
-				m_linearDeflectionSpin ? m_linearDeflectionSpin->value() : kDefaultLinearDeflectionMm;
-		}
-		jsonText = j.dump(2);
-		return true;
-	}
-	catch (const std::exception& ex)
-	{
-		QMessageBox::warning(this, QStringLiteral("离散参数"), QString::fromStdString(ex.what()));
 		return false;
+	}
+
+	geoalgo::FeatureListDocument normalized = doc;
+	if (restoreWorkpiece && !normalized.workpiece.backendIdUtf8.empty())
+	{
+		const QString backendId = QString::fromStdString(normalized.workpiece.backendIdUtf8);
+		if (!selectBackendComboById(backendId))
+		{
+			setStatus(m_chinese
+				? QStringLiteral("未找到工件 %1，特征表已加载但请手动选择工件").arg(backendId)
+				: QStringLiteral("Workpiece %1 not found; feature table loaded, select workpiece manually")
+					.arg(backendId));
+		}
+	}
+	else
+	{
+		QString backendId;
+		QString stepPath;
+		if (currentWorkpiece(backendId, stepPath))
+		{
+			if (normalized.workpiece.backendIdUtf8.empty())
+			{
+				normalized.workpiece.backendIdUtf8 = backendId.toStdString();
+			}
+			if (normalized.workpiece.stepPathUtf8.empty() && !stepPath.isEmpty())
+			{
+				normalized.workpiece.stepPathUtf8 = stepPath.toStdString();
+			}
+		}
+	}
+
+	m_suppressParamRediscretize = true;
+	++m_strategyRowSyncDepth;
+	for (geoalgo::FeatureEntry& feature : normalized.features)
+	{
+		normalizeEntryStrategyForGeometry(feature);
+	}
+	m_featureModel->setEntries(normalized.features);
+	if (!m_featureModel->entries().empty())
+	{
+		m_featureTable->selectRow(0);
+		loadParamsForSelectedRow();
+	}
+	--m_strategyRowSyncDepth;
+	m_suppressParamRediscretize = false;
+	return true;
+}
+
+bool FeatureTrajectoryPageWidget::loadFeatureListFromJson(const std::string& jsonUtf8, QString* err)
+{
+	geoalgo::FeatureListDocument doc{};
+	std::string parseErr;
+	if (!geometry_backend_ops::featureListFromJson(jsonUtf8, doc, &parseErr))
+	{
+		if (err)
+		{
+			*err = QString::fromStdString(parseErr);
+		}
+		return false;
+	}
+	if (doc.features.empty())
+	{
+		if (err)
+		{
+			*err = m_chinese ? QStringLiteral("特征 JSON 无 features") : QStringLiteral("Feature JSON has no features");
+		}
+		return false;
+	}
+	if (!applyFeatureListDocument(doc, true))
+	{
+		if (err)
+		{
+			*err = m_chinese ? QStringLiteral("无法应用特征表") : QStringLiteral("Failed to apply feature table");
+		}
+		return false;
+	}
+	return true;
+}
+
+void FeatureTrajectoryPageWidget::onPathPlanBound(const std::string& pathPlanId)
+{
+	if (!m_session || pathPlanId.empty())
+	{
+		return;
+	}
+	const std::string json = m_session->boundSourceFeatureJson();
+	const bool planChanged = pathPlanId != m_lastLoadedPathPlanId;
+	if (planChanged)
+	{
+		m_featureEditActive = false;
+		exitPickMode();
+		clearCandidatePreview();
+		m_suppressParamRediscretize = true;
+		m_featureModel->clearAll();
+		m_paramPanel->clear();
+		m_suppressParamRediscretize = false;
+		m_lastLoadedPathPlanId = pathPlanId;
+		m_lastLoadedSourceJson.clear();
+	}
+	if (json.empty())
+	{
+		setStatus(m_chinese ? QStringLiteral("新建路径规划，请拾取或导入特征")
+			: QStringLiteral("New path plan; pick or import features"));
+	}
+	else if (planChanged || !m_featureEditActive)
+	{
+		setStatus(m_chinese ? QStringLiteral("已绑定路径规划，点击「开始修改」加载特征、离散参数与算子流程")
+			: QStringLiteral("Path plan bound; click Edit to load features, params and pipeline"));
+	}
+	if (m_simController && !m_featureEditActive)
+	{
+		m_simController->clearBoundPathPlanPreview();
 	}
 }
 
@@ -548,10 +860,6 @@ void FeatureTrajectoryPageWidget::updatePickUiState()
 	if (m_cancelPickBtn)
 	{
 		m_cancelPickBtn->setEnabled(m_pickSession != PickSessionKind::None);
-	}
-	if (m_faceKindCombo)
-	{
-		m_faceKindCombo->setEnabled(m_pickSession == PickSessionKind::None);
 	}
 	if (!m_pickStatusLabel)
 	{
@@ -602,6 +910,8 @@ void FeatureTrajectoryPageWidget::onPickEdge()
 	osg->setMeshLinePickMode(true);
 	osg->setMeshPickScopeBackendId(backendId.toStdString());
 	m_pickSession = PickSessionKind::Edge;
+	m_lastPickAffinity = geoalgo::GeometryAffinity::Line;
+	refreshStrategyCombo(geoalgo::GeometryAffinity::Line);
 	updatePickUiState();
 	setStatus(m_chinese ? QStringLiteral("边拾取模式：在视口左键点击确认")
 		: QStringLiteral("Edge pick: left-click in viewport"));
@@ -624,6 +934,8 @@ void FeatureTrajectoryPageWidget::onPickFace()
 	osg->setMeshFacePickMode(true);
 	osg->setMeshPickScopeBackendId(backendId.toStdString());
 	m_pickSession = PickSessionKind::Face;
+	m_lastPickAffinity = geoalgo::GeometryAffinity::Face;
+	refreshStrategyCombo(geoalgo::GeometryAffinity::Face);
 	updatePickUiState();
 	setStatus(m_chinese ? QStringLiteral("面拾取模式：在视口左键点击确认")
 		: QStringLiteral("Face pick: left-click in viewport"));
@@ -632,7 +944,61 @@ void FeatureTrajectoryPageWidget::onPickFace()
 void FeatureTrajectoryPageWidget::onCancelPick()
 {
 	exitPickMode();
+	refreshStrategyCombo();
 	setStatus(m_chinese ? QStringLiteral("已取消 3D 拾取") : QStringLiteral("3D pick cancelled"));
+}
+
+bool FeatureTrajectoryPageWidget::buildFeatureEntryFromPick(
+	const bool pickFace,
+	const geoalgo::Point3d& modelA,
+	const geoalgo::Point3d& modelB,
+	const int knownFaceIndex,
+	const int knownEdgeIndex,
+	geoalgo::FeatureEntry& out,
+	QString* err) const
+{
+	if (m_backendCombo->currentIndex() < 0)
+	{
+		if (err)
+		{
+			*err = QStringLiteral("未选择工件");
+		}
+		return false;
+	}
+	const QString backendId = m_backendCombo->currentData().toString();
+	geoalgo::ShapeHandle shape;
+	geoalgo::WorkpieceRef wp;
+	if (!resolveWorkpieceShapeForBackend(backendId, shape, wp, err))
+	{
+		return false;
+	}
+
+	const std::string strategyId = resolveStrategyIdForPick(pickFace);
+	if (strategyId.empty())
+	{
+		if (err)
+		{
+			*err = m_chinese ? QStringLiteral("未找到匹配的离散策略") : QStringLiteral("No matching discretize strategy");
+		}
+		return false;
+	}
+
+	out = geoalgo::FeatureEntry{};
+	out.strategyId = strategyId;
+	out.params = geometry_backend_ops::featureDiscretizerDefaultParams(out.strategyId);
+
+	std::string stdErr;
+	if (!geometry_backend_ops::buildFeatureEntryFromModelPick(
+			wp, shape, out.strategyId, pickFace, modelA, modelB, out, &stdErr, knownFaceIndex, knownEdgeIndex))
+	{
+		if (err)
+		{
+			*err = QString::fromStdString(stdErr);
+		}
+		return false;
+	}
+	normalizeEntryStrategyForGeometry(out);
+	return true;
 }
 
 void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, const int pickKindInt)
@@ -685,66 +1051,47 @@ void FeatureTrajectoryPageWidget::onMeshPickCommitted(const PickResult& pick, co
 		modelB = modelA;
 	}
 
-	geoalgo::WorkpieceRef wp;
+	geoalgo::FeatureEntry entry;
 	QString pickErr;
-	std::string err;
-	geoalgo::FeatureKind faceKind = geoalgo::FeatureKind::FaceBoundary;
-	if (kind == PickKind::MeshFace && m_faceKindCombo)
-	{
-		const QString fk = m_faceKindCombo->currentData().toString();
-		if (fk == QStringLiteral("FaceUVGrid"))
-		{
-			faceKind = geoalgo::FeatureKind::FaceUVGrid;
-		}
-	}
-
-	geoalgo::ShapeHandle shape;
-	geoalgo::WorkpieceRef wpResolved;
-	if (!resolveWorkpieceShapeForBackend(expectedBackendId, shape, wpResolved, &pickErr))
+	const int knownFaceIndex = pick.brepNativePick && kind == PickKind::MeshFace ? pick.brepFaceIndex : -1;
+	const int knownEdgeIndex = pick.brepNativePick && kind == PickKind::MeshEdge ? pick.brepEdgeIndex : -1;
+	if (!buildFeatureEntryFromPick(kind == PickKind::MeshFace, modelA, modelB, knownFaceIndex, knownEdgeIndex, entry,
+			&pickErr))
 	{
 		QMessageBox::warning(this, QStringLiteral("Pick"), pickErr);
 		exitPickMode();
 		return;
 	}
-	wp = wpResolved;
 
-	geoalgo::FeatureSpec spec;
-	const int knownFaceIndex = pick.brepNativePick && kind == PickKind::MeshFace ? pick.brepFaceIndex : -1;
-	const int knownEdgeIndex = pick.brepNativePick && kind == PickKind::MeshEdge ? pick.brepEdgeIndex : -1;
-	if (!geometry_backend_ops::buildFeatureSpecFromModelPick(
-			wp, shape, kind == PickKind::MeshFace, faceKind, modelA, modelB, spec, &err,
-			knownFaceIndex, knownEdgeIndex))
-	{
-		QMessageBox::warning(this, QStringLiteral("Pick"), QString::fromStdString(err));
-		exitPickMode();
-		return;
-	}
-
-	if (faceKind == geoalgo::FeatureKind::FaceUVGrid)
-	{
-		spec.refs.uvCountU = m_uvCountUSpin ? m_uvCountUSpin->value() : kDefaultUvCount;
-		spec.refs.uvCountV = m_uvCountVSpin ? m_uvCountVSpin->value() : kDefaultUvCount;
-		spec.refs.gridAngleDeg = m_gridAngleSpin ? m_gridAngleSpin->value() : 0.0;
-	}
-	else
-	{
-		spec.discretize.stepMm = m_stepMmSpin ? m_stepMmSpin->value() : kDefaultStepMm;
-		spec.discretize.linearDeflectionMm =
-			m_linearDeflectionSpin ? m_linearDeflectionSpin->value() : kDefaultLinearDeflectionMm;
-	}
-
-	std::string specJson = geometry_backend_ops::featureSpecToJson(spec);
-	(void)applyDiscretizeUiToJson(specJson);
-	m_specEditor->blockSignals(true);
-	m_specEditor->setPlainText(QString::fromStdString(specJson));
-	m_specEditor->blockSignals(false);
-	commitLastFeatureSpec(specJson);
-	syncDiscretizeUiFromSpecJson();
+	++m_strategyRowSyncDepth;
+	m_suppressParamRediscretize = true;
+	m_featureModel->appendEntry(entry);
 	exitPickMode();
+	syncStrategyComboToEntry(entry);
+	loadParamsForSelectedRow();
+	m_suppressParamRediscretize = false;
+	m_featureEditActive = true;
 	setStatus(m_chinese
-		? QStringLiteral("已选取 %1，正在离散…").arg(QString::fromStdString(spec.featureId))
-		: QStringLiteral("Selected %1, discretizing…").arg(QString::fromStdString(spec.featureId)));
-	(void)discretizeFromEditor();
+		? QStringLiteral("已添加特征 %1，正在离散…").arg(QString::fromStdString(entry.featureId))
+		: QStringLiteral("Added feature %1, discretizing…").arg(QString::fromStdString(entry.featureId)));
+	const bool ok = discretizeFromTable(true);
+	--m_strategyRowSyncDepth;
+	if (ok && m_session && m_session->hasRawTrajectory())
+	{
+		const int n = static_cast<int>(m_session->rawTrajectory()->points.size());
+		QString msg = m_chinese
+			? QStringLiteral("已离散特征 %1 → 共 %2 点").arg(QString::fromStdString(entry.featureId)).arg(n)
+			: QStringLiteral("Discretized %1 → %2 points").arg(QString::fromStdString(entry.featureId)).arg(n);
+		if (!m_session->boundPathPlanId().empty())
+		{
+			msg += m_chinese ? QStringLiteral("；已写入当前路径规划") : QStringLiteral("; saved to path plan");
+		}
+		setStatus(msg);
+	}
+	else if (!ok)
+	{
+		m_featureEditActive = false;
+	}
 }
 
 void FeatureTrajectoryPageWidget::refreshBackendCombo()
@@ -853,7 +1200,7 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 	else if (m_backendCombo->currentIndex() >= 0)
 	{
 		QTimer::singleShot(0, this, [this]() {
-			(void)autoEnumerateCatalogForCurrentWorkpiece(true, true, nullptr);
+			(void)autoEnumerateCatalogForCurrentWorkpiece(true, nullptr);
 		});
 	}
 	updatePickUiState();
@@ -917,41 +1264,7 @@ bool FeatureTrajectoryPageWidget::enumerateCatalogForBackend(const QString& back
 	return true;
 }
 
-bool FeatureTrajectoryPageWidget::shouldReplaceEditorWithCatalog() const
-{
-	if (!m_specEditor)
-	{
-		return false;
-	}
-	if (editorHasValidFeatureSpec())
-	{
-		return false;
-	}
-	const QString text = m_specEditor->toPlainText().trimmed();
-	if (text.isEmpty())
-	{
-		return true;
-	}
-	try
-	{
-		const nlohmann::json j = nlohmann::json::parse(text.toStdString());
-		if (j.contains("kind"))
-		{
-			return false;
-		}
-		if (j.contains("candidates"))
-		{
-			return true;
-		}
-	}
-	catch (...)
-	{
-	}
-	return false;
-}
-
-bool FeatureTrajectoryPageWidget::autoEnumerateCatalogForCurrentWorkpiece(const bool updateEditor,
-	const bool quiet, QString* err)
+bool FeatureTrajectoryPageWidget::autoEnumerateCatalogForCurrentWorkpiece(const bool quiet, QString* err)
 {
 	QString backendId;
 	QString stepPath;
@@ -978,13 +1291,6 @@ bool FeatureTrajectoryPageWidget::autoEnumerateCatalogForCurrentWorkpiece(const 
 	m_cachedCatalogBackendId = backendId;
 	m_cachedCatalogJsonUtf8 = geometry_backend_ops::featureCatalogToJson(catalog);
 
-	if (updateEditor && shouldReplaceEditorWithCatalog())
-	{
-		m_specEditor->blockSignals(true);
-		m_specEditor->setPlainText(QString::fromStdString(m_cachedCatalogJsonUtf8));
-		m_specEditor->blockSignals(false);
-	}
-
 	if (!quiet)
 	{
 		setStatus(m_chinese
@@ -996,7 +1302,7 @@ bool FeatureTrajectoryPageWidget::autoEnumerateCatalogForCurrentWorkpiece(const 
 
 bool FeatureTrajectoryPageWidget::ensureFeatureCatalogEnumerated(QString* err)
 {
-	return autoEnumerateCatalogForCurrentWorkpiece(true, true, err);
+	return autoEnumerateCatalogForCurrentWorkpiece(true, err);
 }
 
 void FeatureTrajectoryPageWidget::setStatus(const QString& text)
@@ -1004,29 +1310,6 @@ void FeatureTrajectoryPageWidget::setStatus(const QString& text)
 	if (m_host)
 	{
 		m_host->appendRunInfo(text);
-	}
-}
-
-void FeatureTrajectoryPageWidget::onLoadCatalog()
-{
-	QString err;
-	m_cachedCatalogBackendId.clear();
-	m_cachedCatalogJsonUtf8.clear();
-	if (!autoEnumerateCatalogForCurrentWorkpiece(true, false, &err))
-	{
-		if (!err.isEmpty())
-		{
-			QMessageBox::warning(this, QStringLiteral("Catalog"), err);
-		}
-		return;
-	}
-	if (m_chinese)
-	{
-		setStatus(QStringLiteral("目录已刷新，可复制 candidate 填入 FeatureSpec 或使用 3D 拾取"));
-	}
-	else
-	{
-		setStatus(QStringLiteral("Catalog refreshed; copy a candidate into FeatureSpec or use 3D pick"));
 	}
 }
 
@@ -1043,146 +1326,89 @@ std::string FeatureTrajectoryPageWidget::resolvePreviewBackendId(const RobotInst
 RobotOsgUi::RawTrajectoryPreviewOptions FeatureTrajectoryPageWidget::currentPreviewOptions() const
 {
 	RobotOsgUi::RawTrajectoryPreviewOptions opt;
-	opt.showAxes = m_showAxesCheck && m_showAxesCheck->isChecked();
+	opt.showAxisX = m_showAxisXCheck && m_showAxisXCheck->isChecked();
+	opt.showAxisY = m_showAxisYCheck && m_showAxisYCheck->isChecked();
+	opt.showAxisZ = m_showAxisZCheck && m_showAxisZCheck->isChecked();
+	opt.showAxes = opt.showAxisX || opt.showAxisY || opt.showAxisZ;
 	opt.axisInterval = m_axisIntervalSpin ? m_axisIntervalSpin->value() : 0;
-	opt.maxAxes = 50;
 	return opt;
+}
+
+RobotOsgUi::RawTrajectoryPreviewOptions FeatureTrajectoryPageWidget::previewOptions() const
+{
+	return currentPreviewOptions();
 }
 
 void FeatureTrajectoryPageWidget::showTrajectoryPreview(const RobotInstruction::RawTrajectory& traj)
 {
-	if (!m_host)
-	{
-		return;
-	}
-	IRobotOsgViewHost* osg = m_host->osgView();
-	if (!osg)
-	{
-		return;
-	}
-	const std::string backendId = resolvePreviewBackendId(traj);
-	if (backendId.empty())
-	{
-		m_host->appendRunWarning(m_chinese ? QStringLiteral("轨迹预览：FeatureSpec 缺少 workpiece.backendIdUtf8")
-			: QStringLiteral("Trajectory preview: missing workpiece.backendIdUtf8"));
-		return;
-	}
-	if (traj.points.empty())
-	{
-		return;
-	}
-	std::string err;
-	feature_pick_transform::applyRawTrajectoryPreviewToOsg(
-		osg, backendId, traj, currentPreviewOptions(), &err);
-	if (!err.empty())
-	{
-		m_host->appendRunWarning(QString::fromStdString(err));
-		if (m_simController)
-		{
-			m_simController->setRawTrajectoryPreviewActive(false);
-		}
-		return;
-	}
 	if (m_simController)
 	{
-		m_simController->setRawTrajectoryPreviewActive(true);
+		m_simController->refreshBoundPathPlanPreview(&traj);
 	}
-	osg->requestRedraw();
 }
 
-bool FeatureTrajectoryPageWidget::prepareSpecForDiscretize(std::string& jsonText, std::string* errMsg)
+bool FeatureTrajectoryPageWidget::buildFeatureListDocument(geoalgo::FeatureListDocument& out, QString* err) const
 {
-	try
+	if (m_backendCombo->currentIndex() < 0)
 	{
-		const nlohmann::json j = nlohmann::json::parse(jsonText);
-		if (j.contains("candidates") && !j.contains("kind"))
+		if (err)
 		{
-			if (errMsg)
-			{
-				*errMsg = m_chinese
-					? "当前为特征目录 JSON，请从 candidate 组装 FeatureSpec 或使用 3D 拾取"
-					: "Editor has FeatureCatalog JSON; build a FeatureSpec or use 3D pick";
-			}
-			return false;
+			*err = m_chinese ? QStringLiteral("请选择工件") : QStringLiteral("Select a workpiece");
 		}
+		return false;
 	}
-	catch (...)
+	if (m_featureModel->entries().empty())
 	{
+		if (err)
+		{
+			*err = m_chinese ? QStringLiteral("特征表为空，请 3D 拾取或从 AI 导入")
+				: QStringLiteral("Feature table is empty; pick in 3D or import from AI");
+		}
+		return false;
 	}
-
-	if (m_backendCombo->currentIndex() >= 0)
+	const QString backendId = m_backendCombo->currentData().toString();
+	QString stepPath;
+	if (m_stepPathResolver)
 	{
-		const QString backendId = m_backendCombo->currentData().toString();
-		QString stepPath;
-		if (m_stepPathResolver)
-		{
-			stepPath = m_stepPathResolver(backendId);
-		}
-		try
-		{
-			nlohmann::json j = nlohmann::json::parse(jsonText);
-			if (!j.contains("workpiece") || !j["workpiece"].is_object())
-			{
-				j["workpiece"] = nlohmann::json::object();
-			}
-			if (j["workpiece"].value("backendIdUtf8", "").empty())
-			{
-				j["workpiece"]["backendIdUtf8"] = backendId.toStdString();
-			}
-			if (j["workpiece"].value("stepPathUtf8", "").empty() && !stepPath.isEmpty())
-			{
-				j["workpiece"]["stepPathUtf8"] = stepPath.toStdString();
-			}
-			if (!j.contains("schemaVersion"))
-			{
-				j["schemaVersion"] = 1;
-			}
-			if (!j.contains("kind"))
-			{
-				j["kind"] = "EdgeChain";
-			}
-			jsonText = j.dump();
-		}
-		catch (...)
-		{
-		}
+		stepPath = m_stepPathResolver(backendId);
+	}
+	out = geoalgo::FeatureListDocument{};
+	out.schemaVersion = 2;
+	out.workpiece.backendIdUtf8 = backendId.toStdString();
+	out.workpiece.stepPathUtf8 = stepPath.toStdString();
+	out.features = m_featureModel->entries();
+	for (geoalgo::FeatureEntry& feature : out.features)
+	{
+		normalizeEntryStrategyForGeometry(feature);
 	}
 	return true;
 }
 
-bool FeatureTrajectoryPageWidget::discretizeFromEditor()
+bool FeatureTrajectoryPageWidget::discretizeFromTable(const bool quiet)
 {
-	std::string jsonText;
-	if (!resolveDiscretizeBaseJson(jsonText))
+	for (int i = 0; i < static_cast<int>(m_featureModel->entries().size()); ++i)
 	{
-		QMessageBox::warning(this, QStringLiteral("离散"),
-			m_chinese ? QStringLiteral("请先 3D 拾取特征或编辑 FeatureSpec JSON")
-				: QStringLiteral("Pick a feature in 3D or edit FeatureSpec JSON first"));
-		return false;
-	}
-	std::string prepErr;
-	if (!prepareSpecForDiscretize(jsonText, &prepErr))
-	{
-		QMessageBox::warning(this, QStringLiteral("离散"), QString::fromStdString(prepErr));
-		return false;
-	}
-	if (!applyDiscretizeUiToJson(jsonText))
-	{
-		return false;
-	}
-	commitLastFeatureSpec(jsonText);
-	if (editorHasValidFeatureSpec())
-	{
-		m_specEditor->blockSignals(true);
-		m_specEditor->setPlainText(QString::fromStdString(jsonText));
-		m_specEditor->blockSignals(false);
+		geoalgo::FeatureEntry entry = m_featureModel->entryAt(i);
+		const std::string before = entry.strategyId;
+		normalizeEntryStrategyForGeometry(entry);
+		if (entry.strategyId != before)
+		{
+			(void)m_featureModel->updateEntry(i, entry);
+		}
 	}
 
-	geoalgo::FeatureSpec spec;
-	std::string err;
-	if (!geometry_backend_ops::featureSpecFromJson(jsonText, spec, &err))
+	geoalgo::FeatureListDocument doc;
+	QString prepErr;
+	if (!buildFeatureListDocument(doc, &prepErr))
 	{
-		QMessageBox::warning(this, QStringLiteral("离散"), QString::fromStdString(err));
+		if (!quiet)
+		{
+			QMessageBox::warning(this, QStringLiteral("离散"), prepErr);
+		}
+		else if (!prepErr.isEmpty())
+		{
+			setStatus(prepErr);
+		}
 		return false;
 	}
 
@@ -1192,46 +1418,77 @@ bool FeatureTrajectoryPageWidget::discretizeFromEditor()
 	const QString backendId = m_backendCombo ? m_backendCombo->currentData().toString() : QString();
 	if (!resolveWorkpieceShapeForBackend(backendId, shape, wp, &shapeErr))
 	{
-		QMessageBox::warning(this, QStringLiteral("离散"), shapeErr);
+		if (!quiet)
+		{
+			QMessageBox::warning(this, QStringLiteral("离散"), shapeErr);
+		}
+		else if (!shapeErr.isEmpty())
+		{
+			setStatus(shapeErr);
+		}
+		return false;
+	}
+	doc.workpiece = wp;
+
+	geoalgo::RawPath path;
+	std::string err;
+	if (!geometry_backend_ops::discretizeFeatureList(doc, shape, path, &err))
+	{
+		for (int i = 0; i < static_cast<int>(m_featureModel->entries().size()); ++i)
+		{
+			m_featureModel->setRowStatus(i, m_chinese ? QStringLiteral("离散失败") : QStringLiteral("failed"));
+		}
+		const QString errText = err.empty()
+			? (m_chinese ? QStringLiteral("离散失败") : QStringLiteral("Discretization failed"))
+			: QString::fromStdString(err);
+		if (!quiet)
+		{
+			QMessageBox::warning(this, QStringLiteral("离散"), errText);
+		}
+		else
+		{
+			setStatus(errText);
+		}
 		return false;
 	}
 
-	geoalgo::RawPath path;
-	if (!geometry_backend_ops::discretizeFeature(spec, shape, path, &err))
+	for (int i = 0; i < static_cast<int>(m_featureModel->entries().size()); ++i)
 	{
-		QMessageBox::warning(this, QStringLiteral("离散"), QString::fromStdString(err));
-		return false;
+		m_featureModel->setRowStatus(i, m_chinese ? QStringLiteral("就绪") : QStringLiteral("ok"));
 	}
+
 	RobotInstruction::RawTrajectory traj;
 	if (!RobotInstruction::importRawPathToTrajectory(path, RobotInstruction::FrameStrategy::SurfaceNormalZ, traj, &err))
 	{
-		QMessageBox::warning(this, QStringLiteral("导入"), QString::fromStdString(err));
+		const QString errText = err.empty()
+			? (m_chinese ? QStringLiteral("轨迹导入失败") : QStringLiteral("Failed to import trajectory"))
+			: QString::fromStdString(err);
+		if (!quiet)
+		{
+			QMessageBox::warning(this, QStringLiteral("导入"), errText);
+		}
+		else
+		{
+			setStatus(errText);
+		}
 		return false;
 	}
+	traj.sourceFeatureJson = geometry_backend_ops::featureListToJson(doc);
 	if (m_session)
 	{
 		m_session->setRawTrajectory(traj);
 	}
+	m_featureEditActive = true;
+	m_lastLoadedPathPlanId = m_session ? m_session->boundPathPlanId() : std::string{};
+	m_lastLoadedSourceJson = traj.sourceFeatureJson;
 	showTrajectoryPreview(traj);
 
 	const int n = static_cast<int>(traj.points.size());
-	QString msg;
-	if (spec.kind == geoalgo::FeatureKind::FaceUVGrid)
-	{
-		msg = m_chinese
-			? QStringLiteral("UV 网格 %1×%2 → 共 %3 点；请在「轨迹编辑」应用配方")
-				.arg(spec.refs.uvCountU).arg(spec.refs.uvCountV).arg(n)
-			: QStringLiteral("UV grid %1×%2 → %3 points; apply recipe on Trajectory Edit tab")
-				.arg(spec.refs.uvCountU).arg(spec.refs.uvCountV).arg(n);
-	}
-	else
-	{
-		msg = m_chinese
-			? QStringLiteral("步距 %1 mm → 共 %2 点；请在「轨迹编辑」应用配方")
-				.arg(spec.discretize.stepMm, 0, 'f', 2).arg(n)
-			: QStringLiteral("Step %1 mm → %2 points; apply recipe on Trajectory Edit tab")
-				.arg(spec.discretize.stepMm, 0, 'f', 2).arg(n);
-	}
+	QString msg = m_chinese
+		? QStringLiteral("已离散 %1 个特征 → 共 %2 点；请在「轨迹编辑」应用配方")
+			.arg(static_cast<int>(doc.features.size())).arg(n)
+		: QStringLiteral("Discretized %1 features → %2 points; apply recipe on Trajectory Edit tab")
+			.arg(static_cast<int>(doc.features.size())).arg(n);
 	if (m_session)
 	{
 		if (!m_session->boundPathPlanId().empty())
@@ -1245,13 +1502,16 @@ bool FeatureTrajectoryPageWidget::discretizeFromEditor()
 			msg += m_chinese ? QStringLiteral("；已新建路径规划") : QStringLiteral("; new path plan created");
 		}
 	}
-	setStatus(msg);
+	if (!quiet)
+	{
+		setStatus(msg);
+	}
 	return true;
 }
 
 void FeatureTrajectoryPageWidget::onDiscretize()
 {
-	(void)discretizeFromEditor();
+	(void)discretizeFromTable(false);
 }
 
 bool FeatureTrajectoryPageWidget::currentWorkpiece(QString& backendId, QString& stepPath) const
@@ -1328,34 +1588,14 @@ bool FeatureTrajectoryPageWidget::buildPreviewOverlayJson(const QByteArray& cata
 
 		for (const auto& c : slice["candidates"])
 		{
-			geoalgo::FeatureRefs refs;
-			if (c.contains("refs") && c["refs"].is_object())
+			geoalgo::FeatureGeometry geometry;
+			if (!readGeometryFromCandidateJson(c, geometry))
 			{
-				const auto& r = c["refs"];
-				if (r.contains("edgeIndices") && r["edgeIndices"].is_array())
-				{
-					for (const auto& ei : r["edgeIndices"])
-					{
-						if (ei.is_number_integer())
-						{
-							refs.edgeIndices.push_back(ei.get<int>());
-						}
-					}
-				}
-				if (r.contains("faceIndices") && r["faceIndices"].is_array())
-				{
-					for (const auto& fi : r["faceIndices"])
-					{
-						if (fi.is_number_integer())
-						{
-							refs.faceIndices.push_back(fi.get<int>());
-						}
-					}
-				}
+				continue;
 			}
 			geoalgo::FeatureAnchor anchor;
 			std::string anchorErr;
-			if (!geometry_backend_ops::computeFeatureAnchor(wp, refs, anchor, &anchorErr))
+			if (!geometry_backend_ops::computeFeatureAnchor(wp, geometry, anchor, &anchorErr))
 			{
 				continue;
 			}
@@ -1465,7 +1705,108 @@ bool FeatureTrajectoryPageWidget::commitFeaturePlanFromAi(const QByteArray& plan
 	try
 	{
 		const nlohmann::json plan = nlohmann::json::parse(planJsonUtf8.constData(), nullptr, true);
-		if (!plan.contains("features") || !plan["features"].is_array() || plan["features"].empty())
+		geoalgo::FeatureListDocument doc;
+		std::string parseErr;
+
+		if (plan.contains("features") && plan["features"].is_array())
+		{
+			doc.schemaVersion = 2;
+			doc.defaultStrategyId = plan.value("defaultStrategyId", std::string("EdgeChain"));
+			if (plan.contains("workpiece"))
+			{
+				const auto& wp = plan["workpiece"];
+				doc.workpiece.backendIdUtf8 = wp.value("backendIdUtf8", std::string());
+				doc.workpiece.stepPathUtf8 = wp.value("stepPathUtf8", std::string());
+			}
+			for (const auto& item : plan["features"])
+			{
+				geoalgo::FeatureEntry entry{};
+				entry.featureId = item.value("featureId", std::string());
+				if (item.contains("strategyId"))
+				{
+					entry.strategyId = item["strategyId"].get<std::string>();
+				}
+				else if (item.contains("kind"))
+				{
+					const std::string kind = item["kind"].get<std::string>();
+					if (kind == "FaceUVGrid")
+					{
+						entry.strategyId = "FaceSection";
+					}
+					else if (kind == "FaceBoundary" || kind == "FaceParamSurface" || kind == "EdgeChain")
+					{
+						entry.strategyId = kind;
+					}
+					else
+					{
+						entry.strategyId = doc.defaultStrategyId;
+					}
+				}
+				else
+				{
+					entry.strategyId = doc.defaultStrategyId;
+				}
+				if (item.contains("geometry"))
+				{
+					const auto& g = item["geometry"];
+					if (g.contains("edgeIndices") && g["edgeIndices"].is_array())
+					{
+						for (const auto& v : g["edgeIndices"])
+						{
+							entry.geometry.edgeIndices.push_back(v.get<int>());
+						}
+					}
+					if (g.contains("faceIndices") && g["faceIndices"].is_array())
+					{
+						for (const auto& v : g["faceIndices"])
+						{
+							entry.geometry.faceIndices.push_back(v.get<int>());
+						}
+					}
+				}
+				else if (item.contains("refs"))
+				{
+					readGeometryFromCandidateJson(item, entry.geometry);
+				}
+				if (item.contains("params") && item["params"].is_object())
+				{
+					entry.params = item["params"];
+				}
+				else
+				{
+					nlohmann::json merged = geometry_backend_ops::featureDiscretizerDefaultParams(entry.strategyId);
+					if (item.contains("discretize") && item["discretize"].is_object())
+					{
+						for (auto it = item["discretize"].begin(); it != item["discretize"].end(); ++it)
+						{
+							merged[it.key()] = it.value();
+						}
+					}
+					if (item.contains("refs") && item["refs"].is_object())
+					{
+						for (auto it = item["refs"].begin(); it != item["refs"].end(); ++it)
+						{
+							merged[it.key()] = it.value();
+						}
+					}
+					entry.params = merged;
+				}
+				doc.features.push_back(std::move(entry));
+			}
+		}
+		else
+		{
+			if (!geometry_backend_ops::featureListFromJson(planJsonUtf8.constData(), doc, &parseErr))
+			{
+				if (err)
+				{
+					*err = QString::fromStdString(parseErr);
+				}
+				return false;
+			}
+		}
+
+		if (doc.features.empty())
 		{
 			if (err)
 			{
@@ -1474,20 +1815,21 @@ bool FeatureTrajectoryPageWidget::commitFeaturePlanFromAi(const QByteArray& plan
 			return false;
 		}
 
-		const nlohmann::json& first = plan["features"][0];
-		const std::string specJson = first.dump();
-		m_specEditor->blockSignals(true);
-		m_specEditor->setPlainText(QString::fromStdString(specJson));
-		m_specEditor->blockSignals(false);
-		commitLastFeatureSpec(specJson);
-		syncDiscretizeUiFromSpecJson();
-
-		const std::string pipelineTemplate = plan.value("suggestedPipelineTemplate", std::string("weld_default"));
-		if (!discretizeFromEditor())
+		if (!applyFeatureListDocument(doc, false))
 		{
 			if (err)
 			{
-				*err = QStringLiteral("离散失败，请检查 FeatureSpec");
+				*err = QStringLiteral("无法应用特征表");
+			}
+			return false;
+		}
+
+		const std::string pipelineTemplate = plan.value("suggestedPipelineTemplate", std::string("weld_default"));
+		if (!discretizeFromTable(false))
+		{
+			if (err)
+			{
+				*err = QStringLiteral("离散失败，请检查特征表");
 			}
 			return false;
 		}

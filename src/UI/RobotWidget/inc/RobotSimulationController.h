@@ -10,6 +10,7 @@
 #include <QElapsedTimer>
 #include <QHash>
 #include <QObject>
+#include <QSet>
 #include <QTimer>
 #include <QVector>
 
@@ -26,7 +27,7 @@ class RobotSimulationDockWidget;
 class QtProperty;
 class ProgramEditService;
 class TrajectoryEditSession;
-namespace RobotInstruction { class Base; struct FeasibleMotionAxisConfigurationOptions; }
+namespace RobotInstruction { class Base; struct FeasibleMotionAxisConfigurationOptions; struct RawTrajectory; }
 
 /// 指令选中时链式种子，供 feasible 与 preview 共用，避免重复 IK
 struct ROBOTWIDGET_EXPORT PrecomputedChainSeed
@@ -99,6 +100,7 @@ public slots:
 	void onSimulationStopRequested();
 	void onSimulationAddInstructionRequested(RobotInstruction::Type type);
 	void onSimulationInstructionSelectionChanged(const std::shared_ptr<RobotInstruction::Base>& instruction);
+	void onInstructionGroupVisibilityChangeRequested(const std::string& groupId, bool visible);
 	void onRobotSimulationTick();
 	void onSimulationExportRequested();
 	void onSimulationRobotSelectionChanged(int instanceIndex, const QString& sceneBackendId);
@@ -110,12 +112,22 @@ public slots:
 	void onCaptureToolFrameFromTcp();
 	void onCaptureUserFrameFromTcp();
 	void onResetToolFrame();
+	void onSimulationDockTabChanged(int index);
 
 	void stopRobotSimulation();
 	QVector<double> aggregatedJointAnglesRad() const { return m_aggregatedJointAnglesRad; }
 	void restoreAggregatedJointStateAfterProjectLoad(const QVector<double>& allJointAnglesRad);
 	void applyProgramStartPoseAfterProjectLoad();
 	void refreshInstructionPoseAxes(bool computeReachability = true);
+	void refreshPathPlanRawOverlays();
+	void refreshBoundPathPlanPreview(const RobotInstruction::RawTrajectory* preferRaw = nullptr);
+	void clearBoundPathPlanPreview();
+	void refreshPathPlanPreviewForActiveTab(const RobotInstruction::RawTrajectory* preferRaw = nullptr);
+	bool isTrajectoryGenerationTabActive() const;
+	bool shouldShowTrajectoryGenerationPreview() const;
+	void setInstructionGroupVisible(const std::string& groupId, bool visible);
+	bool isInstructionGroupVisible(const std::string& groupId) const;
+	bool isInstructionVisibleIn3d(const std::string& instructionId) const;
 	void setRawTrajectoryPreviewActive(bool active);
 	bool rawTrajectoryPreviewActive() const { return m_rawTrajectoryPreviewActive; }
 	void refreshSimulationJointListFromCurrentDoc();
@@ -154,6 +166,7 @@ private:
 		bool activeToolChanged,
 		bool toolGeometryChanged);
 	void refreshInstructionPoseAxesWithReachability(const QHash<QString, bool>& reachability);
+	bool isPathPlanRawVisible(const std::string& pathPlanId) const;
 	void scheduleAsyncMotionReachabilityRefresh();
 	void logPlaybackFrameComparison(const QVector<double>& finalJointAnglesRad);
 	QHash<QString, bool> computeMotionReachabilityForCurrentProgram();
@@ -192,6 +205,7 @@ private:
 	bool m_lastTcpDragTargetValid = false;
 	bool m_skipInstructionPreviewOnce = false;
 	bool m_rawTrajectoryPreviewActive = false;
+	QSet<QString> m_hiddenInstructionGroupIds;
 	RobotInstruction::FeasibleMotionAxisConfigurationOptions m_cachedFeasibleAxisOptions;
 	QString m_cachedFeasibleAxisInstructionId;
 	QString m_cachedFeasibleAxisFingerprint;

@@ -41,6 +41,7 @@
 | `RegistrationRigid.h` | 点-点 / 点-面 ICP + 法线门控 |
 | `RegistrationGlobal.h` | FPFH + 特征匹配 + RANSAC + Kabsch（`rigidRegisterFeatureRansac`） |
 | `RegistrationNonRigid.h` | TPS 形变 |
+| `RegistrationSpare.h` | **SPARE** 非刚性配准（对称点-面 + 变形图 + ARAP；点云/网格 soup） |
 | `Preprocess.h` | 法线、离群、平滑、重建前管线 |
 | `Reconstruction.h` | Poisson / Scale-space → triangleSoup |
 | `ReconstructionConfig.h` | 重建配置（质量级别、自动下采样、并行化控制） |
@@ -202,16 +203,33 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 
 预对齐插件路径**跳过** RANSAC；见 [`docs/template_brep_pointcloud_update.md`](../../docs/template_brep_pointcloud_update.md)。
 
+### 3.5 SPARE 非刚性配准（`RegistrationSpare.h`）
+
+移植自 [SPARE: Symmetrized Point-to-Plane Distance](https://arxiv.org/abs/2405.20188) 核心求解器（研究用途；源码专利声明见 `bin/SDK/spare-main-extracted/spare-main/README.md`）。基础设施复用本库 CGAL/`KdTreePointSet`/ICP/下采样；**不依赖** OpenMesh 或 `GeometryAlgorithm.dll`。
+
+| 入口 | 说明 |
+|------|------|
+| `spareRegisterPointClouds` | 点云 → 点云；`xyz` + 法线均为 `3*N` float（mm） |
+| `spareRegisterMeshSoupToTarget` | 网格 soup（`9*T`）→ 点云目标 |
+| `spareRegisterMeshSoupToMeshSoup` | 网格 → 网格 |
+| `SpareRegisterParams` | 采样半径比、平滑/旋转/ARAP 权重、粗/细阶段、`rigidPreAlign`（`rigidRegisterPointToPlaneIcp`）、`voxelPrefilterMm` 等 |
+
+内部实现位于 `source/spare/`：`SpareSurfaceBuild`（CGAL soup→`Surface_mesh`）、`SpareNodeSampler`（点云 FPS / 网格边图 Dijkstra 测地）、`SpareSolver`（对称点-面 + Welsch + 变形图）。
+
+**自检**：`runSelfTest` 含 `spare.ok`（合成平面点云，5 轮外迭代）。与参考实现的数值对比可用手动回归：将 `bin/SDK/spare-main-extracted/spare-main/data/test{1,2,3}` 的 PLY 导入后调用 `spareRegisterPointClouds`（test3）或 mesh 入口（test1/2），对比 `meanErrorMm` 与 `our_params.txt` 中 `init_gt_mean_errs` 同量级。
+
 ---
 
 ## 4. Data 薄包装
 
-[`PointCloudBackendOps.h`](../Data/inc/PointCloudBackendOps.h)（`point_cloud_backend_ops`）覆盖全部 `pclalgo` API：下采样、裁剪、度量、变换、离群/平滑、法线、预处理、ICP、TPS、Poisson/Scale-space 重建。
+[`PointCloudBackendOps.h`](../Data/inc/PointCloudBackendOps.h)（`point_cloud_backend_ops`）覆盖全部 `pclalgo` API：下采样、裁剪、度量、变换、离群/平滑、法线、预处理、ICP、TPS、**SPARE**、Poisson/Scale-space 重建。
 
 常用入口：
 
 - `downsamplePointCloudVoxel` / `downsamplePointCloudRandom`
 - `applyRigidTransformToPointCloud`
+- `rigidRegisterPointCloudsIcp`
+- `nonRigidRegisterPointCloudsSpare` / `nonRigidRegisterPointCloudToMeshSpare` / `nonRigidRegisterMeshSpare`（`PointCloudSpareParams`）
 - `reconstructMeshFromPointCloudPoisson`（Poisson Auto）
 
 插件侧映射见 [`CloudSimPluginSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) §点云 SDK。

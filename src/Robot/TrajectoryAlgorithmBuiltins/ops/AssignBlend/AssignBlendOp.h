@@ -10,6 +10,7 @@ class AssignBlendOp final : public ITrajectoryOp
 {
 public:
 	RobotInstruction::TrajectoryOpKind kind() const override;
+	const char* kindToken() const override { return "AssignBlend"; }
 	const char* displayName(bool chinese) const override;
 	TrajectoryOpCapability capabilities() const override;
 	RobotInstruction::TrajectoryOpDescriptor makeDefaultDescriptor(

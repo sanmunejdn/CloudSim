@@ -338,9 +338,11 @@ M_link = M0 · inv(T0) · Tq · P
 ## 8.5 PathPlan 指令（`Type::PathPlan`，`Category::Planning`）
 
 - 字段：`pipeline[]`、`appliedHistory[]`、`phase`、`outputGroupId`、`rawTrajectoryKey`、`sourceFeatureJson`
+- `sourceFeatureJson`：持久化 `FeatureListDocument`（工件 backend、特征列表、每行 `strategyId` + `params` + 几何索引）
 - Raw 存 `RobotProgramCatalog::pathPlanRaws`（工程 JSON `pathPlanRaws`）
 - 执行器/仿真/Canonical 导出跳过 `Category::Planning`；Apply 输出分组 `role=path_plan_output`
 - 编辑命令：`InsertPathPlanCommand`、`RemovePathPlanCommand`、`UpdatePathPlanPipelineCommand`、`UpdatePathPlanRawCommand`、`UpdatePathPlanApplyStateCommand`；轨迹 Apply 用 `CompositeProgramEditCommand` 打包程序替换与 PathPlan 状态
+- UI：`TrajectoryGenerationPageWidget` 顶栏绑定 PathPlan；`beginEditBoundPathPlan` + `reloadBoundPathPlanFromStore` 一次恢复特征/离散参数/算子；详见 [`RobotWidget/DEVELOPER_GUIDE.md`](../../UI/RobotWidget/DEVELOPER_GUIDE.md) §PathPlan 持久化与「开始修改」
 - `unifiedTrajectoryMergeIntoProgram` / `emitRawTrajectoryToProgram(..., pathPlanInstructionId)`：仅删除并替换当前 PathPlan 的 `PathPlanOutput` 成员路点，其它 PathPlan 输出分组与运动路点保留
 - 旧工程加载：`migrateLegacyPathPlans`（无 PathPlan 但有运动/分组时补默认项）
 
@@ -468,7 +470,7 @@ flowchart LR
 | `TrajectoryPipelineEngine` | `UnifiedTrajectory` 管道 IR；Session 持有并驱动预览/Apply（`executeFull` / `executeFrom`） |
 | `ProcessFlowPresets.json` | 工艺预设（焊缝/涂胶/打磨）展开为原子块 `pipeline` 列表 |
 
-工艺模板：`buildRecipePreset(Weld/Glue/Grind)` → `ProcessFlowPresetLoader` 读 JSON，**不再**生成 `RecipeWeld` 等复合 kind。Codec 仍可将旧 JSON 中的 `RecipeWeld` token 展开为原子块列表（迁移兼容）。
+工艺模板：`buildRecipePreset(Weld/Glue/Grind)` → `ProcessFlowPresetLoader` 读 `ProcessFlowPresets.json` 原子 `ops` / `pipeline`；不再支持 `RecipeWeld` 等复合 kind token。
 
 ### 13.2 `ProgramEditCommand` / `ProgramEditStack`
 

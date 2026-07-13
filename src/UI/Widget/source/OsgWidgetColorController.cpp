@@ -10,6 +10,7 @@
 #include <osg/Group>
 #include <osg/Material>
 #include <osg/NodeVisitor>
+#include <osg/PositionAttitudeTransform>
 #include <osg/StateSet>
 #include <osg/Vec4>
 
@@ -77,6 +78,29 @@ void paintOverallColorOnNode(osg::Node* root, const osg::Vec4& color, bool useSc
 	}
 }
 
+void paintBranchColor(osg::Node* branchRoot, const osg::Vec4& color, const bool useSceneLighting)
+{
+	if (!branchRoot)
+	{
+		return;
+	}
+	if (auto* outer = branchRoot->asGroup())
+	{
+		if (outer->getNumChildren() > 0)
+		{
+			if (auto* inner = dynamic_cast<osg::PositionAttitudeTransform*>(outer->getChild(0)))
+			{
+				if (inner->getNumChildren() > 0)
+				{
+					paintOverallColorOnNode(inner->getChild(0), color, useSceneLighting);
+					return;
+				}
+			}
+		}
+	}
+	paintOverallColorOnNode(branchRoot, color, useSceneLighting);
+}
+
 } // namespace
 
 void OsgWidgetColorController::applyColorToStagingGeometry(OsgWidget& self, const osg::Vec4& color)
@@ -94,6 +118,12 @@ void OsgWidgetColorController::applyColorToBackendObject(OsgWidget& self, const 
 	{
 		return;
 	}
+	const auto direct = self.m_backendObjectRoots.find(backendId);
+	if (direct != self.m_backendObjectRoots.end() && direct->second.valid())
+	{
+		paintBranchColor(direct->second.get(), color, self.isBackendMeshLit(backendId));
+		return;
+	}
 	for (const auto& kv : self.m_backendObjectRoots)
 	{
 		if (!kv.second.valid())
@@ -104,17 +134,7 @@ void OsgWidgetColorController::applyColorToBackendObject(OsgWidget& self, const 
 		{
 			continue;
 		}
-		osg::Group* outer = kv.second.get();
-		if (!outer || outer->getNumChildren() < 1)
-		{
-			continue;
-		}
-		auto* inner = dynamic_cast<osg::PositionAttitudeTransform*>(outer->getChild(0));
-		if (!inner || inner->getNumChildren() < 1)
-		{
-			continue;
-		}
-		paintOverallColorOnNode(inner->getChild(0), color, self.isBackendMeshLit(kv.first));
+		paintBranchColor(kv.second.get(), color, self.isBackendMeshLit(kv.first));
 	}
 }
 

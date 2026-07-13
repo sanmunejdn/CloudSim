@@ -17,6 +17,7 @@
 #include "BrepBackendData.h"
 #include "WidgetDocumentAccess.h"
 #include "RunLogger.h"
+#include "GeometryBackendOps.h"
 #include "Adapters.h"
 #include "TemplateBrepUpdate.h"
 #include <RigidTransform.h>
@@ -528,10 +529,10 @@ void logRegistrationOverlapDiagnostic(
 	{
 		return;
 	}
-	const auto scan = resolvePointCloud(page, scanBackendIdUtf8, nullptr);
-	const auto obj = page ? page->backend().getData(templateBackendIdUtf8) : nullptr;
-	const auto templateBrep = std::dynamic_pointer_cast<BrepBackendData>(obj);
-	if (!scan || !templateBrep)
+	const auto scanObj = page ? page->backend().getData(scanBackendIdUtf8) : nullptr;
+	const auto templateBrep =
+		std::dynamic_pointer_cast<BrepBackendData>(page ? page->backend().getData(templateBackendIdUtf8) : nullptr);
+	if (!scanObj || !templateBrep)
 	{
 		return;
 	}
@@ -548,7 +549,7 @@ void logRegistrationOverlapDiagnostic(
 	{
 		const std::size_t b = i * 3U;
 		const BackendVec3 scanWorldPt = transformPointToWorld(
-			*scan,
+			*scanObj,
 			BackendVec3{
 				static_cast<double>(scanStoredXyz[b]),
 				static_cast<double>(scanStoredXyz[b + 1U]),
@@ -589,10 +590,10 @@ void logRegistrationCentroidDiagnostic(
 	{
 		return;
 	}
-	const auto scan = resolvePointCloud(page, scanBackendIdUtf8, nullptr);
-	const auto tplObj = page->backend().getData(templateBackendIdUtf8);
-	const auto templateBrep = std::dynamic_pointer_cast<BrepBackendData>(tplObj);
-	if (!scan || !templateBrep)
+	const auto scanObj = page->backend().getData(scanBackendIdUtf8);
+	const auto templateBrep =
+		std::dynamic_pointer_cast<BrepBackendData>(page->backend().getData(templateBackendIdUtf8));
+	if (!scanObj || !templateBrep)
 	{
 		return;
 	}
@@ -606,7 +607,7 @@ void logRegistrationCentroidDiagnostic(
 	{
 		const std::size_t b = i * 3U;
 		const BackendVec3 world = transformPointToWorld(
-			*scan,
+			*scanObj,
 			BackendVec3{
 				static_cast<double>(scanStoredXyz[b]),
 				static_cast<double>(scanStoredXyz[b + 1U]),
@@ -1021,6 +1022,75 @@ ScanBufferStatus evaluateScanBuffer(const PointCloudBackendData& pc, std::size_t
 	return ScanBufferStatus::Ok;
 }
 } // namespace
+
+bool prepareScanForTemplateRegistration(
+	cloudsim::host::DocumentHost* page,
+	const std::string& scanBackendIdUtf8,
+	std::vector<float>& outStoredXyz,
+	std::vector<float>& outStoredNormals,
+	std::size_t& outPointCount,
+	bool& outIsMeshScan,
+	std::string* outError)
+{
+	outStoredXyz.clear();
+	outStoredNormals.clear();
+	outPointCount = 0U;
+	outIsMeshScan = false;
+
+	if (auto scan = resolvePointCloud(page, scanBackendIdUtf8, outError))
+	{
+		std::size_t pointCount = 0U;
+		if (!prepareScanPointCloudForRegistration(
+				page, scanBackendIdUtf8, outStoredXyz, pointCount, outError))
+		{
+			return false;
+		}
+		outStoredNormals = scan->pointNormalsNxNyNz();
+		outPointCount = pointCount;
+		return true;
+	}
+
+	if (outError)
+	{
+		outError->clear();
+	}
+	const auto mesh = resolveMesh(page, scanBackendIdUtf8, outError);
+	if (!mesh)
+	{
+		return false;
+	}
+
+	constexpr std::size_t kMaxMeshSamplePoints = 120000U;
+	std::string sampleErr;
+	if (!geometry_backend_ops::sampleTriangleSoupToPointBuffers(
+			mesh->triangleSoup(),
+			mesh->triangleVertexNormals(),
+			outStoredXyz,
+			outStoredNormals,
+			kMaxMeshSamplePoints,
+			&sampleErr))
+	{
+		if (outError)
+		{
+			*outError = sampleErr.empty() ? "failed to sample mesh for registration" : sampleErr;
+		}
+		return false;
+	}
+	outPointCount = outStoredXyz.size() / 3U;
+	if (outPointCount < 30U)
+	{
+		if (outError)
+		{
+			*outError = "mesh sample too small for registration: " + std::to_string(outPointCount);
+		}
+		return false;
+	}
+	outIsMeshScan = true;
+	RunLogger::info(
+		std::string("[TemplateBrepUpdate] mesh scan sampled pts=") + std::to_string(outPointCount)
+		+ " faces=" + std::to_string(mesh->triangleSoup().size() / 9U));
+	return true;
+}
 
 bool prepareScanPointCloudForRegistration(
 	cloudsim::host::DocumentHost* page,

@@ -3,6 +3,8 @@
 
 #include "TrajectoryOpFormat.h"
 #include "UnifiedTrajectoryPathMath.h"
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -28,6 +30,8 @@ RobotInstruction::TrajectoryOpDescriptor WeaveOp::makeDefaultDescriptor(
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Weave;
 	op.scope = defaultScope;
+	TrajectoryOpParamAccess::applyDefaults(op, *this);
+
 	return op;
 }
 
@@ -70,8 +74,8 @@ bool WeaveOp::processPath(
 		traj,
 		op.scope,
 		ctx.program,
-		op.weave.amplitudeMm,
-		op.weave.periodMm);
+		parseWeaveParams(op.params).amplitudeMm,
+		parseWeaveParams(op.params).periodMm);
 	return true;
 }
 

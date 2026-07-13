@@ -24,6 +24,8 @@ class BrepBackendData;
 
 class PointCloudBackendData;
 
+class MeshBackendData;
+
 
 
 namespace geometry_backend_ops
@@ -198,7 +200,21 @@ DATA_EXPORT void applyQualityPreset(geoalgo::MeshDiscretizeParams& params);
 
 DATA_EXPORT void fillMeshReport(const std::vector<float>& soup, geoalgo::MeshDiscretizeReport& report);
 
+/// 从三角 soup 均匀采样顶点（与 B-rep display soup 提取策略一致），供模板面重构 mesh 输入
+DATA_EXPORT bool sampleTriangleSoupToPointBuffers(
+	const std::vector<float>& triangleSoup,
+	const std::vector<float>& triangleVertexNormals,
+	std::vector<float>& outXyz,
+	std::vector<float>& outNormals,
+	std::size_t maxPoints,
+	std::string* errMsg = nullptr);
 
+/// mesh → 临时点云视图（几何系顶点 + 继承 worldMatrix），不注册 backend
+DATA_EXPORT bool buildPointCloudFromMeshForTemplateBrep(
+	const MeshBackendData& mesh,
+	PointCloudBackendData& outScan,
+	std::size_t maxPoints = 120000U,
+	std::string* errMsg = nullptr);
 
 /// CAD 模板 B-rep + 扫描点云：ICP 对齐后逐面更新几何，输出新 BrepBackendData
 

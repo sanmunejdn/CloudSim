@@ -106,6 +106,9 @@ Q_IMPORT_PLUGIN(MyPlugin) // 仅静态测试时需要
 | `beginTubularGrindingSession` | **1.15.0+** 绑定 `docId + meshBackendId`，返回 `PluginTubularGrindingSessionId` |
 | `runTubularGrindingStage` | **1.15.0+** 按 `PluginTubularGrindingStage` 单步执行；回调 `PluginTubularGrindingReport`（含 `stageSummaryZh` 与各阶段场景 backendId） |
 | `clearTubularGrindingSession` | **1.15.0+** 清除会话及临时着色/辅助对象 |
+| `nonRigidRegisterSpare` | **1.16.0+** SPARE 非刚性配准；源/目标可为点云或网格（`PluginPointCloudSpareParams`） |
+
+**ABI 注意**：`IPluginPointCloudHost` 新增虚函数**只能追加在接口末尾**。在中间插入会导致插件与宿主 vtable 错位（例如 `queryMeshInfo` 误调到 `simplifyMesh` 并崩溃）。升级 SPARE 后须**同时**重编 `CloudSimHost.dll` 与 `PointCloudPlugin.dll`。
 
 ## 分割标注 SDK（1.16.0+）
 

@@ -57,6 +57,7 @@ public:
 		const std::vector<std::size_t>& segmentEndExclusive = {}) = 0;
 	virtual void clearRawTrajectoryOverlay() = 0;
 	virtual void setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& frames) = 0;
+	virtual void setRawTrajectoryOverlayAxisComponents(bool showX, bool showY, bool showZ) = 0;
 	virtual void clearRawTrajectoryOverlayFrames() = 0;
 	virtual void setCameraFollowBackendId(const std::string& backendId) = 0;
 

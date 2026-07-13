@@ -1,9 +1,11 @@
 #include "MainWindow.h"
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
 
 #include <QAbstractItemView>
+#include <QColor>
 #include <QEvent>
 #include <QList>
 #include <QTreeWidget>
@@ -190,6 +192,68 @@ bool isPoseComponentKey(const QString& key)
 bool isRotationComponentKey(const QString& key)
 {
 	return key == QStringLiteral("rotation.x") || key == QStringLiteral("rotation.y") || key == QStringLiteral("rotation.z");
+}
+
+bool isColorComponentKey(const QString& key)
+{
+	return key == QStringLiteral("color.r") || key == QStringLiteral("color.g") || key == QStringLiteral("color.b")
+		|| key == QStringLiteral("color.a");
+}
+
+double clampUnitInterval(const double v)
+{
+	return std::clamp(v, 0.0, 1.0);
+}
+
+bool colorFromPropertyRows(const QVector<cloudsim::core::PropertyRowDto>& rows, QColor* outColor)
+{
+	if (!outColor)
+	{
+		return false;
+	}
+	double r = 1.0;
+	double g = 1.0;
+	double b = 1.0;
+	double a = 1.0;
+	bool hasR = false;
+	bool hasG = false;
+	bool hasB = false;
+	bool hasA = false;
+	for (const cloudsim::core::PropertyRowDto& row : rows)
+	{
+		bool ok = false;
+		const double v = row.value.toDouble(&ok);
+		if (!ok)
+		{
+			continue;
+		}
+		if (row.key == QStringLiteral("color.r"))
+		{
+			r = v;
+			hasR = true;
+		}
+		else if (row.key == QStringLiteral("color.g"))
+		{
+			g = v;
+			hasG = true;
+		}
+		else if (row.key == QStringLiteral("color.b"))
+		{
+			b = v;
+			hasB = true;
+		}
+		else if (row.key == QStringLiteral("color.a"))
+		{
+			a = v;
+			hasA = true;
+		}
+	}
+	if (!hasR && !hasG && !hasB && !hasA)
+	{
+		return false;
+	}
+	*outColor = QColor::fromRgbF(clampUnitInterval(r), clampUnitInterval(g), clampUnitInterval(b), clampUnitInterval(a));
+	return true;
 }
 
 QVariant propertyRowValueToVariant(const QString& key, const QString& value, bool editable)
@@ -382,6 +446,22 @@ void MainWindow::appendPropertyBrowserRow(
 	m_propertyBrowser->addProperty(prop);
 }
 
+void MainWindow::appendColorPropertyBrowserRow(const QColor& color)
+{
+	if (!m_variantManager || !m_propertyBrowser)
+	{
+		return;
+	}
+	const QString colorKey = QStringLiteral("color");
+	QtVariantProperty* prop = m_variantManager->addProperty(
+		QVariant::Color,
+		propertyDisplayLabelForKey(colorKey, QStringLiteral("Color")));
+	m_variantManager->setValue(prop, color);
+	prop->setWhatsThis(colorKey);
+	m_propertyKeyToVariant.insert(colorKey, prop);
+	m_propertyBrowser->addProperty(prop);
+}
+
 QString MainWindow::propertyDisplayLabelForKey(const QString& key, const QString& labelEnFallback) const
 {
 	const auto tr = [this](const QString& en, const QString& zh) { return i18n(en, zh); };
@@ -429,6 +509,10 @@ QString MainWindow::propertyDisplayLabelForKey(const QString& key, const QString
 	if (key == QStringLiteral("pose.frame"))
 	{
 		return tr(QStringLiteral("Pose reference frame"), QStringLiteral("位姿参考系"));
+	}
+	if (key == QStringLiteral("color"))
+	{
+		return tr(QStringLiteral("Color"), QStringLiteral("颜色"));
 	}
 	if (key == QStringLiteral("color.r"))
 	{
@@ -762,6 +846,14 @@ void MainWindow::syncPropertyPanelRowValues(const QString& backendId)
 		const QVariant v = propertyRowValueToVariant(r.key, r.value, r.editable);
 		m_variantManager->setValue(prop, v);
 	}
+	if (QtProperty* colorProp = m_propertyKeyToVariant.value(QStringLiteral("color")))
+	{
+		QColor objectColor;
+		if (colorFromPropertyRows(rows, &objectColor))
+		{
+			m_variantManager->setValue(colorProp, objectColor);
+		}
+	}
 	m_updatingPropertyBrowser = false;
 	if (m_propertyBrowser)
 	{
@@ -957,9 +1049,15 @@ void MainWindow::updatePropertyPanel(const QString& backendId)
 		return;
 	}
 	const QVector<cloudsim::core::PropertyRowDto> rows = docPage->data().propertyRows(backendId);
+	QColor objectColor;
+	const bool hasObjectColor = colorFromPropertyRows(rows, &objectColor);
 	for (const cloudsim::core::PropertyRowDto& r : rows)
 	{
 		QString key = r.key;
+		if (isColorComponentKey(key))
+		{
+			continue;
+		}
 		bool editable = r.editable;
 		if (key == QStringLiteral("follow.targetName"))
 		{
@@ -967,6 +1065,10 @@ void MainWindow::updatePropertyPanel(const QString& backendId)
 		}
 		const QString label = propertyDisplayLabelForKey(key, r.labelEn);
 		appendPropertyBrowserRow(key, label, r.value, editable);
+	}
+	if (hasObjectColor)
+	{
+		appendColorPropertyBrowserRow(objectColor);
 	}
 
 	const bool showAxis = docPage->data().geometryKind(backendId) == cloudsim::core::GeometryKind::Points;
@@ -1007,7 +1109,39 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 		return;
 	}
 
+	DocumentPage* docPage = currentPage();
+	if (!docPage)
+	{
+		return;
+	}
+
 	const QString propertyKey = property->whatsThis();
+	if (propertyKey == QStringLiteral("color"))
+	{
+		QColor qc = qvariant_cast<QColor>(value);
+		if (!qc.isValid() && m_variantManager)
+		{
+			qc = qvariant_cast<QColor>(m_variantManager->value(static_cast<QtVariantProperty*>(property)));
+		}
+		if (!qc.isValid())
+		{
+			return;
+		}
+		cloudsim::core::ColorDto colorDto;
+		colorDto.r = static_cast<float>(qc.redF());
+		colorDto.g = static_cast<float>(qc.greenF());
+		colorDto.b = static_cast<float>(qc.blueF());
+		colorDto.a = static_cast<float>(qc.alphaF());
+		QString dsErr;
+		if (!docPage->data().applyColor(backendId, colorDto, &dsErr))
+		{
+			updatePropertyPanel(backendId);
+			return;
+		}
+		cloudsim::host::syncVisualAfterPropertyChangeById(*docPage, backendId, true);
+		schedulePropertyPanelCommitRefresh(backendId);
+		return;
+	}
 	if (propertyKey == QStringLiteral("follow.targetName"))
 	{
 		m_followTargetNameDebounceBackendId = backendId;
@@ -1020,12 +1154,6 @@ void MainWindow::onVariantPropertyValueChanged(QtProperty* property, const QVari
 		return;
 	}
 	const QString valueText = variantValueToString(value);
-
-	DocumentPage* docPage = currentPage();
-	if (!docPage)
-	{
-		return;
-	}
 
 	const bool isPoseRotEdit = isPoseComponentKey(propertyKey) || isRotationComponentKey(propertyKey);
 	if (isPoseRotEdit)

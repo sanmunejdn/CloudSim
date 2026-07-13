@@ -56,6 +56,11 @@ bool fairSingleSurface(Handle(Geom_BSplineSurface)& surface, const MeshSurfaceRe
 	}
 	TColgp_Array2OfPnt poles = surface->Poles();
 	TColgp_Array2OfPnt backup = poles;
+	const int lr = poles.LowerRow();
+	const int ur = poles.UpperRow();
+	const int lc = poles.LowerCol();
+	const int uc = poles.UpperCol();
+	const int borderGuard = params.fairingProtectBoundaries ? 1 : 0;
 	double metric = globalFairingMetric(poles);
 	if (!std::isfinite(metric) || metric < params.fairingEpsilon)
 	{
@@ -65,15 +70,15 @@ bool fairSingleSurface(Handle(Geom_BSplineSurface)& surface, const MeshSurfaceRe
 	int failCount = 0;
 	const int maxFail = std::max(
 		1,
-		(poles.UpperRow() - poles.LowerRow() - 2) * (poles.UpperCol() - poles.LowerCol() - 2));
+		(ur - lr - 2 - 2 * borderGuard) * (uc - lc - 2 - 2 * borderGuard));
 	for (int iter = 0; iter < params.fairingMaxIterations; ++iter)
 	{
 		double maxJump = 0.0;
-		int bi = poles.LowerRow() + 1;
-		int bj = poles.LowerCol() + 1;
-		for (int iu = poles.LowerRow() + 1; iu <= poles.UpperRow() - 2; ++iu)
+		int bi = lr + 1 + borderGuard;
+		int bj = lc + 1 + borderGuard;
+		for (int iu = lr + 1 + borderGuard; iu <= ur - 2 - borderGuard; ++iu)
 		{
-			for (int iv = poles.LowerCol() + 1; iv <= poles.UpperCol() - 2; ++iv)
+			for (int iv = lc + 1 + borderGuard; iv <= uc - 2 - borderGuard; ++iv)
 			{
 				const double z = thirdDerivJumpU(poles, iu, iv);
 				if (z > maxJump)
@@ -95,8 +100,8 @@ bool fairSingleSurface(Handle(Geom_BSplineSurface)& surface, const MeshSurfaceRe
 			{
 				const int ii = bi + di;
 				const int jj = bj + dj;
-				if (ii < poles.LowerRow() || jj < poles.LowerCol() || ii > poles.UpperRow()
-					|| jj > poles.UpperCol())
+				if (ii < lr + borderGuard || jj < lc + borderGuard || ii > ur - borderGuard
+					|| jj > uc - borderGuard)
 				{
 					continue;
 				}

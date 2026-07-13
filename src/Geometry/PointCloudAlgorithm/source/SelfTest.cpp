@@ -11,6 +11,7 @@
 #include "RegistrationNonRigid.h"
 #include "RegistrationRigid.h"
 #include "RegistrationGlobal.h"
+#include "RegistrationSpare.h"
 #include "Transform.h"
 
 #include <Eigen/Geometry>
@@ -208,6 +209,52 @@ bool runSelfTest(std::vector<std::string>& failures)
 		std::string err;
 		expectTrue(failures, "config.poisson", reconstructPoissonWithConfig(xyz, normals, soup, config, &err));
 		expectTrue(failures, "config.poisson.soup", soup.size() % 9U == 0U && !soup.empty());
+	}
+
+	{
+		std::vector<float> src = makePlanePointCloud(20, 0.0);
+		std::vector<float> tgt;
+		tgt.reserve(src.size());
+		for (std::size_t i = 0; i < src.size(); i += 3U)
+		{
+			const double x = src[i];
+			const double y = src[i + 1U];
+			tgt.push_back(static_cast<float>(x + 0.1 * std::sin(x * 0.3)));
+			tgt.push_back(static_cast<float>(y + 0.1 * std::cos(y * 0.3)));
+			tgt.push_back(src[i + 2U]);
+		}
+		std::vector<float> srcNormals;
+		std::vector<float> tgtNormals;
+		expectTrue(failures, "spare.normals.src", estimateNormalsPca(src, srcNormals, 8U));
+		expectTrue(failures, "spare.normals.tgt", estimateNormalsPca(tgt, tgtNormals, 8U));
+		(void)orientNormalsMst(src, srcNormals, 8U, nullptr, nullptr);
+		(void)orientNormalsMst(tgt, tgtNormals, 8U, nullptr, nullptr);
+
+		std::vector<float> deformed;
+		std::vector<float> deformedNormals;
+		SpareRegisterParams spareParams;
+		spareParams.maxOuterIters = 5;
+		spareParams.useCoarseReg = true;
+		spareParams.useFineReg = true;
+		spareParams.normalizeScale = true;
+		spareParams.rigidPreAlign = true;
+		SpareRegisterResult spareResult;
+		std::string spareErr;
+		expectTrue(
+			failures,
+			"spare.ok",
+			spareRegisterPointClouds(
+				src,
+				srcNormals,
+				tgt,
+				tgtNormals,
+				deformed,
+				deformedNormals,
+				spareParams,
+				&spareResult,
+				&spareErr));
+		expectTrue(failures, "spare.deformed", deformed.size() == src.size());
+		expectTrue(failures, "spare.finiteError", std::isfinite(spareResult.meanErrorMm));
 	}
 
 	return failures.empty();

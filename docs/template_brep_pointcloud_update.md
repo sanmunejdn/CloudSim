@@ -1,6 +1,8 @@
 # CAD 模板 + 扫描点云 → B-rep 面重构（worldMatrix v2）
 
-点云插件「CAD 模板 B-rep 更新」：**反向配准**（固定扫描、变换 CAD 模板 `worldMatrix`）；用户在 3D 视图拖动 **CAD 工件** 与扫描大致对齐后，后台世界系 soup ICP 精化 + 逐面几何调整，**注册新的 `BrepModel` 工件**（原模板保持不变）。
+点云插件「CAD 模板 B-rep 更新」：**反向配准**（固定扫描、变换 CAD 模板 `worldMatrix`）；用户在 3D 视图拖动 **CAD 工件** 与扫描（点云或 **Model 网格**）大致对齐后，后台世界系 soup ICP 精化 + 逐面几何调整，**注册新的 `BrepModel` 工件**（原模板保持不变）。
+
+网格扫描：三角 soup 均匀采样为点+法向（最多 12 万点），ICP/面重构与点云共用 `registerScanToCadTemplate` / `updateBrepFromAlignedScan`（`sampleTriangleSoupToPointBuffers`）。
 
 > **Breaking v2**：见 [`spatial_contract_world_pose.md`](spatial_contract_world_pose.md)。无 `alignedTemplateShape` / `alignedWorkXyz` cache；旧 JSON 需重导入。
 

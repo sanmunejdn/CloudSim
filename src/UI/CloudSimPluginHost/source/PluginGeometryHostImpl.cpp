@@ -718,12 +718,22 @@ void PluginGeometryHostImpl::pickStepElementFromViewport(
 			return;
 		}
 
-		geoalgo::FeatureSpec spec;
+		geoalgo::ShapeHandle shape;
+		geoalgo::WorkpieceRef shapeRef;
+		if (geometry_backend_ops::resolveWorkpieceShape(
+				backendId, page->backend(), stepPath.toStdString(), shape, shapeRef, &err)
+			== geometry_backend_ops::WorkpieceShapeSource::Unavailable)
+		{
+			complete(false, QString::fromStdString(err), {});
+			return;
+		}
+
+		const std::string strategyId = pickFace ? "FaceBoundary" : "EdgeChain";
+		geoalgo::FeatureEntry entry;
 		const int knownFaceIndex = pick.brepNativePick && pickFace ? pick.brepFaceIndex : -1;
 		const int knownEdgeIndex = pick.brepNativePick && !pickFace ? pick.brepEdgeIndex : -1;
-		if (!geometry_backend_ops::buildFeatureSpecFromModelPick(
-				wp, pickFace, geoalgo::FeatureKind::FaceBoundary, modelA, modelB, spec, &err,
-				knownFaceIndex, knownEdgeIndex))
+		if (!geometry_backend_ops::buildFeatureEntryFromModelPick(
+				wp, shape, strategyId, pickFace, modelA, modelB, entry, &err, knownFaceIndex, knownEdgeIndex))
 		{
 			complete(false, QString::fromStdString(err), {});
 			return;
@@ -733,21 +743,21 @@ void PluginGeometryHostImpl::pickStepElementFromViewport(
 		outRef.stepPathUtf8 = ref.stepPathUtf8;
 		if (pickFace)
 		{
-			if (spec.refs.faceIndices.empty())
+			if (entry.geometry.faceIndices.empty())
 			{
 				complete(false, QStringLiteral("Failed to resolve face index"), {});
 				return;
 			}
-			outRef.faceIndex = spec.refs.faceIndices.front();
+			outRef.faceIndex = entry.geometry.faceIndices.front();
 		}
 		else
 		{
-			if (spec.refs.edgeIndices.empty())
+			if (entry.geometry.edgeIndices.empty())
 			{
 				complete(false, QStringLiteral("Failed to resolve edge index"), {});
 				return;
 			}
-			outRef.edgeIndex = spec.refs.edgeIndices.front();
+			outRef.edgeIndex = entry.geometry.edgeIndices.front();
 		}
 		complete(true, QString(), outRef);
 	});

@@ -4,6 +4,7 @@
 #include "ITrajectoryOp.h"
 #include "TrajectoryOpConfigRegistry.h"
 #include "TrajectoryOpDescriptorCodec.h"
+#include "TrajectoryOpParamAccess.h"
 #include "TrajectoryOpRegistry.h"
 #include "TrajectoryParamJsonIo.h"
 
@@ -93,7 +94,7 @@ RobotInstruction::TrajectoryOpDescriptor TrajectoryOpConfigImpl::defaultDescript
 		return op;
 	}
 	nlohmann::json patch = nlohmann::json::object();
-	patch["kind"] = static_cast<int>(m_kind);
+	patch["kind"] = TrajectoryOpRegistry::instance().kindToString(m_kind);
 	patch["scope"] = (*root)["defaults"].value("scope", nlohmann::json::object());
 	if ((*root)["defaults"].contains("params"))
 	{
@@ -101,8 +102,6 @@ RobotInstruction::TrajectoryOpDescriptor TrajectoryOpConfigImpl::defaultDescript
 	}
 	std::string err;
 	fromJson(patch, op, &err);
-	// 恢复 UI 传入的 scope，不被 JSON defaults 覆盖
-	// JSON 中的 scope 仅作为模板参考，实际作用域由调用方决定
 	op.scope = scope;
 	return op;
 }

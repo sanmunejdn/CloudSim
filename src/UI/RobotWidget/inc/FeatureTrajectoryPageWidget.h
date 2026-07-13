@@ -8,7 +8,7 @@
 
 #include "RobotOsgUiTypes.h"
 
-
+#include <FeatureListDocument.h>
 
 #include <QWidget>
 
@@ -34,21 +34,21 @@ class QCheckBox;
 
 class QComboBox;
 
-class QDoubleSpinBox;
-
 class QGroupBox;
 
 class QLabel;
-
-class QPlainTextEdit;
 
 class QPushButton;
 
 class QSpinBox;
 
-class QStackedWidget;
+class QTableView;
 
 class QTimer;
+
+class FeatureDiscretizerParamPanel;
+
+class FeatureTableModel;
 
 class IRobotMainWindowHost;
 
@@ -101,12 +101,20 @@ public:
 	/// 确认离散：features[] → RawTrajectory + 默认工艺流水线
 	bool commitFeaturePlanFromAi(const QByteArray& planJsonUtf8, QString* summary, QString* err);
 
+	RobotOsgUi::RawTrajectoryPreviewOptions previewOptions() const;
+
+	/// 轨迹编辑 Apply/生成程序后清空本页，便于下一条 PathPlan
+	void resetAfterTrajectoryCommit();
+
+	/// 显式加载当前绑定 PathPlan 的特征表并进入可编辑（自动重离散）模式
+	bool beginEditBoundPathPlan(QString* err = nullptr);
+
+	bool isFeatureEditActive() const { return m_featureEditActive; }
+
 signals:
 	void workpieceComboChanged();
 
 private slots:
-
-	void onLoadCatalog();
 
 	void onDiscretize();
 
@@ -115,6 +123,16 @@ private slots:
 	void onPickFace();
 
 	void onCancelPick();
+
+	void onTableSelectionChanged();
+
+	void onDeleteSelectedRows();
+
+	void onDeleteAllRows();
+
+	void onStrategyComboChanged();
+
+	void onPathPlanBound(const std::string& pathPlanId);
 
 
 
@@ -136,11 +154,11 @@ private:
 
 	void refreshBackendCombo();
 
+	void refreshStrategyCombo(geoalgo::GeometryAffinity filterAffinity = geoalgo::GeometryAffinity::Any);
+
 	void updateUiLabels();
 
 	void updatePickUiState();
-
-	void updateDiscretizeParamMode();
 
 	void showTrajectoryPreview(const RobotInstruction::RawTrajectory& traj);
 
@@ -154,23 +172,30 @@ private:
 
 	void onMeshPickCommitted(const struct PickResult& pick, int pickKindInt);
 
-	bool prepareSpecForDiscretize(std::string& jsonText, std::string* errMsg);
+	bool buildFeatureEntryFromPick(
+		bool pickFace,
+		const geoalgo::Point3d& modelA,
+		const geoalgo::Point3d& modelB,
+		int knownFaceIndex,
+		int knownEdgeIndex,
+		geoalgo::FeatureEntry& out,
+		QString* err) const;
 
-	bool applyDiscretizeUiToJson(std::string& jsonText);
+	bool buildFeatureListDocument(geoalgo::FeatureListDocument& out, QString* err) const;
 
-	void syncDiscretizeUiFromSpecJson();
+	bool discretizeFromTable(bool quiet = false);
 
-	bool discretizeFromEditor();
+	void loadParamsForSelectedRow();
 
-	bool isFaceUvGridKind() const;
+	void syncStrategyComboToEntry(const geoalgo::FeatureEntry& entry);
 
-	bool editorHasValidFeatureSpec() const;
+	std::string resolveStrategyIdForPick(bool pickFace) const;
 
-	bool resolveDiscretizeBaseJson(std::string& outJson) const;
+	std::string defaultStrategyIdForGeometry(geoalgo::GeometryAffinity required) const;
 
-	void commitLastFeatureSpec(const std::string& jsonText);
+	void normalizeEntryStrategyForGeometry(geoalgo::FeatureEntry& entry) const;
 
-	void updateActiveFeatureLabel();
+	void applyParamsToSelectedRow();
 
 	void scheduleParameterRediscretize();
 
@@ -185,9 +210,17 @@ private:
 	bool resolveWorkpieceShapeForBackend(const QString& backendId, geoalgo::ShapeHandle& outShape,
 		geoalgo::WorkpieceRef& outRef, QString* err) const;
 
-	bool autoEnumerateCatalogForCurrentWorkpiece(bool updateEditor, bool quiet, QString* err);
+	bool autoEnumerateCatalogForCurrentWorkpiece(bool quiet, QString* err);
 
-	bool shouldReplaceEditorWithCatalog() const;
+	QString strategyDisplayName(const std::string& strategyId) const;
+
+	void ensureDiscretizerRuntimeLoaded() const;
+
+	bool applyFeatureListDocument(const geoalgo::FeatureListDocument& doc, bool restoreWorkpiece);
+
+	bool loadFeatureListFromJson(const std::string& jsonUtf8, QString* err = nullptr);
+
+	bool selectBackendComboById(const QString& backendId);
 
 
 
@@ -201,29 +234,39 @@ private:
 
 	bool m_chinese = true;
 
-	bool m_hasLastFeatureSpec = false;
-
 	bool m_suppressParamRediscretize = false;
+
+	int m_strategyRowSyncDepth = 0;
+
+	bool m_featureEditActive = false;
+
+	mutable bool m_runtimeLoaded = false;
 
 	PickSessionKind m_pickSession = PickSessionKind::None;
 
-	std::string m_lastFeatureSpecJson;
+	geoalgo::GeometryAffinity m_lastPickAffinity = geoalgo::GeometryAffinity::Any;
 
 	QString m_cachedCatalogBackendId;
 
 	std::string m_cachedCatalogJsonUtf8;
 
+	std::string m_lastLoadedPathPlanId;
+
+	std::string m_lastLoadedSourceJson;
+
 
 
 	QComboBox* m_backendCombo = nullptr;
 
-	QComboBox* m_faceKindCombo = nullptr;
+	QTableView* m_featureTable = nullptr;
 
-	QPlainTextEdit* m_specEditor = nullptr;
+	FeatureTableModel* m_featureModel = nullptr;
+
+	QComboBox* m_strategyCombo = nullptr;
+
+	FeatureDiscretizerParamPanel* m_paramPanel = nullptr;
 
 	QLabel* m_pickStatusLabel = nullptr;
-
-	QLabel* m_activeFeatureLabel = nullptr;
 
 	QPushButton* m_pickEdgeBtn = nullptr;
 
@@ -231,32 +274,19 @@ private:
 
 	QPushButton* m_cancelPickBtn = nullptr;
 
-	QPushButton* m_catalogBtn = nullptr;
-
 	QPushButton* m_discretizeBtn = nullptr;
 
+	QGroupBox* m_previewGroup = nullptr;
 
+	QCheckBox* m_showAxisXCheck = nullptr;
 
-	QGroupBox* m_discretizeGroup = nullptr;
+	QCheckBox* m_showAxisYCheck = nullptr;
 
-	QStackedWidget* m_discretizeStack = nullptr;
-
-	QDoubleSpinBox* m_stepMmSpin = nullptr;
-
-	QDoubleSpinBox* m_linearDeflectionSpin = nullptr;
-
-	QSpinBox* m_uvCountUSpin = nullptr;
-
-	QSpinBox* m_uvCountVSpin = nullptr;
-
-	QDoubleSpinBox* m_gridAngleSpin = nullptr;
-
-	QCheckBox* m_showAxesCheck = nullptr;
+	QCheckBox* m_showAxisZCheck = nullptr;
 
 	QSpinBox* m_axisIntervalSpin = nullptr;
 
 	QTimer* m_rediscretizeTimer = nullptr;
 
 };
-
 

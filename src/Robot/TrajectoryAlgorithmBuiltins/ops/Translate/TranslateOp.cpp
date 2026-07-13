@@ -7,6 +7,8 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -53,10 +55,14 @@ RobotInstruction::TrajectoryOpDescriptor TranslateOp::makeDefaultDescriptor(
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Translate;
 	op.scope = defaultScope;
-	op.translate.frame = RobotInstruction::TransformReferenceFrame::World;
-	op.translate.endDxMm = op.translate.dxMm;
-	op.translate.endDyMm = op.translate.dyMm;
-	op.translate.endDzMm = op.translate.dzMm;
+	TrajectoryOpParamAccess::applyDefaults(op, *this);
+	RobotInstruction::TranslateParams translate = parseTranslateParams(op.params);
+	translate.frame = RobotInstruction::TransformReferenceFrame::World;
+	translate.endDxMm = translate.dxMm;
+	translate.endDyMm = translate.dyMm;
+	translate.endDzMm = translate.dzMm;
+	writeTranslateParams(op.params, translate);
+
 	return op;
 }
 
@@ -93,9 +99,10 @@ std::string TranslateOp::formatSummary(
 	const RobotInstruction::TrajectoryOpDescriptor& op,
 	const bool chinese) const
 {
-	const std::string frameStr = frameLabel(op.translate.frame, chinese);
+	const RobotInstruction::TranslateParams translate = parseTranslateParams(op.params);
+	const std::string frameStr = frameLabel(translate.frame, chinese);
 	char buffer[512];
-	if (isTranslateInterpolated(op.translate))
+	if (isTranslateInterpolated(translate))
 	{
 		std::snprintf(
 			buffer,
@@ -104,12 +111,12 @@ std::string TranslateOp::formatSummary(
 					: "%s | %s | StartΔ(%.2f,%.2f,%.2f) -> EndΔ(%.2f,%.2f,%.2f) mm",
 			displayName(chinese),
 			frameStr.c_str(),
-			op.translate.dxMm,
-			op.translate.dyMm,
-			op.translate.dzMm,
-			op.translate.endDxMm,
-			op.translate.endDyMm,
-			op.translate.endDzMm);
+			translate.dxMm,
+			translate.dyMm,
+			translate.dzMm,
+			translate.endDxMm,
+			translate.endDyMm,
+			translate.endDzMm);
 	}
 	else
 	{
@@ -120,9 +127,9 @@ std::string TranslateOp::formatSummary(
 					: "%s | %s | Δ(%.2f,%.2f,%.2f) mm",
 			displayName(chinese),
 			frameStr.c_str(),
-			op.translate.dxMm,
-			op.translate.dyMm,
-			op.translate.dzMm);
+			translate.dxMm,
+			translate.dyMm,
+			translate.dzMm);
 	}
 	return buffer;
 }

@@ -80,9 +80,13 @@ struct RawTrajectoryPreviewOptions
 
 	bool showAxes = true;
 
-	int axisInterval = 0;
+	bool showAxisX = true;
 
-	int maxAxes = 50;
+	bool showAxisY = true;
+
+	bool showAxisZ = true;
+
+	int axisInterval = 0;
 
 };
 

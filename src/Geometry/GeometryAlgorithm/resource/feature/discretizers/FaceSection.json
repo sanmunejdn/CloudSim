@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "strategyId": "FaceSection",
+  "schema": {
+    "fields": [
+      { "key": "stepMm", "type": "Double", "labelZh": "截面间距", "unit": "mm", "default": 10.0, "order": 1, "group": "discretize" },
+      { "key": "linearDeflectionMm", "type": "Double", "labelZh": "弦高", "unit": "mm", "default": 0.01, "order": 2, "group": "discretize" },
+      { "key": "sectionOriginX", "type": "Double", "labelZh": "截面原点 X", "unit": "mm", "default": 0.0, "order": 10, "group": "section" },
+      { "key": "sectionOriginY", "type": "Double", "labelZh": "截面原点 Y", "unit": "mm", "default": 0.0, "order": 11, "group": "section" },
+      { "key": "sectionOriginZ", "type": "Double", "labelZh": "截面原点 Z", "unit": "mm", "default": 0.0, "order": 12, "group": "section" },
+      { "key": "sectionRxDeg", "type": "Double", "labelZh": "截面绕 X", "unit": "deg", "default": 0.0, "order": 13, "group": "section" },
+      { "key": "sectionRyDeg", "type": "Double", "labelZh": "截面绕 Y", "unit": "deg", "default": 0.0, "order": 14, "group": "section" },
+      { "key": "uvCountU", "type": "Int", "labelZh": "均匀段数", "defaultInt": 3, "order": 15, "group": "section" },
+      { "key": "edgeDiscretizeMode", "type": "Enum", "labelZh": "边离散模式", "enumValues": ["Uniform", "ChordHeight"], "enumLabelsZh": ["均匀", "等弦高"], "defaultInt": 0, "order": 16, "group": "section" },
+      { "key": "trajConnectMode", "type": "Enum", "labelZh": "层间连接", "enumValues": ["Bow", "Z", "Zhi"], "enumLabelsZh": ["弓", "Z", "之"], "defaultInt": 0, "order": 17, "group": "section" },
+      { "key": "reverseLayer", "type": "Bool", "labelZh": "反转层", "defaultBool": false, "order": 18, "group": "section" },
+      { "key": "layerKeepStart", "type": "Int", "labelZh": "层保留起点", "defaultInt": 0, "order": 19, "group": "section" },
+      { "key": "layerKeepEnd", "type": "Int", "labelZh": "层保留终点", "defaultInt": 0, "order": 20, "group": "section" }
+    ]
+  },
+  "defaults": {
+    "params": {
+      "stepMm": 10.0,
+      "linearDeflectionMm": 0.01,
+      "trajConnectMode": "Bow",
+      "edgeDiscretizeMode": "Uniform",
+      "uvCountU": 3
+    }
+  }
+}

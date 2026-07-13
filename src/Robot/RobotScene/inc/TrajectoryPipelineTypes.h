@@ -2,6 +2,8 @@
 
 #include "robot_scene_global.h"
 
+#include <json.hpp>
+
 #include <string>
 #include <vector>
 
@@ -169,17 +171,7 @@ struct ROBOT_SCENE_API TrajectoryOpDescriptor
 	std::string opId;
 	TrajectoryOpKind kind = TrajectoryOpKind::Translate;
 	OpScope scope{};
-	TranslateParams translate{};
-	RotateParams rotate{};
-	int duplicateCount = 1;
-	int mirrorAxis = 0;
-	ResampleParams resample{};
-	PathOffsetParams pathOffset{};
-	WeaveParams weave{};
-	AssignMotionParams assignMotion{};
-	ApproachParams approach{};
-	RetractParams retract{};
-	ProjectToGeometryParams project{};
+	nlohmann::json params = nlohmann::json::object();
 };
 
 } // namespace RobotInstruction

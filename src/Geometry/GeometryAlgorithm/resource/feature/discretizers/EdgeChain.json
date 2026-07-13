@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "strategyId": "EdgeChain",
+  "schema": {
+    "fields": [
+      { "key": "stepMm", "type": "Double", "labelZh": "步距", "unit": "mm", "default": 2.0, "order": 1 },
+      { "key": "linearDeflectionMm", "type": "Double", "labelZh": "弦高", "unit": "mm", "default": 0.01, "order": 2 },
+      { "key": "outputTangent", "type": "Bool", "labelZh": "输出切向", "defaultBool": true, "order": 3 },
+      { "key": "outputNormal", "type": "Bool", "labelZh": "输出法向", "defaultBool": true, "order": 4 }
+    ]
+  },
+  "defaults": { "params": { "stepMm": 2.0, "linearDeflectionMm": 0.01, "outputTangent": true, "outputNormal": true } }
+}

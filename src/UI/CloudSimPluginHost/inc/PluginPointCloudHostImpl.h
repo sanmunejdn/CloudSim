@@ -216,6 +216,12 @@ public:
 		IPluginDocument* doc,
 		const PluginTubularGrindingSessionId& sessionId) override;
 
+	void nonRigidRegisterSpare(
+		IPluginDocument* doc,
+		const std::string& sourceBackendIdUtf8,
+		const PluginPointCloudSpareParams& params,
+		PluginPointCloudFinishedFn onFinished) override;
+
 private:
 	struct SurfaceReconHostSession
 	{

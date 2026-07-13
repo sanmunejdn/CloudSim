@@ -5,6 +5,8 @@
 #include "TrajectoryUnifiedScope.h"
 
 #include <algorithm>
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -30,6 +32,8 @@ RobotInstruction::TrajectoryOpDescriptor DeleteOp::makeDefaultDescriptor(
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Delete;
 	op.scope = defaultScope;
+	TrajectoryOpParamAccess::applyDefaults(op, *this);
+
 	return op;
 }
 

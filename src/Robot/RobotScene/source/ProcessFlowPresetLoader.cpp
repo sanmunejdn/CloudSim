@@ -114,104 +114,14 @@ std::vector<ProcessFlowPresetEntry> fallbackPresets()
 
 TrajectoryOpKind trajectoryOpKindFromPresetToken(const std::string& token, bool* ok)
 {
-	auto setOk = [&](const bool value) {
-		if (ok)
-		{
-			*ok = value;
-		}
-	};
-	if (token == "Translate")
+	trajectory_algo::ensureTrajectoryOpBuiltinsRegistered();
+	RobotInstruction::TrajectoryOpKind kind = TrajectoryOpKind::Translate;
+	const bool found = trajectory_algo::TrajectoryOpRegistry::instance().kindFromString(token, kind);
+	if (ok)
 	{
-		setOk(true);
-		return TrajectoryOpKind::Translate;
+		*ok = found;
 	}
-	if (token == "Rotate")
-	{
-		setOk(true);
-		return TrajectoryOpKind::Rotate;
-	}
-	if (token == "Mirror")
-	{
-		setOk(true);
-		return TrajectoryOpKind::Mirror;
-	}
-	if (token == "Delete")
-	{
-		setOk(true);
-		return TrajectoryOpKind::Delete;
-	}
-	if (token == "Duplicate")
-	{
-		setOk(true);
-		return TrajectoryOpKind::Duplicate;
-	}
-	if (token == "Reorder")
-	{
-		setOk(true);
-		return TrajectoryOpKind::Reorder;
-	}
-	if (token == "Approach")
-	{
-		setOk(true);
-		return TrajectoryOpKind::Approach;
-	}
-	if (token == "Retract")
-	{
-		setOk(true);
-		return TrajectoryOpKind::Retract;
-	}
-	if (token == "Resample")
-	{
-		setOk(true);
-		return TrajectoryOpKind::Resample;
-	}
-	if (token == "OffsetAlongNormal")
-	{
-		setOk(true);
-		return TrajectoryOpKind::OffsetAlongNormal;
-	}
-	if (token == "OffsetLateral")
-	{
-		setOk(true);
-		return TrajectoryOpKind::OffsetLateral;
-	}
-	if (token == "SmoothPose")
-	{
-		setOk(true);
-		return TrajectoryOpKind::SmoothPose;
-	}
-	if (token == "AssignBlend")
-	{
-		setOk(true);
-		return TrajectoryOpKind::AssignBlend;
-	}
-	if (token == "AssignSpeedZone")
-	{
-		setOk(true);
-		return TrajectoryOpKind::AssignSpeedZone;
-	}
-	if (token == "Weave")
-	{
-		setOk(true);
-		return TrajectoryOpKind::Weave;
-	}
-	if (token == "ReachabilityFilter")
-	{
-		setOk(true);
-		return TrajectoryOpKind::ReachabilityFilter;
-	}
-	if (token == "ExternalAxisSearch")
-	{
-		setOk(true);
-		return TrajectoryOpKind::ExternalAxisSearch;
-	}
-	if (token == "RecipeWeld" || token == "RecipeGlue" || token == "RecipeGrind")
-	{
-		setOk(false);
-		return TrajectoryOpKind::Translate;
-	}
-	setOk(false);
-	return TrajectoryOpKind::Translate;
+	return found ? kind : TrajectoryOpKind::Translate;
 }
 
 std::vector<ProcessFlowPresetEntry> loadProcessFlowPresets(

@@ -161,6 +161,8 @@ public:
 	osg::Vec3f selectedRotationEulerDeg() const;
 	void setSelectedRotationEulerDeg(const osg::Vec3f& eulerDeg);
 	void setSelectedColor(float r, float g, float b, float a = 1.0f);
+	/// 按 backendId 刷新场景颜色，不发 selectedObjectColorChanged
+	void applyColorToBackendObject(const std::string& backendId, const osg::Vec4& color);
 	QString pointCloudPluginReport() const;
 	/// 按后端树行显隐 OSG 分支
 	void setBackendObjectVisible(const std::string& backendId, bool visible);
@@ -222,6 +224,7 @@ public:
 		const std::vector<std::size_t>& segmentEndExclusive = {});
 	void clearRawTrajectoryOverlay();
 	void setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& frames);
+	void setRawTrajectoryOverlayAxisComponents(bool showX, bool showY, bool showZ);
 	void clearRawTrajectoryOverlayFrames();
 	void setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverlayUpdate& update);
 	void clearRobotFrameOverlays(const std::string& robotRootBackendId);
@@ -454,7 +457,6 @@ private:
 	/// \param outPickedRing 若非空：命中旋转环时为 true，命中轴线段时为 false。
 	DragAxis pickAxisAtScreenPos(const QPoint& mousePos, bool preferRing, bool* outPickedRing = nullptr) const;
 	void applyColorToActiveBackendObject(const osg::Vec4& color);
-	void applyColorToBackendObject(const std::string& backendId, const osg::Vec4& color);
 	void applyColorToStagingGeometry(const osg::Vec4& color);
 	osg::ref_ptr<osg::Geode> buildPointCloudGeode(const PointCloudBackendData& data, QString* errorMessage) const;
 	bool upsertPointCloudBranchInScene(const PointCloudBackendData& data, QString* errorMessage, bool resetViewToHome);
@@ -516,6 +518,9 @@ private:
 	std::vector<osg::ref_ptr<osg::MatrixTransform>> m_instructionPoseAxisNodes;
 	osg::ref_ptr<osg::Geode> m_rawTrajectoryOverlayGeode;
 	osg::ref_ptr<osg::Group> m_rawTrajectoryFramesGroup;
+	bool m_rawTrajShowAxisX = true;
+	bool m_rawTrajShowAxisY = true;
+	bool m_rawTrajShowAxisZ = true;
 	struct RobotFrameOverlayNodes
 	{
 		std::vector<osg::ref_ptr<osg::MatrixTransform>> toolNodes;

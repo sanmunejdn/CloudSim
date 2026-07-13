@@ -34,6 +34,9 @@ public:
 	void bindSession(TrajectoryEditSession* session);
 	void bindSimulationController(RobotSimulationController* controller);
 
+	/// 轨迹编辑 Apply/生成程序后清空 mesh 选择与预览
+	void resetAfterTrajectoryCommit();
+
 private slots:
 	void onGenerateClicked();
 	void onClearSelectionClicked();
