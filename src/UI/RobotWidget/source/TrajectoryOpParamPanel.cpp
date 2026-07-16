@@ -6,9 +6,7 @@
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
-#include <QHBoxLayout>
 #include <QLabel>
-#include <QPushButton>
 #include <QSizePolicy>
 #include <QSpinBox>
 #include <QVBoxLayout>
@@ -94,10 +92,16 @@ void TrajectoryOpParamPanel::setGeometryBackendCombo(QComboBox* combo)
 	m_geometryBackendComboParent = combo ? combo->parentWidget() : nullptr;
 }
 
-void TrajectoryOpParamPanel::setGeometryBackendPickButton(QPushButton* button)
+void TrajectoryOpParamPanel::setNonRigidSourceBackendCombo(QComboBox* combo)
 {
-	m_geometryBackendPickBtn = button;
-	m_geometryBackendPickBtnParent = button ? button->parentWidget() : nullptr;
+	m_nonRigidSourceCombo = combo;
+	m_nonRigidSourceComboParent = combo ? combo->parentWidget() : nullptr;
+}
+
+void TrajectoryOpParamPanel::setNonRigidTargetBackendCombo(QComboBox* combo)
+{
+	m_nonRigidTargetCombo = combo;
+	m_nonRigidTargetComboParent = combo ? combo->parentWidget() : nullptr;
 }
 
 void TrajectoryOpParamPanel::clear()
@@ -122,6 +126,8 @@ void TrajectoryOpParamPanel::clearRows()
 
 	QLabel* scopeLabel = nullptr;
 	QLabel* geometryBackendLabel = nullptr;
+	QLabel* nonRigidSourceLabel = nullptr;
+	QLabel* nonRigidTargetLabel = nullptr;
 	for (trajectory_algo::TrajectoryParamBinding& row : m_rows)
 	{
 		if (row.field.key == "scope.groupId")
@@ -132,6 +138,16 @@ void TrajectoryOpParamPanel::clearRows()
 		if (row.field.key == "project.targetBackendId")
 		{
 			geometryBackendLabel = row.label;
+			continue;
+		}
+		if (row.field.key == "nrr.sourceBackendId")
+		{
+			nonRigidSourceLabel = row.label;
+			continue;
+		}
+		if (row.field.key == "nrr.targetBackendId")
+		{
+			nonRigidTargetLabel = row.label;
 			continue;
 		}
 		QLabel* lbl = row.label;
@@ -186,13 +202,39 @@ void TrajectoryOpParamPanel::clearRows()
 	{
 		m_geometryBackendCombo->setParent(m_geometryBackendComboParent);
 	}
-	if (m_geometryBackendPickBtn && m_form->indexOf(m_geometryBackendPickBtn) >= 0)
+	if (nonRigidSourceLabel)
 	{
-		m_form->removeWidget(m_geometryBackendPickBtn);
+		if (m_form->indexOf(nonRigidSourceLabel) >= 0)
+		{
+			m_form->removeWidget(nonRigidSourceLabel);
+		}
+		delete nonRigidSourceLabel;
+		nonRigidSourceLabel = nullptr;
 	}
-	if (m_geometryBackendPickBtn && m_geometryBackendPickBtnParent)
+	if (m_nonRigidSourceCombo && m_form->indexOf(m_nonRigidSourceCombo) >= 0)
 	{
-		m_geometryBackendPickBtn->setParent(m_geometryBackendPickBtnParent);
+		m_form->removeWidget(m_nonRigidSourceCombo);
+	}
+	if (m_nonRigidSourceCombo && m_nonRigidSourceComboParent)
+	{
+		m_nonRigidSourceCombo->setParent(m_nonRigidSourceComboParent);
+	}
+	if (nonRigidTargetLabel)
+	{
+		if (m_form->indexOf(nonRigidTargetLabel) >= 0)
+		{
+			m_form->removeWidget(nonRigidTargetLabel);
+		}
+		delete nonRigidTargetLabel;
+		nonRigidTargetLabel = nullptr;
+	}
+	if (m_nonRigidTargetCombo && m_form->indexOf(m_nonRigidTargetCombo) >= 0)
+	{
+		m_form->removeWidget(m_nonRigidTargetCombo);
+	}
+	if (m_nonRigidTargetCombo && m_nonRigidTargetComboParent)
+	{
+		m_nonRigidTargetCombo->setParent(m_nonRigidTargetComboParent);
 	}
 
 	m_rows.clear();
@@ -312,19 +354,9 @@ void TrajectoryOpParamPanel::rebuildForOp(
 				auto* label = new QLabel(
 					m_useChinese ? QStringLiteral("几何对象") : QStringLiteral("Geometry Backend"),
 					this);
-				auto* rowWidget = new QWidget(this);
-				applyFieldWidthPolicy(rowWidget);
-				auto* rowLayout = new QHBoxLayout(rowWidget);
-				rowLayout->setContentsMargins(0, 0, 0, 0);
-				rowLayout->setSpacing(2);
 				m_geometryBackendCombo->setFixedHeight(26);
 				applyFieldWidthPolicy(m_geometryBackendCombo);
-				rowLayout->addWidget(m_geometryBackendCombo, 1);
-				if (m_geometryBackendPickBtn)
-				{
-					rowLayout->addWidget(m_geometryBackendPickBtn);
-				}
-				m_form->addRow(label, rowWidget);
+				m_form->addRow(label, m_geometryBackendCombo);
 				const std::string targetBackendId =
 					RobotInstruction::trajectoryOpProjectTargetBackendId(op);
 				const int idx = m_geometryBackendCombo->findData(
@@ -336,6 +368,58 @@ void TrajectoryOpParamPanel::rebuildForOp(
 				trajectory_algo::TrajectoryParamBinding binding{};
 				binding.label = label;
 				binding.widget = m_geometryBackendCombo;
+				binding.field = field;
+				m_rows.push_back(binding);
+			}
+			continue;
+		}
+		if (field.key == "nrr.sourceBackendId")
+		{
+			if (m_nonRigidSourceCombo)
+			{
+				auto* label = new QLabel(
+					m_useChinese ? QStringLiteral("源几何") : QStringLiteral("Source Geometry"),
+					this);
+				m_nonRigidSourceCombo->setFixedHeight(26);
+				applyFieldWidthPolicy(m_nonRigidSourceCombo);
+				m_form->addRow(label, m_nonRigidSourceCombo);
+				const std::string backendId =
+					RobotInstruction::trajectoryOpNonRigidSourceBackendId(op);
+				const int idx = m_nonRigidSourceCombo->findData(
+					QString::fromStdString(backendId));
+				if (idx >= 0)
+				{
+					m_nonRigidSourceCombo->setCurrentIndex(idx);
+				}
+				trajectory_algo::TrajectoryParamBinding binding{};
+				binding.label = label;
+				binding.widget = m_nonRigidSourceCombo;
+				binding.field = field;
+				m_rows.push_back(binding);
+			}
+			continue;
+		}
+		if (field.key == "nrr.targetBackendId")
+		{
+			if (m_nonRigidTargetCombo)
+			{
+				auto* label = new QLabel(
+					m_useChinese ? QStringLiteral("目标几何") : QStringLiteral("Target Geometry"),
+					this);
+				m_nonRigidTargetCombo->setFixedHeight(26);
+				applyFieldWidthPolicy(m_nonRigidTargetCombo);
+				m_form->addRow(label, m_nonRigidTargetCombo);
+				const std::string backendId =
+					RobotInstruction::trajectoryOpNonRigidTargetBackendId(op);
+				const int idx = m_nonRigidTargetCombo->findData(
+					QString::fromStdString(backendId));
+				if (idx >= 0)
+				{
+					m_nonRigidTargetCombo->setCurrentIndex(idx);
+				}
+				trajectory_algo::TrajectoryParamBinding binding{};
+				binding.label = label;
+				binding.widget = m_nonRigidTargetCombo;
 				binding.field = field;
 				m_rows.push_back(binding);
 			}
@@ -455,6 +539,26 @@ bool TrajectoryOpParamPanel::applyTo(
 				RobotInstruction::trajectoryOpSetProjectTargetBackendId(
 					op,
 					m_geometryBackendCombo->currentData().toString().toStdString());
+			}
+			continue;
+		}
+		if (row.field.key == "nrr.sourceBackendId")
+		{
+			if (m_nonRigidSourceCombo && m_nonRigidSourceCombo->currentIndex() >= 0)
+			{
+				RobotInstruction::trajectoryOpSetNonRigidSourceBackendId(
+					op,
+					m_nonRigidSourceCombo->currentData().toString().toStdString());
+			}
+			continue;
+		}
+		if (row.field.key == "nrr.targetBackendId")
+		{
+			if (m_nonRigidTargetCombo && m_nonRigidTargetCombo->currentIndex() >= 0)
+			{
+				RobotInstruction::trajectoryOpSetNonRigidTargetBackendId(
+					op,
+					m_nonRigidTargetCombo->currentData().toString().toStdString());
 			}
 			continue;
 		}

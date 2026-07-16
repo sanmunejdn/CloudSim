@@ -102,6 +102,7 @@ private:
 	IPluginPointCloudHost* pointCloudHost() const;
 	void runFinished(bool ok, const QString& error, const PluginPointCloudJobResult& result);
 	void updateRegistrationUi();
+	void refreshSpareObjectLists();
 	PluginPointCloudTemplateBrepUpdateParams buildTemplateBrepParams() const;
 	void runTemplateBrepRegistration(PluginPointCloudTemplateBrepRegistrationStage stage);
 	std::vector<int> selectedFaceIndices() const;
@@ -126,9 +127,11 @@ private:
 	QLabel* m_meshExportLabel = nullptr;
 	QLabel* m_icpTargetLabel = nullptr;
 	QLabel* m_regMethodLabel = nullptr;
-	QLabel* m_spareSourceKindLabel = nullptr;
+	QLabel* m_spareSourceLabel = nullptr;
+	QLabel* m_spareTargetLabel = nullptr;
 	QComboBox* m_regMethodCombo = nullptr;
-	QComboBox* m_spareSourceKindCombo = nullptr;
+	QComboBox* m_spareSourceCombo = nullptr;
+	QComboBox* m_spareTargetCombo = nullptr;
 	QDoubleSpinBox* m_voxelSpin = nullptr;
 	QDoubleSpinBox* m_randomSpin = nullptr;
 	QDoubleSpinBox* m_prefilterSpin = nullptr;

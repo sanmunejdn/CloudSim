@@ -1,5 +1,6 @@
 #pragma once
 
+#include "INonRigidTrajectoryWarp.h"
 #include "TrajectoryPipelineTypes.h"
 #include "trajectory_algorithm_global.h"
 
@@ -34,6 +35,7 @@ struct TRAJECTORY_ALGORITHM_API TrajectoryOpExecutionContext
 {
 	const RobotInstruction::RobotProgram* program = nullptr;
 	const IGeometryProjection* geometryProjection = nullptr;
+	const INonRigidTrajectoryWarp* nonRigidTrajectoryWarp = nullptr;
 };
 
 } // namespace trajectory_algo

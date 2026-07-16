@@ -229,6 +229,8 @@ bool discretizeShapeToSoup(
 	std::string* errMsg)
 {
 	TopoDS_Shape copy = shape;
+	// 清除旧三角化，避免改 deflection 时 OCC 复用缓存
+	BRepTools::Clean(copy);
 	if (!meshShapeIncremental(copy, params, errMsg))
 	{
 		return false;

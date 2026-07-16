@@ -53,4 +53,10 @@ GEOMETRY_ALGORITHM_API bool remeshTriangleSoup(
 
 GEOMETRY_ALGORITHM_API void fillMeshReport(const std::vector<float>& soup, MeshDiscretizeReport& report);
 
+/// 最长边二分，使边长不超过 maxEdgeMm（大平面加密）
+GEOMETRY_ALGORITHM_API bool refineTriangleSoupToMaxEdge(
+	std::vector<float>& soup,
+	double maxEdgeMm,
+	std::string* errMsg = nullptr);
+
 } // namespace geoalgo

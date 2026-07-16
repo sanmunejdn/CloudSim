@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -216,6 +216,7 @@
     <ClInclude Include="inc\RecipeBlueprint.h" />
     <ClInclude Include="inc\UnifiedTrajectory.h" />
     <ClInclude Include="inc\RobotSceneGeometryProjection.h" />
+    <ClInclude Include="inc\RobotSceneNonRigidTrajectoryWarp.h" />
     <ClInclude Include="inc\TrajectoryPathAdapters.h" />
     <ClInclude Include="inc\TrajectoryPipelineEngine.h" />
     <ClInclude Include="inc\TrajectoryGeometryResolver.h" />
@@ -244,6 +245,7 @@
     <None Include="resource\trajectory\ops\ReachabilityFilter.json" />
     <None Include="resource\trajectory\ops\ExternalAxisSearch.json" />
     <None Include="resource\trajectory\ops\ProjectToGeometry.json" />
+    <None Include="resource\trajectory\ops\NonRigidRegistration.json" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp" />

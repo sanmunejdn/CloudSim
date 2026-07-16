@@ -5,6 +5,7 @@
 #include "IPluginHostContext.h"
 
 #include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -57,11 +58,41 @@ GeometryDockWidget::GeometryDockWidget(IPluginHostContext* host, QWidget* parent
 	pathRow->addWidget(m_stepPathEdit, 1);
 	pathRow->addWidget(m_browseBtn);
 	stepLayout->addLayout(pathRow);
+	m_densityModeCombo = new QComboBox(m_stepGroup);
+	m_densityModeCombo->addItem(
+		QStringLiteral("Quality"), static_cast<int>(PluginMeshDensityControl::QualityPreset));
+	m_densityModeCombo->addItem(
+		QStringLiteral("EdgeLength"), static_cast<int>(PluginMeshDensityControl::TargetEdgeLength));
+	m_densityModeCombo->addItem(
+		QStringLiteral("TriangleCount"), static_cast<int>(PluginMeshDensityControl::TargetTriangleCount));
+	stepLayout->addWidget(m_densityModeCombo);
+
 	m_qualityCombo = new QComboBox(m_stepGroup);
 	m_qualityCombo->addItem(QStringLiteral("Medium"), static_cast<int>(PluginMeshQualityPreset::Medium));
 	m_qualityCombo->addItem(QStringLiteral("Fine"), static_cast<int>(PluginMeshQualityPreset::Fine));
 	m_qualityCombo->addItem(QStringLiteral("Coarse"), static_cast<int>(PluginMeshQualityPreset::Coarse));
 	stepLayout->addWidget(m_qualityCombo);
+
+	auto* edgeLenRow = new QHBoxLayout;
+	m_edgeLengthLabel = new QLabel(m_stepGroup);
+	m_edgeLengthSpin = new QDoubleSpinBox(m_stepGroup);
+	m_edgeLengthSpin->setDecimals(3);
+	m_edgeLengthSpin->setRange(0.001, 1.0e6);
+	m_edgeLengthSpin->setValue(2.0);
+	m_edgeLengthSpin->setSuffix(QStringLiteral(" mm"));
+	edgeLenRow->addWidget(m_edgeLengthLabel);
+	edgeLenRow->addWidget(m_edgeLengthSpin, 1);
+	stepLayout->addLayout(edgeLenRow);
+
+	auto* trisRow = new QHBoxLayout;
+	m_triangleCountLabel = new QLabel(m_stepGroup);
+	m_triangleCountSpin = new QSpinBox(m_stepGroup);
+	m_triangleCountSpin->setRange(1, 50000000);
+	m_triangleCountSpin->setValue(5000);
+	trisRow->addWidget(m_triangleCountLabel);
+	trisRow->addWidget(m_triangleCountSpin, 1);
+	stepLayout->addLayout(trisRow);
+
 	m_discretizeBtn = new QPushButton(m_stepGroup);
 	stepLayout->addWidget(m_discretizeBtn);
 	layout->addWidget(m_stepGroup);
@@ -132,6 +163,7 @@ GeometryDockWidget::GeometryDockWidget(IPluginHostContext* host, QWidget* parent
 	refreshDocumentLabel();
 	refreshComputableBackends();
 	syncSourceUiState();
+	syncDensityUiState();
 }
 
 void GeometryDockWidget::wireSignals()
@@ -140,6 +172,8 @@ void GeometryDockWidget::wireSignals()
 	connect(m_refreshBackendsBtn, &QPushButton::clicked, this, &GeometryDockWidget::refreshComputableBackends);
 	connect(m_sourceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 		[this](int) { syncSourceUiState(); });
+	connect(m_densityModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+		[this](int) { syncDensityUiState(); });
 	connect(m_discretizeBtn, &QPushButton::clicked, this, &GeometryDockWidget::discretizeStep);
 	connect(m_pickEdgeBtn, &QPushButton::clicked, this, &GeometryDockWidget::pickEdgeForEdgeFace);
 	connect(m_pickFaceBtn, &QPushButton::clicked, this, &GeometryDockWidget::pickFaceForEdgeFace);
@@ -209,10 +243,40 @@ QString GeometryDockWidget::activeStepPath() const
 	return QString::fromStdString(m_backendEntries[static_cast<std::size_t>(idx)].stepPathUtf8);
 }
 
+void GeometryDockWidget::syncDensityUiState()
+{
+	const auto control = static_cast<PluginMeshDensityControl>(m_densityModeCombo->currentData().toInt());
+	const bool usePreset = control == PluginMeshDensityControl::QualityPreset;
+	const bool useEdge = control == PluginMeshDensityControl::TargetEdgeLength;
+	const bool useTris = control == PluginMeshDensityControl::TargetTriangleCount;
+	m_qualityCombo->setVisible(usePreset);
+	m_edgeLengthLabel->setVisible(useEdge);
+	m_edgeLengthSpin->setVisible(useEdge);
+	m_triangleCountLabel->setVisible(useTris);
+	m_triangleCountSpin->setVisible(useTris);
+}
+
 PluginMeshDiscretizeParams GeometryDockWidget::buildDiscretizeParams() const
 {
 	PluginMeshDiscretizeParams params;
-	params.quality = static_cast<PluginMeshQualityPreset>(m_qualityCombo->currentData().toInt());
+	params.densityControl =
+		static_cast<PluginMeshDensityControl>(m_densityModeCombo->currentData().toInt());
+	switch (params.densityControl)
+	{
+	case PluginMeshDensityControl::TargetEdgeLength:
+		params.quality = PluginMeshQualityPreset::Custom;
+		params.targetEdgeLengthMm = m_edgeLengthSpin->value();
+		break;
+	case PluginMeshDensityControl::TargetTriangleCount:
+		params.quality = PluginMeshQualityPreset::Custom;
+		params.targetTriangleCount = static_cast<std::size_t>(m_triangleCountSpin->value());
+		break;
+	case PluginMeshDensityControl::QualityPreset:
+	default:
+		params.densityControl = PluginMeshDensityControl::QualityPreset;
+		params.quality = static_cast<PluginMeshQualityPreset>(m_qualityCombo->currentData().toInt());
+		break;
+	}
 	return params;
 }
 
@@ -387,6 +451,11 @@ void GeometryDockWidget::applyLanguage()
 	m_sourceCombo->setItemText(1, zh ? QStringLiteral("内部后端对象") : QStringLiteral("Backend object"));
 	m_refreshBackendsBtn->setText(zh ? QStringLiteral("刷新") : QStringLiteral("Refresh"));
 	m_browseBtn->setText(zh ? QStringLiteral("浏览…") : QStringLiteral("Browse..."));
+	m_densityModeCombo->setItemText(0, zh ? QStringLiteral("质量预设") : QStringLiteral("Quality preset"));
+	m_densityModeCombo->setItemText(1, zh ? QStringLiteral("目标边长") : QStringLiteral("Target edge length"));
+	m_densityModeCombo->setItemText(2, zh ? QStringLiteral("目标三角面数") : QStringLiteral("Target triangle count"));
+	m_edgeLengthLabel->setText(zh ? QStringLiteral("边长") : QStringLiteral("Edge"));
+	m_triangleCountLabel->setText(zh ? QStringLiteral("三角面数") : QStringLiteral("Triangles"));
 	m_discretizeBtn->setText(zh ? QStringLiteral("离散生成网格") : QStringLiteral("Discretize to Mesh"));
 	m_ixEdgeFaceGroup->setTitle(zh ? QStringLiteral("线面求交") : QStringLiteral("Edge-Face Intersect"));
 	m_pickEdgeBtn->setText(zh ? QStringLiteral("点选边") : QStringLiteral("Pick Edge"));
@@ -399,6 +468,7 @@ void GeometryDockWidget::applyLanguage()
 	m_resultGroup->setTitle(zh ? QStringLiteral("求交结果生成后端") : QStringLiteral("Build Backend From Intersection"));
 	m_createTubeBtn->setText(zh ? QStringLiteral("生成管状网格") : QStringLiteral("Create Tube Mesh"));
 	m_createRibbonBtn->setText(zh ? QStringLiteral("生成带状网格") : QStringLiteral("Create Ribbon Mesh"));
+	syncDensityUiState();
 }
 
 void GeometryDockWidget::refreshDocumentLabel()
@@ -456,9 +526,10 @@ void GeometryDockWidget::discretizeStep()
 					setStatus(err, true);
 					return;
 				}
-				setStatus(QStringLiteral("ok: %1 tris=%2")
+				setStatus(QStringLiteral("ok: %1 tris=%2 avgEdge=%3")
 							  .arg(QString::fromStdString(result.newBackendId))
-							  .arg(result.triangleCount));
+							  .arg(result.triangleCount)
+							  .arg(result.avgEdgeLengthMm, 0, 'f', 3));
 			});
 		return;
 	}
@@ -474,9 +545,10 @@ void GeometryDockWidget::discretizeStep()
 				setStatus(err, true);
 				return;
 			}
-			setStatus(QStringLiteral("ok: %1 tris=%2")
+			setStatus(QStringLiteral("ok: %1 tris=%2 avgEdge=%3")
 						  .arg(QString::fromStdString(result.newBackendId))
-						  .arg(result.triangleCount));
+						  .arg(result.triangleCount)
+						  .arg(result.avgEdgeLengthMm, 0, 'f', 3));
 		});
 }
 

@@ -36,7 +36,7 @@ Widget/
 │   ├── MainWindow_p.h                     # 主窗口私有类型（ItemDataRole 等）
 │   ├── DocumentPage.h                     # 单文档页（DocumentHost + IRobotSimulationDocument）
 │   ├── ApplicationStyle.h                 # 浅色/深色主题
-│   ├── RunInfoPage.h                      # 运行日志面板
+│   ├── RunInfoPage.h                      # 运行日志面板（中央 splitter）
 │   ├── DevicePageWidget.h                 # 设备页
 │   ├── MainWindowSelectionState.h         # 选择状态
 │   ├── MainWindowSelectionService.h       # 选择服务（静态）
@@ -207,6 +207,14 @@ OsgWidget 信号的**唯一边界**。所有 OsgWidget 的 Qt 信号（拾取、
 | `loadSavedTheme()` | 从 `QSettings` 读取 |
 | `saveTheme(Theme)` | 写入 `QSettings` |
 | `usesDarkTheme()` | 当前是否深色 |
+
+**按钮角色（QSS 属性）**：`QPushButton` 设置 `btnRole` 为 `primary` / `secondary` / `danger`，主题切换后仍生效。主操作（如应用）用 `primary`，次要用 `secondary`，清空类用 `danger`。
+
+**运行日志布局**：`RunInfoPage` 挂在中央区竖向 `QSplitter`（文档页上方、日志下方），**不再**使用 `BottomDockWidget`。左右 Dock 通高，日志只占 3D 列，避免与右侧工作区/AI 助手叠层遮挡。
+
+**QComboBox**：全局 QSS 闭合高度约 24–26px；弹层 `item` 设 `min-height` 并允许滚动。
+
+**圆角策略**：仅小控件（按钮/单行输入/Combo/Spin/滚动条把手等）保留 `border-radius`。`QTabWidget::pane`、树/列表、多行文本、`QGroupBox`、菜单弹层等大面积区域强制直角，避免 Qt 无法裁切视口导致「圆角描边 + 直角内容漏角」。
 
 ---
 

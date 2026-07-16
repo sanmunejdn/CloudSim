@@ -31,6 +31,7 @@
 
 #include <json.hpp>
 
+#include <QAbstractItemView>
 #include <QCoreApplication>
 #include <QCheckBox>
 #include <QComboBox>
@@ -44,6 +45,7 @@
 #include <QPushButton>
 #include <QSettings>
 #include <QSizePolicy>
+#include <QStyle>
 #include <QUuid>
 #include <QSignalBlocker>
 #include <QTimer>
@@ -54,6 +56,84 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
+
+namespace
+{
+
+void populateGeometryBackendCombo(
+	QComboBox* combo,
+	IRobotMainWindowHost* host,
+	const bool allowBrep,
+	const QString& prevBackendId)
+{
+	if (!combo)
+	{
+		return;
+	}
+	combo->blockSignals(true);
+	combo->clear();
+	if (host && host->document())
+	{
+		BackendDataManager& mgr = host->document()->backend();
+		for (const std::shared_ptr<BackendDataBase>& data : mgr.listData())
+		{
+			if (!data || !data->hasGeometry())
+			{
+				continue;
+			}
+			const bool isPointCloud =
+				static_cast<bool>(std::dynamic_pointer_cast<PointCloudBackendData>(data));
+			const bool isMesh = static_cast<bool>(std::dynamic_pointer_cast<MeshBackendData>(data));
+			const bool isBrep = static_cast<bool>(std::dynamic_pointer_cast<BrepBackendData>(data));
+			const bool supported = isPointCloud || isMesh || (allowBrep && isBrep);
+			if (!supported)
+			{
+				continue;
+			}
+			const QString backendId = QString::fromStdString(data->id());
+			if (backendId.startsWith(QStringLiteral("RobotURDF_")))
+			{
+				continue;
+			}
+			const QString label = QString::fromStdString(data->name()).isEmpty()
+				? backendId
+				: QStringLiteral("%1 (%2)").arg(
+					QString::fromStdString(data->name()),
+					backendId);
+			combo->addItem(label, backendId);
+		}
+	}
+	if (!prevBackendId.isEmpty())
+	{
+		const int idx = combo->findData(prevBackendId);
+		if (idx >= 0)
+		{
+			combo->setCurrentIndex(idx);
+		}
+	}
+	combo->blockSignals(false);
+}
+
+void syncComboToBackendId(QComboBox* combo, const std::string& backendId)
+{
+	if (!combo)
+	{
+		return;
+	}
+	combo->blockSignals(true);
+	if (!backendId.empty())
+	{
+		const int idx = combo->findData(QString::fromStdString(backendId));
+		if (idx >= 0)
+		{
+			combo->setCurrentIndex(idx);
+		}
+	}
+	combo->blockSignals(false);
+}
+
+} // namespace
 
 namespace
 {
@@ -136,6 +216,8 @@ QString opKindLabel(RobotInstruction::TrajectoryOpKind kind, bool zh)
 		return zh ? QStringLiteral("退刀") : QStringLiteral("Retract");
 	case RobotInstruction::TrajectoryOpKind::ProjectToGeometry:
 		return zh ? QStringLiteral("轨迹投影") : QStringLiteral("ProjectToGeometry");
+	case RobotInstruction::TrajectoryOpKind::NonRigidRegistration:
+		return zh ? QStringLiteral("非刚性配准纠正") : QStringLiteral("NonRigidRegistration");
 	case RobotInstruction::TrajectoryOpKind::Translate:
 	default:
 		return zh ? QStringLiteral("平移") : QStringLiteral("Translate");
@@ -178,7 +260,8 @@ void updateTransformActionButtons(
 		|| op.kind == RobotInstruction::TrajectoryOpKind::ExternalAxisSearch
 		|| op.kind == RobotInstruction::TrajectoryOpKind::Delete
 		|| op.kind == RobotInstruction::TrajectoryOpKind::Duplicate
-		|| op.kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry;
+		|| op.kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry
+		|| op.kind == RobotInstruction::TrajectoryOpKind::NonRigidRegistration;
 	const bool canPosePreview = algo
 		&& trajectory_algo::hasCapability(
 			algo->capabilities(),
@@ -191,6 +274,33 @@ void updateTransformActionButtons(
 	if (applyBtn)
 	{
 		applyBtn->setEnabled(canPipelineOp && !readOnly);
+	}
+}
+
+void applyBtnRole(QPushButton* btn, const char* role)
+{
+	if (!btn)
+	{
+		return;
+	}
+	btn->setProperty("btnRole", QLatin1String(role));
+	btn->style()->unpolish(btn);
+	btn->style()->polish(btn);
+}
+
+void configureCompactCombo(QComboBox* combo)
+{
+	if (!combo)
+	{
+		return;
+	}
+	combo->setFixedHeight(kTrajectoryControlHeight);
+	combo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	combo->setMaxVisibleItems(12);
+	if (QAbstractItemView* view = combo->view())
+	{
+		view->setTextElideMode(Qt::ElideNone);
+		view->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 	}
 }
 
@@ -216,6 +326,7 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	m_rawStatusLabel = new QLabel(this);
 	rawLayout->addWidget(m_rawStatusLabel, 1);
 	m_rawRecipeCombo = new QComboBox(m_rawGroupBox);
+	configureCompactCombo(m_rawRecipeCombo);
 	m_rawRecipeCombo->addItem(QStringLiteral("焊缝"), QStringLiteral("weld"));
 	m_rawRecipeCombo->addItem(QStringLiteral("涂胶"), QStringLiteral("glue"));
 	m_rawRecipeCombo->addItem(QStringLiteral("打磨"), QStringLiteral("grind"));
@@ -232,10 +343,12 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	m_programLabel = new QLabel(QStringLiteral("程序"), this);
 	scopeRow->addWidget(m_programLabel);
 	m_programCombo = new QComboBox(this);
+	configureCompactCombo(m_programCombo);
 	scopeRow->addWidget(m_programCombo, 1);
 	m_groupLabel = new QLabel(QStringLiteral("组"), this);
 	scopeRow->addWidget(m_groupLabel);
 	m_groupCombo = new QComboBox(this);
+	configureCompactCombo(m_groupCombo);
 	scopeRow->addWidget(m_groupCombo, 1);
 	root->addLayout(scopeRow);
 
@@ -276,16 +389,19 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	paramBoxLayout->setContentsMargins(4, 2, 4, 2);
 	paramBoxLayout->setSpacing(0);
 	m_scopeGroupCombo = new QComboBox(m_paramGroupBox);
-	m_scopeGroupCombo->setFixedHeight(kTrajectoryControlHeight);
-	m_scopeGroupCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	configureCompactCombo(m_scopeGroupCombo);
 	m_geometryBackendCombo = new QComboBox(m_paramGroupBox);
-	m_geometryBackendCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-	m_geometryBackendPickBtn = new QPushButton(m_paramGroupBox);
+	configureCompactCombo(m_geometryBackendCombo);
+	m_nonRigidSourceCombo = new QComboBox(m_paramGroupBox);
+	configureCompactCombo(m_nonRigidSourceCombo);
+	m_nonRigidTargetCombo = new QComboBox(m_paramGroupBox);
+	configureCompactCombo(m_nonRigidTargetCombo);
 	m_paramPanel = new TrajectoryOpParamPanel(m_paramGroupBox);
 	m_paramPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	m_paramPanel->setScopeGroupCombo(m_scopeGroupCombo);
 	m_paramPanel->setGeometryBackendCombo(m_geometryBackendCombo);
-	m_paramPanel->setGeometryBackendPickButton(m_geometryBackendPickBtn);
+	m_paramPanel->setNonRigidSourceBackendCombo(m_nonRigidSourceCombo);
+	m_paramPanel->setNonRigidTargetBackendCombo(m_nonRigidTargetCombo);
 	paramBoxLayout->addWidget(m_paramPanel, 1);
 	root->addWidget(m_paramGroupBox, 1);
 
@@ -355,16 +471,20 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	UiIconDecorators::apply(m_rawApplyBtn, UiIconId::FillRecipe);
 	UiIconDecorators::apply(m_rawEmitBtn, UiIconId::EmitProgram);
 
+	applyBtnRole(m_applyBtn, "primary");
+	applyBtnRole(m_rawEmitBtn, "primary");
+	applyBtnRole(m_rawApplyBtn, "secondary");
+	applyBtnRole(m_resetBtn, "secondary");
+	applyBtnRole(m_undoBtn, "secondary");
+	applyBtnRole(m_redoBtn, "secondary");
+	applyBtnRole(m_saveTemplateBtn, "secondary");
+	applyBtnRole(m_loadTemplateBtn, "secondary");
+
 	connect(m_paramPanel, &TrajectoryOpParamPanel::paramsChanged, this, [this]() {
 		if (!m_loadingParams)
 		{
 			setPipelineAppliedState(false, false);
 			applyParamsToSelectedOp();
-			if (!m_flushingParams && m_previewCheck && m_previewCheck->isChecked()
-				&& m_session && !m_session->isPreviewActive())
-			{
-				schedulePreviewRun(100, false);
-			}
 		}
 	});
 	connect(m_scopeGroupCombo, QOverload<int>::of(&QComboBox::activated), this, [this]() {
@@ -372,57 +492,31 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 		{
 			setPipelineAppliedState(false, false);
 			applyParamsToSelectedOp();
-			if (!m_flushingParams && m_previewCheck && m_previewCheck->isChecked()
-				&& m_session && !m_session->isPreviewActive())
-			{
-				schedulePreviewRun(100, false);
-			}
 		}
 	});
+	// 仅 activated：刷新/重建时 setCurrentIndex 不触发预览，避免 SPARE 卡死 UI
 	const auto onGeometryBackendComboChanged = [this]() {
 		if (!m_loadingParams)
 		{
 			setPipelineAppliedState(false, false);
 			applyParamsToSelectedOp();
-			if (!m_flushingParams && m_previewCheck && m_previewCheck->isChecked()
-				&& m_session && !m_session->isPreviewActive())
-			{
-				schedulePreviewRun(100, false);
-			}
 		}
 	};
-	connect(
-		m_geometryBackendCombo,
-		QOverload<int>::of(&QComboBox::currentIndexChanged),
-		this,
-		onGeometryBackendComboChanged);
 	connect(
 		m_geometryBackendCombo,
 		QOverload<int>::of(&QComboBox::activated),
 		this,
 		onGeometryBackendComboChanged);
-	connect(m_geometryBackendPickBtn, &QPushButton::clicked, this, [this]() {
-		if (!m_host || !m_geometryBackendCombo)
-		{
-			return;
-		}
-		const QString selectedId = m_host->selectedBackendId();
-		if (selectedId.isEmpty())
-		{
-			return;
-		}
-		const int idx = m_geometryBackendCombo->findData(selectedId);
-		if (idx < 0)
-		{
-			return;
-		}
-		m_geometryBackendCombo->setCurrentIndex(idx);
-		if (!m_loadingParams)
-		{
-			setPipelineAppliedState(false, false);
-			applyParamsToSelectedOp();
-		}
-	});
+	connect(
+		m_nonRigidSourceCombo,
+		QOverload<int>::of(&QComboBox::activated),
+		this,
+		onGeometryBackendComboChanged);
+	connect(
+		m_nonRigidTargetCombo,
+		QOverload<int>::of(&QComboBox::activated),
+		this,
+		onGeometryBackendComboChanged);
 	setUseChinese(m_useChinese);
 }
 
@@ -444,11 +538,6 @@ void TrajectoryEditPageWidget::updateUiLabels()
 	if (m_paramPanel)
 	{
 		m_paramPanel->setUseChinese(zh);
-	}
-	if (m_geometryBackendPickBtn)
-	{
-		m_geometryBackendPickBtn->setText(
-			zh ? QStringLiteral("选中填充") : QStringLiteral("Fill"));
 	}
 	if (m_previewCheck)
 	{
@@ -1105,60 +1194,34 @@ void TrajectoryEditPageWidget::refreshProgramAndGroupCombos()
 
 void TrajectoryEditPageWidget::refreshGeometryBackendCombo()
 {
-	if (!m_geometryBackendCombo)
-	{
-		return;
-	}
-	QString prevBackendId;
+	QString projectPrev;
+	QString sourcePrev;
+	QString targetPrev;
 	if (m_pipeline && m_pipeline->selectedOpIndex() >= 0)
 	{
-		prevBackendId = QString::fromStdString(
-			RobotInstruction::trajectoryOpProjectTargetBackendId(m_pipeline->selectedOp()));
+		const RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->selectedOp();
+		projectPrev = QString::fromStdString(
+			RobotInstruction::trajectoryOpProjectTargetBackendId(op));
+		sourcePrev = QString::fromStdString(
+			RobotInstruction::trajectoryOpNonRigidSourceBackendId(op));
+		targetPrev = QString::fromStdString(
+			RobotInstruction::trajectoryOpNonRigidTargetBackendId(op));
 	}
-	if (prevBackendId.isEmpty() && m_geometryBackendCombo->currentIndex() >= 0)
+	if (projectPrev.isEmpty() && m_geometryBackendCombo && m_geometryBackendCombo->currentIndex() >= 0)
 	{
-		prevBackendId = m_geometryBackendCombo->currentData().toString();
+		projectPrev = m_geometryBackendCombo->currentData().toString();
 	}
-	m_geometryBackendCombo->blockSignals(true);
-	m_geometryBackendCombo->clear();
-	if (m_host && m_host->document())
+	if (sourcePrev.isEmpty() && m_nonRigidSourceCombo && m_nonRigidSourceCombo->currentIndex() >= 0)
 	{
-		BackendDataManager& mgr = m_host->document()->backend();
-		for (const std::shared_ptr<BackendDataBase>& data : mgr.listData())
-		{
-			if (!data || !data->hasGeometry())
-			{
-				continue;
-			}
-			const bool isPointCloud = static_cast<bool>(std::dynamic_pointer_cast<PointCloudBackendData>(data));
-			const bool isMesh = static_cast<bool>(std::dynamic_pointer_cast<MeshBackendData>(data));
-			const bool isBrep = static_cast<bool>(std::dynamic_pointer_cast<BrepBackendData>(data));
-			if (!isPointCloud && !isMesh && !isBrep)
-			{
-				continue;
-			}
-			const QString backendId = QString::fromStdString(data->id());
-			if (backendId.startsWith(QStringLiteral("RobotURDF_")))
-			{
-				continue;
-			}
-			const QString label = QString::fromStdString(data->name()).isEmpty()
-				? backendId
-				: QStringLiteral("%1 (%2)").arg(
-					QString::fromStdString(data->name()),
-					backendId);
-			m_geometryBackendCombo->addItem(label, backendId);
-		}
+		sourcePrev = m_nonRigidSourceCombo->currentData().toString();
 	}
-	if (!prevBackendId.isEmpty())
+	if (targetPrev.isEmpty() && m_nonRigidTargetCombo && m_nonRigidTargetCombo->currentIndex() >= 0)
 	{
-		const int idx = m_geometryBackendCombo->findData(prevBackendId);
-		if (idx >= 0)
-		{
-			m_geometryBackendCombo->setCurrentIndex(idx);
-		}
+		targetPrev = m_nonRigidTargetCombo->currentData().toString();
 	}
-	m_geometryBackendCombo->blockSignals(false);
+	populateGeometryBackendCombo(m_geometryBackendCombo, m_host, true, projectPrev);
+	populateGeometryBackendCombo(m_nonRigidSourceCombo, m_host, false, sourcePrev);
+	populateGeometryBackendCombo(m_nonRigidTargetCombo, m_host, false, targetPrev);
 }
 
 void TrajectoryEditPageWidget::rebuildPalette()
@@ -1189,7 +1252,8 @@ void TrajectoryEditPageWidget::runPreviewIfEnabled(const bool showWarnings)
 		return;
 	}
 	reconcilePipelineScopes();
-	flushPipelineToSession();
+	// forApply=true → skipPreviewReapply，避免 flush 内再 schedule 造成连跑
+	flushPipelineToSession(true);
 	if (m_session->hasRawTrajectory())
 	{
 		RobotInstruction::RawTrajectory previewRaw{};
@@ -1276,6 +1340,7 @@ RobotInstruction::TrajectoryOpDescriptor TrajectoryEditPageWidget::makeDefaultOp
 {
 	auto op = RobotInstruction::trajectoryOpDefaultUnified(kind, defaultScopeForNewOp());
 	op.opId = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString();
+	op.enabled = false;
 	return op;
 }
 
@@ -1304,17 +1369,16 @@ void TrajectoryEditPageWidget::syncSessionParams(const bool skipPreviewReapply)
 	}
 	m_session->updatePipelineOps(m_pipeline->ops(), false);
 	m_session->syncPipelineEngine(m_pipeline->ops());
-	if (!skipPreviewReapply && m_previewCheck && m_previewCheck->isChecked() && !m_loadingParams
+	// flush/预览进行中禁止再排程，否则启用一次会连跑 N 次 SPARE
+	if (skipPreviewReapply || m_flushingParams)
+	{
+		return;
+	}
+	const bool selectedEnabled =
+		m_pipeline->selectedOpIndex() >= 0 && m_pipeline->selectedOp().enabled;
+	if (selectedEnabled && m_previewCheck && m_previewCheck->isChecked() && !m_loadingParams
 		&& !(m_paramPanel && m_paramPanel->isRebuilding()))
 	{
-		if (m_session->hasRawTrajectory())
-		{
-			const int nodeIndex = m_pipeline->selectedOpIndex();
-			if (nodeIndex >= 0)
-			{
-				m_session->runPipelineEngineFrom(static_cast<std::size_t>(nodeIndex), nullptr);
-			}
-		}
 		schedulePreviewRun(80, false);
 	}
 }
@@ -1445,21 +1509,49 @@ std::vector<RobotInstruction::TrajectoryOpDescriptor> TrajectoryEditPageWidget::
 		return {};
 	}
 	std::vector<RobotInstruction::TrajectoryOpDescriptor> ops = m_pipeline->ops();
-	if (!m_geometryBackendCombo || m_geometryBackendCombo->currentIndex() < 0)
+	if (m_geometryBackendCombo && m_geometryBackendCombo->currentIndex() >= 0)
 	{
-		return ops;
-	}
-	const std::string backendId =
-		m_geometryBackendCombo->currentData().toString().toStdString();
-	if (backendId.empty())
-	{
-		return ops;
-	}
-	for (RobotInstruction::TrajectoryOpDescriptor& op : ops)
-	{
-		if (op.kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry)
+		const std::string backendId =
+			m_geometryBackendCombo->currentData().toString().toStdString();
+		if (!backendId.empty())
 		{
-			RobotInstruction::trajectoryOpSetProjectTargetBackendId(op, backendId);
+			for (RobotInstruction::TrajectoryOpDescriptor& op : ops)
+			{
+				if (op.kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry)
+				{
+					RobotInstruction::trajectoryOpSetProjectTargetBackendId(op, backendId);
+				}
+			}
+		}
+	}
+	if (m_nonRigidSourceCombo && m_nonRigidSourceCombo->currentIndex() >= 0)
+	{
+		const std::string sourceId =
+			m_nonRigidSourceCombo->currentData().toString().toStdString();
+		if (!sourceId.empty())
+		{
+			for (RobotInstruction::TrajectoryOpDescriptor& op : ops)
+			{
+				if (op.kind == RobotInstruction::TrajectoryOpKind::NonRigidRegistration)
+				{
+					RobotInstruction::trajectoryOpSetNonRigidSourceBackendId(op, sourceId);
+				}
+			}
+		}
+	}
+	if (m_nonRigidTargetCombo && m_nonRigidTargetCombo->currentIndex() >= 0)
+	{
+		const std::string targetId =
+			m_nonRigidTargetCombo->currentData().toString().toStdString();
+		if (!targetId.empty())
+		{
+			for (RobotInstruction::TrajectoryOpDescriptor& op : ops)
+			{
+				if (op.kind == RobotInstruction::TrajectoryOpKind::NonRigidRegistration)
+				{
+					RobotInstruction::trajectoryOpSetNonRigidTargetBackendId(op, targetId);
+				}
+			}
 		}
 	}
 	return ops;
@@ -1638,24 +1730,20 @@ void TrajectoryEditPageWidget::syncScopeComboFromSelectedOp()
 
 void TrajectoryEditPageWidget::syncGeometryBackendComboFromSelectedOp()
 {
-	if (!m_pipeline || !m_geometryBackendCombo || m_pipeline->selectedOpIndex() < 0)
+	if (!m_pipeline || m_pipeline->selectedOpIndex() < 0)
 	{
 		return;
 	}
 	const RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->selectedOp();
-	const std::string targetBackendId =
-		RobotInstruction::trajectoryOpProjectTargetBackendId(op);
-	m_geometryBackendCombo->blockSignals(true);
-	if (!targetBackendId.empty())
-	{
-		const int idx = m_geometryBackendCombo->findData(
-			QString::fromStdString(targetBackendId));
-		if (idx >= 0)
-		{
-			m_geometryBackendCombo->setCurrentIndex(idx);
-		}
-	}
-	m_geometryBackendCombo->blockSignals(false);
+	syncComboToBackendId(
+		m_geometryBackendCombo,
+		RobotInstruction::trajectoryOpProjectTargetBackendId(op));
+	syncComboToBackendId(
+		m_nonRigidSourceCombo,
+		RobotInstruction::trajectoryOpNonRigidSourceBackendId(op));
+	syncComboToBackendId(
+		m_nonRigidTargetCombo,
+		RobotInstruction::trajectoryOpNonRigidTargetBackendId(op));
 }
 
 void TrajectoryEditPageWidget::syncUiAfterProgramRevision()

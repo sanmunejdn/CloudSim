@@ -11,7 +11,7 @@
 | 执行入口 | `ITrajectoryOp::processPath` → [`TrajectoryPipelineEngine`](../RobotScene/inc/TrajectoryPipelineEngine.h) |
 | UI 访问 | 经 [`TrajectoryOpBridge.h`](../RobotScene/inc/TrajectoryOpBridge.h)，**不**直接被 `RobotWidget` 链接 |
 
-与 `TrajectoryAlgorithm` 的分工：框架库提供接口、Registry、Codec、Config 聚合；本库提供 **18 种原子块** 的具体算法与参数绑定。
+与 `TrajectoryAlgorithm` 的分工：框架库提供接口、Registry、Codec、Config 聚合；本库提供 **19 种原子块** 的具体算法与参数绑定。
 
 ---
 
@@ -64,6 +64,7 @@ VS 筛选器：`inc` 放所有 `.h`，`src` 放所有 `.cpp`（含 `ops/` 下源
 | 工艺属性 | Weave | `ops/Weave` | `weaveUnifiedInScope` | **是** |
 | 进退刀 | Approach / Retract | `ops/Approach` `ops/Retract` | `UnifiedTrajectorySemanticMath`（含 Custom 方向、Segment 分段） | **是** |
 | 几何投影 | ProjectToGeometry | `ops/ProjectToGeometry` | `ctx.geometryProjection`（`IGeometryProjection` 注入） | **是** |
+| 非刚性纠正 | NonRigidRegistration | `ops/NonRigidRegistration` | `ctx.nonRigidTrajectoryWarp`（`INonRigidTrajectoryWarp` 注入） | 否（写回 pose） |
 | 可达性 | ReachabilityFilter | `ops/ReachabilityFilter` | `reachabilityFilterUnified` | 否 |
 | 可达性 | ExternalAxisSearch | `ops/ExternalAxisSearch` | `externalAxisSearchUnified` | 否 |
 
@@ -216,6 +217,12 @@ std::unique_ptr<IOpParamConfig> makeFooOpConfig()
 | T-PJ1~3 | ProjectToGeometry 点云/mesh/BREP | scope 点落到对应几何 |
 | T-PJ4 | 射线未命中 | 原点保留，RunInfo 警告，Apply 成功 |
 | T-PJ5 | Resample → ProjectToGeometry → AssignBlend | 混合预览与 Apply 一致 |
+| T-NR1 | 源 mesh + 目标点云 | 三角面绑定 + 轨迹随 SPARE 变形；源 backend 未改 |
+| T-NR2 | 源 mesh + 目标 mesh | 同上 |
+| T-NR3 | 源点云 + 目标 mesh | 最近点绑定 + PC→Mesh SPARE |
+| T-NR4 | 源点云 + 目标点云 | 最近点绑定 + PC→PC SPARE |
+| T-NR5 | 绑定点超距 | 跳过并警告；其余点成功 |
+| T-NR6 | BREP 或缺失 backend | validate/processPath 失败 |
 
 `buildRecipePreset(Weld/Glue/Grind)` 仅加载预设 JSON，**不再**存在 `RecipeWeld` 复合 Op。
 
@@ -238,7 +245,7 @@ std::unique_ptr<IOpParamConfig> makeFooOpConfig()
 - [ ] 四件套：Op + OpConfig + OpParamAccess + `ops/<Name>.json`
 - [ ] `processPath` 有明确失败路径（`errMsg` + `false`）
 - [ ] 路径几何优先复用 `UnifiedTrajectoryPathMath`
-- [ ] 程序语义块调用 `UnifiedTrajectorySemanticMath`；几何投影用 `ctx.geometryProjection`
+- [ ] 程序语义块调用 `UnifiedTrajectorySemanticMath`；几何投影用 `ctx.geometryProjection`；非刚性纠正用 `ctx.nonRigidTrajectoryWarp`
 - [ ] `TrajectoryOpBuiltinsRegister.cpp` 三处注册
 - [ ] vcxproj / filters 已更新
 - [ ] 手动：拖入块 → 改参 → Preview → Apply → Undo

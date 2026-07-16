@@ -42,19 +42,21 @@
 
 ## SPARE 非刚性配准（1.16.0+）
 
+原理与调参通俗说明见 [`docs/spare_nonrigid_registration.md`](../../../docs/spare_nonrigid_registration.md)。
+
 侧栏「配准」区：**方法** 下拉可选 **刚性 ICP** 或 **SPARE 非刚性**（**1.16.0+** 宿主）。
 
 | 控件 | 说明 |
 |------|------|
-| 源类型 | 点云（列表选中项）或网格（`m_meshTargetCombo` 同源列表） |
-| 目标 | 点云 + 网格下拉（与 ICP 目标列表一致） |
+| SPARE 源 | 独立下拉，列出点云与网格，不共用列表/网格后处理下拉 |
+| SPARE 目标 | 独立下拉，列出点云与网格 |
 | SPARE 选项 | 体素预滤波 (mm)、刚性预对齐、输出为新对象 |
 | 执行 | `nonRigidRegisterSpare(doc, sourceBackendId, PluginPointCloudSpareParams, onFinished)` |
 
 典型流程：
 
-1. 选中源点云或网格；目标选已对齐的另一对象（须含法线或可由宿主估计）
-2. 方法选 **SPARE**；可选体素预滤波、刚性 ICP 预对齐
+1. 方法选 **SPARE**；在「SPARE 源 / SPARE 目标」下拉中分别选点云或网格（须为不同对象）
+2. 可选体素预滤波、刚性 ICP 预对齐
 3. 勾选「输出为新对象」则生成 `*_SPARE` / `*_spare` 后缀对象
 4. 回调 `PluginPointCloudJobResult`：`rmseMm`（平均对称点-面误差）、`spareDeformationNodeCount`
 

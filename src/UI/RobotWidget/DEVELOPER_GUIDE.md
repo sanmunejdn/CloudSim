@@ -64,6 +64,8 @@ See also [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §3.3 / 
 
 新按钮/菜单优先 `#include "UiIconDecorators.h"`，用 `UiIconDecorators::apply` 绑定 `UiIconId`；**勿**硬编码 `:/cloudsim/icons/...` 路径。文本与 tooltip 仍用现有 i18n（`setText` / `retranslateUi`）；图标 ID 不随语言变化。主题由 `ApplicationStyle::applyTheme`（Widget）统一刷新，RobotWidget 无需额外调用。
 
+主次按钮：`setProperty("btnRole", "primary"|"secondary"|"danger")` 后 `style()->unpolish/polish`（见 `TrajectoryEditPageWidget`）。下拉用固定高度约 26px + `setMaxVisibleItems`，避免被全局大 padding 撑高。
+
 ---
 
 ## `RobotSimulationController`
@@ -447,7 +449,7 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 | 组件 | 职责 |
 |------|------|
 | `TrajectoryEditPageWidget` | UI：程序/分组、调色板、流水线、`TrajectoryOpParamPanel`、预览勾选/Apply/Undo |
-| `TrajectoryPipelineListWidget` | `m_ops` 真源；列表项由 `rebuildItems()` 从 `m_ops` 生成 |
+| `TrajectoryPipelineListWidget` | `m_ops` 真源；每行摘要 + 行末「启用」勾选（新建默认关）；列表项由 `rebuildItems()` 生成 |
 | `TrajectoryEditSession` | 持有 `m_ops` + `TrajectoryPipelineEngine`；Preview 快照 / Apply Command；`reset` / `abandonPreview` |
 | `ProgramEditService` | Apply 时优先 `executeBatch(cmds)`（单次 `renumberAndNotify` + `revisionChanged`）；Undo/Redo 恢复程序树 |
 | `RobotProgramStore` | `activeCatalog()` / `activeProgram()`；与 Instructions 页共用 |
@@ -458,9 +460,9 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 
 | 操作 | UI 路径 | Session API |
 |------|---------|-------------|
-| 增删/排序/拖入/加载模板 | `opsChanged` → `syncSessionPipeline()` | 已绑定 PathPlan：**`updatePipelineOps`** + `syncPipelineToBoundPathPlan`；否则 **`setPipeline`**（`reset()`） |
-| 仅改参数（Schema 面板） | `applyParamsToSelectedOp()` → `syncSessionParams()` | **`updatePipelineOps`**（不 reset）；勾选预览时 **`schedulePreviewRun`** 完整重算（勿依赖旧 `reapplyPreview` 单独路径） |
-| 预览勾选 / Apply | `reconcilePipelineScopes()` + `flushPipelineToSession()`（预览勾选时自动或手动触发） | 有选中块 → `applyParamsToSelectedOp`；否则 `syncSessionParams` |
+| 增删/排序/拖入/加载模板/启停勾选 | `opsChanged` → `syncSessionPipeline()` | 已绑定 PathPlan：**`updatePipelineOps`**；否则 **`setPipeline`**；勾选预览时重跑（仅 `enabled` 块进引擎） |
+| 改参数（Schema / 几何下拉） | `applyParamsToSelectedOp` → `syncSessionParams` | **当前块已启用**才防抖预览；未启用只写回参数（勿 `setPipeline`） |
+| 预览勾选 / Apply | `reconcilePipelineScopes()` + `flushPipelineToSession()` | 有选中块 → `applyParamsToSelectedOp`；否则 `syncSessionParams` |
 | 撤销 / 重做（任意 Command） | `ProgramEditService::revisionChanged` → `syncUiAfterProgramRevision()` | 刷新分组下拉、丢弃预览、协调流水线 scope（见下） |
 
 **禁止**在参数变更路径调用 `setPipeline()`，否则预览位姿会被 `reset()` 立刻还原。
@@ -505,8 +507,8 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 
 | 方式 | 行为 |
 |------|------|
-| 双击调色板 | `appendOp(makeDefaultOp(kind))`（`opsChanged` 同步 Session 并可选自动预览） |
-| 拖入流水线 | `dropEvent` 解析 MIME → `makeDefaultOp`（默认 scope）→ 写入 `m_ops` |
+| 双击调色板 | `appendOp(makeDefaultOp(kind))`（`enabled=false`；`opsChanged` 同步 Session） |
+| 拖入流水线 | `dropEvent` → `makeDefaultOp`（默认 scope，`enabled=false`）→ 写入 `m_ops` |
 | ~~Qt 默认 QListWidget 拖放~~ | **已禁用**（`dropEvent` 对未知 MIME `ignore()`）— 仅会产生无数据的「幽灵项」 |
 
 拖入/新建块的默认 scope：`defaultScopeForNewOp()` — **顶栏「分组」**非「（无）」→ `OpScope::Group`（写入 `groupId`），否则 `EntireProgram`。参数区作用域默认「分组」；顶栏分组变更会同步参数区分组下拉，**不**使用指令树选中项。
@@ -609,10 +611,11 @@ flowchart TD
 | `TrajectoryOpParamPanel` | 根据 `ITrajectoryOp::paramFields()` 动态建控件；读写经 [`TrajectoryOpBridge.h`](../../Robot/RobotScene/inc/TrajectoryOpBridge.h) |
 | `TrajectoryParamWidgetFactory` | Double / Int / Enum / Vec3 / Message 等控件工厂 |
 | 顶栏分组 Combo | 页级持有；`scope.groupId` 行复用同一控件，面板 `clearRows` 时不销毁 |
-| 几何 Backend Combo | `project.targetBackendId`：列出点云 / mesh / BREP；「从选中填充」读 `IRobotMainWindowHost::selectedBackendId()` |
+| 几何 Backend Combo | `project.targetBackendId`：列出点云 / mesh / BREP，仅下拉选择 |
+| 非刚性源/目标 Combo | `nrr.sourceBackendId` / `nrr.targetBackendId`：仅点云 / mesh，仅下拉选择 |
 | `TrajectoryGeometryResolverHost` | 预览/Apply 前 `bindTrajectoryGeometryResolver(document, osg)`，将 backend 烘焙到世界 mm |
 
-构造时 `RobotInstruction::ensureTrajectoryOpBuiltinsRegistered()`。调色板种类来自 `trajectoryOpPaletteKinds()`；默认块 `makeDefaultDescriptor(defaultScopeForNewOp())`。
+构造时 `RobotInstruction::ensureTrajectoryOpBuiltinsRegistered()`。调色板种类来自 `trajectoryOpPaletteKinds()`；默认块 `makeDefaultDescriptor(defaultScopeForNewOp())` 且 **`enabled=false`**（须勾选行末「启用」后才参与预览/应用）。旧 JSON 缺 `enabled` 字段反序列化为 `true`。
 
 流水线摘要 `formatOpSummary`：委托 Registry 中对应 `ITrajectoryOp::formatSummary`（含坐标系、Δ、角度等）。
 
@@ -641,7 +644,9 @@ Dock 页签 **「轨迹生成」** 内 **CAD** 子页（`FeatureTrajectoryPageWi
 | **3D 拾取边/面** | 复用 `MeshEdgeFacePickOperation` → `OsgWidget::meshPickCommitted` → `buildFeatureEntryFromPick` / `buildFeatureEntryFromModelPick`（世界坐标经 `feature_pick_transform::worldPointToStepModelMm`） |
 | 离散策略 | 拾取前下拉（面/线 affinity 过滤）；`resolveStrategyIdForPick` 严格匹配；`normalizeEntryStrategyForGeometry` 纠正策略/几何不一致 |
 | 特征表 | `FeatureTableModel` + `FeatureDiscretizerParamPanel`；`discretizeFeatureList` → `setRawTrajectory` |
-| 离散预览 | 仅 `m_featureEditActive` 时 `refreshBoundPathPlanPreview`（拾取/开始修改后） |
+| 3D 轨迹叠加 | 仅 `m_featureEditActive` 时 `refreshBoundPathPlanPreview`（拾取/开始修改后）；轴控件控制 `previewOptions()` |
+| BREP 信息 | 底部预览组只读展示选中特征 `featureId` / 类型 / `faceIndices` / `edgeIndices`；无「离散预览」按钮，离散仅走策略/参数/拾取自动路径 |
+| 删除特征 | `syncDiscretizationAfterFeatureTableChange`：有剩余 → `discretizeFromTable`；清空 → `clearRawTrajectory`（含 `pathPlanRaws.remove`）经既有 `rawTrajectoryChanged` → `refreshPathPlanPreviewForActiveTab` 刷新 3D |
 
 **离散参数 UI ↔ JSON**（V1 不增 schema 字段）：
 

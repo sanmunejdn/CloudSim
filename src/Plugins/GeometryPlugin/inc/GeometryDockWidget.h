@@ -8,6 +8,7 @@
 
 class IPluginHostContext;
 class QComboBox;
+class QDoubleSpinBox;
 class QGroupBox;
 class QLabel;
 class QLineEdit;
@@ -28,6 +29,7 @@ private:
 	void wireSignals();
 	void refreshComputableBackends();
 	void syncSourceUiState();
+	void syncDensityUiState();
 	QString activeStepPath() const;
 	std::string activeBackendId() const;
 	bool hasBackendSource() const;
@@ -62,7 +64,12 @@ private:
 	QPushButton* m_refreshBackendsBtn = nullptr;
 	QLineEdit* m_stepPathEdit = nullptr;
 	QPushButton* m_browseBtn = nullptr;
+	QComboBox* m_densityModeCombo = nullptr;
 	QComboBox* m_qualityCombo = nullptr;
+	QLabel* m_edgeLengthLabel = nullptr;
+	QDoubleSpinBox* m_edgeLengthSpin = nullptr;
+	QLabel* m_triangleCountLabel = nullptr;
+	QSpinBox* m_triangleCountSpin = nullptr;
 	QPushButton* m_discretizeBtn = nullptr;
 
 	QGroupBox* m_ixEdgeFaceGroup = nullptr;

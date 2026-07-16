@@ -36,10 +36,20 @@ enum class PluginMeshQualityPreset
 	Custom
 };
 
+enum class PluginMeshDensityControl
+{
+	QualityPreset = 0,
+	TargetEdgeLength,
+	TargetTriangleCount
+};
+
 struct PluginMeshDiscretizeParams
 {
 	PluginMeshDiscretizeMode mode = PluginMeshDiscretizeMode::AdaptiveTriangulation;
 	PluginMeshQualityPreset quality = PluginMeshQualityPreset::Medium;
+	PluginMeshDensityControl densityControl = PluginMeshDensityControl::QualityPreset;
+	double targetEdgeLengthMm = 0.0;
+	std::size_t targetTriangleCount = 0;
 	double linearDeflectionMm = 0.01;
 	bool linearDeflectionRelative = true;
 	double angularDeflectionDeg = 0.5;

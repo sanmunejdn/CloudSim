@@ -46,6 +46,18 @@
 - `WireTubeMesh` / `WireRibbonMesh`：折线扫掠
 - `RemeshSoup` / `PointCloudSurface`：预留（当前构建返回未实现）
 
+### 密度控制（`MeshDensityControl`）
+
+`MeshDiscretizeParams` 在质量预设之外提供互斥模式：
+
+| `densityControl` | 行为 |
+|------------------|------|
+| `QualityPreset` | `applyQualityPreset` → Coarse/Medium/Fine |
+| `TargetEdgeLength` | OCC deflection=`target×0.25`、角偏差=1°；`refine` 预加密到 `1.5×target`（≤40 万面）；Data 再 `isotropicRemesh` |
+| `TargetTriangleCount` | 对相对 deflection 二分（约 8 次，相对容差 ±15%） |
+
+边长均匀化不在本 DLL；Data `discretizeStepToMesh` 可选单次 `vcgalgo::isotropicRemesh`。勿用偏粗 OCC 基网格或 progressive remesh。
+
 ## 3.1 CAD 轨迹特征离散（v2 策略框架）
 
 **设计原则**：对机器人执行层只有轨迹；工艺不在本 DLL 区分。离散策略通过 **Registry + 外置 JSON** 注册（对齐 HPLTPStrategy / TrajectoryAlgorithmBuiltins），**无 `FeatureKind` switch**。

@@ -62,4 +62,13 @@ ROBOT_SCENE_API void trajectoryOpSetProjectTargetBackendId(
 	TrajectoryOpDescriptor& op,
 	const std::string& backendId);
 
+ROBOT_SCENE_API std::string trajectoryOpNonRigidSourceBackendId(const TrajectoryOpDescriptor& op);
+ROBOT_SCENE_API std::string trajectoryOpNonRigidTargetBackendId(const TrajectoryOpDescriptor& op);
+ROBOT_SCENE_API void trajectoryOpSetNonRigidSourceBackendId(
+	TrajectoryOpDescriptor& op,
+	const std::string& backendId);
+ROBOT_SCENE_API void trajectoryOpSetNonRigidTargetBackendId(
+	TrajectoryOpDescriptor& op,
+	const std::string& backendId);
+
 } // namespace RobotInstruction

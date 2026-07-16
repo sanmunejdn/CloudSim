@@ -207,6 +207,8 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 
 移植自 [SPARE: Symmetrized Point-to-Plane Distance](https://arxiv.org/abs/2405.20188) 核心求解器（研究用途；源码专利声明见 `bin/SDK/spare-main-extracted/spare-main/README.md`）。基础设施复用本库 CGAL/`KdTreePointSet`/ICP/下采样；**不依赖** OpenMesh 或 `GeometryAlgorithm.dll`。
 
+**原理通俗说明**（对称点-面、粗/细阶段、Welsch、ARAP、调参与流水线）：见 [`docs/spare_nonrigid_registration.md`](../../docs/spare_nonrigid_registration.md)。
+
 | 入口 | 说明 |
 |------|------|
 | `spareRegisterPointClouds` | 点云 → 点云；`xyz` + 法线均为 `3*N` float（mm） |

@@ -41,6 +41,7 @@
 #include <QSet>
 #include <QSignalBlocker>
 #include <QSpinBox>
+#include <QStringList>
 #include <QTableView>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -174,14 +175,17 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent)
 	axisRow->addWidget(m_axisIntervalSpin);
 	axisRow->addStretch();
 	previewLayout->addLayout(axisRow);
-	m_discretizeBtn = new QPushButton(QStringLiteral("离散预览"), m_previewGroup);
-	previewLayout->addWidget(m_discretizeBtn);
+	m_brepInfoLabel = new QLabel(m_previewGroup);
+	m_brepInfoLabel->setWordWrap(true);
+	m_brepInfoLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+	m_brepInfoLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+	m_brepInfoLabel->setMinimumHeight(64);
+	previewLayout->addWidget(m_brepInfoLabel);
 	layout->addWidget(m_previewGroup);
 
 	connect(m_pickEdgeBtn, &QPushButton::clicked, this, &FeatureTrajectoryPageWidget::onPickEdge);
 	connect(m_pickFaceBtn, &QPushButton::clicked, this, &FeatureTrajectoryPageWidget::onPickFace);
 	connect(m_cancelPickBtn, &QPushButton::clicked, this, &FeatureTrajectoryPageWidget::onCancelPick);
-	connect(m_discretizeBtn, &QPushButton::clicked, this, &FeatureTrajectoryPageWidget::onDiscretize);
 	connect(m_strategyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 		&FeatureTrajectoryPageWidget::onStrategyComboChanged);
 
@@ -219,7 +223,6 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent)
 
 	UiIconDecorators::apply(m_pickEdgeBtn, UiIconId::PickEdge);
 	UiIconDecorators::apply(m_pickFaceBtn, UiIconId::PickFace);
-	UiIconDecorators::apply(m_discretizeBtn, UiIconId::Discretize);
 
 	connect(m_backendCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
 		clearCandidatePreview();
@@ -234,6 +237,7 @@ FeatureTrajectoryPageWidget::FeatureTrajectoryPageWidget(QWidget* parent)
 	ensureDiscretizerRuntimeLoaded();
 	refreshStrategyCombo();
 	updatePickUiState();
+	refreshBrepInfoForSelection();
 }
 
 void FeatureTrajectoryPageWidget::ensureDiscretizerRuntimeLoaded() const
@@ -259,10 +263,6 @@ void FeatureTrajectoryPageWidget::setUseChinese(const bool chinese)
 void FeatureTrajectoryPageWidget::updateUiLabels()
 {
 	const bool zh = m_chinese;
-	if (m_discretizeBtn)
-	{
-		m_discretizeBtn->setText(zh ? QStringLiteral("离散预览") : QStringLiteral("Discretize preview"));
-	}
 	if (m_pickEdgeBtn)
 	{
 		m_pickEdgeBtn->setText(zh ? QStringLiteral("拾取线") : QStringLiteral("Pick edge"));
@@ -292,6 +292,7 @@ void FeatureTrajectoryPageWidget::updateUiLabels()
 		m_showAxisZCheck->setText(zh ? QStringLiteral("Z 轴") : QStringLiteral("Z axis"));
 	}
 	updatePickUiState();
+	refreshBrepInfoForSelection();
 }
 
 QString FeatureTrajectoryPageWidget::strategyDisplayName(const std::string& strategyId) const
@@ -493,6 +494,7 @@ void FeatureTrajectoryPageWidget::loadParamsForSelectedRow()
 	if (row < 0)
 	{
 		m_paramPanel->clear();
+		refreshBrepInfoForSelection();
 		return;
 	}
 	const geoalgo::FeatureEntry entry = m_featureModel->entryAt(row);
@@ -503,6 +505,64 @@ void FeatureTrajectoryPageWidget::loadParamsForSelectedRow()
 	m_paramPanel->loadParams(entry.params);
 	m_paramPanel->setLoading(false);
 	--m_strategyRowSyncDepth;
+	refreshBrepInfoForSelection();
+}
+
+void FeatureTrajectoryPageWidget::refreshBrepInfoForSelection()
+{
+	if (!m_brepInfoLabel)
+	{
+		return;
+	}
+	const bool zh = m_chinese;
+	if (!m_featureModel || m_featureModel->selectedRow() < 0)
+	{
+		m_brepInfoLabel->setText(zh ? QStringLiteral("未选择特征") : QStringLiteral("No feature selected"));
+		return;
+	}
+	const geoalgo::FeatureEntry entry = m_featureModel->entryAt(m_featureModel->selectedRow());
+	const bool hasFace = !entry.geometry.faceIndices.empty();
+	const bool hasEdge = !entry.geometry.edgeIndices.empty();
+	QString typeText;
+	if (hasFace && hasEdge)
+	{
+		typeText = zh ? QStringLiteral("面+边") : QStringLiteral("Face+Edge");
+	}
+	else if (hasFace)
+	{
+		typeText = zh ? QStringLiteral("面") : QStringLiteral("Face");
+	}
+	else if (hasEdge)
+	{
+		typeText = zh ? QStringLiteral("边") : QStringLiteral("Edge");
+	}
+	else
+	{
+		typeText = zh ? QStringLiteral("未知") : QStringLiteral("Unknown");
+	}
+	auto formatIndices = [zh](const std::vector<int>& indices) -> QString {
+		if (indices.empty())
+		{
+			return zh ? QStringLiteral("(无)") : QStringLiteral("(none)");
+		}
+		QStringList parts;
+		parts.reserve(static_cast<int>(indices.size()));
+		for (const int idx : indices)
+		{
+			parts.append(QString::number(idx));
+		}
+		return parts.join(QStringLiteral(", "));
+	};
+	const QString featureId = entry.featureId.empty()
+		? (zh ? QStringLiteral("(无)") : QStringLiteral("(none)"))
+		: QString::fromStdString(entry.featureId);
+	m_brepInfoLabel->setText(zh
+		? QStringLiteral("特征: %1\n类型: %2\nfaceIndices: %3\nedgeIndices: %4")
+			.arg(featureId, typeText, formatIndices(entry.geometry.faceIndices),
+				formatIndices(entry.geometry.edgeIndices))
+		: QStringLiteral("Feature: %1\nType: %2\nfaceIndices: %3\nedgeIndices: %4")
+			.arg(featureId, typeText, formatIndices(entry.geometry.faceIndices),
+				formatIndices(entry.geometry.edgeIndices)));
 }
 
 void FeatureTrajectoryPageWidget::applyParamsToSelectedRow()
@@ -571,12 +631,14 @@ void FeatureTrajectoryPageWidget::onDeleteSelectedRows()
 		rows.push_back(idx.row());
 	}
 	m_featureModel->removeRows(rows);
+	syncDiscretizationAfterFeatureTableChange();
 }
 
 void FeatureTrajectoryPageWidget::onDeleteAllRows()
 {
 	m_featureModel->clearAll();
 	m_paramPanel->clear();
+	syncDiscretizationAfterFeatureTableChange();
 }
 
 void FeatureTrajectoryPageWidget::resetAfterTrajectoryCommit()
@@ -594,6 +656,7 @@ void FeatureTrajectoryPageWidget::resetAfterTrajectoryCommit()
 	{
 		m_simController->clearBoundPathPlanPreview();
 	}
+	refreshBrepInfoForSelection();
 	setStatus(m_chinese ? QStringLiteral("轨迹已提交，请重新拾取或导入特征")
 		: QStringLiteral("Trajectory committed; pick or import features again"));
 }
@@ -684,6 +747,27 @@ void FeatureTrajectoryPageWidget::onParameterRediscretize()
 	m_suppressParamRediscretize = true;
 	(void)discretizeFromTable(true);
 	m_suppressParamRediscretize = false;
+}
+
+void FeatureTrajectoryPageWidget::syncDiscretizationAfterFeatureTableChange()
+{
+	refreshBrepInfoForSelection();
+	if (m_featureModel->entries().empty())
+	{
+		if (m_session)
+		{
+			m_session->clearRawTrajectory();
+		}
+		if (m_simController)
+		{
+			m_simController->clearBoundPathPlanPreview();
+		}
+		setStatus(m_chinese ? QStringLiteral("特征已清空，已清除离散预览")
+			: QStringLiteral("Features cleared; discretization preview removed"));
+		return;
+	}
+	m_featureEditActive = true;
+	(void)discretizeFromTable(true);
 }
 
 void FeatureTrajectoryPageWidget::refreshPreviewFromSession()
@@ -829,6 +913,7 @@ void FeatureTrajectoryPageWidget::onPathPlanBound(const std::string& pathPlanId)
 		m_suppressParamRediscretize = false;
 		m_lastLoadedPathPlanId = pathPlanId;
 		m_lastLoadedSourceJson.clear();
+		refreshBrepInfoForSelection();
 	}
 	if (json.empty())
 	{
@@ -1507,11 +1592,6 @@ bool FeatureTrajectoryPageWidget::discretizeFromTable(const bool quiet)
 		setStatus(msg);
 	}
 	return true;
-}
-
-void FeatureTrajectoryPageWidget::onDiscretize()
-{
-	(void)discretizeFromTable(false);
 }
 
 bool FeatureTrajectoryPageWidget::currentWorkpiece(QString& backendId, QString& stepPath) const

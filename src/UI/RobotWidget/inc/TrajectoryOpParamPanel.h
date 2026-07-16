@@ -13,7 +13,6 @@
 
 class QComboBox;
 class QFormLayout;
-class QPushButton;
 
 class ROBOTWIDGET_EXPORT TrajectoryOpParamPanel : public QWidget
 {
@@ -26,7 +25,8 @@ public:
 	void setLoading(bool loading);
 	void setScopeGroupCombo(QComboBox* combo);
 	void setGeometryBackendCombo(QComboBox* combo);
-	void setGeometryBackendPickButton(QPushButton* button);
+	void setNonRigidSourceBackendCombo(QComboBox* combo);
+	void setNonRigidTargetBackendCombo(QComboBox* combo);
 
 	void rebuildForOp(
 		const RobotInstruction::TrajectoryOpDescriptor& op,
@@ -57,8 +57,10 @@ private:
 	QWidget* m_scopeGroupComboParent = nullptr;
 	QComboBox* m_geometryBackendCombo = nullptr;
 	QWidget* m_geometryBackendComboParent = nullptr;
-	QPushButton* m_geometryBackendPickBtn = nullptr;
-	QWidget* m_geometryBackendPickBtnParent = nullptr;
+	QComboBox* m_nonRigidSourceCombo = nullptr;
+	QWidget* m_nonRigidSourceComboParent = nullptr;
+	QComboBox* m_nonRigidTargetCombo = nullptr;
+	QWidget* m_nonRigidTargetComboParent = nullptr;
 	QFormLayout* m_form = nullptr;
 	std::vector<trajectory_algo::TrajectoryParamBinding> m_rows;
 };

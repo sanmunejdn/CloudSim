@@ -464,8 +464,8 @@ flowchart LR
 
 | 类型 | 说明 |
 |------|------|
-| `TrajectoryOpKind` | Translate / Rotate / Mirror / Delete / Duplicate / Reorder / Approach / Retract / Resample / OffsetAlongNormal / OffsetLateral / SmoothPose / AssignBlend / AssignSpeedZone / Weave / ReachabilityFilter / ExternalAxisSearch |
-| `TrajectoryOpDescriptor` | `kind` + `OpScope` + `translate` / `rotate` / `resample` / `offset` / `weave` 等 |
+| `TrajectoryOpKind` | Translate / Rotate / Mirror / Delete / Duplicate / Reorder / Approach / Retract / Resample / OffsetAlongNormal / OffsetLateral / SmoothPose / AssignBlend / AssignSpeedZone / Weave / ReachabilityFilter / ExternalAxisSearch / ProjectToGeometry / NonRigidRegistration |
+| `TrajectoryOpDescriptor` | `kind` + `OpScope` + `params` + `enabled`（未启用则引擎跳过） |
 | `TransformReferenceFrame` | `World` / `Body`（`TranslateParams` / `RotateParams` 的 `frame`） |
 | `TrajectoryPipelineEngine` | `UnifiedTrajectory` 管道 IR；Session 持有并驱动预览/Apply（`executeFull` / `executeFrom`） |
 | `ProcessFlowPresets.json` | 工艺预设（焊缝/涂胶/打磨）展开为原子块 `pipeline` 列表 |
@@ -529,6 +529,7 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 | `unifiedTrajectoryFromRaw` / `unifiedTrajectoryFromProgram` | 同上 Ingress 的薄封装 |
 | `unifiedTrajectoryToRaw` | Unified → 点位列（轨迹编辑预览为世界 mm，由 UI 直接画 OSG） |
 | `RobotSceneGeometryProjection` | `IGeometryProjection` 适配，封装 `projectUnifiedToGeometry` |
+| `RobotSceneNonRigidTrajectoryWarp` | `INonRigidTrajectoryWarp` 适配，实现在 [`TrajectoryGeometryResolver.cpp`](source/TrajectoryGeometryResolver.cpp) |
 | `emitRawTrajectoryToProgram` | 可达点 → `LineInstruction`；多段时按 `segmentEndExclusive` 建多个输出分组（`*_S1`…）；PathPlan 绑定行为同前 |
 | `rawTrajectoryToPreviewPolylineXyz` / `rawTrajectoryReachabilityColorsJson` | UI/OSG 预览 |
 

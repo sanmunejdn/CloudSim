@@ -23,12 +23,18 @@ void MainWindow::wireDocumentPageSignals(DocumentPage* page)
 	{
 		if (auto* toolbar = ow->findChild<ViewportToolBar*>())
 		{
-			connect(toolbar, &ViewportToolBar::leftPanelVisibilityToggled, this, &MainWindow::setLeftSidePanelVisible);
-			connect(toolbar, &ViewportToolBar::rightPanelVisibilityToggled, this, &MainWindow::setRightSidePanelVisible);
+			connect(toolbar, &ViewportToolBar::leftPanelVisibilityToggled, this, &MainWindow::setLeftSidePanelVisible,
+				Qt::UniqueConnection);
+			connect(toolbar, &ViewportToolBar::rightPanelVisibilityToggled, this, &MainWindow::setRightSidePanelVisible,
+				Qt::UniqueConnection);
 			toolbar->setUseChinese(m_useChinese);
-			toolbar->setSidePanelToggleState(
-				m_propertyDock && m_propertyDock->isVisible(),
-				m_unitDock && m_unitDock->isVisible());
+			// Dock 可能尚未创建（首文档早于 setupDockWidgets）；勿用空指针写成「已隐藏」
+			if (m_propertyDock || m_unitDock)
+			{
+				toolbar->setSidePanelToggleState(
+					m_propertyDock && !m_propertyDock->isHidden(),
+					m_unitDock && !m_unitDock->isHidden());
+			}
 		}
 	}
 }

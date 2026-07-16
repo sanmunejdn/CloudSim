@@ -8,7 +8,7 @@
 #include <functional>
 #include <vector>
 
-/// 轨迹操作流水线列表，支持拖放排序
+/// 轨迹操作流水线列表，支持拖放排序；行末「启用」勾选控制是否参与引擎
 class ROBOTWIDGET_EXPORT TrajectoryPipelineListWidget : public QListWidget
 {
 	Q_OBJECT
@@ -47,6 +47,9 @@ protected:
 
 private:
 	void rebuildItems();
+	void refreshRowWidget(int index);
+	QWidget* createRowWidget(int index, const RobotInstruction::TrajectoryOpDescriptor& op);
+	void onEnableCheckToggled(bool checked);
 	QString formatOpSummary(const RobotInstruction::TrajectoryOpDescriptor& op) const;
 	RobotInstruction::TrajectoryOpDescriptor opFromMime(const QMimeData* mime) const;
 	QByteArray mimeFromOp(const RobotInstruction::TrajectoryOpDescriptor& op) const;

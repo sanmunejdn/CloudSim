@@ -9,6 +9,8 @@
 #include <QMetaObject>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QSizePolicy>
+#include <QStyle>
 #include <QVBoxLayout>
 
 namespace
@@ -23,22 +25,35 @@ std::string toUtf8StdString(const QString& text)
 RunInfoPage::RunInfoPage(QWidget* parent)
 	: QWidget(parent)
 {
+	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+
 	auto* root = new QVBoxLayout(this);
 	root->setContentsMargins(4, 4, 4, 4);
 	root->setSpacing(4);
 
+	auto* toolRow = new QHBoxLayout;
+	toolRow->setContentsMargins(0, 0, 0, 0);
+	toolRow->addStretch(1);
+	m_clearBtn = new QPushButton(QStringLiteral("Clear"), this);
+	m_clearBtn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+	toolRow->addWidget(m_clearBtn);
+	root->addLayout(toolRow, 0);
+
 	m_logEdit = new QPlainTextEdit(this);
 	m_logEdit->setReadOnly(true);
 	m_logEdit->setMaximumBlockCount(2000);
-	auto* toolRow = new QHBoxLayout;
-	toolRow->addStretch(1);
-	m_clearBtn = new QPushButton(QStringLiteral("Clear"), this);
-	toolRow->addWidget(m_clearBtn);
-	root->addLayout(toolRow, 0);
+	m_logEdit->setMinimumHeight(36);
+	m_logEdit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	root->addWidget(m_logEdit, 1);
 
 	connect(m_clearBtn, &QPushButton::clicked, this, &RunInfoPage::clearLogs);
 	UiIconDecorators::apply(m_clearBtn, UiIconId::ClearLog);
+	m_clearBtn->setProperty("btnRole", QLatin1String("danger"));
+	if (m_clearBtn->style())
+	{
+		m_clearBtn->style()->unpolish(m_clearBtn);
+		m_clearBtn->style()->polish(m_clearBtn);
+	}
 
 	RunLogger::setUiSink([this](RunLogger::LogLevel level, const std::string& message) {
 		const QString levelText = QString::fromLatin1(RunLogger::levelName(level));

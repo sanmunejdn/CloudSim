@@ -29,7 +29,8 @@ enum class ROBOT_SCENE_API TrajectoryOpKind
 	Weave,
 	ReachabilityFilter,
 	ExternalAxisSearch,
-	ProjectToGeometry
+	ProjectToGeometry,
+	NonRigidRegistration
 };
 
 /// 轨迹增量参考系（相对路点当前 T_base_target）
@@ -166,12 +167,25 @@ struct ROBOT_SCENE_API ProjectToGeometryParams
 	double pointCloudHitRadiusMm = 2.0;
 };
 
+struct ROBOT_SCENE_API NonRigidRegistrationParams
+{
+	std::string sourceBackendId;
+	std::string targetBackendId;
+	double maxBindDistanceMm = 30.0;
+	double sampleRadiusRatio = 0.0;
+	int maxOuterIters = 30;
+	bool rigidPreAlign = false;
+	double voxelPrefilterMm = 0.0;
+};
+
 struct ROBOT_SCENE_API TrajectoryOpDescriptor
 {
 	std::string opId;
 	TrajectoryOpKind kind = TrajectoryOpKind::Translate;
 	OpScope scope{};
 	nlohmann::json params = nlohmann::json::object();
+	// 未启用时引擎跳过；新建块默认 false，旧 JSON 缺字段按 true
+	bool enabled = false;
 };
 
 } // namespace RobotInstruction

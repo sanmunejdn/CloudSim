@@ -109,6 +109,7 @@ bool isUnifiedPathOpKind(const RobotInstruction::TrajectoryOpKind kind)
 	case RobotInstruction::TrajectoryOpKind::Delete:
 	case RobotInstruction::TrajectoryOpKind::Duplicate:
 	case RobotInstruction::TrajectoryOpKind::ProjectToGeometry:
+	case RobotInstruction::TrajectoryOpKind::NonRigidRegistration:
 		return true;
 	default:
 		return false;
@@ -143,6 +144,10 @@ bool pipelineNeedsOverlayPreview(const std::vector<RobotInstruction::TrajectoryO
 {
 	for (const RobotInstruction::TrajectoryOpDescriptor& op : ops)
 	{
+		if (!op.enabled)
+		{
+			continue;
+		}
 		switch (op.kind)
 		{
 		case RobotInstruction::TrajectoryOpKind::Resample:
@@ -167,7 +172,7 @@ bool pipelineHasProjectToGeometry(const std::vector<RobotInstruction::Trajectory
 {
 	for (const RobotInstruction::TrajectoryOpDescriptor& op : ops)
 	{
-		if (op.kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry)
+		if (op.enabled && op.kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry)
 		{
 			return true;
 		}
@@ -179,6 +184,10 @@ bool pipelineNeedsPoseScopePreview(const std::vector<RobotInstruction::Trajector
 {
 	for (const RobotInstruction::TrajectoryOpDescriptor& op : ops)
 	{
+		if (!op.enabled)
+		{
+			continue;
+		}
 		const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(op.kind);
 		if (algo
 			&& trajectory_algo::hasCapability(
@@ -196,6 +205,10 @@ bool pipelineNeedsPropertyWritebackPreview(
 {
 	for (const RobotInstruction::TrajectoryOpDescriptor& op : ops)
 	{
+		if (!op.enabled)
+		{
+			continue;
+		}
 		if (op.kind == RobotInstruction::TrajectoryOpKind::AssignBlend
 			|| op.kind == RobotInstruction::TrajectoryOpKind::AssignSpeedZone)
 		{
@@ -555,6 +568,10 @@ bool TrajectoryEditSession::previewUnifiedFromProgramPipeline(QString* outError)
 	bool hasGeometryPreview = false;
 	for (const RobotInstruction::TrajectoryOpDescriptor& op : m_ops)
 	{
+		if (!op.enabled)
+		{
+			continue;
+		}
 		const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(op.kind);
 		if (algo
 			&& (trajectory_algo::hasCapability(
@@ -1415,12 +1432,34 @@ bool TrajectoryEditSession::hasRawTrajectory() const
 
 void TrajectoryEditSession::clearRawTrajectory()
 {
-	if (!m_rawTrajectory.has_value() && !m_bakedWorldRaw.has_value())
+	bool hadStoreRaw = false;
+	if (m_store && !m_boundPathPlanId.empty())
+	{
+		RobotInstruction::RawTrajectory stored;
+		hadStoreRaw = m_store->activeCatalog().pathPlanRaws().load(m_boundPathPlanId, stored)
+			&& !stored.points.empty();
+	}
+	if (!m_rawTrajectory.has_value() && !m_bakedWorldRaw.has_value() && !hadStoreRaw)
 	{
 		return;
 	}
 	m_rawTrajectory.reset();
 	m_bakedWorldRaw.reset();
+	if (m_store && !m_boundPathPlanId.empty())
+	{
+		m_store->activeCatalog().pathPlanRaws().remove(m_boundPathPlanId);
+		if (RobotInstruction::PathPlanInstruction* pp = m_store->activeCatalog().findPathPlan(
+				m_store->activeCatalog().activeProgramId(),
+				m_boundPathPlanId))
+		{
+			pp->setSourceFeatureJson(std::string{});
+			if (pp->phase() == RobotInstruction::PathPlanPhase::RawReady
+				|| pp->phase() == RobotInstruction::PathPlanPhase::Applied)
+			{
+				pp->setPhase(RobotInstruction::PathPlanPhase::Draft);
+			}
+		}
+	}
 	emit rawTrajectoryChanged();
 }
 

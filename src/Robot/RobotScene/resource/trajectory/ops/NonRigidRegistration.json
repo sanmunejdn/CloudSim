@@ -1,0 +1,26 @@
+{
+  "kind": "NonRigidRegistration",
+  "defaults": {
+    "scope": { "kind": 1, "groupId": "", "pointFrom": 1, "pointTo": 1 },
+    "params": {
+      "nrr.sourceBackendId": "",
+      "nrr.targetBackendId": "",
+      "nrr.maxBindDistanceMm": 30.0,
+      "nrr.maxOuterIters": 30,
+      "nrr.rigidPreAlign": false,
+      "nrr.voxelPrefilterMm": 0.0,
+      "nrr.sampleRadiusRatio": 0.0
+    }
+  },
+  "schema": {
+    "fields": [
+      { "key": "nrr.sourceBackendId", "type": "message", "labelEn": "Source Geometry", "labelZh": "源几何" },
+      { "key": "nrr.targetBackendId", "type": "message", "labelEn": "Target Geometry", "labelZh": "目标几何" },
+      { "key": "nrr.maxBindDistanceMm", "type": "double", "labelEn": "Max Bind Distance", "labelZh": "绑定最大距离" },
+      { "key": "nrr.maxOuterIters", "type": "int", "labelEn": "SPARE Outer Iters", "labelZh": "SPARE 外轮数" },
+      { "key": "nrr.rigidPreAlign", "type": "bool", "labelEn": "Rigid Pre-Align", "labelZh": "刚性预对齐" },
+      { "key": "nrr.voxelPrefilterMm", "type": "double", "labelEn": "Voxel Prefilter", "labelZh": "体素预滤波" },
+      { "key": "nrr.sampleRadiusRatio", "type": "double", "labelEn": "Sample Radius Ratio", "labelZh": "采样半径比" }
+    ]
+  }
+}

@@ -213,14 +213,19 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	methodRow->addWidget(m_regMethodCombo, 1);
 	icpLayout->addLayout(methodRow);
 
-	auto* sourceKindRow = new QHBoxLayout;
-	m_spareSourceKindLabel = new QLabel(m_icpGroup);
-	m_spareSourceKindCombo = new QComboBox(m_icpGroup);
-	m_spareSourceKindCombo->addItem(QStringLiteral("Point cloud"), static_cast<int>(PluginSpareSourceKind::PointCloud));
-	m_spareSourceKindCombo->addItem(QStringLiteral("Mesh"), static_cast<int>(PluginSpareSourceKind::Mesh));
-	sourceKindRow->addWidget(m_spareSourceKindLabel);
-	sourceKindRow->addWidget(m_spareSourceKindCombo, 1);
-	icpLayout->addLayout(sourceKindRow);
+	auto* spareSourceRow = new QHBoxLayout;
+	m_spareSourceLabel = new QLabel(m_icpGroup);
+	m_spareSourceCombo = new QComboBox(m_icpGroup);
+	spareSourceRow->addWidget(m_spareSourceLabel);
+	spareSourceRow->addWidget(m_spareSourceCombo, 1);
+	icpLayout->addLayout(spareSourceRow);
+
+	auto* spareTargetRow = new QHBoxLayout;
+	m_spareTargetLabel = new QLabel(m_icpGroup);
+	m_spareTargetCombo = new QComboBox(m_icpGroup);
+	spareTargetRow->addWidget(m_spareTargetLabel);
+	spareTargetRow->addWidget(m_spareTargetCombo, 1);
+	icpLayout->addLayout(spareTargetRow);
 
 	auto* icpRow = new QHBoxLayout;
 	m_icpTargetLabel = new QLabel(m_icpGroup);
@@ -1342,7 +1347,7 @@ void PointCloudDockWidget::applyLanguage()
 	m_voxelLabel->setText(i18n(QStringLiteral("Voxel (mm):"), QStringLiteral("体素(mm):")));
 	m_randomLabel->setText(i18n(QStringLiteral("Retain ratio:"), QStringLiteral("保留比:")));
 	m_prefilterLabel->setText(i18n(QStringLiteral("Prefilter voxel (mm):"), QStringLiteral("预滤波体素(mm):")));
-	m_icpTargetLabel->setText(i18n(QStringLiteral("Target:"), QStringLiteral("目标:")));
+	m_icpTargetLabel->setText(i18n(QStringLiteral("ICP target:"), QStringLiteral("ICP 目标:")));
 	if (m_regMethodLabel)
 	{
 		m_regMethodLabel->setText(i18n(QStringLiteral("Method:"), QStringLiteral("方法:")));
@@ -1352,16 +1357,13 @@ void PointCloudDockWidget::applyLanguage()
 		m_regMethodCombo->setItemText(0, i18n(QStringLiteral("Rigid ICP"), QStringLiteral("刚性 ICP")));
 		m_regMethodCombo->setItemText(1, i18n(QStringLiteral("SPARE non-rigid"), QStringLiteral("SPARE 非刚性")));
 	}
-	if (m_spareSourceKindLabel)
+	if (m_spareSourceLabel)
 	{
-		m_spareSourceKindLabel->setText(i18n(QStringLiteral("Source:"), QStringLiteral("源:")));
+		m_spareSourceLabel->setText(i18n(QStringLiteral("SPARE source:"), QStringLiteral("SPARE 源:")));
 	}
-	if (m_spareSourceKindCombo)
+	if (m_spareTargetLabel)
 	{
-		m_spareSourceKindCombo->setItemText(
-			0, i18n(QStringLiteral("Point cloud"), QStringLiteral("点云")));
-		m_spareSourceKindCombo->setItemText(
-			1, i18n(QStringLiteral("Mesh"), QStringLiteral("网格")));
+		m_spareTargetLabel->setText(i18n(QStringLiteral("SPARE target:"), QStringLiteral("SPARE 目标:")));
 	}
 	if (m_spareRigidPreAlignCheck)
 	{
@@ -1505,6 +1507,7 @@ void PointCloudDockWidget::refreshPointCloudList()
 	IPluginDocument* doc = activeDoc();
 	if (!doc)
 	{
+		refreshSpareObjectLists();
 		refreshSelectionInfo();
 		return;
 	}
@@ -1525,27 +1528,6 @@ void PointCloudDockWidget::refreshPointCloudList()
 		auto* item = new QListWidgetItem(label, m_list);
 		item->setData(Qt::UserRole, QString::fromStdString(id));
 		m_icpTargetCombo->addItem(label, QString::fromStdString(id));
-		m_icpTargetCombo->setItemData(
-			m_icpTargetCombo->count() - 1,
-			QStringLiteral("pointcloud"),
-			Qt::UserRole + 1);
-	}
-	if (IPluginDocument* docMeshes = doc)
-	{
-		for (const std::string& id : docMeshes->backendIds())
-		{
-			if (docMeshes->backendClassName(id) != "MeshBackendData")
-			{
-				continue;
-			}
-			const QString label = i18n(QStringLiteral("[Mesh] %1"), QStringLiteral("[网格] %1"))
-									  .arg(QString::fromStdString(docMeshes->backendDisplayName(id)));
-			m_icpTargetCombo->addItem(label, QString::fromStdString(id));
-			m_icpTargetCombo->setItemData(
-				m_icpTargetCombo->count() - 1,
-				QStringLiteral("mesh"),
-				Qt::UserRole + 1);
-		}
 	}
 	if (m_templateBrepCombo)
 	{
@@ -1586,6 +1568,7 @@ void PointCloudDockWidget::refreshPointCloudList()
 	refreshSelectionInfo();
 	refreshMeshExportList();
 	refreshTemplateScanList();
+	refreshSpareObjectLists();
 }
 
 void PointCloudDockWidget::refreshSelectionInfo()
@@ -1773,6 +1756,7 @@ void PointCloudDockWidget::refreshMeshExportList(const std::string& preferBacken
 	selectComboById(m_meshTargetCombo, restoreMeshTargetId);
 	refreshMeshInfo();
 	refreshTemplateScanList();
+	refreshSpareObjectLists();
 }
 
 void PointCloudDockWidget::setBusy(const bool busy)
@@ -2183,13 +2167,29 @@ void PointCloudDockWidget::onRegistrationMethodChanged()
 void PointCloudDockWidget::updateRegistrationUi()
 {
 	const bool spare = m_regMethodCombo && m_regMethodCombo->currentData().toString() == QStringLiteral("spare");
-	if (m_spareSourceKindLabel)
+	if (m_spareSourceLabel)
 	{
-		m_spareSourceKindLabel->setVisible(spare);
+		m_spareSourceLabel->setVisible(spare);
 	}
-	if (m_spareSourceKindCombo)
+	if (m_spareSourceCombo)
 	{
-		m_spareSourceKindCombo->setVisible(spare);
+		m_spareSourceCombo->setVisible(spare);
+	}
+	if (m_spareTargetLabel)
+	{
+		m_spareTargetLabel->setVisible(spare);
+	}
+	if (m_spareTargetCombo)
+	{
+		m_spareTargetCombo->setVisible(spare);
+	}
+	if (m_icpTargetLabel)
+	{
+		m_icpTargetLabel->setVisible(!spare);
+	}
+	if (m_icpTargetCombo)
+	{
+		m_icpTargetCombo->setVisible(!spare);
 	}
 	if (m_spareOptionsWidget)
 	{
@@ -2203,49 +2203,127 @@ void PointCloudDockWidget::updateRegistrationUi()
 	}
 }
 
-void PointCloudDockWidget::onSpareRegisterClicked()
+void PointCloudDockWidget::refreshSpareObjectLists()
 {
-	IPluginPointCloudHost* pch = pointCloudHost();
-	IPluginDocument* doc = activeDoc();
-	if (!pch || !doc || m_icpTargetCombo->currentIndex() < 0)
+	if (!m_spareSourceCombo || !m_spareTargetCombo)
 	{
 		return;
 	}
 
-	const bool sourceIsMesh = m_spareSourceKindCombo
-		&& m_spareSourceKindCombo->currentData().toInt() == static_cast<int>(PluginSpareSourceKind::Mesh);
-	std::string sourceId;
-	if (sourceIsMesh)
+	const std::string prevSource = m_spareSourceCombo->currentIndex() >= 0
+		? m_spareSourceCombo->currentData().toString().toStdString()
+		: std::string();
+	const std::string prevTarget = m_spareTargetCombo->currentIndex() >= 0
+		? m_spareTargetCombo->currentData().toString().toStdString()
+		: std::string();
+
+	const QSignalBlocker sourceBlocker(m_spareSourceCombo);
+	const QSignalBlocker targetBlocker(m_spareTargetCombo);
+	m_spareSourceCombo->clear();
+	m_spareTargetCombo->clear();
+
+	IPluginDocument* doc = activeDoc();
+	if (!doc)
 	{
-		sourceId = selectedMeshBackendId();
-		if (sourceId.empty())
-		{
-			m_host->logWarn(i18n(QStringLiteral("Select a mesh as SPARE source"),
-				QStringLiteral("请选择作为 SPARE 源的网格")));
-			return;
-		}
+		return;
 	}
-	else
+
+	auto addItem = [this](QComboBox* combo, const QString& label, const std::string& id, const QString& kind) {
+		combo->addItem(label, QString::fromStdString(id));
+		combo->setItemData(combo->count() - 1, kind, Qt::UserRole + 1);
+	};
+
+	for (const std::string& id : doc->backendIds())
 	{
-		sourceId = selectedBackendId();
-		if (sourceId.empty())
+		const std::string className = doc->backendClassName(id);
+		if (className == "PointCloudBackendData")
 		{
-			return;
+			PluginPointCloudInfo info;
+			QString label;
+			if (doc->queryPointCloudInfo(id, info))
+			{
+				label = i18n(QStringLiteral("[PC] %1 (%2)"), QStringLiteral("[点云] %1 (%2)"))
+							.arg(QString::fromStdString(doc->backendDisplayName(id)))
+							.arg(static_cast<qulonglong>(info.pointCount));
+			}
+			else
+			{
+				label = i18n(QStringLiteral("[PC] %1"), QStringLiteral("[点云] %1"))
+							.arg(QString::fromStdString(doc->backendDisplayName(id)));
+			}
+			addItem(m_spareSourceCombo, label, id, QStringLiteral("pointcloud"));
+			addItem(m_spareTargetCombo, label, id, QStringLiteral("pointcloud"));
+		}
+		else if (className == "Model")
+		{
+			QString label;
+			IPluginPointCloudHost* pch = pointCloudHost();
+			PluginMeshInfo meshInfo;
+			if (pch && pch->queryMeshInfo(doc, id, meshInfo))
+			{
+				label = i18n(QStringLiteral("[Mesh] %1 (%2 faces)"), QStringLiteral("[网格] %1 (%2 面)"))
+							.arg(QString::fromStdString(doc->backendDisplayName(id)))
+							.arg(static_cast<qulonglong>(meshInfo.faceCount));
+			}
+			else
+			{
+				label = i18n(QStringLiteral("[Mesh] %1"), QStringLiteral("[网格] %1"))
+							.arg(QString::fromStdString(doc->backendDisplayName(id)));
+			}
+			addItem(m_spareSourceCombo, label, id, QStringLiteral("mesh"));
+			addItem(m_spareTargetCombo, label, id, QStringLiteral("mesh"));
 		}
 	}
 
-	const std::string targetId = m_icpTargetCombo->currentData().toString().toStdString();
-	const QString targetKind = m_icpTargetCombo->currentData(Qt::UserRole + 1).toString();
-	if (targetId.empty() || targetId == sourceId)
+	auto restoreSelection = [](QComboBox* combo, const std::string& preferId) {
+		if (!combo || preferId.empty())
+		{
+			return;
+		}
+		for (int i = 0; i < combo->count(); ++i)
+		{
+			if (combo->itemData(i).toString().toStdString() == preferId)
+			{
+				combo->setCurrentIndex(i);
+				return;
+			}
+		}
+	};
+	restoreSelection(m_spareSourceCombo, prevSource);
+	restoreSelection(m_spareTargetCombo, prevTarget);
+}
+
+void PointCloudDockWidget::onSpareRegisterClicked()
+{
+	IPluginPointCloudHost* pch = pointCloudHost();
+	IPluginDocument* doc = activeDoc();
+	if (!pch || !doc || !m_spareSourceCombo || !m_spareTargetCombo)
 	{
-		m_host->logWarn(i18n(QStringLiteral("Select a different target for SPARE"),
+		return;
+	}
+	if (m_spareSourceCombo->currentIndex() < 0 || m_spareTargetCombo->currentIndex() < 0)
+	{
+		m_host->logWarn(i18n(QStringLiteral("Select SPARE source and target"),
+			QStringLiteral("请选择 SPARE 源与目标")));
+		return;
+	}
+
+	const std::string sourceId = m_spareSourceCombo->currentData().toString().toStdString();
+	const QString sourceKind = m_spareSourceCombo->currentData(Qt::UserRole + 1).toString();
+	const std::string targetId = m_spareTargetCombo->currentData().toString().toStdString();
+	const QString targetKind = m_spareTargetCombo->currentData(Qt::UserRole + 1).toString();
+	if (sourceId.empty() || targetId.empty() || targetId == sourceId)
+	{
+		m_host->logWarn(i18n(QStringLiteral("Select a different SPARE target"),
 			QStringLiteral("请为 SPARE 选择不同的目标")));
 		return;
 	}
 
 	setBusy(true);
 	PluginPointCloudSpareParams params;
-	params.sourceKind = sourceIsMesh ? PluginSpareSourceKind::Mesh : PluginSpareSourceKind::PointCloud;
+	params.sourceKind = sourceKind == QStringLiteral("mesh")
+		? PluginSpareSourceKind::Mesh
+		: PluginSpareSourceKind::PointCloud;
 	params.targetKind = targetKind == QStringLiteral("mesh")
 		? PluginSpareTargetKind::Mesh
 		: PluginSpareTargetKind::PointCloud;
@@ -2267,6 +2345,7 @@ void PointCloudDockWidget::onSpareRegisterClicked()
 										.arg(result.rmseMm, 0, 'f', 3)
 										.arg(result.spareDeformationNodeCount);
 				m_host->logInfo(msg);
+				refreshSpareObjectLists();
 			}
 			runFinished(ok, error, result);
 		});

@@ -137,7 +137,7 @@ QMenuBar::item:pressed {
 QMenu {
 	background-color: #2c2c2e;
 	border: 1px solid #48484a;
-	border-radius: 8px;
+	border-radius: 0;
 	padding: 4px;
 }
 
@@ -182,11 +182,11 @@ QDockWidget::close-button:hover, QDockWidget::float-button:hover {
 	background-color: #48484a;
 }
 
-/* 标签页部件 */
+/* 标签页：大面板不做圆角（Qt 无法裁切子控件，圆角外会漏直角底） */
 QTabWidget::pane {
 	border: 1px solid #48484a;
 	background-color: #2c2c2e;
-	border-radius: 0 0 8px 8px;
+	border-radius: 0;
 }
 
 QTabBar::tab {
@@ -217,10 +217,10 @@ QTabBar::tab:only-one {
 }
 
 /* 树形部件 */
-QTreeWidget, QTreeView {
+QTreeWidget, QTreeView, QListWidget, QTableWidget, QTableView {
 	background-color: #1c1c1e;
 	border: 1px solid #38383a;
-	border-radius: 8px;
+	border-radius: 0;
 	padding: 4px;
 	outline: none;
 }
@@ -244,7 +244,7 @@ QTreeWidget::branch, QTreeView::branch {
 	background-color: transparent;
 }
 
-/* 按钮 */
+/* 按钮（默认=次要；btnRole 区分主次） */
 QPushButton {
 	background-color: #3a3a3c;
 	color: #f2f2f7;
@@ -253,6 +253,7 @@ QPushButton {
 	padding: 4px 8px;
 	font-weight: 500;
 	min-width: 40px;
+	min-height: 24px;
 }
 
 QPushButton:hover {
@@ -275,32 +276,81 @@ QPushButton:focus {
 	border-color: #288cf0;
 }
 
-/* 输入框 */
-QLineEdit, QTextEdit, QPlainTextEdit {
-	background-color: #1c1c1e;
-	color: #f2f2f7;
-	border: 1px solid #48484a;
-	border-radius: 6px;
-	padding: 8px 12px;
+QPushButton[btnRole="primary"] {
+	background-color: #288cf0;
+	color: #ffffff;
+	border: 1px solid #1a7ad8;
+	font-weight: 600;
 }
 
-QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {
+QPushButton[btnRole="primary"]:hover {
+	background-color: #3a9af5;
 	border-color: #288cf0;
 }
 
-QLineEdit:disabled, QTextEdit:disabled, QPlainTextEdit:disabled {
+QPushButton[btnRole="primary"]:pressed {
+	background-color: #1a7ad8;
+}
+
+QPushButton[btnRole="primary"]:disabled {
+	background-color: #2c4a66;
+	color: #8a9aaa;
+	border-color: #2c4a66;
+}
+
+QPushButton[btnRole="secondary"] {
+	background-color: #3a3a3c;
+	color: #f2f2f7;
+	border: 1px solid #5a5a5c;
+}
+
+QPushButton[btnRole="danger"] {
+	background-color: #3a3a3c;
+	color: #ff6b6b;
+	border: 1px solid #8a4040;
+}
+
+QPushButton[btnRole="danger"]:hover {
+	background-color: #5a3030;
+	border-color: #ff6b6b;
+}
+
+/* 输入框：单行可圆角；多行滚动区保持直角避免视口漏角 */
+QLineEdit {
+	background-color: #1c1c1e;
+	color: #f2f2f7;
+	border: 1px solid #48484a;
+	border-radius: 4px;
+	padding: 4px 8px;
+}
+
+QTextEdit, QPlainTextEdit, QTextBrowser {
+	background-color: #1c1c1e;
+	color: #f2f2f7;
+	border: 1px solid #48484a;
+	border-radius: 0;
+	padding: 4px 8px;
+}
+
+QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QTextBrowser:focus {
+	border-color: #288cf0;
+}
+
+QLineEdit:disabled, QTextEdit:disabled, QPlainTextEdit:disabled, QTextBrowser:disabled {
 	background-color: #2c2c2e;
 	color: #636366;
 }
 
-/* 下拉框 */
+/* 下拉框：闭合高度贴合字号，弹层项可滚完整显示 */
 QComboBox {
 	background-color: #3a3a3c;
 	color: #f2f2f7;
 	border: 1px solid #48484a;
-	border-radius: 6px;
-	padding: 6px 10px;
-	min-width: 90px;
+	border-radius: 4px;
+	padding: 2px 6px;
+	min-width: 72px;
+	min-height: 24px;
+	max-height: 26px;
 }
 
 QComboBox:hover {
@@ -310,16 +360,23 @@ QComboBox:hover {
 QComboBox::drop-down {
 	subcontrol-origin: padding;
 	subcontrol-position: center right;
-	width: 24px;
+	width: 18px;
 	border-left: 1px solid #48484a;
 }
 
 QComboBox QAbstractItemView {
 	background-color: #2c2c2e;
 	border: 1px solid #48484a;
-	border-radius: 8px;
-	padding: 4px;
+	border-radius: 0;
+	padding: 2px;
+	outline: 0;
 	selection-background-color: #288cf0;
+	selection-color: #ffffff;
+}
+
+QComboBox QAbstractItemView::item {
+	min-height: 24px;
+	padding: 2px 8px;
 }
 
 /* 滚动条 */
@@ -379,7 +436,7 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
 QGroupBox {
 	background-color: #2c2c2e;
 	border: 1px solid #48484a;
-	border-radius: 8px;
+	border-radius: 0;
 	margin-top: 12px;
 	padding-top: 24px;
 	font-weight: 500;
@@ -535,7 +592,7 @@ QMenuBar::item:pressed {
 QMenu {
 	background-color: #ffffff;
 	border: 1px solid #dadcde;
-	border-radius: 8px;
+	border-radius: 0;
 	padding: 4px;
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
@@ -579,11 +636,11 @@ QDockWidget::close-button:hover, QDockWidget::float-button:hover {
 	background-color: #dadcde;
 }
 
-/* 标签页部件 */
+/* 标签页：大面板不做圆角（Qt 无法裁切子控件，圆角外会漏直角底） */
 QTabWidget::pane {
 	border: 1px solid #dadcde;
 	background-color: #ffffff;
-	border-radius: 0 0 8px 8px;
+	border-radius: 0;
 }
 
 QTabBar::tab {
@@ -614,10 +671,10 @@ QTabBar::tab:only-one {
 }
 
 /* 树形部件 */
-QTreeWidget, QTreeView {
+QTreeWidget, QTreeView, QListWidget, QTableWidget, QTableView {
 	background-color: #ffffff;
 	border: 1px solid #dadcde;
-	border-radius: 8px;
+	border-radius: 0;
 	padding: 4px;
 	outline: none;
 }
@@ -641,7 +698,7 @@ QTreeWidget::branch, QTreeView::branch {
 	background-color: transparent;
 }
 
-/* 按钮 */
+/* 按钮（默认=次要；btnRole 区分主次） */
 QPushButton {
 	background-color: #f0f1f3;
 	color: #1c1c1e;
@@ -650,6 +707,7 @@ QPushButton {
 	padding: 4px 8px;
 	font-weight: 500;
 	min-width: 40px;
+	min-height: 24px;
 }
 
 QPushButton:hover {
@@ -672,32 +730,81 @@ QPushButton:focus {
 	border-color: #0066cc;
 }
 
-/* 输入框 */
-QLineEdit, QTextEdit, QPlainTextEdit {
-	background-color: #ffffff;
-	color: #1c1c1e;
-	border: 1px solid #dadcde;
-	border-radius: 6px;
-	padding: 8px 12px;
+QPushButton[btnRole="primary"] {
+	background-color: #0066cc;
+	color: #ffffff;
+	border: 1px solid #0055aa;
+	font-weight: 600;
 }
 
-QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {
+QPushButton[btnRole="primary"]:hover {
+	background-color: #0077e0;
 	border-color: #0066cc;
 }
 
-QLineEdit:disabled, QTextEdit:disabled, QPlainTextEdit:disabled {
+QPushButton[btnRole="primary"]:pressed {
+	background-color: #0055aa;
+}
+
+QPushButton[btnRole="primary"]:disabled {
+	background-color: #a0c4e8;
+	color: #f0f1f3;
+	border-color: #a0c4e8;
+}
+
+QPushButton[btnRole="secondary"] {
+	background-color: #ffffff;
+	color: #1c1c1e;
+	border: 1px solid #c8c8ca;
+}
+
+QPushButton[btnRole="danger"] {
+	background-color: #ffffff;
+	color: #c62828;
+	border: 1px solid #e0a0a0;
+}
+
+QPushButton[btnRole="danger"]:hover {
+	background-color: #fdecea;
+	border-color: #c62828;
+}
+
+/* 输入框：单行可圆角；多行滚动区保持直角避免视口漏角 */
+QLineEdit {
+	background-color: #ffffff;
+	color: #1c1c1e;
+	border: 1px solid #dadcde;
+	border-radius: 4px;
+	padding: 4px 8px;
+}
+
+QTextEdit, QPlainTextEdit, QTextBrowser {
+	background-color: #ffffff;
+	color: #1c1c1e;
+	border: 1px solid #dadcde;
+	border-radius: 0;
+	padding: 4px 8px;
+}
+
+QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QTextBrowser:focus {
+	border-color: #0066cc;
+}
+
+QLineEdit:disabled, QTextEdit:disabled, QPlainTextEdit:disabled, QTextBrowser:disabled {
 	background-color: #f0f1f3;
 	color: #8e8e93;
 }
 
-/* 下拉框 */
+/* 下拉框：闭合高度贴合字号，弹层项可滚完整显示 */
 QComboBox {
 	background-color: #f0f1f3;
 	color: #1c1c1e;
 	border: 1px solid #dadcde;
-	border-radius: 6px;
-	padding: 6px 10px;
-	min-width: 90px;
+	border-radius: 4px;
+	padding: 2px 6px;
+	min-width: 72px;
+	min-height: 24px;
+	max-height: 26px;
 }
 
 QComboBox:hover {
@@ -707,16 +814,23 @@ QComboBox:hover {
 QComboBox::drop-down {
 	subcontrol-origin: padding;
 	subcontrol-position: center right;
-	width: 24px;
+	width: 18px;
 	border-left: 1px solid #dadcde;
 }
 
 QComboBox QAbstractItemView {
 	background-color: #ffffff;
 	border: 1px solid #dadcde;
-	border-radius: 8px;
-	padding: 4px;
+	border-radius: 0;
+	padding: 2px;
+	outline: 0;
 	selection-background-color: #0066cc;
+	selection-color: #ffffff;
+}
+
+QComboBox QAbstractItemView::item {
+	min-height: 24px;
+	padding: 2px 8px;
 }
 
 /* 滚动条 */
@@ -776,7 +890,7 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
 QGroupBox {
 	background-color: #ffffff;
 	border: 1px solid #dadcde;
-	border-radius: 8px;
+	border-radius: 0;
 	margin-top: 12px;
 	padding-top: 24px;
 	font-weight: 500;

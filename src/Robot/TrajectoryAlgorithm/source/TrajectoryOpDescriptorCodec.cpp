@@ -107,6 +107,7 @@ nlohmann::json toJson(const RobotInstruction::TrajectoryOpDescriptor& op)
 		j["opId"] = op.opId;
 	}
 	j["kind"] = TrajectoryOpRegistry::instance().kindToString(op.kind);
+	j["enabled"] = op.enabled;
 	writeScopeJson(op.scope, j["scope"]);
 	j["params"] = op.params.is_object() ? op.params : nlohmann::json::object();
 	return j;
@@ -172,6 +173,10 @@ bool fromJson(const nlohmann::json& j, RobotInstruction::TrajectoryOpDescriptor&
 	{
 		out.opId = std::move(opId);
 	}
+	// 旧模板无 enabled 字段，保持启用以免破坏已保存工艺
+	out.enabled = j.contains("enabled") && j["enabled"].is_boolean()
+		? j["enabled"].get<bool>()
+		: true;
 
 	if (j.contains("params"))
 	{

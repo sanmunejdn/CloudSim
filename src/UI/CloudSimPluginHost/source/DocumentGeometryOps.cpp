@@ -45,12 +45,29 @@ geoalgo::MeshQualityPreset toGeoQuality(const PluginMeshQualityPreset quality)
 	}
 }
 
+geoalgo::MeshDensityControl toGeoDensityControl(const PluginMeshDensityControl control)
+{
+	switch (control)
+	{
+	case PluginMeshDensityControl::TargetEdgeLength:
+		return geoalgo::MeshDensityControl::TargetEdgeLength;
+	case PluginMeshDensityControl::TargetTriangleCount:
+		return geoalgo::MeshDensityControl::TargetTriangleCount;
+	case PluginMeshDensityControl::QualityPreset:
+	default:
+		return geoalgo::MeshDensityControl::QualityPreset;
+	}
+}
+
 } // namespace
 
 geoalgo::MeshDiscretizeParams toGeoMeshParams(const PluginMeshDiscretizeParams& params)
 {
 	geoalgo::MeshDiscretizeParams out;
 	out.mode = toGeoMode(params.mode);
+	out.densityControl = toGeoDensityControl(params.densityControl);
+	out.targetEdgeLengthMm = params.targetEdgeLengthMm;
+	out.targetTriangleCount = params.targetTriangleCount;
 	out.quality = toGeoQuality(params.quality);
 	out.tessellate.linearDeflectionMm = params.linearDeflectionMm;
 	out.tessellate.linearDeflectionRelative = params.linearDeflectionRelative;
@@ -60,7 +77,14 @@ geoalgo::MeshDiscretizeParams toGeoMeshParams(const PluginMeshDiscretizeParams& 
 	out.tubeRadiusMm = params.tubeRadiusMm;
 	out.tubeSides = params.tubeSides;
 	out.ribbonWidthMm = params.ribbonWidthMm;
-	geometry_backend_ops::applyQualityPreset(out);
+	if (out.densityControl != geoalgo::MeshDensityControl::QualityPreset)
+	{
+		out.quality = geoalgo::MeshQualityPreset::Custom;
+	}
+	else
+	{
+		geometry_backend_ops::applyQualityPreset(out);
+	}
 	return out;
 }
 

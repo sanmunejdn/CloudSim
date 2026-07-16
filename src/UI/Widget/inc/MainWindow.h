@@ -305,7 +305,7 @@ protected:
 	QAction* m_toggleLeftPanelAction = nullptr;
 	QAction* m_toggleRightPanelAction = nullptr;
 	int m_leftDockSavedWidth = 240;
-	int m_rightDockSavedWidth = 240;
+	int m_rightDockSavedWidth = 360;
 	QAction* m_viewModeAction = nullptr;
 	QAction* m_objectModeAction = nullptr;
 	QAction* m_pointPickModeAction = nullptr;

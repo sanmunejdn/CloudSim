@@ -10,6 +10,8 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QSizePolicy>
+#include <QStyle>
 #include <QTextBrowser>
 #include <QVBoxLayout>
 
@@ -19,30 +21,36 @@ AiAssistantDockWidget::AiAssistantDockWidget(QWidget* parent)
 	: QWidget(parent)
 {
 	auto* root = new QVBoxLayout(this);
+	root->setContentsMargins(6, 6, 6, 6);
+	root->setSpacing(6);
 
 	m_domainCombo = new QComboBox(this);
+	m_domainCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	m_domainCombo->setMaxVisibleItems(12);
 	m_domainCombo->addItem(QStringLiteral("Auto"), AiDomainIds::autoDomain());
 	m_domainCombo->addItem(QStringLiteral("Create mesh"), AiDomainIds::meshCreate());
 	m_domainCombo->addItem(QStringLiteral("Compose (boolean)"), AiDomainIds::meshCompose());
 	m_domainCombo->addItem(QStringLiteral("Geometry recognize"), AiDomainIds::geometryRecognize());
 	m_domainCombo->addItem(QStringLiteral("Trajectory feature"), AiDomainIds::trajectoryFeature());
-	root->addWidget(m_domainCombo);
+	root->addWidget(m_domainCombo, 0);
 
 	m_viewportHint = new QLabel(this);
 	m_viewportHint->setWordWrap(true);
 	m_viewportHint->hide();
-	root->addWidget(m_viewportHint);
+	root->addWidget(m_viewportHint, 0);
 
 	m_history = new QTextBrowser(this);
 	m_history->setOpenExternalLinks(false);
-	m_history->setMinimumHeight(160);
+	// 可压到较小高度，优先保证底部输入/设置可见
+	m_history->setMinimumHeight(48);
+	m_history->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	root->addWidget(m_history, 1);
 
 	m_createFromRecognitionBtn = new QPushButton(this);
 	m_createFromRecognitionBtn->hide();
 	connect(m_createFromRecognitionBtn, &QPushButton::clicked, this,
 		&AiAssistantDockWidget::createFromRecognitionClicked);
-	root->addWidget(m_createFromRecognitionBtn);
+	root->addWidget(m_createFromRecognitionBtn, 0);
 
 	m_confirmTrajectoryBtn = new QPushButton(this);
 	m_retryTrajectoryBtn = new QPushButton(this);
@@ -52,25 +60,45 @@ AiAssistantDockWidget::AiAssistantDockWidget(QWidget* parent)
 		&AiAssistantDockWidget::confirmTrajectoryFeaturesClicked);
 	connect(m_retryTrajectoryBtn, &QPushButton::clicked, this,
 		&AiAssistantDockWidget::retryTrajectoryFeaturesClicked);
-	root->addWidget(m_confirmTrajectoryBtn);
-	root->addWidget(m_retryTrajectoryBtn);
+	root->addWidget(m_confirmTrajectoryBtn, 0);
+	root->addWidget(m_retryTrajectoryBtn, 0);
 
-	auto* row = new QHBoxLayout;
-	m_input = new QLineEdit(this);
-	m_settingsBtn = new QPushButton(this);
+	auto* inputBar = new QWidget(this);
+	inputBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	auto* row = new QHBoxLayout(inputBar);
+	row->setContentsMargins(0, 0, 0, 0);
+	row->setSpacing(6);
+	m_input = new QLineEdit(inputBar);
+	m_input->setMinimumHeight(28);
+	m_input->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	m_settingsBtn = new QPushButton(inputBar);
+	m_settingsBtn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+	m_sendBtn = new QPushButton(inputBar);
+	m_sendBtn->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 	connect(m_settingsBtn, &QPushButton::clicked, this, &AiAssistantDockWidget::onSettingsClicked);
-	m_sendBtn = new QPushButton(this);
 	connect(m_sendBtn, &QPushButton::clicked, this, &AiAssistantDockWidget::onSendClicked);
 	connect(m_input, &QLineEdit::returnPressed, this, &AiAssistantDockWidget::onSendClicked);
 	connect(m_domainCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
 		&AiAssistantDockWidget::onDomainChanged);
 	row->addWidget(m_input, 1);
-	row->addWidget(m_settingsBtn);
-	row->addWidget(m_sendBtn);
-	root->addLayout(row);
+	row->addWidget(m_settingsBtn, 0);
+	row->addWidget(m_sendBtn, 0);
+	root->addWidget(inputBar, 0);
 
 	UiIconDecorators::apply(m_settingsBtn, UiIconId::Settings, UiIconDecorators::IconPlacement::IconOnly, UiIcons::Size::Medium);
 	UiIconDecorators::apply(m_sendBtn, UiIconId::Send, UiIconDecorators::IconPlacement::Leading, UiIcons::Size::Medium);
+	m_sendBtn->setProperty("btnRole", QLatin1String("primary"));
+	if (m_sendBtn->style())
+	{
+		m_sendBtn->style()->unpolish(m_sendBtn);
+		m_sendBtn->style()->polish(m_sendBtn);
+	}
+	m_settingsBtn->setProperty("btnRole", QLatin1String("secondary"));
+	if (m_settingsBtn->style())
+	{
+		m_settingsBtn->style()->unpolish(m_settingsBtn);
+		m_settingsBtn->style()->polish(m_settingsBtn);
+	}
 
 	setUseChinese(m_useChinese);
 	onDomainChanged(m_domainCombo->currentIndex());

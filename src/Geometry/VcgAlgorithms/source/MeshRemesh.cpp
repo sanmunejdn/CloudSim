@@ -3,6 +3,7 @@
 #endif
 
 #include "MeshRemesh.h"
+#include "MeshRepairInternal.h"
 #include "VcgMeshTypes.h"
 
 #include <algorithm>
@@ -14,6 +15,10 @@
 #include <vcg/complex/algorithms/update/normal.h>
 #include <vcg/complex/algorithms/update/topology.h>
 #include <vcg/complex/exception.h>
+
+#if defined(_MSC_VER)
+#include <windows.h>
+#endif
 
 namespace vcgalgo
 {
@@ -27,6 +32,69 @@ double edgeLengthMm(const float ax, const float ay, const float az, const float 
 	const double dz = static_cast<double>(bz - az);
 	return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
+
+// 仅防止目标远小于当前中位导致一次性爆炸；不上抬目标
+double clampTargetForRemeshSafety(const double targetMm, const double medianMm)
+{
+	if (!(medianMm > 1e-9) || !(targetMm > 0.0))
+	{
+		return targetMm;
+	}
+	const double minAllowed = medianMm * 0.05;
+	if (targetMm < minAllowed)
+	{
+		return minAllowed;
+	}
+	return targetMm;
+}
+
+double medianEdgeLengthOfMesh(const VcgMesh& mesh)
+{
+	std::vector<double> lens;
+	lens.reserve(static_cast<std::size_t>(mesh.FN()) * 3U);
+	for (const auto& f : mesh.face)
+	{
+		if (f.IsD())
+		{
+			continue;
+		}
+		for (int e = 0; e < 3; ++e)
+		{
+			const double len = (f.P0(e) - f.P1(e)).Norm();
+			if (len > 1e-12)
+			{
+				lens.push_back(len);
+			}
+		}
+	}
+	if (lens.empty())
+	{
+		return 0.0;
+	}
+	std::nth_element(lens.begin(), lens.begin() + static_cast<std::ptrdiff_t>(lens.size() / 2U), lens.end());
+	return lens[lens.size() / 2U];
+}
+
+#if defined(_MSC_VER)
+bool remeshDoProtected(VcgMesh& mesh, vcg::tri::IsotropicRemeshing<VcgMesh>::Params& params)
+{
+	__try
+	{
+		vcg::tri::IsotropicRemeshing<VcgMesh>::Do(mesh, params);
+		return true;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER)
+	{
+		return false;
+	}
+}
+#else
+bool remeshDoProtected(VcgMesh& mesh, vcg::tri::IsotropicRemeshing<VcgMesh>::Params& params)
+{
+	vcg::tri::IsotropicRemeshing<VcgMesh>::Do(mesh, params);
+	return true;
+}
+#endif
 
 } // namespace
 
@@ -106,6 +174,17 @@ bool isotropicRemesh(
 
 	try
 	{
+		RepairParams repairParams;
+		repairParams.fillHoles = false;
+		if (!internal::repairVcgMeshInPlace(mesh, repairParams, nullptr))
+		{
+			if (errMsg)
+			{
+				*errMsg = "isotropic remesh: repair left no faces";
+			}
+			return false;
+		}
+
 		vcg::tri::Clean<VcgMesh>::RemoveUnreferencedVertex(mesh);
 		vcg::tri::Allocator<VcgMesh>::CompactEveryVector(mesh);
 		if (mesh.FN() < 1)
@@ -122,21 +201,34 @@ bool isotropicRemesh(
 			return false;
 		}
 
+		const double medianEdge = medianEdgeLengthOfMesh(mesh);
+		const double clampedTarget = clampTargetForRemeshSafety(targetEdgeLengthMm, medianEdge);
+
 		vcg::tri::UpdateBounding<VcgMesh>::Box(mesh);
 		const float bboxDiag = static_cast<float>(mesh.bbox.Diag());
 
 		vcg::tri::IsotropicRemeshing<VcgMesh>::Params rParams;
-		rParams.SetTargetLen(static_cast<float>(targetEdgeLengthMm));
+		rParams.SetTargetLen(static_cast<float>(clampedTarget));
 		rParams.SetFeatureAngleDeg(static_cast<float>(featureAngleDeg));
 		rParams.iter = iterations;
-		rParams.projectFlag = true;
+		// CAD soup 投影回自身易把拓扑打坏
+		rParams.projectFlag = false;
 		rParams.cleanFlag = true;
 		rParams.userSelectedCreases = false;
 		rParams.maxSurfDist = std::max(1e-3f, bboxDiag * 0.001f);
-		rParams.surfDistCheck = true;
+		rParams.surfDistCheck = false;
 
-		vcg::tri::IsotropicRemeshing<VcgMesh>::Do(mesh, rParams);
+		if (!remeshDoProtected(mesh, rParams))
+		{
+			if (errMsg)
+			{
+				*errMsg = "isotropic remesh crashed or aborted internally";
+			}
+			return false;
+		}
 
+		vcg::tri::Clean<VcgMesh>::RemoveUnreferencedVertex(mesh);
+		vcg::tri::Allocator<VcgMesh>::CompactEveryVector(mesh);
 		internal::vcgMeshToSoup(mesh, outSoup);
 	}
 	catch (const vcg::MissingComponentException&)

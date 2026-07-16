@@ -93,6 +93,10 @@ bool validateTrajectoryPipeline(
 	ensureTrajectoryOpBuiltinsRegistered();
 	for (const TrajectoryOpDescriptor& op : ops)
 	{
+		if (!op.enabled)
+		{
+			continue;
+		}
 		const trajectory_algo::ITrajectoryOp* algo = trajectoryOpGet(op.kind);
 		if (!algo)
 		{
@@ -123,6 +127,32 @@ std::string trajectoryOpProjectTargetBackendId(const TrajectoryOpDescriptor& op)
 void trajectoryOpSetProjectTargetBackendId(TrajectoryOpDescriptor& op, const std::string& backendId)
 {
 	trajectory_algo::setTrajectoryParamString(op.params, "project.targetBackendId", backendId);
+}
+
+std::string trajectoryOpNonRigidSourceBackendId(const TrajectoryOpDescriptor& op)
+{
+	return trajectory_algo::parseNonRigidRegistrationParams(op.params).sourceBackendId;
+}
+
+std::string trajectoryOpNonRigidTargetBackendId(const TrajectoryOpDescriptor& op)
+{
+	return trajectory_algo::parseNonRigidRegistrationParams(op.params).targetBackendId;
+}
+
+void trajectoryOpSetNonRigidSourceBackendId(TrajectoryOpDescriptor& op, const std::string& backendId)
+{
+	RobotInstruction::NonRigidRegistrationParams nrr =
+		trajectory_algo::parseNonRigidRegistrationParams(op.params);
+	nrr.sourceBackendId = backendId;
+	trajectory_algo::writeNonRigidRegistrationParams(op.params, nrr);
+}
+
+void trajectoryOpSetNonRigidTargetBackendId(TrajectoryOpDescriptor& op, const std::string& backendId)
+{
+	RobotInstruction::NonRigidRegistrationParams nrr =
+		trajectory_algo::parseNonRigidRegistrationParams(op.params);
+	nrr.targetBackendId = backendId;
+	trajectory_algo::writeNonRigidRegistrationParams(op.params, nrr);
 }
 
 } // namespace RobotInstruction

@@ -743,22 +743,29 @@ void MainWindow::setAllDocumentViewerDarkBackground(bool dark)
 namespace
 {
 constexpr int kDefaultSideDockWidth = 240;
+constexpr int kDefaultRightDockWidth = 360;
 constexpr int kMinRestorableDockWidth = 160;
 
-void showSideDock(QDockWidget* dock, int& savedWidth)
+bool sideDockShown(const QDockWidget* dock)
 {
-	if (!dock || dock->isVisible())
+	// 主窗未 show 时 isVisible() 恒 false；用 isHidden 表示用户/逻辑是否收起过
+	return dock && !dock->isHidden();
+}
+
+void showSideDock(QDockWidget* dock, int& savedWidth, const int fallbackWidth)
+{
+	if (!dock || sideDockShown(dock))
 	{
 		return;
 	}
 	dock->show();
-	const int w = savedWidth >= kMinRestorableDockWidth ? savedWidth : kDefaultSideDockWidth;
+	const int w = savedWidth >= kMinRestorableDockWidth ? savedWidth : fallbackWidth;
 	savedWidth = w;
 }
 
 void hideSideDock(QDockWidget* dock, int& savedWidth)
 {
-	if (!dock || !dock->isVisible())
+	if (!sideDockShown(dock))
 	{
 		return;
 	}
@@ -779,7 +786,7 @@ void MainWindow::setLeftSidePanelVisible(const bool visible)
 	}
 	if (visible)
 	{
-		showSideDock(m_propertyDock, m_leftDockSavedWidth);
+		showSideDock(m_propertyDock, m_leftDockSavedWidth, kDefaultSideDockWidth);
 		resizeDocks({ m_propertyDock }, { m_leftDockSavedWidth }, Qt::Horizontal);
 	}
 	else
@@ -797,7 +804,7 @@ void MainWindow::setRightSidePanelVisible(const bool visible)
 	}
 	if (visible)
 	{
-		showSideDock(m_unitDock, m_rightDockSavedWidth);
+		showSideDock(m_unitDock, m_rightDockSavedWidth, kDefaultRightDockWidth);
 		resizeDocks({ m_unitDock }, { m_rightDockSavedWidth }, Qt::Horizontal);
 	}
 	else
@@ -809,8 +816,8 @@ void MainWindow::setRightSidePanelVisible(const bool visible)
 
 void MainWindow::syncSidePanelToggleUi()
 {
-	const bool leftVisible = m_propertyDock && m_propertyDock->isVisible();
-	const bool rightVisible = m_unitDock && m_unitDock->isVisible();
+	const bool leftVisible = sideDockShown(m_propertyDock);
+	const bool rightVisible = sideDockShown(m_unitDock);
 
 	if (m_toggleLeftPanelAction)
 	{

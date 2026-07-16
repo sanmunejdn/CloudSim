@@ -19,6 +19,8 @@
 #include "OffsetAlongNormalOpConfig.h"
 #include "OffsetLateralOp.h"
 #include "OffsetLateralOpConfig.h"
+#include "NonRigidRegistrationOp.h"
+#include "NonRigidRegistrationOpConfig.h"
 #include "ProjectToGeometryOp.h"
 #include "ProjectToGeometryOpConfig.h"
 #include "ReachabilityFilterOp.h"
@@ -67,6 +69,7 @@ void registerOpConfigs()
 	registry.registerOpConfig(makeApproachOpConfig());
 	registry.registerOpConfig(makeRetractOpConfig());
 	registry.registerOpConfig(makeProjectToGeometryOpConfig());
+	registry.registerOpConfig(makeNonRigidRegistrationOpConfig());
 }
 } // namespace
 
@@ -90,6 +93,7 @@ void registerTrajectoryOpBuiltins(TrajectoryOpRegistry& registry)
 	registry.registerOp(std::make_unique<ApproachOp>());
 	registry.registerOp(std::make_unique<RetractOp>());
 	registry.registerOp(std::make_unique<ProjectToGeometryOp>());
+	registry.registerOp(std::make_unique<NonRigidRegistrationOp>());
 }
 
 void ensureTrajectoryOpBuiltinsRegistered()

@@ -8,6 +8,8 @@
 #include <QHeaderView>
 #include <QMenu>
 #include <QMenuBar>
+#include <QSizePolicy>
+#include <QSplitter>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QTimer>
@@ -120,16 +122,26 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 
 	auto* central = new QWidget(this);
 	central->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-	auto* rootLayout = new QVBoxLayout(central);
-	// 增加边距和间距，让界面更有呼吸感
+	auto* centralLayout = new QVBoxLayout(central);
+	centralLayout->setContentsMargins(0, 0, 0, 0);
+	centralLayout->setSpacing(0);
+
+	// 日志放中央竖向分割器：只占 3D 文档列，不与左右 Dock 抢同一竖带（避免叠层遮挡）
+	auto* centerSplitter = new QSplitter(Qt::Vertical, central);
+	centerSplitter->setObjectName(QStringLiteral("CenterRunSplitter"));
+	centerSplitter->setChildrenCollapsible(false);
+	centerSplitter->setHandleWidth(5);
+
+	auto* docHost = new QWidget;
+	docHost->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+	auto* rootLayout = new QVBoxLayout(docHost);
 	rootLayout->setContentsMargins(12, 12, 12, 12);
 	rootLayout->setSpacing(12);
 
-	m_documentTabs = new QTabWidget(central);
+	m_documentTabs = new QTabWidget(docHost);
 	m_documentTabs->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	m_documentTabs->setDocumentMode(true);
 	m_documentTabs->setTabsClosable(true);
-	// 设置文档标签栏属性，确保文档名称完整显示
 	m_documentTabs->setElideMode(Qt::ElideNone);
 	m_documentTabs->setUsesScrollButtons(true);
 	m_documentTabs->setMovable(true);
@@ -138,6 +150,18 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	auto* firstPage = new DocumentPage(m_documentTabs, m_appEvents);
 	wireDocumentPageSignals(firstPage);
 	m_documentTabs->addTab(firstPage, i18n(QStringLiteral("Untitled"), QStringLiteral("\u672a\u547d\u540d")));
+
+	m_runInfoPage = new RunInfoPage;
+	m_runInfoPage->setMinimumHeight(56);
+	m_runInfoPage->setMaximumHeight(220);
+	m_runInfoPage->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+
+	centerSplitter->addWidget(docHost);
+	centerSplitter->addWidget(m_runInfoPage);
+	centerSplitter->setStretchFactor(0, 1);
+	centerSplitter->setStretchFactor(1, 0);
+	centerSplitter->setSizes({900, 100});
+	centralLayout->addWidget(centerSplitter, 1);
 
 	m_appEvents.subscribe<cloudsim::core::BackendObjectRegisteredEvent>(
 		[this](const cloudsim::core::BackendObjectRegisteredEvent& ev) {
@@ -465,21 +489,16 @@ m_osgSceneTree = new QTreeWidget();
 	m_unitDock->setWidget(m_rightPanelTabs);
 	hideDockTitleBar(m_unitDock);
 	addDockWidget(Qt::RightDockWidgetArea, m_unitDock);
-	// 右侧面板宽度：240px，最大化3D视口空间
-	resizeDocks({ m_unitDock }, { 240 }, Qt::Horizontal);
+	// 右侧面板默认宽度：轨迹/AI 需要比属性栏更宽
+	resizeDocks({ m_unitDock }, { 360 }, Qt::Horizontal);
 	setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
 	setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
 	setTabPosition(Qt::BottomDockWidgetArea, QTabWidget::North);
 
-m_runDock = new QDockWidget(QStringLiteral("Runtime Output"), this);
-		m_runDock->setObjectName(QStringLiteral("RunDock"));
-		m_runDock->setAllowedAreas(Qt::BottomDockWidgetArea);
-		m_runInfoPage = new RunInfoPage(m_runDock);
-		m_runDock->setWidget(m_runInfoPage);
-		hideDockTitleBar(m_runDock);
-		addDockWidget(Qt::BottomDockWidgetArea, m_runDock);
-		// 底部输出区高度：100px
-		resizeDocks({ m_runDock }, { 100 }, Qt::Vertical);
+	// 侧栏通高；日志已在中央 splitter，不再使用 Bottom Dock（通栏日志会与侧栏叠层）
+	setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
+	setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
+	m_runDock = nullptr;
 
 	setupAiAssistantCoordinator();
 
@@ -491,7 +510,8 @@ m_runDock = new QDockWidget(QStringLiteral("Runtime Output"), this);
 	m_toggleAiAssistantAction = m_sidePanelTabToggles.value(m_aiAssistantPage).viewAction;
 	m_viewPanelToggleInsertBefore = m_toggleAiAssistantAction;
 
-	m_runDock->setMinimumHeight(50);
+	// 首文档工具栏早于 Dock 创建，此处按真实可见性校正，避免首次点击只改按钮态
+	syncSidePanelToggleUi();
 
 	// Defer plugin load until the dock/tab hierarchy is fully attached (avoids addTab crash at startup).
 	QTimer::singleShot(0, this, [this]() { loadPlugins(); });

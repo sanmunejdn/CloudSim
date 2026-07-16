@@ -185,6 +185,9 @@
     <ClInclude Include="inc\TrajectoryOpExecutionContext.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\INonRigidTrajectoryWarp.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\ITrajectoryOp.h">
 
       <Filter>inc</Filter>

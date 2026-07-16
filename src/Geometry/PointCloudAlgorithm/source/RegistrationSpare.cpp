@@ -1,6 +1,7 @@
 #include "RegistrationSpare.h"
 
 #include "Downsample.h"
+#include "KdTreePointSet.h"
 #include "Measure.h"
 #include "PointCloudBuffer.h"
 #include "Preprocess.h"
@@ -12,6 +13,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace pclalgo
 {
@@ -337,6 +339,82 @@ bool spareRegisterMeshSoupToTarget(
 	if (!copyNormalsOrEstimate(tgtXyz, targetNormals, tgtNormals, errMsg))
 	{
 		return false;
+	}
+
+	// 网格 SPARE 原先忽略体素；大网格会极慢。体素>0 时在简化点云上求位移再映射回全顶点
+	if (params.voxelPrefilterMm > 0.0)
+	{
+		std::vector<float> srcWork = srcXyz;
+		std::vector<float> tgtWork = tgtXyz;
+		(void)downsampleVoxelGrid(srcWork, params.voxelPrefilterMm, 1U, nullptr);
+		(void)downsampleVoxelGrid(tgtWork, params.voxelPrefilterMm, 1U, nullptr);
+		std::vector<float> srcWorkN;
+		std::vector<float> tgtWorkN;
+		if (!copyNormalsOrEstimate(srcWork, {}, srcWorkN, errMsg)
+			|| !copyNormalsOrEstimate(tgtWork, {}, tgtWorkN, errMsg))
+		{
+			return false;
+		}
+		const std::vector<float> srcWorkBefore = srcWork;
+		std::vector<float> srcWorkDef;
+		std::vector<float> srcWorkDefN;
+		SpareRegisterParams pcParams = params;
+		pcParams.voxelPrefilterMm = 0.0;
+		if (!spareRegisterPointClouds(
+				srcWork,
+				srcWorkN,
+				tgtWork,
+				tgtWorkN,
+				srcWorkDef,
+				srcWorkDefN,
+				pcParams,
+				stats,
+				errMsg))
+		{
+			return false;
+		}
+		if (srcWorkDef.size() != srcWorkBefore.size())
+		{
+			if (errMsg)
+			{
+				*errMsg = "SPARE voxel remap size mismatch";
+			}
+			return false;
+		}
+		KdTreePointSet tree(srcWorkBefore);
+		const double maxDistSq = std::numeric_limits<double>::max();
+		for (std::size_t i = 0; i < source.vertexCount(); ++i)
+		{
+			const std::size_t b = i * 3U;
+			double distSq = 0.0;
+			const std::size_t nn = tree.findNearest(
+				static_cast<double>(srcXyz[b]),
+				static_cast<double>(srcXyz[b + 1U]),
+				static_cast<double>(srcXyz[b + 2U]),
+				maxDistSq,
+				distSq);
+			if (nn == static_cast<std::size_t>(-1) || nn * 3U + 2U >= srcWorkDef.size())
+			{
+				continue;
+			}
+			const std::size_t nb = nn * 3U;
+			const float dx = srcWorkDef[nb] - srcWorkBefore[nb];
+			const float dy = srcWorkDef[nb + 1U] - srcWorkBefore[nb + 1U];
+			const float dz = srcWorkDef[nb + 2U] - srcWorkBefore[nb + 2U];
+			source.positions[i] = spare::Vector3(
+				srcXyz[b] + dx,
+				srcXyz[b + 1U] + dy,
+				srcXyz[b + 2U] + dz);
+			if (nb + 2U < srcWorkDefN.size())
+			{
+				source.normals[i] = spare::Vector3(
+					srcWorkDefN[nb],
+					srcWorkDefN[nb + 1U],
+					srcWorkDefN[nb + 2U]);
+			}
+		}
+		spare::spareSurfaceToMeshSoup(source, sourceSoup, sourceSoupDeformedOut);
+		return true;
 	}
 
 	if (!applyPreAlign(srcXyz, srcNormals, tgtXyz, tgtNormals, params, errMsg))

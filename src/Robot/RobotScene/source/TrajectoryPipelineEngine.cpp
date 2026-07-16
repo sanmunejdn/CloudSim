@@ -1,6 +1,7 @@
 #include "TrajectoryPipelineEngine.h"
 
 #include "RobotSceneGeometryProjection.h"
+#include "RobotSceneNonRigidTrajectoryWarp.h"
 #include "TrajectoryOpBridge.h"
 
 #include <ITrajectoryOp.h>
@@ -188,6 +189,7 @@ bool TrajectoryPipelineEngine::applyGeometryOp(
 	trajectory_algo::TrajectoryOpExecutionContext ctx{};
 	ctx.program = m_program;
 	ctx.geometryProjection = &robotSceneGeometryProjection();
+	ctx.nonRigidTrajectoryWarp = &robotSceneNonRigidTrajectoryWarp();
 	if (impl->processPath(op, unified, ctx, errMsg))
 	{
 		return true;
@@ -204,6 +206,12 @@ bool TrajectoryPipelineEngine::runStep(
 	UnifiedTrajectory& unified,
 	std::string* errMsg)
 {
+	if (!step.op.enabled)
+	{
+		step.cachedUnified = unified;
+		m_result = unified;
+		return true;
+	}
 	if (!applyGeometryOp(step.op, unified, errMsg))
 	{
 		return false;

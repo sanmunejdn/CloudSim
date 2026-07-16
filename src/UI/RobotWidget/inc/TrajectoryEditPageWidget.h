@@ -250,7 +250,8 @@ private:
 
 	QComboBox* m_scopeGroupCombo = nullptr;
 	QComboBox* m_geometryBackendCombo = nullptr;
-	QPushButton* m_geometryBackendPickBtn = nullptr;
+	QComboBox* m_nonRigidSourceCombo = nullptr;
+	QComboBox* m_nonRigidTargetCombo = nullptr;
 
 	TrajectoryOpParamPanel* m_paramPanel = nullptr;
 

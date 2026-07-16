@@ -3860,7 +3860,55 @@ bool discretizeStepToMesh(
 	geoalgo::MeshDiscretizeReport& report,
 	std::string* errMsg)
 {
-	return geoalgo::tessellateStepFileToMesh(stepPathUtf8, params, soup, report, errMsg);
+	if (!geoalgo::tessellateStepFileToMesh(stepPathUtf8, params, soup, report, errMsg))
+	{
+		return false;
+	}
+
+	if (params.densityControl != geoalgo::MeshDensityControl::TargetEdgeLength
+		|| !(params.targetEdgeLengthMm > 0.0))
+	{
+		return true;
+	}
+
+#if defined(_WIN64)
+	// 单次 remesh：塌缩过密圆角 + 加密大面到目标边长；失败保留 refine 结果
+	constexpr std::size_t kRemeshMaxTris = 800000U;
+	if (soup.size() / 9U > kRemeshMaxTris)
+	{
+		geoalgo::fillMeshReport(soup, report);
+		return !soup.empty();
+	}
+
+	std::vector<float> working = soup;
+	{
+		vcgalgo::RepairParams repairParams;
+		std::vector<float> repaired;
+		if (vcgalgo::repairMesh(working, repaired, repairParams, nullptr, nullptr) && !repaired.empty())
+		{
+			working = std::move(repaired);
+		}
+	}
+
+	std::vector<float> remeshed;
+	if (vcgalgo::isotropicRemesh(working, params.targetEdgeLengthMm, remeshed, 3, 30.0, nullptr)
+		&& !remeshed.empty())
+	{
+		soup = std::move(remeshed);
+	}
+	else
+	{
+		soup = std::move(working);
+	}
+	geoalgo::fillMeshReport(soup, report);
+	return !soup.empty();
+#else
+	if (errMsg)
+	{
+		*errMsg = "target edge length remesh requires Win64 VcgAlgorithms";
+	}
+	return false;
+#endif
 }
 
 bool discretizeStepFaceToMesh(

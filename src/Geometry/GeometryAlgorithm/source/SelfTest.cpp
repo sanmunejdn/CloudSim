@@ -244,6 +244,53 @@ bool runSelfTest(std::vector<std::string>& failures)
 	}
 
 	{
+		const TopoDS_Shape box = BRepPrimAPI_MakeBox(80.0, 80.0, 80.0).Shape();
+		MeshDiscretizeParams params;
+		params.densityControl = MeshDensityControl::TargetTriangleCount;
+		params.targetTriangleCount = 2000U;
+		std::vector<float> soup;
+		MeshDiscretizeReport report;
+		std::string err;
+		if (!discretizeShapeToMesh(box, params, soup, report, &err))
+		{
+			fail("targetTriangleCount", err);
+		}
+		else
+		{
+			const double ratio = static_cast<double>(report.triangleCount)
+				/ static_cast<double>(params.targetTriangleCount);
+			if (ratio < 0.5 || ratio > 2.0)
+			{
+				fail("targetTriangleCount", "triangle count far from target");
+			}
+		}
+	}
+
+	{
+		// 扁盒大平面：OCC 基面稀，靠最长边细分压到目标边长
+		const TopoDS_Shape slab = BRepPrimAPI_MakeBox(100.0, 100.0, 2.0).Shape();
+		MeshDiscretizeParams params;
+		params.densityControl = MeshDensityControl::TargetEdgeLength;
+		params.targetEdgeLengthMm = 5.0;
+		std::vector<float> soup;
+		MeshDiscretizeReport report;
+		std::string err;
+		if (!discretizeShapeToMesh(slab, params, soup, report, &err))
+		{
+			fail("targetEdgeLength", err);
+		}
+		// 算法层预加密到约 1.5×目标；严格边长由 Data remesh 收口
+		else if (!(report.avgEdgeLengthMm > 0.0) || report.avgEdgeLengthMm > 10.0)
+		{
+			fail("targetEdgeLength", "avg edge still much longer than pre-refine budget");
+		}
+		else if (report.triangleCount > 400000U)
+		{
+			fail("targetEdgeLength", "refine exceeded remesh budget");
+		}
+	}
+
+	{
 		Polyline3d line;
 		line.xyz = { 0.f, 0.f, 0.f, 100.f, 0.f, 0.f };
 		MeshDiscretizeParams tube;

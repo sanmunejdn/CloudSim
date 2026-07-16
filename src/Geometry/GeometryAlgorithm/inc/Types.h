@@ -49,10 +49,20 @@ enum class MeshQualityPreset
 	Custom
 };
 
+enum class MeshDensityControl
+{
+	QualityPreset,
+	TargetEdgeLength,
+	TargetTriangleCount
+};
+
 struct MeshDiscretizeParams
 {
 	MeshDiscretizeMode mode = MeshDiscretizeMode::AdaptiveTriangulation;
 	MeshQualityPreset quality = MeshQualityPreset::Medium;
+	MeshDensityControl densityControl = MeshDensityControl::QualityPreset;
+	double targetEdgeLengthMm = 0.0;
+	std::size_t targetTriangleCount = 0;
 	TessellateParams tessellate;
 	int uvGridCountU = 32;
 	int uvGridCountV = 32;

@@ -116,8 +116,6 @@ signals:
 
 private slots:
 
-	void onDiscretize();
-
 	void onPickEdge();
 
 	void onPickFace();
@@ -187,6 +185,8 @@ private:
 
 	void loadParamsForSelectedRow();
 
+	void refreshBrepInfoForSelection();
+
 	void syncStrategyComboToEntry(const geoalgo::FeatureEntry& entry);
 
 	std::string resolveStrategyIdForPick(bool pickFace) const;
@@ -200,6 +200,9 @@ private:
 	void scheduleParameterRediscretize();
 
 	void onParameterRediscretize();
+
+	/// 特征表增删后：有剩余则重离散，清空则清 raw 并经 rawTrajectoryChanged 刷新 3D
+	void syncDiscretizationAfterFeatureTableChange();
 
 	void refreshPreviewFromSession();
 
@@ -274,7 +277,7 @@ private:
 
 	QPushButton* m_cancelPickBtn = nullptr;
 
-	QPushButton* m_discretizeBtn = nullptr;
+	QLabel* m_brepInfoLabel = nullptr;
 
 	QGroupBox* m_previewGroup = nullptr;
 

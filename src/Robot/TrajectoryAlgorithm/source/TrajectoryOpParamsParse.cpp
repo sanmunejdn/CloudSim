@@ -406,6 +406,38 @@ void writeProjectParams(nlohmann::json& params, const RobotInstruction::ProjectT
 	setTrajectoryParamDouble(params, "project.pointCloudHitRadiusMm", value.pointCloudHitRadiusMm);
 }
 
+RobotInstruction::NonRigidRegistrationParams parseNonRigidRegistrationParams(
+	const nlohmann::json& params)
+{
+	RobotInstruction::NonRigidRegistrationParams out{};
+	out.sourceBackendId =
+		trajectoryParamString(params, "nrr.sourceBackendId", out.sourceBackendId);
+	out.targetBackendId =
+		trajectoryParamString(params, "nrr.targetBackendId", out.targetBackendId);
+	out.maxBindDistanceMm =
+		trajectoryParamDouble(params, "nrr.maxBindDistanceMm", out.maxBindDistanceMm);
+	out.sampleRadiusRatio =
+		trajectoryParamDouble(params, "nrr.sampleRadiusRatio", out.sampleRadiusRatio);
+	out.maxOuterIters = trajectoryParamInt(params, "nrr.maxOuterIters", out.maxOuterIters);
+	out.rigidPreAlign = trajectoryParamBool(params, "nrr.rigidPreAlign", out.rigidPreAlign);
+	out.voxelPrefilterMm =
+		trajectoryParamDouble(params, "nrr.voxelPrefilterMm", out.voxelPrefilterMm);
+	return out;
+}
+
+void writeNonRigidRegistrationParams(
+	nlohmann::json& params,
+	const RobotInstruction::NonRigidRegistrationParams& value)
+{
+	setTrajectoryParamString(params, "nrr.sourceBackendId", value.sourceBackendId);
+	setTrajectoryParamString(params, "nrr.targetBackendId", value.targetBackendId);
+	setTrajectoryParamDouble(params, "nrr.maxBindDistanceMm", value.maxBindDistanceMm);
+	setTrajectoryParamDouble(params, "nrr.sampleRadiusRatio", value.sampleRadiusRatio);
+	setTrajectoryParamInt(params, "nrr.maxOuterIters", value.maxOuterIters);
+	setTrajectoryParamBool(params, "nrr.rigidPreAlign", value.rigidPreAlign);
+	setTrajectoryParamDouble(params, "nrr.voxelPrefilterMm", value.voxelPrefilterMm);
+}
+
 void interpolateTransformParamsInPlace(RobotInstruction::TrajectoryOpDescriptor& op, const double t)
 {
 	if (op.kind == RobotInstruction::TrajectoryOpKind::Translate)

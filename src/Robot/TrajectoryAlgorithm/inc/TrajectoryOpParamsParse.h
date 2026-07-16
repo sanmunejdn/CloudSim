@@ -77,6 +77,12 @@ TRAJECTORY_ALGORITHM_API void writeProjectParams(
 	nlohmann::json& params,
 	const RobotInstruction::ProjectToGeometryParams& value);
 
+TRAJECTORY_ALGORITHM_API RobotInstruction::NonRigidRegistrationParams parseNonRigidRegistrationParams(
+	const nlohmann::json& params);
+TRAJECTORY_ALGORITHM_API void writeNonRigidRegistrationParams(
+	nlohmann::json& params,
+	const RobotInstruction::NonRigidRegistrationParams& value);
+
 /// 平移/旋转插值后写回 params
 TRAJECTORY_ALGORITHM_API void interpolateTransformParamsInPlace(
 	RobotInstruction::TrajectoryOpDescriptor& op,

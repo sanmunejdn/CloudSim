@@ -3,11 +3,15 @@
 #include <ITrajectoryOp.h>
 #include "TrajectoryOpBridge.h"
 
+#include <QCheckBox>
 #include <QDrag>
 #include <QDragEnterEvent>
 #include <QDropEvent>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QMimeData>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 
 #include <cmath>
 #include <cstring>
@@ -16,7 +20,7 @@ namespace
 {
 RobotInstruction::TrajectoryOpKind kindFromInt(const int v)
 {
-	const int maxKind = static_cast<int>(RobotInstruction::TrajectoryOpKind::ProjectToGeometry);
+	const int maxKind = static_cast<int>(RobotInstruction::TrajectoryOpKind::NonRigidRegistration);
 	if (v < 0 || v > maxKind)
 	{
 		return RobotInstruction::TrajectoryOpKind::Translate;
@@ -128,11 +132,8 @@ void TrajectoryPipelineListWidget::updateOpAt(
 		return;
 	}
 	m_ops[static_cast<size_t>(index)] = op;
-	// 仅改参数时不重建列表，避免 itemSelectionChanged → loadSelectedOpToParams → clearRows 重入
-	if (QListWidgetItem* listItem = QListWidget::item(index))
-	{
-		listItem->setText(formatOpSummary(op));
-	}
+	// 仅刷新行控件，避免 itemSelectionChanged → loadSelectedOpToParams 重入
+	refreshRowWidget(index);
 }
 
 void TrajectoryPipelineListWidget::setDefaultOpFactory(DefaultOpFactory factory)
@@ -254,10 +255,13 @@ void TrajectoryPipelineListWidget::rebuildItems()
 	const int prev = selectedOpIndex();
 	blockSignals(true);
 	clear();
-	for (const RobotInstruction::TrajectoryOpDescriptor& op : m_ops)
+	for (int i = 0; i < static_cast<int>(m_ops.size()); ++i)
 	{
-		auto* item = new QListWidgetItem(formatOpSummary(op), this);
-		item->setData(Qt::UserRole, static_cast<int>(op.kind));
+		auto* item = new QListWidgetItem(this);
+		item->setData(Qt::UserRole, static_cast<int>(m_ops[static_cast<size_t>(i)].kind));
+		QWidget* rowWidget = createRowWidget(i, m_ops[static_cast<size_t>(i)]);
+		item->setSizeHint(rowWidget->sizeHint());
+		setItemWidget(item, rowWidget);
 	}
 	blockSignals(false);
 	// 外层 QSignalBlocker（如 dropEvent）期间勿恢复选中，避免 itemSelectionChanged 与手动 emit 叠加
@@ -265,6 +269,77 @@ void TrajectoryPipelineListWidget::rebuildItems()
 	{
 		setCurrentRow(prev);
 	}
+}
+
+void TrajectoryPipelineListWidget::refreshRowWidget(const int index)
+{
+	if (index < 0 || index >= static_cast<int>(m_ops.size()) || index >= count())
+	{
+		return;
+	}
+	QListWidgetItem* listItem = QListWidget::item(index);
+	if (!listItem)
+	{
+		return;
+	}
+	QWidget* rowWidget = createRowWidget(index, m_ops[static_cast<size_t>(index)]);
+	listItem->setSizeHint(rowWidget->sizeHint());
+	setItemWidget(listItem, rowWidget);
+}
+
+QWidget* TrajectoryPipelineListWidget::createRowWidget(
+	const int index,
+	const RobotInstruction::TrajectoryOpDescriptor& op)
+{
+	auto* row = new QWidget(this);
+	auto* layout = new QHBoxLayout(row);
+	layout->setContentsMargins(4, 1, 4, 1);
+	layout->setSpacing(6);
+
+	auto* summary = new QLabel(formatOpSummary(op), row);
+	summary->setObjectName(QStringLiteral("opSummary"));
+	summary->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+	if (!op.enabled)
+	{
+		summary->setStyleSheet(QStringLiteral("color: palette(mid);"));
+	}
+	layout->addWidget(summary, 1);
+
+	auto* enable = new QCheckBox(
+		m_useChinese ? QStringLiteral("启用") : QStringLiteral("On"),
+		row);
+	enable->setObjectName(QStringLiteral("opEnabled"));
+	enable->setProperty("opIndex", index);
+	{
+		const QSignalBlocker blocker(enable);
+		enable->setChecked(op.enabled);
+	}
+	connect(enable, &QCheckBox::toggled, this, &TrajectoryPipelineListWidget::onEnableCheckToggled);
+	layout->addWidget(enable, 0);
+
+	row->setMinimumHeight(26);
+	return row;
+}
+
+void TrajectoryPipelineListWidget::onEnableCheckToggled(const bool checked)
+{
+	auto* box = qobject_cast<QCheckBox*>(sender());
+	if (!box)
+	{
+		return;
+	}
+	const int index = box->property("opIndex").toInt();
+	if (index < 0 || index >= static_cast<int>(m_ops.size()))
+	{
+		return;
+	}
+	if (m_ops[static_cast<size_t>(index)].enabled == checked)
+	{
+		return;
+	}
+	m_ops[static_cast<size_t>(index)].enabled = checked;
+	refreshRowWidget(index);
+	emit opsChanged();
 }
 
 QString TrajectoryPipelineListWidget::formatOpSummary(const RobotInstruction::TrajectoryOpDescriptor& op) const
