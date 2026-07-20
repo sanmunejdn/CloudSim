@@ -1,3 +1,6 @@
+﻿/// @file PluginDelegatedBackend.cpp
+/// @brief PluginDelegatedBackend 实现
+
 #include "PluginDelegatedBackend.h"
 
 #include <json.hpp>
@@ -32,9 +35,7 @@ std::size_t PluginDelegatedBackend::geometryElementCount() const
 	return 0U;
 }
 
-void PluginDelegatedBackend::clearGeometry()
-{
-}
+void PluginDelegatedBackend::clearGeometry() {}
 
 nlohmann::json PluginDelegatedBackend::snapshotPropertyRows(const BackendDataManager* mgr) const
 {
@@ -58,7 +59,7 @@ nlohmann::json PluginDelegatedBackend::snapshotPropertyRows(const BackendDataMan
 }
 
 bool PluginDelegatedBackend::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-	const BackendDataManager* mgr)
+												 const BackendDataManager* mgr)
 {
 	(void)mgr;
 	if (!m_delegate)

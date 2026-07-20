@@ -1,9 +1,39 @@
+﻿/// @file MainWindowUiSetup.cpp
+/// @brief 内容区已有 QTabWidget 时隐藏 Dock 自带标题栏，避免与页签重复。
+
+#include "../RobotWidget/inc/IRobotOsgViewHost.h"
+#include "../RobotWidget/inc/RobotSimulationController.h"
+#include "../RobotWidget/inc/RobotSimulationDockWidget.h"
+#include "AiAssistantCoordinator.h"
+#include "AiAssistantDockWidget.h"
+#include "AppIcon.h"
+#include "ApplicationStyle.h"
+#include "CoreEvents.h"
+#include "DevicePageWidget.h"
+#include "DocumentPage.h"
+#include "EventHub.h"
+#include "JobSystem.h"
 #include "MainWindow.h"
+#include "MainWindowRobotHost.h"
+#include "MainWindowSelectionService.h"
+#include "MainWindow_p.h"
+#include "PluginManager.h"
+#include "ProgressManager.h"
+#include "RunInfoPage.h"
+#include "RunLogger.h"
+#include "UiIconDecorators.h"
+#include "WidgetRenderAccess.h"
+#include "qteditorfactory.h"
+#include "qttreepropertybrowser.h"
+#include "qtvariantproperty.h"
 
 #include <QAbstractItemView>
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
+#include <QByteArray>
+#include <QCoreApplication>
+#include <QDir>
 #include <QDockWidget>
 #include <QHeaderView>
 #include <QMenu>
@@ -17,39 +47,8 @@
 #include <QTreeWidgetItem>
 #include <QVBoxLayout>
 #include <QWidget>
-
-#include "AppIcon.h"
-#include "ApplicationStyle.h"
-#include "UiIconDecorators.h"
-#include "DocumentPage.h"
-#include "CoreEvents.h"
-#include "EventHub.h"
-#include "DevicePageWidget.h"
-#include "JobSystem.h"
-#include "MainWindowSelectionService.h"
-#include "MainWindow_p.h"
-#include "WidgetRenderAccess.h"
-#include "../RobotWidget/inc/IRobotOsgViewHost.h"
-#include "PluginManager.h"
-#include "ProgressManager.h"
-#include "RunInfoPage.h"
-#include "RunLogger.h"
-#include "MainWindowRobotHost.h"
-#include "../RobotWidget/inc/RobotSimulationController.h"
-#include "../RobotWidget/inc/RobotSimulationDockWidget.h"
-#include "AiAssistantDockWidget.h"
-#include "AiAssistantCoordinator.h"
-
-#include <QByteArray>
-#include <QCoreApplication>
-#include <QDir>
-
 #include <mutex>
 #include <string>
-
-#include "qteditorfactory.h"
-#include "qttreepropertybrowser.h"
-#include "qtvariantproperty.h"
 
 using namespace mainwindow_detail;
 using namespace RobotSimulation;
@@ -83,33 +82,34 @@ void setupDockTabWidget(QTabWidget* tabs)
 } // namespace
 
 MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
-	: QMainWindow(parent)
-	, m_appEvents(appEvents)
-	, m_instructionPropertyUiHost(*this)
+	: QMainWindow(parent), m_appEvents(appEvents), m_instructionPropertyUiHost(*this)
 {
 	// RunLogger must live in this DLL (same TU as RunInfoPage::setUiSink). The exe used to link RunLogger.lib
 	// separately, which duplicated globals so file logging initialized in main never matched UI / RobotScene.
 	static std::once_flag s_runLoggerOnce;
-	std::call_once(s_runLoggerOnce, []() {
-		const QString logDir =
-			QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("logs"));
-		(void)RunLogger::initialize(logDir.toStdString(), "CloudSim");
-		RunLogger::info("Application bootstrap started.");
-		const QByteArray kd = qgetenv("ROBOT_KINEMATICS_DEBUG");
-		if (!kd.isEmpty() && kd != QByteArray("0"))
+	std::call_once(
+		s_runLoggerOnce,
+		[]()
 		{
-			RunLogger::info(std::string("[RobotKinematicsDBG] ROBOT_KINEMATICS_DEBUG=") + kd.constData()
-				+ " 鈥?FK dumps: 1=compact 2|full=4x4; use --robot-kinematics-debug 1");
-			RunLogger::flush();
-		}
-		const QByteArray gpd = qgetenv("POINTCLOUD_GIZMO_PIVOT_DIAG");
-		if (!gpd.isEmpty() && gpd != QByteArray("0"))
-		{
-			RunLogger::info(std::string("[GizmoPivotDiag] POINTCLOUD_GIZMO_PIVOT_DIAG=") + gpd.constData()
-				+ " 鈥?pivot vs file-origin dumps on selection sync and gizmo drag release");
-			RunLogger::flush();
-		}
-	});
+			const QString logDir =
+				QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("logs"));
+			(void)RunLogger::initialize(logDir.toStdString(), "CloudSim");
+			RunLogger::info("Application bootstrap started.");
+			const QByteArray kd = qgetenv("ROBOT_KINEMATICS_DEBUG");
+			if (!kd.isEmpty() && kd != QByteArray("0"))
+			{
+				RunLogger::info(std::string("[RobotKinematicsDBG] ROBOT_KINEMATICS_DEBUG=") + kd.constData() +
+								" 鈥?FK dumps: 1=compact 2|full=4x4; use --robot-kinematics-debug 1");
+				RunLogger::flush();
+			}
+			const QByteArray gpd = qgetenv("POINTCLOUD_GIZMO_PIVOT_DIAG");
+			if (!gpd.isEmpty() && gpd != QByteArray("0"))
+			{
+				RunLogger::info(std::string("[GizmoPivotDiag] POINTCLOUD_GIZMO_PIVOT_DIAG=") + gpd.constData() +
+								" 鈥?pivot vs file-origin dumps on selection sync and gizmo drag release");
+				RunLogger::flush();
+			}
+		});
 
 	// 设置应用 Logo（标题栏 + 任务栏 + QMessageBox 图标）
 	QApplication::setWindowIcon(AppIcon::logo());
@@ -164,7 +164,8 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	centralLayout->addWidget(centerSplitter, 1);
 
 	m_appEvents.subscribe<cloudsim::core::BackendObjectRegisteredEvent>(
-		[this](const cloudsim::core::BackendObjectRegisteredEvent& ev) {
+		[this](const cloudsim::core::BackendObjectRegisteredEvent& ev)
+		{
 			if (m_backendTreeEventRefreshSuppress > 0)
 			{
 				return;
@@ -177,7 +178,8 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 			refreshBackendTree();
 		});
 	m_appEvents.subscribe<cloudsim::core::BackendObjectRemovedEvent>(
-		[this](const cloudsim::core::BackendObjectRemovedEvent& ev) {
+		[this](const cloudsim::core::BackendObjectRemovedEvent& ev)
+		{
 			if (m_backendTreeEventRefreshSuppress > 0)
 			{
 				return;
@@ -190,7 +192,8 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 			refreshBackendTree();
 		});
 	m_appEvents.subscribe<cloudsim::core::SelectionChangedEvent>(
-		[this](const cloudsim::core::SelectionChangedEvent& ev) {
+		[this](const cloudsim::core::SelectionChangedEvent& ev)
+		{
 			DocumentPage* page = currentPage();
 			if (!page || ev.documentId != page->documentId())
 			{
@@ -207,23 +210,25 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 			}
 			updatePropertyPanel(ev.primaryId);
 		});
-	m_appEvents.subscribe<cloudsim::core::PoseCommittedEvent>([this](const cloudsim::core::PoseCommittedEvent& ev) {
-		DocumentPage* page = currentPage();
-		if (!page || ev.documentId != page->documentId())
+	m_appEvents.subscribe<cloudsim::core::PoseCommittedEvent>(
+		[this](const cloudsim::core::PoseCommittedEvent& ev)
 		{
-			return;
-		}
-		if (!m_selectionState.hasBackendSelection() || m_selectionState.selectedBackendId() != ev.objectId)
-		{
-			return;
-		}
-		if (shouldDeferPropertyPanelRebuild(ev.objectId))
-		{
-			syncPropertyPanelRowValues(ev.objectId);
-			return;
-		}
-		schedulePropertyPanelCommitRefresh(ev.objectId);
-	});
+			DocumentPage* page = currentPage();
+			if (!page || ev.documentId != page->documentId())
+			{
+				return;
+			}
+			if (!m_selectionState.hasBackendSelection() || m_selectionState.selectedBackendId() != ev.objectId)
+			{
+				return;
+			}
+			if (shouldDeferPropertyPanelRebuild(ev.objectId))
+			{
+				syncPropertyPanelRowValues(ev.objectId);
+				return;
+			}
+			schedulePropertyPanelCommitRefresh(ev.objectId);
+		});
 
 	setCentralWidget(central);
 	setupDockWidgets();
@@ -243,24 +248,21 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	if (m_jobSystem->progressManager())
 	{
 		connect(m_jobSystem->progressManager(), &ProgressManager::jobProgress, this,
-			[this](quint64 /*jobId*/, double /*fraction*/, const QString& message) {
-				if (!message.isEmpty() && m_runInfoPage)
+				[this](quint64 /*jobId*/, double /*fraction*/, const QString& message)
 				{
-					m_runInfoPage->appendInfo(message);
-				}
-			});
+					if (!message.isEmpty() && m_runInfoPage)
+					{
+						m_runInfoPage->appendInfo(message);
+					}
+				});
 	}
 	applyLanguage();
 	const ApplicationStyle::Theme savedTheme = ApplicationStyle::loadSavedTheme();
 	ApplicationStyle::applyTheme(qApp, savedTheme);
 	setAllDocumentViewerDarkBackground(savedTheme == ApplicationStyle::Theme::Dark);
 	// 首文档在 applyTheme 前创建，延迟重刷视口按钮样式
-	QTimer::singleShot(0, this, [this]() {
-		setAllDocumentViewerDarkBackground(viewerUsesDarkBackground());
-	});
-	QTimer::singleShot(100, this, [this]() {
-		setAllDocumentViewerDarkBackground(viewerUsesDarkBackground());
-	});
+	QTimer::singleShot(0, this, [this]() { setAllDocumentViewerDarkBackground(viewerUsesDarkBackground()); });
+	QTimer::singleShot(100, this, [this]() { setAllDocumentViewerDarkBackground(viewerUsesDarkBackground()); });
 	if (m_lightThemeAction && m_darkThemeAction)
 	{
 		m_lightThemeAction->blockSignals(true);
@@ -270,7 +272,8 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 		m_lightThemeAction->blockSignals(false);
 		m_darkThemeAction->blockSignals(false);
 	}
-	const QString pluginReport = [this]() {
+	const QString pluginReport = [this]()
+	{
 		DocumentPage* page = currentPage();
 		if (!page)
 		{
@@ -282,7 +285,7 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 	if (m_runInfoPage)
 	{
 		m_runInfoPage->appendInfo(i18n(QStringLiteral("Application started."),
-			QStringLiteral("\u5e94\u7528\u7a0b\u5e8f\u5df2\u542f\u52a8\u3002")));
+									   QStringLiteral("\u5e94\u7528\u7a0b\u5e8f\u5df2\u542f\u52a8\u3002")));
 		m_runInfoPage->appendInfo(pluginReport);
 	}
 	onDocumentTabChanged(m_documentTabs ? m_documentTabs->currentIndex() : -1);
@@ -297,11 +300,13 @@ void MainWindow::setupMenuBar()
 	m_fileMenu = menuBar()->addMenu(QStringLiteral("File"));
 	m_newDocumentAction = m_fileMenu->addAction(QStringLiteral("New"), this, &MainWindow::onNewDocument);
 	m_fileMenu->addSeparator();
-	m_openProjectAction = m_fileMenu->addAction(QStringLiteral("Open Project..."), this, &MainWindow::onOpenProjectFile);
+	m_openProjectAction =
+		m_fileMenu->addAction(QStringLiteral("Open Project..."), this, &MainWindow::onOpenProjectFile);
 	m_saveAction = m_fileMenu->addAction(QStringLiteral("Save Project..."), this, &MainWindow::onSaveProject);
 	m_fileMenu->addSeparator();
 	m_openModelAction = m_fileMenu->addAction(QStringLiteral("Open Model..."), this, &MainWindow::onOpenModel);
-	m_openPointCloudAction = m_fileMenu->addAction(QStringLiteral("Open Point Cloud..."), this, &MainWindow::onOpenPointCloud);
+	m_openPointCloudAction =
+		m_fileMenu->addAction(QStringLiteral("Open Point Cloud..."), this, &MainWindow::onOpenPointCloud);
 	m_fileMenu->addSeparator();
 	m_exitAction = m_fileMenu->addAction(QStringLiteral("Exit"), this, &QWidget::close);
 
@@ -350,26 +355,34 @@ void MainWindow::setupMenuBar()
 	m_gizmoWorldFrameAction->setCheckable(true);
 	m_gizmoFrameGroup->addAction(m_gizmoWorldFrameAction);
 	m_gizmoLocalFrameAction->setChecked(true);
-	connect(m_gizmoLocalFrameAction, &QAction::triggered, this, [this](bool checked) {
-		if (!checked)
-		{
-			return;
-		}
-		if (IRobotOsgViewHost* view = activeOsgViewHost())
-		{
-			view->setTransformGizmoFrame(1);
-		}
-	});
-	connect(m_gizmoWorldFrameAction, &QAction::triggered, this, [this](bool checked) {
-		if (!checked)
-		{
-			return;
-		}
-		if (IRobotOsgViewHost* view = activeOsgViewHost())
-		{
-			view->setTransformGizmoFrame(0);
-		}
-	});
+	connect(m_gizmoLocalFrameAction, &QAction::triggered, this,
+			[this](bool checked)
+			{
+				if (!checked)
+				{
+					return;
+				}
+				if (IRobotOsgViewHost* view = activeOsgViewHost())
+				{
+					view->setTransformGizmoFrame(1);
+				}
+			});
+	connect(m_gizmoWorldFrameAction, &QAction::triggered, this,
+			[this](bool checked)
+			{
+				if (!checked)
+				{
+					return;
+				}
+				if (IRobotOsgViewHost* view = activeOsgViewHost())
+				{
+					view->setTransformGizmoFrame(0);
+				}
+			});
+	m_insertMenu = menuBar()->addMenu(QStringLiteral("Insert"));
+	m_createCoordinateFrameAction = m_insertMenu->addAction(
+		QStringLiteral("Coordinate Frame..."), this, &MainWindow::onCreateCoordinateFrame);
+
 	m_settingsMenu = menuBar()->addMenu(QStringLiteral("Settings"));
 	m_appearanceMenu = m_settingsMenu->addMenu(QStringLiteral("Theme"));
 	m_themeActionGroup = new QActionGroup(this);
@@ -415,22 +428,23 @@ void MainWindow::setupDockWidgets()
 	m_propertyDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 	m_variantManager = new QtVariantPropertyManager(this);
 	m_variantFactory = new QtVariantEditorFactory(this);
-m_propertyBrowser = new QtTreePropertyBrowser();
-		m_propertyBrowser->setFactoryForManager(m_variantManager, m_variantFactory);
-		m_propertyBrowser->setResizeMode(QtTreePropertyBrowser::ResizeToContents);
-		m_propertyBrowser->setAlternatingRowColors(true);
-		m_propertyBrowser->setHeaderVisible(true);
-		m_propertyBrowser->setRootIsDecorated(false);
-		// 分割位置适应240px面板
-		m_propertyBrowser->setSplitterPosition(100);
+	m_propertyBrowser = new QtTreePropertyBrowser();
+	m_propertyBrowser->setFactoryForManager(m_variantManager, m_variantFactory);
+	m_propertyBrowser->setResizeMode(QtTreePropertyBrowser::ResizeToContents);
+	m_propertyBrowser->setAlternatingRowColors(true);
+	m_propertyBrowser->setHeaderVisible(true);
+	m_propertyBrowser->setRootIsDecorated(false);
+	// 分割位置适应240px面板
+	m_propertyBrowser->setSplitterPosition(100);
 	if (QTreeWidget* propTree = m_propertyBrowser->findChild<QTreeWidget*>())
 	{
-		propTree->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::SelectedClicked
-			| QAbstractItemView::EditKeyPressed | QAbstractItemView::AnyKeyPressed);
+		propTree->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::SelectedClicked |
+								  QAbstractItemView::EditKeyPressed | QAbstractItemView::AnyKeyPressed);
 		// 增加行高
 		propTree->setUniformRowHeights(true);
 	}
-	connect(m_variantManager, &QtVariantPropertyManager::valueChanged, this, &MainWindow::onVariantPropertyValueChanged);
+	connect(m_variantManager, &QtVariantPropertyManager::valueChanged, this,
+			&MainWindow::onVariantPropertyValueChanged);
 	installPropertyPanelEventFilter();
 	m_propertyDockTabs = new QTabWidget(m_propertyDock);
 	setupDockTabWidget(m_propertyDockTabs);
@@ -442,44 +456,44 @@ m_propertyBrowser = new QtTreePropertyBrowser();
 	connect(m_devicePage, &DevicePageWidget::urdfImportRequested, this, &MainWindow::onUrdfImportRequested);
 	addDockWidget(Qt::LeftDockWidgetArea, m_propertyDock);
 	// 左侧属性面板宽度：240px
-	resizeDocks({ m_propertyDock }, { 240 }, Qt::Horizontal);
+	resizeDocks({m_propertyDock}, {240}, Qt::Horizontal);
 
 	m_unitDock = new QDockWidget(QStringLiteral("Workspace"), this);
 	m_unitDock->setObjectName(QStringLiteral("UnitDock"));
 	m_unitDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 	m_unitDockTabs = new QTabWidget(m_unitDock);
 	setupDockTabWidget(m_unitDockTabs);
-m_backendTree = new QTreeWidget();
-		m_backendTree->setHeaderHidden(true);
-		m_backendTree->setIndentation(16);
-		m_backendTree->setAnimated(true);
-		m_backendRootItem = new QTreeWidgetItem(QStringList() << QStringLiteral("BackendDataManager"));
-		m_backendTree->addTopLevelItem(m_backendRootItem);
-		m_annotationRootItem = new QTreeWidgetItem(QStringList() << QStringLiteral("Annotations"));
-		m_backendRootItem->addChild(m_annotationRootItem);
-		m_backendRootItem->setExpanded(true);
-		m_annotationRootItem->setExpanded(true);
-		connect(m_backendTree, &QTreeWidget::itemSelectionChanged, this, &MainWindow::onBackendTreeSelectionChanged);
-		connect(m_backendTree, &QTreeWidget::itemChanged, this, [this](QTreeWidgetItem* item, int column) {
-			MainWindowSelectionService::handleBackendTreeItemChanged(*this, item, column);
-		});
-		m_backendTree->setContextMenuPolicy(Qt::CustomContextMenu);
-		connect(m_backendTree, &QTreeWidget::customContextMenuRequested, this, &MainWindow::onBackendTreeContextMenu);
+	m_backendTree = new QTreeWidget();
+	m_backendTree->setHeaderHidden(true);
+	m_backendTree->setIndentation(16);
+	m_backendTree->setAnimated(true);
+	m_backendRootItem = new QTreeWidgetItem(QStringList() << QStringLiteral("BackendDataManager"));
+	m_backendTree->addTopLevelItem(m_backendRootItem);
+	m_annotationRootItem = new QTreeWidgetItem(QStringList() << QStringLiteral("Annotations"));
+	m_backendRootItem->addChild(m_annotationRootItem);
+	m_backendRootItem->setExpanded(true);
+	m_annotationRootItem->setExpanded(true);
+	connect(m_backendTree, &QTreeWidget::itemSelectionChanged, this, &MainWindow::onBackendTreeSelectionChanged);
+	connect(m_backendTree, &QTreeWidget::itemChanged, this,
+			[this](QTreeWidgetItem* item, int column)
+			{ MainWindowSelectionService::handleBackendTreeItemChanged(*this, item, column); });
+	m_backendTree->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(m_backendTree, &QTreeWidget::customContextMenuRequested, this, &MainWindow::onBackendTreeContextMenu);
 	m_robotSimulation->createSimulationDock(m_unitDockTabs);
 	m_unitDockTabs->addTab(m_backendTree, QStringLiteral("Units"));
 	m_unitDockTabs->addTab(m_robotSimulation->simulationDock(), QStringLiteral("Simulation"));
 	m_robotSimulation->wireSimulationSignals();
-m_osgSceneTree = new QTreeWidget();
-		m_osgSceneTree->setColumnCount(2);
-		m_osgSceneTree->setHeaderHidden(false);
-		m_osgSceneTree->header()->setStretchLastSection(true);
-		// 列宽适应240px右侧面板
-		m_osgSceneTree->setColumnWidth(0, 130);
-		m_osgSceneTree->setUniformRowHeights(true);
-		m_osgSceneTree->setWordWrap(true);
-		m_osgSceneTree->setAnimated(true);
-		m_osgSceneTree->setIndentation(14);
-		m_osgSceneTree->setHeaderLabels(QStringList() << QStringLiteral("Node") << QStringLiteral("Local transform"));
+	m_osgSceneTree = new QTreeWidget();
+	m_osgSceneTree->setColumnCount(2);
+	m_osgSceneTree->setHeaderHidden(false);
+	m_osgSceneTree->header()->setStretchLastSection(true);
+	// 列宽适应240px右侧面板
+	m_osgSceneTree->setColumnWidth(0, 130);
+	m_osgSceneTree->setUniformRowHeights(true);
+	m_osgSceneTree->setWordWrap(true);
+	m_osgSceneTree->setAnimated(true);
+	m_osgSceneTree->setIndentation(14);
+	m_osgSceneTree->setHeaderLabels(QStringList() << QStringLiteral("Node") << QStringLiteral("Local transform"));
 	m_unitDockTabs->addTab(m_osgSceneTree, QStringLiteral("Scene"));
 
 	m_rightPanelTabs = new QTabWidget(m_unitDock);
@@ -490,7 +504,7 @@ m_osgSceneTree = new QTreeWidget();
 	hideDockTitleBar(m_unitDock);
 	addDockWidget(Qt::RightDockWidgetArea, m_unitDock);
 	// 右侧面板默认宽度：轨迹/AI 需要比属性栏更宽
-	resizeDocks({ m_unitDock }, { 360 }, Qt::Horizontal);
+	resizeDocks({m_unitDock}, {360}, Qt::Horizontal);
 	setTabPosition(Qt::RightDockWidgetArea, QTabWidget::North);
 	setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
 	setTabPosition(Qt::BottomDockWidgetArea, QTabWidget::North);
@@ -503,10 +517,8 @@ m_osgSceneTree = new QTreeWidget();
 	setupAiAssistantCoordinator();
 
 	m_viewMenu->addSeparator();
-	registerSidePanelTabToggle(
-		m_aiAssistantPage,
-		i18n(QStringLiteral("AI Assistant"), QStringLiteral("AI 助手")),
-		true);
+	registerSidePanelTabToggle(m_aiAssistantPage, i18n(QStringLiteral("AI Assistant"), QStringLiteral("AI 助手")),
+							   true);
 	m_toggleAiAssistantAction = m_sidePanelTabToggles.value(m_aiAssistantPage).viewAction;
 	m_viewPanelToggleInsertBefore = m_toggleAiAssistantAction;
 
@@ -519,9 +531,37 @@ m_osgSceneTree = new QTreeWidget();
 
 MainWindow::~MainWindow()
 {
+	shutdownRuntimeWorkers();
 	if (m_pluginManager)
 	{
 		m_pluginManager->shutdownAll();
+	}
+}
+
+void MainWindow::closeEvent(QCloseEvent* event)
+{
+	shutdownRuntimeWorkers();
+	QMainWindow::closeEvent(event);
+}
+
+void MainWindow::shutdownRuntimeWorkers()
+{
+	if (m_runtimeShutdownDone)
+	{
+		return;
+	}
+	m_runtimeShutdownDone = true;
+
+	stopRobotSimulation();
+	m_robotSimTimer.stop();
+	m_followTargetNameDebounceTimer.stop();
+	m_propertyPanelCommitTimer.stop();
+	m_instructionPropertyRefreshTimer.stop();
+	m_propertyVisualPreviewTimer.stop();
+
+	if (m_jobSystem)
+	{
+		m_jobSystem->shutdown();
 	}
 }
 

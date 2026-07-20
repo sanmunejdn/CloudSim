@@ -1,3 +1,6 @@
+﻿/// @file RegistrationSpare.cpp
+/// @brief RegistrationSpare 实现
+
 #include "RegistrationSpare.h"
 
 #include "Downsample.h"
@@ -17,10 +20,8 @@
 
 namespace pclalgo
 {
-
 namespace
 {
-
 void transformNormalsInPlace(std::vector<float>& normals, const Eigen::Isometry3d& t)
 {
 	if (normals.size() < 3U)
@@ -45,11 +46,8 @@ void transformNormalsInPlace(std::vector<float>& normals, const Eigen::Isometry3
 	}
 }
 
-bool copyNormalsOrEstimate(
-	const std::vector<float>& xyz,
-	const std::vector<float>& normalsIn,
-	std::vector<float>& normalsOut,
-	std::string* errMsg)
+bool copyNormalsOrEstimate(const std::vector<float>& xyz, const std::vector<float>& normalsIn,
+						   std::vector<float>& normalsOut, std::string* errMsg)
 {
 	if (normalsIn.size() == xyz.size() && !normalsIn.empty())
 	{
@@ -83,13 +81,9 @@ spare::SpareInternalParams toInternalParams(const SpareRegisterParams& params)
 	return out;
 }
 
-bool applyPreAlign(
-	std::vector<float>& sourceXyz,
-	std::vector<float>& sourceNormals,
-	const std::vector<float>& targetXyz,
-	const std::vector<float>& targetNormals,
-	const SpareRegisterParams& params,
-	std::string* errMsg)
+bool applyPreAlign(std::vector<float>& sourceXyz, std::vector<float>& sourceNormals,
+				   const std::vector<float>& targetXyz, const std::vector<float>& targetNormals,
+				   const SpareRegisterParams& params, std::string* errMsg)
 {
 	if (params.coarseGlobalAlign)
 	{
@@ -97,15 +91,8 @@ bool applyPreAlign(
 		ransacParams.refineWithIcp = true;
 		Eigen::Isometry3d transform = Eigen::Isometry3d::Identity();
 		double inlierRatio = 0.0;
-		if (!rigidRegisterFeatureRansac(
-				sourceXyz,
-				sourceNormals,
-				targetXyz,
-				targetNormals,
-				transform,
-				&inlierRatio,
-				ransacParams,
-				errMsg))
+		if (!rigidRegisterFeatureRansac(sourceXyz, sourceNormals, targetXyz, targetNormals, transform, &inlierRatio,
+										ransacParams, errMsg))
 		{
 			return false;
 		}
@@ -121,18 +108,9 @@ bool applyPreAlign(
 
 	Eigen::Isometry3d transform = Eigen::Isometry3d::Identity();
 	double rmse = 0.0;
-	if (!rigidRegisterPointToPlaneIcp(
-			sourceXyz,
-			sourceNormals,
-			targetXyz,
-			targetNormals,
-			transform,
-			&rmse,
-			params.rigidPreAlignMaxIterations,
-			0.01,
-			params.rigidPreAlignMaxPairDistanceMm,
-			params.rigidPreAlignMaxPoints,
-			errMsg))
+	if (!rigidRegisterPointToPlaneIcp(sourceXyz, sourceNormals, targetXyz, targetNormals, transform, &rmse,
+									  params.rigidPreAlignMaxIterations, 0.01, params.rigidPreAlignMaxPairDistanceMm,
+									  params.rigidPreAlignMaxPoints, errMsg))
 	{
 		return false;
 	}
@@ -141,10 +119,8 @@ bool applyPreAlign(
 	return true;
 }
 
-bool resolveSampleRadius(
-	const spare::SpareSurface& source,
-	const SpareRegisterParams& params,
-	spare::SpareInternalParams& internal)
+bool resolveSampleRadius(const spare::SpareSurface& source, const SpareRegisterParams& params,
+						 spare::SpareInternalParams& internal)
 {
 	if (params.sampleRadiusRatio > 0.0)
 	{
@@ -164,12 +140,8 @@ bool resolveSampleRadius(
 	return true;
 }
 
-bool runSpareCore(
-	spare::SpareSurface& source,
-	spare::SpareSurface& target,
-	const SpareRegisterParams& params,
-	SpareRegisterResult* stats,
-	std::string* errMsg)
+bool runSpareCore(spare::SpareSurface& source, spare::SpareSurface& target, const SpareRegisterParams& params,
+				  SpareRegisterResult* stats, std::string* errMsg)
 {
 	spare::SpareInternalParams internal = toInternalParams(params);
 	internal.useGeodesicDist = source.hasFaces();
@@ -222,16 +194,10 @@ bool runSpareCore(
 
 } // namespace
 
-bool spareRegisterPointClouds(
-	const std::vector<float>& sourceXyz,
-	const std::vector<float>& sourceNormals,
-	const std::vector<float>& targetXyz,
-	const std::vector<float>& targetNormals,
-	std::vector<float>& sourceXyzDeformedOut,
-	std::vector<float>& sourceNormalsDeformedOut,
-	const SpareRegisterParams& params,
-	SpareRegisterResult* stats,
-	std::string* errMsg)
+bool spareRegisterPointClouds(const std::vector<float>& sourceXyz, const std::vector<float>& sourceNormals,
+							  const std::vector<float>& targetXyz, const std::vector<float>& targetNormals,
+							  std::vector<float>& sourceXyzDeformedOut, std::vector<float>& sourceNormalsDeformedOut,
+							  const SpareRegisterParams& params, SpareRegisterResult* stats, std::string* errMsg)
 {
 	if (!validXyzLength(sourceXyz) || !validXyzLength(targetXyz))
 	{
@@ -302,14 +268,9 @@ bool spareRegisterPointClouds(
 	return true;
 }
 
-bool spareRegisterMeshSoupToTarget(
-	const std::vector<float>& sourceSoup,
-	const std::vector<float>& targetXyz,
-	const std::vector<float>& targetNormals,
-	std::vector<float>& sourceSoupDeformedOut,
-	const SpareRegisterParams& params,
-	SpareRegisterResult* stats,
-	std::string* errMsg)
+bool spareRegisterMeshSoupToTarget(const std::vector<float>& sourceSoup, const std::vector<float>& targetXyz,
+								   const std::vector<float>& targetNormals, std::vector<float>& sourceSoupDeformedOut,
+								   const SpareRegisterParams& params, SpareRegisterResult* stats, std::string* errMsg)
 {
 	if (sourceSoup.size() < 9U || (sourceSoup.size() % 9U) != 0U || !validXyzLength(targetXyz))
 	{
@@ -350,8 +311,8 @@ bool spareRegisterMeshSoupToTarget(
 		(void)downsampleVoxelGrid(tgtWork, params.voxelPrefilterMm, 1U, nullptr);
 		std::vector<float> srcWorkN;
 		std::vector<float> tgtWorkN;
-		if (!copyNormalsOrEstimate(srcWork, {}, srcWorkN, errMsg)
-			|| !copyNormalsOrEstimate(tgtWork, {}, tgtWorkN, errMsg))
+		if (!copyNormalsOrEstimate(srcWork, {}, srcWorkN, errMsg) ||
+			!copyNormalsOrEstimate(tgtWork, {}, tgtWorkN, errMsg))
 		{
 			return false;
 		}
@@ -360,16 +321,8 @@ bool spareRegisterMeshSoupToTarget(
 		std::vector<float> srcWorkDefN;
 		SpareRegisterParams pcParams = params;
 		pcParams.voxelPrefilterMm = 0.0;
-		if (!spareRegisterPointClouds(
-				srcWork,
-				srcWorkN,
-				tgtWork,
-				tgtWorkN,
-				srcWorkDef,
-				srcWorkDefN,
-				pcParams,
-				stats,
-				errMsg))
+		if (!spareRegisterPointClouds(srcWork, srcWorkN, tgtWork, tgtWorkN, srcWorkDef, srcWorkDefN, pcParams, stats,
+									  errMsg))
 		{
 			return false;
 		}
@@ -387,12 +340,8 @@ bool spareRegisterMeshSoupToTarget(
 		{
 			const std::size_t b = i * 3U;
 			double distSq = 0.0;
-			const std::size_t nn = tree.findNearest(
-				static_cast<double>(srcXyz[b]),
-				static_cast<double>(srcXyz[b + 1U]),
-				static_cast<double>(srcXyz[b + 2U]),
-				maxDistSq,
-				distSq);
+			const std::size_t nn = tree.findNearest(static_cast<double>(srcXyz[b]), static_cast<double>(srcXyz[b + 1U]),
+													static_cast<double>(srcXyz[b + 2U]), maxDistSq, distSq);
 			if (nn == static_cast<std::size_t>(-1) || nn * 3U + 2U >= srcWorkDef.size())
 			{
 				continue;
@@ -401,16 +350,10 @@ bool spareRegisterMeshSoupToTarget(
 			const float dx = srcWorkDef[nb] - srcWorkBefore[nb];
 			const float dy = srcWorkDef[nb + 1U] - srcWorkBefore[nb + 1U];
 			const float dz = srcWorkDef[nb + 2U] - srcWorkBefore[nb + 2U];
-			source.positions[i] = spare::Vector3(
-				srcXyz[b] + dx,
-				srcXyz[b + 1U] + dy,
-				srcXyz[b + 2U] + dz);
+			source.positions[i] = spare::Vector3(srcXyz[b] + dx, srcXyz[b + 1U] + dy, srcXyz[b + 2U] + dz);
 			if (nb + 2U < srcWorkDefN.size())
 			{
-				source.normals[i] = spare::Vector3(
-					srcWorkDefN[nb],
-					srcWorkDefN[nb + 1U],
-					srcWorkDefN[nb + 2U]);
+				source.normals[i] = spare::Vector3(srcWorkDefN[nb], srcWorkDefN[nb + 1U], srcWorkDefN[nb + 2U]);
 			}
 		}
 		spare::spareSurfaceToMeshSoup(source, sourceSoup, sourceSoupDeformedOut);
@@ -444,13 +387,9 @@ bool spareRegisterMeshSoupToTarget(
 	return true;
 }
 
-bool spareRegisterMeshSoupToMeshSoup(
-	const std::vector<float>& sourceSoup,
-	const std::vector<float>& targetSoup,
-	std::vector<float>& sourceSoupDeformedOut,
-	const SpareRegisterParams& params,
-	SpareRegisterResult* stats,
-	std::string* errMsg)
+bool spareRegisterMeshSoupToMeshSoup(const std::vector<float>& sourceSoup, const std::vector<float>& targetSoup,
+									 std::vector<float>& sourceSoupDeformedOut, const SpareRegisterParams& params,
+									 SpareRegisterResult* stats, std::string* errMsg)
 {
 	spare::SpareSurface targetMesh;
 	if (!spare::buildSpareSurfaceFromMeshSoup(targetMesh, targetSoup, errMsg))
@@ -465,14 +404,7 @@ bool spareRegisterMeshSoupToMeshSoup(
 	std::vector<float> tgtXyz;
 	std::vector<float> tgtNormals;
 	spare::spareSurfaceToXyz(targetMesh, tgtXyz, tgtNormals);
-	return spareRegisterMeshSoupToTarget(
-		sourceSoup,
-		tgtXyz,
-		tgtNormals,
-		sourceSoupDeformedOut,
-		params,
-		stats,
-		errMsg);
+	return spareRegisterMeshSoupToTarget(sourceSoup, tgtXyz, tgtNormals, sourceSoupDeformedOut, params, stats, errMsg);
 }
 
 } // namespace pclalgo

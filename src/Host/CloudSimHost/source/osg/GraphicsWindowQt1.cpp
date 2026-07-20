@@ -1,22 +1,24 @@
+﻿/// @file GraphicsWindowQt1.cpp
+/// @brief GraphicsWindowQt1 实现
+
 #include "GraphicsWindowQt1.h"
-#include <osg/DeleteHandler>
-#include <osgViewer/ViewerBase>
+
 #include <QInputEvent>
 #include <QPointer>
 
+#include <osg/DeleteHandler>
+#include <osgViewer/ViewerBase>
 
-
-GraphicsWindowQt1::GraphicsWindowQt1(osg::GraphicsContext::Traits* traits, QWidget* parent, const QGLWidget* shareWidget, Qt::WindowFlags f)
+GraphicsWindowQt1::GraphicsWindowQt1(osg::GraphicsContext::Traits* traits, QWidget* parent,
+									 const QGLWidget* shareWidget, Qt::WindowFlags f)
 	: _realized(false)
 {
-
 	_widget = NULL;
 	_traits = traits;
 	init(parent, shareWidget, f);
 }
 
-GraphicsWindowQt1::GraphicsWindowQt1(QWidgetViewer* widget)
-	: _realized(false)
+GraphicsWindowQt1::GraphicsWindowQt1(QWidgetViewer* widget) : _realized(false)
 {
 	_widget = widget;
 	_traits = _widget ? createTraits(_widget) : new osg::GraphicsContext::Traits;
@@ -25,14 +27,16 @@ GraphicsWindowQt1::GraphicsWindowQt1(QWidgetViewer* widget)
 
 GraphicsWindowQt1::~GraphicsWindowQt1()
 {
-	// �ȶϿ���QWidgetViewer������
-	if (_widget) {
+	// 先断开与 QWidgetViewer 的关联
+	if (_widget)
+	{
 		_widget->_gw = nullptr;
-		_widget = nullptr;  // ��ֹҰָ��
+		_widget = nullptr;
 	}
 
-	// ��ȫ�رգ�����Ƿ��ѹرգ�
-	if (isRealized()) {
+	// 安全关闭（无论是否已关闭）
+	if (isRealized())
+	{
 		releaseContext();
 		closeImplementation();
 	}
@@ -58,7 +62,8 @@ bool GraphicsWindowQt1::init(QWidget* parent, const QGLWidget* shareWidget, Qt::
 	if (!_widget)
 	{
 		// shareWidget
-		if (!shareWidget) {
+		if (!shareWidget)
+		{
 			GraphicsWindowQt1* sharedContextQt = dynamic_cast<GraphicsWindowQt1*>(_traits->sharedContext.get());
 			if (sharedContextQt)
 				shareWidget = sharedContextQt->getGLWidget();
@@ -71,9 +76,9 @@ bool GraphicsWindowQt1::init(QWidget* parent, const QGLWidget* shareWidget, Qt::
 		if (_traits->windowDecoration)
 			flags |= Qt::WindowTitleHint | Qt::WindowMinMaxButtonsHint | Qt::WindowSystemMenuHint
 #if (QT_VERSION_CHECK(4, 5, 0) <= QT_VERSION)
-			| Qt::WindowCloseButtonHint
+					 | Qt::WindowCloseButtonHint
 #endif
-			;
+				;
 
 		// create widget
 		_widget = new QWidgetViewer(traits2qglFormat(_traits.get()), parent, shareWidget, flags);
@@ -85,8 +90,10 @@ bool GraphicsWindowQt1::init(QWidget* parent, const QGLWidget* shareWidget, Qt::
 	{
 		_widget->setWindowTitle(_traits->windowName.c_str());
 		_widget->move(_traits->x, _traits->y);
-		if (!_traits->supportsResize) _widget->setFixedSize(_traits->width, _traits->height);
-		else _widget->resize(_traits->width, _traits->height);
+		if (!_traits->supportsResize)
+			_widget->setFixedSize(_traits->width, _traits->height);
+		else
+			_widget->resize(_traits->width, _traits->height);
 	}
 
 	// initialize widget properties
@@ -179,18 +186,14 @@ osg::GraphicsContext::Traits* GraphicsWindowQt1::createTraits(const QGLWidget* w
 		const QByteArray titleUtf8 = widget->windowTitle().toUtf8();
 		if (!titleUtf8.isEmpty())
 		{
-			traits->windowName.assign(
-				titleUtf8.constData(),
-				static_cast<size_t>(titleUtf8.size()));
+			traits->windowName.assign(titleUtf8.constData(), static_cast<size_t>(titleUtf8.size()));
 		}
 	}
 	Qt::WindowFlags f = widget->windowFlags();
-	traits->windowDecoration = (f & Qt::WindowTitleHint) &&
-		(f & Qt::WindowMinMaxButtonsHint) &&
-		(f & Qt::WindowSystemMenuHint);
+	traits->windowDecoration =
+		(f & Qt::WindowTitleHint) && (f & Qt::WindowMinMaxButtonsHint) && (f & Qt::WindowSystemMenuHint);
 	QSizePolicy sp = widget->sizePolicy();
-	traits->supportsResize = sp.horizontalPolicy() != QSizePolicy::Fixed ||
-		sp.verticalPolicy() != QSizePolicy::Fixed;
+	traits->supportsResize = sp.horizontalPolicy() != QSizePolicy::Fixed || sp.verticalPolicy() != QSizePolicy::Fixed;
 
 	return traits;
 }
@@ -218,7 +221,7 @@ void GraphicsWindowQt1::getWindowRectangle(int& x, int& y, int& width, int& heig
 
 bool GraphicsWindowQt1::setWindowDecorationImplementation(bool windowDecoration)
 {
-	Qt::WindowFlags flags = Qt::Window | Qt::CustomizeWindowHint;                 //|Qt::WindowStaysOnTopHint;
+	Qt::WindowFlags flags = Qt::Window | Qt::CustomizeWindowHint; //|Qt::WindowStaysOnTopHint;
 	if (windowDecoration)
 		flags |= Qt::WindowTitleHint | Qt::WindowMinMaxButtonsHint | Qt::WindowSystemMenuHint;
 	_traits->windowDecoration = windowDecoration;
@@ -272,8 +275,10 @@ void GraphicsWindowQt1::useCursor(bool cursorOn)
 	if (_widget)
 	{
 		_traits->useCursor = cursorOn;
-		if (!cursorOn) _widget->setCursor(Qt::BlankCursor);
-		else _widget->setCursor(_currentCursor);
+		if (!cursorOn)
+			_widget->setCursor(Qt::BlankCursor);
+		else
+			_widget->setCursor(_currentCursor);
 	}
 }
 
@@ -286,28 +291,71 @@ void GraphicsWindowQt1::setCursor(MouseCursor cursor)
 
 	switch (cursor)
 	{
-	case NoCursor: _currentCursor = Qt::BlankCursor; break;
-	case RightArrowCursor: case LeftArrowCursor: _currentCursor = Qt::ArrowCursor; break;
-	case InfoCursor: _currentCursor = Qt::SizeAllCursor; break;
-	case DestroyCursor: _currentCursor = Qt::ForbiddenCursor; break;
-	case HelpCursor: _currentCursor = Qt::WhatsThisCursor; break;
-	case CycleCursor: _currentCursor = Qt::ForbiddenCursor; break;
-	case SprayCursor: _currentCursor = Qt::SizeAllCursor; break;
-	case WaitCursor: _currentCursor = Qt::WaitCursor; break;
-	case TextCursor: _currentCursor = Qt::IBeamCursor; break;
-	case CrosshairCursor: _currentCursor = Qt::CrossCursor; break;
-	case HandCursor: _currentCursor = Qt::OpenHandCursor; break;
-	case UpDownCursor: _currentCursor = Qt::SizeVerCursor; break;
-	case LeftRightCursor: _currentCursor = Qt::SizeHorCursor; break;
-	case TopSideCursor: case BottomSideCursor: _currentCursor = Qt::UpArrowCursor; break;
-	case LeftSideCursor: case RightSideCursor: _currentCursor = Qt::SizeHorCursor; break;
-	case TopLeftCorner: _currentCursor = Qt::SizeBDiagCursor; break;
-	case TopRightCorner: _currentCursor = Qt::SizeFDiagCursor; break;
-	case BottomRightCorner: _currentCursor = Qt::SizeBDiagCursor; break;
-	case BottomLeftCorner: _currentCursor = Qt::SizeFDiagCursor; break;
-	default: break;
+	case NoCursor:
+		_currentCursor = Qt::BlankCursor;
+		break;
+	case RightArrowCursor:
+	case LeftArrowCursor:
+		_currentCursor = Qt::ArrowCursor;
+		break;
+	case InfoCursor:
+		_currentCursor = Qt::SizeAllCursor;
+		break;
+	case DestroyCursor:
+		_currentCursor = Qt::ForbiddenCursor;
+		break;
+	case HelpCursor:
+		_currentCursor = Qt::WhatsThisCursor;
+		break;
+	case CycleCursor:
+		_currentCursor = Qt::ForbiddenCursor;
+		break;
+	case SprayCursor:
+		_currentCursor = Qt::SizeAllCursor;
+		break;
+	case WaitCursor:
+		_currentCursor = Qt::WaitCursor;
+		break;
+	case TextCursor:
+		_currentCursor = Qt::IBeamCursor;
+		break;
+	case CrosshairCursor:
+		_currentCursor = Qt::CrossCursor;
+		break;
+	case HandCursor:
+		_currentCursor = Qt::OpenHandCursor;
+		break;
+	case UpDownCursor:
+		_currentCursor = Qt::SizeVerCursor;
+		break;
+	case LeftRightCursor:
+		_currentCursor = Qt::SizeHorCursor;
+		break;
+	case TopSideCursor:
+	case BottomSideCursor:
+		_currentCursor = Qt::UpArrowCursor;
+		break;
+	case LeftSideCursor:
+	case RightSideCursor:
+		_currentCursor = Qt::SizeHorCursor;
+		break;
+	case TopLeftCorner:
+		_currentCursor = Qt::SizeBDiagCursor;
+		break;
+	case TopRightCorner:
+		_currentCursor = Qt::SizeFDiagCursor;
+		break;
+	case BottomRightCorner:
+		_currentCursor = Qt::SizeBDiagCursor;
+		break;
+	case BottomLeftCorner:
+		_currentCursor = Qt::SizeFDiagCursor;
+		break;
+	default:
+		break;
 	};
-	if (_widget) _widget->setCursor(_currentCursor);
+	if (_widget)
+		_widget->setCursor(_currentCursor);
 }
 
 bool GraphicsWindowQt1::valid() const
@@ -365,8 +413,11 @@ bool GraphicsWindowQt1::isRealizedImplementation() const
 
 void GraphicsWindowQt1::closeImplementation()
 {
+	// Viewer 析构时勿 _widget->close()：会向半析构的 OsgWidget 重入 eventFilter
 	if (_widget)
-		_widget->close();
+	{
+		_widget->_gw = nullptr;
+	}
 	_realized = false;
 }
 
@@ -395,8 +446,9 @@ bool GraphicsWindowQt1::makeCurrentImplementation()
 
 bool GraphicsWindowQt1::releaseContextImplementation()
 {
-	if (!_widget) {
-		return false; // ����ʧ��״̬
+	if (!_widget)
+	{
+		return false;
 	}
 
 	_widget->doneCurrent();

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_DOCUMENTHOST_H
+#define CLOUDSIMHOST_DOCUMENTHOST_H
+
+/// @file DocumentHost.h
+/// @brief 单文档组合根
 
 #include "cloudsim_host_global.h"
 
@@ -11,11 +15,11 @@
 #include <QStringList>
 #include <QVector>
 #include <QWidget>
-
 #include <memory>
 #include <unordered_set>
 
-namespace cloudsim::core {
+namespace cloudsim::core
+{
 class EventHub;
 }
 
@@ -31,8 +35,8 @@ class BackendSceneDocumentFacade;
 #include "BackendFollowReverseIndex.h"
 #include "OsgWidgetSceneBridge.h"
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 class IRobotUrdfImportContext;
 class IRobotInstructionPropertyDelegate;
 
@@ -70,7 +74,8 @@ public:
 
 	/// 网格加载到场景
 	bool loadMeshFromBackendIntoScene(const MeshBackendData& data, QString* errorMessage = nullptr,
-		bool resetViewToHome = true, bool showWireOutline = true, bool useSceneLighting = true);
+									  bool resetViewToHome = true, bool showWireOutline = true,
+									  bool useSceneLighting = true);
 	/// URDF 连杆：顶点已在 link 系，跳过内层去心
 	bool loadUrdfLinkMeshIntoScene(const MeshBackendData& data, QString* errorMessage = nullptr);
 	void clearStagingGeometry();
@@ -98,6 +103,10 @@ public:
 	void requestFollowSolveForced();
 	bool takeFollowSolveForced();
 	bool followSolveForcedPending() const;
+	/// URDF 根/连杆位姿由 FK 独占，禁止作 Follow follower
+	bool isKinematicsOwnedBackend(const std::string& backendId) const;
+	/// 卸掉运动学对象上误装的 FollowAttachment（工程 edges / 旧工程迁移）
+	void stripKinematicsOwnedFollowAttachments();
 	/// FK 批量抑制脏通知
 	void setSuppressRobotFollowDirtyNotify(bool suppress);
 	bool suppressRobotFollowDirtyNotify() const;
@@ -151,3 +160,5 @@ private:
 };
 
 } // namespace cloudsim::host
+
+#endif // CLOUDSIMHOST_DOCUMENTHOST_H

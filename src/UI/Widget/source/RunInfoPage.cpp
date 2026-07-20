@@ -1,7 +1,10 @@
+﻿/// @file RunInfoPage.cpp
+/// @brief RunInfoPage 实现
+
 #include "RunInfoPage.h"
-#include "UiIconDecorators.h"
 
 #include "RunLogger.h"
+#include "UiIconDecorators.h"
 
 #include <QByteArray>
 #include <QDateTime>
@@ -22,8 +25,7 @@ std::string toUtf8StdString(const QString& text)
 }
 } // namespace
 
-RunInfoPage::RunInfoPage(QWidget* parent)
-	: QWidget(parent)
+RunInfoPage::RunInfoPage(QWidget* parent) : QWidget(parent)
 {
 	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
@@ -55,14 +57,14 @@ RunInfoPage::RunInfoPage(QWidget* parent)
 		m_clearBtn->style()->polish(m_clearBtn);
 	}
 
-	RunLogger::setUiSink([this](RunLogger::LogLevel level, const std::string& message) {
-		const QString levelText = QString::fromLatin1(RunLogger::levelName(level));
-		const QString text = QString::fromUtf8(message.c_str());
-		QMetaObject::invokeMethod(
-			this,
-			[this, levelText, text]() { appendLine(levelText, text); },
-			Qt::QueuedConnection);
-	});
+	RunLogger::setUiSink(
+		[this](RunLogger::LogLevel level, const std::string& message)
+		{
+			const QString levelText = QString::fromLatin1(RunLogger::levelName(level));
+			const QString text = QString::fromUtf8(message.c_str());
+			QMetaObject::invokeMethod(
+				this, [this, levelText, text]() { appendLine(levelText, text); }, Qt::QueuedConnection);
+		});
 }
 
 RunInfoPage::~RunInfoPage()

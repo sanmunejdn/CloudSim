@@ -1,14 +1,16 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINHOST_PLUGINLABELINGHOSTIMPL_H
+#define CLOUDSIMPLUGINHOST_PLUGINLABELINGHOSTIMPL_H
+
+/// @file PluginLabelingHostImpl.h
+/// @brief PluginLabelingHostImpl 接口
 
 #include "IPluginLabelingHost.h"
+#include "PluginLabelingTypes.h"
 
 #include <QMetaObject>
-
 #include <atomic>
 #include <memory>
 #include <unordered_map>
-
-#include "PluginLabelingTypes.h"
 
 class PluginHostContext;
 class LabelingSession;
@@ -19,68 +21,46 @@ class PluginLabelingHostImpl : public IPluginLabelingHost
 public:
 	explicit PluginLabelingHostImpl(PluginHostContext* hostContext);
 
-	PluginLabelingSessionId beginLabelingSession(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginLabelingSessionConfig& config,
-		QString* outError = nullptr) override;
+	PluginLabelingSessionId beginLabelingSession(IPluginDocument* doc, const std::string& backendIdUtf8,
+												 const PluginLabelingSessionConfig& config,
+												 QString* outError = nullptr) override;
 
 	void clearLabelingSession(PluginLabelingSessionId sessionId) override;
 
-	bool getSessionSummary(
-		PluginLabelingSessionId sessionId,
-		PluginLabelingSessionSummary& outSummary,
-		QString* outError = nullptr) const override;
+	bool getSessionSummary(PluginLabelingSessionId sessionId, PluginLabelingSessionSummary& outSummary,
+						   QString* outError = nullptr) const override;
 
 	bool setActiveClass(PluginLabelingSessionId sessionId, int classId, QString* outError = nullptr) override;
 
-	bool syncSessionConfig(
-		PluginLabelingSessionId sessionId,
-		const PluginLabelingSessionConfig& config,
-		QString* outError = nullptr) override;
+	bool syncSessionConfig(PluginLabelingSessionId sessionId, const PluginLabelingSessionConfig& config,
+						   QString* outError = nullptr) override;
 
-	bool applyLabels(
-		PluginLabelingSessionId sessionId,
-		const PluginLabelingSelectionResult& selection,
-		int classId,
-		bool erase,
-		QString* outError = nullptr) override;
+	bool applyLabels(PluginLabelingSessionId sessionId, const PluginLabelingSelectionResult& selection, int classId,
+					 bool erase, QString* outError = nullptr) override;
 
 	bool undo(PluginLabelingSessionId sessionId, QString* outError = nullptr) override;
 	bool redo(PluginLabelingSessionId sessionId, QString* outError = nullptr) override;
 
 	bool syncLabelVisualization(PluginLabelingSessionId sessionId, QString* outError = nullptr) override;
 
-	bool importPerPointLabels(
-		PluginLabelingSessionId sessionId,
-		const std::vector<int>& labels,
-		int numClasses,
-		QString* outError = nullptr) override;
+	bool importPerPointLabels(PluginLabelingSessionId sessionId, const std::vector<int>& labels, int numClasses,
+							  QString* outError = nullptr) override;
 
-	bool exportPointNetDataset(
-		PluginLabelingSessionId sessionId,
-		const std::string& outputDirUtf8,
-		const PluginLabelingDatasetExportOptions& options,
-		PluginLabelingDatasetExportResult& outResult,
-		QString* outError = nullptr) override;
+	bool exportPointNetDataset(PluginLabelingSessionId sessionId, const std::string& outputDirUtf8,
+							   const PluginLabelingDatasetExportOptions& options,
+							   PluginLabelingDatasetExportResult& outResult, QString* outError = nullptr) override;
 
 	void pickPointsOnce(PluginLabelingSessionId sessionId, PluginLabelingPickFinishedFn onFinished) override;
 
-	void brushStroke(
-		PluginLabelingSessionId sessionId,
-		float radiusPx,
-		PluginLabelingBrushStrokeFn onStroke,
-		PluginLabelingBrushFinishedFn onFinished) override;
+	void brushStroke(PluginLabelingSessionId sessionId, float radiusPx, PluginLabelingBrushStrokeFn onStroke,
+					 PluginLabelingBrushFinishedFn onFinished) override;
 
 	void pickPolylineRegion(PluginLabelingSessionId sessionId, PluginLabelingPickFinishedFn onFinished) override;
 
 	void pickMeshFaceOnce(PluginLabelingSessionId sessionId, PluginLabelingPickFinishedFn onFinished) override;
 
-	void brushMeshFaces(
-		PluginLabelingSessionId sessionId,
-		float radiusPx,
-		PluginLabelingBrushStrokeFn onStroke,
-		PluginLabelingBrushFinishedFn onFinished) override;
+	void brushMeshFaces(PluginLabelingSessionId sessionId, float radiusPx, PluginLabelingBrushStrokeFn onStroke,
+						PluginLabelingBrushFinishedFn onFinished) override;
 
 	void cancelActiveLabelingPick() override;
 	void abandonActiveLabelingPick() override;
@@ -115,9 +95,11 @@ private:
 	bool refreshBackendColors(SessionEntry& entry, QString* outError);
 
 	PluginHostContext* m_host = nullptr;
-	std::atomic<PluginLabelingSessionId> m_nextSessionId{ 1U };
+	std::atomic<PluginLabelingSessionId> m_nextSessionId{1U};
 	std::unordered_map<PluginLabelingSessionId, SessionEntry> m_sessions;
 	PluginLabelingSessionId m_activePickSessionId = 0U;
 	std::unique_ptr<ActivePickState> m_pickState;
 	PluginLabelingPickCancelledFn m_pickCancelledNotifier;
 };
+
+#endif // CLOUDSIMPLUGINHOST_PLUGINLABELINGHOSTIMPL_H

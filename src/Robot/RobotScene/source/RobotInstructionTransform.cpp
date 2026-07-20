@@ -1,13 +1,14 @@
+﻿/// @file RobotInstructionTransform.cpp
+/// @brief RobotInstructionTransform 实现
+
 #include "RobotInstructionTransform.h"
 
 #include <sstream>
 
 namespace RobotInstruction
 {
-
 namespace
 {
-
 std::string encodeQuatCsv(const Eigen::Quaterniond& q)
 {
 	std::ostringstream oss;
@@ -102,10 +103,10 @@ void writeTargetTransformToInstruction(Base& cmd, const engine::RigidTransform& 
 	double ez = 0.0;
 	targetInBase.translationMm(px, py, pz);
 	targetInBase.eulerDegForDisplay(ex, ey, ez);
-	cmd.setPose(Vec3{ px, py, pz });
+	cmd.setPose(Vec3{px, py, pz});
 	if (cmd.hasEulerProperty())
 	{
-		cmd.setEulerDeg(Vec3{ ex, ey, ez });
+		cmd.setEulerDeg(Vec3{ex, ey, ez});
 	}
 }
 
@@ -136,9 +137,8 @@ bool readTargetTransformFromInstruction(const Base& cmd, engine::RigidTransform&
 	}
 	else
 	{
-		outTargetInBase = engine::RigidTransform::fromTranslationQuat(
-			Eigen::Vector3d(p.x, p.y, p.z),
-			Eigen::Quaterniond::Identity());
+		outTargetInBase =
+			engine::RigidTransform::fromTranslationQuat(Eigen::Vector3d(p.x, p.y, p.z), Eigen::Quaterniond::Identity());
 	}
 	return true;
 }

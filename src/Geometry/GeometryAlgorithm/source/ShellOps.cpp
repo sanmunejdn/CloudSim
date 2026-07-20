@@ -1,16 +1,15 @@
-#include "detail/OccIncludes.h"
+﻿/// @file ShellOps.cpp
+/// @brief ShellOps 实现
+
+#include "ShellOps.h"
 
 #include "MeshDiscretize.h"
-#include "ShellOps.h"
+#include "detail/OccIncludes.h"
 
 namespace geoalgo
 {
-
-bool sewFaces(
-	const std::vector<TopoDS_Face>& faces,
-	const double toleranceMm,
-	TopoDS_Shape& outShape,
-	std::string* errMsg)
+bool sewFaces(const std::vector<TopoDS_Face>& faces, const double toleranceMm, TopoDS_Shape& outShape,
+			  std::string* errMsg)
 {
 	if (faces.empty())
 	{
@@ -41,12 +40,8 @@ bool sewFaces(
 	return true;
 }
 
-bool sewFacesToMesh(
-	const std::vector<TopoDS_Face>& faces,
-	const double toleranceMm,
-	const MeshDiscretizeParams& meshParams,
-	std::vector<float>& outSoup,
-	std::string* errMsg)
+bool sewFacesToMesh(const std::vector<TopoDS_Face>& faces, const double toleranceMm,
+					const MeshDiscretizeParams& meshParams, std::vector<float>& outSoup, std::string* errMsg)
 {
 	TopoDS_Shape sewn;
 	if (!sewFaces(faces, toleranceMm, sewn, errMsg))

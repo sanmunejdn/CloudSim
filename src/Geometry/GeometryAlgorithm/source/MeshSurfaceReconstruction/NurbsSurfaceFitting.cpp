@@ -1,15 +1,18 @@
+﻿/// @file NurbsSurfaceFitting.cpp
+/// @brief NurbsSurfaceFitting 实现
+
 #include "NurbsSurfaceFitting.h"
 
 #include "detail/OccIncludes.h"
+
+#include <algorithm>
+#include <cmath>
+#include <vector>
 
 #include <Eigen/Dense>
 #include <GeomAPI_PointsToBSplineSurface.hxx>
 #include <TColStd_Array1OfReal.hxx>
 #include <TColStd_HArray1OfReal.hxx>
-
-#include <algorithm>
-#include <cmath>
-#include <vector>
 
 namespace geoalgo
 {
@@ -17,7 +20,6 @@ namespace meshrecon
 {
 namespace
 {
-
 int clampInt(const int value, const int lo, const int hi)
 {
 	return std::max(lo, std::min(hi, value));
@@ -37,11 +39,8 @@ std::vector<double> buildClampedUniformKnots(const int numCtrlPts, const int deg
 	return uniqueKnots;
 }
 
-void fillOccKnotArrays(
-	const std::vector<double>& uniqueKnots,
-	const int degree,
-	TColStd_Array1OfReal& knots,
-	TColStd_Array1OfInteger& mults)
+void fillOccKnotArrays(const std::vector<double>& uniqueKnots, const int degree, TColStd_Array1OfReal& knots,
+					   TColStd_Array1OfInteger& mults)
 {
 	const int count = static_cast<int>(uniqueKnots.size());
 	knots.Resize(1, count, Standard_False);
@@ -77,18 +76,18 @@ double bsplineBasis(const int span, const int degree, const std::vector<double>&
 		return (u >= u0 && inUpper) ? 1.0 : 0.0;
 	}
 	const double denomLeft = knots[static_cast<std::size_t>(span + degree)] - knots[static_cast<std::size_t>(span)];
-	const double denomRight = knots[static_cast<std::size_t>(span + degree + 1)] - knots[static_cast<std::size_t>(span + 1)];
+	const double denomRight =
+		knots[static_cast<std::size_t>(span + degree + 1)] - knots[static_cast<std::size_t>(span + 1)];
 	double left = 0.0;
 	double right = 0.0;
 	if (denomLeft > 1e-15)
 	{
-		left = (u - knots[static_cast<std::size_t>(span)]) / denomLeft
-			* bsplineBasis(span, degree - 1, knots, u);
+		left = (u - knots[static_cast<std::size_t>(span)]) / denomLeft * bsplineBasis(span, degree - 1, knots, u);
 	}
 	if (denomRight > 1e-15)
 	{
-		right = (knots[static_cast<std::size_t>(span + degree + 1)] - u) / denomRight
-			* bsplineBasis(span + 1, degree - 1, knots, u);
+		right = (knots[static_cast<std::size_t>(span + degree + 1)] - u) / denomRight *
+				bsplineBasis(span + 1, degree - 1, knots, u);
 	}
 	return left + right;
 }
@@ -150,12 +149,8 @@ std::vector<double> isoParams(const int count)
 	return params;
 }
 
-bool fitCurveLeastSquares(
-	const std::vector<double>& params,
-	const std::vector<Eigen::Vector3d>& points,
-	const int degree,
-	const int numCtrl,
-	std::vector<Eigen::Vector3d>& outCtrl)
+bool fitCurveLeastSquares(const std::vector<double>& params, const std::vector<Eigen::Vector3d>& points,
+						  const int degree, const int numCtrl, std::vector<Eigen::Vector3d>& outCtrl)
 {
 	if (static_cast<int>(points.size()) < 2 || numCtrl < degree + 1)
 	{
@@ -200,14 +195,8 @@ bool fitCurveLeastSquares(
 	return true;
 }
 
-bool fitSurfaceTwoStage(
-	const TColgp_Array2OfPnt& grid,
-	const int degreeU,
-	const int degreeV,
-	const int numCtrlU,
-	const int numCtrlV,
-	const bool centripetal,
-	Handle(Geom_BSplineSurface)& outSurface)
+bool fitSurfaceTwoStage(const TColgp_Array2OfPnt& grid, const int degreeU, const int degreeV, const int numCtrlU,
+						const int numCtrlV, const bool centripetal, Handle(Geom_BSplineSurface) & outSurface)
 {
 	const int nu = grid.UpperRow() - grid.LowerRow();
 	const int nv = grid.UpperCol() - grid.LowerCol();
@@ -259,9 +248,8 @@ bool fitSurfaceTwoStage(
 		vParams = isoParams(nv + 1);
 	}
 
-	std::vector<std::vector<Eigen::Vector3d>> temp(
-		static_cast<std::size_t>(numCtrlU),
-		std::vector<Eigen::Vector3d>(static_cast<std::size_t>(nv + 1)));
+	std::vector<std::vector<Eigen::Vector3d>> temp(static_cast<std::size_t>(numCtrlU),
+												   std::vector<Eigen::Vector3d>(static_cast<std::size_t>(nv + 1)));
 	for (int j = 0; j <= nv; ++j)
 	{
 		std::vector<double> params;
@@ -320,14 +308,7 @@ bool fitSurfaceTwoStage(
 
 	try
 	{
-		outSurface = new Geom_BSplineSurface(
-			poles,
-			uKnotArr,
-			vKnotArr,
-			uMult,
-			vMult,
-			degreeU,
-			degreeV);
+		outSurface = new Geom_BSplineSurface(poles, uKnotArr, vKnotArr, uMult, vMult, degreeU, degreeV);
 		return !outSurface.IsNull();
 	}
 	catch (...)
@@ -337,13 +318,8 @@ bool fitSurfaceTwoStage(
 	}
 }
 
-bool fitWithGeomApi(
-	const TColgp_Array2OfPnt& grid,
-	const Approx_ParametrizationType paramType,
-	const bool interpolate,
-	const int degreeMin,
-	const int degreeMax,
-	Handle(Geom_BSplineSurface)& outSurface)
+bool fitWithGeomApi(const TColgp_Array2OfPnt& grid, const Approx_ParametrizationType paramType, const bool interpolate,
+					const int degreeMin, const int degreeMax, Handle(Geom_BSplineSurface) & outSurface)
 {
 	try
 	{
@@ -358,13 +334,7 @@ bool fitWithGeomApi(
 			outSurface = api.Surface();
 			return true;
 		}
-		GeomAPI_PointsToBSplineSurface api(
-			grid,
-			paramType,
-			degreeMin,
-			degreeMax,
-			GeomAbs_C2,
-			std::max(1.0, 1.0e-3));
+		GeomAPI_PointsToBSplineSurface api(grid, paramType, degreeMin, degreeMax, GeomAbs_C2, std::max(1.0, 1.0e-3));
 		if (!api.IsDone() || api.Surface().IsNull())
 		{
 			return false;
@@ -381,10 +351,8 @@ bool fitWithGeomApi(
 
 } // namespace
 
-AmrtoGridResolution computeAmrtoGridResolution(
-	const double uSpanNorm,
-	const double vSpanNorm,
-	const MeshSurfaceReconstructParams& params)
+AmrtoGridResolution computeAmrtoGridResolution(const double uSpanNorm, const double vSpanNorm,
+											   const MeshSurfaceReconstructParams& params)
 {
 	AmrtoGridResolution out;
 	const double uSpan = std::max(1e-6, uSpanNorm);
@@ -426,30 +394,21 @@ NurbsFitMode nurbsFitModeFromMeshSurface(const MeshSurfaceNurbsFitMode mode)
 	}
 }
 
-int resolveControlPointCountFromFitGrid(
-	const int gridPointsPerEdge,
-	const int degree,
-	const double controlPointDensityFactor,
-	const int minControlPointsPerDirection)
+int resolveControlPointCountFromFitGrid(const int gridPointsPerEdge, const int degree,
+										const double controlPointDensityFactor, const int minControlPointsPerDirection)
 {
 	const int pts = std::max(2, gridPointsPerEdge);
 	const int maxFromFit = std::max(degree + 1, static_cast<int>(0.75 * static_cast<double>(pts)));
-	const int densityCtrl = static_cast<int>(std::lround(
-		controlPointDensityFactor * static_cast<double>(pts) * 2.0));
+	const int densityCtrl = static_cast<int>(std::lround(controlPointDensityFactor * static_cast<double>(pts) * 2.0));
 	int ctrl = std::max(minControlPointsPerDirection, degree + 1);
 	ctrl = std::max(ctrl, densityCtrl);
 	ctrl = std::min(ctrl, maxFromFit);
 	return std::max(degree + 1, ctrl);
 }
 
-bool fitNurbsSurfaceFromGrid(
-	const TColgp_Array2OfPnt& grid,
-	const int numCtrlU,
-	const int numCtrlV,
-	const NurbsFitMode mode,
-	const int degreeU,
-	const int degreeV,
-	Handle(Geom_BSplineSurface)& outSurface)
+bool fitNurbsSurfaceFromGrid(const TColgp_Array2OfPnt& grid, const int numCtrlU, const int numCtrlV,
+							 const NurbsFitMode mode, const int degreeU, const int degreeV,
+							 Handle(Geom_BSplineSurface) & outSurface)
 {
 	outSurface.Nullify();
 	const int degU = std::max(1, degreeU);

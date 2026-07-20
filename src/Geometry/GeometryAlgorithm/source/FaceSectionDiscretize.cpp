@@ -1,17 +1,12 @@
+﻿/// @file FaceSectionDiscretize.cpp
+/// @brief FaceSectionDiscretize 实现
+
 #include "detail/FaceSectionDiscretize.h"
 
 #include "FeatureDiscretizeParamUtils.h"
+#include "ShapeQuery.h"
 #include "detail/FeatureDiscretizeFrame.h"
 #include "detail/OccIncludes.h"
-#include "ShapeQuery.h"
-
-#include <BRepAdaptor_CompCurve.hxx>
-#include <BRepGProp.hxx>
-#include <GProp_GProps.hxx>
-#include <ShapeUpgrade_UnifySameDomain.hxx>
-#include <gp_Ax1.hxx>
-#include <gp_Quaternion.hxx>
-#include <Precision.hxx>
 
 #include <algorithm>
 #include <cmath>
@@ -19,11 +14,18 @@
 #include <utility>
 #include <vector>
 
+#include <BRepAdaptor_CompCurve.hxx>
+#include <BRepGProp.hxx>
+#include <GProp_GProps.hxx>
+#include <Precision.hxx>
+#include <ShapeUpgrade_UnifySameDomain.hxx>
+#include <gp_Ax1.hxx>
+#include <gp_Quaternion.hxx>
+
 namespace geoalgo
 {
 namespace
 {
-
 constexpr double kDeg2Rad = 3.14159265358979323846 / 180.0;
 constexpr double kSeamTol = Precision::Confusion() * 100.0;
 constexpr double kConnectTol = Precision::Confusion() * 10.0;
@@ -73,10 +75,8 @@ gp_Dir computeSectionNormal(const double rxDeg, const double ryDeg)
 	return dir;
 }
 
-void appendSectionEdges(
-	const TopoDS_Shape& sectionResult,
-	const TopoDS_Face& refFace,
-	std::vector<std::pair<TopoDS_Edge, TopoDS_Face>>& outEdges)
+void appendSectionEdges(const TopoDS_Shape& sectionResult, const TopoDS_Face& refFace,
+						std::vector<std::pair<TopoDS_Edge, TopoDS_Face>>& outEdges)
 {
 	for (TopExp_Explorer ex(sectionResult, TopAbs_EDGE); ex.More(); ex.Next())
 	{
@@ -88,15 +88,11 @@ void appendSectionEdges(
 	}
 }
 
-void sectionShapeWithPlane(
-	const TopoDS_Shape& target,
-	const TopoDS_Face& refFace,
-	const gp_Pln& pln,
-	std::vector<std::pair<TopoDS_Edge, TopoDS_Face>>& outEdges)
+void sectionShapeWithPlane(const TopoDS_Shape& target, const TopoDS_Face& refFace, const gp_Pln& pln,
+						   std::vector<std::pair<TopoDS_Edge, TopoDS_Face>>& outEdges)
 {
 	constexpr double planeSize = 1e6;
-	const TopoDS_Face planeFace =
-		BRepBuilderAPI_MakeFace(pln, -planeSize, planeSize, -planeSize, planeSize).Face();
+	const TopoDS_Face planeFace = BRepBuilderAPI_MakeFace(pln, -planeSize, planeSize, -planeSize, planeSize).Face();
 	BRepAlgoAPI_Section sec(planeFace, target, Standard_False);
 	sec.ComputePCurveOn1(Standard_False);
 	sec.ComputePCurveOn2(Standard_False);
@@ -109,10 +105,8 @@ void sectionShapeWithPlane(
 	appendSectionEdges(sec.Shape(), refFace, outEdges);
 }
 
-void sectionFaceWithPlane(
-	const TopoDS_Face& face,
-	const gp_Pln& pln,
-	std::vector<std::pair<TopoDS_Edge, TopoDS_Face>>& outEdges)
+void sectionFaceWithPlane(const TopoDS_Face& face, const gp_Pln& pln,
+						  std::vector<std::pair<TopoDS_Edge, TopoDS_Face>>& outEdges)
 {
 	sectionShapeWithPlane(face, face, pln, outEdges);
 }
@@ -217,11 +211,8 @@ bool discretizeWireChordHeight(const TopoDS_Wire& wire, const double chordHeight
 	return true;
 }
 
-void connectSectionEdgesToWires(
-	const std::vector<std::pair<TopoDS_Edge, TopoDS_Face>>& edgesWithFace,
-	const double tol,
-	std::vector<TopoDS_Wire>& outWires,
-	std::size_t& outConnectedEdgeCount)
+void connectSectionEdgesToWires(const std::vector<std::pair<TopoDS_Edge, TopoDS_Face>>& edgesWithFace, const double tol,
+								std::vector<TopoDS_Wire>& outWires, std::size_t& outConnectedEdgeCount)
 {
 	outWires.clear();
 	outConnectedEdgeCount = 0;
@@ -249,8 +240,9 @@ void connectSectionEdgesToWires(
 
 	std::vector<bool> used(entries.size(), false);
 
-	const auto extendForward = [&](const gp_Pnt& startEnd, std::vector<TopoDS_Edge>& chain, gp_Pnt& chainEnd,
-		std::vector<bool>& localUsed) {
+	const auto extendForward =
+		[&](const gp_Pnt& startEnd, std::vector<TopoDS_Edge>& chain, gp_Pnt& chainEnd, std::vector<bool>& localUsed)
+	{
 		gp_Pnt end = startEnd;
 		bool extended = true;
 		while (extended)
@@ -283,8 +275,9 @@ void connectSectionEdgesToWires(
 		chainEnd = end;
 	};
 
-	const auto extendBackward = [&](const gp_Pnt& startFront, std::vector<TopoDS_Edge>& chain, gp_Pnt& chainStart,
-		std::vector<bool>& localUsed) {
+	const auto extendBackward =
+		[&](const gp_Pnt& startFront, std::vector<TopoDS_Edge>& chain, gp_Pnt& chainStart, std::vector<bool>& localUsed)
+	{
 		gp_Pnt front = startFront;
 		bool extended = true;
 		while (extended)
@@ -389,13 +382,8 @@ void connectSectionEdgesToWires(
 	}
 }
 
-bool computeFaceNormalAtUv(
-	const TopoDS_Face& face,
-	const Handle(Geom_Surface)& surf,
-	const TopLoc_Location& faceLoc,
-	const Standard_Real u,
-	const Standard_Real v,
-	gp_Vec& outNormal)
+bool computeFaceNormalAtUv(const TopoDS_Face& face, const Handle(Geom_Surface) & surf, const TopLoc_Location& faceLoc,
+						   const Standard_Real u, const Standard_Real v, gp_Vec& outNormal)
 {
 	gp_Pnt pOnSurf;
 	gp_Vec du;
@@ -422,11 +410,8 @@ bool computeFaceNormalAtUv(
 	return true;
 }
 
-bool tryFaceNormalAtPoint(
-	const TopoDS_Face& face,
-	const gp_Pnt& ptWorld,
-	double& inOutBestDist,
-	gp_Vec& inOutBestNormal)
+bool tryFaceNormalAtPoint(const TopoDS_Face& face, const gp_Pnt& ptWorld, double& inOutBestDist,
+						  gp_Vec& inOutBestNormal)
 {
 	TopLoc_Location faceLoc;
 	const Handle(Geom_Surface) surf = BRep_Tool::Surface(face, faceLoc);
@@ -472,10 +457,7 @@ bool tryFaceNormalAtPoint(
 	return false;
 }
 
-bool getBestFaceNormalAtPoint(
-	const std::vector<TopoDS_Face>& faces,
-	const gp_Pnt& ptWorld,
-	gp_Vec& outNormal)
+bool getBestFaceNormalAtPoint(const std::vector<TopoDS_Face>& faces, const gp_Pnt& ptWorld, gp_Vec& outNormal)
 {
 	const double maxDist = Precision::Confusion() * 100.0 * 10.0;
 
@@ -563,20 +545,14 @@ bool appendPointDedup(RawPath& path, const Point3d& pos, const Vec3d& normal, co
 	return true;
 }
 
-void appendCuttingPointsToPath(
-	const std::vector<Point3d>& pts,
-	const std::vector<TopoDS_Face>& faces,
-	RawPath& path,
-	const double seamTol)
+void appendCuttingPointsToPath(const std::vector<Point3d>& pts, const std::vector<TopoDS_Face>& faces, RawPath& path,
+							   const double seamTol)
 {
 	for (const Point3d& pt : pts)
 	{
 		bool gotNormal = false;
-		const Vec3d normal = detail::storedFaceNormal(
-			faces,
-			pt,
-			detail::FaceNormalConvention::LineReverseFace,
-			&gotNormal);
+		const Vec3d normal =
+			detail::storedFaceNormal(faces, pt, detail::FaceNormalConvention::LineReverseFace, &gotNormal);
 		(void)appendPointDedup(path, pt, gotNormal ? normal : Vec3d{}, seamTol);
 	}
 }
@@ -589,11 +565,8 @@ double pointDist(const Point3d& a, const Point3d& b)
 	return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-void appendSegmentPointsToLayer(
-	std::vector<Point3d>& layerPts,
-	const std::vector<Point3d>& segment,
-	const double seamTol,
-	const bool zhiJumpOnly)
+void appendSegmentPointsToLayer(std::vector<Point3d>& layerPts, const std::vector<Point3d>& segment,
+								const double seamTol, const bool zhiJumpOnly)
 {
 	if (segment.size() < 2)
 	{
@@ -687,11 +660,8 @@ std::size_t segmentSortKeyIndex(const std::vector<LayerSegment>& segments)
 	return bestIdx;
 }
 
-bool stitchLayerSegments(
-	std::vector<LayerSegment>& segments,
-	const double seamTol,
-	const bool zhiMode,
-	std::vector<Point3d>& outLayerPts)
+bool stitchLayerSegments(std::vector<LayerSegment>& segments, const double seamTol, const bool zhiMode,
+						 std::vector<Point3d>& outLayerPts)
 {
 	outLayerPts.clear();
 	if (segments.empty())
@@ -746,18 +716,13 @@ bool stitchLayerSegments(
 	return outLayerPts.size() >= 2;
 }
 
-bool discretizeEdgeToSegment(
-	const TopoDS_Edge& edge,
-	const bool useChordHeight,
-	const int uniformSegs,
-	const double chordHeight,
-	const int layerKeepStart,
-	const int layerKeepEnd,
-	LayerSegment& segment)
+bool discretizeEdgeToSegment(const TopoDS_Edge& edge, const bool useChordHeight, const int uniformSegs,
+							 const double chordHeight, const int layerKeepStart, const int layerKeepEnd,
+							 LayerSegment& segment)
 {
 	std::vector<Point3d> pts;
 	const bool ok = useChordHeight ? discretizeEdgeChordHeight(edge, chordHeight, pts)
-		: discretizeEdgeUniform(edge, uniformSegs, pts);
+								   : discretizeEdgeUniform(edge, uniformSegs, pts);
 	if (!ok || !filterLayerPointsByIndex(pts, layerKeepStart, layerKeepEnd))
 	{
 		return false;
@@ -766,18 +731,13 @@ bool discretizeEdgeToSegment(
 	return true;
 }
 
-bool discretizeWireToSegment(
-	const TopoDS_Wire& wire,
-	const bool useChordHeight,
-	const int uniformSegs,
-	const double chordHeight,
-	const int layerKeepStart,
-	const int layerKeepEnd,
-	LayerSegment& segment)
+bool discretizeWireToSegment(const TopoDS_Wire& wire, const bool useChordHeight, const int uniformSegs,
+							 const double chordHeight, const int layerKeepStart, const int layerKeepEnd,
+							 LayerSegment& segment)
 {
 	std::vector<Point3d> pts;
 	const bool ok = useChordHeight ? discretizeWireChordHeight(wire, chordHeight, pts)
-		: discretizeWireUniform(wire, uniformSegs, pts);
+								   : discretizeWireUniform(wire, uniformSegs, pts);
 	if (!ok || !filterLayerPointsByIndex(pts, layerKeepStart, layerKeepEnd))
 	{
 		return false;
@@ -786,17 +746,9 @@ bool discretizeWireToSegment(
 	return true;
 }
 
-bool discretizeLayer(
-	const std::vector<std::pair<TopoDS_Edge, TopoDS_Face>>& edgesWithFace,
-	const bool useChordHeight,
-	const int uniformSegs,
-	const double chordHeight,
-	const int layerKeepStart,
-	const int layerKeepEnd,
-	const bool zhiMode,
-	const bool doReverse,
-	const std::vector<TopoDS_Face>& faces,
-	RawPath& path)
+bool discretizeLayer(const std::vector<std::pair<TopoDS_Edge, TopoDS_Face>>& edgesWithFace, const bool useChordHeight,
+					 const int uniformSegs, const double chordHeight, const int layerKeepStart, const int layerKeepEnd,
+					 const bool zhiMode, const bool doReverse, const std::vector<TopoDS_Face>& faces, RawPath& path)
 {
 	std::vector<TopoDS_Wire> wires;
 	std::size_t connectedEdgeCount = 0;
@@ -808,8 +760,8 @@ bool discretizeLayer(
 	for (const TopoDS_Wire& wire : wires)
 	{
 		LayerSegment segment;
-		if (discretizeWireToSegment(
-				wire, useChordHeight, uniformSegs, chordHeight, layerKeepStart, layerKeepEnd, segment))
+		if (discretizeWireToSegment(wire, useChordHeight, uniformSegs, chordHeight, layerKeepStart, layerKeepEnd,
+									segment))
 		{
 			segments.push_back(std::move(segment));
 		}
@@ -843,9 +795,8 @@ bool discretizeLayer(
 				continue;
 			}
 			LayerSegment segment;
-			if (!discretizeEdgeToSegment(
-					edgesWithFace[ei].first, useChordHeight, uniformSegs, chordHeight, layerKeepStart, layerKeepEnd,
-					segment))
+			if (!discretizeEdgeToSegment(edgesWithFace[ei].first, useChordHeight, uniformSegs, chordHeight,
+										 layerKeepStart, layerKeepEnd, segment))
 			{
 				continue;
 			}
@@ -858,8 +809,8 @@ bool discretizeLayer(
 		for (const auto& ef : edgesWithFace)
 		{
 			LayerSegment segment;
-			if (!discretizeEdgeToSegment(
-					ef.first, useChordHeight, uniformSegs, chordHeight, layerKeepStart, layerKeepEnd, segment))
+			if (!discretizeEdgeToSegment(ef.first, useChordHeight, uniformSegs, chordHeight, layerKeepStart,
+										 layerKeepEnd, segment))
 			{
 				continue;
 			}
@@ -963,11 +914,8 @@ void addShapeToBox(const TopoDS_Shape& shape, Bnd_Box& box, bool& hasBox)
 
 } // namespace
 
-bool discretizeFaceSectionGrid(
-	const TopoDS_Shape& shape,
-	const FeatureDiscretizeInput& input,
-	RawPath& out,
-	std::string* errMsg)
+bool discretizeFaceSectionGrid(const TopoDS_Shape& shape, const FeatureDiscretizeInput& input, RawPath& out,
+							   std::string* errMsg)
 {
 	if (input.geometry.faceIndices.empty())
 	{
@@ -1018,13 +966,11 @@ bool discretizeFaceSectionGrid(
 		}
 	}
 
-	const gp_Dir sectionNormal = computeSectionNormal(
-		paramDouble(input.params, "sectionRxDeg", 0.0),
-		paramDouble(input.params, "sectionRyDeg", 0.0));
-	const gp_Pnt sectionOrigin(
-		paramDouble(input.params, "sectionOriginX", 0.0),
-		paramDouble(input.params, "sectionOriginY", 0.0),
-		paramDouble(input.params, "sectionOriginZ", 0.0));
+	const gp_Dir sectionNormal = computeSectionNormal(paramDouble(input.params, "sectionRxDeg", 0.0),
+													  paramDouble(input.params, "sectionRyDeg", 0.0));
+	const gp_Pnt sectionOrigin(paramDouble(input.params, "sectionOriginX", 0.0),
+							   paramDouble(input.params, "sectionOriginY", 0.0),
+							   paramDouble(input.params, "sectionOriginZ", 0.0));
 
 	std::vector<double> sectionOffsets;
 	if (hasBox && !totalBox.IsOpen())
@@ -1094,8 +1040,7 @@ bool discretizeFaceSectionGrid(
 		return false;
 	}
 
-	const TrajConnectMode connectMode =
-		parseTrajConnectMode(paramString(input.params, "trajConnectMode", "Bow"));
+	const TrajConnectMode connectMode = parseTrajConnectMode(paramString(input.params, "trajConnectMode", "Bow"));
 	const bool zhiMode = (connectMode == TrajConnectMode::Zhi);
 	const bool useChordHeight = paramString(input.params, "edgeDiscretizeMode", "Uniform") == "ChordHeight";
 	const int uniformSegs = std::max(2, paramInt(input.params, "uvCountU", 3));
@@ -1113,8 +1058,8 @@ bool discretizeFaceSectionGrid(
 
 		const std::size_t beforeCount = out.points.size();
 		if (!discretizeLayer(edgesWithFace, useChordHeight, uniformSegs, chordHeight,
-				paramInt(input.params, "layerKeepStart", 0), paramInt(input.params, "layerKeepEnd", 0), zhiMode,
-				doReverse, faces, out))
+							 paramInt(input.params, "layerKeepStart", 0), paramInt(input.params, "layerKeepEnd", 0),
+							 zhiMode, doReverse, faces, out))
 		{
 			continue;
 		}

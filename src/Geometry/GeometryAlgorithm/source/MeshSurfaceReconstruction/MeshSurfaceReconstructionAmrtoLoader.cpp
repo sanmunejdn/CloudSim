@@ -1,6 +1,9 @@
-#include "MeshSurfaceReconstructionAmrtoLoader.h"
-#include "MeshSurfaceReconstructionPartitionCommon.h"
+﻿/// @file MeshSurfaceReconstructionAmrtoLoader.cpp
+/// @brief MeshSurfaceReconstructionAmrtoLoader 实现
 
+#include "MeshSurfaceReconstructionAmrtoLoader.h"
+
+#include "MeshSurfaceReconstructionPartitionCommon.h"
 #include "RunLogger.h"
 
 #include <algorithm>
@@ -19,7 +22,6 @@ namespace meshrecon
 {
 namespace
 {
-
 struct Vec3dLite
 {
 	double x = 0.0;
@@ -47,9 +49,8 @@ bool parseFaceToken(const std::string& tok, int& outVi, int& outVti)
 	if (slash + 1U < tok.size())
 	{
 		const std::size_t slash2 = tok.find('/', slash + 1U);
-		const std::string vtPart = (slash2 == std::string::npos)
-			? tok.substr(slash + 1U)
-			: tok.substr(slash + 1U, slash2 - slash - 1U);
+		const std::string vtPart =
+			(slash2 == std::string::npos) ? tok.substr(slash + 1U) : tok.substr(slash + 1U, slash2 - slash - 1U);
 		if (!vtPart.empty())
 		{
 			outVti = std::stoi(vtPart) - 1;
@@ -65,10 +66,7 @@ struct ChartAccel
 
 	void addTriangle(const Vec3dLite& a, const Vec3dLite& b, const Vec3dLite& c, const int chartId)
 	{
-		triCentroids.push_back({
-			(a.x + b.x + c.x) / 3.0,
-			(a.y + b.y + c.y) / 3.0,
-			(a.z + b.z + c.z) / 3.0});
+		triCentroids.push_back({(a.x + b.x + c.x) / 3.0, (a.y + b.y + c.y) / 3.0, (a.z + b.z + c.z) / 3.0});
 		chartIds.push_back(chartId);
 	}
 
@@ -173,10 +171,8 @@ MeshBoundsLite computeMeshBounds(const IndexedMeshLite& mesh)
 
 Vec3dLite meshBoundsCenter(const MeshBoundsLite& bounds)
 {
-	return {
-		(bounds.minPt.x + bounds.maxPt.x) * 0.5,
-		(bounds.minPt.y + bounds.maxPt.y) * 0.5,
-		(bounds.minPt.z + bounds.maxPt.z) * 0.5};
+	return {(bounds.minPt.x + bounds.maxPt.x) * 0.5, (bounds.minPt.y + bounds.maxPt.y) * 0.5,
+			(bounds.minPt.z + bounds.maxPt.z) * 0.5};
 }
 
 } // namespace
@@ -188,7 +184,8 @@ bool detectChartCornersFromUv(const QuadMeshLite& chartQuad, std::array<int, 4>&
 	{
 		return false;
 	}
-	const auto nearCorner = [&](const double u, const double v, const int cornerIdx) {
+	const auto nearCorner = [&](const double u, const double v, const int cornerIdx)
+	{
 		for (int vi = 0; vi < static_cast<int>(chartQuad.vertexUv.size() / 2U); ++vi)
 		{
 			const double uu = chartQuad.vertexUv[static_cast<std::size_t>(vi) * 2U];
@@ -309,7 +306,8 @@ bool loadObjQuadMeshWithVt(const std::string& objPath, QuadMeshLite& outMesh, st
 	std::unordered_map<int, int> oldToNew;
 	std::vector<float> compactVerts;
 	std::vector<float> compactUv;
-	auto mapVertex = [&](const int oldIdx, const int oldVtIdx) -> int {
+	auto mapVertex = [&](const int oldIdx, const int oldVtIdx) -> int
+	{
 		if (oldIdx < 0)
 		{
 			return -1;
@@ -388,11 +386,8 @@ bool triangulateQuadMeshToIndexed(const QuadMeshLite& quadMesh, IndexedMeshLite&
 	return true;
 }
 
-bool loadAmrtoGoldenDataset(
-	const std::string& datasetRoot,
-	const std::string& globalResultObjName,
-	GmcgResult& outResult,
-	std::string* errMsg)
+bool loadAmrtoGoldenDataset(const std::string& datasetRoot, const std::string& globalResultObjName,
+							GmcgResult& outResult, std::string* errMsg)
 {
 	outResult = {};
 	const fs::path root(datasetRoot);
@@ -449,11 +444,8 @@ bool loadAmrtoGoldenDataset(
 	return true;
 }
 
-bool gmcgResultToQuadPatches(
-	const IndexedMeshLite& mesh,
-	const GmcgResult& gmcg,
-	std::vector<QuadPatch>& patches,
-	std::string* errMsg)
+bool gmcgResultToQuadPatches(const IndexedMeshLite& mesh, const GmcgResult& gmcg, std::vector<QuadPatch>& patches,
+							 std::string* errMsg)
 {
 	const int faceCount = static_cast<int>(mesh.faces.size() / 3U);
 	if (faceCount < 1 || gmcg.charts.empty())
@@ -478,10 +470,7 @@ bool gmcgResultToQuadPatches(
 		const Vec3dLite p0 = readV(mesh.vertices, mesh.faces[b]);
 		const Vec3dLite p1 = readV(mesh.vertices, mesh.faces[b + 1U]);
 		const Vec3dLite p2 = readV(mesh.vertices, mesh.faces[b + 2U]);
-		const Vec3dLite c = {
-			(p0.x + p1.x + p2.x) / 3.0,
-			(p0.y + p1.y + p2.y) / 3.0,
-			(p0.z + p1.z + p2.z) / 3.0};
+		const Vec3dLite c = {(p0.x + p1.x + p2.x) / 3.0, (p0.y + p1.y + p2.y) / 3.0, (p0.z + p1.z + p2.z) / 3.0};
 		faceChart[static_cast<std::size_t>(f)] = accel.findNearestChart(c);
 	}
 
@@ -627,11 +616,8 @@ bool loadAmrtoChartsFromDirectory(const std::string& datasetRoot, GmcgResult& ou
 	return true;
 }
 
-bool isGoldenDatasetMeshCompatible(
-	const IndexedMeshLite& mesh,
-	const std::string& datasetRoot,
-	const std::string& globalResultObjName,
-	std::string* errMsg)
+bool isGoldenDatasetMeshCompatible(const IndexedMeshLite& mesh, const std::string& datasetRoot,
+								   const std::string& globalResultObjName, std::string* errMsg)
 {
 	const fs::path globalPath = fs::path(datasetRoot) / globalResultObjName;
 	QuadMeshLite goldenQuad;
@@ -660,9 +646,9 @@ bool isGoldenDatasetMeshCompatible(
 	{
 		if (errMsg)
 		{
-			*errMsg = "input mesh does not match golden dataset (face count "
-				+ std::to_string(inputFaces) + " vs " + std::to_string(goldenFaces)
-				+ "); golden loader only works for smooth_060 / matching CODE_AMRTO mesh";
+			*errMsg = "input mesh does not match golden dataset (face count " + std::to_string(inputFaces) + " vs " +
+					  std::to_string(goldenFaces) +
+					  "); golden loader only works for smooth_060 / matching CODE_AMRTO mesh";
 		}
 		return false;
 	}
@@ -692,7 +678,8 @@ bool isGoldenDatasetMeshCompatible(
 		}
 		return false;
 	}
-	const auto extentRatioOk = [](const double a, const double b) {
+	const auto extentRatioOk = [](const double a, const double b)
+	{
 		if (a <= 1e-9 || b <= 1e-9)
 		{
 			return false;
@@ -700,14 +687,11 @@ bool isGoldenDatasetMeshCompatible(
 		const double ratio = a / b;
 		return ratio >= 0.90 && ratio <= 1.10;
 	};
-	const double inputExt[3] = {
-		inputBounds.maxPt.x - inputBounds.minPt.x,
-		inputBounds.maxPt.y - inputBounds.minPt.y,
-		inputBounds.maxPt.z - inputBounds.minPt.z};
-	const double goldenExt[3] = {
-		goldenBounds.maxPt.x - goldenBounds.minPt.x,
-		goldenBounds.maxPt.y - goldenBounds.minPt.y,
-		goldenBounds.maxPt.z - goldenBounds.minPt.z};
+	const double inputExt[3] = {inputBounds.maxPt.x - inputBounds.minPt.x, inputBounds.maxPt.y - inputBounds.minPt.y,
+								inputBounds.maxPt.z - inputBounds.minPt.z};
+	const double goldenExt[3] = {goldenBounds.maxPt.x - goldenBounds.minPt.x,
+								 goldenBounds.maxPt.y - goldenBounds.minPt.y,
+								 goldenBounds.maxPt.z - goldenBounds.minPt.z};
 	for (int axis = 0; axis < 3; ++axis)
 	{
 		if (!extentRatioOk(inputExt[axis], goldenExt[axis]))
@@ -722,13 +706,9 @@ bool isGoldenDatasetMeshCompatible(
 	return true;
 }
 
-bool partitionFromGoldenLoader(
-	const IndexedMeshLite& mesh,
-	const std::string& datasetRoot,
-	const std::string& globalResultObjName,
-	std::vector<QuadPatch>& patches,
-	int& outJunctionCount,
-	std::string* errMsg)
+bool partitionFromGoldenLoader(const IndexedMeshLite& mesh, const std::string& datasetRoot,
+							   const std::string& globalResultObjName, std::vector<QuadPatch>& patches,
+							   int& outJunctionCount, std::string* errMsg)
 {
 	GmcgResult gmcg;
 	if (!loadAmrtoGoldenDataset(datasetRoot, globalResultObjName, gmcg, errMsg))
@@ -747,9 +727,8 @@ bool partitionFromGoldenLoader(
 	{
 		if (errMsg)
 		{
-			*errMsg = "golden partition quality too low: " + std::to_string(patchCount) + " patches from "
-				+ std::to_string(chartCount)
-				+ " charts; input mesh likely does not match CODE_AMRTO golden data";
+			*errMsg = "golden partition quality too low: " + std::to_string(patchCount) + " patches from " +
+					  std::to_string(chartCount) + " charts; input mesh likely does not match CODE_AMRTO golden data";
 		}
 		patches.clear();
 		return false;
@@ -770,9 +749,8 @@ bool partitionFromGoldenLoader(
 	}
 	rebuildPatchAdjacency(buildMeshAdjacency(mesh, faceCount).fullAdj, faceCount, patches);
 	outJunctionCount = computeJunctionCount(patches);
-	RunLogger::info(
-		std::string("amrto golden loader: ") + std::to_string(patches.size()) + " patches from "
-		+ datasetRoot);
+	RunLogger::info(std::string("amrto golden loader: ") + std::to_string(patches.size()) + " patches from " +
+					datasetRoot);
 	return true;
 }
 

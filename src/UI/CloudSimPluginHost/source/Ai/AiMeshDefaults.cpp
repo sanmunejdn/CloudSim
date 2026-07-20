@@ -1,3 +1,6 @@
+﻿/// @file AiMeshDefaults.cpp
+/// @brief AiMeshDefaults 实现
+
 #include "Ai/AiMeshDefaults.h"
 
 #include "AiCommandSchema.h"
@@ -32,7 +35,7 @@ void setDim(nlohmann::json& dims, const char* key, double value, bool& usedDefau
 	dims[key] = value;
 	usedDefaults = true;
 }
-}
+} // namespace
 
 MeshCreateDefaults builtinDefaults()
 {
@@ -184,9 +187,7 @@ QString summarizeDimensionsMm(const nlohmann::json& cmd)
 	}
 	if (prim == "cylinder" || prim == "cone")
 	{
-		return QStringLiteral("R%1 H%2 mm")
-			.arg(dims.value("radius", 0.0))
-			.arg(dims.value("height", 0.0));
+		return QStringLiteral("R%1 H%2 mm").arg(dims.value("radius", 0.0)).arg(dims.value("height", 0.0));
 	}
 	if (prim == "sphere")
 	{

@@ -1,3 +1,6 @@
+﻿/// @file PointCloudDockWidget.cpp
+/// @brief PointCloudDockWidget 实现
+
 #include "PointCloudDockWidget.h"
 
 #include "IPluginDocument.h"
@@ -12,7 +15,6 @@
 #include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QGroupBox>
-#include <QTextEdit>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -21,10 +23,11 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QScrollArea>
-#include <QSignalBlocker>
 #include <QShowEvent>
-#include <QSpinBox>
+#include <QSignalBlocker>
 #include <QSizePolicy>
+#include <QSpinBox>
+#include <QTextEdit>
 #include <QVBoxLayout>
 
 namespace
@@ -34,9 +37,8 @@ bool isInactiveFaceAction(const std::string& action)
 	return action == "Unchanged" || action == "SkippedNoPoints";
 }
 
-void logBrepUpdateSkippedFaceDiagnostic(
-	IPluginHostContext* host,
-	const std::vector<PluginPointCloudFaceUpdateReport>& perFace)
+void logBrepUpdateSkippedFaceDiagnostic(IPluginHostContext* host,
+										const std::vector<PluginPointCloudFaceUpdateReport>& perFace)
 {
 	if (!host)
 	{
@@ -50,10 +52,9 @@ void logBrepUpdateSkippedFaceDiagnostic(
 		{
 			continue;
 		}
-		host->logInfo(
-			QStringLiteral("  F%1 SkippedNoPoints (%2)")
-				.arg(faceReport.faceIndex)
-				.arg(QString::fromStdString(faceReport.surfaceTypeName)));
+		host->logInfo(QStringLiteral("  F%1 SkippedNoPoints (%2)")
+						  .arg(faceReport.faceIndex)
+						  .arg(QString::fromStdString(faceReport.surfaceTypeName)));
 		if (++logged >= kMaxSkippedLines)
 		{
 			break;
@@ -61,9 +62,7 @@ void logBrepUpdateSkippedFaceDiagnostic(
 	}
 }
 
-void logBrepUpdateFaceSummary(
-	IPluginHostContext* host,
-	const std::vector<PluginPointCloudFaceUpdateReport>& perFace)
+void logBrepUpdateFaceSummary(IPluginHostContext* host, const std::vector<PluginPointCloudFaceUpdateReport>& perFace)
 {
 	if (!host)
 	{
@@ -108,9 +107,7 @@ QString truncateStatusText(const QString& text, const int maxChars = 120)
 } // namespace
 
 PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* parent)
-	: QWidget(parent)
-	, m_host(host)
-	, m_useChinese(host ? host->useChinese() : true)
+	: QWidget(parent), m_host(host), m_useChinese(host ? host->useChinese() : true)
 {
 	auto* outer = new QVBoxLayout(this);
 	outer->setContentsMargins(0, 0, 0, 0);
@@ -495,8 +492,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_featureThresholdSpin->setRange(0.1, 2.0);
 	m_featureThresholdSpin->setDecimals(2);
 	m_featureThresholdSpin->setValue(0.8);
-	m_featureThresholdSpin->setToolTip(
-		QStringLiteral("预处理重网格特征边与分块特征棱共用；越小切分越多"));
+	m_featureThresholdSpin->setToolTip(QStringLiteral("预处理重网格特征边与分块特征棱共用；越小切分越多"));
 	normalSmoothRow->addWidget(m_normalSmoothIterLabel);
 	normalSmoothRow->addWidget(m_normalSmoothIterSpin);
 	normalSmoothRow->addWidget(m_featureThresholdLabel);
@@ -518,8 +514,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_remeshTargetEdgeSpin->setDecimals(3);
 	m_remeshTargetEdgeSpin->setValue(0.0);
 	m_remeshTargetEdgeSpin->setSpecialValueText(QStringLiteral("Auto"));
-	m_remeshTargetEdgeSpin->setToolTip(
-		QStringLiteral("0 = use median edge length after repair"));
+	m_remeshTargetEdgeSpin->setToolTip(QStringLiteral("0 = use median edge length after repair"));
 	m_remeshIterLabel = new QLabel(m_surfaceReconGroup);
 	m_remeshIterSpin = new QSpinBox(m_surfaceReconGroup);
 	m_remeshIterSpin->setRange(1, 20);
@@ -541,18 +536,14 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	auto* partitionModeRow = new QHBoxLayout;
 	m_partitionModeLabel = new QLabel(m_surfaceReconGroup);
 	m_partitionModeCombo = new QComboBox(m_surfaceReconGroup);
-	m_partitionModeCombo->addItem(
-		QStringLiteral("Geodesic Voronoi (v3)"),
-		static_cast<int>(PluginMeshSurfacePartitionMode::GeodesicVoronoiV3));
-	m_partitionModeCombo->addItem(
-		QStringLiteral("Hybrid (normal+CVT)"),
-		static_cast<int>(PluginMeshSurfacePartitionMode::HybridNormalCvt));
-	m_partitionModeCombo->addItem(
-		QStringLiteral("CGAL Chart Hybrid (AMRTO)"),
-		static_cast<int>(PluginMeshSurfacePartitionMode::CgalChartHybrid));
-	m_partitionModeCombo->addItem(
-		QStringLiteral("AMRTO (IM+GMCG)"),
-		static_cast<int>(PluginMeshSurfacePartitionMode::AmrtoImGmcg));
+	m_partitionModeCombo->addItem(QStringLiteral("Geodesic Voronoi (v3)"),
+								  static_cast<int>(PluginMeshSurfacePartitionMode::GeodesicVoronoiV3));
+	m_partitionModeCombo->addItem(QStringLiteral("Hybrid (normal+CVT)"),
+								  static_cast<int>(PluginMeshSurfacePartitionMode::HybridNormalCvt));
+	m_partitionModeCombo->addItem(QStringLiteral("CGAL Chart Hybrid (AMRTO)"),
+								  static_cast<int>(PluginMeshSurfacePartitionMode::CgalChartHybrid));
+	m_partitionModeCombo->addItem(QStringLiteral("AMRTO (IM+GMCG)"),
+								  static_cast<int>(PluginMeshSurfacePartitionMode::AmrtoImGmcg));
 	partitionModeRow->addWidget(m_partitionModeLabel);
 	partitionModeRow->addWidget(m_partitionModeCombo);
 	partitionModeRow->addStretch();
@@ -578,8 +569,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_partitionNormalSmoothSpin = new QSpinBox(m_v3PartitionParamsWidget);
 	m_partitionNormalSmoothSpin->setRange(0, 10);
 	m_partitionNormalSmoothSpin->setValue(2);
-	m_partitionNormalSmoothSpin->setToolTip(
-		QStringLiteral("分块前法向平滑；0=保留锐角，2=默认抑制 confetti"));
+	m_partitionNormalSmoothSpin->setToolTip(QStringLiteral("分块前法向平滑；0=保留锐角，2=默认抑制 confetti"));
 	partitionRow->addWidget(m_partitionNormalSmoothLabel);
 	partitionRow->addWidget(m_partitionNormalSmoothSpin);
 	auto* partitionRow2 = new QHBoxLayout;
@@ -589,8 +579,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_featureAnglePercentileSpin->setDecimals(2);
 	m_featureAnglePercentileSpin->setSingleStep(0.01);
 	m_featureAnglePercentileSpin->setValue(0.88);
-	m_featureAnglePercentileSpin->setToolTip(
-		QStringLiteral("特征棱角度百分位；越低切分越多（如 0.75），越高越合并"));
+	m_featureAnglePercentileSpin->setToolTip(QStringLiteral("特征棱角度百分位；越低切分越多（如 0.75），越高越合并"));
 	partitionRow2->addWidget(m_featureAnglePercentileLabel);
 	partitionRow2->addWidget(m_featureAnglePercentileSpin);
 	partitionRow2->addStretch();
@@ -708,17 +697,11 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	auto* amrtoRow1 = new QHBoxLayout;
 	m_gmcgBackendLabel = new QLabel(m_amrtoPartitionParamsWidget);
 	m_gmcgBackendCombo = new QComboBox(m_amrtoPartitionParamsWidget);
-	m_gmcgBackendCombo->addItem(
-		QStringLiteral("GMCG Native"),
-		static_cast<int>(PluginMeshSurfaceGmcgBackend::Native));
-	m_gmcgBackendCombo->addItem(
-		QStringLiteral("GMCG Exe"),
-		static_cast<int>(PluginMeshSurfaceGmcgBackend::Exe));
-	m_gmcgBackendCombo->addItem(
-		QStringLiteral("GoldenLoader (data_smooth)"),
-		static_cast<int>(PluginMeshSurfaceGmcgBackend::GoldenLoader));
-	m_gmcgBackendCombo->setToolTip(
-		QStringLiteral("GoldenLoader 仅适用于与 CODE_AMRTO/data_smooth 匹配的网格"));
+	m_gmcgBackendCombo->addItem(QStringLiteral("GMCG Native"), static_cast<int>(PluginMeshSurfaceGmcgBackend::Native));
+	m_gmcgBackendCombo->addItem(QStringLiteral("GMCG Exe"), static_cast<int>(PluginMeshSurfaceGmcgBackend::Exe));
+	m_gmcgBackendCombo->addItem(QStringLiteral("GoldenLoader (data_smooth)"),
+								static_cast<int>(PluginMeshSurfaceGmcgBackend::GoldenLoader));
+	m_gmcgBackendCombo->setToolTip(QStringLiteral("GoldenLoader 仅适用于与 CODE_AMRTO/data_smooth 匹配的网格"));
 	amrtoRow1->addWidget(m_gmcgBackendLabel);
 	amrtoRow1->addWidget(m_gmcgBackendCombo);
 	amrtoRow1->addStretch();
@@ -729,8 +712,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_instantMeshesTargetQuadsSpin = new QSpinBox(m_amrtoPartitionParamsWidget);
 	m_instantMeshesTargetQuadsSpin->setRange(0, 500000);
 	m_instantMeshesTargetQuadsSpin->setSpecialValueText(QStringLiteral("Auto"));
-	m_instantMeshesTargetQuadsSpin->setToolTip(
-		QStringLiteral("Instant Meshes 目标 quad 顶点数；0=自动 (约 input/16)"));
+	m_instantMeshesTargetQuadsSpin->setToolTip(QStringLiteral("Instant Meshes 目标 quad 顶点数；0=自动 (约 input/16)"));
 	amrtoRow2->addWidget(m_instantMeshesTargetQuadsLabel);
 	amrtoRow2->addWidget(m_instantMeshesTargetQuadsSpin);
 	amrtoRow2->addStretch();
@@ -739,8 +721,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	auto* amrtoRow3 = new QHBoxLayout;
 	m_instantMeshesExeLabel = new QLabel(m_amrtoPartitionParamsWidget);
 	m_instantMeshesExeEdit = new QLineEdit(m_amrtoPartitionParamsWidget);
-	m_instantMeshesExeEdit->setPlaceholderText(
-		QStringLiteral("可选；留空使用进程内 InstantMeshesLib"));
+	m_instantMeshesExeEdit->setPlaceholderText(QStringLiteral("可选；留空使用进程内 InstantMeshesLib"));
 	amrtoRow3->addWidget(m_instantMeshesExeLabel);
 	amrtoRow3->addWidget(m_instantMeshesExeEdit);
 	amrtoPartitionLayout->addLayout(amrtoRow3);
@@ -753,11 +734,8 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	surfaceReconLayout->addWidget(m_amrtoPartitionParamsWidget);
 	m_amrtoPartitionParamsWidget->hide();
 
-	connect(
-		m_partitionModeCombo,
-		QOverload<int>::of(&QComboBox::currentIndexChanged),
-		this,
-		&PointCloudDockWidget::onPartitionModeChanged);
+	connect(m_partitionModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&PointCloudDockWidget::onPartitionModeChanged);
 	updatePartitionModeUi();
 
 	m_surfaceReconSampleSectionLabel = new QLabel(m_surfaceReconGroup);
@@ -833,10 +811,14 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_ctrlPtDensitySpin->setValue(0.5);
 	m_nurbsFitModeLabel = new QLabel(m_surfaceReconGroup);
 	m_nurbsFitModeCombo = new QComboBox(m_surfaceReconGroup);
-	m_nurbsFitModeCombo->addItem(QStringLiteral("LSQ+ctrlpts"), static_cast<int>(PluginMeshSurfaceNurbsFitMode::ApproxFixedCtrlpts));
-	m_nurbsFitModeCombo->addItem(QStringLiteral("Centripetal"), static_cast<int>(PluginMeshSurfaceNurbsFitMode::ApproxCentripetal));
-	m_nurbsFitModeCombo->addItem(QStringLiteral("Centripetal+ctrlpts"), static_cast<int>(PluginMeshSurfaceNurbsFitMode::ApproxCentripetalFixedCtrlpts));
-	m_nurbsFitModeCombo->addItem(QStringLiteral("Interpolate"), static_cast<int>(PluginMeshSurfaceNurbsFitMode::Interpolate));
+	m_nurbsFitModeCombo->addItem(QStringLiteral("LSQ+ctrlpts"),
+								 static_cast<int>(PluginMeshSurfaceNurbsFitMode::ApproxFixedCtrlpts));
+	m_nurbsFitModeCombo->addItem(QStringLiteral("Centripetal"),
+								 static_cast<int>(PluginMeshSurfaceNurbsFitMode::ApproxCentripetal));
+	m_nurbsFitModeCombo->addItem(QStringLiteral("Centripetal+ctrlpts"),
+								 static_cast<int>(PluginMeshSurfaceNurbsFitMode::ApproxCentripetalFixedCtrlpts));
+	m_nurbsFitModeCombo->addItem(QStringLiteral("Interpolate"),
+								 static_cast<int>(PluginMeshSurfaceNurbsFitMode::Interpolate));
 	amrtoRow->addWidget(m_sampleRateLabel);
 	amrtoRow->addWidget(m_sampleRateSpin);
 	amrtoRow->addWidget(m_ctrlPtDensityLabel);
@@ -949,26 +931,30 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	connect(m_smoothBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onSmoothClicked);
 	connect(m_pcaBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onNormalsPcaClicked);
 	connect(m_orientBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onNormalsOrientClicked);
-	connect(m_icpBtn, &QPushButton::clicked, this, [this]() {
-		if (m_regMethodCombo && m_regMethodCombo->currentData().toString() == QStringLiteral("spare"))
-		{
-			onSpareRegisterClicked();
-		}
-		else
-		{
-			onIcpClicked();
-		}
-	});
+	connect(m_icpBtn, &QPushButton::clicked, this,
+			[this]()
+			{
+				if (m_regMethodCombo && m_regMethodCombo->currentData().toString() == QStringLiteral("spare"))
+				{
+					onSpareRegisterClicked();
+				}
+				else
+				{
+					onIcpClicked();
+				}
+			});
 	if (m_regMethodCombo)
 	{
-		connect(m_regMethodCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &PointCloudDockWidget::onRegistrationMethodChanged);
+		connect(m_regMethodCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+				&PointCloudDockWidget::onRegistrationMethodChanged);
 	}
 	connect(m_poissonBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onReconstructPoissonAutoClicked);
 	connect(m_scaleBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onReconstructScaleSpaceClicked);
 	connect(m_exportMeshBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onExportMeshClicked);
 	connect(m_pickFaceBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onPickTemplateFaceClicked);
 	connect(m_clearFacesBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onClearSelectedFacesClicked);
-	connect(m_coarseMatchBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onCoarseRegisterScanToTemplateClicked);
+	connect(m_coarseMatchBtn, &QPushButton::clicked, this,
+			&PointCloudDockWidget::onCoarseRegisterScanToTemplateClicked);
 	connect(m_fineMatchBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onFineRegisterScanToTemplateClicked);
 	connect(m_refactorBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onUpdateTemplateBrepClicked);
 	connect(m_simplifyBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onMeshSimplifyClicked);
@@ -978,46 +964,41 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	connect(m_fillHolesCheck, &QCheckBox::toggled, m_holeMaxEdgeSpin, &QSpinBox::setEnabled);
 	connect(m_remeshBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onMeshRemeshClicked);
 	connect(m_surfaceReconBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onSurfaceReconstructClicked);
-	connect(m_surfaceReconResetBtn, &QPushButton::clicked, this, &PointCloudDockWidget::onSurfaceReconstructResetSessionClicked);
-	connect(m_surfaceReconPreprocessBtn, &QPushButton::clicked, this, [this]() {
-		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Preprocess);
-	});
-	connect(m_surfaceReconPartitionBtn, &QPushButton::clicked, this, [this]() {
-		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Partition);
-	});
-	connect(m_surfaceReconSampleBtn, &QPushButton::clicked, this, [this]() {
-		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Sample);
-	});
-	connect(m_surfaceReconFitBtn, &QPushButton::clicked, this, [this]() {
-		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Fit);
-	});
-	connect(m_surfaceReconBoundaryBtn, &QPushButton::clicked, this, [this]() {
-		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::BoundaryBlend);
-	});
-	connect(m_surfaceReconJunctionBtn, &QPushButton::clicked, this, [this]() {
-		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::JunctionBlend);
-	});
-	connect(m_surfaceReconFairBtn, &QPushButton::clicked, this, [this]() {
-		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Fair);
-	});
-	connect(m_surfaceReconAssembleBtn, &QPushButton::clicked, this, [this]() {
-		runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Assemble);
-	});
-	connect(m_meshTargetCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](const int index) {
-		if (index < 0)
-		{
-			return;
-		}
-		const std::string meshId = selectedMeshTargetId();
-		// 刷新列表时重选同一网格不应清空分阶段会话
-		if (m_surfaceReconSessionId.valid() && !meshId.empty() && meshId == m_surfaceReconMeshBackendId)
-		{
-			refreshMeshInfo();
-			return;
-		}
-		resetSurfaceReconSessionUi();
-		refreshMeshInfo();
-	});
+	connect(m_surfaceReconResetBtn, &QPushButton::clicked, this,
+			&PointCloudDockWidget::onSurfaceReconstructResetSessionClicked);
+	connect(m_surfaceReconPreprocessBtn, &QPushButton::clicked, this,
+			[this]() { runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Preprocess); });
+	connect(m_surfaceReconPartitionBtn, &QPushButton::clicked, this,
+			[this]() { runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Partition); });
+	connect(m_surfaceReconSampleBtn, &QPushButton::clicked, this,
+			[this]() { runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Sample); });
+	connect(m_surfaceReconFitBtn, &QPushButton::clicked, this,
+			[this]() { runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Fit); });
+	connect(m_surfaceReconBoundaryBtn, &QPushButton::clicked, this,
+			[this]() { runSurfaceReconStage(PluginMeshSurfaceReconstructStage::BoundaryBlend); });
+	connect(m_surfaceReconJunctionBtn, &QPushButton::clicked, this,
+			[this]() { runSurfaceReconStage(PluginMeshSurfaceReconstructStage::JunctionBlend); });
+	connect(m_surfaceReconFairBtn, &QPushButton::clicked, this,
+			[this]() { runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Fair); });
+	connect(m_surfaceReconAssembleBtn, &QPushButton::clicked, this,
+			[this]() { runSurfaceReconStage(PluginMeshSurfaceReconstructStage::Assemble); });
+	connect(m_meshTargetCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			[this](const int index)
+			{
+				if (index < 0)
+				{
+					return;
+				}
+				const std::string meshId = selectedMeshTargetId();
+				// 刷新列表时重选同一网格不应清空分阶段会话
+				if (m_surfaceReconSessionId.valid() && !meshId.empty() && meshId == m_surfaceReconMeshBackendId)
+				{
+					refreshMeshInfo();
+					return;
+				}
+				resetSurfaceReconSessionUi();
+				refreshMeshInfo();
+			});
 
 	applyLanguage();
 	refreshDocumentLabel();
@@ -1053,44 +1034,38 @@ void PointCloudDockWidget::applyLanguage()
 		m_surfaceReconGroup->setTitle(i18n(QStringLiteral("Surface reconstruct"), QStringLiteral("曲面重构")));
 		if (m_surfaceReconPreprocessSectionLabel)
 		{
-			m_surfaceReconPreprocessSectionLabel->setText(
-				i18n(QStringLiteral("Preprocess"), QStringLiteral("预处理")));
+			m_surfaceReconPreprocessSectionLabel->setText(i18n(QStringLiteral("Preprocess"), QStringLiteral("预处理")));
 		}
 		if (m_surfaceReconPartitionSectionLabel)
 		{
-			m_surfaceReconPartitionSectionLabel->setText(
-				i18n(QStringLiteral("Partition"), QStringLiteral("分块")));
+			m_surfaceReconPartitionSectionLabel->setText(i18n(QStringLiteral("Partition"), QStringLiteral("分块")));
 		}
 		if (m_surfaceReconSampleSectionLabel)
 		{
-			m_surfaceReconSampleSectionLabel->setText(
-				i18n(QStringLiteral("Grid sample"), QStringLiteral("栅格采样")));
+			m_surfaceReconSampleSectionLabel->setText(i18n(QStringLiteral("Grid sample"), QStringLiteral("栅格采样")));
 		}
 		if (m_surfaceReconFitSectionLabel)
 		{
-			m_surfaceReconFitSectionLabel->setText(
-				i18n(QStringLiteral("NURBS fit"), QStringLiteral("NURBS 拟合")));
+			m_surfaceReconFitSectionLabel->setText(i18n(QStringLiteral("NURBS fit"), QStringLiteral("NURBS 拟合")));
 		}
 		if (m_surfaceReconBlendSectionLabel)
 		{
 			m_surfaceReconBlendSectionLabel->setText(
 				i18n(QStringLiteral("Blend / fair / assemble"), QStringLiteral("混合 / 光顺 / 装配")));
 		}
-		m_normalSmoothIterLabel->setText(
-			i18n(QStringLiteral("Normal smooth iter:"), QStringLiteral("法矢光顺迭代:")));
+		m_normalSmoothIterLabel->setText(i18n(QStringLiteral("Normal smooth iter:"), QStringLiteral("法矢光顺迭代:")));
 		m_featureThresholdLabel->setText(i18n(QStringLiteral("Feature c0:"), QStringLiteral("特征阈值 c0:")));
 		if (m_featureThresholdSpin)
 		{
 			m_featureThresholdSpin->setToolTip(
 				i18n(QStringLiteral("Shared by remesh feature edges and partition; lower = more splits"),
-					QStringLiteral("预处理重网格特征边与分块特征棱共用；越小切分越多")));
+					 QStringLiteral("预处理重网格特征边与分块特征棱共用；越小切分越多")));
 		}
 		m_patchCountLabel->setText(i18n(QStringLiteral("Patches (0=auto):"), QStringLiteral("分块数(0=自动):")));
 		if (m_patchCountSpin)
 		{
-			m_patchCountSpin->setToolTip(
-				i18n(QStringLiteral("0=auto sqrt(faces/80); increase to split pits/corners"),
-					QStringLiteral("0=自动 sqrt(面数/80)；增大可让凹坑等区域单独成块")));
+			m_patchCountSpin->setToolTip(i18n(QStringLiteral("0=auto sqrt(faces/80); increase to split pits/corners"),
+											  QStringLiteral("0=自动 sqrt(面数/80)；增大可让凹坑等区域单独成块")));
 		}
 		if (m_partitionNormalSmoothLabel)
 		{
@@ -1101,18 +1076,17 @@ void PointCloudDockWidget::applyLanguage()
 		{
 			m_partitionNormalSmoothSpin->setToolTip(
 				i18n(QStringLiteral("Pre-partition normal smooth; 0=sharp corners, 2=default"),
-					QStringLiteral("分块前法向平滑；0=保留锐角，2=默认抑制 confetti")));
+					 QStringLiteral("分块前法向平滑；0=保留锐角，2=默认抑制 confetti")));
 		}
 		if (m_featureAnglePercentileLabel)
 		{
-			m_featureAnglePercentileLabel->setText(
-				i18n(QStringLiteral("Feature P%:"), QStringLiteral("特征百分位:")));
+			m_featureAnglePercentileLabel->setText(i18n(QStringLiteral("Feature P%:"), QStringLiteral("特征百分位:")));
 		}
 		if (m_featureAnglePercentileSpin)
 		{
 			m_featureAnglePercentileSpin->setToolTip(
 				i18n(QStringLiteral("Dihedral percentile; lower (e.g. 0.75) = more feature edges"),
-					QStringLiteral("特征棱角度百分位；越低切分越多（如 0.75），越高越合并")));
+					 QStringLiteral("特征棱角度百分位；越低切分越多（如 0.75），越高越合并")));
 		}
 		if (m_partitionModeLabel)
 		{
@@ -1146,9 +1120,8 @@ void PointCloudDockWidget::applyLanguage()
 			m_partitionModeCombo->addItem(
 				i18n(QStringLiteral("CGAL Chart Hybrid (AMRTO)"), QStringLiteral("CGAL Chart Hybrid (AMRTO)")),
 				static_cast<int>(PluginMeshSurfacePartitionMode::CgalChartHybrid));
-			m_partitionModeCombo->addItem(
-				i18n(QStringLiteral("AMRTO (IM+GMCG)"), QStringLiteral("AMRTO (IM+GMCG)")),
-				static_cast<int>(PluginMeshSurfacePartitionMode::AmrtoImGmcg));
+			m_partitionModeCombo->addItem(i18n(QStringLiteral("AMRTO (IM+GMCG)"), QStringLiteral("AMRTO (IM+GMCG)")),
+										  static_cast<int>(PluginMeshSurfacePartitionMode::AmrtoImGmcg));
 			m_partitionModeCombo->setCurrentIndex(idx >= 0 ? idx : 0);
 			m_partitionModeCombo->blockSignals(false);
 		}
@@ -1232,31 +1205,28 @@ void PointCloudDockWidget::applyLanguage()
 		}
 		if (m_sampleRateLabel)
 		{
-			m_sampleRateLabel->setText(
-				i18n(QStringLiteral("Sample rate k:"), QStringLiteral("采样率 k:")));
+			m_sampleRateLabel->setText(i18n(QStringLiteral("Sample rate k:"), QStringLiteral("采样率 k:")));
 		}
 		if (m_ctrlPtDensityLabel)
 		{
-			m_ctrlPtDensityLabel->setText(
-				i18n(QStringLiteral("Ctrl pt density:"), QStringLiteral("控制点密度:")));
+			m_ctrlPtDensityLabel->setText(i18n(QStringLiteral("Ctrl pt density:"), QStringLiteral("控制点密度:")));
 		}
 		if (m_nurbsFitModeLabel)
 		{
-			m_nurbsFitModeLabel->setText(
-				i18n(QStringLiteral("NURBS fit mode:"), QStringLiteral("NURBS 拟合模式:")));
+			m_nurbsFitModeLabel->setText(i18n(QStringLiteral("NURBS fit mode:"), QStringLiteral("NURBS 拟合模式:")));
 		}
 		if (m_nurbsFitModeCombo)
 		{
 			const int idx = m_nurbsFitModeCombo->currentIndex();
 			m_nurbsFitModeCombo->setItemText(0, i18n(QStringLiteral("LSQ+ctrlpts"), QStringLiteral("最小二乘+控制点")));
 			m_nurbsFitModeCombo->setItemText(1, i18n(QStringLiteral("Centripetal"), QStringLiteral("Centripetal")));
-			m_nurbsFitModeCombo->setItemText(2, i18n(QStringLiteral("Centripetal+ctrlpts"), QStringLiteral("Centripetal+控制点")));
+			m_nurbsFitModeCombo->setItemText(
+				2, i18n(QStringLiteral("Centripetal+ctrlpts"), QStringLiteral("Centripetal+控制点")));
 			m_nurbsFitModeCombo->setItemText(3, i18n(QStringLiteral("Interpolate"), QStringLiteral("插值")));
 			m_nurbsFitModeCombo->setCurrentIndex(idx);
 		}
 		m_fairingEpsilonLabel->setText(i18n(QStringLiteral("Fairing eps:"), QStringLiteral("光顺 ε:")));
-		m_fairingMaxIterLabel->setText(
-			i18n(QStringLiteral("Fairing max iter:"), QStringLiteral("光顺最大迭代:")));
+		m_fairingMaxIterLabel->setText(i18n(QStringLiteral("Fairing max iter:"), QStringLiteral("光顺最大迭代:")));
 		m_runVcgRepairCheck->setText(
 			i18n(QStringLiteral("Vcg repair before partition"), QStringLiteral("分块前 Vcg 修复")));
 		if (m_runIsotropicRemeshCheck)
@@ -1271,16 +1241,13 @@ void PointCloudDockWidget::applyLanguage()
 		}
 		if (m_remeshIterLabel)
 		{
-			m_remeshIterLabel->setText(
-				i18n(QStringLiteral("Remesh iter:"), QStringLiteral("重网格迭代:")));
+			m_remeshIterLabel->setText(i18n(QStringLiteral("Remesh iter:"), QStringLiteral("重网格迭代:")));
 		}
 		if (m_remeshTargetEdgeSpin)
 		{
-			m_remeshTargetEdgeSpin->setSpecialValueText(
-				i18n(QStringLiteral("Auto"), QStringLiteral("自动")));
-			m_remeshTargetEdgeSpin->setToolTip(
-				i18n(QStringLiteral("0 = median edge length after repair"),
-					QStringLiteral("0 = 修复后网格边长中位数")));
+			m_remeshTargetEdgeSpin->setSpecialValueText(i18n(QStringLiteral("Auto"), QStringLiteral("自动")));
+			m_remeshTargetEdgeSpin->setToolTip(i18n(QStringLiteral("0 = median edge length after repair"),
+													QStringLiteral("0 = 修复后网格边长中位数")));
 		}
 		m_blendStripWidthLabel->setText(
 			i18n(QStringLiteral("Blend strip width (0=auto):"), QStringLiteral("混合带宽度(0=自动):")));
@@ -1296,8 +1263,7 @@ void PointCloudDockWidget::applyLanguage()
 		m_surfaceReconJunctionBtn->setText(i18n(QStringLiteral("Junction blend"), QStringLiteral("交汇混合")));
 		m_surfaceReconFairBtn->setText(i18n(QStringLiteral("Fair"), QStringLiteral("光顺")));
 		m_surfaceReconAssembleBtn->setText(i18n(QStringLiteral("Assemble"), QStringLiteral("装配输出")));
-		m_surfaceReconBtn->setText(
-			i18n(QStringLiteral("Full pipeline"), QStringLiteral("全流程")));
+		m_surfaceReconBtn->setText(i18n(QStringLiteral("Full pipeline"), QStringLiteral("全流程")));
 		m_surfaceReconResetBtn->setText(i18n(QStringLiteral("Reset session"), QStringLiteral("重置会话")));
 		m_surfaceReconSummaryLabel->setText(
 			i18n(QStringLiteral("No reconstruction yet"), QStringLiteral("尚未执行曲面重构")));
@@ -1323,8 +1289,7 @@ void PointCloudDockWidget::applyLanguage()
 	m_smoothLambdaLabel->setText(i18n(QStringLiteral("λ (Taubin):"), QStringLiteral("λ (Taubin):")));
 	m_smoothLaplacianBtn->setText(i18n(QStringLiteral("Laplacian smooth"), QStringLiteral("Laplacian 平滑")));
 	m_smoothTaubinBtn->setText(i18n(QStringLiteral("Taubin smooth"), QStringLiteral("Taubin 平滑")));
-	m_repairBeforeSmoothCheck->setText(
-		i18n(QStringLiteral("Repair before smooth"), QStringLiteral("平滑前修复")));
+	m_repairBeforeSmoothCheck->setText(i18n(QStringLiteral("Repair before smooth"), QStringLiteral("平滑前修复")));
 	m_repairBtn->setText(i18n(QStringLiteral("Repair mesh"), QStringLiteral("网格修复")));
 	m_fillHolesCheck->setText(i18n(QStringLiteral("Fill holes"), QStringLiteral("填孔")));
 	m_holeMaxEdgeLabel->setText(i18n(QStringLiteral("Max hole edges:"), QStringLiteral("孔洞最大边数:")));
@@ -1336,10 +1301,8 @@ void PointCloudDockWidget::applyLanguage()
 	m_reMinPtsLabel->setText(i18n(QStringLiteral("Min pts per face:"), QStringLiteral("每面最少点:")));
 	m_reNormalLabel->setText(i18n(QStringLiteral("Normal tol (deg):"), QStringLiteral("法向容差(°):")));
 	m_reMaxDevLabel->setText(i18n(QStringLiteral("Max deviation (mm):"), QStringLiteral("最大偏差(mm):")));
-	m_bsplineUvGridLabel->setText(
-		i18n(QStringLiteral("BSpline UV grid U/V:"), QStringLiteral("BSpline UV 网格 U/V:")));
-	m_maxAssignPointsLabel->setText(
-		i18n(QStringLiteral("Max assign pts/face:"), QStringLiteral("每面归属点数上限:")));
+	m_bsplineUvGridLabel->setText(i18n(QStringLiteral("BSpline UV grid U/V:"), QStringLiteral("BSpline UV 网格 U/V:")));
+	m_maxAssignPointsLabel->setText(i18n(QStringLiteral("Max assign pts/face:"), QStringLiteral("每面归属点数上限:")));
 	m_bsplinePoleSmoothLabel->setText(
 		i18n(QStringLiteral("BSpline pole smooth:"), QStringLiteral("BSpline 极点平滑:")));
 	m_importBtn->setText(i18n(QStringLiteral("Import PLY/XYZ..."), QStringLiteral("导入 PLY/XYZ…")));
@@ -1372,15 +1335,13 @@ void PointCloudDockWidget::applyLanguage()
 	}
 	if (m_spareCreateNewCheck)
 	{
-		m_spareCreateNewCheck->setText(
-			i18n(QStringLiteral("Create new object"), QStringLiteral("输出为新对象")));
+		m_spareCreateNewCheck->setText(i18n(QStringLiteral("Create new object"), QStringLiteral("输出为新对象")));
 	}
 	if (QWidget* spareRoot = m_spareOptionsWidget)
 	{
 		if (QLabel* spareVoxelLabel = spareRoot->findChild<QLabel*>(QStringLiteral("spareVoxelLabel")))
 		{
-			spareVoxelLabel->setText(
-				i18n(QStringLiteral("Voxel prefilter (mm):"), QStringLiteral("体素预滤波 (mm):")));
+			spareVoxelLabel->setText(i18n(QStringLiteral("Voxel prefilter (mm):"), QStringLiteral("体素预滤波 (mm):")));
 		}
 	}
 	updateRegistrationUi();
@@ -1391,19 +1352,13 @@ void PointCloudDockWidget::applyLanguage()
 	m_polylineCropBtn->setText(i18n(QStringLiteral("Draw polygon crop..."), QStringLiteral("多边形裁剪…")));
 	if (m_polylineCropModeCombo->count() == 0)
 	{
-		m_polylineCropModeCombo->addItem(
-			i18n(QStringLiteral("Keep inside"), QStringLiteral("保留内部")),
-			true);
-		m_polylineCropModeCombo->addItem(
-			i18n(QStringLiteral("Delete inside"), QStringLiteral("删除内部")),
-			false);
+		m_polylineCropModeCombo->addItem(i18n(QStringLiteral("Keep inside"), QStringLiteral("保留内部")), true);
+		m_polylineCropModeCombo->addItem(i18n(QStringLiteral("Delete inside"), QStringLiteral("删除内部")), false);
 	}
 	else
 	{
-		m_polylineCropModeCombo->setItemText(
-			0, i18n(QStringLiteral("Keep inside"), QStringLiteral("保留内部")));
-		m_polylineCropModeCombo->setItemText(
-			1, i18n(QStringLiteral("Delete inside"), QStringLiteral("删除内部")));
+		m_polylineCropModeCombo->setItemText(0, i18n(QStringLiteral("Keep inside"), QStringLiteral("保留内部")));
+		m_polylineCropModeCombo->setItemText(1, i18n(QStringLiteral("Delete inside"), QStringLiteral("删除内部")));
 	}
 	m_outlierBtn->setText(i18n(QStringLiteral("Remove outliers"), QStringLiteral("离群移除")));
 	m_smoothBtn->setText(i18n(QStringLiteral("Bilateral smooth"), QStringLiteral("双边平滑")));
@@ -1419,9 +1374,7 @@ void PointCloudDockWidget::applyLanguage()
 	m_coarseMatchBtn->setText(i18n(QStringLiteral("Coarse match"), QStringLiteral("粗匹配")));
 	m_fineMatchBtn->setText(i18n(QStringLiteral("Fine match"), QStringLiteral("精匹配")));
 	m_refactorBtn->setText(i18n(QStringLiteral("Refactor faces"), QStringLiteral("面重构")));
-	m_matchStatusLabel->setText(i18n(
-		QStringLiteral("No registration cached"),
-		QStringLiteral("尚未执行匹配")));
+	m_matchStatusLabel->setText(i18n(QStringLiteral("No registration cached"), QStringLiteral("尚未执行匹配")));
 	if (!m_busy)
 	{
 		m_statusLabel->setText(i18n(QStringLiteral("Ready"), QStringLiteral("就绪")));
@@ -1430,12 +1383,10 @@ void PointCloudDockWidget::applyLanguage()
 	refreshPointCloudList();
 }
 
-QString PointCloudDockWidget::formatInfo(
-	const PluginPointCloudInfo& info,
-	const PluginPointCloudMeasure* measure) const
+QString PointCloudDockWidget::formatInfo(const PluginPointCloudInfo& info, const PluginPointCloudMeasure* measure) const
 {
-	QString text = i18n(QStringLiteral("Points: %1"), QStringLiteral("点数: %1"))
-					   .arg(static_cast<qulonglong>(info.pointCount));
+	QString text =
+		i18n(QStringLiteral("Points: %1"), QStringLiteral("点数: %1")).arg(static_cast<qulonglong>(info.pointCount));
 	if (info.bounds.valid)
 	{
 		text += i18n(QStringLiteral("\nBBox min: (%1, %2, %3)"), QStringLiteral("\n包围盒 min: (%1, %2, %3)"))
@@ -1447,12 +1398,10 @@ QString PointCloudDockWidget::formatInfo(
 					.arg(info.bounds.maxMm.y, 0, 'f', 2)
 					.arg(info.bounds.maxMm.z, 0, 'f', 2);
 	}
-	text += info.hasPerVertexColors
-		? i18n(QStringLiteral("\nVertex colors: yes"), QStringLiteral("\n顶点色: 有"))
-		: i18n(QStringLiteral("\nVertex colors: no"), QStringLiteral("\n顶点色: 无"));
-	text += info.hasPointNormals
-		? i18n(QStringLiteral("\nNormals: yes"), QStringLiteral("\n法线: 有"))
-		: i18n(QStringLiteral("\nNormals: no"), QStringLiteral("\n法线: 无"));
+	text += info.hasPerVertexColors ? i18n(QStringLiteral("\nVertex colors: yes"), QStringLiteral("\n顶点色: 有"))
+									: i18n(QStringLiteral("\nVertex colors: no"), QStringLiteral("\n顶点色: 无"));
+	text += info.hasPointNormals ? i18n(QStringLiteral("\nNormals: yes"), QStringLiteral("\n法线: 有"))
+								 : i18n(QStringLiteral("\nNormals: no"), QStringLiteral("\n法线: 无"));
 	if (measure)
 	{
 		text += i18n(QStringLiteral("\nCentroid: (%1, %2, %3) mm"), QStringLiteral("\n质心: (%1, %2, %3) mm"))
@@ -1480,7 +1429,7 @@ void PointCloudDockWidget::refreshDocumentLabel()
 	if (const IPluginDocument* doc = m_host->activeDocument())
 	{
 		m_docLabel->setText(i18n(QStringLiteral("Active document: %1"), QStringLiteral("活动文档: %1"))
-							  .arg(QString::fromStdString(doc->documentLabel())));
+								.arg(QString::fromStdString(doc->documentLabel())));
 	}
 	else
 	{
@@ -1496,8 +1445,8 @@ void PointCloudDockWidget::refreshPointCloudList()
 	}
 	const std::string prev = selectedBackendId();
 	const std::string prevTemplate = m_templateBrepCombo && m_templateBrepCombo->currentIndex() >= 0
-		? m_templateBrepCombo->currentData().toString().toStdString()
-		: std::string();
+										 ? m_templateBrepCombo->currentData().toString().toStdString()
+										 : std::string();
 	m_list->clear();
 	m_icpTargetCombo->clear();
 	if (m_templateBrepCombo)
@@ -1542,9 +1491,8 @@ void PointCloudDockWidget::refreshPointCloudList()
 					{
 						continue;
 					}
-					m_templateBrepCombo->addItem(
-						QString::fromStdString(entry.displayName),
-						QString::fromStdString(entry.backendId));
+					m_templateBrepCombo->addItem(QString::fromStdString(entry.displayName),
+												 QString::fromStdString(entry.backendId));
 				}
 			}
 		}
@@ -1652,11 +1600,9 @@ void PointCloudDockWidget::refreshTemplateScanList()
 			{
 				continue;
 			}
-			const QString label = i18n(
-				QStringLiteral("PC: %1 (%2 pts)"),
-				QStringLiteral("点云: %1 (%2 点)"))
-									.arg(QString::fromStdString(doc->backendDisplayName(id)))
-									.arg(static_cast<qulonglong>(info.pointCount));
+			const QString label = i18n(QStringLiteral("PC: %1 (%2 pts)"), QStringLiteral("点云: %1 (%2 点)"))
+									  .arg(QString::fromStdString(doc->backendDisplayName(id)))
+									  .arg(static_cast<qulonglong>(info.pointCount));
 			m_templateScanCombo->addItem(label, QString::fromStdString(id));
 		}
 		else if (className == "Model")
@@ -1667,11 +1613,9 @@ void PointCloudDockWidget::refreshTemplateScanList()
 			{
 				continue;
 			}
-			const QString label = i18n(
-				QStringLiteral("Mesh: %1 (%2 faces)"),
-				QStringLiteral("网格: %1 (%2 面)"))
-									.arg(QString::fromStdString(doc->backendDisplayName(id)))
-									.arg(static_cast<qulonglong>(meshInfo.faceCount));
+			const QString label = i18n(QStringLiteral("Mesh: %1 (%2 faces)"), QStringLiteral("网格: %1 (%2 面)"))
+									  .arg(QString::fromStdString(doc->backendDisplayName(id)))
+									  .arg(static_cast<qulonglong>(meshInfo.faceCount));
 			m_templateScanCombo->addItem(label, QString::fromStdString(id));
 		}
 	}
@@ -1706,11 +1650,9 @@ void PointCloudDockWidget::refreshMeshExportList(const std::string& preferBacken
 	{
 		return;
 	}
-	const std::string prevMeshTargetId =
-		m_meshTargetCombo ? selectedMeshTargetId() : std::string();
+	const std::string prevMeshTargetId = m_meshTargetCombo ? selectedMeshTargetId() : std::string();
 	const std::string prevExportId = preferBackendId.empty() ? selectedMeshBackendId() : preferBackendId;
-	const std::string restoreMeshTargetId =
-		!prevMeshTargetId.empty() ? prevMeshTargetId : prevExportId;
+	const std::string restoreMeshTargetId = !prevMeshTargetId.empty() ? prevMeshTargetId : prevExportId;
 
 	const QSignalBlocker exportBlocker(m_meshExportCombo);
 	const QSignalBlocker targetBlocker(m_meshTargetCombo);
@@ -1738,7 +1680,8 @@ void PointCloudDockWidget::refreshMeshExportList(const std::string& preferBacken
 			m_meshTargetCombo->addItem(label, QString::fromStdString(id));
 		}
 	}
-	auto selectComboById = [](QComboBox* combo, const std::string& backendId) {
+	auto selectComboById = [](QComboBox* combo, const std::string& backendId)
+	{
 		if (!combo || backendId.empty())
 		{
 			return;
@@ -1769,9 +1712,8 @@ void PointCloudDockWidget::setBusy(const bool busy)
 	}
 	if (m_statusLabel)
 	{
-		m_statusLabel->setText(
-			busy ? i18n(QStringLiteral("Running..."), QStringLiteral("运行中…"))
-				 : i18n(QStringLiteral("Ready"), QStringLiteral("就绪")));
+		m_statusLabel->setText(busy ? i18n(QStringLiteral("Running..."), QStringLiteral("运行中…"))
+									: i18n(QStringLiteral("Ready"), QStringLiteral("就绪")));
 	}
 	updateSurfaceReconButtonStates();
 }
@@ -1794,21 +1736,19 @@ void PointCloudDockWidget::runFinished(const bool ok, const QString& error, cons
 		}
 		if (result.rmseMm > 0.0)
 		{
-			msg += i18n(QStringLiteral("; RMSE: %1 mm"), QStringLiteral("；RMSE: %1 mm"))
-					   .arg(result.rmseMm, 0, 'f', 3);
+			msg += i18n(QStringLiteral("; RMSE: %1 mm"), QStringLiteral("；RMSE: %1 mm")).arg(result.rmseMm, 0, 'f', 3);
 		}
 		if (result.hasMeshRepairReport)
 		{
 			const PluginMeshRepairReport& r = result.meshRepairReport;
-			msg += i18n(
-				QStringLiteral("; repair %1→%2 faces (dup %3, deg %4, nm %5, fill +%6)"),
-				QStringLiteral("；修复 %1→%2 面（重复 %3，退化 %4，非流形 %5，填孔 +%6）"))
-				.arg(r.inputFaceCount)
-				.arg(r.outputFaceCount)
-				.arg(r.removedDuplicateFaces)
-				.arg(r.removedDegenerateFaces)
-				.arg(r.removedNonManifoldFaces)
-				.arg(r.facesAddedByFill);
+			msg += i18n(QStringLiteral("; repair %1→%2 faces (dup %3, deg %4, nm %5, fill +%6)"),
+						QStringLiteral("；修复 %1→%2 面（重复 %3，退化 %4，非流形 %5，填孔 +%6）"))
+					   .arg(r.inputFaceCount)
+					   .arg(r.outputFaceCount)
+					   .arg(r.removedDuplicateFaces)
+					   .arg(r.removedDegenerateFaces)
+					   .arg(r.removedNonManifoldFaces)
+					   .arg(r.facesAddedByFill);
 		}
 		m_host->logInfo(msg);
 		if (m_statusLabel)
@@ -1821,8 +1761,8 @@ void PointCloudDockWidget::runFinished(const bool ok, const QString& error, cons
 	else
 	{
 		m_host->logError(error.isEmpty()
-			? i18n(QStringLiteral("Point cloud operation failed"), QStringLiteral("点云操作失败"))
-			: error);
+							 ? i18n(QStringLiteral("Point cloud operation failed"), QStringLiteral("点云操作失败"))
+							 : error);
 		if (m_statusLabel)
 		{
 			m_statusLabel->setText(error);
@@ -1876,11 +1816,9 @@ void PointCloudDockWidget::onImportClicked()
 		return;
 	}
 	const QString path = QFileDialog::getOpenFileName(
-		this,
-		i18n(QStringLiteral("Import point cloud"), QStringLiteral("导入点云")),
-		QString(),
+		this, i18n(QStringLiteral("Import point cloud"), QStringLiteral("导入点云")), QString(),
 		i18n(QStringLiteral("Point clouds (*.ply *.xyz);;All files (*.*)"),
-			QStringLiteral("点云 (*.ply *.xyz);;所有文件 (*.*)")));
+			 QStringLiteral("点云 (*.ply *.xyz);;所有文件 (*.*)")));
 	if (path.isEmpty())
 	{
 		return;
@@ -1940,13 +1878,9 @@ void PointCloudDockWidget::onVoxelDownsampleClicked()
 	setBusy(true);
 	PluginPointCloudDownsampleVoxelParams params;
 	params.voxelSizeMm = m_voxelSpin->value();
-	pch->downsamplePointCloudVoxel(
-		doc,
-		id,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-		});
+	pch->downsamplePointCloudVoxel(doc, id, params,
+								   [this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+								   { runFinished(ok, error, result); });
 }
 
 void PointCloudDockWidget::onRandomDownsampleClicked()
@@ -1961,13 +1895,9 @@ void PointCloudDockWidget::onRandomDownsampleClicked()
 	setBusy(true);
 	PluginPointCloudDownsampleRandomParams params;
 	params.retainedFraction = m_randomSpin->value();
-	pch->downsamplePointCloudRandom(
-		doc,
-		id,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-		});
+	pch->downsamplePointCloudRandom(doc, id, params,
+									[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+									{ runFinished(ok, error, result); });
 }
 
 void PointCloudDockWidget::onBoxCropClicked()
@@ -1982,19 +1912,16 @@ void PointCloudDockWidget::onBoxCropClicked()
 	PluginPointCloudInfo info;
 	if (!doc->queryPointCloudInfo(id, info) || !info.bounds.valid)
 	{
-		m_host->logWarn(i18n(QStringLiteral("No valid bounding box for crop"), QStringLiteral("无有效包围盒，无法裁剪")));
+		m_host->logWarn(
+			i18n(QStringLiteral("No valid bounding box for crop"), QStringLiteral("无有效包围盒，无法裁剪")));
 		return;
 	}
 	setBusy(true);
 	PluginPointCloudCropBoxParams params;
 	params.box = info.bounds;
-	pch->cropPointCloudByBox(
-		doc,
-		id,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-		});
+	pch->cropPointCloudByBox(doc, id, params,
+							 [this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+							 { runFinished(ok, error, result); });
 }
 
 void PointCloudDockWidget::onSphereCropClicked()
@@ -2015,13 +1942,9 @@ void PointCloudDockWidget::onSphereCropClicked()
 	PluginPointCloudCropSphereParams params;
 	params.centerMm = measure.centroidMm;
 	params.radiusMm = 50.0;
-	pch->cropPointCloudBySphere(
-		doc,
-		id,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-		});
+	pch->cropPointCloudBySphere(doc, id, params,
+								[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+								{ runFinished(ok, error, result); });
 }
 
 void PointCloudDockWidget::onPolylineCropClicked()
@@ -2030,9 +1953,8 @@ void PointCloudDockWidget::onPolylineCropClicked()
 	{
 		if (m_host)
 		{
-			m_host->logWarn(i18n(
-				QStringLiteral("Polyline crop requires host 1.11.0+"),
-				QStringLiteral("多边形裁剪需要宿主 1.11.0+")));
+			m_host->logWarn(i18n(QStringLiteral("Polyline crop requires host 1.11.0+"),
+								 QStringLiteral("多边形裁剪需要宿主 1.11.0+")));
 		}
 		return;
 	}
@@ -2043,42 +1965,37 @@ void PointCloudDockWidget::onPolylineCropClicked()
 	{
 		return;
 	}
-	const bool keepInside = m_polylineCropModeCombo
-		? m_polylineCropModeCombo->currentData().toBool()
-		: true;
-	m_host->logInfo(i18n(
-		QStringLiteral("Draw polygon in 3D view: left-click vertices, right-click/double-click close, Esc cancel"),
-		QStringLiteral("请在 3D 视图绘制多边形：左键加点，右键/双击闭合，Esc 取消")));
-	pch->pickPolylineFromViewport(
-		doc,
-		[this, pch, doc, id, keepInside](
-			const bool ok, const QString& error, const PluginPointCloudPolylinePickResult& pick) {
-			if (!ok)
-			{
-				if (!error.isEmpty() && m_host)
-				{
-					m_host->logWarn(error);
-				}
-				return;
-			}
-			setBusy(true);
-			PluginPointCloudCropPolylineParams params;
-			params.polylineScreenXy = pick.polylineScreenXy;
-			for (int i = 0; i < 16; ++i)
-			{
-				params.mvpMatrix[i] = pick.mvpMatrix[i];
-			}
-			params.viewportWidth = pick.viewportWidth;
-			params.viewportHeight = pick.viewportHeight;
-			params.keepInside = keepInside;
-			pch->cropPointCloudByPolyline(
-				doc,
-				id,
-				params,
-				[this](const bool cropOk, const QString& cropError, const PluginPointCloudJobResult& result) {
-					runFinished(cropOk, cropError, result);
-				});
-		});
+	const bool keepInside = m_polylineCropModeCombo ? m_polylineCropModeCombo->currentData().toBool() : true;
+	m_host->logInfo(
+		i18n(QStringLiteral("Draw polygon in 3D view: left-click vertices, right-click/double-click close, Esc cancel"),
+			 QStringLiteral("请在 3D 视图绘制多边形：左键加点，右键/双击闭合，Esc 取消")));
+	pch->pickPolylineFromViewport(doc,
+								  [this, pch, doc, id, keepInside](const bool ok, const QString& error,
+																   const PluginPointCloudPolylinePickResult& pick)
+								  {
+									  if (!ok)
+									  {
+										  if (!error.isEmpty() && m_host)
+										  {
+											  m_host->logWarn(error);
+										  }
+										  return;
+									  }
+									  setBusy(true);
+									  PluginPointCloudCropPolylineParams params;
+									  params.polylineScreenXy = pick.polylineScreenXy;
+									  for (int i = 0; i < 16; ++i)
+									  {
+										  params.mvpMatrix[i] = pick.mvpMatrix[i];
+									  }
+									  params.viewportWidth = pick.viewportWidth;
+									  params.viewportHeight = pick.viewportHeight;
+									  params.keepInside = keepInside;
+									  pch->cropPointCloudByPolyline(doc, id, params,
+																	[this](const bool cropOk, const QString& cropError,
+																		   const PluginPointCloudJobResult& result)
+																	{ runFinished(cropOk, cropError, result); });
+								  });
 }
 
 void PointCloudDockWidget::onRemoveOutliersClicked()
@@ -2092,13 +2009,9 @@ void PointCloudDockWidget::onRemoveOutliersClicked()
 	}
 	setBusy(true);
 	PluginPointCloudOutlierParams params;
-	pch->removePointCloudOutliers(
-		doc,
-		id,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-		});
+	pch->removePointCloudOutliers(doc, id, params,
+								  [this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+								  { runFinished(ok, error, result); });
 }
 
 void PointCloudDockWidget::onSmoothClicked()
@@ -2111,12 +2024,9 @@ void PointCloudDockWidget::onSmoothClicked()
 		return;
 	}
 	setBusy(true);
-	pch->smoothPointCloudBilateral(
-		doc,
-		id,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-		});
+	pch->smoothPointCloudBilateral(doc, id,
+								   [this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+								   { runFinished(ok, error, result); });
 }
 
 void PointCloudDockWidget::onNormalsPcaClicked()
@@ -2131,12 +2041,9 @@ void PointCloudDockWidget::onNormalsPcaClicked()
 	setBusy(true);
 	PluginPointCloudNormalsParams params;
 	pch->estimatePointCloudNormalsPca(
-		doc,
-		id,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-		});
+		doc, id, params,
+		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+		{ runFinished(ok, error, result); });
 }
 
 void PointCloudDockWidget::onNormalsOrientClicked()
@@ -2150,13 +2057,9 @@ void PointCloudDockWidget::onNormalsOrientClicked()
 	}
 	setBusy(true);
 	PluginPointCloudNormalsParams params;
-	pch->orientPointCloudNormalsMst(
-		doc,
-		id,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-		});
+	pch->orientPointCloudNormalsMst(doc, id, params,
+									[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+									{ runFinished(ok, error, result); });
 }
 
 void PointCloudDockWidget::onRegistrationMethodChanged()
@@ -2197,9 +2100,8 @@ void PointCloudDockWidget::updateRegistrationUi()
 	}
 	if (m_icpBtn)
 	{
-		m_icpBtn->setText(spare
-			? i18n(QStringLiteral("SPARE register"), QStringLiteral("SPARE 配准"))
-			: i18n(QStringLiteral("ICP register"), QStringLiteral("ICP 配准")));
+		m_icpBtn->setText(spare ? i18n(QStringLiteral("SPARE register"), QStringLiteral("SPARE 配准"))
+								: i18n(QStringLiteral("ICP register"), QStringLiteral("ICP 配准")));
 	}
 }
 
@@ -2211,11 +2113,11 @@ void PointCloudDockWidget::refreshSpareObjectLists()
 	}
 
 	const std::string prevSource = m_spareSourceCombo->currentIndex() >= 0
-		? m_spareSourceCombo->currentData().toString().toStdString()
-		: std::string();
+									   ? m_spareSourceCombo->currentData().toString().toStdString()
+									   : std::string();
 	const std::string prevTarget = m_spareTargetCombo->currentIndex() >= 0
-		? m_spareTargetCombo->currentData().toString().toStdString()
-		: std::string();
+									   ? m_spareTargetCombo->currentData().toString().toStdString()
+									   : std::string();
 
 	const QSignalBlocker sourceBlocker(m_spareSourceCombo);
 	const QSignalBlocker targetBlocker(m_spareTargetCombo);
@@ -2228,7 +2130,8 @@ void PointCloudDockWidget::refreshSpareObjectLists()
 		return;
 	}
 
-	auto addItem = [this](QComboBox* combo, const QString& label, const std::string& id, const QString& kind) {
+	auto addItem = [this](QComboBox* combo, const QString& label, const std::string& id, const QString& kind)
+	{
 		combo->addItem(label, QString::fromStdString(id));
 		combo->setItemData(combo->count() - 1, kind, Qt::UserRole + 1);
 	};
@@ -2275,7 +2178,8 @@ void PointCloudDockWidget::refreshSpareObjectLists()
 		}
 	}
 
-	auto restoreSelection = [](QComboBox* combo, const std::string& preferId) {
+	auto restoreSelection = [](QComboBox* combo, const std::string& preferId)
+	{
 		if (!combo || preferId.empty())
 		{
 			return;
@@ -2303,8 +2207,8 @@ void PointCloudDockWidget::onSpareRegisterClicked()
 	}
 	if (m_spareSourceCombo->currentIndex() < 0 || m_spareTargetCombo->currentIndex() < 0)
 	{
-		m_host->logWarn(i18n(QStringLiteral("Select SPARE source and target"),
-			QStringLiteral("请选择 SPARE 源与目标")));
+		m_host->logWarn(
+			i18n(QStringLiteral("Select SPARE source and target"), QStringLiteral("请选择 SPARE 源与目标")));
 		return;
 	}
 
@@ -2314,41 +2218,37 @@ void PointCloudDockWidget::onSpareRegisterClicked()
 	const QString targetKind = m_spareTargetCombo->currentData(Qt::UserRole + 1).toString();
 	if (sourceId.empty() || targetId.empty() || targetId == sourceId)
 	{
-		m_host->logWarn(i18n(QStringLiteral("Select a different SPARE target"),
-			QStringLiteral("请为 SPARE 选择不同的目标")));
+		m_host->logWarn(
+			i18n(QStringLiteral("Select a different SPARE target"), QStringLiteral("请为 SPARE 选择不同的目标")));
 		return;
 	}
 
 	setBusy(true);
 	PluginPointCloudSpareParams params;
-	params.sourceKind = sourceKind == QStringLiteral("mesh")
-		? PluginSpareSourceKind::Mesh
-		: PluginSpareSourceKind::PointCloud;
-	params.targetKind = targetKind == QStringLiteral("mesh")
-		? PluginSpareTargetKind::Mesh
-		: PluginSpareTargetKind::PointCloud;
+	params.sourceKind =
+		sourceKind == QStringLiteral("mesh") ? PluginSpareSourceKind::Mesh : PluginSpareSourceKind::PointCloud;
+	params.targetKind =
+		targetKind == QStringLiteral("mesh") ? PluginSpareTargetKind::Mesh : PluginSpareTargetKind::PointCloud;
 	params.targetBackendIdUtf8 = targetId;
 	params.voxelPrefilterMm = m_spareVoxelSpin ? m_spareVoxelSpin->value() : 0.0;
 	params.rigidPreAlign = m_spareRigidPreAlignCheck && m_spareRigidPreAlignCheck->isChecked();
 	params.createNewObject = m_spareCreateNewCheck && m_spareCreateNewCheck->isChecked();
 	params.applyDeformationToSource = !params.createNewObject;
-	pch->nonRigidRegisterSpare(
-		doc,
-		sourceId,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			if (ok)
-			{
-				const QString msg = i18n(
-					QStringLiteral("SPARE done: mean err %1 mm, nodes %2"),
-					QStringLiteral("SPARE 完成: 平均误差 %1 mm, 变形节点 %2"))
-										.arg(result.rmseMm, 0, 'f', 3)
-										.arg(result.spareDeformationNodeCount);
-				m_host->logInfo(msg);
-				refreshSpareObjectLists();
-			}
-			runFinished(ok, error, result);
-		});
+	pch->nonRigidRegisterSpare(doc, sourceId, params,
+							   [this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+							   {
+								   if (ok)
+								   {
+									   const QString msg =
+										   i18n(QStringLiteral("SPARE done: mean err %1 mm, nodes %2"),
+												QStringLiteral("SPARE 完成: 平均误差 %1 mm, 变形节点 %2"))
+											   .arg(result.rmseMm, 0, 'f', 3)
+											   .arg(result.spareDeformationNodeCount);
+									   m_host->logInfo(msg);
+									   refreshSpareObjectLists();
+								   }
+								   runFinished(ok, error, result);
+							   });
 }
 
 void PointCloudDockWidget::onIcpClicked()
@@ -2363,9 +2263,8 @@ void PointCloudDockWidget::onIcpClicked()
 	const std::string targetId = m_icpTargetCombo->currentData().toString().toStdString();
 	if (targetId.empty() || targetId == sourceId)
 	{
-		m_host->logWarn(
-			i18n(QStringLiteral("Select a different target point cloud for ICP"),
-				QStringLiteral("请为 ICP 选择不同的目标点云")));
+		m_host->logWarn(i18n(QStringLiteral("Select a different target point cloud for ICP"),
+							 QStringLiteral("请为 ICP 选择不同的目标点云")));
 		return;
 	}
 	setBusy(true);
@@ -2373,12 +2272,9 @@ void PointCloudDockWidget::onIcpClicked()
 	params.targetBackendIdUtf8 = targetId;
 	params.applyTransformToSource = true;
 	pch->rigidRegisterPointCloudsIcp(
-		doc,
-		sourceId,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-		});
+		doc, sourceId, params,
+		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+		{ runFinished(ok, error, result); });
 }
 
 void PointCloudDockWidget::onReconstructPoissonAutoClicked()
@@ -2395,13 +2291,9 @@ void PointCloudDockWidget::onReconstructPoissonAutoClicked()
 	params.voxelPrefilterMm = m_prefilterSpin->value();
 	params.meshOptions.displayName = i18n(QStringLiteral("PoissonMesh"), QStringLiteral("Poisson网格"));
 	params.meshOptions.selectInTree = true;
-	pch->reconstructMeshPoissonAuto(
-		doc,
-		id,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-		});
+	pch->reconstructMeshPoissonAuto(doc, id, params,
+									[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+									{ runFinished(ok, error, result); });
 }
 
 void PointCloudDockWidget::onReconstructScaleSpaceClicked()
@@ -2417,13 +2309,9 @@ void PointCloudDockWidget::onReconstructScaleSpaceClicked()
 	PluginPointCloudReconstructScaleSpaceParams params;
 	params.meshOptions.displayName = i18n(QStringLiteral("ScaleSpaceMesh"), QStringLiteral("ScaleSpace网格"));
 	params.meshOptions.selectInTree = true;
-	pch->reconstructMeshScaleSpace(
-		doc,
-		id,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-		});
+	pch->reconstructMeshScaleSpace(doc, id, params,
+								   [this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+								   { runFinished(ok, error, result); });
 }
 
 void PointCloudDockWidget::onExportMeshClicked()
@@ -2440,12 +2328,10 @@ void PointCloudDockWidget::onExportMeshClicked()
 		return;
 	}
 	const QString defaultName =
-		QString::fromStdString(doc->backendDisplayName(meshId)).replace(QLatin1Char(' '), QLatin1Char('_'))
-		+ QStringLiteral(".ply");
+		QString::fromStdString(doc->backendDisplayName(meshId)).replace(QLatin1Char(' '), QLatin1Char('_')) +
+		QStringLiteral(".ply");
 	const QString path = QFileDialog::getSaveFileName(
-		this,
-		i18n(QStringLiteral("Export mesh PLY"), QStringLiteral("导出网格 PLY")),
-		defaultName,
+		this, i18n(QStringLiteral("Export mesh PLY"), QStringLiteral("导出网格 PLY")), defaultName,
 		i18n(QStringLiteral("Mesh PLY (*.ply);;All files (*.*)"), QStringLiteral("网格 PLY (*.ply);;所有文件 (*.*)")));
 	if (path.isEmpty())
 	{
@@ -2455,8 +2341,8 @@ void PointCloudDockWidget::onExportMeshClicked()
 	if (!doc->exportMeshToPly(meshId, path.toUtf8().toStdString(), &err))
 	{
 		m_host->logError(err.empty()
-			? i18n(QStringLiteral("Failed to export mesh PLY"), QStringLiteral("导出网格 PLY 失败"))
-			: QString::fromStdString(err));
+							 ? i18n(QStringLiteral("Failed to export mesh PLY"), QStringLiteral("导出网格 PLY 失败"))
+							 : QString::fromStdString(err));
 		return;
 	}
 	m_host->logInfo(i18n(QStringLiteral("Mesh exported: %1"), QStringLiteral("网格已导出: %1")).arg(path));
@@ -2525,9 +2411,8 @@ void PointCloudDockWidget::addSelectedFaceIndex(const int faceIndex)
 			return;
 		}
 	}
-	auto* item = new QListWidgetItem(
-		i18n(QStringLiteral("Face %1"), QStringLiteral("面 %1")).arg(faceIndex),
-		m_selectedFacesList);
+	auto* item = new QListWidgetItem(i18n(QStringLiteral("Face %1"), QStringLiteral("面 %1")).arg(faceIndex),
+									 m_selectedFacesList);
 	item->setData(Qt::UserRole, faceIndex);
 }
 
@@ -2540,9 +2425,8 @@ void PointCloudDockWidget::onPickTemplateFaceClicked()
 	IPluginDocument* doc = activeDoc();
 	if (!doc || !m_templateBrepCombo || m_templateBrepCombo->currentIndex() < 0)
 	{
-		m_host->logWarn(i18n(
-			QStringLiteral("Select CAD template B-rep first"),
-			QStringLiteral("请先选择 CAD 模板 B-rep")));
+		m_host->logWarn(
+			i18n(QStringLiteral("Select CAD template B-rep first"), QStringLiteral("请先选择 CAD 模板 B-rep")));
 		return;
 	}
 	const std::string templateId = m_templateBrepCombo->currentData().toString().toStdString();
@@ -2555,14 +2439,13 @@ void PointCloudDockWidget::onPickTemplateFaceClicked()
 	req.backendIdUtf8 = templateId;
 	if (m_statusLabel)
 	{
-		m_statusLabel->setText(i18n(
-			QStringLiteral("Pick a face in 3D view..."),
-			QStringLiteral("请在 3D 视图点选面…")));
+		m_statusLabel->setText(
+			i18n(QStringLiteral("Pick a face in 3D view..."), QStringLiteral("请在 3D 视图点选面…")));
 	}
 	m_host->geometryHost()->pickStepElementFromViewport(
-		doc,
-		req,
-		[this](const bool ok, const QString& err, const PluginGeometryStepRef& ref) {
+		doc, req,
+		[this](const bool ok, const QString& err, const PluginGeometryStepRef& ref)
+		{
 			if (!m_host)
 			{
 				return;
@@ -2577,9 +2460,8 @@ void PointCloudDockWidget::onPickTemplateFaceClicked()
 				return;
 			}
 			addSelectedFaceIndex(ref.faceIndex);
-			const QString msg = i18n(
-				QStringLiteral("Selected face %1 (empty list = all faces)"),
-				QStringLiteral("已选面 %1（列表为空则处理全部面）"))
+			const QString msg = i18n(QStringLiteral("Selected face %1 (empty list = all faces)"),
+									 QStringLiteral("已选面 %1（列表为空则处理全部面）"))
 									.arg(ref.faceIndex);
 			m_host->logInfo(msg);
 			if (m_statusLabel)
@@ -2597,9 +2479,8 @@ void PointCloudDockWidget::onClearSelectedFacesClicked()
 	}
 	if (m_statusLabel)
 	{
-		m_statusLabel->setText(i18n(
-			QStringLiteral("Face list cleared (all faces will be refactored)"),
-			QStringLiteral("已清空面列表（将重构全部面）")));
+		m_statusLabel->setText(i18n(QStringLiteral("Face list cleared (all faces will be refactored)"),
+									QStringLiteral("已清空面列表（将重构全部面）")));
 	}
 }
 
@@ -2613,8 +2494,7 @@ void PointCloudDockWidget::onFineRegisterScanToTemplateClicked()
 	runTemplateBrepRegistration(PluginPointCloudTemplateBrepRegistrationStage::FineOnly);
 }
 
-void PointCloudDockWidget::runTemplateBrepRegistration(
-	const PluginPointCloudTemplateBrepRegistrationStage stage)
+void PointCloudDockWidget::runTemplateBrepRegistration(const PluginPointCloudTemplateBrepRegistrationStage stage)
 {
 	IPluginPointCloudHost* pch = pointCloudHost();
 	IPluginDocument* doc = activeDoc();
@@ -2623,9 +2503,8 @@ void PointCloudDockWidget::runTemplateBrepRegistration(
 	{
 		if (m_host)
 		{
-			m_host->logWarn(i18n(
-				QStringLiteral("Select scan point cloud and CAD template B-rep"),
-				QStringLiteral("请选择扫描点云与 CAD 模板 B-rep")));
+			m_host->logWarn(i18n(QStringLiteral("Select scan point cloud and CAD template B-rep"),
+								 QStringLiteral("请选择扫描点云与 CAD 模板 B-rep")));
 		}
 		return;
 	}
@@ -2637,10 +2516,9 @@ void PointCloudDockWidget::runTemplateBrepRegistration(
 	}
 	setBusy(true);
 	pch->registerScanToCadTemplate(
-		doc,
-		scanId,
-		params,
-		[this, stage](const bool ok, const QString& error, const PluginPointCloudTemplateBrepRegisterResult& result) {
+		doc, scanId, params,
+		[this, stage](const bool ok, const QString& error, const PluginPointCloudTemplateBrepRegisterResult& result)
+		{
 			setBusy(false);
 			if (!m_host)
 			{
@@ -2648,19 +2526,16 @@ void PointCloudDockWidget::runTemplateBrepRegistration(
 			}
 			if (ok)
 			{
-				const QString stageName =
-					stage == PluginPointCloudTemplateBrepRegistrationStage::CoarseOnly
-						? i18n(QStringLiteral("Coarse match"), QStringLiteral("粗匹配"))
-						: (stage == PluginPointCloudTemplateBrepRegistrationStage::FineOnly
-							  ? i18n(QStringLiteral("Fine match"), QStringLiteral("精匹配"))
-							  : i18n(QStringLiteral("Match"), QStringLiteral("匹配")));
-				const QString msg = error.isEmpty()
-					? i18n(
-						  QStringLiteral("%1 OK, ICP RMSE %2 mm"),
-						  QStringLiteral("%1 完成，ICP RMSE %2 mm"))
-						  .arg(stageName)
-						  .arg(result.icpRmseMm, 0, 'f', 3)
-					: error;
+				const QString stageName = stage == PluginPointCloudTemplateBrepRegistrationStage::CoarseOnly
+											  ? i18n(QStringLiteral("Coarse match"), QStringLiteral("粗匹配"))
+											  : (stage == PluginPointCloudTemplateBrepRegistrationStage::FineOnly
+													 ? i18n(QStringLiteral("Fine match"), QStringLiteral("精匹配"))
+													 : i18n(QStringLiteral("Match"), QStringLiteral("匹配")));
+				const QString msg = error.isEmpty() ? i18n(QStringLiteral("%1 OK, ICP RMSE %2 mm"),
+														   QStringLiteral("%1 完成，ICP RMSE %2 mm"))
+														  .arg(stageName)
+														  .arg(result.icpRmseMm, 0, 'f', 3)
+													: error;
 				if (error.isEmpty())
 				{
 					m_host->logInfo(msg);
@@ -2681,9 +2556,8 @@ void PointCloudDockWidget::runTemplateBrepRegistration(
 			}
 			else
 			{
-				m_host->logError(error.isEmpty()
-					? i18n(QStringLiteral("Registration failed"), QStringLiteral("匹配失败"))
-					: error);
+				m_host->logError(
+					error.isEmpty() ? i18n(QStringLiteral("Registration failed"), QStringLiteral("匹配失败")) : error);
 				if (m_statusLabel)
 				{
 					m_statusLabel->setText(error);
@@ -2705,9 +2579,8 @@ void PointCloudDockWidget::onUpdateTemplateBrepClicked()
 	{
 		if (m_host)
 		{
-			m_host->logWarn(i18n(
-				QStringLiteral("Select scan point cloud and CAD template B-rep"),
-				QStringLiteral("请选择扫描点云与 CAD 模板 B-rep")));
+			m_host->logWarn(i18n(QStringLiteral("Select scan point cloud and CAD template B-rep"),
+								 QStringLiteral("请选择扫描点云与 CAD 模板 B-rep")));
 		}
 		return;
 	}
@@ -2718,10 +2591,9 @@ void PointCloudDockWidget::onUpdateTemplateBrepClicked()
 	}
 	setBusy(true);
 	pch->updateTemplateBrepFromAlignedScan(
-		doc,
-		scanId,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudTemplateBrepUpdateResult& result) {
+		doc, scanId, params,
+		[this](const bool ok, const QString& error, const PluginPointCloudTemplateBrepUpdateResult& result)
+		{
 			setBusy(false);
 			if (!m_host)
 			{
@@ -2729,9 +2601,8 @@ void PointCloudDockWidget::onUpdateTemplateBrepClicked()
 			}
 			if (ok)
 			{
-				QString msg = i18n(
-					QStringLiteral("Updated B-rep: %1 faces, max dev %2mm"),
-					QStringLiteral("已更新 B-rep: %1 面，最大偏差 %2mm"))
+				QString msg = i18n(QStringLiteral("Updated B-rep: %1 faces, max dev %2mm"),
+								   QStringLiteral("已更新 B-rep: %1 面，最大偏差 %2mm"))
 								  .arg(result.updatedFaceCount)
 								  .arg(result.globalMaxDeviationMm, 0, 'f', 3);
 				if (!result.qualityGatePassed)
@@ -2749,18 +2620,15 @@ void PointCloudDockWidget::onUpdateTemplateBrepClicked()
 			}
 			else
 			{
-				const QString failMsg = error.isEmpty()
-					? i18n(QStringLiteral("Template B-rep refactor failed"),
-						   QStringLiteral("模板 B-rep 重构失败"))
-					: error;
+				const QString failMsg = error.isEmpty() ? i18n(QStringLiteral("Template B-rep refactor failed"),
+															   QStringLiteral("模板 B-rep 重构失败"))
+														: error;
 				m_host->logError(failMsg);
 				if (result.skippedBadBboxFaceCount > 0U)
 				{
-					m_host->logWarn(
-						i18n(
-							QStringLiteral("%1 face(s) skipped by bounds guard"),
-							QStringLiteral("%1 面因包围盒守卫被跳过"))
-							.arg(result.skippedBadBboxFaceCount));
+					m_host->logWarn(i18n(QStringLiteral("%1 face(s) skipped by bounds guard"),
+										 QStringLiteral("%1 面因包围盒守卫被跳过"))
+										.arg(result.skippedBadBboxFaceCount));
 				}
 				logBrepUpdateSkippedFaceDiagnostic(m_host, result.perFace);
 				logBrepUpdateFaceSummary(m_host, result.perFace);
@@ -2826,10 +2694,9 @@ void PointCloudDockWidget::refreshMeshInfo()
 	PluginMeshInfo info;
 	if (pch->queryMeshInfo(doc, id, info))
 	{
-		m_meshInfoLabel->setText(
-			i18n(QStringLiteral("Faces: %1, Vertices: %2"), QStringLiteral("面数: %1，顶点数: %2"))
-				.arg(static_cast<qulonglong>(info.faceCount))
-				.arg(static_cast<qulonglong>(info.vertexCount)));
+		m_meshInfoLabel->setText(i18n(QStringLiteral("Faces: %1, Vertices: %2"), QStringLiteral("面数: %1，顶点数: %2"))
+									 .arg(static_cast<qulonglong>(info.faceCount))
+									 .arg(static_cast<qulonglong>(info.vertexCount)));
 	}
 	else
 	{
@@ -2852,14 +2719,12 @@ void PointCloudDockWidget::onMeshSimplifyClicked()
 	params.qualityThreshold = m_simplifyQualitySpin->value();
 	params.resultOptions.displayName = i18n(QStringLiteral("Simplified"), QStringLiteral("简化网格"));
 	params.resultOptions.selectInTree = true;
-	pch->simplifyMesh(
-		doc,
-		id,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-			refreshMeshInfo();
-		});
+	pch->simplifyMesh(doc, id, params,
+					  [this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+					  {
+						  runFinished(ok, error, result);
+						  refreshMeshInfo();
+					  });
 }
 
 void PointCloudDockWidget::onMeshSmoothLaplacianClicked()
@@ -2880,14 +2745,12 @@ void PointCloudDockWidget::onMeshSmoothLaplacianClicked()
 	params.repairParams = collectMeshRepairParams();
 	params.resultOptions.displayName = i18n(QStringLiteral("Smoothed"), QStringLiteral("平滑网格"));
 	params.resultOptions.selectInTree = true;
-	pch->smoothMesh(
-		doc,
-		id,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-			refreshMeshInfo();
-		});
+	pch->smoothMesh(doc, id, params,
+					[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+					{
+						runFinished(ok, error, result);
+						refreshMeshInfo();
+					});
 }
 
 void PointCloudDockWidget::onMeshSmoothTaubinClicked()
@@ -2909,14 +2772,12 @@ void PointCloudDockWidget::onMeshSmoothTaubinClicked()
 	params.repairParams = collectMeshRepairParams();
 	params.resultOptions.displayName = i18n(QStringLiteral("Taubin smoothed"), QStringLiteral("Taubin 平滑"));
 	params.resultOptions.selectInTree = true;
-	pch->smoothMesh(
-		doc,
-		id,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-			refreshMeshInfo();
-		});
+	pch->smoothMesh(doc, id, params,
+					[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+					{
+						runFinished(ok, error, result);
+						refreshMeshInfo();
+					});
 }
 
 void PointCloudDockWidget::onMeshRepairClicked()
@@ -2932,14 +2793,12 @@ void PointCloudDockWidget::onMeshRepairClicked()
 	PluginMeshRepairParams params = collectMeshRepairParams();
 	params.resultOptions.displayName = i18n(QStringLiteral("Repaired"), QStringLiteral("修复网格"));
 	params.resultOptions.selectInTree = true;
-	pch->repairMesh(
-		doc,
-		id,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-			refreshMeshInfo();
-		});
+	pch->repairMesh(doc, id, params,
+					[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+					{
+						runFinished(ok, error, result);
+						refreshMeshInfo();
+					});
 }
 
 void PointCloudDockWidget::onMeshRemeshClicked()
@@ -2957,14 +2816,12 @@ void PointCloudDockWidget::onMeshRemeshClicked()
 	params.iterations = 3;
 	params.resultOptions.displayName = i18n(QStringLiteral("Remeshed"), QStringLiteral("重网格"));
 	params.resultOptions.selectInTree = true;
-	pch->remeshMeshIsotropic(
-		doc,
-		id,
-		params,
-		[this](const bool ok, const QString& error, const PluginPointCloudJobResult& result) {
-			runFinished(ok, error, result);
-			refreshMeshInfo();
-		});
+	pch->remeshMeshIsotropic(doc, id, params,
+							 [this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+							 {
+								 runFinished(ok, error, result);
+								 refreshMeshInfo();
+							 });
 }
 
 void PointCloudDockWidget::refreshSurfaceReconstructSummary(const PluginMeshSurfaceReconstructReport& report)
@@ -2975,14 +2832,13 @@ void PointCloudDockWidget::refreshSurfaceReconstructSummary(const PluginMeshSurf
 	}
 	m_surfaceReconSummaryLabel->setText(
 		i18n(QStringLiteral("Patches: %1 | Junctions: %2 | Max dev: %3 mm | Fairing: %4 | C2: %5"),
-			QStringLiteral("分块: %1 | 交汇: %2 | 最大偏差: %3 mm | 光顺指标: %4 | C2: %5"))
+			 QStringLiteral("分块: %1 | 交汇: %2 | 最大偏差: %3 mm | 光顺指标: %4 | C2: %5"))
 			.arg(report.patchCount)
 			.arg(report.junctionCount)
 			.arg(report.maxDeviationMm, 0, 'f', 4)
 			.arg(report.globalFairingMetric, 0, 'f', 6)
-			.arg(report.c2BlendSucceeded
-					 ? i18n(QStringLiteral("yes"), QStringLiteral("是"))
-					 : i18n(QStringLiteral("no"), QStringLiteral("否"))));
+			.arg(report.c2BlendSucceeded ? i18n(QStringLiteral("yes"), QStringLiteral("是"))
+										 : i18n(QStringLiteral("no"), QStringLiteral("否"))));
 }
 
 void PointCloudDockWidget::onSurfaceReconstructClicked()
@@ -2991,9 +2847,8 @@ void PointCloudDockWidget::onSurfaceReconstructClicked()
 	{
 		if (m_host)
 		{
-			m_host->logWarn(i18n(
-				QStringLiteral("Surface reconstruct requires host 1.12.0+"),
-				QStringLiteral("曲面重构需要宿主 1.12.0+")));
+			m_host->logWarn(i18n(QStringLiteral("Surface reconstruct requires host 1.12.0+"),
+								 QStringLiteral("曲面重构需要宿主 1.12.0+")));
 		}
 		return;
 	}
@@ -3007,10 +2862,9 @@ void PointCloudDockWidget::onSurfaceReconstructClicked()
 	setBusy(true);
 	const PluginMeshSurfaceReconstructParams params = buildSurfaceReconParams();
 	pch->reconstructSurfaceFromMesh(
-		doc,
-		id,
-		params,
-		[this](const bool ok, const QString& error, const PluginMeshSurfaceReconstructReport& report) {
+		doc, id, params,
+		[this](const bool ok, const QString& error, const PluginMeshSurfaceReconstructReport& report)
+		{
 			setBusy(false);
 			if (!m_host)
 			{
@@ -3019,9 +2873,8 @@ void PointCloudDockWidget::onSurfaceReconstructClicked()
 			if (ok)
 			{
 				refreshSurfaceReconstructSummary(report);
-				const QString msg = i18n(
-					QStringLiteral("Surface reconstruct done: %1 patches, max dev %2 mm"),
-					QStringLiteral("曲面重构完成: %1 片, 最大偏差 %2 mm"))
+				const QString msg = i18n(QStringLiteral("Surface reconstruct done: %1 patches, max dev %2 mm"),
+										 QStringLiteral("曲面重构完成: %1 片, 最大偏差 %2 mm"))
 										.arg(report.patchCount)
 										.arg(report.maxDeviationMm, 0, 'f', 4);
 				m_host->logInfo(msg);
@@ -3082,8 +2935,8 @@ void PointCloudDockWidget::updatePartitionModeUi()
 	}
 	const auto mode = static_cast<PluginMeshSurfacePartitionMode>(m_partitionModeCombo->currentData().toInt());
 	const bool amrto = mode == PluginMeshSurfacePartitionMode::AmrtoImGmcg;
-	const bool hybrid = mode == PluginMeshSurfacePartitionMode::HybridNormalCvt
-		|| mode == PluginMeshSurfacePartitionMode::CgalChartHybrid;
+	const bool hybrid = mode == PluginMeshSurfacePartitionMode::HybridNormalCvt ||
+						mode == PluginMeshSurfacePartitionMode::CgalChartHybrid;
 	m_v3PartitionParamsWidget->setVisible(!hybrid && !amrto);
 	m_hybridPartitionParamsWidget->setVisible(hybrid);
 	if (m_amrtoPartitionParamsWidget)
@@ -3093,22 +2946,18 @@ void PointCloudDockWidget::updatePartitionModeUi()
 	if (m_amrtoHintLabel)
 	{
 		m_amrtoHintLabel->setText(
-			i18n(
-				QStringLiteral(
-					"Online IM uses InstantMeshesLib (build per docs/instant_meshes_build.md). "
-					"GoldenLoader is only for smooth_060-compatible meshes."),
-				QStringLiteral(
-					"在线 IM 使用 InstantMeshesLib（见 docs/instant_meshes_build.md）。"
-					"GoldenLoader 仅适用于与 data_smooth/smooth_060 匹配的网格。")));
+			i18n(QStringLiteral("Online IM uses InstantMeshesLib (build per docs/instant_meshes_build.md). "
+								"GoldenLoader is only for smooth_060-compatible meshes."),
+				 QStringLiteral("在线 IM 使用 InstantMeshesLib（见 docs/instant_meshes_build.md）。"
+								"GoldenLoader 仅适用于与 data_smooth/smooth_060 匹配的网格。")));
 	}
 	if (m_patchCountSpin)
 	{
 		m_patchCountSpin->setToolTip(
-			hybrid
-				? i18n(QStringLiteral("0=paper adaptive CVT; >0 scales secondary sample density"),
-					QStringLiteral("0=论文自适应二次 CVT；>0 缩放采样密度"))
-				: i18n(QStringLiteral("0=auto sqrt(faces/80); increase to split pits/corners"),
-					QStringLiteral("0=自动 sqrt(面数/80)；增大可让凹坑等区域单独成块")));
+			hybrid ? i18n(QStringLiteral("0=paper adaptive CVT; >0 scales secondary sample density"),
+						  QStringLiteral("0=论文自适应二次 CVT；>0 缩放采样密度"))
+				   : i18n(QStringLiteral("0=auto sqrt(faces/80); increase to split pits/corners"),
+						  QStringLiteral("0=自动 sqrt(面数/80)；增大可让凹坑等区域单独成块")));
 	}
 }
 
@@ -3140,8 +2989,8 @@ PluginMeshSurfaceReconstructParams PointCloudDockWidget::buildSurfaceReconParams
 			params.amrtoFallbackGoldenOnImFailure = false;
 			if (m_gmcgBackendCombo)
 			{
-				params.gmcgBackend = static_cast<PluginMeshSurfaceGmcgBackend>(
-					m_gmcgBackendCombo->currentData().toInt());
+				params.gmcgBackend =
+					static_cast<PluginMeshSurfaceGmcgBackend>(m_gmcgBackendCombo->currentData().toInt());
 			}
 			if (m_instantMeshesTargetQuadsSpin)
 			{
@@ -3286,7 +3135,8 @@ void PointCloudDockWidget::updateSurfaceReconButtonStates()
 	const bool busy = m_busy;
 	const auto last = m_surfaceReconLastStage;
 
-	auto canRunStage = [&](const PluginMeshSurfaceReconstructStage stage) {
+	auto canRunStage = [&](const PluginMeshSurfaceReconstructStage stage)
+	{
 		if (busy || !hasMesh)
 		{
 			return false;
@@ -3343,9 +3193,8 @@ void PointCloudDockWidget::runSurfaceReconStage(const PluginMeshSurfaceReconstru
 	{
 		if (m_host)
 		{
-			m_host->logWarn(i18n(
-				QStringLiteral("Staged surface reconstruct requires host 1.13.0+"),
-				QStringLiteral("分阶段曲面重构需要宿主 1.13.0+")));
+			m_host->logWarn(i18n(QStringLiteral("Staged surface reconstruct requires host 1.13.0+"),
+								 QStringLiteral("分阶段曲面重构需要宿主 1.13.0+")));
 		}
 		return;
 	}
@@ -3361,25 +3210,21 @@ void PointCloudDockWidget::runSurfaceReconStage(const PluginMeshSurfaceReconstru
 	{
 		if (m_host)
 		{
-			m_host->logError(i18n(
-				QStringLiteral("Failed to begin surface reconstruct session"),
-				QStringLiteral("无法创建曲面重构会话")));
+			m_host->logError(i18n(QStringLiteral("Failed to begin surface reconstruct session"),
+								  QStringLiteral("无法创建曲面重构会话")));
 		}
 		return;
 	}
 
 	setBusy(true);
 	appendSurfaceReconLog(
-		i18n(QStringLiteral("Running %1..."), QStringLiteral("正在执行 %1…"))
-			.arg(surfaceReconStageTitleZh(stage)));
+		i18n(QStringLiteral("Running %1..."), QStringLiteral("正在执行 %1…")).arg(surfaceReconStageTitleZh(stage)));
 
 	const PluginMeshSurfaceReconstructParams params = buildSurfaceReconParams();
 	pch->runMeshSurfaceReconstructStage(
-		doc,
-		m_surfaceReconSessionId,
-		stage,
-		params,
-		[this, stage, params](const bool ok, const QString& error, const PluginMeshSurfaceReconstructReport& report) {
+		doc, m_surfaceReconSessionId, stage, params,
+		[this, stage, params](const bool ok, const QString& error, const PluginMeshSurfaceReconstructReport& report)
+		{
 			setBusy(false);
 			if (!m_host)
 			{
@@ -3388,28 +3233,25 @@ void PointCloudDockWidget::runSurfaceReconStage(const PluginMeshSurfaceReconstru
 			if (ok)
 			{
 				m_surfaceReconLastStage = report.lastCompletedStage;
-				const QString summary = report.stageSummaryZh.isEmpty()
-					? surfaceReconStageTitleZh(stage)
-					: report.stageSummaryZh;
+				const QString summary =
+					report.stageSummaryZh.isEmpty() ? surfaceReconStageTitleZh(stage) : report.stageSummaryZh;
 				appendSurfaceReconLog(summary);
 				refreshSurfaceReconstructSummary(report);
 				m_host->logInfo(
-					i18n(QStringLiteral("[Surface reconstruct] %1"), QStringLiteral("[曲面重构] %1"))
-						.arg(summary));
+					i18n(QStringLiteral("[Surface reconstruct] %1"), QStringLiteral("[曲面重构] %1")).arg(summary));
 				if (m_statusLabel)
 				{
 					m_statusLabel->setText(summary);
 				}
-				if ((stage == PluginMeshSurfaceReconstructStage::Preprocess
-						&& !report.preprocessedMeshBackendId.empty())
-					|| (stage == PluginMeshSurfaceReconstructStage::Partition
-						&& !report.partitionColoredMeshBackendId.empty())
-					|| (stage == PluginMeshSurfaceReconstructStage::Fit
-						&& !report.fitPreviewBrepBackendId.empty())
-					|| (stage == PluginMeshSurfaceReconstructStage::BoundaryBlend
-						&& !report.boundaryBlendPreviewBrepBackendId.empty())
-					|| (stage == PluginMeshSurfaceReconstructStage::JunctionBlend
-						&& !report.junctionBlendPreviewBrepBackendId.empty()))
+				if ((stage == PluginMeshSurfaceReconstructStage::Preprocess &&
+					 !report.preprocessedMeshBackendId.empty()) ||
+					(stage == PluginMeshSurfaceReconstructStage::Partition &&
+					 !report.partitionColoredMeshBackendId.empty()) ||
+					(stage == PluginMeshSurfaceReconstructStage::Fit && !report.fitPreviewBrepBackendId.empty()) ||
+					(stage == PluginMeshSurfaceReconstructStage::BoundaryBlend &&
+					 !report.boundaryBlendPreviewBrepBackendId.empty()) ||
+					(stage == PluginMeshSurfaceReconstructStage::JunctionBlend &&
+					 !report.junctionBlendPreviewBrepBackendId.empty()))
 				{
 					// 仅刷新列表；会话仍绑定源网格
 					refreshMeshExportList(m_surfaceReconMeshBackendId);
@@ -3417,19 +3259,16 @@ void PointCloudDockWidget::runSurfaceReconStage(const PluginMeshSurfaceReconstru
 			}
 			else
 			{
-				QString errLine =
-					i18n(QStringLiteral("Failed: %1"), QStringLiteral("失败: %1")).arg(error);
-				if (stage == PluginMeshSurfaceReconstructStage::Partition
-					&& params.partitionMode == PluginMeshSurfacePartitionMode::AmrtoImGmcg)
+				QString errLine = i18n(QStringLiteral("Failed: %1"), QStringLiteral("失败: %1")).arg(error);
+				if (stage == PluginMeshSurfaceReconstructStage::Partition &&
+					params.partitionMode == PluginMeshSurfacePartitionMode::AmrtoImGmcg)
 				{
 					errLine += QLatin1Char('\n');
-					errLine += i18n(
-						QStringLiteral(
-							"Hint: build InstantMeshesLib / run scripts/init_instant_meshes.ps1; "
-							"do not use GoldenLoader on arbitrary models."),
-						QStringLiteral(
-							"提示：请先构建 InstantMeshesLib 或运行 scripts/init_instant_meshes.ps1；"
-							"任意模型请勿使用 GoldenLoader。"));
+					errLine +=
+						i18n(QStringLiteral("Hint: build InstantMeshesLib / run scripts/init_instant_meshes.ps1; "
+											"do not use GoldenLoader on arbitrary models."),
+							 QStringLiteral("提示：请先构建 InstantMeshesLib 或运行 scripts/init_instant_meshes.ps1；"
+											"任意模型请勿使用 GoldenLoader。"));
 				}
 				appendSurfaceReconLog(errLine);
 				m_host->logError(error);
@@ -3448,8 +3287,7 @@ void PointCloudDockWidget::onSurfaceReconstructResetSessionClicked()
 	appendSurfaceReconLog(i18n(QStringLiteral("Session reset"), QStringLiteral("会话已重置")));
 	if (m_host)
 	{
-		m_host->logInfo(i18n(
-			QStringLiteral("[Surface reconstruct] Session reset"),
-			QStringLiteral("[曲面重构] 会话已重置")));
+		m_host->logInfo(
+			i18n(QStringLiteral("[Surface reconstruct] Session reset"), QStringLiteral("[曲面重构] 会话已重置")));
 	}
 }

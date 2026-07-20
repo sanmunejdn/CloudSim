@@ -1,9 +1,10 @@
+﻿/// @file FeatureDiscretizerParamPanel.cpp
+/// @brief FeatureDiscretizerParamPanel 实现
+
 #include "FeatureDiscretizerParamPanel.h"
 
-#include "TrajectoryParamWidgetFactory.h"
-
 #include "GeometryRef.h"
-#include <TrajectoryOpParamSchema.h>
+#include "TrajectoryParamWidgetFactory.h"
 
 #include <QAbstractSpinBox>
 #include <QCheckBox>
@@ -13,13 +14,13 @@
 #include <QLabel>
 #include <QSpinBox>
 #include <QVBoxLayout>
-
 #include <algorithm>
 #include <cmath>
 
+#include <TrajectoryOpParamSchema.h>
+
 namespace
 {
-
 trajectory_algo::TrajectoryParamType mapParamType(const geoalgo::FeatureParamType type)
 {
 	switch (type)
@@ -42,8 +43,8 @@ trajectory_algo::TrajectoryParamType mapParamType(const geoalgo::FeatureParamTyp
 
 } // namespace
 
-trajectory_algo::TrajectoryOpParamField FeatureDiscretizerParamPanel::toTrajectoryField(
-	const geoalgo::FeatureDiscretizerParamField& field)
+trajectory_algo::TrajectoryOpParamField
+FeatureDiscretizerParamPanel::toTrajectoryField(const geoalgo::FeatureDiscretizerParamField& field)
 {
 	trajectory_algo::TrajectoryOpParamField out{};
 	out.key = field.key;
@@ -69,8 +70,8 @@ trajectory_algo::TrajectoryOpParamField FeatureDiscretizerParamPanel::toTrajecto
 	return out;
 }
 
-nlohmann::json FeatureDiscretizerParamPanel::defaultParamsFromFields(
-	const std::vector<geoalgo::FeatureDiscretizerParamField>& fields)
+nlohmann::json
+FeatureDiscretizerParamPanel::defaultParamsFromFields(const std::vector<geoalgo::FeatureDiscretizerParamField>& fields)
 {
 	nlohmann::json params = nlohmann::json::object();
 	for (const geoalgo::FeatureDiscretizerParamField& field : fields)
@@ -101,10 +102,9 @@ nlohmann::json FeatureDiscretizerParamPanel::defaultParamsFromFields(
 	return params;
 }
 
-void FeatureDiscretizerParamPanel::writeJsonValue(
-	nlohmann::json& params,
-	const geoalgo::FeatureDiscretizerParamField& field,
-	const trajectory_algo::TrajectoryParamValue& value)
+void FeatureDiscretizerParamPanel::writeJsonValue(nlohmann::json& params,
+												  const geoalgo::FeatureDiscretizerParamField& field,
+												  const trajectory_algo::TrajectoryParamValue& value)
 {
 	switch (field.type)
 	{
@@ -119,8 +119,8 @@ void FeatureDiscretizerParamPanel::writeJsonValue(
 		{
 			params[field.key] = value.asString;
 		}
-		else if (!field.enumValues.empty() && value.asInt >= 0
-			&& value.asInt < static_cast<int>(field.enumValues.size()))
+		else if (!field.enumValues.empty() && value.asInt >= 0 &&
+				 value.asInt < static_cast<int>(field.enumValues.size()))
 		{
 			params[field.key] = field.enumValues[static_cast<std::size_t>(value.asInt)];
 		}
@@ -132,10 +132,9 @@ void FeatureDiscretizerParamPanel::writeJsonValue(
 	}
 }
 
-bool FeatureDiscretizerParamPanel::readJsonValue(
-	const nlohmann::json& params,
-	const geoalgo::FeatureDiscretizerParamField& field,
-	trajectory_algo::TrajectoryParamValue& out)
+bool FeatureDiscretizerParamPanel::readJsonValue(const nlohmann::json& params,
+												 const geoalgo::FeatureDiscretizerParamField& field,
+												 trajectory_algo::TrajectoryParamValue& out)
 {
 	if (!params.contains(field.key))
 	{
@@ -180,8 +179,7 @@ bool FeatureDiscretizerParamPanel::readJsonValue(
 	}
 }
 
-FeatureDiscretizerParamPanel::FeatureDiscretizerParamPanel(QWidget* parent)
-	: QWidget(parent)
+FeatureDiscretizerParamPanel::FeatureDiscretizerParamPanel(QWidget* parent) : QWidget(parent)
 {
 	auto* layout = new QVBoxLayout(this);
 	layout->setContentsMargins(0, 0, 0, 0);
@@ -271,40 +269,48 @@ void FeatureDiscretizerParamPanel::rebuildForStrategy(const std::string& strateg
 			if (auto* spin = row.widget->findChild<QDoubleSpinBox*>())
 			{
 				spin->setKeyboardTracking(false);
-				connect(spin, &QAbstractSpinBox::editingFinished, this, [this]() {
-					if (!m_loading)
-					{
-						emit paramsChanged();
-					}
-				});
+				connect(spin, &QAbstractSpinBox::editingFinished, this,
+						[this]()
+						{
+							if (!m_loading)
+							{
+								emit paramsChanged();
+							}
+						});
 			}
 			if (auto* spin = row.widget->findChild<QSpinBox*>())
 			{
 				spin->setKeyboardTracking(false);
-				connect(spin, &QAbstractSpinBox::editingFinished, this, [this]() {
-					if (!m_loading)
-					{
-						emit paramsChanged();
-					}
-				});
+				connect(spin, &QAbstractSpinBox::editingFinished, this,
+						[this]()
+						{
+							if (!m_loading)
+							{
+								emit paramsChanged();
+							}
+						});
 			}
 			if (auto* combo = row.widget->findChild<QComboBox*>())
 			{
-				connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
-					if (!m_loading)
-					{
-						emit paramsChanged();
-					}
-				});
+				connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+						[this]()
+						{
+							if (!m_loading)
+							{
+								emit paramsChanged();
+							}
+						});
 			}
 			if (auto* box = row.widget->findChild<QCheckBox*>())
 			{
-				connect(box, &QCheckBox::toggled, this, [this]() {
-					if (!m_loading)
-					{
-						emit paramsChanged();
-					}
-				});
+				connect(box, &QCheckBox::toggled, this,
+						[this]()
+						{
+							if (!m_loading)
+							{
+								emit paramsChanged();
+							}
+						});
 			}
 		}
 		m_rows.push_back(std::move(row));

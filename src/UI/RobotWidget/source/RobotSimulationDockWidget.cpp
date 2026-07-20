@@ -1,3 +1,6 @@
+﻿/// @file RobotSimulationDockWidget.cpp
+/// @brief RobotSimulationDockWidget 实现
+
 #include "RobotSimulationDockWidget.h"
 
 #include "RobotAxisControlWidget.h"
@@ -9,8 +12,8 @@
 #include <QScrollArea>
 #include <QVBoxLayout>
 
-namespace {
-
+namespace
+{
 QScrollArea* wrapInScrollArea(QWidget* content, QWidget* parent)
 {
 	auto* scroll = new QScrollArea(parent);
@@ -23,8 +26,7 @@ QScrollArea* wrapInScrollArea(QWidget* content, QWidget* parent)
 
 } // namespace
 
-RobotSimulationDockWidget::RobotSimulationDockWidget(QWidget* parent)
-	: QWidget(parent)
+RobotSimulationDockWidget::RobotSimulationDockWidget(QWidget* parent) : QWidget(parent)
 {
 	auto* layout = new QVBoxLayout(this);
 	layout->setContentsMargins(0, 0, 0, 0);

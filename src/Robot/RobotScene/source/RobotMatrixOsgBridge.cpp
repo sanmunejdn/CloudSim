@@ -1,16 +1,19 @@
+﻿/// @file RobotMatrixOsgBridge.cpp
+/// @brief RobotMatrixOsgBridge 实现
+
 #include "RobotMatrixOsgBridge.h"
+
 #include "RobotCoordinateFrames.h"
+
+#include <cmath>
+#include <sstream>
 
 #include <Adapters.h>
 #include <SelfTest.h>
 #include <ToolKinematics.h>
 
-#include <cmath>
-#include <sstream>
-
 namespace RobotMatrixOsg
 {
-
 osg::Matrixd matrixFromBackendColMajor(const BackendMat4& m)
 {
 	return engine::osgMatrixFromRigidTransform(RobotCoordinate::rigidTransformFromBackendMat4(m));
@@ -21,9 +24,7 @@ BackendMat4 backendColMajorFromMatrix(const osg::Matrixd& m)
 	return RobotCoordinate::backendMat4FromRigidTransform(engine::rigidTransformFromOsg(m));
 }
 
-BackendMat4 targetInBaseFromFlangeLinkWorld(
-	const osg::Matrixd& T_base_flange_osg,
-	const BackendMat4& T_flange_tool)
+BackendMat4 targetInBaseFromFlangeLinkWorld(const osg::Matrixd& T_base_flange_osg, const BackendMat4& T_flange_tool)
 {
 	const engine::RigidTransform T_base_flange = engine::rigidTransformFromOsg(T_base_flange_osg);
 	const engine::RigidTransform T_tool = RobotCoordinate::rigidTransformFromBackendMat4(T_flange_tool);
@@ -31,9 +32,7 @@ BackendMat4 targetInBaseFromFlangeLinkWorld(
 	return RobotCoordinate::backendMat4FromRigidTransform(T_base_tool);
 }
 
-BackendMat4 flangeTargetFromToolOriginInBase(
-	const BackendMat4& T_base_target,
-	const BackendMat4& T_flange_tool)
+BackendMat4 flangeTargetFromToolOriginInBase(const BackendMat4& T_base_target, const BackendMat4& T_flange_tool)
 {
 	return RobotCoordinate::flangeTargetFromToolOriginInBase(T_base_target, T_flange_tool);
 }
@@ -43,13 +42,7 @@ BackendMat4 targetInBaseFromFlange(const BackendMat4& T_base_flange, const Backe
 	return RobotCoordinate::targetInBaseFromFlange(T_base_flange, T_flange_tool);
 }
 
-osg::Matrixd matrixOsgFromPoseMmDeg(
-	double px,
-	double py,
-	double pz,
-	double exDeg,
-	double eyDeg,
-	double ezDeg)
+osg::Matrixd matrixOsgFromPoseMmDeg(double px, double py, double pz, double exDeg, double eyDeg, double ezDeg)
 {
 	const engine::RigidTransform t = engine::RigidTransform::fromTranslationEulerDeg(px, py, pz, exDeg, eyDeg, ezDeg);
 	return engine::osgMatrixFromRigidTransform(t);
@@ -57,7 +50,6 @@ osg::Matrixd matrixOsgFromPoseMmDeg(
 
 namespace
 {
-
 void expectNear(std::vector<std::string>& failures, const char* name, double actual, double expected, double eps)
 {
 	if (!std::isfinite(actual) || std::fabs(actual - expected) > eps)
@@ -89,8 +81,8 @@ bool runConventionSelfTest(std::vector<std::string>& failures)
 	expectNear(failures, "bridgeRoundTrip.z", f1.positionMm[2], f0.positionMm[2], 1e-3);
 
 	{
-		const engine::RigidTransform flange = engine::RigidTransform::fromTranslationEulerDeg(
-			1000.0, 500.0, 800.0, 0.0, 90.0, 0.0);
+		const engine::RigidTransform flange =
+			engine::RigidTransform::fromTranslationEulerDeg(1000.0, 500.0, 800.0, 0.0, 90.0, 0.0);
 		const engine::RigidTransform tool = engine::RigidTransform::fromTranslationQuat(
 			Eigen::Vector3d(0.0, 0.0, -200.0), Eigen::Quaterniond::Identity());
 		const osg::Matrixd flangeOsg = engine::osgMatrixFromRigidTransform(flange);
@@ -104,10 +96,10 @@ bool runConventionSelfTest(std::vector<std::string>& failures)
 		tcpByToolKinematics.translationMm(kx, ky, kz);
 		expectNear(failures, "linkWorldTool.deltaX", tcpFrame.positionMm[0] - 1000.0, 200.0, 1e-3);
 		expectNear(failures, "linkWorldTool.deltaZ", tcpFrame.positionMm[2] - 800.0, 0.0, 1e-3);
-		expectNear(failures, "linkWorldTool.refPos", std::sqrt(
-			std::pow(tcpFrame.positionMm[0] - kx, 2.0)
-			+ std::pow(tcpFrame.positionMm[1] - ky, 2.0)
-			+ std::pow(tcpFrame.positionMm[2] - kz, 2.0)), 0.0, 1e-3);
+		expectNear(failures, "linkWorldTool.refPos",
+				   std::sqrt(std::pow(tcpFrame.positionMm[0] - kx, 2.0) + std::pow(tcpFrame.positionMm[1] - ky, 2.0) +
+							 std::pow(tcpFrame.positionMm[2] - kz, 2.0)),
+				   0.0, 1e-3);
 	}
 
 	return failures.empty();

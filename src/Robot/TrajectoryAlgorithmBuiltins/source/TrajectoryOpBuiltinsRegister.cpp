@@ -1,6 +1,7 @@
-// 启动时注册全部内置原子块到 OpRegistry / ConfigRegistry
-#include "TrajectoryOpRegistry.h"
+﻿/// @file TrajectoryOpBuiltinsRegister.cpp
+/// @brief TrajectoryOpBuiltinsRegister 实现
 
+// 启动时注册全部内置原子块到 OpRegistry / ConfigRegistry
 #include "ApproachOp.h"
 #include "ApproachOpConfig.h"
 #include "AssignBlendOp.h"
@@ -15,12 +16,12 @@
 #include "ExternalAxisSearchOpConfig.h"
 #include "MirrorOp.h"
 #include "MirrorOpConfig.h"
+#include "NonRigidRegistrationOp.h"
+#include "NonRigidRegistrationOpConfig.h"
 #include "OffsetAlongNormalOp.h"
 #include "OffsetAlongNormalOpConfig.h"
 #include "OffsetLateralOp.h"
 #include "OffsetLateralOpConfig.h"
-#include "NonRigidRegistrationOp.h"
-#include "NonRigidRegistrationOpConfig.h"
 #include "ProjectToGeometryOp.h"
 #include "ProjectToGeometryOpConfig.h"
 #include "ReachabilityFilterOp.h"
@@ -35,12 +36,14 @@
 #include "RotateOpConfig.h"
 #include "SmoothPoseOp.h"
 #include "SmoothPoseOpConfig.h"
+#include "ToWorkpieceInHandOp.h"
+#include "ToWorkpieceInHandOpConfig.h"
+#include "TrajectoryOpConfigRegistry.h"
+#include "TrajectoryOpRegistry.h"
 #include "TranslateOp.h"
 #include "TranslateOpConfig.h"
 #include "WeaveOp.h"
 #include "WeaveOpConfig.h"
-
-#include "TrajectoryOpConfigRegistry.h"
 
 namespace trajectory_algo
 {
@@ -70,6 +73,7 @@ void registerOpConfigs()
 	registry.registerOpConfig(makeRetractOpConfig());
 	registry.registerOpConfig(makeProjectToGeometryOpConfig());
 	registry.registerOpConfig(makeNonRigidRegistrationOpConfig());
+	registry.registerOpConfig(makeToWorkpieceInHandOpConfig());
 }
 } // namespace
 
@@ -94,6 +98,7 @@ void registerTrajectoryOpBuiltins(TrajectoryOpRegistry& registry)
 	registry.registerOp(std::make_unique<RetractOp>());
 	registry.registerOp(std::make_unique<ProjectToGeometryOp>());
 	registry.registerOp(std::make_unique<NonRigidRegistrationOp>());
+	registry.registerOp(std::make_unique<ToWorkpieceInHandOp>());
 }
 
 void ensureTrajectoryOpBuiltinsRegistered()

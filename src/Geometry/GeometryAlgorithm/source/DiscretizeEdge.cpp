@@ -1,8 +1,10 @@
-#include "detail/OccIncludes.h"
+﻿/// @file DiscretizeEdge.cpp
+/// @brief DiscretizeEdge 实现
 
 #include "Discretize.h"
 #include "ShapeHandle.h"
 #include "ShapeQuery.h"
+#include "detail/OccIncludes.h"
 
 #include <cmath>
 
@@ -10,7 +12,6 @@ namespace geoalgo
 {
 namespace
 {
-
 void appendPoint(Polyline3d& out, const gp_Pnt& p)
 {
 	out.xyz.push_back(static_cast<float>(p.X()));
@@ -20,9 +21,7 @@ void appendPoint(Polyline3d& out, const gp_Pnt& p)
 
 bool discretizeCurveAdaptor(const BRepAdaptor_Curve& curve, const TessellateParams& params, Polyline3d& out)
 {
-	const double deflection = params.linearDeflectionRelative
-		? params.linearDeflectionMm
-		: params.linearDeflectionMm;
+	const double deflection = params.linearDeflectionRelative ? params.linearDeflectionMm : params.linearDeflectionMm;
 	GCPnts_UniformDeflection discretizer(curve, deflection, Standard_True);
 	if (!discretizer.IsDone() || discretizer.NbPoints() < 2)
 	{
@@ -39,11 +38,7 @@ bool discretizeCurveAdaptor(const BRepAdaptor_Curve& curve, const TessellatePara
 
 } // namespace
 
-bool discretizeEdge(
-	const TopoDS_Edge& edge,
-	const TessellateParams& params,
-	Polyline3d& out,
-	std::string* errMsg)
+bool discretizeEdge(const TopoDS_Edge& edge, const TessellateParams& params, Polyline3d& out, std::string* errMsg)
 {
 	if (edge.IsNull())
 	{
@@ -65,11 +60,7 @@ bool discretizeEdge(
 	return true;
 }
 
-bool discretizeWire(
-	const TopoDS_Wire& wire,
-	const TessellateParams& params,
-	Polyline3d& out,
-	std::string* errMsg)
+bool discretizeWire(const TopoDS_Wire& wire, const TessellateParams& params, Polyline3d& out, std::string* errMsg)
 {
 	if (wire.IsNull())
 	{
@@ -109,11 +100,8 @@ bool discretizeWire(
 	return true;
 }
 
-bool discretizeShapeEdges(
-	const TopoDS_Shape& shape,
-	const TessellateParams& params,
-	std::vector<Polyline3d>& out,
-	std::string* errMsg)
+bool discretizeShapeEdges(const TopoDS_Shape& shape, const TessellateParams& params, std::vector<Polyline3d>& out,
+						  std::string* errMsg)
 {
 	out.clear();
 	for (TopExp_Explorer exp(shape, TopAbs_EDGE); exp.More(); exp.Next())
@@ -129,11 +117,8 @@ bool discretizeShapeEdges(
 	return !out.empty();
 }
 
-bool discretizeShapeEdges(
-	const ShapeHandle& shapeHandle,
-	const TessellateParams& params,
-	std::vector<Polyline3d>& out,
-	std::string* errMsg)
+bool discretizeShapeEdges(const ShapeHandle& shapeHandle, const TessellateParams& params, std::vector<Polyline3d>& out,
+						  std::string* errMsg)
 {
 	TopoDS_Shape shape;
 	if (!ShapeHandleAccess::nativeShape(shapeHandle, &shape))
@@ -147,12 +132,8 @@ bool discretizeShapeEdges(
 	return discretizeShapeEdges(shape, params, out, errMsg);
 }
 
-bool discretizeShapeEdgeByIndex(
-	const ShapeHandle& shapeHandle,
-	const int edgeIndex,
-	const TessellateParams& params,
-	Polyline3d& out,
-	std::string* errMsg)
+bool discretizeShapeEdgeByIndex(const ShapeHandle& shapeHandle, const int edgeIndex, const TessellateParams& params,
+								Polyline3d& out, std::string* errMsg)
 {
 	TopoDS_Shape shape;
 	if (!ShapeHandleAccess::nativeShape(shapeHandle, &shape))

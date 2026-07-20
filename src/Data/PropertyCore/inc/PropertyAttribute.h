@@ -1,14 +1,17 @@
-#pragma once
+﻿#ifndef PROPERTYCORE_PROPERTYATTRIBUTE_H
+#define PROPERTYCORE_PROPERTYATTRIBUTE_H
 
-#include <json.hpp>
+/// @file PropertyAttribute.h
+/// @brief 属性面板行生成与 apply 插件基类
 
 #include <memory>
 #include <string>
 #include <vector>
 
+#include <json.hpp>
+
 namespace property_core
 {
-
 /// 属性面板行生成与 apply 插件基类
 template <typename TContext>
 class PropertyAttribute
@@ -18,11 +21,8 @@ public:
 
 	virtual void appendRows(const TContext& context, nlohmann::json& rows) const = 0;
 	virtual bool handlesKey(const TContext& context, const std::string& key) const = 0;
-	virtual bool apply(
-		TContext& context,
-		const std::string& key,
-		const std::string& value,
-		std::string* errMsg) const = 0;
+	virtual bool apply(TContext& context, const std::string& key, const std::string& value,
+					   std::string* errMsg) const = 0;
 };
 
 /// 按序串联多个 PropertyAttribute
@@ -44,12 +44,8 @@ public:
 		}
 	}
 
-	static bool apply(
-		const AttributeList& attributes,
-		TContext& context,
-		const std::string& key,
-		const std::string& value,
-		std::string* errMsg)
+	static bool apply(const AttributeList& attributes, TContext& context, const std::string& key,
+					  const std::string& value, std::string* errMsg)
 	{
 		for (const AttributePtr& attr : attributes)
 		{
@@ -64,3 +60,5 @@ public:
 };
 
 } // namespace property_core
+
+#endif // PROPERTYCORE_PROPERTYATTRIBUTE_H

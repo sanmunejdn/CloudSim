@@ -1,16 +1,17 @@
+﻿/// @file RobotInstructionPlaybackEngine.cpp
+/// @brief RobotInstructionPlaybackEngine 实现
+
 #include "RobotInstructionPlaybackEngine.h"
 
 #include "IRobotBackendPoseSink.h"
 #include "IRobotSimulationDocument.h"
 #include "RobotSceneKinematics.h"
-
 #include "RunLogger.h"
 #include "UrdfRobotLoader.h"
 
 #include <QByteArray>
 #include <QHash>
 #include <QString>
-
 #include <algorithm>
 #include <cmath>
 
@@ -40,12 +41,9 @@ void RobotInstructionPlaybackEngine::stop()
 	m_segDurationSec = 0.0;
 }
 
-bool RobotInstructionPlaybackEngine::tryStart(
-	IRobotSimulationDocument* doc,
-	IRobotBackendPoseSink* osg,
-	const QVector<RobotSimulationCommand>& queue,
-	const QVector<double>& initialJointAnglesRad,
-	QString* errorOut)
+bool RobotInstructionPlaybackEngine::tryStart(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg,
+											  const QVector<RobotSimulationCommand>& queue,
+											  const QVector<double>& initialJointAnglesRad, QString* errorOut)
 {
 	stop();
 	if (!doc || !osg)
@@ -119,10 +117,12 @@ bool RobotInstructionPlaybackEngine::tryStart(
 	else
 	{
 		const QVector<double> zeros = QVector<double>(jnames.size(), 0.0);
-		if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, zeros, m_fkMeshWorldT0, &fkErr, doc->robotUrdfMeshVerticesInLinkFrame()))
+		if (!UrdfRobotLoader::computeMeshWorldMatrices(urdfPath, zeros, m_fkMeshWorldT0, &fkErr,
+													   doc->robotUrdfMeshVerticesInLinkFrame()))
 		{
-			RunLogger::warn(qToUtf8Std(QStringLiteral("RobotInstructionPlaybackEngine::tryStart FK init failed: %1")
-				.arg(fkErr.isEmpty() ? QStringLiteral("Forward kinematics failed.") : fkErr)));
+			RunLogger::warn(
+				qToUtf8Std(QStringLiteral("RobotInstructionPlaybackEngine::tryStart FK init failed: %1")
+							   .arg(fkErr.isEmpty() ? QStringLiteral("Forward kinematics failed.") : fkErr)));
 			if (errorOut)
 			{
 				*errorOut = fkErr.isEmpty() ? QStringLiteral("Forward kinematics failed.") : fkErr;
@@ -131,7 +131,8 @@ bool RobotInstructionPlaybackEngine::tryStart(
 			return false;
 		}
 		m_outerWorldAtStart.clear();
-		for (auto it = doc->robotLinkNameToBackendId().constBegin(); it != doc->robotLinkNameToBackendId().constEnd(); ++it)
+		for (auto it = doc->robotLinkNameToBackendId().constBegin(); it != doc->robotLinkNameToBackendId().constEnd();
+			 ++it)
 		{
 			osg::Matrixd M;
 			if (osg->getBackendRootWorldMatrix(it.value().toStdString(), M))
@@ -167,11 +168,8 @@ bool RobotInstructionPlaybackEngine::tryStart(
 }
 
 bool RobotInstructionPlaybackEngine::tryStartFromPlanResults(
-	IRobotSimulationDocument* doc,
-	IRobotBackendPoseSink* osg,
-	const QVector<RobotSimulationCommand>& legacyQueue,
-	const std::vector<RobotInstruction::PlanResult>& planResults,
-	const QVector<double>& initialJointAnglesRad,
+	IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg, const QVector<RobotSimulationCommand>& legacyQueue,
+	const std::vector<RobotInstruction::PlanResult>& planResults, const QVector<double>& initialJointAnglesRad,
 	QString* errorOut)
 {
 	if (!tryStart(doc, osg, legacyQueue, initialJointAnglesRad, errorOut))
@@ -193,7 +191,8 @@ bool RobotInstructionPlaybackEngine::tryStartFromPlanResults(
 	return true;
 }
 
-RobotInstructionPlaybackTickResult RobotInstructionPlaybackEngine::tick(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg)
+RobotInstructionPlaybackTickResult RobotInstructionPlaybackEngine::tick(IRobotSimulationDocument* doc,
+																		IRobotBackendPoseSink* osg)
 {
 	if (!m_running)
 	{
@@ -334,8 +333,8 @@ bool RobotInstructionPlaybackEngine::applyPlannedJointStateAtProgress(double u)
 			const size_t i0 = static_cast<size_t>(std::floor(scaled));
 			const size_t i1 = std::min(i0 + 1U, traj.size() - 1U);
 			const double t = scaled - static_cast<double>(i0);
-			if (traj[i0].size() != static_cast<size_t>(m_jointAnglesRad.size())
-				|| traj[i1].size() != static_cast<size_t>(m_jointAnglesRad.size()))
+			if (traj[i0].size() != static_cast<size_t>(m_jointAnglesRad.size()) ||
+				traj[i1].size() != static_cast<size_t>(m_jointAnglesRad.size()))
 			{
 				return false;
 			}
@@ -354,7 +353,8 @@ bool RobotInstructionPlaybackEngine::applyPlannedJointStateAtProgress(double u)
 		const size_t i1 = std::min(i0 + 1U, waypoints - 1U);
 		const double t = scaled - static_cast<double>(i0);
 
-		const auto readQ = [&](size_t idx, int joint) {
+		const auto readQ = [&](size_t idx, int joint)
+		{
 			if (idx == 0U)
 			{
 				return m_segStartJointAngles[joint];
@@ -378,8 +378,9 @@ bool RobotInstructionPlaybackEngine::applyPlannedJointStateAtProgress(double u)
 		return true;
 	}
 
-	if (!plan->jointTargetsRad.empty() && plan->jointTargetsRad.size() == static_cast<size_t>(m_jointAnglesRad.size())
-		&& m_segStartJointAngles.size() == m_jointAnglesRad.size())
+	if (!plan->jointTargetsRad.empty() &&
+		plan->jointTargetsRad.size() == static_cast<size_t>(m_jointAnglesRad.size()) &&
+		m_segStartJointAngles.size() == m_jointAnglesRad.size())
 	{
 		for (int j = 0; j < m_jointAnglesRad.size(); ++j)
 		{

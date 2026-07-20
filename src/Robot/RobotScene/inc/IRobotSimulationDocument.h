@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_IROBOTSIMULATIONDOCUMENT_H
+#define ROBOTSCENE_IROBOTSIMULATIONDOCUMENT_H
+
+/// @file IRobotSimulationDocument.h
+/// @brief 单台机器人 per-link FK 切片（每连杆一个 mesh 后端）
 
 #include "robot_scene_global.h"
 
@@ -9,8 +13,8 @@
 #include <QStringList>
 #include <QVector>
 
-#include <osg/Matrixd>
 #include <osg/MatrixTransform>
+#include <osg/Matrixd>
 #include <osg/ref_ptr>
 
 class BackendDataManager;
@@ -29,7 +33,8 @@ struct RobotPerLinkKinematicsSlice
 };
 
 /// DTO 版本（供 Core 接口使用，Widget 不依赖 osg）
-namespace cloudsim::core {
+namespace cloudsim::core
+{
 struct RobotPerLinkKinematicsSliceDto;
 }
 
@@ -45,10 +50,7 @@ public:
 	virtual const QStringList& robotRevoluteJointNames() const = 0;
 	virtual const QHash<QString, QString>& robotLinkNameToBackendId() const = 0;
 
-	virtual int robotKinematicInstanceCount() const
-	{
-		return robotUrdfAbsolutePath().isEmpty() ? 0 : 1;
-	}
+	virtual int robotKinematicInstanceCount() const { return robotUrdfAbsolutePath().isEmpty() ? 0 : 1; }
 	virtual QString robotUrdfAbsolutePathForInstance(int instanceIndex) const
 	{
 		return instanceIndex == 0 ? robotUrdfAbsolutePath() : QString();
@@ -79,7 +81,8 @@ public:
 	}
 
 	/// DTO 版本（Widget 优先调用，避免 osg 依赖）
-	virtual bool robotPerLinkKinematicsDtoForInstance(int instanceIndex, cloudsim::core::RobotPerLinkKinematicsSliceDto& out) const
+	virtual bool robotPerLinkKinematicsDtoForInstance(int instanceIndex,
+													  cloudsim::core::RobotPerLinkKinematicsSliceDto& out) const
 	{
 		(void)instanceIndex;
 		(void)out;
@@ -103,3 +106,5 @@ public:
 
 	virtual void notifyRobotKinematicsAppliedToScene() {}
 };
+
+#endif // ROBOTSCENE_IROBOTSIMULATIONDOCUMENT_H

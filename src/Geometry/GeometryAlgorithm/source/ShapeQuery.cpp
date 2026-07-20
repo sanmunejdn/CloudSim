@@ -1,4 +1,7 @@
-#include "detail/OccIncludes.h"
+﻿/// @file ShapeQuery.cpp
+/// @brief ShapeQuery 实现
+
+#include "ShapeQuery.h"
 
 #include "BrepBoolean.h"
 #include "Discretize.h"
@@ -6,9 +9,9 @@
 #include "MeshDiscretize.h"
 #include "ShapeHandle.h"
 #include "ShapeIo.h"
-#include "ShapeQuery.h"
 #include "ShellOps.h"
 #include "WireOps.h"
+#include "detail/OccIncludes.h"
 
 #include <cmath>
 #include <limits>
@@ -17,7 +20,6 @@ namespace geoalgo
 {
 namespace
 {
-
 bool loadStepOrErr(const std::string& path, TopoDS_Shape& shape, std::string* errMsg)
 {
 	return readStepShape(path, shape, errMsg);
@@ -27,7 +29,8 @@ bool indexOutOfRange(std::string* errMsg, const char* what, int index, int count
 {
 	if (errMsg)
 	{
-		*errMsg = std::string(what) + " index " + std::to_string(index) + " out of range (count=" + std::to_string(count) + ")";
+		*errMsg = std::string(what) + " index " + std::to_string(index) +
+				  " out of range (count=" + std::to_string(count) + ")";
 	}
 	return false;
 }
@@ -90,11 +93,8 @@ bool shapeFaceAtIndex(const TopoDS_Shape& shape, int index, TopoDS_Face& outFace
 	return indexOutOfRange(errMsg, "face", index, i);
 }
 
-bool discretizeStepEdgesToPolylines(
-	const std::string& pathLocal,
-	const TessellateParams& params,
-	std::vector<Polyline3d>& outPolylines,
-	std::string* errMsg)
+bool discretizeStepEdgesToPolylines(const std::string& pathLocal, const TessellateParams& params,
+									std::vector<Polyline3d>& outPolylines, std::string* errMsg)
 {
 	TopoDS_Shape shape;
 	if (!loadStepOrErr(pathLocal, shape, errMsg))
@@ -104,13 +104,8 @@ bool discretizeStepEdgesToPolylines(
 	return discretizeShapeEdges(shape, params, outPolylines, errMsg);
 }
 
-bool discretizeStepFaceToMesh(
-	const std::string& pathLocal,
-	int faceIndex,
-	const MeshDiscretizeParams& params,
-	std::vector<float>& soup,
-	MeshDiscretizeReport& report,
-	std::string* errMsg)
+bool discretizeStepFaceToMesh(const std::string& pathLocal, int faceIndex, const MeshDiscretizeParams& params,
+							  std::vector<float>& soup, MeshDiscretizeReport& report, std::string* errMsg)
 {
 	TopoDS_Shape shape;
 	if (!loadStepOrErr(pathLocal, shape, errMsg))
@@ -131,13 +126,8 @@ bool discretizeStepFaceToMesh(
 	return true;
 }
 
-bool intersectStepEdges(
-	const std::string& pathLocal,
-	int edgeIndex1,
-	int edgeIndex2,
-	const IntersectionParams& params,
-	IntersectionResult& result,
-	std::string* errMsg)
+bool intersectStepEdges(const std::string& pathLocal, int edgeIndex1, int edgeIndex2, const IntersectionParams& params,
+						IntersectionResult& result, std::string* errMsg)
 {
 	TopoDS_Shape shape;
 	if (!loadStepOrErr(pathLocal, shape, errMsg))
@@ -153,13 +143,8 @@ bool intersectStepEdges(
 	return intersectEdges(e1, e2, params, result, errMsg);
 }
 
-bool intersectStepEdgeFace(
-	const std::string& pathLocal,
-	int edgeIndex,
-	int faceIndex,
-	const IntersectionParams& params,
-	IntersectionResult& result,
-	std::string* errMsg)
+bool intersectStepEdgeFace(const std::string& pathLocal, int edgeIndex, int faceIndex, const IntersectionParams& params,
+						   IntersectionResult& result, std::string* errMsg)
 {
 	TopoDS_Shape shape;
 	if (!loadStepOrErr(pathLocal, shape, errMsg))
@@ -175,13 +160,8 @@ bool intersectStepEdgeFace(
 	return intersectEdgeFace(edge, face, params, result, errMsg);
 }
 
-bool intersectStepFaces(
-	const std::string& pathLocal,
-	int faceIndex1,
-	int faceIndex2,
-	const IntersectionParams& params,
-	IntersectionResult& result,
-	std::string* errMsg)
+bool intersectStepFaces(const std::string& pathLocal, int faceIndex1, int faceIndex2, const IntersectionParams& params,
+						IntersectionResult& result, std::string* errMsg)
 {
 	TopoDS_Shape shape;
 	if (!loadStepOrErr(pathLocal, shape, errMsg))
@@ -197,12 +177,8 @@ bool intersectStepFaces(
 	return intersectFaces(f1, f2, params, result, errMsg);
 }
 
-bool intersectStepFiles(
-	const std::string& pathLocal1,
-	const std::string& pathLocal2,
-	const IntersectionParams& params,
-	IntersectionResult& result,
-	std::string* errMsg)
+bool intersectStepFiles(const std::string& pathLocal1, const std::string& pathLocal2, const IntersectionParams& params,
+						IntersectionResult& result, std::string* errMsg)
 {
 	TopoDS_Shape s1;
 	TopoDS_Shape s2;
@@ -213,13 +189,9 @@ bool intersectStepFiles(
 	return intersectShapes(s1, s2, params, result, errMsg);
 }
 
-bool brepBooleanStepFilesToMesh(
-	const std::string& targetPathLocal,
-	const std::string& toolPathLocal,
-	BrepBooleanOp op,
-	const MeshDiscretizeParams& meshParams,
-	std::vector<float>& outSoup,
-	std::string* errMsg)
+bool brepBooleanStepFilesToMesh(const std::string& targetPathLocal, const std::string& toolPathLocal, BrepBooleanOp op,
+								const MeshDiscretizeParams& meshParams, std::vector<float>& outSoup,
+								std::string* errMsg)
 {
 	TopoDS_Shape target;
 	TopoDS_Shape tool;
@@ -230,12 +202,8 @@ bool brepBooleanStepFilesToMesh(
 	return brepBooleanToMesh(target, tool, op, meshParams, outSoup, errMsg);
 }
 
-bool fuseStepEdgesToPolyline(
-	const std::string& pathLocal,
-	const std::vector<int>& edgeIndices,
-	const TessellateParams& disc,
-	Polyline3d& out,
-	std::string* errMsg)
+bool fuseStepEdgesToPolyline(const std::string& pathLocal, const std::vector<int>& edgeIndices,
+							 const TessellateParams& disc, Polyline3d& out, std::string* errMsg)
 {
 	TopoDS_Shape shape;
 	if (!loadStepOrErr(pathLocal, shape, errMsg))
@@ -265,13 +233,8 @@ bool fuseStepEdgesToPolyline(
 	return fuseWiresToPolyline(wires, disc, out, errMsg);
 }
 
-bool sewStepFacesToMesh(
-	const std::string& pathLocal,
-	const std::vector<int>& faceIndices,
-	double toleranceMm,
-	const MeshDiscretizeParams& meshParams,
-	std::vector<float>& outSoup,
-	std::string* errMsg)
+bool sewStepFacesToMesh(const std::string& pathLocal, const std::vector<int>& faceIndices, double toleranceMm,
+						const MeshDiscretizeParams& meshParams, std::vector<float>& outSoup, std::string* errMsg)
 {
 	TopoDS_Shape shape;
 	if (!loadStepOrErr(pathLocal, shape, errMsg))
@@ -294,7 +257,6 @@ bool sewStepFacesToMesh(
 
 namespace
 {
-
 gp_Pnt toGpPnt(const Point3d& p)
 {
 	return gp_Pnt(p.x, p.y, p.z);
@@ -392,14 +354,8 @@ bool shapeRayParameterRange(const TopoDS_Shape& shape, const gp_Lin& line, Stand
 	Standard_Real zmax = 0.0;
 	box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
 	const gp_Pnt corners[8] = {
-		gp_Pnt(xmin, ymin, zmin),
-		gp_Pnt(xmax, ymin, zmin),
-		gp_Pnt(xmin, ymax, zmin),
-		gp_Pnt(xmax, ymax, zmin),
-		gp_Pnt(xmin, ymin, zmax),
-		gp_Pnt(xmax, ymin, zmax),
-		gp_Pnt(xmin, ymax, zmax),
-		gp_Pnt(xmax, ymax, zmax),
+		gp_Pnt(xmin, ymin, zmin), gp_Pnt(xmax, ymin, zmin), gp_Pnt(xmin, ymax, zmin), gp_Pnt(xmax, ymax, zmin),
+		gp_Pnt(xmin, ymin, zmax), gp_Pnt(xmax, ymin, zmax), gp_Pnt(xmin, ymax, zmax), gp_Pnt(xmax, ymax, zmax),
 	};
 	tInf = (std::numeric_limits<Standard_Real>::max)();
 	tSup = -(std::numeric_limits<Standard_Real>::max)();
@@ -422,13 +378,8 @@ bool shapeRayParameterRange(const TopoDS_Shape& shape, const gp_Lin& line, Stand
 	return true;
 }
 
-bool pickClosestEdgeInExplorer(
-	const TopoDS_Shape& shape,
-	const TopExp_Explorer& edgeExpStart,
-	const gp_Pnt& query,
-	const double toleranceMm,
-	int& outEdgeIdx,
-	gp_Pnt& outClosest)
+bool pickClosestEdgeInExplorer(const TopoDS_Shape& shape, const TopExp_Explorer& edgeExpStart, const gp_Pnt& query,
+							   const double toleranceMm, int& outEdgeIdx, gp_Pnt& outClosest)
 {
 	TopTools_IndexedMapOfShape edgeMap;
 	TopExp::MapShapes(shape, TopAbs_EDGE, edgeMap);
@@ -463,12 +414,8 @@ bool pickClosestEdgeInExplorer(
 
 } // namespace
 
-bool resolveFaceIndexFromModelPoint(
-	const ShapeHandle& shapeHandle,
-	const Point3d& modelPointMm,
-	int& outFaceIndex,
-	const double toleranceMm,
-	std::string* errMsg)
+bool resolveFaceIndexFromModelPoint(const ShapeHandle& shapeHandle, const Point3d& modelPointMm, int& outFaceIndex,
+									const double toleranceMm, std::string* errMsg)
 {
 	outFaceIndex = -1;
 	if (shapeHandle.isNull())
@@ -524,12 +471,8 @@ bool resolveFaceIndexFromModelPoint(
 	return true;
 }
 
-bool resolveStepFaceIndexFromModelPoint(
-	const std::string& stepPathUtf8,
-	const Point3d& modelPointMm,
-	int& outFaceIndex,
-	const double toleranceMm,
-	std::string* errMsg)
+bool resolveStepFaceIndexFromModelPoint(const std::string& stepPathUtf8, const Point3d& modelPointMm, int& outFaceIndex,
+										const double toleranceMm, std::string* errMsg)
 {
 	ShapeHandle handle;
 	if (!readStepIntoHandle(stepPathUtf8, handle, errMsg))
@@ -539,13 +482,9 @@ bool resolveStepFaceIndexFromModelPoint(
 	return resolveFaceIndexFromModelPoint(handle, modelPointMm, outFaceIndex, toleranceMm, errMsg);
 }
 
-bool resolveEdgeIndexFromModelPoints(
-	const ShapeHandle& shapeHandle,
-	const Point3d& modelPointA,
-	const Point3d& modelPointB,
-	int& outEdgeIndex,
-	const double toleranceMm,
-	std::string* errMsg)
+bool resolveEdgeIndexFromModelPoints(const ShapeHandle& shapeHandle, const Point3d& modelPointA,
+									 const Point3d& modelPointB, int& outEdgeIndex, const double toleranceMm,
+									 std::string* errMsg)
 {
 	outEdgeIndex = -1;
 	if (shapeHandle.isNull())
@@ -565,10 +504,8 @@ bool resolveEdgeIndexFromModelPoints(
 		}
 		return false;
 	}
-	const gp_Pnt query(
-		0.5 * (modelPointA.x + modelPointB.x),
-		0.5 * (modelPointA.y + modelPointB.y),
-		0.5 * (modelPointA.z + modelPointB.z));
+	const gp_Pnt query(0.5 * (modelPointA.x + modelPointB.x), 0.5 * (modelPointA.y + modelPointB.y),
+					   0.5 * (modelPointA.z + modelPointB.z));
 	double bestDist = (std::numeric_limits<double>::max)();
 	int bestIdx = -1;
 	int edgeIdx = 0;
@@ -600,13 +537,9 @@ bool resolveEdgeIndexFromModelPoints(
 	return true;
 }
 
-bool resolveStepEdgeIndexFromModelPoints(
-	const std::string& stepPathUtf8,
-	const Point3d& modelPointA,
-	const Point3d& modelPointB,
-	int& outEdgeIndex,
-	const double toleranceMm,
-	std::string* errMsg)
+bool resolveStepEdgeIndexFromModelPoints(const std::string& stepPathUtf8, const Point3d& modelPointA,
+										 const Point3d& modelPointB, int& outEdgeIndex, const double toleranceMm,
+										 std::string* errMsg)
 {
 	ShapeHandle handle;
 	if (!readStepIntoHandle(stepPathUtf8, handle, errMsg))
@@ -616,12 +549,8 @@ bool resolveStepEdgeIndexFromModelPoints(
 	return resolveEdgeIndexFromModelPoints(handle, modelPointA, modelPointB, outEdgeIndex, toleranceMm, errMsg);
 }
 
-bool pickShapeFaceByModelRay(
-	const ShapeHandle& shapeHandle,
-	const Point3d& rayOriginMm,
-	const Point3d& rayDirUnit,
-	ShapeRayPickResult& out,
-	std::string* errMsg)
+bool pickShapeFaceByModelRay(const ShapeHandle& shapeHandle, const Point3d& rayOriginMm, const Point3d& rayDirUnit,
+							 ShapeRayPickResult& out, std::string* errMsg)
 {
 	out = ShapeRayPickResult{};
 	TopoDS_Shape shape;
@@ -673,12 +602,8 @@ bool pickShapeFaceByModelRay(
 	return true;
 }
 
-bool pickShapeEdgeByModelPoint(
-	const ShapeHandle& shapeHandle,
-	const Point3d& queryPointModelMm,
-	const double toleranceMm,
-	ShapeRayPickResult& out,
-	std::string* errMsg)
+bool pickShapeEdgeByModelPoint(const ShapeHandle& shapeHandle, const Point3d& queryPointModelMm,
+							   const double toleranceMm, ShapeRayPickResult& out, std::string* errMsg)
 {
 	out = ShapeRayPickResult{};
 	TopoDS_Shape shape;
@@ -698,7 +623,8 @@ bool pickShapeEdgeByModelPoint(
 		TopoDS_Face face;
 		if (shapeFaceAtIndex(shape, faceIdx, face, errMsg))
 		{
-			if (pickClosestEdgeInExplorer(shape, TopExp_Explorer(face, TopAbs_EDGE), query, toleranceMm, edgeIdx, closest))
+			if (pickClosestEdgeInExplorer(shape, TopExp_Explorer(face, TopAbs_EDGE), query, toleranceMm, edgeIdx,
+										  closest))
 			{
 				out.hit = true;
 				out.faceIndex = faceIdx;
@@ -730,13 +656,8 @@ bool pickShapeEdgeByModelPoint(
 	return false;
 }
 
-bool pickShapeEdgeByModelRay(
-	const ShapeHandle& shapeHandle,
-	const Point3d& rayOriginMm,
-	const Point3d& rayDirUnit,
-	const double toleranceMm,
-	ShapeRayPickResult& out,
-	std::string* errMsg)
+bool pickShapeEdgeByModelRay(const ShapeHandle& shapeHandle, const Point3d& rayOriginMm, const Point3d& rayDirUnit,
+							 const double toleranceMm, ShapeRayPickResult& out, std::string* errMsg)
 {
 	TopoDS_Shape shape;
 	if (!nativeShapeOrErr(shapeHandle, shape, errMsg))
@@ -793,10 +714,8 @@ bool validateShapeEdgeIndex(const ShapeHandle& shapeHandle, const int edgeIndex,
 	return shapeEdgeAtIndex(shape, edgeIndex, edge, errMsg);
 }
 
-bool collectShapeFaceEdgeIndices(
-	const ShapeHandle& shapeHandle,
-	std::vector<std::vector<int>>& outFaceEdgeIndices,
-	std::string* errMsg)
+bool collectShapeFaceEdgeIndices(const ShapeHandle& shapeHandle, std::vector<std::vector<int>>& outFaceEdgeIndices,
+								 std::string* errMsg)
 {
 	outFaceEdgeIndices.clear();
 	TopoDS_Shape shape;

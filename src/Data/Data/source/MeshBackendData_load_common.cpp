@@ -1,10 +1,14 @@
+﻿/// @file MeshBackendData_load_common.cpp
+/// @brief 封闭体整体内外翻转；逐三角质心翻转在非凸网格上会导致部分面发黑
+
 #include "pch.h"
-#include "MeshBackendData_loaders.h"
+
 #include "MeshBackendData.h"
+#include "MeshBackendData_loaders.h"
 #include "RunLogger.h"
 
-namespace mesh_backend_load {
-
+namespace mesh_backend_load
+{
 void meshLoadErr(std::string* errMsg, const char* text)
 {
 	if (errMsg)
@@ -79,7 +83,7 @@ static void meshBuildSoupFromPolygons(const PointRange& points, const PolygonRan
 }
 
 static double meshSignedVolumeOfSoupAboutPoint(const std::vector<float>& soup, const double cx, const double cy,
-	const double cz)
+											   const double cz)
 {
 	double vol = 0.0;
 	for (std::size_t i = 0; i + 8 < soup.size(); i += 9U)
@@ -110,7 +114,7 @@ static void meshFlipAllTriangleWindingInSoup(std::vector<float>& soup)
 
 /// 封闭体整体内外翻转；逐三角质心翻转在非凸网格上会导致部分面发黑
 static void meshOrientSoupOutwardIfClosed(std::vector<float>& soup, const double refX, const double refY,
-	const double refZ)
+										  const double refZ)
 {
 	if (soup.size() < 9U)
 	{
@@ -218,11 +222,13 @@ bool meshTryLoadObjWithVertexNormals(const std::string& path, std::vector<float>
 	soup.clear();
 	normalSoup.clear();
 
-	auto resolveVertex = [&](int idx) -> const MeshObjVec3* {
+	auto resolveVertex = [&](int idx) -> const MeshObjVec3*
+	{
 		const std::size_t i = meshResolveObjIndex(idx, vertices.size());
 		return i < vertices.size() ? &vertices[i] : nullptr;
 	};
-	auto resolveNormal = [&](int idx) -> const MeshObjVec3* {
+	auto resolveNormal = [&](int idx) -> const MeshObjVec3*
+	{
 		if (!hasNormals)
 		{
 			return nullptr;
@@ -231,7 +237,8 @@ bool meshTryLoadObjWithVertexNormals(const std::string& path, std::vector<float>
 		return i < normals.size() ? &normals[i] : nullptr;
 	};
 
-	auto emitTriangle = [&](const MeshObjCorner& c0, const MeshObjCorner& c1, const MeshObjCorner& c2) {
+	auto emitTriangle = [&](const MeshObjCorner& c0, const MeshObjCorner& c1, const MeshObjCorner& c2)
+	{
 		const MeshObjVec3* p0 = resolveVertex(c0.v);
 		const MeshObjVec3* p1 = resolveVertex(c1.v);
 		const MeshObjVec3* p2 = resolveVertex(c2.v);
@@ -249,7 +256,8 @@ bool meshTryLoadObjWithVertexNormals(const std::string& path, std::vector<float>
 		const double ny = abz * acx - abx * acz;
 		const double nz = abx * acy - aby * acx;
 		meshPushTri(soup, p0->x, p0->y, p0->z, p1->x, p1->y, p1->z, p2->x, p2->y, p2->z);
-		auto pushCornerNormal = [&](const MeshObjCorner& corner) {
+		auto pushCornerNormal = [&](const MeshObjCorner& corner)
+		{
 			const MeshObjVec3* n = resolveNormal(corner.vn);
 			if (n)
 			{
@@ -343,8 +351,8 @@ bool meshTryLoadObjWithVertexNormals(const std::string& path, std::vector<float>
 	}
 	return true;
 }
-void meshPushTri(std::vector<float>& soup, double ax, double ay, double az, double bx, double by, double bz,
-	double cx, double cy, double cz)
+void meshPushTri(std::vector<float>& soup, double ax, double ay, double az, double bx, double by, double bz, double cx,
+				 double cy, double cz)
 {
 	const double abx = bx - ax;
 	const double aby = by - ay;
@@ -400,7 +408,7 @@ void meshApplyImportQualityToSoup(std::vector<float>& soup, const int meshImport
 }
 
 bool meshLoadCgalMeshFile(MeshBackendData& mesh, const std::string& path, const std::string& ext, std::string* errMsg,
-	const int meshImportQuality)
+						  const int meshImportQuality)
 {
 	if (!(ext == "obj" || ext == "stl" || ext == "ply" || ext == "off"))
 	{

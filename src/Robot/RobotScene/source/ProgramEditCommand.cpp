@@ -1,17 +1,19 @@
+﻿/// @file ProgramEditCommand.cpp
+/// @brief ProgramEditCommand 实现
+
 #include "ProgramEditCommand.h"
 
 #include "RobotInstructionFactory.h"
 #include "RobotInstructionProgram.h"
 #include "RobotInstructionTransform.h"
 
-#include <TrajectoryOpParamsParse.h>
-#include <TrajectoryTransformMath.h>
-
-#include <RigidTransform.h>
-
 #include <algorithm>
 #include <cmath>
 #include <unordered_map>
+
+#include <RigidTransform.h>
+#include <TrajectoryOpParamsParse.h>
+#include <TrajectoryTransformMath.h>
 
 namespace RobotInstruction
 {
@@ -141,7 +143,7 @@ void applyAxisReverseToInstruction(Base& ins, const int mirrorAxis)
 		return;
 	}
 	Eigen::Matrix3d rot = target.rotation().toRotationMatrix();
-	Eigen::Vector3d axes[3] = { rot.col(0), rot.col(1), rot.col(2) };
+	Eigen::Vector3d axes[3] = {rot.col(0), rot.col(1), rot.col(2)};
 	const int reversedAxis = std::max(0, std::min(2, mirrorAxis));
 	const int keptAxis = (reversedAxis + 1) % 3;
 	const int rebuiltAxis = 3 - reversedAxis - keptAxis;
@@ -164,8 +166,7 @@ void applyAxisReverseToInstruction(Base& ins, const int mirrorAxis)
 	updatedRot.col(1) = axes[1];
 	updatedRot.col(2) = axes[2];
 	writeTargetTransformToInstruction(
-		ins,
-		engine::RigidTransform::fromTranslationQuat(target.translationMm(), Eigen::Quaterniond(updatedRot)));
+		ins, engine::RigidTransform::fromTranslationQuat(target.translationMm(), Eigen::Quaterniond(updatedRot)));
 	ins.eraseExtensionProperty("context.currentJointRadCsv");
 	ins.eraseExtensionProperty("render.tcpWorldMat4");
 	ins.eraseExtensionProperty("render.tcpLocalMat4");
@@ -179,18 +180,14 @@ void applyFixedOrientationToInstruction(Base& ins, const engine::RigidTransform&
 		return;
 	}
 	writeTargetTransformToInstruction(
-		ins,
-		engine::RigidTransform::fromTranslationQuat(target.translationMm(), refTarget.rotation()));
+		ins, engine::RigidTransform::fromTranslationQuat(target.translationMm(), refTarget.rotation()));
 	ins.eraseExtensionProperty("context.currentJointRadCsv");
 	ins.eraseExtensionProperty("render.tcpWorldMat4");
 	ins.eraseExtensionProperty("render.tcpLocalMat4");
 }
 } // namespace
 
-bool ProgramEditStack::execute(
-	CommandPtr cmd,
-	InstructionProgramDocument& doc,
-	std::string* errMsg)
+bool ProgramEditStack::execute(CommandPtr cmd, InstructionProgramDocument& doc, std::string* errMsg)
 {
 	if (!cmd)
 	{
@@ -244,8 +241,7 @@ void ProgramEditStack::clear()
 }
 
 InsertInstructionCommand::InsertInstructionCommand(std::shared_ptr<Base> instruction, const size_t rootIndex)
-	: m_instruction(std::move(instruction))
-	, m_rootIndex(rootIndex)
+	: m_instruction(std::move(instruction)), m_rootIndex(rootIndex)
 {
 }
 
@@ -307,11 +303,9 @@ bool RemoveInstructionCommand::undo(InstructionProgramDocument& doc, std::string
 	return doc.insertAtRoot(m_rootIndex, m_removedSnapshot);
 }
 
-DuplicateInstructionCommand::DuplicateInstructionCommand(
-	std::string sourceInstructionId,
-	const size_t insertAfterRootIndex)
-	: m_sourceId(std::move(sourceInstructionId))
-	, m_insertIndex(insertAfterRootIndex + 1)
+DuplicateInstructionCommand::DuplicateInstructionCommand(std::string sourceInstructionId,
+														 const size_t insertAfterRootIndex)
+	: m_sourceId(std::move(sourceInstructionId)), m_insertIndex(insertAfterRootIndex + 1)
 {
 }
 
@@ -351,11 +345,9 @@ bool DuplicateInstructionCommand::undo(InstructionProgramDocument& doc, std::str
 	return doc.removeById(m_duplicate->id());
 }
 
-TransformMotionSegmentCommand::TransformMotionSegmentCommand(
-	std::vector<std::string> targetIds,
-	std::vector<TrajectoryOpDescriptor> transformOps)
-	: m_targetIds(std::move(targetIds))
-	, m_transformOps(std::move(transformOps))
+TransformMotionSegmentCommand::TransformMotionSegmentCommand(std::vector<std::string> targetIds,
+															 std::vector<TrajectoryOpDescriptor> transformOps)
+	: m_targetIds(std::move(targetIds)), m_transformOps(std::move(transformOps))
 {
 }
 
@@ -428,8 +420,8 @@ bool TransformMotionSegmentCommand::execute(InstructionProgramDocument& doc, std
 				continue;
 			}
 			const double t = validTargetIds.size() <= 1
-				? 0.0
-				: static_cast<double>(targetIdx) / static_cast<double>(validTargetIds.size() - 1);
+								 ? 0.0
+								 : static_cast<double>(targetIdx) / static_cast<double>(validTargetIds.size() - 1);
 			op = interpolatedDescriptor(op, t);
 			applyDeltaToInstruction(*raw, deltaFromOp(op), frameForOp(op));
 		}
@@ -506,8 +498,7 @@ bool CompositeProgramEditCommand::undo(InstructionProgramDocument& doc, std::str
 }
 
 ReplaceProgramContentCommand::ReplaceProgramContentCommand(RobotProgram* program, RobotProgram replacement)
-	: m_program(program)
-	, m_after(std::move(replacement))
+	: m_program(program), m_after(std::move(replacement))
 {
 }
 
@@ -544,13 +535,9 @@ bool ReplaceProgramContentCommand::undo(InstructionProgramDocument& doc, std::st
 	return true;
 }
 
-CreateInstructionGroupCommand::CreateInstructionGroupCommand(
-	RobotProgram* program,
-	std::string groupName,
-	std::vector<std::string> memberIds)
-	: m_program(program)
-	, m_groupName(std::move(groupName))
-	, m_memberIds(std::move(memberIds))
+CreateInstructionGroupCommand::CreateInstructionGroupCommand(RobotProgram* program, std::string groupName,
+															 std::vector<std::string> memberIds)
+	: m_program(program), m_groupName(std::move(groupName)), m_memberIds(std::move(memberIds))
 {
 }
 
@@ -580,10 +567,8 @@ bool CreateInstructionGroupCommand::undo(InstructionProgramDocument& doc, std::s
 	{
 		return false;
 	}
-	const auto it = std::remove_if(
-		m_program->groups.begin(),
-		m_program->groups.end(),
-		[this](const InstructionGroup& g) { return g.id == m_created.id; });
+	const auto it = std::remove_if(m_program->groups.begin(), m_program->groups.end(),
+								   [this](const InstructionGroup& g) { return g.id == m_created.id; });
 	if (it == m_program->groups.end())
 	{
 		if (errMsg)
@@ -597,11 +582,8 @@ bool CreateInstructionGroupCommand::undo(InstructionProgramDocument& doc, std::s
 	return true;
 }
 
-RemoveInstructionGroupCommand::RemoveInstructionGroupCommand(
-	RobotProgram* program,
-	std::string groupId)
-	: m_program(program)
-	, m_groupId(std::move(groupId))
+RemoveInstructionGroupCommand::RemoveInstructionGroupCommand(RobotProgram* program, std::string groupId)
+	: m_program(program), m_groupId(std::move(groupId))
 {
 }
 
@@ -612,10 +594,8 @@ bool RemoveInstructionGroupCommand::execute(InstructionProgramDocument& doc, std
 	{
 		return false;
 	}
-	const auto it = std::find_if(
-		m_program->groups.begin(),
-		m_program->groups.end(),
-		[this](const InstructionGroup& g) { return g.id == m_groupId; });
+	const auto it = std::find_if(m_program->groups.begin(), m_program->groups.end(),
+								 [this](const InstructionGroup& g) { return g.id == m_groupId; });
 	if (it == m_program->groups.end())
 	{
 		if (errMsg)
@@ -643,13 +623,9 @@ bool RemoveInstructionGroupCommand::undo(InstructionProgramDocument& doc, std::s
 	return true;
 }
 
-RenameInstructionGroupCommand::RenameInstructionGroupCommand(
-	RobotProgram* program,
-	std::string groupId,
-	std::string newName)
-	: m_program(program)
-	, m_groupId(std::move(groupId))
-	, m_newName(std::move(newName))
+RenameInstructionGroupCommand::RenameInstructionGroupCommand(RobotProgram* program, std::string groupId,
+															 std::string newName)
+	: m_program(program), m_groupId(std::move(groupId)), m_newName(std::move(newName))
 {
 }
 
@@ -705,11 +681,8 @@ bool RenameInstructionGroupCommand::undo(InstructionProgramDocument& doc, std::s
 	return false;
 }
 
-InsertPathPlanCommand::InsertPathPlanCommand(
-	std::shared_ptr<PathPlanInstruction> pathPlan,
-	const size_t rootIndex)
-	: m_pathPlan(std::move(pathPlan))
-	, m_rootIndex(rootIndex)
+InsertPathPlanCommand::InsertPathPlanCommand(std::shared_ptr<PathPlanInstruction> pathPlan, const size_t rootIndex)
+	: m_pathPlan(std::move(pathPlan)), m_rootIndex(rootIndex)
 {
 }
 
@@ -749,13 +722,10 @@ bool InsertPathPlanCommand::undo(InstructionProgramDocument& doc, std::string* e
 	return true;
 }
 
-UpdatePathPlanPipelineCommand::UpdatePathPlanPipelineCommand(
-	std::string pathPlanId,
-	std::vector<TrajectoryOpDescriptor> pipeline,
-	std::vector<TrajectoryOpDescriptor> appliedHistory)
-	: m_pathPlanId(std::move(pathPlanId))
-	, m_pipeline(std::move(pipeline))
-	, m_appliedHistory(std::move(appliedHistory))
+UpdatePathPlanPipelineCommand::UpdatePathPlanPipelineCommand(std::string pathPlanId,
+															 std::vector<TrajectoryOpDescriptor> pipeline,
+															 std::vector<TrajectoryOpDescriptor> appliedHistory)
+	: m_pathPlanId(std::move(pathPlanId)), m_pipeline(std::move(pipeline)), m_appliedHistory(std::move(appliedHistory))
 {
 }
 
@@ -795,15 +765,9 @@ bool UpdatePathPlanPipelineCommand::undo(InstructionProgramDocument& doc, std::s
 	return true;
 }
 
-UpdatePathPlanRawCommand::UpdatePathPlanRawCommand(
-	RobotProgramCatalog* catalog,
-	std::string pathPlanId,
-	RawTrajectory raw,
-	const PathPlanPhase newPhase)
-	: m_catalog(catalog)
-	, m_pathPlanId(std::move(pathPlanId))
-	, m_raw(std::move(raw))
-	, m_newPhase(newPhase)
+UpdatePathPlanRawCommand::UpdatePathPlanRawCommand(RobotProgramCatalog* catalog, std::string pathPlanId,
+												   RawTrajectory raw, const PathPlanPhase newPhase)
+	: m_catalog(catalog), m_pathPlanId(std::move(pathPlanId)), m_raw(std::move(raw)), m_newPhase(newPhase)
 {
 }
 
@@ -867,13 +831,9 @@ bool UpdatePathPlanRawCommand::undo(InstructionProgramDocument& doc, std::string
 	return true;
 }
 
-UpdatePathPlanApplyStateCommand::UpdatePathPlanApplyStateCommand(
-	std::string pathPlanId,
-	const PathPlanPhase phase,
-	std::string outputGroupId)
-	: m_pathPlanId(std::move(pathPlanId))
-	, m_phase(phase)
-	, m_outputGroupId(std::move(outputGroupId))
+UpdatePathPlanApplyStateCommand::UpdatePathPlanApplyStateCommand(std::string pathPlanId, const PathPlanPhase phase,
+																 std::string outputGroupId)
+	: m_pathPlanId(std::move(pathPlanId)), m_phase(phase), m_outputGroupId(std::move(outputGroupId))
 {
 }
 
@@ -911,13 +871,9 @@ bool UpdatePathPlanApplyStateCommand::undo(InstructionProgramDocument& doc, std:
 	return true;
 }
 
-RemovePathPlanCommand::RemovePathPlanCommand(
-	RobotProgramCatalog* catalog,
-	std::string programId,
-	std::string pathPlanId)
-	: m_catalog(catalog)
-	, m_programId(std::move(programId))
-	, m_pathPlanId(std::move(pathPlanId))
+RemovePathPlanCommand::RemovePathPlanCommand(RobotProgramCatalog* catalog, std::string programId,
+											 std::string pathPlanId)
+	: m_catalog(catalog), m_programId(std::move(programId)), m_pathPlanId(std::move(pathPlanId))
 {
 }
 
@@ -960,8 +916,7 @@ bool RemovePathPlanCommand::execute(InstructionProgramDocument& doc, std::string
 	{
 		for (const InstructionGroup& group : prog->groups)
 		{
-			if (group.role == InstructionGroupRole::PathPlanOutput
-				&& group.pathPlanInstructionId == m_pathPlanId)
+			if (group.role == InstructionGroupRole::PathPlanOutput && group.pathPlanInstructionId == m_pathPlanId)
 			{
 				m_removedOutputGroups.push_back(group);
 			}

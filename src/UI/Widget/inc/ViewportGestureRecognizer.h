@@ -1,9 +1,13 @@
-#pragma once
+﻿#ifndef WIDGET_VIEWPORTGESTURERECOGNIZER_H
+#define WIDGET_VIEWPORTGESTURERECOGNIZER_H
+
+/// @file ViewportGestureRecognizer.h
+/// @brief 视口手势：统一点/线/面拾取的 click/drag/release 判定
+
+#include "../../OsgWidgetCore/inc/OsgScene.h"
 
 #include <QElapsedTimer>
 #include <QPoint>
-
-#include "../../OsgWidgetCore/inc/OsgScene.h"
 
 /// 视口手势：统一点/线/面拾取的 click/drag/release 判定
 class ViewportGestureRecognizer
@@ -29,3 +33,5 @@ private:
 	bool m_dragMoved = false;
 	bool m_wasClick = false;
 };
+
+#endif // WIDGET_VIEWPORTGESTURERECOGNIZER_H

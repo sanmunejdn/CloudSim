@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef POINTCLOUDALGORITHM_REGISTRATIONSPARE_H
+#define POINTCLOUDALGORITHM_REGISTRATIONSPARE_H
+
+/// @file RegistrationSpare.h
+/// @brief RegistrationSpare 接口
 
 #include "point_cloud_algorithm_global.h"
 
@@ -8,7 +12,6 @@
 
 namespace pclalgo
 {
-
 struct SpareRegisterParams
 {
 	double sampleRadiusRatio = 0.0;
@@ -39,32 +42,23 @@ struct SpareRegisterResult
 	int deformationNodeCount = 0;
 };
 
-POINT_CLOUD_ALGORITHM_API bool spareRegisterPointClouds(
-	const std::vector<float>& sourceXyz,
-	const std::vector<float>& sourceNormals,
-	const std::vector<float>& targetXyz,
-	const std::vector<float>& targetNormals,
-	std::vector<float>& sourceXyzDeformedOut,
-	std::vector<float>& sourceNormalsDeformedOut,
-	const SpareRegisterParams& params,
-	SpareRegisterResult* stats,
-	std::string* errMsg);
+POINT_CLOUD_ALGORITHM_API bool
+spareRegisterPointClouds(const std::vector<float>& sourceXyz, const std::vector<float>& sourceNormals,
+						 const std::vector<float>& targetXyz, const std::vector<float>& targetNormals,
+						 std::vector<float>& sourceXyzDeformedOut, std::vector<float>& sourceNormalsDeformedOut,
+						 const SpareRegisterParams& params, SpareRegisterResult* stats, std::string* errMsg);
 
-POINT_CLOUD_ALGORITHM_API bool spareRegisterMeshSoupToTarget(
-	const std::vector<float>& sourceSoup,
-	const std::vector<float>& targetXyz,
-	const std::vector<float>& targetNormals,
-	std::vector<float>& sourceSoupDeformedOut,
-	const SpareRegisterParams& params,
-	SpareRegisterResult* stats,
-	std::string* errMsg);
+POINT_CLOUD_ALGORITHM_API bool
+spareRegisterMeshSoupToTarget(const std::vector<float>& sourceSoup, const std::vector<float>& targetXyz,
+							  const std::vector<float>& targetNormals, std::vector<float>& sourceSoupDeformedOut,
+							  const SpareRegisterParams& params, SpareRegisterResult* stats, std::string* errMsg);
 
-POINT_CLOUD_ALGORITHM_API bool spareRegisterMeshSoupToMeshSoup(
-	const std::vector<float>& sourceSoup,
-	const std::vector<float>& targetSoup,
-	std::vector<float>& sourceSoupDeformedOut,
-	const SpareRegisterParams& params,
-	SpareRegisterResult* stats,
-	std::string* errMsg);
+POINT_CLOUD_ALGORITHM_API bool spareRegisterMeshSoupToMeshSoup(const std::vector<float>& sourceSoup,
+															   const std::vector<float>& targetSoup,
+															   std::vector<float>& sourceSoupDeformedOut,
+															   const SpareRegisterParams& params,
+															   SpareRegisterResult* stats, std::string* errMsg);
 
 } // namespace pclalgo
+
+#endif // POINTCLOUDALGORITHM_REGISTRATIONSPARE_H

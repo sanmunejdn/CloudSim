@@ -1,15 +1,21 @@
-#pragma once
+﻿#ifndef BACKENDVISUAL_BACKENDIDUSERDATA_H
+#define BACKENDVISUAL_BACKENDIDUSERDATA_H
+
+/// @file BackendIdUserData.h
+/// @brief 挂后端根节点，拾取可解析 backendId，免平行 map
 
 #include "backendvisual_global.h"
+
 #include "BackendPickDomain.h"
 
-#include <ShapeHandle.h>
-
-#include <osg/Node>
-#include <osg/Referenced>
 #include <string>
 
-namespace osg {
+#include <ShapeHandle.h>
+#include <osg/Node>
+#include <osg/Referenced>
+
+namespace osg
+{
 class Group;
 }
 
@@ -37,3 +43,5 @@ private:
 
 /// 同 OsgWidget upsert：外层 MT → 内层 PAT → 几何根
 BACKENDVISUAL_EXPORT osg::Node* backendVisualResolvePickNode(osg::Group* outerBranchRoot);
+
+#endif // BACKENDVISUAL_BACKENDIDUSERDATA_H

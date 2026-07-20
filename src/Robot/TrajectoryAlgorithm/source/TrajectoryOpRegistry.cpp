@@ -1,8 +1,10 @@
+﻿/// @file TrajectoryOpRegistry.cpp
+/// @brief TrajectoryOpRegistry 实现
+
 #include "TrajectoryOpRegistry.h"
 
 namespace trajectory_algo
 {
-
 TrajectoryOpRegistry& TrajectoryOpRegistry::instance()
 {
 	static TrajectoryOpRegistry registry;

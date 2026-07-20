@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef PROPERTYCORE_PROPERTYSCHEMA_H
+#define PROPERTYCORE_PROPERTYSCHEMA_H
+
+/// @file PropertySchema.h
+/// @brief 某 objectTypeId 的属性描述表
 
 #include "PropertyDescriptor.h"
 
@@ -7,7 +11,6 @@
 
 namespace property_core
 {
-
 /// 某 objectTypeId 的属性描述表
 struct PropertySchema
 {
@@ -35,3 +38,5 @@ inline void appendPack(PropertySchema& target, const std::vector<PropertyDescrip
 }
 
 } // namespace property_core
+
+#endif // PROPERTYCORE_PROPERTYSCHEMA_H

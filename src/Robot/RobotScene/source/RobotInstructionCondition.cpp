@@ -1,3 +1,6 @@
+﻿/// @file RobotInstructionCondition.cpp
+/// @brief RobotInstructionCondition 实现
+
 #include "RobotInstructionCondition.h"
 
 #include <algorithm>

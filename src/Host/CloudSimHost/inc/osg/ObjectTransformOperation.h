@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_OBJECTTRANSFORMOPERATION_H
+#define CLOUDSIMHOST_OBJECTTRANSFORMOPERATION_H
+
+/// @file ObjectTransformOperation.h
+/// @brief 对象变换模式：在选中对象且显示坐标轴时，处理左键平移、右键旋转等拖拽操作。
 
 #include "SelectionOperation.h"
 
@@ -20,3 +24,4 @@ private:
 	bool m_gizmoSessionModified = false;
 };
 
+#endif // CLOUDSIMHOST_OBJECTTRANSFORMOPERATION_H

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTIONPARTITIONCOMMON_H
+#define GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTIONPARTITIONCOMMON_H
+
+/// @file MeshSurfaceReconstructionPartitionCommon.h
+/// @brief MeshSurfaceReconstructionPartitionCommon 接口
 
 #include "MeshSurfaceReconstructionInternal.h"
 
@@ -11,7 +15,6 @@ namespace geoalgo
 {
 namespace meshrecon
 {
-
 struct PartitionVec3d
 {
 	double x = 0.0;
@@ -36,34 +39,21 @@ struct MeshAdjacency
 };
 
 MeshAdjacency buildMeshAdjacency(const IndexedMeshLite& mesh, int faceCount);
-void computeFaceGeometry(
-	const IndexedMeshLite& mesh,
-	int faceCount,
-	std::vector<PartitionVec3d>& faceNormals,
-	std::vector<PartitionVec3d>& faceCentroids,
-	std::vector<double>& faceAreas);
+void computeFaceGeometry(const IndexedMeshLite& mesh, int faceCount, std::vector<PartitionVec3d>& faceNormals,
+						 std::vector<PartitionVec3d>& faceCentroids, std::vector<double>& faceAreas);
 
 void chartToPatches(const std::vector<int>& chart, std::vector<QuadPatch>& patches);
-void rebuildPatchAdjacency(
-	const std::vector<std::vector<int>>& adj,
-	int faceCount,
-	std::vector<QuadPatch>& patches);
+void rebuildPatchAdjacency(const std::vector<std::vector<int>>& adj, int faceCount, std::vector<QuadPatch>& patches);
 int computeJunctionCount(const std::vector<QuadPatch>& patches);
 
-void computePatchFaceStats(
-	const std::vector<QuadPatch>& patches,
-	int minFacesThreshold,
-	int& outMin,
-	int& outMax,
-	int& outSmallCount);
+void computePatchFaceStats(const std::vector<QuadPatch>& patches, int minFacesThreshold, int& outMin, int& outMax,
+						   int& outSmallCount);
 
-bool partitionQuadDomainsHybrid(
-	const IndexedMeshLite& mesh,
-	const MeshSurfaceReconstructParams& params,
-	std::vector<QuadPatch>& patches,
-	int& outJunctionCount,
-	MeshSurfaceReconstructReport* partitionStats,
-	std::string* errMsg);
+bool partitionQuadDomainsHybrid(const IndexedMeshLite& mesh, const MeshSurfaceReconstructParams& params,
+								std::vector<QuadPatch>& patches, int& outJunctionCount,
+								MeshSurfaceReconstructReport* partitionStats, std::string* errMsg);
 
 } // namespace meshrecon
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTIONPARTITIONCOMMON_H

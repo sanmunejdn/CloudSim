@@ -1,21 +1,17 @@
+﻿/// @file Crop.cpp
+/// @brief OSG 行向量：clip = world * mvp，矩阵按 col*4+row 存 m(row,col)
+
 #include "Crop.h"
 
 #include "PointCloudBuffer.h"
 
 namespace pclalgo
 {
-
 namespace
 {
-
-template<typename Predicate>
-void cropXyzImpl(
-	const std::vector<float>& srcXyz,
-	const std::vector<float>* srcRgba,
-	Predicate keepPredicate,
-	std::vector<float>& outXyz,
-	std::vector<float>* outRgba,
-	std::vector<std::size_t>* keptIndices)
+template <typename Predicate>
+void cropXyzImpl(const std::vector<float>& srcXyz, const std::vector<float>* srcRgba, Predicate keepPredicate,
+				 std::vector<float>& outXyz, std::vector<float>* outRgba, std::vector<std::size_t>* keptIndices)
 {
 	if (!validXyzLength(srcXyz))
 	{
@@ -58,59 +54,33 @@ void cropXyzImpl(
 
 } // namespace
 
-void cropXyzByBox(
-	const std::vector<float>& srcXyz,
-	const Eigen::AlignedBox3d& box,
-	std::vector<float>& outXyz,
-	std::vector<std::size_t>* keptIndices)
+void cropXyzByBox(const std::vector<float>& srcXyz, const Eigen::AlignedBox3d& box, std::vector<float>& outXyz,
+				  std::vector<std::size_t>* keptIndices)
 {
 	cropXyzImpl(
-		srcXyz,
-		nullptr,
-		[&box](const Eigen::Vector3d& p) { return box.contains(p); },
-		outXyz,
-		nullptr,
-		keptIndices);
+		srcXyz, nullptr, [&box](const Eigen::Vector3d& p) { return box.contains(p); }, outXyz, nullptr, keptIndices);
 }
 
-void cropXyzByBox(
-	const std::vector<float>& srcXyz,
-	const std::vector<float>& srcRgba,
-	const Eigen::AlignedBox3d& box,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::vector<std::size_t>* keptIndices)
+void cropXyzByBox(const std::vector<float>& srcXyz, const std::vector<float>& srcRgba, const Eigen::AlignedBox3d& box,
+				  std::vector<float>& outXyz, std::vector<float>& outRgba, std::vector<std::size_t>* keptIndices)
 {
 	cropXyzImpl(
-		srcXyz,
-		&srcRgba,
-		[&box](const Eigen::Vector3d& p) { return box.contains(p); },
-		outXyz,
-		&outRgba,
-		keptIndices);
+		srcXyz, &srcRgba, [&box](const Eigen::Vector3d& p) { return box.contains(p); }, outXyz, &outRgba, keptIndices);
 }
 
-void cropXyzBySphere(
-	const std::vector<float>& srcXyz,
-	const Eigen::Vector3d& centerMm,
-	const double radiusMm,
-	std::vector<float>& outXyz,
-	std::vector<std::size_t>* keptIndices)
+void cropXyzBySphere(const std::vector<float>& srcXyz, const Eigen::Vector3d& centerMm, const double radiusMm,
+					 std::vector<float>& outXyz, std::vector<std::size_t>* keptIndices)
 {
 	const double r2 = radiusMm * radiusMm;
 	cropXyzImpl(
-		srcXyz,
-		nullptr,
-		[&centerMm, r2](const Eigen::Vector3d& p) { return (p - centerMm).squaredNorm() <= r2; },
-		outXyz,
-		nullptr,
-		keptIndices);
+		srcXyz, nullptr, [&centerMm, r2](const Eigen::Vector3d& p) { return (p - centerMm).squaredNorm() <= r2; },
+		outXyz, nullptr, keptIndices);
 }
 
 namespace
 {
-
-void transformPointColumnMajor(const double m[16], const double x, const double y, const double z, double& ox, double& oy, double& oz)
+void transformPointColumnMajor(const double m[16], const double x, const double y, const double z, double& ox,
+							   double& oy, double& oz)
 {
 	ox = x * m[0] + y * m[4] + z * m[8] + m[12];
 	oy = x * m[1] + y * m[5] + z * m[9] + m[13];
@@ -118,15 +88,8 @@ void transformPointColumnMajor(const double m[16], const double x, const double 
 }
 
 /// OSG 行向量：clip = world * mvp，矩阵按 col*4+row 存 m(row,col)
-void transformPointRowVectorOsg4(
-	const double m[16],
-	const double x,
-	const double y,
-	const double z,
-	double& ox,
-	double& oy,
-	double& oz,
-	double& ow)
+void transformPointRowVectorOsg4(const double m[16], const double x, const double y, const double z, double& ox,
+								 double& oy, double& oz, double& ow)
 {
 	ox = x * m[0] + y * m[1] + z * m[2] + m[3];
 	oy = x * m[4] + y * m[5] + z * m[6] + m[7];
@@ -148,8 +111,7 @@ bool pointInPolygon2D(const double x, const double y, const std::vector<float>& 
 		const double yi = static_cast<double>(poly[i * 2U + 1U]);
 		const double xj = static_cast<double>(poly[j * 2U]);
 		const double yj = static_cast<double>(poly[j * 2U + 1U]);
-		const bool intersect = ((yi > y) != (yj > y))
-			&& (x < (xj - xi) * (y - yi) / (yj - yi + 1e-30) + xi);
+		const bool intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi + 1e-30) + xi);
 		if (intersect)
 		{
 			inside = !inside;
@@ -158,16 +120,8 @@ bool pointInPolygon2D(const double x, const double y, const std::vector<float>& 
 	return inside;
 }
 
-bool projectToScreen(
-	const double mvpMatrix[16],
-	const double modelToWorld[16],
-	int viewportWidth,
-	int viewportHeight,
-	const double x,
-	const double y,
-	const double z,
-	double& outScreenX,
-	double& outScreenY)
+bool projectToScreen(const double mvpMatrix[16], const double modelToWorld[16], int viewportWidth, int viewportHeight,
+					 const double x, const double y, const double z, double& outScreenX, double& outScreenY)
 {
 	double wx = 0.0;
 	double wy = 0.0;
@@ -191,15 +145,10 @@ bool projectToScreen(
 	return true;
 }
 
-void collectXyzIndicesByPolyline2DImpl(
-	const std::vector<float>& srcXyz,
-	const std::vector<float>& polylineScreenXy,
-	const double mvpMatrix[16],
-	const double modelToWorld[16],
-	const int viewportWidth,
-	const int viewportHeight,
-	const bool keepInside,
-	std::vector<std::size_t>& outIndices)
+void collectXyzIndicesByPolyline2DImpl(const std::vector<float>& srcXyz, const std::vector<float>& polylineScreenXy,
+									   const double mvpMatrix[16], const double modelToWorld[16],
+									   const int viewportWidth, const int viewportHeight, const bool keepInside,
+									   std::vector<std::size_t>& outIndices)
 {
 	outIndices.clear();
 	if (!validXyzLength(srcXyz) || polylineScreenXy.size() < 6U || viewportWidth <= 0 || viewportHeight <= 0)
@@ -214,16 +163,9 @@ void collectXyzIndicesByPolyline2DImpl(
 		const std::size_t b = i * 3U;
 		double sx = 0.0;
 		double sy = 0.0;
-		const bool visible = projectToScreen(
-			mvpMatrix,
-			modelToWorld,
-			viewportWidth,
-			viewportHeight,
-			static_cast<double>(srcXyz[b]),
-			static_cast<double>(srcXyz[b + 1U]),
-			static_cast<double>(srcXyz[b + 2U]),
-			sx,
-			sy);
+		const bool visible =
+			projectToScreen(mvpMatrix, modelToWorld, viewportWidth, viewportHeight, static_cast<double>(srcXyz[b]),
+							static_cast<double>(srcXyz[b + 1U]), static_cast<double>(srcXyz[b + 2U]), sx, sy);
 		const bool inside = visible && pointInPolygon2D(sx, sy, polylineScreenXy);
 		const bool keep = keepInside ? inside : !inside;
 		if (keep)
@@ -235,39 +177,20 @@ void collectXyzIndicesByPolyline2DImpl(
 
 } // namespace
 
-void collectXyzIndicesByPolyline2D(
-	const std::vector<float>& srcXyz,
-	const std::vector<float>& polylineScreenXy,
-	const double mvpMatrix[16],
-	const double modelToWorld[16],
-	const int viewportWidth,
-	const int viewportHeight,
-	const bool keepInside,
-	std::vector<std::size_t>& outIndices)
+void collectXyzIndicesByPolyline2D(const std::vector<float>& srcXyz, const std::vector<float>& polylineScreenXy,
+								   const double mvpMatrix[16], const double modelToWorld[16], const int viewportWidth,
+								   const int viewportHeight, const bool keepInside,
+								   std::vector<std::size_t>& outIndices)
 {
-	collectXyzIndicesByPolyline2DImpl(
-		srcXyz,
-		polylineScreenXy,
-		mvpMatrix,
-		modelToWorld,
-		viewportWidth,
-		viewportHeight,
-		keepInside,
-		outIndices);
+	collectXyzIndicesByPolyline2DImpl(srcXyz, polylineScreenXy, mvpMatrix, modelToWorld, viewportWidth, viewportHeight,
+									  keepInside, outIndices);
 }
 
-void cropXyzByPolyline2D(
-	const std::vector<float>& srcXyz,
-	const std::vector<float>& srcRgba,
-	const std::vector<float>& polylineScreenXy,
-	const double mvpMatrix[16],
-	const double modelToWorld[16],
-	const int viewportWidth,
-	const int viewportHeight,
-	const bool keepInside,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::vector<std::size_t>* keptIndices)
+void cropXyzByPolyline2D(const std::vector<float>& srcXyz, const std::vector<float>& srcRgba,
+						 const std::vector<float>& polylineScreenXy, const double mvpMatrix[16],
+						 const double modelToWorld[16], const int viewportWidth, const int viewportHeight,
+						 const bool keepInside, std::vector<float>& outXyz, std::vector<float>& outRgba,
+						 std::vector<std::size_t>* keptIndices)
 {
 	if (!validXyzLength(srcXyz) || polylineScreenXy.size() < 6U || viewportWidth <= 0 || viewportHeight <= 0)
 	{
@@ -283,15 +206,8 @@ void cropXyzByPolyline2D(
 	const std::size_t n = pointCountFromXyz(srcXyz);
 	const bool hasRgba = validRgbaLength(srcRgba, n);
 	std::vector<std::size_t> kept;
-	collectXyzIndicesByPolyline2D(
-		srcXyz,
-		polylineScreenXy,
-		mvpMatrix,
-		modelToWorld,
-		viewportWidth,
-		viewportHeight,
-		keepInside,
-		kept);
+	collectXyzIndicesByPolyline2D(srcXyz, polylineScreenXy, mvpMatrix, modelToWorld, viewportWidth, viewportHeight,
+								  keepInside, kept);
 
 	compactXyzByIndices(srcXyz, kept, outXyz);
 	if (hasRgba)

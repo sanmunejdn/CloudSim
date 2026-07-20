@@ -1,31 +1,33 @@
-#include "adapters/DataServiceAdapter.h"
+﻿/// @file DataServiceAdapter.cpp
+/// @brief DataServiceAdapter 实现
 
-#include "DocumentHost.h"
-#include "DocumentHostAccess.h"
+#include "adapters/DataServiceAdapter.h"
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFileImport.h"
-#include "BackendVisualSync.h"
-#include "DocumentImportFacade.h"
 #include "BackendFollowSolve.h"
-#include "OsgWidget.h"
+#include "BackendProjectObjectIo.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryBuiltins.h"
-#include "BackendProjectObjectIo.h"
+#include "BackendVisualSync.h"
+#include "DocumentHost.h"
+#include "DocumentHostAccess.h"
+#include "DocumentImportFacade.h"
 #include "FollowAttachmentComponent.h"
 #include "MeshBackendData.h"
+#include "OsgWidget.h"
 #include "PointCloudBackendData.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 DataServiceAdapter::DataServiceAdapter(DocumentHost& host) : m_host(host) {}
 
-namespace {
-
+namespace
+{
 BackendDataManager& backendOf(DocumentHost& host)
 {
 	return host.backend();
@@ -137,7 +139,7 @@ QVector<core::PropertyRowDto> DataServiceAdapter::propertyRows(const core::Objec
 }
 
 bool DataServiceAdapter::applyPropertyChange(const core::ObjectId& id, const QString& key, const QString& value,
-	QString* outError)
+											 QString* outError)
 {
 	const auto obj = backendOf(m_host).getData(id.toStdString());
 	if (!obj)
@@ -205,6 +207,27 @@ bool DataServiceAdapter::applyColor(const core::ObjectId& id, const core::ColorD
 	c.a = color.a;
 	obj->setColor(c);
 	afterDataServicePropertyChange(m_host, *obj, QStringLiteral("color.r"));
+	return true;
+}
+
+bool DataServiceAdapter::isVisible(const core::ObjectId& id) const
+{
+	const auto obj = backendOf(m_host).getData(id.toStdString());
+	return obj ? obj->isVisible() : true;
+}
+
+bool DataServiceAdapter::setVisible(const core::ObjectId& id, bool visible, QString* outError)
+{
+	const auto obj = backendOf(m_host).getData(id.toStdString());
+	if (!obj)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("invalid object id");
+		}
+		return false;
+	}
+	obj->setVisible(visible);
 	return true;
 }
 
@@ -285,7 +308,7 @@ core::ObjectId DataServiceAdapter::loadObjectFromJson(const QJsonObject& objectJ
 }
 
 core::ObjectId DataServiceAdapter::importFromFile(const QString& path, const core::ImportOptionsDto& options,
-	QString* outError)
+												  QString* outError)
 {
 	// 统一走导入门面
 	const ImportFileKind kind = options.isPointCloud ? ImportFileKind::PointCloud : ImportFileKind::Mesh;
@@ -317,8 +340,8 @@ QVector<core::ObjectId> DataServiceAdapter::parentsOf(const core::ObjectId& id) 
 	return out;
 }
 
-namespace {
-
+namespace
+{
 core::BackendObjectDto makeObjectSnapshot(const BackendDataManager& mgr, const BackendDataBase& obj)
 {
 	core::BackendObjectDto dto;
@@ -326,6 +349,7 @@ core::BackendObjectDto makeObjectSnapshot(const BackendDataManager& mgr, const B
 	dto.name = QString::fromStdString(obj.name());
 	dto.className = QString::fromStdString(obj.className());
 	dto.hasGeometry = obj.hasGeometry();
+	dto.visible = obj.isVisible();
 	for (const std::string& pid : mgr.parentsOf(obj.id()))
 	{
 		dto.parentIds.append(QString::fromStdString(pid));
@@ -417,7 +441,7 @@ bool DataServiceAdapter::hasComponent(const core::ObjectId& id, const QString& c
 }
 
 bool DataServiceAdapter::applyFollowTargetByName(const core::ObjectId& followerId, const QString& targetName,
-	QString* outError)
+												 QString* outError)
 {
 	return applyPropertyChange(followerId, QStringLiteral("follow.targetName"), targetName, outError);
 }
@@ -445,7 +469,8 @@ bool DataServiceAdapter::runFollowSolveAndSync(const core::FollowSolveContextDto
 	}
 	FollowSolveContext hostCtx;
 	hostCtx.skipAll = [ctx]() { return ctx.skipAll; };
-	hostCtx.fillGizmoSelectedId = [ctx](std::string& outSelectedId) -> bool {
+	hostCtx.fillGizmoSelectedId = [ctx](std::string& outSelectedId) -> bool
+	{
 		if (ctx.gizmoSelectedBackendId.isEmpty())
 		{
 			return false;

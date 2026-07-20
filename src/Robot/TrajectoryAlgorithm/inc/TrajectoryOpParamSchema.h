@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef TRAJECTORYALGORITHM_TRAJECTORYOPPARAMSCHEMA_H
+#define TRAJECTORYALGORITHM_TRAJECTORYOPPARAMSCHEMA_H
+
+/// @file TrajectoryOpParamSchema.h
+/// @brief TrajectoryOpParamSchema 接口
 
 #include "trajectory_algorithm_global.h"
 
@@ -7,7 +11,6 @@
 
 namespace trajectory_algo
 {
-
 enum class TrajectoryParamType
 {
 	Double = 0,
@@ -78,45 +81,27 @@ struct TRAJECTORY_ALGORITHM_API TrajectoryParamValue
 	std::string asString;
 };
 
-TRAJECTORY_ALGORITHM_API TrajectoryOpParamField doubleParamField(
-	const std::string& key,
-	const std::string& labelEn,
-	const std::string& labelZh,
-	const std::string& unit,
-	double minValue,
-	double maxValue,
-	double step,
-	double defaultValue,
-	int order = 0,
-	const std::string& group = "transform");
+TRAJECTORY_ALGORITHM_API TrajectoryOpParamField doubleParamField(const std::string& key, const std::string& labelEn,
+																 const std::string& labelZh, const std::string& unit,
+																 double minValue, double maxValue, double step,
+																 double defaultValue, int order = 0,
+																 const std::string& group = "transform");
 
-TRAJECTORY_ALGORITHM_API TrajectoryOpParamField intParamField(
-	const std::string& key,
-	const std::string& labelEn,
-	const std::string& labelZh,
-	int minValue,
-	int maxValue,
-	int defaultValue,
-	int order = 0,
-	const std::string& group = "transform");
+TRAJECTORY_ALGORITHM_API TrajectoryOpParamField intParamField(const std::string& key, const std::string& labelEn,
+															  const std::string& labelZh, int minValue, int maxValue,
+															  int defaultValue, int order = 0,
+															  const std::string& group = "transform");
 
 TRAJECTORY_ALGORITHM_API TrajectoryOpParamField enumParamField(
-	const std::string& key,
-	const std::string& labelEn,
-	const std::string& labelZh,
-	const std::vector<std::string>& values,
-	const std::vector<std::string>& labelsZh,
-	const std::vector<std::string>& labelsEn,
-	int defaultIndex,
-	int order = 0,
-	const std::string& group = "transform");
+	const std::string& key, const std::string& labelEn, const std::string& labelZh,
+	const std::vector<std::string>& values, const std::vector<std::string>& labelsZh,
+	const std::vector<std::string>& labelsEn, int defaultIndex, int order = 0, const std::string& group = "transform");
 
-TRAJECTORY_ALGORITHM_API TrajectoryOpParamField messageParamField(
-	const std::string& key,
-	const std::string& messageEn,
-	const std::string& messageZh,
-	int order = 0);
+TRAJECTORY_ALGORITHM_API TrajectoryOpParamField messageParamField(const std::string& key, const std::string& messageEn,
+																  const std::string& messageZh, int order = 0);
 
 TRAJECTORY_ALGORITHM_API std::vector<TrajectoryOpParamField> trajectoryOpCommonScopeFields();
 
 } // namespace trajectory_algo
+
+#endif // TRAJECTORYALGORITHM_TRAJECTORYOPPARAMSCHEMA_H

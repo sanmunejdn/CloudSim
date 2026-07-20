@@ -1,3 +1,6 @@
+﻿/// @file AiLlmClient.cpp
+/// @brief AiLlmClient 实现
+
 #include "AiLlmClient.h"
 
 #include "Ai/AiMeshDefaults.h"
@@ -6,12 +9,12 @@
 #include "AiDomainTypes.h"
 #include "AiHttpsPost.h"
 
-#include <json.hpp>
-
-#include <QByteArray>
 #include <QBuffer>
+#include <QByteArray>
 #include <QImage>
 #include <QUrl>
+
+#include <json.hpp>
 
 namespace AiLlmClient
 {
@@ -48,8 +51,8 @@ QString ollamaNativeChatUrl(const QString& baseUrl)
 
 bool isLocalOllamaBaseUrl(const QString& baseUrl)
 {
-	return baseUrl.contains(QStringLiteral("127.0.0.1"), Qt::CaseInsensitive)
-		|| baseUrl.contains(QStringLiteral("localhost"), Qt::CaseInsensitive);
+	return baseUrl.contains(QStringLiteral("127.0.0.1"), Qt::CaseInsensitive) ||
+		   baseUrl.contains(QStringLiteral("localhost"), Qt::CaseInsensitive);
 }
 
 QByteArray visionImageBase64Raw(const QByteArray& imagePng)
@@ -69,19 +72,20 @@ QString meshSystemPrompt()
 {
 	const auto d = AiMeshDefaults::activeDefaults();
 	return QStringLiteral(
-		"You convert user requests into a single JSON object for a CAD mesh command. "
-		"Reply with ONLY valid JSON (no markdown), schema:\n"
-		"{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box|cylinder|cone|sphere\","
-		"\"dimensions_mm\":{...},\"name\":\"optional string\","
-		"\"pose_mm\":{\"x\":0,\"y\":0,\"z\":0},\"rotation_deg\":{\"x\":0,\"y\":0,\"z\":0},"
-		"\"mesh_quality\":{\"segments\":32,\"rings\":16}}\n"
-		"Units are millimeters. Always include dimensions_mm with all required fields.\n"
-		"If the user omits sizes, use defaults: box length=%1 width=%2 height=%3; "
-		"cylinder radius=%4 height=%5; cone radius=%6 height=%7; sphere radius=%8.\n"
-		"If the user gives partial sizes, fill missing fields with those defaults.\n"
-		"If the user says larger/smaller/thicker/flatter (大一点/小一点/扁/厚), scale defaults (~1.5x or ~0.5x) and still output full dimensions_mm.\n"
-		"box: length,width,height. cylinder: radius,height. cone: radius,height. sphere: radius or diameter. "
-		"Center at origin, Z is height axis for box/cylinder/cone.")
+			   "You convert user requests into a single JSON object for a CAD mesh command. "
+			   "Reply with ONLY valid JSON (no markdown), schema:\n"
+			   "{\"version\":1,\"action\":\"create_mesh\",\"primitive\":\"box|cylinder|cone|sphere\","
+			   "\"dimensions_mm\":{...},\"name\":\"optional string\","
+			   "\"pose_mm\":{\"x\":0,\"y\":0,\"z\":0},\"rotation_deg\":{\"x\":0,\"y\":0,\"z\":0},"
+			   "\"mesh_quality\":{\"segments\":32,\"rings\":16}}\n"
+			   "Units are millimeters. Always include dimensions_mm with all required fields.\n"
+			   "If the user omits sizes, use defaults: box length=%1 width=%2 height=%3; "
+			   "cylinder radius=%4 height=%5; cone radius=%6 height=%7; sphere radius=%8.\n"
+			   "If the user gives partial sizes, fill missing fields with those defaults.\n"
+			   "If the user says larger/smaller/thicker/flatter (大一点/小一点/扁/厚), scale defaults (~1.5x or ~0.5x) "
+			   "and still output full dimensions_mm.\n"
+			   "box: length,width,height. cylinder: radius,height. cone: radius,height. sphere: radius or diameter. "
+			   "Center at origin, Z is height axis for box/cylinder/cone.")
 		.arg(d.boxLengthMm)
 		.arg(d.boxWidthMm)
 		.arg(d.boxHeightMm)
@@ -94,15 +98,14 @@ QString meshSystemPrompt()
 
 QString recognitionSystemPrompt()
 {
-	return QStringLiteral(
-		"你是 CAD 视口几何识别助手。用户会提供一张 3D 视口截图（通常白底、单个主要基本体）。"
-		"识别主要物体的类型并估计尺寸（毫米）。"
-		"仅回复一个 JSON 对象，不要 markdown、不要解释：\n"
-		"{\"primitive\":\"box|cylinder|cone|sphere|unknown\",\"label\":\"中文短名\","
-		"\"dimensions_mm\":{...},\"confidence\":0.0}\n"
-		"box 需 length,width,height；cylinder/cone 需 radius,height；sphere 需 radius。"
-		"视口里明显是长方体/立方体时 primitive 必须是 box，不要返回 unknown。"
-		"仅当完全无法判断时才用 unknown，confidence 取 0~1。");
+	return QStringLiteral("你是 CAD 视口几何识别助手。用户会提供一张 3D 视口截图（通常白底、单个主要基本体）。"
+						  "识别主要物体的类型并估计尺寸（毫米）。"
+						  "仅回复一个 JSON 对象，不要 markdown、不要解释：\n"
+						  "{\"primitive\":\"box|cylinder|cone|sphere|unknown\",\"label\":\"中文短名\","
+						  "\"dimensions_mm\":{...},\"confidence\":0.0}\n"
+						  "box 需 length,width,height；cylinder/cone 需 radius,height；sphere 需 radius。"
+						  "视口里明显是长方体/立方体时 primitive 必须是 box，不要返回 unknown。"
+						  "仅当完全无法判断时才用 unknown，confidence 取 0~1。");
 }
 
 QString recognitionUserPrompt(const QString& userText)
@@ -140,37 +143,41 @@ QString composeSystemPrompt()
 {
 	const auto d = AiMeshDefaults::activeDefaults();
 	return QStringLiteral(
-		"You convert CAD requests into ActionPlan JSON version 2 ONLY (no markdown). "
-		"Schema: {\"version\":2,\"domain\":\"mesh.compose\",\"steps\":[{\"id\":\"body\",\"api\":\"createPrimitiveMesh\",\"args\":{...}},...]}. "
-		"Use fields id and api (NOT name/type). Args hold primitive, dimensions_mm, etc. "
-		"booleanMesh target/tool MUST be $stepId refs. All steps in steps[] only (no result field). "
-		"Host runs intermediate primitives in memory; only the final boolean result appears in the scene.\n"
-		"APIs:\n"
-		"1) createPrimitiveMesh args: primitive box|cylinder|cone|sphere, dimensions_mm (mm, all required), "
-		"optional name, pose_mm, rotation_deg. Z is height axis, center at origin.\n"
-		"2) booleanMesh args: op difference|union|intersection, target $stepId, tool $stepId, "
-		"optional result_name, hide_operands (default true).\n"
-		"Op mapping: difference=挖/孔/通孔/盲孔/减去/subtract/drill/hole; "
-		"union=并集/合并/拼合/合在一起/combine/merge/附加凸台; "
-		"intersection=交集/求交/重叠部分/intersect/common volume.\n"
-		"Rules difference: Through-hole = box + cylinder (radius=diameter/2, height > box height) + difference. "
-		"Use ids body, hole_tool, result. NEVER use difference when user says union/merge.\n"
-		"Rules union: two solids merged; use box+box or box+cylinder boss; add pose_mm when offset needed. "
-		"Example: box 80^3 + box 60^3 pose_mm x=40 + union($a,$b).\n"
-		"Rules intersection: overlapping volume only; offset second body with pose_mm for partial overlap. "
-		"Example: box 100^3 + box 80^3 pose_mm x=50 + intersection($a,$b).\n"
-		"Defaults if sizes omitted: box %1x%2x%3, cylinder R%4 H%5.\n"
-		"Example difference: 100 cube D50 hole: body box, hole_tool cyl R25 H120, result difference $body $hole_tool.")
+			   "You convert CAD requests into ActionPlan JSON version 2 ONLY (no markdown). "
+			   "Schema: "
+			   "{\"version\":2,\"domain\":\"mesh.compose\",\"steps\":[{\"id\":\"body\",\"api\":\"createPrimitiveMesh\","
+			   "\"args\":{...}},...]}. "
+			   "Use fields id and api (NOT name/type). Args hold primitive, dimensions_mm, etc. "
+			   "booleanMesh target/tool MUST be $stepId refs. All steps in steps[] only (no result field). "
+			   "Host runs intermediate primitives in memory; only the final boolean result appears in the scene.\n"
+			   "APIs:\n"
+			   "1) createPrimitiveMesh args: primitive box|cylinder|cone|sphere, dimensions_mm (mm, all required), "
+			   "optional name, pose_mm, rotation_deg. Z is height axis, center at origin.\n"
+			   "2) booleanMesh args: op difference|union|intersection, target $stepId, tool $stepId, "
+			   "optional result_name, hide_operands (default true).\n"
+			   "Op mapping: difference=挖/孔/通孔/盲孔/减去/subtract/drill/hole; "
+			   "union=并集/合并/拼合/合在一起/combine/merge/附加凸台; "
+			   "intersection=交集/求交/重叠部分/intersect/common volume.\n"
+			   "Rules difference: Through-hole = box + cylinder (radius=diameter/2, height > box height) + difference. "
+			   "Use ids body, hole_tool, result. NEVER use difference when user says union/merge.\n"
+			   "Rules union: two solids merged; use box+box or box+cylinder boss; add pose_mm when offset needed. "
+			   "Example: box 80^3 + box 60^3 pose_mm x=40 + union($a,$b).\n"
+			   "Rules intersection: overlapping volume only; offset second body with pose_mm for partial overlap. "
+			   "Example: box 100^3 + box 80^3 pose_mm x=50 + intersection($a,$b).\n"
+			   "Defaults if sizes omitted: box %1x%2x%3, cylinder R%4 H%5.\n"
+			   "Example difference: 100 cube D50 hole: body box, hole_tool cyl R25 H120, result difference $body "
+			   "$hole_tool.")
 		.arg(d.boxLengthMm)
 		.arg(d.boxWidthMm)
 		.arg(d.boxHeightMm)
 		.arg(d.cylinderRadiusMm)
 		.arg(d.cylinderHeightMm);
 }
-}
+} // namespace
 
 LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& config, const AiProgressSink& progress,
-	const QByteArray& imagePng, const QString& domainId, const QByteArray& catalogSliceUtf8)
+									const QByteArray& imagePng, const QString& domainId,
+									const QByteArray& catalogSliceUtf8)
 {
 	LlmParseResult out;
 	const QString apiKey = resolveApiKey(config);
@@ -188,11 +195,14 @@ LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& 
 	const bool recognitionSchema = domainId == AiDomainIds::geometryRecognize();
 	const bool composeSchema = domainId == AiDomainIds::meshCompose();
 	const bool trajectorySchema = domainId == AiDomainIds::trajectoryFeature();
-	const QString sys = recognitionSchema ? recognitionSystemPrompt()
-		: (composeSchema ? composeSystemPrompt()
-			: (trajectorySchema ? trajectoryFeatureSystemPrompt() : meshSystemPrompt()));
-	const QString userPrompt = recognitionSchema ? recognitionUserPrompt(userText)
-		: (trajectorySchema ? trajectoryFeatureUserPrompt(userText, catalogSliceUtf8) : userText.trimmed());
+	const QString sys =
+		recognitionSchema ? recognitionSystemPrompt()
+						  : (composeSchema ? composeSystemPrompt()
+										   : (trajectorySchema ? trajectoryFeatureSystemPrompt() : meshSystemPrompt()));
+	const QString userPrompt =
+		recognitionSchema
+			? recognitionUserPrompt(userText)
+			: (trajectorySchema ? trajectoryFeatureUserPrompt(userText, catalogSliceUtf8) : userText.trimmed());
 
 	nlohmann::json body;
 	body["model"] = config.model.toStdString();
@@ -208,9 +218,9 @@ LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& 
 		nlohmann::json userMsg;
 		userMsg["role"] = "user";
 		userMsg["content"] = userPrompt.toStdString();
-		userMsg["images"] = nlohmann::json::array({ imgB64 });
+		userMsg["images"] = nlohmann::json::array({imgB64});
 		body["messages"] = nlohmann::json::array({
-			{ { "role", "system" }, { "content", sys.toStdString() } },
+			{{"role", "system"}, {"content", sys.toStdString()}},
 			userMsg,
 		});
 	}
@@ -223,16 +233,16 @@ LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& 
 			const std::string dataUrl = "data:image/jpeg;base64," + visionImageBase64Raw(imagePng).toStdString();
 			userMessage["role"] = "user";
 			userMessage["content"] = nlohmann::json::array({
-				{ { "type", "image_url" }, { "image_url", { { "url", dataUrl } } } },
-				{ { "type", "text" }, { "text", userPrompt.toStdString() } },
+				{{"type", "image_url"}, {"image_url", {{"url", dataUrl}}}},
+				{{"type", "text"}, {"text", userPrompt.toStdString()}},
 			});
 		}
 		else
 		{
-			userMessage = { { "role", "user" }, { "content", userPrompt.toStdString() } };
+			userMessage = {{"role", "user"}, {"content", userPrompt.toStdString()}};
 		}
 		body["messages"] = nlohmann::json::array({
-			{ { "role", "system" }, { "content", sys.toStdString() } },
+			{{"role", "system"}, {"content", sys.toStdString()}},
 			userMessage,
 		});
 	}
@@ -297,7 +307,7 @@ LlmParseResult parseUserTextWithLlm(const QString& userText, const AiLlmConfig& 
 		catch (...)
 		{
 			out.errorMessage = trajectorySchema ? QStringLiteral("Trajectory feature JSON parse failed.")
-				: QStringLiteral("Recognition JSON parse failed.");
+												: QStringLiteral("Recognition JSON parse failed.");
 			return out;
 		}
 		if (!out.command.is_object())

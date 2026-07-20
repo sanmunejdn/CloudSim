@@ -1,3 +1,6 @@
+﻿/// @file SyntheticPolylineDiscretizer.cpp
+/// @brief SyntheticPolylineDiscretizer 实现
+
 #include "SyntheticPolylineDiscretizer.h"
 
 #include "FeatureDiscretizerRegistry.h"
@@ -5,7 +8,6 @@
 
 namespace geoalgo
 {
-
 REGISTER_FEATURE_DISCRETIZER(SyntheticPolylineDiscretizer);
 
 std::vector<FeatureDiscretizerParamField> SyntheticPolylineDiscretizer::paramFields() const
@@ -34,11 +36,8 @@ bool SyntheticPolylineDiscretizer::validate(const FeatureDiscretizeInput& input,
 	return true;
 }
 
-bool SyntheticPolylineDiscretizer::discretize(
-	const TopoDS_Shape& shape,
-	const FeatureDiscretizeInput& input,
-	RawPath& out,
-	std::string* errMsg) const
+bool SyntheticPolylineDiscretizer::discretize(const TopoDS_Shape& shape, const FeatureDiscretizeInput& input,
+											  RawPath& out, std::string* errMsg) const
 {
 	(void)shape;
 	if (!validate(input, errMsg))

@@ -1,27 +1,26 @@
+﻿/// @file Downsample.cpp
+/// @brief Downsample 实现
+
 #include "Downsample.h"
 
 #include "PointCloudBuffer.h"
+
+#include <algorithm>
+#include <map>
 
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/grid_simplify_point_set.h>
 #include <CGAL/random_simplify_point_set.h>
 
-#include <algorithm>
-#include <map>
-
 namespace pclalgo
 {
-
 namespace
 {
-
 using CgalKernel = CGAL::Simple_cartesian<double>;
 using CgalPoint = CgalKernel::Point_3;
 
-bool syncRgbaAfterPointErase(
-	const std::vector<CgalPoint>& pointsBefore,
-	const std::vector<CgalPoint>& pointsAfter,
-	std::vector<float>& rgba)
+bool syncRgbaAfterPointErase(const std::vector<CgalPoint>& pointsBefore, const std::vector<CgalPoint>& pointsAfter,
+							 std::vector<float>& rgba)
 {
 	if (rgba.empty())
 	{
@@ -65,11 +64,8 @@ bool syncRgbaAfterPointErase(
 
 } // namespace
 
-bool downsampleVoxelGrid(
-	std::vector<float>& xyzInOut,
-	const double voxelSizeMm,
-	const unsigned int minPointsPerCell,
-	std::vector<float>* rgbaInOut)
+bool downsampleVoxelGrid(std::vector<float>& xyzInOut, const double voxelSizeMm, const unsigned int minPointsPerCell,
+						 std::vector<float>* rgbaInOut)
 {
 	if (!validXyzLength(xyzInOut) || voxelSizeMm <= 0.0)
 	{
@@ -85,10 +81,8 @@ bool downsampleVoxelGrid(
 	}
 
 	const std::vector<CgalPoint> before = points;
-	const auto endIt = CGAL::grid_simplify_point_set(
-		points,
-		voxelSizeMm,
-		CGAL::parameters::min_points_per_cell(minPointsPerCell));
+	const auto endIt =
+		CGAL::grid_simplify_point_set(points, voxelSizeMm, CGAL::parameters::min_points_per_cell(minPointsPerCell));
 	points.erase(endIt, points.end());
 
 	if (rgbaInOut != nullptr && !rgbaInOut->empty())
@@ -106,10 +100,7 @@ bool downsampleVoxelGrid(
 	return true;
 }
 
-bool downsampleRandom(
-	std::vector<float>& xyzInOut,
-	const double retainedFraction,
-	std::vector<float>* rgbaInOut)
+bool downsampleRandom(std::vector<float>& xyzInOut, const double retainedFraction, std::vector<float>* rgbaInOut)
 {
 	if (!validXyzLength(xyzInOut) || retainedFraction <= 0.0 || retainedFraction > 1.0)
 	{

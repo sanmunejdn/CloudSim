@@ -1,13 +1,16 @@
+﻿/// @file ProjectToGeometryOp.cpp
+/// @brief ProjectToGeometryOp 实现
+
 // ProjectToGeometry 原子块：沿方向投影到点云/mesh/BREP
 #include "ProjectToGeometryOp.h"
 
-#include <cmath>
 #include "TrajectoryOpParamAccess.h"
 #include "TrajectoryOpParamsParse.h"
 
+#include <cmath>
+
 namespace trajectory_algo
 {
-
 RobotInstruction::TrajectoryOpKind ProjectToGeometryOp::kind() const
 {
 	return RobotInstruction::TrajectoryOpKind::ProjectToGeometry;
@@ -23,8 +26,8 @@ TrajectoryOpCapability ProjectToGeometryOp::capabilities() const
 	return TrajectoryOpCapability::None;
 }
 
-RobotInstruction::TrajectoryOpDescriptor ProjectToGeometryOp::makeDefaultDescriptor(
-	const RobotInstruction::OpScope& defaultScope) const
+RobotInstruction::TrajectoryOpDescriptor
+ProjectToGeometryOp::makeDefaultDescriptor(const RobotInstruction::OpScope& defaultScope) const
 {
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::ProjectToGeometry;
@@ -55,50 +58,19 @@ std::vector<TrajectoryOpParamField> ProjectToGeometryOp::paramFields() const
 	directionField.order = 1;
 	directionField.group = "project";
 	return {
-		messageParamField(
-			"project.targetBackendId",
-			"Select geometry backend (point cloud / mesh / BREP).",
-			"选择几何 backend（点云 / mesh / BREP）。",
-			0),
+		messageParamField("project.targetBackendId", "Select geometry backend (point cloud / mesh / BREP).",
+						  "选择几何 backend（点云 / mesh / BREP）。", 0),
 		directionField,
-		enumParamField(
-			"project.directionFrame",
-			"Direction Frame",
-			"方向参考系",
-			{ "0", "1" },
-			{ "世界", "体" },
-			{ "World", "Body" },
-			0,
-			2,
-			"project"),
-		doubleParamField(
-			"project.maxDistanceMm",
-			"Max Distance",
-			"最大距离",
-			"mm",
-			1.0,
-			100000.0,
-			1.0,
-			5000.0,
-			3,
-			"project"),
-		doubleParamField(
-			"project.pointCloudHitRadiusMm",
-			"Point Hit Radius",
-			"点云命中半径",
-			"mm",
-			0.01,
-			100.0,
-			0.1,
-			2.0,
-			4,
-			"project"),
+		enumParamField("project.directionFrame", "Direction Frame", "方向参考系", {"0", "1"}, {"世界", "体"},
+					   {"World", "Body"}, 0, 2, "project"),
+		doubleParamField("project.maxDistanceMm", "Max Distance", "最大距离", "mm", 1.0, 100000.0, 1.0, 5000.0, 3,
+						 "project"),
+		doubleParamField("project.pointCloudHitRadiusMm", "Point Hit Radius", "点云命中半径", "mm", 0.01, 100.0, 0.1,
+						 2.0, 4, "project"),
 	};
 }
 
-bool ProjectToGeometryOp::validate(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	std::string* errMsg) const
+bool ProjectToGeometryOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, std::string* errMsg) const
 {
 	if (parseProjectParams(op.params).targetBackendId.empty())
 	{
@@ -108,10 +80,9 @@ bool ProjectToGeometryOp::validate(
 		}
 		return false;
 	}
-	const double len = std::sqrt(
-		parseProjectParams(op.params).directionX * parseProjectParams(op.params).directionX
-		+ parseProjectParams(op.params).directionY * parseProjectParams(op.params).directionY
-		+ parseProjectParams(op.params).directionZ * parseProjectParams(op.params).directionZ);
+	const double len = std::sqrt(parseProjectParams(op.params).directionX * parseProjectParams(op.params).directionX +
+								 parseProjectParams(op.params).directionY * parseProjectParams(op.params).directionY +
+								 parseProjectParams(op.params).directionZ * parseProjectParams(op.params).directionZ);
 	if (len < 1e-6)
 	{
 		if (errMsg)
@@ -131,19 +102,16 @@ bool ProjectToGeometryOp::validate(
 	return true;
 }
 
-std::string ProjectToGeometryOp::formatSummary(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const bool chinese) const
+std::string ProjectToGeometryOp::formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op,
+											   const bool chinese) const
 {
 	(void)chinese;
 	return std::string("ProjectToGeometry -> ") + parseProjectParams(op.params).targetBackendId;
 }
 
-bool ProjectToGeometryOp::processPath(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	RobotInstruction::UnifiedTrajectory& traj,
-	const TrajectoryOpExecutionContext& ctx,
-	std::string* errMsg) const
+bool ProjectToGeometryOp::processPath(const RobotInstruction::TrajectoryOpDescriptor& op,
+									  RobotInstruction::UnifiedTrajectory& traj,
+									  const TrajectoryOpExecutionContext& ctx, std::string* errMsg) const
 {
 	if (!ctx.geometryProjection)
 	{
@@ -154,13 +122,8 @@ bool ProjectToGeometryOp::processPath(
 		return false;
 	}
 	std::size_t missCount = 0;
-	return ctx.geometryProjection->project(
-		traj,
-		parseProjectParams(op.params),
-		op.scope,
-		ctx.program,
-		&missCount,
-		errMsg);
+	return ctx.geometryProjection->project(traj, parseProjectParams(op.params), op.scope, ctx.program, &missCount,
+										   errMsg);
 }
 
 } // namespace trajectory_algo

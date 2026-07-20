@@ -1,9 +1,13 @@
-#pragma once
+﻿#ifndef WIDGET_OSGWIDGETPICKANNOTATIONCONTROLLER_H
+#define WIDGET_OSGWIDGETPICKANNOTATIONCONTROLLER_H
+
+/// @file OsgWidgetPickAnnotationController.h
+/// @brief 点选标记与三维文字标注的增删改、刷新与按后端恢复，自 OsgWidget 拆出
+
+#include "OsgWidget.h"
 
 #include <QList>
 #include <QString>
-
-#include "OsgWidget.h"
 
 /// 点选标记与三维文字标注的增删改、刷新与按后端恢复，自 OsgWidget 拆出
 class OsgWidgetPickAnnotationController
@@ -25,3 +29,4 @@ public:
 	void restoreAnnotations(OsgWidget& self, const QList<typename OsgWidget::AnnotationSnapshot>& snapshots);
 };
 
+#endif // WIDGET_OSGWIDGETPICKANNOTATIONCONTROLLER_H

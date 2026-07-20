@@ -1,21 +1,24 @@
-#include "GeoMeshBoolean.h"
+﻿/// @file MeshBoolean.cpp
+/// @brief MeshBoolean 实现
 
-#include <CGAL/Simple_cartesian.h>
-#include <CGAL/Surface_mesh.h>
-#include <CGAL/Polygon_mesh_processing/corefinement.h>
-#include <CGAL/Polygon_mesh_processing/orient_polygon_soup.h>
-#include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
-#include <CGAL/Polygon_mesh_processing/stitch_borders.h>
-#include <CGAL/Polygon_mesh_processing/repair_degeneracies.h>
-#include <CGAL/Polygon_mesh_processing/orientation.h>
-#include <CGAL/Polygon_mesh_processing/repair_polygon_soup.h>
-#include <CGAL/boost/graph/helpers.h>
+#include "GeoMeshBoolean.h"
 
 #include <cmath>
 #include <limits>
 #include <map>
 #include <sstream>
 #include <tuple>
+
+#include <CGAL/Polygon_mesh_processing/corefinement.h>
+#include <CGAL/Polygon_mesh_processing/orient_polygon_soup.h>
+#include <CGAL/Polygon_mesh_processing/orientation.h>
+#include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
+#include <CGAL/Polygon_mesh_processing/repair_degeneracies.h>
+#include <CGAL/Polygon_mesh_processing/repair_polygon_soup.h>
+#include <CGAL/Polygon_mesh_processing/stitch_borders.h>
+#include <CGAL/Simple_cartesian.h>
+#include <CGAL/Surface_mesh.h>
+#include <CGAL/boost/graph/helpers.h>
 
 namespace geoalgo
 {
@@ -108,11 +111,11 @@ bool soupToMesh(const std::vector<float>& soup, Mesh& mesh, std::string* errMsg)
 		return false;
 	}
 
-	auto quantKey = [](const Point_3& p) {
-		return std::make_tuple(
-			static_cast<long long>(std::llround(p.x() / 1e-4)),
-			static_cast<long long>(std::llround(p.y() / 1e-4)),
-			static_cast<long long>(std::llround(p.z() / 1e-4)));
+	auto quantKey = [](const Point_3& p)
+	{
+		return std::make_tuple(static_cast<long long>(std::llround(p.x() / 1e-4)),
+							   static_cast<long long>(std::llround(p.y() / 1e-4)),
+							   static_cast<long long>(std::llround(p.z() / 1e-4)));
 	};
 	std::map<std::tuple<long long, long long, long long>, std::size_t> pointIndex;
 	std::vector<Point_3> points;
@@ -120,7 +123,8 @@ bool soupToMesh(const std::vector<float>& soup, Mesh& mesh, std::string* errMsg)
 	points.reserve(soup.size() / 3U);
 	polygons.reserve(soup.size() / 9U);
 
-	auto vertexIndex = [&](const Point_3& p) -> std::size_t {
+	auto vertexIndex = [&](const Point_3& p) -> std::size_t
+	{
 		const auto key = quantKey(p);
 		const auto it = pointIndex.find(key);
 		if (it != pointIndex.end())
@@ -138,7 +142,7 @@ bool soupToMesh(const std::vector<float>& soup, Mesh& mesh, std::string* errMsg)
 		const Point_3 p0(soup[i], soup[i + 1], soup[i + 2]);
 		const Point_3 p1(soup[i + 3], soup[i + 4], soup[i + 5]);
 		const Point_3 p2(soup[i + 6], soup[i + 7], soup[i + 8]);
-		polygons.push_back({ vertexIndex(p0), vertexIndex(p1), vertexIndex(p2) });
+		polygons.push_back({vertexIndex(p0), vertexIndex(p1), vertexIndex(p2)});
 	}
 
 	if (points.empty() || polygons.empty())
@@ -248,7 +252,8 @@ std::vector<float> makeBoxSoup(const double lx, const double ly, const double lz
 	const double hy = ly * 0.5;
 	const double hz = lz * 0.5;
 	std::vector<float> soup;
-	auto tri = [&](double ax, double ay, double az, double bx, double by, double bz, double cx, double cy, double cz) {
+	auto tri = [&](double ax, double ay, double az, double bx, double by, double bz, double cx, double cy, double cz)
+	{
 		soup.push_back(static_cast<float>(ax));
 		soup.push_back(static_cast<float>(ay));
 		soup.push_back(static_cast<float>(az));
@@ -276,12 +281,8 @@ std::vector<float> makeBoxSoup(const double lx, const double ly, const double lz
 
 } // namespace
 
-bool meshBooleanCompute(
-	const std::vector<float>& targetSoup,
-	const std::vector<float>& toolSoup,
-	const MeshBooleanOp op,
-	std::vector<float>& outSoup,
-	std::string* errMsg)
+bool meshBooleanCompute(const std::vector<float>& targetSoup, const std::vector<float>& toolSoup,
+						const MeshBooleanOp op, std::vector<float>& outSoup, std::string* errMsg)
 {
 	outSoup.clear();
 	Mesh target;

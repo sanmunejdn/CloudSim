@@ -1,16 +1,15 @@
+﻿/// @file MeshRepair.cpp
+/// @brief MeshRepair 实现
+
 #include "MeshRepair.h"
+
 #include "MeshRepairInternal.h"
 #include "VcgMeshTypes.h"
 
 namespace vcgalgo
 {
-
-bool repairMesh(
-	const std::vector<float>& triangleSoup,
-	std::vector<float>& outSoup,
-	const RepairParams& params,
-	RepairReport* report,
-	std::string* errMsg)
+bool repairMesh(const std::vector<float>& triangleSoup, std::vector<float>& outSoup, const RepairParams& params,
+				RepairReport* report, std::string* errMsg)
 {
 	outSoup.clear();
 	if (report != nullptr)

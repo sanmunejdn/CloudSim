@@ -1,7 +1,12 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_INSTRUCTIONPROGRAMDOCUMENT_H
+#define ROBOTSCENE_INSTRUCTIONPROGRAMDOCUMENT_H
+
+/// @file InstructionProgramDocument.h
+/// @brief InstructionProgramDocument 接口
+
+#include "robot_scene_global.h"
 
 #include "RobotInstructionModel.h"
-#include "robot_scene_global.h"
 
 #include <functional>
 #include <memory>
@@ -11,7 +16,6 @@
 
 namespace RobotInstruction
 {
-
 enum class StepContainerKind
 {
 	Root = 0,
@@ -43,9 +47,8 @@ public:
 	void collectIdMap(std::unordered_map<std::string, std::shared_ptr<Base>>& out) const;
 	void renumberAndNotify();
 
-	static void collectIdMapRecursive(
-		const std::vector<std::shared_ptr<Base>>& steps,
-		std::unordered_map<std::string, std::shared_ptr<Base>>& out);
+	static void collectIdMapRecursive(const std::vector<std::shared_ptr<Base>>& steps,
+									  std::unordered_map<std::string, std::shared_ptr<Base>>& out);
 
 private:
 	static bool removeRecursive(std::vector<std::shared_ptr<Base>>& steps, const std::string& id);
@@ -55,3 +58,5 @@ private:
 };
 
 } // namespace RobotInstruction
+
+#endif // ROBOTSCENE_INSTRUCTIONPROGRAMDOCUMENT_H

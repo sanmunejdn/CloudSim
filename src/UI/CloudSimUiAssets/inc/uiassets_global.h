@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMUIASSETS_UIASSETS_GLOBAL_H
+#define CLOUDSIMUIASSETS_UIASSETS_GLOBAL_H
+
+/// @file uiassets_global.h
+/// @brief CloudSimUiAssets 导出宏
 
 #include <QtCore/qglobal.h>
 
@@ -7,11 +11,13 @@
 #endif
 
 #ifndef BUILD_STATIC
-# if defined(UIASSETS_LIB)
-#  define UIASSETS_EXPORT Q_DECL_EXPORT
-# else
-#  define UIASSETS_EXPORT Q_DECL_IMPORT
-# endif
+#if defined(UIASSETS_LIB)
+#define UIASSETS_EXPORT Q_DECL_EXPORT
 #else
-# define UIASSETS_EXPORT
+#define UIASSETS_EXPORT Q_DECL_IMPORT
 #endif
+#else
+#define UIASSETS_EXPORT
+#endif
+
+#endif // CLOUDSIMUIASSETS_UIASSETS_GLOBAL_H

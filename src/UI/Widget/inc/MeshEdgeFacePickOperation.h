@@ -1,10 +1,14 @@
-#pragma once
+﻿#ifndef WIDGET_MESHEDGEFACEPICKOPERATION_H
+#define WIDGET_MESHEDGEFACEPICKOPERATION_H
 
-#include <QElapsedTimer>
+/// @file MeshEdgeFacePickOperation.h
+/// @brief 网格线面拾取模式：悬停高亮边或面，点击确认，支持中键辅助移动视图。
 
 #include "../../OsgWidgetCore/inc/PickTypes.h"
 #include "SelectionOperation.h"
 #include "ViewportGestureRecognizer.h"
+
+#include <QElapsedTimer>
 
 /// 网格线面拾取模式：悬停高亮边或面，点击确认，支持中键辅助移动视图。
 class MeshEdgeFacePickOperation final : public SelectionOperation
@@ -27,3 +31,5 @@ protected:
 	bool onMouseButtonPress(QMouseEvent* e) override;
 	bool onMouseButtonRelease(QMouseEvent* e) override;
 };
+
+#endif // WIDGET_MESHEDGEFACEPICKOPERATION_H

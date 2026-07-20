@@ -1,11 +1,17 @@
-#pragma once
+﻿#ifndef DATA_BACKENDOBJECTATTRIBUTE_H
+#define DATA_BACKENDOBJECTATTRIBUTE_H
 
-#include <json.hpp>
+/// @file BackendObjectAttribute.h
+/// @brief 无状态属性插件：面板 JSON 行，apply 写回 BackendDataBase
+
+#include "data_global.h"
+
+#include "../../PropertyCore/inc/PropertyAttribute.h"
+
 #include <memory>
 #include <string>
 
-#include "data_global.h"
-#include "../../PropertyCore/inc/PropertyAttribute.h"
+#include <json.hpp>
 
 class BackendDataBase;
 
@@ -21,3 +27,5 @@ using BackendAttributePtr = std::shared_ptr<BackendAttributeBase>;
 DATA_EXPORT BackendAttributePtr makeBackendPoseAttribute();
 DATA_EXPORT BackendAttributePtr makeBackendRotationAttribute();
 DATA_EXPORT BackendAttributePtr makeBackendDisplayColorAttribute();
+
+#endif // DATA_BACKENDOBJECTATTRIBUTE_H

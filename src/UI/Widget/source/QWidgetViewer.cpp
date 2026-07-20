@@ -1,27 +1,31 @@
+﻿/// @file QWidgetViewer.cpp
+/// @brief QWidgetViewer 实现
+
 #include "QWidgetViewer.h"
+
 #include "GraphicsWindowQt1.h"
 #include "QtKeyboardMap.h"
 
-#include <osg/DeleteHandler>
-#include <osgViewer/ViewerBase>
-
-#include <cmath>
-#include <QInputEvent>
 #include <QGuiApplication>
+#include <QInputEvent>
 #include <QOpenGLContext>
 #include <QPointer>
 #include <QScreen>
 #include <QShowEvent>
 #include <QWindow>
+#include <cmath>
+
+#include <osg/DeleteHandler>
+#include <osgViewer/ViewerBase>
 
 #if (QT_VERSION >= QT_VERSION_CHECK(4, 6, 0))
-# define USE_GESTURES
-# include <QGestureEvent>
-# include <QGesture>
+#define USE_GESTURES
+#include <QGesture>
+#include <QGestureEvent>
 #endif
 
-namespace {
-
+namespace
+{
 double deviceCoord(const double logicalCoord, const qreal devicePixelRatio)
 {
 	return logicalCoord * devicePixelRatio;
@@ -79,20 +83,14 @@ qreal freshDevicePixelRatio(const QWidget* widget)
 } // namespace
 
 QWidgetViewer::QWidgetViewer(QWidget* parent, Qt::WindowFlags f, bool forwardKeyEvents)
-	: QOpenGLWidget(parent, f)
-	, _gw(nullptr)
-	, _touchEventsEnabled(false)
-	, _forwardKeyEvents(forwardKeyEvents)
+	: QOpenGLWidget(parent, f), _gw(nullptr), _touchEventsEnabled(false), _forwardKeyEvents(forwardKeyEvents)
 {
 	_devicePixelRatio = devicePixelRatio();
 	setUpdateBehavior(QOpenGLWidget::NoPartialUpdate);
 }
 
 QWidgetViewer::QWidgetViewer(const QSurfaceFormat& format, QWidget* parent, Qt::WindowFlags f, bool forwardKeyEvents)
-	: QOpenGLWidget(parent, f)
-	, _gw(nullptr)
-	, _touchEventsEnabled(false)
-	, _forwardKeyEvents(forwardKeyEvents)
+	: QOpenGLWidget(parent, f), _gw(nullptr), _touchEventsEnabled(false), _forwardKeyEvents(forwardKeyEvents)
 {
 	setFormat(format);
 	_devicePixelRatio = devicePixelRatio();
@@ -118,13 +116,11 @@ qreal QWidgetViewer::effectiveDevicePixelRatio(const QWidget* widget)
 
 	if (const auto* viewer = qobject_cast<const QWidgetViewer*>(widget))
 	{
-		if (viewer->width() > 0
-			&& viewer->_lastSyncedFramebufferWidth > 0
-			&& viewer->width() == viewer->_lastSyncedLogicalWidth
-			&& viewer->height() == viewer->_lastSyncedLogicalHeight)
+		if (viewer->width() > 0 && viewer->_lastSyncedFramebufferWidth > 0 &&
+			viewer->width() == viewer->_lastSyncedLogicalWidth && viewer->height() == viewer->_lastSyncedLogicalHeight)
 		{
-			const qreal cachedDpr = static_cast<qreal>(viewer->_lastSyncedFramebufferWidth)
-				/ static_cast<qreal>(viewer->width());
+			const qreal cachedDpr =
+				static_cast<qreal>(viewer->_lastSyncedFramebufferWidth) / static_cast<qreal>(viewer->width());
 			const qreal freshDpr = freshDevicePixelRatio(widget);
 			if (std::abs(cachedDpr - freshDpr) < 0.01)
 			{
@@ -159,15 +155,12 @@ bool QWidgetViewer::queryFramebufferPixelSize(int& outWidth, int& outHeight) con
 	outWidth = 0;
 	outHeight = 0;
 
-	if (_lastSyncedFramebufferWidth > 0
-		&& _lastSyncedFramebufferHeight > 0
-		&& width() == _lastSyncedLogicalWidth
-		&& height() == _lastSyncedLogicalHeight)
+	if (_lastSyncedFramebufferWidth > 0 && _lastSyncedFramebufferHeight > 0 && width() == _lastSyncedLogicalWidth &&
+		height() == _lastSyncedLogicalHeight)
 	{
-		const int expectedW = static_cast<int>(std::lround(
-			static_cast<double>(width()) * freshDevicePixelRatio(this)));
-		const int expectedH = static_cast<int>(std::lround(
-			static_cast<double>(height()) * freshDevicePixelRatio(this)));
+		const int expectedW = static_cast<int>(std::lround(static_cast<double>(width()) * freshDevicePixelRatio(this)));
+		const int expectedH =
+			static_cast<int>(std::lround(static_cast<double>(height()) * freshDevicePixelRatio(this)));
 		if (expectedW == _lastSyncedFramebufferWidth && expectedH == _lastSyncedFramebufferHeight)
 		{
 			outWidth = _lastSyncedFramebufferWidth;
@@ -209,10 +202,8 @@ void QWidgetViewer::emitFramebufferResizeIfChanged(int framebufferWidth, int fra
 		framebufferHeight = resolvedH;
 	}
 
-	if (framebufferWidth == _lastSyncedFramebufferWidth
-		&& framebufferHeight == _lastSyncedFramebufferHeight
-		&& width() == _lastSyncedLogicalWidth
-		&& height() == _lastSyncedLogicalHeight)
+	if (framebufferWidth == _lastSyncedFramebufferWidth && framebufferHeight == _lastSyncedFramebufferHeight &&
+		width() == _lastSyncedLogicalWidth && height() == _lastSyncedLogicalHeight)
 	{
 		return;
 	}
@@ -221,8 +212,7 @@ void QWidgetViewer::emitFramebufferResizeIfChanged(int framebufferWidth, int fra
 	_lastSyncedFramebufferHeight = framebufferHeight;
 	_lastSyncedLogicalWidth = width();
 	_lastSyncedLogicalHeight = height();
-	_devicePixelRatio = static_cast<qreal>(framebufferWidth)
-		/ static_cast<qreal>((std::max)(1, width()));
+	_devicePixelRatio = static_cast<qreal>(framebufferWidth) / static_cast<qreal>((std::max)(1, width()));
 
 	if (_gw)
 	{
@@ -413,17 +403,23 @@ void QWidgetViewer::mousePressEvent(QMouseEvent* event)
 	int button = 0;
 	switch (event->button())
 	{
-	case Qt::LeftButton: button = 1; break;
-	case Qt::MidButton: button = 2; break;
-	case Qt::RightButton: button = 3; break;
-	default: button = 0; break;
+	case Qt::LeftButton:
+		button = 1;
+		break;
+	case Qt::MidButton:
+		button = 2;
+		break;
+	case Qt::RightButton:
+		button = 3;
+		break;
+	default:
+		button = 0;
+		break;
 	}
 
 	setKeyboardModifiers(event);
-	_gw->getEventQueue()->mouseButtonPress(
-		deviceCoord(event->x(), _devicePixelRatio),
-		deviceCoord(event->y(), _devicePixelRatio),
-		button);
+	_gw->getEventQueue()->mouseButtonPress(deviceCoord(event->x(), _devicePixelRatio),
+										   deviceCoord(event->y(), _devicePixelRatio), button);
 
 	event->accept();
 	update();
@@ -439,17 +435,23 @@ void QWidgetViewer::mouseReleaseEvent(QMouseEvent* event)
 	int button = 0;
 	switch (event->button())
 	{
-	case Qt::LeftButton: button = 1; break;
-	case Qt::MidButton: button = 2; break;
-	case Qt::RightButton: button = 3; break;
-	default: button = 0; break;
+	case Qt::LeftButton:
+		button = 1;
+		break;
+	case Qt::MidButton:
+		button = 2;
+		break;
+	case Qt::RightButton:
+		button = 3;
+		break;
+	default:
+		button = 0;
+		break;
 	}
 
 	setKeyboardModifiers(event);
-	_gw->getEventQueue()->mouseButtonRelease(
-		deviceCoord(event->x(), _devicePixelRatio),
-		deviceCoord(event->y(), _devicePixelRatio),
-		button);
+	_gw->getEventQueue()->mouseButtonRelease(deviceCoord(event->x(), _devicePixelRatio),
+											 deviceCoord(event->y(), _devicePixelRatio), button);
 
 	event->accept();
 	update();
@@ -465,17 +467,25 @@ void QWidgetViewer::mouseDoubleClickEvent(QMouseEvent* event)
 	int button = 0;
 	switch (event->button())
 	{
-	case Qt::LeftButton: button = 1; break;
-	case Qt::MidButton: button = 2; break;
-	case Qt::RightButton: button = 3; break;
-	case Qt::NoButton: button = 0; break;
-	default: button = 0; break;
+	case Qt::LeftButton:
+		button = 1;
+		break;
+	case Qt::MidButton:
+		button = 2;
+		break;
+	case Qt::RightButton:
+		button = 3;
+		break;
+	case Qt::NoButton:
+		button = 0;
+		break;
+	default:
+		button = 0;
+		break;
 	}
 	setKeyboardModifiers(event);
-	_gw->getEventQueue()->mouseDoubleButtonPress(
-		deviceCoord(event->x(), _devicePixelRatio),
-		deviceCoord(event->y(), _devicePixelRatio),
-		button);
+	_gw->getEventQueue()->mouseDoubleButtonPress(deviceCoord(event->x(), _devicePixelRatio),
+												 deviceCoord(event->y(), _devicePixelRatio), button);
 }
 
 void QWidgetViewer::mouseMoveEvent(QMouseEvent* event)
@@ -486,9 +496,8 @@ void QWidgetViewer::mouseMoveEvent(QMouseEvent* event)
 	}
 
 	setKeyboardModifiers(event);
-	_gw->getEventQueue()->mouseMotion(
-		deviceCoord(event->x(), _devicePixelRatio),
-		deviceCoord(event->y(), _devicePixelRatio));
+	_gw->getEventQueue()->mouseMotion(deviceCoord(event->x(), _devicePixelRatio),
+									  deviceCoord(event->y(), _devicePixelRatio));
 
 	event->accept();
 	update();
@@ -515,11 +524,19 @@ static osgGA::GUIEventAdapter::TouchPhase translateQtGestureState(Qt::GestureSta
 	osgGA::GUIEventAdapter::TouchPhase touchPhase;
 	switch (state)
 	{
-	case Qt::GestureStarted: touchPhase = osgGA::GUIEventAdapter::TOUCH_BEGAN; break;
-	case Qt::GestureUpdated: touchPhase = osgGA::GUIEventAdapter::TOUCH_MOVED; break;
+	case Qt::GestureStarted:
+		touchPhase = osgGA::GUIEventAdapter::TOUCH_BEGAN;
+		break;
+	case Qt::GestureUpdated:
+		touchPhase = osgGA::GUIEventAdapter::TOUCH_MOVED;
+		break;
 	case Qt::GestureFinished:
-	case Qt::GestureCanceled: touchPhase = osgGA::GUIEventAdapter::TOUCH_ENDED; break;
-	default: touchPhase = osgGA::GUIEventAdapter::TOUCH_UNKNOWN; break;
+	case Qt::GestureCanceled:
+		touchPhase = osgGA::GUIEventAdapter::TOUCH_ENDED;
+		break;
+	default:
+		touchPhase = osgGA::GUIEventAdapter::TOUCH_UNKNOWN;
+		break;
 	}
 	return touchPhase;
 }
@@ -545,9 +562,8 @@ bool QWidgetViewer::gestureEvent(QGestureEvent* qevent)
 		const float scale = pinch->totalScaleFactor();
 
 		const QPoint pinchCenterQt = mapFromGlobal(qcenterf.toPoint());
-		const osg::Vec2 pinchCenter(
-			static_cast<float>(deviceCoord(pinchCenterQt.x(), _devicePixelRatio)),
-			static_cast<float>(deviceCoord(pinchCenterQt.y(), _devicePixelRatio)));
+		const osg::Vec2 pinchCenter(static_cast<float>(deviceCoord(pinchCenterQt.x(), _devicePixelRatio)),
+									static_cast<float>(deviceCoord(pinchCenterQt.y(), _devicePixelRatio)));
 
 		const float radius = static_cast<float>((width() + height()) * _devicePixelRatio) / 4.0f;
 		const osg::Vec2 vector(scale * cos(angle) * radius, scale * sin(angle) * radius);

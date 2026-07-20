@@ -1,33 +1,28 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_ROBOTSCENENONRIGIDTRAJECTORYWARP_H
+#define ROBOTSCENE_ROBOTSCENENONRIGIDTRAJECTORYWARP_H
 
-#include <INonRigidTrajectoryWarp.h>
+/// @file RobotSceneNonRigidTrajectoryWarp.h
+/// @brief RobotSceneNonRigidTrajectoryWarp 接口
 
 #include "robot_scene_global.h"
 
+#include <INonRigidTrajectoryWarp.h>
+
 namespace RobotInstruction
 {
-
-class ROBOT_SCENE_API RobotSceneNonRigidTrajectoryWarp final
-	: public trajectory_algo::INonRigidTrajectoryWarp
+class ROBOT_SCENE_API RobotSceneNonRigidTrajectoryWarp final : public trajectory_algo::INonRigidTrajectoryWarp
 {
 public:
-	bool warp(
-		UnifiedTrajectory& traj,
-		const NonRigidRegistrationParams& params,
-		const OpScope& scope,
-		const RobotProgram* program,
-		std::size_t* missCount,
-		std::string* errMsg) const override;
+	bool warp(UnifiedTrajectory& traj, const NonRigidRegistrationParams& params, const OpScope& scope,
+			  const RobotProgram* program, std::size_t* missCount, std::string* errMsg) const override;
 };
 
 ROBOT_SCENE_API const RobotSceneNonRigidTrajectoryWarp& robotSceneNonRigidTrajectoryWarp();
 
-ROBOT_SCENE_API bool nonRigidWarpUnifiedTrajectory(
-	UnifiedTrajectory& traj,
-	const NonRigidRegistrationParams& params,
-	const OpScope& scope,
-	const RobotProgram* program,
-	std::size_t* outMissCount,
-	std::string* errMsg);
+ROBOT_SCENE_API bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegistrationParams& params,
+												   const OpScope& scope, const RobotProgram* program,
+												   std::size_t* outMissCount, std::string* errMsg);
 
 } // namespace RobotInstruction
+
+#endif // ROBOTSCENE_ROBOTSCENENONRIGIDTRAJECTORYWARP_H

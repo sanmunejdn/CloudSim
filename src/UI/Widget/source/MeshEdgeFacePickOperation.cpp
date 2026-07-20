@@ -1,15 +1,17 @@
-#include "MeshEdgeFacePickOperation.h"
+﻿/// @file MeshEdgeFacePickOperation.cpp
+/// @brief MeshEdgeFacePickOperation 实现
 
-#include <QEvent>
-#include <QMouseEvent>
+#include "MeshEdgeFacePickOperation.h"
 
 #include "OsgScene.h"
 #include "OsgWidget.h"
 #include "PickTypes.h"
 
+#include <QEvent>
+#include <QMouseEvent>
+
 namespace
 {
-
 bool hoverPickUnchanged(const PickResult& pick, const PickPreviewState& preview, bool faceMode)
 {
 	if (!preview.valid || !preview.result.hit || !pick.hit)
@@ -38,17 +40,12 @@ bool hoverPickUnchanged(const PickResult& pick, const PickPreviewState& preview,
 
 } // namespace
 
-MeshEdgeFacePickOperation::MeshEdgeFacePickOperation(OsgWidget* owner)
-	: SelectionOperation(owner)
-{
-}
+MeshEdgeFacePickOperation::MeshEdgeFacePickOperation(OsgWidget* owner) : SelectionOperation(owner) {}
 
 bool MeshEdgeFacePickOperation::canHandle(QObject* watched, QEvent* event) const
 {
 	(void)event;
-	return m_owner
-		&& watched == m_owner->m_glWidget
-		&& (m_owner->m_meshLinePickMode || m_owner->m_meshFacePickMode);
+	return m_owner && watched == m_owner->m_glWidget && (m_owner->m_meshLinePickMode || m_owner->m_meshFacePickMode);
 }
 
 PickQuery MeshEdgeFacePickOperation::makePickQuery(const QPoint& pos) const
@@ -95,10 +92,10 @@ void MeshEdgeFacePickOperation::emitMeshFeedback(bool click, const PickResult& p
 		detail = QStringLiteral(" | edge: %1 px").arg(pick.screenDistancePx, 0, 'f', 1);
 	}
 	emit m_owner->meshPickFeedback(QStringLiteral("%1 %2 %3%4")
-		.arg(phase)
-		.arg(pick.hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
-		.arg(kind)
-		.arg(detail));
+									   .arg(phase)
+									   .arg(pick.hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
+									   .arg(kind)
+									   .arg(detail));
 }
 
 bool MeshEdgeFacePickOperation::onMouseButtonPress(QMouseEvent* mouseEvent)
@@ -122,9 +119,8 @@ bool MeshEdgeFacePickOperation::onMouseMove(QMouseEvent* mouseEvent)
 	{
 		return false;
 	}
-	const int hoverThrottleMs = m_owner->m_meshFacePickMode
-		? OsgScene::kPickHoverThrottleMs
-		: OsgScene::kPickHoverEdgeThrottleMs;
+	const int hoverThrottleMs =
+		m_owner->m_meshFacePickMode ? OsgScene::kPickHoverThrottleMs : OsgScene::kPickHoverEdgeThrottleMs;
 	if (ViewportGestureRecognizer::shouldThrottleHover(m_owner->m_feedbackTimer, hoverThrottleMs))
 	{
 		return true;
@@ -188,9 +184,8 @@ bool MeshEdgeFacePickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 	emitMeshFeedback(true, pick);
 	if (pick.hit)
 	{
-		const int kindInt = m_owner->m_meshFacePickMode
-			? static_cast<int>(PickKind::MeshFace)
-			: static_cast<int>(PickKind::MeshEdge);
+		const int kindInt =
+			m_owner->m_meshFacePickMode ? static_cast<int>(PickKind::MeshFace) : static_cast<int>(PickKind::MeshEdge);
 		emit m_owner->meshPickCommitted(pick, kindInt);
 	}
 	m_gesture.restartClickHold(m_clickHoldTimer);

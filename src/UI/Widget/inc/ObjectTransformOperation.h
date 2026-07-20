@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef WIDGET_OBJECTTRANSFORMOPERATION_H
+#define WIDGET_OBJECTTRANSFORMOPERATION_H
+
+/// @file ObjectTransformOperation.h
+/// @brief 对象变换模式：在选中对象且显示坐标轴时：左键平移、右键旋转拖拽。
 
 #include "SelectionOperation.h"
 
@@ -20,3 +24,4 @@ private:
 	bool m_gizmoSessionModified = false;
 };
 
+#endif // WIDGET_OBJECTTRANSFORMOPERATION_H

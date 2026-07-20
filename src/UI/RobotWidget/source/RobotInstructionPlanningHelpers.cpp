@@ -1,4 +1,8 @@
+﻿/// @file RobotInstructionPlanningHelpers.cpp
+/// @brief RobotInstructionPlanningHelpers 实现
+
 #include "RobotInstructionPlanningHelpers.h"
+
 #include "IRobotDocumentHost.h"
 #include "IRobotOsgViewHost.h"
 #include "RobotCoordinateFrames.h"
@@ -7,7 +11,6 @@
 
 namespace RobotInstructionPlanning
 {
-
 std::string encodeJointAnglesRadCsv(const QVector<double>& jointAnglesRad)
 {
 	QStringList parts;
@@ -89,9 +92,8 @@ void invalidateTaughtJointsForToolFrameChange(RobotInstruction::Base& ins)
 	ins.eraseExtensionProperty("context.axisConfigSeeded");
 }
 
-void invalidateTaughtJointsFromMotionIndexForward(
-	const std::vector<const RobotInstruction::Base*>& motions,
-	const int fromMotionIndexInclusive)
+void invalidateTaughtJointsFromMotionIndexForward(const std::vector<const RobotInstruction::Base*>& motions,
+												  const int fromMotionIndexInclusive)
 {
 	if (fromMotionIndexInclusive < 0)
 	{
@@ -117,14 +119,12 @@ bool motionFollowsActiveToolFrame(const RobotInstruction::Base& ins)
 	return false;
 }
 
-void syncInstructionToolContextFromToolFrame(
-	RobotInstruction::Base& ins,
-	const RobotCoordinate::RobotCoordinateFrameSet& frames,
-	const RobotCoordinate::RobotToolFrame& tool)
+void syncInstructionToolContextFromToolFrame(RobotInstruction::Base& ins,
+											 const RobotCoordinate::RobotCoordinateFrameSet& frames,
+											 const RobotCoordinate::RobotToolFrame& tool)
 {
 	const BackendMat4 toolMat = RobotCoordinate::frameToMat4(tool.T_flange_tool);
-	ins.setExtensionProperty(
-		RobotCoordinate::kExtContextToolFrameMat4, RobotCoordinate::encodeMat4Csv(toolMat));
+	ins.setExtensionProperty(RobotCoordinate::kExtContextToolFrameMat4, RobotCoordinate::encodeMat4Csv(toolMat));
 	ins.setExtensionProperty("context.activeToolFrameId", tool.id);
 	const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, tool);
 	if (!flangeLink.empty())
@@ -133,9 +133,8 @@ void syncInstructionToolContextFromToolFrame(
 	}
 }
 
-void syncInstructionToolContextFromFrames(
-	RobotInstruction::Base& ins,
-	const RobotCoordinate::RobotCoordinateFrameSet& frames)
+void syncInstructionToolContextFromFrames(RobotInstruction::Base& ins,
+										  const RobotCoordinate::RobotCoordinateFrameSet& frames)
 {
 	const RobotCoordinate::RobotToolFrame* tool = nullptr;
 	if (motionFollowsActiveToolFrame(ins))
@@ -154,10 +153,8 @@ void syncInstructionToolContextFromFrames(
 	}
 }
 
-void persistTaughtJointsAndToolContext(
-	RobotInstruction::Base& ins,
-	const QVector<double>& jointQ,
-	const RobotCoordinate::RobotCoordinateFrameSet& frames)
+void persistTaughtJointsAndToolContext(RobotInstruction::Base& ins, const QVector<double>& jointQ,
+									   const RobotCoordinate::RobotCoordinateFrameSet& frames)
 {
 	if (jointQ.isEmpty())
 	{
@@ -167,9 +164,8 @@ void persistTaughtJointsAndToolContext(
 	syncInstructionToolContextFromFrames(ins, frames);
 }
 
-bool shouldUseTaughtJointCsv(
-	const RobotInstruction::Base& ins,
-	const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames)
+bool shouldUseTaughtJointCsv(const RobotInstruction::Base& ins,
+							 const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames)
 {
 	if (jointAnglesRadFromInstructionContext(ins).isEmpty())
 	{
@@ -224,15 +220,10 @@ bool shouldUseTaughtJointCsv(
 	return true;
 }
 
-void prepareMotionInstructionForPlanning(
-	RobotInstruction::Base& ins,
-	const QVector<double>& rollingQ,
-	IRobotDocumentHost* doc,
-	IRobotOsgViewHost* osg,
-	int instIdx,
-	const QString& urdfPath,
-	const std::string& defaultTcpLinkName,
-	const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames)
+void prepareMotionInstructionForPlanning(RobotInstruction::Base& ins, const QVector<double>& rollingQ,
+										 IRobotDocumentHost* doc, IRobotOsgViewHost* osg, int instIdx,
+										 const QString& urdfPath, const std::string& defaultTcpLinkName,
+										 const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames)
 {
 	(void)osg;
 	QStringList parts;

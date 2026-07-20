@@ -1,11 +1,15 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_DEVICEPAGEWIDGET_H
+#define ROBOTWIDGET_DEVICEPAGEWIDGET_H
+
+/// @file DevicePageWidget.h
+/// @brief 设备页：顶栏类型/品牌 Combo + 自适应缩略图网格，数据来自 resource/models
+
+#include "robotwidget_global.h"
 
 #include <QMap>
 #include <QString>
 #include <QVector>
 #include <QWidget>
-
-#include "robotwidget_global.h"
 
 class QComboBox;
 class QGridLayout;
@@ -66,3 +70,5 @@ private:
 	QLabel* m_statusLabel = nullptr;
 	QVector<QToolButton*> m_modelButtons;
 };
+
+#endif // ROBOTWIDGET_DEVICEPAGEWIDGET_H

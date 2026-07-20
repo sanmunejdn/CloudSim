@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef LABELINGPLUGIN_LABELINGPLUGIN_H
+#define LABELINGPLUGIN_LABELINGPLUGIN_H
+
+/// @file LabelingPlugin.h
+/// @brief LabelingPlugin 接口
 
 #include "ICloudSimPlugin.h"
 
@@ -35,3 +39,5 @@ private:
 	QAction* m_openAnnotAction = nullptr;
 	QAction* m_openTrainAction = nullptr;
 };
+
+#endif // LABELINGPLUGIN_LABELINGPLUGIN_H

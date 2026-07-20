@@ -1,48 +1,54 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_OSGWIDGET_H
+#define CLOUDSIMHOST_OSGWIDGET_H
 
-#include <QWidget>
-#include <QTimer>
-#include <QString>
-#include <QPoint>
-#include <QElapsedTimer>
-#include <vector>
-#include <string>
-#include <cstddef>
-#include <utility>
-#include <memory>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
-#include <QList>
-#include <functional>
-#include <osgGA/TrackballManipulator>
-#include <osg/Camera>
-#include <osg/Array>
-#include <osg/AutoTransform>
-#include <osg/Matrixd>
-#include <osg/MatrixTransform>
-#include <osg/PositionAttitudeTransform>
-#include <osg/Quat>
-#include <osg/Vec3f>
-#include <osg/ref_ptr>
-#include <osg/Vec3>
-#include <osg/Vec4>
-#include <osgText/Text>
+/// @file OsgWidget.h
+/// @brief 三维视图控件（Qt + \c OsgScene）
 
 #include "widget_global.h"
+
+#include "../../../../UI/OsgWidgetCore/inc/OsgScene.h"
 #include "GraphicsWindowQt1.h"
 #include "IRobotBackendPoseSink.h"
-#include "../../../../UI/OsgWidgetCore/inc/OsgScene.h"
+
+#include <QElapsedTimer>
+#include <QList>
+#include <QPoint>
+#include <QString>
+#include <QTimer>
+#include <QWidget>
+#include <cstddef>
+#include <functional>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include <RigidTransform.h>
+#include <osg/Array>
+#include <osg/AutoTransform>
+#include <osg/Camera>
+#include <osg/MatrixTransform>
+#include <osg/Matrixd>
+#include <osg/PositionAttitudeTransform>
+#include <osg/Quat>
+#include <osg/Vec3>
+#include <osg/Vec3f>
+#include <osg/Vec4>
+#include <osg/ref_ptr>
+#include <osgGA/TrackballManipulator>
+#include <osgText/Text>
 
-namespace osg {
+namespace osg
+{
 class Group;
 class Node;
 class Geometry;
-}
+} // namespace osg
 
-namespace osgViewer {
+namespace osgViewer
+{
 class Viewer;
 }
 
@@ -125,9 +131,10 @@ public:
 	bool captureImportedMeshBackend(MeshBackendData& out, QString* errorMessage = nullptr);
 	bool captureImportedMeshBackendHierarchy(std::vector<MeshCapturedPart>& outParts, QString* errorMessage = nullptr);
 	bool loadPointCloudFromBackendData(const PointCloudBackendData& data, QString* errorMessage = nullptr,
-		bool resetViewToHome = true);
-	bool loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage = nullptr, bool resetViewToHome = true,
-		bool showWireOutline = true, bool useSceneLighting = true);
+									   bool resetViewToHome = true);
+	bool loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage = nullptr,
+								 bool resetViewToHome = true, bool showWireOutline = true,
+								 bool useSceneLighting = true);
 	/// URDF 等光照网格；改色时保留材质
 	bool isBackendMeshLit(const std::string& backendId) const;
 	void clearImportedContent();
@@ -178,13 +185,14 @@ public:
 	const osg::Group* sceneGraphRoot() const { return m_root.get(); }
 	/// Rigid-body rotation: each backend root rotates about \a pivotWorld by \a deltaRotation (left-multiply attitude).
 	void applyRigidRotationAboutWorldPivot(const std::vector<std::string>& backendIds, const osg::Vec3f& pivotWorld,
-		const osg::Quat& deltaRotation);
+										   const osg::Quat& deltaRotation);
 	osg::Vec3f averageBackendRootPositionWorld(const std::vector<std::string>& backendIds) const;
 	/// World matrix of the outer PAT for \a backendId (respects parent chain under the scene).
 	bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const override;
 	/// Sets outer PAT pose so its world matrix equals \a worldMat (respects parent chain).
 	void setBackendRootWorldMatrixFromWorld(const std::string& backendId, const osg::Matrixd& worldMat) override;
-	bool tryGetBackendModelCenterMm(const std::string& backendId, double& outCx, double& outCy, double& outCz) const override;
+	bool tryGetBackendModelCenterMm(const std::string& backendId, double& outCx, double& outCy,
+									double& outCz) const override;
 	void syncRobotMeshBackendPoseAfterKinematics(const BackendDataBase& mesh) override;
 
 	/// 挂接 URDF 层级场景，返回 robot 根 backendId
@@ -232,12 +240,10 @@ public:
 	/// @param modelDiagonalMm 模型对角线 mm，罗盘屏幕缩放
 	/// @param resolveRobotBaseWorld 可选，解析基座世界矩阵；基座/工具坐标换算
 	/// @param toolLocalOnFlange 非空则按法兰局部工具矩阵放置 TCP
-	void beginTcpDragTeach(
-		const std::string& mountBackendId,
-		const engine::RigidTransform& T_base_target,
-		float modelDiagonalMm = 1000.0f,
-		std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld = nullptr,
-		const osg::Matrixd* toolLocalOnFlange = nullptr);
+	void beginTcpDragTeach(const std::string& mountBackendId, const engine::RigidTransform& T_base_target,
+						   float modelDiagonalMm = 1000.0f,
+						   std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld = nullptr,
+						   const osg::Matrixd* toolLocalOnFlange = nullptr);
 	void endTcpDragTeach();
 	/// 外部同步示教目标（IK/属性面板）
 	/// @param T_base_target 基座系目标位姿
@@ -356,9 +362,9 @@ private:
 	osg::ref_ptr<osg::Geode> buildPointCloudGeode(const PointCloudBackendData& data, QString* errorMessage) const;
 	bool upsertPointCloudBranchInScene(const PointCloudBackendData& data, QString* errorMessage, bool resetViewToHome);
 	osg::ref_ptr<osg::Node> buildMeshGeode(const MeshBackendData& data, QString* errorMessage,
-		bool showWireOutline = true, bool useSceneLighting = false) const;
+										   bool showWireOutline = true, bool useSceneLighting = false) const;
 	bool upsertMeshBranchInScene(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
-		bool showWireOutline = true, bool useSceneLighting = false);
+								 bool showWireOutline = true, bool useSceneLighting = false);
 	osg::Node* stagingGeometryRoot() const;
 	void applyVisibilityMaskForBackend(const std::string& backendId);
 	void updateCompassHighlight(DragAxis axis, bool highlightRing = false);
@@ -375,7 +381,8 @@ private:
 	bool pickAndActivateBackendAtScreenPos(const QPoint& mousePos);
 	void clearPointAnnotations();
 	bool pickPointAtScreenPos(const QPoint& mousePos, osg::Vec3f& outPointWorld) const;
-	bool pickNearestPointAtScreenPos(const QPoint& mousePos, osg::Vec3f& outPointWorld, double& outDistancePx, bool previewOnly) const;
+	bool pickNearestPointAtScreenPos(const QPoint& mousePos, osg::Vec3f& outPointWorld, double& outDistancePx,
+									 bool previewOnly) const;
 	bool pickPointByRayIntersection(const QPoint& mousePos, osg::Vec3f& outPointWorld, double& outDistancePx) const;
 	void addPointAnnotation(const osg::Vec3f& pointWorld);
 	void updatePointPickMarker(const osg::Vec3f& pointWorld, bool hit);
@@ -413,22 +420,16 @@ private:
 
 	void updateCameraFollowCenter();
 
-	bool pickMeshFaceByRayIntersection(const QPoint& mousePos,
-		osg::Vec3f& outPointWorld,
-		osg::Vec3f& outAWorld,
-		osg::Vec3f& outBWorld,
-		osg::Vec3f& outCWorld,
-		osg::Vec3f& outNormalWorld,
-		std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld = nullptr) const;
+	bool pickMeshFaceByRayIntersection(const QPoint& mousePos, osg::Vec3f& outPointWorld, osg::Vec3f& outAWorld,
+									   osg::Vec3f& outBWorld, osg::Vec3f& outCWorld, osg::Vec3f& outNormalWorld,
+									   std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld = nullptr) const;
 
-	bool pickMeshEdgeByRayIntersection(const QPoint& mousePos,
-		osg::Vec3f& outPointWorld,
-		osg::Vec3f& outEdgeAWorld,
-		osg::Vec3f& outEdgeBWorld,
-		double* outEdgeDistancePx = nullptr) const;
+	bool pickMeshEdgeByRayIntersection(const QPoint& mousePos, osg::Vec3f& outPointWorld, osg::Vec3f& outEdgeAWorld,
+									   osg::Vec3f& outEdgeBWorld, double* outEdgeDistancePx = nullptr) const;
 
-	using OsgScene::showMeshFaceHighlight;
-	using OsgScene::showMeshEdgeHighlight;
 	using OsgScene::hideMeshElementHighlight;
+	using OsgScene::showMeshEdgeHighlight;
+	using OsgScene::showMeshFaceHighlight;
 };
 
+#endif // CLOUDSIMHOST_OSGWIDGET_H

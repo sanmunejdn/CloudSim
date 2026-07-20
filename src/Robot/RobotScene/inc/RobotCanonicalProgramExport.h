@@ -1,20 +1,24 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_ROBOTCANONICALPROGRAMEXPORT_H
+#define ROBOTSCENE_ROBOTCANONICALPROGRAMEXPORT_H
 
+/// @file RobotCanonicalProgramExport.h
+/// @brief RobotCanonicalProgramExport 接口
+
+#include "robot_scene_global.h"
+
+#include "RobotCoordinateFrames.h"
 #include "RobotInstructionController.h"
 #include "RobotInstructionModel.h"
 #include "RobotProgramCatalog.h"
-#include "RobotCoordinateFrames.h"
-#include "robot_scene_global.h"
-
-#include <json.hpp>
 
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include <json.hpp>
+
 namespace RobotCanonicalExport
 {
-
 inline constexpr const char* kFormatId = "cloudsim.program_export";
 inline constexpr int kSchemaVersion = 1;
 
@@ -55,18 +59,15 @@ struct ROBOT_SCENE_API CanonicalProgramExportV1
 	std::vector<FlatMotionRef> flatMotionSequence;
 };
 
-ROBOT_SCENE_API bool buildCanonicalExportV1(
-	const RobotInstruction::RobotProgram& program,
-	const InstructionRuntimeResolveContext& ctx,
-	CanonicalExportLayout layout,
-	bool includePathPlanMetadata,
-	const std::vector<RobotInstruction::PlanResult>* motionPlansInDfsOrder,
-	CanonicalProgramExportV1& out,
-	std::string* errMsg = nullptr);
+ROBOT_SCENE_API bool buildCanonicalExportV1(const RobotInstruction::RobotProgram& program,
+											const InstructionRuntimeResolveContext& ctx, CanonicalExportLayout layout,
+											bool includePathPlanMetadata,
+											const std::vector<RobotInstruction::PlanResult>* motionPlansInDfsOrder,
+											CanonicalProgramExportV1& out, std::string* errMsg = nullptr);
 
-ROBOT_SCENE_API bool writeCanonicalExportV1ToJson(
-	const CanonicalProgramExportV1& doc,
-	std::string& outJson,
-	std::string* errMsg = nullptr);
+ROBOT_SCENE_API bool writeCanonicalExportV1ToJson(const CanonicalProgramExportV1& doc, std::string& outJson,
+												  std::string* errMsg = nullptr);
 
 } // namespace RobotCanonicalExport
+
+#endif // ROBOTSCENE_ROBOTCANONICALPROGRAMEXPORT_H

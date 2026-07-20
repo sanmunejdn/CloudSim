@@ -1,3 +1,6 @@
+﻿/// @file TrajectoryGeometryResolver.cpp
+/// @brief TrajectoryGeometryResolver 实现
+
 #include "TrajectoryGeometryResolver.h"
 
 #include "MeshBackendData.h"
@@ -8,58 +11,40 @@
 #include "ShapeQuery.h"
 #include "TrajectoryProjection.h"
 
-#include <TrajectoryUnifiedScope.h>
-
-#include <RigidTransform.h>
-
 #include <cmath>
 #include <limits>
 #include <unordered_map>
+
+#include <RigidTransform.h>
+#include <TrajectoryUnifiedScope.h>
 
 namespace RobotInstruction
 {
 namespace
 {
-
 TrajectoryGeometryResolveFn g_geometryResolver;
 std::unordered_map<std::string, TrajectoryGeometrySnapshot> g_geometryCache;
 std::size_t g_lastProjectionMissCount = 0;
 
-void transformPointModelToWorld(
-	const double modelToWorldColMajor16[16],
-	const double modelMm[3],
-	double worldMm[3])
+void transformPointModelToWorld(const double modelToWorldColMajor16[16], const double modelMm[3], double worldMm[3])
 {
-	worldMm[0] = modelToWorldColMajor16[0] * modelMm[0]
-		+ modelToWorldColMajor16[4] * modelMm[1]
-		+ modelToWorldColMajor16[8] * modelMm[2]
-		+ modelToWorldColMajor16[12];
-	worldMm[1] = modelToWorldColMajor16[1] * modelMm[0]
-		+ modelToWorldColMajor16[5] * modelMm[1]
-		+ modelToWorldColMajor16[9] * modelMm[2]
-		+ modelToWorldColMajor16[13];
-	worldMm[2] = modelToWorldColMajor16[2] * modelMm[0]
-		+ modelToWorldColMajor16[6] * modelMm[1]
-		+ modelToWorldColMajor16[10] * modelMm[2]
-		+ modelToWorldColMajor16[14];
+	worldMm[0] = modelToWorldColMajor16[0] * modelMm[0] + modelToWorldColMajor16[4] * modelMm[1] +
+				 modelToWorldColMajor16[8] * modelMm[2] + modelToWorldColMajor16[12];
+	worldMm[1] = modelToWorldColMajor16[1] * modelMm[0] + modelToWorldColMajor16[5] * modelMm[1] +
+				 modelToWorldColMajor16[9] * modelMm[2] + modelToWorldColMajor16[13];
+	worldMm[2] = modelToWorldColMajor16[2] * modelMm[0] + modelToWorldColMajor16[6] * modelMm[1] +
+				 modelToWorldColMajor16[10] * modelMm[2] + modelToWorldColMajor16[14];
 }
 
-void transformDirModelToWorld(
-	const double modelToWorldColMajor16[16],
-	const double modelDir[3],
-	double worldDir[3])
+void transformDirModelToWorld(const double modelToWorldColMajor16[16], const double modelDir[3], double worldDir[3])
 {
-	worldDir[0] = modelToWorldColMajor16[0] * modelDir[0]
-		+ modelToWorldColMajor16[4] * modelDir[1]
-		+ modelToWorldColMajor16[8] * modelDir[2];
-	worldDir[1] = modelToWorldColMajor16[1] * modelDir[0]
-		+ modelToWorldColMajor16[5] * modelDir[1]
-		+ modelToWorldColMajor16[9] * modelDir[2];
-	worldDir[2] = modelToWorldColMajor16[2] * modelDir[0]
-		+ modelToWorldColMajor16[6] * modelDir[1]
-		+ modelToWorldColMajor16[10] * modelDir[2];
-	const double len = std::sqrt(
-		worldDir[0] * worldDir[0] + worldDir[1] * worldDir[1] + worldDir[2] * worldDir[2]);
+	worldDir[0] = modelToWorldColMajor16[0] * modelDir[0] + modelToWorldColMajor16[4] * modelDir[1] +
+				  modelToWorldColMajor16[8] * modelDir[2];
+	worldDir[1] = modelToWorldColMajor16[1] * modelDir[0] + modelToWorldColMajor16[5] * modelDir[1] +
+				  modelToWorldColMajor16[9] * modelDir[2];
+	worldDir[2] = modelToWorldColMajor16[2] * modelDir[0] + modelToWorldColMajor16[6] * modelDir[1] +
+				  modelToWorldColMajor16[10] * modelDir[2];
+	const double len = std::sqrt(worldDir[0] * worldDir[0] + worldDir[1] * worldDir[1] + worldDir[2] * worldDir[2]);
 	if (len > 1e-9)
 	{
 		worldDir[0] /= len;
@@ -115,41 +100,25 @@ bool invertColMajor4x4(const double m[16], double out[16])
 	return true;
 }
 
-void transformPointWorldToModel(
-	const double worldToModelColMajor16[16],
-	const double worldMm[3],
-	double modelMm[3])
+void transformPointWorldToModel(const double worldToModelColMajor16[16], const double worldMm[3], double modelMm[3])
 {
-	modelMm[0] = worldToModelColMajor16[0] * worldMm[0]
-		+ worldToModelColMajor16[4] * worldMm[1]
-		+ worldToModelColMajor16[8] * worldMm[2]
-		+ worldToModelColMajor16[12];
-	modelMm[1] = worldToModelColMajor16[1] * worldMm[0]
-		+ worldToModelColMajor16[5] * worldMm[1]
-		+ worldToModelColMajor16[9] * worldMm[2]
-		+ worldToModelColMajor16[13];
-	modelMm[2] = worldToModelColMajor16[2] * worldMm[0]
-		+ worldToModelColMajor16[6] * worldMm[1]
-		+ worldToModelColMajor16[10] * worldMm[2]
-		+ worldToModelColMajor16[14];
+	modelMm[0] = worldToModelColMajor16[0] * worldMm[0] + worldToModelColMajor16[4] * worldMm[1] +
+				 worldToModelColMajor16[8] * worldMm[2] + worldToModelColMajor16[12];
+	modelMm[1] = worldToModelColMajor16[1] * worldMm[0] + worldToModelColMajor16[5] * worldMm[1] +
+				 worldToModelColMajor16[9] * worldMm[2] + worldToModelColMajor16[13];
+	modelMm[2] = worldToModelColMajor16[2] * worldMm[0] + worldToModelColMajor16[6] * worldMm[1] +
+				 worldToModelColMajor16[10] * worldMm[2] + worldToModelColMajor16[14];
 }
 
-void transformDirWorldToModel(
-	const double worldToModelColMajor16[16],
-	const double worldDir[3],
-	double modelDir[3])
+void transformDirWorldToModel(const double worldToModelColMajor16[16], const double worldDir[3], double modelDir[3])
 {
-	modelDir[0] = worldToModelColMajor16[0] * worldDir[0]
-		+ worldToModelColMajor16[4] * worldDir[1]
-		+ worldToModelColMajor16[8] * worldDir[2];
-	modelDir[1] = worldToModelColMajor16[1] * worldDir[0]
-		+ worldToModelColMajor16[5] * worldDir[1]
-		+ worldToModelColMajor16[9] * worldDir[2];
-	modelDir[2] = worldToModelColMajor16[2] * worldDir[0]
-		+ worldToModelColMajor16[6] * worldDir[1]
-		+ worldToModelColMajor16[10] * worldDir[2];
-	const double len = std::sqrt(
-		modelDir[0] * modelDir[0] + modelDir[1] * modelDir[1] + modelDir[2] * modelDir[2]);
+	modelDir[0] = worldToModelColMajor16[0] * worldDir[0] + worldToModelColMajor16[4] * worldDir[1] +
+				  worldToModelColMajor16[8] * worldDir[2];
+	modelDir[1] = worldToModelColMajor16[1] * worldDir[0] + worldToModelColMajor16[5] * worldDir[1] +
+				  worldToModelColMajor16[9] * worldDir[2];
+	modelDir[2] = worldToModelColMajor16[2] * worldDir[0] + worldToModelColMajor16[6] * worldDir[1] +
+				  worldToModelColMajor16[10] * worldDir[2];
+	const double len = std::sqrt(modelDir[0] * modelDir[0] + modelDir[1] * modelDir[1] + modelDir[2] * modelDir[2]);
 	if (len > 1e-9)
 	{
 		modelDir[0] /= len;
@@ -158,9 +127,7 @@ void transformDirWorldToModel(
 	}
 }
 
-Eigen::Vector3d resolveProjectDirection(
-	const UnifiedTrajectoryPoint& point,
-	const ProjectToGeometryParams& params)
+Eigen::Vector3d resolveProjectDirection(const UnifiedTrajectoryPoint& point, const ProjectToGeometryParams& params)
 {
 	Eigen::Vector3d dir(params.directionX, params.directionY, params.directionZ);
 	if (dir.norm() < 1e-9)
@@ -174,12 +141,7 @@ Eigen::Vector3d resolveProjectDirection(
 	if (params.directionFrame == TransformReferenceFrame::Body)
 	{
 		const engine::RigidTransform tf = engine::RigidTransform::fromTranslationEulerDeg(
-			point.poseMm.x,
-			point.poseMm.y,
-			point.poseMm.z,
-			point.eulerDeg.x,
-			point.eulerDeg.y,
-			point.eulerDeg.z);
+			point.poseMm.x, point.poseMm.y, point.poseMm.z, point.eulerDeg.x, point.eulerDeg.y, point.eulerDeg.z);
 		dir = tf.rotation().toRotationMatrix() * dir;
 		if (dir.norm() > 1e-9)
 		{
@@ -189,36 +151,19 @@ Eigen::Vector3d resolveProjectDirection(
 	return dir;
 }
 
-bool projectPointOntoSnapshot(
-	const TrajectoryGeometrySnapshot& snap,
-	const double originWorldMm[3],
-	const double dirWorldUnit[3],
-	const double maxDistanceMm,
-	const double hitRadiusMm,
-	double outHitWorldMm[3],
-	bool& outHit,
-	std::string* errMsg)
+bool projectPointOntoSnapshot(const TrajectoryGeometrySnapshot& snap, const double originWorldMm[3],
+							  const double dirWorldUnit[3], const double maxDistanceMm, const double hitRadiusMm,
+							  double outHitWorldMm[3], bool& outHit, std::string* errMsg)
 {
 	outHit = false;
 	switch (snap.kind)
 	{
 	case TrajectoryGeometryKind::TriangleMesh:
-		return geoalgo::projectRayOntoTriangleSoup(
-			originWorldMm,
-			dirWorldUnit,
-			maxDistanceMm,
-			snap.triangleSoupWorldMm,
-			outHitWorldMm,
-			outHit);
+		return geoalgo::projectRayOntoTriangleSoup(originWorldMm, dirWorldUnit, maxDistanceMm, snap.triangleSoupWorldMm,
+												   outHitWorldMm, outHit);
 	case TrajectoryGeometryKind::PointCloud:
-		return geoalgo::projectRayOntoPointCloud(
-			originWorldMm,
-			dirWorldUnit,
-			maxDistanceMm,
-			hitRadiusMm,
-			snap.positionsWorldMm,
-			outHitWorldMm,
-			outHit);
+		return geoalgo::projectRayOntoPointCloud(originWorldMm, dirWorldUnit, maxDistanceMm, hitRadiusMm,
+												 snap.positionsWorldMm, outHitWorldMm, outHit);
 	case TrajectoryGeometryKind::Brep:
 	{
 		if (snap.brepShape.isNull() || !snap.hasModelToWorld)
@@ -243,8 +188,8 @@ bool projectPointOntoSnapshot(
 		transformPointWorldToModel(worldToModel, originWorldMm, originModel);
 		transformDirWorldToModel(worldToModel, dirWorldUnit, dirModel);
 		geoalgo::ShapeRayPickResult pick{};
-		geoalgo::Point3d o{ originModel[0], originModel[1], originModel[2] };
-		geoalgo::Point3d d{ dirModel[0], dirModel[1], dirModel[2] };
+		geoalgo::Point3d o{originModel[0], originModel[1], originModel[2]};
+		geoalgo::Point3d d{dirModel[0], dirModel[1], dirModel[2]};
 		if (!geoalgo::pickShapeFaceByModelRay(snap.brepShape, o, d, pick, errMsg))
 		{
 			return false;
@@ -253,12 +198,11 @@ bool projectPointOntoSnapshot(
 		{
 			return true;
 		}
-		const double hitModel[3] = { pick.hitPointModelMm.x, pick.hitPointModelMm.y, pick.hitPointModelMm.z };
+		const double hitModel[3] = {pick.hitPointModelMm.x, pick.hitPointModelMm.y, pick.hitPointModelMm.z};
 		transformPointModelToWorld(snap.modelToWorldColMajor16, hitModel, outHitWorldMm);
-		const double dist = std::sqrt(
-			(outHitWorldMm[0] - originWorldMm[0]) * (outHitWorldMm[0] - originWorldMm[0])
-			+ (outHitWorldMm[1] - originWorldMm[1]) * (outHitWorldMm[1] - originWorldMm[1])
-			+ (outHitWorldMm[2] - originWorldMm[2]) * (outHitWorldMm[2] - originWorldMm[2]));
+		const double dist = std::sqrt((outHitWorldMm[0] - originWorldMm[0]) * (outHitWorldMm[0] - originWorldMm[0]) +
+									  (outHitWorldMm[1] - originWorldMm[1]) * (outHitWorldMm[1] - originWorldMm[1]) +
+									  (outHitWorldMm[2] - originWorldMm[2]) * (outHitWorldMm[2] - originWorldMm[2]));
 		if (dist <= maxDistanceMm)
 		{
 			outHit = true;
@@ -284,10 +228,7 @@ void clearTrajectoryGeometryResolver()
 	g_geometryCache.clear();
 }
 
-bool resolveTrajectoryGeometry(
-	const std::string& backendId,
-	TrajectoryGeometrySnapshot& out,
-	std::string* errMsg)
+bool resolveTrajectoryGeometry(const std::string& backendId, TrajectoryGeometrySnapshot& out, std::string* errMsg)
 {
 	if (backendId.empty())
 	{
@@ -329,13 +270,8 @@ void resetTrajectoryProjectionMissCount()
 	g_lastProjectionMissCount = 0;
 }
 
-bool projectUnifiedToGeometry(
-	UnifiedTrajectory& traj,
-	const ProjectToGeometryParams& params,
-	const OpScope& scope,
-	const RobotProgram* program,
-	std::size_t* outMissCount,
-	std::string* errMsg)
+bool projectUnifiedToGeometry(UnifiedTrajectory& traj, const ProjectToGeometryParams& params, const OpScope& scope,
+							  const RobotProgram* program, std::size_t* outMissCount, std::string* errMsg)
 {
 	g_lastProjectionMissCount = 0;
 	if (outMissCount)
@@ -354,10 +290,8 @@ bool projectUnifiedToGeometry(
 		}
 		return false;
 	}
-	const double dirLen = std::sqrt(
-		params.directionX * params.directionX
-		+ params.directionY * params.directionY
-		+ params.directionZ * params.directionZ);
+	const double dirLen = std::sqrt(params.directionX * params.directionX + params.directionY * params.directionY +
+									params.directionZ * params.directionZ);
 	if (dirLen < 1e-6)
 	{
 		if (errMsg)
@@ -371,8 +305,7 @@ bool projectUnifiedToGeometry(
 	{
 		return false;
 	}
-	const std::vector<std::size_t> indices =
-		trajectory_algo::resolveScopedPointIndices(traj, scope, program);
+	const std::vector<std::size_t> indices = trajectory_algo::resolveScopedPointIndices(traj, scope, program);
 	for (const std::size_t idx : indices)
 	{
 		if (idx >= traj.points.size())
@@ -381,19 +314,12 @@ bool projectUnifiedToGeometry(
 		}
 		UnifiedTrajectoryPoint& point = traj.points[idx];
 		const Eigen::Vector3d dir = resolveProjectDirection(point, params);
-		const double origin[3] = { point.poseMm.x, point.poseMm.y, point.poseMm.z };
-		const double dirArr[3] = { dir.x(), dir.y(), dir.z() };
+		const double origin[3] = {point.poseMm.x, point.poseMm.y, point.poseMm.z};
+		const double dirArr[3] = {dir.x(), dir.y(), dir.z()};
 		double hit[3]{};
 		bool hitOk = false;
-		if (!projectPointOntoSnapshot(
-				snap,
-				origin,
-				dirArr,
-				params.maxDistanceMm,
-				params.pointCloudHitRadiusMm,
-				hit,
-				hitOk,
-				errMsg))
+		if (!projectPointOntoSnapshot(snap, origin, dirArr, params.maxDistanceMm, params.pointCloudHitRadiusMm, hit,
+									  hitOk, errMsg))
 		{
 			return false;
 		}
@@ -413,13 +339,9 @@ bool projectUnifiedToGeometry(
 	return true;
 }
 
-bool RobotSceneGeometryProjection::project(
-	UnifiedTrajectory& traj,
-	const ProjectToGeometryParams& params,
-	const OpScope& scope,
-	const RobotProgram* program,
-	std::size_t* missCount,
-	std::string* errMsg) const
+bool RobotSceneGeometryProjection::project(UnifiedTrajectory& traj, const ProjectToGeometryParams& params,
+										   const OpScope& scope, const RobotProgram* program, std::size_t* missCount,
+										   std::string* errMsg) const
 {
 	return projectUnifiedToGeometry(traj, params, scope, program, missCount, errMsg);
 }
@@ -432,7 +354,6 @@ const RobotSceneGeometryProjection& robotSceneGeometryProjection()
 
 namespace
 {
-
 struct MeshTriangleBinding
 {
 	int faceIndex = -1;
@@ -458,19 +379,12 @@ struct TrajectoryPointBinding
 	PointCloudBinding pointBinding;
 };
 
-double closestPointOnTriangleForBind(
-	const double p[3],
-	const double a[3],
-	const double b[3],
-	const double c[3],
-	double closest[3],
-	double& w0,
-	double& w1,
-	double& w2)
+double closestPointOnTriangleForBind(const double p[3], const double a[3], const double b[3], const double c[3],
+									 double closest[3], double& w0, double& w1, double& w2)
 {
-	const double ab[3] = { b[0] - a[0], b[1] - a[1], b[2] - a[2] };
-	const double ac[3] = { c[0] - a[0], c[1] - a[1], c[2] - a[2] };
-	const double ap[3] = { p[0] - a[0], p[1] - a[1], p[2] - a[2] };
+	const double ab[3] = {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
+	const double ac[3] = {c[0] - a[0], c[1] - a[1], c[2] - a[2]};
+	const double ap[3] = {p[0] - a[0], p[1] - a[1], p[2] - a[2]};
 	const double d1 = ab[0] * ap[0] + ab[1] * ap[1] + ab[2] * ap[2];
 	const double d2 = ac[0] * ap[0] + ac[1] * ap[1] + ac[2] * ap[2];
 	if (d1 <= 0.0 && d2 <= 0.0)
@@ -486,7 +400,7 @@ double closestPointOnTriangleForBind(
 		const double dz = p[2] - a[2];
 		return dx * dx + dy * dy + dz * dz;
 	}
-	const double bp[3] = { p[0] - b[0], p[1] - b[1], p[2] - b[2] };
+	const double bp[3] = {p[0] - b[0], p[1] - b[1], p[2] - b[2]};
 	const double d3 = ab[0] * bp[0] + ab[1] * bp[1] + ab[2] * bp[2];
 	const double d4 = ac[0] * bp[0] + ac[1] * bp[1] + ac[2] * bp[2];
 	if (d3 >= 0.0 && d4 <= d3)
@@ -517,7 +431,7 @@ double closestPointOnTriangleForBind(
 		const double dz = p[2] - closest[2];
 		return dx * dx + dy * dy + dz * dz;
 	}
-	const double cp[3] = { p[0] - c[0], p[1] - c[1], p[2] - c[2] };
+	const double cp[3] = {p[0] - c[0], p[1] - c[1], p[2] - c[2]};
 	const double d5 = ab[0] * cp[0] + ab[1] * cp[1] + ab[2] * cp[2];
 	const double d6 = ac[0] * cp[0] + ac[1] * cp[1] + ac[2] * cp[2];
 	if (d6 >= 0.0 && d5 <= d6)
@@ -578,10 +492,7 @@ double closestPointOnTriangleForBind(
 	return dx * dx + dy * dy + dz * dz;
 }
 
-MeshTriangleBinding bindPointToMeshSoup(
-	const double p[3],
-	const std::vector<float>& soup,
-	const double maxBindDistance)
+MeshTriangleBinding bindPointToMeshSoup(const double p[3], const std::vector<float>& soup, const double maxBindDistance)
 {
 	MeshTriangleBinding best;
 	if (soup.size() < 9U || (soup.size() % 9U) != 0U)
@@ -593,18 +504,12 @@ MeshTriangleBinding bindPointToMeshSoup(
 	for (int f = 0; f < numFaces; ++f)
 	{
 		const std::size_t base = static_cast<std::size_t>(f) * 9U;
-		const double a[3] = {
-			static_cast<double>(soup[base + 0U]),
-			static_cast<double>(soup[base + 1U]),
-			static_cast<double>(soup[base + 2U]) };
-		const double b[3] = {
-			static_cast<double>(soup[base + 3U]),
-			static_cast<double>(soup[base + 4U]),
-			static_cast<double>(soup[base + 5U]) };
-		const double c[3] = {
-			static_cast<double>(soup[base + 6U]),
-			static_cast<double>(soup[base + 7U]),
-			static_cast<double>(soup[base + 8U]) };
+		const double a[3] = {static_cast<double>(soup[base + 0U]), static_cast<double>(soup[base + 1U]),
+							 static_cast<double>(soup[base + 2U])};
+		const double b[3] = {static_cast<double>(soup[base + 3U]), static_cast<double>(soup[base + 4U]),
+							 static_cast<double>(soup[base + 5U])};
+		const double c[3] = {static_cast<double>(soup[base + 6U]), static_cast<double>(soup[base + 7U]),
+							 static_cast<double>(soup[base + 8U])};
 		double closest[3]{};
 		double w0 = 0.0;
 		double w1 = 0.0;
@@ -631,10 +536,7 @@ MeshTriangleBinding bindPointToMeshSoup(
 	return best;
 }
 
-PointCloudBinding bindPointToPointCloud(
-	const double p[3],
-	const std::vector<float>& xyz,
-	const double maxBindDistance)
+PointCloudBinding bindPointToPointCloud(const double p[3], const std::vector<float>& xyz, const double maxBindDistance)
 {
 	PointCloudBinding best;
 	if (xyz.size() < 3U)
@@ -663,8 +565,7 @@ PointCloudBinding bindPointToPointCloud(
 
 bool isSupportedNonRigidGeometryKind(const TrajectoryGeometryKind kind)
 {
-	return kind == TrajectoryGeometryKind::PointCloud
-		|| kind == TrajectoryGeometryKind::TriangleMesh;
+	return kind == TrajectoryGeometryKind::PointCloud || kind == TrajectoryGeometryKind::TriangleMesh;
 }
 
 std::size_t geometryPrimitiveCount(const TrajectoryGeometrySnapshot& snap)
@@ -680,8 +581,7 @@ std::size_t geometryPrimitiveCount(const TrajectoryGeometrySnapshot& snap)
 	return 0;
 }
 
-point_cloud_backend_ops::PointCloudSpareParams toSpareParams(
-	const NonRigidRegistrationParams& params)
+point_cloud_backend_ops::PointCloudSpareParams toSpareParams(const NonRigidRegistrationParams& params)
 {
 	point_cloud_backend_ops::PointCloudSpareParams out;
 	out.sampleRadiusRatio = params.sampleRadiusRatio;
@@ -730,21 +630,15 @@ NonRigidSpareCache& nonRigidSpareCache()
 
 bool cacheKeyEqual(const NonRigidSpareCacheKey& a, const NonRigidSpareCacheKey& b)
 {
-	return a.srcId == b.srcId
-		&& a.tgtId == b.tgtId
-		&& a.srcKind == b.srcKind
-		&& a.tgtKind == b.tgtKind
-		&& a.maxBindDistanceMm == b.maxBindDistanceMm
-		&& a.sampleRadiusRatio == b.sampleRadiusRatio
-		&& a.maxOuterIters == b.maxOuterIters
-		&& a.rigidPreAlign == b.rigidPreAlign
-		&& a.voxelPrefilterMm == b.voxelPrefilterMm;
+	return a.srcId == b.srcId && a.tgtId == b.tgtId && a.srcKind == b.srcKind && a.tgtKind == b.tgtKind &&
+		   a.maxBindDistanceMm == b.maxBindDistanceMm && a.sampleRadiusRatio == b.sampleRadiusRatio &&
+		   a.maxOuterIters == b.maxOuterIters && a.rigidPreAlign == b.rigidPreAlign &&
+		   a.voxelPrefilterMm == b.voxelPrefilterMm;
 }
 
-NonRigidSpareCacheKey makeSpareCacheKey(
-	const TrajectoryGeometrySnapshot& srcSnap,
-	const TrajectoryGeometrySnapshot& tgtSnap,
-	const NonRigidRegistrationParams& params)
+NonRigidSpareCacheKey makeSpareCacheKey(const TrajectoryGeometrySnapshot& srcSnap,
+										const TrajectoryGeometrySnapshot& tgtSnap,
+										const NonRigidRegistrationParams& params)
 {
 	NonRigidSpareCacheKey key{};
 	key.srcId = params.sourceBackendId;
@@ -760,27 +654,21 @@ NonRigidSpareCacheKey makeSpareCacheKey(
 }
 
 // 大网格未设采样比时加大半径，减少变形节点
-NonRigidRegistrationParams withEffectiveSpareParams(
-	const TrajectoryGeometrySnapshot& srcSnap,
-	const NonRigidRegistrationParams& params)
+NonRigidRegistrationParams withEffectiveSpareParams(const TrajectoryGeometrySnapshot& srcSnap,
+													const NonRigidRegistrationParams& params)
 {
 	NonRigidRegistrationParams effective = params;
-	if (effective.sampleRadiusRatio <= 0.0
-		&& srcSnap.kind == TrajectoryGeometryKind::TriangleMesh
-		&& geometryPrimitiveCount(srcSnap) > 20000U)
+	if (effective.sampleRadiusRatio <= 0.0 && srcSnap.kind == TrajectoryGeometryKind::TriangleMesh &&
+		geometryPrimitiveCount(srcSnap) > 20000U)
 	{
 		effective.sampleRadiusRatio = 5.0;
 	}
 	return effective;
 }
 
-bool runSpareRegistration(
-	const TrajectoryGeometrySnapshot& srcSnap,
-	const TrajectoryGeometrySnapshot& tgtSnap,
-	const NonRigidRegistrationParams& params,
-	std::vector<float>& deformedMeshSoupOut,
-	std::vector<float>& deformedPointCloudOut,
-	std::string* errMsg)
+bool runSpareRegistration(const TrajectoryGeometrySnapshot& srcSnap, const TrajectoryGeometrySnapshot& tgtSnap,
+						  const NonRigidRegistrationParams& params, std::vector<float>& deformedMeshSoupOut,
+						  std::vector<float>& deformedPointCloudOut, std::string* errMsg)
 {
 	const NonRigidRegistrationParams effective = withEffectiveSpareParams(srcSnap, params);
 	const NonRigidSpareCacheKey key = makeSpareCacheKey(srcSnap, tgtSnap, effective);
@@ -795,57 +683,52 @@ bool runSpareRegistration(
 	const point_cloud_backend_ops::PointCloudSpareParams spareParams = toSpareParams(effective);
 	point_cloud_backend_ops::PointCloudSpareResult spareResult;
 
-	if (srcSnap.kind == TrajectoryGeometryKind::TriangleMesh
-		&& tgtSnap.kind == TrajectoryGeometryKind::TriangleMesh)
+	if (srcSnap.kind == TrajectoryGeometryKind::TriangleMesh && tgtSnap.kind == TrajectoryGeometryKind::TriangleMesh)
 	{
 		MeshBackendData srcMesh;
 		fillMeshFromWorldSoup(srcMesh, srcSnap.triangleSoupWorldMm);
 		MeshBackendData tgtMesh;
 		fillMeshFromWorldSoup(tgtMesh, tgtSnap.triangleSoupWorldMm);
-		if (!point_cloud_backend_ops::nonRigidRegisterMeshSpare(
-				srcMesh, nullptr, &tgtMesh, spareResult, spareParams, errMsg))
+		if (!point_cloud_backend_ops::nonRigidRegisterMeshSpare(srcMesh, nullptr, &tgtMesh, spareResult, spareParams,
+																errMsg))
 		{
 			return false;
 		}
 		deformedMeshSoupOut = srcMesh.triangleSoup();
 	}
-	else if (srcSnap.kind == TrajectoryGeometryKind::TriangleMesh
-		&& tgtSnap.kind == TrajectoryGeometryKind::PointCloud)
+	else if (srcSnap.kind == TrajectoryGeometryKind::TriangleMesh && tgtSnap.kind == TrajectoryGeometryKind::PointCloud)
 	{
 		MeshBackendData srcMesh;
 		fillMeshFromWorldSoup(srcMesh, srcSnap.triangleSoupWorldMm);
 		PointCloudBackendData tgtPc;
 		fillPointCloudFromWorldXyz(tgtPc, tgtSnap.positionsWorldMm);
-		if (!point_cloud_backend_ops::nonRigidRegisterMeshSpare(
-				srcMesh, &tgtPc, nullptr, spareResult, spareParams, errMsg))
+		if (!point_cloud_backend_ops::nonRigidRegisterMeshSpare(srcMesh, &tgtPc, nullptr, spareResult, spareParams,
+																errMsg))
 		{
 			return false;
 		}
 		deformedMeshSoupOut = srcMesh.triangleSoup();
 	}
-	else if (srcSnap.kind == TrajectoryGeometryKind::PointCloud
-		&& tgtSnap.kind == TrajectoryGeometryKind::TriangleMesh)
+	else if (srcSnap.kind == TrajectoryGeometryKind::PointCloud && tgtSnap.kind == TrajectoryGeometryKind::TriangleMesh)
 	{
 		PointCloudBackendData srcPc;
 		fillPointCloudFromWorldXyz(srcPc, srcSnap.positionsWorldMm);
 		MeshBackendData tgtMesh;
 		fillMeshFromWorldSoup(tgtMesh, tgtSnap.triangleSoupWorldMm);
-		if (!point_cloud_backend_ops::nonRigidRegisterPointCloudToMeshSpare(
-				srcPc, tgtMesh, spareResult, spareParams, errMsg))
+		if (!point_cloud_backend_ops::nonRigidRegisterPointCloudToMeshSpare(srcPc, tgtMesh, spareResult, spareParams,
+																			errMsg))
 		{
 			return false;
 		}
 		deformedPointCloudOut = srcPc.pointPositionsXyz();
 	}
-	else if (srcSnap.kind == TrajectoryGeometryKind::PointCloud
-		&& tgtSnap.kind == TrajectoryGeometryKind::PointCloud)
+	else if (srcSnap.kind == TrajectoryGeometryKind::PointCloud && tgtSnap.kind == TrajectoryGeometryKind::PointCloud)
 	{
 		PointCloudBackendData srcPc;
 		fillPointCloudFromWorldXyz(srcPc, srcSnap.positionsWorldMm);
 		PointCloudBackendData tgtPc;
 		fillPointCloudFromWorldXyz(tgtPc, tgtSnap.positionsWorldMm);
-		if (!point_cloud_backend_ops::nonRigidRegisterPointCloudsSpare(
-				srcPc, tgtPc, spareResult, spareParams, errMsg))
+		if (!point_cloud_backend_ops::nonRigidRegisterPointCloudsSpare(srcPc, tgtPc, spareResult, spareParams, errMsg))
 		{
 			return false;
 		}
@@ -867,10 +750,8 @@ bool runSpareRegistration(
 	return true;
 }
 
-void applyMeshBinding(
-	UnifiedTrajectoryPoint& point,
-	const MeshTriangleBinding& binding,
-	const std::vector<float>& deformedSoup)
+void applyMeshBinding(UnifiedTrajectoryPoint& point, const MeshTriangleBinding& binding,
+					  const std::vector<float>& deformedSoup)
 {
 	if (!binding.valid || binding.faceIndex < 0)
 	{
@@ -881,30 +762,19 @@ void applyMeshBinding(
 	{
 		return;
 	}
-	const double v0[3] = {
-		static_cast<double>(deformedSoup[base + 0U]),
-		static_cast<double>(deformedSoup[base + 1U]),
-		static_cast<double>(deformedSoup[base + 2U]) };
-	const double v1[3] = {
-		static_cast<double>(deformedSoup[base + 3U]),
-		static_cast<double>(deformedSoup[base + 4U]),
-		static_cast<double>(deformedSoup[base + 5U]) };
-	const double v2[3] = {
-		static_cast<double>(deformedSoup[base + 6U]),
-		static_cast<double>(deformedSoup[base + 7U]),
-		static_cast<double>(deformedSoup[base + 8U]) };
-	point.poseMm.x = static_cast<float>(
-		binding.w0 * v0[0] + binding.w1 * v1[0] + binding.w2 * v2[0]);
-	point.poseMm.y = static_cast<float>(
-		binding.w0 * v0[1] + binding.w1 * v1[1] + binding.w2 * v2[1]);
-	point.poseMm.z = static_cast<float>(
-		binding.w0 * v0[2] + binding.w1 * v1[2] + binding.w2 * v2[2]);
+	const double v0[3] = {static_cast<double>(deformedSoup[base + 0U]), static_cast<double>(deformedSoup[base + 1U]),
+						  static_cast<double>(deformedSoup[base + 2U])};
+	const double v1[3] = {static_cast<double>(deformedSoup[base + 3U]), static_cast<double>(deformedSoup[base + 4U]),
+						  static_cast<double>(deformedSoup[base + 5U])};
+	const double v2[3] = {static_cast<double>(deformedSoup[base + 6U]), static_cast<double>(deformedSoup[base + 7U]),
+						  static_cast<double>(deformedSoup[base + 8U])};
+	point.poseMm.x = static_cast<float>(binding.w0 * v0[0] + binding.w1 * v1[0] + binding.w2 * v2[0]);
+	point.poseMm.y = static_cast<float>(binding.w0 * v0[1] + binding.w1 * v1[1] + binding.w2 * v2[1]);
+	point.poseMm.z = static_cast<float>(binding.w0 * v0[2] + binding.w1 * v1[2] + binding.w2 * v2[2]);
 }
 
-void applyPointCloudBinding(
-	UnifiedTrajectoryPoint& point,
-	const PointCloudBinding& binding,
-	const std::vector<float>& deformedXyz)
+void applyPointCloudBinding(UnifiedTrajectoryPoint& point, const PointCloudBinding& binding,
+							const std::vector<float>& deformedXyz)
 {
 	if (!binding.valid)
 	{
@@ -922,13 +792,9 @@ void applyPointCloudBinding(
 
 } // namespace
 
-bool nonRigidWarpUnifiedTrajectory(
-	UnifiedTrajectory& traj,
-	const NonRigidRegistrationParams& params,
-	const OpScope& scope,
-	const RobotProgram* program,
-	std::size_t* outMissCount,
-	std::string* errMsg)
+bool nonRigidWarpUnifiedTrajectory(UnifiedTrajectory& traj, const NonRigidRegistrationParams& params,
+								   const OpScope& scope, const RobotProgram* program, std::size_t* outMissCount,
+								   std::string* errMsg)
 {
 	if (outMissCount)
 	{
@@ -987,8 +853,7 @@ bool nonRigidWarpUnifiedTrajectory(
 		return false;
 	}
 
-	const std::vector<std::size_t> indices =
-		trajectory_algo::resolveScopedPointIndices(traj, scope, program);
+	const std::vector<std::size_t> indices = trajectory_algo::resolveScopedPointIndices(traj, scope, program);
 	if (indices.empty())
 	{
 		if (errMsg)
@@ -1010,19 +875,16 @@ bool nonRigidWarpUnifiedTrajectory(
 		TrajectoryPointBinding item{};
 		item.trajIndex = idx;
 		item.isMesh = sourceIsMesh;
-		const double p[3] = {
-			static_cast<double>(traj.points[idx].poseMm.x),
-			static_cast<double>(traj.points[idx].poseMm.y),
-			static_cast<double>(traj.points[idx].poseMm.z) };
+		const double p[3] = {static_cast<double>(traj.points[idx].poseMm.x),
+							 static_cast<double>(traj.points[idx].poseMm.y),
+							 static_cast<double>(traj.points[idx].poseMm.z)};
 		if (sourceIsMesh)
 		{
-			item.meshBinding = bindPointToMeshSoup(
-				p, srcSnap.triangleSoupWorldMm, params.maxBindDistanceMm);
+			item.meshBinding = bindPointToMeshSoup(p, srcSnap.triangleSoupWorldMm, params.maxBindDistanceMm);
 		}
 		else
 		{
-			item.pointBinding = bindPointToPointCloud(
-				p, srcSnap.positionsWorldMm, params.maxBindDistanceMm);
+			item.pointBinding = bindPointToPointCloud(p, srcSnap.positionsWorldMm, params.maxBindDistanceMm);
 		}
 		bindings.push_back(item);
 	}
@@ -1037,8 +899,7 @@ bool nonRigidWarpUnifiedTrajectory(
 
 	std::vector<float> deformedMeshSoup;
 	std::vector<float> deformedPointCloud;
-	if (!runSpareRegistration(
-			srcSnap, tgtSnap, params, deformedMeshSoup, deformedPointCloud, errMsg))
+	if (!runSpareRegistration(srcSnap, tgtSnap, params, deformedMeshSoup, deformedPointCloud, errMsg))
 	{
 		return false;
 	}
@@ -1077,13 +938,9 @@ bool nonRigidWarpUnifiedTrajectory(
 	return true;
 }
 
-bool RobotSceneNonRigidTrajectoryWarp::warp(
-	UnifiedTrajectory& traj,
-	const NonRigidRegistrationParams& params,
-	const OpScope& scope,
-	const RobotProgram* program,
-	std::size_t* missCount,
-	std::string* errMsg) const
+bool RobotSceneNonRigidTrajectoryWarp::warp(UnifiedTrajectory& traj, const NonRigidRegistrationParams& params,
+											const OpScope& scope, const RobotProgram* program, std::size_t* missCount,
+											std::string* errMsg) const
 {
 	return nonRigidWarpUnifiedTrajectory(traj, params, scope, program, missCount, errMsg);
 }

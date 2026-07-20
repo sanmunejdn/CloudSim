@@ -1,24 +1,24 @@
+﻿/// @file RawTrajectory.cpp
+/// @brief RawTrajectory 实现
+
 #include "RawTrajectory.h"
 
 #include "GeometryRef.h"
 #include "RawTrajectoryMath.h"
+#include "RobotInstructionProgram.h"
 #include "RobotInstructionTransform.h"
 #include "RobotProgramCatalog.h"
-#include "RobotInstructionProgram.h"
-
-#include <FeatureListDocument.h>
-#include <RigidTransform.h>
-
-#include <json.hpp>
 
 #include <unordered_set>
 
+#include <FeatureListDocument.h>
+#include <RigidTransform.h>
+#include <json.hpp>
+
 namespace RobotInstruction
 {
-
 namespace
 {
-
 bool isRawPathSegmentStart(const std::size_t index, const std::vector<std::size_t>& segmentEndExclusive)
 {
 	if (index == 0U)
@@ -37,11 +37,8 @@ bool isRawPathSegmentStart(const std::size_t index, const std::vector<std::size_
 
 } // namespace
 
-bool importRawPathToTrajectory(
-	const geoalgo::RawPath& path,
-	FrameStrategy strategy,
-	RawTrajectory& out,
-	std::string* errMsg)
+bool importRawPathToTrajectory(const geoalgo::RawPath& path, FrameStrategy strategy, RawTrajectory& out,
+							   std::string* errMsg)
 {
 	if (path.points.empty())
 	{
@@ -98,10 +95,8 @@ bool applyRawTrajectoryOp(const RawTrajectoryOpDescriptor& op, RawTrajectory& tr
 	return false;
 }
 
-bool applyRawTrajectoryPipeline(
-	const std::vector<RawTrajectoryOpDescriptor>& ops,
-	RawTrajectory& trajectory,
-	std::string* errMsg)
+bool applyRawTrajectoryPipeline(const std::vector<RawTrajectoryOpDescriptor>& ops, RawTrajectory& trajectory,
+								std::string* errMsg)
 {
 	(void)trajectory;
 	if (ops.empty())
@@ -115,12 +110,8 @@ bool applyRawTrajectoryPipeline(
 	return false;
 }
 
-bool emitRawTrajectoryToProgram(
-	const RawTrajectory& trajectory,
-	RobotProgram& program,
-	std::string* errMsg,
-	std::string* outGroupId,
-	const std::string* pathPlanInstructionId)
+bool emitRawTrajectoryToProgram(const RawTrajectory& trajectory, RobotProgram& program, std::string* errMsg,
+								std::string* outGroupId, const std::string* pathPlanInstructionId)
 {
 	if (trajectory.points.empty())
 	{
@@ -135,8 +126,7 @@ bool emitRawTrajectoryToProgram(
 		std::unordered_set<std::string> staleMotionIds;
 		for (auto it = program.groups.begin(); it != program.groups.end();)
 		{
-			if (it->role == InstructionGroupRole::PathPlanOutput
-				&& it->pathPlanInstructionId == *pathPlanInstructionId)
+			if (it->role == InstructionGroupRole::PathPlanOutput && it->pathPlanInstructionId == *pathPlanInstructionId)
 			{
 				for (const std::string& id : it->memberInstructionIds)
 				{
@@ -149,14 +139,10 @@ bool emitRawTrajectoryToProgram(
 				++it;
 			}
 		}
-		program.steps.erase(
-			std::remove_if(
-				program.steps.begin(),
-				program.steps.end(),
-				[&staleMotionIds](const std::shared_ptr<Base>& ins) {
-					return ins && staleMotionIds.count(ins->id()) != 0;
-				}),
-			program.steps.end());
+		program.steps.erase(std::remove_if(program.steps.begin(), program.steps.end(),
+										   [&staleMotionIds](const std::shared_ptr<Base>& ins)
+										   { return ins && staleMotionIds.count(ins->id()) != 0; }),
+							program.steps.end());
 	}
 	else
 	{
@@ -211,12 +197,7 @@ bool emitRawTrajectoryToProgram(
 			auto ins = std::make_shared<LineInstruction>();
 			ins->setName("P" + std::to_string(++idx));
 			const engine::RigidTransform target = engine::RigidTransform::fromTranslationEulerDeg(
-				tp.poseMm.x,
-				tp.poseMm.y,
-				tp.poseMm.z,
-				tp.eulerDeg.x,
-				tp.eulerDeg.y,
-				tp.eulerDeg.z);
+				tp.poseMm.x, tp.poseMm.y, tp.poseMm.z, tp.eulerDeg.x, tp.eulerDeg.y, tp.eulerDeg.z);
 			writeTargetTransformToInstruction(*ins, target);
 			ins->setBlendRadius(tp.blendRadiusMm);
 			if (tp.speedMmPerSec > 0.0)
@@ -235,9 +216,8 @@ bool emitRawTrajectoryToProgram(
 		if (segments.size() > 1U)
 		{
 			++segIdx;
-			group.name = featureId.empty()
-				? ("RawTrajectory_S" + std::to_string(segIdx))
-				: (featureId + "_S" + std::to_string(segIdx));
+			group.name = featureId.empty() ? ("RawTrajectory_S" + std::to_string(segIdx))
+										   : (featureId + "_S" + std::to_string(segIdx));
 		}
 		else
 		{

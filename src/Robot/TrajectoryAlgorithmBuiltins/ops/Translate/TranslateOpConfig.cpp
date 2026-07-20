@@ -1,3 +1,6 @@
+﻿/// @file TranslateOpConfig.cpp
+/// @brief TranslateOpConfig 实现
+
 // Translate 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "TranslateOpConfig.h"
 
@@ -6,12 +9,9 @@
 
 namespace trajectory_algo
 {
-
 std::unique_ptr<IOpParamConfig> makeTranslateOpConfig()
 {
-	return makeTrajectoryOpConfig(
-		RobotInstruction::TrajectoryOpKind::Translate,
-		"ops/Translate.json");
+	return makeTrajectoryOpConfig(RobotInstruction::TrajectoryOpKind::Translate, "ops/Translate.json");
 }
 
 } // namespace trajectory_algo

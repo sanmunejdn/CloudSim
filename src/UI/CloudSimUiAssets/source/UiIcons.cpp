@@ -1,3 +1,6 @@
+﻿/// @file UiIcons.cpp
+/// @brief UiIcons 实现
+
 #include "UiIcons.h"
 
 #include <QHash>
@@ -17,8 +20,8 @@ static void initCloudsimIconResources()
 	Q_INIT_RESOURCE(cloudsim_icons);
 }
 
-namespace {
-
+namespace
+{
 bool g_resourcesInitialized = false;
 UiIcons::Theme g_explicitTheme = UiIcons::Theme::Auto;
 bool g_hasExplicitTheme = false;
@@ -27,9 +30,8 @@ using CacheKey = quint64;
 
 CacheKey makeCacheKey(UiIconId id, UiIcons::Size size, UiIcons::Theme theme)
 {
-	return (static_cast<quint64>(id) << 16)
-		| (static_cast<quint64>(static_cast<int>(size)) << 8)
-		| static_cast<quint64>(static_cast<int>(theme));
+	return (static_cast<quint64>(id) << 16) | (static_cast<quint64>(static_cast<int>(size)) << 8) |
+		   static_cast<quint64>(static_cast<int>(theme));
 }
 
 QString themeFolder(UiIcons::Theme theme)
@@ -42,9 +44,8 @@ UiIcons::Theme themeFromSettings()
 	QSettings settings;
 	settings.beginGroup(QStringLiteral("Appearance"));
 	const QString value = settings.value(QStringLiteral("theme"), QStringLiteral("light")).toString();
-	return value.compare(QStringLiteral("dark"), Qt::CaseInsensitive) == 0
-		? UiIcons::Theme::Dark
-		: UiIcons::Theme::Light;
+	return value.compare(QStringLiteral("dark"), Qt::CaseInsensitive) == 0 ? UiIcons::Theme::Dark
+																		   : UiIcons::Theme::Light;
 }
 
 UiIcons::Theme resolveTheme(UiIcons::Theme requested)
@@ -139,8 +140,8 @@ QHash<CacheKey, QIcon>& iconCache()
 
 } // namespace
 
-namespace UiIcons {
-
+namespace UiIcons
+{
 void setTheme(Theme theme)
 {
 	g_explicitTheme = theme;
@@ -177,8 +178,8 @@ QIcon icon(UiIconId id, Size size, Theme theme)
 	}
 
 	const int px = static_cast<int>(size);
-	const QString path = QStringLiteral(":/cloudsim/icons/%1/%2_%3.png")
-		.arg(themeFolder(resolved), basename, QString::number(px));
+	const QString path =
+		QStringLiteral(":/cloudsim/icons/%1/%2_%3.png").arg(themeFolder(resolved), basename, QString::number(px));
 
 	const QPixmap pixmap(path);
 	if (pixmap.isNull())

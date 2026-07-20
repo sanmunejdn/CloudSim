@@ -1,14 +1,20 @@
-#ifndef NOMINMAX
+﻿#ifndef NOMINMAX
 #define NOMINMAX
+
+/// @file MeshRemesh.cpp
+/// @brief MeshRemesh 实现
+
 #endif
 
 #include "MeshRemesh.h"
+
 #include "MeshRepairInternal.h"
 #include "VcgMeshTypes.h"
 
 #include <algorithm>
 #include <cmath>
 #include <numeric>
+
 #include <vcg/complex/algorithms/clean.h>
 #include <vcg/complex/algorithms/isotropic_remeshing.h>
 #include <vcg/complex/algorithms/update/bounding.h>
@@ -24,7 +30,6 @@ namespace vcgalgo
 {
 namespace
 {
-
 double edgeLengthMm(const float ax, const float ay, const float az, const float bx, const float by, const float bz)
 {
 	const double dx = static_cast<double>(bx - ax);
@@ -98,10 +103,7 @@ bool remeshDoProtected(VcgMesh& mesh, vcg::tri::IsotropicRemeshing<VcgMesh>::Par
 
 } // namespace
 
-bool computeMedianEdgeLengthMm(
-	const std::vector<float>& triangleSoup,
-	double& outMedianMm,
-	std::string* errMsg)
+bool computeMedianEdgeLengthMm(const std::vector<float>& triangleSoup, double& outMedianMm, std::string* errMsg)
 {
 	outMedianMm = 0.0;
 	if (triangleSoup.size() < 9U)
@@ -138,13 +140,8 @@ bool computeMedianEdgeLengthMm(
 	return outMedianMm > 1e-9;
 }
 
-bool isotropicRemesh(
-	const std::vector<float>& triangleSoup,
-	double targetEdgeLengthMm,
-	std::vector<float>& outSoup,
-	int iterations,
-	double featureAngleDeg,
-	std::string* errMsg)
+bool isotropicRemesh(const std::vector<float>& triangleSoup, double targetEdgeLengthMm, std::vector<float>& outSoup,
+					 int iterations, double featureAngleDeg, std::string* errMsg)
 {
 	outSoup.clear();
 

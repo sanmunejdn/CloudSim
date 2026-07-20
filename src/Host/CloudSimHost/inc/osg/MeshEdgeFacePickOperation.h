@@ -1,9 +1,13 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_MESHEDGEFACEPICKOPERATION_H
+#define CLOUDSIMHOST_MESHEDGEFACEPICKOPERATION_H
 
-#include <QPoint>
-#include <QElapsedTimer>
+/// @file MeshEdgeFacePickOperation.h
+/// @brief 网格线面拾取模式：悬停高亮边或面，点击确认，支持中键辅助移动视图。
 
 #include "SelectionOperation.h"
+
+#include <QElapsedTimer>
+#include <QPoint>
 
 /// 网格线面拾取模式：悬停高亮边或面，点击确认，支持中键辅助移动视图。
 class MeshEdgeFacePickOperation final : public SelectionOperation
@@ -27,3 +31,4 @@ protected:
 	bool onMouseButtonRelease(QMouseEvent* e) override;
 };
 
+#endif // CLOUDSIMHOST_MESHEDGEFACEPICKOPERATION_H

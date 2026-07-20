@@ -1,17 +1,19 @@
-#include "MeshSurfaceReconstructionInternal.h"
+﻿/// @file MeshSurfaceReconstructionValidate.cpp
+/// @brief MeshSurfaceReconstructionValidate 实现
+
 #include "Discretize.h"
+#include "MeshSurfaceReconstructionInternal.h"
 #include "ShapeHandle.h"
 #include "ShapeQuery.h"
-
 #include "detail/OccIncludes.h"
-
-#include <BRep_Tool.hxx>
-#include <BRepBndLib.hxx>
-#include <Bnd_Box.hxx>
-#include <Poly_Triangulation.hxx>
 
 #include <cmath>
 #include <vector>
+
+#include <BRepBndLib.hxx>
+#include <BRep_Tool.hxx>
+#include <Bnd_Box.hxx>
+#include <Poly_Triangulation.hxx>
 
 namespace geoalgo
 {
@@ -19,7 +21,6 @@ namespace meshrecon
 {
 namespace
 {
-
 struct Bbox3
 {
 	double xmin = 0;
@@ -90,7 +91,8 @@ double bboxDiagonal(const Bbox3& bb)
 
 } // namespace
 
-bool validateTessellationSanity(const ShapeHandle& shape, const MeshSurfaceReconstructParams& params, std::string* errMsg)
+bool validateTessellationSanity(const ShapeHandle& shape, const MeshSurfaceReconstructParams& params,
+								std::string* errMsg)
 {
 	TopoDS_Shape native;
 	if (!ShapeHandleAccess::nativeShape(shape, &native))
@@ -114,11 +116,10 @@ bool validateTessellationSanity(const ShapeHandle& shape, const MeshSurfaceRecon
 	TessellateParams disc;
 	// 自适应离散精度：大尺寸形状用更粗的偏差，避免产生过多三角形
 	const ShapeHandle::BoundsMm bb = shape.boundingBoxMm();
-	const double diag = bb.valid
-		? std::sqrt((bb.maxX - bb.minX) * (bb.maxX - bb.minX)
-			+ (bb.maxY - bb.minY) * (bb.maxY - bb.minY)
-			+ (bb.maxZ - bb.minZ) * (bb.maxZ - bb.minZ))
-		: 100.0;
+	const double diag =
+		bb.valid ? std::sqrt((bb.maxX - bb.minX) * (bb.maxX - bb.minX) + (bb.maxY - bb.minY) * (bb.maxY - bb.minY) +
+							 (bb.maxZ - bb.minZ) * (bb.maxZ - bb.minZ))
+				 : 100.0;
 	const double adaptiveDeflection = std::max(0.1, diag * 0.003);
 	disc.linearDeflectionMm = std::max(adaptiveDeflection, params.tessellateLinearDeflectionMm);
 	disc.angularDeflectionDeg = 5.0;
@@ -139,8 +140,7 @@ bool validateTessellationSanity(const ShapeHandle& shape, const MeshSurfaceRecon
 		}
 		TopLoc_Location loc;
 		const Handle(Poly_Triangulation) tri = BRep_Tool::Triangulation(face, loc);
-		const int triCount =
-			(!tri.IsNull() && tri->HasGeometry()) ? static_cast<int>(tri->NbTriangles()) : 0;
+		const int triCount = (!tri.IsNull() && tri->HasGeometry()) ? static_cast<int>(tri->NbTriangles()) : 0;
 		if (triCount > 0)
 		{
 			++nonemptyFaces;
@@ -170,11 +170,8 @@ bool validateTessellationSanity(const ShapeHandle& shape, const MeshSurfaceRecon
 	return true;
 }
 
-bool validateOutputBbox(
-	const std::vector<float>& soup,
-	const ShapeHandle& shape,
-	const double maxDiagRatio,
-	std::string* errMsg)
+bool validateOutputBbox(const std::vector<float>& soup, const ShapeHandle& shape, const double maxDiagRatio,
+						std::string* errMsg)
 {
 	const double inDiag = bboxDiagonal(bboxFromSoup(soup));
 	const double outDiag = bboxDiagonal(bboxFromShapeHandle(shape));

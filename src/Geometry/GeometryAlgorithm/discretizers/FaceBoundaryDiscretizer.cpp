@@ -1,3 +1,6 @@
+﻿/// @file FaceBoundaryDiscretizer.cpp
+/// @brief FaceBoundaryDiscretizer 实现
+
 #include "FaceBoundaryDiscretizer.h"
 
 #include "Discretize.h"
@@ -9,7 +12,6 @@
 
 namespace geoalgo
 {
-
 REGISTER_FEATURE_DISCRETIZER(FaceBoundaryDiscretizer);
 
 std::vector<FeatureDiscretizerParamField> FaceBoundaryDiscretizer::paramFields() const
@@ -17,11 +19,8 @@ std::vector<FeatureDiscretizerParamField> FaceBoundaryDiscretizer::paramFields()
 	return featureDiscretizerCommonParamFields();
 }
 
-bool FaceBoundaryDiscretizer::discretize(
-	const TopoDS_Shape& shape,
-	const FeatureDiscretizeInput& input,
-	RawPath& out,
-	std::string* errMsg) const
+bool FaceBoundaryDiscretizer::discretize(const TopoDS_Shape& shape, const FeatureDiscretizeInput& input, RawPath& out,
+										 std::string* errMsg) const
 {
 	if (!validate(input, errMsg))
 	{

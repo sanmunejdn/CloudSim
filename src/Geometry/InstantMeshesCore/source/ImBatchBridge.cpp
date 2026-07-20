@@ -1,3 +1,6 @@
+﻿/// @file ImBatchBridge.cpp
+/// @brief ImBatchBridge 实现
+
 #include "InstantMeshesCore.h"
 
 #if defined(INSTANT_MESHES_HAS_LIB)
@@ -16,14 +19,10 @@ namespace instant_meshes
 {
 namespace
 {
-
 class NullBuffer : public std::streambuf
 {
 protected:
-	int overflow(const int c) override
-	{
-		return c;
-	}
+	int overflow(const int c) override { return c; }
 };
 
 class ScopedImSilence
@@ -48,31 +47,15 @@ private:
 
 } // namespace
 
-bool remeshViaInProcessBatch(
-	const std::string& inObj,
-	const std::string& outObj,
-	const Params& params,
-	std::string* errMsg)
+bool remeshViaInProcessBatch(const std::string& inObj, const std::string& outObj, const Params& params,
+							 std::string* errMsg)
 {
 	try
 	{
 		ScopedImSilence silence;
 		const int vertexCount = params.targetVertexCount > 0 ? params.targetVertexCount : -1;
-		batch_process(
-			inObj,
-			outObj,
-			4,
-			4,
-			-1.f,
-			-1,
-			vertexCount,
-			params.creaseAngleDeg,
-			true,
-			false,
-			0,
-			0,
-			params.pureQuad,
-			params.deterministic);
+		batch_process(inObj, outObj, 4, 4, -1.f, -1, vertexCount, params.creaseAngleDeg, true, false, 0, 0,
+					  params.pureQuad, params.deterministic);
 	}
 	catch (const std::exception& ex)
 	{

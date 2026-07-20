@@ -1,12 +1,17 @@
-#pragma once
+﻿#ifndef CLOUDSIMUIASSETS_UIICONS_H
+#define CLOUDSIMUIASSETS_UIICONS_H
+
+/// @file UiIcons.h
+/// @brief UiIcons 接口
+
+#include "uiassets_global.h"
 
 #include "UiIconId.h"
-#include "uiassets_global.h"
 
 class QIcon;
 
-namespace UiIcons {
-
+namespace UiIcons
+{
 enum class Theme
 {
 	Light,
@@ -27,3 +32,5 @@ UIASSETS_EXPORT Theme currentTheme();
 UIASSETS_EXPORT void invalidateCache();
 
 } // namespace UiIcons
+
+#endif // CLOUDSIMUIASSETS_UIICONS_H

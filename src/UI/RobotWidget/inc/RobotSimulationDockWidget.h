@@ -1,15 +1,19 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_ROBOTSIMULATIONDOCKWIDGET_H
+#define ROBOTWIDGET_ROBOTSIMULATIONDOCKWIDGET_H
+
+/// @file RobotSimulationDockWidget.h
+/// @brief 仿真 Dock：指令/轴控制/坐标系/轨迹生成/轨迹编辑页签
 
 #include "robotwidget_global.h"
 
-#include <QTabWidget>
-#include <QWidget>
-
-#include "SimulationCommandWidget.h"
 #include "RobotAxisControlWidget.h"
 #include "RobotFrameSettingsWidget.h"
+#include "SimulationCommandWidget.h"
 #include "TrajectoryEditPageWidget.h"
 #include "TrajectoryGenerationPageWidget.h"
+
+#include <QTabWidget>
+#include <QWidget>
 
 /// 仿真 Dock：指令/轴控制/坐标系/轨迹生成/轨迹编辑页签
 class ROBOTWIDGET_EXPORT RobotSimulationDockWidget : public QWidget
@@ -48,3 +52,5 @@ private:
 	TrajectoryEditPageWidget* m_trajectoryPage = nullptr;
 	TrajectoryGenerationPageWidget* m_generationPage = nullptr;
 };
+
+#endif // ROBOTWIDGET_ROBOTSIMULATIONDOCKWIDGET_H

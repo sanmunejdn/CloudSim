@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_NURBSSURFACEFITTING_H
+#define GEOMETRYALGORITHM_NURBSSURFACEFITTING_H
+
+/// @file NurbsSurfaceFitting.h
+/// @brief 由拟合格网每边点数推导控制点数（对齐 AMRTO controlPointDensityFactor 语义）
 
 #include "MeshSurfaceReconstruction.h"
 
@@ -9,7 +13,6 @@ namespace geoalgo
 {
 namespace meshrecon
 {
-
 enum class NurbsFitMode : int
 {
 	Interpolate = 1,
@@ -26,28 +29,19 @@ struct AmrtoGridResolution
 	int ctrlPtsV = 0;
 };
 
-AmrtoGridResolution computeAmrtoGridResolution(
-	double uSpanNorm,
-	double vSpanNorm,
-	const MeshSurfaceReconstructParams& params);
+AmrtoGridResolution computeAmrtoGridResolution(double uSpanNorm, double vSpanNorm,
+											   const MeshSurfaceReconstructParams& params);
 
-bool fitNurbsSurfaceFromGrid(
-	const TColgp_Array2OfPnt& grid,
-	int numCtrlU,
-	int numCtrlV,
-	NurbsFitMode mode,
-	int degreeU,
-	int degreeV,
-	Handle(Geom_BSplineSurface)& outSurface);
+bool fitNurbsSurfaceFromGrid(const TColgp_Array2OfPnt& grid, int numCtrlU, int numCtrlV, NurbsFitMode mode, int degreeU,
+							 int degreeV, Handle(Geom_BSplineSurface) & outSurface);
 
 NurbsFitMode nurbsFitModeFromMeshSurface(MeshSurfaceNurbsFitMode mode);
 
 /// 由拟合格网每边点数推导控制点数（对齐 AMRTO controlPointDensityFactor 语义）
-int resolveControlPointCountFromFitGrid(
-	int gridPointsPerEdge,
-	int degree,
-	double controlPointDensityFactor,
-	int minControlPointsPerDirection = 4);
+int resolveControlPointCountFromFitGrid(int gridPointsPerEdge, int degree, double controlPointDensityFactor,
+										int minControlPointsPerDirection = 4);
 
 } // namespace meshrecon
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_NURBSSURFACEFITTING_H

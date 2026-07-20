@@ -1,8 +1,23 @@
-#include "MainWindow.h"
+﻿/// @file MainWindowPropertyPanel.cpp
+/// @brief MainWindowPropertyPanel 实现
 
-#include <algorithm>
-#include <cmath>
-#include <memory>
+#include "../RobotWidget/inc/InstructionPropertyPanel.h"
+#include "BackendPropertyRow.h"
+#include "BackendPropertySchema.h"
+#include "BackendVisualSync.h"
+#include "CoreTypes.h"
+#include "DocumentHostEvents.h"
+#include "DocumentPage.h"
+#include "IDataService.h"
+#include "MainWindow.h"
+#include "MainWindow_p.h"
+#include "RobotInstructionPropertySchema.h"
+#include "RobotSimulationController.h"
+#include "RunInfoPage.h"
+#include "RunLogger.h"
+#include "WidgetRenderAccess.h"
+#include "qttreepropertybrowser.h"
+#include "qtvariantproperty.h"
 
 #include <QAbstractItemView>
 #include <QColor>
@@ -11,24 +26,9 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 #include <QWidget>
-
-#include "BackendVisualSync.h"
-#include "DocumentHostEvents.h"
-#include "CoreTypes.h"
-#include "DocumentPage.h"
-#include "IDataService.h"
-#include "BackendPropertySchema.h"
-#include "BackendPropertyRow.h"
-#include "MainWindow_p.h"
-#include "WidgetRenderAccess.h"
-#include "RobotInstructionPropertySchema.h"
-#include "RunLogger.h"
-#include "RunInfoPage.h"
-#include "RobotSimulationController.h"
-#include "../RobotWidget/inc/InstructionPropertyPanel.h"
-
-#include "qttreepropertybrowser.h"
-#include "qtvariantproperty.h"
+#include <algorithm>
+#include <cmath>
+#include <memory>
 
 using namespace mainwindow_detail;
 
@@ -86,25 +86,34 @@ int propertyEditorTypeForKey(const QString& key, bool editable)
 	{
 		switch (descriptor->type)
 		{
-		case property_core::PropertyType::Bool: return QVariant::Bool;
-		case property_core::PropertyType::Int: return QVariant::Int;
-		case property_core::PropertyType::Double: return QVariant::Double;
-		case property_core::PropertyType::Enum: return QtVariantPropertyManager::enumTypeId();
-		default: return QVariant::String;
+		case property_core::PropertyType::Bool:
+			return QVariant::Bool;
+		case property_core::PropertyType::Int:
+			return QVariant::Int;
+		case property_core::PropertyType::Double:
+			return QVariant::Double;
+		case property_core::PropertyType::Enum:
+			return QtVariantPropertyManager::enumTypeId();
+		default:
+			return QVariant::String;
 		}
 	}
 	if (const property_core::PropertyDescriptor* descriptor = backendPropertyDescriptorForKey(key))
 	{
 		switch (descriptor->type)
 		{
-		case property_core::PropertyType::Bool: return QVariant::Bool;
-		case property_core::PropertyType::Int: return QVariant::Int;
-		case property_core::PropertyType::Double: return QVariant::Double;
-		default: return QVariant::String;
+		case property_core::PropertyType::Bool:
+			return QVariant::Bool;
+		case property_core::PropertyType::Int:
+			return QVariant::Int;
+		case property_core::PropertyType::Double:
+			return QVariant::Double;
+		default:
+			return QVariant::String;
 		}
 	}
-	if (key == QStringLiteral("motion.tool.frameId") || key == QStringLiteral("motion.user.frameId")
-		|| key == QStringLiteral("motion.target.frame"))
+	if (key == QStringLiteral("motion.tool.frameId") || key == QStringLiteral("motion.user.frameId") ||
+		key == QStringLiteral("motion.target.frame"))
 	{
 		return QtVariantPropertyManager::enumTypeId();
 	}
@@ -145,40 +154,60 @@ QString axisConfigEnumDisplayName(const QString& propertyKey, const QString& tok
 {
 	if (propertyKey == QStringLiteral("motion.axisConfig.preset"))
 	{
-		if (token == QStringLiteral("AUTO")) return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
-		if (token == QStringLiteral("ELBOW_UP")) return chinese ? QStringLiteral("肘上") : QStringLiteral("Elbow up");
-		if (token == QStringLiteral("ELBOW_DOWN")) return chinese ? QStringLiteral("肘下") : QStringLiteral("Elbow down");
-		if (token == QStringLiteral("WRIST_FLIP")) return chinese ? QStringLiteral("腕翻") : QStringLiteral("Wrist flip");
-		if (token == QStringLiteral("WRIST_NO_FLIP")) return chinese ? QStringLiteral("腕不翻") : QStringLiteral("Wrist no-flip");
-		if (token == QStringLiteral("ELBOW_UP_WRIST_NO_FLIP")) return chinese ? QStringLiteral("肘上/腕不翻") : QStringLiteral("Elbow up, wrist no-flip");
-		if (token == QStringLiteral("ELBOW_UP_WRIST_FLIP")) return chinese ? QStringLiteral("肘上/腕翻") : QStringLiteral("Elbow up, wrist flip");
-		if (token == QStringLiteral("ELBOW_DOWN_WRIST_NO_FLIP")) return chinese ? QStringLiteral("肘下/腕不翻") : QStringLiteral("Elbow down, wrist no-flip");
-		if (token == QStringLiteral("ELBOW_DOWN_WRIST_FLIP")) return chinese ? QStringLiteral("肘下/腕翻") : QStringLiteral("Elbow down, wrist flip");
-		if (token == QStringLiteral("CUSTOM")) return chinese ? QStringLiteral("自定义") : QStringLiteral("Custom");
+		if (token == QStringLiteral("AUTO"))
+			return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
+		if (token == QStringLiteral("ELBOW_UP"))
+			return chinese ? QStringLiteral("肘上") : QStringLiteral("Elbow up");
+		if (token == QStringLiteral("ELBOW_DOWN"))
+			return chinese ? QStringLiteral("肘下") : QStringLiteral("Elbow down");
+		if (token == QStringLiteral("WRIST_FLIP"))
+			return chinese ? QStringLiteral("腕翻") : QStringLiteral("Wrist flip");
+		if (token == QStringLiteral("WRIST_NO_FLIP"))
+			return chinese ? QStringLiteral("腕不翻") : QStringLiteral("Wrist no-flip");
+		if (token == QStringLiteral("ELBOW_UP_WRIST_NO_FLIP"))
+			return chinese ? QStringLiteral("肘上/腕不翻") : QStringLiteral("Elbow up, wrist no-flip");
+		if (token == QStringLiteral("ELBOW_UP_WRIST_FLIP"))
+			return chinese ? QStringLiteral("肘上/腕翻") : QStringLiteral("Elbow up, wrist flip");
+		if (token == QStringLiteral("ELBOW_DOWN_WRIST_NO_FLIP"))
+			return chinese ? QStringLiteral("肘下/腕不翻") : QStringLiteral("Elbow down, wrist no-flip");
+		if (token == QStringLiteral("ELBOW_DOWN_WRIST_FLIP"))
+			return chinese ? QStringLiteral("肘下/腕翻") : QStringLiteral("Elbow down, wrist flip");
+		if (token == QStringLiteral("CUSTOM"))
+			return chinese ? QStringLiteral("自定义") : QStringLiteral("Custom");
 	}
 	if (propertyKey == QStringLiteral("motion.axisConfig.elbow"))
 	{
-		if (token == QStringLiteral("AUTO")) return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
-		if (token == QStringLiteral("UP")) return chinese ? QStringLiteral("肘上") : QStringLiteral("Up");
-		if (token == QStringLiteral("DOWN")) return chinese ? QStringLiteral("肘下") : QStringLiteral("Down");
+		if (token == QStringLiteral("AUTO"))
+			return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
+		if (token == QStringLiteral("UP"))
+			return chinese ? QStringLiteral("肘上") : QStringLiteral("Up");
+		if (token == QStringLiteral("DOWN"))
+			return chinese ? QStringLiteral("肘下") : QStringLiteral("Down");
 	}
 	if (propertyKey == QStringLiteral("motion.axisConfig.wrist"))
 	{
-		if (token == QStringLiteral("AUTO")) return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
-		if (token == QStringLiteral("NO_FLIP")) return chinese ? QStringLiteral("腕不翻") : QStringLiteral("No flip");
-		if (token == QStringLiteral("FLIP")) return chinese ? QStringLiteral("腕翻") : QStringLiteral("Flip");
+		if (token == QStringLiteral("AUTO"))
+			return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
+		if (token == QStringLiteral("NO_FLIP"))
+			return chinese ? QStringLiteral("腕不翻") : QStringLiteral("No flip");
+		if (token == QStringLiteral("FLIP"))
+			return chinese ? QStringLiteral("腕翻") : QStringLiteral("Flip");
 	}
 	if (propertyKey == QStringLiteral("motion.axisConfig.arm"))
 	{
-		if (token == QStringLiteral("AUTO")) return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
-		if (token == QStringLiteral("FRONT")) return chinese ? QStringLiteral("臂前") : QStringLiteral("Front");
-		if (token == QStringLiteral("BACK")) return chinese ? QStringLiteral("臂后") : QStringLiteral("Back");
+		if (token == QStringLiteral("AUTO"))
+			return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
+		if (token == QStringLiteral("FRONT"))
+			return chinese ? QStringLiteral("臂前") : QStringLiteral("Front");
+		if (token == QStringLiteral("BACK"))
+			return chinese ? QStringLiteral("臂后") : QStringLiteral("Back");
 	}
-	if (propertyKey == QStringLiteral("motion.axisConfig.turn.j1")
-		|| propertyKey == QStringLiteral("motion.axisConfig.turn.j4")
-		|| propertyKey == QStringLiteral("motion.axisConfig.turn.j6"))
+	if (propertyKey == QStringLiteral("motion.axisConfig.turn.j1") ||
+		propertyKey == QStringLiteral("motion.axisConfig.turn.j4") ||
+		propertyKey == QStringLiteral("motion.axisConfig.turn.j6"))
 	{
-		if (token == QStringLiteral("AUTO")) return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
+		if (token == QStringLiteral("AUTO"))
+			return chinese ? QStringLiteral("自动") : QStringLiteral("Auto");
 		return chinese ? QStringLiteral("转 %1").arg(token) : QStringLiteral("Turn %1").arg(token);
 	}
 	return token;
@@ -191,13 +220,14 @@ bool isPoseComponentKey(const QString& key)
 
 bool isRotationComponentKey(const QString& key)
 {
-	return key == QStringLiteral("rotation.x") || key == QStringLiteral("rotation.y") || key == QStringLiteral("rotation.z");
+	return key == QStringLiteral("rotation.x") || key == QStringLiteral("rotation.y") ||
+		   key == QStringLiteral("rotation.z");
 }
 
 bool isColorComponentKey(const QString& key)
 {
-	return key == QStringLiteral("color.r") || key == QStringLiteral("color.g") || key == QStringLiteral("color.b")
-		|| key == QStringLiteral("color.a");
+	return key == QStringLiteral("color.r") || key == QStringLiteral("color.g") || key == QStringLiteral("color.b") ||
+		   key == QStringLiteral("color.a");
 }
 
 double clampUnitInterval(const double v)
@@ -252,7 +282,8 @@ bool colorFromPropertyRows(const QVector<cloudsim::core::PropertyRowDto>& rows, 
 	{
 		return false;
 	}
-	*outColor = QColor::fromRgbF(clampUnitInterval(r), clampUnitInterval(g), clampUnitInterval(b), clampUnitInterval(a));
+	*outColor =
+		QColor::fromRgbF(clampUnitInterval(r), clampUnitInterval(g), clampUnitInterval(b), clampUnitInterval(a));
 	return true;
 }
 
@@ -280,8 +311,8 @@ QVariant propertyRowValueToVariant(const QString& key, const QString& value, boo
 	else if (editorType == QVariant::Bool)
 	{
 		const QString lower = value.trimmed().toLower();
-		if (lower == QStringLiteral("true") || lower == QStringLiteral("false") || lower == QStringLiteral("1")
-			|| lower == QStringLiteral("0"))
+		if (lower == QStringLiteral("true") || lower == QStringLiteral("false") || lower == QStringLiteral("1") ||
+			lower == QStringLiteral("0"))
 		{
 			return lower == QStringLiteral("true") || lower == QStringLiteral("1");
 		}
@@ -316,14 +347,9 @@ bool updateVec3ComponentFromKey(const QString& key, const QString& valueText, Ba
 }
 } // namespace
 
-void MainWindow::appendPropertyBrowserRow(
-	const QString& propertyKey,
-	const QString& displayLabel,
-	const QString& value,
-	bool editable,
-	const std::vector<std::string>* enumOptionTokens,
-	const QStringList* enumDisplayNames,
-	const QString& toolTip)
+void MainWindow::appendPropertyBrowserRow(const QString& propertyKey, const QString& displayLabel, const QString& value,
+										  bool editable, const std::vector<std::string>* enumOptionTokens,
+										  const QStringList* enumDisplayNames, const QString& toolTip)
 {
 	if (!m_variantManager || !m_propertyBrowser)
 	{
@@ -344,8 +370,10 @@ void MainWindow::appendPropertyBrowserRow(
 			{
 				if (d->constraints.rangeDouble.enabled)
 				{
-					m_variantManager->setAttribute(prop, QStringLiteral("minimum"), d->constraints.rangeDouble.minValue);
-					m_variantManager->setAttribute(prop, QStringLiteral("maximum"), d->constraints.rangeDouble.maxValue);
+					m_variantManager->setAttribute(prop, QStringLiteral("minimum"),
+												   d->constraints.rangeDouble.minValue);
+					m_variantManager->setAttribute(prop, QStringLiteral("maximum"),
+												   d->constraints.rangeDouble.maxValue);
 				}
 			}
 		}
@@ -363,10 +391,8 @@ void MainWindow::appendPropertyBrowserRow(
 	else if (editorType == QVariant::Bool)
 	{
 		const QString lower = value.trimmed().toLower();
-		if (lower == QStringLiteral("true")
-			|| lower == QStringLiteral("false")
-			|| lower == QStringLiteral("1")
-			|| lower == QStringLiteral("0"))
+		if (lower == QStringLiteral("true") || lower == QStringLiteral("false") || lower == QStringLiteral("1") ||
+			lower == QStringLiteral("0"))
 		{
 			prop = m_variantManager->addProperty(QVariant::Bool, displayLabel);
 			m_variantManager->setValue(prop, lower == QStringLiteral("true") || lower == QStringLiteral("1"));
@@ -395,8 +421,8 @@ void MainWindow::appendPropertyBrowserRow(
 			for (size_t i = 0; i < options.size(); ++i)
 			{
 				const QString token = QString::fromStdString(options[i]);
-				if (enumDisplayNames && static_cast<int>(i) < enumDisplayNames->size()
-					&& !enumDisplayNames->at(static_cast<int>(i)).isEmpty())
+				if (enumDisplayNames && static_cast<int>(i) < enumDisplayNames->size() &&
+					!enumDisplayNames->at(static_cast<int>(i)).isEmpty())
 				{
 					enumNames << enumDisplayNames->at(static_cast<int>(i));
 				}
@@ -453,9 +479,8 @@ void MainWindow::appendColorPropertyBrowserRow(const QColor& color)
 		return;
 	}
 	const QString colorKey = QStringLiteral("color");
-	QtVariantProperty* prop = m_variantManager->addProperty(
-		QVariant::Color,
-		propertyDisplayLabelForKey(colorKey, QStringLiteral("Color")));
+	QtVariantProperty* prop =
+		m_variantManager->addProperty(QVariant::Color, propertyDisplayLabelForKey(colorKey, QStringLiteral("Color")));
 	m_variantManager->setValue(prop, color);
 	prop->setWhatsThis(colorKey);
 	m_propertyKeyToVariant.insert(colorKey, prop);
@@ -651,17 +676,15 @@ void MainWindow::invalidateFeasibleAxisConfigurationCache()
 }
 
 void MainWindow::applySuggestedAxisPresetFromSeedIfNeeded(
-	const std::shared_ptr<RobotInstruction::Base>& instruction,
-	const QVector<double>& seedJointRad,
+	const std::shared_ptr<RobotInstruction::Base>& instruction, const QVector<double>& seedJointRad,
 	const RobotInstruction::FeasibleMotionAxisConfigurationOptions& feasible)
 {
-	InstructionPropertyPanel::applySuggestedAxisPresetFromSeedIfNeeded(
-		m_instructionPropertyUiHost, instruction, seedJointRad, feasible);
+	InstructionPropertyPanel::applySuggestedAxisPresetFromSeedIfNeeded(m_instructionPropertyUiHost, instruction,
+																	   seedJointRad, feasible);
 }
 
-void MainWindow::updateInstructionPropertyPanel(
-	const std::shared_ptr<RobotInstruction::Base>& instruction,
-	const bool refreshFeasibleAxisOptions)
+void MainWindow::updateInstructionPropertyPanel(const std::shared_ptr<RobotInstruction::Base>& instruction,
+												const bool refreshFeasibleAxisOptions)
 {
 	if (instruction)
 	{
@@ -705,8 +728,8 @@ void MainWindow::clearPropertyKeyVariantMap()
 
 bool MainWindow::shouldDeferPropertyPanelRebuild(const QString& contextId) const
 {
-	return m_propertyPanelDeferFullRebuild && !m_propertyPanelActiveEditKey.isEmpty()
-		&& contextId == m_propertyPanelActiveEditContextId;
+	return m_propertyPanelDeferFullRebuild && !m_propertyPanelActiveEditKey.isEmpty() &&
+		   contextId == m_propertyPanelActiveEditContextId;
 }
 
 void MainWindow::beginPropertyPanelNumericEdit(const QString& contextId, const QString& propertyKey)
@@ -779,8 +802,7 @@ void MainWindow::flushPropertyPanelVisualCommit(const QString& contextId)
 	{
 		return;
 	}
-	if (m_activeInstructionForProperty
-		&& QString::fromStdString(m_activeInstructionForProperty->id()) == contextId)
+	if (m_activeInstructionForProperty && QString::fromStdString(m_activeInstructionForProperty->id()) == contextId)
 	{
 		applyRobotPoseForInstructionPreview(m_activeInstructionForProperty);
 		refreshInstructionPoseAxes();
@@ -807,8 +829,7 @@ void MainWindow::flushPropertyPanelRefresh(const QString& contextId)
 	{
 		return;
 	}
-	if (m_activeInstructionForProperty
-		&& QString::fromStdString(m_activeInstructionForProperty->id()) == contextId)
+	if (m_activeInstructionForProperty && QString::fromStdString(m_activeInstructionForProperty->id()) == contextId)
 	{
 		updateInstructionPropertyPanel(m_activeInstructionForProperty, false);
 		return;
@@ -887,7 +908,8 @@ void MainWindow::syncPropertyPanelGizmoLiveValues(const QString& backendId)
 	(void)rv->selectedRotationEulerDeg(rx, ry, rz);
 
 	m_updatingPropertyBrowser = true;
-	const auto applyKey = [&](const QString& key, const double v) {
+	const auto applyKey = [&](const QString& key, const double v)
+	{
 		if (key == m_propertyPanelActiveEditKey)
 		{
 			return;
@@ -916,9 +938,8 @@ void MainWindow::syncPropertyPanelGizmoLiveValues(const QString& backendId)
 	}
 }
 
-void MainWindow::scheduleInstructionPropertyRefreshDebounced(
-	const std::shared_ptr<RobotInstruction::Base>& instruction,
-	const bool refreshFeasibleAxisOptions)
+void MainWindow::scheduleInstructionPropertyRefreshDebounced(const std::shared_ptr<RobotInstruction::Base>& instruction,
+															 const bool refreshFeasibleAxisOptions)
 {
 	if (!instruction)
 	{
@@ -968,26 +989,28 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event)
 	if (event->type() == QEvent::FocusOut && m_propertyPanelDeferFullRebuild && m_propertyBrowser)
 	{
 		QTreeWidget* propTree = m_propertyBrowser->findChild<QTreeWidget*>();
-		if (propTree && (watched == propTree || watched == m_propertyBrowser
-				|| (qobject_cast<QWidget*>(watched) && propTree->isAncestorOf(qobject_cast<QWidget*>(watched)))))
+		if (propTree && (watched == propTree || watched == m_propertyBrowser ||
+						 (qobject_cast<QWidget*>(watched) && propTree->isAncestorOf(qobject_cast<QWidget*>(watched)))))
 		{
-			QTimer::singleShot(0, this, [this]() {
-				if (!m_propertyPanelDeferFullRebuild || !m_propertyBrowser)
-				{
-					return;
-				}
-				QTreeWidget* tree = m_propertyBrowser->findChild<QTreeWidget*>();
-				if (!tree)
-				{
-					endPropertyPanelNumericEdit();
-					return;
-				}
-				QWidget* focusWidget = tree->focusWidget();
-				if (!focusWidget || !tree->isAncestorOf(focusWidget))
-				{
-					endPropertyPanelNumericEdit();
-				}
-			});
+			QTimer::singleShot(0, this,
+							   [this]()
+							   {
+								   if (!m_propertyPanelDeferFullRebuild || !m_propertyBrowser)
+								   {
+									   return;
+								   }
+								   QTreeWidget* tree = m_propertyBrowser->findChild<QTreeWidget*>();
+								   if (!tree)
+								   {
+									   endPropertyPanelNumericEdit();
+									   return;
+								   }
+								   QWidget* focusWidget = tree->focusWidget();
+								   if (!focusWidget || !tree->isAncestorOf(focusWidget))
+								   {
+									   endPropertyPanelNumericEdit();
+								   }
+							   });
 		}
 	}
 	return QMainWindow::eventFilter(watched, event);
@@ -1016,8 +1039,8 @@ void MainWindow::updatePropertyPanel(const QString& backendId)
 		syncPropertyPanelRowValues(backendId);
 		return;
 	}
-	if (!backendId.isEmpty() && m_followTargetNameDebounceTimer.isActive()
-		&& backendId == m_followTargetNameDebounceBackendId)
+	if (!backendId.isEmpty() && m_followTargetNameDebounceTimer.isActive() &&
+		backendId == m_followTargetNameDebounceBackendId)
 	{
 		return;
 	}
@@ -1075,11 +1098,8 @@ void MainWindow::updatePropertyPanel(const QString& backendId)
 	if (showAxis)
 	{
 		const QString axisKey = QStringLiteral("ui.active_axis");
-		appendPropertyBrowserRow(
-			axisKey,
-			propertyDisplayLabelForKey(axisKey, QStringLiteral("Active axis")),
-			m_activeAxisName,
-			false);
+		appendPropertyBrowserRow(axisKey, propertyDisplayLabelForKey(axisKey, QStringLiteral("Active axis")),
+								 m_activeAxisName, false);
 	}
 
 	m_updatingPropertyBrowser = false;
@@ -1224,8 +1244,8 @@ void MainWindow::flushFollowTargetNamePropertyEdit()
 
 	if (!docPage)
 	{
-		RunLogger::debug(std::string("[PropertyCommitDBG] skip follow name commit without document page id=")
-			+ backendId.toStdString());
+		RunLogger::debug(std::string("[PropertyCommitDBG] skip follow name commit without document page id=") +
+						 backendId.toStdString());
 		RunLogger::flush();
 		m_followTargetNameDebounceBackendId.clear();
 		m_followTargetNameDebounceText.clear();
@@ -1233,8 +1253,8 @@ void MainWindow::flushFollowTargetNamePropertyEdit()
 	}
 
 	QString dsErr;
-	const bool applyOk = docPage->data().applyPropertyChange(backendId, propertyKey, m_followTargetNameDebounceText,
-		&dsErr);
+	const bool applyOk =
+		docPage->data().applyPropertyChange(backendId, propertyKey, m_followTargetNameDebounceText, &dsErr);
 	if (!applyOk)
 	{
 		m_followTargetNameDebounceBackendId.clear();

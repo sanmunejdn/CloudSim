@@ -1,14 +1,18 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_IROBOTMAINWINDOWHOST_H
+#define ROBOTWIDGET_IROBOTMAINWINDOWHOST_H
+
+/// @file IRobotMainWindowHost.h
+/// @brief 机器人编排所需主窗口服务（Widget 实现）
+
+#include "robotwidget_global.h"
 
 #include "IRobotDocumentHost.h"
 #include "IRobotOsgViewHost.h"
 #include "IRobotPropertyPanelHost.h"
-#include "robotwidget_global.h"
-
-#include <functional>
-#include <memory>
 
 #include <QVector>
+#include <functional>
+#include <memory>
 
 struct PickResult;
 enum class PickKind;
@@ -20,7 +24,7 @@ namespace RobotInstruction
 struct FeasibleMotionAxisConfigurationOptions;
 struct PlanResult;
 class Base;
-}
+} // namespace RobotInstruction
 class SimulationCommandWidget;
 class RobotAxisControlWidget;
 class RobotFrameSettingsWidget;
@@ -64,26 +68,18 @@ public:
 
 	virtual std::shared_ptr<RobotInstruction::Base> activeInstructionForProperty() const = 0;
 	virtual void applySuggestedAxisPresetFromSeedIfNeeded(
-		const std::shared_ptr<RobotInstruction::Base>& instruction,
-		const QVector<double>& seedJointRad,
+		const std::shared_ptr<RobotInstruction::Base>& instruction, const QVector<double>& seedJointRad,
 		const RobotInstruction::FeasibleMotionAxisConfigurationOptions& feasible) = 0;
 
 	virtual bool registerUrdfRobot(const QString& urdfPath, bool quietUi) = 0;
 
-	virtual bool planRobotMotionInstruction(
-		RobotInstruction::Base& instruction,
-		const QVector<double>& seedJointRad,
-		int instanceIndex,
-		const QString& urdfPath,
-		const QString& defaultTcpLinkName,
-		const QString& sceneRootBackendId,
-		RobotInstruction::PlanResult& out,
-		std::string* outErr) = 0;
+	virtual bool planRobotMotionInstruction(RobotInstruction::Base& instruction, const QVector<double>& seedJointRad,
+											int instanceIndex, const QString& urdfPath,
+											const QString& defaultTcpLinkName, const QString& sceneRootBackendId,
+											RobotInstruction::PlanResult& out, std::string* outErr) = 0;
 
-	virtual void enqueueBackgroundJob(
-		const QString& title,
-		std::function<void()> work,
-		std::function<void(bool threw, const QString& msg)> onFinished) = 0;
+	virtual void enqueueBackgroundJob(const QString& title, std::function<void()> work,
+									  std::function<void(bool threw, const QString& msg)> onFinished) = 0;
 
 	virtual void setMeshPickCommittedHandler(std::function<void(const PickResult&, PickKind)> handler) = 0;
 	virtual void clearMeshPickCommittedHandler() = 0;
@@ -102,3 +98,5 @@ public:
 	virtual void endMeshSectionPlaneEditDirect() = 0;
 	virtual void hideMeshSectionPlaneDirect() = 0;
 };
+
+#endif // ROBOTWIDGET_IROBOTMAINWINDOWHOST_H

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef POINTCLOUDALGORITHM_POINT_CLOUD_ALGORITHM_GLOBAL_H
+#define POINTCLOUDALGORITHM_POINT_CLOUD_ALGORITHM_GLOBAL_H
+
+/// @file point_cloud_algorithm_global.h
+/// @brief PointCloudAlgorithm 导出宏
 
 #if defined(POINT_CLOUD_ALGORITHM_STATIC) || !defined(POINT_CLOUD_ALGORITHM_EXPORTS)
 #define POINT_CLOUD_ALGORITHM_API
@@ -13,3 +17,5 @@
 #define POINT_CLOUD_ALGORITHM_API __attribute__((visibility("default")))
 #endif
 #endif
+
+#endif // POINTCLOUDALGORITHM_POINT_CLOUD_ALGORITHM_GLOBAL_H

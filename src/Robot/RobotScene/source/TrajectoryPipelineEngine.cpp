@@ -1,25 +1,23 @@
+﻿/// @file TrajectoryPipelineEngine.cpp
+/// @brief TrajectoryPipelineEngine 实现
+
 #include "TrajectoryPipelineEngine.h"
 
 #include "RobotSceneGeometryProjection.h"
 #include "RobotSceneNonRigidTrajectoryWarp.h"
 #include "TrajectoryOpBridge.h"
 
+#include <cmath>
+
 #include <ITrajectoryOp.h>
 #include <TrajectoryOpExecutionContext.h>
-
 #include <TrajectoryOpParamsParse.h>
-
-#include <cmath>
 
 namespace RobotInstruction
 {
 namespace
 {
-
-bool unifiedPointsNear(
-	const UnifiedTrajectory& a,
-	const UnifiedTrajectory& b,
-	const double posEpsMm)
+bool unifiedPointsNear(const UnifiedTrajectory& a, const UnifiedTrajectory& b, const double posEpsMm)
 {
 	if (a.points.size() != b.points.size())
 	{
@@ -29,9 +27,8 @@ bool unifiedPointsNear(
 	{
 		const UnifiedTrajectoryPoint& pa = a.points[i];
 		const UnifiedTrajectoryPoint& pb = b.points[i];
-		if (std::abs(pa.poseMm.x - pb.poseMm.x) > posEpsMm
-			|| std::abs(pa.poseMm.y - pb.poseMm.y) > posEpsMm
-			|| std::abs(pa.poseMm.z - pb.poseMm.z) > posEpsMm)
+		if (std::abs(pa.poseMm.x - pb.poseMm.x) > posEpsMm || std::abs(pa.poseMm.y - pb.poseMm.y) > posEpsMm ||
+			std::abs(pa.poseMm.z - pb.poseMm.z) > posEpsMm)
 		{
 			return false;
 		}
@@ -61,6 +58,9 @@ void TrajectoryPipelineEngine::clear()
 	m_rawWorking = {};
 	m_rawRebuild = nullptr;
 	m_program = nullptr;
+	m_hasWorkpieceReferenceInBase = false;
+	m_workpieceReferenceInBase = {};
+	m_externalTcpFrameResolver = nullptr;
 	m_ops.clear();
 	m_steps.clear();
 	m_result = {};
@@ -89,6 +89,23 @@ void TrajectoryPipelineEngine::setProgramContext(const RobotProgram* program)
 	m_program = program;
 }
 
+void TrajectoryPipelineEngine::setWorkpieceReferenceInBase(const engine::RigidTransform* pose)
+{
+	if (!pose)
+	{
+		m_hasWorkpieceReferenceInBase = false;
+		m_workpieceReferenceInBase = {};
+		return;
+	}
+	m_hasWorkpieceReferenceInBase = true;
+	m_workpieceReferenceInBase = *pose;
+}
+
+void TrajectoryPipelineEngine::setExternalTcpFrameResolver(ExternalTcpFrameResolveFn resolver)
+{
+	m_externalTcpFrameResolver = std::move(resolver);
+}
+
 void TrajectoryPipelineEngine::setUnifiedBaseline(UnifiedTrajectory baseline)
 {
 	m_baseline = std::move(baseline);
@@ -107,7 +124,7 @@ void TrajectoryPipelineEngine::rebuildStepList()
 	m_steps.clear();
 	for (const TrajectoryOpDescriptor& op : m_ops)
 	{
-		m_steps.push_back(PipelineStep{ op, {} });
+		m_steps.push_back(PipelineStep{op, {}});
 	}
 	invalidateFrom(0);
 }
@@ -121,9 +138,7 @@ void TrajectoryPipelineEngine::invalidateFrom(const std::size_t stepIndex)
 	m_baselineValid = false;
 }
 
-bool TrajectoryPipelineEngine::restoreStateBeforeStep(
-	const std::size_t stepIndex,
-	std::string* errMsg)
+bool TrajectoryPipelineEngine::restoreStateBeforeStep(const std::size_t stepIndex, std::string* errMsg)
 {
 	if (stepIndex == 0)
 	{
@@ -171,10 +186,8 @@ bool TrajectoryPipelineEngine::restoreStateBeforeStep(
 	return true;
 }
 
-bool TrajectoryPipelineEngine::applyGeometryOp(
-	const TrajectoryOpDescriptor& op,
-	UnifiedTrajectory& unified,
-	std::string* errMsg)
+bool TrajectoryPipelineEngine::applyGeometryOp(const TrajectoryOpDescriptor& op, UnifiedTrajectory& unified,
+											   std::string* errMsg)
 {
 	ensureTrajectoryOpBuiltinsRegistered();
 	const trajectory_algo::ITrajectoryOp* impl = trajectoryOpGet(op.kind);
@@ -190,6 +203,21 @@ bool TrajectoryPipelineEngine::applyGeometryOp(
 	ctx.program = m_program;
 	ctx.geometryProjection = &robotSceneGeometryProjection();
 	ctx.nonRigidTrajectoryWarp = &robotSceneNonRigidTrajectoryWarp();
+	ctx.hasWorkpieceReferenceInBase = m_hasWorkpieceReferenceInBase;
+	ctx.workpieceReferenceInBase = m_workpieceReferenceInBase;
+	if (op.kind == TrajectoryOpKind::ToWorkpieceInHand && m_externalTcpFrameResolver)
+	{
+		const RobotInstruction::ToWorkpieceInHandParams params =
+			trajectory_algo::parseToWorkpieceInHandParams(op.params);
+		if (!params.externalTcpBackendId.empty())
+		{
+			if (!m_externalTcpFrameResolver(params.externalTcpBackendId, ctx.externalTcpInBase, errMsg))
+			{
+				return false;
+			}
+			ctx.hasExternalTcpFromBackend = true;
+		}
+	}
 	if (impl->processPath(op, unified, ctx, errMsg))
 	{
 		return true;
@@ -201,10 +229,7 @@ bool TrajectoryPipelineEngine::applyGeometryOp(
 	return false;
 }
 
-bool TrajectoryPipelineEngine::runStep(
-	PipelineStep& step,
-	UnifiedTrajectory& unified,
-	std::string* errMsg)
+bool TrajectoryPipelineEngine::runStep(PipelineStep& step, UnifiedTrajectory& unified, std::string* errMsg)
 {
 	if (!step.op.enabled)
 	{
@@ -301,17 +326,16 @@ bool runTrajectoryPipelineEngineSelfCheck(std::string* errMsg)
 
 	TrajectoryPipelineEngine engine;
 	RawTrajectory raw{};
-	raw.points.push_back(TrajectoryPoint{ Vec3{ 0.0, 0.0, 0.0 }, Vec3{}, 0.0, 0.0, true });
-	raw.points.push_back(TrajectoryPoint{ Vec3{ 100.0, 0.0, 0.0 }, Vec3{}, 0.0, 0.0, true });
+	raw.points.push_back(TrajectoryPoint{Vec3{0.0, 0.0, 0.0}, Vec3{}, 0.0, 0.0, true});
+	raw.points.push_back(TrajectoryPoint{Vec3{100.0, 0.0, 0.0}, Vec3{}, 0.0, 0.0, true});
 	engine.setUsingRaw(true);
 	engine.setSourceRaw(raw);
-	engine.setRawRebuildFn([](const RawTrajectory& source, UnifiedTrajectory& out, std::string* localErr) {
-		return unifiedTrajectoryFromRaw(source, out, localErr);
-	});
+	engine.setRawRebuildFn([](const RawTrajectory& source, UnifiedTrajectory& out, std::string* localErr)
+						   { return unifiedTrajectoryFromRaw(source, out, localErr); });
 
 	TrajectoryOpDescriptor resample{};
 	resample.kind = TrajectoryOpKind::Resample;
-	trajectory_algo::writeResampleParams(resample.params, RobotInstruction::ResampleParams{ 10.0 });
+	trajectory_algo::writeResampleParams(resample.params, RobotInstruction::ResampleParams{10.0});
 
 	TrajectoryOpDescriptor translate{};
 	translate.kind = TrajectoryOpKind::Translate;
@@ -321,7 +345,7 @@ bool runTrajectoryPipelineEngineSelfCheck(std::string* errMsg)
 	translateParams.endDxMm = 10.0;
 	trajectory_algo::writeTranslateParams(translate.params, translateParams);
 
-	engine.setOps({ resample, translate });
+	engine.setOps({resample, translate});
 	if (!engine.executeFull(errMsg))
 	{
 		return false;
@@ -336,7 +360,7 @@ bool runTrajectoryPipelineEngineSelfCheck(std::string* errMsg)
 		return false;
 	}
 
-	engine.setOps({ resample, translate });
+	engine.setOps({resample, translate});
 	engine.invalidateFrom(1);
 	if (!engine.executeFrom(1, errMsg))
 	{

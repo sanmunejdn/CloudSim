@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef HELLOAIPLUGIN_HELLOAIPLUGIN_H
+#define HELLOAIPLUGIN_HELLOAIPLUGIN_H
+
+/// @file HelloAiPlugin.h
+/// @brief HelloAiPlugin 接口
 
 #include "ICloudSimAiPlugin.h"
 #include "ICloudSimPlugin.h"
@@ -27,3 +31,5 @@ private:
 	IPluginHostContext* m_host = nullptr;
 	IAiAssistantHost* m_aiHost = nullptr;
 };
+
+#endif // HELLOAIPLUGIN_HELLOAIPLUGIN_H

@@ -1,3 +1,6 @@
+﻿/// @file BackendIdUserData.cpp
+/// @brief BackendIdUserData 实现
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -13,10 +16,7 @@
 #include <osg/Group>
 #include <osg/PositionAttitudeTransform>
 
-BackendIdUserData::BackendIdUserData(std::string id)
-	: m_id(std::move(id))
-{
-}
+BackendIdUserData::BackendIdUserData(std::string id) : m_id(std::move(id)) {}
 
 void BackendIdUserData::attach(osg::Node* root, const std::string& backendId)
 {

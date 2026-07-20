@@ -1,11 +1,14 @@
-#pragma once
+﻿#ifndef WIDGET_PROGRESSMANAGER_H
+#define WIDGET_PROGRESSMANAGER_H
 
-#include <functional>
+/// @file ProgressManager.h
+/// @brief 跨线程进度桥：工作线程上报，信号在本对象线程（UI）发出
+
+#include "widget_global.h"
 
 #include <QObject>
 #include <QString>
-
-#include "widget_global.h"
+#include <functional>
 
 /// 跨线程进度桥：工作线程上报，信号在本对象线程（UI）发出
 class WIDGET_EXPORT ProgressManager : public QObject
@@ -27,3 +30,5 @@ signals:
 	/// success 表示 worker 未抛 C++ 异常；业务失败可能在完成回调里处理且 success 仍为 true
 	void jobFinished(quint64 jobId, bool success, QString errorMessage);
 };
+
+#endif // WIDGET_PROGRESSMANAGER_H

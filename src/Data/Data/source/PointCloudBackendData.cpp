@@ -1,25 +1,28 @@
+﻿/// @file PointCloudBackendData.cpp
+/// @brief PointCloudBackendData 实现
+
 #include "PointCloudBackendData.h"
 
-#include "PlyIo.h"
-#include "BackendSpatial.h"
-#include "geometry_base64.h"
 #include "../../PropertyCore/inc/PropertyAttribute.h"
+#include "BackendSpatial.h"
+#include "PlyIo.h"
+#include "geometry_base64.h"
+
+#include <algorithm>
+#include <cctype>
+#include <cmath>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <sstream>
+#include <string>
+#include <tuple>
 
 #include <CGAL/IO/io.h>
 #include <CGAL/IO/read_ply_points.h>
 #include <CGAL/IO/write_ply_points.h>
 #include <CGAL/Simple_cartesian.h>
 #include <boost/cstdint.hpp>
-
-#include <algorithm>
-#include <cmath>
-#include <filesystem>
-#include <cctype>
-#include <fstream>
-#include <iterator>
-#include <sstream>
-#include <string>
-#include <tuple>
 
 PointCloudBackendData::PointCloudBackendData()
 {
@@ -93,10 +96,8 @@ void PointCloudBackendData::setPointBuffers(std::vector<float> xyz, std::vector<
 	setPointBuffers(std::move(xyz), std::move(rgbaPerVertex), {});
 }
 
-void PointCloudBackendData::setPointBuffers(
-	std::vector<float> xyz,
-	std::vector<float> rgbaPerVertex,
-	std::vector<float> normalsNxNyNz)
+void PointCloudBackendData::setPointBuffers(std::vector<float> xyz, std::vector<float> rgbaPerVertex,
+											std::vector<float> normalsNxNyNz)
 {
 	if (xyz.size() % 3U != 0U)
 	{
@@ -164,7 +165,8 @@ void PointCloudBackendData::recomputeBoundsFromPoints()
 	m_bounds.valid = true;
 }
 
-bool PointCloudBackendData::writeProjectEmbeddedGeometry(std::string& outXyzBase64, std::string& outRgbaPerVertexBase64) const
+bool PointCloudBackendData::writeProjectEmbeddedGeometry(std::string& outXyzBase64,
+														 std::string& outRgbaPerVertexBase64) const
 {
 	outXyzBase64.clear();
 	outRgbaPerVertexBase64.clear();
@@ -184,7 +186,8 @@ bool PointCloudBackendData::writeProjectEmbeddedGeometry(std::string& outXyzBase
 	return true;
 }
 
-bool PointCloudBackendData::readProjectEmbeddedGeometry(const std::string& xyzBase64, const std::string& rgbaPerVertexBase64)
+bool PointCloudBackendData::readProjectEmbeddedGeometry(const std::string& xyzBase64,
+														const std::string& rgbaPerVertexBase64)
 {
 	std::vector<float> xyz;
 	if (!geometryBase64DecodeFloats(xyzBase64, xyz) || xyz.size() < 3U || (xyz.size() % 3U) != 0U)
@@ -207,8 +210,8 @@ bool PointCloudBackendData::readProjectEmbeddedGeometry(const std::string& xyzBa
 	return !m_xyz.empty();
 }
 
-namespace {
-
+namespace
+{
 // PLY 写 float xyz 减体积（~12B/点 vs double ~24B）
 using PlyWriteKernel = CGAL::Simple_cartesian<float>;
 using PlyWritePoint_3 = PlyWriteKernel::Point_3;
@@ -255,7 +258,7 @@ static void cgalRgbRowsToBackend(const std::vector<VtxRgbRead>& withRgb, PointCl
 }
 
 static bool readPlyWithCgalFromPath(const std::string& utf8Path, const PlyHeaderInfo& scan, PointCloudBackendData& dst,
-	std::string* errMsg)
+									std::string* errMsg)
 {
 	if (!scan.cgalFormatOnLine2)
 	{
@@ -274,11 +277,15 @@ static bool readPlyWithCgalFromPath(const std::string& utf8Path, const PlyHeader
 	{
 		std::vector<VtxRgbRead> withRgb;
 		VtxRgbRead keyRgb{};
-		const bool rgbOk = CGAL::IO::read_PLY_with_properties(is, std::back_inserter(withRgb),
+		const bool rgbOk = CGAL::IO::read_PLY_with_properties(
+			is, std::back_inserter(withRgb),
 			CGAL::IO::make_ply_point_reader(CGAL::make_nth_of_tuple_property_map<0>(keyRgb)),
-			std::make_pair(CGAL::make_nth_of_tuple_property_map<1>(keyRgb), CGAL::IO::PLY_property<boost::uint8_t>("red")),
-			std::make_pair(CGAL::make_nth_of_tuple_property_map<2>(keyRgb), CGAL::IO::PLY_property<boost::uint8_t>("green")),
-			std::make_pair(CGAL::make_nth_of_tuple_property_map<3>(keyRgb), CGAL::IO::PLY_property<boost::uint8_t>("blue")));
+			std::make_pair(CGAL::make_nth_of_tuple_property_map<1>(keyRgb),
+						   CGAL::IO::PLY_property<boost::uint8_t>("red")),
+			std::make_pair(CGAL::make_nth_of_tuple_property_map<2>(keyRgb),
+						   CGAL::IO::PLY_property<boost::uint8_t>("green")),
+			std::make_pair(CGAL::make_nth_of_tuple_property_map<3>(keyRgb),
+						   CGAL::IO::PLY_property<boost::uint8_t>("blue")));
 		if (rgbOk && !withRgb.empty())
 		{
 			cgalRgbRowsToBackend(withRgb, dst);
@@ -323,7 +330,7 @@ static int splitAsciiNumbers(const std::string& line, double* out, int maxOut)
 }
 
 static bool readAsciiPlyFlexible(const std::string& utf8Path, const PlyHeaderInfo& scan, PointCloudBackendData& dst,
-	std::string* errMsg)
+								 std::string* errMsg)
 {
 	if (!scan.isAscii || scan.vertexCount <= 0 || scan.vertexHasListProperty)
 	{
@@ -436,15 +443,15 @@ bool PointCloudBackendData::readPointCloudFromPlyFile(const std::string& utf8Pat
 	}
 
 	std::string cgalErr;
-	if (scan.cgalFormatOnLine2
-		&& readPlyWithCgalFromPath(utf8Path, scan, *this, &cgalErr) && !pointPositionsXyz().empty())
+	if (scan.cgalFormatOnLine2 && readPlyWithCgalFromPath(utf8Path, scan, *this, &cgalErr) &&
+		!pointPositionsXyz().empty())
 	{
 		return true;
 	}
 
 	std::string asciiErr;
-	if (scan.isAscii && scan.vertexCount > 0 && !scan.vertexHasListProperty
-		&& readAsciiPlyFlexible(utf8Path, scan, *this, &asciiErr) && !pointPositionsXyz().empty())
+	if (scan.isAscii && scan.vertexCount > 0 && !scan.vertexHasListProperty &&
+		readAsciiPlyFlexible(utf8Path, scan, *this, &asciiErr) && !pointPositionsXyz().empty())
 	{
 		return true;
 	}
@@ -472,8 +479,8 @@ bool PointCloudBackendData::readPointCloudFromPlyFile(const std::string& utf8Pat
 	return false;
 }
 
-namespace {
-
+namespace
+{
 bool readPointCloudFromXyzFilePath(PointCloudBackendData& pc, const std::string& nativePath, std::string* errMsg)
 {
 	std::ifstream in(nativePath);
@@ -585,14 +592,18 @@ bool PointCloudBackendData::writePointCloudPlySidecar(const std::string& utf8Pat
 			const float rf = m_rgbaVertex[i * 4U];
 			const float gf = m_rgbaVertex[i * 4U + 1U];
 			const float bf = m_rgbaVertex[i * 4U + 2U];
-			verts.emplace_back(PlyWritePoint_3(x, y, z), floatChannelToU8(rf), floatChannelToU8(gf), floatChannelToU8(bf));
+			verts.emplace_back(PlyWritePoint_3(x, y, z), floatChannelToU8(rf), floatChannelToU8(gf),
+							   floatChannelToU8(bf));
 		}
 		VtxRgbWrite keyTpl{};
-		ok = CGAL::IO::write_PLY_with_properties(ofs, verts,
-			CGAL::IO::make_ply_point_writer(CGAL::make_nth_of_tuple_property_map<0>(keyTpl)),
-			std::make_pair(CGAL::make_nth_of_tuple_property_map<1>(keyTpl), CGAL::IO::PLY_property<boost::uint8_t>("red")),
-			std::make_pair(CGAL::make_nth_of_tuple_property_map<2>(keyTpl), CGAL::IO::PLY_property<boost::uint8_t>("green")),
-			std::make_pair(CGAL::make_nth_of_tuple_property_map<3>(keyTpl), CGAL::IO::PLY_property<boost::uint8_t>("blue")));
+		ok = CGAL::IO::write_PLY_with_properties(
+			ofs, verts, CGAL::IO::make_ply_point_writer(CGAL::make_nth_of_tuple_property_map<0>(keyTpl)),
+			std::make_pair(CGAL::make_nth_of_tuple_property_map<1>(keyTpl),
+						   CGAL::IO::PLY_property<boost::uint8_t>("red")),
+			std::make_pair(CGAL::make_nth_of_tuple_property_map<2>(keyTpl),
+						   CGAL::IO::PLY_property<boost::uint8_t>("green")),
+			std::make_pair(CGAL::make_nth_of_tuple_property_map<3>(keyTpl),
+						   CGAL::IO::PLY_property<boost::uint8_t>("blue")));
 	}
 	else
 	{
@@ -602,8 +613,8 @@ bool PointCloudBackendData::writePointCloudPlySidecar(const std::string& utf8Pat
 		{
 			verts.emplace_back(m_xyz[i * 3U], m_xyz[i * 3U + 1U], m_xyz[i * 3U + 2U]);
 		}
-		ok = CGAL::IO::write_PLY_with_properties(ofs, verts,
-			CGAL::IO::make_ply_point_writer(CGAL::Identity_property_map<PlyWritePoint_3>()));
+		ok = CGAL::IO::write_PLY_with_properties(
+			ofs, verts, CGAL::IO::make_ply_point_writer(CGAL::Identity_property_map<PlyWritePoint_3>()));
 	}
 
 	if (!ok)
@@ -614,7 +625,8 @@ bool PointCloudBackendData::writePointCloudPlySidecar(const std::string& utf8Pat
 	return true;
 }
 
-bool PointCloudBackendData::writePointCloudPlySidecar(const std::string& utf8Path, const std::vector<float>& xyzOverride, std::string* errMsg) const
+bool PointCloudBackendData::writePointCloudPlySidecar(const std::string& utf8Path,
+													  const std::vector<float>& xyzOverride, std::string* errMsg) const
 {
 	if (xyzOverride.empty() || (xyzOverride.size() % 3U) != 0U)
 	{
@@ -645,14 +657,18 @@ bool PointCloudBackendData::writePointCloudPlySidecar(const std::string& utf8Pat
 			const float rf = m_rgbaVertex[i * 4U];
 			const float gf = m_rgbaVertex[i * 4U + 1U];
 			const float bf = m_rgbaVertex[i * 4U + 2U];
-			verts.emplace_back(PlyWritePoint_3(x, y, z), floatChannelToU8(rf), floatChannelToU8(gf), floatChannelToU8(bf));
+			verts.emplace_back(PlyWritePoint_3(x, y, z), floatChannelToU8(rf), floatChannelToU8(gf),
+							   floatChannelToU8(bf));
 		}
 		VtxRgbWrite keyTpl{};
-		ok = CGAL::IO::write_PLY_with_properties(ofs, verts,
-			CGAL::IO::make_ply_point_writer(CGAL::make_nth_of_tuple_property_map<0>(keyTpl)),
-			std::make_pair(CGAL::make_nth_of_tuple_property_map<1>(keyTpl), CGAL::IO::PLY_property<boost::uint8_t>("red")),
-			std::make_pair(CGAL::make_nth_of_tuple_property_map<2>(keyTpl), CGAL::IO::PLY_property<boost::uint8_t>("green")),
-			std::make_pair(CGAL::make_nth_of_tuple_property_map<3>(keyTpl), CGAL::IO::PLY_property<boost::uint8_t>("blue")));
+		ok = CGAL::IO::write_PLY_with_properties(
+			ofs, verts, CGAL::IO::make_ply_point_writer(CGAL::make_nth_of_tuple_property_map<0>(keyTpl)),
+			std::make_pair(CGAL::make_nth_of_tuple_property_map<1>(keyTpl),
+						   CGAL::IO::PLY_property<boost::uint8_t>("red")),
+			std::make_pair(CGAL::make_nth_of_tuple_property_map<2>(keyTpl),
+						   CGAL::IO::PLY_property<boost::uint8_t>("green")),
+			std::make_pair(CGAL::make_nth_of_tuple_property_map<3>(keyTpl),
+						   CGAL::IO::PLY_property<boost::uint8_t>("blue")));
 	}
 	else
 	{
@@ -662,8 +678,8 @@ bool PointCloudBackendData::writePointCloudPlySidecar(const std::string& utf8Pat
 		{
 			verts.emplace_back(xyzOverride[i * 3U], xyzOverride[i * 3U + 1U], xyzOverride[i * 3U + 2U]);
 		}
-		ok = CGAL::IO::write_PLY_with_properties(ofs, verts,
-			CGAL::IO::make_ply_point_writer(CGAL::Identity_property_map<PlyWritePoint_3>()));
+		ok = CGAL::IO::write_PLY_with_properties(
+			ofs, verts, CGAL::IO::make_ply_point_writer(CGAL::Identity_property_map<PlyWritePoint_3>()));
 	}
 
 	if (!ok)
@@ -698,10 +714,10 @@ nlohmann::json PointCloudBackendData::snapshotPropertyRows(const BackendDataMana
 }
 
 bool PointCloudBackendData::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-	const BackendDataManager* mgr)
+												const BackendDataManager* mgr)
 {
-	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(
-			m_attributes, *this, key, value, errMsg))
+	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(m_attributes, *this, key, value,
+																					  errMsg))
 	{
 		return true;
 	}
@@ -715,10 +731,8 @@ void PointCloudBackendData::saveDerivedJson(nlohmann::json& out) const
 		return;
 	}
 	// 几何真源由 ProjectPackageIo 写 objects/{id}.ply；JSON 仅保留元数据
-	out["geometry"] = nlohmann::json{
-		{ "kind", "points" },
-		{ "storage", "ply_sidecar" },
-		{ "pointCount", geometryElementCount() } };
+	out["geometry"] =
+		nlohmann::json{{"kind", "points"}, {"storage", "ply_sidecar"}, {"pointCount", geometryElementCount()}};
 }
 
 bool PointCloudBackendData::loadDerivedJson(const nlohmann::json& in, std::string* errMsg)
@@ -761,4 +775,3 @@ bool PointCloudBackendData::loadDerivedJson(const nlohmann::json& in, std::strin
 	// ply_sidecar：由 Host 从 assetRelativePath / plySidecar 加载
 	return true;
 }
-

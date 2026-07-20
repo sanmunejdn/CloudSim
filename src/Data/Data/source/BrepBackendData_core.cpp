@@ -1,12 +1,16 @@
+﻿/// @file BrepBackendData_core.cpp
+/// @brief BrepBackendData_core 实现
+
 #include "pch.h"
-#include "BrepBackendData.h"
-#include <ShapeIo.h>
-#include "BackendSpatial.h"
+
+#include "../../PropertyCore/inc/PropertyAttribute.h"
 #include "BackendObjectAttribute.h"
 #include "BackendPropertyRow.h"
-#include "../../PropertyCore/inc/PropertyAttribute.h"
+#include "BackendSpatial.h"
+#include "BrepBackendData.h"
 
 #include <Adapters.h>
+#include <ShapeIo.h>
 
 BrepBackendData::BrepBackendData()
 {
@@ -133,7 +137,8 @@ geoalgo::ShapeHandle BrepBackendData::worldShape() const
 
 	// 获取 worldMatrix 并转换为 Eigen Isometry
 	const BackendMat4 world = worldMatrix();
-	const engine::ColMajorMat4 cm = [&world]() {
+	const engine::ColMajorMat4 cm = [&world]()
+	{
 		engine::ColMajorMat4 out{};
 		for (int i = 0; i < 16; ++i)
 		{
@@ -156,10 +161,10 @@ nlohmann::json BrepBackendData::snapshotPropertyRows(const BackendDataManager* m
 }
 
 bool BrepBackendData::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-	const BackendDataManager* mgr)
+										  const BackendDataManager* mgr)
 {
-	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(
-			m_attributes, *this, key, value, errMsg))
+	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(m_attributes, *this, key, value,
+																					  errMsg))
 	{
 		return true;
 	}

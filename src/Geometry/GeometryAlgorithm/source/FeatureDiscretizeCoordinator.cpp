@@ -1,13 +1,11 @@
-#include "detail/FeatureDiscretizeInternal.h"
-#include "FeatureDiscretizerRegistry.h"
+﻿/// @file FeatureDiscretizeCoordinator.cpp
+/// @brief FeatureDiscretizeCoordinator 实现
 
-#include "detail/OccIncludes.h"
+#include "FeatureDiscretizerRegistry.h"
 #include "ShapeQuery.h"
 #include "detail/FeatureDiscretizeCommon.h"
-
-#include <TopExp.hxx>
-#include <TopExp_Explorer.hxx>
-#include <TopTools_IndexedMapOfShape.hxx>
+#include "detail/FeatureDiscretizeInternal.h"
+#include "detail/OccIncludes.h"
 
 #include <algorithm>
 #include <cmath>
@@ -15,11 +13,14 @@
 #include <unordered_map>
 #include <vector>
 
+#include <TopExp.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
+
 namespace geoalgo
 {
 namespace
 {
-
 constexpr double kVertexMergeTol = 1e-3;
 
 struct QuantizedVertex
@@ -28,10 +29,7 @@ struct QuantizedVertex
 	long long y = 0;
 	long long z = 0;
 
-	bool operator==(const QuantizedVertex& other) const
-	{
-		return x == other.x && y == other.y && z == other.z;
-	}
+	bool operator==(const QuantizedVertex& other) const { return x == other.x && y == other.y && z == other.z; }
 };
 
 struct QuantizedVertexHash
@@ -48,10 +46,9 @@ struct QuantizedVertexHash
 QuantizedVertex quantizeVertex(const gp_Pnt& p)
 {
 	const double inv = 1.0 / kVertexMergeTol;
-	return QuantizedVertex{
-		static_cast<long long>(std::llround(p.X() * inv)),
-		static_cast<long long>(std::llround(p.Y() * inv)),
-		static_cast<long long>(std::llround(p.Z() * inv))};
+	return QuantizedVertex{static_cast<long long>(std::llround(p.X() * inv)),
+						   static_cast<long long>(std::llround(p.Y() * inv)),
+						   static_cast<long long>(std::llround(p.Z() * inv))};
 }
 
 class UnionFind
@@ -76,19 +73,14 @@ public:
 		}
 	}
 
-	void addNode()
-	{
-		parent.push_back(static_cast<int>(parent.size()));
-	}
+	void addNode() { parent.push_back(static_cast<int>(parent.size())); }
 
 private:
 	std::vector<int> parent;
 };
 
-FeatureDiscretizeInput makeInputFromEntry(
-	const FeatureListDocument& doc,
-	const FeatureEntry& entry,
-	const FeatureGeometry& geometryOverride)
+FeatureDiscretizeInput makeInputFromEntry(const FeatureListDocument& doc, const FeatureEntry& entry,
+										  const FeatureGeometry& geometryOverride)
 {
 	FeatureDiscretizeInput input{};
 	input.workpiece = doc.workpiece;
@@ -99,11 +91,8 @@ FeatureDiscretizeInput makeInputFromEntry(
 	return input;
 }
 
-bool discretizeWithStrategy(
-	const TopoDS_Shape& shape,
-	const FeatureDiscretizeInput& input,
-	RawPath& out,
-	std::string* errMsg)
+bool discretizeWithStrategy(const TopoDS_Shape& shape, const FeatureDiscretizeInput& input, RawPath& out,
+							std::string* errMsg)
 {
 	const IFeatureDiscretizer* discretizer = FeatureDiscretizerRegistry::instance().get(input.strategyId);
 	if (!discretizer)
@@ -128,9 +117,7 @@ bool discretizeWithStrategy(
 	return true;
 }
 
-std::vector<std::vector<int>> connectedEdgeComponents(
-	const TopoDS_Shape& shape,
-	const std::vector<int>& edgeIndices)
+std::vector<std::vector<int>> connectedEdgeComponents(const TopoDS_Shape& shape, const std::vector<int>& edgeIndices)
 {
 	std::vector<int> uniqueEdges = edgeIndices;
 	std::sort(uniqueEdges.begin(), uniqueEdges.end());
@@ -210,12 +197,8 @@ std::vector<int> unionEdgeIndices(const std::vector<FeatureEntry>& entries)
 	return edges;
 }
 
-bool processLineConnectivityGroup(
-	const FeatureListDocument& doc,
-	const TopoDS_Shape& shape,
-	const std::vector<FeatureEntry>& entries,
-	RawPath& out,
-	std::string* errMsg)
+bool processLineConnectivityGroup(const FeatureListDocument& doc, const TopoDS_Shape& shape,
+								  const std::vector<FeatureEntry>& entries, RawPath& out, std::string* errMsg)
 {
 	if (entries.empty())
 	{
@@ -237,12 +220,8 @@ bool processLineConnectivityGroup(
 	return true;
 }
 
-bool processFaceUnionGroup(
-	const FeatureListDocument& doc,
-	const TopoDS_Shape& shape,
-	const std::vector<FeatureEntry>& entries,
-	RawPath& out,
-	std::string* errMsg)
+bool processFaceUnionGroup(const FeatureListDocument& doc, const TopoDS_Shape& shape,
+						   const std::vector<FeatureEntry>& entries, RawPath& out, std::string* errMsg)
 {
 	if (entries.empty())
 	{
@@ -255,12 +234,8 @@ bool processFaceUnionGroup(
 	return discretizeWithStrategy(shape, input, out, errMsg);
 }
 
-bool processNonePolicyGroup(
-	const FeatureListDocument& doc,
-	const TopoDS_Shape& shape,
-	const std::vector<FeatureEntry>& entries,
-	RawPath& out,
-	std::string* errMsg)
+bool processNonePolicyGroup(const FeatureListDocument& doc, const TopoDS_Shape& shape,
+							const std::vector<FeatureEntry>& entries, RawPath& out, std::string* errMsg)
 {
 	for (const FeatureEntry& entry : entries)
 	{
@@ -273,13 +248,8 @@ bool processNonePolicyGroup(
 	return true;
 }
 
-bool processStrategyGroup(
-	const FeatureListDocument& doc,
-	const TopoDS_Shape& shape,
-	const std::string& strategyId,
-	const std::vector<FeatureEntry>& entries,
-	RawPath& out,
-	std::string* errMsg)
+bool processStrategyGroup(const FeatureListDocument& doc, const TopoDS_Shape& shape, const std::string& strategyId,
+						  const std::vector<FeatureEntry>& entries, RawPath& out, std::string* errMsg)
 {
 	const IFeatureDiscretizer* discretizer = FeatureDiscretizerRegistry::instance().get(strategyId);
 	if (!discretizer)
@@ -304,11 +274,8 @@ bool processStrategyGroup(
 
 } // namespace
 
-bool discretizeFeatureListInternal(
-	const FeatureListDocument& doc,
-	const TopoDS_Shape& shape,
-	RawPath& out,
-	std::string* errMsg)
+bool discretizeFeatureListInternal(const FeatureListDocument& doc, const TopoDS_Shape& shape, RawPath& out,
+								   std::string* errMsg)
 {
 	out = RawPath{};
 	if (doc.features.empty())

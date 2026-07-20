@@ -1,22 +1,23 @@
-#include "RobotSimulationMath.h"
+﻿/// @file RobotSimulationMathExports.cpp
+/// @brief RobotSimulationMathExports 实现
+
 #include "IRobotDocumentHost.h"
 #include "IRobotOsgViewHost.h"
 #include "RobotInstructionTransform.h"
 #include "RobotMatrixOsgBridge.h"
+#include "RobotSimulationMath.h"
 #include "UrdfRobotLoader.h"
+
+#include <QHash>
 
 #include <Adapters.h>
 #include <RigidTransform.h>
 #include <ToolKinematics.h>
 
-#include <QHash>
-
 namespace RobotSimulationMath
 {
-
-BackendMat4 toolMat4ForFrames(
-	const RobotCoordinate::RobotCoordinateFrameSet& frames,
-	const RobotInstruction::Base* instructionWithTool)
+BackendMat4 toolMat4ForFrames(const RobotCoordinate::RobotCoordinateFrameSet& frames,
+							  const RobotInstruction::Base* instructionWithTool)
 {
 	if (instructionWithTool)
 	{
@@ -29,15 +30,14 @@ BackendMat4 toolMat4ForFrames(
 	return BackendMat4::identity();
 }
 
-static std::string resolveFlangeLinkName(
-	const RobotCoordinate::RobotCoordinateFrameSet& frames,
-	const QString& fallbackFlangeLink,
-	const RobotInstruction::Base* instructionWithTool)
+static std::string resolveFlangeLinkName(const RobotCoordinate::RobotCoordinateFrameSet& frames,
+										 const QString& fallbackFlangeLink,
+										 const RobotInstruction::Base* instructionWithTool)
 {
 	if (instructionWithTool)
 	{
-		if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::resolveToolFrameForExtension(
-				frames, instructionWithTool->extensionProperties()))
+		if (const RobotCoordinate::RobotToolFrame* tool =
+				RobotCoordinate::resolveToolFrameForExtension(frames, instructionWithTool->extensionProperties()))
 		{
 			return RobotCoordinate::effectiveFlangeLinkName(frames, *tool);
 		}
@@ -53,14 +53,10 @@ static std::string resolveFlangeLinkName(
 	return fallbackFlangeLink.toStdString();
 }
 
-bool targetInBaseFromUrdfFlangeFk(
-	const QString& urdfPath,
-	const QVector<double>& jointQ,
-	const RobotCoordinate::RobotCoordinateFrameSet& frames,
-	const QString& fallbackFlangeLink,
-	BackendMat4& outTargetInBase,
-	const RobotInstruction::Base* instructionWithTool,
-	QString* outFlangeLinkName)
+bool targetInBaseFromUrdfFlangeFk(const QString& urdfPath, const QVector<double>& jointQ,
+								  const RobotCoordinate::RobotCoordinateFrameSet& frames,
+								  const QString& fallbackFlangeLink, BackendMat4& outTargetInBase,
+								  const RobotInstruction::Base* instructionWithTool, QString* outFlangeLinkName)
 {
 	const std::string flangeLink = resolveFlangeLinkName(frames, fallbackFlangeLink, instructionWithTool);
 	if (flangeLink.empty())
@@ -78,12 +74,9 @@ bool targetInBaseFromUrdfFlangeFk(
 		return false;
 	}
 	const BackendMat4 T_tool = toolMat4ForFrames(frames, instructionWithTool);
-	const engine::RigidTransform T_base_flange =
-		engine::rigidTransformFromOsg(linkWorld.value(flangeQ));
-	const engine::RigidTransform T_flange_tool =
-		RobotCoordinate::rigidTransformFromBackendMat4(T_tool);
-	const engine::RigidTransform T_base_target =
-		engine::toolOriginFromFlange(T_base_flange, T_flange_tool);
+	const engine::RigidTransform T_base_flange = engine::rigidTransformFromOsg(linkWorld.value(flangeQ));
+	const engine::RigidTransform T_flange_tool = RobotCoordinate::rigidTransformFromBackendMat4(T_tool);
+	const engine::RigidTransform T_base_target = engine::toolOriginFromFlange(T_base_flange, T_flange_tool);
 	outTargetInBase = RobotCoordinate::backendMat4FromRigidTransform(T_base_target);
 	if (outFlangeLinkName)
 	{
@@ -92,18 +85,14 @@ bool targetInBaseFromUrdfFlangeFk(
 	return true;
 }
 
-bool targetRigidTransformFromUrdfFlangeFk(
-	const QString& urdfPath,
-	const QVector<double>& jointQ,
-	const RobotCoordinate::RobotCoordinateFrameSet& frames,
-	const QString& fallbackFlangeLink,
-	engine::RigidTransform& outTargetInBase,
-	QString* outFlangeLinkName,
-	const RobotInstruction::Base* instructionWithTool)
+bool targetRigidTransformFromUrdfFlangeFk(const QString& urdfPath, const QVector<double>& jointQ,
+										  const RobotCoordinate::RobotCoordinateFrameSet& frames,
+										  const QString& fallbackFlangeLink, engine::RigidTransform& outTargetInBase,
+										  QString* outFlangeLinkName, const RobotInstruction::Base* instructionWithTool)
 {
 	BackendMat4 m;
-	if (!targetInBaseFromUrdfFlangeFk(
-			urdfPath, jointQ, frames, fallbackFlangeLink, m, instructionWithTool, outFlangeLinkName))
+	if (!targetInBaseFromUrdfFlangeFk(urdfPath, jointQ, frames, fallbackFlangeLink, m, instructionWithTool,
+									  outFlangeLinkName))
 	{
 		return false;
 	}
@@ -171,16 +160,13 @@ bool perLinkUsesWorldBakedMeshVertices(IRobotDocumentHost* doc, int instIdx)
 	return !slice.meshVerticesInLinkFrame;
 }
 
-QString urdfRootLinkBackendIdForInstance(
-	IRobotDocumentHost* doc,
-	int instIdx,
-	const QString& urdfPath,
-	const QString& fallbackBackendId)
+QString urdfRootLinkBackendIdForInstance(IRobotDocumentHost* doc, int instIdx, const QString& urdfPath,
+										 const QString& fallbackBackendId)
 {
 	QString rootLinkName;
 	QHash<QString, QString> linkMeshes;
-	if (UrdfRobotLoader::enumerateLinkVisualMeshes(urdfPath, rootLinkName, linkMeshes, nullptr)
-		&& !rootLinkName.isEmpty())
+	if (UrdfRobotLoader::enumerateLinkVisualMeshes(urdfPath, rootLinkName, linkMeshes, nullptr) &&
+		!rootLinkName.isEmpty())
 	{
 		const QString rootBackendId = linkMeshBackendIdForInstance(doc, instIdx, rootLinkName.toStdString());
 		if (!rootBackendId.isEmpty())
@@ -191,12 +177,8 @@ QString urdfRootLinkBackendIdForInstance(
 	return fallbackBackendId;
 }
 
-bool robotBaseWorldMatrixForInstance(
-	IRobotDocumentHost* doc,
-	IRobotOsgViewHost* osg,
-	int instIdx,
-	osg::Matrixd& outWorld,
-	const QVector<double>* jointAnglesRad)
+bool robotBaseWorldMatrixForInstance(IRobotDocumentHost* doc, IRobotOsgViewHost* osg, int instIdx,
+									 osg::Matrixd& outWorld, const QVector<double>* jointAnglesRad)
 {
 	(void)jointAnglesRad;
 	(void)osg;
@@ -238,13 +220,10 @@ bool robotBaseWorldMatrixForInstance(
 	return false;
 }
 
-bool tcpInBaseFromLinkWorldAndToolFrames(
-	const QHash<QString, osg::Matrixd>& linkWorldByName,
-	const RobotCoordinate::RobotCoordinateFrameSet& frames,
-	const QString& tcpLinkName,
-	osg::Matrixd& outTcpInBase,
-	QString& outFlangeLink,
-	const RobotInstruction::Base* instructionWithTool)
+bool tcpInBaseFromLinkWorldAndToolFrames(const QHash<QString, osg::Matrixd>& linkWorldByName,
+										 const RobotCoordinate::RobotCoordinateFrameSet& frames,
+										 const QString& tcpLinkName, osg::Matrixd& outTcpInBase, QString& outFlangeLink,
+										 const RobotInstruction::Base* instructionWithTool)
 {
 	const std::string flange = resolveFlangeLinkName(frames, tcpLinkName, instructionWithTool);
 	if (flange.empty())
@@ -263,11 +242,9 @@ bool tcpInBaseFromLinkWorldAndToolFrames(
 	return true;
 }
 
-BackendMat4 toolTcpInBaseFromFk(
-	const QString& urdfPath,
-	const QVector<double>& jointQ,
-	const RobotCoordinate::RobotCoordinateFrameSet& frames,
-	const RobotCoordinate::RobotToolFrame& tool)
+BackendMat4 toolTcpInBaseFromFk(const QString& urdfPath, const QVector<double>& jointQ,
+								const RobotCoordinate::RobotCoordinateFrameSet& frames,
+								const RobotCoordinate::RobotToolFrame& tool)
 {
 	BackendMat4 out = BackendMat4::identity();
 	const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, tool);
@@ -286,21 +263,15 @@ BackendMat4 toolTcpInBaseFromFk(
 		return out;
 	}
 	const BackendMat4 T_tool = RobotCoordinate::frameToMat4(tool.T_flange_tool);
-	const engine::RigidTransform T_base_flange =
-		engine::rigidTransformFromOsg(linkWorld.value(flangeQ));
-	const engine::RigidTransform T_flange_tool =
-		RobotCoordinate::rigidTransformFromBackendMat4(T_tool);
-	const engine::RigidTransform T_base_target =
-		engine::toolOriginFromFlange(T_base_flange, T_flange_tool);
+	const engine::RigidTransform T_base_flange = engine::rigidTransformFromOsg(linkWorld.value(flangeQ));
+	const engine::RigidTransform T_flange_tool = RobotCoordinate::rigidTransformFromBackendMat4(T_tool);
+	const engine::RigidTransform T_base_target = engine::toolOriginFromFlange(T_base_flange, T_flange_tool);
 	out = RobotCoordinate::backendMat4FromRigidTransform(T_base_target);
 	return out;
 }
 
-osg::Matrixd linkFrameLocalOnMeshBackend(
-	const QString& urdfPath,
-	const QString& linkName,
-	const osg::Matrixd& linkFrameLocal,
-	bool meshVerticesInLinkFrame)
+osg::Matrixd linkFrameLocalOnMeshBackend(const QString& urdfPath, const QString& linkName,
+										 const osg::Matrixd& linkFrameLocal, bool meshVerticesInLinkFrame)
 {
 	if (meshVerticesInLinkFrame || urdfPath.isEmpty() || linkName.isEmpty())
 	{
@@ -314,17 +285,11 @@ osg::Matrixd linkFrameLocalOnMeshBackend(
 	return linkFrameLocal * osg::Matrixd::inverse(meshToLink);
 }
 
-bool captureTcpFromSceneFlangeBackend(
-	IRobotDocumentHost* doc,
-	IRobotOsgViewHost* osg,
-	int instIdx,
-	const RobotCoordinate::RobotCoordinateFrameSet& frames,
-	const QString& fallbackFlangeLink,
-	const osg::Matrixd& robotBaseWorld,
-	osg::Matrixd& outTcpLocal,
-	osg::Matrixd& outTcpRenderWorld,
-	QString& outTcpLinkName,
-	QString& outTcpSource)
+bool captureTcpFromSceneFlangeBackend(IRobotDocumentHost* doc, IRobotOsgViewHost* osg, int instIdx,
+									  const RobotCoordinate::RobotCoordinateFrameSet& frames,
+									  const QString& fallbackFlangeLink, const osg::Matrixd& robotBaseWorld,
+									  osg::Matrixd& outTcpLocal, osg::Matrixd& outTcpRenderWorld,
+									  QString& outTcpLinkName, QString& outTcpSource)
 {
 	if (!doc || !osg)
 	{
@@ -346,8 +311,8 @@ bool captureTcpFromSceneFlangeBackend(
 		return false;
 	}
 	const BackendMat4 T_tool = toolMat4ForFrames(frames, nullptr);
-	const osg::Matrixd toolWorld = RobotMatrixOsg::matrixFromBackendColMajor(
-		RobotMatrixOsg::targetInBaseFromFlangeLinkWorld(flangeWorld, T_tool));
+	const osg::Matrixd toolWorld =
+		RobotMatrixOsg::matrixFromBackendColMajor(RobotMatrixOsg::targetInBaseFromFlangeLinkWorld(flangeWorld, T_tool));
 	osg::Matrixd invBase;
 	invBase.makeIdentity();
 	if (!robotBaseWorld.isIdentity())

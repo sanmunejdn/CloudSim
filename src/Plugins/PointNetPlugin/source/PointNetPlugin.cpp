@@ -1,3 +1,6 @@
+﻿/// @file PointNetPlugin.cpp
+/// @brief PointNetPlugin 实现
+
 #include "PointNetPlugin.h"
 
 #include "IAiAssistantHost.h"
@@ -5,11 +8,11 @@
 #include "PointNetDomainHandler.h"
 #include "PointNetInference.h"
 
-#include <json.hpp>
-
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+
+#include <json.hpp>
 
 PointNetPlugin::PointNetPlugin()
 {

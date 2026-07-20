@@ -1,3 +1,6 @@
+﻿/// @file RobotServiceAdapter.cpp
+/// @brief RobotServiceAdapter 实现
+
 #include "adapters/RobotServiceAdapter.h"
 
 #include "DocumentHost.h"
@@ -5,23 +8,22 @@
 #include "DocumentHostEvents.h"
 #include "IRobotInstructionPropertyDelegate.h"
 #include "IRobotUrdfImportContext.h"
+#include "OsgWidget.h"
 #include "RobotPlanInstruction.h"
 #include "RobotProgramJsonIo.h"
 #include "RobotProgramStore.h"
-#include "OsgWidget.h"
 #include "RobotSceneKinematics.h"
 #include "UrdfRobotImport.h"
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 RobotServiceAdapter::RobotServiceAdapter(DocumentHost& host, RobotProgramStore& programs)
-	: m_host(host)
-	, m_programs(programs)
+	: m_host(host), m_programs(programs)
 {
 }
 
 core::RobotRegistrationDto RobotServiceAdapter::registerUrdfRobot(const QString& urdfPath,
-	const core::ImportOptionsDto& options)
+																  const core::ImportOptionsDto& options)
 {
 	IRobotUrdfImportContext* ctx = m_host.robotUrdfImportContext();
 	if (!ctx)
@@ -37,7 +39,8 @@ core::RobotRegistrationDto RobotServiceAdapter::registerUrdfRobot(const QString&
 }
 
 bool RobotServiceAdapter::applyJointAnglesRad(const core::ObjectId& sceneRootBackendId,
-	const QVector<double>& jointAnglesRad, QVector<double>* outAggregated, QString* outError)
+											  const QVector<double>& jointAnglesRad, QVector<double>* outAggregated,
+											  QString* outError)
 {
 	IRobotUrdfImportContext* ctx = m_host.robotUrdfImportContext();
 	if (!ctx)
@@ -99,7 +102,8 @@ bool RobotServiceAdapter::applyJointAnglesRad(const core::ObjectId& sceneRootBac
 }
 
 bool RobotServiceAdapter::planInstruction(const core::MotionInstructionDto& instruction,
-	const core::PlanContextDto& context, core::PlanResultDto& out, QString* outError)
+										  const core::PlanContextDto& context, core::PlanResultDto& out,
+										  QString* outError)
 {
 	IRobotUrdfImportContext* ctx = m_host.robotUrdfImportContext();
 	if (!ctx)
@@ -151,7 +155,7 @@ QVector<core::PropertyRowDto> RobotServiceAdapter::instructionPropertyRows(const
 }
 
 bool RobotServiceAdapter::applyInstructionPropertyChange(const QString& instructionId, const QString& key,
-	const QString& value, QString* outError)
+														 const QString& value, QString* outError)
 {
 	IRobotInstructionPropertyDelegate* delegate = mutableInstructionDelegate(m_host);
 	if (!delegate)
@@ -166,15 +170,17 @@ bool RobotServiceAdapter::applyInstructionPropertyChange(const QString& instruct
 }
 
 QStringList RobotServiceAdapter::feasibleMotionAxisConfigTokens(const QString& instructionId,
-	const core::MotionInstructionDto& instruction, const core::PlanContextDto& context) const
+																const core::MotionInstructionDto& instruction,
+																const core::PlanContextDto& context) const
 {
 	(void)instruction;
 	(void)context;
 	return queryFeasibleMotionAxisOptions(instructionId, nullptr).presetTokens;
 }
 
-core::FeasibleMotionAxisOptionsDto RobotServiceAdapter::queryFeasibleMotionAxisOptions(const QString& instructionId,
-	QVector<double>* outSeedJointRad) const
+core::FeasibleMotionAxisOptionsDto
+RobotServiceAdapter::queryFeasibleMotionAxisOptions(const QString& instructionId,
+													QVector<double>* outSeedJointRad) const
 {
 	IRobotInstructionPropertyDelegate* delegate = mutableInstructionDelegate(m_host);
 	if (!delegate)

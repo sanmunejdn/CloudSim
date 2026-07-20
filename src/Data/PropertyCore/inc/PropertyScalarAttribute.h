@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef PROPERTYCORE_PROPERTYSCALARATTRIBUTE_H
+#define PROPERTYCORE_PROPERTYSCALARATTRIBUTE_H
+
+/// @file PropertyScalarAttribute.h
+/// @brief 标量属性行（bool/int/double/string）
 
 #include "PropertyAttributeHelpers.h"
 
@@ -6,7 +10,6 @@
 
 namespace property_core
 {
-
 /// 标量属性行（bool/int/double/string）
 template <typename TContext, typename TValue, typename TBase>
 class PropertyScalarAttribute : public TBase
@@ -17,19 +20,10 @@ public:
 	using SetterFn = void (*)(TContext&, const TValue&);
 	using AppendRowFn = void (*)(nlohmann::json&, const char*, const char*, bool, const std::string&);
 
-	PropertyScalarAttribute(
-		HasPropertyFn hasPropertyFn,
-		GetterFn getterFn,
-		SetterFn setterFn,
-		const char* key,
-		const char* label,
-		AppendRowFn appendRowFn)
-		: m_hasPropertyFn(hasPropertyFn)
-		, m_getterFn(getterFn)
-		, m_setterFn(setterFn)
-		, m_key(key)
-		, m_label(label)
-		, m_appendRowFn(appendRowFn)
+	PropertyScalarAttribute(HasPropertyFn hasPropertyFn, GetterFn getterFn, SetterFn setterFn, const char* key,
+							const char* label, AppendRowFn appendRowFn)
+		: m_hasPropertyFn(hasPropertyFn), m_getterFn(getterFn), m_setterFn(setterFn), m_key(key), m_label(label),
+		  m_appendRowFn(appendRowFn)
 	{
 	}
 
@@ -72,3 +66,5 @@ private:
 };
 
 } // namespace property_core
+
+#endif // PROPERTYCORE_PROPERTYSCALARATTRIBUTE_H

@@ -1,10 +1,12 @@
+﻿/// @file Adapters.cpp
+/// @brief Adapters 实现
+
 #include "Adapters.h"
 
 #include <cmath>
 
 namespace engine
 {
-
 namespace
 {
 constexpr double kPi = 3.14159265358979323846;

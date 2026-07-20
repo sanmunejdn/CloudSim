@@ -1,12 +1,14 @@
+﻿/// @file TrajectoryFeatureDomainHandler.cpp
+/// @brief TrajectoryFeatureDomainHandler 实现
+
 #include "Ai/TrajectoryFeatureDomainHandler.h"
 
 #include "AiDomainTypes.h"
 #include "GeometryRef.h"
 #include "IPluginHostContext.h"
 
-#include <json.hpp>
-
 #include <FeatureListDocument.h>
+#include <json.hpp>
 
 QString TrajectoryFeatureDomainHandler::domainId() const
 {
@@ -55,7 +57,8 @@ bool TrajectoryFeatureDomainHandler::validateOutput(const QByteArray& jsonUtf8, 
 	return true;
 }
 
-bool TrajectoryFeatureDomainHandler::adaptToActionPlan(const QByteArray& domainJson, QByteArray* outPlan, QString* err) const
+bool TrajectoryFeatureDomainHandler::adaptToActionPlan(const QByteArray& domainJson, QByteArray* outPlan,
+													   QString* err) const
 {
 	(void)err;
 	nlohmann::json j;
@@ -88,12 +91,8 @@ bool TrajectoryFeatureDomainHandler::adaptToActionPlan(const QByteArray& domainJ
 	return true;
 }
 
-bool TrajectoryFeatureDomainHandler::execute(
-	const QByteArray& jsonUtf8,
-	IPluginHostContext* host,
-	IAiAssistantHost* aiHost,
-	QString* summary,
-	QString* err)
+bool TrajectoryFeatureDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHostContext* host,
+											 IAiAssistantHost* aiHost, QString* summary, QString* err)
 {
 	(void)host;
 	(void)aiHost;

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_FEATUREDISCRETIZERCONFIGIMPL_H
+#define GEOMETRYALGORITHM_FEATUREDISCRETIZERCONFIGIMPL_H
+
+/// @file FeatureDiscretizerConfigImpl.h
+/// @brief FeatureDiscretizerConfigImpl 接口
 
 #include "IFeatureDiscretizerConfig.h"
 
@@ -7,7 +11,6 @@
 
 namespace geoalgo
 {
-
 class FeatureDiscretizerConfigImpl final : public IFeatureDiscretizerConfig
 {
 public:
@@ -23,8 +26,9 @@ private:
 	std::string m_jsonRelativePath;
 };
 
-GEOMETRY_ALGORITHM_API std::unique_ptr<IFeatureDiscretizerConfig> makeFeatureDiscretizerConfig(
-	const char* strategyId,
-	const char* jsonRelativePath);
+GEOMETRY_ALGORITHM_API std::unique_ptr<IFeatureDiscretizerConfig>
+makeFeatureDiscretizerConfig(const char* strategyId, const char* jsonRelativePath);
 
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_FEATUREDISCRETIZERCONFIGIMPL_H

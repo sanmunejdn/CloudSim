@@ -1,15 +1,10 @@
-#include "spare/SpareSurface.h"
+﻿/// @file SpareSurfaceBuild.cpp
+/// @brief SpareSurfaceBuild 实现
 
 #include "KdTreePointSet.h"
 #include "PointCloudBuffer.h"
 #include "Preprocess.h"
-
-#include <CGAL/Polygon_mesh_processing/compute_normal.h>
-#include <CGAL/Polygon_mesh_processing/orient_polygon_soup.h>
-#include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
-#include <CGAL/Polygon_mesh_processing/repair_polygon_soup.h>
-#include <CGAL/Simple_cartesian.h>
-#include <CGAL/Surface_mesh.h>
+#include "spare/SpareSurface.h"
 
 #include <algorithm>
 #include <cmath>
@@ -19,14 +14,19 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include <CGAL/Polygon_mesh_processing/compute_normal.h>
+#include <CGAL/Polygon_mesh_processing/orient_polygon_soup.h>
+#include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
+#include <CGAL/Polygon_mesh_processing/repair_polygon_soup.h>
+#include <CGAL/Simple_cartesian.h>
+#include <CGAL/Surface_mesh.h>
+
 namespace pclalgo
 {
 namespace spare
 {
-
 namespace
 {
-
 using CgalKernel = CGAL::Simple_cartesian<double>;
 using CgalPoint = CgalKernel::Point_3;
 using CgalMesh = CGAL::Surface_mesh<CgalPoint>;
@@ -48,11 +48,11 @@ bool soupToCgalMesh(const std::vector<float>& soup, CgalMesh& mesh, std::string*
 		return false;
 	}
 
-	auto quantKey = [](const CgalPoint& p) {
-		return std::make_tuple(
-			static_cast<long long>(std::llround(p.x() / 1e-4)),
-			static_cast<long long>(std::llround(p.y() / 1e-4)),
-			static_cast<long long>(std::llround(p.z() / 1e-4)));
+	auto quantKey = [](const CgalPoint& p)
+	{
+		return std::make_tuple(static_cast<long long>(std::llround(p.x() / 1e-4)),
+							   static_cast<long long>(std::llround(p.y() / 1e-4)),
+							   static_cast<long long>(std::llround(p.z() / 1e-4)));
 	};
 
 	std::map<std::tuple<long long, long long, long long>, std::size_t> pointIndex;
@@ -61,7 +61,8 @@ bool soupToCgalMesh(const std::vector<float>& soup, CgalMesh& mesh, std::string*
 	points.reserve(soup.size() / 3U);
 	polygons.reserve(soup.size() / 9U);
 
-	auto vertexIndex = [&](const CgalPoint& p) -> std::size_t {
+	auto vertexIndex = [&](const CgalPoint& p) -> std::size_t
+	{
 		const auto key = quantKey(p);
 		const auto it = pointIndex.find(key);
 		if (it != pointIndex.end())
@@ -196,13 +197,8 @@ void populateKnnNeighbors(SpareSurface& surface, const unsigned int k)
 	std::vector<double> distSq;
 	for (std::size_t i = 0; i < n; ++i)
 	{
-		tree.findKNearest(
-			surface.positions[i].x(),
-			surface.positions[i].y(),
-			surface.positions[i].z(),
-			k + 1U,
-			indices,
-			distSq);
+		tree.findKNearest(surface.positions[i].x(), surface.positions[i].y(), surface.positions[i].z(), k + 1U, indices,
+						  distSq);
 		for (std::size_t j = 0; j < indices.size(); ++j)
 		{
 			if (indices[j] != i)
@@ -215,12 +211,8 @@ void populateKnnNeighbors(SpareSurface& surface, const unsigned int k)
 
 } // namespace
 
-bool buildSpareSurfaceFromXyz(
-	SpareSurface& out,
-	const std::vector<float>& xyz,
-	const std::vector<float>* normals,
-	const bool buildKnnGraph,
-	std::string* errMsg)
+bool buildSpareSurfaceFromXyz(SpareSurface& out, const std::vector<float>& xyz, const std::vector<float>* normals,
+							  const bool buildKnnGraph, std::string* errMsg)
 {
 	if (!validXyzLength(xyz))
 	{
@@ -272,10 +264,7 @@ bool buildSpareSurfaceFromXyz(
 	return true;
 }
 
-bool buildSpareSurfaceFromMeshSoup(
-	SpareSurface& out,
-	const std::vector<float>& triangleSoup,
-	std::string* errMsg)
+bool buildSpareSurfaceFromMeshSoup(SpareSurface& out, const std::vector<float>& triangleSoup, std::string* errMsg)
 {
 	CgalMesh mesh;
 	if (!soupToCgalMesh(triangleSoup, mesh, errMsg))
@@ -285,28 +274,23 @@ bool buildSpareSurfaceFromMeshSoup(
 	buildMeshTopology(out, mesh);
 
 	out.soupCornerToVertex.assign(triangleSoup.size() / 3U, -1);
-	auto quantKey = [](const float x, const float y, const float z) {
-		return std::make_tuple(
-			static_cast<long long>(std::llround(x / 1e-4f)),
-			static_cast<long long>(std::llround(y / 1e-4f)),
-			static_cast<long long>(std::llround(z / 1e-4f)));
+	auto quantKey = [](const float x, const float y, const float z)
+	{
+		return std::make_tuple(static_cast<long long>(std::llround(x / 1e-4f)),
+							   static_cast<long long>(std::llround(y / 1e-4f)),
+							   static_cast<long long>(std::llround(z / 1e-4f)));
 	};
 	std::map<std::tuple<long long, long long, long long>, int> weldedToSurface;
 	for (std::size_t i = 0; i < out.vertexCount(); ++i)
 	{
-		const auto key = quantKey(
-			static_cast<float>(out.positions[i].x()),
-			static_cast<float>(out.positions[i].y()),
-			static_cast<float>(out.positions[i].z()));
+		const auto key = quantKey(static_cast<float>(out.positions[i].x()), static_cast<float>(out.positions[i].y()),
+								  static_cast<float>(out.positions[i].z()));
 		weldedToSurface[key] = static_cast<int>(i);
 	}
 	for (std::size_t corner = 0; corner < out.soupCornerToVertex.size(); ++corner)
 	{
 		const std::size_t b = corner * 3U;
-		const auto key = quantKey(
-			triangleSoup[b],
-			triangleSoup[b + 1U],
-			triangleSoup[b + 2U]);
+		const auto key = quantKey(triangleSoup[b], triangleSoup[b + 1U], triangleSoup[b + 2U]);
 		const auto it = weldedToSurface.find(key);
 		if (it != weldedToSurface.end())
 		{
@@ -361,10 +345,7 @@ bool ensureSpareSurfaceNormals(SpareSurface& surface, std::string* errMsg)
 	return true;
 }
 
-void spareSurfaceToXyz(
-	const SpareSurface& surface,
-	std::vector<float>& xyzOut,
-	std::vector<float>& normalsOut)
+void spareSurfaceToXyz(const SpareSurface& surface, std::vector<float>& xyzOut, std::vector<float>& normalsOut)
 {
 	const std::size_t n = surface.vertexCount();
 	xyzOut.resize(n * 3U);
@@ -381,10 +362,8 @@ void spareSurfaceToXyz(
 	}
 }
 
-void spareSurfaceToMeshSoup(
-	const SpareSurface& surface,
-	const std::vector<float>& originalSoup,
-	std::vector<float>& soupOut)
+void spareSurfaceToMeshSoup(const SpareSurface& surface, const std::vector<float>& originalSoup,
+							std::vector<float>& soupOut)
 {
 	soupOut = originalSoup;
 	if (surface.soupCornerToVertex.size() != originalSoup.size() / 3U)

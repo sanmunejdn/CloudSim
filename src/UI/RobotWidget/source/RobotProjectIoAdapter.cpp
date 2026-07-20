@@ -1,4 +1,8 @@
+﻿/// @file RobotProjectIoAdapter.cpp
+/// @brief RobotProjectIoAdapter 实现
+
 #include "RobotProjectIoAdapter.h"
+
 #include "IRobotDocumentHost.h"
 #include "RobotInstructionFactory.h"
 #include "RobotProgramStore.h"
@@ -9,11 +13,7 @@
 
 namespace RobotProjectIo
 {
-
-void writeRobotKinematics(
-	QJsonObject& root,
-	IRobotDocumentHost* doc,
-	const QVector<double>* aggregatedJointAnglesRad)
+void writeRobotKinematics(QJsonObject& root, IRobotDocumentHost* doc, const QVector<double>* aggregatedJointAnglesRad)
 {
 	if (!doc)
 	{
@@ -88,8 +88,8 @@ void writeRobotKinematics(
 			root.insert(QStringLiteral("robotKinematicsInstances"), robotsArr);
 		}
 	}
-	if (root.value(QStringLiteral("robotKinematicsInstances")).isUndefined()
-		&& !doc->robotLinkNameToBackendId().isEmpty())
+	if (root.value(QStringLiteral("robotKinematicsInstances")).isUndefined() &&
+		!doc->robotLinkNameToBackendId().isEmpty())
 	{
 		QJsonObject rk;
 		rk.insert(QStringLiteral("mode"), QStringLiteral("perLink"));
@@ -109,10 +109,8 @@ void writeRobotKinematics(
 	}
 }
 
-void loadRobotPrograms(
-	const QJsonObject& root,
-	IRobotDocumentHost* doc,
-	const std::function<void(const QString&)>& appendWarning)
+void loadRobotPrograms(const QJsonObject& root, IRobotDocumentHost* doc,
+					   const std::function<void(const QString&)>& appendWarning)
 {
 	if (!doc)
 	{
@@ -135,8 +133,7 @@ void loadRobotPrograms(
 		{
 			if (appendWarning)
 			{
-				appendWarning(
-					QStringLiteral("robotPrograms: unknown sceneBackendId %1").arg(sceneBackendId));
+				appendWarning(QStringLiteral("robotPrograms: unknown sceneBackendId %1").arg(sceneBackendId));
 			}
 			continue;
 		}
@@ -162,4 +159,4 @@ void loadRobotPrograms(
 	}
 }
 
-}
+} // namespace RobotProjectIo

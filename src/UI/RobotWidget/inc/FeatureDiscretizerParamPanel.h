@@ -1,17 +1,19 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_FEATUREDISCRETIZERPARAMPANEL_H
+#define ROBOTWIDGET_FEATUREDISCRETIZERPARAMPANEL_H
+
+/// @file FeatureDiscretizerParamPanel.h
+/// @brief FeatureDiscretizerParamPanel 接口
 
 #include "robotwidget_global.h"
 
-#include <FeatureListDocument.h>
-#include <TrajectoryOpParamSchema.h>
-
-#include <json.hpp>
-
 #include <QWidget>
-
 #include <functional>
 #include <string>
 #include <vector>
+
+#include <FeatureListDocument.h>
+#include <TrajectoryOpParamSchema.h>
+#include <json.hpp>
 
 class QLabel;
 class QFormLayout;
@@ -49,18 +51,13 @@ private:
 	};
 
 	void clearRows();
-	static trajectory_algo::TrajectoryOpParamField toTrajectoryField(
-		const geoalgo::FeatureDiscretizerParamField& field);
-	static nlohmann::json defaultParamsFromFields(
-		const std::vector<geoalgo::FeatureDiscretizerParamField>& fields);
-	static void writeJsonValue(
-		nlohmann::json& params,
-		const geoalgo::FeatureDiscretizerParamField& field,
-		const trajectory_algo::TrajectoryParamValue& value);
-	static bool readJsonValue(
-		const nlohmann::json& params,
-		const geoalgo::FeatureDiscretizerParamField& field,
-		trajectory_algo::TrajectoryParamValue& out);
+	static trajectory_algo::TrajectoryOpParamField
+	toTrajectoryField(const geoalgo::FeatureDiscretizerParamField& field);
+	static nlohmann::json defaultParamsFromFields(const std::vector<geoalgo::FeatureDiscretizerParamField>& fields);
+	static void writeJsonValue(nlohmann::json& params, const geoalgo::FeatureDiscretizerParamField& field,
+							   const trajectory_algo::TrajectoryParamValue& value);
+	static bool readJsonValue(const nlohmann::json& params, const geoalgo::FeatureDiscretizerParamField& field,
+							  trajectory_algo::TrajectoryParamValue& out);
 
 	bool m_useChinese = true;
 	bool m_loading = false;
@@ -70,3 +67,5 @@ private:
 	QFormLayout* m_form = nullptr;
 	std::vector<ParamBinding> m_rows;
 };
+
+#endif // ROBOTWIDGET_FEATUREDISCRETIZERPARAMPANEL_H

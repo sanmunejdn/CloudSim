@@ -1,39 +1,27 @@
+﻿/// @file AiActionPlanExecutor.cpp
+/// @brief AiActionPlanExecutor 实现
+
 #include "Ai/AiActionPlanExecutor.h"
 
-
-
 #include "Ai/AiMeshDefaults.h"
-
 #include "AiCommandSchema.h"
-
 #include "PluginHostContext.h"
-
 #include "PluginPrimitiveTypes.h"
 
-
-
-#include <json.hpp>
-
-
-
 #include <QHash>
-
 #include <QString>
 
-
+#include <json.hpp>
 
 namespace
 
 {
-
 PluginPrimitiveKind toPluginKind(BackendPrimitiveGeometry::PrimitiveKind k)
 
 {
-
 	switch (k)
 
 	{
-
 	case BackendPrimitiveGeometry::PrimitiveKind::Box:
 
 		return PluginPrimitiveKind::Box;
@@ -49,31 +37,23 @@ PluginPrimitiveKind toPluginKind(BackendPrimitiveGeometry::PrimitiveKind k)
 	case BackendPrimitiveGeometry::PrimitiveKind::Sphere:
 
 		return PluginPrimitiveKind::Sphere;
-
 	}
 
 	return PluginPrimitiveKind::Box;
-
 }
-
-
 
 struct AiPlanStepContext
 
 {
-
 	bool ephemeralCompose = false;
 
 	QHash<QString, QString> stepIdToBackendId;
 
 	QHash<QString, std::vector<float>> stepIdToWorldSoup;
 
-
-
 	QString resolveBackendRef(const std::string& ref) const
 
 	{
-
 		if (ref.empty())
 
 			return {};
@@ -83,15 +63,11 @@ struct AiPlanStepContext
 			return stepIdToBackendId.value(QString::fromStdString(ref.substr(1)));
 
 		return QString::fromStdString(ref);
-
 	}
-
-
 
 	const std::vector<float>* resolveWorldSoupRef(const std::string& ref) const
 
 	{
-
 		if (ref.empty())
 
 			return nullptr;
@@ -113,17 +89,12 @@ struct AiPlanStepContext
 			return nullptr;
 
 		return &(*it);
-
 	}
-
 };
-
-
 
 PluginMeshBooleanOp parseBooleanOp(const std::string& op)
 
 {
-
 	if (op == "union")
 
 		return PluginMeshBooleanOp::Union;
@@ -133,17 +104,14 @@ PluginMeshBooleanOp parseBooleanOp(const std::string& op)
 		return PluginMeshBooleanOp::Intersection;
 
 	return PluginMeshBooleanOp::Difference;
-
 }
-
-
 
 bool parseCreateMeshCommandToPlugin(const nlohmann::json& cmdIn, PluginPrimitiveMeshParams& pp,
 
-	PluginPrimitiveMeshQuality& pq, PluginMeshCreateOptions& opt, QString* outError, QString* outSummaryExtra = nullptr)
+									PluginPrimitiveMeshQuality& pq, PluginMeshCreateOptions& opt, QString* outError,
+									QString* outSummaryExtra = nullptr)
 
 {
-
 	nlohmann::json cmd = cmdIn;
 
 	bool usedDefaults = false;
@@ -153,8 +121,6 @@ bool parseCreateMeshCommandToPlugin(const nlohmann::json& cmdIn, PluginPrimitive
 	if (outSummaryExtra && usedDefaults)
 
 		*outSummaryExtra = AiMeshDefaults::defaultsAppliedNote(cmd, true);
-
-
 
 	BackendPrimitiveGeometry::PrimitiveMeshParams params;
 
@@ -169,13 +135,11 @@ bool parseCreateMeshCommandToPlugin(const nlohmann::json& cmdIn, PluginPrimitive
 	if (!AiCommandSchema::parseCreateMeshCommand(cmd, params, quality, displayName, sourcePath, errStd))
 
 	{
-
 		if (outError)
 
 			*outError = QString::fromStdString(errStd);
 
 		return false;
-
 	}
 
 	pp.kind = toPluginKind(params.kind);
@@ -205,7 +169,6 @@ bool parseCreateMeshCommandToPlugin(const nlohmann::json& cmdIn, PluginPrimitive
 	if (cmd.contains("pose_mm") && cmd["pose_mm"].is_object())
 
 	{
-
 		const auto& p = cmd["pose_mm"];
 
 		opt.poseMm.x = p.value("x", 0.0);
@@ -213,13 +176,11 @@ bool parseCreateMeshCommandToPlugin(const nlohmann::json& cmdIn, PluginPrimitive
 		opt.poseMm.y = p.value("y", 0.0);
 
 		opt.poseMm.z = p.value("z", 0.0);
-
 	}
 
 	if (cmd.contains("rotation_deg") && cmd["rotation_deg"].is_object())
 
 	{
-
 		const auto& r = cmd["rotation_deg"];
 
 		opt.rotationDeg.x = r.value("x", 0.0);
@@ -227,21 +188,16 @@ bool parseCreateMeshCommandToPlugin(const nlohmann::json& cmdIn, PluginPrimitive
 		opt.rotationDeg.y = r.value("y", 0.0);
 
 		opt.rotationDeg.z = r.value("z", 0.0);
-
 	}
 
 	return true;
-
 }
-
-
 
 bool executeCreateMeshStep(PluginHostContext& host, const nlohmann::json& cmdIn, QString* outError,
 
-	QString* outBackendId, QString* outSummaryExtra = nullptr)
+						   QString* outBackendId, QString* outSummaryExtra = nullptr)
 
 {
-
 	PluginPrimitiveMeshParams pp;
 
 	PluginPrimitiveMeshQuality pq;
@@ -253,15 +209,11 @@ bool executeCreateMeshStep(PluginHostContext& host, const nlohmann::json& cmdIn,
 		return false;
 
 	return host.createPrimitiveMesh(pp, pq, opt, outError, outBackendId);
-
 }
-
-
 
 bool planUsesEphemeralCompose(const nlohmann::json& root)
 
 {
-
 	if (root.value("version", 0) != 2 || !root.contains("steps") || !root["steps"].is_array())
 
 		return false;
@@ -269,35 +221,27 @@ bool planUsesEphemeralCompose(const nlohmann::json& root)
 	for (const auto& step : root["steps"])
 
 	{
-
 		if (step.is_object() && step.value("api", "") == "booleanMesh")
 
 			return true;
-
 	}
 
 	return false;
-
 }
-
-
 
 bool executeStep(PluginHostContext& host, const nlohmann::json& step, AiPlanStepContext& ctx, QString* outError)
 
 {
-
 	const std::string api = step.value("api", "");
 
-	const nlohmann::json args = step.contains("args") && step["args"].is_object() ? step["args"] : nlohmann::json::object();
+	const nlohmann::json args =
+		step.contains("args") && step["args"].is_object() ? step["args"] : nlohmann::json::object();
 
 	const std::string stepId = step.value("id", "");
-
-
 
 	if (api == "createPrimitiveMesh")
 
 	{
-
 		nlohmann::json cmd;
 
 		cmd["version"] = 1;
@@ -328,12 +272,9 @@ bool executeStep(PluginHostContext& host, const nlohmann::json& step, AiPlanStep
 
 		AiMeshDefaults::applyMissingDimensions(cmd);
 
-
-
 		if (ctx.ephemeralCompose)
 
 		{
-
 			PluginPrimitiveMeshParams pp;
 
 			PluginPrimitiveMeshQuality pq;
@@ -355,10 +296,7 @@ bool executeStep(PluginHostContext& host, const nlohmann::json& step, AiPlanStep
 				ctx.stepIdToWorldSoup[QString::fromStdString(stepId)] = std::move(worldSoup);
 
 			return true;
-
 		}
-
-
 
 		QString backendId;
 
@@ -371,13 +309,11 @@ bool executeStep(PluginHostContext& host, const nlohmann::json& step, AiPlanStep
 			ctx.stepIdToBackendId[QString::fromStdString(stepId)] = backendId;
 
 		return true;
-
 	}
 
 	if (api == "booleanMesh")
 
 	{
-
 		PluginBooleanMeshOptions opt;
 
 		opt.op = parseBooleanOp(args.value("op", "difference"));
@@ -392,12 +328,9 @@ bool executeStep(PluginHostContext& host, const nlohmann::json& step, AiPlanStep
 
 		opt.resetViewToHome = args.value("reset_view", false);
 
-
-
 		if (ctx.ephemeralCompose)
 
 		{
-
 			const std::vector<float>* targetSoup = ctx.resolveWorldSoupRef(args.value("target", ""));
 
 			const std::vector<float>* toolSoup = ctx.resolveWorldSoupRef(args.value("tool", ""));
@@ -405,13 +338,11 @@ bool executeStep(PluginHostContext& host, const nlohmann::json& step, AiPlanStep
 			if (!targetSoup || !toolSoup)
 
 			{
-
 				if (outError)
 
 					*outError = QStringLiteral("booleanMesh: invalid target/tool step reference.");
 
 				return false;
-
 			}
 
 			std::string resultBackendId;
@@ -425,10 +356,7 @@ bool executeStep(PluginHostContext& host, const nlohmann::json& step, AiPlanStep
 				ctx.stepIdToBackendId[QString::fromStdString(stepId)] = QString::fromStdString(resultBackendId);
 
 			return true;
-
 		}
-
-
 
 		const QString targetId = ctx.resolveBackendRef(args.value("target", ""));
 
@@ -437,13 +365,11 @@ bool executeStep(PluginHostContext& host, const nlohmann::json& step, AiPlanStep
 		if (targetId.isEmpty() || toolId.isEmpty())
 
 		{
-
 			if (outError)
 
 				*outError = QStringLiteral("booleanMesh: invalid target/tool reference.");
 
 			return false;
-
 		}
 
 		std::string resultBackendId;
@@ -457,25 +383,21 @@ bool executeStep(PluginHostContext& host, const nlohmann::json& step, AiPlanStep
 			ctx.stepIdToBackendId[QString::fromStdString(stepId)] = QString::fromStdString(resultBackendId);
 
 		return true;
-
 	}
 
 	if (api == "importFileIntoActiveDocument")
 
 	{
-
 		const std::string path = args.value("path", "");
 
 		if (path.empty())
 
 		{
-
 			if (outError)
 
 				*outError = QStringLiteral("importFileIntoActiveDocument: path required.");
 
 			return false;
-
 		}
 
 		const bool isPc = args.value("is_point_cloud", false);
@@ -487,13 +409,11 @@ bool executeStep(PluginHostContext& host, const nlohmann::json& step, AiPlanStep
 		if (id.empty())
 
 		{
-
 			if (outError)
 
 				*outError = QString::fromStdString(err);
 
 			return false;
-
 		}
 
 		if (!stepId.empty())
@@ -501,7 +421,6 @@ bool executeStep(PluginHostContext& host, const nlohmann::json& step, AiPlanStep
 			ctx.stepIdToBackendId[QString::fromStdString(stepId)] = QString::fromStdString(id);
 
 		return true;
-
 	}
 
 	if (outError)
@@ -509,21 +428,16 @@ bool executeStep(PluginHostContext& host, const nlohmann::json& step, AiPlanStep
 		*outError = QStringLiteral("Unknown API: %1").arg(QString::fromStdString(api));
 
 	return false;
-
 }
 
-}
-
-
+} // namespace
 
 namespace AiActionPlanExecutor
 
 {
-
 bool execute(const PluginHostContext& host, const QByteArray& planJsonUtf8, QString* outSummary, QString* outError)
 
 {
-
 	if (outSummary)
 
 		outSummary->clear();
@@ -532,40 +446,29 @@ bool execute(const PluginHostContext& host, const QByteArray& planJsonUtf8, QStr
 
 		outError->clear();
 
-
-
 	nlohmann::json root;
 
 	try
 
 	{
-
 		root = nlohmann::json::parse(planJsonUtf8.constData(), nullptr, true);
-
 	}
 
 	catch (...)
 
 	{
-
 		if (outError)
 
 			*outError = QStringLiteral("Invalid action plan JSON.");
 
 		return false;
-
 	}
 
-
-
 	PluginHostContext& mutableHost = const_cast<PluginHostContext&>(host);
-
-
 
 	if (root.contains("action") && root.value("action", "") == "create_mesh")
 
 	{
-
 		QString err;
 
 		QString extra;
@@ -575,19 +478,16 @@ bool execute(const PluginHostContext& host, const QByteArray& planJsonUtf8, QStr
 		if (!executeCreateMeshStep(mutableHost, root, &err, &backendId, &extra))
 
 		{
-
 			if (outError)
 
 				*outError = err;
 
 			return false;
-
 		}
 
 		if (outSummary)
 
 		{
-
 			nlohmann::json summaryCmd = root;
 
 			AiMeshDefaults::applyMissingDimensions(summaryCmd);
@@ -603,30 +503,22 @@ bool execute(const PluginHostContext& host, const QByteArray& planJsonUtf8, QStr
 			if (!extra.isEmpty())
 
 				*outSummary += QStringLiteral("\n") + extra;
-
 		}
 
 		return true;
-
 	}
-
-
 
 	const int ver = root.value("version", 0);
 
 	if (ver != 2 || !root.contains("steps") || !root["steps"].is_array())
 
 	{
-
 		if (outError)
 
 			*outError = QStringLiteral("Expected action plan version 2 with steps[].");
 
 		return false;
-
 	}
-
-
 
 	AiPlanStepContext ctx;
 
@@ -637,29 +529,24 @@ bool execute(const PluginHostContext& host, const QByteArray& planJsonUtf8, QStr
 	for (const auto& step : root["steps"])
 
 	{
-
 		QString err;
 
 		if (!executeStep(mutableHost, step, ctx, &err))
 
 		{
-
 			if (outError)
 
 				*outError = QStringLiteral("Step %1 failed: %2").arg(okCount).arg(err);
 
 			return false;
-
 		}
 
 		++okCount;
-
 	}
 
 	if (outSummary)
 
 	{
-
 		if (ctx.ephemeralCompose)
 
 			*outSummary = QStringLiteral("已执行 %1 个步骤（布尔多步编排，仅注册最终结果）。").arg(okCount);
@@ -667,13 +554,9 @@ bool execute(const PluginHostContext& host, const QByteArray& planJsonUtf8, QStr
 		else
 
 			*outSummary = QStringLiteral("已执行 %1 个步骤（布尔多步编排）。").arg(okCount);
-
 	}
 
 	return true;
-
 }
 
-}
-
-
+} // namespace AiActionPlanExecutor

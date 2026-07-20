@@ -1,10 +1,12 @@
+﻿/// @file MeshSectionPlaneEditOperation.cpp
+/// @brief MeshSectionPlaneEditOperation 实现
+
 #include "MeshSectionPlaneEditOperation.h"
 
 #include "OsgWidget.h"
 
 #include <QEvent>
 #include <QMouseEvent>
-
 #include <algorithm>
 #include <cmath>
 
@@ -30,12 +32,8 @@ int dragAxisToIndex(const OsgWidget::DragAxis axis)
 	}
 }
 
-bool rayPlaneIntersect(
-	const osg::Vec3d& rayOrigin,
-	const osg::Vec3d& rayDirUnit,
-	const osg::Vec3d& planePoint,
-	const osg::Vec3d& planeNormalUnit,
-	osg::Vec3d& outHit)
+bool rayPlaneIntersect(const osg::Vec3d& rayOrigin, const osg::Vec3d& rayDirUnit, const osg::Vec3d& planePoint,
+					   const osg::Vec3d& planeNormalUnit, osg::Vec3d& outHit)
 {
 	const double denom = rayDirUnit * planeNormalUnit;
 	if (std::abs(denom) < 1e-10)
@@ -53,10 +51,7 @@ bool rayPlaneIntersect(
 
 } // namespace
 
-MeshSectionPlaneEditOperation::MeshSectionPlaneEditOperation(OsgWidget* owner)
-	: SelectionOperation(owner)
-{
-}
+MeshSectionPlaneEditOperation::MeshSectionPlaneEditOperation(OsgWidget* owner) : SelectionOperation(owner) {}
 
 bool MeshSectionPlaneEditOperation::handleEvent(QObject* watched, QEvent* event)
 {
@@ -114,11 +109,8 @@ bool MeshSectionPlaneEditOperation::handleEvent(QObject* watched, QEvent* event)
 			m_owner->m_sectionPlaneRotatePivotWorld = pivot;
 			osg::Vec3d eye;
 			osg::Vec3d dir;
-			if (m_owner->computeCameraScreenRayWorld(
-					static_cast<double>(mouseEvent->pos().x()),
-					static_cast<double>(mouseEvent->pos().y()),
-					eye,
-					dir))
+			if (m_owner->computeCameraScreenRayWorld(static_cast<double>(mouseEvent->pos().x()),
+													 static_cast<double>(mouseEvent->pos().y()), eye, dir))
 			{
 				osg::Vec3d axisW;
 				(void)m_owner->meshSectionPlaneCompassUnitAxisWorld(m_owner->m_sectionPlaneDragAxis, axisW);
@@ -139,8 +131,8 @@ bool MeshSectionPlaneEditOperation::handleEvent(QObject* watched, QEvent* event)
 		return false;
 	}
 
-	if (event->type() == QEvent::MouseMove
-		&& (m_owner->m_sectionPlaneDragging || m_owner->m_sectionPlaneRotating || m_owner->m_sectionPlanePlaneDragging))
+	if (event->type() == QEvent::MouseMove &&
+		(m_owner->m_sectionPlaneDragging || m_owner->m_sectionPlaneRotating || m_owner->m_sectionPlanePlaneDragging))
 	{
 		auto* mouseEvent = static_cast<QMouseEvent*>(event);
 		const QPoint pos = mouseEvent->pos();
@@ -149,9 +141,7 @@ bool MeshSectionPlaneEditOperation::handleEvent(QObject* watched, QEvent* event)
 			osg::Vec3d hitWorld;
 			if (m_owner->pickMeshSectionPlaneDragPoint(pos, hitWorld))
 			{
-				m_owner->applyMeshSectionPlaneTranslationWorld(
-					hitWorld,
-					m_owner->m_sectionPlaneDragLastHitWorld);
+				m_owner->applyMeshSectionPlaneTranslationWorld(hitWorld, m_owner->m_sectionPlaneDragLastHitWorld);
 				m_owner->m_sectionPlaneDragLastHitWorld = hitWorld;
 				m_owner->notifyMeshSectionPlaneChanged();
 			}
@@ -177,7 +167,8 @@ bool MeshSectionPlaneEditOperation::handleEvent(QObject* watched, QEvent* event)
 			osg::Vec3d eye;
 			osg::Vec3d dir;
 			double deltaRad = 0.0;
-			if (m_owner->computeCameraScreenRayWorld(static_cast<double>(pos.x()), static_cast<double>(pos.y()), eye, dir))
+			if (m_owner->computeCameraScreenRayWorld(static_cast<double>(pos.x()), static_cast<double>(pos.y()), eye,
+													 dir))
 			{
 				osg::Vec3d qHit;
 				if (rayPlaneIntersect(eye, dir, pivot, axisW, qHit))
@@ -214,12 +205,12 @@ bool MeshSectionPlaneEditOperation::handleEvent(QObject* watched, QEvent* event)
 		return true;
 	}
 
-	if (event->type() == QEvent::MouseMove && !m_owner->m_sectionPlaneDragging && !m_owner->m_sectionPlaneRotating
-		&& !m_owner->m_sectionPlanePlaneDragging)
+	if (event->type() == QEvent::MouseMove && !m_owner->m_sectionPlaneDragging && !m_owner->m_sectionPlaneRotating &&
+		!m_owner->m_sectionPlanePlaneDragging)
 	{
 		auto* mouseEvent = static_cast<QMouseEvent*>(event);
-		if (mouseEvent->buttons().testFlag(Qt::LeftButton) || mouseEvent->buttons().testFlag(Qt::MiddleButton)
-			|| mouseEvent->buttons().testFlag(Qt::RightButton))
+		if (mouseEvent->buttons().testFlag(Qt::LeftButton) || mouseEvent->buttons().testFlag(Qt::MiddleButton) ||
+			mouseEvent->buttons().testFlag(Qt::RightButton))
 		{
 			return false;
 		}
@@ -246,8 +237,8 @@ bool MeshSectionPlaneEditOperation::handleEvent(QObject* watched, QEvent* event)
 	if (event->type() == QEvent::MouseButtonRelease)
 	{
 		auto* mouseEvent = static_cast<QMouseEvent*>(event);
-		const bool hadDrag = m_owner->m_sectionPlaneDragging || m_owner->m_sectionPlaneRotating
-			|| m_owner->m_sectionPlanePlaneDragging;
+		const bool hadDrag =
+			m_owner->m_sectionPlaneDragging || m_owner->m_sectionPlaneRotating || m_owner->m_sectionPlanePlaneDragging;
 		if (mouseEvent->button() == Qt::LeftButton || mouseEvent->button() == Qt::RightButton)
 		{
 			m_owner->m_sectionPlaneDragging = false;

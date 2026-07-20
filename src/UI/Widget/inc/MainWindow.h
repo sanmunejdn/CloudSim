@@ -1,32 +1,40 @@
-#pragma once
+﻿#ifndef WIDGET_MAINWINDOW_H
+#define WIDGET_MAINWINDOW_H
+
+/// @file MainWindow.h
+/// @brief 应用程序主窗口：菜单、停靠栏、文档页、属性面板与 OsgWidget 协调入口
+
+#include "widget_global.h"
+
+#include "BackendFollowSolve.h"
+#include "CoreTypes.h"
+#include "DocumentHost.h"
+#include "IPluginMainWindowHost.h"
+#include "MainWindowInstructionPropertyUiHost.h"
+#include "MainWindowSelectionState.h"
 
 #include <QByteArray>
-#include <QMainWindow>
-#include <QHash>
+#include <QCloseEvent>
 #include <QElapsedTimer>
-#include <QTimer>
-#include <QTabWidget>
-#include <QVariant>
 #include <QHash>
+#include <QMainWindow>
+#include <QTabWidget>
+#include <QTimer>
+#include <QVariant>
 #include <QVector>
 #include <memory>
 #include <string>
 #include <vector>
-
-#include "widget_global.h"
-#include "BackendFollowSolve.h"
-#include "MainWindowSelectionState.h"
-#include "DocumentHost.h"
-#include "CoreTypes.h"
-#include "IPluginMainWindowHost.h"
-#include "MainWindowInstructionPropertyUiHost.h"
 
 #include <json.hpp>
 
 class QWidget;
 class QColor;
 class DocumentPage;
-namespace osg { class Matrixd; }
+namespace osg
+{
+class Matrixd;
+}
 class QTabWidget;
 class QTreeWidget;
 class QTreeWidgetItem;
@@ -54,16 +62,18 @@ class AiAssistantDockWidget;
 class AiAssistantCoordinator;
 class PluginManager;
 
-namespace cloudsim::core {
+namespace cloudsim::core
+{
 class EventHub;
 }
 
-namespace RobotInstruction {
+namespace RobotInstruction
+{
 class Base;
 struct Vec3;
 struct FeasibleMotionAxisConfigurationOptions;
 enum class Type;
-}
+} // namespace RobotInstruction
 
 /// 应用程序主窗口：菜单、停靠栏、文档页、属性面板与 OsgWidget 协调入口
 class WIDGET_EXPORT MainWindow : public QMainWindow, public IPluginMainWindowHost
@@ -99,13 +109,12 @@ public:
 	bool showAiFeatureCandidatePreviewForAi(const std::string& previewJsonUtf8, QString* outError) override;
 	void clearAiFeatureCandidatePreviewForAi() override;
 	bool commitAiTrajectoryFeaturesForAi(const std::string& featurePlanJsonUtf8, QString* outSummary,
-		QString* outError) override;
+										 QString* outError) override;
 	bool useChinese() const override;
 	QMenuBar* menuBar() override;
 	QStatusBar* statusBar() override;
-	void enqueueBackgroundJob(const QString& title,
-		std::function<void(const PluginJobProgressFn& progress)> work,
-		std::function<void(bool threw, const QString& message)> onFinished) override;
+	void enqueueBackgroundJob(const QString& title, std::function<void(const PluginJobProgressFn& progress)> work,
+							  std::function<void(bool threw, const QString& message)> onFinished) override;
 	QWidget* mainWindowWidget() override { return this; }
 	QObject* pluginActionParent() override { return this; }
 	QDockWidget* addPluginDockWidget(const QString& title, QWidget* widget, Qt::DockWidgetArea area) override;
@@ -117,8 +126,7 @@ public:
 	class SimulationCommandWidget* simulationCommandPage() const;
 	void refreshSimulationJointListFromCurrentDoc();
 	void syncRobotFrameSettingsFromDocument(int instanceIndex);
-	void refreshRobotCoordinateFrameOverlays(
-		const std::shared_ptr<RobotInstruction::Base>& instruction = nullptr);
+	void refreshRobotCoordinateFrameOverlays(const std::shared_ptr<RobotInstruction::Base>& instruction = nullptr);
 	void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	void refreshInstructionPoseAxes();
@@ -131,6 +139,7 @@ public:
 	public:
 		explicit ScopedBackendTreeRefreshSuppress(MainWindow& mw);
 		~ScopedBackendTreeRefreshSuppress();
+
 	private:
 		MainWindow& m_mw;
 	};
@@ -147,6 +156,8 @@ private:
 	void setupMenuBar();
 	void setupDockWidgets();
 	void applyLanguage();
+	/// 关窗/析构：停仿真与 JobSystem，避免子线程拖住进程
+	void shutdownRuntimeWorkers();
 	void notifyPluginsLanguageChanged();
 	QString i18n(const QString& en, const QString& zh) const;
 	void refreshBackendTree();
@@ -156,44 +167,36 @@ private:
 	/// 选中后端树行并刷新属性面板（导入/工程加载）
 	void focusBackendInTreeLocal(const QString& backendId);
 	/// 优先 Data/CGAL 加载几何；LAS/LAZ 等回退 OSG
-	bool registerBackendObject(const QString& filePath, const QString& typeName, bool isPointCloud, bool quietUi = false);
+	bool registerBackendObject(const QString& filePath, const QString& typeName, bool isPointCloud,
+							   bool quietUi = false);
 	void updatePropertyPanel(const QString& backendId);
-	void updateInstructionPropertyPanel(
-		const std::shared_ptr<RobotInstruction::Base>& instruction,
-		bool refreshFeasibleAxisOptions = true);
+	void updateInstructionPropertyPanel(const std::shared_ptr<RobotInstruction::Base>& instruction,
+										bool refreshFeasibleAxisOptions = true);
 	void invalidateFeasibleAxisConfigurationCache();
 	QString instructionEnumTokenFromProperty(QtProperty* property, const QVariant& value) const;
-	void applySuggestedAxisPresetFromSeedIfNeeded(
-		const std::shared_ptr<RobotInstruction::Base>& instruction,
-		const QVector<double>& seedJointRad,
-		const RobotInstruction::FeasibleMotionAxisConfigurationOptions& feasible);
+	void
+	applySuggestedAxisPresetFromSeedIfNeeded(const std::shared_ptr<RobotInstruction::Base>& instruction,
+											 const QVector<double>& seedJointRad,
+											 const RobotInstruction::FeasibleMotionAxisConfigurationOptions& feasible);
 
 	friend class MainWindowInstructionPropertyUiHost;
-	void appendPropertyBrowserRow(
-		const QString& propertyKey,
-		const QString& displayLabel,
-		const QString& value,
-		bool editable,
-		const std::vector<std::string>* enumOptionTokens = nullptr,
-		const QStringList* enumDisplayNames = nullptr,
-		const QString& toolTip = QString());
+	void appendPropertyBrowserRow(const QString& propertyKey, const QString& displayLabel, const QString& value,
+								  bool editable, const std::vector<std::string>* enumOptionTokens = nullptr,
+								  const QStringList* enumDisplayNames = nullptr, const QString& toolTip = QString());
 	void appendColorPropertyBrowserRow(const QColor& color);
-	RobotInstruction::FeasibleMotionAxisConfigurationOptions feasibleMotionAxisConfigurationOptionsForInstruction(
-		const std::shared_ptr<RobotInstruction::Base>& instruction,
-		QVector<double>* outSeedJointRad = nullptr);
+	RobotInstruction::FeasibleMotionAxisConfigurationOptions
+	feasibleMotionAxisConfigurationOptionsForInstruction(const std::shared_ptr<RobotInstruction::Base>& instruction,
+														 QVector<double>* outSeedJointRad = nullptr);
 	QString propertyDisplayLabelForKey(const QString& key, const QString& labelEnFallback) const;
-	bool tryCaptureCurrentRobotTcpPose(
-		RobotInstruction::Vec3& outPoseMm,
-		RobotInstruction::Vec3& outEulerDeg,
-		osg::Matrixd* outTcpLocalMat,
-		osg::Matrixd* outTcpRenderWorldMat,
-		QString* outTcpLinkName,
-		QString* errMsg) const;
+	bool tryCaptureCurrentRobotTcpPose(RobotInstruction::Vec3& outPoseMm, RobotInstruction::Vec3& outEulerDeg,
+									   osg::Matrixd* outTcpLocalMat, osg::Matrixd* outTcpRenderWorldMat,
+									   QString* outTcpLinkName, QString* errMsg) const;
 	void syncRobotKinematicsAfterPoseEdit(const QString& backendId);
 	void onSaveProject();
 	void onOpenProjectFile();
 	void onOpenModel();
 	void onOpenPointCloud();
+	void onCreateCoordinateFrame();
 	void onBackendTreeSelectionChanged();
 	void onSelectedObjectPoseChanged(float x, float y, float z);
 	void onSelectedObjectRotationChanged(float rx, float ry, float rz);
@@ -277,9 +280,8 @@ private:
 	/// 拖动中从 OSG gizmo 直写 Pose/Rotation 行（backend 在松手前可能滞后）
 	void syncPropertyPanelGizmoLiveValues(const QString& backendId);
 	void clearPropertyKeyVariantMap();
-	void scheduleInstructionPropertyRefreshDebounced(
-		const std::shared_ptr<RobotInstruction::Base>& instruction,
-		bool refreshFeasibleAxisOptions);
+	void scheduleInstructionPropertyRefreshDebounced(const std::shared_ptr<RobotInstruction::Base>& instruction,
+													 bool refreshFeasibleAxisOptions);
 	void onInstructionPropertyRefreshTimer();
 	void scheduleThrottledPropertyVisualPreview(const QString& backendId);
 	void onPropertyVisualPreviewTimer();
@@ -288,6 +290,7 @@ private:
 
 protected:
 	bool eventFilter(QObject* watched, QEvent* event) override;
+	void closeEvent(QCloseEvent* event) override;
 
 	cloudsim::core::EventHub& m_appEvents;
 	int m_backendTreeEventRefreshSuppress = 0;
@@ -326,9 +329,11 @@ protected:
 	QActionGroup* m_languageActionGroup = nullptr;
 	QMenu* m_fileMenu = nullptr;
 	QMenu* m_viewMenu = nullptr;
+	QMenu* m_insertMenu = nullptr;
 	QMenu* m_settingsMenu = nullptr;
 	QMenu* m_languageMenu = nullptr;
 	QMenu* m_appearanceMenu = nullptr;
+	QAction* m_createCoordinateFrameAction = nullptr;
 	QAction* m_lightThemeAction = nullptr;
 	QAction* m_darkThemeAction = nullptr;
 	QActionGroup* m_themeActionGroup = nullptr;
@@ -375,7 +380,10 @@ protected:
 	int m_meshImportQuality = 1;
 	PluginManager* m_pluginManager = nullptr;
 	bool m_pluginsLoadStarted = false;
+	bool m_runtimeShutdownDone = false;
 	QString m_activeAxisName = QStringLiteral("None");
 	std::shared_ptr<RobotInstruction::Base> m_activeInstructionForProperty;
 	QHash<QtProperty*, QStringList> m_propertyEnumTokens;
 };
+
+#endif // WIDGET_MAINWINDOW_H

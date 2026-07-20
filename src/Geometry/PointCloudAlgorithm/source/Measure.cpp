@@ -1,19 +1,20 @@
+﻿/// @file Measure.cpp
+/// @brief Measure 实现
+
 #include "Measure.h"
 
 #include "PointCloudBuffer.h"
+
+#include <limits>
 
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/compute_average_spacing.h>
 #include <CGAL/tags.h>
 
-#include <limits>
-
 namespace pclalgo
 {
-
 namespace
 {
-
 using CgalKernel = CGAL::Simple_cartesian<double>;
 using CgalPoint = CgalKernel::Point_3;
 

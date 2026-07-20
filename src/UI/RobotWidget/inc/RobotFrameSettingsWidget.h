@@ -1,7 +1,12 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_ROBOTFRAMESETTINGSWIDGET_H
+#define ROBOTWIDGET_ROBOTFRAMESETTINGSWIDGET_H
+
+/// @file RobotFrameSettingsWidget.h
+/// @brief RobotFrameSettingsWidget 接口
+
+#include "robotwidget_global.h"
 
 #include "RobotCoordinateFrames.h"
-#include "robotwidget_global.h"
 
 #include <QStringList>
 #include <QWidget>
@@ -90,3 +95,5 @@ private:
 	QPushButton* m_setActiveUserBtn = nullptr;
 	QTimer* m_framesDebounceTimer = nullptr;
 };
+
+#endif // ROBOTWIDGET_ROBOTFRAMESETTINGSWIDGET_H

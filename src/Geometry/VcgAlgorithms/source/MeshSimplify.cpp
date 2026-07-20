@@ -1,4 +1,8 @@
+﻿/// @file MeshSimplify.cpp
+/// @brief MeshSimplify 实现
+
 #include "MeshSimplify.h"
+
 #include "VcgMeshTypes.h"
 
 #include <vcg/complex/algorithms/local_optimization.h>
@@ -7,31 +11,22 @@
 
 namespace vcgalgo
 {
-
 // 前向声明简化类（vcglib CRTP 模式要求）
 class VcgEdgeCollapser;
 
 // vcglib quadric edge collapse 需要自定义类继承 TriEdgeCollapseQuadric
-class VcgEdgeCollapser : public vcg::tri::TriEdgeCollapseQuadric<
-	VcgMesh,
-	vcg::tri::BasicVertexPair<VcgMesh::VertexType>,
-	VcgEdgeCollapser,
-	vcg::tri::QInfoStandard<VcgMesh::VertexType>>
+class VcgEdgeCollapser
+	: public vcg::tri::TriEdgeCollapseQuadric<VcgMesh, vcg::tri::BasicVertexPair<VcgMesh::VertexType>, VcgEdgeCollapser,
+											  vcg::tri::QInfoStandard<VcgMesh::VertexType>>
 {
 public:
-	using Base = vcg::tri::TriEdgeCollapseQuadric<
-		VcgMesh,
-		vcg::tri::BasicVertexPair<VcgMesh::VertexType>,
-		VcgEdgeCollapser,
-		vcg::tri::QInfoStandard<VcgMesh::VertexType>>;
+	using Base = vcg::tri::TriEdgeCollapseQuadric<VcgMesh, vcg::tri::BasicVertexPair<VcgMesh::VertexType>,
+												  VcgEdgeCollapser, vcg::tri::QInfoStandard<VcgMesh::VertexType>>;
 	using Base::Base;
 };
 
-bool simplifyQuadricEdgeCollapse(
-	const std::vector<float>& triangleSoup,
-	std::vector<float>& outSoup,
-	const SimplifyParams& params,
-	std::string* errMsg)
+bool simplifyQuadricEdgeCollapse(const std::vector<float>& triangleSoup, std::vector<float>& outSoup,
+								 const SimplifyParams& params, std::string* errMsg)
 {
 	outSoup.clear();
 
@@ -49,7 +44,8 @@ bool simplifyQuadricEdgeCollapse(
 	}
 	if (targetFaces <= 0)
 	{
-		if (errMsg) *errMsg = "too few faces to simplify";
+		if (errMsg)
+			*errMsg = "too few faces to simplify";
 		return false;
 	}
 
@@ -79,7 +75,8 @@ bool simplifyQuadricEdgeCollapse(
 
 	if (outSoup.empty())
 	{
-		if (errMsg) *errMsg = "simplification produced empty mesh";
+		if (errMsg)
+			*errMsg = "simplification produced empty mesh";
 		return false;
 	}
 

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef WIDGET_WIDGETOSGVIEWHOST_H
+#define WIDGET_WIDGETOSGVIEWHOST_H
+
+/// @file WidgetOsgViewHost.h
+/// @brief IRobotOsgViewHost：渲染与拾取委托 IRenderView；poseSink 经 sceneFacade
 
 #include "../RobotWidget/inc/IRobotOsgViewHost.h"
 
@@ -7,7 +11,8 @@
 class DocumentPage;
 class OsgWidget;
 
-namespace cloudsim::core {
+namespace cloudsim::core
+{
 class IRenderView;
 }
 
@@ -39,9 +44,8 @@ public:
 
 	void setInstructionPoseAxes(const std::vector<RobotOsgUi::InstructionPoseAxis>& axes) override;
 	void clearInstructionPoseAxes() override;
-	void setRawTrajectoryOverlay(
-		const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
-		const std::vector<std::size_t>& segmentEndExclusive = {}) override;
+	void setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
+								 const std::vector<std::size_t>& segmentEndExclusive = {}) override;
 	void clearRawTrajectoryOverlay() override;
 	void setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& frames) override;
 	void setRawTrajectoryOverlayAxisComponents(bool showX, bool showY, bool showZ) override;
@@ -56,13 +60,12 @@ public:
 
 	bool isTcpDragTeachActive() const override;
 	void endTcpDragTeach() override;
-	void beginTcpDragTeach(
-		const std::string& mountBackendId,
-		const engine::RigidTransform& T_base_target,
-		float modelDiagonalMm,
-		std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld,
-		const osg::Matrixd* toolLocalOnFlange) override;
-	void updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target, bool syncTargetInBase = true) override;
+	void beginTcpDragTeach(const std::string& mountBackendId, const engine::RigidTransform& T_base_target,
+						   float modelDiagonalMm,
+						   std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld,
+						   const osg::Matrixd* toolLocalOnFlange) override;
+	void updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target,
+									  bool syncTargetInBase = true) override;
 	void updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLocalOnFlange) override;
 
 	void setMeshLinePickMode(bool enabled) override;
@@ -84,15 +87,12 @@ public:
 	void showMeshFittedSurfacePreview(const std::vector<osg::Vec3f>& triangleVertsWorld) override;
 	void clearMeshFittedSurfacePreview() override;
 
-	void showMeshSectionPlane(
-		const std::string& backendIdUtf8,
-		const double originModelMm[3],
-		const double normalModel[3]) override;
-	void beginMeshSectionPlaneEdit(
-		const std::string& backendIdUtf8,
-		const double originModelMm[3],
-		const double normalModel[3],
-		std::function<void(const double origin[3], const double normal[3])> onChanged) override;
+	void showMeshSectionPlane(const std::string& backendIdUtf8, const double originModelMm[3],
+							  const double normalModel[3]) override;
+	void
+	beginMeshSectionPlaneEdit(const std::string& backendIdUtf8, const double originModelMm[3],
+							  const double normalModel[3],
+							  std::function<void(const double origin[3], const double normal[3])> onChanged) override;
 	void updateMeshSectionPlanePose(const double originModelMm[3], const double normalModel[3]) override;
 	void endMeshSectionPlaneEdit() override;
 	void hideMeshSectionPlane() override;
@@ -107,3 +107,5 @@ private:
 
 	QPointer<DocumentPage> m_page;
 };
+
+#endif // WIDGET_WIDGETOSGVIEWHOST_H

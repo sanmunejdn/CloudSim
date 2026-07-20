@@ -1,3 +1,6 @@
+﻿/// @file OsgSceneHierarchy.cpp
+/// @brief OsgSceneHierarchy 实现
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -8,12 +11,11 @@
 #include <windows.h>
 #endif
 
+#include "ObjectGizmoFrame.h"
 #include "OsgScene.h"
 
-#include "ObjectGizmoFrame.h"
-
-#include <osg/Matrixd>
 #include <osg/MatrixTransform>
+#include <osg/Matrixd>
 #include <osg/Quat>
 #include <osg/Vec3>
 #include <osg/Vec3d>
@@ -130,7 +132,8 @@ bool OsgScene::isBackendDescendantOf(const std::string& backendId, const std::st
 	return false;
 }
 
-bool OsgScene::backendOuterPatIsUnderOuterPatInSceneGraph(const std::string& childBackendId, const std::string& ancestorBackendId) const
+bool OsgScene::backendOuterPatIsUnderOuterPatInSceneGraph(const std::string& childBackendId,
+														  const std::string& ancestorBackendId) const
 {
 	if (childBackendId.empty() || ancestorBackendId.empty() || childBackendId == ancestorBackendId)
 	{
@@ -138,7 +141,8 @@ bool OsgScene::backendOuterPatIsUnderOuterPatInSceneGraph(const std::string& chi
 	}
 	const auto cIt = m_backendObjectRoots.find(childBackendId);
 	const auto aIt = m_backendObjectRoots.find(ancestorBackendId);
-	if (cIt == m_backendObjectRoots.end() || aIt == m_backendObjectRoots.end() || !cIt->second.valid() || !aIt->second.valid())
+	if (cIt == m_backendObjectRoots.end() || aIt == m_backendObjectRoots.end() || !cIt->second.valid() ||
+		!aIt->second.valid())
 	{
 		return false;
 	}

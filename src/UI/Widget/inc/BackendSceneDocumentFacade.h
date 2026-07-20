@@ -1,10 +1,14 @@
-#pragma once
+﻿#ifndef WIDGET_BACKENDSCENEDOCUMENTFACADE_H
+#define WIDGET_BACKENDSCENEDOCUMENTFACADE_H
+
+/// @file BackendSceneDocumentFacade.h
+/// @brief 后端 id 与场景/数据管理器轻量句柄
+
+#include "widget_global.h"
 
 #include <array>
 #include <string>
 #include <vector>
-
-#include "widget_global.h"
 
 class BackendDataBase;
 class BackendDataManager;
@@ -19,7 +23,7 @@ class OSG_WIDGET_API BackendSceneEntity
 public:
 	BackendSceneEntity() = default;
 	BackendSceneEntity(std::string backendId, IBackendSceneBridge* bridge, BackendDataManager* mgr,
-		BackendFollowReverseIndex* followIndex);
+					   BackendFollowReverseIndex* followIndex);
 
 	const std::string& backendId() const { return m_id; }
 	bool valid() const;
@@ -54,7 +58,7 @@ class OSG_WIDGET_API BackendSceneDocumentFacade
 public:
 	BackendSceneDocumentFacade() = default;
 	BackendSceneDocumentFacade(BackendDataManager& mgr, IBackendSceneBridge& bridge,
-		BackendFollowReverseIndex& followIndex, OsgWidget* osgWidget);
+							   BackendFollowReverseIndex& followIndex, OsgWidget* osgWidget);
 
 	BackendSceneEntity entity(const std::string& backendId) const;
 
@@ -73,3 +77,5 @@ private:
 	BackendFollowReverseIndex* m_followIndex = nullptr;
 	IRobotBackendPoseSink* m_poseSink = nullptr;
 };
+
+#endif // WIDGET_BACKENDSCENEDOCUMENTFACADE_H

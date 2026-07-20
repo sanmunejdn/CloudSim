@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef OSGWIDGETCORE_MESHTOPOLOGYINDEX_H
+#define OSGWIDGETCORE_MESHTOPOLOGYINDEX_H
+
+/// @file MeshTopologyIndex.h
+/// @brief 网格拓扑缓存：三角 soup（Visual 局部坐标），供面/边拾取 scope 与后续扩展
 
 #include "osgwidgetcore_global.h"
 
@@ -24,3 +28,5 @@ private:
 	std::vector<osg::Vec3> m_triangleSoupLocal;
 	std::uint64_t m_generation = 0;
 };
+
+#endif // OSGWIDGETCORE_MESHTOPOLOGYINDEX_H

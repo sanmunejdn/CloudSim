@@ -1,9 +1,14 @@
-#pragma once
+﻿#ifndef TRAJECTORYALGORITHM_ITRAJECTORYOP_H
+#define TRAJECTORYALGORITHM_ITRAJECTORYOP_H
+
+/// @file ITrajectoryOp.h
+/// @brief ITrajectoryOp 接口
+
+#include "trajectory_algorithm_global.h"
 
 #include "TrajectoryOpExecutionContext.h"
 #include "TrajectoryOpParamSchema.h"
 #include "TrajectoryPipelineTypes.h"
-#include "trajectory_algorithm_global.h"
 
 #include <cstdint>
 #include <memory>
@@ -17,7 +22,6 @@ struct UnifiedTrajectory;
 
 namespace trajectory_algo
 {
-
 enum class TrajectoryOpCapability : uint32_t
 {
 	None = 0,
@@ -46,20 +50,19 @@ public:
 	virtual const char* displayName(bool chinese) const = 0;
 	virtual TrajectoryOpCapability capabilities() const = 0;
 
-	virtual RobotInstruction::TrajectoryOpDescriptor makeDefaultDescriptor(
-		const RobotInstruction::OpScope& defaultScope) const = 0;
+	virtual RobotInstruction::TrajectoryOpDescriptor
+	makeDefaultDescriptor(const RobotInstruction::OpScope& defaultScope) const = 0;
 
 	virtual std::vector<TrajectoryOpParamField> paramFields() const = 0;
 	virtual bool validate(const RobotInstruction::TrajectoryOpDescriptor& op, std::string* errMsg) const = 0;
 	virtual std::string formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op, bool chinese) const = 0;
 
 	/// Unified IR 路径处理；几何块在 Builtins 中 override，默认 false 表示未实现
-	virtual bool processPath(
-		const RobotInstruction::TrajectoryOpDescriptor& op,
-		RobotInstruction::UnifiedTrajectory& traj,
-		const TrajectoryOpExecutionContext& ctx,
-		std::string* errMsg) const;
+	virtual bool processPath(const RobotInstruction::TrajectoryOpDescriptor& op,
+							 RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx,
+							 std::string* errMsg) const;
 };
 
 } // namespace trajectory_algo
 
+#endif // TRAJECTORYALGORITHM_ITRAJECTORYOP_H

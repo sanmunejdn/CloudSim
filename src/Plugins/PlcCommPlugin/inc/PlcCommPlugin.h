@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef PLCCOMMPLUGIN_PLCCOMMPLUGIN_H
+#define PLCCOMMPLUGIN_PLCCOMMPLUGIN_H
+
+/// @file PlcCommPlugin.h
+/// @brief PlcCommPlugin 接口
 
 #include "ICloudSimPlugin.h"
 
@@ -25,3 +29,5 @@ private:
 	IPluginHostContext* host_ = nullptr;
 	QWidget* panel_ = nullptr;
 };
+
+#endif // PLCCOMMPLUGIN_PLCCOMMPLUGIN_H

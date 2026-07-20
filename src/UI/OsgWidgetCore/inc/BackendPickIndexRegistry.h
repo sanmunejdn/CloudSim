@@ -1,6 +1,11 @@
-#pragma once
+﻿#ifndef OSGWIDGETCORE_BACKENDPICKINDEXREGISTRY_H
+#define OSGWIDGETCORE_BACKENDPICKINDEXREGISTRY_H
+
+/// @file BackendPickIndexRegistry.h
+/// @brief backendId → 拾取索引（随 bindBackendVisualRoot 构建）
 
 #include "osgwidgetcore_global.h"
+
 #include "BrepPickIndex.h"
 #include "PickSpatialIndex.h"
 
@@ -29,7 +34,7 @@ class OSGWIDGETCORE_EXPORT BackendPickIndexRegistry
 public:
 	void bindBackendRoot(const std::string& backendId, osg::Node* rootNode);
 	void bindBackendRoot(const std::string& backendId, osg::Node* rootNode,
-		const std::shared_ptr<geoalgo::BrepImportArtifacts>& brepArtifacts);
+						 const std::shared_ptr<geoalgo::BrepImportArtifacts>& brepArtifacts);
 	void unbindBackend(const std::string& backendId);
 	void clear();
 
@@ -40,3 +45,5 @@ private:
 	std::unordered_map<std::string, BackendPickBundle> m_bundles;
 	std::uint64_t m_nextGeneration = 1;
 };
+
+#endif // OSGWIDGETCORE_BACKENDPICKINDEXREGISTRY_H

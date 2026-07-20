@@ -1,17 +1,21 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_FEATURELISTDOCUMENT_H
+#define GEOMETRYALGORITHM_FEATURELISTDOCUMENT_H
+
+/// @file FeatureListDocument.h
+/// @brief 策略无关的几何索引；策略专有参数在 FeatureEntry::params
 
 #include "geometry_algorithm_global.h"
-#include "Types.h"
 
-#include <json.hpp>
+#include "Types.h"
 
 #include <cstdint>
 #include <string>
 #include <vector>
 
+#include <json.hpp>
+
 namespace geoalgo
 {
-
 struct Vec3d
 {
 	double x = 0.0;
@@ -165,47 +169,30 @@ struct DiscretizeParams
 	bool outputNormal = true;
 };
 
-GEOMETRY_ALGORITHM_API FeatureDiscretizerParamField doubleFeatureParamField(
-	const std::string& key,
-	const std::string& labelEn,
-	const std::string& labelZh,
-	const std::string& unit,
-	double minValue,
-	double maxValue,
-	double step,
-	double defaultValue,
-	int order = 0,
-	const std::string& group = "discretize");
+GEOMETRY_ALGORITHM_API FeatureDiscretizerParamField
+doubleFeatureParamField(const std::string& key, const std::string& labelEn, const std::string& labelZh,
+						const std::string& unit, double minValue, double maxValue, double step, double defaultValue,
+						int order = 0, const std::string& group = "discretize");
 
-GEOMETRY_ALGORITHM_API FeatureDiscretizerParamField intFeatureParamField(
-	const std::string& key,
-	const std::string& labelEn,
-	const std::string& labelZh,
-	int minValue,
-	int maxValue,
-	int defaultValue,
-	int order = 0,
-	const std::string& group = "discretize");
+GEOMETRY_ALGORITHM_API FeatureDiscretizerParamField intFeatureParamField(const std::string& key,
+																		 const std::string& labelEn,
+																		 const std::string& labelZh, int minValue,
+																		 int maxValue, int defaultValue, int order = 0,
+																		 const std::string& group = "discretize");
 
-GEOMETRY_ALGORITHM_API FeatureDiscretizerParamField boolFeatureParamField(
-	const std::string& key,
-	const std::string& labelEn,
-	const std::string& labelZh,
-	bool defaultValue,
-	int order = 0,
-	const std::string& group = "discretize");
+GEOMETRY_ALGORITHM_API FeatureDiscretizerParamField boolFeatureParamField(const std::string& key,
+																		  const std::string& labelEn,
+																		  const std::string& labelZh, bool defaultValue,
+																		  int order = 0,
+																		  const std::string& group = "discretize");
 
 GEOMETRY_ALGORITHM_API FeatureDiscretizerParamField enumFeatureParamField(
-	const std::string& key,
-	const std::string& labelEn,
-	const std::string& labelZh,
-	const std::vector<std::string>& values,
-	const std::vector<std::string>& labelsZh,
-	const std::vector<std::string>& labelsEn,
-	int defaultIndex,
-	int order = 0,
-	const std::string& group = "discretize");
+	const std::string& key, const std::string& labelEn, const std::string& labelZh,
+	const std::vector<std::string>& values, const std::vector<std::string>& labelsZh,
+	const std::vector<std::string>& labelsEn, int defaultIndex, int order = 0, const std::string& group = "discretize");
 
 GEOMETRY_ALGORITHM_API std::vector<FeatureDiscretizerParamField> featureDiscretizerCommonParamFields();
 
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_FEATURELISTDOCUMENT_H

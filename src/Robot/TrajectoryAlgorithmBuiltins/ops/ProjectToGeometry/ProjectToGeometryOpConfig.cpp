@@ -1,3 +1,6 @@
+﻿/// @file ProjectToGeometryOpConfig.cpp
+/// @brief ProjectToGeometryOpConfig 实现
+
 #include "ProjectToGeometryOpConfig.h"
 
 #include "TrajectoryOpConfigImpl.h"
@@ -5,12 +8,9 @@
 
 namespace trajectory_algo
 {
-
 std::unique_ptr<IOpParamConfig> makeProjectToGeometryOpConfig()
 {
-	return makeTrajectoryOpConfig(
-		RobotInstruction::TrajectoryOpKind::ProjectToGeometry,
-		"ops/ProjectToGeometry.json");
+	return makeTrajectoryOpConfig(RobotInstruction::TrajectoryOpKind::ProjectToGeometry, "ops/ProjectToGeometry.json");
 }
 
 } // namespace trajectory_algo

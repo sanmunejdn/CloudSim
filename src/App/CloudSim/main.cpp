@@ -1,23 +1,26 @@
+﻿/// @file main.cpp
+/// @brief 从 argv 设 ROBOT_KINEMATICS_DEBUG（Windows GUI 无预置 env）
+
 #include "CloudSimBootstrap.h"
 #include "ICloudSimContext.h"
 #include "MainWindow.h"
 
-#include <QtWidgets/QApplication>
 #include <QByteArray>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QtGlobal>
-
 #include <cstring>
 #include <memory>
+
+#include <QtWidgets/QApplication>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
 
-namespace {
-
+namespace
+{
 void prependPathIfExists(const QString& dirPath)
 {
 	if (dirPath.isEmpty() || !QFileInfo::exists(dirPath))
@@ -26,9 +29,7 @@ void prependPathIfExists(const QString& dirPath)
 	}
 	QByteArray current = qgetenv("PATH");
 	const QByteArray prefix = QDir::toNativeSeparators(dirPath).toLocal8Bit();
-	if (current.startsWith(prefix + ';')
-		|| current.startsWith(prefix + ':')
-		|| current == prefix)
+	if (current.startsWith(prefix + ';') || current.startsWith(prefix + ':') || current == prefix)
 	{
 		return;
 	}
@@ -46,11 +47,9 @@ void configureWindowsDllSearchPath()
 {
 	// OSG 运行时优先于系统 PATH（如 osg161-*.dll）
 	const QString appDir = QCoreApplication::applicationDirPath();
-	const QStringList candidates{
-		QDir(appDir).absoluteFilePath("../SDK/OSG3.6.5/bin"),
-		QDir(appDir).absoluteFilePath("../SDK/OSG3.6.5/bin"),
-		QDir(appDir).absoluteFilePath("OSG3.6.5/bin")
-	};
+	const QStringList candidates{QDir(appDir).absoluteFilePath("../SDK/OSG3.6.5/bin"),
+								 QDir(appDir).absoluteFilePath("../SDK/OSG3.6.5/bin"),
+								 QDir(appDir).absoluteFilePath("OSG3.6.5/bin")};
 	for (const QString& c : candidates)
 	{
 		prependPathIfExists(QDir(c).absolutePath());

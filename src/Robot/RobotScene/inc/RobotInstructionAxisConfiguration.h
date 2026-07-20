@@ -1,16 +1,19 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONAXISCONFIGURATION_H
+#define ROBOTSCENE_ROBOTINSTRUCTIONAXISCONFIGURATION_H
+
+/// @file RobotInstructionAxisConfiguration.h
+/// @brief 相对规划种子的整圈数；INT_MIN 表示不约束
 
 #include "robot_scene_global.h"
-
-#include <json.hpp>
 
 #include <climits>
 #include <string>
 #include <vector>
 
+#include <json.hpp>
+
 namespace RobotInstruction
 {
-
 enum class ROBOT_SCENE_API ElbowPosture
 {
 	Auto = 0,
@@ -101,12 +104,13 @@ ROBOT_SCENE_API std::string formatMotionAxisConfigurationSummary(const MotionAxi
 
 ROBOT_SCENE_API bool motionAxisConfigurationRequiresConstraint(const MotionAxisConfiguration& cfg);
 
-ROBOT_SCENE_API JointConfigurationClass classifyJointConfiguration(
-	const std::vector<double>& qRad,
-	const std::vector<std::string>& jointNames,
-	const std::vector<double>* referenceQRad = nullptr);
+ROBOT_SCENE_API JointConfigurationClass classifyJointConfiguration(const std::vector<double>& qRad,
+																   const std::vector<std::string>& jointNames,
+																   const std::vector<double>* referenceQRad = nullptr);
 
 /// 从观测姿态反推最具体 preset（可能为 AUTO）
 ROBOT_SCENE_API std::string suggestMotionAxisPresetToken(const JointConfigurationClass& observed);
 
 } // namespace RobotInstruction
+
+#endif // ROBOTSCENE_ROBOTINSTRUCTIONAXISCONFIGURATION_H

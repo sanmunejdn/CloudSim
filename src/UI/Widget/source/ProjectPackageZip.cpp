@@ -1,3 +1,6 @@
+﻿/// @file ProjectPackageZip.cpp
+/// @brief ProjectPackageZip 实现
+
 #include "ProjectPackageZip.h"
 
 #include <QByteArray>
@@ -7,9 +10,10 @@
 #include <QFileInfo>
 #include <QVector>
 
-namespace project_package_zip {
-namespace {
-
+namespace project_package_zip
+{
+namespace
+{
 constexpr quint32 kLocalFileHeaderSig = 0x04034b50u;
 constexpr quint32 kCentralFileHeaderSig = 0x02014b50u;
 constexpr quint32 kEndOfCentralDirSig = 0x06054b50u;
@@ -48,8 +52,7 @@ quint32 crc32Update(quint32 crc, const QByteArray& data)
 		0xa00ae278u, 0xd70dd2eeu, 0x4e048354u, 0x3903b3c2u, 0xa7672661u, 0xd06016f7u, 0x4969474du, 0x3e6e77dbu,
 		0xaed16a4au, 0xd9d65adcu, 0x40df0b66u, 0x37d83bf0u, 0xa9bcae53u, 0xdebb9ec5u, 0x47b2cf7fu, 0x30b5ffe9u,
 		0xbdbdf21cu, 0xcabac28au, 0x53b39330u, 0x24b4a3a6u, 0xbad03605u, 0xcdd70693u, 0x54de5729u, 0x23d967bfu,
-		0xb3667a2eu, 0xc4614ab8u, 0x5d681b02u, 0x2a6f2b94u, 0xb40bbe37u, 0xc30c8ea1u, 0x5a05df1bu, 0x2d02ef8du
-	};
+		0xb3667a2eu, 0xc4614ab8u, 0x5d681b02u, 0x2a6f2b94u, 0xb40bbe37u, 0xc30c8ea1u, 0x5a05df1bu, 0x2d02ef8du};
 	crc = crc ^ 0xffffffffu;
 	for (unsigned char b : data)
 	{
@@ -86,10 +89,9 @@ bool readLe32(QIODevice* in, quint32* v)
 	{
 		return false;
 	}
-	*v = static_cast<quint32>(static_cast<uchar>(buf[0]))
-		| (static_cast<quint32>(static_cast<uchar>(buf[1])) << 8)
-		| (static_cast<quint32>(static_cast<uchar>(buf[2])) << 16)
-		| (static_cast<quint32>(static_cast<uchar>(buf[3])) << 24);
+	*v = static_cast<quint32>(static_cast<uchar>(buf[0])) | (static_cast<quint32>(static_cast<uchar>(buf[1])) << 8) |
+		 (static_cast<quint32>(static_cast<uchar>(buf[2])) << 16) |
+		 (static_cast<quint32>(static_cast<uchar>(buf[3])) << 24);
 	return true;
 }
 
@@ -281,8 +283,8 @@ bool extractZipArchive(const QString& zipFilePath, const QString& destDir, QStri
 				continue;
 			}
 			const uchar* p = reinterpret_cast<const uchar*>(tail.constData() + i);
-			const quint32 sig = static_cast<quint32>(p[0]) | (static_cast<quint32>(p[1]) << 8)
-				| (static_cast<quint32>(p[2]) << 16) | (static_cast<quint32>(p[3]) << 24);
+			const quint32 sig = static_cast<quint32>(p[0]) | (static_cast<quint32>(p[1]) << 8) |
+								(static_cast<quint32>(p[2]) << 16) | (static_cast<quint32>(p[3]) << 24);
 			if (sig == kEndOfCentralDirSig)
 			{
 				eocdOff = fileSize - readSpan + i;
@@ -306,8 +308,8 @@ bool extractZipArchive(const QString& zipFilePath, const QString& destDir, QStri
 	quint16 totalEntries = 0;
 	quint32 centralSize = 0;
 	quint32 centralOffset = 0;
-	if (!readLe16(&zf, &diskThis) || !readLe16(&zf, &diskCd) || !readLe16(&zf, &entriesThisDisk)
-		|| !readLe16(&zf, &totalEntries) || !readLe32(&zf, &centralSize) || !readLe32(&zf, &centralOffset))
+	if (!readLe16(&zf, &diskThis) || !readLe16(&zf, &diskCd) || !readLe16(&zf, &entriesThisDisk) ||
+		!readLe16(&zf, &totalEntries) || !readLe32(&zf, &centralSize) || !readLe32(&zf, &centralOffset))
 	{
 		if (errorMessage)
 		{
@@ -337,8 +339,8 @@ bool extractZipArchive(const QString& zipFilePath, const QString& destDir, QStri
 		quint16 method = 0;
 		quint16 modTime = 0;
 		quint16 modDate = 0;
-		if (!readLe16(&zf, &verMade) || !readLe16(&zf, &verExtract) || !readLe16(&zf, &gpbf)
-			|| !readLe16(&zf, &method) || !readLe16(&zf, &modTime) || !readLe16(&zf, &modDate))
+		if (!readLe16(&zf, &verMade) || !readLe16(&zf, &verExtract) || !readLe16(&zf, &gpbf) ||
+			!readLe16(&zf, &method) || !readLe16(&zf, &modTime) || !readLe16(&zf, &modDate))
 		{
 			return false;
 		}
@@ -364,8 +366,8 @@ bool extractZipArchive(const QString& zipFilePath, const QString& destDir, QStri
 		quint16 intAttr = 0;
 		quint32 extAttr = 0;
 		quint32 localHdrOff = 0;
-		if (!readLe16(&zf, &diskStart) || !readLe16(&zf, &intAttr) || !readLe32(&zf, &extAttr)
-			|| !readLe32(&zf, &localHdrOff))
+		if (!readLe16(&zf, &diskStart) || !readLe16(&zf, &intAttr) || !readLe32(&zf, &extAttr) ||
+			!readLe32(&zf, &localHdrOff))
 		{
 			return false;
 		}

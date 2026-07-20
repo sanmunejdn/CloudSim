@@ -1,21 +1,22 @@
+﻿/// @file InitialBsplinePatch.cpp
+/// @brief InitialBsplinePatch 实现
+
 #include "MeshSurfaceReconstructionInternal.h"
 #include "NurbsSurfaceFitting.h"
-
 #include "RunLogger.h"
-
 #include "detail/OccIncludes.h"
-
-#include <GeomAPI_PointsToBSplineSurface.hxx>
-#include <BRepAdaptor_Surface.hxx>
-#include <BRepBuilderAPI_MakeFace.hxx>
-#include <BRepBuilderAPI_MakePolygon.hxx>
-#include <BRepBndLib.hxx>
-#include <Bnd_Box.hxx>
-#include <TopAbs.hxx>
-#include <TopoDS.hxx>
 
 #include <algorithm>
 #include <cmath>
+
+#include <BRepAdaptor_Surface.hxx>
+#include <BRepBndLib.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <Bnd_Box.hxx>
+#include <GeomAPI_PointsToBSplineSurface.hxx>
+#include <TopAbs.hxx>
+#include <TopoDS.hxx>
 
 namespace geoalgo
 {
@@ -23,7 +24,6 @@ namespace meshrecon
 {
 namespace
 {
-
 constexpr double kMaxPoleToSampleRatio = 2.5;
 constexpr double kMaxFaceToSampleRatio = 2.5;
 
@@ -59,7 +59,7 @@ double gridBBoxDiagonal(const TColgp_Array2OfPnt& grid)
 	return bboxDiagonal(box);
 }
 
-double polesBBoxDiagonal(const Handle(Geom_BSplineSurface)& surface)
+double polesBBoxDiagonal(const Handle(Geom_BSplineSurface) & surface)
 {
 	if (surface.IsNull())
 	{
@@ -115,10 +115,7 @@ const char* patchFitRejectReasonText(const PatchFitRejectReason reason)
 	}
 }
 
-TColgp_Array2OfPnt downsampleGridRect(
-	const TColgp_Array2OfPnt& grid,
-	const int fitNu,
-	const int fitNv)
+TColgp_Array2OfPnt downsampleGridRect(const TColgp_Array2OfPnt& grid, const int fitNu, const int fitNv)
 {
 	const int srcNu = grid.UpperRow() - grid.LowerRow();
 	const int srcNv = grid.UpperCol() - grid.LowerCol();
@@ -135,10 +132,7 @@ TColgp_Array2OfPnt downsampleGridRect(
 	return fitGrid;
 }
 
-int resolveFitEdgeCount(
-	const int gridEdgeCount,
-	const double uvSpanMm,
-	const MeshSurfaceReconstructParams& params)
+int resolveFitEdgeCount(const int gridEdgeCount, const double uvSpanMm, const MeshSurfaceReconstructParams& params)
 {
 	int fitN = gridEdgeCount;
 	if (params.fitUvSpacingMm > 1e-6 && uvSpanMm > 1e-6)
@@ -153,10 +147,7 @@ int resolveFitEdgeCount(
 	return std::max(1, fitN);
 }
 
-bool surfaceFitsGrid(
-	const Handle(Geom_Surface)& surface,
-	const TColgp_Array2OfPnt& grid,
-	const double maxErrMm)
+bool surfaceFitsGrid(const Handle(Geom_Surface) & surface, const TColgp_Array2OfPnt& grid, const double maxErrMm)
 {
 	if (surface.IsNull())
 	{
@@ -213,11 +204,8 @@ NurbsFitMode toNurbsFitMode(const MeshSurfaceNurbsFitMode mode)
 	}
 }
 
-int resolveControlPointCount(
-	const int computedCount,
-	const int fitEdgeCount,
-	const int degree,
-	const MeshSurfaceReconstructParams& params)
+int resolveControlPointCount(const int computedCount, const int fitEdgeCount, const int degree,
+							 const MeshSurfaceReconstructParams& params)
 {
 	const int maxFromFit = std::max(degree + 1, static_cast<int>(0.75 * fitEdgeCount));
 	int ctrl = computedCount;
@@ -226,21 +214,16 @@ int resolveControlPointCount(
 		ctrl = std::max(params.minControlPointsPerDirection, degree + 1);
 	}
 	ctrl = std::min(ctrl, maxFromFit);
-	const int densityCtrl = static_cast<int>(std::lround(
-		params.controlPointDensityFactor * static_cast<double>(fitEdgeCount + 1) * 2.0));
+	const int densityCtrl =
+		static_cast<int>(std::lround(params.controlPointDensityFactor * static_cast<double>(fitEdgeCount + 1) * 2.0));
 	ctrl = std::min(ctrl, std::max(degree + 1, densityCtrl));
 	return std::max(degree + 1, ctrl);
 }
 
-bool surfaceFitsGridSubsampled(
-	const Handle(Geom_Surface)& surface,
-	const TColgp_Array2OfPnt& grid,
-	const int targetNu,
-	const int targetNv,
-	const double maxErrMm)
+bool surfaceFitsGridSubsampled(const Handle(Geom_Surface) & surface, const TColgp_Array2OfPnt& grid, const int targetNu,
+							   const int targetNv, const double maxErrMm)
 {
-	if (targetNu < grid.UpperRow() - grid.LowerRow()
-		|| targetNv < grid.UpperCol() - grid.LowerCol())
+	if (targetNu < grid.UpperRow() - grid.LowerRow() || targetNv < grid.UpperCol() - grid.LowerCol())
 	{
 		const TColgp_Array2OfPnt sub = downsampleGridRect(grid, targetNu, targetNv);
 		return surfaceFitsGrid(surface, sub, maxErrMm);
@@ -248,41 +231,24 @@ bool surfaceFitsGridSubsampled(
 	return surfaceFitsGrid(surface, grid, maxErrMm);
 }
 
-PatchFitRejectReason tryFitNurbsSurface(
-	const TColgp_Array2OfPnt& fullGrid,
-	const int gridNu,
-	const int gridNv,
-	const double uvUSpanMm,
-	const double uvVSpanMm,
-	const double sampleDiag,
-	const int computedCtrlPtsU,
-	const int computedCtrlPtsV,
-	const MeshSurfaceReconstructParams& params,
-	Handle(Geom_BSplineSurface)& outSurface)
+PatchFitRejectReason tryFitNurbsSurface(const TColgp_Array2OfPnt& fullGrid, const int gridNu, const int gridNv,
+										const double uvUSpanMm, const double uvVSpanMm, const double sampleDiag,
+										const int computedCtrlPtsU, const int computedCtrlPtsV,
+										const MeshSurfaceReconstructParams& params,
+										Handle(Geom_BSplineSurface) & outSurface)
 {
 	const int fitNu = resolveFitEdgeCount(gridNu, uvUSpanMm, params);
 	const int fitNv = resolveFitEdgeCount(gridNv, uvVSpanMm, params);
 	const TColgp_Array2OfPnt fitGrid = downsampleGridRect(fullGrid, fitNu, fitNv);
 
-	const int ctrlU = resolveControlPointCount(
-		computedCtrlPtsU,
-		fitNu,
-		params.nurbsDegreeU,
-		params);
-	const int ctrlV = resolveControlPointCount(
-		computedCtrlPtsV,
-		fitNv,
-		params.nurbsDegreeV,
-		params);
+	const int ctrlU = resolveControlPointCount(computedCtrlPtsU, fitNu, params.nurbsDegreeU, params);
+	const int ctrlV = resolveControlPointCount(computedCtrlPtsV, fitNv, params.nurbsDegreeV, params);
 	const NurbsFitMode fitMode = toNurbsFitMode(params.fitMode);
 
 	PatchFitRejectReason deepest = PatchFitRejectReason::None;
 
-	const auto validateSurface = [&](
-		const Handle(Geom_BSplineSurface)& surface,
-		const double fitTolFrac,
-		const double fullTolFrac,
-		const double maxPoleRatio) -> bool
+	const auto validateSurface = [&](const Handle(Geom_BSplineSurface) & surface, const double fitTolFrac,
+									 const double fullTolFrac, const double maxPoleRatio) -> bool
 	{
 		if (surface.IsNull())
 		{
@@ -338,14 +304,8 @@ PatchFitRejectReason tryFitNurbsSurface(
 					continue;
 				}
 				Handle(Geom_BSplineSurface) nurbsSurface;
-				if (!fitNurbsSurfaceFromGrid(
-						fitGrid,
-						ctrlU,
-						ctrlV,
-						modeTry,
-						params.nurbsDegreeU,
-						params.nurbsDegreeV,
-						nurbsSurface))
+				if (!fitNurbsSurfaceFromGrid(fitGrid, ctrlU, ctrlV, modeTry, params.nurbsDegreeU, params.nurbsDegreeV,
+											 nurbsSurface))
 				{
 					updateDeepestReject(deepest, PatchFitRejectReason::Approx);
 					continue;
@@ -366,23 +326,16 @@ PatchFitRejectReason tryFitNurbsSurface(
 		double tol;
 	};
 	const FitCombo combos[] = {
-		{3, 3, GeomAbs_C0, 1.0},
-		{3, 3, GeomAbs_C0, std::max(1.0, sampleDiag * 0.015)},
-		{3, 3, GeomAbs_C1, 1.0},
-		{3, 3, GeomAbs_C1, std::max(1.0, sampleDiag * 0.015)},
-		{3, 5, GeomAbs_C0, 1.0},
-		{3, 5, GeomAbs_C1, 1.0},
+		{3, 3, GeomAbs_C0, 1.0}, {3, 3, GeomAbs_C0, std::max(1.0, sampleDiag * 0.015)},
+		{3, 3, GeomAbs_C1, 1.0}, {3, 3, GeomAbs_C1, std::max(1.0, sampleDiag * 0.015)},
+		{3, 5, GeomAbs_C0, 1.0}, {3, 5, GeomAbs_C1, 1.0},
 	};
 
-	const auto tryCombo = [&](
-		const FitCombo& combo,
-		const Approx_ParametrizationType paramType,
-		const double maxPoleRatio,
-		const double fitTolFrac,
-		const double fullTolFrac) -> bool
+	const auto tryCombo = [&](const FitCombo& combo, const Approx_ParametrizationType paramType,
+							  const double maxPoleRatio, const double fitTolFrac, const double fullTolFrac) -> bool
 	{
-		GeomAPI_PointsToBSplineSurface approx(
-			fitGrid, paramType, combo.degMin, combo.degMax, combo.continuity, combo.tol);
+		GeomAPI_PointsToBSplineSurface approx(fitGrid, paramType, combo.degMin, combo.degMax, combo.continuity,
+											  combo.tol);
 		if (!approx.IsDone() || approx.Surface().IsNull())
 		{
 			updateDeepestReject(deepest, PatchFitRejectReason::Approx);
@@ -444,12 +397,8 @@ PatchFitRejectReason tryFitNurbsSurface(
 	return deepest == PatchFitRejectReason::None ? PatchFitRejectReason::Approx : deepest;
 }
 
-bool tryMakeFaceFromCornerUvWire(
-	const Handle(Geom_Surface)& surface,
-	const int gridNu,
-	const int gridNv,
-	const double maxFaceDiag,
-	TopoDS_Face& outFace)
+bool tryMakeFaceFromCornerUvWire(const Handle(Geom_Surface) & surface, const int gridNu, const int gridNv,
+								 const double maxFaceDiag, TopoDS_Face& outFace)
 {
 	if (surface.IsNull() || gridNu < 1 || gridNv < 1)
 	{
@@ -460,7 +409,8 @@ bool tryMakeFaceFromCornerUvWire(
 	double v1 = 0.0;
 	double v2 = 0.0;
 	surface->Bounds(u1, u2, v1, v2);
-	const auto cornerOnSurf = [&](const int iu, const int iv) -> gp_Pnt {
+	const auto cornerOnSurf = [&](const int iu, const int iv) -> gp_Pnt
+	{
 		const double fu = static_cast<double>(iu) / static_cast<double>(gridNu);
 		const double fv = static_cast<double>(iv) / static_cast<double>(gridNv);
 		return surface->Value(u1 + fu * (u2 - u1), v1 + fv * (v2 - v1));
@@ -485,12 +435,8 @@ bool tryMakeFaceFromCornerUvWire(
 	return faceBBoxDiagonal(outFace) <= maxFaceDiag;
 }
 
-bool tryMakeFaceFromSurface(
-	const Handle(Geom_Surface)& surface,
-	const double sampleDiag,
-	const int gridNu,
-	const int gridNv,
-	TopoDS_Face& outFace)
+bool tryMakeFaceFromSurface(const Handle(Geom_Surface) & surface, const double sampleDiag, const int gridNu,
+							const int gridNv, TopoDS_Face& outFace)
 {
 	if (surface.IsNull())
 	{
@@ -517,10 +463,8 @@ bool tryMakeFaceFromSurface(
 gp_Pnt meshVertexPnt(const IndexedMeshLite& mesh, const int vi)
 {
 	const std::size_t b = static_cast<std::size_t>(vi) * 3U;
-	return gp_Pnt(
-		static_cast<double>(mesh.vertices[b]),
-		static_cast<double>(mesh.vertices[b + 1U]),
-		static_cast<double>(mesh.vertices[b + 2U]));
+	return gp_Pnt(static_cast<double>(mesh.vertices[b]), static_cast<double>(mesh.vertices[b + 1U]),
+				  static_cast<double>(mesh.vertices[b + 2U]));
 }
 
 bool triangleHasArea(const gp_Pnt& a, const gp_Pnt& b, const gp_Pnt& c)
@@ -530,10 +474,7 @@ bool triangleHasArea(const gp_Pnt& a, const gp_Pnt& b, const gp_Pnt& c)
 	return ab.Crossed(ac).SquareMagnitude() > 1e-18;
 }
 
-bool buildMeshFallbackFaces(
-	const IndexedMeshLite& mesh,
-	const QuadPatch& patch,
-	std::vector<TopoDS_Face>& outFaces)
+bool buildMeshFallbackFaces(const IndexedMeshLite& mesh, const QuadPatch& patch, std::vector<TopoDS_Face>& outFaces)
 {
 	outFaces.clear();
 	outFaces.reserve(patch.faceIndices.size());
@@ -643,10 +584,7 @@ gp_Vec faceOutwardNormalAtMid(const TopoDS_Face& face)
 	return n;
 }
 
-bool orientPatchFaceToMesh(
-	const IndexedMeshLite& mesh,
-	const QuadPatch& patch,
-	TopoDS_Face& face)
+bool orientPatchFaceToMesh(const IndexedMeshLite& mesh, const QuadPatch& patch, TopoDS_Face& face)
 {
 	if (face.IsNull() || patch.faceIndices.empty())
 	{
@@ -664,11 +602,8 @@ bool orientPatchFaceToMesh(
 
 } // namespace
 
-bool buildInitialBsplinePatches(
-	const IndexedMeshLite& mesh,
-	std::vector<QuadPatch>& patches,
-	const MeshSurfaceReconstructParams& params,
-	std::string* errMsg)
+bool buildInitialBsplinePatches(const IndexedMeshLite& mesh, std::vector<QuadPatch>& patches,
+								const MeshSurfaceReconstructParams& params, std::string* errMsg)
 {
 	const int defaultN = std::max(4, params.samplesPerPatchEdge);
 	int builtCount = 0;
@@ -708,13 +643,10 @@ bool buildInitialBsplinePatches(
 		{
 			for (int iv = 0; iv <= nv; ++iv)
 			{
-				grid.SetValue(
-					iu + 1,
-					iv + 1,
-					gp_Pnt(
-						static_cast<double>(patch.sampleXyz[idx]),
-						static_cast<double>(patch.sampleXyz[idx + 1U]),
-						static_cast<double>(patch.sampleXyz[idx + 2U])));
+				grid.SetValue(iu + 1, iv + 1,
+							  gp_Pnt(static_cast<double>(patch.sampleXyz[idx]),
+									 static_cast<double>(patch.sampleXyz[idx + 1U]),
+									 static_cast<double>(patch.sampleXyz[idx + 2U])));
 				idx += 3U;
 			}
 		}
@@ -731,17 +663,9 @@ bool buildInitialBsplinePatches(
 
 		try
 		{
-			const PatchFitRejectReason fitReason = tryFitNurbsSurface(
-				grid,
-				nu,
-				nv,
-				patch.uvUSpanMm,
-				patch.uvVSpanMm,
-				sampleDiag,
-				patch.computedCtrlPtsU,
-				patch.computedCtrlPtsV,
-				params,
-				patch.surface);
+			const PatchFitRejectReason fitReason =
+				tryFitNurbsSurface(grid, nu, nv, patch.uvUSpanMm, patch.uvVSpanMm, sampleDiag, patch.computedCtrlPtsU,
+								   patch.computedCtrlPtsV, params, patch.surface);
 			if (fitReason == PatchFitRejectReason::None)
 			{
 				faceOk = tryMakeFaceFromSurface(patch.surface, sampleDiag, nu, nv, patch.face);
@@ -779,10 +703,9 @@ bool buildInitialBsplinePatches(
 
 		if (patch.fitRejectReason != PatchFitRejectReason::None)
 		{
-			RunLogger::info(
-				std::string("patch ") + std::to_string(patchIdx) + " fit reject: "
-				+ patchFitRejectReasonText(patch.fitRejectReason)
-				+ (patch.meshFallback ? " (meshFallback)" : ""));
+			RunLogger::info(std::string("patch ") + std::to_string(patchIdx) +
+							" fit reject: " + patchFitRejectReasonText(patch.fitRejectReason) +
+							(patch.meshFallback ? " (meshFallback)" : ""));
 		}
 
 		if (!faceOk)
@@ -805,9 +728,8 @@ bool buildInitialBsplinePatches(
 	}
 	if (flippedCount > 0)
 	{
-		RunLogger::info(
-			std::string("NURBS fit: oriented ") + std::to_string(flippedCount)
-			+ " / " + std::to_string(builtCount) + " patches to mesh normals");
+		RunLogger::info(std::string("NURBS fit: oriented ") + std::to_string(flippedCount) + " / " +
+						std::to_string(builtCount) + " patches to mesh normals");
 	}
 	return true;
 }

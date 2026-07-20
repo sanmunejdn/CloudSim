@@ -1,14 +1,17 @@
+﻿/// @file RobotCoordinateFrames.cpp
+/// @brief RobotCoordinateFrames 实现
+
 #include "RobotCoordinateFrames.h"
 
 #include "BackendDataBase.h"
 #include "ToolKinematics.h"
 
-#include <Adapters.h>
-
 #include <atomic>
 #include <cmath>
 #include <sstream>
 #include <unordered_set>
+
+#include <Adapters.h>
 
 namespace RobotCoordinate
 {
@@ -29,7 +32,7 @@ void readVec3Array(const nlohmann::json& j, double out[3])
 
 void writeVec3Array(nlohmann::json& j, const double v[3])
 {
-	j = nlohmann::json::array({ v[0], v[1], v[2] });
+	j = nlohmann::json::array({v[0], v[1], v[2]});
 }
 
 bool readRigidFrameJson(const nlohmann::json& j, RobotRigidFrame& out)
@@ -58,7 +61,7 @@ void writeRigidFrameJson(const RobotRigidFrame& frame, nlohmann::json& out)
 
 std::atomic<unsigned long long>& toolFrameIdCounter()
 {
-	static std::atomic<unsigned long long> sCounter{ 1ULL };
+	static std::atomic<unsigned long long> sCounter{1ULL};
 	return sCounter;
 }
 
@@ -126,7 +129,7 @@ void ensureUniqueToolFrameIds(RobotCoordinateFrameSet& set)
 
 std::string makeUserFrameId()
 {
-	static std::atomic<unsigned long long> sCounter{ 1ULL };
+	static std::atomic<unsigned long long> sCounter{1ULL};
 	return std::string("UFR_") + std::to_string(sCounter.fetch_add(1ULL));
 }
 
@@ -137,13 +140,9 @@ RobotRigidFrame identityRigidFrame()
 
 engine::RigidTransform rigidTransformFromFrame(const RobotRigidFrame& frame)
 {
-	return engine::RigidTransform::fromTranslationEulerDeg(
-		frame.positionMm[0],
-		frame.positionMm[1],
-		frame.positionMm[2],
-		frame.eulerDeg[0],
-		frame.eulerDeg[1],
-		frame.eulerDeg[2]);
+	return engine::RigidTransform::fromTranslationEulerDeg(frame.positionMm[0], frame.positionMm[1],
+														   frame.positionMm[2], frame.eulerDeg[0], frame.eulerDeg[1],
+														   frame.eulerDeg[2]);
 }
 
 RobotRigidFrame frameFromRigidTransform(const engine::RigidTransform& t)
@@ -175,13 +174,7 @@ BackendMat4 backendMat4FromRigidTransform(const engine::RigidTransform& t)
 	return out;
 }
 
-engine::RigidTransform targetRigidTransformFromPose(
-	double px,
-	double py,
-	double pz,
-	double ex,
-	double ey,
-	double ez)
+engine::RigidTransform targetRigidTransformFromPose(double px, double py, double pz, double ex, double ey, double ez)
 {
 	return engine::RigidTransform::fromTranslationEulerDeg(px, py, pz, ex, ey, ez);
 }
@@ -226,9 +219,8 @@ void poseEulerFromTcpInBase(const BackendMat4& T_base_tcp, double outPos[3], dou
 
 BackendMat4 flangeTargetFromToolOriginInBase(const BackendMat4& T_base_target, const BackendMat4& T_flange_tool)
 {
-	const engine::RigidTransform flange = engine::flangeFromToolOrigin(
-		rigidTransformFromBackendMat4(T_base_target),
-		rigidTransformFromBackendMat4(T_flange_tool));
+	const engine::RigidTransform flange = engine::flangeFromToolOrigin(rigidTransformFromBackendMat4(T_base_target),
+																	   rigidTransformFromBackendMat4(T_flange_tool));
 	return backendMat4FromRigidTransform(flange);
 }
 
@@ -239,9 +231,8 @@ BackendMat4 flangeTargetFromBaseTcpAndTool(const BackendMat4& T_base_tcp, const 
 
 BackendMat4 targetInBaseFromFlange(const BackendMat4& T_base_flange, const BackendMat4& T_flange_tool)
 {
-	const engine::RigidTransform target = engine::toolOriginFromFlange(
-		rigidTransformFromBackendMat4(T_base_flange),
-		rigidTransformFromBackendMat4(T_flange_tool));
+	const engine::RigidTransform target = engine::toolOriginFromFlange(rigidTransformFromBackendMat4(T_base_flange),
+																	   rigidTransformFromBackendMat4(T_flange_tool));
 	return backendMat4FromRigidTransform(target);
 }
 
@@ -303,9 +294,8 @@ bool parseMat4Csv(const std::string& csv, BackendMat4& out)
 	return idx == 16;
 }
 
-const RobotToolFrame* resolveToolFrameForExtension(
-	const RobotCoordinateFrameSet& set,
-	const std::unordered_map<std::string, std::string>& ext)
+const RobotToolFrame* resolveToolFrameForExtension(const RobotCoordinateFrameSet& set,
+												   const std::unordered_map<std::string, std::string>& ext)
 {
 	const auto itId = ext.find(kExtMotionToolFrameId);
 	if (itId != ext.end() && !itId->second.empty() && itId->second != "active")
@@ -326,9 +316,8 @@ const RobotToolFrame* resolveToolFrameForExtension(
 	return activeToolFrame(set);
 }
 
-BackendMat4 toolMat4ForExtension(
-	const RobotCoordinateFrameSet& set,
-	const std::unordered_map<std::string, std::string>& ext)
+BackendMat4 toolMat4ForExtension(const RobotCoordinateFrameSet& set,
+								 const std::unordered_map<std::string, std::string>& ext)
 {
 	if (const RobotToolFrame* tool = resolveToolFrameForExtension(set, ext))
 	{
@@ -346,9 +335,8 @@ BackendMat4 toolMat4ForExtension(
 	return BackendMat4::identity();
 }
 
-const RobotUserFrame* resolveUserFrameForExtension(
-	const RobotCoordinateFrameSet& set,
-	const std::unordered_map<std::string, std::string>& ext)
+const RobotUserFrame* resolveUserFrameForExtension(const RobotCoordinateFrameSet& set,
+												   const std::unordered_map<std::string, std::string>& ext)
 {
 	const auto itId = ext.find(kExtMotionUserFrameId);
 	if (itId != ext.end() && !itId->second.empty() && itId->second != "active")

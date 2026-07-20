@@ -1,14 +1,16 @@
+﻿/// @file OffsetAlongNormalOp.cpp
+/// @brief OffsetAlongNormalOp 实现
+
 // OffsetAlongNormal 原子块：沿法向偏移路径点
 #include "OffsetAlongNormalOp.h"
 
 #include "TrajectoryOpFormat.h"
-#include "UnifiedTrajectoryPathMath.h"
 #include "TrajectoryOpParamAccess.h"
 #include "TrajectoryOpParamsParse.h"
+#include "UnifiedTrajectoryPathMath.h"
 
 namespace trajectory_algo
 {
-
 RobotInstruction::TrajectoryOpKind OffsetAlongNormalOp::kind() const
 {
 	return RobotInstruction::TrajectoryOpKind::OffsetAlongNormal;
@@ -24,8 +26,8 @@ TrajectoryOpCapability OffsetAlongNormalOp::capabilities() const
 	return TrajectoryOpCapability::None;
 }
 
-RobotInstruction::TrajectoryOpDescriptor OffsetAlongNormalOp::makeDefaultDescriptor(
-	const RobotInstruction::OpScope& defaultScope) const
+RobotInstruction::TrajectoryOpDescriptor
+OffsetAlongNormalOp::makeDefaultDescriptor(const RobotInstruction::OpScope& defaultScope) const
 {
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::OffsetAlongNormal;
@@ -49,19 +51,16 @@ bool OffsetAlongNormalOp::validate(const RobotInstruction::TrajectoryOpDescripto
 	return true;
 }
 
-std::string OffsetAlongNormalOp::formatSummary(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const bool chinese) const
+std::string OffsetAlongNormalOp::formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op,
+											   const bool chinese) const
 {
 	(void)op;
 	return displayName(chinese);
 }
 
-bool OffsetAlongNormalOp::processPath(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	RobotInstruction::UnifiedTrajectory& traj,
-	const TrajectoryOpExecutionContext& ctx,
-	std::string* errMsg) const
+bool OffsetAlongNormalOp::processPath(const RobotInstruction::TrajectoryOpDescriptor& op,
+									  RobotInstruction::UnifiedTrajectory& traj,
+									  const TrajectoryOpExecutionContext& ctx, std::string* errMsg) const
 {
 	(void)op;
 	(void)errMsg;
@@ -69,11 +68,7 @@ bool OffsetAlongNormalOp::processPath(
 	{
 		return false;
 	}
-	offsetAlongNormalUnifiedInScope(
-		traj,
-		op.scope,
-		ctx.program,
-		parsePathOffsetParams(op.params).offsetMm);
+	offsetAlongNormalUnifiedInScope(traj, op.scope, ctx.program, parsePathOffsetParams(op.params).offsetMm);
 	return true;
 }
 

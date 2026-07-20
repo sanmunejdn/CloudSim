@@ -1,3 +1,6 @@
+﻿/// @file SpareSolver.cpp
+/// @brief SpareSolver 实现
+
 #include "spare/SpareSolver.h"
 
 #include <algorithm>
@@ -13,10 +16,8 @@ namespace pclalgo
 {
 namespace spare
 {
-
 namespace
 {
-
 constexpr std::size_t kInvalidIndex = static_cast<std::size_t>(-1);
 
 } // namespace
@@ -33,10 +34,7 @@ void SpareSolver::surfaceToFloatXyz(const SpareSurface& surface, std::vector<flo
 	}
 }
 
-void SpareSolver::buildSrcKnnIndices(
-	const Matrix3X& srcPoints,
-	const int knnCount,
-	Eigen::MatrixXi& outIndices)
+void SpareSolver::buildSrcKnnIndices(const Matrix3X& srcPoints, const int knnCount, Eigen::MatrixXi& outIndices)
 {
 	std::vector<float> xyz;
 	xyz.reserve(static_cast<std::size_t>(srcPoints.cols()) * 3U);
@@ -55,13 +53,8 @@ void SpareSolver::buildSrcKnnIndices(
 	{
 		std::vector<std::size_t> indices;
 		std::vector<double> distSq;
-		tree.findKNearest(
-			srcPoints(0, i),
-			srcPoints(1, i),
-			srcPoints(2, i),
-			static_cast<unsigned int>(knnCount + 1),
-			indices,
-			distSq);
+		tree.findKNearest(srcPoints(0, i), srcPoints(1, i), srcPoints(2, i), static_cast<unsigned int>(knnCount + 1),
+						  indices, distSq);
 
 		int written = 0;
 		for (std::size_t j = 0; j < indices.size() && written < knnCount; ++j)
@@ -144,13 +137,8 @@ bool SpareSolver::init(SpareSurface& source, SpareSurface& target, SpareInternal
 		}
 		else
 		{
-			sampleRadius = nodeSampler_.sampleAndConstructPointCloudFps(
-				source,
-				srcPoints_,
-				srcKnnIndices_,
-				params.uniSampleRatio,
-				4,
-				8);
+			sampleRadius = nodeSampler_.sampleAndConstructPointCloudFps(source, srcPoints_, srcKnnIndices_,
+																		params.uniSampleRatio, 4, 8);
 		}
 		(void)sampleRadius;
 	}
@@ -183,22 +171,16 @@ bool SpareSolver::init(SpareSurface& source, SpareSurface& target, SpareInternal
 
 			for (int j = 0; j < 9; ++j)
 			{
-				coeffL[static_cast<std::size_t>(i) * 9U + static_cast<std::size_t>(j)]
-					= Triplet(i * 12 + j, i * 12 + j, 1.0);
-				coeffJ[static_cast<std::size_t>(i) * 9U + static_cast<std::size_t>(j)]
-					= Triplet(i * 12 + j, i * 9 + j, 1.0);
+				coeffL[static_cast<std::size_t>(i) * 9U + static_cast<std::size_t>(j)] =
+					Triplet(i * 12 + j, i * 12 + j, 1.0);
+				coeffJ[static_cast<std::size_t>(i) * 9U + static_cast<std::size_t>(j)] =
+					Triplet(i * 12 + j, i * 9 + j, 1.0);
 			}
 		}
 		rigidCoeffL_.setFromTriplets(coeffL.begin(), coeffL.end());
 		rigidCoeffJ_.setFromTriplets(coeffJ.begin(), coeffJ.end());
 
-		nodeSampler_.initWeight(
-			source,
-			alignCoeffPv0_,
-			nodesP_,
-			regCoeffB_,
-			regRightD_,
-			regCwiseWeights_);
+		nodeSampler_.initWeight(source, alignCoeffPv0_, nodesP_, regCoeffB_, regRightD_, regCwiseWeights_);
 	}
 
 	fullInArapCoeff();
@@ -208,9 +190,7 @@ bool SpareSolver::init(SpareSurface& source, SpareSurface& target, SpareInternal
 	const std::size_t startIndex = 0;
 	samplingIndices_.push_back(startIndex);
 
-	VectorX minDistances = VectorX::Constant(
-		nSrcVertex_,
-		std::numeric_limits<Scalar>::max());
+	VectorX minDistances = VectorX::Constant(nSrcVertex_, std::numeric_limits<Scalar>::max());
 	minDistances[static_cast<Eigen::Index>(startIndex)] = 0.0;
 
 	vertexSampleIndices_.assign(static_cast<std::size_t>(nSrcVertex_), -1);
@@ -226,8 +206,7 @@ bool SpareSolver::init(SpareSurface& source, SpareSurface& target, SpareInternal
 			{
 				continue;
 			}
-			const Scalar dist = (srcPoints_.col(static_cast<Eigen::Index>(curStart))
-				- srcPoints_.col(i)).norm();
+			const Scalar dist = (srcPoints_.col(static_cast<Eigen::Index>(curStart)) - srcPoints_.col(i)).norm();
 			if (dist < minDistances[i])
 			{
 				minDistances[i] = dist;
@@ -445,8 +424,8 @@ void SpareSolver::calcArapRight()
 		{
 			const int srcIdx = source_->halfEdges[static_cast<std::size_t>(i)].first;
 			const int tarIdx = source_->halfEdges[static_cast<std::size_t>(i)].second;
-			const Vector3 vij = localRotations_.block(0, srcIdx * 3, 3, 3)
-				* (srcPoints_.col(srcIdx) - srcPoints_.col(tarIdx));
+			const Vector3 vij =
+				localRotations_.block(0, srcIdx * 3, 3, 3) * (srcPoints_.col(srcIdx) - srcPoints_.col(tarIdx));
 			const Scalar w = std::sqrt(arapLaplaceWeights_[srcIdx]);
 
 			arapRight_[i * 3] = w * (vij[0] - nodesP_[srcIdx * 3] + nodesP_[tarIdx * 3]);
@@ -464,8 +443,8 @@ void SpareSolver::calcArapRight()
 			{
 				const int i = srcIdx * nn + j;
 				const int tarIdx = srcKnnIndices_(j, srcIdx);
-				const Vector3 vij = localRotations_.block(0, srcIdx * 3, 3, 3)
-					* (srcPoints_.col(srcIdx) - srcPoints_.col(tarIdx));
+				const Vector3 vij =
+					localRotations_.block(0, srcIdx * 3, 3, 3) * (srcPoints_.col(srcIdx) - srcPoints_.col(tarIdx));
 				const Scalar w = std::sqrt(arapLaplaceWeights_[srcIdx]);
 
 				arapRight_[i * 3] = w * (vij[0] - nodesP_[srcIdx * 3] + nodesP_[tarIdx * 3]);
@@ -486,8 +465,8 @@ void SpareSolver::calcArapRightFine()
 		{
 			const int srcIdx = source_->halfEdges[static_cast<std::size_t>(i)].first;
 			const int tarIdx = source_->halfEdges[static_cast<std::size_t>(i)].second;
-			const Vector3 vij = localRotations_.block(0, srcIdx * 3, 3, 3)
-				* (srcPoints_.col(srcIdx) - srcPoints_.col(tarIdx));
+			const Vector3 vij =
+				localRotations_.block(0, srcIdx * 3, 3, 3) * (srcPoints_.col(srcIdx) - srcPoints_.col(tarIdx));
 			const Scalar w = std::sqrt(arapLaplaceWeights_[srcIdx]);
 
 			arapRightFine_[i * 3] = w * vij[0];
@@ -505,8 +484,8 @@ void SpareSolver::calcArapRightFine()
 			{
 				const int tarIdx = srcKnnIndices_(j, srcIdx);
 				const int i = srcIdx * nn + j;
-				const Vector3 vij = localRotations_.block(0, srcIdx * 3, 3, 3)
-					* (srcPoints_.col(srcIdx) - srcPoints_.col(tarIdx));
+				const Vector3 vij =
+					localRotations_.block(0, srcIdx * 3, 3, 3) * (srcPoints_.col(srcIdx) - srcPoints_.col(tarIdx));
 				const Scalar w = std::sqrt(arapLaplaceWeights_[srcIdx]);
 
 				arapRightFine_[i * 3] = w * vij[0];
@@ -617,9 +596,7 @@ void SpareSolver::calcDeformedNormals()
 void SpareSolver::initNormalsSum()
 {
 	std::vector<Triplet> coeffs(static_cast<std::size_t>(correspondencePairs_.size()) * 3U);
-	normalsSum_.resize(
-		static_cast<Eigen::Index>(correspondencePairs_.size()),
-		nSrcVertex_ * 3);
+	normalsSum_.resize(static_cast<Eigen::Index>(correspondencePairs_.size()), nSrcVertex_ * 3);
 	normalsSum_.setZero();
 
 #pragma omp parallel for
@@ -627,12 +604,12 @@ void SpareSolver::initNormalsSum()
 	{
 		const int sidx = correspondencePairs_[static_cast<std::size_t>(i)].srcIdx;
 		const int tidx = correspondencePairs_[static_cast<std::size_t>(i)].tarIdx;
-		coeffs[static_cast<std::size_t>(i) * 3U]
-			= Triplet(i, sidx * 3, deformedNormals_(0, sidx) + targetNormals_(0, tidx));
-		coeffs[static_cast<std::size_t>(i) * 3U + 1U]
-			= Triplet(i, sidx * 3 + 1, deformedNormals_(1, sidx) + targetNormals_(1, tidx));
-		coeffs[static_cast<std::size_t>(i) * 3U + 2U]
-			= Triplet(i, sidx * 3 + 2, deformedNormals_(2, sidx) + targetNormals_(2, tidx));
+		coeffs[static_cast<std::size_t>(i) * 3U] =
+			Triplet(i, sidx * 3, deformedNormals_(0, sidx) + targetNormals_(0, tidx));
+		coeffs[static_cast<std::size_t>(i) * 3U + 1U] =
+			Triplet(i, sidx * 3 + 1, deformedNormals_(1, sidx) + targetNormals_(1, tidx));
+		coeffs[static_cast<std::size_t>(i) * 3U + 2U] =
+			Triplet(i, sidx * 3 + 2, deformedNormals_(2, sidx) + targetNormals_(2, tidx));
 	}
 	normalsSum_.setFromTriplets(coeffs.begin(), coeffs.end());
 }
@@ -668,12 +645,8 @@ void SpareSolver::findClosestPoints(std::vector<SpareCorrespondence>& corres)
 	for (int i = 0; i < nSrcVertex_; ++i)
 	{
 		double distSq = 0.0;
-		const std::size_t idx = targetTree_->findNearest(
-			srcPoints_(0, i),
-			srcPoints_(1, i),
-			srcPoints_(2, i),
-			maxDistSq,
-			distSq);
+		const std::size_t idx =
+			targetTree_->findNearest(srcPoints_(0, i), srcPoints_(1, i), srcPoints_(2, i), maxDistSq, distSq);
 
 		SpareCorrespondence c;
 		c.srcIdx = i;
@@ -695,9 +668,7 @@ void SpareSolver::findClosestPoints(std::vector<SpareCorrespondence>& corres)
 	}
 }
 
-void SpareSolver::findClosestPoints(
-	std::vector<SpareCorrespondence>& corres,
-	const VectorX& deformedV)
+void SpareSolver::findClosestPoints(std::vector<SpareCorrespondence>& corres, const VectorX& deformedV)
 {
 	corres.resize(static_cast<std::size_t>(nSrcVertex_));
 	const double maxDistSq = std::numeric_limits<double>::max();
@@ -706,12 +677,8 @@ void SpareSolver::findClosestPoints(
 	for (int i = 0; i < nSrcVertex_; ++i)
 	{
 		double distSq = 0.0;
-		const std::size_t idx = targetTree_->findNearest(
-			deformedV[i * 3],
-			deformedV[i * 3 + 1],
-			deformedV[i * 3 + 2],
-			maxDistSq,
-			distSq);
+		const std::size_t idx =
+			targetTree_->findNearest(deformedV[i * 3], deformedV[i * 3 + 1], deformedV[i * 3 + 2], maxDistSq, distSq);
 
 		SpareCorrespondence c;
 		c.srcIdx = i;
@@ -731,10 +698,8 @@ void SpareSolver::findClosestPoints(
 	}
 }
 
-void SpareSolver::findClosestPoints(
-	std::vector<SpareCorrespondence>& corres,
-	const VectorX& deformedV,
-	const std::vector<std::size_t>& sampleIndices)
+void SpareSolver::findClosestPoints(std::vector<SpareCorrespondence>& corres, const VectorX& deformedV,
+									const std::vector<std::size_t>& sampleIndices)
 {
 	corres.resize(sampleIndices.size());
 	const double maxDistSq = std::numeric_limits<double>::max();
@@ -744,12 +709,8 @@ void SpareSolver::findClosestPoints(
 	{
 		const int sidx = static_cast<int>(sampleIndices[static_cast<std::size_t>(i)]);
 		double distSq = 0.0;
-		const std::size_t idx = targetTree_->findNearest(
-			deformedV[sidx * 3],
-			deformedV[sidx * 3 + 1],
-			deformedV[sidx * 3 + 2],
-			maxDistSq,
-			distSq);
+		const std::size_t idx = targetTree_->findNearest(deformedV[sidx * 3], deformedV[sidx * 3 + 1],
+														 deformedV[sidx * 3 + 2], maxDistSq, distSq);
 
 		SpareCorrespondence c;
 		c.srcIdx = sidx;
@@ -791,9 +752,7 @@ void SpareSolver::simplePruning(std::vector<SpareCorrespondence>& corres) const
 		}
 
 		const bool passDistance = !params_->useDistanceReject || dist < params_->distanceThreshold;
-		const bool passNormal = !params_->useNormalReject
-			|| !source_->hasFaces()
-			|| angle < params_->normalThreshold;
+		const bool passNormal = !params_->useNormalReject || !source_->hasFaces() || angle < params_->normalThreshold;
 		if (passDistance && passNormal)
 		{
 			kept.push_back(c);
@@ -802,8 +761,7 @@ void SpareSolver::simplePruning(std::vector<SpareCorrespondence>& corres) const
 	corres = std::move(kept);
 }
 
-Scalar SpareSolver::computeMeanCorrespondenceError(
-	const std::vector<SpareCorrespondence>& corres) const
+Scalar SpareSolver::computeMeanCorrespondenceError(const std::vector<SpareCorrespondence>& corres) const
 {
 	if (corres.empty())
 	{
@@ -824,9 +782,11 @@ void SpareSolver::graphCoarseReg(const Scalar nu1)
 	bool runOnce = true;
 
 	optimizeWAlign_ = 1.0;
-	optimizeWSmo_ = params_->wSmo / static_cast<Scalar>(regCoeffB_.rows()) * static_cast<Scalar>(samplingIndices_.size());
+	optimizeWSmo_ =
+		params_->wSmo / static_cast<Scalar>(regCoeffB_.rows()) * static_cast<Scalar>(samplingIndices_.size());
 	optimizeWRot_ = params_->wRot / static_cast<Scalar>(numSampleNodes_) * static_cast<Scalar>(samplingIndices_.size());
-	optimizeWArap_ = params_->wArapCoarse / static_cast<Scalar>(arapCoeff_.rows()) * static_cast<Scalar>(samplingIndices_.size());
+	optimizeWArap_ =
+		params_->wArapCoarse / static_cast<Scalar>(arapCoeff_.rows()) * static_cast<Scalar>(samplingIndices_.size());
 
 	wAlign_ = optimizeWAlign_;
 	wSmo_ = optimizeWSmo_;
@@ -835,10 +795,9 @@ void SpareSolver::graphCoarseReg(const Scalar nu1)
 		wAlign_ = optimizeWAlign_ * (2.0 * nu1 * nu1);
 	}
 
-	const RowMajorSparseMatrix aFixedCoeff = optimizeWSmo_ * regCoeffB_.transpose()
-		* regCwiseWeights_.asDiagonal() * regCoeffB_
-		+ optimizeWRot_ * rigidCoeffL_
-		+ optimizeWArap_ * arapCoeffMul_;
+	const RowMajorSparseMatrix aFixedCoeff =
+		optimizeWSmo_ * regCoeffB_.transpose() * regCwiseWeights_.asDiagonal() * regCoeffB_ +
+		optimizeWRot_ * rigidCoeffL_ + optimizeWArap_ * arapCoeffMul_;
 
 	int outIter = 0;
 	while (outIter < params_->maxOuterIters)
@@ -887,10 +846,9 @@ void SpareSolver::graphCoarseReg(const Scalar nu1)
 			const RowMajorSparseMatrix weightNpv = normalsSum_ * alignCoeffPv0_;
 			matA0_ = optimizeWAlign_ * weightNpv.transpose() * weightD_.asDiagonal() * weightNpv + aFixedCoeff;
 			calcArapRight();
-			vecB_ = optimizeWAlign_ * weightNpv.transpose() * weightD_.asDiagonal() * normalsSum_ * diffUp_
-				+ optimizeWSmo_ * regCoeffB_.transpose() * regCwiseWeights_.asDiagonal() * regRightD_
-				+ optimizeWRot_ * rigidCoeffJ_ * nodesR_
-				+ optimizeWArap_ * arapCoeff_.transpose() * arapRight_;
+			vecB_ = optimizeWAlign_ * weightNpv.transpose() * weightD_.asDiagonal() * normalsSum_ * diffUp_ +
+					optimizeWSmo_ * regCoeffB_.transpose() * regCwiseWeights_.asDiagonal() * regRightD_ +
+					optimizeWRot_ * rigidCoeffJ_ * nodesR_ + optimizeWArap_ * arapCoeff_.transpose() * arapRight_;
 		}
 		else
 		{
@@ -906,12 +864,12 @@ void SpareSolver::graphCoarseReg(const Scalar nu1)
 			}
 
 			diffUp_ = corresU0_ - nodesP_;
-			matA0_ = optimizeWAlign_ * alignCoeffPv0_.transpose() * weightD3.asDiagonal() * alignCoeffPv0_ + aFixedCoeff;
+			matA0_ =
+				optimizeWAlign_ * alignCoeffPv0_.transpose() * weightD3.asDiagonal() * alignCoeffPv0_ + aFixedCoeff;
 			calcArapRight();
-			vecB_ = optimizeWAlign_ * alignCoeffPv0_.transpose() * weightD3.asDiagonal() * diffUp_
-				+ optimizeWSmo_ * regCoeffB_.transpose() * regCwiseWeights_.asDiagonal() * regRightD_
-				+ optimizeWRot_ * rigidCoeffJ_ * nodesR_
-				+ optimizeWArap_ * arapCoeff_.transpose() * arapRight_;
+			vecB_ = optimizeWAlign_ * alignCoeffPv0_.transpose() * weightD3.asDiagonal() * diffUp_ +
+					optimizeWSmo_ * regCoeffB_.transpose() * regCwiseWeights_.asDiagonal() * regRightD_ +
+					optimizeWRot_ * rigidCoeffJ_ * nodesR_ + optimizeWArap_ * arapCoeff_.transpose() * arapRight_;
 		}
 
 		if (runOnce)
@@ -992,8 +950,8 @@ void SpareSolver::pointwiseFineReg(const Scalar nu1)
 			const RowMajorSparseMatrix normalsSumMul = normalsSum_.transpose() * weightD_.asDiagonal() * normalsSum_;
 			matA0_ = optimizeWAlign_ * normalsSumMul + optimizeWArap_ * arapCoeffMulFine_;
 			calcArapRightFine();
-			vecB_ = optimizeWAlign_ * normalsSumMul * corresU0_
-				+ optimizeWArap_ * arapCoeffFine_.transpose() * arapRightFine_;
+			vecB_ = optimizeWAlign_ * normalsSumMul * corresU0_ +
+					optimizeWArap_ * arapCoeffFine_.transpose() * arapRightFine_;
 		}
 		else
 		{

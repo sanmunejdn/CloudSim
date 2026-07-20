@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_BACKENDVISUALSYNC_H
+#define CLOUDSIMHOST_BACKENDVISUALSYNC_H
+
+/// @file BackendVisualSync.h
+/// @brief 属性需同步 OSG
 
 #include "cloudsim_host_global.h"
 
@@ -6,8 +10,8 @@
 
 class BackendDataBase;
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 class DocumentHost;
 
 /// 属性需同步 OSG
@@ -18,12 +22,14 @@ CLOUDSIM_HOST_EXPORT bool propertyKeyCommitsPose(const QString& key);
 
 /// 属性变更后视觉同步
 CLOUDSIM_HOST_EXPORT void syncVisualAfterPropertyChange(DocumentHost& host, const BackendDataBase& data,
-	bool applyColor = false);
+														bool applyColor = false);
 CLOUDSIM_HOST_EXPORT void syncVisualAfterPropertyChangeById(DocumentHost& host, const QString& objectId,
-	bool applyColor = false);
+															bool applyColor = false);
 
 /// IDataService 后处理
 CLOUDSIM_HOST_EXPORT void afterDataServicePropertyChange(DocumentHost& host, const BackendDataBase& data,
-	const QString& key);
+														 const QString& key);
 
 } // namespace cloudsim::host
+
+#endif // CLOUDSIMHOST_BACKENDVISUALSYNC_H

@@ -1,12 +1,15 @@
+﻿/// @file PluginLabelingHostImpl.cpp
+/// @brief PluginLabelingHostImpl 实现
+
 #include "PluginLabelingHostImpl.h"
 
-#include "DocumentPointCloudOps.h"
 #include "DocumentHost.h"
+#include "DocumentPointCloudOps.h"
+#include "IPluginPointCloudHost.h"
 #include "LabelingSession.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PluginDocumentAdapter.h"
-#include "IPluginPointCloudHost.h"
 #include "PluginHostContext.h"
 #include "PointCloudBackendData.h"
 #include "PointCloudBackendOps.h"
@@ -15,13 +18,11 @@
 #include <QMetaObject>
 #include <QObject>
 #include <QVector>
-
 #include <algorithm>
 #include <memory>
 
 namespace
 {
-
 cloudsim::host::DocumentHost* pageFromDoc(IPluginDocument* doc)
 {
 	if (!doc)
@@ -70,10 +71,7 @@ PluginLabelingDatasetExportResult toPluginExportResult(const LabelingDatasetExpo
 
 } // namespace
 
-PluginLabelingHostImpl::PluginLabelingHostImpl(PluginHostContext* hostContext)
-	: m_host(hostContext)
-{
-}
+PluginLabelingHostImpl::PluginLabelingHostImpl(PluginHostContext* hostContext) : m_host(hostContext) {}
 
 PluginLabelingHostImpl::SessionEntry* PluginLabelingHostImpl::findSession(const PluginLabelingSessionId sessionId)
 {
@@ -81,17 +79,17 @@ PluginLabelingHostImpl::SessionEntry* PluginLabelingHostImpl::findSession(const 
 	return it != m_sessions.end() ? &it->second : nullptr;
 }
 
-const PluginLabelingHostImpl::SessionEntry* PluginLabelingHostImpl::findSession(const PluginLabelingSessionId sessionId) const
+const PluginLabelingHostImpl::SessionEntry*
+PluginLabelingHostImpl::findSession(const PluginLabelingSessionId sessionId) const
 {
 	const auto it = m_sessions.find(sessionId);
 	return it != m_sessions.end() ? &it->second : nullptr;
 }
 
-PluginLabelingSessionId PluginLabelingHostImpl::beginLabelingSession(
-	IPluginDocument* doc,
-	const std::string& backendIdUtf8,
-	const PluginLabelingSessionConfig& config,
-	QString* outError)
+PluginLabelingSessionId PluginLabelingHostImpl::beginLabelingSession(IPluginDocument* doc,
+																	 const std::string& backendIdUtf8,
+																	 const PluginLabelingSessionConfig& config,
+																	 QString* outError)
 {
 	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
 	if (!page)
@@ -171,10 +169,8 @@ void PluginLabelingHostImpl::clearLabelingSession(const PluginLabelingSessionId 
 	}
 }
 
-bool PluginLabelingHostImpl::getSessionSummary(
-	const PluginLabelingSessionId sessionId,
-	PluginLabelingSessionSummary& outSummary,
-	QString* outError) const
+bool PluginLabelingHostImpl::getSessionSummary(const PluginLabelingSessionId sessionId,
+											   PluginLabelingSessionSummary& outSummary, QString* outError) const
 {
 	const SessionEntry* entry = findSession(sessionId);
 	if (!entry || !entry->session)
@@ -197,7 +193,8 @@ bool PluginLabelingHostImpl::getSessionSummary(
 	return true;
 }
 
-bool PluginLabelingHostImpl::setActiveClass(const PluginLabelingSessionId sessionId, const int classId, QString* outError)
+bool PluginLabelingHostImpl::setActiveClass(const PluginLabelingSessionId sessionId, const int classId,
+											QString* outError)
 {
 	SessionEntry* entry = findSession(sessionId);
 	if (!entry || !entry->session)
@@ -212,10 +209,8 @@ bool PluginLabelingHostImpl::setActiveClass(const PluginLabelingSessionId sessio
 	return true;
 }
 
-bool PluginLabelingHostImpl::syncSessionConfig(
-	const PluginLabelingSessionId sessionId,
-	const PluginLabelingSessionConfig& config,
-	QString* outError)
+bool PluginLabelingHostImpl::syncSessionConfig(const PluginLabelingSessionId sessionId,
+											   const PluginLabelingSessionConfig& config, QString* outError)
 {
 	SessionEntry* entry = findSession(sessionId);
 	if (!entry || !entry->session)
@@ -230,12 +225,9 @@ bool PluginLabelingHostImpl::syncSessionConfig(
 	return refreshBackendColors(*entry, outError);
 }
 
-bool PluginLabelingHostImpl::applyLabels(
-	const PluginLabelingSessionId sessionId,
-	const PluginLabelingSelectionResult& selection,
-	const int classId,
-	const bool erase,
-	QString* outError)
+bool PluginLabelingHostImpl::applyLabels(const PluginLabelingSessionId sessionId,
+										 const PluginLabelingSelectionResult& selection, const int classId,
+										 const bool erase, QString* outError)
 {
 	SessionEntry* entry = findSession(sessionId);
 	if (!entry || !entry->session)
@@ -346,11 +338,9 @@ bool PluginLabelingHostImpl::syncLabelVisualization(const PluginLabelingSessionI
 	return refreshBackendColors(*entry, outError);
 }
 
-bool PluginLabelingHostImpl::importPerPointLabels(
-	const PluginLabelingSessionId sessionId,
-	const std::vector<int>& labels,
-	const int numClasses,
-	QString* outError)
+bool PluginLabelingHostImpl::importPerPointLabels(const PluginLabelingSessionId sessionId,
+												  const std::vector<int>& labels, const int numClasses,
+												  QString* outError)
 {
 	SessionEntry* entry = findSession(sessionId);
 	if (!entry || !entry->session)
@@ -372,12 +362,10 @@ bool PluginLabelingHostImpl::importPerPointLabels(
 	return refreshBackendColors(*entry, outError);
 }
 
-bool PluginLabelingHostImpl::exportPointNetDataset(
-	const PluginLabelingSessionId sessionId,
-	const std::string& outputDirUtf8,
-	const PluginLabelingDatasetExportOptions& options,
-	PluginLabelingDatasetExportResult& outResult,
-	QString* outError)
+bool PluginLabelingHostImpl::exportPointNetDataset(const PluginLabelingSessionId sessionId,
+												   const std::string& outputDirUtf8,
+												   const PluginLabelingDatasetExportOptions& options,
+												   PluginLabelingDatasetExportResult& outResult, QString* outError)
 {
 	const SessionEntry* entry = findSession(sessionId);
 	if (!entry || !entry->session)
@@ -443,7 +431,8 @@ void PluginLabelingHostImpl::abandonActiveLabelingPick()
 	clearActivePickState(false);
 }
 
-void PluginLabelingHostImpl::pickPointsOnce(const PluginLabelingSessionId sessionId, PluginLabelingPickFinishedFn onFinished)
+void PluginLabelingHostImpl::pickPointsOnce(const PluginLabelingSessionId sessionId,
+											PluginLabelingPickFinishedFn onFinished)
 {
 	if (!onFinished)
 	{
@@ -471,33 +460,24 @@ void PluginLabelingHostImpl::pickPointsOnce(const PluginLabelingSessionId sessio
 	m_activePickSessionId = sessionId;
 	osg->setLabelingClickPickMode(true, false);
 
-	m_pickState->clickConn = QObject::connect(
-		osg,
-		&OsgWidget::labelingClickCommitted,
-		m_host,
-		[=](const PickResult& pick) {
-			PluginLabelingSelectionResult sel;
-			if (pick.hit && pick.pointIndex >= 0)
-			{
-				sel.pointIndices.push_back(static_cast<std::size_t>(pick.pointIndex));
-			}
-			onFinished(pick.hit, pick.hit ? QString() : QStringLiteral("No point hit"), sel);
-		});
+	m_pickState->clickConn =
+		QObject::connect(osg, &OsgWidget::labelingClickCommitted, m_host,
+						 [=](const PickResult& pick)
+						 {
+							 PluginLabelingSelectionResult sel;
+							 if (pick.hit && pick.pointIndex >= 0)
+							 {
+								 sel.pointIndices.push_back(static_cast<std::size_t>(pick.pointIndex));
+							 }
+							 onFinished(pick.hit, pick.hit ? QString() : QStringLiteral("No point hit"), sel);
+						 });
 
-	m_pickState->cancelConn = QObject::connect(
-		osg,
-		&OsgWidget::labelingPickCanceled,
-		m_host,
-		[this]() {
-			clearActivePickState(true);
-		});
+	m_pickState->cancelConn =
+		QObject::connect(osg, &OsgWidget::labelingPickCanceled, m_host, [this]() { clearActivePickState(true); });
 }
 
-void PluginLabelingHostImpl::brushStroke(
-	const PluginLabelingSessionId sessionId,
-	const float radiusPx,
-	PluginLabelingBrushStrokeFn onStroke,
-	PluginLabelingBrushFinishedFn onFinished)
+void PluginLabelingHostImpl::brushStroke(const PluginLabelingSessionId sessionId, const float radiusPx,
+										 PluginLabelingBrushStrokeFn onStroke, PluginLabelingBrushFinishedFn onFinished)
 {
 	if (!onFinished)
 	{
@@ -527,46 +507,38 @@ void PluginLabelingHostImpl::brushStroke(
 	m_activePickSessionId = sessionId;
 	osg->setLabelingBrushPickMode(true, false, radiusPx);
 
-	m_pickState->brushStrokeConn = QObject::connect(
-		osg,
-		&OsgWidget::labelingBrushStroke,
-		m_host,
-		[=](const QVector<int>& indices) {
-			if (!onStroke)
-			{
-				return;
-			}
-			PluginLabelingSelectionResult stroke;
-			stroke.pointIndices.reserve(static_cast<std::size_t>(indices.size()));
-			for (int idx : indices)
-			{
-				if (idx >= 0)
-				{
-					stroke.pointIndices.push_back(static_cast<std::size_t>(idx));
-				}
-			}
-			onStroke(stroke);
-		});
+	m_pickState->brushStrokeConn =
+		QObject::connect(osg, &OsgWidget::labelingBrushStroke, m_host,
+						 [=](const QVector<int>& indices)
+						 {
+							 if (!onStroke)
+							 {
+								 return;
+							 }
+							 PluginLabelingSelectionResult stroke;
+							 stroke.pointIndices.reserve(static_cast<std::size_t>(indices.size()));
+							 for (int idx : indices)
+							 {
+								 if (idx >= 0)
+								 {
+									 stroke.pointIndices.push_back(static_cast<std::size_t>(idx));
+								 }
+							 }
+							 onStroke(stroke);
+						 });
 
-	m_pickState->brushFinishConn = QObject::connect(
-		osg,
-		&OsgWidget::labelingBrushFinished,
-		m_host,
-		[]()
-		{
-			// 单次刷选结束，保持刷选模式直至 Esc
-		});
+	m_pickState->brushFinishConn = QObject::connect(osg, &OsgWidget::labelingBrushFinished, m_host,
+													[]()
+													{
+														// 单次刷选结束，保持刷选模式直至 Esc
+													});
 
-	m_pickState->cancelConn = QObject::connect(
-		osg,
-		&OsgWidget::labelingPickCanceled,
-		m_host,
-		[this]() {
-			clearActivePickState(true);
-		});
+	m_pickState->cancelConn =
+		QObject::connect(osg, &OsgWidget::labelingPickCanceled, m_host, [this]() { clearActivePickState(true); });
 }
 
-void PluginLabelingHostImpl::pickPolylineRegion(const PluginLabelingSessionId sessionId, PluginLabelingPickFinishedFn onFinished)
+void PluginLabelingHostImpl::pickPolylineRegion(const PluginLabelingSessionId sessionId,
+												PluginLabelingPickFinishedFn onFinished)
 {
 	if (!onFinished || !m_host)
 	{
@@ -587,7 +559,8 @@ void PluginLabelingHostImpl::pickPolylineRegion(const PluginLabelingSessionId se
 
 	m_host->pointCloudHost()->pickPolylineFromViewport(
 		entry->doc,
-		[=](const bool ok, const QString& err, const PluginPointCloudPolylinePickResult& poly) {
+		[=](const bool ok, const QString& err, const PluginPointCloudPolylinePickResult& poly)
+		{
 			if (!ok)
 			{
 				onFinished(false, err, {});
@@ -603,26 +576,16 @@ void PluginLabelingHostImpl::pickPolylineRegion(const PluginLabelingSessionId se
 					return;
 				}
 				std::vector<std::size_t> kept;
-				double modelToWorld[16] = {
-					1.0, 0.0, 0.0, 0.0,
-					0.0, 1.0, 0.0, 0.0,
-					0.0, 0.0, 1.0, 0.0,
-					0.0, 0.0, 0.0, 1.0};
+				double modelToWorld[16] = {1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+										   0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
 				if (OsgWidget* osg = widgetOsgFromPage(page))
 				{
 					(void)osg->tryGetBackendPointLocalToWorldMatrix(entry->backendId, modelToWorld);
 				}
 				std::string cropErr;
 				(void)point_cloud_backend_ops::collectPointCloudIndicesByPolyline2D(
-					*pc,
-					poly.polylineScreenXy,
-					poly.mvpMatrix,
-					modelToWorld,
-					poly.viewportWidth,
-					poly.viewportHeight,
-					true,
-					kept,
-					&cropErr);
+					*pc, poly.polylineScreenXy, poly.mvpMatrix, modelToWorld, poly.viewportWidth, poly.viewportHeight,
+					true, kept, &cropErr);
 				sel.pointIndices = std::move(kept);
 			}
 			else if (entry->kind == PluginLabelingGeometryKind::TriangleMesh)
@@ -634,33 +597,24 @@ void PluginLabelingHostImpl::pickPolylineRegion(const PluginLabelingSessionId se
 					return;
 				}
 				std::vector<int> kept;
-				double modelToWorld[16] = {
-					1.0, 0.0, 0.0, 0.0,
-					0.0, 1.0, 0.0, 0.0,
-					0.0, 0.0, 1.0, 0.0,
-					0.0, 0.0, 0.0, 1.0};
+				double modelToWorld[16] = {1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+										   0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
 				if (OsgWidget* osg = widgetOsgFromPage(page))
 				{
 					(void)osg->tryGetBackendPointLocalToWorldMatrix(entry->backendId, modelToWorld);
 				}
 				std::string cropErr;
 				(void)point_cloud_backend_ops::collectMeshTriangleIndicesByPolyline2D(
-					*mesh,
-					poly.polylineScreenXy,
-					poly.mvpMatrix,
-					modelToWorld,
-					poly.viewportWidth,
-					poly.viewportHeight,
-					true,
-					kept,
-					&cropErr);
+					*mesh, poly.polylineScreenXy, poly.mvpMatrix, modelToWorld, poly.viewportWidth, poly.viewportHeight,
+					true, kept, &cropErr);
 				sel.triangleIndices = std::move(kept);
 			}
 			onFinished(true, QString(), sel);
 		});
 }
 
-void PluginLabelingHostImpl::pickMeshFaceOnce(const PluginLabelingSessionId sessionId, PluginLabelingPickFinishedFn onFinished)
+void PluginLabelingHostImpl::pickMeshFaceOnce(const PluginLabelingSessionId sessionId,
+											  PluginLabelingPickFinishedFn onFinished)
 {
 	if (!onFinished)
 	{
@@ -688,33 +642,25 @@ void PluginLabelingHostImpl::pickMeshFaceOnce(const PluginLabelingSessionId sess
 	m_activePickSessionId = sessionId;
 	osg->setLabelingClickPickMode(true, true);
 
-	m_pickState->clickConn = QObject::connect(
-		osg,
-		&OsgWidget::labelingClickCommitted,
-		m_host,
-		[=](const PickResult& pick) {
-			PluginLabelingSelectionResult sel;
-			if (pick.hit && pick.meshTriangleIndex >= 0)
-			{
-				sel.triangleIndices.push_back(pick.meshTriangleIndex);
-			}
-			onFinished(pick.hit, pick.hit ? QString() : QStringLiteral("No face hit"), sel);
-		});
+	m_pickState->clickConn =
+		QObject::connect(osg, &OsgWidget::labelingClickCommitted, m_host,
+						 [=](const PickResult& pick)
+						 {
+							 PluginLabelingSelectionResult sel;
+							 if (pick.hit && pick.meshTriangleIndex >= 0)
+							 {
+								 sel.triangleIndices.push_back(pick.meshTriangleIndex);
+							 }
+							 onFinished(pick.hit, pick.hit ? QString() : QStringLiteral("No face hit"), sel);
+						 });
 
-	m_pickState->cancelConn = QObject::connect(
-		osg,
-		&OsgWidget::labelingPickCanceled,
-		m_host,
-		[this]() {
-			clearActivePickState(true);
-		});
+	m_pickState->cancelConn =
+		QObject::connect(osg, &OsgWidget::labelingPickCanceled, m_host, [this]() { clearActivePickState(true); });
 }
 
-void PluginLabelingHostImpl::brushMeshFaces(
-	const PluginLabelingSessionId sessionId,
-	const float radiusPx,
-	PluginLabelingBrushStrokeFn onStroke,
-	PluginLabelingBrushFinishedFn onFinished)
+void PluginLabelingHostImpl::brushMeshFaces(const PluginLabelingSessionId sessionId, const float radiusPx,
+											PluginLabelingBrushStrokeFn onStroke,
+											PluginLabelingBrushFinishedFn onFinished)
 {
 	if (!onFinished)
 	{
@@ -744,39 +690,26 @@ void PluginLabelingHostImpl::brushMeshFaces(
 	m_activePickSessionId = sessionId;
 	osg->setLabelingBrushPickMode(true, true, radiusPx);
 
-	m_pickState->brushStrokeConn = QObject::connect(
-		osg,
-		&OsgWidget::labelingBrushStroke,
-		m_host,
-		[=](const QVector<int>& indices) {
-			if (!onStroke)
-			{
-				return;
-			}
-			PluginLabelingSelectionResult stroke;
-			for (int idx : indices)
-			{
-				if (idx >= 0)
-				{
-					stroke.triangleIndices.push_back(idx);
-				}
-			}
-			onStroke(stroke);
-		});
+	m_pickState->brushStrokeConn = QObject::connect(osg, &OsgWidget::labelingBrushStroke, m_host,
+													[=](const QVector<int>& indices)
+													{
+														if (!onStroke)
+														{
+															return;
+														}
+														PluginLabelingSelectionResult stroke;
+														for (int idx : indices)
+														{
+															if (idx >= 0)
+															{
+																stroke.triangleIndices.push_back(idx);
+															}
+														}
+														onStroke(stroke);
+													});
 
-	m_pickState->brushFinishConn = QObject::connect(
-		osg,
-		&OsgWidget::labelingBrushFinished,
-		m_host,
-		[]()
-		{
-		});
+	m_pickState->brushFinishConn = QObject::connect(osg, &OsgWidget::labelingBrushFinished, m_host, []() {});
 
-	m_pickState->cancelConn = QObject::connect(
-		osg,
-		&OsgWidget::labelingPickCanceled,
-		m_host,
-		[this]() {
-			clearActivePickState(true);
-		});
+	m_pickState->cancelConn =
+		QObject::connect(osg, &OsgWidget::labelingPickCanceled, m_host, [this]() { clearActivePickState(true); });
 }

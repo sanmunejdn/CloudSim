@@ -1,15 +1,20 @@
-#pragma once
+﻿#ifndef BACKENDVISUAL_BACKENDVISUALREGISTRY_H
+#define BACKENDVISUAL_BACKENDVISUALREGISTRY_H
 
-#include "IBackendVisual.h"
+/// @file BackendVisualRegistry.h
+/// @brief 按 BackendDataBase::className 注册 IBackendVisual 工厂
+
 #include "backendvisual_global.h"
+
+#include "BackendDataBase.h"
+#include "IBackendVisual.h"
 
 #include <functional>
 #include <memory>
-#include <osg/Geode>
-#include <osg/Node>
 #include <string>
 
-#include "BackendDataBase.h"
+#include <osg/Geode>
+#include <osg/Node>
 
 class MeshBackendData;
 class PointCloudBackendData;
@@ -25,8 +30,8 @@ public:
 
 	static std::unique_ptr<IBackendVisual> createForClassName(const std::string& className);
 
-	static bool buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions& meshOptions, BranchBuildResult& out,
-		std::string* errorMessage);
+	static bool buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions& meshOptions,
+								 BranchBuildResult& out, std::string* errorMessage);
 
 	static void computeModelCenterAndDiagonal(const BackendDataBase& data, osg::Vec3f& outCenter, float& outDiagonal);
 
@@ -34,5 +39,7 @@ public:
 	static osg::ref_ptr<osg::Geode> buildPointCloudGeode(const PointCloudBackendData& data, std::string* errorMessage);
 
 	static osg::ref_ptr<osg::Node> buildMeshDisplayNode(const MeshBackendData& data, const MeshVisualOptions& options,
-		std::string* errorMessage);
+														std::string* errorMessage);
 };
+
+#endif // BACKENDVISUAL_BACKENDVISUALREGISTRY_H

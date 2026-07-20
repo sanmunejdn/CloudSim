@@ -1,3 +1,6 @@
+﻿/// @file MeshSurfaceReconstructionPartitionCommon.cpp
+/// @brief MeshSurfaceReconstructionPartitionCommon 实现
+
 #include "MeshSurfaceReconstructionPartitionCommon.h"
 
 #include <algorithm>
@@ -9,7 +12,6 @@ namespace geoalgo
 {
 namespace meshrecon
 {
-
 double PartitionVec3d::length() const
 {
 	return std::sqrt(dot(*this));
@@ -23,10 +25,7 @@ PartitionVec3d PartitionVec3d::normalized() const
 
 PartitionVec3d crossPartitionVec(const PartitionVec3d& a, const PartitionVec3d& b)
 {
-	return {
-		a.y * b.z - a.z * b.y,
-		a.z * b.x - a.x * b.z,
-		a.x * b.y - a.y * b.x};
+	return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
 
 PartitionVec3d readPartitionV(const std::vector<float>& v, int i)
@@ -83,12 +82,8 @@ MeshAdjacency buildMeshAdjacency(const IndexedMeshLite& mesh, const int faceCoun
 	return out;
 }
 
-void computeFaceGeometry(
-	const IndexedMeshLite& mesh,
-	const int faceCount,
-	std::vector<PartitionVec3d>& faceNormals,
-	std::vector<PartitionVec3d>& faceCentroids,
-	std::vector<double>& faceAreas)
+void computeFaceGeometry(const IndexedMeshLite& mesh, const int faceCount, std::vector<PartitionVec3d>& faceNormals,
+						 std::vector<PartitionVec3d>& faceCentroids, std::vector<double>& faceAreas)
 {
 	faceNormals.assign(static_cast<std::size_t>(faceCount), {});
 	faceCentroids.assign(static_cast<std::size_t>(faceCount), {});
@@ -136,10 +131,8 @@ void chartToPatches(const std::vector<int>& chart, std::vector<QuadPatch>& patch
 	}
 }
 
-void rebuildPatchAdjacency(
-	const std::vector<std::vector<int>>& adj,
-	const int faceCount,
-	std::vector<QuadPatch>& patches)
+void rebuildPatchAdjacency(const std::vector<std::vector<int>>& adj, const int faceCount,
+						   std::vector<QuadPatch>& patches)
 {
 	std::vector<int> faceToPatch(static_cast<std::size_t>(faceCount), -1);
 	for (int pi = 0; pi < static_cast<int>(patches.size()); ++pi)
@@ -201,12 +194,8 @@ int computeJunctionCount(const std::vector<QuadPatch>& patches)
 	return outJunctionCount;
 }
 
-void computePatchFaceStats(
-	const std::vector<QuadPatch>& patches,
-	const int minFacesThreshold,
-	int& outMin,
-	int& outMax,
-	int& outSmallCount)
+void computePatchFaceStats(const std::vector<QuadPatch>& patches, const int minFacesThreshold, int& outMin, int& outMax,
+						   int& outSmallCount)
 {
 	outMin = 0;
 	outMax = 0;

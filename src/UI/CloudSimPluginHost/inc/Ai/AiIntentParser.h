@@ -1,10 +1,15 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINHOST_AIINTENTPARSER_H
+#define CLOUDSIMPLUGINHOST_AIINTENTPARSER_H
+
+/// @file AiIntentParser.h
+/// @brief mesh.compose：长方体 + 通孔等固定句式，避免小模型把坯料建成圆柱
 
 #include "aibackend_global.h"
 
-#include <json.hpp>
 #include <QString>
 #include <optional>
+
+#include <json.hpp>
 
 namespace AiIntentParser
 {
@@ -20,4 +25,6 @@ AIBACKEND_EXPORT ParseResult tryParseUserText(const QString& text);
 
 /// mesh.compose：长方体 + 通孔等固定句式，避免小模型把坯料建成圆柱
 AIBACKEND_EXPORT ParseResult tryParseComposeUserText(const QString& text);
-}
+} // namespace AiIntentParser
+
+#endif // CLOUDSIMPLUGINHOST_AIINTENTPARSER_H

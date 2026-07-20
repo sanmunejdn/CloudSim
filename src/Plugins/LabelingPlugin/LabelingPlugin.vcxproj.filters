@@ -1,0 +1,72 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Plugin">
+      <UniqueIdentifier>{6D14B60E-D36B-4CAE-A1B2-80F6591044B4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Plugin">
+      <UniqueIdentifier>{1992CFB1-7149-42D2-9C78-56298DC257DA}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\PointNetPlugin\inc\PointNetInference.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="..\PointNetPlugin\inc\PointNetTypes.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\LabelingConfigIO.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\PointNetPlugin\source\PointNetInference.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="source\LabelingAnnotWidget.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\LabelingConfigIO.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\LabelingPlugin.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="source\LabelingTrainWidget.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PointNetTrainingRunner.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="inc\LabelingAnnotWidget.h">
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\LabelingPlugin.h">
+      <Filter>inc\Plugin</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\LabelingTrainWidget.h">
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\PointNetTrainingRunner.h">
+      <Filter>inc</Filter>
+    </QtMoc>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="labeling_config.json">
+      <Filter>inc</Filter>
+    </None>
+    <None Include="plugin.json">
+      <Filter>inc\Plugin</Filter>
+    </None>
+  </ItemGroup>
+</Project>

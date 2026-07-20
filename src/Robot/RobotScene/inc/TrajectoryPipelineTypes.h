@@ -1,15 +1,18 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_TRAJECTORYPIPELINETYPES_H
+#define ROBOTSCENE_TRAJECTORYPIPELINETYPES_H
+
+/// @file TrajectoryPipelineTypes.h
+/// @brief 轨迹增量参考系（相对路点当前 T_base_target）
 
 #include "robot_scene_global.h"
-
-#include <json.hpp>
 
 #include <string>
 #include <vector>
 
+#include <json.hpp>
+
 namespace RobotInstruction
 {
-
 enum class ROBOT_SCENE_API TrajectoryOpKind
 {
 	Translate = 0,
@@ -30,7 +33,8 @@ enum class ROBOT_SCENE_API TrajectoryOpKind
 	ReachabilityFilter,
 	ExternalAxisSearch,
 	ProjectToGeometry,
-	NonRigidRegistration
+	NonRigidRegistration,
+	ToWorkpieceInHand
 };
 
 /// 轨迹增量参考系（相对路点当前 T_base_target）
@@ -178,6 +182,19 @@ struct ROBOT_SCENE_API NonRigidRegistrationParams
 	double voxelPrefilterMm = 0.0;
 };
 
+/// 工具型→工件型：外部 TCP 参数；参考位姿由 ExecutionContext 注入
+struct ROBOT_SCENE_API ToWorkpieceInHandParams
+{
+	std::string externalTcpBackendId;
+	double externalTcpXMm = 0.0;
+	double externalTcpYMm = 0.0;
+	double externalTcpZMm = 0.0;
+	double externalTcpRxDeg = 0.0;
+	double externalTcpRyDeg = 0.0;
+	double externalTcpRzDeg = 0.0;
+	bool enableSpeedTransform = false;
+};
+
 struct ROBOT_SCENE_API TrajectoryOpDescriptor
 {
 	std::string opId;
@@ -189,3 +206,5 @@ struct ROBOT_SCENE_API TrajectoryOpDescriptor
 };
 
 } // namespace RobotInstruction
+
+#endif // ROBOTSCENE_TRAJECTORYPIPELINETYPES_H

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef POINTCLOUDALGORITHM_POINTCLOUDBUFFER_H
+#define POINTCLOUDALGORITHM_POINTCLOUDBUFFER_H
+
+/// @file PointCloudBuffer.h
+/// @brief PointCloudBuffer 接口
 
 #include "point_cloud_algorithm_global.h"
 
@@ -7,20 +11,19 @@
 
 namespace pclalgo
 {
-
 POINT_CLOUD_ALGORITHM_API std::size_t pointCountFromXyz(const std::vector<float>& xyz);
 POINT_CLOUD_ALGORITHM_API std::size_t triangleCountFromSoup(const std::vector<float>& triangleSoup);
 POINT_CLOUD_ALGORITHM_API bool validXyzLength(const std::vector<float>& xyz);
 POINT_CLOUD_ALGORITHM_API bool validRgbaLength(const std::vector<float>& rgba, std::size_t pointCount);
 
-POINT_CLOUD_ALGORITHM_API void compactXyzByIndices(
-	const std::vector<float>& srcXyz,
-	const std::vector<std::size_t>& keepIndices,
-	std::vector<float>& outXyz);
+POINT_CLOUD_ALGORITHM_API void compactXyzByIndices(const std::vector<float>& srcXyz,
+												   const std::vector<std::size_t>& keepIndices,
+												   std::vector<float>& outXyz);
 
-POINT_CLOUD_ALGORITHM_API void compactRgbaByIndices(
-	const std::vector<float>& srcRgba,
-	const std::vector<std::size_t>& keepIndices,
-	std::vector<float>& outRgba);
+POINT_CLOUD_ALGORITHM_API void compactRgbaByIndices(const std::vector<float>& srcRgba,
+													const std::vector<std::size_t>& keepIndices,
+													std::vector<float>& outRgba);
 
 } // namespace pclalgo
+
+#endif // POINTCLOUDALGORITHM_POINTCLOUDBUFFER_H

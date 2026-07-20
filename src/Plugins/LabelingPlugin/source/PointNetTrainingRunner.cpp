@@ -1,6 +1,7 @@
-#include "PointNetTrainingRunner.h"
+﻿/// @file PointNetTrainingRunner.cpp
+/// @brief PointNetTrainingRunner 实现
 
-#include <json.hpp>
+#include "PointNetTrainingRunner.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -9,14 +10,15 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcess>
+#include <QProcessEnvironment>
 #include <QRegularExpression>
 #include <QStandardPaths>
-#include <QProcessEnvironment>
 #include <QTimer>
+
+#include <json.hpp>
 
 namespace
 {
-
 QString findExecutableOnPath(const QString& name)
 {
 	const QString pathEnv = qEnvironmentVariable("PATH");
@@ -77,12 +79,8 @@ QStringList pythonLaunchArgs(const QString& scriptPath, const QStringList& scrip
 #endif
 }
 
-bool startPythonProcess(
-	QProcess* proc,
-	const QString& workingDir,
-	const QString& python,
-	const QStringList& args,
-	QString* errMsg)
+bool startPythonProcess(QProcess* proc, const QString& workingDir, const QString& python, const QStringList& args,
+						QString* errMsg)
 {
 	if (!proc)
 	{
@@ -115,23 +113,40 @@ bool startPythonProcess(
 } // namespace
 
 PointNetTrainingRunner::PointNetTrainingRunner(QObject* parent)
-	: QObject(parent)
-	, m_process(new QProcess(this))
-	, m_metricsTimer(new QTimer(this))
+	: QObject(parent), m_process(new QProcess(this)), m_metricsTimer(new QTimer(this))
 {
 	m_metricsTimer->setInterval(1000);
 	connect(m_process, &QProcess::readyReadStandardOutput, this, &PointNetTrainingRunner::onProcessReadyRead);
 	connect(m_process, &QProcess::readyReadStandardError, this, &PointNetTrainingRunner::onProcessReadyRead);
-	connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &PointNetTrainingRunner::onProcessFinished);
+	connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
+			&PointNetTrainingRunner::onProcessFinished);
 	connect(m_metricsTimer, &QTimer::timeout, this, &PointNetTrainingRunner::pollMetricsFile);
 }
 
 PointNetTrainingRunner::~PointNetTrainingRunner()
 {
-	if (m_process->state() != QProcess::NotRunning)
+	if (m_metricsTimer)
+	{
+		m_metricsTimer->stop();
+	}
+	if (m_process && m_process->state() != QProcess::NotRunning)
 	{
 		m_process->kill();
 		m_process->waitForFinished(3000);
+	}
+	// 数据集校验 / ONNX 导出等旁路 QProcess
+	const QList<QProcess*> children = findChildren<QProcess*>(QString(), Qt::FindDirectChildrenOnly);
+	for (QProcess* proc : children)
+	{
+		if (!proc || proc == m_process)
+		{
+			continue;
+		}
+		if (proc->state() != QProcess::NotRunning)
+		{
+			proc->kill();
+			proc->waitForFinished(3000);
+		}
 	}
 }
 
@@ -224,8 +239,8 @@ QString PointNetTrainingRunner::absoluteTrainingPath(const QString& relative) co
 
 bool PointNetTrainingRunner::writeGeneratedConfig(QString* err)
 {
-	const QString baseConfig = absoluteTrainingPath(m_defaultSegConfig.isEmpty() ? QStringLiteral("configs/seg_config.yaml")
-																				 : m_defaultSegConfig);
+	const QString baseConfig = absoluteTrainingPath(
+		m_defaultSegConfig.isEmpty() ? QStringLiteral("configs/seg_config.yaml") : m_defaultSegConfig);
 	if (!QFile::exists(baseConfig))
 	{
 		if (err)
@@ -246,7 +261,8 @@ bool PointNetTrainingRunner::writeGeneratedConfig(QString* err)
 	QString yaml = QString::fromUtf8(in.readAll());
 	in.close();
 
-	auto replaceField = [&yaml](const QString& key, const QString& value) {
+	auto replaceField = [&yaml](const QString& key, const QString& value)
+	{
 		const QRegularExpression re(QStringLiteral("(?m)^(%1:\\s*).*$").arg(QRegularExpression::escape(key)));
 		yaml.replace(re, QStringLiteral("\\1%1").arg(value));
 	};
@@ -302,16 +318,18 @@ void PointNetTrainingRunner::validateDataset()
 		return;
 	}
 	auto* proc = new QProcess(this);
-	connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, [this, proc](int code, QProcess::ExitStatus) {
-		const QString output = decodeProcessText(proc->readAllStandardOutput())
-			+ decodeProcessText(proc->readAllStandardError());
-		emit logLine(output.trimmed());
-		emit validationFinished(code == 0, code == 0 ? QStringLiteral("Dataset OK.") : QStringLiteral("Dataset validation failed."));
-		proc->deleteLater();
-	});
-	const QStringList args = pythonLaunchArgs(
-		script,
-		{ QStringLiteral("segmentation"), QStringLiteral("--root"), m_datasetRoot });
+	connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
+			[this, proc](int code, QProcess::ExitStatus)
+			{
+				const QString output =
+					decodeProcessText(proc->readAllStandardOutput()) + decodeProcessText(proc->readAllStandardError());
+				emit logLine(output.trimmed());
+				emit validationFinished(code == 0, code == 0 ? QStringLiteral("Dataset OK.")
+															 : QStringLiteral("Dataset validation failed."));
+				proc->deleteLater();
+			});
+	const QStringList args =
+		pythonLaunchArgs(script, {QStringLiteral("segmentation"), QStringLiteral("--root"), m_datasetRoot});
 	QString err;
 	if (!startPythonProcess(proc, m_trainingRoot, python, args, &err))
 	{
@@ -359,8 +377,8 @@ void PointNetTrainingRunner::startTraining()
 	if (script.endsWith(QStringLiteral("run_seg_training_job.py")))
 	{
 		QStringList scriptArgs;
-		scriptArgs << QStringLiteral("--config") << m_generatedConfigPath
-				   << QStringLiteral("--metrics-file") << m_metricsFilePath;
+		scriptArgs << QStringLiteral("--config") << m_generatedConfigPath << QStringLiteral("--metrics-file")
+				   << m_metricsFilePath;
 		if (!m_resumeCheckpoint.isEmpty())
 		{
 			scriptArgs << QStringLiteral("--resume") << m_resumeCheckpoint;
@@ -424,25 +442,22 @@ void PointNetTrainingRunner::exportOnnx(const QString& checkpointPath, const QSt
 		return;
 	}
 	auto* proc = new QProcess(this);
-	connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, [this, proc, outputOnnxPath](int code, QProcess::ExitStatus) {
-		const QString output = decodeProcessText(proc->readAllStandardOutput())
-			+ decodeProcessText(proc->readAllStandardError());
-		emit logLine(output.trimmed());
-		emit exportFinished(code == 0 && QFile::exists(outputOnnxPath),
-			code == 0 ? QStringLiteral("ONNX exported.") : QStringLiteral("ONNX export failed."));
-		proc->deleteLater();
-	});
+	connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
+			[this, proc, outputOnnxPath](int code, QProcess::ExitStatus)
+			{
+				const QString output =
+					decodeProcessText(proc->readAllStandardOutput()) + decodeProcessText(proc->readAllStandardError());
+				emit logLine(output.trimmed());
+				emit exportFinished(code == 0 && QFile::exists(outputOnnxPath),
+									code == 0 ? QStringLiteral("ONNX exported.")
+											  : QStringLiteral("ONNX export failed."));
+				proc->deleteLater();
+			});
 	const QStringList args = pythonLaunchArgs(
-		script,
-		{ QStringLiteral("--task"),
-			QStringLiteral("seg"),
-			QStringLiteral("--config"),
-			m_generatedConfigPath.isEmpty() ? absoluteTrainingPath(QStringLiteral("configs/seg_config.yaml"))
-											: m_generatedConfigPath,
-			QStringLiteral("--checkpoint"),
-			checkpointPath,
-			QStringLiteral("--output"),
-			outputOnnxPath });
+		script, {QStringLiteral("--task"), QStringLiteral("seg"), QStringLiteral("--config"),
+				 m_generatedConfigPath.isEmpty() ? absoluteTrainingPath(QStringLiteral("configs/seg_config.yaml"))
+												 : m_generatedConfigPath,
+				 QStringLiteral("--checkpoint"), checkpointPath, QStringLiteral("--output"), outputOnnxPath});
 	QString err;
 	if (!startPythonProcess(proc, m_trainingRoot, python, args, &err))
 	{
@@ -451,11 +466,8 @@ void PointNetTrainingRunner::exportOnnx(const QString& checkpointPath, const QSt
 	}
 }
 
-void PointNetTrainingRunner::deployToPointNet(
-	const QString& onnxPath,
-	const QString& pointNetConfigPath,
-	int numClasses,
-	int numPoints)
+void PointNetTrainingRunner::deployToPointNet(const QString& onnxPath, const QString& pointNetConfigPath,
+											  int numClasses, int numPoints)
 {
 	if (!QFile::exists(onnxPath))
 	{

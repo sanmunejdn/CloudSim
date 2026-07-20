@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTIONPATCHDUALGRAPH_H
+#define GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTIONPATCHDUALGRAPH_H
+
+/// @file MeshSurfaceReconstructionPatchDualGraph.h
+/// @brief 论文 §3.3：广义边 dual-graph 四边区域调整
 
 #include "MeshSurfaceReconstructionPartitionCommon.h"
 
@@ -8,7 +12,6 @@ namespace geoalgo
 {
 namespace meshrecon
 {
-
 struct HybridAdjustStats
 {
 	int triPatchCount = 0;
@@ -18,14 +21,12 @@ struct HybridAdjustStats
 };
 
 /// 论文 §3.3：广义边 dual-graph 四边区域调整
-bool hybridApplyRegionAdjust(
-	const IndexedMeshLite& mesh,
-	const MeshSurfaceReconstructParams& params,
-	const std::vector<std::vector<int>>& fullAdj,
-	const std::vector<PartitionVec3d>& faceNormals,
-	std::vector<int>& faceToPatch,
-	HybridAdjustStats& stats,
-	std::string* errMsg);
+bool hybridApplyRegionAdjust(const IndexedMeshLite& mesh, const MeshSurfaceReconstructParams& params,
+							 const std::vector<std::vector<int>>& fullAdj,
+							 const std::vector<PartitionVec3d>& faceNormals, std::vector<int>& faceToPatch,
+							 HybridAdjustStats& stats, std::string* errMsg);
 
 } // namespace meshrecon
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTIONPATCHDUALGRAPH_H

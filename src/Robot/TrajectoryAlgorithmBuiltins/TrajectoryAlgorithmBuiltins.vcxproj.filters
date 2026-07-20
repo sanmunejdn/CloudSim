@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="inc">
@@ -183,6 +183,12 @@
     <ClInclude Include="ops\ProjectToGeometry\ProjectToGeometryOpParamAccess.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOp.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOpConfig.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\UnifiedTrajectorySemanticMath.h">
       <Filter>inc</Filter>
     </ClInclude>
@@ -363,6 +369,12 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="ops\ProjectToGeometry\ProjectToGeometryOpParamAccess.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOp.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOpConfig.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\UnifiedTrajectorySemanticMath.cpp">

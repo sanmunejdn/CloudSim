@@ -1,3 +1,6 @@
+﻿/// @file MeshRepairInternal.cpp
+/// @brief MeshRepairInternal 实现
+
 #include "MeshRepairInternal.h"
 
 #include <vcg/complex/algorithms/clean.h>
@@ -7,10 +10,8 @@
 
 namespace vcgalgo::internal
 {
-
 namespace
 {
-
 int countActiveFaces(const VcgMesh& mesh)
 {
 	int count = 0;
@@ -83,10 +84,8 @@ bool repairVcgMeshInPlace(VcgMesh& mesh, const RepairParams& params, RepairRepor
 	{
 		const int before = countActiveFaces(mesh);
 		vcg::tri::UpdateFlags<VcgMesh>::FaceBorderFromFF(mesh);
-		vcg::tri::Hole<VcgMesh>::template EarCuttingFill<vcg::tri::TrivialEar<VcgMesh>>(
-			mesh,
-			params.holeMaxEdgeCount,
-			false);
+		vcg::tri::Hole<VcgMesh>::template EarCuttingFill<vcg::tri::TrivialEar<VcgMesh>>(mesh, params.holeMaxEdgeCount,
+																						false);
 		vcg::tri::UpdateTopology<VcgMesh>::FaceFace(mesh);
 		vcg::tri::Clean<VcgMesh>::RemoveUnreferencedVertex(mesh);
 		if (report != nullptr)

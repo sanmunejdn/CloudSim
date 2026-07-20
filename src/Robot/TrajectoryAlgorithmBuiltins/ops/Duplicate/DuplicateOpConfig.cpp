@@ -1,3 +1,6 @@
+﻿/// @file DuplicateOpConfig.cpp
+/// @brief DuplicateOpConfig 实现
+
 // Duplicate 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "DuplicateOpConfig.h"
 
@@ -6,12 +9,9 @@
 
 namespace trajectory_algo
 {
-
 std::unique_ptr<IOpParamConfig> makeDuplicateOpConfig()
 {
-	return makeTrajectoryOpConfig(
-		RobotInstruction::TrajectoryOpKind::Duplicate,
-		"ops/Duplicate.json");
+	return makeTrajectoryOpConfig(RobotInstruction::TrajectoryOpKind::Duplicate, "ops/Duplicate.json");
 }
 
 } // namespace trajectory_algo

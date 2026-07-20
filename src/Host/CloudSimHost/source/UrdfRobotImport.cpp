@@ -1,11 +1,13 @@
-#include "UrdfRobotImport.h"
+﻿/// @file UrdfRobotImport.cpp
+/// @brief UrdfRobotImport 实现
 
-#include "IRobotUrdfImportContext.h"
+#include "UrdfRobotImport.h"
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "IRobotBackendPoseSink.h"
 #include "IRobotSimulationDocument.h"
+#include "IRobotUrdfImportContext.h"
 #include "MeshBackendData.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotMatrixOsgBridge.h"
@@ -14,16 +16,15 @@
 
 #include <QDateTime>
 #include <QFileInfo>
-
 #include <memory>
 
-#include <osg/Matrixd>
 #include <osg/MatrixTransform>
+#include <osg/Matrixd>
 
-namespace cloudsim::host {
-
-namespace {
-
+namespace cloudsim::host
+{
+namespace
+{
 QString makeUniqueBackendId(BackendDataManager& mgr, const QString& baseId)
 {
 	if (!mgr.contains(baseId.toStdString()))
@@ -49,7 +50,7 @@ core::RobotRegistrationDto fail(const QString& error)
 } // namespace
 
 core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const QString& urdfFilePath,
-	const core::ImportOptionsDto& options)
+										   const core::ImportOptionsDto& options)
 {
 	(void)options.quietUi;
 
@@ -82,8 +83,8 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 	QStringList revoluteJointNames;
 	QVector<double> jointLowerRad;
 	QVector<double> jointUpperRad;
-	if (!UrdfRobotLoader::loadRevoluteJointMeta(
-			fileInfo.absoluteFilePath(), revoluteJointNames, jointLowerRad, jointUpperRad, &urdfErr))
+	if (!UrdfRobotLoader::loadRevoluteJointMeta(fileInfo.absoluteFilePath(), revoluteJointNames, jointLowerRad,
+												jointUpperRad, &urdfErr))
 	{
 		if (!urdfErr.isEmpty())
 		{
@@ -109,8 +110,8 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 	QHash<QString, osg::Matrixd> Tbind;
 	// 几何为 mesh 文件系（未烘焙 visual origin），FK 须在矩阵中带 visual→link 变换
 	const bool kFkMeshVerticesInLinkFrame = false;
-	if (!UrdfRobotLoader::computeMeshWorldMatrices(
-			fileInfo.absoluteFilePath(), q0, Tbind, &urdfErr, kFkMeshVerticesInLinkFrame))
+	if (!UrdfRobotLoader::computeMeshWorldMatrices(fileInfo.absoluteFilePath(), q0, Tbind, &urdfErr,
+												   kFkMeshVerticesInLinkFrame))
 	{
 		return fail(urdfErr.isEmpty() ? QStringLiteral("Forward kinematics (bind pose) failed.") : urdfErr);
 	}
@@ -130,8 +131,8 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 		std::string loadErr;
 		if (!mesh->loadFromFile(absMesh.toStdString(), &loadErr))
 		{
-			return fail(QStringLiteral("Failed to load mesh for link '%1': %2")
-						   .arg(linkName, QString::fromStdString(loadErr)));
+			return fail(
+				QStringLiteral("Failed to load mesh for link '%1': %2").arg(linkName, QString::fromStdString(loadErr)));
 		}
 		if (linkMaterialColors.contains(linkName))
 		{
@@ -183,7 +184,8 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 	else
 	{
 		// 跳过无 mesh 的 URDF link，挂到最近有 backend 的祖先
-		const auto nearestMeshedAncestor = [&](const QString& linkName) -> QString {
+		const auto nearestMeshedAncestor = [&](const QString& linkName) -> QString
+		{
 			QString p = urdfChildToParent.value(linkName);
 			while (!p.isEmpty() && !linkToBackend.contains(p))
 			{
@@ -281,12 +283,14 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 	}
 
 	ctx.appendHierarchicalRobotSimulationContext(fileInfo.absoluteFilePath(), revoluteJointNames, jointLowerRad,
-		jointUpperRad, QHash<QString, osg::MatrixTransform*>(), robotRootId, robotRootId);
+												 jointUpperRad, QHash<QString, osg::MatrixTransform*>(), robotRootId,
+												 robotRootId);
 
 	{
 		QString defaultFlangeLink;
 		QStringList revoluteChildLinks;
-		(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(fileInfo.absoluteFilePath(), revoluteChildLinks, nullptr);
+		(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(fileInfo.absoluteFilePath(), revoluteChildLinks,
+																  nullptr);
 		if (!revoluteChildLinks.isEmpty())
 		{
 			defaultFlangeLink = revoluteChildLinks.back();
@@ -299,8 +303,8 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 		}
 	}
 
-	ctx.setRobotPerLinkKinematicsBinding(
-		robotRootId + QStringLiteral("_ctx"), linkToBackend, fkT0, outerBind, kFkMeshVerticesInLinkFrame);
+	ctx.setRobotPerLinkKinematicsBinding(robotRootId + QStringLiteral("_ctx"), linkToBackend, fkT0, outerBind,
+										 kFkMeshVerticesInLinkFrame);
 
 	if (!RobotSceneKinematics::applyJointAnglesFromDocument(robotDoc, ctx.urdfImportScenePoseSink(), q0))
 	{

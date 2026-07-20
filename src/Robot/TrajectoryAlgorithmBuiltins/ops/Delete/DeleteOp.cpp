@@ -1,16 +1,18 @@
+﻿/// @file DeleteOp.cpp
+/// @brief DeleteOp 实现
+
 // Delete 原子块：删除 scope 内路点
 #include "DeleteOp.h"
 
 #include "TrajectoryOpFormat.h"
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 #include "TrajectoryUnifiedScope.h"
 
 #include <algorithm>
-#include "TrajectoryOpParamAccess.h"
-#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
-
 RobotInstruction::TrajectoryOpKind DeleteOp::kind() const
 {
 	return RobotInstruction::TrajectoryOpKind::Delete;
@@ -26,8 +28,8 @@ TrajectoryOpCapability DeleteOp::capabilities() const
 	return TrajectoryOpCapability::None;
 }
 
-RobotInstruction::TrajectoryOpDescriptor DeleteOp::makeDefaultDescriptor(
-	const RobotInstruction::OpScope& defaultScope) const
+RobotInstruction::TrajectoryOpDescriptor
+DeleteOp::makeDefaultDescriptor(const RobotInstruction::OpScope& defaultScope) const
 {
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Delete;
@@ -49,22 +51,17 @@ bool DeleteOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, std:
 	return true;
 }
 
-std::string DeleteOp::formatSummary(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const bool chinese) const
+std::string DeleteOp::formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op, const bool chinese) const
 {
 	return std::string(displayName(chinese)) + " | " + scopeKindLabel(op.scope.kind, chinese);
 }
 
-bool DeleteOp::processPath(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	RobotInstruction::UnifiedTrajectory& traj,
-	const TrajectoryOpExecutionContext& ctx,
-	std::string* errMsg) const
+bool DeleteOp::processPath(const RobotInstruction::TrajectoryOpDescriptor& op,
+						   RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx,
+						   std::string* errMsg) const
 {
 	(void)errMsg;
-	const std::vector<std::size_t> indices =
-		resolveScopedPointIndices(traj, op.scope, ctx.program);
+	const std::vector<std::size_t> indices = resolveScopedPointIndices(traj, op.scope, ctx.program);
 	if (indices.empty())
 	{
 		return true;

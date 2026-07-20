@@ -1,19 +1,22 @@
-#ifndef _POINTCLOUDPROCESS_WIDGET_GRAPHICSWINDOWQT1_H_
-#define _POINTCLOUDPROCESS_WIDGET_GRAPHICSWINDOWQT1_H_
+﻿#ifndef WIDGET_GRAPHICSWINDOWQT1_H
+#define WIDGET_GRAPHICSWINDOWQT1_H
 
+/// @file GraphicsWindowQt1.h
+/// @brief OSG 图形窗口适配：实现 osgViewer::GraphicsWindow，与 QOpenGLWidget 同步尺寸与事件
 
 #include "widget_global.h"
 
+#include "QWidgetViewer.h"
+
+#include <QCursor>
+#include <QGestureEvent>
 #include <QOpenGLWidget>
 #include <QSurfaceFormat>
-#include <osg/Referenced>
 #include <QtCore>
 #include <QtWidgets>
-#include <QGestureEvent>
-#include <QCursor>
-#include <osgViewer/Viewer>
 
-#include "QWidgetViewer.h"
+#include <osg/Referenced>
+#include <osgViewer/Viewer>
 
 /// OSG 图形窗口适配：实现 osgViewer::GraphicsWindow，与 QOpenGLWidget 同步尺寸与事件
 class WIDGET_EXPORT GraphicsWindowQt1 : public osgViewer::GraphicsWindow
@@ -84,7 +87,6 @@ public:
 	void setViewer(osgViewer::Viewer* viewer) { _viewer = viewer; }
 
 protected:
-
 	friend class QWidgetViewer;
 	QWidgetViewer* _widget;
 	bool _ownsWidget;
@@ -94,4 +96,4 @@ protected:
 	osg::observer_ptr<osgViewer::Viewer> _viewer;
 };
 
-#endif//_POINTCLOUDPROCESS_WIDGET_GRAPHICSWINDOWQT1_H_
+#endif // WIDGET_GRAPHICSWINDOWQT1_H

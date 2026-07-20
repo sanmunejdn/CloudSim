@@ -1,44 +1,30 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_INSTRUCTIONPROGRAMTREEWIDGET_H
+#define ROBOTWIDGET_INSTRUCTIONPROGRAMTREEWIDGET_H
 
-
-
-#include "RobotInstructionModel.h"
-
-#include "RobotProgramCatalog.h"
+/// @file InstructionProgramTreeWidget.h
+/// @brief 层级指令程序编辑器，支持拖放改父与分组嵌套显示
 
 #include "robotwidget_global.h"
 
+#include "RobotInstructionModel.h"
+#include "RobotProgramCatalog.h"
 
-
-#include <QTreeWidget>
 #include <QTimer>
-
-
-
+#include <QTreeWidget>
 #include <functional>
-
 #include <memory>
-
 #include <string>
-
 #include <unordered_map>
-
 #include <vector>
-
-
 
 /// 层级指令程序编辑器，支持拖放改父与分组嵌套显示
 
 class ROBOTWIDGET_EXPORT InstructionProgramTreeWidget : public QTreeWidget
 
 {
-
 	Q_OBJECT
 
-
-
 public:
-
 	enum class NodeKind
 
 	{
@@ -57,11 +43,7 @@ public:
 
 	};
 
-
-
 	explicit InstructionProgramTreeWidget(QWidget* parent = nullptr);
-
-
 
 	void setUseChinese(bool chinese);
 
@@ -75,8 +57,6 @@ public:
 
 	void syncToProgram();
 
-
-
 	std::shared_ptr<RobotInstruction::Base> selectedInstruction() const;
 
 	std::vector<std::shared_ptr<RobotInstruction::Base>> selectedMotionInstructions() const;
@@ -84,8 +64,6 @@ public:
 	std::vector<std::shared_ptr<RobotInstruction::Base>> selectedRootInstructions() const;
 
 	QTreeWidgetItem* selectedItem() const { return currentItem(); }
-
-
 
 	/// 相对当前选中插入指令（或追加到根）
 
@@ -116,10 +94,7 @@ signals:
 
 	void groupVisibilityChangeRequested(const std::string& groupId, bool visible);
 
-
-
 protected:
-
 	void startDrag(Qt::DropActions supportedActions) override;
 
 	void dragEnterEvent(QDragEnterEvent* event) override;
@@ -130,10 +105,7 @@ protected:
 
 	void contextMenuEvent(QContextMenuEvent* event) override;
 
-
-
 private:
-
 	static NodeKind nodeKind(const QTreeWidgetItem* item);
 
 	static RobotInstruction::Base* instructionRaw(const QTreeWidgetItem* item);
@@ -188,8 +160,6 @@ private:
 
 	void syncGroupsFromTree();
 
-
-
 	bool canAcceptDrop(QTreeWidgetItem* dragged, QTreeWidgetItem* target, DropIndicatorPosition pos) const;
 
 	void applyDrop(QTreeWidgetItem* dragged, QTreeWidgetItem* target, DropIndicatorPosition pos);
@@ -199,8 +169,6 @@ private:
 	void showContextMenu(const QPoint& globalPos);
 
 	std::string resolveGroupIdForContextItem(const QTreeWidgetItem* item) const;
-
-
 
 	std::vector<std::shared_ptr<RobotInstruction::Base>>* m_program = nullptr;
 
@@ -215,8 +183,6 @@ private:
 	QTimer m_selectionDebounce;
 
 	QTreeWidgetItem* m_dragItem = nullptr;
-
 };
 
-
-
+#endif // ROBOTWIDGET_INSTRUCTIONPROGRAMTREEWIDGET_H

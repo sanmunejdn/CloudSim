@@ -1,21 +1,19 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONPROPERTYSCHEMA_H
+#define ROBOTSCENE_ROBOTINSTRUCTIONPROPERTYSCHEMA_H
 
+/// @file RobotInstructionPropertySchema.h
+/// @brief RobotInstructionPropertySchema 接口
 
 #include "../../Data/PropertyCore/inc/PropertySchema.h"
-
 #include "RobotInstructionAxisConfiguration.h"
-
 #include "RobotInstructionModel.h"
-
 
 namespace RobotInstruction
 
 {
-
 namespace detail
 
 {
-
 inline property_core::PropertyDescriptor makeEnumDescriptor(
 
 	const char* key,
@@ -27,7 +25,6 @@ inline property_core::PropertyDescriptor makeEnumDescriptor(
 	const std::vector<std::string>& options)
 
 {
-
 	property_core::PropertyDescriptor d;
 
 	d.key = key;
@@ -43,16 +40,13 @@ inline property_core::PropertyDescriptor makeEnumDescriptor(
 	d.constraints.enumConstraint.allowCustom = false;
 
 	return d;
-
 }
 
 } // namespace detail
 
-
 inline const property_core::PropertySchema& motionAxisConfigPropertyDescriptors()
 
 {
-
 	using namespace property_core;
 
 	static const std::vector<PropertyDescriptor> axisDescriptors = {
@@ -129,8 +123,8 @@ inline const property_core::PropertySchema& motionAxisConfigPropertyDescriptors(
 
 	};
 
-	static const PropertySchema schema = []() {
-
+	static const PropertySchema schema = []()
+	{
 		PropertySchema s;
 
 		s.objectTypeId = "robot_instruction.motion_axis";
@@ -140,22 +134,18 @@ inline const property_core::PropertySchema& motionAxisConfigPropertyDescriptors(
 		s.descriptors = axisDescriptors;
 
 		return s;
-
 	}();
 
 	return schema;
-
 }
-
 
 inline const property_core::PropertySchema& ptpInstructionPropertySchema()
 
 {
-
 	using namespace property_core;
 
-	static const PropertySchema schema = []() {
-
+	static const PropertySchema schema = []()
+	{
 		PropertySchema s;
 
 		s.objectTypeId = "robot_instruction.ptp";
@@ -164,49 +154,43 @@ inline const property_core::PropertySchema& ptpInstructionPropertySchema()
 
 		s.descriptors = {
 
-			{ "motion.target.pose.x", "Target X (mm)", PropertyType::Double, 0.0 },
+			{"motion.target.pose.x", "Target X (mm)", PropertyType::Double, 0.0},
 
-			{ "motion.target.pose.y", "Target Y (mm)", PropertyType::Double, 0.0 },
+			{"motion.target.pose.y", "Target Y (mm)", PropertyType::Double, 0.0},
 
-			{ "motion.target.pose.z", "Target Z (mm)", PropertyType::Double, 0.0 },
+			{"motion.target.pose.z", "Target Z (mm)", PropertyType::Double, 0.0},
 
-			{ "motion.target.euler.rx", "Euler RX (deg)", PropertyType::Double, 0.0 },
+			{"motion.target.euler.rx", "Euler RX (deg)", PropertyType::Double, 0.0},
 
-			{ "motion.target.euler.ry", "Euler RY (deg)", PropertyType::Double, 0.0 },
+			{"motion.target.euler.ry", "Euler RY (deg)", PropertyType::Double, 0.0},
 
-			{ "motion.target.euler.rz", "Euler RZ (deg)", PropertyType::Double, 0.0 },
+			{"motion.target.euler.rz", "Euler RZ (deg)", PropertyType::Double, 0.0},
 
-			{ "motion.speed", "Speed", PropertyType::Double, 100.0 },
+			{"motion.speed", "Speed", PropertyType::Double, 100.0},
 
-			{ "motion.acc", "Acceleration", PropertyType::Double, 100.0 },
+			{"motion.acc", "Acceleration", PropertyType::Double, 100.0},
 
 		};
 
 		for (const PropertyDescriptor& axisDesc : motionAxisConfigPropertyDescriptors().descriptors)
 
 		{
-
 			s.descriptors.push_back(axisDesc);
-
 		}
 
 		return s;
-
 	}();
 
 	return schema;
-
 }
-
 
 inline const property_core::PropertySchema& lineInstructionPropertySchema()
 
 {
-
 	using namespace property_core;
 
-	static const PropertySchema schema = []() {
-
+	static const PropertySchema schema = []()
+	{
 		PropertySchema s;
 
 		s.objectTypeId = "robot_instruction.line";
@@ -215,51 +199,45 @@ inline const property_core::PropertySchema& lineInstructionPropertySchema()
 
 		s.descriptors = {
 
-			{ "motion.target.pose.x", "Target X (mm)", PropertyType::Double, 0.0 },
+			{"motion.target.pose.x", "Target X (mm)", PropertyType::Double, 0.0},
 
-			{ "motion.target.pose.y", "Target Y (mm)", PropertyType::Double, 0.0 },
+			{"motion.target.pose.y", "Target Y (mm)", PropertyType::Double, 0.0},
 
-			{ "motion.target.pose.z", "Target Z (mm)", PropertyType::Double, 0.0 },
+			{"motion.target.pose.z", "Target Z (mm)", PropertyType::Double, 0.0},
 
-			{ "motion.target.euler.rx", "Euler RX (deg)", PropertyType::Double, 0.0 },
+			{"motion.target.euler.rx", "Euler RX (deg)", PropertyType::Double, 0.0},
 
-			{ "motion.target.euler.ry", "Euler RY (deg)", PropertyType::Double, 0.0 },
+			{"motion.target.euler.ry", "Euler RY (deg)", PropertyType::Double, 0.0},
 
-			{ "motion.target.euler.rz", "Euler RZ (deg)", PropertyType::Double, 0.0 },
+			{"motion.target.euler.rz", "Euler RZ (deg)", PropertyType::Double, 0.0},
 
-			{ "motion.speed", "Speed", PropertyType::Double, 200.0 },
+			{"motion.speed", "Speed", PropertyType::Double, 200.0},
 
-			{ "motion.acc", "Acceleration", PropertyType::Double, 200.0 },
+			{"motion.acc", "Acceleration", PropertyType::Double, 200.0},
 
-			{ "motion.blendRadius", "Blend Radius (mm)", PropertyType::Double, 0.0 },
+			{"motion.blendRadius", "Blend Radius (mm)", PropertyType::Double, 0.0},
 
 		};
 
 		for (const PropertyDescriptor& axisDesc : motionAxisConfigPropertyDescriptors().descriptors)
 
 		{
-
 			s.descriptors.push_back(axisDesc);
-
 		}
 
 		return s;
-
 	}();
 
 	return schema;
-
 }
-
 
 inline const property_core::PropertySchema& waitInstructionPropertySchema()
 
 {
-
 	using namespace property_core;
 
-	static const PropertySchema schema = []() {
-
+	static const PropertySchema schema = []()
+	{
 		PropertySchema s;
 
 		s.objectTypeId = "robot_instruction.wait";
@@ -268,27 +246,23 @@ inline const property_core::PropertySchema& waitInstructionPropertySchema()
 
 		s.descriptors = {
 
-			{ "logic.wait.durationSec", "Duration (s)", PropertyType::Double, 1.0 }
+			{"logic.wait.durationSec", "Duration (s)", PropertyType::Double, 1.0}
 
 		};
 
 		return s;
-
 	}();
 
 	return schema;
-
 }
-
 
 inline const property_core::PropertySchema& setDoInstructionPropertySchema()
 
 {
-
 	using namespace property_core;
 
-	static const PropertySchema schema = []() {
-
+	static const PropertySchema schema = []()
+	{
 		PropertySchema s;
 
 		s.objectTypeId = "robot_instruction.set_do";
@@ -297,29 +271,25 @@ inline const property_core::PropertySchema& setDoInstructionPropertySchema()
 
 		s.descriptors = {
 
-			{ "logic.io.port", "Port", PropertyType::Double, 0.0 },
+			{"logic.io.port", "Port", PropertyType::Double, 0.0},
 
-			{ "logic.io.digitalValue", "Value (0/1)", PropertyType::Double, 0.0 }
+			{"logic.io.digitalValue", "Value (0/1)", PropertyType::Double, 0.0}
 
 		};
 
 		return s;
-
 	}();
 
 	return schema;
-
 }
-
 
 inline const property_core::PropertySchema& setAoInstructionPropertySchema()
 
 {
-
 	using namespace property_core;
 
-	static const PropertySchema schema = []() {
-
+	static const PropertySchema schema = []()
+	{
 		PropertySchema s;
 
 		s.objectTypeId = "robot_instruction.set_ao";
@@ -328,33 +298,32 @@ inline const property_core::PropertySchema& setAoInstructionPropertySchema()
 
 		s.descriptors = {
 
-			{ "logic.io.port", "Port", PropertyType::Double, 0.0 },
+			{"logic.io.port", "Port", PropertyType::Double, 0.0},
 
-			{ "logic.io.analogValue", "Analog value", PropertyType::Double, 0.0 }
+			{"logic.io.analogValue", "Analog value", PropertyType::Double, 0.0}
 
 		};
 
 		return s;
-
 	}();
 
 	return schema;
-
 }
 
 inline const property_core::PropertySchema& pathPlanInstructionPropertySchema()
 {
 	using namespace property_core;
-	static const PropertySchema schema = []() {
+	static const PropertySchema schema = []()
+	{
 		PropertySchema s;
 		s.objectTypeId = "robot_instruction.path_plan";
 		s.schemaVersion = 1;
 		s.descriptors = {
-			{ "planning.phase", "Phase", PropertyType::String, std::string("draft") },
-			{ "planning.outputGroupId", "Output group", PropertyType::String, std::string() },
-			{ "planning.rawTrajectoryKey", "Raw key", PropertyType::String, std::string() },
-			{ "planning.pipelineOpCount", "Pipeline ops", PropertyType::Double, 0.0 },
-			{ "planning.rawRevision", "Raw revision", PropertyType::Double, 0.0 },
+			{"planning.phase", "Phase", PropertyType::String, std::string("draft")},
+			{"planning.outputGroupId", "Output group", PropertyType::String, std::string()},
+			{"planning.rawTrajectoryKey", "Raw key", PropertyType::String, std::string()},
+			{"planning.pipelineOpCount", "Pipeline ops", PropertyType::Double, 0.0},
+			{"planning.rawRevision", "Raw revision", PropertyType::Double, 0.0},
 		};
 		return s;
 	}();
@@ -364,11 +333,9 @@ inline const property_core::PropertySchema& pathPlanInstructionPropertySchema()
 inline const property_core::PropertySchema& schemaForInstructionType(const Type type)
 
 {
-
 	switch (type)
 
 	{
-
 	case Type::LINE:
 
 		return lineInstructionPropertySchema();
@@ -394,61 +361,45 @@ inline const property_core::PropertySchema& schemaForInstructionType(const Type 
 	default:
 
 		return ptpInstructionPropertySchema();
-
 	}
-
 }
-
 
 inline const property_core::PropertyDescriptor* findInstructionPropertyDescriptor(const std::string& key)
 
 {
-
 	if (const auto* descriptor = motionAxisConfigPropertyDescriptors().find(key))
 
 	{
-
 		return descriptor;
-
 	}
 
 	if (const auto* descriptor = ptpInstructionPropertySchema().find(key))
 
 	{
-
 		return descriptor;
-
 	}
 
 	if (const auto* descriptor = lineInstructionPropertySchema().find(key))
 
 	{
-
 		return descriptor;
-
 	}
 
 	if (const auto* descriptor = waitInstructionPropertySchema().find(key))
 
 	{
-
 		return descriptor;
-
 	}
 
 	if (const auto* descriptor = setDoInstructionPropertySchema().find(key))
 
 	{
-
 		return descriptor;
-
 	}
 
 	return setAoInstructionPropertySchema().find(key);
-
 }
-
 
 } // namespace RobotInstruction
 
-
+#endif // ROBOTSCENE_ROBOTINSTRUCTIONPROPERTYSCHEMA_H

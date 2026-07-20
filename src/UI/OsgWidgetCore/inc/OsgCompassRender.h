@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef OSGWIDGETCORE_OSGCOMPASSRENDER_H
+#define OSGWIDGETCORE_OSGCOMPASSRENDER_H
+
+/// @file OsgCompassRender.h
+/// @brief 罗盘渲染：对象变换与 TCP 示教共用固定色、无光照状态，避免头灯/受光网格导致明暗闪烁
 
 #include <osg/Depth>
 #include <osg/GL>
@@ -7,8 +11,8 @@
 #include <osg/StateSet>
 
 /// 罗盘渲染：对象变换与 TCP 示教共用固定色、无光照状态，避免头灯/受光网格导致明暗闪烁
-namespace osg_compass {
-
+namespace osg_compass
+{
 /// 套用罗盘 StateSet：关闭光照与所有光源，顶点/面色直接输出，深度始终通过且不写深度缓冲
 inline void applyUnlitHighlitStateSet(osg::StateSet* ss)
 {
@@ -49,3 +53,5 @@ inline void applyUnlitHighlitStateSet(osg::StateSet* ss)
 }
 
 } // namespace osg_compass
+
+#endif // OSGWIDGETCORE_OSGCOMPASSRENDER_H

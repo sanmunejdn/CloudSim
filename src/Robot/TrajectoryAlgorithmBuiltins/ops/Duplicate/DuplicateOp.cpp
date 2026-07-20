@@ -1,16 +1,18 @@
+﻿/// @file DuplicateOp.cpp
+/// @brief DuplicateOp 实现
+
 // Duplicate 原子块：复制 scope 内路点
 #include "DuplicateOp.h"
 
 #include "TrajectoryOpFormat.h"
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 #include "TrajectoryUnifiedScope.h"
 
 #include <string>
-#include "TrajectoryOpParamAccess.h"
-#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
-
 RobotInstruction::TrajectoryOpKind DuplicateOp::kind() const
 {
 	return RobotInstruction::TrajectoryOpKind::Duplicate;
@@ -26,8 +28,8 @@ TrajectoryOpCapability DuplicateOp::capabilities() const
 	return TrajectoryOpCapability::None;
 }
 
-RobotInstruction::TrajectoryOpDescriptor DuplicateOp::makeDefaultDescriptor(
-	const RobotInstruction::OpScope& defaultScope) const
+RobotInstruction::TrajectoryOpDescriptor
+DuplicateOp::makeDefaultDescriptor(const RobotInstruction::OpScope& defaultScope) const
 {
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Duplicate;
@@ -58,23 +60,18 @@ bool DuplicateOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, s
 	return true;
 }
 
-std::string DuplicateOp::formatSummary(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const bool chinese) const
+std::string DuplicateOp::formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op, const bool chinese) const
 {
-	return std::string(displayName(chinese)) + " | " + scopeKindLabel(op.scope.kind, chinese)
-		+ (chinese ? " | 份数=" : " | Count=") + std::to_string(parseDuplicateCount(op.params));
+	return std::string(displayName(chinese)) + " | " + scopeKindLabel(op.scope.kind, chinese) +
+		   (chinese ? " | 份数=" : " | Count=") + std::to_string(parseDuplicateCount(op.params));
 }
 
-bool DuplicateOp::processPath(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	RobotInstruction::UnifiedTrajectory& traj,
-	const TrajectoryOpExecutionContext& ctx,
-	std::string* errMsg) const
+bool DuplicateOp::processPath(const RobotInstruction::TrajectoryOpDescriptor& op,
+							  RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx,
+							  std::string* errMsg) const
 {
 	(void)errMsg;
-	const std::vector<std::size_t> indices =
-		resolveScopedPointIndices(traj, op.scope, ctx.program);
+	const std::vector<std::size_t> indices = resolveScopedPointIndices(traj, op.scope, ctx.program);
 	if (indices.empty())
 	{
 		return true;
@@ -88,10 +85,9 @@ bool DuplicateOp::processPath(
 	const std::size_t insertPos = indices.back() + 1U;
 	for (int copy = 0; copy < parseDuplicateCount(op.params); ++copy)
 	{
-		traj.points.insert(
-			traj.points.begin() + static_cast<std::ptrdiff_t>(insertPos + static_cast<std::size_t>(copy) * chunk.size()),
-			chunk.begin(),
-			chunk.end());
+		traj.points.insert(traj.points.begin() +
+							   static_cast<std::ptrdiff_t>(insertPos + static_cast<std::size_t>(copy) * chunk.size()),
+						   chunk.begin(), chunk.end());
 	}
 	return true;
 }

@@ -1,4 +1,8 @@
+﻿/// @file RobotInstructionFactory.cpp
+/// @brief RobotInstructionFactory 实现
+
 #include "RobotInstructionFactory.h"
+
 #include "RobotInstructionAxisConfiguration.h"
 #include "RobotInstructionProgram.h"
 #include "RobotInstructionTransform.h"
@@ -84,9 +88,12 @@ std::string pathPlanPhaseToString(const PathPlanPhase p)
 {
 	switch (p)
 	{
-	case PathPlanPhase::RawReady: return "raw_ready";
-	case PathPlanPhase::Applied: return "applied";
-	default: return "draft";
+	case PathPlanPhase::RawReady:
+		return "raw_ready";
+	case PathPlanPhase::Applied:
+		return "applied";
+	default:
+		return "draft";
 	}
 }
 

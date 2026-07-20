@@ -1,16 +1,21 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONMODEL_H
+#define ROBOTSCENE_ROBOTINSTRUCTIONMODEL_H
+
+/// @file RobotInstructionModel.h
+/// @brief RobotInstructionModel 接口
+
+#include "robot_scene_global.h"
 
 #include "RobotInstructionAxisConfiguration.h"
 #include "RobotInstructionCondition.h"
 #include "TrajectoryPipelineTypes.h"
-#include "robot_scene_global.h"
-
-#include <json.hpp>
 
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include <json.hpp>
 
 namespace RobotInstruction
 {
@@ -69,7 +74,11 @@ public:
 	void setControllerId(const std::string& controllerId) { m_controllerId = controllerId; }
 
 	Type type() const { return m_type; }
-	void setType(Type t) { m_type = t; m_category = categoryForType(t); }
+	void setType(Type t)
+	{
+		m_type = t;
+		m_category = categoryForType(t);
+	}
 
 	Category category() const { return m_category; }
 
@@ -359,3 +368,5 @@ ROBOT_SCENE_API const PathPlanInstruction* asPathPlan(const Base& ins);
 ROBOT_SCENE_API std::string makeInstructionId();
 
 } // namespace RobotInstruction
+
+#endif // ROBOTSCENE_ROBOTINSTRUCTIONMODEL_H

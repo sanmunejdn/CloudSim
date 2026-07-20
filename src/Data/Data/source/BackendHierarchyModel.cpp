@@ -1,3 +1,6 @@
+﻿/// @file BackendHierarchyModel.cpp
+/// @brief BackendHierarchyModel 实现
+
 #include "BackendHierarchyModel.h"
 
 #include "BackendDataBase.h"
@@ -5,11 +8,9 @@
 
 #include <queue>
 
-BackendHierarchyModel::BackendHierarchyModel(BackendDataManager& manager)
-	: m_manager(manager)
+BackendHierarchyModel::BackendHierarchyModel(BackendDataManager& manager) : m_manager(manager)
 {
-	m_manager.addHierarchyObserver(
-		this, [this](const BackendHierarchyChangeEvent& e) { onHierarchyChange(e); });
+	m_manager.addHierarchyObserver(this, [this](const BackendHierarchyChangeEvent& e) { onHierarchyChange(e); });
 }
 
 BackendHierarchyModel::~BackendHierarchyModel()

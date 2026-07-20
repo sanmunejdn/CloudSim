@@ -1,5 +1,9 @@
+﻿/// @file BackendSceneDocumentFacade.cpp
+/// @brief BackendSceneDocumentFacade 实现
+
 #include "BackendSceneDocumentFacade.h"
 
+#include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFollowReverseIndex.h"
 #include "BrepBackendData.h"
@@ -10,11 +14,8 @@
 #include "PointCloudBackendData.h"
 
 BackendSceneEntity::BackendSceneEntity(std::string backendId, IBackendSceneBridge* bridge, BackendDataManager* mgr,
-	BackendFollowReverseIndex* followIndex)
-	: m_id(std::move(backendId))
-	, m_bridge(bridge)
-	, m_mgr(mgr)
-	, m_followIndex(followIndex)
+									   BackendFollowReverseIndex* followIndex)
+	: m_id(std::move(backendId)), m_bridge(bridge), m_mgr(mgr), m_followIndex(followIndex)
 {
 }
 
@@ -28,6 +29,10 @@ void BackendSceneEntity::setVisible(bool visible)
 	if (!valid())
 	{
 		return;
+	}
+	if (const auto obj = m_mgr->getData(m_id))
+	{
+		obj->setVisible(visible);
 	}
 	m_bridge->setBackendObjectVisible(m_id, visible);
 }
@@ -125,11 +130,9 @@ std::vector<std::string> BackendSceneEntity::followerBackendIds() const
 }
 
 BackendSceneDocumentFacade::BackendSceneDocumentFacade(BackendDataManager& mgr, IBackendSceneBridge& bridge,
-	BackendFollowReverseIndex& followIndex, OsgWidget* osgWidget)
-	: m_mgr(&mgr)
-	, m_bridge(&bridge)
-	, m_followIndex(&followIndex)
-	, m_poseSink(static_cast<IRobotBackendPoseSink*>(osgWidget))
+													   BackendFollowReverseIndex& followIndex, OsgWidget* osgWidget)
+	: m_mgr(&mgr), m_bridge(&bridge), m_followIndex(&followIndex),
+	  m_poseSink(static_cast<IRobotBackendPoseSink*>(osgWidget))
 {
 }
 
@@ -146,10 +149,18 @@ void BackendSceneDocumentFacade::setBackendsVisible(const std::vector<std::strin
 	}
 	for (const std::string& id : backendIds)
 	{
-		if (!id.empty())
+		if (id.empty())
 		{
-			m_bridge->setBackendObjectVisible(id, visible);
+			continue;
 		}
+		if (m_mgr)
+		{
+			if (const auto obj = m_mgr->getData(id))
+			{
+				obj->setVisible(visible);
+			}
+		}
+		m_bridge->setBackendObjectVisible(id, visible);
 	}
 }
 

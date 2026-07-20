@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMAISDK_AITRAJECTORYFEATURETYPES_H
+#define CLOUDSIMAISDK_AITRAJECTORYFEATURETYPES_H
+
+/// @file AiTrajectoryFeatureTypes.h
+/// @brief 轨迹生成页当前 STEP 工件上下文
 
 #include "cloudsim_ai_sdk_global.h"
 
@@ -32,3 +36,5 @@ inline QString aiFeatureAxisToString(AiFeatureAxis axis)
 		return QStringLiteral("ambiguous");
 	}
 }
+
+#endif // CLOUDSIMAISDK_AITRAJECTORYFEATURETYPES_H

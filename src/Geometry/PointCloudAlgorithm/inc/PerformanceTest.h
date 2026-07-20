@@ -1,24 +1,28 @@
-#pragma once
+﻿#ifndef POINTCLOUDALGORITHM_PERFORMANCETEST_H
+#define POINTCLOUDALGORITHM_PERFORMANCETEST_H
+
+/// @file PerformanceTest.h
+/// @brief PerformanceTest 接口
 
 #include "point_cloud_algorithm_global.h"
 
+#include <chrono>
 #include <string>
 #include <vector>
-#include <chrono>
 
 namespace pclalgo
 {
-
 struct PerformanceResult
 {
-    std::string testName;
-    double executionTimeMs;
-    bool success;
-    std::string errorMessage;
+	std::string testName;
+	double executionTimeMs;
+	bool success;
+	std::string errorMessage;
 };
 
-POINT_CLOUD_ALGORITHM_API bool runPerformanceTest(
-    std::vector<PerformanceResult>& results,
-    std::string* errMsg = nullptr);
+POINT_CLOUD_ALGORITHM_API bool runPerformanceTest(std::vector<PerformanceResult>& results,
+												  std::string* errMsg = nullptr);
 
 } // namespace pclalgo
+
+#endif // POINTCLOUDALGORITHM_PERFORMANCETEST_H

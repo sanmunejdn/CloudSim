@@ -1,20 +1,20 @@
+﻿/// @file RobotAxisControlWidget.cpp
+/// @brief RobotAxisControlWidget 实现
+
 #include "RobotAxisControlWidget.h"
 
-#include <QGridLayout>
 #include <QDebug>
+#include <QGridLayout>
 #include <cmath>
 
 static constexpr double kPi = 3.14159265358979323846;
 
-RobotAxisControlWidget::RobotAxisControlWidget(QWidget* parent)
-	: QWidget(parent)
+RobotAxisControlWidget::RobotAxisControlWidget(QWidget* parent) : QWidget(parent)
 {
 	createUI();
 }
 
-RobotAxisControlWidget::~RobotAxisControlWidget()
-{
-}
+RobotAxisControlWidget::~RobotAxisControlWidget() {}
 
 void RobotAxisControlWidget::setUseChinese(bool chinese)
 {
@@ -26,8 +26,8 @@ void RobotAxisControlWidget::setInteractionEnabled(bool enabled)
 	setEnabled(enabled);
 }
 
-void RobotAxisControlWidget::setJoints(
-	const QStringList& jointNames, const QVector<double>& lowerLimits, const QVector<double>& upperLimits)
+void RobotAxisControlWidget::setJoints(const QStringList& jointNames, const QVector<double>& lowerLimits,
+									   const QVector<double>& upperLimits)
 {
 	const QHash<QString, osg::MatrixTransform*> emptyTransforms;
 	setupJointControls(jointNames, lowerLimits, upperLimits, emptyTransforms);
@@ -109,25 +109,30 @@ void RobotAxisControlWidget::createUI()
 	mainLayout->addLayout(buttonLayout);
 }
 
-void RobotAxisControlWidget::setupJointControls(
-	const QStringList& jointNames,
-	const QVector<double>& lowerLimits,
-	const QVector<double>& upperLimits,
-	const QHash<QString, osg::MatrixTransform*>& jointTransforms)
+void RobotAxisControlWidget::setupJointControls(const QStringList& jointNames, const QVector<double>& lowerLimits,
+												const QVector<double>& upperLimits,
+												const QHash<QString, osg::MatrixTransform*>& jointTransforms)
 {
-	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it) {
+	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it)
+	{
 		JointControl& jc = it.value();
-		if (jc.slider) delete jc.slider;
-		if (jc.spinBox) delete jc.spinBox;
-		if (jc.inputEdit) delete jc.inputEdit;
-		if (jc.resetButton) delete jc.resetButton;
+		if (jc.slider)
+			delete jc.slider;
+		if (jc.spinBox)
+			delete jc.spinBox;
+		if (jc.inputEdit)
+			delete jc.inputEdit;
+		if (jc.resetButton)
+			delete jc.resetButton;
 	}
 	m_jointControls.clear();
 	m_jointOrder.clear();
 
 	QLayoutItem* child;
-	while ((child = m_contentLayout->takeAt(0)) != nullptr) {
-		if (child->spacerItem()) {
+	while ((child = m_contentLayout->takeAt(0)) != nullptr)
+	{
+		if (child->spacerItem())
+		{
 			m_contentLayout->addItem(child);
 			break;
 		}
@@ -135,12 +140,14 @@ void RobotAxisControlWidget::setupJointControls(
 	}
 
 	int count = jointNames.size();
-	if (count == 0 || lowerLimits.size() != count || upperLimits.size() != count) {
+	if (count == 0 || lowerLimits.size() != count || upperLimits.size() != count)
+	{
 		qDebug() << "[RobotAxisControlWidget] Invalid joint configuration";
 		return;
 	}
 
-	for (int i = 0; i < count; ++i) {
+	for (int i = 0; i < count; ++i)
+	{
 		const QString& name = jointNames[i];
 		double lower = lowerLimits[i];
 		double upper = upperLimits[i];
@@ -191,7 +198,7 @@ void RobotAxisControlWidget::setupJointControls(
 		jc.inputEdit->setFixedWidth(70);
 		jc.inputEdit->setValidator(new QDoubleValidator(lower, upper, 6, jc.inputEdit));
 		QLabel* radUnitLabel = new QLabel("rad", groupBox);
-		
+
 		jc.resetButton = new QPushButton(tr("重置"), groupBox);
 		jc.resetButton->setFixedWidth(40);
 		jc.resetButton->setToolTip(tr("将关节重置到零位"));
@@ -207,8 +214,8 @@ void RobotAxisControlWidget::setupJointControls(
 		groupLayout->addLayout(inputLayout);
 
 		connect(jc.slider, &QSlider::valueChanged, this, &RobotAxisControlWidget::onSliderValueChanged);
-		connect(jc.spinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
-				this, &RobotAxisControlWidget::onSpinBoxValueChanged);
+		connect(jc.spinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+				&RobotAxisControlWidget::onSpinBoxValueChanged);
 		connect(jc.inputEdit, &QLineEdit::returnPressed, this, &RobotAxisControlWidget::onLineEditReturnPressed);
 		connect(jc.resetButton, &QPushButton::clicked, this, &RobotAxisControlWidget::onResetButtonClicked);
 
@@ -219,18 +226,19 @@ void RobotAxisControlWidget::setupJointControls(
 void RobotAxisControlWidget::setJointAngle(const QString& jointName, double angleRad)
 {
 	auto it = m_jointControls.find(jointName);
-	if (it == m_jointControls.end()) {
+	if (it == m_jointControls.end())
+	{
 		qDebug() << "[RobotAxisControlWidget] Joint not found:" << jointName;
 		return;
 	}
 
 	JointControl& jc = it.value();
-	
+
 	angleRad = qBound(jc.lowerLimit, angleRad, jc.upperLimit);
 	jc.currentAngle = angleRad;
 
 	bool blocked;
-	
+
 	blocked = jc.slider->blockSignals(true);
 	jc.slider->setValue(angleToSliderValue(angleRad));
 	jc.slider->blockSignals(blocked);
@@ -247,7 +255,8 @@ void RobotAxisControlWidget::setJointAngle(const QString& jointName, double angl
 double RobotAxisControlWidget::getJointAngle(const QString& jointName) const
 {
 	auto it = m_jointControls.find(jointName);
-	if (it != m_jointControls.end()) {
+	if (it != m_jointControls.end())
+	{
 		return it.value().currentAngle;
 	}
 	return 0.0;
@@ -255,7 +264,8 @@ double RobotAxisControlWidget::getJointAngle(const QString& jointName) const
 
 void RobotAxisControlWidget::resetAllJoints()
 {
-	for (const QString& name : m_jointOrder) {
+	for (const QString& name : m_jointOrder)
+	{
 		setJointAngle(name, 0.0);
 	}
 	emitAllJointAnglesNow();
@@ -264,10 +274,13 @@ void RobotAxisControlWidget::resetAllJoints()
 void RobotAxisControlWidget::onSliderValueChanged(int value)
 {
 	QSlider* slider = qobject_cast<QSlider*>(sender());
-	if (!slider) return;
+	if (!slider)
+		return;
 
-	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it) {
-		if (it.value().slider == slider) {
+	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it)
+	{
+		if (it.value().slider == slider)
+		{
 			double angleRad = sliderValueToAngle(value);
 			setJointAngle(it.key(), angleRad);
 			emit jointAngleChanged(it.key(), angleRad);
@@ -280,10 +293,13 @@ void RobotAxisControlWidget::onSliderValueChanged(int value)
 void RobotAxisControlWidget::onSpinBoxValueChanged(double value)
 {
 	QDoubleSpinBox* spinBox = qobject_cast<QDoubleSpinBox*>(sender());
-	if (!spinBox) return;
+	if (!spinBox)
+		return;
 
-	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it) {
-		if (it.value().spinBox == spinBox) {
+	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it)
+	{
+		if (it.value().spinBox == spinBox)
+		{
 			double angleRad = value * kPi / 180.0;
 			setJointAngle(it.key(), angleRad);
 			emit jointAngleChanged(it.key(), angleRad);
@@ -296,13 +312,17 @@ void RobotAxisControlWidget::onSpinBoxValueChanged(double value)
 void RobotAxisControlWidget::onLineEditReturnPressed()
 {
 	QLineEdit* lineEdit = qobject_cast<QLineEdit*>(sender());
-	if (!lineEdit) return;
+	if (!lineEdit)
+		return;
 
-	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it) {
-		if (it.value().inputEdit == lineEdit) {
+	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it)
+	{
+		if (it.value().inputEdit == lineEdit)
+		{
 			bool ok;
 			double angleRad = lineEdit->text().toDouble(&ok);
-			if (ok) {
+			if (ok)
+			{
 				setJointAngle(it.key(), angleRad);
 				emit jointAngleChanged(it.key(), angleRad);
 				emitAllJointAnglesNow();
@@ -315,10 +335,13 @@ void RobotAxisControlWidget::onLineEditReturnPressed()
 void RobotAxisControlWidget::onResetButtonClicked()
 {
 	QPushButton* button = qobject_cast<QPushButton*>(sender());
-	if (!button) return;
+	if (!button)
+		return;
 
-	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it) {
-		if (it.value().resetButton == button) {
+	for (auto it = m_jointControls.begin(); it != m_jointControls.end(); ++it)
+	{
+		if (it.value().resetButton == button)
+		{
 			setJointAngle(it.key(), 0.0);
 			emit jointAngleChanged(it.key(), 0.0);
 			emitAllJointAnglesNow();
@@ -335,14 +358,15 @@ void RobotAxisControlWidget::onResetAllButtonClicked()
 void RobotAxisControlWidget::updateJointTransform(const QString& jointName, double angleRad)
 {
 	auto it = m_jointControls.find(jointName);
-	if (it == m_jointControls.end()) return;
+	if (it == m_jointControls.end())
+		return;
 
 	JointControl& jc = it.value();
-	if (!jc.transformNode) {
+	if (!jc.transformNode)
+	{
 		qDebug() << "[RobotAxisControlWidget] No transform node for joint:" << jointName;
 		return;
 	}
-
 }
 
 int RobotAxisControlWidget::angleToSliderValue(double angleRad) const

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef AIWIDGET_AIASSISTANTCOORDINATOR_H
+#define AIWIDGET_AIASSISTANTCOORDINATOR_H
+
+/// @file AiAssistantCoordinator.h
+/// @brief 经 CloudSimAiSDK 编排解析与执行
 
 #include "aiwidget_global.h"
 
@@ -72,3 +76,5 @@ private:
 	QString m_lastTrajectoryUserText;
 	bool m_trajCatalogRetryUsed = false;
 };
+
+#endif // AIWIDGET_AIASSISTANTCOORDINATOR_H

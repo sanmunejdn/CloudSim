@@ -1,54 +1,44 @@
+﻿/// @file AiIntentParser.cpp
+/// @brief AiIntentParser 实现
+
 #include "AiIntentParser.h"
 
 #include "Ai/AiCommandSchema.h"
 #include "Ai/AiMeshDefaults.h"
 
-
-
 #include <QRegularExpression>
-
 #include <QString>
-
 #include <vector>
-
-
 
 namespace AiIntentParser
 
 {
-
 namespace
 
 {
-
 QString norm(const QString& t)
 
 {
-
 	return t.trimmed();
-
 }
-
-
 
 std::vector<double> extractNumbersMm(const QString& text)
 
 {
-
 	std::vector<double> out;
 
 	QRegularExpression re(QStringLiteral("(?:直径|半径|长|宽|高|底面)?\\s*(\\d+(?:\\.\\d+)?)\\s*(?:mm|毫米)?"),
 
-		QRegularExpression::CaseInsensitiveOption);
+						  QRegularExpression::CaseInsensitiveOption);
 
-	QRegularExpression reMul(QStringLiteral("(\\d+(?:\\.\\d+)?)\\s*[xX×*]\\s*(\\d+(?:\\.\\d+)?)\\s*[xX×*]\\s*(\\d+(?:\\.\\d+)?)"));
+	QRegularExpression reMul(
+		QStringLiteral("(\\d+(?:\\.\\d+)?)\\s*[xX×*]\\s*(\\d+(?:\\.\\d+)?)\\s*[xX×*]\\s*(\\d+(?:\\.\\d+)?)"));
 
 	auto mMul = reMul.match(text);
 
 	if (mMul.hasMatch())
 
 	{
-
 		out.push_back(mMul.captured(1).toDouble());
 
 		out.push_back(mMul.captured(2).toDouble());
@@ -56,19 +46,18 @@ std::vector<double> extractNumbersMm(const QString& text)
 		out.push_back(mMul.captured(3).toDouble());
 
 		return out;
-
 	}
 
 	QRegularExpression reLwh(QStringLiteral(
 
-		"长\\s*宽\\s*高\\s*(?:为|是)?\\s*(\\d+(?:\\.\\d+)?)\\s*[,，、]\\s*(\\d+(?:\\.\\d+)?)\\s*[,，、]\\s*(\\d+(?:\\.\\d+)?)"));
+		"长\\s*宽\\s*高\\s*(?:为|是)?\\s*(\\d+(?:\\.\\d+)?)\\s*[,，、]\\s*(\\d+(?:\\.\\d+)?)\\s*[,，、]\\s*(\\d+(?:\\."
+		"\\d+)?)"));
 
 	auto mLwh = reLwh.match(text);
 
 	if (mLwh.hasMatch())
 
 	{
-
 		out.push_back(mLwh.captured(1).toDouble());
 
 		out.push_back(mLwh.captured(2).toDouble());
@@ -76,7 +65,6 @@ std::vector<double> extractNumbersMm(const QString& text)
 		out.push_back(mLwh.captured(3).toDouble());
 
 		return out;
-
 	}
 
 	QRegularExpression rePlain(QStringLiteral("(\\d+(?:\\.\\d+)?)"));
@@ -86,36 +74,37 @@ std::vector<double> extractNumbersMm(const QString& text)
 	while (it.hasNext())
 
 	{
-
 		const auto m = it.next();
 
 		out.push_back(m.captured(1).toDouble());
-
 	}
 
 	return out;
-
 }
 
-
-
-enum class Detected { None, Box, Cylinder, Cone, Sphere };
-
-
+enum class Detected
+{
+	None,
+	Box,
+	Cylinder,
+	Cone,
+	Sphere
+};
 
 Detected detectKind(const QString& t)
 
 {
-
 	const QString s = t.toLower();
 
-	if (s.contains(QStringLiteral("长方体")) || s.contains(QStringLiteral("盒子")) || s.contains(QStringLiteral("立方体"))
+	if (s.contains(QStringLiteral("长方体")) || s.contains(QStringLiteral("盒子")) ||
+		s.contains(QStringLiteral("立方体"))
 
 		|| s.contains(QStringLiteral("box")))
 
 		return Detected::Box;
 
-	if (s.contains(QStringLiteral("圆柱")) || s.contains(QStringLiteral("圆筒")) || s.contains(QStringLiteral("cylinder")))
+	if (s.contains(QStringLiteral("圆柱")) || s.contains(QStringLiteral("圆筒")) ||
+		s.contains(QStringLiteral("cylinder")))
 
 		return Detected::Cylinder;
 
@@ -128,32 +117,30 @@ Detected detectKind(const QString& t)
 		return Detected::Sphere;
 
 	return Detected::None;
-
 }
-
-
 
 bool hasCreateVerb(const QString& t)
 
 {
+	return t.contains(QStringLiteral("生成")) || t.contains(QStringLiteral("创建")) ||
+		   t.contains(QStringLiteral("建立"))
 
-	return t.contains(QStringLiteral("生成")) || t.contains(QStringLiteral("创建")) || t.contains(QStringLiteral("建立"))
+		   || t.contains(QStringLiteral("做一个")) || t.contains(QStringLiteral("create"), Qt::CaseInsensitive)
 
-		|| t.contains(QStringLiteral("做一个")) || t.contains(QStringLiteral("create"), Qt::CaseInsensitive)
-
-		|| t.contains(QStringLiteral("make"), Qt::CaseInsensitive);
-
+		   || t.contains(QStringLiteral("make"), Qt::CaseInsensitive);
 }
 
 bool hasHoleIntent(const QString& t)
 {
-	return t.contains(QStringLiteral("通孔")) || t.contains(QStringLiteral("穿孔")) || t.contains(QStringLiteral("钻孔"))
-		|| (t.contains(QStringLiteral("挖")) && (t.contains(QStringLiteral("孔")) || t.contains(QStringLiteral("洞"))));
+	return t.contains(QStringLiteral("通孔")) || t.contains(QStringLiteral("穿孔")) ||
+		   t.contains(QStringLiteral("钻孔")) ||
+		   (t.contains(QStringLiteral("挖")) && (t.contains(QStringLiteral("孔")) || t.contains(QStringLiteral("洞"))));
 }
 
 bool isBoxStockPhrase(const QString& t)
 {
-	return t.contains(QStringLiteral("长方体")) || t.contains(QStringLiteral("立方体")) || t.contains(QStringLiteral("盒子"));
+	return t.contains(QStringLiteral("长方体")) || t.contains(QStringLiteral("立方体")) ||
+		   t.contains(QStringLiteral("盒子"));
 }
 
 double findDiameterMm(const QString& t, const std::vector<double>& nums)
@@ -172,11 +159,9 @@ double findDiameterMm(const QString& t, const std::vector<double>& nums)
 double findLabeled(const QString& t, const QStringList& labels, const std::vector<double>& nums, int fallbackIndex)
 
 {
-
 	for (const QString& lab : labels)
 
 	{
-
 		QRegularExpression re(QStringLiteral("%1\\s*(\\d+(?:\\.\\d+)?)").arg(QRegularExpression::escape(lab)));
 
 		auto m = re.match(t);
@@ -184,7 +169,6 @@ double findLabeled(const QString& t, const QStringList& labels, const std::vecto
 		if (m.hasMatch())
 
 			return m.captured(1).toDouble();
-
 	}
 
 	if (fallbackIndex >= 0 && static_cast<std::size_t>(fallbackIndex) < nums.size())
@@ -192,27 +176,19 @@ double findLabeled(const QString& t, const QStringList& labels, const std::vecto
 		return nums[static_cast<std::size_t>(fallbackIndex)];
 
 	return -1.0;
-
 }
-
-
 
 void putDimIfPositive(nlohmann::json& dims, const char* key, double v)
 
 {
-
 	if (v > 0.0)
 
 		dims[key] = v;
-
 }
-
-
 
 void finalizeMeshCmd(nlohmann::json& cmd, ParseResult& r)
 
 {
-
 	bool usedDefaults = false;
 
 	AiMeshDefaults::applyMissingDimensions(cmd, &usedDefaults);
@@ -228,45 +204,39 @@ void finalizeMeshCmd(nlohmann::json& cmd, ParseResult& r)
 	if (prim == "box")
 
 	{
-
 		cmd["name"] = QString("Box_%1x%2x%3")
 
-			.arg(dims.value("length", 0.0))
+						  .arg(dims.value("length", 0.0))
 
-			.arg(dims.value("width", 0.0))
+						  .arg(dims.value("width", 0.0))
 
-			.arg(dims.value("height", 0.0))
+						  .arg(dims.value("height", 0.0))
 
-			.toStdString();
-
+						  .toStdString();
 	}
 
 	else if (prim == "cylinder")
 
 	{
-
 		cmd["name"] = QString("Cylinder_R%1_H%2")
 
-			.arg(dims.value("radius", 0.0))
+						  .arg(dims.value("radius", 0.0))
 
-			.arg(dims.value("height", 0.0))
+						  .arg(dims.value("height", 0.0))
 
-			.toStdString();
-
+						  .toStdString();
 	}
 
 	else if (prim == "cone")
 
 	{
-
 		cmd["name"] = QString("Cone_R%1_H%2")
 
-			.arg(dims.value("radius", 0.0))
+						  .arg(dims.value("radius", 0.0))
 
-			.arg(dims.value("height", 0.0))
+						  .arg(dims.value("height", 0.0))
 
-			.toStdString();
-
+						  .toStdString();
 	}
 
 	else if (prim == "sphere")
@@ -276,17 +246,13 @@ void finalizeMeshCmd(nlohmann::json& cmd, ParseResult& r)
 	r.ok = true;
 
 	r.command = std::move(cmd);
-
 }
 
-}
-
-
+} // namespace
 
 ParseResult tryParseUserText(const QString& textIn)
 
 {
-
 	ParseResult r;
 
 	const QString t = norm(textIn);
@@ -294,23 +260,19 @@ ParseResult tryParseUserText(const QString& textIn)
 	if (t.isEmpty())
 
 	{
-
 		r.errorMessage = QStringLiteral("请输入描述，例如：生成长方体，或：生成长方体，长100mm，宽50mm，高100mm");
 
 		return r;
-
 	}
 
 	if (!hasCreateVerb(t))
 
 	{
-
 		r.errorMessage = QStringLiteral("请使用「生成/创建」等动词描述要创建的基本体。");
 
 		r.hintMessage = QStringLiteral("支持：长方体、圆柱、圆锥、球体；尺寸可省略（将使用默认值）。");
 
 		return r;
-
 	}
 
 	const Detected kind = detectKind(t);
@@ -318,13 +280,11 @@ ParseResult tryParseUserText(const QString& textIn)
 	if (kind == Detected::None)
 
 	{
-
 		r.errorMessage = QStringLiteral("未识别基本体类型。");
 
 		r.hintMessage = QStringLiteral("支持：长方体、圆柱、圆锥、球体。");
 
 		return r;
-
 	}
 
 	const std::vector<double> nums = extractNumbersMm(t);
@@ -340,29 +300,25 @@ ParseResult tryParseUserText(const QString& textIn)
 	switch (kind)
 
 	{
-
 	case Detected::Box:
 
 	{
-
 		cmd["primitive"] = "box";
 
-		double L = findLabeled(t, { QStringLiteral("长") }, nums, 0);
+		double L = findLabeled(t, {QStringLiteral("长")}, nums, 0);
 
-		double W = findLabeled(t, { QStringLiteral("宽") }, nums, 1);
+		double W = findLabeled(t, {QStringLiteral("宽")}, nums, 1);
 
-		double H = findLabeled(t, { QStringLiteral("高") }, nums, 2);
+		double H = findLabeled(t, {QStringLiteral("高")}, nums, 2);
 
 		if (L < 0 && nums.size() >= 3)
 
 		{
-
 			L = nums[0];
 
 			W = nums[1];
 
 			H = nums[2];
-
 		}
 
 		putDimIfPositive(cmd["dimensions_mm"], "length", L);
@@ -374,18 +330,16 @@ ParseResult tryParseUserText(const QString& textIn)
 		finalizeMeshCmd(cmd, r);
 
 		break;
-
 	}
 
 	case Detected::Cylinder:
 
 	{
-
 		cmd["primitive"] = "cylinder";
 
-		double R = findLabeled(t, { QStringLiteral("半径") }, nums, 0);
+		double R = findLabeled(t, {QStringLiteral("半径")}, nums, 0);
 
-		double H = findLabeled(t, { QStringLiteral("高") }, nums, 1);
+		double H = findLabeled(t, {QStringLiteral("高")}, nums, 1);
 
 		if (t.contains(QStringLiteral("直径")) && nums.size() >= 1)
 
@@ -394,11 +348,9 @@ ParseResult tryParseUserText(const QString& textIn)
 		if (R < 0 && nums.size() >= 2)
 
 		{
-
 			R = nums[0];
 
 			H = nums[1];
-
 		}
 
 		putDimIfPositive(cmd["dimensions_mm"], "radius", R);
@@ -408,27 +360,23 @@ ParseResult tryParseUserText(const QString& textIn)
 		finalizeMeshCmd(cmd, r);
 
 		break;
-
 	}
 
 	case Detected::Cone:
 
 	{
-
 		cmd["primitive"] = "cone";
 
-		double R = findLabeled(t, { QStringLiteral("半径"), QStringLiteral("底面") }, nums, 0);
+		double R = findLabeled(t, {QStringLiteral("半径"), QStringLiteral("底面")}, nums, 0);
 
-		double H = findLabeled(t, { QStringLiteral("高") }, nums, 1);
+		double H = findLabeled(t, {QStringLiteral("高")}, nums, 1);
 
 		if (R < 0 && nums.size() >= 2)
 
 		{
-
 			R = nums[0];
 
 			H = nums[1];
-
 		}
 
 		putDimIfPositive(cmd["dimensions_mm"], "radius", R);
@@ -438,16 +386,14 @@ ParseResult tryParseUserText(const QString& textIn)
 		finalizeMeshCmd(cmd, r);
 
 		break;
-
 	}
 
 	case Detected::Sphere:
 
 	{
-
 		cmd["primitive"] = "sphere";
 
-		double R = findLabeled(t, { QStringLiteral("半径") }, nums, 0);
+		double R = findLabeled(t, {QStringLiteral("半径")}, nums, 0);
 
 		if (t.contains(QStringLiteral("直径")) && nums.size() >= 1)
 
@@ -464,17 +410,14 @@ ParseResult tryParseUserText(const QString& textIn)
 		finalizeMeshCmd(cmd, r);
 
 		break;
-
 	}
 
 	default:
 
 		break;
-
 	}
 
 	return r;
-
 }
 
 ParseResult tryParseComposeUserText(const QString& textIn)
@@ -503,9 +446,9 @@ ParseResult tryParseComposeUserText(const QString& textIn)
 	}
 
 	const std::vector<double> nums = extractNumbersMm(t);
-	double L = findLabeled(t, { QStringLiteral("长") }, nums, 0);
-	double W = findLabeled(t, { QStringLiteral("宽") }, nums, 1);
-	double H = findLabeled(t, { QStringLiteral("高") }, nums, 2);
+	double L = findLabeled(t, {QStringLiteral("长")}, nums, 0);
+	double W = findLabeled(t, {QStringLiteral("宽")}, nums, 1);
+	double H = findLabeled(t, {QStringLiteral("高")}, nums, 2);
 	if (L < 0 && nums.size() >= 3)
 	{
 		L = nums[0];
@@ -532,38 +475,38 @@ ParseResult tryParseComposeUserText(const QString& textIn)
 	plan["domain"] = "mesh.compose";
 	plan["steps"] = nlohmann::json::array();
 	plan["steps"].push_back({
-		{ "id", "body" },
-		{ "api", "createPrimitiveMesh" },
-		{ "args",
-			{
-				{ "primitive", "box" },
-				{ "dimensions_mm", { { "length", L }, { "width", W }, { "height", H } } },
-				{ "name", "Body" },
-				{ "mesh_quality", { { "segments", 32 } } },
-			} },
+		{"id", "body"},
+		{"api", "createPrimitiveMesh"},
+		{"args",
+		 {
+			 {"primitive", "box"},
+			 {"dimensions_mm", {{"length", L}, {"width", W}, {"height", H}}},
+			 {"name", "Body"},
+			 {"mesh_quality", {{"segments", 32}}},
+		 }},
 	});
 	plan["steps"].push_back({
-		{ "id", "hole_tool" },
-		{ "api", "createPrimitiveMesh" },
-		{ "args",
-			{
-				{ "primitive", "cylinder" },
-				{ "dimensions_mm", { { "radius", R }, { "height", cylH } } },
-				{ "name", "HoleTool" },
-				{ "mesh_quality", { { "segments", 32 } } },
-			} },
+		{"id", "hole_tool"},
+		{"api", "createPrimitiveMesh"},
+		{"args",
+		 {
+			 {"primitive", "cylinder"},
+			 {"dimensions_mm", {{"radius", R}, {"height", cylH}}},
+			 {"name", "HoleTool"},
+			 {"mesh_quality", {{"segments", 32}}},
+		 }},
 	});
 	plan["steps"].push_back({
-		{ "id", "result" },
-		{ "api", "booleanMesh" },
-		{ "args",
-			{
-				{ "op", "difference" },
-				{ "target", "$body" },
-				{ "tool", "$hole_tool" },
-				{ "result_name", "BoxWithHole" },
-				{ "hide_operands", true },
-			} },
+		{"id", "result"},
+		{"api", "booleanMesh"},
+		{"args",
+		 {
+			 {"op", "difference"},
+			 {"target", "$body"},
+			 {"tool", "$hole_tool"},
+			 {"result_name", "BoxWithHole"},
+			 {"hide_operands", true},
+		 }},
 	});
 
 	AiCommandSchema::normalizeComposePlanJson(plan);
@@ -573,5 +516,4 @@ ParseResult tryParseComposeUserText(const QString& textIn)
 	return r;
 }
 
-}
-
+} // namespace AiIntentParser

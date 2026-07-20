@@ -1,14 +1,17 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONCONDITION_H
+#define ROBOTSCENE_ROBOTINSTRUCTIONCONDITION_H
+
+/// @file RobotInstructionCondition.h
+/// @brief RobotInstructionCondition 接口
 
 #include "robot_scene_global.h"
 
-#include <json.hpp>
-
 #include <string>
+
+#include <json.hpp>
 
 namespace RobotInstruction
 {
-
 enum class ROBOT_SCENE_API ConditionKind
 {
 	Always = 0,
@@ -31,3 +34,5 @@ ROBOT_SCENE_API Condition conditionFromJson(const nlohmann::json& j);
 ROBOT_SCENE_API nlohmann::json conditionToJson(const Condition& c);
 
 } // namespace RobotInstruction
+
+#endif // ROBOTSCENE_ROBOTINSTRUCTIONCONDITION_H

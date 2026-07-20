@@ -1,32 +1,33 @@
+﻿/// @file PluginHostContext.cpp
+/// @brief PluginHostContext 实现
+
 #include "PluginHostContext.h"
 
+#include "Ai/AiAssistantHostImpl.h"
 #include "Ai/AiTrajectoryFeatureCatalog.h"
-#include "GeometryRef.h"
-
-#include "DocumentImportFacade.h"
-#include "CoreTypes.h"
-#include "IDataService.h"
-
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
-#include "BrepBackendData.h"
+#include "BackendFollowMath.h"
 #include "BackendPrimitiveGeometry.h"
 #include "BackendRegistry.h"
+#include "BackendSceneDocumentFacade.h"
+#include "BrepBackendData.h"
 #include "CloudSimPluginVersion.h"
+#include "CoreTypes.h"
 #include "DocumentHost.h"
+#include "DocumentImportFacade.h"
+#include "GeometryRef.h"
+#include "IAiAssistantHost.h"
+#include "IDataService.h"
 #include "IPluginMainWindowHost.h"
+#include "IRenderView.h"
 #include "MeshBackendData.h"
 #include "MeshBoolean.h"
-#include "BackendFollowMath.h"
-#include "BackendSceneDocumentFacade.h"
-#include "IRenderView.h"
 #include "PluginDelegatedBackend.h"
 #include "PluginDocumentAdapter.h"
-#include "Ai/AiAssistantHostImpl.h"
-#include "IAiAssistantHost.h"
+#include "PluginGeometryHostImpl.h"
 #include "PluginLabelingHostImpl.h"
 #include "PluginPointCloudHostImpl.h"
-#include "PluginGeometryHostImpl.h"
 #include "RunLogger.h"
 
 #include <QAction>
@@ -93,8 +94,8 @@ void transformSoupByMat4(std::vector<float>& soup, const BackendMat4& M)
 
 BackendMat4 placementWorldMatrix(const PluginMeshCreateOptions& placement)
 {
-	const BackendVec3 pose{ placement.poseMm.x, placement.poseMm.y, placement.poseMm.z };
-	const BackendVec3 rot{ placement.rotationDeg.x, placement.rotationDeg.y, placement.rotationDeg.z };
+	const BackendVec3 pose{placement.poseMm.x, placement.poseMm.y, placement.poseMm.z};
+	const BackendVec3 rot{placement.rotationDeg.x, placement.rotationDeg.y, placement.rotationDeg.z};
 	return backend_world_mat_from_pose(pose, rot);
 }
 
@@ -124,12 +125,11 @@ MeshBooleanOp toMeshBooleanOp(PluginMeshBooleanOp op)
 } // namespace
 
 PluginHostContext::PluginHostContext(IPluginMainWindowHost* mainWindowHost, QObject* parent)
-	: QObject(parent)
-	, m_mainWindowHost(mainWindowHost)
-	, m_pointCloudHost(std::make_unique<PluginPointCloudHostImpl>(this))
-	, m_geometryHost(std::make_unique<PluginGeometryHostImpl>(this))
-	, m_labelingHost(std::make_unique<PluginLabelingHostImpl>(this))
-	, m_aiHost(std::make_unique<AiAssistantHostImpl>(this))
+	: QObject(parent), m_mainWindowHost(mainWindowHost),
+	  m_pointCloudHost(std::make_unique<PluginPointCloudHostImpl>(this)),
+	  m_geometryHost(std::make_unique<PluginGeometryHostImpl>(this)),
+	  m_labelingHost(std::make_unique<PluginLabelingHostImpl>(this)),
+	  m_aiHost(std::make_unique<AiAssistantHostImpl>(this))
 {
 }
 
@@ -142,17 +142,19 @@ void PluginHostContext::attachDocumentTabSignals()
 		return;
 	}
 	QTabWidget* tabs = m_mainWindowHost->documentTabs();
-	connect(tabs, &QTabWidget::currentChanged, this, [this](int) {
-		refreshDocumentAdapters();
-		IPluginDocument* doc = activeDocument();
-		for (const auto& cb : m_docChangeCallbacks)
-		{
-			if (cb)
+	connect(tabs, &QTabWidget::currentChanged, this,
+			[this](int)
 			{
-				cb(doc);
-			}
-		}
-	});
+				refreshDocumentAdapters();
+				IPluginDocument* doc = activeDocument();
+				for (const auto& cb : m_docChangeCallbacks)
+				{
+					if (cb)
+					{
+						cb(doc);
+					}
+				}
+			});
 	refreshDocumentAdapters();
 }
 
@@ -262,11 +264,12 @@ void PluginHostContext::invokeOnUiThread(std::function<void()> fn)
 		fn();
 		return;
 	}
-	QMetaObject::invokeMethod(this, [fn]() { fn(); }, Qt::QueuedConnection);
+	QMetaObject::invokeMethod(
+		this, [fn]() { fn(); }, Qt::QueuedConnection);
 }
 
 void PluginHostContext::enqueueJob(const QString& title, std::function<void(const PluginJobProgressFn&)> work,
-	std::function<void(bool threw, const QString& throwMessage)> onFinished)
+								   std::function<void(bool threw, const QString& throwMessage)> onFinished)
 {
 	if (!m_mainWindowHost)
 	{
@@ -287,7 +290,8 @@ QDockWidget* PluginHostContext::registerDockWidget(const QString& title, QWidget
 	}
 	if (area == Qt::RightDockWidgetArea)
 	{
-		logWarn(QStringLiteral("registerDockWidget(Right) is deprecated; rebuild the plugin and call registerSidePanelTab."));
+		logWarn(QStringLiteral(
+			"registerDockWidget(Right) is deprecated; rebuild the plugin and call registerSidePanelTab."));
 		QTabWidget* tabs = m_mainWindowHost ? m_mainWindowHost->rightPanelTabs() : nullptr;
 		if (tabs && tabs->indexOf(widget) >= 0)
 		{
@@ -319,7 +323,8 @@ int PluginHostContext::registerSidePanelTab(const char* titleUtf8, QWidget* widg
 	QTabWidget* tabs = m_mainWindowHost->rightPanelTabs();
 	if (tabs && reinterpret_cast<const void*>(titleUtf8) == static_cast<const void*>(tabs))
 	{
-		logError(QStringLiteral("registerSidePanelTab: invalid title pointer (plugin/host ABI mismatch — rebuild the plugin)."));
+		logError(QStringLiteral(
+			"registerSidePanelTab: invalid title pointer (plugin/host ABI mismatch — rebuild the plugin)."));
 		return -1;
 	}
 	return m_mainWindowHost->addPluginSidePanelTab(QString::fromUtf8(titleUtf8), widget);
@@ -399,16 +404,18 @@ QAction* PluginHostContext::registerAction(QMenu* menu, const QString& text, std
 }
 
 bool PluginHostContext::createPrimitiveMesh(const PluginPrimitiveMeshParams& params,
-	const PluginPrimitiveMeshQuality& quality, const PluginMeshCreateOptions& options, QString* outError,
-	QString* outBackendId)
+											const PluginPrimitiveMeshQuality& quality,
+											const PluginMeshCreateOptions& options, QString* outError,
+											QString* outBackendId)
 {
 	auto soup = BackendPrimitiveGeometry::makePrimitiveTriangleSoup(toDataParams(params), toDataQuality(quality));
 	return registerMeshFromSoup(std::move(soup), options, outError, outBackendId);
 }
 
 bool PluginHostContext::buildPrimitiveMeshSoup(const PluginPrimitiveMeshParams& params,
-	const PluginPrimitiveMeshQuality& quality, const PluginMeshCreateOptions& placement,
-	std::vector<float>& outWorldSoup, QString* outError)
+											   const PluginPrimitiveMeshQuality& quality,
+											   const PluginMeshCreateOptions& placement,
+											   std::vector<float>& outWorldSoup, QString* outError)
 {
 	outWorldSoup.clear();
 	std::vector<float> soup =
@@ -426,8 +433,9 @@ bool PluginHostContext::buildPrimitiveMeshSoup(const PluginPrimitiveMeshParams& 
 }
 
 bool PluginHostContext::booleanSoupsAndRegister(const std::vector<float>& targetWorldSoup,
-	const std::vector<float>& toolWorldSoup, PluginMeshBooleanOp op, const PluginBooleanMeshOptions& options,
-	std::string* outResultBackendId, QString* outError)
+												const std::vector<float>& toolWorldSoup, PluginMeshBooleanOp op,
+												const PluginBooleanMeshOptions& options,
+												std::string* outResultBackendId, QString* outError)
 {
 	if (outResultBackendId)
 		outResultBackendId->clear();
@@ -466,8 +474,9 @@ bool PluginHostContext::booleanSoupsAndRegister(const std::vector<float>& target
 }
 
 bool PluginHostContext::booleanMeshSoups(PluginMeshBooleanOp op, const std::vector<float>& targetWorldSoup,
-	const std::vector<float>& toolWorldSoup, const PluginBooleanMeshOptions& options,
-	std::string* outResultBackendId, QString* outError)
+										 const std::vector<float>& toolWorldSoup,
+										 const PluginBooleanMeshOptions& options, std::string* outResultBackendId,
+										 QString* outError)
 {
 	if (!m_mainWindowHost)
 	{
@@ -485,10 +494,13 @@ bool PluginHostContext::booleanMeshSoups(PluginMeshBooleanOp op, const std::vect
 }
 
 bool PluginHostContext::booleanPrimitiveMeshes(PluginMeshBooleanOp op, const PluginPrimitiveMeshParams& targetParams,
-	const PluginPrimitiveMeshQuality& targetQuality, const PluginMeshCreateOptions& targetPlacement,
-	const PluginPrimitiveMeshParams& toolParams, const PluginPrimitiveMeshQuality& toolQuality,
-	const PluginMeshCreateOptions& toolPlacement, const PluginBooleanMeshOptions& options,
-	std::string* outResultBackendId, QString* outError)
+											   const PluginPrimitiveMeshQuality& targetQuality,
+											   const PluginMeshCreateOptions& targetPlacement,
+											   const PluginPrimitiveMeshParams& toolParams,
+											   const PluginPrimitiveMeshQuality& toolQuality,
+											   const PluginMeshCreateOptions& toolPlacement,
+											   const PluginBooleanMeshOptions& options, std::string* outResultBackendId,
+											   QString* outError)
 {
 	std::vector<float> targetSoup;
 	std::vector<float> toolSoup;
@@ -500,8 +512,8 @@ bool PluginHostContext::booleanPrimitiveMeshes(PluginMeshBooleanOp op, const Plu
 }
 
 bool PluginHostContext::booleanMesh(PluginMeshBooleanOp op, const std::string& targetBackendId,
-	const std::string& toolBackendId, const PluginBooleanMeshOptions& options, std::string* outResultBackendId,
-	QString* outError)
+									const std::string& toolBackendId, const PluginBooleanMeshOptions& options,
+									std::string* outResultBackendId, QString* outError)
 {
 	if (outResultBackendId)
 		outResultBackendId->clear();
@@ -544,7 +556,7 @@ bool PluginHostContext::booleanMesh(PluginMeshBooleanOp op, const std::string& t
 }
 
 bool PluginHostContext::registerTriangleMesh(const std::vector<float>& triangleSoup,
-	const PluginMeshCreateOptions& options, QString* outError)
+											 const PluginMeshCreateOptions& options, QString* outError)
 {
 	// 异常长度多为插件未随宿主 1.4.0 重编译导致 vtable 错位
 	constexpr std::size_t kMaxSoupFloats = 50'000'000U;
@@ -552,8 +564,7 @@ bool PluginHostContext::registerTriangleMesh(const std::vector<float>& triangleS
 	{
 		if (outError)
 		{
-			*outError = QStringLiteral(
-				"Triangle soup size invalid. Rebuild plugins after upgrading host to 1.4.0.");
+			*outError = QStringLiteral("Triangle soup size invalid. Rebuild plugins after upgrading host to 1.4.0.");
 		}
 		return false;
 	}
@@ -569,7 +580,7 @@ bool PluginHostContext::registerTriangleMesh(const std::vector<float>& triangleS
 }
 
 bool PluginHostContext::registerMeshFromSoup(std::vector<float> soup, const PluginMeshCreateOptions& options,
-	QString* outError, QString* outBackendId)
+											 QString* outError, QString* outBackendId)
 {
 	if (!m_mainWindowHost)
 	{
@@ -589,10 +600,8 @@ bool PluginHostContext::registerMeshFromSoup(std::vector<float> soup, const Plug
 		return false;
 	}
 
-	const QString displayName =
-		options.displayName.isEmpty() ? QStringLiteral("PluginMesh") : options.displayName;
-	const QString sourcePath =
-		options.sourcePath.isEmpty() ? QStringLiteral("plugin://mesh") : options.sourcePath;
+	const QString displayName = options.displayName.isEmpty() ? QStringLiteral("PluginMesh") : options.displayName;
+	const QString sourcePath = options.sourcePath.isEmpty() ? QStringLiteral("plugin://mesh") : options.sourcePath;
 
 	auto mesh = std::make_shared<MeshBackendData>();
 	mesh->setName(displayName.toStdString());
@@ -635,7 +644,7 @@ bool PluginHostContext::registerMeshFromSoup(std::vector<float> soup, const Plug
 }
 
 std::string PluginHostContext::importFileIntoActiveDocument(const std::string& pathUtf8, const bool isPointCloud,
-	std::string* outError)
+															std::string* outError)
 {
 	if (!m_mainWindowHost)
 	{
@@ -766,7 +775,8 @@ bool PluginHostContext::resolveTrajectoryWorkpiece(QString& outBackendId, QStrin
 }
 
 bool PluginHostContext::buildTrajectoryFeatureCatalogSlice(const QString& backendId, const QString& stepPathUtf8,
-	const QString& userText, QByteArray& outFullCatalogUtf8, QByteArray& outSliceUtf8, QString* outError)
+														   const QString& userText, QByteArray& outFullCatalogUtf8,
+														   QByteArray& outSliceUtf8, QString* outError)
 {
 	outFullCatalogUtf8.clear();
 	outSliceUtf8.clear();
@@ -838,7 +848,7 @@ void PluginHostContext::clearAiFeatureCandidatePreview()
 }
 
 bool PluginHostContext::commitAiTrajectoryFeatures(const QByteArray& featurePlanJsonUtf8, QString* outSummary,
-	QString* outError)
+												   QString* outError)
 {
 	if (!m_mainWindowHost)
 	{
@@ -849,8 +859,8 @@ bool PluginHostContext::commitAiTrajectoryFeatures(const QByteArray& featurePlan
 		return false;
 	}
 	return m_mainWindowHost->commitAiTrajectoryFeaturesForAi(
-		std::string(featurePlanJsonUtf8.constData(), static_cast<std::size_t>(featurePlanJsonUtf8.size())),
-		outSummary, outError);
+		std::string(featurePlanJsonUtf8.constData(), static_cast<std::size_t>(featurePlanJsonUtf8.size())), outSummary,
+		outError);
 }
 
 bool PluginHostContext::useChinese() const
@@ -903,7 +913,8 @@ bool PluginHostContext::registerBackendType(const PluginBackendMeta& meta, QStri
 	reg.displayName = meta.displayName.empty() ? meta.className : meta.displayName;
 	reg.supportsTransform = meta.supportsTransform;
 	reg.supportsVisibility = meta.supportsVisibility;
-	reg.factory = [factory = meta.factory]() -> std::shared_ptr<BackendDataBase> {
+	reg.factory = [factory = meta.factory]() -> std::shared_ptr<BackendDataBase>
+	{
 		const std::shared_ptr<IPluginBackendObject> delegate = factory();
 		if (!delegate)
 		{
@@ -913,7 +924,8 @@ bool PluginHostContext::registerBackendType(const PluginBackendMeta& meta, QStri
 	};
 	if (meta.propertyRowsProvider)
 	{
-		reg.propertyEditorFactory = [provider = meta.propertyRowsProvider](BackendDataBase* base) -> void* {
+		reg.propertyEditorFactory = [provider = meta.propertyRowsProvider](BackendDataBase* base) -> void*
+		{
 			(void)base;
 			(void)provider;
 			return nullptr;

@@ -1,8 +1,11 @@
+﻿/// @file DocumentGeometryOps.cpp
+/// @brief DocumentGeometryOps 实现
+
 #include "DocumentGeometryOps.h"
 
-#include "GeometryBackendOps.h"
 #include "DocumentHost.h"
 #include "DocumentImportFacade.h"
+#include "GeometryBackendOps.h"
 #include "IPluginMainWindowHost.h"
 #include "MeshBackendData.h"
 
@@ -10,7 +13,6 @@ namespace document_geometry_ops
 {
 namespace
 {
-
 geoalgo::MeshDiscretizeMode toGeoMode(const PluginMeshDiscretizeMode mode)
 {
 	switch (mode)
@@ -132,9 +134,8 @@ PluginGeometryJobResult toPluginGeometryResult(const geoalgo::IntersectionResult
 	return out;
 }
 
-PluginGeometryJobResult toPluginGeometryResult(
-	const geoalgo::MeshDiscretizeReport& report,
-	const std::string& backendId)
+PluginGeometryJobResult toPluginGeometryResult(const geoalgo::MeshDiscretizeReport& report,
+											   const std::string& backendId)
 {
 	PluginGeometryJobResult out;
 	out.newBackendId = backendId;
@@ -143,12 +144,8 @@ PluginGeometryJobResult toPluginGeometryResult(
 	return out;
 }
 
-std::string registerMeshSoup(
-	cloudsim::host::DocumentHost* page,
-	IPluginMainWindowHost* mainWindowHost,
-	std::vector<float> soup,
-	const PluginMeshCreateOptions& options,
-	std::string* outError)
+std::string registerMeshSoup(cloudsim::host::DocumentHost* page, IPluginMainWindowHost* mainWindowHost,
+							 std::vector<float> soup, const PluginMeshCreateOptions& options, std::string* outError)
 {
 	if (!page || soup.empty())
 	{
@@ -159,8 +156,7 @@ std::string registerMeshSoup(
 		return std::string();
 	}
 	auto mesh = std::make_shared<MeshBackendData>();
-	const QString displayName =
-		options.displayName.isEmpty() ? QStringLiteral("GeometryMesh") : options.displayName;
+	const QString displayName = options.displayName.isEmpty() ? QStringLiteral("GeometryMesh") : options.displayName;
 	mesh->setName(displayName.toStdString());
 
 	BackendVec3 pos;
@@ -177,8 +173,7 @@ std::string registerMeshSoup(
 	mesh->setTriangleSoup(std::move(soup));
 
 	cloudsim::host::AdoptMeshOptions adoptOpt;
-	adoptOpt.sourcePath =
-		options.sourcePath.isEmpty() ? QStringLiteral("plugin://geometry") : options.sourcePath;
+	adoptOpt.sourcePath = options.sourcePath.isEmpty() ? QStringLiteral("plugin://geometry") : options.sourcePath;
 	adoptOpt.catalogTypeName = QStringLiteral("Model");
 	adoptOpt.resetViewToHome = options.resetViewToHome;
 	QString regErr;

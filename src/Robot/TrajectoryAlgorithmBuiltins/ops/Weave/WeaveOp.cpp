@@ -1,14 +1,16 @@
+﻿/// @file WeaveOp.cpp
+/// @brief WeaveOp 实现
+
 // Weave 原子块：在路径上叠加摆动
 #include "WeaveOp.h"
 
 #include "TrajectoryOpFormat.h"
-#include "UnifiedTrajectoryPathMath.h"
 #include "TrajectoryOpParamAccess.h"
 #include "TrajectoryOpParamsParse.h"
+#include "UnifiedTrajectoryPathMath.h"
 
 namespace trajectory_algo
 {
-
 RobotInstruction::TrajectoryOpKind WeaveOp::kind() const
 {
 	return RobotInstruction::TrajectoryOpKind::Weave;
@@ -24,8 +26,8 @@ TrajectoryOpCapability WeaveOp::capabilities() const
 	return TrajectoryOpCapability::None;
 }
 
-RobotInstruction::TrajectoryOpDescriptor WeaveOp::makeDefaultDescriptor(
-	const RobotInstruction::OpScope& defaultScope) const
+RobotInstruction::TrajectoryOpDescriptor
+WeaveOp::makeDefaultDescriptor(const RobotInstruction::OpScope& defaultScope) const
 {
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Weave;
@@ -50,19 +52,14 @@ bool WeaveOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, std::
 	return true;
 }
 
-std::string WeaveOp::formatSummary(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const bool chinese) const
+std::string WeaveOp::formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op, const bool chinese) const
 {
 	(void)op;
 	return displayName(chinese);
 }
 
-bool WeaveOp::processPath(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	RobotInstruction::UnifiedTrajectory& traj,
-	const TrajectoryOpExecutionContext& ctx,
-	std::string* errMsg) const
+bool WeaveOp::processPath(const RobotInstruction::TrajectoryOpDescriptor& op, RobotInstruction::UnifiedTrajectory& traj,
+						  const TrajectoryOpExecutionContext& ctx, std::string* errMsg) const
 {
 	(void)op;
 	(void)errMsg;
@@ -70,12 +67,8 @@ bool WeaveOp::processPath(
 	{
 		return false;
 	}
-	weaveUnifiedInScope(
-		traj,
-		op.scope,
-		ctx.program,
-		parseWeaveParams(op.params).amplitudeMm,
-		parseWeaveParams(op.params).periodMm);
+	weaveUnifiedInScope(traj, op.scope, ctx.program, parseWeaveParams(op.params).amplitudeMm,
+						parseWeaveParams(op.params).periodMm);
 	return true;
 }
 

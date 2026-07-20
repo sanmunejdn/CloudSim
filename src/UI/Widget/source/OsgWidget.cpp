@@ -1,10 +1,49 @@
+﻿/// @file OsgWidget.cpp
+/// @brief OsgWidget 实现
+
 #include "OsgWidget.h"
 
 #include "BackendDataBase.h"
+#include "BackendFollowMath.h"
+#include "BackendPoseOsg.h"
+#include "BackendVisualMath.h"
 #include "BackendVisualRegistry.h"
+#include "GraphicsWindowQt1.h"
+#include "LabelingPickOperation.h"
+#include "MeshBackendData.h"
+#include "MeshEdgeFacePickOperation.h"
+#include "MeshSectionPlaneEditOperation.h"
+#include "ObjectGizmoFrame.h"
+#include "ObjectTransformOperation.h"
+#include "OsgWidgetBackendLoadController.h"
+#include "OsgWidgetCaptureController.h"
+#include "OsgWidgetColorController.h"
+#include "OsgWidgetImportController.h"
+#include "OsgWidgetPickAnnotationController.h"
+#include "OsgWidgetTransformHierarchyController.h"
+#include "PickTypes.h"
+#include "PointCloudBackendData.h"
+#include "PointPickOperation.h"
+#include "PolylinePickOperation.h"
+#include "QWidgetViewer.h"
+#include "RobotTcpDragTeachOperation.h"
 
-#include <BrepImportArtifacts.h>
-
+#include <QBuffer>
+#include <QFile>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QImage>
+#include <QMessageBox>
+#include <QMouseEvent>
+#include <QPainter>
+#include <QPalette>
+#include <QRegExp>
+#include <QResizeEvent>
+#include <QShowEvent>
+#include <QStringList>
+#include <QSurfaceFormat>
+#include <QTextStream>
+#include <QVBoxLayout>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -16,29 +55,17 @@
 #include <string>
 #include <unordered_map>
 
-#include <QBuffer>
-#include <QFile>
-#include <QFileDialog>
-#include <QImage>
-#include <QMessageBox>
-#include <QFileInfo>
-#include <QMouseEvent>
-#include <QPalette>
-#include <QPainter>
-#include <QShowEvent>
-#include <QResizeEvent>
-#include <QRegExp>
-#include <QStringList>
-#include <QSurfaceFormat>
-#include <QTextStream>
-#include <QVBoxLayout>
-
+#include <BrepImportArtifacts.h>
 #include <osg/Array>
+#include <osg/AutoTransform>
+#include <osg/BlendFunc>
+#include <osg/BoundingSphere>
 #include <osg/Camera>
-#include <osg/Geometry>
+#include <osg/Depth>
 #include <osg/Geode>
-#include <osg/PrimitiveSet>
+#include <osg/Geometry>
 #include <osg/Group>
+#include <osg/Image>
 #include <osg/Light>
 #include <osg/LightSource>
 #include <osg/LineWidth>
@@ -46,22 +73,19 @@
 #include <osg/Matrix>
 #include <osg/MatrixTransform>
 #include <osg/Node>
+#include <osg/NodeCallback>
+#include <osg/NodeVisitor>
 #include <osg/Point>
 #include <osg/PolygonMode>
 #include <osg/PolygonOffset>
 #include <osg/PositionAttitudeTransform>
-#include <osg/ShapeDrawable>
+#include <osg/PrimitiveSet>
 #include <osg/Shape>
-#include <osg/Transform>
-#include <osg/StateSet>
+#include <osg/ShapeDrawable>
 #include <osg/StateAttribute>
-#include <osg/BlendFunc>
-#include <osg/Depth>
+#include <osg/StateSet>
+#include <osg/Transform>
 #include <osg/Vec4>
-#include <osg/NodeVisitor>
-#include <osg/NodeCallback>
-#include <osg/AutoTransform>
-#include <osg/BoundingSphere>
 #include <osgDB/Options>
 #include <osgDB/ReadFile>
 #include <osgDB/Registry>
@@ -71,39 +95,10 @@
 #include <osgGA/TrackballManipulator>
 #include <osgText/Text>
 #include <osgViewer/GraphicsWindow>
-
-#include "MeshBackendData.h"
-#include "PointCloudBackendData.h"
-
-#include <osg/Image>
-#include <osg/Image>
 #include <osgViewer/Viewer>
 
-#include "OsgWidgetBackendLoadController.h"
-#include "OsgWidgetImportController.h"
-#include "OsgWidgetCaptureController.h"
-#include "OsgWidgetPickAnnotationController.h"
-#include "OsgWidgetColorController.h"
-#include "OsgWidgetTransformHierarchyController.h"
-
-#include "GraphicsWindowQt1.h"
-#include "ObjectTransformOperation.h"
-#include "RobotTcpDragTeachOperation.h"
-#include "MeshSectionPlaneEditOperation.h"
-#include "LabelingPickOperation.h"
-#include "PointPickOperation.h"
-#include "PolylinePickOperation.h"
-#include "MeshEdgeFacePickOperation.h"
-#include "PickTypes.h"
-#include "QWidgetViewer.h"
-
-#include "BackendFollowMath.h"
-#include "BackendVisualMath.h"
-#include "BackendPoseOsg.h"
-#include "ObjectGizmoFrame.h"
-
-namespace {
-
+namespace
+{
 QColor viewerChromeColor(bool dark)
 {
 	return dark ? QColor(102, 102, 107) : QColor(250, 250, 250);
@@ -148,8 +143,7 @@ osg::ref_ptr<osg::Image> makeViewCubeLabelImage(const QString& text)
 
 } // namespace
 
-OsgWidget::OsgWidget(QWidget* parent)
-	: QWidget(parent)
+OsgWidget::OsgWidget(QWidget* parent) : QWidget(parent)
 {
 	qRegisterMetaType<PickResult>("PickResult");
 	m_feedbackTimer.start();
@@ -166,17 +160,19 @@ OsgWidget::OsgWidget(QWidget* parent)
 	m_pickAnnotationController = std::make_unique<OsgWidgetPickAnnotationController>();
 	initScene();
 	initUi();
-	setRequestRedraw([this]() {
-		if (m_tcpTeachActive)
+	setRequestRedraw(
+		[this]()
 		{
-			syncTcpTeachWorldPatFromMount();
-		}
-		emit sceneRedrawRequested();
-		if (m_glWidget)
-		{
-			m_glWidget->update();
-		}
-	});
+			if (m_tcpTeachActive)
+			{
+				syncTcpTeachWorldPatFromMount();
+			}
+			emit sceneRedrawRequested();
+			if (m_glWidget)
+			{
+				m_glWidget->update();
+			}
+		});
 	if (m_glWidget)
 	{
 		setViewportPixels(m_glWidget->width(), m_glWidget->height());
@@ -187,8 +183,32 @@ OsgWidget::OsgWidget(QWidget* parent)
 
 OsgWidget::~OsgWidget()
 {
+	// 先停事件与定时器：基类析构 m_viewer 会 close GL，否则会重入已销毁的 operation 成员
+	m_frameTimer.stop();
+	m_idleRenderTimer.stop();
+	if (m_glWidget)
+	{
+		m_glWidget->removeEventFilter(this);
+	}
+
 	hideMeshSectionPlane();
 	clearMeshFittedSurfacePreview();
+
+	m_labelingPickOperation.reset();
+	m_meshElementPickOperation.reset();
+	m_meshSectionPlaneOperation.reset();
+	m_tcpDragTeachOperation.reset();
+	m_objectTransformOperation.reset();
+	m_polylinePickOperation.reset();
+	m_pointPickOperation.reset();
+
+	if (m_viewer.valid())
+	{
+		m_viewer->setDone(true);
+		m_viewer->setSceneData(nullptr);
+		m_viewer = nullptr;
+	}
+	m_graphicsWindow = nullptr;
 }
 
 bool OsgWidget::hasImportedContent() const
@@ -200,8 +220,8 @@ bool OsgWidget::hasImportedContent() const
 	return !m_backendObjectRoots.empty();
 }
 
-void OsgWidget::applyRigidRotationAboutWorldPivot(const std::vector<std::string>& backendIds, const osg::Vec3f& pivotWorld,
-	const osg::Quat& deltaRotation)
+void OsgWidget::applyRigidRotationAboutWorldPivot(const std::vector<std::string>& backendIds,
+												  const osg::Vec3f& pivotWorld, const osg::Quat& deltaRotation)
 {
 	for (const std::string& id : backendIds)
 	{
@@ -259,7 +279,6 @@ osg::Vec3f OsgWidget::averageBackendRootPositionWorld(const std::vector<std::str
 
 namespace
 {
-
 osg::NodePath nodePathToSceneRoot(const osg::Node* leaf)
 {
 	osg::NodePath path;
@@ -299,8 +318,7 @@ osg::Group* findUrdfLinkContainer(osg::Group* sceneSubtree, const std::string& u
 		std::string wantName;
 		osg::Group* found = nullptr;
 		explicit FindLinkContainer(std::string w)
-			: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
-			, wantName(std::move(w))
+			: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), wantName(std::move(w))
 		{
 		}
 		void apply(osg::Group& g) override
@@ -336,12 +354,8 @@ osg::ref_ptr<osg::Geode> createReachabilityOriginGeode(bool reachable)
 	return geode;
 }
 
-osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(
-	float axisLengthMm,
-	bool showX,
-	bool showY,
-	bool showZ,
-	bool alwaysVisible = false)
+osg::ref_ptr<osg::Geode> createInstructionPoseAxisGeode(float axisLengthMm, bool showX, bool showY, bool showZ,
+														bool alwaysVisible = false)
 {
 	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
 	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
@@ -537,7 +551,8 @@ void OsgWidget::setBackendRootWorldMatrixFromWorld(const std::string& backendId,
 	requestRedraw();
 }
 
-bool OsgWidget::tryGetBackendModelCenterMm(const std::string& backendId, double& outCx, double& outCy, double& outCz) const
+bool OsgWidget::tryGetBackendModelCenterMm(const std::string& backendId, double& outCx, double& outCy,
+										   double& outCz) const
 {
 	const auto it = m_backendModelCenters.find(backendId);
 	if (it == m_backendModelCenters.end())
@@ -550,9 +565,7 @@ bool OsgWidget::tryGetBackendModelCenterMm(const std::string& backendId, double&
 	return true;
 }
 
-bool OsgWidget::alignBackendInnerModelCenterFrom(
-	const std::string& targetBackendId,
-	const std::string& sourceBackendId)
+bool OsgWidget::alignBackendInnerModelCenterFrom(const std::string& targetBackendId, const std::string& sourceBackendId)
 {
 	(void)targetBackendId;
 	(void)sourceBackendId;
@@ -652,9 +665,8 @@ void OsgWidget::clearInstructionPoseAxes()
 	requestRedraw();
 }
 
-void OsgWidget::setRawTrajectoryOverlay(
-	const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
-	const std::vector<std::size_t>& segmentEndExclusive)
+void OsgWidget::setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
+										const std::vector<std::size_t>& segmentEndExclusive)
 {
 	if (!m_trajectoryOverlayGroup.valid())
 	{
@@ -674,7 +686,8 @@ void OsgWidget::setRawTrajectoryOverlay(
 		return;
 	}
 
-	auto addLineStrip = [&](const std::size_t begin, const std::size_t endExclusive) {
+	auto addLineStrip = [&](const std::size_t begin, const std::size_t endExclusive)
+	{
 		if (endExclusive <= begin + 1U)
 		{
 			return;
@@ -690,10 +703,8 @@ void OsgWidget::setRawTrajectoryOverlay(
 		osg::ref_ptr<osg::Vec4Array> lineColor = new osg::Vec4Array;
 		lineColor->push_back(osg::Vec4(0.2f, 0.85f, 1.0f, 1.0f));
 		lineGeom->setColorArray(lineColor.get(), osg::Array::BIND_OVERALL);
-		lineGeom->addPrimitiveSet(new osg::DrawArrays(
-			osg::PrimitiveSet::LINE_STRIP,
-			0,
-			static_cast<GLsizei>(lineVerts->size())));
+		lineGeom->addPrimitiveSet(
+			new osg::DrawArrays(osg::PrimitiveSet::LINE_STRIP, 0, static_cast<GLsizei>(lineVerts->size())));
 		osg::StateSet* ss = lineGeom->getOrCreateStateSet();
 		ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 		ss->setAttribute(new osg::LineWidth(2.0f));
@@ -779,16 +790,14 @@ void OsgWidget::setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawT
 		osg::Matrixd m;
 		m.makeRotate(q);
 		m.setTrans(static_cast<double>(f.positionMm.x()), static_cast<double>(f.positionMm.y()),
-			static_cast<double>(f.positionMm.z()));
+				   static_cast<double>(f.positionMm.z()));
 		mt->setMatrix(m);
 		mt->addChild(createReachabilityOriginGeode(f.reachable).get());
 		if (m_rawTrajShowAxisX || m_rawTrajShowAxisY || m_rawTrajShowAxisZ)
 		{
-			mt->addChild(createInstructionPoseAxisGeode(
-				axisLenMm,
-				m_rawTrajShowAxisX,
-				m_rawTrajShowAxisY,
-				m_rawTrajShowAxisZ).get());
+			mt->addChild(
+				createInstructionPoseAxisGeode(axisLenMm, m_rawTrajShowAxisX, m_rawTrajShowAxisY, m_rawTrajShowAxisZ)
+					.get());
 		}
 		m_rawTrajectoryFramesGroup->addChild(mt.get());
 	}
@@ -811,7 +820,8 @@ void OsgWidget::clearRobotFrameOverlays(const std::string& robotRootBackendId)
 	{
 		return;
 	}
-	auto detach = [](const osg::ref_ptr<osg::MatrixTransform>& t) {
+	auto detach = [](const osg::ref_ptr<osg::MatrixTransform>& t)
+	{
 		if (!t.valid())
 		{
 			return;
@@ -842,7 +852,8 @@ void OsgWidget::setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverlayUpdate&
 	clearRobotFrameOverlays(update.robotRootBackendId);
 	RobotFrameOverlayNodes nodes;
 
-	auto mountOnParent = [&](const std::string& mountBackendId, osg::MatrixTransform* mt) -> bool {
+	auto mountOnParent = [&](const std::string& mountBackendId, osg::MatrixTransform* mt) -> bool
+	{
 		if (!mt)
 		{
 			return false;
@@ -935,8 +946,8 @@ void OsgWidget::clearFeatureCatalogOverlay()
 	OsgScene::clearFeatureCatalogOverlay();
 }
 
-namespace {
-
+namespace
+{
 void syncWidgetChrome(QWidget* widget, bool dark)
 {
 	if (!widget)
@@ -991,24 +1002,24 @@ void OsgWidget::createGradientBackground()
 	// 比4顶点渐变更自然，层次感更强
 	osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
 	// 底部条带
-	vertices->push_back(osg::Vec3(-1.0f, -1.0f, 0.0f));   // 左下
-	vertices->push_back(osg::Vec3(1.0f, -1.0f, 0.0f));    // 右下
+	vertices->push_back(osg::Vec3(-1.0f, -1.0f, 0.0f)); // 左下
+	vertices->push_back(osg::Vec3(1.0f, -1.0f, 0.0f));	// 右下
 	// 中间条带
-	vertices->push_back(osg::Vec3(1.0f, -0.15f, 0.0f));   // 右中
-	vertices->push_back(osg::Vec3(-1.0f, -0.15f, 0.0f));  // 左中
+	vertices->push_back(osg::Vec3(1.0f, -0.15f, 0.0f));	 // 右中
+	vertices->push_back(osg::Vec3(-1.0f, -0.15f, 0.0f)); // 左中
 	// 顶部条带
-	vertices->push_back(osg::Vec3(1.0f, 1.0f, 0.0f));     // 右上
-	vertices->push_back(osg::Vec3(-1.0f, 1.0f, 0.0f));    // 左上
+	vertices->push_back(osg::Vec3(1.0f, 1.0f, 0.0f));  // 右上
+	vertices->push_back(osg::Vec3(-1.0f, 1.0f, 0.0f)); // 左上
 	m_gradientBackgroundGeom->setVertexArray(vertices);
 
 	// 默认亮色主题渐变（三段式）
 	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
-	colors->push_back(osg::Vec4(0.96f, 0.95f, 0.94f, 1.0f));  // 左下 - 暖灰白
-	colors->push_back(osg::Vec4(0.96f, 0.95f, 0.94f, 1.0f));  // 右下 - 暖灰白
-	colors->push_back(osg::Vec4(0.92f, 0.93f, 0.94f, 1.0f));  // 右中 - 中性灰
-	colors->push_back(osg::Vec4(0.92f, 0.93f, 0.94f, 1.0f));  // 左中 - 中性灰
-	colors->push_back(osg::Vec4(0.84f, 0.87f, 0.92f, 1.0f));  // 右上 - 冷蓝灰
-	colors->push_back(osg::Vec4(0.84f, 0.87f, 0.92f, 1.0f));  // 左上 - 冷蓝灰
+	colors->push_back(osg::Vec4(0.96f, 0.95f, 0.94f, 1.0f)); // 左下 - 暖灰白
+	colors->push_back(osg::Vec4(0.96f, 0.95f, 0.94f, 1.0f)); // 右下 - 暖灰白
+	colors->push_back(osg::Vec4(0.92f, 0.93f, 0.94f, 1.0f)); // 右中 - 中性灰
+	colors->push_back(osg::Vec4(0.92f, 0.93f, 0.94f, 1.0f)); // 左中 - 中性灰
+	colors->push_back(osg::Vec4(0.84f, 0.87f, 0.92f, 1.0f)); // 右上 - 冷蓝灰
+	colors->push_back(osg::Vec4(0.84f, 0.87f, 0.92f, 1.0f)); // 左上 - 冷蓝灰
 	m_gradientBackgroundGeom->setColorArray(colors);
 	m_gradientBackgroundGeom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
 
@@ -1049,22 +1060,22 @@ void OsgWidget::updateGradientColors(bool dark)
 	if (dark)
 	{
 		// 暗色主题三段式渐变：底部深灰 → 中间过渡 → 顶部深蓝灰
-		(*colors)[0] = osg::Vec4(0.10f, 0.10f, 0.11f, 1.0f);  // 左下 - 深灰
-		(*colors)[1] = osg::Vec4(0.10f, 0.10f, 0.11f, 1.0f);  // 右下 - 深灰
-		(*colors)[2] = osg::Vec4(0.15f, 0.16f, 0.18f, 1.0f);  // 右中 - 中性深灰
-		(*colors)[3] = osg::Vec4(0.15f, 0.16f, 0.18f, 1.0f);  // 左中 - 中性深灰
-		(*colors)[4] = osg::Vec4(0.22f, 0.24f, 0.29f, 1.0f);  // 右上 - 深蓝灰
-		(*colors)[5] = osg::Vec4(0.22f, 0.24f, 0.29f, 1.0f);  // 左上 - 深蓝灰
+		(*colors)[0] = osg::Vec4(0.10f, 0.10f, 0.11f, 1.0f); // 左下 - 深灰
+		(*colors)[1] = osg::Vec4(0.10f, 0.10f, 0.11f, 1.0f); // 右下 - 深灰
+		(*colors)[2] = osg::Vec4(0.15f, 0.16f, 0.18f, 1.0f); // 右中 - 中性深灰
+		(*colors)[3] = osg::Vec4(0.15f, 0.16f, 0.18f, 1.0f); // 左中 - 中性深灰
+		(*colors)[4] = osg::Vec4(0.22f, 0.24f, 0.29f, 1.0f); // 右上 - 深蓝灰
+		(*colors)[5] = osg::Vec4(0.22f, 0.24f, 0.29f, 1.0f); // 左上 - 深蓝灰
 	}
 	else
 	{
 		// 亮色主题三段式渐变：底部暖灰白 → 中间过渡 → 顶部冷蓝灰
-		(*colors)[0] = osg::Vec4(0.96f, 0.95f, 0.94f, 1.0f);  // 左下 - 暖灰白
-		(*colors)[1] = osg::Vec4(0.96f, 0.95f, 0.94f, 1.0f);  // 右下 - 暖灰白
-		(*colors)[2] = osg::Vec4(0.92f, 0.93f, 0.94f, 1.0f);  // 右中 - 中性灰
-		(*colors)[3] = osg::Vec4(0.92f, 0.93f, 0.94f, 1.0f);  // 左中 - 中性灰
-		(*colors)[4] = osg::Vec4(0.84f, 0.87f, 0.92f, 1.0f);  // 右上 - 冷蓝灰
-		(*colors)[5] = osg::Vec4(0.84f, 0.87f, 0.92f, 1.0f);  // 左上 - 冷蓝灰
+		(*colors)[0] = osg::Vec4(0.96f, 0.95f, 0.94f, 1.0f); // 左下 - 暖灰白
+		(*colors)[1] = osg::Vec4(0.96f, 0.95f, 0.94f, 1.0f); // 右下 - 暖灰白
+		(*colors)[2] = osg::Vec4(0.92f, 0.93f, 0.94f, 1.0f); // 右中 - 中性灰
+		(*colors)[3] = osg::Vec4(0.92f, 0.93f, 0.94f, 1.0f); // 左中 - 中性灰
+		(*colors)[4] = osg::Vec4(0.84f, 0.87f, 0.92f, 1.0f); // 右上 - 冷蓝灰
+		(*colors)[5] = osg::Vec4(0.84f, 0.87f, 0.92f, 1.0f); // 左上 - 冷蓝灰
 	}
 
 	m_gradientBackgroundGeom->dirtyDisplayList();
@@ -1085,15 +1096,11 @@ void OsgWidget::setViewerBackgroundForDarkUi(bool dark)
 	updateGradientColors(dark);
 
 	// 主相机清除颜色兜底，与渐变色调一致
-	const osg::Vec4 clearColor = dark
-		? osg::Vec4(0.14f, 0.14f, 0.16f, 1.0f)
-		: osg::Vec4(0.93f, 0.93f, 0.94f, 1.0f);
+	const osg::Vec4 clearColor = dark ? osg::Vec4(0.14f, 0.14f, 0.16f, 1.0f) : osg::Vec4(0.93f, 0.93f, 0.94f, 1.0f);
 	m_viewer->getCamera()->setClearColor(clearColor);
 
 	// 更新注释文本颜色
-	const osg::Vec4 annotationTextColor = dark
-		? osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f)
-		: osg::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	const osg::Vec4 annotationTextColor = dark ? osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f) : osg::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	for (auto& a : m_annotations)
 	{
 		if (a.textDrawable.valid())
@@ -1112,10 +1119,8 @@ void OsgWidget::setWireframeMode(bool enabled)
 		return;
 	}
 	osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode;
-	pm->setMode(osg::PolygonMode::FRONT_AND_BACK,
-		enabled ? osg::PolygonMode::LINE : osg::PolygonMode::FILL);
-	m_root->getOrCreateStateSet()->setAttributeAndModes(
-		pm, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	pm->setMode(osg::PolygonMode::FRONT_AND_BACK, enabled ? osg::PolygonMode::LINE : osg::PolygonMode::FILL);
+	m_root->getOrCreateStateSet()->setAttributeAndModes(pm, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 	requestRedraw();
 }
 
@@ -1131,14 +1136,11 @@ void OsgWidget::onViewportScreenshotRequested()
 	QString err;
 	if (!captureViewportPng(png, &err, 0, 0))
 	{
-		QMessageBox::warning(this, QStringLiteral("截图"), err.isEmpty()
-			? QStringLiteral("无法捕获视口图像")
-			: err);
+		QMessageBox::warning(this, QStringLiteral("截图"), err.isEmpty() ? QStringLiteral("无法捕获视口图像") : err);
 		return;
 	}
-	const QString path = QFileDialog::getSaveFileName(
-		this, QStringLiteral("截图 / Save Screenshot"), QString(),
-		QStringLiteral("PNG (*.png)"));
+	const QString path = QFileDialog::getSaveFileName(this, QStringLiteral("截图 / Save Screenshot"), QString(),
+													  QStringLiteral("PNG (*.png)"));
 	if (path.isEmpty())
 	{
 		return;
@@ -1146,8 +1148,7 @@ void OsgWidget::onViewportScreenshotRequested()
 	QFile file(path);
 	if (!file.open(QIODevice::WriteOnly) || file.write(png) != png.size())
 	{
-		QMessageBox::warning(this, QStringLiteral("截图"),
-			QStringLiteral("无法写入文件：%1").arg(path));
+		QMessageBox::warning(this, QStringLiteral("截图"), QStringLiteral("无法写入文件：%1").arg(path));
 	}
 }
 
@@ -1160,8 +1161,8 @@ void OsgWidget::syncViewportFromGlWidget()
 
 	int framebufferW = 0;
 	int framebufferH = 0;
-	if (!m_glWidget->resolveOpenGlFramebufferSize(framebufferW, framebufferH)
-		&& !m_glWidget->queryFramebufferPixelSize(framebufferW, framebufferH))
+	if (!m_glWidget->resolveOpenGlFramebufferSize(framebufferW, framebufferH) &&
+		!m_glWidget->queryFramebufferPixelSize(framebufferW, framebufferH))
 	{
 		return;
 	}
@@ -1171,9 +1172,7 @@ void OsgWidget::syncViewportFromGlWidget()
 
 void OsgWidget::scheduleDeferredViewportLayoutSync()
 {
-	QTimer::singleShot(0, this, [this]() {
-		syncViewportFromGlWidget();
-	});
+	QTimer::singleShot(0, this, [this]() { syncViewportFromGlWidget(); });
 }
 
 void OsgWidget::showEvent(QShowEvent* event)
@@ -1318,7 +1317,8 @@ osg::ref_ptr<osg::Geode> OsgWidget::buildPointCloudGeode(const PointCloudBackend
 	return geode;
 }
 
-bool OsgWidget::upsertPointCloudBranchInScene(const PointCloudBackendData& data, QString* errorMessage, bool resetViewToHome)
+bool OsgWidget::upsertPointCloudBranchInScene(const PointCloudBackendData& data, QString* errorMessage,
+											  bool resetViewToHome)
 {
 	MeshVisualOptions meshOpts{};
 	BranchBuildResult built;
@@ -1371,13 +1371,14 @@ bool OsgWidget::upsertPointCloudBranchInScene(const PointCloudBackendData& data,
 }
 
 osg::ref_ptr<osg::Node> OsgWidget::buildMeshGeode(const MeshBackendData& data, QString* errorMessage,
-	bool showWireOutline, bool useSceneLighting) const
+												  bool showWireOutline, bool useSceneLighting) const
 {
 	MeshVisualOptions opt;
 	opt.showWireOutline = showWireOutline;
 	opt.useSceneLighting = useSceneLighting;
 	std::string err;
-	osg::ref_ptr<osg::Node> node = BackendVisualRegistry::buildMeshDisplayNode(data, opt, errorMessage ? &err : nullptr);
+	osg::ref_ptr<osg::Node> node =
+		BackendVisualRegistry::buildMeshDisplayNode(data, opt, errorMessage ? &err : nullptr);
 	if (!node && errorMessage)
 	{
 		*errorMessage = QString::fromStdString(err);
@@ -1386,7 +1387,7 @@ osg::ref_ptr<osg::Node> OsgWidget::buildMeshGeode(const MeshBackendData& data, Q
 }
 
 bool OsgWidget::upsertBackendBranchInScene(const BackendDataBase& data, QString* errorMessage, bool resetViewToHome,
-	bool showWireOutline, bool useSceneLighting)
+										   bool showWireOutline, bool useSceneLighting)
 {
 	MeshVisualOptions meshOpts;
 	meshOpts.showWireOutline = showWireOutline;
@@ -1449,16 +1450,14 @@ bool OsgWidget::upsertBackendBranchInScene(const BackendDataBase& data, QString*
 }
 
 bool OsgWidget::upsertMeshBranchInScene(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
-	bool showWireOutline, bool useSceneLighting)
+										bool showWireOutline, bool useSceneLighting)
 {
 	return upsertBackendBranchInScene(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting);
 }
 
 bool OsgWidget::importModelFile(const QString& filePath, QString* errorMessage)
 {
-	return m_importController
-		? m_importController->importModelFile(*this, filePath, errorMessage)
-		: false;
+	return m_importController ? m_importController->importModelFile(*this, filePath, errorMessage) : false;
 }
 
 osg::Node* OsgWidget::loadXyzPointCloud(const QString& filePath, QString* errorMessage)
@@ -1466,7 +1465,8 @@ osg::Node* OsgWidget::loadXyzPointCloud(const QString& filePath, QString* errorM
 	QFile file(filePath);
 	if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
 	{
-		if (errorMessage) *errorMessage = QStringLiteral("Cannot open xyz file.");
+		if (errorMessage)
+			*errorMessage = QStringLiteral("Cannot open xyz file.");
 		return nullptr;
 	}
 
@@ -1500,7 +1500,8 @@ osg::Node* OsgWidget::loadXyzPointCloud(const QString& filePath, QString* errorM
 
 	if (points->empty())
 	{
-		if (errorMessage) *errorMessage = QStringLiteral("No valid points found in xyz file.");
+		if (errorMessage)
+			*errorMessage = QStringLiteral("No valid points found in xyz file.");
 		return nullptr;
 	}
 
@@ -1523,7 +1524,8 @@ osg::Node* OsgWidget::loadAsciiPlyPointCloud(const QString& filePath, QString* e
 	QFile file(filePath);
 	if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
 	{
-		if (errorMessage) *errorMessage = QStringLiteral("Cannot open ply file.");
+		if (errorMessage)
+			*errorMessage = QStringLiteral("Cannot open ply file.");
 		return nullptr;
 	}
 
@@ -1543,7 +1545,8 @@ osg::Node* OsgWidget::loadAsciiPlyPointCloud(const QString& filePath, QString* e
 		else if (line.startsWith(QStringLiteral("element vertex")))
 		{
 			const QStringList parts = line.split(QRegExp("\\s+"), Qt::SkipEmptyParts);
-			if (parts.size() >= 3) vertexCount = parts[2].toInt();
+			if (parts.size() >= 3)
+				vertexCount = parts[2].toInt();
 		}
 		else if (line == QStringLiteral("end_header"))
 		{
@@ -1554,7 +1557,8 @@ osg::Node* OsgWidget::loadAsciiPlyPointCloud(const QString& filePath, QString* e
 
 	if (!headerEnded || !isAscii || vertexCount <= 0)
 	{
-		if (errorMessage) *errorMessage = QStringLiteral("Only ascii ply fallback is supported.");
+		if (errorMessage)
+			*errorMessage = QStringLiteral("Only ascii ply fallback is supported.");
 		return nullptr;
 	}
 
@@ -1566,14 +1570,17 @@ osg::Node* OsgWidget::loadAsciiPlyPointCloud(const QString& filePath, QString* e
 	for (int i = 0; i < vertexCount && !in.atEnd(); ++i)
 	{
 		line = in.readLine().trimmed();
-		if (line.isEmpty()) continue;
+		if (line.isEmpty())
+			continue;
 		const QStringList parts = line.split(QRegExp("\\s+"), Qt::SkipEmptyParts);
-		if (parts.size() < 3) continue;
+		if (parts.size() < 3)
+			continue;
 		bool okX = false, okY = false, okZ = false;
 		const float x = parts[0].toFloat(&okX);
 		const float y = parts[1].toFloat(&okY);
 		const float z = parts[2].toFloat(&okZ);
-		if (!(okX && okY && okZ)) continue;
+		if (!(okX && okY && okZ))
+			continue;
 		points->push_back(osg::Vec3(x, y, z));
 
 		if (parts.size() >= 6)
@@ -1582,8 +1589,10 @@ osg::Node* OsgWidget::loadAsciiPlyPointCloud(const QString& filePath, QString* e
 			const float r = parts[3].toFloat(&okR) / 255.0f;
 			const float g = parts[4].toFloat(&okG) / 255.0f;
 			const float b = parts[5].toFloat(&okB) / 255.0f;
-			if (okR && okG && okB) colors->push_back(osg::Vec4(r, g, b, 1.0f));
-			else colors->push_back(osg::Vec4(0.65f, 0.82f, 0.95f, 1.0f));
+			if (okR && okG && okB)
+				colors->push_back(osg::Vec4(r, g, b, 1.0f));
+			else
+				colors->push_back(osg::Vec4(0.65f, 0.82f, 0.95f, 1.0f));
 		}
 		else
 		{
@@ -1593,7 +1602,8 @@ osg::Node* OsgWidget::loadAsciiPlyPointCloud(const QString& filePath, QString* e
 
 	if (points->empty())
 	{
-		if (errorMessage) *errorMessage = QStringLiteral("No valid vertex data in ply.");
+		if (errorMessage)
+			*errorMessage = QStringLiteral("No valid vertex data in ply.");
 		return nullptr;
 	}
 
@@ -1610,9 +1620,7 @@ osg::Node* OsgWidget::loadAsciiPlyPointCloud(const QString& filePath, QString* e
 
 bool OsgWidget::importPointCloudFile(const QString& filePath, QString* errorMessage)
 {
-	return m_importController
-		? m_importController->importPointCloudFile(*this, filePath, errorMessage)
-		: false;
+	return m_importController ? m_importController->importPointCloudFile(*this, filePath, errorMessage) : false;
 }
 
 void OsgWidget::initUi()
@@ -1650,13 +1658,15 @@ void OsgWidget::initViewer()
 	gwQt->setViewer(m_viewer.get());
 	m_glWidget->setGraphicsWindow(gwQt);
 
-	connect(m_glWidget, &QWidgetViewer::windowResized, this, [this](int w, int h) {
-		if (m_graphicsWindow.valid())
-		{
-			static_cast<GraphicsWindowQt1*>(m_graphicsWindow.get())->updateSize(w, h);
-		}
-		syncViewportLayoutFromFramebuffer(w, h);
-	});
+	connect(m_glWidget, &QWidgetViewer::windowResized, this,
+			[this](int w, int h)
+			{
+				if (m_graphicsWindow.valid())
+				{
+					static_cast<GraphicsWindowQt1*>(m_graphicsWindow.get())->updateSize(w, h);
+				}
+				syncViewportLayoutFromFramebuffer(w, h);
+			});
 
 	m_viewer->getCamera()->setGraphicsContext(m_graphicsWindow.get());
 	m_viewer->getCamera()->setCullMask(0xffffffffu);
@@ -1666,16 +1676,15 @@ void OsgWidget::initViewer()
 	{
 		int deviceW = 0;
 		int deviceH = 0;
-		if (!m_glWidget->resolveOpenGlFramebufferSize(deviceW, deviceH)
-			&& !m_glWidget->queryFramebufferPixelSize(deviceW, deviceH))
+		if (!m_glWidget->resolveOpenGlFramebufferSize(deviceW, deviceH) &&
+			!m_glWidget->queryFramebufferPixelSize(deviceW, deviceH))
 		{
 			const double dpr = QWidgetViewer::effectiveDevicePixelRatio(m_glWidget);
 			deviceW = static_cast<int>(std::lround(static_cast<double>(m_glWidget->width()) * dpr));
 			deviceH = static_cast<int>(std::lround(static_cast<double>(m_glWidget->height()) * dpr));
 		}
 		m_viewer->getCamera()->setViewport(0, 0, deviceW, deviceH);
-		const double aspect = static_cast<double>((std::max)(1, deviceW))
-			/ static_cast<double>((std::max)(1, deviceH));
+		const double aspect = static_cast<double>((std::max)(1, deviceW)) / static_cast<double>((std::max)(1, deviceH));
 		m_viewer->getCamera()->setProjectionMatrixAsPerspective(30.0, aspect, 10.0, 1e8);
 		syncViewportLayoutFromFramebuffer(deviceW, deviceH);
 	}
@@ -1692,38 +1701,39 @@ void OsgWidget::initViewer()
 	// 创建渐变背景（在 setViewerBackgroundForDarkUi 之前）
 	createGradientBackground();
 	setViewerBackgroundForDarkUi(m_darkUiTheme);
-	m_viewer->getCamera()->setViewMatrixAsLookAt(
-		osg::Vec3(3, 3, 3),
-		osg::Vec3(0, 0, 0),
-		osg::Vec3(0, 0, 1));
+	m_viewer->getCamera()->setViewMatrixAsLookAt(osg::Vec3(3, 3, 3), osg::Vec3(0, 0, 0), osg::Vec3(0, 0, 1));
 
-	connect(&m_frameTimer, &QTimer::timeout, this, [this]() {
-		if (m_perFrameHook)
-		{
-			m_perFrameHook(this);
-		}
-		updateCameraFollowCenter();
-		updateCompassScale();
-		if (m_pickAnnotationController)
-		{
-			m_pickAnnotationController->updateAnnotationScales(*this);
-		}
-		const bool timerDrivenVisuals = !cameraFollowBackendId().empty() || hasPointAnnotations();
-		if (timerDrivenVisuals)
-		{
-			requestRedraw();
-		}
-	});
+	connect(&m_frameTimer, &QTimer::timeout, this,
+			[this]()
+			{
+				if (m_perFrameHook)
+				{
+					m_perFrameHook(this);
+				}
+				updateCameraFollowCenter();
+				updateCompassScale();
+				if (m_pickAnnotationController)
+				{
+					m_pickAnnotationController->updateAnnotationScales(*this);
+				}
+				const bool timerDrivenVisuals = !cameraFollowBackendId().empty() || hasPointAnnotations();
+				if (timerDrivenVisuals)
+				{
+					requestRedraw();
+				}
+			});
 	m_frameTimer.start(16);
 
 	m_idleRenderTimer.setSingleShot(true);
 	m_idleRenderTimer.setInterval(500);
-	connect(&m_idleRenderTimer, &QTimer::timeout, this, [this]() {
-		if (m_viewer.valid())
-		{
-			m_viewer->setRunFrameScheme(osgViewer::Viewer::ON_DEMAND);
-		}
-	});
+	connect(&m_idleRenderTimer, &QTimer::timeout, this,
+			[this]()
+			{
+				if (m_viewer.valid())
+				{
+					m_viewer->setRunFrameScheme(osgViewer::Viewer::ON_DEMAND);
+				}
+			});
 	m_idleRenderTimer.start();
 
 	OsgScene::initWorldAxesHud();
@@ -1735,12 +1745,8 @@ void OsgWidget::initViewer()
 void OsgWidget::applyViewCubeFaceLabelImagesFromQt()
 {
 	static const QString kLabels[] = {
-		QStringLiteral("\u9876"),
-		QStringLiteral("\u5e95"),
-		QStringLiteral("\u524d"),
-		QStringLiteral("\u540e"),
-		QStringLiteral("\u53f3"),
-		QStringLiteral("\u5de6"),
+		QStringLiteral("\u9876"), QStringLiteral("\u5e95"), QStringLiteral("\u524d"),
+		QStringLiteral("\u540e"), QStringLiteral("\u53f3"), QStringLiteral("\u5de6"),
 	};
 	osg::ref_ptr<osg::Image> images[6];
 	for (int i = 0; i < 6; ++i)
@@ -1839,7 +1845,8 @@ bool OsgWidget::pickAndActivateBackendAtScreenPos(const QPoint& mousePos)
 	{
 		return false;
 	}
-	const bool ok = OsgScene::pickAndActivateBackendAtScreenPos(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()));
+	const bool ok = OsgScene::pickAndActivateBackendAtScreenPos(static_cast<double>(mousePos.x()),
+																static_cast<double>(mousePos.y()));
 	if (ok)
 	{
 		refreshAnnotationTexts();
@@ -1996,8 +2003,7 @@ void OsgWidget::commitPolylinePick(const std::vector<QPoint>& vertices)
 		polylineScreenXy.push_back(static_cast<float>(p.x()));
 		polylineScreenXy.push_back(static_cast<float>(p.y()));
 	}
-	const osg::Matrixd mvp =
-		m_viewer->getCamera()->getViewMatrix() * m_viewer->getCamera()->getProjectionMatrix();
+	const osg::Matrixd mvp = m_viewer->getCamera()->getViewMatrix() * m_viewer->getCamera()->getProjectionMatrix();
 	QVector<double> mvpOut;
 	mvpOut.resize(16);
 	for (int col = 0; col < 4; ++col)
@@ -2136,16 +2142,14 @@ PickResult OsgWidget::queryPick(const PickQuery& query)
 
 QString OsgWidget::pointCloudPluginReport() const
 {
-	auto hasReader = [](const char* ext) -> bool {
-		return osgDB::Registry::instance()->getReaderWriterForExtension(ext) != nullptr;
-	};
+	auto hasReader = [](const char* ext) -> bool
+	{ return osgDB::Registry::instance()->getReaderWriterForExtension(ext) != nullptr; };
 
 	const QString ply = hasReader("ply") ? QStringLiteral("OK") : QStringLiteral("Missing");
 	const QString las = hasReader("las") ? QStringLiteral("OK") : QStringLiteral("Missing");
 	const QString laz = hasReader("laz") ? QStringLiteral("OK") : QStringLiteral("Missing");
 	const QString xyz = QStringLiteral("OK (built-in)");
-	return QStringLiteral("PointCloud plugin check | ply:%1 las:%2 laz:%3 xyz:%4")
-		.arg(ply).arg(las).arg(laz).arg(xyz);
+	return QStringLiteral("PointCloud plugin check | ply:%1 las:%2 laz:%3 xyz:%4").arg(ply).arg(las).arg(laz).arg(xyz);
 }
 
 osg::Vec3f OsgWidget::selectedPosition() const
@@ -2254,7 +2258,8 @@ void OsgWidget::setSelectedColor(float r, float g, float b, float a)
 
 OsgWidget::DragAxis OsgWidget::pickAxisAtScreenPos(const QPoint& mousePos, bool preferRing, bool* outPickedRing) const
 {
-	const int axis = OsgScene::pickAxisAtScreenPos(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()), preferRing, outPickedRing);
+	const int axis = OsgScene::pickAxisAtScreenPos(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()),
+												   preferRing, outPickedRing);
 	return static_cast<DragAxis>(axis);
 }
 
@@ -2265,9 +2270,12 @@ void OsgWidget::updateCompassHighlight(DragAxis axis, bool highlightRing)
 
 QString OsgWidget::axisToString(DragAxis axis) const
 {
-	if (axis == DragAxis::X) return QStringLiteral("X");
-	if (axis == DragAxis::Y) return QStringLiteral("Y");
-	if (axis == DragAxis::Z) return QStringLiteral("Z");
+	if (axis == DragAxis::X)
+		return QStringLiteral("X");
+	if (axis == DragAxis::Y)
+		return QStringLiteral("Y");
+	if (axis == DragAxis::Z)
+		return QStringLiteral("Z");
 	return QStringLiteral("None");
 }
 
@@ -2300,41 +2308,41 @@ void OsgWidget::clearPointAnnotations()
 
 bool OsgWidget::pickPointAtScreenPos(const QPoint& mousePos, osg::Vec3f& outPointWorld) const
 {
-	return OsgScene::pickPointAtScreenPos(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()), outPointWorld);
+	return OsgScene::pickPointAtScreenPos(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()),
+										  outPointWorld);
 }
 
-bool OsgWidget::pickNearestPointAtScreenPos(const QPoint& mousePos, osg::Vec3f& outPointWorld, double& outDistancePx, bool previewOnly) const
+bool OsgWidget::pickNearestPointAtScreenPos(const QPoint& mousePos, osg::Vec3f& outPointWorld, double& outDistancePx,
+											bool previewOnly) const
 {
-	return OsgScene::pickNearestPointAtScreenPos(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()), outPointWorld, outDistancePx, previewOnly);
+	return OsgScene::pickNearestPointAtScreenPos(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()),
+												 outPointWorld, outDistancePx, previewOnly);
 }
 
-bool OsgWidget::pickPointByRayIntersection(const QPoint& mousePos, osg::Vec3f& outPointWorld, double& outDistancePx) const
+bool OsgWidget::pickPointByRayIntersection(const QPoint& mousePos, osg::Vec3f& outPointWorld,
+										   double& outDistancePx) const
 {
-	return OsgScene::pickPointByRayIntersection(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()), outPointWorld, outDistancePx);
+	return OsgScene::pickPointByRayIntersection(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()),
+												outPointWorld, outDistancePx);
 }
 
-bool OsgWidget::pickMeshFaceByRayIntersection(const QPoint& mousePos,
-	osg::Vec3f& outPointWorld,
-	osg::Vec3f& outAWorld,
-	osg::Vec3f& outBWorld,
-	osg::Vec3f& outCWorld,
-	osg::Vec3f& outNormalWorld,
-	std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld,
-	const std::string* scopeBackendId) const
+bool OsgWidget::pickMeshFaceByRayIntersection(const QPoint& mousePos, osg::Vec3f& outPointWorld, osg::Vec3f& outAWorld,
+											  osg::Vec3f& outBWorld, osg::Vec3f& outCWorld, osg::Vec3f& outNormalWorld,
+											  std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld,
+											  const std::string* scopeBackendId) const
 {
 	return OsgScene::pickMeshFaceByRayIntersection(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()),
-		outPointWorld, outAWorld, outBWorld, outCWorld, outNormalWorld, outMergedCoplanarVertsWorld, scopeBackendId);
+												   outPointWorld, outAWorld, outBWorld, outCWorld, outNormalWorld,
+												   outMergedCoplanarVertsWorld, scopeBackendId);
 }
 
-bool OsgWidget::pickMeshEdgeByRayIntersection(const QPoint& mousePos,
-	osg::Vec3f& outPointWorld,
-	osg::Vec3f& outEdgeAWorld,
-	osg::Vec3f& outEdgeBWorld,
-	double* outEdgeDistancePx,
-	const std::string* scopeBackendId) const
+bool OsgWidget::pickMeshEdgeByRayIntersection(const QPoint& mousePos, osg::Vec3f& outPointWorld,
+											  osg::Vec3f& outEdgeAWorld, osg::Vec3f& outEdgeBWorld,
+											  double* outEdgeDistancePx, const std::string* scopeBackendId) const
 {
 	return OsgScene::pickMeshEdgeByRayIntersection(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()),
-		outPointWorld, outEdgeAWorld, outEdgeBWorld, outEdgeDistancePx, scopeBackendId);
+												   outPointWorld, outEdgeAWorld, outEdgeBWorld, outEdgeDistancePx,
+												   scopeBackendId);
 }
 
 void OsgWidget::addPointAnnotation(const osg::Vec3f& pointWorld)
@@ -2355,16 +2363,13 @@ void OsgWidget::refreshAnnotationTexts()
 
 bool OsgWidget::setAnnotationVisible(const QString& annotationId, bool visible)
 {
-	return m_pickAnnotationController
-		? m_pickAnnotationController->setAnnotationVisible(*this, annotationId, visible)
-		: false;
+	return m_pickAnnotationController ? m_pickAnnotationController->setAnnotationVisible(*this, annotationId, visible)
+									  : false;
 }
 
 bool OsgWidget::removeAnnotation(const QString& annotationId)
 {
-	return m_pickAnnotationController
-		? m_pickAnnotationController->removeAnnotation(*this, annotationId)
-		: false;
+	return m_pickAnnotationController ? m_pickAnnotationController->removeAnnotation(*this, annotationId) : false;
 }
 
 void OsgWidget::clearAllAnnotations()
@@ -2381,9 +2386,8 @@ void OsgWidget::clearAllAnnotations()
 
 QList<OsgWidget::AnnotationSnapshot> OsgWidget::annotationSnapshots() const
 {
-	return m_pickAnnotationController
-		? m_pickAnnotationController->annotationSnapshots(*this)
-		: QList<AnnotationSnapshot>();
+	return m_pickAnnotationController ? m_pickAnnotationController->annotationSnapshots(*this)
+									  : QList<AnnotationSnapshot>();
 }
 
 void OsgWidget::restoreAnnotations(const QList<AnnotationSnapshot>& snapshots)
@@ -2427,15 +2431,21 @@ void OsgWidget::applyColorToActiveBackendObject(const osg::Vec4& color)
 
 bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 {
+	// 析构中已 removeEventFilter；若仍误入则勿碰 operation
+	if (!m_glWidget)
+	{
+		return QWidget::eventFilter(watched, event);
+	}
+
 	if (watched == m_glWidget)
 	{
 		const auto type = event->type();
 		if (type == QEvent::MouseButtonPress)
 		{
 			const auto* mouseEvent = static_cast<QMouseEvent*>(event);
-			if (mouseEvent->button() == Qt::LeftButton
-				&& tryPickViewCubeAtLogicalMouse(static_cast<double>(mouseEvent->x()),
-					static_cast<double>(mouseEvent->y())))
+			if (mouseEvent->button() == Qt::LeftButton &&
+				tryPickViewCubeAtLogicalMouse(static_cast<double>(mouseEvent->x()),
+											  static_cast<double>(mouseEvent->y())))
 			{
 				requestRedraw();
 				return true;
@@ -2445,8 +2455,7 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 		{
 			const auto* mouseEvent = static_cast<QMouseEvent*>(event);
 			// 悬停在ViewCube上时显示手型光标
-			if (isMouseOverViewCube(static_cast<double>(mouseEvent->x()),
-				static_cast<double>(mouseEvent->y())))
+			if (isMouseOverViewCube(static_cast<double>(mouseEvent->x()), static_cast<double>(mouseEvent->y())))
 			{
 				m_glWidget->setCursor(Qt::PointingHandCursor);
 			}
@@ -2456,8 +2465,8 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 			}
 			noteViewportInteraction();
 		}
-		else if (type == QEvent::MouseButtonPress || type == QEvent::MouseButtonRelease
-			|| type == QEvent::Wheel || type == QEvent::KeyPress || type == QEvent::KeyRelease)
+		else if (type == QEvent::MouseButtonPress || type == QEvent::MouseButtonRelease || type == QEvent::Wheel ||
+				 type == QEvent::KeyPress || type == QEvent::KeyRelease)
 		{
 			noteViewportInteraction();
 		}
@@ -2466,8 +2475,7 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 	// Escape: never deliver to QWidgetViewer/osgGA. OSG handlers (e.g. StateSetManipulator stack) and
 	// unpaired press/release in the event queue have caused apparent "freezes"; Qt may also propagate
 	// Esc to parent shortcuts. We only use Esc to leave edit modes; in pure view mode it is a no-op.
-	if (watched == m_glWidget
-		&& (event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease))
+	if (watched == m_glWidget && (event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease))
 	{
 		const auto* keyEvent = static_cast<QKeyEvent*>(event);
 		if (keyEvent->key() == Qt::Key_Escape)
@@ -2613,33 +2621,27 @@ void OsgWidget::clearImportedContent()
 
 bool OsgWidget::captureImportedPointCloudBackend(PointCloudBackendData& out, QString* errorMessage)
 {
-	return m_captureController
-		? m_captureController->captureImportedPointCloudBackend(*this, out, errorMessage)
-		: false;
+	return m_captureController ? m_captureController->captureImportedPointCloudBackend(*this, out, errorMessage)
+							   : false;
 }
 
-bool OsgWidget::capturePointCloudBackendFromScene(
-	const std::string& backendId,
-	PointCloudBackendData& out,
-	QString* errorMessage)
+bool OsgWidget::capturePointCloudBackendFromScene(const std::string& backendId, PointCloudBackendData& out,
+												  QString* errorMessage)
 {
 	return m_captureController
-		? m_captureController->capturePointCloudBackendFromScene(*this, backendId, out, errorMessage)
-		: false;
+			   ? m_captureController->capturePointCloudBackendFromScene(*this, backendId, out, errorMessage)
+			   : false;
 }
 
 bool OsgWidget::captureImportedMeshBackend(MeshBackendData& out, QString* errorMessage)
 {
-	return m_captureController
-		? m_captureController->captureImportedMeshBackend(*this, out, errorMessage)
-		: false;
+	return m_captureController ? m_captureController->captureImportedMeshBackend(*this, out, errorMessage) : false;
 }
 
 bool OsgWidget::captureImportedMeshBackendHierarchy(std::vector<MeshCapturedPart>& outParts, QString* errorMessage)
 {
-	return m_captureController
-		? m_captureController->captureImportedMeshBackendHierarchy(*this, outParts, errorMessage)
-		: false;
+	return m_captureController ? m_captureController->captureImportedMeshBackendHierarchy(*this, outParts, errorMessage)
+							   : false;
 }
 
 bool OsgWidget::captureViewportPng(QByteArray& outPng, QString* errorMessage, int maxWidth, int maxHeight)
@@ -2673,8 +2675,7 @@ bool OsgWidget::captureViewportPng(QByteArray& outPng, QString* errorMessage, in
 	}
 
 	// maxWidth/maxHeight <= 0 表示按视口原始分辨率输出，不做缩放
-	if (maxWidth > 0 && maxHeight > 0
-		&& (copy.width() > maxWidth || copy.height() > maxHeight))
+	if (maxWidth > 0 && maxHeight > 0 && (copy.width() > maxWidth || copy.height() > maxHeight))
 	{
 		copy = copy.scaled(maxWidth, maxHeight, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 	}
@@ -2690,26 +2691,26 @@ bool OsgWidget::captureViewportPng(QByteArray& outPng, QString* errorMessage, in
 	return true;
 }
 
-bool OsgWidget::loadPointCloudFromBackendData(const PointCloudBackendData& data, QString* errorMessage, bool resetViewToHome)
+bool OsgWidget::loadPointCloudFromBackendData(const PointCloudBackendData& data, QString* errorMessage,
+											  bool resetViewToHome)
 {
 	return m_backendLoadController
-		? m_backendLoadController->loadPointCloudFromBackendData(*this, data, errorMessage, resetViewToHome)
-		: false;
+			   ? m_backendLoadController->loadPointCloudFromBackendData(*this, data, errorMessage, resetViewToHome)
+			   : false;
 }
 
 bool OsgWidget::loadMeshFromBackendData(const MeshBackendData& data, QString* errorMessage, bool resetViewToHome,
-	bool showWireOutline, bool useSceneLighting)
+										bool showWireOutline, bool useSceneLighting)
 {
 	return loadBackendFromBackendData(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting);
 }
 
 bool OsgWidget::loadBackendFromBackendData(const BackendDataBase& data, QString* errorMessage, bool resetViewToHome,
-	bool showWireOutline, bool useSceneLighting)
+										   bool showWireOutline, bool useSceneLighting)
 {
-	return m_backendLoadController
-		? m_backendLoadController->loadBackendFromBackendData(*this, data, errorMessage, resetViewToHome, showWireOutline,
-			  useSceneLighting)
-		: false;
+	return m_backendLoadController ? m_backendLoadController->loadBackendFromBackendData(
+										 *this, data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting)
+								   : false;
 }
 
 bool OsgWidget::isBackendMeshLit(const std::string& backendId) const
@@ -2728,8 +2729,8 @@ QString OsgWidget::addHierarchicalRobotScene(osg::Group* robotAssembly, const QS
 	// 生成唯一的后端 ID
 	static int s_robotSceneCounter = 0;
 	const QString backendId = QStringLiteral("RobotScene_%1_%2")
-		.arg(displayName.isEmpty() ? QStringLiteral("URDF") : displayName)
-		.arg(++s_robotSceneCounter);
+								  .arg(displayName.isEmpty() ? QStringLiteral("URDF") : displayName)
+								  .arg(++s_robotSceneCounter);
 	const std::string stdId = backendId.toStdString();
 
 	// 与其它后端一致：外层 MatrixTransform 存完整局部刚体矩阵，FK / setBackendRootWorldMatrixFromWorld 无 TRS 分解损失
@@ -2798,4 +2799,3 @@ void OsgWidget::removeHierarchicalRobotScene(const QString& backendId)
 		m_viewer->setSceneData(m_root.get());
 	}
 }
-

@@ -1,46 +1,46 @@
+﻿/// @file DocumentPointCloudOps.cpp
+/// @brief 世界 mm → 几何存储坐标（backend worldMatrix 逆）
+
 #include "DocumentPointCloudOps.h"
 
+#include "Adapters.h"
 #include "BackendDataBase.h"
-#include "BackendFollowMath.h"
-#include "BackendSpatial.h"
 #include "BackendDataManager.h"
+#include "BackendFollowMath.h"
 #include "BackendGeometryMetrics.h"
-#include "BackendSceneDocumentFacade.h"
 #include "BackendPoseOsg.h"
+#include "BackendSceneDocumentFacade.h"
+#include "BackendSpatial.h"
 #include "BackendVisualMath.h"
-#include "DocumentImportFacade.h"
+#include "BrepBackendData.h"
 #include "DocumentHost.h"
+#include "DocumentImportFacade.h"
+#include "GeometryBackendOps.h"
 #include "IPluginMainWindowHost.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
-#include "BrepBackendData.h"
-#include "WidgetDocumentAccess.h"
 #include "RunLogger.h"
-#include "GeometryBackendOps.h"
-#include "Adapters.h"
 #include "TemplateBrepUpdate.h"
-#include <RigidTransform.h>
-
-#include <BrepImportArtifacts.h>
-#include <ShapeHandle.h>
-#include <ShapeIo.h>
+#include "WidgetDocumentAccess.h"
 
 #include <QByteArray>
 #include <QFile>
 #include <QString>
+#include <cmath>
+#include <functional>
+#include <sstream>
 
+#include <BrepImportArtifacts.h>
+#include <RigidTransform.h>
+#include <ShapeHandle.h>
+#include <ShapeIo.h>
 #include <osg/Matrixd>
 #include <osg/Quat>
 #include <osg/Vec3d>
 
-#include <functional>
-#include <sstream>
-#include <cmath>
-
 namespace
 {
-
 BackendMat4 backendMat4FromColMajorRigid(const engine::RigidTransform& rt)
 {
 	const engine::ColMajorMat4 cm = engine::colMajorFromRigidTransform(rt);
@@ -63,14 +63,8 @@ engine::RigidTransform rigidFromBackendWorldMat(const BackendMat4& world)
 }
 
 /// 世界 mm → 几何存储坐标（backend worldMatrix 逆）
-bool worldToGeometryFrame(
-	const BackendMat4& worldMat,
-	const double worldX,
-	const double worldY,
-	const double worldZ,
-	double& outGeoX,
-	double& outGeoY,
-	double& outGeoZ)
+bool worldToGeometryFrame(const BackendMat4& worldMat, const double worldX, const double worldY, const double worldZ,
+						  double& outGeoX, double& outGeoY, double& outGeoZ)
 {
 	BackendMat4 invWorld{};
 	if (!backend_mat4_invert_rigid(worldMat, invWorld))
@@ -85,8 +79,7 @@ bool worldToGeometryFrame(
 
 BackendMat4 backendMat4FromIsometry(const Eigen::Isometry3d& iso)
 {
-	const engine::ColMajorMat4 cm =
-		engine::colMajorFromRigidTransform(engine::RigidTransform::fromIsometry(iso));
+	const engine::ColMajorMat4 cm = engine::colMajorFromRigidTransform(engine::RigidTransform::fromIsometry(iso));
 	BackendMat4 out{};
 	for (int i = 0; i < 16; ++i)
 	{
@@ -102,10 +95,8 @@ void transformXyzByEngineWorldMatrix(std::vector<float>& xyz, const BackendMat4&
 	for (std::size_t i = 0U; i < n; ++i)
 	{
 		const std::size_t b = i * 3U;
-		Eigen::Vector3d p(
-			static_cast<double>(xyz[b]),
-			static_cast<double>(xyz[b + 1U]),
-			static_cast<double>(xyz[b + 2U]));
+		Eigen::Vector3d p(static_cast<double>(xyz[b]), static_cast<double>(xyz[b + 1U]),
+						  static_cast<double>(xyz[b + 2U]));
 		p = iso * p;
 		xyz[b] = static_cast<float>(p.x());
 		xyz[b + 1U] = static_cast<float>(p.y());
@@ -117,11 +108,8 @@ void transformXyzByEngineWorldMatrix(std::vector<float>& xyz, const BackendMat4&
 
 namespace document_point_cloud_ops
 {
-
-std::shared_ptr<PointCloudBackendData> resolvePointCloud(
-	cloudsim::host::DocumentHost* page,
-	const std::string& backendIdUtf8,
-	std::string* outError)
+std::shared_ptr<PointCloudBackendData> resolvePointCloud(cloudsim::host::DocumentHost* page,
+														 const std::string& backendIdUtf8, std::string* outError)
 {
 	if (!page)
 	{
@@ -152,10 +140,8 @@ std::shared_ptr<PointCloudBackendData> resolvePointCloud(
 	return pc;
 }
 
-std::shared_ptr<MeshBackendData> resolveMesh(
-	cloudsim::host::DocumentHost* page,
-	const std::string& backendIdUtf8,
-	std::string* outError)
+std::shared_ptr<MeshBackendData> resolveMesh(cloudsim::host::DocumentHost* page, const std::string& backendIdUtf8,
+											 std::string* outError)
 {
 	if (!page)
 	{
@@ -208,12 +194,9 @@ void commitPointCloudVisual(cloudsim::host::DocumentHost* page, const PointCloud
 	}
 }
 
-std::string registerReconstructedMesh(
-	cloudsim::host::DocumentHost* page,
-	IPluginMainWindowHost* mainWindowHost,
-	const std::shared_ptr<MeshBackendData>& meshPtr,
-	const PluginMeshCreateOptions& options,
-	std::string* outError)
+std::string registerReconstructedMesh(cloudsim::host::DocumentHost* page, IPluginMainWindowHost* mainWindowHost,
+									  const std::shared_ptr<MeshBackendData>& meshPtr,
+									  const PluginMeshCreateOptions& options, std::string* outError)
 {
 	if (!page || !meshPtr)
 	{
@@ -348,7 +331,6 @@ Eigen::AlignedBox3d toEigenBox(const PluginAxisAlignedBox& box)
 
 namespace
 {
-
 std::string nativePathFromUtf8Path(const std::string& pathUtf8)
 {
 	const QByteArray enc = QFile::encodeName(QString::fromUtf8(pathUtf8.c_str()));
@@ -373,13 +355,8 @@ std::string scanTransformBackendId(OsgWidget* osg, const std::string& scanBacken
 	return osg->resolvePickScopeBackendId(scanBackendIdUtf8);
 }
 
-bool backendStoredPointToWorldMm(
-	OsgWidget* osg,
-	const std::string& backendIdUtf8,
-	const double x,
-	const double y,
-	const double z,
-	osg::Vec3d& outWorld)
+bool backendStoredPointToWorldMm(OsgWidget* osg, const std::string& backendIdUtf8, const double x, const double y,
+								 const double z, osg::Vec3d& outWorld)
 {
 	const std::string xformId = scanTransformBackendId(osg, backendIdUtf8);
 	osg::Matrixd worldMat;
@@ -392,13 +369,8 @@ bool backendStoredPointToWorldMm(
 	return true;
 }
 
-bool worldPointToTemplateModelMm(
-	OsgWidget* osg,
-	const std::string& templateBackendIdUtf8,
-	const osg::Vec3d& worldMm,
-	double& outX,
-	double& outY,
-	double& outZ)
+bool worldPointToTemplateModelMm(OsgWidget* osg, const std::string& templateBackendIdUtf8, const osg::Vec3d& worldMm,
+								 double& outX, double& outY, double& outZ)
 {
 	const std::string xformId = templateTransformBackendId(osg, templateBackendIdUtf8);
 	osg::Matrixd worldMat;
@@ -418,13 +390,8 @@ bool worldPointToTemplateModelMm(
 	return true;
 }
 
-bool templateModelPointToWorldMm(
-	OsgWidget* osg,
-	const std::string& templateBackendIdUtf8,
-	const double modelX,
-	const double modelY,
-	const double modelZ,
-	osg::Vec3d& outWorld)
+bool templateModelPointToWorldMm(OsgWidget* osg, const std::string& templateBackendIdUtf8, const double modelX,
+								 const double modelY, const double modelZ, osg::Vec3d& outWorld)
 {
 	const std::string xformId = templateTransformBackendId(osg, templateBackendIdUtf8);
 	osg::Matrixd worldMat;
@@ -437,20 +404,15 @@ bool templateModelPointToWorldMm(
 	return true;
 }
 
-bool isometryFromThreeCalibrationPoints(
-	const std::function<bool(double, double, double, osg::Vec3d&)>& modelToWorld,
-	const double originX,
-	const double originY,
-	const double originZ,
-	Eigen::Isometry3d& outModelToWorld,
-	std::string* outError)
+bool isometryFromThreeCalibrationPoints(const std::function<bool(double, double, double, osg::Vec3d&)>& modelToWorld,
+										const double originX, const double originY, const double originZ,
+										Eigen::Isometry3d& outModelToWorld, std::string* outError)
 {
 	osg::Vec3d wOrigin;
 	osg::Vec3d wPlusX;
 	osg::Vec3d wPlusY;
-	if (!modelToWorld(originX, originY, originZ, wOrigin)
-		|| !modelToWorld(originX + 100.0, originY, originZ, wPlusX)
-		|| !modelToWorld(originX, originY + 100.0, originZ, wPlusY))
+	if (!modelToWorld(originX, originY, originZ, wOrigin) || !modelToWorld(originX + 100.0, originY, originZ, wPlusX) ||
+		!modelToWorld(originX, originY + 100.0, originZ, wPlusY))
 	{
 		if (outError)
 		{
@@ -489,13 +451,8 @@ bool isometryFromThreeCalibrationPoints(
 	return true;
 }
 
-bool worldPointToScanStoredMm(
-	OsgWidget* osg,
-	const std::string& scanBackendIdUtf8,
-	const osg::Vec3d& worldMm,
-	double& outX,
-	double& outY,
-	double& outZ)
+bool worldPointToScanStoredMm(OsgWidget* osg, const std::string& scanBackendIdUtf8, const osg::Vec3d& worldMm,
+							  double& outX, double& outY, double& outZ)
 {
 	const std::string xformId = scanTransformBackendId(osg, scanBackendIdUtf8);
 	osg::Matrixd worldMat;
@@ -517,13 +474,9 @@ bool worldPointToScanStoredMm(
 
 } // namespace
 
-void logRegistrationOverlapDiagnostic(
-	cloudsim::host::DocumentHost* page,
-	const std::string& scanBackendIdUtf8,
-	const std::string& templateBackendIdUtf8,
-	const std::vector<float>& scanStoredXyz,
-	const std::vector<float>& templateModelXyz,
-	double gateMm)
+void logRegistrationOverlapDiagnostic(cloudsim::host::DocumentHost* page, const std::string& scanBackendIdUtf8,
+									  const std::string& templateBackendIdUtf8, const std::vector<float>& scanStoredXyz,
+									  const std::vector<float>& templateModelXyz, double gateMm)
 {
 	if (scanStoredXyz.size() < 9U || templateModelXyz.size() < 9U || gateMm <= 0.0)
 	{
@@ -549,18 +502,14 @@ void logRegistrationOverlapDiagnostic(
 	{
 		const std::size_t b = i * 3U;
 		const BackendVec3 scanWorldPt = transformPointToWorld(
-			*scanObj,
-			BackendVec3{
-				static_cast<double>(scanStoredXyz[b]),
-				static_cast<double>(scanStoredXyz[b + 1U]),
-				static_cast<double>(scanStoredXyz[b + 2U])});
+			*scanObj, BackendVec3{static_cast<double>(scanStoredXyz[b]), static_cast<double>(scanStoredXyz[b + 1U]),
+								  static_cast<double>(scanStoredXyz[b + 2U])});
 		const Eigen::Vector3d qWorld(scanWorldPt.x, scanWorldPt.y, scanWorldPt.z);
 		double bestWorldSq = gateSq;
 		for (std::size_t j = 0U; j < nTpl; j += tplStride)
 		{
 			const std::size_t tb = j * 3U;
-			const Eigen::Vector3d tWorld(
-				templateWorldXyz[tb], templateWorldXyz[tb + 1U], templateWorldXyz[tb + 2U]);
+			const Eigen::Vector3d tWorld(templateWorldXyz[tb], templateWorldXyz[tb + 1U], templateWorldXyz[tb + 2U]);
 			const double dWorldSq = (qWorld - tWorld).squaredNorm();
 			if (dWorldSq < bestWorldSq)
 			{
@@ -572,19 +521,14 @@ void logRegistrationOverlapDiagnostic(
 			++worldHits;
 		}
 	}
-	RunLogger::info(
-		std::string("[TemplateBrepUpdate] overlap diagnostic worldHits=") + std::to_string(worldHits)
-		+ "/512 gateMm=" + std::to_string(gateMm));
+	RunLogger::info(std::string("[TemplateBrepUpdate] overlap diagnostic worldHits=") + std::to_string(worldHits) +
+					"/512 gateMm=" + std::to_string(gateMm));
 }
 
-void logRegistrationCentroidDiagnostic(
-	cloudsim::host::DocumentHost* page,
-	const std::string& scanBackendIdUtf8,
-	const std::string& templateBackendIdUtf8,
-	const std::vector<float>& scanStoredXyz,
-	const double templateModelCenterX,
-	const double templateModelCenterY,
-	const double templateModelCenterZ)
+void logRegistrationCentroidDiagnostic(cloudsim::host::DocumentHost* page, const std::string& scanBackendIdUtf8,
+									   const std::string& templateBackendIdUtf8,
+									   const std::vector<float>& scanStoredXyz, const double templateModelCenterX,
+									   const double templateModelCenterY, const double templateModelCenterZ)
 {
 	if (scanStoredXyz.size() < 9U || !page)
 	{
@@ -607,11 +551,8 @@ void logRegistrationCentroidDiagnostic(
 	{
 		const std::size_t b = i * 3U;
 		const BackendVec3 world = transformPointToWorld(
-			*scanObj,
-			BackendVec3{
-				static_cast<double>(scanStoredXyz[b]),
-				static_cast<double>(scanStoredXyz[b + 1U]),
-				static_cast<double>(scanStoredXyz[b + 2U])});
+			*scanObj, BackendVec3{static_cast<double>(scanStoredXyz[b]), static_cast<double>(scanStoredXyz[b + 1U]),
+								  static_cast<double>(scanStoredXyz[b + 2U])});
 		sumWx += world.x;
 		sumWy += world.y;
 		sumWz += world.z;
@@ -622,25 +563,19 @@ void logRegistrationCentroidDiagnostic(
 		return;
 	}
 	const BackendVec3 templateWorld = transformPointToWorld(
-		*templateBrep,
-		BackendVec3{templateModelCenterX, templateModelCenterY, templateModelCenterZ});
+		*templateBrep, BackendVec3{templateModelCenterX, templateModelCenterY, templateModelCenterZ});
 	const double scanCx = sumWx / static_cast<double>(count);
 	const double scanCy = sumWy / static_cast<double>(count);
 	const double scanCz = sumWz / static_cast<double>(count);
-	const double distMm = std::hypot(
-		scanCx - templateWorld.x,
-		std::hypot(scanCy - templateWorld.y, scanCz - templateWorld.z));
-	RunLogger::info(
-		std::string("[TemplateBrepUpdate] centroid diagnostic worldDistMm=") + std::to_string(distMm)
-		+ " scanBackend=" + scanBackendIdUtf8 + " templateBackend=" + templateBackendIdUtf8
-		+ " (backend worldMatrix)");
+	const double distMm =
+		std::hypot(scanCx - templateWorld.x, std::hypot(scanCy - templateWorld.y, scanCz - templateWorld.z));
+	RunLogger::info(std::string("[TemplateBrepUpdate] centroid diagnostic worldDistMm=") + std::to_string(distMm) +
+					" scanBackend=" + scanBackendIdUtf8 + " templateBackend=" + templateBackendIdUtf8 +
+					" (backend worldMatrix)");
 }
 
-bool queryTemplateModelToWorldIsometry(
-	cloudsim::host::DocumentHost* page,
-	const std::string& templateBackendIdUtf8,
-	Eigen::Isometry3d& outModelToWorld,
-	std::string* outError)
+bool queryTemplateModelToWorldIsometry(cloudsim::host::DocumentHost* page, const std::string& templateBackendIdUtf8,
+									   Eigen::Isometry3d& outModelToWorld, std::string* outError)
 {
 	outModelToWorld = Eigen::Isometry3d::Identity();
 	OsgWidget* osg = widgetOsgFromPage(page);
@@ -666,11 +601,8 @@ bool queryTemplateModelToWorldIsometry(
 	return true;
 }
 
-bool queryScanStoredToWorldIsometry(
-	cloudsim::host::DocumentHost* page,
-	const std::string& scanBackendIdUtf8,
-	Eigen::Isometry3d& outStoredToWorld,
-	std::string* outError)
+bool queryScanStoredToWorldIsometry(cloudsim::host::DocumentHost* page, const std::string& scanBackendIdUtf8,
+									Eigen::Isometry3d& outStoredToWorld, std::string* outError)
 {
 	outStoredToWorld = Eigen::Isometry3d::Identity();
 	OsgWidget* osg = widgetOsgFromPage(page);
@@ -682,17 +614,13 @@ bool queryScanStoredToWorldIsometry(
 		}
 		return false;
 	}
-	const auto storedToWorld = [&](const double sx, const double sy, const double sz, osg::Vec3d& outWorld) {
-		return backendStoredPointToWorldMm(osg, scanBackendIdUtf8, sx, sy, sz, outWorld);
-	};
+	const auto storedToWorld = [&](const double sx, const double sy, const double sz, osg::Vec3d& outWorld)
+	{ return backendStoredPointToWorldMm(osg, scanBackendIdUtf8, sx, sy, sz, outWorld); };
 	return isometryFromThreeCalibrationPoints(storedToWorld, 0.0, 0.0, 0.0, outStoredToWorld, outError);
 }
 
-bool writeBackendPoseFromWorldMatrix(
-	OsgWidget* osg,
-	const std::string& visualId,
-	BrepBackendData& brep,
-	const osg::Matrixd& worldMat)
+bool writeBackendPoseFromWorldMatrix(OsgWidget* osg, const std::string& visualId, BrepBackendData& brep,
+									 const osg::Matrixd& worldMat)
 {
 	(void)osg;
 	(void)visualId;
@@ -704,18 +632,15 @@ bool writeBackendPoseFromWorldMatrix(
 	return true;
 }
 
-bool tryLoadOriginalStepShape(
-	cloudsim::host::DocumentHost* page,
-	const std::string& templateBackendIdUtf8,
-	geoalgo::ShapeHandle& outShape)
+bool tryLoadOriginalStepShape(cloudsim::host::DocumentHost* page, const std::string& templateBackendIdUtf8,
+							  geoalgo::ShapeHandle& outShape)
 {
 	outShape = geoalgo::ShapeHandle{};
 	if (!page)
 	{
 		return false;
 	}
-	const QString stepPath =
-		page->backendSourcePath().value(QString::fromStdString(templateBackendIdUtf8));
+	const QString stepPath = page->backendSourcePath().value(QString::fromStdString(templateBackendIdUtf8));
 	if (stepPath.isEmpty())
 	{
 		return false;
@@ -724,12 +649,9 @@ bool tryLoadOriginalStepShape(
 	return geoalgo::readStepIntoHandle(stepPath.toStdString(), outShape, &stepErr) && !outShape.isNull();
 }
 
-bool inheritBrepVisualPoseFromSourceMesh(
-	cloudsim::host::DocumentHost* page,
-	const std::string& sourceMeshBackendIdUtf8,
-	const std::string& newBrepBackendIdUtf8,
-	BrepBackendData& newBrep,
-	std::string* outError)
+bool inheritBrepVisualPoseFromSourceMesh(cloudsim::host::DocumentHost* page, const std::string& sourceMeshBackendIdUtf8,
+										 const std::string& newBrepBackendIdUtf8, BrepBackendData& newBrep,
+										 std::string* outError)
 {
 	if (!page)
 	{
@@ -759,13 +681,11 @@ bool inheritBrepVisualPoseFromSourceMesh(
 	return true;
 }
 
-bool alignFaceUpdatedBrepWithTemplateVisual(
-	cloudsim::host::DocumentHost* page,
-	const std::string& templateBackendIdUtf8,
-	const std::string& updatedBrepBackendIdUtf8,
-	const BrepBackendData& templateBrep,
-	BrepBackendData& updatedBrep,
-	std::string* outError)
+bool alignFaceUpdatedBrepWithTemplateVisual(cloudsim::host::DocumentHost* page,
+											const std::string& templateBackendIdUtf8,
+											const std::string& updatedBrepBackendIdUtf8,
+											const BrepBackendData& templateBrep, BrepBackendData& updatedBrep,
+											std::string* outError)
 {
 	(void)templateBackendIdUtf8;
 	if (!page)
@@ -792,11 +712,8 @@ bool alignFaceUpdatedBrepWithTemplateVisual(
 	return true;
 }
 
-bool applyTemplateRegistrationToVisual(
-	cloudsim::host::DocumentHost* page,
-	const std::string& templateBackendIdUtf8,
-	const Eigen::Isometry3d& icpDeltaWorld,
-	std::string* outError)
+bool applyTemplateRegistrationToVisual(cloudsim::host::DocumentHost* page, const std::string& templateBackendIdUtf8,
+									   const Eigen::Isometry3d& icpDeltaWorld, std::string* outError)
 {
 	if (!page)
 	{
@@ -851,15 +768,13 @@ bool applyTemplateRegistrationToVisual(
 		return false;
 	}
 
-	const bool hasIcpTransform =
-		!icpDeltaWorld.matrix().isApprox(Eigen::Isometry3d::Identity().matrix());
+	const bool hasIcpTransform = !icpDeltaWorld.matrix().isApprox(Eigen::Isometry3d::Identity().matrix());
 	const BackendMat4 worldBefore = displayBrep->worldMatrix();
 	if (hasIcpTransform)
 	{
 		const engine::RigidTransform deltaRt = engine::RigidTransform::fromIsometry(icpDeltaWorld);
 		const engine::RigidTransform curRt = rigidFromBackendWorldMat(displayBrep->worldMatrix());
-		const BackendMat4 worldAfter =
-			backendMat4FromColMajorRigid(deltaRt.composeColumn(curRt));
+		const BackendMat4 worldAfter = backendMat4FromColMajorRigid(deltaRt.composeColumn(curRt));
 		displayBrep->setWorldMatrix(worldAfter);
 		if (brep != displayBrep)
 		{
@@ -877,11 +792,8 @@ bool applyTemplateRegistrationToVisual(
 	return true;
 }
 
-bool restoreTemplateShapeFromStep(
-	cloudsim::host::DocumentHost* page,
-	const std::string& templateBackendIdUtf8,
-	const std::string& templateStepPathUtf8,
-	std::string* outError)
+bool restoreTemplateShapeFromStep(cloudsim::host::DocumentHost* page, const std::string& templateBackendIdUtf8,
+								  const std::string& templateStepPathUtf8, std::string* outError)
 {
 	if (templateStepPathUtf8.empty())
 	{
@@ -1023,14 +935,9 @@ ScanBufferStatus evaluateScanBuffer(const PointCloudBackendData& pc, std::size_t
 }
 } // namespace
 
-bool prepareScanForTemplateRegistration(
-	cloudsim::host::DocumentHost* page,
-	const std::string& scanBackendIdUtf8,
-	std::vector<float>& outStoredXyz,
-	std::vector<float>& outStoredNormals,
-	std::size_t& outPointCount,
-	bool& outIsMeshScan,
-	std::string* outError)
+bool prepareScanForTemplateRegistration(cloudsim::host::DocumentHost* page, const std::string& scanBackendIdUtf8,
+										std::vector<float>& outStoredXyz, std::vector<float>& outStoredNormals,
+										std::size_t& outPointCount, bool& outIsMeshScan, std::string* outError)
 {
 	outStoredXyz.clear();
 	outStoredNormals.clear();
@@ -1040,8 +947,7 @@ bool prepareScanForTemplateRegistration(
 	if (auto scan = resolvePointCloud(page, scanBackendIdUtf8, outError))
 	{
 		std::size_t pointCount = 0U;
-		if (!prepareScanPointCloudForRegistration(
-				page, scanBackendIdUtf8, outStoredXyz, pointCount, outError))
+		if (!prepareScanPointCloudForRegistration(page, scanBackendIdUtf8, outStoredXyz, pointCount, outError))
 		{
 			return false;
 		}
@@ -1062,13 +968,9 @@ bool prepareScanForTemplateRegistration(
 
 	constexpr std::size_t kMaxMeshSamplePoints = 120000U;
 	std::string sampleErr;
-	if (!geometry_backend_ops::sampleTriangleSoupToPointBuffers(
-			mesh->triangleSoup(),
-			mesh->triangleVertexNormals(),
-			outStoredXyz,
-			outStoredNormals,
-			kMaxMeshSamplePoints,
-			&sampleErr))
+	if (!geometry_backend_ops::sampleTriangleSoupToPointBuffers(mesh->triangleSoup(), mesh->triangleVertexNormals(),
+																outStoredXyz, outStoredNormals, kMaxMeshSamplePoints,
+																&sampleErr))
 	{
 		if (outError)
 		{
@@ -1086,18 +988,14 @@ bool prepareScanForTemplateRegistration(
 		return false;
 	}
 	outIsMeshScan = true;
-	RunLogger::info(
-		std::string("[TemplateBrepUpdate] mesh scan sampled pts=") + std::to_string(outPointCount)
-		+ " faces=" + std::to_string(mesh->triangleSoup().size() / 9U));
+	RunLogger::info(std::string("[TemplateBrepUpdate] mesh scan sampled pts=") + std::to_string(outPointCount) +
+					" faces=" + std::to_string(mesh->triangleSoup().size() / 9U));
 	return true;
 }
 
-bool prepareScanPointCloudForRegistration(
-	cloudsim::host::DocumentHost* page,
-	const std::string& scanBackendIdUtf8,
-	std::vector<float>& outStoredXyz,
-	std::size_t& outPointCount,
-	std::string* outError)
+bool prepareScanPointCloudForRegistration(cloudsim::host::DocumentHost* page, const std::string& scanBackendIdUtf8,
+										  std::vector<float>& outStoredXyz, std::size_t& outPointCount,
+										  std::string* outError)
 {
 	outStoredXyz.clear();
 	outPointCount = 0U;
@@ -1115,9 +1013,8 @@ bool prepareScanPointCloudForRegistration(
 		outPointCount = pointCount;
 		if (pointCount > 1000000U)
 		{
-			RunLogger::info(
-				std::string("[TemplateBrepUpdate] large scan for registration, pts=") + std::to_string(pointCount)
-				+ " (voxel prefilter will reduce before ICP)");
+			RunLogger::info(std::string("[TemplateBrepUpdate] large scan for registration, pts=") +
+							std::to_string(pointCount) + " (voxel prefilter will reduce before ICP)");
 		}
 		return true;
 	}
@@ -1169,22 +1066,19 @@ bool prepareScanPointCloudForRegistration(
 		return false;
 	}
 
-	scan->setPointBuffers(
-		reloaded.pointPositionsXyz(),
-		reloaded.pointVertexRgba(),
-		reloaded.pointNormalsNxNyNz());
+	scan->setPointBuffers(reloaded.pointPositionsXyz(), reloaded.pointVertexRgba(), reloaded.pointNormalsNxNyNz());
 	commitPointCloudVisual(page, *scan);
-	RunLogger::info(
-		std::string("[TemplateBrepUpdate] scan reloaded from PLY, pts=") + std::to_string(reloadedCount)
-		+ " (was inconsistent xyzPts=" + std::to_string(badXyzPts)
-		+ " elemCount=" + std::to_string(badElemCount) + ")");
+	RunLogger::info(std::string("[TemplateBrepUpdate] scan reloaded from PLY, pts=") + std::to_string(reloadedCount) +
+					" (was inconsistent xyzPts=" + std::to_string(badXyzPts) +
+					" elemCount=" + std::to_string(badElemCount) + ")");
 
 	outStoredXyz = scan->pointPositionsXyz();
 	outPointCount = reloadedPts;
 	return true;
 }
 
-bool queryPointCloudInfo(cloudsim::host::DocumentHost* page, const std::string& backendIdUtf8, PluginPointCloudInfo& out)
+bool queryPointCloudInfo(cloudsim::host::DocumentHost* page, const std::string& backendIdUtf8,
+						 PluginPointCloudInfo& out)
 {
 	const auto pc = resolvePointCloud(page, backendIdUtf8);
 	if (!pc)
@@ -1195,7 +1089,8 @@ bool queryPointCloudInfo(cloudsim::host::DocumentHost* page, const std::string& 
 	return true;
 }
 
-bool measurePointCloud(cloudsim::host::DocumentHost* page, const std::string& backendIdUtf8, PluginPointCloudMeasure& out)
+bool measurePointCloud(cloudsim::host::DocumentHost* page, const std::string& backendIdUtf8,
+					   PluginPointCloudMeasure& out)
 {
 	const auto pc = resolvePointCloud(page, backendIdUtf8);
 	if (!pc)
@@ -1225,11 +1120,8 @@ bool queryMeshInfo(cloudsim::host::DocumentHost* page, const std::string& backen
 	return true;
 }
 
-bool exportMeshToPly(
-	cloudsim::host::DocumentHost* page,
-	const std::string& backendIdUtf8,
-	const std::string& pathUtf8,
-	std::string* outError)
+bool exportMeshToPly(cloudsim::host::DocumentHost* page, const std::string& backendIdUtf8, const std::string& pathUtf8,
+					 std::string* outError)
 {
 	std::string resolveErr;
 	const auto mesh = resolveMesh(page, backendIdUtf8, &resolveErr);
@@ -1250,11 +1142,8 @@ bool exportMeshToPly(
 	return true;
 }
 
-bool exportPointCloudToPly(
-	cloudsim::host::DocumentHost* page,
-	const std::string& backendIdUtf8,
-	const std::string& pathUtf8,
-	std::string* outError)
+bool exportPointCloudToPly(cloudsim::host::DocumentHost* page, const std::string& backendIdUtf8,
+						   const std::string& pathUtf8, std::string* outError)
 {
 	std::string resolveErr;
 	const auto pc = resolvePointCloud(page, backendIdUtf8, &resolveErr);
@@ -1284,11 +1173,8 @@ bool exportPointCloudToPly(
 	return true;
 }
 
-bool exportBrepToStep(
-	cloudsim::host::DocumentHost* page,
-	const std::string& backendIdUtf8,
-	const std::string& pathUtf8,
-	std::string* outError)
+bool exportBrepToStep(cloudsim::host::DocumentHost* page, const std::string& backendIdUtf8, const std::string& pathUtf8,
+					  std::string* outError)
 {
 	if (!page)
 	{
@@ -1348,13 +1234,10 @@ bool buildPointCloudModelToWorld(const PointCloudBackendData& data, PluginMat4& 
 		osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
 	const osg::Matrixd rot = osg::Matrixd::rotate(q);
 	const osg::Matrixd negCenter = osg::Matrixd::translate(
-		-static_cast<double>(center.x()),
-		-static_cast<double>(center.y()),
-		-static_cast<double>(center.z()));
-	const osg::Matrixd pos = osg::Matrixd::translate(
-		static_cast<double>(center.x()) + p.x,
-		static_cast<double>(center.y()) + p.y,
-		static_cast<double>(center.z()) + p.z);
+		-static_cast<double>(center.x()), -static_cast<double>(center.y()), -static_cast<double>(center.z()));
+	const osg::Matrixd pos =
+		osg::Matrixd::translate(static_cast<double>(center.x()) + p.x, static_cast<double>(center.y()) + p.y,
+								static_cast<double>(center.z()) + p.z);
 	const osg::Matrixd modelToWorld = pos * rot * negCenter;
 	for (int col = 0; col < 4; ++col)
 	{

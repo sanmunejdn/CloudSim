@@ -1,7 +1,10 @@
-#include "detail/OccIncludes.h"
+﻿/// @file Intersection.cpp
+/// @brief Intersection 实现
+
+#include "Intersection.h"
 
 #include "Discretize.h"
-#include "Intersection.h"
+#include "detail/OccIncludes.h"
 
 #include <cmath>
 
@@ -9,7 +12,6 @@ namespace geoalgo
 {
 namespace
 {
-
 void appendHit(IntersectionResult& result, const gp_Pnt& p)
 {
 	IntersectionHit hit;
@@ -19,7 +21,8 @@ void appendHit(IntersectionResult& result, const gp_Pnt& p)
 	result.points.push_back(hit);
 }
 
-bool wireToPolylines(const TopoDS_Shape& section, const IntersectionParams& params, IntersectionResult& result, std::string* errMsg)
+bool wireToPolylines(const TopoDS_Shape& section, const IntersectionParams& params, IntersectionResult& result,
+					 std::string* errMsg)
 {
 	for (TopExp_Explorer exp(section, TopAbs_EDGE); exp.More(); exp.Next())
 	{
@@ -48,12 +51,8 @@ bool wireToPolylines(const TopoDS_Shape& section, const IntersectionParams& para
 
 } // namespace
 
-bool intersectEdges(
-	const TopoDS_Edge& edge1,
-	const TopoDS_Edge& edge2,
-	const IntersectionParams& params,
-	IntersectionResult& result,
-	std::string* errMsg)
+bool intersectEdges(const TopoDS_Edge& edge1, const TopoDS_Edge& edge2, const IntersectionParams& params,
+					IntersectionResult& result, std::string* errMsg)
 {
 	result = {};
 	BRepAlgoAPI_Section section(edge1, edge2, Standard_False);
@@ -70,12 +69,8 @@ bool intersectEdges(
 	return wireToPolylines(section.Shape(), params, result, errMsg);
 }
 
-bool intersectEdgeFace(
-	const TopoDS_Edge& edge,
-	const TopoDS_Face& face,
-	const IntersectionParams& params,
-	IntersectionResult& result,
-	std::string* errMsg)
+bool intersectEdgeFace(const TopoDS_Edge& edge, const TopoDS_Face& face, const IntersectionParams& params,
+					   IntersectionResult& result, std::string* errMsg)
 {
 	result = {};
 	BRepAlgoAPI_Section section(edge, face, Standard_False);
@@ -93,12 +88,8 @@ bool intersectEdgeFace(
 	return wireToPolylines(section.Shape(), params, result, errMsg);
 }
 
-bool intersectFaces(
-	const TopoDS_Face& face1,
-	const TopoDS_Face& face2,
-	const IntersectionParams& params,
-	IntersectionResult& result,
-	std::string* errMsg)
+bool intersectFaces(const TopoDS_Face& face1, const TopoDS_Face& face2, const IntersectionParams& params,
+					IntersectionResult& result, std::string* errMsg)
 {
 	result = {};
 	BRepAlgoAPI_Section section(face1, face2, Standard_False);
@@ -115,12 +106,8 @@ bool intersectFaces(
 	return wireToPolylines(section.Shape(), params, result, errMsg);
 }
 
-bool intersectShapes(
-	const TopoDS_Shape& shape1,
-	const TopoDS_Shape& shape2,
-	const IntersectionParams& params,
-	IntersectionResult& result,
-	std::string* errMsg)
+bool intersectShapes(const TopoDS_Shape& shape1, const TopoDS_Shape& shape2, const IntersectionParams& params,
+					 IntersectionResult& result, std::string* errMsg)
 {
 	result = {};
 	BRepAlgoAPI_Section section(shape1, shape2, Standard_False);

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef WIDGET_MAINWINDOWSELECTIONSERVICE_H
+#define WIDGET_MAINWINDOWSELECTIONSERVICE_H
+
+/// @file MainWindowSelectionService.h
+/// @brief MainWindow 树/OSG 拾取的选择编排
 
 #include "widget_global.h"
 
@@ -8,7 +12,8 @@ class QString;
 class MainWindow;
 class QTreeWidgetItem;
 
-namespace cloudsim::core {
+namespace cloudsim::core
+{
 enum class SelectionSource;
 }
 
@@ -44,9 +49,8 @@ public:
 
 private:
 	static QString selectionRootBackendId(MainWindow& mainWindow, const QString& backendId);
-	static void applyBackendSelection(
-		MainWindow& mainWindow,
-		const QString& backendId,
-		cloudsim::core::SelectionSource source,
-		bool rowVisible);
+	static void applyBackendSelection(MainWindow& mainWindow, const QString& backendId,
+									  cloudsim::core::SelectionSource source, bool rowVisible);
 };
+
+#endif // WIDGET_MAINWINDOWSELECTIONSERVICE_H

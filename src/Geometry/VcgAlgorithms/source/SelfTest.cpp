@@ -1,11 +1,15 @@
+﻿/// @file SelfTest.cpp
+/// @brief SelfTest 实现
+
 #include "SelfTest.h"
-#include "VcgMeshAdapter.h"
-#include "MeshSimplify.h"
-#include "MeshSmooth.h"
-#include "MeshRepair.h"
-#include "MeshRemesh.h"
+
 #include "MeshDefectDetect.h"
 #include "MeshNormalSmooth.h"
+#include "MeshRemesh.h"
+#include "MeshRepair.h"
+#include "MeshSimplify.h"
+#include "MeshSmooth.h"
+#include "VcgMeshAdapter.h"
 
 #include <array>
 #include <cmath>
@@ -13,27 +17,23 @@
 
 namespace vcgalgo
 {
-
 namespace
 {
-
 // 生成一个简单立方体 triangleSoup（12 三角形，6 面×2）
 std::vector<float> makeCubeSoup(float size = 10.0f)
 {
 	const float h = size / 2.0f;
 	// 8 顶点
-	const float v[8][3] = {
-		{-h, -h, -h}, { h, -h, -h}, { h,  h, -h}, {-h,  h, -h},
-		{-h, -h,  h}, { h, -h,  h}, { h,  h,  h}, {-h,  h,  h}
-	};
+	const float v[8][3] = {{-h, -h, -h}, {h, -h, -h}, {h, h, -h}, {-h, h, -h},
+						   {-h, -h, h},	 {h, -h, h},  {h, h, h},  {-h, h, h}};
 	// 6 面，每面 2 三角形，CCW
 	const int faces[12][3] = {
-		{0,1,2}, {0,2,3}, // -Z
-		{4,6,5}, {4,7,6}, // +Z
-		{0,4,5}, {0,5,1}, // -Y
-		{2,6,7}, {2,7,3}, // +Y
-		{0,3,7}, {0,7,4}, // -X
-		{1,5,6}, {1,6,2}  // +X
+		{0, 1, 2}, {0, 2, 3}, // -Z
+		{4, 6, 5}, {4, 7, 6}, // +Z
+		{0, 4, 5}, {0, 5, 1}, // -Y
+		{2, 6, 7}, {2, 7, 3}, // +Y
+		{0, 3, 7}, {0, 7, 4}, // -X
+		{1, 5, 6}, {1, 6, 2}  // +X
 	};
 
 	std::vector<float> soup;
@@ -69,7 +69,8 @@ std::vector<float> makeSphereSoup(float radius = 10.0f, int stacks = 10, int sli
 			const float phi1 = 2.0f * pi * static_cast<float>(j + 1) / static_cast<float>(slices);
 
 			// 球面坐标 → 直角坐标
-			auto sphXyz = [&](float theta, float phi, float& ox, float& oy, float& oz) {
+			auto sphXyz = [&](float theta, float phi, float& ox, float& oy, float& oz)
+			{
 				ox = radius * std::sin(theta) * std::cos(phi);
 				oy = radius * std::sin(theta) * std::sin(phi);
 				oz = radius * std::cos(theta);
@@ -85,13 +86,25 @@ std::vector<float> makeSphereSoup(float radius = 10.0f, int stacks = 10, int sli
 			sphXyz(theta1, phi1, p11x, p11y, p11z);
 
 			// 两个三角形
-			soup.push_back(p00x); soup.push_back(p00y); soup.push_back(p00z);
-			soup.push_back(p10x); soup.push_back(p10y); soup.push_back(p10z);
-			soup.push_back(p11x); soup.push_back(p11y); soup.push_back(p11z);
+			soup.push_back(p00x);
+			soup.push_back(p00y);
+			soup.push_back(p00z);
+			soup.push_back(p10x);
+			soup.push_back(p10y);
+			soup.push_back(p10z);
+			soup.push_back(p11x);
+			soup.push_back(p11y);
+			soup.push_back(p11z);
 
-			soup.push_back(p00x); soup.push_back(p00y); soup.push_back(p00z);
-			soup.push_back(p11x); soup.push_back(p11y); soup.push_back(p11z);
-			soup.push_back(p01x); soup.push_back(p01y); soup.push_back(p01z);
+			soup.push_back(p00x);
+			soup.push_back(p00y);
+			soup.push_back(p00z);
+			soup.push_back(p11x);
+			soup.push_back(p11y);
+			soup.push_back(p11z);
+			soup.push_back(p01x);
+			soup.push_back(p01y);
+			soup.push_back(p01z);
 		}
 	}
 	return soup;
@@ -102,14 +115,21 @@ std::vector<float> makeCubeWithNeedleSoup()
 {
 	std::vector<float> soup = makeCubeSoup();
 	// 从 (+X 面中心) 伸出极细长三角
-	const float tip[3] = { 8.0f, 0.0f, 0.0f };
-	const float base0[3] = { 5.0f, -0.01f, -0.01f };
-	const float base1[3] = { 5.0f, 0.01f, -0.01f };
-	const float base2[3] = { 5.0f, 0.0f, 0.01f };
-	auto pushTri = [&](const float a[3], const float b[3], const float c[3]) {
-		soup.push_back(a[0]); soup.push_back(a[1]); soup.push_back(a[2]);
-		soup.push_back(b[0]); soup.push_back(b[1]); soup.push_back(b[2]);
-		soup.push_back(c[0]); soup.push_back(c[1]); soup.push_back(c[2]);
+	const float tip[3] = {8.0f, 0.0f, 0.0f};
+	const float base0[3] = {5.0f, -0.01f, -0.01f};
+	const float base1[3] = {5.0f, 0.01f, -0.01f};
+	const float base2[3] = {5.0f, 0.0f, 0.01f};
+	auto pushTri = [&](const float a[3], const float b[3], const float c[3])
+	{
+		soup.push_back(a[0]);
+		soup.push_back(a[1]);
+		soup.push_back(a[2]);
+		soup.push_back(b[0]);
+		soup.push_back(b[1]);
+		soup.push_back(b[2]);
+		soup.push_back(c[0]);
+		soup.push_back(c[1]);
+		soup.push_back(c[2]);
 	};
 	pushTri(base0, base1, tip);
 	pushTri(base1, base2, tip);
@@ -136,8 +156,8 @@ bool runSelfTest(std::vector<std::string>& failures)
 			// 立方体 8 顶点，去重后应 ≤8（实际 8）
 			if (indexed.vertices.size() / 3 > 12)
 			{
-				failures.push_back("Test1: vertex dedup failed, got " +
-					std::to_string(indexed.vertices.size() / 3) + " vertices");
+				failures.push_back("Test1: vertex dedup failed, got " + std::to_string(indexed.vertices.size() / 3) +
+								   " vertices");
 			}
 			std::vector<float> roundtrip;
 			if (!indexedMeshToTriangleSoup(indexed, roundtrip))
@@ -169,8 +189,8 @@ bool runSelfTest(std::vector<std::string>& failures)
 			const int resultFaces = static_cast<int>(simplified.size() / 9);
 			if (resultFaces > targetFaces + 100) // 允许一定误差
 			{
-				failures.push_back("Test2: simplified faces " +
-					std::to_string(resultFaces) + " > target " + std::to_string(targetFaces));
+				failures.push_back("Test2: simplified faces " + std::to_string(resultFaces) + " > target " +
+								   std::to_string(targetFaces));
 			}
 		}
 	}
@@ -271,8 +291,8 @@ bool runSelfTest(std::vector<std::string>& failures)
 		}
 		else if (defectReport.defectAreaRatio > 0.05)
 		{
-			failures.push_back("Test7b: sphere defect area ratio too high: "
-				+ std::to_string(defectReport.defectAreaRatio));
+			failures.push_back("Test7b: sphere defect area ratio too high: " +
+							   std::to_string(defectReport.defectAreaRatio));
 		}
 	}
 

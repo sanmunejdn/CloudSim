@@ -1,22 +1,27 @@
+﻿/// @file PerLinkKinematicsHostImpl.cpp
+/// @brief PerLinkKinematicsHostImpl 实现
+
 #include "PerLinkKinematicsHostImpl.h"
 
-#include "BackendDataManager.h"
 #include "BackendDataBase.h"
+#include "BackendDataManager.h"
 #include "IRobotBackendPoseSink.h"
-
 #include "RobotSceneKinematics.h"
 #include "UrdfRobotLoader.h"
 
 #include <osg/Matrixd>
 
-namespace {
-
+namespace
+{
 osg::Matrixd osgFromMat4(const cloudsim::core::Mat4& m)
 {
 	osg::Matrixd out;
-	for (int i = 0; i < 16; ++i)
+	for (int c = 0; c < 4; ++c)
 	{
-		out.ptr()[i] = m[static_cast<size_t>(i)];
+		for (int r = 0; r < 4; ++r)
+		{
+			out(r, c) = m[static_cast<size_t>(c * 4 + r)];
+		}
 	}
 	return out;
 }
@@ -24,26 +29,25 @@ osg::Matrixd osgFromMat4(const cloudsim::core::Mat4& m)
 cloudsim::core::Mat4 mat4FromOsg(const osg::Matrixd& m)
 {
 	cloudsim::core::Mat4 out{};
-	for (int i = 0; i < 16; ++i)
+	for (int c = 0; c < 4; ++c)
 	{
-		out[static_cast<size_t>(i)] = m.ptr()[i];
+		for (int r = 0; r < 4; ++r)
+		{
+			out[static_cast<size_t>(c * 4 + r)] = m(r, c);
+		}
 	}
 	return out;
 }
 
 } // namespace
 
-namespace cloudsim::host {
-
-PerLinkKinematicsHostImpl::PerLinkKinematicsHostImpl(IPerLinkRobotStateAccessor* accessor)
-	: m_accessor(accessor)
+namespace cloudsim::host
 {
-}
+PerLinkKinematicsHostImpl::PerLinkKinematicsHostImpl(IPerLinkRobotStateAccessor* accessor) : m_accessor(accessor) {}
 
-bool PerLinkKinematicsHostImpl::applyPerLinkRobotFkFromGizmoAnchor(
-	int instanceIndex,
-	const QString& anchorLinkBackendId,
-	const QVector<double>& jointAnglesRad)
+bool PerLinkKinematicsHostImpl::applyPerLinkRobotFkFromGizmoAnchor(int instanceIndex,
+																   const QString& anchorLinkBackendId,
+																   const QVector<double>& jointAnglesRad)
 {
 	if (!m_accessor || instanceIndex < 0 || anchorLinkBackendId.isEmpty())
 	{
@@ -71,7 +75,8 @@ bool PerLinkKinematicsHostImpl::applyPerLinkRobotFkFromGizmoAnchor(
 	{
 		slice.fkMeshWorldT0.insert(it.key(), osgFromMat4(it.value()));
 	}
-	for (auto it = snap.outerWorldAtBindByBackendId.constBegin(); it != snap.outerWorldAtBindByBackendId.constEnd(); ++it)
+	for (auto it = snap.outerWorldAtBindByBackendId.constBegin(); it != snap.outerWorldAtBindByBackendId.constEnd();
+		 ++it)
 	{
 		slice.outerWorldAtBindByBackendId.insert(it.key(), osgFromMat4(it.value()));
 	}
@@ -85,14 +90,15 @@ bool PerLinkKinematicsHostImpl::applyPerLinkRobotFkFromGizmoAnchor(
 	}
 
 	osg::Matrixd placement;
-	if (!RobotSceneKinematics::computeBasePlacementFromAnchorLinkWorld(
-			slice, anchorLinkBackendId, jointAnglesRad, anchorWorld, placement))
+	if (!RobotSceneKinematics::computeBasePlacementFromAnchorLinkWorld(slice, anchorLinkBackendId, jointAnglesRad,
+																	   anchorWorld, placement))
 	{
 		return false;
 	}
 
 	slice.robotBasePlacementWorld = placement;
-	if (!RobotSceneKinematics::applyPerLinkRobotBasePlacement(poseSink, m_accessor->backend(), slice, jointAnglesRad, placement))
+	if (!RobotSceneKinematics::applyPerLinkRobotBasePlacement(poseSink, m_accessor->backend(), slice, jointAnglesRad,
+															  placement))
 	{
 		return false;
 	}
@@ -110,9 +116,8 @@ bool PerLinkKinematicsHostImpl::applyPerLinkRobotFkFromGizmoAnchor(
 	return true;
 }
 
-void PerLinkKinematicsHostImpl::reconcilePerLinkOuterBindFromScene(
-	int instanceIndex,
-	const QVector<double>& jointAnglesRad)
+void PerLinkKinematicsHostImpl::reconcilePerLinkOuterBindFromScene(int instanceIndex,
+																   const QVector<double>& jointAnglesRad)
 {
 	if (!m_accessor || instanceIndex < 0)
 	{
@@ -133,8 +138,8 @@ void PerLinkKinematicsHostImpl::reconcilePerLinkOuterBindFromScene(
 
 	QHash<QString, osg::Matrixd> Tq;
 	QString fkErr;
-	if (!UrdfRobotLoader::computeMeshWorldMatrices(
-			snap.urdfAbsolutePath, jointAnglesRad, Tq, &fkErr, snap.meshVerticesInLinkFrame))
+	if (!UrdfRobotLoader::computeMeshWorldMatrices(snap.urdfAbsolutePath, jointAnglesRad, Tq, &fkErr,
+												   snap.meshVerticesInLinkFrame))
 	{
 		return;
 	}

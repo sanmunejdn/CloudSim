@@ -1,7 +1,12 @@
+﻿/// @file TubularGrindingDockWidget.cpp
+/// @brief TubularGrindingDockWidget 实现
+
 #include "TubularGrindingDockWidget.h"
+
 #include "IPluginDocument.h"
 #include "IPluginHostContext.h"
 #include "IPluginPointCloudHost.h"
+
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
@@ -48,8 +53,7 @@ void styleParamHint(QLabel* hint)
 } // namespace
 
 TubularGrindingDockWidget::TubularGrindingDockWidget(IPluginHostContext* host, QWidget* parent)
-	: QWidget(parent)
-	, m_host(host)
+	: QWidget(parent), m_host(host)
 {
 	auto* outer = new QVBoxLayout(this);
 	outer->setContentsMargins(4, 4, 4, 4);
@@ -72,145 +76,76 @@ TubularGrindingDockWidget::TubularGrindingDockWidget(IPluginHostContext* host, Q
 	centerlineForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
 	centerlineForm->setLabelAlignment(Qt::AlignTop);
 	m_centerlineMethodCombo = new QComboBox(centerlinePage);
-	m_centerlineMethodCombo->addItem(
-		QStringLiteral("Laplacian"),
-		static_cast<int>(PluginTubularGrindingCenterlineMethod::Laplacian));
-	m_centerlineMethodCombo->addItem(
-		QStringLiteral("OTLC"),
-		static_cast<int>(PluginTubularGrindingCenterlineMethod::OtLc));
-	addParamRow(
-		centerlineForm,
-		m_centerlineMethodLabel,
-		m_centerlineMethodCombo,
-		m_centerlineMethodHint,
-		QString(),
-		QString(),
-		&m_centerlineMethodRow);
+	m_centerlineMethodCombo->addItem(QStringLiteral("Laplacian"),
+									 static_cast<int>(PluginTubularGrindingCenterlineMethod::Laplacian));
+	m_centerlineMethodCombo->addItem(QStringLiteral("OTLC"),
+									 static_cast<int>(PluginTubularGrindingCenterlineMethod::OtLc));
+	addParamRow(centerlineForm, m_centerlineMethodLabel, m_centerlineMethodCombo, m_centerlineMethodHint, QString(),
+				QString(), &m_centerlineMethodRow);
 	m_sectionSpacingSpin = new QDoubleSpinBox(centerlinePage);
 	m_sectionSpacingSpin->setRange(0.5, 50.0);
 	m_sectionSpacingSpin->setSingleStep(0.5);
 	m_sectionSpacingSpin->setDecimals(2);
 	m_sectionSpacingSpin->setValue(2.0);
 	m_sectionSpacingSpin->setSuffix(QStringLiteral(" mm"));
-	addParamRow(
-		centerlineForm,
-		m_sectionSpacingLabel,
-		m_sectionSpacingSpin,
-		m_sectionSpacingHint,
-		QString(),
-		QString(),
-		&m_sectionSpacingRow);
+	addParamRow(centerlineForm, m_sectionSpacingLabel, m_sectionSpacingSpin, m_sectionSpacingHint, QString(), QString(),
+				&m_sectionSpacingRow);
 	m_centerlineIterSpin = new QSpinBox(centerlinePage);
 	m_centerlineIterSpin->setRange(10, 300);
 	m_centerlineIterSpin->setSingleStep(5);
 	m_centerlineIterSpin->setValue(80);
-	addParamRow(
-		centerlineForm,
-		m_centerlineIterLabel,
-		m_centerlineIterSpin,
-		m_centerlineIterHint,
-		QString(),
-		QString(),
-		&m_centerlineIterRow);
+	addParamRow(centerlineForm, m_centerlineIterLabel, m_centerlineIterSpin, m_centerlineIterHint, QString(), QString(),
+				&m_centerlineIterRow);
 	m_laplacianLambdaSpin = new QDoubleSpinBox(centerlinePage);
 	m_laplacianLambdaSpin->setRange(0.01, 2.0);
 	m_laplacianLambdaSpin->setSingleStep(0.02);
 	m_laplacianLambdaSpin->setDecimals(2);
 	m_laplacianLambdaSpin->setValue(0.1);
-	addParamRow(
-		centerlineForm,
-		m_laplacianLambdaLabel,
-		m_laplacianLambdaSpin,
-		m_laplacianLambdaHint,
-		QString(),
-		QString(),
-		&m_laplacianLambdaRow);
+	addParamRow(centerlineForm, m_laplacianLambdaLabel, m_laplacianLambdaSpin, m_laplacianLambdaHint, QString(),
+				QString(), &m_laplacianLambdaRow);
 	m_laplacianAttractionSpin = new QDoubleSpinBox(centerlinePage);
 	m_laplacianAttractionSpin->setRange(0.05, 2.0);
 	m_laplacianAttractionSpin->setSingleStep(0.05);
 	m_laplacianAttractionSpin->setDecimals(2);
 	m_laplacianAttractionSpin->setValue(0.2);
-	addParamRow(
-		centerlineForm,
-		m_laplacianAttractionLabel,
-		m_laplacianAttractionSpin,
-		m_laplacianAttractionHint,
-		QString(),
-		QString(),
-		&m_laplacianAttractionRow);
+	addParamRow(centerlineForm, m_laplacianAttractionLabel, m_laplacianAttractionSpin, m_laplacianAttractionHint,
+				QString(), QString(), &m_laplacianAttractionRow);
 	m_otSampleRateSpin = new QDoubleSpinBox(centerlinePage);
 	m_otSampleRateSpin->setRange(0.01, 0.50);
 	m_otSampleRateSpin->setSingleStep(0.01);
 	m_otSampleRateSpin->setDecimals(2);
 	m_otSampleRateSpin->setValue(0.10);
-	addParamRow(
-		centerlineForm,
-		m_otSampleRateLabel,
-		m_otSampleRateSpin,
-		m_otSampleRateHint,
-		QString(),
-		QString(),
-		&m_otSampleRateRow);
+	addParamRow(centerlineForm, m_otSampleRateLabel, m_otSampleRateSpin, m_otSampleRateHint, QString(), QString(),
+				&m_otSampleRateRow);
 	m_otCostBetaSpin = new QDoubleSpinBox(centerlinePage);
 	m_otCostBetaSpin->setRange(0.5, 10.0);
 	m_otCostBetaSpin->setSingleStep(0.1);
 	m_otCostBetaSpin->setDecimals(1);
 	m_otCostBetaSpin->setValue(3.0);
-	addParamRow(
-		centerlineForm,
-		m_otCostBetaLabel,
-		m_otCostBetaSpin,
-		m_otCostBetaHint,
-		QString(),
-		QString(),
-		&m_otCostBetaRow);
+	addParamRow(centerlineForm, m_otCostBetaLabel, m_otCostBetaSpin, m_otCostBetaHint, QString(), QString(),
+				&m_otCostBetaRow);
 	m_otcPreStepsSpin = new QSpinBox(centerlinePage);
 	m_otcPreStepsSpin->setRange(1, 20);
 	m_otcPreStepsSpin->setValue(3);
-	addParamRow(
-		centerlineForm,
-		m_otcPreStepsLabel,
-		m_otcPreStepsSpin,
-		m_otcPreStepsHint,
-		QString(),
-		QString(),
-		&m_otcPreStepsRow);
+	addParamRow(centerlineForm, m_otcPreStepsLabel, m_otcPreStepsSpin, m_otcPreStepsHint, QString(), QString(),
+				&m_otcPreStepsRow);
 	m_otcOuterLoopsSpin = new QSpinBox(centerlinePage);
 	m_otcOuterLoopsSpin->setRange(1, 20);
 	m_otcOuterLoopsSpin->setValue(3);
-	addParamRow(
-		centerlineForm,
-		m_otcOuterLoopsLabel,
-		m_otcOuterLoopsSpin,
-		m_otcOuterLoopsHint,
-		QString(),
-		QString(),
-		&m_otcOuterLoopsRow);
+	addParamRow(centerlineForm, m_otcOuterLoopsLabel, m_otcOuterLoopsSpin, m_otcOuterLoopsHint, QString(), QString(),
+				&m_otcOuterLoopsRow);
 	m_otLcOuterMaxItersSpin = new QSpinBox(centerlinePage);
 	m_otLcOuterMaxItersSpin->setRange(5, 200);
 	m_otLcOuterMaxItersSpin->setSingleStep(5);
 	m_otLcOuterMaxItersSpin->setValue(40);
-	addParamRow(
-		centerlineForm,
-		m_otLcOuterMaxItersLabel,
-		m_otLcOuterMaxItersSpin,
-		m_otLcOuterMaxItersHint,
-		QString(),
-		QString(),
-		&m_otLcOuterMaxItersRow);
+	addParamRow(centerlineForm, m_otLcOuterMaxItersLabel, m_otLcOuterMaxItersSpin, m_otLcOuterMaxItersHint, QString(),
+				QString(), &m_otLcOuterMaxItersRow);
 	m_minRootsSpin = new QSpinBox(centerlinePage);
 	m_minRootsSpin->setRange(0, 200);
 	m_minRootsSpin->setSingleStep(5);
 	m_minRootsSpin->setValue(0);
 	m_minRootsSpin->setSpecialValueText(QStringLiteral("Auto"));
-	addParamRow(
-		centerlineForm,
-		m_minRootsLabel,
-		m_minRootsSpin,
-		m_minRootsHint,
-		QString(),
-		QString(),
-		&m_minRootsRow);
+	addParamRow(centerlineForm, m_minRootsLabel, m_minRootsSpin, m_minRootsHint, QString(), QString(), &m_minRootsRow);
 	m_paramTabs->addTab(centerlinePage, QStringLiteral("Centerline"));
 	// --- 轨迹与投影 ---
 	auto* trajectoryPage = new QWidget(m_paramTabs);
@@ -219,45 +154,28 @@ TubularGrindingDockWidget::TubularGrindingDockWidget(IPluginHostContext* host, Q
 	trajectoryForm->setLabelAlignment(Qt::AlignTop);
 	m_templateCombo = new QComboBox(trajectoryPage);
 	m_templateCombo->addItem(templateKindLabel(PluginTubularGrindingTemplateKind::Auto, true),
-		static_cast<int>(PluginTubularGrindingTemplateKind::Auto));
+							 static_cast<int>(PluginTubularGrindingTemplateKind::Auto));
 	m_templateCombo->addItem(templateKindLabel(PluginTubularGrindingTemplateKind::Helical, true),
-		static_cast<int>(PluginTubularGrindingTemplateKind::Helical));
+							 static_cast<int>(PluginTubularGrindingTemplateKind::Helical));
 	m_templateCombo->addItem(templateKindLabel(PluginTubularGrindingTemplateKind::Circumferential, true),
-		static_cast<int>(PluginTubularGrindingTemplateKind::Circumferential));
+							 static_cast<int>(PluginTubularGrindingTemplateKind::Circumferential));
 	m_templateCombo->addItem(templateKindLabel(PluginTubularGrindingTemplateKind::AxialParallel, true),
-		static_cast<int>(PluginTubularGrindingTemplateKind::AxialParallel));
+							 static_cast<int>(PluginTubularGrindingTemplateKind::AxialParallel));
 	m_templateCombo->addItem(templateKindLabel(PluginTubularGrindingTemplateKind::Zigzag, true),
-		static_cast<int>(PluginTubularGrindingTemplateKind::Zigzag));
-	addParamRow(
-		trajectoryForm,
-		m_templateLabel,
-		m_templateCombo,
-		m_templateHint,
-		QString(),
-		QString());
+							 static_cast<int>(PluginTubularGrindingTemplateKind::Zigzag));
+	addParamRow(trajectoryForm, m_templateLabel, m_templateCombo, m_templateHint, QString(), QString());
 	m_helicalCoilsSpin = new QSpinBox(trajectoryPage);
 	m_helicalCoilsSpin->setRange(1, 64);
 	m_helicalCoilsSpin->setValue(8);
-	addParamRow(
-		trajectoryForm,
-		m_helicalCoilsLabel,
-		m_helicalCoilsSpin,
-		m_helicalCoilsHint,
-		QString(),
-		QString());
+	addParamRow(trajectoryForm, m_helicalCoilsLabel, m_helicalCoilsSpin, m_helicalCoilsHint, QString(), QString());
 	m_projectionDistSpin = new QDoubleSpinBox(trajectoryPage);
 	m_projectionDistSpin->setRange(1.0, 100.0);
 	m_projectionDistSpin->setSingleStep(1.0);
 	m_projectionDistSpin->setDecimals(1);
 	m_projectionDistSpin->setValue(10.0);
 	m_projectionDistSpin->setSuffix(QStringLiteral(" mm"));
-	addParamRow(
-		trajectoryForm,
-		m_projectionDistLabel,
-		m_projectionDistSpin,
-		m_projectionDistHint,
-		QString(),
-		QString());
+	addParamRow(trajectoryForm, m_projectionDistLabel, m_projectionDistSpin, m_projectionDistHint, QString(),
+				QString());
 	m_paramTabs->addTab(trajectoryPage, QStringLiteral("Trajectory"));
 	// --- FPFH Mesh 区域划分 ---
 	auto* fpfhPage = new QWidget(m_paramTabs);
@@ -271,56 +189,30 @@ TubularGrindingDockWidget::TubularGrindingDockWidget(IPluginHostContext* host, Q
 	m_fpfhFeatureVoxelSpin->setValue(0.0);
 	m_fpfhFeatureVoxelSpin->setSpecialValueText(QStringLiteral("Auto"));
 	m_fpfhFeatureVoxelSpin->setSuffix(QStringLiteral(" mm"));
-	addParamRow(
-		fpfhForm,
-		m_fpfhFeatureVoxelLabel,
-		m_fpfhFeatureVoxelSpin,
-		m_fpfhFeatureVoxelHint,
-		QString(),
-		QString());
+	addParamRow(fpfhForm, m_fpfhFeatureVoxelLabel, m_fpfhFeatureVoxelSpin, m_fpfhFeatureVoxelHint, QString(),
+				QString());
 	m_fpfhMaxSamplePointsSpin = new QSpinBox(fpfhPage);
 	m_fpfhMaxSamplePointsSpin->setRange(0, 50000);
 	m_fpfhMaxSamplePointsSpin->setSingleStep(500);
 	m_fpfhMaxSamplePointsSpin->setValue(0);
 	m_fpfhMaxSamplePointsSpin->setSpecialValueText(QStringLiteral("Auto"));
-	addParamRow(
-		fpfhForm,
-		m_fpfhMaxSamplePointsLabel,
-		m_fpfhMaxSamplePointsSpin,
-		m_fpfhMaxSamplePointsHint,
-		QString(),
-		QString());
+	addParamRow(fpfhForm, m_fpfhMaxSamplePointsLabel, m_fpfhMaxSamplePointsSpin, m_fpfhMaxSamplePointsHint, QString(),
+				QString());
 	m_fpfhNeighborsSpin = new QSpinBox(fpfhPage);
 	m_fpfhNeighborsSpin->setRange(5, 100);
 	m_fpfhNeighborsSpin->setValue(20);
-	addParamRow(
-		fpfhForm,
-		m_fpfhNeighborsLabel,
-		m_fpfhNeighborsSpin,
-		m_fpfhNeighborsHint,
-		QString(),
-		QString());
+	addParamRow(fpfhForm, m_fpfhNeighborsLabel, m_fpfhNeighborsSpin, m_fpfhNeighborsHint, QString(), QString());
 	m_fpfhSaliencyNeighborsSpin = new QSpinBox(fpfhPage);
 	m_fpfhSaliencyNeighborsSpin->setRange(5, 50);
 	m_fpfhSaliencyNeighborsSpin->setValue(10);
-	addParamRow(
-		fpfhForm,
-		m_fpfhSaliencyNeighborsLabel,
-		m_fpfhSaliencyNeighborsSpin,
-		m_fpfhSaliencyNeighborsHint,
-		QString(),
-		QString());
+	addParamRow(fpfhForm, m_fpfhSaliencyNeighborsLabel, m_fpfhSaliencyNeighborsSpin, m_fpfhSaliencyNeighborsHint,
+				QString(), QString());
 	m_fpfhKeypointCountSpin = new QSpinBox(fpfhPage);
 	m_fpfhKeypointCountSpin->setRange(0, 256);
 	m_fpfhKeypointCountSpin->setValue(0);
 	m_fpfhKeypointCountSpin->setSpecialValueText(QStringLiteral("Auto"));
-	addParamRow(
-		fpfhForm,
-		m_fpfhKeypointCountLabel,
-		m_fpfhKeypointCountSpin,
-		m_fpfhKeypointCountHint,
-		QString(),
-		QString());
+	addParamRow(fpfhForm, m_fpfhKeypointCountLabel, m_fpfhKeypointCountSpin, m_fpfhKeypointCountHint, QString(),
+				QString());
 	m_fpfhKeypointMinSepSpin = new QDoubleSpinBox(fpfhPage);
 	m_fpfhKeypointMinSepSpin->setRange(0.0, 100.0);
 	m_fpfhKeypointMinSepSpin->setSingleStep(0.5);
@@ -328,49 +220,29 @@ TubularGrindingDockWidget::TubularGrindingDockWidget(IPluginHostContext* host, Q
 	m_fpfhKeypointMinSepSpin->setValue(0.0);
 	m_fpfhKeypointMinSepSpin->setSpecialValueText(QStringLiteral("Auto"));
 	m_fpfhKeypointMinSepSpin->setSuffix(QStringLiteral(" mm"));
-	addParamRow(
-		fpfhForm,
-		m_fpfhKeypointMinSepLabel,
-		m_fpfhKeypointMinSepSpin,
-		m_fpfhKeypointMinSepHint,
-		QString(),
-		QString());
+	addParamRow(fpfhForm, m_fpfhKeypointMinSepLabel, m_fpfhKeypointMinSepSpin, m_fpfhKeypointMinSepHint, QString(),
+				QString());
 	m_fpfhRegionGrowDistSpin = new QDoubleSpinBox(fpfhPage);
 	m_fpfhRegionGrowDistSpin->setRange(0.0, 2.0);
 	m_fpfhRegionGrowDistSpin->setSingleStep(0.05);
 	m_fpfhRegionGrowDistSpin->setDecimals(2);
 	m_fpfhRegionGrowDistSpin->setValue(0.0);
 	m_fpfhRegionGrowDistSpin->setSpecialValueText(QStringLiteral("Auto"));
-	addParamRow(
-		fpfhForm,
-		m_fpfhRegionGrowDistLabel,
-		m_fpfhRegionGrowDistSpin,
-		m_fpfhRegionGrowDistHint,
-		QString(),
-		QString());
+	addParamRow(fpfhForm, m_fpfhRegionGrowDistLabel, m_fpfhRegionGrowDistSpin, m_fpfhRegionGrowDistHint, QString(),
+				QString());
 	m_fpfhRegionGrowAngleSpin = new QDoubleSpinBox(fpfhPage);
 	m_fpfhRegionGrowAngleSpin->setRange(5.0, 90.0);
 	m_fpfhRegionGrowAngleSpin->setSingleStep(5.0);
 	m_fpfhRegionGrowAngleSpin->setDecimals(1);
 	m_fpfhRegionGrowAngleSpin->setValue(45.0);
 	m_fpfhRegionGrowAngleSpin->setSuffix(QStringLiteral(" deg"));
-	addParamRow(
-		fpfhForm,
-		m_fpfhRegionGrowAngleLabel,
-		m_fpfhRegionGrowAngleSpin,
-		m_fpfhRegionGrowAngleHint,
-		QString(),
-		QString());
+	addParamRow(fpfhForm, m_fpfhRegionGrowAngleLabel, m_fpfhRegionGrowAngleSpin, m_fpfhRegionGrowAngleHint, QString(),
+				QString());
 	m_fpfhMinRegionFacesSpin = new QSpinBox(fpfhPage);
 	m_fpfhMinRegionFacesSpin->setRange(1, 10000);
 	m_fpfhMinRegionFacesSpin->setValue(10);
-	addParamRow(
-		fpfhForm,
-		m_fpfhMinRegionFacesLabel,
-		m_fpfhMinRegionFacesSpin,
-		m_fpfhMinRegionFacesHint,
-		QString(),
-		QString());
+	addParamRow(fpfhForm, m_fpfhMinRegionFacesLabel, m_fpfhMinRegionFacesSpin, m_fpfhMinRegionFacesHint, QString(),
+				QString());
 	m_paramTabs->addTab(fpfhPage, QStringLiteral("Mesh region"));
 	groupLayout->addWidget(m_paramTabs);
 	auto* stageRow = new QHBoxLayout();
@@ -395,10 +267,10 @@ TubularGrindingDockWidget::TubularGrindingDockWidget(IPluginHostContext* host, Q
 	layout->addWidget(m_rootGroup);
 	scroll->setWidget(content);
 	outer->addWidget(scroll);
-	connect(m_meshCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-		this, &TubularGrindingDockWidget::onMeshSelectionChanged);
-	connect(m_centerlineMethodCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-		this, &TubularGrindingDockWidget::onCenterlineMethodChanged);
+	connect(m_meshCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&TubularGrindingDockWidget::onMeshSelectionChanged);
+	connect(m_centerlineMethodCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&TubularGrindingDockWidget::onCenterlineMethodChanged);
 	connect(m_resetBtn, &QPushButton::clicked, this, &TubularGrindingDockWidget::onResetSessionClicked);
 	connect(m_centerlineBtn, &QPushButton::clicked, this, &TubularGrindingDockWidget::onCenterlineClicked);
 	connect(m_templateBtn, &QPushButton::clicked, this, &TubularGrindingDockWidget::onTemplateClicked);
@@ -410,14 +282,8 @@ TubularGrindingDockWidget::TubularGrindingDockWidget(IPluginHostContext* host, Q
 	updateButtonStates();
 }
 
-void TubularGrindingDockWidget::addParamRow(
-	QFormLayout* form,
-	QLabel*& labelOut,
-	QWidget* editor,
-	QLabel*& hintOut,
-	const QString& labelText,
-	const QString& hintText,
-	QWidget** outFieldWrap)
+void TubularGrindingDockWidget::addParamRow(QFormLayout* form, QLabel*& labelOut, QWidget* editor, QLabel*& hintOut,
+											const QString& labelText, const QString& hintText, QWidget** outFieldWrap)
 {
 	if (!form || !editor)
 	{
@@ -499,8 +365,7 @@ PluginTubularGrindingCenterlineMethod TubularGrindingDockWidget::selectedCenterl
 	{
 		return PluginTubularGrindingCenterlineMethod::Laplacian;
 	}
-	return static_cast<PluginTubularGrindingCenterlineMethod>(
-		m_centerlineMethodCombo->currentData().toInt());
+	return static_cast<PluginTubularGrindingCenterlineMethod>(m_centerlineMethodCombo->currentData().toInt());
 }
 
 void TubularGrindingDockWidget::syncCenterlineMethodForSource()
@@ -509,12 +374,11 @@ void TubularGrindingDockWidget::syncCenterlineMethodForSource()
 	{
 		return;
 	}
-	if (selectedSourceIsPointCloud()
-		&& selectedCenterlineMethod() == PluginTubularGrindingCenterlineMethod::Laplacian)
+	if (selectedSourceIsPointCloud() && selectedCenterlineMethod() == PluginTubularGrindingCenterlineMethod::Laplacian)
 	{
 		const QSignalBlocker blocker(m_centerlineMethodCombo);
-		const int otIdx = m_centerlineMethodCombo->findData(
-			static_cast<int>(PluginTubularGrindingCenterlineMethod::OtLc));
+		const int otIdx =
+			m_centerlineMethodCombo->findData(static_cast<int>(PluginTubularGrindingCenterlineMethod::OtLc));
 		if (otIdx >= 0)
 		{
 			m_centerlineMethodCombo->setCurrentIndex(otIdx);
@@ -524,8 +388,7 @@ void TubularGrindingDockWidget::syncCenterlineMethodForSource()
 
 void TubularGrindingDockWidget::updateCenterlineParamVisibility()
 {
-	const bool isOtLc =
-		selectedCenterlineMethod() == PluginTubularGrindingCenterlineMethod::OtLc;
+	const bool isOtLc = selectedCenterlineMethod() == PluginTubularGrindingCenterlineMethod::OtLc;
 	setParamRowVisible(m_sectionSpacingLabel, m_sectionSpacingRow, true);
 	setParamRowVisible(m_centerlineIterLabel, m_centerlineIterRow, !isOtLc);
 	setParamRowVisible(m_laplacianLambdaLabel, m_laplacianLambdaRow, !isOtLc);
@@ -562,17 +425,13 @@ PluginTubularGrindingParams TubularGrindingDockWidget::buildParams() const
 	params.helicalCoils = m_helicalCoilsSpin ? m_helicalCoilsSpin->value() : 8;
 	if (m_templateCombo)
 	{
-		params.templateKind = static_cast<PluginTubularGrindingTemplateKind>(
-			m_templateCombo->currentData().toInt());
+		params.templateKind = static_cast<PluginTubularGrindingTemplateKind>(m_templateCombo->currentData().toInt());
 	}
 	params.fpfhFeatureVoxelMm = m_fpfhFeatureVoxelSpin ? m_fpfhFeatureVoxelSpin->value() : 0.0;
 	params.fpfhMaxSamplePoints = m_fpfhMaxSamplePointsSpin ? m_fpfhMaxSamplePointsSpin->value() : 0;
-	params.fpfhNeighbors = m_fpfhNeighborsSpin
-		? static_cast<unsigned int>(m_fpfhNeighborsSpin->value())
-		: 20U;
-	params.fpfhSaliencyNeighbors = m_fpfhSaliencyNeighborsSpin
-		? static_cast<unsigned int>(m_fpfhSaliencyNeighborsSpin->value())
-		: 10U;
+	params.fpfhNeighbors = m_fpfhNeighborsSpin ? static_cast<unsigned int>(m_fpfhNeighborsSpin->value()) : 20U;
+	params.fpfhSaliencyNeighbors =
+		m_fpfhSaliencyNeighborsSpin ? static_cast<unsigned int>(m_fpfhSaliencyNeighborsSpin->value()) : 10U;
 	params.fpfhKeypointCount = m_fpfhKeypointCountSpin ? m_fpfhKeypointCountSpin->value() : 0;
 	params.fpfhKeypointMinSeparationMm = m_fpfhKeypointMinSepSpin ? m_fpfhKeypointMinSepSpin->value() : 0.0;
 	params.fpfhRegionGrowDist = m_fpfhRegionGrowDistSpin ? m_fpfhRegionGrowDistSpin->value() : 0.0;
@@ -612,9 +471,10 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_sectionSpacingHint)
 	{
-		m_sectionSpacingHint->setText(zh
-			? QStringLiteral("PCA 质心分箱宽度与输出中心线采样间距。过大易漏点，过小采样密、计算慢。")
-			: QStringLiteral("PCA bin width and output centerline spacing. Too large skips samples; too small is dense and slower."));
+		m_sectionSpacingHint->setText(
+			zh ? QStringLiteral("PCA 质心分箱宽度与输出中心线采样间距。过大易漏点，过小采样密、计算慢。")
+			   : QStringLiteral("PCA bin width and output centerline spacing. Too large skips samples; too small is "
+								"dense and slower."));
 	}
 	if (m_sectionSpacingSpin)
 	{
@@ -626,9 +486,10 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_centerlineIterHint)
 	{
-		m_centerlineIterHint->setText(zh
-			? QStringLiteral("Laplacian 收缩 + 边塌缩循环次数。增大更贴近骨架，过大可能塌没或断图。")
-			: QStringLiteral("Laplacian contraction and edge-collapse loops. Higher pulls toward skeleton; too high may collapse or disconnect the graph."));
+		m_centerlineIterHint->setText(
+			zh ? QStringLiteral("Laplacian 收缩 + 边塌缩循环次数。增大更贴近骨架，过大可能塌没或断图。")
+			   : QStringLiteral("Laplacian contraction and edge-collapse loops. Higher pulls toward skeleton; too high "
+								"may collapse or disconnect the graph."));
 	}
 	if (m_centerlineIterSpin)
 	{
@@ -640,9 +501,10 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_laplacianLambdaHint)
 	{
-		m_laplacianLambdaHint->setText(zh
-			? QStringLiteral("映射为中期锚定权重峰值（约 10–200）。越大收缩越快，中心线易贴壳或过度收缩。")
-			: QStringLiteral("Maps to peak anchor weight (~10–200). Higher contracts faster; may stick to shell or over-shrink."));
+		m_laplacianLambdaHint->setText(
+			zh ? QStringLiteral("映射为中期锚定权重峰值（约 10–200）。越大收缩越快，中心线易贴壳或过度收缩。")
+			   : QStringLiteral("Maps to peak anchor weight (~10–200). Higher contracts faster; may stick to shell or "
+								"over-shrink."));
 	}
 	if (m_laplacianLambdaSpin)
 	{
@@ -654,9 +516,10 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_laplacianAttractionHint)
 	{
-		m_laplacianAttractionHint->setText(zh
-			? QStringLiteral("前期把顶点拉回原始表面的力度。增大更稳、不易飞点；过大则难向管腔中心收缩。")
-			: QStringLiteral("Early pull toward original surface. Higher stabilizes; too high hinders inward shrink toward the lumen."));
+		m_laplacianAttractionHint->setText(
+			zh ? QStringLiteral("前期把顶点拉回原始表面的力度。增大更稳、不易飞点；过大则难向管腔中心收缩。")
+			   : QStringLiteral("Early pull toward original surface. Higher stabilizes; too high hinders inward shrink "
+								"toward the lumen."));
 	}
 	if (m_laplacianAttractionSpin)
 	{
@@ -668,28 +531,27 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_centerlineMethodCombo)
 	{
-		const int lapIdx = m_centerlineMethodCombo->findData(
-			static_cast<int>(PluginTubularGrindingCenterlineMethod::Laplacian));
-		const int otIdx = m_centerlineMethodCombo->findData(
-			static_cast<int>(PluginTubularGrindingCenterlineMethod::OtLc));
+		const int lapIdx =
+			m_centerlineMethodCombo->findData(static_cast<int>(PluginTubularGrindingCenterlineMethod::Laplacian));
+		const int otIdx =
+			m_centerlineMethodCombo->findData(static_cast<int>(PluginTubularGrindingCenterlineMethod::OtLc));
 		if (lapIdx >= 0)
 		{
-			m_centerlineMethodCombo->setItemText(
-				lapIdx,
-				zh ? QStringLiteral("Laplacian 骨架") : QStringLiteral("Laplacian skeleton"));
+			m_centerlineMethodCombo->setItemText(lapIdx, zh ? QStringLiteral("Laplacian 骨架")
+															: QStringLiteral("Laplacian skeleton"));
 		}
 		if (otIdx >= 0)
 		{
-			m_centerlineMethodCombo->setItemText(
-				otIdx,
-				zh ? QStringLiteral("OTLC 骨架") : QStringLiteral("OTLC skeleton"));
+			m_centerlineMethodCombo->setItemText(otIdx,
+												 zh ? QStringLiteral("OTLC 骨架") : QStringLiteral("OTLC skeleton"));
 		}
 	}
 	if (m_centerlineMethodHint)
 	{
-		m_centerlineMethodHint->setText(zh
-			? QStringLiteral("Laplacian 适用于网格；点云请选 OTLC。切换后下方参数同步更新。")
-			: QStringLiteral("Laplacian for mesh; use OTLC for point clouds. Parameters below follow the selected method."));
+		m_centerlineMethodHint->setText(
+			zh ? QStringLiteral("Laplacian 适用于网格；点云请选 OTLC。切换后下方参数同步更新。")
+			   : QStringLiteral(
+					 "Laplacian for mesh; use OTLC for point clouds. Parameters below follow the selected method."));
 	}
 	if (m_otSampleRateLabel)
 	{
@@ -697,9 +559,10 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_otSampleRateHint)
 	{
-		m_otSampleRateHint->setText(zh
-			? QStringLiteral("最优传输下采样比例（相对输入点数）。越小越快但骨架可能稀疏。")
-			: QStringLiteral("OT downsample fraction of input points. Lower is faster but may sparsify the skeleton."));
+		m_otSampleRateHint->setText(
+			zh ? QStringLiteral("最优传输下采样比例（相对输入点数）。越小越快但骨架可能稀疏。")
+			   : QStringLiteral(
+					 "OT downsample fraction of input points. Lower is faster but may sparsify the skeleton."));
 	}
 	if (m_otCostBetaLabel)
 	{
@@ -707,9 +570,10 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_otCostBetaHint)
 	{
-		m_otCostBetaHint->setText(zh
-			? QStringLiteral("质心更新时距离权重的幂指数。越大越强调近邻匹配。")
-			: QStringLiteral("Power on distance weights during barycentric OT update. Higher favors nearer matches."));
+		m_otCostBetaHint->setText(
+			zh ? QStringLiteral("质心更新时距离权重的幂指数。越大越强调近邻匹配。")
+			   : QStringLiteral(
+					 "Power on distance weights during barycentric OT update. Higher favors nearer matches."));
 	}
 	if (m_otcPreStepsLabel)
 	{
@@ -717,9 +581,8 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_otcPreStepsHint)
 	{
-		m_otcPreStepsHint->setText(zh
-			? QStringLiteral("外层 Laplacian 前的 OT 聚类预处理步数。")
-			: QStringLiteral("OT cluster-merge steps before the outer Laplacian loop."));
+		m_otcPreStepsHint->setText(zh ? QStringLiteral("外层 Laplacian 前的 OT 聚类预处理步数。")
+									  : QStringLiteral("OT cluster-merge steps before the outer Laplacian loop."));
 	}
 	if (m_otcOuterLoopsLabel)
 	{
@@ -727,9 +590,8 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_otcOuterLoopsHint)
 	{
-		m_otcOuterLoopsHint->setText(zh
-			? QStringLiteral("每轮外层迭代内的 OT 更新 + 聚类合并次数。")
-			: QStringLiteral("OT update + cluster merge passes per outer iteration."));
+		m_otcOuterLoopsHint->setText(zh ? QStringLiteral("每轮外层迭代内的 OT 更新 + 聚类合并次数。")
+										: QStringLiteral("OT update + cluster merge passes per outer iteration."));
 	}
 	if (m_otLcOuterMaxItersLabel)
 	{
@@ -737,9 +599,8 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_otLcOuterMaxItersHint)
 	{
-		m_otLcOuterMaxItersHint->setText(zh
-			? QStringLiteral("约束 Laplacian + OTC 交替的最大轮数。")
-			: QStringLiteral("Max alternating constrained-Laplacian and OTC rounds."));
+		m_otLcOuterMaxItersHint->setText(zh ? QStringLiteral("约束 Laplacian + OTC 交替的最大轮数。")
+											: QStringLiteral("Max alternating constrained-Laplacian and OTC rounds."));
 	}
 	if (m_templateLabel)
 	{
@@ -747,9 +608,9 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_templateHint)
 	{
-		m_templateHint->setText(zh
-			? QStringLiteral("沿中心线生成打磨/涂胶理想点位的轨迹模式。Auto 按管段几何自动选择。")
-			: QStringLiteral("Ideal tool-point pattern along the centerline. Auto picks from segment geometry."));
+		m_templateHint->setText(
+			zh ? QStringLiteral("沿中心线生成打磨/涂胶理想点位的轨迹模式。Auto 按管段几何自动选择。")
+			   : QStringLiteral("Ideal tool-point pattern along the centerline. Auto picks from segment geometry."));
 	}
 	if (m_templateCombo)
 	{
@@ -757,15 +618,15 @@ void TubularGrindingDockWidget::applyLanguage()
 		const QSignalBlocker blocker(m_templateCombo);
 		m_templateCombo->clear();
 		m_templateCombo->addItem(templateKindLabel(PluginTubularGrindingTemplateKind::Auto, zh),
-			static_cast<int>(PluginTubularGrindingTemplateKind::Auto));
+								 static_cast<int>(PluginTubularGrindingTemplateKind::Auto));
 		m_templateCombo->addItem(templateKindLabel(PluginTubularGrindingTemplateKind::Helical, zh),
-			static_cast<int>(PluginTubularGrindingTemplateKind::Helical));
+								 static_cast<int>(PluginTubularGrindingTemplateKind::Helical));
 		m_templateCombo->addItem(templateKindLabel(PluginTubularGrindingTemplateKind::Circumferential, zh),
-			static_cast<int>(PluginTubularGrindingTemplateKind::Circumferential));
+								 static_cast<int>(PluginTubularGrindingTemplateKind::Circumferential));
 		m_templateCombo->addItem(templateKindLabel(PluginTubularGrindingTemplateKind::AxialParallel, zh),
-			static_cast<int>(PluginTubularGrindingTemplateKind::AxialParallel));
+								 static_cast<int>(PluginTubularGrindingTemplateKind::AxialParallel));
 		m_templateCombo->addItem(templateKindLabel(PluginTubularGrindingTemplateKind::Zigzag, zh),
-			static_cast<int>(PluginTubularGrindingTemplateKind::Zigzag));
+								 static_cast<int>(PluginTubularGrindingTemplateKind::Zigzag));
 		if (prev >= 0 && prev < m_templateCombo->count())
 		{
 			m_templateCombo->setCurrentIndex(prev);
@@ -777,9 +638,9 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_helicalCoilsHint)
 	{
-		m_helicalCoilsHint->setText(zh
-			? QStringLiteral("螺旋模板沿中心线绕行的圈数，仅在选择螺旋模板时生效。")
-			: QStringLiteral("Number of helical turns; used only when the helical template is selected."));
+		m_helicalCoilsHint->setText(
+			zh ? QStringLiteral("螺旋模板沿中心线绕行的圈数，仅在选择螺旋模板时生效。")
+			   : QStringLiteral("Number of helical turns; used only when the helical template is selected."));
 	}
 	if (m_projectionDistLabel)
 	{
@@ -787,9 +648,10 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_projectionDistHint)
 	{
-		m_projectionDistHint->setText(zh
-			? QStringLiteral("模板点沿法向射线搜索管壁的最大长度。过小易漏投，过大可能投到对面壁面。")
-			: QStringLiteral("Max ray length from template points to hit the mesh. Too short misses; too long may hit the far wall."));
+		m_projectionDistHint->setText(
+			zh ? QStringLiteral("模板点沿法向射线搜索管壁的最大长度。过小易漏投，过大可能投到对面壁面。")
+			   : QStringLiteral("Max ray length from template points to hit the mesh. Too short misses; too long may "
+								"hit the far wall."));
 	}
 	if (m_projectionDistSpin)
 	{
@@ -801,9 +663,9 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_fpfhFeatureVoxelHint)
 	{
-		m_fpfhFeatureVoxelHint->setText(zh
-			? QStringLiteral("面心采样降采样体素边长。Auto 取包围盒对角线的 2%。")
-			: QStringLiteral("Voxel size for face-centroid downsampling. Auto uses 2% of bbox diagonal."));
+		m_fpfhFeatureVoxelHint->setText(
+			zh ? QStringLiteral("面心采样降采样体素边长。Auto 取包围盒对角线的 2%。")
+			   : QStringLiteral("Voxel size for face-centroid downsampling. Auto uses 2% of bbox diagonal."));
 	}
 	if (m_fpfhMaxSamplePointsLabel)
 	{
@@ -811,9 +673,9 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_fpfhMaxSamplePointsHint)
 	{
-		m_fpfhMaxSamplePointsHint->setText(zh
-			? QStringLiteral("降采样后面心点上限。Auto 为 4000。")
-			: QStringLiteral("Cap on downsampled face-centroid points. Auto is 4000."));
+		m_fpfhMaxSamplePointsHint->setText(
+			zh ? QStringLiteral("降采样后面心点上限。Auto 为 4000。")
+			   : QStringLiteral("Cap on downsampled face-centroid points. Auto is 4000."));
 	}
 	if (m_fpfhNeighborsLabel)
 	{
@@ -821,9 +683,9 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_fpfhNeighborsHint)
 	{
-		m_fpfhNeighborsHint->setText(zh
-			? QStringLiteral("计算 SPFH/FPFH 时的邻域点数，越大特征越平滑。")
-			: QStringLiteral("Neighbor count for SPFH/FPFH; larger values smooth features."));
+		m_fpfhNeighborsHint->setText(
+			zh ? QStringLiteral("计算 SPFH/FPFH 时的邻域点数，越大特征越平滑。")
+			   : QStringLiteral("Neighbor count for SPFH/FPFH; larger values smooth features."));
 	}
 	if (m_fpfhSaliencyNeighborsLabel)
 	{
@@ -831,9 +693,8 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_fpfhSaliencyNeighborsHint)
 	{
-		m_fpfhSaliencyNeighborsHint->setText(zh
-			? QStringLiteral("关键点显著性评分时的邻域大小。")
-			: QStringLiteral("Neighborhood size for keypoint saliency scoring."));
+		m_fpfhSaliencyNeighborsHint->setText(zh ? QStringLiteral("关键点显著性评分时的邻域大小。")
+												: QStringLiteral("Neighborhood size for keypoint saliency scoring."));
 	}
 	if (m_fpfhKeypointCountLabel)
 	{
@@ -841,39 +702,42 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_fpfhKeypointCountHint)
 	{
-		m_fpfhKeypointCountHint->setText(zh
-			? QStringLiteral("区域种子数。Auto 按采样点数估算，范围 8–64。")
-			: QStringLiteral("Region seed count. Auto scales with samples, clamped to 8–64."));
+		m_fpfhKeypointCountHint->setText(
+			zh ? QStringLiteral("区域种子数。Auto 按采样点数估算，范围 8–64。")
+			   : QStringLiteral("Region seed count. Auto scales with samples, clamped to 8–64."));
 	}
 	if (m_fpfhKeypointMinSepLabel)
 	{
-		m_fpfhKeypointMinSepLabel->setText(zh ? QStringLiteral("关键点最小间距") : QStringLiteral("Keypoint min separation"));
+		m_fpfhKeypointMinSepLabel->setText(zh ? QStringLiteral("关键点最小间距")
+											  : QStringLiteral("Keypoint min separation"));
 	}
 	if (m_fpfhKeypointMinSepHint)
 	{
-		m_fpfhKeypointMinSepHint->setText(zh
-			? QStringLiteral("种子点之间的最小空间距离。Auto 为 2×特征体素。")
-			: QStringLiteral("Minimum spatial separation between seeds. Auto is 2× feature voxel."));
+		m_fpfhKeypointMinSepHint->setText(
+			zh ? QStringLiteral("种子点之间的最小空间距离。Auto 为 2×特征体素。")
+			   : QStringLiteral("Minimum spatial separation between seeds. Auto is 2× feature voxel."));
 	}
 	if (m_fpfhRegionGrowDistLabel)
 	{
-		m_fpfhRegionGrowDistLabel->setText(zh ? QStringLiteral("区域生长 FPFH 距离") : QStringLiteral("Region grow FPFH dist"));
+		m_fpfhRegionGrowDistLabel->setText(zh ? QStringLiteral("区域生长 FPFH 距离")
+											  : QStringLiteral("Region grow FPFH dist"));
 	}
 	if (m_fpfhRegionGrowDistHint)
 	{
-		m_fpfhRegionGrowDistHint->setText(zh
-			? QStringLiteral("面邻接生长时 FPFH L2 距离阈值。Auto 为 0.35。")
-			: QStringLiteral("FPFH L2 distance threshold for face-adjacency grow. Auto is 0.35."));
+		m_fpfhRegionGrowDistHint->setText(
+			zh ? QStringLiteral("面邻接生长时 FPFH L2 距离阈值。Auto 为 0.35。")
+			   : QStringLiteral("FPFH L2 distance threshold for face-adjacency grow. Auto is 0.35."));
 	}
 	if (m_fpfhRegionGrowAngleLabel)
 	{
-		m_fpfhRegionGrowAngleLabel->setText(zh ? QStringLiteral("区域生长法向角") : QStringLiteral("Region grow normal angle"));
+		m_fpfhRegionGrowAngleLabel->setText(zh ? QStringLiteral("区域生长法向角")
+											   : QStringLiteral("Region grow normal angle"));
 	}
 	if (m_fpfhRegionGrowAngleHint)
 	{
-		m_fpfhRegionGrowAngleHint->setText(zh
-			? QStringLiteral("相邻面法向夹角上限，防止跨锐边生长。")
-			: QStringLiteral("Max normal angle between adjacent faces to block grow across sharp edges."));
+		m_fpfhRegionGrowAngleHint->setText(
+			zh ? QStringLiteral("相邻面法向夹角上限，防止跨锐边生长。")
+			   : QStringLiteral("Max normal angle between adjacent faces to block grow across sharp edges."));
 	}
 	if (m_fpfhMinRegionFacesLabel)
 	{
@@ -881,9 +745,9 @@ void TubularGrindingDockWidget::applyLanguage()
 	}
 	if (m_fpfhMinRegionFacesHint)
 	{
-		m_fpfhMinRegionFacesHint->setText(zh
-			? QStringLiteral("小于该面数的碎片区域会合并到最近邻域。")
-			: QStringLiteral("Fragments with fewer faces merge into the nearest neighbor region."));
+		m_fpfhMinRegionFacesHint->setText(
+			zh ? QStringLiteral("小于该面数的碎片区域会合并到最近邻域。")
+			   : QStringLiteral("Fragments with fewer faces merge into the nearest neighbor region."));
 	}
 	if (m_fpfhPartitionBtn)
 	{
@@ -943,9 +807,7 @@ void TubularGrindingDockWidget::refreshMeshList()
 		{
 			continue;
 		}
-		m_meshCombo->addItem(
-			QString::fromStdString(doc->backendDisplayName(id)) + suffix,
-			QString::fromStdString(id));
+		m_meshCombo->addItem(QString::fromStdString(doc->backendDisplayName(id)) + suffix, QString::fromStdString(id));
 	}
 	if (!prevId.empty())
 	{
@@ -996,12 +858,11 @@ void TubularGrindingDockWidget::updateButtonStates()
 		return;
 	}
 	const bool hasMesh = !selectedMeshBackendId().empty();
-	const bool laplacianOnPointCloud =
-		hasMesh
-		&& selectedSourceIsPointCloud()
-		&& selectedCenterlineMethod() == PluginTubularGrindingCenterlineMethod::Laplacian;
+	const bool laplacianOnPointCloud = hasMesh && selectedSourceIsPointCloud() &&
+									   selectedCenterlineMethod() == PluginTubularGrindingCenterlineMethod::Laplacian;
 	const auto last = m_lastStage;
-	auto canRun = [&](const PluginTubularGrindingStage stage) {
+	auto canRun = [&](const PluginTubularGrindingStage stage)
+	{
 		if (m_busy || !hasMesh || laplacianOnPointCloud)
 		{
 			return false;
@@ -1017,9 +878,9 @@ void TubularGrindingDockWidget::updateButtonStates()
 		m_centerlineBtn->setEnabled(canRun(PluginTubularGrindingStage::Centerline));
 		if (laplacianOnPointCloud)
 		{
-			m_centerlineBtn->setToolTip(i18n(
-				QStringLiteral("Laplacian requires mesh input; switch to OTLC or select a mesh."),
-				QStringLiteral("Laplacian 仅支持网格，请改用 OTLC 或选择网格对象。")));
+			m_centerlineBtn->setToolTip(
+				i18n(QStringLiteral("Laplacian requires mesh input; switch to OTLC or select a mesh."),
+					 QStringLiteral("Laplacian 仅支持网格，请改用 OTLC 或选择网格对象。")));
 		}
 		else
 		{
@@ -1041,15 +902,13 @@ void TubularGrindingDockWidget::updateButtonStates()
 		m_fpfhPartitionBtn->setEnabled(hostOk && meshOnly && !m_busy);
 		if (!hostOk)
 		{
-			m_fpfhPartitionBtn->setToolTip(i18n(
-				QStringLiteral("Requires host 1.15.0 or newer."),
-				QStringLiteral("需要宿主 1.15.0 或更高版本。")));
+			m_fpfhPartitionBtn->setToolTip(
+				i18n(QStringLiteral("Requires host 1.15.0 or newer."), QStringLiteral("需要宿主 1.15.0 或更高版本。")));
 		}
 		else if (hasMesh && selectedSourceIsPointCloud())
 		{
-			m_fpfhPartitionBtn->setToolTip(i18n(
-				QStringLiteral("FPFH region partition requires mesh input."),
-				QStringLiteral("FPFH 区域划分仅支持网格输入。")));
+			m_fpfhPartitionBtn->setToolTip(i18n(QStringLiteral("FPFH region partition requires mesh input."),
+												QStringLiteral("FPFH 区域划分仅支持网格输入。")));
 		}
 		else
 		{
@@ -1103,35 +962,33 @@ void TubularGrindingDockWidget::runStage(const PluginTubularGrindingStage stage)
 	m_busy = true;
 	updateButtonStates();
 	const PluginTubularGrindingParams params = buildParams();
-	pch->runTubularGrindingStage(
-		doc,
-		m_sessionId,
-		stage,
-		params,
-		[this](const bool ok, const QString& error, const PluginTubularGrindingReport& report) {
-			m_busy = false;
-			if (!ok)
-			{
-				appendLog(error);
-				if (m_host)
-				{
-					m_host->logError(error);
-				}
-			}
-			else
-			{
-				if (report.lastCompletedStage != PluginTubularGrindingStage::FpfhRegionPartition)
-				{
-					m_lastStage = report.lastCompletedStage;
-				}
-				refreshSummary(report);
-				if (!report.stageSummaryZh.isEmpty())
-				{
-					appendLog(report.stageSummaryZh);
-				}
-			}
-			updateButtonStates();
-		});
+	pch->runTubularGrindingStage(doc, m_sessionId, stage, params,
+								 [this](const bool ok, const QString& error, const PluginTubularGrindingReport& report)
+								 {
+									 m_busy = false;
+									 if (!ok)
+									 {
+										 appendLog(error);
+										 if (m_host)
+										 {
+											 m_host->logError(error);
+										 }
+									 }
+									 else
+									 {
+										 if (report.lastCompletedStage !=
+											 PluginTubularGrindingStage::FpfhRegionPartition)
+										 {
+											 m_lastStage = report.lastCompletedStage;
+										 }
+										 refreshSummary(report);
+										 if (!report.stageSummaryZh.isEmpty())
+										 {
+											 appendLog(report.stageSummaryZh);
+										 }
+									 }
+									 updateButtonStates();
+								 });
 }
 
 void TubularGrindingDockWidget::refreshSummary(const PluginTubularGrindingReport& report)

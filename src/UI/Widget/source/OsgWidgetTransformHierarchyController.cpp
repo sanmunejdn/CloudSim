@@ -1,3 +1,6 @@
+﻿/// @file OsgWidgetTransformHierarchyController.cpp
+/// @brief OsgWidgetTransformHierarchyController 实现
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -8,20 +11,17 @@
 #include <windows.h>
 #endif
 
-#include "OsgWidgetTransformHierarchyController.h"
-
 #include "BackendIdUserData.h"
 #include "OsgWidget.h"
+#include "OsgWidgetTransformHierarchyController.h"
 
 #include <osg/MatrixTransform>
 #include <osg/Quat>
 #include <osg/Vec3>
 #include <osg/Vec3d>
 
-void OsgWidgetTransformHierarchyController::setBackendParent(
-	OsgWidget& self,
-	const std::string& backendId,
-	const std::string& parentBackendId)
+void OsgWidgetTransformHierarchyController::setBackendParent(OsgWidget& self, const std::string& backendId,
+															 const std::string& parentBackendId)
 {
 	if (backendId.empty())
 	{
@@ -96,9 +96,7 @@ void OsgWidgetTransformHierarchyController::setBackendParent(
 	(void)savedWorld;
 }
 
-void OsgWidgetTransformHierarchyController::removeBackendObjectVisual(
-	OsgWidget& self,
-	const std::string& backendId)
+void OsgWidgetTransformHierarchyController::removeBackendObjectVisual(OsgWidget& self, const std::string& backendId)
 {
 	auto it = self.m_backendObjectRoots.find(backendId);
 	if (it != self.m_backendObjectRoots.end() && it->second.valid())
@@ -112,7 +110,7 @@ void OsgWidgetTransformHierarchyController::removeBackendObjectVisual(
 	self.m_backendObjectRoots.erase(backendId);
 	self.unbindBackendVisualRoot(backendId);
 	self.m_backendParentIds.erase(backendId);
-	for (auto itp = self.m_backendParentIds.begin(); itp != self.m_backendParentIds.end(); )
+	for (auto itp = self.m_backendParentIds.begin(); itp != self.m_backendParentIds.end();)
 	{
 		if (itp->second == backendId)
 		{
@@ -133,10 +131,8 @@ void OsgWidgetTransformHierarchyController::removeBackendObjectVisual(
 	}
 }
 
-bool OsgWidgetTransformHierarchyController::isBackendDescendantOf(
-	const OsgWidget& self,
-	const std::string& backendId,
-	const std::string& ancestorId)
+bool OsgWidgetTransformHierarchyController::isBackendDescendantOf(const OsgWidget& self, const std::string& backendId,
+																  const std::string& ancestorId)
 {
 	return self.OsgScene::isBackendDescendantOf(backendId, ancestorId);
 }
@@ -157,9 +153,7 @@ void OsgWidgetTransformHierarchyController::finalizeSelectionSync(OsgWidget& sel
 	self.requestRedraw();
 }
 
-void OsgWidgetTransformHierarchyController::syncSelectionForBackendId(
-	OsgWidget& self,
-	const std::string& backendId)
+void OsgWidgetTransformHierarchyController::syncSelectionForBackendId(OsgWidget& self, const std::string& backendId)
 {
 	self.m_activeBackendId = backendId;
 	auto it = self.m_backendObjectRoots.find(backendId);

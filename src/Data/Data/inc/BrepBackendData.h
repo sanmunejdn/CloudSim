@@ -1,13 +1,17 @@
-#pragma once
+﻿#ifndef DATA_BREPBACKENDDATA_H
+#define DATA_BREPBACKENDDATA_H
+
+/// @file BrepBackendData.h
+/// @brief STEP B-rep 工件：场景显示与轨迹特征共用同一 ShapeHandle
+
+#include "BackendDataBase.h"
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
-#include "BackendDataBase.h"
 #include <ShapeHandle.h>
-
-#include <unordered_map>
 
 struct DATA_EXPORT BrepHierarchyPart
 {
@@ -56,14 +60,12 @@ public:
 	/// 返回世界坐标系下的 shape（应用 worldMatrix 变换后的副本）
 	geoalgo::ShapeHandle worldShape() const;
 
-	static bool loadStepHierarchyFromFile(
-		const std::string& path,
-		std::vector<BrepHierarchyPart>& outParts,
-		std::string* errMsg = nullptr);
+	static bool loadStepHierarchyFromFile(const std::string& path, std::vector<BrepHierarchyPart>& outParts,
+										  std::string* errMsg = nullptr);
 
 	nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const override;
 	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-		const BackendDataManager* mgr = nullptr) override;
+							 const BackendDataManager* mgr = nullptr) override;
 
 private:
 	void recomputeBounds();
@@ -76,3 +78,5 @@ private:
 	BackendColor m_color;
 	std::unordered_map<int, BackendColor> m_faceHighlightColors;
 };
+
+#endif // DATA_BREPBACKENDDATA_H

@@ -1,26 +1,25 @@
+﻿/// @file InstructionPropertyPanel.cpp
+/// @brief InstructionPropertyPanel 实现
+
 #include "InstructionPropertyPanel.h"
 
+#include "BackendPropertyRow.h"
+#include "CoreTypes.h"
+#include "IRobotDocumentHost.h"
 #include "IRobotInstructionPropertyUiHost.h"
-
-#include <algorithm>
-#include <memory>
+#include "RobotCoordinateFrames.h"
+#include "RobotInstructionController.h"
+#include "RobotInstructionPlanningHelpers.h"
+#include "RobotInstructionProgram.h"
+#include "RobotInstructionPropertySchema.h"
+#include "SimulationCommandWidget.h"
+#include "qttreepropertybrowser.h"
+#include "qtvariantproperty.h"
 
 #include <QMetaObject>
 #include <QPointer>
-
-#include "CoreTypes.h"
-#include "IRobotDocumentHost.h"
-#include "RobotCoordinateFrames.h"
-#include "RobotInstructionPropertySchema.h"
-#include "RobotInstructionProgram.h"
-#include "RobotInstructionController.h"
-#include "RobotInstructionPlanningHelpers.h"
-#include "SimulationCommandWidget.h"
-
-#include "BackendPropertyRow.h"
-
-#include "qttreepropertybrowser.h"
-#include "qtvariantproperty.h"
+#include <algorithm>
+#include <memory>
 
 namespace
 {
@@ -55,7 +54,8 @@ void setInstructionTcpInBase(RobotInstruction::Base& ins, const BackendMat4& T_b
 
 BackendMat4 instructionTcpForDisplay(IRobotInstructionPropertyUiHost& host, const RobotInstruction::Base& ins)
 {
-	const BackendMat4 T_base_tcp = [&]() {
+	const BackendMat4 T_base_tcp = [&]()
+	{
 		BackendMat4 t{};
 		instructionTcpInBase(ins, t);
 		return t;
@@ -86,19 +86,15 @@ BackendMat4 instructionTcpForDisplay(IRobotInstructionPropertyUiHost& host, cons
 }
 
 void applyInstructionPropertyViaService(IRobotInstructionPropertyUiHost& host,
-	const std::shared_ptr<RobotInstruction::Base>& instruction,
-	const char* key,
-	const std::string& value)
+										const std::shared_ptr<RobotInstruction::Base>& instruction, const char* key,
+										const std::string& value)
 {
 	if (!instruction)
 	{
 		return;
 	}
-	if (host.applyInstructionPropertyChange(
-		QString::fromStdString(instruction->id()),
-		QString::fromLatin1(key),
-		QString::fromStdString(value),
-		nullptr))
+	if (host.applyInstructionPropertyChange(QString::fromStdString(instruction->id()), QString::fromLatin1(key),
+											QString::fromStdString(value), nullptr))
 	{
 		return;
 	}
@@ -107,15 +103,15 @@ void applyInstructionPropertyViaService(IRobotInstructionPropertyUiHost& host,
 
 bool isMotionTargetPoseKey(const QString& key)
 {
-	return key == QStringLiteral("motion.target.pose.x") || key == QStringLiteral("motion.target.pose.y")
-		|| key == QStringLiteral("motion.target.pose.z") || key == QStringLiteral("motion.target.euler.rx")
-		|| key == QStringLiteral("motion.target.euler.ry") || key == QStringLiteral("motion.target.euler.rz");
+	return key == QStringLiteral("motion.target.pose.x") || key == QStringLiteral("motion.target.pose.y") ||
+		   key == QStringLiteral("motion.target.pose.z") || key == QStringLiteral("motion.target.euler.rx") ||
+		   key == QStringLiteral("motion.target.euler.ry") || key == QStringLiteral("motion.target.euler.rz");
 }
 
 bool isInstructionPanelManagedExtensionKey(const std::string& keyStr)
 {
-	if (keyStr == RobotCoordinate::kExtMotionToolFrameId || keyStr == RobotCoordinate::kExtMotionUserFrameId
-		|| keyStr == RobotCoordinate::kExtMotionTargetFrame)
+	if (keyStr == RobotCoordinate::kExtMotionToolFrameId || keyStr == RobotCoordinate::kExtMotionUserFrameId ||
+		keyStr == RobotCoordinate::kExtMotionTargetFrame)
 	{
 		return true;
 	}
@@ -147,10 +143,11 @@ QString snapshotPropertyValueForKey(const nlohmann::json& rows, const QString& k
 	return {};
 }
 
-cloudsim::core::FeasibleMotionAxisOptionsDto toFeasibleAxisDto(
-	const RobotInstruction::FeasibleMotionAxisConfigurationOptions& engine)
+cloudsim::core::FeasibleMotionAxisOptionsDto
+toFeasibleAxisDto(const RobotInstruction::FeasibleMotionAxisConfigurationOptions& engine)
 {
-	auto toList = [](const std::vector<std::string>& tokens) {
+	auto toList = [](const std::vector<std::string>& tokens)
+	{
 		QStringList list;
 		for (const std::string& t : tokens)
 		{
@@ -169,10 +166,11 @@ cloudsim::core::FeasibleMotionAxisOptionsDto toFeasibleAxisDto(
 	return dto;
 }
 
-RobotInstruction::FeasibleMotionAxisConfigurationOptions fromFeasibleAxisDto(
-	const cloudsim::core::FeasibleMotionAxisOptionsDto& dto)
+RobotInstruction::FeasibleMotionAxisConfigurationOptions
+fromFeasibleAxisDto(const cloudsim::core::FeasibleMotionAxisOptionsDto& dto)
 {
-	auto fill = [](std::vector<std::string>& dest, const QStringList& src) {
+	auto fill = [](std::vector<std::string>& dest, const QStringList& src)
+	{
 		dest.reserve(static_cast<size_t>(src.size()));
 		for (const QString& t : src)
 		{
@@ -192,21 +190,20 @@ RobotInstruction::FeasibleMotionAxisConfigurationOptions fromFeasibleAxisDto(
 
 } // namespace
 void InstructionPropertyPanel::applySuggestedAxisPresetFromSeedIfNeeded(
-	IRobotInstructionPropertyUiHost& host,
-	const std::shared_ptr<RobotInstruction::Base>& instruction,
-	const QVector<double>& seedJointRad,
-	const RobotInstruction::FeasibleMotionAxisConfigurationOptions& feasible)
+	IRobotInstructionPropertyUiHost& host, const std::shared_ptr<RobotInstruction::Base>& instruction,
+	const QVector<double>& seedJointRad, const RobotInstruction::FeasibleMotionAxisConfigurationOptions& feasible)
 {
-	if (!instruction || !instruction->hasMotionAxisConfigurationProperty() || feasible.presetTokens.empty()
-		|| seedJointRad.isEmpty())
+	if (!instruction || !instruction->hasMotionAxisConfigurationProperty() || feasible.presetTokens.empty() ||
+		seedJointRad.isEmpty())
 	{
 		return;
 	}
 	const auto tokenAllowed = [&feasible](const std::string& token) {
-		return std::find(feasible.presetTokens.begin(), feasible.presetTokens.end(), token)
-			!= feasible.presetTokens.end();
+		return std::find(feasible.presetTokens.begin(), feasible.presetTokens.end(), token) !=
+			   feasible.presetTokens.end();
 	};
-	const auto pickFallback = [&]() -> std::string {
+	const auto pickFallback = [&]() -> std::string
+	{
 		if (tokenAllowed("AUTO"))
 		{
 			return "AUTO";
@@ -255,11 +252,11 @@ void InstructionPropertyPanel::applySuggestedAxisPresetFromSeedIfNeeded(
 			cur = instruction->motionAxisConfiguration();
 		}
 	}
-	const auto turnAllowed = [](const std::vector<std::string>& allowed, const std::string& tok) {
-		return std::find(allowed.begin(), allowed.end(), tok) != allowed.end();
-	};
-	const auto applyTurnIfAuto = [&](const char* key, const int currentTurn, const int observedTurn,
-									  const std::vector<std::string>& allowed) {
+	const auto turnAllowed = [](const std::vector<std::string>& allowed, const std::string& tok)
+	{ return std::find(allowed.begin(), allowed.end(), tok) != allowed.end(); };
+	const auto applyTurnIfAuto =
+		[&](const char* key, const int currentTurn, const int observedTurn, const std::vector<std::string>& allowed)
+	{
 		if (currentTurn != RobotInstruction::kMotionAxisTurnAuto)
 		{
 			return;
@@ -276,10 +273,9 @@ void InstructionPropertyPanel::applySuggestedAxisPresetFromSeedIfNeeded(
 	applyTurnIfAuto("motion.axisConfig.turn.j6", cur.turnJ6, observed.turnJ6, feasible.turnJ6Tokens);
 }
 
-void InstructionPropertyPanel::update(
-	IRobotInstructionPropertyUiHost& host,
-	const std::shared_ptr<RobotInstruction::Base>& instruction,
-	const bool refreshFeasibleAxisOptions)
+void InstructionPropertyPanel::update(IRobotInstructionPropertyUiHost& host,
+									  const std::shared_ptr<RobotInstruction::Base>& instruction,
+									  const bool refreshFeasibleAxisOptions)
 {
 	if (!host.propertyBrowser() || !host.variantManager())
 	{
@@ -298,11 +294,11 @@ void InstructionPropertyPanel::update(
 	host.setActiveInstructionForProperty(instruction);
 
 	host.appendPropertyBrowserRow(QStringLiteral("core.id"),
-		host.propertyDisplayLabelForKey(QStringLiteral("core.id"), QStringLiteral("ID")),
-		QString::fromStdString(instruction->id()), false);
+								  host.propertyDisplayLabelForKey(QStringLiteral("core.id"), QStringLiteral("ID")),
+								  QString::fromStdString(instruction->id()), false);
 	host.appendPropertyBrowserRow(QStringLiteral("core.name"),
-		host.propertyDisplayLabelForKey(QStringLiteral("core.name"), QStringLiteral("Name")),
-		QString::fromStdString(instruction->name()), false);
+								  host.propertyDisplayLabelForKey(QStringLiteral("core.name"), QStringLiteral("Name")),
+								  QString::fromStdString(instruction->name()), false);
 
 	if (RobotInstruction::isMotionWaypointType(instruction->type()))
 	{
@@ -313,10 +309,10 @@ void InstructionPropertyPanel::update(
 			pointValue = QString::fromStdString(RobotInstruction::formatMotionPointName(pointIndex));
 			pointValue += host.i18n(QStringLiteral(" (Point %1)"), QStringLiteral("（第 %1 点）")).arg(pointIndex);
 		}
-		host.appendPropertyBrowserRow(QStringLiteral("motion.pointIndex"),
+		host.appendPropertyBrowserRow(
+			QStringLiteral("motion.pointIndex"),
 			host.propertyDisplayLabelForKey(QStringLiteral("motion.pointIndex"), QStringLiteral("Waypoint index")),
-			pointValue,
-			false);
+			pointValue, false);
 	}
 
 	const nlohmann::json rows = instruction->snapshotPropertyRows();
@@ -335,14 +331,14 @@ void InstructionPropertyPanel::update(
 		{
 			feasibleAxis = fromFeasibleAxisDto(host.cachedFeasibleMotionAxisOptionsDto());
 		}
-		const auto ensureToken = [&](const char* key, const std::vector<std::string>& allowed, const QString& current) {
+		const auto ensureToken = [&](const char* key, const std::vector<std::string>& allowed, const QString& current)
+		{
 			if (allowed.empty() || !refreshFeasibleAxisOptions)
 			{
 				return;
 			}
 			const std::string cur = current.trimmed().toUpper().toStdString();
-			if (cur.empty()
-				|| std::find(allowed.begin(), allowed.end(), cur) != allowed.end())
+			if (cur.empty() || std::find(allowed.begin(), allowed.end(), cur) != allowed.end())
 			{
 				return;
 			}
@@ -381,22 +377,14 @@ void InstructionPropertyPanel::update(
 			}
 			applyInstructionPropertyViaService(host, instruction, key, fallback);
 		};
-		ensureToken(
-			"motion.axisConfig.preset",
-			feasibleAxis.presetTokens,
-			snapshotPropertyValueForKey(rows, QStringLiteral("motion.axisConfig.preset")));
-		ensureToken(
-			"motion.axisConfig.turn.j1",
-			feasibleAxis.turnJ1Tokens,
-			snapshotPropertyValueForKey(rows, QStringLiteral("motion.axisConfig.turn.j1")));
-		ensureToken(
-			"motion.axisConfig.turn.j4",
-			feasibleAxis.turnJ4Tokens,
-			snapshotPropertyValueForKey(rows, QStringLiteral("motion.axisConfig.turn.j4")));
-		ensureToken(
-			"motion.axisConfig.turn.j6",
-			feasibleAxis.turnJ6Tokens,
-			snapshotPropertyValueForKey(rows, QStringLiteral("motion.axisConfig.turn.j6")));
+		ensureToken("motion.axisConfig.preset", feasibleAxis.presetTokens,
+					snapshotPropertyValueForKey(rows, QStringLiteral("motion.axisConfig.preset")));
+		ensureToken("motion.axisConfig.turn.j1", feasibleAxis.turnJ1Tokens,
+					snapshotPropertyValueForKey(rows, QStringLiteral("motion.axisConfig.turn.j1")));
+		ensureToken("motion.axisConfig.turn.j4", feasibleAxis.turnJ4Tokens,
+					snapshotPropertyValueForKey(rows, QStringLiteral("motion.axisConfig.turn.j4")));
+		ensureToken("motion.axisConfig.turn.j6", feasibleAxis.turnJ6Tokens,
+					snapshotPropertyValueForKey(rows, QStringLiteral("motion.axisConfig.turn.j6")));
 	}
 
 	nlohmann::json rowsAfter = instruction->snapshotPropertyRows();
@@ -406,31 +394,26 @@ void InstructionPropertyPanel::update(
 		const bool customAxisMode = presetMid.compare(QStringLiteral("CUSTOM"), Qt::CaseInsensitive) == 0;
 		if (customAxisMode)
 		{
-			const auto ensureToken = [&](const char* key, const std::vector<std::string>& allowed, const QString& current) {
+			const auto ensureToken =
+				[&](const char* key, const std::vector<std::string>& allowed, const QString& current)
+			{
 				if (allowed.empty())
 				{
 					return;
 				}
 				const std::string cur = current.trimmed().toUpper().toStdString();
-				if (cur.empty()
-					|| std::find(allowed.begin(), allowed.end(), cur) != allowed.end())
+				if (cur.empty() || std::find(allowed.begin(), allowed.end(), cur) != allowed.end())
 				{
 					return;
 				}
 				applyInstructionPropertyViaService(host, instruction, key, allowed.front());
 			};
-			ensureToken(
-				"motion.axisConfig.elbow",
-				feasibleAxis.elbowTokens,
-				snapshotPropertyValueForKey(rowsAfter, QStringLiteral("motion.axisConfig.elbow")));
-			ensureToken(
-				"motion.axisConfig.wrist",
-				feasibleAxis.wristTokens,
-				snapshotPropertyValueForKey(rowsAfter, QStringLiteral("motion.axisConfig.wrist")));
-			ensureToken(
-				"motion.axisConfig.arm",
-				feasibleAxis.armTokens,
-				snapshotPropertyValueForKey(rowsAfter, QStringLiteral("motion.axisConfig.arm")));
+			ensureToken("motion.axisConfig.elbow", feasibleAxis.elbowTokens,
+						snapshotPropertyValueForKey(rowsAfter, QStringLiteral("motion.axisConfig.elbow")));
+			ensureToken("motion.axisConfig.wrist", feasibleAxis.wristTokens,
+						snapshotPropertyValueForKey(rowsAfter, QStringLiteral("motion.axisConfig.wrist")));
+			ensureToken("motion.axisConfig.arm", feasibleAxis.armTokens,
+						snapshotPropertyValueForKey(rowsAfter, QStringLiteral("motion.axisConfig.arm")));
 			rowsAfter = instruction->snapshotPropertyRows();
 		}
 	}
@@ -442,17 +425,17 @@ void InstructionPropertyPanel::update(
 	{
 		const auto& ext = instruction->extensionProperties();
 		IRobotDocumentHost* doc = host.currentRobotDocument();
-		const int instIdx = host.simulationCommandPage() ? host.simulationCommandPage()->currentRobotInstanceIndex() : -1;
-		std::vector<std::string> toolTokens = { "active" };
-		std::vector<std::string> userTokens = { "active" };
+		const int instIdx =
+			host.simulationCommandPage() ? host.simulationCommandPage()->currentRobotInstanceIndex() : -1;
+		std::vector<std::string> toolTokens = {"active"};
+		std::vector<std::string> userTokens = {"active"};
 		QStringList toolEnumNames;
 		QStringList userEnumNames;
 		toolEnumNames << host.i18n(QStringLiteral("Active (follow robot)"), QStringLiteral("跟随当前工具"));
 		userEnumNames << host.i18n(QStringLiteral("Active (follow robot)"), QStringLiteral("跟随当前用户系"));
 		if (doc && instIdx >= 0)
 		{
-			const RobotCoordinate::RobotCoordinateFrameSet& frames =
-				doc->robotCoordinateFramesForInstance(instIdx);
+			const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
 			for (const RobotCoordinate::RobotToolFrame& tf : frames.toolFrames)
 			{
 				toolTokens.push_back(tf.id);
@@ -483,14 +466,10 @@ void InstructionPropertyPanel::update(
 		host.appendPropertyBrowserRow(
 			QStringLiteral("motion.tool.frameId"),
 			host.propertyDisplayLabelForKey(QStringLiteral("motion.tool.frameId"), QStringLiteral("Tool frame")),
-			toolVal,
-			true,
-			&toolTokens,
-			&toolEnumNames,
+			toolVal, true, &toolTokens, &toolEnumNames,
 			host.i18n(
-				QStringLiteral(
-					"When changing the tool frame, the TCP position in space is kept; joint angles are "
-					"recomputed automatically."),
+				QStringLiteral("When changing the tool frame, the TCP position in space is kept; joint angles are "
+							   "recomputed automatically."),
 				QStringLiteral("切换工具系时，系统将保持工具尖端（TCP）空间位置不变，自动重新计算关节角度。")));
 		QString userVal = QStringLiteral("active");
 		const auto itUser = ext.find(RobotCoordinate::kExtMotionUserFrameId);
@@ -501,10 +480,7 @@ void InstructionPropertyPanel::update(
 		host.appendPropertyBrowserRow(
 			QStringLiteral("motion.user.frameId"),
 			host.propertyDisplayLabelForKey(QStringLiteral("motion.user.frameId"), QStringLiteral("User frame")),
-			userVal,
-			true,
-			&userTokens,
-			&userEnumNames);
+			userVal, true, &userTokens, &userEnumNames);
 		QString frameVal = QStringLiteral("base");
 		const auto itFr = ext.find(RobotCoordinate::kExtMotionTargetFrame);
 		if (itFr != ext.end() && !itFr->second.empty())
@@ -515,7 +491,7 @@ void InstructionPropertyPanel::update(
 				frameVal = QStringLiteral("user");
 			}
 		}
-		static const std::vector<std::string> frameTokens = { "base", "user" };
+		static const std::vector<std::string> frameTokens = {"base", "user"};
 		const QStringList frameEnumNames = {
 			host.i18n(QStringLiteral("Robot base (TCP)"), QStringLiteral("机器人基座 (TCP)")),
 			host.i18n(QStringLiteral("User frame (TCP)"), QStringLiteral("用户坐标系 (TCP)")),
@@ -523,10 +499,7 @@ void InstructionPropertyPanel::update(
 		host.appendPropertyBrowserRow(
 			QStringLiteral("motion.target.frame"),
 			host.propertyDisplayLabelForKey(QStringLiteral("motion.target.frame"), QStringLiteral("Target frame")),
-			frameVal,
-			true,
-			&frameTokens,
-			&frameEnumNames);
+			frameVal, true, &frameTokens, &frameEnumNames);
 	}
 
 	const BackendMat4 T_display = instructionTcpForDisplay(host, *instruction);
@@ -540,14 +513,13 @@ void InstructionPropertyPanel::update(
 				continue;
 			}
 			const std::string keyStr = r.value(backend_property_json::kKey, std::string());
-			if (isInstructionPanelManagedExtensionKey(keyStr) || keyStr.rfind("legacy.", 0) == 0
-				|| keyStr == "motion.durationSec" || keyStr == RobotInstruction::kMotionPointIndexKey)
+			if (isInstructionPanelManagedExtensionKey(keyStr) || keyStr.rfind("legacy.", 0) == 0 ||
+				keyStr == "motion.durationSec" || keyStr == RobotInstruction::kMotionPointIndexKey)
 			{
 				continue;
 			}
-			if (!customAxisModeAfter
-				&& (keyStr == "motion.axisConfig.elbow" || keyStr == "motion.axisConfig.wrist"
-					|| keyStr == "motion.axisConfig.arm"))
+			if (!customAxisModeAfter && (keyStr == "motion.axisConfig.elbow" || keyStr == "motion.axisConfig.wrist" ||
+										 keyStr == "motion.axisConfig.arm"))
 			{
 				continue;
 			}
@@ -652,10 +624,8 @@ void InstructionPropertyPanel::update(
 	}
 }
 
-bool InstructionPropertyPanel::handleVariantPropertyValueChanged(
-	IRobotInstructionPropertyUiHost& host,
-	QtProperty* property,
-	const QVariant& value)
+bool InstructionPropertyPanel::handleVariantPropertyValueChanged(IRobotInstructionPropertyUiHost& host,
+																 QtProperty* property, const QVariant& value)
 {
 	const std::shared_ptr<RobotInstruction::Base> instruction = host.activeInstructionForProperty();
 	if (!instruction)
@@ -686,13 +656,11 @@ bool InstructionPropertyPanel::handleVariantPropertyValueChanged(
 		instruction->setExtensionProperty(RobotCoordinate::kExtMotionToolFrameId, valueText.toStdString());
 		if (IRobotDocumentHost* doc = host.currentRobotDocument())
 		{
-			const int instIdx = host.simulationCommandPage()
-				? host.simulationCommandPage()->currentRobotInstanceIndex()
-				: -1;
+			const int instIdx =
+				host.simulationCommandPage() ? host.simulationCommandPage()->currentRobotInstanceIndex() : -1;
 			if (instIdx >= 0)
 			{
-				const RobotCoordinate::RobotCoordinateFrameSet& frames =
-					doc->robotCoordinateFramesForInstance(instIdx);
+				const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
 				RobotInstructionPlanning::syncInstructionToolContextFromFrames(*instruction, frames);
 			}
 		}
@@ -734,15 +702,14 @@ bool InstructionPropertyPanel::handleVariantPropertyValueChanged(
 			QString toolLabel = valueText;
 			if (IRobotDocumentHost* doc = host.currentRobotDocument())
 			{
-				const int instIdx = host.simulationCommandPage()
-					? host.simulationCommandPage()->currentRobotInstanceIndex()
-					: -1;
+				const int instIdx =
+					host.simulationCommandPage() ? host.simulationCommandPage()->currentRobotInstanceIndex() : -1;
 				if (instIdx >= 0)
 				{
 					const RobotCoordinate::RobotCoordinateFrameSet& frames =
 						doc->robotCoordinateFramesForInstance(instIdx);
-					if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::resolveToolFrameForExtension(
-							frames, instruction->extensionProperties()))
+					if (const RobotCoordinate::RobotToolFrame* tool =
+							RobotCoordinate::resolveToolFrameForExtension(frames, instruction->extensionProperties()))
 					{
 						toolLabel = QString::fromStdString(tool->name);
 					}
@@ -806,8 +773,8 @@ bool InstructionPropertyPanel::handleVariantPropertyValueChanged(
 				{
 					const RobotCoordinate::RobotCoordinateFrameSet& frames =
 						doc->robotCoordinateFramesForInstance(instIdx);
-					if (const RobotCoordinate::RobotUserFrame* uf = RobotCoordinate::resolveUserFrameForExtension(
-							frames, instruction->extensionProperties()))
+					if (const RobotCoordinate::RobotUserFrame* uf =
+							RobotCoordinate::resolveUserFrameForExtension(frames, instruction->extensionProperties()))
 					{
 						T_base_user = RobotCoordinate::frameToMat4(uf->T_base_user);
 					}
@@ -854,4 +821,3 @@ bool InstructionPropertyPanel::handleVariantPropertyValueChanged(
 	}
 	return true;
 }
-

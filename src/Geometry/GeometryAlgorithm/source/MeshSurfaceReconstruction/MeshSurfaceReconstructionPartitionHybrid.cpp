@@ -1,5 +1,8 @@
-#include "MeshSurfaceReconstructionPartitionCommon.h"
+﻿/// @file MeshSurfaceReconstructionPartitionHybrid.cpp
+/// @brief MeshSurfaceReconstructionPartitionHybrid 实现
+
 #include "MeshSurfaceReconstructionPartitionCgal.h"
+#include "MeshSurfaceReconstructionPartitionCommon.h"
 #include "MeshSurfaceReconstructionPatchDualGraph.h"
 
 #include <algorithm>
@@ -15,7 +18,6 @@ namespace meshrecon
 {
 namespace
 {
-
 struct GeneratorCluster
 {
 	PartitionVec3d c;
@@ -36,9 +38,7 @@ int computeNthresh(const MeshSurfaceReconstructParams& params, const int faceCou
 	return std::max(1, n);
 }
 
-PartitionVec3d regionAverageNormal(
-	const std::vector<int>& faces,
-	const std::vector<PartitionVec3d>& faceNormals)
+PartitionVec3d regionAverageNormal(const std::vector<int>& faces, const std::vector<PartitionVec3d>& faceNormals)
 {
 	PartitionVec3d sum{0, 0, 0};
 	for (const int f : faces)
@@ -48,13 +48,9 @@ PartitionVec3d regionAverageNormal(
 	return sum.normalized();
 }
 
-bool runAlgorithm1(
-	const std::vector<int>& activeFaces,
-	const std::vector<PartitionVec3d>& attrs,
-	std::vector<GeneratorCluster>& generators,
-	std::vector<int>& labels,
-	const ClusterMetric metric,
-	const int maxIters)
+bool runAlgorithm1(const std::vector<int>& activeFaces, const std::vector<PartitionVec3d>& attrs,
+				   std::vector<GeneratorCluster>& generators, std::vector<int>& labels, const ClusterMetric metric,
+				   const int maxIters)
 {
 	if (activeFaces.empty() || generators.empty())
 	{
@@ -109,7 +105,8 @@ bool runAlgorithm1(
 		{
 			const int gi = labels[i];
 			const int f = activeFaces[i];
-			generators[static_cast<std::size_t>(gi)].c = generators[static_cast<std::size_t>(gi)].c + attrs[static_cast<std::size_t>(f)];
+			generators[static_cast<std::size_t>(gi)].c =
+				generators[static_cast<std::size_t>(gi)].c + attrs[static_cast<std::size_t>(f)];
 			++generators[static_cast<std::size_t>(gi)].count;
 		}
 		for (auto& g : generators)
@@ -130,7 +127,8 @@ bool runAlgorithm1(
 				double score = 0.0;
 				if (metric == ClusterMetric::NormalDot)
 				{
-					score = attrs[static_cast<std::size_t>(f)].dot(generators[static_cast<std::size_t>(gi)].c.normalized());
+					score =
+						attrs[static_cast<std::size_t>(f)].dot(generators[static_cast<std::size_t>(gi)].c.normalized());
 				}
 				else
 				{
@@ -152,9 +150,8 @@ bool runAlgorithm1(
 	return true;
 }
 
-std::vector<std::vector<int>> extractConnectedRegions(
-	const std::vector<int>& faceCluster,
-	const std::vector<std::vector<int>>& fullAdj)
+std::vector<std::vector<int>> extractConnectedRegions(const std::vector<int>& faceCluster,
+													  const std::vector<std::vector<int>>& fullAdj)
 {
 	const int faceCount = static_cast<int>(faceCluster.size());
 	std::vector<char> visited(static_cast<std::size_t>(faceCount), 0);
@@ -196,12 +193,9 @@ std::vector<std::vector<int>> extractConnectedRegions(
 	return regions;
 }
 
-void cleanupInitialRegions(
-	const MeshSurfaceReconstructParams& params,
-	const int faceCount,
-	const std::vector<std::vector<int>>& fullAdj,
-	const std::vector<PartitionVec3d>& faceNormals,
-	std::vector<std::vector<int>>& regions)
+void cleanupInitialRegions(const MeshSurfaceReconstructParams& params, const int faceCount,
+						   const std::vector<std::vector<int>>& fullAdj, const std::vector<PartitionVec3d>& faceNormals,
+						   std::vector<std::vector<int>>& regions)
 {
 	const int nThresh = computeNthresh(params, faceCount);
 	bool changed = true;
@@ -264,8 +258,9 @@ void cleanupInitialRegions(
 			}
 			const int nTri = static_cast<int>(faces.size());
 			const double cosHigh = params.hybridMergeCosHigh;
-			const double cosLow = params.hybridMergeCosLowBase
-				+ params.hybridMergeCosLowScale * (static_cast<double>(nTri) / static_cast<double>(nThresh));
+			const double cosLow =
+				params.hybridMergeCosLowBase +
+				params.hybridMergeCosLowScale * (static_cast<double>(nTri) / static_cast<double>(nThresh));
 			if (bestCos > cosHigh || (nTri < nThresh && bestCos > cosLow))
 			{
 				mergeIdx = ri;
@@ -281,22 +276,15 @@ void cleanupInitialRegions(
 			regions[static_cast<std::size_t>(mergeIdx)].clear();
 			changed = true;
 			regions.erase(
-				std::remove_if(
-					regions.begin(),
-					regions.end(),
-					[](const std::vector<int>& r) { return r.empty(); }),
+				std::remove_if(regions.begin(), regions.end(), [](const std::vector<int>& r) { return r.empty(); }),
 				regions.end());
 		}
 	}
 }
 
-int computeSecondarySampleCount(
-	const MeshSurfaceReconstructParams& params,
-	const int faceCount,
-	const int initialRegionCount,
-	const double regionArea,
-	const double totalArea,
-	const int patchCountHint)
+int computeSecondarySampleCount(const MeshSurfaceReconstructParams& params, const int faceCount,
+								const int initialRegionCount, const double regionArea, const double totalArea,
+								const int patchCountHint)
 {
 	double s = params.hybridSecondarySampleScale * static_cast<double>(initialRegionCount) * regionArea / totalArea;
 	if (patchCountHint > 0)
@@ -326,9 +314,8 @@ std::vector<int> pickEquispacedFaces(const std::vector<int>& regionFaces, const 
 	const double step = static_cast<double>(regionFaces.size()) / static_cast<double>(sampleCount);
 	for (int i = 0; i < sampleCount; ++i)
 	{
-		const int idx = std::min(
-			static_cast<int>(regionFaces.size()) - 1,
-			static_cast<int>(std::floor((static_cast<double>(i) + 0.5) * step)));
+		const int idx = std::min(static_cast<int>(regionFaces.size()) - 1,
+								 static_cast<int>(std::floor((static_cast<double>(i) + 0.5) * step)));
 		samples.push_back(regionFaces[static_cast<std::size_t>(idx)]);
 	}
 	return samples;
@@ -336,13 +323,9 @@ std::vector<int> pickEquispacedFaces(const std::vector<int>& regionFaces, const 
 
 } // namespace
 
-bool partitionQuadDomainsHybrid(
-	const IndexedMeshLite& mesh,
-	const MeshSurfaceReconstructParams& params,
-	std::vector<QuadPatch>& patches,
-	int& outJunctionCount,
-	MeshSurfaceReconstructReport* partitionStats,
-	std::string* errMsg)
+bool partitionQuadDomainsHybrid(const IndexedMeshLite& mesh, const MeshSurfaceReconstructParams& params,
+								std::vector<QuadPatch>& patches, int& outJunctionCount,
+								MeshSurfaceReconstructReport* partitionStats, std::string* errMsg)
 {
 	const int faceCount = static_cast<int>(mesh.faces.size() / 3U);
 	if (faceCount < 1)
@@ -378,13 +361,12 @@ bool partitionQuadDomainsHybrid(
 	axisGenerators[4].c = {0, 0, 1};
 	axisGenerators[5].c = {0, 0, -1};
 
-	if (params.partitionMode == MeshSurfacePartitionMode::CgalChartHybrid
-		|| params.sdfSeedBlendWeight > 1e-6)
+	if (params.partitionMode == MeshSurfacePartitionMode::CgalChartHybrid || params.sdfSeedBlendWeight > 1e-6)
 	{
 		std::vector<int> sdfSeeds;
 		const int segCount = params.sdfSegmentCount > 0
-			? params.sdfSegmentCount
-			: std::max(6, params.patchCountHint > 0 ? params.patchCountHint : 8);
+								 ? params.sdfSegmentCount
+								 : std::max(6, params.patchCountHint > 0 ? params.patchCountHint : 8);
 		if (collectSdfSegmentSeedFaces(mesh, segCount, sdfSeeds, nullptr))
 		{
 			for (const int sf : sdfSeeds)
@@ -408,13 +390,8 @@ bool partitionQuadDomainsHybrid(
 	}
 
 	std::vector<int> clusterLabels;
-	runAlgorithm1(
-		allFaces,
-		faceNormals,
-		axisGenerators,
-		clusterLabels,
-		ClusterMetric::NormalDot,
-		params.hybridClusterMaxIters);
+	runAlgorithm1(allFaces, faceNormals, axisGenerators, clusterLabels, ClusterMetric::NormalDot,
+				  params.hybridClusterMaxIters);
 
 	std::vector<int> faceCluster(static_cast<std::size_t>(faceCount), 0);
 	for (std::size_t i = 0; i < allFaces.size(); ++i)
@@ -445,13 +422,8 @@ bool partitionQuadDomainsHybrid(
 		{
 			regionArea += faceAreas[static_cast<std::size_t>(f)];
 		}
-		const int sampleCount = computeSecondarySampleCount(
-			params,
-			faceCount,
-			initialRegionCount,
-			regionArea,
-			totalArea,
-			params.patchCountHint);
+		const int sampleCount = computeSecondarySampleCount(params, faceCount, initialRegionCount, regionArea,
+															totalArea, params.patchCountHint);
 
 		if (sampleCount <= 1 || static_cast<int>(regionFaces.size()) <= sampleCount)
 		{
@@ -475,13 +447,8 @@ bool partitionQuadDomainsHybrid(
 		}
 
 		std::vector<int> subLabels;
-		runAlgorithm1(
-			regionFaces,
-			faceCentroids,
-			sampleGenerators,
-			subLabels,
-			ClusterMetric::EuclideanDist,
-			params.hybridClusterMaxIters);
+		runAlgorithm1(regionFaces, faceCentroids, sampleGenerators, subLabels, ClusterMetric::EuclideanDist,
+					  params.hybridClusterMaxIters);
 
 		for (std::size_t i = 0; i < regionFaces.size(); ++i)
 		{
@@ -524,14 +491,7 @@ bool partitionQuadDomainsHybrid(
 	if (params.hybridEnableRegionAdjust)
 	{
 		HybridAdjustStats adjustStats;
-		if (!hybridApplyRegionAdjust(
-				mesh,
-				params,
-				adj.fullAdj,
-				faceNormals,
-				faceToPatch,
-				adjustStats,
-				errMsg))
+		if (!hybridApplyRegionAdjust(mesh, params, adj.fullAdj, faceNormals, faceToPatch, adjustStats, errMsg))
 		{
 			return false;
 		}

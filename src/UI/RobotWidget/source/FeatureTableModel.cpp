@@ -1,12 +1,13 @@
+﻿/// @file FeatureTableModel.cpp
+/// @brief FeatureTableModel 实现
+
 #include "FeatureTableModel.h"
 
 #include <QBrush>
-
 #include <algorithm>
 
 namespace
 {
-
 QString joinIndices(const std::vector<int>& indices, const QString& prefix)
 {
 	if (indices.empty())
@@ -24,18 +25,14 @@ QString joinIndices(const std::vector<int>& indices, const QString& prefix)
 
 } // namespace
 
-FeatureTableModel::FeatureTableModel(QObject* parent)
-	: QAbstractTableModel(parent)
-{
-}
+FeatureTableModel::FeatureTableModel(QObject* parent) : QAbstractTableModel(parent) {}
 
 void FeatureTableModel::setUseChinese(const bool chinese)
 {
 	m_chinese = chinese;
 }
 
-void FeatureTableModel::setStrategyDisplayNameResolver(
-	std::function<QString(const std::string& strategyId)> resolver)
+void FeatureTableModel::setStrategyDisplayNameResolver(std::function<QString(const std::string& strategyId)> resolver)
 {
 	m_strategyDisplayResolver = std::move(resolver);
 }
@@ -268,8 +265,10 @@ Qt::ItemFlags FeatureTableModel::flags(const QModelIndex& index) const
 
 QString FeatureTableModel::geometrySummary(const geoalgo::FeatureGeometry& geometry) const
 {
-	const QString edgeText = joinIndices(geometry.edgeIndices, m_chinese ? QStringLiteral("边 ") : QStringLiteral("edge "));
-	const QString faceText = joinIndices(geometry.faceIndices, m_chinese ? QStringLiteral("面 ") : QStringLiteral("face "));
+	const QString edgeText =
+		joinIndices(geometry.edgeIndices, m_chinese ? QStringLiteral("边 ") : QStringLiteral("edge "));
+	const QString faceText =
+		joinIndices(geometry.faceIndices, m_chinese ? QStringLiteral("面 ") : QStringLiteral("face "));
 	if (!edgeText.isEmpty() && !faceText.isEmpty())
 	{
 		return edgeText + QStringLiteral("; ") + faceText;
@@ -285,8 +284,7 @@ QString FeatureTableModel::geometrySummary(const geoalgo::FeatureGeometry& geome
 	if (!geometry.polylineXyz.empty())
 	{
 		const int ptCount = static_cast<int>(geometry.polylineXyz.size() / 3U);
-		return m_chinese ? QStringLiteral("折线 %1 点").arg(ptCount)
-						 : QStringLiteral("polyline %1 pts").arg(ptCount);
+		return m_chinese ? QStringLiteral("折线 %1 点").arg(ptCount) : QStringLiteral("polyline %1 pts").arg(ptCount);
 	}
 	return m_chinese ? QStringLiteral("—") : QStringLiteral("—");
 }

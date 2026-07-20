@@ -1,32 +1,34 @@
+﻿/// @file DocumentPage.cpp
+/// @brief DocumentPage 实现
+
 #include "DocumentPage.h"
 
+#include "BackendDataManager.h"
 #include "BackendSceneDocumentFacade.h"
+#include "CoreTypes.h"
 #include "EventHub.h"
+#include "IDataService.h"
+#include "IRobotBackendPoseSink.h"
+#include "MeshBackendData.h"
+#include "OsgScene.h"
+#include "OsgWidget.h"
 #include "RobotProgramStore.h"
+#include "RobotSceneKinematics.h"
+#include "UrdfRobotLoader.h"
 #include "ViewportToolBar.h"
-
-#include <osg/Group>
-#include <osg/MatrixTransform>
 
 #include <QSet>
 #include <QTabWidget>
 #include <QUuid>
-
-#include "IDataService.h"
-#include "IRobotBackendPoseSink.h"
-#include "OsgWidget.h"
-#include "BackendDataManager.h"
-#include "CoreTypes.h"
-#include "MeshBackendData.h"
-#include "OsgScene.h"
-#include "RobotSceneKinematics.h"
-#include "UrdfRobotLoader.h"
-
 #include <memory>
 #include <unordered_map>
 #include <vector>
 
-namespace {
+#include <osg/Group>
+#include <osg/MatrixTransform>
+
+namespace
+{
 cloudsim::core::Mat4 mat4FromOsg(const osg::Matrixd& m)
 {
 	cloudsim::core::Mat4 out{};
@@ -49,8 +51,7 @@ osg::Matrixd osgFromMat4(const cloudsim::core::Mat4& m)
 } // namespace
 
 DocumentPage::DocumentPage(QTabWidget* parentTabs, cloudsim::core::EventHub& events)
-	: DocumentHost(parentTabs, events,
-		  QStringLiteral("doc-%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces)))
+	: DocumentHost(parentTabs, events, QStringLiteral("doc-%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces)))
 {
 	setRobotUrdfImportContext(this);
 	setPerLinkKinematicsHost(this);
@@ -159,7 +160,8 @@ void DocumentPage::rebuildHierarchicalRobotAggregates()
 			m_robotJointTransforms.insert(it.key(), it.value());
 		}
 	}
-	m_robotUrdfAbsolutePath = m_hierarchicalRobots.isEmpty() ? QString() : m_hierarchicalRobots.first().urdfAbsolutePath;
+	m_robotUrdfAbsolutePath =
+		m_hierarchicalRobots.isEmpty() ? QString() : m_hierarchicalRobots.first().urdfAbsolutePath;
 	m_robotSceneBackendId = m_hierarchicalRobots.isEmpty() ? QString() : m_hierarchicalRobots.first().sceneBackendId;
 	rebuildPerLinkLegacyAggregates();
 }
@@ -190,20 +192,16 @@ void DocumentPage::rebuildPerLinkLegacyAggregates()
 }
 
 void DocumentPage::appendHierarchicalRobotSimulationContext(
-	const QString& urdfAbsolutePath,
-	const QStringList& revoluteJointNamesUnprefixed,
-	const QVector<double>& jointLowerRad,
-	const QVector<double>& jointUpperRad,
-	const QHash<QString, osg::MatrixTransform*>& jointTransformsPrefixedKeys,
-	const QString& robotSceneBackendId,
+	const QString& urdfAbsolutePath, const QStringList& revoluteJointNamesUnprefixed,
+	const QVector<double>& jointLowerRad, const QVector<double>& jointUpperRad,
+	const QHash<QString, osg::MatrixTransform*>& jointTransformsPrefixedKeys, const QString& robotSceneBackendId,
 	const QString& jointPrefixRootOverride)
 {
 	HierarchicalRobotInstance ri;
 	ri.urdfAbsolutePath = urdfAbsolutePath;
 	ri.sceneBackendId = robotSceneBackendId;
-	ri.jointKeyPrefix = jointPrefixRootOverride.isEmpty()
-		? (robotSceneBackendId + QStringLiteral("::"))
-		: (jointPrefixRootOverride + QStringLiteral("::"));
+	ri.jointKeyPrefix = jointPrefixRootOverride.isEmpty() ? (robotSceneBackendId + QStringLiteral("::"))
+														  : (jointPrefixRootOverride + QStringLiteral("::"));
 	ri.revoluteJointNamesUnprefixed = revoluteJointNamesUnprefixed;
 	ri.jointLowerRad = jointLowerRad;
 	ri.jointUpperRad = jointUpperRad;
@@ -213,10 +211,10 @@ void DocumentPage::appendHierarchicalRobotSimulationContext(
 }
 
 void DocumentPage::setRobotPerLinkKinematicsBinding(const QString& importKey,
-	const QHash<QString, QString>& linkNameToBackendId,
-	const QHash<QString, osg::Matrixd>& fkMeshWorldT0,
-	const QHash<QString, osg::Matrixd>& outerWorldAtBindByBackendId,
-	bool meshVerticesInLinkFrame)
+													const QHash<QString, QString>& linkNameToBackendId,
+													const QHash<QString, osg::Matrixd>& fkMeshWorldT0,
+													const QHash<QString, osg::Matrixd>& outerWorldAtBindByBackendId,
+													bool meshVerticesInLinkFrame)
 {
 	QString jointPrefix = importKey;
 	if (jointPrefix.endsWith(QStringLiteral("_ctx")))
@@ -251,14 +249,12 @@ void DocumentPage::setRobotPerLinkKinematicsBinding(const QString& importKey,
 	rebuildPerLinkLegacyAggregates();
 }
 
-void DocumentPage::setHierarchicalRobotSimulationContext(
-	const QString& urdfAbsolutePath,
-	const QStringList& revoluteJointNames,
-	const QVector<double>& jointLowerRad,
-	const QVector<double>& jointUpperRad,
-	const QHash<QString, osg::MatrixTransform*>& jointTransforms,
-	const QString& robotBackendId,
-	osg::Group* robotAssembly)
+void DocumentPage::setHierarchicalRobotSimulationContext(const QString& urdfAbsolutePath,
+														 const QStringList& revoluteJointNames,
+														 const QVector<double>& jointLowerRad,
+														 const QVector<double>& jointUpperRad,
+														 const QHash<QString, osg::MatrixTransform*>& jointTransforms,
+														 const QString& robotBackendId, osg::Group* robotAssembly)
 {
 	(void)robotAssembly;
 	clearRobotSimulationContext();
@@ -269,8 +265,8 @@ void DocumentPage::setHierarchicalRobotSimulationContext(
 	{
 		prefixed.insert(prefix + it.key(), it.value());
 	}
-	appendHierarchicalRobotSimulationContext(
-		urdfAbsolutePath, revoluteJointNames, jointLowerRad, jointUpperRad, prefixed, robotBackendId, QString());
+	appendHierarchicalRobotSimulationContext(urdfAbsolutePath, revoluteJointNames, jointLowerRad, jointUpperRad,
+											 prefixed, robotBackendId, QString());
 }
 
 osg::MatrixTransform* DocumentPage::robotJointMatrixTransform(const QString& jointName) const
@@ -286,8 +282,8 @@ int DocumentPage::robotKinematicInstanceCount() const
 QString DocumentPage::robotSceneBackendIdForInstance(const int instanceIndex) const
 {
 	return instanceIndex >= 0 && instanceIndex < m_hierarchicalRobots.size()
-		? m_hierarchicalRobots[instanceIndex].sceneBackendId
-		: QString();
+			   ? m_hierarchicalRobots[instanceIndex].sceneBackendId
+			   : QString();
 }
 
 QString DocumentPage::robotFrameWorldReferenceBackendId(const int instanceIndex) const
@@ -326,14 +322,12 @@ QString DocumentPage::robotDisplayLabelForInstance(const int instanceIndex) cons
 QStringList DocumentPage::robotRevoluteJointNamesForInstance(const int instanceIndex) const
 {
 	return instanceIndex >= 0 && instanceIndex < m_hierarchicalRobots.size()
-		? m_hierarchicalRobots[instanceIndex].revoluteJointNamesUnprefixed
-		: QStringList();
+			   ? m_hierarchicalRobots[instanceIndex].revoluteJointNamesUnprefixed
+			   : QStringList();
 }
 
-void DocumentPage::robotJointLimitsForInstance(
-	const int instanceIndex,
-	QVector<double>& lowerRad,
-	QVector<double>& upperRad) const
+void DocumentPage::robotJointLimitsForInstance(const int instanceIndex, QVector<double>& lowerRad,
+											   QVector<double>& upperRad) const
 {
 	lowerRad.clear();
 	upperRad.clear();
@@ -371,28 +365,28 @@ int DocumentPage::robotInstanceIndexForSceneBackendId(const QString& sceneBacken
 QString DocumentPage::robotUrdfAbsolutePathForInstance(int instanceIndex) const
 {
 	return instanceIndex >= 0 && instanceIndex < m_hierarchicalRobots.size()
-		? m_hierarchicalRobots[instanceIndex].urdfAbsolutePath
-		: QString();
+			   ? m_hierarchicalRobots[instanceIndex].urdfAbsolutePath
+			   : QString();
 }
 
 int DocumentPage::robotRevoluteJointCountForInstance(int instanceIndex) const
 {
 	return instanceIndex >= 0 && instanceIndex < m_hierarchicalRobots.size()
-		? m_hierarchicalRobots[instanceIndex].revoluteJointNamesUnprefixed.size()
-		: 0;
+			   ? m_hierarchicalRobots[instanceIndex].revoluteJointNamesUnprefixed.size()
+			   : 0;
 }
 
 QString DocumentPage::robotJointKeyPrefixForInstance(int instanceIndex) const
 {
 	return instanceIndex >= 0 && instanceIndex < m_hierarchicalRobots.size()
-		? m_hierarchicalRobots[instanceIndex].jointKeyPrefix
-		: QString();
+			   ? m_hierarchicalRobots[instanceIndex].jointKeyPrefix
+			   : QString();
 }
 
 bool DocumentPage::robotUsesPerLinkBackendsForInstance(int instanceIndex) const
 {
-	return instanceIndex >= 0 && instanceIndex < m_hierarchicalRobots.size()
-		&& m_hierarchicalRobots[instanceIndex].perLinkBackends;
+	return instanceIndex >= 0 && instanceIndex < m_hierarchicalRobots.size() &&
+		   m_hierarchicalRobots[instanceIndex].perLinkBackends;
 }
 
 bool DocumentPage::robotPerLinkKinematicsForInstance(int instanceIndex, RobotPerLinkKinematicsSlice& out) const
@@ -416,7 +410,8 @@ bool DocumentPage::robotPerLinkKinematicsForInstance(int instanceIndex, RobotPer
 	return true;
 }
 
-bool DocumentPage::robotPerLinkKinematicsDtoForInstance(int instanceIndex, cloudsim::core::RobotPerLinkKinematicsSliceDto& out) const
+bool DocumentPage::robotPerLinkKinematicsDtoForInstance(int instanceIndex,
+														cloudsim::core::RobotPerLinkKinematicsSliceDto& out) const
 {
 	RobotPerLinkKinematicsSlice slice;
 	if (!robotPerLinkKinematicsForInstance(instanceIndex, slice))
@@ -432,7 +427,8 @@ bool DocumentPage::robotPerLinkKinematicsDtoForInstance(int instanceIndex, cloud
 		out.fkMeshWorldT0.insert(it.key(), mat4FromOsg(it.value()));
 	}
 	out.outerWorldAtBindByBackendId.clear();
-	for (auto it = slice.outerWorldAtBindByBackendId.constBegin(); it != slice.outerWorldAtBindByBackendId.constEnd(); ++it)
+	for (auto it = slice.outerWorldAtBindByBackendId.constBegin(); it != slice.outerWorldAtBindByBackendId.constEnd();
+		 ++it)
 	{
 		out.outerWorldAtBindByBackendId.insert(it.key(), mat4FromOsg(it.value()));
 	}
@@ -487,8 +483,8 @@ void DocumentPage::setRobotBasePlacementWorldForInstance(const int instanceIndex
 	rebuildPerLinkLegacyAggregates();
 }
 
-void DocumentPage::updateRobotLinkOuterBindFromWorld(
-	const int instanceIndex, const QString& linkBackendId, const osg::Matrixd& world)
+void DocumentPage::updateRobotLinkOuterBindFromWorld(const int instanceIndex, const QString& linkBackendId,
+													 const osg::Matrixd& world)
 {
 	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size() || linkBackendId.isEmpty())
 	{
@@ -550,7 +546,8 @@ void DocumentPage::clearRobotSimulationIfContains(const QString& removedBackendI
 
 bool DocumentPage::hasRobotSimulationContext() const
 {
-	return !m_hierarchicalRobots.isEmpty() || !m_robotUrdfAbsolutePath.isEmpty() || !m_robotLinkNameToBackendId.isEmpty();
+	return !m_hierarchicalRobots.isEmpty() || !m_robotUrdfAbsolutePath.isEmpty() ||
+		   !m_robotLinkNameToBackendId.isEmpty();
 }
 
 bool DocumentPage::hasRobotKinematicsBind() const
@@ -562,8 +559,7 @@ bool DocumentPage::hasRobotKinematicsBind() const
 			return true;
 		}
 	}
-	return !m_robotJointTransforms.isEmpty() ||
-		(!m_robotFkMeshWorldT0.isEmpty() && !m_robotOuterWorldAtBind.isEmpty());
+	return !m_robotJointTransforms.isEmpty() || (!m_robotFkMeshWorldT0.isEmpty() && !m_robotOuterWorldAtBind.isEmpty());
 }
 
 // 每连杆 URDF：link → mesh 后端 id（层级导入时为空）
@@ -660,10 +656,8 @@ QString DocumentPage::robotGizmoAnchorBackendId(const QString& backendId) const
 	return anchor.isEmpty() ? backendId : anchor;
 }
 
-bool DocumentPage::applyPerLinkRobotFkFromGizmoAnchor(
-	const int instanceIndex,
-	const QString& anchorLinkBackendId,
-	const QVector<double>& jointAnglesRad)
+bool DocumentPage::applyPerLinkRobotFkFromGizmoAnchor(const int instanceIndex, const QString& anchorLinkBackendId,
+													  const QVector<double>& jointAnglesRad)
 {
 	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size() || anchorLinkBackendId.isEmpty())
 	{
@@ -690,8 +684,8 @@ bool DocumentPage::applyPerLinkRobotFkFromGizmoAnchor(
 		return false;
 	}
 	osg::Matrixd placement;
-	if (!RobotSceneKinematics::computeBasePlacementFromAnchorLinkWorld(
-			slice, anchorLinkBackendId, jointAnglesRad, anchorWorld, placement))
+	if (!RobotSceneKinematics::computeBasePlacementFromAnchorLinkWorld(slice, anchorLinkBackendId, jointAnglesRad,
+																	   anchorWorld, placement))
 	{
 		return false;
 	}
@@ -711,18 +705,14 @@ bool DocumentPage::applyPerLinkRobotFkFromGizmoAnchor(
 		placement.decompose(trans, rot, scale, so);
 		const osg::Vec3f euler = OsgScene::quatToEulerDeg(rot);
 		rootData->setPose(BackendVec3{trans.x(), trans.y(), trans.z()});
-		rootData->setRotation(BackendVec3{
-			static_cast<double>(euler.x()),
-			static_cast<double>(euler.y()),
-			static_cast<double>(euler.z())});
+		rootData->setRotation(BackendVec3{static_cast<double>(euler.x()), static_cast<double>(euler.y()),
+										  static_cast<double>(euler.z())});
 	}
 	notifyRobotKinematicsAppliedToScene();
 	return true;
 }
 
-void DocumentPage::reconcilePerLinkOuterBindFromScene(
-	const int instanceIndex,
-	const QVector<double>& jointAnglesRad)
+void DocumentPage::reconcilePerLinkOuterBindFromScene(const int instanceIndex, const QVector<double>& jointAnglesRad)
 {
 	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
 	{
@@ -745,8 +735,8 @@ void DocumentPage::reconcilePerLinkOuterBindFromScene(
 	}
 	QHash<QString, osg::Matrixd> Tq;
 	QString fkErr;
-	if (!UrdfRobotLoader::computeMeshWorldMatrices(
-			slice.urdfAbsolutePath, jointAnglesRad, Tq, &fkErr, slice.meshVerticesInLinkFrame))
+	if (!UrdfRobotLoader::computeMeshWorldMatrices(slice.urdfAbsolutePath, jointAnglesRad, Tq, &fkErr,
+												   slice.meshVerticesInLinkFrame))
 	{
 		return;
 	}
@@ -801,11 +791,20 @@ void DocumentPage::notifyRobotKinematicsAppliedToScene()
 		{
 			markFollowAttachmentDirtyFromBackendMove(ri.sceneBackendId);
 		}
+		// 跟随目标常是连杆 backend，须显式置脏（勿仅依赖 root→children 拓扑）
+		for (auto it = ri.linkNameToBackendId.constBegin(); it != ri.linkNameToBackendId.constEnd(); ++it)
+		{
+			if (!it.value().isEmpty())
+			{
+				markFollowAttachmentDirtyFromBackendMove(it.value());
+			}
+		}
 	}
 }
 
 void DocumentPage::setBackendVisible(const QString& backendId, bool visible)
 {
+	(void)data().setVisible(backendId, visible);
 	sceneFacade().entity(backendId.toStdString()).setVisible(visible);
 }
 
@@ -815,6 +814,7 @@ void DocumentPage::setBackendsVisible(const QStringList& backendIds, bool visibl
 	ids.reserve(backendIds.size());
 	for (const QString& id : backendIds)
 	{
+		(void)data().setVisible(id, visible);
 		ids.push_back(id.toStdString());
 	}
 	sceneFacade().setBackendsVisible(ids, visible);
@@ -825,8 +825,8 @@ void DocumentPage::markFollowAttachmentDirtyFromBackendMove(const QString& seedB
 	data().markFollowDirtyFromMove(seedBackendId);
 }
 
-const RobotCoordinate::RobotCoordinateFrameSet& DocumentPage::robotCoordinateFramesForInstance(
-	const int instanceIndex) const
+const RobotCoordinate::RobotCoordinateFrameSet&
+DocumentPage::robotCoordinateFramesForInstance(const int instanceIndex) const
 {
 	static const RobotCoordinate::RobotCoordinateFrameSet kEmpty{};
 	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
@@ -850,5 +850,3 @@ const RobotCoordinate::RobotUserFrame* DocumentPage::robotActiveUserFrameForInst
 {
 	return RobotCoordinate::activeUserFrame(robotCoordinateFramesForInstance(instanceIndex));
 }
-
-

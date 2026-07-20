@@ -1,11 +1,14 @@
-#include "PointNetInference.h"
+﻿/// @file PointNetInference.cpp
+/// @brief PointNetInference 实现
 
-#include <onnxruntime_cxx_api.h>
+#include "PointNetInference.h"
 
 #include <algorithm>
 #include <cmath>
 #include <numeric>
 #include <stdexcept>
+
+#include <onnxruntime_cxx_api.h>
 
 PointNetInference::PointNetInference()
 {
@@ -16,7 +19,6 @@ PointNetInference::~PointNetInference() = default;
 
 namespace
 {
-
 bool queryFixedPointInputCount(Ort::Session& session, int& outPoints, QString* err)
 {
 	Ort::AllocatorWithDefaultOptions allocator;
@@ -66,20 +68,16 @@ bool validateConfigNumPoints(const int configNumPoints, const int onnxNumPoints,
 		if (err)
 		{
 			*err = QStringLiteral(
-				"num_points 与 ONNX 不一致：配置=%1，模型输入 N=%2（请重新部署或修改 pointnet_config.json）")
-						.arg(configNumPoints)
-						.arg(onnxNumPoints);
+					   "num_points 与 ONNX 不一致：配置=%1，模型输入 N=%2（请重新部署或修改 pointnet_config.json）")
+					   .arg(configNumPoints)
+					   .arg(onnxNumPoints);
 		}
 		return false;
 	}
 	return true;
 }
 
-bool querySegmentOutputCounts(
-	Ort::Session& session,
-	const int expectedPoints,
-	const int expectedClasses,
-	QString* err)
+bool querySegmentOutputCounts(Ort::Session& session, const int expectedPoints, const int expectedClasses, QString* err)
 {
 	Ort::AllocatorWithDefaultOptions allocator;
 	const Ort::TypeInfo typeInfo = session.GetOutputTypeInfo(0);
@@ -97,10 +95,9 @@ bool querySegmentOutputCounts(
 	{
 		if (err)
 		{
-			*err = QStringLiteral(
-				"分割输出点数与 num_points 不一致：配置=%1，模型输出 N=%2")
-						.arg(expectedPoints)
-						.arg(static_cast<int>(shape[1]));
+			*err = QStringLiteral("分割输出点数与 num_points 不一致：配置=%1，模型输出 N=%2")
+					   .arg(expectedPoints)
+					   .arg(static_cast<int>(shape[1]));
 		}
 		return false;
 	}
@@ -108,10 +105,9 @@ bool querySegmentOutputCounts(
 	{
 		if (err)
 		{
-			*err = QStringLiteral(
-				"num_classes 与 ONNX 不一致：配置=%1，模型输出 C=%2")
-						.arg(expectedClasses)
-						.arg(static_cast<int>(shape[2]));
+			*err = QStringLiteral("num_classes 与 ONNX 不一致：配置=%1，模型输出 C=%2")
+					   .arg(expectedClasses)
+					   .arg(static_cast<int>(shape[2]));
 		}
 		return false;
 	}
@@ -120,8 +116,8 @@ bool querySegmentOutputCounts(
 
 } // namespace
 
-bool PointNetInference::loadClassifyModel(const QString& onnxPath, int numPoints,
-	const QStringList& classes, QString* err)
+bool PointNetInference::loadClassifyModel(const QString& onnxPath, int numPoints, const QStringList& classes,
+										  QString* err)
 {
 	try
 	{
@@ -132,8 +128,8 @@ bool PointNetInference::loadClassifyModel(const QString& onnxPath, int numPoints
 		std::wstring wPath = onnxPath.toStdWString();
 		auto session = std::make_unique<Ort::Session>(*m_env, wPath.c_str(), *opts);
 		int onnxNumPoints = 0;
-		if (!queryFixedPointInputCount(*session, onnxNumPoints, err)
-			|| !validateConfigNumPoints(numPoints, onnxNumPoints, err))
+		if (!queryFixedPointInputCount(*session, onnxNumPoints, err) ||
+			!validateConfigNumPoints(numPoints, onnxNumPoints, err))
 		{
 			m_clsLoaded = false;
 			return false;
@@ -153,8 +149,7 @@ bool PointNetInference::loadClassifyModel(const QString& onnxPath, int numPoints
 	}
 }
 
-bool PointNetInference::loadSegmentModel(const QString& onnxPath, int numPoints,
-	int numClasses, QString* err)
+bool PointNetInference::loadSegmentModel(const QString& onnxPath, int numPoints, int numClasses, QString* err)
 {
 	try
 	{
@@ -165,9 +160,9 @@ bool PointNetInference::loadSegmentModel(const QString& onnxPath, int numPoints,
 		std::wstring wPath = onnxPath.toStdWString();
 		auto session = std::make_unique<Ort::Session>(*m_env, wPath.c_str(), *opts);
 		int onnxNumPoints = 0;
-		if (!queryFixedPointInputCount(*session, onnxNumPoints, err)
-			|| !validateConfigNumPoints(numPoints, onnxNumPoints, err)
-			|| !querySegmentOutputCounts(*session, onnxNumPoints, numClasses, err))
+		if (!queryFixedPointInputCount(*session, onnxNumPoints, err) ||
+			!validateConfigNumPoints(numPoints, onnxNumPoints, err) ||
+			!querySegmentOutputCounts(*session, onnxNumPoints, numClasses, err))
 		{
 			m_segLoaded = false;
 			return false;
@@ -187,8 +182,8 @@ bool PointNetInference::loadSegmentModel(const QString& onnxPath, int numPoints,
 	}
 }
 
-std::vector<float> PointNetInference::preprocessPoints(const std::vector<float>& rawPoints,
-	int srcCount, int targetCount) const
+std::vector<float> PointNetInference::preprocessPoints(const std::vector<float>& rawPoints, int srcCount,
+													   int targetCount) const
 {
 	// rawPoints: [x0,y0,z0, x1,y1,z1, ...] 展平
 	// 输出: 目标点数的归一化 xyz
@@ -251,9 +246,8 @@ std::vector<float> PointNetInference::preprocessPoints(const std::vector<float>&
 		result[i * 3 + 0] -= cx;
 		result[i * 3 + 1] -= cy;
 		result[i * 3 + 2] -= cz;
-		const float d = std::sqrt(result[i * 3 + 0] * result[i * 3 + 0] +
-			result[i * 3 + 1] * result[i * 3 + 1] +
-			result[i * 3 + 2] * result[i * 3 + 2]);
+		const float d = std::sqrt(result[i * 3 + 0] * result[i * 3 + 0] + result[i * 3 + 1] * result[i * 3 + 1] +
+								  result[i * 3 + 2] * result[i * 3 + 2]);
 		maxDist = std::max(maxDist, d);
 	}
 
@@ -279,21 +273,20 @@ PointNetClassifyResult PointNetInference::classify(const std::vector<float>& poi
 		std::vector<float> input = preprocessPoints(points, numPoints, m_clsNumPoints);
 
 		// 构造 ONNX 输入张量: [1, N, 3]
-		std::vector<int64_t> inputShape = { 1, m_clsNumPoints, 3 };
+		std::vector<int64_t> inputShape = {1, m_clsNumPoints, 3};
 		auto memInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-		auto inputTensor = Ort::Value::CreateTensor<float>(
-			memInfo, input.data(), input.size(), inputShape.data(), inputShape.size());
+		auto inputTensor =
+			Ort::Value::CreateTensor<float>(memInfo, input.data(), input.size(), inputShape.data(), inputShape.size());
 
 		// 获取输入输出名称
 		Ort::AllocatorWithDefaultOptions allocator;
 		auto inputName = m_clsSession->GetInputNameAllocated(0, allocator);
 		auto outputName = m_clsSession->GetOutputNameAllocated(0, allocator);
 
-		const char* inputNames[] = { inputName.get() };
-		const char* outputNames[] = { outputName.get() };
+		const char* inputNames[] = {inputName.get()};
+		const char* outputNames[] = {outputName.get()};
 
-		auto outputs = m_clsSession->Run(Ort::RunOptions{ nullptr },
-			inputNames, &inputTensor, 1, outputNames, 1);
+		auto outputs = m_clsSession->Run(Ort::RunOptions{nullptr}, inputNames, &inputTensor, 1, outputNames, 1);
 
 		// 解析输出: [1, numClasses] softmax 概率
 		const float* logits = outputs[0].GetTensorData<float>();
@@ -341,20 +334,19 @@ PointNetSegmentResult PointNetInference::segment(const std::vector<float>& point
 		std::vector<float> input = preprocessPoints(points, numPoints, m_segNumPoints);
 
 		// 构造 ONNX 输入张量: [1, N, 3]
-		std::vector<int64_t> inputShape = { 1, m_segNumPoints, 3 };
+		std::vector<int64_t> inputShape = {1, m_segNumPoints, 3};
 		auto memInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-		auto inputTensor = Ort::Value::CreateTensor<float>(
-			memInfo, input.data(), input.size(), inputShape.data(), inputShape.size());
+		auto inputTensor =
+			Ort::Value::CreateTensor<float>(memInfo, input.data(), input.size(), inputShape.data(), inputShape.size());
 
 		Ort::AllocatorWithDefaultOptions allocator;
 		auto inputName = m_segSession->GetInputNameAllocated(0, allocator);
 		auto outputName = m_segSession->GetOutputNameAllocated(0, allocator);
 
-		const char* inputNames[] = { inputName.get() };
-		const char* outputNames[] = { outputName.get() };
+		const char* inputNames[] = {inputName.get()};
+		const char* outputNames[] = {outputName.get()};
 
-		auto outputs = m_segSession->Run(Ort::RunOptions{ nullptr },
-			inputNames, &inputTensor, 1, outputNames, 1);
+		auto outputs = m_segSession->Run(Ort::RunOptions{nullptr}, inputNames, &inputTensor, 1, outputNames, 1);
 
 		// 解析输出: [1, N, numClasses]
 		const float* logits = outputs[0].GetTensorData<float>();

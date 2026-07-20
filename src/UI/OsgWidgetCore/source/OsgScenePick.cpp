@@ -1,8 +1,11 @@
+﻿/// @file OsgScenePick.cpp
+/// @brief OsgScenePick 实现
+
 #include "pch.h"
-#include "OsgScene.h"
 
 #include "BackendIdUserData.h"
 #include "BackendPickDomain.h"
+#include "OsgScene.h"
 #include "PickSpatialIndex.h"
 
 const PickSpatialIndex* OsgScene::activePointPickIndex() const
@@ -49,11 +52,8 @@ void OsgScene::importPickSpatialIndexForActiveBackend(const PickSpatialIndex& in
 	}
 }
 
-void OsgScene::nearestCandidatesByPickIndex(
-	const PickSpatialIndex& index,
-	const osg::Vec3f& queryLocalCentered,
-	int k,
-	std::vector<int>& outIndices) const
+void OsgScene::nearestCandidatesByPickIndex(const PickSpatialIndex& index, const osg::Vec3f& queryLocalCentered, int k,
+											std::vector<int>& outIndices) const
 {
 	index.nearestCandidates(queryLocalCentered, k, outIndices);
 }
@@ -157,8 +157,7 @@ PickResult OsgScene::queryPick(const PickQuery& queryIn)
 		std::vector<osg::Vec3f> merged;
 		const std::string* scope = query.scopeBackendId.empty() ? nullptr : &query.scopeBackendId;
 		int pickedTri = -1;
-		if (!pickMeshFaceByRayIntersection(
-				query.screenX, query.screenY, p, a, b, c, n, &merged, scope, &pickedTri))
+		if (!pickMeshFaceByRayIntersection(query.screenX, query.screenY, p, a, b, c, n, &merged, scope, &pickedTri))
 		{
 			return out;
 		}
@@ -186,8 +185,7 @@ PickResult OsgScene::queryPick(const PickQuery& queryIn)
 		osg::Vec3f p, edgeA, edgeB;
 		double edgeDistPx = 0.0;
 		const std::string* scope = query.scopeBackendId.empty() ? nullptr : &query.scopeBackendId;
-		if (!pickMeshEdgeByRayIntersection(
-				query.screenX, query.screenY, p, edgeA, edgeB, &edgeDistPx, scope))
+		if (!pickMeshEdgeByRayIntersection(query.screenX, query.screenY, p, edgeA, edgeB, &edgeDistPx, scope))
 		{
 			return out;
 		}

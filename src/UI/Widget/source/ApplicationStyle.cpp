@@ -1,8 +1,10 @@
+﻿/// @file ApplicationStyle.cpp
+/// @brief ApplicationStyle 实现
+
 #include "ApplicationStyle.h"
 
-#include "UiIcons.h"
-
 #include "UiIconDecorators.h"
+#include "UiIcons.h"
 
 #include <QApplication>
 #include <QColor>
@@ -11,8 +13,8 @@
 #include <QSettings>
 #include <QStyleFactory>
 
-namespace {
-
+namespace
+{
 QString themeToString(ApplicationStyle::Theme t)
 {
 	return t == ApplicationStyle::Theme::Dark ? QStringLiteral("dark") : QStringLiteral("light");
@@ -20,9 +22,8 @@ QString themeToString(ApplicationStyle::Theme t)
 
 ApplicationStyle::Theme themeFromString(const QString& s)
 {
-	return s.compare(QStringLiteral("dark"), Qt::CaseInsensitive) == 0
-		? ApplicationStyle::Theme::Dark
-		: ApplicationStyle::Theme::Light;
+	return s.compare(QStringLiteral("dark"), Qt::CaseInsensitive) == 0 ? ApplicationStyle::Theme::Dark
+																	   : ApplicationStyle::Theme::Light;
 }
 
 // 亮色主题：带微妙冷色调的专业配色
@@ -1014,8 +1015,8 @@ QToolTip {
 
 } // namespace
 
-namespace ApplicationStyle {
-
+namespace ApplicationStyle
+{
 void applyTheme(QApplication* app, Theme theme)
 {
 	if (!app)

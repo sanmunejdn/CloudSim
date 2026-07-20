@@ -1,6 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINHOST_AIASSISTANTHOSTIMPL_H
+#define CLOUDSIMPLUGINHOST_AIASSISTANTHOSTIMPL_H
 
-#include "IAiAssistantHost.h"
+/// @file AiAssistantHostImpl.h
+/// @brief AiAssistantHostImpl 接口
 
 #include "Ai/AiDomainRegistryImpl.h"
 #include "Ai/AiDomainRouter.h"
@@ -8,6 +10,7 @@
 #include "Ai/MeshComposeDomainHandler.h"
 #include "Ai/MeshCreateDomainHandler.h"
 #include "Ai/TrajectoryFeatureDomainHandler.h"
+#include "IAiAssistantHost.h"
 
 #include <memory>
 
@@ -33,12 +36,13 @@ public:
 	AiParseResult parseTrajectoryFeatureRequest(const AiInferenceRequest& request) const override;
 
 	void parseUserTextAsync(const AiInferenceRequest& request, const AiConfigDto& config,
-		const AiInferenceProgressFn& progress, std::function<void(AiParseResult)> onFinished) override;
+							const AiInferenceProgressFn& progress,
+							std::function<void(AiParseResult)> onFinished) override;
 
 	bool executeActionPlan(const QByteArray& actionPlanJsonUtf8, QString* outSummary, QString* outError) override;
 
 	bool executeDomainOutput(const QString& domainId, const QByteArray& outputJsonUtf8, QString* outSummary,
-		QString* outError) override;
+							 QString* outError) override;
 
 	QString resolveDomainId(const QString& requestedDomainId, const QString& userText) const override;
 
@@ -46,10 +50,11 @@ private:
 	void registerBuiltinDomains();
 	const AiDomainModelConfig* findDomainConfig(const AiConfigDto& cfg, const QString& domainId) const;
 	AiParseResult parseWithLocalLlm(const QString& domainId, const QString& text, const AiDomainModelConfig& dm,
-		const QByteArray& imagePng, const AiInferenceProgressFn& progress,
-		const QByteArray& catalogSliceUtf8 = QByteArray()) const;
+									const QByteArray& imagePng, const AiInferenceProgressFn& progress,
+									const QByteArray& catalogSliceUtf8 = QByteArray()) const;
 	AiParseResult parseWithRemoteLlm(const QString& domainId, const QString& text, const AiRemoteLlmConfig& remote,
-		const AiInferenceProgressFn& progress, const QByteArray& catalogSliceUtf8 = QByteArray()) const;
+									 const AiInferenceProgressFn& progress,
+									 const QByteArray& catalogSliceUtf8 = QByteArray()) const;
 
 	PluginHostContext* m_pluginHost = nullptr;
 	AiDomainRegistryImpl m_registry;
@@ -61,3 +66,5 @@ private:
 	std::vector<std::shared_ptr<IAiInferenceProvider>> m_inferenceProviders;
 	QString m_lastLoadedModel;
 };
+
+#endif // CLOUDSIMPLUGINHOST_AIASSISTANTHOSTIMPL_H

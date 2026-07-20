@@ -1,9 +1,13 @@
-#pragma once
+﻿#ifndef CLOUDSIMCORE_IDOCUMENTSCOPE_H
+#define CLOUDSIMCORE_IDOCUMENTSCOPE_H
+
+/// @file IDocumentScope.h
+/// @brief 单文档作用域
 
 #include "cloudsim_core_global.h"
 
-namespace cloudsim::core {
-
+namespace cloudsim::core
+{
 class IDataService;
 class IRobotService;
 class IRenderView;
@@ -21,3 +25,5 @@ public:
 };
 
 } // namespace cloudsim::core
+
+#endif // CLOUDSIMCORE_IDOCUMENTSCOPE_H

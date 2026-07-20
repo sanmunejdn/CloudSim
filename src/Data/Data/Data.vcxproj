@@ -184,6 +184,7 @@
     <ClInclude Include="inc\BackendPrimitiveGeometry.h" />
     <ClInclude Include="inc\MeshBoolean.h" />
     <ClInclude Include="inc\BrepBackendData.h" />
+    <ClInclude Include="inc\FrameBackendData.h" />
     <ClInclude Include="inc\MeshBackendData.h" />
     <ClInclude Include="inc\PlyIo.h" />
     <ClInclude Include="inc\PointCloudBackendData.h" />
@@ -208,6 +209,7 @@
     <ClCompile Include="source\MeshBoolean.cpp" />
     <ClCompile Include="source\BrepBackendData_core.cpp" />
     <ClCompile Include="source\BrepBackendData_step.cpp" />
+    <ClCompile Include="source\FrameBackendData.cpp" />
     <ClCompile Include="source\MeshBackendData_core.cpp" />
     <ClCompile Include="source\MeshBackendData_load_common.cpp" />
     <ClCompile Include="source\MeshBackendData_cgal_io.cpp" />

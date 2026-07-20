@@ -1,16 +1,19 @@
-#pragma once
+﻿#ifndef POINTCLOUDALGORITHM_REGISTRATIONGLOBAL_H
+#define POINTCLOUDALGORITHM_REGISTRATIONGLOBAL_H
+
+/// @file RegistrationGlobal.h
+/// @brief RegistrationGlobal 接口
 
 #include "point_cloud_algorithm_global.h"
-
-#include <Eigen/Geometry>
 
 #include <cstddef>
 #include <string>
 #include <vector>
 
+#include <Eigen/Geometry>
+
 namespace pclalgo
 {
-
 struct RigidRegisterRansacParams
 {
 	std::size_t maxFeaturePoints = 4000U;
@@ -26,14 +29,12 @@ struct RigidRegisterRansacParams
 	bool skipTranslationCap = false;
 };
 
-POINT_CLOUD_ALGORITHM_API bool rigidRegisterFeatureRansac(
-	const std::vector<float>& sourceXyz,
-	const std::vector<float>& sourceNormalsNxNyNz,
-	const std::vector<float>& targetXyz,
-	const std::vector<float>& targetNormalsNxNyNz,
-	Eigen::Isometry3d& sourceToTarget,
-	double* inlierRatio,
-	RigidRegisterRansacParams params,
-	std::string* errMsg = nullptr);
+POINT_CLOUD_ALGORITHM_API bool
+rigidRegisterFeatureRansac(const std::vector<float>& sourceXyz, const std::vector<float>& sourceNormalsNxNyNz,
+						   const std::vector<float>& targetXyz, const std::vector<float>& targetNormalsNxNyNz,
+						   Eigen::Isometry3d& sourceToTarget, double* inlierRatio, RigidRegisterRansacParams params,
+						   std::string* errMsg = nullptr);
 
 } // namespace pclalgo
+
+#endif // POINTCLOUDALGORITHM_REGISTRATIONGLOBAL_H

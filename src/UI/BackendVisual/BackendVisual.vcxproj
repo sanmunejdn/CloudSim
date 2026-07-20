@@ -159,6 +159,7 @@
     <ClInclude Include="inc\IBackendVisual.h" />
     <ClInclude Include="inc\BrepBackendVisual.h" />
     <ClInclude Include="inc\BackendPickDomain.h" />
+    <ClInclude Include="inc\FrameBackendVisual.h" />
     <ClInclude Include="inc\MeshBackendVisual.h" />
     <ClInclude Include="inc\PointCloudBackendVisual.h" />
   </ItemGroup>
@@ -169,6 +170,7 @@
     <ClCompile Include="source\BackendVisualMath.cpp" />
     <ClCompile Include="source\BackendVisualRegistry.cpp" />
     <ClCompile Include="source\BrepBackendVisual.cpp" />
+    <ClCompile Include="source\FrameBackendVisual.cpp" />
     <ClCompile Include="source\MeshBackendVisual.cpp" />
     <ClCompile Include="source\PointCloudBackendVisual.cpp" />
   </ItemGroup>

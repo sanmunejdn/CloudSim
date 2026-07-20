@@ -1,9 +1,11 @@
+﻿/// @file TrajectoryOpFormat.cpp
+/// @brief TrajectoryOpFormat 实现
+
 // TrajectoryOpFormat 实现
 #include "TrajectoryOpFormat.h"
 
 namespace trajectory_algo
 {
-
 std::string frameLabel(const RobotInstruction::TransformReferenceFrame frame, const bool chinese)
 {
 	if (frame == RobotInstruction::TransformReferenceFrame::Body)

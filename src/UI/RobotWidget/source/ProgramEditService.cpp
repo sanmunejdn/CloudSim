@@ -1,11 +1,11 @@
+﻿/// @file ProgramEditService.cpp
+/// @brief ProgramEditService 实现
+
 #include "ProgramEditService.h"
 
 #include "RobotProgramStore.h"
 
-ProgramEditService::ProgramEditService(QObject* parent)
-	: QObject(parent)
-{
-}
+ProgramEditService::ProgramEditService(QObject* parent) : QObject(parent) {}
 
 void ProgramEditService::bindStore(RobotProgramStore* store)
 {
@@ -42,9 +42,8 @@ bool ProgramEditService::execute(std::unique_ptr<RobotInstruction::ProgramEditCo
 	return execute(std::shared_ptr<RobotInstruction::ProgramEditCommand>(std::move(cmd)), outError);
 }
 
-bool ProgramEditService::executeBatch(
-	const std::vector<RobotInstruction::ProgramEditStack::CommandPtr>& cmds,
-	QString* outError)
+bool ProgramEditService::executeBatch(const std::vector<RobotInstruction::ProgramEditStack::CommandPtr>& cmds,
+									  QString* outError)
 {
 	if (!m_store)
 	{

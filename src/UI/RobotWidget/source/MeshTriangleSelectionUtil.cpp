@@ -1,29 +1,24 @@
+﻿/// @file MeshTriangleSelectionUtil.cpp
+/// @brief MeshTriangleSelectionUtil 实现
+
 #include "MeshTriangleSelectionUtil.h"
 
 #include "IRobotDocumentHost.h"
 #include "IRobotOsgViewHost.h"
 
+#include <QVector>
+
 #include <BackendDataManager.h>
 #include <MeshBackendData.h>
 #include <PointCloudBackendOps.h>
-
-#include <QVector>
-
 #include <osg/Vec3f>
 
 namespace mesh_triangle_selection
 {
-
-bool collectTrianglesByPolyline(
-	IRobotDocumentHost* doc,
-	IRobotOsgViewHost* osg,
-	const std::string& backendIdUtf8,
-	const QVector<float>& polylineScreenXy,
-	const QVector<double>& mvpMatrix,
-	const int viewportWidth,
-	const int viewportHeight,
-	std::vector<int>& outTriangleIndices,
-	std::string* errMsg)
+bool collectTrianglesByPolyline(IRobotDocumentHost* doc, IRobotOsgViewHost* osg, const std::string& backendIdUtf8,
+								const QVector<float>& polylineScreenXy, const QVector<double>& mvpMatrix,
+								const int viewportWidth, const int viewportHeight, std::vector<int>& outTriangleIndices,
+								std::string* errMsg)
 {
 	outTriangleIndices.clear();
 	if (!doc || !osg)
@@ -44,11 +39,7 @@ bool collectTrianglesByPolyline(
 		}
 		return false;
 	}
-	double modelToWorld[16] = {
-		1.0, 0.0, 0.0, 0.0,
-		0.0, 1.0, 0.0, 0.0,
-		0.0, 0.0, 1.0, 0.0,
-		0.0, 0.0, 0.0, 1.0};
+	double modelToWorld[16] = {1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
 	const std::string scopeId = osg->resolvePickScopeBackendId(backendIdUtf8);
 	osg::Matrixd worldMat;
 	if (osg->getBackendRootWorldMatrix(scopeId, worldMat))
@@ -81,23 +72,12 @@ bool collectTrianglesByPolyline(
 		mvp[i] = mvpMatrix[i];
 	}
 	return point_cloud_backend_ops::collectMeshTriangleIndicesByPolyline2D(
-		*mesh,
-		poly,
-		mvp,
-		modelToWorld,
-		viewportWidth,
-		viewportHeight,
-		true,
-		outTriangleIndices,
-		errMsg);
+		*mesh, poly, mvp, modelToWorld, viewportWidth, viewportHeight, true, outTriangleIndices, errMsg);
 }
 
-void selectedTrianglesToWorldVerts(
-	const MeshBackendData& mesh,
-	IRobotOsgViewHost* osg,
-	const std::string& backendIdUtf8,
-	const std::vector<int>& triangleIndices,
-	std::vector<osg::Vec3f>& outVertsWorld)
+void selectedTrianglesToWorldVerts(const MeshBackendData& mesh, IRobotOsgViewHost* osg,
+								   const std::string& backendIdUtf8, const std::vector<int>& triangleIndices,
+								   std::vector<osg::Vec3f>& outVertsWorld)
 {
 	outVertsWorld.clear();
 	if (!osg)
@@ -128,19 +108,14 @@ void selectedTrianglesToWorldVerts(
 			const std::size_t cb = b + static_cast<std::size_t>(c) * 3U;
 			const osg::Vec3d local(soup[cb], soup[cb + 1U], soup[cb + 2U]);
 			const osg::Vec3d world = local * worldMat;
-			outVertsWorld.emplace_back(
-				static_cast<float>(world.x()),
-				static_cast<float>(world.y()),
-				static_cast<float>(world.z()));
+			outVertsWorld.emplace_back(static_cast<float>(world.x()), static_cast<float>(world.y()),
+									   static_cast<float>(world.z()));
 		}
 	}
 }
 
-void triangleSoupModelToWorldVerts(
-	IRobotOsgViewHost* osg,
-	const std::string& backendIdUtf8,
-	const std::vector<float>& triangleSoupModel,
-	std::vector<osg::Vec3f>& outVertsWorld)
+void triangleSoupModelToWorldVerts(IRobotOsgViewHost* osg, const std::string& backendIdUtf8,
+								   const std::vector<float>& triangleSoupModel, std::vector<osg::Vec3f>& outVertsWorld)
 {
 	outVertsWorld.clear();
 	if (!osg || triangleSoupModel.size() < 9U || triangleSoupModel.size() % 9U != 0U)
@@ -162,10 +137,8 @@ void triangleSoupModelToWorldVerts(
 			const std::size_t cb = ti * 9U + static_cast<std::size_t>(c) * 3U;
 			const osg::Vec3d local(triangleSoupModel[cb], triangleSoupModel[cb + 1U], triangleSoupModel[cb + 2U]);
 			const osg::Vec3d world = local * worldMat;
-			outVertsWorld.emplace_back(
-				static_cast<float>(world.x()),
-				static_cast<float>(world.y()),
-				static_cast<float>(world.z()));
+			outVertsWorld.emplace_back(static_cast<float>(world.x()), static_cast<float>(world.y()),
+									   static_cast<float>(world.z()));
 		}
 	}
 }

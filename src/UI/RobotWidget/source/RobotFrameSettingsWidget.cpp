@@ -1,3 +1,6 @@
+﻿/// @file RobotFrameSettingsWidget.cpp
+/// @brief RobotFrameSettingsWidget 实现
+
 #include "RobotFrameSettingsWidget.h"
 
 #include "UiIconDecorators.h"
@@ -7,8 +10,8 @@
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QGroupBox>
-#include <QLabel>
 #include <QHBoxLayout>
+#include <QLabel>
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QPushButton>
@@ -44,9 +47,8 @@ void readRigidFromSpins(RobotCoordinate::RobotRigidFrame& f, QDoubleSpinBox* pos
 	}
 }
 
-bool toolFrameSnapshotMatches(
-	const RobotCoordinate::RobotToolFrame& before,
-	const RobotCoordinate::RobotToolFrame& after)
+bool toolFrameSnapshotMatches(const RobotCoordinate::RobotToolFrame& before,
+							  const RobotCoordinate::RobotToolFrame& after)
 {
 	if (before.flangeLinkName != after.flangeLinkName)
 	{
@@ -54,8 +56,8 @@ bool toolFrameSnapshotMatches(
 	}
 	for (int i = 0; i < 3; ++i)
 	{
-		if (std::abs(before.T_flange_tool.positionMm[i] - after.T_flange_tool.positionMm[i]) > 1e-6
-			|| std::abs(before.T_flange_tool.eulerDeg[i] - after.T_flange_tool.eulerDeg[i]) > 1e-6)
+		if (std::abs(before.T_flange_tool.positionMm[i] - after.T_flange_tool.positionMm[i]) > 1e-6 ||
+			std::abs(before.T_flange_tool.eulerDeg[i] - after.T_flange_tool.eulerDeg[i]) > 1e-6)
 		{
 			return false;
 		}
@@ -76,8 +78,7 @@ void setFormLabel(QFormLayout* form, const int row, const QString& text)
 }
 } // namespace
 
-RobotFrameSettingsWidget::RobotFrameSettingsWidget(QWidget* parent)
-	: QWidget(parent)
+RobotFrameSettingsWidget::RobotFrameSettingsWidget(QWidget* parent) : QWidget(parent)
 {
 	m_framesDebounceTimer = new QTimer(this);
 	m_framesDebounceTimer->setSingleShot(true);
@@ -171,33 +172,35 @@ RobotFrameSettingsWidget::RobotFrameSettingsWidget(QWidget* parent)
 
 	setUseChinese(m_useChinese);
 
-	connect(m_flangeLinkCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
-		if (m_blockSignals)
-		{
-			return;
-		}
-		saveToolFieldsToSelection();
-		const int row = m_toolList->currentRow();
-		if (row >= 0 && row < static_cast<int>(m_frames.toolFrames.size()))
-		{
-			if (m_flangeLinkCombo->currentIndex() >= 0)
+	connect(m_flangeLinkCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			[this](int)
 			{
-				m_frames.toolFrames[static_cast<size_t>(row)].flangeLinkName =
-					m_flangeLinkCombo->currentText().toStdString();
-			}
-		}
-		scheduleFramesChanged();
-	});
+				if (m_blockSignals)
+				{
+					return;
+				}
+				saveToolFieldsToSelection();
+				const int row = m_toolList->currentRow();
+				if (row >= 0 && row < static_cast<int>(m_frames.toolFrames.size()))
+				{
+					if (m_flangeLinkCombo->currentIndex() >= 0)
+					{
+						m_frames.toolFrames[static_cast<size_t>(row)].flangeLinkName =
+							m_flangeLinkCombo->currentText().toStdString();
+					}
+				}
+				scheduleFramesChanged();
+			});
 	for (int i = 0; i < 3; ++i)
 	{
 		connect(m_toolPos[i], QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
-			&RobotFrameSettingsWidget::onToolFieldChanged);
+				&RobotFrameSettingsWidget::onToolFieldChanged);
 		connect(m_toolEuler[i], QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
-			&RobotFrameSettingsWidget::onToolFieldChanged);
+				&RobotFrameSettingsWidget::onToolFieldChanged);
 		connect(m_userPos[i], QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
-			&RobotFrameSettingsWidget::onUserFieldChanged);
+				&RobotFrameSettingsWidget::onUserFieldChanged);
 		connect(m_userEuler[i], QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
-			&RobotFrameSettingsWidget::onUserFieldChanged);
+				&RobotFrameSettingsWidget::onUserFieldChanged);
 	}
 	connect(m_toolList, &QListWidget::currentRowChanged, this, &RobotFrameSettingsWidget::onToolListSelectionChanged);
 	connect(m_userList, &QListWidget::currentRowChanged, this, &RobotFrameSettingsWidget::onUserListSelectionChanged);
@@ -230,13 +233,11 @@ void RobotFrameSettingsWidget::setUseChinese(bool chinese)
 	m_useChinese = chinese;
 	if (m_toolGroup)
 	{
-		m_toolGroup->setTitle(chinese ? QStringLiteral("工具坐标系（法兰）")
-									  : QStringLiteral("Tool frames (flange)"));
+		m_toolGroup->setTitle(chinese ? QStringLiteral("工具坐标系（法兰）") : QStringLiteral("Tool frames (flange)"));
 	}
 	if (m_userGroup)
 	{
-		m_userGroup->setTitle(chinese ? QStringLiteral("用户坐标系（基座）")
-									  : QStringLiteral("User frames (base)"));
+		m_userGroup->setTitle(chinese ? QStringLiteral("用户坐标系（基座）") : QStringLiteral("User frames (base)"));
 	}
 	if (m_showGroup)
 	{
@@ -339,21 +340,23 @@ void RobotFrameSettingsWidget::rebuildToolFrameList()
 		m_toolList->addItem(item);
 		m_toolList->setItemWidget(item, row);
 		const std::string frameId = tf.id;
-		connect(showCheck, &QCheckBox::toggled, this, [this, frameId](const bool checked) {
-			if (m_blockSignals)
-			{
-				return;
-			}
-			for (RobotCoordinate::RobotToolFrame& f : m_frames.toolFrames)
-			{
-				if (f.id == frameId)
+		connect(showCheck, &QCheckBox::toggled, this,
+				[this, frameId](const bool checked)
 				{
-					f.showInScene = checked;
-					break;
-				}
-			}
-			emit framesChanged();
-		});
+					if (m_blockSignals)
+					{
+						return;
+					}
+					for (RobotCoordinate::RobotToolFrame& f : m_frames.toolFrames)
+					{
+						if (f.id == frameId)
+						{
+							f.showInScene = checked;
+							break;
+						}
+					}
+					emit framesChanged();
+				});
 	}
 	if (m_toolList->count() > 0 && m_toolList->currentRow() < 0)
 	{
@@ -394,21 +397,23 @@ void RobotFrameSettingsWidget::rebuildUserFrameList()
 		m_userList->addItem(item);
 		m_userList->setItemWidget(item, row);
 		const std::string frameId = uf.id;
-		connect(showCheck, &QCheckBox::toggled, this, [this, frameId](const bool checked) {
-			if (m_blockSignals)
-			{
-				return;
-			}
-			for (RobotCoordinate::RobotUserFrame& f : m_frames.userFrames)
-			{
-				if (f.id == frameId)
+		connect(showCheck, &QCheckBox::toggled, this,
+				[this, frameId](const bool checked)
 				{
-					f.showInScene = checked;
-					break;
-				}
-			}
-			emit framesChanged();
-		});
+					if (m_blockSignals)
+					{
+						return;
+					}
+					for (RobotCoordinate::RobotUserFrame& f : m_frames.userFrames)
+					{
+						if (f.id == frameId)
+						{
+							f.showInScene = checked;
+							break;
+						}
+					}
+					emit framesChanged();
+				});
 	}
 	if (m_userList->count() > 0 && m_userList->currentRow() < 0)
 	{
@@ -518,8 +523,8 @@ void RobotFrameSettingsWidget::onToolListSelectionChanged()
 	}
 	const int newRow = m_toolList->currentRow();
 	bool prevRowChanged = false;
-	if (m_lastToolListRow >= 0 && m_lastToolListRow < static_cast<int>(m_frames.toolFrames.size())
-		&& m_lastToolListRow != newRow)
+	if (m_lastToolListRow >= 0 && m_lastToolListRow < static_cast<int>(m_frames.toolFrames.size()) &&
+		m_lastToolListRow != newRow)
 	{
 		RobotCoordinate::RobotToolFrame& prev = m_frames.toolFrames[static_cast<size_t>(m_lastToolListRow)];
 		const RobotCoordinate::RobotToolFrame before = prev;
@@ -661,8 +666,7 @@ void RobotFrameSettingsWidget::onRemoveUserFrame()
 	m_frames.userFrames.erase(m_frames.userFrames.begin() + row);
 	if (m_frames.activeUserFrameId == removedId)
 	{
-		m_frames.activeUserFrameId =
-			m_frames.userFrames.empty() ? std::string() : m_frames.userFrames.front().id;
+		m_frames.activeUserFrameId = m_frames.userFrames.empty() ? std::string() : m_frames.userFrames.front().id;
 	}
 	rebuildUserFrameList();
 	emit framesChanged();

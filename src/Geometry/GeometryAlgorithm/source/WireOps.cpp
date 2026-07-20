@@ -1,11 +1,13 @@
-#include "detail/OccIncludes.h"
+﻿/// @file WireOps.cpp
+/// @brief WireOps 实现
+
+#include "WireOps.h"
 
 #include "Discretize.h"
-#include "WireOps.h"
+#include "detail/OccIncludes.h"
 
 namespace geoalgo
 {
-
 bool fuseWires(const std::vector<TopoDS_Wire>& wires, TopoDS_Wire& outWire, std::string* errMsg)
 {
 	if (wires.empty())
@@ -37,11 +39,8 @@ bool fuseWires(const std::vector<TopoDS_Wire>& wires, TopoDS_Wire& outWire, std:
 	return !outWire.IsNull();
 }
 
-bool fuseWiresToPolyline(
-	const std::vector<TopoDS_Wire>& wires,
-	const TessellateParams& disc,
-	Polyline3d& out,
-	std::string* errMsg)
+bool fuseWiresToPolyline(const std::vector<TopoDS_Wire>& wires, const TessellateParams& disc, Polyline3d& out,
+						 std::string* errMsg)
 {
 	TopoDS_Wire fused;
 	if (!fuseWires(wires, fused, errMsg))

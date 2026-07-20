@@ -1,3 +1,6 @@
+﻿/// @file CenterlineExtraction.cpp
+/// @brief CenterlineExtraction 实现
+
 #include "CenterlineExtraction.h"
 
 #include "TubularGrinding.h"
@@ -9,14 +12,9 @@ namespace geoalgo
 {
 namespace tg
 {
-
-bool runCenterlineExtraction(
-	const IndexedMeshLite& mesh,
-	const TubularGrindingParams& params,
-	std::vector<TubularCenterlineSample>& outSamples,
-	int& outSectionFitFailCount,
-	std::string* errMsg,
-	TubularCenterlinePcaAxis* outPcaAxis)
+bool runCenterlineExtraction(const IndexedMeshLite& mesh, const TubularGrindingParams& params,
+							 std::vector<TubularCenterlineSample>& outSamples, int& outSectionFitFailCount,
+							 std::string* errMsg, TubularCenterlinePcaAxis* outPcaAxis)
 {
 	outSamples.clear();
 	outSectionFitFailCount = 0;

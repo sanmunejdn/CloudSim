@@ -1,6 +1,8 @@
+﻿/// @file TrajectoryPipelineListWidget.cpp
+/// @brief TrajectoryPipelineListWidget 实现
+
 #include "TrajectoryPipelineListWidget.h"
 
-#include <ITrajectoryOp.h>
 #include "TrajectoryOpBridge.h"
 
 #include <QCheckBox>
@@ -12,9 +14,10 @@
 #include <QMimeData>
 #include <QSignalBlocker>
 #include <QSizePolicy>
-
 #include <cmath>
 #include <cstring>
+
+#include <ITrajectoryOp.h>
 
 namespace
 {
@@ -29,8 +32,7 @@ RobotInstruction::TrajectoryOpKind kindFromInt(const int v)
 }
 } // namespace
 
-TrajectoryPipelineListWidget::TrajectoryPipelineListWidget(QWidget* parent)
-	: QListWidget(parent)
+TrajectoryPipelineListWidget::TrajectoryPipelineListWidget(QWidget* parent) : QListWidget(parent)
 {
 	setSelectionMode(QAbstractItemView::SingleSelection);
 	setAcceptDrops(true);
@@ -38,9 +40,7 @@ TrajectoryPipelineListWidget::TrajectoryPipelineListWidget(QWidget* parent)
 	setDragDropMode(QAbstractItemView::DragDrop);
 	setDefaultDropAction(Qt::MoveAction);
 
-	connect(this, &QListWidget::itemSelectionChanged, this, [this]() {
-		emit selectedOpChanged(selectedOpIndex());
-	});
+	connect(this, &QListWidget::itemSelectionChanged, this, [this]() { emit selectedOpChanged(selectedOpIndex()); });
 }
 
 void TrajectoryPipelineListWidget::setUseChinese(const bool chinese)
@@ -123,9 +123,7 @@ void TrajectoryPipelineListWidget::updateSelectedOp(const RobotInstruction::Traj
 	updateOpAt(selectedOpIndex(), op);
 }
 
-void TrajectoryPipelineListWidget::updateOpAt(
-	const int index,
-	const RobotInstruction::TrajectoryOpDescriptor& op)
+void TrajectoryPipelineListWidget::updateOpAt(const int index, const RobotInstruction::TrajectoryOpDescriptor& op)
 {
 	if (index < 0 || index >= static_cast<int>(m_ops.size()))
 	{
@@ -287,9 +285,8 @@ void TrajectoryPipelineListWidget::refreshRowWidget(const int index)
 	setItemWidget(listItem, rowWidget);
 }
 
-QWidget* TrajectoryPipelineListWidget::createRowWidget(
-	const int index,
-	const RobotInstruction::TrajectoryOpDescriptor& op)
+QWidget* TrajectoryPipelineListWidget::createRowWidget(const int index,
+													   const RobotInstruction::TrajectoryOpDescriptor& op)
 {
 	auto* row = new QWidget(this);
 	auto* layout = new QHBoxLayout(row);
@@ -305,9 +302,7 @@ QWidget* TrajectoryPipelineListWidget::createRowWidget(
 	}
 	layout->addWidget(summary, 1);
 
-	auto* enable = new QCheckBox(
-		m_useChinese ? QStringLiteral("启用") : QStringLiteral("On"),
-		row);
+	auto* enable = new QCheckBox(m_useChinese ? QStringLiteral("启用") : QStringLiteral("On"), row);
 	enable->setObjectName(QStringLiteral("opEnabled"));
 	enable->setProperty("opIndex", index);
 	{

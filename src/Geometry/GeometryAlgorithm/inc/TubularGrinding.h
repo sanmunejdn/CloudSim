@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_TUBULARGRINDING_H
+#define GEOMETRYALGORITHM_TUBULARGRINDING_H
+
+/// @file TubularGrinding.h
+/// @brief 邻域搜索模式
 
 #include "geometry_algorithm_global.h"
 
@@ -10,7 +14,6 @@
 
 namespace geoalgo
 {
-
 enum class TubularGrindingStage : int
 {
 	None = 0,
@@ -33,16 +36,16 @@ enum class TubularGrindingTemplateKind : int
 /// 邻域搜索模式
 enum class NeighborhoodMode : int
 {
-	Fixed2Hop = 0,		// 原有固定 2-hop（兼容）
-	Adaptive = 1,		// 自适应测地线距离
+	Fixed2Hop = 0, // 原有固定 2-hop（兼容）
+	Adaptive = 1,  // 自适应测地线距离
 };
 
 /// 截面拟合模式
 enum class SectionFitMode : int
 {
-	Circle = 0,			// 原有圆拟合（兼容）
-	Ellipse = 1,		// 椭圆拟合
-	ConvexHull = 2,		// 凸包拟合（通用回退）
+	Circle = 0,		// 原有圆拟合（兼容）
+	Ellipse = 1,	// 椭圆拟合
+	ConvexHull = 2, // 凸包拟合（通用回退）
 };
 
 enum class TubularGrindingCenterlineMethod : int
@@ -254,103 +257,78 @@ public:
 	const std::vector<TubularProjectedPoint>& projectedPoints() const;
 
 private:
-	friend GEOMETRY_ALGORITHM_API bool runTubularGrindingStage(
-		TubularGrindingSession& session,
-		TubularGrindingStage stage,
-		const TubularGrindingParams& params,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool runTubularGrindingStage(TubularGrindingSession& session,
+															   TubularGrindingStage stage,
+															   const TubularGrindingParams& params,
+															   std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool buildSegmentColoredMeshSoup(
-		const TubularGrindingSession& session,
-		std::vector<float>& outSoup,
-		std::vector<float>& outRgbPerVertex,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool buildSegmentColoredMeshSoup(const TubularGrindingSession& session,
+																   std::vector<float>& outSoup,
+																   std::vector<float>& outRgbPerVertex,
+																   std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool buildRingColoredMeshSoup(
-		const TubularGrindingSession& session,
-		std::vector<float>& outSoup,
-		std::vector<float>& outRgbPerVertex,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool buildRingColoredMeshSoup(const TubularGrindingSession& session,
+																std::vector<float>& outSoup,
+																std::vector<float>& outRgbPerVertex,
+																std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool buildFpfhRegionColoredMeshSoup(
-		const TubularGrindingSession& session,
-		std::vector<float>& outSoup,
-		std::vector<float>& outRgbPerVertex,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool buildFpfhRegionColoredMeshSoup(const TubularGrindingSession& session,
+																	  std::vector<float>& outSoup,
+																	  std::vector<float>& outRgbPerVertex,
+																	  std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool buildRingCenterPointsCloud(
-		const TubularGrindingSession& session,
-		std::vector<float>& outXyz,
-		std::vector<float>& outRgba,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool buildRingCenterPointsCloud(const TubularGrindingSession& session,
+																  std::vector<float>& outXyz,
+																  std::vector<float>& outRgba, std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool buildFaceNormalAxisLineSegments(
-		const TubularGrindingSession& session,
-		const TubularGrindingParams& params,
-		std::vector<float>& outLineXyz,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool buildFaceNormalAxisLineSegments(const TubularGrindingSession& session,
+																	   const TubularGrindingParams& params,
+																	   std::vector<float>& outLineXyz,
+																	   std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool buildLocalAxisLineSegments(
-		const TubularGrindingSession& session,
-		const TubularGrindingParams& params,
-		std::vector<float>& outLineXyz,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool buildLocalAxisLineSegments(const TubularGrindingSession& session,
+																  const TubularGrindingParams& params,
+																  std::vector<float>& outLineXyz, std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool buildCenterlinePointsCloud(
-		const TubularGrindingSession& session,
-		std::vector<float>& outXyz,
-		std::vector<float>& outRgba,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool buildCenterlinePointsCloud(const TubularGrindingSession& session,
+																  std::vector<float>& outXyz,
+																  std::vector<float>& outRgba, std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool buildCenterlinePolylineXyz(
-		const TubularGrindingSession& session,
-		std::vector<float>& outXyz,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool buildCenterlinePolylineXyz(const TubularGrindingSession& session,
+																  std::vector<float>& outXyz, std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool buildCenterlinePcaAxisArrowLineSegments(
-		const TubularGrindingSession& session,
-		std::vector<float>& outLineXyz,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool buildCenterlinePcaAxisArrowLineSegments(const TubularGrindingSession& session,
+																			   std::vector<float>& outLineXyz,
+																			   std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool buildTemplatePointsCloud(
-		const TubularGrindingSession& session,
-		std::vector<float>& outXyz,
-		std::vector<float>& outRgba,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool buildTemplatePointsCloud(const TubularGrindingSession& session,
+																std::vector<float>& outXyz, std::vector<float>& outRgba,
+																std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool buildProjectedPointsCloud(
-		const TubularGrindingSession& session,
-		std::vector<float>& outXyz,
-		std::vector<float>& outRgba,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool buildProjectedPointsCloud(const TubularGrindingSession& session,
+																 std::vector<float>& outXyz,
+																 std::vector<float>& outRgba, std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool buildIterationSnapshotPointsCloud(
-		const TubularGrindingSession& session,
-		int snapshotIndex,
-		std::vector<float>& outXyz,
-		std::vector<float>& outRgba,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool buildIterationSnapshotPointsCloud(const TubularGrindingSession& session,
+																		 int snapshotIndex, std::vector<float>& outXyz,
+																		 std::vector<float>& outRgba,
+																		 std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool buildIterationSnapshotContractedPointsCloud(
-		const TubularGrindingSession& session,
-		int snapshotIndex,
-		std::vector<float>& outXyz,
-		std::vector<float>& outRgba,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool
+	buildIterationSnapshotContractedPointsCloud(const TubularGrindingSession& session, int snapshotIndex,
+												std::vector<float>& outXyz, std::vector<float>& outRgba,
+												std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API int iterationSnapshotCount(
-		const TubularGrindingSession& session);
+	friend GEOMETRY_ALGORITHM_API int iterationSnapshotCount(const TubularGrindingSession& session);
 
-	friend GEOMETRY_ALGORITHM_API int iterationSnapshotIteration(
-		const TubularGrindingSession& session,
-		int snapshotIndex);
+	friend GEOMETRY_ALGORITHM_API int iterationSnapshotIteration(const TubularGrindingSession& session,
+																 int snapshotIndex);
 
-	friend GEOMETRY_ALGORITHM_API bool computeEllipseFittingResidualReport(
-		const TubularGrindingSession& session,
-		const TubularGrindingParams& params,
-		std::vector<double>& outPerRingRmsResiduals,
-		std::string& outSummaryText,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool computeEllipseFittingResidualReport(const TubularGrindingSession& session,
+																		   const TubularGrindingParams& params,
+																		   std::vector<double>& outPerRingRmsResiduals,
+																		   std::string& outSummaryText,
+																		   std::string* errMsg);
 
 	struct Impl;
 	std::unique_ptr<Impl> m_impl;
@@ -358,100 +336,71 @@ private:
 
 using TubularGrindingSessionPtr = std::shared_ptr<TubularGrindingSession>;
 
-GEOMETRY_ALGORITHM_API TubularGrindingSessionPtr createTubularGrindingSession(
-	std::vector<float> sourceSoup);
+GEOMETRY_ALGORITHM_API TubularGrindingSessionPtr createTubularGrindingSession(std::vector<float> sourceSoup);
 
 /// 从点云 xyz 创建会话（双源支持）
-GEOMETRY_ALGORITHM_API TubularGrindingSessionPtr createTubularGrindingSessionFromPointCloud(
-	std::vector<float> pointXyz);
+GEOMETRY_ALGORITHM_API TubularGrindingSessionPtr
+createTubularGrindingSessionFromPointCloud(std::vector<float> pointXyz);
 
-GEOMETRY_ALGORITHM_API bool runTubularGrindingStage(
-	TubularGrindingSession& session,
-	TubularGrindingStage stage,
-	const TubularGrindingParams& params,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool runTubularGrindingStage(TubularGrindingSession& session, TubularGrindingStage stage,
+													const TubularGrindingParams& params, std::string* errMsg = nullptr);
 
-GEOMETRY_ALGORITHM_API bool buildSegmentColoredMeshSoup(
-	const TubularGrindingSession& session,
-	std::vector<float>& outSoup,
-	std::vector<float>& outRgbPerVertex,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildSegmentColoredMeshSoup(const TubularGrindingSession& session,
+														std::vector<float>& outSoup,
+														std::vector<float>& outRgbPerVertex,
+														std::string* errMsg = nullptr);
 
-GEOMETRY_ALGORITHM_API bool buildRingColoredMeshSoup(
-	const TubularGrindingSession& session,
-	std::vector<float>& outSoup,
-	std::vector<float>& outRgbPerVertex,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildRingColoredMeshSoup(const TubularGrindingSession& session, std::vector<float>& outSoup,
+													 std::vector<float>& outRgbPerVertex,
+													 std::string* errMsg = nullptr);
 
-GEOMETRY_ALGORITHM_API bool buildFpfhRegionColoredMeshSoup(
-	const TubularGrindingSession& session,
-	std::vector<float>& outSoup,
-	std::vector<float>& outRgbPerVertex,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildFpfhRegionColoredMeshSoup(const TubularGrindingSession& session,
+														   std::vector<float>& outSoup,
+														   std::vector<float>& outRgbPerVertex,
+														   std::string* errMsg = nullptr);
 
-GEOMETRY_ALGORITHM_API bool buildRingCenterPointsCloud(
-	const TubularGrindingSession& session,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildRingCenterPointsCloud(const TubularGrindingSession& session,
+													   std::vector<float>& outXyz, std::vector<float>& outRgba,
+													   std::string* errMsg = nullptr);
 
-GEOMETRY_ALGORITHM_API bool buildFaceNormalAxisLineSegments(
-	const TubularGrindingSession& session,
-	const TubularGrindingParams& params,
-	std::vector<float>& outLineXyz,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildFaceNormalAxisLineSegments(const TubularGrindingSession& session,
+															const TubularGrindingParams& params,
+															std::vector<float>& outLineXyz,
+															std::string* errMsg = nullptr);
 
 /// 构建 Phase 1 计算的局部轴线线段（双向，正方向青色/反方向品红）
-GEOMETRY_ALGORITHM_API bool buildLocalAxisLineSegments(
-	const TubularGrindingSession& session,
-	const TubularGrindingParams& params,
-	std::vector<float>& outLineXyz,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildLocalAxisLineSegments(const TubularGrindingSession& session,
+													   const TubularGrindingParams& params,
+													   std::vector<float>& outLineXyz, std::string* errMsg = nullptr);
 
-GEOMETRY_ALGORITHM_API bool buildCenterlinePointsCloud(
-	const TubularGrindingSession& session,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildCenterlinePointsCloud(const TubularGrindingSession& session,
+													   std::vector<float>& outXyz, std::vector<float>& outRgba,
+													   std::string* errMsg = nullptr);
 
-GEOMETRY_ALGORITHM_API bool buildCenterlinePolylineXyz(
-	const TubularGrindingSession& session,
-	std::vector<float>& outXyz,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildCenterlinePolylineXyz(const TubularGrindingSession& session,
+													   std::vector<float>& outXyz, std::string* errMsg = nullptr);
 
 /// 中心线 PCA 主轴箭头（overlay 线段，6 float/段）
-GEOMETRY_ALGORITHM_API bool buildCenterlinePcaAxisArrowLineSegments(
-	const TubularGrindingSession& session,
-	std::vector<float>& outLineXyz,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildCenterlinePcaAxisArrowLineSegments(const TubularGrindingSession& session,
+																	std::vector<float>& outLineXyz,
+																	std::string* errMsg = nullptr);
 
-GEOMETRY_ALGORITHM_API bool buildTemplatePointsCloud(
-	const TubularGrindingSession& session,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildTemplatePointsCloud(const TubularGrindingSession& session, std::vector<float>& outXyz,
+													 std::vector<float>& outRgba, std::string* errMsg = nullptr);
 
-GEOMETRY_ALGORITHM_API bool buildProjectedPointsCloud(
-	const TubularGrindingSession& session,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildProjectedPointsCloud(const TubularGrindingSession& session, std::vector<float>& outXyz,
+													  std::vector<float>& outRgba, std::string* errMsg = nullptr);
 
 /// 迭代快照：OT 活跃 sample 根点云（`_迭代N`）
-GEOMETRY_ALGORITHM_API bool buildIterationSnapshotPointsCloud(
-	const TubularGrindingSession& session,
-	int snapshotIndex,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildIterationSnapshotPointsCloud(const TubularGrindingSession& session, int snapshotIndex,
+															  std::vector<float>& outXyz, std::vector<float>& outRgba,
+															  std::string* errMsg = nullptr);
 
 /// 迭代快照：LC 收缩 original 子采样（`_迭代N_收缩`）
-GEOMETRY_ALGORITHM_API bool buildIterationSnapshotContractedPointsCloud(
-	const TubularGrindingSession& session,
-	int snapshotIndex,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildIterationSnapshotContractedPointsCloud(const TubularGrindingSession& session,
+																		int snapshotIndex, std::vector<float>& outXyz,
+																		std::vector<float>& outRgba,
+																		std::string* errMsg = nullptr);
 
 /// 迭代快照数量
 GEOMETRY_ALGORITHM_API int iterationSnapshotCount(const TubularGrindingSession& session);
@@ -460,11 +409,12 @@ GEOMETRY_ALGORITHM_API int iterationSnapshotCount(const TubularGrindingSession& 
 GEOMETRY_ALGORITHM_API int iterationSnapshotIteration(const TubularGrindingSession& session, int snapshotIndex);
 
 /// 计算每个环的椭圆拟合残差（RMS），输出摘要文本
-GEOMETRY_ALGORITHM_API bool computeEllipseFittingResidualReport(
-	const TubularGrindingSession& session,
-	const TubularGrindingParams& params,
-	std::vector<double>& outPerRingRmsResiduals,
-	std::string& outSummaryText,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool computeEllipseFittingResidualReport(const TubularGrindingSession& session,
+																const TubularGrindingParams& params,
+																std::vector<double>& outPerRingRmsResiduals,
+																std::string& outSummaryText,
+																std::string* errMsg = nullptr);
 
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_TUBULARGRINDING_H

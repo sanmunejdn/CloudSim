@@ -1,21 +1,26 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_ROBOTAXISCONTROLWIDGET_H
+#define ROBOTWIDGET_ROBOTAXISCONTROLWIDGET_H
 
-#include <QWidget>
-#include <QHash>
-#include <QString>
-#include <QStringList>
-#include <QVector>
-#include <QSlider>
+/// @file RobotAxisControlWidget.h
+/// @brief 机器人关节轴控制
+
+#include "robotwidget_global.h"
+
 #include <QDoubleSpinBox>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QHash>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QGroupBox>
 #include <QScrollArea>
+#include <QSlider>
+#include <QString>
+#include <QStringList>
+#include <QVBoxLayout>
+#include <QVector>
+#include <QWidget>
 
-#include "robotwidget_global.h"
 #include <osg/MatrixTransform>
 
 /// 机器人关节轴控制
@@ -29,7 +34,8 @@ public:
 	~RobotAxisControlWidget();
 	void setUseChinese(bool chinese);
 	void setInteractionEnabled(bool enabled);
-	void setJoints(const QStringList& jointNames, const QVector<double>& lowerLimits, const QVector<double>& upperLimits);
+	void setJoints(const QStringList& jointNames, const QVector<double>& lowerLimits,
+				   const QVector<double>& upperLimits);
 	void clearJoints();
 	int jointCount() const;
 	QVector<double> jointAnglesRad() const;
@@ -42,11 +48,9 @@ public:
 	/// @param lowerLimits 各关节下限（弧度）
 	/// @param upperLimits 各关节上限（弧度）
 	/// @param jointTransforms 关节 OSG 变换节点
-	void setupJointControls(
-		const QStringList& jointNames,
-		const QVector<double>& lowerLimits,
-		const QVector<double>& upperLimits,
-		const QHash<QString, osg::MatrixTransform*>& jointTransforms);
+	void setupJointControls(const QStringList& jointNames, const QVector<double>& lowerLimits,
+							const QVector<double>& upperLimits,
+							const QHash<QString, osg::MatrixTransform*>& jointTransforms);
 
 	/// 设置指定关节的角度
 	/// @param jointName 关节名称
@@ -79,13 +83,14 @@ private slots:
 	void onResetAllButtonClicked();
 
 private:
-	struct JointControl {
+	struct JointControl
+	{
 		QString name;
 		double lowerLimit;
 		double upperLimit;
 		double currentAngle;
 		osg::MatrixTransform* transformNode;
-		
+
 		QSlider* slider = nullptr;
 		QDoubleSpinBox* spinBox = nullptr;
 		QLineEdit* inputEdit = nullptr;
@@ -94,13 +99,13 @@ private:
 
 	QHash<QString, JointControl> m_jointControls;
 	QVector<QString> m_jointOrder;
-	
+
 	QScrollArea* m_scrollArea = nullptr;
 	QWidget* m_contentWidget = nullptr;
 	QVBoxLayout* m_contentLayout = nullptr;
 	QPushButton* m_resetAllButton = nullptr;
 
-/// 滑块精度：弧度×1000 映射整数
+	/// 滑块精度：弧度×1000 映射整数
 	static constexpr double SLIDER_SCALE = 1000.0;
 
 	void createUI();
@@ -109,3 +114,5 @@ private:
 	int angleToSliderValue(double angleRad) const;
 	double sliderValueToAngle(int value) const;
 };
+
+#endif // ROBOTWIDGET_ROBOTAXISCONTROLWIDGET_H

@@ -1,31 +1,33 @@
+﻿/// @file MainWindowRobotHost.cpp
+/// @brief MainWindowRobotHost 实现
+
 #include "MainWindowRobotHost.h"
 
+#include "../RobotWidget/inc/RobotSimulationController.h"
+#include "../RobotWidget/inc/RobotSimulationDockWidget.h"
 #include "BackendSceneDocumentFacade.h"
 #include "CoreTypes.h"
 #include "DocumentPage.h"
 #include "IDataService.h"
 #include "IRenderView.h"
 #include "IRobotService.h"
-#include "WidgetOsgViewHost.h"
-#include "OsgWidget.h"
-#include "WidgetSceneSignalWiring.h"
-#include "MainWindow.h"
 #include "JobSystem.h"
-#include "RunInfoPage.h"
+#include "MainWindow.h"
 #include "MainWindowImportCaptureRenderController.h"
 #include "MainWindowSelectionService.h"
-#include "../RobotWidget/inc/RobotSimulationController.h"
-#include "../RobotWidget/inc/RobotSimulationDockWidget.h"
-
+#include "OsgWidget.h"
 #include "RobotInstructionPropertyDto.h"
-#include "RobotPlanInstruction.h"
-#include "UrdfRobotLoader.h"
 #include "RobotMatrixOsgBridge.h"
+#include "RobotPlanInstruction.h"
 #include "RobotTeachIk.h"
-
-#include <Adapters.h>
+#include "RunInfoPage.h"
+#include "UrdfRobotLoader.h"
+#include "WidgetOsgViewHost.h"
+#include "WidgetSceneSignalWiring.h"
 
 #include <memory>
+
+#include <Adapters.h>
 
 class MainWindowRobotHost::DocumentHost : public IRobotDocumentHost
 {
@@ -38,7 +40,10 @@ public:
 	const RobotProgramStore& robotProgramStore() const override { return m_page->robotProgramStore(); }
 	IRobotBackendPoseSink* poseSink() override { return m_page->sceneFacade().poseSink(); }
 	BackendDataManager& backend() override { return m_page->backend(); }
-	BackendDataManager* robotBackendManagerForKinematics() override { return m_page->robotBackendManagerForKinematics(); }
+	BackendDataManager* robotBackendManagerForKinematics() override
+	{
+		return m_page->robotBackendManagerForKinematics();
+	}
 
 	bool hasRobotSimulationContext() const override { return m_page->hasRobotSimulationContext(); }
 	bool hasRobotKinematicsBind() const override { return m_page->hasRobotKinematicsBind(); }
@@ -52,10 +57,7 @@ public:
 	{
 		return m_page->robotJointMatrixTransform(jointName);
 	}
-	const QHash<QString, osg::Matrixd>& robotFkMeshWorldT0() const override
-	{
-		return m_page->robotFkMeshWorldT0();
-	}
+	const QHash<QString, osg::Matrixd>& robotFkMeshWorldT0() const override { return m_page->robotFkMeshWorldT0(); }
 	const QHash<QString, osg::Matrixd>& robotOuterWorldAtBind() const override
 	{
 		return m_page->robotOuterWorldAtBind();
@@ -68,10 +70,7 @@ public:
 	{
 		return m_page->robotOuterWorldAtBindDto();
 	}
-	bool robotUrdfMeshVerticesInLinkFrame() const override
-	{
-		return m_page->robotUrdfMeshVerticesInLinkFrame();
-	}
+	bool robotUrdfMeshVerticesInLinkFrame() const override { return m_page->robotUrdfMeshVerticesInLinkFrame(); }
 	int robotKinematicInstanceCount() const override { return m_page->robotKinematicInstanceCount(); }
 	QString robotUrdfAbsolutePathForInstance(int instanceIndex) const override
 	{
@@ -109,7 +108,8 @@ public:
 	{
 		return m_page->robotRevoluteJointNamesForInstance(instanceIndex);
 	}
-	void robotJointLimitsForInstance(int instanceIndex, QVector<double>& lowerRad, QVector<double>& upperRad) const override
+	void robotJointLimitsForInstance(int instanceIndex, QVector<double>& lowerRad,
+									 QVector<double>& upperRad) const override
 	{
 		m_page->robotJointLimitsForInstance(instanceIndex, lowerRad, upperRad);
 	}
@@ -141,7 +141,8 @@ public:
 	{
 		m_page->setRobotBasePlacementWorldForInstance(instanceIndex, placementWorld);
 	}
-	void updateRobotLinkOuterBindFromWorld(int instanceIndex, const QString& linkBackendId, const osg::Matrixd& world) override
+	void updateRobotLinkOuterBindFromWorld(int instanceIndex, const QString& linkBackendId,
+										   const osg::Matrixd& world) override
 	{
 		m_page->updateRobotLinkOuterBindFromWorld(instanceIndex, linkBackendId, world);
 	}
@@ -158,7 +159,7 @@ public:
 	void clearFollowDirtyBackendIds() override { m_page->clearFollowDirtyBackendIds(); }
 
 	bool applyJointAnglesRad(int instanceIndex, const QVector<double>& jointAnglesRad,
-		QVector<double>& aggregatedJointAnglesRad, QString* outError) override
+							 QVector<double>& aggregatedJointAnglesRad, QString* outError) override
 	{
 		if (!m_page || !m_page->hasRobotSimulationContext())
 		{
@@ -182,7 +183,8 @@ public:
 		{
 			if (outError)
 			{
-				*outError = QStringLiteral("joint count mismatch: expected %1, got %2").arg(nj).arg(jointAnglesRad.size());
+				*outError =
+					QStringLiteral("joint count mismatch: expected %1, got %2").arg(nj).arg(jointAnglesRad.size());
 			}
 			return false;
 		}
@@ -203,8 +205,8 @@ public:
 	}
 
 	bool captureToolFrameFromTcp(int instanceIndex, const BackendMat4& T_base_tcp,
-		const QVector<double>& jointAnglesRad, const QString& flangeLinkName,
-		RobotCoordinate::RobotCoordinateFrameSet& frames, QString* outError) override
+								 const QVector<double>& jointAnglesRad, const QString& flangeLinkName,
+								 RobotCoordinate::RobotCoordinateFrameSet& frames, QString* outError) override
 	{
 		if (!m_page)
 		{
@@ -243,8 +245,7 @@ public:
 			}
 			return false;
 		}
-		const BackendMat4 T_base_flange =
-			RobotMatrixOsg::backendColMajorFromMatrix(linkWorld.value(flangeQ));
+		const BackendMat4 T_base_flange = RobotMatrixOsg::backendColMajorFromMatrix(linkWorld.value(flangeQ));
 		BackendMat4 invFlange{};
 		if (!backend_mat4_invert_rigid(T_base_flange, invFlange))
 		{
@@ -281,9 +282,9 @@ public:
 		return true;
 	}
 
-	bool captureUserFrameFromTcp(int /*instanceIndex*/, double posXmm, double posYmm, double posZmm,
-		double eulerXdeg, double eulerYdeg, double eulerZdeg,
-		RobotCoordinate::RobotCoordinateFrameSet& frames, QString* outError) override
+	bool captureUserFrameFromTcp(int /*instanceIndex*/, double posXmm, double posYmm, double posZmm, double eulerXdeg,
+								 double eulerYdeg, double eulerZdeg, RobotCoordinate::RobotCoordinateFrameSet& frames,
+								 QString* outError) override
 	{
 		RobotCoordinate::RobotUserFrame* target = nullptr;
 		for (RobotCoordinate::RobotUserFrame& uf : frames.userFrames)
@@ -327,11 +328,9 @@ public:
 		}
 	}
 
-	TcpDragIkResult solveTcpDragTeachIk(int instanceIndex,
-		double pxMm, double pyMm, double pzMm,
-		double exDeg, double eyDeg, double ezDeg,
-		const QVector<double>& seedJointRad,
-		const QString& ikLinkName) override
+	TcpDragIkResult solveTcpDragTeachIk(int instanceIndex, double pxMm, double pyMm, double pzMm, double exDeg,
+										double eyDeg, double ezDeg, const QVector<double>& seedJointRad,
+										const QString& ikLinkName) override
 	{
 		TcpDragIkResult result;
 		if (!m_page)
@@ -345,7 +344,8 @@ public:
 			result.error = QStringLiteral("no URDF path");
 			return result;
 		}
-		const RobotCoordinate::RobotCoordinateFrameSet& frames = m_page->robotCoordinateFramesForInstance(instanceIndex);
+		const RobotCoordinate::RobotCoordinateFrameSet& frames =
+			m_page->robotCoordinateFramesForInstance(instanceIndex);
 		BackendMat4 toolMat = BackendMat4::identity();
 		if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
 		{
@@ -378,14 +378,9 @@ public:
 		return result;
 	}
 
-	bool planForExport(int instanceIndex,
-		const std::vector<std::shared_ptr<RobotInstruction::Base>>& instructions,
-		const QVector<double>& seedJointRad,
-		const QString& urdfPath,
-		const QString& tcpLinkName,
-		std::vector<ExportPlanResult>& outPlans,
-		int& outFailedCount,
-		QString* outError) override
+	bool planForExport(int instanceIndex, const std::vector<std::shared_ptr<RobotInstruction::Base>>& instructions,
+					   const QVector<double>& seedJointRad, const QString& urdfPath, const QString& tcpLinkName,
+					   std::vector<ExportPlanResult>& outPlans, int& outFailedCount, QString* outError) override
 	{
 		if (!m_page)
 		{
@@ -470,7 +465,8 @@ IRobotOsgViewHost* MainWindowRobotHost::osgView()
 
 void MainWindowRobotHost::endMeshSectionPlaneEditDirect()
 {
-	auto tryEndOnPage = [](DocumentPage* page) -> bool {
+	auto tryEndOnPage = [](DocumentPage* page) -> bool
+	{
 		if (!page)
 		{
 			return false;
@@ -491,7 +487,8 @@ void MainWindowRobotHost::endMeshSectionPlaneEditDirect()
 
 void MainWindowRobotHost::hideMeshSectionPlaneDirect()
 {
-	auto tryHideOnPage = [](DocumentPage* page) -> bool {
+	auto tryHideOnPage = [](DocumentPage* page) -> bool
+	{
 		if (!page)
 		{
 			return false;
@@ -510,11 +507,20 @@ void MainWindowRobotHost::hideMeshSectionPlaneDirect()
 	(void)tryHideOnPage(m_mw->currentPage());
 }
 
-bool MainWindowRobotHost::useChinese() const { return m_mw->m_useChinese; }
+bool MainWindowRobotHost::useChinese() const
+{
+	return m_mw->m_useChinese;
+}
 
-QString MainWindowRobotHost::i18n(const QString& en, const QString& zh) const { return m_mw->i18n(en, zh); }
+QString MainWindowRobotHost::i18n(const QString& en, const QString& zh) const
+{
+	return m_mw->i18n(en, zh);
+}
 
-RunInfoPage* MainWindowRobotHost::runInfoPage() { return m_mw->m_runInfoPage; }
+RunInfoPage* MainWindowRobotHost::runInfoPage()
+{
+	return m_mw->m_runInfoPage;
+}
 
 void MainWindowRobotHost::appendRunInfo(const QString& message)
 {
@@ -532,39 +538,48 @@ void MainWindowRobotHost::appendRunWarning(const QString& message)
 	}
 }
 
-QStatusBar* MainWindowRobotHost::statusBar() { return m_mw->statusBar(); }
+QStatusBar* MainWindowRobotHost::statusBar()
+{
+	return m_mw->statusBar();
+}
 
 SimulationCommandWidget* MainWindowRobotHost::simulationCommandPage()
 {
-	RobotSimulationDockWidget* dock =
-		m_mw->m_robotSimulation ? m_mw->m_robotSimulation->simulationDock() : nullptr;
+	RobotSimulationDockWidget* dock = m_mw->m_robotSimulation ? m_mw->m_robotSimulation->simulationDock() : nullptr;
 	return dock ? dock->commandPage() : nullptr;
 }
 
 RobotAxisControlWidget* MainWindowRobotHost::robotAxisControlPage()
 {
-	RobotSimulationDockWidget* dock =
-		m_mw->m_robotSimulation ? m_mw->m_robotSimulation->simulationDock() : nullptr;
+	RobotSimulationDockWidget* dock = m_mw->m_robotSimulation ? m_mw->m_robotSimulation->simulationDock() : nullptr;
 	return dock ? dock->axisPage() : nullptr;
 }
 
 RobotFrameSettingsWidget* MainWindowRobotHost::robotFrameSettingsPage()
 {
-	RobotSimulationDockWidget* dock =
-		m_mw->m_robotSimulation ? m_mw->m_robotSimulation->simulationDock() : nullptr;
+	RobotSimulationDockWidget* dock = m_mw->m_robotSimulation ? m_mw->m_robotSimulation->simulationDock() : nullptr;
 	return dock ? dock->framePage() : nullptr;
 }
 
-DevicePageWidget* MainWindowRobotHost::devicePage() { return m_mw->m_devicePage; }
+DevicePageWidget* MainWindowRobotHost::devicePage()
+{
+	return m_mw->m_devicePage;
+}
 
-QAction* MainWindowRobotHost::simulationStartAction() { return nullptr; }
+QAction* MainWindowRobotHost::simulationStartAction()
+{
+	return nullptr;
+}
 
 int MainWindowRobotHost::currentSimulationRobotInstanceIndex() const
 {
 	return m_mw->currentSimulationRobotInstanceIndex();
 }
 
-void MainWindowRobotHost::refreshBackendTree() { m_mw->refreshBackendTree(); }
+void MainWindowRobotHost::refreshBackendTree()
+{
+	m_mw->refreshBackendTree();
+}
 
 void MainWindowRobotHost::runFollowSolveAndSyncForCurrentDocument()
 {
@@ -575,14 +590,13 @@ void MainWindowRobotHost::runFollowSolveAndSyncForCurrentDocument()
 	}
 	cloudsim::core::IRenderView* rv = &page->render();
 	cloudsim::core::FollowSolveContextDto ctx;
-	ctx.skipAll = rv->isTcpDragTeachActive()
-		|| (m_mw->robotSimulation() && m_mw->robotSimulation()->programExecutor().isRunning());
+	// 与 MainWindow::makeFollowSolveContextDto 一致：Run 期间不 skip 跟随
+	ctx.skipAll = rv->isTcpDragTeachActive();
 	(void)page->data().runFollowSolveAndSync(ctx, nullptr);
 }
 
-void MainWindowRobotHost::refreshInstructionPropertyPanel(
-	const std::shared_ptr<RobotInstruction::Base>& instruction,
-	const bool refreshFeasibleAxisOptions)
+void MainWindowRobotHost::refreshInstructionPropertyPanel(const std::shared_ptr<RobotInstruction::Base>& instruction,
+														  const bool refreshFeasibleAxisOptions)
 {
 	m_mw->updateInstructionPropertyPanel(instruction, refreshFeasibleAxisOptions);
 }
@@ -592,7 +606,10 @@ void MainWindowRobotHost::clearInstructionPropertyPanel()
 	m_mw->updateInstructionPropertyPanel(nullptr, true);
 }
 
-void MainWindowRobotHost::invalidateInstructionPropertyCache() { m_mw->invalidateFeasibleAxisConfigurationCache(); }
+void MainWindowRobotHost::invalidateInstructionPropertyCache()
+{
+	m_mw->invalidateFeasibleAxisConfigurationCache();
+}
 
 void MainWindowRobotHost::clearBackendObjectSelection(const bool clearTreeSelection)
 {
@@ -610,8 +627,7 @@ std::shared_ptr<RobotInstruction::Base> MainWindowRobotHost::activeInstructionFo
 }
 
 void MainWindowRobotHost::applySuggestedAxisPresetFromSeedIfNeeded(
-	const std::shared_ptr<RobotInstruction::Base>& instruction,
-	const QVector<double>& seedJointRad,
+	const std::shared_ptr<RobotInstruction::Base>& instruction, const QVector<double>& seedJointRad,
 	const RobotInstruction::FeasibleMotionAxisConfigurationOptions& feasible)
 {
 	m_mw->applySuggestedAxisPresetFromSeedIfNeeded(instruction, seedJointRad, feasible);
@@ -623,15 +639,11 @@ bool MainWindowRobotHost::registerUrdfRobot(const QString& urdfPath, const bool 
 	return controller.registerUrdfRobot(*m_mw, urdfPath, quietUi);
 }
 
-bool MainWindowRobotHost::planRobotMotionInstruction(
-	RobotInstruction::Base& instruction,
-	const QVector<double>& seedJointRad,
-	const int instanceIndex,
-	const QString& urdfPath,
-	const QString& defaultTcpLinkName,
-	const QString& sceneRootBackendId,
-	RobotInstruction::PlanResult& out,
-	std::string* outErr)
+bool MainWindowRobotHost::planRobotMotionInstruction(RobotInstruction::Base& instruction,
+													 const QVector<double>& seedJointRad, const int instanceIndex,
+													 const QString& urdfPath, const QString& defaultTcpLinkName,
+													 const QString& sceneRootBackendId,
+													 RobotInstruction::PlanResult& out, std::string* outErr)
 {
 	DocumentPage* page = m_mw->currentPage();
 	if (!page)
@@ -643,8 +655,9 @@ bool MainWindowRobotHost::planRobotMotionInstruction(
 		return false;
 	}
 	QString hostErr;
-	const bool ok = cloudsim::host::planRobotInstruction(*page, instruction, seedJointRad, instanceIndex, urdfPath,
-		defaultTcpLinkName.toStdString(), sceneRootBackendId, out, &hostErr);
+	const bool ok =
+		cloudsim::host::planRobotInstruction(*page, instruction, seedJointRad, instanceIndex, urdfPath,
+											 defaultTcpLinkName.toStdString(), sceneRootBackendId, out, &hostErr);
 	if (!ok && outErr)
 	{
 		*outErr = hostErr.toStdString();
@@ -652,10 +665,8 @@ bool MainWindowRobotHost::planRobotMotionInstruction(
 	return ok;
 }
 
-void MainWindowRobotHost::enqueueBackgroundJob(
-	const QString& title,
-	std::function<void()> work,
-	std::function<void(bool threw, const QString& msg)> onFinished)
+void MainWindowRobotHost::enqueueBackgroundJob(const QString& title, std::function<void()> work,
+											   std::function<void(bool threw, const QString& msg)> onFinished)
 {
 	if (!m_mw || !m_mw->jobSystem())
 	{
@@ -667,7 +678,8 @@ void MainWindowRobotHost::enqueueBackgroundJob(
 	}
 	m_mw->jobSystem()->enqueue(
 		title,
-		[work = std::move(work)](const JobProgressSink&) {
+		[work = std::move(work)](const JobProgressSink&)
+		{
 			if (work)
 			{
 				work();
@@ -721,16 +733,13 @@ void MainWindowRobotHost::notifyMeshTriangleLabelingBrush(const std::vector<int>
 	}
 }
 
-void MainWindowRobotHost::notifyMeshTriangleLabelingPolyline(
-	const QVector<float>& polylineScreenXy,
-	const QVector<double>& mvpMatrix,
-	const int viewportWidth,
-	const int viewportHeight)
+void MainWindowRobotHost::notifyMeshTriangleLabelingPolyline(const QVector<float>& polylineScreenXy,
+															 const QVector<double>& mvpMatrix, const int viewportWidth,
+															 const int viewportHeight)
 {
 	if (m_meshTriangleLabelingHandlers.onPolylineClosed)
 	{
-		m_meshTriangleLabelingHandlers.onPolylineClosed(
-			polylineScreenXy, mvpMatrix, viewportWidth, viewportHeight);
+		m_meshTriangleLabelingHandlers.onPolylineClosed(polylineScreenXy, mvpMatrix, viewportWidth, viewportHeight);
 	}
 }
 
@@ -745,17 +754,12 @@ void MainWindowRobotHost::wireDocumentPageSceneSignals(DocumentPage* page)
 
 namespace
 {
-cloudsim::core::FeasibleMotionAxisOptionsDto toFeasibleAxisDto(
-	const RobotInstruction::FeasibleMotionAxisConfigurationOptions& engine)
+cloudsim::core::FeasibleMotionAxisOptionsDto
+toFeasibleAxisDto(const RobotInstruction::FeasibleMotionAxisConfigurationOptions& engine)
 {
-	return cloudsim::host::feasibleAxisOptionsFromEngine(
-		engine.presetTokens,
-		engine.elbowTokens,
-		engine.wristTokens,
-		engine.armTokens,
-		engine.turnJ1Tokens,
-		engine.turnJ4Tokens,
-		engine.turnJ6Tokens);
+	return cloudsim::host::feasibleAxisOptionsFromEngine(engine.presetTokens, engine.elbowTokens, engine.wristTokens,
+														 engine.armTokens, engine.turnJ1Tokens, engine.turnJ4Tokens,
+														 engine.turnJ6Tokens);
 }
 } // namespace
 
@@ -765,8 +769,7 @@ QVector<cloudsim::core::PropertyRowDto> MainWindowRobotHost::instructionProperty
 	{
 		return {};
 	}
-	const std::shared_ptr<RobotInstruction::Base> ins =
-		m_mw->robotSimulation()->findInstructionById(instructionId);
+	const std::shared_ptr<RobotInstruction::Base> ins = m_mw->robotSimulation()->findInstructionById(instructionId);
 	if (!ins)
 	{
 		return {};
@@ -775,7 +778,7 @@ QVector<cloudsim::core::PropertyRowDto> MainWindowRobotHost::instructionProperty
 }
 
 bool MainWindowRobotHost::applyInstructionPropertyChange(const QString& instructionId, const QString& key,
-	const QString& value, QString* outError)
+														 const QString& value, QString* outError)
 {
 	if (!m_mw || !m_mw->robotSimulation())
 	{
@@ -785,8 +788,7 @@ bool MainWindowRobotHost::applyInstructionPropertyChange(const QString& instruct
 		}
 		return false;
 	}
-	const std::shared_ptr<RobotInstruction::Base> ins =
-		m_mw->robotSimulation()->findInstructionById(instructionId);
+	const std::shared_ptr<RobotInstruction::Base> ins = m_mw->robotSimulation()->findInstructionById(instructionId);
 	if (!ins)
 	{
 		if (outError)
@@ -804,16 +806,14 @@ bool MainWindowRobotHost::applyInstructionPropertyChange(const QString& instruct
 	return ok;
 }
 
-cloudsim::core::FeasibleMotionAxisOptionsDto MainWindowRobotHost::queryFeasibleMotionAxisOptions(
-	const QString& instructionId,
-	QVector<double>* outSeedJointRad)
+cloudsim::core::FeasibleMotionAxisOptionsDto
+MainWindowRobotHost::queryFeasibleMotionAxisOptions(const QString& instructionId, QVector<double>* outSeedJointRad)
 {
 	if (!m_mw || !m_mw->robotSimulation())
 	{
 		return {};
 	}
-	const std::shared_ptr<RobotInstruction::Base> ins =
-		m_mw->robotSimulation()->findInstructionById(instructionId);
+	const std::shared_ptr<RobotInstruction::Base> ins = m_mw->robotSimulation()->findInstructionById(instructionId);
 	if (!ins)
 	{
 		return {};

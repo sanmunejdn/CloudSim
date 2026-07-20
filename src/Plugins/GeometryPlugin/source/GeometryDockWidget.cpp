@@ -1,3 +1,6 @@
+﻿/// @file GeometryDockWidget.cpp
+/// @brief GeometryDockWidget 实现
+
 #include "GeometryDockWidget.h"
 
 #include "IPluginDocument.h"
@@ -25,9 +28,7 @@ enum class SourceMode
 }
 
 GeometryDockWidget::GeometryDockWidget(IPluginHostContext* host, QWidget* parent)
-	: QWidget(parent)
-	, m_host(host)
-	, m_useChinese(host ? host->useChinese() : true)
+	: QWidget(parent), m_host(host), m_useChinese(host ? host->useChinese() : true)
 {
 	auto* layout = new QVBoxLayout(this);
 	layout->setContentsMargins(12, 12, 12, 12);
@@ -59,12 +60,11 @@ GeometryDockWidget::GeometryDockWidget(IPluginHostContext* host, QWidget* parent
 	pathRow->addWidget(m_browseBtn);
 	stepLayout->addLayout(pathRow);
 	m_densityModeCombo = new QComboBox(m_stepGroup);
-	m_densityModeCombo->addItem(
-		QStringLiteral("Quality"), static_cast<int>(PluginMeshDensityControl::QualityPreset));
-	m_densityModeCombo->addItem(
-		QStringLiteral("EdgeLength"), static_cast<int>(PluginMeshDensityControl::TargetEdgeLength));
-	m_densityModeCombo->addItem(
-		QStringLiteral("TriangleCount"), static_cast<int>(PluginMeshDensityControl::TargetTriangleCount));
+	m_densityModeCombo->addItem(QStringLiteral("Quality"), static_cast<int>(PluginMeshDensityControl::QualityPreset));
+	m_densityModeCombo->addItem(QStringLiteral("EdgeLength"),
+								static_cast<int>(PluginMeshDensityControl::TargetEdgeLength));
+	m_densityModeCombo->addItem(QStringLiteral("TriangleCount"),
+								static_cast<int>(PluginMeshDensityControl::TargetTriangleCount));
 	stepLayout->addWidget(m_densityModeCombo);
 
 	m_qualityCombo = new QComboBox(m_stepGroup);
@@ -171,9 +171,9 @@ void GeometryDockWidget::wireSignals()
 	connect(m_browseBtn, &QPushButton::clicked, this, &GeometryDockWidget::browseStepFile);
 	connect(m_refreshBackendsBtn, &QPushButton::clicked, this, &GeometryDockWidget::refreshComputableBackends);
 	connect(m_sourceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-		[this](int) { syncSourceUiState(); });
+			[this](int) { syncSourceUiState(); });
 	connect(m_densityModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-		[this](int) { syncDensityUiState(); });
+			[this](int) { syncDensityUiState(); });
 	connect(m_discretizeBtn, &QPushButton::clicked, this, &GeometryDockWidget::discretizeStep);
 	connect(m_pickEdgeBtn, &QPushButton::clicked, this, &GeometryDockWidget::pickEdgeForEdgeFace);
 	connect(m_pickFaceBtn, &QPushButton::clicked, this, &GeometryDockWidget::pickFaceForEdgeFace);
@@ -191,7 +191,8 @@ bool GeometryDockWidget::ensureGeometryHostReady()
 	{
 		return true;
 	}
-	setStatus(m_useChinese ? QStringLiteral("geometry host 不可用") : QStringLiteral("geometry host unavailable"), true);
+	setStatus(m_useChinese ? QStringLiteral("geometry host 不可用") : QStringLiteral("geometry host unavailable"),
+			  true);
 	return false;
 }
 
@@ -259,8 +260,7 @@ void GeometryDockWidget::syncDensityUiState()
 PluginMeshDiscretizeParams GeometryDockWidget::buildDiscretizeParams() const
 {
 	PluginMeshDiscretizeParams params;
-	params.densityControl =
-		static_cast<PluginMeshDensityControl>(m_densityModeCombo->currentData().toInt());
+	params.densityControl = static_cast<PluginMeshDensityControl>(m_densityModeCombo->currentData().toInt());
 	switch (params.densityControl)
 	{
 	case PluginMeshDensityControl::TargetEdgeLength:
@@ -303,17 +303,17 @@ void GeometryDockWidget::refreshComputableBackends()
 	if (!ok)
 	{
 		setStatus(err.isEmpty()
-				? (m_useChinese ? QStringLiteral("无可计算后端") : QStringLiteral("No computable backend"))
-				: err,
-			true);
+					  ? (m_useChinese ? QStringLiteral("无可计算后端") : QStringLiteral("No computable backend"))
+					  : err,
+				  true);
 		return;
 	}
 	m_backendEntries = std::move(entries);
 	for (int i = 0; i < static_cast<int>(m_backendEntries.size()); ++i)
 	{
 		const auto& entry = m_backendEntries[static_cast<std::size_t>(i)];
-		const QString name = QStringLiteral("%1 (%2)")
-								 .arg(QString::fromStdString(entry.displayName), QString::fromStdString(entry.backendId));
+		const QString name = QStringLiteral("%1 (%2)").arg(QString::fromStdString(entry.displayName),
+														   QString::fromStdString(entry.backendId));
 		m_backendCombo->addItem(name, i);
 	}
 }
@@ -326,7 +326,9 @@ void GeometryDockWidget::pickEdgeForEdgeFace()
 	}
 	if (!hasBackendSource())
 	{
-		setStatus(m_useChinese ? QStringLiteral("3D 点选需切换到后端输入模式") : QStringLiteral("Switch to backend mode for 3D pick"), true);
+		setStatus(m_useChinese ? QStringLiteral("3D 点选需切换到后端输入模式")
+							   : QStringLiteral("Switch to backend mode for 3D pick"),
+				  true);
 		return;
 	}
 	PluginGeometryElementPickRequest req;
@@ -335,9 +337,9 @@ void GeometryDockWidget::pickEdgeForEdgeFace()
 	req.stepPathUtf8 = activeStepPath().toStdString();
 	setStatus(m_useChinese ? QStringLiteral("请在 3D 视图点选边…") : QStringLiteral("Pick an edge in 3D view..."));
 	m_host->geometryHost()->pickStepElementFromViewport(
-		m_host->activeDocument(),
-		req,
-		[this](const bool ok, const QString& err, const PluginGeometryStepRef& ref) {
+		m_host->activeDocument(), req,
+		[this](const bool ok, const QString& err, const PluginGeometryStepRef& ref)
+		{
 			if (!ok)
 			{
 				setStatus(err, true);
@@ -357,7 +359,9 @@ void GeometryDockWidget::pickFaceForEdgeFace()
 	}
 	if (!hasBackendSource())
 	{
-		setStatus(m_useChinese ? QStringLiteral("3D 点选需切换到后端输入模式") : QStringLiteral("Switch to backend mode for 3D pick"), true);
+		setStatus(m_useChinese ? QStringLiteral("3D 点选需切换到后端输入模式")
+							   : QStringLiteral("Switch to backend mode for 3D pick"),
+				  true);
 		return;
 	}
 	PluginGeometryElementPickRequest req;
@@ -366,9 +370,9 @@ void GeometryDockWidget::pickFaceForEdgeFace()
 	req.stepPathUtf8 = activeStepPath().toStdString();
 	setStatus(m_useChinese ? QStringLiteral("请在 3D 视图点选面…") : QStringLiteral("Pick a face in 3D view..."));
 	m_host->geometryHost()->pickStepElementFromViewport(
-		m_host->activeDocument(),
-		req,
-		[this](const bool ok, const QString& err, const PluginGeometryStepRef& ref) {
+		m_host->activeDocument(), req,
+		[this](const bool ok, const QString& err, const PluginGeometryStepRef& ref)
+		{
 			if (!ok)
 			{
 				setStatus(err, true);
@@ -388,7 +392,9 @@ void GeometryDockWidget::pickFaceAForFaceFace()
 	}
 	if (!hasBackendSource())
 	{
-		setStatus(m_useChinese ? QStringLiteral("3D 点选需切换到后端输入模式") : QStringLiteral("Switch to backend mode for 3D pick"), true);
+		setStatus(m_useChinese ? QStringLiteral("3D 点选需切换到后端输入模式")
+							   : QStringLiteral("Switch to backend mode for 3D pick"),
+				  true);
 		return;
 	}
 	PluginGeometryElementPickRequest req;
@@ -397,9 +403,9 @@ void GeometryDockWidget::pickFaceAForFaceFace()
 	req.stepPathUtf8 = activeStepPath().toStdString();
 	setStatus(m_useChinese ? QStringLiteral("请点选第一个面…") : QStringLiteral("Pick first face..."));
 	m_host->geometryHost()->pickStepElementFromViewport(
-		m_host->activeDocument(),
-		req,
-		[this](const bool ok, const QString& err, const PluginGeometryStepRef& ref) {
+		m_host->activeDocument(), req,
+		[this](const bool ok, const QString& err, const PluginGeometryStepRef& ref)
+		{
 			if (!ok)
 			{
 				setStatus(err, true);
@@ -419,7 +425,9 @@ void GeometryDockWidget::pickFaceBForFaceFace()
 	}
 	if (!hasBackendSource())
 	{
-		setStatus(m_useChinese ? QStringLiteral("3D 点选需切换到后端输入模式") : QStringLiteral("Switch to backend mode for 3D pick"), true);
+		setStatus(m_useChinese ? QStringLiteral("3D 点选需切换到后端输入模式")
+							   : QStringLiteral("Switch to backend mode for 3D pick"),
+				  true);
 		return;
 	}
 	PluginGeometryElementPickRequest req;
@@ -428,9 +436,9 @@ void GeometryDockWidget::pickFaceBForFaceFace()
 	req.stepPathUtf8 = activeStepPath().toStdString();
 	setStatus(m_useChinese ? QStringLiteral("请点选第二个面…") : QStringLiteral("Pick second face..."));
 	m_host->geometryHost()->pickStepElementFromViewport(
-		m_host->activeDocument(),
-		req,
-		[this](const bool ok, const QString& err, const PluginGeometryStepRef& ref) {
+		m_host->activeDocument(), req,
+		[this](const bool ok, const QString& err, const PluginGeometryStepRef& ref)
+		{
 			if (!ok)
 			{
 				setStatus(err, true);
@@ -465,7 +473,8 @@ void GeometryDockWidget::applyLanguage()
 	m_pickFaceABtn->setText(zh ? QStringLiteral("点选 F1") : QStringLiteral("Pick F1"));
 	m_pickFaceBBtn->setText(zh ? QStringLiteral("点选 F2") : QStringLiteral("Pick F2"));
 	m_ixFaceFaceBtn->setText(zh ? QStringLiteral("执行面面求交") : QStringLiteral("Run Face-Face"));
-	m_resultGroup->setTitle(zh ? QStringLiteral("求交结果生成后端") : QStringLiteral("Build Backend From Intersection"));
+	m_resultGroup->setTitle(zh ? QStringLiteral("求交结果生成后端")
+							   : QStringLiteral("Build Backend From Intersection"));
 	m_createTubeBtn->setText(zh ? QStringLiteral("生成管状网格") : QStringLiteral("Create Tube Mesh"));
 	m_createRibbonBtn->setText(zh ? QStringLiteral("生成带状网格") : QStringLiteral("Create Ribbon Mesh"));
 	syncDensityUiState();
@@ -485,11 +494,9 @@ void GeometryDockWidget::refreshDocumentLabel()
 
 void GeometryDockWidget::browseStepFile()
 {
-	const QString path = QFileDialog::getOpenFileName(
-		this,
-		m_useChinese ? QStringLiteral("选择 STEP") : QStringLiteral("Select STEP"),
-		QString(),
-		QStringLiteral("STEP (*.step *.stp)"));
+	const QString path =
+		QFileDialog::getOpenFileName(this, m_useChinese ? QStringLiteral("选择 STEP") : QStringLiteral("Select STEP"),
+									 QString(), QStringLiteral("STEP (*.step *.stp)"));
 	if (!path.isEmpty())
 	{
 		m_stepPathEdit->setText(path);
@@ -505,7 +512,9 @@ void GeometryDockWidget::discretizeStep()
 	const QString path = activeStepPath();
 	if (path.isEmpty())
 	{
-		setStatus(m_useChinese ? QStringLiteral("请选择 STEP 文件或后端对象") : QStringLiteral("Select STEP file or backend"), true);
+		setStatus(m_useChinese ? QStringLiteral("请选择 STEP 文件或后端对象")
+							   : QStringLiteral("Select STEP file or backend"),
+				  true);
 		return;
 	}
 	const PluginMeshDiscretizeParams params = buildDiscretizeParams();
@@ -516,11 +525,9 @@ void GeometryDockWidget::discretizeStep()
 	if (hasBackendSource() && !backendId.empty())
 	{
 		m_host->geometryHost()->discretizeBackendToMesh(
-			m_host->activeDocument(),
-			path.toStdString(),
-			params,
-			options,
-			[this](const bool ok, const QString& err, const PluginGeometryJobResult& result) {
+			m_host->activeDocument(), path.toStdString(), params, options,
+			[this](const bool ok, const QString& err, const PluginGeometryJobResult& result)
+			{
 				if (!ok)
 				{
 					setStatus(err, true);
@@ -535,11 +542,9 @@ void GeometryDockWidget::discretizeStep()
 	}
 
 	m_host->geometryHost()->discretizeStepToMesh(
-		m_host->activeDocument(),
-		path.toStdString(),
-		params,
-		options,
-		[this](const bool ok, const QString& err, const PluginGeometryJobResult& result) {
+		m_host->activeDocument(), path.toStdString(), params, options,
+		[this](const bool ok, const QString& err, const PluginGeometryJobResult& result)
+		{
 			if (!ok)
 			{
 				setStatus(err, true);
@@ -573,11 +578,9 @@ void GeometryDockWidget::intersectEdgeFace()
 	PluginGeometryIntersectionParams params;
 	setStatus(m_useChinese ? QStringLiteral("线面求交中…") : QStringLiteral("Edge-face intersecting..."));
 	m_host->geometryHost()->intersectEdgeFace(
-		m_host->activeDocument(),
-		edgeRef,
-		faceRef,
-		params,
-		[this, path](const bool ok, const QString& err, const PluginGeometryJobResult& result) {
+		m_host->activeDocument(), edgeRef, faceRef, params,
+		[this, path](const bool ok, const QString& err, const PluginGeometryJobResult& result)
+		{
 			if (!ok)
 			{
 				setStatus(err, true);
@@ -613,11 +616,9 @@ void GeometryDockWidget::intersectFaceFace()
 	PluginGeometryIntersectionParams params;
 	setStatus(m_useChinese ? QStringLiteral("面面求交中…") : QStringLiteral("Face-face intersecting..."));
 	m_host->geometryHost()->intersectFaces(
-		m_host->activeDocument(),
-		f1,
-		f2,
-		params,
-		[this, path](const bool ok, const QString& err, const PluginGeometryJobResult& result) {
+		m_host->activeDocument(), f1, f2, params,
+		[this, path](const bool ok, const QString& err, const PluginGeometryJobResult& result)
+		{
 			if (!ok)
 			{
 				setStatus(err, true);
@@ -648,11 +649,9 @@ void GeometryDockWidget::createTubeFromLastIntersection()
 	const PluginMeshCreateOptions options = buildMeshCreateOptions(QStringLiteral("IntersectionTubeMesh"));
 	setStatus(m_useChinese ? QStringLiteral("生成管状网格中…") : QStringLiteral("Creating tube mesh..."));
 	m_host->geometryHost()->discretizeWireToTubeMesh(
-		m_host->activeDocument(),
-		m_lastIntersectionPolylines.front(),
-		params,
-		options,
-		[this](const bool ok, const QString& err, const PluginGeometryJobResult& result) {
+		m_host->activeDocument(), m_lastIntersectionPolylines.front(), params, options,
+		[this](const bool ok, const QString& err, const PluginGeometryJobResult& result)
+		{
 			if (!ok)
 			{
 				setStatus(err, true);
@@ -680,11 +679,9 @@ void GeometryDockWidget::createRibbonFromLastIntersection()
 	const PluginMeshCreateOptions options = buildMeshCreateOptions(QStringLiteral("IntersectionRibbonMesh"));
 	setStatus(m_useChinese ? QStringLiteral("生成带状网格中…") : QStringLiteral("Creating ribbon mesh..."));
 	m_host->geometryHost()->discretizeWireToRibbonMesh(
-		m_host->activeDocument(),
-		m_lastIntersectionPolylines.front(),
-		params,
-		options,
-		[this](const bool ok, const QString& err, const PluginGeometryJobResult& result) {
+		m_host->activeDocument(), m_lastIntersectionPolylines.front(), params, options,
+		[this](const bool ok, const QString& err, const PluginGeometryJobResult& result)
+		{
 			if (!ok)
 			{
 				setStatus(err, true);

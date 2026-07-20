@@ -1,19 +1,21 @@
-#include "BackendVisualSync.h"
+﻿/// @file BackendVisualSync.cpp
+/// @brief BackendVisualSync 实现
 
-#include "DocumentHost.h"
-#include "DocumentHostAccess.h"
-#include "DocumentHostEvents.h"
+#include "BackendVisualSync.h"
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "DocumentHost.h"
+#include "DocumentHostAccess.h"
+#include "DocumentHostEvents.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
 
-namespace cloudsim::host {
-
-namespace {
-
+namespace cloudsim::host
+{
+namespace
+{
 using ::BackendColor;
 using ::BackendDataBase;
 using ::MeshBackendData;
@@ -41,12 +43,12 @@ bool propertyKeyNeedsVisualSync(const QString& key)
 	{
 		return true;
 	}
-	if (key.contains(QStringLiteral("color"), Qt::CaseInsensitive)
-		|| key.contains(QStringLiteral("visible"), Qt::CaseInsensitive))
+	if (key.contains(QStringLiteral("color"), Qt::CaseInsensitive) ||
+		key.contains(QStringLiteral("visible"), Qt::CaseInsensitive))
 	{
 		return true;
 	}
-	return true;  // 未知 key 默认同步
+	return true; // 未知 key 默认同步
 }
 
 bool propertyKeyCommitsPose(const QString& key)
@@ -59,8 +61,8 @@ bool propertyKeyCommitsPose(const QString& key)
 	{
 		return true;
 	}
-	return key.contains(QStringLiteral("pose"), Qt::CaseInsensitive)
-		|| key.contains(QStringLiteral("rotation"), Qt::CaseInsensitive);
+	return key.contains(QStringLiteral("pose"), Qt::CaseInsensitive) ||
+		   key.contains(QStringLiteral("rotation"), Qt::CaseInsensitive);
 }
 
 void syncVisualAfterPropertyChange(DocumentHost& host, const BackendDataBase& data, const bool applyColor)
@@ -104,8 +106,8 @@ void syncVisualAfterPropertyChangeById(DocumentHost& host, const QString& object
 void afterDataServicePropertyChange(DocumentHost& host, const BackendDataBase& data, const QString& key)
 {
 	// 属性面板连续 spin：数据已写入，全量 OSG/Follow/PoseCommitted 延至失焦（见 MainWindow flushPropertyPanelVisualCommit）
-	if (host.deferPropertyPanelVisualFullSync()
-		&& (key.startsWith(QStringLiteral("pose.")) || key.startsWith(QStringLiteral("rotation."))))
+	if (host.deferPropertyPanelVisualFullSync() &&
+		(key.startsWith(QStringLiteral("pose.")) || key.startsWith(QStringLiteral("rotation."))))
 	{
 		return;
 	}
@@ -121,6 +123,16 @@ void afterDataServicePropertyChange(DocumentHost& host, const BackendDataBase& d
 	if (applyColor)
 	{
 		syncVisualAfterPropertyChange(host, data, true);
+		return;
+	}
+	if (key.contains(QStringLiteral("visible"), Qt::CaseInsensitive))
+	{
+		OsgWidget* osg = osgWidgetFrom(host);
+		if (osg)
+		{
+			osg->setBackendObjectVisible(data.id(), data.isVisible());
+			osg->requestRedraw();
+		}
 		return;
 	}
 	if (dynamic_cast<const PointCloudBackendData*>(&data) || dynamic_cast<const MeshBackendData*>(&data))

@@ -1,3 +1,6 @@
+﻿/// @file EdgeChainDiscretizer.cpp
+/// @brief EdgeChainDiscretizer 实现
+
 #include "EdgeChainDiscretizer.h"
 
 #include "Discretize.h"
@@ -8,7 +11,6 @@
 
 namespace geoalgo
 {
-
 REGISTER_FEATURE_DISCRETIZER(EdgeChainDiscretizer);
 
 std::vector<FeatureDiscretizerParamField> EdgeChainDiscretizer::paramFields() const
@@ -16,11 +18,8 @@ std::vector<FeatureDiscretizerParamField> EdgeChainDiscretizer::paramFields() co
 	return featureDiscretizerCommonParamFields();
 }
 
-bool EdgeChainDiscretizer::discretize(
-	const TopoDS_Shape& shape,
-	const FeatureDiscretizeInput& input,
-	RawPath& out,
-	std::string* errMsg) const
+bool EdgeChainDiscretizer::discretize(const TopoDS_Shape& shape, const FeatureDiscretizeInput& input, RawPath& out,
+									  std::string* errMsg) const
 {
 	if (!validate(input, errMsg))
 	{
@@ -37,11 +36,8 @@ bool EdgeChainDiscretizer::discretize(
 
 	const DiscretizeParams disc = detail::buildDiscretizeParamsFromInput(input);
 	const TessellateParams tess = detail::toTessellate(disc);
-	const std::vector<TopoDS_Face> contextFaces = detail::collectContextFaces(
-		shape,
-		input.geometry.edgeIndices,
-		input.geometry.faceIndices,
-		errMsg);
+	const std::vector<TopoDS_Face> contextFaces =
+		detail::collectContextFaces(shape, input.geometry.edgeIndices, input.geometry.faceIndices, errMsg);
 	if (!input.geometry.faceIndices.empty() && contextFaces.empty())
 	{
 		return false;
@@ -67,12 +63,7 @@ bool EdgeChainDiscretizer::discretize(
 	else
 	{
 		Polyline3d poly;
-		if (!fuseStepEdgesToPolyline(
-				input.workpiece.stepPathUtf8,
-				input.geometry.edgeIndices,
-				tess,
-				poly,
-				errMsg))
+		if (!fuseStepEdgesToPolyline(input.workpiece.stepPathUtf8, input.geometry.edgeIndices, tess, poly, errMsg))
 		{
 			return false;
 		}

@@ -1,23 +1,28 @@
-#pragma once
+﻿#ifndef DATA_BACKENDDATABASE_H
+#define DATA_BACKENDDATABASE_H
+
+/// @file BackendDataBase.h
+/// @brief 后端基类：id、几何包围、属性面板、位姿/颜色钩子
+
+#include "data_global.h"
+
+#include "BackendComponent.h"
+#include "BackendFollowMath.h"
+#include "BackendObjectAttribute.h"
+#include "PropertyBag.h"
 
 #include <cstddef>
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
 #include <string>
-#include <typeindex>
 #include <type_traits>
+#include <typeindex>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include <json.hpp>
-
-#include "data_global.h"
-#include "BackendComponent.h"
-#include "BackendObjectAttribute.h"
-#include "BackendFollowMath.h"
-#include "PropertyBag.h"
 
 class BackendDataManager;
 
@@ -68,6 +73,10 @@ public:
 	const std::string& name() const;
 	void setName(const std::string& name);
 
+	/// 场景显示态真源（工程 JSON 字段 visible；OSG/树为派生视图）
+	bool isVisible() const;
+	void setVisible(bool visible);
+
 	virtual std::string className() const = 0;
 
 	virtual bool hasGeometry() const = 0;
@@ -94,10 +103,13 @@ public:
 	void setPoseReferenceFrame(BackendPoseReferenceFrame frame);
 	BackendVec3 poseInFrame(BackendPoseReferenceFrame frame, const BackendDataManager* mgr = nullptr) const;
 	BackendVec3 rotationInFrame(BackendPoseReferenceFrame frame, const BackendDataManager* mgr = nullptr) const;
-	void setPoseInFrame(const BackendVec3& value, BackendPoseReferenceFrame frame, const BackendDataManager* mgr = nullptr);
-	void setRotationInFrame(const BackendVec3& value, BackendPoseReferenceFrame frame, const BackendDataManager* mgr = nullptr);
+	void setPoseInFrame(const BackendVec3& value, BackendPoseReferenceFrame frame,
+						const BackendDataManager* mgr = nullptr);
+	void setRotationInFrame(const BackendVec3& value, BackendPoseReferenceFrame frame,
+							const BackendDataManager* mgr = nullptr);
 	BackendPoseValue poseValue(BackendPoseReferenceFrame frame, const BackendDataManager* mgr = nullptr) const;
-	void setPoseValue(const BackendPoseValue& value, BackendPoseReferenceFrame frame, const BackendDataManager* mgr = nullptr);
+	void setPoseValue(const BackendPoseValue& value, BackendPoseReferenceFrame frame,
+					  const BackendDataManager* mgr = nullptr);
 	BackendMat4 worldMatrix(const BackendDataManager* mgr = nullptr) const;
 	void setWorldMatrix(const BackendMat4& world, const BackendDataManager* mgr = nullptr);
 	/// 用户拖动/Gizmo：后乘增量，geometry 不变
@@ -111,7 +123,7 @@ public:
 
 	virtual nlohmann::json snapshotPropertyRows(const BackendDataManager* mgr = nullptr) const;
 	virtual bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-		const BackendDataManager* mgr = nullptr);
+									 const BackendDataManager* mgr = nullptr);
 
 	bool addComponent(const BackendComponentPtr& component);
 	bool removeComponent(const std::string& componentType);
@@ -147,8 +159,9 @@ public:
 	std::vector<std::shared_ptr<BackendDataBase>> childObjects(const BackendDataManager& manager) const;
 	std::vector<std::shared_ptr<BackendDataBase>> descendantObjects(const BackendDataManager& manager) const;
 
-protected:
 	static std::string generateId();
+
+protected:
 	virtual void saveDerivedJson(nlohmann::json& out) const;
 	virtual bool loadDerivedJson(const nlohmann::json& in, std::string* errMsg);
 
@@ -157,6 +170,7 @@ protected:
 private:
 	std::string m_id;
 	std::string m_name;
+	bool m_visible = true;
 	BackendPoseReferenceFrame m_poseReferenceFrame = BackendPoseReferenceFrame::World;
 	BackendMat4 m_worldMatrix = BackendMat4::identity();
 	mutable PropertyBag m_propertyBag;
@@ -164,3 +178,5 @@ private:
 	std::unordered_map<std::string, BackendComponentPtr> m_components;
 	std::unordered_map<std::type_index, BackendComponentPtr> m_componentsByType;
 };
+
+#endif // DATA_BACKENDDATABASE_H

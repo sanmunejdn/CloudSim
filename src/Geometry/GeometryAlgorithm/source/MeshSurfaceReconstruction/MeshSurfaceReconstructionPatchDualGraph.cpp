@@ -1,3 +1,6 @@
+﻿/// @file MeshSurfaceReconstructionPatchDualGraph.cpp
+/// @brief MeshSurfaceReconstructionPatchDualGraph 实现
+
 #include "MeshSurfaceReconstructionPatchDualGraph.h"
 
 #include <algorithm>
@@ -13,7 +16,6 @@ namespace meshrecon
 {
 namespace
 {
-
 struct GenEdge
 {
 	int id = -1;
@@ -33,9 +35,7 @@ struct DualCorner
 	std::vector<int> genEdgeIds;
 };
 
-PartitionVec3d patchAverageNormal(
-	const std::vector<int>& faces,
-	const std::vector<PartitionVec3d>& faceNormals)
+PartitionVec3d patchAverageNormal(const std::vector<int>& faces, const std::vector<PartitionVec3d>& faceNormals)
 {
 	PartitionVec3d sum{0, 0, 0};
 	for (const int f : faces)
@@ -45,10 +45,8 @@ PartitionVec3d patchAverageNormal(
 	return sum.normalized();
 }
 
-void rebuildPatchFaceLists(
-	const int faceCount,
-	const std::vector<int>& faceToPatch,
-	std::vector<std::vector<int>>& patchFaces)
+void rebuildPatchFaceLists(const int faceCount, const std::vector<int>& faceToPatch,
+						   std::vector<std::vector<int>>& patchFaces)
 {
 	patchFaces.clear();
 	for (int f = 0; f < faceCount; ++f)
@@ -64,12 +62,9 @@ void rebuildPatchFaceLists(
 		}
 		patchFaces[static_cast<std::size_t>(p)].push_back(f);
 	}
-	patchFaces.erase(
-		std::remove_if(
-			patchFaces.begin(),
-			patchFaces.end(),
-			[](const std::vector<int>& faces) { return faces.empty(); }),
-		patchFaces.end());
+	patchFaces.erase(std::remove_if(patchFaces.begin(), patchFaces.end(),
+									[](const std::vector<int>& faces) { return faces.empty(); }),
+					 patchFaces.end());
 }
 
 void compactFaceToPatch(std::vector<int>& faceToPatch)
@@ -95,10 +90,8 @@ void compactFaceToPatch(std::vector<int>& faceToPatch)
 	}
 }
 
-std::vector<std::unordered_set<int>> buildPatchNeighbors(
-	const int faceCount,
-	const std::vector<int>& faceToPatch,
-	const std::vector<std::vector<int>>& fullAdj)
+std::vector<std::unordered_set<int>> buildPatchNeighbors(const int faceCount, const std::vector<int>& faceToPatch,
+														 const std::vector<std::vector<int>>& fullAdj)
 {
 	std::vector<std::unordered_set<int>> neighbors;
 	for (int f = 0; f < faceCount; ++f)
@@ -124,12 +117,9 @@ std::vector<std::unordered_set<int>> buildPatchNeighbors(
 	return neighbors;
 }
 
-double sharedBoundaryLength(
-	const int patchA,
-	const int patchB,
-	const std::vector<int>& faceToPatch,
-	const IndexedMeshLite& mesh,
-	const std::unordered_map<int64_t, std::pair<int, int>>& edgeToFaces)
+double sharedBoundaryLength(const int patchA, const int patchB, const std::vector<int>& faceToPatch,
+							const IndexedMeshLite& mesh,
+							const std::unordered_map<int64_t, std::pair<int, int>>& edgeToFaces)
 {
 	double len = 0.0;
 	for (const auto& kv : edgeToFaces)
@@ -164,11 +154,9 @@ void mergePatchInto(const int src, const int dst, std::vector<int>& faceToPatch)
 	}
 }
 
-bool step1MergeLowValencePatches(
-	const IndexedMeshLite& mesh,
-	const std::vector<std::vector<int>>& fullAdj,
-	const std::unordered_map<int64_t, std::pair<int, int>>& edgeToFaces,
-	std::vector<int>& faceToPatch)
+bool step1MergeLowValencePatches(const IndexedMeshLite& mesh, const std::vector<std::vector<int>>& fullAdj,
+								 const std::unordered_map<int64_t, std::pair<int, int>>& edgeToFaces,
+								 std::vector<int>& faceToPatch)
 {
 	const int faceCount = static_cast<int>(faceToPatch.size());
 	bool changed = false;
@@ -200,10 +188,8 @@ bool step1MergeLowValencePatches(
 				}
 				const int n0 = *neighbors[pi].begin();
 				const int n1 = *std::next(neighbors[pi].begin());
-				const double l0 = sharedBoundaryLength(
-					static_cast<int>(pi), n0, faceToPatch, mesh, edgeToFaces);
-				const double l1 = sharedBoundaryLength(
-					static_cast<int>(pi), n1, faceToPatch, mesh, edgeToFaces);
+				const double l0 = sharedBoundaryLength(static_cast<int>(pi), n0, faceToPatch, mesh, edgeToFaces);
+				const double l1 = sharedBoundaryLength(static_cast<int>(pi), n1, faceToPatch, mesh, edgeToFaces);
 				mergeSrc = static_cast<int>(pi);
 				mergeDst = (l0 >= l1) ? n0 : n1;
 				break;
@@ -220,12 +206,8 @@ bool step1MergeLowValencePatches(
 	return changed;
 }
 
-bool isFeaturePair(
-	const int patchA,
-	const int patchB,
-	const std::vector<std::vector<int>>& patchFaces,
-	const std::vector<PartitionVec3d>& faceNormals,
-	const double featureAngleDeg)
+bool isFeaturePair(const int patchA, const int patchB, const std::vector<std::vector<int>>& patchFaces,
+				   const std::vector<PartitionVec3d>& faceNormals, const double featureAngleDeg)
 {
 	const PartitionVec3d na = patchAverageNormal(patchFaces[static_cast<std::size_t>(patchA)], faceNormals);
 	const PartitionVec3d nb = patchAverageNormal(patchFaces[static_cast<std::size_t>(patchB)], faceNormals);
@@ -234,24 +216,19 @@ bool isFeaturePair(
 	return angleDeg > featureAngleDeg;
 }
 
-void buildDualCornersAndGenEdges(
-	const IndexedMeshLite& mesh,
-	const int faceCount,
-	const std::vector<int>& faceToPatch,
-	const std::vector<std::vector<int>>& patchFaces,
-	const std::vector<PartitionVec3d>& faceNormals,
-	const MeshAdjacency& adj,
-	const double featureAngleDeg,
-	std::vector<DualCorner>& corners,
-	std::vector<GenEdge>& genEdges,
-	std::vector<std::vector<int>>& patchSideGenEdges)
+void buildDualCornersAndGenEdges(const IndexedMeshLite& mesh, const int faceCount, const std::vector<int>& faceToPatch,
+								 const std::vector<std::vector<int>>& patchFaces,
+								 const std::vector<PartitionVec3d>& faceNormals, const MeshAdjacency& adj,
+								 const double featureAngleDeg, std::vector<DualCorner>& corners,
+								 std::vector<GenEdge>& genEdges, std::vector<std::vector<int>>& patchSideGenEdges)
 {
 	corners.clear();
 	genEdges.clear();
 	patchSideGenEdges.assign(patchFaces.size(), {});
 
 	std::unordered_map<int, int> vertexToCorner;
-	auto cornerIndex = [&](const int v) -> int {
+	auto cornerIndex = [&](const int v) -> int
+	{
 		auto it = vertexToCorner.find(v);
 		if (it != vertexToCorner.end())
 		{
@@ -412,15 +389,12 @@ void buildDualCornersAndGenEdges(
 			ge.isBoundary = sidePatchB < 0;
 			if (!ge.isBoundary && sidePatchB < static_cast<int>(patchFaces.size()))
 			{
-				ge.isFeature = isFeaturePair(
-					sidePatchA,
-					sidePatchB,
-					patchFaces,
-					faceNormals,
-					featureAngleDeg);
+				ge.isFeature = isFeaturePair(sidePatchA, sidePatchB, patchFaces, faceNormals, featureAngleDeg);
 			}
-			const PartitionVec3d pa = readPartitionV(mesh.vertices, corners[static_cast<std::size_t>(cornerA)].meshVertex);
-			const PartitionVec3d pb = readPartitionV(mesh.vertices, corners[static_cast<std::size_t>(cornerB)].meshVertex);
+			const PartitionVec3d pa =
+				readPartitionV(mesh.vertices, corners[static_cast<std::size_t>(cornerA)].meshVertex);
+			const PartitionVec3d pb =
+				readPartitionV(mesh.vertices, corners[static_cast<std::size_t>(cornerB)].meshVertex);
 			ge.endpointDistance = (pa - pb).length();
 			genEdges.push_back(ge);
 			corners[static_cast<std::size_t>(cornerA)].genEdgeIds.push_back(ge.id);
@@ -448,15 +422,12 @@ void buildDualCornersAndGenEdges(
 	}
 }
 
-bool collapsePatchPair(
-	const int keepPatch,
-	const int dropPatch,
-	std::vector<int>& faceToPatch,
-	std::vector<std::vector<int>>& patchFaces)
+bool collapsePatchPair(const int keepPatch, const int dropPatch, std::vector<int>& faceToPatch,
+					   std::vector<std::vector<int>>& patchFaces)
 {
-	if (keepPatch < 0 || dropPatch < 0 || keepPatch == dropPatch
-		|| static_cast<std::size_t>(keepPatch) >= patchFaces.size()
-		|| static_cast<std::size_t>(dropPatch) >= patchFaces.size())
+	if (keepPatch < 0 || dropPatch < 0 || keepPatch == dropPatch ||
+		static_cast<std::size_t>(keepPatch) >= patchFaces.size() ||
+		static_cast<std::size_t>(dropPatch) >= patchFaces.size())
 	{
 		return false;
 	}
@@ -468,18 +439,14 @@ bool collapsePatchPair(
 	{
 		faceToPatch[static_cast<std::size_t>(f)] = keepPatch;
 	}
-	patchFaces[static_cast<std::size_t>(keepPatch)].insert(
-		patchFaces[static_cast<std::size_t>(keepPatch)].end(),
-		patchFaces[static_cast<std::size_t>(dropPatch)].begin(),
-		patchFaces[static_cast<std::size_t>(dropPatch)].end());
+	patchFaces[static_cast<std::size_t>(keepPatch)].insert(patchFaces[static_cast<std::size_t>(keepPatch)].end(),
+														   patchFaces[static_cast<std::size_t>(dropPatch)].begin(),
+														   patchFaces[static_cast<std::size_t>(dropPatch)].end());
 	patchFaces[static_cast<std::size_t>(dropPatch)].clear();
 	return true;
 }
 
-double triangleQuality(
-	const PartitionVec3d& a,
-	const PartitionVec3d& b,
-	const PartitionVec3d& c)
+double triangleQuality(const PartitionVec3d& a, const PartitionVec3d& b, const PartitionVec3d& c)
 {
 	const double e0 = (b - a).length();
 	const double e1 = (c - b).length();
@@ -493,12 +460,7 @@ double triangleQuality(
 	return (4.0 * std::sqrt(3.0) * (area2 * 0.5)) / sumSq;
 }
 
-double quadQualityFromCorners(
-	const IndexedMeshLite& mesh,
-	const int v0,
-	const int v1,
-	const int v2,
-	const int v3)
+double quadQualityFromCorners(const IndexedMeshLite& mesh, const int v0, const int v1, const int v2, const int v3)
 {
 	const PartitionVec3d p0 = readPartitionV(mesh.vertices, v0);
 	const PartitionVec3d p1 = readPartitionV(mesh.vertices, v1);
@@ -507,23 +469,14 @@ double quadQualityFromCorners(
 	return (triangleQuality(p0, p1, p2) + triangleQuality(p0, p2, p3)) * 0.5;
 }
 
-double bestQuadQualityFromMeshVerts(
-	const IndexedMeshLite& mesh,
-	const int v0,
-	const int v1,
-	const int v2,
-	const int v3)
+double bestQuadQualityFromMeshVerts(const IndexedMeshLite& mesh, const int v0, const int v1, const int v2, const int v3)
 {
 	const int verts[4] = {v0, v1, v2, v3};
 	double best = -1.0;
 	for (int shift = 0; shift < 4; ++shift)
 	{
-		const double q = quadQualityFromCorners(
-			mesh,
-			verts[shift],
-			verts[(shift + 1) % 4],
-			verts[(shift + 2) % 4],
-			verts[(shift + 3) % 4]);
+		const double q = quadQualityFromCorners(mesh, verts[shift], verts[(shift + 1) % 4], verts[(shift + 2) % 4],
+												verts[(shift + 3) % 4]);
 		if (q > best)
 		{
 			best = q;
@@ -534,21 +487,15 @@ double bestQuadQualityFromMeshVerts(
 
 bool isGenEdgeBetweenPatches(const GenEdge& ge, const int patchA, const int patchB)
 {
-	return (ge.patchA == patchA && ge.patchB == patchB)
-		|| (ge.patchA == patchB && ge.patchB == patchA);
+	return (ge.patchA == patchA && ge.patchB == patchB) || (ge.patchA == patchB && ge.patchB == patchA);
 }
 
 bool genEdgeOnPatch(const GenEdge& ge, const int patchId);
 
-void collectNeighborValence3Corners(
-	const int trianglePatch,
-	const int neighborPatch,
-	const int sharedCornerA,
-	const int sharedCornerB,
-	const std::vector<int>& neighborSideGenEdges,
-	const std::vector<GenEdge>& genEdges,
-	const std::vector<DualCorner>& corners,
-	std::vector<int>& outCornerIds)
+void collectNeighborValence3Corners(const int trianglePatch, const int neighborPatch, const int sharedCornerA,
+									const int sharedCornerB, const std::vector<int>& neighborSideGenEdges,
+									const std::vector<GenEdge>& genEdges, const std::vector<DualCorner>& corners,
+									std::vector<int>& outCornerIds)
 {
 	outCornerIds.clear();
 	for (const int geId : neighborSideGenEdges)
@@ -587,9 +534,7 @@ void collectNeighborValence3Corners(
 	outCornerIds.erase(std::unique(outCornerIds.begin(), outCornerIds.end()), outCornerIds.end());
 }
 
-int neighborPatchAcross(
-	const GenEdge& ge,
-	const int patchId)
+int neighborPatchAcross(const GenEdge& ge, const int patchId)
 {
 	if (ge.patchA == patchId)
 	{
@@ -607,11 +552,8 @@ bool genEdgeOnPatch(const GenEdge& ge, const int patchId)
 	return ge.patchA == patchId || ge.patchB == patchId;
 }
 
-void collectPatchCorners(
-	const int patchId,
-	const std::vector<int>& sideGenEdgeIds,
-	const std::vector<GenEdge>& genEdges,
-	std::vector<int>& outCornerIds)
+void collectPatchCorners(const int patchId, const std::vector<int>& sideGenEdgeIds,
+						 const std::vector<GenEdge>& genEdges, std::vector<int>& outCornerIds)
 {
 	outCornerIds.clear();
 	for (const int geId : sideGenEdgeIds)
@@ -637,8 +579,8 @@ int countValence3Corners(const std::vector<int>& cornerIds, const std::vector<Du
 	int count = 0;
 	for (const int ci : cornerIds)
 	{
-		if (ci >= 0 && static_cast<std::size_t>(ci) < corners.size()
-			&& static_cast<int>(corners[static_cast<std::size_t>(ci)].genEdgeIds.size()) == 3)
+		if (ci >= 0 && static_cast<std::size_t>(ci) < corners.size() &&
+			static_cast<int>(corners[static_cast<std::size_t>(ci)].genEdgeIds.size()) == 3)
 		{
 			++count;
 		}
@@ -646,12 +588,8 @@ int countValence3Corners(const std::vector<int>& cornerIds, const std::vector<Du
 	return count;
 }
 
-bool endpointSatisfiesCollapseConditionB(
-	const int cornerIdx,
-	const int geId,
-	const std::vector<DualCorner>& corners,
-	const std::vector<GenEdge>& genEdges,
-	const double lengthRatio)
+bool endpointSatisfiesCollapseConditionB(const int cornerIdx, const int geId, const std::vector<DualCorner>& corners,
+										 const std::vector<GenEdge>& genEdges, const double lengthRatio)
 {
 	if (cornerIdx < 0 || static_cast<std::size_t>(cornerIdx) >= corners.size())
 	{
@@ -688,11 +626,8 @@ bool endpointSatisfiesCollapseConditionB(
 	return featureOrBoundary <= 1;
 }
 
-bool canCollapseGenEdge(
-	const GenEdge& ge,
-	const std::vector<DualCorner>& corners,
-	const std::vector<GenEdge>& genEdges,
-	const MeshSurfaceReconstructParams& params)
+bool canCollapseGenEdge(const GenEdge& ge, const std::vector<DualCorner>& corners, const std::vector<GenEdge>& genEdges,
+						const MeshSurfaceReconstructParams& params)
 {
 	if (ge.isFeature || ge.isBoundary || ge.patchB < 0)
 	{
@@ -700,14 +635,13 @@ bool canCollapseGenEdge(
 	}
 	const int va = ge.cornerA;
 	const int vb = ge.cornerB;
-	if (va < 0 || vb < 0
-		|| static_cast<std::size_t>(va) >= corners.size()
-		|| static_cast<std::size_t>(vb) >= corners.size())
+	if (va < 0 || vb < 0 || static_cast<std::size_t>(va) >= corners.size() ||
+		static_cast<std::size_t>(vb) >= corners.size())
 	{
 		return false;
 	}
-	const int valenceSum = static_cast<int>(corners[static_cast<std::size_t>(va)].genEdgeIds.size())
-		+ static_cast<int>(corners[static_cast<std::size_t>(vb)].genEdgeIds.size());
+	const int valenceSum = static_cast<int>(corners[static_cast<std::size_t>(va)].genEdgeIds.size()) +
+						   static_cast<int>(corners[static_cast<std::size_t>(vb)].genEdgeIds.size());
 	if (valenceSum > params.hybridCollapseValenceSumMax)
 	{
 		return false;
@@ -718,12 +652,8 @@ bool canCollapseGenEdge(
 	return okA || okB;
 }
 
-double collapseQualityToCorner(
-	const IndexedMeshLite& mesh,
-	const int cornerIdx,
-	const GenEdge& ge,
-	const std::vector<DualCorner>& corners,
-	const std::vector<GenEdge>& genEdges)
+double collapseQualityToCorner(const IndexedMeshLite& mesh, const int cornerIdx, const GenEdge& ge,
+							   const std::vector<DualCorner>& corners, const std::vector<GenEdge>& genEdges)
 {
 	if (cornerIdx < 0 || static_cast<std::size_t>(cornerIdx) >= corners.size())
 	{
@@ -736,8 +666,8 @@ double collapseQualityToCorner(
 	{
 		return -1.0;
 	}
-	const PartitionVec3d pOther = readPartitionV(
-		mesh.vertices, corners[static_cast<std::size_t>(otherCorner)].meshVertex);
+	const PartitionVec3d pOther =
+		readPartitionV(mesh.vertices, corners[static_cast<std::size_t>(otherCorner)].meshVertex);
 	double score = 0.0;
 	int count = 0;
 	for (const int geId : corners[static_cast<std::size_t>(cornerIdx)].genEdgeIds)
@@ -752,22 +682,16 @@ double collapseQualityToCorner(
 		{
 			continue;
 		}
-		const PartitionVec3d pThird = readPartitionV(
-			mesh.vertices, corners[static_cast<std::size_t>(oc)].meshVertex);
+		const PartitionVec3d pThird = readPartitionV(mesh.vertices, corners[static_cast<std::size_t>(oc)].meshVertex);
 		score += triangleQuality(p, pOther, pThird);
 		++count;
 	}
 	return count > 0 ? score / static_cast<double>(count) : 0.0;
 }
 
-bool collapseAcrossGenEdge(
-	const IndexedMeshLite& mesh,
-	const GenEdge& ge,
-	const std::vector<DualCorner>& corners,
-	const std::vector<GenEdge>& genEdges,
-	const MeshSurfaceReconstructParams& params,
-	std::vector<int>& faceToPatch,
-	std::vector<std::vector<int>>& patchFaces)
+bool collapseAcrossGenEdge(const IndexedMeshLite& mesh, const GenEdge& ge, const std::vector<DualCorner>& corners,
+						   const std::vector<GenEdge>& genEdges, const MeshSurfaceReconstructParams& params,
+						   std::vector<int>& faceToPatch, std::vector<std::vector<int>>& patchFaces)
 {
 	if (!canCollapseGenEdge(ge, corners, genEdges, params))
 	{
@@ -796,11 +720,8 @@ bool collapseAcrossGenEdge(
 	return collapsePatchPair(keepPatch, dropPatch, faceToPatch, patchFaces);
 }
 
-const GenEdge* findGenEdgeBetweenCorners(
-	const int cornerA,
-	const int cornerB,
-	const std::vector<int>& sideGenEdgeIds,
-	const std::vector<GenEdge>& genEdges)
+const GenEdge* findGenEdgeBetweenCorners(const int cornerA, const int cornerB, const std::vector<int>& sideGenEdgeIds,
+										 const std::vector<GenEdge>& genEdges)
 {
 	for (const int geId : sideGenEdgeIds)
 	{
@@ -809,8 +730,7 @@ const GenEdge* findGenEdgeBetweenCorners(
 			continue;
 		}
 		const GenEdge& ge = genEdges[static_cast<std::size_t>(geId)];
-		if ((ge.cornerA == cornerA && ge.cornerB == cornerB)
-			|| (ge.cornerA == cornerB && ge.cornerB == cornerA))
+		if ((ge.cornerA == cornerA && ge.cornerB == cornerB) || (ge.cornerA == cornerB && ge.cornerB == cornerA))
 		{
 			return &ge;
 		}
@@ -818,11 +738,9 @@ const GenEdge* findGenEdgeBetweenCorners(
 	return nullptr;
 }
 
-std::vector<const GenEdge*> genEdgesAtCornerOnPatch(
-	const int cornerIdx,
-	const int patchId,
-	const std::vector<int>& sideGenEdgeIds,
-	const std::vector<GenEdge>& genEdges)
+std::vector<const GenEdge*> genEdgesAtCornerOnPatch(const int cornerIdx, const int patchId,
+													const std::vector<int>& sideGenEdgeIds,
+													const std::vector<GenEdge>& genEdges)
 {
 	std::vector<const GenEdge*> out;
 	for (const int geId : sideGenEdgeIds)
@@ -844,14 +762,11 @@ std::vector<const GenEdge*> genEdgesAtCornerOnPatch(
 	return out;
 }
 
-bool step332DeleteSpecialGenEdges(
-	const IndexedMeshLite& mesh,
-	const std::vector<DualCorner>& corners,
-	const std::vector<GenEdge>& genEdges,
-	const std::vector<std::vector<int>>& patchSideGenEdges,
-	const MeshSurfaceReconstructParams& params,
-	std::vector<int>& faceToPatch,
-	std::vector<std::vector<int>>& patchFaces)
+bool step332DeleteSpecialGenEdges(const IndexedMeshLite& mesh, const std::vector<DualCorner>& corners,
+								  const std::vector<GenEdge>& genEdges,
+								  const std::vector<std::vector<int>>& patchSideGenEdges,
+								  const MeshSurfaceReconstructParams& params, std::vector<int>& faceToPatch,
+								  std::vector<std::vector<int>>& patchFaces)
 {
 	for (const GenEdge& ge : genEdges)
 	{
@@ -865,8 +780,8 @@ bool step332DeleteSpecialGenEdges(
 		{
 			continue;
 		}
-		if (static_cast<int>(corners[static_cast<std::size_t>(ca)].genEdgeIds.size()) != 3
-			|| static_cast<int>(corners[static_cast<std::size_t>(cb)].genEdgeIds.size()) != 3)
+		if (static_cast<int>(corners[static_cast<std::size_t>(ca)].genEdgeIds.size()) != 3 ||
+			static_cast<int>(corners[static_cast<std::size_t>(cb)].genEdgeIds.size()) != 3)
 		{
 			continue;
 		}
@@ -884,23 +799,21 @@ bool step332DeleteSpecialGenEdges(
 	return false;
 }
 
-bool step333SortedCollapse(
-	const IndexedMeshLite& mesh,
-	const std::vector<DualCorner>& corners,
-	const std::vector<GenEdge>& genEdges,
-	const MeshSurfaceReconstructParams& params,
-	std::vector<int>& faceToPatch,
-	std::vector<std::vector<int>>& patchFaces)
+bool step333SortedCollapse(const IndexedMeshLite& mesh, const std::vector<DualCorner>& corners,
+						   const std::vector<GenEdge>& genEdges, const MeshSurfaceReconstructParams& params,
+						   std::vector<int>& faceToPatch, std::vector<std::vector<int>>& patchFaces)
 {
 	std::vector<int> order(genEdges.size());
 	for (std::size_t i = 0; i < genEdges.size(); ++i)
 	{
 		order[i] = static_cast<int>(i);
 	}
-	std::sort(order.begin(), order.end(), [&](const int a, const int b) {
-		return genEdges[static_cast<std::size_t>(a)].endpointDistance
-			< genEdges[static_cast<std::size_t>(b)].endpointDistance;
-	});
+	std::sort(order.begin(), order.end(),
+			  [&](const int a, const int b)
+			  {
+				  return genEdges[static_cast<std::size_t>(a)].endpointDistance <
+						 genEdges[static_cast<std::size_t>(b)].endpointDistance;
+			  });
 	for (const int geId : order)
 	{
 		const GenEdge& ge = genEdges[static_cast<std::size_t>(geId)];
@@ -912,19 +825,13 @@ bool step333SortedCollapse(
 	return false;
 }
 
-bool tryCollapseLongestNonFeatureAtCorner(
-	const IndexedMeshLite& mesh,
-	const int patchId,
-	const int cornerIdx,
-	const std::vector<int>& sideGenEdgeIds,
-	const std::vector<DualCorner>& corners,
-	const std::vector<GenEdge>& genEdges,
-	const MeshSurfaceReconstructParams& params,
-	std::vector<int>& faceToPatch,
-	std::vector<std::vector<int>>& patchFaces)
+bool tryCollapseLongestNonFeatureAtCorner(const IndexedMeshLite& mesh, const int patchId, const int cornerIdx,
+										  const std::vector<int>& sideGenEdgeIds,
+										  const std::vector<DualCorner>& corners, const std::vector<GenEdge>& genEdges,
+										  const MeshSurfaceReconstructParams& params, std::vector<int>& faceToPatch,
+										  std::vector<std::vector<int>>& patchFaces)
 {
-	const std::vector<const GenEdge*> atCorner = genEdgesAtCornerOnPatch(
-		cornerIdx, patchId, sideGenEdgeIds, genEdges);
+	const std::vector<const GenEdge*> atCorner = genEdgesAtCornerOnPatch(cornerIdx, patchId, sideGenEdgeIds, genEdges);
 	const GenEdge* best = nullptr;
 	for (const GenEdge* ge : atCorner)
 	{
@@ -944,14 +851,10 @@ bool tryCollapseLongestNonFeatureAtCorner(
 	return collapseAcrossGenEdge(mesh, *best, corners, genEdges, params, faceToPatch, patchFaces);
 }
 
-bool step334TriPatchAdjust(
-	const IndexedMeshLite& mesh,
-	const std::vector<DualCorner>& corners,
-	const std::vector<GenEdge>& genEdges,
-	const std::vector<std::vector<int>>& patchSideGenEdges,
-	const MeshSurfaceReconstructParams& params,
-	std::vector<int>& faceToPatch,
-	std::vector<std::vector<int>>& patchFaces)
+bool step334TriPatchAdjust(const IndexedMeshLite& mesh, const std::vector<DualCorner>& corners,
+						   const std::vector<GenEdge>& genEdges, const std::vector<std::vector<int>>& patchSideGenEdges,
+						   const MeshSurfaceReconstructParams& params, std::vector<int>& faceToPatch,
+						   std::vector<std::vector<int>>& patchFaces)
 {
 	for (std::size_t pi = 0; pi < patchSideGenEdges.size(); ++pi)
 	{
@@ -977,8 +880,8 @@ bool step334TriPatchAdjust(
 				{
 					continue;
 				}
-				if (tryCollapseLongestNonFeatureAtCorner(
-						mesh, patchId, ci, patchSideGenEdges[pi], corners, genEdges, params, faceToPatch, patchFaces))
+				if (tryCollapseLongestNonFeatureAtCorner(mesh, patchId, ci, patchSideGenEdges[pi], corners, genEdges,
+														 params, faceToPatch, patchFaces))
 				{
 					return true;
 				}
@@ -1006,11 +909,9 @@ bool step334TriPatchAdjust(
 			}
 			if (c3a >= 0 && c3b >= 0)
 			{
-				const GenEdge* connecting = findGenEdgeBetweenCorners(
-					c3a, c3b, patchSideGenEdges[pi], genEdges);
-				if (connecting != nullptr && !connecting->isFeature && !connecting->isBoundary
-					&& collapseAcrossGenEdge(
-						mesh, *connecting, corners, genEdges, params, faceToPatch, patchFaces))
+				const GenEdge* connecting = findGenEdgeBetweenCorners(c3a, c3b, patchSideGenEdges[pi], genEdges);
+				if (connecting != nullptr && !connecting->isFeature && !connecting->isBoundary &&
+					collapseAcrossGenEdge(mesh, *connecting, corners, genEdges, params, faceToPatch, patchFaces))
 				{
 					return true;
 				}
@@ -1031,9 +932,8 @@ bool step334TriPatchAdjust(
 						longestOther = &ge;
 					}
 				}
-				if (longestOther != nullptr
-					&& collapseAcrossGenEdge(
-						mesh, *longestOther, corners, genEdges, params, faceToPatch, patchFaces))
+				if (longestOther != nullptr &&
+					collapseAcrossGenEdge(mesh, *longestOther, corners, genEdges, params, faceToPatch, patchFaces))
 				{
 					return true;
 				}
@@ -1065,9 +965,8 @@ bool step334TriPatchAdjust(
 				}
 			}
 			const GenEdge* target = boundaryEdge != nullptr ? boundaryEdge : shortestInterior;
-			if (target != nullptr
-				&& collapseAcrossGenEdge(
-					mesh, *target, corners, genEdges, params, faceToPatch, patchFaces))
+			if (target != nullptr &&
+				collapseAcrossGenEdge(mesh, *target, corners, genEdges, params, faceToPatch, patchFaces))
 			{
 				return true;
 			}
@@ -1114,15 +1013,8 @@ bool step334TriPatchAdjust(
 					continue;
 				}
 				std::vector<int> neighborV3Corners;
-				collectNeighborValence3Corners(
-					patchId,
-					nb,
-					ca,
-					cb,
-					patchSideGenEdges[static_cast<std::size_t>(nb)],
-					genEdges,
-					corners,
-					neighborV3Corners);
+				collectNeighborValence3Corners(patchId, nb, ca, cb, patchSideGenEdges[static_cast<std::size_t>(nb)],
+											   genEdges, corners, neighborV3Corners);
 				if (neighborV3Corners.empty())
 				{
 					continue;
@@ -1142,9 +1034,8 @@ bool step334TriPatchAdjust(
 					bestGe = &ge;
 				}
 			}
-			if (bestGe != nullptr
-				&& collapseAcrossGenEdge(
-					mesh, *bestGe, corners, genEdges, params, faceToPatch, patchFaces))
+			if (bestGe != nullptr &&
+				collapseAcrossGenEdge(mesh, *bestGe, corners, genEdges, params, faceToPatch, patchFaces))
 			{
 				return true;
 			}
@@ -1183,9 +1074,7 @@ bool step334TriPatchAdjust(
 	return false;
 }
 
-void countPatchSideStats(
-	const std::vector<std::vector<int>>& patchSideGenEdges,
-	HybridAdjustStats& stats)
+void countPatchSideStats(const std::vector<std::vector<int>>& patchSideGenEdges, HybridAdjustStats& stats)
 {
 	stats.triPatchCount = 0;
 	stats.quadPatchCount = 0;
@@ -1219,14 +1108,10 @@ void countPatchSideStats(
 
 } // namespace
 
-bool hybridApplyRegionAdjust(
-	const IndexedMeshLite& mesh,
-	const MeshSurfaceReconstructParams& params,
-	const std::vector<std::vector<int>>& fullAdj,
-	const std::vector<PartitionVec3d>& faceNormals,
-	std::vector<int>& faceToPatch,
-	HybridAdjustStats& stats,
-	std::string* errMsg)
+bool hybridApplyRegionAdjust(const IndexedMeshLite& mesh, const MeshSurfaceReconstructParams& params,
+							 const std::vector<std::vector<int>>& fullAdj,
+							 const std::vector<PartitionVec3d>& faceNormals, std::vector<int>& faceToPatch,
+							 HybridAdjustStats& stats, std::string* errMsg)
 {
 	const int faceCount = static_cast<int>(faceToPatch.size());
 	MeshAdjacency adj;
@@ -1249,31 +1134,19 @@ bool hybridApplyRegionAdjust(
 		std::vector<DualCorner> corners;
 		std::vector<GenEdge> genEdges;
 		std::vector<std::vector<int>> patchSideGenEdges;
-		buildDualCornersAndGenEdges(
-			mesh,
-			faceCount,
-			faceToPatch,
-			patchFaces,
-			faceNormals,
-			adj,
-			params.hybridFeatureAngleDeg,
-			corners,
-			genEdges,
-			patchSideGenEdges);
+		buildDualCornersAndGenEdges(mesh, faceCount, faceToPatch, patchFaces, faceNormals, adj,
+									params.hybridFeatureAngleDeg, corners, genEdges, patchSideGenEdges);
 
 		bool changed = false;
-		if (step332DeleteSpecialGenEdges(
-				mesh, corners, genEdges, patchSideGenEdges, params, faceToPatch, patchFaces))
+		if (step332DeleteSpecialGenEdges(mesh, corners, genEdges, patchSideGenEdges, params, faceToPatch, patchFaces))
 		{
 			changed = true;
 		}
-		else if (step333SortedCollapse(
-					 mesh, corners, genEdges, params, faceToPatch, patchFaces))
+		else if (step333SortedCollapse(mesh, corners, genEdges, params, faceToPatch, patchFaces))
 		{
 			changed = true;
 		}
-		else if (step334TriPatchAdjust(
-					 mesh, corners, genEdges, patchSideGenEdges, params, faceToPatch, patchFaces))
+		else if (step334TriPatchAdjust(mesh, corners, genEdges, patchSideGenEdges, params, faceToPatch, patchFaces))
 		{
 			changed = true;
 		}
@@ -1290,17 +1163,8 @@ bool hybridApplyRegionAdjust(
 	std::vector<DualCorner> corners;
 	std::vector<GenEdge> genEdges;
 	std::vector<std::vector<int>> patchSideGenEdges;
-	buildDualCornersAndGenEdges(
-		mesh,
-		faceCount,
-		faceToPatch,
-		finalPatchFaces,
-		faceNormals,
-		adj,
-		params.hybridFeatureAngleDeg,
-		corners,
-		genEdges,
-		patchSideGenEdges);
+	buildDualCornersAndGenEdges(mesh, faceCount, faceToPatch, finalPatchFaces, faceNormals, adj,
+								params.hybridFeatureAngleDeg, corners, genEdges, patchSideGenEdges);
 	countPatchSideStats(patchSideGenEdges, stats);
 
 	if (finalPatchFaces.empty())

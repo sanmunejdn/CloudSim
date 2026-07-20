@@ -1,41 +1,34 @@
+﻿/// @file OsgRenderViewAdapter.cpp
+/// @brief OsgRenderViewAdapter 实现
+
 #include "adapters/OsgRenderViewAdapter.h"
 
+#include "BackendDataManager.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "IDataService.h"
-#include "OsgWidget.h"
 #include "ObjectGizmoFrame.h"
-
+#include "OsgWidget.h"
 #include "RobotOsgUiTypes.h"
 
 #include <Adapters.h>
 #include <RigidTransform.h>
-
-#include "BackendDataManager.h"
-
+#include <osg/AutoTransform>
+#include <osg/Camera>
+#include <osg/Geode>
+#include <osg/Group>
+#include <osg/MatrixTransform>
 #include <osg/Matrixd>
 #include <osg/Node>
-#include <osg/Group>
-#include <osg/Geode>
-#include <osg/Camera>
-#include <osg/MatrixTransform>
 #include <osg/PositionAttitudeTransform>
-#include <osg/AutoTransform>
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 OsgRenderViewAdapter::OsgRenderViewAdapter(OsgWidget& widget) : m_widget(widget) {}
 
-OsgRenderViewAdapter::OsgRenderViewAdapter(OsgWidget& widget, DocumentHost& host)
-	: m_widget(widget)
-	, m_host(&host)
-{
-}
+OsgRenderViewAdapter::OsgRenderViewAdapter(OsgWidget& widget, DocumentHost& host) : m_widget(widget), m_host(&host) {}
 
-OsgRenderViewAdapter::OsgRenderViewAdapter(DocumentHost& host)
-	: OsgRenderViewAdapter(*osgWidgetFrom(host), host)
-{
-}
+OsgRenderViewAdapter::OsgRenderViewAdapter(DocumentHost& host) : OsgRenderViewAdapter(*osgWidgetFrom(host), host) {}
 
 QWidget* OsgRenderViewAdapter::widget()
 {
@@ -50,9 +43,13 @@ const QWidget* OsgRenderViewAdapter::widget() const
 void OsgRenderViewAdapter::setWorldMatrix(const core::ObjectId& id, const core::Mat4& columnMajor)
 {
 	osg::Matrixd m;
-	for (int i = 0; i < 16; ++i)
+	// BackendMat4 / core::Mat4：Adapters 列主序 index=c*4+r；禁止 OSG ptr() 行主序直拷
+	for (int c = 0; c < 4; ++c)
 	{
-		m.ptr()[i] = columnMajor[static_cast<size_t>(i)];
+		for (int r = 0; r < 4; ++r)
+		{
+			m(r, c) = columnMajor[static_cast<size_t>(c * 4 + r)];
+		}
 	}
 	m_widget.setBackendRootWorldMatrixFromWorld(id.toStdString(), m);
 }
@@ -64,9 +61,12 @@ bool OsgRenderViewAdapter::getWorldMatrix(const core::ObjectId& id, core::Mat4& 
 	{
 		return false;
 	}
-	for (int i = 0; i < 16; ++i)
+	for (int c = 0; c < 4; ++c)
 	{
-		outColumnMajor[static_cast<size_t>(i)] = m.ptr()[i];
+		for (int r = 0; r < 4; ++r)
+		{
+			outColumnMajor[static_cast<size_t>(c * 4 + r)] = m(r, c);
+		}
 	}
 	return true;
 }
@@ -87,7 +87,7 @@ bool OsgRenderViewAdapter::hasVisualBranch(const core::ObjectId& id) const
 }
 
 bool OsgRenderViewAdapter::tryGetModelCenterMm(const core::ObjectId& id, double& outCx, double& outCy,
-	double& outCz) const
+											   double& outCz) const
 {
 	return m_widget.tryGetBackendModelCenterMm(id.toStdString(), outCx, outCy, outCz);
 }
@@ -173,8 +173,8 @@ void OsgRenderViewAdapter::setBackendLogicalParent(const core::ObjectId& childId
 	m_widget.setBackendLogicalParent(childId.toStdString(), parentId.toStdString());
 }
 
-namespace {
-
+namespace
+{
 QString formatMatrix(const osg::Matrixd& m)
 {
 	QString s;
@@ -204,7 +204,8 @@ QString localMatrixSummary(const osg::Node* node)
 	}
 	if (const auto* cam = dynamic_cast<const osg::Camera*>(node))
 	{
-		return QStringLiteral("View:\n%1\nProj:\n%2").arg(formatMatrix(cam->getViewMatrix()))
+		return QStringLiteral("View:\n%1\nProj:\n%2")
+			.arg(formatMatrix(cam->getViewMatrix()))
 			.arg(formatMatrix(cam->getProjectionMatrix()));
 	}
 	if (const auto* mt = dynamic_cast<const osg::MatrixTransform*>(node))
@@ -213,13 +214,13 @@ QString localMatrixSummary(const osg::Node* node)
 	}
 	if (const auto* pat = dynamic_cast<const osg::PositionAttitudeTransform*>(node))
 	{
-		return formatMatrix(osg::Matrixd::translate(pat->getPosition()) * osg::Matrixd::rotate(pat->getAttitude())
-			* osg::Matrixd::scale(pat->getScale()));
+		return formatMatrix(osg::Matrixd::translate(pat->getPosition()) * osg::Matrixd::rotate(pat->getAttitude()) *
+							osg::Matrixd::scale(pat->getScale()));
 	}
 	if (const auto* at = dynamic_cast<const osg::AutoTransform*>(node))
 	{
-		return formatMatrix(osg::Matrixd::translate(at->getPosition()) * osg::Matrixd::rotate(at->getRotation())
-			* osg::Matrixd::scale(at->getScale()));
+		return formatMatrix(osg::Matrixd::translate(at->getPosition()) * osg::Matrixd::rotate(at->getRotation()) *
+							osg::Matrixd::scale(at->getScale()));
 	}
 	return QStringLiteral("—");
 }
@@ -389,19 +390,22 @@ void OsgRenderViewAdapter::syncSelectionForBackend(const core::ObjectId& id)
 }
 
 bool OsgRenderViewAdapter::captureViewportPng(QByteArray& outPng, QString* outError, const int maxWidth,
-	const int maxHeight)
+											  const int maxHeight)
 {
 	return m_widget.captureViewportPng(outPng, outError, maxWidth, maxHeight);
 }
 
-namespace {
-
+namespace
+{
 osg::Matrixd osgMatFromCore(const core::Mat4& columnMajor)
 {
 	osg::Matrixd m;
-	for (int i = 0; i < 16; ++i)
+	for (int c = 0; c < 4; ++c)
 	{
-		m.ptr()[i] = columnMajor[static_cast<size_t>(i)];
+		for (int r = 0; r < 4; ++r)
+		{
+			m(r, c) = columnMajor[static_cast<size_t>(c * 4 + r)];
+		}
 	}
 	return m;
 }
@@ -409,9 +413,12 @@ osg::Matrixd osgMatFromCore(const core::Mat4& columnMajor)
 core::Mat4 coreMatFromOsg(const osg::Matrixd& m)
 {
 	core::Mat4 out;
-	for (int i = 0; i < 16; ++i)
+	for (int c = 0; c < 4; ++c)
 	{
-		out[static_cast<size_t>(i)] = m.ptr()[i];
+		for (int r = 0; r < 4; ++r)
+		{
+			out[static_cast<size_t>(c * 4 + r)] = m(r, c);
+		}
 	}
 	return out;
 }
@@ -451,14 +458,16 @@ RobotOsgUi::InstructionPoseAxis instructionAxisToRobotOsgUi(const core::Instruct
 
 void OsgRenderViewAdapter::setTransformGizmoFrame(const core::TransformGizmoFrameDto frame)
 {
-	m_widget.setTransformGizmoFrame(frame == core::TransformGizmoFrameDto::World ? OsgWidget::TransformGizmoFrame::World
-																				 : OsgWidget::TransformGizmoFrame::Local);
+	m_widget.setTransformGizmoFrame(frame == core::TransformGizmoFrameDto::World
+										? OsgWidget::TransformGizmoFrame::World
+										: OsgWidget::TransformGizmoFrame::Local);
 }
 
 core::TransformGizmoFrameDto OsgRenderViewAdapter::transformGizmoFrame() const
 {
-	return m_widget.transformGizmoFrame() == OsgWidget::TransformGizmoFrame::Local ? core::TransformGizmoFrameDto::Local
-																				   : core::TransformGizmoFrameDto::World;
+	return m_widget.transformGizmoFrame() == OsgWidget::TransformGizmoFrame::Local
+			   ? core::TransformGizmoFrameDto::Local
+			   : core::TransformGizmoFrameDto::World;
 }
 
 void OsgRenderViewAdapter::endTcpDragTeach()
@@ -467,8 +476,9 @@ void OsgRenderViewAdapter::endTcpDragTeach()
 }
 
 void OsgRenderViewAdapter::beginTcpDragTeach(const core::ObjectId& mountBackendId,
-	const core::Mat4& targetInBaseColumnMajor, const float modelDiagonalMm,
-	core::RobotBaseWorldResolver resolveRobotBaseWorld, const core::Mat4* toolLocalOnFlangeColumnMajor)
+											 const core::Mat4& targetInBaseColumnMajor, const float modelDiagonalMm,
+											 core::RobotBaseWorldResolver resolveRobotBaseWorld,
+											 const core::Mat4* toolLocalOnFlangeColumnMajor)
 {
 	const engine::RigidTransform target = engine::rigidTransformFromOsg(osgMatFromCore(targetInBaseColumnMajor));
 	osg::Matrixd toolLocalOsg;
@@ -478,10 +488,11 @@ void OsgRenderViewAdapter::beginTcpDragTeach(const core::ObjectId& mountBackendI
 		toolLocalOsg = osgMatFromCore(*toolLocalOnFlangeColumnMajor);
 		toolPtr = &toolLocalOsg;
 	}
-	std::function<bool(osg::Matrixd& outRobotBaseWorld)> osgResolver;
+	std::function<bool(osg::Matrixd & outRobotBaseWorld)> osgResolver;
 	if (resolveRobotBaseWorld)
 	{
-		osgResolver = [resolveRobotBaseWorld](osg::Matrixd& outWorld) -> bool {
+		osgResolver = [resolveRobotBaseWorld](osg::Matrixd& outWorld) -> bool
+		{
 			core::Mat4 mat;
 			if (!resolveRobotBaseWorld(mat))
 			{
@@ -495,7 +506,7 @@ void OsgRenderViewAdapter::beginTcpDragTeach(const core::ObjectId& mountBackendI
 }
 
 void OsgRenderViewAdapter::updateTcpDragTeachFromTarget(const core::Mat4& targetInBaseColumnMajor,
-	const bool syncTargetInBase)
+														const bool syncTargetInBase)
 {
 	const engine::RigidTransform target = engine::rigidTransformFromOsg(osgMatFromCore(targetInBaseColumnMajor));
 	m_widget.updateTcpDragTeachFromTarget(target, syncTargetInBase);
@@ -627,16 +638,18 @@ std::string OsgRenderViewAdapter::activeBackendId() const
 
 void OsgRenderViewAdapter::setRobotObjectGizmoSyncHook(std::function<bool()> hook)
 {
-	m_widget.setRobotObjectGizmoSyncHook([hook](const ObjectGizmoFrame&, bool) -> bool {
-		return hook ? hook() : false;
-	});
+	m_widget.setRobotObjectGizmoSyncHook([hook](const ObjectGizmoFrame&, bool) -> bool
+										 { return hook ? hook() : false; });
 }
 
 void OsgRenderViewAdapter::setRobotObjectGizmoFkRefreshHook(std::function<void()> hook)
 {
-	m_widget.setRobotObjectGizmoFkRefreshHook([hook](const ObjectGizmoFrame&, bool) {
-		if (hook) hook();
-	});
+	m_widget.setRobotObjectGizmoFkRefreshHook(
+		[hook](const ObjectGizmoFrame&, bool)
+		{
+			if (hook)
+				hook();
+		});
 }
 
 } // namespace cloudsim::host

@@ -1,3 +1,6 @@
+﻿/// @file MainWindowPlugins.cpp
+/// @brief MainWindowPlugins 实现
+
 #include "MainWindow.h"
 #include "PluginManager.h"
 
@@ -7,7 +10,6 @@
 
 namespace
 {
-
 int workspaceTabIndex(QTabWidget* tabs)
 {
 	return tabs && tabs->count() > 0 ? 0 : -1;
@@ -49,9 +51,8 @@ void MainWindow::registerSidePanelTabToggle(QWidget* widget, const QString& titl
 		m_viewMenu->addAction(entry.viewAction);
 	}
 
-	connect(entry.viewAction, &QAction::toggled, this, [this, widget](const bool checked) {
-		applySidePanelTabToggleVisibility(widget, checked);
-	});
+	connect(entry.viewAction, &QAction::toggled, this,
+			[this, widget](const bool checked) { applySidePanelTabToggleVisibility(widget, checked); });
 
 	m_sidePanelTabToggles.insert(widget, entry);
 	applySidePanelTabToggleVisibility(widget, visible);

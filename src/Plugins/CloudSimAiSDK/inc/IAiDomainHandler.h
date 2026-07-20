@@ -1,7 +1,12 @@
-#pragma once
+﻿#ifndef CLOUDSIMAISDK_IAIDOMAINHANDLER_H
+#define CLOUDSIMAISDK_IAIDOMAINHANDLER_H
+
+/// @file IAiDomainHandler.h
+/// @brief IAiDomainHandler 接口
+
+#include "cloudsim_ai_sdk_global.h"
 
 #include "AiDomainTypes.h"
-#include "cloudsim_ai_sdk_global.h"
 
 #include <QByteArray>
 #include <QString>
@@ -17,7 +22,7 @@ public:
 	virtual QString domainId() const = 0;
 	virtual bool validateOutput(const QByteArray& jsonUtf8, QString* err) const = 0;
 	virtual bool execute(const QByteArray& jsonUtf8, IPluginHostContext* host, IAiAssistantHost* aiHost,
-		QString* summary, QString* err) = 0;
+						 QString* summary, QString* err) = 0;
 
 	virtual bool adaptToActionPlan(const QByteArray& domainJson, QByteArray* outPlan, QString* err) const
 	{
@@ -39,3 +44,5 @@ public:
 	virtual const AiDomainDescriptor* descriptor(const QString& domainId) const = 0;
 	virtual IAiDomainHandler* handler(const QString& domainId) = 0;
 };
+
+#endif // CLOUDSIMAISDK_IAIDOMAINHANDLER_H

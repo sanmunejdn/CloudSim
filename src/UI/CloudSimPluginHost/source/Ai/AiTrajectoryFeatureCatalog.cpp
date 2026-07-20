@@ -1,18 +1,19 @@
+﻿/// @file AiTrajectoryFeatureCatalog.cpp
+/// @brief AiTrajectoryFeatureCatalog 实现
+
 #include "Ai/AiTrajectoryFeatureCatalog.h"
 
 #include "AiDomainTypes.h"
 
-#include <FeatureListDocument.h>
-#include <GeometryRef.h>
-
-#include <json.hpp>
-
 #include <algorithm>
 #include <set>
 
+#include <FeatureListDocument.h>
+#include <GeometryRef.h>
+#include <json.hpp>
+
 namespace
 {
-
 bool containsAny(const QString& text, const QStringList& keys)
 {
 	for (const QString& k : keys)
@@ -120,37 +121,36 @@ const geoalgo::FeatureCandidate* findCandidateById(const geoalgo::FeatureCatalog
 
 namespace AiTrajectoryFeatureCatalog
 {
-
 bool isLineStrategy(const std::string& strategyId)
 {
-	return strategyId == "EdgeChain" || strategyId == "FaceIntersection" || strategyId == "FaceBoundary"
-		|| strategyId == "SyntheticPolyline";
+	return strategyId == "EdgeChain" || strategyId == "FaceIntersection" || strategyId == "FaceBoundary" ||
+		   strategyId == "SyntheticPolyline";
 }
 
 bool isSurfaceStrategy(const std::string& strategyId)
 {
-	return strategyId == "FaceSection" || strategyId == "FaceParamSurface" || strategyId == "FaceOffsetCurve"
-		|| strategyId == "FaceBoundary";
+	return strategyId == "FaceSection" || strategyId == "FaceParamSurface" || strategyId == "FaceOffsetCurve" ||
+		   strategyId == "FaceBoundary";
 }
 
 AiFeatureAxis inferFeatureAxisFromText(const QString& userText)
 {
 	const QString t = userText.trimmed();
 	if (containsAny(t, {QStringLiteral("面特征"), QStringLiteral("大平面"), QStringLiteral("栅格"),
-			QStringLiteral("打磨"), QStringLiteral("grind"), QStringLiteral("UV")})
-		|| (containsAny(t, {QStringLiteral("面"), QStringLiteral("surface"), QStringLiteral("face")})
-			&& !containsAny(t, {QStringLiteral("面特征")})))
+						QStringLiteral("打磨"), QStringLiteral("grind"), QStringLiteral("UV")}) ||
+		(containsAny(t, {QStringLiteral("面"), QStringLiteral("surface"), QStringLiteral("face")}) &&
+		 !containsAny(t, {QStringLiteral("面特征")})))
 	{
 		return AiFeatureAxis::Surface;
 	}
-	if (containsAny(t, {QStringLiteral("线特征"), QStringLiteral("边"), QStringLiteral("焊缝"),
-			QStringLiteral("交线"), QStringLiteral("轮廓"), QStringLiteral("涂胶"), QStringLiteral("weld"),
-			QStringLiteral("glue"), QStringLiteral("seam")}))
+	if (containsAny(t, {QStringLiteral("线特征"), QStringLiteral("边"), QStringLiteral("焊缝"), QStringLiteral("交线"),
+						QStringLiteral("轮廓"), QStringLiteral("涂胶"), QStringLiteral("weld"), QStringLiteral("glue"),
+						QStringLiteral("seam")}))
 	{
 		return AiFeatureAxis::Line;
 	}
 	if (containsAny(t, {QStringLiteral("轨迹"), QStringLiteral("特征"), QStringLiteral("识别"),
-			QStringLiteral("trajectory"), QStringLiteral("feature")}))
+						QStringLiteral("trajectory"), QStringLiteral("feature")}))
 	{
 		return AiFeatureAxis::Ambiguous;
 	}
@@ -161,7 +161,7 @@ bool isSelectionFollowUpText(const QString& userText)
 {
 	const QString t = userText.trimmed();
 	static const QStringList keys = {
-		QStringLiteral("选"), QStringLiteral("选择"), QStringLiteral("确认"), QStringLiteral("第"),
+		QStringLiteral("选"),	QStringLiteral("选择"),	  QStringLiteral("确认"), QStringLiteral("第"),
 		QStringLiteral("编号"), QStringLiteral("select"), QStringLiteral("pick"),
 	};
 	if (containsAny(t, keys))
@@ -264,7 +264,7 @@ QString suggestedPipelineTemplateForAxis(const AiFeatureAxis axis, const QString
 }
 
 bool candidateToFeatureEntry(const geoalgo::FeatureCandidate& candidate, const std::string& backendId,
-	const std::string& stepPath, geoalgo::FeatureEntry& out)
+							 const std::string& stepPath, geoalgo::FeatureEntry& out)
 {
 	(void)backendId;
 	(void)stepPath;
@@ -300,7 +300,8 @@ bool candidateToFeatureEntry(const geoalgo::FeatureCandidate& candidate, const s
 }
 
 AiParseResult tryParseTrajectoryFeatureRules(const QString& userText, const AiFeatureAxis axis,
-	const QByteArray& catalogSliceUtf8, const QString& backendId, const QString& stepPath)
+											 const QByteArray& catalogSliceUtf8, const QString& backendId,
+											 const QString& stepPath)
 {
 	AiParseResult r;
 	r.domainId = AiDomainIds::trajectoryFeature();
@@ -336,8 +337,8 @@ AiParseResult tryParseTrajectoryFeatureRules(const QString& userText, const AiFe
 	geoalgo::FeatureListDocument suggestedDoc;
 	std::string suggestErr;
 	std::vector<geoalgo::FeatureEntry> entries;
-	if (geometry_backend_ops::suggestFeaturesFromCatalog(sliceCatalog, intent, suggestedDoc, &suggestErr)
-		&& !suggestedDoc.features.empty())
+	if (geometry_backend_ops::suggestFeaturesFromCatalog(sliceCatalog, intent, suggestedDoc, &suggestErr) &&
+		!suggestedDoc.features.empty())
 	{
 		entries = suggestedDoc.features;
 	}
@@ -392,7 +393,7 @@ AiParseResult tryParseTrajectoryFeatureRules(const QString& userText, const AiFe
 }
 
 bool parseDisplayIndexSelection(const QString& userText, const QByteArray& catalogSliceUtf8,
-	std::vector<std::string>& outCandidateIds, QString* err)
+								std::vector<std::string>& outCandidateIds, QString* err)
 {
 	outCandidateIds.clear();
 
@@ -465,8 +466,8 @@ bool parseDisplayIndexSelection(const QString& userText, const QByteArray& catal
 }
 
 AiParseResult buildFeaturePlanFromCandidateIds(const std::vector<std::string>& candidateIds,
-	const QByteArray& catalogFullUtf8, const QString& backendId, const QString& stepPath,
-	const QString& pipelineTemplate)
+											   const QByteArray& catalogFullUtf8, const QString& backendId,
+											   const QString& stepPath, const QString& pipelineTemplate)
 {
 	AiParseResult r;
 	r.domainId = AiDomainIds::trajectoryFeature();

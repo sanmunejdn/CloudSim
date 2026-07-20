@@ -1,7 +1,12 @@
-#pragma once
+﻿#ifndef BACKENDVISUAL_POINTCLOUDBACKENDVISUAL_H
+#define BACKENDVISUAL_POINTCLOUDBACKENDVISUAL_H
+
+/// @file PointCloudBackendVisual.h
+/// @brief PointCloudBackendVisual 接口
+
+#include "backendvisual_global.h"
 
 #include "IBackendVisual.h"
-#include "backendvisual_global.h"
 
 #include <osg/Geode>
 #include <osg/ref_ptr>
@@ -16,6 +21,9 @@ public:
 
 	std::string typeKey() const override;
 	bool buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions& meshOptions, BranchBuildResult& out,
-		std::string* errorMessage) override;
-	void computeModelCenterAndDiagonal(const BackendDataBase& data, osg::Vec3f& outCenter, float& outDiagonal) const override;
+						  std::string* errorMessage) override;
+	void computeModelCenterAndDiagonal(const BackendDataBase& data, osg::Vec3f& outCenter,
+									   float& outDiagonal) const override;
 };
+
+#endif // BACKENDVISUAL_POINTCLOUDBACKENDVISUAL_H

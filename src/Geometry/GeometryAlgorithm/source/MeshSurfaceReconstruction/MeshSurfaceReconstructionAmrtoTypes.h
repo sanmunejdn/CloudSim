@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTIONAMRTOTYPES_H
+#define GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTIONAMRTOTYPES_H
+
+/// @file MeshSurfaceReconstructionAmrtoTypes.h
+/// @brief MeshSurfaceReconstructionAmrtoTypes 接口
 
 #include "MeshSurfaceReconstructionInternal.h"
 
@@ -10,7 +14,6 @@ namespace geoalgo
 {
 namespace meshrecon
 {
-
 enum class GmcgBackend : int
 {
 	GoldenLoader = 0,
@@ -56,3 +59,5 @@ std::string defaultAmrtoGoldenDataDirectory();
 
 } // namespace meshrecon
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTIONAMRTOTYPES_H

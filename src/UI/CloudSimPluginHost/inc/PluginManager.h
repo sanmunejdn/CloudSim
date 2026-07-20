@@ -1,14 +1,18 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINHOST_PLUGINMANAGER_H
+#define CLOUDSIMPLUGINHOST_PLUGINMANAGER_H
 
-#include <memory>
-#include <vector>
-
-#include <QObject>
-#include <QString>
-#include <QPluginLoader>
+/// @file PluginManager.h
+/// @brief 启动时扫描应用目录 plugins/ 并加载启用插件（编译在 CloudSimHost.dll）
 
 #include "cloudsim_host_global.h"
+
 #include "ICloudSimPlugin.h"
+
+#include <QObject>
+#include <QPluginLoader>
+#include <QString>
+#include <memory>
+#include <vector>
 
 class IPluginMainWindowHost;
 class PluginHostContext;
@@ -50,3 +54,5 @@ private:
 	std::vector<std::unique_ptr<LoadedPlugin>> m_plugins;
 	QString m_loadSummary;
 };
+
+#endif // CLOUDSIMPLUGINHOST_PLUGINMANAGER_H

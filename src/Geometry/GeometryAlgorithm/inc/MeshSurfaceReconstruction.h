@@ -1,6 +1,11 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTION_H
+#define GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTION_H
+
+/// @file MeshSurfaceReconstruction.h
+/// @brief 分块完成后按片着色三角 soup（rgb 与 soup 同布局，每顶点 3 float）
 
 #include "geometry_algorithm_global.h"
+
 #include "ShapeHandle.h"
 
 #include <memory>
@@ -9,7 +14,6 @@
 
 namespace geoalgo
 {
-
 enum class MeshSurfaceNurbsFitMode : int
 {
 	Interpolate = 1,
@@ -220,29 +224,22 @@ public:
 	MeshSurfaceReconstructReport& report();
 
 private:
-	friend GEOMETRY_ALGORITHM_API bool buildPartitionColoredMeshSoup(
-		const MeshSurfaceReconstructSession& session,
-		std::vector<float>& outSoup,
-		std::vector<float>& outRgbPerVertex,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool buildPartitionColoredMeshSoup(const MeshSurfaceReconstructSession& session,
+																	 std::vector<float>& outSoup,
+																	 std::vector<float>& outRgbPerVertex,
+																	 std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool buildSamplePointsCloud(
-		const MeshSurfaceReconstructSession& session,
-		std::vector<float>& outXyz,
-		std::vector<float>& outRgba,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool buildSamplePointsCloud(const MeshSurfaceReconstructSession& session,
+															  std::vector<float>& outXyz, std::vector<float>& outRgba,
+															  std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool buildFitPreviewShape(
-		const MeshSurfaceReconstructSession& session,
-		ShapeHandle& outShape,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool buildFitPreviewShape(const MeshSurfaceReconstructSession& session,
+															ShapeHandle& outShape, std::string* errMsg);
 
-	friend GEOMETRY_ALGORITHM_API bool runMeshSurfaceReconstructStage(
-		MeshSurfaceReconstructSession& session,
-		MeshSurfaceReconstructStage stage,
-		const MeshSurfaceReconstructParams& params,
-		ShapeHandle* outShape,
-		std::string* errMsg);
+	friend GEOMETRY_ALGORITHM_API bool runMeshSurfaceReconstructStage(MeshSurfaceReconstructSession& session,
+																	  MeshSurfaceReconstructStage stage,
+																	  const MeshSurfaceReconstructParams& params,
+																	  ShapeHandle* outShape, std::string* errMsg);
 
 	struct Impl;
 	std::unique_ptr<Impl> m_impl;
@@ -250,45 +247,38 @@ private:
 
 using MeshSurfaceReconstructSessionPtr = std::shared_ptr<MeshSurfaceReconstructSession>;
 
-GEOMETRY_ALGORITHM_API MeshSurfaceReconstructSessionPtr createMeshSurfaceReconstructSession(
-	std::vector<float> sourceSoup);
+GEOMETRY_ALGORITHM_API MeshSurfaceReconstructSessionPtr
+createMeshSurfaceReconstructSession(std::vector<float> sourceSoup);
 
-GEOMETRY_ALGORITHM_API bool runMeshSurfaceReconstructStage(
-	MeshSurfaceReconstructSession& session,
-	MeshSurfaceReconstructStage stage,
-	const MeshSurfaceReconstructParams& params,
-	ShapeHandle* outShape,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool runMeshSurfaceReconstructStage(MeshSurfaceReconstructSession& session,
+														   MeshSurfaceReconstructStage stage,
+														   const MeshSurfaceReconstructParams& params,
+														   ShapeHandle* outShape, std::string* errMsg = nullptr);
 
 /// 分块完成后按片着色三角 soup（rgb 与 soup 同布局，每顶点 3 float）
-GEOMETRY_ALGORITHM_API bool buildPartitionColoredMeshSoup(
-	const MeshSurfaceReconstructSession& session,
-	std::vector<float>& outSoup,
-	std::vector<float>& outRgbPerVertex,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildPartitionColoredMeshSoup(const MeshSurfaceReconstructSession& session,
+														  std::vector<float>& outSoup,
+														  std::vector<float>& outRgbPerVertex,
+														  std::string* errMsg = nullptr);
 
 /// 采样完成后按片着色栅格采样点（xyz 3 float / 点，rgba 4 float / 点）
-GEOMETRY_ALGORITHM_API bool buildSamplePointsCloud(
-	const MeshSurfaceReconstructSession& session,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildSamplePointsCloud(const MeshSurfaceReconstructSession& session,
+												   std::vector<float>& outXyz, std::vector<float>& outRgba,
+												   std::string* errMsg = nullptr);
 
 /// 拟合完成后组装各 patch 面为 Compound，供场景预览
-GEOMETRY_ALGORITHM_API bool buildFitPreviewShape(
-	const MeshSurfaceReconstructSession& session,
-	ShapeHandle& outShape,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildFitPreviewShape(const MeshSurfaceReconstructSession& session, ShapeHandle& outShape,
+												 std::string* errMsg = nullptr);
 
 /**
  * 三角网格 soup → C² 拼接 B 样条 B-rep（单位 mm）
  * 预处理（法矢光顺/修复）由 Data 层在调用前完成
  */
-GEOMETRY_ALGORITHM_API bool reconstructBrepFromMeshSoup(
-	const std::vector<float>& soup,
-	const MeshSurfaceReconstructParams& params,
-	ShapeHandle& outShape,
-	MeshSurfaceReconstructReport& report,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool reconstructBrepFromMeshSoup(const std::vector<float>& soup,
+														const MeshSurfaceReconstructParams& params,
+														ShapeHandle& outShape, MeshSurfaceReconstructReport& report,
+														std::string* errMsg = nullptr);
 
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTION_H

@@ -1,9 +1,12 @@
-#include "detail/OccIncludes.h"
+﻿/// @file ViewTessellate.cpp
+/// @brief ViewTessellate 实现
+
+#include "ViewTessellate.h"
 
 #include "Discretize.h"
 #include "ShapeHandle.h"
 #include "ShapeQuery.h"
-#include "ViewTessellate.h"
+#include "detail/OccIncludes.h"
 
 #include <algorithm>
 #include <cmath>
@@ -12,7 +15,6 @@ namespace geoalgo
 {
 namespace
 {
-
 double bboxDiagonalMm(const ShapeHandle::BoundsMm& b)
 {
 	if (!b.valid)
@@ -30,13 +32,9 @@ double transformPointZ(const double mColMajor16[16], double x, double y, double 
 	return mColMajor16[2] * x + mColMajor16[6] * y + mColMajor16[10] * z + mColMajor16[14];
 }
 
-double estimateViewLinearDeflectionMm(
-	const ShapeHandle& shape,
-	const double viewMatrixColMajor16[16],
-	const double projMatrixColMajor16[16],
-	int viewportWidthPx,
-	int viewportHeightPx,
-	const ViewTessellateParams& params)
+double estimateViewLinearDeflectionMm(const ShapeHandle& shape, const double viewMatrixColMajor16[16],
+									  const double projMatrixColMajor16[16], int viewportWidthPx, int viewportHeightPx,
+									  const ViewTessellateParams& params)
 {
 	const ShapeHandle::BoundsMm b = shape.boundingBoxMm();
 	const double cx = b.valid ? (b.minX + b.maxX) * 0.5 : 0.0;
@@ -95,11 +93,8 @@ void computeTriangleSoupNormals(const std::vector<float>& soup, std::vector<floa
 	}
 }
 
-bool tessellateShapeMedium(
-	const ShapeHandle& shape,
-	std::vector<float>& outSoup,
-	std::vector<float>* outNormals,
-	std::string* errMsg)
+bool tessellateShapeMedium(const ShapeHandle& shape, std::vector<float>& outSoup, std::vector<float>* outNormals,
+						   std::string* errMsg)
 {
 	outSoup.clear();
 	if (outNormals)
@@ -138,12 +133,9 @@ bool tessellateShapeMedium(
 	return true;
 }
 
-bool tessellateShapePerFaceMedium(
-	const ShapeHandle& shape,
-	std::vector<float>& outSoup,
-	std::vector<int>& outTriangleFaceIndex,
-	std::vector<std::vector<float>>* outFaceSoups,
-	std::string* errMsg)
+bool tessellateShapePerFaceMedium(const ShapeHandle& shape, std::vector<float>& outSoup,
+								  std::vector<int>& outTriangleFaceIndex, std::vector<std::vector<float>>* outFaceSoups,
+								  std::string* errMsg)
 {
 	outSoup.clear();
 	outTriangleFaceIndex.clear();
@@ -166,16 +158,10 @@ bool tessellateShapePerFaceMedium(
 	return discretizeShapeToSoupPerFace(shape, disc, outSoup, outTriangleFaceIndex, outFaceSoups, errMsg);
 }
 
-bool tessellateShapeForView(
-	const ShapeHandle& shape,
-	const ViewTessellateParams& params,
-	const double viewMatrixColMajor16[16],
-	const double projMatrixColMajor16[16],
-	int viewportWidthPx,
-	int viewportHeightPx,
-	std::vector<float>& outSoup,
-	std::vector<float>* outNormals,
-	std::string* errMsg)
+bool tessellateShapeForView(const ShapeHandle& shape, const ViewTessellateParams& params,
+							const double viewMatrixColMajor16[16], const double projMatrixColMajor16[16],
+							int viewportWidthPx, int viewportHeightPx, std::vector<float>& outSoup,
+							std::vector<float>* outNormals, std::string* errMsg)
 {
 	outSoup.clear();
 	if (outNormals)
@@ -210,9 +196,8 @@ bool tessellateShapeForView(
 		return false;
 	}
 	TessellateParams disc;
-	disc.linearDeflectionMm =
-		estimateViewLinearDeflectionMm(shape, viewMatrixColMajor16, projMatrixColMajor16, viewportWidthPx,
-			viewportHeightPx, params);
+	disc.linearDeflectionMm = estimateViewLinearDeflectionMm(shape, viewMatrixColMajor16, projMatrixColMajor16,
+															 viewportWidthPx, viewportHeightPx, params);
 	disc.linearDeflectionRelative = false;
 	disc.angularDeflectionDeg = params.angularDeflectionDeg;
 	disc.flipReversedFaces = params.flipReversedFaces;

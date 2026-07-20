@@ -1,22 +1,21 @@
+﻿/// @file PolylinePickOperation.cpp
+/// @brief PolylinePickOperation 实现
+
 #include "PolylinePickOperation.h"
+
+#include "OsgWidget.h"
 
 #include <QEvent>
 #include <QKeyEvent>
 #include <QMouseEvent>
 
-#include "OsgWidget.h"
-
 namespace
 {
-
 constexpr int kMinPolygonVertices = 3;
 
 } // namespace
 
-PolylinePickOperation::PolylinePickOperation(OsgWidget* owner)
-	: SelectionOperation(owner)
-{
-}
+PolylinePickOperation::PolylinePickOperation(OsgWidget* owner) : SelectionOperation(owner) {}
 
 void PolylinePickOperation::refreshOverlay() const
 {

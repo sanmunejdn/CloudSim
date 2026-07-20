@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_ROBOTTCPDRAGTEACHOPERATION_H
+#define CLOUDSIMHOST_ROBOTTCPDRAGTEACHOPERATION_H
+
+/// @file RobotTcpDragTeachOperation.h
+/// @brief TCP 示教罗盘交互：拾取轴、平移/旋转拖拽，经 \c OsgWidget 发示教位姿信号
 
 #include "SelectionOperation.h"
 
@@ -16,3 +20,5 @@ private:
 	bool m_lastEmittedHoverRing = false;
 	bool m_sessionModified = false;
 };
+
+#endif // CLOUDSIMHOST_ROBOTTCPDRAGTEACHOPERATION_H

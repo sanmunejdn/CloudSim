@@ -1,3 +1,6 @@
+﻿/// @file RobotProgramExecutor.cpp
+/// @brief RobotProgramExecutor 实现
+
 #include "RobotProgramExecutor.h"
 
 #include "IRobotBackendPoseSink.h"
@@ -9,7 +12,6 @@
 
 #include <QByteArray>
 #include <QString>
-
 #include <algorithm>
 #include <cmath>
 
@@ -25,6 +27,8 @@ std::string qToUtf8Std(const QString& s)
 void RobotProgramExecutor::stop()
 {
 	m_running = false;
+	m_abortedDueToFailedPlan = false;
+	m_lastAbortSummary.clear();
 	m_stack.clear();
 	m_motionPlanIndex.clear();
 	m_motionPlanResults.clear();
@@ -91,6 +95,31 @@ const RobotInstruction::PlanResult* RobotProgramExecutor::planForMotion(const Ro
 	return &m_motionPlanResults[it->second];
 }
 
+const RobotInstruction::PlanResult* RobotProgramExecutor::motionPlanResult(const RobotInstruction::Base* ins) const
+{
+	if (!ins)
+	{
+		return nullptr;
+	}
+	return planForMotion(*ins);
+}
+
+bool RobotProgramExecutor::updateMotionPlanResult(const RobotInstruction::Base* ins,
+												  const RobotInstruction::PlanResult& plan)
+{
+	if (!ins)
+	{
+		return false;
+	}
+	const auto it = m_motionPlanIndex.find(ins);
+	if (it == m_motionPlanIndex.end() || it->second >= m_motionPlanResults.size())
+	{
+		return false;
+	}
+	m_motionPlanResults[it->second] = plan;
+	return true;
+}
+
 bool RobotProgramExecutor::applyJointAngles(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg)
 {
 	return RobotSceneKinematics::applyJointAnglesFromDocument(doc, osg, m_jointAnglesRad);
@@ -98,12 +127,34 @@ bool RobotProgramExecutor::applyJointAngles(IRobotSimulationDocument* doc, IRobo
 
 bool RobotProgramExecutor::startMotionSegment(const RobotInstruction::Base& ins)
 {
+	const RobotInstruction::PlanResult* plan = planForMotion(ins);
+	// 规划失败段：停在此前缀末端，不插值、不跳过（lazyPending 应由 Controller 在 tick 前消掉）
+	if (!plan || !plan->ok)
+	{
+		m_activeMotion = &ins;
+		m_inMotion = false;
+		m_abortedDueToFailedPlan = true;
+		if (plan && plan->plannerName == "lazyPending")
+		{
+			m_lastAbortSummary = "motion plan still pending";
+		}
+		else
+		{
+			m_lastAbortSummary = plan ? plan->summary : "missing motion plan";
+		}
+		if (m_lastAbortSummary.empty())
+		{
+			m_lastAbortSummary = "motion planning failed";
+		}
+		RunLogger::warn(std::string("RobotProgramExecutor: stop before failed motion plan: ") + m_lastAbortSummary);
+		return false;
+	}
+
 	m_inMotion = true;
 	m_activeMotion = &ins;
 	m_segStartJointAngles = m_jointAnglesRad;
-	const RobotInstruction::PlanResult* plan = planForMotion(ins);
 	m_segDurationSec = 0.5;
-	if (plan && plan->ok && plan->durationSec > 1e-6)
+	if (plan->durationSec > 1e-6)
 	{
 		m_segDurationSec = plan->durationSec;
 	}
@@ -132,10 +183,31 @@ bool RobotProgramExecutor::tickMotionSegment(IRobotSimulationDocument* doc, IRob
 	const double elapsed = m_segmentTimer.elapsed() / 1000.0;
 	const double u = std::min(1.0, elapsed / m_segDurationSec);
 
-	if (plan && plan->ok && !plan->jointTargetsRad.empty())
+	// 多样本轨迹优先于起止关节 lerp（LINE 笛卡尔采样依赖此分支）
+	if (plan && plan->ok && plan->jointTrajectoryRad.size() >= 2U)
+	{
+		const auto& traj = plan->jointTrajectoryRad;
+		const size_t waypoints = traj.size() + 1U;
+		const double scaled = u * static_cast<double>(waypoints - 1U);
+		const size_t i0 = static_cast<size_t>(std::floor(scaled));
+		const size_t i1 = std::min(i0 + 1U, waypoints - 1U);
+		const double t = scaled - static_cast<double>(i0);
+		if (traj.front().size() == static_cast<size_t>(m_jointCount) &&
+			m_segStartJointAngles.size() == m_jointAnglesRad.size())
+		{
+			for (int j = 0; j < m_jointCount; ++j)
+			{
+				const int gi = m_jointOffset + j;
+				const double q0 = (i0 == 0U) ? m_segStartJointAngles[gi]
+											 : traj[i0 - 1U][static_cast<size_t>(j)];
+				const double q1 = traj[i1 - 1U][static_cast<size_t>(j)];
+				m_jointAnglesRad[gi] = q0 + (q1 - q0) * t;
+			}
+		}
+	}
+	else if (plan && plan->ok && !plan->jointTargetsRad.empty())
 	{
 		const size_t n = static_cast<size_t>(m_jointCount);
-		const size_t off = static_cast<size_t>(m_jointOffset);
 		if (plan->jointTargetsRad.size() == n && m_segStartJointAngles.size() == m_jointAnglesRad.size())
 		{
 			for (int j = 0; j < m_jointCount; ++j)
@@ -160,8 +232,8 @@ bool RobotProgramExecutor::tickMotionSegment(IRobotSimulationDocument* doc, IRob
 			{
 				const int gi = m_jointOffset + j;
 				const double q0 = (i0 == 0 && m_segStartJointAngles.size() == m_jointAnglesRad.size())
-					? m_segStartJointAngles[gi]
-					: traj[i0][static_cast<size_t>(j)];
+									  ? m_segStartJointAngles[gi]
+									  : traj[i0][static_cast<size_t>(j)];
 				const double q1 = traj[i1][static_cast<size_t>(j)];
 				m_jointAnglesRad[gi] = q0 + (q1 - q0) * t;
 			}
@@ -175,6 +247,16 @@ bool RobotProgramExecutor::tickMotionSegment(IRobotSimulationDocument* doc, IRob
 
 	if (u >= 1.0 - 1e-9)
 	{
+		// 终点强制对齐 jointTargets，避免 LINE 轨迹采样终点与预览/示教分叉
+		if (plan && plan->ok && !plan->jointTargetsRad.empty() &&
+			plan->jointTargetsRad.size() == static_cast<size_t>(m_jointCount))
+		{
+			for (int j = 0; j < m_jointCount; ++j)
+			{
+				m_jointAnglesRad[m_jointOffset + j] = plan->jointTargetsRad[static_cast<size_t>(j)];
+			}
+			(void)applyJointAngles(doc, osg);
+		}
 		m_inMotion = false;
 		m_activeMotion = nullptr;
 	}
@@ -217,8 +299,7 @@ bool RobotProgramExecutor::advanceProgramStep(IRobotSimulationDocument* doc, IRo
 		{
 		case RobotInstruction::Type::PTP:
 		case RobotInstruction::Type::LINE:
-			startMotionSegment(*ins);
-			return true;
+			return startMotionSegment(*ins);
 		case RobotInstruction::Type::WAIT:
 		{
 			m_inMotion = false;
@@ -232,14 +313,16 @@ bool RobotProgramExecutor::advanceProgramStep(IRobotSimulationDocument* doc, IRo
 			{
 				m_io->setDigitalOutput(ins->ioPort(), ins->ioBoolValue());
 			}
-			RunLogger::info(qToUtf8Std(QStringLiteral("Set DO port %1 = %2").arg(ins->ioPort()).arg(ins->ioBoolValue())));
+			RunLogger::info(
+				qToUtf8Std(QStringLiteral("Set DO port %1 = %2").arg(ins->ioPort()).arg(ins->ioBoolValue())));
 			continue;
 		case RobotInstruction::Type::SET_AO:
 			if (m_io)
 			{
 				m_io->setAnalogOutput(ins->ioPort(), ins->ioAnalogValue());
 			}
-			RunLogger::info(qToUtf8Std(QStringLiteral("Set AO port %1 = %2").arg(ins->ioPort()).arg(ins->ioAnalogValue())));
+			RunLogger::info(
+				qToUtf8Std(QStringLiteral("Set AO port %1 = %2").arg(ins->ioPort()).arg(ins->ioAnalogValue())));
 			continue;
 		case RobotInstruction::Type::PathPlan:
 			continue;
@@ -279,15 +362,11 @@ bool RobotProgramExecutor::advanceProgramStep(IRobotSimulationDocument* doc, IRo
 	return false;
 }
 
-bool RobotProgramExecutor::tryStart(
-	IRobotSimulationDocument* doc,
-	IRobotBackendPoseSink* osg,
-	IRobotIoSink* io,
-	int robotInstanceIndex,
-	const std::vector<std::shared_ptr<RobotInstruction::Base>>& program,
-	const std::vector<RobotInstruction::PlanResult>& motionPlanResults,
-	const QVector<double>& initialJointAnglesRad,
-	QString* errorOut)
+bool RobotProgramExecutor::tryStart(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg, IRobotIoSink* io,
+									int robotInstanceIndex,
+									const std::vector<std::shared_ptr<RobotInstruction::Base>>& program,
+									const std::vector<RobotInstruction::PlanResult>& motionPlanResults,
+									const QVector<double>& initialJointAnglesRad, QString* errorOut)
 {
 	stop();
 	if (!doc || !osg || !doc->hasRobotSimulationContext())
@@ -307,6 +386,8 @@ bool RobotProgramExecutor::tryStart(
 		return false;
 	}
 
+	m_abortedDueToFailedPlan = false;
+	m_lastAbortSummary.clear();
 	m_io = io;
 	m_robotInstanceIndex = robotInstanceIndex;
 	m_jointOffset = 0;
@@ -394,6 +475,12 @@ RobotInstructionPlaybackTickResult RobotProgramExecutor::tick(IRobotSimulationDo
 	if (advanceProgramStep(doc, osg))
 	{
 		return RobotInstructionPlaybackTickResult::Continue;
+	}
+
+	if (m_abortedDueToFailedPlan)
+	{
+		m_running = false;
+		return RobotInstructionPlaybackTickResult::Aborted;
 	}
 
 	m_running = false;

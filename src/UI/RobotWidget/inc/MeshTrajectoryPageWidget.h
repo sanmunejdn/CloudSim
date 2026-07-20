@@ -1,12 +1,15 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_MESHTRAJECTORYPAGEWIDGET_H
+#define ROBOTWIDGET_MESHTRAJECTORYPAGEWIDGET_H
+
+/// @file MeshTrajectoryPageWidget.h
+/// @brief MeshTrajectoryPageWidget 接口
 
 #include "robotwidget_global.h"
 
-#include <MeshTrajectorySession.h>
-
 #include <QWidget>
-
 #include <memory>
+
+#include <MeshTrajectorySession.h>
 
 class QCheckBox;
 class QComboBox;
@@ -121,3 +124,5 @@ private:
 	QPushButton* m_generateBtn = nullptr;
 	QLabel* m_statusLabel = nullptr;
 };
+
+#endif // ROBOTWIDGET_MESHTRAJECTORYPAGEWIDGET_H

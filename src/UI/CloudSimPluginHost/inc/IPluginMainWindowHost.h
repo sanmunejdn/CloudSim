@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINHOST_IPLUGINMAINWINDOWHOST_H
+#define CLOUDSIMPLUGINHOST_IPLUGINMAINWINDOWHOST_H
+
+/// @file IPluginMainWindowHost.h
+/// @brief 与 IPluginHostContext::PluginJobProgressFn 同型，避免 Widget/CloudSim 依赖 PluginSDK 头
 
 #include <QDockWidget>
 #include <QString>
@@ -15,7 +19,8 @@ class QTabWidget;
 class QTreeWidget;
 class QWidget;
 
-namespace cloudsim::host {
+namespace cloudsim::host
+{
 class DocumentHost;
 }
 
@@ -40,14 +45,16 @@ public:
 	virtual bool showAiFeatureCandidatePreviewForAi(const std::string& previewJsonUtf8, QString* outError) = 0;
 	virtual void clearAiFeatureCandidatePreviewForAi() = 0;
 	virtual bool commitAiTrajectoryFeaturesForAi(const std::string& featurePlanJsonUtf8, QString* outSummary,
-		QString* outError) = 0;
+												 QString* outError) = 0;
 	virtual bool useChinese() const = 0;
 	virtual void appendRunInfo(const QString& message) = 0;
 	virtual class QStatusBar* statusBar() = 0;
 	virtual void enqueueBackgroundJob(const QString& title,
-		std::function<void(const PluginJobProgressFn& progress)> work,
-		std::function<void(bool threw, const QString& message)> onFinished) = 0;
+									  std::function<void(const PluginJobProgressFn& progress)> work,
+									  std::function<void(bool threw, const QString& message)> onFinished) = 0;
 	virtual QWidget* mainWindowWidget() = 0;
 	virtual QObject* pluginActionParent() = 0;
 	virtual QDockWidget* addPluginDockWidget(const QString& title, QWidget* widget, Qt::DockWidgetArea area) = 0;
 };
+
+#endif // CLOUDSIMPLUGINHOST_IPLUGINMAINWINDOWHOST_H

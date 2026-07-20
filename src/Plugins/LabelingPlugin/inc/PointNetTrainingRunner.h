@@ -1,10 +1,13 @@
-#pragma once
+﻿#ifndef LABELINGPLUGIN_POINTNETTRAININGRUNNER_H
+#define LABELINGPLUGIN_POINTNETTRAININGRUNNER_H
+
+/// @file PointNetTrainingRunner.h
+/// @brief PointNetTrainingRunner 接口
 
 #include <QObject>
 #include <QProcess>
-#include <QTimer>
-
 #include <QString>
+#include <QTimer>
 
 struct TrainingEpochMetrics
 {
@@ -100,3 +103,5 @@ private:
 	qint64 m_metricsFilePos = 0;
 	TrainingJobResult m_lastResult;
 };
+
+#endif // LABELINGPLUGIN_POINTNETTRAININGRUNNER_H

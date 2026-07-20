@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_MESHFPFHREGIONPARTITION_H
+#define GEOMETRYALGORITHM_MESHFPFHREGIONPARTITION_H
+
+/// @file MeshFpfhRegionPartition.h
+/// @brief MeshFpfhRegionPartition 接口
 
 #include "TubularGrindingCommon.h"
 
@@ -9,7 +13,6 @@ namespace geoalgo
 {
 namespace tg
 {
-
 struct MeshFpfhPartitionParams
 {
 	double featureVoxelMm = 0.0;
@@ -23,13 +26,11 @@ struct MeshFpfhPartitionParams
 	int minRegionFaces = 10;
 };
 
-bool runMeshFpfhRegionPartition(
-	const IndexedMeshLite& mesh,
-	const MeshFpfhPartitionParams& params,
-	std::vector<int>& outFaceRegionId,
-	int& outRegionCount,
-	int& outKeypointCount,
-	std::string* errMsg);
+bool runMeshFpfhRegionPartition(const IndexedMeshLite& mesh, const MeshFpfhPartitionParams& params,
+								std::vector<int>& outFaceRegionId, int& outRegionCount, int& outKeypointCount,
+								std::string* errMsg);
 
 } // namespace tg
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_MESHFPFHREGIONPARTITION_H

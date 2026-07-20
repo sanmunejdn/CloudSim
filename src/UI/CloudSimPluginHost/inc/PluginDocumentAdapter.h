@@ -1,11 +1,16 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINHOST_PLUGINDOCUMENTADAPTER_H
+#define CLOUDSIMPLUGINHOST_PLUGINDOCUMENTADAPTER_H
+
+/// @file PluginDocumentAdapter.h
+/// @brief PluginDocumentAdapter 接口
 
 #include "IPluginDocument.h"
 
 #include <memory>
 #include <string>
 
-namespace cloudsim::host {
+namespace cloudsim::host
+{
 class DocumentHost;
 }
 
@@ -30,10 +35,8 @@ public:
 
 	bool queryPointCloudInfo(const std::string& backendIdUtf8, PluginPointCloudInfo& out) const override;
 	bool measurePointCloud(const std::string& backendIdUtf8, PluginPointCloudMeasure& out) const override;
-	bool exportMeshToPly(
-		const std::string& backendIdUtf8,
-		const std::string& pathUtf8,
-		std::string* outError = nullptr) const override;
+	bool exportMeshToPly(const std::string& backendIdUtf8, const std::string& pathUtf8,
+						 std::string* outError = nullptr) const override;
 
 	cloudsim::host::DocumentHost* documentHost() const { return m_host; }
 
@@ -41,3 +44,5 @@ private:
 	cloudsim::host::DocumentHost* m_host = nullptr;
 	std::unique_ptr<PluginSceneBridgeAdapter> m_sceneBridge;
 };
+
+#endif // CLOUDSIMPLUGINHOST_PLUGINDOCUMENTADAPTER_H

@@ -1,16 +1,18 @@
-#include "BackendHierarchyFollow.h"
+﻿/// @file BackendHierarchyFollow.cpp
+/// @brief BackendHierarchyFollow 实现
 
-#include "DocumentHost.h"
-#include "DocumentHostAccess.h"
+#include "BackendHierarchyFollow.h"
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BackendFollowTransformSolver.h"
+#include "DocumentHost.h"
+#include "DocumentHostAccess.h"
 #include "FollowAttachmentComponent.h"
 #include "OsgWidget.h"
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 void applyHierarchyFollowBinding(DocumentHost& host, const std::string& childId, const std::string& parentId)
 {
 	if (childId.empty())
@@ -21,6 +23,16 @@ void applyHierarchyFollowBinding(DocumentHost& host, const std::string& childId,
 	const std::shared_ptr<BackendDataBase> child = host.backend().getData(childId);
 	if (!child || !child->hasPoseProperty())
 	{
+		return;
+	}
+	// 机器人连杆由 FK 写位姿；层级边只保留 parent 镜像，不装 Follow
+	if (host.isKinematicsOwnedBackend(childId))
+	{
+		if (child->hasComponent(FollowAttachmentComponent::typeKeyStatic()))
+		{
+			child->removeComponent(FollowAttachmentComponent::typeKeyStatic());
+			host.invalidateFollowReverseIndex();
+		}
 		return;
 	}
 	if (parentId.empty())
@@ -59,7 +71,9 @@ void applyHierarchyFollowBinding(DocumentHost& host, const std::string& childId,
 	follow->setHierarchyDriven(true);
 	follow->setEnabled(true);
 	follow->setTargetBackendId(parentId);
-	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [osg](const std::string& bid, BackendMat4& out) -> bool {
+	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [osg](const std::string& bid,
+																		 BackendMat4& out) -> bool
+	{
 		if (!osg)
 		{
 			return false;

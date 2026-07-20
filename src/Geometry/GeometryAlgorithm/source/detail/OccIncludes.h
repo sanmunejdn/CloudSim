@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_OCCINCLUDES_H
+#define GEOMETRYALGORITHM_OCCINCLUDES_H
+
+/// @file OccIncludes.h
+/// @brief OccIncludes 接口
 
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
@@ -6,36 +10,34 @@
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepAlgoAPI_Section.hxx>
+#include <BRepBndLib.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
-#include <BRepBuilderAPI_MakeVertex.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_MakePolygon.hxx>
+#include <BRepBuilderAPI_MakeVertex.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepBuilderAPI_Sewing.hxx>
 #include <BRepExtrema_DistShapeShape.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRepOffsetAPI_MakePipe.hxx>
+#include <BRepTools.hxx>
+#include <BRepTools_ReShape.hxx>
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
-#include <BRepTools_ReShape.hxx>
-#include <Geom_CylindricalSurface.hxx>
-#include <Geom_Plane.hxx>
-#include <Geom_Surface.hxx>
-#include <gp_Cylinder.hxx>
-#include <gp_Dir.hxx>
-#include <gp_Pln.hxx>
-#include <BRepTools.hxx>
+#include <BSplCLib.hxx>
+#include <Bnd_Box.hxx>
+#include <ElCLib.hxx>
 #include <GCPnts_UniformAbscissa.hxx>
 #include <GCPnts_UniformDeflection.hxx>
-#include <Geom_Curve.hxx>
 #include <GeomAPI_PointsToBSplineSurface.hxx>
 #include <GeomAPI_ProjectPointOnCurve.hxx>
 #include <GeomAPI_ProjectPointOnSurf.hxx>
-#include <BSplCLib.hxx>
 #include <Geom_BSplineSurface.hxx>
+#include <Geom_Curve.hxx>
+#include <Geom_CylindricalSurface.hxx>
+#include <Geom_Plane.hxx>
 #include <Geom_RectangularTrimmedSurface.hxx>
-#include <math_Matrix.hxx>
-#include <TColgp_Array2OfPnt.hxx>
+#include <Geom_Surface.hxx>
 #include <IFSelect_ReturnStatus.hxx>
 #include <IntCurvesFace_ShapeIntersector.hxx>
 #include <IntTools_EdgeEdge.hxx>
@@ -45,9 +47,11 @@
 #include <STEPControl_Writer.hxx>
 #include <ShapeFix_Shape.hxx>
 #include <ShapeFix_Wire.hxx>
+#include <TColgp_Array2OfPnt.hxx>
 #include <TopAbs_ShapeEnum.hxx>
 #include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
+#include <TopLoc_Location.hxx>
 #include <TopTools_IndexedMapOfShape.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Edge.hxx>
@@ -55,10 +59,12 @@
 #include <TopoDS_Iterator.hxx>
 #include <TopoDS_Shape.hxx>
 #include <TopoDS_Wire.hxx>
-#include <TopLoc_Location.hxx>
-#include <BRepBndLib.hxx>
-#include <Bnd_Box.hxx>
-#include <ElCLib.hxx>
+#include <gp_Cylinder.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Pln.hxx>
 #include <gp_Pnt.hxx>
 #include <gp_Trsf.hxx>
 #include <gp_Vec.hxx>
+#include <math_Matrix.hxx>
+
+#endif // GEOMETRYALGORITHM_OCCINCLUDES_H

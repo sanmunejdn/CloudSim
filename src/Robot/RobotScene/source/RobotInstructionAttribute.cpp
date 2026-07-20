@@ -1,3 +1,6 @@
+﻿/// @file RobotInstructionAttribute.cpp
+/// @brief RobotInstructionAttribute 实现
+
 #include "RobotInstructionAttribute.h"
 
 #include "RobotInstructionAxisConfiguration.h"
@@ -122,104 +125,55 @@ using EnumAttributeImpl = property_core::PropertyEnumAttribute<Base, AttributeBa
 
 PoseAttribute::PoseAttribute()
 	: property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>(
-		hasPoseProperty,
-		getPose,
-		setPose,
-		std::array<const char*, 3>{
-			"motion.target.pose.x",
-			"motion.target.pose.y",
-			"motion.target.pose.z"
-		},
-		std::array<const char*, 3>{
-			labelForKey("motion.target.pose.x", "Target X (mm)"),
-			labelForKey("motion.target.pose.y", "Target Y (mm)"),
-			labelForKey("motion.target.pose.z", "Target Z (mm)")
-		},
-		appendRow)
+		  hasPoseProperty, getPose, setPose,
+		  std::array<const char*, 3>{"motion.target.pose.x", "motion.target.pose.y", "motion.target.pose.z"},
+		  std::array<const char*, 3>{labelForKey("motion.target.pose.x", "Target X (mm)"),
+									 labelForKey("motion.target.pose.y", "Target Y (mm)"),
+									 labelForKey("motion.target.pose.z", "Target Z (mm)")},
+		  appendRow)
 {
 }
 
 EulerAttribute::EulerAttribute()
 	: property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>(
-		hasEulerProperty,
-		getEuler,
-		setEuler,
-		std::array<const char*, 3>{
-			"motion.target.euler.rx",
-			"motion.target.euler.ry",
-			"motion.target.euler.rz"
-		},
-		std::array<const char*, 3>{
-			labelForKey("motion.target.euler.rx", "Euler RX (deg)"),
-			labelForKey("motion.target.euler.ry", "Euler RY (deg)"),
-			labelForKey("motion.target.euler.rz", "Euler RZ (deg)")
-		},
-		appendRow)
+		  hasEulerProperty, getEuler, setEuler,
+		  std::array<const char*, 3>{"motion.target.euler.rx", "motion.target.euler.ry", "motion.target.euler.rz"},
+		  std::array<const char*, 3>{labelForKey("motion.target.euler.rx", "Euler RX (deg)"),
+									 labelForKey("motion.target.euler.ry", "Euler RY (deg)"),
+									 labelForKey("motion.target.euler.rz", "Euler RZ (deg)")},
+		  appendRow)
 {
 }
 
-AttributePtr makeScalarDoubleAttribute(
-	bool (*hasProperty)(const Base&),
-	double (*getter)(const Base&),
-	void (*setter)(Base&, const double&),
-	const char* key,
-	const char* label)
+AttributePtr makeScalarDoubleAttribute(bool (*hasProperty)(const Base&), double (*getter)(const Base&),
+									   void (*setter)(Base&, const double&), const char* key, const char* label)
 {
-	return std::make_shared<DoubleScalarAttributeImpl>(
-		hasProperty,
-		getter,
-		setter,
-		key,
-		label,
-		appendRow);
+	return std::make_shared<DoubleScalarAttributeImpl>(hasProperty, getter, setter, key, label, appendRow);
 }
 
-AttributePtr makeEnumAttribute(
-	bool (*hasProperty)(const Base&),
-	std::string (*getter)(const Base&),
-	void (*setter)(Base&, const std::string&),
-	const char* key,
-	const char* label,
-	bool (*isValidFn)(const std::string&))
+AttributePtr makeEnumAttribute(bool (*hasProperty)(const Base&), std::string (*getter)(const Base&),
+							   void (*setter)(Base&, const std::string&), const char* key, const char* label,
+							   bool (*isValidFn)(const std::string&))
 {
-	return std::make_shared<EnumAttributeImpl>(
-		hasProperty,
-		getter,
-		setter,
-		key,
-		label,
-		appendRow,
-		isValidFn);
+	return std::make_shared<EnumAttributeImpl>(hasProperty, getter, setter, key, label, appendRow, isValidFn);
 }
 
 AttributePtr makeSpeedAttribute()
 {
-	return makeScalarDoubleAttribute(
-		hasSpeedProperty,
-		getSpeed,
-		setSpeed,
-		"motion.speed",
-		labelForKey("motion.speed", "Speed"));
+	return makeScalarDoubleAttribute(hasSpeedProperty, getSpeed, setSpeed, "motion.speed",
+									 labelForKey("motion.speed", "Speed"));
 }
 
 AttributePtr makeAccelAttribute()
 {
-	return makeScalarDoubleAttribute(
-		hasAccelProperty,
-		getAccel,
-		setAccel,
-		"motion.acc",
-		labelForKey("motion.acc", "Acceleration"));
+	return makeScalarDoubleAttribute(hasAccelProperty, getAccel, setAccel, "motion.acc",
+									 labelForKey("motion.acc", "Acceleration"));
 }
 
 AttributePtr makeAxisConfigAttribute()
 {
-	return makeEnumAttribute(
-		hasAxisConfigProperty,
-		getAxisConfig,
-		setAxisConfig,
-		"motion.axisConfig.preset",
-		labelForKey("motion.axisConfig.preset", "Axis config preset"));
+	return makeEnumAttribute(hasAxisConfigProperty, getAxisConfig, setAxisConfig, "motion.axisConfig.preset",
+							 labelForKey("motion.axisConfig.preset", "Axis config preset"));
 }
 
 namespace
@@ -384,65 +338,29 @@ void setTurnJ6(Base& cmd, const std::string& value)
 std::vector<AttributePtr> makeMotionAxisConfigAttributes()
 {
 	std::vector<AttributePtr> attrs;
-	attrs.push_back(makeEnumAttribute(
-		hasMotionAxisCfg,
-		getPreset,
-		setPreset,
-		"motion.axisConfig.preset",
-		labelForKey("motion.axisConfig.preset", "Axis config preset"),
-		isValidMotionAxisConfigPreset));
-	attrs.push_back(makeEnumAttribute(
-		hasMotionAxisCfg,
-		getElbow,
-		setElbow,
-		"motion.axisConfig.elbow",
-		labelForKey("motion.axisConfig.elbow", "Elbow posture"),
-		isValidElbowPostureToken));
-	attrs.push_back(makeEnumAttribute(
-		hasMotionAxisCfg,
-		getWrist,
-		setWrist,
-		"motion.axisConfig.wrist",
-		labelForKey("motion.axisConfig.wrist", "Wrist posture"),
-		isValidWristPostureToken));
-	attrs.push_back(makeEnumAttribute(
-		hasMotionAxisCfg,
-		getArm,
-		setArm,
-		"motion.axisConfig.arm",
-		labelForKey("motion.axisConfig.arm", "Arm posture"),
-		isValidArmPostureToken));
-	attrs.push_back(makeEnumAttribute(
-		hasMotionAxisCfg,
-		getTurnJ1,
-		setTurnJ1,
-		"motion.axisConfig.turn.j1",
-		labelForKey("motion.axisConfig.turn.j1", "J1 turn"),
-		isValidMotionAxisTurnToken));
-	attrs.push_back(makeEnumAttribute(
-		hasMotionAxisCfg,
-		getTurnJ4,
-		setTurnJ4,
-		"motion.axisConfig.turn.j4",
-		labelForKey("motion.axisConfig.turn.j4", "J4 turn"),
-		isValidMotionAxisTurnToken));
-	attrs.push_back(makeEnumAttribute(
-		hasMotionAxisCfg,
-		getTurnJ6,
-		setTurnJ6,
-		"motion.axisConfig.turn.j6",
-		labelForKey("motion.axisConfig.turn.j6", "J6 turn"),
-		isValidMotionAxisTurnToken));
+	attrs.push_back(makeEnumAttribute(hasMotionAxisCfg, getPreset, setPreset, "motion.axisConfig.preset",
+									  labelForKey("motion.axisConfig.preset", "Axis config preset"),
+									  isValidMotionAxisConfigPreset));
+	attrs.push_back(makeEnumAttribute(hasMotionAxisCfg, getElbow, setElbow, "motion.axisConfig.elbow",
+									  labelForKey("motion.axisConfig.elbow", "Elbow posture"),
+									  isValidElbowPostureToken));
+	attrs.push_back(makeEnumAttribute(hasMotionAxisCfg, getWrist, setWrist, "motion.axisConfig.wrist",
+									  labelForKey("motion.axisConfig.wrist", "Wrist posture"),
+									  isValidWristPostureToken));
+	attrs.push_back(makeEnumAttribute(hasMotionAxisCfg, getArm, setArm, "motion.axisConfig.arm",
+									  labelForKey("motion.axisConfig.arm", "Arm posture"), isValidArmPostureToken));
+	attrs.push_back(makeEnumAttribute(hasMotionAxisCfg, getTurnJ1, setTurnJ1, "motion.axisConfig.turn.j1",
+									  labelForKey("motion.axisConfig.turn.j1", "J1 turn"), isValidMotionAxisTurnToken));
+	attrs.push_back(makeEnumAttribute(hasMotionAxisCfg, getTurnJ4, setTurnJ4, "motion.axisConfig.turn.j4",
+									  labelForKey("motion.axisConfig.turn.j4", "J4 turn"), isValidMotionAxisTurnToken));
+	attrs.push_back(makeEnumAttribute(hasMotionAxisCfg, getTurnJ6, setTurnJ6, "motion.axisConfig.turn.j6",
+									  labelForKey("motion.axisConfig.turn.j6", "J6 turn"), isValidMotionAxisTurnToken));
 	return attrs;
 }
 
 AttributePtr makeBlendRadiusAttribute()
 {
-	return makeScalarDoubleAttribute(
-		hasBlendRadiusProperty,
-		getBlendRadius,
-		setBlendRadius,
-		"motion.blendRadius",
-		labelForKey("motion.blendRadius", "Blend Radius (mm)"));
+	return makeScalarDoubleAttribute(hasBlendRadiusProperty, getBlendRadius, setBlendRadius, "motion.blendRadius",
+									 labelForKey("motion.blendRadius", "Blend Radius (mm)"));
 }
 } // namespace RobotInstruction

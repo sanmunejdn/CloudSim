@@ -1,3 +1,6 @@
+﻿/// @file MeshSurfaceReconstructionGmcgQuadGraph.cpp
+/// @brief MeshSurfaceReconstructionGmcgQuadGraph 实现
+
 #include "MeshSurfaceReconstructionGmcgQuadGraph.h"
 
 #include <algorithm>
@@ -9,7 +12,6 @@ namespace meshrecon
 {
 namespace
 {
-
 int64_t undirectedEdgeKey(const int a, const int b)
 {
 	const int lo = std::min(a, b);

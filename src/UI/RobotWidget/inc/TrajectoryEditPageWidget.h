@@ -1,27 +1,22 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_TRAJECTORYEDITPAGEWIDGET_H
+#define ROBOTWIDGET_TRAJECTORYEDITPAGEWIDGET_H
 
-
-
-#include "TrajectoryPipelineTypes.h"
+/// @file TrajectoryEditPageWidget.h
+/// @brief 轨迹编辑 Dock 子页：流水线 Preview/Apply
 
 #include "robotwidget_global.h"
 
-
+#include "TrajectoryPipelineTypes.h"
 
 #include <QPoint>
 #include <QWidget>
-
 #include <string>
-
-
 
 namespace RobotInstruction
 {
 struct RawTrajectory;
 enum class RecipeKind;
-}
-
-
+} // namespace RobotInstruction
 
 class QCheckBox;
 
@@ -54,29 +49,19 @@ class IRobotMainWindowHost;
 
 class RobotSimulationController;
 
-
-
 /// 轨迹编辑 Dock 子页：流水线 Preview/Apply
 
 class ROBOTWIDGET_EXPORT TrajectoryEditPageWidget : public QWidget
 
 {
-
 	Q_OBJECT
 
-
-
 public:
-
 	explicit TrajectoryEditPageWidget(QWidget* parent = nullptr);
-
-
 
 	void setUseChinese(bool chinese);
 
 	void setReadOnly(bool readOnly);
-
-
 
 	void bindStore(RobotProgramStore* store);
 
@@ -90,8 +75,6 @@ public:
 
 	void bindHost(IRobotMainWindowHost* host);
 
-
-
 	void refreshProgramAndGroupCombos();
 	void refreshGeometryBackendCombo();
 
@@ -102,10 +85,7 @@ public:
 
 	void applyRecipePresetByKind(RobotInstruction::RecipeKind kind);
 
-
-
 private:
-
 	void rebuildPalette();
 
 	void syncSessionPipeline();
@@ -151,17 +131,13 @@ private:
 	void refreshRawTrajectoryStatus();
 	void setPipelineAppliedState(bool applied, bool announce = false);
 
-	void showRawTrajectoryPreview(
-		const RobotInstruction::RawTrajectory& traj,
-		bool posesAlreadyWorldMm = false);
+	void showRawTrajectoryPreview(const RobotInstruction::RawTrajectory& traj, bool posesAlreadyWorldMm = false);
 
 	std::string resolvePreviewBackendId(const RobotInstruction::RawTrajectory& traj) const;
 
 	void onRawApplyRecipe();
 
 	void onRawEmitProgram();
-
-
 
 	void onProgramChanged(int index);
 
@@ -195,13 +171,9 @@ private:
 
 	void resetTrajectoryGenerationPages();
 
-
-
 	bool m_useChinese = true;
 
 	bool m_readOnly = false;
-
-
 
 	RobotProgramStore* m_store = nullptr;
 
@@ -216,8 +188,6 @@ private:
 
 	IRobotMainWindowHost* m_host = nullptr;
 
-
-
 	QGroupBox* m_rawGroupBox = nullptr;
 
 	QLabel* m_rawStatusLabel = nullptr;
@@ -228,15 +198,11 @@ private:
 
 	QPushButton* m_rawEmitBtn = nullptr;
 
-
-
 	QLabel* m_programLabel = nullptr;
 
 	QLabel* m_groupLabel = nullptr;
 
 	QGroupBox* m_paramGroupBox = nullptr;
-
-
 
 	QComboBox* m_programCombo = nullptr;
 
@@ -246,16 +212,13 @@ private:
 
 	TrajectoryPipelineListWidget* m_pipeline = nullptr;
 
-
-
 	QComboBox* m_scopeGroupCombo = nullptr;
 	QComboBox* m_geometryBackendCombo = nullptr;
 	QComboBox* m_nonRigidSourceCombo = nullptr;
 	QComboBox* m_nonRigidTargetCombo = nullptr;
+	QComboBox* m_externalTcpBackendCombo = nullptr;
 
 	TrajectoryOpParamPanel* m_paramPanel = nullptr;
-
-
 
 	QCheckBox* m_previewCheck = nullptr;
 
@@ -271,8 +234,6 @@ private:
 
 	QPushButton* m_loadTemplateBtn = nullptr;
 
-
-
 	bool m_loadingParams = false;
 	bool m_flushingParams = false;
 	bool m_pendingLoadSelectedOp = false;
@@ -281,6 +242,6 @@ private:
 	int m_previewScheduleToken = 0;
 
 	std::string m_selectedGroupId;
-
 };
 
+#endif // ROBOTWIDGET_TRAJECTORYEDITPAGEWIDGET_H

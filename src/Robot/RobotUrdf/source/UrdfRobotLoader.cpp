@@ -1,50 +1,27 @@
+﻿/// @file UrdfRobotLoader.cpp
+/// @brief 零位姿（q=0）下的 parent_T_child，仅由该关节的 URDF 决定，不依赖 jointAnglesRad 下标顺序
+
 // UrdfRobotLoader：URDF 解析、FK、层级 OSG 场景；多机键前缀由上层加 backendId::
 #include "UrdfRobotLoader.h"
-
-#include <Adapters.h>
-
-#include <QDateTime>
-#include <QByteArray>
-#include <QDir>
-#include <QFile>
-#include <QFileInfo>
-#include <QHash>
-#include <QMutex>
-#include <QMutexLocker>
-#include <QStringList>
-#include <QRegularExpression>
-#include <QVector>
-#include <QXmlStreamReader>
-#include <QDebug>
-#include <QElapsedTimer>
 
 #include "BackendVisualRegistry.h"
 #include "MeshBackendData.h"
 #include "RunLogger.h"
 
-#include <osg/Array>
-#include <osg/Depth>
-#include <osg/GL>
-#include <osg/Geode>
-#include <osg/Geometry>
-#include <osg/Group>
-#include <osg/LineWidth>
-#include <osg/PolygonOffset>
-#include <osg/Material>
-#include <osg/Math>
-#include <osg/Matrixd>
-#include <osg/MatrixTransform>
-#include <osg/NodeVisitor>
-#include <osg/Shape>
-#include <osg/ShapeDrawable>
-#include <osg/StateSet>
-#include <osg/ref_ptr>
-#include <osg/Vec3>
-#include <osg/Vec4>
-#include <osgDB/ReadFile>
-#include <osgUtil/SmoothingVisitor>
-#include <osgText/Text>
-
+#include <QByteArray>
+#include <QDateTime>
+#include <QDebug>
+#include <QDir>
+#include <QElapsedTimer>
+#include <QFile>
+#include <QFileInfo>
+#include <QHash>
+#include <QMutex>
+#include <QMutexLocker>
+#include <QRegularExpression>
+#include <QStringList>
+#include <QVector>
+#include <QXmlStreamReader>
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -52,6 +29,30 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+#include <Adapters.h>
+#include <osg/Array>
+#include <osg/Depth>
+#include <osg/GL>
+#include <osg/Geode>
+#include <osg/Geometry>
+#include <osg/Group>
+#include <osg/LineWidth>
+#include <osg/Material>
+#include <osg/Math>
+#include <osg/MatrixTransform>
+#include <osg/Matrixd>
+#include <osg/NodeVisitor>
+#include <osg/PolygonOffset>
+#include <osg/Shape>
+#include <osg/ShapeDrawable>
+#include <osg/StateSet>
+#include <osg/Vec3>
+#include <osg/Vec4>
+#include <osg/ref_ptr>
+#include <osgDB/ReadFile>
+#include <osgText/Text>
+#include <osgUtil/SmoothingVisitor>
 
 namespace
 {
@@ -158,7 +159,6 @@ Mat4 matFromRpy(double roll, double pitch, double yaw)
 	const double cy = std::cos(yaw);
 	const double sy = std::sin(yaw);
 
-
 	const double r00 = cy * cp;
 	const double r01 = cy * sp * sr - sy * cr;
 	const double r02 = cy * sp * cr + sy * sr;
@@ -189,8 +189,8 @@ Mat4 matMul(const Mat4& a, const Mat4& b)
 	{
 		for (int row = 0; row < 4; ++row)
 		{
-			r.m[col * 4 + row] = a.m[0 * 4 + row] * b.m[col * 4 + 0] + a.m[1 * 4 + row] * b.m[col * 4 + 1]
-				+ a.m[2 * 4 + row] * b.m[col * 4 + 2] + a.m[3 * 4 + row] * b.m[col * 4 + 3];
+			r.m[col * 4 + row] = a.m[0 * 4 + row] * b.m[col * 4 + 0] + a.m[1 * 4 + row] * b.m[col * 4 + 1] +
+								 a.m[2 * 4 + row] * b.m[col * 4 + 2] + a.m[3 * 4 + row] * b.m[col * 4 + 3];
 		}
 	}
 	return r;
@@ -393,7 +393,8 @@ static void readMaterialColorBlock(QXmlStreamReader& xml, UrdfLinkVisual& out)
 	}
 }
 
-static void applyMaterialRefIfNeeded(UrdfLinkVisual& vis, const std::unordered_map<QString, UrdfLinkVisual>& namedMaterials)
+static void applyMaterialRefIfNeeded(UrdfLinkVisual& vis,
+									 const std::unordered_map<QString, UrdfLinkVisual>& namedMaterials)
 {
 	if (vis.hasMaterialColor || vis.pendingMaterialName.isEmpty())
 	{
@@ -414,16 +415,11 @@ static void applyMaterialRefIfNeeded(UrdfLinkVisual& vis, const std::unordered_m
 // 例：xyz="-0.075 0 0"（米）→ 平移 -75 mm
 Mat4 meshFileToLinkFrameFromVisual(const UrdfLinkVisual& vis)
 {
-	const Mat4 scaleM = matScale(kMeshFileVertexUnitsToInternalMm, kMeshFileVertexUnitsToInternalMm, kMeshFileVertexUnitsToInternalMm);
-	return matMul(
-		matFromXyzRpy(
-			vis.vx * kUrdfOriginXyzMetersToInternalMm,
-			vis.vy * kUrdfOriginXyzMetersToInternalMm,
-			vis.vz * kUrdfOriginXyzMetersToInternalMm,
-			vis.vr,
-			vis.vp,
-			vis.vw),
-		scaleM);
+	const Mat4 scaleM =
+		matScale(kMeshFileVertexUnitsToInternalMm, kMeshFileVertexUnitsToInternalMm, kMeshFileVertexUnitsToInternalMm);
+	return matMul(matFromXyzRpy(vis.vx * kUrdfOriginXyzMetersToInternalMm, vis.vy * kUrdfOriginXyzMetersToInternalMm,
+								vis.vz * kUrdfOriginXyzMetersToInternalMm, vis.vr, vis.vp, vis.vw),
+				  scaleM);
 }
 
 // <joint>：父连杆名、子连杆名、类型，以及 <joint><origin> 与转动轴、限位。
@@ -712,13 +708,8 @@ static Mat4 jointPrismaticTranslationOnly(const UrdfJoint& j, double qMm)
 // jointAnglesRad 与 qIndex 须与树遍历顺序一致（见 computeMeshWorldMatricesFromModel / loadMeshHierarchyParts）。
 Mat4 jointChildTransformForFk(const UrdfJoint& j, const QVector<double>& jointAnglesRad, int& qIndex)
 {
-	const Mat4 T_origin = matFromXyzRpy(
-		j.x * kUrdfOriginXyzMetersToInternalMm,
-		j.y * kUrdfOriginXyzMetersToInternalMm,
-		j.z * kUrdfOriginXyzMetersToInternalMm,
-		j.roll,
-		j.pitch,
-		j.yaw);
+	const Mat4 T_origin = matFromXyzRpy(j.x * kUrdfOriginXyzMetersToInternalMm, j.y * kUrdfOriginXyzMetersToInternalMm,
+										j.z * kUrdfOriginXyzMetersToInternalMm, j.roll, j.pitch, j.yaw);
 	const QString jt = j.type.toLower();
 	if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
 	{
@@ -749,13 +740,8 @@ Mat4 jointChildTransformForFk(const UrdfJoint& j, const QVector<double>& jointAn
 /// 用于 buildHierarchicalRobotScene 静态挂接；动态 FK 仍用 jointChildTransformForFk + 与 BFS 一致的 qIndex
 static Mat4 jointChildTransformAtZeroConfiguration(const UrdfJoint& j)
 {
-	const Mat4 T_origin = matFromXyzRpy(
-		j.x * kUrdfOriginXyzMetersToInternalMm,
-		j.y * kUrdfOriginXyzMetersToInternalMm,
-		j.z * kUrdfOriginXyzMetersToInternalMm,
-		j.roll,
-		j.pitch,
-		j.yaw);
+	const Mat4 T_origin = matFromXyzRpy(j.x * kUrdfOriginXyzMetersToInternalMm, j.y * kUrdfOriginXyzMetersToInternalMm,
+										j.z * kUrdfOriginXyzMetersToInternalMm, j.roll, j.pitch, j.yaw);
 
 	const QString jt = j.type.toLower();
 	if (jt == QLatin1String("revolute") || jt == QLatin1String("continuous"))
@@ -772,13 +758,8 @@ static Mat4 jointChildTransformAtZeroConfiguration(const UrdfJoint& j)
 /// 仅 \<joint\>\<origin\> xyz+rpy（米→mm），不含绕 axis 的 q；与 FK 中 T_origin 一致，用于关节坐标系可视化
 static Mat4 jointOriginFixedTransform(const UrdfJoint& j)
 {
-	return matFromXyzRpy(
-		j.x * kUrdfOriginXyzMetersToInternalMm,
-		j.y * kUrdfOriginXyzMetersToInternalMm,
-		j.z * kUrdfOriginXyzMetersToInternalMm,
-		j.roll,
-		j.pitch,
-		j.yaw);
+	return matFromXyzRpy(j.x * kUrdfOriginXyzMetersToInternalMm, j.y * kUrdfOriginXyzMetersToInternalMm,
+						 j.z * kUrdfOriginXyzMetersToInternalMm, j.roll, j.pitch, j.yaw);
 }
 
 /// parent link 与 child link 必须为不同名称；相同则父/子对应同一 OSG 容器，无法挂接（自环关节）。
@@ -790,14 +771,9 @@ bool jointConnectsDistinctLinks(const UrdfJoint& j)
 // 解析 URDF：收集各 link 的首个 visual、全部 joint；urdfDirOut 为 urdf 文件目录；
 // packageRootOut 默认为 urdf 的上一级目录（用于 package:// 解析）。
 // 根连杆：优先在「从未作为 child 出现」的 link 中取 base_link / world / odom / base（不区分大小写），否则取任意非 child
-bool parseUrdfModel(
-	const QString& urdfFilePath,
-	std::unordered_map<QString, UrdfLinkVisual>& linkVisuals,
-	std::vector<UrdfJoint>& joints,
-	QString& rootLink,
-	QString& urdfDirOut,
-	QString& packageRootOut,
-	QString* errorMessage)
+bool parseUrdfModel(const QString& urdfFilePath, std::unordered_map<QString, UrdfLinkVisual>& linkVisuals,
+					std::vector<UrdfJoint>& joints, QString& rootLink, QString& urdfDirOut, QString& packageRootOut,
+					QString* errorMessage)
 {
 	linkVisuals.clear();
 	joints.clear();
@@ -884,7 +860,8 @@ bool parseUrdfModel(
 		childNames.insert(j.child);
 	}
 
-	auto pickRootLink = [&]() -> QString {
+	auto pickRootLink = [&]() -> QString
+	{
 		const QStringList preferred{
 			QStringLiteral("base_link"),
 			QStringLiteral("world"),
@@ -960,7 +937,8 @@ static QString urdfCacheKey(const QString& urdfFilePath)
 }
 
 // 线程安全：按路径 + 修改时间缓存解析结果；未命中则 parseUrdfModel 并填充 jointsByParent
-bool getOrCreateUrdfModel(const QString& urdfFilePath, std::shared_ptr<const UrdfFkModelData>& out, QString* errorMessage)
+bool getOrCreateUrdfModel(const QString& urdfFilePath, std::shared_ptr<const UrdfFkModelData>& out,
+						  QString* errorMessage)
 {
 	const QString key = urdfCacheKey(urdfFilePath);
 	const QFileInfo fi(urdfFilePath);
@@ -1007,11 +985,9 @@ bool getOrCreateUrdfModel(const QString& urdfFilePath, std::shared_ptr<const Urd
 // 「从 mesh 文件系到当前显示世界」的 osg::Matrixd（完整累积位姿）。用于烘焙/相对绑定/旧后端根矩阵等。
 // 关节滑条对应的 JointRotationMt 只应写入 R(q)：请用 computeJointTransformMatrices，勿把本函数的连杆世界矩阵当作关节旋转节点矩阵
 // 与 loadMeshHierarchyParts 里 kUrdfBake* 烘焙顶点无关
-void computeMeshWorldMatricesFromModel(
-	const UrdfFkModelData& model,
-	const QVector<double>& jointAnglesRad,
-	QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
-	bool meshVerticesAlreadyInLinkFrame)
+void computeMeshWorldMatricesFromModel(const UrdfFkModelData& model, const QVector<double>& jointAnglesRad,
+									   QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
+									   bool meshVerticesAlreadyInLinkFrame)
 {
 	outLinkNameToMeshWorld.clear();
 	const QVector<double>& angles = jointAnglesRad;
@@ -1063,10 +1039,8 @@ void computeMeshWorldMatricesFromModel(
 	}
 }
 
-void computeLinkWorldMatricesFromModel(
-	const UrdfFkModelData& model,
-	const QVector<double>& jointAnglesRad,
-	QHash<QString, osg::Matrixd>& outLinkNameToLinkWorld)
+void computeLinkWorldMatricesFromModel(const UrdfFkModelData& model, const QVector<double>& jointAnglesRad,
+									   QHash<QString, osg::Matrixd>& outLinkNameToLinkWorld)
 {
 	outLinkNameToLinkWorld.clear();
 	const QVector<double>& angles = jointAnglesRad;
@@ -1110,12 +1084,8 @@ void computeLinkWorldMatricesFromModel(
 }
 
 // loadRevoluteJointMeta 与 BFS 遍历共用：追加单个 revolute/continuous 关节的名称与弧度限位。
-static void appendRevoluteJointMetaForJoint(
-	const UrdfJoint& j,
-	const QString& jtLower,
-	QStringList& outJointNames,
-	QVector<double>& outLowerRad,
-	QVector<double>& outUpperRad)
+static void appendRevoluteJointMetaForJoint(const UrdfJoint& j, const QString& jtLower, QStringList& outJointNames,
+											QVector<double>& outLowerRad, QVector<double>& outUpperRad)
 {
 	static constexpr double kPi = 3.14159265358979323846;
 	static constexpr double kTwoPi = 6.2831853071795864769;
@@ -1150,12 +1120,9 @@ static void appendRevoluteJointMetaForJoint(
 } // namespace
 
 // 按树遍历顺序列出 revolute/continuous 关节名及弧度上下限（无 limit 时 revolute 默认 ±π，continuous ±2π）
-bool UrdfRobotLoader::loadRevoluteJointMeta(
-	const QString& urdfFilePath,
-	QStringList& outJointNames,
-	QVector<double>& outLowerRad,
-	QVector<double>& outUpperRad,
-	QString* errorMessage)
+bool UrdfRobotLoader::loadRevoluteJointMeta(const QString& urdfFilePath, QStringList& outJointNames,
+											QVector<double>& outLowerRad, QVector<double>& outUpperRad,
+											QString* errorMessage)
 {
 	outJointNames.clear();
 	outLowerRad.clear();
@@ -1206,10 +1173,8 @@ bool UrdfRobotLoader::loadRevoluteJointMeta(
 	return true;
 }
 
-bool UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(
-	const QString& urdfFilePath,
-	QStringList& outChildLinkNames,
-	QString* errorMessage)
+bool UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(const QString& urdfFilePath, QStringList& outChildLinkNames,
+														 QString* errorMessage)
 {
 	outChildLinkNames.clear();
 
@@ -1257,10 +1222,8 @@ bool UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(
 	return true;
 }
 
-bool UrdfRobotLoader::loadPrimaryTerminalLinkName(
-	const QString& urdfFilePath,
-	QString& outLinkName,
-	QString* errorMessage)
+bool UrdfRobotLoader::loadPrimaryTerminalLinkName(const QString& urdfFilePath, QString& outLinkName,
+												  QString* errorMessage)
 {
 	outLinkName.clear();
 
@@ -1332,10 +1295,9 @@ bool UrdfRobotLoader::loadPrimaryTerminalLinkName(
 	return true;
 }
 
-bool UrdfRobotLoader::loadLinkChildToParentMap(
-	const QString& urdfFilePath,
-	QHash<QString, QString>& outChildLinkToParentLinkName,
-	QString* errorMessage)
+bool UrdfRobotLoader::loadLinkChildToParentMap(const QString& urdfFilePath,
+											   QHash<QString, QString>& outChildLinkToParentLinkName,
+											   QString* errorMessage)
 {
 	outChildLinkToParentLinkName.clear();
 
@@ -1361,10 +1323,8 @@ bool UrdfRobotLoader::loadLinkChildToParentMap(
 }
 
 // 仅关节名列表，顺序与 loadRevoluteJointMeta 一致，供与 jointAnglesRad 对齐
-bool UrdfRobotLoader::loadRevoluteJointNamesInOrder(
-	const QString& urdfFilePath,
-	QStringList& outJointNames,
-	QString* errorMessage)
+bool UrdfRobotLoader::loadRevoluteJointNamesInOrder(const QString& urdfFilePath, QStringList& outJointNames,
+													QString* errorMessage)
 {
 	QVector<double> lo;
 	QVector<double> hi;
@@ -1372,12 +1332,9 @@ bool UrdfRobotLoader::loadRevoluteJointNamesInOrder(
 }
 
 // 给定与各转动关节顺序一致的 jointAnglesRad（弧度），计算每个带 mesh 的连杆对应的 mesh→世界矩阵
-bool UrdfRobotLoader::computeMeshWorldMatrices(
-	const QString& urdfFilePath,
-	const QVector<double>& jointAnglesRad,
-	QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
-	QString* errorMessage,
-	bool meshVerticesAlreadyInLinkFrame)
+bool UrdfRobotLoader::computeMeshWorldMatrices(const QString& urdfFilePath, const QVector<double>& jointAnglesRad,
+											   QHash<QString, osg::Matrixd>& outLinkNameToMeshWorld,
+											   QString* errorMessage, bool meshVerticesAlreadyInLinkFrame)
 {
 	std::shared_ptr<const UrdfFkModelData> model;
 	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
@@ -1389,8 +1346,8 @@ bool UrdfRobotLoader::computeMeshWorldMatrices(
 	return true;
 }
 
-bool UrdfRobotLoader::linkMeshFileToLinkColumnMajor16(
-	const QString& urdfFilePath, const QString& linkName, double outColumnMajor16[16], QString* errorMessage)
+bool UrdfRobotLoader::linkMeshFileToLinkColumnMajor16(const QString& urdfFilePath, const QString& linkName,
+													  double outColumnMajor16[16], QString* errorMessage)
 {
 	std::shared_ptr<const UrdfFkModelData> model;
 	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
@@ -1414,8 +1371,8 @@ bool UrdfRobotLoader::linkMeshFileToLinkColumnMajor16(
 	return true;
 }
 
-bool UrdfRobotLoader::linkMeshFileToLinkOsgMatrix(
-	const QString& urdfFilePath, const QString& linkName, osg::Matrixd& out, QString* errorMessage)
+bool UrdfRobotLoader::linkMeshFileToLinkOsgMatrix(const QString& urdfFilePath, const QString& linkName,
+												  osg::Matrixd& out, QString* errorMessage)
 {
 	std::shared_ptr<const UrdfFkModelData> model;
 	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
@@ -1435,11 +1392,9 @@ bool UrdfRobotLoader::linkMeshFileToLinkOsgMatrix(
 	return true;
 }
 
-bool UrdfRobotLoader::computeLinkWorldMatrices(
-	const QString& urdfFilePath,
-	const QVector<double>& jointAnglesRad,
-	QHash<QString, osg::Matrixd>& outLinkNameToLinkWorld,
-	QString* errorMessage)
+bool UrdfRobotLoader::computeLinkWorldMatrices(const QString& urdfFilePath, const QVector<double>& jointAnglesRad,
+											   QHash<QString, osg::Matrixd>& outLinkNameToLinkWorld,
+											   QString* errorMessage)
 {
 	std::shared_ptr<const UrdfFkModelData> model;
 	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
@@ -1451,11 +1406,10 @@ bool UrdfRobotLoader::computeLinkWorldMatrices(
 	return true;
 }
 
-bool UrdfRobotLoader::computeLinkWorldRigidTransforms(
-	const QString& urdfFilePath,
-	const QVector<double>& jointAnglesRad,
-	QHash<QString, engine::RigidTransform>& outLinkNameToLinkWorld,
-	QString* errorMessage)
+bool UrdfRobotLoader::computeLinkWorldRigidTransforms(const QString& urdfFilePath,
+													  const QVector<double>& jointAnglesRad,
+													  QHash<QString, engine::RigidTransform>& outLinkNameToLinkWorld,
+													  QString* errorMessage)
 {
 	QHash<QString, osg::Matrixd> osgMats;
 	if (!computeLinkWorldMatrices(urdfFilePath, jointAnglesRad, osgMats, errorMessage))
@@ -1478,11 +1432,9 @@ void UrdfRobotLoader::clearUrdfModelCache()
 	g_urdfModelCache.clear();
 }
 
-bool UrdfRobotLoader::enumerateLinkVisualMeshes(
-	const QString& urdfFilePath,
-	QString& outRootLink,
-	QHash<QString, QString>& outLinkNameToAbsoluteMeshPath,
-	QString* errorMessage)
+bool UrdfRobotLoader::enumerateLinkVisualMeshes(const QString& urdfFilePath, QString& outRootLink,
+												QHash<QString, QString>& outLinkNameToAbsoluteMeshPath,
+												QString* errorMessage)
 {
 	outRootLink.clear();
 	outLinkNameToAbsoluteMeshPath.clear();
@@ -1516,10 +1468,9 @@ bool UrdfRobotLoader::enumerateLinkVisualMeshes(
 	return true;
 }
 
-bool UrdfRobotLoader::loadLinkVisualMaterialColors(
-	const QString& urdfFilePath,
-	QHash<QString, BackendColor>& outLinkNameToColor,
-	QString* errorMessage)
+bool UrdfRobotLoader::loadLinkVisualMaterialColors(const QString& urdfFilePath,
+												   QHash<QString, BackendColor>& outLinkNameToColor,
+												   QString* errorMessage)
 {
 	outLinkNameToColor.clear();
 
@@ -1548,11 +1499,9 @@ bool UrdfRobotLoader::loadLinkVisualMaterialColors(
 // 计算给定关节角度下的 Joint 矩阵（与 buildHierarchicalRobotScene 中可 setMatrix 的节点一致）
 // - revolute/continuous：输出仅绕 \<axis\> 的 R(q)（关节 MatrixTransform 无平移，\<origin\> 由 JointN 节点承担）
 // - 其他类型：输出完整 parent_T_child
-bool UrdfRobotLoader::computeJointTransformMatrices(
-	const QString& urdfFilePath,
-	const QVector<double>& jointAnglesRad,
-	QHash<QString, osg::Matrixd>& outJointMatrices,
-	QString* errorMessage)
+bool UrdfRobotLoader::computeJointTransformMatrices(const QString& urdfFilePath, const QVector<double>& jointAnglesRad,
+													QHash<QString, osg::Matrixd>& outJointMatrices,
+													QString* errorMessage)
 {
 	outJointMatrices.clear();
 	std::shared_ptr<const UrdfFkModelData> model;
@@ -1647,13 +1596,13 @@ static void applyLitPlasticToStateSet(osg::StateSet* ss, const osg::Vec4& baseCo
 	osg::ref_ptr<osg::Material> mat = new osg::Material;
 	const float amb = 0.22f;
 	mat->setAmbient(osg::Material::FRONT_AND_BACK,
-		osg::Vec4(baseColor.r() * amb, baseColor.g() * amb, baseColor.b() * amb, baseColor.a()));
+					osg::Vec4(baseColor.r() * amb, baseColor.g() * amb, baseColor.b() * amb, baseColor.a()));
 	mat->setDiffuse(osg::Material::FRONT_AND_BACK, baseColor);
 	mat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0.62f, 0.62f, 0.58f, 1.0f));
 	mat->setShininess(osg::Material::FRONT_AND_BACK, 64.0f);
 	const float em = 0.014f;
 	mat->setEmission(osg::Material::FRONT_AND_BACK,
-		osg::Vec4(baseColor.r() * em, baseColor.g() * em, baseColor.b() * em, baseColor.a()));
+					 osg::Vec4(baseColor.r() * em, baseColor.g() * em, baseColor.b() * em, baseColor.a()));
 
 	ss->setAttributeAndModes(mat.get(), osg::StateAttribute::ON);
 	//ss->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
@@ -1666,8 +1615,7 @@ class UrdfMeshLightingVisitor : public osg::NodeVisitor
 {
 public:
 	explicit UrdfMeshLightingVisitor(const osg::Vec4& defaultBaseColor)
-		: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
-		, m_defaultBaseColor(defaultBaseColor)
+		: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), m_defaultBaseColor(defaultBaseColor)
 	{
 	}
 
@@ -1691,10 +1639,7 @@ private:
 	osg::Vec4 m_defaultBaseColor;
 
 	// 仅向下遍历到 Drawable；实际材质在 apply(Geometry) 中设置，避免与 Geode 上整包材质重复叠加
-	void apply(osg::Geode& geode) override
-	{
-		traverse(geode);
-	}
+	void apply(osg::Geode& geode) override { traverse(geode); }
 };
 
 static void finalizeUrdfImportedMeshRendering(osg::Node* root, const osg::Vec4& baseColor)
@@ -1731,10 +1676,8 @@ static osg::ref_ptr<osg::Node> loadMeshNode(const QString& filePath, QString* er
 }
 
 /// mesh 文件系 -> 连杆系（内部 mm）：\<visual\>\<origin\>（米→mm）× 顶点尺度（与 FK / computeMeshWorldMatrices 一致；不读 URDF mesh scale）
-static osg::ref_ptr<osg::MatrixTransform> createLinkVisualFromMesh(
-	const QString& linkName,
-	const UrdfLinkVisual& vis,
-	osg::ref_ptr<osg::Node> meshNode)
+static osg::ref_ptr<osg::MatrixTransform> createLinkVisualFromMesh(const QString& linkName, const UrdfLinkVisual& vis,
+																   osg::ref_ptr<osg::Node> meshNode)
 {
 	finalizeUrdfImportedMeshRendering(meshNode.get(), urdfVisualMaterialOsgColor(vis));
 	const Mat4 meshToLink = meshFileToLinkFrameFromVisual(vis);
@@ -1756,23 +1699,22 @@ static osg::ref_ptr<osg::Group> createContainerLayer(const QString& linkName)
 }
 
 // MeshBackend 路径：visual origin 烘焙到顶点；pose/rotation 须清零防重复
-static osg::ref_ptr<osg::Node> createLinkVisualFromBackend(
-	const QString& linkName,
-	const UrdfLinkVisual& vis,
-	const QString& packageRoot,
-	const QString& urdfDir,
-	QString* errorMessage)
+static osg::ref_ptr<osg::Node> createLinkVisualFromBackend(const QString& linkName, const UrdfLinkVisual& vis,
+														   const QString& packageRoot, const QString& urdfDir,
+														   QString* errorMessage)
 {
-	if (!vis.hasMesh) {
+	if (!vis.hasMesh)
+	{
 		return nullptr;
 	}
 
 	// 判空 mesh 路径
 	const QString absMesh = resolveMeshFilename(vis.meshUri, packageRoot, urdfDir);
-	if (absMesh.isEmpty() || !QFile::exists(absMesh)) {
-		if (errorMessage) {
-			*errorMessage = QStringLiteral("Mesh not found for link '%1': %2")
-				.arg(linkName, vis.meshUri);
+	if (absMesh.isEmpty() || !QFile::exists(absMesh))
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("Mesh not found for link '%1': %2").arg(linkName, vis.meshUri);
 		}
 		return nullptr;
 	}
@@ -1788,20 +1730,24 @@ static osg::ref_ptr<osg::Node> createLinkVisualFromBackend(
 	std::string loadErr;
 	bool loaded = backend->loadFromFile(nativePath, &loadErr);
 
-	if (!loaded) {
-		if (errorMessage) {
+	if (!loaded)
+	{
+		if (errorMessage)
+		{
 			*errorMessage = QStringLiteral("Failed to load mesh for link '%1': %2")
-				.arg(linkName).arg(QString::fromStdString(loadErr));
+								.arg(linkName)
+								.arg(QString::fromStdString(loadErr));
 		}
-		RunLogger::warn(qstrToUtf8Std(QStringLiteral("[UrdfRobotLoader] Backend load failed for link='%1' mesh='%2' error='%3'")
-			.arg(linkName, absMesh, QString::fromStdString(loadErr))));
+		RunLogger::warn(
+			qstrToUtf8Std(QStringLiteral("[UrdfRobotLoader] Backend load failed for link='%1' mesh='%2' error='%3'")
+							  .arg(linkName, absMesh, QString::fromStdString(loadErr))));
 		return nullptr;
 	}
 
 	RunLogger::info(qstrToUtf8Std(QStringLiteral("[UrdfRobotLoader] Backend loaded link='%1' triangles=%2 timeMs=%3")
-		.arg(linkName)
-		.arg(static_cast<qulonglong>(backend->geometryElementCount()))
-		.arg(timer.elapsed())));
+									  .arg(linkName)
+									  .arg(static_cast<qulonglong>(backend->geometryElementCount()))
+									  .arg(timer.elapsed())));
 
 	applyUrdfVisualMaterialToBackend(*backend, vis);
 
@@ -1816,12 +1762,11 @@ static osg::ref_ptr<osg::Node> createLinkVisualFromBackend(
 	const Mat4 meshToLink = meshFileToLinkFrameFromVisual(vis);
 
 	// 【调试输出】检查矩阵是否有异常值
-	if (kUrdfDebugJointSubtreeDiagnostics) {
-		qDebug().nospace() << "[UrdfBackendDiag] link " << linkName
-						   << " meshToLink[0,0]=" << meshToLink.m[0]
-						   << " [1,1]=" << meshToLink.m[5]
-						   << " [2,2]=" << meshToLink.m[10]
-						   << " translate=(" << meshToLink.m[12] << "," << meshToLink.m[13] << "," << meshToLink.m[14] << ")";
+	if (kUrdfDebugJointSubtreeDiagnostics)
+	{
+		qDebug().nospace() << "[UrdfBackendDiag] link " << linkName << " meshToLink[0,0]=" << meshToLink.m[0]
+						   << " [1,1]=" << meshToLink.m[5] << " [2,2]=" << meshToLink.m[10] << " translate=("
+						   << meshToLink.m[12] << "," << meshToLink.m[13] << "," << meshToLink.m[14] << ")";
 	}
 
 	// 使用BackendVisualRegistry创建OSG节点
@@ -1830,11 +1775,12 @@ static osg::ref_ptr<osg::Node> createLinkVisualFromBackend(
 	options.useSceneLighting = true;
 
 	std::string err;
-	osg::ref_ptr<osg::Node> visualNode = BackendVisualRegistry::buildMeshDisplayNode(
-		*backend, options, &err);
+	osg::ref_ptr<osg::Node> visualNode = BackendVisualRegistry::buildMeshDisplayNode(*backend, options, &err);
 
-	if (!visualNode) {
-		if (errorMessage) *errorMessage = QString::fromStdString(err);
+	if (!visualNode)
+	{
+		if (errorMessage)
+			*errorMessage = QString::fromStdString(err);
 		return nullptr;
 	}
 
@@ -1891,13 +1837,9 @@ static osg::ref_ptr<osg::Geode> createLinkFrameAxesGeode(double axisLengthMm, co
 }
 
 /// 在 \<joint\>\<origin\> 关节系下仅画 URDF \<axis\> 方向黄线（与 FK 转动轴一致）；可选在轴线端旁加文字标签
-static osg::ref_ptr<osg::Geode> createJointRotationAxisLineGeode(
-	double axisLengthMm,
-	double jax,
-	double jay,
-	double jaz,
-	const std::string& nodeName,
-	const QString& axisLabelText = QString())
+static osg::ref_ptr<osg::Geode> createJointRotationAxisLineGeode(double axisLengthMm, double jax, double jay,
+																 double jaz, const std::string& nodeName,
+																 const QString& axisLabelText = QString())
 {
 	const float L = static_cast<float>(std::max(1.0, axisLengthMm));
 	double nx = jax;
@@ -1945,10 +1887,9 @@ static osg::ref_ptr<osg::Geode> createJointRotationAxisLineGeode(
 		label->setAxisAlignment(osgText::TextBase::SCREEN);
 		label->setAlignment(osgText::TextBase::LEFT_CENTER);
 		const float pad = static_cast<float>(std::max(8.0, axisLengthMm * 0.08));
-		label->setPosition(osg::Vec3(
-			static_cast<float>(nx * (static_cast<double>(L) + pad)),
-			static_cast<float>(ny * (static_cast<double>(L) + pad)),
-			static_cast<float>(nz * (static_cast<double>(L) + pad))));
+		label->setPosition(osg::Vec3(static_cast<float>(nx * (static_cast<double>(L) + pad)),
+									 static_cast<float>(ny * (static_cast<double>(L) + pad)),
+									 static_cast<float>(nz * (static_cast<double>(L) + pad))));
 		label->setText(axisLabelText.toStdString());
 		geode->addDrawable(label.get());
 	}
@@ -1997,9 +1938,7 @@ static double linkFrameAxisLengthMmFromMesh(osg::Node* meshNode)
 
 /// 辅助：创建 Joint 的运动学层 (MatrixTransform)
 /// 非转动关节：矩阵为完整 parent_T_child。转动/连续关节：矩阵仅为 R(q)，与 computeJointTransformMatrices 一致
-static osg::ref_ptr<osg::MatrixTransform> createJointTransform(
-	const QString& jointName,
-	const Mat4& parent_T_child)
+static osg::ref_ptr<osg::MatrixTransform> createJointTransform(const QString& jointName, const Mat4& parent_T_child)
 {
 	osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
 	mt->setName(jointName.toStdString());
@@ -2028,14 +1967,9 @@ static void detachNodeFromAllParents(osg::Node* node)
 
 /// 仅使用 osg::Group::addChild(Node*)；子连杆容器若已有父节点（重复 joint / 重入），先 detach 再挂，避免 getNumParents/addChild 失败
 /// 注意：detach 期间若多线程 Viewer 正在遍历场景，可能竞态；本函数仅在导入构建阶段、主线程调用时安全
-static bool attachLinkJointLink(
-	osg::Group* parentLinkContainer,
-	osg::MatrixTransform* jointMt,
-	osg::Group* childLinkContainer,
-	const QString& jointName,
-	const QString& parentLinkName,
-	const QString& childLinkName,
-	QString* errorMessage)
+static bool attachLinkJointLink(osg::Group* parentLinkContainer, osg::MatrixTransform* jointMt,
+								osg::Group* childLinkContainer, const QString& jointName, const QString& parentLinkName,
+								const QString& childLinkName, QString* errorMessage)
 {
 	if (!parentLinkContainer || !jointMt || !childLinkContainer)
 	{
@@ -2049,10 +1983,11 @@ static bool attachLinkJointLink(
 	{
 		if (errorMessage)
 		{
-			*errorMessage = QStringLiteral(
-				"Invalid URDF: joint '%1' parent link '%2' and child link '%3' map to the same scene node. "
-				"Use two different link names for parent and child (self-loop joints are not supported).")
-				.arg(jointName, parentLinkName, childLinkName);
+			*errorMessage =
+				QStringLiteral(
+					"Invalid URDF: joint '%1' parent link '%2' and child link '%3' map to the same scene node. "
+					"Use two different link names for parent and child (self-loop joints are not supported).")
+					.arg(jointName, parentLinkName, childLinkName);
 		}
 		return false;
 	}
@@ -2067,10 +2002,11 @@ static bool attachLinkJointLink(
 	{
 		if (errorMessage)
 		{
-			*errorMessage = QStringLiteral(
-				"OSG addChild failed: parent link container -> joint '%1'. "
-				"If OSG was built with ENSURE_CHILD_IS_UNIQUE, the joint node may already be under this parent.")
-				.arg(jointName);
+			*errorMessage =
+				QStringLiteral(
+					"OSG addChild failed: parent link container -> joint '%1'. "
+					"If OSG was built with ENSURE_CHILD_IS_UNIQUE, the joint node may already be under this parent.")
+					.arg(jointName);
 		}
 		return false;
 	}
@@ -2078,9 +2014,9 @@ static bool attachLinkJointLink(
 	{
 		if (errorMessage)
 		{
-			*errorMessage = QStringLiteral(
-				"OSG addChild failed: joint '%1' -> child link '%2' (duplicate child under same joint?)")
-				.arg(jointName, childLinkName);
+			*errorMessage =
+				QStringLiteral("OSG addChild failed: joint '%1' -> child link '%2' (duplicate child under same joint?)")
+					.arg(jointName, childLinkName);
 		}
 		parentLinkContainer->removeChild(jointMt);
 		return false;
@@ -2092,15 +2028,10 @@ static bool attachLinkJointLink(
 	return true;
 }
 
-static void urdfDebugLogRevoluteJointSubtree(
-	const QString& jointName,
-	const Mat4& T_origin,
-	osg::MatrixTransform* jointOriginMt,
-	osg::MatrixTransform* jointRotationMt,
-	osg::Group* linkShell,
-	osg::Group* childLinkContainer,
-	osg::Node* linkGeometryOptional,
-	osg::Node* axisVisual = nullptr)
+static void urdfDebugLogRevoluteJointSubtree(const QString& jointName, const Mat4& T_origin,
+											 osg::MatrixTransform* jointOriginMt, osg::MatrixTransform* jointRotationMt,
+											 osg::Group* linkShell, osg::Group* childLinkContainer,
+											 osg::Node* linkGeometryOptional, osg::Node* axisVisual = nullptr)
 {
 	if (!kUrdfDebugJointSubtreeDiagnostics)
 	{
@@ -2110,10 +2041,11 @@ static void urdfDebugLogRevoluteJointSubtree(
 	const double ty = T_origin.m[13];
 	const double tz = T_origin.m[14];
 	const double tlen = std::sqrt(tx * tx + ty * ty + tz * tz);
-	qDebug().nospace() << "[UrdfJointDiag] joint " << jointName << " T_origin translation(mm) xyz=(" << tx << ","
-					   << ty << "," << tz << ") len=" << tlen;
+	qDebug().nospace() << "[UrdfJointDiag] joint " << jointName << " T_origin translation(mm) xyz=(" << tx << "," << ty
+					   << "," << tz << ") len=" << tlen;
 
-	auto logBound = [&](const char* tag, osg::Node* n, bool checkParent = false) {
+	auto logBound = [&](const char* tag, osg::Node* n, bool checkParent = false)
+	{
 		if (!n)
 		{
 			qDebug() << "[UrdfJointDiag]" << tag << ": null";
@@ -2121,9 +2053,9 @@ static void urdfDebugLogRevoluteJointSubtree(
 		}
 		n->dirtyBound();
 		const osg::BoundingSphere& bs = n->getBound();
-		qDebug().nospace() << "[UrdfJointDiag]" << tag << ": valid=" << bs.valid() << " cullingActive=" << n->getCullingActive()
-						   << " radius=" << bs.radius();
-		
+		qDebug().nospace() << "[UrdfJointDiag]" << tag << ": valid=" << bs.valid()
+						   << " cullingActive=" << n->getCullingActive() << " radius=" << bs.radius();
+
 		if (checkParent && n->getNumParents() > 0)
 		{
 			qDebug().nospace() << "[UrdfJointDiag]" << tag << " parent=" << n->getParent(0)->getName().c_str();
@@ -2135,35 +2067,30 @@ static void urdfDebugLogRevoluteJointSubtree(
 	logBound("child link_Container", childLinkContainer, true);
 	logBound("child link_Geometry", linkGeometryOptional, true);
 	logBound("Axis_Visual", axisVisual, true);
-	
+
 	// 【关键调试】检查 jointOriginMt 的矩阵值
 	if (jointOriginMt)
 	{
 		osg::Matrix m = jointOriginMt->getMatrix();
 		qDebug().nospace() << "[UrdfJointDiag]JointN(jointOriginMt) matrix:"
-						   << " [3,0]=" << m(3,0) << " [3,1]=" << m(3,1) << " [3,2]=" << m(3,2);
+						   << " [3,0]=" << m(3, 0) << " [3,1]=" << m(3, 1) << " [3,2]=" << m(3, 2);
 	}
 }
 
 /// Parent_Link_Container -> JointN(T_origin) -> JointContent(Group) -> { Axis_Visual, jointRotation(R) -> Link壳 -> child }。
 /// JointContent 避免 JointN(MatrixTransform) 直接多子节点时部分 OSG 父包围球合并错误；运动学仍为 T_origin*R(q)。
-static bool attachRevoluteJointDecomposed(
-	osg::Group* parentLinkContainer,
-	osg::MatrixTransform* jointOriginMt,
-	osg::Node* axisVisualRoot,
-	osg::MatrixTransform* jointRotationMt,
-	osg::Group* linkShell,
-	osg::Group* childLinkContainer,
-	const QString& jointName,
-	const QString& parentLinkName,
-	const QString& childLinkName,
-	QString* errorMessage)
+static bool attachRevoluteJointDecomposed(osg::Group* parentLinkContainer, osg::MatrixTransform* jointOriginMt,
+										  osg::Node* axisVisualRoot, osg::MatrixTransform* jointRotationMt,
+										  osg::Group* linkShell, osg::Group* childLinkContainer,
+										  const QString& jointName, const QString& parentLinkName,
+										  const QString& childLinkName, QString* errorMessage)
 {
 	if (!parentLinkContainer || !jointOriginMt || !jointRotationMt || !linkShell || !childLinkContainer)
 	{
 		if (errorMessage)
 		{
-			*errorMessage = QStringLiteral("Internal: null OSG node while building revolute joint '%1'.").arg(jointName);
+			*errorMessage =
+				QStringLiteral("Internal: null OSG node while building revolute joint '%1'.").arg(jointName);
 		}
 		return false;
 	}
@@ -2171,10 +2098,11 @@ static bool attachRevoluteJointDecomposed(
 	{
 		if (errorMessage)
 		{
-			*errorMessage = QStringLiteral(
-				"Invalid URDF: joint '%1' parent link '%2' and child link '%3' map to the same scene node. "
-				"Use two different link names for parent and child (self-loop joints are not supported).")
-				.arg(jointName, parentLinkName, childLinkName);
+			*errorMessage =
+				QStringLiteral(
+					"Invalid URDF: joint '%1' parent link '%2' and child link '%3' map to the same scene node. "
+					"Use two different link names for parent and child (self-loop joints are not supported).")
+					.arg(jointName, parentLinkName, childLinkName);
 		}
 		return false;
 	}
@@ -2189,10 +2117,11 @@ static bool attachRevoluteJointDecomposed(
 	{
 		if (errorMessage)
 		{
-			*errorMessage = QStringLiteral(
-				"OSG addChild failed: parent link container -> joint '%1'. "
-				"If OSG was built with ENSURE_CHILD_IS_UNIQUE, the joint node may already exist under this parent.")
-				.arg(jointName);
+			*errorMessage =
+				QStringLiteral(
+					"OSG addChild failed: parent link container -> joint '%1'. "
+					"If OSG was built with ENSURE_CHILD_IS_UNIQUE, the joint node may already exist under this parent.")
+					.arg(jointName);
 		}
 		return false;
 	}
@@ -2200,9 +2129,9 @@ static bool attachRevoluteJointDecomposed(
 	{
 		if (errorMessage)
 		{
-			*errorMessage = QStringLiteral(
-				"OSG addChild failed: link shell -> child link '%1' (duplicate child under same shell?)")
-				.arg(childLinkName);
+			*errorMessage =
+				QStringLiteral("OSG addChild failed: link shell -> child link '%1' (duplicate child under same shell?)")
+					.arg(childLinkName);
 		}
 		parentLinkContainer->removeChild(jointOriginMt);
 		return false;
@@ -2211,9 +2140,9 @@ static bool attachRevoluteJointDecomposed(
 	{
 		if (errorMessage)
 		{
-			*errorMessage = QStringLiteral(
-				"OSG addChild failed: joint rotation '%1' -> link shell (duplicate child under same rotation node?)")
-				.arg(jointName);
+			*errorMessage = QStringLiteral("OSG addChild failed: joint rotation '%1' -> link shell (duplicate child "
+										   "under same rotation node?)")
+								.arg(jointName);
 		}
 		linkShell->removeChild(childLinkContainer);
 		parentLinkContainer->removeChild(jointOriginMt);
@@ -2226,8 +2155,8 @@ static bool attachRevoluteJointDecomposed(
 	{
 		if (errorMessage)
 		{
-			*errorMessage = QStringLiteral(
-				"OSG addChild failed: joint '%1' -> axis visual under JointContent").arg(jointName);
+			*errorMessage =
+				QStringLiteral("OSG addChild failed: joint '%1' -> axis visual under JointContent").arg(jointName);
 		}
 		parentLinkContainer->removeChild(jointOriginMt);
 		return false;
@@ -2236,8 +2165,8 @@ static bool attachRevoluteJointDecomposed(
 	{
 		if (errorMessage)
 		{
-			*errorMessage = QStringLiteral(
-				"OSG addChild failed: joint '%1' -> joint rotation under JointContent").arg(jointName);
+			*errorMessage =
+				QStringLiteral("OSG addChild failed: joint '%1' -> joint rotation under JointContent").arg(jointName);
 		}
 		parentLinkContainer->removeChild(jointOriginMt);
 		return false;
@@ -2279,12 +2208,11 @@ static bool attachRevoluteJointDecomposed(
 }
 
 /// 构建层级化 URDF 机器人场景图（三层分离架构）
-osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
-	const QString& urdfFilePath,
-	QHash<QString, osg::Node*>& outLinkToGeometry,
-	QHash<QString, osg::Group*>& outLinkToContainer,
-	QHash<QString, osg::MatrixTransform*>& outJointTransforms,
-	QString* errorMessage)
+osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(const QString& urdfFilePath,
+														 QHash<QString, osg::Node*>& outLinkToGeometry,
+														 QHash<QString, osg::Group*>& outLinkToContainer,
+														 QHash<QString, osg::MatrixTransform*>& outJointTransforms,
+														 QString* errorMessage)
 {
 	// 清空输出参数
 	outLinkToGeometry.clear();
@@ -2336,8 +2264,7 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 		{
 			if (errorMessage)
 			{
-				*errorMessage = QStringLiteral("Mesh not found for link '%1': %2")
-					.arg(linkName, vis.meshUri);
+				*errorMessage = QStringLiteral("Mesh not found for link '%1': %2").arg(linkName, vis.meshUri);
 			}
 			return nullptr;
 		}
@@ -2355,11 +2282,12 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 			geometryNode = createLinkVisualFromBackend(linkName, vis, packageRoot, urdfDir, &backendErr);
 			if (!geometryNode)
 			{
-				RunLogger::warn(qstrToUtf8Std(QStringLiteral("[UrdfRobotLoader] Backend loading failed for link='%1' error='%2'")
-					.arg(linkName, backendErr)));
+				RunLogger::warn(
+					qstrToUtf8Std(QStringLiteral("[UrdfRobotLoader] Backend loading failed for link='%1' error='%2'")
+									  .arg(linkName, backendErr)));
 				// 可选：回退到OSG直接读取
-				RunLogger::info(qstrToUtf8Std(QStringLiteral("[UrdfRobotLoader] Falling back to OSG loading for link='%1'")
-					.arg(linkName)));
+				RunLogger::info(qstrToUtf8Std(
+					QStringLiteral("[UrdfRobotLoader] Falling back to OSG loading for link='%1'").arg(linkName)));
 			}
 		}
 
@@ -2384,7 +2312,7 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 		keepLinkContainersAlive.push_back(container);
 
 		// 记录输出（存储原始指针，所有权由 keepLinkContainersAlive 与后续场景图保持）
-		outLinkToGeometry[linkName] = geometryXf;  // 可能为nullptr（如果是非MatrixTransform）
+		outLinkToGeometry[linkName] = geometryXf; // 可能为nullptr（如果是非MatrixTransform）
 		outLinkToContainer[linkName] = container.get();
 	}
 
@@ -2450,16 +2378,18 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 			auto childIt = outLinkToContainer.find(j.child);
 			if (childIt == outLinkToContainer.end())
 			{
-				RunLogger::warn(qstrToUtf8Std(QStringLiteral("UrdfRobotLoader: skipping joint '%1' - child link container missing for '%2'")
-					.arg(j.name, j.child)));
+				RunLogger::warn(qstrToUtf8Std(
+					QStringLiteral("UrdfRobotLoader: skipping joint '%1' - child link container missing for '%2'")
+						.arg(j.name, j.child)));
 				continue;
 			}
 
 			auto parentIt = outLinkToContainer.find(j.parent);
 			if (parentIt == outLinkToContainer.end())
 			{
-				RunLogger::warn(qstrToUtf8Std(QStringLiteral("UrdfRobotLoader: skipping joint '%1' - parent link container missing for '%2'")
-					.arg(j.name, j.parent)));
+				RunLogger::warn(qstrToUtf8Std(
+					QStringLiteral("UrdfRobotLoader: skipping joint '%1' - parent link container missing for '%2'")
+						.arg(j.name, j.parent)));
 				continue;
 			}
 
@@ -2467,7 +2397,7 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 			if (j.parent != cur.link)
 			{
 				RunLogger::warn(qstrToUtf8Std(QStringLiteral("UrdfRobotLoader: joint '%1' parent '%2' != BFS link '%3'")
-					.arg(j.name, j.parent, cur.link)));
+												  .arg(j.name, j.parent, cur.link)));
 				continue;
 			}
 			osg::Group* parentContainer = cur.container;
@@ -2487,13 +2417,12 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 			}
 			if (parentIt.value() != parentContainer)
 			{
-				RunLogger::warn(qstrToUtf8Std(QStringLiteral("UrdfRobotLoader: joint '%1' parent container map vs BFS mismatch.")
-					.arg(j.name)));
+				RunLogger::warn(qstrToUtf8Std(
+					QStringLiteral("UrdfRobotLoader: joint '%1' parent container map vs BFS mismatch.").arg(j.name)));
 			}
 
 			const QString jtLower = j.type.toLower();
-			const bool isRevolute =
-				(jtLower == QLatin1String("revolute") || jtLower == QLatin1String("continuous"));
+			const bool isRevolute = (jtLower == QLatin1String("revolute") || jtLower == QLatin1String("continuous"));
 			const Mat4 T_origin_anchor = jointOriginFixedTransform(j);
 
 			// 转动/连续：Parent -> JointN(T_origin) -> JointContent -> { Axis_Visual_N, JointRotation(R(q)) } -> LinkN -> Child_Container
@@ -2516,9 +2445,9 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 					axisShell = new osg::Group;
 					axisShell->setName(QStringLiteral("Axis_Visual_%1").arg(jointVisIndex).toStdString());
 					axisShell->addChild(createJointRotationAxisLineGeode(
-						kUrdfLinkFrameAxisMmDefault, j.ax, j.ay, j.az,
-						(j.name + QStringLiteral("_JointAxis")).toStdString(), axisLabel)
-						.get());
+											kUrdfLinkFrameAxisMmDefault, j.ax, j.ay, j.az,
+											(j.name + QStringLiteral("_JointAxis")).toStdString(), axisLabel)
+											.get());
 					osg::ref_ptr<osg::Sphere> sphere = new osg::Sphere(osg::Vec3(0, 0, 0), 5.0f);
 					osg::ref_ptr<osg::ShapeDrawable> sd = new osg::ShapeDrawable(sphere.get());
 					sd->setColor(osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
@@ -2546,17 +2475,9 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 				osg::ref_ptr<osg::MatrixTransform> jointMT = createJointTransform(j.name, matIdentity());
 				osg::MatrixTransform* jointNode = jointMT.get();
 
-				if (!attachRevoluteJointDecomposed(
-						parentContainer,
-						jointOriginMt.get(),
-						axisShell.get(),
-						jointNode,
-						linkShell.get(),
-						childContainer,
-						j.name,
-						j.parent,
-						j.child,
-						errorMessage))
+				if (!attachRevoluteJointDecomposed(parentContainer, jointOriginMt.get(), axisShell.get(), jointNode,
+												   linkShell.get(), childContainer, j.name, j.parent, j.child,
+												   errorMessage))
 				{
 					return nullptr;
 				}
@@ -2568,15 +2489,8 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 					{
 						childGeom = gIt.value();
 					}
-					urdfDebugLogRevoluteJointSubtree(
-						j.name,
-						T_origin,
-						jointOriginMt.get(),
-						jointNode,
-						linkShell.get(),
-						childContainer,
-						childGeom,
-						axisShell.get());
+					urdfDebugLogRevoluteJointSubtree(j.name, T_origin, jointOriginMt.get(), jointNode, linkShell.get(),
+													 childContainer, childGeom, axisShell.get());
 				}
 
 				outJointTransforms[j.name] = jointNode;
@@ -2585,7 +2499,8 @@ osg::Group* UrdfRobotLoader::buildHierarchicalRobotScene(
 			{
 				osg::ref_ptr<osg::MatrixTransform> jointMT = createJointTransform(j.name, parent_T_child);
 				osg::MatrixTransform* jointNode = jointMT.get();
-				if (!attachLinkJointLink(parentContainer, jointNode, childContainer, j.name, j.parent, j.child, errorMessage))
+				if (!attachLinkJointLink(parentContainer, jointNode, childContainer, j.name, j.parent, j.child,
+										 errorMessage))
 				{
 					return nullptr;
 				}

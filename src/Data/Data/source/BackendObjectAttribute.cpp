@@ -1,22 +1,19 @@
+﻿/// @file BackendObjectAttribute.cpp
+/// @brief BackendObjectAttribute 实现
+
 #include "BackendObjectAttribute.h"
 
-#include "BackendDataBase.h"
-
-#include "BackendPropertyRow.h"
 #include "../../PropertyCore/inc/PropertyAttributeHelpers.h"
 #include "../../PropertyCore/inc/PropertyRgbaAttribute.h"
 #include "../../PropertyCore/inc/PropertyVec3Attribute.h"
+#include "BackendDataBase.h"
+#include "BackendPropertyRow.h"
 
 #include <array>
 
-namespace {
-
-void appendBackendRow(
-	nlohmann::json& rows,
-	const char* key,
-	const char* label,
-	bool editable,
-	const std::string& value)
+namespace
+{
+void appendBackendRow(nlohmann::json& rows, const char* key, const char* label, bool editable, const std::string& value)
 {
 	backend_property_json::appendRow(rows, key, label, editable, value);
 }
@@ -72,38 +69,26 @@ namespace
 {
 using Vec3AttributeImpl = property_core::PropertyVec3Attribute<BackendDataBase, BackendVec3, BackendAttributeBase>;
 using RgbaAttributeImpl = property_core::PropertyRgbaAttribute<BackendDataBase, BackendColor, BackendAttributeBase>;
-}
+} // namespace
 
 BackendAttributePtr makeBackendPoseAttribute()
 {
 	return std::make_shared<Vec3AttributeImpl>(
-		hasPoseProperty,
-		getPose,
-		setPose,
-		std::array<const char*, 3>{ "pose.x", "pose.y", "pose.z" },
-		std::array<const char*, 3>{ "Pose X", "Pose Y", "Pose Z" },
-		appendBackendRow);
+		hasPoseProperty, getPose, setPose, std::array<const char*, 3>{"pose.x", "pose.y", "pose.z"},
+		std::array<const char*, 3>{"Pose X", "Pose Y", "Pose Z"}, appendBackendRow);
 }
 
 BackendAttributePtr makeBackendRotationAttribute()
 {
 	return std::make_shared<Vec3AttributeImpl>(
-		hasRotationProperty,
-		getRotation,
-		setRotation,
-		std::array<const char*, 3>{ "rotation.x", "rotation.y", "rotation.z" },
-		std::array<const char*, 3>{ "Rotation X (deg)", "Rotation Y (deg)", "Rotation Z (deg)" },
-		appendBackendRow);
+		hasRotationProperty, getRotation, setRotation,
+		std::array<const char*, 3>{"rotation.x", "rotation.y", "rotation.z"},
+		std::array<const char*, 3>{"Rotation X (deg)", "Rotation Y (deg)", "Rotation Z (deg)"}, appendBackendRow);
 }
 
 BackendAttributePtr makeBackendDisplayColorAttribute()
 {
 	return std::make_shared<RgbaAttributeImpl>(
-		hasColorProperty,
-		getColor,
-		setColor,
-		std::array<const char*, 4>{ "color.r", "color.g", "color.b", "color.a" },
-		std::array<const char*, 4>{ "Color R", "Color G", "Color B", "Color A" },
-		appendBackendRow);
+		hasColorProperty, getColor, setColor, std::array<const char*, 4>{"color.r", "color.g", "color.b", "color.a"},
+		std::array<const char*, 4>{"Color R", "Color G", "Color B", "Color A"}, appendBackendRow);
 }
-

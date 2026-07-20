@@ -1,17 +1,21 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_TEMPLATEBREPUPDATE_H
+#define GEOMETRYALGORITHM_TEMPLATEBREPUPDATE_H
+
+/// @file TemplateBrepUpdate.h
+/// @brief 配准阶段：调试时可分粗配 / 精配两步执行
 
 #include "geometry_algorithm_global.h"
-#include "ShapeHandle.h"
 
-#include <Eigen/Geometry>
+#include "ShapeHandle.h"
 
 #include <cstddef>
 #include <string>
 #include <vector>
 
+#include <Eigen/Geometry>
+
 namespace geoalgo
 {
-
 enum class FaceUpdateAction
 {
 	Unchanged,
@@ -117,18 +121,15 @@ struct TemplateBrepUpdateResult
 	bool qualityPassed = false;
 };
 
-GEOMETRY_ALGORITHM_API bool sampleShapeSurfacePoints(
-	const ShapeHandle& templateShape,
-	double spacingMm,
-	std::vector<float>& outXyz,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool sampleShapeSurfacePoints(const ShapeHandle& templateShape, double spacingMm,
+													 std::vector<float>& outXyz, std::string* errMsg = nullptr);
 
-GEOMETRY_ALGORITHM_API bool updateShapeFromPointCloud(
-	const ShapeHandle& templateShape,
-	const std::vector<float>& scanXyz,
-	const std::vector<float>& scanNormalsNxNyNz,
-	const TemplateBrepUpdateParams& params,
-	TemplateBrepUpdateResult& out,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool updateShapeFromPointCloud(const ShapeHandle& templateShape,
+													  const std::vector<float>& scanXyz,
+													  const std::vector<float>& scanNormalsNxNyNz,
+													  const TemplateBrepUpdateParams& params,
+													  TemplateBrepUpdateResult& out, std::string* errMsg = nullptr);
 
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_TEMPLATEBREPUPDATE_H

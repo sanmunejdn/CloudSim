@@ -1,11 +1,14 @@
+﻿/// @file AnnotationProjectIo.cpp
+/// @brief AnnotationProjectIo 实现
+
 #include "AnnotationProjectIo.h"
 
 #include "OsgWidget.h"
 
 #include <osg/Vec3f>
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 using ::OsgWidget;
 
 QJsonArray buildAnnotationsJsonFromOsg(OsgWidget& osg, QJsonObject& inOutRootExtras)
@@ -59,14 +62,14 @@ void applyAnnotationsFromProjectJson(OsgWidget& osg, const QJsonObject& root)
 		s.backendId = a.value(QStringLiteral("backendId")).toString();
 		const QJsonObject local = a.value(QStringLiteral("localCentered")).toObject();
 		s.localCentered = osg::Vec3f(static_cast<float>(local.value(QStringLiteral("x")).toDouble()),
-			static_cast<float>(local.value(QStringLiteral("y")).toDouble()),
-			static_cast<float>(local.value(QStringLiteral("z")).toDouble()));
+									 static_cast<float>(local.value(QStringLiteral("y")).toDouble()),
+									 static_cast<float>(local.value(QStringLiteral("z")).toDouble()));
 		const QJsonObject world = a.value(QStringLiteral("worldAnchor")).toObject();
 		if (!world.isEmpty())
 		{
 			s.worldAnchor = osg::Vec3f(static_cast<float>(world.value(QStringLiteral("x")).toDouble()),
-				static_cast<float>(world.value(QStringLiteral("y")).toDouble()),
-				static_cast<float>(world.value(QStringLiteral("z")).toDouble()));
+									   static_cast<float>(world.value(QStringLiteral("y")).toDouble()),
+									   static_cast<float>(world.value(QStringLiteral("z")).toDouble()));
 			s.hasWorldAnchor = true;
 		}
 		s.visible = a.value(QStringLiteral("visible")).toBool(true);

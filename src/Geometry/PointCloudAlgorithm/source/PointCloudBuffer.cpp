@@ -1,8 +1,10 @@
+﻿/// @file PointCloudBuffer.cpp
+/// @brief PointCloudBuffer 实现
+
 #include "PointCloudBuffer.h"
 
 namespace pclalgo
 {
-
 std::size_t pointCountFromXyz(const std::vector<float>& xyz)
 {
 	return xyz.size() / 3U;
@@ -23,10 +25,8 @@ bool validRgbaLength(const std::vector<float>& rgba, const std::size_t pointCoun
 	return rgba.empty() || rgba.size() == pointCount * 4U;
 }
 
-void compactXyzByIndices(
-	const std::vector<float>& srcXyz,
-	const std::vector<std::size_t>& keepIndices,
-	std::vector<float>& outXyz)
+void compactXyzByIndices(const std::vector<float>& srcXyz, const std::vector<std::size_t>& keepIndices,
+						 std::vector<float>& outXyz)
 {
 	outXyz.clear();
 	outXyz.reserve(keepIndices.size() * 3U);
@@ -43,10 +43,8 @@ void compactXyzByIndices(
 	}
 }
 
-void compactRgbaByIndices(
-	const std::vector<float>& srcRgba,
-	const std::vector<std::size_t>& keepIndices,
-	std::vector<float>& outRgba)
+void compactRgbaByIndices(const std::vector<float>& srcRgba, const std::vector<std::size_t>& keepIndices,
+						  std::vector<float>& outRgba)
 {
 	outRgba.clear();
 	outRgba.reserve(keepIndices.size() * 4U);

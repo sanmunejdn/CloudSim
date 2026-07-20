@@ -1,3 +1,6 @@
+﻿/// @file TrajectoryOpParamPanel.cpp
+/// @brief TrajectoryOpParamPanel 实现
+
 #include "TrajectoryOpParamPanel.h"
 
 #include "TrajectoryOpBridge.h"
@@ -13,7 +16,6 @@
 
 namespace
 {
-
 std::string scopeKindToken(const RobotInstruction::OpScope::Kind kind)
 {
 	switch (kind)
@@ -53,8 +55,7 @@ void applyFieldWidthPolicy(QWidget* widget)
 
 } // namespace
 
-TrajectoryOpParamPanel::TrajectoryOpParamPanel(QWidget* parent)
-	: QWidget(parent)
+TrajectoryOpParamPanel::TrajectoryOpParamPanel(QWidget* parent) : QWidget(parent)
 {
 	setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 	auto* layout = new QVBoxLayout(this);
@@ -104,6 +105,12 @@ void TrajectoryOpParamPanel::setNonRigidTargetBackendCombo(QComboBox* combo)
 	m_nonRigidTargetComboParent = combo ? combo->parentWidget() : nullptr;
 }
 
+void TrajectoryOpParamPanel::setExternalTcpBackendCombo(QComboBox* combo)
+{
+	m_externalTcpBackendCombo = combo;
+	m_externalTcpBackendComboParent = combo ? combo->parentWidget() : nullptr;
+}
+
 void TrajectoryOpParamPanel::clear()
 {
 	clearRows();
@@ -128,6 +135,7 @@ void TrajectoryOpParamPanel::clearRows()
 	QLabel* geometryBackendLabel = nullptr;
 	QLabel* nonRigidSourceLabel = nullptr;
 	QLabel* nonRigidTargetLabel = nullptr;
+	QLabel* externalTcpLabel = nullptr;
 	for (trajectory_algo::TrajectoryParamBinding& row : m_rows)
 	{
 		if (row.field.key == "scope.groupId")
@@ -148,6 +156,11 @@ void TrajectoryOpParamPanel::clearRows()
 		if (row.field.key == "nrr.targetBackendId")
 		{
 			nonRigidTargetLabel = row.label;
+			continue;
+		}
+		if (row.field.key == "toWorkpiece.externalTcpBackendId")
+		{
+			externalTcpLabel = row.label;
 			continue;
 		}
 		QLabel* lbl = row.label;
@@ -236,6 +249,23 @@ void TrajectoryOpParamPanel::clearRows()
 	{
 		m_nonRigidTargetCombo->setParent(m_nonRigidTargetComboParent);
 	}
+	if (externalTcpLabel)
+	{
+		if (m_form->indexOf(externalTcpLabel) >= 0)
+		{
+			m_form->removeWidget(externalTcpLabel);
+		}
+		delete externalTcpLabel;
+		externalTcpLabel = nullptr;
+	}
+	if (m_externalTcpBackendCombo && m_form->indexOf(m_externalTcpBackendCombo) >= 0)
+	{
+		m_form->removeWidget(m_externalTcpBackendCombo);
+	}
+	if (m_externalTcpBackendCombo && m_externalTcpBackendComboParent)
+	{
+		m_externalTcpBackendCombo->setParent(m_externalTcpBackendComboParent);
+	}
 
 	m_rows.clear();
 	m_clearingRows = false;
@@ -293,8 +323,7 @@ void TrajectoryOpParamPanel::updateFieldVisibility()
 			}
 			continue;
 		}
-		bool visible = row.field.visibleWhenScopeKind.empty()
-			|| row.field.visibleWhenScopeKind == scopeToken;
+		bool visible = row.field.visibleWhenScopeKind.empty() || row.field.visibleWhenScopeKind == scopeToken;
 		if (visible && !row.field.visibleWhenFieldKey.empty() && row.field.visibleWhenIntValue >= 0)
 		{
 			visible = currentIntFieldValue(row.field.visibleWhenFieldKey) == row.field.visibleWhenIntValue;
@@ -310,9 +339,8 @@ void TrajectoryOpParamPanel::updateFieldVisibility()
 	}
 }
 
-void TrajectoryOpParamPanel::rebuildForOp(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const trajectory_algo::ITrajectoryOp* algo)
+void TrajectoryOpParamPanel::rebuildForOp(const RobotInstruction::TrajectoryOpDescriptor& op,
+										  const trajectory_algo::ITrajectoryOp* algo)
 {
 	if (m_rebuilding || m_clearingRows)
 	{
@@ -351,16 +379,13 @@ void TrajectoryOpParamPanel::rebuildForOp(
 		{
 			if (m_geometryBackendCombo)
 			{
-				auto* label = new QLabel(
-					m_useChinese ? QStringLiteral("几何对象") : QStringLiteral("Geometry Backend"),
-					this);
+				auto* label =
+					new QLabel(m_useChinese ? QStringLiteral("几何对象") : QStringLiteral("Geometry Backend"), this);
 				m_geometryBackendCombo->setFixedHeight(26);
 				applyFieldWidthPolicy(m_geometryBackendCombo);
 				m_form->addRow(label, m_geometryBackendCombo);
-				const std::string targetBackendId =
-					RobotInstruction::trajectoryOpProjectTargetBackendId(op);
-				const int idx = m_geometryBackendCombo->findData(
-					QString::fromStdString(targetBackendId));
+				const std::string targetBackendId = RobotInstruction::trajectoryOpProjectTargetBackendId(op);
+				const int idx = m_geometryBackendCombo->findData(QString::fromStdString(targetBackendId));
 				if (idx >= 0)
 				{
 					m_geometryBackendCombo->setCurrentIndex(idx);
@@ -377,16 +402,13 @@ void TrajectoryOpParamPanel::rebuildForOp(
 		{
 			if (m_nonRigidSourceCombo)
 			{
-				auto* label = new QLabel(
-					m_useChinese ? QStringLiteral("源几何") : QStringLiteral("Source Geometry"),
-					this);
+				auto* label =
+					new QLabel(m_useChinese ? QStringLiteral("源几何") : QStringLiteral("Source Geometry"), this);
 				m_nonRigidSourceCombo->setFixedHeight(26);
 				applyFieldWidthPolicy(m_nonRigidSourceCombo);
 				m_form->addRow(label, m_nonRigidSourceCombo);
-				const std::string backendId =
-					RobotInstruction::trajectoryOpNonRigidSourceBackendId(op);
-				const int idx = m_nonRigidSourceCombo->findData(
-					QString::fromStdString(backendId));
+				const std::string backendId = RobotInstruction::trajectoryOpNonRigidSourceBackendId(op);
+				const int idx = m_nonRigidSourceCombo->findData(QString::fromStdString(backendId));
 				if (idx >= 0)
 				{
 					m_nonRigidSourceCombo->setCurrentIndex(idx);
@@ -403,16 +425,13 @@ void TrajectoryOpParamPanel::rebuildForOp(
 		{
 			if (m_nonRigidTargetCombo)
 			{
-				auto* label = new QLabel(
-					m_useChinese ? QStringLiteral("目标几何") : QStringLiteral("Target Geometry"),
-					this);
+				auto* label =
+					new QLabel(m_useChinese ? QStringLiteral("目标几何") : QStringLiteral("Target Geometry"), this);
 				m_nonRigidTargetCombo->setFixedHeight(26);
 				applyFieldWidthPolicy(m_nonRigidTargetCombo);
 				m_form->addRow(label, m_nonRigidTargetCombo);
-				const std::string backendId =
-					RobotInstruction::trajectoryOpNonRigidTargetBackendId(op);
-				const int idx = m_nonRigidTargetCombo->findData(
-					QString::fromStdString(backendId));
+				const std::string backendId = RobotInstruction::trajectoryOpNonRigidTargetBackendId(op);
+				const int idx = m_nonRigidTargetCombo->findData(QString::fromStdString(backendId));
 				if (idx >= 0)
 				{
 					m_nonRigidTargetCombo->setCurrentIndex(idx);
@@ -424,6 +443,45 @@ void TrajectoryOpParamPanel::rebuildForOp(
 				m_rows.push_back(binding);
 			}
 			continue;
+		}
+		if (field.key == "toWorkpiece.externalTcpBackendId")
+		{
+			if (m_externalTcpBackendCombo)
+			{
+				auto* label = new QLabel(m_useChinese ? QStringLiteral("外部 TCP 坐标系")
+													  : QStringLiteral("External TCP Frame"),
+										 this);
+				m_externalTcpBackendCombo->setFixedHeight(26);
+				applyFieldWidthPolicy(m_externalTcpBackendCombo);
+				m_form->addRow(label, m_externalTcpBackendCombo);
+				const std::string backendId = RobotInstruction::trajectoryOpToWorkpieceExternalTcpBackendId(op);
+				const int idx = m_externalTcpBackendCombo->findData(QString::fromStdString(backendId));
+				if (idx >= 0)
+				{
+					m_externalTcpBackendCombo->setCurrentIndex(idx);
+				}
+				else if (m_externalTcpBackendCombo->count() > 0)
+				{
+					m_externalTcpBackendCombo->setCurrentIndex(0);
+				}
+				trajectory_algo::TrajectoryParamBinding binding{};
+				binding.label = label;
+				binding.widget = m_externalTcpBackendCombo;
+				binding.field = field;
+				m_rows.push_back(binding);
+			}
+			continue;
+		}
+		// 选中坐标系后隐藏手动六参数
+		if (field.key == "toWorkpiece.externalTcpXMm" || field.key == "toWorkpiece.externalTcpYMm"
+			|| field.key == "toWorkpiece.externalTcpZMm" || field.key == "toWorkpiece.externalTcpRxDeg"
+			|| field.key == "toWorkpiece.externalTcpRyDeg" || field.key == "toWorkpiece.externalTcpRzDeg")
+		{
+			const std::string tcpBackendId = RobotInstruction::trajectoryOpToWorkpieceExternalTcpBackendId(op);
+			if (!tcpBackendId.empty())
+			{
+				continue;
+			}
 		}
 		if (field.type == trajectory_algo::TrajectoryParamType::Message)
 		{
@@ -445,17 +503,20 @@ void TrajectoryOpParamPanel::rebuildForOp(
 			double x = field.defaultDouble;
 			double y = 0.0;
 			double z = -1.0;
-			if (RobotInstruction::trajectoryOpParamRead(op, fx, vx) && vx.kind == trajectory_algo::TrajectoryParamValue::Kind::Double)
+			if (RobotInstruction::trajectoryOpParamRead(op, fx, vx) &&
+				vx.kind == trajectory_algo::TrajectoryParamValue::Kind::Double)
 			{
 				x = vx.asDouble;
 			}
 			fx.key = field.key + field.vec3SuffixY;
-			if (RobotInstruction::trajectoryOpParamRead(op, fx, vx) && vx.kind == trajectory_algo::TrajectoryParamValue::Kind::Double)
+			if (RobotInstruction::trajectoryOpParamRead(op, fx, vx) &&
+				vx.kind == trajectory_algo::TrajectoryParamValue::Kind::Double)
 			{
 				y = vx.asDouble;
 			}
 			fx.key = field.key + field.vec3SuffixZ;
-			if (RobotInstruction::trajectoryOpParamRead(op, fx, vx) && vx.kind == trajectory_algo::TrajectoryParamValue::Kind::Double)
+			if (RobotInstruction::trajectoryOpParamRead(op, fx, vx) &&
+				vx.kind == trajectory_algo::TrajectoryParamValue::Kind::Double)
 			{
 				z = vx.asDouble;
 			}
@@ -475,34 +536,40 @@ void TrajectoryOpParamPanel::rebuildForOp(
 			if (auto* spin = binding.widget->findChild<QDoubleSpinBox*>())
 			{
 				spin->setKeyboardTracking(false);
-				connect(spin, &QAbstractSpinBox::editingFinished, this, [this]() {
-					if (!m_loading)
-					{
-						updateFieldVisibility();
-						emit paramsChanged();
-					}
-				});
+				connect(spin, &QAbstractSpinBox::editingFinished, this,
+						[this]()
+						{
+							if (!m_loading)
+							{
+								updateFieldVisibility();
+								emit paramsChanged();
+							}
+						});
 			}
 			if (auto* spin = binding.widget->findChild<QSpinBox*>())
 			{
 				spin->setKeyboardTracking(false);
-				connect(spin, &QAbstractSpinBox::editingFinished, this, [this]() {
-					if (!m_loading)
-					{
-						updateFieldVisibility();
-						emit paramsChanged();
-					}
-				});
+				connect(spin, &QAbstractSpinBox::editingFinished, this,
+						[this]()
+						{
+							if (!m_loading)
+							{
+								updateFieldVisibility();
+								emit paramsChanged();
+							}
+						});
 			}
 			if (auto* combo = binding.widget->findChild<QComboBox*>())
 			{
-				connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
-					if (!m_loading)
-					{
-						updateFieldVisibility();
-						emit paramsChanged();
-					}
-				});
+				connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+						[this]()
+						{
+							if (!m_loading)
+							{
+								updateFieldVisibility();
+								emit paramsChanged();
+							}
+						});
 			}
 		}
 		m_rows.push_back(std::move(binding));
@@ -512,10 +579,8 @@ void TrajectoryOpParamPanel::rebuildForOp(
 	m_rebuilding = false;
 }
 
-bool TrajectoryOpParamPanel::applyTo(
-	RobotInstruction::TrajectoryOpDescriptor& op,
-	const trajectory_algo::ITrajectoryOp* algo,
-	std::string* errMsg)
+bool TrajectoryOpParamPanel::applyTo(RobotInstruction::TrajectoryOpDescriptor& op,
+									 const trajectory_algo::ITrajectoryOp* algo, std::string* errMsg)
 {
 	if (!algo || m_rebuilding)
 	{
@@ -537,8 +602,7 @@ bool TrajectoryOpParamPanel::applyTo(
 			if (m_geometryBackendCombo && comboIdx >= 0)
 			{
 				RobotInstruction::trajectoryOpSetProjectTargetBackendId(
-					op,
-					m_geometryBackendCombo->currentData().toString().toStdString());
+					op, m_geometryBackendCombo->currentData().toString().toStdString());
 			}
 			continue;
 		}
@@ -547,8 +611,7 @@ bool TrajectoryOpParamPanel::applyTo(
 			if (m_nonRigidSourceCombo && m_nonRigidSourceCombo->currentIndex() >= 0)
 			{
 				RobotInstruction::trajectoryOpSetNonRigidSourceBackendId(
-					op,
-					m_nonRigidSourceCombo->currentData().toString().toStdString());
+					op, m_nonRigidSourceCombo->currentData().toString().toStdString());
 			}
 			continue;
 		}
@@ -557,8 +620,16 @@ bool TrajectoryOpParamPanel::applyTo(
 			if (m_nonRigidTargetCombo && m_nonRigidTargetCombo->currentIndex() >= 0)
 			{
 				RobotInstruction::trajectoryOpSetNonRigidTargetBackendId(
-					op,
-					m_nonRigidTargetCombo->currentData().toString().toStdString());
+					op, m_nonRigidTargetCombo->currentData().toString().toStdString());
+			}
+			continue;
+		}
+		if (row.field.key == "toWorkpiece.externalTcpBackendId")
+		{
+			if (m_externalTcpBackendCombo && m_externalTcpBackendCombo->currentIndex() >= 0)
+			{
+				RobotInstruction::trajectoryOpSetToWorkpieceExternalTcpBackendId(
+					op, m_externalTcpBackendCombo->currentData().toString().toStdString());
 			}
 			continue;
 		}

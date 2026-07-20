@@ -1,10 +1,14 @@
-#pragma once
+﻿#ifndef WIDGET_BACKENDFOLLOWREVERSEINDEX_H
+#define WIDGET_BACKENDFOLLOWREVERSEINDEX_H
+
+/// @file BackendFollowReverseIndex.h
+/// @brief 跟随反向索引：被跟随 backend id → 跟随者 id 列表；脏时按 BackendDataManager 重建
+
+#include "widget_global.h"
 
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-#include "widget_global.h"
 
 class BackendDataManager;
 
@@ -24,3 +28,5 @@ private:
 	mutable bool m_dirty = true;
 	mutable std::unordered_map<std::string, std::vector<std::string>> m_targetToFollowersSorted;
 };
+
+#endif // WIDGET_BACKENDFOLLOWREVERSEINDEX_H

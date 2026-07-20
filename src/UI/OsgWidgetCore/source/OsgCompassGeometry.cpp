@@ -1,9 +1,12 @@
+﻿/// @file OsgCompassGeometry.cpp
+/// @brief OsgCompassGeometry 实现
+
 #include "OsgCompassGeometry.h"
 
 #include "OsgCompassRender.h"
 
-#include <osg/GL>
 #include <osg/Array>
+#include <osg/GL>
 #include <osg/Geode>
 #include <osg/Geometry>
 #include <osg/Group>
@@ -17,7 +20,6 @@
 
 namespace osg_compass
 {
-
 osg::ref_ptr<osg::Node> buildTransformCompassNode(TransformCompassBranches* outBranches)
 {
 	if (outBranches)
@@ -39,7 +41,8 @@ osg::ref_ptr<osg::Node> buildTransformCompassNode(TransformCompassBranches* outB
 
 	const auto applyCompassStateSet = [](osg::StateSet* ss) { applyUnlitHighlitStateSet(ss); };
 
-	auto addSolidTorusRing = [&](int plane, const osg::Vec4& color) -> osg::ref_ptr<osg::Geode> {
+	auto addSolidTorusRing = [&](int plane, const osg::Vec4& color) -> osg::ref_ptr<osg::Geode>
+	{
 		const int slices = 48;
 		const int stacks = 12;
 		const int rowVerts = slices + 1;
@@ -47,7 +50,8 @@ osg::ref_ptr<osg::Node> buildTransformCompassNode(TransformCompassBranches* outB
 		osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
 		verts->reserve(static_cast<unsigned>((stacks + 1) * rowVerts));
 
-		auto mapTorusPoint = [&](float cu, float su, float cv, float sv) -> osg::Vec3 {
+		auto mapTorusPoint = [&](float cu, float su, float cv, float sv) -> osg::Vec3
+		{
 			const float major = ringRadius + tubeR * cv;
 			if (plane == 0)
 			{
@@ -106,7 +110,9 @@ osg::ref_ptr<osg::Node> buildTransformCompassNode(TransformCompassBranches* outB
 		return g;
 	};
 
-	auto addPositiveAxis = [&](const osg::Vec3& p1, const osg::Vec3& coneDir, const osg::Vec4& col) -> osg::ref_ptr<osg::Geode> {
+	auto addPositiveAxis = [&](const osg::Vec3& p1, const osg::Vec3& coneDir,
+							   const osg::Vec4& col) -> osg::ref_ptr<osg::Geode>
+	{
 		osg::ref_ptr<osg::Geode> g = new osg::Geode;
 		osg::ref_ptr<osg::Vec3Array> v = new osg::Vec3Array;
 		v->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
@@ -145,7 +151,8 @@ osg::ref_ptr<osg::Node> buildTransformCompassNode(TransformCompassBranches* outB
 	const osg::Vec4 green(0.15f, 1.0f, 0.15f, 1.0f);
 	const osg::Vec4 blue(0.15f, 0.45f, 1.0f, 1.0f);
 
-	auto wrapAxisBranch = [&](osg::Node* child) -> osg::ref_ptr<osg::MatrixTransform> {
+	auto wrapAxisBranch = [&](osg::Node* child) -> osg::ref_ptr<osg::MatrixTransform>
+	{
 		osg::ref_ptr<osg::MatrixTransform> br = new osg::MatrixTransform;
 		br->addChild(child);
 		applyCompassStateSet(br->getOrCreateStateSet());
@@ -155,16 +162,16 @@ osg::ref_ptr<osg::Node> buildTransformCompassNode(TransformCompassBranches* outB
 	osg::ref_ptr<osg::MatrixTransform> axisBranches[3];
 	osg::ref_ptr<osg::MatrixTransform> ringBranches[3];
 
-	axisBranches[0] = wrapAxisBranch(
-		addPositiveAxis(osg::Vec3(shaftEnd, 0.0f, 0.0f), osg::Vec3(1.0f, 0.0f, 0.0f), red).get());
+	axisBranches[0] =
+		wrapAxisBranch(addPositiveAxis(osg::Vec3(shaftEnd, 0.0f, 0.0f), osg::Vec3(1.0f, 0.0f, 0.0f), red).get());
 	root->addChild(axisBranches[0].get());
 
-	axisBranches[1] = wrapAxisBranch(
-		addPositiveAxis(osg::Vec3(0.0f, shaftEnd, 0.0f), osg::Vec3(0.0f, 1.0f, 0.0f), green).get());
+	axisBranches[1] =
+		wrapAxisBranch(addPositiveAxis(osg::Vec3(0.0f, shaftEnd, 0.0f), osg::Vec3(0.0f, 1.0f, 0.0f), green).get());
 	root->addChild(axisBranches[1].get());
 
-	axisBranches[2] = wrapAxisBranch(
-		addPositiveAxis(osg::Vec3(0.0f, 0.0f, shaftEnd), osg::Vec3(0.0f, 0.0f, 1.0f), blue).get());
+	axisBranches[2] =
+		wrapAxisBranch(addPositiveAxis(osg::Vec3(0.0f, 0.0f, shaftEnd), osg::Vec3(0.0f, 0.0f, 1.0f), blue).get());
 	root->addChild(axisBranches[2].get());
 
 	ringBranches[0] = wrapAxisBranch(addSolidTorusRing(0, osg::Vec4(1.0f, 0.35f, 0.35f, 1.0f)).get());

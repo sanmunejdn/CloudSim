@@ -1,14 +1,14 @@
+﻿/// @file ITrajectoryOp.cpp
+/// @brief ITrajectoryOp 实现
+
 // processPath 默认空实现，仅 Pose 变换块可不覆写
 #include "ITrajectoryOp.h"
 
 namespace trajectory_algo
 {
-
-bool ITrajectoryOp::processPath(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	RobotInstruction::UnifiedTrajectory& traj,
-	const TrajectoryOpExecutionContext& ctx,
-	std::string* errMsg) const
+bool ITrajectoryOp::processPath(const RobotInstruction::TrajectoryOpDescriptor& op,
+								RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx,
+								std::string* errMsg) const
 {
 	(void)op;
 	(void)traj;

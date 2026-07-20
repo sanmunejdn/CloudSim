@@ -1,13 +1,17 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_ROBOTTEACHIK_H
+#define ROBOTSCENE_ROBOTTEACHIK_H
+
+/// @file RobotTeachIk.h
+/// @brief 示教 IK：T_base_target 与 T_flange_tool → 法兰目标 → URDF 数值 IK
 
 #include "robot_scene_global.h"
-
-#include <BackendDataBase.h>
-#include <RigidTransform.h>
 
 #include <QString>
 #include <string>
 #include <vector>
+
+#include <BackendDataBase.h>
+#include <RigidTransform.h>
 
 namespace RobotTeachIk
 {
@@ -37,3 +41,5 @@ struct ROBOT_SCENE_API TeachIkResult
 ROBOT_SCENE_API TeachIkResult solveTeachIk(const TeachIkContext& ctx);
 
 } // namespace RobotTeachIk
+
+#endif // ROBOTSCENE_ROBOTTEACHIK_H

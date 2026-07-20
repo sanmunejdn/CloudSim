@@ -1,7 +1,10 @@
+﻿/// @file OsgWidgetColorController.cpp
+/// @brief OsgWidgetColorController 实现
+
 #include "OsgWidgetColorController.h"
 
-#include "OsgWidget.h"
 #include "LitMeshMaterial.h"
+#include "OsgWidget.h"
 
 #include <algorithm>
 
@@ -13,8 +16,8 @@
 #include <osg/StateSet>
 #include <osg/Vec4>
 
-namespace {
-
+namespace
+{
 void paintOverallColorOnNode(osg::Node* root, const osg::Vec4& color, bool useSceneLighting)
 {
 	if (!root)
@@ -23,19 +26,15 @@ void paintOverallColorOnNode(osg::Node* root, const osg::Vec4& color, bool useSc
 	}
 	struct ColorVisitor : public osg::NodeVisitor
 	{
-		explicit ColorVisitor(const osg::Vec4& c)
-			: osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), clr(c) {}
+		explicit ColorVisitor(const osg::Vec4& c) : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), clr(c) {}
 
 		void apply(osg::Geode& geode) override
 		{
 			const bool wireOverlay = (geode.getName() == "meshWireOverlay");
 			const osg::Vec4 c = wireOverlay
-				? osg::Vec4(
-					std::max(0.12f, clr.r() * 0.38f),
-					std::max(0.12f, clr.g() * 0.38f),
-					std::max(0.12f, clr.b() * 0.38f),
-					clr.a())
-				: clr;
+									? osg::Vec4(std::max(0.12f, clr.r() * 0.38f), std::max(0.12f, clr.g() * 0.38f),
+												std::max(0.12f, clr.b() * 0.38f), clr.a())
+									: clr;
 			for (unsigned int i = 0; i < geode.getNumDrawables(); ++i)
 			{
 				osg::Drawable* drawable = geode.getDrawable(i);
@@ -88,7 +87,8 @@ void OsgWidgetColorController::applyColorToStagingGeometry(OsgWidget& self, cons
 	}
 }
 
-void OsgWidgetColorController::applyColorToBackendObject(OsgWidget& self, const std::string& backendId, const osg::Vec4& color)
+void OsgWidgetColorController::applyColorToBackendObject(OsgWidget& self, const std::string& backendId,
+														 const osg::Vec4& color)
 {
 	if (backendId.empty())
 	{

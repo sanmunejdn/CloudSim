@@ -1,34 +1,25 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_FEATURETRAJECTORYPAGEWIDGET_H
+#define ROBOTWIDGET_FEATURETRAJECTORYPAGEWIDGET_H
 
-
+/// @file FeatureTrajectoryPageWidget.h
+/// @brief FeatureTrajectoryPageWidget 接口
 
 #include "robotwidget_global.h"
 
-
-
 #include "RobotOsgUiTypes.h"
 
-#include <FeatureListDocument.h>
-
 #include <QWidget>
-
-
-
 #include <functional>
-
 #include <string>
 
-
+#include <FeatureListDocument.h>
 
 namespace RobotInstruction
 
 {
-
 struct RawTrajectory;
 
 }
-
-
 
 class QCheckBox;
 
@@ -61,21 +52,15 @@ namespace geoalgo
 class ShapeHandle;
 struct FeatureCatalog;
 struct WorkpieceRef;
-}
+} // namespace geoalgo
 
 class ROBOTWIDGET_EXPORT FeatureTrajectoryPageWidget : public QWidget
 
 {
-
 	Q_OBJECT
 
-
-
 public:
-
 	explicit FeatureTrajectoryPageWidget(QWidget* parent = nullptr);
-
-
 
 	void setUseChinese(bool chinese);
 
@@ -109,10 +94,14 @@ public:
 	/// 显式加载当前绑定 PathPlan 的特征表并进入可编辑（自动重离散）模式
 	bool beginEditBoundPathPlan(QString* err = nullptr);
 
+	/// 退出修改态：清特征表与 3D 预览；Session 从 PathPlan 重载（不回滚已落盘 raw/流水线）
+	void cancelEditBoundPathPlan();
+
 	bool isFeatureEditActive() const { return m_featureEditActive; }
 
 signals:
 	void workpieceComboChanged();
+	void featureEditActiveChanged(bool active);
 
 private slots:
 
@@ -132,10 +121,7 @@ private slots:
 
 	void onPathPlanBound(const std::string& pathPlanId);
 
-
-
 private:
-
 	enum class PickSessionKind
 
 	{
@@ -147,8 +133,6 @@ private:
 		Face
 
 	};
-
-
 
 	void refreshBackendCombo();
 
@@ -166,18 +150,15 @@ private:
 
 	void setStatus(const QString& text);
 
+	void setFeatureEditActive(bool active);
+
 	void exitPickMode();
 
 	void onMeshPickCommitted(const struct PickResult& pick, int pickKindInt);
 
-	bool buildFeatureEntryFromPick(
-		bool pickFace,
-		const geoalgo::Point3d& modelA,
-		const geoalgo::Point3d& modelB,
-		int knownFaceIndex,
-		int knownEdgeIndex,
-		geoalgo::FeatureEntry& out,
-		QString* err) const;
+	bool buildFeatureEntryFromPick(bool pickFace, const geoalgo::Point3d& modelA, const geoalgo::Point3d& modelB,
+								   int knownFaceIndex, int knownEdgeIndex, geoalgo::FeatureEntry& out,
+								   QString* err) const;
 
 	bool buildFeatureListDocument(geoalgo::FeatureListDocument& out, QString* err) const;
 
@@ -211,7 +192,7 @@ private:
 	bool enumerateCatalogForBackend(const QString& backendId, geoalgo::FeatureCatalog& out, QString* err) const;
 
 	bool resolveWorkpieceShapeForBackend(const QString& backendId, geoalgo::ShapeHandle& outShape,
-		geoalgo::WorkpieceRef& outRef, QString* err) const;
+										 geoalgo::WorkpieceRef& outRef, QString* err) const;
 
 	bool autoEnumerateCatalogForCurrentWorkpiece(bool quiet, QString* err);
 
@@ -224,8 +205,6 @@ private:
 	bool loadFeatureListFromJson(const std::string& jsonUtf8, QString* err = nullptr);
 
 	bool selectBackendComboById(const QString& backendId);
-
-
 
 	IRobotMainWindowHost* m_host = nullptr;
 
@@ -256,8 +235,6 @@ private:
 	std::string m_lastLoadedPathPlanId;
 
 	std::string m_lastLoadedSourceJson;
-
-
 
 	QComboBox* m_backendCombo = nullptr;
 
@@ -290,6 +267,6 @@ private:
 	QSpinBox* m_axisIntervalSpin = nullptr;
 
 	QTimer* m_rediscretizeTimer = nullptr;
-
 };
 
+#endif // ROBOTWIDGET_FEATURETRAJECTORYPAGEWIDGET_H

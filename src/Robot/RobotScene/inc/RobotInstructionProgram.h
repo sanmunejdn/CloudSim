@@ -1,7 +1,12 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONPROGRAM_H
+#define ROBOTSCENE_ROBOTINSTRUCTIONPROGRAM_H
+
+/// @file RobotInstructionProgram.h
+/// @brief 深度优先收集运动指令（顺序与规划结果向量一致）
+
+#include "robot_scene_global.h"
 
 #include "RobotInstructionModel.h"
-#include "robot_scene_global.h"
 
 #include <memory>
 #include <string>
@@ -9,19 +14,15 @@
 
 namespace RobotInstruction
 {
-
 /// 深度优先收集运动指令（顺序与规划结果向量一致）
-ROBOT_SCENE_API std::vector<const Base*> collectMotionInstructions(
-	const std::vector<std::shared_ptr<Base>>& program);
+ROBOT_SCENE_API std::vector<const Base*> collectMotionInstructions(const std::vector<std::shared_ptr<Base>>& program);
 
-ROBOT_SCENE_API void collectMotionInstructionsRecursive(
-	const std::vector<std::shared_ptr<Base>>& steps,
-	std::vector<const Base*>& out);
+ROBOT_SCENE_API void collectMotionInstructionsRecursive(const std::vector<std::shared_ptr<Base>>& steps,
+														std::vector<const Base*>& out);
 
 /// 深度优先展平全部指令（UI/旧适配）
-ROBOT_SCENE_API void flattenInstructionsRecursive(
-	const std::vector<std::shared_ptr<Base>>& steps,
-	std::vector<std::shared_ptr<Base>>& out);
+ROBOT_SCENE_API void flattenInstructionsRecursive(const std::vector<std::shared_ptr<Base>>& steps,
+												  std::vector<std::shared_ptr<Base>>& out);
 
 /// 运动路点扩展键：1-based 序号 P1、P2…
 inline constexpr const char* kMotionPointIndexKey = "motion.pointIndex";
@@ -40,3 +41,5 @@ ROBOT_SCENE_API void renumberMotionPointIndices(std::vector<std::shared_ptr<Base
 ROBOT_SCENE_API std::string formatMotionWaypointSummary(const Base& ins, bool chinese);
 
 } // namespace RobotInstruction
+
+#endif // ROBOTSCENE_ROBOTINSTRUCTIONPROGRAM_H

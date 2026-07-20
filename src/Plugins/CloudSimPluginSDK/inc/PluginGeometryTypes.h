@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINSDK_PLUGINGEOMETRYTYPES_H
+#define CLOUDSIMPLUGINSDK_PLUGINGEOMETRYTYPES_H
+
+/// @file PluginGeometryTypes.h
+/// @brief STEP 内拓扑元素引用（edge/face 索引从 0 起）
 
 #include "cloudsim_plugin_sdk_global.h"
 
@@ -123,12 +127,10 @@ struct PluginGeometryJobResult
 	double maxResidualMm = 0.0;
 };
 
-using PluginGeometryFinishedFn = std::function<void(
-	bool ok,
-	const QString& error,
-	const PluginGeometryJobResult& result)>;
+using PluginGeometryFinishedFn =
+	std::function<void(bool ok, const QString& error, const PluginGeometryJobResult& result)>;
 
-using PluginGeometryElementPickedFn = std::function<void(
-	bool ok,
-	const QString& error,
-	const PluginGeometryStepRef& ref)>;
+using PluginGeometryElementPickedFn =
+	std::function<void(bool ok, const QString& error, const PluginGeometryStepRef& ref)>;
+
+#endif // CLOUDSIMPLUGINSDK_PLUGINGEOMETRYTYPES_H

@@ -1,9 +1,11 @@
-#include "MainWindow.h"
+﻿/// @file MainWindowAiAssistant.cpp
+/// @brief MainWindowAiAssistant 实现
 
 #include "AiAssistantCoordinator.h"
 #include "AiAssistantDockWidget.h"
 #include "IAiAssistantHost.h"
 #include "IPluginHostContext.h"
+#include "MainWindow.h"
 #include "PluginHostContext.h"
 #include "PluginManager.h"
 #include "RunInfoPage.h"
@@ -58,18 +60,17 @@ void MainWindow::setupAiAssistantCoordinator()
 	m_aiCoordinator = new AiAssistantCoordinator(m_aiAssistantPage, this);
 
 	connect(m_aiCoordinator, &AiAssistantCoordinator::assistantFinished, this,
-		[this](const QString& reply, bool isError, const QString& parserVia) {
-			finishAiAssistantReply(reply, isError, parserVia);
-		});
+			[this](const QString& reply, bool isError, const QString& parserVia)
+			{ finishAiAssistantReply(reply, isError, parserVia); });
 	connect(m_aiCoordinator, &AiAssistantCoordinator::parseFailed, this, &MainWindow::onAiParseFailed);
 	connect(m_aiAssistantPage, &AiAssistantDockWidget::messageSubmitted, m_aiCoordinator,
-		&AiAssistantCoordinator::onUserMessageSubmitted);
+			&AiAssistantCoordinator::onUserMessageSubmitted);
 	connect(m_aiAssistantPage, &AiAssistantDockWidget::createFromRecognitionClicked, m_aiCoordinator,
-		&AiAssistantCoordinator::onCreateRecognitionConfirmed);
+			&AiAssistantCoordinator::onCreateRecognitionConfirmed);
 	connect(m_aiAssistantPage, &AiAssistantDockWidget::confirmTrajectoryFeaturesClicked, m_aiCoordinator,
-		&AiAssistantCoordinator::onConfirmTrajectoryFeaturesClicked);
+			&AiAssistantCoordinator::onConfirmTrajectoryFeaturesClicked);
 	connect(m_aiAssistantPage, &AiAssistantDockWidget::retryTrajectoryFeaturesClicked, m_aiCoordinator,
-		&AiAssistantCoordinator::onRetryTrajectoryFeaturesClicked);
+			&AiAssistantCoordinator::onRetryTrajectoryFeaturesClicked);
 
 	refreshAiAssistantHost();
 }

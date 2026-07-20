@@ -1,3 +1,6 @@
+﻿/// @file RobotProgramCatalog.cpp
+/// @brief RobotProgramCatalog 实现
+
 #include "RobotProgramCatalog.h"
 
 #include "InstructionProgramDocument.h"
@@ -103,9 +106,7 @@ const InstructionGroup* RobotProgramCatalog::findGroup(const std::string& groupI
 	return const_cast<RobotProgramCatalog*>(this)->findGroup(groupId);
 }
 
-InstructionGroup* RobotProgramCatalog::findGroupInProgram(
-	const std::string& programId,
-	const std::string& groupId)
+InstructionGroup* RobotProgramCatalog::findGroupInProgram(const std::string& programId, const std::string& groupId)
 {
 	RobotProgram* prog = findProgramMutable(programId);
 	if (!prog)
@@ -122,9 +123,8 @@ InstructionGroup* RobotProgramCatalog::findGroupInProgram(
 	return nullptr;
 }
 
-std::vector<const Base*> RobotProgramCatalog::resolveGroupMembers(
-	const InstructionGroup& group,
-	const RobotProgram& prog) const
+std::vector<const Base*> RobotProgramCatalog::resolveGroupMembers(const InstructionGroup& group,
+																  const RobotProgram& prog) const
 {
 	std::unordered_map<std::string, std::shared_ptr<Base>> idMap;
 	InstructionProgramDocument::collectIdMapRecursive(prog.steps, idMap);
@@ -141,9 +141,8 @@ std::vector<const Base*> RobotProgramCatalog::resolveGroupMembers(
 	return out;
 }
 
-std::vector<std::string> RobotProgramCatalog::resolveOpScopeInstructionIds(
-	const OpScope& scope,
-	const RobotProgram& prog) const
+std::vector<std::string> RobotProgramCatalog::resolveOpScopeInstructionIds(const OpScope& scope,
+																		   const RobotProgram& prog) const
 {
 	std::vector<std::string> out;
 	if (scope.kind == OpScope::Kind::EntireProgram)
@@ -195,10 +194,8 @@ std::vector<std::string> RobotProgramCatalog::resolveOpScopeInstructionIds(
 
 namespace
 {
-void collectMotionIdsFromSteps(
-	const std::vector<std::shared_ptr<Base>>& steps,
-	std::vector<std::string>& out,
-	std::unordered_set<std::string>& seen)
+void collectMotionIdsFromSteps(const std::vector<std::shared_ptr<Base>>& steps, std::vector<std::string>& out,
+							   std::unordered_set<std::string>& seen)
 {
 	for (const std::shared_ptr<Base>& ins : steps)
 	{
@@ -230,10 +227,8 @@ void collectMotionIdsFromSteps(
 	}
 }
 
-void collectMotionIdsFromInstructionTree(
-	const Base& ins,
-	std::vector<std::string>& out,
-	std::unordered_set<std::string>& seen)
+void collectMotionIdsFromInstructionTree(const Base& ins, std::vector<std::string>& out,
+										 std::unordered_set<std::string>& seen)
 {
 	if (isMotionWaypointType(ins.type()))
 	{
@@ -256,9 +251,9 @@ void collectMotionIdsFromInstructionTree(
 }
 } // namespace
 
-std::vector<std::string> RobotProgramCatalog::expandToMotionWaypointIds(
-	const RobotProgram& prog,
-	const std::vector<std::string>& instructionIds) const
+std::vector<std::string>
+RobotProgramCatalog::expandToMotionWaypointIds(const RobotProgram& prog,
+											   const std::vector<std::string>& instructionIds) const
 {
 	std::unordered_map<std::string, std::shared_ptr<Base>> idMap;
 	InstructionProgramDocument::collectIdMapRecursive(prog.steps, idMap);
@@ -309,10 +304,8 @@ bool RobotProgramCatalog::removeProgram(const std::string& programId, std::strin
 		}
 		return false;
 	}
-	const auto it = std::remove_if(
-		m_programs.begin(),
-		m_programs.end(),
-		[&programId](const RobotProgram& p) { return p.id == programId; });
+	const auto it = std::remove_if(m_programs.begin(), m_programs.end(),
+								   [&programId](const RobotProgram& p) { return p.id == programId; });
 	if (it == m_programs.end())
 	{
 		if (errMsg)
@@ -329,10 +322,7 @@ bool RobotProgramCatalog::removeProgram(const std::string& programId, std::strin
 	return true;
 }
 
-bool RobotProgramCatalog::renameProgram(
-	const std::string& programId,
-	const std::string& newName,
-	std::string* errMsg)
+bool RobotProgramCatalog::renameProgram(const std::string& programId, const std::string& newName, std::string* errMsg)
 {
 	RobotProgram* prog = findProgramMutable(programId);
 	if (!prog)
@@ -371,9 +361,8 @@ const std::vector<std::shared_ptr<Base>>& RobotProgramCatalog::activeSteps() con
 	return const_cast<RobotProgramCatalog*>(this)->activeSteps();
 }
 
-void RobotProgramCatalog::pruneGroupMembers(
-	const std::string& programId,
-	const std::unordered_set<std::string>& removedIds)
+void RobotProgramCatalog::pruneGroupMembers(const std::string& programId,
+											const std::unordered_set<std::string>& removedIds)
 {
 	RobotProgram* prog = findProgramMutable(programId);
 	if (!prog || removedIds.empty())
@@ -383,17 +372,14 @@ void RobotProgramCatalog::pruneGroupMembers(
 	for (auto& group : prog->groups)
 	{
 		group.memberInstructionIds.erase(
-			std::remove_if(
-				group.memberInstructionIds.begin(),
-				group.memberInstructionIds.end(),
-				[&removedIds](const std::string& id) { return removedIds.count(id) != 0; }),
+			std::remove_if(group.memberInstructionIds.begin(), group.memberInstructionIds.end(),
+						   [&removedIds](const std::string& id) { return removedIds.count(id) != 0; }),
 			group.memberInstructionIds.end());
 	}
 }
 
-void RobotProgramCatalog::prunePathPlanReferences(
-	const std::string& programId,
-	const std::unordered_set<std::string>& removedPathPlanIds)
+void RobotProgramCatalog::prunePathPlanReferences(const std::string& programId,
+												  const std::unordered_set<std::string>& removedPathPlanIds)
 {
 	if (removedPathPlanIds.empty())
 	{
@@ -408,22 +394,17 @@ void RobotProgramCatalog::prunePathPlanReferences(
 	{
 		return;
 	}
-	prog->groups.erase(
-		std::remove_if(
-			prog->groups.begin(),
-			prog->groups.end(),
-			[&removedPathPlanIds](const InstructionGroup& g) {
-				return g.role == InstructionGroupRole::PathPlanOutput
-					&& removedPathPlanIds.count(g.pathPlanInstructionId) != 0;
-			}),
-		prog->groups.end());
+	prog->groups.erase(std::remove_if(prog->groups.begin(), prog->groups.end(),
+									  [&removedPathPlanIds](const InstructionGroup& g) {
+										  return g.role == InstructionGroupRole::PathPlanOutput &&
+												 removedPathPlanIds.count(g.pathPlanInstructionId) != 0;
+									  }),
+					   prog->groups.end());
 }
 
 namespace
 {
-PathPlanInstruction* findPathPlanInSteps(
-	std::vector<std::shared_ptr<Base>>& steps,
-	const std::string& pathPlanId)
+PathPlanInstruction* findPathPlanInSteps(std::vector<std::shared_ptr<Base>>& steps, const std::string& pathPlanId)
 {
 	for (auto& ins : steps)
 	{
@@ -437,18 +418,21 @@ PathPlanInstruction* findPathPlanInSteps(
 		}
 		if (ins->type() == Type::IF)
 		{
-			if (auto* p = findPathPlanInSteps(const_cast<std::vector<std::shared_ptr<Base>>&>(ins->nestedSteps()), pathPlanId))
+			if (auto* p = findPathPlanInSteps(const_cast<std::vector<std::shared_ptr<Base>>&>(ins->nestedSteps()),
+											  pathPlanId))
 			{
 				return p;
 			}
-			if (auto* p = findPathPlanInSteps(const_cast<std::vector<std::shared_ptr<Base>>&>(ins->elseSteps()), pathPlanId))
+			if (auto* p =
+					findPathPlanInSteps(const_cast<std::vector<std::shared_ptr<Base>>&>(ins->elseSteps()), pathPlanId))
 			{
 				return p;
 			}
 		}
 		else if (ins->type() == Type::WHILE)
 		{
-			if (auto* p = findPathPlanInSteps(const_cast<std::vector<std::shared_ptr<Base>>&>(ins->nestedSteps()), pathPlanId))
+			if (auto* p = findPathPlanInSteps(const_cast<std::vector<std::shared_ptr<Base>>&>(ins->nestedSteps()),
+											  pathPlanId))
 			{
 				return p;
 			}
@@ -457,9 +441,7 @@ PathPlanInstruction* findPathPlanInSteps(
 	return nullptr;
 }
 
-void collectPathPlansInSteps(
-	const std::vector<std::shared_ptr<Base>>& steps,
-	std::vector<PathPlanInstruction*>& out)
+void collectPathPlansInSteps(const std::vector<std::shared_ptr<Base>>& steps, std::vector<PathPlanInstruction*>& out)
 {
 	for (const auto& ins : steps)
 	{
@@ -484,17 +466,14 @@ void collectPathPlansInSteps(
 }
 } // namespace
 
-PathPlanInstruction* RobotProgramCatalog::findPathPlan(
-	const std::string& programId,
-	const std::string& pathPlanId)
+PathPlanInstruction* RobotProgramCatalog::findPathPlan(const std::string& programId, const std::string& pathPlanId)
 {
 	RobotProgram* prog = findProgramMutable(programId);
 	return prog ? findPathPlanInSteps(prog->steps, pathPlanId) : nullptr;
 }
 
-const PathPlanInstruction* RobotProgramCatalog::findPathPlan(
-	const std::string& programId,
-	const std::string& pathPlanId) const
+const PathPlanInstruction* RobotProgramCatalog::findPathPlan(const std::string& programId,
+															 const std::string& pathPlanId) const
 {
 	return const_cast<RobotProgramCatalog*>(this)->findPathPlan(programId, pathPlanId);
 }
@@ -666,7 +645,8 @@ void migrateLegacyPathPlans(RobotProgramCatalog& catalog)
 		}
 		bool hasMotion = false;
 		std::function<void(const std::vector<std::shared_ptr<Base>>&)> walk;
-		walk = [&](const std::vector<std::shared_ptr<Base>>& steps) {
+		walk = [&](const std::vector<std::shared_ptr<Base>>& steps)
+		{
 			for (const std::shared_ptr<Base>& ins : steps)
 			{
 				if (!ins)

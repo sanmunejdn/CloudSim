@@ -1,9 +1,12 @@
-#pragma once
+﻿#ifndef LABELINGPLUGIN_LABELINGANNOTWIDGET_H
+#define LABELINGPLUGIN_LABELINGANNOTWIDGET_H
+
+/// @file LabelingAnnotWidget.h
+/// @brief LabelingAnnotWidget 接口
 
 #include "PluginLabelingTypes.h"
 
 #include <QWidget>
-
 #include <memory>
 #include <vector>
 
@@ -96,3 +99,5 @@ private:
 	bool m_toolPickActive = false;
 	QString m_lastExportDir;
 };
+
+#endif // LABELINGPLUGIN_LABELINGANNOTWIDGET_H

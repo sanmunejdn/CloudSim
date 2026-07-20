@@ -1,9 +1,13 @@
-#pragma once
+﻿#ifndef DATA_PROPERTYROWSCOMPATADAPTER_H
+#define DATA_PROPERTYROWSCOMPATADAPTER_H
 
-#include <string>
+/// @file PropertyRowsCompatAdapter.h
+/// @brief 旧 PropertyBag 与 BackendDataBase 位姿/颜色同步
 
 #include "BackendDataBase.h"
 #include "PropertyBag.h"
+
+#include <string>
 
 class BackendDataManager;
 class FollowAttachmentComponent;
@@ -34,3 +38,5 @@ inline void syncTransformColorToBag(PropertyBag& bag, const BackendDataBase& dat
 	bag.set<std::string>("pose.frame", frame);
 }
 } // namespace property_rows_compat
+
+#endif // DATA_PROPERTYROWSCOMPATADAPTER_H

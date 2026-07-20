@@ -1,4 +1,8 @@
+﻿/// @file FeatureDiscretizeCommon.cpp
+/// @brief FeatureDiscretizeCommon 实现
+
 #include "detail/FeatureDiscretizeCommon.h"
+
 #include "detail/FeatureDiscretizeFrame.h"
 
 #include <cmath>
@@ -6,7 +10,6 @@ namespace geoalgo
 {
 namespace detail
 {
-
 DiscretizeParams buildDiscretizeParamsFromInput(const FeatureDiscretizeInput& input)
 {
 	return buildDiscretizeParams(input.params);

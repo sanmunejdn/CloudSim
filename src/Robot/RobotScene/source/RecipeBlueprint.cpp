@@ -1,10 +1,12 @@
+﻿/// @file RecipeBlueprint.cpp
+/// @brief RecipeBlueprint 实现
+
 #include "RecipeBlueprint.h"
 
 #include "ProcessFlowPresetLoader.h"
 
 namespace RobotInstruction
 {
-
 std::vector<TrajectoryOpDescriptor> buildRecipePreset(const RecipeKind kind)
 {
 	const char* presetId = nullptr;

@@ -1,3 +1,6 @@
+﻿/// @file OsgSectionPlaneGeometry.cpp
+/// @brief OsgSectionPlaneGeometry 实现
+
 #include "OsgSectionPlaneGeometry.h"
 
 #include "OsgCompassGeometry.h"
@@ -14,7 +17,6 @@
 
 namespace osg_section_plane
 {
-
 osg::ref_ptr<osg::Node> buildSectionPlaneQuadNode(const float planeHalfSizeMm)
 {
 	auto* root = new osg::Group;
@@ -64,9 +66,8 @@ osg::ref_ptr<osg::Node> buildSectionPlaneQuadNode(const float planeHalfSizeMm)
 	return root;
 }
 
-osg::ref_ptr<osg::Node> buildSectionPlaneNode(
-	const float planeHalfSizeMm,
-	osg_compass::TransformCompassBranches* outBranches)
+osg::ref_ptr<osg::Node> buildSectionPlaneNode(const float planeHalfSizeMm,
+											  osg_compass::TransformCompassBranches* outBranches)
 {
 	auto* root = new osg::Group;
 	root->setName("SectionPlaneRoot");

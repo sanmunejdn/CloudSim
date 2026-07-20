@@ -1,3 +1,6 @@
+﻿/// @file TrajectoryTemplates.cpp
+/// @brief TrajectoryTemplates 实现
+
 #include "TrajectoryTemplates.h"
 
 #include <algorithm>
@@ -10,10 +13,8 @@ namespace geoalgo
 {
 namespace tg
 {
-
 namespace
 {
-
 constexpr double kPi = 3.14159265358979323846;
 
 Vec3 toVec3(const std::array<double, 3>& a)
@@ -26,9 +27,7 @@ std::array<double, 3> toArray(const Vec3& v)
 	return {v.x, v.y, v.z};
 }
 
-const TubularCenterlineSample* sampleAtArc(
-	const std::vector<TubularCenterlineSample>& samples,
-	const double arcMm)
+const TubularCenterlineSample* sampleAtArc(const std::vector<TubularCenterlineSample>& samples, const double arcMm)
 {
 	if (samples.empty())
 	{
@@ -48,23 +47,17 @@ const TubularCenterlineSample* sampleAtArc(
 	return &samples.back();
 }
 
-TubularTemplatePoint makeTemplatePoint(
-	const TubularCenterlineSample& s,
-	const double angleRad,
-	const double paramT)
+TubularTemplatePoint makeTemplatePoint(const TubularCenterlineSample& s, const double angleRad, const double paramT)
 {
 	const Vec3 n = toVec3(s.normal);
 	const Vec3 b = toVec3(s.binormal);
 
 	// 椭圆截面：使用截面参数计算偏移
 	Vec3 offset;
-	if (s.semiMajorMm > 1e-6 && s.semiMinorMm > 1e-6 &&
-		std::fabs(s.semiMajorMm - s.semiMinorMm) > 1e-3)
+	if (s.semiMajorMm > 1e-6 && s.semiMinorMm > 1e-6 && std::fabs(s.semiMajorMm - s.semiMinorMm) > 1e-3)
 	{
 		// 椭圆参数方程：(a*cos(t), b*sin(t))，旋转后
-		offset = computeSectionNormal(
-			s.semiMajorMm, s.semiMinorMm, s.sectionRotationDeg,
-			angleRad, n, b);
+		offset = computeSectionNormal(s.semiMajorMm, s.semiMinorMm, s.sectionRotationDeg, angleRad, n, b);
 		// 缩放到椭圆表面距离
 		const double a = s.semiMajorMm;
 		const double bval = s.semiMinorMm;
@@ -92,10 +85,8 @@ TubularTemplatePoint makeTemplatePoint(
 	return tp;
 }
 
-void appendHelical(
-	const std::vector<TubularCenterlineSample>& samples,
-	const int coils,
-	std::vector<TubularTemplatePoint>& out)
+void appendHelical(const std::vector<TubularCenterlineSample>& samples, const int coils,
+				   std::vector<TubularTemplatePoint>& out)
 {
 	if (samples.size() < 2U || coils <= 0)
 	{
@@ -117,10 +108,8 @@ void appendHelical(
 	}
 }
 
-void appendCircumferential(
-	const std::vector<TubularCenterlineSample>& samples,
-	const int rings,
-	std::vector<TubularTemplatePoint>& out)
+void appendCircumferential(const std::vector<TubularCenterlineSample>& samples, const int rings,
+						   std::vector<TubularTemplatePoint>& out)
 {
 	if (samples.empty() || rings <= 0)
 	{
@@ -129,17 +118,17 @@ void appendCircumferential(
 	const int ringCount = std::max(rings, 4);
 	for (int r = 0; r < ringCount; ++r)
 	{
-		const std::size_t idx = static_cast<std::size_t>(r) * (samples.size() - 1U) / static_cast<std::size_t>(ringCount - 1);
+		const std::size_t idx =
+			static_cast<std::size_t>(r) * (samples.size() - 1U) / static_cast<std::size_t>(ringCount - 1);
 		const TubularCenterlineSample& s = samples[idx];
 		const double paramT = static_cast<double>(r) / static_cast<double>(ringCount);
 
 		// 椭圆截面：自适应角度采样
-		const bool isEllipse = (s.semiMajorMm > 1e-6 && s.semiMinorMm > 1e-6 &&
-			std::fabs(s.semiMajorMm - s.semiMinorMm) > 1e-3);
+		const bool isEllipse =
+			(s.semiMajorMm > 1e-6 && s.semiMinorMm > 1e-6 && std::fabs(s.semiMajorMm - s.semiMinorMm) > 1e-3);
 		if (isEllipse)
 		{
-			const std::vector<double> angles = computeAnisotropicAngleSamples(
-				s.semiMajorMm, s.semiMinorMm, 24);
+			const std::vector<double> angles = computeAnisotropicAngleSamples(s.semiMajorMm, s.semiMinorMm, 24);
 			for (const double angle : angles)
 			{
 				out.push_back(makeTemplatePoint(s, angle, paramT));
@@ -158,10 +147,8 @@ void appendCircumferential(
 	}
 }
 
-void appendAxialParallel(
-	const std::vector<TubularCenterlineSample>& samples,
-	const int meridians,
-	std::vector<TubularTemplatePoint>& out)
+void appendAxialParallel(const std::vector<TubularCenterlineSample>& samples, const int meridians,
+						 std::vector<TubularTemplatePoint>& out)
 {
 	if (samples.size() < 2U || meridians <= 0)
 	{
@@ -179,10 +166,8 @@ void appendAxialParallel(
 	}
 }
 
-void appendZigzag(
-	const std::vector<TubularCenterlineSample>& samples,
-	const int passes,
-	std::vector<TubularTemplatePoint>& out)
+void appendZigzag(const std::vector<TubularCenterlineSample>& samples, const int passes,
+				  std::vector<TubularTemplatePoint>& out)
 {
 	if (samples.size() < 2U || passes <= 0)
 	{
@@ -207,12 +192,10 @@ void appendZigzag(
 
 } // namespace
 
-bool runTrajectoryTemplates(
-	const std::vector<TubularPipeSegment>& segments,
-	const std::vector<TubularCenterlineSample>& centerlineSamples,
-	const TubularGrindingParams& params,
-	std::vector<TubularTemplatePoint>& outPoints,
-	std::string* errMsg)
+bool runTrajectoryTemplates(const std::vector<TubularPipeSegment>& segments,
+							const std::vector<TubularCenterlineSample>& centerlineSamples,
+							const TubularGrindingParams& params, std::vector<TubularTemplatePoint>& outPoints,
+							std::string* errMsg)
 {
 	outPoints.clear();
 	if (centerlineSamples.empty())

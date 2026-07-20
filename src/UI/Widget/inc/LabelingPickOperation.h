@@ -1,13 +1,17 @@
-#pragma once
+﻿#ifndef WIDGET_LABELINGPICKOPERATION_H
+#define WIDGET_LABELINGPICKOPERATION_H
+
+/// @file LabelingPickOperation.h
+/// @brief 分割标注拾取：单击或刷选点云/网格面
+
+#include "../../OsgWidgetCore/inc/PickTypes.h"
+#include "SelectionOperation.h"
+#include "ViewportGestureRecognizer.h"
 
 #include <QElapsedTimer>
 #include <QPoint>
 #include <QSet>
 #include <QVector>
-
-#include "../../OsgWidgetCore/inc/PickTypes.h"
-#include "SelectionOperation.h"
-#include "ViewportGestureRecognizer.h"
 
 /// 分割标注拾取：单击或刷选点云/网格面
 class LabelingPickOperation : public SelectionOperation
@@ -31,3 +35,5 @@ protected:
 	void emitClickPick(const QPoint& pos);
 	void emitBrushStroke(const QPoint& pos);
 };
+
+#endif // WIDGET_LABELINGPICKOPERATION_H

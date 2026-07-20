@@ -1,9 +1,12 @@
-#pragma once
+﻿#ifndef GEOMETRYPLUGIN_GEOMETRYDOCKWIDGET_H
+#define GEOMETRYPLUGIN_GEOMETRYDOCKWIDGET_H
 
-#include <QWidget>
+/// @file GeometryDockWidget.h
+/// @brief GeometryDockWidget 接口
 
 #include "PluginGeometryTypes.h"
 
+#include <QWidget>
 #include <vector>
 
 class IPluginHostContext;
@@ -91,3 +94,5 @@ private:
 	QPushButton* m_createRibbonBtn = nullptr;
 	QLabel* m_statusLabel = nullptr;
 };
+
+#endif // GEOMETRYPLUGIN_GEOMETRYDOCKWIDGET_H

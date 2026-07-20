@@ -1,3 +1,6 @@
+﻿/// @file AiConfigLoader.cpp
+/// @brief AiConfigLoader 实现
+
 #include "Ai/AiConfigLoader.h"
 
 #include "Ai/AiMeshDefaults.h"
@@ -5,13 +8,12 @@
 #include "AiDomainTypes.h"
 #include "AiLlmConfig.h"
 
-#include <json.hpp>
-
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
-
 #include <algorithm>
+
+#include <json.hpp>
 
 static QStringList jsonToStringList(const nlohmann::json& arr)
 {
@@ -32,7 +34,8 @@ std::optional<AiConfigDto> loadAiConfigDto(const QString& filePath)
 	QFile f(path);
 	if (!f.open(QIODevice::ReadOnly))
 	{
-		const QString defaultsPath = QCoreApplication::applicationDirPath() + QStringLiteral("/ai_config.defaults.json");
+		const QString defaultsPath =
+			QCoreApplication::applicationDirPath() + QStringLiteral("/ai_config.defaults.json");
 		QFile def(defaultsPath);
 		if (def.open(QIODevice::ReadOnly))
 		{
@@ -106,11 +109,8 @@ std::optional<AiConfigDto> loadAiConfigDto(const QString& filePath)
 		cfg.remoteLlm.temperature = j.value("temperature", cfg.remoteLlm.temperature);
 		const bool ruleFirst = j.value("rule_parser_first", false);
 		if (ruleFirst && !cfg.domains.empty())
-			cfg.domains[0].parserPriority = QStringList{
-				QStringLiteral("rules"),
-				QStringLiteral("local"),
-				QStringLiteral("remote")
-			};
+			cfg.domains[0].parserPriority =
+				QStringList{QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
 	}
 
 	if (j.contains("router") && j["router"].is_object())
@@ -158,20 +158,16 @@ bool saveAiConfigDto(const AiConfigDto& config, const QString& filePath, QString
 	for (const QString& s : config.parserPriorityDefault)
 		j["parser_priority"].push_back(s.toStdString());
 
-	j["remote_llm"] = {
-		{ "enabled", config.remoteLlm.enabled },
-		{ "base_url", config.remoteLlm.baseUrl.toStdString() },
-		{ "api_key", config.remoteLlm.apiKey.toStdString() },
-		{ "api_key_env", config.remoteLlm.apiKeyEnv.toStdString() },
-		{ "model", config.remoteLlm.model.toStdString() },
-		{ "timeout_ms", config.remoteLlm.timeoutMs },
-		{ "temperature", config.remoteLlm.temperature }
-	};
-	j["router"] = {
-		{ "mode", config.router.mode.toStdString() },
-		{ "local_model", config.router.localModel.toStdString() },
-		{ "base_url", config.router.baseUrl.toStdString() }
-	};
+	j["remote_llm"] = {{"enabled", config.remoteLlm.enabled},
+					   {"base_url", config.remoteLlm.baseUrl.toStdString()},
+					   {"api_key", config.remoteLlm.apiKey.toStdString()},
+					   {"api_key_env", config.remoteLlm.apiKeyEnv.toStdString()},
+					   {"model", config.remoteLlm.model.toStdString()},
+					   {"timeout_ms", config.remoteLlm.timeoutMs},
+					   {"temperature", config.remoteLlm.temperature}};
+	j["router"] = {{"mode", config.router.mode.toStdString()},
+				   {"local_model", config.router.localModel.toStdString()},
+				   {"base_url", config.router.baseUrl.toStdString()}};
 	j["domains"] = nlohmann::json::array();
 	for (const AiDomainModelConfig& d : config.domains)
 	{

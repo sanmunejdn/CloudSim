@@ -1,3 +1,6 @@
+﻿/// @file RegistrationRigid.cpp
+/// @brief RegistrationRigid 实现
+
 #include "RegistrationRigid.h"
 
 #include "KdTreePointSet.h"
@@ -5,19 +8,17 @@
 #include "PointCloudBuffer.h"
 #include "Transform.h"
 
-#include <Eigen/SVD>
-
 #include <algorithm>
 #include <cmath>
-#include <random>
 #include <limits>
+#include <random>
+
+#include <Eigen/SVD>
 
 namespace pclalgo
 {
-
 namespace
 {
-
 Eigen::Vector3d pointAt(const std::vector<float>& xyz, const std::size_t i)
 {
 	const std::size_t b = i * 3U;
@@ -36,10 +37,7 @@ Eigen::Vector3d normalAt(const std::vector<float>& nrm, const std::size_t i)
 	return n;
 }
 
-bool normalsCompatible(
-	const Eigen::Vector3d& srcNormal,
-	const Eigen::Vector3d& tgtNormal,
-	const double minNormalDot)
+bool normalsCompatible(const Eigen::Vector3d& srcNormal, const Eigen::Vector3d& tgtNormal, const double minNormalDot)
 {
 	if (minNormalDot <= 0.0)
 	{
@@ -68,15 +66,10 @@ std::vector<std::size_t> subsampleIndices(const std::size_t count, const std::si
 	return indices;
 }
 
-std::size_t nearestIndexWithNormalGate(
-	const Eigen::Vector3d& query,
-	const Eigen::Vector3d& queryNormal,
-	const std::vector<float>& tgtXyz,
-	const std::vector<float>* tgtNormals,
-	const std::vector<std::size_t>& tgtIndices,
-	const double maxDistSq,
-	const double minNormalDot,
-	Eigen::Vector3d& outNormal)
+std::size_t nearestIndexWithNormalGate(const Eigen::Vector3d& query, const Eigen::Vector3d& queryNormal,
+									   const std::vector<float>& tgtXyz, const std::vector<float>* tgtNormals,
+									   const std::vector<std::size_t>& tgtIndices, const double maxDistSq,
+									   const double minNormalDot, Eigen::Vector3d& outNormal)
 {
 	std::size_t best = static_cast<std::size_t>(-1);
 	double bestSq = std::numeric_limits<double>::max();
@@ -104,15 +97,10 @@ std::size_t nearestIndexWithNormalGate(
 }
 
 // 使用 KD-tree 加速的最近邻搜索（带法线门控）
-std::size_t nearestIndexWithNormalGateKdTree(
-	const Eigen::Vector3d& query,
-	const Eigen::Vector3d& queryNormal,
-	const KdTreePointSet& tree,
-	const std::vector<float>& tgtXyz,
-	const std::vector<float>* tgtNormals,
-	const double maxDistSq,
-	const double minNormalDot,
-	Eigen::Vector3d& outNormal)
+std::size_t nearestIndexWithNormalGateKdTree(const Eigen::Vector3d& query, const Eigen::Vector3d& queryNormal,
+											 const KdTreePointSet& tree, const std::vector<float>& tgtXyz,
+											 const std::vector<float>* tgtNormals, const double maxDistSq,
+											 const double minNormalDot, Eigen::Vector3d& outNormal)
 {
 	double distSq = 0.0;
 	const std::size_t best = tree.findNearest(query.x(), query.y(), query.z(), maxDistSq, distSq);
@@ -140,28 +128,15 @@ std::size_t nearestIndexWithNormalGateKdTree(
 	return best;
 }
 
-std::size_t nearestIndex(
-	const Eigen::Vector3d& query,
-	const std::vector<float>& tgtXyz,
-	const std::vector<std::size_t>& tgtIndices,
-	const double maxDistSq)
+std::size_t nearestIndex(const Eigen::Vector3d& query, const std::vector<float>& tgtXyz,
+						 const std::vector<std::size_t>& tgtIndices, const double maxDistSq)
 {
 	Eigen::Vector3d dummy = Eigen::Vector3d::Zero();
-	return nearestIndexWithNormalGate(
-		query,
-		dummy,
-		tgtXyz,
-		nullptr,
-		tgtIndices,
-		maxDistSq,
-		0.0,
-		dummy);
+	return nearestIndexWithNormalGate(query, dummy, tgtXyz, nullptr, tgtIndices, maxDistSq, 0.0, dummy);
 }
 
-bool kabsch(
-	const std::vector<Eigen::Vector3d>& src,
-	const std::vector<Eigen::Vector3d>& tgt,
-	Eigen::Isometry3d& transform)
+bool kabsch(const std::vector<Eigen::Vector3d>& src, const std::vector<Eigen::Vector3d>& tgt,
+			Eigen::Isometry3d& transform)
 {
 	if (src.size() != tgt.size() || src.empty())
 	{
@@ -199,11 +174,8 @@ bool kabsch(
 	return true;
 }
 
-bool solvePointToPlaneStep(
-	const std::vector<Eigen::Vector3d>& srcPts,
-	const std::vector<Eigen::Vector3d>& tgtPts,
-	const std::vector<Eigen::Vector3d>& tgtNormals,
-	Eigen::Isometry3d& outStep)
+bool solvePointToPlaneStep(const std::vector<Eigen::Vector3d>& srcPts, const std::vector<Eigen::Vector3d>& tgtPts,
+						   const std::vector<Eigen::Vector3d>& tgtNormals, Eigen::Isometry3d& outStep)
 {
 	if (srcPts.size() < 3U || srcPts.size() != tgtPts.size() || srcPts.size() != tgtNormals.size())
 	{
@@ -252,40 +224,21 @@ bool solvePointToPlaneStep(
 	return true;
 }
 
-std::size_t nearestIndexWithNormal(
-	const Eigen::Vector3d& query,
-	const std::vector<float>& tgtXyz,
-	const std::vector<float>& tgtNormals,
-	const std::vector<std::size_t>& tgtIndices,
-	const double maxDistSq,
-	Eigen::Vector3d& outNormal)
+std::size_t nearestIndexWithNormal(const Eigen::Vector3d& query, const std::vector<float>& tgtXyz,
+								   const std::vector<float>& tgtNormals, const std::vector<std::size_t>& tgtIndices,
+								   const double maxDistSq, Eigen::Vector3d& outNormal)
 {
-	return nearestIndexWithNormalGate(
-		query,
-		Eigen::Vector3d::Zero(),
-		tgtXyz,
-		&tgtNormals,
-		tgtIndices,
-		maxDistSq,
-		0.0,
-		outNormal);
+	return nearestIndexWithNormalGate(query, Eigen::Vector3d::Zero(), tgtXyz, &tgtNormals, tgtIndices, maxDistSq, 0.0,
+									  outNormal);
 }
 
 } // namespace
 
-bool rigidRegisterIcp(
-	const std::vector<float>& sourceXyz,
-	const std::vector<float>& targetXyz,
-	Eigen::Isometry3d& sourceToTarget,
-	double* rmseMm,
-	const int maxIterations,
-	const double convergenceTransMm,
-	double maxPairDistanceMm,
-	const std::size_t icpMaxPoints,
-	std::string* errMsg,
-	const std::vector<float>* sourceNormalsNxNyNz,
-	const std::vector<float>* targetNormalsNxNyNz,
-	const double maxNormalAngleDeg)
+bool rigidRegisterIcp(const std::vector<float>& sourceXyz, const std::vector<float>& targetXyz,
+					  Eigen::Isometry3d& sourceToTarget, double* rmseMm, const int maxIterations,
+					  const double convergenceTransMm, double maxPairDistanceMm, const std::size_t icpMaxPoints,
+					  std::string* errMsg, const std::vector<float>* sourceNormalsNxNyNz,
+					  const std::vector<float>* targetNormalsNxNyNz, const double maxNormalAngleDeg)
 {
 	if (!validXyzLength(sourceXyz) || !validXyzLength(targetXyz))
 	{
@@ -296,14 +249,10 @@ bool rigidRegisterIcp(
 		return false;
 	}
 
-	const bool useNormalGate = maxNormalAngleDeg > 0.0
-		&& sourceNormalsNxNyNz != nullptr
-		&& targetNormalsNxNyNz != nullptr
-		&& sourceNormalsNxNyNz->size() == sourceXyz.size()
-		&& targetNormalsNxNyNz->size() == targetXyz.size();
-	const double minNormalDot = useNormalGate
-		? std::cos(maxNormalAngleDeg * 3.14159265358979323846 / 180.0)
-		: 0.0;
+	const bool useNormalGate = maxNormalAngleDeg > 0.0 && sourceNormalsNxNyNz != nullptr &&
+							   targetNormalsNxNyNz != nullptr && sourceNormalsNxNyNz->size() == sourceXyz.size() &&
+							   targetNormalsNxNyNz->size() == targetXyz.size();
+	const double minNormalDot = useNormalGate ? std::cos(maxNormalAngleDeg * 3.14159265358979323846 / 180.0) : 0.0;
 
 	const std::size_t nSrc = pointCountFromXyz(sourceXyz);
 	const std::size_t nTgt = pointCountFromXyz(targetXyz);
@@ -354,15 +303,9 @@ bool rigidRegisterIcp(
 			}
 			Eigen::Vector3d tn = Eigen::Vector3d::Zero();
 			// 使用 KD-tree 加速最近邻搜索
-			const std::size_t j = nearestIndexWithNormalGateKdTree(
-				ps,
-				sn,
-				tgtTree,
-				targetXyz,
-				useNormalGate ? targetNormalsNxNyNz : nullptr,
-				maxPairDistSq,
-				minNormalDot,
-				tn);
+			const std::size_t j = nearestIndexWithNormalGateKdTree(ps, sn, tgtTree, targetXyz,
+																   useNormalGate ? targetNormalsNxNyNz : nullptr,
+																   maxPairDistSq, minNormalDot, tn);
 			if (j == static_cast<std::size_t>(-1))
 			{
 				continue;
@@ -416,15 +359,9 @@ bool rigidRegisterIcp(
 			}
 			Eigen::Vector3d tn = Eigen::Vector3d::Zero();
 			// 使用 KD-tree 加速最近邻搜索
-			const std::size_t j = nearestIndexWithNormalGateKdTree(
-				ps,
-				sn,
-				tgtTree,
-				targetXyz,
-				useNormalGate ? targetNormalsNxNyNz : nullptr,
-				maxPairDistSq,
-				minNormalDot,
-				tn);
+			const std::size_t j = nearestIndexWithNormalGateKdTree(ps, sn, tgtTree, targetXyz,
+																   useNormalGate ? targetNormalsNxNyNz : nullptr,
+																   maxPairDistSq, minNormalDot, tn);
 			if (j == static_cast<std::size_t>(-1))
 			{
 				continue;
@@ -439,19 +376,11 @@ bool rigidRegisterIcp(
 	return true;
 }
 
-bool rigidRegisterPointToPlaneIcp(
-	const std::vector<float>& sourceXyz,
-	const std::vector<float>& sourceNormalsNxNyNz,
-	const std::vector<float>& targetXyz,
-	const std::vector<float>& targetNormalsNxNyNz,
-	Eigen::Isometry3d& sourceToTarget,
-	double* rmseMm,
-	const int maxIterations,
-	const double convergenceTransMm,
-	double maxPairDistanceMm,
-	const std::size_t icpMaxPoints,
-	std::string* errMsg,
-	const double maxNormalAngleDeg)
+bool rigidRegisterPointToPlaneIcp(const std::vector<float>& sourceXyz, const std::vector<float>& sourceNormalsNxNyNz,
+								  const std::vector<float>& targetXyz, const std::vector<float>& targetNormalsNxNyNz,
+								  Eigen::Isometry3d& sourceToTarget, double* rmseMm, const int maxIterations,
+								  const double convergenceTransMm, double maxPairDistanceMm,
+								  const std::size_t icpMaxPoints, std::string* errMsg, const double maxNormalAngleDeg)
 {
 	if (!validXyzLength(sourceXyz) || !validXyzLength(targetXyz))
 	{
@@ -470,9 +399,8 @@ bool rigidRegisterPointToPlaneIcp(
 		return false;
 	}
 
-	const double minNormalDot = maxNormalAngleDeg > 0.0
-		? std::cos(maxNormalAngleDeg * 3.14159265358979323846 / 180.0)
-		: -1.0;
+	const double minNormalDot =
+		maxNormalAngleDeg > 0.0 ? std::cos(maxNormalAngleDeg * 3.14159265358979323846 / 180.0) : -1.0;
 
 	const std::size_t nSrc = pointCountFromXyz(sourceXyz);
 	const std::size_t nTgt = pointCountFromXyz(targetXyz);
@@ -491,7 +419,7 @@ bool rigidRegisterPointToPlaneIcp(
 		maxPairDistanceMm = box.diagonal().norm() * 0.05;
 		if (maxPairDistanceMm <= 0.0)
 		{
-		 maxPairDistanceMm = 1.0;
+			maxPairDistanceMm = 1.0;
 		}
 	}
 	const double maxPairDistSq = maxPairDistanceMm * maxPairDistanceMm;
@@ -521,16 +449,8 @@ bool rigidRegisterPointToPlaneIcp(
 			const Eigen::Vector3d sn = rot * normalAt(sourceNormalsNxNyNz, i);
 			Eigen::Vector3d tn = Eigen::Vector3d::Zero();
 			// 使用 KD-tree 加速最近邻搜索
-			const std::size_t j =
-				nearestIndexWithNormalGateKdTree(
-					ps,
-					sn,
-					tgtTree,
-					targetXyz,
-					&targetNormalsNxNyNz,
-					maxPairDistSq,
-					minNormalDot,
-					tn);
+			const std::size_t j = nearestIndexWithNormalGateKdTree(ps, sn, tgtTree, targetXyz, &targetNormalsNxNyNz,
+																   maxPairDistSq, minNormalDot, tn);
 			if (j == static_cast<std::size_t>(-1))
 			{
 				continue;
@@ -585,16 +505,8 @@ bool rigidRegisterPointToPlaneIcp(
 			const Eigen::Vector3d sn = rot * normalAt(sourceNormalsNxNyNz, i);
 			Eigen::Vector3d tn = Eigen::Vector3d::Zero();
 			// 使用 KD-tree 加速最近邻搜索
-			const std::size_t j =
-				nearestIndexWithNormalGateKdTree(
-					ps,
-					sn,
-					tgtTree,
-					targetXyz,
-					&targetNormalsNxNyNz,
-					maxPairDistSq,
-					minNormalDot,
-					tn);
+			const std::size_t j = nearestIndexWithNormalGateKdTree(ps, sn, tgtTree, targetXyz, &targetNormalsNxNyNz,
+																   maxPairDistSq, minNormalDot, tn);
 			if (j == static_cast<std::size_t>(-1))
 			{
 				continue;

@@ -1,30 +1,31 @@
+﻿/// @file SelfTest.cpp
+/// @brief SelfTest 实现
+
 #include "SelfTest.h"
 
-#include "PointCloudBuffer.h"
 #include "Crop.h"
 #include "Downsample.h"
 #include "Measure.h"
 #include "ParallelUtils.h"
+#include "PointCloudBuffer.h"
 #include "Preprocess.h"
 #include "Reconstruction.h"
 #include "ReconstructionConfig.h"
+#include "RegistrationGlobal.h"
 #include "RegistrationNonRigid.h"
 #include "RegistrationRigid.h"
-#include "RegistrationGlobal.h"
 #include "RegistrationSpare.h"
 #include "Transform.h"
-
-#include <Eigen/Geometry>
 
 #include <cmath>
 #include <sstream>
 
+#include <Eigen/Geometry>
+
 namespace pclalgo
 {
-
 namespace
 {
-
 void expectTrue(std::vector<std::string>& failures, const char* name, const bool value)
 {
 	if (!value)
@@ -33,7 +34,8 @@ void expectTrue(std::vector<std::string>& failures, const char* name, const bool
 	}
 }
 
-void expectNear(std::vector<std::string>& failures, const char* name, const double actual, const double expected, const double eps)
+void expectNear(std::vector<std::string>& failures, const char* name, const double actual, const double expected,
+				const double eps)
 {
 	if (!std::isfinite(actual) || std::fabs(actual - expected) > eps)
 	{
@@ -154,17 +156,8 @@ bool runSelfTest(std::vector<std::string>& failures)
 		RigidRegisterRansacParams ransacParams;
 		ransacParams.minInliers = 30U;
 		ransacParams.maxIterations = 3000;
-		expectTrue(
-			failures,
-			"ransac.ok",
-			rigidRegisterFeatureRansac(
-				src,
-				srcNormals,
-				tgt,
-				tgtNormals,
-				est,
-				&inlierRatio,
-				ransacParams));
+		expectTrue(failures, "ransac.ok",
+				   rigidRegisterFeatureRansac(src, srcNormals, tgt, tgtNormals, est, &inlierRatio, ransacParams));
 		expectTrue(failures, "ransac.inlierRatio", inlierRatio > 0.5);
 		expectNear(failures, "ransac.tx", est.translation().x(), gt.translation().x(), 1.0);
 		expectNear(failures, "ransac.ty", est.translation().y(), gt.translation().y(), 1.0);
@@ -175,10 +168,10 @@ bool runSelfTest(std::vector<std::string>& failures)
 	{
 		const bool tbbAvailable = ParallelUtils::isTbbAvailable();
 		expectTrue(failures, "parallel.tbbAvailable", tbbAvailable);
-		
+
 		const int threads = ParallelUtils::getThreadCount();
 		expectTrue(failures, "parallel.threads", threads >= 1);
-		
+
 		const bool enabled = ParallelUtils::isParallelEnabled();
 		expectTrue(failures, "parallel.enabled", enabled);
 	}
@@ -189,7 +182,7 @@ bool runSelfTest(std::vector<std::string>& failures)
 		config.quality = ReconstructionQuality::Fast;
 		config.maxPointsForReconstruction = 100000;
 		config.enableParallel = true;
-		
+
 		expectNear(failures, "config.voxelPrefilter", config.getVoxelPrefilterMm(), 2.0, 1e-3);
 		expectNear(failures, "config.outlierRemoval", config.getOutlierRemovalPercent(), 3.0, 1e-3);
 		expectTrue(failures, "config.smoothIterations", config.getSmoothIterations() == 2);
@@ -200,11 +193,11 @@ bool runSelfTest(std::vector<std::string>& failures)
 		std::vector<float> xyz = makePlanePointCloud(20, 0.0);
 		std::vector<float> normals;
 		expectTrue(failures, "config.normals", estimateNormalsPca(xyz, normals, 8));
-		
+
 		ReconstructionConfig config;
 		config.quality = ReconstructionQuality::Fast;
-		config.maxPointsForReconstruction = 1000;  // 强制下采样
-		
+		config.maxPointsForReconstruction = 1000; // 强制下采样
+
 		std::vector<float> soup;
 		std::string err;
 		expectTrue(failures, "config.poisson", reconstructPoissonWithConfig(xyz, normals, soup, config, &err));
@@ -240,19 +233,9 @@ bool runSelfTest(std::vector<std::string>& failures)
 		spareParams.rigidPreAlign = true;
 		SpareRegisterResult spareResult;
 		std::string spareErr;
-		expectTrue(
-			failures,
-			"spare.ok",
-			spareRegisterPointClouds(
-				src,
-				srcNormals,
-				tgt,
-				tgtNormals,
-				deformed,
-				deformedNormals,
-				spareParams,
-				&spareResult,
-				&spareErr));
+		expectTrue(failures, "spare.ok",
+				   spareRegisterPointClouds(src, srcNormals, tgt, tgtNormals, deformed, deformedNormals, spareParams,
+											&spareResult, &spareErr));
 		expectTrue(failures, "spare.deformed", deformed.size() == src.size());
 		expectTrue(failures, "spare.finiteError", std::isfinite(spareResult.meanErrorMm));
 	}

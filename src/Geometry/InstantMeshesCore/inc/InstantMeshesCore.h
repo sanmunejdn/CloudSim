@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef INSTANTMESHESCORE_INSTANTMESHESCORE_H
+#define INSTANTMESHESCORE_INSTANTMESHESCORE_H
+
+/// @file InstantMeshesCore.h
+/// @brief InstantMeshesCore 接口
 
 #include "instant_meshes_core_global.h"
 
@@ -7,7 +11,6 @@
 
 namespace instant_meshes
 {
-
 struct Params
 {
 	int targetVertexCount = 0;
@@ -30,11 +33,8 @@ struct QuadMesh
 	std::vector<float> vertexUv;
 };
 
-INSTANT_MESHES_CORE_API bool remeshToQuadMesh(
-	const TriMesh& triIn,
-	QuadMesh& quadOut,
-	const Params& params,
-	std::string* errMsg);
+INSTANT_MESHES_CORE_API bool remeshToQuadMesh(const TriMesh& triIn, QuadMesh& quadOut, const Params& params,
+											  std::string* errMsg);
 
 INSTANT_MESHES_CORE_API bool writeTriMeshObj(const TriMesh& mesh, const std::string& objPath, std::string* errMsg);
 
@@ -43,3 +43,5 @@ INSTANT_MESHES_CORE_API bool writeQuadMeshObj(const QuadMesh& quad, const std::s
 INSTANT_MESHES_CORE_API bool loadQuadMeshObj(const std::string& objPath, QuadMesh& outMesh, std::string* errMsg);
 
 } // namespace instant_meshes
+
+#endif // INSTANTMESHESCORE_INSTANTMESHESCORE_H

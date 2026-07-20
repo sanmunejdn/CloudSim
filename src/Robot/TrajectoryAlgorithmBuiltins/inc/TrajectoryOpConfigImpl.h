@@ -1,6 +1,10 @@
-// IOpParamConfig 通用实现：绑定 resource JSON schema
-#pragma once
+﻿#ifndef TRAJECTORYALGORITHMBUILTINS_TRAJECTORYOPCONFIGIMPL_H
+#define TRAJECTORYALGORITHMBUILTINS_TRAJECTORYOPCONFIGIMPL_H
 
+/// @file TrajectoryOpConfigImpl.h
+/// @brief TrajectoryOpConfigImpl 接口
+
+// IOpParamConfig 通用实现：绑定 resource JSON schema
 #include "IOpParamConfig.h"
 #include "TrajectoryPipelineTypes.h"
 
@@ -9,27 +13,24 @@
 
 namespace trajectory_algo
 {
-
 class TrajectoryOpConfigImpl final : public IOpParamConfig
 {
 public:
-	TrajectoryOpConfigImpl(
-		RobotInstruction::TrajectoryOpKind kind,
-		std::string jsonRelativePath);
+	TrajectoryOpConfigImpl(RobotInstruction::TrajectoryOpKind kind, std::string jsonRelativePath);
 
 	RobotInstruction::TrajectoryOpKind kind() const override { return m_kind; }
 	std::string jsonRelativePath() const override { return m_jsonRelativePath; }
 	std::vector<TrajectoryOpParamField> paramFields() const override;
-	RobotInstruction::TrajectoryOpDescriptor defaultDescriptor(
-		const RobotInstruction::OpScope& scope) const override;
+	RobotInstruction::TrajectoryOpDescriptor defaultDescriptor(const RobotInstruction::OpScope& scope) const override;
 
 private:
 	RobotInstruction::TrajectoryOpKind m_kind;
 	std::string m_jsonRelativePath;
 };
 
-std::unique_ptr<IOpParamConfig> makeTrajectoryOpConfig(
-	RobotInstruction::TrajectoryOpKind kind,
-	const char* jsonRelativePath);
+std::unique_ptr<IOpParamConfig> makeTrajectoryOpConfig(RobotInstruction::TrajectoryOpKind kind,
+													   const char* jsonRelativePath);
 
 } // namespace trajectory_algo
+
+#endif // TRAJECTORYALGORITHMBUILTINS_TRAJECTORYOPCONFIGIMPL_H

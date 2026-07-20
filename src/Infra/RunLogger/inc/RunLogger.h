@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef RUNLOGGER_RUNLOGGER_H
+#define RUNLOGGER_RUNLOGGER_H
+
+/// @file RunLogger.h
+/// @brief 默认 Info；POINTCLOUD_PROCESS_DEBUG=1 开 debug
 
 #include "run_logger_global.h"
 
@@ -45,3 +49,5 @@ RUN_LOGGER_API void flush();
 
 RUN_LOGGER_API const char* levelName(LogLevel level);
 } // namespace RunLogger
+
+#endif // RUNLOGGER_RUNLOGGER_H

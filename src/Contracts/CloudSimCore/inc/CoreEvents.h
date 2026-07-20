@@ -1,9 +1,13 @@
-#pragma once
+﻿#ifndef CLOUDSIMCORE_COREEVENTS_H
+#define CLOUDSIMCORE_COREEVENTS_H
+
+/// @file CoreEvents.h
+/// @brief 选中来源
 
 #include "CoreTypes.h"
 
-namespace cloudsim::core {
-
+namespace cloudsim::core
+{
 /// 选中来源
 enum class SelectionSource
 {
@@ -59,3 +63,5 @@ struct RobotKinematicsAppliedEvent
 };
 
 } // namespace cloudsim::core
+
+#endif // CLOUDSIMCORE_COREEVENTS_H

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMUIASSETS_UIICONID_H
+#define CLOUDSIMUIASSETS_UIICONID_H
+
+/// @file UiIconId.h
+/// @brief 语义化 UI 图标 ID，与 qrc basename 映射见 UiIcons.cpp
 
 #include "uiassets_global.h"
 
@@ -68,3 +72,5 @@ enum class UiIconId
 
 	Count
 };
+
+#endif // CLOUDSIMUIASSETS_UIICONID_H

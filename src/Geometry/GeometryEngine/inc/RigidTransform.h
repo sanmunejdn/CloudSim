@@ -1,14 +1,17 @@
-#pragma once
+﻿#ifndef GEOMETRYENGINE_RIGIDTRANSFORM_H
+#define GEOMETRYENGINE_RIGIDTRANSFORM_H
+
+/// @file RigidTransform.h
+/// @brief 基座/场景链刚体变换，平移 mm
 
 #include "geometry_engine_global.h"
 
-#include <Eigen/Geometry>
-
 #include <array>
+
+#include <Eigen/Geometry>
 
 namespace engine
 {
-
 /// 基座/场景链刚体变换，平移 mm
 class GEOMETRY_ENGINE_API RigidTransform
 {
@@ -18,13 +21,8 @@ public:
 	static RigidTransform identity();
 	static RigidTransform fromIsometry(const Eigen::Isometry3d& iso);
 	static RigidTransform fromTranslationQuat(const Eigen::Vector3d& translationMm, const Eigen::Quaterniond& rotation);
-	static RigidTransform fromTranslationEulerDeg(
-		double pxMm,
-		double pyMm,
-		double pzMm,
-		double exDeg,
-		double eyDeg,
-		double ezDeg);
+	static RigidTransform fromTranslationEulerDeg(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg,
+												  double ezDeg);
 
 	const Eigen::Isometry3d& isometry() const { return m_iso; }
 	Eigen::Isometry3d& isometry() { return m_iso; }
@@ -54,3 +52,5 @@ private:
 };
 
 } // namespace engine
+
+#endif // GEOMETRYENGINE_RIGIDTRANSFORM_H

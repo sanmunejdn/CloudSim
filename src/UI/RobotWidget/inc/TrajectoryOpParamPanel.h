@@ -1,15 +1,19 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_TRAJECTORYOPPARAMPANEL_H
+#define ROBOTWIDGET_TRAJECTORYOPPARAMPANEL_H
+
+/// @file TrajectoryOpParamPanel.h
+/// @brief TrajectoryOpParamPanel 接口
+
+#include "robotwidget_global.h"
 
 #include "TrajectoryParamWidgetFactory.h"
-#include "robotwidget_global.h"
+
+#include <QWidget>
+#include <string>
+#include <vector>
 
 #include <ITrajectoryOp.h>
 #include <TrajectoryPipelineTypes.h>
-
-#include <QWidget>
-
-#include <string>
-#include <vector>
 
 class QComboBox;
 class QFormLayout;
@@ -27,14 +31,11 @@ public:
 	void setGeometryBackendCombo(QComboBox* combo);
 	void setNonRigidSourceBackendCombo(QComboBox* combo);
 	void setNonRigidTargetBackendCombo(QComboBox* combo);
+	void setExternalTcpBackendCombo(QComboBox* combo);
 
-	void rebuildForOp(
-		const RobotInstruction::TrajectoryOpDescriptor& op,
-		const trajectory_algo::ITrajectoryOp* algo);
-	bool applyTo(
-		RobotInstruction::TrajectoryOpDescriptor& op,
-		const trajectory_algo::ITrajectoryOp* algo,
-		std::string* errMsg);
+	void rebuildForOp(const RobotInstruction::TrajectoryOpDescriptor& op, const trajectory_algo::ITrajectoryOp* algo);
+	bool applyTo(RobotInstruction::TrajectoryOpDescriptor& op, const trajectory_algo::ITrajectoryOp* algo,
+				 std::string* errMsg);
 
 	void clear();
 
@@ -61,6 +62,10 @@ private:
 	QWidget* m_nonRigidSourceComboParent = nullptr;
 	QComboBox* m_nonRigidTargetCombo = nullptr;
 	QWidget* m_nonRigidTargetComboParent = nullptr;
+	QComboBox* m_externalTcpBackendCombo = nullptr;
+	QWidget* m_externalTcpBackendComboParent = nullptr;
 	QFormLayout* m_form = nullptr;
 	std::vector<trajectory_algo::TrajectoryParamBinding> m_rows;
 };
+
+#endif // ROBOTWIDGET_TRAJECTORYOPPARAMPANEL_H

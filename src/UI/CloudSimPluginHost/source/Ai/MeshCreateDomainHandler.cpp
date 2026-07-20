@@ -1,8 +1,11 @@
+﻿/// @file MeshCreateDomainHandler.cpp
+/// @brief MeshCreateDomainHandler 实现
+
 #include "Ai/MeshCreateDomainHandler.h"
 
 #include "Ai/AiActionPlanExecutor.h"
-#include "AiDomainTypes.h"
 #include "AiCommandSchema.h"
+#include "AiDomainTypes.h"
 #include "IAiAssistantHost.h"
 #include "PluginHostContext.h"
 
@@ -47,7 +50,7 @@ bool MeshCreateDomainHandler::validateOutput(const QByteArray& jsonUtf8, QString
 }
 
 bool MeshCreateDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHostContext* host, IAiAssistantHost* aiHost,
-	QString* summary, QString* err)
+									  QString* summary, QString* err)
 {
 	(void)aiHost;
 	auto* ph = dynamic_cast<PluginHostContext*>(host);

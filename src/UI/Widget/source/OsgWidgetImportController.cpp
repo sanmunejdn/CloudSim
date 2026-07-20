@@ -1,12 +1,15 @@
+﻿/// @file OsgWidgetImportController.cpp
+/// @brief OsgWidgetImportController 实现
+
 #include "OsgWidgetImportController.h"
 
-#include "OsgWidget.h"
 #include "MeshBackendData.h"
+#include "OsgWidget.h"
 #include "PlyIo.h"
 #include "PointCloudBackendData.h"
 
-#include <QFileInfo>
 #include <QFile>
+#include <QFileInfo>
 
 #include <osg/Camera>
 #include <osg/Viewport>
@@ -17,20 +20,21 @@ bool OsgWidgetImportController::importModelFile(OsgWidget& self, const QString& 
 {
 	if (filePath.isEmpty())
 	{
-		if (errorMessage) *errorMessage = QStringLiteral("Empty file path.");
+		if (errorMessage)
+			*errorMessage = QStringLiteral("Empty file path.");
 		return false;
 	}
 
 	const QString extension = QFileInfo(filePath).suffix().toLower();
-	const QStringList supportedExtensions = {
-		QStringLiteral("obj"), QStringLiteral("stl"), QStringLiteral("ply"), QStringLiteral("dae"),
-		QStringLiteral("3ds"), QStringLiteral("fbx"), QStringLiteral("step"), QStringLiteral("stp"),
-		QStringLiteral("igs"), QStringLiteral("iges")
-	};
+	const QStringList supportedExtensions = {QStringLiteral("obj"),	 QStringLiteral("stl"), QStringLiteral("ply"),
+											 QStringLiteral("dae"),	 QStringLiteral("3ds"), QStringLiteral("fbx"),
+											 QStringLiteral("step"), QStringLiteral("stp"), QStringLiteral("igs"),
+											 QStringLiteral("iges")};
 
 	if (!supportedExtensions.contains(extension))
 	{
-		if (errorMessage) *errorMessage = QStringLiteral("Unsupported file extension: %1").arg(extension);
+		if (errorMessage)
+			*errorMessage = QStringLiteral("Unsupported file extension: %1").arg(extension);
 		return false;
 	}
 
@@ -43,8 +47,8 @@ bool OsgWidgetImportController::importModelFile(OsgWidget& self, const QString& 
 	{
 		if (errorMessage)
 		{
-			*errorMessage = QStringLiteral("Failed to load model. Ensure OSG plugin for '.%1' is available.")
-				.arg(extension);
+			*errorMessage =
+				QStringLiteral("Failed to load model. Ensure OSG plugin for '.%1' is available.").arg(extension);
 		}
 		return false;
 	}
@@ -86,18 +90,19 @@ bool OsgWidgetImportController::importPointCloudFile(OsgWidget& self, const QStr
 {
 	if (filePath.isEmpty())
 	{
-		if (errorMessage) *errorMessage = QStringLiteral("Empty file path.");
+		if (errorMessage)
+			*errorMessage = QStringLiteral("Empty file path.");
 		return false;
 	}
 
 	const QString extension = QFileInfo(filePath).suffix().toLower();
-	const QStringList supportedExtensions = {
-		QStringLiteral("ply"), QStringLiteral("laz"), QStringLiteral("las"), QStringLiteral("xyz")
-	};
+	const QStringList supportedExtensions = {QStringLiteral("ply"), QStringLiteral("laz"), QStringLiteral("las"),
+											 QStringLiteral("xyz")};
 
 	if (!supportedExtensions.contains(extension))
 	{
-		if (errorMessage) *errorMessage = QStringLiteral("Unsupported point cloud extension: %1").arg(extension);
+		if (errorMessage)
+			*errorMessage = QStringLiteral("Unsupported point cloud extension: %1").arg(extension);
 		return false;
 	}
 
@@ -109,8 +114,7 @@ bool OsgWidgetImportController::importPointCloudFile(OsgWidget& self, const QStr
 	else if (extension == QStringLiteral("ply"))
 	{
 		const QByteArray nativePathBytes = QFile::encodeName(filePath);
-		const std::string nativePath(nativePathBytes.constData(),
-			static_cast<size_t>(nativePathBytes.size()));
+		const std::string nativePath(nativePathBytes.constData(), static_cast<size_t>(nativePathBytes.size()));
 		if (plyFileHasTriangleFaces(nativePath))
 		{
 			MeshBackendData meshBackend;
@@ -121,9 +125,8 @@ bool OsgWidgetImportController::importPointCloudFile(OsgWidget& self, const QStr
 			}
 			if (errorMessage)
 			{
-				*errorMessage = meshErr.empty()
-					? QStringLiteral("PLY has faces but mesh load failed.")
-					: QString::fromStdString(meshErr);
+				*errorMessage = meshErr.empty() ? QStringLiteral("PLY has faces but mesh load failed.")
+												: QString::fromStdString(meshErr);
 			}
 			return false;
 		}
@@ -140,8 +143,8 @@ bool OsgWidgetImportController::importPointCloudFile(OsgWidget& self, const QStr
 				if (errorMessage)
 				{
 					*errorMessage = loadErr.isEmpty()
-						? QStringLiteral("PLY read OK but failed to build viewer geometry.")
-						: loadErr;
+										? QStringLiteral("PLY read OK but failed to build viewer geometry.")
+										: loadErr;
 				}
 				return false;
 			}
@@ -217,16 +220,15 @@ bool OsgWidgetImportController::importPointCloudFile(OsgWidget& self, const QStr
 		{
 			if (extension == QStringLiteral("las") || extension == QStringLiteral("laz"))
 			{
-				*errorMessage = QStringLiteral(
-					"Failed to load '.%1'. OSG usually needs an external LAS/LAZ plugin. "
-					"Try converting to .ply/.xyz first.")
-					.arg(extension);
+				*errorMessage = QStringLiteral("Failed to load '.%1'. OSG usually needs an external LAS/LAZ plugin. "
+											   "Try converting to .ply/.xyz first.")
+									.arg(extension);
 			}
 			else
 			{
-				*errorMessage = QStringLiteral(
-					"Failed to load point cloud. Check plugin support and path encoding for '.%1'.")
-					.arg(extension);
+				*errorMessage =
+					QStringLiteral("Failed to load point cloud. Check plugin support and path encoding for '.%1'.")
+						.arg(extension);
 			}
 		}
 	}
@@ -268,4 +270,3 @@ bool OsgWidgetImportController::importPointCloudFile(OsgWidget& self, const QStr
 	}
 	return true;
 }
-

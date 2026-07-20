@@ -1,11 +1,8 @@
-#pragma once
+﻿/// @file widget_global.h
+/// @brief Host 内嵌 OSG 导出
 
 /// Host 内嵌 OSG 导出
-#ifndef CLOUDSIM_HOST_LIB
-#define CLOUDSIM_HOST_LIB
-#endif
+#ifndef CLOUDSIMHOST_WIDGET_GLOBAL_H
+#define CLOUDSIMHOST_WIDGET_GLOBAL_H
 
-#include "cloudsim_host_global.h"
-
-#define WIDGET_EXPORT CLOUDSIM_HOST_EXPORT
-#define OSG_WIDGET_API CLOUDSIM_HOST_EXPORT
+#endif // CLOUDSIMHOST_WIDGET_GLOBAL_H

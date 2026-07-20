@@ -1,9 +1,12 @@
+﻿/// @file BackendDataBase.cpp
+/// @brief BackendDataBase 实现
+
 #include "BackendDataBase.h"
 
-#include "BackendDataManager.h"
-#include "BackendFollowMath.h"
 #include "BackendComponentCodecBuiltins.h"
 #include "BackendComponentCodecRegistry.h"
+#include "BackendDataManager.h"
+#include "BackendFollowMath.h"
 #include "BackendPropertyRow.h"
 #include "FollowAttachmentComponent.h"
 #include "MeshBackendData.h"
@@ -19,7 +22,7 @@
 
 namespace
 {
-std::atomic<unsigned long long> g_backendDataIdCounter{ 1ULL };
+std::atomic<unsigned long long> g_backendDataIdCounter{1ULL};
 
 std::string trimUtf8Whitespace(const std::string& s)
 {
@@ -45,14 +48,9 @@ std::string toLowerAscii(std::string s)
 	return s;
 }
 
-bool buildWorldPoseInFrame(
-	const BackendDataBase& owner,
-	const BackendVec3& poseFrame,
-	const BackendVec3& rotFrame,
-	BackendPoseReferenceFrame frame,
-	const BackendDataManager* mgr,
-	BackendVec3& outWorldPose,
-	BackendVec3& outWorldEuler)
+bool buildWorldPoseInFrame(const BackendDataBase& owner, const BackendVec3& poseFrame, const BackendVec3& rotFrame,
+						   BackendPoseReferenceFrame frame, const BackendDataManager* mgr, BackendVec3& outWorldPose,
+						   BackendVec3& outWorldEuler)
 {
 	if (frame == BackendPoseReferenceFrame::World || mgr == nullptr)
 	{
@@ -86,7 +84,7 @@ bool buildWorldPoseInFrame(
 
 double maxAbsVec3Diff(const BackendVec3& a, const BackendVec3& b)
 {
-	return std::max({ std::abs(a.x - b.x), std::abs(a.y - b.y), std::abs(a.z - b.z) });
+	return std::max({std::abs(a.x - b.x), std::abs(a.y - b.y), std::abs(a.z - b.z)});
 }
 
 void multiplyBackendMat4(const BackendMat4& a, const BackendMat4& b, BackendMat4& out)
@@ -100,7 +98,7 @@ bool jsonToVec3(const nlohmann::json& in, BackendVec3& out)
 	{
 		return false;
 	}
-	out = BackendVec3{ in.value("x", 0.0), in.value("y", 0.0), in.value("z", 0.0) };
+	out = BackendVec3{in.value("x", 0.0), in.value("y", 0.0), in.value("z", 0.0)};
 	return true;
 }
 
@@ -110,11 +108,8 @@ bool jsonToColor(const nlohmann::json& in, BackendColor& out)
 	{
 		return false;
 	}
-	out = BackendColor{
-		static_cast<float>(in.value("r", 1.0)),
-		static_cast<float>(in.value("g", 1.0)),
-		static_cast<float>(in.value("b", 1.0)),
-		static_cast<float>(in.value("a", 1.0)) };
+	out = BackendColor{static_cast<float>(in.value("r", 1.0)), static_cast<float>(in.value("g", 1.0)),
+					   static_cast<float>(in.value("b", 1.0)), static_cast<float>(in.value("a", 1.0))};
 	return true;
 }
 
@@ -138,8 +133,8 @@ void loadPropertyBagFromJson(const nlohmann::json& in, PropertyBag& outBag)
 		if (value.is_number_integer())
 		{
 			const long long v = value.get<long long>();
-			if (v >= static_cast<long long>(std::numeric_limits<int>::min())
-				&& v <= static_cast<long long>(std::numeric_limits<int>::max()))
+			if (v >= static_cast<long long>(std::numeric_limits<int>::min()) &&
+				v <= static_cast<long long>(std::numeric_limits<int>::max()))
 			{
 				restored.set<int>(key, static_cast<int>(v));
 			}
@@ -163,18 +158,17 @@ void loadPropertyBagFromJson(const nlohmann::json& in, PropertyBag& outBag)
 		{
 			if (value.size() == 3 && value[0].is_number() && value[1].is_number() && value[2].is_number())
 			{
-				restored.set<std::array<double, 3>>(key, std::array<double, 3>{
-														 value[0].get<double>(), value[1].get<double>(), value[2].get<double>() });
+				restored.set<std::array<double, 3>>(
+					key, std::array<double, 3>{value[0].get<double>(), value[1].get<double>(), value[2].get<double>()});
 				continue;
 			}
-			if (value.size() == 4 && value[0].is_number() && value[1].is_number() && value[2].is_number()
-				&& value[3].is_number())
+			if (value.size() == 4 && value[0].is_number() && value[1].is_number() && value[2].is_number() &&
+				value[3].is_number())
 			{
-				restored.set<std::array<float, 4>>(key,
-					std::array<float, 4>{ static_cast<float>(value[0].get<double>()),
-						static_cast<float>(value[1].get<double>()),
-						static_cast<float>(value[2].get<double>()),
-						static_cast<float>(value[3].get<double>()) });
+				restored.set<std::array<float, 4>>(
+					key, std::array<float, 4>{
+							 static_cast<float>(value[0].get<double>()), static_cast<float>(value[1].get<double>()),
+							 static_cast<float>(value[2].get<double>()), static_cast<float>(value[3].get<double>())});
 			}
 		}
 	}
@@ -183,11 +177,7 @@ void loadPropertyBagFromJson(const nlohmann::json& in, PropertyBag& outBag)
 
 } // namespace
 
-BackendDataBase::BackendDataBase()
-	: m_id(generateId())
-	, m_name("UnnamedData")
-{
-}
+BackendDataBase::BackendDataBase() : m_id(generateId()), m_name("UnnamedData") {}
 
 const std::string& BackendDataBase::id() const
 {
@@ -215,6 +205,16 @@ void BackendDataBase::setName(const std::string& name)
 	}
 }
 
+bool BackendDataBase::isVisible() const
+{
+	return m_visible;
+}
+
+void BackendDataBase::setVisible(bool visible)
+{
+	m_visible = visible;
+}
+
 nlohmann::json BackendDataBase::saveToJson() const
 {
 	ensureBackendComponentCodecBuiltinsRegistered();
@@ -222,6 +222,7 @@ nlohmann::json BackendDataBase::saveToJson() const
 	out["id"] = m_id;
 	out["name"] = m_name;
 	out["className"] = className();
+	out["visible"] = m_visible;
 	out["propertyBag"] = m_propertyBag.toJson();
 	out["poseReferenceFrame"] = (m_poseReferenceFrame == BackendPoseReferenceFrame::Parent) ? "parent" : "world";
 	nlohmann::json components = nlohmann::json::array();
@@ -241,7 +242,7 @@ nlohmann::json BackendDataBase::saveToJson() const
 	if (hasColorProperty())
 	{
 		const BackendColor c = color();
-		out["color"] = nlohmann::json{ { "r", c.r }, { "g", c.g }, { "b", c.b }, { "a", c.a } };
+		out["color"] = nlohmann::json{{"r", c.r}, {"g", c.g}, {"b", c.b}, {"a", c.a}};
 	}
 	const BackendMat4 wm = worldMatrix();
 	nlohmann::json wmArr = nlohmann::json::array();
@@ -277,6 +278,8 @@ bool BackendDataBase::loadFromJson(const nlohmann::json& in, std::string* errMsg
 	{
 		setName(newName);
 	}
+	// 旧工程无此字段时默认显示
+	setVisible(in.value("visible", true));
 	const std::string frame = toLowerAscii(in.value("poseReferenceFrame", std::string("world")));
 	setPoseReferenceFrame(frame == "parent" ? BackendPoseReferenceFrame::Parent : BackendPoseReferenceFrame::World);
 
@@ -303,8 +306,8 @@ bool BackendDataBase::loadFromJson(const nlohmann::json& in, std::string* errMsg
 			}
 		}
 	}
-	if (!hasComponent(FollowAttachmentComponent::typeKeyStatic()) && in.contains("followAttachment")
-		&& in["followAttachment"].is_object())
+	if (!hasComponent(FollowAttachmentComponent::typeKeyStatic()) && in.contains("followAttachment") &&
+		in["followAttachment"].is_object())
 	{
 		auto follow = std::make_shared<FollowAttachmentComponent>();
 		follow->readJson(in["followAttachment"]);
@@ -482,7 +485,8 @@ BackendVec3 BackendDataBase::rotationInFrame(BackendPoseReferenceFrame frame, co
 	return localEuler;
 }
 
-void BackendDataBase::setPoseInFrame(const BackendVec3& value, BackendPoseReferenceFrame frame, const BackendDataManager* mgr)
+void BackendDataBase::setPoseInFrame(const BackendVec3& value, BackendPoseReferenceFrame frame,
+									 const BackendDataManager* mgr)
 {
 	if (!hasPoseProperty())
 	{
@@ -494,7 +498,8 @@ void BackendDataBase::setPoseInFrame(const BackendVec3& value, BackendPoseRefere
 	m_worldMatrix = backend_world_mat_from_pose(worldPose, worldEuler);
 }
 
-void BackendDataBase::setRotationInFrame(const BackendVec3& value, BackendPoseReferenceFrame frame, const BackendDataManager* mgr)
+void BackendDataBase::setRotationInFrame(const BackendVec3& value, BackendPoseReferenceFrame frame,
+										 const BackendDataManager* mgr)
 {
 	if (!hasRotationProperty())
 	{
@@ -514,7 +519,8 @@ BackendPoseValue BackendDataBase::poseValue(BackendPoseReferenceFrame frame, con
 	return out;
 }
 
-void BackendDataBase::setPoseValue(const BackendPoseValue& value, BackendPoseReferenceFrame frame, const BackendDataManager* mgr)
+void BackendDataBase::setPoseValue(const BackendPoseValue& value, BackendPoseReferenceFrame frame,
+								   const BackendDataManager* mgr)
 {
 	BackendVec3 worldPose{};
 	BackendVec3 worldEuler{};
@@ -564,10 +570,10 @@ bool BackendDataBase::validatePoseFrameRoundTrip(const BackendDataManager* mgr, 
 	const BackendPoseValue local = poseValue(BackendPoseReferenceFrame::Parent, mgr);
 	BackendVec3 worldPoseRebuilt{};
 	BackendVec3 worldEulerRebuilt{};
-	buildWorldPoseInFrame(*this, local.position, local.eulerDeg, BackendPoseReferenceFrame::Parent, mgr, worldPoseRebuilt,
-		worldEulerRebuilt);
-	return maxAbsVec3Diff(world0.position, worldPoseRebuilt) <= epsilon
-		&& maxAbsVec3Diff(world0.eulerDeg, worldEulerRebuilt) <= epsilon;
+	buildWorldPoseInFrame(*this, local.position, local.eulerDeg, BackendPoseReferenceFrame::Parent, mgr,
+						  worldPoseRebuilt, worldEulerRebuilt);
+	return maxAbsVec3Diff(world0.position, worldPoseRebuilt) <= epsilon &&
+		   maxAbsVec3Diff(world0.eulerDeg, worldEulerRebuilt) <= epsilon;
 }
 
 std::string BackendDataBase::generateId()
@@ -584,12 +590,12 @@ nlohmann::json BackendDataBase::snapshotPropertyRows(const BackendDataManager* m
 	backend_property_json::appendRow(rows, "core.class", "Class", false, className());
 	if (hasPoseProperty())
 	{
-		const std::string frameText =
-			(m_poseReferenceFrame == BackendPoseReferenceFrame::Parent) ? "parent" : "world";
+		const std::string frameText = (m_poseReferenceFrame == BackendPoseReferenceFrame::Parent) ? "parent" : "world";
 		property_rows_compat::syncTransformColorToBag(m_propertyBag, *this);
 		backend_property_json::appendRow(rows, "pose.frame", "Pose frame (world|parent)", true, frameText);
 	}
-	if (const auto f = std::dynamic_pointer_cast<FollowAttachmentComponent>(getComponent(FollowAttachmentComponent::typeKeyStatic())))
+	if (const auto f = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+			getComponent(FollowAttachmentComponent::typeKeyStatic())))
 	{
 		if (mgr)
 		{
@@ -609,7 +615,7 @@ nlohmann::json BackendDataBase::snapshotPropertyRows(const BackendDataManager* m
 }
 
 bool BackendDataBase::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-	const BackendDataManager* mgr)
+										  const BackendDataManager* mgr)
 {
 	if (key == "pose.frame")
 	{
@@ -632,7 +638,8 @@ bool BackendDataBase::applyPropertyChange(const std::string& key, const std::str
 		}
 		return false;
 	}
-	const auto ensureFollow = [&]() {
+	const auto ensureFollow = [&]()
+	{
 		if (!getComponent(FollowAttachmentComponent::typeKeyStatic()))
 		{
 			addComponent(std::make_shared<FollowAttachmentComponent>());
@@ -652,7 +659,8 @@ bool BackendDataBase::applyPropertyChange(const std::string& key, const std::str
 	if (key.rfind("follow.", 0) == 0)
 	{
 		ensureFollow();
-		if (const auto f = std::dynamic_pointer_cast<FollowAttachmentComponent>(getComponent(FollowAttachmentComponent::typeKeyStatic())))
+		if (const auto f = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+				getComponent(FollowAttachmentComponent::typeKeyStatic())))
 		{
 			return f->applyPropertyChange(*this, key, value, errMsg, mgr);
 		}
@@ -782,7 +790,8 @@ std::vector<std::shared_ptr<BackendDataBase>> BackendDataBase::childObjects(cons
 	return out;
 }
 
-std::vector<std::shared_ptr<BackendDataBase>> BackendDataBase::descendantObjects(const BackendDataManager& manager) const
+std::vector<std::shared_ptr<BackendDataBase>>
+BackendDataBase::descendantObjects(const BackendDataManager& manager) const
 {
 	std::vector<std::shared_ptr<BackendDataBase>> out;
 	const std::vector<std::string> ids = manager.descendantsOf(id());
@@ -797,4 +806,3 @@ std::vector<std::shared_ptr<BackendDataBase>> BackendDataBase::descendantObjects
 	}
 	return out;
 }
-

@@ -1,3 +1,6 @@
+﻿/// @file HelloAiPlugin.cpp
+/// @brief HelloAiPlugin 实现
+
 #include "HelloAiPlugin.h"
 
 QString HelloAiPlugin::pluginId() const

@@ -1,24 +1,28 @@
-#ifndef _POINTCLOUDPROCESS_WIDGET_GRAPHICSWINDOWQT1_H_
-#define _POINTCLOUDPROCESS_WIDGET_GRAPHICSWINDOWQT1_H_
+﻿#ifndef CLOUDSIMHOST_GRAPHICSWINDOWQT1_H
+#define CLOUDSIMHOST_GRAPHICSWINDOWQT1_H
 
+/// @file GraphicsWindowQt1.h
+/// @brief OSG 图形窗口适配：实现 osgViewer::GraphicsWindow，与 QWidgetViewer 同步尺寸与事件
 
 #include "widget_global.h"
 
-#include <QGLWidget>
-#include <osg/Referenced>
-#include <QtCore>   // ����QMutexLocker����
-#include <QtWidgets> // ����QGestureEvent��QCursor
-#include <QGestureEvent> // ��ʽ����QGestureEvent
-#include <QCursor>      // ��ʽ����QCursor
-#include <osgViewer/Viewer>
-
 #include "QWidgetViewer.h"
 
-/// OSG ͼ�δ�������㣺���� osgViewer::GraphicsWindow �� QWidgetViewer��ͬ���ߴ����¼����С�
+#include <QCursor>
+#include <QGLWidget>
+#include <QGestureEvent>
+#include <QtCore>
+#include <QtWidgets>
+
+#include <osg/Referenced>
+#include <osgViewer/Viewer>
+
+/// OSG 图形窗口适配：实现 osgViewer::GraphicsWindow，与 QWidgetViewer 同步尺寸与事件
 class WIDGET_EXPORT GraphicsWindowQt1 : public osgViewer::GraphicsWindow
 {
 public:
-	GraphicsWindowQt1(osg::GraphicsContext::Traits* traits, QWidget* parent = NULL, const QGLWidget* shareWidget = NULL, Qt::WindowFlags f = 0);
+	GraphicsWindowQt1(osg::GraphicsContext::Traits* traits, QWidget* parent = NULL, const QGLWidget* shareWidget = NULL,
+					  Qt::WindowFlags f = 0);
 	GraphicsWindowQt1(QWidgetViewer* widget);
 	virtual ~GraphicsWindowQt1();
 
@@ -37,12 +41,13 @@ public:
 		QWidget* _parent;
 	};
 
-	// ���ӳߴ���·���
-	void updateSize(int width, int height) 
+	/// 同步 traits 宽高并触发 resized
+	void updateSize(int width, int height)
 	{
 		_traits->width = width;
 		_traits->height = height;
-		if (isRealized()) {
+		if (isRealized())
+		{
 			resized(_traits->x, _traits->y, width, height);
 		}
 	}
@@ -82,14 +87,13 @@ public:
 	void setViewer(osgViewer::Viewer* viewer) { _viewer = viewer; }
 
 protected:
-
 	friend class QWidgetViewer;
 	QWidgetViewer* _widget;
 	bool _ownsWidget;
 	QCursor _currentCursor;
 	bool _realized;
 
-	 osg::observer_ptr<osgViewer::Viewer> _viewer;
+	osg::observer_ptr<osgViewer::Viewer> _viewer;
 };
 
-#endif//_POINTCLOUDPROCESS_WIDGET_GRAPHICSWINDOWQT1_H_
+#endif // CLOUDSIMHOST_GRAPHICSWINDOWQT1_H

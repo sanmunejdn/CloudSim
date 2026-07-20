@@ -1,12 +1,14 @@
+﻿/// @file OsgWidgetTcpTeach.cpp
+/// @brief OsgWidgetTcpTeach 实现
+
 #include "OsgWidget.h"
 #include "RobotTcpDragTeachOperation.h"
-
-#include <RigidTransform.h>
-#include <Adapters.h>
 
 #include <algorithm>
 #include <cmath>
 
+#include <Adapters.h>
+#include <RigidTransform.h>
 #include <osg/BlendFunc>
 #include <osg/Camera>
 #include <osg/Depth>
@@ -23,7 +25,6 @@
 
 namespace
 {
-
 bool tcpTeachMountPatWorldMatrix(const osg::MatrixTransform* mountPat, osg::Matrixd& outWorld)
 {
 	if (!mountPat)
@@ -54,9 +55,8 @@ osg::Quat rigidRotationToOsgQuat(const engine::RigidTransform& rt)
 	return osg::Quat(q.x(), q.y(), q.z(), q.w());
 }
 
-osg::Node* buildTcpTeachCompassGeometry(
-	osg::ref_ptr<osg::MatrixTransform> axisBranch[3],
-	osg::ref_ptr<osg::MatrixTransform> ringBranch[3])
+osg::Node* buildTcpTeachCompassGeometry(osg::ref_ptr<osg::MatrixTransform> axisBranch[3],
+										osg::ref_ptr<osg::MatrixTransform> ringBranch[3])
 {
 	for (int i = 0; i < 3; ++i)
 	{
@@ -71,7 +71,8 @@ osg::Node* buildTcpTeachCompassGeometry(
 	const float tubeR = 2.85f;
 	const int ringSegments = 36;
 
-	auto applyCompassStateSet = [](osg::StateSet* ss) {
+	auto applyCompassStateSet = [](osg::StateSet* ss)
+	{
 		ss->setAttributeAndModes(new osg::PolygonOffset(-1.0f, -1.0f), osg::StateAttribute::ON);
 		ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
 		ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
@@ -84,7 +85,9 @@ osg::Node* buildTcpTeachCompassGeometry(
 		ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 	};
 
-	auto addPositiveAxis = [&](const osg::Vec3& p1, const osg::Vec3& coneDir, const osg::Vec4& col) -> osg::ref_ptr<osg::Geode> {
+	auto addPositiveAxis = [&](const osg::Vec3& p1, const osg::Vec3& coneDir,
+							   const osg::Vec4& col) -> osg::ref_ptr<osg::Geode>
+	{
 		osg::ref_ptr<osg::Geode> g = new osg::Geode;
 		osg::ref_ptr<osg::Vec3Array> v = new osg::Vec3Array;
 		v->push_back(osg::Vec3(0.0f, 0.0f, 0.0f));
@@ -119,20 +122,25 @@ osg::Node* buildTcpTeachCompassGeometry(
 	const osg::Vec4 colY(0.22f, 0.85f, 0.28f, 0.95f);
 	const osg::Vec4 colZ(0.25f, 0.45f, 0.95f, 0.95f);
 
-	auto wrapBranch = [&](osg::Node* child) -> osg::ref_ptr<osg::MatrixTransform> {
+	auto wrapBranch = [&](osg::Node* child) -> osg::ref_ptr<osg::MatrixTransform>
+	{
 		osg::ref_ptr<osg::MatrixTransform> br = new osg::MatrixTransform;
 		br->addChild(child);
 		return br;
 	};
 
-	axisBranch[0] = wrapBranch(addPositiveAxis(osg::Vec3(axisLen, 0.0f, 0.0f), osg::Vec3(1.0f, 0.0f, 0.0f), colX).get());
-	axisBranch[1] = wrapBranch(addPositiveAxis(osg::Vec3(0.0f, axisLen, 0.0f), osg::Vec3(0.0f, 1.0f, 0.0f), colY).get());
-	axisBranch[2] = wrapBranch(addPositiveAxis(osg::Vec3(0.0f, 0.0f, axisLen), osg::Vec3(0.0f, 0.0f, 1.0f), colZ).get());
+	axisBranch[0] =
+		wrapBranch(addPositiveAxis(osg::Vec3(axisLen, 0.0f, 0.0f), osg::Vec3(1.0f, 0.0f, 0.0f), colX).get());
+	axisBranch[1] =
+		wrapBranch(addPositiveAxis(osg::Vec3(0.0f, axisLen, 0.0f), osg::Vec3(0.0f, 1.0f, 0.0f), colY).get());
+	axisBranch[2] =
+		wrapBranch(addPositiveAxis(osg::Vec3(0.0f, 0.0f, axisLen), osg::Vec3(0.0f, 0.0f, 1.0f), colZ).get());
 	root->addChild(axisBranch[0].get());
 	root->addChild(axisBranch[1].get());
 	root->addChild(axisBranch[2].get());
 
-	auto addRing = [&](int axisIdx, const osg::Vec4& col) {
+	auto addRing = [&](int axisIdx, const osg::Vec4& col)
+	{
 		osg::ref_ptr<osg::Geode> g = new osg::Geode;
 		osg::ref_ptr<osg::Vec3Array> v = new osg::Vec3Array;
 		for (int i = 0; i <= ringSegments; ++i)
@@ -189,8 +197,8 @@ bool OsgWidget::tcpTeachResolveBaseWorld(osg::Matrixd& outBaseWorld) const
 bool OsgWidget::tcpTeachToolWorldMatrix(osg::Matrixd& outToolWorld) const
 {
 	// H8: per-link 法兰挂载时以场景图真值为准，避免 baseWorld 与 URDF 基座不一致导致 World 拖动错位。
-	if (m_tcpTeachUseFlangeLocalPlacement && m_tcpTeachMountPat.valid()
-		&& tcpTeachMountPatWorldMatrix(m_tcpTeachMountPat.get(), outToolWorld))
+	if (m_tcpTeachUseFlangeLocalPlacement && m_tcpTeachMountPat.valid() &&
+		tcpTeachMountPatWorldMatrix(m_tcpTeachMountPat.get(), outToolWorld))
 	{
 		return true;
 	}
@@ -216,12 +224,9 @@ void OsgWidget::tcpTeachSetTargetFromToolWorld(const osg::Matrixd& toolWorldOsg)
 	m_tcpTeachTargetInBase = baseW.inverse().composeColumn(toolW);
 }
 
-void OsgWidget::beginTcpDragTeach(
-	const std::string& mountBackendId,
-	const engine::RigidTransform& T_base_target,
-	const float modelDiagonalMm,
-	std::function<bool(osg::Matrixd&)> resolveRobotBaseWorld,
-	const osg::Matrixd* toolLocalOnFlange)
+void OsgWidget::beginTcpDragTeach(const std::string& mountBackendId, const engine::RigidTransform& T_base_target,
+								  const float modelDiagonalMm, std::function<bool(osg::Matrixd&)> resolveRobotBaseWorld,
+								  const osg::Matrixd* toolLocalOnFlange)
 {
 	endTcpDragTeach();
 	m_tcpTeachActive = true;
@@ -317,9 +322,7 @@ void OsgWidget::updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLoca
 	requestRedraw();
 }
 
-void OsgWidget::updateTcpDragTeachFromTarget(
-	const engine::RigidTransform& T_base_target,
-	bool syncTargetInBase)
+void OsgWidget::updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target, bool syncTargetInBase)
 {
 	// Per-link flange mount: scene pose follows link FK; keep dragged T_base_target for IK (DEVELOPER_GUIDE §13.1).
 	if (syncTargetInBase || !m_tcpTeachUseFlangeLocalPlacement)
@@ -394,8 +397,8 @@ void OsgWidget::updateTcpTeachCompassHighlight(const DragAxis axis, const bool h
 
 void OsgWidget::updateTcpTeachCompassScale()
 {
-	if (!m_tcpTeachCompassTransform.valid() || !m_tcpTeachCompassScaleTransform.valid() || !m_viewer.valid()
-		|| !m_viewer->getCamera() || !m_tcpTeachActive)
+	if (!m_tcpTeachCompassTransform.valid() || !m_tcpTeachCompassScaleTransform.valid() || !m_viewer.valid() ||
+		!m_viewer->getCamera() || !m_tcpTeachActive)
 	{
 		return;
 	}
@@ -404,7 +407,7 @@ void OsgWidget::updateTcpTeachCompassScale()
 	osg::Vec3f pivotF;
 	computeTcpTeachPivotWorld(pivotF);
 	const osg::Vec3d anchor(static_cast<double>(pivotF.x()), static_cast<double>(pivotF.y()),
-		static_cast<double>(pivotF.z()));
+							static_cast<double>(pivotF.z()));
 	const double distance = (eye - anchor).length();
 	if (m_tcpTeachGizmoRefDistance < 0.0 || m_tcpTeachGizmoRefDistance <= 1e-6)
 	{
@@ -422,8 +425,8 @@ bool OsgWidget::beginTcpTeachScreenDrag()
 	m_tcpTeachDragScreenAxisUx = 1.0;
 	m_tcpTeachDragScreenAxisUy = 0.0;
 	m_tcpTeachDragMmPerPixel = 1.0;
-	if (!m_tcpTeachActive || !m_viewer.valid() || !m_viewer->getCamera() || viewportWidth() <= 0
-		|| viewportHeight() <= 0)
+	if (!m_tcpTeachActive || !m_viewer.valid() || !m_viewer->getCamera() || viewportWidth() <= 0 ||
+		viewportHeight() <= 0)
 	{
 		return false;
 	}
@@ -438,7 +441,7 @@ bool OsgWidget::beginTcpTeachScreenDrag()
 	if (m_tcpTeachCompassScaleTransform.valid())
 	{
 		const osg::Matrixd& sm = m_tcpTeachCompassScaleTransform->getMatrix();
-		gizmoScale = static_cast<float>(std::max({ std::abs(sm(0, 0)), std::abs(sm(1, 1)), std::abs(sm(2, 2)) }));
+		gizmoScale = static_cast<float>(std::max({std::abs(sm(0, 0)), std::abs(sm(1, 1)), std::abs(sm(2, 2))}));
 		if (gizmoScale < 1e-6f)
 		{
 			gizmoScale = 1.0f;
@@ -448,14 +451,14 @@ bool OsgWidget::beginTcpTeachScreenDrag()
 
 	osg::Vec3f origin;
 	computeTcpTeachPivotWorld(origin);
-	const osg::Vec3f tipWorld(
-		origin.x() + static_cast<float>(axisW.x() * static_cast<double>(axisLenMm)),
-		origin.y() + static_cast<float>(axisW.y() * static_cast<double>(axisLenMm)),
-		origin.z() + static_cast<float>(axisW.z() * static_cast<double>(axisLenMm)));
+	const osg::Vec3f tipWorld(origin.x() + static_cast<float>(axisW.x() * static_cast<double>(axisLenMm)),
+							  origin.y() + static_cast<float>(axisW.y() * static_cast<double>(axisLenMm)),
+							  origin.z() + static_cast<float>(axisW.z() * static_cast<double>(axisLenMm)));
 
 	osg::Camera* const camera = m_viewer->getCamera();
 	const osg::Matrixd mvp = camera->getViewMatrix() * camera->getProjectionMatrix();
-	auto projectToScreen = [&](const osg::Vec3f& world, double& sx, double& sy) {
+	auto projectToScreen = [&](const osg::Vec3f& world, double& sx, double& sy)
+	{
 		const osg::Vec3d clip = osg::Vec3d(world) * mvp;
 		sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
 		sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
@@ -560,13 +563,12 @@ int OsgWidget::pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, const bool pr
 	{
 		*outPickedRing = false;
 	}
-	if (!m_tcpTeachActive || !m_viewer.valid() || !m_viewer->getCamera() || viewportWidth() <= 0
-		|| viewportHeight() <= 0 || !m_tcpTeachCompassNode.valid())
+	if (!m_tcpTeachActive || !m_viewer.valid() || !m_viewer->getCamera() || viewportWidth() <= 0 ||
+		viewportHeight() <= 0 || !m_tcpTeachCompassNode.valid())
 	{
 		return kGizmoAxisNone;
 	}
-	const double dpr =
-		(OsgScene::devicePixelRatio() > 0.0) ? OsgScene::devicePixelRatio() : 1.0;
+	const double dpr = (OsgScene::devicePixelRatio() > 0.0) ? OsgScene::devicePixelRatio() : 1.0;
 	const double mx = static_cast<double>(mousePos.x()) * dpr;
 	const double my = static_cast<double>(mousePos.y()) * dpr;
 
@@ -574,7 +576,7 @@ int OsgWidget::pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, const bool pr
 	if (m_tcpTeachCompassScaleTransform.valid())
 	{
 		const osg::Matrixd& sm = m_tcpTeachCompassScaleTransform->getMatrix();
-		gizmoScale = static_cast<float>(std::max({ std::abs(sm(0, 0)), std::abs(sm(1, 1)), std::abs(sm(2, 2)) }));
+		gizmoScale = static_cast<float>(std::max({std::abs(sm(0, 0)), std::abs(sm(1, 1)), std::abs(sm(2, 2))}));
 		if (gizmoScale < 1e-6f)
 		{
 			gizmoScale = 1.0f;
@@ -588,19 +590,20 @@ int OsgWidget::pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, const bool pr
 	osg::Vec3f origin;
 	computeTcpTeachPivotWorld(origin);
 	// 与 beginTcpTeachScreenDrag / tcpTeachCompassUnitAxisWorld 同一套世界系轴向，避免拾取与屏幕 ds 反向
-	auto axisTipWorld = [&](const DragAxis axis) -> osg::Vec3f {
+	auto axisTipWorld = [&](const DragAxis axis) -> osg::Vec3f
+	{
 		osg::Vec3d axisW;
 		if (!tcpTeachCompassUnitAxisWorld(axis, axisW))
 		{
 			return origin;
 		}
-		return origin
-			+ osg::Vec3f(static_cast<float>(axisW.x() * static_cast<double>(axisLen)),
-				static_cast<float>(axisW.y() * static_cast<double>(axisLen)),
-				static_cast<float>(axisW.z() * static_cast<double>(axisLen)));
+		return origin + osg::Vec3f(static_cast<float>(axisW.x() * static_cast<double>(axisLen)),
+								   static_cast<float>(axisW.y() * static_cast<double>(axisLen)),
+								   static_cast<float>(axisW.z() * static_cast<double>(axisLen)));
 	};
 
-	auto projectToScreen = [&](const osg::Vec3f& world, double& sx, double& sy) {
+	auto projectToScreen = [&](const osg::Vec3f& world, double& sx, double& sy)
+	{
 		osg::Vec3d clip = osg::Vec3d(world) * mvp;
 		sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
 		sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
@@ -612,7 +615,8 @@ int OsgWidget::pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, const bool pr
 	projectToScreen(axisTipWorld(DragAxis::Y), pyx, pyy);
 	projectToScreen(axisTipWorld(DragAxis::Z), pzx, pzy);
 
-	auto distanceToSegment = [](double p0x, double p0y, double p1x, double p1y, double qx, double qy) -> double {
+	auto distanceToSegment = [](double p0x, double p0y, double p1x, double p1y, double qx, double qy) -> double
+	{
 		const double vx = p1x - p0x;
 		const double vy = p1y - p0y;
 		const double wx = qx - p0x;
@@ -629,19 +633,20 @@ int OsgWidget::pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, const bool pr
 	const double dx = distanceToSegment(ox, oy, pxx, pxy, mx, my);
 	const double dy = distanceToSegment(ox, oy, pyx, pyy, mx, my);
 	const double dz = distanceToSegment(ox, oy, pzx, pzy, mx, my);
-	const double axisLenPx = std::max({ std::hypot(pxx - ox, pxy - oy), std::hypot(pyx - ox, pyy - oy),
-		std::hypot(pzx - ox, pzy - oy), 1.0 });
+	const double axisLenPx =
+		std::max({std::hypot(pxx - ox, pxy - oy), std::hypot(pyx - ox, pyy - oy), std::hypot(pzx - ox, pzy - oy), 1.0});
 	const double threshold = std::clamp(0.22 * axisLenPx, 14.0, 44.0);
 	const double ringThreshold = std::clamp(0.14 * axisLenPx, 10.0, 36.0);
 
 	osg::Vec3d axisDirW[3];
-	const DragAxis dragAxes[3] = { DragAxis::X, DragAxis::Y, DragAxis::Z };
+	const DragAxis dragAxes[3] = {DragAxis::X, DragAxis::Y, DragAxis::Z};
 	for (int ai = 0; ai < 3; ++ai)
 	{
 		axisDirW[ai].set(0.0, 0.0, 1.0);
 		(void)tcpTeachCompassUnitAxisWorld(dragAxes[ai], axisDirW[ai]);
 	}
-	auto ringPointWorld = [&](const int ringAxis, const float ca, const float sa) -> osg::Vec3f {
+	auto ringPointWorld = [&](const int ringAxis, const float ca, const float sa) -> osg::Vec3f
+	{
 		const double rr = static_cast<double>(ringRadius);
 		osg::Vec3d w(origin.x(), origin.y(), origin.z());
 		if (ringAxis == kGizmoAxisX)
@@ -659,7 +664,8 @@ int OsgWidget::pickTcpTeachAxisAtScreenPos(const QPoint& mousePos, const bool pr
 		return osg::Vec3f(static_cast<float>(w.x()), static_cast<float>(w.y()), static_cast<float>(w.z()));
 	};
 
-	auto minDistanceToProjectedRing = [&](int axis) -> double {
+	auto minDistanceToProjectedRing = [&](int axis) -> double
+	{
 		const int segments = 72;
 		const float r = ringRadius;
 		double minDist = 1e9;

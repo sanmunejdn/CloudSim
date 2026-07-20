@@ -1,3 +1,6 @@
+﻿/// @file BrepImportArtifacts.cpp
+/// @brief BrepImportArtifacts 实现
+
 #include "BrepImportArtifacts.h"
 
 #include "Discretize.h"
@@ -12,7 +15,6 @@ namespace geoalgo
 {
 namespace
 {
-
 struct CacheEntry
 {
 	ShapeHandle shapeKey;
@@ -31,11 +33,8 @@ std::int64_t elapsedMs(const std::chrono::steady_clock::time_point t0)
 
 } // namespace
 
-bool buildBrepImportArtifactsDisplay(
-	const ShapeHandle& shape,
-	BrepImportArtifacts& out,
-	BrepImportBuildTimings* timings,
-	std::string* errMsg)
+bool buildBrepImportArtifactsDisplay(const ShapeHandle& shape, BrepImportArtifacts& out,
+									 BrepImportBuildTimings* timings, std::string* errMsg)
 {
 	out.displaySoup.clear();
 	out.displayNormals.clear();
@@ -69,11 +68,8 @@ bool buildBrepImportArtifactsDisplay(
 	return true;
 }
 
-bool buildBrepImportArtifactsPick(
-	const ShapeHandle& shape,
-	BrepImportArtifacts& out,
-	BrepImportBuildTimings* timings,
-	std::string* errMsg)
+bool buildBrepImportArtifactsPick(const ShapeHandle& shape, BrepImportArtifacts& out, BrepImportBuildTimings* timings,
+								  std::string* errMsg)
 {
 	const auto t0 = std::chrono::steady_clock::now();
 	out.edgePolylines.clear();
@@ -129,10 +125,8 @@ bool buildBrepImportArtifacts(const ShapeHandle& shape, BrepImportArtifacts& out
 	return buildBrepImportArtifactsPick(shape, out, &timings, errMsg);
 }
 
-std::shared_ptr<BrepImportArtifacts> getOrBuildBrepImportArtifacts(
-	const ShapeHandle& shape,
-	std::string* errMsg,
-	BrepImportBuildTimings* timings)
+std::shared_ptr<BrepImportArtifacts> getOrBuildBrepImportArtifacts(const ShapeHandle& shape, std::string* errMsg,
+																   BrepImportBuildTimings* timings)
 {
 	if (shape.isNull())
 	{
@@ -185,13 +179,8 @@ void clearBrepImportArtifactsCache()
 	g_cacheEntries.clear();
 }
 
-bool extractDisplaySoupPointCloud(
-	const ShapeHandle& shape,
-	std::vector<float>& outXyz,
-	std::vector<float>& outNormals,
-	const std::size_t maxPoints,
-	std::size_t* outTriangleCount,
-	std::string* errMsg)
+bool extractDisplaySoupPointCloud(const ShapeHandle& shape, std::vector<float>& outXyz, std::vector<float>& outNormals,
+								  const std::size_t maxPoints, std::size_t* outTriangleCount, std::string* errMsg)
 {
 	outXyz.clear();
 	outNormals.clear();

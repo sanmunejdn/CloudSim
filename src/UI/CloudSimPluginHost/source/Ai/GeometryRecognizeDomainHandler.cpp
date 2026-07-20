@@ -1,3 +1,6 @@
+﻿/// @file GeometryRecognizeDomainHandler.cpp
+/// @brief GeometryRecognizeDomainHandler 实现
+
 #include "Ai/GeometryRecognizeDomainHandler.h"
 
 #include "AiCommandSchema.h"
@@ -6,14 +9,14 @@
 #include "IPluginHostContext.h"
 #include "PluginPrimitiveTypes.h"
 
-#include <json.hpp>
-
 #include <cmath>
 #include <set>
 
+#include <json.hpp>
+
 namespace
 {
-const std::set<std::string> kPrimitives = { "box", "cylinder", "cone", "sphere", "unknown" };
+const std::set<std::string> kPrimitives = {"box", "cylinder", "cone", "sphere", "unknown"};
 
 bool isPositiveDim(double v)
 {
@@ -81,7 +84,7 @@ bool validateDimensionsForPrimitive(const std::string& prim, const nlohmann::jso
 		*err = QStringLiteral("Unsupported primitive.");
 	return false;
 }
-}
+} // namespace
 
 QString GeometryRecognizeDomainHandler::domainId() const
 {
@@ -126,7 +129,8 @@ bool GeometryRecognizeDomainHandler::validateOutput(const QByteArray& jsonUtf8, 
 	return validateDimensionsForPrimitive(prim, j.value("dimensions_mm", nlohmann::json::object()), err);
 }
 
-bool GeometryRecognizeDomainHandler::adaptToActionPlan(const QByteArray& domainJson, QByteArray* outPlan, QString* err) const
+bool GeometryRecognizeDomainHandler::adaptToActionPlan(const QByteArray& domainJson, QByteArray* outPlan,
+													   QString* err) const
 {
 	nlohmann::json j;
 	try
@@ -156,7 +160,7 @@ bool GeometryRecognizeDomainHandler::adaptToActionPlan(const QByteArray& domainJ
 	plan["steps"] = nlohmann::json::array();
 	nlohmann::json step;
 	step["api"] = "createPrimitiveMesh";
-	step["args"] = { { "primitive", prim }, { "dimensions_mm", j.value("dimensions_mm", nlohmann::json::object()) } };
+	step["args"] = {{"primitive", prim}, {"dimensions_mm", j.value("dimensions_mm", nlohmann::json::object())}};
 	if (j.contains("name"))
 		step["args"]["name"] = j["name"];
 	plan["steps"].push_back(step);
@@ -165,8 +169,8 @@ bool GeometryRecognizeDomainHandler::adaptToActionPlan(const QByteArray& domainJ
 	return true;
 }
 
-bool GeometryRecognizeDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHostContext* host, IAiAssistantHost* aiHost,
-	QString* summary, QString* err)
+bool GeometryRecognizeDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHostContext* host,
+											 IAiAssistantHost* aiHost, QString* summary, QString* err)
 {
 	(void)host;
 	QByteArray plan;

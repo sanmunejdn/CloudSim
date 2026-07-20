@@ -1,5 +1,8 @@
-#ifndef _POINTCLOUDPROCESS_WIDGET_GLOBAL_H_
-#define _POINTCLOUDPROCESS_WIDGET_GLOBAL_H_
+﻿#ifndef WIDGET_WIDGET_GLOBAL_H
+#define WIDGET_WIDGET_GLOBAL_H
+
+/// @file widget_global.h
+/// @brief Widget 导出宏与 UTF-8 执行字符集
 
 /// Widget 导出宏与 UTF-8 执行字符集
 
@@ -10,29 +13,28 @@
 #endif
 
 #ifndef BUILD_STATIC
-# if defined(WIDGET_LIB)
-#  define WIDGET_EXPORT Q_DECL_EXPORT
-# else
-#  define WIDGET_EXPORT Q_DECL_IMPORT
-# endif
+#if defined(WIDGET_LIB)
+#define WIDGET_EXPORT Q_DECL_EXPORT
 #else
-# define WIDGET_EXPORT
+#define WIDGET_EXPORT Q_DECL_IMPORT
+#endif
+#else
+#define WIDGET_EXPORT
 #endif
 
 #if defined(CLOUDSIM_OSG_IN_HOST)
-# include "../../Host/CloudSimHost/inc/cloudsim_host_global.h"
-# define OSG_WIDGET_API CLOUDSIM_HOST_EXPORT
+#include "../../Host/CloudSimHost/inc/cloudsim_host_global.h"
+#define OSG_WIDGET_API CLOUDSIM_HOST_EXPORT
 #else
-# define OSG_WIDGET_API WIDGET_EXPORT
+#define OSG_WIDGET_API WIDGET_EXPORT
 #endif
 
 #define HPL_TRY \
-	try{
+	try         \
+	{
+#define HPL_CATCH                                                    \
+	}                                                                \
+	catch (const std::exception& exc) { qCritical() << exc.what(); } \
+	catch (...) { qCritical() << "空指针、野指针：" << __FILE__ << ", " << __func__ << ", " << __LINE__; }
 
-#define HPL_CATCH \
-	}catch (const std::exception& exc){ \
-		qCritical() << exc.what(); \
-	}catch (...){ \
-		qCritical() << "��ָ�롢Ұָ�룺" << __FILE__ << ", " << __func__ << ", " << __LINE__;}
-
-#endif //_POINTCLOUDPROCESS_WIDGET_GLOBAL_H_
+#endif // WIDGET_WIDGET_GLOBAL_H

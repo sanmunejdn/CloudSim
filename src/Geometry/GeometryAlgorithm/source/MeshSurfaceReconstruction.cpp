@@ -1,18 +1,21 @@
+﻿/// @file MeshSurfaceReconstruction.cpp
+/// @brief MeshSurfaceReconstruction 实现
+
 #include "MeshSurfaceReconstruction.h"
-#include "MeshSurfaceReconstruction/MeshSurfaceReconstructionInternal.h"
+
 #include "MeshSurfaceReconstruction/MeshSurfaceReconstructionAmrtoPartition.h"
+#include "MeshSurfaceReconstruction/MeshSurfaceReconstructionInternal.h"
 #include "ShapeHandle.h"
+
+#include <cmath>
 
 #include <TopExp_Explorer.hxx>
 #include <TopoDS_Shape.hxx>
-
-#include <cmath>
 
 namespace geoalgo
 {
 namespace
 {
-
 int stageOrder(const MeshSurfaceReconstructStage stage)
 {
 	switch (stage)
@@ -216,12 +219,9 @@ MeshSurfaceReconstructSessionPtr createMeshSurfaceReconstructSession(std::vector
 	return std::make_shared<MeshSurfaceReconstructSession>(std::move(sourceSoup));
 }
 
-bool runMeshSurfaceReconstructStage(
-	MeshSurfaceReconstructSession& session,
-	const MeshSurfaceReconstructStage stage,
-	const MeshSurfaceReconstructParams& params,
-	ShapeHandle* outShape,
-	std::string* errMsg)
+bool runMeshSurfaceReconstructStage(MeshSurfaceReconstructSession& session, const MeshSurfaceReconstructStage stage,
+									const MeshSurfaceReconstructParams& params, ShapeHandle* outShape,
+									std::string* errMsg)
 {
 	MeshSurfaceReconstructSession::Impl& s = *session.m_impl;
 	if (!isNextGeoStage(s.lastCompleted, stage))
@@ -250,21 +250,15 @@ bool runMeshSurfaceReconstructStage(
 			bool partitionOk = false;
 			if (params.partitionMode == MeshSurfacePartitionMode::AmrtoImGmcg)
 			{
-				partitionOk = meshrecon::partitionQuadDomainsAmrtoImGmcg(
-					s.mesh,
-					params,
-					s.patches,
-					s.report.junctionCount,
-					&s.report,
-					errMsg,
-					&s.amrtoQuadMesh,
-					&s.amrtoGmcgResult);
+				partitionOk =
+					meshrecon::partitionQuadDomainsAmrtoImGmcg(s.mesh, params, s.patches, s.report.junctionCount,
+															   &s.report, errMsg, &s.amrtoQuadMesh, &s.amrtoGmcgResult);
 				s.hasAmrtoCache = partitionOk;
 			}
 			else
 			{
-				partitionOk = meshrecon::partitionQuadDomains(
-					s.mesh, params, s.patches, s.report.junctionCount, &s.report, errMsg);
+				partitionOk = meshrecon::partitionQuadDomains(s.mesh, params, s.patches, s.report.junctionCount,
+															  &s.report, errMsg);
 			}
 			if (!partitionOk)
 			{
@@ -305,8 +299,7 @@ bool runMeshSurfaceReconstructStage(
 			s.lastCompleted = MeshSurfaceReconstructStage::BoundaryBlend;
 			return true;
 		case MeshSurfaceReconstructStage::JunctionBlend:
-			if (!meshrecon::applyJunctionC2Blend(
-					s.patches, s.report.junctionCount, params, &s.report, errMsg))
+			if (!meshrecon::applyJunctionC2Blend(s.patches, s.report.junctionCount, params, &s.report, errMsg))
 			{
 				return false;
 			}
@@ -369,11 +362,8 @@ bool runMeshSurfaceReconstructStage(
 	}
 }
 
-bool buildPartitionColoredMeshSoup(
-	const MeshSurfaceReconstructSession& session,
-	std::vector<float>& outSoup,
-	std::vector<float>& outRgbPerVertex,
-	std::string* errMsg)
+bool buildPartitionColoredMeshSoup(const MeshSurfaceReconstructSession& session, std::vector<float>& outSoup,
+								   std::vector<float>& outRgbPerVertex, std::string* errMsg)
 {
 	const MeshSurfaceReconstructSession::Impl& s = *session.m_impl;
 	if (stageOrder(s.lastCompleted) < stageOrder(MeshSurfaceReconstructStage::Partition))
@@ -427,11 +417,8 @@ bool buildPartitionColoredMeshSoup(
 	return true;
 }
 
-bool buildSamplePointsCloud(
-	const MeshSurfaceReconstructSession& session,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::string* errMsg)
+bool buildSamplePointsCloud(const MeshSurfaceReconstructSession& session, std::vector<float>& outXyz,
+							std::vector<float>& outRgba, std::string* errMsg)
 {
 	const MeshSurfaceReconstructSession::Impl& s = *session.m_impl;
 	if (stageOrder(s.lastCompleted) < stageOrder(MeshSurfaceReconstructStage::Sample))
@@ -473,10 +460,7 @@ bool buildSamplePointsCloud(
 	return !outXyz.empty();
 }
 
-bool buildFitPreviewShape(
-	const MeshSurfaceReconstructSession& session,
-	ShapeHandle& outShape,
-	std::string* errMsg)
+bool buildFitPreviewShape(const MeshSurfaceReconstructSession& session, ShapeHandle& outShape, std::string* errMsg)
 {
 	const MeshSurfaceReconstructSession::Impl& s = *session.m_impl;
 	if (stageOrder(s.lastCompleted) < stageOrder(MeshSurfaceReconstructStage::Fit))
@@ -491,12 +475,8 @@ bool buildFitPreviewShape(
 	return meshrecon::assembleBrepShape(s.mesh, s.patches, outShape, errMsg);
 }
 
-bool reconstructBrepFromMeshSoup(
-	const std::vector<float>& soup,
-	const MeshSurfaceReconstructParams& params,
-	ShapeHandle& outShape,
-	MeshSurfaceReconstructReport& report,
-	std::string* errMsg)
+bool reconstructBrepFromMeshSoup(const std::vector<float>& soup, const MeshSurfaceReconstructParams& params,
+								 ShapeHandle& outShape, MeshSurfaceReconstructReport& report, std::string* errMsg)
 {
 	report = MeshSurfaceReconstructReport{};
 	outShape = ShapeHandle{};
@@ -512,12 +492,9 @@ bool reconstructBrepFromMeshSoup(
 	}
 
 	const MeshSurfaceReconstructStage pipeline[] = {
-		MeshSurfaceReconstructStage::Partition,
-		MeshSurfaceReconstructStage::Sample,
-		MeshSurfaceReconstructStage::Fit,
-		MeshSurfaceReconstructStage::BoundaryBlend,
-		MeshSurfaceReconstructStage::JunctionBlend,
-		MeshSurfaceReconstructStage::Fair,
+		MeshSurfaceReconstructStage::Partition,		MeshSurfaceReconstructStage::Sample,
+		MeshSurfaceReconstructStage::Fit,			MeshSurfaceReconstructStage::BoundaryBlend,
+		MeshSurfaceReconstructStage::JunctionBlend, MeshSurfaceReconstructStage::Fair,
 		MeshSurfaceReconstructStage::Assemble,
 	};
 
@@ -542,7 +519,6 @@ bool reconstructBrepFromMeshSoup(
 
 namespace meshrecon
 {
-
 void aggregateFitRejectStats(MeshSurfaceReconstructReport& report, const std::vector<QuadPatch>& patches)
 {
 	report.fitRejectApprox = 0;

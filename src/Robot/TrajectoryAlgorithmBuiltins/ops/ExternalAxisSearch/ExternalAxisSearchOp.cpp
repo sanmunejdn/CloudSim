@@ -1,14 +1,16 @@
+﻿/// @file ExternalAxisSearchOp.cpp
+/// @brief ExternalAxisSearchOp 实现
+
 // ExternalAxisSearch 原子块：搜索外部轴以满足可达性
 #include "ExternalAxisSearchOp.h"
 
 #include "TrajectoryOpFormat.h"
-#include "UnifiedTrajectoryPathMath.h"
 #include "TrajectoryOpParamAccess.h"
 #include "TrajectoryOpParamsParse.h"
+#include "UnifiedTrajectoryPathMath.h"
 
 namespace trajectory_algo
 {
-
 RobotInstruction::TrajectoryOpKind ExternalAxisSearchOp::kind() const
 {
 	return RobotInstruction::TrajectoryOpKind::ExternalAxisSearch;
@@ -24,8 +26,8 @@ TrajectoryOpCapability ExternalAxisSearchOp::capabilities() const
 	return TrajectoryOpCapability::None;
 }
 
-RobotInstruction::TrajectoryOpDescriptor ExternalAxisSearchOp::makeDefaultDescriptor(
-	const RobotInstruction::OpScope& defaultScope) const
+RobotInstruction::TrajectoryOpDescriptor
+ExternalAxisSearchOp::makeDefaultDescriptor(const RobotInstruction::OpScope& defaultScope) const
 {
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::ExternalAxisSearch;
@@ -47,19 +49,16 @@ bool ExternalAxisSearchOp::validate(const RobotInstruction::TrajectoryOpDescript
 	return true;
 }
 
-std::string ExternalAxisSearchOp::formatSummary(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const bool chinese) const
+std::string ExternalAxisSearchOp::formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op,
+												const bool chinese) const
 {
 	(void)op;
 	return displayName(chinese);
 }
 
-bool ExternalAxisSearchOp::processPath(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	RobotInstruction::UnifiedTrajectory& traj,
-	const TrajectoryOpExecutionContext& ctx,
-	std::string* errMsg) const
+bool ExternalAxisSearchOp::processPath(const RobotInstruction::TrajectoryOpDescriptor& op,
+									   RobotInstruction::UnifiedTrajectory& traj,
+									   const TrajectoryOpExecutionContext& ctx, std::string* errMsg) const
 {
 	(void)op;
 	(void)ctx;

@@ -1,35 +1,35 @@
+﻿/// @file DocumentHost.cpp
+/// @brief DocumentHost 实现
+
 #include "DocumentHost.h"
 
+#include "BackendDataBase.h"
+#include "BackendDataManager.h"
+#include "BackendFileImport.h"
+#include "BackendFollowReverseIndex.h"
+#include "BackendHierarchyModel.h"
+#include "BackendSceneDocumentFacade.h"
+#include "DocumentHostEvents.h"
+#include "FollowAttachmentComponent.h"
+#include "HostRenderViewFactory.h"
+#include "IRobotInstructionPropertyDelegate.h"
+#include "IRobotUrdfImportContext.h"
+#include "MeshBackendData.h"
+#include "OsgWidget.h"
+#include "OsgWidgetSceneBridge.h"
+#include "PointCloudBackendData.h"
+#include "RobotProgramStore.h"
 #include "adapters/DataServiceAdapter.h"
 #include "adapters/OsgRenderViewAdapter.h"
 #include "adapters/RobotServiceAdapter.h"
 
-#include "BackendDataBase.h"
-#include "BackendDataManager.h"
-#include "BackendFollowReverseIndex.h"
-#include "FollowAttachmentComponent.h"
-#include "BackendHierarchyModel.h"
-#include "MeshBackendData.h"
-#include "PointCloudBackendData.h"
-#include "OsgWidget.h"
-#include "HostRenderViewFactory.h"
-#include "OsgWidgetSceneBridge.h"
-#include "BackendFileImport.h"
-#include "DocumentHostEvents.h"
-#include "BackendSceneDocumentFacade.h"
-#include "IRobotInstructionPropertyDelegate.h"
-#include "IRobotUrdfImportContext.h"
-#include "RobotProgramStore.h"
-
 #include <QVBoxLayout>
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 // Data→OSG→三适配器
 DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, const QString& documentId)
-	: QWidget(parent)
-	, m_documentId(documentId)
-	, m_events(events)
+	: QWidget(parent), m_documentId(documentId), m_events(events)
 {
 	setContentsMargins(0, 0, 0, 0);
 	auto* layout = new QVBoxLayout(this);
@@ -157,7 +157,8 @@ BackendSceneDocumentFacade DocumentHost::sceneFacade()
 }
 
 bool DocumentHost::loadMeshFromBackendIntoScene(const MeshBackendData& data, QString* errorMessage,
-	const bool resetViewToHome, const bool showWireOutline, const bool useSceneLighting)
+												const bool resetViewToHome, const bool showWireOutline,
+												const bool useSceneLighting)
 {
 	if (!m_osgWidget)
 	{
@@ -338,6 +339,34 @@ bool DocumentHost::followSolveForcedPending() const
 	return m_followSolveForced;
 }
 
+bool DocumentHost::isKinematicsOwnedBackend(const std::string& backendId) const
+{
+	const QString id = QString::fromStdString(backendId);
+	return m_backendSourceType.value(id).compare(QStringLiteral("URDF"), Qt::CaseInsensitive) == 0;
+}
+
+void DocumentHost::stripKinematicsOwnedFollowAttachments()
+{
+	bool removed = false;
+	for (const auto& d : m_backend->listData())
+	{
+		if (!d || !isKinematicsOwnedBackend(d->id()))
+		{
+			continue;
+		}
+		if (!d->hasComponent(FollowAttachmentComponent::typeKeyStatic()))
+		{
+			continue;
+		}
+		d->removeComponent(FollowAttachmentComponent::typeKeyStatic());
+		removed = true;
+	}
+	if (removed)
+	{
+		invalidateFollowReverseIndex();
+	}
+}
+
 void DocumentHost::setSuppressRobotFollowDirtyNotify(const bool suppress)
 {
 	m_suppressRobotFollowDirtyNotify = suppress;
@@ -412,7 +441,7 @@ const QMap<QString, QString>& DocumentHost::backendParentId() const
 }
 
 std::unique_ptr<core::IDocumentScope> createDocumentHost(QWidget* parent, core::EventHub& events,
-	const QString& documentId)
+														 const QString& documentId)
 {
 	return std::make_unique<DocumentHost>(parent, events, documentId);
 }

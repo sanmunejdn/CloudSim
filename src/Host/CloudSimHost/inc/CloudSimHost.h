@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_CLOUDSIMHOST_H
+#define CLOUDSIMHOST_CLOUDSIMHOST_H
+
+/// @file CloudSimHost.h
+/// @brief 创建文档宿主
 
 #include "cloudsim_host_global.h"
 
@@ -6,19 +10,20 @@
 
 class QWidget;
 
-namespace cloudsim::core {
+namespace cloudsim::core
+{
 class EventHub;
 class IDocumentScope;
 class IRenderViewFactory;
 } // namespace cloudsim::core
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 class DocumentHost;
 
 /// 创建文档宿主
 CLOUDSIM_HOST_EXPORT std::unique_ptr<core::IDocumentScope> createDocumentHost(QWidget* parent, core::EventHub& events,
-	const QString& documentId);
+																			  const QString& documentId);
 
 /// 创建渲染工厂
 CLOUDSIM_HOST_EXPORT std::unique_ptr<core::IRenderViewFactory> createHostRenderViewFactory();
@@ -29,4 +34,7 @@ CLOUDSIM_HOST_EXPORT DocumentHost* documentHostFromScope(core::IDocumentScope* s
 } // namespace cloudsim::host
 
 /// C ABI 渲染工厂
-extern "C" CLOUDSIM_HOST_EXPORT cloudsim::core::IRenderViewFactory* cloudsimCreateRenderViewFactory(unsigned int apiVersion);
+extern "C" CLOUDSIM_HOST_EXPORT cloudsim::core::IRenderViewFactory*
+cloudsimCreateRenderViewFactory(unsigned int apiVersion);
+
+#endif // CLOUDSIMHOST_CLOUDSIMHOST_H

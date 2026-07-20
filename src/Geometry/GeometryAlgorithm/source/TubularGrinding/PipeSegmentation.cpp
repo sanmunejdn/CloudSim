@@ -1,3 +1,6 @@
+﻿/// @file PipeSegmentation.cpp
+/// @brief PipeSegmentation 实现
+
 #include "PipeSegmentation.h"
 
 #include "TubularGrindingCommon.h"
@@ -16,10 +19,8 @@ namespace geoalgo
 {
 namespace tg
 {
-
 namespace
 {
-
 constexpr int kFaceUnassigned = -1;
 constexpr int kFaceJunction = -2;
 constexpr double kPlanarNormalSpreadDeg = 3.0;
@@ -97,10 +98,8 @@ double estimateRingClusterEpsMm(const IndexedMeshLite& mesh, const std::vector<V
 	return std::clamp(nnDist[mid] * 0.72, 4.0, meshBBoxDiagonalMm(mesh) * 0.08);
 }
 
-void splitClusterByConnectivity(
-	const IndexedMeshLite& mesh,
-	const std::vector<int>& clusterFaces,
-	std::vector<std::vector<int>>& outComponents)
+void splitClusterByConnectivity(const IndexedMeshLite& mesh, const std::vector<int>& clusterFaces,
+								std::vector<std::vector<int>>& outComponents)
 {
 	outComponents.clear();
 	if (clusterFaces.empty())
@@ -153,16 +152,10 @@ void splitClusterByConnectivity(
 	}
 }
 
-void finalizeRing(
-	const IndexedMeshLite& mesh,
-	const std::vector<int>& faceIndices,
-	const std::vector<Vec3>& faceCenters,
-	const std::vector<double>& faceRadii,
-	const std::vector<double>& faceSemiMajor,
-	const std::vector<double>& faceSemiMinor,
-	const std::vector<double>& faceRotationDeg,
-	const int ringId,
-	TubularCrossSectionRing& outRing)
+void finalizeRing(const IndexedMeshLite& mesh, const std::vector<int>& faceIndices,
+				  const std::vector<Vec3>& faceCenters, const std::vector<double>& faceRadii,
+				  const std::vector<double>& faceSemiMajor, const std::vector<double>& faceSemiMinor,
+				  const std::vector<double>& faceRotationDeg, const int ringId, TubularCrossSectionRing& outRing)
 {
 	outRing.id = ringId;
 	outRing.faceIndices = faceIndices;
@@ -189,15 +182,13 @@ void finalizeRing(
 	outRing.semiMajorMm = semiMajorSum * inv;
 	outRing.semiMinorMm = semiMinorSum * inv;
 	outRing.sectionRotationDeg = rotSum * inv;
-	outRing.aspectRatio = (outRing.semiMinorMm > 1e-6)
-		? outRing.semiMajorMm / outRing.semiMinorMm : 1.0;
+	outRing.aspectRatio = (outRing.semiMinorMm > 1e-6) ? outRing.semiMajorMm / outRing.semiMinorMm : 1.0;
 	outRing.axisHint = {0.0, 0.0, 1.0};
 	(void)mesh;
 }
 
-void computeRingAxes(
-	const std::map<std::pair<int, int>, int>& ringAdjacencyCount,
-	std::vector<TubularCrossSectionRing>& inOutRings)
+void computeRingAxes(const std::map<std::pair<int, int>, int>& ringAdjacencyCount,
+					 std::vector<TubularCrossSectionRing>& inOutRings)
 {
 	std::vector<Vec3> axisAccum(inOutRings.size());
 	for (const auto& kv : ringAdjacencyCount)
@@ -210,10 +201,7 @@ void computeRingAxes(
 		}
 		const TubularCrossSectionRing& a = inOutRings[static_cast<std::size_t>(ra)];
 		const TubularCrossSectionRing& b = inOutRings[static_cast<std::size_t>(rb)];
-		Vec3 dir{
-			b.centerMm[0] - a.centerMm[0],
-			b.centerMm[1] - a.centerMm[1],
-			b.centerMm[2] - a.centerMm[2]};
+		Vec3 dir{b.centerMm[0] - a.centerMm[0], b.centerMm[1] - a.centerMm[1], b.centerMm[2] - a.centerMm[2]};
 		dir = normalizeVec3(dir);
 		axisAccum[static_cast<std::size_t>(ra)] = add(axisAccum[static_cast<std::size_t>(ra)], dir);
 		axisAccum[static_cast<std::size_t>(rb)] = add(axisAccum[static_cast<std::size_t>(rb)], scale(dir, -1.0));
@@ -231,11 +219,9 @@ void computeRingAxes(
 	}
 }
 
-bool markJunctionRings(
-	const std::vector<TubularCrossSectionRing>& rings,
-	const std::map<int, std::vector<int>>& ringNeighbors,
-	const double junctionSpreadDeg,
-	std::vector<uint8_t>& outIsJunctionRing)
+bool markJunctionRings(const std::vector<TubularCrossSectionRing>& rings,
+					   const std::map<int, std::vector<int>>& ringNeighbors, const double junctionSpreadDeg,
+					   std::vector<uint8_t>& outIsJunctionRing)
 {
 	outIsJunctionRing.assign(rings.size(), 0U);
 	bool any = false;
@@ -247,20 +233,16 @@ bool markJunctionRings(
 			continue;
 		}
 		double maxSpread = 0.0;
-		const Vec3 a0{
-			rings[ri].axisHint[0],
-			rings[ri].axisHint[1],
-			rings[ri].axisHint[2]};
+		const Vec3 a0{rings[ri].axisHint[0], rings[ri].axisHint[1], rings[ri].axisHint[2]};
 		for (const int nb : it->second)
 		{
 			if (nb < 0 || nb >= static_cast<int>(rings.size()))
 			{
 				continue;
 			}
-			const Vec3 an{
-				rings[static_cast<std::size_t>(nb)].axisHint[0],
-				rings[static_cast<std::size_t>(nb)].axisHint[1],
-				rings[static_cast<std::size_t>(nb)].axisHint[2]};
+			const Vec3 an{rings[static_cast<std::size_t>(nb)].axisHint[0],
+						  rings[static_cast<std::size_t>(nb)].axisHint[1],
+						  rings[static_cast<std::size_t>(nb)].axisHint[2]};
 			maxSpread = std::max(maxSpread, axisAngleDeg(a0, an));
 		}
 		if (maxSpread >= junctionSpreadDeg)
@@ -272,17 +254,12 @@ bool markJunctionRings(
 	return any;
 }
 
-void mergeRingsIntoSegments(
-	const IndexedMeshLite& mesh,
-	const std::vector<TubularCrossSectionRing>& rings,
-	const std::map<int, std::vector<int>>& ringNeighbors,
-	const std::vector<uint8_t>& isJunctionRing,
-	const double mergeAngleDeg,
-	const int minSegmentFaces,
-	std::vector<TubularPipeSegment>& outSegments,
-	std::vector<int>& outFaceSegmentId,
-	std::vector<int>& outFaceRingId,
-	int& outJunctionFaceCount)
+void mergeRingsIntoSegments(const IndexedMeshLite& mesh, const std::vector<TubularCrossSectionRing>& rings,
+							const std::map<int, std::vector<int>>& ringNeighbors,
+							const std::vector<uint8_t>& isJunctionRing, const double mergeAngleDeg,
+							const int minSegmentFaces, std::vector<TubularPipeSegment>& outSegments,
+							std::vector<int>& outFaceSegmentId, std::vector<int>& outFaceRingId,
+							int& outJunctionFaceCount)
 {
 	outSegments.clear();
 	outJunctionFaceCount = 0;
@@ -315,20 +292,18 @@ void mergeRingsIntoSegments(
 		{
 			continue;
 		}
-		const Vec3 axisA{
-			rings[static_cast<std::size_t>(ri)].axisHint[0],
-			rings[static_cast<std::size_t>(ri)].axisHint[1],
-			rings[static_cast<std::size_t>(ri)].axisHint[2]};
+		const Vec3 axisA{rings[static_cast<std::size_t>(ri)].axisHint[0],
+						 rings[static_cast<std::size_t>(ri)].axisHint[1],
+						 rings[static_cast<std::size_t>(ri)].axisHint[2]};
 		for (const int nb : it->second)
 		{
 			if (nb < 0 || nb >= ringCount || isJunctionRing[static_cast<std::size_t>(nb)] != 0U)
 			{
 				continue;
 			}
-			const Vec3 axisB{
-				rings[static_cast<std::size_t>(nb)].axisHint[0],
-				rings[static_cast<std::size_t>(nb)].axisHint[1],
-				rings[static_cast<std::size_t>(nb)].axisHint[2]};
+			const Vec3 axisB{rings[static_cast<std::size_t>(nb)].axisHint[0],
+							 rings[static_cast<std::size_t>(nb)].axisHint[1],
+							 rings[static_cast<std::size_t>(nb)].axisHint[2]};
 			if (axisAngleDeg(axisA, axisB) <= mergeAngleDeg)
 			{
 				uf.unite(ri, nb);
@@ -404,16 +379,10 @@ void mergeRingsIntoSegments(
 
 } // namespace
 
-bool runPipeSegmentation(
-	const IndexedMeshLite& mesh,
-	const TubularGrindingParams& params,
-	std::vector<TubularPipeSegment>& outSegments,
-	std::vector<TubularCrossSectionRing>& outRings,
-	std::vector<int>& outFaceSegmentId,
-	int& outJunctionFaceCount,
-	int& outRegionCountBeforeFilter,
-	std::string* errMsg,
-	std::vector<Vec3>* outFaceLocalAxes)
+bool runPipeSegmentation(const IndexedMeshLite& mesh, const TubularGrindingParams& params,
+						 std::vector<TubularPipeSegment>& outSegments, std::vector<TubularCrossSectionRing>& outRings,
+						 std::vector<int>& outFaceSegmentId, int& outJunctionFaceCount, int& outRegionCountBeforeFilter,
+						 std::string* errMsg, std::vector<Vec3>* outFaceLocalAxes)
 {
 	outSegments.clear();
 	outRings.clear();
@@ -458,8 +427,8 @@ bool runPipeSegmentation(
 		{
 			// 自适应邻域 + 加权PCA + 广义截面分析
 			std::vector<double> geodesics;
-			const std::vector<int> neighborhood = collectAdaptiveNeighborhood(
-				mesh, f, params.geodesicRadiusMm, geodesics);
+			const std::vector<int> neighborhood =
+				collectAdaptiveNeighborhood(mesh, f, params.geodesicRadiusMm, geodesics);
 			if (neighborhood.size() < 3)
 			{
 				continue;
@@ -468,8 +437,8 @@ bool runPipeSegmentation(
 			localAxis = computeLocalAxisFromWeightedPCA(mesh, f, neighborhood, geodesics);
 
 			double semiMajor = 0.0, semiMinor = 0.0, rotDeg = 0.0;
-			if (!analyzeCrossSection(mesh, neighborhood, localAxis, params.sectionFitMode,
-				semiMajor, semiMinor, rotDeg, center))
+			if (!analyzeCrossSection(mesh, neighborhood, localAxis, params.sectionFitMode, semiMajor, semiMinor, rotDeg,
+									 center))
 			{
 				continue;
 			}
@@ -529,8 +498,7 @@ bool runPipeSegmentation(
 	// 根据模式选择聚类算法
 	std::vector<int> dbLabels;
 	int clusterCount = 0;
-	if (params.neighborhoodMode == NeighborhoodMode::Adaptive &&
-		params.sectionFitMode != SectionFitMode::Circle)
+	if (params.neighborhoodMode == NeighborhoodMode::Adaptive && params.sectionFitMode != SectionFitMode::Circle)
 	{
 		// 扩展DBSCAN：空间坐标 + 截面特征联合聚类
 		std::vector<double> validSemiMajor, validSemiMinor;
@@ -543,8 +511,8 @@ bool runPipeSegmentation(
 		}
 		// 特征缩放：截面参数与空间坐标的权重比
 		const double featureScale = 1.0 / std::max(1.0, clusterEps);
-		clusterCount = runDbscanEnhanced(dbPoints, validSemiMajor, validSemiMinor,
-			clusterEps, minRingFaces, featureScale, dbLabels);
+		clusterCount = runDbscanEnhanced(dbPoints, validSemiMajor, validSemiMinor, clusterEps, minRingFaces,
+										 featureScale, dbLabels);
 	}
 	else
 	{
@@ -577,9 +545,8 @@ bool runPipeSegmentation(
 				continue;
 			}
 			TubularCrossSectionRing ring;
-			finalizeRing(mesh, comp, faceCenters, faceRadii,
-				faceSemiMajor, faceSemiMinor, faceRotationDeg,
-				nextRingId, ring);
+			finalizeRing(mesh, comp, faceCenters, faceRadii, faceSemiMajor, faceSemiMinor, faceRotationDeg, nextRingId,
+						 ring);
 			for (const int f : comp)
 			{
 				faceRingLabel[static_cast<std::size_t>(f)] = nextRingId;
@@ -593,9 +560,8 @@ bool runPipeSegmentation(
 	{
 		if (errMsg)
 		{
-			*errMsg = "no valid cross-section rings after clustering (clusters="
-				+ std::to_string(clusterCount)
-				+ " epsMm=" + std::to_string(clusterEps) + ")";
+			*errMsg = "no valid cross-section rings after clustering (clusters=" + std::to_string(clusterCount) +
+					  " epsMm=" + std::to_string(clusterEps) + ")";
 		}
 		return false;
 	}
@@ -636,34 +602,17 @@ bool runPipeSegmentation(
 	markJunctionRings(outRings, ringNeighbors, params.junctionAxisSpreadDeg, isJunctionRing);
 
 	std::vector<int> faceRingId;
-	mergeRingsIntoSegments(
-		mesh,
-		outRings,
-		ringNeighbors,
-		isJunctionRing,
-		params.axisMergeAngleDeg,
-		minSegmentFaces,
-		outSegments,
-		outFaceSegmentId,
-		faceRingId,
-		outJunctionFaceCount);
+	mergeRingsIntoSegments(mesh, outRings, ringNeighbors, isJunctionRing, params.axisMergeAngleDeg, minSegmentFaces,
+						   outSegments, outFaceSegmentId, faceRingId, outJunctionFaceCount);
 
 	if (outSegments.empty())
 	{
 		const int relaxedMin = std::max(2, minSegmentFaces / 2);
 		if (relaxedMin < minSegmentFaces)
 		{
-			mergeRingsIntoSegments(
-				mesh,
-				outRings,
-				ringNeighbors,
-				isJunctionRing,
-				std::min(65.0, params.axisMergeAngleDeg * 1.35),
-				relaxedMin,
-				outSegments,
-				outFaceSegmentId,
-				faceRingId,
-				outJunctionFaceCount);
+			mergeRingsIntoSegments(mesh, outRings, ringNeighbors, isJunctionRing,
+								   std::min(65.0, params.axisMergeAngleDeg * 1.35), relaxedMin, outSegments,
+								   outFaceSegmentId, faceRingId, outJunctionFaceCount);
 		}
 	}
 
@@ -671,10 +620,10 @@ bool runPipeSegmentation(
 	{
 		if (errMsg)
 		{
-			*errMsg = "no valid pipe segments after ring chain merge (rings="
-				+ std::to_string(static_cast<int>(outRings.size()))
-				+ " junctionFaces=" + std::to_string(outJunctionFaceCount)
-				+ " minRequired=" + std::to_string(minSegmentFaces) + ")";
+			*errMsg = "no valid pipe segments after ring chain merge (rings=" +
+					  std::to_string(static_cast<int>(outRings.size())) +
+					  " junctionFaces=" + std::to_string(outJunctionFaceCount) +
+					  " minRequired=" + std::to_string(minSegmentFaces) + ")";
 		}
 		return false;
 	}

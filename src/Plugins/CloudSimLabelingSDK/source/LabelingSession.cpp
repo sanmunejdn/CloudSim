@@ -1,3 +1,6 @@
+﻿/// @file LabelingSession.cpp
+/// @brief LabelingSession 实现
+
 #include "LabelingSession.h"
 
 #include <algorithm>
@@ -9,7 +12,6 @@
 
 namespace
 {
-
 bool writeAsciiPly(const std::string& path, const std::vector<float>& xyz)
 {
 	const std::size_t n = xyz.size() / 3U;
@@ -35,11 +37,12 @@ bool writeNpyInt64(const std::string& path, const std::vector<int>& labels)
 	{
 		return false;
 	}
-	static const char kNpyMagic[6] = { '\x93', 'N', 'U', 'M', 'P', 'Y' };
+	static const char kNpyMagic[6] = {'\x93', 'N', 'U', 'M', 'P', 'Y'};
 	f.write(kNpyMagic, 6);
-	const char version[2] = { '\x01', '\x00' };
+	const char version[2] = {'\x01', '\x00'};
 	f.write(version, 2);
-	const std::string header = "{'descr': '<i8', 'fortran_order': False, 'shape': (" + std::to_string(labels.size()) + ",), }";
+	const std::string header =
+		"{'descr': '<i8', 'fortran_order': False, 'shape': (" + std::to_string(labels.size()) + ",), }";
 	const std::size_t hlen = header.size() + 1U;
 	const std::size_t padlen = (16U - ((8U + hlen) % 16U)) % 16U;
 	std::string padded = header;
@@ -373,12 +376,9 @@ void LabelingSession::buildMeshVertexRgb(std::vector<float>& outRgb) const
 	}
 }
 
-bool LabelingSession::sampleMeshLabelsToPointCloud(
-	const std::vector<float>& soup,
-	const std::vector<int>& triLabels,
-	int sampleCount,
-	std::vector<float>& outXyz,
-	std::vector<int>& outLabels)
+bool LabelingSession::sampleMeshLabelsToPointCloud(const std::vector<float>& soup, const std::vector<int>& triLabels,
+												   int sampleCount, std::vector<float>& outXyz,
+												   std::vector<int>& outLabels)
 {
 	const std::size_t triCount = soup.size() / 9U;
 	if (triCount == 0U || triLabels.size() != triCount || sampleCount <= 0)
@@ -415,11 +415,9 @@ bool LabelingSession::sampleMeshLabelsToPointCloud(
 	return true;
 }
 
-bool LabelingSession::exportPointNetDataset(
-	const std::string& outputDirUtf8,
-	const LabelingDatasetExportOptions& options,
-	LabelingDatasetExportResult& outResult,
-	std::string* errMsg) const
+bool LabelingSession::exportPointNetDataset(const std::string& outputDirUtf8,
+											const LabelingDatasetExportOptions& options,
+											LabelingDatasetExportResult& outResult, std::string* errMsg) const
 {
 	namespace fs = std::filesystem;
 	outResult = {};
@@ -440,8 +438,8 @@ bool LabelingSession::exportPointNetDataset(
 		}
 		else
 		{
-			if (!sampleMeshLabelsToPointCloud(
-					m_triangleSoup, m_triangleLabels, options.meshSampleCount, exportXyz, exportLabels))
+			if (!sampleMeshLabelsToPointCloud(m_triangleSoup, m_triangleLabels, options.meshSampleCount, exportXyz,
+											  exportLabels))
 			{
 				if (errMsg)
 				{
@@ -484,8 +482,9 @@ bool LabelingSession::exportPointNetDataset(
 			}
 			return false;
 		}
-		jsonl << "{\"instruction\":\"分割网格部件\",\"input\":\"" << plyName << "\",\"output\":\"{\\\"label_file\\\": \\\""
-			  << labelName << "\\\", \\\"num_classes\\\": " << nc << "}\"}\n";
+		jsonl << "{\"instruction\":\"分割网格部件\",\"input\":\"" << plyName
+			  << "\",\"output\":\"{\\\"label_file\\\": \\\"" << labelName << "\\\", \\\"num_classes\\\": " << nc
+			  << "}\"}\n";
 
 		outResult.ok = true;
 		outResult.plyRelativePath = (std::string("data/") + plyName);

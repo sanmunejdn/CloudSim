@@ -1,11 +1,14 @@
+﻿/// @file MirrorOp.cpp
+/// @brief MirrorOp 实现
+
 // Mirror 原子块：按 scope 对路点做轴反向
 #include "MirrorOp.h"
 
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 #include "UnifiedTrajectorySemanticMath.h"
 
 #include <cstdio>
-#include "TrajectoryOpParamAccess.h"
-#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -46,8 +49,8 @@ TrajectoryOpCapability MirrorOp::capabilities() const
 	return TrajectoryOpCapability::PreviewPoseTransform;
 }
 
-RobotInstruction::TrajectoryOpDescriptor MirrorOp::makeDefaultDescriptor(
-	const RobotInstruction::OpScope& defaultScope) const
+RobotInstruction::TrajectoryOpDescriptor
+MirrorOp::makeDefaultDescriptor(const RobotInstruction::OpScope& defaultScope) const
 {
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Mirror;
@@ -61,16 +64,8 @@ RobotInstruction::TrajectoryOpDescriptor MirrorOp::makeDefaultDescriptor(
 std::vector<TrajectoryOpParamField> MirrorOp::paramFields() const
 {
 	return {
-		enumParamField(
-			"mirror.axis",
-			"Reverse Axis",
-			"反向轴",
-			{ "0", "1", "2" },
-			{ "X 反向", "Y 反向", "Z 反向" },
-			{ "Axis X", "Axis Y", "Axis Z" },
-			0,
-			0,
-			"transform"),
+		enumParamField("mirror.axis", "Reverse Axis", "反向轴", {"0", "1", "2"}, {"X 反向", "Y 反向", "Z 反向"},
+					   {"Axis X", "Axis Y", "Axis Z"}, 0, 0, "transform"),
 	};
 }
 
@@ -87,24 +82,17 @@ bool MirrorOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, std:
 	return true;
 }
 
-std::string MirrorOp::formatSummary(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const bool chinese) const
+std::string MirrorOp::formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op, const bool chinese) const
 {
 	char buffer[128];
-	std::snprintf(
-		buffer,
-		sizeof(buffer),
-		chinese ? "轴反向 | %s" : "Axis Reverse | %s",
-		axisLabel(parseMirrorAxis(op.params), chinese));
+	std::snprintf(buffer, sizeof(buffer), chinese ? "轴反向 | %s" : "Axis Reverse | %s",
+				  axisLabel(parseMirrorAxis(op.params), chinese));
 	return buffer;
 }
 
-bool MirrorOp::processPath(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	RobotInstruction::UnifiedTrajectory& traj,
-	const TrajectoryOpExecutionContext& ctx,
-	std::string* errMsg) const
+bool MirrorOp::processPath(const RobotInstruction::TrajectoryOpDescriptor& op,
+						   RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx,
+						   std::string* errMsg) const
 {
 	return applyMirrorInScope(op, traj, ctx.program);
 }

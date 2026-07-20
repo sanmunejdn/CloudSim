@@ -1,26 +1,31 @@
+﻿/// @file BackendPrimitiveGeometry.cpp
+/// @brief BackendPrimitiveGeometry 实现
+
 #include "BackendPrimitiveGeometry.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 
-namespace {
+namespace
+{
 constexpr double kPi = 3.14159265358979323846;
 
 // 外视 CCW；法线 (p1-p0)×(p2-p0)
-void pushTri(std::vector<float>& soup,
-	float ax, float ay, float az,
-	float bx, float by, float bz,
-	float cx, float cy, float cz)
+void pushTri(std::vector<float>& soup, float ax, float ay, float az, float bx, float by, float bz, float cx, float cy,
+			 float cz)
 {
-	soup.insert(soup.end(), { ax, ay, az, bx, by, bz, cx, cy, cz });
+	soup.insert(soup.end(), {ax, ay, az, bx, by, bz, cx, cy, cz});
 }
 
-int clampInt(int v, int lo, int hi) { return std::max(lo, std::min(hi, v)); }
+int clampInt(int v, int lo, int hi)
+{
+	return std::max(lo, std::min(hi, v));
+}
 } // namespace
 
-namespace BackendPrimitiveGeometry {
-
+namespace BackendPrimitiveGeometry
+{
 std::vector<float> makeBoxTriangleSoup(double lengthMm, double widthMm, double heightMm)
 {
 	const float hx = static_cast<float>(lengthMm * 0.5);
@@ -130,12 +135,12 @@ std::vector<float> makeSphereTriangleSoup(double radiusMm, int segments, int rin
 		{
 			const double th0 = 2.0 * kPi * i / segments;
 			const double th1 = 2.0 * kPi * (i + 1) / segments;
-			auto sph = [&](double phi, double th) {
+			auto sph = [&](double phi, double th)
+			{
 				const float cp = static_cast<float>(std::cos(phi));
-				return std::array<float, 3>{
-					r * cp * static_cast<float>(std::cos(th)),
-					r * cp * static_cast<float>(std::sin(th)),
-					r * static_cast<float>(std::sin(phi)) };
+				return std::array<float, 3>{r * cp * static_cast<float>(std::cos(th)),
+											r * cp * static_cast<float>(std::sin(th)),
+											r * static_cast<float>(std::sin(phi))};
 			};
 			const auto p00 = sph(phi0, th0);
 			const auto p10 = sph(phi0, th1);

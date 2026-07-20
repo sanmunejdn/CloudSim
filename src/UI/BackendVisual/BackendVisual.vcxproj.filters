@@ -41,6 +41,9 @@
     <ClInclude Include="inc\PointCloudBackendVisual.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\FrameBackendVisual.h">
+      <Filter>inc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\BackendGeometryMetrics.cpp">
@@ -62,6 +65,9 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\PointCloudBackendVisual.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FrameBackendVisual.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>

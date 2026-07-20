@@ -1,18 +1,21 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H
+#define CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H
+
+/// @file IPluginHostContext.h
+/// @brief IPluginHostContext 接口
 
 #include "cloudsim_plugin_sdk_global.h"
 
 #include "PluginBackendMeta.h"
 #include "PluginPrimitiveTypes.h"
 
-#include <functional>
-#include <memory>
-#include <vector>
-
 #include <QByteArray>
 #include <QString>
 #include <QStringList>
 #include <QWidget>
+#include <functional>
+#include <memory>
+#include <vector>
 
 class QAction;
 class ICloudSimPlugin;
@@ -52,11 +55,11 @@ public:
 
 	/// JobSystem 后台任务；onFinished 回 UI 线程
 	virtual void enqueueJob(const QString& title, std::function<void(const PluginJobProgressFn&)> work,
-		std::function<void(bool threw, const QString& throwMessage)> onFinished) = 0;
+							std::function<void(bool threw, const QString& throwMessage)> onFinished) = 0;
 
 	/// 浮动 dock（左/下）；右侧用 registerSidePanelTab
 	virtual QDockWidget* registerDockWidget(const QString& title, QWidget* widget,
-		Qt::DockWidgetArea area = Qt::LeftDockWidgetArea) = 0;
+											Qt::DockWidgetArea area = Qt::LeftDockWidgetArea) = 0;
 
 	/// 右侧面板 Tab 父 widget；UI 未就绪可为 null
 	virtual QWidget* sidePanelTabParent() const = 0;
@@ -67,29 +70,28 @@ public:
 
 	/// 创建菜单路径并返回叶菜单
 	virtual QMenu* registerMenuPath(const QStringList& path) = 0;
-	virtual QAction* registerAction(QMenu* menu, const QString& text,
-		std::function<void()> handler) = 0;
+	virtual QAction* registerAction(QMenu* menu, const QString& text, std::function<void()> handler) = 0;
 
 	/// Phase1：宿主建 MeshBackendData+OSG（同 AI create-mesh）；outBackendId 可选返回注册 id
-	virtual bool createPrimitiveMesh(const PluginPrimitiveMeshParams& params,
-		const PluginPrimitiveMeshQuality& quality, const PluginMeshCreateOptions& options,
-		QString* outError, QString* outBackendId = nullptr) = 0;
+	virtual bool createPrimitiveMesh(const PluginPrimitiveMeshParams& params, const PluginPrimitiveMeshQuality& quality,
+									 const PluginMeshCreateOptions& options, QString* outError,
+									 QString* outBackendId = nullptr) = 0;
 
 	/// 两网格布尔（世界坐标 soup）；outResultBackendId 为结果 mesh id
 	virtual bool booleanMesh(PluginMeshBooleanOp op, const std::string& targetBackendId,
-		const std::string& toolBackendId, const PluginBooleanMeshOptions& options,
-		std::string* outResultBackendId, QString* outError) = 0;
+							 const std::string& toolBackendId, const PluginBooleanMeshOptions& options,
+							 std::string* outResultBackendId, QString* outError) = 0;
 
 	/// Phase2：向 BackendRegistry 注册插件后端类型
 	virtual bool registerBackendType(const PluginBackendMeta& meta, QString* outError) = 0;
 
 	/// Phase2：三角 soup 注册 mesh（每三角 9 float，mm）
 	virtual bool registerTriangleMesh(const std::vector<float>& triangleSoup, const PluginMeshCreateOptions& options,
-		QString* outError) = 0;
+									  QString* outError) = 0;
 
 	/// 导入到活动文档（mesh/point cloud 各走宿主路径）
 	virtual std::string importFileIntoActiveDocument(const std::string& pathUtf8, bool isPointCloud,
-		std::string* outError = nullptr) = 0;
+													 std::string* outError = nullptr) = 0;
 
 	/// 1.2.0+：点云算法宿主；宿主版本不足时可为 null
 	virtual IPluginPointCloudHost* pointCloudHost() = 0;
@@ -110,18 +112,22 @@ public:
 
 	/// 1.4.0+（追加在 vtable 末尾，勿插入中间以免破坏旧插件 ABI）
 	virtual bool buildPrimitiveMeshSoup(const PluginPrimitiveMeshParams& params,
-		const PluginPrimitiveMeshQuality& quality, const PluginMeshCreateOptions& placement,
-		std::vector<float>& outWorldSoup, QString* outError) = 0;
+										const PluginPrimitiveMeshQuality& quality,
+										const PluginMeshCreateOptions& placement, std::vector<float>& outWorldSoup,
+										QString* outError) = 0;
 
 	virtual bool booleanMeshSoups(PluginMeshBooleanOp op, const std::vector<float>& targetWorldSoup,
-		const std::vector<float>& toolWorldSoup, const PluginBooleanMeshOptions& options,
-		std::string* outResultBackendId, QString* outError) = 0;
+								  const std::vector<float>& toolWorldSoup, const PluginBooleanMeshOptions& options,
+								  std::string* outResultBackendId, QString* outError) = 0;
 
-	virtual bool booleanPrimitiveMeshes(PluginMeshBooleanOp op,
-		const PluginPrimitiveMeshParams& targetParams, const PluginPrimitiveMeshQuality& targetQuality,
-		const PluginMeshCreateOptions& targetPlacement, const PluginPrimitiveMeshParams& toolParams,
-		const PluginPrimitiveMeshQuality& toolQuality, const PluginMeshCreateOptions& toolPlacement,
-		const PluginBooleanMeshOptions& options, std::string* outResultBackendId, QString* outError) = 0;
+	virtual bool booleanPrimitiveMeshes(PluginMeshBooleanOp op, const PluginPrimitiveMeshParams& targetParams,
+										const PluginPrimitiveMeshQuality& targetQuality,
+										const PluginMeshCreateOptions& targetPlacement,
+										const PluginPrimitiveMeshParams& toolParams,
+										const PluginPrimitiveMeshQuality& toolQuality,
+										const PluginMeshCreateOptions& toolPlacement,
+										const PluginBooleanMeshOptions& options, std::string* outResultBackendId,
+										QString* outError) = 0;
 
 	/// 1.5.0+：OCC/CGAL 几何算法宿主；宿主版本不足时可为 null
 	virtual IPluginGeometryHost* geometryHost() = 0;
@@ -131,11 +137,13 @@ public:
 	virtual bool captureActiveViewportPng(QByteArray& outPng, QString* outError = nullptr) = 0;
 
 	/// 1.7.0+：轨迹生成页 combo 当前 STEP 工件
-	virtual bool resolveTrajectoryWorkpiece(QString& outBackendId, QString& outStepPath, QString* outError = nullptr) = 0;
+	virtual bool resolveTrajectoryWorkpiece(QString& outBackendId, QString& outStepPath,
+											QString* outError = nullptr) = 0;
 
 	/// 1.7.0+：枚举 catalog 并按用户文本推断 featureAxis 切片
 	virtual bool buildTrajectoryFeatureCatalogSlice(const QString& backendId, const QString& stepPathUtf8,
-		const QString& userText, QByteArray& outFullCatalogUtf8, QByteArray& outSliceUtf8, QString* outError = nullptr) = 0;
+													const QString& userText, QByteArray& outFullCatalogUtf8,
+													QByteArray& outSliceUtf8, QString* outError = nullptr) = 0;
 
 	/// 1.7.0+：3D 编号高亮预览（catalog 切片 JSON）
 	virtual bool showAiFeatureCandidatePreview(const QByteArray& catalogSliceUtf8, QString* outError = nullptr) = 0;
@@ -143,9 +151,11 @@ public:
 
 	/// 1.7.0+：离散选中特征并注入轨迹编辑 session + 默认工艺流水线
 	virtual bool commitAiTrajectoryFeatures(const QByteArray& featurePlanJsonUtf8, QString* outSummary,
-		QString* outError = nullptr) = 0;
+											QString* outError = nullptr) = 0;
 
 	/// 1.16.0+：交互式分割标注宿主；宿主版本不足时可为 null
 	virtual IPluginLabelingHost* labelingHost() = 0;
 	virtual const IPluginLabelingHost* labelingHost() const = 0;
 };
+
+#endif // CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H

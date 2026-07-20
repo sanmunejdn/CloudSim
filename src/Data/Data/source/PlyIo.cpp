@@ -1,12 +1,16 @@
+﻿/// @file PlyIo.cpp
+/// @brief PlyIo 实现
+
 #include "pch.h"
+
 #include "PlyIo.h"
 
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 
-namespace {
-
+namespace
+{
 void setErr(std::string* errMsg, const char* text)
 {
 	if (errMsg)
@@ -17,8 +21,8 @@ void setErr(std::string* errMsg, const char* text)
 
 void stripUtf8Bom(std::string& line)
 {
-	if (line.size() >= 3U && static_cast<unsigned char>(line[0]) == 0xEFU
-		&& static_cast<unsigned char>(line[1]) == 0xBBU && static_cast<unsigned char>(line[2]) == 0xBFU)
+	if (line.size() >= 3U && static_cast<unsigned char>(line[0]) == 0xEFU &&
+		static_cast<unsigned char>(line[1]) == 0xBBU && static_cast<unsigned char>(line[2]) == 0xBFU)
 	{
 		line.erase(0, 3);
 	}
@@ -120,7 +124,8 @@ bool scanPlyHeader(std::istream& input, PlyHeaderInfo& out, std::string* errMsg)
 			{
 				continue;
 			}
-			auto mapRgb = [&](const std::string& n, int idx) {
+			auto mapRgb = [&](const std::string& n, int idx)
+			{
 				if (n == "red" || n == "diffuse_red")
 				{
 					out.ir = idx;

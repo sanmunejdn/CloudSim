@@ -1,9 +1,14 @@
-#pragma once
+﻿#ifndef CLOUDSIMAISDK_IAIASSISTANTHOST_H
+#define CLOUDSIMAISDK_IAIASSISTANTHOST_H
+
+/// @file IAiAssistantHost.h
+/// @brief IAiAssistantHost 接口
+
+#include "cloudsim_ai_sdk_global.h"
 
 #include "AiConfigDto.h"
 #include "AiInferenceTypes.h"
 #include "AiParseTypes.h"
-#include "cloudsim_ai_sdk_global.h"
 
 #include <functional>
 #include <memory>
@@ -33,12 +38,15 @@ public:
 	virtual AiParseResult parseTrajectoryFeatureRequest(const AiInferenceRequest& request) const = 0;
 
 	virtual void parseUserTextAsync(const AiInferenceRequest& request, const AiConfigDto& config,
-		const AiInferenceProgressFn& progress, std::function<void(AiParseResult)> onFinished) = 0;
+									const AiInferenceProgressFn& progress,
+									std::function<void(AiParseResult)> onFinished) = 0;
 
 	virtual bool executeActionPlan(const QByteArray& actionPlanJsonUtf8, QString* outSummary, QString* outError) = 0;
 
 	virtual bool executeDomainOutput(const QString& domainId, const QByteArray& outputJsonUtf8, QString* outSummary,
-		QString* outError) = 0;
+									 QString* outError) = 0;
 
 	virtual QString resolveDomainId(const QString& requestedDomainId, const QString& userText) const = 0;
 };
+
+#endif // CLOUDSIMAISDK_IAIASSISTANTHOST_H

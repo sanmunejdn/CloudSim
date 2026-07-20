@@ -1,14 +1,16 @@
+﻿/// @file MeshSurfaceReconstructionMultiResolution.cpp
+/// @brief MeshSurfaceReconstructionMultiResolution 实现
+
 #include "MeshSurfaceReconstructionInternal.h"
 #include "NurbsSurfaceFitting.h"
-
 #include "RunLogger.h"
-
-#include <Geom_BSplineSurface.hxx>
-#include <gp_Pnt.hxx>
 
 #include <algorithm>
 #include <cmath>
 #include <vector>
+
+#include <Geom_BSplineSurface.hxx>
+#include <gp_Pnt.hxx>
 
 namespace geoalgo
 {
@@ -16,10 +18,7 @@ namespace meshrecon
 {
 namespace
 {
-
-double surfaceSampleDeviation(
-	const Handle(Geom_BSplineSurface)& surface,
-	const std::vector<float>& sampleXyz)
+double surfaceSampleDeviation(const Handle(Geom_BSplineSurface) & surface, const std::vector<float>& sampleXyz)
 {
 	if (surface.IsNull() || sampleXyz.size() < 9U)
 	{
@@ -34,10 +33,8 @@ double surfaceSampleDeviation(
 	int count = 0;
 	for (std::size_t i = 0U; i + 2U < sampleXyz.size(); i += 3U)
 	{
-		const gp_Pnt target(
-			static_cast<double>(sampleXyz[i]),
-			static_cast<double>(sampleXyz[i + 1U]),
-			static_cast<double>(sampleXyz[i + 2U]));
+		const gp_Pnt target(static_cast<double>(sampleXyz[i]), static_cast<double>(sampleXyz[i + 1U]),
+							static_cast<double>(sampleXyz[i + 2U]));
 		double best = 1e30;
 		for (int su = 0; su <= 4; ++su)
 		{
@@ -55,7 +52,7 @@ double surfaceSampleDeviation(
 	return count > 0 ? sum / static_cast<double>(count) : 1e30;
 }
 
-int countSurfaceCtrlPts(const Handle(Geom_BSplineSurface)& surface)
+int countSurfaceCtrlPts(const Handle(Geom_BSplineSurface) & surface)
 {
 	if (surface.IsNull())
 	{
@@ -65,11 +62,8 @@ int countSurfaceCtrlPts(const Handle(Geom_BSplineSurface)& surface)
 	return (poles.UpperRow() - poles.LowerRow() + 1) * (poles.UpperCol() - poles.LowerCol() + 1);
 }
 
-bool sampleSurfaceToGrid(
-	const Handle(Geom_BSplineSurface)& surface,
-	const int nu,
-	const int nv,
-	TColgp_Array2OfPnt& outGrid)
+bool sampleSurfaceToGrid(const Handle(Geom_BSplineSurface) & surface, const int nu, const int nv,
+						 TColgp_Array2OfPnt& outGrid)
 {
 	if (surface.IsNull() || nu < 1 || nv < 1)
 	{
@@ -95,12 +89,9 @@ bool sampleSurfaceToGrid(
 
 } // namespace
 
-bool applyMultiResolutionFit(
-	const IndexedMeshLite& mesh,
-	std::vector<QuadPatch>& patches,
-	const MeshSurfaceReconstructParams& params,
-	MeshSurfaceReconstructReport* report,
-	std::string* errMsg)
+bool applyMultiResolutionFit(const IndexedMeshLite& mesh, std::vector<QuadPatch>& patches,
+							 const MeshSurfaceReconstructParams& params, MeshSurfaceReconstructReport* report,
+							 std::string* errMsg)
 {
 	if (!params.enableMultiResolutionFit || params.multiResolutionLayers < 1)
 	{
@@ -138,35 +129,22 @@ bool applyMultiResolutionFit(
 				break;
 			}
 
-			const double densityScale = std::pow(
-				std::max(0.15, params.multiResolutionDensityScale),
-				static_cast<double>(layer + 1));
+			const double densityScale =
+				std::pow(std::max(0.15, params.multiResolutionDensityScale), static_cast<double>(layer + 1));
 			MeshSurfaceReconstructParams layerParams = params;
-			layerParams.controlPointDensityFactor = std::max(
-				0.12,
-				params.controlPointDensityFactor * densityScale);
+			layerParams.controlPointDensityFactor = std::max(0.12, params.controlPointDensityFactor * densityScale);
 
-			const int ctrlU = resolveControlPointCountFromFitGrid(
-				nu + 1,
-				params.nurbsDegreeU,
-				layerParams.controlPointDensityFactor,
-				params.minControlPointsPerDirection);
-			const int ctrlV = resolveControlPointCountFromFitGrid(
-				nv + 1,
-				params.nurbsDegreeV,
-				layerParams.controlPointDensityFactor,
-				params.minControlPointsPerDirection);
+			const int ctrlU =
+				resolveControlPointCountFromFitGrid(nu + 1, params.nurbsDegreeU, layerParams.controlPointDensityFactor,
+													params.minControlPointsPerDirection);
+			const int ctrlV =
+				resolveControlPointCountFromFitGrid(nv + 1, params.nurbsDegreeV, layerParams.controlPointDensityFactor,
+													params.minControlPointsPerDirection);
 
 			Handle(Geom_BSplineSurface) layerSurface;
-			if (!fitNurbsSurfaceFromGrid(
-					layerGrid,
-					ctrlU,
-					ctrlV,
-					nurbsFitModeFromMeshSurface(params.fitMode),
-					params.nurbsDegreeU,
-					params.nurbsDegreeV,
-					layerSurface)
-				|| layerSurface.IsNull())
+			if (!fitNurbsSurfaceFromGrid(layerGrid, ctrlU, ctrlV, nurbsFitModeFromMeshSurface(params.fitMode),
+										 params.nurbsDegreeU, params.nurbsDegreeV, layerSurface) ||
+				layerSurface.IsNull())
 			{
 				break;
 			}
@@ -200,8 +178,7 @@ bool applyMultiResolutionFit(
 	}
 
 	(void)errMsg;
-	RunLogger::info(
-		std::string("multi-resolution fit: reduced ") + std::to_string(reducedCount) + " patches");
+	RunLogger::info(std::string("multi-resolution fit: reduced ") + std::to_string(reducedCount) + " patches");
 	return true;
 }
 

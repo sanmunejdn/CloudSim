@@ -1,15 +1,11 @@
+﻿/// @file MeshTrajectory.cpp
+/// @brief MeshTrajectory 实现
+
 #include "MeshTrajectory.h"
 
-#include "detail/FeatureDiscretizeFrame.h"
-
 #include "MeshSurfaceReconstruction/NurbsSurfaceFitting.h"
-
+#include "detail/FeatureDiscretizeFrame.h"
 #include "detail/OccIncludes.h"
-
-#include <Geom_BSplineSurface.hxx>
-#include <TColgp_Array2OfPnt.hxx>
-
-#include <json.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -21,11 +17,14 @@
 #include <utility>
 #include <vector>
 
+#include <Geom_BSplineSurface.hxx>
+#include <TColgp_Array2OfPnt.hxx>
+#include <json.hpp>
+
 namespace geoalgo
 {
 namespace
 {
-
 constexpr double kEps = 1e-6;
 constexpr double kSnapTolMm = 0.05;
 
@@ -50,10 +49,7 @@ struct Vec3
 
 Vec3 crossv(const Vec3& a, const Vec3& b)
 {
-	return {
-		a.y * b.z - a.z * b.y,
-		a.z * b.x - a.x * b.z,
-		a.x * b.y - a.y * b.x};
+	return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
 
 Vec3 triVertex(const std::vector<float>& soup, int triIndex, int corner)
@@ -75,9 +71,7 @@ Vec3 normalizeOrDefault(const double n[3])
 
 std::int64_t snapKey(const Vec3& p)
 {
-	const auto q = [](double v) -> std::int64_t {
-		return static_cast<std::int64_t>(std::llround(v / kSnapTolMm));
-	};
+	const auto q = [](double v) -> std::int64_t { return static_cast<std::int64_t>(std::llround(v / kSnapTolMm)); };
 	return (q(p.x) << 42) ^ (q(p.y) << 21) ^ q(p.z);
 }
 
@@ -91,12 +85,7 @@ double signedPlaneDistance(const Vec3& p, const Vec3& origin, const Vec3& n)
 	return (p - origin).dot(n);
 }
 
-bool segmentPlaneIntersect(
-	const Vec3& a,
-	const Vec3& b,
-	const Vec3& origin,
-	const Vec3& n,
-	Vec3& outHit)
+bool segmentPlaneIntersect(const Vec3& a, const Vec3& b, const Vec3& origin, const Vec3& n, Vec3& outHit)
 {
 	const double da = signedPlaneDistance(a, origin, n);
 	const double db = signedPlaneDistance(b, origin, n);
@@ -140,13 +129,8 @@ RawPathPoint makePathPoint(const Vec3& p, const Vec3& tangent, const Vec3& norma
 	return rp;
 }
 
-bool resamplePolylinePoints(
-	std::vector<RawPathPoint>& points,
-	bool closed,
-	double stepMm,
-	bool outputTangent,
-	bool outputNormal,
-	const Vec3& defaultNormal)
+bool resamplePolylinePoints(std::vector<RawPathPoint>& points, bool closed, double stepMm, bool outputTangent,
+							bool outputNormal, const Vec3& defaultNormal)
 {
 	if (points.size() < 2U || stepMm <= 0.0)
 	{
@@ -158,8 +142,7 @@ bool resamplePolylinePoints(
 	{
 		const auto& a = points[i - 1U].positionMm;
 		const auto& b = points[i].positionMm;
-		const double len = std::sqrt(
-			(b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y) + (b.z - a.z) * (b.z - a.z));
+		const double len = std::sqrt((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y) + (b.z - a.z) * (b.z - a.z));
 		segLen.push_back(len);
 		total += len;
 	}
@@ -167,8 +150,7 @@ bool resamplePolylinePoints(
 	{
 		const auto& a = points.back().positionMm;
 		const auto& b = points.front().positionMm;
-		const double len = std::sqrt(
-			(b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y) + (b.z - a.z) * (b.z - a.z));
+		const double len = std::sqrt((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y) + (b.z - a.z) * (b.z - a.z));
 		segLen.push_back(len);
 		total += len;
 	}
@@ -194,10 +176,7 @@ bool resamplePolylinePoints(
 		const std::size_t i1 = (i0 + 1U) % points.size();
 		const auto& p0 = points[i0].positionMm;
 		const auto& p1 = points[i1].positionMm;
-		Vec3 pos{
-			p0.x + (p1.x - p0.x) * local,
-			p0.y + (p1.y - p0.y) * local,
-			p0.z + (p1.z - p0.z) * local};
+		Vec3 pos{p0.x + (p1.x - p0.x) * local, p0.y + (p1.y - p0.y) * local, p0.z + (p1.z - p0.z) * local};
 		Vec3 tan{0, 0, 0};
 		if (outputTangent)
 		{
@@ -209,8 +188,7 @@ bool resamplePolylinePoints(
 	return true;
 }
 
-std::vector<MeshTrajectoryPolyline> chainSegmentsToPolylines(
-	const std::vector<std::pair<Vec3, Vec3>>& segments)
+std::vector<MeshTrajectoryPolyline> chainSegmentsToPolylines(const std::vector<std::pair<Vec3, Vec3>>& segments)
 {
 	std::unordered_map<std::int64_t, std::vector<std::pair<Vec3, int>>> adj;
 	std::vector<std::pair<Vec3, Vec3>> segStore = segments;
@@ -223,7 +201,8 @@ std::vector<MeshTrajectoryPolyline> chainSegmentsToPolylines(
 	std::vector<bool> used(segStore.size(), false);
 	std::vector<MeshTrajectoryPolyline> polylines;
 
-	auto walkChain = [&](const Vec3& start, const Vec3& next, int firstSeg) {
+	auto walkChain = [&](const Vec3& start, const Vec3& next, int firstSeg)
+	{
 		MeshTrajectoryPolyline pl;
 		pl.points.push_back(makePathPoint(start, {}, {}, false, false));
 		pl.points.push_back(makePathPoint(next, {}, {}, false, false));
@@ -278,20 +257,14 @@ double meshTrajectoryPolylineLength(const MeshTrajectoryPolyline& polyline)
 	{
 		const auto& a = polyline.points[i - 1U].positionMm;
 		const auto& b = polyline.points[i].positionMm;
-		len += std::sqrt(
-			(b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y) + (b.z - a.z) * (b.z - a.z));
+		len += std::sqrt((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y) + (b.z - a.z) * (b.z - a.z));
 	}
 	return len;
 }
 
-bool discretizeAllMeshTrajectoryPolylines(
-	std::vector<MeshTrajectoryPolyline>& polylines,
-	const double stepMm,
-	const bool outputTangent,
-	const bool outputNormal,
-	const double planeNormalUnit[3],
-	RawPath& outPath,
-	std::string* errMsg)
+bool discretizeAllMeshTrajectoryPolylines(std::vector<MeshTrajectoryPolyline>& polylines, const double stepMm,
+										  const bool outputTangent, const bool outputNormal,
+										  const double planeNormalUnit[3], RawPath& outPath, std::string* errMsg)
 {
 	outPath.points.clear();
 	outPath.segmentEndExclusive.clear();
@@ -304,12 +277,9 @@ bool discretizeAllMeshTrajectoryPolylines(
 		}
 		return false;
 	}
-	std::sort(
-		polylines.begin(),
-		polylines.end(),
-		[](const MeshTrajectoryPolyline& a, const MeshTrajectoryPolyline& b) {
-			return meshTrajectoryPolylineLength(a) > meshTrajectoryPolylineLength(b);
-		});
+	std::sort(polylines.begin(), polylines.end(),
+			  [](const MeshTrajectoryPolyline& a, const MeshTrajectoryPolyline& b)
+			  { return meshTrajectoryPolylineLength(a) > meshTrajectoryPolylineLength(b); });
 	for (MeshTrajectoryPolyline& pl : polylines)
 	{
 		if (pl.points.size() < 2U)
@@ -335,13 +305,8 @@ bool discretizeAllMeshTrajectoryPolylines(
 	return true;
 }
 
-bool buildRegionFrame(
-	const std::vector<float>& soup,
-	const std::vector<int>& triIndices,
-	Vec3& outOrigin,
-	Vec3& outNormal,
-	Vec3& outAxisU,
-	Vec3& outAxisV)
+bool buildRegionFrame(const std::vector<float>& soup, const std::vector<int>& triIndices, Vec3& outOrigin,
+					  Vec3& outNormal, Vec3& outAxisU, Vec3& outAxisV)
 {
 	if (triIndices.empty())
 	{
@@ -382,20 +347,16 @@ int resolveBsplineEdgeCount(const int gridEdge, const double spanMm, const doubl
 	return std::max(4, fitN);
 }
 
-bool fitMeshTrajectoryNurbsFromGrid(
-	const TColgp_Array2OfPnt& grid,
-	const MeshTrajectoryBsplineParams& bspline,
-	Handle(Geom_BSplineSurface)& outSurface)
+bool fitMeshTrajectoryNurbsFromGrid(const TColgp_Array2OfPnt& grid, const MeshTrajectoryBsplineParams& bspline,
+									Handle(Geom_BSplineSurface) & outSurface)
 {
 	outSurface.Nullify();
 	const int nu = grid.UpperRow() - grid.LowerRow() + 1;
 	const int nv = grid.UpperCol() - grid.LowerCol() + 1;
 	const int degU = std::max(1, bspline.nurbsDegreeU);
 	const int degV = std::max(1, bspline.nurbsDegreeV);
-	const int ctrlU = meshrecon::resolveControlPointCountFromFitGrid(
-		nu, degU, bspline.controlPointDensityFactor);
-	const int ctrlV = meshrecon::resolveControlPointCountFromFitGrid(
-		nv, degV, bspline.controlPointDensityFactor);
+	const int ctrlU = meshrecon::resolveControlPointCountFromFitGrid(nu, degU, bspline.controlPointDensityFactor);
+	const int ctrlV = meshrecon::resolveControlPointCountFromFitGrid(nv, degV, bspline.controlPointDensityFactor);
 
 	const meshrecon::NurbsFitMode primary = meshrecon::nurbsFitModeFromMeshSurface(bspline.fitMode);
 	const meshrecon::NurbsFitMode candidates[] = {
@@ -415,8 +376,7 @@ bool fitMeshTrajectoryNurbsFromGrid(
 		}
 		uniqueModes.push_back(mode);
 		Handle(Geom_BSplineSurface) surface;
-		if (meshrecon::fitNurbsSurfaceFromGrid(grid, ctrlU, ctrlV, mode, degU, degV, surface)
-			&& !surface.IsNull())
+		if (meshrecon::fitNurbsSurfaceFromGrid(grid, ctrlU, ctrlV, mode, degU, degV, surface) && !surface.IsNull())
 		{
 			outSurface = surface;
 			return true;
@@ -481,14 +441,8 @@ bool closestPointOnTriangle(const Vec3& p, const Vec3& a, const Vec3& b, const V
 	return true;
 }
 
-Vec3 projectGridPointToRegion(
-	const std::vector<float>& soup,
-	const std::vector<int>& triIndices,
-	const Vec3& origin,
-	const Vec3& rotU,
-	const Vec3& rotV,
-	const double tu,
-	const double tv)
+Vec3 projectGridPointToRegion(const std::vector<float>& soup, const std::vector<int>& triIndices, const Vec3& origin,
+							  const Vec3& rotU, const Vec3& rotV, const double tu, const double tv)
 {
 	const Vec3 query = origin + rotU * tu + rotV * tv;
 	Vec3 best = query;
@@ -511,12 +465,8 @@ Vec3 projectGridPointToRegion(
 	return best;
 }
 
-RawPathPoint sampleSurfaceAtUv(
-	const Handle(Geom_BSplineSurface)& surface,
-	const double u,
-	const double v,
-	const bool outputTangent,
-	const bool outputNormal)
+RawPathPoint sampleSurfaceAtUv(const Handle(Geom_BSplineSurface) & surface, const double u, const double v,
+							   const bool outputTangent, const bool outputNormal)
 {
 	gp_Pnt p;
 	gp_Vec duVec, dvVec;
@@ -529,11 +479,8 @@ RawPathPoint sampleSurfaceAtUv(
 	return makePathPoint(pos, tan, nrm, outputTangent, outputNormal);
 }
 
-void appendTraceModePoints(
-	std::vector<RawPathPoint>& grid,
-	const int nu,
-	const int nv,
-	const MeshTrajectoryUvTraceMode traceMode)
+void appendTraceModePoints(std::vector<RawPathPoint>& grid, const int nu, const int nv,
+						   const MeshTrajectoryUvTraceMode traceMode)
 {
 	if (grid.size() != static_cast<std::size_t>(nu) * static_cast<std::size_t>(nv))
 	{
@@ -589,14 +536,9 @@ void appendTraceModePoints(
 	grid = std::move(ordered);
 }
 
-bool fitBsplineRegionSurface(
-	const std::vector<float>& soup,
-	const std::vector<int>& triangleIndices,
-	const MeshTrajectoryBsplineParams& bspline,
-	Handle(Geom_BSplineSurface)& outSurface,
-	int& outNu,
-	int& outNv,
-	std::string* errMsg)
+bool fitBsplineRegionSurface(const std::vector<float>& soup, const std::vector<int>& triangleIndices,
+							 const MeshTrajectoryBsplineParams& bspline, Handle(Geom_BSplineSurface) & outSurface,
+							 int& outNu, int& outNv, std::string* errMsg)
 {
 	if (triangleIndices.size() < 3U)
 	{
@@ -668,14 +610,7 @@ bool fitBsplineRegionSurface(
 		{
 			const double tu = minU + du * static_cast<double>(iu - 1);
 			const double tv = minV + dv * static_cast<double>(iv - 1);
-			const Vec3 bestP = projectGridPointToRegion(
-				soup,
-				triangleIndices,
-				origin,
-				rotU,
-				rotV,
-				tu,
-				tv);
+			const Vec3 bestP = projectGridPointToRegion(soup, triangleIndices, origin, rotU, rotV, tu, tv);
 			grid.SetValue(iu, iv, gp_Pnt(bestP.x, bestP.y, bestP.z));
 		}
 	}
@@ -693,11 +628,8 @@ bool fitBsplineRegionSurface(
 	return true;
 }
 
-void tessellateBsplineSurface(
-	const Handle(Geom_BSplineSurface)& surface,
-	const int divU,
-	const int divV,
-	std::vector<float>& outTriangleSoupModel)
+void tessellateBsplineSurface(const Handle(Geom_BSplineSurface) & surface, const int divU, const int divV,
+							  std::vector<float>& outTriangleSoupModel)
 {
 	outTriangleSoupModel.clear();
 	if (surface.IsNull() || divU < 2 || divV < 2)
@@ -747,11 +679,8 @@ void tessellateBsplineSurface(
 	}
 }
 
-bool generateBsplineRegionPath(
-	const std::vector<float>& soup,
-	const MeshTrajectorySpec& spec,
-	RawPath& outPath,
-	std::string* errMsg)
+bool generateBsplineRegionPath(const std::vector<float>& soup, const MeshTrajectorySpec& spec, RawPath& outPath,
+							   std::string* errMsg)
 {
 	Handle(Geom_BSplineSurface) surface;
 	int nu = 0;
@@ -777,12 +706,8 @@ bool generateBsplineRegionPath(
 		{
 			const double u = uMin + (uMax - uMin) * static_cast<double>(iu) / static_cast<double>(outU - 1);
 			const double v = vMin + (vMax - vMin) * static_cast<double>(iv) / static_cast<double>(outV - 1);
-			gridPts.push_back(sampleSurfaceAtUv(
-				surface,
-				u,
-				v,
-				spec.discretize.outputTangent,
-				spec.discretize.outputNormal));
+			gridPts.push_back(
+				sampleSurfaceAtUv(surface, u, v, spec.discretize.outputTangent, spec.discretize.outputNormal));
 		}
 	}
 	appendTraceModePoints(gridPts, outU, outV, spec.bspline.traceMode);
@@ -795,12 +720,9 @@ bool generateBsplineRegionPath(
 
 } // namespace
 
-bool buildBsplineRegionSurfacePreview(
-	const std::vector<float>& triangleSoup,
-	const MeshTrajectoryRegion& region,
-	const MeshTrajectoryBsplineParams& bspline,
-	std::vector<float>& outTriangleSoupModel,
-	std::string* errMsg)
+bool buildBsplineRegionSurfacePreview(const std::vector<float>& triangleSoup, const MeshTrajectoryRegion& region,
+									  const MeshTrajectoryBsplineParams& bspline,
+									  std::vector<float>& outTriangleSoupModel, std::string* errMsg)
 {
 	Handle(Geom_BSplineSurface) surface;
 	int nu = 0;
@@ -848,11 +770,8 @@ bool validateMeshTrajectorySpec(const MeshTrajectorySpec& spec, std::string* err
 	return true;
 }
 
-bool filterSoupByTriangleIndices(
-	const std::vector<float>& triangleSoup,
-	const std::vector<int>& triangleIndices,
-	std::vector<float>& outSoup,
-	std::vector<int>& outOriginalTriangleIndices)
+bool filterSoupByTriangleIndices(const std::vector<float>& triangleSoup, const std::vector<int>& triangleIndices,
+								 std::vector<float>& outSoup, std::vector<int>& outOriginalTriangleIndices)
 {
 	outSoup.clear();
 	outOriginalTriangleIndices.clear();
@@ -869,18 +788,15 @@ bool filterSoupByTriangleIndices(
 		}
 		outOriginalTriangleIndices.push_back(ti);
 		const std::size_t b = static_cast<std::size_t>(ti) * 9U;
-		outSoup.insert(outSoup.end(), triangleSoup.begin() + static_cast<std::ptrdiff_t>(b), triangleSoup.begin() + static_cast<std::ptrdiff_t>(b + 9U));
+		outSoup.insert(outSoup.end(), triangleSoup.begin() + static_cast<std::ptrdiff_t>(b),
+					   triangleSoup.begin() + static_cast<std::ptrdiff_t>(b + 9U));
 	}
 	return !outSoup.empty();
 }
 
-bool intersectPlaneWithTriangleSoup(
-	const std::vector<float>& triangleSoup,
-	const double planeOriginMm[3],
-	const double planeNormalUnit[3],
-	const std::vector<int>* triangleIndexFilter,
-	std::vector<MeshTrajectoryPolyline>& outPolylines,
-	std::string* errMsg)
+bool intersectPlaneWithTriangleSoup(const std::vector<float>& triangleSoup, const double planeOriginMm[3],
+									const double planeNormalUnit[3], const std::vector<int>* triangleIndexFilter,
+									std::vector<MeshTrajectoryPolyline>& outPolylines, std::string* errMsg)
 {
 	outPolylines.clear();
 	const Vec3 origin{planeOriginMm[0], planeOriginMm[1], planeOriginMm[2]};
@@ -888,7 +804,8 @@ bool intersectPlaneWithTriangleSoup(
 	const int triCount = triangleCount(triangleSoup);
 	std::vector<std::pair<Vec3, Vec3>> segments;
 
-	auto processTri = [&](int ti) {
+	auto processTri = [&](int ti)
+	{
 		const Vec3 v0 = triVertex(triangleSoup, ti, 0);
 		const Vec3 v1 = triVertex(triangleSoup, ti, 1);
 		const Vec3 v2 = triVertex(triangleSoup, ti, 2);
@@ -951,12 +868,8 @@ bool intersectPlaneWithTriangleSoup(
 	return !outPolylines.empty();
 }
 
-bool discretizeMeshTrajectoryPolyline(
-	MeshTrajectoryPolyline& polyline,
-	double stepMm,
-	bool outputTangent,
-	bool outputNormal,
-	const double planeNormalUnit[3])
+bool discretizeMeshTrajectoryPolyline(MeshTrajectoryPolyline& polyline, double stepMm, bool outputTangent,
+									  bool outputNormal, const double planeNormalUnit[3])
 {
 	const Vec3 n = normalizeOrDefault(planeNormalUnit) * -1.0;
 	if (polyline.points.size() >= 2U && outputTangent)
@@ -967,22 +880,14 @@ bool discretizeMeshTrajectoryPolyline(
 			const auto& a = polyline.points[i].positionMm;
 			const auto& b = polyline.points[j].positionMm;
 			Vec3 tan{b.x - a.x, b.y - a.y, b.z - a.z};
-			polyline.points[i] = makePathPoint(
-				{a.x, a.y, a.z},
-				tan.normalized(),
-				n,
-				true,
-				outputNormal);
+			polyline.points[i] = makePathPoint({a.x, a.y, a.z}, tan.normalized(), n, true, outputNormal);
 		}
 	}
 	return resamplePolylinePoints(polyline.points, polyline.closed, stepMm, outputTangent, outputNormal, n);
 }
 
-bool generateMeshTrajectory(
-	const MeshTrajectorySpec& spec,
-	const std::vector<float>& triangleSoup,
-	RawPath& outPath,
-	std::string* errMsg)
+bool generateMeshTrajectory(const MeshTrajectorySpec& spec, const std::vector<float>& triangleSoup, RawPath& outPath,
+							std::string* errMsg)
 {
 	if (!validateMeshTrajectorySpec(spec, errMsg))
 	{
@@ -1005,27 +910,15 @@ bool generateMeshTrajectory(
 	}
 
 	std::vector<MeshTrajectoryPolyline> polylines;
-	const std::vector<int>* filter = spec.region.triangleIndices.empty()
-		? nullptr
-		: &spec.region.triangleIndices;
-	if (!intersectPlaneWithTriangleSoup(
-			triangleSoup,
-			spec.crossSection.planeOriginMm,
-			spec.crossSection.planeNormal,
-			filter,
-			polylines,
-			errMsg))
+	const std::vector<int>* filter = spec.region.triangleIndices.empty() ? nullptr : &spec.region.triangleIndices;
+	if (!intersectPlaneWithTriangleSoup(triangleSoup, spec.crossSection.planeOriginMm, spec.crossSection.planeNormal,
+										filter, polylines, errMsg))
 	{
 		return false;
 	}
-	return discretizeAllMeshTrajectoryPolylines(
-		polylines,
-		spec.discretize.stepMm,
-		spec.discretize.outputTangent,
-		spec.discretize.outputNormal,
-		spec.crossSection.planeNormal,
-		outPath,
-		errMsg);
+	return discretizeAllMeshTrajectoryPolylines(polylines, spec.discretize.stepMm, spec.discretize.outputTangent,
+												spec.discretize.outputNormal, spec.crossSection.planeNormal, outPath,
+												errMsg);
 }
 
 bool meshTrajectorySpecFromJson(const std::string& jsonUtf8, MeshTrajectorySpec& out, std::string* errMsg)
@@ -1042,7 +935,8 @@ bool meshTrajectorySpecFromJson(const std::string& jsonUtf8, MeshTrajectorySpec&
 			out.workpiece.frameId = j["workpiece"].value("frameId", std::string{"workpiece"});
 		}
 		const std::string method = j.value("method", std::string{"CrossSection"});
-		out.method = (method == "BsplineRegion") ? MeshTrajectoryMethod::BsplineRegion : MeshTrajectoryMethod::CrossSection;
+		out.method =
+			(method == "BsplineRegion") ? MeshTrajectoryMethod::BsplineRegion : MeshTrajectoryMethod::CrossSection;
 		if (j.contains("region") && j["region"].contains("triangleIndices"))
 		{
 			out.region.triangleIndices = j["region"]["triangleIndices"].get<std::vector<int>>();
@@ -1094,9 +988,7 @@ bool meshTrajectorySpecFromJson(const std::string& jsonUtf8, MeshTrajectorySpec&
 			}
 			if (b.contains("fitMode"))
 			{
-				const int fitModeInt = b["fitMode"].is_number_integer()
-					? b["fitMode"].get<int>()
-					: 4;
+				const int fitModeInt = b["fitMode"].is_number_integer() ? b["fitMode"].get<int>() : 4;
 				switch (fitModeInt)
 				{
 				case 1:
@@ -1139,14 +1031,10 @@ bool meshTrajectorySpecToJson(const MeshTrajectorySpec& spec, std::string& outJs
 	j["workpiece"]["frameId"] = spec.workpiece.frameId;
 	j["method"] = (spec.method == MeshTrajectoryMethod::BsplineRegion) ? "BsplineRegion" : "CrossSection";
 	j["region"]["triangleIndices"] = spec.region.triangleIndices;
-	j["crossSection"]["planeOriginMm"] = {
-		spec.crossSection.planeOriginMm[0],
-		spec.crossSection.planeOriginMm[1],
-		spec.crossSection.planeOriginMm[2]};
-	j["crossSection"]["planeNormal"] = {
-		spec.crossSection.planeNormal[0],
-		spec.crossSection.planeNormal[1],
-		spec.crossSection.planeNormal[2]};
+	j["crossSection"]["planeOriginMm"] = {spec.crossSection.planeOriginMm[0], spec.crossSection.planeOriginMm[1],
+										  spec.crossSection.planeOriginMm[2]};
+	j["crossSection"]["planeNormal"] = {spec.crossSection.planeNormal[0], spec.crossSection.planeNormal[1],
+										spec.crossSection.planeNormal[2]};
 	j["discretize"]["stepMm"] = spec.discretize.stepMm;
 	j["discretize"]["outputTangent"] = spec.discretize.outputTangent;
 	j["discretize"]["outputNormal"] = spec.discretize.outputNormal;

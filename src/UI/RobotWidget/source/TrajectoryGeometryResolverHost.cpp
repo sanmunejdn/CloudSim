@@ -1,11 +1,13 @@
-#include "TrajectoryGeometryResolverHost.h"
+﻿/// @file TrajectoryGeometryResolverHost.cpp
+/// @brief TrajectoryGeometryResolverHost 实现
 
-#include "FeaturePickTransform.h"
-#include "IRobotDocumentHost.h"
-#include "IRobotOsgViewHost.h"
+#include "TrajectoryGeometryResolverHost.h"
 
 #include "BackendDataManager.h"
 #include "BrepBackendData.h"
+#include "FeaturePickTransform.h"
+#include "IRobotDocumentHost.h"
+#include "IRobotOsgViewHost.h"
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
 #include "TrajectoryGeometryResolver.h"
@@ -16,7 +18,6 @@ namespace trajectory_geometry_host
 {
 namespace
 {
-
 void osgMatrixToColMajor16(const osg::Matrixd& m, double out[16])
 {
 	for (int col = 0; col < 4; ++col)
@@ -38,21 +39,11 @@ void adjustColMajorTranslationForModelCenter(double m[16], const double cx, cons
 	m[14] -= rz;
 }
 
-bool bakeModelPointToWorld(
-	IRobotOsgViewHost* osg,
-	const std::string& backendId,
-	const float modelX,
-	const float modelY,
-	const float modelZ,
-	float& outWorldX,
-	float& outWorldY,
-	float& outWorldZ,
-	std::string* errMsg)
+bool bakeModelPointToWorld(IRobotOsgViewHost* osg, const std::string& backendId, const float modelX, const float modelY,
+						   const float modelZ, float& outWorldX, float& outWorldY, float& outWorldZ,
+						   std::string* errMsg)
 {
-	const geoalgo::Point3d model{
-		static_cast<double>(modelX),
-		static_cast<double>(modelY),
-		static_cast<double>(modelZ)};
+	const geoalgo::Point3d model{static_cast<double>(modelX), static_cast<double>(modelY), static_cast<double>(modelZ)};
 	osg::Vec3f world{};
 	if (!feature_pick_transform::stepModelPointToWorldMm(osg, backendId, model, world, errMsg))
 	{
@@ -64,11 +55,8 @@ bool bakeModelPointToWorld(
 	return true;
 }
 
-bool fillBrepModelToWorld(
-	IRobotOsgViewHost* osg,
-	const std::string& backendId,
-	RobotInstruction::TrajectoryGeometrySnapshot& out,
-	std::string* errMsg)
+bool fillBrepModelToWorld(IRobotOsgViewHost* osg, const std::string& backendId,
+						  RobotInstruction::TrajectoryGeometrySnapshot& out, std::string* errMsg)
 {
 	const std::string xformId = osg->resolvePickScopeBackendId(backendId);
 	osg::Matrixd worldMat{};
@@ -85,12 +73,8 @@ bool fillBrepModelToWorld(
 	return true;
 }
 
-bool resolvePointCloudSnapshot(
-	IRobotOsgViewHost* osg,
-	const PointCloudBackendData& data,
-	const std::string& backendId,
-	RobotInstruction::TrajectoryGeometrySnapshot& out,
-	std::string* errMsg)
+bool resolvePointCloudSnapshot(IRobotOsgViewHost* osg, const PointCloudBackendData& data, const std::string& backendId,
+							   RobotInstruction::TrajectoryGeometrySnapshot& out, std::string* errMsg)
 {
 	const std::vector<float>& xyz = data.pointPositionsXyz();
 	if (xyz.size() < 3)
@@ -120,12 +104,8 @@ bool resolvePointCloudSnapshot(
 	return true;
 }
 
-bool resolveMeshSnapshot(
-	IRobotOsgViewHost* osg,
-	const MeshBackendData& data,
-	const std::string& backendId,
-	RobotInstruction::TrajectoryGeometrySnapshot& out,
-	std::string* errMsg)
+bool resolveMeshSnapshot(IRobotOsgViewHost* osg, const MeshBackendData& data, const std::string& backendId,
+						 RobotInstruction::TrajectoryGeometrySnapshot& out, std::string* errMsg)
 {
 	const std::vector<float>& soup = data.triangleSoup();
 	if (soup.size() < 9)
@@ -155,12 +135,8 @@ bool resolveMeshSnapshot(
 	return true;
 }
 
-bool resolveBrepSnapshot(
-	IRobotOsgViewHost* osg,
-	const BrepBackendData& data,
-	const std::string& backendId,
-	RobotInstruction::TrajectoryGeometrySnapshot& out,
-	std::string* errMsg)
+bool resolveBrepSnapshot(IRobotOsgViewHost* osg, const BrepBackendData& data, const std::string& backendId,
+						 RobotInstruction::TrajectoryGeometrySnapshot& out, std::string* errMsg)
 {
 	if (data.shapeRef().isNull())
 	{
@@ -185,10 +161,9 @@ void bindTrajectoryGeometryResolver(IRobotDocumentHost* document, IRobotOsgViewH
 		return;
 	}
 	RobotInstruction::setTrajectoryGeometryResolver(
-		[document, osg](
-			const std::string& backendId,
-			RobotInstruction::TrajectoryGeometrySnapshot& out,
-			std::string* errMsg) -> bool {
+		[document, osg](const std::string& backendId, RobotInstruction::TrajectoryGeometrySnapshot& out,
+						std::string* errMsg) -> bool
+		{
 			BackendDataManager& mgr = document->backend();
 			const std::shared_ptr<BackendDataBase> base = mgr.getData(backendId);
 			if (!base || !base->hasGeometry())

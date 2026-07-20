@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "kind": "ToWorkpieceInHand",
+  "defaults": {
+    "scope": {
+      "kind": 1,
+      "groupId": "",
+      "pointFrom": 1,
+      "pointTo": 1
+    },
+    "params": {
+      "toWorkpiece.externalTcpBackendId": "",
+      "toWorkpiece.externalTcpXMm": 0.0,
+      "toWorkpiece.externalTcpYMm": 0.0,
+      "toWorkpiece.externalTcpZMm": 0.0,
+      "toWorkpiece.externalTcpRxDeg": 0.0,
+      "toWorkpiece.externalTcpRyDeg": 0.0,
+      "toWorkpiece.externalTcpRzDeg": 0.0,
+      "toWorkpiece.enableSpeedTransform": false
+    }
+  },
+  "schema": {
+    "fields": [
+      {
+        "key": "toWorkpiece.externalTcpBackendId",
+        "type": "Message",
+        "labelZh": "外部 TCP 坐标系",
+        "order": 0
+      },
+      {
+        "key": "toWorkpiece.externalTcpXMm",
+        "type": "Double",
+        "labelZh": "外部 TCP X",
+        "unit": "mm",
+        "default": 0.0,
+        "order": 1
+      },
+      {
+        "key": "toWorkpiece.externalTcpYMm",
+        "type": "Double",
+        "labelZh": "外部 TCP Y",
+        "unit": "mm",
+        "default": 0.0,
+        "order": 2
+      },
+      {
+        "key": "toWorkpiece.externalTcpZMm",
+        "type": "Double",
+        "labelZh": "外部 TCP Z",
+        "unit": "mm",
+        "default": 0.0,
+        "order": 3
+      },
+      {
+        "key": "toWorkpiece.externalTcpRxDeg",
+        "type": "Double",
+        "labelZh": "外部 TCP Rx",
+        "unit": "deg",
+        "default": 0.0,
+        "order": 4
+      },
+      {
+        "key": "toWorkpiece.externalTcpRyDeg",
+        "type": "Double",
+        "labelZh": "外部 TCP Ry",
+        "unit": "deg",
+        "default": 0.0,
+        "order": 5
+      },
+      {
+        "key": "toWorkpiece.externalTcpRzDeg",
+        "type": "Double",
+        "labelZh": "外部 TCP Rz",
+        "unit": "deg",
+        "default": 0.0,
+        "order": 6
+      },
+      {
+        "key": "toWorkpiece.enableSpeedTransform",
+        "type": "Bool",
+        "labelZh": "启用速度变换",
+        "default": false,
+        "order": 7
+      }
+    ]
+  }
+}

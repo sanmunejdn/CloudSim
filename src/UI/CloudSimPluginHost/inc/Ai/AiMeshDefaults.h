@@ -1,9 +1,14 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINHOST_AIMESHDEFAULTS_H
+#define CLOUDSIMPLUGINHOST_AIMESHDEFAULTS_H
+
+/// @file AiMeshDefaults.h
+/// @brief create_mesh：仅补缺失或非正尺寸；usedDefaults 表示至少写入过一个默认字段
 
 #include "aibackend_global.h"
 
-#include <json.hpp>
 #include <QString>
+
+#include <json.hpp>
 
 namespace AiMeshDefaults
 {
@@ -31,3 +36,5 @@ AIBACKEND_EXPORT QString summarizeDimensionsMm(const nlohmann::json& cmd);
 AIBACKEND_EXPORT QString defaultsAppliedNote(const nlohmann::json& cmd, bool usedDefaults);
 
 } // namespace AiMeshDefaults
+
+#endif // CLOUDSIMPLUGINHOST_AIMESHDEFAULTS_H

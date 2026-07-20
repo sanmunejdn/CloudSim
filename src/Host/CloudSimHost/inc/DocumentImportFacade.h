@@ -1,8 +1,13 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_DOCUMENTIMPORTFACADE_H
+#define CLOUDSIMHOST_DOCUMENTIMPORTFACADE_H
+
+/// @file DocumentImportFacade.h
+/// @brief 统一导入路由
+
+#include "cloudsim_host_global.h"
 
 #include "CoreTypes.h"
 #include "HierarchyMeshImport.h"
-#include "cloudsim_host_global.h"
 
 #include <QString>
 #include <functional>
@@ -12,13 +17,18 @@ class BrepBackendData;
 class MeshBackendData;
 class PointCloudBackendData;
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 class DocumentHost;
 
-enum class ImportFileKind { Mesh, PointCloud };
+enum class ImportFileKind
+{
+	Mesh,
+	PointCloud
+};
 
-struct CLOUDSIM_HOST_EXPORT ImportFileResult {
+struct CLOUDSIM_HOST_EXPORT ImportFileResult
+{
 	QString rootBackendId; ///< 层级导入多为 importParent id
 	bool ok = false;
 	bool hierarchyImport = false;
@@ -32,9 +42,12 @@ struct CLOUDSIM_HOST_EXPORT ImportFileResult {
 
 /// 统一导入路由
 CLOUDSIM_HOST_EXPORT ImportFileResult importFileIntoDocument(DocumentHost& host, const QString& filePath,
-	ImportFileKind kind, const cloudsim::core::ImportOptionsDto& options, QString* outError = nullptr);
+															 ImportFileKind kind,
+															 const cloudsim::core::ImportOptionsDto& options,
+															 QString* outError = nullptr);
 
-struct AdoptMeshOptions {
+struct AdoptMeshOptions
+{
 	QString sourcePath;
 	QString catalogTypeName = QStringLiteral("Model");
 	QString parentId;
@@ -42,23 +55,27 @@ struct AdoptMeshOptions {
 	bool linkOsgSceneParent = true;
 };
 
-struct AdoptPointCloudOptions {
+struct AdoptPointCloudOptions
+{
 	QString sourcePath;
 	QString catalogTypeName = QStringLiteral("PointCloud");
 	bool resetViewToHome = true;
 };
 
-struct AdoptRegistrationResult {
+struct AdoptRegistrationResult
+{
 	QString backendId;
 	bool ok = false;
 };
 
 /// 已构造几何注册
 CLOUDSIM_HOST_EXPORT AdoptRegistrationResult registerAdoptedMesh(DocumentHost& host,
-	const std::shared_ptr<MeshBackendData>& mesh, const AdoptMeshOptions& options, QString* outError = nullptr);
-CLOUDSIM_HOST_EXPORT AdoptRegistrationResult registerAdoptedPointCloud(DocumentHost& host,
-	const std::shared_ptr<PointCloudBackendData>& pointCloud, const AdoptPointCloudOptions& options,
-	QString* outError = nullptr);
+																 const std::shared_ptr<MeshBackendData>& mesh,
+																 const AdoptMeshOptions& options,
+																 QString* outError = nullptr);
+CLOUDSIM_HOST_EXPORT AdoptRegistrationResult
+registerAdoptedPointCloud(DocumentHost& host, const std::shared_ptr<PointCloudBackendData>& pointCloud,
+						  const AdoptPointCloudOptions& options, QString* outError = nullptr);
 
 /// 后台 Job 读点云文件（Widget 不接触 PointCloudBackendData）
 class CLOUDSIM_HOST_EXPORT PointCloudBackgroundLoadState
@@ -71,9 +88,9 @@ public:
 	PointCloudBackgroundLoadState& operator=(const PointCloudBackgroundLoadState&) = delete;
 
 	bool executeLoad(const std::function<void(double progress01, const QString& status)>& progress,
-		QString* outError = nullptr);
+					 QString* outError = nullptr);
 	AdoptRegistrationResult adoptIntoDocument(DocumentHost& host, const AdoptPointCloudOptions& options,
-		QString* outError = nullptr);
+											  QString* outError = nullptr);
 
 private:
 	struct Impl;
@@ -84,20 +101,17 @@ private:
 class CLOUDSIM_HOST_EXPORT ModelBackgroundLoadState
 {
 public:
-	explicit ModelBackgroundLoadState(
-		const QString& filePath,
-		const QString& displayName,
-		const QString& catalogTypeName,
-		int meshImportQuality);
+	explicit ModelBackgroundLoadState(const QString& filePath, const QString& displayName,
+									  const QString& catalogTypeName, int meshImportQuality);
 	~ModelBackgroundLoadState();
 
 	ModelBackgroundLoadState(const ModelBackgroundLoadState&) = delete;
 	ModelBackgroundLoadState& operator=(const ModelBackgroundLoadState&) = delete;
 
 	bool executeLoad(const std::function<void(double progress01, const QString& status)>& progress,
-		QString* outError = nullptr);
+					 QString* outError = nullptr);
 	ImportFileResult finishIntoDocument(DocumentHost& host, const cloudsim::core::ImportOptionsDto& options,
-		QString* outError = nullptr);
+										QString* outError = nullptr);
 
 	/// BREP 导入且 Phase1 已缓存时可后台预热 Phase2（边拾取/线框）
 	bool needsPickArtifactWarm() const;
@@ -109,3 +123,5 @@ private:
 };
 
 } // namespace cloudsim::host
+
+#endif // CLOUDSIMHOST_DOCUMENTIMPORTFACADE_H

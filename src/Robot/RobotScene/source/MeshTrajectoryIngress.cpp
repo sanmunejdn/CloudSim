@@ -1,16 +1,15 @@
+﻿/// @file MeshTrajectoryIngress.cpp
+/// @brief MeshTrajectoryIngress 实现
+
 #include "MeshTrajectoryIngress.h"
 
 #include "RawTrajectory.h"
 
 namespace RobotInstruction
 {
-
-bool importMeshRawPathToRawTrajectory(
-	const geoalgo::RawPath& path,
-	const std::string& meshTrajectorySpecJson,
-	const MeshTrajectoryIngressParams& params,
-	RawTrajectory& out,
-	std::string* errMsg)
+bool importMeshRawPathToRawTrajectory(const geoalgo::RawPath& path, const std::string& meshTrajectorySpecJson,
+									  const MeshTrajectoryIngressParams& params, RawTrajectory& out,
+									  std::string* errMsg)
 {
 	out = RawTrajectory{};
 	if (path.points.size() < 2U)

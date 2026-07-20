@@ -1,6 +1,5 @@
-#include "FeatureDiscretizerBridge.h"
-#include "FeatureDiscretizerConfigImpl.h"
-#include "FeatureDiscretizerRegistry.h"
+﻿/// @file FeatureDiscretizerBuiltinsRegister.cpp
+/// @brief FeatureDiscretizerBuiltinsRegister 实现
 
 #include "EdgeChainDiscretizer.h"
 #include "FaceBoundaryDiscretizer.h"
@@ -8,13 +7,15 @@
 #include "FaceOffsetCurveDiscretizer.h"
 #include "FaceParamSurfaceDiscretizer.h"
 #include "FaceSectionDiscretizer.h"
+#include "FeatureDiscretizerBridge.h"
+#include "FeatureDiscretizerConfigImpl.h"
+#include "FeatureDiscretizerRegistry.h"
 #include "SyntheticPolylineDiscretizer.h"
 
 namespace geoalgo
 {
 namespace
 {
-
 bool g_builtinsRegistered = false;
 
 void registerDiscretizerConfigs()

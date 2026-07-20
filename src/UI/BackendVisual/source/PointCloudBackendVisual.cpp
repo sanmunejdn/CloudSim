@@ -1,3 +1,6 @@
+﻿/// @file PointCloudBackendVisual.cpp
+/// @brief PointCloudBackendVisual 实现
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -8,19 +11,18 @@
 #include <windows.h>
 #endif
 
-#include "PointCloudBackendVisual.h"
-
 #include "BackendDataBase.h"
 #include "BackendGeometryMetrics.h"
 #include "BackendIdUserData.h"
 #include "BackendPoseOsg.h"
 #include "BackendVisualMath.h"
 #include "PointCloudBackendData.h"
+#include "PointCloudBackendVisual.h"
 
 #include <osg/Geode>
 #include <osg/Geometry>
-#include <osg/Matrixd>
 #include <osg/MatrixTransform>
+#include <osg/Matrixd>
 #include <osg/Point>
 #include <osg/PositionAttitudeTransform>
 #include <osg/PrimitiveSet>
@@ -29,8 +31,8 @@
 #include <osg/Vec3>
 #include <osg/Vec4>
 
-namespace {
-
+namespace
+{
 osg::ref_ptr<osg::Geode> buildGeodeImpl(const PointCloudBackendData& data, std::string* errorMessage)
 {
 	const std::vector<float>& xyz = data.pointPositionsXyz();
@@ -78,7 +80,7 @@ osg::ref_ptr<osg::Geode> buildGeodeImpl(const PointCloudBackendData& data, std::
 } // namespace
 
 osg::ref_ptr<osg::Geode> PointCloudBackendVisual::makeStagingGeode(const PointCloudBackendData& data,
-	std::string* errorMessage) const
+																   std::string* errorMessage) const
 {
 	return buildGeodeImpl(data, errorMessage);
 }
@@ -88,8 +90,8 @@ std::string PointCloudBackendVisual::typeKey() const
 	return "PointCloudBackendData";
 }
 
-bool PointCloudBackendVisual::buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions&, BranchBuildResult& out,
-	std::string* errorMessage)
+bool PointCloudBackendVisual::buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions&,
+											   BranchBuildResult& out, std::string* errorMessage)
 {
 	const auto* pc = dynamic_cast<const PointCloudBackendData*>(&data);
 	if (!pc)
@@ -123,7 +125,7 @@ bool PointCloudBackendVisual::buildOuterBranch(const BackendDataBase& data, cons
 }
 
 void PointCloudBackendVisual::computeModelCenterAndDiagonal(const BackendDataBase& data, osg::Vec3f& outCenter,
-	float& outDiagonal) const
+															float& outDiagonal) const
 {
 	const auto* pc = dynamic_cast<const PointCloudBackendData*>(&data);
 	if (!pc)

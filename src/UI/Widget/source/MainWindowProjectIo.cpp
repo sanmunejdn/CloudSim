@@ -1,14 +1,30 @@
-#include "MainWindow.h"
+﻿/// @file MainWindowProjectIo.cpp
+/// @brief MainWindowProjectIo 实现
 
+#include "../RobotWidget/inc/IRobotDocumentHost.h"
+#include "../RobotWidget/inc/IRobotOsgViewHost.h"
+#include "../RobotWidget/inc/RobotAxisControlWidget.h"
+#include "../RobotWidget/inc/RobotProjectIoAdapter.h"
+#include "../RobotWidget/inc/RobotSimulationController.h"
+#include "../RobotWidget/inc/SimulationCommandWidget.h"
 #include "BackendHierarchyFollow.h"
+#include "BackendProjectObjectIo.h"
 #include "BackendSceneDocumentFacade.h"
-
-#include <algorithm>
-#include <cmath>
-#include <memory>
-#include <sstream>
-#include <string>
-#include <vector>
+#include "CoreTypes.h"
+#include "DocumentHostEvents.h"
+#include "DocumentImportFacade.h"
+#include "DocumentPage.h"
+#include "IDataService.h"
+#include "IRenderView.h"
+#include "IRobotService.h"
+#include "MainWindow.h"
+#include "MainWindowRobotHost.h"
+#include "ProjectPackageIo.h"
+#include "ProjectPackageZip.h"
+#include "RobotInstructionFactory.h"
+#include "RobotProgramStore.h"
+#include "RobotProjectKinematicsRestore.h"
+#include "RunInfoPage.h"
 
 #include <QByteArray>
 #include <QDir>
@@ -22,40 +38,22 @@
 #include <QMessageBox>
 #include <QSet>
 #include <QTemporaryDir>
+#include <algorithm>
+#include <cmath>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <vector>
 
 #include <osg/Matrixd>
 #include <osg/Vec3f>
 
-#include "DocumentPage.h"
-#include "IDataService.h"
-#include "IRenderView.h"
-#include "ProjectPackageZip.h"
-#include "RobotInstructionFactory.h"
-#include "RobotProgramStore.h"
-#include "RunInfoPage.h"
-#include "../RobotWidget/inc/IRobotDocumentHost.h"
-#include "../RobotWidget/inc/IRobotOsgViewHost.h"
-#include "../RobotWidget/inc/RobotAxisControlWidget.h"
-#include "../RobotWidget/inc/RobotProjectIoAdapter.h"
-#include "../RobotWidget/inc/RobotSimulationController.h"
-#include "../RobotWidget/inc/SimulationCommandWidget.h"
-#include "MainWindowRobotHost.h"
-
-#include "DocumentHostEvents.h"
-#include "DocumentImportFacade.h"
-#include "BackendProjectObjectIo.h"
-#include "ProjectPackageIo.h"
-#include "CoreTypes.h"
-#include "IRobotService.h"
-#include "RobotProjectKinematicsRestore.h"
-
-namespace {
-
+namespace
+{
 QJsonObject stdJsonToQJsonObject(const nlohmann::json& in)
 {
 	const std::string payload = in.dump();
-	const QJsonDocument doc = QJsonDocument::fromJson(
-		QByteArray(payload.data(), static_cast<int>(payload.size())));
+	const QJsonDocument doc = QJsonDocument::fromJson(QByteArray(payload.data(), static_cast<int>(payload.size())));
 	return doc.isObject() ? doc.object() : QJsonObject{};
 }
 
@@ -82,10 +80,9 @@ void MainWindow::onSaveProject()
 		return;
 	}
 	const QString savePath = QFileDialog::getSaveFileName(
-		this,
-		i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
-		QString(),
-		QStringLiteral("Point Cloud Package (*.pcp);;PointCloud Project (*.pcproj.json);;JSON Files (*.json);;All Files (*.*)"));
+		this, i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")), QString(),
+		QStringLiteral(
+			"Point Cloud Package (*.pcp);;PointCloud Project (*.pcproj.json);;JSON Files (*.json);;All Files (*.*)"));
 	if (savePath.isEmpty())
 	{
 		return;
@@ -98,8 +95,8 @@ void MainWindow::onSaveProject()
 	if (packageMode && !packageTemp.isValid())
 	{
 		QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
-			i18n(QStringLiteral("Cannot create a temporary folder to build the package."),
-				QStringLiteral("无法创建临时目录以打包工程。")));
+							 i18n(QStringLiteral("Cannot create a temporary folder to build the package."),
+								  QStringLiteral("无法创建临时目录以打包工程。")));
 		return;
 	}
 	const QString jsonWritePath = packageMode ? QDir(workRoot).filePath(QStringLiteral("project.json")) : savePath;
@@ -109,9 +106,9 @@ void MainWindow::onSaveProject()
 		cloudsim::host::buildProjectSaveRoot(*doc, languageCode, workRoot);
 	if (!built.abortMessage.isEmpty())
 	{
-		QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
-			i18n(built.abortMessage,
-				QStringLiteral("后端没有点云坐标，无法保存。请在源文件仍在磁盘上时重新导入。")));
+		QMessageBox::warning(
+			this, i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
+			i18n(built.abortMessage, QStringLiteral("后端没有点云坐标，无法保存。请在源文件仍在磁盘上时重新导入。")));
 		return;
 	}
 	if (m_runInfoPage)
@@ -137,8 +134,7 @@ void MainWindow::onSaveProject()
 			{
 				anglesToSave = m_robotSimulation->aggregatedJointAnglesRad();
 			}
-			if (anglesToSave.isEmpty() && m_robotHost->robotAxisControlPage()
-				&& robotDoc->hasRobotSimulationContext())
+			if (anglesToSave.isEmpty() && m_robotHost->robotAxisControlPage() && robotDoc->hasRobotSimulationContext())
 			{
 				const int total = robotDoc->robotRevoluteJointNames().size();
 				if (m_robotHost->robotAxisControlPage()->jointCount() == total)
@@ -158,7 +154,8 @@ void MainWindow::onSaveProject()
 	QFile file(jsonWritePath);
 	if (!file.open(QIODevice::WriteOnly))
 	{
-		QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
+		QMessageBox::warning(
+			this, i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
 			i18n(QStringLiteral("Failed to write project file."), QStringLiteral("写入工程文件失败。")));
 		return;
 	}
@@ -171,13 +168,14 @@ void MainWindow::onSaveProject()
 		if (!project_package_zip::zipDirectoryTree(savePath, workRoot, &zipErr))
 		{
 			QMessageBox::warning(this, i18n(QStringLiteral("Save Project"), QStringLiteral("保存工程")),
-				i18n(QStringLiteral("Failed to write package (.pcp): %1").arg(zipErr),
-					QStringLiteral("写入打包文件 (.pcp) 失败：%1").arg(zipErr)));
+								 i18n(QStringLiteral("Failed to write package (.pcp): %1").arg(zipErr),
+									  QStringLiteral("写入打包文件 (.pcp) 失败：%1").arg(zipErr)));
 			return;
 		}
 	}
 
-	if (m_runInfoPage) m_runInfoPage->appendInfo(QStringLiteral("Project saved: %1").arg(savePath));
+	if (m_runInfoPage)
+		m_runInfoPage->appendInfo(QStringLiteral("Project saved: %1").arg(savePath));
 	doc->setProjectFilePath(savePath);
 	if (m_documentTabs)
 	{
@@ -197,10 +195,9 @@ void MainWindow::onOpenProjectFile()
 		return;
 	}
 	const QString openPath = QFileDialog::getOpenFileName(
-		this,
-		i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
-		QString(),
-		QStringLiteral("Point Cloud Package (*.pcp);;PointCloud Project (*.pcproj.json);;JSON Files (*.json);;All Files (*.*)"));
+		this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")), QString(),
+		QStringLiteral(
+			"Point Cloud Package (*.pcp);;PointCloud Project (*.pcproj.json);;JSON Files (*.json);;All Files (*.*)"));
 	if (openPath.isEmpty())
 	{
 		return;
@@ -214,8 +211,8 @@ void MainWindow::onOpenProjectFile()
 		if (!zipExtractDir.isValid())
 		{
 			QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
-				i18n(QStringLiteral("Cannot create a temporary folder to unpack the project."),
-					QStringLiteral("无法创建临时目录解压工程。")));
+								 i18n(QStringLiteral("Cannot create a temporary folder to unpack the project."),
+									  QStringLiteral("无法创建临时目录解压工程。")));
 			return;
 		}
 		QString unpackErr;
@@ -229,8 +226,8 @@ void MainWindow::onOpenProjectFile()
 		if (!QFileInfo::exists(projectJsonPath))
 		{
 			QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
-				i18n(QStringLiteral("The archive does not contain project.json."),
-					QStringLiteral("压缩包中没有 project.json。")));
+								 i18n(QStringLiteral("The archive does not contain project.json."),
+									  QStringLiteral("压缩包中没有 project.json。")));
 			return;
 		}
 	}
@@ -238,7 +235,8 @@ void MainWindow::onOpenProjectFile()
 	QFile file(projectJsonPath);
 	if (!file.open(QIODevice::ReadOnly))
 	{
-		QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
+		QMessageBox::warning(
+			this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
 			i18n(QStringLiteral("Failed to open project file."), QStringLiteral("打开工程文件失败。")));
 		return;
 	}
@@ -247,7 +245,7 @@ void MainWindow::onOpenProjectFile()
 	if (!jsonDoc.isObject())
 	{
 		QMessageBox::warning(this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
-			i18n(QStringLiteral("Invalid project format."), QStringLiteral("工程文件格式无效。")));
+							 i18n(QStringLiteral("Invalid project format."), QStringLiteral("工程文件格式无效。")));
 		return;
 	}
 
@@ -271,11 +269,11 @@ void MainWindow::onOpenProjectFile()
 	const int projectVersion = root.value(QStringLiteral("version")).toInt(0);
 	if (projectVersion != 4)
 	{
-		QMessageBox::warning(this,
-			i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
+		QMessageBox::warning(
+			this, i18n(QStringLiteral("Open Project"), QStringLiteral("打开工程")),
 			i18n(QStringLiteral("Unsupported project version: %1. This build only supports project.json v4.")
 					 .arg(projectVersion),
-				QStringLiteral("不支持的工程版本：%1。当前版本仅支持 project.json v4。").arg(projectVersion)));
+				 QStringLiteral("不支持的工程版本：%1。当前版本仅支持 project.json v4。").arg(projectVersion)));
 		if (m_runInfoPage)
 		{
 			m_runInfoPage->appendWarning(
@@ -294,27 +292,28 @@ void MainWindow::onOpenProjectFile()
 	loadOpts.useEdgesRelation = useEdgesRelation;
 	loadOpts.robotLinkMeshBackendIds = robotLinkMeshBackendIds;
 	cloudsim::host::ProjectObjectLoadCallbacks loadCbs;
-	loadCbs.legacyParentFollow = [page](const std::string& childId, const std::string& parentId) {
-		cloudsim::host::applyHierarchyFollowBinding(*page, childId, parentId);
-	};
-	loadCbs.pointCloudWidgetImport = [](cloudsim::host::DocumentHost& host, const QString& loadPath, const QString& persistedId,
-									   QString& outImportedId, QString* outError) -> bool {
+	loadCbs.legacyParentFollow = [page](const std::string& childId, const std::string& parentId)
+	{ cloudsim::host::applyHierarchyFollowBinding(*page, childId, parentId); };
+	loadCbs.pointCloudWidgetImport = [](cloudsim::host::DocumentHost& host, const QString& loadPath,
+										const QString& persistedId, QString& outImportedId, QString* outError) -> bool
+	{
 		cloudsim::core::ImportOptionsDto opt;
 		opt.quietUi = true;
 		opt.resetViewToHome = false;
 		opt.persistedId = persistedId;
 		opt.catalogTypeName = QStringLiteral("PointCloud");
-		const cloudsim::host::ImportFileResult imported =
-			cloudsim::host::importFileIntoDocument(host, loadPath, cloudsim::host::ImportFileKind::PointCloud, opt, outError);
+		const cloudsim::host::ImportFileResult imported = cloudsim::host::importFileIntoDocument(
+			host, loadPath, cloudsim::host::ImportFileKind::PointCloud, opt, outError);
 		outImportedId = imported.rootBackendId;
 		return imported.ok;
 	};
 	QStringList objectLoadWarnings;
-	cloudsim::host::loadProjectObjectsFromJson(*page, root.value(QStringLiteral("objects")).toArray(), loadOpts, loadCbs,
-		&objectLoadWarnings);
+	cloudsim::host::loadProjectObjectsFromJson(*page, root.value(QStringLiteral("objects")).toArray(), loadOpts,
+											   loadCbs, &objectLoadWarnings);
 	QStringList hierarchyWarnings;
 	cloudsim::host::finalizeProjectHierarchyAfterObjects(*page, useEdgesRelation, pendingEdges, &hierarchyWarnings);
-	const auto appendLoadWarnings = [this](const QStringList& warnings) {
+	const auto appendLoadWarnings = [this](const QStringList& warnings)
+	{
 		if (!m_runInfoPage)
 		{
 			return;
@@ -337,7 +336,8 @@ void MainWindow::onOpenProjectFile()
 			projectRobotKinematicsRestored = true;
 			projectLoadedJointAngles = rkResult.aggregatedJointAnglesRad;
 			QString rkApplyErr;
-			(void)cloudsim::host::applyRestoredJointAnglesToScene(*page, rkResult.aggregatedJointAnglesRad, &rkApplyErr);
+			(void)cloudsim::host::applyRestoredJointAnglesToScene(*page, rkResult.aggregatedJointAnglesRad,
+																  &rkApplyErr);
 			refreshSimulationJointListFromCurrentDoc();
 			if (m_robotSimulation)
 			{
@@ -388,7 +388,8 @@ void MainWindow::onOpenProjectFile()
 
 	// 仅当文档中没有保存的关节角时，才用程序起始位姿覆盖
 	// 避免覆盖用户在文档中手动调整的关节位置
-	if (m_robotSimulation && projectHadPrograms && (!projectRobotKinematicsRestored || projectLoadedJointAngles.isEmpty()))
+	if (m_robotSimulation && projectHadPrograms &&
+		(!projectRobotKinematicsRestored || projectLoadedJointAngles.isEmpty()))
 	{
 		m_robotSimulation->applyProgramStartPoseAfterProjectLoad();
 	}

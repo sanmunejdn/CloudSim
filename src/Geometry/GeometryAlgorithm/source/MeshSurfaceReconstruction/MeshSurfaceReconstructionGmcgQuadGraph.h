@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTIONGMCGQUADGRAPH_H
+#define GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTIONGMCGQUADGRAPH_H
+
+/// @file MeshSurfaceReconstructionGmcgQuadGraph.h
+/// @brief MeshSurfaceReconstructionGmcgQuadGraph 接口
 
 #include "MeshSurfaceReconstructionAmrtoTypes.h"
 
@@ -11,7 +15,6 @@ namespace geoalgo
 {
 namespace meshrecon
 {
-
 struct GmcgHalfEdge
 {
 	int face = -1;
@@ -38,3 +41,5 @@ struct GmcgQuadGraph
 
 } // namespace meshrecon
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTIONGMCGQUADGRAPH_H

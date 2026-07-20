@@ -1,40 +1,40 @@
-#include "TrajectoryEditPageWidget.h"
+﻿/// @file TrajectoryEditPageWidget.cpp
+/// @brief 调色板拖放须携带 kMimeType，否则流水线只会出现“幽灵项”（有显示无数据）
 
-#include "FeaturePickTransform.h"
+#include "TrajectoryEditPageWidget.h"
 
 #include "BackendDataManager.h"
 #include "BrepBackendData.h"
-#include "MeshBackendData.h"
-#include "PointCloudBackendData.h"
+#include "FeaturePickTransform.h"
+#include "FrameBackendData.h"
 #include "IRobotMainWindowHost.h"
 #include "IRobotOsgViewHost.h"
+#include "MeshBackendData.h"
+#include "PointCloudBackendData.h"
 #include "ProgramEditCommand.h"
 #include "ProgramEditService.h"
+#include "RawTrajectory.h"
 #include "RecipeBlueprint.h"
+#include "RobotInstructionProgram.h"
 #include "RobotOsgUiTypes.h"
+#include "RobotProgramStore.h"
 #include "RobotSimulationController.h"
 #include "RobotSimulationDockWidget.h"
-#include "RawTrajectory.h"
-#include "UnifiedTrajectory.h"
 #include "SimulationCommandWidget.h"
-#include "TrajectoryEditSession.h"
 #include "TrajectoryEditObserver.h"
+#include "TrajectoryEditSession.h"
 #include "TrajectoryGenerationPageWidget.h"
+#include "TrajectoryOpBridge.h"
 #include "TrajectoryOpParamPanel.h"
 #include "TrajectoryPipelineListWidget.h"
-#include "RobotProgramStore.h"
-#include "RobotInstructionProgram.h"
 #include "UiIconDecorators.h"
-
-#include <ITrajectoryOp.h>
-#include "TrajectoryOpBridge.h"
-
-#include <json.hpp>
+#include "UnifiedTrajectory.h"
 
 #include <QAbstractItemView>
-#include <QCoreApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCoreApplication>
+#include <QDrag>
 #include <QFont>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -42,30 +42,26 @@
 #include <QListWidget>
 #include <QMenu>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QPushButton>
 #include <QSettings>
+#include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QStyle>
-#include <QUuid>
-#include <QSignalBlocker>
 #include <QTimer>
+#include <QUuid>
 #include <QVBoxLayout>
-
-#include <QDrag>
-#include <QMimeData>
-
 #include <algorithm>
 #include <cstring>
 #include <memory>
 
+#include <ITrajectoryOp.h>
+#include <json.hpp>
+
 namespace
 {
-
-void populateGeometryBackendCombo(
-	QComboBox* combo,
-	IRobotMainWindowHost* host,
-	const bool allowBrep,
-	const QString& prevBackendId)
+void populateGeometryBackendCombo(QComboBox* combo, IRobotMainWindowHost* host, const bool allowBrep,
+								  const QString& prevBackendId)
 {
 	if (!combo)
 	{
@@ -82,8 +78,7 @@ void populateGeometryBackendCombo(
 			{
 				continue;
 			}
-			const bool isPointCloud =
-				static_cast<bool>(std::dynamic_pointer_cast<PointCloudBackendData>(data));
+			const bool isPointCloud = static_cast<bool>(std::dynamic_pointer_cast<PointCloudBackendData>(data));
 			const bool isMesh = static_cast<bool>(std::dynamic_pointer_cast<MeshBackendData>(data));
 			const bool isBrep = static_cast<bool>(std::dynamic_pointer_cast<BrepBackendData>(data));
 			const bool supported = isPointCloud || isMesh || (allowBrep && isBrep);
@@ -97,10 +92,8 @@ void populateGeometryBackendCombo(
 				continue;
 			}
 			const QString label = QString::fromStdString(data->name()).isEmpty()
-				? backendId
-				: QStringLiteral("%1 (%2)").arg(
-					QString::fromStdString(data->name()),
-					backendId);
+									  ? backendId
+									  : QStringLiteral("%1 (%2)").arg(QString::fromStdString(data->name()), backendId);
 			combo->addItem(label, backendId);
 		}
 	}
@@ -112,6 +105,37 @@ void populateGeometryBackendCombo(
 			combo->setCurrentIndex(idx);
 		}
 	}
+	combo->blockSignals(false);
+}
+
+void populateExternalTcpFrameCombo(QComboBox* combo, IRobotMainWindowHost* host, const bool useChinese,
+								   const QString& prevBackendId)
+{
+	if (!combo)
+	{
+		return;
+	}
+	combo->blockSignals(true);
+	combo->clear();
+	combo->addItem(useChinese ? QStringLiteral("手动") : QStringLiteral("Manual"), QString());
+	if (host && host->document())
+	{
+		BackendDataManager& mgr = host->document()->backend();
+		for (const std::shared_ptr<BackendDataBase>& data : mgr.listData())
+		{
+			if (!data || !std::dynamic_pointer_cast<FrameBackendData>(data))
+			{
+				continue;
+			}
+			const QString backendId = QString::fromStdString(data->id());
+			const QString label = QString::fromStdString(data->name()).isEmpty()
+									  ? backendId
+									  : QStringLiteral("%1 (%2)").arg(QString::fromStdString(data->name()), backendId);
+			combo->addItem(label, backendId);
+		}
+	}
+	const int idx = combo->findData(prevBackendId);
+	combo->setCurrentIndex(idx >= 0 ? idx : 0);
 	combo->blockSignals(false);
 }
 
@@ -144,8 +168,7 @@ constexpr int kTrajectoryControlHeight = 26;
 class TrajectoryOpPaletteWidget : public QListWidget
 {
 public:
-	explicit TrajectoryOpPaletteWidget(QWidget* parent = nullptr)
-		: QListWidget(parent)
+	explicit TrajectoryOpPaletteWidget(QWidget* parent = nullptr) : QListWidget(parent)
 	{
 		setDragEnabled(true);
 		setSpacing(2);
@@ -177,7 +200,6 @@ protected:
 
 namespace
 {
-
 QString opKindLabel(RobotInstruction::TrajectoryOpKind kind, bool zh)
 {
 	switch (kind)
@@ -224,48 +246,42 @@ QString opKindLabel(RobotInstruction::TrajectoryOpKind kind, bool zh)
 	}
 }
 
-bool validatePipelineConstraints(
-	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops,
-	const bool chinese,
-	QString& outError)
+bool validatePipelineConstraints(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops, const bool chinese,
+								 QString& outError)
 {
 	std::string err;
 	if (!RobotInstruction::validateTrajectoryPipeline(ops, &err))
 	{
 		outError = err.empty()
-			? (chinese ? QStringLiteral("流水线参数无效") : QStringLiteral("Invalid pipeline parameters"))
-			: QString::fromStdString(err);
+					   ? (chinese ? QStringLiteral("流水线参数无效") : QStringLiteral("Invalid pipeline parameters"))
+					   : QString::fromStdString(err);
 		return false;
 	}
 	return true;
 }
 
-void updateTransformActionButtons(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	QCheckBox* previewCheck,
-	QPushButton* applyBtn,
-	const bool readOnly)
+void updateTransformActionButtons(const RobotInstruction::TrajectoryOpDescriptor& op, QCheckBox* previewCheck,
+								  QPushButton* applyBtn, const bool readOnly)
 {
 	const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(op.kind);
-	const bool unifiedOnlyOp = op.kind == RobotInstruction::TrajectoryOpKind::Approach
-		|| op.kind == RobotInstruction::TrajectoryOpKind::Retract
-		|| op.kind == RobotInstruction::TrajectoryOpKind::Resample
-		|| op.kind == RobotInstruction::TrajectoryOpKind::OffsetAlongNormal
-		|| op.kind == RobotInstruction::TrajectoryOpKind::OffsetLateral
-		|| op.kind == RobotInstruction::TrajectoryOpKind::SmoothPose
-		|| op.kind == RobotInstruction::TrajectoryOpKind::AssignBlend
-		|| op.kind == RobotInstruction::TrajectoryOpKind::AssignSpeedZone
-		|| op.kind == RobotInstruction::TrajectoryOpKind::Weave
-		|| op.kind == RobotInstruction::TrajectoryOpKind::ReachabilityFilter
-		|| op.kind == RobotInstruction::TrajectoryOpKind::ExternalAxisSearch
-		|| op.kind == RobotInstruction::TrajectoryOpKind::Delete
-		|| op.kind == RobotInstruction::TrajectoryOpKind::Duplicate
-		|| op.kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry
-		|| op.kind == RobotInstruction::TrajectoryOpKind::NonRigidRegistration;
-	const bool canPosePreview = algo
-		&& trajectory_algo::hasCapability(
-			algo->capabilities(),
-			trajectory_algo::TrajectoryOpCapability::PreviewPoseTransform);
+	const bool unifiedOnlyOp = op.kind == RobotInstruction::TrajectoryOpKind::Approach ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::Retract ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::Resample ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::OffsetAlongNormal ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::OffsetLateral ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::SmoothPose ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::AssignBlend ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::AssignSpeedZone ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::Weave ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::ReachabilityFilter ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::ExternalAxisSearch ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::Delete ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::Duplicate ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::ProjectToGeometry ||
+							   op.kind == RobotInstruction::TrajectoryOpKind::NonRigidRegistration;
+	const bool canPosePreview =
+		algo && trajectory_algo::hasCapability(algo->capabilities(),
+											   trajectory_algo::TrajectoryOpCapability::PreviewPoseTransform);
 	const bool canPipelineOp = canPosePreview || unifiedOnlyOp;
 	if (previewCheck)
 	{
@@ -306,12 +322,10 @@ void configureCompactCombo(QComboBox* combo)
 
 } // namespace
 
-TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
-	: QWidget(parent)
+TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent) : QWidget(parent)
 {
 	RobotInstruction::ensureTrajectoryOpBuiltinsRegistered();
-	RobotInstruction::ensureTrajectoryOpConfigsLoaded(
-		QCoreApplication::applicationDirPath().toStdString());
+	RobotInstruction::ensureTrajectoryOpConfigsLoaded(QCoreApplication::applicationDirPath().toStdString());
 	m_observer = new TrajectoryEditObserver(this);
 
 	auto* root = new QVBoxLayout(this);
@@ -366,9 +380,8 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	m_pipeline->setFont(blockFont);
 	m_pipeline->setTextElideMode(Qt::ElideNone);
 	m_pipeline->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-	m_pipeline->setDefaultOpFactory([this](const RobotInstruction::TrajectoryOpKind kind) {
-		return makeDefaultOp(kind);
-	});
+	m_pipeline->setDefaultOpFactory([this](const RobotInstruction::TrajectoryOpKind kind)
+									{ return makeDefaultOp(kind); });
 	bodyRow->addWidget(m_pipeline, 2);
 	root->addLayout(bodyRow, 3);
 
@@ -378,13 +391,14 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	m_paramGroupBox->setChecked(true);
 	m_paramGroupBox->setFont(blockFont);
 	// 字号继承算法块，仅覆盖控件尺寸
-	m_paramGroupBox->setStyleSheet(QStringLiteral(
-		"QGroupBox { font-weight: 500; }"
-		"QGroupBox QComboBox { min-height: %1px; max-height: %1px; padding: 2px 6px; }"
-		"QGroupBox QSpinBox, QGroupBox QDoubleSpinBox { min-height: %1px; max-height: %1px; padding: 2px 6px; }"
-		"QGroupBox QPushButton { padding: 2px 8px; min-height: %1px; max-height: %1px; }"
-		"QGroupBox QCheckBox { spacing: 4px; }"
-	).arg(kTrajectoryControlHeight));
+	m_paramGroupBox->setStyleSheet(
+		QStringLiteral(
+			"QGroupBox { font-weight: 500; }"
+			"QGroupBox QComboBox { min-height: %1px; max-height: %1px; padding: 2px 6px; }"
+			"QGroupBox QSpinBox, QGroupBox QDoubleSpinBox { min-height: %1px; max-height: %1px; padding: 2px 6px; }"
+			"QGroupBox QPushButton { padding: 2px 8px; min-height: %1px; max-height: %1px; }"
+			"QGroupBox QCheckBox { spacing: 4px; }")
+			.arg(kTrajectoryControlHeight));
 	auto* paramBoxLayout = new QVBoxLayout(m_paramGroupBox);
 	paramBoxLayout->setContentsMargins(4, 2, 4, 2);
 	paramBoxLayout->setSpacing(0);
@@ -396,12 +410,15 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	configureCompactCombo(m_nonRigidSourceCombo);
 	m_nonRigidTargetCombo = new QComboBox(m_paramGroupBox);
 	configureCompactCombo(m_nonRigidTargetCombo);
+	m_externalTcpBackendCombo = new QComboBox(m_paramGroupBox);
+	configureCompactCombo(m_externalTcpBackendCombo);
 	m_paramPanel = new TrajectoryOpParamPanel(m_paramGroupBox);
 	m_paramPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	m_paramPanel->setScopeGroupCombo(m_scopeGroupCombo);
 	m_paramPanel->setGeometryBackendCombo(m_geometryBackendCombo);
 	m_paramPanel->setNonRigidSourceBackendCombo(m_nonRigidSourceCombo);
 	m_paramPanel->setNonRigidTargetBackendCombo(m_nonRigidTargetCombo);
+	m_paramPanel->setExternalTcpBackendCombo(m_externalTcpBackendCombo);
 	paramBoxLayout->addWidget(m_paramPanel, 1);
 	root->addWidget(m_paramGroupBox, 1);
 
@@ -434,24 +451,25 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 
 	rebuildPalette();
 
-	connect(m_programCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &TrajectoryEditPageWidget::onProgramChanged);
-	connect(m_groupCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &TrajectoryEditPageWidget::onGroupChanged);
+	connect(m_programCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&TrajectoryEditPageWidget::onProgramChanged);
+	connect(m_groupCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&TrajectoryEditPageWidget::onGroupChanged);
 	connect(m_palette, &QListWidget::itemDoubleClicked, this, &TrajectoryEditPageWidget::onPaletteDoubleClicked);
-	connect(m_pipeline, &TrajectoryPipelineListWidget::opsChanged, this, [this]() {
-		setPipelineAppliedState(false, false);
-		syncSessionPipeline();
-		if (m_loadingParams || (m_paramPanel && m_paramPanel->isRebuilding()))
-		{
-			return;
-		}
-		schedulePreviewRun(160, false);
-	});
-	connect(m_pipeline, &TrajectoryPipelineListWidget::selectedOpChanged, this, &TrajectoryEditPageWidget::onPipelineSelectionChanged);
-	connect(
-		m_pipeline,
-		&QWidget::customContextMenuRequested,
-		this,
-		&TrajectoryEditPageWidget::showPipelineContextMenu);
+	connect(m_pipeline, &TrajectoryPipelineListWidget::opsChanged, this,
+			[this]()
+			{
+				setPipelineAppliedState(false, false);
+				syncSessionPipeline();
+				if (m_loadingParams || (m_paramPanel && m_paramPanel->isRebuilding()))
+				{
+					return;
+				}
+				schedulePreviewRun(160, false);
+			});
+	connect(m_pipeline, &TrajectoryPipelineListWidget::selectedOpChanged, this,
+			&TrajectoryEditPageWidget::onPipelineSelectionChanged);
+	connect(m_pipeline, &QWidget::customContextMenuRequested, this, &TrajectoryEditPageWidget::showPipelineContextMenu);
 	connect(m_previewCheck, &QCheckBox::toggled, this, &TrajectoryEditPageWidget::onPreviewToggled);
 	connect(m_applyBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onApplyClicked);
 	connect(m_resetBtn, &QPushButton::clicked, this, &TrajectoryEditPageWidget::onResetClicked);
@@ -480,43 +498,57 @@ TrajectoryEditPageWidget::TrajectoryEditPageWidget(QWidget* parent)
 	applyBtnRole(m_saveTemplateBtn, "secondary");
 	applyBtnRole(m_loadTemplateBtn, "secondary");
 
-	connect(m_paramPanel, &TrajectoryOpParamPanel::paramsChanged, this, [this]() {
-		if (!m_loadingParams)
-		{
-			setPipelineAppliedState(false, false);
-			applyParamsToSelectedOp();
-		}
-	});
-	connect(m_scopeGroupCombo, QOverload<int>::of(&QComboBox::activated), this, [this]() {
-		if (!m_loadingParams)
-		{
-			setPipelineAppliedState(false, false);
-			applyParamsToSelectedOp();
-		}
-	});
+	connect(m_paramPanel, &TrajectoryOpParamPanel::paramsChanged, this,
+			[this]()
+			{
+				if (!m_loadingParams)
+				{
+					setPipelineAppliedState(false, false);
+					applyParamsToSelectedOp();
+				}
+			});
+	connect(m_scopeGroupCombo, QOverload<int>::of(&QComboBox::activated), this,
+			[this]()
+			{
+				if (!m_loadingParams)
+				{
+					setPipelineAppliedState(false, false);
+					applyParamsToSelectedOp();
+				}
+			});
 	// 仅 activated：刷新/重建时 setCurrentIndex 不触发预览，避免 SPARE 卡死 UI
-	const auto onGeometryBackendComboChanged = [this]() {
+	const auto onGeometryBackendComboChanged = [this]()
+	{
 		if (!m_loadingParams)
 		{
 			setPipelineAppliedState(false, false);
 			applyParamsToSelectedOp();
 		}
 	};
-	connect(
-		m_geometryBackendCombo,
-		QOverload<int>::of(&QComboBox::activated),
-		this,
-		onGeometryBackendComboChanged);
-	connect(
-		m_nonRigidSourceCombo,
-		QOverload<int>::of(&QComboBox::activated),
-		this,
-		onGeometryBackendComboChanged);
-	connect(
-		m_nonRigidTargetCombo,
-		QOverload<int>::of(&QComboBox::activated),
-		this,
-		onGeometryBackendComboChanged);
+	connect(m_geometryBackendCombo, QOverload<int>::of(&QComboBox::activated), this, onGeometryBackendComboChanged);
+	connect(m_nonRigidSourceCombo, QOverload<int>::of(&QComboBox::activated), this, onGeometryBackendComboChanged);
+	connect(m_nonRigidTargetCombo, QOverload<int>::of(&QComboBox::activated), this, onGeometryBackendComboChanged);
+	connect(m_externalTcpBackendCombo, QOverload<int>::of(&QComboBox::activated), this,
+			[this]()
+			{
+				if (m_loadingParams)
+				{
+					return;
+				}
+				setPipelineAppliedState(false, false);
+				applyParamsToSelectedOp();
+				if (!m_pipeline || m_pipeline->selectedOpIndex() < 0 || !m_paramPanel)
+				{
+					return;
+				}
+				const RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->selectedOp();
+				const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(op.kind);
+				m_loadingParams = true;
+				m_paramPanel->setLoading(true);
+				m_paramPanel->rebuildForOp(op, algo);
+				m_paramPanel->setLoading(false);
+				m_loadingParams = false;
+			});
 	setUseChinese(m_useChinese);
 }
 
@@ -600,20 +632,8 @@ void TrajectoryEditPageWidget::setReadOnly(const bool readOnly)
 {
 	m_readOnly = readOnly;
 	QWidget* widgets[] = {
-		m_programCombo,
-		m_groupCombo,
-		m_palette,
-		m_pipeline,
-		m_scopeGroupCombo,
-		m_paramPanel,
-		m_previewCheck,
-		m_applyBtn,
-		m_resetBtn,
-		m_undoBtn,
-		m_redoBtn,
-		m_saveTemplateBtn,
-		m_loadTemplateBtn,
-		m_rawRecipeCombo,
+		m_programCombo, m_groupCombo, m_palette, m_pipeline, m_scopeGroupCombo, m_paramPanel,	   m_previewCheck,
+		m_applyBtn,		m_resetBtn,	  m_undoBtn, m_redoBtn,	 m_saveTemplateBtn, m_loadTemplateBtn, m_rawRecipeCombo,
 	};
 	for (QWidget* w : widgets)
 	{
@@ -641,13 +661,15 @@ void TrajectoryEditPageWidget::bindEditService(ProgramEditService* service)
 	}
 	if (m_editService)
 	{
-		connect(m_editService, &ProgramEditService::revisionChanged, this, [this](int) {
-			syncUiAfterProgramRevision();
-			if (m_commandPage)
-			{
-				m_commandPage->refreshInstructionList();
-			}
-		});
+		connect(m_editService, &ProgramEditService::revisionChanged, this,
+				[this](int)
+				{
+					syncUiAfterProgramRevision();
+					if (m_commandPage)
+					{
+						m_commandPage->refreshInstructionList();
+					}
+				});
 	}
 	refreshUndoButtons();
 }
@@ -670,23 +692,27 @@ void TrajectoryEditPageWidget::bindSession(TrajectoryEditSession* session)
 	}
 	if (m_session)
 	{
-		connect(m_session, &TrajectoryEditSession::rawTrajectoryChanged, this, [this]() {
-			setPipelineAppliedState(false, false);
-			refreshRawTrajectoryStatus();
-		});
-		connect(m_session, &TrajectoryEditSession::pathPlanBound, this, [this](const std::string&) {
-			if (m_pipeline)
-			{
-				m_loadingParams = true;
-				m_pipeline->blockSignals(true);
-				m_pipeline->setOps({});
-				m_pipeline->blockSignals(false);
-				m_loadingParams = false;
-			}
-			refreshProgramAndGroupCombos();
-			setPipelineAppliedState(false, false);
-			refreshRawTrajectoryStatus();
-		});
+		connect(m_session, &TrajectoryEditSession::rawTrajectoryChanged, this,
+				[this]()
+				{
+					setPipelineAppliedState(false, false);
+					refreshRawTrajectoryStatus();
+				});
+		connect(m_session, &TrajectoryEditSession::pathPlanBound, this,
+				[this](const std::string&)
+				{
+					if (m_pipeline)
+					{
+						m_loadingParams = true;
+						m_pipeline->blockSignals(true);
+						m_pipeline->setOps({});
+						m_pipeline->blockSignals(false);
+						m_loadingParams = false;
+					}
+					refreshProgramAndGroupCombos();
+					setPipelineAppliedState(false, false);
+					refreshRawTrajectoryStatus();
+				});
 	}
 	refreshRawTrajectoryStatus();
 }
@@ -712,15 +738,13 @@ void TrajectoryEditPageWidget::setPipelineAppliedState(const bool applied, const
 	}
 	if (applied)
 	{
-		m_host->appendRunInfo(m_useChinese
-				? QStringLiteral("结果已落盘，生成程序入口已禁用")
-				: QStringLiteral("Result committed, emit program disabled"));
+		m_host->appendRunInfo(m_useChinese ? QStringLiteral("结果已落盘，生成程序入口已禁用")
+										   : QStringLiteral("Result committed, emit program disabled"));
 	}
 	else
 	{
-		m_host->appendRunInfo(m_useChinese
-				? QStringLiteral("检测到新编辑，可重新生成程序")
-				: QStringLiteral("New edits detected, emit program re-enabled"));
+		m_host->appendRunInfo(m_useChinese ? QStringLiteral("检测到新编辑，可重新生成程序")
+										   : QStringLiteral("New edits detected, emit program re-enabled"));
 	}
 }
 
@@ -734,7 +758,7 @@ void TrajectoryEditPageWidget::refreshRawTrajectoryStatus()
 	if (!m_session || !m_session->hasRawTrajectory())
 	{
 		m_rawStatusLabel->setText(zh ? QStringLiteral("请先在轨迹生成页离散")
-			: QStringLiteral("Discretize on Trajectory Generation tab first"));
+									 : QStringLiteral("Discretize on Trajectory Generation tab first"));
 		if (m_rawApplyBtn)
 		{
 			m_rawApplyBtn->setEnabled(false);
@@ -747,12 +771,10 @@ void TrajectoryEditPageWidget::refreshRawTrajectoryStatus()
 	}
 	const RobotInstruction::RawTrajectory* traj = m_session->rawTrajectory();
 	const int n = traj ? static_cast<int>(traj->points.size()) : 0;
-	QString status = zh ? QStringLiteral("原始轨迹：%1 点").arg(n)
-						: QStringLiteral("Raw trajectory: %1 points").arg(n);
+	QString status = zh ? QStringLiteral("原始轨迹：%1 点").arg(n) : QStringLiteral("Raw trajectory: %1 points").arg(n);
 	if (m_pipelineAppliedSinceLastRawChange)
 	{
-		status += zh ? QStringLiteral("（已应用，生成已禁用）")
-					 : QStringLiteral(" (Applied, emit disabled)");
+		status += zh ? QStringLiteral("（已应用，生成已禁用）") : QStringLiteral(" (Applied, emit disabled)");
 	}
 	m_rawStatusLabel->setText(status);
 	if (m_rawApplyBtn)
@@ -775,9 +797,8 @@ std::string TrajectoryEditPageWidget::resolvePreviewBackendId(const RobotInstruc
 	return {};
 }
 
-void TrajectoryEditPageWidget::showRawTrajectoryPreview(
-	const RobotInstruction::RawTrajectory& traj,
-	const bool posesAlreadyWorldMm)
+void TrajectoryEditPageWidget::showRawTrajectoryPreview(const RobotInstruction::RawTrajectory& traj,
+														const bool posesAlreadyWorldMm)
 {
 	if (!m_host)
 	{
@@ -810,9 +831,9 @@ void TrajectoryEditPageWidget::showRawTrajectoryPreview(
 		{
 			if (m_host)
 			{
-				m_host->appendRunWarning(
-					m_useChinese ? QStringLiteral("轨迹预览：FeatureSpec 缺少 workpiece.backendIdUtf8")
-								 : QStringLiteral("Trajectory preview: missing workpiece.backendIdUtf8"));
+				m_host->appendRunWarning(m_useChinese
+											 ? QStringLiteral("轨迹预览：FeatureSpec 缺少 workpiece.backendIdUtf8")
+											 : QStringLiteral("Trajectory preview: missing workpiece.backendIdUtf8"));
 			}
 			return;
 		}
@@ -855,8 +876,7 @@ void TrajectoryEditPageWidget::onRawApplyRecipe()
 
 void TrajectoryEditPageWidget::applyRecipePresetByKind(const RobotInstruction::RecipeKind recipeKind)
 {
-	const std::vector<RobotInstruction::TrajectoryOpDescriptor> ops =
-		RobotInstruction::buildRecipePreset(recipeKind);
+	const std::vector<RobotInstruction::TrajectoryOpDescriptor> ops = RobotInstruction::buildRecipePreset(recipeKind);
 	if (m_pipeline)
 	{
 		m_pipeline->setOps(ops);
@@ -866,7 +886,7 @@ void TrajectoryEditPageWidget::applyRecipePresetByKind(const RobotInstruction::R
 	if (m_host)
 	{
 		m_host->appendRunInfo(m_useChinese ? QStringLiteral("工艺模板已填充到流水线")
-			: QStringLiteral("Recipe preset inserted to pipeline"));
+										   : QStringLiteral("Recipe preset inserted to pipeline"));
 	}
 }
 
@@ -879,8 +899,7 @@ void TrajectoryEditPageWidget::onRawEmitProgram()
 	if (m_pipelineAppliedSinceLastRawChange)
 	{
 		QMessageBox::information(
-			this,
-			m_useChinese ? QStringLiteral("生成") : QStringLiteral("Emit"),
+			this, m_useChinese ? QStringLiteral("生成") : QStringLiteral("Emit"),
 			m_useChinese ? QStringLiteral("已应用后请勿再生成程序，避免覆盖应用结果")
 						 : QStringLiteral("Emit is disabled after Apply to avoid overriding applied result"));
 		return;
@@ -899,8 +918,8 @@ void TrajectoryEditPageWidget::onRawEmitProgram()
 	if (backendId.empty())
 	{
 		QMessageBox::warning(this, QStringLiteral("生成"),
-			m_useChinese ? QStringLiteral("FeatureSpec 缺少 workpiece.backendIdUtf8")
-				: QStringLiteral("FeatureSpec missing workpiece.backendIdUtf8"));
+							 m_useChinese ? QStringLiteral("FeatureSpec 缺少 workpiece.backendIdUtf8")
+										  : QStringLiteral("FeatureSpec missing workpiece.backendIdUtf8"));
 		return;
 	}
 	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
@@ -923,8 +942,7 @@ void TrajectoryEditPageWidget::onRawEmitProgram()
 		boundPathPlanId = m_session->boundPathPlanId();
 		pathPlanIdPtr = &boundPathPlanId;
 	}
-	if (!RobotInstruction::emitRawTrajectoryToProgram(
-			worldTraj, *prog, &err, &emittedGroupId, pathPlanIdPtr))
+	if (!RobotInstruction::emitRawTrajectoryToProgram(worldTraj, *prog, &err, &emittedGroupId, pathPlanIdPtr))
 	{
 		QMessageBox::warning(this, QStringLiteral("生成"), QString::fromStdString(err));
 		return;
@@ -939,9 +957,8 @@ void TrajectoryEditPageWidget::onRawEmitProgram()
 	}
 	if (pathPlanIdPtr && m_store)
 	{
-		if (RobotInstruction::PathPlanInstruction* pp = m_store->activeCatalog().findPathPlan(
-				m_store->activeCatalog().activeProgramId(),
-				*pathPlanIdPtr))
+		if (RobotInstruction::PathPlanInstruction* pp =
+				m_store->activeCatalog().findPathPlan(m_store->activeCatalog().activeProgramId(), *pathPlanIdPtr))
 		{
 			pp->setOutputGroupId(emittedGroupId);
 		}
@@ -970,12 +987,10 @@ void TrajectoryEditPageWidget::onRawEmitProgram()
 	if (m_host)
 	{
 		const std::string featureId = RobotInstruction::rawTrajectoryFeatureId(*src);
-		const QString groupName = featureId.empty()
-			? QStringLiteral("RawTrajectory")
-			: QString::fromStdString(featureId);
-		m_host->appendRunInfo(m_useChinese
-			? QStringLiteral("已写入主程序，分组「%1」").arg(groupName)
-			: QStringLiteral("Written to main program, group \"%1\"").arg(groupName));
+		const QString groupName =
+			featureId.empty() ? QStringLiteral("RawTrajectory") : QString::fromStdString(featureId);
+		m_host->appendRunInfo(m_useChinese ? QStringLiteral("已写入主程序，分组「%1」").arg(groupName)
+										   : QStringLiteral("Written to main program, group \"%1\"").arg(groupName));
 	}
 	resetTrajectoryGenerationPages();
 }
@@ -1003,16 +1018,17 @@ void TrajectoryEditPageWidget::bindCommandPage(SimulationCommandWidget* commandP
 	{
 		return;
 	}
-	connect(m_commandPage, &SimulationCommandWidget::activeProgramChanged, this, [this](const QString&) {
-		refreshProgramAndGroupCombos();
-	});
-	connect(m_commandPage, &SimulationCommandWidget::groupsChanged, this, [this]() {
-		refreshProgramAndGroupCombos();
-		if (m_pipeline && m_pipeline->selectedOpIndex() >= 0)
-		{
-			loadSelectedOpToParams();
-		}
-	});
+	connect(m_commandPage, &SimulationCommandWidget::activeProgramChanged, this,
+			[this](const QString&) { refreshProgramAndGroupCombos(); });
+	connect(m_commandPage, &SimulationCommandWidget::groupsChanged, this,
+			[this]()
+			{
+				refreshProgramAndGroupCombos();
+				if (m_pipeline && m_pipeline->selectedOpIndex() >= 0)
+				{
+					loadSelectedOpToParams();
+				}
+			});
 }
 
 void TrajectoryEditPageWidget::syncBoundPathPlanFromSession()
@@ -1026,9 +1042,8 @@ void TrajectoryEditPageWidget::syncBoundPathPlanFromSession()
 	{
 		return;
 	}
-	if (RobotInstruction::PathPlanInstruction* pp = m_store->activeCatalog().findPathPlan(
-			m_store->activeCatalog().activeProgramId(),
-			pathPlanId))
+	if (RobotInstruction::PathPlanInstruction* pp =
+			m_store->activeCatalog().findPathPlan(m_store->activeCatalog().activeProgramId(), pathPlanId))
 	{
 		m_loadingParams = true;
 		m_pipeline->blockSignals(true);
@@ -1052,8 +1067,7 @@ void TrajectoryEditPageWidget::restoreBoundPathPlanForEdit()
 	if (m_store && !m_session->boundPathPlanId().empty())
 	{
 		if (const RobotInstruction::PathPlanInstruction* pp = m_store->activeCatalog().findPathPlan(
-				m_store->activeCatalog().activeProgramId(),
-				m_session->boundPathPlanId()))
+				m_store->activeCatalog().activeProgramId(), m_session->boundPathPlanId()))
 		{
 			applied = pp->phase() == RobotInstruction::PathPlanPhase::Applied;
 		}
@@ -1142,9 +1156,8 @@ void TrajectoryEditPageWidget::refreshProgramAndGroupCombos()
 	{
 		for (const RobotInstruction::InstructionGroup& group : prog->groups)
 		{
-			if (group.role == RobotInstruction::InstructionGroupRole::PathPlanOutput
-				&& group.pathPlanInstructionId == m_session->boundPathPlanId()
-				&& !group.memberInstructionIds.empty())
+			if (group.role == RobotInstruction::InstructionGroupRole::PathPlanOutput &&
+				group.pathPlanInstructionId == m_session->boundPathPlanId() && !group.memberInstructionIds.empty())
 			{
 				const int gIdx = m_groupCombo->findData(QString::fromStdString(group.id));
 				if (gIdx >= 0)
@@ -1197,15 +1210,14 @@ void TrajectoryEditPageWidget::refreshGeometryBackendCombo()
 	QString projectPrev;
 	QString sourcePrev;
 	QString targetPrev;
+	QString externalTcpPrev;
 	if (m_pipeline && m_pipeline->selectedOpIndex() >= 0)
 	{
 		const RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->selectedOp();
-		projectPrev = QString::fromStdString(
-			RobotInstruction::trajectoryOpProjectTargetBackendId(op));
-		sourcePrev = QString::fromStdString(
-			RobotInstruction::trajectoryOpNonRigidSourceBackendId(op));
-		targetPrev = QString::fromStdString(
-			RobotInstruction::trajectoryOpNonRigidTargetBackendId(op));
+		projectPrev = QString::fromStdString(RobotInstruction::trajectoryOpProjectTargetBackendId(op));
+		sourcePrev = QString::fromStdString(RobotInstruction::trajectoryOpNonRigidSourceBackendId(op));
+		targetPrev = QString::fromStdString(RobotInstruction::trajectoryOpNonRigidTargetBackendId(op));
+		externalTcpPrev = QString::fromStdString(RobotInstruction::trajectoryOpToWorkpieceExternalTcpBackendId(op));
 	}
 	if (projectPrev.isEmpty() && m_geometryBackendCombo && m_geometryBackendCombo->currentIndex() >= 0)
 	{
@@ -1219,22 +1231,25 @@ void TrajectoryEditPageWidget::refreshGeometryBackendCombo()
 	{
 		targetPrev = m_nonRigidTargetCombo->currentData().toString();
 	}
+	if (externalTcpPrev.isEmpty() && m_externalTcpBackendCombo && m_externalTcpBackendCombo->currentIndex() >= 0)
+	{
+		externalTcpPrev = m_externalTcpBackendCombo->currentData().toString();
+	}
 	populateGeometryBackendCombo(m_geometryBackendCombo, m_host, true, projectPrev);
 	populateGeometryBackendCombo(m_nonRigidSourceCombo, m_host, false, sourcePrev);
 	populateGeometryBackendCombo(m_nonRigidTargetCombo, m_host, false, targetPrev);
+	populateExternalTcpFrameCombo(m_externalTcpBackendCombo, m_host, m_useChinese, externalTcpPrev);
 }
 
 void TrajectoryEditPageWidget::rebuildPalette()
 {
 	m_palette->clear();
-	const std::vector<RobotInstruction::TrajectoryOpKind> kinds =
-		RobotInstruction::trajectoryOpPaletteKinds();
+	const std::vector<RobotInstruction::TrajectoryOpKind> kinds = RobotInstruction::trajectoryOpPaletteKinds();
 	for (const RobotInstruction::TrajectoryOpKind kind : kinds)
 	{
 		const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(kind);
-		const QString label = algo
-			? QString::fromUtf8(algo->displayName(m_useChinese))
-			: opKindLabel(kind, m_useChinese);
+		const QString label =
+			algo ? QString::fromUtf8(algo->displayName(m_useChinese)) : opKindLabel(kind, m_useChinese);
 		auto* item = new QListWidgetItem(label, m_palette);
 		item->setTextAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
 		item->setData(Qt::UserRole, static_cast<int>(kind));
@@ -1262,10 +1277,8 @@ void TrajectoryEditPageWidget::runPreviewIfEnabled(const bool showWarnings)
 		{
 			if (showWarnings && !previewErr.isEmpty())
 			{
-				QMessageBox::warning(
-					this,
-					m_useChinese ? QStringLiteral("预览") : QStringLiteral("Preview"),
-					previewErr);
+				QMessageBox::warning(this, m_useChinese ? QStringLiteral("预览") : QStringLiteral("Preview"),
+									 previewErr);
 			}
 			return;
 		}
@@ -1281,10 +1294,7 @@ void TrajectoryEditPageWidget::runPreviewIfEnabled(const bool showWarnings)
 	{
 		if (showWarnings && !err.isEmpty())
 		{
-			QMessageBox::warning(
-				this,
-				m_useChinese ? QStringLiteral("预览") : QStringLiteral("Preview"),
-				err);
+			QMessageBox::warning(this, m_useChinese ? QStringLiteral("预览") : QStringLiteral("Preview"), err);
 		}
 	}
 }
@@ -1293,17 +1303,19 @@ void TrajectoryEditPageWidget::schedulePreviewRun(const int delayMs, const bool 
 {
 	++m_previewScheduleToken;
 	const int token = m_previewScheduleToken;
-	QTimer::singleShot(std::max(0, delayMs), this, [this, token, showWarnings]() {
-		if (token != m_previewScheduleToken)
-		{
-			return;
-		}
-		if (m_loadingParams || (m_paramPanel && m_paramPanel->isRebuilding()))
-		{
-			return;
-		}
-		runPreviewIfEnabled(showWarnings);
-	});
+	QTimer::singleShot(std::max(0, delayMs), this,
+					   [this, token, showWarnings]()
+					   {
+						   if (token != m_previewScheduleToken)
+						   {
+							   return;
+						   }
+						   if (m_loadingParams || (m_paramPanel && m_paramPanel->isRebuilding()))
+						   {
+							   return;
+						   }
+						   runPreviewIfEnabled(showWarnings);
+					   });
 }
 
 RobotInstruction::OpScope TrajectoryEditPageWidget::defaultScopeForNewOp() const
@@ -1335,8 +1347,8 @@ void TrajectoryEditPageWidget::syncScopeGroupFromTopBar()
 	}
 }
 
-RobotInstruction::TrajectoryOpDescriptor TrajectoryEditPageWidget::makeDefaultOp(
-	const RobotInstruction::TrajectoryOpKind kind) const
+RobotInstruction::TrajectoryOpDescriptor
+TrajectoryEditPageWidget::makeDefaultOp(const RobotInstruction::TrajectoryOpKind kind) const
 {
 	auto op = RobotInstruction::trajectoryOpDefaultUnified(kind, defaultScopeForNewOp());
 	op.opId = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString();
@@ -1374,10 +1386,9 @@ void TrajectoryEditPageWidget::syncSessionParams(const bool skipPreviewReapply)
 	{
 		return;
 	}
-	const bool selectedEnabled =
-		m_pipeline->selectedOpIndex() >= 0 && m_pipeline->selectedOp().enabled;
-	if (selectedEnabled && m_previewCheck && m_previewCheck->isChecked() && !m_loadingParams
-		&& !(m_paramPanel && m_paramPanel->isRebuilding()))
+	const bool selectedEnabled = m_pipeline->selectedOpIndex() >= 0 && m_pipeline->selectedOp().enabled;
+	if (selectedEnabled && m_previewCheck && m_previewCheck->isChecked() && !m_loadingParams &&
+		!(m_paramPanel && m_paramPanel->isRebuilding()))
 	{
 		schedulePreviewRun(80, false);
 	}
@@ -1407,9 +1418,7 @@ void TrajectoryEditPageWidget::flushPipelineToSession(const bool forApply)
 	m_flushingParams = false;
 }
 
-void TrajectoryEditPageWidget::refreshScopeFieldVisibility()
-{
-}
+void TrajectoryEditPageWidget::refreshScopeFieldVisibility() {}
 
 void TrajectoryEditPageWidget::refreshParamPanelForKind(const RobotInstruction::TrajectoryOpKind kind)
 {
@@ -1423,10 +1432,12 @@ void TrajectoryEditPageWidget::loadSelectedOpToParams()
 		return;
 	}
 	m_pendingLoadSelectedOp = true;
-	QTimer::singleShot(0, this, [this]() {
-		m_pendingLoadSelectedOp = false;
-		loadSelectedOpToParamsImpl();
-	});
+	QTimer::singleShot(0, this,
+					   [this]()
+					   {
+						   m_pendingLoadSelectedOp = false;
+						   loadSelectedOpToParamsImpl();
+					   });
 }
 
 void TrajectoryEditPageWidget::loadSelectedOpToParamsImpl()
@@ -1445,8 +1456,7 @@ void TrajectoryEditPageWidget::loadSelectedOpToParamsImpl()
 		return;
 	}
 	const RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->selectedOp();
-	const trajectory_algo::ITrajectoryOp* algo =
-		RobotInstruction::trajectoryOpGet(op.kind);
+	const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(op.kind);
 	m_loadingParams = true;
 	m_paramPanel->setLoading(true);
 	m_paramPanel->rebuildForOp(op, algo);
@@ -1461,8 +1471,7 @@ void TrajectoryEditPageWidget::syncProjectBackendFromComboToPipeline(const bool 
 	{
 		return;
 	}
-	const std::string backendId =
-		m_geometryBackendCombo->currentData().toString().toStdString();
+	const std::string backendId = m_geometryBackendCombo->currentData().toString().toStdString();
 	if (backendId.empty())
 	{
 		return;
@@ -1480,8 +1489,7 @@ void TrajectoryEditPageWidget::syncProjectBackendFromComboToPipeline(const bool 
 		{
 			continue;
 		}
-		const std::string currentBackendId =
-			RobotInstruction::trajectoryOpProjectTargetBackendId(ops[i]);
+		const std::string currentBackendId = RobotInstruction::trajectoryOpProjectTargetBackendId(ops[i]);
 		if (currentBackendId == backendId)
 		{
 			continue;
@@ -1511,8 +1519,7 @@ std::vector<RobotInstruction::TrajectoryOpDescriptor> TrajectoryEditPageWidget::
 	std::vector<RobotInstruction::TrajectoryOpDescriptor> ops = m_pipeline->ops();
 	if (m_geometryBackendCombo && m_geometryBackendCombo->currentIndex() >= 0)
 	{
-		const std::string backendId =
-			m_geometryBackendCombo->currentData().toString().toStdString();
+		const std::string backendId = m_geometryBackendCombo->currentData().toString().toStdString();
 		if (!backendId.empty())
 		{
 			for (RobotInstruction::TrajectoryOpDescriptor& op : ops)
@@ -1526,8 +1533,7 @@ std::vector<RobotInstruction::TrajectoryOpDescriptor> TrajectoryEditPageWidget::
 	}
 	if (m_nonRigidSourceCombo && m_nonRigidSourceCombo->currentIndex() >= 0)
 	{
-		const std::string sourceId =
-			m_nonRigidSourceCombo->currentData().toString().toStdString();
+		const std::string sourceId = m_nonRigidSourceCombo->currentData().toString().toStdString();
 		if (!sourceId.empty())
 		{
 			for (RobotInstruction::TrajectoryOpDescriptor& op : ops)
@@ -1541,8 +1547,7 @@ std::vector<RobotInstruction::TrajectoryOpDescriptor> TrajectoryEditPageWidget::
 	}
 	if (m_nonRigidTargetCombo && m_nonRigidTargetCombo->currentIndex() >= 0)
 	{
-		const std::string targetId =
-			m_nonRigidTargetCombo->currentData().toString().toStdString();
+		const std::string targetId = m_nonRigidTargetCombo->currentData().toString().toStdString();
 		if (!targetId.empty())
 		{
 			for (RobotInstruction::TrajectoryOpDescriptor& op : ops)
@@ -1551,6 +1556,17 @@ std::vector<RobotInstruction::TrajectoryOpDescriptor> TrajectoryEditPageWidget::
 				{
 					RobotInstruction::trajectoryOpSetNonRigidTargetBackendId(op, targetId);
 				}
+			}
+		}
+	}
+	if (m_externalTcpBackendCombo && m_externalTcpBackendCombo->currentIndex() >= 0)
+	{
+		const std::string tcpId = m_externalTcpBackendCombo->currentData().toString().toStdString();
+		for (RobotInstruction::TrajectoryOpDescriptor& op : ops)
+		{
+			if (op.kind == RobotInstruction::TrajectoryOpKind::ToWorkpieceInHand)
+			{
+				RobotInstruction::trajectoryOpSetToWorkpieceExternalTcpBackendId(op, tcpId);
 			}
 		}
 	}
@@ -1566,17 +1582,14 @@ void TrajectoryEditPageWidget::applyParamsToSelectedOp(const bool skipPreviewRea
 	const int opIndex = m_pipeline->selectedOpIndex();
 	RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->opAt(opIndex);
 	const std::string storedGroupId = op.scope.groupId;
-	const trajectory_algo::ITrajectoryOp* algo =
-		RobotInstruction::trajectoryOpGet(op.kind);
+	const trajectory_algo::ITrajectoryOp* algo = RobotInstruction::trajectoryOpGet(op.kind);
 	std::string err;
 	if (!m_paramPanel->applyTo(op, algo, &err))
 	{
 		return;
 	}
-	if (op.scope.kind == RobotInstruction::OpScope::Kind::Group
-		&& op.scope.groupId.empty()
-		&& !storedGroupId.empty()
-		&& m_store)
+	if (op.scope.kind == RobotInstruction::OpScope::Kind::Group && op.scope.groupId.empty() && !storedGroupId.empty() &&
+		m_store)
 	{
 		const RobotInstruction::RobotProgram* prog =
 			m_store->activeCatalog().findProgram(m_store->activeProgramIdUtf8());
@@ -1625,8 +1638,7 @@ bool TrajectoryEditPageWidget::reconcilePipelineScopes()
 	{
 		return false;
 	}
-	const RobotInstruction::RobotProgram* prog =
-		m_store->activeCatalog().findProgram(m_store->activeProgramIdUtf8());
+	const RobotInstruction::RobotProgram* prog = m_store->activeCatalog().findProgram(m_store->activeProgramIdUtf8());
 	if (!prog)
 	{
 		return false;
@@ -1636,9 +1648,8 @@ bool TrajectoryEditPageWidget::reconcilePipelineScopes()
 	{
 		for (const RobotInstruction::InstructionGroup& group : prog->groups)
 		{
-			if (group.role == RobotInstruction::InstructionGroupRole::PathPlanOutput
-				&& group.pathPlanInstructionId == m_session->boundPathPlanId()
-				&& !group.memberInstructionIds.empty())
+			if (group.role == RobotInstruction::InstructionGroupRole::PathPlanOutput &&
+				group.pathPlanInstructionId == m_session->boundPathPlanId() && !group.memberInstructionIds.empty())
 			{
 				preferredOutputGroupId = group.id;
 				break;
@@ -1735,15 +1746,9 @@ void TrajectoryEditPageWidget::syncGeometryBackendComboFromSelectedOp()
 		return;
 	}
 	const RobotInstruction::TrajectoryOpDescriptor op = m_pipeline->selectedOp();
-	syncComboToBackendId(
-		m_geometryBackendCombo,
-		RobotInstruction::trajectoryOpProjectTargetBackendId(op));
-	syncComboToBackendId(
-		m_nonRigidSourceCombo,
-		RobotInstruction::trajectoryOpNonRigidSourceBackendId(op));
-	syncComboToBackendId(
-		m_nonRigidTargetCombo,
-		RobotInstruction::trajectoryOpNonRigidTargetBackendId(op));
+	syncComboToBackendId(m_geometryBackendCombo, RobotInstruction::trajectoryOpProjectTargetBackendId(op));
+	syncComboToBackendId(m_nonRigidSourceCombo, RobotInstruction::trajectoryOpNonRigidSourceBackendId(op));
+	syncComboToBackendId(m_nonRigidTargetCombo, RobotInstruction::trajectoryOpNonRigidTargetBackendId(op));
 }
 
 void TrajectoryEditPageWidget::syncUiAfterProgramRevision()
@@ -1936,10 +1941,7 @@ void TrajectoryEditPageWidget::onApplyClicked()
 		if (!validatePipelineConstraints(applyOps, m_useChinese, constraintErr))
 		{
 			m_committingApply = false;
-			QMessageBox::warning(
-				this,
-				m_useChinese ? QStringLiteral("应用") : QStringLiteral("Apply"),
-				constraintErr);
+			QMessageBox::warning(this, m_useChinese ? QStringLiteral("应用") : QStringLiteral("Apply"), constraintErr);
 			return;
 		}
 	}
@@ -1961,10 +1963,7 @@ void TrajectoryEditPageWidget::onApplyClicked()
 	if (!m_session->apply(&err))
 	{
 		m_committingApply = false;
-		QMessageBox::warning(
-			this,
-			m_useChinese ? QStringLiteral("应用") : QStringLiteral("Apply"),
-			err);
+		QMessageBox::warning(this, m_useChinese ? QStringLiteral("应用") : QStringLiteral("Apply"), err);
 		return;
 	}
 	if (m_simController)
@@ -2057,10 +2056,7 @@ void TrajectoryEditPageWidget::onUndoClicked()
 	QString err;
 	if (!m_editService->undo(&err))
 	{
-		QMessageBox::warning(
-			this,
-			m_useChinese ? QStringLiteral("撤销") : QStringLiteral("Undo"),
-			err);
+		QMessageBox::warning(this, m_useChinese ? QStringLiteral("撤销") : QStringLiteral("Undo"), err);
 	}
 }
 
@@ -2073,10 +2069,7 @@ void TrajectoryEditPageWidget::onRedoClicked()
 	QString err;
 	if (!m_editService->redo(&err))
 	{
-		QMessageBox::warning(
-			this,
-			m_useChinese ? QStringLiteral("重做") : QStringLiteral("Redo"),
-			err);
+		QMessageBox::warning(this, m_useChinese ? QStringLiteral("重做") : QStringLiteral("Redo"), err);
 	}
 }
 
@@ -2112,9 +2105,7 @@ void TrajectoryEditPageWidget::onSaveTemplateClicked()
 	}
 	const nlohmann::json pipelineJson = RobotInstruction::trajectoryPipelineToJson(m_pipeline->ops());
 	QSettings settings(QStringLiteral("CloudSim"), QStringLiteral("TrajectoryPipeline"));
-	settings.setValue(
-		QStringLiteral("pipelineJson"),
-		QString::fromStdString(pipelineJson.dump()));
+	settings.setValue(QStringLiteral("pipelineJson"), QString::fromStdString(pipelineJson.dump()));
 }
 
 void TrajectoryEditPageWidget::onLoadTemplateClicked()

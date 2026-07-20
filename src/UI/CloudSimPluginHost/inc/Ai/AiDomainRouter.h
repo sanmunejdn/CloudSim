@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINHOST_AIDOMAINROUTER_H
+#define CLOUDSIMPLUGINHOST_AIDOMAINROUTER_H
+
+/// @file AiDomainRouter.h
+/// @brief AiDomainRouter 接口
 
 #include "IAiDomainHandler.h"
 
@@ -14,3 +18,5 @@ public:
 private:
 	const IAiDomainRegistry* m_registry = nullptr;
 };
+
+#endif // CLOUDSIMPLUGINHOST_AIDOMAINROUTER_H

@@ -1,27 +1,21 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_ROBOTOSGUITYPES_H
+#define ROBOTWIDGET_ROBOTOSGUITYPES_H
 
-
-
-#include <osg/Matrixd>
-
-#include <osg/Vec3f>
+/// @file RobotOsgUiTypes.h
+/// @brief RobotOsgUiTypes 接口
 
 #include <string>
-
 #include <vector>
 
-
+#include <osg/Matrixd>
+#include <osg/Vec3f>
 
 namespace RobotOsgUi
 
 {
-
-
-
 struct InstructionPoseAxis
 
 {
-
 	osg::Vec3f positionMm;
 
 	osg::Vec3f eulerDeg;
@@ -43,41 +37,29 @@ struct InstructionPoseAxis
 	osg::Matrixd worldMatrix;
 
 	std::string backendId;
-
 };
-
-
 
 struct RawTrajectoryOverlayVertex
 
 {
-
 	osg::Vec3f positionMm;
 
 	bool reachable = true;
-
 };
-
-
 
 struct RawTrajectoryOverlayFrame
 
 {
-
 	osg::Vec3f positionMm;
 
 	osg::Vec3f eulerDeg;
 
 	bool reachable = true;
-
 };
-
-
 
 struct RawTrajectoryPreviewOptions
 
 {
-
 	bool showAxes = true;
 
 	bool showAxisX = true;
@@ -87,15 +69,11 @@ struct RawTrajectoryPreviewOptions
 	bool showAxisZ = true;
 
 	int axisInterval = 0;
-
 };
-
-
 
 struct FeatureCatalogOverlayItem
 
 {
-
 	int displayIndex = 0;
 
 	osg::Vec3f anchorWorldMm;
@@ -107,15 +85,11 @@ struct FeatureCatalogOverlayItem
 	osg::Vec3f edgeAWorldMm;
 
 	osg::Vec3f edgeBWorldMm;
-
 };
-
-
 
 struct RobotFrameOverlayUpdate
 
 {
-
 	std::string robotRootBackendId;
 
 	bool showToolFrames = false;
@@ -123,7 +97,6 @@ struct RobotFrameOverlayUpdate
 	struct ToolEntry
 
 	{
-
 		std::string name;
 
 		std::string mountBackendId;
@@ -131,7 +104,6 @@ struct RobotFrameOverlayUpdate
 		osg::Matrixd localMatrix;
 
 		bool active = false;
-
 	};
 
 	std::vector<ToolEntry> toolFrames;
@@ -141,20 +113,16 @@ struct RobotFrameOverlayUpdate
 	struct UserEntry
 
 	{
-
 		std::string name;
 
 		std::string mountBackendId;
 
 		osg::Matrixd localMatrix;
-
 	};
 
 	std::vector<UserEntry> userFrames;
-
 };
-
-
 
 } // namespace RobotOsgUi
 
+#endif // ROBOTWIDGET_ROBOTOSGUITYPES_H

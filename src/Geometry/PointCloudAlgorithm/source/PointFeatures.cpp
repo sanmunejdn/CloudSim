@@ -1,21 +1,22 @@
+﻿/// @file PointFeatures.cpp
+/// @brief PointFeatures 实现
+
 #include "PointFeatures.h"
 
 #include "KdTreePointSet.h"
 #include "PointCloudBuffer.h"
-
-#include <Eigen/Geometry>
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <vector>
 
+#include <Eigen/Geometry>
+
 namespace pclalgo
 {
-
 namespace
 {
-
 constexpr std::size_t kFpfhBinsPerFeature = 11U;
 
 Eigen::Vector3d pointAt(const std::vector<float>& xyz, const std::size_t i)
@@ -36,13 +37,8 @@ Eigen::Vector3d normalAt(const std::vector<float>& nrm, const std::size_t i)
 	return n;
 }
 
-void findKNearest(
-	const KdTreePointSet& tree,
-	const std::vector<float>& xyz,
-	const std::size_t queryIndex,
-	const unsigned int k,
-	std::vector<std::size_t>& outIndices,
-	std::vector<double>& outDistSq)
+void findKNearest(const KdTreePointSet& tree, const std::vector<float>& xyz, const std::size_t queryIndex,
+				  const unsigned int k, std::vector<std::size_t>& outIndices, std::vector<double>& outDistSq)
 {
 	const Eigen::Vector3d query = pointAt(xyz, queryIndex);
 	tree.findKNearest(query.x(), query.y(), query.z(), k, outIndices, outDistSq);
@@ -60,12 +56,8 @@ std::size_t histogramBin(const double value)
 	return bin;
 }
 
-void accumulatePairFeatures(
-	const Eigen::Vector3d& p1,
-	const Eigen::Vector3d& n1,
-	const Eigen::Vector3d& p2,
-	const Eigen::Vector3d& n2,
-	std::vector<float>& hist)
+void accumulatePairFeatures(const Eigen::Vector3d& p1, const Eigen::Vector3d& n1, const Eigen::Vector3d& p2,
+							const Eigen::Vector3d& n2, std::vector<float>& hist)
 {
 	const Eigen::Vector3d dp = p2 - p1;
 	const double dist = dp.norm();
@@ -96,11 +88,8 @@ float featureDistanceImpl(const float* a, const float* b)
 
 } // namespace
 
-void computeSpfhForCloud(
-	const std::vector<float>& xyz,
-	const std::vector<float>& normals,
-	const unsigned int kNeighbors,
-	std::vector<float>& outSpfh)
+void computeSpfhForCloud(const std::vector<float>& xyz, const std::vector<float>& normals,
+						 const unsigned int kNeighbors, std::vector<float>& outSpfh)
 {
 	const std::size_t n = pointCountFromXyz(xyz);
 	outSpfh.assign(n * kFpfhDim, 0.0f);
@@ -135,12 +124,8 @@ void computeSpfhForCloud(
 	}
 }
 
-void computeFpfhForCloud(
-	const std::vector<float>& xyz,
-	const std::vector<float>& normals,
-	const std::vector<float>& spfh,
-	const unsigned int kNeighbors,
-	std::vector<float>& outFpfh)
+void computeFpfhForCloud(const std::vector<float>& xyz, const std::vector<float>& normals,
+						 const std::vector<float>& spfh, const unsigned int kNeighbors, std::vector<float>& outFpfh)
 {
 	const std::size_t n = pointCountFromXyz(xyz);
 	outFpfh.assign(n * kFpfhDim, 0.0f);

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMAISDK_AICONFIGDTO_H
+#define CLOUDSIMAISDK_AICONFIGDTO_H
+
+/// @file AiConfigDto.h
+/// @brief AiConfigDto 接口
 
 #include "cloudsim_ai_sdk_global.h"
 
@@ -38,12 +42,10 @@ struct CLOUDSIM_AI_SDK_EXPORT AiRouterConfig
 struct CLOUDSIM_AI_SDK_EXPORT AiConfigDto
 {
 	QString hardwareProfile = QStringLiteral("vram_8gb");
-	QStringList parserPriorityDefault = {
-		QStringLiteral("rules"),
-		QStringLiteral("local"),
-		QStringLiteral("remote")
-	};
+	QStringList parserPriorityDefault = {QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
 	AiRemoteLlmConfig remoteLlm;
 	AiRouterConfig router;
 	std::vector<AiDomainModelConfig> domains;
 };
+
+#endif // CLOUDSIMAISDK_AICONFIGDTO_H

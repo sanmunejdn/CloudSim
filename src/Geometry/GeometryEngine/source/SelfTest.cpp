@@ -1,21 +1,22 @@
+﻿/// @file SelfTest.cpp
+/// @brief SelfTest 实现
+
 #include "SelfTest.h"
 
 #include "Adapters.h"
 #include "BackendWorldPose.h"
 #include "ToolKinematics.h"
 
-#include <osg/Matrixd>
-#include <osg/Quat>
-
 #include <cmath>
 #include <sstream>
 
+#include <osg/Matrixd>
+#include <osg/Quat>
+
 namespace engine
 {
-
 namespace
 {
-
 void expectNear(std::vector<std::string>& failures, const char* name, double actual, double expected, double eps)
 {
 	if (!std::isfinite(actual) || std::fabs(actual - expected) > eps)
@@ -165,8 +166,7 @@ bool runSelfTest(std::vector<std::string>& failures)
 		}
 
 		const osg::Quat q = eulerDegToQuat(ex, ey, ez);
-		const osg::Matrixd explicitRxT =
-			osg::Matrixd::rotate(q) * osg::Matrixd::translate(osg::Vec3d(px, py, pz));
+		const osg::Matrixd explicitRxT = osg::Matrixd::rotate(q) * osg::Matrixd::translate(osg::Vec3d(px, py, pz));
 		expectNear(failures, "explicitRxT.matrixDiff", matrixMaxAbsDiff(explicitRxT, osgWorld), 0.0, 1e-9);
 
 		const RigidTransform rotatedOnly =
@@ -182,8 +182,7 @@ bool runSelfTest(std::vector<std::string>& failures)
 		expectNear(failures, "rotatePreservesOrigin.py", rpy, py, 1e-6);
 		expectNear(failures, "rotatePreservesOrigin.pz", rpz, pz, 1e-6);
 
-		const osg::Matrixd legacyTxR =
-			osg::Matrixd::translate(osg::Vec3d(px, py, pz)) * osg::Matrixd::rotate(q);
+		const osg::Matrixd legacyTxR = osg::Matrixd::translate(osg::Vec3d(px, py, pz)) * osg::Matrixd::rotate(q);
 		const RigidTransform legacyRt = rigidTransformFromOsg(legacyTxR);
 		if (legacyRt.translationErrorMm(rt) < 1.0)
 		{

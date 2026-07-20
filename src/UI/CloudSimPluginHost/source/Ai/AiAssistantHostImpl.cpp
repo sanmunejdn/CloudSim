@@ -1,13 +1,16 @@
+﻿/// @file AiAssistantHostImpl.cpp
+/// @brief AiAssistantHostImpl 实现
+
 #include "Ai/AiAssistantHostImpl.h"
 
 #include "Ai/AiActionPlanExecutor.h"
 #include "Ai/AiConfigLoader.h"
-#include "AiIntentParser.h"
 #include "Ai/AiTrajectoryFeatureCatalog.h"
-#include "AiTrajectoryFeatureTypes.h"
 #include "Ai/MeshComposeDomainHandler.h"
+#include "AiIntentParser.h"
 #include "AiLlmClient.h"
 #include "AiProgressSink.h"
+#include "AiTrajectoryFeatureTypes.h"
 #include "CloudSimAiVersion.h"
 #include "PluginHostContext.h"
 
@@ -43,11 +46,14 @@ AiInferenceProgressFn wrapProgressForUi(PluginHostContext* host, const AiInferen
 {
 	if (!progress || !host)
 		return progress;
-	return [host, progress](double fraction, const QString& message) {
-		host->invokeOnUiThread([progress, fraction, message]() {
-			if (progress)
-				progress(fraction, message);
-		});
+	return [host, progress](double fraction, const QString& message)
+	{
+		host->invokeOnUiThread(
+			[progress, fraction, message]()
+			{
+				if (progress)
+					progress(fraction, message);
+			});
 	};
 }
 
@@ -57,13 +63,8 @@ bool isConversationalQuery(const QString& text)
 	if (t.isEmpty())
 		return false;
 	static const QStringList keys = {
-		QStringLiteral("什么模型"),
-		QStringLiteral("哪个模型"),
-		QStringLiteral("你是谁"),
-		QStringLiteral("你是什么"),
-		QStringLiteral("你好"),
-		QStringLiteral("介绍一下"),
-		QStringLiteral("能做什么"),
+		QStringLiteral("什么模型"), QStringLiteral("哪个模型"), QStringLiteral("你是谁"),	QStringLiteral("你是什么"),
+		QStringLiteral("你好"),		QStringLiteral("介绍一下"), QStringLiteral("能做什么"),
 	};
 	for (const QString& k : keys)
 	{
@@ -72,11 +73,10 @@ bool isConversationalQuery(const QString& text)
 	}
 	return false;
 }
-}
+} // namespace
 
 AiAssistantHostImpl::AiAssistantHostImpl(PluginHostContext* pluginHost)
-	: m_pluginHost(pluginHost)
-	, m_router(&m_registry)
+	: m_pluginHost(pluginHost), m_router(&m_registry)
 {
 	registerBuiltinDomains();
 }
@@ -137,7 +137,7 @@ void AiAssistantHostImpl::registerBuiltinDomains()
 		d.displayName = QStringLiteral("Create mesh");
 		d.outputKind = AiDomainOutputKind::ActionPlan;
 		d.supportsMultimodal = false;
-		d.parserPriority = QStringList{ QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote") };
+		d.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
 		m_registry.registerDomain(d, &m_meshHandler);
 	}
 	{
@@ -146,7 +146,7 @@ void AiAssistantHostImpl::registerBuiltinDomains()
 		d.displayName = QStringLiteral("Compose mesh (boolean)");
 		d.outputKind = AiDomainOutputKind::ActionPlan;
 		d.supportsMultimodal = false;
-		d.parserPriority = QStringList{ QStringLiteral("local"), QStringLiteral("remote") };
+		d.parserPriority = QStringList{QStringLiteral("local"), QStringLiteral("remote")};
 		m_registry.registerDomain(d, &m_composeHandler);
 	}
 	{
@@ -155,7 +155,7 @@ void AiAssistantHostImpl::registerBuiltinDomains()
 		d.displayName = QStringLiteral("Geometry recognize");
 		d.outputKind = AiDomainOutputKind::StructuredJson;
 		d.supportsMultimodal = true;
-		d.parserPriority = QStringList{ QStringLiteral("local") };
+		d.parserPriority = QStringList{QStringLiteral("local")};
 		d.unloadOtherModelsBeforeInfer = true;
 		m_registry.registerDomain(d, &m_geomHandler);
 	}
@@ -238,8 +238,8 @@ AiParseResult AiAssistantHostImpl::parseTrajectoryFeatureRequest(const AiInferen
 	r.domainId = AiDomainIds::trajectoryFeature();
 	r.outputKind = AiDomainOutputKind::StructuredJson;
 	const AiFeatureAxis axis = AiTrajectoryFeatureCatalog::inferFeatureAxisFromText(request.userText);
-	return AiTrajectoryFeatureCatalog::tryParseTrajectoryFeatureRules(request.userText, axis,
-		request.catalogSliceUtf8, request.workpieceBackendId, request.workpieceStepPathUtf8);
+	return AiTrajectoryFeatureCatalog::tryParseTrajectoryFeatureRules(
+		request.userText, axis, request.catalogSliceUtf8, request.workpieceBackendId, request.workpieceStepPathUtf8);
 }
 
 const AiDomainModelConfig* AiAssistantHostImpl::findDomainConfig(const AiConfigDto& cfg, const QString& domainId) const
@@ -253,13 +253,15 @@ const AiDomainModelConfig* AiAssistantHostImpl::findDomainConfig(const AiConfigD
 }
 
 AiParseResult AiAssistantHostImpl::parseWithLocalLlm(const QString& domainId, const QString& text,
-	const AiDomainModelConfig& dm, const QByteArray& imagePng, const AiInferenceProgressFn& progress,
-	const QByteArray& catalogSliceUtf8) const
+													 const AiDomainModelConfig& dm, const QByteArray& imagePng,
+													 const AiInferenceProgressFn& progress,
+													 const QByteArray& catalogSliceUtf8) const
 {
 	AiParseResult r;
 	r.domainId = domainId;
 	const AiLlmConfig llm = domainToLlmConfig(dm);
-	const AiProgressSink sink = [&progress](double f, const QString& m) {
+	const AiProgressSink sink = [&progress](double f, const QString& m)
+	{
 		if (progress)
 			progress(f, m);
 	};
@@ -284,8 +286,9 @@ AiParseResult AiAssistantHostImpl::parseWithLocalLlm(const QString& domainId, co
 }
 
 AiParseResult AiAssistantHostImpl::parseWithRemoteLlm(const QString& domainId, const QString& text,
-	const AiRemoteLlmConfig& remote, const AiInferenceProgressFn& progress,
-	const QByteArray& catalogSliceUtf8) const
+													  const AiRemoteLlmConfig& remote,
+													  const AiInferenceProgressFn& progress,
+													  const QByteArray& catalogSliceUtf8) const
 {
 	AiParseResult r;
 	r.domainId = domainId;
@@ -300,7 +303,8 @@ AiParseResult AiAssistantHostImpl::parseWithRemoteLlm(const QString& domainId, c
 		r.errorMessage = QStringLiteral("Remote API key not configured.");
 		return r;
 	}
-	const AiProgressSink sink = [&progress](double f, const QString& m) {
+	const AiProgressSink sink = [&progress](double f, const QString& m)
+	{
 		if (progress)
 			progress(f, m);
 	};
@@ -325,7 +329,8 @@ AiParseResult AiAssistantHostImpl::parseWithRemoteLlm(const QString& domainId, c
 }
 
 void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, const AiConfigDto& config,
-	const AiInferenceProgressFn& progress, std::function<void(AiParseResult)> onFinished)
+											 const AiInferenceProgressFn& progress,
+											 std::function<void(AiParseResult)> onFinished)
 {
 	if (!m_pluginHost || !onFinished)
 		return;
@@ -358,7 +363,8 @@ void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, 
 
 	m_pluginHost->enqueueJob(
 		QStringLiteral("AI: parse"),
-		[this, reqCopy, userText, imagePng, cfgCopy, domainId, chain, uiProgress, result](const PluginJobProgressFn&) {
+		[this, reqCopy, userText, imagePng, cfgCopy, domainId, chain, uiProgress, result](const PluginJobProgressFn&)
+		{
 			const AiDomainDescriptor* desc = m_registry.descriptor(domainId);
 			const AiDomainModelConfig* dm = findDomainConfig(cfgCopy, domainId);
 
@@ -373,8 +379,8 @@ void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, 
 				if (step == QStringLiteral("rules"))
 				{
 					const AiParseResult rr = domainId == AiDomainIds::trajectoryFeature()
-						? parseTrajectoryFeatureRequest(reqCopy)
-						: parseUserTextWithRules(domainId, userText);
+												 ? parseTrajectoryFeatureRequest(reqCopy)
+												 : parseUserTextWithRules(domainId, userText);
 					if (rr.ok)
 					{
 						*result = rr;
@@ -387,17 +393,15 @@ void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, 
 					if (isConversationalQuery(userText))
 					{
 						result->ok = false;
-						result->errorMessage = QStringLiteral(
-							"我是 CloudSim AI 助手（规则解析 + 本地模型 %1）。\n"
-							"创建几何请使用「生成/创建」+ 基本体类型 + 尺寸（mm）。")
-							.arg(dm->model);
-						result->hintMessage =
-							QStringLiteral("示例：生成长方体（可省略尺寸，将用默认 100×100×100 mm）");
+						result->errorMessage = QStringLiteral("我是 CloudSim AI 助手（规则解析 + 本地模型 %1）。\n"
+															  "创建几何请使用「生成/创建」+ 基本体类型 + 尺寸（mm）。")
+												   .arg(dm->model);
+						result->hintMessage = QStringLiteral("示例：生成长方体（可省略尺寸，将用默认 100×100×100 mm）");
 						result->parserVia = QStringLiteral("Local");
 						return;
 					}
-					if (dm->unloadOtherModelsBeforeInfer && !m_lastLoadedModel.isEmpty()
-						&& m_lastLoadedModel != dm->model)
+					if (dm->unloadOtherModelsBeforeInfer && !m_lastLoadedModel.isEmpty() &&
+						m_lastLoadedModel != dm->model)
 					{
 						m_lastLoadedModel.clear();
 					}
@@ -414,8 +418,8 @@ void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, 
 				}
 				else if (step == QStringLiteral("remote"))
 				{
-					const AiParseResult rr = parseWithRemoteLlm(domainId, userText, cfgCopy.remoteLlm, uiProgress,
-						reqCopy.catalogSliceUtf8);
+					const AiParseResult rr =
+						parseWithRemoteLlm(domainId, userText, cfgCopy.remoteLlm, uiProgress, reqCopy.catalogSliceUtf8);
 					if (rr.ok)
 					{
 						*result = rr;
@@ -428,7 +432,8 @@ void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, 
 			if (!result->ok && result->errorMessage.isEmpty())
 				result->errorMessage = QStringLiteral("All parsers failed for domain %1.").arg(domainId);
 		},
-		[result, onFinished](bool threw, const QString& throwMsg) {
+		[result, onFinished](bool threw, const QString& throwMsg)
+		{
 			if (threw)
 			{
 				AiParseResult r;
@@ -440,7 +445,8 @@ void AiAssistantHostImpl::parseUserTextAsync(const AiInferenceRequest& request, 
 		});
 }
 
-bool AiAssistantHostImpl::executeActionPlan(const QByteArray& actionPlanJsonUtf8, QString* outSummary, QString* outError)
+bool AiAssistantHostImpl::executeActionPlan(const QByteArray& actionPlanJsonUtf8, QString* outSummary,
+											QString* outError)
 {
 	if (!m_pluginHost)
 	{
@@ -452,7 +458,7 @@ bool AiAssistantHostImpl::executeActionPlan(const QByteArray& actionPlanJsonUtf8
 }
 
 bool AiAssistantHostImpl::executeDomainOutput(const QString& domainId, const QByteArray& outputJsonUtf8,
-	QString* outSummary, QString* outError)
+											  QString* outSummary, QString* outError)
 {
 	IAiDomainHandler* h = m_registry.handler(domainId);
 	if (!h || !m_pluginHost)

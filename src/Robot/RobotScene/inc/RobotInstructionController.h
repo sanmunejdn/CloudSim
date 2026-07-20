@@ -1,8 +1,12 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONCONTROLLER_H
+#define ROBOTSCENE_ROBOTINSTRUCTIONCONTROLLER_H
 
-#include "RobotInstructionModel.h"
+/// @file RobotInstructionController.h
+/// @brief 当前指令上下文中通过 IK+姿态约束的轴配置枚举
+
 #include "robot_scene_global.h"
 
+#include "RobotInstructionModel.h"
 #include "SerialLinkKinematics.h"
 
 #include <memory>
@@ -67,3 +71,5 @@ private:
 	std::vector<std::shared_ptr<PlannerBase>> m_planners;
 };
 } // namespace RobotInstruction
+
+#endif // ROBOTSCENE_ROBOTINSTRUCTIONCONTROLLER_H

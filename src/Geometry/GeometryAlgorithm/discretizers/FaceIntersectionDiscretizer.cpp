@@ -1,3 +1,6 @@
+﻿/// @file FaceIntersectionDiscretizer.cpp
+/// @brief FaceIntersectionDiscretizer 实现
+
 #include "FaceIntersectionDiscretizer.h"
 
 #include "Discretize.h"
@@ -8,7 +11,6 @@
 
 namespace geoalgo
 {
-
 REGISTER_FEATURE_DISCRETIZER(FaceIntersectionDiscretizer);
 
 std::vector<FeatureDiscretizerParamField> FaceIntersectionDiscretizer::paramFields() const
@@ -33,11 +35,8 @@ bool FaceIntersectionDiscretizer::validate(const FeatureDiscretizeInput& input, 
 	return true;
 }
 
-bool FaceIntersectionDiscretizer::discretize(
-	const TopoDS_Shape& shape,
-	const FeatureDiscretizeInput& input,
-	RawPath& out,
-	std::string* errMsg) const
+bool FaceIntersectionDiscretizer::discretize(const TopoDS_Shape& shape, const FeatureDiscretizeInput& input,
+											 RawPath& out, std::string* errMsg) const
 {
 	if (!validate(input, errMsg))
 	{
@@ -46,8 +45,8 @@ bool FaceIntersectionDiscretizer::discretize(
 
 	TopoDS_Face f1;
 	TopoDS_Face f2;
-	if (!shapeFaceAtIndex(shape, input.geometry.faceIndices[0], f1, errMsg)
-		|| !shapeFaceAtIndex(shape, input.geometry.faceIndices[1], f2, errMsg))
+	if (!shapeFaceAtIndex(shape, input.geometry.faceIndices[0], f1, errMsg) ||
+		!shapeFaceAtIndex(shape, input.geometry.faceIndices[1], f2, errMsg))
 	{
 		return false;
 	}

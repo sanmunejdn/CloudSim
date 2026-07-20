@@ -1,3 +1,6 @@
+﻿/// @file SerialLinkKinematics.cpp
+/// @brief A_i = Rz(theta_i) * Tz(d_i) * Tx(a_i) * Rx(alpha_i)
+
 #include "SerialLinkKinematics.h"
 
 #include <algorithm>
@@ -8,7 +11,6 @@ namespace robot_kinematics
 {
 namespace
 {
-
 constexpr double kPi = 3.14159265358979323846;
 
 void mat4Identity(double M[16])
@@ -27,8 +29,8 @@ void mat4Mul(const double A[16], const double B[16], double AB[16])
 	{
 		for (int r = 0; r < 4; ++r)
 		{
-			R[c * 4 + r] = A[0 * 4 + r] * B[c * 4 + 0] + A[1 * 4 + r] * B[c * 4 + 1] + A[2 * 4 + r] * B[c * 4 + 2]
-				+ A[3 * 4 + r] * B[c * 4 + 3];
+			R[c * 4 + r] = A[0 * 4 + r] * B[c * 4 + 0] + A[1 * 4 + r] * B[c * 4 + 1] + A[2 * 4 + r] * B[c * 4 + 2] +
+						   A[3 * 4 + r] * B[c * 4 + 3];
 		}
 	}
 	for (int i = 0; i < 16; ++i)
@@ -173,14 +175,9 @@ bool endEffectorPosition(const std::vector<DhRow>& rows, const std::vector<doubl
 	return true;
 }
 
-bool ikPositionDampedLeastSquares(
-	const std::vector<DhRow>& rows,
-	const double targetPos[3],
-	std::vector<double>& qInOut,
-	int maxIterations,
-	double positionTolerance,
-	double lambdaDamping,
-	int* iterationsUsed)
+bool ikPositionDampedLeastSquares(const std::vector<DhRow>& rows, const double targetPos[3],
+								  std::vector<double>& qInOut, int maxIterations, double positionTolerance,
+								  double lambdaDamping, int* iterationsUsed)
 {
 	const std::size_t nJoint = jointCountFromDhRows(rows);
 	if (nJoint == 0 || qInOut.size() < nJoint || !targetPos)
@@ -237,8 +234,8 @@ bool ikPositionDampedLeastSquares(
 				double s = 0.0;
 				for (std::size_t k = 0; k < nJoint; ++k)
 				{
-					s += J[static_cast<std::size_t>(r * static_cast<int>(nJoint) + k)]
-						* J[static_cast<std::size_t>(c * static_cast<int>(nJoint) + k)];
+					s += J[static_cast<std::size_t>(r * static_cast<int>(nJoint) + k)] *
+						 J[static_cast<std::size_t>(c * static_cast<int>(nJoint) + k)];
 				}
 				M[r * 3 + c] = s + (r == c ? lambda2 : 0.0);
 			}

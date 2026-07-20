@@ -1,9 +1,13 @@
-#pragma once
+﻿#ifndef CLOUDSIMAISDK_ICLOUDSIMAIPLUGIN_H
+#define CLOUDSIMAISDK_ICLOUDSIMAIPLUGIN_H
+
+/// @file ICloudSimAiPlugin.h
+/// @brief ICloudSimAiPlugin 接口
 
 #include "cloudsim_ai_sdk_global.h"
 
-#include <QtPlugin>
 #include <QString>
+#include <QtPlugin>
 
 class IPluginHostContext;
 class IAiAssistantHost;
@@ -25,3 +29,5 @@ public:
 
 #define CloudSimAiPlugin_iid "com.cloudsim.ICloudSimAiPlugin/1.0"
 Q_DECLARE_INTERFACE(ICloudSimAiPlugin, CloudSimAiPlugin_iid)
+
+#endif // CLOUDSIMAISDK_ICLOUDSIMAIPLUGIN_H

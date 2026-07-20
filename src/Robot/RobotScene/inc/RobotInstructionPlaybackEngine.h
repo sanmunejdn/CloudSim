@@ -1,19 +1,22 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_ROBOTINSTRUCTIONPLAYBACKENGINE_H
+#define ROBOTSCENE_ROBOTINSTRUCTIONPLAYBACKENGINE_H
 
-#include "RobotSimulationTypes.h"
-#include "RobotInstructionController.h"
+/// @file RobotInstructionPlaybackEngine.h
+/// @brief Joint-space command queue playback: interpolates per segment and updates OSG using bind snapshots.
 
 #include "robot_scene_global.h"
+
+#include "RobotInstructionController.h"
+#include "RobotSimulationTypes.h"
 
 #include <QElapsedTimer>
 #include <QHash>
 #include <QString>
 #include <QVector>
-
-#include <osg/Matrixd>
-
 #include <string>
 #include <unordered_map>
+
+#include <osg/Matrixd>
 
 class IRobotSimulationDocument;
 class IRobotBackendPoseSink;
@@ -34,21 +37,15 @@ public:
 
 	void stop();
 
-	bool tryStart(
-		IRobotSimulationDocument* doc,
-		IRobotBackendPoseSink* osg,
-		const QVector<RobotSimulationCommand>& queue,
-		const QVector<double>& initialJointAnglesRad,
-		QString* errorOut);
+	bool tryStart(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg,
+				  const QVector<RobotSimulationCommand>& queue, const QVector<double>& initialJointAnglesRad,
+				  QString* errorOut);
 
 	/// Adapter path: start playback from controller plan results while reusing legacy joint interpolation executor.
-	bool tryStartFromPlanResults(
-		IRobotSimulationDocument* doc,
-		IRobotBackendPoseSink* osg,
-		const QVector<RobotSimulationCommand>& legacyQueue,
-		const std::vector<RobotInstruction::PlanResult>& planResults,
-		const QVector<double>& initialJointAnglesRad,
-		QString* errorOut);
+	bool tryStartFromPlanResults(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg,
+								 const QVector<RobotSimulationCommand>& legacyQueue,
+								 const std::vector<RobotInstruction::PlanResult>& planResults,
+								 const QVector<double>& initialJointAnglesRad, QString* errorOut);
 
 	RobotInstructionPlaybackTickResult tick(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg);
 
@@ -74,3 +71,5 @@ private:
 	double m_segDurationSec = 0.0;
 	QElapsedTimer m_segmentTimer;
 };
+
+#endif // ROBOTSCENE_ROBOTINSTRUCTIONPLAYBACKENGINE_H

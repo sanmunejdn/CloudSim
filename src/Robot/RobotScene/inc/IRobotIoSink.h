@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_IROBOTIOSINK_H
+#define ROBOTSCENE_IROBOTIOSINK_H
+
+/// @file IRobotIoSink.h
+/// @brief Digital/analog IO sink for robot program execution (simulation or hardware).
 
 #include "robot_scene_global.h"
 
@@ -21,3 +25,5 @@ public:
 	virtual void setDigitalOutput(int port, bool value) = 0;
 	virtual void setAnalogOutput(int port, double value) = 0;
 };
+
+#endif // ROBOTSCENE_IROBOTIOSINK_H

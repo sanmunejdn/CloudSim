@@ -1,7 +1,11 @@
+﻿/// @file CloudSimCoreExport.cpp
+/// @brief CloudSimCoreExport 实现
+
+#include "data_global.h"
+
 #include "CloudSimCoreVersion.h"
 #include "IDataService.h"
 #include "NullCoreServices.h"
-#include "data_global.h"
 
 extern "C" DATA_EXPORT cloudsim::core::IDataService* cloudsimCreateDataService(unsigned int apiVersion)
 {

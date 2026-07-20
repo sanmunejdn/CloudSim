@@ -1,4 +1,8 @@
+﻿/// @file InstantMeshesCore.cpp
+/// @brief InstantMeshesCore 实现
+
 #include "InstantMeshesCore.h"
+
 #include "ImBatchBridge.h"
 
 #include <cstdlib>
@@ -13,7 +17,6 @@ namespace instant_meshes
 {
 namespace
 {
-
 constexpr std::size_t kMinToolBytes = 1024U;
 
 std::string readEnvVar(const char* name)
@@ -144,11 +147,8 @@ std::string resolveInstantMeshesExe(const std::string& overridePath)
 	return resolveFromPathList(pathNames);
 }
 
-std::string buildInstantMeshesCommand(
-	const std::string& exePath,
-	const std::string& inObj,
-	const std::string& outObj,
-	const Params& params)
+std::string buildInstantMeshesCommand(const std::string& exePath, const std::string& inObj, const std::string& outObj,
+									  const Params& params)
 {
 	std::ostringstream cmd;
 	cmd << quotePath(exePath);
@@ -204,9 +204,8 @@ bool parseQuadFaceLine(const std::string& line, std::vector<int>& face, std::vec
 			if (slash + 1U < tok.size())
 			{
 				const std::size_t slash2 = tok.find('/', slash + 1U);
-				const std::string vtPart = (slash2 == std::string::npos)
-					? tok.substr(slash + 1U)
-					: tok.substr(slash + 1U, slash2 - slash - 1U);
+				const std::string vtPart = (slash2 == std::string::npos) ? tok.substr(slash + 1U)
+																		 : tok.substr(slash + 1U, slash2 - slash - 1U);
 				if (!vtPart.empty())
 				{
 					vti = std::stoi(vtPart) - 1;
@@ -242,8 +241,8 @@ bool writeTriMeshObj(const TriMesh& mesh, const std::string& objPath, std::strin
 	for (int fi = 0; fi < fCount; ++fi)
 	{
 		const std::size_t b = static_cast<std::size_t>(fi) * 3U;
-		out << "f " << (mesh.faces[b] + 1) << ' ' << (mesh.faces[b + 1U] + 1) << ' '
-			<< (mesh.faces[b + 2U] + 1) << '\n';
+		out << "f " << (mesh.faces[b] + 1) << ' ' << (mesh.faces[b + 1U] + 1) << ' ' << (mesh.faces[b + 2U] + 1)
+			<< '\n';
 	}
 	return true;
 }
@@ -372,9 +371,7 @@ bool remeshToQuadMesh(const TriMesh& triIn, QuadMesh& quadOut, const Params& par
 	}
 
 	std::string lastErr;
-	const auto tryLoadOutput = [&]() -> bool {
-		return loadQuadMeshObj(outObj, quadOut, &lastErr);
-	};
+	const auto tryLoadOutput = [&]() -> bool { return loadQuadMeshObj(outObj, quadOut, &lastErr); };
 
 #if defined(INSTANT_MESHES_HAS_LIB)
 	lastErr.clear();
@@ -388,7 +385,8 @@ bool remeshToQuadMesh(const TriMesh& triIn, QuadMesh& quadOut, const Params& par
 	}
 #endif
 
-	const auto tryRun = [&](const std::string& cmd) -> bool {
+	const auto tryRun = [&](const std::string& cmd) -> bool
+	{
 		lastErr.clear();
 		if (!runProcess(cmd, &lastErr))
 		{
@@ -430,9 +428,9 @@ bool remeshToQuadMesh(const TriMesh& triIn, QuadMesh& quadOut, const Params& par
 
 	if (errMsg)
 	{
-		*errMsg = lastErr.empty()
-			? "instant meshes remesh failed"
-			: lastErr + " | hint: install instant-meshes, set CLOUDSIM_INSTANT_MESHES_EXE, or use gmcgBackend=GoldenLoader for CODE_AMRTO data";
+		*errMsg = lastErr.empty() ? "instant meshes remesh failed"
+								  : lastErr + " | hint: install instant-meshes, set CLOUDSIM_INSTANT_MESHES_EXE, or "
+											  "use gmcgBackend=GoldenLoader for CODE_AMRTO data";
 	}
 	return false;
 }

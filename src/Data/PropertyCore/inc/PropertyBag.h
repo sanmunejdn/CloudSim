@@ -1,23 +1,23 @@
-#pragma once
+﻿#ifndef PROPERTYCORE_PROPERTYBAG_H
+#define PROPERTYCORE_PROPERTYBAG_H
+
+/// @file PropertyBag.h
+/// @brief schema 驱动的属性值存储（key 字符串）
 
 #include "PropertyAttributeHelpers.h"
 #include "PropertySchema.h"
 
-#include <json.hpp>
-
 #include <unordered_map>
+
+#include <json.hpp>
 
 namespace property_core
 {
-
 /// schema 驱动的属性值存储（key 字符串）
 class PropertyBag
 {
 public:
-	bool has(const std::string& key) const
-	{
-		return m_values.find(key) != m_values.end();
-	}
+	bool has(const std::string& key) const { return m_values.find(key) != m_values.end(); }
 
 	const PropertyValue* get(const std::string& key) const
 	{
@@ -29,10 +29,7 @@ public:
 		return &it->second;
 	}
 
-	void set(const std::string& key, PropertyValue value)
-	{
-		m_values[key] = std::move(value);
-	}
+	void set(const std::string& key, PropertyValue value) { m_values[key] = std::move(value); }
 
 	void seedDefaults(const PropertySchema& schema)
 	{
@@ -45,11 +42,8 @@ public:
 		}
 	}
 
-	bool validateAndSet(
-		const PropertySchema& schema,
-		const std::string& key,
-		const PropertyValue& value,
-		std::string* errMsg)
+	bool validateAndSet(const PropertySchema& schema, const std::string& key, const PropertyValue& value,
+						std::string* errMsg)
 	{
 		const PropertyDescriptor* descriptor = schema.find(key);
 		if (!descriptor)
@@ -105,10 +99,8 @@ public:
 	}
 
 private:
-	static bool validateAgainstDescriptor(
-		const PropertyDescriptor& descriptor,
-		const PropertyValue& value,
-		std::string* errMsg)
+	static bool validateAgainstDescriptor(const PropertyDescriptor& descriptor, const PropertyValue& value,
+										  std::string* errMsg)
 	{
 		switch (descriptor.type)
 		{
@@ -133,7 +125,8 @@ private:
 			if (descriptor.constraints.rangeDouble.enabled)
 			{
 				const double v = std::get<double>(value);
-				return v >= descriptor.constraints.rangeDouble.minValue && v <= descriptor.constraints.rangeDouble.maxValue;
+				return v >= descriptor.constraints.rangeDouble.minValue &&
+					   v <= descriptor.constraints.rangeDouble.maxValue;
 			}
 			return true;
 		case PropertyType::String:
@@ -172,20 +165,24 @@ private:
 	{
 		switch (type)
 		{
-		case PropertyType::Bool: return std::get<bool>(value);
-		case PropertyType::Int: return std::get<int>(value);
-		case PropertyType::Double: return std::get<double>(value);
+		case PropertyType::Bool:
+			return std::get<bool>(value);
+		case PropertyType::Int:
+			return std::get<int>(value);
+		case PropertyType::Double:
+			return std::get<double>(value);
 		case PropertyType::String:
-		case PropertyType::Enum: return std::get<std::string>(value);
+		case PropertyType::Enum:
+			return std::get<std::string>(value);
 		case PropertyType::Vec3:
 		{
 			const Vec3Value vec = std::get<Vec3Value>(value);
-			return nlohmann::json::array({ vec[0], vec[1], vec[2] });
+			return nlohmann::json::array({vec[0], vec[1], vec[2]});
 		}
 		case PropertyType::ColorRgba:
 		{
 			const ColorRgbaValue rgba = std::get<ColorRgbaValue>(value);
-			return nlohmann::json::array({ rgba[0], rgba[1], rgba[2], rgba[3] });
+			return nlohmann::json::array({rgba[0], rgba[1], rgba[2], rgba[3]});
 		}
 		default:
 			return nlohmann::json();
@@ -216,19 +213,15 @@ private:
 				{
 					return false;
 				}
-				out = Vec3Value{ jsonValue[0].get<double>(), jsonValue[1].get<double>(), jsonValue[2].get<double>() };
+				out = Vec3Value{jsonValue[0].get<double>(), jsonValue[1].get<double>(), jsonValue[2].get<double>()};
 				return true;
 			case PropertyType::ColorRgba:
 				if (!jsonValue.is_array() || jsonValue.size() != 4)
 				{
 					return false;
 				}
-				out = ColorRgbaValue{
-					jsonValue[0].get<float>(),
-					jsonValue[1].get<float>(),
-					jsonValue[2].get<float>(),
-					jsonValue[3].get<float>()
-				};
+				out = ColorRgbaValue{jsonValue[0].get<float>(), jsonValue[1].get<float>(), jsonValue[2].get<float>(),
+									 jsonValue[3].get<float>()};
 				return true;
 			default:
 				return false;
@@ -248,3 +241,5 @@ private:
 };
 
 } // namespace property_core
+
+#endif // PROPERTYCORE_PROPERTYBAG_H

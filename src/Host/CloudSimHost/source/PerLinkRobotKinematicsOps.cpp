@@ -1,23 +1,22 @@
-#include "DocumentHost.h"
+﻿/// @file PerLinkRobotKinematicsOps.cpp
+/// @brief PerLinkRobotKinematicsOps 实现
 
-#include "IRobotUrdfImportContext.h"
-#include "BackendDataManager.h"
 #include "BackendDataBase.h"
-
-#include <osg/Matrixd>
-
+#include "BackendDataManager.h"
+#include "DocumentHost.h"
+#include "IRobotUrdfImportContext.h"
+#include "OsgScene.h"
 #include "RobotSceneKinematics.h"
 #include "UrdfRobotLoader.h"
-#include "OsgScene.h"
 
 #include <QVector>
 
-namespace cloudsim::host {
+#include <osg/Matrixd>
 
-bool DocumentHost::applyPerLinkRobotFkFromGizmoAnchor(
-	int instanceIndex,
-	const QString& anchorLinkBackendId,
-	const QVector<double>& jointAnglesRad)
+namespace cloudsim::host
+{
+bool DocumentHost::applyPerLinkRobotFkFromGizmoAnchor(int instanceIndex, const QString& anchorLinkBackendId,
+													  const QVector<double>& jointAnglesRad)
 {
 	// 由 DocumentPage 实现具体逻辑；基类默认返回 false
 	// 子类 DocumentPage 重写此方法
@@ -27,9 +26,7 @@ bool DocumentHost::applyPerLinkRobotFkFromGizmoAnchor(
 	return false;
 }
 
-void DocumentHost::reconcilePerLinkOuterBindFromScene(
-	int instanceIndex,
-	const QVector<double>& jointAnglesRad)
+void DocumentHost::reconcilePerLinkOuterBindFromScene(int instanceIndex, const QVector<double>& jointAnglesRad)
 {
 	// 由 DocumentPage 实现具体逻辑；基类默认空操作
 	(void)instanceIndex;

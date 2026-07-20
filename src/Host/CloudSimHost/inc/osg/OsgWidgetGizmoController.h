@@ -1,8 +1,13 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_OSGWIDGETGIZMOCONTROLLER_H
+#define CLOUDSIMHOST_OSGWIDGETGIZMOCONTROLLER_H
+
+/// @file OsgWidgetGizmoController.h
+/// @brief 指南针/轴环 gizmo 的节点创建、显示/隐藏、高亮、缩放与拾取（从 OsgWidget 拆出）。
 
 #include <QPoint>
 
-namespace osg {
+namespace osg
+{
 class Node;
 }
 
@@ -29,3 +34,4 @@ public:
 	static void detachCompassGraphics(OsgWidget& self);
 };
 
+#endif // CLOUDSIMHOST_OSGWIDGETGIZMOCONTROLLER_H

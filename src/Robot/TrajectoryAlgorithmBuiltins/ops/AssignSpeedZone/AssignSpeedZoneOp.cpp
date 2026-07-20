@@ -1,14 +1,16 @@
+﻿/// @file AssignSpeedZoneOp.cpp
+/// @brief AssignSpeedZoneOp 实现
+
 // AssignSpeedZone 原子块：为路径点写入速度区
 #include "AssignSpeedZoneOp.h"
 
 #include "TrajectoryOpFormat.h"
-#include "UnifiedTrajectoryPathMath.h"
 #include "TrajectoryOpParamAccess.h"
 #include "TrajectoryOpParamsParse.h"
+#include "UnifiedTrajectoryPathMath.h"
 
 namespace trajectory_algo
 {
-
 RobotInstruction::TrajectoryOpKind AssignSpeedZoneOp::kind() const
 {
 	return RobotInstruction::TrajectoryOpKind::AssignSpeedZone;
@@ -24,8 +26,8 @@ TrajectoryOpCapability AssignSpeedZoneOp::capabilities() const
 	return TrajectoryOpCapability::None;
 }
 
-RobotInstruction::TrajectoryOpDescriptor AssignSpeedZoneOp::makeDefaultDescriptor(
-	const RobotInstruction::OpScope& defaultScope) const
+RobotInstruction::TrajectoryOpDescriptor
+AssignSpeedZoneOp::makeDefaultDescriptor(const RobotInstruction::OpScope& defaultScope) const
 {
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::AssignSpeedZone;
@@ -49,19 +51,16 @@ bool AssignSpeedZoneOp::validate(const RobotInstruction::TrajectoryOpDescriptor&
 	return true;
 }
 
-std::string AssignSpeedZoneOp::formatSummary(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const bool chinese) const
+std::string AssignSpeedZoneOp::formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op,
+											 const bool chinese) const
 {
 	(void)op;
 	return displayName(chinese);
 }
 
-bool AssignSpeedZoneOp::processPath(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	RobotInstruction::UnifiedTrajectory& traj,
-	const TrajectoryOpExecutionContext& ctx,
-	std::string* errMsg) const
+bool AssignSpeedZoneOp::processPath(const RobotInstruction::TrajectoryOpDescriptor& op,
+									RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx,
+									std::string* errMsg) const
 {
 	(void)op;
 	(void)errMsg;
@@ -69,11 +68,7 @@ bool AssignSpeedZoneOp::processPath(
 	{
 		return false;
 	}
-	assignSpeedUnifiedInScope(
-		traj,
-		op.scope,
-		ctx.program,
-		parseAssignMotionParams(op.params).speedMmPerSec);
+	assignSpeedUnifiedInScope(traj, op.scope, ctx.program, parseAssignMotionParams(op.params).speedMmPerSec);
 	return true;
 }
 

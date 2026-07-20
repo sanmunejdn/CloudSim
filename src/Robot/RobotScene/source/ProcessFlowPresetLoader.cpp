@@ -1,19 +1,21 @@
+﻿/// @file ProcessFlowPresetLoader.cpp
+/// @brief ProcessFlowPresetLoader 实现
+
 #include "ProcessFlowPresetLoader.h"
 
-#include "TrajectoryOpRegistry.h"
 #include "TrajectoryOpConfigRegistry.h"
 #include "TrajectoryOpDescriptorCodec.h"
-
-#include <json.hpp>
+#include "TrajectoryOpRegistry.h"
 
 #include <fstream>
 #include <optional>
+
+#include <json.hpp>
 
 namespace RobotInstruction
 {
 namespace
 {
-
 std::optional<std::string> readTextFile(const std::string& path)
 {
 	std::ifstream in(path, std::ios::binary);
@@ -30,27 +32,14 @@ std::vector<TrajectoryOpKind> hardcodedPresetOpKinds(const RecipeKind kind)
 	switch (kind)
 	{
 	case RecipeKind::Weld:
-		return {
-			TrajectoryOpKind::Resample,
-			TrajectoryOpKind::OffsetAlongNormal,
-			TrajectoryOpKind::SmoothPose,
-			TrajectoryOpKind::AssignBlend,
-			TrajectoryOpKind::Approach,
-			TrajectoryOpKind::Retract};
+		return {TrajectoryOpKind::Resample,	   TrajectoryOpKind::OffsetAlongNormal, TrajectoryOpKind::SmoothPose,
+				TrajectoryOpKind::AssignBlend, TrajectoryOpKind::Approach,			TrajectoryOpKind::Retract};
 	case RecipeKind::Glue:
-		return {
-			TrajectoryOpKind::Resample,
-			TrajectoryOpKind::OffsetAlongNormal,
-			TrajectoryOpKind::SmoothPose,
-			TrajectoryOpKind::AssignSpeedZone};
+		return {TrajectoryOpKind::Resample, TrajectoryOpKind::OffsetAlongNormal, TrajectoryOpKind::SmoothPose,
+				TrajectoryOpKind::AssignSpeedZone};
 	case RecipeKind::Grind:
-		return {
-			TrajectoryOpKind::Resample,
-			TrajectoryOpKind::OffsetAlongNormal,
-			TrajectoryOpKind::SmoothPose,
-			TrajectoryOpKind::Weave,
-			TrajectoryOpKind::Approach,
-			TrajectoryOpKind::Retract};
+		return {TrajectoryOpKind::Resample, TrajectoryOpKind::OffsetAlongNormal, TrajectoryOpKind::SmoothPose,
+				TrajectoryOpKind::Weave,	TrajectoryOpKind::Approach,			 TrajectoryOpKind::Retract};
 	}
 	return {};
 }
@@ -92,11 +81,8 @@ std::vector<TrajectoryOpDescriptor> descriptorsFromOpKinds(const std::vector<Tra
 std::vector<ProcessFlowPresetEntry> fallbackPresets()
 {
 	std::vector<ProcessFlowPresetEntry> out;
-	auto push = [&out](
-		const char* id,
-		const char* zh,
-		const char* en,
-		const std::vector<TrajectoryOpKind>& kinds) {
+	auto push = [&out](const char* id, const char* zh, const char* en, const std::vector<TrajectoryOpKind>& kinds)
+	{
 		ProcessFlowPresetEntry entry{};
 		entry.id = id;
 		entry.labelZh = zh;
@@ -124,9 +110,7 @@ TrajectoryOpKind trajectoryOpKindFromPresetToken(const std::string& token, bool*
 	return found ? kind : TrajectoryOpKind::Translate;
 }
 
-std::vector<ProcessFlowPresetEntry> loadProcessFlowPresets(
-	const std::string& resourceBaseDir,
-	std::string* errMsg)
+std::vector<ProcessFlowPresetEntry> loadProcessFlowPresets(const std::string& resourceBaseDir, std::string* errMsg)
 {
 	std::vector<std::string> candidates;
 	if (!resourceBaseDir.empty())
@@ -166,7 +150,8 @@ std::vector<ProcessFlowPresetEntry> loadProcessFlowPresets(
 							continue;
 						}
 						bool tokenOk = false;
-						const TrajectoryOpKind kind = trajectoryOpKindFromPresetToken(token.get<std::string>(), &tokenOk);
+						const TrajectoryOpKind kind =
+							trajectoryOpKindFromPresetToken(token.get<std::string>(), &tokenOk);
 						if (tokenOk)
 						{
 							entry.ops.push_back(kind);
@@ -199,10 +184,8 @@ std::vector<ProcessFlowPresetEntry> loadProcessFlowPresets(
 	return fallbackPresets();
 }
 
-std::vector<TrajectoryOpDescriptor> buildRecipePresetFromId(
-	const std::string& presetId,
-	const std::string& resourceBaseDir,
-	std::string* errMsg)
+std::vector<TrajectoryOpDescriptor> buildRecipePresetFromId(const std::string& presetId,
+															const std::string& resourceBaseDir, std::string* errMsg)
 {
 	trajectory_algo::ensureTrajectoryOpBuiltinsRegistered();
 	trajectory_algo::TrajectoryOpConfigRegistry::instance().ensureLoaded(resourceBaseDir, errMsg);

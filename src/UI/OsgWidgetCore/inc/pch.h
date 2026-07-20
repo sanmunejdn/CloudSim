@@ -1,28 +1,14 @@
-#pragma once
+﻿/// @file pch.h
+/// @brief 预编译头
 
 #if defined(_WIN32)
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
+#ifndef OSGWIDGETCORE_PCH_H
+#define OSGWIDGETCORE_PCH_H
+
 #endif
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <windows.h>
-#endif
 
-#include <algorithm>
-
-#include <array>
-
-#include <cmath>
-
-#include <memory>
-
-#include <string>
-
-#include <vector>
-
-
-
-#include "RunLogger.h"
-
+#endif // OSGWIDGETCORE_PCH_H

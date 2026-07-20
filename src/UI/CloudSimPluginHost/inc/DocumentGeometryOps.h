@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINHOST_DOCUMENTGEOMETRYOPS_H
+#define CLOUDSIMPLUGINHOST_DOCUMENTGEOMETRYOPS_H
+
+/// @file DocumentGeometryOps.h
+/// @brief DocumentGeometryOps 接口
 
 #include "GeometryBackendOps.h"
 #include "PluginGeometryTypes.h"
@@ -6,7 +10,8 @@
 #include <memory>
 #include <string>
 
-namespace cloudsim::host {
+namespace cloudsim::host
+{
 class DocumentHost;
 }
 
@@ -14,21 +19,18 @@ class IPluginMainWindowHost;
 
 namespace document_geometry_ops
 {
-
 geoalgo::MeshDiscretizeParams toGeoMeshParams(const PluginMeshDiscretizeParams& params);
 geoalgo::IntersectionParams toGeoIntersectionParams(const PluginGeometryIntersectionParams& params);
 geoalgo::BrepBooleanOp toGeoBrepBooleanOp(PluginBrepBooleanOp op);
 
 PluginGeometryJobResult toPluginGeometryResult(const geoalgo::IntersectionResult& result);
-PluginGeometryJobResult toPluginGeometryResult(
-	const geoalgo::MeshDiscretizeReport& report,
-	const std::string& backendId);
+PluginGeometryJobResult toPluginGeometryResult(const geoalgo::MeshDiscretizeReport& report,
+											   const std::string& backendId);
 
-std::string registerMeshSoup(
-	cloudsim::host::DocumentHost* page,
-	IPluginMainWindowHost* mainWindowHost,
-	std::vector<float> soup,
-	const PluginMeshCreateOptions& options,
-	std::string* outError = nullptr);
+std::string registerMeshSoup(cloudsim::host::DocumentHost* page, IPluginMainWindowHost* mainWindowHost,
+							 std::vector<float> soup, const PluginMeshCreateOptions& options,
+							 std::string* outError = nullptr);
 
 } // namespace document_geometry_ops
+
+#endif // CLOUDSIMPLUGINHOST_DOCUMENTGEOMETRYOPS_H

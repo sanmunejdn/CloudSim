@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINSDK_IPLUGINDOCUMENT_H
+#define CLOUDSIMPLUGINSDK_IPLUGINDOCUMENT_H
+
+/// @file IPluginDocument.h
+/// @brief 插件可见的单文档页 API
 
 #include "cloudsim_plugin_sdk_global.h"
 
@@ -39,8 +43,8 @@ public:
 	virtual bool measurePointCloud(const std::string& backendIdUtf8, PluginPointCloudMeasure& out) const = 0;
 
 	/// 1.2.0+：导出三角网格为 PLY（含 face；pathUtf8 为 UTF-8）
-	virtual bool exportMeshToPly(
-		const std::string& backendIdUtf8,
-		const std::string& pathUtf8,
-		std::string* outError = nullptr) const = 0;
+	virtual bool exportMeshToPly(const std::string& backendIdUtf8, const std::string& pathUtf8,
+								 std::string* outError = nullptr) const = 0;
 };
+
+#endif // CLOUDSIMPLUGINSDK_IPLUGINDOCUMENT_H

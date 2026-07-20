@@ -1,7 +1,9 @@
+﻿/// @file RobotProgramJsonIo.cpp
+/// @brief RobotProgramJsonIo 实现
+
 #include "RobotProgramJsonIo.h"
 
 #include "IRobotUrdfImportContext.h"
-
 #include "RobotInstructionFactory.h"
 #include "RobotProgramCatalog.h"
 #include "RobotProgramStore.h"
@@ -11,8 +13,8 @@
 
 #include <json.hpp>
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 QJsonArray robotProgramsToJson(const RobotProgramStore& store)
 {
 	QJsonArray programsArr;
@@ -59,7 +61,7 @@ QJsonArray robotProgramsToJson(const RobotProgramStore& store)
 }
 
 bool robotProgramsFromJson(RobotProgramStore& store, const QJsonArray& programs, IRobotUrdfImportContext& ctx,
-	QString* outError)
+						   QString* outError)
 {
 	// 整表替换会使 UI 持有的 steps/groups 裸指针失效；调用方须在刷新前 bindProgramTree
 	for (const QJsonValue& pv : programs)

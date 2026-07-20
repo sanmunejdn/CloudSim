@@ -1,6 +1,6 @@
 ﻿# CloudSim 各子模块开发文档索引
 
-本文档列出各 Visual Studio 子工程（模块）的 **DEVELOPER_GUIDE.md** 入口；总架构与业务流程见 [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md)；目录说明见 [`DIRECTORY_LAYOUT.md`](DIRECTORY_LAYOUT.md)。
+本文档列出各 Visual Studio 子工程（模块）的 **DEVELOPER_GUIDE.md** 入口；总架构与业务流程见 [`../ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md)；目录说明见 [`DIRECTORY_LAYOUT.md`](DIRECTORY_LAYOUT.md)；**源码格式（编码/头卫/clang-format/筛选器）见 [`SOURCE_CONVENTIONS.md`](SOURCE_CONVENTIONS.md)**；文档总索引见 [`README.md`](README.md)。
 
 ---
 
@@ -47,6 +47,13 @@
 | **插件开发示例** | 参见 CloudSimPluginSDK 开发指南中的插件模块示例工程 | [CloudSimPluginSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) |
 | **CloudSimAiSDK** | AI 插件 ABI、分域专模、`ai_config` 与训练文档入口 | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md)、[配置](../../tools/ai-training/CONFIGURATION.md)、[训练](../../tools/ai-training/README.md)、[**AI 轨迹特征**](../../docs/trajectory_feature_ai.md) |
 | **AiWidget** | AI 助手 Dock、`AiAssistantCoordinator`、与 `trajectory.feature` 会话 | [CloudSimAiSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md)、[trajectory_feature_ai.md](../../docs/trajectory_feature_ai.md) |
+| **PointCloudAlgorithm** | 点云算法静态库（链入 Data） | [PointCloudAlgorithm/DEVELOPER_GUIDE.md](../src/Geometry/PointCloudAlgorithm/DEVELOPER_GUIDE.md) |
+| **VcgAlgorithms** | vcglib 网格后处理 DLL | [VcgAlgorithms/DEVELOPER_GUIDE.md](../src/Geometry/VcgAlgorithms/DEVELOPER_GUIDE.md) |
+| **CloudSimUiAssets** | UI 静态资源库 | 见工程与 DIRECTORY_LAYOUT |
+| **CloudSimLabelingSDK** / **LabelingPlugin** | 标注 ABI 与插件 | [CloudSimLabelingSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimLabelingSDK/DEVELOPER_GUIDE.md) |
+| **PlcCommSDK** / **PlcCommUI** / **PlcCommPlugin** | PLC 通讯 SDK、UI、侧栏插件 | [PlcCommSDK](../src/Plugins/PlcCommSDK/DEVELOPER_GUIDE.md)、[PlcCommUI](../src/Plugins/PlcCommUI/DEVELOPER_GUIDE.md)、[PlcCommPlugin](../src/Plugins/PlcCommPlugin/DEVELOPER_GUIDE.md) |
+| **PointNetPlugin** | PointNet++ 分类插件 | [PointNetPlugin/DEVELOPER_GUIDE.md](../src/Plugins/PointNetPlugin/DEVELOPER_GUIDE.md) |
+| **GeometryPlugin** / **PointCloudPlugin** | 几何/点云侧栏插件 | [GeometryPlugin](../src/Plugins/GeometryPlugin/DEVELOPER_GUIDE.md)、[PointCloudPlugin](../src/Plugins/PointCloudPlugin/DEVELOPER_GUIDE.md) |
 
 ## 依赖方向（简图）
 
@@ -122,18 +129,24 @@ flowchart TB
 
 跨工程引用：如 Widget 引用 `CloudSimPluginHost`、`Host` 引用 Widget OSG 源码，使用 `inc\HostRef`、`src\WidgetBorrowed`、`inc\PluginHost` 等筛选器，与本地 `inc`/`src` 并列。
 
-新增/移动源文件后在 `CloudSim` 目录执行：
+**日常推荐**（只补缺失、不覆盖已有 filters）：
+
+```bash
+python scripts/generate_vcxproj_filters.py --only-missing
+```
+
+全量重写（会覆盖已有 `.filters`，改前确认）：
 
 ```bash
 python scripts/generate_vcxproj_filters.py
 ```
 
-脚本会扫描全部 `*.vcxproj` 并重写对应 `.vcxproj.filters`，不修改 `.vcxproj` 本体。
+脚本扫描 `src/` 下产品 `*.vcxproj`，写出 UTF-8 BOM + CRLF；不修改 `.vcxproj` 本体。完整约定见 [`SOURCE_CONVENTIONS.md`](SOURCE_CONVENTIONS.md) §6。
 
 ## 源码注释约定（code-comment）
 
 - 只写 **Why**：业务背景、非显然算法、边界兜底、危险操作；不写「这段代码做什么」。
-- 头文件公开 API、复杂类型用 `///`，约 5–15 字；`@param` 仅在有非显然约束时写。
+- 每个文件顶部：`/// @file` + `/// @brief`（中文短句）；公开 API / 复杂类型另用 `///`，约 5–15 字；`@param` 仅在有非显然约束时写。
 - 实现文件用自然中文 `//`；单行注释尽量 ≤ 80 字。
 - 避免「用于」「调用方法」等空泛句；优先动词或名词短语作末 `//` 短句。
 - 批量清理历史「中文。」标签等：`python scripts/apply_code_comment_style.py`（慎用，改后看 diff）。
@@ -142,7 +155,11 @@ python scripts/generate_vcxproj_filters.py
 
 - 公开 API：`工程/inc/*.h`
 - 实现：`工程/source/*.cpp`
-- 导出 DLL：使用各 `*_global.h` 中的 `*_EXPORT` 宏；跨工程引用通过 vcxproj `AdditionalIncludeDirectories`；源码根路径与 `src/` 布局见 [`DIRECTORY_LAYOUT.md`](DIRECTORY_LAYOUT.md)。
+- Include 守卫：统一 `#ifndef <工程名>_<文件名>_H` / `#define` / `#endif // ...`（如 `DATA_MESHBOOLEAN_H`）；**不使用** `#pragma once`
+- 文件头注释：`/// @file` + `/// @brief`
+- 编码：UTF-8 **with BOM**，换行 **CRLF**
+- 导出 DLL：使用各 `*_global.h` 中的 `*_EXPORT` 宏；跨工程引用通过 vcxproj `AdditionalIncludeDirectories`；源码根路径与 `src/` 布局见 [`DIRECTORY_LAYOUT.md`](DIRECTORY_LAYOUT.md)
+- **完整细则与维护脚本**：[`SOURCE_CONVENTIONS.md`](SOURCE_CONVENTIONS.md)
 
 ## 工程持久化（v4）
 
@@ -150,5 +167,7 @@ python scripts/generate_vcxproj_filters.py
 
 ## 约定索引
 
+- 源码格式（编码 / 头卫 / format / 筛选器）：[`SOURCE_CONVENTIONS.md`](SOURCE_CONVENTIONS.md)
+- 文档总索引：[`README.md`](README.md)
 - C++ / Qt 编码约定：`.cursor/rules/cloudsim-cpp-conventions.mdc`
 - 解决方案结构：`.cursor/rules/cloudsim-architecture.mdc`

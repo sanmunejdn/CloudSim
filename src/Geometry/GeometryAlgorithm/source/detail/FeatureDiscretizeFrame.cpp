@@ -1,14 +1,17 @@
+﻿/// @file FeatureDiscretizeFrame.cpp
+/// @brief FeatureDiscretizeFrame 实现
+
 #include "detail/FeatureDiscretizeFrame.h"
 
 #include "ShapeQuery.h"
 #include "detail/OccIncludes.h"
 
+#include <cmath>
+#include <limits>
+
 #include <Precision.hxx>
 #include <TopExp.hxx>
 #include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
-
-#include <cmath>
-#include <limits>
 
 namespace geoalgo
 {
@@ -16,7 +19,6 @@ namespace detail
 {
 namespace
 {
-
 void normalizeVec3(Vec3d& v)
 {
 	const double len = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
@@ -33,13 +35,8 @@ Vec3d vecFromGp(const gp_Vec& v)
 	return Vec3d{v.X(), v.Y(), v.Z()};
 }
 
-bool computeFaceNormalAtUv(
-	const TopoDS_Face& face,
-	const Handle(Geom_Surface)& surf,
-	const TopLoc_Location& faceLoc,
-	const Standard_Real u,
-	const Standard_Real v,
-	gp_Vec& outNormal)
+bool computeFaceNormalAtUv(const TopoDS_Face& face, const Handle(Geom_Surface) & surf, const TopLoc_Location& faceLoc,
+						   const Standard_Real u, const Standard_Real v, gp_Vec& outNormal)
 {
 	gp_Pnt pOnSurf;
 	gp_Vec du;
@@ -66,11 +63,8 @@ bool computeFaceNormalAtUv(
 	return true;
 }
 
-bool tryFaceNormalAtPoint(
-	const TopoDS_Face& face,
-	const gp_Pnt& ptWorld,
-	double& inOutBestDist,
-	gp_Vec& inOutBestNormal)
+bool tryFaceNormalAtPoint(const TopoDS_Face& face, const gp_Pnt& ptWorld, double& inOutBestDist,
+						  gp_Vec& inOutBestNormal)
 {
 	TopLoc_Location faceLoc;
 	const Handle(Geom_Surface) surf = BRep_Tool::Surface(face, faceLoc);
@@ -119,10 +113,8 @@ bool tryFaceNormalAtPoint(
 Vec3d fallbackNormalFromTangent(const Vec3d& tangent)
 {
 	Vec3d up{0.0, 0.0, 1.0};
-	Vec3d nrm{
-		tangent.y * up.z - tangent.z * up.y,
-		tangent.z * up.x - tangent.x * up.z,
-		tangent.x * up.y - tangent.y * up.x};
+	Vec3d nrm{tangent.y * up.z - tangent.z * up.y, tangent.z * up.x - tangent.x * up.z,
+			  tangent.x * up.y - tangent.y * up.x};
 	normalizeVec3(nrm);
 	if (std::abs(nrm.x) + std::abs(nrm.y) + std::abs(nrm.z) < 1e-9)
 	{
@@ -180,11 +172,8 @@ bool bestFaceNormalAtPoint(const std::vector<TopoDS_Face>& faces, const Point3d&
 	return true;
 }
 
-Vec3d chordTangentAt(
-	const std::vector<Point3d>& pts,
-	std::size_t index,
-	bool pathClosed,
-	const std::vector<std::size_t>* segmentEndExclusive)
+Vec3d chordTangentAt(const std::vector<Point3d>& pts, std::size_t index, bool pathClosed,
+					 const std::vector<std::size_t>* segmentEndExclusive)
 {
 	Vec3d tan{};
 	if (pts.size() < 2U)
@@ -213,11 +202,8 @@ Vec3d chordTangentAt(
 	return tan;
 }
 
-Vec3d storedFaceNormal(
-	const std::vector<TopoDS_Face>& faces,
-	const Point3d& pt,
-	FaceNormalConvention convention,
-	bool* found)
+Vec3d storedFaceNormal(const std::vector<TopoDS_Face>& faces, const Point3d& pt, FaceNormalConvention convention,
+					   bool* found)
 {
 	Vec3d normal{};
 	const bool ok = bestFaceNormalAtPoint(faces, pt, normal);
@@ -238,12 +224,8 @@ Vec3d storedFaceNormal(
 	return normal;
 }
 
-void assignPathChordTangents(
-	RawPath& path,
-	bool pathClosed,
-	bool outputTangent,
-	const std::vector<std::size_t>* segmentEndExclusive,
-	bool preserveExisting)
+void assignPathChordTangents(RawPath& path, bool pathClosed, bool outputTangent,
+							 const std::vector<std::size_t>* segmentEndExclusive, bool preserveExisting)
 {
 	if (!outputTangent || path.points.size() < 2U)
 	{
@@ -270,12 +252,8 @@ void assignPathChordTangents(
 	}
 }
 
-void appendPolylineToRawPath(
-	const Polyline3d& poly,
-	RawPath& out,
-	const DiscretizeParams& disc,
-	bool computeFrame,
-	const PolylineFrameContext& frameCtx)
+void appendPolylineToRawPath(const Polyline3d& poly, RawPath& out, const DiscretizeParams& disc, bool computeFrame,
+							 const PolylineFrameContext& frameCtx)
 {
 	const std::size_t n = poly.xyz.size() / 3U;
 	if (n == 0U)
@@ -324,11 +302,8 @@ void appendPolylineToRawPath(
 	}
 }
 
-std::vector<TopoDS_Face> collectContextFaces(
-	const TopoDS_Shape& shape,
-	const std::vector<int>& edgeIndices,
-	const std::vector<int>& faceIndices,
-	std::string* errMsg)
+std::vector<TopoDS_Face> collectContextFaces(const TopoDS_Shape& shape, const std::vector<int>& edgeIndices,
+											 const std::vector<int>& faceIndices, std::string* errMsg)
 {
 	std::vector<TopoDS_Face> faces;
 	if (!faceIndices.empty())

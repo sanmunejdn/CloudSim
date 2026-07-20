@@ -1,13 +1,14 @@
+﻿/// @file MeshSurfaceReconstructionAssemble.cpp
+/// @brief MeshSurfaceReconstructionAssemble 实现
+
 #include "MeshSurfaceReconstructionInternal.h"
-
 #include "ShapeHandle.h"
-
 #include "detail/OccIncludes.h"
-
-#include <BRep_Builder.hxx>
 
 #include <cmath>
 #include <limits>
+
+#include <BRep_Builder.hxx>
 
 namespace geoalgo
 {
@@ -15,7 +16,6 @@ namespace meshrecon
 {
 namespace
 {
-
 struct Vec3d
 {
 	double x = 0.0;
@@ -28,11 +28,8 @@ struct Vec3d
 
 } // namespace
 
-bool assembleBrepShape(
-	const IndexedMeshLite& mesh,
-	const std::vector<QuadPatch>& patches,
-	ShapeHandle& outShape,
-	std::string* errMsg)
+bool assembleBrepShape(const IndexedMeshLite& mesh, const std::vector<QuadPatch>& patches, ShapeHandle& outShape,
+					   std::string* errMsg)
 {
 	std::vector<TopoDS_Face> faces;
 	std::size_t faceReserve = patches.size();
@@ -90,9 +87,7 @@ bool assembleBrepShape(
 	return !outShape.isNull();
 }
 
-double computeMaxDeviationMm(
-	const std::vector<float>& soup,
-	const std::vector<QuadPatch>& patches)
+double computeMaxDeviationMm(const std::vector<float>& soup, const std::vector<QuadPatch>& patches)
 {
 	if (soup.size() < 9U)
 	{
@@ -113,10 +108,7 @@ double computeMaxDeviationMm(
 			}
 			for (std::size_t i = 0; i + 2U < patch.sampleXyz.size(); i += 3U)
 			{
-				const Vec3d q{
-					patch.sampleXyz[i],
-					patch.sampleXyz[i + 1U],
-					patch.sampleXyz[i + 2U]};
+				const Vec3d q{patch.sampleXyz[i], patch.sampleXyz[i + 1U], patch.sampleXyz[i + 2U]};
 				best = std::min(best, (p - q).length());
 			}
 		}

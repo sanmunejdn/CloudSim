@@ -1,17 +1,21 @@
-#pragma once
+﻿#ifndef CLOUDSIMCORE_IRENDERVIEW_H
+#define CLOUDSIMCORE_IRENDERVIEW_H
 
-#include "CoreTypes.h"
+/// @file IRenderView.h
+/// @brief 文档渲染视口
+
 #include "cloudsim_core_global.h"
 
+#include "CoreTypes.h"
+
+#include <QByteArray>
 #include <functional>
 #include <memory>
 
-#include <QByteArray>
-
 class QWidget;
 
-namespace cloudsim::core {
-
+namespace cloudsim::core
+{
 using PickHandler = std::function<void(const ObjectId& backendId)>;
 
 /// 文档渲染视口
@@ -88,15 +92,15 @@ public:
 	virtual bool meshFacePickMode() const = 0;
 	virtual void syncSelectionForBackend(const ObjectId& id) = 0;
 	virtual bool captureViewportPng(QByteArray& outPng, QString* outError = nullptr, int maxWidth = 768,
-		int maxHeight = 768) = 0;
+									int maxHeight = 768) = 0;
 
 	virtual void setTransformGizmoFrame(TransformGizmoFrameDto frame) = 0;
 	virtual TransformGizmoFrameDto transformGizmoFrame() const = 0;
 
 	virtual void endTcpDragTeach() = 0;
 	virtual void beginTcpDragTeach(const ObjectId& mountBackendId, const Mat4& targetInBaseColumnMajor,
-		float modelDiagonalMm, RobotBaseWorldResolver resolveRobotBaseWorld = nullptr,
-		const Mat4* toolLocalOnFlangeColumnMajor = nullptr) = 0;
+								   float modelDiagonalMm, RobotBaseWorldResolver resolveRobotBaseWorld = nullptr,
+								   const Mat4* toolLocalOnFlangeColumnMajor = nullptr) = 0;
 	virtual void updateTcpDragTeachFromTarget(const Mat4& targetInBaseColumnMajor, bool syncTargetInBase = true) = 0;
 	virtual void updateTcpDragTeachToolLocalOnFlange(const Mat4& toolLocalOnFlangeColumnMajor) = 0;
 
@@ -129,3 +133,5 @@ public:
 };
 
 } // namespace cloudsim::core
+
+#endif // CLOUDSIMCORE_IRENDERVIEW_H

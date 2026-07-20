@@ -1,8 +1,11 @@
+﻿/// @file FaceOffsetCurveDiscretizer.cpp
+/// @brief FaceOffsetCurveDiscretizer 实现
+
 #include "FaceOffsetCurveDiscretizer.h"
 
+#include "Discretize.h"
 #include "FeatureDiscretizeParamUtils.h"
 #include "FeatureDiscretizerRegistry.h"
-#include "Discretize.h"
 #include "ShapeQuery.h"
 #include "detail/FeatureDiscretizeCommon.h"
 #include "detail/OccIncludes.h"
@@ -11,7 +14,6 @@
 
 namespace geoalgo
 {
-
 REGISTER_FEATURE_DISCRETIZER(FaceOffsetCurveDiscretizer);
 
 std::vector<FeatureDiscretizerParamField> FaceOffsetCurveDiscretizer::paramFields() const
@@ -42,11 +44,8 @@ bool FaceOffsetCurveDiscretizer::validate(const FeatureDiscretizeInput& input, s
 	return true;
 }
 
-bool FaceOffsetCurveDiscretizer::discretize(
-	const TopoDS_Shape& shape,
-	const FeatureDiscretizeInput& input,
-	RawPath& out,
-	std::string* errMsg) const
+bool FaceOffsetCurveDiscretizer::discretize(const TopoDS_Shape& shape, const FeatureDiscretizeInput& input,
+											RawPath& out, std::string* errMsg) const
 {
 	if (!validate(input, errMsg))
 	{
@@ -55,8 +54,8 @@ bool FaceOffsetCurveDiscretizer::discretize(
 
 	TopoDS_Face face;
 	TopoDS_Edge edge;
-	if (!shapeFaceAtIndex(shape, input.geometry.faceIndices[0], face, errMsg)
-		|| !shapeEdgeAtIndex(shape, input.geometry.edgeIndices[0], edge, errMsg))
+	if (!shapeFaceAtIndex(shape, input.geometry.faceIndices[0], face, errMsg) ||
+		!shapeEdgeAtIndex(shape, input.geometry.edgeIndices[0], edge, errMsg))
 	{
 		return false;
 	}

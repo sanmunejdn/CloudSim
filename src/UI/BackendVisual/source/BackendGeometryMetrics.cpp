@@ -1,3 +1,6 @@
+﻿/// @file BackendGeometryMetrics.cpp
+/// @brief BackendGeometryMetrics 实现
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -13,8 +16,8 @@
 #include <algorithm>
 #include <cmath>
 
-namespace backend_geometry_metrics {
-
+namespace backend_geometry_metrics
+{
 osg::Vec3f pointCloudCenterFromXyz(const std::vector<float>& xyz)
 {
 	if (xyz.size() < 3U || (xyz.size() % 3U) != 0U)

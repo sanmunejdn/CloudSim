@@ -1,6 +1,10 @@
+﻿/// @file InstructionProgramTreeWidget.cpp
+/// @brief InstructionProgramTreeWidget 实现
+
 #include "InstructionProgramTreeWidget.h"
-#include "RobotInstructionProgram.h"
+
 #include "RawTrajectory.h"
+#include "RobotInstructionProgram.h"
 
 #include <QContextMenuEvent>
 #include <QDragEnterEvent>
@@ -10,13 +14,12 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMimeData>
-
-#include <json.hpp>
-
 #include <algorithm>
 #include <functional>
 #include <unordered_map>
 #include <unordered_set>
+
+#include <json.hpp>
 
 namespace
 {
@@ -37,9 +40,8 @@ QString branchLabel(InstructionProgramTreeWidget::NodeKind kind, bool chinese)
 	}
 }
 
-void collectPtrMapRecursive(
-	const std::vector<std::shared_ptr<RobotInstruction::Base>>& steps,
-	std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>>& out)
+void collectPtrMapRecursive(const std::vector<std::shared_ptr<RobotInstruction::Base>>& steps,
+							std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>>& out)
 {
 	for (const auto& ins : steps)
 	{
@@ -65,8 +67,7 @@ void collectPtrMapRecursive(
 }
 } // namespace
 
-InstructionProgramTreeWidget::InstructionProgramTreeWidget(QWidget* parent)
-	: QTreeWidget(parent)
+InstructionProgramTreeWidget::InstructionProgramTreeWidget(QWidget* parent) : QTreeWidget(parent)
 {
 	setHeaderHidden(true);
 	setRootIsDecorated(true);
@@ -82,21 +83,25 @@ InstructionProgramTreeWidget::InstructionProgramTreeWidget(QWidget* parent)
 
 	m_selectionDebounce.setSingleShot(true);
 	m_selectionDebounce.setInterval(50);
-	connect(&m_selectionDebounce, &QTimer::timeout, this, [this]() {
-		if (m_syncing)
-		{
-			return;
-		}
-		emit instructionSelected(selectedInstruction());
-	});
+	connect(&m_selectionDebounce, &QTimer::timeout, this,
+			[this]()
+			{
+				if (m_syncing)
+				{
+					return;
+				}
+				emit instructionSelected(selectedInstruction());
+			});
 
-	connect(this, &QTreeWidget::itemSelectionChanged, this, [this]() {
-		if (m_syncing)
-		{
-			return;
-		}
-		m_selectionDebounce.start();
-	});
+	connect(this, &QTreeWidget::itemSelectionChanged, this,
+			[this]()
+			{
+				if (m_syncing)
+				{
+					return;
+				}
+				m_selectionDebounce.start();
+			});
 }
 
 void InstructionProgramTreeWidget::setUseChinese(const bool chinese)
@@ -135,8 +140,8 @@ std::string InstructionProgramTreeWidget::resolveGroupIdForContextItem(const QTr
 		const std::string pathPlanId = item->data(0, kGroupIdRole).toString().toStdString();
 		for (const RobotInstruction::InstructionGroup& group : *m_groups)
 		{
-			if (group.role == RobotInstruction::InstructionGroupRole::PathPlanOutput
-				&& group.pathPlanInstructionId == pathPlanId)
+			if (group.role == RobotInstruction::InstructionGroupRole::PathPlanOutput &&
+				group.pathPlanInstructionId == pathPlanId)
 			{
 				return group.id;
 			}
@@ -242,36 +247,30 @@ QTreeWidgetItem* InstructionProgramTreeWidget::createPlanningSectionItem()
 {
 	auto* item = new QTreeWidgetItem();
 	item->setData(0, kKindRole, static_cast<int>(NodeKind::PlanningSection));
-	item->setText(
-		0,
-		m_useChinese ? QStringLiteral("路径规划") : QStringLiteral("Path planning"));
+	item->setText(0, m_useChinese ? QStringLiteral("路径规划") : QStringLiteral("Path planning"));
 	item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsDropEnabled | Qt::ItemIsSelectable);
 	item->setExpanded(true);
 	return item;
 }
 
 QTreeWidgetItem* InstructionProgramTreeWidget::createPathPlanOutputRefItem(
-	const std::string& pathPlanId,
-	const RobotInstruction::InstructionGroup& outputGroup,
-	const bool chinese)
+	const std::string& pathPlanId, const RobotInstruction::InstructionGroup& outputGroup, const bool chinese)
 {
 	auto* item = new QTreeWidgetItem();
 	item->setData(0, kKindRole, static_cast<int>(NodeKind::PathPlanOutputRef));
 	item->setData(0, kGroupIdRole, QString::fromStdString(pathPlanId));
 	const int memberCount = static_cast<int>(outputGroup.memberInstructionIds.size());
 	const QString groupName = QString::fromStdString(outputGroup.name);
-	item->setText(
-		0,
-		chinese
-			? QStringLiteral("↳ 输出: %1（%2 点）").arg(groupName).arg(memberCount)
-			: QStringLiteral("↳ Output: %1 (%2 pts)").arg(groupName).arg(memberCount));
+	item->setText(0, chinese ? QStringLiteral("↳ 输出: %1（%2 点）").arg(groupName).arg(memberCount)
+							 : QStringLiteral("↳ Output: %1 (%2 pts)").arg(groupName).arg(memberCount));
 	item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 	return item;
 }
 
 QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruction::Base& ins, const bool chinese)
 {
-	auto typeLabel = [&](RobotInstruction::Type t) {
+	auto typeLabel = [&](RobotInstruction::Type t)
+	{
 		switch (t)
 		{
 		case RobotInstruction::Type::LINE:
@@ -299,10 +298,10 @@ QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruct
 	{
 		const RobotInstruction::PathPlanInstruction* pp = RobotInstruction::asPathPlan(ins);
 		const QString phase = pp && pp->phase() == RobotInstruction::PathPlanPhase::Applied
-			? (chinese ? QStringLiteral("已应用") : QStringLiteral("applied"))
-			: (pp && pp->phase() == RobotInstruction::PathPlanPhase::RawReady
-				? (chinese ? QStringLiteral("已离散") : QStringLiteral("raw_ready"))
-				: (chinese ? QStringLiteral("草稿") : QStringLiteral("draft")));
+								  ? (chinese ? QStringLiteral("已应用") : QStringLiteral("applied"))
+								  : (pp && pp->phase() == RobotInstruction::PathPlanPhase::RawReady
+										 ? (chinese ? QStringLiteral("已离散") : QStringLiteral("raw_ready"))
+										 : (chinese ? QStringLiteral("草稿") : QStringLiteral("draft")));
 		QString title = QString::fromStdString(ins.name());
 		if (title.isEmpty())
 		{
@@ -340,8 +339,7 @@ QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruct
 			summary = QStringLiteral("IO%1==%2").arg(c.ioPort).arg(c.ioEquals ? 1 : 0);
 			break;
 		case RobotInstruction::ConditionKind::Compare:
-			summary = QString::fromStdString(c.compareLeft + " " + c.compareOp + " "
-				+ std::to_string(c.compareRight));
+			summary = QString::fromStdString(c.compareLeft + " " + c.compareOp + " " + std::to_string(c.compareRight));
 			break;
 		default:
 			summary = chinese ? QStringLiteral("始终") : QStringLiteral("always");
@@ -380,8 +378,7 @@ QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruct
 	return QStringLiteral("[%1] %2").arg(typeLabel(ins.type()), summary);
 }
 
-QTreeWidgetItem* InstructionProgramTreeWidget::createInstructionItem(
-	const std::shared_ptr<RobotInstruction::Base>& ins)
+QTreeWidgetItem* InstructionProgramTreeWidget::createInstructionItem(const std::shared_ptr<RobotInstruction::Base>& ins)
 {
 	auto* item = new QTreeWidgetItem();
 	item->setFlags(item->flags() | Qt::ItemIsDragEnabled | Qt::ItemIsSelectable | Qt::ItemIsEnabled);
@@ -393,9 +390,8 @@ QTreeWidgetItem* InstructionProgramTreeWidget::createGroupItem(const RobotInstru
 {
 	auto* item = new QTreeWidgetItem();
 	setGroupPtr(item, group.id);
-	QString label = m_useChinese
-		? QStringLiteral("分组: %1").arg(QString::fromStdString(group.name))
-		: QStringLiteral("Group: %1").arg(QString::fromStdString(group.name));
+	QString label = m_useChinese ? QStringLiteral("分组: %1").arg(QString::fromStdString(group.name))
+								 : QStringLiteral("Group: %1").arg(QString::fromStdString(group.name));
 	if (m_groupVisibilityQuery && !m_groupVisibilityQuery(group.id))
 	{
 		label = (m_useChinese ? QStringLiteral("[隐藏] ") : QStringLiteral("[hidden] ")) + label;
@@ -406,9 +402,8 @@ QTreeWidgetItem* InstructionProgramTreeWidget::createGroupItem(const RobotInstru
 	return item;
 }
 
-void InstructionProgramTreeWidget::populateInstructionItem(
-	QTreeWidgetItem* item,
-	const std::shared_ptr<RobotInstruction::Base>& ins)
+void InstructionProgramTreeWidget::populateInstructionItem(QTreeWidgetItem* item,
+														   const std::shared_ptr<RobotInstruction::Base>& ins)
 {
 	if (!item || !ins)
 	{
@@ -456,10 +451,8 @@ void InstructionProgramTreeWidget::populateInstructionItem(
 	}
 }
 
-QTreeWidgetItem* InstructionProgramTreeWidget::appendBranchHeader(
-	QTreeWidgetItem* parent,
-	const NodeKind branch,
-	const bool chinese)
+QTreeWidgetItem* InstructionProgramTreeWidget::appendBranchHeader(QTreeWidgetItem* parent, const NodeKind branch,
+																  const bool chinese)
 {
 	auto* hdr = new QTreeWidgetItem(parent);
 	hdr->setText(0, branchLabel(branch, chinese));
@@ -526,9 +519,8 @@ void InstructionProgramTreeWidget::rebuildFromProgram()
 			{
 				for (const RobotInstruction::InstructionGroup& group : *m_groups)
 				{
-					if (group.role == RobotInstruction::InstructionGroupRole::PathPlanOutput
-						&& group.pathPlanInstructionId == ppIns->id()
-						&& !group.memberInstructionIds.empty())
+					if (group.role == RobotInstruction::InstructionGroupRole::PathPlanOutput &&
+						group.pathPlanInstructionId == ppIns->id() && !group.memberInstructionIds.empty())
 					{
 						ppItem->addChild(createPathPlanOutputRefItem(ppIns->id(), group, m_useChinese));
 						break;
@@ -600,8 +592,7 @@ void InstructionProgramTreeWidget::rebuildFromProgram()
 }
 
 void InstructionProgramTreeWidget::readStepsFromChildren(
-	QTreeWidgetItem* container,
-	std::vector<std::shared_ptr<RobotInstruction::Base>>& out,
+	QTreeWidgetItem* container, std::vector<std::shared_ptr<RobotInstruction::Base>>& out,
 	const std::unordered_map<RobotInstruction::Base*, std::shared_ptr<RobotInstruction::Base>>& ptrMap) const
 {
 	if (!container)
@@ -878,7 +869,8 @@ void InstructionProgramTreeWidget::selectInstructionByRaw(RobotInstruction::Base
 	{
 		return;
 	}
-	const auto walk = [&](auto&& self, QTreeWidgetItem* node) -> QTreeWidgetItem* {
+	const auto walk = [&](auto&& self, QTreeWidgetItem* node) -> QTreeWidgetItem*
+	{
 		if (!node)
 		{
 			return nullptr;
@@ -906,9 +898,8 @@ void InstructionProgramTreeWidget::selectInstructionByRaw(RobotInstruction::Base
 	}
 }
 
-void InstructionProgramTreeWidget::insertInstruction(
-	const std::shared_ptr<RobotInstruction::Base>& ins,
-	const bool emitSelection)
+void InstructionProgramTreeWidget::insertInstruction(const std::shared_ptr<RobotInstruction::Base>& ins,
+													 const bool emitSelection)
 {
 	if (!ins || !m_program)
 	{
@@ -919,9 +910,7 @@ void InstructionProgramTreeWidget::insertInstruction(
 	if (ins->type() == RobotInstruction::Type::PathPlan)
 	{
 		const size_t idx = countRootPathPlansInProgram();
-		m_program->insert(
-			m_program->begin() + static_cast<std::ptrdiff_t>(idx),
-			ins);
+		m_program->insert(m_program->begin() + static_cast<std::ptrdiff_t>(idx), ins);
 		rebuildFromProgram();
 		m_syncing = true;
 		selectInstructionByRaw(ins.get());
@@ -1063,7 +1052,8 @@ void InstructionProgramTreeWidget::removeSelected()
 	syncToProgram();
 
 	std::function<bool(std::vector<std::shared_ptr<RobotInstruction::Base>>&)> removeRecursive;
-	removeRecursive = [&](std::vector<std::shared_ptr<RobotInstruction::Base>>& steps) -> bool {
+	removeRecursive = [&](std::vector<std::shared_ptr<RobotInstruction::Base>>& steps) -> bool
+	{
 		for (auto it = steps.begin(); it != steps.end(); ++it)
 		{
 			if (!*it)
@@ -1174,10 +1164,8 @@ void InstructionProgramTreeWidget::dragEnterEvent(QDragEnterEvent* event)
 	}
 }
 
-bool InstructionProgramTreeWidget::canAcceptDrop(
-	QTreeWidgetItem* dragged,
-	QTreeWidgetItem* target,
-	const DropIndicatorPosition pos) const
+bool InstructionProgramTreeWidget::canAcceptDrop(QTreeWidgetItem* dragged, QTreeWidgetItem* target,
+												 const DropIndicatorPosition pos) const
 {
 	if (!dragged || nodeKind(dragged) != NodeKind::Instruction)
 	{
@@ -1207,8 +1195,8 @@ bool InstructionProgramTreeWidget::canAcceptDrop(
 		if (isPathPlanInstructionItem(target))
 		{
 			const QTreeWidgetItem* targetParent = target->parent();
-			return targetParent && nodeKind(targetParent) == NodeKind::PlanningSection
-				&& (pos == BelowItem || pos == AboveItem);
+			return targetParent && nodeKind(targetParent) == NodeKind::PlanningSection &&
+				   (pos == BelowItem || pos == AboveItem);
 		}
 		return false;
 	}
@@ -1276,10 +1264,8 @@ bool InstructionProgramTreeWidget::canAcceptDrop(
 	return false;
 }
 
-void InstructionProgramTreeWidget::applyDrop(
-	QTreeWidgetItem* dragged,
-	QTreeWidgetItem* target,
-	const DropIndicatorPosition pos)
+void InstructionProgramTreeWidget::applyDrop(QTreeWidgetItem* dragged, QTreeWidgetItem* target,
+											 const DropIndicatorPosition pos)
 {
 	QTreeWidgetItem* item = takeTreeItem(dragged);
 	if (!item)
@@ -1287,7 +1273,8 @@ void InstructionProgramTreeWidget::applyDrop(
 		return;
 	}
 
-	auto insertInto = [&](QTreeWidgetItem* parent, int index) {
+	auto insertInto = [&](QTreeWidgetItem* parent, int index)
+	{
 		if (!parent)
 		{
 			insertTopLevelItem(index, item);
@@ -1300,8 +1287,7 @@ void InstructionProgramTreeWidget::applyDrop(
 	};
 
 	const RobotInstruction::Base* dragRawApply = instructionRaw(item);
-	const bool dragPathPlanApply =
-		dragRawApply && dragRawApply->type() == RobotInstruction::Type::PathPlan;
+	const bool dragPathPlanApply = dragRawApply && dragRawApply->type() == RobotInstruction::Type::PathPlan;
 
 	if (!target || pos == OnViewport)
 	{
@@ -1450,15 +1436,11 @@ void InstructionProgramTreeWidget::showContextMenu(const QPoint& globalPos)
 		const QString showText = m_useChinese ? QStringLiteral("显示分组") : QStringLiteral("Show group");
 		if (visible)
 		{
-			menu.addAction(hideText, this, [this, groupId]() {
-				emit groupVisibilityChangeRequested(groupId, false);
-			});
+			menu.addAction(hideText, this, [this, groupId]() { emit groupVisibilityChangeRequested(groupId, false); });
 		}
 		else
 		{
-			menu.addAction(showText, this, [this, groupId]() {
-				emit groupVisibilityChangeRequested(groupId, true);
-			});
+			menu.addAction(showText, this, [this, groupId]() { emit groupVisibilityChangeRequested(groupId, true); });
 		}
 	}
 
@@ -1466,19 +1448,21 @@ void InstructionProgramTreeWidget::showContextMenu(const QPoint& globalPos)
 	{
 		const QString renameText = m_useChinese ? QStringLiteral("重命名分组…") : QStringLiteral("Rename group…");
 		const QString dissolveText = m_useChinese ? QStringLiteral("解散分组") : QStringLiteral("Dissolve group");
-		menu.addAction(renameText, this, [this, groupId]() {
-			bool ok = false;
-			const QString title = m_useChinese ? QStringLiteral("重命名分组") : QStringLiteral("Rename group");
-			const QString label = m_useChinese ? QStringLiteral("名称") : QStringLiteral("Name");
-			const QString newName = QInputDialog::getText(this, title, label, QLineEdit::Normal, QString(), &ok);
-			if (ok && !newName.isEmpty())
-			{
-				emit renameGroupRequested(groupId, newName);
-			}
-		});
-		menu.addAction(dissolveText, this, [this, groupId]() {
-			emit dissolveGroupRequested(groupId);
-		});
+		menu.addAction(renameText, this,
+					   [this, groupId]()
+					   {
+						   bool ok = false;
+						   const QString title =
+							   m_useChinese ? QStringLiteral("重命名分组") : QStringLiteral("Rename group");
+						   const QString label = m_useChinese ? QStringLiteral("名称") : QStringLiteral("Name");
+						   const QString newName =
+							   QInputDialog::getText(this, title, label, QLineEdit::Normal, QString(), &ok);
+						   if (ok && !newName.isEmpty())
+						   {
+							   emit renameGroupRequested(groupId, newName);
+						   }
+					   });
+		menu.addAction(dissolveText, this, [this, groupId]() { emit dissolveGroupRequested(groupId); });
 	}
 	else
 	{
@@ -1486,27 +1470,30 @@ void InstructionProgramTreeWidget::showContextMenu(const QPoint& globalPos)
 		if (selected.size() >= 2)
 		{
 			const QString createText = m_useChinese ? QStringLiteral("创建分组…") : QStringLiteral("Create group…");
-			menu.addAction(createText, this, [this, selected]() {
-				bool ok = false;
-				const QString title = m_useChinese ? QStringLiteral("创建分组") : QStringLiteral("Create group");
-				const QString label = m_useChinese ? QStringLiteral("名称") : QStringLiteral("Name");
-				const QString defaultName = m_useChinese ? QStringLiteral("分组") : QStringLiteral("Group");
-				const QString name = QInputDialog::getText(this, title, label, QLineEdit::Normal, defaultName, &ok);
-				if (!ok || name.isEmpty())
+			menu.addAction(
+				createText, this,
+				[this, selected]()
 				{
-					return;
-				}
-				std::vector<std::string> memberIds;
-				memberIds.reserve(selected.size());
-				for (const std::shared_ptr<RobotInstruction::Base>& ins : selected)
-				{
-					if (ins)
+					bool ok = false;
+					const QString title = m_useChinese ? QStringLiteral("创建分组") : QStringLiteral("Create group");
+					const QString label = m_useChinese ? QStringLiteral("名称") : QStringLiteral("Name");
+					const QString defaultName = m_useChinese ? QStringLiteral("分组") : QStringLiteral("Group");
+					const QString name = QInputDialog::getText(this, title, label, QLineEdit::Normal, defaultName, &ok);
+					if (!ok || name.isEmpty())
 					{
-						memberIds.push_back(ins->id());
+						return;
 					}
-				}
-				emit createGroupRequested(name, memberIds);
-			});
+					std::vector<std::string> memberIds;
+					memberIds.reserve(selected.size());
+					for (const std::shared_ptr<RobotInstruction::Base>& ins : selected)
+					{
+						if (ins)
+						{
+							memberIds.push_back(ins->id());
+						}
+					}
+					emit createGroupRequested(name, memberIds);
+				});
 		}
 	}
 

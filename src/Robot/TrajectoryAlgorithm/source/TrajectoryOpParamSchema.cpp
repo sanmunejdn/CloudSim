@@ -1,19 +1,14 @@
+﻿/// @file TrajectoryOpParamSchema.cpp
+/// @brief TrajectoryOpParamSchema 实现
+
 #include "TrajectoryOpParamSchema.h"
 
 namespace trajectory_algo
 {
-
-TrajectoryOpParamField doubleParamField(
-	const std::string& key,
-	const std::string& labelEn,
-	const std::string& labelZh,
-	const std::string& unit,
-	const double minValue,
-	const double maxValue,
-	const double step,
-	const double defaultValue,
-	const int order,
-	const std::string& group)
+TrajectoryOpParamField doubleParamField(const std::string& key, const std::string& labelEn, const std::string& labelZh,
+										const std::string& unit, const double minValue, const double maxValue,
+										const double step, const double defaultValue, const int order,
+										const std::string& group)
 {
 	TrajectoryOpParamField field{};
 	field.key = key;
@@ -30,15 +25,9 @@ TrajectoryOpParamField doubleParamField(
 	return field;
 }
 
-TrajectoryOpParamField intParamField(
-	const std::string& key,
-	const std::string& labelEn,
-	const std::string& labelZh,
-	const int minValue,
-	const int maxValue,
-	const int defaultValue,
-	const int order,
-	const std::string& group)
+TrajectoryOpParamField intParamField(const std::string& key, const std::string& labelEn, const std::string& labelZh,
+									 const int minValue, const int maxValue, const int defaultValue, const int order,
+									 const std::string& group)
 {
 	TrajectoryOpParamField field{};
 	field.key = key;
@@ -53,16 +42,10 @@ TrajectoryOpParamField intParamField(
 	return field;
 }
 
-TrajectoryOpParamField enumParamField(
-	const std::string& key,
-	const std::string& labelEn,
-	const std::string& labelZh,
-	const std::vector<std::string>& values,
-	const std::vector<std::string>& labelsZh,
-	const std::vector<std::string>& labelsEn,
-	const int defaultIndex,
-	const int order,
-	const std::string& group)
+TrajectoryOpParamField enumParamField(const std::string& key, const std::string& labelEn, const std::string& labelZh,
+									  const std::vector<std::string>& values, const std::vector<std::string>& labelsZh,
+									  const std::vector<std::string>& labelsEn, const int defaultIndex, const int order,
+									  const std::string& group)
 {
 	TrajectoryOpParamField field{};
 	field.key = key;
@@ -78,11 +61,8 @@ TrajectoryOpParamField enumParamField(
 	return field;
 }
 
-TrajectoryOpParamField messageParamField(
-	const std::string& key,
-	const std::string& messageEn,
-	const std::string& messageZh,
-	const int order)
+TrajectoryOpParamField messageParamField(const std::string& key, const std::string& messageEn,
+										 const std::string& messageZh, const int order)
 {
 	TrajectoryOpParamField field{};
 	field.key = key;
@@ -112,16 +92,7 @@ TrajectoryOpParamField scopePointToField()
 
 TrajectoryOpParamField scopeGroupIdField()
 {
-	TrajectoryOpParamField field = enumParamField(
-		"scope.groupId",
-		"Group",
-		"分组",
-		{},
-		{},
-		{},
-		0,
-		1,
-		"scope");
+	TrajectoryOpParamField field = enumParamField("scope.groupId", "Group", "分组", {}, {}, {}, 0, 1, "scope");
 	field.visibleWhenScopeKind = "Group";
 	return field;
 }
@@ -130,16 +101,8 @@ TrajectoryOpParamField scopeGroupIdField()
 std::vector<TrajectoryOpParamField> trajectoryOpCommonScopeFields()
 {
 	return {
-		enumParamField(
-			"scope.kind",
-			"Scope",
-			"作用域",
-			{ "0", "1", "2" },
-			{ "全程序", "分组", "P 范围" },
-			{ "Entire program", "Group", "Point range" },
-			1,
-			0,
-			"scope"),
+		enumParamField("scope.kind", "Scope", "作用域", {"0", "1", "2"}, {"全程序", "分组", "P 范围"},
+					   {"Entire program", "Group", "Point range"}, 1, 0, "scope"),
 		scopeGroupIdField(),
 		scopePointFromField(),
 		scopePointToField(),

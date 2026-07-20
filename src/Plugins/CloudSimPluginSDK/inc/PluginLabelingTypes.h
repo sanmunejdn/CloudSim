@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINSDK_PLUGINLABELINGTYPES_H
+#define CLOUDSIMPLUGINSDK_PLUGINLABELINGTYPES_H
+
+/// @file PluginLabelingTypes.h
+/// @brief PluginLabelingTypes 接口
 
 #include "cloudsim_plugin_sdk_global.h"
 
@@ -30,7 +34,7 @@ struct PluginLabelingClassDef
 {
 	int classId = 0;
 	std::string nameUtf8;
-	float colorRgb[3] = { 0.5f, 0.5f, 0.5f };
+	float colorRgb[3] = {0.5f, 0.5f, 0.5f};
 };
 
 struct PluginLabelingSessionConfig
@@ -74,16 +78,14 @@ struct PluginLabelingDatasetExportResult
 using PluginLabelingSessionId = std::uint64_t;
 constexpr PluginLabelingSessionId kInvalidLabelingSessionId = 0U;
 
-using PluginLabelingPickFinishedFn = std::function<void(
-	bool ok,
-	const QString& error,
-	const PluginLabelingSelectionResult& result)>;
+using PluginLabelingPickFinishedFn =
+	std::function<void(bool ok, const QString& error, const PluginLabelingSelectionResult& result)>;
 
 using PluginLabelingBrushStrokeFn = std::function<void(const PluginLabelingSelectionResult& stroke)>;
 
-using PluginLabelingBrushFinishedFn = std::function<void(
-	bool ok,
-	const QString& error,
-	const PluginLabelingSelectionResult& total)>;
+using PluginLabelingBrushFinishedFn =
+	std::function<void(bool ok, const QString& error, const PluginLabelingSelectionResult& total)>;
 
 using PluginLabelingPickCancelledFn = std::function<void()>;
+
+#endif // CLOUDSIMPLUGINSDK_PLUGINLABELINGTYPES_H

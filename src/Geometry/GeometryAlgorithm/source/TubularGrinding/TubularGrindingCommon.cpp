@@ -1,3 +1,6 @@
+﻿/// @file TubularGrindingCommon.cpp
+/// @brief TubularGrindingCommon 实现
+
 #include "TubularGrindingCommon.h"
 
 #include <algorithm>
@@ -13,12 +16,10 @@ namespace geoalgo
 {
 namespace tg
 {
-
 double axisAngleDeg(const Vec3& a, const Vec3& b);
 
 namespace
 {
-
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kSoupVertexQuantizeScale = 1000.0;
 
@@ -28,10 +29,7 @@ struct QuantizedVertexKey
 	int64_t y = 0;
 	int64_t z = 0;
 
-	bool operator==(const QuantizedVertexKey& other) const
-	{
-		return x == other.x && y == other.y && z == other.z;
-	}
+	bool operator==(const QuantizedVertexKey& other) const { return x == other.x && y == other.y && z == other.z; }
 };
 
 struct QuantizedVertexKeyHash
@@ -60,10 +58,7 @@ struct WeldedEdgeKey
 
 struct WeldedEdgeKeyHash
 {
-	std::size_t operator()(const WeldedEdgeKey& key) const
-	{
-		return static_cast<std::size_t>(key.a ^ (key.b << 16));
-	}
+	std::size_t operator()(const WeldedEdgeKey& key) const { return static_cast<std::size_t>(key.a ^ (key.b << 16)); }
 };
 
 WeldedEdgeKey makeWeldedEdgeKey(const int v0, const int v1)
@@ -94,10 +89,7 @@ double dot(const Vec3& a, const Vec3& b)
 
 Vec3 cross(const Vec3& a, const Vec3& b)
 {
-	return {
-		a.y * b.z - a.z * b.y,
-		a.z * b.x - a.x * b.z,
-		a.x * b.y - a.y * b.x};
+	return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
 
 Vec3 add(const Vec3& a, const Vec3& b)
@@ -191,8 +183,10 @@ bool buildIndexedMeshLite(const std::vector<float>& soup, IndexedMeshLite& out, 
 	out.faceVerts.resize(static_cast<std::size_t>(out.faceCount));
 	out.faceNeighbors.assign(static_cast<std::size_t>(out.faceCount), {});
 
-	out.bboxMin = {std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max()};
-	out.bboxMax = {-std::numeric_limits<double>::max(), -std::numeric_limits<double>::max(), -std::numeric_limits<double>::max()};
+	out.bboxMin = {std::numeric_limits<double>::max(), std::numeric_limits<double>::max(),
+				   std::numeric_limits<double>::max()};
+	out.bboxMax = {-std::numeric_limits<double>::max(), -std::numeric_limits<double>::max(),
+				   -std::numeric_limits<double>::max()};
 
 	std::unordered_map<QuantizedVertexKey, int, QuantizedVertexKeyHash> weldedVertexMap;
 	std::unordered_map<WeldedEdgeKey, std::vector<int>, WeldedEdgeKeyHash> edgeToFaces;
@@ -238,9 +232,7 @@ bool buildIndexedMeshLite(const std::vector<float>& soup, IndexedMeshLite& out, 
 		}
 		out.faceVerts[static_cast<std::size_t>(f)] = {weldedVerts[0], weldedVerts[1], weldedVerts[2]};
 		const int edges[3][2] = {
-			{weldedVerts[0], weldedVerts[1]},
-			{weldedVerts[1], weldedVerts[2]},
-			{weldedVerts[2], weldedVerts[0]}};
+			{weldedVerts[0], weldedVerts[1]}, {weldedVerts[1], weldedVerts[2]}, {weldedVerts[2], weldedVerts[0]}};
 		for (const auto& e : edges)
 		{
 			edgeToFaces[makeWeldedEdgeKey(e[0], e[1])].push_back(f);
@@ -376,10 +368,7 @@ bool solveSymmetric3x3(const double a[3][3], const double b[3], double x[3])
 	return true;
 }
 
-bool rayBundleCenterPoint(
-	const std::vector<Vec3>& origins,
-	const std::vector<Vec3>& inwardDirs,
-	Vec3& outCenter)
+bool rayBundleCenterPoint(const std::vector<Vec3>& origins, const std::vector<Vec3>& inwardDirs, Vec3& outCenter)
 {
 	if (origins.size() < 2U || origins.size() != inwardDirs.size())
 	{
@@ -421,7 +410,6 @@ bool rayBundleCenterPoint(
 
 namespace
 {
-
 double distancePointToRay(const Vec3& p, const Vec3& o, const Vec3& d)
 {
 	const Vec3 w = sub(p, o);
@@ -430,10 +418,7 @@ double distancePointToRay(const Vec3& p, const Vec3& o, const Vec3& d)
 	return length(sub(p, closest));
 }
 
-double meanDistanceToRays(
-	const Vec3& center,
-	const std::vector<Vec3>& origins,
-	const std::vector<Vec3>& inwardDirs)
+double meanDistanceToRays(const Vec3& center, const std::vector<Vec3>& origins, const std::vector<Vec3>& inwardDirs)
 {
 	if (origins.empty())
 	{
@@ -447,12 +432,7 @@ double meanDistanceToRays(
 	return sum / static_cast<double>(origins.size());
 }
 
-bool closestApproachMidpoint(
-	const Vec3& o1,
-	const Vec3& d1,
-	const Vec3& o2,
-	const Vec3& d2,
-	Vec3& outMid)
+bool closestApproachMidpoint(const Vec3& o1, const Vec3& d1, const Vec3& o2, const Vec3& d2, Vec3& outMid)
 {
 	const Vec3 w = sub(o1, o2);
 	const double a = dot(d1, d1);
@@ -473,9 +453,7 @@ bool closestApproachMidpoint(
 	return true;
 }
 
-Vec3 pairwiseRayMidpointCenter(
-	const std::vector<Vec3>& origins,
-	const std::vector<Vec3>& inwardDirs)
+Vec3 pairwiseRayMidpointCenter(const std::vector<Vec3>& origins, const std::vector<Vec3>& inwardDirs)
 {
 	Vec3 sum{0.0, 0.0, 0.0};
 	int count = 0;
@@ -515,20 +493,15 @@ double estimateLocalRaySpan(const std::vector<Vec3>& origins)
 
 } // namespace
 
-bool approximateRayBundleCenter(
-	const std::vector<Vec3>& origins,
-	const std::vector<Vec3>& inwardDirs,
-	const double maxMeanDistanceMm,
-	Vec3& outCenter)
+bool approximateRayBundleCenter(const std::vector<Vec3>& origins, const std::vector<Vec3>& inwardDirs,
+								const double maxMeanDistanceMm, Vec3& outCenter)
 {
 	if (origins.size() < 2U || origins.size() != inwardDirs.size())
 	{
 		return false;
 	}
 	const double localSpan = std::max(1.0, estimateLocalRaySpan(origins));
-	const double tol = maxMeanDistanceMm > 0.0
-		? maxMeanDistanceMm
-		: std::max(3.0, localSpan * 0.55);
+	const double tol = maxMeanDistanceMm > 0.0 ? maxMeanDistanceMm : std::max(3.0, localSpan * 0.55);
 
 	Vec3 candidate;
 	if (rayBundleCenterPoint(origins, inwardDirs, candidate))
@@ -593,10 +566,8 @@ bool smallestEigenvector3(const double cov[3][3], Vec3& outEigenvector)
 	Vec3 v{1.0, 0.0, 0.0};
 	for (int iter = 0; iter < 32; ++iter)
 	{
-		Vec3 w{
-			cov[0][0] * v.x + cov[0][1] * v.y + cov[0][2] * v.z,
-			cov[1][0] * v.x + cov[1][1] * v.y + cov[1][2] * v.z,
-			cov[2][0] * v.x + cov[2][1] * v.y + cov[2][2] * v.z};
+		Vec3 w{cov[0][0] * v.x + cov[0][1] * v.y + cov[0][2] * v.z, cov[1][0] * v.x + cov[1][1] * v.y + cov[1][2] * v.z,
+			   cov[2][0] * v.x + cov[2][1] * v.y + cov[2][2] * v.z};
 		const double lenW = length(w);
 		if (lenW < 1e-12)
 		{
@@ -609,10 +580,9 @@ bool smallestEigenvector3(const double cov[3][3], Vec3& outEigenvector)
 	Vec3 u{0.0, 1.0, 0.0};
 	for (int iter = 0; iter < 48; ++iter)
 	{
-		Vec3 w{
-			(trace - cov[0][0]) * u.x - cov[0][1] * u.y - cov[0][2] * u.z,
-			-cov[1][0] * u.x + (trace - cov[1][1]) * u.y - cov[1][2] * u.z,
-			-cov[2][0] * u.x - cov[2][1] * u.y + (trace - cov[2][2]) * u.z};
+		Vec3 w{(trace - cov[0][0]) * u.x - cov[0][1] * u.y - cov[0][2] * u.z,
+			   -cov[1][0] * u.x + (trace - cov[1][1]) * u.y - cov[1][2] * u.z,
+			   -cov[2][0] * u.x - cov[2][1] * u.y + (trace - cov[2][2]) * u.z};
 		const double lenW = length(w);
 		if (lenW < 1e-12)
 		{
@@ -661,8 +631,7 @@ Vec3 computeLocalAxisFromFaceNormals(const IndexedMeshLite& mesh, const int face
 	return normalizeVec3(axis);
 }
 
-Vec3 computeLocalAxisFromNormalCrossProducts(
-	const IndexedMeshLite& mesh, const int faceIndex, const int neighborHop)
+Vec3 computeLocalAxisFromNormalCrossProducts(const IndexedMeshLite& mesh, const int faceIndex, const int neighborHop)
 {
 	// 收集 neighborHop 跳邻居面
 	std::vector<int> stack;
@@ -711,9 +680,8 @@ Vec3 computeLocalAxisFromNormalCrossProducts(
 	return normalizeVec3(axisSum);
 }
 
-bool computeFaceCenterFromNormals(
-	const IndexedMeshLite& mesh, const int faceIndex,
-	const double convergenceEpsMm, Vec3& outCenter, double& outRadius)
+bool computeFaceCenterFromNormals(const IndexedMeshLite& mesh, const int faceIndex, const double convergenceEpsMm,
+								  Vec3& outCenter, double& outRadius)
 {
 	// 计算局部轴线
 	const Vec3 localAxis = computeLocalAxisFromNormalCrossProducts(mesh, faceIndex, 2);
@@ -753,10 +721,9 @@ bool computeFaceCenterFromNormals(
 	outRadius = radiusSum / static_cast<double>(neighbors.size());
 
 	// 半径过小或过大时返回 false
-	const double diag = std::sqrt(
-		std::pow(mesh.bboxMax[0] - mesh.bboxMin[0], 2) +
-		std::pow(mesh.bboxMax[1] - mesh.bboxMin[1], 2) +
-		std::pow(mesh.bboxMax[2] - mesh.bboxMin[2], 2));
+	const double diag =
+		std::sqrt(std::pow(mesh.bboxMax[0] - mesh.bboxMin[0], 2) + std::pow(mesh.bboxMax[1] - mesh.bboxMin[1], 2) +
+				  std::pow(mesh.bboxMax[2] - mesh.bboxMin[2], 2));
 	if (outRadius < 1e-3 || outRadius > diag * 0.55)
 	{
 		return false;
@@ -791,10 +758,8 @@ Vec3 computeMainAxisFromFaceAxes(const std::vector<Vec3>& faceAxes)
 	Vec3 v{1.0, 0.0, 0.0};
 	for (int iter = 0; iter < 64; ++iter)
 	{
-		Vec3 w{
-			cov[0][0] * v.x + cov[0][1] * v.y + cov[0][2] * v.z,
-			cov[1][0] * v.x + cov[1][1] * v.y + cov[1][2] * v.z,
-			cov[2][0] * v.x + cov[2][1] * v.y + cov[2][2] * v.z};
+		Vec3 w{cov[0][0] * v.x + cov[0][1] * v.y + cov[0][2] * v.z, cov[1][0] * v.x + cov[1][1] * v.y + cov[1][2] * v.z,
+			   cov[2][0] * v.x + cov[2][1] * v.y + cov[2][2] * v.z};
 		const double lenW = length(w);
 		if (lenW < 1e-12)
 		{
@@ -805,18 +770,15 @@ Vec3 computeMainAxisFromFaceAxes(const std::vector<Vec3>& faceAxes)
 	return normalizeVec3(v);
 }
 
-int runDbscan(
-	const std::vector<Vec3>& featurePoints,
-	const double eps,
-	const int minPts,
-	std::vector<int>& outLabels)
+int runDbscan(const std::vector<Vec3>& featurePoints, const double eps, const int minPts, std::vector<int>& outLabels)
 {
 	const int n = static_cast<int>(featurePoints.size());
 	outLabels.assign(static_cast<std::size_t>(n), -1);
 	int clusterId = 0;
 	const double eps2 = eps * eps;
 
-	auto regionQuery = [&](const int idx) {
+	auto regionQuery = [&](const int idx)
+	{
 		std::vector<int> neighbors;
 		const Vec3& p = featurePoints[static_cast<std::size_t>(idx)];
 		for (int j = 0; j < n; ++j)
@@ -888,11 +850,7 @@ double axisAngleDeg(const Vec3& a, const Vec3& b)
 	return std::acos(c) * 180.0 / kPi;
 }
 
-bool fitCircle2d(
-	const std::vector<std::array<double, 2>>& pts,
-	double& outCx,
-	double& outCy,
-	double& outRadius)
+bool fitCircle2d(const std::vector<std::array<double, 2>>& pts, double& outCx, double& outCy, double& outRadius)
 {
 	if (pts.size() < 3U)
 	{
@@ -947,9 +905,8 @@ bool fitCircle2d(
 	return outRadius > 1e-6;
 }
 
-void buildFrenetFrames(
-	const std::vector<TubularCenterlineSample>& samples,
-	std::vector<TubularCenterlineSample>& outSamples)
+void buildFrenetFrames(const std::vector<TubularCenterlineSample>& samples,
+					   std::vector<TubularCenterlineSample>& outSamples)
 {
 	outSamples = samples;
 	if (outSamples.empty())
@@ -959,10 +916,7 @@ void buildFrenetFrames(
 	Vec3 prevBin{0.0, 0.0, 1.0};
 	for (std::size_t i = 0; i < outSamples.size(); ++i)
 	{
-		Vec3 t{
-			outSamples[i].tangent[0],
-			outSamples[i].tangent[1],
-			outSamples[i].tangent[2]};
+		Vec3 t{outSamples[i].tangent[0], outSamples[i].tangent[1], outSamples[i].tangent[2]};
 		t = normalizeVec3(t);
 		Vec3 ref = std::fabs(dot(t, prevBin)) > 0.95 ? Vec3{1.0, 0.0, 0.0} : prevBin;
 		Vec3 n = normalizeVec3(cross(ref, t));
@@ -984,9 +938,8 @@ void buildFrenetFrames(
 	}
 }
 
-TubularGrindingTemplateKind selectTemplateKind(
-	const TubularPipeSegment& segment,
-	const std::vector<TubularCenterlineSample>& samples)
+TubularGrindingTemplateKind selectTemplateKind(const TubularPipeSegment& segment,
+											   const std::vector<TubularCenterlineSample>& samples)
 {
 	if (samples.size() < 4U)
 	{
@@ -999,14 +952,8 @@ TubularGrindingTemplateKind selectTemplateKind(
 	{
 		minR = std::min(minR, samples[i].radiusMm);
 		maxR = std::max(maxR, samples[i].radiusMm);
-		const Vec3 a{
-			samples[i - 1].positionMm[0],
-			samples[i - 1].positionMm[1],
-			samples[i - 1].positionMm[2]};
-		const Vec3 b{
-			samples[i].positionMm[0],
-			samples[i].positionMm[1],
-			samples[i].positionMm[2]};
+		const Vec3 a{samples[i - 1].positionMm[0], samples[i - 1].positionMm[1], samples[i - 1].positionMm[2]};
+		const Vec3 b{samples[i].positionMm[0], samples[i].positionMm[1], samples[i].positionMm[2]};
 		arcLen += length(sub(b, a));
 	}
 	const double avgR = 0.5 * (minR + maxR);
@@ -1030,11 +977,9 @@ TubularGrindingTemplateKind selectTemplateKind(
 
 // === 广义管状分析新增实现 ===
 
-std::vector<int> collectAdaptiveNeighborhood(
-	const IndexedMeshLite& mesh,
-	const int faceIndex,
-	const double targetGeodesicRadiusMm,
-	std::vector<double>& outGeodesicDistances)
+std::vector<int> collectAdaptiveNeighborhood(const IndexedMeshLite& mesh, const int faceIndex,
+											 const double targetGeodesicRadiusMm,
+											 std::vector<double>& outGeodesicDistances)
 {
 	outGeodesicDistances.clear();
 	const int n = mesh.faceCount;
@@ -1052,14 +997,15 @@ std::vector<int> collectAdaptiveNeighborhood(
 		for (const int nb : mesh.faceNeighbors[static_cast<std::size_t>(faceIndex)])
 		{
 			const double d = length(sub(mesh.faceCentroids[static_cast<std::size_t>(nb)],
-				mesh.faceCentroids[static_cast<std::size_t>(faceIndex)]));
+										mesh.faceCentroids[static_cast<std::size_t>(faceIndex)]));
 			sumLen += d;
 			++count;
 			for (const int nb2 : mesh.faceNeighbors[static_cast<std::size_t>(nb)])
 			{
-				if (nb2 == faceIndex) continue;
+				if (nb2 == faceIndex)
+					continue;
 				const double d2 = length(sub(mesh.faceCentroids[static_cast<std::size_t>(nb2)],
-					mesh.faceCentroids[static_cast<std::size_t>(nb)]));
+											 mesh.faceCentroids[static_cast<std::size_t>(nb)]));
 				sumLen += d2;
 				++count;
 			}
@@ -1092,12 +1038,11 @@ std::vector<int> collectAdaptiveNeighborhood(
 		// 高曲率区域收缩：相邻面法向量夹角 > 15° 时缩小搜索
 		if (f != faceIndex)
 		{
-			const double angleDeg = axisAngleDeg(
-				mesh.faceNormals[static_cast<std::size_t>(f)],
-				mesh.faceNormals[static_cast<std::size_t>(faceIndex)]);
+			const double angleDeg = axisAngleDeg(mesh.faceNormals[static_cast<std::size_t>(f)],
+												 mesh.faceNormals[static_cast<std::size_t>(faceIndex)]);
 			if (angleDeg > 60.0)
 			{
-				continue;  // 跳过高曲率区域
+				continue; // 跳过高曲率区域
 			}
 		}
 
@@ -1106,9 +1051,8 @@ std::vector<int> collectAdaptiveNeighborhood(
 
 		for (const int nb : mesh.faceNeighbors[static_cast<std::size_t>(f)])
 		{
-			const double edgeLen = length(sub(
-				mesh.faceCentroids[static_cast<std::size_t>(nb)],
-				mesh.faceCentroids[static_cast<std::size_t>(f)]));
+			const double edgeLen = length(
+				sub(mesh.faceCentroids[static_cast<std::size_t>(nb)], mesh.faceCentroids[static_cast<std::size_t>(f)]));
 			const double newDist = d + edgeLen;
 			if (newDist < dist[static_cast<std::size_t>(nb)] && newDist <= radius)
 			{
@@ -1122,11 +1066,8 @@ std::vector<int> collectAdaptiveNeighborhood(
 	return result;
 }
 
-Vec3 computeLocalAxisFromWeightedPCA(
-	const IndexedMeshLite& mesh,
-	const int faceIndex,
-	const std::vector<int>& neighborhood,
-	const std::vector<double>& geodesicDistances)
+Vec3 computeLocalAxisFromWeightedPCA(const IndexedMeshLite& mesh, const int faceIndex,
+									 const std::vector<int>& neighborhood, const std::vector<double>& geodesicDistances)
 {
 	if (neighborhood.size() < 3)
 	{
@@ -1187,13 +1128,8 @@ Vec3 computeLocalAxisFromWeightedPCA(
 	return normalizeVec3(axis);
 }
 
-bool fitEllipse2D(
-	const std::vector<std::array<double, 2>>& pts,
-	double& outSemiMajor,
-	double& outSemiMinor,
-	double& outCx,
-	double& outCy,
-	double& outRotationRad)
+bool fitEllipse2D(const std::vector<std::array<double, 2>>& pts, double& outSemiMajor, double& outSemiMinor,
+				  double& outCx, double& outCy, double& outRotationRad)
 {
 	const std::size_t n = pts.size();
 	if (n < 5)
@@ -1287,8 +1223,7 @@ bool fitEllipse2D(
 	return outSemiMajor > 1e-6;
 }
 
-Vec3 computeConvexHullCentroid2D(
-	const std::vector<std::array<double, 2>>& pts)
+Vec3 computeConvexHullCentroid2D(const std::vector<std::array<double, 2>>& pts)
 {
 	if (pts.empty())
 	{
@@ -1304,15 +1239,9 @@ Vec3 computeConvexHullCentroid2D(
 	return {cx * inv, cy * inv, 0.0};
 }
 
-bool analyzeCrossSection(
-	const IndexedMeshLite& mesh,
-	const std::vector<int>& neighborhood,
-	const Vec3& localAxis,
-	const SectionFitMode fitMode,
-	double& outSemiMajor,
-	double& outSemiMinor,
-	double& outRotationDeg,
-	Vec3& outCenter)
+bool analyzeCrossSection(const IndexedMeshLite& mesh, const std::vector<int>& neighborhood, const Vec3& localAxis,
+						 const SectionFitMode fitMode, double& outSemiMajor, double& outSemiMinor,
+						 double& outRotationDeg, Vec3& outCenter)
 {
 	if (neighborhood.size() < 3)
 	{
@@ -1375,19 +1304,13 @@ bool analyzeCrossSection(
 	return true;
 }
 
-int runDbscanEnhanced(
-	const std::vector<Vec3>& spatialPoints,
-	const std::vector<double>& semiMajorValues,
-	const std::vector<double>& semiMinorValues,
-	const double eps,
-	const int minPts,
-	const double featureScale,
-	std::vector<int>& outLabels)
+int runDbscanEnhanced(const std::vector<Vec3>& spatialPoints, const std::vector<double>& semiMajorValues,
+					  const std::vector<double>& semiMinorValues, const double eps, const int minPts,
+					  const double featureScale, std::vector<int>& outLabels)
 {
 	const int n = static_cast<int>(spatialPoints.size());
 	outLabels.assign(static_cast<std::size_t>(n), -1);
-	if (n != static_cast<int>(semiMajorValues.size()) ||
-		n != static_cast<int>(semiMinorValues.size()))
+	if (n != static_cast<int>(semiMajorValues.size()) || n != static_cast<int>(semiMinorValues.size()))
 	{
 		return 0;
 	}
@@ -1395,7 +1318,8 @@ int runDbscanEnhanced(
 	int clusterId = 0;
 	const double eps2 = eps * eps;
 
-	auto regionQuery = [&](const int idx) {
+	auto regionQuery = [&](const int idx)
+	{
 		std::vector<int> neighbors;
 		const Vec3& p = spatialPoints[static_cast<std::size_t>(idx)];
 		const double a0 = semiMajorValues[static_cast<std::size_t>(idx)];
@@ -1404,11 +1328,11 @@ int runDbscanEnhanced(
 		{
 			const Vec3 d = sub(spatialPoints[static_cast<std::size_t>(j)], p);
 			const double spatialDist2 = dot(d, d);
-			const double featureDist2 = featureScale * featureScale * (
-				(semiMajorValues[static_cast<std::size_t>(j)] - a0) *
-				(semiMajorValues[static_cast<std::size_t>(j)] - a0) +
-				(semiMinorValues[static_cast<std::size_t>(j)] - b0) *
-				(semiMinorValues[static_cast<std::size_t>(j)] - b0));
+			const double featureDist2 = featureScale * featureScale *
+										((semiMajorValues[static_cast<std::size_t>(j)] - a0) *
+											 (semiMajorValues[static_cast<std::size_t>(j)] - a0) +
+										 (semiMinorValues[static_cast<std::size_t>(j)] - b0) *
+											 (semiMinorValues[static_cast<std::size_t>(j)] - b0));
 			if (spatialDist2 + featureDist2 <= eps2)
 			{
 				neighbors.push_back(j);
@@ -1456,8 +1380,7 @@ int runDbscanEnhanced(
 			{
 				for (const int nb : nbs)
 				{
-					if (outLabels[static_cast<std::size_t>(nb)] == -1 ||
-						outLabels[static_cast<std::size_t>(nb)] == -2)
+					if (outLabels[static_cast<std::size_t>(nb)] == -1 || outLabels[static_cast<std::size_t>(nb)] == -2)
 					{
 						q.push(nb);
 					}
@@ -1469,11 +1392,9 @@ int runDbscanEnhanced(
 	return clusterId;
 }
 
-std::vector<int> detectTransitionZones(
-	const IndexedMeshLite& mesh,
-	const std::vector<TubularCrossSectionRing>& rings,
-	const double aspectRatioChangeThreshold,
-	const double curvatureChangeThresholdDeg)
+std::vector<int> detectTransitionZones(const IndexedMeshLite& mesh, const std::vector<TubularCrossSectionRing>& rings,
+									   const double aspectRatioChangeThreshold,
+									   const double curvatureChangeThresholdDeg)
 {
 	std::vector<int> transitionFaces;
 	if (rings.size() < 2)
@@ -1498,9 +1419,8 @@ std::vector<int> detectTransitionZones(
 		}
 
 		// 中心线曲率突变
-		const double angle = axisAngleDeg(
-			{curr.axisHint[0], curr.axisHint[1], curr.axisHint[2]},
-			{prev.axisHint[0], prev.axisHint[1], prev.axisHint[2]});
+		const double angle = axisAngleDeg({curr.axisHint[0], curr.axisHint[1], curr.axisHint[2]},
+										  {prev.axisHint[0], prev.axisHint[1], prev.axisHint[2]});
 		if (angle > curvatureChangeThresholdDeg)
 		{
 			for (const int f : curr.faceIndices)
@@ -1512,16 +1432,12 @@ std::vector<int> detectTransitionZones(
 
 	// 去重
 	std::sort(transitionFaces.begin(), transitionFaces.end());
-	transitionFaces.erase(
-		std::unique(transitionFaces.begin(), transitionFaces.end()),
-		transitionFaces.end());
+	transitionFaces.erase(std::unique(transitionFaces.begin(), transitionFaces.end()), transitionFaces.end());
 	return transitionFaces;
 }
 
-bool smoothCenterlineIterative(
-	std::vector<TubularCenterlineSample>& samples,
-	const int maxIterations,
-	const double convergenceEpsilonMm)
+bool smoothCenterlineIterative(std::vector<TubularCenterlineSample>& samples, const int maxIterations,
+							   const double convergenceEpsilonMm)
 {
 	if (samples.size() < 4 || maxIterations <= 0)
 	{
@@ -1570,14 +1486,12 @@ bool smoothCenterlineIterative(
 
 			if (i > 0 && i + 1 < samples.size())
 			{
-				const Vec3 ta{
-					samples[i].positionMm[0] - samples[i - 1].positionMm[0],
-					samples[i].positionMm[1] - samples[i - 1].positionMm[1],
-					samples[i].positionMm[2] - samples[i - 1].positionMm[2]};
-				const Vec3 tb{
-					samples[i + 1].positionMm[0] - samples[i].positionMm[0],
-					samples[i + 1].positionMm[1] - samples[i].positionMm[1],
-					samples[i + 1].positionMm[2] - samples[i].positionMm[2]};
+				const Vec3 ta{samples[i].positionMm[0] - samples[i - 1].positionMm[0],
+							  samples[i].positionMm[1] - samples[i - 1].positionMm[1],
+							  samples[i].positionMm[2] - samples[i - 1].positionMm[2]};
+				const Vec3 tb{samples[i + 1].positionMm[0] - samples[i].positionMm[0],
+							  samples[i + 1].positionMm[1] - samples[i].positionMm[1],
+							  samples[i + 1].positionMm[2] - samples[i].positionMm[2]};
 				const Vec3 t = normalizeVec3(add(ta, tb));
 				samples[i].tangent[0] = t.x;
 				samples[i].tangent[1] = t.y;
@@ -1596,10 +1510,7 @@ bool smoothCenterlineIterative(
 	return true;
 }
 
-double ellipseCurvature(
-	const double semiMajor,
-	const double semiMinor,
-	const double tRad)
+double ellipseCurvature(const double semiMajor, const double semiMinor, const double tRad)
 {
 	const double a2 = semiMajor * semiMajor;
 	const double b2 = semiMinor * semiMinor;
@@ -1613,10 +1524,8 @@ double ellipseCurvature(
 	return (semiMajor * semiMinor) / denom;
 }
 
-std::vector<double> computeAnisotropicAngleSamples(
-	const double semiMajor,
-	const double semiMinor,
-	const int targetPointCount)
+std::vector<double> computeAnisotropicAngleSamples(const double semiMajor, const double semiMinor,
+												   const int targetPointCount)
 {
 	if (targetPointCount < 4)
 	{
@@ -1627,14 +1536,14 @@ std::vector<double> computeAnisotropicAngleSamples(
 	std::vector<double> angles;
 	angles.reserve(static_cast<std::size_t>(targetPointCount));
 
-	const double dt = 2.0 * kPi / static_cast<double>(targetPointCount * 4);  // 过采样
+	const double dt = 2.0 * kPi / static_cast<double>(targetPointCount * 4); // 过采样
 	double totalWeight = 0.0;
 	std::vector<double> weights;
 
 	for (double t = 0.0; t < 2.0 * kPi; t += dt)
 	{
 		const double k = ellipseCurvature(semiMajor, semiMinor, t);
-		const double w = std::pow(k, 0.5);  // 曲率平方根作为权重
+		const double w = std::pow(k, 0.5); // 曲率平方根作为权重
 		weights.push_back(w);
 		totalWeight += w;
 	}
@@ -1658,13 +1567,8 @@ std::vector<double> computeAnisotropicAngleSamples(
 	return angles;
 }
 
-Vec3 computeSectionNormal(
-	const double semiMajor,
-	const double semiMinor,
-	const double sectionRotationDeg,
-	const double tRad,
-	const Vec3& normalAxis,
-	const Vec3& binormalAxis)
+Vec3 computeSectionNormal(const double semiMajor, const double semiMinor, const double sectionRotationDeg,
+						  const double tRad, const Vec3& normalAxis, const Vec3& binormalAxis)
 {
 	// 椭圆参数方程导数：(-a*sin(t), b*cos(t))
 	// 法线方向：(b*cos(t), a*sin(t)) 归一化
@@ -1682,14 +1586,9 @@ Vec3 computeSectionNormal(
 	return normalizeVec3(add(scale(normalAxis, wx), scale(binormalAxis, wy)));
 }
 
-double computeEllipseFittingResiduals(
-	const std::vector<std::array<double, 2>>& pts,
-	const double semiMajor,
-	const double semiMinor,
-	const double cx,
-	const double cy,
-	const double rotationRad,
-	std::vector<double>& outResiduals)
+double computeEllipseFittingResiduals(const std::vector<std::array<double, 2>>& pts, const double semiMajor,
+									  const double semiMinor, const double cx, const double cy,
+									  const double rotationRad, std::vector<double>& outResiduals)
 {
 	outResiduals.clear();
 	if (pts.empty() || semiMajor < 1e-6 || semiMinor < 1e-6)
@@ -1766,9 +1665,7 @@ int countWeldedVertices(const IndexedMeshLite& mesh)
 	return maxIdx + 1;
 }
 
-std::vector<std::vector<int>> buildVertexAdjacency(
-	const IndexedMeshLite& mesh,
-	const int /*kNeighbors*/)
+std::vector<std::vector<int>> buildVertexAdjacency(const IndexedMeshLite& mesh, const int /*kNeighbors*/)
 {
 	const int vertexCount = countWeldedVertices(mesh);
 	std::vector<std::vector<int>> adj(static_cast<std::size_t>(vertexCount));
@@ -1799,9 +1696,8 @@ std::vector<std::vector<int>> buildVertexAdjacency(
 	return adj;
 }
 
-std::vector<Vec3> computeLaplacianCoordinates(
-	const std::vector<Vec3>& positions,
-	const std::vector<std::vector<int>>& adjacency)
+std::vector<Vec3> computeLaplacianCoordinates(const std::vector<Vec3>& positions,
+											  const std::vector<std::vector<int>>& adjacency)
 {
 	const int n = static_cast<int>(positions.size());
 	std::vector<Vec3> lap(n, {0.0, 0.0, 0.0});
@@ -1823,13 +1719,9 @@ std::vector<Vec3> computeLaplacianCoordinates(
 	return lap;
 }
 
-void contractVerticesIterative(
-	std::vector<Vec3>& positions,
-	const std::vector<Vec3>& originalPositions,
-	const std::vector<std::vector<int>>& adjacency,
-	const int iterations,
-	const double weightStart,
-	const double weightEnd)
+void contractVerticesIterative(std::vector<Vec3>& positions, const std::vector<Vec3>& originalPositions,
+							   const std::vector<std::vector<int>>& adjacency, const int iterations,
+							   const double weightStart, const double weightEnd)
 {
 	const int n = static_cast<int>(positions.size());
 	if (n <= 0 || static_cast<int>(originalPositions.size()) != n)
@@ -1839,9 +1731,7 @@ void contractVerticesIterative(
 
 	for (int it = 0; it < iterations; ++it)
 	{
-		const double t = (iterations <= 1)
-			? 1.0
-			: static_cast<double>(it) / static_cast<double>(iterations - 1);
+		const double t = (iterations <= 1) ? 1.0 : static_cast<double>(it) / static_cast<double>(iterations - 1);
 		const double w = weightStart + t * (weightEnd - weightStart);
 		std::vector<Vec3> next(static_cast<std::size_t>(n));
 		for (int i = 0; i < n; ++i)
@@ -1858,9 +1748,7 @@ void contractVerticesIterative(
 				neighborSum = add(neighborSum, positions[static_cast<std::size_t>(j)]);
 			}
 			const double degree = static_cast<double>(neighbors.size());
-			const Vec3 numerator = add(
-				neighborSum,
-				scale(originalPositions[static_cast<std::size_t>(i)], w));
+			const Vec3 numerator = add(neighborSum, scale(originalPositions[static_cast<std::size_t>(i)], w));
 			next[static_cast<std::size_t>(i)] = scale(numerator, 1.0 / (degree + w));
 		}
 		positions = std::move(next);
@@ -1869,7 +1757,6 @@ void contractVerticesIterative(
 
 namespace
 {
-
 struct SkeletonGraph
 {
 	std::vector<Vec3> positions;
@@ -1884,8 +1771,8 @@ struct SkeletonGraph
 		edges.reserve(faces.size() * 3U);
 		const auto addEdge = [this](const int a, const int b)
 		{
-			if (a == b || a < 0 || b < 0
-				|| a >= static_cast<int>(positions.size()) || b >= static_cast<int>(positions.size()))
+			if (a == b || a < 0 || b < 0 || a >= static_cast<int>(positions.size()) ||
+				b >= static_cast<int>(positions.size()))
 			{
 				return;
 			}
@@ -1934,9 +1821,8 @@ struct SkeletonGraph
 		double sum = 0.0;
 		for (const auto& edge : edges)
 		{
-			sum += length(sub(
-				positions[static_cast<std::size_t>(edge.second)],
-				positions[static_cast<std::size_t>(edge.first)]));
+			sum += length(
+				sub(positions[static_cast<std::size_t>(edge.second)], positions[static_cast<std::size_t>(edge.first)]));
 		}
 		return sum / static_cast<double>(edges.size());
 	}
@@ -2005,16 +1891,15 @@ struct SkeletonGraph
 
 	void mergeVertices(const int u, const int v)
 	{
-		if (u == v || u < 0 || v < 0
-			|| u >= static_cast<int>(positions.size()) || v >= static_cast<int>(positions.size()))
+		if (u == v || u < 0 || v < 0 || u >= static_cast<int>(positions.size()) ||
+			v >= static_cast<int>(positions.size()))
 		{
 			return;
 		}
 		const int survivorIdx = std::min(u, v);
 		const int remove = std::max(u, v);
 		positions[static_cast<std::size_t>(survivorIdx)] = scale(
-			add(positions[static_cast<std::size_t>(survivorIdx)], positions[static_cast<std::size_t>(remove)]),
-			0.5);
+			add(positions[static_cast<std::size_t>(survivorIdx)], positions[static_cast<std::size_t>(remove)]), 0.5);
 
 		const int last = static_cast<int>(positions.size()) - 1;
 		if (remove != last)
@@ -2072,9 +1957,8 @@ struct SkeletonGraph
 		double bestLen = maxLength;
 		for (const auto& edge : edges)
 		{
-			const double edgeLen = length(sub(
-				positions[static_cast<std::size_t>(edge.second)],
-				positions[static_cast<std::size_t>(edge.first)]));
+			const double edgeLen = length(
+				sub(positions[static_cast<std::size_t>(edge.second)], positions[static_cast<std::size_t>(edge.first)]));
 			if (edgeLen < bestLen)
 			{
 				bestLen = edgeLen;
@@ -2150,9 +2034,12 @@ bool buildSkeletonGraphFromMesh(const IndexedMeshLite& mesh, SkeletonGraph& outG
 	{
 		const std::size_t base = static_cast<std::size_t>(f) * 9U;
 		const auto& face = mesh.faceVerts[static_cast<std::size_t>(f)];
-		outGraph.positions[static_cast<std::size_t>(face[0])] = {mesh.soup[base + 0], mesh.soup[base + 1], mesh.soup[base + 2]};
-		outGraph.positions[static_cast<std::size_t>(face[1])] = {mesh.soup[base + 3], mesh.soup[base + 4], mesh.soup[base + 5]};
-		outGraph.positions[static_cast<std::size_t>(face[2])] = {mesh.soup[base + 6], mesh.soup[base + 7], mesh.soup[base + 8]};
+		outGraph.positions[static_cast<std::size_t>(face[0])] = {mesh.soup[base + 0], mesh.soup[base + 1],
+																 mesh.soup[base + 2]};
+		outGraph.positions[static_cast<std::size_t>(face[1])] = {mesh.soup[base + 3], mesh.soup[base + 4],
+																 mesh.soup[base + 5]};
+		outGraph.positions[static_cast<std::size_t>(face[2])] = {mesh.soup[base + 6], mesh.soup[base + 7],
+																 mesh.soup[base + 8]};
 	}
 	outGraph.anchors = outGraph.positions;
 
@@ -2173,9 +2060,7 @@ double meshBBoxDiagonal(const IndexedMeshLite& mesh)
 	return length(sub(mx, mn));
 }
 
-void contractSkeletonGraphStep(
-	SkeletonGraph& graph,
-	const double anchorWeight)
+void contractSkeletonGraphStep(SkeletonGraph& graph, const double anchorWeight)
 {
 	const int n = static_cast<int>(graph.positions.size());
 	for (int i = 0; i < n; ++i)
@@ -2197,19 +2082,14 @@ void contractSkeletonGraphStep(
 		}
 		else
 		{
-			const Vec3 numerator = add(
-				neighborSum,
-				scale(graph.anchors[static_cast<std::size_t>(i)], anchorWeight));
+			const Vec3 numerator = add(neighborSum, scale(graph.anchors[static_cast<std::size_t>(i)], anchorWeight));
 			graph.positions[static_cast<std::size_t>(i)] = scale(numerator, 1.0 / (degree + anchorWeight));
 		}
 	}
 }
 
-double detailComputeContractionAnchorWeight(
-	const int iteration,
-	const int totalIterations,
-	const double weightStart,
-	const double weightPeak)
+double detailComputeContractionAnchorWeight(const int iteration, const int totalIterations, const double weightStart,
+											const double weightPeak)
 {
 	if (totalIterations <= 1)
 	{
@@ -2223,8 +2103,8 @@ double detailComputeContractionAnchorWeight(
 		const double logPeak = std::log(std::max(weightPeak, 1e-6));
 		return std::exp(logStart + phaseT * (logPeak - logStart));
 	}
-	const double phaseT = static_cast<double>(iteration - anchorPhaseEnd)
-		/ static_cast<double>(std::max(1, totalIterations - anchorPhaseEnd));
+	const double phaseT = static_cast<double>(iteration - anchorPhaseEnd) /
+						  static_cast<double>(std::max(1, totalIterations - anchorPhaseEnd));
 	return weightPeak * (1.0 - phaseT);
 }
 
@@ -2248,9 +2128,8 @@ void pruneShortLeafBranches(SkeletonGraph& graph, const double minBranchLength)
 				continue;
 			}
 			const int parent = neighbors.front();
-			const double edgeLen = length(sub(
-				graph.positions[static_cast<std::size_t>(i)],
-				graph.positions[static_cast<std::size_t>(parent)]));
+			const double edgeLen = length(
+				sub(graph.positions[static_cast<std::size_t>(i)], graph.positions[static_cast<std::size_t>(parent)]));
 			if (edgeLen >= minBranchLength)
 			{
 				continue;
@@ -2305,10 +2184,7 @@ void pruneShortLeafBranches(SkeletonGraph& graph, const double minBranchLength)
 	}
 }
 
-int bfsFarthestVertex(
-	const std::vector<std::vector<int>>& adjacency,
-	const int source,
-	std::vector<int>& outHopDist)
+int bfsFarthestVertex(const std::vector<std::vector<int>>& adjacency, const int source, std::vector<int>& outHopDist)
 {
 	const int n = static_cast<int>(adjacency.size());
 	outHopDist.assign(static_cast<std::size_t>(n), -1);
@@ -2336,11 +2212,8 @@ int bfsFarthestVertex(
 	return farthest;
 }
 
-std::vector<int> dijkstraVertexPath(
-	const std::vector<Vec3>& positions,
-	const std::vector<std::vector<int>>& adjacency,
-	const int start,
-	const int end)
+std::vector<int> dijkstraVertexPath(const std::vector<Vec3>& positions, const std::vector<std::vector<int>>& adjacency,
+									const int start, const int end)
 {
 	const int n = static_cast<int>(adjacency.size());
 	constexpr double kInf = 1e100;
@@ -2364,9 +2237,8 @@ std::vector<int> dijkstraVertexPath(
 		}
 		for (const int v : adjacency[static_cast<std::size_t>(u)])
 		{
-			const double edgeLen = length(sub(
-				positions[static_cast<std::size_t>(v)],
-				positions[static_cast<std::size_t>(u)]));
+			const double edgeLen =
+				length(sub(positions[static_cast<std::size_t>(v)], positions[static_cast<std::size_t>(u)]));
 			const double nextDist = d + edgeLen;
 			if (nextDist < dist[static_cast<std::size_t>(v)])
 			{
@@ -2394,11 +2266,8 @@ std::array<double, 3> vecToArray(const Vec3& v)
 	return {v.x, v.y, v.z};
 }
 
-void assignSampleTangentFromPolyline(
-	TubularCenterlineSample& sample,
-	const std::vector<Vec3>& polyline,
-	const Vec3& position,
-	const std::size_t vertexHint)
+void assignSampleTangentFromPolyline(TubularCenterlineSample& sample, const std::vector<Vec3>& polyline,
+									 const Vec3& position, const std::size_t vertexHint)
 {
 	Vec3 dir{1.0, 0.0, 0.0};
 	if (vertexHint + 1U < polyline.size())
@@ -2421,10 +2290,8 @@ void assignSampleTangentFromPolyline(
 	}
 }
 
-void detailResamplePolylineToSamples(
-	const std::vector<Vec3>& polyline,
-	const double spacingMm,
-	std::vector<TubularCenterlineSample>& outSamples)
+void detailResamplePolylineToSamples(const std::vector<Vec3>& polyline, const double spacingMm,
+									 std::vector<TubularCenterlineSample>& outSamples)
 {
 	outSamples.clear();
 	if (polyline.empty() || spacingMm <= 0.0)
@@ -2481,9 +2348,7 @@ void detailResamplePolylineToSamples(
 	}
 }
 
-bool extractLongestPathPolyline(
-	const SkeletonGraph& graph,
-	std::vector<Vec3>& outPolyline)
+bool extractLongestPathPolyline(const SkeletonGraph& graph, std::vector<Vec3>& outPolyline)
 {
 	outPolyline.clear();
 	if (graph.positions.size() < 2U)
@@ -2508,11 +2373,7 @@ bool extractLongestPathPolyline(
 	std::vector<int> hopDist;
 	const int endpointA = bfsFarthestVertex(graph.adjacency, seed, hopDist);
 	const int endpointB = bfsFarthestVertex(graph.adjacency, endpointA, hopDist);
-	const std::vector<int> pathIndices = dijkstraVertexPath(
-		graph.positions,
-		graph.adjacency,
-		endpointA,
-		endpointB);
+	const std::vector<int> pathIndices = dijkstraVertexPath(graph.positions, graph.adjacency, endpointA, endpointB);
 	if (pathIndices.size() < 2U)
 	{
 		return false;
@@ -2557,10 +2418,9 @@ Vec3 computePrincipalAxisFromPoints(const std::vector<Vec3>& points)
 	Vec3 axis{1.0, 0.0, 0.0};
 	for (int iter = 0; iter < 24; ++iter)
 	{
-		const Vec3 next{
-			cov[0][0] * axis.x + cov[0][1] * axis.y + cov[0][2] * axis.z,
-			cov[1][0] * axis.x + cov[1][1] * axis.y + cov[1][2] * axis.z,
-			cov[2][0] * axis.x + cov[2][1] * axis.y + cov[2][2] * axis.z};
+		const Vec3 next{cov[0][0] * axis.x + cov[0][1] * axis.y + cov[0][2] * axis.z,
+						cov[1][0] * axis.x + cov[1][1] * axis.y + cov[1][2] * axis.z,
+						cov[2][0] * axis.x + cov[2][1] * axis.y + cov[2][2] * axis.z};
 		axis = normalizeVec3(next);
 	}
 	if (length(axis) < 1e-9)
@@ -2570,12 +2430,8 @@ Vec3 computePrincipalAxisFromPoints(const std::vector<Vec3>& points)
 	return axis;
 }
 
-bool computeCenterlinePcaFromPoints(
-	const std::vector<Vec3>& points,
-	Vec3& outCentroid,
-	Vec3& outAxis,
-	double& outExtentMin,
-	double& outExtentMax)
+bool computeCenterlinePcaFromPoints(const std::vector<Vec3>& points, Vec3& outCentroid, Vec3& outAxis,
+									double& outExtentMin, double& outExtentMax)
 {
 	outCentroid = {0.0, 0.0, 0.0};
 	outAxis = {1.0, 0.0, 0.0};
@@ -2606,12 +2462,8 @@ bool computeCenterlinePcaFromPoints(
 	return tMax > tMin + 1e-9;
 }
 
-void fillCenterlinePcaAxis(
-	const Vec3& centroid,
-	const Vec3& axis,
-	const double extentMin,
-	const double extentMax,
-	TubularCenterlinePcaAxis& outPca)
+void fillCenterlinePcaAxis(const Vec3& centroid, const Vec3& axis, const double extentMin, const double extentMax,
+						   TubularCenterlinePcaAxis& outPca)
 {
 	outPca.centroidMm = {centroid.x, centroid.y, centroid.z};
 	outPca.axis = {axis.x, axis.y, axis.z};
@@ -2620,10 +2472,8 @@ void fillCenterlinePcaAxis(
 	outPca.valid = true;
 }
 
-bool extractCenterlineBySliceCentroids(
-	const std::vector<Vec3>& points,
-	const double binWidthMm,
-	std::vector<Vec3>& outPolyline)
+bool extractCenterlineBySliceCentroids(const std::vector<Vec3>& points, const double binWidthMm,
+									   std::vector<Vec3>& outPolyline)
 {
 	outPolyline.clear();
 	if (points.size() < 3U || binWidthMm <= 0.0)
@@ -2646,10 +2496,7 @@ bool extractCenterlineBySliceCentroids(
 	{
 		projected.emplace_back(dot(sub(p, mean), axis), p);
 	}
-	std::sort(projected.begin(), projected.end(), [](const auto& a, const auto& b)
-	{
-		return a.first < b.first;
-	});
+	std::sort(projected.begin(), projected.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
 
 	if (tMax - tMin < binWidthMm * 0.5)
 	{
@@ -2701,15 +2548,10 @@ void buildKnnSkeletonGraph(SkeletonGraph& graph, const int knnK)
 			{
 				continue;
 			}
-			dists.emplace_back(
-				length(sub(graph.positions[static_cast<std::size_t>(j)], pi)),
-				j);
+			dists.emplace_back(length(sub(graph.positions[static_cast<std::size_t>(j)], pi)), j);
 		}
 		const int pick = std::min(kk, static_cast<int>(dists.size()));
-		std::partial_sort(
-			dists.begin(),
-			dists.begin() + pick,
-			dists.end());
+		std::partial_sort(dists.begin(), dists.begin() + pick, dists.end());
 		for (int t = 0; t < pick; ++t)
 		{
 			const int j = dists[static_cast<std::size_t>(t)].second;
@@ -2740,10 +2582,8 @@ std::vector<Vec3> subsamplePointsUniform(const std::vector<Vec3>& points, const 
 	return out;
 }
 
-bool extractOrderedCenterlinePolylineImpl(
-	const std::vector<Vec3>& points,
-	const double binWidthMm,
-	std::vector<Vec3>& outPolyline)
+bool extractOrderedCenterlinePolylineImpl(const std::vector<Vec3>& points, const double binWidthMm,
+										  std::vector<Vec3>& outPolyline)
 {
 	outPolyline.clear();
 	if (points.size() < 2U)
@@ -2765,35 +2605,26 @@ bool extractOrderedCenterlinePolylineImpl(
 
 } // namespace
 
-bool extractOrderedCenterlinePolyline(
-	const std::vector<Vec3>& points,
-	const double binWidthMm,
-	std::vector<Vec3>& outPolyline)
+bool extractOrderedCenterlinePolyline(const std::vector<Vec3>& points, const double binWidthMm,
+									  std::vector<Vec3>& outPolyline)
 {
 	return extractOrderedCenterlinePolylineImpl(points, binWidthMm, outPolyline);
 }
 
-void resamplePolylineToSamples(
-	const std::vector<Vec3>& polyline,
-	const double spacingMm,
-	std::vector<TubularCenterlineSample>& outSamples)
+void resamplePolylineToSamples(const std::vector<Vec3>& polyline, const double spacingMm,
+							   std::vector<TubularCenterlineSample>& outSamples)
 {
 	detailResamplePolylineToSamples(polyline, spacingMm, outSamples);
 }
 
-double computeContractionAnchorWeight(
-	const int iteration,
-	const int totalIterations,
-	const double weightStart,
-	const double weightPeak)
+double computeContractionAnchorWeight(const int iteration, const int totalIterations, const double weightStart,
+									  const double weightPeak)
 {
 	return detailComputeContractionAnchorWeight(iteration, totalIterations, weightStart, weightPeak);
 }
 
-bool extractLongestPathPolylineFromGraph(
-	const std::vector<Vec3>& positions,
-	const std::vector<std::vector<int>>& adjacency,
-	std::vector<Vec3>& outPolyline)
+bool extractLongestPathPolylineFromGraph(const std::vector<Vec3>& positions,
+										 const std::vector<std::vector<int>>& adjacency, std::vector<Vec3>& outPolyline)
 {
 	SkeletonGraph graph;
 	graph.positions = positions;
@@ -2801,9 +2632,7 @@ bool extractLongestPathPolylineFromGraph(
 	return extractLongestPathPolyline(graph, outPolyline);
 }
 
-bool computeCenterlinePcaAxisFromPoints(
-	const std::vector<Vec3>& points,
-	TubularCenterlinePcaAxis& outPca)
+bool computeCenterlinePcaAxisFromPoints(const std::vector<Vec3>& points, TubularCenterlinePcaAxis& outPca)
 {
 	Vec3 centroid{};
 	Vec3 axis{};
@@ -2817,11 +2646,9 @@ bool computeCenterlinePcaAxisFromPoints(
 	return true;
 }
 
-bool runLaplacianSkeletonCenterline(
-	const IndexedMeshLite& mesh,
-	const TubularGrindingParams& params,
-	std::vector<TubularCenterlineSample>& outSamples,
-	TubularCenterlinePcaAxis* outPcaAxis)
+bool runLaplacianSkeletonCenterline(const IndexedMeshLite& mesh, const TubularGrindingParams& params,
+									std::vector<TubularCenterlineSample>& outSamples,
+									TubularCenterlinePcaAxis* outPcaAxis)
 {
 	outSamples.clear();
 	if (outPcaAxis)
@@ -2844,9 +2671,7 @@ bool runLaplacianSkeletonCenterline(
 
 	for (int it = 0; it < iterations; ++it)
 	{
-		const double t = (iterations <= 1)
-			? 1.0
-			: static_cast<double>(it) / static_cast<double>(iterations - 1);
+		const double t = (iterations <= 1) ? 1.0 : static_cast<double>(it) / static_cast<double>(iterations - 1);
 		const double anchorWeight = computeContractionAnchorWeight(it, iterations, weightStart, weightPeak);
 
 		graph.rebuildAdjacency();
@@ -2858,9 +2683,8 @@ bool runLaplacianSkeletonCenterline(
 
 		const double absCollapse = bboxDiag * (0.003 + 0.025 * t);
 		const double avgEdge = graph.averageEdgeLength();
-		const double collapseLength = (avgEdge > 1e-9)
-			? std::max(absCollapse, avgEdge * (0.2 + 0.55 * t))
-			: absCollapse;
+		const double collapseLength =
+			(avgEdge > 1e-9) ? std::max(absCollapse, avgEdge * (0.2 + 0.55 * t)) : absCollapse;
 		graph.collapseAllBelowLength(collapseLength, 64);
 
 		const double minFaceArea = bboxDiag * bboxDiag * (1e-6 + 8e-5 * t);
@@ -2885,8 +2709,8 @@ bool runLaplacianSkeletonCenterline(
 	}
 
 	std::vector<Vec3> polyline;
-	if (!extractCenterlineBySliceCentroids(graph.positions, sampleSpacing, polyline)
-		&& !extractLongestPathPolyline(graph, polyline))
+	if (!extractCenterlineBySliceCentroids(graph.positions, sampleSpacing, polyline) &&
+		!extractLongestPathPolyline(graph, polyline))
 	{
 		return false;
 	}

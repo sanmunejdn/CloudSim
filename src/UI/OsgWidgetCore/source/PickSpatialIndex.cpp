@@ -1,4 +1,8 @@
+﻿/// @file PickSpatialIndex.cpp
+/// @brief PickSpatialIndex 实现
+
 #include "pch.h"
+
 #include "PickSpatialIndex.h"
 
 #include <algorithm>
@@ -32,8 +36,7 @@ void PickSpatialIndex::buildFromNode(osg::Node* node)
 	struct PointCollectVisitor : public osg::NodeVisitor
 	{
 		explicit PointCollectVisitor(std::vector<osg::Vec3f>& out)
-			: osg::NodeVisitor(TRAVERSE_ALL_CHILDREN)
-			, points(out)
+			: osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), points(out)
 		{
 		}
 
@@ -54,8 +57,8 @@ void PickSpatialIndex::buildFromNode(osg::Node* node)
 					for (const osg::Vec3& v : *vertices)
 					{
 						const osg::Vec3d p = osg::Vec3d(v.x(), v.y(), v.z()) * localToRoot;
-						points.emplace_back(
-							static_cast<float>(p.x()), static_cast<float>(p.y()), static_cast<float>(p.z()));
+						points.emplace_back(static_cast<float>(p.x()), static_cast<float>(p.y()),
+											static_cast<float>(p.z()));
 					}
 					continue;
 				}
@@ -66,8 +69,8 @@ void PickSpatialIndex::buildFromNode(osg::Node* node)
 					for (const osg::Vec3d& v : *verticesD)
 					{
 						const osg::Vec3d p = v * localToRoot;
-						points.emplace_back(
-							static_cast<float>(p.x()), static_cast<float>(p.y()), static_cast<float>(p.z()));
+						points.emplace_back(static_cast<float>(p.x()), static_cast<float>(p.y()),
+											static_cast<float>(p.z()));
 					}
 				}
 			}
@@ -131,19 +134,20 @@ int PickSpatialIndex::buildKdNode(std::vector<int>& indices, int begin, int end,
 	const int axis = depth % 3;
 	const int mid = begin + (end - begin) / 2;
 	std::nth_element(indices.begin() + begin, indices.begin() + mid, indices.begin() + end,
-		[this, axis](int a, int b) {
-			const osg::Vec3f& pa = m_pointsCenteredLocal[static_cast<std::size_t>(a)];
-			const osg::Vec3f& pb = m_pointsCenteredLocal[static_cast<std::size_t>(b)];
-			if (axis == 0)
-			{
-				return pa.x() < pb.x();
-			}
-			if (axis == 1)
-			{
-				return pa.y() < pb.y();
-			}
-			return pa.z() < pb.z();
-		});
+					 [this, axis](int a, int b)
+					 {
+						 const osg::Vec3f& pa = m_pointsCenteredLocal[static_cast<std::size_t>(a)];
+						 const osg::Vec3f& pb = m_pointsCenteredLocal[static_cast<std::size_t>(b)];
+						 if (axis == 0)
+						 {
+							 return pa.x() < pb.x();
+						 }
+						 if (axis == 1)
+						 {
+							 return pa.y() < pb.y();
+						 }
+						 return pa.z() < pb.z();
+					 });
 
 	const int nodeIndex = static_cast<int>(m_kdNodes.size());
 	m_kdNodes.emplace_back();
@@ -154,10 +158,8 @@ int PickSpatialIndex::buildKdNode(std::vector<int>& indices, int begin, int end,
 	return nodeIndex;
 }
 
-void PickSpatialIndex::nearestCandidates(
-	const osg::Vec3f& queryLocalCentered,
-	int k,
-	std::vector<int>& outIndices) const
+void PickSpatialIndex::nearestCandidates(const osg::Vec3f& queryLocalCentered, int k,
+										 std::vector<int>& outIndices) const
 {
 	outIndices.clear();
 	if (m_kdRoot < 0 || m_kdNodes.empty() || m_pointsCenteredLocal.empty() || k <= 0)
@@ -168,7 +170,8 @@ void PickSpatialIndex::nearestCandidates(
 	using DistIndex = std::pair<float, int>;
 	std::priority_queue<DistIndex> best;
 
-	std::function<void(int)> dfs = [&](int nodeIndex) {
+	std::function<void(int)> dfs = [&](int nodeIndex)
+	{
 		if (nodeIndex < 0)
 		{
 			return;
@@ -180,12 +183,12 @@ void PickSpatialIndex::nearestCandidates(
 
 		if (static_cast<int>(best.size()) < k)
 		{
-			best.push({ dist2, node.pointIndex });
+			best.push({dist2, node.pointIndex});
 		}
 		else if (dist2 < best.top().first)
 		{
 			best.pop();
-			best.push({ dist2, node.pointIndex });
+			best.push({dist2, node.pointIndex});
 		}
 
 		float diff = 0.0f;
@@ -205,9 +208,8 @@ void PickSpatialIndex::nearestCandidates(
 		const int nearChild = diff <= 0.0f ? node.left : node.right;
 		const int farChild = diff <= 0.0f ? node.right : node.left;
 		dfs(nearChild);
-		const float worst = (static_cast<int>(best.size()) < k)
-			? (std::numeric_limits<float>::max)()
-			: best.top().first;
+		const float worst =
+			(static_cast<int>(best.size()) < k) ? (std::numeric_limits<float>::max)() : best.top().first;
 		if (diff * diff < worst)
 		{
 			dfs(farChild);

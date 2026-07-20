@@ -1,10 +1,12 @@
+﻿/// @file Transform.cpp
+/// @brief Transform 实现
+
 #include "Transform.h"
 
 #include "PointCloudBuffer.h"
 
 namespace pclalgo
 {
-
 void transformXyzInPlace(std::vector<float>& xyz, const Eigen::Isometry3d& t)
 {
 	if (!validXyzLength(xyz))
@@ -23,11 +25,8 @@ void transformXyzInPlace(std::vector<float>& xyz, const Eigen::Isometry3d& t)
 	}
 }
 
-void transformXyz(
-	const float* srcXyz,
-	const std::size_t pointCount,
-	const Eigen::Isometry3d& t,
-	std::vector<float>& outXyz)
+void transformXyz(const float* srcXyz, const std::size_t pointCount, const Eigen::Isometry3d& t,
+				  std::vector<float>& outXyz)
 {
 	outXyz.resize(pointCount * 3U);
 	for (std::size_t i = 0; i < pointCount; ++i)

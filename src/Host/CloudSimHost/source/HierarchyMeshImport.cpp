@@ -1,30 +1,34 @@
+﻿/// @file HierarchyMeshImport.cpp
+/// @brief HierarchyMeshImport 实现
+
 #include "HierarchyMeshImport.h"
 
+#include "BackendDataBase.h"
 #include "BackendFileImport.h"
+#include "BrepBackendData.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
-
-#include "BackendDataBase.h"
-#include "BrepBackendData.h"
 #include "MeshBackendData.h"
-#include "Types.h"
 #include "OsgWidget.h"
 #include "OsgWidgetCaptureController.h"
-
-#include <ShapeHandle.h>
+#include "Types.h"
 
 #include <QByteArray>
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
 
-namespace cloudsim::host {
+#include <ShapeHandle.h>
 
-namespace {
-
+namespace cloudsim::host
+{
+namespace
+{
 bool registerHierarchyPartMeshes(DocumentHost& host, const QString& sourceFilePath, const QString& catalogTypeName,
-	const QString& defaultBaseName, const QString& importParentDisplayName, const std::vector<MeshHierarchyPart>& parts,
-	const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out, QString* outError)
+								 const QString& defaultBaseName, const QString& importParentDisplayName,
+								 const std::vector<MeshHierarchyPart>& parts,
+								 const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
+								 QString* outError)
 {
 	if (parts.empty())
 	{
@@ -56,14 +60,13 @@ bool registerHierarchyPartMeshes(DocumentHost& host, const QString& sourceFilePa
 		const QString parentId =
 			pathToBackendId.contains(parentPartPath) ? pathToBackendId.value(parentPartPath) : importParentId;
 		QString meshRegErr;
-		if (!registerAdoptedMeshAndLoadScene(host, partMesh, sourceFilePath, catalogTypeName, parentId, false, &meshRegErr,
-				false))
+		if (!registerAdoptedMeshAndLoadScene(host, partMesh, sourceFilePath, catalogTypeName, parentId, false,
+											 &meshRegErr, false))
 		{
 			if (outError)
 			{
-				*outError = meshRegErr.isEmpty()
-					? QStringLiteral("Failed to register hierarchical mesh part.")
-					: meshRegErr;
+				*outError =
+					meshRegErr.isEmpty() ? QStringLiteral("Failed to register hierarchical mesh part.") : meshRegErr;
 			}
 			return false;
 		}
@@ -86,8 +89,9 @@ bool registerHierarchyPartMeshes(DocumentHost& host, const QString& sourceFilePa
 }
 
 bool registerCapturedHierarchyParts(DocumentHost& host, const QString& sourceFilePath, const QString& catalogTypeName,
-	const QString& defaultBaseName, const std::vector<MeshCapturedPart>& parts,
-	const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out, QString* outError)
+									const QString& defaultBaseName, const std::vector<MeshCapturedPart>& parts,
+									const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
+									QString* outError)
 {
 	if (parts.size() <= 1U)
 	{
@@ -116,14 +120,13 @@ bool registerCapturedHierarchyParts(DocumentHost& host, const QString& sourceFil
 		const QString parentId =
 			pathToBackendId.contains(p.parentPartPath) ? pathToBackendId.value(p.parentPartPath) : importParentId;
 		QString meshRegErr;
-		if (!registerAdoptedMeshAndLoadScene(host, partMesh, sourceFilePath, catalogTypeName, parentId, false, &meshRegErr,
-				false))
+		if (!registerAdoptedMeshAndLoadScene(host, partMesh, sourceFilePath, catalogTypeName, parentId, false,
+											 &meshRegErr, false))
 		{
 			if (outError)
 			{
-				*outError = meshRegErr.isEmpty()
-					? QStringLiteral("Failed to register hierarchical backend object.")
-					: meshRegErr;
+				*outError = meshRegErr.isEmpty() ? QStringLiteral("Failed to register hierarchical backend object.")
+												 : meshRegErr;
 			}
 			return false;
 		}
@@ -145,8 +148,10 @@ bool registerCapturedHierarchyParts(DocumentHost& host, const QString& sourceFil
 }
 
 bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFilePath, const QString& catalogTypeName,
-	const QString& defaultBaseName, const QString& importParentDisplayName, const std::vector<BrepHierarchyPart>& parts,
-	const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out, QString* outError)
+									 const QString& defaultBaseName, const QString& importParentDisplayName,
+									 const std::vector<BrepHierarchyPart>& parts,
+									 const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
+									 QString* outError)
 {
 	if (parts.empty())
 	{
@@ -160,7 +165,7 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 		importParent->setShape(parts.front().shapeRef);
 	}
 	if (!registerAdoptedBackendObject(host, importParent, sourceFilePath, QStringLiteral("BrepModel"), QString(),
-			outError))
+									  outError))
 	{
 		return false;
 	}
@@ -197,7 +202,7 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 			pathToBackendId.contains(parentPartPath) ? pathToBackendId.value(parentPartPath) : importParentId;
 		QString regErr;
 		if (!registerAdoptedBrepAndLoadScene(host, partBrep, sourceFilePath, QStringLiteral("BrepModel"), parentId,
-				false, &regErr, true, false))
+											 false, &regErr, true, false))
 		{
 			if (outError)
 			{
@@ -229,13 +234,13 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 } // namespace
 
 bool importBrepHierarchyParts(DocumentHost& host, const QString& sourceFilePath, const QString& catalogTypeName,
-	const std::vector<BrepHierarchyPart>& parts, const QString& defaultBaseName,
-	const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out, QString* outError,
-	const QString& importParentDisplayName)
+							  const std::vector<BrepHierarchyPart>& parts, const QString& defaultBaseName,
+							  const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
+							  QString* outError, const QString& importParentDisplayName)
 {
 	out = {};
-	if (!registerBrepHierarchyPartMeshes(host, sourceFilePath, catalogTypeName, defaultBaseName, importParentDisplayName,
-			parts, onParentFollow, out, outError))
+	if (!registerBrepHierarchyPartMeshes(host, sourceFilePath, catalogTypeName, defaultBaseName,
+										 importParentDisplayName, parts, onParentFollow, out, outError))
 	{
 		if (outError && outError->isEmpty())
 		{
@@ -247,13 +252,13 @@ bool importBrepHierarchyParts(DocumentHost& host, const QString& sourceFilePath,
 }
 
 bool importMeshHierarchyParts(DocumentHost& host, const QString& sourceFilePath, const QString& catalogTypeName,
-	const std::vector<MeshHierarchyPart>& parts, const QString& defaultBaseName,
-	const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out, QString* outError,
-	const QString& importParentDisplayName)
+							  const std::vector<MeshHierarchyPart>& parts, const QString& defaultBaseName,
+							  const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
+							  QString* outError, const QString& importParentDisplayName)
 {
 	out = {};
 	if (!registerHierarchyPartMeshes(host, sourceFilePath, catalogTypeName, defaultBaseName, importParentDisplayName,
-			parts, onParentFollow, out, outError))
+									 parts, onParentFollow, out, outError))
 	{
 		if (outError && outError->isEmpty())
 		{
@@ -264,9 +269,10 @@ bool importMeshHierarchyParts(DocumentHost& host, const QString& sourceFilePath,
 	return true;
 }
 
-bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const QString& catalogTypeName, const bool quietUi,
-	const int meshImportQuality, const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
-	QString* outError)
+bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const QString& catalogTypeName,
+							const bool quietUi, const int meshImportQuality,
+							const HierarchyFollowBindingFn& onParentFollow, HierarchyMeshImportResult& out,
+							QString* outError)
 {
 	(void)quietUi;
 	out = {};
@@ -282,8 +288,8 @@ bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const Q
 		std::string dxfErr;
 		if (MeshBackendData::loadDxfHierarchyFromFile(nativePath, dxfParts, &dxfErr) && !dxfParts.empty())
 		{
-			if (importMeshHierarchyParts(host, filePath, catalogTypeName, dxfParts, defaultBaseName, onParentFollow, out,
-					outError, fileInfo.fileName()))
+			if (importMeshHierarchyParts(host, filePath, catalogTypeName, dxfParts, defaultBaseName, onParentFollow,
+										 out, outError, fileInfo.fileName()))
 			{
 				return true;
 			}
@@ -301,8 +307,8 @@ bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const Q
 		std::string stepErr;
 		if (BrepBackendData::loadStepHierarchyFromFile(nativePath, brepParts, &stepErr) && brepParts.size() > 1U)
 		{
-			if (importBrepHierarchyParts(host, filePath, catalogTypeName, brepParts, defaultBaseName, onParentFollow, out,
-					outError, fileInfo.fileName()))
+			if (importBrepHierarchyParts(host, filePath, catalogTypeName, brepParts, defaultBaseName, onParentFollow,
+										 out, outError, fileInfo.fileName()))
 			{
 				return true;
 			}
@@ -319,7 +325,7 @@ bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const Q
 		{
 			QString regErr;
 			if (!registerAdoptedBrepAndLoadScene(host, brep, filePath, QStringLiteral("BrepModel"), QString(), true,
-					&regErr))
+												 &regErr))
 			{
 				if (outError)
 				{
@@ -335,7 +341,8 @@ bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const Q
 		}
 		if (outError)
 		{
-			*outError = QString::fromStdString(stepErr.empty() ? std::string("Failed to load STEP as B-rep.") : stepErr);
+			*outError =
+				QString::fromStdString(stepErr.empty() ? std::string("Failed to load STEP as B-rep.") : stepErr);
 		}
 		out.ok = false;
 		return true;
@@ -348,15 +355,17 @@ bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const Q
 	if (!cgalOk)
 	{
 		static const QStringList kOsgOnly{
-			QStringLiteral("dae"), QStringLiteral("3ds"), QStringLiteral("fbx"),
+			QStringLiteral("dae"),
+			QStringLiteral("3ds"),
+			QStringLiteral("fbx"),
 		};
 		OsgWidget* osg = osgWidgetFrom(host);
 		if (!kOsgOnly.contains(ext) || !osg)
 		{
 			if (outError)
 			{
-				*outError = QString::fromStdString(
-					backendErr.empty() ? std::string("Failed to load mesh.") : backendErr);
+				*outError =
+					QString::fromStdString(backendErr.empty() ? std::string("Failed to load mesh.") : backendErr);
 			}
 			out.ok = false;
 			return true;
@@ -376,17 +385,16 @@ bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const Q
 		const bool hasHierarchy = osg->captureImportedMeshBackendHierarchy(parts, &hierarchyErr);
 		if (hasHierarchy && parts.size() > 1U)
 		{
-			if (registerCapturedHierarchyParts(host, filePath, catalogTypeName, fileInfo.fileName(), parts, onParentFollow,
-					out, outError))
+			if (registerCapturedHierarchyParts(host, filePath, catalogTypeName, fileInfo.fileName(), parts,
+											   onParentFollow, out, outError))
 			{
 				osg->clearStagingGeometry();
 				return true;
 			}
 			if (outError && outError->isEmpty())
 			{
-				*outError = hierarchyErr.isEmpty()
-					? QStringLiteral("Failed to register hierarchical model parts.")
-					: hierarchyErr;
+				*outError = hierarchyErr.isEmpty() ? QStringLiteral("Failed to register hierarchical model parts.")
+												   : hierarchyErr;
 			}
 			osg->clearStagingGeometry();
 			out.ok = false;

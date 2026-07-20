@@ -1,3 +1,6 @@
+﻿/// @file AiLlmSettingsDialog.cpp
+/// @brief AiLlmSettingsDialog 实现
+
 #include "AiLlmSettingsDialog.h"
 
 #include "AiConfigDefaults.h"
@@ -31,10 +34,9 @@ void setFormLabel(QFormLayout* form, const int row, const QString& text)
 	if (QLabel* label = qobject_cast<QLabel*>(form->itemAt(row, QFormLayout::LabelRole)->widget()))
 		label->setText(text);
 }
-}
+} // namespace
 
-AiLlmSettingsDialog::AiLlmSettingsDialog(QWidget* parent)
-	: QDialog(parent)
+AiLlmSettingsDialog::AiLlmSettingsDialog(QWidget* parent) : QDialog(parent)
 {
 	setModal(true);
 	resize(480, 420);
@@ -106,15 +108,17 @@ void AiLlmSettingsDialog::applyLanguage()
 	setWindowTitle(zh ? QStringLiteral("AI 助手设置") : QStringLiteral("AI Assistant Settings"));
 	updatePathLabel();
 	if (m_connectionGroup)
-		m_connectionGroup->setTitle(zh ? QStringLiteral("云端大模型（可选）") : QStringLiteral("Remote LLM (optional)"));
+		m_connectionGroup->setTitle(zh ? QStringLiteral("云端大模型（可选）")
+									   : QStringLiteral("Remote LLM (optional)"));
 	if (m_enabled)
 		m_enabled->setText(zh ? QStringLiteral("启用云端大模型回退") : QStringLiteral("Enable remote LLM fallback"));
 	if (m_ruleFirst)
-		m_ruleFirst->setText(zh ? QStringLiteral("本地解析优先使用规则") : QStringLiteral("Prefer rules in local parser chain"));
+		m_ruleFirst->setText(zh ? QStringLiteral("本地解析优先使用规则")
+								: QStringLiteral("Prefer rules in local parser chain"));
 	if (m_hintLabel)
-		m_hintLabel->setText(zh
-			? QStringLiteral("默认使用本地 Ollama（domains 配置）。此处仅配置可选云端 API。")
-			: QStringLiteral("Local Ollama (domains) is default. Configure optional remote API here."));
+		m_hintLabel->setText(
+			zh ? QStringLiteral("默认使用本地 Ollama（domains 配置）。此处仅配置可选云端 API。")
+			   : QStringLiteral("Local Ollama (domains) is default. Configure optional remote API here."));
 	if (m_buttons)
 	{
 		if (QPushButton* ok = m_buttons->button(QDialogButtonBox::Ok))
@@ -161,11 +165,8 @@ AiConfigDto AiLlmSettingsDialog::config() const
 	cfg.remoteLlm.timeoutMs = m_timeoutMs->value();
 	cfg.remoteLlm.temperature = m_temperature->value();
 	if (m_ruleFirst->isChecked() && !cfg.domains.empty())
-		cfg.domains[0].parserPriority = QStringList{
-			QStringLiteral("rules"),
-			QStringLiteral("local"),
-			QStringLiteral("remote")
-		};
+		cfg.domains[0].parserPriority =
+			QStringList{QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
 	return cfg;
 }
 

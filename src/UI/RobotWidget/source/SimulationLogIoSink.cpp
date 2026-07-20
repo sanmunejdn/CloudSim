@@ -1,3 +1,6 @@
+﻿/// @file SimulationLogIoSink.cpp
+/// @brief SimulationLogIoSink 实现
+
 #include "SimulationLogIoSink.h"
 
 #include "RunLogger.h"

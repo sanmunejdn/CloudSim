@@ -1,15 +1,19 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_TRAJECTORYEDITSESSION_H
+#define ROBOTWIDGET_TRAJECTORYEDITSESSION_H
 
-#include "ProgramEditService.h"
-#include "RobotProgramStore.h"
-#include "RawTrajectory.h"
-#include "UnifiedTrajectory.h"
-#include "TrajectoryPipelineEngine.h"
-#include "TrajectoryPipelineTypes.h"
+/// @file TrajectoryEditSession.h
+/// @brief 轨迹编辑流水线编排（Preview 三分支 + Apply 走 Command）
+
 #include "robotwidget_global.h"
 
-#include <QObject>
+#include "ProgramEditService.h"
+#include "RawTrajectory.h"
+#include "RobotProgramStore.h"
+#include "TrajectoryPipelineEngine.h"
+#include "TrajectoryPipelineTypes.h"
+#include "UnifiedTrajectory.h"
 
+#include <QObject>
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -30,9 +34,7 @@ public:
 	void bindSimulationController(RobotSimulationController* controller);
 
 	void setPipeline(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops);
-	void updatePipelineOps(
-		std::vector<RobotInstruction::TrajectoryOpDescriptor> ops,
-		bool allowPreviewReapply = true);
+	void updatePipelineOps(std::vector<RobotInstruction::TrajectoryOpDescriptor> ops, bool allowPreviewReapply = true);
 
 	void setContextProgramId(const std::string& programId);
 	void setDefaultGroupId(const std::string& groupId);
@@ -50,9 +52,8 @@ public:
 	std::string boundSourceFeatureJson() const;
 
 	/// 尚无 raw 时按流水线预览（Unified 引擎，与 Apply 一致）
-	bool previewPipeline(
-		const std::vector<RobotInstruction::TrajectoryOpDescriptor>& pipelineOps,
-		QString* outError = nullptr);
+	bool previewPipeline(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& pipelineOps,
+						 QString* outError = nullptr);
 	bool apply(QString* outError = nullptr);
 	void reset();
 	/// 清空累积几何变换与 baked raw（轨迹编辑页「重置」按钮）
@@ -69,10 +70,8 @@ public:
 	bool hasRawTrajectory() const;
 	void clearRawTrajectory();
 	/// 与 Apply 相同顺序：pending → recipe(流水线) → accumulated → geometry(流水线)
-	bool buildRawPreviewWithPipeline(
-		const std::vector<RobotInstruction::TrajectoryOpDescriptor>& pipelineOps,
-		RobotInstruction::RawTrajectory& outPreviewRaw,
-		QString* outError = nullptr) const;
+	bool buildRawPreviewWithPipeline(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& pipelineOps,
+									 RobotInstruction::RawTrajectory& outPreviewRaw, QString* outError = nullptr) const;
 
 	RobotInstruction::TrajectoryPipelineEngine& pipelineEngine() { return m_pipelineEngine; }
 	const RobotInstruction::TrajectoryPipelineEngine& pipelineEngine() const { return m_pipelineEngine; }
@@ -102,38 +101,27 @@ private:
 	void clearPreviewStateWithoutRestore();
 	void syncPreviewRenderMatrices(const std::vector<std::string>* updatedIds = nullptr);
 	void syncRenderMatricesForInstructionIds(const std::vector<std::string>& ids, bool worldFrameTcp = false);
-	bool writeRenderMatricesFromSnapshotBase(
-		const PreviewSnapshot& snap,
-		RobotInstruction::Base& raw,
-		const std::string* frozenBaseWorldCsv,
-		double* outWorldDeltaMm) const;
+	bool writeRenderMatricesFromSnapshotBase(const PreviewSnapshot& snap, RobotInstruction::Base& raw,
+											 const std::string* frozenBaseWorldCsv, double* outWorldDeltaMm) const;
 	bool reapplyPreview(QString* outError = nullptr);
 	void refreshPreviewVisuals();
-	bool rebuildUnifiedFromSourceRaw(
-		const RobotInstruction::RawTrajectory& sourceRaw,
-		RobotInstruction::UnifiedTrajectory& unified,
-		QString* outError = nullptr) const;
-	bool configurePipelineEngineForRaw(
-		const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops) const;
+	bool rebuildUnifiedFromSourceRaw(const RobotInstruction::RawTrajectory& sourceRaw,
+									 RobotInstruction::UnifiedTrajectory& unified, QString* outError = nullptr) const;
+	bool configurePipelineEngineForRaw(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops) const;
 	bool previewUnifiedFromProgramPipeline(QString* outError);
 	void clearOverlayPreview();
-	bool showUnifiedOverlayPreview(
-		const RobotInstruction::UnifiedTrajectory& unified,
-		QString* outError);
-	bool applyUnifiedPreviewWriteback(
-		const RobotInstruction::UnifiedTrajectory& unified,
-		bool writePose,
-		bool writeBlendSpeed,
-		std::vector<std::string>& outChangedIds);
+	bool showUnifiedOverlayPreview(const RobotInstruction::UnifiedTrajectory& unified, QString* outError);
+	bool applyUnifiedPreviewWriteback(const RobotInstruction::UnifiedTrajectory& unified, bool writePose,
+									  bool writeBlendSpeed, std::vector<std::string>& outChangedIds);
 	std::vector<std::string> collectPreviewWaypointIds() const;
-	bool ingressProgramUnified(
-		const RobotInstruction::RobotProgram& program,
-		RobotInstruction::UnifiedTrajectory& unified,
-		std::string* errMsg) const;
+	bool ingressProgramUnified(const RobotInstruction::RobotProgram& program,
+							   RobotInstruction::UnifiedTrajectory& unified, std::string* errMsg) const;
 	void invalidatePreviewScopeCache();
 	void updateLightweightPreviewState(bool active);
 	void ensureGeometryResolverBound() const;
 	void reportProjectionMissesIfAny() const;
+	/// 捕获当前 TCP 并注入管道（失败则清除，算子侧报错）
+	void injectWorkpieceReferenceOnEngine() const;
 
 	RobotProgramStore* m_store = nullptr;
 	ProgramEditService* m_editService = nullptr;
@@ -160,3 +148,5 @@ private:
 	std::optional<RobotInstruction::RawTrajectory> m_rawTrajectory;
 	std::optional<RobotInstruction::RawTrajectory> m_bakedWorldRaw;
 };
+
+#endif // ROBOTWIDGET_TRAJECTORYEDITSESSION_H

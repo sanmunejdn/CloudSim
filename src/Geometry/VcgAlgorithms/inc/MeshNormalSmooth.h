@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef VCGALGORITHMS_MESHNORMALSMOOTH_H
+#define VCGALGORITHMS_MESHNORMALSMOOTH_H
+
+/// @file MeshNormalSmooth.h
+/// @brief 论文 Ch2：法矢 Kuwahara + 拉普拉斯光顺参数
 
 #include "vcg_algorithms_global.h"
 
@@ -7,7 +11,6 @@
 
 namespace vcgalgo
 {
-
 /// 论文 Ch2：法矢 Kuwahara + 拉普拉斯光顺参数
 struct MeshNormalSmoothParams
 {
@@ -21,11 +24,10 @@ struct MeshNormalSmoothParams
  * 基于三角片法矢调整的网格光顺，输出新 triangle soup（mm）
  * @param outGapVolume 可选，光顺前后近似间隙体积
  */
-VCg_ALGORITHMS_API bool smoothMeshByNormalAdjustment(
-	const std::vector<float>& soupIn,
-	std::vector<float>& soupOut,
-	const MeshNormalSmoothParams& params,
-	double* outGapVolume = nullptr,
-	std::string* errMsg = nullptr);
+VCg_ALGORITHMS_API bool smoothMeshByNormalAdjustment(const std::vector<float>& soupIn, std::vector<float>& soupOut,
+													 const MeshNormalSmoothParams& params,
+													 double* outGapVolume = nullptr, std::string* errMsg = nullptr);
 
 } // namespace vcgalgo
+
+#endif // VCGALGORITHMS_MESHNORMALSMOOTH_H

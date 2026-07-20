@@ -1,12 +1,7 @@
+﻿/// @file MainWindowSelectionService.cpp
+/// @brief MainWindowSelectionService 实现
+
 #include "MainWindowSelectionService.h"
-
-#include <memory>
-#include <vector>
-
-#include <QList>
-#include <QSignalBlocker>
-#include <QTreeWidget>
-#include <QTreeWidgetItem>
 
 #include "CoreEvents.h"
 #include "CoreTypes.h"
@@ -17,10 +12,17 @@
 #include "MainWindow.h"
 #include "MainWindowObjectRepository.h"
 #include "MainWindow_p.h"
-#include "SelectionVisualService.h"
-#include "WidgetRenderAccess.h"
 #include "RunInfoPage.h"
+#include "SelectionVisualService.h"
 #include "SimulationCommandWidget.h"
+#include "WidgetRenderAccess.h"
+
+#include <QList>
+#include <QSignalBlocker>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
+#include <memory>
+#include <vector>
 
 using namespace mainwindow_detail;
 
@@ -42,11 +44,9 @@ QString MainWindowSelectionService::selectionRootBackendId(MainWindow& mainWindo
 	return doc->selectionRootBackendId(backendId);
 }
 
-void MainWindowSelectionService::applyBackendSelection(
-	MainWindow& mainWindow,
-	const QString& backendId,
-	const cloudsim::core::SelectionSource source,
-	const bool rowVisible)
+void MainWindowSelectionService::applyBackendSelection(MainWindow& mainWindow, const QString& backendId,
+													   const cloudsim::core::SelectionSource source,
+													   const bool rowVisible)
 {
 	if (backendId.isEmpty())
 	{
@@ -57,8 +57,7 @@ void MainWindowSelectionService::applyBackendSelection(
 	DocumentPage* doc = mainWindow.currentPage();
 	cloudsim::core::IRenderView* rv = activeRenderView(mainWindow);
 	const QString gizmoId = doc ? doc->robotGizmoAnchorBackendId(effectiveId) : effectiveId;
-	const bool urdfLinkMesh =
-		doc && doc->hasRobotSimulationContext() && doc->robotLinkBackendIds().contains(gizmoId);
+	const bool urdfLinkMesh = doc && doc->hasRobotSimulationContext() && doc->robotLinkBackendIds().contains(gizmoId);
 	const bool hasSelection = doc && doc->data().isValid(effectiveId);
 
 	if (rv)
@@ -198,9 +197,8 @@ bool MainWindowSelectionService::selectBackendById(MainWindow& mainWindow, const
 	return true;
 }
 
-void MainWindowSelectionService::ensureBackendForPickMode(
-	MainWindow& mainWindow,
-	const SelectedBackendKind preferredKind)
+void MainWindowSelectionService::ensureBackendForPickMode(MainWindow& mainWindow,
+														  const SelectedBackendKind preferredKind)
 {
 	cloudsim::core::IRenderView* rv = activeRenderView(mainWindow);
 	if (!rv || !rv->hasImportedContent())
@@ -293,10 +291,7 @@ void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& m
 	}
 }
 
-void MainWindowSelectionService::handleBackendTreeItemChanged(
-	MainWindow& mainWindow,
-	QTreeWidgetItem* item,
-	int column)
+void MainWindowSelectionService::handleBackendTreeItemChanged(MainWindow& mainWindow, QTreeWidgetItem* item, int column)
 {
 	cloudsim::core::IRenderView* rv = activeRenderView(mainWindow);
 	DocumentPage* const doc = mainWindow.currentPage();
@@ -349,8 +344,8 @@ void MainWindowSelectionService::handleBackendTreeItemChanged(
 			}
 			childItem->setCheckState(0, visible ? Qt::Checked : Qt::Unchecked);
 		}
-		if (!visible && mainWindow.m_selectionState.hasBackendSelection()
-			&& idsToUpdate.contains(mainWindow.m_selectionState.selectedBackendId()))
+		if (!visible && mainWindow.m_selectionState.hasBackendSelection() &&
+			idsToUpdate.contains(mainWindow.m_selectionState.selectedBackendId()))
 		{
 			clearBackendObjectSelection(mainWindow, false);
 			mainWindow.updatePropertyPanel(QString());

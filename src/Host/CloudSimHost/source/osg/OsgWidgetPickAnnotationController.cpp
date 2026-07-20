@@ -1,29 +1,32 @@
+﻿/// @file OsgWidgetPickAnnotationController.cpp
+/// @brief Smaller than compass gizmo. Pure linear-in-diagonal matches large scenes; the old
+
 #include "OsgWidgetPickAnnotationController.h"
 
-#include "OsgWidget.h"
 #include "ObjectGizmoFrame.h"
-
-#include <osg/Array>
-#include <osg/Geode>
-#include <osg/Geometry>
-#include <osg/Node>
-#include <osg/PrimitiveSet>
-#include <osg/PositionAttitudeTransform>
-#include <osg/ShapeDrawable>
-#include <osg/AutoTransform>
-#include <osg/Depth>
-#include <osg/LineWidth>
-#include <osg/Matrix>
-#include <osg/MatrixTransform>
-#include <osgText/Text>
+#include "OsgWidget.h"
 
 #include <algorithm>
 #include <cmath>
 #include <unordered_set>
 #include <vector>
 
-namespace {
+#include <osg/Array>
+#include <osg/AutoTransform>
+#include <osg/Depth>
+#include <osg/Geode>
+#include <osg/Geometry>
+#include <osg/LineWidth>
+#include <osg/Matrix>
+#include <osg/MatrixTransform>
+#include <osg/Node>
+#include <osg/PositionAttitudeTransform>
+#include <osg/PrimitiveSet>
+#include <osg/ShapeDrawable>
+#include <osgText/Text>
 
+namespace
+{
 static void backendOuterLocalPosQuat(const osg::MatrixTransform* mt, osg::Vec3f& pos, osg::Quat& q)
 {
 	osg::Vec3d t;
@@ -116,10 +119,8 @@ void OsgWidgetPickAnnotationController::addPointAnnotation(OsgWidget& self, cons
 	addPointAnnotationForBackend(self, pointWorld, QString::fromStdString(self.m_activeBackendId));
 }
 
-void OsgWidgetPickAnnotationController::addPointAnnotationForBackend(
-	OsgWidget& self,
-	const osg::Vec3f& pointWorld,
-	const QString& backendId)
+void OsgWidgetPickAnnotationController::addPointAnnotationForBackend(OsgWidget& self, const osg::Vec3f& pointWorld,
+																	 const QString& backendId)
 {
 	const auto resolveTopVisualBackendId = [&](const QString& startBackendId) -> QString
 	{
@@ -223,17 +224,15 @@ void OsgWidgetPickAnnotationController::addPointAnnotationForBackend(
 
 	const QString annotationId = QStringLiteral("P%1").arg(++self.m_annotationCounter);
 	const QString text = QStringLiteral("%1 (%2, %3, %4)")
-		.arg(annotationId)
-		.arg(pointWorld.x(), 0, 'f', 3)
-		.arg(pointWorld.y(), 0, 'f', 3)
-		.arg(pointWorld.z(), 0, 'f', 3);
+							 .arg(annotationId)
+							 .arg(pointWorld.x(), 0, 'f', 3)
+							 .arg(pointWorld.y(), 0, 'f', 3)
+							 .arg(pointWorld.z(), 0, 'f', 3);
 	osg::ref_ptr<osgText::Text> label = new osgText::Text;
 	label->setFont("C:/Windows/Fonts/msyh.ttc");
 	label->setCharacterSize(20.0f);
 	label->setFontResolution(48, 48);
-	label->setColor(self.m_darkUiTheme
-		? osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f)
-		: osg::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+	label->setColor(self.m_darkUiTheme ? osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f) : osg::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
 	label->setBackdropType(osgText::Text::NONE);
 	label->setDataVariance(osg::Object::DYNAMIC);
 	label->setAlignment(osgText::TextBase::LEFT_BOTTOM);
@@ -263,8 +262,8 @@ void OsgWidgetPickAnnotationController::addPointAnnotationForBackend(
 
 	const float annScale = annotationScaleForDiagonal(self.m_activeModelDiagonal);
 	osg::ref_ptr<osg::MatrixTransform> scaleMt = new osg::MatrixTransform;
-	scaleMt->setMatrix(osg::Matrix::scale(
-		static_cast<double>(annScale), static_cast<double>(annScale), static_cast<double>(annScale)));
+	scaleMt->setMatrix(osg::Matrix::scale(static_cast<double>(annScale), static_cast<double>(annScale),
+										  static_cast<double>(annScale)));
 	scaleMt->addChild(markerGeode.get());
 
 	osg::ref_ptr<osg::AutoTransform> at = new osg::AutoTransform;
@@ -288,8 +287,7 @@ void OsgWidgetPickAnnotationController::addPointAnnotationForBackend(
 	}
 	else
 	{
-		emit self.pointPickFeedback(QStringLiteral(
-			"[ANNOT] create failed: annotation group is null"));
+		emit self.pointPickFeedback(QStringLiteral("[ANNOT] create failed: annotation group is null"));
 	}
 
 	auto entry = OsgWidget::AnnotationEntry{};
@@ -304,19 +302,21 @@ void OsgWidgetPickAnnotationController::addPointAnnotationForBackend(
 	entry.localCentered = localAnchor;
 	entry.visible = true;
 	self.m_annotations.push_back(entry);
-	emit self.pointPickFeedback(QStringLiteral(
-		"[ANNOT] created id=%1 world=(%2,%3,%4) tracked=%5 local=(%6,%7,%8) count=%9 groupMask=0x%10 nodeMask=0x%11")
-		.arg(QString::fromStdString(entry.id))
-		.arg(pointWorld.x(), 0, 'f', 3)
-		.arg(pointWorld.y(), 0, 'f', 3)
-		.arg(pointWorld.z(), 0, 'f', 3)
-		.arg(entry.backendId.empty() ? QStringLiteral("<none>") : QString::fromStdString(entry.backendId))
-		.arg(localAnchor.x(), 0, 'f', 3)
-		.arg(localAnchor.y(), 0, 'f', 3)
-		.arg(localAnchor.z(), 0, 'f', 3)
-		.arg(static_cast<int>(self.m_annotations.size()))
-		.arg(self.m_annotationGroup.valid() ? QString::number(self.m_annotationGroup->getNodeMask(), 16) : QStringLiteral("0"))
-		.arg(QString::number(at->getNodeMask(), 16)));
+	emit self.pointPickFeedback(
+		QStringLiteral("[ANNOT] created id=%1 world=(%2,%3,%4) tracked=%5 local=(%6,%7,%8) count=%9 groupMask=0x%10 "
+					   "nodeMask=0x%11")
+			.arg(QString::fromStdString(entry.id))
+			.arg(pointWorld.x(), 0, 'f', 3)
+			.arg(pointWorld.y(), 0, 'f', 3)
+			.arg(pointWorld.z(), 0, 'f', 3)
+			.arg(entry.backendId.empty() ? QStringLiteral("<none>") : QString::fromStdString(entry.backendId))
+			.arg(localAnchor.x(), 0, 'f', 3)
+			.arg(localAnchor.y(), 0, 'f', 3)
+			.arg(localAnchor.z(), 0, 'f', 3)
+			.arg(static_cast<int>(self.m_annotations.size()))
+			.arg(self.m_annotationGroup.valid() ? QString::number(self.m_annotationGroup->getNodeMask(), 16)
+												: QStringLiteral("0"))
+			.arg(QString::number(at->getNodeMask(), 16)));
 	emit self.annotationCreated(QString::fromStdString(entry.id), QString::fromStdString(entry.displayText));
 }
 
@@ -326,9 +326,8 @@ void OsgWidgetPickAnnotationController::refreshAnnotationTexts(OsgWidget& self)
 	{
 		if (!a.transform.valid() || !a.textDrawable.valid())
 		{
-			emit self.pointPickFeedback(QStringLiteral(
-				"[ANNOT] refresh skip id=%1 reason=invalid transform/text")
-				.arg(QString::fromStdString(a.id)));
+			emit self.pointPickFeedback(QStringLiteral("[ANNOT] refresh skip id=%1 reason=invalid transform/text")
+											.arg(QString::fromStdString(a.id)));
 			continue;
 		}
 		osg::Vec3f world = osg::Vec3f(0.0f, 0.0f, 0.0f);
@@ -362,21 +361,20 @@ void OsgWidgetPickAnnotationController::refreshAnnotationTexts(OsgWidget& self)
 		}
 
 		const QString text = QStringLiteral("%1 (%2, %3, %4)")
-			.arg(QString::fromStdString(a.id))
-			.arg(world.x(), 0, 'f', 3)
-			.arg(world.y(), 0, 'f', 3)
-			.arg(world.z(), 0, 'f', 3);
+								 .arg(QString::fromStdString(a.id))
+								 .arg(world.x(), 0, 'f', 3)
+								 .arg(world.y(), 0, 'f', 3)
+								 .arg(world.z(), 0, 'f', 3);
 		a.transform->setPosition(world);
 		a.transform->dirtyBound();
 		a.displayText = text.toStdString();
 		a.textDrawable->setText(text.toStdString());
-		emit self.pointPickFeedback(QStringLiteral(
-			"[ANNOT] refresh id=%1 world=(%2,%3,%4) visible=%5")
-			.arg(QString::fromStdString(a.id))
-			.arg(world.x(), 0, 'f', 3)
-			.arg(world.y(), 0, 'f', 3)
-			.arg(world.z(), 0, 'f', 3)
-			.arg(a.visible ? QStringLiteral("true") : QStringLiteral("false")));
+		emit self.pointPickFeedback(QStringLiteral("[ANNOT] refresh id=%1 world=(%2,%3,%4) visible=%5")
+										.arg(QString::fromStdString(a.id))
+										.arg(world.x(), 0, 'f', 3)
+										.arg(world.y(), 0, 'f', 3)
+										.arg(world.z(), 0, 'f', 3)
+										.arg(a.visible ? QStringLiteral("true") : QStringLiteral("false")));
 	}
 }
 
@@ -388,8 +386,8 @@ void OsgWidgetPickAnnotationController::updateAnnotationScales(OsgWidget& self)
 	{
 		if (a.scaleBranch.valid())
 		{
-			a.scaleBranch->setMatrix(osg::Matrix::scale(
-				static_cast<double>(s), static_cast<double>(s), static_cast<double>(s)));
+			a.scaleBranch->setMatrix(
+				osg::Matrix::scale(static_cast<double>(s), static_cast<double>(s), static_cast<double>(s)));
 		}
 		if (a.transform.valid())
 		{
@@ -460,7 +458,8 @@ QList<OsgWidget::AnnotationSnapshot> OsgWidgetPickAnnotationController::annotati
 	return snapshots;
 }
 
-void OsgWidgetPickAnnotationController::restoreAnnotations(OsgWidget& self, const QList<OsgWidget::AnnotationSnapshot>& snapshots)
+void OsgWidgetPickAnnotationController::restoreAnnotations(OsgWidget& self,
+														   const QList<OsgWidget::AnnotationSnapshot>& snapshots)
 {
 	clearAllAnnotations(self);
 	for (const auto& s : snapshots)
@@ -507,9 +506,8 @@ void OsgWidgetPickAnnotationController::restoreAnnotations(OsgWidget& self, cons
 
 		// Always attach legacy annotations to some backend branch.
 		// If backendId is missing (old project), we fall back to current active backend.
-		const QString backendIdUsed = !s.backendId.isEmpty()
-			? s.backendId
-			: QString::fromStdString(self.m_activeBackendId);
+		const QString backendIdUsed =
+			!s.backendId.isEmpty() ? s.backendId : QString::fromStdString(self.m_activeBackendId);
 		if (!backendIdUsed.isEmpty())
 		{
 			addPointAnnotationForBackend(self, world, backendIdUsed);
@@ -523,7 +521,8 @@ void OsgWidgetPickAnnotationController::restoreAnnotations(OsgWidget& self, cons
 		{
 			auto& last = self.m_annotations.back();
 
-			if (!s.id.isEmpty()) last.id = s.id.toStdString();
+			if (!s.id.isEmpty())
+				last.id = s.id.toStdString();
 			last.worldAnchor = s.worldAnchor;
 			last.hasWorldAnchor = s.hasWorldAnchor;
 
@@ -533,4 +532,3 @@ void OsgWidgetPickAnnotationController::restoreAnnotations(OsgWidget& self, cons
 		}
 	}
 }
-

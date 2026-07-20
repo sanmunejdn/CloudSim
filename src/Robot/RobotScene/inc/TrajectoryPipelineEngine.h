@@ -1,11 +1,18 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_TRAJECTORYPIPELINEENGINE_H
+#define ROBOTSCENE_TRAJECTORYPIPELINEENGINE_H
+
+/// @file TrajectoryPipelineEngine.h
+/// @brief 统一 IR 管道：单一步骤列表顺序重放，支持节点缓存与局部重跑
+
+#include "robot_scene_global.h"
 
 #include "RawTrajectory.h"
 #include "RobotInstructionModel.h"
 #include "TrajectoryPathAdapters.h"
 #include "TrajectoryPipelineTypes.h"
 #include "UnifiedTrajectory.h"
-#include "robot_scene_global.h"
+
+#include <RigidTransform.h>
 
 #include <cstddef>
 #include <functional>
@@ -15,7 +22,6 @@
 
 namespace RobotInstruction
 {
-
 enum class ROBOT_SCENE_API TrajectoryOpPhase : std::uint8_t
 {
 	Geometry = 0,
@@ -40,6 +46,12 @@ public:
 	void setSourceRaw(RawTrajectory raw);
 	void setRawRebuildFn(RawRebuildFn rebuild);
 	void setProgramContext(const RobotProgram* program);
+	/// 非空则缓存当前 TCP（基座系）；空则清除
+	void setWorkpieceReferenceInBase(const engine::RigidTransform* pose);
+	/// 解析 Frame 后端世界位姿为外部 TCP；空则仅用手动六参数
+	using ExternalTcpFrameResolveFn =
+		std::function<bool(const std::string& backendId, engine::RigidTransform& out, std::string* errMsg)>;
+	void setExternalTcpFrameResolver(ExternalTcpFrameResolveFn resolver);
 
 	void setUnifiedBaseline(UnifiedTrajectory baseline);
 	void setOps(std::vector<TrajectoryOpDescriptor> ops);
@@ -69,6 +81,9 @@ private:
 	RawTrajectory m_rawWorking{};
 	RawRebuildFn m_rawRebuild;
 	const RobotProgram* m_program = nullptr;
+	bool m_hasWorkpieceReferenceInBase = false;
+	engine::RigidTransform m_workpieceReferenceInBase{};
+	ExternalTcpFrameResolveFn m_externalTcpFrameResolver;
 	std::vector<TrajectoryOpDescriptor> m_ops;
 	std::vector<PipelineStep> m_steps;
 	UnifiedTrajectory m_result{};
@@ -79,3 +94,5 @@ private:
 ROBOT_SCENE_API bool runTrajectoryPipelineEngineSelfCheck(std::string* errMsg = nullptr);
 
 } // namespace RobotInstruction
+
+#endif // ROBOTSCENE_TRAJECTORYPIPELINEENGINE_H

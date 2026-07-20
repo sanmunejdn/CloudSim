@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef OSGWIDGETCORE_PICKTYPES_H
+#define OSGWIDGETCORE_PICKTYPES_H
+
+/// @file PickTypes.h
+/// @brief PickTypes 接口
 
 #include <cstdint>
 #include <string>
@@ -51,3 +55,5 @@ struct PickPreviewState
 	bool valid = false;
 	PickResult result;
 };
+
+#endif // OSGWIDGETCORE_PICKTYPES_H

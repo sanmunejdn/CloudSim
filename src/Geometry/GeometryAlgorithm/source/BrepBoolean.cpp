@@ -1,17 +1,15 @@
-#include "detail/OccIncludes.h"
+﻿/// @file BrepBoolean.cpp
+/// @brief BrepBoolean 实现
 
 #include "BrepBoolean.h"
+
 #include "MeshDiscretize.h"
+#include "detail/OccIncludes.h"
 
 namespace geoalgo
 {
-
-bool brepBooleanToShape(
-	const TopoDS_Shape& target,
-	const TopoDS_Shape& tool,
-	const BrepBooleanOp op,
-	TopoDS_Shape& outShape,
-	std::string* errMsg)
+bool brepBooleanToShape(const TopoDS_Shape& target, const TopoDS_Shape& tool, const BrepBooleanOp op,
+						TopoDS_Shape& outShape, std::string* errMsg)
 {
 	ShapeFix_Shape fixer(target);
 	fixer.Perform();
@@ -54,13 +52,8 @@ bool brepBooleanToShape(
 	return true;
 }
 
-bool brepBooleanToMesh(
-	const TopoDS_Shape& target,
-	const TopoDS_Shape& tool,
-	const BrepBooleanOp op,
-	const MeshDiscretizeParams& meshParams,
-	std::vector<float>& outSoup,
-	std::string* errMsg)
+bool brepBooleanToMesh(const TopoDS_Shape& target, const TopoDS_Shape& tool, const BrepBooleanOp op,
+					   const MeshDiscretizeParams& meshParams, std::vector<float>& outSoup, std::string* errMsg)
 {
 	TopoDS_Shape result;
 	if (!brepBooleanToShape(target, tool, op, result, errMsg))

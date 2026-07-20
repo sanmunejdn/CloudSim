@@ -1,18 +1,21 @@
-#include "BackendProjectObjectIo.h"
+﻿/// @file BackendProjectObjectIo.cpp
+/// @brief BackendProjectObjectIo 实现
 
-#include "BackendFileImport.h"
-#include "BackendFollowSolve.h"
-#include "BackendHierarchyFollow.h"
-#include "DocumentHost.h"
-#include "DocumentHostAccess.h"
-#include "IDataService.h"
+#include "BackendProjectObjectIo.h"
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
-#include "FollowAttachmentComponent.h"
+#include "BackendFileImport.h"
+#include "BackendFollowSolve.h"
+#include "BackendHierarchyFollow.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryBuiltins.h"
 #include "BrepBackendData.h"
+#include "DocumentHost.h"
+#include "DocumentHostAccess.h"
+#include "FollowAttachmentComponent.h"
+#include "FrameBackendData.h"
+#include "IDataService.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
@@ -24,16 +27,15 @@
 #include <QJsonValue>
 #include <QMap>
 
+#include <json.hpp>
 #include <osg/Vec3f>
 
-#include <json.hpp>
-
-namespace cloudsim::host {
-
-namespace {
-
+namespace cloudsim::host
+{
+namespace
+{
 QString resolveProjectObjectLoadPath(const QString& projectDir, const QString& sourcePath,
-	const QString& assetRelativePath)
+									 const QString& assetRelativePath)
 {
 	if (!sourcePath.isEmpty() && QFileInfo::exists(sourcePath))
 	{
@@ -64,7 +66,7 @@ QMap<QString, std::shared_ptr<BrepBackendData>> g_stepSidecarCache;
 } // namespace
 
 QJsonObject saveProjectObject(DocumentHost& host, const QString& objectId, const QString& sourcePath,
-	const QString& sourceType, const QString& parentId)
+							  const QString& sourceType, const QString& parentId)
 {
 	QJsonObject obj = host.data().saveObjectToJson(objectId);
 	if (obj.isEmpty())
@@ -78,7 +80,7 @@ QJsonObject saveProjectObject(DocumentHost& host, const QString& objectId, const
 }
 
 bool decodeBackendObjectFromProjectJson(const QJsonObject& objectJson, std::shared_ptr<BackendDataBase>& out,
-	QString* outError)
+										QString* outError)
 {
 	out.reset();
 	ensureBackendBuiltinsRegistered();
@@ -125,8 +127,9 @@ bool decodeBackendObjectFromProjectJson(const QJsonObject& objectJson, std::shar
 }
 
 bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& objectJson, const QString& persistedId,
-	const QString& sourcePath, const QString& catalogTypeName, const QString& parentId, const bool robotLinkMeshVisual,
-	const QString& projectDir, QString* outVisualError, QString* outError)
+								   const QString& sourcePath, const QString& catalogTypeName, const QString& parentId,
+								   const bool robotLinkMeshVisual, const QString& projectDir, QString* outVisualError,
+								   QString* outError)
 {
 	std::shared_ptr<BackendDataBase> backendObject;
 	if (!decodeBackendObjectFromProjectJson(objectJson, backendObject, outError))
@@ -266,12 +269,16 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 	{
 		visualOk = osg->loadBackendFromBackendData(*brep, &visualErr, true, true, true);
 	}
+	else if (const auto frame = std::dynamic_pointer_cast<FrameBackendData>(backendObject))
+	{
+		visualOk = osg->loadBackendFromBackendData(*frame, &visualErr, true, false, false);
+	}
 	else
 	{
 		if (outError)
 		{
-			*outError = QStringLiteral("unsupported backend class: %1")
-				.arg(QString::fromStdString(backendObject->className()));
+			*outError =
+				QStringLiteral("unsupported backend class: %1").arg(QString::fromStdString(backendObject->className()));
 		}
 		return false;
 	}
@@ -283,19 +290,21 @@ bool registerEmbeddedProjectObject(DocumentHost& host, const QJsonObject& object
 		}
 		return false;
 	}
+	// 视觉默认显示；按 Data 真源恢复隐藏态
+	osg->setBackendObjectVisible(backendObject->id(), backendObject->isVisible());
 	return registerAdoptedBackendObject(host, backendObject, sourcePath, catalogTypeName, parentId, outError);
 }
 
 QString importProjectObjectFromFile(DocumentHost& host, const QString& loadPath, const QString& persistedId,
-	const QString& catalogTypeName, const bool isPointCloud, QString* outError)
+									const QString& catalogTypeName, const bool isPointCloud, QString* outError)
 {
 	core::ImportOptionsDto opt;
 	opt.quietUi = true;
 	opt.resetViewToHome = false;
 	opt.persistedId = persistedId;
 	opt.catalogTypeName = catalogTypeName.isEmpty()
-		? (isPointCloud ? QStringLiteral("PointCloud") : QStringLiteral("Model"))
-		: catalogTypeName;
+							  ? (isPointCloud ? QStringLiteral("PointCloud") : QStringLiteral("Model"))
+							  : catalogTypeName;
 	if (isPointCloud)
 	{
 		return importPointCloudFile(host, loadPath, opt, outError);
@@ -325,7 +334,8 @@ QVector<ProjectHierarchyEdge> parseProjectEdgesJson(const QJsonArray& edgesJson)
 	return edges;
 }
 
-void applyProjectEdgesToBackend(DocumentHost& host, const QVector<ProjectHierarchyEdge>& edges, QStringList* outWarnings)
+void applyProjectEdgesToBackend(DocumentHost& host, const QVector<ProjectHierarchyEdge>& edges,
+								QStringList* outWarnings)
 {
 	for (const ProjectHierarchyEdge& edge : edges)
 	{
@@ -335,8 +345,7 @@ void applyProjectEdgesToBackend(DocumentHost& host, const QVector<ProjectHierarc
 		{
 			if (outWarnings)
 			{
-				outWarnings->append(
-					QStringLiteral("Skip dangling edge: %1 -> %2").arg(edge.parentId, edge.childId));
+				outWarnings->append(QStringLiteral("Skip dangling edge: %1 -> %2").arg(edge.parentId, edge.childId));
 			}
 			continue;
 		}
@@ -389,22 +398,14 @@ void applyPointCloudPoseFromProjectJson(PointCloudBackendData& pc, OsgWidget* os
 	const QJsonObject pose = obj.value(QStringLiteral("pose")).toObject();
 	const QJsonObject rot = obj.value(QStringLiteral("rotation")).toObject();
 	const QJsonObject col = obj.value(QStringLiteral("color")).toObject();
-	const BackendVec3 p{
-		pose.value(QStringLiteral("x")).toDouble(),
-		pose.value(QStringLiteral("y")).toDouble(),
-		pose.value(QStringLiteral("z")).toDouble()
-	};
-	const BackendVec3 r{
-		rot.value(QStringLiteral("x")).toDouble(),
-		rot.value(QStringLiteral("y")).toDouble(),
-		rot.value(QStringLiteral("z")).toDouble()
-	};
-	const BackendColor c{
-		static_cast<float>(col.value(QStringLiteral("r")).toDouble(1.0)),
-		static_cast<float>(col.value(QStringLiteral("g")).toDouble(1.0)),
-		static_cast<float>(col.value(QStringLiteral("b")).toDouble(1.0)),
-		static_cast<float>(col.value(QStringLiteral("a")).toDouble(1.0))
-	};
+	const BackendVec3 p{pose.value(QStringLiteral("x")).toDouble(), pose.value(QStringLiteral("y")).toDouble(),
+						pose.value(QStringLiteral("z")).toDouble()};
+	const BackendVec3 r{rot.value(QStringLiteral("x")).toDouble(), rot.value(QStringLiteral("y")).toDouble(),
+						rot.value(QStringLiteral("z")).toDouble()};
+	const BackendColor c{static_cast<float>(col.value(QStringLiteral("r")).toDouble(1.0)),
+						 static_cast<float>(col.value(QStringLiteral("g")).toDouble(1.0)),
+						 static_cast<float>(col.value(QStringLiteral("b")).toDouble(1.0)),
+						 static_cast<float>(col.value(QStringLiteral("a")).toDouble(1.0))};
 	pc.setPose(p);
 	pc.setRotation(r);
 	pc.setColor(c);
@@ -420,7 +421,7 @@ void applyPointCloudPoseFromProjectJson(PointCloudBackendData& pc, OsgWidget* os
 }
 
 void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, const ProjectObjectLoadOptions& options,
-	const ProjectObjectLoadCallbacks& callbacks, QStringList* outWarnings)
+								const ProjectObjectLoadCallbacks& callbacks, QStringList* outWarnings)
 {
 	// 每次加载新工程时清空 stepSidecar 缓存，避免跨工程污染
 	g_stepSidecarCache.clear();
@@ -442,8 +443,8 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 		const QJsonObject emb = obj.value(QStringLiteral("geometry")).toObject();
 		const bool hasEmb = !emb.isEmpty();
 
-		if (classNameVal == QStringLiteral("Compass")
-			|| sourceType.compare(QStringLiteral("Compass"), Qt::CaseInsensitive) == 0)
+		if (classNameVal == QStringLiteral("Compass") ||
+			sourceType.compare(QStringLiteral("Compass"), Qt::CaseInsensitive) == 0)
 		{
 			continue;
 		}
@@ -451,33 +452,41 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 		if (classNameVal.isEmpty())
 		{
 			appendProjectLoadWarning(outWarnings,
-				QStringLiteral("Skip object with empty className: %1").arg(persistedId));
+									 QStringLiteral("Skip object with empty className: %1").arg(persistedId));
 			continue;
 		}
 
-		if (!hasEmb && sourcePath.isEmpty() && assetRelativePath.isEmpty())
+		// 坐标系无文件几何，仅靠 pose/worldMatrix；仍须走内嵌注册
+		const bool isCoordinateFrame =
+			classNameVal == QStringLiteral("FrameBackendData") ||
+			sourceType.compare(QStringLiteral("CoordinateFrame"), Qt::CaseInsensitive) == 0;
+
+		if (!hasEmb && sourcePath.isEmpty() && assetRelativePath.isEmpty() && !isCoordinateFrame)
 		{
 			continue;
 		}
 
-		if (hasEmb)
+		if (hasEmb || isCoordinateFrame)
 		{
 			const QString catalogType =
 				sourceType.isEmpty()
-				? (classNameVal == QStringLiteral("PointCloudBackendData") ? QStringLiteral("PointCloud")
-					: classNameVal == QStringLiteral("BrepModel") ? QStringLiteral("BrepModel")
-																		  : QStringLiteral("Model"))
-				: sourceType;
+					? (classNameVal == QStringLiteral("PointCloudBackendData") ? QStringLiteral("PointCloud")
+					   : classNameVal == QStringLiteral("BrepModel")			   ? QStringLiteral("BrepModel")
+					   : classNameVal == QStringLiteral("FrameBackendData")	   ? QStringLiteral("CoordinateFrame")
+																			   : QStringLiteral("Model"))
+					: sourceType;
 			// edges 模式父链由 edges[] 统一写，勿用 JSON parentId
 			const QString parentId = options.useEdgesRelation ? QString() : legacyParentId;
 			QString visualErr;
 			QString regErr;
 			if (registerEmbeddedProjectObject(host, obj, persistedId, sourcePath, catalogType, parentId,
-					options.robotLinkMeshBackendIds.contains(persistedId), options.projectDir, &visualErr, &regErr))
+											  options.robotLinkMeshBackendIds.contains(persistedId), options.projectDir,
+											  &visualErr, &regErr))
 			{
 				if (!parentId.isEmpty() && callbacks.legacyParentFollow)
 				{
-					if (const std::shared_ptr<BackendDataBase> registered = host.backend().getData(persistedId.toStdString()))
+					if (const std::shared_ptr<BackendDataBase> registered =
+							host.backend().getData(persistedId.toStdString()))
 					{
 						callbacks.legacyParentFollow(registered->id(), parentId.toStdString());
 					}
@@ -486,13 +495,20 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 			}
 			if (!visualErr.isEmpty())
 			{
-				appendProjectLoadWarning(outWarnings,
+				appendProjectLoadWarning(
+					outWarnings,
 					QStringLiteral("Embedded backend visual load failed (id=%1): %2").arg(persistedId, visualErr));
 			}
 			else if (!regErr.isEmpty())
 			{
-				appendProjectLoadWarning(outWarnings,
+				appendProjectLoadWarning(
+					outWarnings,
 					QStringLiteral("Embedded backend register failed (id=%1): %2").arg(persistedId, regErr));
+			}
+			// 坐标系无文件回退路径；注册失败则跳过，避免误报 Missing data
+			if (isCoordinateFrame)
+			{
+				continue;
 			}
 		}
 
@@ -500,15 +516,13 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 		if (loadPath.isEmpty())
 		{
 			appendProjectLoadWarning(outWarnings,
-				QStringLiteral("Missing data (no usable embedded geometry and file missing): %1")
-					.arg(sourcePath.isEmpty() ? assetRelativePath : sourcePath));
+									 QStringLiteral("Missing data (no usable embedded geometry and file missing): %1")
+										 .arg(sourcePath.isEmpty() ? assetRelativePath : sourcePath));
 			continue;
 		}
 		const bool isPc = sourceType.compare(QStringLiteral("PointCloud"), Qt::CaseInsensitive) == 0;
 		const QString catalogType =
-			sourceType.isEmpty()
-			? (isPc ? QStringLiteral("PointCloud") : QStringLiteral("Model"))
-			: sourceType;
+			sourceType.isEmpty() ? (isPc ? QStringLiteral("PointCloud") : QStringLiteral("Model")) : sourceType;
 		QString importErr;
 		QString importedId = importProjectObjectFromFile(host, loadPath, persistedId, catalogType, isPc, &importErr);
 		// las/laz 等 importPointCloudFile 失败时的 Widget 回退（与 importFileIntoDocument 一致）
@@ -516,21 +530,31 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 		{
 			if (!callbacks.pointCloudWidgetImport(host, loadPath, persistedId, importedId, &importErr))
 			{
-				appendProjectLoadWarning(outWarnings,
-					QStringLiteral("Failed to load object from file: %1 (%2)").arg(loadPath, importErr));
+				appendProjectLoadWarning(
+					outWarnings, QStringLiteral("Failed to load object from file: %1 (%2)").arg(loadPath, importErr));
 				continue;
 			}
 		}
 		else if (importedId.isEmpty())
 		{
-			appendProjectLoadWarning(outWarnings,
-				QStringLiteral("Failed to load object from file: %1 (%2)").arg(loadPath, importErr));
+			appendProjectLoadWarning(
+				outWarnings, QStringLiteral("Failed to load object from file: %1 (%2)").arg(loadPath, importErr));
 			continue;
 		}
 		if (!importedId.isEmpty())
 		{
-			// 文件导入只恢复几何，pose/color 仍从工程 JSON 写回
-			if (auto pc = std::dynamic_pointer_cast<PointCloudBackendData>(host.backend().getData(importedId.toStdString())))
+			// 文件导入只恢复几何；visible/pose 等从工程 JSON 写回
+			if (const auto data = host.backend().getData(importedId.toStdString()))
+			{
+				const bool visible = obj.value(QStringLiteral("visible")).toBool(true);
+				data->setVisible(visible);
+				if (osg)
+				{
+					osg->setBackendObjectVisible(importedId.toStdString(), visible);
+				}
+			}
+			if (auto pc =
+					std::dynamic_pointer_cast<PointCloudBackendData>(host.backend().getData(importedId.toStdString())))
 			{
 				applyPointCloudPoseFromProjectJson(*pc, osg, obj);
 			}
@@ -539,7 +563,7 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 }
 
 void finalizeProjectHierarchyAfterObjects(DocumentHost& host, const bool useEdgesRelation,
-	const QVector<ProjectHierarchyEdge>& edges, QStringList* outWarnings)
+										  const QVector<ProjectHierarchyEdge>& edges, QStringList* outWarnings)
 {
 	if (useEdgesRelation)
 	{
@@ -549,17 +573,23 @@ void finalizeProjectHierarchyAfterObjects(DocumentHost& host, const bool useEdge
 }
 
 void applyProjectEdgesFollowBindingAndSolve(DocumentHost& host, const QVector<ProjectHierarchyEdge>& edges,
-	const FollowSolveContext* solveCtx)
+											const FollowSolveContext* solveCtx)
 {
+	host.stripKinematicsOwnedFollowAttachments();
 	for (const ProjectHierarchyEdge& edge : edges)
 	{
-		const std::shared_ptr<BackendDataBase> childData = host.backend().getData(edge.childId.toStdString());
+		const std::string childId = edge.childId.toStdString();
+		if (host.isKinematicsOwnedBackend(childId))
+		{
+			continue;
+		}
+		const std::shared_ptr<BackendDataBase> childData = host.backend().getData(childId);
 		// 工程里已带 followAttachment 的节点不再重复 binding
 		if (childData && childData->hasComponent(FollowAttachmentComponent::typeKeyStatic()))
 		{
 			continue;
 		}
-		applyHierarchyFollowBinding(host, edge.childId.toStdString(), edge.parentId.toStdString());
+		applyHierarchyFollowBinding(host, childId, edge.parentId.toStdString());
 	}
 	OsgWidget* osg = osgWidgetFrom(host);
 	if (!osg)

@@ -1,3 +1,6 @@
+﻿/// @file RobotInstructionProgram.cpp
+/// @brief RobotInstructionProgram 实现
+
 #include "RobotInstructionProgram.h"
 
 #include <cstdio>
@@ -21,15 +24,15 @@ void renumberMotionPointIndicesRecursive(std::vector<std::shared_ptr<Base>>& ste
 		}
 		if (ins->type() == Type::IF)
 		{
-			renumberMotionPointIndicesRecursive(
-				const_cast<std::vector<std::shared_ptr<Base>>&>(ins->nestedSteps()), nextIndex);
-			renumberMotionPointIndicesRecursive(
-				const_cast<std::vector<std::shared_ptr<Base>>&>(ins->elseSteps()), nextIndex);
+			renumberMotionPointIndicesRecursive(const_cast<std::vector<std::shared_ptr<Base>>&>(ins->nestedSteps()),
+												nextIndex);
+			renumberMotionPointIndicesRecursive(const_cast<std::vector<std::shared_ptr<Base>>&>(ins->elseSteps()),
+												nextIndex);
 		}
 		else if (ins->type() == Type::WHILE)
 		{
-			renumberMotionPointIndicesRecursive(
-				const_cast<std::vector<std::shared_ptr<Base>>&>(ins->nestedSteps()), nextIndex);
+			renumberMotionPointIndicesRecursive(const_cast<std::vector<std::shared_ptr<Base>>&>(ins->nestedSteps()),
+												nextIndex);
 		}
 	}
 }
@@ -42,8 +45,8 @@ bool isMotionWaypointType(const Type t)
 
 bool isExecutableInstructionType(const Type t)
 {
-	return isMotionWaypointType(t) || t == Type::WAIT || t == Type::SET_DO || t == Type::SET_AO
-		|| t == Type::IF || t == Type::WHILE;
+	return isMotionWaypointType(t) || t == Type::WAIT || t == Type::SET_DO || t == Type::SET_AO || t == Type::IF ||
+		   t == Type::WHILE;
 }
 
 bool shouldSkipInMotionTraversal(const Type t)
@@ -102,13 +105,7 @@ std::string formatMotionWaypointSummary(const Base& ins, const bool chinese)
 {
 	const Vec3 p = ins.pose();
 	char xyzBuf[128];
-	std::snprintf(
-		xyzBuf,
-		sizeof(xyzBuf),
-		"%.1f, %.1f, %.1f",
-		p.x,
-		p.y,
-		p.z);
+	std::snprintf(xyzBuf, sizeof(xyzBuf), "%.1f, %.1f, %.1f", p.x, p.y, p.z);
 
 	const int pointIndex = motionPointIndex(ins);
 	if (pointIndex > 0)
@@ -127,9 +124,7 @@ std::string formatMotionWaypointSummary(const Base& ins, const bool chinese)
 	return std::string("XYZ ") + xyzBuf;
 }
 
-void collectMotionInstructionsRecursive(
-	const std::vector<std::shared_ptr<Base>>& steps,
-	std::vector<const Base*>& out)
+void collectMotionInstructionsRecursive(const std::vector<std::shared_ptr<Base>>& steps, std::vector<const Base*>& out)
 {
 	for (const auto& ins : steps)
 	{
@@ -160,9 +155,8 @@ std::vector<const Base*> collectMotionInstructions(const std::vector<std::shared
 	return out;
 }
 
-void flattenInstructionsRecursive(
-	const std::vector<std::shared_ptr<Base>>& steps,
-	std::vector<std::shared_ptr<Base>>& out)
+void flattenInstructionsRecursive(const std::vector<std::shared_ptr<Base>>& steps,
+								  std::vector<std::shared_ptr<Base>>& out)
 {
 	for (const auto& ins : steps)
 	{

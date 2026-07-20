@@ -1,10 +1,12 @@
-#include "TubularGrinding.h"
+﻿/// @file TubularGrindingSession.cpp
+/// @brief TubularGrindingSession 实现
 
 #include "CenterlineExtraction.h"
-#include "MeshProjection.h"
 #include "MeshFpfhRegionPartition.h"
+#include "MeshProjection.h"
 #include "PipeSegmentation.h"
 #include "TrajectoryTemplates.h"
+#include "TubularGrinding.h"
 #include "TubularGrindingCommon.h"
 
 #include <algorithm>
@@ -15,7 +17,6 @@
 
 namespace geoalgo
 {
-
 struct TubularGrindingSession::Impl
 {
 	std::vector<float> sourceSoup;
@@ -40,8 +41,7 @@ struct TubularGrindingSession::Impl
 	std::vector<tg::Vec3> faceLocalAxes;
 };
 
-TubularGrindingSession::TubularGrindingSession(std::vector<float> sourceSoup)
-	: m_impl(std::make_unique<Impl>())
+TubularGrindingSession::TubularGrindingSession(std::vector<float> sourceSoup) : m_impl(std::make_unique<Impl>())
 {
 	m_impl->sourceSoup = std::move(sourceSoup);
 	m_impl->inputKind = tg::SkeletonInputKind::Mesh;
@@ -116,7 +116,6 @@ TubularGrindingSessionPtr createTubularGrindingSessionFromPointCloud(std::vector
 
 namespace
 {
-
 bool isNextStage(const TubularGrindingStage last, const TubularGrindingStage want)
 {
 	switch (want)
@@ -137,13 +136,7 @@ bool isNextStage(const TubularGrindingStage last, const TubularGrindingStage wan
 	}
 }
 
-void fillRgbaForPipe(
-	const int pipeId,
-	const int pipeCount,
-	float& r,
-	float& g,
-	float& b,
-	float& a)
+void fillRgbaForPipe(const int pipeId, const int pipeCount, float& r, float& g, float& b, float& a)
 {
 	tg::segmentDisplayRgb(pipeId, pipeCount, r, g, b);
 	a = 1.0f;
@@ -151,11 +144,8 @@ void fillRgbaForPipe(
 
 } // namespace
 
-bool runTubularGrindingStage(
-	TubularGrindingSession& session,
-	const TubularGrindingStage stage,
-	const TubularGrindingParams& params,
-	std::string* errMsg)
+bool runTubularGrindingStage(TubularGrindingSession& session, const TubularGrindingStage stage,
+							 const TubularGrindingParams& params, std::string* errMsg)
 {
 	if (stage == TubularGrindingStage::None)
 	{
@@ -165,8 +155,7 @@ bool runTubularGrindingStage(
 		}
 		return false;
 	}
-	if (!isNextStage(session.m_impl->lastCompleted, stage)
-		&& !(session.m_impl->lastCompleted == stage))
+	if (!isNextStage(session.m_impl->lastCompleted, stage) && !(session.m_impl->lastCompleted == stage))
 	{
 		if (errMsg)
 		{
@@ -175,9 +164,9 @@ bool runTubularGrindingStage(
 		return false;
 	}
 
-	const bool isPointCloudInput =
-		session.m_impl->inputKind == tg::SkeletonInputKind::PointCloud;
-	auto ensureMesh = [&]() -> bool {
+	const bool isPointCloudInput = session.m_impl->inputKind == tg::SkeletonInputKind::PointCloud;
+	auto ensureMesh = [&]() -> bool
+	{
 		if (session.m_impl->hasMesh)
 		{
 			return true;
@@ -208,16 +197,9 @@ bool runTubularGrindingStage(
 		}
 		int junctionCount = 0;
 		int regionCount = 0;
-		if (!tg::runPipeSegmentation(
-				session.m_impl->mesh,
-				params,
-				session.m_impl->segments,
-				session.m_impl->rings,
-				session.m_impl->faceSegmentId,
-				junctionCount,
-				regionCount,
-				errMsg,
-				&session.m_impl->faceLocalAxes))
+		if (!tg::runPipeSegmentation(session.m_impl->mesh, params, session.m_impl->segments, session.m_impl->rings,
+									 session.m_impl->faceSegmentId, junctionCount, regionCount, errMsg,
+									 &session.m_impl->faceLocalAxes))
 		{
 			return false;
 		}
@@ -257,28 +239,18 @@ bool runTubularGrindingStage(
 		}
 
 		int failCount = 0;
-		const bool useOtLc =
-			params.centerlineMethod == TubularGrindingCenterlineMethod::OtLc;
+		const bool useOtLc = params.centerlineMethod == TubularGrindingCenterlineMethod::OtLc;
 		if (useOtLc)
 		{
 			std::string otErr;
 			tg::OtLcGraphDiagnostics graphDiag;
 			session.m_impl->iterationSnapshots.clear();
 			tg::OtLcIterationCallback snapCb =
-				[&snapshots = session.m_impl->iterationSnapshots](
-					const tg::OtLcIterationSnapshot& snap)
-				{
-					snapshots.push_back(snap);
-				};
-			if (!tg::runOtLcSkeletonCenterline(
-					input,
-					params,
-					session.m_impl->centerlineSamples,
-					&session.m_impl->centerlinePca,
-					&otErr,
-					&session.m_impl->report.centerlinePcaFallback,
-					&graphDiag,
-					snapCb))
+				[&snapshots = session.m_impl->iterationSnapshots](const tg::OtLcIterationSnapshot& snap)
+			{ snapshots.push_back(snap); };
+			if (!tg::runOtLcSkeletonCenterline(input, params, session.m_impl->centerlineSamples,
+											   &session.m_impl->centerlinePca, &otErr,
+											   &session.m_impl->report.centerlinePcaFallback, &graphDiag, snapCb))
 			{
 				if (errMsg)
 				{
@@ -295,13 +267,8 @@ bool runTubularGrindingStage(
 		}
 		else if (session.m_impl->inputKind == tg::SkeletonInputKind::Mesh)
 		{
-			if (!tg::runCenterlineExtraction(
-					session.m_impl->mesh,
-					params,
-					session.m_impl->centerlineSamples,
-					failCount,
-					errMsg,
-					&session.m_impl->centerlinePca))
+			if (!tg::runCenterlineExtraction(session.m_impl->mesh, params, session.m_impl->centerlineSamples, failCount,
+											 errMsg, &session.m_impl->centerlinePca))
 			{
 				return false;
 			}
@@ -314,8 +281,7 @@ bool runTubularGrindingStage(
 			}
 			return false;
 		}
-		session.m_impl->report.centerlinePointCount =
-			static_cast<int>(session.m_impl->centerlineSamples.size());
+		session.m_impl->report.centerlinePointCount = static_cast<int>(session.m_impl->centerlineSamples.size());
 		session.m_impl->report.sectionFitFailCount = failCount;
 		break;
 	}
@@ -344,17 +310,12 @@ bool runTubularGrindingStage(
 				templateSegments.push_back(virtualPipe);
 			}
 		}
-		if (!tg::runTrajectoryTemplates(
-				templateSegments,
-				session.m_impl->centerlineSamples,
-				params,
-				session.m_impl->templatePoints,
-				errMsg))
+		if (!tg::runTrajectoryTemplates(templateSegments, session.m_impl->centerlineSamples, params,
+										session.m_impl->templatePoints, errMsg))
 		{
 			return false;
 		}
-		session.m_impl->report.templatePointCount =
-			static_cast<int>(session.m_impl->templatePoints.size());
+		session.m_impl->report.templatePointCount = static_cast<int>(session.m_impl->templatePoints.size());
 		break;
 	}
 	case TubularGrindingStage::Project:
@@ -368,28 +329,17 @@ bool runTubularGrindingStage(
 			return false;
 		}
 		double hitRate = 0.0;
-		const bool projected = isPointCloudInput
-			? tg::runPointCloudProjection(
-				session.m_impl->sourcePointXyz,
-				session.m_impl->templatePoints,
-				params,
-				session.m_impl->projectedPoints,
-				hitRate,
-				errMsg)
-			: (ensureMesh()
-				&& tg::runMeshProjection(
-					session.m_impl->mesh,
-					session.m_impl->templatePoints,
-					params,
-					session.m_impl->projectedPoints,
-					hitRate,
-					errMsg));
+		const bool projected =
+			isPointCloudInput
+				? tg::runPointCloudProjection(session.m_impl->sourcePointXyz, session.m_impl->templatePoints, params,
+											  session.m_impl->projectedPoints, hitRate, errMsg)
+				: (ensureMesh() && tg::runMeshProjection(session.m_impl->mesh, session.m_impl->templatePoints, params,
+														 session.m_impl->projectedPoints, hitRate, errMsg));
 		if (!projected)
 		{
 			return false;
 		}
-		session.m_impl->report.projectedPointCount =
-			static_cast<int>(session.m_impl->projectedPoints.size());
+		session.m_impl->report.projectedPointCount = static_cast<int>(session.m_impl->projectedPoints.size());
 		session.m_impl->report.projectionHitRate = hitRate;
 		break;
 	}
@@ -419,13 +369,8 @@ bool runTubularGrindingStage(
 		fpfhParams.minRegionFaces = params.fpfhMinRegionFaces;
 		int regionCount = 0;
 		int keypointCount = 0;
-		if (!tg::runMeshFpfhRegionPartition(
-				session.m_impl->mesh,
-				fpfhParams,
-				session.m_impl->faceFpfhRegionId,
-				regionCount,
-				keypointCount,
-				errMsg))
+		if (!tg::runMeshFpfhRegionPartition(session.m_impl->mesh, fpfhParams, session.m_impl->faceFpfhRegionId,
+											regionCount, keypointCount, errMsg))
 		{
 			return false;
 		}
@@ -446,11 +391,8 @@ bool runTubularGrindingStage(
 	return true;
 }
 
-bool buildSegmentColoredMeshSoup(
-	const TubularGrindingSession& session,
-	std::vector<float>& outSoup,
-	std::vector<float>& outRgbPerVertex,
-	std::string* errMsg)
+bool buildSegmentColoredMeshSoup(const TubularGrindingSession& session, std::vector<float>& outSoup,
+								 std::vector<float>& outRgbPerVertex, std::string* errMsg)
 {
 	if (session.m_impl->segments.empty() || session.m_impl->faceSegmentId.empty())
 	{
@@ -493,11 +435,8 @@ bool buildSegmentColoredMeshSoup(
 	return true;
 }
 
-bool buildRingColoredMeshSoup(
-	const TubularGrindingSession& session,
-	std::vector<float>& outSoup,
-	std::vector<float>& outRgbPerVertex,
-	std::string* errMsg)
+bool buildRingColoredMeshSoup(const TubularGrindingSession& session, std::vector<float>& outSoup,
+							  std::vector<float>& outRgbPerVertex, std::string* errMsg)
 {
 	if (session.m_impl->rings.empty() || session.m_impl->faceRingId.empty())
 	{
@@ -539,11 +478,8 @@ bool buildRingColoredMeshSoup(
 	return true;
 }
 
-bool buildFpfhRegionColoredMeshSoup(
-	const TubularGrindingSession& session,
-	std::vector<float>& outSoup,
-	std::vector<float>& outRgbPerVertex,
-	std::string* errMsg)
+bool buildFpfhRegionColoredMeshSoup(const TubularGrindingSession& session, std::vector<float>& outSoup,
+									std::vector<float>& outRgbPerVertex, std::string* errMsg)
 {
 	if (session.m_impl->faceFpfhRegionId.empty() || session.m_impl->fpfhRegionCount <= 0)
 	{
@@ -578,11 +514,8 @@ bool buildFpfhRegionColoredMeshSoup(
 	return true;
 }
 
-bool buildRingCenterPointsCloud(
-	const TubularGrindingSession& session,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::string* errMsg)
+bool buildRingCenterPointsCloud(const TubularGrindingSession& session, std::vector<float>& outXyz,
+								std::vector<float>& outRgba, std::string* errMsg)
 {
 	if (session.m_impl->rings.empty())
 	{
@@ -612,11 +545,8 @@ bool buildRingCenterPointsCloud(
 	return true;
 }
 
-bool buildFaceNormalAxisLineSegments(
-	const TubularGrindingSession& session,
-	const TubularGrindingParams& params,
-	std::vector<float>& outLineXyz,
-	std::string* errMsg)
+bool buildFaceNormalAxisLineSegments(const TubularGrindingSession& session, const TubularGrindingParams& params,
+									 std::vector<float>& outLineXyz, std::string* errMsg)
 {
 	if (!session.m_impl->hasMesh || session.m_impl->mesh.faceCount <= 0)
 	{
@@ -653,11 +583,8 @@ bool buildFaceNormalAxisLineSegments(
 	return !outLineXyz.empty();
 }
 
-bool buildLocalAxisLineSegments(
-	const TubularGrindingSession& session,
-	const TubularGrindingParams& params,
-	std::vector<float>& outLineXyz,
-	std::string* errMsg)
+bool buildLocalAxisLineSegments(const TubularGrindingSession& session, const TubularGrindingParams& params,
+								std::vector<float>& outLineXyz, std::string* errMsg)
 {
 	if (!session.m_impl->hasMesh || session.m_impl->mesh.faceCount <= 0)
 	{
@@ -716,11 +643,8 @@ bool buildLocalAxisLineSegments(
 	return !outLineXyz.empty();
 }
 
-bool buildCenterlinePointsCloud(
-	const TubularGrindingSession& session,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::string* errMsg)
+bool buildCenterlinePointsCloud(const TubularGrindingSession& session, std::vector<float>& outXyz,
+								std::vector<float>& outRgba, std::string* errMsg)
 {
 	if (session.m_impl->centerlineSamples.empty())
 	{
@@ -753,11 +677,7 @@ bool buildCenterlinePointsCloud(
 
 namespace
 {
-
-void appendLineSegment3(
-	std::vector<float>& outLineXyz,
-	const tg::Vec3& a,
-	const tg::Vec3& b)
+void appendLineSegment3(std::vector<float>& outLineXyz, const tg::Vec3& a, const tg::Vec3& b)
 {
 	outLineXyz.push_back(static_cast<float>(a.x));
 	outLineXyz.push_back(static_cast<float>(a.y));
@@ -767,23 +687,14 @@ void appendLineSegment3(
 	outLineXyz.push_back(static_cast<float>(b.z));
 }
 
-void appendPcaAxisArrow(
-	std::vector<float>& outLineXyz,
-	const TubularCenterlinePcaAxis& pca,
-	const double bboxDiagMm)
+void appendPcaAxisArrow(std::vector<float>& outLineXyz, const TubularCenterlinePcaAxis& pca, const double bboxDiagMm)
 {
 	if (!pca.valid)
 	{
 		return;
 	}
-	const tg::Vec3 centroid{
-		pca.centroidMm[0],
-		pca.centroidMm[1],
-		pca.centroidMm[2]};
-	tg::Vec3 axis{
-		pca.axis[0],
-		pca.axis[1],
-		pca.axis[2]};
+	const tg::Vec3 centroid{pca.centroidMm[0], pca.centroidMm[1], pca.centroidMm[2]};
+	tg::Vec3 axis{pca.axis[0], pca.axis[1], pca.axis[2]};
 	axis = tg::normalizeVec3(axis);
 	if (tg::length(axis) < 1e-9)
 	{
@@ -814,10 +725,8 @@ void appendPcaAxisArrow(
 
 } // namespace
 
-bool buildCenterlinePcaAxisArrowLineSegments(
-	const TubularGrindingSession& session,
-	std::vector<float>& outLineXyz,
-	std::string* errMsg)
+bool buildCenterlinePcaAxisArrowLineSegments(const TubularGrindingSession& session, std::vector<float>& outLineXyz,
+											 std::string* errMsg)
 {
 	if (!session.m_impl->centerlinePca.valid)
 	{
@@ -849,10 +758,7 @@ bool buildCenterlinePcaAxisArrowLineSegments(
 	return true;
 }
 
-bool buildCenterlinePolylineXyz(
-	const TubularGrindingSession& session,
-	std::vector<float>& outXyz,
-	std::string* errMsg)
+bool buildCenterlinePolylineXyz(const TubularGrindingSession& session, std::vector<float>& outXyz, std::string* errMsg)
 {
 	if (session.m_impl->centerlineSamples.empty())
 	{
@@ -877,11 +783,8 @@ bool buildCenterlinePolylineXyz(
 	return true;
 }
 
-bool buildTemplatePointsCloud(
-	const TubularGrindingSession& session,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::string* errMsg)
+bool buildTemplatePointsCloud(const TubularGrindingSession& session, std::vector<float>& outXyz,
+							  std::vector<float>& outRgba, std::string* errMsg)
 {
 	if (session.m_impl->templatePoints.empty())
 	{
@@ -912,11 +815,8 @@ bool buildTemplatePointsCloud(
 	return true;
 }
 
-bool buildProjectedPointsCloud(
-	const TubularGrindingSession& session,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::string* errMsg)
+bool buildProjectedPointsCloud(const TubularGrindingSession& session, std::vector<float>& outXyz,
+							   std::vector<float>& outRgba, std::string* errMsg)
 {
 	if (session.m_impl->projectedPoints.empty())
 	{
@@ -961,12 +861,8 @@ int iterationSnapshotIteration(const TubularGrindingSession& session, int snapsh
 	return session.m_impl->iterationSnapshots[static_cast<std::size_t>(snapshotIndex)].iteration;
 }
 
-bool buildIterationSnapshotPointsCloud(
-	const TubularGrindingSession& session,
-	int snapshotIndex,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::string* errMsg)
+bool buildIterationSnapshotPointsCloud(const TubularGrindingSession& session, int snapshotIndex,
+									   std::vector<float>& outXyz, std::vector<float>& outRgba, std::string* errMsg)
 {
 	if (snapshotIndex < 0 || snapshotIndex >= iterationSnapshotCount(session))
 	{
@@ -988,15 +884,21 @@ bool buildIterationSnapshotPointsCloud(
 	float r = 0.8f, g = 0.8f, b = 0.8f;
 	if (snap.iteration <= 10)
 	{
-		r = 0.2f; g = 0.8f; b = 0.2f;
+		r = 0.2f;
+		g = 0.8f;
+		b = 0.2f;
 	}
 	else if (snap.iteration <= 20)
 	{
-		r = 0.8f; g = 0.8f; b = 0.2f;
+		r = 0.8f;
+		g = 0.8f;
+		b = 0.2f;
 	}
 	else
 	{
-		r = 0.8f; g = 0.2f; b = 0.2f;
+		r = 0.8f;
+		g = 0.2f;
+		b = 0.2f;
 	}
 	outXyz.clear();
 	outRgba.clear();
@@ -1015,12 +917,9 @@ bool buildIterationSnapshotPointsCloud(
 	return true;
 }
 
-bool buildIterationSnapshotContractedPointsCloud(
-	const TubularGrindingSession& session,
-	int snapshotIndex,
-	std::vector<float>& outXyz,
-	std::vector<float>& outRgba,
-	std::string* errMsg)
+bool buildIterationSnapshotContractedPointsCloud(const TubularGrindingSession& session, int snapshotIndex,
+												 std::vector<float>& outXyz, std::vector<float>& outRgba,
+												 std::string* errMsg)
 {
 	if (snapshotIndex < 0 || snapshotIndex >= iterationSnapshotCount(session))
 	{
@@ -1059,12 +958,9 @@ bool buildIterationSnapshotContractedPointsCloud(
 	return true;
 }
 
-bool computeEllipseFittingResidualReport(
-	const TubularGrindingSession& session,
-	const TubularGrindingParams& params,
-	std::vector<double>& outPerRingRmsResiduals,
-	std::string& outSummaryText,
-	std::string* errMsg)
+bool computeEllipseFittingResidualReport(const TubularGrindingSession& session, const TubularGrindingParams& params,
+										 std::vector<double>& outPerRingRmsResiduals, std::string& outSummaryText,
+										 std::string* errMsg)
 {
 	outPerRingRmsResiduals.clear();
 	outSummaryText.clear();
@@ -1155,8 +1051,7 @@ bool computeEllipseFittingResidualReport(
 
 		// 计算残差
 		std::vector<double> residuals;
-		const double rms = tg::computeEllipseFittingResiduals(
-			projPts, semiMajor, semiMinor, cx, cy, rotRad, residuals);
+		const double rms = tg::computeEllipseFittingResiduals(projPts, semiMajor, semiMinor, cx, cy, rotRad, residuals);
 
 		outPerRingRmsResiduals.push_back(rms);
 		totalSumSq += rms * rms * static_cast<double>(residuals.size());
@@ -1164,13 +1059,10 @@ bool computeEllipseFittingResidualReport(
 	}
 
 	// 生成摘要文本
-	const double globalRms = (totalCount > 0)
-		? std::sqrt(totalSumSq / static_cast<double>(totalCount)) : 0.0;
+	const double globalRms = (totalCount > 0) ? std::sqrt(totalSumSq / static_cast<double>(totalCount)) : 0.0;
 
 	char buf[256];
-	std::snprintf(buf, sizeof(buf),
-		"椭圆拟合残差: 全局RMS=%.4f mm, %zu 个环",
-		globalRms, session.m_impl->rings.size());
+	std::snprintf(buf, sizeof(buf), "椭圆拟合残差: 全局RMS=%.4f mm, %zu 个环", globalRms, session.m_impl->rings.size());
 	outSummaryText = buf;
 
 	return true;

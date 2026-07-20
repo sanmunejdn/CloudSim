@@ -1,4 +1,8 @@
+﻿/// @file BrepBackendData_step.cpp
+/// @brief BrepBackendData_step 实现
+
 #include "pch.h"
+
 #include "BrepBackendData.h"
 #include "RunLogger.h"
 
@@ -17,10 +21,8 @@ bool BrepBackendData::loadFromStepFile(const std::string& path, std::string* err
 	return true;
 }
 
-bool BrepBackendData::loadStepHierarchyFromFile(
-	const std::string& path,
-	std::vector<BrepHierarchyPart>& outParts,
-	std::string* errMsg)
+bool BrepBackendData::loadStepHierarchyFromFile(const std::string& path, std::vector<BrepHierarchyPart>& outParts,
+												std::string* errMsg)
 {
 	outParts.clear();
 	geoalgo::ShapeHandle assembly;

@@ -1,10 +1,15 @@
+﻿#ifndef TRAJECTORYALGORITHM_TRAJECTORYOPCONFIGREGISTRY_H
+#define TRAJECTORYALGORITHM_TRAJECTORYOPCONFIGREGISTRY_H
+
+/// @file TrajectoryOpConfigRegistry.h
+/// @brief TrajectoryOpConfigRegistry 接口
+
 // 集中注册各块 schema，懒加载 trajectory 资源目录
-#pragma once
+#include "trajectory_algorithm_global.h"
 
 #include "IOpParamConfig.h"
 #include "TrajectoryOpParamSchema.h"
 #include "TrajectoryPipelineTypes.h"
-#include "trajectory_algorithm_global.h"
 
 #include <memory>
 #include <string>
@@ -12,7 +17,6 @@
 
 namespace trajectory_algo
 {
-
 class TRAJECTORY_ALGORITHM_API TrajectoryOpConfigRegistry
 {
 public:
@@ -24,9 +28,8 @@ public:
 	const std::string& resourceBaseDir() const { return m_resourceBaseDir; }
 
 	std::vector<TrajectoryOpParamField> paramFieldsForOp(RobotInstruction::TrajectoryOpKind kind) const;
-	RobotInstruction::TrajectoryOpDescriptor defaultUnifiedOp(
-		RobotInstruction::TrajectoryOpKind kind,
-		const RobotInstruction::OpScope& scope) const;
+	RobotInstruction::TrajectoryOpDescriptor defaultUnifiedOp(RobotInstruction::TrajectoryOpKind kind,
+															  const RobotInstruction::OpScope& scope) const;
 
 	TrajectoryOpConfigRegistry(const TrajectoryOpConfigRegistry&) = delete;
 	TrajectoryOpConfigRegistry& operator=(const TrajectoryOpConfigRegistry&) = delete;
@@ -45,3 +48,5 @@ private:
 };
 
 } // namespace trajectory_algo
+
+#endif // TRAJECTORYALGORITHM_TRAJECTORYOPCONFIGREGISTRY_H

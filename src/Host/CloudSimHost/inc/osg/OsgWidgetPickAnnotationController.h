@@ -1,9 +1,13 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_OSGWIDGETPICKANNOTATIONCONTROLLER_H
+#define CLOUDSIMHOST_OSGWIDGETPICKANNOTATIONCONTROLLER_H
+
+/// @file OsgWidgetPickAnnotationController.h
+/// @brief 点选标记与三维文字标注的增删改、刷新与按后端恢复，从 OsgWidget 中抽出的标注逻辑。
+
+#include "OsgWidget.h"
 
 #include <QList>
 #include <QString>
-
-#include "OsgWidget.h"
 
 /// 点选标记与三维文字标注的增删改、刷新与按后端恢复，从 OsgWidget 中抽出的标注逻辑。
 class OsgWidgetPickAnnotationController
@@ -25,3 +29,4 @@ public:
 	void restoreAnnotations(OsgWidget& self, const QList<typename OsgWidget::AnnotationSnapshot>& snapshots);
 };
 
+#endif // CLOUDSIMHOST_OSGWIDGETPICKANNOTATIONCONTROLLER_H

@@ -1,9 +1,13 @@
-#pragma once
+﻿#ifndef AIWIDGET_AIASSISTANTDOCKWIDGET_H
+#define AIWIDGET_AIASSISTANTDOCKWIDGET_H
+
+/// @file AiAssistantDockWidget.h
+/// @brief AI 助手面板：对话与自然语言建网格（规则解析）
+
+#include "aiwidget_global.h"
 
 #include <QString>
 #include <QWidget>
-
-#include "aiwidget_global.h"
 
 class QComboBox;
 class IAiAssistantHost;
@@ -32,7 +36,7 @@ public:
 	void hideCreateFromRecognitionButton();
 
 	void showTrajectoryFeatureResult(const QByteArray& planJsonUtf8, const QByteArray& catalogSliceUtf8,
-		const QString& parserVia);
+									 const QString& parserVia);
 	void hideTrajectoryFeatureConfirmButtons();
 
 signals:
@@ -61,3 +65,5 @@ private:
 	QPushButton* m_confirmTrajectoryBtn = nullptr;
 	QPushButton* m_retryTrajectoryBtn = nullptr;
 };
+
+#endif // AIWIDGET_AIASSISTANTDOCKWIDGET_H

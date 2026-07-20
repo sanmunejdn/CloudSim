@@ -1,10 +1,12 @@
+﻿/// @file FeatureDiscretizerRegistry.cpp
+/// @brief FeatureDiscretizerRegistry 实现
+
 #include "FeatureDiscretizerRegistry.h"
 
 #include <algorithm>
 
 namespace geoalgo
 {
-
 FeatureDiscretizerRegistry& FeatureDiscretizerRegistry::instance()
 {
 	static FeatureDiscretizerRegistry registry;

@@ -1,8 +1,11 @@
+﻿/// @file GeometryPlugin.cpp
+/// @brief GeometryPlugin 实现
+
 #include "GeometryPlugin.h"
 
 #include "GeometryDockWidget.h"
-#include "IPluginHostContext.h"
 #include "IPluginGeometryHost.h"
+#include "IPluginHostContext.h"
 
 QString GeometryPlugin::pluginId() const
 {
@@ -41,15 +44,18 @@ bool GeometryPlugin::initialize(IPluginHostContext* host)
 	{
 		return false;
 	}
-	host->onActiveDocumentChanged([this](IPluginDocument*) {
-		if (m_dockWidget)
+	host->onActiveDocumentChanged(
+		[this](IPluginDocument*)
 		{
-			m_dockWidget->refreshDocumentLabel();
-		}
-	});
+			if (m_dockWidget)
+			{
+				m_dockWidget->refreshDocumentLabel();
+			}
+		});
 	host->onLanguageChanged([this](const bool) { applyLanguage(); });
 	applyLanguage();
-	host->logInfo(host->useChinese() ? QStringLiteral("几何插件已加载。") : QStringLiteral("Geometry plugin initialized."));
+	host->logInfo(host->useChinese() ? QStringLiteral("几何插件已加载。")
+									 : QStringLiteral("Geometry plugin initialized."));
 	return true;
 }
 

@@ -1,3 +1,6 @@
+﻿/// @file FeatureDiscretizerParamJsonIo.cpp
+/// @brief FeatureDiscretizerParamJsonIo 实现
+
 #include "FeatureDiscretizerParamJsonIo.h"
 
 #include <fstream>
@@ -6,7 +9,6 @@ namespace geoalgo
 {
 namespace
 {
-
 FeatureParamType paramTypeFromToken(const std::string& token)
 {
 	if (token == "Int")
@@ -38,9 +40,7 @@ std::optional<std::string> readTextFile(const std::string& path)
 	return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
 }
 
-std::vector<std::string> jsonCandidatePaths(
-	const std::string& resourceBaseDir,
-	const std::string& relativePath)
+std::vector<std::string> jsonCandidatePaths(const std::string& resourceBaseDir, const std::string& relativePath)
 {
 	std::vector<std::string> out;
 	if (!resourceBaseDir.empty())
@@ -104,9 +104,8 @@ FeatureDiscretizerParamField fieldFromJson(const nlohmann::json& item)
 
 } // namespace
 
-std::optional<nlohmann::json> loadFeatureDiscretizerJsonFile(
-	const std::string& resourceBaseDir,
-	const std::string& relativePath)
+std::optional<nlohmann::json> loadFeatureDiscretizerJsonFile(const std::string& resourceBaseDir,
+															 const std::string& relativePath)
 {
 	for (const std::string& path : jsonCandidatePaths(resourceBaseDir, relativePath))
 	{

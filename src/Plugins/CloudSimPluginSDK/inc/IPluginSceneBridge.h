@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINSDK_IPLUGINSCENEBRIDGE_H
+#define CLOUDSIMPLUGINSDK_IPLUGINSCENEBRIDGE_H
+
+/// @file IPluginSceneBridge.h
+/// @brief 无 OSG 头的场景操作（4×4 列主序同 osg::Matrixd）
 
 #include "cloudsim_plugin_sdk_global.h"
 
@@ -12,11 +16,13 @@ public:
 	virtual ~IPluginSceneBridge() = default;
 
 	virtual bool setBackendRootWorldMatrixColumnMajor(const std::string& backendId,
-		const std::array<double, 16>& columnMajor4x4) = 0;
+													  const std::array<double, 16>& columnMajor4x4) = 0;
 	virtual bool getBackendRootWorldMatrixColumnMajor(const std::string& backendId,
-		std::array<double, 16>& outColumnMajor4x4) const = 0;
+													  std::array<double, 16>& outColumnMajor4x4) const = 0;
 
 	virtual void setBackendObjectVisible(const std::string& backendId, bool visible) = 0;
 	virtual void removeBackendObjectVisual(const std::string& backendId) = 0;
 	virtual bool hasBackendObjectBranch(const std::string& backendId) const = 0;
 };
+
+#endif // CLOUDSIMPLUGINSDK_IPLUGINSCENEBRIDGE_H

@@ -3,6 +3,17 @@
 ###############################################################################
 * text=auto
 
+# CloudSim product sources: CRLF (UTF-8 BOM enforced by scripts/normalize_source_encoding.py)
+*.h    text eol=crlf
+*.hpp  text eol=crlf
+*.hh   text eol=crlf
+*.hxx  text eol=crlf
+*.c    text eol=crlf
+*.cc   text eol=crlf
+*.cpp  text eol=crlf
+*.cxx  text eol=crlf
+*.inl  text eol=crlf
+
 ###############################################################################
 # Set default behavior for command prompt diff.
 #

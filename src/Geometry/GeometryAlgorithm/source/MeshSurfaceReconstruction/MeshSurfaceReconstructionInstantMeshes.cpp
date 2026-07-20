@@ -1,3 +1,6 @@
+﻿/// @file MeshSurfaceReconstructionInstantMeshes.cpp
+/// @brief MeshSurfaceReconstructionInstantMeshes 实现
+
 #include "MeshSurfaceReconstructionInstantMeshes.h"
 
 #include "InstantMeshesCore.h"
@@ -6,7 +9,6 @@ namespace geoalgo
 {
 namespace meshrecon
 {
-
 bool writeIndexedMeshObj(const IndexedMeshLite& mesh, const std::string& objPath, std::string* errMsg)
 {
 	instant_meshes::TriMesh tri;
@@ -24,11 +26,8 @@ bool writeQuadMeshObj(const QuadMeshLite& quad, const std::string& objPath, std:
 	return instant_meshes::writeQuadMeshObj(q, objPath, errMsg);
 }
 
-bool remeshToQuadMesh(
-	const IndexedMeshLite& triIn,
-	QuadMeshLite& quadOut,
-	const InstantMeshesParams& params,
-	std::string* errMsg)
+bool remeshToQuadMesh(const IndexedMeshLite& triIn, QuadMeshLite& quadOut, const InstantMeshesParams& params,
+					  std::string* errMsg)
 {
 	instant_meshes::TriMesh tri;
 	tri.vertices = triIn.vertices;

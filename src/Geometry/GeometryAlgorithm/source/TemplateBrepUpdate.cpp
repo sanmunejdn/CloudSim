@@ -1,18 +1,11 @@
-#include "detail/OccIncludes.h"
+﻿/// @file TemplateBrepUpdate.cpp
+/// @brief 获取面的 OCCT 曲面类型名称（用于调试输出）
 
 #include "TemplateBrepUpdate.h"
 
 #include "RunLogger.h"
 #include "ShapeHandle.h"
-
-#include <Geom_ConicalSurface.hxx>
-#include <Geom_SphericalSurface.hxx>
-#include <Geom_ToroidalSurface.hxx>
-#include <gp_Cone.hxx>
-#include <gp_Sphere.hxx>
-#include <gp_Torus.hxx>
-
-#include <Eigen/Dense>
+#include "detail/OccIncludes.h"
 
 #include <algorithm>
 #include <chrono>
@@ -23,6 +16,14 @@
 #include <unordered_set>
 #include <vector>
 
+#include <Eigen/Dense>
+#include <Geom_ConicalSurface.hxx>
+#include <Geom_SphericalSurface.hxx>
+#include <Geom_ToroidalSurface.hxx>
+#include <gp_Cone.hxx>
+#include <gp_Sphere.hxx>
+#include <gp_Torus.hxx>
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -31,7 +32,6 @@ namespace geoalgo
 {
 namespace
 {
-
 static const double kPi = 3.14159265358979323846;
 
 using Vec3 = Eigen::Vector3d;
@@ -82,19 +82,15 @@ bool outerWireOfFace(const TopoDS_Face& face, TopoDS_Wire& outWire)
 	return !outWire.IsNull();
 }
 
-std::size_t assignPointStepForSelectedFaces(
-	const std::size_t pointCount,
-	const std::size_t selectedFaceCount,
-	const std::size_t maxPointsPerFace)
+std::size_t assignPointStepForSelectedFaces(const std::size_t pointCount, const std::size_t selectedFaceCount,
+											const std::size_t maxPointsPerFace)
 {
 	const std::size_t budget = std::max<std::size_t>(1U, selectedFaceCount) * maxPointsPerFace;
 	return std::max<std::size_t>(1U, pointCount / budget);
 }
 
-std::size_t effectiveAssignPointsPerFace(
-	const std::size_t faceCount,
-	const std::size_t maxPointsPerFace,
-	const bool hasSelection)
+std::size_t effectiveAssignPointsPerFace(const std::size_t faceCount, const std::size_t maxPointsPerFace,
+										 const bool hasSelection)
 {
 	if (hasSelection)
 	{
@@ -183,19 +179,14 @@ bool bndBoxContainsPoint(const Bnd_Box& box, const gp_Pnt& pt)
 	return pt.X() >= x0 && pt.X() <= x1 && pt.Y() >= y0 && pt.Y() <= y1 && pt.Z() >= z0 && pt.Z() <= z1;
 }
 
-void smoothPoleDeltaAccum(
-	std::vector<PoleDeltaAccum>& accum,
-	const int nUPoles,
-	const int nVPoles,
-	const int passes)
+void smoothPoleDeltaAccum(std::vector<PoleDeltaAccum>& accum, const int nUPoles, const int nVPoles, const int passes)
 {
 	if (passes <= 0 || nUPoles < 1 || nVPoles < 1)
 	{
 		return;
 	}
-	const auto cellIndex = [nVPoles](const int iu, const int iv) {
-		return static_cast<std::size_t>((iu - 1) * nVPoles + (iv - 1));
-	};
+	const auto cellIndex = [nVPoles](const int iu, const int iv)
+	{ return static_cast<std::size_t>((iu - 1) * nVPoles + (iv - 1)); };
 	for (int pass = 0; pass < passes; ++pass)
 	{
 		std::vector<PoleDeltaAccum> next = accum;
@@ -249,11 +240,9 @@ struct AggregatedUvSample
 	Vec3 delta = Vec3::Zero();
 };
 
-std::vector<AggregatedUvSample> aggregateOutliersToUvGrid(
-	const std::vector<OutlierSample>& outliers,
-	const Handle(Geom_BSplineSurface)& surf,
-	const int gridU,
-	const int gridV)
+std::vector<AggregatedUvSample> aggregateOutliersToUvGrid(const std::vector<OutlierSample>& outliers,
+														  const Handle(Geom_BSplineSurface) & surf, const int gridU,
+														  const int gridV)
 {
 	const int nu = std::max(4, gridU);
 	const int nv = std::max(4, gridV);
@@ -279,14 +268,11 @@ std::vector<AggregatedUvSample> aggregateOutliersToUvGrid(
 	{
 		gp_Pnt onSurf;
 		surf->D0(sample.u, sample.v, onSurf);
-		const Vec3 delta =
-			Vec3(sample.localTarget.X(), sample.localTarget.Y(), sample.localTarget.Z())
-			- Vec3(onSurf.X(), onSurf.Y(), onSurf.Z());
+		const Vec3 delta = Vec3(sample.localTarget.X(), sample.localTarget.Y(), sample.localTarget.Z()) -
+						   Vec3(onSurf.X(), onSurf.Y(), onSurf.Z());
 
-		int cu = static_cast<int>(
-			std::floor((sample.u - static_cast<double>(uMin)) / uSpan * static_cast<double>(nu)));
-		int cv = static_cast<int>(
-			std::floor((sample.v - static_cast<double>(vMin)) / vSpan * static_cast<double>(nv)));
+		int cu = static_cast<int>(std::floor((sample.u - static_cast<double>(uMin)) / uSpan * static_cast<double>(nu)));
+		int cv = static_cast<int>(std::floor((sample.v - static_cast<double>(vMin)) / vSpan * static_cast<double>(nv)));
 		cu = std::max(0, std::min(nu - 1, cu));
 		cv = std::max(0, std::min(nv - 1, cv));
 		CellAccum& cell = cells[static_cast<std::size_t>(cu * nv + cv)];
@@ -308,17 +294,13 @@ std::vector<AggregatedUvSample> aggregateOutliersToUvGrid(
 				continue;
 			}
 			const double inv = 1.0 / static_cast<double>(cell.count);
-			aggregated.push_back(
-				{cell.uSum * inv, cell.vSum * inv, cell.deltaSum * inv});
+			aggregated.push_back({cell.uSum * inv, cell.vSum * inv, cell.deltaSum * inv});
 		}
 	}
 	return aggregated;
 }
 
-double pointToFaceDistanceMm(
-	const gp_Pnt& point,
-	const TopoDS_Face& face,
-	gp_Vec* outFaceNormal = nullptr)
+double pointToFaceDistanceMm(const gp_Pnt& point, const TopoDS_Face& face, gp_Vec* outFaceNormal = nullptr)
 {
 	BRepAdaptor_Surface surf(face, true);
 	GeomAPI_ProjectPointOnSurf proj(point, BRep_Tool::Surface(face));
@@ -352,16 +334,11 @@ struct FaceAssignTarget
 	Bnd_Box bbox;
 };
 
-void assignScanPointsParallel(
-	const std::vector<float>& scanXyz,
-	const std::vector<float>& scanNormalsNxNyNz,
-	const bool hasScanNormals,
-	const std::vector<TopoDS_Face>& faces,
-	const std::vector<FaceAssignTarget>& assignTargets,
-	const std::size_t pointStep,
-	const double faceBandMm,
-	const double normalThresholdDeg,
-	std::vector<std::vector<Vec3>>& facePoints)
+void assignScanPointsParallel(const std::vector<float>& scanXyz, const std::vector<float>& scanNormalsNxNyNz,
+							  const bool hasScanNormals, const std::vector<TopoDS_Face>& faces,
+							  const std::vector<FaceAssignTarget>& assignTargets, const std::size_t pointStep,
+							  const double faceBandMm, const double normalThresholdDeg,
+							  std::vector<std::vector<Vec3>>& facePoints)
 {
 	const std::size_t n = scanXyz.size() / 3U;
 	std::vector<std::size_t> sampleIndices;
@@ -380,7 +357,7 @@ void assignScanPointsParallel(
 	}
 
 #ifdef _OPENMP
-	#pragma omp parallel
+#pragma omp parallel
 #endif
 	{
 		const int workerId =
@@ -392,7 +369,7 @@ void assignScanPointsParallel(
 		std::vector<std::vector<Vec3>>& localPoints = shards[static_cast<std::size_t>(workerId)];
 
 #ifdef _OPENMP
-		#pragma omp for schedule(dynamic, 128)
+#pragma omp for schedule(dynamic, 128)
 #endif
 		for (int si = 0; si < sampleCount; ++si)
 		{
@@ -402,8 +379,7 @@ void assignScanPointsParallel(
 			Vec3 scanNormal;
 			if (hasScanNormals)
 			{
-				scanNormal =
-					Vec3(scanNormalsNxNyNz[b], scanNormalsNxNyNz[b + 1U], scanNormalsNxNyNz[b + 2U]);
+				scanNormal = Vec3(scanNormalsNxNyNz[b], scanNormalsNxNyNz[b + 1U], scanNormalsNxNyNz[b + 2U]);
 			}
 
 			int bestFace = -1;
@@ -414,8 +390,7 @@ void assignScanPointsParallel(
 				{
 					continue;
 				}
-				const double dist =
-					pointToFaceDistanceMm(pt, faces[static_cast<std::size_t>(target.faceIndex)]);
+				const double dist = pointToFaceDistanceMm(pt, faces[static_cast<std::size_t>(target.faceIndex)]);
 				if (dist > faceBandMm || dist >= bestDist)
 				{
 					continue;
@@ -459,11 +434,8 @@ void assignScanPointsParallel(
 	}
 }
 
-void computeFaceDeviations(
-	const std::vector<Vec3>& assignedPts,
-	const TopoDS_Face& face,
-	double& outAvg,
-	double& outMax)
+void computeFaceDeviations(const std::vector<Vec3>& assignedPts, const TopoDS_Face& face, double& outAvg,
+						   double& outMax)
 {
 	outAvg = 0.0;
 	outMax = 0.0;
@@ -550,7 +522,7 @@ bool fitCylinderFromPoints(const std::vector<Vec3>& pts, gp_Ax1& outAxis, double
 	return true;
 }
 
-bool makeFaceWithWire(const Handle(Geom_Surface)& surface, const TopoDS_Wire& wire, TopoDS_Face& outFace)
+bool makeFaceWithWire(const Handle(Geom_Surface) & surface, const TopoDS_Wire& wire, TopoDS_Face& outFace)
 {
 	BRepBuilderAPI_MakeFace maker(surface, wire, true);
 	if (!maker.IsDone())
@@ -572,10 +544,7 @@ bool makePlanarFaceWithWire(const gp_Pln& pln, const TopoDS_Wire& wire, TopoDS_F
 	return !outFace.IsNull();
 }
 
-bool makeFreeformFaceFromPoints(
-	const std::vector<Vec3>& pts,
-	const TopoDS_Wire& wire,
-	TopoDS_Face& outFace)
+bool makeFreeformFaceFromPoints(const std::vector<Vec3>& pts, const TopoDS_Wire& wire, TopoDS_Face& outFace)
 {
 	if (pts.size() < 12U)
 	{
@@ -641,10 +610,7 @@ bool makeFreeformFaceFromPoints(
 		else
 		{
 			const gp_Pnt prev = grid.Value(iu, iv);
-			grid.SetValue(
-				iu,
-				iv,
-				gp_Pnt((prev.X() + p(0)) * 0.5, (prev.Y() + p(1)) * 0.5, (prev.Z() + p(2)) * 0.5));
+			grid.SetValue(iu, iv, gp_Pnt((prev.X() + p(0)) * 0.5, (prev.Y() + p(1)) * 0.5, (prev.Z() + p(2)) * 0.5));
 		}
 		++counts[static_cast<std::size_t>(flat)];
 	}
@@ -666,13 +632,7 @@ bool makeFreeformFaceFromPoints(
 
 	try
 	{
-		GeomAPI_PointsToBSplineSurface approx(
-			grid,
-			Approx_ChordLength,
-			3,
-			8,
-			GeomAbs_C2,
-			1.0);
+		GeomAPI_PointsToBSplineSurface approx(grid, Approx_ChordLength, 3, 8, GeomAbs_C2, 1.0);
 		if (approx.IsDone())
 		{
 			Handle(Geom_BSplineSurface) surf = approx.Surface();
@@ -694,11 +654,8 @@ bool makeFreeformFaceFromPoints(
 	return makePlanarFaceWithWire(fallback, wire, outFace);
 }
 
-bool refitFaceFromPoints(
-	const TopoDS_Face& oldFace,
-	const std::vector<Vec3>& assignedPts,
-	TopoDS_Face& outFace,
-	FaceUpdateAction& outAction)
+bool refitFaceFromPoints(const TopoDS_Face& oldFace, const std::vector<Vec3>& assignedPts, TopoDS_Face& outFace,
+						 FaceUpdateAction& outAction)
 {
 	outAction = FaceUpdateAction::Unchanged;
 	if (assignedPts.size() < 3U)
@@ -768,10 +725,7 @@ bool refitFaceFromPoints(
 	return true;
 }
 
-double pointToShapeMaxDistance(
-	const std::vector<float>& xyz,
-	const TopoDS_Shape& shape,
-	double& outAvgDist)
+double pointToShapeMaxDistance(const std::vector<float>& xyz, const TopoDS_Shape& shape, double& outAvgDist)
 {
 	const std::size_t n = xyz.size() / 3U;
 	if (n == 0U || shape.IsNull())
@@ -940,11 +894,7 @@ bool fitToroidFromPoints(const std::vector<Vec3>& pts, gp_Ax1& outAxis, double& 
 	return true;
 }
 
-bool adjustPlaneFace(
-	const TopoDS_Face& face,
-	const std::vector<Vec3>& pts,
-	TopoDS_Face& out,
-	FaceUpdateAction& action)
+bool adjustPlaneFace(const TopoDS_Face& face, const std::vector<Vec3>& pts, TopoDS_Face& out, FaceUpdateAction& action)
 {
 	gp_Pln fittedPln;
 	if (!fitPlaneFromPoints(pts, fittedPln))
@@ -964,11 +914,8 @@ bool adjustPlaneFace(
 	return true;
 }
 
-bool adjustCylinderFace(
-	const TopoDS_Face& face,
-	const std::vector<Vec3>& pts,
-	TopoDS_Face& out,
-	FaceUpdateAction& action)
+bool adjustCylinderFace(const TopoDS_Face& face, const std::vector<Vec3>& pts, TopoDS_Face& out,
+						FaceUpdateAction& action)
 {
 	gp_Ax1 axis;
 	double radius = 0.0;
@@ -998,11 +945,7 @@ bool adjustCylinderFace(
 	return true;
 }
 
-bool adjustConeFace(
-	const TopoDS_Face& face,
-	const std::vector<Vec3>& pts,
-	TopoDS_Face& out,
-	FaceUpdateAction& action)
+bool adjustConeFace(const TopoDS_Face& face, const std::vector<Vec3>& pts, TopoDS_Face& out, FaceUpdateAction& action)
 {
 	gp_Ax1 axis;
 	double halfAngle = 0.0;
@@ -1033,11 +976,7 @@ bool adjustConeFace(
 	return true;
 }
 
-bool adjustSphereFace(
-	const TopoDS_Face& face,
-	const std::vector<Vec3>& pts,
-	TopoDS_Face& out,
-	FaceUpdateAction& action)
+bool adjustSphereFace(const TopoDS_Face& face, const std::vector<Vec3>& pts, TopoDS_Face& out, FaceUpdateAction& action)
 {
 	gp_Pnt center;
 	double radius = 0.0;
@@ -1066,11 +1005,7 @@ bool adjustSphereFace(
 	return true;
 }
 
-bool adjustToroidFace(
-	const TopoDS_Face& face,
-	const std::vector<Vec3>& pts,
-	TopoDS_Face& out,
-	FaceUpdateAction& action)
+bool adjustToroidFace(const TopoDS_Face& face, const std::vector<Vec3>& pts, TopoDS_Face& out, FaceUpdateAction& action)
 {
 	gp_Ax1 axis;
 	double majorRadius = 0.0;
@@ -1100,15 +1035,14 @@ bool adjustToroidFace(
 	return true;
 }
 
-Handle(Geom_BSplineSurface) extractBsplineSurface(const Handle(Geom_Surface)& geomSurf)
+Handle(Geom_BSplineSurface) extractBsplineSurface(const Handle(Geom_Surface) & geomSurf)
 {
 	Handle(Geom_BSplineSurface) direct = Handle(Geom_BSplineSurface)::DownCast(geomSurf);
 	if (!direct.IsNull())
 	{
 		return direct;
 	}
-	const Handle(Geom_RectangularTrimmedSurface) trimmed =
-		Handle(Geom_RectangularTrimmedSurface)::DownCast(geomSurf);
+	const Handle(Geom_RectangularTrimmedSurface) trimmed = Handle(Geom_RectangularTrimmedSurface)::DownCast(geomSurf);
 	if (!trimmed.IsNull())
 	{
 		return Handle(Geom_BSplineSurface)::DownCast(trimmed->BasisSurface());
@@ -1144,13 +1078,8 @@ double bsplineMaxPoleMoveMm(const TemplateBrepUpdateParams& params, const double
 	return std::max(3.0 * thresholdMm, 1.0);
 }
 
-bool computeBsplineBasis(
-	const TColStd_Array1OfReal& knotSeq,
-	const int nPoles,
-	const int degree,
-	const double t,
-	int& outSpanIndex,
-	std::vector<double>& outBasis)
+bool computeBsplineBasis(const TColStd_Array1OfReal& knotSeq, const int nPoles, const int degree, const double t,
+						 int& outSpanIndex, std::vector<double>& outBasis)
 {
 	const int order = degree + 1;
 	const int nKnots = knotSeq.Length();
@@ -1179,8 +1108,7 @@ bool computeBsplineBasis(
 	int span = -1;
 	for (int i = degree; i < nKnots - 1 - degree; ++i)
 	{
-		if (tt >= knots[static_cast<std::size_t>(i)] &&
-			tt < knots[static_cast<std::size_t>(i + 1)])
+		if (tt >= knots[static_cast<std::size_t>(i)] && tt < knots[static_cast<std::size_t>(i + 1)])
 		{
 			span = i;
 			break;
@@ -1214,19 +1142,15 @@ bool computeBsplineBasis(
 
 	for (int j = 1; j < order; ++j)
 	{
-		left[static_cast<std::size_t>(j)] =
-			tt - knots[static_cast<std::size_t>(span + 1 - j)];
-		right[static_cast<std::size_t>(j)] =
-			knots[static_cast<std::size_t>(span + j)] - tt;
+		left[static_cast<std::size_t>(j)] = tt - knots[static_cast<std::size_t>(span + 1 - j)];
+		right[static_cast<std::size_t>(j)] = knots[static_cast<std::size_t>(span + j)] - tt;
 
 		double saved = 0.0;
 		for (int r = 0; r < j; ++r)
 		{
-			const double temp =
-				outBasis[static_cast<std::size_t>(r)] /
-				(right[static_cast<std::size_t>(r + 1)] + left[static_cast<std::size_t>(j - r)]);
-			outBasis[static_cast<std::size_t>(r)] = saved +
-				right[static_cast<std::size_t>(r + 1)] * temp;
+			const double temp = outBasis[static_cast<std::size_t>(r)] /
+								(right[static_cast<std::size_t>(r + 1)] + left[static_cast<std::size_t>(j - r)]);
+			outBasis[static_cast<std::size_t>(r)] = saved + right[static_cast<std::size_t>(r + 1)] * temp;
 			saved = left[static_cast<std::size_t>(j - r)] * temp;
 		}
 		outBasis[static_cast<std::size_t>(j)] = saved;
@@ -1234,13 +1158,8 @@ bool computeBsplineBasis(
 	return true;
 }
 
-bool distributeOutlierDeltaToPoles(
-	const Handle(Geom_BSplineSurface)& surf,
-	const double u,
-	const double v,
-	const Vec3& delta,
-	std::vector<PoleDeltaAccum>& accum,
-	bool* outEvalFailed = nullptr)
+bool distributeOutlierDeltaToPoles(const Handle(Geom_BSplineSurface) & surf, const double u, const double v,
+								   const Vec3& delta, std::vector<PoleDeltaAccum>& accum, bool* outEvalFailed = nullptr)
 {
 	if (outEvalFailed)
 	{
@@ -1314,11 +1233,8 @@ bool distributeOutlierDeltaToPoles(
 	return any;
 }
 
-bool applyPoleDeltaAccum(
-	const Handle(Geom_BSplineSurface)& surf,
-	const std::vector<PoleDeltaAccum>& accum,
-	const double maxMoveMm,
-	int& adjustedPoleCount)
+bool applyPoleDeltaAccum(const Handle(Geom_BSplineSurface) & surf, const std::vector<PoleDeltaAccum>& accum,
+						 const double maxMoveMm, int& adjustedPoleCount)
 {
 	adjustedPoleCount = 0;
 	const int nUPoles = surf->NbUPoles();
@@ -1327,8 +1243,7 @@ bool applyPoleDeltaAccum(
 	{
 		for (int iv = 1; iv <= nVPoles; ++iv)
 		{
-			const PoleDeltaAccum& cell =
-				accum[static_cast<std::size_t>((iu - 1) * nVPoles + (iv - 1))];
+			const PoleDeltaAccum& cell = accum[static_cast<std::size_t>((iu - 1) * nVPoles + (iv - 1))];
 			if (cell.weightSum < 1e-12)
 			{
 				continue;
@@ -1354,12 +1269,8 @@ bool applyPoleDeltaAccum(
 	return adjustedPoleCount > 0;
 }
 
-bool adjustBSplineFace(
-	const TopoDS_Face& face,
-	const std::vector<Vec3>& pts,
-	const TemplateBrepUpdateParams& params,
-	TopoDS_Face& out,
-	FaceUpdateAction& action)
+bool adjustBSplineFace(const TopoDS_Face& face, const std::vector<Vec3>& pts, const TemplateBrepUpdateParams& params,
+					   TopoDS_Face& out, FaceUpdateAction& action)
 {
 	action = FaceUpdateAction::Unchanged;
 	TopLoc_Location loc;
@@ -1369,8 +1280,7 @@ bool adjustBSplineFace(
 	{
 		return false;
 	}
-	Handle(Geom_BSplineSurface) surf =
-		Handle(Geom_BSplineSurface)::DownCast(geomBSpline->Copy());
+	Handle(Geom_BSplineSurface) surf = Handle(Geom_BSplineSurface)::DownCast(geomBSpline->Copy());
 	if (surf.IsNull())
 	{
 		return false;
@@ -1413,8 +1323,7 @@ bool adjustBSplineFace(
 
 	const int gridU = std::max(4, params.bsplineUvGridCellsU);
 	const int gridV = std::max(4, params.bsplineUvGridCellsV);
-	const std::vector<AggregatedUvSample> aggregated =
-		aggregateOutliersToUvGrid(outliers, surf, gridU, gridV);
+	const std::vector<AggregatedUvSample> aggregated = aggregateOutliersToUvGrid(outliers, surf, gridU, gridV);
 
 	for (const AggregatedUvSample& sample : aggregated)
 	{
@@ -1447,13 +1356,8 @@ bool adjustBSplineFace(
 	if (!makeFaceWithWire(faceSurf, wire, out))
 	{
 		BRepAdaptor_Surface adapt(face, true);
-		BRepBuilderAPI_MakeFace maker(
-			faceSurf,
-			adapt.FirstUParameter(),
-			adapt.LastUParameter(),
-			adapt.FirstVParameter(),
-			adapt.LastVParameter(),
-			1e-6);
+		BRepBuilderAPI_MakeFace maker(faceSurf, adapt.FirstUParameter(), adapt.LastUParameter(),
+									  adapt.FirstVParameter(), adapt.LastVParameter(), 1e-6);
 		if (!maker.IsDone())
 		{
 			return false;
@@ -1468,13 +1372,9 @@ bool adjustBSplineFace(
 	return true;
 }
 
-bool adjustFaceGeometryDispatch(
-	const TopoDS_Face& originalFace,
-	const std::vector<Vec3>& assignedPoints,
-	const TemplateBrepUpdateParams& params,
-	TopoDS_Face& adjustedFace,
-	FaceUpdateAction& action,
-	std::string& outSurfaceTypeName)
+bool adjustFaceGeometryDispatch(const TopoDS_Face& originalFace, const std::vector<Vec3>& assignedPoints,
+								const TemplateBrepUpdateParams& params, TopoDS_Face& adjustedFace,
+								FaceUpdateAction& action, std::string& outSurfaceTypeName)
 {
 	action = FaceUpdateAction::Unchanged;
 	if (assignedPoints.size() < 3U)
@@ -1533,25 +1433,33 @@ static const char* surfaceTypeNameOf(const TopoDS_Face& face)
 	BRepAdaptor_Surface adapt(face, true);
 	switch (adapt.GetType())
 	{
-	case GeomAbs_Plane: return "Plane";
-	case GeomAbs_Cylinder: return "Cylinder";
-	case GeomAbs_Cone: return "Cone";
-	case GeomAbs_Sphere: return "Sphere";
-	case GeomAbs_Torus: return "Torus";
-	case GeomAbs_BSplineSurface: return "BSplineSurface";
-	case GeomAbs_SurfaceOfRevolution: return "SurfaceOfRevolution";
-	case GeomAbs_SurfaceOfExtrusion: return "SurfaceOfExtrusion";
-	case GeomAbs_OffsetSurface: return "OffsetSurface";
-	case GeomAbs_OtherSurface: return "OtherSurface";
-	default: return "Unknown";
+	case GeomAbs_Plane:
+		return "Plane";
+	case GeomAbs_Cylinder:
+		return "Cylinder";
+	case GeomAbs_Cone:
+		return "Cone";
+	case GeomAbs_Sphere:
+		return "Sphere";
+	case GeomAbs_Torus:
+		return "Torus";
+	case GeomAbs_BSplineSurface:
+		return "BSplineSurface";
+	case GeomAbs_SurfaceOfRevolution:
+		return "SurfaceOfRevolution";
+	case GeomAbs_SurfaceOfExtrusion:
+		return "SurfaceOfExtrusion";
+	case GeomAbs_OffsetSurface:
+		return "OffsetSurface";
+	case GeomAbs_OtherSurface:
+		return "OtherSurface";
+	default:
+		return "Unknown";
 	}
 }
 
-bool sampleShapeSurfacePoints(
-	const ShapeHandle& templateShape,
-	const double spacingMm,
-	std::vector<float>& outXyz,
-	std::string* errMsg)
+bool sampleShapeSurfacePoints(const ShapeHandle& templateShape, const double spacingMm, std::vector<float>& outXyz,
+							  std::string* errMsg)
 {
 	outXyz.clear();
 	TopoDS_Shape shape;
@@ -1629,13 +1537,9 @@ bool sampleShapeSurfacePoints(
 	return true;
 }
 
-bool updateShapeFromPointCloud(
-	const ShapeHandle& templateShape,
-	const std::vector<float>& scanXyz,
-	const std::vector<float>& scanNormalsNxNyNz,
-	const TemplateBrepUpdateParams& params,
-	TemplateBrepUpdateResult& out,
-	std::string* errMsg)
+bool updateShapeFromPointCloud(const ShapeHandle& templateShape, const std::vector<float>& scanXyz,
+							   const std::vector<float>& scanNormalsNxNyNz, const TemplateBrepUpdateParams& params,
+							   TemplateBrepUpdateResult& out, std::string* errMsg)
 {
 	const Eigen::Isometry3d savedTemplateToScan = out.templateToScan;
 	const double savedRmse = out.icpRmseMm;
@@ -1717,32 +1621,19 @@ bool updateShapeFromPointCloud(
 	}
 
 	const std::size_t maxPerFace = std::max<std::size_t>(30U, params.maxAssignPointsPerFace);
-	const std::size_t perFaceBudget =
-		effectiveAssignPointsPerFace(faces.size(), maxPerFace, hasSelection);
+	const std::size_t perFaceBudget = effectiveAssignPointsPerFace(faces.size(), maxPerFace, hasSelection);
 	const std::size_t budgetFaces = hasSelection ? assignTargets.size() : faces.size();
-	const std::size_t pointStep =
-		assignPointStepForSelectedFaces(n, budgetFaces, perFaceBudget);
+	const std::size_t pointStep = assignPointStepForSelectedFaces(n, budgetFaces, perFaceBudget);
 	const int threadCount = parallelWorkerCount();
 
 	const auto assignStart = std::chrono::steady_clock::now();
-	assignScanPointsParallel(
-		scanXyz,
-		scanNormalsNxNyNz,
-		hasScanNormals,
-		faces,
-		assignTargets,
-		pointStep,
-		params.faceBandMm,
-		params.normalThresholdDeg,
-		facePoints);
-	const auto assignMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-		std::chrono::steady_clock::now() - assignStart)
-		.count();
-	RunLogger::info(
-		"[TemplateBrepUpdate] assign scan points done, step=" + std::to_string(pointStep) +
-		" perFaceBudget=" + std::to_string(perFaceBudget) +
-		" selective=" + (hasSelection ? "yes" : "no") +
-		" threads=" + std::to_string(threadCount) + " ms=" + std::to_string(assignMs));
+	assignScanPointsParallel(scanXyz, scanNormalsNxNyNz, hasScanNormals, faces, assignTargets, pointStep,
+							 params.faceBandMm, params.normalThresholdDeg, facePoints);
+	const auto assignMs =
+		std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - assignStart).count();
+	RunLogger::info("[TemplateBrepUpdate] assign scan points done, step=" + std::to_string(pointStep) +
+					" perFaceBudget=" + std::to_string(perFaceBudget) + " selective=" + (hasSelection ? "yes" : "no") +
+					" threads=" + std::to_string(threadCount) + " ms=" + std::to_string(assignMs));
 
 	if (hasSelection)
 	{
@@ -1753,10 +1644,9 @@ bool updateShapeFromPointCloud(
 			{
 				continue;
 			}
-			RunLogger::info(
-				"[TemplateBrepUpdate] faceAssign fi=" + std::to_string(fi) + " pts="
-				+ std::to_string(facePoints[static_cast<std::size_t>(fi)].size())
-				+ " need>=" + std::to_string(params.minPointsPerFace));
+			RunLogger::info("[TemplateBrepUpdate] faceAssign fi=" + std::to_string(fi) +
+							" pts=" + std::to_string(facePoints[static_cast<std::size_t>(fi)].size()) +
+							" need>=" + std::to_string(params.minPointsPerFace));
 			if (++loggedFaces >= 16U)
 			{
 				break;
@@ -1770,7 +1660,7 @@ bool updateShapeFromPointCloud(
 
 	const auto faceUpdateStart = std::chrono::steady_clock::now();
 #ifdef _OPENMP
-	#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for schedule(dynamic)
 #endif
 	for (int fi = 0; fi < static_cast<int>(faces.size()); ++fi)
 	{
@@ -1795,22 +1685,15 @@ bool updateShapeFromPointCloud(
 		TopoDS_Face newFace;
 		FaceUpdateAction action = FaceUpdateAction::Unchanged;
 		std::string surfTypeName;
-		const bool dispatchOk = adjustFaceGeometryDispatch(
-			faces[static_cast<std::size_t>(fi)],
-			facePoints[static_cast<std::size_t>(fi)],
-			params,
-			newFace,
-			action,
-			surfTypeName);
+		const bool dispatchOk =
+			adjustFaceGeometryDispatch(faces[static_cast<std::size_t>(fi)], facePoints[static_cast<std::size_t>(fi)],
+									   params, newFace, action, surfTypeName);
 		report.surfaceTypeName = surfTypeName;
 		if (!dispatchOk)
 		{
 			report.action = FaceUpdateAction::Unchanged;
-			computeFaceDeviations(
-				facePoints[static_cast<std::size_t>(fi)],
-				faces[static_cast<std::size_t>(fi)],
-				report.avgDeviationMm,
-				report.maxDeviationMm);
+			computeFaceDeviations(facePoints[static_cast<std::size_t>(fi)], faces[static_cast<std::size_t>(fi)],
+								  report.avgDeviationMm, report.maxDeviationMm);
 			continue;
 		}
 
@@ -1819,24 +1702,18 @@ bool updateShapeFromPointCloud(
 		{
 			item.newFace = newFace;
 			item.replaceFace = true;
-			computeFaceDeviations(
-				facePoints[static_cast<std::size_t>(fi)],
-				newFace,
-				report.avgDeviationMm,
-				report.maxDeviationMm);
+			computeFaceDeviations(facePoints[static_cast<std::size_t>(fi)], newFace, report.avgDeviationMm,
+								  report.maxDeviationMm);
 		}
 		else
 		{
-			computeFaceDeviations(
-				facePoints[static_cast<std::size_t>(fi)],
-				faces[static_cast<std::size_t>(fi)],
-				report.avgDeviationMm,
-				report.maxDeviationMm);
+			computeFaceDeviations(facePoints[static_cast<std::size_t>(fi)], faces[static_cast<std::size_t>(fi)],
+								  report.avgDeviationMm, report.maxDeviationMm);
 		}
 	}
-	const auto faceUpdateMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-		std::chrono::steady_clock::now() - faceUpdateStart)
-		.count();
+	const auto faceUpdateMs =
+		std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - faceUpdateStart)
+			.count();
 
 	std::size_t skippedNoPoints = 0U;
 	std::size_t skippedBadBbox = 0U;
@@ -1895,11 +1772,10 @@ bool updateShapeFromPointCloud(
 		++updatedCount;
 	}
 
-	RunLogger::info(
-		"[TemplateBrepUpdate] face geometry update done, updated=" + std::to_string(updatedCount) +
-		" skippedBbox=" + std::to_string(skippedBadBbox) +
-		" skippedNoPts=" + std::to_string(skippedNoPoints) +
-		" threads=" + std::to_string(threadCount) + " ms=" + std::to_string(faceUpdateMs));
+	RunLogger::info("[TemplateBrepUpdate] face geometry update done, updated=" + std::to_string(updatedCount) +
+					" skippedBbox=" + std::to_string(skippedBadBbox) +
+					" skippedNoPts=" + std::to_string(skippedNoPoints) + " threads=" + std::to_string(threadCount) +
+					" ms=" + std::to_string(faceUpdateMs));
 
 	TopoDS_Shape reshaped = workingShape;
 	TopoDS_Shape fixed = reshaped;
@@ -1910,8 +1786,7 @@ bool updateShapeFromPointCloud(
 		fixer->Perform();
 		const TopoDS_Shape fixerOut = fixer->Shape();
 		const double diagAfterFix = bboxDiagonalMm(fixerOut);
-		const bool usedShapeFix =
-			!fixerOut.IsNull() && diagAfterFix <= diagBeforeFix * 1.25 + 1.0;
+		const bool usedShapeFix = !fixerOut.IsNull() && diagAfterFix <= diagBeforeFix * 1.25 + 1.0;
 		// ShapeFix 偶发拉远包围盒，导致去心后网格浮点精度丢失而不可见
 		if (usedShapeFix)
 		{
@@ -1921,14 +1796,12 @@ bool updateShapeFromPointCloud(
 		constexpr double kMaxGlobalDiagScale = 1.5;
 		constexpr double kMaxGlobalDiagExtraMm = 500.0;
 		const double outputDiag = bboxDiagonalMm(fixed);
-		if (templateDiag > 1e-3
-			&& outputDiag > templateDiag * kMaxGlobalDiagScale + kMaxGlobalDiagExtraMm)
+		if (templateDiag > 1e-3 && outputDiag > templateDiag * kMaxGlobalDiagScale + kMaxGlobalDiagExtraMm)
 		{
 			fixed = templateNative;
 			updatedCount = 0U;
-			RunLogger::warn(
-				"[TemplateBrepUpdate] output bbox exploded (diag=" + std::to_string(outputDiag)
-				+ "mm vs template=" + std::to_string(templateDiag) + "mm), reverted to template");
+			RunLogger::warn("[TemplateBrepUpdate] output bbox exploded (diag=" + std::to_string(outputDiag) +
+							"mm vs template=" + std::to_string(templateDiag) + "mm), reverted to template");
 		}
 	}
 
@@ -1960,9 +1833,8 @@ bool updateShapeFromPointCloud(
 					continue;
 				}
 				const FaceUpdateReport& report = out.perFace[fi];
-				if (updatedCount > 0U
-					&& (report.action == FaceUpdateAction::Unchanged
-						|| report.action == FaceUpdateAction::SkippedNoPoints))
+				if (updatedCount > 0U && (report.action == FaceUpdateAction::Unchanged ||
+										  report.action == FaceUpdateAction::SkippedNoPoints))
 				{
 					continue;
 				}
@@ -1974,8 +1846,7 @@ bool updateShapeFromPointCloud(
 				pointCount += report.assignedPoints;
 				out.globalMaxDeviationMm = std::max(out.globalMaxDeviationMm, report.maxDeviationMm);
 			}
-			out.globalAvgDeviationMm =
-				pointCount > 0U ? sumWeighted / static_cast<double>(pointCount) : 0.0;
+			out.globalAvgDeviationMm = pointCount > 0U ? sumWeighted / static_cast<double>(pointCount) : 0.0;
 		}
 		else
 		{

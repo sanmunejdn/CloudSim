@@ -1,3 +1,6 @@
+﻿/// @file LabelingTrainWidget.cpp
+/// @brief LabelingTrainWidget 实现
+
 #include "LabelingTrainWidget.h"
 
 #include "IPluginHostContext.h"
@@ -20,12 +23,10 @@
 #include <QSpinBox>
 #include <QTableWidget>
 #include <QVBoxLayout>
-
 #include <climits>
 
 namespace
 {
-
 QString resolvePathFromExe(const QString& relative)
 {
 	const QString exeDir = QCoreApplication::applicationDirPath();
@@ -35,9 +36,7 @@ QString resolvePathFromExe(const QString& relative)
 } // namespace
 
 LabelingTrainWidget::LabelingTrainWidget(IPluginHostContext* host, QWidget* parent)
-	: QWidget(parent)
-	, m_host(host)
-	, m_runner(new PointNetTrainingRunner(this))
+	: QWidget(parent), m_host(host), m_runner(new PointNetTrainingRunner(this))
 {
 	auto* outer = new QVBoxLayout(this);
 	outer->setContentsMargins(0, 0, 0, 0);
@@ -52,7 +51,8 @@ LabelingTrainWidget::LabelingTrainWidget(IPluginHostContext* host, QWidget* pare
 
 	m_configGroup = new QGroupBox(content);
 	auto* cfgLayout = new QVBoxLayout(m_configGroup);
-	auto addRow = [cfgLayout](const QString& label, QWidget* field) {
+	auto addRow = [cfgLayout](const QString& label, QWidget* field)
+	{
 		auto* row = new QHBoxLayout;
 		row->addWidget(new QLabel(label));
 		row->addWidget(field, 1);
@@ -116,8 +116,8 @@ LabelingTrainWidget::LabelingTrainWidget(IPluginHostContext* host, QWidget* pare
 
 	m_metricsTable = new QTableWidget(0, 7, content);
 	m_metricsTable->setHorizontalHeaderLabels(
-		{ QStringLiteral("Epoch"), QStringLiteral("TrainLoss"), QStringLiteral("TrainAcc"),
-			QStringLiteral("ValLoss"), QStringLiteral("ValAcc"), QStringLiteral("LR"), QStringLiteral("Time(s)") });
+		{QStringLiteral("Epoch"), QStringLiteral("TrainLoss"), QStringLiteral("TrainAcc"), QStringLiteral("ValLoss"),
+		 QStringLiteral("ValAcc"), QStringLiteral("LR"), QStringLiteral("Time(s)")});
 	m_metricsTable->horizontalHeader()->setStretchLastSection(true);
 	layout->addWidget(m_metricsTable);
 
@@ -134,39 +134,45 @@ LabelingTrainWidget::LabelingTrainWidget(IPluginHostContext* host, QWidget* pare
 	connect(m_runner, &PointNetTrainingRunner::metricsReceived, this, &LabelingTrainWidget::onMetricsReceived);
 	connect(m_runner, &PointNetTrainingRunner::finished, this, &LabelingTrainWidget::onRunnerFinished);
 	connect(m_runner, &PointNetTrainingRunner::runningChanged, this, &LabelingTrainWidget::onRunningChanged);
-	connect(m_runner, &PointNetTrainingRunner::validationFinished, this, [this](bool ok, const QString& msg) {
-		appendLog(msg);
-		if (m_host)
-		{
-			(ok ? m_host->logInfo(msg) : m_host->logWarn(msg));
-		}
-		if (!ok)
-		{
-			notifyError(i18n(QStringLiteral("Validate Dataset"), QStringLiteral("校验数据集")), msg);
-		}
-	});
-	connect(m_runner, &PointNetTrainingRunner::exportFinished, this, [this](bool ok, const QString& msg) {
-		appendLog(msg);
-		if (m_host)
-		{
-			(ok ? m_host->logInfo(msg) : m_host->logWarn(msg));
-		}
-		if (!ok)
-		{
-			notifyError(i18n(QStringLiteral("Export ONNX"), QStringLiteral("导出 ONNX")), msg);
-		}
-	});
-	connect(m_runner, &PointNetTrainingRunner::deployFinished, this, [this](bool ok, const QString& msg) {
-		appendLog(msg);
-		if (m_host)
-		{
-			(ok ? m_host->logInfo(msg) : m_host->logWarn(msg));
-		}
-		if (!ok)
-		{
-			notifyError(i18n(QStringLiteral("Deploy"), QStringLiteral("部署")), msg);
-		}
-	});
+	connect(m_runner, &PointNetTrainingRunner::validationFinished, this,
+			[this](bool ok, const QString& msg)
+			{
+				appendLog(msg);
+				if (m_host)
+				{
+					(ok ? m_host->logInfo(msg) : m_host->logWarn(msg));
+				}
+				if (!ok)
+				{
+					notifyError(i18n(QStringLiteral("Validate Dataset"), QStringLiteral("校验数据集")), msg);
+				}
+			});
+	connect(m_runner, &PointNetTrainingRunner::exportFinished, this,
+			[this](bool ok, const QString& msg)
+			{
+				appendLog(msg);
+				if (m_host)
+				{
+					(ok ? m_host->logInfo(msg) : m_host->logWarn(msg));
+				}
+				if (!ok)
+				{
+					notifyError(i18n(QStringLiteral("Export ONNX"), QStringLiteral("导出 ONNX")), msg);
+				}
+			});
+	connect(m_runner, &PointNetTrainingRunner::deployFinished, this,
+			[this](bool ok, const QString& msg)
+			{
+				appendLog(msg);
+				if (m_host)
+				{
+					(ok ? m_host->logInfo(msg) : m_host->logWarn(msg));
+				}
+				if (!ok)
+				{
+					notifyError(i18n(QStringLiteral("Deploy"), QStringLiteral("部署")), msg);
+				}
+			});
 
 	connect(m_pythonEdit, &QLineEdit::editingFinished, this, &LabelingTrainWidget::saveLabelingConfig);
 	connect(m_datasetEdit, &QLineEdit::editingFinished, this, &LabelingTrainWidget::saveLabelingConfig);
@@ -186,14 +192,13 @@ void LabelingTrainWidget::applyLanguage()
 	m_exportOnnxBtn->setText(i18n(QStringLiteral("Export ONNX"), QStringLiteral("导出 ONNX")));
 	m_deployBtn->setText(i18n(QStringLiteral("Deploy to PointNet"), QStringLiteral("部署到 PointNet")));
 	m_statusLabel->setText(i18n(QStringLiteral("Status: Idle"), QStringLiteral("状态：空闲")));
-	m_metricsTable->setHorizontalHeaderLabels(
-		{ i18n(QStringLiteral("Epoch"), QStringLiteral("轮次")),
-			i18n(QStringLiteral("TrainLoss"), QStringLiteral("训练损失")),
-			i18n(QStringLiteral("TrainAcc"), QStringLiteral("训练精度")),
-			i18n(QStringLiteral("ValLoss"), QStringLiteral("验证损失")),
-			i18n(QStringLiteral("ValAcc"), QStringLiteral("验证精度")),
-			i18n(QStringLiteral("LR"), QStringLiteral("学习率")),
-			i18n(QStringLiteral("Time(s)"), QStringLiteral("耗时(s)")) });
+	m_metricsTable->setHorizontalHeaderLabels({i18n(QStringLiteral("Epoch"), QStringLiteral("轮次")),
+											   i18n(QStringLiteral("TrainLoss"), QStringLiteral("训练损失")),
+											   i18n(QStringLiteral("TrainAcc"), QStringLiteral("训练精度")),
+											   i18n(QStringLiteral("ValLoss"), QStringLiteral("验证损失")),
+											   i18n(QStringLiteral("ValAcc"), QStringLiteral("验证精度")),
+											   i18n(QStringLiteral("LR"), QStringLiteral("学习率")),
+											   i18n(QStringLiteral("Time(s)"), QStringLiteral("耗时(s)"))});
 	refreshBestResultCard();
 }
 
@@ -258,7 +263,8 @@ void LabelingTrainWidget::notifyError(const QString& title, const QString& messa
 
 void LabelingTrainWidget::onBrowseDataset()
 {
-	const QString dir = QFileDialog::getExistingDirectory(this, i18n(QStringLiteral("Dataset"), QStringLiteral("数据集")));
+	const QString dir =
+		QFileDialog::getExistingDirectory(this, i18n(QStringLiteral("Dataset"), QStringLiteral("数据集")));
 	if (!dir.isEmpty())
 	{
 		m_datasetEdit->setText(dir);
@@ -268,7 +274,8 @@ void LabelingTrainWidget::onBrowseDataset()
 
 void LabelingTrainWidget::onBrowseOutput()
 {
-	const QString dir = QFileDialog::getExistingDirectory(this, i18n(QStringLiteral("Output"), QStringLiteral("输出目录")));
+	const QString dir =
+		QFileDialog::getExistingDirectory(this, i18n(QStringLiteral("Output"), QStringLiteral("输出目录")));
 	if (!dir.isEmpty())
 	{
 		m_outputEdit->setText(dir);
@@ -277,7 +284,8 @@ void LabelingTrainWidget::onBrowseOutput()
 
 void LabelingTrainWidget::onBrowsePython()
 {
-	const QString path = QFileDialog::getOpenFileName(this, i18n(QStringLiteral("Python"), QStringLiteral("Python 解释器")));
+	const QString path =
+		QFileDialog::getOpenFileName(this, i18n(QStringLiteral("Python"), QStringLiteral("Python 解释器")));
 	if (!path.isEmpty())
 	{
 		m_pythonEdit->setText(path);
@@ -287,11 +295,9 @@ void LabelingTrainWidget::onBrowsePython()
 
 void LabelingTrainWidget::onBrowseResume()
 {
-	const QString path = QFileDialog::getOpenFileName(
-		this,
-		i18n(QStringLiteral("Checkpoint"), QStringLiteral("断点文件")),
-		m_runner->trainingRoot(),
-		QStringLiteral("PyTorch (*.pth)"));
+	const QString path =
+		QFileDialog::getOpenFileName(this, i18n(QStringLiteral("Checkpoint"), QStringLiteral("断点文件")),
+									 m_runner->trainingRoot(), QStringLiteral("PyTorch (*.pth)"));
 	if (!path.isEmpty())
 	{
 		m_resumeEdit->setText(path);
@@ -326,20 +332,24 @@ void LabelingTrainWidget::onExportOnnxClicked()
 	QString checkpoint = result.bestCheckpoint;
 	if (checkpoint.isEmpty())
 	{
-		checkpoint = QDir(m_runner->trainingRoot()).filePath(m_outputEdit->text().trimmed() + QStringLiteral("/best.pth"));
+		checkpoint =
+			QDir(m_runner->trainingRoot()).filePath(m_outputEdit->text().trimmed() + QStringLiteral("/best.pth"));
 	}
-	const QString outOnnx = QDir(m_runner->trainingRoot()).filePath(
-		m_deployOnnxRel.isEmpty() ? QStringLiteral("models/pointnet_seg.onnx") : m_deployOnnxRel);
+	const QString outOnnx =
+		QDir(m_runner->trainingRoot())
+			.filePath(m_deployOnnxRel.isEmpty() ? QStringLiteral("models/pointnet_seg.onnx") : m_deployOnnxRel);
 	m_runner->exportOnnx(checkpoint, outOnnx);
 }
 
 void LabelingTrainWidget::onDeployClicked()
 {
 	syncRunnerConfig();
-	const QString onnxPath = QDir(m_runner->trainingRoot()).filePath(
-		m_deployOnnxRel.isEmpty() ? QStringLiteral("models/pointnet_seg.onnx") : m_deployOnnxRel);
+	const QString onnxPath =
+		QDir(m_runner->trainingRoot())
+			.filePath(m_deployOnnxRel.isEmpty() ? QStringLiteral("models/pointnet_seg.onnx") : m_deployOnnxRel);
 	const QString cfgPath = resolvePathFromExe(
-		m_deployConfigRel.isEmpty() ? QStringLiteral("plugins/com.cloudsim.pointnet/pointnet_config.json") : m_deployConfigRel);
+		m_deployConfigRel.isEmpty() ? QStringLiteral("plugins/com.cloudsim.pointnet/pointnet_config.json")
+									: m_deployConfigRel);
 	m_runner->deployToPointNet(onnxPath, cfgPath, m_numClassesSpin->value(), m_numPointsSpin->value());
 }
 
@@ -403,12 +413,11 @@ void LabelingTrainWidget::refreshBestResultCard()
 		m_bestResultLabel->setText(i18n(QStringLiteral("Best result: —"), QStringLiteral("最佳结果：—")));
 		return;
 	}
-	m_bestResultLabel->setText(
-		i18n(QStringLiteral("Best val acc: %1 | Checkpoint: %2 | Device: %3"),
-			 QStringLiteral("最佳验证精度: %1 | 权重: %2 | 设备: %3"))
-			.arg(result.bestValAcc, 0, 'f', 4)
-			.arg(result.bestCheckpoint.isEmpty() ? QStringLiteral("—") : result.bestCheckpoint)
-			.arg(result.device.isEmpty() ? QStringLiteral("—") : result.device));
+	m_bestResultLabel->setText(i18n(QStringLiteral("Best val acc: %1 | Checkpoint: %2 | Device: %3"),
+									QStringLiteral("最佳验证精度: %1 | 权重: %2 | 设备: %3"))
+								   .arg(result.bestValAcc, 0, 'f', 4)
+								   .arg(result.bestCheckpoint.isEmpty() ? QStringLiteral("—") : result.bestCheckpoint)
+								   .arg(result.device.isEmpty() ? QStringLiteral("—") : result.device));
 }
 
 void LabelingTrainWidget::onRunnerFinished(bool success, const QString& message)

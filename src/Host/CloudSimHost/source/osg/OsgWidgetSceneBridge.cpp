@@ -1,3 +1,6 @@
+﻿/// @file OsgWidgetSceneBridge.cpp
+/// @brief OsgWidgetSceneBridge 实现
+
 #include "OsgWidgetSceneBridge.h"
 
 #include "BackendDataBase.h"
@@ -33,7 +36,7 @@ void matrixToColumnMajor16(const osg::Matrixd& m, std::array<double, 16>& out)
 } // namespace
 
 void OsgWidgetSceneBridge::setBackendRootWorldMatrixColumnMajor(const std::string& backendId,
-	const std::array<double, 16>& columnMajor4x4)
+																const std::array<double, 16>& columnMajor4x4)
 {
 	if (!m_widget)
 	{
@@ -44,7 +47,7 @@ void OsgWidgetSceneBridge::setBackendRootWorldMatrixColumnMajor(const std::strin
 }
 
 bool OsgWidgetSceneBridge::getBackendRootWorldMatrixColumnMajor(const std::string& backendId,
-	std::array<double, 16>& outColumnMajor4x4) const
+																std::array<double, 16>& outColumnMajor4x4) const
 {
 	if (!m_widget)
 	{
@@ -87,7 +90,7 @@ bool OsgWidgetSceneBridge::hasBackendObjectBranch(const std::string& backendId) 
 }
 
 bool OsgWidgetSceneBridge::tryGetBackendModelCenterMm(const std::string& backendId, double& outCx, double& outCy,
-	double& outCz) const
+													  double& outCz) const
 {
 	if (!m_widget)
 	{

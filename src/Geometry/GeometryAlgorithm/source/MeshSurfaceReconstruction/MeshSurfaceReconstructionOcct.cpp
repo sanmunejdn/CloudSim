@@ -1,53 +1,41 @@
+﻿/// @file MeshSurfaceReconstructionOcct.cpp
+/// @brief MeshSurfaceReconstructionOcct 实现
+
 #include "MeshSurfaceReconstructionInternal.h"
-
-
-
 #include "detail/OccIncludes.h"
-
-
 
 namespace geoalgo
 
 {
-
 namespace meshrecon
 
 {
-
-
-
 bool tryRebuildBsplineSurface(
 
-	const Handle(Geom_BSplineSurface)& src,
+	const Handle(Geom_BSplineSurface) & src,
 
 	const TColgp_Array2OfPnt& poles,
 
-	Handle(Geom_BSplineSurface)& outSurface)
+	Handle(Geom_BSplineSurface) & outSurface)
 
 {
-
 	outSurface = src;
 
 	if (src.IsNull())
 
 	{
-
 		return false;
-
 	}
 
 	if (poles.ColLength() != src->NbUPoles() || poles.RowLength() != src->NbVPoles())
 
 	{
-
 		return false;
-
 	}
 
 	try
 
 	{
-
 		outSurface = new Geom_BSplineSurface(
 
 			poles,
@@ -65,24 +53,17 @@ bool tryRebuildBsplineSurface(
 			src->VDegree());
 
 		return !outSurface.IsNull();
-
 	}
 
 	catch (...)
 
 	{
-
 		outSurface = src;
 
 		return false;
-
 	}
-
 }
-
-
 
 } // namespace meshrecon
 
 } // namespace geoalgo
-

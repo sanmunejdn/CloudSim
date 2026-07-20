@@ -1,6 +1,9 @@
-#include "MeshSurfaceReconstructionGmcgExeRunner.h"
-#include "MeshSurfaceReconstructionAmrtoLoader.h"
+﻿/// @file MeshSurfaceReconstructionGmcgExeRunner.cpp
+/// @brief MeshSurfaceReconstructionGmcgExeRunner 实现
 
+#include "MeshSurfaceReconstructionGmcgExeRunner.h"
+
+#include "MeshSurfaceReconstructionAmrtoLoader.h"
 #include "RunLogger.h"
 
 #include <cstdlib>
@@ -15,7 +18,6 @@ namespace meshrecon
 {
 namespace
 {
-
 bool fileSizeAtLeast(const fs::path& p, const std::size_t minBytes)
 {
 	std::error_code ec;
@@ -109,11 +111,8 @@ bool runGmcgExe(const GmcgExeParams& params, std::string* errMsg)
 	return true;
 }
 
-bool loadGmcgExeOutput(
-	const std::string& workDir,
-	const std::string& globalResultObjName,
-	GmcgResult& outResult,
-	std::string* errMsg)
+bool loadGmcgExeOutput(const std::string& workDir, const std::string& globalResultObjName, GmcgResult& outResult,
+					   std::string* errMsg)
 {
 	const fs::path resultPath = fs::path(workDir) / globalResultObjName;
 	if (fs::exists(resultPath))

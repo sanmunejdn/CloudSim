@@ -1,24 +1,23 @@
+﻿/// @file MeshReconstruct.cpp
+/// @brief MeshReconstruct 实现
+
 #include "MeshReconstruct.h"
-#include "MeshSimplify.h"
+
 #include "MeshRepair.h"
+#include "MeshSimplify.h"
 #include "MeshSmooth.h"
 
 namespace vcgalgo
 {
-
-bool postProcessReconstructedMesh(
-	const std::vector<float>& triangleSoup,
-	std::vector<float>& outSoup,
-	int targetFaceCount,
-	bool doRepair,
-	bool doSmooth,
-	std::string* errMsg)
+bool postProcessReconstructedMesh(const std::vector<float>& triangleSoup, std::vector<float>& outSoup,
+								  int targetFaceCount, bool doRepair, bool doSmooth, std::string* errMsg)
 {
 	outSoup.clear();
 
 	if (triangleSoup.empty() || triangleSoup.size() % 9 != 0)
 	{
-		if (errMsg) *errMsg = "postProcessReconstructedMesh: invalid triangle soup";
+		if (errMsg)
+			*errMsg = "postProcessReconstructedMesh: invalid triangle soup";
 		return false;
 	}
 

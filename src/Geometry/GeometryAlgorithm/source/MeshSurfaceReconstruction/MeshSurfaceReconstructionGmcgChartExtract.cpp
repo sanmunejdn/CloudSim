@@ -1,3 +1,6 @@
+﻿/// @file MeshSurfaceReconstructionGmcgChartExtract.cpp
+/// @brief MeshSurfaceReconstructionGmcgChartExtract 实现
+
 #include "MeshSurfaceReconstructionGmcgChartExtract.h"
 
 #include <queue>
@@ -8,12 +11,8 @@ namespace meshrecon
 {
 namespace
 {
-
-bool sharesNonBarrierEdge(
-	const GmcgQuadGraph& graph,
-	const std::vector<uint8_t>& barriers,
-	const int faceA,
-	const int faceB)
+bool sharesNonBarrierEdge(const GmcgQuadGraph& graph, const std::vector<uint8_t>& barriers, const int faceA,
+						  const int faceB)
 {
 	if (faceA < 0 || faceB < 0 || faceA == faceB)
 	{
@@ -32,8 +31,7 @@ bool sharesNonBarrierEdge(
 		{
 			continue;
 		}
-		if (barriers[static_cast<std::size_t>(he)] != 0U
-			|| barriers[static_cast<std::size_t>(twin)] != 0U)
+		if (barriers[static_cast<std::size_t>(he)] != 0U || barriers[static_cast<std::size_t>(twin)] != 0U)
 		{
 			return false;
 		}
@@ -44,9 +42,7 @@ bool sharesNonBarrierEdge(
 
 } // namespace
 
-GmcgChartFaceGroups extractCharts(
-	const GmcgQuadGraph& graph,
-	const GmcgMotorcycleResult& traceResult)
+GmcgChartFaceGroups extractCharts(const GmcgQuadGraph& graph, const GmcgMotorcycleResult& traceResult)
 {
 	GmcgChartFaceGroups groups;
 	const int qCount = graph.quadCount;

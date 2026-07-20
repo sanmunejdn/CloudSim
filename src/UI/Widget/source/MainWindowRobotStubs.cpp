@@ -1,21 +1,23 @@
-#include "MainWindow.h"
+﻿/// @file MainWindowRobotStubs.cpp
+/// @brief MainWindowRobotStubs 实现
 
+#include "../RobotWidget/inc/RobotSimulationController.h"
+#include "../RobotWidget/inc/RobotSimulationDockWidget.h"
+#include "../RobotWidget/inc/SimulationCommandWidget.h"
 #include "DocumentPage.h"
 #include "IRobotService.h"
+#include "MainWindow.h"
 #include "MainWindowRobotHost.h"
-#include "WidgetRenderAccess.h"
 #include "RobotInstructionProgram.h"
-#include "../RobotWidget/inc/RobotSimulationController.h"
+#include "WidgetRenderAccess.h"
+
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QStatusBar>
-#include "../RobotWidget/inc/RobotSimulationDockWidget.h"
-#include "../RobotWidget/inc/SimulationCommandWidget.h"
 
 SimulationCommandWidget* MainWindow::simulationCommandPage() const
 {
-	RobotSimulationDockWidget* dock =
-		m_robotSimulation ? m_robotSimulation->simulationDock() : nullptr;
+	RobotSimulationDockWidget* dock = m_robotSimulation ? m_robotSimulation->simulationDock() : nullptr;
 	return dock ? dock->commandPage() : nullptr;
 }
 
@@ -52,8 +54,7 @@ bool MainWindow::showAiFeatureCandidatePreviewForAi(const std::string& previewJs
 		}
 		return false;
 	}
-	return m_robotSimulation->showAiFeatureCandidatePreview(
-		QByteArray::fromStdString(previewJsonUtf8), outError);
+	return m_robotSimulation->showAiFeatureCandidatePreview(QByteArray::fromStdString(previewJsonUtf8), outError);
 }
 
 void MainWindow::clearAiFeatureCandidatePreviewForAi()
@@ -65,7 +66,7 @@ void MainWindow::clearAiFeatureCandidatePreviewForAi()
 }
 
 bool MainWindow::commitAiTrajectoryFeaturesForAi(const std::string& featurePlanJsonUtf8, QString* outSummary,
-	QString* outError)
+												 QString* outError)
 {
 	if (!m_robotSimulation)
 	{
@@ -75,8 +76,8 @@ bool MainWindow::commitAiTrajectoryFeaturesForAi(const std::string& featurePlanJ
 		}
 		return false;
 	}
-	return m_robotSimulation->commitAiTrajectoryFeatures(
-		QByteArray::fromStdString(featurePlanJsonUtf8), outSummary, outError);
+	return m_robotSimulation->commitAiTrajectoryFeatures(QByteArray::fromStdString(featurePlanJsonUtf8), outSummary,
+														 outError);
 }
 
 void MainWindow::refreshSimulationJointListFromCurrentDoc()
@@ -95,8 +96,7 @@ void MainWindow::syncRobotFrameSettingsFromDocument(const int instanceIndex)
 	}
 }
 
-void MainWindow::refreshRobotCoordinateFrameOverlays(
-	const std::shared_ptr<RobotInstruction::Base>& instruction)
+void MainWindow::refreshRobotCoordinateFrameOverlays(const std::shared_ptr<RobotInstruction::Base>& instruction)
 {
 	if (m_robotSimulation)
 	{
@@ -104,8 +104,7 @@ void MainWindow::refreshRobotCoordinateFrameOverlays(
 	}
 }
 
-void MainWindow::applyRobotPoseForInstructionPreview(
-	const std::shared_ptr<RobotInstruction::Base>& instruction)
+void MainWindow::applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction)
 {
 	if (m_robotSimulation)
 	{
@@ -113,8 +112,7 @@ void MainWindow::applyRobotPoseForInstructionPreview(
 	}
 }
 
-void MainWindow::syncInstructionRenderMatricesFromPose(
-	const std::shared_ptr<RobotInstruction::Base>& instruction)
+void MainWindow::syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction)
 {
 	if (m_robotSimulation)
 	{
@@ -146,18 +144,13 @@ void MainWindow::syncRobotKinematicsAfterPoseEdit(const QString& backendId)
 	}
 }
 
-bool MainWindow::tryCaptureCurrentRobotTcpPose(
-	RobotInstruction::Vec3& outPoseMm,
-	RobotInstruction::Vec3& outEulerDeg,
-	osg::Matrixd* outTcpLocalMat,
-	osg::Matrixd* outTcpRenderWorldMat,
-	QString* outTcpLinkName,
-	QString* errMsg) const
+bool MainWindow::tryCaptureCurrentRobotTcpPose(RobotInstruction::Vec3& outPoseMm, RobotInstruction::Vec3& outEulerDeg,
+											   osg::Matrixd* outTcpLocalMat, osg::Matrixd* outTcpRenderWorldMat,
+											   QString* outTcpLinkName, QString* errMsg) const
 {
-	return m_robotSimulation
-		? m_robotSimulation->tryCaptureCurrentRobotTcpPose(
-			  outPoseMm, outEulerDeg, outTcpLocalMat, outTcpRenderWorldMat, outTcpLinkName, errMsg)
-		: false;
+	return m_robotSimulation ? m_robotSimulation->tryCaptureCurrentRobotTcpPose(
+								   outPoseMm, outEulerDeg, outTcpLocalMat, outTcpRenderWorldMat, outTcpLinkName, errMsg)
+							 : false;
 }
 
 int MainWindow::currentSimulationRobotInstanceIndex() const
@@ -208,8 +201,7 @@ void MainWindow::onUrdfImportRequested(const QString& urdfPath)
 
 RobotInstruction::FeasibleMotionAxisConfigurationOptions
 MainWindow::feasibleMotionAxisConfigurationOptionsForInstruction(
-	const std::shared_ptr<RobotInstruction::Base>& instruction,
-	QVector<double>* outSeedJointRad)
+	const std::shared_ptr<RobotInstruction::Base>& instruction, QVector<double>* outSeedJointRad)
 {
 	if (!instruction)
 	{
@@ -221,7 +213,8 @@ MainWindow::feasibleMotionAxisConfigurationOptionsForInstruction(
 		const cloudsim::core::FeasibleMotionAxisOptionsDto dto =
 			page->robot().queryFeasibleMotionAxisOptions(QString::fromStdString(instruction->id()), outSeedJointRad);
 		RobotInstruction::FeasibleMotionAxisConfigurationOptions out;
-		auto fill = [](std::vector<std::string>& dest, const QStringList& src) {
+		auto fill = [](std::vector<std::string>& dest, const QStringList& src)
+		{
 			dest.reserve(static_cast<size_t>(src.size()));
 			for (const QString& t : src)
 			{
@@ -239,54 +232,63 @@ MainWindow::feasibleMotionAxisConfigurationOptionsForInstruction(
 	}
 	if (m_robotSimulation)
 	{
-		return m_robotSimulation->feasibleMotionAxisConfigurationOptionsForInstruction(
-			instruction, outSeedJointRad);
+		return m_robotSimulation->feasibleMotionAxisConfigurationOptionsForInstruction(instruction, outSeedJointRad);
 	}
 	return {};
 }
 
 void MainWindow::onSimulationStartTriggered()
 {
-	if (m_robotSimulation) m_robotSimulation->onSimulationStartTriggered();
+	if (m_robotSimulation)
+		m_robotSimulation->onSimulationStartTriggered();
 }
 void MainWindow::onSimulationRunRequested()
 {
-	if (m_robotSimulation) m_robotSimulation->onSimulationRunRequested();
+	if (m_robotSimulation)
+		m_robotSimulation->onSimulationRunRequested();
 }
 void MainWindow::onSimulationStopRequested()
 {
-	if (m_robotSimulation) m_robotSimulation->onSimulationStopRequested();
+	if (m_robotSimulation)
+		m_robotSimulation->onSimulationStopRequested();
 }
 void MainWindow::onSimulationAddInstructionRequested(RobotInstruction::Type type)
 {
-	if (m_robotSimulation) m_robotSimulation->onSimulationAddInstructionRequested(type);
+	if (m_robotSimulation)
+		m_robotSimulation->onSimulationAddInstructionRequested(type);
 }
 void MainWindow::onSimulationInstructionSelectionChanged(const std::shared_ptr<RobotInstruction::Base>& instruction)
 {
-	if (m_robotSimulation) m_robotSimulation->onSimulationInstructionSelectionChanged(instruction);
+	if (m_robotSimulation)
+		m_robotSimulation->onSimulationInstructionSelectionChanged(instruction);
 }
 void MainWindow::onRobotSimulationTick()
 {
-	if (m_robotSimulation) m_robotSimulation->onRobotSimulationTick();
+	if (m_robotSimulation)
+		m_robotSimulation->onRobotSimulationTick();
 }
 void MainWindow::onSimulationExportRequested()
 {
-	if (m_robotSimulation) m_robotSimulation->onSimulationExportRequested();
+	if (m_robotSimulation)
+		m_robotSimulation->onSimulationExportRequested();
 }
 void MainWindow::onSimulationRobotSelectionChanged(int instanceIndex, const QString& sceneBackendId)
 {
-	if (m_robotSimulation) m_robotSimulation->onSimulationRobotSelectionChanged(instanceIndex, sceneBackendId);
+	if (m_robotSimulation)
+		m_robotSimulation->onSimulationRobotSelectionChanged(instanceIndex, sceneBackendId);
 }
 void MainWindow::onRobotAxisJointAnglesChanged(const QVector<double>& jointAnglesRad)
 {
-	if (m_robotSimulation) m_robotSimulation->onRobotAxisJointAnglesChanged(jointAnglesRad);
+	if (m_robotSimulation)
+		m_robotSimulation->onRobotAxisJointAnglesChanged(jointAnglesRad);
 }
 void MainWindow::onSimulationTcpDragTeachModeChanged(bool enabled)
 {
-	if (m_robotSimulation) m_robotSimulation->onSimulationTcpDragTeachModeChanged(enabled);
+	if (m_robotSimulation)
+		m_robotSimulation->onSimulationTcpDragTeachModeChanged(enabled);
 }
-void MainWindow::onTcpDragTeachPoseChanged(
-	double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg)
+void MainWindow::onTcpDragTeachPoseChanged(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg,
+										   double ezDeg)
 {
 	if (m_robotSimulation)
 	{
@@ -295,21 +297,26 @@ void MainWindow::onTcpDragTeachPoseChanged(
 }
 void MainWindow::onTcpDragTeachEnded()
 {
-	if (m_robotSimulation) m_robotSimulation->onTcpDragTeachEnded();
+	if (m_robotSimulation)
+		m_robotSimulation->onTcpDragTeachEnded();
 }
 void MainWindow::onRobotCoordinateFramesChanged()
 {
-	if (m_robotSimulation) m_robotSimulation->onRobotCoordinateFramesChanged();
+	if (m_robotSimulation)
+		m_robotSimulation->onRobotCoordinateFramesChanged();
 }
 void MainWindow::onCaptureToolFrameFromTcp()
 {
-	if (m_robotSimulation) m_robotSimulation->onCaptureToolFrameFromTcp();
+	if (m_robotSimulation)
+		m_robotSimulation->onCaptureToolFrameFromTcp();
 }
 void MainWindow::onCaptureUserFrameFromTcp()
 {
-	if (m_robotSimulation) m_robotSimulation->onCaptureUserFrameFromTcp();
+	if (m_robotSimulation)
+		m_robotSimulation->onCaptureUserFrameFromTcp();
 }
 void MainWindow::onResetToolFrame()
 {
-	if (m_robotSimulation) m_robotSimulation->onResetToolFrame();
+	if (m_robotSimulation)
+		m_robotSimulation->onResetToolFrame();
 }

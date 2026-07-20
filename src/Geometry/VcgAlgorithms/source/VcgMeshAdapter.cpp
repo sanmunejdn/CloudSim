@@ -1,10 +1,14 @@
+﻿/// @file VcgMeshAdapter.cpp
+/// @brief VcgMeshAdapter 实现
+
 #include "VcgMeshAdapter.h"
+
 #include "VcgMeshTypes.h"
 
-#include <unordered_map>
 #include <cmath>
 #include <cstdint>
 #include <exception>
+#include <unordered_map>
 
 #include <vcg/complex/algorithms/update/flag.h>
 #include <vcg/complex/algorithms/update/normal.h>
@@ -12,16 +16,12 @@
 
 namespace vcgalgo
 {
-
 // 量化 key 用于顶点去重
 struct QuantizedKey
 {
 	int64_t x, y, z;
 
-	bool operator==(const QuantizedKey& o) const
-	{
-		return x == o.x && y == o.y && z == o.z;
-	}
+	bool operator==(const QuantizedKey& o) const { return x == o.x && y == o.y && z == o.z; }
 };
 
 struct QuantizedKeyHash
@@ -30,7 +30,8 @@ struct QuantizedKeyHash
 	{
 		// FNV-1a
 		std::size_t h = 14695981039346656037ULL;
-		auto mix = [&](int64_t v) {
+		auto mix = [&](int64_t v)
+		{
 			const auto* p = reinterpret_cast<const uint8_t*>(&v);
 			for (int i = 0; i < 8; ++i)
 			{
@@ -50,21 +51,16 @@ static constexpr double kQuantizeScale = 1000.0;
 
 static QuantizedKey quantize(double x, double y, double z)
 {
-	return {
-		static_cast<int64_t>(std::round(x * kQuantizeScale)),
-		static_cast<int64_t>(std::round(y * kQuantizeScale)),
-		static_cast<int64_t>(std::round(z * kQuantizeScale))
-	};
+	return {static_cast<int64_t>(std::round(x * kQuantizeScale)), static_cast<int64_t>(std::round(y * kQuantizeScale)),
+			static_cast<int64_t>(std::round(z * kQuantizeScale))};
 }
 
-bool triangleSoupToIndexedMesh(
-	const std::vector<float>& soup,
-	IndexedMesh& out,
-	std::string* errMsg)
+bool triangleSoupToIndexedMesh(const std::vector<float>& soup, IndexedMesh& out, std::string* errMsg)
 {
 	if (soup.empty() || soup.size() % 9 != 0)
 	{
-		if (errMsg) *errMsg = "invalid triangle soup size";
+		if (errMsg)
+			*errMsg = "invalid triangle soup size";
 		return false;
 	}
 
@@ -108,9 +104,7 @@ bool triangleSoupToIndexedMesh(
 	return true;
 }
 
-bool indexedMeshToTriangleSoup(
-	const IndexedMesh& mesh,
-	std::vector<float>& outSoup)
+bool indexedMeshToTriangleSoup(const IndexedMesh& mesh, std::vector<float>& outSoup)
 {
 	if (mesh.vertices.empty() || mesh.faces.empty())
 	{
@@ -141,7 +135,8 @@ bool indexedMeshToTriangleSoup(
 static bool indexedMeshToVcgMesh(const IndexedMesh& in, VcgMesh& mesh)
 {
 	mesh.Clear();
-	if (in.vertices.empty() || in.faces.empty()) return false;
+	if (in.vertices.empty() || in.faces.empty())
+		return false;
 
 	const std::size_t vertCount = in.vertices.size() / 3;
 	const std::size_t faceCount = in.faces.size() / 3;
@@ -152,8 +147,8 @@ static bool indexedMeshToVcgMesh(const IndexedMesh& in, VcgMesh& mesh)
 	// 添加顶点
 	for (std::size_t i = 0; i < vertCount; ++i)
 	{
-		auto vi = vcg::tri::Allocator<VcgMesh>::AddVertex(mesh,
-			VcgMesh::CoordType(in.vertices[i * 3], in.vertices[i * 3 + 1], in.vertices[i * 3 + 2]));
+		auto vi = vcg::tri::Allocator<VcgMesh>::AddVertex(
+			mesh, VcgMesh::CoordType(in.vertices[i * 3], in.vertices[i * 3 + 1], in.vertices[i * 3 + 2]));
 		(void)vi;
 	}
 
@@ -163,15 +158,12 @@ static bool indexedMeshToVcgMesh(const IndexedMesh& in, VcgMesh& mesh)
 		const int i0 = in.faces[f * 3];
 		const int i1 = in.faces[f * 3 + 1];
 		const int i2 = in.faces[f * 3 + 2];
-		if (i0 < 0 || i1 < 0 || i2 < 0 ||
-			static_cast<std::size_t>(i0) >= vertCount ||
-			static_cast<std::size_t>(i1) >= vertCount ||
-			static_cast<std::size_t>(i2) >= vertCount)
+		if (i0 < 0 || i1 < 0 || i2 < 0 || static_cast<std::size_t>(i0) >= vertCount ||
+			static_cast<std::size_t>(i1) >= vertCount || static_cast<std::size_t>(i2) >= vertCount)
 		{
 			continue;
 		}
-		vcg::tri::Allocator<VcgMesh>::AddFace(mesh,
-			&mesh.vert[i0], &mesh.vert[i1], &mesh.vert[i2]);
+		vcg::tri::Allocator<VcgMesh>::AddFace(mesh, &mesh.vert[i0], &mesh.vert[i1], &mesh.vert[i2]);
 	}
 
 	mesh.vert.shrink_to_fit();
@@ -185,7 +177,8 @@ static void vcgMeshToIndexedMesh(const VcgMesh& mesh, IndexedMesh& out)
 	out.vertices.clear();
 	out.faces.clear();
 
-	if (mesh.vert.empty()) return;
+	if (mesh.vert.empty())
+		return;
 
 	out.vertices.reserve(mesh.vert.size() * 3);
 	for (const auto& v : mesh.vert)
@@ -198,7 +191,8 @@ static void vcgMeshToIndexedMesh(const VcgMesh& mesh, IndexedMesh& out)
 	out.faces.reserve(mesh.face.size() * 3);
 	for (const auto& f : mesh.face)
 	{
-		if (f.IsD()) continue; // 跳过已删除面
+		if (f.IsD())
+			continue; // 跳过已删除面
 		for (int j = 0; j < 3; ++j)
 		{
 			out.faces.push_back(static_cast<int>(vcg::tri::Index(mesh, f.V(j))));
@@ -210,11 +204,11 @@ static void vcgMeshToIndexedMesh(const VcgMesh& mesh, IndexedMesh& out)
 // 通过链接单元内部头文件暴露（不写到公开 .h）
 namespace internal
 {
-
 bool soupToVcgMesh(const std::vector<float>& soup, VcgMesh& mesh, std::string* errMsg)
 {
 	IndexedMesh indexed;
-	if (!triangleSoupToIndexedMesh(soup, indexed, errMsg)) return false;
+	if (!triangleSoupToIndexedMesh(soup, indexed, errMsg))
+		return false;
 	return indexedMeshToVcgMesh(indexed, mesh);
 }
 

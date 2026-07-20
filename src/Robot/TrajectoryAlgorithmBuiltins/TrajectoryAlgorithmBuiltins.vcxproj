@@ -48,7 +48,7 @@
       <PreprocessorDefinitions>TRAJECTORY_ALGORITHM_BUILTINS_LIB;TRAJECTORY_ALGORITHM_LIB;ROBOT_SCENE_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;.;ops/Translate;ops/Rotate;ops/Delete;ops/Duplicate;ops/Mirror;ops/Reorder;ops/Approach;ops/Retract;ops/ExternalAxisSearch;ops/ReachabilityFilter;ops/Weave;ops/AssignSpeedZone;ops/AssignBlend;ops/SmoothPose;ops/OffsetLateral;ops/OffsetAlongNormal;ops/Resample;ops/ProjectToGeometry;ops/NonRigidRegistration;../TrajectoryAlgorithm/inc;../RobotScene/inc;../../Geometry/GeometryEngine/inc;../../../../bin/SDK/eigen;../../../../bin/SDK/JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;.;ops/Translate;ops/Rotate;ops/Delete;ops/Duplicate;ops/Mirror;ops/Reorder;ops/Approach;ops/Retract;ops/ExternalAxisSearch;ops/ReachabilityFilter;ops/Weave;ops/AssignSpeedZone;ops/AssignBlend;ops/SmoothPose;ops/OffsetLateral;ops/OffsetAlongNormal;ops/Resample;ops/ProjectToGeometry;ops/NonRigidRegistration;ops/ToWorkpieceInHand;../TrajectoryAlgorithm/inc;../RobotScene/inc;../../Geometry/GeometryEngine/inc;../../../../bin/SDK/eigen;../../../../bin/SDK/JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -58,7 +58,7 @@
       <PreprocessorDefinitions>TRAJECTORY_ALGORITHM_BUILTINS_LIB;TRAJECTORY_ALGORITHM_LIB;ROBOT_SCENE_LIB;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;.;ops/Translate;ops/Rotate;ops/Delete;ops/Duplicate;ops/Mirror;ops/Reorder;ops/Approach;ops/Retract;ops/ExternalAxisSearch;ops/ReachabilityFilter;ops/Weave;ops/AssignSpeedZone;ops/AssignBlend;ops/SmoothPose;ops/OffsetLateral;ops/OffsetAlongNormal;ops/Resample;ops/ProjectToGeometry;ops/NonRigidRegistration;../TrajectoryAlgorithm/inc;../RobotScene/inc;../../Geometry/GeometryEngine/inc;../../../../bin/SDK/eigen;../../../../bin/SDK/JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;.;ops/Translate;ops/Rotate;ops/Delete;ops/Duplicate;ops/Mirror;ops/Reorder;ops/Approach;ops/Retract;ops/ExternalAxisSearch;ops/ReachabilityFilter;ops/Weave;ops/AssignSpeedZone;ops/AssignBlend;ops/SmoothPose;ops/OffsetLateral;ops/OffsetAlongNormal;ops/Resample;ops/ProjectToGeometry;ops/NonRigidRegistration;ops/ToWorkpieceInHand;../TrajectoryAlgorithm/inc;../RobotScene/inc;../../Geometry/GeometryEngine/inc;../../../../bin/SDK/eigen;../../../../bin/SDK/JSON;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -90,6 +90,8 @@
     <ClInclude Include="ops\ProjectToGeometry\ProjectToGeometryOpConfig.h"><Filter>src</Filter></ClInclude>
 <ClInclude Include="ops\NonRigidRegistration\NonRigidRegistrationOp.h"><Filter>src</Filter></ClInclude>
     <ClInclude Include="ops\NonRigidRegistration\NonRigidRegistrationOpConfig.h"><Filter>src</Filter></ClInclude>
+<ClInclude Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOp.h"><Filter>src</Filter></ClInclude>
+    <ClInclude Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOpConfig.h"><Filter>src</Filter></ClInclude>
 <ClInclude Include="ops\ReachabilityFilter\ReachabilityFilterOp.h"><Filter>src</Filter></ClInclude>
     <ClInclude Include="ops\ReachabilityFilter\ReachabilityFilterOpConfig.h"><Filter>src</Filter></ClInclude>
 <ClInclude Include="ops\Reorder\ReorderOp.h"><Filter>src</Filter></ClInclude>
@@ -136,6 +138,8 @@
     <ClCompile Include="ops\ProjectToGeometry\ProjectToGeometryOpConfig.cpp"><Filter>src</Filter></ClCompile>
 <ClCompile Include="ops\NonRigidRegistration\NonRigidRegistrationOp.cpp"><Filter>src</Filter></ClCompile>
     <ClCompile Include="ops\NonRigidRegistration\NonRigidRegistrationOpConfig.cpp"><Filter>src</Filter></ClCompile>
+<ClCompile Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOp.cpp"><Filter>src</Filter></ClCompile>
+    <ClCompile Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOpConfig.cpp"><Filter>src</Filter></ClCompile>
 <ClCompile Include="ops\ReachabilityFilter\ReachabilityFilterOp.cpp"><Filter>src</Filter></ClCompile>
     <ClCompile Include="ops\ReachabilityFilter\ReachabilityFilterOpConfig.cpp"><Filter>src</Filter></ClCompile>
 <ClCompile Include="ops\Reorder\ReorderOp.cpp"><Filter>src</Filter></ClCompile>

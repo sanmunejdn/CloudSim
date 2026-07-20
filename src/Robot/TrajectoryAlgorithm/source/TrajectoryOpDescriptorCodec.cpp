@@ -1,3 +1,6 @@
+﻿/// @file TrajectoryOpDescriptorCodec.cpp
+/// @brief TrajectoryOpDescriptorCodec 实现
+
 #include "TrajectoryOpDescriptorCodec.h"
 
 #include "ITrajectoryOp.h"
@@ -11,7 +14,6 @@ namespace trajectory_algo
 {
 namespace
 {
-
 void writeScopeJson(const RobotInstruction::OpScope& scope, nlohmann::json& out)
 {
 	out["kind"] = static_cast<int>(scope.kind);
@@ -41,10 +43,8 @@ bool readScopeJson(const nlohmann::json& j, RobotInstruction::OpScope& scope)
 	return true;
 }
 
-bool mergeParamsJson(
-	RobotInstruction::TrajectoryOpDescriptor& out,
-	const ITrajectoryOp& algo,
-	const nlohmann::json& paramsJson)
+bool mergeParamsJson(RobotInstruction::TrajectoryOpDescriptor& out, const ITrajectoryOp& algo,
+					 const nlohmann::json& paramsJson)
 {
 	if (!paramsJson.is_object())
 	{
@@ -65,8 +65,8 @@ bool mergeParamsJson(
 			value.kind = TrajectoryParamValue::Kind::Double;
 			value.asDouble = item.value().get<double>();
 		}
-		else if ((field->type == TrajectoryParamType::Int || field->type == TrajectoryParamType::Enum)
-			&& (item.value().is_number_integer() || item.value().is_number()))
+		else if ((field->type == TrajectoryParamType::Int || field->type == TrajectoryParamType::Enum) &&
+				 (item.value().is_number_integer() || item.value().is_number()))
 		{
 			value.kind = TrajectoryParamValue::Kind::Int;
 			value.asInt = item.value().get<int>();
@@ -174,9 +174,7 @@ bool fromJson(const nlohmann::json& j, RobotInstruction::TrajectoryOpDescriptor&
 		out.opId = std::move(opId);
 	}
 	// 旧模板无 enabled 字段，保持启用以免破坏已保存工艺
-	out.enabled = j.contains("enabled") && j["enabled"].is_boolean()
-		? j["enabled"].get<bool>()
-		: true;
+	out.enabled = j.contains("enabled") && j["enabled"].is_boolean() ? j["enabled"].get<bool>() : true;
 
 	if (j.contains("params"))
 	{
@@ -202,10 +200,8 @@ nlohmann::json pipelineToJson(const std::vector<RobotInstruction::TrajectoryOpDe
 	return arr;
 }
 
-bool pipelineFromJson(
-	const nlohmann::json& j,
-	std::vector<RobotInstruction::TrajectoryOpDescriptor>& out,
-	std::string* errMsg)
+bool pipelineFromJson(const nlohmann::json& j, std::vector<RobotInstruction::TrajectoryOpDescriptor>& out,
+					  std::string* errMsg)
 {
 	out.clear();
 	if (!j.is_array())

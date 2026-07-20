@@ -1,7 +1,12 @@
-#pragma once
+﻿#ifndef AIWIDGET_AILLMSETTINGSDIALOG_H
+#define AIWIDGET_AILLMSETTINGSDIALOG_H
+
+/// @file AiLlmSettingsDialog.h
+/// @brief 编辑 ai_config.json（经 IAiAssistantHost）
+
+#include "aiwidget_global.h"
 
 #include "AiConfigDto.h"
-#include "aiwidget_global.h"
 
 #include <QDialog>
 #include <QString>
@@ -54,3 +59,5 @@ private:
 	QDoubleSpinBox* m_temperature = nullptr;
 	QDialogButtonBox* m_buttons = nullptr;
 };
+
+#endif // AIWIDGET_AILLMSETTINGSDIALOG_H

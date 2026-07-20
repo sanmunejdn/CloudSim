@@ -1,3 +1,6 @@
+﻿/// @file TrajectoryParamJsonIo.cpp
+/// @brief TrajectoryParamJsonIo 实现
+
 // TrajectoryParamJsonIo 实现
 #include "TrajectoryParamJsonIo.h"
 
@@ -7,22 +10,21 @@ namespace trajectory_algo
 {
 namespace
 {
-
 TrajectoryParamType paramTypeFromToken(const std::string& token)
 {
-	if (token == "Int")
+	if (token == "Int" || token == "int")
 	{
 		return TrajectoryParamType::Int;
 	}
-	if (token == "Bool")
+	if (token == "Bool" || token == "bool")
 	{
 		return TrajectoryParamType::Bool;
 	}
-	if (token == "Enum")
+	if (token == "Enum" || token == "enum")
 	{
 		return TrajectoryParamType::Enum;
 	}
-	if (token == "Message")
+	if (token == "Message" || token == "message")
 	{
 		return TrajectoryParamType::Message;
 	}
@@ -39,9 +41,7 @@ std::optional<std::string> readTextFile(const std::string& path)
 	return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
 }
 
-std::vector<std::string> jsonCandidatePaths(
-	const std::string& resourceBaseDir,
-	const std::string& relativePath)
+std::vector<std::string> jsonCandidatePaths(const std::string& resourceBaseDir, const std::string& relativePath)
 {
 	std::vector<std::string> out;
 	if (!resourceBaseDir.empty())
@@ -66,6 +66,20 @@ std::vector<std::string> jsonCandidatePaths(
 	return out;
 }
 
+void readJsonNumber(const nlohmann::json& j, double& outDouble, int& outInt)
+{
+	if (j.is_number_float())
+	{
+		outDouble = j.get<double>();
+		outInt = static_cast<int>(outDouble);
+	}
+	else if (j.is_number_integer() || j.is_number_unsigned())
+	{
+		outInt = j.get<int>();
+		outDouble = static_cast<double>(outInt);
+	}
+}
+
 TrajectoryOpParamField fieldFromJson(const nlohmann::json& item)
 {
 	TrajectoryOpParamField field{};
@@ -81,16 +95,28 @@ TrajectoryOpParamField fieldFromJson(const nlohmann::json& item)
 	field.step = item.value("step", 1.0);
 	field.minInt = item.value("minInt", 0);
 	field.maxInt = item.value("maxInt", 9999);
-	field.defaultDouble = item.value("default", 0.0);
-	if (item.contains("defaultInt"))
+	// default 可能是 bool/number；对 bool 调 get<double> 会抛 type_error
+	if (item.contains("default"))
 	{
-		field.defaultInt = item["defaultInt"].get<int>();
+		const nlohmann::json& def = item["default"];
+		if (def.is_boolean())
+		{
+			field.defaultBool = def.get<bool>();
+		}
+		else if (def.is_number())
+		{
+			readJsonNumber(def, field.defaultDouble, field.defaultInt);
+		}
 	}
-	else if (item.contains("default") && item["default"].is_number_integer())
+	if (item.contains("defaultInt") && item["defaultInt"].is_number())
 	{
-		field.defaultInt = item["default"].get<int>();
+		double unused = 0.0;
+		readJsonNumber(item["defaultInt"], unused, field.defaultInt);
 	}
-	field.defaultBool = item.value("defaultBool", false);
+	if (item.contains("defaultBool") && item["defaultBool"].is_boolean())
+	{
+		field.defaultBool = item["defaultBool"].get<bool>();
+	}
 	field.visibleWhenScopeKind = item.value("visibleWhenScopeKind", "");
 	field.messageEn = item.value("messageEn", "");
 	field.messageZh = item.value("messageZh", "");
@@ -98,21 +124,30 @@ TrajectoryOpParamField fieldFromJson(const nlohmann::json& item)
 	{
 		for (const nlohmann::json& v : item["enumValues"])
 		{
-			field.enumValues.push_back(v.get<std::string>());
+			if (v.is_string())
+			{
+				field.enumValues.push_back(v.get<std::string>());
+			}
 		}
 	}
 	if (item.contains("enumLabelsZh") && item["enumLabelsZh"].is_array())
 	{
 		for (const nlohmann::json& v : item["enumLabelsZh"])
 		{
-			field.enumLabelsZh.push_back(v.get<std::string>());
+			if (v.is_string())
+			{
+				field.enumLabelsZh.push_back(v.get<std::string>());
+			}
 		}
 	}
 	if (item.contains("enumLabelsEn") && item["enumLabelsEn"].is_array())
 	{
 		for (const nlohmann::json& v : item["enumLabelsEn"])
 		{
-			field.enumLabelsEn.push_back(v.get<std::string>());
+			if (v.is_string())
+			{
+				field.enumLabelsEn.push_back(v.get<std::string>());
+			}
 		}
 	}
 	return field;
@@ -120,9 +155,8 @@ TrajectoryOpParamField fieldFromJson(const nlohmann::json& item)
 
 } // namespace
 
-std::optional<nlohmann::json> loadTrajectoryJsonFile(
-	const std::string& resourceBaseDir,
-	const std::string& relativePath)
+std::optional<nlohmann::json> loadTrajectoryJsonFile(const std::string& resourceBaseDir,
+													 const std::string& relativePath)
 {
 	for (const std::string& path : jsonCandidatePaths(resourceBaseDir, relativePath))
 	{
@@ -172,7 +206,8 @@ std::vector<TrajectoryOpParamField> loadCommonScopeFieldsFromJson(const std::str
 	{
 		return trajectoryOpCommonScopeFields();
 	}
-	const std::vector<TrajectoryOpParamField> parsed = parseSchemaFieldsFromJson(root->value("schema", nlohmann::json::object()));
+	const std::vector<TrajectoryOpParamField> parsed =
+		parseSchemaFieldsFromJson(root->value("schema", nlohmann::json::object()));
 	if (parsed.empty())
 	{
 		return trajectoryOpCommonScopeFields();

@@ -1,10 +1,15 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_SELECTIONVISUALSERVICE_H
+#define CLOUDSIMHOST_SELECTIONVISUALSERVICE_H
 
-#include "CoreTypes.h"
+/// @file SelectionVisualService.h
+/// @brief 选中对象可视化加载（从 MainWindowSelectionService 下沉）
+
 #include "cloudsim_host_global.h"
 
-namespace cloudsim::host {
+#include "CoreTypes.h"
 
+namespace cloudsim::host
+{
 class DocumentHost;
 
 /// 选中对象可视化加载（从 MainWindowSelectionService 下沉）
@@ -15,3 +20,5 @@ public:
 };
 
 } // namespace cloudsim::host
+
+#endif // CLOUDSIMHOST_SELECTIONVISUALSERVICE_H

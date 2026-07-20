@@ -1,9 +1,14 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_PROGRAMEDITCOMMAND_H
+#define ROBOTSCENE_PROGRAMEDITCOMMAND_H
+
+/// @file ProgramEditCommand.h
+/// @brief ProgramEditCommand 接口
+
+#include "robot_scene_global.h"
 
 #include "InstructionProgramDocument.h"
 #include "RobotProgramCatalog.h"
 #include "TrajectoryPipelineTypes.h"
-#include "robot_scene_global.h"
 
 #include <memory>
 #include <string>
@@ -12,7 +17,6 @@
 
 namespace RobotInstruction
 {
-
 class ROBOT_SCENE_API ProgramEditCommand
 {
 public:
@@ -88,9 +92,7 @@ private:
 class ROBOT_SCENE_API TransformMotionSegmentCommand final : public ProgramEditCommand
 {
 public:
-	TransformMotionSegmentCommand(
-		std::vector<std::string> targetIds,
-		std::vector<TrajectoryOpDescriptor> transformOps);
+	TransformMotionSegmentCommand(std::vector<std::string> targetIds, std::vector<TrajectoryOpDescriptor> transformOps);
 
 	bool execute(InstructionProgramDocument& doc, std::string* errMsg) override;
 	bool undo(InstructionProgramDocument& doc, std::string* errMsg) override;
@@ -143,10 +145,7 @@ private:
 class ROBOT_SCENE_API CreateInstructionGroupCommand final : public ProgramEditCommand
 {
 public:
-	CreateInstructionGroupCommand(
-		RobotProgram* program,
-		std::string groupName,
-		std::vector<std::string> memberIds);
+	CreateInstructionGroupCommand(RobotProgram* program, std::string groupName, std::vector<std::string> memberIds);
 
 	bool execute(InstructionProgramDocument& doc, std::string* errMsg) override;
 	bool undo(InstructionProgramDocument& doc, std::string* errMsg) override;
@@ -210,10 +209,8 @@ private:
 class ROBOT_SCENE_API UpdatePathPlanPipelineCommand final : public ProgramEditCommand
 {
 public:
-	UpdatePathPlanPipelineCommand(
-		std::string pathPlanId,
-		std::vector<TrajectoryOpDescriptor> pipeline,
-		std::vector<TrajectoryOpDescriptor> appliedHistory);
+	UpdatePathPlanPipelineCommand(std::string pathPlanId, std::vector<TrajectoryOpDescriptor> pipeline,
+								  std::vector<TrajectoryOpDescriptor> appliedHistory);
 
 	bool execute(InstructionProgramDocument& doc, std::string* errMsg) override;
 	bool undo(InstructionProgramDocument& doc, std::string* errMsg) override;
@@ -230,11 +227,8 @@ private:
 class ROBOT_SCENE_API UpdatePathPlanRawCommand final : public ProgramEditCommand
 {
 public:
-	UpdatePathPlanRawCommand(
-		RobotProgramCatalog* catalog,
-		std::string pathPlanId,
-		RawTrajectory raw,
-		PathPlanPhase newPhase);
+	UpdatePathPlanRawCommand(RobotProgramCatalog* catalog, std::string pathPlanId, RawTrajectory raw,
+							 PathPlanPhase newPhase);
 
 	bool execute(InstructionProgramDocument& doc, std::string* errMsg) override;
 	bool undo(InstructionProgramDocument& doc, std::string* errMsg) override;
@@ -253,10 +247,7 @@ private:
 class ROBOT_SCENE_API UpdatePathPlanApplyStateCommand final : public ProgramEditCommand
 {
 public:
-	UpdatePathPlanApplyStateCommand(
-		std::string pathPlanId,
-		PathPlanPhase phase,
-		std::string outputGroupId);
+	UpdatePathPlanApplyStateCommand(std::string pathPlanId, PathPlanPhase phase, std::string outputGroupId);
 
 	bool execute(InstructionProgramDocument& doc, std::string* errMsg) override;
 	bool undo(InstructionProgramDocument& doc, std::string* errMsg) override;
@@ -292,3 +283,5 @@ private:
 };
 
 } // namespace RobotInstruction
+
+#endif // ROBOTSCENE_PROGRAMEDITCOMMAND_H

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMMESHTRAJECTORYSDK_MESHTRAJECTORYTYPES_H
+#define CLOUDSIMMESHTRAJECTORYSDK_MESHTRAJECTORYTYPES_H
+
+/// @file MeshTrajectoryTypes.h
+/// @brief MeshTrajectoryTypes 接口
 
 #include "mesh_trajectory_sdk_global.h"
 
@@ -25,3 +29,5 @@ struct MeshTrajectorySessionSummary
 	int triangleCount = 0;
 	int selectedTriangleCount = 0;
 };
+
+#endif // CLOUDSIMMESHTRAJECTORYSDK_MESHTRAJECTORYTYPES_H

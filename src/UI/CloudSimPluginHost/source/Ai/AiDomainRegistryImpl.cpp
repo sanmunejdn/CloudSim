@@ -1,3 +1,6 @@
+﻿/// @file AiDomainRegistryImpl.cpp
+/// @brief AiDomainRegistryImpl 实现
+
 #include "Ai/AiDomainRegistryImpl.h"
 
 bool AiDomainRegistryImpl::registerDomain(const AiDomainDescriptor& desc, IAiDomainHandler* handler)

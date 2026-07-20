@@ -1,8 +1,11 @@
-#include "detail/OccIncludes.h"
+﻿/// @file MeshDiscretize.cpp
+/// @brief MeshDiscretize 实现
+
+#include "MeshDiscretize.h"
 
 #include "Discretize.h"
-#include "MeshDiscretize.h"
 #include "ShapeIo.h"
+#include "detail/OccIncludes.h"
 
 #include <algorithm>
 #include <cmath>
@@ -14,7 +17,6 @@ namespace geoalgo
 {
 namespace
 {
-
 constexpr int kTriangleCountSearchIters = 8;
 constexpr double kTriangleCountRelTol = 0.15;
 constexpr double kDeflectionSearchLo = 1e-4;
@@ -41,8 +43,7 @@ bool prepareDensityControl(MeshDiscretizeParams& p, std::string* errMsg)
 		}
 		// 略密基网格；角偏差用 1°（勿用 0.5° 把圆角打过密，否则 refine 只增不减）
 		p.tessellate.linearDeflectionRelative = false;
-		p.tessellate.linearDeflectionMm =
-			std::clamp(p.targetEdgeLengthMm * 0.25, 1e-4, 1.0e3);
+		p.tessellate.linearDeflectionMm = std::clamp(p.targetEdgeLengthMm * 0.25, 1e-4, 1.0e3);
 		p.tessellate.angularDeflectionDeg = 1.0;
 		return true;
 	}
@@ -64,11 +65,8 @@ bool prepareDensityControl(MeshDiscretizeParams& p, std::string* errMsg)
 	return true;
 }
 
-void appendTri9(
-	std::vector<float>& out,
-	float ax, float ay, float az,
-	float bx, float by, float bz,
-	float cx, float cy, float cz)
+void appendTri9(std::vector<float>& out, float ax, float ay, float az, float bx, float by, float bz, float cx, float cy,
+				float cz)
 {
 	out.push_back(ax);
 	out.push_back(ay);
@@ -81,9 +79,7 @@ void appendTri9(
 	out.push_back(cz);
 }
 
-double triEdgeLen2(
-	float ax, float ay, float az,
-	float bx, float by, float bz)
+double triEdgeLen2(float ax, float ay, float az, float bx, float by, float bz)
 {
 	const double dx = static_cast<double>(bx) - static_cast<double>(ax);
 	const double dy = static_cast<double>(by) - static_cast<double>(ay);
@@ -91,11 +87,8 @@ double triEdgeLen2(
 	return dx * dx + dy * dy + dz * dz;
 }
 
-bool discretizeShapeByTriangleCount(
-	const TopoDS_Shape& shape,
-	MeshDiscretizeParams& p,
-	std::vector<float>& soup,
-	std::string* errMsg)
+bool discretizeShapeByTriangleCount(const TopoDS_Shape& shape, MeshDiscretizeParams& p, std::vector<float>& soup,
+									std::string* errMsg)
 {
 	const std::size_t target = p.targetTriangleCount;
 	double lo = kDeflectionSearchLo;
@@ -130,8 +123,7 @@ bool discretizeShapeByTriangleCount(
 			bestDeflection = mid;
 		}
 
-		const double relErr =
-			static_cast<double>(diff) / static_cast<double>(std::max<std::size_t>(1U, target));
+		const double relErr = static_cast<double>(diff) / static_cast<double>(std::max<std::size_t>(1U, target));
 		if (relErr <= kTriangleCountRelTol)
 		{
 			break;
@@ -175,11 +167,8 @@ void pushTriSoup(std::vector<float>& soup, const gp_Pnt& a, const gp_Pnt& b, con
 	soup.push_back(static_cast<float>(c.Z()));
 }
 
-bool discretizeFaceUVGridInternal(
-	const TopoDS_Face& face,
-	const MeshDiscretizeParams& params,
-	std::vector<float>& soup,
-	std::string* errMsg)
+bool discretizeFaceUVGridInternal(const TopoDS_Face& face, const MeshDiscretizeParams& params, std::vector<float>& soup,
+								  std::string* errMsg)
 {
 	const BRepAdaptor_Surface surf(face);
 	const double u0 = surf.FirstUParameter();
@@ -229,10 +218,8 @@ gp_Vec segmentDir(const Polyline3d& poly, std::size_t segStart)
 {
 	const float* p0 = &poly.xyz[segStart];
 	const float* p1 = &poly.xyz[segStart + 3U];
-	gp_Vec v(
-		static_cast<double>(p1[0] - p0[0]),
-		static_cast<double>(p1[1] - p0[1]),
-		static_cast<double>(p1[2] - p0[2]));
+	gp_Vec v(static_cast<double>(p1[0] - p0[0]), static_cast<double>(p1[1] - p0[1]),
+			 static_cast<double>(p1[2] - p0[2]));
 	if (v.Magnitude() < 1e-9)
 	{
 		return gp_Vec(0.0, 0.0, 1.0);
@@ -255,7 +242,8 @@ gp_Vec orthogonalFrame(const gp_Vec& tangent)
 	return binormal.Normalized();
 }
 
-bool buildTubeAlongPolyline(const Polyline3d& poly, const MeshDiscretizeParams& params, std::vector<float>& soup, std::string* errMsg)
+bool buildTubeAlongPolyline(const Polyline3d& poly, const MeshDiscretizeParams& params, std::vector<float>& soup,
+							std::string* errMsg)
 {
 	if (poly.xyz.size() < 6U)
 	{
@@ -269,7 +257,8 @@ bool buildTubeAlongPolyline(const Polyline3d& poly, const MeshDiscretizeParams& 
 	const double radius = params.tubeRadiusMm;
 	const std::size_t nPts = poly.xyz.size() / 3U;
 
-	auto pointAt = [&](std::size_t i) {
+	auto pointAt = [&](std::size_t i)
+	{
 		const float* p = &poly.xyz[i * 3U];
 		return gp_Pnt(static_cast<double>(p[0]), static_cast<double>(p[1]), static_cast<double>(p[2]));
 	};
@@ -320,7 +309,8 @@ bool buildTubeAlongPolyline(const Polyline3d& poly, const MeshDiscretizeParams& 
 	return !soup.empty();
 }
 
-bool buildRibbonAlongPolyline(const Polyline3d& poly, const MeshDiscretizeParams& params, std::vector<float>& soup, std::string* errMsg)
+bool buildRibbonAlongPolyline(const Polyline3d& poly, const MeshDiscretizeParams& params, std::vector<float>& soup,
+							  std::string* errMsg)
 {
 	if (poly.xyz.size() < 6U)
 	{
@@ -332,7 +322,8 @@ bool buildRibbonAlongPolyline(const Polyline3d& poly, const MeshDiscretizeParams
 	}
 	const double halfW = params.ribbonWidthMm * 0.5;
 	const std::size_t nPts = poly.xyz.size() / 3U;
-	auto pointAt = [&](std::size_t i) {
+	auto pointAt = [&](std::size_t i)
+	{
 		const float* p = &poly.xyz[i * 3U];
 		return gp_Pnt(static_cast<double>(p[0]), static_cast<double>(p[1]), static_cast<double>(p[2]));
 	};
@@ -421,11 +412,8 @@ void fillMeshReport(const std::vector<float>& soup, MeshDiscretizeReport& report
 	report.avgEdgeLengthMm = edgeCount > 0U ? edgeSum / static_cast<double>(edgeCount) : 0.0;
 }
 
-bool discretizeFaceToMesh(
-	const TopoDS_Face& face,
-	const MeshDiscretizeParams& params,
-	std::vector<float>& soup,
-	std::string* errMsg)
+bool discretizeFaceToMesh(const TopoDS_Face& face, const MeshDiscretizeParams& params, std::vector<float>& soup,
+						  std::string* errMsg)
 {
 	MeshDiscretizeParams p = params;
 	applyQualityPreset(p);
@@ -436,12 +424,8 @@ bool discretizeFaceToMesh(
 	return discretizeFaceToSoup(face, p.tessellate, soup, errMsg);
 }
 
-bool discretizeShapeToMesh(
-	const TopoDS_Shape& shape,
-	const MeshDiscretizeParams& params,
-	std::vector<float>& soup,
-	MeshDiscretizeReport& report,
-	std::string* errMsg)
+bool discretizeShapeToMesh(const TopoDS_Shape& shape, const MeshDiscretizeParams& params, std::vector<float>& soup,
+						   MeshDiscretizeReport& report, std::string* errMsg)
 {
 	soup.clear();
 	MeshDiscretizeParams p = params;
@@ -548,10 +532,7 @@ bool discretizeShapeToMesh(
 	return !soup.empty();
 }
 
-bool refineTriangleSoupToMaxEdge(
-	std::vector<float>& soup,
-	double maxEdgeMm,
-	std::string* errMsg)
+bool refineTriangleSoupToMaxEdge(std::vector<float>& soup, double maxEdgeMm, std::string* errMsg)
 {
 	if (!(maxEdgeMm > 0.0))
 	{
@@ -669,11 +650,8 @@ bool refineTriangleSoupToMaxEdge(
 	}
 }
 
-bool discretizeWireToMesh(
-	const TopoDS_Wire& wire,
-	const MeshDiscretizeParams& params,
-	std::vector<float>& soup,
-	std::string* errMsg)
+bool discretizeWireToMesh(const TopoDS_Wire& wire, const MeshDiscretizeParams& params, std::vector<float>& soup,
+						  std::string* errMsg)
 {
 	Polyline3d poly;
 	if (!discretizeWire(wire, params.tessellate, poly, errMsg))
@@ -683,11 +661,8 @@ bool discretizeWireToMesh(
 	return discretizePolylineToMesh(poly, params, soup, errMsg);
 }
 
-bool discretizePolylineToMesh(
-	const Polyline3d& polyline,
-	const MeshDiscretizeParams& params,
-	std::vector<float>& soup,
-	std::string* errMsg)
+bool discretizePolylineToMesh(const Polyline3d& polyline, const MeshDiscretizeParams& params, std::vector<float>& soup,
+							  std::string* errMsg)
 {
 	soup.clear();
 	MeshDiscretizeParams p = params;
@@ -702,12 +677,8 @@ bool discretizePolylineToMesh(
 	}
 }
 
-bool tessellateStepFileToMesh(
-	const std::string& pathLocal,
-	const MeshDiscretizeParams& params,
-	std::vector<float>& soup,
-	MeshDiscretizeReport& report,
-	std::string* errMsg)
+bool tessellateStepFileToMesh(const std::string& pathLocal, const MeshDiscretizeParams& params,
+							  std::vector<float>& soup, MeshDiscretizeReport& report, std::string* errMsg)
 {
 	TopoDS_Shape shape;
 	if (!readStepShape(pathLocal, shape, errMsg))
@@ -717,11 +688,8 @@ bool tessellateStepFileToMesh(
 	return discretizeShapeToMesh(shape, params, soup, report, errMsg);
 }
 
-bool remeshTriangleSoup(
-	const std::vector<float>& inSoup,
-	const MeshDiscretizeParams& params,
-	std::vector<float>& outSoup,
-	std::string* errMsg)
+bool remeshTriangleSoup(const std::vector<float>& inSoup, const MeshDiscretizeParams& params,
+						std::vector<float>& outSoup, std::string* errMsg)
 {
 	(void)params;
 	outSoup = inSoup;

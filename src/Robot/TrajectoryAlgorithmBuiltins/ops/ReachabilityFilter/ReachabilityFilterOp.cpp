@@ -1,14 +1,16 @@
+﻿/// @file ReachabilityFilterOp.cpp
+/// @brief ReachabilityFilterOp 实现
+
 // ReachabilityFilter 原子块：剔除不可达路径点
 #include "ReachabilityFilterOp.h"
 
 #include "TrajectoryOpFormat.h"
-#include "UnifiedTrajectoryPathMath.h"
 #include "TrajectoryOpParamAccess.h"
 #include "TrajectoryOpParamsParse.h"
+#include "UnifiedTrajectoryPathMath.h"
 
 namespace trajectory_algo
 {
-
 RobotInstruction::TrajectoryOpKind ReachabilityFilterOp::kind() const
 {
 	return RobotInstruction::TrajectoryOpKind::ReachabilityFilter;
@@ -24,8 +26,8 @@ TrajectoryOpCapability ReachabilityFilterOp::capabilities() const
 	return TrajectoryOpCapability::None;
 }
 
-RobotInstruction::TrajectoryOpDescriptor ReachabilityFilterOp::makeDefaultDescriptor(
-	const RobotInstruction::OpScope& defaultScope) const
+RobotInstruction::TrajectoryOpDescriptor
+ReachabilityFilterOp::makeDefaultDescriptor(const RobotInstruction::OpScope& defaultScope) const
 {
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::ReachabilityFilter;
@@ -47,19 +49,16 @@ bool ReachabilityFilterOp::validate(const RobotInstruction::TrajectoryOpDescript
 	return true;
 }
 
-std::string ReachabilityFilterOp::formatSummary(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const bool chinese) const
+std::string ReachabilityFilterOp::formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op,
+												const bool chinese) const
 {
 	(void)op;
 	return displayName(chinese);
 }
 
-bool ReachabilityFilterOp::processPath(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	RobotInstruction::UnifiedTrajectory& traj,
-	const TrajectoryOpExecutionContext& ctx,
-	std::string* errMsg) const
+bool ReachabilityFilterOp::processPath(const RobotInstruction::TrajectoryOpDescriptor& op,
+									   RobotInstruction::UnifiedTrajectory& traj,
+									   const TrajectoryOpExecutionContext& ctx, std::string* errMsg) const
 {
 	(void)op;
 	(void)errMsg;

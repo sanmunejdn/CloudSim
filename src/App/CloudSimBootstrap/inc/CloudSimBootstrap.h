@@ -1,10 +1,15 @@
-#pragma once
+﻿#ifndef CLOUDSIMBOOTSTRAP_CLOUDSIMBOOTSTRAP_H
+#define CLOUDSIMBOOTSTRAP_CLOUDSIMBOOTSTRAP_H
+
+/// @file CloudSimBootstrap.h
+/// @brief 组合根 API（实现在 CloudSimHost.dll）
 
 #include "cloudsim_host_global.h"
 
 #include <memory>
 
-namespace cloudsim::core {
+namespace cloudsim::core
+{
 class ICloudSimContext;
 }
 
@@ -13,3 +18,5 @@ CLOUDSIM_HOST_EXPORT std::unique_ptr<cloudsim::core::ICloudSimContext> cloudsimC
 
 CLOUDSIM_HOST_EXPORT void cloudsimSetApplicationContext(std::unique_ptr<cloudsim::core::ICloudSimContext> context);
 CLOUDSIM_HOST_EXPORT cloudsim::core::ICloudSimContext* cloudsimApplicationContext();
+
+#endif // CLOUDSIMBOOTSTRAP_CLOUDSIMBOOTSTRAP_H

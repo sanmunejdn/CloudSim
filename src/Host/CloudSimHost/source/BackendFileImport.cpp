@@ -1,12 +1,15 @@
-#include "BackendFileImport.h"
+﻿/// @file BackendFileImport.cpp
+/// @brief BackendFileImport 实现
 
-#include "DocumentHost.h"
-#include "DocumentHostAccess.h"
-#include "DocumentHostEvents.h"
+#include "BackendFileImport.h"
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "BrepBackendData.h"
+#include "DocumentHost.h"
+#include "DocumentHostAccess.h"
+#include "DocumentHostEvents.h"
+#include "FrameBackendData.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PlyIo.h"
@@ -14,13 +17,12 @@
 
 #include <QFile>
 #include <QFileInfo>
-
 #include <memory>
 
-namespace cloudsim::host {
-
-namespace {
-
+namespace cloudsim::host
+{
+namespace
+{
 std::shared_ptr<PointCloudBackendData> makeEmptyPointCloudShell(const QString& displayName)
 {
 	auto pointCloud = std::make_shared<PointCloudBackendData>();
@@ -36,7 +38,7 @@ std::shared_ptr<PointCloudBackendData> makeEmptyPointCloudShell(const QString& d
 }
 
 bool applyPersistedIdIfRequested(DocumentHost& host, const std::shared_ptr<PointCloudBackendData>& pointCloud,
-	const core::ImportOptionsDto& options, QString* outError)
+								 const core::ImportOptionsDto& options, QString* outError)
 {
 	if (!pointCloud || options.persistedId.isEmpty())
 	{
@@ -55,7 +57,7 @@ bool applyPersistedIdIfRequested(DocumentHost& host, const std::shared_ptr<Point
 }
 
 core::ObjectId importPointCloudLasLazFile(DocumentHost& host, const QString& filePath,
-	const core::ImportOptionsDto& options, QString* outError)
+										  const core::ImportOptionsDto& options, QString* outError)
 {
 	OsgWidget* osg = osgWidgetFrom(host);
 	if (!osg)
@@ -88,15 +90,13 @@ core::ObjectId importPointCloudLasLazFile(DocumentHost& host, const QString& fil
 		osg->clearStagingGeometry();
 		if (outError)
 		{
-			*outError = capErr.isEmpty()
-				? QStringLiteral("Could not copy LAS/LAZ into backend.")
-				: QStringLiteral("Could not copy LAS/LAZ into backend.\n%1").arg(capErr);
+			*outError = capErr.isEmpty() ? QStringLiteral("Could not copy LAS/LAZ into backend.")
+										 : QStringLiteral("Could not copy LAS/LAZ into backend.\n%1").arg(capErr);
 		}
 		return {};
 	}
 	osg->clearStagingGeometry();
-	const QString catalog =
-		options.catalogTypeName.isEmpty() ? QStringLiteral("PointCloud") : options.catalogTypeName;
+	const QString catalog = options.catalogTypeName.isEmpty() ? QStringLiteral("PointCloud") : options.catalogTypeName;
 	if (!registerAdoptedPointCloudAndLoadScene(host, pointCloud, filePath, catalog, options.resetViewToHome, outError))
 	{
 		return {};
@@ -107,7 +107,7 @@ core::ObjectId importPointCloudLasLazFile(DocumentHost& host, const QString& fil
 } // namespace
 
 core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const core::ImportOptionsDto& options,
-	QString* outError)
+							  QString* outError)
 {
 	if (options.isPointCloud)
 	{
@@ -121,7 +121,10 @@ core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const
 	const QFileInfo fileInfo(filePath);
 	const QString ext = fileInfo.suffix().toLower();
 	static const QStringList kHostMeshOnly{
-		QStringLiteral("obj"), QStringLiteral("stl"), QStringLiteral("ply"), QStringLiteral("off"),
+		QStringLiteral("obj"),
+		QStringLiteral("stl"),
+		QStringLiteral("ply"),
+		QStringLiteral("off"),
 	};
 	if (!kHostMeshOnly.contains(ext))
 	{
@@ -144,7 +147,7 @@ core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const
 		if (outError)
 		{
 			*outError = loadErr.empty() ? QStringLiteral("Failed to load mesh (no triangle geometry).")
-										  : QString::fromStdString(loadErr);
+										: QString::fromStdString(loadErr);
 		}
 		return {};
 	}
@@ -160,7 +163,8 @@ core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const
 
 	const QString id = QString::fromStdString(mesh->id());
 	host.backendSourcePath()[id] = filePath;
-	host.backendSourceType()[id] = options.catalogTypeName.isEmpty() ? QStringLiteral("Model") : options.catalogTypeName;
+	host.backendSourceType()[id] =
+		options.catalogTypeName.isEmpty() ? QStringLiteral("Model") : options.catalogTypeName;
 	if (!options.parentId.isEmpty())
 	{
 		if (!host.backend().attachChild(options.parentId.toStdString(), mesh->id()))
@@ -214,7 +218,7 @@ core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const
 }
 
 core::ObjectId importPointCloudFile(DocumentHost& host, const QString& filePath, const core::ImportOptionsDto& options,
-	QString* outError)
+									QString* outError)
 {
 	const QFileInfo fileInfo(filePath);
 	const QString ext = fileInfo.suffix().toLower();
@@ -244,14 +248,14 @@ core::ObjectId importPointCloudFile(DocumentHost& host, const QString& filePath,
 	{
 		if (outError)
 		{
-			*outError = loadErr.empty() ? QStringLiteral("Failed to load point cloud.") : QString::fromStdString(loadErr);
+			*outError =
+				loadErr.empty() ? QStringLiteral("Failed to load point cloud.") : QString::fromStdString(loadErr);
 		}
 		return {};
 	}
 	pointCloud->setWorldMatrix(BackendMat4::identity());
 
-	const QString catalog =
-		options.catalogTypeName.isEmpty() ? QStringLiteral("PointCloud") : options.catalogTypeName;
+	const QString catalog = options.catalogTypeName.isEmpty() ? QStringLiteral("PointCloud") : options.catalogTypeName;
 	if (!registerAdoptedPointCloudAndLoadScene(host, pointCloud, filePath, catalog, options.resetViewToHome, outError))
 	{
 		return {};
@@ -260,8 +264,8 @@ core::ObjectId importPointCloudFile(DocumentHost& host, const QString& filePath,
 }
 
 bool registerAdoptedBackendObject(DocumentHost& host, const std::shared_ptr<BackendDataBase>& object,
-	const QString& sourcePath, const QString& catalogTypeName, const QString& parentId, QString* outError,
-	const bool linkOsgSceneParent)
+								  const QString& sourcePath, const QString& catalogTypeName, const QString& parentId,
+								  QString* outError, const bool linkOsgSceneParent)
 {
 	if (!object)
 	{
@@ -270,6 +274,16 @@ bool registerAdoptedBackendObject(DocumentHost& host, const std::shared_ptr<Back
 			*outError = QStringLiteral("null backend object");
 		}
 		return false;
+	}
+	// 工程重载后计数器会重置，ctor 生成的 backend_data_N 可能撞号
+	if (object->id().empty() || host.backend().contains(object->id()))
+	{
+		std::string uniqueId;
+		do
+		{
+			uniqueId = BackendDataBase::generateId();
+		} while (host.backend().contains(uniqueId));
+		object->setId(uniqueId);
 	}
 	if (!host.backend().registerData(object))
 	{
@@ -316,8 +330,8 @@ bool registerAdoptedBackendObject(DocumentHost& host, const std::shared_ptr<Back
 }
 
 bool registerAdoptedMeshAndLoadScene(DocumentHost& host, const std::shared_ptr<MeshBackendData>& mesh,
-	const QString& sourcePath, const QString& catalogTypeName, const QString& parentId, const bool resetViewToHome,
-	QString* outError, const bool linkOsgSceneParent)
+									 const QString& sourcePath, const QString& catalogTypeName, const QString& parentId,
+									 const bool resetViewToHome, QString* outError, const bool linkOsgSceneParent)
 {
 	if (!mesh)
 	{
@@ -334,8 +348,7 @@ bool registerAdoptedMeshAndLoadScene(DocumentHost& host, const std::shared_ptr<M
 	if (OsgWidget* osg = osgWidgetFrom(host))
 	{
 		QString sceneErr;
-		if (!osg->loadMeshFromBackendData(*mesh, &sceneErr, resetViewToHome, true, true)
-			&& outError)
+		if (!osg->loadMeshFromBackendData(*mesh, &sceneErr, resetViewToHome, true, true) && outError)
 		{
 			*outError = sceneErr.isEmpty() ? QStringLiteral("OSG mesh display failed") : sceneErr;
 			return false;
@@ -345,8 +358,9 @@ bool registerAdoptedMeshAndLoadScene(DocumentHost& host, const std::shared_ptr<M
 }
 
 bool registerAdoptedBrepAndLoadScene(DocumentHost& host, const std::shared_ptr<BrepBackendData>& brep,
-	const QString& sourcePath, const QString& catalogTypeName, const QString& parentId, const bool resetViewToHome,
-	QString* outError, const bool linkOsgSceneParent, const bool loadScene)
+									 const QString& sourcePath, const QString& catalogTypeName, const QString& parentId,
+									 const bool resetViewToHome, QString* outError, const bool linkOsgSceneParent,
+									 const bool loadScene)
 {
 	if (!brep)
 	{
@@ -368,8 +382,7 @@ bool registerAdoptedBrepAndLoadScene(DocumentHost& host, const std::shared_ptr<B
 	if (OsgWidget* osg = osgWidgetFrom(host))
 	{
 		QString sceneErr;
-		if (!osg->loadBackendFromBackendData(*brep, &sceneErr, resetViewToHome, false, true)
-			&& outError)
+		if (!osg->loadBackendFromBackendData(*brep, &sceneErr, resetViewToHome, false, true) && outError)
 		{
 			*outError = sceneErr.isEmpty() ? QStringLiteral("OSG B-rep display failed") : sceneErr;
 			return false;
@@ -378,9 +391,38 @@ bool registerAdoptedBrepAndLoadScene(DocumentHost& host, const std::shared_ptr<B
 	return true;
 }
 
-bool registerAdoptedPointCloudAndLoadScene(DocumentHost& host,
-	const std::shared_ptr<PointCloudBackendData>& pointCloud, const QString& sourcePath, const QString& catalogTypeName,
-	const bool resetViewToHome, QString* outError)
+bool registerAdoptedFrameAndLoadScene(DocumentHost& host, const std::shared_ptr<FrameBackendData>& frame,
+									  const QString& catalogTypeName, const QString& parentId,
+									  const bool resetViewToHome, QString* outError)
+{
+	if (!frame)
+	{
+		if (outError)
+		{
+			*outError = QStringLiteral("null frame");
+		}
+		return false;
+	}
+	const QString catalog = catalogTypeName.isEmpty() ? QStringLiteral("CoordinateFrame") : catalogTypeName;
+	if (!registerAdoptedBackendObject(host, frame, QString(), catalog, parentId, outError))
+	{
+		return false;
+	}
+	if (OsgWidget* osg = osgWidgetFrom(host))
+	{
+		QString sceneErr;
+		if (!osg->loadBackendFromBackendData(*frame, &sceneErr, resetViewToHome, false, false) && outError)
+		{
+			*outError = sceneErr.isEmpty() ? QStringLiteral("OSG frame display failed") : sceneErr;
+			return false;
+		}
+	}
+	return true;
+}
+
+bool registerAdoptedPointCloudAndLoadScene(DocumentHost& host, const std::shared_ptr<PointCloudBackendData>& pointCloud,
+										   const QString& sourcePath, const QString& catalogTypeName,
+										   const bool resetViewToHome, QString* outError)
 {
 	if (!pointCloud)
 	{

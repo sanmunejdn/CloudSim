@@ -1,9 +1,14 @@
+﻿/// @file CloudSimCoreExport.cpp
+/// @brief CloudSimCoreExport 实现
+
+#include "osgwidgetcore_global.h"
+
 #include "CloudSimCoreVersion.h"
 #include "IRenderView.h"
 #include "NullCoreServices.h"
-#include "osgwidgetcore_global.h"
 
-extern "C" OSGWIDGETCORE_EXPORT cloudsim::core::IRenderViewFactory* cloudsimCreateRenderViewFactory(unsigned int apiVersion)
+extern "C" OSGWIDGETCORE_EXPORT cloudsim::core::IRenderViewFactory*
+cloudsimCreateRenderViewFactory(unsigned int apiVersion)
 {
 	if (apiVersion != cloudsimCoreApiVersion())
 		return nullptr;

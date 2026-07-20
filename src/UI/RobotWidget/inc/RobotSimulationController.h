@@ -1,11 +1,16 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_ROBOTSIMULATIONCONTROLLER_H
+#define ROBOTWIDGET_ROBOTSIMULATIONCONTROLLER_H
+
+/// @file RobotSimulationController.h
+/// @brief 指令选中时链式种子，供 feasible 与 preview 共用，避免重复 IK
+
+#include "robotwidget_global.h"
 
 #include "IRobotMainWindowHost.h"
 #include "PlanResultCache.h"
 #include "RobotInstructionController.h"
 #include "RobotProgramExecutor.h"
 #include "SimulationLogIoSink.h"
-#include "robotwidget_global.h"
 
 #include <QElapsedTimer>
 #include <QHash>
@@ -13,7 +18,6 @@
 #include <QSet>
 #include <QTimer>
 #include <QVector>
-
 #include <memory>
 #include <string>
 #include <vector>
@@ -27,7 +31,12 @@ class RobotSimulationDockWidget;
 class QtProperty;
 class ProgramEditService;
 class TrajectoryEditSession;
-namespace RobotInstruction { class Base; struct FeasibleMotionAxisConfigurationOptions; struct RawTrajectory; }
+namespace RobotInstruction
+{
+class Base;
+struct FeasibleMotionAxisConfigurationOptions;
+struct RawTrajectory;
+} // namespace RobotInstruction
 
 /// 指令选中时链式种子，供 feasible 与 preview 共用，避免重复 IK
 struct ROBOTWIDGET_EXPORT PrecomputedChainSeed
@@ -61,10 +70,10 @@ public:
 	RobotProgramExecutor& programExecutor() { return m_programExecutor; }
 	SimulationLogIoSink& simulationIoSink() { return m_simulationIoSink; }
 
-	RobotInstruction::FeasibleMotionAxisConfigurationOptions feasibleMotionAxisConfigurationOptionsForInstruction(
-		const std::shared_ptr<RobotInstruction::Base>& instruction,
-		QVector<double>* outSeedJointRad = nullptr,
-		const PrecomputedChainSeed* precomputedChainSeed = nullptr);
+	RobotInstruction::FeasibleMotionAxisConfigurationOptions
+	feasibleMotionAxisConfigurationOptionsForInstruction(const std::shared_ptr<RobotInstruction::Base>& instruction,
+														 QVector<double>* outSeedJointRad = nullptr,
+														 const PrecomputedChainSeed* precomputedChainSeed = nullptr);
 	const RobotInstruction::FeasibleMotionAxisConfigurationOptions& cachedFeasibleAxisConfigurationOptions() const
 	{
 		return m_cachedFeasibleAxisOptions;
@@ -76,19 +85,14 @@ public:
 		PropertyPanel,
 		SelectionAutoSeed,
 	};
-	void scheduleDeferredFeasibleAxisProbe(
-		const std::shared_ptr<RobotInstruction::Base>& instruction,
-		FeasibleAxisProbePurpose purpose = FeasibleAxisProbePurpose::PropertyPanel);
+	void scheduleDeferredFeasibleAxisProbe(const std::shared_ptr<RobotInstruction::Base>& instruction,
+										   FeasibleAxisProbePurpose purpose = FeasibleAxisProbePurpose::PropertyPanel);
 
 	std::shared_ptr<RobotInstruction::Base> findInstructionById(const QString& instructionId) const;
 
-	bool tryCaptureCurrentRobotTcpPose(
-		RobotInstruction::Vec3& outPoseMm,
-		RobotInstruction::Vec3& outEulerDeg,
-		osg::Matrixd* outTcpLocalMat,
-		osg::Matrixd* outTcpRenderWorldMat,
-		QString* outTcpLinkName,
-		QString* errMsg) const;
+	bool tryCaptureCurrentRobotTcpPose(RobotInstruction::Vec3& outPoseMm, RobotInstruction::Vec3& outEulerDeg,
+									   osg::Matrixd* outTcpLocalMat, osg::Matrixd* outTcpRenderWorldMat,
+									   QString* outTcpLinkName, QString* errMsg) const;
 
 	void syncRobotKinematicsAfterPoseEdit(const QString& backendId);
 	void syncRobotKinematicsAfterPoseEdit(const std::shared_ptr<BackendDataBase>& data);
@@ -132,13 +136,12 @@ public slots:
 	bool rawTrajectoryPreviewActive() const { return m_rawTrajectoryPreviewActive; }
 	void refreshSimulationJointListFromCurrentDoc();
 	void syncRobotFrameSettingsFromDocument(int instanceIndex);
-	void refreshRobotCoordinateFrameOverlays(
-		const std::shared_ptr<RobotInstruction::Base>& highlightInstruction = nullptr,
-		const QVector<double>* jointAnglesRadLocal = nullptr);
+	void
+	refreshRobotCoordinateFrameOverlays(const std::shared_ptr<RobotInstruction::Base>& highlightInstruction = nullptr,
+										const QVector<double>* jointAnglesRadLocal = nullptr);
 	void refreshRobotCoordinateFrameOverlaysForPlayback();
-	void applyRobotPoseForInstructionPreview(
-		const std::shared_ptr<RobotInstruction::Base>& instruction,
-		const PrecomputedChainSeed* precomputedChainSeed = nullptr);
+	void applyRobotPoseForInstructionPreview(const std::shared_ptr<RobotInstruction::Base>& instruction,
+											 const PrecomputedChainSeed* precomputedChainSeed = nullptr);
 	void syncInstructionRenderMatricesFromPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
 	/// 路点 pose 已是世界系（CAD/Unified Apply）时，直接用位姿写 render.tcpWorldMat4，避免按当前机器人基座重算导致轴错位
 	void syncInstructionRenderMatricesFromWorldPose(const std::shared_ptr<RobotInstruction::Base>& instruction);
@@ -155,16 +158,12 @@ private:
 	void captureMotionPreviewProgramStartJoints();
 	QVector<double> motionPreviewProgramStartJointsLocal(int nj, int jointOffset) const;
 	QVector<double> localJointAnglesForInstance(int instIdx) const;
-	bool buildChainSeedJointRadForInstruction(
-		const std::shared_ptr<RobotInstruction::Base>& instruction,
-		QVector<double>& outChainSeed,
-		int* outTargetMotionIndex = nullptr,
-		bool* outChainReliable = nullptr);
-	void applyToolFrameChangeToProgram(
-		const RobotCoordinate::RobotCoordinateFrameSet& oldFrames,
-		const RobotCoordinate::RobotCoordinateFrameSet& newFrames,
-		bool activeToolChanged,
-		bool toolGeometryChanged);
+	bool buildChainSeedJointRadForInstruction(const std::shared_ptr<RobotInstruction::Base>& instruction,
+											  QVector<double>& outChainSeed, int* outTargetMotionIndex = nullptr,
+											  bool* outChainReliable = nullptr);
+	void applyToolFrameChangeToProgram(const RobotCoordinate::RobotCoordinateFrameSet& oldFrames,
+									   const RobotCoordinate::RobotCoordinateFrameSet& newFrames,
+									   bool activeToolChanged, bool toolGeometryChanged);
 	void refreshInstructionPoseAxesWithReachability(const QHash<QString, bool>& reachability);
 	bool isPathPlanRawVisible(const std::string& pathPlanId) const;
 	void scheduleAsyncMotionReachabilityRefresh();
@@ -174,15 +173,18 @@ private:
 	void syncTcpDragTeachAnchorFromCurrentJoints();
 	void syncTcpDragExitJointState();
 
-	bool planMotionOnHost(
-		RobotInstruction::Base& instruction,
-		const QVector<double>& seedJointRad,
-		int instanceIndex,
-		const QString& urdfPath,
-		const QString& defaultTcpLinkName,
-		const QString& sceneRootBackendId,
-		RobotInstruction::PlanResult& plan,
-		std::string* planErr) const;
+	bool planMotionOnHost(RobotInstruction::Base& instruction, const QVector<double>& seedJointRad, int instanceIndex,
+						  const QString& urdfPath, const QString& defaultTcpLinkName, const QString& sceneRootBackendId,
+						  RobotInstruction::PlanResult& plan, std::string* planErr) const;
+
+	/// 预览与 Run 共用：示教 CSV → 示教种子 IK → 链式种子 IK → 程序起点 IK；均过姿态门控
+	bool planMotionConsistentWithPreview(RobotInstruction::Base& instruction, const QVector<double>& chainSeedQ,
+										 const QVector<double>& programStartQ, int instanceIndex,
+										 const QString& urdfPath, const QString& defaultTcpLinkName,
+										 const QString& sceneRootBackendId,
+										 const RobotCoordinate::RobotCoordinateFrameSet& frames,
+										 RobotInstruction::PlanResult& outPlan, std::string* planErr,
+										 bool persistTaughtOnSuccess);
 
 	IRobotMainWindowHost* m_host = nullptr;
 	RobotSimulationDockWidget* m_simulationDock = nullptr;
@@ -216,30 +218,47 @@ private:
 	quint64 m_reachabilityJobToken = 0;
 	int m_reachabilityPendingJobs = 0;
 	quint64 m_feasibleAxisJobToken = 0;
+	/// 选中链式种子：前缀段末关节，避免每次从 0 同步 IK
+	QString m_chainSeedRollFingerprint;
+	QVector<QVector<double>> m_chainSeedEndJointsByIndex;
+	int m_reachabilityNextBatchStart = 0;
+	QVector<double> m_reachabilityBatchRollingQ;
 
-	QString computePlanFingerprint(
-		const RobotInstruction::Base& instruction,
-		const QVector<double>& seedJointRad,
-		const QString& urdfPath,
-		const QString& tcpLinkName) const;
+	void invalidateChainSeedRollCache();
+	void enqueueReachabilityBatch(int batchStart);
+
+	QString computePlanFingerprint(const RobotInstruction::Base& instruction, const QVector<double>& seedJointRad,
+								   const QString& urdfPath, const QString& tcpLinkName) const;
 
 	struct LookaheadConfig
 	{
-		int maxAdvanceBlocks = 3;
-		int maxConcurrentJobs = 1;
+		int maxAdvanceBlocks = 16;
+		int maxConcurrentJobs = 4;
 		bool enabled = true;
 	};
 	LookaheadConfig m_lookaheadConfig;
 	int m_lookaheadPendingJobs = 0;
 	std::vector<const RobotInstruction::Base*> m_currentRunMotions;
 	std::string m_lastHighlightedInstructionId;
+	size_t m_playbackMotionIndex = 0;
+	/// 播放游标处段起点关节（规划 current 的种子）；禁止从 0 扫到 N
+	QVector<double> m_playbackRollingSeedQ;
+	QVector<double> m_playbackProgramStartQ;
+	/// 播放叠加高亮：避免每 tick 扫 instructionList
+	std::shared_ptr<RobotInstruction::Base> m_playbackOverlayHighlight;
+	QString m_overlayCachedUrdfPath;
+	QString m_overlayCachedUrdfRootLink;
 
 	void tickLookaheadPlanning();
-	bool trySeedJointRadForMotionIndex(
-		size_t targetMotionIndex,
-		const QVector<double>& programStartQ,
-		const QString& urdfPath,
-		const QString& tcpLinkName,
-		int jointCount,
-		QVector<double>& outSeedQ) const;
+	void ensurePlaybackPlansReady();
+	bool syncPlanMotionAtIndex(size_t motionIndex);
+	static bool isPlaybackUiInteractionBusy();
+	bool trySeedJointRadForMotionIndex(size_t targetMotionIndex, const QVector<double>& programStartQ,
+									   const QString& urdfPath, const QString& tcpLinkName, int jointCount,
+									   QVector<double>& outSeedQ) const;
+	void commitPlaybackPlan(const RobotInstruction::Base* motion, size_t motionIndex,
+							RobotInstruction::PlanResult plan);
+	static void stripPlanTrajectory(RobotInstruction::PlanResult& plan);
 };
+
+#endif // ROBOTWIDGET_ROBOTSIMULATIONCONTROLLER_H

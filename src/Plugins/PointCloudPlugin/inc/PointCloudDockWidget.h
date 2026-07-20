@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef POINTCLOUDPLUGIN_POINTCLOUDDOCKWIDGET_H
+#define POINTCLOUDPLUGIN_POINTCLOUDDOCKWIDGET_H
+
+/// @file PointCloudDockWidget.h
+/// @brief PointCloudDockWidget 接口
 
 #include "PluginPointCloudTypes.h"
 
@@ -317,3 +321,5 @@ private:
 	PluginMeshSurfaceReconstructStage m_surfaceReconLastStage = PluginMeshSurfaceReconstructStage::None;
 	std::string m_surfaceReconMeshBackendId;
 };
+
+#endif // POINTCLOUDPLUGIN_POINTCLOUDDOCKWIDGET_H

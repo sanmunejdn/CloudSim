@@ -1,3 +1,6 @@
+﻿/// @file InstructionProgramDocument.cpp
+/// @brief InstructionProgramDocument 实现
+
 #include "InstructionProgramDocument.h"
 
 #include "RobotInstructionProgram.h"
@@ -66,9 +69,8 @@ void InstructionProgramDocument::renumberAndNotify()
 	}
 }
 
-void InstructionProgramDocument::collectIdMapRecursive(
-	const std::vector<std::shared_ptr<Base>>& steps,
-	std::unordered_map<std::string, std::shared_ptr<Base>>& out)
+void InstructionProgramDocument::collectIdMapRecursive(const std::vector<std::shared_ptr<Base>>& steps,
+													   std::unordered_map<std::string, std::shared_ptr<Base>>& out)
 {
 	for (const auto& ins : steps)
 	{
@@ -129,9 +131,7 @@ bool InstructionProgramDocument::removeRecursive(std::vector<std::shared_ptr<Bas
 	return false;
 }
 
-Base* InstructionProgramDocument::findRecursive(
-	const std::vector<std::shared_ptr<Base>>& steps,
-	const std::string& id)
+Base* InstructionProgramDocument::findRecursive(const std::vector<std::shared_ptr<Base>>& steps, const std::string& id)
 {
 	for (const auto& ins : steps)
 	{

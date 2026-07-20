@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMLABELINGSDK_LABELINGTYPES_H
+#define CLOUDSIMLABELINGSDK_LABELINGTYPES_H
+
+/// @file LabelingTypes.h
+/// @brief LabelingTypes 接口
 
 #include "labeling_sdk_global.h"
 
@@ -17,7 +21,7 @@ struct LabelingClassDef
 {
 	int classId = 0;
 	std::string nameUtf8;
-	float colorRgb[3] = { 0.5f, 0.5f, 0.5f };
+	float colorRgb[3] = {0.5f, 0.5f, 0.5f};
 };
 
 struct LabelingSessionConfig
@@ -79,3 +83,5 @@ struct TrainingJobResult
 	std::string bestCheckpointUtf8;
 	std::string deviceUtf8;
 };
+
+#endif // CLOUDSIMLABELINGSDK_LABELINGTYPES_H

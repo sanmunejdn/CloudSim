@@ -1,17 +1,19 @@
+﻿/// @file PointNetDomainHandler.cpp
+/// @brief 从场景对象导出点云到临时 PLY 并读取 xyz 坐标
+
 #include "PointNetDomainHandler.h"
 
 #include "IPluginDocument.h"
 #include "IPluginHostContext.h"
 #include "PointNetInference.h"
 
-#include <json.hpp>
-
+#include <QDir>
+#include <QFile>
 #include <cmath>
 #include <fstream>
 #include <sstream>
 
-#include <QDir>
-#include <QFile>
+#include <json.hpp>
 
 // ============================================================
 // 辅助函数
@@ -19,12 +21,11 @@
 
 namespace
 {
-
 /// 从场景对象导出点云到临时 PLY 并读取 xyz 坐标
 /// 注意：当前插件 SDK 不直接暴露原始顶点数据，
 /// 这里通过 exportMeshToPly + 解析 PLY 获取坐标
-bool extractPointsFromSceneObject(IPluginHostContext* host, const std::string& backendId,
-	std::vector<float>& outPoints, int& outCount)
+bool extractPointsFromSceneObject(IPluginHostContext* host, const std::string& backendId, std::vector<float>& outPoints,
+								  int& outCount)
 {
 	IPluginDocument* doc = host->activeDocument();
 	if (!doc)
@@ -150,10 +151,7 @@ std::string readBackendId(const nlohmann::json& j)
 // PointNetClassifyDomainHandler
 // ============================================================
 
-PointNetClassifyDomainHandler::PointNetClassifyDomainHandler(PointNetInference* inference)
-	: m_inference(inference)
-{
-}
+PointNetClassifyDomainHandler::PointNetClassifyDomainHandler(PointNetInference* inference) : m_inference(inference) {}
 
 QString PointNetClassifyDomainHandler::domainId() const
 {
@@ -193,7 +191,7 @@ bool PointNetClassifyDomainHandler::validateOutput(const QByteArray& jsonUtf8, Q
 }
 
 bool PointNetClassifyDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHostContext* host,
-	IAiAssistantHost* aiHost, QString* summary, QString* err)
+											IAiAssistantHost* aiHost, QString* summary, QString* err)
 {
 	(void)aiHost;
 
@@ -268,8 +266,8 @@ bool PointNetClassifyDomainHandler::execute(const QByteArray& jsonUtf8, IPluginH
 	if (summary)
 	{
 		*summary = QStringLiteral("分类结果: %1 (置信度: %2%)")
-			.arg(result.className)
-			.arg(QString::number(result.confidence * 100.0f, 'f', 1));
+					   .arg(result.className)
+					   .arg(QString::number(result.confidence * 100.0f, 'f', 1));
 	}
 
 	return true;
@@ -279,10 +277,7 @@ bool PointNetClassifyDomainHandler::execute(const QByteArray& jsonUtf8, IPluginH
 // PointNetSegmentDomainHandler
 // ============================================================
 
-PointNetSegmentDomainHandler::PointNetSegmentDomainHandler(PointNetInference* inference)
-	: m_inference(inference)
-{
-}
+PointNetSegmentDomainHandler::PointNetSegmentDomainHandler(PointNetInference* inference) : m_inference(inference) {}
 
 QString PointNetSegmentDomainHandler::domainId() const
 {
@@ -322,7 +317,7 @@ bool PointNetSegmentDomainHandler::validateOutput(const QByteArray& jsonUtf8, QS
 }
 
 bool PointNetSegmentDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHostContext* host,
-	IAiAssistantHost* aiHost, QString* summary, QString* err)
+										   IAiAssistantHost* aiHost, QString* summary, QString* err)
 {
 	(void)aiHost;
 
@@ -405,18 +400,13 @@ bool PointNetSegmentDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHo
 	nlohmann::json stats = nlohmann::json::array();
 	for (int c = 0; c < result.numClasses; ++c)
 	{
-		stats.push_back({
-			{"class_id", c},
-			{"point_count", classCounts[c]}
-		});
+		stats.push_back({{"class_id", c}, {"point_count", classCounts[c]}});
 	}
 	out["class_statistics"] = stats;
 
 	if (summary)
 	{
-		*summary = QStringLiteral("分割完成: %1 个点, %2 个类别")
-			.arg(result.labels.size())
-			.arg(result.numClasses);
+		*summary = QStringLiteral("分割完成: %1 个点, %2 个类别").arg(result.labels.size()).arg(result.numClasses);
 	}
 
 	return true;

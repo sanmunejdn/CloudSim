@@ -1,11 +1,14 @@
-#pragma once
+﻿#ifndef POINTNETPLUGIN_POINTNETPLUGIN_H
+#define POINTNETPLUGIN_POINTNETPLUGIN_H
+
+/// @file PointNetPlugin.h
+/// @brief PointNet++ 插件主类：注册 pointnet.classify / pointnet.segment 两个 AI 域
 
 #include "ICloudSimAiPlugin.h"
 #include "ICloudSimPlugin.h"
 
-#include <memory>
-
 #include <QObject>
+#include <memory>
 
 class PointNetInference;
 class PointNetClassifyDomainHandler;
@@ -44,3 +47,5 @@ private:
 	std::unique_ptr<PointNetClassifyDomainHandler> m_clsHandler;
 	std::unique_ptr<PointNetSegmentDomainHandler> m_segHandler;
 };
+
+#endif // POINTNETPLUGIN_POINTNETPLUGIN_H

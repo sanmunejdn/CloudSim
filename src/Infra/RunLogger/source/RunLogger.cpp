@@ -1,3 +1,6 @@
+﻿/// @file RunLogger.cpp
+/// @brief RunLogger 实现
+
 #include "RunLogger.h"
 
 #include <atomic>
@@ -18,11 +21,12 @@ namespace
 std::mutex gMutex;
 std::shared_ptr<spdlog::logger> gLogger;
 RunLogger::UiSink gUiSink;
-std::atomic<RunLogger::LogLevel> gMinLevel{ RunLogger::LogLevel::Info };
+std::atomic<RunLogger::LogLevel> gMinLevel{RunLogger::LogLevel::Info};
 
 bool envFlagEnabled(const char* name)
 {
-	auto valueEnabled = [](const char* e) -> bool {
+	auto valueEnabled = [](const char* e) -> bool
+	{
 		if (!e || e[0] == '\0')
 		{
 			return false;
@@ -31,8 +35,8 @@ bool envFlagEnabled(const char* name)
 		{
 			return false;
 		}
-		if ((e[0] == 'f' || e[0] == 'F') && (e[1] == 'a' || e[1] == 'A') && (e[2] == 'l' || e[2] == 'L')
-			&& (e[3] == 's' || e[3] == 'S') && (e[4] == 'e' || e[4] == 'E') && e[5] == '\0')
+		if ((e[0] == 'f' || e[0] == 'F') && (e[1] == 'a' || e[1] == 'A') && (e[2] == 'l' || e[2] == 'L') &&
+			(e[3] == 's' || e[3] == 'S') && (e[4] == 'e' || e[4] == 'E') && e[5] == '\0')
 		{
 			return false;
 		}
@@ -96,21 +100,20 @@ bool initialize(const std::string& logDirectory, const std::string& fileNameBase
 	try
 	{
 		const std::string safeBaseName = fileNameBase.empty() ? "CloudSim" : fileNameBase;
-		const std::filesystem::path directory = logDirectory.empty()
-													? std::filesystem::current_path() / "logs"
-													: std::filesystem::path(logDirectory);
+		const std::filesystem::path directory =
+			logDirectory.empty() ? std::filesystem::current_path() / "logs" : std::filesystem::path(logDirectory);
 		std::filesystem::create_directories(directory);
 		const std::filesystem::path logFilePath = directory / (safeBaseName + ".log");
 
 		std::vector<spdlog::sink_ptr> sinks;
 		sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-		sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFilePath.string(), 5 * 1024 * 1024, 3));
+		sinks.push_back(
+			std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFilePath.string(), 5 * 1024 * 1024, 3));
 
 		auto logger = std::make_shared<spdlog::logger>("RunLogger", sinks.begin(), sinks.end());
 		logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
-		const RunLogger::LogLevel minLevel = envFlagEnabled("POINTCLOUD_PROCESS_DEBUG")
-			? RunLogger::LogLevel::Debug
-			: RunLogger::LogLevel::Info;
+		const RunLogger::LogLevel minLevel =
+			envFlagEnabled("POINTCLOUD_PROCESS_DEBUG") ? RunLogger::LogLevel::Debug : RunLogger::LogLevel::Info;
 		gMinLevel.store(minLevel);
 		logger->set_level(toSpdlogLevel(minLevel));
 		logger->flush_on(spdlog::level::warn);

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef ROBOTURDF_ROBOTSIMULATIONTYPES_H
+#define ROBOTURDF_ROBOTSIMULATIONTYPES_H
+
+/// @file RobotSimulationTypes.h
+/// @brief 单条指令：在 durationSec 内将某一旋转关节转动 angleDeg（度）
 
 #include "robot_urdf_global.h"
 
@@ -18,3 +22,5 @@ inline constexpr double kPi = 3.14159265358979323846;
 /// 与 MainWindow 中 QTimer 周期一致；后续可改为可配置
 inline constexpr int kPlaybackTimerIntervalMs = 16;
 } // namespace RobotSimulation
+
+#endif // ROBOTURDF_ROBOTSIMULATIONTYPES_H

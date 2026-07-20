@@ -50,6 +50,7 @@
 |------|------|
 | `id()` / `setId` | 稳定 UUID 风格 id |
 | `name()` / `setName` | 显示名（跟随 `follow.targetName` 匹配用） |
+| `isVisible()` / `setVisible` | 场景显示/隐藏真源（持久化字段 `visible`） |
 | `className()` | **纯虚**；如 `"PointCloudBackendData"`, `"Model"` |
 
 ### 3.2 几何契约（纯虚）
@@ -112,7 +113,11 @@
 | `loadFromJson(in, errMsg)` | 模板方法：恢复公共字段 + `propertyBag` + `components` + 调用 `loadDerivedJson`；兼容旧字段 `followAttachment` |
 | `saveDerivedJson(out)` / `loadDerivedJson(in, errMsg)` | 派生类扩展（几何等），默认空实现 |
 
-**公共字段**（基类统一）：`id`、`name`、`className`、`pose`、`rotation`、`color`、`worldMatrix`、`poseReferenceFrame`、`propertyBag`。
+**公共字段**（基类统一）：`id`、`name`、`className`、`visible`、`pose`、`rotation`、`color`、`worldMatrix`、`poseReferenceFrame`、`propertyBag`。
+
+| 字段 | 说明 |
+|------|------|
+| `visible` | 场景显示态真源（默认 `true`）；缺字段加载时视为显示。OSG NodeMask / 后端树勾选为派生视图 |
 
 **派生扩展**：
 

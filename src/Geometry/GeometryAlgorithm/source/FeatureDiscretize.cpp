@@ -1,12 +1,15 @@
-#include "detail/OccIncludes.h"
+﻿/// @file FeatureDiscretize.cpp
+/// @brief FeatureDiscretize 实现
 
 #include "FeatureDiscretizerBridge.h"
 #include "FeatureDiscretizerRegistry.h"
 #include "ShapeHandle.h"
 #include "ShapeIo.h"
 #include "ShapeQuery.h"
+#include "detail/OccIncludes.h"
 
-#include <json.hpp>
+#include <algorithm>
+#include <cmath>
 
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
@@ -17,15 +20,12 @@
 #include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
-
-#include <algorithm>
-#include <cmath>
+#include <json.hpp>
 
 namespace geoalgo
 {
 namespace
 {
-
 constexpr double kPi = 3.14159265358979323846;
 
 double edgeLengthMm(const TopoDS_Edge& edge)
@@ -189,11 +189,8 @@ bool readGeometryJson(const nlohmann::json& j, FeatureGeometry& geometry)
 	return true;
 }
 
-bool validateFeatureEntryInternal(
-	const FeatureEntry& entry,
-	bool requireStepPath,
-	const ShapeHandle* shapeHandle,
-	std::string* errMsg)
+bool validateFeatureEntryInternal(const FeatureEntry& entry, bool requireStepPath, const ShapeHandle* shapeHandle,
+								  std::string* errMsg)
 {
 	ensureFeatureDiscretizersRegistered();
 	const IFeatureDiscretizer* discretizer = FeatureDiscretizerRegistry::instance().get(entry.strategyId);
@@ -354,10 +351,8 @@ bool validateFeatureListDocument(const FeatureListDocument& doc, std::string* er
 	return true;
 }
 
-bool validateFeatureListDocumentWithShape(
-	const FeatureListDocument& doc,
-	const ShapeHandle& shapeHandle,
-	std::string* errMsg)
+bool validateFeatureListDocumentWithShape(const FeatureListDocument& doc, const ShapeHandle& shapeHandle,
+										  std::string* errMsg)
 {
 	if (doc.schemaVersion != 2)
 	{
@@ -452,11 +447,8 @@ std::string featureListToJson(const FeatureListDocument& doc)
 	return j.dump(2);
 }
 
-bool enumerateFeatureCatalog(
-	const WorkpieceRef& workpiece,
-	const ShapeHandle& shapeHandle,
-	FeatureCatalog& out,
-	std::string* errMsg)
+bool enumerateFeatureCatalog(const WorkpieceRef& workpiece, const ShapeHandle& shapeHandle, FeatureCatalog& out,
+							 std::string* errMsg)
 {
 	out = FeatureCatalog{};
 	out.backendIdUtf8 = workpiece.backendIdUtf8;
@@ -492,8 +484,8 @@ bool enumerateFeatureCatalog(
 		c.suggestedStrategyId = "EdgeChain";
 		if (dihedral > 30.0 && dihedral < 150.0)
 		{
-			c.summary = "焊缝候选边，长度约 " + std::to_string(static_cast<int>(len)) + "mm，二面角 "
-				+ std::to_string(static_cast<int>(dihedral)) + "°";
+			c.summary = "焊缝候选边，长度约 " + std::to_string(static_cast<int>(len)) + "mm，二面角 " +
+						std::to_string(static_cast<int>(dihedral)) + "°";
 		}
 		else
 		{
@@ -567,18 +559,16 @@ std::string featureCatalogToJson(const FeatureCatalog& catalog)
 	return j.dump(2);
 }
 
-bool suggestFeaturesFromCatalog(
-	const FeatureCatalog& catalog,
-	const std::string& intentUtf8,
-	FeatureListDocument& out,
-	std::string* errMsg)
+bool suggestFeaturesFromCatalog(const FeatureCatalog& catalog, const std::string& intentUtf8, FeatureListDocument& out,
+								std::string* errMsg)
 {
 	out = FeatureListDocument{};
 	out.workpiece.backendIdUtf8 = catalog.backendIdUtf8;
 	out.workpiece.stepPathUtf8 = catalog.stepPathUtf8;
 	out.schemaVersion = 2;
 
-	const std::string lower = [&intentUtf8]() {
+	const std::string lower = [&intentUtf8]()
+	{
 		std::string s = intentUtf8;
 		for (char& c : s)
 		{
@@ -631,12 +621,8 @@ bool suggestFeaturesFromCatalog(
 	return true;
 }
 
-bool computeFeatureAnchor(
-	const WorkpieceRef& workpiece,
-	const ShapeHandle& shapeHandle,
-	const FeatureGeometry& geometry,
-	FeatureAnchor& out,
-	std::string* errMsg)
+bool computeFeatureAnchor(const WorkpieceRef& workpiece, const ShapeHandle& shapeHandle,
+						  const FeatureGeometry& geometry, FeatureAnchor& out, std::string* errMsg)
 {
 	out = FeatureAnchor{};
 	if (shapeHandle.isNull())
@@ -739,11 +725,8 @@ bool computeFeatureAnchor(
 	return false;
 }
 
-bool computeFeatureAnchor(
-	const WorkpieceRef& workpiece,
-	const FeatureGeometry& geometry,
-	FeatureAnchor& out,
-	std::string* errMsg)
+bool computeFeatureAnchor(const WorkpieceRef& workpiece, const FeatureGeometry& geometry, FeatureAnchor& out,
+						  std::string* errMsg)
 {
 	if (workpiece.stepPathUtf8.empty())
 	{

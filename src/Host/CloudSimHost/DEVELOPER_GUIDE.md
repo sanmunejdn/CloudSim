@@ -176,7 +176,7 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | `buildProjectSaveRoot` | 生成 v4 的 objects/edges/annotations/camera；点云保存前 `ensurePointCloudGeometryForSave`（scene→staging→sourcePath 重读），写 `objects/{id}.ply`；无坐标时 `abortMessage` |
 | `mergeRobotKinematicsIntoProjectRoot` | 保存前写入 `robotKinematics` / `robotKinematicsInstances`（委托 `RobotProjectIo::writeRobotKinematics`；参数为全局 `::IRobotDocumentHost*`） |
 | `applyProjectViewportFromJson` | 恢复标注与 `cameraFollowBackendId`（经 `AnnotationProjectIo`） |
-| `finalizeProjectLoadFollowAndViewport` | OSG 父链、edges 跟随、视口、强制 Follow 求解 |
+| `finalizeProjectLoadFollowAndViewport` | OSG 父链、edges 跟随、视口、强制 Follow 求解、末尾 `focusCameraOnAllVisibleBackends` |
 | `restoreRobotKinematicsFromProjectJson` | 工程 robotKinematics* 恢复（perLink） |
 | `applyRestoredJointAnglesToScene` | 工程加载后把聚合关节角 FK 写回场景（Widget 不链 `RobotScene`） |
 | `loadRobotProgramsFromProjectJson` / `mergeRobotProgramsIntoProjectRoot` | 程序 JSON 读写 |
@@ -255,6 +255,8 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 **说明**：`skipInnerModelCenterRebase` 参数已从主路径移除（inner PAT 恒 `(0,0,0)`）。世界坐标分件依赖顶点烘焙 + `pose=0`，见契约 §3。
 
 **层级跟随绑定**（工程 `edges` / 属性编辑，**非** DXF 分件导入）由 `cloudsim::host::applyHierarchyFollowBinding` 写入 `FollowAttachment`；`MainWindow::applyHierarchyFollowBinding` 再调用 `runBackendFollowSolveAndSync`。
+
+**位姿所有权（硬边界）**：`sourceType=URDF` 的后端（机器人根与连杆）由 FK / `RobotSceneKinematics` 独占写世界位姿；**不得**作为 Follow follower。`applyHierarchyFollowBinding` 与工程 edges 绑定会跳过这类 id；`runBackendFollowSolveAndSync` 入口调用 `stripKinematicsOwnedFollowAttachments` 卸掉旧工程误装的 Follow。Follow 仅驱动工件/工具等自由物体相对 target（如法兰）保持常相对位姿。
 
 层级分件导入时 `MainWindow::beginBackendTreeEventRefreshSuppress()` 抑制逐片树刷新，结束时一次 `refreshBackendTree()`。
 
@@ -335,6 +337,7 @@ STEP 多零件优先 **B-rep 路径**（`loadStepHierarchyFromFile` → `collect
 | 保存 `objects[]` | `BackendProjectObjectIo::saveProjectObject`；点云 PLY 由 `buildProjectSaveRoot` 写入 `objects/{id}.ply` |
 | 内嵌点云加载 | `registerEmbeddedProjectObject`：`plySidecar` / `assetRelativePath` → `readPointCloudPlySidecar`（兼容 `xyzBase64`） |
 | 加载 `objects[]` | `loadProjectObjectsFromJson` + `finalizeProjectHierarchyAfterObjects` |
+| 加载坐标系 | `FrameBackendData` / `CoordinateFrame`：无文件几何亦可走 `registerEmbeddedProjectObject`（`geometry.kind=frame` 或仅 pose） |
 | 加载内嵌几何 | `registerEmbeddedProjectObject`（由 load 编排调用） |
 | 工程文件回退 | `importProjectObjectFromFile`（网格 `importMeshFile`；点云 ply/xyz `importPointCloudFile`） |
 | 点云 ply/xyz/las/laz | `importPointCloudFile`（路径 `encodeName`；ply/xyz=CGAL 顶点；**ply 含 face**→`importMeshFile`/`Model`；las/laz=OsgWidget+capture）；大文件**纯顶点** ply 可走 Job 异步（Widget） |
@@ -601,7 +604,7 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 | OsgWidget 符号链接错误 | Host 编时必须有 `CLOUDSIM_HOST_LIB`；Widget 侧 include `widget_global.h` 且 **不要** 再编 OsgWidget.cpp |
 | LNK1104 `CloudSimCore.lib` | 并行生成时先单独编 `CloudSimCore`，再编 Host |
 | DXF 导入后 3D 错位 | 勿对分件开 Follow 求解；确认顶点为世界坐标且 `pose=0`，未误调 `applyHierarchyFollowBinding` |
-| URDF 连杆散开 | 检查 `osgMatrixToColumnMajor16` 是否转置；是否双重烘焙 visual |
+| URDF 连杆散开 | 检查 `osgMatrixToColumnMajor16` 是否转置；是否双重烘焙 visual；**以及**连杆是否被 Follow 求解改写（应 `stripKinematicsOwnedFollowAttachments`，edges 勿对 URDF 装 Follow） |
 | DXF 导入后相机不对 | 应对 `importParent` 调 `focusCameraOnBackend`；分件须 `setBackendLogicalParent`（见 §4.4.1a） |
 | `cloudsim::host::MeshBackendData` 编译错误 | 头文件前向声明须在**全局**命名空间（见 §4.4.3） |
 | `cloudsim::host::IRobotDocumentHost` 与 `IRobotDocumentHost*` 不匹配 | `ProjectPackageIo.h` 须在**全局**前向声明 `IRobotDocumentHost`，API 使用 `::IRobotDocumentHost*` |

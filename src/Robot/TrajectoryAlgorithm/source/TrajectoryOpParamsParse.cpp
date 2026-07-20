@@ -1,10 +1,12 @@
+﻿/// @file TrajectoryOpParamsParse.cpp
+/// @brief TrajectoryOpParamsParse 实现
+
 #include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
 namespace
 {
-
 constexpr const char* kTranslateFrame = "translate.frame";
 constexpr const char* kTranslateDx = "translate.dxMm";
 constexpr const char* kTranslateDy = "translate.dyMm";
@@ -73,10 +75,7 @@ bool trajectoryParamBool(const nlohmann::json& params, const char* key, const bo
 	return defaultValue;
 }
 
-std::string trajectoryParamString(
-	const nlohmann::json& params,
-	const char* key,
-	const std::string& defaultValue)
+std::string trajectoryParamString(const nlohmann::json& params, const char* key, const std::string& defaultValue)
 {
 	if (!params.is_object() || !params.contains(key))
 	{
@@ -134,15 +133,12 @@ RobotInstruction::TranslateParams parseTranslateParams(const nlohmann::json& par
 	out.dxMm = trajectoryParamDouble(params, kTranslateDx, out.dxMm);
 	out.dyMm = trajectoryParamDouble(params, kTranslateDy, out.dyMm);
 	out.dzMm = trajectoryParamDouble(params, kTranslateDz, out.dzMm);
-	out.endDxMm = params.contains(kTranslateEndDx)
-		? trajectoryParamDouble(params, kTranslateEndDx, out.dxMm)
-		: out.dxMm;
-	out.endDyMm = params.contains(kTranslateEndDy)
-		? trajectoryParamDouble(params, kTranslateEndDy, out.dyMm)
-		: out.dyMm;
-	out.endDzMm = params.contains(kTranslateEndDz)
-		? trajectoryParamDouble(params, kTranslateEndDz, out.dzMm)
-		: out.dzMm;
+	out.endDxMm =
+		params.contains(kTranslateEndDx) ? trajectoryParamDouble(params, kTranslateEndDx, out.dxMm) : out.dxMm;
+	out.endDyMm =
+		params.contains(kTranslateEndDy) ? trajectoryParamDouble(params, kTranslateEndDy, out.dyMm) : out.dyMm;
+	out.endDzMm =
+		params.contains(kTranslateEndDz) ? trajectoryParamDouble(params, kTranslateEndDz, out.dzMm) : out.dzMm;
 	return out;
 }
 
@@ -166,9 +162,8 @@ RobotInstruction::RotateParams parseRotateParams(const nlohmann::json& params)
 	out.axisY = trajectoryParamDouble(params, kRotateAxisY, out.axisY);
 	out.axisZ = trajectoryParamDouble(params, kRotateAxisZ, out.axisZ);
 	out.angleDeg = trajectoryParamDouble(params, kRotateAngle, out.angleDeg);
-	out.endAngleDeg = params.contains(kRotateEndAngle)
-		? trajectoryParamDouble(params, kRotateEndAngle, out.angleDeg)
-		: out.angleDeg;
+	out.endAngleDeg =
+		params.contains(kRotateEndAngle) ? trajectoryParamDouble(params, kRotateEndAngle, out.angleDeg) : out.angleDeg;
 	return out;
 }
 
@@ -258,11 +253,8 @@ void writeAssignMotionParams(nlohmann::json& params, const RobotInstruction::Ass
 
 namespace
 {
-
-RobotInstruction::ApproachParams parseApproachLikeParams(
-	const nlohmann::json& params,
-	const char* prefix,
-	const double defaultCustomZ)
+RobotInstruction::ApproachParams parseApproachLikeParams(const nlohmann::json& params, const char* prefix,
+														 const double defaultCustomZ)
 {
 	RobotInstruction::ApproachParams out{};
 	const std::string distanceKey = std::string(prefix) + ".distanceMm";
@@ -297,10 +289,7 @@ RobotInstruction::ApproachParams parseApproachLikeParams(
 	return out;
 }
 
-void writeApproachLikeParams(
-	nlohmann::json& params,
-	const RobotInstruction::ApproachParams& value,
-	const char* prefix)
+void writeApproachLikeParams(nlohmann::json& params, const RobotInstruction::ApproachParams& value, const char* prefix)
 {
 	const std::string distanceKey = std::string(prefix) + ".distanceMm";
 	const std::string directionModeKey = std::string(prefix) + ".directionMode";
@@ -388,10 +377,8 @@ RobotInstruction::ProjectToGeometryParams parseProjectParams(const nlohmann::jso
 	out.directionY = trajectoryParamDouble(params, "project.direction.y", out.directionY);
 	out.directionZ = trajectoryParamDouble(params, "project.direction.z", out.directionZ);
 	out.maxDistanceMm = trajectoryParamDouble(params, "project.maxDistanceMm", out.maxDistanceMm);
-	out.pointCloudHitRadiusMm = trajectoryParamDouble(
-		params,
-		"project.pointCloudHitRadiusMm",
-		out.pointCloudHitRadiusMm);
+	out.pointCloudHitRadiusMm =
+		trajectoryParamDouble(params, "project.pointCloudHitRadiusMm", out.pointCloudHitRadiusMm);
 	return out;
 }
 
@@ -406,28 +393,20 @@ void writeProjectParams(nlohmann::json& params, const RobotInstruction::ProjectT
 	setTrajectoryParamDouble(params, "project.pointCloudHitRadiusMm", value.pointCloudHitRadiusMm);
 }
 
-RobotInstruction::NonRigidRegistrationParams parseNonRigidRegistrationParams(
-	const nlohmann::json& params)
+RobotInstruction::NonRigidRegistrationParams parseNonRigidRegistrationParams(const nlohmann::json& params)
 {
 	RobotInstruction::NonRigidRegistrationParams out{};
-	out.sourceBackendId =
-		trajectoryParamString(params, "nrr.sourceBackendId", out.sourceBackendId);
-	out.targetBackendId =
-		trajectoryParamString(params, "nrr.targetBackendId", out.targetBackendId);
-	out.maxBindDistanceMm =
-		trajectoryParamDouble(params, "nrr.maxBindDistanceMm", out.maxBindDistanceMm);
-	out.sampleRadiusRatio =
-		trajectoryParamDouble(params, "nrr.sampleRadiusRatio", out.sampleRadiusRatio);
+	out.sourceBackendId = trajectoryParamString(params, "nrr.sourceBackendId", out.sourceBackendId);
+	out.targetBackendId = trajectoryParamString(params, "nrr.targetBackendId", out.targetBackendId);
+	out.maxBindDistanceMm = trajectoryParamDouble(params, "nrr.maxBindDistanceMm", out.maxBindDistanceMm);
+	out.sampleRadiusRatio = trajectoryParamDouble(params, "nrr.sampleRadiusRatio", out.sampleRadiusRatio);
 	out.maxOuterIters = trajectoryParamInt(params, "nrr.maxOuterIters", out.maxOuterIters);
 	out.rigidPreAlign = trajectoryParamBool(params, "nrr.rigidPreAlign", out.rigidPreAlign);
-	out.voxelPrefilterMm =
-		trajectoryParamDouble(params, "nrr.voxelPrefilterMm", out.voxelPrefilterMm);
+	out.voxelPrefilterMm = trajectoryParamDouble(params, "nrr.voxelPrefilterMm", out.voxelPrefilterMm);
 	return out;
 }
 
-void writeNonRigidRegistrationParams(
-	nlohmann::json& params,
-	const RobotInstruction::NonRigidRegistrationParams& value)
+void writeNonRigidRegistrationParams(nlohmann::json& params, const RobotInstruction::NonRigidRegistrationParams& value)
 {
 	setTrajectoryParamString(params, "nrr.sourceBackendId", value.sourceBackendId);
 	setTrajectoryParamString(params, "nrr.targetBackendId", value.targetBackendId);
@@ -436,6 +415,33 @@ void writeNonRigidRegistrationParams(
 	setTrajectoryParamInt(params, "nrr.maxOuterIters", value.maxOuterIters);
 	setTrajectoryParamBool(params, "nrr.rigidPreAlign", value.rigidPreAlign);
 	setTrajectoryParamDouble(params, "nrr.voxelPrefilterMm", value.voxelPrefilterMm);
+}
+
+RobotInstruction::ToWorkpieceInHandParams parseToWorkpieceInHandParams(const nlohmann::json& params)
+{
+	RobotInstruction::ToWorkpieceInHandParams out{};
+	out.externalTcpBackendId =
+		trajectoryParamString(params, "toWorkpiece.externalTcpBackendId", out.externalTcpBackendId);
+	out.externalTcpXMm = trajectoryParamDouble(params, "toWorkpiece.externalTcpXMm", out.externalTcpXMm);
+	out.externalTcpYMm = trajectoryParamDouble(params, "toWorkpiece.externalTcpYMm", out.externalTcpYMm);
+	out.externalTcpZMm = trajectoryParamDouble(params, "toWorkpiece.externalTcpZMm", out.externalTcpZMm);
+	out.externalTcpRxDeg = trajectoryParamDouble(params, "toWorkpiece.externalTcpRxDeg", out.externalTcpRxDeg);
+	out.externalTcpRyDeg = trajectoryParamDouble(params, "toWorkpiece.externalTcpRyDeg", out.externalTcpRyDeg);
+	out.externalTcpRzDeg = trajectoryParamDouble(params, "toWorkpiece.externalTcpRzDeg", out.externalTcpRzDeg);
+	out.enableSpeedTransform = trajectoryParamBool(params, "toWorkpiece.enableSpeedTransform", out.enableSpeedTransform);
+	return out;
+}
+
+void writeToWorkpieceInHandParams(nlohmann::json& params, const RobotInstruction::ToWorkpieceInHandParams& value)
+{
+	setTrajectoryParamString(params, "toWorkpiece.externalTcpBackendId", value.externalTcpBackendId);
+	setTrajectoryParamDouble(params, "toWorkpiece.externalTcpXMm", value.externalTcpXMm);
+	setTrajectoryParamDouble(params, "toWorkpiece.externalTcpYMm", value.externalTcpYMm);
+	setTrajectoryParamDouble(params, "toWorkpiece.externalTcpZMm", value.externalTcpZMm);
+	setTrajectoryParamDouble(params, "toWorkpiece.externalTcpRxDeg", value.externalTcpRxDeg);
+	setTrajectoryParamDouble(params, "toWorkpiece.externalTcpRyDeg", value.externalTcpRyDeg);
+	setTrajectoryParamDouble(params, "toWorkpiece.externalTcpRzDeg", value.externalTcpRzDeg);
+	setTrajectoryParamBool(params, "toWorkpiece.enableSpeedTransform", value.enableSpeedTransform);
 }
 
 void interpolateTransformParamsInPlace(RobotInstruction::TrajectoryOpDescriptor& op, const double t)

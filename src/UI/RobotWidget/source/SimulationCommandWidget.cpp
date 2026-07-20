@@ -1,3 +1,6 @@
+﻿/// @file SimulationCommandWidget.cpp
+/// @brief SimulationCommandWidget 实现
+
 #include "SimulationCommandWidget.h"
 
 #include "InstructionProgramTreeWidget.h"
@@ -5,24 +8,22 @@
 #include "ProgramEditService.h"
 #include "RobotInstructionFactory.h"
 #include "RobotInstructionProgram.h"
-
-#include <QString>
 #include "RobotProgramStore.h"
 #include "UiIconDecorators.h"
 
 #include <QComboBox>
-#include <QInputDialog>
-#include <QLineEdit>
-#include <QScrollArea>
-#include <QSignalBlocker>
 #include <QFrame>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QInputDialog>
 #include <QLabel>
+#include <QLineEdit>
 #include <QPushButton>
+#include <QScrollArea>
+#include <QSignalBlocker>
 #include <QSizePolicy>
+#include <QString>
 #include <QVBoxLayout>
-
 #include <algorithm>
 #include <string>
 
@@ -103,17 +104,15 @@ QString instructionSummary(const RobotInstruction::Base& ins, bool zh)
 	case RobotInstruction::Type::LINE:
 	{
 		const double durationSec = parseDurationSecFromExtension(ins, 0.0);
-		const QString durationText = durationSec > 1e-6
-			? QString::number(durationSec, 'f', 2)
-			: (zh ? QStringLiteral("求解") : QStringLiteral("Solved"));
+		const QString durationText = durationSec > 1e-6 ? QString::number(durationSec, 'f', 2)
+														: (zh ? QStringLiteral("求解") : QStringLiteral("Solved"));
 		const QString motionText = QString::fromStdString(RobotInstruction::formatMotionWaypointSummary(ins, zh));
-		return zh
-			? QStringLiteral("%1 / 时长 %2")
-				.arg(motionText)
-				.arg(durationSec > 1e-6 ? (durationText + QStringLiteral(" s")) : durationText)
-			: QStringLiteral("%1 / %2")
-				.arg(motionText)
-				.arg(durationSec > 1e-6 ? (durationText + QStringLiteral(" s")) : durationText);
+		return zh ? QStringLiteral("%1 / 时长 %2")
+						.arg(motionText)
+						.arg(durationSec > 1e-6 ? (durationText + QStringLiteral(" s")) : durationText)
+				  : QStringLiteral("%1 / %2")
+						.arg(motionText)
+						.arg(durationSec > 1e-6 ? (durationText + QStringLiteral(" s")) : durationText);
 	}
 	default:
 		break;
@@ -122,8 +121,7 @@ QString instructionSummary(const RobotInstruction::Base& ins, bool zh)
 }
 } // namespace
 
-SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
-	: QWidget(parent)
+SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(parent)
 {
 	auto* root = new QVBoxLayout(this);
 	root->setContentsMargins(4, 4, 4, 4);
@@ -177,14 +175,9 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 	contentLayout->addLayout(programRow);
 
 	const RobotInstruction::Type types[] = {
-		RobotInstruction::Type::PTP,
-		RobotInstruction::Type::LINE,
-		RobotInstruction::Type::WAIT,
-		RobotInstruction::Type::IF,
-		RobotInstruction::Type::WHILE,
-		RobotInstruction::Type::SET_DO,
-		RobotInstruction::Type::SET_AO,
-		RobotInstruction::Type::PathPlan,
+		RobotInstruction::Type::PTP,	RobotInstruction::Type::LINE,	  RobotInstruction::Type::WAIT,
+		RobotInstruction::Type::IF,		RobotInstruction::Type::WHILE,	  RobotInstruction::Type::SET_DO,
+		RobotInstruction::Type::SET_AO, RobotInstruction::Type::PathPlan,
 	};
 	m_instructionGroupBox = new QGroupBox(QStringLiteral("Instructions"), this);
 	auto* addRow = new QHBoxLayout(m_instructionGroupBox);
@@ -212,14 +205,16 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 	m_tcpDragTeachBtn = new QPushButton(QStringLiteral("Drag"), m_functionGroupBox);
 	m_tcpDragTeachBtn->setCheckable(true);
 	m_tcpDragTeachBtn->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
-	connect(m_tcpDragTeachBtn, &QPushButton::toggled, this, [this](const bool checked) {
-		if (m_tcpDragTeachMode == checked)
-		{
-			return;
-		}
-		m_tcpDragTeachMode = checked;
-		emit tcpDragTeachModeChanged(checked);
-	});
+	connect(m_tcpDragTeachBtn, &QPushButton::toggled, this,
+			[this](const bool checked)
+			{
+				if (m_tcpDragTeachMode == checked)
+				{
+					return;
+				}
+				m_tcpDragTeachMode = checked;
+				emit tcpDragTeachModeChanged(checked);
+			});
 	funcRow->addWidget(m_tcpDragTeachBtn);
 	m_removeBtn = new QPushButton(QStringLiteral("Remove"), m_functionGroupBox);
 	m_clearBtn = new QPushButton(QStringLiteral("Clear"), m_functionGroupBox);
@@ -237,32 +232,31 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent)
 	m_scrollArea->setWidget(scrollContent);
 	root->addWidget(m_scrollArea, 1);
 
-	connect(m_robotCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SimulationCommandWidget::onRobotComboChanged);
-	connect(m_programCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SimulationCommandWidget::onProgramComboChanged);
+	connect(m_robotCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&SimulationCommandWidget::onRobotComboChanged);
+	connect(m_programCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&SimulationCommandWidget::onProgramComboChanged);
 	connect(m_programNewBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onProgramNewClicked);
 	connect(m_programRenameBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onProgramRenameClicked);
 	connect(m_programDeleteBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onProgramDeleteClicked);
 	connect(m_removeBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onRemoveClicked);
 	connect(m_clearBtn, &QPushButton::clicked, this, &SimulationCommandWidget::onClearClicked);
 	connect(m_tree, &InstructionProgramTreeWidget::instructionSelected, this,
-		&SimulationCommandWidget::instructionSelectionChanged);
-	connect(m_tree, &InstructionProgramTreeWidget::programStructureChanged, this, [this]() {
-		updateRunStopButtons();
-	});
-	connect(m_tree, &InstructionProgramTreeWidget::groupMembershipChanged, this, [this]() {
-		emit groupsChanged();
-	});
+			&SimulationCommandWidget::instructionSelectionChanged);
+	connect(m_tree, &InstructionProgramTreeWidget::programStructureChanged, this, [this]() { updateRunStopButtons(); });
+	connect(m_tree, &InstructionProgramTreeWidget::groupMembershipChanged, this, [this]() { emit groupsChanged(); });
 	connect(m_tree, &InstructionProgramTreeWidget::createGroupRequested, this,
-		&SimulationCommandWidget::onCreateGroupRequested);
+			&SimulationCommandWidget::onCreateGroupRequested);
 	connect(m_tree, &InstructionProgramTreeWidget::dissolveGroupRequested, this,
-		&SimulationCommandWidget::onDissolveGroupRequested);
+			&SimulationCommandWidget::onDissolveGroupRequested);
 	connect(m_tree, &InstructionProgramTreeWidget::renameGroupRequested, this,
-		&SimulationCommandWidget::onRenameGroupRequested);
+			&SimulationCommandWidget::onRenameGroupRequested);
 	connect(m_runBtn, &QPushButton::clicked, this, &SimulationCommandWidget::runRequested);
 	connect(m_stopBtn, &QPushButton::clicked, this, &SimulationCommandWidget::stopRequested);
 	connect(m_exportBtn, &QPushButton::clicked, this, &SimulationCommandWidget::exportProgramRequested);
 
-	UiIconDecorators::apply(m_programNewBtn, UiIconId::Add, UiIconDecorators::IconPlacement::IconOnly, UiIcons::Size::Small);
+	UiIconDecorators::apply(m_programNewBtn, UiIconId::Add, UiIconDecorators::IconPlacement::IconOnly,
+							UiIcons::Size::Small);
 	UiIconDecorators::apply(m_programRenameBtn, UiIconId::Rename);
 	UiIconDecorators::apply(m_programDeleteBtn, UiIconId::Delete);
 	UiIconDecorators::apply(m_tcpDragTeachBtn, UiIconId::TcpDragTeach);
@@ -518,7 +512,8 @@ void SimulationCommandWidget::updateTypeButtonLabels()
 		}
 		else if (t == RobotInstruction::Type::LINE)
 		{
-			UiIconDecorators::apply(btn, UiIconId::Line, UiIconDecorators::IconPlacement::Leading, UiIcons::Size::Small);
+			UiIconDecorators::apply(btn, UiIconId::Line, UiIconDecorators::IconPlacement::Leading,
+									UiIcons::Size::Small);
 		}
 		QString tip;
 		switch (t)
@@ -531,7 +526,8 @@ void SimulationCommandWidget::updateTypeButtonLabels()
 			tip = zh ? QStringLiteral("插入等待指令") : QStringLiteral("Insert WAIT");
 			break;
 		case RobotInstruction::Type::IF:
-			tip = zh ? QStringLiteral("插入条件分支（Then/Else）") : QStringLiteral("Insert IF with Then/Else branches");
+			tip =
+				zh ? QStringLiteral("插入条件分支（Then/Else）") : QStringLiteral("Insert IF with Then/Else branches");
 			break;
 		case RobotInstruction::Type::WHILE:
 			tip = zh ? QStringLiteral("插入循环体") : QStringLiteral("Insert WHILE loop body");
@@ -658,13 +654,9 @@ void SimulationCommandWidget::onProgramNewClicked()
 	}
 	bool ok = false;
 	const bool zh = m_useChinese;
-	const QString name = QInputDialog::getText(
-		this,
-		zh ? QStringLiteral("新建程序") : QStringLiteral("New program"),
-		zh ? QStringLiteral("名称") : QStringLiteral("Name"),
-		QLineEdit::Normal,
-		zh ? QStringLiteral("程序") : QStringLiteral("Program"),
-		&ok);
+	const QString name = QInputDialog::getText(this, zh ? QStringLiteral("新建程序") : QStringLiteral("New program"),
+											   zh ? QStringLiteral("名称") : QStringLiteral("Name"), QLineEdit::Normal,
+											   zh ? QStringLiteral("程序") : QStringLiteral("Program"), &ok);
 	if (!ok || name.isEmpty())
 	{
 		return;
@@ -696,12 +688,8 @@ void SimulationCommandWidget::onProgramRenameClicked()
 	bool ok = false;
 	const bool zh = m_useChinese;
 	const QString name = QInputDialog::getText(
-		this,
-		zh ? QStringLiteral("重命名程序") : QStringLiteral("Rename program"),
-		zh ? QStringLiteral("名称") : QStringLiteral("Name"),
-		QLineEdit::Normal,
-		m_programCombo->currentText(),
-		&ok);
+		this, zh ? QStringLiteral("重命名程序") : QStringLiteral("Rename program"),
+		zh ? QStringLiteral("名称") : QStringLiteral("Name"), QLineEdit::Normal, m_programCombo->currentText(), &ok);
 	if (!ok || name.isEmpty())
 	{
 		return;
@@ -728,27 +716,21 @@ void SimulationCommandWidget::onProgramDeleteClicked()
 	emit activeProgramChanged(QString::fromStdString(m_programStore->activeProgramIdUtf8()));
 }
 
-void SimulationCommandWidget::onCreateGroupRequested(
-	const QString& name,
-	const std::vector<std::string>& memberIds)
+void SimulationCommandWidget::onCreateGroupRequested(const QString& name, const std::vector<std::string>& memberIds)
 {
 	if (!m_programStore || !m_editService || memberIds.empty())
 	{
 		return;
 	}
-	RobotInstruction::RobotProgram* prog = m_programStore->activeCatalog().findProgram(m_programStore->activeProgramIdUtf8());
+	RobotInstruction::RobotProgram* prog =
+		m_programStore->activeCatalog().findProgram(m_programStore->activeProgramIdUtf8());
 	if (!prog)
 	{
 		return;
 	}
-	auto cmd = std::make_unique<RobotInstruction::CreateInstructionGroupCommand>(
-		prog,
-		name.toStdString(),
-		memberIds);
+	auto cmd = std::make_unique<RobotInstruction::CreateInstructionGroupCommand>(prog, name.toStdString(), memberIds);
 	QString err;
-	if (!m_editService->execute(
-			std::shared_ptr<RobotInstruction::ProgramEditCommand>(std::move(cmd)),
-			&err))
+	if (!m_editService->execute(std::shared_ptr<RobotInstruction::ProgramEditCommand>(std::move(cmd)), &err))
 	{
 		return;
 	}
@@ -762,16 +744,15 @@ void SimulationCommandWidget::onDissolveGroupRequested(const std::string& groupI
 	{
 		return;
 	}
-	RobotInstruction::RobotProgram* prog = m_programStore->activeCatalog().findProgram(m_programStore->activeProgramIdUtf8());
+	RobotInstruction::RobotProgram* prog =
+		m_programStore->activeCatalog().findProgram(m_programStore->activeProgramIdUtf8());
 	if (!prog)
 	{
 		return;
 	}
 	auto cmd = std::make_unique<RobotInstruction::RemoveInstructionGroupCommand>(prog, groupId);
 	QString err;
-	if (!m_editService->execute(
-			std::shared_ptr<RobotInstruction::ProgramEditCommand>(std::move(cmd)),
-			&err))
+	if (!m_editService->execute(std::shared_ptr<RobotInstruction::ProgramEditCommand>(std::move(cmd)), &err))
 	{
 		return;
 	}
@@ -785,19 +766,15 @@ void SimulationCommandWidget::onRenameGroupRequested(const std::string& groupId,
 	{
 		return;
 	}
-	RobotInstruction::RobotProgram* prog = m_programStore->activeCatalog().findProgram(m_programStore->activeProgramIdUtf8());
+	RobotInstruction::RobotProgram* prog =
+		m_programStore->activeCatalog().findProgram(m_programStore->activeProgramIdUtf8());
 	if (!prog)
 	{
 		return;
 	}
-	auto cmd = std::make_unique<RobotInstruction::RenameInstructionGroupCommand>(
-		prog,
-		groupId,
-		newName.toStdString());
+	auto cmd = std::make_unique<RobotInstruction::RenameInstructionGroupCommand>(prog, groupId, newName.toStdString());
 	QString err;
-	if (!m_editService->execute(
-			std::shared_ptr<RobotInstruction::ProgramEditCommand>(std::move(cmd)),
-			&err))
+	if (!m_editService->execute(std::shared_ptr<RobotInstruction::ProgramEditCommand>(std::move(cmd)), &err))
 	{
 		return;
 	}
@@ -841,10 +818,8 @@ void SimulationCommandWidget::onRemoveClicked()
 	{
 		const std::string programId = m_programStore->activeProgramIdUtf8();
 		std::shared_ptr<RobotInstruction::ProgramEditCommand> cmd =
-			std::make_shared<RobotInstruction::RemovePathPlanCommand>(
-				&m_programStore->activeCatalog(),
-				programId,
-				sel->id());
+			std::make_shared<RobotInstruction::RemovePathPlanCommand>(&m_programStore->activeCatalog(), programId,
+																	  sel->id());
 		QString err;
 		if (m_editService->execute(cmd, &err))
 		{
@@ -891,8 +866,8 @@ QVector<RobotSimulationCommand> SimulationCommandWidget::commands() const
 	return out;
 }
 
-std::vector<std::shared_ptr<RobotInstruction::Base>> SimulationCommandWidget::instructions(
-	const QString& robotBackendId) const
+std::vector<std::shared_ptr<RobotInstruction::Base>>
+SimulationCommandWidget::instructions(const QString& robotBackendId) const
 {
 	if (!m_programStore)
 	{
@@ -1045,9 +1020,7 @@ bool SimulationCommandWidget::appendInstructionFromJson(const nlohmann::json& j,
 }
 
 std::shared_ptr<RobotInstruction::Base> SimulationCommandWidget::appendInstructionFromCurrentPose(
-	RobotInstruction::Type type,
-	const RobotInstruction::Vec3& poseMm,
-	const RobotInstruction::Vec3& eulerDeg,
+	RobotInstruction::Type type, const RobotInstruction::Vec3& poseMm, const RobotInstruction::Vec3& eulerDeg,
 	const bool deferInstructionSelection)
 {
 	std::shared_ptr<RobotInstruction::Base> ins;

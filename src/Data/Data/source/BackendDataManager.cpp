@@ -1,4 +1,8 @@
+﻿/// @file BackendDataManager.cpp
+/// @brief BackendDataManager 实现
+
 #include "BackendDataManager.h"
+
 #include "BackendRegistryBuiltins.h"
 
 #include <algorithm>
@@ -10,7 +14,6 @@
 
 namespace
 {
-
 std::vector<std::string> sortedKeys(const std::unordered_set<std::string>& ids)
 {
 	std::vector<std::string> out;
@@ -99,8 +102,7 @@ bool BackendDataManager::unregisterData(const std::string& id)
 		m_childrenByParent.erase(childrenIt);
 	}
 
-	notifyHierarchyObserversLocked(
-		BackendHierarchyChangeEvent{BackendHierarchyChangeKind::DataUnregistered, {}, id});
+	notifyHierarchyObserversLocked(BackendHierarchyChangeEvent{BackendHierarchyChangeKind::DataUnregistered, {}, id});
 	m_subtreeCache.clear();
 	return true;
 }
@@ -133,17 +135,18 @@ std::vector<std::shared_ptr<BackendDataBase>> BackendDataManager::listData() con
 		records.push_back(item.second);
 	}
 	std::sort(records.begin(), records.end(),
-		[](const std::shared_ptr<BackendDataBase>& lhs, const std::shared_ptr<BackendDataBase>& rhs) {
-			if (!lhs)
-			{
-				return rhs != nullptr;
-			}
-			if (!rhs)
-			{
-				return false;
-			}
-			return lhs->id() < rhs->id();
-		});
+			  [](const std::shared_ptr<BackendDataBase>& lhs, const std::shared_ptr<BackendDataBase>& rhs)
+			  {
+				  if (!lhs)
+				  {
+					  return rhs != nullptr;
+				  }
+				  if (!rhs)
+				  {
+					  return false;
+				  }
+				  return lhs->id() < rhs->id();
+			  });
 	return records;
 }
 
@@ -175,7 +178,8 @@ std::vector<std::shared_ptr<BackendDataBase>> BackendDataManager::findByClass(co
 	return out;
 }
 
-std::vector<std::shared_ptr<BackendDataBase>> BackendDataManager::findByComponent(const std::string& componentType) const
+std::vector<std::shared_ptr<BackendDataBase>>
+BackendDataManager::findByComponent(const std::string& componentType) const
 {
 	std::shared_lock<std::shared_mutex> lock(m_mutex);
 	std::vector<std::shared_ptr<BackendDataBase>> out;
@@ -308,7 +312,8 @@ bool BackendDataManager::setParent(const std::string& childId, const std::string
 	m_childrenByParent[parentId].insert(childId);
 	m_parentsByChild[childId].insert(parentId);
 	m_subtreeCache.clear();
-	notifyHierarchyObserversLocked(BackendHierarchyChangeEvent{BackendHierarchyChangeKind::EdgeAttached, parentId, childId});
+	notifyHierarchyObserversLocked(
+		BackendHierarchyChangeEvent{BackendHierarchyChangeKind::EdgeAttached, parentId, childId});
 	return true;
 }
 
@@ -801,7 +806,7 @@ std::vector<BackendSnapshot> BackendDataManager::takeSnapshot() const
 		snapshots.push_back(std::move(snap));
 	}
 	std::sort(snapshots.begin(), snapshots.end(),
-		[](const BackendSnapshot& lhs, const BackendSnapshot& rhs) { return lhs.id < rhs.id; });
+			  [](const BackendSnapshot& lhs, const BackendSnapshot& rhs) { return lhs.id < rhs.id; });
 	return snapshots;
 }
 
@@ -810,7 +815,8 @@ BackendBaselineMetrics BackendDataManager::collectBaselineMetrics(const std::str
 	const auto t0 = std::chrono::steady_clock::now();
 	const std::vector<std::shared_ptr<BackendDataBase>> all = listData();
 	const auto t1 = std::chrono::steady_clock::now();
-	const std::vector<std::string> descendants = descendantsOf(sampleRootId.empty() ? (all.empty() ? std::string() : all.front()->id()) : sampleRootId);
+	const std::vector<std::string> descendants =
+		descendantsOf(sampleRootId.empty() ? (all.empty() ? std::string() : all.front()->id()) : sampleRootId);
 	const auto t2 = std::chrono::steady_clock::now();
 	const std::vector<std::shared_ptr<BackendDataBase>> follow = findByComponent("FollowAttachment");
 	const auto t3 = std::chrono::steady_clock::now();
@@ -843,20 +849,20 @@ void BackendDataManager::clear()
 void BackendDataManager::addHierarchyObserver(void* key, BackendHierarchyObserver observer)
 {
 	std::unique_lock<std::shared_mutex> lock(m_mutex);
-	m_hierarchyObservers.erase(
-		std::remove_if(m_hierarchyObservers.begin(), m_hierarchyObservers.end(),
-			[key](const std::pair<void*, BackendHierarchyObserver>& p) { return p.first == key; }),
-		m_hierarchyObservers.end());
+	m_hierarchyObservers.erase(std::remove_if(m_hierarchyObservers.begin(), m_hierarchyObservers.end(),
+											  [key](const std::pair<void*, BackendHierarchyObserver>& p)
+											  { return p.first == key; }),
+							   m_hierarchyObservers.end());
 	m_hierarchyObservers.emplace_back(key, std::move(observer));
 }
 
 void BackendDataManager::removeHierarchyObserver(void* key)
 {
 	std::unique_lock<std::shared_mutex> lock(m_mutex);
-	m_hierarchyObservers.erase(
-		std::remove_if(m_hierarchyObservers.begin(), m_hierarchyObservers.end(),
-			[key](const std::pair<void*, BackendHierarchyObserver>& p) { return p.first == key; }),
-		m_hierarchyObservers.end());
+	m_hierarchyObservers.erase(std::remove_if(m_hierarchyObservers.begin(), m_hierarchyObservers.end(),
+											  [key](const std::pair<void*, BackendHierarchyObserver>& p)
+											  { return p.first == key; }),
+							   m_hierarchyObservers.end());
 }
 
 void BackendDataManager::notifyHierarchyObserversLocked(const BackendHierarchyChangeEvent& event)
@@ -869,4 +875,3 @@ void BackendDataManager::notifyHierarchyObserversLocked(const BackendHierarchyCh
 		}
 	}
 }
-

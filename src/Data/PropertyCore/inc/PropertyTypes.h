@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef PROPERTYCORE_PROPERTYTYPES_H
+#define PROPERTYCORE_PROPERTYTYPES_H
+
+/// @file PropertyTypes.h
+/// @brief 属性提交后语义位：OSG 选中、follow 图、撤销钩子等
 
 #include <array>
 #include <cstdint>
@@ -7,7 +11,6 @@
 
 namespace property_core
 {
-
 /// 属性提交后语义位：OSG 选中、follow 图、撤销钩子等
 enum class PropertySemanticFlags : std::uint32_t
 {
@@ -84,3 +87,5 @@ inline PropertyType propertyTypeOf(const PropertyValue& value)
 }
 
 } // namespace property_core
+
+#endif // PROPERTYCORE_PROPERTYTYPES_H

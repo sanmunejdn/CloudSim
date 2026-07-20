@@ -1,10 +1,14 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_TRAJECTORYEDITOBSERVER_H
+#define ROBOTWIDGET_TRAJECTORYEDITOBSERVER_H
 
-#include "TrajectoryPipelineTypes.h"
+/// @file TrajectoryEditObserver.h
+/// @brief 轨迹编辑 Observer：收敛 Page 对 Session/管道的调用
+
 #include "robotwidget_global.h"
 
-#include <QObject>
+#include "TrajectoryPipelineTypes.h"
 
+#include <QObject>
 #include <cstddef>
 #include <vector>
 
@@ -45,3 +49,5 @@ private:
 	ProgramEditService* m_editService = nullptr;
 	std::vector<RobotInstruction::TrajectoryOpDescriptor> m_draftOps;
 };
+
+#endif // ROBOTWIDGET_TRAJECTORYEDITOBSERVER_H

@@ -1,3 +1,6 @@
+﻿/// @file FeatureDiscretizerConfigImpl.cpp
+/// @brief FeatureDiscretizerConfigImpl 实现
+
 #include "FeatureDiscretizerConfigImpl.h"
 
 #include "FeatureDiscretizerConfigRegistry.h"
@@ -6,19 +9,16 @@
 
 namespace geoalgo
 {
-
-FeatureDiscretizerConfigImpl::FeatureDiscretizerConfigImpl(
-	std::string strategyId,
-	std::string jsonRelativePath)
-	: m_strategyId(std::move(strategyId))
-	, m_jsonRelativePath(std::move(jsonRelativePath))
+FeatureDiscretizerConfigImpl::FeatureDiscretizerConfigImpl(std::string strategyId, std::string jsonRelativePath)
+	: m_strategyId(std::move(strategyId)), m_jsonRelativePath(std::move(jsonRelativePath))
 {
 }
 
 std::vector<FeatureDiscretizerParamField> FeatureDiscretizerConfigImpl::paramFields() const
 {
 	const IFeatureDiscretizer* algo = FeatureDiscretizerRegistry::instance().get(m_strategyId);
-	const std::vector<FeatureDiscretizerParamField> fallback = algo ? algo->paramFields() : std::vector<FeatureDiscretizerParamField>{};
+	const std::vector<FeatureDiscretizerParamField> fallback =
+		algo ? algo->paramFields() : std::vector<FeatureDiscretizerParamField>{};
 	const std::string& baseDir = FeatureDiscretizerConfigRegistry::instance().resourceBaseDir();
 	const std::optional<nlohmann::json> root = loadFeatureDiscretizerJsonFile(baseDir, m_jsonRelativePath);
 	if (!root.has_value() || !root->contains("schema"))
@@ -100,9 +100,8 @@ nlohmann::json FeatureDiscretizerConfigImpl::defaultParams() const
 	return params;
 }
 
-std::unique_ptr<IFeatureDiscretizerConfig> makeFeatureDiscretizerConfig(
-	const char* strategyId,
-	const char* jsonRelativePath)
+std::unique_ptr<IFeatureDiscretizerConfig> makeFeatureDiscretizerConfig(const char* strategyId,
+																		const char* jsonRelativePath)
 {
 	return std::make_unique<FeatureDiscretizerConfigImpl>(strategyId, jsonRelativePath);
 }

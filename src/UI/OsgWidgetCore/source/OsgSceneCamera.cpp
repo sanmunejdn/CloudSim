@@ -1,3 +1,6 @@
+﻿/// @file OsgSceneCamera.cpp
+/// @brief OsgSceneCamera 实现
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -22,8 +25,8 @@
 #include <osgGA/TrackballManipulator>
 #include <osgViewer/Viewer>
 
-namespace {
-
+namespace
+{
 osg::BoundingSphere worldBoundOfBackendRoot(osg::MatrixTransform* root)
 {
 	if (!root)
@@ -42,10 +45,9 @@ osg::BoundingSphere worldBoundOfBackendRoot(osg::MatrixTransform* root)
 		path.insert(path.begin(), n);
 	}
 	const osg::Matrix worldMat = osg::computeLocalToWorld(path);
-	const osg::Vec4d centerWp4 = worldMat * osg::Vec4d(
-		static_cast<double>(loc.center().x()),
-		static_cast<double>(loc.center().y()),
-		static_cast<double>(loc.center().z()), 1.0);
+	const osg::Vec4d centerWp4 =
+		worldMat * osg::Vec4d(static_cast<double>(loc.center().x()), static_cast<double>(loc.center().y()),
+							  static_cast<double>(loc.center().z()), 1.0);
 	const osg::Vec3d wc(centerWp4.x(), centerWp4.y(), centerWp4.z());
 	const osg::Vec3d wcTranslate(worldMat(3, 0), worldMat(3, 1), worldMat(3, 2));
 	// 内层去心时 outer 平移已含质心；世界坐标顶点（skip rebase）须用 loc.center() 变换
@@ -61,8 +63,8 @@ osg::BoundingSphere worldBoundOfBackendRoot(osg::MatrixTransform* root)
 		maxS = 1.0;
 	}
 	const float r = static_cast<float>(static_cast<double>(loc.radius()) * maxS);
-	return osg::BoundingSphere(osg::Vec3(static_cast<float>(wcUse.x()), static_cast<float>(wcUse.y()),
-		static_cast<float>(wcUse.z())), r);
+	return osg::BoundingSphere(
+		osg::Vec3(static_cast<float>(wcUse.x()), static_cast<float>(wcUse.y()), static_cast<float>(wcUse.z())), r);
 }
 
 } // namespace
@@ -139,7 +141,8 @@ void OsgScene::focusCameraOnBackend(const std::string& backendId)
 	// 相机会被拉到极远，其它后端几何落在视锥外或远裁剪外，表现为「导入后全黑，删掉机器人才看见」
 	static constexpr double kMaxFocusRadius = 5.0e5;
 	static constexpr double kMaxEyeDistance = 2.0e6;
-	if (!std::isfinite(center.x()) || !std::isfinite(center.y()) || !std::isfinite(center.z()) || !std::isfinite(radius))
+	if (!std::isfinite(center.x()) || !std::isfinite(center.y()) || !std::isfinite(center.z()) ||
+		!std::isfinite(radius))
 	{
 		return;
 	}
@@ -212,8 +215,7 @@ void OsgScene::focusCameraOnBackend(const std::string& backendId)
 
 void OsgScene::focusCameraOnAllVisibleBackends()
 {
-	if (!m_root.valid() || !m_trackballManipulator.valid()
-		|| !m_viewer.valid() || !m_viewer->getCamera())
+	if (!m_root.valid() || !m_trackballManipulator.valid() || !m_viewer.valid() || !m_viewer->getCamera())
 	{
 		return;
 	}
@@ -233,7 +235,8 @@ void OsgScene::focusCameraOnAllVisibleBackends()
 
 	static constexpr double kMaxFocusRadius = 5.0e5;
 	static constexpr double kMaxEyeDistance = 2.0e6;
-	if (!std::isfinite(center.x()) || !std::isfinite(center.y()) || !std::isfinite(center.z()) || !std::isfinite(radius))
+	if (!std::isfinite(center.x()) || !std::isfinite(center.y()) || !std::isfinite(center.z()) ||
+		!std::isfinite(radius))
 	{
 		return;
 	}

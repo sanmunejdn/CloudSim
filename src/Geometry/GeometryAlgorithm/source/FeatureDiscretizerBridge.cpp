@@ -1,3 +1,6 @@
+﻿/// @file FeatureDiscretizerBridge.cpp
+/// @brief FeatureDiscretizerBridge 实现
+
 #include "FeatureDiscretizerBridge.h"
 
 #include "FeatureDiscretizerRegistry.h"
@@ -7,7 +10,6 @@
 
 namespace geoalgo
 {
-
 FeatureDiscretizerRegistry& featureDiscretizerRegistry()
 {
 	return FeatureDiscretizerRegistry::instance();
@@ -42,11 +44,8 @@ std::vector<FeatureDiscretizerParamField> featureDiscretizerAllParamFields(const
 	return FeatureDiscretizerConfigRegistry::instance().paramFieldsForStrategy(strategyId);
 }
 
-bool discretizeFeatureList(
-	const FeatureListDocument& doc,
-	const ShapeHandle& shapeHandle,
-	RawPath& out,
-	std::string* errMsg)
+bool discretizeFeatureList(const FeatureListDocument& doc, const ShapeHandle& shapeHandle, RawPath& out,
+						   std::string* errMsg)
 {
 	ensureFeatureDiscretizersRegistered();
 	if (!validateFeatureListDocument(doc, errMsg))

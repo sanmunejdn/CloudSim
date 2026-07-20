@@ -1,11 +1,14 @@
+﻿/// @file MainWindowObjectRepository.cpp
+/// @brief MainWindowObjectRepository 实现
+
 #include "MainWindowObjectRepository.h"
 
 #include "DocumentPage.h"
 #include "IDataService.h"
 #include "MainWindow.h"
 
-std::optional<cloudsim::core::BackendObjectDto> MainWindowObjectRepository::findSnapshot(
-	MainWindow& mainWindow, const QString& backendId)
+std::optional<cloudsim::core::BackendObjectDto> MainWindowObjectRepository::findSnapshot(MainWindow& mainWindow,
+																						 const QString& backendId)
 {
 	DocumentPage* page = mainWindow.currentPage();
 	if (!page || backendId.isEmpty() || !page->data().isValid(backendId))

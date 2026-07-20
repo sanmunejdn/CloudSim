@@ -1,21 +1,25 @@
+﻿/// @file RobotPlanInstruction.cpp
+/// @brief RobotPlanInstruction 实现
+
 #include "RobotPlanInstruction.h"
 
-#include "IRobotUrdfImportContext.h"
 #include "IRobotSimulationDocument.h"
-
+#include "IRobotUrdfImportContext.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotInstructionController.h"
 #include "RobotInstructionFactory.h"
 #include "RobotInstructionPlanningHelpers.h"
 
+#include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
 
 #include <json.hpp>
 
-namespace cloudsim::host {
-
-namespace {
-
+namespace cloudsim::host
+{
+namespace
+{
 nlohmann::json motionDtoToJson(const core::MotionInstructionDto& instruction)
 {
 	nlohmann::json j;
@@ -33,8 +37,8 @@ nlohmann::json motionDtoToJson(const core::MotionInstructionDto& instruction)
 	if (!instruction.axisConfiguration.isEmpty())
 	{
 		const QByteArray raw = QJsonDocument(instruction.axisConfiguration).toJson(QJsonDocument::Compact);
-		j["axisConfiguration"] = nlohmann::json::parse(
-			std::string(raw.constData(), static_cast<size_t>(raw.size())), nullptr, false);
+		j["axisConfiguration"] =
+			nlohmann::json::parse(std::string(raw.constData(), static_cast<size_t>(raw.size())), nullptr, false);
 	}
 	if (!instruction.jointRadCsv.isEmpty())
 	{
@@ -44,8 +48,8 @@ nlohmann::json motionDtoToJson(const core::MotionInstructionDto& instruction)
 	if (!instruction.extensions.isEmpty())
 	{
 		const QByteArray raw = QJsonDocument(instruction.extensions).toJson(QJsonDocument::Compact);
-		const nlohmann::json ext = nlohmann::json::parse(
-			std::string(raw.constData(), static_cast<size_t>(raw.size())), nullptr, false);
+		const nlohmann::json ext =
+			nlohmann::json::parse(std::string(raw.constData(), static_cast<size_t>(raw.size())), nullptr, false);
 		if (ext.is_object())
 		{
 			for (auto it = ext.begin(); it != ext.end(); ++it)
@@ -84,11 +88,9 @@ core::MotionInstructionDto motionDtoFromInstructionJson(const nlohmann::json& j)
 			dto.axisConfiguration = axisDoc.object();
 		}
 	}
-	if (j.contains("context") && j["context"].is_object()
-		&& j["context"].contains("currentJointRadCsv"))
+	if (j.contains("context") && j["context"].is_object() && j["context"].contains("currentJointRadCsv"))
 	{
-		dto.jointRadCsv =
-			QString::fromStdString(j["context"]["currentJointRadCsv"].get<std::string>());
+		dto.jointRadCsv = QString::fromStdString(j["context"]["currentJointRadCsv"].get<std::string>());
 	}
 	QJsonObject extObj;
 	for (auto it = j.begin(); it != j.end(); ++it)
@@ -141,7 +143,7 @@ int resolveInstanceIndex(const core::PlanContextDto& context, IRobotUrdfImportCo
 } // namespace
 
 bool planMotionInstruction(IRobotUrdfImportContext& ctx, const core::MotionInstructionDto& instruction,
-	const core::PlanContextDto& context, core::PlanResultDto& out, QString* outError)
+						   const core::PlanContextDto& context, core::PlanResultDto& out, QString* outError)
 {
 	out = {};
 	IRobotSimulationDocument* doc = ctx.urdfImportRobotSimulationDocument();
@@ -185,8 +187,8 @@ bool planMotionInstruction(IRobotUrdfImportContext& ctx, const core::MotionInstr
 		tcpLink = "tool0";
 	}
 	RobotCoordinate::RobotCoordinateFrameSet& frames = ctx.robotCoordinateFramesForInstance(instIdx);
-	RobotInstructionPlanning::prepareMotionInstructionForPlanning(
-		*ins, context.seedJointRad, nullptr, nullptr, instIdx, urdfPath, tcpLink, &frames);
+	RobotInstructionPlanning::prepareMotionInstructionForPlanning(*ins, context.seedJointRad, nullptr, nullptr, instIdx,
+																  urdfPath, tcpLink, &frames);
 	RobotInstruction::Controller controller;
 	controller.buildDefaultPlanners();
 	RobotInstruction::PlanResult plan{};
@@ -211,9 +213,9 @@ bool planMotionInstruction(IRobotUrdfImportContext& ctx, const core::MotionInstr
 }
 
 bool planRobotInstruction(IRobotUrdfImportContext& ctx, RobotInstruction::Base& instruction,
-	const QVector<double>& seedJointRad, const int instanceIndex, const QString& urdfPath,
-	const std::string& defaultTcpLinkName, const QString& sceneRootBackendId, RobotInstruction::PlanResult& out,
-	QString* outError)
+						  const QVector<double>& seedJointRad, const int instanceIndex, const QString& urdfPath,
+						  const std::string& defaultTcpLinkName, const QString& sceneRootBackendId,
+						  RobotInstruction::PlanResult& out, QString* outError)
 {
 	out = {};
 	const nlohmann::json j = RobotInstruction::toJson(instruction);

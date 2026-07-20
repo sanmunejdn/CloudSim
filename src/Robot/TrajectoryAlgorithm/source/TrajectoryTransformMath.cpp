@@ -1,8 +1,11 @@
+﻿/// @file TrajectoryTransformMath.cpp
+/// @brief TrajectoryTransformMath 实现
+
 #include "TrajectoryTransformMath.h"
 
-#include <Eigen/Geometry>
-
 #include <cmath>
+
+#include <Eigen/Geometry>
 
 namespace trajectory_algo
 {
@@ -13,9 +16,8 @@ constexpr double kPi = 3.14159265358979323846;
 
 engine::RigidTransform rigidDeltaFromTranslate(const RobotInstruction::TranslateParams& translate)
 {
-	return engine::RigidTransform::fromTranslationQuat(
-		Eigen::Vector3d(translate.dxMm, translate.dyMm, translate.dzMm),
-		Eigen::Quaterniond::Identity());
+	return engine::RigidTransform::fromTranslationQuat(Eigen::Vector3d(translate.dxMm, translate.dyMm, translate.dzMm),
+													   Eigen::Quaterniond::Identity());
 }
 
 engine::RigidTransform rigidDeltaFromRotate(const RobotInstruction::RotateParams& rotate)
@@ -27,15 +29,12 @@ engine::RigidTransform rigidDeltaFromRotate(const RobotInstruction::RotateParams
 	}
 	axis.normalize();
 	const double rad = rotate.angleDeg * kPi / 180.0;
-	return engine::RigidTransform::fromTranslationQuat(
-		Eigen::Vector3d::Zero(),
-		Eigen::Quaterniond(Eigen::AngleAxisd(rad, axis)));
+	return engine::RigidTransform::fromTranslationQuat(Eigen::Vector3d::Zero(),
+													   Eigen::Quaterniond(Eigen::AngleAxisd(rad, axis)));
 }
 
-engine::RigidTransform applyTransformDelta(
-	const engine::RigidTransform& target,
-	const engine::RigidTransform& delta,
-	RobotInstruction::TransformReferenceFrame frame)
+engine::RigidTransform applyTransformDelta(const engine::RigidTransform& target, const engine::RigidTransform& delta,
+										   RobotInstruction::TransformReferenceFrame frame)
 {
 	if (frame == RobotInstruction::TransformReferenceFrame::Body)
 	{

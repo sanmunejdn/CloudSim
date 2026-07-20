@@ -1,3 +1,6 @@
+﻿/// @file BrepBackendVisual.cpp
+/// @brief BrepBackendVisual 实现
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -8,20 +11,23 @@
 #include <windows.h>
 #endif
 
-#include "BrepBackendVisual.h"
-
 #include "BackendDataBase.h"
 #include "BackendGeometryMetrics.h"
 #include "BackendIdUserData.h"
 #include "BackendPoseOsg.h"
 #include "BackendVisualMath.h"
 #include "BrepBackendData.h"
+#include "BrepBackendVisual.h"
 
-#include <Discretize.h>
+#include <cmath>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
 #include <BrepImportArtifacts.h>
+#include <Discretize.h>
 #include <ShapeHandle.h>
 #include <ViewTessellate.h>
-
 #include <osg/Geode>
 #include <osg/Geometry>
 #include <osg/Group>
@@ -32,23 +38,16 @@
 #include <osg/PositionAttitudeTransform>
 #include <osg/StateSet>
 
-#include <cmath>
-#include <string>
-#include <unordered_map>
-#include <vector>
-
 namespace
 {
-
 osg::Vec3f centerFromBounds(const BackendBoundingBox& b)
 {
 	if (!b.valid)
 	{
 		return osg::Vec3f(0.0f, 0.0f, 0.0f);
 	}
-	return osg::Vec3f(static_cast<float>((b.min.x + b.max.x) * 0.5),
-		static_cast<float>((b.min.y + b.max.y) * 0.5),
-		static_cast<float>((b.min.z + b.max.z) * 0.5));
+	return osg::Vec3f(static_cast<float>((b.min.x + b.max.x) * 0.5), static_cast<float>((b.min.y + b.max.y) * 0.5),
+					  static_cast<float>((b.min.z + b.max.z) * 0.5));
 }
 
 float diagonalFromBounds(const BackendBoundingBox& b)
@@ -67,13 +66,13 @@ static void applyLitPlastic(osg::Material& mat, const osg::Vec4& baseColor)
 {
 	const float amb = 0.22f;
 	mat.setAmbient(osg::Material::FRONT_AND_BACK,
-		osg::Vec4(baseColor.r() * amb, baseColor.g() * amb, baseColor.b() * amb, baseColor.a()));
+				   osg::Vec4(baseColor.r() * amb, baseColor.g() * amb, baseColor.b() * amb, baseColor.a()));
 	mat.setDiffuse(osg::Material::FRONT_AND_BACK, baseColor);
 	mat.setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0.62f, 0.62f, 0.58f, 1.0f));
 	mat.setShininess(osg::Material::FRONT_AND_BACK, 64.0f);
 	const float em = 0.014f;
 	mat.setEmission(osg::Material::FRONT_AND_BACK,
-		osg::Vec4(baseColor.r() * em, baseColor.g() * em, baseColor.b() * em, baseColor.a()));
+					osg::Vec4(baseColor.r() * em, baseColor.g() * em, baseColor.b() * em, baseColor.a()));
 }
 
 void fillVec3ArrayFromSoup(const std::vector<float>& soup, osg::Vec3Array& outVerts)
@@ -86,13 +85,9 @@ void fillVec3ArrayFromSoup(const std::vector<float>& soup, osg::Vec3Array& outVe
 	}
 }
 
-void applySoupToFillGeometry(
-	const std::vector<float>& soup,
-	osg::Geometry& geometry,
-	osg::Vec3Array& vertices,
-	osg::Vec3Array* normalArray,
-	bool useSceneLighting,
-	const std::vector<float>* precomputedNormals = nullptr)
+void applySoupToFillGeometry(const std::vector<float>& soup, osg::Geometry& geometry, osg::Vec3Array& vertices,
+							 osg::Vec3Array* normalArray, bool useSceneLighting,
+							 const std::vector<float>* precomputedNormals = nullptr)
 {
 	fillVec3ArrayFromSoup(soup, vertices);
 	geometry.setVertexArray(&vertices);
@@ -137,10 +132,8 @@ void applySoupToFillGeometry(
 	geometry.dirtyBound();
 }
 
-osg::ref_ptr<osg::Geode> buildBrepEdgeWireGeode(
-	const std::vector<std::vector<float>>& edgePolylines,
-	const osg::Vec4& fillColor,
-	const MeshVisualOptions& opt)
+osg::ref_ptr<osg::Geode> buildBrepEdgeWireGeode(const std::vector<std::vector<float>>& edgePolylines,
+												const osg::Vec4& fillColor, const MeshVisualOptions& opt)
 {
 	if (!opt.showWireOutline || edgePolylines.empty())
 	{
@@ -196,14 +189,15 @@ osg::ref_ptr<osg::Geode> buildBrepEdgeWireGeode(
 	geodeWire->setNodeMask(0x2u);
 	geodeWire->addDrawable(geometryWire.get());
 	osg::StateSet* ssWire = geodeWire->getOrCreateStateSet();
-	ssWire->setAttributeAndModes(new osg::PolygonOffset(-1.0f, -1.0f), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	ssWire->setAttributeAndModes(new osg::PolygonOffset(-1.0f, -1.0f),
+								 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 	ssWire->setAttributeAndModes(new osg::LineWidth(1.0f));
 	ssWire->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 	return geodeWire;
 }
 
 osg::ref_ptr<osg::Node> buildBrepDisplayNode(const BrepBackendData& data, const MeshVisualOptions& opt,
-	geoalgo::BrepImportArtifacts& artifacts, std::string* errorMessage)
+											 geoalgo::BrepImportArtifacts& artifacts, std::string* errorMessage)
 {
 	const geoalgo::ShapeHandle& shape = data.shapeRef();
 	if (shape.isNull())
@@ -238,8 +232,7 @@ osg::ref_ptr<osg::Node> buildBrepDisplayNode(const BrepBackendData& data, const 
 	applySoupToFillGeometry(soup, *geometry, *vertices, normals.get(), opt.useSceneLighting, preNormals);
 
 	const std::unordered_map<int, BackendColor>& faceHighlights = data.faceHighlightColors();
-	const bool useFaceHighlights =
-		!faceHighlights.empty() && !artifacts.triangleFaceIndex.empty();
+	const bool useFaceHighlights = !faceHighlights.empty() && !artifacts.triangleFaceIndex.empty();
 	if (useFaceHighlights)
 	{
 		const std::size_t triCount = soup.size() / 9U;
@@ -311,7 +304,7 @@ std::string BrepBackendVisual::typeKey() const
 }
 
 bool BrepBackendVisual::buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions& meshOptions,
-	BranchBuildResult& out, std::string* errorMessage)
+										 BranchBuildResult& out, std::string* errorMessage)
 {
 	const auto* brep = dynamic_cast<const BrepBackendData*>(&data);
 	if (!brep || !brep->hasGeometry())
@@ -365,7 +358,7 @@ bool BrepBackendVisual::buildOuterBranch(const BackendDataBase& data, const Mesh
 }
 
 void BrepBackendVisual::computeModelCenterAndDiagonal(const BackendDataBase& data, osg::Vec3f& outCenter,
-	float& outDiagonal) const
+													  float& outDiagonal) const
 {
 	const auto* brep = dynamic_cast<const BrepBackendData*>(&data);
 	if (!brep)

@@ -1,22 +1,24 @@
-#pragma once
+﻿#ifndef CLOUDSIMMESHTRAJECTORYSDK_MESHTRAJECTORYSESSION_H
+#define CLOUDSIMMESHTRAJECTORYSDK_MESHTRAJECTORYSESSION_H
+
+/// @file MeshTrajectorySession.h
+/// @brief MeshTrajectorySession 接口
 
 #include "mesh_trajectory_sdk_global.h"
 
 #include "MeshTrajectoryTypes.h"
 
-#include <MeshTrajectory.h>
-
 #include <string>
 #include <vector>
+
+#include <MeshTrajectory.h>
 
 class MESH_TRAJECTORY_SDK_EXPORT MeshTrajectorySession
 {
 public:
 	MeshTrajectorySession() = default;
 
-	bool beginMesh(
-		const std::string& backendIdUtf8,
-		const std::vector<float>& triangleSoup);
+	bool beginMesh(const std::string& backendIdUtf8, const std::vector<float>& triangleSoup);
 
 	const std::string& backendIdUtf8() const { return m_backendId; }
 	const std::vector<float>& triangleSoup() const { return m_triangleSoup; }
@@ -27,9 +29,7 @@ public:
 
 	void setSpec(const geoalgo::MeshTrajectorySpec& spec) { m_spec = spec; }
 
-	bool applyTriangleSelection(
-		const std::vector<int>& triangleIndices,
-		MeshTrajectorySelectionMode mode);
+	bool applyTriangleSelection(const std::vector<int>& triangleIndices, MeshTrajectorySelectionMode mode);
 
 	bool clearSelection();
 	bool invertSelection();
@@ -57,3 +57,5 @@ private:
 	std::vector<std::vector<int>> m_undoStack;
 	std::vector<std::vector<int>> m_redoStack;
 };
+
+#endif // CLOUDSIMMESHTRAJECTORYSDK_MESHTRAJECTORYSESSION_H

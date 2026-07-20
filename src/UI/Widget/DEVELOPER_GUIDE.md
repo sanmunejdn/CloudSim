@@ -120,7 +120,7 @@ flowchart TB
 | 维度 | 说明 |
 |------|------|
 | 职责边界 | 菜单栏、Dock 布局、文档标签页、属性面板、后端树、仿真协调、插件加载 |
-| 生命周期 | `main.cpp` 构造，`showMaximized()`，进程内单例 |
+| 生命周期 | `main.cpp` 构造，`showMaximized()`，进程内单例；关窗/`~MainWindow` 调用 `shutdownRuntimeWorkers`（停仿真定时器 + `JobSystem::shutdown`：清排队、限时 wait，超时弃池以免卡死）再 `pluginManager->shutdownAll` |
 | 对外契约 | 通过 `currentPage()` 获取当前 `DocumentPage*`，再经 `data()` / `robot()` / `render()` 访问契约 |
 | 事件协作 | 订阅 `EventHub` 事件刷新树/属性面板；`WidgetSceneSignalWiring` 桥接 OsgWidget 信号 |
 
@@ -131,7 +131,7 @@ flowchart TB
 | `MainWindowUiSetup.cpp` | 构造函数、菜单栏、Dock 布局、语言切换初始化 |
 | `MainWindow.cpp` | 核心逻辑、`applyLanguage()`、选择处理、`closeDocumentTab()` |
 | `MainWindowProjectIo.cpp` | 工程保存/加载（`.pcp` / `.json`） |
-| `MainWindowFileImport.cpp` | 模型/点云文件导入对话框 |
+| `MainWindowFileImport.cpp` | 模型/点云导入；「插入 → 坐标系」创建 `FrameBackendData` |
 | `MainWindowBackendTree.cpp` | 后端树 `QTreeWidget` 管理、右键菜单 |
 | `MainWindowPlugins.cpp` | `loadPlugins()` 扫描 `plugins/*/plugin.json` |
 | `MainWindowRobotHost.cpp` | `MainWindowRobotHost`（`IRobotDocumentHost` 实现） |
@@ -284,13 +284,16 @@ onOpenProjectFile()
   → QJsonDocument::fromJson()
   → page->data().clear()
   → loadProjectObjectsFromJson(objects[])
+       → loadFromJson 恢复 visible 等公共字段
+       → 建 OSG 视觉后 setBackendObjectVisible(id, data.isVisible())
   → finalizeProjectHierarchyAfterObjects(edges[])
   → restoreRobotKinematicsFromProjectJson()
   → loadRobotProgramsFromProjectJson()
   → finalizeProjectLoadFollowAndViewport()
-  → refreshBackendTree()
+  → refreshBackendTree()  // 勾选态读 BackendObjectDto.visible
 ```
 
+**显示/隐藏**：树勾选 / 右键 → `DocumentPage::setBackendVisible` → `IDataService::setVisible`（Data 真源）+ OSG NodeMask。保存时经 `saveToJson` 写出 `objects[].visible`。
 ---
 
 ## 7. 插件集成
@@ -324,6 +327,12 @@ Widget 实现此接口，供插件宿主（编入 Host）访问 UI 能力：
 | `menuBar()` / `statusBar()` | 菜单栏/状态栏 |
 | `enqueueBackgroundJob(...)` | 后台任务 |
 | `mainWindowWidget()` | 主窗口 QWidget* |
+
+**菜单栏结构**（`setupMenuBar`）：File / View / **Insert** / Settings。
+
+| 菜单 | 要点 |
+|------|------|
+| Insert（插入） | `Coordinate Frame…` → `onCreateCoordinateFrame`：对话框填名称+位姿，注册 `FrameBackendData`（`catalogTypeName=CoordinateFrame`）并加载轴可视化 |
 
 ---
 

@@ -1,3 +1,6 @@
+﻿/// @file CloudSimAiVersion.cpp
+/// @brief CloudSimAiVersion 实现
+
 #include "CloudSimAiVersion.h"
 
 unsigned int cloudsimAiSdkVersion()

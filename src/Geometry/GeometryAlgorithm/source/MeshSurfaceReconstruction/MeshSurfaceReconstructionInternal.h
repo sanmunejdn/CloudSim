@@ -1,19 +1,22 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTIONINTERNAL_H
+#define GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTIONINTERNAL_H
+
+/// @file MeshSurfaceReconstructionInternal.h
+/// @brief 光顺/装配前按采样尺度重建面，避免全参数域建面产生失控薄片
 
 #include "MeshSurfaceReconstruction.h"
-
-#include <TopoDS_Face.hxx>
-#include <Geom_BSplineSurface.hxx>
 
 #include <array>
 #include <string>
 #include <vector>
 
+#include <Geom_BSplineSurface.hxx>
+#include <TopoDS_Face.hxx>
+
 namespace geoalgo
 {
 namespace meshrecon
 {
-
 struct IndexedMeshLite
 {
 	std::vector<float> vertices;
@@ -58,38 +61,23 @@ struct QuadPatch
 	bool hasSquareCorners = false;
 };
 
-void aggregateFitRejectStats(
-	MeshSurfaceReconstructReport& report,
-	const std::vector<QuadPatch>& patches);
+void aggregateFitRejectStats(MeshSurfaceReconstructReport& report, const std::vector<QuadPatch>& patches);
 
 bool soupToIndexed(const std::vector<float>& soup, IndexedMeshLite& out, std::string* errMsg);
 
-bool partitionQuadDomains(
-	const IndexedMeshLite& mesh,
-	const MeshSurfaceReconstructParams& params,
-	std::vector<QuadPatch>& patches,
-	int& outJunctionCount,
-	MeshSurfaceReconstructReport* partitionStats,
-	std::string* errMsg);
+bool partitionQuadDomains(const IndexedMeshLite& mesh, const MeshSurfaceReconstructParams& params,
+						  std::vector<QuadPatch>& patches, int& outJunctionCount,
+						  MeshSurfaceReconstructReport* partitionStats, std::string* errMsg);
 
-bool samplePatchGrids(
-	const IndexedMeshLite& mesh,
-	std::vector<QuadPatch>& patches,
-	const MeshSurfaceReconstructParams& params,
-	std::string* errMsg);
+bool samplePatchGrids(const IndexedMeshLite& mesh, std::vector<QuadPatch>& patches,
+					  const MeshSurfaceReconstructParams& params, std::string* errMsg);
 
-bool buildInitialBsplinePatches(
-	const IndexedMeshLite& mesh,
-	std::vector<QuadPatch>& patches,
-	const MeshSurfaceReconstructParams& params,
-	std::string* errMsg);
+bool buildInitialBsplinePatches(const IndexedMeshLite& mesh, std::vector<QuadPatch>& patches,
+								const MeshSurfaceReconstructParams& params, std::string* errMsg);
 
-bool applyMultiResolutionFit(
-	const IndexedMeshLite& mesh,
-	std::vector<QuadPatch>& patches,
-	const MeshSurfaceReconstructParams& params,
-	MeshSurfaceReconstructReport* report,
-	std::string* errMsg);
+bool applyMultiResolutionFit(const IndexedMeshLite& mesh, std::vector<QuadPatch>& patches,
+							 const MeshSurfaceReconstructParams& params, MeshSurfaceReconstructReport* report,
+							 std::string* errMsg);
 
 void assignPatchCornerMetadata(const IndexedMeshLite& mesh, QuadPatch& patch);
 
@@ -98,47 +86,30 @@ void assignAllPatchCornerMetadata(const IndexedMeshLite& mesh, std::vector<QuadP
 /// 光顺/装配前按采样尺度重建面，避免全参数域建面产生失控薄片
 bool rebuildPatchFace(const IndexedMeshLite& mesh, QuadPatch& patch);
 
-bool applyBoundaryC2Blend(
-	std::vector<QuadPatch>& patches,
-	const MeshSurfaceReconstructParams& params,
-	bool& outBlendOk,
-	MeshSurfaceReconstructReport* report,
-	std::string* errMsg);
+bool applyBoundaryC2Blend(std::vector<QuadPatch>& patches, const MeshSurfaceReconstructParams& params, bool& outBlendOk,
+						  MeshSurfaceReconstructReport* report, std::string* errMsg);
 
-bool applyJunctionC2Blend(
-	std::vector<QuadPatch>& patches,
-	int junctionCount,
-	const MeshSurfaceReconstructParams& params,
-	MeshSurfaceReconstructReport* report,
-	std::string* errMsg);
+bool applyJunctionC2Blend(std::vector<QuadPatch>& patches, int junctionCount,
+						  const MeshSurfaceReconstructParams& params, MeshSurfaceReconstructReport* report,
+						  std::string* errMsg);
 
-bool fairBsplinePatches(
-	std::vector<QuadPatch>& patches,
-	const MeshSurfaceReconstructParams& params,
-	double& outGlobalMetric,
-	std::string* errMsg);
+bool fairBsplinePatches(std::vector<QuadPatch>& patches, const MeshSurfaceReconstructParams& params,
+						double& outGlobalMetric, std::string* errMsg);
 
-bool assembleBrepShape(
-	const IndexedMeshLite& mesh,
-	const std::vector<QuadPatch>& patches,
-	ShapeHandle& outShape,
-	std::string* errMsg);
+bool assembleBrepShape(const IndexedMeshLite& mesh, const std::vector<QuadPatch>& patches, ShapeHandle& outShape,
+					   std::string* errMsg);
 
-bool tryRebuildBsplineSurface(
-	const Handle(Geom_BSplineSurface)& src,
-	const TColgp_Array2OfPnt& poles,
-	Handle(Geom_BSplineSurface)& outSurface);
+bool tryRebuildBsplineSurface(const Handle(Geom_BSplineSurface) & src, const TColgp_Array2OfPnt& poles,
+							  Handle(Geom_BSplineSurface) & outSurface);
 
-double computeMaxDeviationMm(
-	const std::vector<float>& soup,
-	const std::vector<QuadPatch>& patches);
+double computeMaxDeviationMm(const std::vector<float>& soup, const std::vector<QuadPatch>& patches);
 
-bool validateOutputBbox(
-	const std::vector<float>& soup,
-	const ShapeHandle& shape,
-	double maxDiagRatio,
-	std::string* errMsg);
-bool validateTessellationSanity(const ShapeHandle& shape, const MeshSurfaceReconstructParams& params, std::string* errMsg);
+bool validateOutputBbox(const std::vector<float>& soup, const ShapeHandle& shape, double maxDiagRatio,
+						std::string* errMsg);
+bool validateTessellationSanity(const ShapeHandle& shape, const MeshSurfaceReconstructParams& params,
+								std::string* errMsg);
 
 } // namespace meshrecon
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTIONINTERNAL_H

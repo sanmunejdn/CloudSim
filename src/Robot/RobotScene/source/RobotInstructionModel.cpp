@@ -1,7 +1,10 @@
+﻿/// @file RobotInstructionModel.cpp
+/// @brief RobotInstructionModel 实现
+
 #include "RobotInstructionModel.h"
 
-#include "RobotInstructionAttribute.h"
 #include "../../Data/PropertyCore/inc/PropertyAttribute.h"
+#include "RobotInstructionAttribute.h"
 
 #include <atomic>
 
@@ -37,15 +40,24 @@ std::string typeToString(const Type t)
 {
 	switch (t)
 	{
-	case Type::PTP: return "ptp";
-	case Type::LINE: return "line";
-	case Type::WAIT: return "wait";
-	case Type::IF: return "if";
-	case Type::WHILE: return "while";
-	case Type::SET_DO: return "set_do";
-	case Type::SET_AO: return "set_ao";
-	case Type::PathPlan: return "path_plan";
-	default: return "unknown";
+	case Type::PTP:
+		return "ptp";
+	case Type::LINE:
+		return "line";
+	case Type::WAIT:
+		return "wait";
+	case Type::IF:
+		return "if";
+	case Type::WHILE:
+		return "while";
+	case Type::SET_DO:
+		return "set_do";
+	case Type::SET_AO:
+		return "set_ao";
+	case Type::PathPlan:
+		return "path_plan";
+	default:
+		return "unknown";
 	}
 }
 
@@ -118,10 +130,7 @@ const std::vector<std::shared_ptr<Base>>& Base::elseSteps() const
 	return s_emptySteps;
 }
 
-Base::Base()
-	: m_id(makeInstructionId())
-{
-}
+Base::Base() : m_id(makeInstructionId()) {}
 
 nlohmann::json Base::snapshotPropertyRows() const
 {
@@ -203,11 +212,8 @@ WaitInstruction::WaitInstruction()
 	setType(Type::WAIT);
 	setName("Wait");
 	addAttribute(makeScalarDoubleAttribute(
-		[](const Base& b) { return b.hasDurationProperty(); },
-		[](const Base& b) { return b.durationSec(); },
-		[](Base& b, const double& v) { b.setDurationSec(v); },
-		"logic.wait.durationSec",
-		"Duration (s)"));
+		[](const Base& b) { return b.hasDurationProperty(); }, [](const Base& b) { return b.durationSec(); },
+		[](Base& b, const double& v) { b.setDurationSec(v); }, "logic.wait.durationSec", "Duration (s)"));
 }
 
 IfInstruction::IfInstruction()
@@ -226,18 +232,13 @@ SetDigitalOutputInstruction::SetDigitalOutputInstruction()
 {
 	setType(Type::SET_DO);
 	setName("Set DO");
+	addAttribute(makeScalarDoubleAttribute([](const Base& b) { return b.hasIoPortProperty(); },
+										   [](const Base& b) { return static_cast<double>(b.ioPort()); },
+										   [](Base& b, const double& v) { b.setIoPort(static_cast<int>(v)); },
+										   "logic.io.port", "Port"));
 	addAttribute(makeScalarDoubleAttribute(
-		[](const Base& b) { return b.hasIoPortProperty(); },
-		[](const Base& b) { return static_cast<double>(b.ioPort()); },
-		[](Base& b, const double& v) { b.setIoPort(static_cast<int>(v)); },
-		"logic.io.port",
-		"Port"));
-	addAttribute(makeScalarDoubleAttribute(
-		[](const Base& b) { return b.hasIoValueProperty(); },
-		[](const Base& b) { return b.ioBoolValue() ? 1.0 : 0.0; },
-		[](Base& b, const double& v) { b.setIoBoolValue(v >= 0.5); },
-		"logic.io.digitalValue",
-		"Value (0/1)"));
+		[](const Base& b) { return b.hasIoValueProperty(); }, [](const Base& b) { return b.ioBoolValue() ? 1.0 : 0.0; },
+		[](Base& b, const double& v) { b.setIoBoolValue(v >= 0.5); }, "logic.io.digitalValue", "Value (0/1)"));
 }
 
 PathPlanInstruction* asPathPlan(Base& ins)
@@ -261,18 +262,13 @@ SetAnalogOutputInstruction::SetAnalogOutputInstruction()
 {
 	setType(Type::SET_AO);
 	setName("Set AO");
+	addAttribute(makeScalarDoubleAttribute([](const Base& b) { return b.hasIoPortProperty(); },
+										   [](const Base& b) { return static_cast<double>(b.ioPort()); },
+										   [](Base& b, const double& v) { b.setIoPort(static_cast<int>(v)); },
+										   "logic.io.port", "Port"));
 	addAttribute(makeScalarDoubleAttribute(
-		[](const Base& b) { return b.hasIoPortProperty(); },
-		[](const Base& b) { return static_cast<double>(b.ioPort()); },
-		[](Base& b, const double& v) { b.setIoPort(static_cast<int>(v)); },
-		"logic.io.port",
-		"Port"));
-	addAttribute(makeScalarDoubleAttribute(
-		[](const Base& b) { return true; },
-		[](const Base& b) { return b.ioAnalogValue(); },
-		[](Base& b, const double& v) { b.setIoAnalogValue(v); },
-		"logic.io.analogValue",
-		"Analog value"));
+		[](const Base& b) { return true; }, [](const Base& b) { return b.ioAnalogValue(); },
+		[](Base& b, const double& v) { b.setIoAnalogValue(v); }, "logic.io.analogValue", "Analog value"));
 }
 
 } // namespace RobotInstruction

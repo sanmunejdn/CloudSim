@@ -1,9 +1,12 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINHOST_PLUGINHOSTCONTEXT_H
+#define CLOUDSIMPLUGINHOST_PLUGINHOSTCONTEXT_H
+
+/// @file PluginHostContext.h
+/// @brief IPluginHostContext 宿主实现（仅 Widget，不导出插件）
 
 #include "IPluginHostContext.h"
 
 #include <QObject>
-
 #include <functional>
 #include <memory>
 #include <vector>
@@ -47,7 +50,7 @@ public:
 	void invokeOnUiThread(std::function<void()> fn) override;
 
 	void enqueueJob(const QString& title, std::function<void(const PluginJobProgressFn&)> work,
-		std::function<void(bool threw, const QString& throwMessage)> onFinished) override;
+					std::function<void(bool threw, const QString& throwMessage)> onFinished) override;
 
 	QDockWidget* registerDockWidget(const QString& title, QWidget* widget, Qt::DockWidgetArea area) override;
 	QWidget* sidePanelTabParent() const override;
@@ -57,17 +60,19 @@ public:
 	QAction* registerAction(QMenu* menu, const QString& text, std::function<void()> handler) override;
 
 	bool createPrimitiveMesh(const PluginPrimitiveMeshParams& params, const PluginPrimitiveMeshQuality& quality,
-		const PluginMeshCreateOptions& options, QString* outError, QString* outBackendId = nullptr) override;
+							 const PluginMeshCreateOptions& options, QString* outError,
+							 QString* outBackendId = nullptr) override;
 
 	bool booleanMesh(PluginMeshBooleanOp op, const std::string& targetBackendId, const std::string& toolBackendId,
-		const PluginBooleanMeshOptions& options, std::string* outResultBackendId, QString* outError) override;
+					 const PluginBooleanMeshOptions& options, std::string* outResultBackendId,
+					 QString* outError) override;
 
 	bool registerBackendType(const PluginBackendMeta& meta, QString* outError) override;
 	bool registerTriangleMesh(const std::vector<float>& triangleSoup, const PluginMeshCreateOptions& options,
-		QString* outError) override;
+							  QString* outError) override;
 
 	std::string importFileIntoActiveDocument(const std::string& pathUtf8, bool isPointCloud,
-		std::string* outError) override;
+											 std::string* outError) override;
 
 	IPluginPointCloudHost* pointCloudHost() override;
 	const IPluginPointCloudHost* pointCloudHost() const override;
@@ -80,17 +85,20 @@ public:
 	void setSidePanelTabTitle(QWidget* widget, const char* titleUtf8) override;
 
 	bool buildPrimitiveMeshSoup(const PluginPrimitiveMeshParams& params, const PluginPrimitiveMeshQuality& quality,
-		const PluginMeshCreateOptions& placement, std::vector<float>& outWorldSoup, QString* outError) override;
+								const PluginMeshCreateOptions& placement, std::vector<float>& outWorldSoup,
+								QString* outError) override;
 
 	bool booleanMeshSoups(PluginMeshBooleanOp op, const std::vector<float>& targetWorldSoup,
-		const std::vector<float>& toolWorldSoup, const PluginBooleanMeshOptions& options,
-		std::string* outResultBackendId, QString* outError) override;
+						  const std::vector<float>& toolWorldSoup, const PluginBooleanMeshOptions& options,
+						  std::string* outResultBackendId, QString* outError) override;
 
 	bool booleanPrimitiveMeshes(PluginMeshBooleanOp op, const PluginPrimitiveMeshParams& targetParams,
-		const PluginPrimitiveMeshQuality& targetQuality, const PluginMeshCreateOptions& targetPlacement,
-		const PluginPrimitiveMeshParams& toolParams, const PluginPrimitiveMeshQuality& toolQuality,
-		const PluginMeshCreateOptions& toolPlacement, const PluginBooleanMeshOptions& options,
-		std::string* outResultBackendId, QString* outError) override;
+								const PluginPrimitiveMeshQuality& targetQuality,
+								const PluginMeshCreateOptions& targetPlacement,
+								const PluginPrimitiveMeshParams& toolParams,
+								const PluginPrimitiveMeshQuality& toolQuality,
+								const PluginMeshCreateOptions& toolPlacement, const PluginBooleanMeshOptions& options,
+								std::string* outResultBackendId, QString* outError) override;
 
 	IAiAssistantHost* aiAssistantHost() override;
 	const IAiAssistantHost* aiAssistantHost() const override;
@@ -99,12 +107,12 @@ public:
 
 	bool resolveTrajectoryWorkpiece(QString& outBackendId, QString& outStepPath, QString* outError = nullptr) override;
 	bool buildTrajectoryFeatureCatalogSlice(const QString& backendId, const QString& stepPathUtf8,
-		const QString& userText, QByteArray& outFullCatalogUtf8, QByteArray& outSliceUtf8,
-		QString* outError = nullptr) override;
+											const QString& userText, QByteArray& outFullCatalogUtf8,
+											QByteArray& outSliceUtf8, QString* outError = nullptr) override;
 	bool showAiFeatureCandidatePreview(const QByteArray& previewJsonUtf8, QString* outError = nullptr) override;
 	void clearAiFeatureCandidatePreview() override;
 	bool commitAiTrajectoryFeatures(const QByteArray& featurePlanJsonUtf8, QString* outSummary,
-		QString* outError = nullptr) override;
+									QString* outError = nullptr) override;
 
 	IPluginLabelingHost* labelingHost() override;
 	const IPluginLabelingHost* labelingHost() const override;
@@ -115,11 +123,11 @@ public:
 
 private:
 	bool booleanSoupsAndRegister(const std::vector<float>& targetWorldSoup, const std::vector<float>& toolWorldSoup,
-		PluginMeshBooleanOp op, const PluginBooleanMeshOptions& options, std::string* outResultBackendId,
-		QString* outError);
+								 PluginMeshBooleanOp op, const PluginBooleanMeshOptions& options,
+								 std::string* outResultBackendId, QString* outError);
 
 	bool registerMeshFromSoup(std::vector<float> soup, const PluginMeshCreateOptions& options, QString* outError,
-		QString* outBackendId = nullptr);
+							  QString* outBackendId = nullptr);
 
 	IPluginMainWindowHost* m_mainWindowHost = nullptr;
 	std::unique_ptr<PluginPointCloudHostImpl> m_pointCloudHost;
@@ -131,3 +139,5 @@ private:
 	std::vector<std::function<void(IPluginDocument*)>> m_docChangeCallbacks;
 	std::vector<QDockWidget*> m_ownedDocks;
 };
+
+#endif // CLOUDSIMPLUGINHOST_PLUGINHOSTCONTEXT_H

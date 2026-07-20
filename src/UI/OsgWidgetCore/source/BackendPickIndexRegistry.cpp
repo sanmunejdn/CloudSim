@@ -1,19 +1,22 @@
+﻿/// @file BackendPickIndexRegistry.cpp
+/// @brief BackendPickIndexRegistry 实现
+
 #include "pch.h"
+
 #include "BackendPickIndexRegistry.h"
 
 #include "BackendIdUserData.h"
 #include "BackendPickDomain.h"
 
-#include <BrepImportArtifacts.h>
-
 #include <chrono>
-#include <RunLogger.h>
 
+#include <BrepImportArtifacts.h>
+#include <RunLogger.h>
 #include <osg/Group>
 #include <osg/Node>
 
-namespace {
-
+namespace
+{
 osg::Node* resolvePickNode(osg::Node* rootNode)
 {
 	if (auto* group = dynamic_cast<osg::Group*>(rootNode))
@@ -23,10 +26,8 @@ osg::Node* resolvePickNode(osg::Node* rootNode)
 	return rootNode;
 }
 
-void bindBrepPickIndex(
-	BrepPickIndex& brepIndex,
-	const BackendIdUserData* meta,
-	const std::shared_ptr<geoalgo::BrepImportArtifacts>& brepArtifacts)
+void bindBrepPickIndex(BrepPickIndex& brepIndex, const BackendIdUserData* meta,
+					   const std::shared_ptr<geoalgo::BrepImportArtifacts>& brepArtifacts)
 {
 	brepIndex = BrepPickIndex{};
 	if (!meta || !meta->hasBrepShape())
@@ -50,10 +51,8 @@ void BackendPickIndexRegistry::bindBackendRoot(const std::string& backendId, osg
 	bindBackendRoot(backendId, rootNode, {});
 }
 
-void BackendPickIndexRegistry::bindBackendRoot(
-	const std::string& backendId,
-	osg::Node* rootNode,
-	const std::shared_ptr<geoalgo::BrepImportArtifacts>& brepArtifacts)
+void BackendPickIndexRegistry::bindBackendRoot(const std::string& backendId, osg::Node* rootNode,
+											   const std::shared_ptr<geoalgo::BrepImportArtifacts>& brepArtifacts)
 {
 	if (backendId.empty() || !rootNode)
 	{
@@ -75,10 +74,9 @@ void BackendPickIndexRegistry::bindBackendRoot(
 		bundle.pointIndex.buildFromNode(pickNode);
 	}
 	bindBrepPickIndex(bundle.brepIndex, meta, brepArtifacts);
-	const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-		std::chrono::steady_clock::now() - t0);
-	RunLogger::info("[Import] bindBackendPickIndex " + std::to_string(ms.count()) + " ms, id=" + backendId
-		+ (isBrep ? ", brep" : ""));
+	const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0);
+	RunLogger::info("[Import] bindBackendPickIndex " + std::to_string(ms.count()) + " ms, id=" + backendId +
+					(isBrep ? ", brep" : ""));
 }
 
 void BackendPickIndexRegistry::unbindBackend(const std::string& backendId)

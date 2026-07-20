@@ -1,3 +1,6 @@
+﻿/// @file OsgSceneViewCube.cpp
+/// @brief OsgSceneViewCube 实现
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -30,16 +33,12 @@
 #include <osgUtil/LineSegmentIntersector>
 #include <osgViewer/Viewer>
 
-namespace {
-
+namespace
+{
 class ViewCubePickData : public osg::Referenced
 {
 public:
-	ViewCubePickData(const osg::Vec3d& eyeDir, const osg::Vec3d& upHint)
-		: m_eyeDir(eyeDir)
-		, m_upHint(upHint)
-	{
-	}
+	ViewCubePickData(const osg::Vec3d& eyeDir, const osg::Vec3d& upHint) : m_eyeDir(eyeDir), m_upHint(upHint) {}
 
 	osg::Vec3d m_eyeDir;
 	osg::Vec3d m_upHint;
@@ -48,10 +47,7 @@ public:
 class ViewCubeHudUpdateCallback : public osg::NodeCallback
 {
 public:
-	explicit ViewCubeHudUpdateCallback(osg::Camera* mainCamera)
-		: m_mainCamera(mainCamera)
-	{
-	}
+	explicit ViewCubeHudUpdateCallback(osg::Camera* mainCamera) : m_mainCamera(mainCamera) {}
 
 	void operator()(osg::Node* node, osg::NodeVisitor* nv) override
 	{
@@ -86,7 +82,7 @@ void applyLabelStateSet(osg::StateSet* ss)
 	ss->setMode(GL_BLEND, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 	ss->setMode(GL_CULL_FACE, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 	ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA),
-		osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+							 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 	osg::ref_ptr<osg::Depth> depth = new osg::Depth;
 	depth->setFunction(osg::Depth::ALWAYS);
 	depth->setWriteMask(false);
@@ -101,7 +97,7 @@ void applyFaceStateSet(osg::StateSet* ss)
 	ss->setMode(GL_BLEND, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 	ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
 	ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA),
-		osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+							 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 	ss->setAttribute(new osg::PolygonOffset(1.0f, 1.0f));
 }
 
@@ -111,12 +107,12 @@ void applyEdgeStateSet(osg::StateSet* ss)
 	ss->setMode(GL_BLEND, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 	ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 	ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA),
-		osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+							 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 	ss->setRenderBinDetails(26, "RenderBin");
 }
 
-osg::Geode* makeFaceGeode(const std::vector<osg::Vec3>& quad, const osg::Vec4& color,
-	const osg::Vec3d& eyeDir, const osg::Vec3d& upHint)
+osg::Geode* makeFaceGeode(const std::vector<osg::Vec3>& quad, const osg::Vec4& color, const osg::Vec3d& eyeDir,
+						  const osg::Vec3d& upHint)
 {
 	if (quad.size() != 4)
 	{
@@ -146,10 +142,10 @@ osg::Geode* makeFaceGeode(const std::vector<osg::Vec3>& quad, const osg::Vec4& c
 	{
 		edgeVerts->push_back(v);
 	}
-	edgeVerts->push_back(quad[0]);  // 闭合
+	edgeVerts->push_back(quad[0]); // 闭合
 
 	osg::ref_ptr<osg::Vec4Array> edgeColors = new osg::Vec4Array;
-	edgeColors->push_back(osg::Vec4(0.0f, 0.0f, 0.0f, 0.15f));  // 半透明黑边框
+	edgeColors->push_back(osg::Vec4(0.0f, 0.0f, 0.0f, 0.15f)); // 半透明黑边框
 
 	osg::ref_ptr<osg::Geometry> edgeGeom = new osg::Geometry;
 	edgeGeom->setVertexArray(edgeVerts.get());
@@ -194,11 +190,9 @@ osg::Node* makeFaceLabelQuad(const osg::Vec3& anchor, const osg::Vec3& outwardNo
 	const float halfW = halfH * aspect;
 
 	osg::ref_ptr<osg::MatrixTransform> labelXform = new osg::MatrixTransform;
-	labelXform->setMatrix(osg::Matrix(
-		tangent.x(), tangent.y(), tangent.z(), 0.0,
-		upOnFace.x(), upOnFace.y(), upOnFace.z(), 0.0,
-		n.x(), n.y(), n.z(), 0.0,
-		0.0, 0.0, 0.0, 1.0) * osg::Matrix::translate(anchor));
+	labelXform->setMatrix(osg::Matrix(tangent.x(), tangent.y(), tangent.z(), 0.0, upOnFace.x(), upOnFace.y(),
+									  upOnFace.z(), 0.0, n.x(), n.y(), n.z(), 0.0, 0.0, 0.0, 0.0, 1.0) *
+						  osg::Matrix::translate(anchor));
 
 	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
 	verts->push_back(osg::Vec3(-halfW, -halfH, 0.0f));
@@ -259,17 +253,17 @@ osg::Node* createViewCubeFacesNode()
 	osg::ref_ptr<osg::Group> root = new osg::Group;
 
 	addFace(root.get(), {osg::Vec3(-h, -h, h), osg::Vec3(h, -h, h), osg::Vec3(h, h, h), osg::Vec3(-h, h, h)},
-		osg::Vec3d(0.0, 0.0, 1.0));
+			osg::Vec3d(0.0, 0.0, 1.0));
 	addFace(root.get(), {osg::Vec3(-h, h, -h), osg::Vec3(h, h, -h), osg::Vec3(h, -h, -h), osg::Vec3(-h, -h, -h)},
-		osg::Vec3d(0.0, 0.0, -1.0));
+			osg::Vec3d(0.0, 0.0, -1.0));
 	addFace(root.get(), {osg::Vec3(-h, h, -h), osg::Vec3(-h, h, h), osg::Vec3(h, h, h), osg::Vec3(h, h, -h)},
-		osg::Vec3d(0.0, 1.0, 0.0));
+			osg::Vec3d(0.0, 1.0, 0.0));
 	addFace(root.get(), {osg::Vec3(h, -h, -h), osg::Vec3(h, -h, h), osg::Vec3(-h, -h, h), osg::Vec3(-h, -h, -h)},
-		osg::Vec3d(0.0, -1.0, 0.0));
+			osg::Vec3d(0.0, -1.0, 0.0));
 	addFace(root.get(), {osg::Vec3(h, -h, -h), osg::Vec3(h, h, -h), osg::Vec3(h, h, h), osg::Vec3(h, -h, h)},
-		osg::Vec3d(1.0, 0.0, 0.0));
+			osg::Vec3d(1.0, 0.0, 0.0));
 	addFace(root.get(), {osg::Vec3(-h, h, -h), osg::Vec3(-h, -h, -h), osg::Vec3(-h, -h, h), osg::Vec3(-h, h, h)},
-		osg::Vec3d(-1.0, 0.0, 0.0));
+			osg::Vec3d(-1.0, 0.0, 0.0));
 
 	return root.release();
 }
@@ -323,9 +317,8 @@ void OsgScene::initViewCubeHud()
 	m_viewCubeHudCamera->addChild(hudRoot.get());
 	m_root->addChild(m_viewCubeHudCamera.get());
 	const double initDpr = (m_devicePixelRatio > 0.0) ? m_devicePixelRatio : 1.0;
-	updateViewCubeHudViewport(
-		static_cast<int>(std::lround(static_cast<double>(m_viewportWidth) * initDpr)),
-		static_cast<int>(std::lround(static_cast<double>(m_viewportHeight) * initDpr)));
+	updateViewCubeHudViewport(static_cast<int>(std::lround(static_cast<double>(m_viewportWidth) * initDpr)),
+							  static_cast<int>(std::lround(static_cast<double>(m_viewportHeight) * initDpr)));
 }
 
 void OsgScene::applyViewCubeFaceLabelImages(const osg::ref_ptr<osg::Image> images[6])
@@ -362,8 +355,8 @@ void OsgScene::updateViewCubeHudViewport(int framebufferWidth, int framebufferHe
 	{
 		return;
 	}
-	const HudCornerViewport vp = computeHudCornerViewport(
-		framebufferWidth, framebufferHeight, m_viewCubeHudMargin, m_viewCubeHudSize, true);
+	const HudCornerViewport vp =
+		computeHudCornerViewport(framebufferWidth, framebufferHeight, m_viewCubeHudMargin, m_viewCubeHudSize, true);
 	m_viewCubeHudEffectiveSize = vp.effectiveLogicalSize;
 	m_viewCubeHudCamera->setViewport(vp.x, vp.y, vp.width, vp.height);
 	applyHudSquareOrthoProjection(m_viewCubeHudCamera.get(), 1.45f, vp.width, vp.height);
@@ -376,7 +369,7 @@ bool OsgScene::tryPickViewCubeAtLogicalMouse(double logicalX, double logicalY)
 		return false;
 	}
 	if (!containsViewCubeLogicalRect(static_cast<int>(logicalX), static_cast<int>(logicalY), viewportWidth(),
-			m_viewCubeHudMargin, m_viewCubeHudEffectiveSize))
+									 m_viewCubeHudMargin, m_viewCubeHudEffectiveSize))
 	{
 		return false;
 	}
@@ -420,7 +413,7 @@ bool OsgScene::isMouseOverViewCube(double logicalX, double logicalY) const
 		return false;
 	}
 	if (!containsViewCubeLogicalRect(static_cast<int>(logicalX), static_cast<int>(logicalY), viewportWidth(),
-			m_viewCubeHudMargin, m_viewCubeHudEffectiveSize))
+									 m_viewCubeHudMargin, m_viewCubeHudEffectiveSize))
 	{
 		return false;
 	}

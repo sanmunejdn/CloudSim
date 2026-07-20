@@ -1,17 +1,21 @@
-#pragma once
+﻿#ifndef PROPERTYCORE_PROPERTYATTRIBUTEHELPERS_H
+#define PROPERTYCORE_PROPERTYATTRIBUTEHELPERS_H
+
+/// @file PropertyAttributeHelpers.h
+/// @brief 属性 JSON 行格式化与解析工具
 
 #include <array>
 #include <cctype>
 #include <limits>
-#include <json.hpp>
 #include <sstream>
 #include <string>
 #include <type_traits>
 
+#include <json.hpp>
+
 /// 属性 JSON 行格式化与解析工具
 namespace property_core
 {
-
 inline std::string formatDoubleFixed3(double value)
 {
 	std::ostringstream oss;
@@ -61,9 +65,8 @@ inline bool parseStrictInt(const std::string& text, int& out, std::string* errMs
 		{
 			++index;
 		}
-		if (index != text.size()
-			|| parsed < static_cast<long long>(std::numeric_limits<int>::min())
-			|| parsed > static_cast<long long>(std::numeric_limits<int>::max()))
+		if (index != text.size() || parsed < static_cast<long long>(std::numeric_limits<int>::min()) ||
+			parsed > static_cast<long long>(std::numeric_limits<int>::max()))
 		{
 			if (errMsg)
 			{
@@ -178,12 +181,8 @@ inline bool containsKey(const std::array<const char*, N>& keys, const std::strin
 }
 
 template <typename TAppendRow, typename TVec3>
-inline void appendVec3Rows(
-	nlohmann::json& rows,
-	const TVec3& vec,
-	const std::array<const char*, 3>& keys,
-	const std::array<const char*, 3>& labels,
-	TAppendRow appendRow)
+inline void appendVec3Rows(nlohmann::json& rows, const TVec3& vec, const std::array<const char*, 3>& keys,
+						   const std::array<const char*, 3>& labels, TAppendRow appendRow)
 {
 	appendRow(rows, keys[0], labels[0], true, formatDoubleFixed3(static_cast<double>(vec.x)));
 	appendRow(rows, keys[1], labels[1], true, formatDoubleFixed3(static_cast<double>(vec.y)));
@@ -191,11 +190,7 @@ inline void appendVec3Rows(
 }
 
 template <typename TVec3>
-inline bool applyVec3ByKey(
-	TVec3& vec,
-	const std::array<const char*, 3>& keys,
-	const std::string& key,
-	double value)
+inline bool applyVec3ByKey(TVec3& vec, const std::array<const char*, 3>& keys, const std::string& key, double value)
 {
 	if (key == keys[0])
 	{
@@ -216,12 +211,8 @@ inline bool applyVec3ByKey(
 }
 
 template <typename TAppendRow, typename TColor>
-inline void appendRgbaRows(
-	nlohmann::json& rows,
-	const TColor& color,
-	const std::array<const char*, 4>& keys,
-	const std::array<const char*, 4>& labels,
-	TAppendRow appendRow)
+inline void appendRgbaRows(nlohmann::json& rows, const TColor& color, const std::array<const char*, 4>& keys,
+						   const std::array<const char*, 4>& labels, TAppendRow appendRow)
 {
 	appendRow(rows, keys[0], labels[0], true, formatDoubleFixed3(static_cast<double>(color.r)));
 	appendRow(rows, keys[1], labels[1], true, formatDoubleFixed3(static_cast<double>(color.g)));
@@ -230,11 +221,7 @@ inline void appendRgbaRows(
 }
 
 template <typename TColor>
-inline bool applyRgbaByKey(
-	TColor& color,
-	const std::array<const char*, 4>& keys,
-	const std::string& key,
-	double value)
+inline bool applyRgbaByKey(TColor& color, const std::array<const char*, 4>& keys, const std::string& key, double value)
 {
 	if (key == keys[0])
 	{
@@ -260,3 +247,5 @@ inline bool applyRgbaByKey(
 }
 
 } // namespace property_core
+
+#endif // PROPERTYCORE_PROPERTYATTRIBUTEHELPERS_H

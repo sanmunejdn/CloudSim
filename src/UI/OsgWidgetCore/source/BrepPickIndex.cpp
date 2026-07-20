@@ -1,27 +1,24 @@
-#include "pch.h"
-#include "BrepPickIndex.h"
+﻿/// @file BrepPickIndex.cpp
+/// @brief BrepPickIndex 实现
 
-#include <Discretize.h>
-#include <BrepImportArtifacts.h>
-#include <ShapeHandle.h>
-#include <ShapeQuery.h>
-#include <Types.h>
-#include <ViewTessellate.h>
+#include "pch.h"
+
+#include "BrepPickIndex.h"
 
 #include <algorithm>
 #include <limits>
 #include <unordered_set>
 
+#include <BrepImportArtifacts.h>
+#include <Discretize.h>
+#include <ShapeHandle.h>
+#include <ShapeQuery.h>
+#include <Types.h>
+#include <ViewTessellate.h>
+
 namespace
 {
-
-double segmentDistancePx(
-	double qx,
-	double qy,
-	double s0x,
-	double s0y,
-	double s1x,
-	double s1y)
+double segmentDistancePx(double qx, double qy, double s0x, double s0y, double s1x, double s1y)
 {
 	const double segVx = s1x - s0x;
 	const double segVy = s1y - s0y;
@@ -39,21 +36,17 @@ double segmentDistancePx(
 	return std::hypot(qx - projx, qy - projy);
 }
 
-double polylineDistancePx(
-	const std::vector<float>& xyz,
-	const osg::Matrixd& mvp,
-	int viewportWidthPx,
-	int viewportHeightPx,
-	double mouseX,
-	double mouseY,
-	const std::function<bool(const geoalgo::Point3d&, osg::Vec3f&)>& modelPointToWorld)
+double polylineDistancePx(const std::vector<float>& xyz, const osg::Matrixd& mvp, int viewportWidthPx,
+						  int viewportHeightPx, double mouseX, double mouseY,
+						  const std::function<bool(const geoalgo::Point3d&, osg::Vec3f&)>& modelPointToWorld)
 {
 	const std::size_t nPts = xyz.size() / 3U;
 	if (nPts < 2U)
 	{
 		return (std::numeric_limits<double>::max)();
 	}
-	auto toScreen = [&](const geoalgo::Point3d& mp, double& sx, double& sy) -> bool {
+	auto toScreen = [&](const geoalgo::Point3d& mp, double& sx, double& sy) -> bool
+	{
 		osg::Vec3f world;
 		if (!modelPointToWorld(mp, world))
 		{
@@ -74,8 +67,8 @@ double polylineDistancePx(
 	{
 		const std::size_t i0 = (i - 1U) * 3U;
 		const std::size_t i1 = i * 3U;
-		const geoalgo::Point3d p0{ xyz[i0], xyz[i0 + 1U], xyz[i0 + 2U] };
-		const geoalgo::Point3d p1{ xyz[i1], xyz[i1 + 1U], xyz[i1 + 2U] };
+		const geoalgo::Point3d p0{xyz[i0], xyz[i0 + 1U], xyz[i0 + 2U]};
+		const geoalgo::Point3d p1{xyz[i1], xyz[i1 + 1U], xyz[i1 + 2U]};
 		double s0x = 0.0;
 		double s0y = 0.0;
 		double s1x = 0.0;
@@ -89,16 +82,14 @@ double polylineDistancePx(
 	return best;
 }
 
-void collectCandidateEdges(
-	const BrepPickIndex& index,
-	int hintFaceIndex,
-	bool expandAdjacent,
-	std::vector<int>& outEdges)
+void collectCandidateEdges(const BrepPickIndex& index, int hintFaceIndex, bool expandAdjacent,
+						   std::vector<int>& outEdges)
 {
 	outEdges.clear();
 	std::unordered_set<int> seen;
 	const auto& faceEdges = index.faceEdgeIndices();
-	const auto addFaceEdges = [&](int faceIdx) {
+	const auto addFaceEdges = [&](int faceIdx)
+	{
 		if (faceIdx < 0 || static_cast<std::size_t>(faceIdx) >= faceEdges.size())
 		{
 			return;
@@ -112,14 +103,12 @@ void collectCandidateEdges(
 		}
 	};
 	addFaceEdges(hintFaceIndex);
-	if (!expandAdjacent || hintFaceIndex < 0
-		|| static_cast<std::size_t>(hintFaceIndex) >= faceEdges.size())
+	if (!expandAdjacent || hintFaceIndex < 0 || static_cast<std::size_t>(hintFaceIndex) >= faceEdges.size())
 	{
 		return;
 	}
-	std::unordered_set<int> hintEdgeSet(
-		faceEdges[static_cast<std::size_t>(hintFaceIndex)].begin(),
-		faceEdges[static_cast<std::size_t>(hintFaceIndex)].end());
+	std::unordered_set<int> hintEdgeSet(faceEdges[static_cast<std::size_t>(hintFaceIndex)].begin(),
+										faceEdges[static_cast<std::size_t>(hintFaceIndex)].end());
 	for (int faceIdx = 0; faceIdx < static_cast<int>(faceEdges.size()); ++faceIdx)
 	{
 		if (faceIdx == hintFaceIndex)
@@ -255,18 +244,11 @@ bool BrepPickIndex::buildFromArtifacts(const geoalgo::BrepImportArtifacts& artif
 	return true;
 }
 
-bool BrepPickIndex::pickEdgeByScreen(
-	int hintFaceIndex,
-	double mouseX,
-	double mouseY,
-	const osg::Matrixd& mvp,
-	int viewportWidthPx,
-	int viewportHeightPx,
-	double hitRadiusPx,
-	const std::function<bool(const geoalgo::Point3d&, osg::Vec3f&)>& modelPointToWorld,
-	int& outEdgeIndex,
-	double& outDistancePx,
-	std::vector<osg::Vec3f>& outPolylineWorld) const
+bool BrepPickIndex::pickEdgeByScreen(int hintFaceIndex, double mouseX, double mouseY, const osg::Matrixd& mvp,
+									 int viewportWidthPx, int viewportHeightPx, double hitRadiusPx,
+									 const std::function<bool(const geoalgo::Point3d&, osg::Vec3f&)>& modelPointToWorld,
+									 int& outEdgeIndex, double& outDistancePx,
+									 std::vector<osg::Vec3f>& outPolylineWorld) const
 {
 	outEdgeIndex = -1;
 	outDistancePx = (std::numeric_limits<double>::max)();
@@ -278,7 +260,8 @@ bool BrepPickIndex::pickEdgeByScreen(
 
 	std::vector<int> candidateEdges;
 	collectCandidateEdges(*this, hintFaceIndex, false, candidateEdges);
-	auto scanCandidates = [&](const std::vector<int>& edges) -> bool {
+	auto scanCandidates = [&](const std::vector<int>& edges) -> bool
+	{
 		int bestEdge = -1;
 		double bestDist = (std::numeric_limits<double>::max)();
 		for (int edgeIdx : edges)
@@ -287,14 +270,9 @@ bool BrepPickIndex::pickEdgeByScreen(
 			{
 				continue;
 			}
-			const double dist = polylineDistancePx(
-				m_edgePolylinesModel[static_cast<std::size_t>(edgeIdx)],
-				mvp,
-				viewportWidthPx,
-				viewportHeightPx,
-				mouseX,
-				mouseY,
-				modelPointToWorld);
+			const double dist =
+				polylineDistancePx(m_edgePolylinesModel[static_cast<std::size_t>(edgeIdx)], mvp, viewportWidthPx,
+								   viewportHeightPx, mouseX, mouseY, modelPointToWorld);
 			if (dist < bestDist)
 			{
 				bestDist = dist;
@@ -311,7 +289,7 @@ bool BrepPickIndex::pickEdgeByScreen(
 		outPolylineWorld.reserve(pl.size() / 3U);
 		for (std::size_t i = 0; i + 2U < pl.size(); i += 3U)
 		{
-			const geoalgo::Point3d mp{ pl[i], pl[i + 1U], pl[i + 2U] };
+			const geoalgo::Point3d mp{pl[i], pl[i + 1U], pl[i + 2U]};
 			osg::Vec3f wp;
 			if (modelPointToWorld(mp, wp))
 			{

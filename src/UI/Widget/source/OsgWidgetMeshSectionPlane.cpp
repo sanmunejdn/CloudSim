@@ -1,8 +1,10 @@
-#include "OsgWidget.h"
+﻿/// @file OsgWidgetMeshSectionPlane.cpp
+/// @brief OsgWidgetMeshSectionPlane 实现
 
 #include "../../OsgWidgetCore/inc/OsgCompassGeometry.h"
 #include "../../OsgWidgetCore/inc/OsgCompassRender.h"
 #include "../../OsgWidgetCore/inc/OsgSectionPlaneGeometry.h"
+#include "OsgWidget.h"
 
 #include <algorithm>
 #include <cmath>
@@ -14,7 +16,6 @@
 
 namespace
 {
-
 osg::Quat attitudeFromNormalAndAxisU(const osg::Vec3d& normalUnit, const osg::Vec3d& axisUUnit)
 {
 	const osg::Vec3d z = normalUnit;
@@ -73,10 +74,7 @@ bool backendModelToWorld(const OsgWidget* self, const std::string& backendId, os
 	return self->getBackendRootWorldMatrix(backendId, outWorld);
 }
 
-bool worldPointToModel(
-	const osg::Matrixd& modelToWorld,
-	const osg::Vec3d& world,
-	osg::Vec3d& outModel)
+bool worldPointToModel(const osg::Matrixd& modelToWorld, const osg::Vec3d& world, osg::Vec3d& outModel)
 {
 	osg::Matrixd inv = osg::Matrixd::inverse(modelToWorld);
 	outModel = world * inv;
@@ -161,7 +159,8 @@ void OsgWidget::ensureMeshSectionPlaneOverlay(const std::string& backendIdUtf8)
 	{
 		m_sectionPlaneBackendId = backendIdUtf8;
 		float diag = 1000.f;
-		if (const auto it = m_backendObjectRoots.find(backendIdUtf8); it != m_backendObjectRoots.end() && it->second.valid())
+		if (const auto it = m_backendObjectRoots.find(backendIdUtf8);
+			it != m_backendObjectRoots.end() && it->second.valid())
 		{
 			(void)it;
 		}
@@ -171,18 +170,16 @@ void OsgWidget::ensureMeshSectionPlaneOverlay(const std::string& backendIdUtf8)
 	}
 }
 
-void OsgWidget::showMeshSectionPlane(
-	const std::string& backendIdUtf8,
-	const double originModelMm[3],
-	const double normalModel[3])
+void OsgWidget::showMeshSectionPlane(const std::string& backendIdUtf8, const double originModelMm[3],
+									 const double normalModel[3])
 {
 	ensureMeshSectionPlaneOverlay(backendIdUtf8);
 	m_sectionPlaneVisible = true;
 	m_sectionPlaneOriginModel.set(originModelMm[0], originModelMm[1], originModelMm[2]);
 	m_sectionPlaneNormalModel.set(normalModel[0], normalModel[1], normalModel[2]);
 	m_sectionPlaneAxisUModel = (std::abs(m_sectionPlaneNormalModel.z()) < 0.9)
-		? osg::Vec3d(0.0, 0.0, 1.0) ^ m_sectionPlaneNormalModel
-		: osg::Vec3d(0.0, 1.0, 0.0) ^ m_sectionPlaneNormalModel;
+								   ? osg::Vec3d(0.0, 0.0, 1.0) ^ m_sectionPlaneNormalModel
+								   : osg::Vec3d(0.0, 1.0, 0.0) ^ m_sectionPlaneNormalModel;
 	normalizeSectionAxes(m_sectionPlaneNormalModel, m_sectionPlaneAxisUModel);
 	setMeshSectionPlaneCompassVisible(m_sectionPlaneEditActive);
 	syncMeshSectionPlaneOverlayFromModel();
@@ -193,11 +190,9 @@ void OsgWidget::showMeshSectionPlane(
 	requestRedraw();
 }
 
-void OsgWidget::beginMeshSectionPlaneEdit(
-	const std::string& backendIdUtf8,
-	const double originModelMm[3],
-	const double normalModel[3],
-	std::function<void(const double origin[3], const double normal[3])> onChanged)
+void OsgWidget::beginMeshSectionPlaneEdit(const std::string& backendIdUtf8, const double originModelMm[3],
+										  const double normalModel[3],
+										  std::function<void(const double origin[3], const double normal[3])> onChanged)
 {
 	showMeshSectionPlane(backendIdUtf8, originModelMm, normalModel);
 	m_sectionPlaneEditActive = true;
@@ -277,14 +272,10 @@ void OsgWidget::notifyMeshSectionPlaneChanged()
 	{
 		return;
 	}
-	const double origin[3] = {
-		m_sectionPlaneOriginModel.x(),
-		m_sectionPlaneOriginModel.y(),
-		m_sectionPlaneOriginModel.z()};
-	const double normal[3] = {
-		m_sectionPlaneNormalModel.x(),
-		m_sectionPlaneNormalModel.y(),
-		m_sectionPlaneNormalModel.z()};
+	const double origin[3] = {m_sectionPlaneOriginModel.x(), m_sectionPlaneOriginModel.y(),
+							  m_sectionPlaneOriginModel.z()};
+	const double normal[3] = {m_sectionPlaneNormalModel.x(), m_sectionPlaneNormalModel.y(),
+							  m_sectionPlaneNormalModel.z()};
 	m_sectionPlaneOnChanged(origin, normal);
 }
 
@@ -309,8 +300,8 @@ void OsgWidget::syncMeshSectionPlaneOverlayFromModel()
 
 void OsgWidget::updateMeshSectionPlaneCompassScale()
 {
-	if (!m_sectionPlaneEditActive || !m_sectionPlaneCompassScaleTransform.valid() || !m_viewer.valid()
-		|| !m_viewer->getCamera())
+	if (!m_sectionPlaneEditActive || !m_sectionPlaneCompassScaleTransform.valid() || !m_viewer.valid() ||
+		!m_viewer->getCamera())
 	{
 		return;
 	}
@@ -324,12 +315,11 @@ void OsgWidget::updateMeshSectionPlaneCompassScale()
 	if (m_sectionPlaneGizmoRefDistance < 0.0)
 	{
 		m_sectionPlaneGizmoRefDistance = std::max(1.0, distance);
-		const double desiredAxisWorld = std::max(
-			osg_compass::kCompassMinAxisWorld,
-			static_cast<double>(m_sectionPlaneModelDiagonal) * osg_compass::kCompassModelDiagonalFactor);
-		m_sectionPlaneGizmoRefScale = std::max(
-			0.4,
-			std::min(800.0, desiredAxisWorld / static_cast<double>(osg_compass::kCompassAxisLength)));
+		const double desiredAxisWorld =
+			std::max(osg_compass::kCompassMinAxisWorld,
+					 static_cast<double>(m_sectionPlaneModelDiagonal) * osg_compass::kCompassModelDiagonalFactor);
+		m_sectionPlaneGizmoRefScale =
+			std::max(0.4, std::min(800.0, desiredAxisWorld / static_cast<double>(osg_compass::kCompassAxisLength)));
 	}
 	double scale = m_sectionPlaneGizmoRefScale * (distance / m_sectionPlaneGizmoRefDistance);
 	scale = std::max(0.3, std::min(1200.0, scale));
@@ -338,7 +328,8 @@ void OsgWidget::updateMeshSectionPlaneCompassScale()
 
 void OsgWidget::updateMeshSectionPlaneCompassHighlight(const DragAxis axis, const bool highlightRing)
 {
-	auto scaleBranch = [](const osg::ref_ptr<osg::MatrixTransform>& branch, const float s) {
+	auto scaleBranch = [](const osg::ref_ptr<osg::MatrixTransform>& branch, const float s)
+	{
 		if (branch.valid())
 		{
 			branch->setMatrix(osg::Matrixd::scale(s, s, s));
@@ -395,8 +386,8 @@ bool OsgWidget::beginMeshSectionPlaneScreenDrag()
 	m_sectionPlaneDragScreenAxisUx = 1.0;
 	m_sectionPlaneDragScreenAxisUy = 0.0;
 	m_sectionPlaneDragMmPerPixel = 1.0;
-	if (!m_sectionPlaneEditActive || !m_viewer.valid() || !m_viewer->getCamera() || viewportWidth() <= 0
-		|| viewportHeight() <= 0)
+	if (!m_sectionPlaneEditActive || !m_viewer.valid() || !m_viewer->getCamera() || viewportWidth() <= 0 ||
+		viewportHeight() <= 0)
 	{
 		return false;
 	}
@@ -421,14 +412,14 @@ bool OsgWidget::beginMeshSectionPlaneScreenDrag()
 
 	osg::Vec3d pivot;
 	computeMeshSectionPlanePivotWorld(pivot);
-	const osg::Vec3d tipWorld(
-		pivot.x() + axisW.x() * static_cast<double>(axisLenMm),
-		pivot.y() + axisW.y() * static_cast<double>(axisLenMm),
-		pivot.z() + axisW.z() * static_cast<double>(axisLenMm));
+	const osg::Vec3d tipWorld(pivot.x() + axisW.x() * static_cast<double>(axisLenMm),
+							  pivot.y() + axisW.y() * static_cast<double>(axisLenMm),
+							  pivot.z() + axisW.z() * static_cast<double>(axisLenMm));
 
 	osg::Camera* const camera = m_viewer->getCamera();
 	const osg::Matrixd mvp = camera->getViewMatrix() * camera->getProjectionMatrix();
-	auto projectToScreen = [&](const osg::Vec3d& world, double& sx, double& sy) {
+	auto projectToScreen = [&](const osg::Vec3d& world, double& sx, double& sy)
+	{
 		const osg::Vec3d clip = world * mvp;
 		sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
 		sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
@@ -480,9 +471,7 @@ void OsgWidget::applyMeshSectionPlaneTranslationAxis(const int axisIndex, const 
 	syncMeshSectionPlaneOverlayFromModel();
 }
 
-void OsgWidget::applyMeshSectionPlaneTranslationWorld(
-	const osg::Vec3d& hitWorld,
-	const osg::Vec3d& lastHitWorld)
+void OsgWidget::applyMeshSectionPlaneTranslationWorld(const osg::Vec3d& hitWorld, const osg::Vec3d& lastHitWorld)
 {
 	osg::Matrixd modelToWorld;
 	if (!backendModelToWorld(this, m_sectionPlaneBackendId, modelToWorld))
@@ -552,17 +541,15 @@ bool OsgWidget::pickMeshSectionPlaneDragPoint(const QPoint& mousePos, osg::Vec3d
 	return true;
 }
 
-int OsgWidget::pickMeshSectionPlaneAxisAtScreenPos(
-	const QPoint& mousePos,
-	const bool preferRing,
-	bool* outPickedRing) const
+int OsgWidget::pickMeshSectionPlaneAxisAtScreenPos(const QPoint& mousePos, const bool preferRing,
+												   bool* outPickedRing) const
 {
 	if (outPickedRing)
 	{
 		*outPickedRing = false;
 	}
-	if (!m_sectionPlaneEditActive || !m_viewer.valid() || !m_viewer->getCamera() || viewportWidth() <= 0
-		|| viewportHeight() <= 0)
+	if (!m_sectionPlaneEditActive || !m_viewer.valid() || !m_viewer->getCamera() || viewportWidth() <= 0 ||
+		viewportHeight() <= 0)
 	{
 		return kGizmoAxisNone;
 	}
@@ -587,19 +574,21 @@ int OsgWidget::pickMeshSectionPlaneAxisAtScreenPos(
 	osg::Vec3d origin;
 	computeMeshSectionPlanePivotWorld(origin);
 
-	auto axisTipWorld = [&](const DragAxis axis) -> osg::Vec3f {
+	auto axisTipWorld = [&](const DragAxis axis) -> osg::Vec3f
+	{
 		osg::Vec3d axisW;
 		if (!meshSectionPlaneCompassUnitAxisWorld(axis, axisW))
 		{
-			return osg::Vec3f(static_cast<float>(origin.x()), static_cast<float>(origin.y()), static_cast<float>(origin.z()));
+			return osg::Vec3f(static_cast<float>(origin.x()), static_cast<float>(origin.y()),
+							  static_cast<float>(origin.z()));
 		}
-		return osg::Vec3f(
-			static_cast<float>(origin.x() + axisW.x() * static_cast<double>(axisLen)),
-			static_cast<float>(origin.y() + axisW.y() * static_cast<double>(axisLen)),
-			static_cast<float>(origin.z() + axisW.z() * static_cast<double>(axisLen)));
+		return osg::Vec3f(static_cast<float>(origin.x() + axisW.x() * static_cast<double>(axisLen)),
+						  static_cast<float>(origin.y() + axisW.y() * static_cast<double>(axisLen)),
+						  static_cast<float>(origin.z() + axisW.z() * static_cast<double>(axisLen)));
 	};
 
-	auto projectToScreen = [&](const osg::Vec3f& world, double& sx, double& sy) {
+	auto projectToScreen = [&](const osg::Vec3f& world, double& sx, double& sy)
+	{
 		const osg::Vec3d clip = osg::Vec3d(world) * mvp;
 		sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
 		sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
@@ -614,14 +603,14 @@ int OsgWidget::pickMeshSectionPlaneAxisAtScreenPos(
 	double pzx = 0;
 	double pzy = 0;
 	projectToScreen(
-		osg::Vec3f(static_cast<float>(origin.x()), static_cast<float>(origin.y()), static_cast<float>(origin.z())),
-		ox,
+		osg::Vec3f(static_cast<float>(origin.x()), static_cast<float>(origin.y()), static_cast<float>(origin.z())), ox,
 		oy);
 	projectToScreen(axisTipWorld(DragAxis::X), pxx, pxy);
 	projectToScreen(axisTipWorld(DragAxis::Y), pyx, pyy);
 	projectToScreen(axisTipWorld(DragAxis::Z), pzx, pzy);
 
-	auto distanceToSegment = [](double p0x, double p0y, double p1x, double p1y, double qx, double qy) -> double {
+	auto distanceToSegment = [](double p0x, double p0y, double p1x, double p1y, double qx, double qy) -> double
+	{
 		const double vx = p1x - p0x;
 		const double vy = p1y - p0y;
 		const double wx = qx - p0x;
@@ -638,8 +627,8 @@ int OsgWidget::pickMeshSectionPlaneAxisAtScreenPos(
 	const double dx = distanceToSegment(ox, oy, pxx, pxy, mx, my);
 	const double dy = distanceToSegment(ox, oy, pyx, pyy, mx, my);
 	const double dz = distanceToSegment(ox, oy, pzx, pzy, mx, my);
-	const double axisLenPx = std::max(
-		{std::hypot(pxx - ox, pxy - oy), std::hypot(pyx - ox, pyy - oy), std::hypot(pzx - ox, pzy - oy), 1.0});
+	const double axisLenPx =
+		std::max({std::hypot(pxx - ox, pxy - oy), std::hypot(pyx - ox, pyy - oy), std::hypot(pzx - ox, pzy - oy), 1.0});
 	const double threshold = std::clamp(0.22 * axisLenPx, 14.0, 44.0);
 	const double ringThreshold = std::clamp(0.14 * axisLenPx, 10.0, 36.0);
 
@@ -650,7 +639,8 @@ int OsgWidget::pickMeshSectionPlaneAxisAtScreenPos(
 		axisDirW[ai].set(0.0, 0.0, 1.0);
 		(void)meshSectionPlaneCompassUnitAxisWorld(dragAxes[ai], axisDirW[ai]);
 	}
-	auto ringPointWorld = [&](const int ringAxis, const float ca, const float sa) -> osg::Vec3f {
+	auto ringPointWorld = [&](const int ringAxis, const float ca, const float sa) -> osg::Vec3f
+	{
 		const double rr = static_cast<double>(ringRadius);
 		osg::Vec3d w = origin;
 		if (ringAxis == kGizmoAxisX)
@@ -668,7 +658,8 @@ int OsgWidget::pickMeshSectionPlaneAxisAtScreenPos(
 		return osg::Vec3f(static_cast<float>(w.x()), static_cast<float>(w.y()), static_cast<float>(w.z()));
 	};
 
-	auto minDistanceToProjectedRing = [&](int axis) -> double {
+	auto minDistanceToProjectedRing = [&](int axis) -> double
+	{
 		const int segments = 72;
 		const float r = ringRadius;
 		double minDist = 1e9;
@@ -778,9 +769,7 @@ bool OsgWidget::getCameraViewDirectionWorld(double outDirUnit[3]) const
 	return true;
 }
 
-bool OsgWidget::getCameraViewDirectionInBackendModel(
-	const std::string& backendIdUtf8,
-	double outDirModel[3]) const
+bool OsgWidget::getCameraViewDirectionInBackendModel(const std::string& backendIdUtf8, double outDirModel[3]) const
 {
 	double dirW[3] = {};
 	if (!getCameraViewDirectionWorld(dirW))

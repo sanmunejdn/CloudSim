@@ -1,10 +1,13 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_FACEINTERSECTIONDISCRETIZER_H
+#define GEOMETRYALGORITHM_FACEINTERSECTIONDISCRETIZER_H
+
+/// @file FaceIntersectionDiscretizer.h
+/// @brief FaceIntersectionDiscretizer 接口
 
 #include "IFeatureDiscretizer.h"
 
 namespace geoalgo
 {
-
 class FaceIntersectionDiscretizer final : public IFeatureDiscretizer
 {
 public:
@@ -15,13 +18,12 @@ public:
 
 	std::vector<FeatureDiscretizerParamField> paramFields() const override;
 
-	bool discretize(
-		const TopoDS_Shape& shape,
-		const FeatureDiscretizeInput& input,
-		RawPath& out,
-		std::string* errMsg = nullptr) const override;
+	bool discretize(const TopoDS_Shape& shape, const FeatureDiscretizeInput& input, RawPath& out,
+					std::string* errMsg = nullptr) const override;
 
 	bool validate(const FeatureDiscretizeInput& input, std::string* errMsg = nullptr) const override;
 };
 
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_FACEINTERSECTIONDISCRETIZER_H

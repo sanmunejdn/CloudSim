@@ -1,3 +1,6 @@
+﻿/// @file ViewPresetOverlay.cpp
+/// @brief ViewPresetOverlay 实现
+
 #include "ViewPresetOverlay.h"
 
 #include <QFont>
@@ -7,8 +10,8 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
-namespace {
-
+namespace
+{
 constexpr int kCubeBtnSize = 44;
 constexpr int kIsoBtnHeight = 36;
 
@@ -18,24 +21,38 @@ QString presetTooltip(OsgScene::CameraViewPreset preset, bool chinese)
 	{
 		switch (preset)
 		{
-		case OsgScene::CameraViewPreset::Front: return QStringLiteral("正视 (+Y)");
-		case OsgScene::CameraViewPreset::Back: return QStringLiteral("后视 (-Y)");
-		case OsgScene::CameraViewPreset::Left: return QStringLiteral("左视 (-X)");
-		case OsgScene::CameraViewPreset::Right: return QStringLiteral("右视 (+X)");
-		case OsgScene::CameraViewPreset::Top: return QStringLiteral("俯视 (+Z)");
-		case OsgScene::CameraViewPreset::Bottom: return QStringLiteral("仰视 (-Z)");
-		case OsgScene::CameraViewPreset::Iso: return QStringLiteral("等轴测视图");
+		case OsgScene::CameraViewPreset::Front:
+			return QStringLiteral("正视 (+Y)");
+		case OsgScene::CameraViewPreset::Back:
+			return QStringLiteral("后视 (-Y)");
+		case OsgScene::CameraViewPreset::Left:
+			return QStringLiteral("左视 (-X)");
+		case OsgScene::CameraViewPreset::Right:
+			return QStringLiteral("右视 (+X)");
+		case OsgScene::CameraViewPreset::Top:
+			return QStringLiteral("俯视 (+Z)");
+		case OsgScene::CameraViewPreset::Bottom:
+			return QStringLiteral("仰视 (-Z)");
+		case OsgScene::CameraViewPreset::Iso:
+			return QStringLiteral("等轴测视图");
 		}
 	}
 	switch (preset)
 	{
-	case OsgScene::CameraViewPreset::Front: return QStringLiteral("Front (+Y)");
-	case OsgScene::CameraViewPreset::Back: return QStringLiteral("Back (-Y)");
-	case OsgScene::CameraViewPreset::Left: return QStringLiteral("Left (-X)");
-	case OsgScene::CameraViewPreset::Right: return QStringLiteral("Right (+X)");
-	case OsgScene::CameraViewPreset::Top: return QStringLiteral("Top (+Z)");
-	case OsgScene::CameraViewPreset::Bottom: return QStringLiteral("Bottom (-Z)");
-	case OsgScene::CameraViewPreset::Iso: return QStringLiteral("Isometric view");
+	case OsgScene::CameraViewPreset::Front:
+		return QStringLiteral("Front (+Y)");
+	case OsgScene::CameraViewPreset::Back:
+		return QStringLiteral("Back (-Y)");
+	case OsgScene::CameraViewPreset::Left:
+		return QStringLiteral("Left (-X)");
+	case OsgScene::CameraViewPreset::Right:
+		return QStringLiteral("Right (+X)");
+	case OsgScene::CameraViewPreset::Top:
+		return QStringLiteral("Top (+Z)");
+	case OsgScene::CameraViewPreset::Bottom:
+		return QStringLiteral("Bottom (-Z)");
+	case OsgScene::CameraViewPreset::Iso:
+		return QStringLiteral("Isometric view");
 	}
 	return QString();
 }
@@ -46,32 +63,45 @@ QString presetShortLabel(OsgScene::CameraViewPreset preset, bool chinese)
 	{
 		switch (preset)
 		{
-		case OsgScene::CameraViewPreset::Front: return QStringLiteral("前");
-		case OsgScene::CameraViewPreset::Back: return QStringLiteral("后");
-		case OsgScene::CameraViewPreset::Left: return QStringLiteral("左");
-		case OsgScene::CameraViewPreset::Right: return QStringLiteral("右");
-		case OsgScene::CameraViewPreset::Top: return QStringLiteral("顶");
-		case OsgScene::CameraViewPreset::Bottom: return QStringLiteral("底");
-		case OsgScene::CameraViewPreset::Iso: return QStringLiteral("等轴");
+		case OsgScene::CameraViewPreset::Front:
+			return QStringLiteral("前");
+		case OsgScene::CameraViewPreset::Back:
+			return QStringLiteral("后");
+		case OsgScene::CameraViewPreset::Left:
+			return QStringLiteral("左");
+		case OsgScene::CameraViewPreset::Right:
+			return QStringLiteral("右");
+		case OsgScene::CameraViewPreset::Top:
+			return QStringLiteral("顶");
+		case OsgScene::CameraViewPreset::Bottom:
+			return QStringLiteral("底");
+		case OsgScene::CameraViewPreset::Iso:
+			return QStringLiteral("等轴");
 		}
 	}
 	switch (preset)
 	{
-	case OsgScene::CameraViewPreset::Front: return QStringLiteral("F");
-	case OsgScene::CameraViewPreset::Back: return QStringLiteral("B");
-	case OsgScene::CameraViewPreset::Left: return QStringLiteral("L");
-	case OsgScene::CameraViewPreset::Right: return QStringLiteral("R");
-	case OsgScene::CameraViewPreset::Top: return QStringLiteral("T");
-	case OsgScene::CameraViewPreset::Bottom: return QStringLiteral("D");
-	case OsgScene::CameraViewPreset::Iso: return QStringLiteral("Iso");
+	case OsgScene::CameraViewPreset::Front:
+		return QStringLiteral("F");
+	case OsgScene::CameraViewPreset::Back:
+		return QStringLiteral("B");
+	case OsgScene::CameraViewPreset::Left:
+		return QStringLiteral("L");
+	case OsgScene::CameraViewPreset::Right:
+		return QStringLiteral("R");
+	case OsgScene::CameraViewPreset::Top:
+		return QStringLiteral("T");
+	case OsgScene::CameraViewPreset::Bottom:
+		return QStringLiteral("D");
+	case OsgScene::CameraViewPreset::Iso:
+		return QStringLiteral("Iso");
 	}
 	return QString();
 }
 
 } // namespace
 
-ViewPresetOverlay::ViewPresetOverlay(QWidget* parent)
-	: QWidget(parent)
+ViewPresetOverlay::ViewPresetOverlay(QWidget* parent) : QWidget(parent)
 {
 	setAttribute(Qt::WA_StyledBackground, true);
 
@@ -94,11 +124,10 @@ ViewPresetOverlay::ViewPresetOverlay(QWidget* parent)
 	grid->setHorizontalSpacing(5);
 	grid->setVerticalSpacing(5);
 
-	const auto addBtn = [this, grid](int row, int col, OsgScene::CameraViewPreset preset, bool emphasize = false) {
-		return addPresetButton(grid, row, col, 1, 1,
-			presetShortLabel(preset, false),
-			presetShortLabel(preset, true),
-			preset, emphasize);
+	const auto addBtn = [this, grid](int row, int col, OsgScene::CameraViewPreset preset, bool emphasize = false)
+	{
+		return addPresetButton(grid, row, col, 1, 1, presetShortLabel(preset, false), presetShortLabel(preset, true),
+							   preset, emphasize);
 	};
 
 	addBtn(0, 1, OsgScene::CameraViewPreset::Top);
@@ -110,9 +139,8 @@ ViewPresetOverlay::ViewPresetOverlay(QWidget* parent)
 
 	root->addWidget(gridHost);
 
-	m_isoButton = addPresetButton(nullptr, 0, 0, 1, 1,
-		QStringLiteral("Iso"), QStringLiteral("等轴"),
-		OsgScene::CameraViewPreset::Iso);
+	m_isoButton = addPresetButton(nullptr, 0, 0, 1, 1, QStringLiteral("Iso"), QStringLiteral("等轴"),
+								  OsgScene::CameraViewPreset::Iso);
 	m_isoButton->setMinimumHeight(kIsoBtnHeight);
 	m_isoButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 	root->addWidget(m_isoButton);
@@ -156,81 +184,67 @@ void ViewPresetOverlay::refreshButtonLabels()
 
 void ViewPresetOverlay::applyPanelStyle()
 {
-	const QString panelBg = m_darkTheme
-		? QStringLiteral("rgba(32, 34, 38, 220)")
-		: QStringLiteral("rgba(255, 255, 255, 235)");
-	const QString panelBorder = m_darkTheme
-		? QStringLiteral("rgba(255, 255, 255, 0.10)")
-		: QStringLiteral("rgba(0, 0, 0, 0.08)");
-	const QString titleColor = m_darkTheme
-		? QStringLiteral("rgba(255, 255, 255, 0.45)")
-		: QStringLiteral("rgba(0, 0, 0, 0.45)");
-	const QString btnBg = m_darkTheme
-		? QStringLiteral("rgba(255, 255, 255, 0.06)")
-		: QStringLiteral("rgba(0, 0, 0, 0.04)");
-	const QString btnBorder = m_darkTheme
-		? QStringLiteral("rgba(255, 255, 255, 0.12)")
-		: QStringLiteral("rgba(0, 0, 0, 0.10)");
-	const QString btnText = m_darkTheme
-		? QStringLiteral("rgba(255, 255, 255, 0.88)")
-		: QStringLiteral("rgba(0, 0, 0, 0.82)");
-	const QString btnHover = m_darkTheme
-		? QStringLiteral("rgba(66, 130, 218, 0.42)")
-		: QStringLiteral("rgba(0, 120, 215, 0.18)");
-	const QString btnPressed = m_darkTheme
-		? QStringLiteral("rgba(42, 130, 218, 0.55)")
-		: QStringLiteral("rgba(0, 120, 215, 0.28)");
-	const QString frontBorder = m_darkTheme
-		? QStringLiteral("rgba(66, 163, 230, 0.75)")
-		: QStringLiteral("rgba(0, 120, 215, 0.55)");
-	const QString frontBg = m_darkTheme
-		? QStringLiteral("rgba(66, 130, 218, 0.22)")
-		: QStringLiteral("rgba(0, 120, 215, 0.10)");
+	const QString panelBg =
+		m_darkTheme ? QStringLiteral("rgba(32, 34, 38, 220)") : QStringLiteral("rgba(255, 255, 255, 235)");
+	const QString panelBorder =
+		m_darkTheme ? QStringLiteral("rgba(255, 255, 255, 0.10)") : QStringLiteral("rgba(0, 0, 0, 0.08)");
+	const QString titleColor =
+		m_darkTheme ? QStringLiteral("rgba(255, 255, 255, 0.45)") : QStringLiteral("rgba(0, 0, 0, 0.45)");
+	const QString btnBg =
+		m_darkTheme ? QStringLiteral("rgba(255, 255, 255, 0.06)") : QStringLiteral("rgba(0, 0, 0, 0.04)");
+	const QString btnBorder =
+		m_darkTheme ? QStringLiteral("rgba(255, 255, 255, 0.12)") : QStringLiteral("rgba(0, 0, 0, 0.10)");
+	const QString btnText =
+		m_darkTheme ? QStringLiteral("rgba(255, 255, 255, 0.88)") : QStringLiteral("rgba(0, 0, 0, 0.82)");
+	const QString btnHover =
+		m_darkTheme ? QStringLiteral("rgba(66, 130, 218, 0.42)") : QStringLiteral("rgba(0, 120, 215, 0.18)");
+	const QString btnPressed =
+		m_darkTheme ? QStringLiteral("rgba(42, 130, 218, 0.55)") : QStringLiteral("rgba(0, 120, 215, 0.28)");
+	const QString frontBorder =
+		m_darkTheme ? QStringLiteral("rgba(66, 163, 230, 0.75)") : QStringLiteral("rgba(0, 120, 215, 0.55)");
+	const QString frontBg =
+		m_darkTheme ? QStringLiteral("rgba(66, 130, 218, 0.22)") : QStringLiteral("rgba(0, 120, 215, 0.10)");
 
 	m_titleLabel->setStyleSheet(QStringLiteral("color: %1; background: transparent; border: none;").arg(titleColor));
 
-	setStyleSheet(QStringLiteral(
-		"ViewPresetOverlay {"
-		"  background-color: %1;"
-		"  border: 1px solid %2;"
-		"  border-radius: 0;"
-		"}"
-		"#viewPresetCubeHost { background: transparent; border: none; }"
-		"QToolButton {"
-		"  min-width: %3px; max-width: %3px;"
-		"  min-height: %3px; max-height: %3px;"
-		"  padding: 0;"
-		"  font-size: 13px;"
-		"  font-weight: 500;"
-		"  color: %4;"
-		"  background-color: %5;"
-		"  border: 1px solid %6;"
-		"  border-radius: 4px;"
-		"}"
-		"QToolButton:hover { background-color: %7; }"
-		"QToolButton:pressed { background-color: %8; }"
-		"QToolButton[emphasis=\"true\"] {"
-		"  background-color: %9;"
-		"  border: 1px solid %10;"
-		"  font-weight: 600;"
-		"}"
-		"QToolButton[iso=\"true\"] {"
-		"  min-width: 0; max-width: 16777215;"
-		"  min-height: %11px; max-height: %11px;"
-		"  border-radius: 4px;"
-		"  font-size: 12px;"
-		"  letter-spacing: 0.5px;"
-		"}"
-	).arg(panelBg, panelBorder,
-		QString::number(kCubeBtnSize),
-		btnText, btnBg, btnBorder,
-		btnHover, btnPressed,
-		frontBg, frontBorder,
-		QString::number(kIsoBtnHeight)));
+	setStyleSheet(QStringLiteral("ViewPresetOverlay {"
+								 "  background-color: %1;"
+								 "  border: 1px solid %2;"
+								 "  border-radius: 0;"
+								 "}"
+								 "#viewPresetCubeHost { background: transparent; border: none; }"
+								 "QToolButton {"
+								 "  min-width: %3px; max-width: %3px;"
+								 "  min-height: %3px; max-height: %3px;"
+								 "  padding: 0;"
+								 "  font-size: 13px;"
+								 "  font-weight: 500;"
+								 "  color: %4;"
+								 "  background-color: %5;"
+								 "  border: 1px solid %6;"
+								 "  border-radius: 4px;"
+								 "}"
+								 "QToolButton:hover { background-color: %7; }"
+								 "QToolButton:pressed { background-color: %8; }"
+								 "QToolButton[emphasis=\"true\"] {"
+								 "  background-color: %9;"
+								 "  border: 1px solid %10;"
+								 "  font-weight: 600;"
+								 "}"
+								 "QToolButton[iso=\"true\"] {"
+								 "  min-width: 0; max-width: 16777215;"
+								 "  min-height: %11px; max-height: %11px;"
+								 "  border-radius: 4px;"
+								 "  font-size: 12px;"
+								 "  letter-spacing: 0.5px;"
+								 "}")
+					  .arg(panelBg, panelBorder, QString::number(kCubeBtnSize), btnText, btnBg, btnBorder, btnHover,
+						   btnPressed, frontBg, frontBorder, QString::number(kIsoBtnHeight)));
 }
 
 QToolButton* ViewPresetOverlay::addPresetButton(QGridLayout* grid, int row, int col, int rowSpan, int colSpan,
-	const QString& labelEn, const QString& labelZh, OsgScene::CameraViewPreset preset, bool emphasize)
+												const QString& labelEn, const QString& labelZh,
+												OsgScene::CameraViewPreset preset, bool emphasize)
 {
 	auto* btn = new QToolButton(this);
 	btn->setText(m_useChinese ? labelZh : labelEn);
@@ -251,8 +265,6 @@ QToolButton* ViewPresetOverlay::addPresetButton(QGridLayout* grid, int row, int 
 	{
 		grid->addWidget(btn, row, col, rowSpan, colSpan, Qt::AlignCenter);
 	}
-	connect(btn, &QToolButton::clicked, this, [this, preset]() {
-		emit presetRequested(preset);
-	});
+	connect(btn, &QToolButton::clicked, this, [this, preset]() { emit presetRequested(preset); });
 	return btn;
 }

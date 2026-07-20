@@ -1,3 +1,6 @@
+﻿/// @file TrajectoryOpConfigImpl.cpp
+/// @brief TrajectoryOpConfigImpl 实现
+
 // TrajectoryOpConfigImpl 实现
 #include "TrajectoryOpConfigImpl.h"
 
@@ -10,12 +13,9 @@
 
 namespace trajectory_algo
 {
-
-TrajectoryOpConfigImpl::TrajectoryOpConfigImpl(
-	const RobotInstruction::TrajectoryOpKind kind,
-	std::string jsonRelativePath)
-	: m_kind(kind)
-	, m_jsonRelativePath(std::move(jsonRelativePath))
+TrajectoryOpConfigImpl::TrajectoryOpConfigImpl(const RobotInstruction::TrajectoryOpKind kind,
+											   std::string jsonRelativePath)
+	: m_kind(kind), m_jsonRelativePath(std::move(jsonRelativePath))
 {
 }
 
@@ -75,8 +75,8 @@ std::vector<TrajectoryOpParamField> TrajectoryOpConfigImpl::paramFields() const
 	return merged;
 }
 
-RobotInstruction::TrajectoryOpDescriptor TrajectoryOpConfigImpl::defaultDescriptor(
-	const RobotInstruction::OpScope& scope) const
+RobotInstruction::TrajectoryOpDescriptor
+TrajectoryOpConfigImpl::defaultDescriptor(const RobotInstruction::OpScope& scope) const
 {
 	const ITrajectoryOp* algo = TrajectoryOpRegistry::instance().get(m_kind);
 	if (!algo)
@@ -106,9 +106,8 @@ RobotInstruction::TrajectoryOpDescriptor TrajectoryOpConfigImpl::defaultDescript
 	return op;
 }
 
-std::unique_ptr<IOpParamConfig> makeTrajectoryOpConfig(
-	const RobotInstruction::TrajectoryOpKind kind,
-	const char* jsonRelativePath)
+std::unique_ptr<IOpParamConfig> makeTrajectoryOpConfig(const RobotInstruction::TrajectoryOpKind kind,
+													   const char* jsonRelativePath)
 {
 	return std::make_unique<TrajectoryOpConfigImpl>(kind, jsonRelativePath);
 }

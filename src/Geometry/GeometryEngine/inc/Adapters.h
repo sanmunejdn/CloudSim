@@ -1,16 +1,21 @@
-#pragma once
+﻿#ifndef GEOMETRYENGINE_ADAPTERS_H
+#define GEOMETRYENGINE_ADAPTERS_H
+
+/// @file Adapters.h
+/// @brief 16 double 列主序（兼容 BackendMat4::v）
 
 #include "geometry_engine_global.h"
+
 #include "RigidTransform.h"
 
 #include <array>
+
 #include <osg/Matrixd>
 #include <osg/Quat>
 #include <osg/Vec3f>
 
 namespace engine
 {
-
 /// 16 double 列主序（兼容 BackendMat4::v）
 using ColMajorMat4 = std::array<double, 16>;
 
@@ -25,3 +30,5 @@ GEOMETRY_ENGINE_API void quatToEulerDeg(const osg::Quat& q, double& exDeg, doubl
 GEOMETRY_ENGINE_API osg::Vec3f quatToEulerDegVec3f(const osg::Quat& q);
 
 } // namespace engine
+
+#endif // GEOMETRYENGINE_ADAPTERS_H

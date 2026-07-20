@@ -1,7 +1,12 @@
-#pragma once
+﻿#ifndef TRAJECTORYALGORITHM_TRAJECTORYOPREGISTRY_H
+#define TRAJECTORYALGORITHM_TRAJECTORYOPREGISTRY_H
+
+/// @file TrajectoryOpRegistry.h
+/// @brief TrajectoryOpRegistry 接口
+
+#include "trajectory_algorithm_global.h"
 
 #include "ITrajectoryOp.h"
-#include "trajectory_algorithm_global.h"
 
 #include <memory>
 #include <string>
@@ -10,7 +15,6 @@
 
 namespace trajectory_algo
 {
-
 class TRAJECTORY_ALGORITHM_API TrajectoryOpRegistry
 {
 public:
@@ -38,10 +42,13 @@ private:
 
 TRAJECTORY_ALGORITHM_API void ensureTrajectoryOpBuiltinsRegistered();
 
-#define REGISTER_TRAJECTORY_OP(OpType) \
-	static const bool OpType##_registered = []() { \
+#define REGISTER_TRAJECTORY_OP(OpType)                                                            \
+	static const bool OpType##_registered = []()                                                  \
+	{                                                                                             \
 		trajectory_algo::TrajectoryOpRegistry::instance().registerOp(std::make_unique<OpType>()); \
-		return true; \
+		return true;                                                                              \
 	}()
 
 } // namespace trajectory_algo
+
+#endif // TRAJECTORYALGORITHM_TRAJECTORYOPREGISTRY_H

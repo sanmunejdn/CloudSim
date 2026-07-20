@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_OSGWIDGETIMPORTCONTROLLER_H
+#define CLOUDSIMHOST_OSGWIDGETIMPORTCONTROLLER_H
+
+/// @file OsgWidgetImportController.h
+/// @brief 从文件导入模型或点云到 OSG 暂存/预览场景（staging），与后端数据绑定前的预览加载。
 
 #include <QString>
 
@@ -12,3 +16,4 @@ public:
 	bool importPointCloudFile(OsgWidget& self, const QString& filePath, QString* errorMessage);
 };
 
+#endif // CLOUDSIMHOST_OSGWIDGETIMPORTCONTROLLER_H

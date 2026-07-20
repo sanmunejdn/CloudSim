@@ -1,38 +1,36 @@
+﻿/// @file Reconstruction.cpp
+/// @brief Reconstruction 实现
+
 #include "Reconstruction.h"
 
 #include "Measure.h"
 #include "PointCloudBuffer.h"
 #include "Preprocess.h"
 
-#include <CGAL/Simple_cartesian.h>
-#include <CGAL/Surface_mesh.h>
-#include <CGAL/poisson_surface_reconstruction.h>
-#include <CGAL/Scale_space_surface_reconstruction_3.h>
-#include <CGAL/Polygon_mesh_processing/orient_polygon_soup.h>
-#include <CGAL/Polygon_mesh_processing/repair_polygon_soup.h>
-#include <CGAL/property_map.h>
-
 #include <algorithm>
 #include <map>
 #include <tuple>
 
+#include <CGAL/Polygon_mesh_processing/orient_polygon_soup.h>
+#include <CGAL/Polygon_mesh_processing/repair_polygon_soup.h>
+#include <CGAL/Scale_space_surface_reconstruction_3.h>
+#include <CGAL/Simple_cartesian.h>
+#include <CGAL/Surface_mesh.h>
+#include <CGAL/poisson_surface_reconstruction.h>
+#include <CGAL/property_map.h>
+
 namespace pclalgo
 {
-
 namespace
 {
-
 using Kernel = CGAL::Simple_cartesian<double>;
 using Point_3 = Kernel::Point_3;
 using Vector_3 = Kernel::Vector_3;
 using Point_with_normal = std::pair<Point_3, Vector_3>;
 using Surface_mesh = CGAL::Surface_mesh<Point_3>;
 
-bool buildPointNormalFromBuffers(
-	const std::vector<float>& xyz,
-	const std::vector<float>& normals,
-	std::vector<Point_with_normal>& points,
-	std::string* errMsg)
+bool buildPointNormalFromBuffers(const std::vector<float>& xyz, const std::vector<float>& normals,
+								 std::vector<Point_with_normal>& points, std::string* errMsg)
 {
 	if (!validXyzLength(xyz) || normals.size() != xyz.size())
 	{
@@ -47,9 +45,8 @@ bool buildPointNormalFromBuffers(
 	for (std::size_t i = 0; i < pointCountFromXyz(xyz); ++i)
 	{
 		const std::size_t b = i * 3U;
-		points.emplace_back(
-			Point_3(xyz[b], xyz[b + 1U], xyz[b + 2U]),
-			Vector_3(normals[b], normals[b + 1U], normals[b + 2U]));
+		points.emplace_back(Point_3(xyz[b], xyz[b + 1U], xyz[b + 2U]),
+							Vector_3(normals[b], normals[b + 1U], normals[b + 2U]));
 	}
 	return true;
 }
@@ -61,11 +58,11 @@ void surfaceMeshToTriangleSoup(const Surface_mesh& mesh, std::vector<float>& tri
 	{
 		return;
 	}
-	
+
 	// 预分配内存：假设大部分面是三角形
 	const std::size_t estimatedTriangles = mesh.num_faces();
 	triangleSoupOut.reserve(estimatedTriangles * 9U);
-	
+
 	for (const auto face : mesh.faces())
 	{
 		// 直接访问顶点，避免创建临时vector
@@ -73,18 +70,18 @@ void surfaceMeshToTriangleSoup(const Surface_mesh& mesh, std::vector<float>& tri
 		auto v0 = mesh.target(halfedge);
 		auto v1 = mesh.target(mesh.next(halfedge));
 		auto v2 = mesh.target(mesh.next(mesh.next(halfedge)));
-		
+
 		// 检查是否为三角形（通过检查next(next(next(h)))是否回到h）
 		if (mesh.next(mesh.next(mesh.next(halfedge))) != halfedge)
 		{
 			// 非三角形面，跳过或处理
 			continue;
 		}
-		
+
 		const Point_3& p0 = mesh.point(v0);
 		const Point_3& p1 = mesh.point(v1);
 		const Point_3& p2 = mesh.point(v2);
-		
+
 		triangleSoupOut.push_back(static_cast<float>(p0.x()));
 		triangleSoupOut.push_back(static_cast<float>(p0.y()));
 		triangleSoupOut.push_back(static_cast<float>(p0.z()));
@@ -110,10 +107,8 @@ void pushTriToSoup(std::vector<float>& soup, const Point_3& p0, const Point_3& p
 	soup.push_back(static_cast<float>(p2.z()));
 }
 
-void buildSoupFromPolygons(
-	const std::vector<Point_3>& points,
-	const std::vector<std::vector<std::size_t>>& polygons,
-	std::vector<float>& soup)
+void buildSoupFromPolygons(const std::vector<Point_3>& points, const std::vector<std::vector<std::size_t>>& polygons,
+						   std::vector<float>& soup)
 {
 	soup.clear();
 	soup.reserve(polygons.size() * 9U);
@@ -137,11 +132,7 @@ void buildSoupFromPolygons(
 	}
 }
 
-double signedVolumeOfSoupAboutPoint(
-	const std::vector<float>& soup,
-	const double cx,
-	const double cy,
-	const double cz)
+double signedVolumeOfSoupAboutPoint(const std::vector<float>& soup, const double cx, const double cy, const double cz)
 {
 	double vol = 0.0;
 	for (std::size_t i = 0; i + 8U < soup.size(); i += 9U)
@@ -171,11 +162,7 @@ void flipAllTriangleWindingInSoup(std::vector<float>& soup)
 }
 
 // 封闭体整体内外翻转；逐三角质心翻转在非凸网格上会导致部分面发黑
-void orientSoupOutwardIfClosed(
-	std::vector<float>& soup,
-	const double refX,
-	const double refY,
-	const double refZ)
+void orientSoupOutwardIfClosed(std::vector<float>& soup, const double refX, const double refY, const double refZ)
 {
 	if (soup.size() < 9U)
 	{
@@ -215,11 +202,11 @@ bool orientTriangleSoupWinding(std::vector<float>& soup)
 
 	namespace PMP = CGAL::Polygon_mesh_processing;
 
-	const auto quantKey = [](const Point_3& p) {
-		return std::make_tuple(
-			static_cast<long long>(std::llround(p.x() / 1e-4)),
-			static_cast<long long>(std::llround(p.y() / 1e-4)),
-			static_cast<long long>(std::llround(p.z() / 1e-4)));
+	const auto quantKey = [](const Point_3& p)
+	{
+		return std::make_tuple(static_cast<long long>(std::llround(p.x() / 1e-4)),
+							   static_cast<long long>(std::llround(p.y() / 1e-4)),
+							   static_cast<long long>(std::llround(p.z() / 1e-4)));
 	};
 
 	std::map<std::tuple<long long, long long, long long>, std::size_t> pointIndex;
@@ -228,7 +215,8 @@ bool orientTriangleSoupWinding(std::vector<float>& soup)
 	points.reserve(soup.size() / 3U);
 	polygons.reserve(soup.size() / 9U);
 
-	const auto vertexIndex = [&](const Point_3& p) -> std::size_t {
+	const auto vertexIndex = [&](const Point_3& p) -> std::size_t
+	{
 		const auto key = quantKey(p);
 		const auto it = pointIndex.find(key);
 		if (it != pointIndex.end())
@@ -284,15 +272,9 @@ bool orientTriangleSoupWinding(std::vector<float>& soup)
 
 } // namespace
 
-bool reconstructPoisson(
-	const std::vector<float>& xyz,
-	const std::vector<float>& normalsNxNyNz,
-	std::vector<float>& triangleSoupOut,
-	double spacingMm,
-	const double smAngleDeg,
-	const double smRadiusRel,
-	const double smDistanceRel,
-	std::string* errMsg)
+bool reconstructPoisson(const std::vector<float>& xyz, const std::vector<float>& normalsNxNyNz,
+						std::vector<float>& triangleSoupOut, double spacingMm, const double smAngleDeg,
+						const double smRadiusRel, const double smDistanceRel, std::string* errMsg)
 {
 	triangleSoupOut.clear();
 
@@ -321,14 +303,8 @@ bool reconstructPoisson(
 
 	Surface_mesh mesh;
 	const bool ok = CGAL::poisson_surface_reconstruction_delaunay(
-		points.begin(),
-		points.end(),
-		CGAL::First_of_pair_property_map<Point_with_normal>(),
-		CGAL::Second_of_pair_property_map<Point_with_normal>(),
-		mesh,
-		spacingMm,
-		smAngleDeg,
-		smRadiusRel,
+		points.begin(), points.end(), CGAL::First_of_pair_property_map<Point_with_normal>(),
+		CGAL::Second_of_pair_property_map<Point_with_normal>(), mesh, spacingMm, smAngleDeg, smRadiusRel,
 		smDistanceRel);
 
 	if (!ok || mesh.is_empty())
@@ -344,12 +320,8 @@ bool reconstructPoisson(
 	return !triangleSoupOut.empty();
 }
 
-bool reconstructScaleSpace(
-	const std::vector<float>& xyz,
-	std::vector<float>& triangleSoupOut,
-	const std::size_t smoothIterations,
-	double meshingRadiusMm,
-	std::string* errMsg)
+bool reconstructScaleSpace(const std::vector<float>& xyz, std::vector<float>& triangleSoupOut,
+						   const std::size_t smoothIterations, double meshingRadiusMm, std::string* errMsg)
 {
 	triangleSoupOut.clear();
 	if (!validXyzLength(xyz) || xyz.empty())
@@ -413,12 +385,8 @@ bool reconstructScaleSpace(
 	return true;
 }
 
-bool reconstructPoissonAuto(
-	std::vector<float> xyz,
-	std::vector<float>& triangleSoupOut,
-	const double voxelPrefilterMm,
-	const double outlierRemovalPercent,
-	std::string* errMsg)
+bool reconstructPoissonAuto(std::vector<float> xyz, std::vector<float>& triangleSoupOut, const double voxelPrefilterMm,
+							const double outlierRemovalPercent, std::string* errMsg)
 {
 	std::vector<float> normals;
 	if (!preprocessForReconstruction(xyz, normals, voxelPrefilterMm, outlierRemovalPercent, errMsg))

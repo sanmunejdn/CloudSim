@@ -1,11 +1,13 @@
+﻿/// @file FeatureDiscretizerConfigRegistry.cpp
+/// @brief FeatureDiscretizerConfigRegistry 实现
+
 #include "FeatureDiscretizerConfigRegistry.h"
 
-#include "FeatureDiscretizerRegistry.h"
 #include "FeatureDiscretizeParamUtils.h"
+#include "FeatureDiscretizerRegistry.h"
 
 namespace geoalgo
 {
-
 FeatureDiscretizerConfigRegistry& FeatureDiscretizerConfigRegistry::instance()
 {
 	static FeatureDiscretizerConfigRegistry registry;
@@ -44,8 +46,8 @@ const IFeatureDiscretizerConfig* FeatureDiscretizerConfigRegistry::configFor(con
 	return nullptr;
 }
 
-std::vector<FeatureDiscretizerParamField> FeatureDiscretizerConfigRegistry::paramFieldsForStrategy(
-	const std::string& strategyId) const
+std::vector<FeatureDiscretizerParamField>
+FeatureDiscretizerConfigRegistry::paramFieldsForStrategy(const std::string& strategyId) const
 {
 	const IFeatureDiscretizerConfig* config = configFor(strategyId);
 	if (config)

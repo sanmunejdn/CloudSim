@@ -1,3 +1,6 @@
+﻿/// @file OsgWidgetGizmoController.cpp
+/// @brief OsgWidgetGizmoController 实现
+
 #include "OsgWidgetGizmoController.h"
 
 #include "OsgWidget.h"
@@ -46,5 +49,6 @@ void OsgWidgetGizmoController::updateCompassScale(OsgWidget& self)
 
 int OsgWidgetGizmoController::pickAxisAtScreenPos(const OsgWidget& self, const QPoint& mousePos, bool preferRing)
 {
-	return self.OsgScene::pickAxisAtScreenPos(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()), preferRing);
+	return self.OsgScene::pickAxisAtScreenPos(static_cast<double>(mousePos.x()), static_cast<double>(mousePos.y()),
+											  preferRing);
 }

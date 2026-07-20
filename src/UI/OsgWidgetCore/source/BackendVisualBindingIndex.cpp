@@ -1,3 +1,6 @@
+﻿/// @file BackendVisualBindingIndex.cpp
+/// @brief BackendVisualBindingIndex 实现
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -8,9 +11,8 @@
 #include <windows.h>
 #endif
 
-#include "BackendVisualBindingIndex.h"
-
 #include "BackendIdUserData.h"
+#include "BackendVisualBindingIndex.h"
 
 void BackendVisualBindingIndex::bindBackendRoot(const std::string& backendId, osg::Node* rootNode)
 {
@@ -87,4 +89,3 @@ bool BackendVisualBindingIndex::resolveBackendIdFromNodePath(const osg::NodePath
 	outBackendId = id;
 	return true;
 }
-

@@ -265,15 +265,37 @@ def write_filters(vcxproj: Path, items: dict[str, list[tuple[str, str]]]) -> Non
         lines.append("  </ItemGroup>")
 
     lines.append("</Project>")
-    filters_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    # UTF-8 BOM + CRLF for VS Chinese locale
+    payload = ("\r\n".join(lines) + "\r\n").encode("utf-8")
+    filters_path.write_bytes(b"\xef\xbb\xbf" + payload)
     print(f"  wrote {filters_path.relative_to(ROOT)}")
 
 
 def main() -> None:
-    projects = sorted(ROOT.rglob("*.vcxproj"))
-    projects = [p for p in projects if ".vs" not in str(p)]
-    print(f"Processing {len(projects)} projects...")
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Generate / refresh .vcxproj.filters")
+    ap.add_argument(
+        "--only-missing",
+        action="store_true",
+        help="Only create .filters when the file does not already exist",
+    )
+    args = ap.parse_args()
+
+    projects = sorted((ROOT / "src").rglob("*.vcxproj"))
+    projects = [
+        p
+        for p in projects
+        if ".vs" not in str(p)
+        and "ThirdParty" not in p.parts
+        and "vcglib" not in {x.lower() for x in p.parts}
+        and "bin" not in {x.lower() for x in p.parts}
+    ]
+    print(f"Processing {len(projects)} projects (only_missing={args.only_missing})...")
     for vcx in projects:
+        filters_path = vcx.with_suffix(".vcxproj.filters")
+        if args.only_missing and filters_path.exists():
+            continue
         print(vcx.relative_to(ROOT))
         items = collect_items(vcx)
         if not any(items[t] for t in ITEM_TAGS):

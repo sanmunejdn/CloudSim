@@ -1,7 +1,9 @@
-#include "MainWindow.h"
-#include "MainWindowRobotHost.h"
+﻿/// @file MainWindowSceneInteractionCoordinator.cpp
+/// @brief 文档页场景交互接线（OSG Qt 信号在 MainWindowRobotHost 内完成）
 
 #include "DocumentPage.h"
+#include "MainWindow.h"
+#include "MainWindowRobotHost.h"
 #include "OsgWidget.h"
 #include "ViewportToolBar.h"
 
@@ -24,16 +26,15 @@ void MainWindow::wireDocumentPageSignals(DocumentPage* page)
 		if (auto* toolbar = ow->findChild<ViewportToolBar*>())
 		{
 			connect(toolbar, &ViewportToolBar::leftPanelVisibilityToggled, this, &MainWindow::setLeftSidePanelVisible,
-				Qt::UniqueConnection);
+					Qt::UniqueConnection);
 			connect(toolbar, &ViewportToolBar::rightPanelVisibilityToggled, this, &MainWindow::setRightSidePanelVisible,
-				Qt::UniqueConnection);
+					Qt::UniqueConnection);
 			toolbar->setUseChinese(m_useChinese);
 			// Dock 可能尚未创建（首文档早于 setupDockWidgets）；勿用空指针写成「已隐藏」
 			if (m_propertyDock || m_unitDock)
 			{
-				toolbar->setSidePanelToggleState(
-					m_propertyDock && !m_propertyDock->isHidden(),
-					m_unitDock && !m_unitDock->isHidden());
+				toolbar->setSidePanelToggleState(m_propertyDock && !m_propertyDock->isHidden(),
+												 m_unitDock && !m_unitDock->isHidden());
 			}
 		}
 	}

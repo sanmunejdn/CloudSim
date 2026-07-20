@@ -1,6 +1,11 @@
-#pragma once
+﻿#ifndef OSGWIDGETCORE_OSGSCENE_H
+#define OSGWIDGETCORE_OSGSCENE_H
+
+/// @file OsgScene.h
+/// @brief OSG 场景图与相机（无 Qt）
 
 #include "osgwidgetcore_global.h"
+
 #include "BackendPickIndexRegistry.h"
 #include "BackendVisualBindingIndex.h"
 #include "ObjectGizmoFrame.h"
@@ -14,37 +19,39 @@
 #include <utility>
 #include <vector>
 
-#include <osgGA/TrackballManipulator>
-#include <osg/Camera>
-#include <osg/Light>
 #include <osg/Array>
 #include <osg/AutoTransform>
-#include <osg/Matrixd>
+#include <osg/Camera>
+#include <osg/Light>
 #include <osg/MatrixTransform>
+#include <osg/Matrixd>
 #include <osg/PositionAttitudeTransform>
 #include <osg/Quat>
-#include <osg/Vec3f>
-#include <osg/ref_ptr>
 #include <osg/Vec3>
+#include <osg/Vec3f>
 #include <osg/Vec4>
+#include <osg/ref_ptr>
+#include <osgGA/TrackballManipulator>
 #include <osgText/Text>
 
-namespace osg {
+namespace osg
+{
 class Group;
 class Node;
 class Geometry;
 class Image;
-}
+} // namespace osg
 
 #include <osgViewer/GraphicsWindow>
 #include <osgViewer/Viewer>
 
 class BackendDataBase;
 
-namespace geoalgo {
+namespace geoalgo
+{
 struct Point3d;
 struct BrepImportArtifacts;
-}
+} // namespace geoalgo
 
 /// OSG 场景图与相机（无 Qt）
 ///
@@ -54,13 +61,32 @@ struct BrepImportArtifacts;
 class OSGWIDGETCORE_EXPORT OsgScene
 {
 public:
-	enum class DragAxis { None, X, Y, Z };
+	enum class DragAxis
+	{
+		None,
+		X,
+		Y,
+		Z
+	};
 	/// Local：物体轴；World：枢轴处对齐世界轴
-	enum class TransformGizmoFrame { World, Local };
+	enum class TransformGizmoFrame
+	{
+		World,
+		Local
+	};
 	/// 标准相机视角（Z-up，保持当前 pivot 与视距）
-	enum class CameraViewPreset { Front, Back, Left, Right, Top, Bottom, Iso };
+	enum class CameraViewPreset
+	{
+		Front,
+		Back,
+		Left,
+		Right,
+		Top,
+		Bottom,
+		Iso
+	};
 
-/// Gizmo 轴编号（与历史 OsgWidgetGizmoController 一致）：0=None,1=X,2=Y,3=Z
+	/// Gizmo 轴编号（与历史 OsgWidgetGizmoController 一致）：0=None,1=X,2=Y,3=Z
 	static constexpr int kGizmoAxisNone = 0;
 	static constexpr int kGizmoAxisX = 1;
 	static constexpr int kGizmoAxisY = 2;
@@ -136,7 +162,8 @@ public:
 
 	bool isBackendDescendantOf(const std::string& backendId, const std::string& ancestorId) const;
 	/// \a childBackendId 外层 PAT 是否为 \a ancestorBackendId 子节点（走真实父链，避免重复 gizmo 增量）
-	bool backendOuterPatIsUnderOuterPatInSceneGraph(const std::string& childBackendId, const std::string& ancestorBackendId) const;
+	bool backendOuterPatIsUnderOuterPatInSceneGraph(const std::string& childBackendId,
+													const std::string& ancestorBackendId) const;
 	void cacheSelectionGizmoPose();
 	const std::string& activeBackendId() const { return m_activeBackendId; }
 	/// 写活动外层 PAT；非拖拽时将旋转增量传播到子孙根
@@ -165,7 +192,8 @@ public:
 	/// \param outPickedRing 若非空：命中旋转环时为 true，命中轴线段时为 false。
 	int pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing, bool* outPickedRing = nullptr) const;
 	/// Qt 逻辑像素；内部乘 DPR 对齐 OSG 视口
-	bool computeCameraScreenRayWorld(double mouseX, double mouseY, osg::Vec3d& outRayOriginWorld, osg::Vec3d& outRayDirUnitWorld) const;
+	bool computeCameraScreenRayWorld(double mouseX, double mouseY, osg::Vec3d& outRayOriginWorld,
+									 osg::Vec3d& outRayDirUnitWorld) const;
 	void computeGizmoPivotWorld(osg::Vec3f& outPivotWorld) const;
 	/// 与罗盘显示一致的单位轴方向（世界坐标）。
 	bool gizmoCompassUnitAxisWorld(DragAxis axis, osg::Vec3d& outAxisWorld) const;
@@ -190,17 +218,20 @@ public:
 	void cachePickablePointsFromNode(osg::Node* node);
 	bool pickPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& outPointWorld) const;
 	bool pickNearestPointAtScreenPos(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx,
-		bool previewOnly, int* outPointIndex = nullptr) const;
-	void collectPointIndicesInScreenRadius(double mouseX, double mouseY, double radiusPx, std::vector<int>& outIndices) const;
-	bool pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, double& outDistancePx) const;
+									 bool previewOnly, int* outPointIndex = nullptr) const;
+	void collectPointIndicesInScreenRadius(double mouseX, double mouseY, double radiusPx,
+										   std::vector<int>& outIndices) const;
+	bool pickPointByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld,
+									double& outDistancePx) const;
 	bool pickMeshFaceByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, osg::Vec3f& outAWorld,
-		osg::Vec3f& outBWorld, osg::Vec3f& outCWorld, osg::Vec3f& outNormalWorld,
-		std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld = nullptr,
-		const std::string* scopeBackendId = nullptr,
-		int* outPickedTriangleIndex = nullptr) const;
-	bool pickMeshEdgeByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld, osg::Vec3f& outEdgeAWorld,
-		osg::Vec3f& outEdgeBWorld, double* outEdgeDistancePx = nullptr,
-		const std::string* scopeBackendId = nullptr) const;
+									   osg::Vec3f& outBWorld, osg::Vec3f& outCWorld, osg::Vec3f& outNormalWorld,
+									   std::vector<osg::Vec3f>* outMergedCoplanarVertsWorld = nullptr,
+									   const std::string* scopeBackendId = nullptr,
+									   int* outPickedTriangleIndex = nullptr) const;
+	bool pickMeshEdgeByRayIntersection(double mouseX, double mouseY, osg::Vec3f& outPointWorld,
+									   osg::Vec3f& outEdgeAWorld, osg::Vec3f& outEdgeBWorld,
+									   double* outEdgeDistancePx = nullptr,
+									   const std::string* scopeBackendId = nullptr) const;
 	PickResult queryPick(const PickQuery& query);
 	void setPickVisualAlias(const std::string& logicalBackendId, const std::string& visualBackendId);
 	std::string resolvePickScopeBackendId(const std::string& backendId) const;
@@ -217,10 +248,8 @@ public:
 	void clearMeshFittedSurfacePreview();
 
 	/// 多边形裁剪预览（Qt 逻辑像素 screenXy: x0,y0,x1,y1,...）；cursor 可空
-	void updatePolylinePickScreenOverlay(
-		const std::vector<float>& screenXy,
-		const float* cursorX,
-		const float* cursorY);
+	void updatePolylinePickScreenOverlay(const std::vector<float>& screenXy, const float* cursorX,
+										 const float* cursorY);
 	void clearPolylinePickScreenOverlay();
 	/// 视口/DPI 变化后按缓存坐标重绘多边形 HUD
 	void refreshPolylinePickScreenOverlayLayout();
@@ -239,7 +268,7 @@ public:
 
 	void bindBackendVisualRoot(const std::string& backendId, osg::Node* rootNode);
 	void bindBackendVisualRoot(const std::string& backendId, osg::Node* rootNode,
-		const std::shared_ptr<geoalgo::BrepImportArtifacts>& brepArtifacts);
+							   const std::shared_ptr<geoalgo::BrepImportArtifacts>& brepArtifacts);
 	void unbindBackendVisualRoot(const std::string& backendId);
 	void clearBackendVisualBindings();
 	bool resolveBackendIdFromPickedPath(const osg::NodePath& path, std::string& outBackendId) const;
@@ -248,11 +277,8 @@ public:
 
 	void rebuildPointKdTree();
 	void nearestCandidatesByKdTree(const osg::Vec3f& queryLocalCentered, int k, std::vector<int>& outIndices) const;
-	void nearestCandidatesByPickIndex(
-		const PickSpatialIndex& index,
-		const osg::Vec3f& queryLocalCentered,
-		int k,
-		std::vector<int>& outIndices) const;
+	void nearestCandidatesByPickIndex(const PickSpatialIndex& index, const osg::Vec3f& queryLocalCentered, int k,
+									  std::vector<int>& outIndices) const;
 	void importPickSpatialIndexForActiveBackend(const PickSpatialIndex& index);
 	const PickSpatialIndex* activePointPickIndex() const;
 
@@ -395,25 +421,20 @@ private:
 		int height = 0;
 		int effectiveLogicalSize = 0;
 	};
-	HudCornerViewport computeHudCornerViewport(
-		int framebufferWidth,
-		int framebufferHeight,
-		int marginLogical,
-		int nominalSizeLogical,
-		bool topRight) const;
-	void applyHudSquareOrthoProjection(
-		osg::Camera* camera,
-		float halfExtent,
-		int viewportWidth,
-		int viewportHeight) const;
+	HudCornerViewport computeHudCornerViewport(int framebufferWidth, int framebufferHeight, int marginLogical,
+											   int nominalSizeLogical, bool topRight) const;
+	void applyHudSquareOrthoProjection(osg::Camera* camera, float halfExtent, int viewportWidth,
+									   int viewportHeight) const;
 	void logicalMouseToDeviceCoords(double logicalX, double logicalY, double& outDeviceX, double& outDeviceY) const;
 	void logicalMouseToPickWindowCoords(double logicalX, double logicalY, double& outWindowX, double& outWindowY) const;
 	bool isBrepPickBackend(const std::string& backendId) const;
 	bool tryQueryBrepPick(const PickQuery& query, bool pickFace, PickResult& out) const;
 	bool getWorldPickRay(double mouseX, double mouseY, osg::Vec3d& outStart, osg::Vec3d& outEnd) const;
 	bool backendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const;
-	bool worldPointToStepModelMm(const std::string& backendId, const osg::Vec3d& worldMm, geoalgo::Point3d& outModel) const;
-	bool stepModelPointToWorldMm(const std::string& backendId, const geoalgo::Point3d& modelMm, osg::Vec3f& outWorld) const;
+	bool worldPointToStepModelMm(const std::string& backendId, const osg::Vec3d& worldMm,
+								 geoalgo::Point3d& outModel) const;
+	bool stepModelPointToWorldMm(const std::string& backendId, const geoalgo::Point3d& modelMm,
+								 osg::Vec3f& outWorld) const;
 
 	int buildKdNode(std::vector<int>& indices, int begin, int end, int depth);
 	int nearestPointByKdTree(const osg::Vec3f& queryLocalCentered) const;
@@ -425,3 +446,5 @@ protected:
 	double m_devicePixelRatio = 1.0;
 	TransformGizmoFrame m_transformGizmoFrame = TransformGizmoFrame::Local;
 };
+
+#endif // OSGWIDGETCORE_OSGSCENE_H

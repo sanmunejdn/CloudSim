@@ -1,24 +1,24 @@
-#include "pch.h"
+﻿/// @file OsgSceneBrepPick.cpp
+/// @brief OsgSceneBrepPick 实现
 
-#include "OsgScene.h"
+#include "pch.h"
 
 #include "BackendIdUserData.h"
 #include "BackendPickDomain.h"
 #include "BrepPickIndex.h"
-
-#include <ShapeHandle.h>
-#include <ShapeQuery.h>
-#include <Discretize.h>
-#include <Types.h>
+#include "OsgScene.h"
 
 #include <algorithm>
 #include <limits>
 
+#include <Discretize.h>
+#include <ShapeHandle.h>
+#include <ShapeQuery.h>
+#include <Types.h>
 #include <osgUtil/LineSegmentIntersector>
 
 namespace
 {
-
 osg::NodePath nodePathToSceneRootFromLeaf(const osg::Node* leaf)
 {
 	osg::NodePath path;
@@ -38,10 +38,8 @@ const BackendIdUserData* backendMetaFromRoot(const osg::Node* rootNode)
 	return dynamic_cast<const BackendIdUserData*>(rootNode->getUserData());
 }
 
-bool brepShapeForBackend(
-	const std::unordered_map<std::string, osg::ref_ptr<osg::MatrixTransform>>& roots,
-	const std::string& backendId,
-	geoalgo::ShapeHandle& outShape)
+bool brepShapeForBackend(const std::unordered_map<std::string, osg::ref_ptr<osg::MatrixTransform>>& roots,
+						 const std::string& backendId, geoalgo::ShapeHandle& outShape)
 {
 	outShape = geoalgo::ShapeHandle{};
 	const auto it = roots.find(backendId);
@@ -58,9 +56,7 @@ bool brepShapeForBackend(
 	return !outShape.isNull();
 }
 
-const BrepPickIndex* brepPickIndexForBackend(
-	const BackendPickIndexRegistry& registry,
-	const std::string& backendId)
+const BrepPickIndex* brepPickIndexForBackend(const BackendPickIndexRegistry& registry, const std::string& backendId)
 {
 	const BackendPickBundle* bundle = registry.find(backendId);
 	if (!bundle || bundle->brepIndex.empty())
@@ -101,18 +97,17 @@ bool isTriangleMeshIntersection(const osgUtil::LineSegmentIntersector::Intersect
 	return mode == GL_TRIANGLES || mode == GL_TRIANGLE_STRIP || mode == GL_TRIANGLE_FAN;
 }
 
-const osgUtil::LineSegmentIntersector::Intersection* chooseNearestBrepHit(
-	const OsgScene& scene,
-	osgUtil::LineSegmentIntersector& intersector,
-	const std::string& scopeBackendId,
-	const std::unordered_map<std::string, osg::ref_ptr<osg::MatrixTransform>>& roots,
-	std::string& outBackendId,
-	geoalgo::ShapeHandle& outShape)
+const osgUtil::LineSegmentIntersector::Intersection*
+chooseNearestBrepHit(const OsgScene& scene, osgUtil::LineSegmentIntersector& intersector,
+					 const std::string& scopeBackendId,
+					 const std::unordered_map<std::string, osg::ref_ptr<osg::MatrixTransform>>& roots,
+					 std::string& outBackendId, geoalgo::ShapeHandle& outShape)
 {
 	const osgUtil::LineSegmentIntersector::Intersection* chosenHit = nullptr;
 	double bestDistance = (std::numeric_limits<double>::max)();
 
-	const auto consider = [&](const osgUtil::LineSegmentIntersector::Intersection& candidate) {
+	const auto consider = [&](const osgUtil::LineSegmentIntersector::Intersection& candidate)
+	{
 		if (!isTriangleMeshIntersection(candidate))
 		{
 			return;
@@ -189,7 +184,8 @@ bool OsgScene::backendRootWorldMatrix(const std::string& backendId, osg::Matrixd
 	return true;
 }
 
-bool OsgScene::worldPointToStepModelMm(const std::string& backendId, const osg::Vec3d& worldMm, geoalgo::Point3d& outModel) const
+bool OsgScene::worldPointToStepModelMm(const std::string& backendId, const osg::Vec3d& worldMm,
+									   geoalgo::Point3d& outModel) const
 {
 	osg::Matrixd worldMat;
 	if (!backendRootWorldMatrix(backendId, worldMat))
@@ -208,7 +204,8 @@ bool OsgScene::worldPointToStepModelMm(const std::string& backendId, const osg::
 	return true;
 }
 
-bool OsgScene::stepModelPointToWorldMm(const std::string& backendId, const geoalgo::Point3d& modelMm, osg::Vec3f& outWorld) const
+bool OsgScene::stepModelPointToWorldMm(const std::string& backendId, const geoalgo::Point3d& modelMm,
+									   osg::Vec3f& outWorld) const
 {
 	osg::Matrixd worldMat;
 	if (!backendRootWorldMatrix(backendId, worldMat))
@@ -244,13 +241,8 @@ bool OsgScene::tryQueryBrepPick(const PickQuery& query, bool pickFace, PickResul
 
 	std::string backendId;
 	geoalgo::ShapeHandle shape;
-	const osgUtil::LineSegmentIntersector::Intersection* chosenHit = chooseNearestBrepHit(
-		*this,
-		*intersector,
-		query.scopeBackendId,
-		m_backendObjectRoots,
-		backendId,
-		shape);
+	const osgUtil::LineSegmentIntersector::Intersection* chosenHit =
+		chooseNearestBrepHit(*this, *intersector, query.scopeBackendId, m_backendObjectRoots, backendId, shape);
 	if (!chosenHit || backendId.empty() || shape.isNull())
 	{
 		return false;
@@ -311,8 +303,8 @@ bool OsgScene::tryQueryBrepPick(const PickQuery& query, bool pickFace, PickResul
 			{
 				return false;
 			}
-			const geoalgo::Point3d rayDirModel{
-				modelDirV.x() / modelDirLen, modelDirV.y() / modelDirLen, modelDirV.z() / modelDirLen};
+			const geoalgo::Point3d rayDirModel{modelDirV.x() / modelDirLen, modelDirV.y() / modelDirLen,
+											   modelDirV.z() / modelDirLen};
 			if (!geoalgo::pickShapeFaceByModelRay(shape, rayOriginModel, rayDirModel, pick, &err))
 			{
 				return false;
@@ -338,23 +330,13 @@ bool OsgScene::tryQueryBrepPick(const PickQuery& query, bool pickFace, PickResul
 		int edgeIndex = -1;
 		double edgeDistPx = 0.0;
 		std::vector<osg::Vec3f> polyWorld;
-		const auto modelToWorld = [this, &xformBackendId](const geoalgo::Point3d& mp, osg::Vec3f& wp) {
-			return stepModelPointToWorldMm(xformBackendId, mp, wp);
-		};
+		const auto modelToWorld = [this, &xformBackendId](const geoalgo::Point3d& mp, osg::Vec3f& wp)
+		{ return stepModelPointToWorldMm(xformBackendId, mp, wp); };
 		if (brepIndex)
 		{
-			(void)brepIndex->pickEdgeByScreen(
-				faceIndex,
-				query.screenX,
-				query.screenY,
-				mvp,
-				viewportWidth(),
-				viewportHeight(),
-				kMeshEdgeHitRadiusPx,
-				modelToWorld,
-				edgeIndex,
-				edgeDistPx,
-				polyWorld);
+			(void)brepIndex->pickEdgeByScreen(faceIndex, query.screenX, query.screenY, mvp, viewportWidth(),
+											  viewportHeight(), kMeshEdgeHitRadiusPx, modelToWorld, edgeIndex,
+											  edgeDistPx, polyWorld);
 		}
 		if (edgeIndex < 0)
 		{
@@ -385,7 +367,7 @@ bool OsgScene::tryQueryBrepPick(const PickQuery& query, bool pickFace, PickResul
 				polyWorld.reserve(pl.size() / 3U);
 				for (std::size_t i = 0; i + 2U < pl.size(); i += 3U)
 				{
-					const geoalgo::Point3d mp{ pl[i], pl[i + 1U], pl[i + 2U] };
+					const geoalgo::Point3d mp{pl[i], pl[i + 1U], pl[i + 2U]};
 					osg::Vec3f wp;
 					if (stepModelPointToWorldMm(xformBackendId, mp, wp))
 					{
@@ -457,7 +439,7 @@ bool OsgScene::tryQueryBrepPick(const PickQuery& query, bool pickFace, PickResul
 		out.meshFaceVertsWorld.reserve(soup->size() / 3U);
 		for (std::size_t i = 0; i + 2U < soup->size(); i += 3U)
 		{
-			const geoalgo::Point3d mp{ (*soup)[i], (*soup)[i + 1U], (*soup)[i + 2U] };
+			const geoalgo::Point3d mp{(*soup)[i], (*soup)[i + 1U], (*soup)[i + 2U]};
 			osg::Vec3f wp;
 			if (stepModelPointToWorldMm(xformBackendId, mp, wp))
 			{

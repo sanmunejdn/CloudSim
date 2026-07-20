@@ -1,13 +1,17 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_ROBOTPROGRAMSTORE_H
+#define ROBOTWIDGET_ROBOTPROGRAMSTORE_H
+
+/// @file RobotProgramStore.h
+/// @brief 按机器人后端 id 存储多程序目录
+
+#include "robotwidget_global.h"
 
 #include "RobotInstructionModel.h"
 #include "RobotProgramCatalog.h"
-#include "robotwidget_global.h"
 
 #include <QHash>
 #include <QString>
 #include <QStringList>
-
 #include <memory>
 #include <vector>
 
@@ -45,10 +49,7 @@ public:
 
 	void setProgramFor(const QString& sceneBackendId, std::vector<std::shared_ptr<RobotInstruction::Base>> program);
 
-	const QHash<QString, RobotInstruction::RobotProgramCatalog>& allCatalogs() const
-	{
-		return m_catalogs;
-	}
+	const QHash<QString, RobotInstruction::RobotProgramCatalog>& allCatalogs() const { return m_catalogs; }
 
 	/// 兼容旧接口
 	const QHash<QString, std::vector<std::shared_ptr<RobotInstruction::Base>>>& allPrograms() const;
@@ -62,3 +63,5 @@ private:
 	QStringList m_backendIds;
 	int m_activeInstanceIndex = 0;
 };
+
+#endif // ROBOTWIDGET_ROBOTPROGRAMSTORE_H

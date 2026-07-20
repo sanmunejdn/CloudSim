@@ -1,4 +1,8 @@
+﻿/// @file MeshSmooth.cpp
+/// @brief MeshSmooth 实现
+
 #include "MeshSmooth.h"
+
 #include "MeshRepairInternal.h"
 #include "VcgMeshTypes.h"
 
@@ -9,10 +13,8 @@
 
 namespace vcgalgo
 {
-
 namespace
 {
-
 void markBoundaryVertices(VcgMesh& mesh)
 {
 	for (auto& vertex : mesh.vert)
@@ -22,11 +24,7 @@ void markBoundaryVertices(VcgMesh& mesh)
 	vcg::tri::UpdateFlags<VcgMesh>::VertexBorderFromFaceBorder(mesh);
 }
 
-void runLaplacianOnMesh(
-	VcgMesh& mesh,
-	int iterations,
-	bool cotangentWeight,
-	bool preserveBoundary)
+void runLaplacianOnMesh(VcgMesh& mesh, int iterations, bool cotangentWeight, bool preserveBoundary)
 {
 	if (iterations <= 0)
 	{
@@ -46,11 +44,7 @@ void runLaplacianOnMesh(
 		}
 	}
 
-	vcg::tri::Smooth<VcgMesh>::VertexCoordLaplacian(
-		mesh,
-		iterations,
-		false,
-		cotangentWeight);
+	vcg::tri::Smooth<VcgMesh>::VertexCoordLaplacian(mesh, iterations, false, cotangentWeight);
 
 	if (preserveBoundary)
 	{
@@ -61,12 +55,7 @@ void runLaplacianOnMesh(
 	}
 }
 
-void runTaubinOnMesh(
-	VcgMesh& mesh,
-	int iterations,
-	float lambda,
-	float mu,
-	bool preserveBoundary)
+void runTaubinOnMesh(VcgMesh& mesh, int iterations, float lambda, float mu, bool preserveBoundary)
 {
 	if (iterations <= 0)
 	{
@@ -123,11 +112,7 @@ bool runSmoothOnMesh(VcgMesh& mesh, const MeshSmoothParams& params, std::string*
 		}
 		else
 		{
-			runLaplacianOnMesh(
-				mesh,
-				params.iterations,
-				params.cotangentWeight,
-				params.preserveBoundary);
+			runLaplacianOnMesh(mesh, params.iterations, params.cotangentWeight, params.preserveBoundary);
 		}
 
 		vcg::tri::UpdateNormal<VcgMesh>::PerVertexNormalized(mesh);
@@ -145,12 +130,8 @@ bool runSmoothOnMesh(VcgMesh& mesh, const MeshSmoothParams& params, std::string*
 
 } // namespace
 
-bool applyMeshSmooth(
-	const std::vector<float>& triangleSoup,
-	std::vector<float>& outSoup,
-	const MeshSmoothParams& params,
-	RepairReport* repairReport,
-	std::string* errMsg)
+bool applyMeshSmooth(const std::vector<float>& triangleSoup, std::vector<float>& outSoup,
+					 const MeshSmoothParams& params, RepairReport* repairReport, std::string* errMsg)
 {
 	outSoup.clear();
 
@@ -181,11 +162,8 @@ bool applyMeshSmooth(
 	return !outSoup.empty();
 }
 
-bool smoothLaplacian(
-	const std::vector<float>& triangleSoup,
-	int iterations,
-	std::vector<float>& outSoup,
-	std::string* errMsg)
+bool smoothLaplacian(const std::vector<float>& triangleSoup, int iterations, std::vector<float>& outSoup,
+					 std::string* errMsg)
 {
 	MeshSmoothParams params;
 	params.iterations = iterations;
@@ -193,12 +171,8 @@ bool smoothLaplacian(
 	return applyMeshSmooth(triangleSoup, outSoup, params, nullptr, errMsg);
 }
 
-bool smoothTaubin(
-	const std::vector<float>& triangleSoup,
-	int iterations,
-	double lambda,
-	std::vector<float>& outSoup,
-	std::string* errMsg)
+bool smoothTaubin(const std::vector<float>& triangleSoup, int iterations, double lambda, std::vector<float>& outSoup,
+				  std::string* errMsg)
 {
 	MeshSmoothParams params;
 	params.iterations = iterations;

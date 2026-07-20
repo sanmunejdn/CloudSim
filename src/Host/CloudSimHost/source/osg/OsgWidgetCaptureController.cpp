@@ -1,8 +1,14 @@
+﻿/// @file OsgWidgetCaptureController.cpp
+/// @brief OsgWidgetCaptureController 实现
+
 #include "OsgWidgetCaptureController.h"
 
-#include "OsgWidget.h"
 #include "MeshBackendData.h"
+#include "OsgWidget.h"
 #include "PointCloudBackendData.h"
+
+#include <string>
+#include <unordered_map>
 
 #include <osg/Array>
 #include <osg/Geode>
@@ -11,11 +17,8 @@
 #include <osg/NodeVisitor>
 #include <osg/PrimitiveSet>
 
-#include <string>
-#include <unordered_map>
-
-namespace {
-
+namespace
+{
 inline osg::Vec3d mulVertex(const osg::Vec3& v, const osg::Matrixd& m)
 {
 	return osg::Vec3d(v.x(), v.y(), v.z()) * m;
@@ -27,7 +30,8 @@ inline osg::Vec3d mulVertex(const osg::Vec3d& v, const osg::Matrixd& m)
 }
 
 template <typename VecArray>
-void appendTriangle(std::vector<float>& soup, const VecArray* verts, unsigned i0, unsigned i1, unsigned i2, const osg::Matrixd& l2w)
+void appendTriangle(std::vector<float>& soup, const VecArray* verts, unsigned i0, unsigned i1, unsigned i2,
+					const osg::Matrixd& l2w)
 {
 	const osg::Vec3d a = mulVertex((*verts)[i0], l2w);
 	const osg::Vec3d b = mulVertex((*verts)[i1], l2w);
@@ -45,7 +49,7 @@ void appendTriangle(std::vector<float>& soup, const VecArray* verts, unsigned i0
 
 template <typename VecArray>
 void triangulatePrimitiveSet(osg::PrimitiveSet* ps, const VecArray* verts, const osg::Matrixd& l2w,
-	std::vector<float>& soup)
+							 std::vector<float>& soup)
 {
 	if (!ps || !verts)
 	{
@@ -127,8 +131,8 @@ void triangulatePrimitiveSet(osg::PrimitiveSet* ps, const VecArray* verts, const
 
 template <typename VecArray>
 void extractPointsFromPrimitive(osg::PrimitiveSet* ps, const VecArray* verts, const osg::Matrixd& l2w,
-	const osg::Vec4Array* colors, osg::Geometry::AttributeBinding colorBind, std::vector<float>& xyz,
-	std::vector<float>& rgba)
+								const osg::Vec4Array* colors, osg::Geometry::AttributeBinding colorBind,
+								std::vector<float>& xyz, std::vector<float>& rgba)
 {
 	if (!ps || !verts || ps->getMode() != GL_POINTS)
 	{
@@ -202,7 +206,8 @@ void processGeometryForMesh(osg::Geometry* geom, const osg::Matrixd& l2w, std::v
 }
 
 template <typename VecArray>
-void processGeometryForPoints(osg::Geometry* geom, const osg::Matrixd& l2w, std::vector<float>& xyz, std::vector<float>& rgba)
+void processGeometryForPoints(osg::Geometry* geom, const osg::Matrixd& l2w, std::vector<float>& xyz,
+							  std::vector<float>& rgba)
 {
 	if (!geom)
 	{
@@ -231,8 +236,7 @@ void collectAllDrawableVerticesToFloats(osg::Node* node, std::vector<float>& xyz
 	{
 		std::vector<float>& out;
 		explicit AllVertsVisitor(std::vector<float>& o)
-			: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
-			, out(o)
+			: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), out(o)
 		{
 		}
 		void apply(osg::Geode& geode) override
@@ -279,10 +283,8 @@ void collectAllDrawableVerticesToFloats(osg::Node* node, std::vector<float>& xyz
 
 } // namespace
 
-bool OsgWidgetCaptureController::captureImportedPointCloudBackend(
-	OsgWidget& self,
-	PointCloudBackendData& out,
-	QString* errorMessage)
+bool OsgWidgetCaptureController::captureImportedPointCloudBackend(OsgWidget& self, PointCloudBackendData& out,
+																  QString* errorMessage)
 {
 	osg::Node* src = self.stagingGeometryRoot();
 	if (!src)
@@ -300,9 +302,7 @@ bool OsgWidgetCaptureController::captureImportedPointCloudBackend(
 		std::vector<float>& xyzR;
 		std::vector<float>& rgbaR;
 		PointCloudCaptureVisitor(std::vector<float>& x, std::vector<float>& r)
-			: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
-			, xyzR(x)
-			, rgbaR(r)
+			: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), xyzR(x), rgbaR(r)
 		{
 		}
 		void apply(osg::Geode& geode) override
@@ -348,7 +348,8 @@ bool OsgWidgetCaptureController::captureImportedPointCloudBackend(
 	{
 		if (errorMessage)
 		{
-			*errorMessage = QStringLiteral("No point positions found to store (no GL_POINTS and no pickable vertices).");
+			*errorMessage =
+				QStringLiteral("No point positions found to store (no GL_POINTS and no pickable vertices).");
 		}
 		return false;
 	}
@@ -356,10 +357,8 @@ bool OsgWidgetCaptureController::captureImportedPointCloudBackend(
 	return true;
 }
 
-bool OsgWidgetCaptureController::captureImportedMeshBackend(
-	OsgWidget& self,
-	MeshBackendData& out,
-	QString* errorMessage)
+bool OsgWidgetCaptureController::captureImportedMeshBackend(OsgWidget& self, MeshBackendData& out,
+															QString* errorMessage)
 {
 	osg::Node* src = self.stagingGeometryRoot();
 	if (!src)
@@ -374,9 +373,7 @@ bool OsgWidgetCaptureController::captureImportedMeshBackend(
 	struct MeshCaptureVisitor : osg::NodeVisitor
 	{
 		std::vector<float>& soupR;
-		MeshCaptureVisitor(std::vector<float>& s)
-			: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
-			, soupR(s)
+		MeshCaptureVisitor(std::vector<float>& s) : osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), soupR(s)
 		{
 		}
 		void apply(osg::Geode& geode) override
@@ -408,10 +405,9 @@ bool OsgWidgetCaptureController::captureImportedMeshBackend(
 	return true;
 }
 
-bool OsgWidgetCaptureController::captureImportedMeshBackendHierarchy(
-	OsgWidget& self,
-	std::vector<MeshCapturedPart>& outParts,
-	QString* errorMessage)
+bool OsgWidgetCaptureController::captureImportedMeshBackendHierarchy(OsgWidget& self,
+																	 std::vector<MeshCapturedPart>& outParts,
+																	 QString* errorMessage)
 {
 	outParts.clear();
 	osg::Node* src = self.stagingGeometryRoot();
@@ -431,8 +427,7 @@ bool OsgWidgetCaptureController::captureImportedMeshBackendHierarchy(
 		int autoNameCounter = 1;
 
 		explicit HierarchyVisitor(std::vector<MeshCapturedPart>& out)
-			: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN)
-			, parts(out)
+			: osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ALL_CHILDREN), parts(out)
 		{
 		}
 

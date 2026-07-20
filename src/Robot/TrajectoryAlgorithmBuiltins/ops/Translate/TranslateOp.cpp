@@ -1,14 +1,17 @@
+﻿/// @file TranslateOp.cpp
+/// @brief TranslateOp 实现
+
 // Translate 原子块：程序路点位姿平移
 #include "TranslateOp.h"
 
 #include "TrajectoryOpFormat.h"
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 #include "UnifiedTrajectorySemanticMath.h"
 
 #include <cmath>
 #include <cstdio>
 #include <string>
-#include "TrajectoryOpParamAccess.h"
-#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -18,19 +21,15 @@ constexpr double kTranslateNoOpEps = 1e-9;
 
 bool isTranslateNoOp(const RobotInstruction::TranslateParams& p)
 {
-	return std::abs(p.dxMm) <= kTranslateNoOpEps
-		&& std::abs(p.dyMm) <= kTranslateNoOpEps
-		&& std::abs(p.dzMm) <= kTranslateNoOpEps
-		&& std::abs(p.endDxMm) <= kTranslateNoOpEps
-		&& std::abs(p.endDyMm) <= kTranslateNoOpEps
-		&& std::abs(p.endDzMm) <= kTranslateNoOpEps;
+	return std::abs(p.dxMm) <= kTranslateNoOpEps && std::abs(p.dyMm) <= kTranslateNoOpEps &&
+		   std::abs(p.dzMm) <= kTranslateNoOpEps && std::abs(p.endDxMm) <= kTranslateNoOpEps &&
+		   std::abs(p.endDyMm) <= kTranslateNoOpEps && std::abs(p.endDzMm) <= kTranslateNoOpEps;
 }
 
 bool isTranslateInterpolated(const RobotInstruction::TranslateParams& p)
 {
-	return std::abs(p.dxMm - p.endDxMm) > kTranslateNoOpEps
-		|| std::abs(p.dyMm - p.endDyMm) > kTranslateNoOpEps
-		|| std::abs(p.dzMm - p.endDzMm) > kTranslateNoOpEps;
+	return std::abs(p.dxMm - p.endDxMm) > kTranslateNoOpEps || std::abs(p.dyMm - p.endDyMm) > kTranslateNoOpEps ||
+		   std::abs(p.dzMm - p.endDzMm) > kTranslateNoOpEps;
 }
 } // namespace
 
@@ -49,8 +48,8 @@ TrajectoryOpCapability TranslateOp::capabilities() const
 	return TrajectoryOpCapability::PreviewPoseTransform;
 }
 
-RobotInstruction::TrajectoryOpDescriptor TranslateOp::makeDefaultDescriptor(
-	const RobotInstruction::OpScope& defaultScope) const
+RobotInstruction::TrajectoryOpDescriptor
+TranslateOp::makeDefaultDescriptor(const RobotInstruction::OpScope& defaultScope) const
 {
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Translate;
@@ -69,16 +68,8 @@ RobotInstruction::TrajectoryOpDescriptor TranslateOp::makeDefaultDescriptor(
 std::vector<TrajectoryOpParamField> TranslateOp::paramFields() const
 {
 	return {
-		enumParamField(
-			"translate.frame",
-			"Frame",
-			"坐标系",
-			{ "0", "1" },
-			{ "世界系", "物体系" },
-			{ "World", "Body" },
-			0,
-			0,
-			"transform"),
+		enumParamField("translate.frame", "Frame", "坐标系", {"0", "1"}, {"世界系", "物体系"}, {"World", "Body"}, 0, 0,
+					   "transform"),
 		doubleParamField("translate.dxMm", "ΔX(Start)", "ΔX(起点)", "mm", -1e5, 1e5, 0.01, 0.0, 1),
 		doubleParamField("translate.dyMm", "ΔY(Start)", "ΔY(起点)", "mm", -1e5, 1e5, 0.01, 0.0, 2),
 		doubleParamField("translate.dzMm", "ΔZ(Start)", "ΔZ(起点)", "mm", -1e5, 1e5, 0.01, 0.0, 3),
@@ -95,50 +86,31 @@ bool TranslateOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, s
 	return true;
 }
 
-std::string TranslateOp::formatSummary(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const bool chinese) const
+std::string TranslateOp::formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op, const bool chinese) const
 {
 	const RobotInstruction::TranslateParams translate = parseTranslateParams(op.params);
 	const std::string frameStr = frameLabel(translate.frame, chinese);
 	char buffer[512];
 	if (isTranslateInterpolated(translate))
 	{
-		std::snprintf(
-			buffer,
-			sizeof(buffer),
-			chinese ? "%s | %s | 起点Δ(%.2f,%.2f,%.2f) -> 终点Δ(%.2f,%.2f,%.2f) mm"
-					: "%s | %s | StartΔ(%.2f,%.2f,%.2f) -> EndΔ(%.2f,%.2f,%.2f) mm",
-			displayName(chinese),
-			frameStr.c_str(),
-			translate.dxMm,
-			translate.dyMm,
-			translate.dzMm,
-			translate.endDxMm,
-			translate.endDyMm,
-			translate.endDzMm);
+		std::snprintf(buffer, sizeof(buffer),
+					  chinese ? "%s | %s | 起点Δ(%.2f,%.2f,%.2f) -> 终点Δ(%.2f,%.2f,%.2f) mm"
+							  : "%s | %s | StartΔ(%.2f,%.2f,%.2f) -> EndΔ(%.2f,%.2f,%.2f) mm",
+					  displayName(chinese), frameStr.c_str(), translate.dxMm, translate.dyMm, translate.dzMm,
+					  translate.endDxMm, translate.endDyMm, translate.endDzMm);
 	}
 	else
 	{
-		std::snprintf(
-			buffer,
-			sizeof(buffer),
-			chinese ? "%s | %s | Δ(%.2f,%.2f,%.2f) mm"
-					: "%s | %s | Δ(%.2f,%.2f,%.2f) mm",
-			displayName(chinese),
-			frameStr.c_str(),
-			translate.dxMm,
-			translate.dyMm,
-			translate.dzMm);
+		std::snprintf(buffer, sizeof(buffer),
+					  chinese ? "%s | %s | Δ(%.2f,%.2f,%.2f) mm" : "%s | %s | Δ(%.2f,%.2f,%.2f) mm",
+					  displayName(chinese), frameStr.c_str(), translate.dxMm, translate.dyMm, translate.dzMm);
 	}
 	return buffer;
 }
 
-bool TranslateOp::processPath(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	RobotInstruction::UnifiedTrajectory& traj,
-	const TrajectoryOpExecutionContext& ctx,
-	std::string* errMsg) const
+bool TranslateOp::processPath(const RobotInstruction::TrajectoryOpDescriptor& op,
+							  RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx,
+							  std::string* errMsg) const
 {
 	return applyTranslateRotateInScope(op, traj, ctx.program);
 }

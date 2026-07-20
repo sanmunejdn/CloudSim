@@ -1,12 +1,10 @@
+﻿/// @file MeshSurfaceReconstructionPartitionCgal.cpp
+/// @brief MeshSurfaceReconstructionPartitionCgal 实现
+
 #include "MeshSurfaceReconstructionPartitionCgal.h"
+
 #include "MeshSurfaceReconstructionPartitionCommon.h"
-
 #include "RunLogger.h"
-
-#include <CGAL/Simple_cartesian.h>
-#include <CGAL/Surface_mesh.h>
-#include <CGAL/mesh_segmentation.h>
-#include <CGAL/property_map.h>
 
 #include <algorithm>
 #include <array>
@@ -14,13 +12,17 @@
 #include <unordered_map>
 #include <vector>
 
+#include <CGAL/Simple_cartesian.h>
+#include <CGAL/Surface_mesh.h>
+#include <CGAL/mesh_segmentation.h>
+#include <CGAL/property_map.h>
+
 namespace geoalgo
 {
 namespace meshrecon
 {
 namespace
 {
-
 using CgalKernel = CGAL::Simple_cartesian<double>;
 using CgalPoint = CgalKernel::Point_3;
 using CgalMesh = CGAL::Surface_mesh<CgalPoint>;
@@ -51,10 +53,8 @@ bool buildCgalMesh(const IndexedMeshLite& mesh, CgalMesh& outMesh)
 				{
 					return false;
 				}
-				const CgalMesh::Vertex_index vi = outMesh.add_vertex(CgalPoint(
-					mesh.vertices[vb],
-					mesh.vertices[vb + 1U],
-					mesh.vertices[vb + 2U]));
+				const CgalMesh::Vertex_index vi =
+					outMesh.add_vertex(CgalPoint(mesh.vertices[vb], mesh.vertices[vb + 1U], mesh.vertices[vb + 2U]));
 				globalToVertex[gv] = vi;
 				tri[static_cast<std::size_t>(c)] = vi;
 			}
@@ -70,11 +70,8 @@ bool buildCgalMesh(const IndexedMeshLite& mesh, CgalMesh& outMesh)
 
 } // namespace
 
-bool collectSdfSegmentSeedFaces(
-	const IndexedMeshLite& mesh,
-	const int segmentCount,
-	std::vector<int>& outSeedFaceIndices,
-	std::string* errMsg)
+bool collectSdfSegmentSeedFaces(const IndexedMeshLite& mesh, const int segmentCount,
+								std::vector<int>& outSeedFaceIndices, std::string* errMsg)
 {
 	outSeedFaceIndices.clear();
 	const int faceCount = static_cast<int>(mesh.faces.size() / 3U);
@@ -100,27 +97,13 @@ bool collectSdfSegmentSeedFaces(
 		}
 
 		auto sdfPmap = sm.add_property_map<FaceDescriptor, double>("f:sdf", 0.0).first;
-		(void)CGAL::sdf_values(
-			sm,
-			sdfPmap,
-			2.0 / 3.0 * CGAL_PI,
-			15,
-			true,
-			CGAL::get(boost::vertex_point, sm),
-			CgalKernel());
+		(void)CGAL::sdf_values(sm, sdfPmap, 2.0 / 3.0 * CGAL_PI, 15, true, CGAL::get(boost::vertex_point, sm),
+							   CgalKernel());
 
-		const std::size_t clusters = static_cast<std::size_t>(
-			std::max(2, std::min(segmentCount, faceCount / 8)));
+		const std::size_t clusters = static_cast<std::size_t>(std::max(2, std::min(segmentCount, faceCount / 8)));
 		auto segPmap = sm.add_property_map<FaceDescriptor, std::size_t>("f:seg", std::size_t(0)).first;
-		(void)CGAL::segmentation_from_sdf_values(
-			sm,
-			sdfPmap,
-			segPmap,
-			clusters,
-			0.26,
-			false,
-			CGAL::get(boost::vertex_point, sm),
-			CgalKernel());
+		(void)CGAL::segmentation_from_sdf_values(sm, sdfPmap, segPmap, clusters, 0.26, false,
+												 CGAL::get(boost::vertex_point, sm), CgalKernel());
 
 		std::unordered_map<std::size_t, std::pair<double, int>> bestPerSegment;
 		int fi = 0;
@@ -155,13 +138,9 @@ bool collectSdfSegmentSeedFaces(
 	}
 }
 
-bool partitionQuadDomainsCgalChartHybrid(
-	const IndexedMeshLite& mesh,
-	const MeshSurfaceReconstructParams& params,
-	std::vector<QuadPatch>& patches,
-	int& outJunctionCount,
-	MeshSurfaceReconstructReport* partitionStats,
-	std::string* errMsg)
+bool partitionQuadDomainsCgalChartHybrid(const IndexedMeshLite& mesh, const MeshSurfaceReconstructParams& params,
+										 std::vector<QuadPatch>& patches, int& outJunctionCount,
+										 MeshSurfaceReconstructReport* partitionStats, std::string* errMsg)
 {
 	MeshSurfaceReconstructParams hybridParams = params;
 	hybridParams.partitionMode = MeshSurfacePartitionMode::HybridNormalCvt;
@@ -170,8 +149,7 @@ bool partitionQuadDomainsCgalChartHybrid(
 		return false;
 	}
 	assignAllPatchCornerMetadata(mesh, patches);
-	RunLogger::info(
-		std::string("cgal chart hybrid: ") + std::to_string(patches.size()) + " patches");
+	RunLogger::info(std::string("cgal chart hybrid: ") + std::to_string(patches.size()) + " patches");
 	return true;
 }
 

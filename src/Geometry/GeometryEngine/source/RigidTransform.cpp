@@ -1,3 +1,6 @@
+﻿/// @file RigidTransform.cpp
+/// @brief RigidTransform 实现
+
 #include "RigidTransform.h"
 
 #include "Adapters.h"
@@ -6,7 +9,6 @@
 
 namespace engine
 {
-
 namespace
 {
 constexpr double kPi = 3.14159265358979323846;
@@ -42,7 +44,8 @@ RigidTransform RigidTransform::fromIsometry(const Eigen::Isometry3d& iso)
 	return out;
 }
 
-RigidTransform RigidTransform::fromTranslationQuat(const Eigen::Vector3d& translationMm, const Eigen::Quaterniond& rotation)
+RigidTransform RigidTransform::fromTranslationQuat(const Eigen::Vector3d& translationMm,
+												   const Eigen::Quaterniond& rotation)
 {
 	RigidTransform out;
 	out.m_iso = Eigen::Isometry3d::Identity();
@@ -51,17 +54,10 @@ RigidTransform RigidTransform::fromTranslationQuat(const Eigen::Vector3d& transl
 	return out;
 }
 
-RigidTransform RigidTransform::fromTranslationEulerDeg(
-	double pxMm,
-	double pyMm,
-	double pzMm,
-	double exDeg,
-	double eyDeg,
-	double ezDeg)
+RigidTransform RigidTransform::fromTranslationEulerDeg(double pxMm, double pyMm, double pzMm, double exDeg,
+													   double eyDeg, double ezDeg)
 {
-	return fromTranslationQuat(
-		Eigen::Vector3d(pxMm, pyMm, pzMm),
-		eulerDegToEigenQuat(exDeg, eyDeg, ezDeg));
+	return fromTranslationQuat(Eigen::Vector3d(pxMm, pyMm, pzMm), eulerDegToEigenQuat(exDeg, eyDeg, ezDeg));
 }
 
 Eigen::Vector3d RigidTransform::translationMm() const

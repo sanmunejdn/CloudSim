@@ -1,18 +1,22 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_OTLCSKELETON_H
+#define GEOMETRYALGORITHM_OTLCSKELETON_H
+
+/// @file OtLcSkeleton.h
+/// @brief OtLcSkeleton 接口
 
 #include "TubularGrindingCommon.h"
-#include <KdTreePointSet.h>
 
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include <KdTreePointSet.h>
+
 namespace geoalgo
 {
 namespace tg
 {
-
 struct OtSkeletonState
 {
 	std::vector<Vec3> samplePositions;
@@ -56,18 +60,14 @@ struct OtLcParams
 
 OtLcParams buildOtLcParams(const TubularGrindingParams& params);
 
-bool buildPointCloudKnnDknnAdjacency(
-	const std::vector<float>& xyz,
-	int k,
-	std::vector<std::vector<int>>& outAdjacency,
-	std::string* errMsg);
+bool buildPointCloudKnnDknnAdjacency(const std::vector<float>& xyz, int k, std::vector<std::vector<int>>& outAdjacency,
+									 std::string* errMsg);
 
-bool extractCenterlineFromOtSkeleton(
-	const std::vector<Vec3>& samplePositions,
-	const std::vector<std::vector<int>>& sampleEdges,
-	std::vector<Vec3>& outPolyline,
-	double sectionSpacingMm,
-	OtLcGraphDiagnostics* outDiagnostics = nullptr);
+bool extractCenterlineFromOtSkeleton(const std::vector<Vec3>& samplePositions,
+									 const std::vector<std::vector<int>>& sampleEdges, std::vector<Vec3>& outPolyline,
+									 double sectionSpacingMm, OtLcGraphDiagnostics* outDiagnostics = nullptr);
 
 } // namespace tg
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_OTLCSKELETON_H

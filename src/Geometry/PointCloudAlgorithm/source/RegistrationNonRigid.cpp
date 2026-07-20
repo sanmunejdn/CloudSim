@@ -1,18 +1,19 @@
+﻿/// @file RegistrationNonRigid.cpp
+/// @brief RegistrationNonRigid 实现
+
 #include "RegistrationNonRigid.h"
 
 #include "PointCloudBuffer.h"
 
-#include <Eigen/LU>
-
 #include <cmath>
 #include <limits>
 
+#include <Eigen/LU>
+
 namespace pclalgo
 {
-
 namespace
 {
-
 double tpsU(const double r)
 {
 	if (r <= 1e-12)
@@ -28,16 +29,10 @@ Eigen::Vector3d pointAt(const std::vector<float>& xyz, const std::size_t i)
 	return Eigen::Vector3d(xyz[b], xyz[b + 1U], xyz[b + 2U]);
 }
 
-bool solveTpsWeightsFull(
-	const std::vector<Eigen::Vector3d>& controlPoints,
-	const std::vector<Eigen::Vector3d>& displacements,
-	const double lambda,
-	Eigen::VectorXd& weightsX,
-	Eigen::VectorXd& weightsY,
-	Eigen::VectorXd& weightsZ,
-	Eigen::Vector4d& affineX,
-	Eigen::Vector4d& affineY,
-	Eigen::Vector4d& affineZ)
+bool solveTpsWeightsFull(const std::vector<Eigen::Vector3d>& controlPoints,
+						 const std::vector<Eigen::Vector3d>& displacements, const double lambda,
+						 Eigen::VectorXd& weightsX, Eigen::VectorXd& weightsY, Eigen::VectorXd& weightsZ,
+						 Eigen::Vector4d& affineX, Eigen::Vector4d& affineY, Eigen::Vector4d& affineZ)
 {
 	const std::size_t n = controlPoints.size();
 	if (n < 3U || displacements.size() != n)
@@ -70,7 +65,8 @@ bool solveTpsWeightsFull(
 		return false;
 	}
 
-	auto solveAxis = [&](int axis, Eigen::VectorXd& w, Eigen::Vector4d& a) {
+	auto solveAxis = [&](int axis, Eigen::VectorXd& w, Eigen::Vector4d& a)
+	{
 		Eigen::VectorXd rhs = Eigen::VectorXd::Zero(static_cast<int>(dim));
 		for (std::size_t i = 0; i < n; ++i)
 		{
@@ -90,17 +86,13 @@ bool solveTpsWeightsFull(
 	return true;
 }
 
-Eigen::Vector3d evalTps(
-	const Eigen::Vector3d& p,
-	const std::vector<Eigen::Vector3d>& controlPoints,
-	const Eigen::VectorXd& weightsX,
-	const Eigen::VectorXd& weightsY,
-	const Eigen::VectorXd& weightsZ,
-	const Eigen::Vector4d& affineX,
-	const Eigen::Vector4d& affineY,
-	const Eigen::Vector4d& affineZ)
+Eigen::Vector3d evalTps(const Eigen::Vector3d& p, const std::vector<Eigen::Vector3d>& controlPoints,
+						const Eigen::VectorXd& weightsX, const Eigen::VectorXd& weightsY,
+						const Eigen::VectorXd& weightsZ, const Eigen::Vector4d& affineX, const Eigen::Vector4d& affineY,
+						const Eigen::Vector4d& affineZ)
 {
-	auto evalAxis = [&](const Eigen::VectorXd& w, const Eigen::Vector4d& a) {
+	auto evalAxis = [&](const Eigen::VectorXd& w, const Eigen::Vector4d& a)
+	{
 		double v = a(0) + a(1) * p.x() + a(2) * p.y() + a(3) * p.z();
 		for (std::size_t i = 0; i < controlPoints.size(); ++i)
 		{
@@ -108,21 +100,14 @@ Eigen::Vector3d evalTps(
 		}
 		return v;
 	};
-	return Eigen::Vector3d(
-		evalAxis(weightsX, affineX),
-		evalAxis(weightsY, affineY),
-		evalAxis(weightsZ, affineZ));
+	return Eigen::Vector3d(evalAxis(weightsX, affineX), evalAxis(weightsY, affineY), evalAxis(weightsZ, affineZ));
 }
 
 } // namespace
 
-bool tpsDeformFromControls(
-	std::vector<float>& xyzInOut,
-	const std::vector<std::size_t>& controlPointIndices,
-	const double* controlDisplacementXyz,
-	const std::size_t numControls,
-	const double regularizationLambda,
-	std::string* errMsg)
+bool tpsDeformFromControls(std::vector<float>& xyzInOut, const std::vector<std::size_t>& controlPointIndices,
+						   const double* controlDisplacementXyz, const std::size_t numControls,
+						   const double regularizationLambda, std::string* errMsg)
 {
 	if (!validXyzLength(xyzInOut) || controlDisplacementXyz == nullptr || numControls < 3U)
 	{
@@ -152,10 +137,8 @@ bool tpsDeformFromControls(
 		}
 		controls.push_back(pointAt(xyzInOut, idx));
 		const std::size_t b = k * 3U;
-		displacements.emplace_back(
-			controlDisplacementXyz[b],
-			controlDisplacementXyz[b + 1U],
-			controlDisplacementXyz[b + 2U]);
+		displacements.emplace_back(controlDisplacementXyz[b], controlDisplacementXyz[b + 1U],
+								   controlDisplacementXyz[b + 2U]);
 	}
 
 	Eigen::VectorXd weightsX;
@@ -164,16 +147,8 @@ bool tpsDeformFromControls(
 	Eigen::Vector4d affineX;
 	Eigen::Vector4d affineY;
 	Eigen::Vector4d affineZ;
-	if (!solveTpsWeightsFull(
-			controls,
-			displacements,
-			regularizationLambda,
-			weightsX,
-			weightsY,
-			weightsZ,
-			affineX,
-			affineY,
-			affineZ))
+	if (!solveTpsWeightsFull(controls, displacements, regularizationLambda, weightsX, weightsY, weightsZ, affineX,
+							 affineY, affineZ))
 	{
 		if (errMsg != nullptr)
 		{
@@ -195,13 +170,9 @@ bool tpsDeformFromControls(
 	return true;
 }
 
-bool tpsFitAndDeform(
-	const std::vector<float>& sourceXyz,
-	const std::vector<float>& targetXyz,
-	const std::vector<std::size_t>& correspondenceIndices,
-	std::vector<float>& sourceXyzDeformedOut,
-	const double regularizationLambda,
-	std::string* errMsg)
+bool tpsFitAndDeform(const std::vector<float>& sourceXyz, const std::vector<float>& targetXyz,
+					 const std::vector<std::size_t>& correspondenceIndices, std::vector<float>& sourceXyzDeformedOut,
+					 const double regularizationLambda, std::string* errMsg)
 {
 	if (!validXyzLength(sourceXyz) || !validXyzLength(targetXyz))
 	{
@@ -264,13 +235,8 @@ bool tpsFitAndDeform(
 	}
 
 	sourceXyzDeformedOut = sourceXyz;
-	return tpsDeformFromControls(
-		sourceXyzDeformedOut,
-		controlIndices,
-		disp.data(),
-		controlIndices.size(),
-		regularizationLambda,
-		errMsg);
+	return tpsDeformFromControls(sourceXyzDeformedOut, controlIndices, disp.data(), controlIndices.size(),
+								 regularizationLambda, errMsg);
 }
 
 } // namespace pclalgo

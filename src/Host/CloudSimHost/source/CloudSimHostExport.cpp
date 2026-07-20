@@ -1,9 +1,13 @@
+﻿/// @file CloudSimHostExport.cpp
+/// @brief CloudSimHostExport 实现
+
 #include "CloudSimCoreVersion.h"
 #include "CloudSimHost.h"
 #include "IRenderView.h"
 
 // API 版本校验
-extern "C" CLOUDSIM_HOST_EXPORT cloudsim::core::IRenderViewFactory* cloudsimCreateRenderViewFactory(unsigned int apiVersion)
+extern "C" CLOUDSIM_HOST_EXPORT cloudsim::core::IRenderViewFactory*
+cloudsimCreateRenderViewFactory(unsigned int apiVersion)
 {
 	if (apiVersion != cloudsimCoreApiVersion())
 		return nullptr;

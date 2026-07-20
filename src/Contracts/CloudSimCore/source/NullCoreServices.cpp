@@ -1,3 +1,6 @@
+﻿/// @file NullCoreServices.cpp
+/// @brief NullCoreServices 实现
+
 #include "NullCoreServices.h"
 
 #include "CoreTypes.h"
@@ -7,9 +10,10 @@
 
 #include <QWidget>
 
-namespace cloudsim::core {
-namespace {
-
+namespace cloudsim::core
+{
+namespace
+{
 class NullDataService final : public IDataService
 {
 public:
@@ -56,6 +60,14 @@ public:
 	}
 
 	bool applyColor(const ObjectId&, const ColorDto&, QString* outError) override
+	{
+		if (outError)
+			*outError = QStringLiteral("NullDataService");
+		return false;
+	}
+
+	bool isVisible(const ObjectId&) const override { return true; }
+	bool setVisible(const ObjectId&, bool, QString* outError) override
 	{
 		if (outError)
 			*outError = QStringLiteral("NullDataService");
@@ -115,7 +127,7 @@ public:
 	}
 
 	bool applyJointAnglesRad(const ObjectId&, const QVector<double>&, QVector<double>* /*outAggregated*/,
-		QString* outError) override
+							 QString* outError) override
 	{
 		if (outError)
 			*outError = QStringLiteral("NullRobotService");
@@ -123,7 +135,7 @@ public:
 	}
 
 	bool planInstruction(const MotionInstructionDto&, const PlanContextDto&, PlanResultDto& out,
-		QString* outError) override
+						 QString* outError) override
 	{
 		out = {};
 		if (outError)
@@ -147,7 +159,7 @@ public:
 		return false;
 	}
 	QStringList feasibleMotionAxisConfigTokens(const QString&, const MotionInstructionDto&,
-		const PlanContextDto&) const override
+											   const PlanContextDto&) const override
 	{
 		return {};
 	}
@@ -217,10 +229,7 @@ public:
 	void setTransformGizmoFrame(TransformGizmoFrameDto) override {}
 	TransformGizmoFrameDto transformGizmoFrame() const override { return TransformGizmoFrameDto::World; }
 	void endTcpDragTeach() override {}
-	void beginTcpDragTeach(const ObjectId&, const Mat4&, float, RobotBaseWorldResolver,
-		const Mat4*) override
-	{
-	}
+	void beginTcpDragTeach(const ObjectId&, const Mat4&, float, RobotBaseWorldResolver, const Mat4*) override {}
 	void updateTcpDragTeachFromTarget(const Mat4&, bool) override {}
 	void updateTcpDragTeachToolLocalOnFlange(const Mat4&) override {}
 

@@ -1,11 +1,21 @@
-#ifndef _POINTCLOUDPROCESS_WIDGET_QWIDGETVIEWER_H_
-#define _POINTCLOUDPROCESS_WIDGET_QWIDGETVIEWER_H_
+﻿#ifndef WIDGET_QWIDGETVIEWER_H
+#define WIDGET_QWIDGETVIEWER_H
 
+/// @file QWidgetViewer.h
+/// @brief OpenGL/OSG 嵌入 Qt（QOpenGLWidget）；输入事件转发 osgViewer，供 GraphicsWindowQt1 使用
 
 #include "widget_global.h"
 
+#include <QEvent>
+#include <QGestureEvent>
+#include <QInputEvent>
+#include <QMutex>
+#include <QMutexLocker>
 #include <QOpenGLWidget>
+#include <QQueue>
+#include <QSet>
 #include <QSurfaceFormat>
+
 #include <osg/Referenced>
 #include <osgViewer/Viewer>
 
@@ -18,10 +28,10 @@ class OSG_WIDGET_API QWidgetViewer : public QOpenGLWidget
 	typedef QOpenGLWidget inherited;
 
 public:
-
-	explicit QWidgetViewer(QWidget* parent = nullptr, Qt::WindowFlags f = Qt::WindowFlags(), bool forwardKeyEvents = false);
+	explicit QWidgetViewer(QWidget* parent = nullptr, Qt::WindowFlags f = Qt::WindowFlags(),
+						   bool forwardKeyEvents = false);
 	QWidgetViewer(const QSurfaceFormat& format, QWidget* parent = nullptr, Qt::WindowFlags f = Qt::WindowFlags(),
-		bool forwardKeyEvents = false);
+				  bool forwardKeyEvents = false);
 	virtual ~QWidgetViewer();
 
 	inline void setGraphicsWindow(GraphicsWindowQt1* gw) { _gw = gw; }
@@ -104,6 +114,6 @@ protected:
 	void paintGL() override;
 	void showEvent(QShowEvent* event) override;
 	bool event(QEvent* event) override;
-
 };
-#endif//_POINTCLOUDPROCESS_WIDGET_QWIDGETVIEWER_H_
+
+#endif // WIDGET_QWIDGETVIEWER_H

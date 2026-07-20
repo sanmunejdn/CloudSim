@@ -1,15 +1,20 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_ROBOTPROGRAMEXECUTOR_H
+#define ROBOTSCENE_ROBOTPROGRAMEXECUTOR_H
+
+/// @file RobotProgramExecutor.h
+/// @brief 单运动学实例执行机器人程序（运动+逻辑）
+
+#include "robot_scene_global.h"
 
 #include "IRobotIoSink.h"
 #include "RobotInstructionController.h"
 #include "RobotInstructionPlaybackEngine.h"
-#include "robot_scene_global.h"
 
 #include <QElapsedTimer>
 #include <QHash>
 #include <QVector>
-
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -23,21 +28,23 @@ public:
 	bool isRunning() const { return m_running; }
 	void stop();
 
-	bool tryStart(
-		IRobotSimulationDocument* doc,
-		IRobotBackendPoseSink* osg,
-		IRobotIoSink* io,
-		int robotInstanceIndex,
-		const std::vector<std::shared_ptr<RobotInstruction::Base>>& program,
-		const std::vector<RobotInstruction::PlanResult>& motionPlanResults,
-		const QVector<double>& initialJointAnglesRad,
-		QString* errorOut);
+	bool tryStart(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg, IRobotIoSink* io, int robotInstanceIndex,
+				  const std::vector<std::shared_ptr<RobotInstruction::Base>>& program,
+				  const std::vector<RobotInstruction::PlanResult>& motionPlanResults,
+				  const QVector<double>& initialJointAnglesRad, QString* errorOut);
 
 	RobotInstructionPlaybackTickResult tick(IRobotSimulationDocument* doc, IRobotBackendPoseSink* osg);
 
 	const QVector<double>& jointAnglesRad() const { return m_jointAnglesRad; }
 	const RobotInstruction::Base* activeMotion() const { return m_activeMotion; }
 	const RobotInstruction::Base* currentInstruction() const;
+	/// 因规划失败停机时的摘要；正常结束为空
+	const std::string& lastAbortSummary() const { return m_lastAbortSummary; }
+	bool abortedDueToFailedPlan() const { return m_abortedDueToFailedPlan; }
+
+	/// 运行中懒规划：用最终结果替换占位 PlanResult
+	bool updateMotionPlanResult(const RobotInstruction::Base* ins, const RobotInstruction::PlanResult& plan);
+	const RobotInstruction::PlanResult* motionPlanResult(const RobotInstruction::Base* ins) const;
 
 private:
 	struct ListFrame
@@ -56,6 +63,8 @@ private:
 	const RobotInstruction::PlanResult* planForMotion(const RobotInstruction::Base& ins) const;
 
 	bool m_running = false;
+	bool m_abortedDueToFailedPlan = false;
+	std::string m_lastAbortSummary;
 	int m_robotInstanceIndex = 0;
 	int m_jointOffset = 0;
 	int m_jointCount = 0;
@@ -78,3 +87,5 @@ private:
 
 	static constexpr int kMaxWhileIterations = 10000;
 };
+
+#endif // ROBOTSCENE_ROBOTPROGRAMEXECUTOR_H

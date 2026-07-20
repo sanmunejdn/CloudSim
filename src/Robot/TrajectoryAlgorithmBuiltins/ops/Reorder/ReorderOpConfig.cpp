@@ -1,3 +1,6 @@
+﻿/// @file ReorderOpConfig.cpp
+/// @brief ReorderOpConfig 实现
+
 // Reorder 块参数 schema 与默认 TrajectoryOpDescriptor
 #include "ReorderOpConfig.h"
 
@@ -6,12 +9,9 @@
 
 namespace trajectory_algo
 {
-
 std::unique_ptr<IOpParamConfig> makeReorderOpConfig()
 {
-	return makeTrajectoryOpConfig(
-		RobotInstruction::TrajectoryOpKind::Reorder,
-		"ops/Reorder.json");
+	return makeTrajectoryOpConfig(RobotInstruction::TrajectoryOpKind::Reorder, "ops/Reorder.json");
 }
 
 } // namespace trajectory_algo

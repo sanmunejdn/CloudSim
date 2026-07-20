@@ -115,7 +115,7 @@
 | `summary` | 可读摘要 |
 | `durationSec` | 段时长 |
 | `jointTargetsRad` | 段末关节角 |
-| `jointTrajectoryRad` | LINE 约 24 点插值；PTP 常为 `{target}` |
+| `jointTrajectoryRad` | LINE 笛卡尔采样（URDF）或关节空间回退约 24 点；PTP 常为 `{target}` |
 
 ### 5.2 `class PlannerBase`
 
@@ -152,6 +152,10 @@
 3. DH `ikPositionDampedLeastSquares`（`hasDhRows()`）
 4. URDF 重试 / legacy 单关节增量
 
+**失败原因（`PlanResult` / `errMsg`）**会区分：
+- **主因优先**：缺少上下文、目标过远、未收敛残差、雅可比奇异、轴配置不匹配
+- **关节超限**仅在位姿已收敛但解超限时作为主因；未收敛时迭代末越限只作附注（非主因）
+
 ---
 
 ## 6. 程序工具（`RobotInstructionProgram.h` / `Factory`）
@@ -180,15 +184,19 @@
 
 | 方法 | 说明 |
 |------|------|
-| `tryStart(doc, osg, io, robotInstanceIndex, program, motionPlanResults, initialAngles, err)` | 含 IF/WHILE/WAIT/IO |
-| `tick(doc, osg)` | 状态机 + 运动段 |
+| `tryStart(doc, osg, io, robotInstanceIndex, program, motionPlanResults, initialAngles, err)` | 含 IF/WHILE/WAIT/IO；`motionPlanResults` 可含 `ok=false` / `lazyPending` 占位 |
+| `tick(doc, osg)` | 状态机 + 运动段；遇 `ok=false` 运动段返回 `Aborted`（播到失败点前停止） |
+| `updateMotionPlanResult` / `motionPlanResult` | Run 中回写/查询单段规划（懒规划补算） |
 | `currentInstruction()` | 当前执行指令：运动中为 `activeMotion()`，否则栈顶 frame 的 `pc-1` 步 |
-| `activeMotion()` | 当前运动段（插值中） |
+| `activeMotion()` | 当前运动段（插值中）；规划失败停机时仍指向失败指令 |
+| `lastAbortSummary()` / `abortedDueToFailedPlan()` | 规划失败停机原因 |
 | `stop()` / `isRunning()` | 控制 |
 
 私有：`While` 最大迭代 `kMaxWhileIterations = 10000`。
 
-`motionPlanResults` 由 UI 在 **Run 启动前** 链式填入（含 `PlanResultCache` 命中）；指令树选中预览在 Widget 层 **单次** `plan`、**不**经过本 executor。Run 期间 Widget 用 `currentInstruction()` 高亮指令树。预览与 Run 的差异见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) §指令树点击预览 vs 仿真运行。
+`motionPlanResults` 由 UI 在 **Run 启动时** 急算前缀段并对其余填 `lazyPending`（或失败占位）；播放中由 Widget `ensurePlaybackPlansReady` / lookahead 经 `updateMotionPlanResult` 补齐。任一点规划失败时写入 `ok=false`，**至少一段成功则仍 `tryStart`**，播放至失败点前停止。`lazyPending` 须在进入该段前被消掉，否则视为停机。指令树选中预览在 Widget 层 **单次** `plan`、**不**经过本 executor。Run 期间 Widget 用 `currentInstruction()` 高亮指令树。预览与 Run 的差异见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) §指令树点击预览 vs 仿真运行。
+
+播放插值：`jointTrajectoryRad.size() >= 2` 时优先按轨迹（含段起点）插值；否则对 `jointTargetsRad` 起止 lerp。
 
 ### 7.3 `IRobotIoSink`
 
@@ -403,7 +411,7 @@ flowchart LR
 
 **预览**（非运行）：`applyRobotPoseForInstructionPreview` 经链式种子对选中点单次 `plan`（或 `shouldUseTaughtJointCsv` + 残差门控）。**坐标系页**添加未激活工具系不触发全程序 reachability；切换激活工具会同步 `active` 路点 context 并失效示教关节。轴配置可行列表经 `queryFeasibleMotionAxisConfigurationOptions`（`RobotSimulationController` 缓存 + **后台 Job** 刷新枚举，见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)）。
 
-**运行**：`onSimulationStartTriggered` 链式构建 `PlanResult`（`PlanResultCache` 命中则跳过 IK）；`RobotProgramExecutor` 插值执行；tick 内 `currentInstruction()` 驱动指令树高亮 + `tickLookaheadPlanning` 后台预热。程序起点仅在**第一条**运动指令加入时更新（见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)）。
+**运行**：`onSimulationStartTriggered` 急算前缀 `PlanResult`（其余 `lazyPending`）；播放中 `ensurePlaybackPlansReady` / `tickLookaheadPlanning` 补齐；任一点失败则播到该点前 `Aborted`；tick 内 `currentInstruction()` 驱动指令树高亮。程序起点仅在**第一条**运动指令加入时更新（见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)）。
 
 **末端拖动示教**（非运行、不写指令）：进入前 per-link 调用 `reconcilePerLinkOuterBindFromScene`；屏幕空间平移更新 `T_base_target` → `RobotTeachIk` → 关节钳位 → `applyJointAnglesForInstance`；基座世界取 **P**（`robotBaseWorldMatrixForInstance`）。添加指令时用罗盘位姿 + `currentJointRadCsv` 落盘。见 [`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §13.1、§6.3.2（**M0**/**P**）、[`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md)。
 

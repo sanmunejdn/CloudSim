@@ -1,44 +1,41 @@
+﻿/// @file ProjectPackageIo.cpp
+/// @brief ProjectPackageIo 实现
+
 #include "ProjectPackageIo.h"
 
+#include "../../UI/RobotWidget/inc/IRobotDocumentHost.h"
+#include "../../UI/RobotWidget/inc/RobotProjectIoAdapter.h"
 #include "AnnotationProjectIo.h"
+#include "BackendDataBase.h"
+#include "BackendDataManager.h"
 #include "BackendFollowSolve.h"
 #include "BackendProjectObjectIo.h"
+#include "BrepBackendData.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "IRobotService.h"
 #include "IRobotUrdfImportContext.h"
 #include "OsgWidget.h"
-#include "RobotProjectKinematicsRestore.h"
-
-#include "RobotSceneKinematics.h"
-
-#include "../../UI/RobotWidget/inc/IRobotDocumentHost.h"
-#include "../../UI/RobotWidget/inc/RobotProjectIoAdapter.h"
-
-#include "BackendDataBase.h"
-#include "BackendDataManager.h"
-#include "BrepBackendData.h"
 #include "PointCloudBackendData.h"
+#include "RobotProjectKinematicsRestore.h"
+#include "RobotSceneKinematics.h"
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-
 #include <QJsonArray>
 #include <QJsonValue>
-
 #include <chrono>
 #include <fstream>
+
 #include <osg/Vec3f>
 
 namespace cloudsim::host
 {
-
 using ::OsgWidget;
 
 namespace
 {
-
 bool isReloadablePointCloudSourcePath(const QString& path)
 {
 	if (path.isEmpty() || path.startsWith(QStringLiteral("plugin://")))
@@ -48,12 +45,8 @@ bool isReloadablePointCloudSourcePath(const QString& path)
 	return QFileInfo::exists(path);
 }
 
-bool ensurePointCloudGeometryForSave(
-	DocumentHost& host,
-	PointCloudBackendData& pc,
-	const std::string& backendId,
-	OsgWidget* osg,
-	QStringList& warnings)
+bool ensurePointCloudGeometryForSave(DocumentHost& host, PointCloudBackendData& pc, const std::string& backendId,
+									 OsgWidget* osg, QStringList& warnings)
 {
 	if (!pc.pointPositionsXyz().empty())
 	{
@@ -92,7 +85,7 @@ bool ensurePointCloudGeometryForSave(
 			return true;
 		}
 		warnings.append(QStringLiteral("Save: reload %1 from source failed: %2")
-			.arg(idQs, loadErr.empty() ? QStringLiteral("unknown") : QString::fromStdString(loadErr)));
+							.arg(idQs, loadErr.empty() ? QStringLiteral("unknown") : QString::fromStdString(loadErr)));
 	}
 	return !pc.pointPositionsXyz().empty();
 }
@@ -108,7 +101,8 @@ FollowSolveContext followSolveContextFromDto(const core::FollowSolveContextDto* 
 	}
 	const core::FollowSolveContextDto captured = *dto;
 	ctx.skipAll = [captured]() { return captured.skipAll; };
-	ctx.fillGizmoSelectedId = [captured](std::string& outSelectedId) -> bool {
+	ctx.fillGizmoSelectedId = [captured](std::string& outSelectedId) -> bool
+	{
 		if (captured.gizmoSelectedBackendId.isEmpty())
 		{
 			return false;
@@ -120,7 +114,7 @@ FollowSolveContext followSolveContextFromDto(const core::FollowSolveContextDto* 
 }
 
 ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& languageCode,
-	const QString& assetOutputDir)
+											const QString& assetOutputDir)
 {
 	ProjectSaveBuildResult out;
 	out.root.insert(QStringLiteral("version"), 4);
@@ -150,9 +144,10 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 		{
 			if (!ensurePointCloudGeometryForSave(host, *pc, id, osg, out.warnings))
 			{
-				out.abortMessage = QStringLiteral(
-					"Point cloud '%1' has no coordinates; cannot save. Re-import or ensure the object is visible.")
-					.arg(idQs);
+				out.abortMessage =
+					QStringLiteral(
+						"Point cloud '%1' has no coordinates; cannot save. Re-import or ensure the object is visible.")
+						.arg(idQs);
 				return out;
 			}
 		}
@@ -188,7 +183,7 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 				else
 				{
 					out.abortMessage = QStringLiteral("Point cloud PLY write failed for %1: %2")
-						.arg(idQs, QString::fromStdString(writeErr));
+										   .arg(idQs, QString::fromStdString(writeErr));
 					return out;
 				}
 			}
@@ -234,7 +229,8 @@ ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& l
 				}
 				else
 				{
-					out.warnings.append(QStringLiteral("BREP object %1 has no valid source path, skipping stepSidecar").arg(idQs));
+					out.warnings.append(
+						QStringLiteral("BREP object %1 has no valid source path, skipping stepSidecar").arg(idQs));
 				}
 			}
 		}
@@ -274,7 +270,7 @@ void applyProjectViewportFromJson(DocumentHost& host, const QJsonObject& root)
 }
 
 void mergeRobotKinematicsIntoProjectRoot(::IRobotDocumentHost* robotDoc, QJsonObject& root,
-	const QVector<double>* aggregatedJointAnglesRad)
+										 const QVector<double>* aggregatedJointAnglesRad)
 {
 	if (!robotDoc)
 	{
@@ -284,7 +280,8 @@ void mergeRobotKinematicsIntoProjectRoot(::IRobotDocumentHost* robotDoc, QJsonOb
 }
 
 void finalizeProjectLoadFollowAndViewport(DocumentHost& host, const QJsonObject& root, const bool useEdgesRelation,
-	const QVector<ProjectHierarchyEdge>& edges, const core::FollowSolveContextDto* solveCtxDto)
+										  const QVector<ProjectHierarchyEdge>& edges,
+										  const core::FollowSolveContextDto* solveCtxDto)
 {
 	OsgWidget* osg = osgWidgetFrom(host);
 	if (!osg)
@@ -302,10 +299,12 @@ void finalizeProjectLoadFollowAndViewport(DocumentHost& host, const QJsonObject&
 	host.invalidateFollowReverseIndex();
 	host.requestFollowSolveForced(); // 工程打开首帧须全图求解
 	runBackendFollowSolveAndSync(host, *osg, solveCtx);
+	// 打开工程后自适应视口（与工具栏「聚焦」同一接口）
+	osg->focusCameraOnAllVisibleBackends();
 }
 
 RobotKinematicsRestoreResult restoreRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx,
-	const QJsonObject& projectRoot)
+																   const QJsonObject& projectRoot)
 {
 	RobotKinematicsRestoreResult result;
 	const QJsonObject legacyKinematics = projectRoot.value(QStringLiteral("robotKinematics")).toObject();
@@ -349,8 +348,8 @@ RobotKinematicsRestoreResult restoreRobotKinematicsFromProjectJson(IRobotUrdfImp
 	return result;
 }
 
-bool applyRestoredJointAnglesToScene(IRobotUrdfImportContext& ctx,
-	const QVector<double>& aggregatedJointAnglesRad, QString* outError)
+bool applyRestoredJointAnglesToScene(IRobotUrdfImportContext& ctx, const QVector<double>& aggregatedJointAnglesRad,
+									 QString* outError)
 {
 	IRobotSimulationDocument* doc = ctx.urdfImportRobotSimulationDocument();
 	IRobotBackendPoseSink* poseSink = ctx.urdfImportScenePoseSink();

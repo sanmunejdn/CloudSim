@@ -1,10 +1,13 @@
+﻿/// @file PointCloudPlugin.cpp
+/// @brief PointCloudPlugin 实现
+
 #include "PointCloudPlugin.h"
 
-#include "PointCloudDockWidget.h"
-#include "TubularGrindingDockWidget.h"
 #include "CloudSimPluginVersion.h"
 #include "IPluginHostContext.h"
 #include "IPluginPointCloudHost.h"
+#include "PointCloudDockWidget.h"
+#include "TubularGrindingDockWidget.h"
 
 #include <QMenu>
 
@@ -57,29 +60,34 @@ bool PointCloudPlugin::initialize(IPluginHostContext* host)
 		}
 	}
 
-	host->onActiveDocumentChanged([this](IPluginDocument*) {
-		if (m_dockWidget)
+	host->onActiveDocumentChanged(
+		[this](IPluginDocument*)
 		{
-			m_dockWidget->refreshDocumentLabel();
-			m_dockWidget->refreshPointCloudList();
-		}
-		if (m_featureBuildWidget)
-		{
-			m_featureBuildWidget->refreshMeshList();
-		}
-	});
+			if (m_dockWidget)
+			{
+				m_dockWidget->refreshDocumentLabel();
+				m_dockWidget->refreshPointCloudList();
+			}
+			if (m_featureBuildWidget)
+			{
+				m_featureBuildWidget->refreshMeshList();
+			}
+		});
 
-	host->onLanguageChanged([this](const bool) {
-		applyLanguage();
-		if (m_featureBuildWidget)
+	host->onLanguageChanged(
+		[this](const bool)
 		{
-			m_featureBuildWidget->applyLanguage();
-		}
-	});
+			applyLanguage();
+			if (m_featureBuildWidget)
+			{
+				m_featureBuildWidget->applyLanguage();
+			}
+		});
 
 	registerMenus();
 	applyLanguage();
-	host->logInfo(host->useChinese() ? QStringLiteral("点云插件已加载。") : QStringLiteral("PointCloud plugin initialized."));
+	host->logInfo(host->useChinese() ? QStringLiteral("点云插件已加载。")
+									 : QStringLiteral("PointCloud plugin initialized."));
 	return true;
 }
 
@@ -112,35 +120,35 @@ void PointCloudPlugin::registerMenus()
 	{
 		return;
 	}
-	m_pointCloudMenu = m_host->registerMenuPath({ QStringLiteral("Tools"), QStringLiteral("Point Cloud") });
+	m_pointCloudMenu = m_host->registerMenuPath({QStringLiteral("Tools"), QStringLiteral("Point Cloud")});
 	if (!m_pointCloudMenu)
 	{
 		return;
 	}
-	m_importAction = m_host->registerAction(
-		m_pointCloudMenu, QStringLiteral("Import Point Cloud..."), [this]() { importPointCloud(); });
-	m_downsampleAction = m_host->registerAction(
-		m_pointCloudMenu, QStringLiteral("Downsample Voxel"), [this]() { downsampleVoxelOnSelection(); });
-	m_reconstructAction = m_host->registerAction(
-		m_pointCloudMenu, QStringLiteral("Reconstruct Poisson Auto"), [this]() { reconstructPoissonOnSelection(); });
-	m_exportMeshAction = m_host->registerAction(
-		m_pointCloudMenu, QStringLiteral("Export Mesh PLY..."), [this]() { exportMeshOnSelection(); });
-	m_refreshAction = m_host->registerAction(m_pointCloudMenu, QStringLiteral("Refresh List"), [this]() {
-		if (m_dockWidget)
-		{
-			m_dockWidget->refreshPointCloudList();
-		}
-	});
-	m_simplifyAction = m_host->registerAction(
-		m_pointCloudMenu, QStringLiteral("Simplify Mesh"), [this]() { simplifyMeshOnSelection(); });
-	m_smoothAction = m_host->registerAction(
-		m_pointCloudMenu, QStringLiteral("Smooth Mesh"), [this]() { smoothMeshOnSelection(); });
+	m_importAction = m_host->registerAction(m_pointCloudMenu, QStringLiteral("Import Point Cloud..."),
+											[this]() { importPointCloud(); });
+	m_downsampleAction = m_host->registerAction(m_pointCloudMenu, QStringLiteral("Downsample Voxel"),
+												[this]() { downsampleVoxelOnSelection(); });
+	m_reconstructAction = m_host->registerAction(m_pointCloudMenu, QStringLiteral("Reconstruct Poisson Auto"),
+												 [this]() { reconstructPoissonOnSelection(); });
+	m_exportMeshAction = m_host->registerAction(m_pointCloudMenu, QStringLiteral("Export Mesh PLY..."),
+												[this]() { exportMeshOnSelection(); });
+	m_refreshAction = m_host->registerAction(m_pointCloudMenu, QStringLiteral("Refresh List"),
+											 [this]()
+											 {
+												 if (m_dockWidget)
+												 {
+													 m_dockWidget->refreshPointCloudList();
+												 }
+											 });
+	m_simplifyAction = m_host->registerAction(m_pointCloudMenu, QStringLiteral("Simplify Mesh"),
+											  [this]() { simplifyMeshOnSelection(); });
+	m_smoothAction =
+		m_host->registerAction(m_pointCloudMenu, QStringLiteral("Smooth Mesh"), [this]() { smoothMeshOnSelection(); });
 	if (m_host->hostVersion() >= 0x00010C00U)
 	{
-		m_surfaceReconstructAction = m_host->registerAction(
-			m_pointCloudMenu,
-			QStringLiteral("Surface Reconstruct"),
-			[this]() { surfaceReconstructOnSelection(); });
+		m_surfaceReconstructAction = m_host->registerAction(m_pointCloudMenu, QStringLiteral("Surface Reconstruct"),
+															[this]() { surfaceReconstructOnSelection(); });
 	}
 }
 
@@ -173,8 +181,8 @@ void PointCloudPlugin::applyLanguage()
 	}
 	if (m_reconstructAction)
 	{
-		m_reconstructAction->setText(
-			zh ? QStringLiteral("Poisson Auto 重建") : QStringLiteral("Reconstruct Poisson Auto"));
+		m_reconstructAction->setText(zh ? QStringLiteral("Poisson Auto 重建")
+										: QStringLiteral("Reconstruct Poisson Auto"));
 	}
 	if (m_exportMeshAction)
 	{
@@ -194,8 +202,7 @@ void PointCloudPlugin::applyLanguage()
 	}
 	if (m_surfaceReconstructAction)
 	{
-		m_surfaceReconstructAction->setText(
-			zh ? QStringLiteral("曲面重构") : QStringLiteral("Surface Reconstruct"));
+		m_surfaceReconstructAction->setText(zh ? QStringLiteral("曲面重构") : QStringLiteral("Surface Reconstruct"));
 	}
 }
 

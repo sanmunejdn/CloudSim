@@ -1,4 +1,8 @@
+﻿/// @file DevicePageWidget.cpp
+/// @brief DevicePageWidget 实现
+
 #include "DevicePageWidget.h"
+
 #include "UiIconDecorators.h"
 #include "UiIcons.h"
 
@@ -19,12 +23,11 @@
 #include <QRegularExpression>
 #include <QResizeEvent>
 #include <QScrollArea>
+#include <QSet>
 #include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QToolButton>
 #include <QVBoxLayout>
-#include <QSet>
-
 #include <algorithm>
 
 namespace
@@ -49,10 +52,8 @@ QString applicationDirWithResourceFolder()
 	return appDir;
 }
 
-static const QStringList kImageSuffixes{
-	QStringLiteral("png"), QStringLiteral("jpg"), QStringLiteral("jpeg"),
-	QStringLiteral("bmp"), QStringLiteral("webp"), QStringLiteral("gif")
-};
+static const QStringList kImageSuffixes{QStringLiteral("png"), QStringLiteral("jpg"),  QStringLiteral("jpeg"),
+										QStringLiteral("bmp"), QStringLiteral("webp"), QStringLiteral("gif")};
 
 QStringList listUrdfFilesInPackage(const QString& packageRoot)
 {
@@ -109,12 +110,10 @@ bool isNonDevicePackageFolderName(const QString& folderName)
 {
 	const QString n = folderName.toLower();
 	static const QStringList kSkip{
-		QStringLiteral("urdf"), QStringLiteral("meshes"), QStringLiteral("mesh"),
-		QStringLiteral("config"), QStringLiteral("launch"), QStringLiteral("materials"),
-		QStringLiteral("textures"), QStringLiteral("cad"), QStringLiteral("collision"),
-		QStringLiteral("visual"), QStringLiteral("include"), QStringLiteral("worlds"),
-		QStringLiteral("maps"), QStringLiteral("rviz"), QStringLiteral("test"),
-		QStringLiteral("tests"),
+		QStringLiteral("urdf"),		 QStringLiteral("meshes"),	  QStringLiteral("mesh"),	  QStringLiteral("config"),
+		QStringLiteral("launch"),	 QStringLiteral("materials"), QStringLiteral("textures"), QStringLiteral("cad"),
+		QStringLiteral("collision"), QStringLiteral("visual"),	  QStringLiteral("include"),  QStringLiteral("worlds"),
+		QStringLiteral("maps"),		 QStringLiteral("rviz"),	  QStringLiteral("test"),	  QStringLiteral("tests"),
 	};
 	return kSkip.contains(n);
 }
@@ -169,8 +168,7 @@ void classifyPackagePath(const QString& packageRoot, const QString& modelsRoot, 
 		outBrand = kNoBrand;
 		return;
 	}
-	const QStringList parts =
-		rel.split(QRegularExpression(QStringLiteral("[/\\\\]")), Qt::SkipEmptyParts);
+	const QStringList parts = rel.split(QRegularExpression(QStringLiteral("[/\\\\]")), Qt::SkipEmptyParts);
 	if (parts.size() >= 3)
 	{
 		outType = parts[0];
@@ -195,9 +193,7 @@ void classifyPackagePath(const QString& packageRoot, const QString& modelsRoot, 
 
 QStringList orderedCategoryKeys(const QStringList& categories)
 {
-	static const QStringList kPreferred{
-		QStringLiteral("Robot"), QStringLiteral("AGV"), QStringLiteral("Worker")
-	};
+	static const QStringList kPreferred{QStringLiteral("Robot"), QStringLiteral("AGV"), QStringLiteral("Worker")};
 	QStringList out;
 	QStringList rest = categories;
 	for (const QString& p : kPreferred)
@@ -225,8 +221,7 @@ QString elidedButtonText(QToolButton* btn, const QString& text)
 
 } // namespace
 
-DevicePageWidget::DevicePageWidget(QWidget* parent)
-	: QWidget(parent)
+DevicePageWidget::DevicePageWidget(QWidget* parent) : QWidget(parent)
 {
 	auto* root = new QVBoxLayout(this);
 	root->setContentsMargins(6, 6, 6, 6);
@@ -287,10 +282,10 @@ void DevicePageWidget::setupUi(QVBoxLayout* rootLayout)
 		viewport->installEventFilter(this);
 	}
 
-	connect(m_typeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-		this, &DevicePageWidget::onTypeSelectionChanged);
-	connect(m_brandCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-		this, &DevicePageWidget::onBrandSelectionChanged);
+	connect(m_typeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&DevicePageWidget::onTypeSelectionChanged);
+	connect(m_brandCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&DevicePageWidget::onBrandSelectionChanged);
 	connect(m_refreshBtn, &QPushButton::clicked, this, &DevicePageWidget::onRefreshClicked);
 
 	if (rootLayout)
@@ -319,8 +314,7 @@ void DevicePageWidget::updateUiLabels()
 	}
 	if (m_refreshBtn)
 	{
-		m_refreshBtn->setToolTip(zh ? QStringLiteral("重新扫描设备包")
-			: QStringLiteral("Rescan device packages"));
+		m_refreshBtn->setToolTip(zh ? QStringLiteral("重新扫描设备包") : QStringLiteral("Rescan device packages"));
 	}
 }
 
@@ -412,10 +406,8 @@ void DevicePageWidget::rescanPackagesAndRefreshUi()
 
 	if (m_typeCombo->count() == 0)
 	{
-		m_statusLabel->setText(
-			m_useChinese
-				? QStringLiteral("未找到含 URDF 的设备包。\n%1").arg(m_modelsRoot)
-				: QStringLiteral("No URDF device packages found.\n%1").arg(m_modelsRoot));
+		m_statusLabel->setText(m_useChinese ? QStringLiteral("未找到含 URDF 的设备包。\n%1").arg(m_modelsRoot)
+											: QStringLiteral("No URDF device packages found.\n%1").arg(m_modelsRoot));
 		m_statusLabel->show();
 	}
 }
@@ -460,9 +452,7 @@ void DevicePageWidget::updateBrandComboVisibility()
 {
 	const QString type = selectedType();
 	const int brandCount =
-		type.isEmpty() || !m_packagesByTypeBrand.contains(type)
-			? 0
-			: m_packagesByTypeBrand[type].size();
+		type.isEmpty() || !m_packagesByTypeBrand.contains(type) ? 0 : m_packagesByTypeBrand[type].size();
 	const bool showBrand = brandCount > 1;
 	m_brandLabel->setVisible(showBrand);
 	m_brandCombo->setVisible(showBrand);
@@ -521,7 +511,8 @@ void DevicePageWidget::rebuildModelTiles()
 
 	const QStringList packages = m_packagesByTypeBrand[type][brand];
 
-	auto makeTile = [&](const QString& labelText, const QString& urdfPath, const QIcon& icon) {
+	auto makeTile = [&](const QString& labelText, const QString& urdfPath, const QIcon& icon)
+	{
 		auto* btn = new QToolButton(m_modelsContainer);
 		btn->setFixedSize(kTileWidth, kTileHeight);
 		btn->setIconSize(QSize(kIconSize, kIconSize));
@@ -529,9 +520,7 @@ void DevicePageWidget::rebuildModelTiles()
 		btn->setIcon(icon);
 		btn->setText(elidedButtonText(btn, labelText));
 		btn->setToolTip(QStringLiteral("%1\n%2").arg(labelText, urdfPath));
-		connect(btn, &QToolButton::clicked, this, [this, urdfPath]() {
-			emit urdfImportRequested(urdfPath);
-		});
+		connect(btn, &QToolButton::clicked, this, [this, urdfPath]() { emit urdfImportRequested(urdfPath); });
 		m_modelButtons.append(btn);
 	};
 
@@ -567,8 +556,7 @@ void DevicePageWidget::rebuildModelTiles()
 
 		for (const QString& imgPath : images)
 		{
-			const QString urdfPath =
-				pickUrdfForImageBase(QFileInfo(imgPath).completeBaseName(), urdfs);
+			const QString urdfPath = pickUrdfForImageBase(QFileInfo(imgPath).completeBaseName(), urdfs);
 			if (urdfPath.isEmpty())
 			{
 				continue;
@@ -587,7 +575,7 @@ void DevicePageWidget::rebuildModelTiles()
 	if (m_modelButtons.isEmpty())
 	{
 		m_statusLabel->setText(m_useChinese ? QStringLiteral("此品牌下暂无可用型号。")
-			: QStringLiteral("No models under this brand."));
+											: QStringLiteral("No models under this brand."));
 		m_statusLabel->show();
 	}
 
@@ -605,18 +593,16 @@ void DevicePageWidget::relayoutModelGrid()
 	{
 		if (m_statusLabel->isVisible())
 		{
-			const int viewportWidth = m_modelsScroll && m_modelsScroll->viewport()
-				? m_modelsScroll->viewport()->width()
-				: width();
+			const int viewportWidth =
+				m_modelsScroll && m_modelsScroll->viewport() ? m_modelsScroll->viewport()->width() : width();
 			const int columns = qMax(1, viewportWidth / (kTileWidth + kGridSpacing));
 			m_modelsGrid->addWidget(m_statusLabel, 0, 0, 1, columns);
 		}
 		return;
 	}
 
-	const int viewportWidth = m_modelsScroll && m_modelsScroll->viewport()
-		? m_modelsScroll->viewport()->width()
-		: width();
+	const int viewportWidth =
+		m_modelsScroll && m_modelsScroll->viewport() ? m_modelsScroll->viewport()->width() : width();
 	const int columns = qMax(1, viewportWidth / (kTileWidth + kGridSpacing));
 
 	for (int i = 0; i < m_modelButtons.size(); ++i)
@@ -635,8 +621,7 @@ void DevicePageWidget::resizeEvent(QResizeEvent* event)
 
 bool DevicePageWidget::eventFilter(QObject* watched, QEvent* event)
 {
-	if (m_modelsScroll && watched == m_modelsScroll->viewport()
-		&& event->type() == QEvent::Resize)
+	if (m_modelsScroll && watched == m_modelsScroll->viewport() && event->type() == QEvent::Resize)
 	{
 		relayoutModelGrid();
 	}

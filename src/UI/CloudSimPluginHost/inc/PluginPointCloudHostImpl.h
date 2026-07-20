@@ -1,16 +1,19 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINHOST_PLUGINPOINTCLOUDHOSTIMPL_H
+#define CLOUDSIMPLUGINHOST_PLUGINPOINTCLOUDHOSTIMPL_H
+
+/// @file PluginPointCloudHostImpl.h
+/// @brief PluginPointCloudHostImpl 接口
 
 #include "IPluginPointCloudHost.h"
-
-#include <BackendFollowMath.h>
-#include <TemplateBrepUpdate.h>
-
-#include <MeshSurfaceReconstruction.h>
-#include <TubularGrinding.h>
 
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include <BackendFollowMath.h>
+#include <MeshSurfaceReconstruction.h>
+#include <TemplateBrepUpdate.h>
+#include <TubularGrinding.h>
 
 class PluginHostContext;
 
@@ -19,208 +22,134 @@ class PluginPointCloudHostImpl : public IPluginPointCloudHost
 public:
 	explicit PluginPointCloudHostImpl(PluginHostContext* hostContext);
 
-	void downsamplePointCloudVoxel(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginPointCloudDownsampleVoxelParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void downsamplePointCloudVoxel(IPluginDocument* doc, const std::string& backendIdUtf8,
+								   const PluginPointCloudDownsampleVoxelParams& params,
+								   PluginPointCloudFinishedFn onFinished) override;
 
-	void downsamplePointCloudRandom(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginPointCloudDownsampleRandomParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void downsamplePointCloudRandom(IPluginDocument* doc, const std::string& backendIdUtf8,
+									const PluginPointCloudDownsampleRandomParams& params,
+									PluginPointCloudFinishedFn onFinished) override;
 
-	void cropPointCloudByBox(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginPointCloudCropBoxParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void cropPointCloudByBox(IPluginDocument* doc, const std::string& backendIdUtf8,
+							 const PluginPointCloudCropBoxParams& params,
+							 PluginPointCloudFinishedFn onFinished) override;
 
-	void cropPointCloudBySphere(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginPointCloudCropSphereParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void cropPointCloudBySphere(IPluginDocument* doc, const std::string& backendIdUtf8,
+								const PluginPointCloudCropSphereParams& params,
+								PluginPointCloudFinishedFn onFinished) override;
 
-	void applyRigidTransformToPointCloud(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginPointCloudRigidTransformParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void applyRigidTransformToPointCloud(IPluginDocument* doc, const std::string& backendIdUtf8,
+										 const PluginPointCloudRigidTransformParams& params,
+										 PluginPointCloudFinishedFn onFinished) override;
 
-	void removePointCloudOutliers(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginPointCloudOutlierParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void removePointCloudOutliers(IPluginDocument* doc, const std::string& backendIdUtf8,
+								  const PluginPointCloudOutlierParams& params,
+								  PluginPointCloudFinishedFn onFinished) override;
 
-	void smoothPointCloudBilateral(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		PluginPointCloudFinishedFn onFinished) override;
+	void smoothPointCloudBilateral(IPluginDocument* doc, const std::string& backendIdUtf8,
+								   PluginPointCloudFinishedFn onFinished) override;
 
-	void estimatePointCloudNormalsPca(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginPointCloudNormalsParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void estimatePointCloudNormalsPca(IPluginDocument* doc, const std::string& backendIdUtf8,
+									  const PluginPointCloudNormalsParams& params,
+									  PluginPointCloudFinishedFn onFinished) override;
 
-	void estimatePointCloudNormalsJet(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginPointCloudNormalsParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void estimatePointCloudNormalsJet(IPluginDocument* doc, const std::string& backendIdUtf8,
+									  const PluginPointCloudNormalsParams& params,
+									  PluginPointCloudFinishedFn onFinished) override;
 
-	void orientPointCloudNormalsMst(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginPointCloudNormalsParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void orientPointCloudNormalsMst(IPluginDocument* doc, const std::string& backendIdUtf8,
+									const PluginPointCloudNormalsParams& params,
+									PluginPointCloudFinishedFn onFinished) override;
 
-	void preprocessPointCloudForReconstruction(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginPointCloudPreprocessParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void preprocessPointCloudForReconstruction(IPluginDocument* doc, const std::string& backendIdUtf8,
+											   const PluginPointCloudPreprocessParams& params,
+											   PluginPointCloudFinishedFn onFinished) override;
 
-	void rigidRegisterPointCloudsIcp(
-		IPluginDocument* doc,
-		const std::string& sourceBackendIdUtf8,
-		const PluginPointCloudIcpParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void rigidRegisterPointCloudsIcp(IPluginDocument* doc, const std::string& sourceBackendIdUtf8,
+									 const PluginPointCloudIcpParams& params,
+									 PluginPointCloudFinishedFn onFinished) override;
 
-	void deformPointCloudTpsFromControls(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginPointCloudTpsControlParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void deformPointCloudTpsFromControls(IPluginDocument* doc, const std::string& backendIdUtf8,
+										 const PluginPointCloudTpsControlParams& params,
+										 PluginPointCloudFinishedFn onFinished) override;
 
-	void deformPointCloudTpsFitAndDeform(
-		IPluginDocument* doc,
-		const std::string& sourceBackendIdUtf8,
-		const PluginPointCloudTpsFitParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void deformPointCloudTpsFitAndDeform(IPluginDocument* doc, const std::string& sourceBackendIdUtf8,
+										 const PluginPointCloudTpsFitParams& params,
+										 PluginPointCloudFinishedFn onFinished) override;
 
-	void reconstructMeshPoisson(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginPointCloudReconstructPoissonParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void reconstructMeshPoisson(IPluginDocument* doc, const std::string& backendIdUtf8,
+								const PluginPointCloudReconstructPoissonParams& params,
+								PluginPointCloudFinishedFn onFinished) override;
 
-	void reconstructMeshPoissonAuto(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginPointCloudReconstructPoissonAutoParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void reconstructMeshPoissonAuto(IPluginDocument* doc, const std::string& backendIdUtf8,
+									const PluginPointCloudReconstructPoissonAutoParams& params,
+									PluginPointCloudFinishedFn onFinished) override;
 
-	void reconstructMeshScaleSpace(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginPointCloudReconstructScaleSpaceParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void reconstructMeshScaleSpace(IPluginDocument* doc, const std::string& backendIdUtf8,
+								   const PluginPointCloudReconstructScaleSpaceParams& params,
+								   PluginPointCloudFinishedFn onFinished) override;
 
-	void registerScanToCadTemplate(
-		IPluginDocument* doc,
-		const std::string& scanBackendIdUtf8,
-		const PluginPointCloudTemplateBrepUpdateParams& params,
-		PluginPointCloudTemplateBrepRegisterFinishedFn onFinished) override;
+	void registerScanToCadTemplate(IPluginDocument* doc, const std::string& scanBackendIdUtf8,
+								   const PluginPointCloudTemplateBrepUpdateParams& params,
+								   PluginPointCloudTemplateBrepRegisterFinishedFn onFinished) override;
 
-	void updateTemplateBrepFromAlignedScan(
-		IPluginDocument* doc,
-		const std::string& scanBackendIdUtf8,
-		const PluginPointCloudTemplateBrepUpdateParams& params,
-		PluginPointCloudTemplateBrepUpdateFinishedFn onFinished) override;
+	void updateTemplateBrepFromAlignedScan(IPluginDocument* doc, const std::string& scanBackendIdUtf8,
+										   const PluginPointCloudTemplateBrepUpdateParams& params,
+										   PluginPointCloudTemplateBrepUpdateFinishedFn onFinished) override;
 
 	// 网格后处理（1.9.0+）
-	bool queryMeshInfo(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		PluginMeshInfo& out) const override;
+	bool queryMeshInfo(IPluginDocument* doc, const std::string& backendIdUtf8, PluginMeshInfo& out) const override;
 
-	void simplifyMesh(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginMeshSimplifyParams& params,
-		PluginMeshFinishedFn onFinished) override;
+	void simplifyMesh(IPluginDocument* doc, const std::string& backendIdUtf8, const PluginMeshSimplifyParams& params,
+					  PluginMeshFinishedFn onFinished) override;
 
-	void smoothMesh(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginMeshSmoothParams& params,
-		PluginMeshFinishedFn onFinished) override;
+	void smoothMesh(IPluginDocument* doc, const std::string& backendIdUtf8, const PluginMeshSmoothParams& params,
+					PluginMeshFinishedFn onFinished) override;
 
-	void repairMesh(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginMeshRepairParams& params,
-		PluginMeshFinishedFn onFinished) override;
+	void repairMesh(IPluginDocument* doc, const std::string& backendIdUtf8, const PluginMeshRepairParams& params,
+					PluginMeshFinishedFn onFinished) override;
 
-	void remeshMeshIsotropic(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginMeshRemeshParams& params,
-		PluginMeshFinishedFn onFinished) override;
+	void remeshMeshIsotropic(IPluginDocument* doc, const std::string& backendIdUtf8,
+							 const PluginMeshRemeshParams& params, PluginMeshFinishedFn onFinished) override;
 
-	void analyzeMeshDefects(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginMeshDefectParams& params,
-		PluginMeshDefectFinishedFn onFinished) override;
+	void analyzeMeshDefects(IPluginDocument* doc, const std::string& backendIdUtf8,
+							const PluginMeshDefectParams& params, PluginMeshDefectFinishedFn onFinished) override;
 
 	void clearMeshDefectHighlight(IPluginDocument* doc) override;
 
-	void pickPolylineFromViewport(
-		IPluginDocument* doc,
-		PluginPointCloudPolylinePickFinishedFn onFinished) override;
+	void pickPolylineFromViewport(IPluginDocument* doc, PluginPointCloudPolylinePickFinishedFn onFinished) override;
 
-	void cropPointCloudByPolyline(
-		IPluginDocument* doc,
-		const std::string& backendIdUtf8,
-		const PluginPointCloudCropPolylineParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void cropPointCloudByPolyline(IPluginDocument* doc, const std::string& backendIdUtf8,
+								  const PluginPointCloudCropPolylineParams& params,
+								  PluginPointCloudFinishedFn onFinished) override;
 
-	void reconstructSurfaceFromMesh(
-		IPluginDocument* doc,
-		const std::string& meshBackendIdUtf8,
-		const PluginMeshSurfaceReconstructParams& params,
-		PluginMeshSurfaceReconstructFinishedFn onFinished) override;
+	void reconstructSurfaceFromMesh(IPluginDocument* doc, const std::string& meshBackendIdUtf8,
+									const PluginMeshSurfaceReconstructParams& params,
+									PluginMeshSurfaceReconstructFinishedFn onFinished) override;
 
-	PluginMeshSurfaceReconstructSessionId beginMeshSurfaceReconstructSession(
-		IPluginDocument* doc,
-		const std::string& meshBackendIdUtf8) override;
+	PluginMeshSurfaceReconstructSessionId
+	beginMeshSurfaceReconstructSession(IPluginDocument* doc, const std::string& meshBackendIdUtf8) override;
 
-	void runMeshSurfaceReconstructStage(
-		IPluginDocument* doc,
-		const PluginMeshSurfaceReconstructSessionId& sessionId,
-		PluginMeshSurfaceReconstructStage stage,
-		const PluginMeshSurfaceReconstructParams& params,
-		PluginMeshSurfaceReconstructFinishedFn onFinished) override;
+	void runMeshSurfaceReconstructStage(IPluginDocument* doc, const PluginMeshSurfaceReconstructSessionId& sessionId,
+										PluginMeshSurfaceReconstructStage stage,
+										const PluginMeshSurfaceReconstructParams& params,
+										PluginMeshSurfaceReconstructFinishedFn onFinished) override;
 
-	void clearMeshSurfaceReconstructSession(
-		IPluginDocument* doc,
-		const PluginMeshSurfaceReconstructSessionId& sessionId) override;
+	void clearMeshSurfaceReconstructSession(IPluginDocument* doc,
+											const PluginMeshSurfaceReconstructSessionId& sessionId) override;
 
-	PluginTubularGrindingSessionId beginTubularGrindingSession(
-		IPluginDocument* doc,
-		const std::string& meshBackendIdUtf8) override;
+	PluginTubularGrindingSessionId beginTubularGrindingSession(IPluginDocument* doc,
+															   const std::string& meshBackendIdUtf8) override;
 
-	void runTubularGrindingStage(
-		IPluginDocument* doc,
-		const PluginTubularGrindingSessionId& sessionId,
-		PluginTubularGrindingStage stage,
-		const PluginTubularGrindingParams& params,
-		PluginTubularGrindingFinishedFn onFinished) override;
+	void runTubularGrindingStage(IPluginDocument* doc, const PluginTubularGrindingSessionId& sessionId,
+								 PluginTubularGrindingStage stage, const PluginTubularGrindingParams& params,
+								 PluginTubularGrindingFinishedFn onFinished) override;
 
-	void clearTubularGrindingSession(
-		IPluginDocument* doc,
-		const PluginTubularGrindingSessionId& sessionId) override;
+	void clearTubularGrindingSession(IPluginDocument* doc, const PluginTubularGrindingSessionId& sessionId) override;
 
-	void nonRigidRegisterSpare(
-		IPluginDocument* doc,
-		const std::string& sourceBackendIdUtf8,
-		const PluginPointCloudSpareParams& params,
-		PluginPointCloudFinishedFn onFinished) override;
+	void nonRigidRegisterSpare(IPluginDocument* doc, const std::string& sourceBackendIdUtf8,
+							   const PluginPointCloudSpareParams& params,
+							   PluginPointCloudFinishedFn onFinished) override;
 
 private:
 	struct SurfaceReconHostSession
@@ -271,10 +200,7 @@ private:
 		geoalgo::TemplateBrepRegistrationCheckpoint registrationCheckpoint;
 	};
 
-	bool cacheMatches(
-		IPluginDocument* doc,
-		const std::string& scanId,
-		const std::string& templateId) const;
+	bool cacheMatches(IPluginDocument* doc, const std::string& scanId, const std::string& templateId) const;
 
 	void eraseSurfaceReconSession(const std::string& sessionId, IPluginDocument* doc);
 	SurfaceReconHostSession* findSurfaceReconSession(const std::string& sessionId, IPluginDocument* doc);
@@ -287,3 +213,5 @@ private:
 	std::unordered_map<std::string, SurfaceReconHostSession> m_surfaceReconSessions;
 	std::unordered_map<std::string, TubularGrindingHostSession> m_tubularGrindingSessions;
 };
+
+#endif // CLOUDSIMPLUGINHOST_PLUGINPOINTCLOUDHOSTIMPL_H

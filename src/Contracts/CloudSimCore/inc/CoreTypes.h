@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMCORE_CORETYPES_H
+#define CLOUDSIMCORE_CORETYPES_H
+
+/// @file CoreTypes.h
+/// @brief 三维向量
 
 #include "cloudsim_core_global.h"
 
@@ -7,12 +11,11 @@
 #include <QString>
 #include <QStringList>
 #include <QVector>
-
 #include <array>
 #include <functional>
 
-namespace cloudsim::core {
-
+namespace cloudsim::core
+{
 using ObjectId = QString;
 using Mat4 = std::array<double, 16>;
 
@@ -146,6 +149,7 @@ struct BackendObjectDto
 	bool hasGeometry = false;
 	GeometryKind geometryKind = GeometryKind::None;
 	BBoxDto bbox;
+	bool visible = true;
 };
 
 /// 物体变换 gizmo：世界轴 / 局部轴
@@ -258,3 +262,5 @@ struct RobotPerLinkKinematicsSliceDto
 };
 
 } // namespace cloudsim::core
+
+#endif // CLOUDSIMCORE_CORETYPES_H

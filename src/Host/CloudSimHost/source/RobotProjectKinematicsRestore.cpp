@@ -1,9 +1,11 @@
+﻿/// @file RobotProjectKinematicsRestore.cpp
+/// @brief RobotProjectKinematicsRestore 实现
+
 #include "RobotProjectKinematicsRestore.h"
 
-#include "IRobotUrdfImportContext.h"
-#include "IRobotBackendPoseSink.h"
-
 #include "BackendDataManager.h"
+#include "IRobotBackendPoseSink.h"
+#include "IRobotUrdfImportContext.h"
 #include "MeshBackendData.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotMatrixOsgBridge.h"
@@ -15,14 +17,13 @@
 #include <QJsonValue>
 
 #include <json.hpp>
-
-#include <osg/Matrixd>
 #include <osg/MatrixTransform>
+#include <osg/Matrixd>
 
-namespace cloudsim::host {
-
-namespace {
-
+namespace cloudsim::host
+{
+namespace
+{
 void collectRobotLinkIdsFromKinematicsObject(const QJsonObject& rkObj, QSet<QString>& outIds)
 {
 	if (rkObj.value(QStringLiteral("mode")).toString() != QStringLiteral("perLink"))
@@ -58,7 +59,7 @@ QSet<QString> collectRobotLinkMeshBackendIds(const QJsonObject& projectRoot)
 }
 
 bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, const QJsonObject& rk,
-	QVector<double>& outAllJointAnglesRad, QString* outWarning)
+												  QVector<double>& outAllJointAnglesRad, QString* outWarning)
 {
 	if (rk.value(QStringLiteral("mode")).toString() != QStringLiteral("perLink"))
 	{
@@ -111,7 +112,8 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 	}
 	QHash<QString, osg::Matrixd> fkT0;
 	QHash<QString, osg::Matrixd> outer;
-	auto maxMatAbsDiff = [](const osg::Matrixd& a, const osg::Matrixd& b) -> double {
+	auto maxMatAbsDiff = [](const osg::Matrixd& a, const osg::Matrixd& b) -> double
+	{
 		double m = 0.0;
 		for (int r = 0; r < 4; ++r)
 		{
@@ -153,8 +155,8 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 		}
 	}
 	// 无 OSG 关节节点：perLink 模式靠 backend 位姿驱动
-	ctx.appendHierarchicalRobotSimulationContext(
-		urdf, jn, lo, hi, QHash<QString, osg::MatrixTransform*>(), sceneRoot, jointRoot);
+	ctx.appendHierarchicalRobotSimulationContext(urdf, jn, lo, hi, QHash<QString, osg::MatrixTransform*>(), sceneRoot,
+												 jointRoot);
 	ctx.setRobotPerLinkKinematicsBinding(importKey, linkMap, fkT0, outer, false);
 
 	// 恢复机器人基座放置位姿 P

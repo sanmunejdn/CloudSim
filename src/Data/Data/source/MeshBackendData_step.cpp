@@ -1,6 +1,10 @@
+﻿/// @file MeshBackendData_step.cpp
+/// @brief MeshBackendData_step 实现
+
 #include "pch.h"
-#include "MeshBackendData_loaders.h"
+
 #include "MeshBackendData.h"
+#include "MeshBackendData_loaders.h"
 #include "RunLogger.h"
 
 #include <Discretize.h>
@@ -8,7 +12,6 @@
 
 namespace mesh_backend_load
 {
-
 bool meshLoadStepSingleFile(const std::string& path, std::vector<float>& soup, std::string* errMsg)
 {
 	geoalgo::TessellateParams params;
@@ -18,7 +21,8 @@ bool meshLoadStepSingleFile(const std::string& path, std::vector<float>& soup, s
 
 } // namespace mesh_backend_load
 
-bool MeshBackendData::loadStepHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts, std::string* errMsg)
+bool MeshBackendData::loadStepHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts,
+												std::string* errMsg)
 {
 	outParts.clear();
 	std::vector<geoalgo::MeshHierarchyPart> parts;

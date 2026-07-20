@@ -1,14 +1,17 @@
+﻿/// @file SpareNodeSampler.cpp
+/// @brief SpareNodeSampler 实现
+
 #include "spare/SpareNodeSampler.h"
 
 #include "KdTreePointSet.h"
-
-#include <Eigen/Eigenvalues>
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <queue>
 #include <vector>
+
+#include <Eigen/Eigenvalues>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -18,21 +21,16 @@ namespace pclalgo
 {
 namespace spare
 {
-
 namespace
 {
-
 Scalar edgeLength(const Matrix3X& points, int v0, int v1)
 {
 	return (points.col(v0) - points.col(v1)).norm();
 }
 
 // 网格上测地距离，用于节点覆盖半径内的权重分配
-void dijkstraWithinRadius(
-	const SpareSurface& surface,
-	const int seed,
-	const Scalar maxDist,
-	std::vector<std::pair<int, Scalar>>& outVerts)
+void dijkstraWithinRadius(const SpareSurface& surface, const int seed, const Scalar maxDist,
+						  std::vector<std::pair<int, Scalar>>& outVerts)
 {
 	const std::size_t n = surface.vertexCount();
 	std::vector<Scalar> dist(n, std::numeric_limits<Scalar>::max());
@@ -59,8 +57,9 @@ void dijkstraWithinRadius(
 
 		for (const int nb : surface.vertexNeighbors[static_cast<std::size_t>(v)])
 		{
-			const Scalar nd = d + (surface.positions[static_cast<std::size_t>(v)]
-				- surface.positions[static_cast<std::size_t>(nb)]).norm();
+			const Scalar nd =
+				d + (surface.positions[static_cast<std::size_t>(v)] - surface.positions[static_cast<std::size_t>(nb)])
+						.norm();
 			if (nd < dist[static_cast<std::size_t>(nb)] && nd <= maxDist)
 			{
 				dist[static_cast<std::size_t>(nb)] = nd;
@@ -101,17 +100,14 @@ std::vector<int> pcaSortVertices(const Matrix3X& srcPoints)
 	{
 		order[static_cast<std::size_t>(i)] = static_cast<int>(i);
 	}
-	std::sort(order.begin(), order.end(), [&projection](const int a, const int b) {
-		return projection(a) < projection(b);
-	});
+	std::sort(order.begin(), order.end(),
+			  [&projection](const int a, const int b) { return projection(a) < projection(b); });
 	return order;
 }
 
 } // namespace
 
-Scalar SpareNodeSampler::computeAverageEdgeLength(
-	const Matrix3X& srcPoints,
-	const Eigen::MatrixXi* knnIndices) const
+Scalar SpareNodeSampler::computeAverageEdgeLength(const Matrix3X& srcPoints, const Eigen::MatrixXi* knnIndices) const
 {
 	if (knnIndices == nullptr)
 	{
@@ -138,10 +134,8 @@ void SpareNodeSampler::finalizeNodeGraph(const Matrix3X& srcPoints, const int nu
 	(void)numNodeNeighbors;
 }
 
-Scalar SpareNodeSampler::sampleAndConstructMesh(
-	const SpareSurface& surface,
-	const Matrix3X& srcPoints,
-	const Scalar sampleRadiusRatio)
+Scalar SpareNodeSampler::sampleAndConstructMesh(const SpareSurface& surface, const Matrix3X& srcPoints,
+												const Scalar sampleRadiusRatio)
 {
 	nodeContainer_.clear();
 	vertexGraph_.clear();
@@ -152,8 +146,9 @@ Scalar SpareNodeSampler::sampleAndConstructMesh(
 	std::size_t edgeCount = 0;
 	for (const auto& he : surface.halfEdges)
 	{
-		avgEdgeLen += (surface.positions[static_cast<std::size_t>(he.first)]
-			- surface.positions[static_cast<std::size_t>(he.second)]).norm();
+		avgEdgeLen += (surface.positions[static_cast<std::size_t>(he.first)] -
+					   surface.positions[static_cast<std::size_t>(he.second)])
+						  .norm();
 		++edgeCount;
 	}
 	if (edgeCount > 0U)
@@ -171,8 +166,8 @@ Scalar SpareNodeSampler::sampleAndConstructMesh(
 
 	for (const int vertexIdx : projectionOrder)
 	{
-		if (vertexNodeIdx[static_cast<std::size_t>(vertexIdx)] >= 0
-			|| !vertexGraph_[static_cast<std::size_t>(vertexIdx)].empty())
+		if (vertexNodeIdx[static_cast<std::size_t>(vertexIdx)] >= 0 ||
+			!vertexGraph_[static_cast<std::size_t>(vertexIdx)].empty())
 		{
 			continue;
 		}
@@ -219,13 +214,10 @@ Scalar SpareNodeSampler::sampleAndConstructMesh(
 	return sampleRadius_;
 }
 
-Scalar SpareNodeSampler::sampleAndConstructPointCloudFps(
-	const SpareSurface& surface,
-	const Matrix3X& srcPoints,
-	const Eigen::MatrixXi& srcKnnIndices,
-	const Scalar sampleRadiusRatio,
-	const int numVertexNodes,
-	const int numNodeNeighbors)
+Scalar SpareNodeSampler::sampleAndConstructPointCloudFps(const SpareSurface& surface, const Matrix3X& srcPoints,
+														 const Eigen::MatrixXi& srcKnnIndices,
+														 const Scalar sampleRadiusRatio, const int numVertexNodes,
+														 const int numNodeNeighbors)
 {
 	(void)surface;
 	nodeContainer_.clear();
@@ -248,9 +240,7 @@ Scalar SpareNodeSampler::sampleAndConstructPointCloudFps(
 	sampleRadius_ = sampleRadiusRatio * avgEdgeLen;
 
 	std::size_t startIndex = 0;
-	VectorX minDistances = VectorX::Constant(
-		srcPoints.cols(),
-		std::numeric_limits<Scalar>::max());
+	VectorX minDistances = VectorX::Constant(srcPoints.cols(), std::numeric_limits<Scalar>::max());
 	minDistances[static_cast<Eigen::Index>(startIndex)] = 0.0;
 	nodeContainer_.emplace_back(0, startIndex);
 
@@ -265,8 +255,7 @@ Scalar SpareNodeSampler::sampleAndConstructPointCloudFps(
 			{
 				continue;
 			}
-			const Scalar dist = (srcPoints.col(static_cast<Eigen::Index>(startIndex))
-				- srcPoints.col(i)).norm();
+			const Scalar dist = (srcPoints.col(static_cast<Eigen::Index>(startIndex)) - srcPoints.col(i)).norm();
 			if (dist < minDistances[i])
 			{
 				minDistances[i] = dist;
@@ -306,13 +295,8 @@ Scalar SpareNodeSampler::sampleAndConstructPointCloudFps(
 	{
 		std::vector<std::size_t> outIndices;
 		std::vector<double> outDistSq;
-		nodeTree.findKNearest(
-			srcPoints(0, vidx),
-			srcPoints(1, vidx),
-			srcPoints(2, vidx),
-			static_cast<unsigned int>(numVertexNodes),
-			outIndices,
-			outDistSq);
+		nodeTree.findKNearest(srcPoints(0, vidx), srcPoints(1, vidx), srcPoints(2, vidx),
+							  static_cast<unsigned int>(numVertexNodes), outIndices, outDistSq);
 
 		Scalar localSum = 0.0;
 		std::map<std::size_t, Scalar> localWeights;
@@ -346,13 +330,8 @@ Scalar SpareNodeSampler::sampleAndConstructPointCloudFps(
 		std::vector<std::size_t> outIndices;
 		std::vector<double> outDistSq;
 		const int vidx = getNodeVertexIdx(static_cast<std::size_t>(nidx));
-		nodeTree.findKNearest(
-			srcPoints(0, vidx),
-			srcPoints(1, vidx),
-			srcPoints(2, vidx),
-			static_cast<unsigned int>(numNodeNeighbors + 1),
-			outIndices,
-			outDistSq);
+		nodeTree.findKNearest(srcPoints(0, vidx), srcPoints(1, vidx), srcPoints(2, vidx),
+							  static_cast<unsigned int>(numNodeNeighbors + 1), outIndices, outDistSq);
 
 		for (int k = 1; k < static_cast<int>(outIndices.size()) && k <= numNodeNeighbors; ++k)
 		{
@@ -362,13 +341,8 @@ Scalar SpareNodeSampler::sampleAndConstructPointCloudFps(
 	return sampleRadius_;
 }
 
-void SpareNodeSampler::initWeight(
-	const SpareSurface& surface,
-	RowMajorSparseMatrix& matPv,
-	VectorX& matP,
-	RowMajorSparseMatrix& matB,
-	VectorX& matD,
-	VectorX& smoothWeights) const
+void SpareNodeSampler::initWeight(const SpareSurface& surface, RowMajorSparseMatrix& matPv, VectorX& matP,
+								  RowMajorSparseMatrix& matB, VectorX& matD, VectorX& smoothWeights) const
 {
 	std::vector<Triplet> coeff;
 	matP.setZero();

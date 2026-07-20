@@ -1,8 +1,13 @@
-#ifndef NOMINMAX
+﻿#ifndef NOMINMAX
 #define NOMINMAX
+
+/// @file MeshDefectDetect.cpp
+/// @brief MeshDefectDetect 实现
+
 #endif
 
 #include "MeshDefectDetect.h"
+
 #include "VcgMeshTypes.h"
 
 #include <algorithm>
@@ -20,10 +25,8 @@
 
 namespace vcgalgo
 {
-
 namespace
 {
-
 using FacePointer = VcgMesh::FacePointer;
 using CoordType = VcgMesh::CoordType;
 
@@ -155,12 +158,8 @@ struct LocalZResult
 };
 
 // 相对 FF 邻域的 z-score；higherIsBad=true 表示值越大越异常
-LocalZResult localZScore(
-	const VcgMesh& mesh,
-	const int fi,
-	const std::vector<double>& signal,
-	const double zThreshold,
-	const bool higherIsBad)
+LocalZResult localZScore(const VcgMesh& mesh, const int fi, const std::vector<double>& signal, const double zThreshold,
+						 const bool higherIsBad)
 {
 	LocalZResult out;
 	if (fi < 0 || fi >= static_cast<int>(signal.size()))
@@ -227,12 +226,9 @@ LocalZResult localZScore(
 }
 
 // 簇相对邻域的外凸高度（沿簇平均法向投影）
-double clusterProtrusionHeight(
-	const VcgMesh& mesh,
-	const std::vector<int>& members,
-	const std::unordered_set<int>& memberSet,
-	const std::vector<CoordType>& faceCentroids,
-	const std::vector<CoordType>& faceNormals)
+double clusterProtrusionHeight(const VcgMesh& mesh, const std::vector<int>& members,
+							   const std::unordered_set<int>& memberSet, const std::vector<CoordType>& faceCentroids,
+							   const std::vector<CoordType>& faceNormals)
 {
 	if (members.empty())
 	{
@@ -286,17 +282,11 @@ double clusterProtrusionHeight(
 }
 
 // 连通域过滤：过小、过大、凸起高度不足
-void filterDefectClusters(
-	VcgMesh& mesh,
-	const int minClusterFaces,
-	const double maxClusterAreaRatio,
-	const double minProtrusionHeight,
-	const double totalArea,
-	const std::vector<CoordType>& faceCentroids,
-	const std::vector<CoordType>& faceNormals,
-	const std::vector<bool>& isProtrusion,
-	const std::vector<bool>& isBoundarySpike,
-	std::vector<bool>& defectMask)
+void filterDefectClusters(VcgMesh& mesh, const int minClusterFaces, const double maxClusterAreaRatio,
+						  const double minProtrusionHeight, const double totalArea,
+						  const std::vector<CoordType>& faceCentroids, const std::vector<CoordType>& faceNormals,
+						  const std::vector<bool>& isProtrusion, const std::vector<bool>& isBoundarySpike,
+						  std::vector<bool>& defectMask)
 {
 	const int faceCount = static_cast<int>(mesh.face.size());
 	const double maxClusterArea = totalArea * maxClusterAreaRatio;
@@ -355,8 +345,7 @@ void filterDefectClusters(
 		bool needsHeightCheck = false;
 		for (const int mi : members)
 		{
-			if (isProtrusion[static_cast<std::size_t>(mi)]
-				|| isBoundarySpike[static_cast<std::size_t>(mi)])
+			if (isProtrusion[static_cast<std::size_t>(mi)] || isBoundarySpike[static_cast<std::size_t>(mi)])
 			{
 				needsHeightCheck = true;
 				break;
@@ -364,8 +353,7 @@ void filterDefectClusters(
 		}
 		if (keep && needsHeightCheck && minProtrusionHeight > 0.0)
 		{
-			const double height = clusterProtrusionHeight(
-				mesh, members, memberSet, faceCentroids, faceNormals);
+			const double height = clusterProtrusionHeight(mesh, members, memberSet, faceCentroids, faceNormals);
 			if (height < minProtrusionHeight)
 			{
 				keep = false;
@@ -385,11 +373,8 @@ void filterDefectClusters(
 
 } // namespace
 
-bool detectMeshDefects(
-	const std::vector<float>& triangleSoup,
-	DefectDetectReport& report,
-	const DefectDetectParams& params,
-	std::string* errMsg)
+bool detectMeshDefects(const std::vector<float>& triangleSoup, DefectDetectReport& report,
+					   const DefectDetectParams& params, std::string* errMsg)
 {
 	report = DefectDetectReport{};
 
@@ -582,17 +567,14 @@ bool detectMeshDefects(
 			}
 
 			// 针状：邻域内质量偏低或边长纵横比异常（局部 z-score）
-			if (params.detectNeedle
-				&& (zQuality.significant || zEdgeAspect.significant || zLongEdge.significant
-					|| edgeAspects[static_cast<std::size_t>(fi)] >= 8.0))
+			if (params.detectNeedle && (zQuality.significant || zEdgeAspect.significant || zLongEdge.significant ||
+										edgeAspects[static_cast<std::size_t>(fi)] >= 8.0))
 			{
 				isNeedle[static_cast<std::size_t>(fi)] = true;
-				defectScore[static_cast<std::size_t>(fi)] = std::max(
-					defectScore[static_cast<std::size_t>(fi)],
-					std::max({
-						std::abs(zQuality.z) / (zThr + 1e-9),
-						zEdgeAspect.z / (zThr + 1e-9),
-						zLongEdge.z / (zThr + 1e-9) }));
+				defectScore[static_cast<std::size_t>(fi)] =
+					std::max(defectScore[static_cast<std::size_t>(fi)],
+							 std::max({std::abs(zQuality.z) / (zThr + 1e-9), zEdgeAspect.z / (zThr + 1e-9),
+									   zLongEdge.z / (zThr + 1e-9)}));
 			}
 
 			// 突起：邻域法向/曲率 z-score 或局部曲率倍率，不再用全局百分位
@@ -600,52 +582,38 @@ bool detectMeshDefects(
 			const bool protrusionByCurv = zCurv.significant && localCurvSpike;
 			const bool protrusionByLocal = localCurvSpike && maxLocalRatio >= (localCurvRatioFloor + 0.08);
 			const bool protrusionByEdge = zLongEdge.significant && (protrusionByNormal || protrusionByLocal);
-			if (params.detectProtrusion
-				&& (protrusionByNormal || protrusionByCurv || protrusionByLocal || protrusionByEdge))
+			if (params.detectProtrusion &&
+				(protrusionByNormal || protrusionByCurv || protrusionByLocal || protrusionByEdge))
 			{
 				isProtrusion[static_cast<std::size_t>(fi)] = true;
-				defectScore[static_cast<std::size_t>(fi)] = std::max(
-					defectScore[static_cast<std::size_t>(fi)],
-					std::max({
-						zNormalDev.z / (zThr + 1e-9),
-						zCurv.z / (zThr + 1e-9),
-						(maxLocalRatio - 1.0) / (localCurvRatioFloor - 1.0 + 1e-9),
-						zLongEdge.z / (zThr + 1e-9) }));
+				defectScore[static_cast<std::size_t>(fi)] =
+					std::max(defectScore[static_cast<std::size_t>(fi)],
+							 std::max({zNormalDev.z / (zThr + 1e-9), zCurv.z / (zThr + 1e-9),
+									   (maxLocalRatio - 1.0) / (localCurvRatioFloor - 1.0 + 1e-9),
+									   zLongEdge.z / (zThr + 1e-9)}));
 			}
 
-			if (params.detectBoundarySpike && hasBorderVert && isBorderFace
-				&& (zNormalDev.significant || protrusionByLocal || zCurv.significant))
+			if (params.detectBoundarySpike && hasBorderVert && isBorderFace &&
+				(zNormalDev.significant || protrusionByLocal || zCurv.significant))
 			{
 				isBoundarySpike[static_cast<std::size_t>(fi)] = true;
 				defectScore[static_cast<std::size_t>(fi)] = std::max(
 					defectScore[static_cast<std::size_t>(fi)],
-					std::max({
-						zNormalDev.z / (zThr + 1e-9),
-						(maxLocalRatio - 1.0) / (localCurvRatioFloor - 1.0 + 1e-9),
-						zCurv.z / (zThr + 1e-9) }));
+					std::max({zNormalDev.z / (zThr + 1e-9), (maxLocalRatio - 1.0) / (localCurvRatioFloor - 1.0 + 1e-9),
+							  zCurv.z / (zThr + 1e-9)}));
 			}
 		}
 
 		std::vector<bool> defectMask(static_cast<std::size_t>(totalFaces), false);
 		for (int fi = 0; fi < totalFaces; ++fi)
 		{
-			defectMask[static_cast<std::size_t>(fi)] =
-				isNeedle[static_cast<std::size_t>(fi)]
-				|| isProtrusion[static_cast<std::size_t>(fi)]
-				|| isBoundarySpike[static_cast<std::size_t>(fi)];
+			defectMask[static_cast<std::size_t>(fi)] = isNeedle[static_cast<std::size_t>(fi)] ||
+													   isProtrusion[static_cast<std::size_t>(fi)] ||
+													   isBoundarySpike[static_cast<std::size_t>(fi)];
 		}
 
-		filterDefectClusters(
-			mesh,
-			minCluster,
-			maxClusterAreaRatio,
-			minProtrusionHeight,
-			totalArea,
-			faceCentroids,
-			faceNormals,
-			isProtrusion,
-			isBoundarySpike,
-			defectMask);
+		filterDefectClusters(mesh, minCluster, maxClusterAreaRatio, minProtrusionHeight, totalArea, faceCentroids,
+							 faceNormals, isProtrusion, isBoundarySpike, defectMask);
 
 		report.totalFaces = totalFaces;
 		report.defects.clear();
@@ -689,7 +657,7 @@ bool detectMeshDefects(
 		report.defectAreaRatio = totalArea > 0.0 ? defectArea / totalArea : 0.0;
 
 		std::sort(report.defects.begin(), report.defects.end(),
-			[](const MeshDefectFace& a, const MeshDefectFace& b) { return a.score > b.score; });
+				  [](const MeshDefectFace& a, const MeshDefectFace& b) { return a.score > b.score; });
 
 		return true;
 	}

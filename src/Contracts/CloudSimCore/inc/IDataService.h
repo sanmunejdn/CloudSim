@@ -1,12 +1,17 @@
-#pragma once
+﻿#ifndef CLOUDSIMCORE_IDATASERVICE_H
+#define CLOUDSIMCORE_IDATASERVICE_H
+
+/// @file IDataService.h
+/// @brief 文档后端数据服务
+
+#include "cloudsim_core_global.h"
 
 #include "CoreTypes.h"
-#include "cloudsim_core_global.h"
 
 #include <QJsonObject>
 
-namespace cloudsim::core {
-
+namespace cloudsim::core
+{
 /// 文档后端数据服务
 class CLOUDSIM_CORE_EXPORT IDataService
 {
@@ -27,11 +32,13 @@ public:
 
 	virtual QVector<PropertyRowDto> propertyRows(const ObjectId& id) const = 0;
 	virtual bool applyPropertyChange(const ObjectId& id, const QString& key, const QString& value,
-		QString* outError = nullptr) = 0;
+									 QString* outError = nullptr) = 0;
 
 	/// OSG gizmo 写回世界位姿（pose 相对几何中心 + 欧拉角）
 	virtual bool applyWorldPoseMm(const ObjectId& id, const PoseDto& pose, QString* outError = nullptr) = 0;
 	virtual bool applyColor(const ObjectId& id, const ColorDto& color, QString* outError = nullptr) = 0;
+	virtual bool isVisible(const ObjectId& id) const = 0;
+	virtual bool setVisible(const ObjectId& id, bool visible, QString* outError = nullptr) = 0;
 	virtual PoseDto worldPoseMm(const ObjectId& id) const = 0;
 
 	virtual BBoxDto boundingBox(const ObjectId& id) const = 0;
@@ -41,7 +48,7 @@ public:
 	virtual ObjectId loadObjectFromJson(const QJsonObject& objectJson, QString* outError = nullptr) = 0;
 
 	virtual ObjectId importFromFile(const QString& path, const ImportOptionsDto& options,
-		QString* outError = nullptr) = 0;
+									QString* outError = nullptr) = 0;
 
 	// 树构建支持
 	virtual QVector<ObjectId> topoOrder() const = 0;
@@ -54,10 +61,12 @@ public:
 	virtual bool hasComponent(const ObjectId& id, const QString& componentType) const = 0;
 
 	virtual bool applyFollowTargetByName(const ObjectId& followerId, const QString& targetName,
-		QString* outError = nullptr) = 0;
+										 QString* outError = nullptr) = 0;
 	virtual void markFollowDirtyFromMove(const ObjectId& seedId) = 0;
 	virtual void requestFollowSolveForced() = 0;
 	virtual bool runFollowSolveAndSync(const FollowSolveContextDto& ctx, QString* outError = nullptr) = 0;
 };
 
 } // namespace cloudsim::core
+
+#endif // CLOUDSIMCORE_IDATASERVICE_H

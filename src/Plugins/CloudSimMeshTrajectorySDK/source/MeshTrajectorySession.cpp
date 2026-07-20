@@ -1,3 +1,6 @@
+﻿/// @file MeshTrajectorySession.cpp
+/// @brief MeshTrajectorySession 实现
+
 #include "MeshTrajectorySession.h"
 
 #include <algorithm>
@@ -5,7 +8,6 @@
 
 namespace
 {
-
 void sortUnique(std::vector<int>& indices)
 {
 	std::sort(indices.begin(), indices.end());
@@ -14,9 +16,7 @@ void sortUnique(std::vector<int>& indices)
 
 } // namespace
 
-bool MeshTrajectorySession::beginMesh(
-	const std::string& backendIdUtf8,
-	const std::vector<float>& triangleSoup)
+bool MeshTrajectorySession::beginMesh(const std::string& backendIdUtf8, const std::vector<float>& triangleSoup)
 {
 	if (triangleSoup.size() < 9U)
 	{
@@ -34,9 +34,8 @@ bool MeshTrajectorySession::beginMesh(
 	return true;
 }
 
-bool MeshTrajectorySession::applyTriangleSelection(
-	const std::vector<int>& triangleIndices,
-	MeshTrajectorySelectionMode mode)
+bool MeshTrajectorySession::applyTriangleSelection(const std::vector<int>& triangleIndices,
+												   MeshTrajectorySelectionMode mode)
 {
 	if (m_triangleSoup.empty())
 	{

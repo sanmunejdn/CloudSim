@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_ROBOTPROJECTKINEMATICSRESTORE_H
+#define CLOUDSIMHOST_ROBOTPROJECTKINEMATICSRESTORE_H
+
+/// @file RobotProjectKinematicsRestore.h
+/// @brief 收集连杆网格 id
 
 #include "cloudsim_host_global.h"
 
@@ -6,8 +10,8 @@
 #include <QSet>
 #include <QVector>
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 class IRobotUrdfImportContext;
 
 /// 收集连杆网格 id
@@ -15,6 +19,10 @@ CLOUDSIM_HOST_EXPORT QSet<QString> collectRobotLinkMeshBackendIds(const QJsonObj
 
 /// 恢复 perLink 运动学
 CLOUDSIM_HOST_EXPORT bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx,
-	const QJsonObject& robotKinematicsJson, QVector<double>& outAllJointAnglesRad, QString* outWarning = nullptr);
+																	   const QJsonObject& robotKinematicsJson,
+																	   QVector<double>& outAllJointAnglesRad,
+																	   QString* outWarning = nullptr);
 
 } // namespace cloudsim::host
+
+#endif // CLOUDSIMHOST_ROBOTPROJECTKINEMATICSRESTORE_H

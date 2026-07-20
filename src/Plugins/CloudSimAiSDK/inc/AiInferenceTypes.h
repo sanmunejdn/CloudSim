@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMAISDK_AIINFERENCETYPES_H
+#define CLOUDSIMAISDK_AIINFERENCETYPES_H
+
+/// @file AiInferenceTypes.h
+/// @brief AiInferenceTypes 接口
 
 #include "cloudsim_ai_sdk_global.h"
 
@@ -29,3 +33,5 @@ struct AiInferenceRequest
 };
 
 using AiInferenceProgressFn = std::function<void(double fraction, const QString& message)>;
+
+#endif // CLOUDSIMAISDK_AIINFERENCETYPES_H

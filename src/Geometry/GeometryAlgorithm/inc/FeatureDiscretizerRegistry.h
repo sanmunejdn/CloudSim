@@ -1,7 +1,12 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_FEATUREDISCRETIZERREGISTRY_H
+#define GEOMETRYALGORITHM_FEATUREDISCRETIZERREGISTRY_H
+
+/// @file FeatureDiscretizerRegistry.h
+/// @brief FeatureDiscretizerRegistry 接口
+
+#include "geometry_algorithm_global.h"
 
 #include "IFeatureDiscretizer.h"
-#include "geometry_algorithm_global.h"
 
 #include <memory>
 #include <string>
@@ -9,7 +14,6 @@
 
 namespace geoalgo
 {
-
 class GEOMETRY_ALGORITHM_API FeatureDiscretizerRegistry
 {
 public:
@@ -32,11 +36,13 @@ private:
 
 GEOMETRY_ALGORITHM_API void ensureFeatureDiscretizersRegistered();
 
-#define REGISTER_FEATURE_DISCRETIZER(DiscretizerType) \
-	static const bool DiscretizerType##_registered = []() { \
-		geoalgo::FeatureDiscretizerRegistry::instance().registerDiscretizer( \
-			std::make_unique<DiscretizerType>()); \
-		return true; \
+#define REGISTER_FEATURE_DISCRETIZER(DiscretizerType)                                                             \
+	static const bool DiscretizerType##_registered = []()                                                         \
+	{                                                                                                             \
+		geoalgo::FeatureDiscretizerRegistry::instance().registerDiscretizer(std::make_unique<DiscretizerType>()); \
+		return true;                                                                                              \
 	}()
 
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_FEATUREDISCRETIZERREGISTRY_H

@@ -1,12 +1,15 @@
-#pragma once
+﻿#ifndef PROPERTYCORE_PROPERTYENUMATTRIBUTE_H
+#define PROPERTYCORE_PROPERTYENUMATTRIBUTE_H
 
-#include <json.hpp>
+/// @file PropertyEnumAttribute.h
+/// @brief 枚举属性行（下拉/自定义）
 
 #include <string>
 
+#include <json.hpp>
+
 namespace property_core
 {
-
 /// 枚举属性行（下拉/自定义）
 template <typename TContext, typename TBase>
 class PropertyEnumAttribute : public TBase
@@ -18,21 +21,10 @@ public:
 	using IsValidFn = bool (*)(const std::string&);
 	using AppendRowFn = void (*)(nlohmann::json&, const char*, const char*, bool, const std::string&);
 
-	PropertyEnumAttribute(
-		HasPropertyFn hasPropertyFn,
-		GetterFn getterFn,
-		SetterFn setterFn,
-		const char* key,
-		const char* label,
-		AppendRowFn appendRowFn,
-		IsValidFn isValidFn = nullptr)
-		: m_hasPropertyFn(hasPropertyFn)
-		, m_getterFn(getterFn)
-		, m_setterFn(setterFn)
-		, m_key(key)
-		, m_label(label)
-		, m_appendRowFn(appendRowFn)
-		, m_isValidFn(isValidFn)
+	PropertyEnumAttribute(HasPropertyFn hasPropertyFn, GetterFn getterFn, SetterFn setterFn, const char* key,
+						  const char* label, AppendRowFn appendRowFn, IsValidFn isValidFn = nullptr)
+		: m_hasPropertyFn(hasPropertyFn), m_getterFn(getterFn), m_setterFn(setterFn), m_key(key), m_label(label),
+		  m_appendRowFn(appendRowFn), m_isValidFn(isValidFn)
 	{
 	}
 
@@ -76,3 +68,5 @@ private:
 };
 
 } // namespace property_core
+
+#endif // PROPERTYCORE_PROPERTYENUMATTRIBUTE_H

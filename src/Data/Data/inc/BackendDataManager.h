@@ -1,17 +1,22 @@
-#pragma once
+﻿#ifndef DATA_BACKENDDATAMANAGER_H
+#define DATA_BACKENDDATAMANAGER_H
 
-#include <shared_mutex>
+/// @file BackendDataManager.h
+/// @brief 后端数据注册表（单例）：按 id 管理共享的 BackendDataBase；读写锁保护索引与层级图，多读并发友好
+
+#include "data_global.h"
+
+#include "BackendDataBase.h"
+#include "BackendFollowMath.h"
+#include "BackendHierarchyChange.h"
+
 #include <memory>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
-
-#include "BackendDataBase.h"
-#include "BackendHierarchyChange.h"
-#include "BackendFollowMath.h"
-#include "data_global.h"
 
 struct BackendSnapshot
 {
@@ -90,3 +95,4 @@ private:
 	std::vector<std::pair<void*, BackendHierarchyObserver>> m_hierarchyObservers;
 };
 
+#endif // DATA_BACKENDDATAMANAGER_H

@@ -1,18 +1,22 @@
+﻿/// @file QWidgetViewer.cpp
+/// @brief QWidgetViewer 实现
+
 #include "QWidgetViewer.h"
+
 #include "GraphicsWindowQt1.h"
 #include "QtKeyboardMap.h"
 
-#include <osg/DeleteHandler>
-#include <osgViewer/ViewerBase>
 #include <QInputEvent>
 #include <QPointer>
 
-#if (QT_VERSION>=QT_VERSION_CHECK(4, 6, 0))
-# define USE_GESTURES
-# include <QGestureEvent>
-# include <QGesture>
-#endif
+#include <osg/DeleteHandler>
+#include <osgViewer/ViewerBase>
 
+#if (QT_VERSION >= QT_VERSION_CHECK(4, 6, 0))
+#define USE_GESTURES
+#include <QGesture>
+#include <QGestureEvent>
+#endif
 
 #if (QT_VERSION < QT_VERSION_CHECK(5, 2, 0))
 #define GETDEVICEPIXELRATIO() 1.0
@@ -20,32 +24,24 @@
 #define GETDEVICEPIXELRATIO() devicePixelRatio()
 #endif
 
-
 QWidgetViewer::QWidgetViewer(QWidget* parent, const QGLWidget* shareWidget, Qt::WindowFlags f, bool forwardKeyEvents)
-	: QGLWidget(parent, shareWidget, f),
-	_gw(NULL),
-	_touchEventsEnabled(false),
-	_forwardKeyEvents(forwardKeyEvents)
+	: QGLWidget(parent, shareWidget, f), _gw(NULL), _touchEventsEnabled(false), _forwardKeyEvents(forwardKeyEvents)
 {
 	_devicePixelRatio = GETDEVICEPIXELRATIO();
 }
 
 QWidgetViewer::QWidgetViewer(QGLContext* context, QWidget* parent, const QGLWidget* shareWidget, Qt::WindowFlags f,
-	bool forwardKeyEvents)
-	: QGLWidget(context, parent, shareWidget, f),
-	_gw(NULL),
-	_touchEventsEnabled(false),
-	_forwardKeyEvents(forwardKeyEvents)
+							 bool forwardKeyEvents)
+	: QGLWidget(context, parent, shareWidget, f), _gw(NULL), _touchEventsEnabled(false),
+	  _forwardKeyEvents(forwardKeyEvents)
 {
 	_devicePixelRatio = GETDEVICEPIXELRATIO();
 }
 
 QWidgetViewer::QWidgetViewer(const QGLFormat& format, QWidget* parent, const QGLWidget* shareWidget, Qt::WindowFlags f,
-	bool forwardKeyEvents)
-	: QGLWidget(format, parent, shareWidget, f),
-	_gw(NULL),
-	_touchEventsEnabled(false),
-	_forwardKeyEvents(forwardKeyEvents)
+							 bool forwardKeyEvents)
+	: QGLWidget(format, parent, shareWidget, f), _gw(NULL), _touchEventsEnabled(false),
+	  _forwardKeyEvents(forwardKeyEvents)
 {
 	_devicePixelRatio = GETDEVICEPIXELRATIO();
 }
@@ -153,9 +149,12 @@ void QWidgetViewer::setKeyboardModifiers(QInputEvent* event)
 {
 	int modkey = event->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier);
 	unsigned int mask = 0;
-	if (modkey & Qt::ShiftModifier) mask |= osgGA::GUIEventAdapter::MODKEY_SHIFT;
-	if (modkey & Qt::ControlModifier) mask |= osgGA::GUIEventAdapter::MODKEY_CTRL;
-	if (modkey & Qt::AltModifier) mask |= osgGA::GUIEventAdapter::MODKEY_ALT;
+	if (modkey & Qt::ShiftModifier)
+		mask |= osgGA::GUIEventAdapter::MODKEY_SHIFT;
+	if (modkey & Qt::ControlModifier)
+		mask |= osgGA::GUIEventAdapter::MODKEY_CTRL;
+	if (modkey & Qt::AltModifier)
+		mask |= osgGA::GUIEventAdapter::MODKEY_ALT;
 	_gw->getEventQueue()->getCurrentEventState()->setModKeyMask(mask);
 }
 
@@ -169,7 +168,8 @@ void QWidgetViewer::resizeEvent(QResizeEvent* event)
 	int scaledHeight = static_cast<int>(height() * dpr);
 
 	// ??GraphicsWindow?????
-	if (_gw) {
+	if (_gw)
+	{
 		_gw->resized(x(), y(), scaledWidth, scaledHeight);
 		_gw->getEventQueue()->windowResize(x(), y(), scaledWidth, scaledHeight);
 	}
@@ -180,7 +180,6 @@ void QWidgetViewer::resizeEvent(QResizeEvent* event)
 
 void QWidgetViewer::moveEvent(QMoveEvent* event)
 {
-
 	//????????????????
 #if 1
 	const QPoint& pos = event->pos();
@@ -193,7 +192,8 @@ void QWidgetViewer::moveEvent(QMoveEvent* event)
 
 void QWidgetViewer::glDraw()
 {
-	if (_gw && _gw->getViewer()) {
+	if (_gw && _gw->getViewer())
+	{
 		_gw->requestRedraw();
 		_gw->getViewer()->frame();
 	}
@@ -212,7 +212,6 @@ void QWidgetViewer::keyPressEvent(QKeyEvent* event)
 	if (_forwardKeyEvents)
 		inherited::keyPressEvent(event);
 #endif
-
 }
 
 void QWidgetViewer::keyReleaseEvent(QKeyEvent* event)
@@ -240,47 +239,58 @@ void QWidgetViewer::keyReleaseEvent(QKeyEvent* event)
 
 void QWidgetViewer::mousePressEvent(QMouseEvent* event)
 {
-	if (!_gw) return;
+	if (!_gw)
+		return;
 
 	int button = 0;
-	switch (event->button()) {
-	case Qt::LeftButton: button = 1; break;
-	case Qt::MidButton: button = 2; break;
-	case Qt::RightButton: button = 3; break;
-	default: button = 0; break;
+	switch (event->button())
+	{
+	case Qt::LeftButton:
+		button = 1;
+		break;
+	case Qt::MidButton:
+		button = 2;
+		break;
+	case Qt::RightButton:
+		button = 3;
+		break;
+	default:
+		button = 0;
+		break;
 	}
 
 	setKeyboardModifiers(event);
-	_gw->getEventQueue()->mouseButtonPress(
-		event->x() * _devicePixelRatio,
-		event->y() * _devicePixelRatio,
-		button
-	);
+	_gw->getEventQueue()->mouseButtonPress(event->x() * _devicePixelRatio, event->y() * _devicePixelRatio, button);
 
 	// ????????????
 	event->accept();
 	update();
 }
 
-
 void QWidgetViewer::mouseReleaseEvent(QMouseEvent* event)
 {
-	if (!_gw) return;
+	if (!_gw)
+		return;
 
 	int button = 0;
-	switch (event->button()) {
-	case Qt::LeftButton: button = 1; break;
-	case Qt::MidButton: button = 2; break;
-	case Qt::RightButton: button = 3; break;
-	default: button = 0; break;
+	switch (event->button())
+	{
+	case Qt::LeftButton:
+		button = 1;
+		break;
+	case Qt::MidButton:
+		button = 2;
+		break;
+	case Qt::RightButton:
+		button = 3;
+		break;
+	default:
+		button = 0;
+		break;
 	}
 
 	setKeyboardModifiers(event);
-	_gw->getEventQueue()->mouseButtonRelease(
-		event->x() * _devicePixelRatio,
-		event->y() * _devicePixelRatio,
-		button
-	);
+	_gw->getEventQueue()->mouseButtonRelease(event->x() * _devicePixelRatio, event->y() * _devicePixelRatio, button);
 
 	event->accept();
 	update();
@@ -288,33 +298,41 @@ void QWidgetViewer::mouseReleaseEvent(QMouseEvent* event)
 
 void QWidgetViewer::mouseDoubleClickEvent(QMouseEvent* event)
 {
-
 	//????????????????
 
 #if 1
 	int button = 0;
 	switch (event->button())
 	{
-	case Qt::LeftButton: button = 1; break;
-	case Qt::MidButton: button = 2; break;
-	case Qt::RightButton: button = 3; break;
-	case Qt::NoButton: button = 0; break;
-	default: button = 0; break;
+	case Qt::LeftButton:
+		button = 1;
+		break;
+	case Qt::MidButton:
+		button = 2;
+		break;
+	case Qt::RightButton:
+		button = 3;
+		break;
+	case Qt::NoButton:
+		button = 0;
+		break;
+	default:
+		button = 0;
+		break;
 	}
 	setKeyboardModifiers(event);
-	_gw->getEventQueue()->mouseDoubleButtonPress(event->x() * _devicePixelRatio, event->y() * _devicePixelRatio, button);
+	_gw->getEventQueue()->mouseDoubleButtonPress(event->x() * _devicePixelRatio, event->y() * _devicePixelRatio,
+												 button);
 #endif
 }
 
 void QWidgetViewer::mouseMoveEvent(QMouseEvent* event)
 {
-	if (!_gw) return;
+	if (!_gw)
+		return;
 
 	setKeyboardModifiers(event);
-	_gw->getEventQueue()->mouseMotion(
-		event->x() * _devicePixelRatio,
-		event->y() * _devicePixelRatio
-	);
+	_gw->getEventQueue()->mouseMotion(event->x() * _devicePixelRatio, event->y() * _devicePixelRatio);
 
 	event->accept();
 	update(); // ??????
@@ -327,9 +345,9 @@ void QWidgetViewer::wheelEvent(QWheelEvent* event)
 #if 1
 	setKeyboardModifiers(event);
 	_gw->getEventQueue()->mouseScroll(
-		event->orientation() == Qt::Vertical ?
-		(event->delta() > 0 ? osgGA::GUIEventAdapter::SCROLL_UP : osgGA::GUIEventAdapter::SCROLL_DOWN) :
-		(event->delta() > 0 ? osgGA::GUIEventAdapter::SCROLL_LEFT : osgGA::GUIEventAdapter::SCROLL_RIGHT));
+		event->orientation() == Qt::Vertical
+			? (event->delta() > 0 ? osgGA::GUIEventAdapter::SCROLL_UP : osgGA::GUIEventAdapter::SCROLL_DOWN)
+			: (event->delta() > 0 ? osgGA::GUIEventAdapter::SCROLL_LEFT : osgGA::GUIEventAdapter::SCROLL_RIGHT));
 #endif
 	update();
 }
@@ -357,7 +375,6 @@ static osgGA::GUIEventAdapter::TouchPhase translateQtGestureState(Qt::GestureSta
 	return touchPhase;
 }
 #endif
-
 
 bool QWidgetViewer::gestureEvent(QGestureEvent* qevent)
 {

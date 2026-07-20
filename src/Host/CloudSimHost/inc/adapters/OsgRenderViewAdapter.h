@@ -1,11 +1,15 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_OSGRENDERVIEWADAPTER_H
+#define CLOUDSIMHOST_OSGRENDERVIEWADAPTER_H
+
+/// @file OsgRenderViewAdapter.h
+/// @brief OsgWidget 渲染适配
 
 #include "IRenderView.h"
 
 class OsgWidget;
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 class DocumentHost;
 
 /// OsgWidget 渲染适配
@@ -77,8 +81,8 @@ public:
 	core::TransformGizmoFrameDto transformGizmoFrame() const override;
 	void endTcpDragTeach() override;
 	void beginTcpDragTeach(const core::ObjectId& mountBackendId, const core::Mat4& targetInBaseColumnMajor,
-		float modelDiagonalMm, core::RobotBaseWorldResolver resolveRobotBaseWorld,
-		const core::Mat4* toolLocalOnFlangeColumnMajor) override;
+						   float modelDiagonalMm, core::RobotBaseWorldResolver resolveRobotBaseWorld,
+						   const core::Mat4* toolLocalOnFlangeColumnMajor) override;
 	void updateTcpDragTeachFromTarget(const core::Mat4& targetInBaseColumnMajor, bool syncTargetInBase) override;
 	void updateTcpDragTeachToolLocalOnFlange(const core::Mat4& toolLocalOnFlangeColumnMajor) override;
 
@@ -106,3 +110,5 @@ private:
 };
 
 } // namespace cloudsim::host
+
+#endif // CLOUDSIMHOST_OSGRENDERVIEWADAPTER_H

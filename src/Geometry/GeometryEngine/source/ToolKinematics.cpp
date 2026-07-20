@@ -1,8 +1,10 @@
+﻿/// @file ToolKinematics.cpp
+/// @brief ToolKinematics 实现
+
 #include "ToolKinematics.h"
 
 namespace engine
 {
-
 RigidTransform toolOriginFromFlange(const RigidTransform& baseFlange, const RigidTransform& flangeTool)
 {
 	// Eigen 等距积：p_base=R_flange*t_tool+t_flange

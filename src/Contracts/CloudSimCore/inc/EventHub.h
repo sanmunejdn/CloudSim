@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMCORE_EVENTHUB_H
+#define CLOUDSIMCORE_EVENTHUB_H
+
+/// @file EventHub.h
+/// @brief UI 线程事件总线
 
 #include "cloudsim_core_global.h"
 
@@ -8,8 +12,8 @@
 #include <unordered_map>
 #include <vector>
 
-namespace cloudsim::core {
-
+namespace cloudsim::core
+{
 /// UI 线程事件总线
 class CLOUDSIM_CORE_EXPORT EventHub
 {
@@ -20,17 +24,15 @@ public:
 	EventHub(const EventHub&) = delete;
 	EventHub& operator=(const EventHub&) = delete;
 
-	template<typename Event>
+	template <typename Event>
 	void subscribe(std::function<void(const Event&)> handler)
 	{
 		const std::type_index key(typeid(Event));
-		auto wrapper = [handler](const void* raw) {
-			handler(*static_cast<const Event*>(raw));
-		};
+		auto wrapper = [handler](const void* raw) { handler(*static_cast<const Event*>(raw)); };
 		m_handlers[key].push_back(std::move(wrapper));
 	}
 
-	template<typename Event>
+	template <typename Event>
 	void publish(const Event& event)
 	{
 		const std::type_index key(typeid(Event));
@@ -49,3 +51,5 @@ private:
 };
 
 } // namespace cloudsim::core
+
+#endif // CLOUDSIMCORE_EVENTHUB_H

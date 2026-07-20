@@ -1,27 +1,28 @@
+﻿/// @file DocumentImportFacade.cpp
+/// @brief DocumentImportFacade 实现
+
 #include "DocumentImportFacade.h"
 
 #include "BackendFileImport.h"
+#include "BrepBackendData.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
 #include "HierarchyMeshImport.h"
-#include "BrepBackendData.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
 
-#include <BrepImportArtifacts.h>
-
 #include <QFile>
 #include <QFileInfo>
-
 #include <chrono>
+
+#include <BrepImportArtifacts.h>
 #include <RunLogger.h>
 
 namespace cloudsim::host
 {
-
 ImportFileResult importFileIntoDocument(DocumentHost& host, const QString& filePath, const ImportFileKind kind,
-	const cloudsim::core::ImportOptionsDto& options, QString* outError)
+										const cloudsim::core::ImportOptionsDto& options, QString* outError)
 {
 	const auto t0 = std::chrono::steady_clock::now();
 	ImportFileResult result;
@@ -49,7 +50,7 @@ ImportFileResult importFileIntoDocument(DocumentHost& host, const QString& fileP
 
 	const QString ext = fileInfo.suffix().toLower();
 	static const QStringList kSimpleMesh{QStringLiteral("obj"), QStringLiteral("stl"), QStringLiteral("ply"),
-		QStringLiteral("off")};
+										 QStringLiteral("off")};
 	if (kSimpleMesh.contains(ext))
 	{
 		const QString id = importMeshFile(host, filePath, options, outError);
@@ -66,7 +67,7 @@ ImportFileResult importFileIntoDocument(DocumentHost& host, const QString& fileP
 	const HierarchyFollowBindingFn followBinding;
 	QString extendedErr;
 	if (!importMeshFileExtended(host, filePath, options.catalogTypeName, options.quietUi, options.meshImportQuality,
-			followBinding, result.hierarchyDetail, &extendedErr))
+								followBinding, result.hierarchyDetail, &extendedErr))
 	{
 		if (outError)
 		{
@@ -102,24 +103,24 @@ ImportFileResult importFileIntoDocument(DocumentHost& host, const QString& fileP
 			result.rootBackendId = QString::fromStdString(result.hierarchyDetail.lastRegisteredBrep->id());
 			QString homeErr;
 			(void)osg->loadBackendFromBackendData(*result.hierarchyDetail.lastRegisteredBrep, &homeErr,
-				options.resetViewToHome);
+												  options.resetViewToHome);
 		}
 		else if (result.hierarchyDetail.lastRegisteredMesh)
 		{
 			result.rootBackendId = QString::fromStdString(result.hierarchyDetail.lastRegisteredMesh->id());
 			QString homeErr;
-			(void)osg->loadMeshFromBackendData(*result.hierarchyDetail.lastRegisteredMesh, &homeErr, options.resetViewToHome);
+			(void)osg->loadMeshFromBackendData(*result.hierarchyDetail.lastRegisteredMesh, &homeErr,
+											   options.resetViewToHome);
 		}
 	}
-	const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-		std::chrono::steady_clock::now() - t0);
-	RunLogger::info("[Import] importFileIntoDocument " + std::to_string(ms.count()) + " ms, file="
-		+ filePath.toStdString());
+	const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0);
+	RunLogger::info("[Import] importFileIntoDocument " + std::to_string(ms.count()) +
+					" ms, file=" + filePath.toStdString());
 	return result;
 }
 
 AdoptRegistrationResult registerAdoptedMesh(DocumentHost& host, const std::shared_ptr<MeshBackendData>& mesh,
-	const AdoptMeshOptions& options, QString* outError)
+											const AdoptMeshOptions& options, QString* outError)
 {
 	AdoptRegistrationResult result;
 	if (!mesh)
@@ -132,7 +133,7 @@ AdoptRegistrationResult registerAdoptedMesh(DocumentHost& host, const std::share
 	}
 	QString regErr;
 	if (!registerAdoptedMeshAndLoadScene(host, mesh, options.sourcePath, options.catalogTypeName, options.parentId,
-			options.resetViewToHome, &regErr, options.linkOsgSceneParent))
+										 options.resetViewToHome, &regErr, options.linkOsgSceneParent))
 	{
 		if (outError)
 		{
@@ -146,7 +147,8 @@ AdoptRegistrationResult registerAdoptedMesh(DocumentHost& host, const std::share
 }
 
 AdoptRegistrationResult registerAdoptedPointCloud(DocumentHost& host,
-	const std::shared_ptr<PointCloudBackendData>& pointCloud, const AdoptPointCloudOptions& options, QString* outError)
+												  const std::shared_ptr<PointCloudBackendData>& pointCloud,
+												  const AdoptPointCloudOptions& options, QString* outError)
 {
 	AdoptRegistrationResult result;
 	if (!pointCloud)
@@ -159,7 +161,7 @@ AdoptRegistrationResult registerAdoptedPointCloud(DocumentHost& host,
 	}
 	QString regErr;
 	if (!registerAdoptedPointCloudAndLoadScene(host, pointCloud, options.sourcePath, options.catalogTypeName,
-			options.resetViewToHome, &regErr))
+											   options.resetViewToHome, &regErr))
 	{
 		if (outError)
 		{
@@ -227,7 +229,8 @@ bool PointCloudBackgroundLoadState::executeLoad(
 }
 
 AdoptRegistrationResult PointCloudBackgroundLoadState::adoptIntoDocument(DocumentHost& host,
-	const AdoptPointCloudOptions& options, QString* outError)
+																		 const AdoptPointCloudOptions& options,
+																		 QString* outError)
 {
 	if (!m_impl || !m_impl->pointCloud)
 	{
@@ -250,16 +253,13 @@ enum class ModelLoadKind
 
 void logBrepImportTimings(const geoalgo::BrepImportBuildTimings& timings)
 {
-	RunLogger::info("[Import] brep mesh_ms=" + std::to_string(timings.meshMs) + " pick_ms="
-		+ std::to_string(timings.pickMs) + " tri=" + std::to_string(timings.triangleCount));
+	RunLogger::info("[Import] brep mesh_ms=" + std::to_string(timings.meshMs) +
+					" pick_ms=" + std::to_string(timings.pickMs) + " tri=" + std::to_string(timings.triangleCount));
 }
 
-bool warmBrepImportArtifactsDisplayOnly(
-	const geoalgo::ShapeHandle& shape,
-	const std::function<void(double progress01, const QString& status)>& report,
-	const double progressAfterMesh,
-	const double progressEnd,
-	QString* outError)
+bool warmBrepImportArtifactsDisplayOnly(const geoalgo::ShapeHandle& shape,
+										const std::function<void(double progress01, const QString& status)>& report,
+										const double progressAfterMesh, const double progressEnd, QString* outError)
 {
 	if (shape.isNull())
 	{
@@ -298,8 +298,8 @@ bool warmBrepImportPickArtifactsForShape(const geoalgo::ShapeHandle& shape, QStr
 	{
 		if (outError)
 		{
-			*outError = artifactErr.empty() ? QStringLiteral("B-rep artifacts missing.")
-											: QString::fromStdString(artifactErr);
+			*outError =
+				artifactErr.empty() ? QStringLiteral("B-rep artifacts missing.") : QString::fromStdString(artifactErr);
 		}
 		return false;
 	}
@@ -311,12 +311,11 @@ bool warmBrepImportPickArtifactsForShape(const geoalgo::ShapeHandle& shape, QStr
 	std::string pickErr;
 	if (!geoalgo::buildBrepImportArtifactsPick(shape, *artifacts, &timings, &pickErr))
 	{
-		RunLogger::warn("[Import] brep pick warm failed: "
-			+ (pickErr.empty() ? std::string("unknown") : pickErr));
+		RunLogger::warn("[Import] brep pick warm failed: " + (pickErr.empty() ? std::string("unknown") : pickErr));
 		if (outError)
 		{
-			*outError = pickErr.empty() ? QStringLiteral("B-rep pick artifacts failed.")
-										: QString::fromStdString(pickErr);
+			*outError =
+				pickErr.empty() ? QStringLiteral("B-rep pick artifacts failed.") : QString::fromStdString(pickErr);
 		}
 		return false;
 	}
@@ -336,11 +335,8 @@ struct ModelBackgroundLoadState::Impl
 	std::vector<BrepHierarchyPart> brepHierarchyParts;
 };
 
-ModelBackgroundLoadState::ModelBackgroundLoadState(
-	const QString& filePath,
-	const QString& displayName,
-	const QString& catalogTypeName,
-	const int meshImportQuality)
+ModelBackgroundLoadState::ModelBackgroundLoadState(const QString& filePath, const QString& displayName,
+												   const QString& catalogTypeName, const int meshImportQuality)
 	: m_impl(std::make_unique<Impl>())
 {
 	m_impl->filePath = filePath;
@@ -367,7 +363,8 @@ bool ModelBackgroundLoadState::executeLoad(
 	const QByteArray nativeEnc = QFile::encodeName(m_impl->filePath);
 	const std::string nativePath(nativeEnc.constData(), static_cast<std::size_t>(nativeEnc.size()));
 
-	auto report = [&](const double p, const QString& status) {
+	auto report = [&](const double p, const QString& status)
+	{
 		if (progress)
 		{
 			progress(p, status);
@@ -383,7 +380,8 @@ bool ModelBackgroundLoadState::executeLoad(
 		{
 			m_impl->kind = ModelLoadKind::BrepHierarchy;
 			m_impl->brepHierarchyParts = std::move(parts);
-			if (!warmBrepImportArtifactsDisplayOnly(m_impl->brepHierarchyParts.front().shapeRef, report, 0.25, 1.0, outError))
+			if (!warmBrepImportArtifactsDisplayOnly(m_impl->brepHierarchyParts.front().shapeRef, report, 0.25, 1.0,
+													outError))
 			{
 				return false;
 			}
@@ -430,8 +428,8 @@ bool ModelBackgroundLoadState::executeLoad(
 		return true;
 	}
 
-	static const QStringList kSimpleMesh{
-		QStringLiteral("obj"), QStringLiteral("stl"), QStringLiteral("ply"), QStringLiteral("off")};
+	static const QStringList kSimpleMesh{QStringLiteral("obj"), QStringLiteral("stl"), QStringLiteral("ply"),
+										 QStringLiteral("off")};
 	if (kSimpleMesh.contains(ext))
 	{
 		m_impl->mesh = std::make_shared<MeshBackendData>();
@@ -456,10 +454,9 @@ bool ModelBackgroundLoadState::executeLoad(
 	return true;
 }
 
-ImportFileResult ModelBackgroundLoadState::finishIntoDocument(
-	DocumentHost& host,
-	const cloudsim::core::ImportOptionsDto& options,
-	QString* outError)
+ImportFileResult ModelBackgroundLoadState::finishIntoDocument(DocumentHost& host,
+															  const cloudsim::core::ImportOptionsDto& options,
+															  QString* outError)
 {
 	if (!m_impl)
 	{
@@ -481,7 +478,8 @@ ImportFileResult ModelBackgroundLoadState::finishIntoDocument(
 	if (m_impl->kind == ModelLoadKind::BrepHierarchy)
 	{
 		if (!importBrepHierarchyParts(host, m_impl->filePath, m_impl->catalogTypeName, m_impl->brepHierarchyParts,
-				fileInfo.completeBaseName(), followBinding, result.hierarchyDetail, outError, fileInfo.fileName()))
+									  fileInfo.completeBaseName(), followBinding, result.hierarchyDetail, outError,
+									  fileInfo.fileName()))
 		{
 			if (outError && outError->isEmpty())
 			{
@@ -508,7 +506,7 @@ ImportFileResult ModelBackgroundLoadState::finishIntoDocument(
 	{
 		QString regErr;
 		if (!registerAdoptedBrepAndLoadScene(host, m_impl->brep, m_impl->filePath, QStringLiteral("BrepModel"),
-				QString(), options.resetViewToHome, &regErr))
+											 QString(), options.resetViewToHome, &regErr))
 		{
 			if (outError)
 			{
@@ -525,7 +523,7 @@ ImportFileResult ModelBackgroundLoadState::finishIntoDocument(
 	{
 		QString regErr;
 		if (!registerAdoptedMeshAndLoadScene(host, m_impl->mesh, m_impl->filePath, m_impl->catalogTypeName, QString(),
-				options.resetViewToHome, &regErr))
+											 options.resetViewToHome, &regErr))
 		{
 			if (outError)
 			{

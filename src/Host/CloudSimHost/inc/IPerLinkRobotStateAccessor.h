@@ -1,18 +1,22 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_IPERLINKROBOTSTATEACCESSOR_H
+#define CLOUDSIMHOST_IPERLINKROBOTSTATEACCESSOR_H
+
+/// @file IPerLinkRobotStateAccessor.h
+/// @brief per-link 机器人状态快照（Mat4 版本，供 Host 实现类操作）
 
 #include "cloudsim_host_global.h"
+
+#include "CoreTypes.h"
 
 #include <QHash>
 #include <QString>
 #include <QVector>
 
-#include "CoreTypes.h"
-
 class BackendDataManager;
 class IRobotBackendPoseSink;
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 /// per-link 机器人状态快照（Mat4 版本，供 Host 实现类操作）
 struct PerLinkRobotStateSnapshot
 {
@@ -48,3 +52,5 @@ public:
 };
 
 } // namespace cloudsim::host
+
+#endif // CLOUDSIMHOST_IPERLINKROBOTSTATEACCESSOR_H

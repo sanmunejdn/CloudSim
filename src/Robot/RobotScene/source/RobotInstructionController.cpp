@@ -1,25 +1,27 @@
+﻿/// @file RobotInstructionController.cpp
+/// @brief Sole tool handling before IK: pose/euler = T_base_target; solver input = T_base_flange only.
+
 #include "RobotInstructionController.h"
+
+#include "BackendDataBase.h"
 #include "RobotCoordinateFrames.h"
+#include "RobotInstructionAxisConfiguration.h"
 #include "RobotInstructionTransform.h"
 #include "RobotMatrixOsgBridge.h"
-#include "RobotInstructionAxisConfiguration.h"
-#include "BackendDataBase.h"
 #include "RunLogger.h"
 #include "UrdfRobotLoader.h"
 
-#include <Adapters.h>
-#include <RigidTransform.h>
-#include <ToolKinematics.h>
-
+#include <QHash>
+#include <QString>
+#include <QStringList>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <sstream>
 
-#include <QHash>
-#include <QString>
-#include <QStringList>
-
+#include <Adapters.h>
+#include <RigidTransform.h>
+#include <ToolKinematics.h>
 #include <osg/Matrixd>
 #include <osg/Quat>
 
@@ -101,7 +103,7 @@ osg::Matrixd backendMat4ToOsg(const BackendMat4& m);
 
 struct IkLinkTarget
 {
-	double pos[3] = { 0.0, 0.0, 0.0 };
+	double pos[3] = {0.0, 0.0, 0.0};
 	osg::Quat quat;
 	bool hasOrientation = false;
 };
@@ -134,9 +136,7 @@ bool ikLinkTargetFromInstruction(const RobotInstruction::Base& cmd, IkLinkTarget
 	double toolTy = 0.0;
 	double toolTz = 0.0;
 	T_tool.translationMm(toolTx, toolTy, toolTz);
-	const engine::RigidTransform T_base_link = engine::flangeFromToolOrigin(
-		T_base_target,
-		T_tool);
+	const engine::RigidTransform T_base_link = engine::flangeFromToolOrigin(T_base_target, T_tool);
 	double tx = 0.0;
 	double ty = 0.0;
 	double tz = 0.0;
@@ -334,16 +334,15 @@ std::vector<double> solveTargetByLegacyJointDelta(const RobotInstruction::Base& 
 	return q;
 }
 
-std::vector<double> solveTargetByIkIfPossible(
-	const RobotInstruction::Base& cmd,
-	const std::vector<robot_kinematics::DhRow>& dhRows,
-	std::string* failReason)
+std::vector<double> solveTargetByIkIfPossible(const RobotInstruction::Base& cmd,
+											  const std::vector<robot_kinematics::DhRow>& dhRows,
+											  std::string* failReason)
 {
 	if (dhRows.empty() || !cmd.hasPoseProperty())
 	{
 		if (failReason)
 		{
-			*failReason = "无DH上下文";
+			*failReason = dhRows.empty() ? "缺少DH参数" : "缺少目标位姿";
 		}
 		return {};
 	}
@@ -352,7 +351,7 @@ std::vector<double> solveTargetByIkIfPossible(
 	{
 		if (failReason)
 		{
-			*failReason = "无DH上下文";
+			*failReason = "缺少IK种子关节角";
 		}
 		return {};
 	}
@@ -361,7 +360,7 @@ std::vector<double> solveTargetByIkIfPossible(
 	{
 		if (failReason)
 		{
-			*failReason = "无DH上下文";
+			*failReason = "DH关节数与种子关节数不一致";
 		}
 		return {};
 	}
@@ -370,11 +369,11 @@ std::vector<double> solveTargetByIkIfPossible(
 	{
 		if (failReason)
 		{
-			*failReason = "无DH上下文";
+			*failReason = "无法解析目标法兰位姿";
 		}
 		return {};
 	}
-	const double targetPos[3] = { linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2] };
+	const double targetPos[3] = {linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2]};
 
 	double reachMm = 0.0;
 	for (const robot_kinematics::DhRow& row : dhRows)
@@ -382,17 +381,18 @@ std::vector<double> solveTargetByIkIfPossible(
 		reachMm += std::sqrt(row.a * row.a + row.d * row.d);
 	}
 	reachMm = std::max(reachMm, 1.0);
-	const double targetNormMm = std::sqrt(targetPos[0] * targetPos[0] + targetPos[1] * targetPos[1] + targetPos[2] * targetPos[2]);
+	const double targetNormMm =
+		std::sqrt(targetPos[0] * targetPos[0] + targetPos[1] * targetPos[1] + targetPos[2] * targetPos[2]);
 	if (targetNormMm > reachMm * 2.5 || targetNormMm > 50000.0)
 	{
 		if (failReason)
 		{
-			*failReason = "目标越界/单位不一致";
+			*failReason = "目标超出近似臂展(DH)";
 		}
 		return {};
 	}
 
-	double curPos[3] = { 0.0, 0.0, 0.0 };
+	double curPos[3] = {0.0, 0.0, 0.0};
 	if (robot_kinematics::endEffectorPosition(dhRows, q, curPos))
 	{
 		const double dx = targetPos[0] - curPos[0];
@@ -403,7 +403,7 @@ std::vector<double> solveTargetByIkIfPossible(
 		{
 			if (failReason)
 			{
-				*failReason = "目标越界/单位不一致";
+				*failReason = "目标相对当前TCP过远(DH)";
 			}
 			return {};
 		}
@@ -415,7 +415,23 @@ std::vector<double> solveTargetByIkIfPossible(
 	{
 		if (failReason)
 		{
-			*failReason = "IK未收敛/超迭代";
+			double endPos[3] = {0.0, 0.0, 0.0};
+			if (robot_kinematics::endEffectorPosition(dhRows, qSolved, endPos))
+			{
+				const double dx = targetPos[0] - endPos[0];
+				const double dy = targetPos[1] - endPos[1];
+				const double dz = targetPos[2] - endPos[2];
+				const double residual = std::sqrt(dx * dx + dy * dy + dz * dz);
+				std::ostringstream oss;
+				oss.setf(std::ios::fixed);
+				oss.precision(2);
+				oss << "DH IK未收敛；位置残差" << residual << "mm";
+				*failReason = oss.str();
+			}
+			else
+			{
+				*failReason = "DH IK未收敛";
+			}
 		}
 		return {};
 	}
@@ -423,12 +439,8 @@ std::vector<double> solveTargetByIkIfPossible(
 	return qSolved;
 }
 
-bool tcpPositionFromUrdf(
-	const QString& urdfPath,
-	const QString& tcpLink,
-	const std::vector<double>& q,
-	double outPos[3],
-	osg::Quat* outRot = nullptr)
+bool tcpPositionFromUrdf(const QString& urdfPath, const QString& tcpLink, const std::vector<double>& q,
+						 double outPos[3], osg::Quat* outRot = nullptr)
 {
 	QVector<double> qQt;
 	qQt.reserve(static_cast<int>(q.size()));
@@ -471,13 +483,66 @@ bool currentTcpPositionFromInstruction(const RobotInstruction::Base& cmd, double
 	{
 		return false;
 	}
-	return tcpPositionFromUrdf(QString::fromStdString(itUrdf->second), QString::fromStdString(itTcp->second), q, outPos);
+	return tcpPositionFromUrdf(QString::fromStdString(itUrdf->second), QString::fromStdString(itTcp->second), q,
+							   outPos);
 }
 
-void logIkSolveResidual(
-	const RobotInstruction::Base& cmd,
-	const std::vector<double>& qSolved,
-	const char* plannerName)
+/// 由关节角求基座系工具原点（LINE 笛卡尔起点）
+bool toolOriginTransformFromJoints(const RobotInstruction::Base& cmd, const std::vector<double>& q,
+								   engine::RigidTransform& outToolOrigin)
+{
+	if (q.empty())
+	{
+		return false;
+	}
+	const auto& ext = cmd.extensionProperties();
+	const auto itUrdf = ext.find("context.urdfPath");
+	if (itUrdf == ext.end() || itUrdf->second.empty())
+	{
+		return false;
+	}
+	std::string flangeLink;
+	const auto itFlange = ext.find("context.flangeLinkName");
+	if (itFlange != ext.end() && !itFlange->second.empty())
+	{
+		flangeLink = itFlange->second;
+	}
+	else
+	{
+		const auto itTcp = ext.find("context.tcpLinkName");
+		if (itTcp == ext.end() || itTcp->second.empty())
+		{
+			return false;
+		}
+		flangeLink = itTcp->second;
+	}
+	BackendMat4 T_flange_tool = BackendMat4::identity();
+	const auto itTool = ext.find(RobotCoordinate::kExtContextToolFrameMat4);
+	if (itTool != ext.end() && !itTool->second.empty())
+	{
+		(void)RobotCoordinate::parseMat4Csv(itTool->second, T_flange_tool);
+	}
+	QVector<double> qQt;
+	qQt.reserve(static_cast<int>(q.size()));
+	for (double v : q)
+	{
+		qQt.push_back(v);
+	}
+	QHash<QString, osg::Matrixd> linkWorld;
+	const QString urdfPath = QString::fromStdString(itUrdf->second);
+	const QString flangeLinkQ = QString::fromStdString(flangeLink);
+	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, qQt, linkWorld, nullptr) ||
+		!linkWorld.contains(flangeLinkQ))
+	{
+		return false;
+	}
+	const BackendMat4 toolMat =
+		RobotMatrixOsg::targetInBaseFromFlangeLinkWorld(linkWorld.value(flangeLinkQ), T_flange_tool);
+	outToolOrigin = RobotCoordinate::rigidTransformFromBackendMat4(toolMat);
+	return true;
+}
+
+void logIkSolveResidual(const RobotInstruction::Base& cmd, const std::vector<double>& qSolved, const char* plannerName)
 {
 	if (!RunLogger::isDiagnosticsEnabled())
 	{
@@ -532,17 +597,16 @@ void logIkSolveResidual(
 	{
 		return;
 	}
-	const RobotInstruction::Vec3 flangeTarget{
-		linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2] };
+	const RobotInstruction::Vec3 flangeTarget{linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2]};
 	const bool hasTargetEuler = linkTarget.hasOrientation;
 
-	double fkFlangePos[3] = { 0.0, 0.0, 0.0 };
+	double fkFlangePos[3] = {0.0, 0.0, 0.0};
 	osg::Quat fkFlangeRot;
 	if (!tcpPositionFromUrdf(urdfPath, flangeLinkQ, qSolved, fkFlangePos, &fkFlangeRot))
 	{
 		std::ostringstream os;
-		os << "[IK残差] planner=" << (plannerName ? plannerName : "Unknown")
-		   << ", flangeLink=" << flangeLink << ", FK failed (cannot recompute flange pose from q)";
+		os << "[IK残差] planner=" << (plannerName ? plannerName : "Unknown") << ", flangeLink=" << flangeLink
+		   << ", FK failed (cannot recompute flange pose from q)";
 		RunLogger::warn(os.str());
 		return;
 	}
@@ -558,11 +622,11 @@ void logIkSolveResidual(
 			qQt.push_back(v);
 		}
 		QHash<QString, osg::Matrixd> linkWorld;
-		if (UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, qQt, linkWorld, nullptr)
-			&& linkWorld.contains(flangeLinkQ))
+		if (UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, qQt, linkWorld, nullptr) &&
+			linkWorld.contains(flangeLinkQ))
 		{
-			const BackendMat4 fkTcpMat = RobotMatrixOsg::targetInBaseFromFlangeLinkWorld(
-				linkWorld.value(flangeLinkQ), T_flange_tool);
+			const BackendMat4 fkTcpMat =
+				RobotMatrixOsg::targetInBaseFromFlangeLinkWorld(linkWorld.value(flangeLinkQ), T_flange_tool);
 			fkToolRt = RobotCoordinate::rigidTransformFromBackendMat4(fkTcpMat);
 			fkToolRt.translationMm(fkToolOriginPos[0], fkToolOriginPos[1], fkToolOriginPos[2]);
 			hasFkToolRot = true;
@@ -587,8 +651,7 @@ void logIkSolveResidual(
 	const double dFlangeX = fkFlangePos[0] - flangeTarget.x;
 	const double dFlangeY = fkFlangePos[1] - flangeTarget.y;
 	const double dFlangeZ = fkFlangePos[2] - flangeTarget.z;
-	const double residualFlangeMm =
-		std::sqrt(dFlangeX * dFlangeX + dFlangeY * dFlangeY + dFlangeZ * dFlangeZ);
+	const double residualFlangeMm = std::sqrt(dFlangeX * dFlangeX + dFlangeY * dFlangeY + dFlangeZ * dFlangeZ);
 
 	const double dTcpX = fkToolOriginPos[0] - toolOriginPos[0];
 	const double dTcpY = fkToolOriginPos[1] - toolOriginPos[1];
@@ -600,7 +663,7 @@ void logIkSolveResidual(
 	if (hasTargetEuler)
 	{
 		const osg::Quat targetFlangeQuat = linkTarget.quat;
-		double eRot[3] = { 0.0, 0.0, 0.0 };
+		double eRot[3] = {0.0, 0.0, 0.0};
 		quatErrorAxisAngle(fkFlangeRot, targetFlangeQuat, eRot);
 		const double errRotRad = std::sqrt(eRot[0] * eRot[0] + eRot[1] * eRot[1] + eRot[2] * eRot[2]);
 		residualFlangeRotDeg = errRotRad * (180.0 / 3.14159265358979323846);
@@ -612,20 +675,16 @@ void logIkSolveResidual(
 	}
 
 	std::ostringstream os;
-	os << "[IK残差] planner=" << (plannerName ? plannerName : "Unknown")
-	   << ", flangeLink=" << flangeLink
+	os << "[IK残差] planner=" << (plannerName ? plannerName : "Unknown") << ", flangeLink=" << flangeLink
 	   << ", toolOrigin=(" << toolOriginPos[0] << ", " << toolOriginPos[1] << ", " << toolOriginPos[2] << ")"
 	   << ", flangeTarget=(" << flangeTarget.x << ", " << flangeTarget.y << ", " << flangeTarget.z << ")"
 	   << ", fkFlange=(" << fkFlangePos[0] << ", " << fkFlangePos[1] << ", " << fkFlangePos[2] << ")"
-	   << ", fkToolOrigin=(" << fkToolOriginPos[0] << ", " << fkToolOriginPos[1] << ", " << fkToolOriginPos[2]
-	   << ")"
+	   << ", fkToolOrigin=(" << fkToolOriginPos[0] << ", " << fkToolOriginPos[1] << ", " << fkToolOriginPos[2] << ")"
 	   << ", solvedQ[0..]=[" << qPreview.str() << "]"
-	   << ", residualTcpMm=" << residualTcpMm
-	   << ", residualFlangeMm=" << residualFlangeMm;
+	   << ", residualTcpMm=" << residualTcpMm << ", residualFlangeMm=" << residualFlangeMm;
 	if (hasTargetEuler)
 	{
-		os << ", residualTcpRotDeg=" << residualTcpRotDeg
-		   << ", residualFlangeRotDeg=" << residualFlangeRotDeg;
+		os << ", residualTcpRotDeg=" << residualTcpRotDeg << ", residualFlangeRotDeg=" << residualFlangeRotDeg;
 	}
 	if (residualTcpMm > 1.0 && residualFlangeMm < 0.1)
 	{
@@ -641,9 +700,8 @@ int jointIndexByNameHint(const std::vector<std::string>& jointNames, const char*
 		for (size_t i = 0; i < jointNames.size(); ++i)
 		{
 			std::string lower = jointNames[i];
-			std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) {
-				return static_cast<char>(std::tolower(c));
-			});
+			std::transform(lower.begin(), lower.end(), lower.begin(),
+						   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 			if (lower.find(hint) != std::string::npos)
 			{
 				return static_cast<int>(i);
@@ -691,17 +749,91 @@ std::vector<std::string> revoluteJointNamesFromInstructionContext(const RobotIns
 	return jointNames;
 }
 
-std::vector<std::vector<double>> buildIkSeedVariants(
-	const std::vector<double>& qSeed,
-	const std::vector<std::string>& jointNames,
-	const RobotInstruction::MotionAxisConfiguration* axisCfg)
+std::string formatRadAsDegText(const double rad)
+{
+	std::ostringstream oss;
+	oss.setf(std::ios::fixed);
+	oss.precision(1);
+	oss << (rad / kDegToRad);
+	return oss.str();
+}
+
+/// 列出超限位关节；无超限返回 false
+bool formatJointLimitViolations(const QString& urdfPath, const std::vector<double>& q, std::string& outMsg)
+{
+	QStringList names;
+	QVector<double> lower;
+	QVector<double> upper;
+	if (!UrdfRobotLoader::loadRevoluteJointMeta(urdfPath, names, lower, upper, nullptr))
+	{
+		return false;
+	}
+	const int n = std::min(static_cast<int>(q.size()), std::min(names.size(), std::min(lower.size(), upper.size())));
+	if (n <= 0)
+	{
+		return false;
+	}
+	constexpr double kEpsRad = 1e-4;
+	std::ostringstream oss;
+	int hit = 0;
+	for (int i = 0; i < n; ++i)
+	{
+		const double qi = q[static_cast<size_t>(i)];
+		const double lo = lower[i];
+		const double hi = upper[i];
+		if (qi >= lo - kEpsRad && qi <= hi + kEpsRad)
+		{
+			continue;
+		}
+		if (hit > 0)
+		{
+			oss << "; ";
+		}
+		const QString label = names[i].isEmpty() ? QStringLiteral("J%1").arg(i + 1) : names[i];
+		oss << label.toStdString() << "=" << formatRadAsDegText(qi) << "°";
+		if (qi < lo - kEpsRad)
+		{
+			oss << "<下限" << formatRadAsDegText(lo) << "°";
+		}
+		else
+		{
+			oss << ">上限" << formatRadAsDegText(hi) << "°";
+		}
+		++hit;
+	}
+	if (hit <= 0)
+	{
+		return false;
+	}
+	outMsg = "关节超限: " + oss.str();
+	return true;
+}
+
+std::string formatIkResidualText(const double posErrMm, const bool useOrientation, const double rotErrRad)
+{
+	std::ostringstream oss;
+	oss.setf(std::ios::fixed);
+	oss.precision(2);
+	oss << "位置残差" << posErrMm << "mm";
+	if (useOrientation)
+	{
+		oss.precision(1);
+		oss << " 姿态残差" << (rotErrRad / kDegToRad) << "°";
+	}
+	return oss.str();
+}
+
+std::vector<std::vector<double>> buildIkSeedVariants(const std::vector<double>& qSeed,
+													 const std::vector<std::string>& jointNames,
+													 const RobotInstruction::MotionAxisConfiguration* axisCfg)
 {
 	std::vector<std::vector<double>> seeds;
 	if (qSeed.empty())
 	{
 		return seeds;
 	}
-	auto pushUnique = [&](std::vector<double> q) {
+	auto pushUnique = [&](std::vector<double> q)
+	{
 		for (const auto& existing : seeds)
 		{
 			if (jointVectorDistance(existing, q) < 1e-6)
@@ -793,16 +925,14 @@ std::vector<std::vector<double>> buildIkSeedVariants(
 	return seeds;
 }
 
-std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
-	const RobotInstruction::Base& cmd,
-	std::vector<double> q,
-	std::string* failReason)
+std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction::Base& cmd, std::vector<double> q,
+														 std::string* failReason)
 {
 	if (!cmd.hasPoseProperty())
 	{
 		if (failReason)
 		{
-			*failReason = "无DH上下文";
+			*failReason = "缺少目标位姿";
 		}
 		return {};
 	}
@@ -812,20 +942,20 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 	{
 		if (failReason)
 		{
-			*failReason = "无DH上下文";
+			*failReason = "缺少URDF路径";
 		}
 		return {};
 	}
 	const auto itTcp = ext.find("context.tcpLinkName");
 	const auto itFlange = ext.find("context.flangeLinkName");
 	const std::string ikLinkName = (itFlange != ext.end() && !itFlange->second.empty())
-		? itFlange->second
-		: ((itTcp != ext.end()) ? itTcp->second : std::string());
+									   ? itFlange->second
+									   : ((itTcp != ext.end()) ? itTcp->second : std::string());
 	if (ikLinkName.empty())
 	{
 		if (failReason)
 		{
-			*failReason = "无DH上下文";
+			*failReason = "缺少法兰/TCP连杆名";
 		}
 		return {};
 	}
@@ -833,7 +963,7 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 	{
 		if (failReason)
 		{
-			*failReason = "无DH上下文";
+			*failReason = "缺少IK种子关节角";
 		}
 		return {};
 	}
@@ -844,15 +974,16 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 	{
 		if (failReason)
 		{
-			*failReason = "无DH上下文";
+			*failReason = "无法解析目标法兰位姿";
 		}
 		return {};
 	}
-	const double target[3] = { linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2] };
+	const double target[3] = {linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2]};
 	const bool useOrientation = linkTarget.hasOrientation;
 	const osg::Quat targetQuat = useOrientation ? linkTarget.quat : osg::Quat();
 	engine::RigidTransform targetToolRt{};
 	const bool hasTargetToolRt = RobotInstruction::readTargetTransformFromInstruction(cmd, targetToolRt);
+	(void)hasTargetToolRt;
 	BackendMat4 T_flange_tool = BackendMat4::identity();
 	if (const auto itToolMat = ext.find(RobotCoordinate::kExtContextToolFrameMat4);
 		itToolMat != ext.end() && !itToolMat->second.empty())
@@ -860,35 +991,35 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 		(void)RobotCoordinate::parseMat4Csv(itToolMat->second, T_flange_tool);
 	}
 	const engine::RigidTransform flangeToolRt = RobotCoordinate::rigidTransformFromBackendMat4(T_flange_tool);
+	(void)flangeToolRt;
 	const double targetNormMm = std::sqrt(target[0] * target[0] + target[1] * target[1] + target[2] * target[2]);
 	if (targetNormMm > 50000.0)
 	{
 		if (failReason)
 		{
-			*failReason = "目标越界/单位不一致";
+			*failReason = "目标距离异常(>50m)，请检查单位";
 		}
 		return {};
 	}
 
-	double pos[3] = { 0.0, 0.0, 0.0 };
+	double pos[3] = {0.0, 0.0, 0.0};
 	osg::Quat curQuat;
 	if (!tcpPositionFromUrdf(urdfPath, ikLink, q, pos, useOrientation ? &curQuat : nullptr))
 	{
 		if (failReason)
 		{
-			*failReason = "无DH上下文";
+			*failReason = "正向运动学失败(连杆/关节不匹配)";
 		}
 		return {};
 	}
-	const double initialErr = std::sqrt(
-		(target[0] - pos[0]) * (target[0] - pos[0]) +
-		(target[1] - pos[1]) * (target[1] - pos[1]) +
-		(target[2] - pos[2]) * (target[2] - pos[2]));
+	const double initialErr =
+		std::sqrt((target[0] - pos[0]) * (target[0] - pos[0]) + (target[1] - pos[1]) * (target[1] - pos[1]) +
+				  (target[2] - pos[2]) * (target[2] - pos[2]));
 	if (initialErr > 10000.0)
 	{
 		if (failReason)
 		{
-			*failReason = "目标越界/单位不一致";
+			*failReason = "初始误差过大(" + formatIkResidualText(initialErr, false, 0.0) + ")，目标可能不可达";
 		}
 		return {};
 	}
@@ -897,16 +1028,18 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 	const double lambda = 1e-2;
 	const int maxIters = 180;
 	const int taskDim = useOrientation ? 6 : 3;
-	// Unit balancing for 6D IK: translation is in mm, rotation is in rad.
-	// Without scaling, orientation residual is numerically too small.
+	// 位置 mm、姿态 rad 量纲差大，姿态残差加权避免数值淹没
 	const double orientationWeight = useOrientation ? 300.0 : 1.0;
+	double lastPosErr = initialErr;
+	double lastRotErr = 0.0;
+	bool linearSolveFailed = false;
 	for (int iter = 0; iter < maxIters; ++iter)
 	{
 		if (!tcpPositionFromUrdf(urdfPath, ikLink, q, pos, useOrientation ? &curQuat : nullptr))
 		{
 			if (failReason)
 			{
-				*failReason = "无DH上下文";
+				*failReason = "正向运动学失败(迭代中)";
 			}
 			return {};
 		}
@@ -918,15 +1051,27 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 		double rotErr = 0.0;
 		if (useOrientation)
 		{
-			double eRot[3] = { 0.0, 0.0, 0.0 };
+			double eRot[3] = {0.0, 0.0, 0.0};
 			quatErrorAxisAngle(curQuat, targetQuat, eRot);
 			e[3] = eRot[0] * orientationWeight;
 			e[4] = eRot[1] * orientationWeight;
 			e[5] = eRot[2] * orientationWeight;
 			rotErr = std::sqrt(eRot[0] * eRot[0] + eRot[1] * eRot[1] + eRot[2] * eRot[2]);
 		}
+		lastPosErr = posErr;
+		lastRotErr = rotErr;
 		if (posErr < 1e-2 && (!useOrientation || rotErr < 0.1 * kDegToRad))
 		{
+			std::string limitMsg;
+			if (formatJointLimitViolations(urdfPath, q, limitMsg))
+			{
+				// 位姿已收敛但解非法：此时超限才是主因
+				if (failReason)
+				{
+					*failReason = limitMsg + "（位姿已收敛）";
+				}
+				return {};
+			}
 			return q;
 		}
 
@@ -936,13 +1081,13 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 		{
 			std::vector<double> qPert = q;
 			qPert[static_cast<size_t>(j)] += eps;
-			double p2[3] = { 0.0, 0.0, 0.0 };
+			double p2[3] = {0.0, 0.0, 0.0};
 			osg::Quat q2;
 			if (!tcpPositionFromUrdf(urdfPath, ikLink, qPert, p2, useOrientation ? &q2 : nullptr))
 			{
 				if (failReason)
 				{
-					*failReason = "无DH上下文";
+					*failReason = "正向运动学失败(雅可比扰动)";
 				}
 				return {};
 			}
@@ -951,7 +1096,7 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 			J[2 * n + j] = (p2[2] - pos[2]) / eps;
 			if (useOrientation)
 			{
-				double dRot[3] = { 0.0, 0.0, 0.0 };
+				double dRot[3] = {0.0, 0.0, 0.0};
 				quatErrorAxisAngle(curQuat, q2, dRot);
 				J[3 * n + j] = (dRot[0] / eps) * orientationWeight;
 				J[4 * n + j] = (dRot[1] / eps) * orientationWeight;
@@ -986,11 +1131,8 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 		}
 		if (!solveLinearSystem(jtj, jte, n))
 		{
-			if (failReason)
-			{
-				*failReason = "IK未收敛/超迭代";
-			}
-			return {};
+			linearSolveFailed = true;
+			break;
 		}
 		for (int j = 0; j < n; ++j)
 		{
@@ -1001,7 +1143,22 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(
 
 	if (failReason)
 	{
-		*failReason = "IK未收敛/超迭代";
+		// 未收敛时最后一次 q 超限只是搜索副作用，主因仍是不可达/残差
+		const std::string residualText = formatIkResidualText(lastPosErr, useOrientation, lastRotErr);
+		std::string limitMsg;
+		const bool overLimitAtEnd = formatJointLimitViolations(urdfPath, q, limitMsg);
+		if (linearSolveFailed)
+		{
+			*failReason = "雅可比奇异/线性求解失败；" + residualText;
+		}
+		else
+		{
+			*failReason = "目标不可达/IK未收敛；" + residualText;
+		}
+		if (overLimitAtEnd)
+		{
+			*failReason += "（迭代末曾" + limitMsg + "，非主因）";
+		}
 	}
 	return {};
 }
@@ -1013,24 +1170,23 @@ std::vector<double> solveTargetByUrdfNumericalIkIfPossible(const RobotInstructio
 	{
 		if (failReason)
 		{
-			*failReason = "无DH上下文";
+			*failReason = "缺少IK种子关节角";
 		}
 		return {};
 	}
 	return solveTargetByUrdfNumericalIkFromSeed(cmd, std::move(q0), failReason);
 }
 
-std::vector<double> solveIkWithAxisConfiguration(
-	const RobotInstruction::Base& cmd,
-	const RobotInstruction::MotionAxisConfiguration& cfg,
-	std::string* failReason)
+std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& cmd,
+												 const RobotInstruction::MotionAxisConfiguration& cfg,
+												 std::string* failReason)
 {
 	std::vector<double> qSeed = currentJointVectorFromInstruction(cmd);
 	if (qSeed.empty())
 	{
 		if (failReason)
 		{
-			*failReason = "无DH上下文";
+			*failReason = "缺少IK种子关节角";
 		}
 		return {};
 	}
@@ -1044,15 +1200,21 @@ std::vector<double> solveIkWithAxisConfiguration(
 	};
 	std::vector<Candidate> matching;
 	std::vector<Candidate> converged;
+	std::string lastSeedFail;
 	for (const std::vector<double>& seed : seeds)
 	{
-		std::vector<double> qTry = solveTargetByUrdfNumericalIkFromSeed(cmd, seed, nullptr);
+		std::string seedFail;
+		std::vector<double> qTry = solveTargetByUrdfNumericalIkFromSeed(cmd, seed, &seedFail);
 		if (qTry.empty())
 		{
+			if (!seedFail.empty())
+			{
+				lastSeedFail = std::move(seedFail);
+			}
 			continue;
 		}
 		const double dist = jointVectorDistance(qTry, qSeed);
-		converged.push_back({ std::move(qTry), dist });
+		converged.push_back({std::move(qTry), dist});
 	}
 	for (Candidate& c : converged)
 	{
@@ -1068,11 +1230,23 @@ std::vector<double> solveIkWithAxisConfiguration(
 	{
 		if (failReason)
 		{
-			*failReason = cfg.isFullyAuto() ? "IK未收敛/超迭代" : "无满足轴配置的IK解";
+			if (!cfg.isFullyAuto() && !converged.empty())
+			{
+				*failReason = "无满足轴配置的IK解（已收敛但肘/腕/臂/转数不匹配）";
+			}
+			else if (!lastSeedFail.empty())
+			{
+				*failReason = lastSeedFail;
+			}
+			else
+			{
+				*failReason = "IK未收敛";
+			}
 		}
 		return {};
 	}
-	const auto isCandidateBetter = [](const Candidate& c, const Candidate& best) {
+	const auto isCandidateBetter = [](const Candidate& c, const Candidate& best)
+	{
 		if (c.dist < best.dist - 1e-9)
 		{
 			return true;
@@ -1116,9 +1290,8 @@ std::vector<double> solveIkWithAxisConfiguration(const RobotInstruction::Base& c
 	return solveIkWithAxisConfiguration(cmd, cfg, failReason);
 }
 
-bool canSolveIkWithAxisConfiguration(
-	const RobotInstruction::Base& cmd,
-	const RobotInstruction::MotionAxisConfiguration& cfg)
+bool canSolveIkWithAxisConfiguration(const RobotInstruction::Base& cmd,
+									 const RobotInstruction::MotionAxisConfiguration& cfg)
 {
 	return !solveIkWithAxisConfiguration(cmd, cfg, nullptr).empty();
 }
@@ -1128,17 +1301,15 @@ struct IkPostureClassEntry
 	RobotInstruction::JointConfigurationClass cls;
 };
 
-bool postureClassEquivalent(
-	const RobotInstruction::JointConfigurationClass& a,
-	const RobotInstruction::JointConfigurationClass& b)
+bool postureClassEquivalent(const RobotInstruction::JointConfigurationClass& a,
+							const RobotInstruction::JointConfigurationClass& b)
 {
-	return a.elbow == b.elbow && a.wrist == b.wrist && a.arm == b.arm && a.turnJ1 == b.turnJ1
-		&& a.turnJ4 == b.turnJ4 && a.turnJ6 == b.turnJ6;
+	return a.elbow == b.elbow && a.wrist == b.wrist && a.arm == b.arm && a.turnJ1 == b.turnJ1 && a.turnJ4 == b.turnJ4 &&
+		   a.turnJ6 == b.turnJ6;
 }
 
-void appendUniquePostureClass(
-	std::vector<IkPostureClassEntry>& out,
-	const RobotInstruction::JointConfigurationClass& cls)
+void appendUniquePostureClass(std::vector<IkPostureClassEntry>& out,
+							  const RobotInstruction::JointConfigurationClass& cls)
 {
 	for (const IkPostureClassEntry& e : out)
 	{
@@ -1147,7 +1318,7 @@ void appendUniquePostureClass(
 			return;
 		}
 	}
-	out.push_back({ cls });
+	out.push_back({cls});
 }
 
 std::vector<IkPostureClassEntry> collectIkPostureClassesForTarget(const RobotInstruction::Base& cmd)
@@ -1174,9 +1345,8 @@ std::vector<IkPostureClassEntry> collectIkPostureClassesForTarget(const RobotIns
 	return out;
 }
 
-bool anyPostureMatchesConfiguration(
-	const std::vector<IkPostureClassEntry>& postures,
-	const RobotInstruction::MotionAxisConfiguration& cfg)
+bool anyPostureMatchesConfiguration(const std::vector<IkPostureClassEntry>& postures,
+									const RobotInstruction::MotionAxisConfiguration& cfg)
 {
 	for (const IkPostureClassEntry& e : postures)
 	{
@@ -1191,10 +1361,7 @@ bool anyPostureMatchesConfiguration(
 class PtpPlanner final : public RobotInstruction::PlannerBase
 {
 public:
-	explicit PtpPlanner(const std::vector<robot_kinematics::DhRow>* dhRows)
-		: m_dhRows(dhRows)
-	{
-	}
+	explicit PtpPlanner(const std::vector<robot_kinematics::DhRow>* dhRows) : m_dhRows(dhRows) {}
 
 	bool canHandle(RobotInstruction::Type type) const override { return type == RobotInstruction::Type::PTP; }
 
@@ -1226,7 +1393,7 @@ public:
 		{
 			if (errMsg)
 			{
-				*errMsg = "无DH上下文";
+				*errMsg = "缺少IK种子关节角";
 			}
 			return false;
 		}
@@ -1239,8 +1406,8 @@ public:
 		{
 			axisCfg = cmd.motionAxisConfiguration();
 		}
-		const bool constrainAxis = cmd.hasMotionAxisConfigurationProperty()
-			&& RobotInstruction::motionAxisConfigurationRequiresConstraint(axisCfg);
+		const bool constrainAxis = cmd.hasMotionAxisConfigurationProperty() &&
+								   RobotInstruction::motionAxisConfigurationRequiresConstraint(axisCfg);
 		if (preferUrdfIk)
 		{
 			if (cmd.hasMotionAxisConfigurationProperty())
@@ -1296,7 +1463,7 @@ public:
 		{
 			if (errMsg)
 			{
-				*errMsg = ikFailReason.empty() ? "无DH上下文" : ikFailReason;
+				*errMsg = ikFailReason.empty() ? "IK无解" : ikFailReason;
 			}
 			return false;
 		}
@@ -1304,7 +1471,7 @@ public:
 		{
 			if (errMsg)
 			{
-				*errMsg = "IK未收敛/超迭代";
+				*errMsg = "IK解关节数与种子不一致";
 			}
 			return false;
 		}
@@ -1322,7 +1489,7 @@ public:
 		out.summary = "PTP solved with joint target output.";
 		out.durationSec = durationSec;
 		out.jointTargetsRad = targetQ;
-		out.jointTrajectoryRad = { targetQ };
+		out.jointTrajectoryRad = {targetQ};
 		logIkSolveResidual(cmd, targetQ, "PtpPlanner");
 		return true;
 	}
@@ -1334,10 +1501,7 @@ private:
 class LinePlanner final : public RobotInstruction::PlannerBase
 {
 public:
-	explicit LinePlanner(const std::vector<robot_kinematics::DhRow>* dhRows)
-		: m_dhRows(dhRows)
-	{
-	}
+	explicit LinePlanner(const std::vector<robot_kinematics::DhRow>* dhRows) : m_dhRows(dhRows) {}
 
 	bool canHandle(RobotInstruction::Type type) const override { return type == RobotInstruction::Type::LINE; }
 
@@ -1393,8 +1557,8 @@ public:
 		{
 			axisCfg = cmd.motionAxisConfiguration();
 		}
-		const bool constrainAxis = cmd.hasMotionAxisConfigurationProperty()
-			&& RobotInstruction::motionAxisConfigurationRequiresConstraint(axisCfg);
+		const bool constrainAxis = cmd.hasMotionAxisConfigurationProperty() &&
+								   RobotInstruction::motionAxisConfigurationRequiresConstraint(axisCfg);
 		if (preferUrdfIk)
 		{
 			if (cmd.hasMotionAxisConfigurationProperty())
@@ -1433,20 +1597,29 @@ public:
 		{
 			if (errMsg)
 			{
-				*errMsg = ikFailReason.empty() ? "无DH上下文" : ikFailReason;
+				if (qTarget.empty())
+				{
+					*errMsg = ikFailReason.empty() ? "IK无解" : ikFailReason;
+				}
+				else
+				{
+					*errMsg = "IK解关节数与种子不一致";
+				}
 			}
 			return false;
 		}
 
 		double durationSec = 0.0;
-		double curTcp[3] = { 0.0, 0.0, 0.0 };
+		double cartDistMm = 0.0;
+		double curTcp[3] = {0.0, 0.0, 0.0};
 		const RobotInstruction::Vec3 p = cmd.pose();
-		if (currentTcpPositionFromInstruction(cmd, curTcp))
+		const bool haveCartStart = currentTcpPositionFromInstruction(cmd, curTcp);
+		if (haveCartStart)
 		{
 			const double dx = p.x - curTcp[0];
 			const double dy = p.y - curTcp[1];
 			const double dz = p.z - curTcp[2];
-			const double cartDistMm = std::sqrt(dx * dx + dy * dy + dz * dz);
+			cartDistMm = std::sqrt(dx * dx + dy * dy + dz * dz);
 			durationSec = trapezoidDuration(cartDistMm, cmd.speed(), cmd.accel());
 		}
 		else
@@ -1456,29 +1629,145 @@ public:
 			{
 				maxJointDelta = std::max(maxJointDelta, std::abs(qTarget[i] - q0[i]));
 			}
-			durationSec = trapezoidDuration(
-				maxJointDelta,
-				std::max(1e-6, cmd.speed() * kDegToRad),
-				std::max(1e-6, cmd.accel() * kDegToRad));
+			durationSec = trapezoidDuration(maxJointDelta, std::max(1e-6, cmd.speed() * kDegToRad),
+											std::max(1e-6, cmd.accel() * kDegToRad));
 		}
 
 		out.jointTrajectoryRad.clear();
-		const int samples = 24;
-		out.jointTrajectoryRad.reserve(static_cast<size_t>(samples + 1));
-		for (int i = 1; i <= samples; ++i)
+		bool usedCartesianSamples = false;
+		engine::RigidTransform T_end{};
+		engine::RigidTransform T_start{};
+		const bool canCartesian =
+			preferUrdfIk && haveCartStart && RobotInstruction::readTargetTransformFromInstruction(cmd, T_end) &&
+			toolOriginTransformFromJoints(cmd, q0, T_start);
+		if (canCartesian)
 		{
-			const double u = static_cast<double>(i) / static_cast<double>(samples);
-			std::vector<double> q = q0;
-			for (size_t j = 0; j < q.size(); ++j)
+			// 按路径长度自适应采样，短段少点、长段多点
+			const int maxSamples = [&]()
 			{
-				q[j] = q0[j] + (qTarget[j] - q0[j]) * u;
+				const auto& ext = cmd.extensionProperties();
+				const auto itLite = ext.find("context.playbackPlanLite");
+				if (itLite != ext.end() && itLite->second == "1")
+				{
+					return 16;
+				}
+				return 64;
+			}();
+			const int samples =
+				std::max(8, std::min(maxSamples, static_cast<int>(std::ceil(std::max(cartDistMm, 1.0) / 8.0))));
+			out.jointTrajectoryRad.reserve(static_cast<size_t>(samples));
+			RobotInstruction::Base& mutableCmd = const_cast<RobotInstruction::Base&>(cmd);
+			engine::RigidTransform T_backup{};
+			const bool hadBackup = RobotInstruction::readTargetTransformFromInstruction(cmd, T_backup);
+			const RobotInstruction::Vec3 poseBackup = cmd.pose();
+			const RobotInstruction::Vec3 eulerBackup = cmd.hasEulerProperty() ? cmd.eulerDeg() : RobotInstruction::Vec3{};
+			std::string quatCsvBackup;
+			std::string transCsvBackup;
+			{
+				const auto& ext = cmd.extensionProperties();
+				const auto itQ = ext.find(RobotInstruction::kExtContextTargetTransformQuatCsv);
+				const auto itT = ext.find(RobotInstruction::kExtContextTargetTransformTransMmCsv);
+				if (itQ != ext.end())
+				{
+					quatCsvBackup = itQ->second;
+				}
+				if (itT != ext.end())
+				{
+					transCsvBackup = itT->second;
+				}
 			}
-			out.jointTrajectoryRad.push_back(std::move(q));
+
+			std::vector<double> seedQ = q0;
+			bool sampleOk = true;
+			std::string sampleFail;
+			for (int i = 1; i <= samples; ++i)
+			{
+				const double u = static_cast<double>(i) / static_cast<double>(samples);
+				const Eigen::Vector3d t =
+					T_start.translationMm() * (1.0 - u) + T_end.translationMm() * u;
+				Eigen::Quaterniond q =
+					T_start.rotation().normalized().slerp(u, T_end.rotation().normalized());
+				if (q.coeffs().hasNaN())
+				{
+					q = T_end.rotation().normalized();
+				}
+				const engine::RigidTransform T_sample = engine::RigidTransform::fromTranslationQuat(t, q);
+				RobotInstruction::writeTargetTransformToInstruction(mutableCmd, T_sample);
+				std::vector<double> qSample = solveTargetByUrdfNumericalIkFromSeed(cmd, seedQ, &sampleFail);
+				if (qSample.empty() || qSample.size() != q0.size())
+				{
+					sampleOk = false;
+					break;
+				}
+				seedQ = qSample;
+				out.jointTrajectoryRad.push_back(std::move(qSample));
+			}
+
+			if (hadBackup)
+			{
+				RobotInstruction::writeTargetTransformToInstruction(mutableCmd, T_backup);
+			}
+			else
+			{
+				mutableCmd.setPose(poseBackup);
+				if (cmd.hasEulerProperty())
+				{
+					mutableCmd.setEulerDeg(eulerBackup);
+				}
+				if (quatCsvBackup.empty())
+				{
+					mutableCmd.setExtensionProperty(RobotInstruction::kExtContextTargetTransformQuatCsv, "");
+				}
+				else
+				{
+					mutableCmd.setExtensionProperty(RobotInstruction::kExtContextTargetTransformQuatCsv, quatCsvBackup);
+				}
+				if (transCsvBackup.empty())
+				{
+					mutableCmd.setExtensionProperty(RobotInstruction::kExtContextTargetTransformTransMmCsv, "");
+				}
+				else
+				{
+					mutableCmd.setExtensionProperty(RobotInstruction::kExtContextTargetTransformTransMmCsv, transCsvBackup);
+				}
+			}
+
+			if (sampleOk && !out.jointTrajectoryRad.empty())
+			{
+				usedCartesianSamples = true;
+				qTarget = out.jointTrajectoryRad.back();
+			}
+			else
+			{
+				out.jointTrajectoryRad.clear();
+				if (errMsg)
+				{
+					*errMsg = sampleFail.empty() ? "LINE cartesian sample IK failed" : sampleFail;
+				}
+				return false;
+			}
+		}
+
+		if (!usedCartesianSamples)
+		{
+			const int samples = 24;
+			out.jointTrajectoryRad.reserve(static_cast<size_t>(samples));
+			for (int i = 1; i <= samples; ++i)
+			{
+				const double u = static_cast<double>(i) / static_cast<double>(samples);
+				std::vector<double> q = q0;
+				for (size_t j = 0; j < q.size(); ++j)
+				{
+					q[j] = q0[j] + (qTarget[j] - q0[j]) * u;
+				}
+				out.jointTrajectoryRad.push_back(std::move(q));
+			}
 		}
 
 		out.ok = true;
 		out.plannerName = "LinePlanner";
-		out.summary = "LINE solved with joint trajectory output.";
+		out.summary = usedCartesianSamples ? "LINE cartesian samples with IK."
+										   : "LINE joint-space trajectory (no URDF cartesian path).";
 		out.durationSec = durationSec;
 		out.jointTargetsRad = qTarget;
 		logIkSolveResidual(cmd, qTarget, "LinePlanner");
@@ -1570,9 +1859,8 @@ bool Controller::plan(const Base& cmd, PlanResult& out, std::string* errMsg) con
 
 const PlannerBase* Controller::findPlanner(Type t) const
 {
-	const auto it = std::find_if(m_planners.begin(), m_planners.end(), [t](const std::shared_ptr<PlannerBase>& p) {
-		return p && p->canHandle(t);
-	});
+	const auto it = std::find_if(m_planners.begin(), m_planners.end(),
+								 [t](const std::shared_ptr<PlannerBase>& p) { return p && p->canHandle(t); });
 	if (it == m_planners.end())
 	{
 		return nullptr;
@@ -1702,7 +1990,8 @@ FeasibleMotionAxisConfigurationOptions Controller::queryFeasibleMotionAxisConfig
 		}
 	}
 
-	const auto hasNonAuto = [](const std::vector<std::string>& tokens) {
+	const auto hasNonAuto = [](const std::vector<std::string>& tokens)
+	{
 		for (const std::string& t : tokens)
 		{
 			if (t != "AUTO")
@@ -1735,7 +2024,8 @@ FeasibleMotionAxisConfigurationOptions Controller::queryFeasibleMotionAxisConfig
 	}
 
 	const std::vector<IkPostureClassEntry>& posturePool = postures;
-	auto collectTurnTokens = [&](int JointConfigurationClass::* turnMember, std::vector<std::string>& tokens) {
+	auto collectTurnTokens = [&](int JointConfigurationClass::*turnMember, std::vector<std::string>& tokens)
+	{
 		tokens.clear();
 		appendUniqueToken(tokens, "AUTO");
 		for (const IkPostureClassEntry& e : posturePool)

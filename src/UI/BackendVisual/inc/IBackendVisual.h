@@ -1,12 +1,17 @@
-#pragma once
+﻿#ifndef BACKENDVISUAL_IBACKENDVISUAL_H
+#define BACKENDVISUAL_IBACKENDVISUAL_H
+
+/// @file IBackendVisual.h
+/// @brief 仅网格构建使用，点云忽略
 
 #include "backendvisual_global.h"
 
 #include <memory>
-#include <osg/MatrixTransform>
-#include <osg/ref_ptr>
-#include <osg/Vec3f>
 #include <string>
+
+#include <osg/MatrixTransform>
+#include <osg/Vec3f>
+#include <osg/ref_ptr>
 
 class BackendDataBase;
 
@@ -39,8 +44,11 @@ public:
 
 	virtual std::string typeKey() const = 0;
 
-	virtual bool buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions& meshOptions, BranchBuildResult& out,
-		std::string* errorMessage) = 0;
+	virtual bool buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions& meshOptions,
+								  BranchBuildResult& out, std::string* errorMessage) = 0;
 
-	virtual void computeModelCenterAndDiagonal(const BackendDataBase& data, osg::Vec3f& outCenter, float& outDiagonal) const = 0;
+	virtual void computeModelCenterAndDiagonal(const BackendDataBase& data, osg::Vec3f& outCenter,
+											   float& outDiagonal) const = 0;
 };
+
+#endif // BACKENDVISUAL_IBACKENDVISUAL_H

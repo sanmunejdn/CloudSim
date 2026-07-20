@@ -1,17 +1,19 @@
+﻿/// @file UiIconDecorators.cpp
+/// @brief UiIconDecorators 实现
+
 #include "UiIconDecorators.h"
 
-#include <algorithm>
 #include <QAbstractButton>
 #include <QAction>
 #include <QList>
 #include <QPointer>
-#include <QPointer>
 #include <QSize>
 #include <QToolButton>
 #include <QVariant>
+#include <algorithm>
 
-namespace {
-
+namespace
+{
 struct ButtonDecoration
 {
 	QPointer<QAbstractButton> button;
@@ -43,14 +45,12 @@ void pruneDecorations()
 {
 	auto& buttons = buttonDecorations();
 	buttons.erase(
-		std::remove_if(buttons.begin(), buttons.end(),
-			[](const ButtonDecoration& d) { return d.button.isNull(); }),
+		std::remove_if(buttons.begin(), buttons.end(), [](const ButtonDecoration& d) { return d.button.isNull(); }),
 		buttons.end());
 
 	auto& actions = actionDecorations();
 	actions.erase(
-		std::remove_if(actions.begin(), actions.end(),
-			[](const ActionDecoration& d) { return d.action.isNull(); }),
+		std::remove_if(actions.begin(), actions.end(), [](const ActionDecoration& d) { return d.action.isNull(); }),
 		actions.end());
 }
 
@@ -82,11 +82,8 @@ void applyButtonDecoration(const ButtonDecoration& deco)
 	}
 }
 
-void registerButtonDecoration(
-	QAbstractButton* btn,
-	UiIconId id,
-	UiIconDecorators::IconPlacement placement,
-	UiIcons::Size size)
+void registerButtonDecoration(QAbstractButton* btn, UiIconId id, UiIconDecorators::IconPlacement placement,
+							  UiIcons::Size size)
 {
 	pruneDecorations();
 	for (ButtonDecoration& deco : buttonDecorations())
@@ -123,8 +120,8 @@ void registerActionDecoration(QAction* action, UiIconId id, UiIcons::Size size)
 
 } // namespace
 
-namespace UiIconDecorators {
-
+namespace UiIconDecorators
+{
 void apply(QAbstractButton* btn, UiIconId id, IconPlacement placement, UiIcons::Size size)
 {
 	if (!btn)

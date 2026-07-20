@@ -1,11 +1,15 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_PROGRAMEDITSERVICE_H
+#define ROBOTWIDGET_PROGRAMEDITSERVICE_H
+
+/// @file ProgramEditService.h
+/// @brief 程序编辑撤销栈与文档门面
+
+#include "robotwidget_global.h"
 
 #include "InstructionProgramDocument.h"
 #include "ProgramEditCommand.h"
-#include "robotwidget_global.h"
 
 #include <QObject>
-
 #include <memory>
 
 class RobotProgramStore;
@@ -22,9 +26,8 @@ public:
 
 	bool execute(std::shared_ptr<RobotInstruction::ProgramEditCommand> cmd, QString* outError = nullptr);
 	bool execute(std::unique_ptr<RobotInstruction::ProgramEditCommand> cmd, QString* outError = nullptr);
-	bool executeBatch(
-		const std::vector<RobotInstruction::ProgramEditStack::CommandPtr>& cmds,
-		QString* outError = nullptr);
+	bool executeBatch(const std::vector<RobotInstruction::ProgramEditStack::CommandPtr>& cmds,
+					  QString* outError = nullptr);
 	bool undo(QString* outError = nullptr);
 	bool redo(QString* outError = nullptr);
 	bool canUndo() const;
@@ -43,3 +46,5 @@ private:
 	RobotInstruction::ProgramEditStack m_stack;
 	int m_revision = 0;
 };
+
+#endif // ROBOTWIDGET_PROGRAMEDITSERVICE_H

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMCORE_ICLOUDSIMCONTEXT_H
+#define CLOUDSIMCORE_ICLOUDSIMCONTEXT_H
+
+/// @file ICloudSimContext.h
+/// @brief 应用组合根
 
 #include "cloudsim_core_global.h"
 
@@ -6,8 +10,8 @@
 
 class QWidget;
 
-namespace cloudsim::core {
-
+namespace cloudsim::core
+{
 class EventHub;
 class IDocumentScope;
 class IRenderViewFactory;
@@ -28,3 +32,5 @@ public:
 };
 
 } // namespace cloudsim::core
+
+#endif // CLOUDSIMCORE_ICLOUDSIMCONTEXT_H

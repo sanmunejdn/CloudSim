@@ -1,14 +1,17 @@
+﻿/// @file DocumentHostEvents.cpp
+/// @brief DocumentHostEvents 实现
+
 #include "DocumentHostEvents.h"
 
-#include "DocumentHost.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "CoreEvents.h"
 #include "CoreTypes.h"
+#include "DocumentHost.h"
 #include "EventHub.h"
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 using ::BackendDataBase;
 
 void publishBackendObjectRegistered(DocumentHost& host, const QString& objectId, const QString& className)
@@ -37,7 +40,7 @@ void publishBackendObjectRemoved(DocumentHost& host, const QString& objectId)
 }
 
 void publishRobotKinematicsApplied(DocumentHost& host, const QString& sceneRootBackendId,
-	const QVector<double>& jointAnglesRad)
+								   const QVector<double>& jointAnglesRad)
 {
 	cloudsim::core::RobotKinematicsAppliedEvent ev;
 	ev.documentId = host.documentId();

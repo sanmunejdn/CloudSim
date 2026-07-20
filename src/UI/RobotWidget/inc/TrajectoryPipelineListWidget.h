@@ -1,10 +1,14 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_TRAJECTORYPIPELINELISTWIDGET_H
+#define ROBOTWIDGET_TRAJECTORYPIPELINELISTWIDGET_H
 
-#include "TrajectoryPipelineTypes.h"
+/// @file TrajectoryPipelineListWidget.h
+/// @brief 轨迹操作流水线列表，支持拖放排序；行末「启用」勾选控制是否参与引擎
+
 #include "robotwidget_global.h"
 
-#include <QListWidget>
+#include "TrajectoryPipelineTypes.h"
 
+#include <QListWidget>
 #include <functional>
 #include <vector>
 
@@ -32,7 +36,8 @@ public:
 	void updateSelectedOp(const RobotInstruction::TrajectoryOpDescriptor& op);
 	void updateOpAt(int index, const RobotInstruction::TrajectoryOpDescriptor& op);
 
-	using DefaultOpFactory = std::function<RobotInstruction::TrajectoryOpDescriptor(RobotInstruction::TrajectoryOpKind)>;
+	using DefaultOpFactory =
+		std::function<RobotInstruction::TrajectoryOpDescriptor(RobotInstruction::TrajectoryOpKind)>;
 	void setDefaultOpFactory(DefaultOpFactory factory);
 
 signals:
@@ -58,3 +63,5 @@ private:
 	DefaultOpFactory m_defaultOpFactory;
 	std::vector<RobotInstruction::TrajectoryOpDescriptor> m_ops;
 };
+
+#endif // ROBOTWIDGET_TRAJECTORYPIPELINELISTWIDGET_H

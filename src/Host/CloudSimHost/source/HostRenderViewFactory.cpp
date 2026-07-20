@@ -1,12 +1,15 @@
+﻿/// @file HostRenderViewFactory.cpp
+/// @brief HostRenderViewFactory 实现
+
 #include "HostRenderViewFactory.h"
 
-#include "adapters/OsgRenderViewAdapter.h"
 #include "OsgWidget.h"
+#include "adapters/OsgRenderViewAdapter.h"
 
 #include <QVBoxLayout>
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 std::unique_ptr<core::IRenderView> wrapOsgWidgetAsRenderView(OsgWidget& widget)
 {
 	return std::make_unique<OsgRenderViewAdapter>(widget);

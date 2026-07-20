@@ -1,3 +1,6 @@
+﻿/// @file WidgetOsgViewHost.cpp
+/// @brief WidgetOsgViewHost 实现
+
 #include "WidgetOsgViewHost.h"
 
 #include "BackendSceneDocumentFacade.h"
@@ -6,21 +9,38 @@
 #include "IRobotBackendPoseSink.h"
 #include "OsgWidget.h"
 
+#include <QString>
+
 #include <Adapters.h>
 #include <RobotOsgUiTypes.h>
 
-#include <QString>
-
-namespace {
-
+namespace
+{
+// core::Mat4 列主序 index=c*4+r；禁止与 OSG ptr() 行主序直拷（平移会丢）
 cloudsim::core::Mat4 mat4FromOsg(const osg::Matrixd& m)
 {
 	cloudsim::core::Mat4 out;
-	for (int i = 0; i < 16; ++i)
+	for (int c = 0; c < 4; ++c)
 	{
-		out[static_cast<size_t>(i)] = m.ptr()[i];
+		for (int r = 0; r < 4; ++r)
+		{
+			out[static_cast<size_t>(c * 4 + r)] = m(r, c);
+		}
 	}
 	return out;
+}
+
+osg::Matrixd osgMatFromCore(const cloudsim::core::Mat4& columnMajor)
+{
+	osg::Matrixd m;
+	for (int c = 0; c < 4; ++c)
+	{
+		for (int r = 0; r < 4; ++r)
+		{
+			m(r, c) = columnMajor[static_cast<size_t>(c * 4 + r)];
+		}
+	}
+	return m;
 }
 
 cloudsim::core::Mat4 mat4FromRigid(const engine::RigidTransform& t)
@@ -163,14 +183,12 @@ bool WidgetOsgViewHost::getBackendRootWorldMatrix(const std::string& backendId, 
 	{
 		return false;
 	}
-	for (int i = 0; i < 16; ++i)
-	{
-		outWorld.ptr()[i] = mat[static_cast<size_t>(i)];
-	}
+	outWorld = osgMatFromCore(mat);
 	return true;
 }
 
-bool WidgetOsgViewHost::tryGetBackendModelCenterMm(const std::string& backendId, double& cx, double& cy, double& cz) const
+bool WidgetOsgViewHost::tryGetBackendModelCenterMm(const std::string& backendId, double& cx, double& cy,
+												   double& cz) const
 {
 	cloudsim::core::IRenderView* rv = renderView();
 	return rv && rv->tryGetModelCenterMm(QString::fromStdString(backendId), cx, cy, cz);
@@ -218,9 +236,8 @@ void WidgetOsgViewHost::clearInstructionPoseAxes()
 	}
 }
 
-void WidgetOsgViewHost::setRawTrajectoryOverlay(
-	const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
-	const std::vector<std::size_t>& segmentEndExclusive)
+void WidgetOsgViewHost::setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
+												const std::vector<std::size_t>& segmentEndExclusive)
 {
 	if (OsgWidget* osg = osgWidget())
 	{
@@ -387,12 +404,10 @@ void WidgetOsgViewHost::endTcpDragTeach()
 	}
 }
 
-void WidgetOsgViewHost::beginTcpDragTeach(
-	const std::string& mountBackendId,
-	const engine::RigidTransform& T_base_target,
-	const float modelDiagonalMm,
-	std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld,
-	const osg::Matrixd* toolLocalOnFlange)
+void WidgetOsgViewHost::beginTcpDragTeach(const std::string& mountBackendId,
+										  const engine::RigidTransform& T_base_target, const float modelDiagonalMm,
+										  std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld,
+										  const osg::Matrixd* toolLocalOnFlange)
 {
 	cloudsim::core::IRenderView* rv = renderView();
 	if (!rv)
@@ -402,7 +417,8 @@ void WidgetOsgViewHost::beginTcpDragTeach(
 	cloudsim::core::RobotBaseWorldResolver coreResolver;
 	if (resolveRobotBaseWorld)
 	{
-		coreResolver = [resolveRobotBaseWorld](cloudsim::core::Mat4& outMat) -> bool {
+		coreResolver = [resolveRobotBaseWorld](cloudsim::core::Mat4& outMat) -> bool
+		{
 			osg::Matrixd world;
 			if (!resolveRobotBaseWorld(world))
 			{
@@ -420,12 +436,11 @@ void WidgetOsgViewHost::beginTcpDragTeach(
 		toolPtr = &toolLocalMat;
 	}
 	rv->beginTcpDragTeach(QString::fromStdString(mountBackendId), mat4FromRigid(T_base_target), modelDiagonalMm,
-		coreResolver, toolPtr);
+						  coreResolver, toolPtr);
 }
 
-void WidgetOsgViewHost::updateTcpDragTeachFromTarget(
-	const engine::RigidTransform& T_base_target,
-	const bool syncTargetInBase)
+void WidgetOsgViewHost::updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target,
+													 const bool syncTargetInBase)
 {
 	if (cloudsim::core::IRenderView* rv = renderView())
 	{
@@ -572,10 +587,8 @@ void WidgetOsgViewHost::clearMeshFittedSurfacePreview()
 	}
 }
 
-void WidgetOsgViewHost::showMeshSectionPlane(
-	const std::string& backendIdUtf8,
-	const double originModelMm[3],
-	const double normalModel[3])
+void WidgetOsgViewHost::showMeshSectionPlane(const std::string& backendIdUtf8, const double originModelMm[3],
+											 const double normalModel[3])
 {
 	if (OsgWidget* osg = osgWidget())
 	{
@@ -584,9 +597,7 @@ void WidgetOsgViewHost::showMeshSectionPlane(
 }
 
 void WidgetOsgViewHost::beginMeshSectionPlaneEdit(
-	const std::string& backendIdUtf8,
-	const double originModelMm[3],
-	const double normalModel[3],
+	const std::string& backendIdUtf8, const double originModelMm[3], const double normalModel[3],
 	std::function<void(const double origin[3], const double normal[3])> onChanged)
 {
 	if (OsgWidget* osg = osgWidget())
@@ -627,9 +638,8 @@ void WidgetOsgViewHost::setMeshSectionPlanePreviewVisible(const bool visible)
 	}
 }
 
-bool WidgetOsgViewHost::getCameraViewDirectionInBackendModel(
-	const std::string& backendIdUtf8,
-	double outDirModel[3]) const
+bool WidgetOsgViewHost::getCameraViewDirectionInBackendModel(const std::string& backendIdUtf8,
+															 double outDirModel[3]) const
 {
 	const OsgWidget* osg = osgWidget();
 	return osg && osg->getCameraViewDirectionInBackendModel(backendIdUtf8, outDirModel);

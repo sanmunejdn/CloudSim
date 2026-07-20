@@ -1,10 +1,11 @@
-#pragma once
+﻿#ifndef POINTCLOUDALGORITHM_SPAREINTERNAL_H
+#define POINTCLOUDALGORITHM_SPAREINTERNAL_H
+
+/// @file SpareInternal.h
+/// @brief SpareInternal 接口
 
 // SPARE 非刚性配准内部类型（移植自 yaoyx689/spare，研究用途）
 // 论文: Symmetrized Point-to-Plane Distance for Robust Non-Rigid 3D Registration
-
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
 
 #include <array>
 #include <cstddef>
@@ -14,11 +15,13 @@
 #include <utility>
 #include <vector>
 
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
+
 namespace pclalgo
 {
 namespace spare
 {
-
 using Scalar = double;
 using Vector2 = Eigen::Matrix<Scalar, 2, 1>;
 using Vector3 = Eigen::Matrix<Scalar, 3, 1>;
@@ -107,3 +110,5 @@ bool median(const Eigen::MatrixBase<DerivedV>& values, MType& outMedian)
 
 } // namespace spare
 } // namespace pclalgo
+
+#endif // POINTCLOUDALGORITHM_SPAREINTERNAL_H

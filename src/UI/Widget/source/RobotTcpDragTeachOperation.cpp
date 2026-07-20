@@ -1,16 +1,17 @@
+﻿/// @file RobotTcpDragTeachOperation.cpp
+/// @brief RobotTcpDragTeachOperation 实现
+
 #include "RobotTcpDragTeachOperation.h"
+
+#include "OsgWidget.h"
 
 #include <QEvent>
 #include <QMouseEvent>
-
 #include <algorithm>
 #include <cmath>
 
-#include <osg/Vec3d>
-
 #include <Eigen/Geometry>
-
-#include "OsgWidget.h"
+#include <osg/Vec3d>
 
 namespace
 {
@@ -67,12 +68,8 @@ osg::Vec3d tcpTeachWorldUnitAxis(OsgWidget* owner, OsgWidget::DragAxis axis)
 	return wd / len;
 }
 
-bool rayPlaneIntersect(
-	const osg::Vec3d& rayOrigin,
-	const osg::Vec3d& rayDirUnit,
-	const osg::Vec3d& planePoint,
-	const osg::Vec3d& planeNormalUnit,
-	osg::Vec3d& outHit)
+bool rayPlaneIntersect(const osg::Vec3d& rayOrigin, const osg::Vec3d& rayDirUnit, const osg::Vec3d& planePoint,
+					   const osg::Vec3d& planeNormalUnit, osg::Vec3d& outHit)
 {
 	const double denom = rayDirUnit * planeNormalUnit;
 	if (std::abs(denom) < 1e-10)
@@ -116,10 +113,7 @@ bool currentTcpPivotWorldD(const OsgWidget* owner, osg::Vec3d& outPivot)
 
 } // namespace
 
-RobotTcpDragTeachOperation::RobotTcpDragTeachOperation(OsgWidget* owner)
-	: SelectionOperation(owner)
-{
-}
+RobotTcpDragTeachOperation::RobotTcpDragTeachOperation(OsgWidget* owner) : SelectionOperation(owner) {}
 
 bool RobotTcpDragTeachOperation::handleEvent(QObject* watched, QEvent* event)
 {
@@ -171,7 +165,7 @@ bool RobotTcpDragTeachOperation::handleEvent(QObject* watched, QEvent* event)
 			m_owner->m_tcpTeachRotatePivotActive = true;
 			osg::Vec3d eye, dir;
 			if (m_owner->computeCameraScreenRayWorld(static_cast<double>(mouseEvent->pos().x()),
-					static_cast<double>(mouseEvent->pos().y()), eye, dir))
+													 static_cast<double>(mouseEvent->pos().y()), eye, dir))
 			{
 				const osg::Vec3d axisW = tcpTeachWorldUnitAxis(m_owner, m_owner->m_tcpTeachDragAxis);
 				osg::Vec3d hit;
@@ -223,7 +217,8 @@ bool RobotTcpDragTeachOperation::handleEvent(QObject* watched, QEvent* event)
 			osg::Vec3d eye;
 			osg::Vec3d dir;
 			double deltaRad = 0.0;
-			if (m_owner->computeCameraScreenRayWorld(static_cast<double>(pos.x()), static_cast<double>(pos.y()), eye, dir))
+			if (m_owner->computeCameraScreenRayWorld(static_cast<double>(pos.x()), static_cast<double>(pos.y()), eye,
+													 dir))
 			{
 				osg::Vec3d qHit;
 				if (rayPlaneIntersect(eye, dir, pivot, axisW, qHit))
@@ -271,8 +266,8 @@ bool RobotTcpDragTeachOperation::handleEvent(QObject* watched, QEvent* event)
 	if (event->type() == QEvent::MouseMove && !m_owner->m_tcpTeachDragging && !m_owner->m_tcpTeachRotating)
 	{
 		auto* mouseEvent = static_cast<QMouseEvent*>(event);
-		if (mouseEvent->buttons().testFlag(Qt::LeftButton) || mouseEvent->buttons().testFlag(Qt::MiddleButton)
-			|| mouseEvent->buttons().testFlag(Qt::RightButton))
+		if (mouseEvent->buttons().testFlag(Qt::LeftButton) || mouseEvent->buttons().testFlag(Qt::MiddleButton) ||
+			mouseEvent->buttons().testFlag(Qt::RightButton))
 		{
 			return false;
 		}

@@ -1,11 +1,13 @@
+﻿/// @file PatchParameterize.cpp
+/// @brief PatchParameterize 实现
+
 #include "MeshSurfaceReconstructionInternal.h"
 #include "NurbsSurfaceFitting.h"
-
 #include "RunLogger.h"
 
-#include <cmath>
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <limits>
 #include <unordered_map>
 #include <unordered_set>
@@ -18,7 +20,6 @@ namespace meshrecon
 {
 namespace
 {
-
 constexpr int kHarmonicMaxIters = 80;
 constexpr int kDefaultHarmonicMaxFaces = 8000;
 constexpr int kMaxGridPointsPerPatch = 4096;
@@ -49,10 +50,7 @@ struct Vec3d
 
 Vec3d crossv(const Vec3d& a, const Vec3d& b)
 {
-	return {
-		a.y * b.z - a.z * b.y,
-		a.z * b.x - a.x * b.z,
-		a.x * b.y - a.y * b.x};
+	return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
 
 Vec3d readV(const std::vector<float>& v, int i)
@@ -99,12 +97,7 @@ double bboxDiagonal(const std::vector<Vec3d>& pts)
 }
 
 // 共线/共面分块时 UV 跨度可能为 0，按包围盒对角线兜底
-void expandDegenerateUvSpan(
-	double& uMin,
-	double& uMax,
-	double& vMin,
-	double& vMax,
-	const double charLen)
+void expandDegenerateUvSpan(double& uMin, double& uMax, double& vMin, double& vMax, const double charLen)
 {
 	constexpr double kMinSpanRatio = 0.08;
 	const double minSpan = std::max(1e-3, charLen * kMinSpanRatio);
@@ -148,13 +141,8 @@ Vec3d meanFaceNormal(const IndexedMeshLite& mesh, const QuadPatch& patch)
 }
 
 // 协方差矩阵最小特征方向 ≈ 拟合平面法向；共线行时换行做叉积
-Vec3d planeNormalFromCovariance(
-	const double cxx,
-	const double cxy,
-	const double cxz,
-	const double cyy,
-	const double cyz,
-	const double czz)
+Vec3d planeNormalFromCovariance(const double cxx, const double cxy, const double cxz, const double cyy,
+								const double cyz, const double czz)
 {
 	const Vec3d r0{cxx, cxy, cxz};
 	const Vec3d r1{cxy, cyy, cyz};
@@ -194,11 +182,7 @@ Vec3d alignPlaneNormalWithMesh(const Vec3d& planeN, const Vec3d& meshN)
 	return n.normalized();
 }
 
-int clampSamplesPerEdge(
-	const double uvSpanMm,
-	const double targetSpacingMm,
-	const int minEdge,
-	const int maxEdge)
+int clampSamplesPerEdge(const double uvSpanMm, const double targetSpacingMm, const int minEdge, const int maxEdge)
 {
 	if (uvSpanMm <= 1e-6)
 	{
@@ -228,11 +212,7 @@ void clampGridResolution(int& nu, int& nv)
 	nv = std::max(1, nv);
 }
 
-Vec3d closestPointOnTriangle(
-	const Vec3d& p,
-	const Vec3d& a,
-	const Vec3d& b,
-	const Vec3d& c)
+Vec3d closestPointOnTriangle(const Vec3d& p, const Vec3d& a, const Vec3d& b, const Vec3d& c)
 {
 	const Vec3d ab = b - a;
 	const Vec3d ac = c - a;
@@ -297,8 +277,8 @@ struct PatchTriRef
 
 int64_t packCellKey(const int cx, const int cy, const int cz)
 {
-	return (static_cast<int64_t>(cx) * 73856093) ^ (static_cast<int64_t>(cy) * 19349663)
-		^ (static_cast<int64_t>(cz) * 83492791);
+	return (static_cast<int64_t>(cx) * 73856093) ^ (static_cast<int64_t>(cy) * 19349663) ^
+		   (static_cast<int64_t>(cz) * 83492791);
 }
 
 class PatchClosestAccel
@@ -343,9 +323,7 @@ public:
 		const double dy = ymax_ - ymin_;
 		const double dz = zmax_ - zmin_;
 		const double diag = std::sqrt(dx * dx + dy * dy + dz * dz);
-		cellSize_ = std::max(
-			diag / std::max(8.0, std::cbrt(static_cast<double>(tris_.size())) * 1.5),
-			1e-4);
+		cellSize_ = std::max(diag / std::max(8.0, std::cbrt(static_cast<double>(tris_.size())) * 1.5), 1e-4);
 		invCell_ = 1.0 / cellSize_;
 		for (std::size_t i = 0U; i < tris_.size(); ++i)
 		{
@@ -470,12 +448,8 @@ struct PatchPcaFrame
 	double vMax = 0.0;
 };
 
-bool buildPatchPcaFrame(
-	const IndexedMeshLite& mesh,
-	const QuadPatch& patch,
-	const std::vector<Vec3d>& patchPts,
-	const double charLen,
-	PatchPcaFrame& out)
+bool buildPatchPcaFrame(const IndexedMeshLite& mesh, const QuadPatch& patch, const std::vector<Vec3d>& patchPts,
+						const double charLen, PatchPcaFrame& out)
 {
 	if (patchPts.empty())
 	{
@@ -548,12 +522,8 @@ bool buildPatchPcaFrame(
 	return true;
 }
 
-bool sampleUniformPhysicalGrid(
-	const PatchPcaFrame& frame,
-	const PatchClosestAccel& accel,
-	const int nu,
-	const int nv,
-	std::vector<float>& outXyz)
+bool sampleUniformPhysicalGrid(const PatchPcaFrame& frame, const PatchClosestAccel& accel, const int nu, const int nv,
+							   std::vector<float>& outXyz)
 {
 	const double uSpan = frame.uMax - frame.uMin;
 	const double vSpan = frame.vMax - frame.vMin;
@@ -577,13 +547,8 @@ bool sampleUniformPhysicalGrid(
 	return !outXyz.empty();
 }
 
-bool sampleCentroidAnchoredPcaGrid(
-	const IndexedMeshLite& mesh,
-	const QuadPatch& patch,
-	const PatchPcaFrame& frame,
-	const int nu,
-	const int nv,
-	std::vector<float>& outXyz)
+bool sampleCentroidAnchoredPcaGrid(const IndexedMeshLite& mesh, const QuadPatch& patch, const PatchPcaFrame& frame,
+								   const int nu, const int nv, std::vector<float>& outXyz)
 {
 	struct FaceAnchor
 	{
@@ -609,8 +574,7 @@ bool sampleCentroidAnchoredPcaGrid(
 		const Vec3d p2 = readV(mesh.vertices, mesh.faces[b + 2U]);
 		const Vec3d centroid = (p0 + p1 + p2) * (1.0 / 3.0);
 		const Vec3d rel = centroid - frame.origin;
-		anchors.push_back(
-			FaceAnchor{centroid, rel.dot(frame.uDir), rel.dot(frame.vDir)});
+		anchors.push_back(FaceAnchor{centroid, rel.dot(frame.uDir), rel.dot(frame.vDir)});
 	}
 	if (anchors.empty())
 	{
@@ -690,9 +654,9 @@ double estimateUniqueSampleRatio(const std::vector<float>& sampleXyz)
 	{
 		const std::size_t off = i * 3U;
 		const int64_t key =
-			(static_cast<int64_t>(std::llround(static_cast<double>(sampleXyz[off]) * 10.0)) << 42)
-			^ (static_cast<int64_t>(std::llround(static_cast<double>(sampleXyz[off + 1U]) * 10.0)) << 21)
-			^ static_cast<int64_t>(std::llround(static_cast<double>(sampleXyz[off + 2U]) * 10.0));
+			(static_cast<int64_t>(std::llround(static_cast<double>(sampleXyz[off]) * 10.0)) << 42) ^
+			(static_cast<int64_t>(std::llround(static_cast<double>(sampleXyz[off + 1U]) * 10.0)) << 21) ^
+			static_cast<int64_t>(std::llround(static_cast<double>(sampleXyz[off + 2U]) * 10.0));
 		uniqueKeys.insert(key);
 	}
 	return static_cast<double>(uniqueKeys.size()) / static_cast<double>(ptCount);
@@ -803,7 +767,8 @@ std::vector<int> findLongestBoundaryLoop(const PatchLocalMesh& local)
 	{
 		for (int e = 0; e < 3; ++e)
 		{
-			const EdgeKey key = normEdgeKey(tri[static_cast<std::size_t>(e)], tri[static_cast<std::size_t>((e + 1) % 3)]);
+			const EdgeKey key =
+				normEdgeKey(tri[static_cast<std::size_t>(e)], tri[static_cast<std::size_t>((e + 1) % 3)]);
 			++edgeCount[key];
 		}
 	}
@@ -875,13 +840,12 @@ double cotanAtCorner(const Vec3d& a, const Vec3d& b, const Vec3d& corner)
 	return u.dot(v) / sinL;
 }
 
-void accumulateCotanWeights(
-	const PatchLocalMesh& local,
-	std::vector<std::vector<std::pair<int, double>>>& weights)
+void accumulateCotanWeights(const PatchLocalMesh& local, std::vector<std::vector<std::pair<int, double>>>& weights)
 {
 	const int n = static_cast<int>(local.pos.size());
 	weights.assign(static_cast<std::size_t>(n), {});
-	auto addWeight = [&](const int i, const int j, const double w) {
+	auto addWeight = [&](const int i, const int j, const double w)
+	{
 		if (i == j || w <= 0.0)
 		{
 			return;
@@ -917,11 +881,8 @@ void accumulateCotanWeights(
 	}
 }
 
-bool solveHarmonicUv(
-	const PatchLocalMesh& local,
-	const std::vector<int>& boundaryLoop,
-	const MeshSurfaceHarmonicBoundaryMode boundaryMode,
-	std::vector<Vec2d>& outUv)
+bool solveHarmonicUv(const PatchLocalMesh& local, const std::vector<int>& boundaryLoop,
+					 const MeshSurfaceHarmonicBoundaryMode boundaryMode, std::vector<Vec2d>& outUv)
 {
 	const int n = static_cast<int>(local.pos.size());
 	if (n < 3 || boundaryLoop.size() < 3)
@@ -954,7 +915,8 @@ bool solveHarmonicUv(
 
 	if (boundaryMode == MeshSurfaceHarmonicBoundaryMode::GeodesicSquare && boundaryLoop.size() >= 4)
 	{
-		const auto cornerAtFraction = [&](const double frac) -> int {
+		const auto cornerAtFraction = [&](const double frac) -> int
+		{
 			const double target = frac * totalLen;
 			for (std::size_t i = 0; i < arcLen.size(); ++i)
 			{
@@ -971,7 +933,8 @@ bool solveHarmonicUv(
 		const int c3 = cornerAtFraction(0.75);
 		const int corners[4] = {c0, c1, c2, c3};
 
-		auto sideRange = [&](const int startCorner, const int endCorner) {
+		auto sideRange = [&](const int startCorner, const int endCorner)
+		{
 			std::vector<int> side;
 			bool started = false;
 			for (const int vi : boundaryLoop)
@@ -993,12 +956,11 @@ bool solveHarmonicUv(
 		};
 
 		const std::array<std::vector<int>, 4> sides = {
-			sideRange(corners[0], corners[1]),
-			sideRange(corners[1], corners[2]),
-			sideRange(corners[2], corners[3]),
+			sideRange(corners[0], corners[1]), sideRange(corners[1], corners[2]), sideRange(corners[2], corners[3]),
 			sideRange(corners[3], corners[0])};
 
-		const auto mapSideToSquare = [&](const std::vector<int>& side, const int sideIdx) {
+		const auto mapSideToSquare = [&](const std::vector<int>& side, const int sideIdx)
+		{
 			if (side.size() < 2)
 			{
 				return;
@@ -1084,14 +1046,7 @@ bool solveHarmonicUv(
 	return true;
 }
 
-bool barycentric2d(
-	const Vec2d& p,
-	const Vec2d& a,
-	const Vec2d& b,
-	const Vec2d& c,
-	double& w0,
-	double& w1,
-	double& w2)
+bool barycentric2d(const Vec2d& p, const Vec2d& a, const Vec2d& b, const Vec2d& c, double& w0, double& w1, double& w2)
 {
 	const double denom = (b.v - c.v) * (a.u - c.u) + (c.u - b.u) * (a.v - c.v);
 	if (std::abs(denom) < 1e-18)
@@ -1112,13 +1067,12 @@ void faceCentroidUvBounds(const PatchLocalMesh& local, double& uMin, double& uMa
 	vMax = -1e30;
 	for (const auto& tri : local.tris)
 	{
-		const Vec2d cu{
-			(local.uv[static_cast<std::size_t>(tri[0])].u + local.uv[static_cast<std::size_t>(tri[1])].u
-				+ local.uv[static_cast<std::size_t>(tri[2])].u)
-			/ 3.0,
-			(local.uv[static_cast<std::size_t>(tri[0])].v + local.uv[static_cast<std::size_t>(tri[1])].v
-				+ local.uv[static_cast<std::size_t>(tri[2])].v)
-			/ 3.0};
+		const Vec2d cu{(local.uv[static_cast<std::size_t>(tri[0])].u + local.uv[static_cast<std::size_t>(tri[1])].u +
+						local.uv[static_cast<std::size_t>(tri[2])].u) /
+						   3.0,
+					   (local.uv[static_cast<std::size_t>(tri[0])].v + local.uv[static_cast<std::size_t>(tri[1])].v +
+						local.uv[static_cast<std::size_t>(tri[2])].v) /
+						   3.0};
 		uMin = std::min(uMin, cu.u);
 		uMax = std::max(uMax, cu.u);
 		vMin = std::min(vMin, cu.v);
@@ -1126,28 +1080,18 @@ void faceCentroidUvBounds(const PatchLocalMesh& local, double& uMin, double& uMa
 	}
 }
 
-bool locateUvInPatchLight(
-	const PatchLocalMesh& local,
-	const Vec2d& query,
-	int& outTriIdx,
-	double& w0,
-	double& w1,
-	double& w2,
-	const int hintTriIdx = -1)
+bool locateUvInPatchLight(const PatchLocalMesh& local, const Vec2d& query, int& outTriIdx, double& w0, double& w1,
+						  double& w2, const int hintTriIdx = -1)
 {
-	const auto tryTriangle = [&](const std::size_t ti) -> bool {
+	const auto tryTriangle = [&](const std::size_t ti) -> bool
+	{
 		const auto& tri = local.tris[ti];
 		double tw0 = 0.0;
 		double tw1 = 0.0;
 		double tw2 = 0.0;
-		if (!barycentric2d(
-				query,
-				local.uv[static_cast<std::size_t>(tri[0])],
-				local.uv[static_cast<std::size_t>(tri[1])],
-				local.uv[static_cast<std::size_t>(tri[2])],
-				tw0,
-				tw1,
-				tw2))
+		if (!barycentric2d(query, local.uv[static_cast<std::size_t>(tri[0])],
+						   local.uv[static_cast<std::size_t>(tri[1])], local.uv[static_cast<std::size_t>(tri[2])], tw0,
+						   tw1, tw2))
 		{
 			return false;
 		}
@@ -1174,38 +1118,28 @@ bool locateUvInPatchLight(
 	return false;
 }
 
-Vec3d interpolate3dFromUv(
-	const PatchLocalMesh& local,
-	const int triIdx,
-	const double w0,
-	const double w1,
-	const double w2)
+Vec3d interpolate3dFromUv(const PatchLocalMesh& local, const int triIdx, const double w0, const double w1,
+						  const double w2)
 {
 	const auto& tri = local.tris[static_cast<std::size_t>(triIdx)];
-	return local.pos[static_cast<std::size_t>(tri[0])] * w0 + local.pos[static_cast<std::size_t>(tri[1])] * w1
-		+ local.pos[static_cast<std::size_t>(tri[2])] * w2;
+	return local.pos[static_cast<std::size_t>(tri[0])] * w0 + local.pos[static_cast<std::size_t>(tri[1])] * w1 +
+		   local.pos[static_cast<std::size_t>(tri[2])] * w2;
 }
 
-bool locateNearestUvTriangle(
-	const PatchLocalMesh& local,
-	const Vec2d& query,
-	int& outTriIdx,
-	double& w0,
-	double& w1,
-	double& w2)
+bool locateNearestUvTriangle(const PatchLocalMesh& local, const Vec2d& query, int& outTriIdx, double& w0, double& w1,
+							 double& w2)
 {
 	int bestTri = 0;
 	double bestD2 = 1e60;
 	for (std::size_t ti = 0; ti < local.tris.size(); ++ti)
 	{
 		const auto& tri = local.tris[ti];
-		const Vec2d cu{
-			(local.uv[static_cast<std::size_t>(tri[0])].u + local.uv[static_cast<std::size_t>(tri[1])].u
-				+ local.uv[static_cast<std::size_t>(tri[2])].u)
-			/ 3.0,
-			(local.uv[static_cast<std::size_t>(tri[0])].v + local.uv[static_cast<std::size_t>(tri[1])].v
-				+ local.uv[static_cast<std::size_t>(tri[2])].v)
-			/ 3.0};
+		const Vec2d cu{(local.uv[static_cast<std::size_t>(tri[0])].u + local.uv[static_cast<std::size_t>(tri[1])].u +
+						local.uv[static_cast<std::size_t>(tri[2])].u) /
+						   3.0,
+					   (local.uv[static_cast<std::size_t>(tri[0])].v + local.uv[static_cast<std::size_t>(tri[1])].v +
+						local.uv[static_cast<std::size_t>(tri[2])].v) /
+						   3.0};
 		const double du = cu.u - query.u;
 		const double dv = cu.v - query.v;
 		const double d2 = du * du + dv * dv;
@@ -1217,14 +1151,8 @@ bool locateNearestUvTriangle(
 	}
 	outTriIdx = bestTri;
 	const auto& tri = local.tris[static_cast<std::size_t>(bestTri)];
-	if (!barycentric2d(
-			query,
-			local.uv[static_cast<std::size_t>(tri[0])],
-			local.uv[static_cast<std::size_t>(tri[1])],
-			local.uv[static_cast<std::size_t>(tri[2])],
-			w0,
-			w1,
-			w2))
+	if (!barycentric2d(query, local.uv[static_cast<std::size_t>(tri[0])], local.uv[static_cast<std::size_t>(tri[1])],
+					   local.uv[static_cast<std::size_t>(tri[2])], w0, w1, w2))
 	{
 		w0 = 1.0 / 3.0;
 		w1 = 1.0 / 3.0;
@@ -1233,15 +1161,8 @@ bool locateNearestUvTriangle(
 	return true;
 }
 
-bool sampleHarmonicFaceCentroidGrid(
-	const PatchLocalMesh& local,
-	const int nu,
-	const int nv,
-	const double uMin,
-	const double uMax,
-	const double vMin,
-	const double vMax,
-	std::vector<float>& outXyz)
+bool sampleHarmonicFaceCentroidGrid(const PatchLocalMesh& local, const int nu, const int nv, const double uMin,
+									const double uMax, const double vMin, const double vMax, std::vector<float>& outXyz)
 {
 	const double du = (uMax - uMin) / static_cast<double>(nu);
 	const double dv = (vMax - vMin) / static_cast<double>(nv);
@@ -1271,11 +1192,8 @@ bool sampleHarmonicFaceCentroidGrid(
 	return !outXyz.empty();
 }
 
-bool computeHarmonicPatchUv(
-	const IndexedMeshLite& mesh,
-	const QuadPatch& patch,
-	const MeshSurfaceReconstructParams& params,
-	PatchLocalMesh& local)
+bool computeHarmonicPatchUv(const IndexedMeshLite& mesh, const QuadPatch& patch,
+							const MeshSurfaceReconstructParams& params, PatchLocalMesh& local)
 {
 	if (!buildPatchLocalMesh(mesh, patch, local))
 	{
@@ -1332,16 +1250,9 @@ std::vector<Vec2d> constructParameterGrid(const int nu, const int nv, const int 
 	return grid;
 }
 
-bool sampleAmrtoHarmonicGrid(
-	const PatchLocalMesh& local,
-	const int nu,
-	const int nv,
-	const double uMin,
-	const double uMax,
-	const double vMin,
-	const double vMax,
-	const int gridMode,
-	std::vector<float>& outXyz)
+bool sampleAmrtoHarmonicGrid(const PatchLocalMesh& local, const int nu, const int nv, const double uMin,
+							 const double uMax, const double vMin, const double vMax, const int gridMode,
+							 std::vector<float>& outXyz)
 {
 	const std::vector<Vec2d> unitGrid = constructParameterGrid(nu, nv, gridMode);
 	outXyz.clear();
@@ -1349,9 +1260,7 @@ bool sampleAmrtoHarmonicGrid(
 	int hintTriIdx = -1;
 	for (const Vec2d& unit : unitGrid)
 	{
-		const Vec2d query{
-			uMin + unit.u * (uMax - uMin),
-			vMin + unit.v * (vMax - vMin)};
+		const Vec2d query{uMin + unit.u * (uMax - uMin), vMin + unit.v * (vMax - vMin)};
 		int triIdx = -1;
 		double w0 = 0.0;
 		double w1 = 0.0;
@@ -1386,11 +1295,8 @@ void uvBounds(const std::vector<Vec2d>& uv, double& uMin, double& uMax, double& 
 
 } // namespace
 
-bool samplePatchGrids(
-	const IndexedMeshLite& mesh,
-	std::vector<QuadPatch>& patches,
-	const MeshSurfaceReconstructParams& params,
-	std::string* errMsg)
+bool samplePatchGrids(const IndexedMeshLite& mesh, std::vector<QuadPatch>& patches,
+					  const MeshSurfaceReconstructParams& params, std::string* errMsg)
 {
 	const int minEdge = std::max(4, params.minSamplesPerEdge);
 	const int maxEdge = params.maxSamplesPerEdge;
@@ -1400,9 +1306,7 @@ bool samplePatchGrids(
 		fixedN = std::min(maxEdge, fixedN);
 	}
 	const bool useAdaptiveSpacing = params.targetUvSpacingMm > 1e-6;
-	const int harmonicFaceLimit = params.harmonicMaxFaces > 0
-		? params.harmonicMaxFaces
-		: kDefaultHarmonicMaxFaces;
+	const int harmonicFaceLimit = params.harmonicMaxFaces > 0 ? params.harmonicMaxFaces : kDefaultHarmonicMaxFaces;
 
 	int patchIdx = 0;
 	const int patchTotal = static_cast<int>(patches.size());
@@ -1440,8 +1344,8 @@ bool samplePatchGrids(
 		double huMax = 1.0;
 		double hvMin = 0.0;
 		double hvMax = 1.0;
-		const bool harmonicOk = static_cast<int>(patch.faceIndices.size()) <= harmonicFaceLimit
-			&& computeHarmonicPatchUv(mesh, patch, params, local);
+		const bool harmonicOk = static_cast<int>(patch.faceIndices.size()) <= harmonicFaceLimit &&
+								computeHarmonicPatchUv(mesh, patch, params, local);
 		double uvAspect = 1.0;
 		if (harmonicOk)
 		{
@@ -1450,10 +1354,7 @@ bool samplePatchGrids(
 			expandDegenerateUvSpan(huMin, huMax, hvMin, hvMax, std::max(0.05, uvDiag * 0.08));
 			uvAspect = (hvMax - hvMin) / std::max(1e-9, huMax - huMin);
 
-			const AmrtoGridResolution amrtoRes = computeAmrtoGridResolution(
-				huMax - huMin,
-				hvMax - hvMin,
-				params);
+			const AmrtoGridResolution amrtoRes = computeAmrtoGridResolution(huMax - huMin, hvMax - hvMin, params);
 			nu = std::max(minEdge, amrtoRes.sampleNu);
 			nv = std::max(minEdge, amrtoRes.sampleNv);
 			if (params.samplesPerPatchEdge > 0)
@@ -1508,30 +1409,22 @@ bool samplePatchGrids(
 		if (harmonicOk)
 		{
 			std::vector<float> amrtoXyz;
-			if (sampleAmrtoHarmonicGrid(
-					local,
-					nu,
-					nv,
-					huMin,
-					huMax,
-					hvMin,
-					hvMax,
-					params.parameterGridMode,
-					amrtoXyz)
-				&& passesSampleQuality(amrtoXyz, patchPts))
+			if (sampleAmrtoHarmonicGrid(local, nu, nv, huMin, huMax, hvMin, hvMax, params.parameterGridMode,
+										amrtoXyz) &&
+				passesSampleQuality(amrtoXyz, patchPts))
 			{
 				patch.sampleXyz = std::move(amrtoXyz);
 				samplingPath = params.harmonicBoundaryMode == MeshSurfaceHarmonicBoundaryMode::GeodesicSquare
-					? "amrto-harmonic-geo"
-					: "amrto-harmonic";
+								   ? "amrto-harmonic-geo"
+								   : "amrto-harmonic";
 				usedAmrtoHarmonic = true;
 			}
 		}
 		if (!usedAmrtoHarmonic && harmonicOk)
 		{
 			std::vector<float> harmonicXyz;
-			if (sampleHarmonicFaceCentroidGrid(local, nu, nv, huMin, huMax, hvMin, hvMax, harmonicXyz)
-				&& passesSampleQuality(harmonicXyz, patchPts))
+			if (sampleHarmonicFaceCentroidGrid(local, nu, nv, huMin, huMax, hvMin, hvMax, harmonicXyz) &&
+				passesSampleQuality(harmonicXyz, patchPts))
 			{
 				const double pcaDiag = bboxDiagonalFromXyz(patch.sampleXyz);
 				const double harmonicDiag = bboxDiagonalFromXyz(harmonicXyz);
@@ -1552,9 +1445,8 @@ bool samplePatchGrids(
 				const double anchoredDiag = bboxDiagonalFromXyz(anchoredXyz);
 				const double pcaUnique = estimateUniqueSampleRatio(patch.sampleXyz);
 				const double anchoredUnique = estimateUniqueSampleRatio(anchoredXyz);
-				if (passesSampleQuality(anchoredXyz, patchPts)
-					|| anchoredDiag > pcaDiag * 1.1
-					|| anchoredUnique > pcaUnique * 1.2)
+				if (passesSampleQuality(anchoredXyz, patchPts) || anchoredDiag > pcaDiag * 1.1 ||
+					anchoredUnique > pcaUnique * 1.2)
 				{
 					patch.sampleXyz = std::move(anchoredXyz);
 					samplingPath = "pca-centroid";
@@ -1570,18 +1462,17 @@ bool samplePatchGrids(
 			const double sampleDiag = bboxDiagonalFromXyz(patch.sampleXyz);
 			const double diagRatio = patchDiag > 1e-9 ? sampleDiag / patchDiag : 0.0;
 			const double uniqueRatio = estimateUniqueSampleRatio(patch.sampleXyz);
-			RunLogger::info(
-				std::string("patch ") + std::to_string(patchIdx) + " sample: grid="
-				+ std::to_string(nu + 1) + "x" + std::to_string(nv + 1) + " path=" + samplingPath
-				+ " diagRatio=" + std::to_string(diagRatio) + " unique="
-				+ std::to_string(static_cast<int>(uniqueRatio * 100.0)) + "%");
+			RunLogger::info(std::string("patch ") + std::to_string(patchIdx) +
+							" sample: grid=" + std::to_string(nu + 1) + "x" + std::to_string(nv + 1) +
+							" path=" + samplingPath + " diagRatio=" + std::to_string(diagRatio) +
+							" unique=" + std::to_string(static_cast<int>(uniqueRatio * 100.0)) + "%");
 		}
 
 		++patchIdx;
 		if (patchIdx % 5 == 0 || patchIdx == patchTotal)
 		{
-			RunLogger::info(
-				std::string("sample grids progress ") + std::to_string(patchIdx) + "/" + std::to_string(patchTotal));
+			RunLogger::info(std::string("sample grids progress ") + std::to_string(patchIdx) + "/" +
+							std::to_string(patchTotal));
 		}
 	}
 
@@ -1640,7 +1531,8 @@ void assignPatchCornerMetadata(const IndexedMeshLite& mesh, QuadPatch& patch)
 	{
 		return;
 	}
-	const auto cornerLocalAt = [&](const double frac) -> int {
+	const auto cornerLocalAt = [&](const double frac) -> int
+	{
 		const double target = frac * totalLen;
 		for (std::size_t i = 0; i < arcLen.size(); ++i)
 		{
@@ -1651,17 +1543,14 @@ void assignPatchCornerMetadata(const IndexedMeshLite& mesh, QuadPatch& patch)
 		}
 		return boundaryLoop.back();
 	};
-	const int locals[4] = {
-		cornerLocalAt(0.0),
-		cornerLocalAt(0.25),
-		cornerLocalAt(0.50),
-		cornerLocalAt(0.75)};
+	const int locals[4] = {cornerLocalAt(0.0), cornerLocalAt(0.25), cornerLocalAt(0.50), cornerLocalAt(0.75)};
 	for (int i = 0; i < 4; ++i)
 	{
 		const int li = locals[i];
 		if (li >= 0 && static_cast<std::size_t>(li) < local.globalVertexIndices.size())
 		{
-			patch.cornerMeshVertices[static_cast<std::size_t>(i)] = local.globalVertexIndices[static_cast<std::size_t>(li)];
+			patch.cornerMeshVertices[static_cast<std::size_t>(i)] =
+				local.globalVertexIndices[static_cast<std::size_t>(li)];
 		}
 	}
 	patch.hasSquareCorners = true;

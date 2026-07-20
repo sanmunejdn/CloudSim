@@ -1,18 +1,22 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_FEATUREDISCRETIZERCONFIGREGISTRY_H
+#define GEOMETRYALGORITHM_FEATUREDISCRETIZERCONFIGREGISTRY_H
 
-#include "IFeatureDiscretizerConfig.h"
-#include "FeatureListDocument.h"
+/// @file FeatureDiscretizerConfigRegistry.h
+/// @brief FeatureDiscretizerConfigRegistry 接口
+
 #include "geometry_algorithm_global.h"
 
-#include <json.hpp>
+#include "FeatureListDocument.h"
+#include "IFeatureDiscretizerConfig.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
+#include <json.hpp>
+
 namespace geoalgo
 {
-
 class GEOMETRY_ALGORITHM_API FeatureDiscretizerConfigRegistry
 {
 public:
@@ -43,3 +47,5 @@ private:
 };
 
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_FEATUREDISCRETIZERCONFIGREGISTRY_H

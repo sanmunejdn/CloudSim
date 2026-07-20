@@ -1,3 +1,6 @@
+﻿/// @file OsgSceneMath.cpp
+/// @brief OsgSceneMath 实现
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -8,9 +11,8 @@
 #include <windows.h>
 #endif
 
-#include "OsgScene.h"
-
 #include "BackendVisualMath.h"
+#include "OsgScene.h"
 
 osg::Quat OsgScene::eulerDegToQuat(const osg::Vec3f& eulerDeg)
 {

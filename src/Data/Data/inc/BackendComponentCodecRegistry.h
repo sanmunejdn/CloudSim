@@ -1,4 +1,10 @@
-#pragma once
+﻿#ifndef DATA_BACKENDCOMPONENTCODECREGISTRY_H
+#define DATA_BACKENDCOMPONENTCODECREGISTRY_H
+
+/// @file BackendComponentCodecRegistry.h
+/// @brief 组件 JSON 编解码注册（工程保存/加载）
+
+#include "BackendComponent.h"
 
 #include <functional>
 #include <memory>
@@ -7,8 +13,6 @@
 #include <unordered_map>
 
 #include <json.hpp>
-
-#include "BackendComponent.h"
 
 /// 组件 JSON 编解码注册（工程保存/加载）
 class BackendComponentCodecRegistry
@@ -35,7 +39,7 @@ public:
 		{
 			std::lock_guard<std::mutex> lock(m_mutex);
 			replaced = (m_codecs.find(type) != m_codecs.end());
-			m_codecs[type] = Codec{ std::move(writer), std::move(reader) };
+			m_codecs[type] = Codec{std::move(writer), std::move(reader)};
 			warningHook = m_warningHook;
 		}
 		if (replaced && warningHook)
@@ -87,7 +91,7 @@ public:
 			}
 			return nlohmann::json();
 		}
-		return nlohmann::json{ { "type", type }, { "data", std::move(data) } };
+		return nlohmann::json{{"type", type}, {"data", std::move(data)}};
 	}
 
 	BackendComponentPtr decodeComponent(const nlohmann::json& entry) const
@@ -145,3 +149,4 @@ private:
 	WarningHook m_warningHook;
 };
 
+#endif // DATA_BACKENDCOMPONENTCODECREGISTRY_H

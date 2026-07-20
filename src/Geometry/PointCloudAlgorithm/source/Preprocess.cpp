@@ -1,20 +1,23 @@
+﻿/// @file Preprocess.cpp
+/// @brief Preprocess 实现
+
 #include "Preprocess.h"
 
 #include "Downsample.h"
 #include "PointCloudBuffer.h"
 
-#include <CGAL/Simple_cartesian.h>
-#include <CGAL/pca_estimate_normals.h>
-#include <CGAL/jet_estimate_normals.h>
-#include <CGAL/mst_orient_normals.h>
-#include <CGAL/remove_outliers.h>
-#include <CGAL/bilateral_smooth_point_set.h>
-#include <CGAL/property_map.h>
-#include <CGAL/IO/io.h>
-
 #include <algorithm>
 #include <map>
 #include <utility>
+
+#include <CGAL/IO/io.h>
+#include <CGAL/Simple_cartesian.h>
+#include <CGAL/bilateral_smooth_point_set.h>
+#include <CGAL/jet_estimate_normals.h>
+#include <CGAL/mst_orient_normals.h>
+#include <CGAL/pca_estimate_normals.h>
+#include <CGAL/property_map.h>
+#include <CGAL/remove_outliers.h>
 
 #ifdef max
 #undef max
@@ -25,10 +28,8 @@
 
 namespace pclalgo
 {
-
 namespace
 {
-
 using Kernel = CGAL::Simple_cartesian<double>;
 using Point_3 = Kernel::Point_3;
 using Vector_3 = Kernel::Vector_3;
@@ -38,16 +39,15 @@ struct PointCompare
 {
 	bool operator()(const Point_3& a, const Point_3& b) const
 	{
-		if (a.x() != b.x()) return a.x() < b.x();
-		if (a.y() != b.y()) return a.y() < b.y();
+		if (a.x() != b.x())
+			return a.x() < b.x();
+		if (a.y() != b.y())
+			return a.y() < b.y();
 		return a.z() < b.z();
 	}
 };
 
-bool buildPointNormal(
-	const std::vector<float>& xyz,
-	std::vector<Point_with_normal>& points,
-	std::string* errMsg)
+bool buildPointNormal(const std::vector<float>& xyz, std::vector<Point_with_normal>& points, std::string* errMsg)
 {
 	if (!validXyzLength(xyz) || xyz.empty())
 	{
@@ -62,17 +62,13 @@ bool buildPointNormal(
 	for (std::size_t i = 0; i < pointCountFromXyz(xyz); ++i)
 	{
 		const std::size_t b = i * 3U;
-		points.emplace_back(
-			Point_3(xyz[b], xyz[b + 1U], xyz[b + 2U]),
-			Vector_3(0.0, 0.0, 1.0));
+		points.emplace_back(Point_3(xyz[b], xyz[b + 1U], xyz[b + 2U]), Vector_3(0.0, 0.0, 1.0));
 	}
 	return true;
 }
 
-void exportPointNormal(
-	const std::vector<Point_with_normal>& points,
-	std::vector<float>& xyz,
-	std::vector<float>& normals)
+void exportPointNormal(const std::vector<Point_with_normal>& points, std::vector<float>& xyz,
+					   std::vector<float>& normals)
 {
 	xyz.resize(points.size() * 3U);
 	normals.resize(points.size() * 3U);
@@ -87,23 +83,21 @@ void exportPointNormal(
 	}
 }
 
-void syncRgbaAfterErase(
-	const std::vector<Point_with_normal>& before,
-	const std::vector<Point_with_normal>& after,
-	std::vector<float>& rgba)
+void syncRgbaAfterErase(const std::vector<Point_with_normal>& before, const std::vector<Point_with_normal>& after,
+						std::vector<float>& rgba)
 {
 	if (rgba.empty())
 	{
 		return;
 	}
-	
+
 	// 构建索引映射 O(n log n)
 	std::map<Point_3, std::size_t, PointCompare> indexMap;
 	for (std::size_t i = 0; i < before.size(); ++i)
 	{
 		indexMap[before[i].first] = i;
 	}
-	
+
 	// 使用映射查找 O(n log n)
 	std::vector<float> newRgba;
 	newRgba.reserve(after.size() * 4U);
@@ -129,11 +123,8 @@ void syncRgbaAfterErase(
 
 } // namespace
 
-bool estimateNormalsPca(
-	const std::vector<float>& xyz,
-	std::vector<float>& normalsOut,
-	const unsigned int kNeighbors,
-	std::string* errMsg)
+bool estimateNormalsPca(const std::vector<float>& xyz, std::vector<float>& normalsOut, const unsigned int kNeighbors,
+						std::string* errMsg)
 {
 	std::vector<Point_with_normal> points;
 	if (!buildPointNormal(xyz, points, errMsg))
@@ -147,8 +138,7 @@ bool estimateNormalsPca(
 #else
 	CGAL::pca_estimate_normals<CGAL::Sequential_tag>(
 #endif
-		points,
-		k,
+		points, k,
 		CGAL::parameters::point_map(CGAL::First_of_pair_property_map<Point_with_normal>())
 			.normal_map(CGAL::Second_of_pair_property_map<Point_with_normal>()));
 
@@ -157,12 +147,8 @@ bool estimateNormalsPca(
 	return true;
 }
 
-bool estimateNormalsJet(
-	const std::vector<float>& xyz,
-	std::vector<float>& normalsOut,
-	const unsigned int kNeighbors,
-	const unsigned int degreeFitting,
-	std::string* errMsg)
+bool estimateNormalsJet(const std::vector<float>& xyz, std::vector<float>& normalsOut, const unsigned int kNeighbors,
+						const unsigned int degreeFitting, std::string* errMsg)
 {
 	std::vector<Point_with_normal> points;
 	if (!buildPointNormal(xyz, points, errMsg))
@@ -176,8 +162,7 @@ bool estimateNormalsJet(
 #else
 	CGAL::jet_estimate_normals<CGAL::Sequential_tag>(
 #endif
-		points,
-		k,
+		points, k,
 		CGAL::parameters::point_map(CGAL::First_of_pair_property_map<Point_with_normal>())
 			.normal_map(CGAL::Second_of_pair_property_map<Point_with_normal>())
 			.degree_fitting(degreeFitting));
@@ -187,12 +172,8 @@ bool estimateNormalsJet(
 	return true;
 }
 
-bool orientNormalsMst(
-	std::vector<float>& xyz,
-	std::vector<float>& normalsInOut,
-	const unsigned int kNeighbors,
-	std::vector<float>* rgbaInOut,
-	std::string* errMsg)
+bool orientNormalsMst(std::vector<float>& xyz, std::vector<float>& normalsInOut, const unsigned int kNeighbors,
+					  std::vector<float>* rgbaInOut, std::string* errMsg)
 {
 	if (!validXyzLength(xyz) || normalsInOut.size() != xyz.size())
 	{
@@ -208,18 +189,16 @@ bool orientNormalsMst(
 	for (std::size_t i = 0; i < pointCountFromXyz(xyz); ++i)
 	{
 		const std::size_t b = i * 3U;
-		points.emplace_back(
-			Point_3(xyz[b], xyz[b + 1U], xyz[b + 2U]),
-			Vector_3(normalsInOut[b], normalsInOut[b + 1U], normalsInOut[b + 2U]));
+		points.emplace_back(Point_3(xyz[b], xyz[b + 1U], xyz[b + 2U]),
+							Vector_3(normalsInOut[b], normalsInOut[b + 1U], normalsInOut[b + 2U]));
 	}
 
 	const std::vector<Point_with_normal> before = points;
 	const unsigned int k = (std::max)(3U, kNeighbors);
-	const auto endIt = CGAL::mst_orient_normals(
-		points,
-		k,
-		CGAL::parameters::point_map(CGAL::First_of_pair_property_map<Point_with_normal>())
-			.normal_map(CGAL::Second_of_pair_property_map<Point_with_normal>()));
+	const auto endIt =
+		CGAL::mst_orient_normals(points, k,
+								 CGAL::parameters::point_map(CGAL::First_of_pair_property_map<Point_with_normal>())
+									 .normal_map(CGAL::Second_of_pair_property_map<Point_with_normal>()));
 	points.erase(endIt, points.end());
 
 	if (rgbaInOut != nullptr && !rgbaInOut->empty())
@@ -231,13 +210,8 @@ bool orientNormalsMst(
 	return true;
 }
 
-bool removeOutliers(
-	std::vector<float>& xyzInOut,
-	const double removalPercent,
-	const unsigned int kNeighbors,
-	std::vector<float>* normalsInOut,
-	std::vector<float>* rgbaInOut,
-	std::string* errMsg)
+bool removeOutliers(std::vector<float>& xyzInOut, const double removalPercent, const unsigned int kNeighbors,
+					std::vector<float>* normalsInOut, std::vector<float>* rgbaInOut, std::string* errMsg)
 {
 	std::vector<Point_with_normal> points;
 	if (!buildPointNormal(xyzInOut, points, errMsg))
@@ -260,8 +234,7 @@ bool removeOutliers(
 #else
 	const auto endIt = CGAL::remove_outliers<CGAL::Sequential_tag>(
 #endif
-		points,
-		kNeighbors,
+		points, kNeighbors,
 		CGAL::parameters::point_map(CGAL::First_of_pair_property_map<Point_with_normal>())
 			.threshold_percent(removalPercent));
 	points.erase(endIt, points.end());
@@ -283,10 +256,7 @@ bool removeOutliers(
 	return true;
 }
 
-bool smoothBilateral(
-	std::vector<float>& xyzInOut,
-	std::vector<float>* normalsInOut,
-	std::string* errMsg)
+bool smoothBilateral(std::vector<float>& xyzInOut, std::vector<float>* normalsInOut, std::string* errMsg)
 {
 	std::vector<Point_with_normal> points;
 	if (!buildPointNormal(xyzInOut, points, errMsg))
@@ -308,8 +278,7 @@ bool smoothBilateral(
 #else
 	CGAL::bilateral_smooth_point_set<CGAL::Sequential_tag>(
 #endif
-		points,
-		12U,
+		points, 12U,
 		CGAL::parameters::point_map(CGAL::First_of_pair_property_map<Point_with_normal>())
 			.normal_map(CGAL::Second_of_pair_property_map<Point_with_normal>()));
 
@@ -325,12 +294,8 @@ bool smoothBilateral(
 	return true;
 }
 
-bool preprocessForReconstruction(
-	std::vector<float>& xyzInOut,
-	std::vector<float>& normalsOut,
-	const double voxelPrefilterMm,
-	const double outlierRemovalPercent,
-	std::string* errMsg)
+bool preprocessForReconstruction(std::vector<float>& xyzInOut, std::vector<float>& normalsOut,
+								 const double voxelPrefilterMm, const double outlierRemovalPercent, std::string* errMsg)
 {
 	if (voxelPrefilterMm > 0.0)
 	{

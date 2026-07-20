@@ -1,7 +1,12 @@
-#pragma once
+﻿#ifndef CLOUDSIMAISDK_AIPARSETYPES_H
+#define CLOUDSIMAISDK_AIPARSETYPES_H
+
+/// @file AiParseTypes.h
+/// @brief AiParseTypes 接口
+
+#include "cloudsim_ai_sdk_global.h"
 
 #include "AiDomainTypes.h"
-#include "cloudsim_ai_sdk_global.h"
 
 #include <QByteArray>
 #include <QString>
@@ -17,3 +22,5 @@ struct AiParseResult
 	QString hintMessage;
 	QString parserVia;
 };
+
+#endif // CLOUDSIMAISDK_AIPARSETYPES_H

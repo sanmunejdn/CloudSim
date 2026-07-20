@@ -1,15 +1,17 @@
-#include "LabelingConfigIO.h"
+﻿/// @file LabelingConfigIO.cpp
+/// @brief LabelingConfigIO 实现
 
-#include <json.hpp>
+#include "LabelingConfigIO.h"
 
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 
+#include <json.hpp>
+
 namespace
 {
-
 QString resolvePathFromExe(const QString& relative)
 {
 	return QDir::cleanPath(QCoreApplication::applicationDirPath() + QStringLiteral("/") + relative);
@@ -33,7 +35,8 @@ QString resolveTrainingRoot(QString root)
 QString resolveLabelingConfigFilePath()
 {
 	const QString exeDir = QCoreApplication::applicationDirPath();
-	const QString pluginCfg = QDir(exeDir).filePath(QStringLiteral("plugins/com.cloudsim.labeling/labeling_config.json"));
+	const QString pluginCfg =
+		QDir(exeDir).filePath(QStringLiteral("plugins/com.cloudsim.labeling/labeling_config.json"));
 	if (QFile::exists(pluginCfg))
 	{
 		return pluginCfg;

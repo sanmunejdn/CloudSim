@@ -1,12 +1,15 @@
-#pragma once
+﻿#ifndef POINTNETPLUGIN_POINTNETINFERENCE_H
+#define POINTNETPLUGIN_POINTNETINFERENCE_H
+
+/// @file PointNetInference.h
+/// @brief ONNX Runtime 推理封装，支持 PointNet++ 分类与分割
 
 #include "PointNetTypes.h"
 
+#include <QString>
 #include <memory>
 #include <string>
 #include <vector>
-
-#include <QString>
 
 // ONNX Runtime 前向声明（头文件不暴露 onnxruntime C++ API）
 namespace Ort
@@ -58,3 +61,5 @@ private:
 	/// 将原始 xyz 点云预处理为模型输入格式（归一化 + 采样/填充）
 	std::vector<float> preprocessPoints(const std::vector<float>& rawPoints, int srcCount, int targetCount) const;
 };
+
+#endif // POINTNETPLUGIN_POINTNETINFERENCE_H

@@ -1,4 +1,8 @@
+﻿/// @file MeshTopologyIndex.cpp
+/// @brief MeshTopologyIndex 实现
+
 #include "pch.h"
+
 #include "MeshTopologyIndex.h"
 
 #include <osg/Geode>
@@ -24,11 +28,7 @@ void MeshTopologyIndex::buildFromNode(osg::Node* node)
 
 	struct TriCollectVisitor : public osg::NodeVisitor
 	{
-		explicit TriCollectVisitor(std::vector<osg::Vec3>& out)
-			: osg::NodeVisitor(TRAVERSE_ALL_CHILDREN)
-			, soup(out)
-		{
-		}
+		explicit TriCollectVisitor(std::vector<osg::Vec3>& out) : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), soup(out) {}
 
 		void apply(osg::Geode& geode) override
 		{
@@ -67,7 +67,8 @@ void MeshTopologyIndex::buildFromNode(osg::Node* node)
 							}
 							const osg::Vec3& v = (*vertices)[idx];
 							const osg::Vec3d p = osg::Vec3d(v.x(), v.y(), v.z()) * localToRoot;
-							soup.emplace_back(static_cast<float>(p.x()), static_cast<float>(p.y()), static_cast<float>(p.z()));
+							soup.emplace_back(static_cast<float>(p.x()), static_cast<float>(p.y()),
+											  static_cast<float>(p.z()));
 						}
 					}
 				}

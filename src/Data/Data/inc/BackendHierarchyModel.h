@@ -1,7 +1,12 @@
-#pragma once
+﻿#ifndef DATA_BACKENDHIERARCHYMODEL_H
+#define DATA_BACKENDHIERARCHYMODEL_H
+
+/// @file BackendHierarchyModel.h
+/// @brief BackendDataManager 层级变更的增量镜像
+
+#include "data_global.h"
 
 #include "BackendHierarchyChange.h"
-#include "data_global.h"
 
 #include <string>
 #include <unordered_map>
@@ -42,3 +47,5 @@ private:
 	mutable std::unordered_map<std::string, std::vector<std::string>> m_subtreeCache;
 	mutable std::vector<std::string> m_emptySubtree;
 };
+
+#endif // DATA_BACKENDHIERARCHYMODEL_H

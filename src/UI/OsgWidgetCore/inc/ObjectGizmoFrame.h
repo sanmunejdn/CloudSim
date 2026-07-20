@@ -1,9 +1,13 @@
-#pragma once
+﻿#ifndef OSGWIDGETCORE_OBJECTGIZMOFRAME_H
+#define OSGWIDGETCORE_OBJECTGIZMOFRAME_H
+
+/// @file ObjectGizmoFrame.h
+/// @brief 对象变换罗盘位姿单一来源：pose=模型原点在外层父系坐标；矩阵见 engine::osgMatrixFromRigidTransform
 
 #include "osgwidgetcore_global.h"
 
-#include <osg/Matrixd>
 #include <osg/MatrixTransform>
+#include <osg/Matrixd>
 #include <osg/Quat>
 #include <osg/Vec3f>
 
@@ -22,7 +26,8 @@ public:
 	/// 从外层 MatrixTransform 还原 center+pose 与 R（child0 为 -modelCenter 内层 PAT）
 	static bool fromOuter(osg::MatrixTransform* outer, const osg::Vec3f& modelCenter, ObjectGizmoFrame& out);
 
-	void setFromBackend(const osg::Vec3f& poseRelativeToCenter, const osg::Quat& attitude, const osg::Vec3f& modelCenter);
+	void setFromBackend(const osg::Vec3f& poseRelativeToCenter, const osg::Quat& attitude,
+						const osg::Vec3f& modelCenter);
 
 	void setCenterPlusPoseAndAttitude(const osg::Vec3f& centerPlusPose, const osg::Quat& attitude);
 
@@ -49,10 +54,10 @@ public:
 
 	/// 罗盘环法向 / 屏幕旋转：场景世界单位方向（与 computeGizmoPivotWorld 同坐标系）
 	static bool dragAxisDirectionSceneWorld(osg::MatrixTransform* outer, bool worldGizmoFrame,
-		const osg::Quat& outerAttitude, int axisIndex, osg::Vec3d& outUnit);
+											const osg::Quat& outerAttitude, int axisIndex, osg::Vec3d& outUnit);
 	/// 写入 outer 局部姿态四元数：outer 父系旋转轴
 	static bool dragAxisDirectionOuterParent(osg::MatrixTransform* outer, bool worldGizmoFrame,
-		const osg::Quat& outerAttitude, int axisIndex, osg::Vec3d& outUnit);
+											 const osg::Quat& outerAttitude, int axisIndex, osg::Vec3d& outUnit);
 
 	void rotatePreMultiplyWorldAxis(int axisIndex, double deltaRad);
 	void rotatePostMultiplyLocalAxis(int axisIndex, double deltaRad);
@@ -73,3 +78,5 @@ private:
 	osg::Vec3f m_centerPlusPose{};
 	osg::Quat m_attitude{};
 };
+
+#endif // OSGWIDGETCORE_OBJECTGIZMOFRAME_H

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef LABELINGPLUGIN_LABELINGTRAINWIDGET_H
+#define LABELINGPLUGIN_LABELINGTRAINWIDGET_H
+
+/// @file LabelingTrainWidget.h
+/// @brief LabelingTrainWidget 接口
 
 #include "PointNetTrainingRunner.h"
 
@@ -79,3 +83,5 @@ private:
 
 	QString m_deployConfigRel;
 };
+
+#endif // LABELINGPLUGIN_LABELINGTRAINWIDGET_H

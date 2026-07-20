@@ -1,9 +1,12 @@
+﻿/// @file MeshSurfaceReconstructionGmcgUvPack.cpp
+/// @brief MeshSurfaceReconstructionGmcgUvPack 实现
+
 #include "MeshSurfaceReconstructionGmcgUvPack.h"
 
 #include <algorithm>
 #include <cmath>
-#include <unordered_set>
 #include <limits>
+#include <unordered_set>
 
 namespace geoalgo
 {
@@ -11,7 +14,6 @@ namespace meshrecon
 {
 namespace
 {
-
 struct Vec3
 {
 	double x = 0.0;
@@ -27,12 +29,9 @@ Vec3 readV(const std::vector<float>& verts, const int vi)
 
 } // namespace
 
-void packChartUvCoordinates(
-	const QuadMeshLite& globalQuad,
-	const GmcgQuadGraph& graph,
-	const GmcgChartFaceGroups& groups,
-	std::vector<QuadMeshLite>& chartMeshes,
-	std::vector<std::vector<float>>& chartVertexUv)
+void packChartUvCoordinates(const QuadMeshLite& globalQuad, const GmcgQuadGraph& graph,
+							const GmcgChartFaceGroups& groups, std::vector<QuadMeshLite>& chartMeshes,
+							std::vector<std::vector<float>>& chartVertexUv)
 {
 	(void)graph;
 	chartMeshes.clear();

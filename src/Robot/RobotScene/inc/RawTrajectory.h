@@ -1,6 +1,11 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_RAWTRAJECTORY_H
+#define ROBOTSCENE_RAWTRAJECTORY_H
+
+/// @file RawTrajectory.h
+/// @brief RawTrajectory 接口
 
 #include "robot_scene_global.h"
+
 #include "RobotInstructionModel.h"
 
 #include <string>
@@ -13,7 +18,6 @@ struct RawPath;
 
 namespace RobotInstruction
 {
-
 struct ROBOT_SCENE_API ExternalAxisSnapshot
 {
 	std::string jointName;
@@ -86,21 +90,14 @@ struct ROBOT_SCENE_API RawTrajectoryOpDescriptor
 	bool useLineMotion = true;
 };
 
-ROBOT_SCENE_API bool importRawPathToTrajectory(
-	const geoalgo::RawPath& path,
-	FrameStrategy strategy,
-	RawTrajectory& out,
-	std::string* errMsg = nullptr);
+ROBOT_SCENE_API bool importRawPathToTrajectory(const geoalgo::RawPath& path, FrameStrategy strategy, RawTrajectory& out,
+											   std::string* errMsg = nullptr);
 
-ROBOT_SCENE_API bool applyRawTrajectoryOp(
-	const RawTrajectoryOpDescriptor& op,
-	RawTrajectory& trajectory,
-	std::string* errMsg = nullptr);
+ROBOT_SCENE_API bool applyRawTrajectoryOp(const RawTrajectoryOpDescriptor& op, RawTrajectory& trajectory,
+										  std::string* errMsg = nullptr);
 
-ROBOT_SCENE_API bool applyRawTrajectoryPipeline(
-	const std::vector<RawTrajectoryOpDescriptor>& ops,
-	RawTrajectory& trajectory,
-	std::string* errMsg = nullptr);
+ROBOT_SCENE_API bool applyRawTrajectoryPipeline(const std::vector<RawTrajectoryOpDescriptor>& ops,
+												RawTrajectory& trajectory, std::string* errMsg = nullptr);
 
 ROBOT_SCENE_API std::string rawTrajectoryToPreviewPolylineXyz(const RawTrajectory& trajectory);
 ROBOT_SCENE_API std::string rawTrajectoryReachabilityColorsJson(const RawTrajectory& trajectory);
@@ -109,3 +106,5 @@ ROBOT_SCENE_API std::string rawTrajectoryWorkpieceBackendId(const RawTrajectory&
 ROBOT_SCENE_API std::string rawTrajectoryFeatureId(const RawTrajectory& trajectory);
 
 } // namespace RobotInstruction
+
+#endif // ROBOTSCENE_RAWTRAJECTORY_H

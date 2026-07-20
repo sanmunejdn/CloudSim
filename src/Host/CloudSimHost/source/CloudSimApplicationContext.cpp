@@ -1,5 +1,7 @@
-#include "CloudSimBootstrap.h"
+﻿/// @file CloudSimApplicationContext.cpp
+/// @brief CloudSimApplicationContext 实现
 
+#include "CloudSimBootstrap.h"
 #include "CloudSimHost.h"
 #include "EventHub.h"
 #include "ICloudSimContext.h"
@@ -7,11 +9,10 @@
 #include "IRenderView.h"
 
 #include <QWidget>
-
 #include <memory>
 
-namespace cloudsim::core {
-
+namespace cloudsim::core
+{
 // 进程级组合根
 class ApplicationContextImpl final : public ICloudSimContext
 {
@@ -40,9 +41,9 @@ private:
 
 } // namespace cloudsim::core
 
-namespace {
-
-std::unique_ptr<cloudsim::core::ICloudSimContext> g_applicationContext;  // main 注入单例
+namespace
+{
+std::unique_ptr<cloudsim::core::ICloudSimContext> g_applicationContext; // main 注入单例
 
 } // namespace
 

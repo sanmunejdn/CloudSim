@@ -1,14 +1,14 @@
+﻿/// @file PointPickOperation.cpp
+/// @brief PointPickOperation 实现
+
 #include "PointPickOperation.h"
+
+#include "OsgWidget.h"
 
 #include <QEvent>
 #include <QMouseEvent>
 
-#include "OsgWidget.h"
-
-PointPickOperation::PointPickOperation(OsgWidget* owner)
-	: SelectionOperation(owner)
-{
-}
+PointPickOperation::PointPickOperation(OsgWidget* owner) : SelectionOperation(owner) {}
 
 bool PointPickOperation::canHandle(QObject* watched, QEvent* event) const
 {
@@ -53,7 +53,8 @@ bool PointPickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 		{
 			osg::Vec3f worldPoint;
 			double nearestDistance = 0.0;
-			const bool hasNearest = m_owner->pickNearestPointAtScreenPos(mouseEvent->pos(), worldPoint, nearestDistance, false);
+			const bool hasNearest =
+				m_owner->pickNearestPointAtScreenPos(mouseEvent->pos(), worldPoint, nearestDistance, false);
 			const bool hit = hasNearest && nearestDistance <= 32.0;
 			if (hasNearest)
 			{
@@ -63,9 +64,10 @@ bool PointPickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 			{
 				m_owner->clearPointPickMarker();
 			}
-			emit m_owner->pointPickFeedback(QStringLiteral("%1 | nearest: %2 px")
-				.arg(hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
-				.arg(hasNearest ? QString::number(nearestDistance, 'f', 1) : QStringLiteral("N/A")));
+			emit m_owner->pointPickFeedback(
+				QStringLiteral("%1 | nearest: %2 px")
+					.arg(hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
+					.arg(hasNearest ? QString::number(nearestDistance, 'f', 1) : QStringLiteral("N/A")));
 			if (hit)
 			{
 				m_owner->addPointAnnotation(worldPoint);
@@ -128,13 +130,13 @@ bool PointPickOperation::onMouseMove(QMouseEvent* mouseEvent)
 	{
 		m_owner->clearPointPickMarker();
 	}
-	emit m_owner->pointPickFeedback(QStringLiteral("%1 | nearest: %2 px | preview/full: %3/%4")
-		.arg(hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
-		.arg(hasNearest ? QString::number(nearestDistance, 'f', 1) : QStringLiteral("N/A"))
-		.arg(m_owner->m_pickablePointsPreviewLocal.size())
-		.arg(m_owner->m_pickablePointsLocal.size()));
+	emit m_owner->pointPickFeedback(
+		QStringLiteral("%1 | nearest: %2 px | preview/full: %3/%4")
+			.arg(hit ? QStringLiteral("Hit") : QStringLiteral("Miss"))
+			.arg(hasNearest ? QString::number(nearestDistance, 'f', 1) : QStringLiteral("N/A"))
+			.arg(m_owner->m_pickablePointsPreviewLocal.size())
+			.arg(m_owner->m_pickablePointsLocal.size()));
 	m_owner->m_feedbackTimer.restart();
 	m_owner->requestRedraw();
 	return true; // hover preview
 }
-

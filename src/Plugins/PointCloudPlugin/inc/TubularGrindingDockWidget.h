@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef POINTCLOUDPLUGIN_TUBULARGRINDINGDOCKWIDGET_H
+#define POINTCLOUDPLUGIN_TUBULARGRINDINGDOCKWIDGET_H
+
+/// @file TubularGrindingDockWidget.h
+/// @brief TubularGrindingDockWidget 接口
 
 #include "PluginPointCloudTypes.h"
 
@@ -57,14 +61,8 @@ private:
 	void syncCenterlineMethodForSource();
 	void updateCenterlineParamVisibility();
 
-	void addParamRow(
-		QFormLayout* form,
-		QLabel*& labelOut,
-		QWidget* editor,
-		QLabel*& hintOut,
-		const QString& labelText,
-		const QString& hintText,
-		QWidget** outFieldWrap = nullptr);
+	void addParamRow(QFormLayout* form, QLabel*& labelOut, QWidget* editor, QLabel*& hintOut, const QString& labelText,
+					 const QString& hintText, QWidget** outFieldWrap = nullptr);
 
 	void setParamRowVisible(QLabel* label, QWidget* fieldWrap, bool visible);
 
@@ -184,3 +182,5 @@ private:
 	PluginTubularGrindingStage m_lastStage = PluginTubularGrindingStage::None;
 	std::string m_meshBackendId;
 };
+
+#endif // POINTCLOUDPLUGIN_TUBULARGRINDINGDOCKWIDGET_H

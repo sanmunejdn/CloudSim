@@ -1,0 +1,7 @@
+# fixed
+src\Host\CloudSimHost\inc\osg\GraphicsWindowQt1.h
+src\Host\CloudSimHost\inc\osg\QWidgetViewer.h
+src\Host\CloudSimHost\source\osg\GraphicsWindowQt1.cpp
+src\UI\Widget\inc\widget_global.h
+
+# still_flagged

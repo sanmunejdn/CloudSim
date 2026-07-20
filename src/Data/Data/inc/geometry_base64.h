@@ -1,10 +1,14 @@
-#pragma once
+﻿#ifndef DATA_GEOMETRY_BASE64_H
+#define DATA_GEOMETRY_BASE64_H
+
+/// @file geometry_base64.h
+/// @brief 几何缓冲 Base64（RFC 4648），工程内嵌 float 块
+
+#include "data_global.h"
 
 #include <cstddef>
 #include <string>
 #include <vector>
-
-#include "data_global.h"
 
 /// 几何缓冲 Base64（RFC 4648），工程内嵌 float 块
 
@@ -21,3 +25,5 @@ inline std::string geometryBase64EncodeFloats(const std::vector<float>& values)
 }
 
 DATA_EXPORT bool geometryBase64DecodeFloats(const std::string& base64, std::vector<float>& outFloats);
+
+#endif // DATA_GEOMETRY_BASE64_H

@@ -1,3 +1,6 @@
+﻿/// @file TrajectoryOpParamAccess.cpp
+/// @brief TrajectoryOpParamAccess 实现
+
 #include "TrajectoryOpParamAccess.h"
 
 #include "ITrajectoryOp.h"
@@ -8,11 +11,9 @@ namespace trajectory_algo
 {
 namespace
 {
-
 bool endsWith(const std::string& text, const std::string& suffix)
 {
-	return text.size() >= suffix.size()
-		&& text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
+	return text.size() >= suffix.size() && text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
 bool readScopeKind(const RobotInstruction::TrajectoryOpDescriptor& op, TrajectoryParamValue& out)
@@ -28,10 +29,8 @@ bool writeScopeKind(RobotInstruction::TrajectoryOpDescriptor& op, const Trajecto
 	return true;
 }
 
-bool readScopeField(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const TrajectoryOpParamField& field,
-	TrajectoryParamValue& out)
+bool readScopeField(const RobotInstruction::TrajectoryOpDescriptor& op, const TrajectoryOpParamField& field,
+					TrajectoryParamValue& out)
 {
 	if (field.key == "scope.kind")
 	{
@@ -58,10 +57,8 @@ bool readScopeField(
 	return false;
 }
 
-bool writeScopeField(
-	RobotInstruction::TrajectoryOpDescriptor& op,
-	const TrajectoryOpParamField& field,
-	const TrajectoryParamValue& in)
+bool writeScopeField(RobotInstruction::TrajectoryOpDescriptor& op, const TrajectoryOpParamField& field,
+					 const TrajectoryParamValue& in)
 {
 	if (field.key == "scope.kind")
 	{
@@ -85,10 +82,7 @@ bool writeScopeField(
 	return false;
 }
 
-bool readJsonParamField(
-	const nlohmann::json& params,
-	const TrajectoryOpParamField& field,
-	TrajectoryParamValue& out)
+bool readJsonParamField(const nlohmann::json& params, const TrajectoryOpParamField& field, TrajectoryParamValue& out)
 {
 	if (field.type == TrajectoryParamType::Vec3)
 	{
@@ -132,10 +126,7 @@ bool readJsonParamField(
 	}
 }
 
-bool writeJsonParamField(
-	nlohmann::json& params,
-	const TrajectoryOpParamField& field,
-	const TrajectoryParamValue& in)
+bool writeJsonParamField(nlohmann::json& params, const TrajectoryOpParamField& field, const TrajectoryParamValue& in)
 {
 	if (field.type == TrajectoryParamType::Vec3)
 	{
@@ -171,11 +162,7 @@ bool writeJsonParamField(
 	}
 }
 
-
-bool readExpandedParamField(
-	const nlohmann::json& params,
-	const std::string& key,
-	TrajectoryParamValue& out)
+bool readExpandedParamField(const nlohmann::json& params, const std::string& key, TrajectoryParamValue& out)
 {
 	if (!params.contains(key))
 	{
@@ -209,10 +196,7 @@ bool readExpandedParamField(
 	return false;
 }
 
-bool writeExpandedParamField(
-	nlohmann::json& params,
-	const std::string& key,
-	const TrajectoryParamValue& in)
+bool writeExpandedParamField(nlohmann::json& params, const std::string& key, const TrajectoryParamValue& in)
 {
 	switch (in.kind)
 	{
@@ -235,10 +219,8 @@ bool writeExpandedParamField(
 
 } // namespace
 
-bool TrajectoryOpParamAccess::read(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const TrajectoryOpParamField& field,
-	TrajectoryParamValue& out)
+bool TrajectoryOpParamAccess::read(const RobotInstruction::TrajectoryOpDescriptor& op,
+								   const TrajectoryOpParamField& field, TrajectoryParamValue& out)
 {
 	if (readScopeField(op, field, out))
 	{
@@ -251,10 +233,8 @@ bool TrajectoryOpParamAccess::read(
 	return readJsonParamField(op.params, field, out);
 }
 
-bool TrajectoryOpParamAccess::write(
-	RobotInstruction::TrajectoryOpDescriptor& op,
-	const TrajectoryOpParamField& field,
-	const TrajectoryParamValue& in)
+bool TrajectoryOpParamAccess::write(RobotInstruction::TrajectoryOpDescriptor& op, const TrajectoryOpParamField& field,
+									const TrajectoryParamValue& in)
 {
 	if (writeScopeField(op, field, in))
 	{
@@ -267,9 +247,7 @@ bool TrajectoryOpParamAccess::write(
 	return writeJsonParamField(op.params, field, in);
 }
 
-void TrajectoryOpParamAccess::applyDefaults(
-	RobotInstruction::TrajectoryOpDescriptor& op,
-	const ITrajectoryOp& algo)
+void TrajectoryOpParamAccess::applyDefaults(RobotInstruction::TrajectoryOpDescriptor& op, const ITrajectoryOp& algo)
 {
 	if (!op.params.is_object())
 	{
@@ -313,9 +291,8 @@ void TrajectoryOpParamAccess::applyDefaults(
 	finalizeTransformDefaultParams(op);
 }
 
-const TrajectoryOpParamField* TrajectoryOpParamAccess::findField(
-	const std::vector<TrajectoryOpParamField>& fields,
-	const std::string& key)
+const TrajectoryOpParamField* TrajectoryOpParamAccess::findField(const std::vector<TrajectoryOpParamField>& fields,
+																 const std::string& key)
 {
 	for (const TrajectoryOpParamField& field : fields)
 	{

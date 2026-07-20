@@ -1,11 +1,10 @@
-#include "detail/OccIncludes.h"
+﻿/// @file TemplateBrepRegistration.cpp
+/// @brief TemplateBrepRegistration 实现
 
 #include "TemplateBrepRegistration.h"
+
 #include "ShapeHandle.h"
-
-#include <BRepBuilderAPI_Transform.hxx>
-
-#include <Eigen/Dense>
+#include "detail/OccIncludes.h"
 
 #include <algorithm>
 #include <cmath>
@@ -13,11 +12,13 @@
 #include <random>
 #include <vector>
 
+#include <BRepBuilderAPI_Transform.hxx>
+#include <Eigen/Dense>
+
 namespace geoalgo
 {
 namespace
 {
-
 using Vec3 = Eigen::Vector3d;
 
 Vec3 pointAt(const std::vector<float>& xyz, const std::size_t i)
@@ -56,19 +57,9 @@ std::vector<std::size_t> subsampleIndices(const std::size_t count, const std::si
 gp_Trsf isometryToGpTrsf(const Eigen::Isometry3d& transform)
 {
 	gp_Trsf trsf;
-	trsf.SetValues(
-		transform(0, 0),
-		transform(0, 1),
-		transform(0, 2),
-		transform(0, 3),
-		transform(1, 0),
-		transform(1, 1),
-		transform(1, 2),
-		transform(1, 3),
-		transform(2, 0),
-		transform(2, 1),
-		transform(2, 2),
-		transform(2, 3));
+	trsf.SetValues(transform(0, 0), transform(0, 1), transform(0, 2), transform(0, 3), transform(1, 0), transform(1, 1),
+				   transform(1, 2), transform(1, 3), transform(2, 0), transform(2, 1), transform(2, 2),
+				   transform(2, 3));
 	return trsf;
 }
 
@@ -84,11 +75,8 @@ TopoDS_Shape transformNativeShape(const TopoDS_Shape& shape, const Eigen::Isomet
 	return builder.Shape();
 }
 
-bool solvePointToPlaneStep(
-	const std::vector<Vec3>& srcPts,
-	const std::vector<Vec3>& tgtPts,
-	const std::vector<Vec3>& tgtNormals,
-	Eigen::Isometry3d& outStep)
+bool solvePointToPlaneStep(const std::vector<Vec3>& srcPts, const std::vector<Vec3>& tgtPts,
+						   const std::vector<Vec3>& tgtNormals, Eigen::Isometry3d& outStep)
 {
 	if (srcPts.size() < 3U || srcPts.size() != tgtPts.size() || srcPts.size() != tgtNormals.size())
 	{
@@ -137,10 +125,7 @@ bool solvePointToPlaneStep(
 	return true;
 }
 
-bool faceNormalAtPointOnShape(
-	const TopoDS_Shape& shape,
-	const gp_Pnt& nearPoint,
-	Vec3& outNormal)
+bool faceNormalAtPointOnShape(const TopoDS_Shape& shape, const gp_Pnt& nearPoint, Vec3& outNormal)
 {
 	BRepBuilderAPI_MakeVertex vertexMaker(nearPoint);
 	if (!vertexMaker.IsDone())
@@ -179,16 +164,9 @@ bool faceNormalAtPointOnShape(
 	return true;
 }
 
-bool projectScanPointToShape(
-	const gp_Pnt& scanPt,
-	const TopoDS_Shape& trialShape,
-	const double maxPairMm,
-	const double minNormalDot,
-	const Vec3& scanNormal,
-	const bool useNormalGate,
-	Vec3& outShapePoint,
-	Vec3& outShapeNormal,
-	double& outDistMm)
+bool projectScanPointToShape(const gp_Pnt& scanPt, const TopoDS_Shape& trialShape, const double maxPairMm,
+							 const double minNormalDot, const Vec3& scanNormal, const bool useNormalGate,
+							 Vec3& outShapePoint, Vec3& outShapeNormal, double& outDistMm)
 {
 	BRepBuilderAPI_MakeVertex vertexMaker(scanPt);
 	if (!vertexMaker.IsDone())
@@ -221,10 +199,8 @@ bool projectScanPointToShape(
 	return true;
 }
 
-double measureScanToNativeShapeMaxDistance(
-	const std::vector<float>& scanXyz,
-	const TopoDS_Shape& shape,
-	double& outAvgDist)
+double measureScanToNativeShapeMaxDistance(const std::vector<float>& scanXyz, const TopoDS_Shape& shape,
+										   double& outAvgDist)
 {
 	const std::size_t n = scanXyz.size() / 3U;
 	if (n == 0U || shape.IsNull())
@@ -265,11 +241,8 @@ double measureScanToNativeShapeMaxDistance(
 
 } // namespace
 
-bool applyIsometryToShapeHandle(
-	const ShapeHandle& shape,
-	const Eigen::Isometry3d& transform,
-	ShapeHandle& outShape,
-	std::string* errMsg)
+bool applyIsometryToShapeHandle(const ShapeHandle& shape, const Eigen::Isometry3d& transform, ShapeHandle& outShape,
+								std::string* errMsg)
 {
 	TopoDS_Shape native;
 	if (!nativeShapeFromHandle(shape, native))
@@ -285,10 +258,8 @@ bool applyIsometryToShapeHandle(
 	return !outShape.isNull();
 }
 
-double measureScanToShapeMaxDistanceMm(
-	const std::vector<float>& scanXyz,
-	const ShapeHandle& shape,
-	double& outAvgDistMm)
+double measureScanToShapeMaxDistanceMm(const std::vector<float>& scanXyz, const ShapeHandle& shape,
+									   double& outAvgDistMm)
 {
 	TopoDS_Shape native;
 	if (!nativeShapeFromHandle(shape, native))
@@ -299,15 +270,11 @@ double measureScanToShapeMaxDistanceMm(
 	return measureScanToNativeShapeMaxDistance(scanXyz, native, outAvgDistMm);
 }
 
-bool rigidRegisterTemplateToScanPointToPlane(
-	const std::vector<float>& scanXyz,
-	const std::vector<float>& scanNormals,
-	const ShapeHandle& originalTemplateShape,
-	ShapeHandle& outAlignedTemplateShape,
-	Eigen::Isometry3d& outTemplateToScan,
-	double& outRmseMm,
-	const TemplateBrepRegistrationParams& params,
-	std::string* errMsg)
+bool rigidRegisterTemplateToScanPointToPlane(const std::vector<float>& scanXyz, const std::vector<float>& scanNormals,
+											 const ShapeHandle& originalTemplateShape,
+											 ShapeHandle& outAlignedTemplateShape, Eigen::Isometry3d& outTemplateToScan,
+											 double& outRmseMm, const TemplateBrepRegistrationParams& params,
+											 std::string* errMsg)
 {
 	outTemplateToScan = Eigen::Isometry3d::Identity();
 	outRmseMm = 0.0;
@@ -335,9 +302,8 @@ bool rigidRegisterTemplateToScanPointToPlane(
 	const std::size_t nScan = scanXyz.size() / 3U;
 	const std::vector<std::size_t> scanIdx = subsampleIndices(nScan, params.icpMaxPoints);
 	const bool useScanNormals = scanNormals.size() == scanXyz.size() && !scanNormals.empty();
-	const double minNormalDot = params.normalGateDeg > 0.0
-		? std::cos(params.normalGateDeg * 3.14159265358979323846 / 180.0)
-		: -1.0;
+	const double minNormalDot =
+		params.normalGateDeg > 0.0 ? std::cos(params.normalGateDeg * 3.14159265358979323846 / 180.0) : -1.0;
 	const bool useNormalGate = params.normalGateDeg > 0.0 && useScanNormals;
 
 	double maxPairMm = params.maxPairMm;
@@ -374,16 +340,8 @@ bool rigidRegisterTemplateToScanPointToPlane(
 			Vec3 shapePt;
 			Vec3 shapeNormal;
 			double distMm = 0.0;
-			if (!projectScanPointToShape(
-					scanPt,
-					trialShape,
-					maxPairMm,
-					minNormalDot,
-					scanNormal,
-					useNormalGate,
-					shapePt,
-					shapeNormal,
-					distMm))
+			if (!projectScanPointToShape(scanPt, trialShape, maxPairMm, minNormalDot, scanNormal, useNormalGate,
+										 shapePt, shapeNormal, distMm))
 			{
 				continue;
 			}
@@ -437,16 +395,8 @@ bool rigidRegisterTemplateToScanPointToPlane(
 		Vec3 shapePt;
 		Vec3 shapeNormal;
 		double distMm = 0.0;
-		if (!projectScanPointToShape(
-				scanPt,
-				trialShape,
-				maxPairMm,
-				minNormalDot,
-				scanNormal,
-				useNormalGate,
-				shapePt,
-				shapeNormal,
-				distMm))
+		if (!projectScanPointToShape(scanPt, trialShape, maxPairMm, minNormalDot, scanNormal, useNormalGate, shapePt,
+									 shapeNormal, distMm))
 		{
 			continue;
 		}

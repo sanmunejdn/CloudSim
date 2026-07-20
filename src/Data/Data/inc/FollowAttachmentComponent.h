@@ -1,13 +1,19 @@
-#pragma once
+﻿#ifndef DATA_FOLLOWATTACHMENTCOMPONENT_H
+#define DATA_FOLLOWATTACHMENTCOMPONENT_H
+
+/// @file FollowAttachmentComponent.h
+/// @brief 可选刚体跟随：follower 外支路世界 = targetWorld * localTransform
+
+#include "data_global.h"
 
 #include "BackendComponent.h"
 #include "BackendDataBase.h"
 #include "BackendFollowMath.h"
-#include "data_global.h"
 
-#include <json.hpp>
 #include <mutex>
 #include <string>
+
+#include <json.hpp>
 
 class BackendDataManager;
 
@@ -41,16 +47,17 @@ public:
 
 	/// 面板单行：按对象名选跟随目标
 	void appendPropertyRows(nlohmann::json& rows, const BackendDataManager* mgr = nullptr) const;
-	bool applyPropertyChange(BackendDataBase& owner, const std::string& key, const std::string& value, std::string* errMsg,
-		const BackendDataManager* mgr = nullptr);
+	bool applyPropertyChange(BackendDataBase& owner, const std::string& key, const std::string& value,
+							 std::string* errMsg, const BackendDataManager* mgr = nullptr);
 
 	void writeJson(nlohmann::json& out) const;
 	void readJson(const nlohmann::json& in);
 
 	/// 从当前世界位姿重算 local 偏移
-	static bool recomputeLocalFromCurrentWorld(const BackendDataManager& mgr,
-		const std::function<bool(const std::string&, BackendMat4& out)>& worldQuery, BackendDataBase& follower,
-		std::string* errMsg);
+	static bool
+	recomputeLocalFromCurrentWorld(const BackendDataManager& mgr,
+								   const std::function<bool(const std::string&, BackendMat4& out)>& worldQuery,
+								   BackendDataBase& follower, std::string* errMsg);
 
 private:
 	mutable std::mutex m_mutex;
@@ -61,3 +68,5 @@ private:
 	bool m_solverPaused = false;
 	bool m_hierarchyDriven = false;
 };
+
+#endif // DATA_FOLLOWATTACHMENTCOMPONENT_H

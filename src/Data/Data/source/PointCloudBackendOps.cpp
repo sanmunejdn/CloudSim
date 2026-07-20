@@ -1,34 +1,35 @@
-#include "PointCloudBackendOps.h"
+﻿/// @file PointCloudBackendOps.cpp
+/// @brief PointCloudBackendOps 实现
 
-#include "MeshBackendData.h"
-#include "PointCloudBackendData.h"
+#include "PointCloudBackendOps.h"
 
 #include "Crop.h"
 #include "Downsample.h"
 #include "Measure.h"
+#include "MeshBackendData.h"
+#include "PointCloudBackendData.h"
 #include "Preprocess.h"
 #include "Reconstruction.h"
 #include "ReconstructionConfig.h"
 #include "RegistrationNonRigid.h"
-#include "RegistrationSpare.h"
-#include "spare/SpareSurface.h"
 #include "RegistrationRigid.h"
+#include "RegistrationSpare.h"
 #include "Transform.h"
+#include "spare/SpareSurface.h"
 
 #if defined(_WIN64)
+#include "MeshDefectDetect.h"
 #include "MeshReconstruct.h"
 #include "MeshRemesh.h"
 #include "MeshRepair.h"
 #include "MeshSimplify.h"
 #include "MeshSmooth.h"
-#include "MeshDefectDetect.h"
 #endif
 
 #if defined(_WIN64)
 
 namespace
 {
-
 ::vcgalgo::RepairParams toVcgalgoRepair(const point_cloud_backend_ops::MeshRepairRequest& request)
 {
 	::vcgalgo::RepairParams params;
@@ -74,15 +75,9 @@ void copyRepairStatistics(const ::vcgalgo::RepairReport& report, point_cloud_bac
 
 namespace point_cloud_backend_ops
 {
-
 namespace
 {
-
-void writeBack(
-	PointCloudBackendData& data,
-	std::vector<float> xyz,
-	std::vector<float> rgba,
-	std::vector<float> normals)
+void writeBack(PointCloudBackendData& data, std::vector<float> xyz, std::vector<float> rgba, std::vector<float> normals)
 {
 	data.setPointBuffers(std::move(xyz), std::move(rgba), std::move(normals));
 }
@@ -99,11 +94,8 @@ std::vector<float>* normalsPtr(PointCloudBackendData& data, std::vector<float>& 
 
 } // namespace
 
-bool downsamplePointCloudVoxel(
-	PointCloudBackendData& data,
-	const double voxelSizeMm,
-	const unsigned int minPointsPerCell,
-	std::string* errMsg)
+bool downsamplePointCloudVoxel(PointCloudBackendData& data, const double voxelSizeMm,
+							   const unsigned int minPointsPerCell, std::string* errMsg)
 {
 	std::vector<float> xyz = data.pointPositionsXyz();
 	std::vector<float> rgba = data.pointVertexRgba();
@@ -141,10 +133,8 @@ bool downsamplePointCloudRandom(PointCloudBackendData& data, const double retain
 	return true;
 }
 
-bool applyRigidTransformToPointCloud(
-	PointCloudBackendData& data,
-	const Eigen::Isometry3d& transform,
-	std::string* errMsg)
+bool applyRigidTransformToPointCloud(PointCloudBackendData& data, const Eigen::Isometry3d& transform,
+									 std::string* errMsg)
 {
 	(void)errMsg;
 	std::vector<float> xyz = data.pointPositionsXyz();
@@ -187,11 +177,8 @@ bool cropPointCloudByBox(PointCloudBackendData& data, const Eigen::AlignedBox3d&
 	return !data.pointPositionsXyz().empty();
 }
 
-bool cropPointCloudBySphere(
-	PointCloudBackendData& data,
-	const Eigen::Vector3d& centerMm,
-	const double radiusMm,
-	std::string* errMsg)
+bool cropPointCloudBySphere(PointCloudBackendData& data, const Eigen::Vector3d& centerMm, const double radiusMm,
+							std::string* errMsg)
 {
 	(void)errMsg;
 	const std::vector<float>& srcXyz = data.pointPositionsXyz();
@@ -229,15 +216,9 @@ bool cropPointCloudBySphere(
 	return !data.pointPositionsXyz().empty();
 }
 
-bool cropPointCloudByPolyline2D(
-	PointCloudBackendData& data,
-	const std::vector<float>& polylineScreenXy,
-	const double mvpMatrix[16],
-	const double modelToWorld[16],
-	const int viewportWidth,
-	const int viewportHeight,
-	const bool keepInside,
-	std::string* errMsg)
+bool cropPointCloudByPolyline2D(PointCloudBackendData& data, const std::vector<float>& polylineScreenXy,
+								const double mvpMatrix[16], const double modelToWorld[16], const int viewportWidth,
+								const int viewportHeight, const bool keepInside, std::string* errMsg)
 {
 	(void)errMsg;
 	const std::vector<float>& srcXyz = data.pointPositionsXyz();
@@ -246,50 +227,24 @@ bool cropPointCloudByPolyline2D(
 	std::vector<float> rgba = data.pointVertexRgba();
 	if (data.hasPerVertexColors())
 	{
-		pclalgo::cropXyzByPolyline2D(
-			srcXyz,
-			rgba,
-			polylineScreenXy,
-			mvpMatrix,
-			modelToWorld,
-			viewportWidth,
-			viewportHeight,
-			keepInside,
-			outXyz,
-			outRgba,
-			nullptr);
+		pclalgo::cropXyzByPolyline2D(srcXyz, rgba, polylineScreenXy, mvpMatrix, modelToWorld, viewportWidth,
+									 viewportHeight, keepInside, outXyz, outRgba, nullptr);
 	}
 	else
 	{
 		const std::vector<float> emptyRgba;
-		pclalgo::cropXyzByPolyline2D(
-			srcXyz,
-			emptyRgba,
-			polylineScreenXy,
-			mvpMatrix,
-			modelToWorld,
-			viewportWidth,
-			viewportHeight,
-			keepInside,
-			outXyz,
-			outRgba,
-			nullptr);
+		pclalgo::cropXyzByPolyline2D(srcXyz, emptyRgba, polylineScreenXy, mvpMatrix, modelToWorld, viewportWidth,
+									 viewportHeight, keepInside, outXyz, outRgba, nullptr);
 	}
 	std::vector<float> normals;
 	writeBack(data, std::move(outXyz), std::move(outRgba), std::move(normals));
 	return !data.pointPositionsXyz().empty();
 }
 
-bool collectPointCloudIndicesByPolyline2D(
-	const PointCloudBackendData& data,
-	const std::vector<float>& polylineScreenXy,
-	const double mvpMatrix[16],
-	const double modelToWorld[16],
-	const int viewportWidth,
-	const int viewportHeight,
-	const bool keepInside,
-	std::vector<std::size_t>& outIndices,
-	std::string* errMsg)
+bool collectPointCloudIndicesByPolyline2D(const PointCloudBackendData& data, const std::vector<float>& polylineScreenXy,
+										  const double mvpMatrix[16], const double modelToWorld[16],
+										  const int viewportWidth, const int viewportHeight, const bool keepInside,
+										  std::vector<std::size_t>& outIndices, std::string* errMsg)
 {
 	(void)errMsg;
 	outIndices.clear();
@@ -298,28 +253,15 @@ bool collectPointCloudIndicesByPolyline2D(
 	{
 		return false;
 	}
-	pclalgo::collectXyzIndicesByPolyline2D(
-		srcXyz,
-		polylineScreenXy,
-		mvpMatrix,
-		modelToWorld,
-		viewportWidth,
-		viewportHeight,
-		keepInside,
-		outIndices);
+	pclalgo::collectXyzIndicesByPolyline2D(srcXyz, polylineScreenXy, mvpMatrix, modelToWorld, viewportWidth,
+										   viewportHeight, keepInside, outIndices);
 	return true;
 }
 
-bool collectMeshTriangleIndicesByPolyline2D(
-	const MeshBackendData& mesh,
-	const std::vector<float>& polylineScreenXy,
-	const double mvpMatrix[16],
-	const double modelToWorld[16],
-	const int viewportWidth,
-	const int viewportHeight,
-	const bool keepInside,
-	std::vector<int>& outTriangleIndices,
-	std::string* errMsg)
+bool collectMeshTriangleIndicesByPolyline2D(const MeshBackendData& mesh, const std::vector<float>& polylineScreenXy,
+											const double mvpMatrix[16], const double modelToWorld[16],
+											const int viewportWidth, const int viewportHeight, const bool keepInside,
+											std::vector<int>& outTriangleIndices, std::string* errMsg)
 {
 	(void)errMsg;
 	outTriangleIndices.clear();
@@ -339,15 +281,8 @@ bool collectMeshTriangleIndicesByPolyline2D(
 		centroids.push_back((soup[b + 2U] + soup[b + 5U] + soup[b + 8U]) / 3.f);
 	}
 	std::vector<std::size_t> kept;
-	pclalgo::collectXyzIndicesByPolyline2D(
-		centroids,
-		polylineScreenXy,
-		mvpMatrix,
-		modelToWorld,
-		viewportWidth,
-		viewportHeight,
-		keepInside,
-		kept);
+	pclalgo::collectXyzIndicesByPolyline2D(centroids, polylineScreenXy, mvpMatrix, modelToWorld, viewportWidth,
+										   viewportHeight, keepInside, kept);
 	outTriangleIndices.reserve(kept.size());
 	for (std::size_t idx : kept)
 	{
@@ -370,22 +305,14 @@ bool measurePointCloud(const PointCloudBackendData& data, PointCloudMeasureResul
 	return true;
 }
 
-bool removePointCloudOutliers(
-	PointCloudBackendData& data,
-	const double removalPercent,
-	const unsigned int kNeighbors,
-	std::string* errMsg)
+bool removePointCloudOutliers(PointCloudBackendData& data, const double removalPercent, const unsigned int kNeighbors,
+							  std::string* errMsg)
 {
 	std::vector<float> xyz = data.pointPositionsXyz();
 	std::vector<float> rgba = data.pointVertexRgba();
 	std::vector<float> normals = data.pointNormalsNxNyNz();
-	if (!pclalgo::removeOutliers(
-			xyz,
-			removalPercent,
-			kNeighbors,
-			normalsPtr(data, normals),
-			rgbaPtr(data, rgba),
-			errMsg))
+	if (!pclalgo::removeOutliers(xyz, removalPercent, kNeighbors, normalsPtr(data, normals), rgbaPtr(data, rgba),
+								 errMsg))
 	{
 		return false;
 	}
@@ -418,11 +345,8 @@ bool estimatePointCloudNormalsPca(PointCloudBackendData& data, const unsigned in
 	return true;
 }
 
-bool estimatePointCloudNormalsJet(
-	PointCloudBackendData& data,
-	const unsigned int kNeighbors,
-	const unsigned int degreeFitting,
-	std::string* errMsg)
+bool estimatePointCloudNormalsJet(PointCloudBackendData& data, const unsigned int kNeighbors,
+								  const unsigned int degreeFitting, std::string* errMsg)
 {
 	const std::vector<float>& xyz = data.pointPositionsXyz();
 	std::vector<float> normals;
@@ -447,11 +371,8 @@ bool orientPointCloudNormalsMst(PointCloudBackendData& data, const unsigned int 
 	return true;
 }
 
-bool preprocessPointCloudForReconstruction(
-	PointCloudBackendData& data,
-	const double voxelPrefilterMm,
-	const double outlierRemovalPercent,
-	std::string* errMsg)
+bool preprocessPointCloudForReconstruction(PointCloudBackendData& data, const double voxelPrefilterMm,
+										   const double outlierRemovalPercent, std::string* errMsg)
 {
 	std::vector<float> xyz = data.pointPositionsXyz();
 	std::vector<float> normals;
@@ -468,31 +389,17 @@ bool preprocessPointCloudForReconstruction(
 	return true;
 }
 
-bool rigidRegisterPointCloudsIcp(
-	const PointCloudBackendData& source,
-	const PointCloudBackendData& target,
-	PointCloudIcpResult& out,
-	const int maxIterations,
-	const double convergenceTransMm,
-	const double maxPairDistanceMm,
-	const std::size_t icpMaxPoints,
-	std::string* errMsg)
+bool rigidRegisterPointCloudsIcp(const PointCloudBackendData& source, const PointCloudBackendData& target,
+								 PointCloudIcpResult& out, const int maxIterations, const double convergenceTransMm,
+								 const double maxPairDistanceMm, const std::size_t icpMaxPoints, std::string* errMsg)
 {
-	return pclalgo::rigidRegisterIcp(
-		source.pointPositionsXyz(),
-		target.pointPositionsXyz(),
-		out.sourceToTarget,
-		&out.rmseMm,
-		maxIterations,
-		convergenceTransMm,
-		maxPairDistanceMm,
-		icpMaxPoints,
-		errMsg);
+	return pclalgo::rigidRegisterIcp(source.pointPositionsXyz(), target.pointPositionsXyz(), out.sourceToTarget,
+									 &out.rmseMm, maxIterations, convergenceTransMm, maxPairDistanceMm, icpMaxPoints,
+									 errMsg);
 }
 
 namespace
 {
-
 pclalgo::SpareRegisterParams toSpareRegisterParams(const PointCloudSpareParams& params)
 {
 	pclalgo::SpareRegisterParams out;
@@ -514,27 +421,17 @@ pclalgo::SpareRegisterParams toSpareRegisterParams(const PointCloudSpareParams& 
 
 } // namespace
 
-bool nonRigidRegisterPointCloudsSpare(
-	PointCloudBackendData& sourceInOut,
-	const PointCloudBackendData& target,
-	PointCloudSpareResult& out,
-	const PointCloudSpareParams& params,
-	std::string* errMsg)
+bool nonRigidRegisterPointCloudsSpare(PointCloudBackendData& sourceInOut, const PointCloudBackendData& target,
+									  PointCloudSpareResult& out, const PointCloudSpareParams& params,
+									  std::string* errMsg)
 {
 	const pclalgo::SpareRegisterParams coreParams = toSpareRegisterParams(params);
 	std::vector<float> deformed;
 	std::vector<float> deformedNormals;
 	pclalgo::SpareRegisterResult stats;
-	if (!pclalgo::spareRegisterPointClouds(
-			sourceInOut.pointPositionsXyz(),
-			sourceInOut.pointNormalsNxNyNz(),
-			target.pointPositionsXyz(),
-			target.pointNormalsNxNyNz(),
-			deformed,
-			deformedNormals,
-			coreParams,
-			&stats,
-			errMsg))
+	if (!pclalgo::spareRegisterPointClouds(sourceInOut.pointPositionsXyz(), sourceInOut.pointNormalsNxNyNz(),
+										   target.pointPositionsXyz(), target.pointNormalsNxNyNz(), deformed,
+										   deformedNormals, coreParams, &stats, errMsg))
 	{
 		return false;
 	}
@@ -544,12 +441,9 @@ bool nonRigidRegisterPointCloudsSpare(
 	return true;
 }
 
-bool nonRigidRegisterPointCloudToMeshSpare(
-	PointCloudBackendData& sourceInOut,
-	const MeshBackendData& targetMesh,
-	PointCloudSpareResult& out,
-	const PointCloudSpareParams& params,
-	std::string* errMsg)
+bool nonRigidRegisterPointCloudToMeshSpare(PointCloudBackendData& sourceInOut, const MeshBackendData& targetMesh,
+										   PointCloudSpareResult& out, const PointCloudSpareParams& params,
+										   std::string* errMsg)
 {
 	pclalgo::spare::SpareSurface targetSurface;
 	if (!pclalgo::spare::buildSpareSurfaceFromMeshSoup(targetSurface, targetMesh.triangleSoup(), errMsg))
@@ -568,13 +462,9 @@ bool nonRigidRegisterPointCloudToMeshSpare(
 	return nonRigidRegisterPointCloudsSpare(sourceInOut, targetTmp, out, params, errMsg);
 }
 
-bool nonRigidRegisterMeshSpare(
-	MeshBackendData& sourceMeshInOut,
-	const PointCloudBackendData* targetPointCloud,
-	const MeshBackendData* targetMesh,
-	PointCloudSpareResult& out,
-	const PointCloudSpareParams& params,
-	std::string* errMsg)
+bool nonRigidRegisterMeshSpare(MeshBackendData& sourceMeshInOut, const PointCloudBackendData* targetPointCloud,
+							   const MeshBackendData* targetMesh, PointCloudSpareResult& out,
+							   const PointCloudSpareParams& params, std::string* errMsg)
 {
 	if ((targetPointCloud == nullptr) == (targetMesh == nullptr))
 	{
@@ -588,22 +478,13 @@ bool nonRigidRegisterMeshSpare(
 	const pclalgo::SpareRegisterParams coreParams = toSpareRegisterParams(params);
 	std::vector<float> soupOut;
 	pclalgo::SpareRegisterResult stats;
-	const bool ok = targetPointCloud != nullptr
-		? pclalgo::spareRegisterMeshSoupToTarget(
-			  sourceMeshInOut.triangleSoup(),
-			  targetPointCloud->pointPositionsXyz(),
-			  targetPointCloud->pointNormalsNxNyNz(),
-			  soupOut,
-			  coreParams,
-			  &stats,
-			  errMsg)
-		: pclalgo::spareRegisterMeshSoupToMeshSoup(
-			  sourceMeshInOut.triangleSoup(),
-			  targetMesh->triangleSoup(),
-			  soupOut,
-			  coreParams,
-			  &stats,
-			  errMsg);
+	const bool ok =
+		targetPointCloud != nullptr
+			? pclalgo::spareRegisterMeshSoupToTarget(
+				  sourceMeshInOut.triangleSoup(), targetPointCloud->pointPositionsXyz(),
+				  targetPointCloud->pointNormalsNxNyNz(), soupOut, coreParams, &stats, errMsg)
+			: pclalgo::spareRegisterMeshSoupToMeshSoup(sourceMeshInOut.triangleSoup(), targetMesh->triangleSoup(),
+													   soupOut, coreParams, &stats, errMsg);
 	if (!ok)
 	{
 		return false;
@@ -614,22 +495,14 @@ bool nonRigidRegisterMeshSpare(
 	return true;
 }
 
-bool deformPointCloudTpsFromControls(
-	PointCloudBackendData& data,
-	const std::vector<std::size_t>& controlPointIndices,
-	const std::vector<float>& controlDisplacementXyz,
-	const double regularizationLambda,
-	std::string* errMsg)
+bool deformPointCloudTpsFromControls(PointCloudBackendData& data, const std::vector<std::size_t>& controlPointIndices,
+									 const std::vector<float>& controlDisplacementXyz,
+									 const double regularizationLambda, std::string* errMsg)
 {
 	std::vector<float> xyz = data.pointPositionsXyz();
 	std::vector<double> displacementDouble(controlDisplacementXyz.begin(), controlDisplacementXyz.end());
-	if (!pclalgo::tpsDeformFromControls(
-			xyz,
-			controlPointIndices,
-			displacementDouble.data(),
-			displacementDouble.size() / 3U,
-			regularizationLambda,
-			errMsg))
+	if (!pclalgo::tpsDeformFromControls(xyz, controlPointIndices, displacementDouble.data(),
+										displacementDouble.size() / 3U, regularizationLambda, errMsg))
 	{
 		return false;
 	}
@@ -643,31 +516,18 @@ bool deformPointCloudTpsFromControls(
 	return true;
 }
 
-bool deformPointCloudTpsFitAndDeform(
-	const PointCloudBackendData& source,
-	const PointCloudBackendData& target,
-	const std::vector<std::size_t>& correspondenceIndices,
-	std::vector<float>& sourceXyzDeformedOut,
-	const double regularizationLambda,
-	std::string* errMsg)
+bool deformPointCloudTpsFitAndDeform(const PointCloudBackendData& source, const PointCloudBackendData& target,
+									 const std::vector<std::size_t>& correspondenceIndices,
+									 std::vector<float>& sourceXyzDeformedOut, const double regularizationLambda,
+									 std::string* errMsg)
 {
-	return pclalgo::tpsFitAndDeform(
-		source.pointPositionsXyz(),
-		target.pointPositionsXyz(),
-		correspondenceIndices,
-		sourceXyzDeformedOut,
-		regularizationLambda,
-		errMsg);
+	return pclalgo::tpsFitAndDeform(source.pointPositionsXyz(), target.pointPositionsXyz(), correspondenceIndices,
+									sourceXyzDeformedOut, regularizationLambda, errMsg);
 }
 
-bool reconstructMeshPoisson(
-	const PointCloudBackendData& pointCloud,
-	MeshBackendData& meshOut,
-	const double spacingMm,
-	const double smAngleDeg,
-	const double smRadiusRel,
-	const double smDistanceRel,
-	std::string* errMsg)
+bool reconstructMeshPoisson(const PointCloudBackendData& pointCloud, MeshBackendData& meshOut, const double spacingMm,
+							const double smAngleDeg, const double smRadiusRel, const double smDistanceRel,
+							std::string* errMsg)
 {
 	const std::vector<float>& xyz = pointCloud.pointPositionsXyz();
 	const std::vector<float>& normals = pointCloud.pointNormalsNxNyNz();
@@ -680,8 +540,7 @@ bool reconstructMeshPoisson(
 		return false;
 	}
 	std::vector<float> soup;
-	if (!pclalgo::reconstructPoisson(
-			xyz, normals, soup, spacingMm, smAngleDeg, smRadiusRel, smDistanceRel, errMsg))
+	if (!pclalgo::reconstructPoisson(xyz, normals, soup, spacingMm, smAngleDeg, smRadiusRel, smDistanceRel, errMsg))
 	{
 		return false;
 	}
@@ -689,11 +548,8 @@ bool reconstructMeshPoisson(
 	return true;
 }
 
-bool reconstructMeshFromPointCloudPoisson(
-	const PointCloudBackendData& pointCloud,
-	MeshBackendData& meshOut,
-	const double voxelPrefilterMm,
-	std::string* errMsg)
+bool reconstructMeshFromPointCloudPoisson(const PointCloudBackendData& pointCloud, MeshBackendData& meshOut,
+										  const double voxelPrefilterMm, std::string* errMsg)
 {
 	std::vector<float> xyz = pointCloud.pointPositionsXyz();
 	std::vector<float> soup;
@@ -705,12 +561,8 @@ bool reconstructMeshFromPointCloudPoisson(
 	return true;
 }
 
-bool reconstructMeshScaleSpace(
-	const PointCloudBackendData& pointCloud,
-	MeshBackendData& meshOut,
-	const std::size_t smoothIterations,
-	const double meshingRadiusMm,
-	std::string* errMsg)
+bool reconstructMeshScaleSpace(const PointCloudBackendData& pointCloud, MeshBackendData& meshOut,
+							   const std::size_t smoothIterations, const double meshingRadiusMm, std::string* errMsg)
 {
 	const std::vector<float>& xyz = pointCloud.pointPositionsXyz();
 	std::vector<float> soup;
@@ -722,11 +574,8 @@ bool reconstructMeshScaleSpace(
 	return true;
 }
 
-bool reconstructMeshFromPointCloudPoissonWithConfig(
-	const PointCloudBackendData& pointCloud,
-	MeshBackendData& meshOut,
-	const pclalgo::ReconstructionConfig& config,
-	std::string* errMsg)
+bool reconstructMeshFromPointCloudPoissonWithConfig(const PointCloudBackendData& pointCloud, MeshBackendData& meshOut,
+													const pclalgo::ReconstructionConfig& config, std::string* errMsg)
 {
 	std::vector<float> xyz = pointCloud.pointPositionsXyz();
 	std::vector<float> soup;
@@ -742,12 +591,8 @@ bool reconstructMeshFromPointCloudPoissonWithConfig(
 
 #if defined(_WIN64)
 
-bool simplifyMesh(
-	const std::vector<float>& soupIn,
-	std::vector<float>& soupOut,
-	int targetFaceCount,
-	double qualityThreshold,
-	std::string* errMsg)
+bool simplifyMesh(const std::vector<float>& soupIn, std::vector<float>& soupOut, int targetFaceCount,
+				  double qualityThreshold, std::string* errMsg)
 {
 	::vcgalgo::SimplifyParams params;
 	params.targetFaceCount = targetFaceCount;
@@ -757,21 +602,12 @@ bool simplifyMesh(
 	return ::vcgalgo::simplifyQuadricEdgeCollapse(soupIn, soupOut, params, errMsg);
 }
 
-bool smoothMesh(
-	const std::vector<float>& soupIn,
-	std::vector<float>& soupOut,
-	const MeshSmoothRequest& params,
-	MeshRepairStatistics* repairReport,
-	std::string* errMsg)
+bool smoothMesh(const std::vector<float>& soupIn, std::vector<float>& soupOut, const MeshSmoothRequest& params,
+				MeshRepairStatistics* repairReport, std::string* errMsg)
 {
 	::vcgalgo::RepairReport report;
 	::vcgalgo::RepairReport* reportPtr = repairReport != nullptr ? &report : nullptr;
-	const bool ok = ::vcgalgo::applyMeshSmooth(
-		soupIn,
-		soupOut,
-		toVcgalgoSmooth(params),
-		reportPtr,
-		errMsg);
+	const bool ok = ::vcgalgo::applyMeshSmooth(soupIn, soupOut, toVcgalgoSmooth(params), reportPtr, errMsg);
 	if (ok && repairReport != nullptr)
 	{
 		copyRepairStatistics(report, repairReport);
@@ -779,21 +615,12 @@ bool smoothMesh(
 	return ok;
 }
 
-bool repairMesh(
-	const std::vector<float>& soupIn,
-	std::vector<float>& soupOut,
-	const MeshRepairRequest& params,
-	MeshRepairStatistics* report,
-	std::string* errMsg)
+bool repairMesh(const std::vector<float>& soupIn, std::vector<float>& soupOut, const MeshRepairRequest& params,
+				MeshRepairStatistics* report, std::string* errMsg)
 {
 	::vcgalgo::RepairReport vcgalgoReport;
 	::vcgalgo::RepairReport* reportPtr = report != nullptr ? &vcgalgoReport : nullptr;
-	const bool ok = ::vcgalgo::repairMesh(
-		soupIn,
-		soupOut,
-		toVcgalgoRepair(params),
-		reportPtr,
-		errMsg);
+	const bool ok = ::vcgalgo::repairMesh(soupIn, soupOut, toVcgalgoRepair(params), reportPtr, errMsg);
 	if (ok && report != nullptr)
 	{
 		copyRepairStatistics(vcgalgoReport, report);
@@ -801,33 +628,18 @@ bool repairMesh(
 	return ok;
 }
 
-bool remeshMeshIsotropic(
-	const std::vector<float>& soupIn,
-	std::vector<float>& soupOut,
-	double targetEdgeLengthMm,
-	int iterations,
-	std::string* errMsg)
+bool remeshMeshIsotropic(const std::vector<float>& soupIn, std::vector<float>& soupOut, double targetEdgeLengthMm,
+						 int iterations, std::string* errMsg)
 {
 	return ::vcgalgo::isotropicRemesh(soupIn, targetEdgeLengthMm, soupOut, iterations, 30.0, errMsg);
 }
 
-bool analyzeMeshDefects(
-	const std::vector<float>& soupIn,
-	std::vector<int>& defectFaceIndices,
-	std::vector<float>& defectScores,
-	std::vector<int>& defectKinds,
-	int& outTotalFaces,
-	int& outDefectFaceCount,
-	double& outDefectAreaRatio,
-	int& outNeedleCount,
-	int& outProtrusionCount,
-	int& outBoundarySpikeCount,
-	const double sensitivity,
-	const int minClusterFaces,
-	const bool detectNeedle,
-	const bool detectProtrusion,
-	const bool detectBoundarySpike,
-	std::string* errMsg)
+bool analyzeMeshDefects(const std::vector<float>& soupIn, std::vector<int>& defectFaceIndices,
+						std::vector<float>& defectScores, std::vector<int>& defectKinds, int& outTotalFaces,
+						int& outDefectFaceCount, double& outDefectAreaRatio, int& outNeedleCount,
+						int& outProtrusionCount, int& outBoundarySpikeCount, const double sensitivity,
+						const int minClusterFaces, const bool detectNeedle, const bool detectProtrusion,
+						const bool detectBoundarySpike, std::string* errMsg)
 {
 	::vcgalgo::DefectDetectParams params;
 	params.sensitivity = sensitivity;
@@ -864,13 +676,9 @@ bool analyzeMeshDefects(
 	return true;
 }
 
-bool reconstructMeshFromPointCloudPoissonAndPostProcess(
-	const PointCloudBackendData& pointCloud,
-	MeshBackendData& meshOut,
-	int targetFaceCount,
-	bool doRepair,
-	bool doSmooth,
-	std::string* errMsg)
+bool reconstructMeshFromPointCloudPoissonAndPostProcess(const PointCloudBackendData& pointCloud,
+														MeshBackendData& meshOut, int targetFaceCount, bool doRepair,
+														bool doSmooth, std::string* errMsg)
 {
 	std::vector<float> xyz = pointCloud.pointPositionsXyz();
 	std::vector<float> rawSoup;
@@ -888,8 +696,7 @@ bool reconstructMeshFromPointCloudPoissonAndPostProcess(
 	}
 
 	std::vector<float> processed;
-	if (!::vcgalgo::postProcessReconstructedMesh(
-			rawSoup, processed, targetFaceCount, doRepair, doSmooth, errMsg))
+	if (!::vcgalgo::postProcessReconstructedMesh(rawSoup, processed, targetFaceCount, doRepair, doSmooth, errMsg))
 	{
 		return false;
 	}
@@ -899,12 +706,7 @@ bool reconstructMeshFromPointCloudPoissonAndPostProcess(
 
 #else
 
-bool simplifyMesh(
-	const std::vector<float>&,
-	std::vector<float>&,
-	int,
-	double,
-	std::string* errMsg)
+bool simplifyMesh(const std::vector<float>&, std::vector<float>&, int, double, std::string* errMsg)
 {
 	if (errMsg != nullptr)
 	{
@@ -913,12 +715,8 @@ bool simplifyMesh(
 	return false;
 }
 
-bool smoothMesh(
-	const std::vector<float>&,
-	std::vector<float>&,
-	const MeshSmoothRequest&,
-	MeshRepairStatistics*,
-	std::string* errMsg)
+bool smoothMesh(const std::vector<float>&, std::vector<float>&, const MeshSmoothRequest&, MeshRepairStatistics*,
+				std::string* errMsg)
 {
 	if (errMsg != nullptr)
 	{
@@ -927,12 +725,8 @@ bool smoothMesh(
 	return false;
 }
 
-bool repairMesh(
-	const std::vector<float>&,
-	std::vector<float>&,
-	const MeshRepairRequest&,
-	MeshRepairStatistics*,
-	std::string* errMsg)
+bool repairMesh(const std::vector<float>&, std::vector<float>&, const MeshRepairRequest&, MeshRepairStatistics*,
+				std::string* errMsg)
 {
 	if (errMsg != nullptr)
 	{
@@ -941,12 +735,7 @@ bool repairMesh(
 	return false;
 }
 
-bool remeshMeshIsotropic(
-	const std::vector<float>&,
-	std::vector<float>&,
-	double,
-	int,
-	std::string* errMsg)
+bool remeshMeshIsotropic(const std::vector<float>&, std::vector<float>&, double, int, std::string* errMsg)
 {
 	if (errMsg != nullptr)
 	{
@@ -955,13 +744,8 @@ bool remeshMeshIsotropic(
 	return false;
 }
 
-bool reconstructMeshFromPointCloudPoissonAndPostProcess(
-	const PointCloudBackendData&,
-	MeshBackendData&,
-	int,
-	bool,
-	bool,
-	std::string* errMsg)
+bool reconstructMeshFromPointCloudPoissonAndPostProcess(const PointCloudBackendData&, MeshBackendData&, int, bool, bool,
+														std::string* errMsg)
 {
 	if (errMsg != nullptr)
 	{
@@ -970,23 +754,8 @@ bool reconstructMeshFromPointCloudPoissonAndPostProcess(
 	return false;
 }
 
-bool analyzeMeshDefects(
-	const std::vector<float>&,
-	std::vector<int>&,
-	std::vector<float>&,
-	std::vector<int>&,
-	int&,
-	int&,
-	double&,
-	int&,
-	int&,
-	int&,
-	double,
-	int,
-	bool,
-	bool,
-	bool,
-	std::string* errMsg)
+bool analyzeMeshDefects(const std::vector<float>&, std::vector<int>&, std::vector<float>&, std::vector<int>&, int&,
+						int&, double&, int&, int&, int&, double, int, bool, bool, bool, std::string* errMsg)
 {
 	if (errMsg != nullptr)
 	{

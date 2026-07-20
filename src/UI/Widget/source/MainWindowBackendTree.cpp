@@ -1,34 +1,34 @@
-#include "MainWindow.h"
+﻿/// @file MainWindowBackendTree.cpp
+/// @brief MainWindowBackendTree 实现
 
 #include "../RobotWidget/inc/RobotSimulationController.h"
-
-#include <QAction>
-#include <QFileDialog>
-#include <QList>
-#include <QMenu>
-#include <QMessageBox>
-#include <QPoint>
-#include <QHash>
-#include <QStringList>
-#include <QTreeWidget>
-#include <QTreeWidgetItem>
-
 #include "BackendHierarchyModel.h"
 #include "CoreTypes.h"
 #include "DocumentPage.h"
 #include "DocumentPointCloudOps.h"
 #include "IDataService.h"
 #include "IRenderView.h"
-#include "MainWindow_p.h"
-#include "WidgetRenderAccess.h"
+#include "MainWindow.h"
 #include "MainWindowSelectionService.h"
+#include "MainWindow_p.h"
 #include "RunInfoPage.h"
+#include "WidgetRenderAccess.h"
+
+#include <QAction>
+#include <QFileDialog>
+#include <QHash>
+#include <QList>
+#include <QMenu>
+#include <QMessageBox>
+#include <QPoint>
+#include <QStringList>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
 
 using namespace mainwindow_detail;
 
 namespace
 {
-
 const QHash<QString, QString>& osgClassNameZhMap()
 {
 	static const QHash<QString, QString> map = {
@@ -124,7 +124,8 @@ QString translateOsgNodeName(const QString& name, bool useChinese)
 	{
 		return QStringLiteral("轴可视化_") + name.mid(12);
 	}
-	auto replaceSuffix = [&name](const QString& enSuffix, const QString& zhSuffix) -> QString {
+	auto replaceSuffix = [&name](const QString& enSuffix, const QString& zhSuffix) -> QString
+	{
 		if (name.endsWith(enSuffix))
 		{
 			return name.left(name.size() - enSuffix.size()) + zhSuffix;
@@ -222,8 +223,8 @@ void MainWindow::refreshBackendTree()
 
 	m_backendTreeItemsById.clear();
 	m_backendRootItem->takeChildren();
-	m_annotationRootItem = new QTreeWidgetItem(QStringList()
-		<< i18n(QStringLiteral("Annotations"), QStringLiteral("注释")));
+	m_annotationRootItem =
+		new QTreeWidgetItem(QStringList() << i18n(QStringLiteral("Annotations"), QStringLiteral("注释")));
 	m_backendRootItem->addChild(m_annotationRootItem);
 	m_annotationRootItem->setExpanded(true);
 	DocumentPage* doc = currentPage();
@@ -247,7 +248,7 @@ void MainWindow::refreshBackendTree()
 		child->setFlags(child->flags() | Qt::ItemIsUserCheckable);
 		child->setData(0, kRoleItemType, kItemTypeBackend);
 		child->setData(0, kRoleBackendId, id);
-		child->setCheckState(0, Qt::Checked);
+		child->setCheckState(0, dto.visible ? Qt::Checked : Qt::Unchecked);
 		idToItem.insert(id, child);
 		m_backendTreeItemsById.insert(id, child);
 	}
@@ -332,15 +333,15 @@ void MainWindow::refreshOsgSceneTree()
 	DocumentPage* page = currentPage();
 	if (!page)
 	{
-		m_osgSceneTree->addTopLevelItem(new QTreeWidgetItem(QStringList()
-			<< i18n(QStringLiteral("No scene"), QStringLiteral("无场景")) << QString()));
+		m_osgSceneTree->addTopLevelItem(new QTreeWidgetItem(
+			QStringList() << i18n(QStringLiteral("No scene"), QStringLiteral("无场景")) << QString()));
 		return;
 	}
 	const auto snapshot = page->render().sceneGraphSnapshot(256);
 	if (snapshot.className.isEmpty())
 	{
-		m_osgSceneTree->addTopLevelItem(new QTreeWidgetItem(QStringList()
-			<< i18n(QStringLiteral("No scene"), QStringLiteral("无场景")) << QString()));
+		m_osgSceneTree->addTopLevelItem(new QTreeWidgetItem(
+			QStringList() << i18n(QStringLiteral("No scene"), QStringLiteral("无场景")) << QString()));
 		return;
 	}
 	auto* rootItem = new QTreeWidgetItem(QStringList() << snapshot.name << snapshot.localMatrixSummary);
@@ -438,7 +439,8 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 	if (item == m_annotationRootItem)
 	{
 		QMenu menu(this);
-		QAction* clearAll = menu.addAction(i18n(QStringLiteral("Clear All Annotations"), QStringLiteral("清空全部注释")));
+		QAction* clearAll =
+			menu.addAction(i18n(QStringLiteral("Clear All Annotations"), QStringLiteral("清空全部注释")));
 		QAction* action = menu.exec(m_backendTree->viewport()->mapToGlobal(pos));
 		if (action == clearAll)
 		{
@@ -460,9 +462,8 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 			const QString backendId = item->data(0, kRoleBackendId).toString();
 			DocumentPage* doc = currentPage();
 			QMenu menu(this);
-			QAction* toggle = menu.addAction(visible
-				? i18n(QStringLiteral("Hide Object"), QStringLiteral("隐藏对象"))
-				: i18n(QStringLiteral("Show Object"), QStringLiteral("显示对象")));
+			QAction* toggle = menu.addAction(visible ? i18n(QStringLiteral("Hide Object"), QStringLiteral("隐藏对象"))
+													 : i18n(QStringLiteral("Show Object"), QStringLiteral("显示对象")));
 			QAction* focusView = menu.addAction(i18n(QStringLiteral("Focus View"), QStringLiteral("聚焦显示")));
 			QAction* exportObj = nullptr;
 			if (doc && doc->data().isValid(backendId))
@@ -472,13 +473,12 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 				{
 					if (dto.className == QStringLiteral("PointCloudBackendData"))
 					{
-						exportObj = menu.addAction(
-							i18n(QStringLiteral("Export Point Cloud…"), QStringLiteral("导出点云…")));
+						exportObj =
+							menu.addAction(i18n(QStringLiteral("Export Point Cloud…"), QStringLiteral("导出点云…")));
 					}
 					else if (dto.className == QStringLiteral("BrepModel"))
 					{
-						exportObj = menu.addAction(
-							i18n(QStringLiteral("Export STEP…"), QStringLiteral("导出 STEP…")));
+						exportObj = menu.addAction(i18n(QStringLiteral("Export STEP…"), QStringLiteral("导出 STEP…")));
 					}
 				}
 			}
@@ -499,13 +499,10 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 			else if (action == deleteObj)
 			{
 				const QMessageBox::StandardButton r = QMessageBox::question(
-					this,
-					i18n(QStringLiteral("Delete object"), QStringLiteral("删除对象")),
+					this, i18n(QStringLiteral("Delete object"), QStringLiteral("删除对象")),
 					i18n(QStringLiteral("Delete this object and all child parts? This cannot be undone."),
-						QStringLiteral(
-							"删除该对象及其子部件？此操作无法撤销。")),
-					QMessageBox::Yes | QMessageBox::No,
-					QMessageBox::No);
+						 QStringLiteral("删除该对象及其子部件？此操作无法撤销。")),
+					QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
 				if (r == QMessageBox::Yes)
 				{
 					removeBackendObjectFromDocument(backendId);
@@ -518,9 +515,8 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 	const bool visible = item->checkState(0) == Qt::Checked;
 
 	QMenu menu(this);
-	QAction* toggle = menu.addAction(visible
-		? i18n(QStringLiteral("Hide Annotation"), QStringLiteral("隐藏注释"))
-		: i18n(QStringLiteral("Show Annotation"), QStringLiteral("显示注释")));
+	QAction* toggle = menu.addAction(visible ? i18n(QStringLiteral("Hide Annotation"), QStringLiteral("隐藏注释"))
+											 : i18n(QStringLiteral("Show Annotation"), QStringLiteral("显示注释")));
 	QAction* remove = menu.addAction(i18n(QStringLiteral("Delete Annotation"), QStringLiteral("删除注释")));
 	QAction* action = menu.exec(m_backendTree->viewport()->mapToGlobal(pos));
 	if (!action)
@@ -566,8 +562,7 @@ void MainWindow::removeBackendObjectFromDocument(const QString& backendId)
 	{
 		doc->clearRobotSimulationIfContains(rid);
 	}
-	if (m_robotSimulation && m_robotSimulation->programExecutor().isRunning()
-		&& !doc->hasRobotSimulationContext())
+	if (m_robotSimulation && m_robotSimulation->programExecutor().isRunning() && !doc->hasRobotSimulationContext())
 	{
 		stopRobotSimulation();
 	}
@@ -576,7 +571,7 @@ void MainWindow::removeBackendObjectFromDocument(const QString& backendId)
 	{
 		m_runInfoPage->appendInfo(
 			i18n(QStringLiteral("Removed backend object(s): %1").arg(removed.join(QStringLiteral(", "))),
-				QStringLiteral("已删除后端对象: %1").arg(removed.join(QStringLiteral(", ")))));
+				 QStringLiteral("已删除后端对象: %1").arg(removed.join(QStringLiteral(", ")))));
 	}
 	refreshSimulationJointListFromCurrentDoc();
 }
@@ -605,18 +600,14 @@ void MainWindow::exportBackendObjectFromTree(const QString& backendId)
 	if (isPointCloud)
 	{
 		savePath = QFileDialog::getSaveFileName(
-			this,
-			i18n(QStringLiteral("Export Point Cloud"), QStringLiteral("导出点云")),
-			baseName + QStringLiteral(".ply"),
-			QStringLiteral("PLY Files (*.ply);;All Files (*.*)"));
+			this, i18n(QStringLiteral("Export Point Cloud"), QStringLiteral("导出点云")),
+			baseName + QStringLiteral(".ply"), QStringLiteral("PLY Files (*.ply);;All Files (*.*)"));
 	}
 	else
 	{
-		savePath = QFileDialog::getSaveFileName(
-			this,
-			i18n(QStringLiteral("Export STEP"), QStringLiteral("导出 STEP")),
-			baseName + QStringLiteral(".step"),
-			QStringLiteral("STEP Files (*.step *.stp);;All Files (*.*)"));
+		savePath = QFileDialog::getSaveFileName(this, i18n(QStringLiteral("Export STEP"), QStringLiteral("导出 STEP")),
+												baseName + QStringLiteral(".step"),
+												QStringLiteral("STEP Files (*.step *.stp);;All Files (*.*)"));
 	}
 	if (savePath.isEmpty())
 	{
@@ -626,9 +617,8 @@ void MainWindow::exportBackendObjectFromTree(const QString& backendId)
 	const std::string idUtf8 = backendId.toUtf8().constData();
 	const std::string pathUtf8 = savePath.toUtf8().constData();
 	std::string err;
-	const bool ok = isPointCloud
-		? document_point_cloud_ops::exportPointCloudToPly(doc, idUtf8, pathUtf8, &err)
-		: document_point_cloud_ops::exportBrepToStep(doc, idUtf8, pathUtf8, &err);
+	const bool ok = isPointCloud ? document_point_cloud_ops::exportPointCloudToPly(doc, idUtf8, pathUtf8, &err)
+								 : document_point_cloud_ops::exportBrepToStep(doc, idUtf8, pathUtf8, &err);
 	if (!m_runInfoPage)
 	{
 		return;
@@ -636,14 +626,12 @@ void MainWindow::exportBackendObjectFromTree(const QString& backendId)
 	if (ok)
 	{
 		m_runInfoPage->appendInfo(
-			i18n(QStringLiteral("Exported to %1").arg(savePath),
-				QStringLiteral("已导出到 %1").arg(savePath)));
+			i18n(QStringLiteral("Exported to %1").arg(savePath), QStringLiteral("已导出到 %1").arg(savePath)));
 	}
 	else
 	{
 		const QString errQs = err.empty() ? QStringLiteral("unknown error") : QString::fromStdString(err);
 		m_runInfoPage->appendWarning(
-			i18n(QStringLiteral("Export failed: %1").arg(errQs),
-				QStringLiteral("导出失败: %1").arg(errQs)));
+			i18n(QStringLiteral("Export failed: %1").arg(errQs), QStringLiteral("导出失败: %1").arg(errQs)));
 	}
 }

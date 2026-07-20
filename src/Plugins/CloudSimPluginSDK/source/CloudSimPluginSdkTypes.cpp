@@ -1,3 +1,6 @@
+﻿/// @file CloudSimPluginSdkTypes.cpp
+/// @brief CloudSimPluginSdkTypes 实现
+
 #include "PluginPrimitiveTypes.h"
 
 PluginPrimitiveMeshParams::PluginPrimitiveMeshParams() = default;

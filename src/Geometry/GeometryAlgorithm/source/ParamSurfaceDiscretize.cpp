@@ -1,9 +1,18 @@
+﻿/// @file ParamSurfaceDiscretize.cpp
+/// @brief ParamSurfaceDiscretize 实现
+
 #include "detail/ParamSurfaceDiscretize.h"
 
 #include "FeatureDiscretizeParamUtils.h"
+#include "ShapeQuery.h"
 #include "detail/FeatureDiscretizeFrame.h"
 #include "detail/OccIncludes.h"
-#include "ShapeQuery.h"
+
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <string>
+#include <vector>
 
 #include <BRepClass_FaceClassifier.hxx>
 #include <BRepGProp.hxx>
@@ -14,17 +23,10 @@
 #include <gp_Pnt2d.hxx>
 #include <gp_Vec2d.hxx>
 
-#include <algorithm>
-#include <cmath>
-#include <limits>
-#include <string>
-#include <vector>
-
 namespace geoalgo
 {
 namespace
 {
-
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kSeamTol = Precision::Confusion() * 100.0;
 constexpr int kUvArcLengthSampleSegments = 64;
@@ -193,14 +195,13 @@ bool MergeSelectedFaces(const std::vector<TopoDS_Face>& faces, TopoDS_Shape& out
 	return true;
 }
 
-Handle(Geom_Surface) UnwrapBasisSurface(const Handle(Geom_Surface)& surf)
+Handle(Geom_Surface) UnwrapBasisSurface(const Handle(Geom_Surface) & surf)
 {
 	if (surf.IsNull())
 	{
 		return surf;
 	}
-	const Handle(Geom_RectangularTrimmedSurface) trimmed =
-		Handle(Geom_RectangularTrimmedSurface)::DownCast(surf);
+	const Handle(Geom_RectangularTrimmedSurface) trimmed = Handle(Geom_RectangularTrimmedSurface)::DownCast(surf);
 	if (!trimmed.IsNull())
 	{
 		return trimmed->BasisSurface();
@@ -208,7 +209,7 @@ Handle(Geom_Surface) UnwrapBasisSurface(const Handle(Geom_Surface)& surf)
 	return surf;
 }
 
-bool SharesUnderlyingSurface(const Handle(Geom_Surface)& a, const Handle(Geom_Surface)& b)
+bool SharesUnderlyingSurface(const Handle(Geom_Surface) & a, const Handle(Geom_Surface) & b)
 {
 	if (a.IsNull() || b.IsNull())
 	{
@@ -243,12 +244,7 @@ bool AllFacesShareBasisSurface(const std::vector<TopoDS_Face>& faces, const Topo
 	return true;
 }
 
-void FoldPeriodicCoordIntoFaceInterval(
-	Standard_Real& coord,
-	double lo,
-	double hi,
-	bool isPeriodic,
-	double period)
+void FoldPeriodicCoordIntoFaceInterval(Standard_Real& coord, double lo, double hi, bool isPeriodic, double period)
 {
 	if (!isPeriodic || !std::isfinite(period) || period <= Precision::Confusion())
 	{
@@ -316,11 +312,8 @@ bool ClassifyUVOnFace(const TopoDS_Face& face, Standard_Real u, Standard_Real v)
 	return state == TopAbs_IN || state == TopAbs_ON;
 }
 
-void ExpandPeriodicUBoundsIfTiled(
-	const TopoDS_Face& refFace,
-	const std::vector<TopoDS_Face>& faces,
-	double& uMin,
-	double& uMax)
+void ExpandPeriodicUBoundsIfTiled(const TopoDS_Face& refFace, const std::vector<TopoDS_Face>& faces, double& uMin,
+								  double& uMax)
 {
 	// 多片域 UV 并集已跨 seam，禁止拉满整周期
 	if (faces.size() > 1 || refFace.IsNull())
@@ -348,21 +341,15 @@ void ExpandPeriodicUBoundsIfTiled(
 		BRepTools::UVBounds(face, u1, u2, v1, v2);
 		totalUSpan += (u2 - u1);
 	}
-	if (totalUSpan + Precision::Confusion() >= period * 0.95
-		&& (uMax - uMin) + Precision::Confusion() < period * 0.95)
+	if (totalUSpan + Precision::Confusion() >= period * 0.95 && (uMax - uMin) + Precision::Confusion() < period * 0.95)
 	{
 		uMax = uMin + period;
 	}
 }
 
-bool ComputeCombinedUVBounds(
-	const TopoDS_Face& refFace,
-	const Handle(Geom_Surface)& geomSurf,
-	const std::vector<TopoDS_Face>& faces,
-	double& uMin,
-	double& uMax,
-	double& vMin,
-	double& vMax)
+bool ComputeCombinedUVBounds(const TopoDS_Face& refFace, const Handle(Geom_Surface) & geomSurf,
+							 const std::vector<TopoDS_Face>& faces, double& uMin, double& uMax, double& vMin,
+							 double& vMax)
 {
 	if (faces.empty() || geomSurf.IsNull())
 	{
@@ -493,13 +480,9 @@ bool GetBestFaceNormalAtPoint(const std::vector<TopoDS_Face>& faces, const gp_Pn
 	return SnapPointToDomainFaces(faces, pt, outNormal);
 }
 
-bool IsPointInDomainFacesUV(
-	const std::vector<TopoDS_Face>& domainFaces,
-	const TopoDS_Face& refFace,
-	const Handle(Geom_Surface)& refGeomSurf,
-	const TopLoc_Location& refFaceLoc,
-	Standard_Real u,
-	Standard_Real v)
+bool IsPointInDomainFacesUV(const std::vector<TopoDS_Face>& domainFaces, const TopoDS_Face& refFace,
+							const Handle(Geom_Surface) & refGeomSurf, const TopLoc_Location& refFaceLoc,
+							Standard_Real u, Standard_Real v)
 {
 	if (domainFaces.empty() || refGeomSurf.IsNull())
 	{
@@ -599,15 +582,8 @@ double NormalizeAlphaRad(double alphaRad)
 	return alphaRad;
 }
 
-void CalculateUVScanFrame(
-	double uMin,
-	double uMax,
-	double vMin,
-	double vMax,
-	double alphaRad,
-	gp_Pnt2d& startUV,
-	gp_Vec2d& dir1UV,
-	gp_Vec2d& dir2UV)
+void CalculateUVScanFrame(double uMin, double uMax, double vMin, double vMax, double alphaRad, gp_Pnt2d& startUV,
+						  gp_Vec2d& dir1UV, gp_Vec2d& dir2UV)
 {
 	const double alpha = NormalizeAlphaRad(alphaRad);
 	const double uLength = uMax - uMin;
@@ -662,12 +638,8 @@ void CalculateUVScanFrame(
 	}
 }
 
-gp_Pnt EvalSurfacePoint(
-	const Handle(Geom_Surface)& geomSurf,
-	const gp_Trsf& toGlobal,
-	bool applyTransform,
-	double u,
-	double v)
+gp_Pnt EvalSurfacePoint(const Handle(Geom_Surface) & geomSurf, const gp_Trsf& toGlobal, bool applyTransform, double u,
+						double v)
 {
 	gp_Pnt p = geomSurf->Value(u, v);
 	if (applyTransform)
@@ -684,16 +656,9 @@ struct UvArcLengthProfile
 	double totalLength = 0.0;
 };
 
-bool BuildUvArcLengthProfile(
-	const Handle(Geom_Surface)& geomSurf,
-	const gp_Trsf& toGlobal,
-	bool applyTransform,
-	const gp_Pnt2d& rowStart,
-	const gp_Vec2d& dirUV,
-	double fracStart,
-	double fracEnd,
-	int sampleSegments,
-	UvArcLengthProfile& outProfile)
+bool BuildUvArcLengthProfile(const Handle(Geom_Surface) & geomSurf, const gp_Trsf& toGlobal, bool applyTransform,
+							 const gp_Pnt2d& rowStart, const gp_Vec2d& dirUV, double fracStart, double fracEnd,
+							 int sampleSegments, UvArcLengthProfile& outProfile)
 {
 	outProfile = UvArcLengthProfile();
 	if (geomSurf.IsNull() || dirUV.Magnitude() <= Precision::Confusion())
@@ -771,32 +736,21 @@ double InterpolateFracAtArcLength(const UvArcLengthProfile& profile, double targ
 	return frac0 + t * (frac1 - frac0);
 }
 
-int ComputeScanRowCount(
-	const Handle(Geom_Surface)& geomSurf,
-	const gp_Trsf& toGlobal,
-	const gp_Pnt2d& startUV,
-	const gp_Vec2d& dir2UV,
-	double rowSpacing,
-	bool applyTransform)
+int ComputeScanRowCount(const Handle(Geom_Surface) & geomSurf, const gp_Trsf& toGlobal, const gp_Pnt2d& startUV,
+						const gp_Vec2d& dir2UV, double rowSpacing, bool applyTransform)
 {
 	UvArcLengthProfile profile;
-	if (!BuildUvArcLengthProfile(geomSurf, toGlobal, applyTransform, startUV, dir2UV,
-			0.0, 1.0, kUvArcLengthSampleSegments, profile))
+	if (!BuildUvArcLengthProfile(geomSurf, toGlobal, applyTransform, startUV, dir2UV, 0.0, 1.0,
+								 kUvArcLengthSampleSegments, profile))
 	{
 		return 2;
 	}
 	return std::max(2, static_cast<int>(std::ceil(profile.totalLength / rowSpacing)) + 1);
 }
 
-int ComputeUniformSampleCount3D(
-	const Handle(Geom_Surface)& geomSurf,
-	const gp_Trsf& toGlobal,
-	bool applyTransform,
-	const gp_Pnt2d& rowStart,
-	const gp_Vec2d& dir1UV,
-	double fracStart,
-	double fracEnd,
-	double colSpacing)
+int ComputeUniformSampleCount3D(const Handle(Geom_Surface) & geomSurf, const gp_Trsf& toGlobal, bool applyTransform,
+								const gp_Pnt2d& rowStart, const gp_Vec2d& dir1UV, double fracStart, double fracEnd,
+								double colSpacing)
 {
 	if (geomSurf.IsNull() || colSpacing <= Precision::Confusion())
 	{
@@ -807,8 +761,8 @@ int ComputeUniformSampleCount3D(
 		return 2;
 	}
 	UvArcLengthProfile profile;
-	if (!BuildUvArcLengthProfile(geomSurf, toGlobal, applyTransform, rowStart, dir1UV,
-			fracStart, fracEnd, kUvArcLengthSampleSegments, profile))
+	if (!BuildUvArcLengthProfile(geomSurf, toGlobal, applyTransform, rowStart, dir1UV, fracStart, fracEnd,
+								 kUvArcLengthSampleSegments, profile))
 	{
 		return 2;
 	}
@@ -828,16 +782,9 @@ double PointLineDeflection(const gp_Pnt& a, const gp_Pnt& b, const gp_Pnt& p)
 	return p.Distance(proj);
 }
 
-bool DiscretizeRowUniformUV(
-	const Handle(Geom_Surface)& geomSurf,
-	const gp_Trsf& toGlobal,
-	bool applyTransform,
-	const gp_Pnt2d& rowStart,
-	const gp_Vec2d& dir1UV,
-	double fracStart,
-	double fracEnd,
-	double colSpacing,
-	std::vector<std::pair<double, gp_Pnt>>& outSamples)
+bool DiscretizeRowUniformUV(const Handle(Geom_Surface) & geomSurf, const gp_Trsf& toGlobal, bool applyTransform,
+							const gp_Pnt2d& rowStart, const gp_Vec2d& dir1UV, double fracStart, double fracEnd,
+							double colSpacing, std::vector<std::pair<double, gp_Pnt>>& outSamples)
 {
 	if (geomSurf.IsNull() || dir1UV.Magnitude() <= Precision::Confusion())
 	{
@@ -848,13 +795,12 @@ bool DiscretizeRowUniformUV(
 		return false;
 	}
 	UvArcLengthProfile profile;
-	if (!BuildUvArcLengthProfile(geomSurf, toGlobal, applyTransform, rowStart, dir1UV,
-			fracStart, fracEnd, kUvArcLengthSampleSegments, profile))
+	if (!BuildUvArcLengthProfile(geomSurf, toGlobal, applyTransform, rowStart, dir1UV, fracStart, fracEnd,
+								 kUvArcLengthSampleSegments, profile))
 	{
 		return false;
 	}
-	const int pointCount = std::max(2,
-		static_cast<int>(std::ceil(profile.totalLength / colSpacing)) + 1);
+	const int pointCount = std::max(2, static_cast<int>(std::ceil(profile.totalLength / colSpacing)) + 1);
 	int segmentCount = pointCount - 1;
 	if (segmentCount < 1)
 	{
@@ -867,22 +813,14 @@ bool DiscretizeRowUniformUV(
 		const double t01 = static_cast<double>(i) / segmentCount;
 		const double frac = InterpolateFracAtArcLength(profile, profile.totalLength * t01);
 		const gp_Pnt2d uv = InterpolateRowUV(rowStart, dir1UV, frac);
-		outSamples.emplace_back(frac,
-			EvalSurfacePoint(geomSurf, toGlobal, applyTransform, uv.X(), uv.Y()));
+		outSamples.emplace_back(frac, EvalSurfacePoint(geomSurf, toGlobal, applyTransform, uv.X(), uv.Y()));
 	}
 	return outSamples.size() >= 2;
 }
 
-bool DiscretizeRowChordHeightUV(
-	const Handle(Geom_Surface)& geomSurf,
-	const gp_Trsf& toGlobal,
-	bool applyTransform,
-	const gp_Pnt2d& rowStart,
-	const gp_Vec2d& dir1UV,
-	double fracStart,
-	double fracEnd,
-	double chordHeight,
-	std::vector<std::pair<double, gp_Pnt>>& outSamples)
+bool DiscretizeRowChordHeightUV(const Handle(Geom_Surface) & geomSurf, const gp_Trsf& toGlobal, bool applyTransform,
+								const gp_Pnt2d& rowStart, const gp_Vec2d& dir1UV, double fracStart, double fracEnd,
+								double chordHeight, std::vector<std::pair<double, gp_Pnt>>& outSamples)
 {
 	if (geomSurf.IsNull() || chordHeight <= 0.0 || dir1UV.Magnitude() <= Precision::Confusion())
 	{
@@ -896,10 +834,8 @@ bool DiscretizeRowChordHeightUV(
 	outSamples.clear();
 	const gp_Pnt2d uvLo = InterpolateRowUV(rowStart, dir1UV, fracStart);
 	const gp_Pnt2d uvHi = InterpolateRowUV(rowStart, dir1UV, fracEnd);
-	outSamples.emplace_back(fracStart,
-		EvalSurfacePoint(geomSurf, toGlobal, applyTransform, uvLo.X(), uvLo.Y()));
-	outSamples.emplace_back(fracEnd,
-		EvalSurfacePoint(geomSurf, toGlobal, applyTransform, uvHi.X(), uvHi.Y()));
+	outSamples.emplace_back(fracStart, EvalSurfacePoint(geomSurf, toGlobal, applyTransform, uvLo.X(), uvLo.Y()));
+	outSamples.emplace_back(fracEnd, EvalSurfacePoint(geomSurf, toGlobal, applyTransform, uvHi.X(), uvHi.Y()));
 
 	bool subdivided = true;
 	const int maxSubdiv = 4096;
@@ -926,13 +862,8 @@ bool DiscretizeRowChordHeightUV(
 	return outSamples.size() >= 2;
 }
 
-bool GetFaceNormalAtRefUV(
-	const TopoDS_Face& face,
-	const Handle(Geom_Surface)& refGeomSurf,
-	const TopLoc_Location& refFaceLoc,
-	Standard_Real u,
-	Standard_Real v,
-	gp_Vec& outNormal)
+bool GetFaceNormalAtRefUV(const TopoDS_Face& face, const Handle(Geom_Surface) & refGeomSurf,
+						  const TopLoc_Location& refFaceLoc, Standard_Real u, Standard_Real v, gp_Vec& outNormal)
 {
 	TopLoc_Location faceLoc;
 	const Handle(Geom_Surface) faceSurf = BRep_Tool::Surface(face, faceLoc);
@@ -993,12 +924,8 @@ bool IsPointOnMergedDomain(const std::vector<TopoDS_Face>& domainFaces, const gp
 	return GetBestFaceNormalAtPoint(domainFaces, ptWorld, dummy);
 }
 
-bool computeScanTangentAtUv(
-	const TopoDS_Face& refFace,
-	Standard_Real u,
-	Standard_Real v,
-	const gp_Vec2d& travelDirUV,
-	gp_Vec& outTangent)
+bool computeScanTangentAtUv(const TopoDS_Face& refFace, Standard_Real u, Standard_Real v, const gp_Vec2d& travelDirUV,
+							gp_Vec& outTangent)
 {
 	gp_Vec2d dir = travelDirUV;
 	if (dir.Magnitude() <= Precision::Confusion())
@@ -1021,16 +948,10 @@ bool computeScanTangentAtUv(
 	return true;
 }
 
-bool BuildScanPointFromSample(
-	const std::vector<TopoDS_Face>& domainFaces,
-	const TopoDS_Face& refFace,
-	const Handle(Geom_Surface)& refGeomSurf,
-	const TopLoc_Location& refFaceLoc,
-	const gp_Pnt& p,
-	Standard_Real u,
-	Standard_Real v,
-	const gp_Vec2d* travelDirUV,
-	ScanPoint& out)
+bool BuildScanPointFromSample(const std::vector<TopoDS_Face>& domainFaces, const TopoDS_Face& refFace,
+							  const Handle(Geom_Surface) & refGeomSurf, const TopLoc_Location& refFaceLoc,
+							  const gp_Pnt& p, Standard_Real u, Standard_Real v, const gp_Vec2d* travelDirUV,
+							  ScanPoint& out)
 {
 	gp_Vec nVec;
 	bool gotNormal = GetBestFaceNormalAtPoint(domainFaces, p, nVec);
@@ -1068,18 +989,10 @@ bool BuildScanPointFromSample(
 	return true;
 }
 
-bool TryAcceptParamSurfaceSample(
-	const std::vector<TopoDS_Face>& domainFaces,
-	const TopoDS_Face& refFace,
-	const Handle(Geom_Surface)& refGeomSurf,
-	const TopLoc_Location& refFaceLoc,
-	const gp_Pnt& p,
-	Standard_Real u,
-	Standard_Real v,
-	bool checkDomain,
-	const gp_Vec2d* travelDirUV,
-	ScanPoint& out,
-	SampleRejectReason* rejectReason)
+bool TryAcceptParamSurfaceSample(const std::vector<TopoDS_Face>& domainFaces, const TopoDS_Face& refFace,
+								 const Handle(Geom_Surface) & refGeomSurf, const TopLoc_Location& refFaceLoc,
+								 const gp_Pnt& p, Standard_Real u, Standard_Real v, bool checkDomain,
+								 const gp_Vec2d* travelDirUV, ScanPoint& out, SampleRejectReason* rejectReason)
 {
 	if (checkDomain)
 	{
@@ -1097,16 +1010,7 @@ bool TryAcceptParamSurfaceSample(
 			return false;
 		}
 	}
-	if (!BuildScanPointFromSample(
-			domainFaces,
-			refFace,
-			refGeomSurf,
-			refFaceLoc,
-			p,
-			u,
-			v,
-			travelDirUV,
-			out))
+	if (!BuildScanPointFromSample(domainFaces, refFace, refGeomSurf, refFaceLoc, p, u, v, travelDirUV, out))
 	{
 		if (rejectReason)
 		{
@@ -1129,17 +1033,10 @@ bool TryAcceptParamSurfaceSample(
 	return true;
 }
 
-void CollectRowValidFracIntervals(
-	const std::vector<TopoDS_Face>& domainFaces,
-	const TopoDS_Face& refFace,
-	const Handle(Geom_Surface)& refGeomSurf,
-	const TopLoc_Location& refFaceLoc,
-	const gp_Pnt2d& rowStart,
-	const gp_Vec2d& dir1UV,
-	double fracStart,
-	double fracEnd,
-	int probeCount,
-	std::vector<FracInterval>& outIntervals)
+void CollectRowValidFracIntervals(const std::vector<TopoDS_Face>& domainFaces, const TopoDS_Face& refFace,
+								  const Handle(Geom_Surface) & refGeomSurf, const TopLoc_Location& refFaceLoc,
+								  const gp_Pnt2d& rowStart, const gp_Vec2d& dir1UV, double fracStart, double fracEnd,
+								  int probeCount, std::vector<FracInterval>& outIntervals)
 {
 	outIntervals.clear();
 	if (probeCount < 8)
@@ -1157,8 +1054,8 @@ void CollectRowValidFracIntervals(
 	{
 		const double frac = fracStart + (static_cast<double>(i) / probeCount) * span;
 		const gp_Pnt2d uv = InterpolateRowUV(rowStart, dir1UV, frac);
-		inside[static_cast<size_t>(i)] = IsPointInDomainFacesUV(domainFaces, refFace, refGeomSurf,
-			refFaceLoc, uv.X(), uv.Y());
+		inside[static_cast<size_t>(i)] =
+			IsPointInDomainFacesUV(domainFaces, refFace, refGeomSurf, refFaceLoc, uv.X(), uv.Y());
 	}
 
 	int i = 0;
@@ -1217,11 +1114,7 @@ bool appendPointDedup(RawPath& path, const ScanPoint& sp, double seamTol)
 	return true;
 }
 
-size_t AppendPathRowToRawPath(
-	RawPath& path,
-	const std::vector<ScanPoint>& row,
-	bool reverse,
-	double seamTol)
+size_t AppendPathRowToRawPath(RawPath& path, const std::vector<ScanPoint>& row, bool reverse, double seamTol)
 {
 	size_t appended = 0;
 	if (reverse)
@@ -1252,10 +1145,7 @@ size_t AppendPathRowToRawPath(
 	return appended;
 }
 
-bool TrimStitchedRowByTrackPercent(
-	std::vector<ScanPoint>& row,
-	double trackStartPct,
-	double trackEndPct)
+bool TrimStitchedRowByTrackPercent(std::vector<ScanPoint>& row, double trackStartPct, double trackEndPct)
 {
 	if (row.size() < 2 || (trackStartPct <= 0.0 && trackEndPct >= 100.0))
 	{
@@ -1307,19 +1197,10 @@ bool TrimStitchedRowByTrackPercent(
 	return row.size() >= 2;
 }
 
-size_t DiscretizeOnParamFace(
-	const TopoDS_Face& refFace,
-	const std::vector<TopoDS_Face>& domainFaces,
-	bool useUniform,
-	double colSpacing,
-	double chordHeight,
-	double rowSpacing,
-	bool serpentine,
-	double dirAlphaRad,
-	double trackStartPct,
-	double trackEndPct,
-	bool& reverseRow,
-	RawPath& path)
+size_t DiscretizeOnParamFace(const TopoDS_Face& refFace, const std::vector<TopoDS_Face>& domainFaces, bool useUniform,
+							 double colSpacing, double chordHeight, double rowSpacing, bool serpentine,
+							 double dirAlphaRad, double trackStartPct, double trackEndPct, bool& reverseRow,
+							 RawPath& path)
 {
 	double uMin = 0.0;
 	double uMax = 0.0;
@@ -1349,14 +1230,12 @@ size_t DiscretizeOnParamFace(
 	const gp_Trsf& surfToGlobal = faceLoc.Transformation();
 	const bool applyTransform = !faceLoc.IsIdentity();
 	const int rowCount = ComputeScanRowCount(geomSurf, surfToGlobal, startUV, dir2UV, rowSpacing, applyTransform);
-	const gp_Vec2d deltaDir2 = (rowCount > 1)
-		? gp_Vec2d(dir2UV.X() / (rowCount - 1), dir2UV.Y() / (rowCount - 1))
-		: gp_Vec2d(0.0, 0.0);
+	const gp_Vec2d deltaDir2 =
+		(rowCount > 1) ? gp_Vec2d(dir2UV.X() / (rowCount - 1), dir2UV.Y() / (rowCount - 1)) : gp_Vec2d(0.0, 0.0);
 
-	const int probeCount = std::max(32,
-		ComputeUniformSampleCount3D(geomSurf, surfToGlobal, applyTransform, startUV, dir1UV,
-			fracStart, fracEnd, colSpacing)
-			* 4);
+	const int probeCount = std::max(32, ComputeUniformSampleCount3D(geomSurf, surfToGlobal, applyTransform, startUV,
+																	dir1UV, fracStart, fracEnd, colSpacing) *
+											4);
 	size_t pointCount = 0;
 
 	for (int row = 0; row < rowCount; ++row)
@@ -1367,8 +1246,8 @@ size_t DiscretizeOnParamFace(
 		if (useMultiDomainRows)
 		{
 			std::vector<FracInterval> intervals;
-			CollectRowValidFracIntervals(domainFaces, refFace, geomSurf, faceLoc,
-				rowStart, dir1UV, fracStart, fracEnd, probeCount, intervals);
+			CollectRowValidFracIntervals(domainFaces, refFace, geomSurf, faceLoc, rowStart, dir1UV, fracStart, fracEnd,
+										 probeCount, intervals);
 			if (intervals.empty())
 			{
 				continue;
@@ -1378,10 +1257,10 @@ size_t DiscretizeOnParamFace(
 			{
 				std::vector<std::pair<double, gp_Pnt>> samples;
 				const bool ok = useUniform
-					? DiscretizeRowUniformUV(geomSurf, surfToGlobal, applyTransform,
-						rowStart, dir1UV, iv.lo, iv.hi, colSpacing, samples)
-					: DiscretizeRowChordHeightUV(geomSurf, surfToGlobal, applyTransform,
-						rowStart, dir1UV, iv.lo, iv.hi, chordHeight, samples);
+									? DiscretizeRowUniformUV(geomSurf, surfToGlobal, applyTransform, rowStart, dir1UV,
+															 iv.lo, iv.hi, colSpacing, samples)
+									: DiscretizeRowChordHeightUV(geomSurf, surfToGlobal, applyTransform, rowStart,
+																 dir1UV, iv.lo, iv.hi, chordHeight, samples);
 				if (!ok || samples.empty())
 				{
 					continue;
@@ -1390,13 +1269,12 @@ size_t DiscretizeOnParamFace(
 				{
 					const gp_Pnt2d uvPt = InterpolateRowUV(rowStart, dir1UV, sample.first);
 					ScanPoint sp;
-					if (!TryAcceptParamSurfaceSample(domainFaces, refFace, geomSurf, faceLoc,
-							sample.second, uvPt.X(), uvPt.Y(), false, &dir1UV, sp, nullptr))
+					if (!TryAcceptParamSurfaceSample(domainFaces, refFace, geomSurf, faceLoc, sample.second, uvPt.X(),
+													 uvPt.Y(), false, &dir1UV, sp, nullptr))
 					{
 						continue;
 					}
-					if (!rowPoints.empty()
-						&& pointDist(sp.position, rowPoints.back().position) <= seamTol)
+					if (!rowPoints.empty() && pointDist(sp.position, rowPoints.back().position) <= seamTol)
 					{
 						continue;
 					}
@@ -1407,11 +1285,10 @@ size_t DiscretizeOnParamFace(
 		else
 		{
 			std::vector<std::pair<double, gp_Pnt>> samples;
-			const bool ok = useUniform
-				? DiscretizeRowUniformUV(geomSurf, surfToGlobal, applyTransform,
-					rowStart, dir1UV, fracStart, fracEnd, colSpacing, samples)
-				: DiscretizeRowChordHeightUV(geomSurf, surfToGlobal, applyTransform,
-					rowStart, dir1UV, fracStart, fracEnd, chordHeight, samples);
+			const bool ok = useUniform ? DiscretizeRowUniformUV(geomSurf, surfToGlobal, applyTransform, rowStart,
+																dir1UV, fracStart, fracEnd, colSpacing, samples)
+									   : DiscretizeRowChordHeightUV(geomSurf, surfToGlobal, applyTransform, rowStart,
+																	dir1UV, fracStart, fracEnd, chordHeight, samples);
 			if (!ok || samples.empty())
 			{
 				continue;
@@ -1421,8 +1298,8 @@ size_t DiscretizeOnParamFace(
 			{
 				const gp_Pnt2d uvPt = InterpolateRowUV(rowStart, dir1UV, sample.first);
 				ScanPoint sp;
-				if (!TryAcceptParamSurfaceSample(domainFaces, refFace, geomSurf, faceLoc,
-						sample.second, uvPt.X(), uvPt.Y(), true, &dir1UV, sp, nullptr))
+				if (!TryAcceptParamSurfaceSample(domainFaces, refFace, geomSurf, faceLoc, sample.second, uvPt.X(),
+												 uvPt.Y(), true, &dir1UV, sp, nullptr))
 				{
 					continue;
 				}
@@ -1458,18 +1335,9 @@ size_t DiscretizeOnParamFace(
 	return pointCount;
 }
 
-bool DiscretizeSingleFaceToGrid(
-	const TopoDS_Face& face,
-	bool useUniform,
-	double colSpacing,
-	double chordHeight,
-	double rowSpacing,
-	double dirAlphaRad,
-	double trackStartPct,
-	double trackEndPct,
-	FaceRowGrid& outGrid,
-	RowFracList& outFracs,
-	FaceGridScanFrame& outFrame)
+bool DiscretizeSingleFaceToGrid(const TopoDS_Face& face, bool useUniform, double colSpacing, double chordHeight,
+								double rowSpacing, double dirAlphaRad, double trackStartPct, double trackEndPct,
+								FaceRowGrid& outGrid, RowFracList& outFracs, FaceGridScanFrame& outFrame)
 {
 	outGrid.clear();
 	outFracs.clear();
@@ -1506,9 +1374,8 @@ bool DiscretizeSingleFaceToGrid(
 		return false;
 	}
 
-	const gp_Vec2d deltaDir2 = (rowCount > 1)
-		? gp_Vec2d(dir2UV.X() / (rowCount - 1), dir2UV.Y() / (rowCount - 1))
-		: gp_Vec2d(0.0, 0.0);
+	const gp_Vec2d deltaDir2 =
+		(rowCount > 1) ? gp_Vec2d(dir2UV.X() / (rowCount - 1), dir2UV.Y() / (rowCount - 1)) : gp_Vec2d(0.0, 0.0);
 
 	outGrid.assign(static_cast<size_t>(rowCount), {});
 	outFracs.assign(static_cast<size_t>(rowCount), {});
@@ -1517,11 +1384,10 @@ bool DiscretizeSingleFaceToGrid(
 	{
 		const gp_Pnt2d rowStart = startUV.Translated(deltaDir2.Scaled(static_cast<double>(row)));
 		std::vector<std::pair<double, gp_Pnt>> samples;
-		const bool ok = useUniform
-			? DiscretizeRowUniformUV(geomSurf, surfToGlobal, applyTransform,
-				rowStart, dir1UV, fracStart, fracEnd, colSpacing, samples)
-			: DiscretizeRowChordHeightUV(geomSurf, surfToGlobal, applyTransform,
-				rowStart, dir1UV, fracStart, fracEnd, chordHeight, samples);
+		const bool ok = useUniform ? DiscretizeRowUniformUV(geomSurf, surfToGlobal, applyTransform, rowStart, dir1UV,
+															fracStart, fracEnd, colSpacing, samples)
+								   : DiscretizeRowChordHeightUV(geomSurf, surfToGlobal, applyTransform, rowStart,
+																dir1UV, fracStart, fracEnd, chordHeight, samples);
 
 		std::vector<ScanPoint> rowPoints;
 		std::vector<double> rowFracs;
@@ -1533,8 +1399,8 @@ bool DiscretizeSingleFaceToGrid(
 			{
 				const gp_Pnt2d uvPt = InterpolateRowUV(rowStart, dir1UV, sample.first);
 				ScanPoint sp;
-				if (!TryAcceptParamSurfaceSample(domain, face, geomSurf, faceLoc, sample.second,
-						uvPt.X(), uvPt.Y(), true, &dir1UV, sp, nullptr))
+				if (!TryAcceptParamSurfaceSample(domain, face, geomSurf, faceLoc, sample.second, uvPt.X(), uvPt.Y(),
+												 true, &dir1UV, sp, nullptr))
 				{
 					continue;
 				}
@@ -1575,16 +1441,13 @@ size_t MapStitchRowToFaceRow(size_t stitchRow, size_t stitchRowCount, size_t fac
 	{
 		return 0;
 	}
-	const size_t srcR = static_cast<size_t>(std::lround(
-		static_cast<double>(stitchRow) * static_cast<double>(faceRowCount - 1)
-		/ static_cast<double>(stitchRowCount - 1)));
+	const size_t srcR =
+		static_cast<size_t>(std::lround(static_cast<double>(stitchRow) * static_cast<double>(faceRowCount - 1) /
+										static_cast<double>(stitchRowCount - 1)));
 	return std::min(srcR, faceRowCount - 1);
 }
 
-const std::vector<ScanPoint>* FaceRowAtStitchIndex(
-	const FaceRowGrid& grid,
-	size_t stitchRow,
-	size_t stitchRowCount)
+const std::vector<ScanPoint>* FaceRowAtStitchIndex(const FaceRowGrid& grid, size_t stitchRow, size_t stitchRowCount)
 {
 	if (grid.empty() || stitchRowCount == 0)
 	{
@@ -1604,14 +1467,12 @@ bool OrientFaceRowToFirstFace(const std::vector<ScanPoint>& refRow, std::vector<
 	{
 		return false;
 	}
-	Vec3d refTan{
-		refRow.back().position.x - refRow.front().position.x,
-		refRow.back().position.y - refRow.front().position.y,
-		refRow.back().position.z - refRow.front().position.z};
-	Vec3d faceTan{
-		faceRow.back().position.x - faceRow.front().position.x,
-		faceRow.back().position.y - faceRow.front().position.y,
-		faceRow.back().position.z - faceRow.front().position.z};
+	Vec3d refTan{refRow.back().position.x - refRow.front().position.x,
+				 refRow.back().position.y - refRow.front().position.y,
+				 refRow.back().position.z - refRow.front().position.z};
+	Vec3d faceTan{faceRow.back().position.x - faceRow.front().position.x,
+				  faceRow.back().position.y - faceRow.front().position.y,
+				  faceRow.back().position.z - faceRow.front().position.z};
 	if (vecLenSq(refTan) < 1e-18 || vecLenSq(faceTan) < 1e-18)
 	{
 		return false;
@@ -1630,19 +1491,17 @@ void OrientStitchedRowToFirstFace(const std::vector<ScanPoint>& refRow, std::vec
 	{
 		return;
 	}
-	Vec3d refTan{
-		refRow.back().position.x - refRow.front().position.x,
-		refRow.back().position.y - refRow.front().position.y,
-		refRow.back().position.z - refRow.front().position.z};
+	Vec3d refTan{refRow.back().position.x - refRow.front().position.x,
+				 refRow.back().position.y - refRow.front().position.y,
+				 refRow.back().position.z - refRow.front().position.z};
 	if (vecLenSq(refTan) < 1e-18)
 	{
 		return;
 	}
 	const size_t refLen = std::min(refRow.size(), stitchedRow.size());
-	Vec3d headTan{
-		stitchedRow[refLen - 1].position.x - stitchedRow[0].position.x,
-		stitchedRow[refLen - 1].position.y - stitchedRow[0].position.y,
-		stitchedRow[refLen - 1].position.z - stitchedRow[0].position.z};
+	Vec3d headTan{stitchedRow[refLen - 1].position.x - stitchedRow[0].position.x,
+				  stitchedRow[refLen - 1].position.y - stitchedRow[0].position.y,
+				  stitchedRow[refLen - 1].position.z - stitchedRow[0].position.z};
 	if (vecLenSq(headTan) < 1e-18)
 	{
 		return;
@@ -1653,13 +1512,9 @@ void OrientStitchedRowToFirstFace(const std::vector<ScanPoint>& refRow, std::vec
 	}
 }
 
-std::vector<std::vector<ScanPoint>> AssembleHeteroRows(
-	const std::vector<FaceRowGrid>& grids,
-	size_t stitchRowCount,
-	bool serpentine,
-	bool& reverseRow,
-	double trackStartPct,
-	double trackEndPct)
+std::vector<std::vector<ScanPoint>> AssembleHeteroRows(const std::vector<FaceRowGrid>& grids, size_t stitchRowCount,
+													   bool serpentine, bool& reverseRow, double trackStartPct,
+													   double trackEndPct)
 {
 	std::vector<std::vector<ScanPoint>> assembled;
 	if (grids.empty())
@@ -1673,9 +1528,7 @@ std::vector<std::vector<ScanPoint>> AssembleHeteroRows(
 	for (size_t r = 0; r < rowCount; ++r)
 	{
 		std::vector<ScanPoint> row;
-		const std::vector<ScanPoint>* refRow = grids.empty()
-			? nullptr
-			: FaceRowAtStitchIndex(grids[0], r, rowCount);
+		const std::vector<ScanPoint>* refRow = grids.empty() ? nullptr : FaceRowAtStitchIndex(grids[0], r, rowCount);
 
 		for (size_t f = 0; f < grids.size(); ++f)
 		{
@@ -1723,18 +1576,12 @@ std::vector<std::vector<ScanPoint>> AssembleHeteroRows(
 	return assembled;
 }
 
-size_t StitchHeteroRowGrids(
-	const std::vector<FaceRowGrid>& grids,
-	size_t stitchRowCount,
-	bool serpentine,
-	bool& reverseRow,
-	double trackStartPct,
-	double trackEndPct,
-	RawPath& path)
+size_t StitchHeteroRowGrids(const std::vector<FaceRowGrid>& grids, size_t stitchRowCount, bool serpentine,
+							bool& reverseRow, double trackStartPct, double trackEndPct, RawPath& path)
 {
 	const double seamTol = kSeamTol;
-	const auto assembled = AssembleHeteroRows(grids, stitchRowCount, serpentine, reverseRow,
-		trackStartPct, trackEndPct);
+	const auto assembled =
+		AssembleHeteroRows(grids, stitchRowCount, serpentine, reverseRow, trackStartPct, trackEndPct);
 
 	size_t pointCount = 0;
 	for (const auto& row : assembled)
@@ -1750,18 +1597,9 @@ size_t StitchHeteroRowGrids(
 	return pointCount;
 }
 
-size_t DiscretizeHeteroByRowStitch(
-	const std::vector<TopoDS_Face>& orderedFaces,
-	bool useUniform,
-	double colSpacing,
-	double chordHeight,
-	double rowSpacing,
-	bool serpentine,
-	double dirAlphaRad,
-	double trackStartPct,
-	double trackEndPct,
-	bool& reverseRow,
-	RawPath& path)
+size_t DiscretizeHeteroByRowStitch(const std::vector<TopoDS_Face>& orderedFaces, bool useUniform, double colSpacing,
+								   double chordHeight, double rowSpacing, bool serpentine, double dirAlphaRad,
+								   double trackStartPct, double trackEndPct, bool& reverseRow, RawPath& path)
 {
 	if (orderedFaces.empty())
 	{
@@ -1779,8 +1617,8 @@ size_t DiscretizeHeteroByRowStitch(
 		FaceRowGrid grid;
 		RowFracList fracs;
 		FaceGridScanFrame frame;
-		if (!DiscretizeSingleFaceToGrid(face, useUniform, colSpacing, chordHeight, rowSpacing,
-				dirAlphaRad, perFaceTrackStartPct, perFaceTrackEndPct, grid, fracs, frame))
+		if (!DiscretizeSingleFaceToGrid(face, useUniform, colSpacing, chordHeight, rowSpacing, dirAlphaRad,
+										perFaceTrackStartPct, perFaceTrackEndPct, grid, fracs, frame))
 		{
 			return 0;
 		}
@@ -1793,8 +1631,7 @@ size_t DiscretizeHeteroByRowStitch(
 		return 0;
 	}
 
-	return StitchHeteroRowGrids(allGrids, stitchRowCount, serpentine, reverseRow,
-		trackStartPct, trackEndPct, path);
+	return StitchHeteroRowGrids(allGrids, stitchRowCount, serpentine, reverseRow, trackStartPct, trackEndPct, path);
 }
 
 double SharedEdgeTolerance()
@@ -1859,8 +1696,8 @@ bool IsEverySampleOnEdge(const TopoDS_Edge& source, const TopoDS_Edge& target, d
 	const int sampleCount = 8;
 	for (int i = 0; i <= sampleCount; ++i)
 	{
-		const Standard_Real t = first + (last - first)
-			* static_cast<Standard_Real>(i) / static_cast<Standard_Real>(sampleCount);
+		const Standard_Real t =
+			first + (last - first) * static_cast<Standard_Real>(i) / static_cast<Standard_Real>(sampleCount);
 		const gp_Pnt p = curve.Value(t);
 		if (!IsPointOnEdge(p, target, tol))
 		{
@@ -1888,11 +1725,8 @@ bool EdgesMatch(const TopoDS_Edge& a, const TopoDS_Edge& b, double tol)
 	return a.IsSame(b) || EdgesGeometricallyCoincident(a, b, tol);
 }
 
-void CollectSharedEdgesWithFaces(
-	const TopoDS_Face& face,
-	const std::vector<TopoDS_Face>& otherFaces,
-	double edgeTol,
-	std::vector<TopoDS_Edge>& outEdges)
+void CollectSharedEdgesWithFaces(const TopoDS_Face& face, const std::vector<TopoDS_Face>& otherFaces, double edgeTol,
+								 std::vector<TopoDS_Edge>& outEdges)
 {
 	outEdges.clear();
 	for (TopExp_Explorer exFace(face, TopAbs_EDGE); exFace.More(); exFace.Next())
@@ -1921,7 +1755,7 @@ void CollectSharedEdgesWithFaces(
 		}
 
 		const bool alreadyAdded = std::any_of(outEdges.begin(), outEdges.end(),
-			[&](const TopoDS_Edge& e) { return EdgesMatch(e, edgeOnFace, edgeTol); });
+											  [&](const TopoDS_Edge& e) { return EdgesMatch(e, edgeOnFace, edgeTol); });
 		if (!alreadyAdded)
 		{
 			outEdges.push_back(edgeOnFace);
@@ -1964,24 +1798,14 @@ bool IsPathRowOnAnyEdge(const std::vector<ScanPoint>& row, const std::vector<Top
 	return onEdgeCount + allowedMisses >= row.size();
 }
 
-size_t DiscretizePerFaceMode(
-	const std::vector<TopoDS_Face>& inputFaces,
-	bool useUniform,
-	double colSpacing,
-	double chordHeight,
-	double rowSpacing,
-	bool serpentine,
-	double dirAlphaRad,
-	double trackStartPct,
-	double trackEndPct,
-	bool& reverseRow,
-	RawPath& path)
+size_t DiscretizePerFaceMode(const std::vector<TopoDS_Face>& inputFaces, bool useUniform, double colSpacing,
+							 double chordHeight, double rowSpacing, bool serpentine, double dirAlphaRad,
+							 double trackStartPct, double trackEndPct, bool& reverseRow, RawPath& path)
 {
 	std::vector<TopoDS_Face> processedFaces;
 	processedFaces.reserve(inputFaces.size());
 	size_t appendedPerFacePoints = 0;
-	const double internalEdgeTol = std::min(
-		std::max(SharedEdgeTolerance(), rowSpacing * 0.01), 0.05);
+	const double internalEdgeTol = std::min(std::max(SharedEdgeTolerance(), rowSpacing * 0.01), 0.05);
 	const double seamTol = kSeamTol;
 
 	for (const TopoDS_Face& face : inputFaces)
@@ -1989,8 +1813,8 @@ size_t DiscretizePerFaceMode(
 		FaceRowGrid grid;
 		RowFracList fracs;
 		FaceGridScanFrame frame;
-		if (!DiscretizeSingleFaceToGrid(face, useUniform, colSpacing, chordHeight, rowSpacing,
-				dirAlphaRad, trackStartPct, trackEndPct, grid, fracs, frame))
+		if (!DiscretizeSingleFaceToGrid(face, useUniform, colSpacing, chordHeight, rowSpacing, dirAlphaRad,
+										trackStartPct, trackEndPct, grid, fracs, frame))
 		{
 			continue;
 		}
@@ -2049,11 +1873,8 @@ void normalizeDirAlphaDeg(double& dirAlphaDeg)
 	}
 }
 
-bool collectInputFaces(
-	const TopoDS_Shape& shape,
-	const FeatureGeometry& geometry,
-	std::vector<TopoDS_Face>& outFaces,
-	std::string* errMsg)
+bool collectInputFaces(const TopoDS_Shape& shape, const FeatureGeometry& geometry, std::vector<TopoDS_Face>& outFaces,
+					   std::string* errMsg)
 {
 	outFaces.clear();
 	if (geometry.faceIndices.empty())
@@ -2089,11 +1910,8 @@ void finalizeParamSurfacePath(const FeatureDiscretizeInput& input, RawPath& out)
 
 } // namespace
 
-bool discretizeFaceParamSurface(
-	const TopoDS_Shape& shape,
-	const FeatureDiscretizeInput& input,
-	RawPath& out,
-	std::string* errMsg)
+bool discretizeFaceParamSurface(const TopoDS_Shape& shape, const FeatureDiscretizeInput& input, RawPath& out,
+								std::string* errMsg)
 {
 	out.points.clear();
 
@@ -2154,9 +1972,9 @@ bool discretizeFaceParamSurface(
 
 	if (heteroRowStitch && inputFaces.size() > 1)
 	{
-		const size_t stitched = DiscretizeHeteroByRowStitch(inputFaces, useUniform, colSpacing,
-			chordHeight, rowSpacing, serpentine, dirAlphaRad, trackStartPct, trackEndPct,
-			reverseRow, out);
+		const size_t stitched =
+			DiscretizeHeteroByRowStitch(inputFaces, useUniform, colSpacing, chordHeight, rowSpacing, serpentine,
+										dirAlphaRad, trackStartPct, trackEndPct, reverseRow, out);
 		if (stitched > 0 && out.points.size() > pathBefore)
 		{
 			finalizeParamSurfacePath(input, out);
@@ -2166,9 +1984,9 @@ bool discretizeFaceParamSurface(
 
 	if (forcePerFaceDiscretize && inputFaces.size() > 1)
 	{
-		const size_t perFacePts = DiscretizePerFaceMode(inputFaces, useUniform, colSpacing,
-			chordHeight, rowSpacing, serpentine, dirAlphaRad, trackStartPct, trackEndPct,
-			reverseRow, out);
+		const size_t perFacePts =
+			DiscretizePerFaceMode(inputFaces, useUniform, colSpacing, chordHeight, rowSpacing, serpentine, dirAlphaRad,
+								  trackStartPct, trackEndPct, reverseRow, out);
 		if (perFacePts > 0 && out.points.size() > pathBefore)
 		{
 			finalizeParamSurfacePath(input, out);
@@ -2185,9 +2003,10 @@ bool discretizeFaceParamSurface(
 	TopoDS_Face refFace;
 	const bool merged = MergeSelectedFaces(inputFaces, mergedShape, refFace);
 
-	auto runDiscretize = [&](const TopoDS_Face& ref, const std::vector<TopoDS_Face>& domain) {
-		(void)DiscretizeOnParamFace(ref, domain, useUniform, colSpacing, chordHeight, rowSpacing,
-			serpentine, dirAlphaRad, trackStartPct, trackEndPct, reverseRow, out);
+	auto runDiscretize = [&](const TopoDS_Face& ref, const std::vector<TopoDS_Face>& domain)
+	{
+		(void)DiscretizeOnParamFace(ref, domain, useUniform, colSpacing, chordHeight, rowSpacing, serpentine,
+									dirAlphaRad, trackStartPct, trackEndPct, reverseRow, out);
 	};
 
 	if (merged)

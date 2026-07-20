@@ -1,9 +1,12 @@
-#include "detail/OccIncludes.h"
+﻿/// @file Discretize.cpp
+/// @brief Discretize 实现
 
 #include "Discretize.h"
+
 #include "ShapeHandle.h"
-#include "ShapeQuery.h"
 #include "ShapeIo.h"
+#include "ShapeQuery.h"
+#include "detail/OccIncludes.h"
 
 #include <algorithm>
 #include <cmath>
@@ -13,7 +16,6 @@ namespace geoalgo
 {
 namespace detail
 {
-
 constexpr bool kFlipReversedFaceWinding = true;
 
 void setErr(std::string* errMsg, const char* text)
@@ -24,12 +26,7 @@ void setErr(std::string* errMsg, const char* text)
 	}
 }
 
-void pushTri(
-	std::vector<float>& soup,
-	const gp_Pnt& p1,
-	const gp_Pnt& p2,
-	const gp_Pnt& p3,
-	const bool reverseWinding)
+void pushTri(std::vector<float>& soup, const gp_Pnt& p1, const gp_Pnt& p2, const gp_Pnt& p3, const bool reverseWinding)
 {
 	const gp_Pnt& pb = reverseWinding ? p3 : p2;
 	const gp_Pnt& pc = reverseWinding ? p2 : p3;
@@ -46,8 +43,8 @@ void pushTri(
 
 void appendFaceTriangles(const TopoDS_Face& face, const TessellateParams& params, std::vector<float>& soup)
 {
-	const bool reverseWinding = params.flipReversedFaces && kFlipReversedFaceWinding
-		&& (face.Orientation() == TopAbs_REVERSED);
+	const bool reverseWinding =
+		params.flipReversedFaces && kFlipReversedFaceWinding && (face.Orientation() == TopAbs_REVERSED);
 	TopLoc_Location loc;
 	const Handle(Poly_Triangulation) tri = BRep_Tool::Triangulation(face, loc);
 	if (tri.IsNull() || !tri->HasGeometry() || tri->NbTriangles() <= 0)
@@ -90,24 +87,29 @@ std::string shapeTypeName(const TopAbs_ShapeEnum t)
 {
 	switch (t)
 	{
-	case TopAbs_COMPOUND: return "Compound";
-	case TopAbs_COMPSOLID: return "CompSolid";
-	case TopAbs_SOLID: return "Solid";
-	case TopAbs_SHELL: return "Shell";
-	case TopAbs_FACE: return "Face";
-	case TopAbs_WIRE: return "Wire";
-	case TopAbs_EDGE: return "Edge";
-	case TopAbs_VERTEX: return "Vertex";
-	default: return "Shape";
+	case TopAbs_COMPOUND:
+		return "Compound";
+	case TopAbs_COMPSOLID:
+		return "CompSolid";
+	case TopAbs_SOLID:
+		return "Solid";
+	case TopAbs_SHELL:
+		return "Shell";
+	case TopAbs_FACE:
+		return "Face";
+	case TopAbs_WIRE:
+		return "Wire";
+	case TopAbs_EDGE:
+		return "Edge";
+	case TopAbs_VERTEX:
+		return "Vertex";
+	default:
+		return "Shape";
 	}
 }
 
-void collectHierarchyRecursive(
-	const TopoDS_Shape& shape,
-	const std::string& path,
-	const std::string& parentPath,
-	const TessellateParams& params,
-	std::vector<MeshHierarchyPart>& outParts)
+void collectHierarchyRecursive(const TopoDS_Shape& shape, const std::string& path, const std::string& parentPath,
+							   const TessellateParams& params, std::vector<MeshHierarchyPart>& outParts)
 {
 	// Solid 及以下层级（Solid/Shell/Face/Edge/Vertex）作为叶子零件，
 	// 不再递归到 Face/Edge 级别，避免产生大量无意义碎片。
@@ -129,16 +131,14 @@ void collectHierarchyRecursive(
 	for (TopoDS_Iterator it(shape); it.More(); it.Next(), ++childIndex)
 	{
 		const TopoDS_Shape child = it.Value();
-		const std::string childPath = path.empty() ? std::to_string(childIndex) : (path + "/" + std::to_string(childIndex));
+		const std::string childPath =
+			path.empty() ? std::to_string(childIndex) : (path + "/" + std::to_string(childIndex));
 		collectHierarchyRecursive(child, childPath, path, params, outParts);
 	}
 }
 
-void collectHierarchyTopologyRecursive(
-	const TopoDS_Shape& shape,
-	const std::string& path,
-	const std::string& parentPath,
-	std::vector<MeshHierarchyPart>& outParts)
+void collectHierarchyTopologyRecursive(const TopoDS_Shape& shape, const std::string& path,
+									   const std::string& parentPath, std::vector<MeshHierarchyPart>& outParts)
 {
 	// Solid 及以下层级作为叶子零件，不再递归到 Face/Edge 级别。
 	if (shape.ShapeType() <= TopAbs_SOLID || !shapeHasChildren(shape))
@@ -155,7 +155,8 @@ void collectHierarchyTopologyRecursive(
 	for (TopoDS_Iterator it(shape); it.More(); it.Next(), ++childIndex)
 	{
 		const TopoDS_Shape child = it.Value();
-		const std::string childPath = path.empty() ? std::to_string(childIndex) : (path + "/" + std::to_string(childIndex));
+		const std::string childPath =
+			path.empty() ? std::to_string(childIndex) : (path + "/" + std::to_string(childIndex));
 		collectHierarchyTopologyRecursive(child, childPath, path, outParts);
 	}
 }
@@ -201,11 +202,8 @@ bool meshShapeIncremental(const TopoDS_Shape& shape, const TessellateParams& par
 	return true;
 }
 
-bool discretizeFaceToSoup(
-	const TopoDS_Face& face,
-	const TessellateParams& params,
-	std::vector<float>& soup,
-	std::string* errMsg)
+bool discretizeFaceToSoup(const TopoDS_Face& face, const TessellateParams& params, std::vector<float>& soup,
+						  std::string* errMsg)
 {
 	TopoDS_Shape shape = face;
 	if (!meshShapeIncremental(shape, params, errMsg))
@@ -222,11 +220,8 @@ bool discretizeFaceToSoup(
 	return true;
 }
 
-bool discretizeShapeToSoup(
-	const TopoDS_Shape& shape,
-	const TessellateParams& params,
-	std::vector<float>& soup,
-	std::string* errMsg)
+bool discretizeShapeToSoup(const TopoDS_Shape& shape, const TessellateParams& params, std::vector<float>& soup,
+						   std::string* errMsg)
 {
 	TopoDS_Shape copy = shape;
 	// 清除旧三角化，避免改 deflection 时 OCC 复用缓存
@@ -244,13 +239,9 @@ bool discretizeShapeToSoup(
 	return true;
 }
 
-bool discretizeShapeToSoupPerFace(
-	const TopoDS_Shape& shape,
-	const TessellateParams& params,
-	std::vector<float>& outSoup,
-	std::vector<int>& outTriangleFaceIndex,
-	std::vector<std::vector<float>>* outFaceSoups,
-	std::string* errMsg)
+bool discretizeShapeToSoupPerFace(const TopoDS_Shape& shape, const TessellateParams& params,
+								  std::vector<float>& outSoup, std::vector<int>& outTriangleFaceIndex,
+								  std::vector<std::vector<float>>* outFaceSoups, std::string* errMsg)
 {
 	outSoup.clear();
 	outTriangleFaceIndex.clear();
@@ -307,13 +298,9 @@ bool discretizeShapeToSoupPerFace(
 	return true;
 }
 
-bool discretizeShapeToSoupPerFace(
-	const ShapeHandle& shape,
-	const TessellateParams& params,
-	std::vector<float>& outSoup,
-	std::vector<int>& outTriangleFaceIndex,
-	std::vector<std::vector<float>>* outFaceSoups,
-	std::string* errMsg)
+bool discretizeShapeToSoupPerFace(const ShapeHandle& shape, const TessellateParams& params, std::vector<float>& outSoup,
+								  std::vector<int>& outTriangleFaceIndex, std::vector<std::vector<float>>* outFaceSoups,
+								  std::string* errMsg)
 {
 	TopoDS_Shape native;
 	if (!ShapeHandleAccess::nativeShape(shape, &native))
@@ -324,11 +311,8 @@ bool discretizeShapeToSoupPerFace(
 	return discretizeShapeToSoupPerFace(native, params, outSoup, outTriangleFaceIndex, outFaceSoups, errMsg);
 }
 
-bool tessellateStepFile(
-	const std::string& pathLocal,
-	const TessellateParams& params,
-	std::vector<float>& soup,
-	std::string* errMsg)
+bool tessellateStepFile(const std::string& pathLocal, const TessellateParams& params, std::vector<float>& soup,
+						std::string* errMsg)
 {
 	TopoDS_Shape shape;
 	if (!readStepShape(pathLocal, shape, errMsg))
@@ -338,11 +322,8 @@ bool tessellateStepFile(
 	return discretizeShapeToSoup(shape, params, soup, errMsg);
 }
 
-bool tessellateStepHierarchy(
-	const std::string& pathLocal,
-	const TessellateParams& params,
-	std::vector<MeshHierarchyPart>& outParts,
-	std::string* errMsg)
+bool tessellateStepHierarchy(const std::string& pathLocal, const TessellateParams& params,
+							 std::vector<MeshHierarchyPart>& outParts, std::string* errMsg)
 {
 	outParts.clear();
 	TopoDS_Shape shape;
@@ -353,11 +334,8 @@ bool tessellateStepHierarchy(
 	return collectShapeHierarchy(shape, params, outParts, errMsg);
 }
 
-bool collectShapeHierarchy(
-	const TopoDS_Shape& shape,
-	const TessellateParams& params,
-	std::vector<MeshHierarchyPart>& outParts,
-	std::string* errMsg)
+bool collectShapeHierarchy(const TopoDS_Shape& shape, const TessellateParams& params,
+						   std::vector<MeshHierarchyPart>& outParts, std::string* errMsg)
 {
 	outParts.clear();
 	TopoDS_Shape copy = shape;
@@ -374,11 +352,8 @@ bool collectShapeHierarchy(
 	return true;
 }
 
-bool collectShapeHierarchy(
-	const ShapeHandle& shape,
-	const TessellateParams& params,
-	std::vector<MeshHierarchyPart>& outParts,
-	std::string* errMsg)
+bool collectShapeHierarchy(const ShapeHandle& shape, const TessellateParams& params,
+						   std::vector<MeshHierarchyPart>& outParts, std::string* errMsg)
 {
 	TopoDS_Shape native;
 	if (!ShapeHandleAccess::nativeShape(shape, &native))
@@ -389,10 +364,8 @@ bool collectShapeHierarchy(
 	return collectShapeHierarchy(native, params, outParts, errMsg);
 }
 
-bool collectShapeHierarchyTopology(
-	const TopoDS_Shape& shape,
-	std::vector<MeshHierarchyPart>& outParts,
-	std::string* errMsg)
+bool collectShapeHierarchyTopology(const TopoDS_Shape& shape, std::vector<MeshHierarchyPart>& outParts,
+								   std::string* errMsg)
 {
 	outParts.clear();
 	if (shape.IsNull())
@@ -412,10 +385,8 @@ bool collectShapeHierarchyTopology(
 	return true;
 }
 
-bool collectShapeHierarchyTopology(
-	const ShapeHandle& shape,
-	std::vector<MeshHierarchyPart>& outParts,
-	std::string* errMsg)
+bool collectShapeHierarchyTopology(const ShapeHandle& shape, std::vector<MeshHierarchyPart>& outParts,
+								   std::string* errMsg)
 {
 	TopoDS_Shape native;
 	if (!ShapeHandleAccess::nativeShape(shape, &native))
@@ -426,12 +397,8 @@ bool collectShapeHierarchyTopology(
 	return collectShapeHierarchyTopology(native, outParts, errMsg);
 }
 
-bool discretizeShapeFaceByIndex(
-	const ShapeHandle& shapeHandle,
-	const int faceIndex,
-	const TessellateParams& params,
-	std::vector<float>& soup,
-	std::string* errMsg)
+bool discretizeShapeFaceByIndex(const ShapeHandle& shapeHandle, const int faceIndex, const TessellateParams& params,
+								std::vector<float>& soup, std::string* errMsg)
 {
 	TopoDS_Shape shape;
 	if (!ShapeHandleAccess::nativeShape(shapeHandle, &shape))

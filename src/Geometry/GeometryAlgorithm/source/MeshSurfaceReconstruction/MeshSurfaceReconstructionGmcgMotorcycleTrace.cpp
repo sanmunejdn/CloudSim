@@ -1,3 +1,6 @@
+﻿/// @file MeshSurfaceReconstructionGmcgMotorcycleTrace.cpp
+/// @brief MeshSurfaceReconstructionGmcgMotorcycleTrace 实现
+
 #include "MeshSurfaceReconstructionGmcgMotorcycleTrace.h"
 
 #include <queue>
@@ -10,7 +13,6 @@ namespace meshrecon
 {
 namespace
 {
-
 void markBarrier(std::vector<uint8_t>& barriers, const int he)
 {
 	if (he >= 0 && static_cast<std::size_t>(he) < barriers.size())

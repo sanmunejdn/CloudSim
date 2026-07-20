@@ -1,29 +1,29 @@
-#include "detail/OccIncludes.h"
+﻿/// @file SelfTest.cpp
+/// @brief SelfTest 实现
+
+#include "SelfTest.h"
 
 #include "BrepBoolean.h"
-#include "Discretize.h"
-#include "Intersection.h"
-#include "GeoMeshBoolean.h"
-#include "MeshDiscretize.h"
-#include "SelfTest.h"
-#include "ShapeQuery.h"
-#include "TemplateBrepUpdate.h"
-#include "TemplateBrepRegistration.h"
 #include "BrepImportArtifacts.h"
-#include "ShapeHandle.h"
-#include "ShapeIo.h"
-#include "ViewTessellate.h"
-#include "WireOps.h"
+#include "Discretize.h"
+#include "FeatureDiscretizerBridge.h"
+#include "GeoMeshBoolean.h"
+#include "Intersection.h"
+#include "MeshDiscretize.h"
 #include "MeshSurfaceReconstruction.h"
-#include "MeshSurfaceReconstruction/NurbsSurfaceFitting.h"
 #include "MeshSurfaceReconstruction/MeshSurfaceReconstructionAmrtoLoader.h"
 #include "MeshSurfaceReconstruction/MeshSurfaceReconstructionInstantMeshes.h"
+#include "MeshSurfaceReconstruction/NurbsSurfaceFitting.h"
 #include "MeshTrajectory.h"
+#include "ShapeHandle.h"
+#include "ShapeIo.h"
+#include "ShapeQuery.h"
+#include "TemplateBrepRegistration.h"
+#include "TemplateBrepUpdate.h"
 #include "TubularGrinding.h"
-#include "FeatureDiscretizerBridge.h"
-
-#include <BRepPrimAPI_MakeBox.hxx>
-#include <BRepPrimAPI_MakeCylinder.hxx>
+#include "ViewTessellate.h"
+#include "WireOps.h"
+#include "detail/OccIncludes.h"
 
 #include <algorithm>
 #include <cmath>
@@ -31,15 +31,15 @@
 #include <fstream>
 #include <limits>
 #include <sstream>
-#include <sstream>
 
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
 #include <Eigen/Geometry>
 
 namespace geoalgo
 {
 namespace
 {
-
 void applyIsometryInPlace(std::vector<float>& xyz, const Eigen::Isometry3d& transform)
 {
 	const std::size_t n = xyz.size() / 3U;
@@ -54,10 +54,8 @@ void applyIsometryInPlace(std::vector<float>& xyz, const Eigen::Isometry3d& tran
 	}
 }
 
-double maxSampledPairDistanceMm(
-	const std::vector<float>& aXyz,
-	const std::vector<float>& bXyz,
-	const std::size_t maxSamples = 512U)
+double maxSampledPairDistanceMm(const std::vector<float>& aXyz, const std::vector<float>& bXyz,
+								const std::size_t maxSamples = 512U)
 {
 	if (aXyz.size() < 9U || bXyz.size() < 9U)
 	{
@@ -76,8 +74,7 @@ double maxSampledPairDistanceMm(
 		for (std::size_t j = 0U; j < nB; j += strideB)
 		{
 			const std::size_t tb = j * 3U;
-			const double d2 =
-				(query - Eigen::Vector3d(bXyz[tb], bXyz[tb + 1U], bXyz[tb + 2U])).squaredNorm();
+			const double d2 = (query - Eigen::Vector3d(bXyz[tb], bXyz[tb + 1U], bXyz[tb + 2U])).squaredNorm();
 			bestSq = std::min(bestSq, d2);
 		}
 		maxDist = std::max(maxDist, std::sqrt(bestSq));
@@ -187,7 +184,8 @@ bool loadTriObjIndexedMesh(const std::string& objPath, meshrecon::IndexedMeshLit
 bool runSelfTest(std::vector<std::string>& failures)
 {
 	failures.clear();
-	auto fail = [&](const char* name, const std::string& err) {
+	auto fail = [&](const char* name, const std::string& err)
+	{
 		std::ostringstream oss;
 		oss << name << ": " << err;
 		failures.push_back(oss.str());
@@ -257,8 +255,8 @@ bool runSelfTest(std::vector<std::string>& failures)
 		}
 		else
 		{
-			const double ratio = static_cast<double>(report.triangleCount)
-				/ static_cast<double>(params.targetTriangleCount);
+			const double ratio =
+				static_cast<double>(report.triangleCount) / static_cast<double>(params.targetTriangleCount);
 			if (ratio < 0.5 || ratio > 2.0)
 			{
 				fail("targetTriangleCount", "triangle count far from target");
@@ -292,7 +290,7 @@ bool runSelfTest(std::vector<std::string>& failures)
 
 	{
 		Polyline3d line;
-		line.xyz = { 0.f, 0.f, 0.f, 100.f, 0.f, 0.f };
+		line.xyz = {0.f, 0.f, 0.f, 100.f, 0.f, 0.f};
 		MeshDiscretizeParams tube;
 		tube.mode = MeshDiscretizeMode::WireTubeMesh;
 		tube.tubeRadiusMm = 5.0;
@@ -418,14 +416,9 @@ bool runSelfTest(std::vector<std::string>& failures)
 		{
 			const int templateFaceCount = shapeFaceCount(templateNative);
 
-			auto addPlanarFace = [](
-				std::vector<float>& xyz,
-				std::vector<float>& normals,
-				const float fixedCoord,
-				const int fixedAxis,
-				const float nx,
-				const float ny,
-				const float nz) {
+			auto addPlanarFace = [](std::vector<float>& xyz, std::vector<float>& normals, const float fixedCoord,
+									const int fixedAxis, const float nx, const float ny, const float nz)
+			{
 				for (int i = 0; i < 10; ++i)
 				{
 					for (int j = 0; j < 10; ++j)
@@ -547,21 +540,11 @@ bool runSelfTest(std::vector<std::string>& failures)
 			for (int j = 1; j <= 8; ++j)
 			{
 				grid.SetValue(
-					i,
-					j,
-					gp_Pnt(
-						10.0 + static_cast<double>(i - 1) * 10.0,
-						10.0 + static_cast<double>(j - 1) * 10.0,
-						50.0));
+					i, j,
+					gp_Pnt(10.0 + static_cast<double>(i - 1) * 10.0, 10.0 + static_cast<double>(j - 1) * 10.0, 50.0));
 			}
 		}
-		GeomAPI_PointsToBSplineSurface approx(
-			grid,
-			Approx_ChordLength,
-			3,
-			8,
-			GeomAbs_C2,
-			1.0);
+		GeomAPI_PointsToBSplineSurface approx(grid, Approx_ChordLength, 3, 8, GeomAbs_C2, 1.0);
 		if (!approx.IsDone() || approx.Surface().IsNull())
 		{
 			fail("templateBrepBsplineAdjust", "failed to build template BSpline surface");
@@ -634,14 +617,9 @@ bool runSelfTest(std::vector<std::string>& failures)
 		const TopoDS_Shape box = BRepPrimAPI_MakeBox(100.0, 100.0, 100.0).Shape();
 		const ShapeHandle templateShape = ShapeHandleAccess::fromNativeShape(&box);
 
-		auto addPlanarFace = [](
-			std::vector<float>& xyz,
-			std::vector<float>& normals,
-			const float fixedCoord,
-			const int fixedAxis,
-			const float nx,
-			const float ny,
-			const float nz) {
+		auto addPlanarFace = [](std::vector<float>& xyz, std::vector<float>& normals, const float fixedCoord,
+								const int fixedAxis, const float nx, const float ny, const float nz)
+		{
 			for (int i = 0; i < 10; ++i)
 			{
 				for (int j = 0; j < 10; ++j)
@@ -756,7 +734,8 @@ bool runSelfTest(std::vector<std::string>& failures)
 			{
 				std::vector<float> soupFromShape;
 				std::vector<float> normsFromShape;
-				if (!extractDisplaySoupPointCloud(misaligned, soupFromShape, normsFromShape, 5000U, nullptr, &extractErr))
+				if (!extractDisplaySoupPointCloud(misaligned, soupFromShape, normsFromShape, 5000U, nullptr,
+												  &extractErr))
 				{
 					fail("reverseTemplateSoupIcp", extractErr.empty() ? "re-extract failed" : extractErr);
 				}
@@ -815,12 +794,8 @@ bool runSelfTest(std::vector<std::string>& failures)
 			hybridParams.hybridEnableRegionAdjust = true;
 			auto hybridSession = createMeshSurfaceReconstructSession(boxSoup);
 			std::string hybridErr;
-			if (!runMeshSurfaceReconstructStage(
-					*hybridSession,
-					MeshSurfaceReconstructStage::Partition,
-					hybridParams,
-					nullptr,
-					&hybridErr))
+			if (!runMeshSurfaceReconstructStage(*hybridSession, MeshSurfaceReconstructStage::Partition, hybridParams,
+												nullptr, &hybridErr))
 			{
 				fail("meshSurfaceHybridPartition", hybridErr.empty() ? "hybrid partition failed" : hybridErr);
 			}
@@ -843,12 +818,8 @@ bool runSelfTest(std::vector<std::string>& failures)
 			cgalParams.enableMultiResolutionFit = true;
 			auto cgalSession = createMeshSurfaceReconstructSession(boxSoup);
 			std::string cgalErr;
-			if (!runMeshSurfaceReconstructStage(
-					*cgalSession,
-					MeshSurfaceReconstructStage::Partition,
-					cgalParams,
-					nullptr,
-					&cgalErr))
+			if (!runMeshSurfaceReconstructStage(*cgalSession, MeshSurfaceReconstructStage::Partition, cgalParams,
+												nullptr, &cgalErr))
 			{
 				fail("meshSurfaceCgalChartPartition", cgalErr.empty() ? "cgal chart partition failed" : cgalErr);
 			}
@@ -865,14 +836,16 @@ bool runSelfTest(std::vector<std::string>& failures)
 				std::string goldenLoadErr;
 				if (!geoalgo::meshrecon::loadObjQuadMeshWithVt(goldenObj.string(), goldenQuad, &goldenLoadErr))
 				{
-					fail("meshSurfaceAmrtoGoldenPartition", goldenLoadErr.empty() ? "load smooth_060 failed" : goldenLoadErr);
+					fail("meshSurfaceAmrtoGoldenPartition",
+						 goldenLoadErr.empty() ? "load smooth_060 failed" : goldenLoadErr);
 				}
 				else
 				{
 					geoalgo::meshrecon::IndexedMeshLite goldenTri;
 					if (!geoalgo::meshrecon::triangulateQuadMeshToIndexed(goldenQuad, goldenTri, &goldenLoadErr))
 					{
-						fail("meshSurfaceAmrtoGoldenPartition", goldenLoadErr.empty() ? "triangulate failed" : goldenLoadErr);
+						fail("meshSurfaceAmrtoGoldenPartition",
+							 goldenLoadErr.empty() ? "triangulate failed" : goldenLoadErr);
 					}
 					else
 					{
@@ -898,27 +871,21 @@ bool runSelfTest(std::vector<std::string>& failures)
 						amrtoGoldenParams.samplesPerPatchEdge = 8;
 						auto amrtoSession = createMeshSurfaceReconstructSession(goldenSoup);
 						std::string amrtoErr;
-						if (!runMeshSurfaceReconstructStage(
-								*amrtoSession,
-								MeshSurfaceReconstructStage::Partition,
-								amrtoGoldenParams,
-								nullptr,
-								&amrtoErr))
+						if (!runMeshSurfaceReconstructStage(*amrtoSession, MeshSurfaceReconstructStage::Partition,
+															amrtoGoldenParams, nullptr, &amrtoErr))
 						{
-							fail("meshSurfaceAmrtoGoldenPartition", amrtoErr.empty() ? "golden partition failed" : amrtoErr);
+							fail("meshSurfaceAmrtoGoldenPartition",
+								 amrtoErr.empty() ? "golden partition failed" : amrtoErr);
 						}
 						else if (amrtoSession->report().patchCount < 140)
 						{
 							fail("meshSurfaceAmrtoGoldenPartition", "golden patchCount < 140");
 						}
-						else if (!runMeshSurfaceReconstructStage(
-								*amrtoSession,
-								MeshSurfaceReconstructStage::Sample,
-								amrtoGoldenParams,
-								nullptr,
-								&amrtoErr))
+						else if (!runMeshSurfaceReconstructStage(*amrtoSession, MeshSurfaceReconstructStage::Sample,
+																 amrtoGoldenParams, nullptr, &amrtoErr))
 						{
-							fail("meshSurfaceAmrtoGoldenPartition", amrtoErr.empty() ? "golden sample failed" : amrtoErr);
+							fail("meshSurfaceAmrtoGoldenPartition",
+								 amrtoErr.empty() ? "golden sample failed" : amrtoErr);
 						}
 					}
 				}
@@ -926,12 +893,11 @@ bool runSelfTest(std::vector<std::string>& failures)
 		}
 
 		{
-			const std::filesystem::path data2Tri =
-				std::filesystem::path(geoalgo::meshrecon::resolveCloudSimSdkRoot()) / "CODE_AMRTO" / "data_2"
-				/ "meshlab_suitable_catmull.obj";
+			const std::filesystem::path data2Tri = std::filesystem::path(geoalgo::meshrecon::resolveCloudSimSdkRoot()) /
+												   "CODE_AMRTO" / "data_2" / "meshlab_suitable_catmull.obj";
 			const std::filesystem::path goldenQuad =
-				std::filesystem::path(geoalgo::meshrecon::resolveCloudSimSdkRoot()) / "CODE_AMRTO" / "data_2"
-				/ "Hole_quad_InstantMeshes_7.87k.obj";
+				std::filesystem::path(geoalgo::meshrecon::resolveCloudSimSdkRoot()) / "CODE_AMRTO" / "data_2" /
+				"Hole_quad_InstantMeshes_7.87k.obj";
 			if (std::filesystem::exists(data2Tri) && std::filesystem::exists(goldenQuad))
 			{
 				geoalgo::meshrecon::IndexedMeshLite triMesh;
@@ -965,11 +931,9 @@ bool runSelfTest(std::vector<std::string>& failures)
 							const int hi = static_cast<int>(static_cast<double>(refQuads) * 1.15);
 							if (outQuads < lo || outQuads > hi)
 							{
-								fail(
-									"meshSurfaceImRemesh",
-									"quad count " + std::to_string(outQuads) + " outside ["
-										+ std::to_string(lo) + "," + std::to_string(hi) + "] vs golden "
-										+ std::to_string(refQuads));
+								fail("meshSurfaceImRemesh", "quad count " + std::to_string(outQuads) + " outside [" +
+																std::to_string(lo) + "," + std::to_string(hi) +
+																"] vs golden " + std::to_string(refQuads));
 							}
 						}
 					}
@@ -986,7 +950,8 @@ bool runSelfTest(std::vector<std::string>& failures)
 			std::string onlineDiscErr;
 			if (!discretizeShapeToMesh(onlineBox, onlineDisc, onlineSoup, onlineDiscReport, &onlineDiscErr))
 			{
-				fail("meshSurfaceAmrtoOnlinePartition", onlineDiscErr.empty() ? "box tessellation failed" : onlineDiscErr);
+				fail("meshSurfaceAmrtoOnlinePartition",
+					 onlineDiscErr.empty() ? "box tessellation failed" : onlineDiscErr);
 			}
 			else
 			{
@@ -997,16 +962,11 @@ bool runSelfTest(std::vector<std::string>& failures)
 				onlineParams.samplesPerPatchEdge = 8;
 				auto onlineSession = createMeshSurfaceReconstructSession(onlineSoup);
 				std::string onlineErr;
-				if (!runMeshSurfaceReconstructStage(
-						*onlineSession,
-						MeshSurfaceReconstructStage::Partition,
-						onlineParams,
-						nullptr,
-						&onlineErr))
+				if (!runMeshSurfaceReconstructStage(*onlineSession, MeshSurfaceReconstructStage::Partition,
+													onlineParams, nullptr, &onlineErr))
 				{
-					fail(
-						"meshSurfaceAmrtoOnlinePartition",
-						onlineErr.empty() ? "online amrto partition failed" : onlineErr);
+					fail("meshSurfaceAmrtoOnlinePartition",
+						 onlineErr.empty() ? "online amrto partition failed" : onlineErr);
 				}
 				else if (onlineSession->report().patchCount < 2)
 				{
@@ -1080,72 +1040,72 @@ bool runSelfTest(std::vector<std::string>& failures)
 			{
 				fail("tubularGrindingProject", "projectionHitRate < 0.5");
 			}
-		std::vector<float> coloredSoup;
-		std::vector<float> coloredRgb;
-		if (!buildSegmentColoredMeshSoup(*tgSession, coloredSoup, coloredRgb, &tgErr))
-		{
-			fail("tubularGrindingColoredMesh", tgErr.empty() ? "colored mesh failed" : tgErr);
+			std::vector<float> coloredSoup;
+			std::vector<float> coloredRgb;
+			if (!buildSegmentColoredMeshSoup(*tgSession, coloredSoup, coloredRgb, &tgErr))
+			{
+				fail("tubularGrindingColoredMesh", tgErr.empty() ? "colored mesh failed" : tgErr);
+			}
 		}
-	}
 
-	// 测试自适应邻域模式（广义管状分析）
-	{
-		const TopoDS_Shape cylinder = BRepPrimAPI_MakeCylinder(15.0, 120.0).Shape();
-		MeshDiscretizeParams cylDiscParams;
-		cylDiscParams.quality = MeshQualityPreset::Medium;
-		std::vector<float> cylSoup;
-		MeshDiscretizeReport cylDiscReport;
-		std::string cylDiscErr;
-		if (discretizeShapeToMesh(cylinder, cylDiscParams, cylSoup, cylDiscReport, &cylDiscErr))
+		// 测试自适应邻域模式（广义管状分析）
 		{
-			auto tgSession = createTubularGrindingSession(cylSoup);
-			TubularGrindingParams tgParams;
-			tgParams.minSegmentFaces = 8.0;
-			tgParams.sectionSpacingMm = 4.0;
-			// 使用自适应模式 + 椭圆拟合
-			tgParams.neighborhoodMode = NeighborhoodMode::Adaptive;
-			tgParams.sectionFitMode = SectionFitMode::Ellipse;
-			tgParams.centerlineIterations = 2;
-			std::string tgErr;
-			if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::Segment, tgParams, &tgErr))
+			const TopoDS_Shape cylinder = BRepPrimAPI_MakeCylinder(15.0, 120.0).Shape();
+			MeshDiscretizeParams cylDiscParams;
+			cylDiscParams.quality = MeshQualityPreset::Medium;
+			std::vector<float> cylSoup;
+			MeshDiscretizeReport cylDiscReport;
+			std::string cylDiscErr;
+			if (discretizeShapeToMesh(cylinder, cylDiscParams, cylSoup, cylDiscReport, &cylDiscErr))
 			{
-				fail("tubularGrindingAdaptiveSegment", tgErr.empty() ? "adaptive segment failed" : tgErr);
-			}
-			else if (tgSession->report().pipeCount < 1)
-			{
-				fail("tubularGrindingAdaptiveSegment", "adaptive pipeCount < 1");
-			}
-			else if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::Centerline, tgParams, &tgErr))
-			{
-				fail("tubularGrindingAdaptiveCenterline", tgErr.empty() ? "adaptive centerline failed" : tgErr);
-			}
-			else if (tgSession->report().centerlinePointCount < 4)
-			{
-				fail("tubularGrindingAdaptiveCenterline", "adaptive centerlinePointCount < 4");
-			}
-			else if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::TemplatePoints, tgParams, &tgErr))
-			{
-				fail("tubularGrindingAdaptiveTemplate", tgErr.empty() ? "adaptive template failed" : tgErr);
-			}
-			else if (tgSession->report().templatePointCount < 8)
-			{
-				fail("tubularGrindingAdaptiveTemplate", "adaptive templatePointCount < 8");
-			}
-			else if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::Project, tgParams, &tgErr))
-			{
-				fail("tubularGrindingAdaptiveProject", tgErr.empty() ? "adaptive project failed" : tgErr);
-			}
-			else if (tgSession->report().projectedPointCount < 8)
-			{
-				fail("tubularGrindingAdaptiveProject", "adaptive projectedPointCount < 8");
-			}
-			else if (tgSession->report().projectionHitRate < 0.5)
-			{
-				fail("tubularGrindingAdaptiveProject", "adaptive projectionHitRate < 0.5");
+				auto tgSession = createTubularGrindingSession(cylSoup);
+				TubularGrindingParams tgParams;
+				tgParams.minSegmentFaces = 8.0;
+				tgParams.sectionSpacingMm = 4.0;
+				// 使用自适应模式 + 椭圆拟合
+				tgParams.neighborhoodMode = NeighborhoodMode::Adaptive;
+				tgParams.sectionFitMode = SectionFitMode::Ellipse;
+				tgParams.centerlineIterations = 2;
+				std::string tgErr;
+				if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::Segment, tgParams, &tgErr))
+				{
+					fail("tubularGrindingAdaptiveSegment", tgErr.empty() ? "adaptive segment failed" : tgErr);
+				}
+				else if (tgSession->report().pipeCount < 1)
+				{
+					fail("tubularGrindingAdaptiveSegment", "adaptive pipeCount < 1");
+				}
+				else if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::Centerline, tgParams, &tgErr))
+				{
+					fail("tubularGrindingAdaptiveCenterline", tgErr.empty() ? "adaptive centerline failed" : tgErr);
+				}
+				else if (tgSession->report().centerlinePointCount < 4)
+				{
+					fail("tubularGrindingAdaptiveCenterline", "adaptive centerlinePointCount < 4");
+				}
+				else if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::TemplatePoints, tgParams, &tgErr))
+				{
+					fail("tubularGrindingAdaptiveTemplate", tgErr.empty() ? "adaptive template failed" : tgErr);
+				}
+				else if (tgSession->report().templatePointCount < 8)
+				{
+					fail("tubularGrindingAdaptiveTemplate", "adaptive templatePointCount < 8");
+				}
+				else if (!runTubularGrindingStage(*tgSession, TubularGrindingStage::Project, tgParams, &tgErr))
+				{
+					fail("tubularGrindingAdaptiveProject", tgErr.empty() ? "adaptive project failed" : tgErr);
+				}
+				else if (tgSession->report().projectedPointCount < 8)
+				{
+					fail("tubularGrindingAdaptiveProject", "adaptive projectedPointCount < 8");
+				}
+				else if (tgSession->report().projectionHitRate < 0.5)
+				{
+					fail("tubularGrindingAdaptiveProject", "adaptive projectionHitRate < 0.5");
+				}
 			}
 		}
 	}
-}
 
 	{
 		TColgp_Array2OfPnt grid(1, 5, 1, 5);
@@ -1159,15 +1119,9 @@ bool runSelfTest(std::vector<std::string>& failures)
 			}
 		}
 		Handle(Geom_BSplineSurface) surface;
-		if (!meshrecon::fitNurbsSurfaceFromGrid(
-				grid,
-				6,
-				6,
-				meshrecon::NurbsFitMode::ApproxCentripetalFixedCtrlpts,
-				3,
-				3,
-				surface)
-			|| surface.IsNull())
+		if (!meshrecon::fitNurbsSurfaceFromGrid(grid, 6, 6, meshrecon::NurbsFitMode::ApproxCentripetalFixedCtrlpts, 3,
+												3, surface) ||
+			surface.IsNull())
 		{
 			fail("nurbsSurfaceFitting", "fitNurbsSurfaceFromGrid failed");
 		}
@@ -1179,17 +1133,13 @@ bool runSelfTest(std::vector<std::string>& failures)
 
 	{
 		// 单位立方体 z=0.5 平面截面
-		std::vector<float> boxSoup = {
-			0, 0, 0, 1, 0, 0, 1, 1, 0,
-			0, 0, 0, 1, 1, 0, 0, 1, 0,
-			0, 0, 1, 1, 0, 1, 1, 1, 1,
-			0, 0, 1, 1, 1, 1, 0, 1, 1};
+		std::vector<float> boxSoup = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0,
+									  0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1};
 		const double origin[3] = {0.5, 0.5, 0.5};
 		const double normal[3] = {0, 0, 1};
 		std::vector<MeshTrajectoryPolyline> polylines;
 		std::string err;
-		if (!intersectPlaneWithTriangleSoup(boxSoup, origin, normal, nullptr, polylines, &err)
-			|| polylines.empty())
+		if (!intersectPlaneWithTriangleSoup(boxSoup, origin, normal, nullptr, polylines, &err) || polylines.empty())
 		{
 			fail("meshTrajectoryCrossSection", err.empty() ? "no intersection" : err);
 		}
@@ -1269,7 +1219,8 @@ bool runSelfTest(std::vector<std::string>& failures)
 		doc.features.push_back(edgeEntry);
 		RawPath path;
 		std::string err;
-		if (!discretizeFeatureList(doc, ShapeHandleAccess::fromNativeShape(&box), path, &err) || path.points.size() < 2U)
+		if (!discretizeFeatureList(doc, ShapeHandleAccess::fromNativeShape(&box), path, &err) ||
+			path.points.size() < 2U)
 		{
 			fail("featureDiscretizeEdgeChain", err.empty() ? "too few points" : err);
 		}

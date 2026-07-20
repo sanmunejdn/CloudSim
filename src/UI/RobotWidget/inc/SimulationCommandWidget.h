@@ -1,32 +1,21 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_SIMULATIONCOMMANDWIDGET_H
+#define ROBOTWIDGET_SIMULATIONCOMMANDWIDGET_H
 
-
-
-#include <json.hpp>
-
-
-
-#include <QVector>
-
-#include <QWidget>
-
-
-
-#include "RobotInstructionModel.h"
-
-#include "RobotSimulationTypes.h"
+/// @file SimulationCommandWidget.h
+/// @brief SimulationCommandWidget 接口
 
 #include "robotwidget_global.h"
 
+#include "RobotInstructionModel.h"
+#include "RobotSimulationTypes.h"
 
-
+#include <QVector>
+#include <QWidget>
 #include <memory>
-
 #include <string>
-
 #include <vector>
 
-
+#include <json.hpp>
 
 class QComboBox;
 
@@ -44,21 +33,13 @@ class InstructionProgramTreeWidget;
 
 class ProgramEditService;
 
-
-
 class ROBOTWIDGET_EXPORT SimulationCommandWidget : public QWidget
 
 {
-
 	Q_OBJECT
 
-
-
 public:
-
 	explicit SimulationCommandWidget(QWidget* parent = nullptr);
-
-
 
 	void setProgramStore(RobotProgramStore* store);
 
@@ -74,15 +55,11 @@ public:
 
 	bool tcpDragTeachMode() const;
 
-
-
 	void setRobotInstances(const QStringList& labels, const QStringList& backendIds);
 
 	int currentRobotInstanceIndex() const;
 
 	QString currentRobotBackendId() const;
-
-
 
 	void setRevoluteJointNames(const QStringList& names);
 
@@ -90,15 +67,11 @@ public:
 
 	QString selectedTcpLink() const;
 
-
-
 	QVector<RobotSimulationCommand> commands() const;
 
 	std::vector<std::shared_ptr<RobotInstruction::Base>> instructions(const QString& robotBackendId) const;
 
 	std::vector<std::shared_ptr<RobotInstruction::Base>> instructionList() const;
-
-
 
 	std::shared_ptr<RobotInstruction::Base> appendInstructionFromCurrentPose(
 
@@ -110,25 +83,17 @@ public:
 
 		bool deferInstructionSelection = false);
 
-
-
 	std::shared_ptr<RobotInstruction::Base> appendInstruction(RobotInstruction::Type type);
 
 	bool appendInstructionFromJson(const nlohmann::json& j, std::string* errMsg = nullptr);
 
-
-
 	std::vector<std::string> selectedMotionInstructionIds() const;
-
-
 
 	void refreshInstructionList();
 
 	void clearInstructionSelection();
 
 	InstructionProgramTreeWidget* instructionTree() const { return m_tree; }
-
-
 
 signals:
 
@@ -150,10 +115,7 @@ signals:
 
 	void tcpDragTeachModeChanged(bool enabled);
 
-
-
 private:
-
 	void rebuildCommandListWidget();
 
 	void onAddTypeButtonClicked();
@@ -192,11 +154,7 @@ private:
 
 	void updateProgramGroupUi();
 
-
-
 	QPushButton* createTypeButton(RobotInstruction::Type type);
-
-
 
 	RobotProgramStore* m_programStore = nullptr;
 
@@ -207,8 +165,6 @@ private:
 	bool m_simulationRunning = false;
 
 	bool m_hasRobotContext = false;
-
-
 
 	QGroupBox* m_instructionGroupBox = nullptr;
 
@@ -230,8 +186,6 @@ private:
 
 	InstructionProgramTreeWidget* m_tree = nullptr;
 
-
-
 	QVector<QPushButton*> m_typeButtons;
 
 	QPushButton* m_removeBtn = nullptr;
@@ -249,8 +203,6 @@ private:
 	bool m_tcpDragTeachMode = false;
 
 	QScrollArea* m_scrollArea = nullptr;
-
 };
 
-
-
+#endif // ROBOTWIDGET_SIMULATIONCOMMANDWIDGET_H

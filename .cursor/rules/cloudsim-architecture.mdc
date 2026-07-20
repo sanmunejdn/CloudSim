@@ -10,6 +10,7 @@ alwaysApply: true
 - **工程**: `CloudSim`（可执行）、`Widget`（x64 DLL，含 `CloudSimPluginHost` + Ai 宿主实现）、`RobotWidget`、`AiWidget`、`CloudSimAiSDK`（DLL）、`Data`、`CloudSimPluginSDK`（DLL）、`CloudSimPluginHost`（sln 静态库参考）。x64 共享引擎 DLL：`RunLogger`、`GeometryEngine`、`RobotKinematics`、`RobotUrdf`、`RobotScene`、`BackendVisual`、`OsgWidgetCore`；`PointCloudAlgorithm` 仍静态链入 `Data.dll`。`RobotWidget` 仅 **x64**；Win32 不链接。插件开发示例参见 `CloudSimPluginSDK/DEVELOPER_GUIDE.md`。
 - **技术栈**: C++、**Qt 5.14**（`msvc2017_64`）、**OpenSceneGraph**、**CGAL**（点云/PLY 等）、**nlohmann::json**（属性与工程序列化）。
 - **目录习惯**: 各子工程内 **`inc/`** + **`source/`**；跨模块引用以 vcxproj `AdditionalIncludeDirectories` / `ProjectReference` 为准（路径相对各 `.vcxproj`，跨域示例见 `DIRECTORY_LAYOUT.md`）。
-- **修改代码时**: 新增源文件需在对应 **`.vcxproj` / `.vcxproj.filters`** 中登记；新增跨 DLL 符号需正确使用该模块的 **`*_LIB` 预处理器定义** 与导出宏（见各 `*_global.h`）。
+- **源码格式**: UTF-8 **with BOM** + **CRLF**；头卫 `工程名_文件名_H`（不用 `#pragma once`）；文件头 `/// @file` / `/// @brief`；格式化用仓库根 `.clang-format`。权威说明：`docs/SOURCE_CONVENTIONS.md`。
+- **修改代码时**: 新增源文件需在对应 **`.vcxproj` / `.vcxproj.filters`** 中登记（日常可用 `scripts/generate_vcxproj_filters.py --only-missing` 补缺）；新增跨 DLL 符号需正确使用该模块的 **`*_LIB` 预处理器定义** 与导出宏（见各 `*_global.h`）。
 - **机器人仿真**: 编排与 Dock UI 在 `RobotWidget`；`MainWindowRobotHost::DocumentHost` 必须转发 `robotBackendManagerForKinematics()`。运动指令 `context.currentJointRadCsv` 为预览/Run 关节真源；`prepareMotionInstructionForPlanning` 不得用 FK 覆盖指令 `pose`。详见 `RobotWidget/DEVELOPER_GUIDE.md`、`ARCHITECTURE_SUMMARY.md` §6.4。
 - **Host 收口迁移**: Widget 层仍有 5 类功能绕过 Host（RobotSimulationController 直连引擎、BackendDataManager 直连、osg/ 头文件直引、OsgWidget* 耦合、RobotInstruction 属性直连）。新代码应优先走 `doc->data()` / `doc->robot()` / `doc->render()` 契约，避免扩大缺口。详见 `ARCHITECTURE_SUMMARY.md` §迁移路线图。

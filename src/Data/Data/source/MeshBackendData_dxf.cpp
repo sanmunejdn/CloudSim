@@ -1,26 +1,29 @@
-#include "pch.h"
-#include "MeshBackendData_loaders.h"
-#include "MeshBackendData.h"
-#include "RunLogger.h"
+﻿/// @file MeshBackendData_dxf.cpp
+/// @brief MeshBackendData_dxf 实现
 
+#include "pch.h"
+
+#include "MeshBackendData.h"
+#include "MeshBackendData_loaders.h"
+#include "RunLogger.h"
 #include "dl_creationadapter.h"
 #include "dl_dxf.h"
 
-namespace mesh_backend_load {
-
-
+namespace mesh_backend_load
+{
 static void meshAddTraceTriangles(std::vector<float>& soup, const DL_TraceData& d)
 {
 	const double* x = d.x;
 	const double* y = d.y;
 	const double* z = d.z;
-	auto same = [&](int a, int b) {
+	auto same = [&](int a, int b)
+	{
 		const double dx = x[a] - x[b];
 		const double dy = y[a] - y[b];
 		const double dz = z[a] - z[b];
 		return dx * dx + dy * dy + dz * dz < 1e-24;
 	};
-	if (same(2, 3))  // 退化四边形
+	if (same(2, 3)) // 退化四边形
 	{
 		mesh_backend_load::meshPushTri(soup, x[0], y[0], z[0], x[1], y[1], z[1], x[2], y[2], z[2]);
 	}
@@ -125,8 +128,8 @@ private:
 			for (std::size_t k = 1; k + 1 < npts; ++k)
 			{
 				mesh_backend_load::meshPushTri(soup, m_polyVerts[0], m_polyVerts[1], m_polyVerts[2], m_polyVerts[k * 3],
-					m_polyVerts[k * 3 + 1], m_polyVerts[k * 3 + 2], m_polyVerts[(k + 1) * 3], m_polyVerts[(k + 1) * 3 + 1],
-					m_polyVerts[(k + 1) * 3 + 2]);
+											   m_polyVerts[k * 3 + 1], m_polyVerts[k * 3 + 2], m_polyVerts[(k + 1) * 3],
+											   m_polyVerts[(k + 1) * 3 + 1], m_polyVerts[(k + 1) * 3 + 2]);
 			}
 		}
 		m_polyVerts.clear();
@@ -242,10 +245,7 @@ public:
 	std::vector<DxfInsertInstance> rootInserts;
 	std::unordered_set<std::string> hiddenLayers;
 
-	void addLayer(const DL_LayerData& data) override
-	{
-		(void)data;
-	}
+	void addLayer(const DL_LayerData& data) override { (void)data; }
 
 	void addBlock(const DL_BlockData& data) override
 	{
@@ -296,9 +296,21 @@ public:
 		}
 	}
 
-	void add3dFace(const DL_3dFaceData& data) override { if (entityVisible()) meshAddTraceTriangles(targetSoup(), data); }
-	void addSolid(const DL_SolidData& data) override { if (entityVisible()) meshAddTraceTriangles(targetSoup(), data); }
-	void addTrace(const DL_TraceData& data) override { if (entityVisible()) meshAddTraceTriangles(targetSoup(), data); }
+	void add3dFace(const DL_3dFaceData& data) override
+	{
+		if (entityVisible())
+			meshAddTraceTriangles(targetSoup(), data);
+	}
+	void addSolid(const DL_SolidData& data) override
+	{
+		if (entityVisible())
+			meshAddTraceTriangles(targetSoup(), data);
+	}
+	void addTrace(const DL_TraceData& data) override
+	{
+		if (entityVisible())
+			meshAddTraceTriangles(targetSoup(), data);
+	}
 
 	void addPolyline(const DL_PolylineData& pd) override
 	{
@@ -337,10 +349,7 @@ private:
 	unsigned m_polyN = 0;
 	bool m_havePolylineHeader = false;
 	std::vector<double> m_polyVerts;
-	bool entityVisible()
-	{
-		return true;
-	}
+	bool entityVisible() { return true; }
 
 	std::vector<float>& targetSoup()
 	{
@@ -366,7 +375,8 @@ private:
 			{
 				const unsigned m = m_polyM;
 				const unsigned n = m_polyN;
-				if ((flags & 16) && m >= 2 && n >= 2 && static_cast<std::size_t>(m) * static_cast<std::size_t>(n) == npts)
+				if ((flags & 16) && m >= 2 && n >= 2 &&
+					static_cast<std::size_t>(m) * static_cast<std::size_t>(n) == npts)
 				{
 					for (unsigned i = 0; i + 1 < m; ++i)
 					{
@@ -376,12 +386,14 @@ private:
 							const std::size_t i10 = (static_cast<std::size_t>(i) + 1) * n + j;
 							const std::size_t i11 = (static_cast<std::size_t>(i) + 1) * n + (j + 1);
 							const std::size_t i01 = static_cast<std::size_t>(i) * n + (j + 1);
-							mesh_backend_load::meshPushTri(soup, m_polyVerts[i00 * 3], m_polyVerts[i00 * 3 + 1], m_polyVerts[i00 * 3 + 2],
-								m_polyVerts[i10 * 3], m_polyVerts[i10 * 3 + 1], m_polyVerts[i10 * 3 + 2], m_polyVerts[i11 * 3],
-								m_polyVerts[i11 * 3 + 1], m_polyVerts[i11 * 3 + 2]);
-							mesh_backend_load::meshPushTri(soup, m_polyVerts[i00 * 3], m_polyVerts[i00 * 3 + 1], m_polyVerts[i00 * 3 + 2],
-								m_polyVerts[i11 * 3], m_polyVerts[i11 * 3 + 1], m_polyVerts[i11 * 3 + 2], m_polyVerts[i01 * 3],
-								m_polyVerts[i01 * 3 + 1], m_polyVerts[i01 * 3 + 2]);
+							mesh_backend_load::meshPushTri(
+								soup, m_polyVerts[i00 * 3], m_polyVerts[i00 * 3 + 1], m_polyVerts[i00 * 3 + 2],
+								m_polyVerts[i10 * 3], m_polyVerts[i10 * 3 + 1], m_polyVerts[i10 * 3 + 2],
+								m_polyVerts[i11 * 3], m_polyVerts[i11 * 3 + 1], m_polyVerts[i11 * 3 + 2]);
+							mesh_backend_load::meshPushTri(
+								soup, m_polyVerts[i00 * 3], m_polyVerts[i00 * 3 + 1], m_polyVerts[i00 * 3 + 2],
+								m_polyVerts[i11 * 3], m_polyVerts[i11 * 3 + 1], m_polyVerts[i11 * 3 + 2],
+								m_polyVerts[i01 * 3], m_polyVerts[i01 * 3 + 1], m_polyVerts[i01 * 3 + 2]);
 						}
 					}
 				}
@@ -389,9 +401,10 @@ private:
 				{
 					for (std::size_t k = 1; k + 1 < npts; ++k)
 					{
-						mesh_backend_load::meshPushTri(soup, m_polyVerts[0], m_polyVerts[1], m_polyVerts[2], m_polyVerts[k * 3],
-							m_polyVerts[k * 3 + 1], m_polyVerts[k * 3 + 2], m_polyVerts[(k + 1) * 3], m_polyVerts[(k + 1) * 3 + 1],
-							m_polyVerts[(k + 1) * 3 + 2]);
+						mesh_backend_load::meshPushTri(soup, m_polyVerts[0], m_polyVerts[1], m_polyVerts[2],
+													   m_polyVerts[k * 3], m_polyVerts[k * 3 + 1],
+													   m_polyVerts[k * 3 + 2], m_polyVerts[(k + 1) * 3],
+													   m_polyVerts[(k + 1) * 3 + 1], m_polyVerts[(k + 1) * 3 + 2]);
 					}
 				}
 			}
@@ -401,18 +414,21 @@ private:
 	}
 };
 
-static DxfMatrix4 dxfComposeInsertTransform(const DxfInsertInstance& ins, const DxfBlockDef& block, double arrayDx, double arrayDy)
+static DxfMatrix4 dxfComposeInsertTransform(const DxfInsertInstance& ins, const DxfBlockDef& block, double arrayDx,
+											double arrayDy)
 {
 	DxfMatrix4 m = dxfIdentityMatrix();
 	m = dxfMultiply(dxfTranslate(ins.ipx, ins.ipy, ins.ipz), m);
 	m = dxfMultiply(dxfRotateZDeg(ins.angleDeg), m);
-	m = dxfMultiply(dxfScale(ins.sx == 0.0 ? 1.0 : ins.sx, ins.sy == 0.0 ? 1.0 : ins.sy, ins.sz == 0.0 ? 1.0 : ins.sz), m);
+	m = dxfMultiply(dxfScale(ins.sx == 0.0 ? 1.0 : ins.sx, ins.sy == 0.0 ? 1.0 : ins.sy, ins.sz == 0.0 ? 1.0 : ins.sz),
+					m);
 	m = dxfMultiply(dxfTranslate(arrayDx, arrayDy, 0.0), m);
 	m = dxfMultiply(dxfTranslate(-block.bpx, -block.bpy, -block.bpz), m);
 	return m;
 }
 
-static void dxfAppendTransformedSoup(const std::vector<float>& localSoup, const DxfMatrix4& xf, std::vector<float>& outSoup)
+static void dxfAppendTransformedSoup(const std::vector<float>& localSoup, const DxfMatrix4& xf,
+									 std::vector<float>& outSoup)
 {
 	outSoup.reserve(outSoup.size() + localSoup.size());
 	for (std::size_t i = 0; i + 2 < localSoup.size(); i += 3)
@@ -426,8 +442,9 @@ static void dxfAppendTransformedSoup(const std::vector<float>& localSoup, const 
 }
 
 static void dxfExpandInsertRecursive(const DxfInsertInstance& ins, const DxfMatrix4& parentXf,
-	const std::string& parentPath, int& partCounter, const std::map<std::string, DxfBlockDef>& blocks,
-	std::vector<MeshHierarchyPart>& outParts, std::vector<std::string>& stack)
+									 const std::string& parentPath, int& partCounter,
+									 const std::map<std::string, DxfBlockDef>& blocks,
+									 std::vector<MeshHierarchyPart>& outParts, std::vector<std::string>& stack)
 {
 	const auto it = blocks.find(ins.blockName);
 	if (it == blocks.end())
@@ -472,7 +489,6 @@ static void dxfExpandInsertRecursive(const DxfInsertInstance& ins, const DxfMatr
 	stack.pop_back();
 }
 
-
 bool meshLoadDxfSingleFile(const std::string& path, std::vector<float>& soup, std::string* errMsg)
 {
 	soup.clear();
@@ -485,8 +501,8 @@ bool meshLoadDxfSingleFile(const std::string& path, std::vector<float>& soup, st
 	}
 	if (collector.soup.empty())
 	{
-		mesh_backend_load::meshLoadErr(errMsg,
-			"DXF contained no triangulatable geometry (3DFACE/TRACE/SOLID or closed polyline / polygon mesh).");
+		mesh_backend_load::meshLoadErr(
+			errMsg, "DXF contained no triangulatable geometry (3DFACE/TRACE/SOLID or closed polyline / polygon mesh).");
 		return false;
 	}
 	soup = std::move(collector.soup);
@@ -495,7 +511,8 @@ bool meshLoadDxfSingleFile(const std::string& path, std::vector<float>& soup, st
 
 } // namespace mesh_backend_load
 
-bool MeshBackendData::loadDxfHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts, std::string* errMsg)
+bool MeshBackendData::loadDxfHierarchyFromFile(const std::string& path, std::vector<MeshHierarchyPart>& outParts,
+											   std::string* errMsg)
 {
 	outParts.clear();
 	DL_Dxf dxf;
@@ -509,11 +526,12 @@ bool MeshBackendData::loadDxfHierarchyFromFile(const std::string& path, std::vec
 	std::vector<std::string> stack;
 	const mesh_backend_load::DxfMatrix4 identity = mesh_backend_load::dxfIdentityMatrix();
 
-	auto expandInsertListAsRoot = [&](const std::vector<mesh_backend_load::DxfInsertInstance>& insList) {
+	auto expandInsertListAsRoot = [&](const std::vector<mesh_backend_load::DxfInsertInstance>& insList)
+	{
 		for (const mesh_backend_load::DxfInsertInstance& ins : insList)
 		{
-			mesh_backend_load::dxfExpandInsertRecursive(ins, identity, std::string(), counter, collector.blocks, outParts,
-				stack);
+			mesh_backend_load::dxfExpandInsertRecursive(ins, identity, std::string(), counter, collector.blocks,
+														outParts, stack);
 		}
 	};
 
@@ -543,7 +561,7 @@ bool MeshBackendData::loadDxfHierarchyFromFile(const std::string& path, std::vec
 	// 再次：纸空间 BLOCK
 	if (outParts.empty())
 	{
-		for (const char* paperName : { "*Paper_Space", "*Paper_Space0" })
+		for (const char* paperName : {"*Paper_Space", "*Paper_Space0"})
 		{
 			const auto it = collector.blocks.find(paperName);
 			if (it == collector.blocks.end())

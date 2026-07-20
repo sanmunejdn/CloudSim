@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef OSGWIDGETCORE_OSGCOMPASSGEOMETRY_H
+#define OSGWIDGETCORE_OSGCOMPASSGEOMETRY_H
+
+/// @file OsgCompassGeometry.h
+/// @brief 与 updateCompassScale / updateTcpTeachCompassScale 除数一致
 
 #include "osgwidgetcore_global.h"
 
@@ -6,8 +10,8 @@
 #include <osg/Node>
 #include <osg/ref_ptr>
 
-namespace osg_compass {
-
+namespace osg_compass
+{
 /// 与 updateCompassScale / updateTcpTeachCompassScale 除数一致
 inline constexpr float kCompassAxisLength = 600.0f;
 inline constexpr float kCompassGeomScale = kCompassAxisLength / 120.0f;
@@ -24,3 +28,5 @@ struct TransformCompassBranches
 OSGWIDGETCORE_EXPORT osg::ref_ptr<osg::Node> buildTransformCompassNode(TransformCompassBranches* outBranches = nullptr);
 
 } // namespace osg_compass
+
+#endif // OSGWIDGETCORE_OSGCOMPASSGEOMETRY_H

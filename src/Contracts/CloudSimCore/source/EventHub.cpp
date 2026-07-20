@@ -1,7 +1,10 @@
+﻿/// @file EventHub.cpp
+/// @brief EventHub 实现
+
 #include "EventHub.h"
 
-namespace cloudsim::core {
-
+namespace cloudsim::core
+{
 EventHub::~EventHub() = default;
 
 void EventHub::clear()

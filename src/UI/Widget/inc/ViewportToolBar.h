@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef WIDGET_VIEWPORTTOOLBAR_H
+#define WIDGET_VIEWPORTTOOLBAR_H
+
+/// @file ViewportToolBar.h
+/// @brief 3D 视口顶部浮动按钮（视角工具 + 侧栏抽屉切换）
 
 #include <QObject>
 
@@ -48,3 +52,5 @@ private:
 	QToolButton* m_rightPanelBtn = nullptr;
 	QWidget* m_actionTip = nullptr;
 };
+
+#endif // WIDGET_VIEWPORTTOOLBAR_H

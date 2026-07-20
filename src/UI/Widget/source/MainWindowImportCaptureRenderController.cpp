@@ -1,14 +1,16 @@
+﻿/// @file MainWindowImportCaptureRenderController.cpp
+/// @brief MainWindowImportCaptureRenderController 实现
+
 #include "MainWindowImportCaptureRenderController.h"
 
 #include "CoreTypes.h"
 #include "DocumentImportFacade.h"
+#include "DocumentPage.h"
+#include "IRenderView.h"
 #include "IRobotService.h"
 #include "JobSystem.h"
 #include "MainWindow.h"
 #include "PlyIo.h"
-
-#include "DocumentPage.h"
-#include "IRenderView.h"
 #include "RunInfoPage.h"
 
 #include <QByteArray>
@@ -16,15 +18,11 @@
 #include <QFileInfo>
 #include <QMessageBox>
 #include <QPointer>
-
 #include <memory>
 
-bool MainWindowImportCaptureRenderController::registerBackendObject(
-	MainWindow& mw,
-	const QString& filePath,
-	const QString& typeName,
-	bool isPointCloud,
-	bool quietUi)
+bool MainWindowImportCaptureRenderController::registerBackendObject(MainWindow& mw, const QString& filePath,
+																	const QString& typeName, bool isPointCloud,
+																	bool quietUi)
 {
 	DocumentPage* doc = mw.currentPage();
 	if (!doc)
@@ -33,7 +31,8 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 	}
 	const QFileInfo fileInfo(filePath);
 
-	auto reportFail = [&](const QString& title, const QString& msg) -> bool {
+	auto reportFail = [&](const QString& title, const QString& msg) -> bool
+	{
 		if (quietUi)
 		{
 			if (mw.m_runInfoPage)
@@ -48,7 +47,8 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 		return false;
 	};
 
-	auto finish = [&](const QString& backendId) {
+	auto finish = [&](const QString& backendId)
+	{
 		if (backendId.isEmpty())
 		{
 			return;
@@ -82,7 +82,7 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 			if (!imported.ok)
 			{
 				return reportFail(QStringLiteral("Point cloud"),
-					importErr.isEmpty() ? QStringLiteral("Failed to load PLY mesh.") : importErr);
+								  importErr.isEmpty() ? QStringLiteral("Failed to load PLY mesh.") : importErr);
 			}
 			finish(imported.rootBackendId);
 			return true;
@@ -90,8 +90,8 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 
 		if (!isLasLaz && mw.jobSystem())
 		{
-			const auto loadState = std::make_shared<cloudsim::host::PointCloudBackgroundLoadState>(
-				filePath, fileInfo.fileName());
+			const auto loadState =
+				std::make_shared<cloudsim::host::PointCloudBackgroundLoadState>(filePath, fileInfo.fileName());
 			const auto loadOk = std::make_shared<bool>(false);
 			const auto loadErr = std::make_shared<QString>();
 			const QPointer<MainWindow> mwPtr(&mw);
@@ -99,20 +99,23 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 
 			mw.jobSystem()->enqueue(
 				QStringLiteral("Point cloud: %1").arg(fileInfo.fileName()),
-				[loadState, loadOk, loadErr](const JobProgressSink& sink) {
-					*loadOk = loadState->executeLoad(
-						[&](const double progress01, const QString& status) { sink(progress01, status); },
-						loadErr.get());
+				[loadState, loadOk, loadErr](const JobProgressSink& sink)
+				{
+					*loadOk = loadState->executeLoad([&](const double progress01, const QString& status)
+													 { sink(progress01, status); },
+													 loadErr.get());
 				},
-				[loadState, loadOk, loadErr, mwPtr, docPtr, filePath, typeName, quietUi, fileInfo](
-					const bool threw, const QString& throwMsg) {
+				[loadState, loadOk, loadErr, mwPtr, docPtr, filePath, typeName, quietUi,
+				 fileInfo](const bool threw, const QString& throwMsg)
+				{
 					if (!mwPtr || !docPtr)
 					{
 						return;
 					}
 					MainWindow& mwRef = *mwPtr;
 					DocumentPage& docRef = *docPtr;
-					const auto uiFail = [&](const QString& title, const QString& msg) {
+					const auto uiFail = [&](const QString& title, const QString& msg)
+					{
 						if (quietUi)
 						{
 							if (mwRef.m_runInfoPage)
@@ -128,13 +131,13 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 					if (threw)
 					{
 						uiFail(QStringLiteral("Point cloud"),
-							throwMsg.isEmpty() ? QStringLiteral("Background import failed.") : throwMsg);
+							   throwMsg.isEmpty() ? QStringLiteral("Background import failed.") : throwMsg);
 						return;
 					}
 					if (!*loadOk)
 					{
 						uiFail(QStringLiteral("Point cloud"),
-							loadErr->isEmpty() ? QStringLiteral("Failed to load point cloud.") : *loadErr);
+							   loadErr->isEmpty() ? QStringLiteral("Failed to load point cloud.") : *loadErr);
 						return;
 					}
 					cloudsim::host::AdoptPointCloudOptions adoptOpt;
@@ -147,7 +150,7 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 					if (!adopted.ok)
 					{
 						uiFail(QStringLiteral("Backend Register"),
-							regErr.isEmpty() ? QStringLiteral("Failed to register point cloud.") : regErr);
+							   regErr.isEmpty() ? QStringLiteral("Failed to register point cloud.") : regErr);
 						return;
 					}
 					if (mwRef.m_runInfoPage && !quietUi)
@@ -173,7 +176,7 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 		if (!imported.ok)
 		{
 			return reportFail(QStringLiteral("Point cloud"),
-				importErr.isEmpty() ? QStringLiteral("Failed to load point cloud.") : importErr);
+							  importErr.isEmpty() ? QStringLiteral("Failed to load point cloud.") : importErr);
 		}
 		finish(imported.rootBackendId);
 		return true;
@@ -190,20 +193,22 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 
 		mw.jobSystem()->enqueue(
 			QStringLiteral("Import model: %1").arg(fileInfo.fileName()),
-			[loadState, loadOk, loadErr](const JobProgressSink& sink) {
+			[loadState, loadOk, loadErr](const JobProgressSink& sink)
+			{
 				*loadOk = loadState->executeLoad(
-					[&](const double progress01, const QString& status) { sink(progress01, status); },
-					loadErr.get());
+					[&](const double progress01, const QString& status) { sink(progress01, status); }, loadErr.get());
 			},
-			[loadState, loadOk, loadErr, mwPtr, docPtr, filePath, typeName, quietUi, fileInfo](
-				const bool threw, const QString& throwMsg) {
+			[loadState, loadOk, loadErr, mwPtr, docPtr, filePath, typeName, quietUi, fileInfo](const bool threw,
+																							   const QString& throwMsg)
+			{
 				if (!mwPtr || !docPtr)
 				{
 					return;
 				}
 				MainWindow& mwRef = *mwPtr;
 				DocumentPage& docRef = *docPtr;
-				const auto uiFail = [&](const QString& title, const QString& msg) {
+				const auto uiFail = [&](const QString& title, const QString& msg)
+				{
 					if (quietUi)
 					{
 						if (mwRef.m_runInfoPage)
@@ -219,13 +224,13 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 				if (threw)
 				{
 					uiFail(QStringLiteral("Model"),
-						throwMsg.isEmpty() ? QStringLiteral("Background import failed.") : throwMsg);
+						   throwMsg.isEmpty() ? QStringLiteral("Background import failed.") : throwMsg);
 					return;
 				}
 				if (!*loadOk)
 				{
 					uiFail(QStringLiteral("Model"),
-						loadErr->isEmpty() ? QStringLiteral("Failed to load model.") : *loadErr);
+						   loadErr->isEmpty() ? QStringLiteral("Failed to load model.") : *loadErr);
 					return;
 				}
 				const MainWindow::ScopedBackendTreeRefreshSuppress treeSuppressGuard(mwRef);
@@ -239,8 +244,7 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 					loadState->finishIntoDocument(docRef, importOpt, &importErr);
 				if (!imported.ok)
 				{
-					uiFail(QStringLiteral("Model"),
-						importErr.isEmpty() ? QStringLiteral("Import failed.") : importErr);
+					uiFail(QStringLiteral("Model"), importErr.isEmpty() ? QStringLiteral("Import failed.") : importErr);
 					return;
 				}
 				mwRef.refreshBackendTree();
@@ -266,9 +270,7 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 					{
 						mwRef.jobSystem()->enqueue(
 							QStringLiteral("BREP pick warm: %1").arg(fileInfo.fileName()),
-							[loadState](const JobProgressSink&) {
-								(void)loadState->warmPickArtifacts(nullptr);
-							},
+							[loadState](const JobProgressSink&) { (void)loadState->warmPickArtifacts(nullptr); },
 							[](const bool, const QString&) {});
 					}
 					return;
@@ -289,9 +291,7 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 				{
 					mwRef.jobSystem()->enqueue(
 						QStringLiteral("BREP pick warm: %1").arg(fileInfo.fileName()),
-						[loadState](const JobProgressSink&) {
-							(void)loadState->warmPickArtifacts(nullptr);
-						},
+						[loadState](const JobProgressSink&) { (void)loadState->warmPickArtifacts(nullptr); },
 						[](const bool, const QString&) {});
 				}
 			});
@@ -335,7 +335,8 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(
 	return true;
 }
 
-bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, const QString& urdfFilePath, bool quietUi)
+bool MainWindowImportCaptureRenderController::registerUrdfRobot(MainWindow& mw, const QString& urdfFilePath,
+																bool quietUi)
 {
 	DocumentPage* doc = mw.currentPage();
 	if (!doc)

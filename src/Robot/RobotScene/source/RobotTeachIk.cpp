@@ -1,18 +1,19 @@
+﻿/// @file RobotTeachIk.cpp
+/// @brief RobotTeachIk 实现
+
 #include "RobotTeachIk.h"
 
 #include "RobotCoordinateFrames.h"
 #include "RobotMatrixOsgBridge.h"
 
-#include <Adapters.h>
-#include <ToolKinematics.h>
-#include <UrdfRobotLoader.h>
-
+#include <QHash>
+#include <QString>
 #include <algorithm>
 #include <cmath>
 
-#include <QHash>
-#include <QString>
-
+#include <Adapters.h>
+#include <ToolKinematics.h>
+#include <UrdfRobotLoader.h>
 #include <osg/Quat>
 
 namespace
@@ -125,7 +126,7 @@ bool quatErrorAxisAngle(const osg::Quat& from, const osg::Quat& to, double outEr
 
 struct IkLinkTarget
 {
-	double pos[3] = { 0.0, 0.0, 0.0 };
+	double pos[3] = {0.0, 0.0, 0.0};
 	osg::Quat quat;
 	bool hasOrientation = false;
 };
@@ -155,12 +156,8 @@ bool ikLinkTargetFromTeachContext(const RobotTeachIk::TeachIkContext& ctx, IkLin
 	return true;
 }
 
-bool linkPoseFromUrdf(
-	const QString& urdfPath,
-	const QString& linkName,
-	const std::vector<double>& q,
-	double outPos[3],
-	osg::Quat* outRot = nullptr)
+bool linkPoseFromUrdf(const QString& urdfPath, const QString& linkName, const std::vector<double>& q, double outPos[3],
+					  osg::Quat* outRot = nullptr)
 {
 	QVector<double> qQt;
 	qQt.reserve(static_cast<int>(q.size()));
@@ -189,13 +186,8 @@ bool linkPoseFromUrdf(
 	return true;
 }
 
-std::vector<double> solveUrdfNumericalIk(
-	const QString& urdfPath,
-	const QString& ikLink,
-	const IkLinkTarget& linkTarget,
-	std::vector<double> q,
-	const int maxIters,
-	std::string* failReason)
+std::vector<double> solveUrdfNumericalIk(const QString& urdfPath, const QString& ikLink, const IkLinkTarget& linkTarget,
+										 std::vector<double> q, const int maxIters, std::string* failReason)
 {
 	if (urdfPath.isEmpty() || ikLink.isEmpty() || q.empty())
 	{
@@ -205,7 +197,7 @@ std::vector<double> solveUrdfNumericalIk(
 		}
 		return {};
 	}
-	const double target[3] = { linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2] };
+	const double target[3] = {linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2]};
 	const bool useOrientation = linkTarget.hasOrientation;
 	const osg::Quat targetQuat = useOrientation ? linkTarget.quat : osg::Quat();
 	const double targetNormMm = std::sqrt(target[0] * target[0] + target[1] * target[1] + target[2] * target[2]);
@@ -218,7 +210,7 @@ std::vector<double> solveUrdfNumericalIk(
 		return {};
 	}
 
-	double pos[3] = { 0.0, 0.0, 0.0 };
+	double pos[3] = {0.0, 0.0, 0.0};
 	osg::Quat curQuat;
 	if (!linkPoseFromUrdf(urdfPath, ikLink, q, pos, useOrientation ? &curQuat : nullptr))
 	{
@@ -228,9 +220,9 @@ std::vector<double> solveUrdfNumericalIk(
 		}
 		return {};
 	}
-	const double initialErr = std::sqrt(
-		(target[0] - pos[0]) * (target[0] - pos[0]) + (target[1] - pos[1]) * (target[1] - pos[1]) +
-		(target[2] - pos[2]) * (target[2] - pos[2]));
+	const double initialErr =
+		std::sqrt((target[0] - pos[0]) * (target[0] - pos[0]) + (target[1] - pos[1]) * (target[1] - pos[1]) +
+				  (target[2] - pos[2]) * (target[2] - pos[2]));
 	if (initialErr > 10000.0)
 	{
 		if (failReason)
@@ -263,7 +255,7 @@ std::vector<double> solveUrdfNumericalIk(
 		double rotErr = 0.0;
 		if (useOrientation)
 		{
-			double eRot[3] = { 0.0, 0.0, 0.0 };
+			double eRot[3] = {0.0, 0.0, 0.0};
 			quatErrorAxisAngle(curQuat, targetQuat, eRot);
 			e[3] = eRot[0] * orientationWeight;
 			e[4] = eRot[1] * orientationWeight;
@@ -281,7 +273,7 @@ std::vector<double> solveUrdfNumericalIk(
 		{
 			std::vector<double> qPert = q;
 			qPert[static_cast<size_t>(j)] += eps;
-			double p2[3] = { 0.0, 0.0, 0.0 };
+			double p2[3] = {0.0, 0.0, 0.0};
 			osg::Quat q2;
 			if (!linkPoseFromUrdf(urdfPath, ikLink, qPert, p2, useOrientation ? &q2 : nullptr))
 			{
@@ -296,7 +288,7 @@ std::vector<double> solveUrdfNumericalIk(
 			J[2 * n + j] = (p2[2] - pos[2]) / eps;
 			if (useOrientation)
 			{
-				double dRot[3] = { 0.0, 0.0, 0.0 };
+				double dRot[3] = {0.0, 0.0, 0.0};
 				quatErrorAxisAngle(curQuat, q2, dRot);
 				J[3 * n + j] = (dRot[0] / eps) * orientationWeight;
 				J[4 * n + j] = (dRot[1] / eps) * orientationWeight;
@@ -346,7 +338,7 @@ std::vector<double> solveUrdfNumericalIk(
 
 	if (useOrientation)
 	{
-		const double posTarget[3] = { linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2] };
+		const double posTarget[3] = {linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2]};
 		std::vector<double> qPos = q;
 		for (int iter = 0; iter < iterLimit; ++iter)
 		{
@@ -368,7 +360,7 @@ std::vector<double> solveUrdfNumericalIk(
 			{
 				std::vector<double> qPert = qPos;
 				qPert[static_cast<size_t>(j)] += eps;
-				double p2[3] = { 0.0, 0.0, 0.0 };
+				double p2[3] = {0.0, 0.0, 0.0};
 				if (!linkPoseFromUrdf(urdfPath, ikLink, qPert, p2, nullptr))
 				{
 					break;
@@ -379,7 +371,7 @@ std::vector<double> solveUrdfNumericalIk(
 			}
 			std::vector<double> jtj(static_cast<size_t>(n * n), 0.0);
 			std::vector<double> jte(static_cast<size_t>(n), 0.0);
-			const double e[3] = { e0, e1, e2 };
+			const double e[3] = {e0, e1, e2};
 			for (int r = 0; r < 3; ++r)
 			{
 				for (int c = 0; c < n; ++c)
@@ -422,9 +414,7 @@ std::vector<double> solveUrdfNumericalIk(
 	return {};
 }
 
-double residualToolOriginMm(
-	const RobotTeachIk::TeachIkContext& ctx,
-	const std::vector<double>& q)
+double residualToolOriginMm(const RobotTeachIk::TeachIkContext& ctx, const std::vector<double>& q)
 {
 	IkLinkTarget linkTarget{};
 	if (!ikLinkTargetFromTeachContext(ctx, linkTarget))
@@ -442,16 +432,15 @@ double residualToolOriginMm(
 		qQt.push_back(v);
 	}
 	QHash<QString, osg::Matrixd> linkWorld;
-	if (!UrdfRobotLoader::computeLinkWorldMatrices(ctx.urdfPath, qQt, linkWorld, nullptr)
-		|| !linkWorld.contains(ctx.ikLinkName))
+	if (!UrdfRobotLoader::computeLinkWorldMatrices(ctx.urdfPath, qQt, linkWorld, nullptr) ||
+		!linkWorld.contains(ctx.ikLinkName))
 	{
 		return 1e30;
 	}
-	const BackendMat4 fkTcpMat = RobotMatrixOsg::targetInBaseFromFlangeLinkWorld(
-		linkWorld.value(ctx.ikLinkName), ctx.T_flange_tool);
+	const BackendMat4 fkTcpMat =
+		RobotMatrixOsg::targetInBaseFromFlangeLinkWorld(linkWorld.value(ctx.ikLinkName), ctx.T_flange_tool);
 	const RobotCoordinate::RobotRigidFrame fkTcpFrame = RobotCoordinate::mat4ToFrame(fkTcpMat);
-	const double fkPos[3] = {
-		fkTcpFrame.positionMm[0], fkTcpFrame.positionMm[1], fkTcpFrame.positionMm[2] };
+	const double fkPos[3] = {fkTcpFrame.positionMm[0], fkTcpFrame.positionMm[1], fkTcpFrame.positionMm[2]};
 	const double dx = fkPos[0] - toolOriginPos[0];
 	const double dy = fkPos[1] - toolOriginPos[1];
 	const double dz = fkPos[2] - toolOriginPos[2];

@@ -1,11 +1,14 @@
+﻿/// @file JunctionBlend.cpp
+/// @brief JunctionBlend 实现
+
 #include "MeshSurfaceReconstructionInternal.h"
 #include "detail/OccIncludes.h"
-
-#include <TColgp_Array2OfPnt.hxx>
 
 #include <cmath>
 #include <unordered_map>
 #include <vector>
+
+#include <TColgp_Array2OfPnt.hxx>
 
 namespace geoalgo
 {
@@ -13,7 +16,6 @@ namespace meshrecon
 {
 namespace
 {
-
 double junctionWeight(const double u, const double v, const double w)
 {
 	const double s = (u + v + w) / 3.0;
@@ -22,12 +24,9 @@ double junctionWeight(const double u, const double v, const double w)
 
 } // namespace
 
-bool applyJunctionC2Blend(
-	std::vector<QuadPatch>& patches,
-	int junctionCount,
-	const MeshSurfaceReconstructParams& params,
-	MeshSurfaceReconstructReport* report,
-	std::string* errMsg)
+bool applyJunctionC2Blend(std::vector<QuadPatch>& patches, int junctionCount,
+						  const MeshSurfaceReconstructParams& params, MeshSurfaceReconstructReport* report,
+						  std::string* errMsg)
 {
 	(void)params;
 	if (patches.size() < 3U)
@@ -96,10 +95,8 @@ bool applyJunctionC2Blend(
 			TColgp_Array2OfPnt poles = patch.surface->Poles();
 			const double wt = junctionWeight(1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0);
 			const gp_Pnt c0 = poles.Value(1, 1);
-			const gp_Pnt blend(
-				c0.X() * (1.0 - wt) + avg.X() * wt,
-				c0.Y() * (1.0 - wt) + avg.Y() * wt,
-				c0.Z() * (1.0 - wt) + avg.Z() * wt);
+			const gp_Pnt blend(c0.X() * (1.0 - wt) + avg.X() * wt, c0.Y() * (1.0 - wt) + avg.Y() * wt,
+							   c0.Z() * (1.0 - wt) + avg.Z() * wt);
 			const double d = c0.Distance(blend);
 			if (d > maxMove)
 			{

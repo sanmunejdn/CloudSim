@@ -1,9 +1,13 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_DATASERVICEADAPTER_H
+#define CLOUDSIMHOST_DATASERVICEADAPTER_H
+
+/// @file DataServiceAdapter.h
+/// @brief Backend 数据适配
 
 #include "IDataService.h"
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 class DocumentHost;
 
 /// Backend 数据适配
@@ -22,16 +26,17 @@ public:
 	QString className(const core::ObjectId& id) const override;
 	QString displayName(const core::ObjectId& id) const override;
 	QVector<core::ObjectId> listChildren(const core::ObjectId& parentId) const override;
-	bool attachChild(const core::ObjectId& parentId, const core::ObjectId& childId, QString* outError = nullptr) override;
+	bool attachChild(const core::ObjectId& parentId, const core::ObjectId& childId,
+					 QString* outError = nullptr) override;
 
 	QVector<core::PropertyRowDto> propertyRows(const core::ObjectId& id) const override;
 	bool applyPropertyChange(const core::ObjectId& id, const QString& key, const QString& value,
-		QString* outError = nullptr) override;
+							 QString* outError = nullptr) override;
 
-	bool applyWorldPoseMm(const core::ObjectId& id, const core::PoseDto& pose,
-		QString* outError = nullptr) override;
-	bool applyColor(const core::ObjectId& id, const core::ColorDto& color,
-		QString* outError = nullptr) override;
+	bool applyWorldPoseMm(const core::ObjectId& id, const core::PoseDto& pose, QString* outError = nullptr) override;
+	bool applyColor(const core::ObjectId& id, const core::ColorDto& color, QString* outError = nullptr) override;
+	bool isVisible(const core::ObjectId& id) const override;
+	bool setVisible(const core::ObjectId& id, bool visible, QString* outError = nullptr) override;
 	core::PoseDto worldPoseMm(const core::ObjectId& id) const override;
 
 	core::BBoxDto boundingBox(const core::ObjectId& id) const override;
@@ -41,7 +46,7 @@ public:
 	core::ObjectId loadObjectFromJson(const QJsonObject& objectJson, QString* outError = nullptr) override;
 
 	core::ObjectId importFromFile(const QString& path, const core::ImportOptionsDto& options,
-		QString* outError = nullptr) override;
+								  QString* outError = nullptr) override;
 
 	QVector<core::ObjectId> topoOrder() const override;
 	QVector<core::ObjectId> listAll() const override;
@@ -52,7 +57,7 @@ public:
 	core::GeometryKind geometryKind(const core::ObjectId& id) const override;
 	bool hasComponent(const core::ObjectId& id, const QString& componentType) const override;
 	bool applyFollowTargetByName(const core::ObjectId& followerId, const QString& targetName,
-		QString* outError = nullptr) override;
+								 QString* outError = nullptr) override;
 	void markFollowDirtyFromMove(const core::ObjectId& seedId) override;
 	void requestFollowSolveForced() override;
 	bool runFollowSolveAndSync(const core::FollowSolveContextDto& ctx, QString* outError = nullptr) override;
@@ -62,3 +67,5 @@ private:
 };
 
 } // namespace cloudsim::host
+
+#endif // CLOUDSIMHOST_DATASERVICEADAPTER_H

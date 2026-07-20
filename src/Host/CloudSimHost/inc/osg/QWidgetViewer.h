@@ -1,37 +1,35 @@
-#ifndef _POINTCLOUDPROCESS_WIDGET_QWIDGETVIEWER_H_
-#define _POINTCLOUDPROCESS_WIDGET_QWIDGETVIEWER_H_
-
+﻿#ifndef CLOUDSIMHOST_QWIDGETVIEWER_H
+#define CLOUDSIMHOST_QWIDGETVIEWER_H
 
 #include "widget_global.h"
 
-/*********************************************
-* DATE  :2018/8/24
-* File��QWidgetViewer.h
-*   osgǶ�뵽Qt �ɻ�  ��д��osgQt::GraphicsWindowQt
-*    ֱ���¼���Ӧ������д�Ϳ���
-***********************************************/
+/// @file QWidgetViewer.h
+/// @brief OpenGL/OSG 嵌入 Qt；输入事件转发 osgViewer，供 GraphicsWindowQt1 使用
 
+#include <QCursor>
 #include <QGLWidget>
+#include <QGestureEvent>
+#include <QtCore>
+#include <QtWidgets>
+
 #include <osg/Referenced>
-#include <QtCore>   // ����QMutexLocker����
-#include <QtWidgets> // ����QGestureEvent��QCursor
-#include <QGestureEvent> // ��ʽ����QGestureEvent
-#include <QCursor>      // ��ʽ����QCursor
 #include <osgViewer/Viewer>
 
 class GraphicsWindowQt1;
 
-/// ���� OpenGL �� OSG �� Qt �ؼ����� Qt �������¼����� osgViewer���� GraphicsWindowQt1 ���ʹ�á�
-class  WIDGET_EXPORT QWidgetViewer : public QGLWidget
+/// OpenGL/OSG 嵌入 Qt；输入事件转发 osgViewer，供 GraphicsWindowQt1 使用
+class WIDGET_EXPORT QWidgetViewer : public QGLWidget
 {
 	Q_OBJECT
 	typedef QGLWidget inherited;
 
 public:
-
-	QWidgetViewer(QWidget* parent = NULL, const QGLWidget* shareWidget = NULL, Qt::WindowFlags f = 0, bool forwardKeyEvents = false);
-	QWidgetViewer(QGLContext* context, QWidget* parent = NULL, const QGLWidget* shareWidget = NULL, Qt::WindowFlags f = 0, bool forwardKeyEvents = false);
-	QWidgetViewer(const QGLFormat& format, QWidget* parent = NULL, const QGLWidget* shareWidget = NULL, Qt::WindowFlags f = 0, bool forwardKeyEvents = false);
+	QWidgetViewer(QWidget* parent = NULL, const QGLWidget* shareWidget = NULL, Qt::WindowFlags f = 0,
+				  bool forwardKeyEvents = false);
+	QWidgetViewer(QGLContext* context, QWidget* parent = NULL, const QGLWidget* shareWidget = NULL,
+				  Qt::WindowFlags f = 0, bool forwardKeyEvents = false);
+	QWidgetViewer(const QGLFormat& format, QWidget* parent = NULL, const QGLWidget* shareWidget = NULL,
+				  Qt::WindowFlags f = 0, bool forwardKeyEvents = false);
 	virtual ~QWidgetViewer();
 
 	inline void setGraphicsWindow(GraphicsWindowQt1* gw) { _gw = gw; }
@@ -59,7 +57,6 @@ signals:
 	void windowResized(int width, int height);
 
 protected:
-
 	int getNumDeferredEvents()
 	{
 		QMutexLocker lock(&_deferredEventQueueMutex);
@@ -95,10 +92,10 @@ protected:
 	bool _forwardKeyEvents;
 	qreal _devicePixelRatio;
 
-	virtual void resizeEvent(QResizeEvent* event)override;
+	virtual void resizeEvent(QResizeEvent* event) override;
 	virtual void moveEvent(QMoveEvent* event);
 	virtual void glDraw();
 	virtual bool event(QEvent* event);
-
 };
-#endif//_POINTCLOUDPROCESS_WIDGET_QWIDGETVIEWER_H_
+
+#endif // CLOUDSIMHOST_QWIDGETVIEWER_H

@@ -1,21 +1,16 @@
+﻿/// @file MeshTrajectoryPageWidget.cpp
+/// @brief MeshTrajectoryPageWidget 实现
+
 #include "MeshTrajectoryPageWidget.h"
 
+#include "../../OsgWidgetCore/inc/PickTypes.h"
 #include "FeaturePickTransform.h"
 #include "IRobotDocumentHost.h"
 #include "IRobotMainWindowHost.h"
 #include "IRobotOsgViewHost.h"
-#include "MeshTriangleSelectionUtil.h"
 #include "MeshTrajectoryIngress.h"
+#include "MeshTriangleSelectionUtil.h"
 #include "TrajectoryEditSession.h"
-
-#include <BackendDataManager.h>
-#include <MeshBackendData.h>
-#include <MeshSurfaceReconstruction.h>
-#include <MeshTrajectory.h>
-
-#include <MeshTrajectoryTypes.h>
-
-#include <memory>
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -30,12 +25,16 @@
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QVBoxLayout>
+#include <memory>
 
-#include "../../OsgWidgetCore/inc/PickTypes.h"
+#include <BackendDataManager.h>
+#include <MeshBackendData.h>
+#include <MeshSurfaceReconstruction.h>
+#include <MeshTrajectory.h>
+#include <MeshTrajectoryTypes.h>
 
 namespace
 {
-
 bool isTopLevelWorkpieceBackend(const BackendDataManager& mgr, const std::string& backendId)
 {
 	return mgr.parentsOf(backendId).empty();
@@ -44,8 +43,7 @@ bool isTopLevelWorkpieceBackend(const BackendDataManager& mgr, const std::string
 } // namespace
 
 MeshTrajectoryPageWidget::MeshTrajectoryPageWidget(QWidget* parent)
-	: QWidget(parent)
-	, m_meshSession(std::make_unique<MeshTrajectorySession>())
+	: QWidget(parent), m_meshSession(std::make_unique<MeshTrajectorySession>())
 {
 	auto* layout = new QVBoxLayout(this);
 
@@ -168,22 +166,17 @@ MeshTrajectoryPageWidget::MeshTrajectoryPageWidget(QWidget* parent)
 	m_traceModeCombo->addItem(QString(), static_cast<int>(geoalgo::MeshTrajectoryUvTraceMode::USerpentine));
 	m_traceModeCombo->addItem(QString(), static_cast<int>(geoalgo::MeshTrajectoryUvTraceMode::VSerpentine));
 	m_traceModeCombo->addItem(QString(), static_cast<int>(geoalgo::MeshTrajectoryUvTraceMode::UvGrid));
-	m_nurbsFitModeCombo->addItem(
-		QString(),
-		static_cast<int>(geoalgo::MeshSurfaceNurbsFitMode::ApproxFixedCtrlpts));
-	m_nurbsFitModeCombo->addItem(
-		QString(),
-		static_cast<int>(geoalgo::MeshSurfaceNurbsFitMode::ApproxCentripetal));
-	m_nurbsFitModeCombo->addItem(
-		QString(),
-		static_cast<int>(geoalgo::MeshSurfaceNurbsFitMode::ApproxCentripetalFixedCtrlpts));
-	m_nurbsFitModeCombo->addItem(
-		QString(),
-		static_cast<int>(geoalgo::MeshSurfaceNurbsFitMode::Interpolate));
+	m_nurbsFitModeCombo->addItem(QString(), static_cast<int>(geoalgo::MeshSurfaceNurbsFitMode::ApproxFixedCtrlpts));
+	m_nurbsFitModeCombo->addItem(QString(), static_cast<int>(geoalgo::MeshSurfaceNurbsFitMode::ApproxCentripetal));
+	m_nurbsFitModeCombo->addItem(QString(),
+								 static_cast<int>(geoalgo::MeshSurfaceNurbsFitMode::ApproxCentripetalFixedCtrlpts));
+	m_nurbsFitModeCombo->addItem(QString(), static_cast<int>(geoalgo::MeshSurfaceNurbsFitMode::Interpolate));
 	m_nurbsFitModeCombo->setCurrentIndex(2);
 
-	connect(m_backendCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MeshTrajectoryPageWidget::onBackendChanged);
-	connect(m_methodCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MeshTrajectoryPageWidget::onMethodChanged);
+	connect(m_backendCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&MeshTrajectoryPageWidget::onBackendChanged);
+	connect(m_methodCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&MeshTrajectoryPageWidget::onMethodChanged);
 	connect(m_generateBtn, &QPushButton::clicked, this, &MeshTrajectoryPageWidget::onGenerateClicked);
 	connect(m_clearSelBtn, &QPushButton::clicked, this, &MeshTrajectoryPageWidget::onClearSelectionClicked);
 	connect(m_invertSelBtn, &QPushButton::clicked, this, &MeshTrajectoryPageWidget::onInvertSelectionClicked);
@@ -196,13 +189,19 @@ MeshTrajectoryPageWidget::MeshTrajectoryPageWidget(QWidget* parent)
 	connect(m_editSectionBtn, &QPushButton::clicked, this, &MeshTrajectoryPageWidget::onEditSectionClicked);
 	for (QDoubleSpinBox* spin : {m_planeOx, m_planeOy, m_planeOz, m_planeNx, m_planeNy, m_planeNz})
 	{
-		connect(spin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeshTrajectoryPageWidget::onPlaneSpinChanged);
+		connect(spin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+				&MeshTrajectoryPageWidget::onPlaneSpinChanged);
 	}
-	connect(m_uvCountU, QOverload<int>::of(&QSpinBox::valueChanged), this, &MeshTrajectoryPageWidget::onBsplineParamChanged);
-	connect(m_uvCountV, QOverload<int>::of(&QSpinBox::valueChanged), this, &MeshTrajectoryPageWidget::onBsplineParamChanged);
-	connect(m_gridAngleDeg, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeshTrajectoryPageWidget::onBsplineParamChanged);
-	connect(m_fitUvSpacingMm, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeshTrajectoryPageWidget::onBsplineParamChanged);
-	connect(m_nurbsFitModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MeshTrajectoryPageWidget::onBsplineParamChanged);
+	connect(m_uvCountU, QOverload<int>::of(&QSpinBox::valueChanged), this,
+			&MeshTrajectoryPageWidget::onBsplineParamChanged);
+	connect(m_uvCountV, QOverload<int>::of(&QSpinBox::valueChanged), this,
+			&MeshTrajectoryPageWidget::onBsplineParamChanged);
+	connect(m_gridAngleDeg, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+			&MeshTrajectoryPageWidget::onBsplineParamChanged);
+	connect(m_fitUvSpacingMm, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+			&MeshTrajectoryPageWidget::onBsplineParamChanged);
+	connect(m_nurbsFitModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&MeshTrajectoryPageWidget::onBsplineParamChanged);
 
 	setUseChinese(true);
 	onMethodChanged(0);
@@ -227,12 +226,9 @@ void MeshTrajectoryPageWidget::updateUiLabels()
 	const int methodIdx = m_methodCombo->currentIndex();
 	if (methodIdx >= 0)
 	{
-		m_methodCombo->setItemText(
-			0,
-			m_chinese ? QStringLiteral("截面法") : QStringLiteral("Cross section"));
-		m_methodCombo->setItemText(
-			1,
-			m_chinese ? QStringLiteral("B 样条曲面拟合") : QStringLiteral("B-spline surface fit"));
+		m_methodCombo->setItemText(0, m_chinese ? QStringLiteral("截面法") : QStringLiteral("Cross section"));
+		m_methodCombo->setItemText(1, m_chinese ? QStringLiteral("B 样条曲面拟合")
+												: QStringLiteral("B-spline surface fit"));
 	}
 	m_traceModeCombo->setItemText(0, m_chinese ? QStringLiteral("U 扫描") : QStringLiteral("U scan"));
 	m_traceModeCombo->setItemText(1, m_chinese ? QStringLiteral("V 扫描") : QStringLiteral("V scan"));
@@ -240,18 +236,12 @@ void MeshTrajectoryPageWidget::updateUiLabels()
 	if (m_nurbsFitModeCombo)
 	{
 		const int fitIdx = m_nurbsFitModeCombo->currentIndex();
-		m_nurbsFitModeCombo->setItemText(
-			0,
-			m_chinese ? QStringLiteral("最小二乘+控制点") : QStringLiteral("LSQ+ctrlpts"));
-		m_nurbsFitModeCombo->setItemText(
-			1,
-			m_chinese ? QStringLiteral("Centripetal") : QStringLiteral("Centripetal"));
-		m_nurbsFitModeCombo->setItemText(
-			2,
-			m_chinese ? QStringLiteral("Centripetal+控制点") : QStringLiteral("Centripetal+ctrlpts"));
-		m_nurbsFitModeCombo->setItemText(
-			3,
-			m_chinese ? QStringLiteral("插值") : QStringLiteral("Interpolate"));
+		m_nurbsFitModeCombo->setItemText(0,
+										 m_chinese ? QStringLiteral("最小二乘+控制点") : QStringLiteral("LSQ+ctrlpts"));
+		m_nurbsFitModeCombo->setItemText(1, m_chinese ? QStringLiteral("Centripetal") : QStringLiteral("Centripetal"));
+		m_nurbsFitModeCombo->setItemText(2, m_chinese ? QStringLiteral("Centripetal+控制点")
+													  : QStringLiteral("Centripetal+ctrlpts"));
+		m_nurbsFitModeCombo->setItemText(3, m_chinese ? QStringLiteral("插值") : QStringLiteral("Interpolate"));
 		m_nurbsFitModeCombo->setCurrentIndex(fitIdx);
 	}
 	m_pickClickBtn->setText(m_chinese ? QStringLiteral("点选") : QStringLiteral("Click"));
@@ -264,8 +254,8 @@ void MeshTrajectoryPageWidget::updateUiLabels()
 	m_fromCameraNormalBtn->setText(m_chinese ? QStringLiteral("相机法向") : QStringLiteral("Camera normal"));
 	m_showSectionCheck->setText(m_chinese ? QStringLiteral("显示截面") : QStringLiteral("Show section"));
 	m_editSectionBtn->setText(m_sectionEditActive
-		? (m_chinese ? QStringLiteral("结束截面编辑") : QStringLiteral("End section edit"))
-		: (m_chinese ? QStringLiteral("编辑截面") : QStringLiteral("Edit section")));
+								  ? (m_chinese ? QStringLiteral("结束截面编辑") : QStringLiteral("End section edit"))
+								  : (m_chinese ? QStringLiteral("编辑截面") : QStringLiteral("Edit section")));
 	m_outputNormalCheck->setText(m_chinese ? QStringLiteral("输出法向") : QStringLiteral("Output normal"));
 	m_outputTangentCheck->setText(m_chinese ? QStringLiteral("输出切向") : QStringLiteral("Output tangent"));
 	m_bsplineOutputNormalCheck->setText(m_chinese ? QStringLiteral("输出法向") : QStringLiteral("Output normal"));
@@ -276,11 +266,12 @@ void MeshTrajectoryPageWidget::updateUiLabels()
 	if (m_meshSession)
 	{
 		const auto summary = m_meshSession->summary();
-		m_selectionLabel->setText(m_chinese
-			? QStringLiteral("已选 %1 / %2 三角面").arg(summary.selectedTriangleCount).arg(summary.triangleCount)
-			: QStringLiteral("Selected %1 / %2 triangles")
-				  .arg(summary.selectedTriangleCount)
-				  .arg(summary.triangleCount));
+		m_selectionLabel->setText(
+			m_chinese
+				? QStringLiteral("已选 %1 / %2 三角面").arg(summary.selectedTriangleCount).arg(summary.triangleCount)
+				: QStringLiteral("Selected %1 / %2 triangles")
+					  .arg(summary.selectedTriangleCount)
+					  .arg(summary.triangleCount));
 	}
 }
 
@@ -329,7 +320,8 @@ void MeshTrajectoryPageWidget::wirePickHandlers()
 		return;
 	}
 	IRobotMainWindowHost::MeshTriangleLabelingPickHandlers handlers;
-	handlers.onClick = [this](const PickResult& pick) {
+	handlers.onClick = [this](const PickResult& pick)
+	{
 		if (!m_selGroup->isVisible())
 		{
 			return;
@@ -341,18 +333,17 @@ void MeshTrajectoryPageWidget::wirePickHandlers()
 		applySelectionIndices({pick.meshTriangleIndex}, MeshTrajectorySelectionMode::Toggle);
 		cancelActivePick();
 	};
-	handlers.onBrushStroke = [this](const std::vector<int>& indices) {
+	handlers.onBrushStroke = [this](const std::vector<int>& indices)
+	{
 		if (!m_selGroup->isVisible())
 		{
 			return;
 		}
 		applySelectionIndices(indices, MeshTrajectorySelectionMode::Add);
 	};
-	handlers.onPolylineClosed = [this](
-									const QVector<float>& polyline,
-									const QVector<double>& mvp,
-									const int vw,
-									const int vh) {
+	handlers.onPolylineClosed =
+		[this](const QVector<float>& polyline, const QVector<double>& mvp, const int vw, const int vh)
+	{
 		if (!m_selGroup->isVisible() || !m_host || m_backendCombo->currentIndex() < 0)
 		{
 			cancelActivePick();
@@ -363,8 +354,7 @@ void MeshTrajectoryPageWidget::wirePickHandlers()
 		const std::string backendId = m_backendCombo->currentData().toString().toStdString();
 		std::vector<int> kept;
 		std::string err;
-		if (mesh_triangle_selection::collectTrianglesByPolyline(
-				doc, osg, backendId, polyline, mvp, vw, vh, kept, &err))
+		if (mesh_triangle_selection::collectTrianglesByPolyline(doc, osg, backendId, polyline, mvp, vw, vh, kept, &err))
 		{
 			applySelectionIndices(kept, MeshTrajectorySelectionMode::Add);
 		}
@@ -535,8 +525,7 @@ void MeshTrajectoryPageWidget::syncBsplineSurfacePreview()
 	region.triangleIndices = selected;
 	std::vector<float> previewSoup;
 	std::string err;
-	if (!geoalgo::buildBsplineRegionSurfacePreview(
-			m_meshSession->triangleSoup(), region, bspline, previewSoup, &err))
+	if (!geoalgo::buildBsplineRegionSurfacePreview(m_meshSession->triangleSoup(), region, bspline, previewSoup, &err))
 	{
 		osg->clearMeshFittedSurfacePreview();
 		return;
@@ -574,8 +563,8 @@ void MeshTrajectoryPageWidget::syncSelectionHighlight()
 		return;
 	}
 	std::vector<osg::Vec3f> verts;
-	mesh_triangle_selection::selectedTrianglesToWorldVerts(
-		*mesh, osg, backendId, m_meshSession->selectedTriangleIndices(), verts);
+	mesh_triangle_selection::selectedTrianglesToWorldVerts(*mesh, osg, backendId,
+														   m_meshSession->selectedTriangleIndices(), verts);
 	if (verts.empty())
 	{
 		osg->clearMeshTriangleHighlight();
@@ -640,23 +629,15 @@ void MeshTrajectoryPageWidget::startSectionPlaneEdit()
 	const double normal[3] = {m_planeNx->value(), m_planeNy->value(), m_planeNz->value()};
 	m_sectionEditActive = true;
 	updateUiLabels();
-	osg->beginMeshSectionPlaneEdit(
-		backendId,
-		origin,
-		normal,
-		[this](const double o[3], const double n[3]) { syncPlaneSpinboxesFromModel(o, n); });
+	osg->beginMeshSectionPlaneEdit(backendId, origin, normal,
+								   [this](const double o[3], const double n[3]) { syncPlaneSpinboxesFromModel(o, n); });
 }
 
 void MeshTrajectoryPageWidget::syncPlaneSpinboxesFromModel(const double origin[3], const double normal[3])
 {
 	m_syncingPlaneSpinboxes = true;
-	const QSignalBlocker blockers[] = {
-		QSignalBlocker(m_planeOx),
-		QSignalBlocker(m_planeOy),
-		QSignalBlocker(m_planeOz),
-		QSignalBlocker(m_planeNx),
-		QSignalBlocker(m_planeNy),
-		QSignalBlocker(m_planeNz)};
+	const QSignalBlocker blockers[] = {QSignalBlocker(m_planeOx), QSignalBlocker(m_planeOy), QSignalBlocker(m_planeOz),
+									   QSignalBlocker(m_planeNx), QSignalBlocker(m_planeNy), QSignalBlocker(m_planeNz)};
 	(void)blockers;
 	m_planeOx->setValue(origin[0]);
 	m_planeOy->setValue(origin[1]);
@@ -696,9 +677,8 @@ void MeshTrajectoryPageWidget::pushPlaneSpinboxesToOsg()
 	}
 }
 
-void MeshTrajectoryPageWidget::applySelectionIndices(
-	const std::vector<int>& indices,
-	const MeshTrajectorySelectionMode mode)
+void MeshTrajectoryPageWidget::applySelectionIndices(const std::vector<int>& indices,
+													 const MeshTrajectorySelectionMode mode)
 {
 	if (!m_meshSession || indices.empty())
 	{
@@ -824,7 +804,7 @@ void MeshTrajectoryPageWidget::resetAfterTrajectoryCommit()
 	if (m_statusLabel)
 	{
 		m_statusLabel->setText(m_chinese ? QStringLiteral("轨迹已提交，请重新选择 mesh 区域")
-			: QStringLiteral("Trajectory committed; reselect mesh region"));
+										 : QStringLiteral("Trajectory committed; reselect mesh region"));
 	}
 	updateUiLabels();
 }
@@ -882,10 +862,9 @@ void MeshTrajectoryPageWidget::onGenerateClicked()
 	const auto result = std::make_shared<GenResult>();
 	m_host->enqueueBackgroundJob(
 		m_chinese ? QStringLiteral("Mesh 轨迹生成") : QStringLiteral("Mesh trajectory"),
-		[sessionCopy, result]() {
-			result->ok = sessionCopy.generateRawPath(result->path, &result->err);
-		},
-		[this, backendId, sessionCopy, result](const bool threw, const QString& msg) {
+		[sessionCopy, result]() { result->ok = sessionCopy.generateRawPath(result->path, &result->err); },
+		[this, backendId, sessionCopy, result](const bool threw, const QString& msg)
+		{
 			if (threw)
 			{
 				m_statusLabel->setText(msg);
@@ -900,29 +879,23 @@ void MeshTrajectoryPageWidget::onGenerateClicked()
 			RobotInstruction::MeshTrajectoryIngressParams ingress;
 			const std::string specJson = sessionCopy.specJsonUtf8();
 			std::string err;
-			if (!RobotInstruction::importMeshRawPathToRawTrajectory(
-					result->path, specJson, ingress, traj, &err))
+			if (!RobotInstruction::importMeshRawPathToRawTrajectory(result->path, specJson, ingress, traj, &err))
 			{
 				m_statusLabel->setText(QString::fromStdString(err));
 				return;
 			}
 			m_session->setRawTrajectory(traj);
 			feature_pick_transform::applyMeshLocalRawTrajectoryPreviewToOsg(
-				m_host->osgView(),
-				backendId.toStdString(),
-				traj,
-				RobotOsgUi::RawTrajectoryPreviewOptions{},
-				&err);
-			const int segCount = traj.segmentEndExclusive.empty()
-				? 1
-				: static_cast<int>(traj.segmentEndExclusive.size());
+				m_host->osgView(), backendId.toStdString(), traj, RobotOsgUi::RawTrajectoryPreviewOptions{}, &err);
+			const int segCount =
+				traj.segmentEndExclusive.empty() ? 1 : static_cast<int>(traj.segmentEndExclusive.size());
 			m_statusLabel->setText(m_chinese
-				? QStringLiteral("已生成 %1 点（%2 段交线），已写入 PathPlan")
-					  .arg(static_cast<int>(traj.points.size()))
-					  .arg(segCount)
-				: QStringLiteral("Generated %1 points (%2 polylines), attached to PathPlan")
-					  .arg(static_cast<int>(traj.points.size()))
-					  .arg(segCount));
+									   ? QStringLiteral("已生成 %1 点（%2 段交线），已写入 PathPlan")
+											 .arg(static_cast<int>(traj.points.size()))
+											 .arg(segCount)
+									   : QStringLiteral("Generated %1 points (%2 polylines), attached to PathPlan")
+											 .arg(static_cast<int>(traj.points.size()))
+											 .arg(segCount));
 			if (m_host->statusBar())
 			{
 				m_host->statusBar()->showMessage(m_statusLabel->text(), 5000);

@@ -1,8 +1,12 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_POINTPICKOPERATION_H
+#define CLOUDSIMHOST_POINTPICKOPERATION_H
 
-#include <QPoint>
+/// @file PointPickOperation.h
+/// @brief 点云点选模式：悬停预览、点击拾取最近点并生成标注，左键拖动仍交给相机漫游。
 
 #include "SelectionOperation.h"
+
+#include <QPoint>
 
 /// 点云点选模式：悬停预览、点击拾取最近点并生成标注，左键拖动仍交给相机漫游。
 class PointPickOperation : public SelectionOperation
@@ -24,3 +28,4 @@ protected:
 	bool onWheel(QWheelEvent* e) override;
 };
 
+#endif // CLOUDSIMHOST_POINTPICKOPERATION_H

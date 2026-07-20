@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef PROPERTYCORE_PROPERTYVEC3ATTRIBUTE_H
+#define PROPERTYCORE_PROPERTYVEC3ATTRIBUTE_H
+
+/// @file PropertyVec3Attribute.h
+/// @brief Vec3 属性行（位姿分量等）
 
 #include "PropertyAttributeHelpers.h"
 
@@ -7,7 +11,6 @@
 
 namespace property_core
 {
-
 /// Vec3 属性行（位姿分量等）
 template <typename TContext, typename TVec3, typename TBase>
 class PropertyVec3Attribute : public TBase
@@ -18,19 +21,10 @@ public:
 	using SetterFn = void (*)(TContext&, const TVec3&);
 	using AppendRowFn = void (*)(nlohmann::json&, const char*, const char*, bool, const std::string&);
 
-	PropertyVec3Attribute(
-		HasPropertyFn hasPropertyFn,
-		GetterFn getterFn,
-		SetterFn setterFn,
-		std::array<const char*, 3> keys,
-		std::array<const char*, 3> labels,
-		AppendRowFn appendRowFn)
-		: m_hasPropertyFn(hasPropertyFn)
-		, m_getterFn(getterFn)
-		, m_setterFn(setterFn)
-		, m_keys(keys)
-		, m_labels(labels)
-		, m_appendRowFn(appendRowFn)
+	PropertyVec3Attribute(HasPropertyFn hasPropertyFn, GetterFn getterFn, SetterFn setterFn,
+						  std::array<const char*, 3> keys, std::array<const char*, 3> labels, AppendRowFn appendRowFn)
+		: m_hasPropertyFn(hasPropertyFn), m_getterFn(getterFn), m_setterFn(setterFn), m_keys(keys), m_labels(labels),
+		  m_appendRowFn(appendRowFn)
 	{
 	}
 
@@ -78,3 +72,5 @@ private:
 };
 
 } // namespace property_core
+
+#endif // PROPERTYCORE_PROPERTYVEC3ATTRIBUTE_H

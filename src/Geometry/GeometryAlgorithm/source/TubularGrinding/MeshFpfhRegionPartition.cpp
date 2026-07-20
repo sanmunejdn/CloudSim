@@ -1,3 +1,6 @@
+﻿/// @file MeshFpfhRegionPartition.cpp
+/// @brief MeshFpfhRegionPartition 实现
+
 #include "MeshFpfhRegionPartition.h"
 
 #include "KdTreePointSet.h"
@@ -15,10 +18,8 @@ namespace geoalgo
 {
 namespace tg
 {
-
 namespace
 {
-
 double bboxDiagonal(const IndexedMeshLite& mesh)
 {
 	const double dx = mesh.bboxMax[0] - mesh.bboxMin[0];
@@ -92,8 +93,10 @@ std::vector<std::size_t> voxelDownsampleIndices(const std::vector<float>& xyz, d
 		int x, y, z;
 		bool operator<(const Key& o) const
 		{
-			if (x != o.x) return x < o.x;
-			if (y != o.y) return y < o.y;
+			if (x != o.x)
+				return x < o.x;
+			if (y != o.y)
+				return y < o.y;
 			return z < o.z;
 		}
 	};
@@ -101,11 +104,8 @@ std::vector<std::size_t> voxelDownsampleIndices(const std::vector<float>& xyz, d
 	for (std::size_t i = 0; i < n; ++i)
 	{
 		const std::size_t b = i * 3U;
-		Key k{
-			static_cast<int>(std::floor(xyz[b] / voxelMm)),
-			static_cast<int>(std::floor(xyz[b + 1U] / voxelMm)),
-			static_cast<int>(std::floor(xyz[b + 2U] / voxelMm))
-		};
+		Key k{static_cast<int>(std::floor(xyz[b] / voxelMm)), static_cast<int>(std::floor(xyz[b + 1U] / voxelMm)),
+			  static_cast<int>(std::floor(xyz[b + 2U] / voxelMm))};
 		if (buckets.find(k) == buckets.end())
 		{
 			buckets[k] = i;
@@ -124,13 +124,10 @@ std::vector<std::size_t> voxelDownsampleIndices(const std::vector<float>& xyz, d
 	return idx;
 }
 
-std::vector<std::size_t> selectKeypoints(
-	const std::vector<float>& fpfh,
-	const std::vector<std::size_t>& faceSampleIndices,
-	int desiredCount,
-	double minSepMm,
-	const std::vector<float>& sampleXyz,
-	unsigned int saliencyNeighbors)
+std::vector<std::size_t> selectKeypoints(const std::vector<float>& fpfh,
+										 const std::vector<std::size_t>& faceSampleIndices, int desiredCount,
+										 double minSepMm, const std::vector<float>& sampleXyz,
+										 unsigned int saliencyNeighbors)
 {
 	const std::size_t m = faceSampleIndices.size();
 	if (m == 0U)
@@ -149,9 +146,8 @@ std::vector<std::size_t> selectKeypoints(
 			{
 				continue;
 			}
-			dists.push_back(static_cast<double>(pclalgo::fpfhL2Distance(
-				fpfh.data() + i * pclalgo::kFpfhDim,
-				fpfh.data() + j * pclalgo::kFpfhDim)));
+			dists.push_back(static_cast<double>(
+				pclalgo::fpfhL2Distance(fpfh.data() + i * pclalgo::kFpfhDim, fpfh.data() + j * pclalgo::kFpfhDim)));
 		}
 		if (dists.empty())
 		{
@@ -171,9 +167,8 @@ std::vector<std::size_t> selectKeypoints(
 	{
 		order[i] = i;
 	}
-	std::sort(order.begin(), order.end(), [&](const std::size_t a, const std::size_t b) {
-		return saliency[a] > saliency[b];
-	});
+	std::sort(order.begin(), order.end(),
+			  [&](const std::size_t a, const std::size_t b) { return saliency[a] > saliency[b]; });
 	std::vector<std::size_t> seeds;
 	for (const std::size_t oi : order)
 	{
@@ -209,13 +204,9 @@ MeshFpfhPartitionParams resolveParams(const MeshFpfhPartitionParams& params)
 
 } // namespace
 
-bool runMeshFpfhRegionPartition(
-	const IndexedMeshLite& mesh,
-	const MeshFpfhPartitionParams& paramsIn,
-	std::vector<int>& outFaceRegionId,
-	int& outRegionCount,
-	int& outKeypointCount,
-	std::string* errMsg)
+bool runMeshFpfhRegionPartition(const IndexedMeshLite& mesh, const MeshFpfhPartitionParams& paramsIn,
+								std::vector<int>& outFaceRegionId, int& outRegionCount, int& outKeypointCount,
+								std::string* errMsg)
 {
 	const MeshFpfhPartitionParams params = resolveParams(paramsIn);
 	outFaceRegionId.assign(static_cast<std::size_t>(mesh.faceCount), -1);
@@ -243,8 +234,7 @@ bool runMeshFpfhRegionPartition(
 	const std::vector<float> sampleXyz = buildSampleXyz(work);
 	const std::vector<float> sampleNrm = buildSampleNormals(work);
 	const int maxPts = params.maxSamplePoints > 0 ? params.maxSamplePoints : 4000;
-	const double voxel =
-		params.featureVoxelMm > 0.0 ? params.featureVoxelMm : bboxDiagonal(work) * 0.02;
+	const double voxel = params.featureVoxelMm > 0.0 ? params.featureVoxelMm : bboxDiagonal(work) * 0.02;
 	const std::vector<std::size_t> sampleIdx = voxelDownsampleIndices(sampleXyz, voxel, maxPts);
 	if (sampleIdx.empty())
 	{
@@ -274,14 +264,11 @@ bool runMeshFpfhRegionPartition(
 	pclalgo::computeSpfhForCloud(subXyz, subNrm, params.fpfhNeighbors, spfh);
 	pclalgo::computeFpfhForCloud(subXyz, subNrm, spfh, params.fpfhNeighbors, fpfh);
 
-	const int desiredKp = params.keypointCount > 0
-		? params.keypointCount
-		: std::clamp(
-			static_cast<int>(std::sqrt(static_cast<double>(sampleIdx.size())) * 2.0),
-			8,
-			64);
-	const double minSep =
-		params.keypointMinSeparationMm > 0.0 ? params.keypointMinSeparationMm : voxel * 2.0;
+	const int desiredKp =
+		params.keypointCount > 0
+			? params.keypointCount
+			: std::clamp(static_cast<int>(std::sqrt(static_cast<double>(sampleIdx.size())) * 2.0), 8, 64);
+	const double minSep = params.keypointMinSeparationMm > 0.0 ? params.keypointMinSeparationMm : voxel * 2.0;
 	const std::vector<std::size_t> keySeeds =
 		selectKeypoints(fpfh, sampleIdx, desiredKp, minSep, sampleXyz, params.saliencyNeighbors);
 	outKeypointCount = static_cast<int>(keySeeds.size());
@@ -329,8 +316,7 @@ bool runMeshFpfhRegionPartition(
 		visited[seedFace] = 1U;
 
 		const double growDist = params.regionGrowDist > 0.0 ? params.regionGrowDist : 0.35;
-		const double cosAngle =
-			std::cos(params.regionGrowNormalAngleDeg * 3.14159265358979323846 / 180.0);
+		const double cosAngle = std::cos(params.regionGrowNormalAngleDeg * 3.14159265358979323846 / 180.0);
 
 		while (!q.empty())
 		{
@@ -354,9 +340,7 @@ bool runMeshFpfhRegionPartition(
 				{
 					continue;
 				}
-				const float d = pclalgo::fpfhL2Distance(
-					seedFpfh,
-					fpfh.data() + nbSubIt->second * pclalgo::kFpfhDim);
+				const float d = pclalgo::fpfhL2Distance(seedFpfh, fpfh.data() + nbSubIt->second * pclalgo::kFpfhDim);
 				if (d >= growDist)
 				{
 					continue;
@@ -377,13 +361,9 @@ bool runMeshFpfhRegionPartition(
 		}
 		std::vector<std::size_t> nn;
 		std::vector<double> dsq;
-		kpTree.findKNearest(
-			sampleXyz[static_cast<std::size_t>(f) * 3U],
-			sampleXyz[static_cast<std::size_t>(f) * 3U + 1U],
-			sampleXyz[static_cast<std::size_t>(f) * 3U + 2U],
-			1U,
-			nn,
-			dsq);
+		kpTree.findKNearest(sampleXyz[static_cast<std::size_t>(f) * 3U],
+							sampleXyz[static_cast<std::size_t>(f) * 3U + 1U],
+							sampleXyz[static_cast<std::size_t>(f) * 3U + 2U], 1U, nn, dsq);
 		if (!nn.empty())
 		{
 			faceLabel[static_cast<std::size_t>(f)] = static_cast<int>(nn[0]);

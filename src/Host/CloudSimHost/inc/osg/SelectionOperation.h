@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_SELECTIONOPERATION_H
+#define CLOUDSIMHOST_SELECTIONOPERATION_H
+
+/// @file SelectionOperation.h
+/// @brief 选择交互基类：在 OsgWidget 的 eventFilter 中统一接收 Qt 事件，
 
 #include <QEvent>
 #include <QMouseEvent>
@@ -86,3 +90,4 @@ protected:
 	OsgWidget* m_owner = nullptr;
 };
 
+#endif // CLOUDSIMHOST_SELECTIONOPERATION_H

@@ -1,3 +1,6 @@
+﻿/// @file PluginDocumentAdapter.cpp
+/// @brief PluginDocumentAdapter 实现
+
 #include "PluginDocumentAdapter.h"
 
 #include "BackendDataBase.h"
@@ -9,8 +12,7 @@
 
 #include <QTabWidget>
 
-PluginDocumentAdapter::PluginDocumentAdapter(cloudsim::host::DocumentHost* host)
-	: m_host(host)
+PluginDocumentAdapter::PluginDocumentAdapter(cloudsim::host::DocumentHost* host) : m_host(host)
 {
 	if (m_host)
 	{
@@ -138,10 +140,8 @@ bool PluginDocumentAdapter::measurePointCloud(const std::string& backendIdUtf8, 
 	return document_point_cloud_ops::measurePointCloud(m_host, backendIdUtf8, out);
 }
 
-bool PluginDocumentAdapter::exportMeshToPly(
-	const std::string& backendIdUtf8,
-	const std::string& pathUtf8,
-	std::string* outError) const
+bool PluginDocumentAdapter::exportMeshToPly(const std::string& backendIdUtf8, const std::string& pathUtf8,
+											std::string* outError) const
 {
 	if (document_point_cloud_ops::exportMeshToPly(m_host, backendIdUtf8, pathUtf8, outError))
 	{

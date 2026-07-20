@@ -1,3 +1,6 @@
+﻿/// @file LabelingAnnotWidget.cpp
+/// @brief LabelingAnnotWidget 实现
+
 #include "LabelingAnnotWidget.h"
 
 #include "IPluginDocument.h"
@@ -5,9 +8,8 @@
 #include "IPluginLabelingHost.h"
 #include "PointNetInference.h"
 
-#include <json.hpp>
-
 #include <QAbstractButton>
+#include <QAbstractItemView>
 #include <QButtonGroup>
 #include <QColorDialog>
 #include <QComboBox>
@@ -28,9 +30,6 @@
 #include <QTableWidget>
 #include <QToolButton>
 #include <QVBoxLayout>
-
-#include <QAbstractItemView>
-
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -40,9 +39,10 @@
 #include <string>
 #include <vector>
 
+#include <json.hpp>
+
 namespace
 {
-
 bool isLabelingTargetClass(const std::string& cls)
 {
 	// MeshBackendData::className() 为 "Model"，与 PointCloudPlugin 等模块一致
@@ -75,10 +75,7 @@ struct PlyVertexProperty
 		return 4U;
 	}
 
-	bool isFloatingPoint() const
-	{
-		return type == "float" || type == "double";
-	}
+	bool isFloatingPoint() const { return type == "float" || type == "double"; }
 };
 
 bool parsePlyVertexPositions(const QString& path, std::vector<float>& outPoints, int& outCount)
@@ -107,8 +104,8 @@ bool parsePlyVertexPositions(const QString& path, std::vector<float>& outPoints,
 			inVertexElement = true;
 			vertexProps.clear();
 		}
-		else if (line.size() >= 8U && line.compare(0, 8, "element ") == 0
-			&& line.compare(0, 15, "element vertex ") != 0)
+		else if (line.size() >= 8U && line.compare(0, 8, "element ") == 0 &&
+				 line.compare(0, 15, "element vertex ") != 0)
 		{
 			inVertexElement = false;
 		}
@@ -137,7 +134,7 @@ bool parsePlyVertexPositions(const QString& path, std::vector<float>& outPoints,
 	outPoints.resize(static_cast<std::size_t>(vertexCount) * 3U);
 	outCount = vertexCount;
 
-	int xyzIndex[3] = { -1, -1, -1 };
+	int xyzIndex[3] = {-1, -1, -1};
 	int floatSeen = 0;
 	for (int i = 0; i < static_cast<int>(vertexProps.size()) && floatSeen < 3; ++i)
 	{
@@ -151,7 +148,8 @@ bool parsePlyVertexPositions(const QString& path, std::vector<float>& outPoints,
 		return false;
 	}
 
-	const std::size_t stride = [&vertexProps]() {
+	const std::size_t stride = [&vertexProps]()
+	{
 		std::size_t total = 0U;
 		for (const auto& prop : vertexProps)
 		{
@@ -183,9 +181,12 @@ bool parsePlyVertexPositions(const QString& path, std::vector<float>& outPoints,
 					values[p] = static_cast<double>(iv);
 				}
 			}
-			outPoints[static_cast<std::size_t>(i) * 3U + 0U] = static_cast<float>(values[static_cast<std::size_t>(xyzIndex[0])]);
-			outPoints[static_cast<std::size_t>(i) * 3U + 1U] = static_cast<float>(values[static_cast<std::size_t>(xyzIndex[1])]);
-			outPoints[static_cast<std::size_t>(i) * 3U + 2U] = static_cast<float>(values[static_cast<std::size_t>(xyzIndex[2])]);
+			outPoints[static_cast<std::size_t>(i) * 3U + 0U] =
+				static_cast<float>(values[static_cast<std::size_t>(xyzIndex[0])]);
+			outPoints[static_cast<std::size_t>(i) * 3U + 1U] =
+				static_cast<float>(values[static_cast<std::size_t>(xyzIndex[1])]);
+			outPoints[static_cast<std::size_t>(i) * 3U + 2U] =
+				static_cast<float>(values[static_cast<std::size_t>(xyzIndex[2])]);
 		}
 		return true;
 	}
@@ -197,7 +198,8 @@ bool parsePlyVertexPositions(const QString& path, std::vector<float>& outPoints,
 		{
 			return false;
 		}
-		auto readFloatAt = [&](int propIndex) -> float {
+		auto readFloatAt = [&](int propIndex) -> float
+		{
 			std::size_t off = 0U;
 			for (int p = 0; p < propIndex; ++p)
 			{
@@ -225,11 +227,8 @@ bool parsePlyVertexPositions(const QString& path, std::vector<float>& outPoints,
 	return true;
 }
 
-bool buildMeshCentroidsFromExpandedVertices(
-	const std::vector<float>& vertices,
-	const int vertexCount,
-	std::vector<float>& outCentroids,
-	int& outTriCount)
+bool buildMeshCentroidsFromExpandedVertices(const std::vector<float>& vertices, const int vertexCount,
+											std::vector<float>& outCentroids, int& outTriCount)
 {
 	if (vertexCount <= 0 || (vertexCount % 3) != 0)
 	{
@@ -248,10 +247,8 @@ bool buildMeshCentroidsFromExpandedVertices(
 	return true;
 }
 
-void upsampleSegmentLabelsToElements(
-	const std::vector<int>& sampledLabels,
-	const int elementCount,
-	std::vector<int>& outFullLabels)
+void upsampleSegmentLabelsToElements(const std::vector<int>& sampledLabels, const int elementCount,
+									 std::vector<int>& outFullLabels)
 {
 	const int sampleCount = static_cast<int>(sampledLabels.size());
 	outFullLabels.assign(static_cast<std::size_t>(elementCount), 0);
@@ -261,9 +258,8 @@ void upsampleSegmentLabelsToElements(
 	}
 	for (int i = 0; i < elementCount; ++i)
 	{
-		const int srcIdx = std::min(
-			static_cast<int>(static_cast<std::int64_t>(i) * sampleCount / elementCount),
-			sampleCount - 1);
+		const int srcIdx =
+			std::min(static_cast<int>(static_cast<std::int64_t>(i) * sampleCount / elementCount), sampleCount - 1);
 		outFullLabels[static_cast<std::size_t>(i)] = sampledLabels[static_cast<std::size_t>(srcIdx)];
 	}
 }
@@ -308,7 +304,7 @@ QString nextExportSampleBaseNameFromDir(const QString& exportDir)
 	const QDir dataDir(QDir(exportDir).filePath(QStringLiteral("data")));
 	if (dataDir.exists())
 	{
-		const QStringList plyFiles = dataDir.entryList(QStringList{ QStringLiteral("sample_*.ply") }, QDir::Files);
+		const QStringList plyFiles = dataDir.entryList(QStringList{QStringLiteral("sample_*.ply")}, QDir::Files);
 		for (const QString& name : plyFiles)
 		{
 			const QRegularExpressionMatch m = plyRe.match(name);
@@ -323,7 +319,8 @@ QString nextExportSampleBaseNameFromDir(const QString& exportDir)
 	QFile jsonl(jsonlPath);
 	if (jsonl.open(QIODevice::ReadOnly | QIODevice::Text))
 	{
-		const QRegularExpression inputRe(QStringLiteral("^sample_(\\d+)\\.ply$"), QRegularExpression::CaseInsensitiveOption);
+		const QRegularExpression inputRe(QStringLiteral("^sample_(\\d+)\\.ply$"),
+										 QRegularExpression::CaseInsensitiveOption);
 		while (!jsonl.atEnd())
 		{
 			const QByteArray line = jsonl.readLine().trimmed();
@@ -354,10 +351,8 @@ QString nextExportSampleBaseNameFromDir(const QString& exportDir)
 } // namespace
 
 LabelingAnnotWidget::LabelingAnnotWidget(IPluginHostContext* host, QWidget* parent)
-	: QWidget(parent)
-	, m_host(host)
-	, m_labelingHost(host ? host->labelingHost() : nullptr)
-	, m_inference(std::make_unique<PointNetInference>())
+	: QWidget(parent), m_host(host), m_labelingHost(host ? host->labelingHost() : nullptr),
+	  m_inference(std::make_unique<PointNetInference>())
 {
 	auto* outer = new QVBoxLayout(this);
 	outer->setContentsMargins(0, 0, 0, 0);
@@ -386,7 +381,7 @@ LabelingAnnotWidget::LabelingAnnotWidget(IPluginHostContext* host, QWidget* pare
 	m_classGroup = new QGroupBox(content);
 	auto* classLayout = new QVBoxLayout(m_classGroup);
 	m_classTable = new QTableWidget(4, 3, m_classGroup);
-	m_classTable->setHorizontalHeaderLabels({ QStringLiteral("ID"), QStringLiteral("Name"), QStringLiteral("Color") });
+	m_classTable->setHorizontalHeaderLabels({QStringLiteral("ID"), QStringLiteral("Name"), QStringLiteral("Color")});
 	m_classTable->horizontalHeader()->setStretchLastSection(true);
 	m_classTable->verticalHeader()->setVisible(false);
 	m_classTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -439,49 +434,55 @@ LabelingAnnotWidget::LabelingAnnotWidget(IPluginHostContext* host, QWidget* pare
 	rebuildDefaultClasses();
 	applyLanguage();
 
-	connect(m_backendCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &LabelingAnnotWidget::onBackendChanged);
+	connect(m_backendCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+			&LabelingAnnotWidget::onBackendChanged);
 	connect(m_refreshBackendsBtn, &QPushButton::clicked, this, &LabelingAnnotWidget::onRefreshBackendsClicked);
 	connect(m_classTable, &QTableWidget::cellChanged, this, &LabelingAnnotWidget::onClassTableChanged);
 	connect(m_classTable, &QTableWidget::currentCellChanged, this, &LabelingAnnotWidget::onClassRowActivated);
-	connect(m_toolButtons, QOverload<QAbstractButton*>::of(&QButtonGroup::buttonClicked), this, [this](QAbstractButton* btn) {
-		if (!btn)
-		{
-			return;
-		}
-		onToolClicked(m_toolButtons->id(btn));
-	});
+	connect(m_toolButtons, QOverload<QAbstractButton*>::of(&QButtonGroup::buttonClicked), this,
+			[this](QAbstractButton* btn)
+			{
+				if (!btn)
+				{
+					return;
+				}
+				onToolClicked(m_toolButtons->id(btn));
+			});
 	connect(m_undoBtn, &QPushButton::clicked, this, &LabelingAnnotWidget::onUndoClicked);
 	connect(m_redoBtn, &QPushButton::clicked, this, &LabelingAnnotWidget::onRedoClicked);
 	connect(m_exportBtn, &QPushButton::clicked, this, &LabelingAnnotWidget::onExportClicked);
 	connect(m_prelabelBtn, &QPushButton::clicked, this, &LabelingAnnotWidget::onPrelabelClicked);
-	connect(m_cancelPickBtn, &QPushButton::clicked, this, [this]() {
-		if (m_labelingHost)
-		{
-			m_labelingHost->cancelActiveLabelingPick();
-		}
-	});
+	connect(m_cancelPickBtn, &QPushButton::clicked, this,
+			[this]()
+			{
+				if (m_labelingHost)
+				{
+					m_labelingHost->cancelActiveLabelingPick();
+				}
+			});
 	if (m_labelingHost)
 	{
-		m_labelingHost->setPickCancelledNotifier([this]() {
-			onToolPickCancelled();
-		});
+		m_labelingHost->setPickCancelledNotifier([this]() { onToolPickCancelled(); });
 	}
-	connect(m_classTable, &QTableWidget::cellDoubleClicked, this, [this](int row, int column) {
-		if (column != 2 || row < 0)
-		{
-			return;
-		}
-		const QColor c = QColorDialog::getColor(Qt::gray, this, i18n(QStringLiteral("Pick color"), QStringLiteral("选择颜色")));
-		if (!c.isValid())
-		{
-			return;
-		}
-		m_classTable->item(row, column)->setBackground(c);
-		if (m_sessionId != kInvalidLabelingSessionId)
-		{
-			onClassTableChanged(row, column);
-		}
-	});
+	connect(m_classTable, &QTableWidget::cellDoubleClicked, this,
+			[this](int row, int column)
+			{
+				if (column != 2 || row < 0)
+				{
+					return;
+				}
+				const QColor c = QColorDialog::getColor(Qt::gray, this,
+														i18n(QStringLiteral("Pick color"), QStringLiteral("选择颜色")));
+				if (!c.isValid())
+				{
+					return;
+				}
+				m_classTable->item(row, column)->setBackground(c);
+				if (m_sessionId != kInvalidLabelingSessionId)
+				{
+					onClassTableChanged(row, column);
+				}
+			});
 
 	refreshBackendList();
 	m_clickTool->setChecked(true);
@@ -516,10 +517,9 @@ void LabelingAnnotWidget::applyLanguage()
 	m_redoBtn->setText(i18n(QStringLiteral("Redo"), QStringLiteral("重做")));
 	m_prelabelBtn->setText(i18n(QStringLiteral("PointNet Pre-label"), QStringLiteral("PointNet 预标注")));
 	m_exportBtn->setText(i18n(QStringLiteral("Export Dataset"), QStringLiteral("导出数据集")));
-	m_classTable->setHorizontalHeaderLabels(
-		{ i18n(QStringLiteral("ID"), QStringLiteral("ID")),
-			i18n(QStringLiteral("Name"), QStringLiteral("名称")),
-			i18n(QStringLiteral("Color"), QStringLiteral("颜色")) });
+	m_classTable->setHorizontalHeaderLabels({i18n(QStringLiteral("ID"), QStringLiteral("ID")),
+											 i18n(QStringLiteral("Name"), QStringLiteral("名称")),
+											 i18n(QStringLiteral("Color"), QStringLiteral("颜色"))});
 	refreshSummary();
 }
 
@@ -534,10 +534,10 @@ void LabelingAnnotWidget::rebuildDefaultClasses()
 		float rgb[3];
 	};
 	const RowDef defs[] = {
-		{ 0, "background", "背景", { 0.35f, 0.35f, 0.35f } },
-		{ 1, "main", "主体", { 0.20f, 0.60f, 0.90f } },
-		{ 2, "part_a", "部件A", { 0.90f, 0.40f, 0.20f } },
-		{ 3, "part_b", "部件B", { 0.30f, 0.80f, 0.30f } },
+		{0, "background", "背景", {0.35f, 0.35f, 0.35f}},
+		{1, "main", "主体", {0.20f, 0.60f, 0.90f}},
+		{2, "part_a", "部件A", {0.90f, 0.40f, 0.20f}},
+		{3, "part_b", "部件B", {0.30f, 0.80f, 0.30f}},
 	};
 	QSignalBlocker blocker(m_classTable);
 	m_classTable->setRowCount(4);
@@ -590,8 +590,8 @@ void LabelingAnnotWidget::refreshBackendList()
 		const std::string cls = doc->backendClassName(id);
 		if (isLabelingTargetClass(cls))
 		{
-			const QString label = QString::fromStdString(doc->backendDisplayName(id)) + QStringLiteral(" [")
-				+ QString::fromStdString(id) + QStringLiteral("]");
+			const QString label = QString::fromStdString(doc->backendDisplayName(id)) + QStringLiteral(" [") +
+								  QString::fromStdString(id) + QStringLiteral("]");
 			m_backendCombo->addItem(label, QString::fromStdString(id));
 		}
 	}
@@ -602,8 +602,8 @@ void LabelingAnnotWidget::refreshBackendList()
 	else
 	{
 		clearSession();
-		m_summaryLabel->setText(i18n(QStringLiteral("No point cloud or mesh in document."),
-									 QStringLiteral("文档中无点云或网格对象。")));
+		m_summaryLabel->setText(
+			i18n(QStringLiteral("No point cloud or mesh in document."), QStringLiteral("文档中无点云或网格对象。")));
 	}
 }
 
@@ -699,15 +699,14 @@ void LabelingAnnotWidget::refreshSummary()
 		return;
 	}
 	const QString kind = summary.geometryKind == PluginLabelingGeometryKind::PointCloud
-		? i18n(QStringLiteral("Point cloud"), QStringLiteral("点云"))
-		: i18n(QStringLiteral("Mesh"), QStringLiteral("网格"));
-	m_summaryLabel->setText(
-		i18n(QStringLiteral("Type: %1 | Total: %2 | Labeled: %3 | Active class: %4"),
-			 QStringLiteral("类型: %1 | 总数: %2 | 已标注: %3 | 当前类别: %4"))
-			.arg(kind)
-			.arg(static_cast<qulonglong>(summary.totalElements))
-			.arg(static_cast<qulonglong>(summary.labeledElements))
-			.arg(summary.activeClassId));
+							 ? i18n(QStringLiteral("Point cloud"), QStringLiteral("点云"))
+							 : i18n(QStringLiteral("Mesh"), QStringLiteral("网格"));
+	m_summaryLabel->setText(i18n(QStringLiteral("Type: %1 | Total: %2 | Labeled: %3 | Active class: %4"),
+								 QStringLiteral("类型: %1 | 总数: %2 | 已标注: %3 | 当前类别: %4"))
+								.arg(kind)
+								.arg(static_cast<qulonglong>(summary.totalElements))
+								.arg(static_cast<qulonglong>(summary.labeledElements))
+								.arg(summary.activeClassId));
 }
 
 void LabelingAnnotWidget::onBackendChanged(int index)
@@ -845,7 +844,9 @@ void LabelingAnnotWidget::activateTool(PluginLabelingTool tool)
 
 	if (tool == PluginLabelingTool::Click || tool == PluginLabelingTool::Erase)
 	{
-		const auto onFinished = [this, erase](bool ok, const QString& error, const PluginLabelingSelectionResult& result) {
+		const auto onFinished =
+			[this, erase](bool ok, const QString& error, const PluginLabelingSelectionResult& result)
+		{
 			if (!m_toolPickActive)
 			{
 				return;
@@ -854,9 +855,8 @@ void LabelingAnnotWidget::activateTool(PluginLabelingTool tool)
 			{
 				applySelection(result, erase);
 			}
-			else if (m_host && !error.isEmpty()
-				&& error != QStringLiteral("No point hit")
-				&& error != QStringLiteral("No face hit"))
+			else if (m_host && !error.isEmpty() && error != QStringLiteral("No point hit") &&
+					 error != QStringLiteral("No face hit"))
 			{
 				m_host->logWarn(error);
 			}
@@ -874,12 +874,12 @@ void LabelingAnnotWidget::activateTool(PluginLabelingTool tool)
 
 	if (tool == PluginLabelingTool::Brush)
 	{
-		const auto onStroke = [this](const PluginLabelingSelectionResult& stroke) {
+		const auto onStroke = [this](const PluginLabelingSelectionResult& stroke)
+		{
 			applySelection(stroke, m_eraseMode);
 			refreshSummary();
 		};
-		const auto onFinished = [](bool, const QString&, const PluginLabelingSelectionResult&) {
-		};
+		const auto onFinished = [](bool, const QString&, const PluginLabelingSelectionResult&) {};
 		if (m_geometryKind == PluginLabelingGeometryKind::TriangleMesh)
 		{
 			m_labelingHost->brushMeshFaces(m_sessionId, radius, onStroke, onFinished);
@@ -893,27 +893,31 @@ void LabelingAnnotWidget::activateTool(PluginLabelingTool tool)
 
 	if (tool == PluginLabelingTool::Polyline)
 	{
-		m_labelingHost->pickPolylineRegion(m_sessionId, [this](bool ok, const QString& error, const PluginLabelingSelectionResult& result) {
-			if (!m_toolPickActive)
+		m_labelingHost->pickPolylineRegion(
+			m_sessionId,
+			[this](bool ok, const QString& error, const PluginLabelingSelectionResult& result)
 			{
-				return;
-			}
-			if (!ok)
-			{
-				if (error == QStringLiteral("Polyline pick canceled"))
+				if (!m_toolPickActive)
 				{
-					onToolPickCancelled();
+					return;
 				}
-				else if (m_host && !error.isEmpty())
+				if (!ok)
 				{
-					m_host->logWarn(error);
+					if (error == QStringLiteral("Polyline pick canceled"))
+					{
+						onToolPickCancelled();
+					}
+					else if (m_host && !error.isEmpty())
+					{
+						m_host->logWarn(error);
+					}
+					return;
 				}
-				return;
-			}
-			applySelection(result, m_eraseMode);
-			refreshSummary();
-			QMetaObject::invokeMethod(this, [this]() { armActiveTool(); }, Qt::QueuedConnection);
-		});
+				applySelection(result, m_eraseMode);
+				refreshSummary();
+				QMetaObject::invokeMethod(
+					this, [this]() { armActiveTool(); }, Qt::QueuedConnection);
+			});
 	}
 }
 
@@ -950,7 +954,8 @@ void LabelingAnnotWidget::onRedoClicked()
 	refreshSummary();
 }
 
-bool LabelingAnnotWidget::extractBackendPoints(const std::string& backendId, std::vector<float>& outPoints, int& outCount) const
+bool LabelingAnnotWidget::extractBackendPoints(const std::string& backendId, std::vector<float>& outPoints,
+											   int& outCount) const
 {
 	if (!m_host)
 	{
@@ -979,7 +984,8 @@ bool LabelingAnnotWidget::loadPointNetSegmentModel(QString* err)
 	{
 		if (err)
 		{
-			*err = i18n(QStringLiteral("pointnet_config.json not found."), QStringLiteral("未找到 pointnet_config.json。"));
+			*err = i18n(QStringLiteral("pointnet_config.json not found."),
+						QStringLiteral("未找到 pointnet_config.json。"));
 		}
 		return false;
 	}
@@ -1039,10 +1045,8 @@ void LabelingAnnotWidget::onPrelabelClicked()
 	int elementCount = 0;
 	if (!extractBackendPoints(m_backendId, points, elementCount) || elementCount <= 0)
 	{
-		QMessageBox::warning(
-			this,
-			i18n(QStringLiteral("Pre-label"), QStringLiteral("预标注")),
-			i18n(QStringLiteral("Failed to extract points."), QStringLiteral("提取点云失败。")));
+		QMessageBox::warning(this, i18n(QStringLiteral("Pre-label"), QStringLiteral("预标注")),
+							 i18n(QStringLiteral("Failed to extract points."), QStringLiteral("提取点云失败。")));
 		return;
 	}
 	if (m_geometryKind == PluginLabelingGeometryKind::TriangleMesh)
@@ -1051,10 +1055,8 @@ void LabelingAnnotWidget::onPrelabelClicked()
 		int triCount = 0;
 		if (!buildMeshCentroidsFromExpandedVertices(points, elementCount, centroids, triCount))
 		{
-			QMessageBox::warning(
-				this,
-				i18n(QStringLiteral("Pre-label"), QStringLiteral("预标注")),
-				i18n(QStringLiteral("Failed to extract points."), QStringLiteral("提取点云失败。")));
+			QMessageBox::warning(this, i18n(QStringLiteral("Pre-label"), QStringLiteral("预标注")),
+								 i18n(QStringLiteral("Failed to extract points."), QStringLiteral("提取点云失败。")));
 			return;
 		}
 		points = std::move(centroids);
@@ -1063,10 +1065,8 @@ void LabelingAnnotWidget::onPrelabelClicked()
 	const PointNetSegmentResult result = m_inference->segment(points, elementCount);
 	if (result.labels.empty())
 	{
-		QMessageBox::warning(
-			this,
-			i18n(QStringLiteral("Pre-label"), QStringLiteral("预标注")),
-			i18n(QStringLiteral("Inference returned no labels."), QStringLiteral("推理未返回标签。")));
+		QMessageBox::warning(this, i18n(QStringLiteral("Pre-label"), QStringLiteral("预标注")),
+							 i18n(QStringLiteral("Inference returned no labels."), QStringLiteral("推理未返回标签。")));
 		return;
 	}
 	std::vector<int> fullLabels;
@@ -1090,10 +1090,9 @@ void LabelingAnnotWidget::onExportClicked()
 	{
 		return;
 	}
-	const QString dir = QFileDialog::getExistingDirectory(
-		this,
-		i18n(QStringLiteral("Export dataset"), QStringLiteral("导出数据集")),
-		m_lastExportDir.isEmpty() ? QDir::homePath() : m_lastExportDir);
+	const QString dir =
+		QFileDialog::getExistingDirectory(this, i18n(QStringLiteral("Export dataset"), QStringLiteral("导出数据集")),
+										  m_lastExportDir.isEmpty() ? QDir::homePath() : m_lastExportDir);
 	if (dir.isEmpty())
 	{
 		return;
@@ -1114,8 +1113,7 @@ void LabelingAnnotWidget::onExportClicked()
 	emit datasetExported(dir);
 	if (m_host)
 	{
-		m_host->logInfo(
-			i18n(QStringLiteral("Dataset exported: %1 -> %2").arg(sampleBase, dir),
-				 QStringLiteral("数据集已导出：%1 -> %2").arg(sampleBase, dir)));
+		m_host->logInfo(i18n(QStringLiteral("Dataset exported: %1 -> %2").arg(sampleBase, dir),
+							 QStringLiteral("数据集已导出：%1 -> %2").arg(sampleBase, dir)));
 	}
 }

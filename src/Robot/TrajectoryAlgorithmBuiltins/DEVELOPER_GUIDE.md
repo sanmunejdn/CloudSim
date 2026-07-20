@@ -11,7 +11,7 @@
 | 执行入口 | `ITrajectoryOp::processPath` → [`TrajectoryPipelineEngine`](../RobotScene/inc/TrajectoryPipelineEngine.h) |
 | UI 访问 | 经 [`TrajectoryOpBridge.h`](../RobotScene/inc/TrajectoryOpBridge.h)，**不**直接被 `RobotWidget` 链接 |
 
-与 `TrajectoryAlgorithm` 的分工：框架库提供接口、Registry、Codec、Config 聚合；本库提供 **19 种原子块** 的具体算法与参数绑定。
+与 `TrajectoryAlgorithm` 的分工：框架库提供接口、Registry、Codec、Config 聚合；本库提供 **20 种原子块** 的具体算法与参数绑定。
 
 ---
 
@@ -65,6 +65,7 @@ VS 筛选器：`inc` 放所有 `.h`，`src` 放所有 `.cpp`（含 `ops/` 下源
 | 进退刀 | Approach / Retract | `ops/Approach` `ops/Retract` | `UnifiedTrajectorySemanticMath`（含 Custom 方向、Segment 分段） | **是** |
 | 几何投影 | ProjectToGeometry | `ops/ProjectToGeometry` | `ctx.geometryProjection`（`IGeometryProjection` 注入） | **是** |
 | 非刚性纠正 | NonRigidRegistration | `ops/NonRigidRegistration` | `ctx.nonRigidTrajectoryWarp`（`INonRigidTrajectoryWarp` 注入） | 否（写回 pose） |
+| 工件型转换 | ToWorkpieceInHand | `ops/ToWorkpieceInHand` | 外部 TCP 参数 + `ctx.workpieceReferenceInBase`（Session 注入当前 TCP） | 否（写回 pose/speed） |
 | 可达性 | ReachabilityFilter | `ops/ReachabilityFilter` | `reachabilityFilterUnified` | 否 |
 | 可达性 | ExternalAxisSearch | `ops/ExternalAxisSearch` | `externalAxisSearchUnified` | 否 |
 

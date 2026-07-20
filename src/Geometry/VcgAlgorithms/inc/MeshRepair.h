@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef VCGALGORITHMS_MESHREPAIR_H
+#define VCGALGORITHMS_MESHREPAIR_H
+
+/// @file MeshRepair.h
+/// @brief MeshRepair 接口
 
 #include "vcg_algorithms_global.h"
 
@@ -7,7 +11,6 @@
 
 namespace vcgalgo
 {
-
 struct VCg_ALGORITHMS_API RepairParams
 {
 	bool removeDegenerate = true;
@@ -28,11 +31,10 @@ struct VCg_ALGORITHMS_API RepairReport
 	int facesAddedByFill = 0;
 };
 
-VCg_ALGORITHMS_API bool repairMesh(
-	const std::vector<float>& triangleSoup,
-	std::vector<float>& outSoup,
-	const RepairParams& params = {},
-	RepairReport* report = nullptr,
-	std::string* errMsg = nullptr);
+VCg_ALGORITHMS_API bool repairMesh(const std::vector<float>& triangleSoup, std::vector<float>& outSoup,
+								   const RepairParams& params = {}, RepairReport* report = nullptr,
+								   std::string* errMsg = nullptr);
 
 } // namespace vcgalgo
+
+#endif // VCGALGORITHMS_MESHREPAIR_H

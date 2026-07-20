@@ -1,13 +1,15 @@
+﻿/// @file RawTrajectoryMath.cpp
+/// @brief RawTrajectoryMath 实现
+
 #include "RawTrajectoryMath.h"
 
-#include <Adapters.h>
-
-#include <Eigen/Geometry>
 #include <cmath>
+
+#include <Adapters.h>
+#include <Eigen/Geometry>
 
 namespace RobotInstruction
 {
-
 constexpr double rawTrajectoryPi()
 {
 	return 3.14159265358979323846;
@@ -25,10 +27,7 @@ Vec3 normalizeVec(const Vec3& v)
 
 Vec3 crossVec(const Vec3& a, const Vec3& b)
 {
-	return Vec3{
-		a.y * b.z - a.z * b.y,
-		a.z * b.x - a.x * b.z,
-		a.x * b.y - a.y * b.x};
+	return Vec3{a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
 
 Vec3 eulerFromFrame(const Vec3& zAxis, const Vec3& xHint)

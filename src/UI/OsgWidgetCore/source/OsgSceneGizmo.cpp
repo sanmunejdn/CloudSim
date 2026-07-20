@@ -1,3 +1,6 @@
+﻿/// @file OsgSceneGizmo.cpp
+/// @brief OsgSceneGizmo 实现
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -8,11 +11,11 @@
 #include <windows.h>
 #endif
 
-#include "OsgScene.h"
-
+#include "ObjectGizmoFrame.h"
 #include "OsgCompassGeometry.h"
 #include "OsgCompassRender.h"
-#include "ObjectGizmoFrame.h"
+#include "OsgScene.h"
+#include "RunLogger.h"
 
 #include <algorithm>
 #include <cmath>
@@ -22,25 +25,23 @@
 #include <sstream>
 #include <string>
 
-#include "RunLogger.h"
-
-#include <osg/GL>
 #include <osg/BlendFunc>
 #include <osg/Camera>
 #include <osg/Depth>
+#include <osg/GL>
 #include <osg/Geode>
 #include <osg/Geometry>
 #include <osg/Group>
 #include <osg/LineWidth>
 #include <osg/MatrixTransform>
+#include <osg/Matrixd>
 #include <osg/Node>
 #include <osg/PolygonOffset>
 #include <osg/PositionAttitudeTransform>
 #include <osg/Shape>
 #include <osg/ShapeDrawable>
-#include <osg/StateSet>
 #include <osg/StateAttribute>
-#include <osg/Matrixd>
+#include <osg/StateSet>
 #include <osg/Vec3>
 #include <osg/Vec3d>
 #include <osg/Vec4>
@@ -226,21 +227,22 @@ void OsgScene::updateCompassHighlight(int axis, bool highlightRing)
 
 void OsgScene::updateCompassScale()
 {
-	if (!m_compassTransform.valid() || !m_compassScaleTransform.valid() || !m_viewer.valid() || !m_viewer->getCamera()
-		|| !m_selectionActive || !m_objectSelectionMode || !m_compassNode.valid())
+	if (!m_compassTransform.valid() || !m_compassScaleTransform.valid() || !m_viewer.valid() ||
+		!m_viewer->getCamera() || !m_selectionActive || !m_objectSelectionMode || !m_compassNode.valid())
 	{
 		return;
 	}
 
 	osg::Vec3d eye, center, up;
 	m_viewer->getCamera()->getViewMatrixAsLookAt(eye, center, up);
-	const osg::Vec3d anchor = [&]() {
+	const osg::Vec3d anchor = [&]()
+	{
 		osg::Vec3f pivotF;
 		computeGizmoPivotWorld(pivotF);
 		if (m_activeBackendOuterPat.valid())
 		{
 			return osg::Vec3d(static_cast<double>(pivotF.x()), static_cast<double>(pivotF.y()),
-				static_cast<double>(pivotF.z()));
+							  static_cast<double>(pivotF.z()));
 		}
 		return center;
 	}();
@@ -249,11 +251,11 @@ void OsgScene::updateCompassScale()
 	if (m_gizmoReferenceDistance < 0.0 || m_gizmoReferenceDistance <= 1e-6)
 	{
 		m_gizmoReferenceDistance = std::max(1.0, distance);
-		const double desiredAxisWorld = std::max(
-			osg_compass::kCompassMinAxisWorld,
-			static_cast<double>(m_activeModelDiagonal) * osg_compass::kCompassModelDiagonalFactor);
-		m_gizmoReferenceScale = std::max(
-			0.4, std::min(800.0, desiredAxisWorld / static_cast<double>(osg_compass::kCompassAxisLength)));
+		const double desiredAxisWorld =
+			std::max(osg_compass::kCompassMinAxisWorld,
+					 static_cast<double>(m_activeModelDiagonal) * osg_compass::kCompassModelDiagonalFactor);
+		m_gizmoReferenceScale =
+			std::max(0.4, std::min(800.0, desiredAxisWorld / static_cast<double>(osg_compass::kCompassAxisLength)));
 	}
 	double scale = m_gizmoReferenceScale * (distance / m_gizmoReferenceDistance);
 	scale = std::max(0.3, std::min(1200.0, scale));
@@ -268,8 +270,7 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing,
 	}
 	ObjectGizmoFrame gizmoFrame;
 	const bool haveFrame = readActiveObjectGizmoFrame(gizmoFrame);
-	if (!haveFrame || !m_viewer.valid() || !m_viewer->getCamera()
-		|| viewportWidth() <= 0 || viewportHeight() <= 0)
+	if (!haveFrame || !m_viewer.valid() || !m_viewer->getCamera() || viewportWidth() <= 0 || viewportHeight() <= 0)
 	{
 		return kGizmoAxisNone;
 	}
@@ -311,11 +312,10 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing,
 	{
 		compassAtt = osg::Quat();
 	}
-	auto toWorld = [&](const osg::Vec3f& local) -> osg::Vec3f {
-		return origin + attitude * (compassAtt * local);
-	};
+	auto toWorld = [&](const osg::Vec3f& local) -> osg::Vec3f { return origin + attitude * (compassAtt * local); };
 
-	auto projectToScreen = [&](const osg::Vec3f& world, double& sx, double& sy) {
+	auto projectToScreen = [&](const osg::Vec3f& world, double& sx, double& sy)
+	{
 		osg::Vec3d clip = osg::Vec3d(world) * mvp;
 		sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
 		sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
@@ -327,13 +327,15 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing,
 	projectToScreen(toWorld(osg::Vec3f(0.0f, axisLen, 0.0f)), pyx, pyy);
 	projectToScreen(toWorld(osg::Vec3f(0.0f, 0.0f, axisLen)), pzx, pzy);
 
-	auto distanceToSegment = [](double p0x, double p0y, double p1x, double p1y, double qx, double qy) -> double {
+	auto distanceToSegment = [](double p0x, double p0y, double p1x, double p1y, double qx, double qy) -> double
+	{
 		const double vx = p1x - p0x;
 		const double vy = p1y - p0y;
 		const double wx = qx - p0x;
 		const double wy = qy - p0y;
 		const double len2 = vx * vx + vy * vy;
-		if (len2 <= 1e-6) return std::hypot(qx - p0x, qy - p0y);
+		if (len2 <= 1e-6)
+			return std::hypot(qx - p0x, qy - p0y);
 		const double t = std::max(0.0, std::min(1.0, (wx * vx + wy * vy) / len2));
 		const double projx = p0x + vx * t;
 		const double projy = p0y + vy * t;
@@ -351,7 +353,8 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing,
 	const double threshold = std::clamp(0.22 * axisLenPx, 14.0, 44.0);
 	const double ringThreshold = std::clamp(0.14 * axisLenPx, 10.0, 36.0);
 
-	auto minDistanceToProjectedRing = [&](int axis) -> double {
+	auto minDistanceToProjectedRing = [&](int axis) -> double
+	{
 		const int segments = 72;
 		const float r = ringRadius;
 		double minDist = 1e9;
@@ -360,14 +363,27 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing,
 			const float a0 = osg::PI * 2.0f * static_cast<float>(i) / static_cast<float>(segments);
 			const float a1 = osg::PI * 2.0f * static_cast<float>(i + 1) / static_cast<float>(segments);
 			osg::Vec3f w0, w1;
-			if (axis == kGizmoAxisX) { w0 = toWorld(osg::Vec3f(0.0f, std::cos(a0) * r, std::sin(a0) * r)); w1 = toWorld(osg::Vec3f(0.0f, std::cos(a1) * r, std::sin(a1) * r)); }
-			if (axis == kGizmoAxisY) { w0 = toWorld(osg::Vec3f(std::cos(a0) * r, 0.0f, std::sin(a0) * r)); w1 = toWorld(osg::Vec3f(std::cos(a1) * r, 0.0f, std::sin(a1) * r)); }
-			if (axis == kGizmoAxisZ) { w0 = toWorld(osg::Vec3f(std::cos(a0) * r, std::sin(a0) * r, 0.0f)); w1 = toWorld(osg::Vec3f(std::cos(a1) * r, std::sin(a1) * r, 0.0f)); }
+			if (axis == kGizmoAxisX)
+			{
+				w0 = toWorld(osg::Vec3f(0.0f, std::cos(a0) * r, std::sin(a0) * r));
+				w1 = toWorld(osg::Vec3f(0.0f, std::cos(a1) * r, std::sin(a1) * r));
+			}
+			if (axis == kGizmoAxisY)
+			{
+				w0 = toWorld(osg::Vec3f(std::cos(a0) * r, 0.0f, std::sin(a0) * r));
+				w1 = toWorld(osg::Vec3f(std::cos(a1) * r, 0.0f, std::sin(a1) * r));
+			}
+			if (axis == kGizmoAxisZ)
+			{
+				w0 = toWorld(osg::Vec3f(std::cos(a0) * r, std::sin(a0) * r, 0.0f));
+				w1 = toWorld(osg::Vec3f(std::cos(a1) * r, std::sin(a1) * r, 0.0f));
+			}
 			double s0x = 0, s0y = 0, s1x = 0, s1y = 0;
 			projectToScreen(w0, s0x, s0y);
 			projectToScreen(w1, s1x, s1y);
 			const double d = distanceToSegment(s0x, s0y, s1x, s1y, mx, my);
-			if (d < minDist) minDist = d;
+			if (d < minDist)
+				minDist = d;
 		}
 		return minDist;
 	};
@@ -380,9 +396,21 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing,
 	{
 		double best = ringThreshold;
 		int ringAxis = kGizmoAxisNone;
-		if (drx < best) { best = drx; ringAxis = kGizmoAxisX; }
-		if (dry < best) { best = dry; ringAxis = kGizmoAxisY; }
-		if (drz < best) { best = drz; ringAxis = kGizmoAxisZ; }
+		if (drx < best)
+		{
+			best = drx;
+			ringAxis = kGizmoAxisX;
+		}
+		if (dry < best)
+		{
+			best = dry;
+			ringAxis = kGizmoAxisY;
+		}
+		if (drz < best)
+		{
+			best = drz;
+			ringAxis = kGizmoAxisZ;
+		}
 		if (ringAxis != kGizmoAxisNone)
 		{
 			if (outPickedRing)
@@ -395,9 +423,21 @@ int OsgScene::pickAxisAtScreenPos(double mouseX, double mouseY, bool preferRing,
 
 	double minDist = threshold;
 	int axis = kGizmoAxisNone;
-	if (dx < minDist) { minDist = dx; axis = kGizmoAxisX; }
-	if (dy < minDist) { minDist = dy; axis = kGizmoAxisY; }
-	if (dz < minDist) { minDist = dz; axis = kGizmoAxisZ; }
+	if (dx < minDist)
+	{
+		minDist = dx;
+		axis = kGizmoAxisX;
+	}
+	if (dy < minDist)
+	{
+		minDist = dy;
+		axis = kGizmoAxisY;
+	}
+	if (dz < minDist)
+	{
+		minDist = dz;
+		axis = kGizmoAxisZ;
+	}
 	return axis;
 }
 
@@ -427,12 +467,9 @@ bool OsgScene::gizmoCompassUnitAxisWorld(const DragAxis axis, osg::Vec3d& outAxi
 		return false;
 	}
 	const int axisIndex = (axis == DragAxis::X) ? 0 : (axis == DragAxis::Y) ? 1 : 2;
-	return ObjectGizmoFrame::dragAxisDirectionSceneWorld(
-		m_activeBackendOuterPat.get(),
-		m_transformGizmoFrame == TransformGizmoFrame::World,
-		gf.attitude(),
-		axisIndex,
-		outAxisWorld);
+	return ObjectGizmoFrame::dragAxisDirectionSceneWorld(m_activeBackendOuterPat.get(),
+														 m_transformGizmoFrame == TransformGizmoFrame::World,
+														 gf.attitude(), axisIndex, outAxisWorld);
 }
 
 bool OsgScene::beginGizmoScreenDrag(const DragAxis axis)
@@ -440,8 +477,8 @@ bool OsgScene::beginGizmoScreenDrag(const DragAxis axis)
 	m_gizmoDragScreenAxisUx = 1.0;
 	m_gizmoDragScreenAxisUy = 0.0;
 	m_gizmoDragMmPerPixel = 1.0;
-	if (!m_objectSelectionMode || !m_viewer.valid() || !m_viewer->getCamera() || viewportWidth() <= 0
-		|| viewportHeight() <= 0)
+	if (!m_objectSelectionMode || !m_viewer.valid() || !m_viewer->getCamera() || viewportWidth() <= 0 ||
+		viewportHeight() <= 0)
 	{
 		return false;
 	}
@@ -455,7 +492,7 @@ bool OsgScene::beginGizmoScreenDrag(const DragAxis axis)
 	if (m_compassScaleTransform.valid())
 	{
 		const osg::Matrixd& sm = m_compassScaleTransform->getMatrix();
-		gizmoScale = static_cast<float>(std::max({ std::abs(sm(0, 0)), std::abs(sm(1, 1)), std::abs(sm(2, 2)) }));
+		gizmoScale = static_cast<float>(std::max({std::abs(sm(0, 0)), std::abs(sm(1, 1)), std::abs(sm(2, 2))}));
 		if (gizmoScale < 1e-6f)
 		{
 			gizmoScale = 1.0f;
@@ -465,14 +502,14 @@ bool OsgScene::beginGizmoScreenDrag(const DragAxis axis)
 
 	osg::Vec3f origin;
 	computeGizmoPivotWorld(origin);
-	const osg::Vec3f tipWorld(
-		origin.x() + static_cast<float>(axisW.x() * static_cast<double>(axisLenMm)),
-		origin.y() + static_cast<float>(axisW.y() * static_cast<double>(axisLenMm)),
-		origin.z() + static_cast<float>(axisW.z() * static_cast<double>(axisLenMm)));
+	const osg::Vec3f tipWorld(origin.x() + static_cast<float>(axisW.x() * static_cast<double>(axisLenMm)),
+							  origin.y() + static_cast<float>(axisW.y() * static_cast<double>(axisLenMm)),
+							  origin.z() + static_cast<float>(axisW.z() * static_cast<double>(axisLenMm)));
 
 	osg::Camera* const camera = m_viewer->getCamera();
 	const osg::Matrixd mvp = camera->getViewMatrix() * camera->getProjectionMatrix();
-	auto projectToScreen = [&](const osg::Vec3f& world, double& sx, double& sy) {
+	auto projectToScreen = [&](const osg::Vec3f& world, double& sx, double& sy)
+	{
 		const osg::Vec3d clip = osg::Vec3d(world) * mvp;
 		sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
 		sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
@@ -545,7 +582,8 @@ bool OsgScene::gizmoScreenAngleAtMouse(const DragAxis axis, double mouseX, doubl
 
 	osg::Camera* const camera = m_viewer->getCamera();
 	const osg::Matrixd mvp = camera->getViewMatrix() * camera->getProjectionMatrix();
-	auto projectToScreen = [&](const osg::Vec3d& world, double& sx, double& sy) {
+	auto projectToScreen = [&](const osg::Vec3d& world, double& sx, double& sy)
+	{
 		const osg::Vec3d clip = world * mvp;
 		sx = (clip.x() * 0.5 + 0.5) * static_cast<double>(viewportWidth());
 		sy = (1.0 - (clip.y() * 0.5 + 0.5)) * static_cast<double>(viewportHeight());
@@ -636,17 +674,15 @@ void OsgScene::logGizmoPivotDiagnostics(const char* reasonTag) const
 	}
 	const char* const tag = (reasonTag && reasonTag[0] != '\0') ? reasonTag : "?";
 
-	auto logLine = [](const std::string& line) {
-		RunLogger::debug(line);
-	};
+	auto logLine = [](const std::string& line) { RunLogger::debug(line); };
 
 	osg::Vec3f pivot{};
 	computeGizmoPivotWorld(pivot);
 
 	{
 		std::ostringstream oss;
-		oss << "[GizmoPivotDiag][" << tag << "] activeBackendId=" << m_activeBackendId << " transformGizmoFrame="
-			<< (m_transformGizmoFrame == TransformGizmoFrame::World ? "World" : "Local");
+		oss << "[GizmoPivotDiag][" << tag << "] activeBackendId=" << m_activeBackendId
+			<< " transformGizmoFrame=" << (m_transformGizmoFrame == TransformGizmoFrame::World ? "World" : "Local");
 		logLine(oss.str());
 	}
 	{
@@ -657,8 +693,8 @@ void OsgScene::logGizmoPivotDiagnostics(const char* reasonTag) const
 	}
 	{
 		std::ostringstream oss;
-		oss << std::setprecision(8) << "  pivotWorld(scene/file origin)=(" << pivot.x() << ',' << pivot.y()
-			<< ',' << pivot.z() << ')';
+		oss << std::setprecision(8) << "  pivotWorld(scene/file origin)=(" << pivot.x() << ',' << pivot.y() << ','
+			<< pivot.z() << ')';
 		logLine(oss.str());
 	}
 
@@ -726,10 +762,9 @@ void OsgScene::logGizmoPivotDiagnostics(const char* reasonTag) const
 			parentWorldDiag.makeIdentity();
 		}
 		const osg::Vec3d fileInOuterParentDiag = fileOriginDiag * osg::Matrixd::inverse(parentWorldDiag);
-		const osg::Vec3d innerOffsetDiag(
-			static_cast<double>(-m_modelCenter.x()),
-			static_cast<double>(-m_modelCenter.y()),
-			static_cast<double>(-m_modelCenter.z()));
+		const osg::Vec3d innerOffsetDiag(static_cast<double>(-m_modelCenter.x()),
+										 static_cast<double>(-m_modelCenter.y()),
+										 static_cast<double>(-m_modelCenter.z()));
 		const osg::Vec3d rotatedOffDiag = innerOffsetDiag * osg::Matrixd::rotate(oqDiag);
 		const osg::Vec3d centerPlusPoseDiag = fileInOuterParentDiag - rotatedOffDiag;
 		std::ostringstream oss;
@@ -740,8 +775,8 @@ void OsgScene::logGizmoPivotDiagnostics(const char* reasonTag) const
 		{
 			const osg::Vec3f sp = gf.centerPlusPose();
 			const double dcp = std::hypot(static_cast<double>(sp.x()) - centerPlusPoseDiag.x(),
-				std::hypot(static_cast<double>(sp.y()) - centerPlusPoseDiag.y(),
-					static_cast<double>(sp.z()) - centerPlusPoseDiag.z()));
+										  std::hypot(static_cast<double>(sp.y()) - centerPlusPoseDiag.y(),
+													 static_cast<double>(sp.z()) - centerPlusPoseDiag.z()));
 			std::ostringstream oss2;
 			oss2 << std::setprecision(8) << "  |frame.center+pose - outer center+pose(recovered)|=" << dcp;
 			logLine(oss2.str());
@@ -752,10 +787,12 @@ void OsgScene::logGizmoPivotDiagnostics(const char* reasonTag) const
 	{
 		const osg::Vec3f sp = gf.centerPlusPose();
 		const osg::Quat sa = gf.attitude();
-		const double dtp = std::hypot(static_cast<double>(sp.x()) - ot.x(),
-			std::hypot(static_cast<double>(sp.y()) - ot.y(), static_cast<double>(sp.z()) - ot.z()));
-		const double dq = std::abs(static_cast<double>(sa.x()) - oq.x()) + std::abs(static_cast<double>(sa.y()) - oq.y())
-			+ std::abs(static_cast<double>(sa.z()) - oq.z()) + std::abs(static_cast<double>(sa.w()) - oq.w());
+		const double dtp =
+			std::hypot(static_cast<double>(sp.x()) - ot.x(),
+					   std::hypot(static_cast<double>(sp.y()) - ot.y(), static_cast<double>(sp.z()) - ot.z()));
+		const double dq =
+			std::abs(static_cast<double>(sa.x()) - oq.x()) + std::abs(static_cast<double>(sa.y()) - oq.y()) +
+			std::abs(static_cast<double>(sa.z()) - oq.z()) + std::abs(static_cast<double>(sa.w()) - oq.w());
 		std::ostringstream oss;
 		oss << std::setprecision(8) << "  |frame.center+pose - outer.decompose.t|=" << dtp << "  quatL1diff=" << dq;
 		logLine(oss.str());
@@ -793,7 +830,7 @@ void OsgScene::logGizmoPivotDiagnostics(const char* reasonTag) const
 	{
 		const osg::Vec3d ip(innerPat->getPosition().x(), innerPat->getPosition().y(), innerPat->getPosition().z());
 		const osg::Vec3d negCenter(-static_cast<double>(m_modelCenter.x()), -static_cast<double>(m_modelCenter.y()),
-			-static_cast<double>(m_modelCenter.z()));
+								   -static_cast<double>(m_modelCenter.z()));
 		const osg::Vec3d innerMinusNegC = ip - negCenter;
 		std::ostringstream oss;
 		oss << std::setprecision(8) << "  innerPAT.position=(" << ip.x() << ',' << ip.y() << ',' << ip.z()
@@ -829,7 +866,8 @@ void OsgScene::logGizmoPivotDiagnostics(const char* reasonTag) const
 	RunLogger::flush();
 }
 
-bool OsgScene::computeCameraScreenRayWorld(double mouseX, double mouseY, osg::Vec3d& outRayOriginWorld, osg::Vec3d& outRayDirUnitWorld) const
+bool OsgScene::computeCameraScreenRayWorld(double mouseX, double mouseY, osg::Vec3d& outRayOriginWorld,
+										   osg::Vec3d& outRayDirUnitWorld) const
 {
 	if (!m_viewer.valid() || !m_viewer->getCamera())
 	{

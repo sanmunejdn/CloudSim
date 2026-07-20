@@ -1,12 +1,17 @@
-#pragma once
+﻿#ifndef DATA_BACKENDPROPERTYROW_H
+#define DATA_BACKENDPROPERTYROW_H
 
-#include <json.hpp>
+/// @file BackendPropertyRow.h
+/// @brief 属性面板 JSON 行字段约定
+
 #include <string>
 #include <utility>
 
-/// 属性面板 JSON 行字段约定
-namespace backend_property_json {
+#include <json.hpp>
 
+/// 属性面板 JSON 行字段约定
+namespace backend_property_json
+{
 inline constexpr const char* kKey = "key";
 inline constexpr const char* kLabelEn = "labelEn";
 inline constexpr const char* kEditable = "editable";
@@ -28,3 +33,5 @@ inline void appendRow(nlohmann::json& rowArray, std::string key, std::string lab
 }
 
 } // namespace backend_property_json
+
+#endif // DATA_BACKENDPROPERTYROW_H

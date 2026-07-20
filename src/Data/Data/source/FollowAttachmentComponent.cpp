@@ -1,10 +1,12 @@
+﻿/// @file FollowAttachmentComponent.cpp
+/// @brief FollowAttachmentComponent 实现
+
 #include "FollowAttachmentComponent.h"
 
 #include "BackendDataManager.h"
+#include "BackendPropertyRow.h"
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
-
-#include "BackendPropertyRow.h"
 
 #include <algorithm>
 #include <cmath>
@@ -47,9 +49,9 @@ BackendVec3 modelCenterForData(const BackendDataBase& data)
 			minz = std::min(minz, z);
 			maxz = std::max(maxz, z);
 		}
-		return BackendVec3{ 0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
-			0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
-			0.5 * (static_cast<double>(minz) + static_cast<double>(maxz)) };
+		return BackendVec3{0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
+						   0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
+						   0.5 * (static_cast<double>(minz) + static_cast<double>(maxz))};
 	}
 	if (const auto* mesh = dynamic_cast<const MeshBackendData*>(&data))
 	{
@@ -69,15 +71,16 @@ BackendVec3 modelCenterForData(const BackendDataBase& data)
 			minz = std::min(minz, z);
 			maxz = std::max(maxz, z);
 		}
-		return BackendVec3{ 0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
-			0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
-			0.5 * (static_cast<double>(minz) + static_cast<double>(maxz)) };
+		return BackendVec3{0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
+						   0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
+						   0.5 * (static_cast<double>(minz) + static_cast<double>(maxz))};
 	}
 	return BackendVec3{};
 }
 
-bool tryWorldMatForData(const BackendDataBase& data, const std::function<bool(const std::string&, BackendMat4& out)>& worldQuery,
-	BackendMat4& outWorld)
+bool tryWorldMatForData(const BackendDataBase& data,
+						const std::function<bool(const std::string&, BackendMat4& out)>& worldQuery,
+						BackendMat4& outWorld)
 {
 	if (worldQuery && worldQuery(data.id(), outWorld))
 	{
@@ -192,11 +195,12 @@ void FollowAttachmentComponent::appendPropertyRows(nlohmann::json& rows, const B
 	backend_property_json::appendRow(rows, "follow.targetName", "Follow: target object name", true, display);
 }
 
-bool FollowAttachmentComponent::applyPropertyChange(
-	BackendDataBase& owner, const std::string& key, const std::string& value, std::string* errMsg,
-	const BackendDataManager* mgr)
+bool FollowAttachmentComponent::applyPropertyChange(BackendDataBase& owner, const std::string& key,
+													const std::string& value, std::string* errMsg,
+													const BackendDataManager* mgr)
 {
-	auto parseVec3 = [&](const std::string& s, BackendVec3& out) -> bool {
+	auto parseVec3 = [&](const std::string& s, BackendVec3& out) -> bool
+	{
 		std::istringstream iss(s);
 		if (!(iss >> out.x >> out.y >> out.z))
 		{
@@ -341,8 +345,8 @@ void FollowAttachmentComponent::writeJson(nlohmann::json& out) const
 	std::lock_guard<std::mutex> lock(m_mutex);
 	out["enabled"] = m_enabled;
 	out["targetId"] = m_targetId;
-	out["localPosition"] = { { "x", m_localPos.x }, { "y", m_localPos.y }, { "z", m_localPos.z } };
-	out["localEulerDeg"] = { { "x", m_localEuler.x }, { "y", m_localEuler.y }, { "z", m_localEuler.z } };
+	out["localPosition"] = {{"x", m_localPos.x}, {"y", m_localPos.y}, {"z", m_localPos.z}};
+	out["localEulerDeg"] = {{"x", m_localEuler.x}, {"y", m_localEuler.y}, {"z", m_localEuler.z}};
 	out["solverPaused"] = m_solverPaused;
 	out["hierarchyDriven"] = m_hierarchyDriven;
 }
@@ -364,8 +368,9 @@ void FollowAttachmentComponent::readJson(const nlohmann::json& in)
 	m_hierarchyDriven = in.value("hierarchyDriven", false);
 }
 
-bool FollowAttachmentComponent::recomputeLocalFromCurrentWorld(const BackendDataManager& mgr,
-	const std::function<bool(const std::string&, BackendMat4& out)>& worldQuery, BackendDataBase& follower, std::string* errMsg)
+bool FollowAttachmentComponent::recomputeLocalFromCurrentWorld(
+	const BackendDataManager& mgr, const std::function<bool(const std::string&, BackendMat4& out)>& worldQuery,
+	BackendDataBase& follower, std::string* errMsg)
 {
 	auto comp = std::dynamic_pointer_cast<FollowAttachmentComponent>(follower.getComponent(typeKeyStatic()));
 	if (!comp)

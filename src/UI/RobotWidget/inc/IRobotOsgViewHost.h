@@ -1,7 +1,12 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_IROBOTOSGVIEWHOST_H
+#define ROBOTWIDGET_IROBOTOSGVIEWHOST_H
+
+/// @file IRobotOsgViewHost.h
+/// @brief 机器人 UI 的 OSG/三维操作（OsgWidget 实现）
+
+#include "robotwidget_global.h"
 
 #include "RobotOsgUiTypes.h"
-#include "robotwidget_global.h"
 
 #include <functional>
 #include <string>
@@ -21,7 +26,10 @@ enum class MeshTrianglePickTool
 };
 
 class IRobotBackendPoseSink;
-namespace engine { class RigidTransform; }
+namespace engine
+{
+class RigidTransform;
+}
 
 /// 机器人 UI 的 OSG/三维操作（OsgWidget 实现）
 class ROBOTWIDGET_EXPORT IRobotOsgViewHost
@@ -52,9 +60,8 @@ public:
 
 	virtual void setInstructionPoseAxes(const std::vector<RobotOsgUi::InstructionPoseAxis>& axes) = 0;
 	virtual void clearInstructionPoseAxes() = 0;
-	virtual void setRawTrajectoryOverlay(
-		const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
-		const std::vector<std::size_t>& segmentEndExclusive = {}) = 0;
+	virtual void setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
+										 const std::vector<std::size_t>& segmentEndExclusive = {}) = 0;
 	virtual void clearRawTrajectoryOverlay() = 0;
 	virtual void setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawTrajectoryOverlayFrame>& frames) = 0;
 	virtual void setRawTrajectoryOverlayAxisComponents(bool showX, bool showY, bool showZ) = 0;
@@ -66,15 +73,12 @@ public:
 
 	virtual bool isTcpDragTeachActive() const = 0;
 	virtual void endTcpDragTeach() = 0;
-	virtual void beginTcpDragTeach(
-		const std::string& mountBackendId,
-		const engine::RigidTransform& T_base_target,
-		float modelDiagonalMm,
-		std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld,
-		const osg::Matrixd* toolLocalOnFlange) = 0;
-	virtual void updateTcpDragTeachFromTarget(
-		const engine::RigidTransform& T_base_target,
-		bool syncTargetInBase = true) = 0;
+	virtual void beginTcpDragTeach(const std::string& mountBackendId, const engine::RigidTransform& T_base_target,
+								   float modelDiagonalMm,
+								   std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld,
+								   const osg::Matrixd* toolLocalOnFlange) = 0;
+	virtual void updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target,
+											  bool syncTargetInBase = true) = 0;
 	virtual void updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLocalOnFlange) = 0;
 
 	virtual void setMeshLinePickMode(bool enabled) = 0;
@@ -97,23 +101,21 @@ public:
 	virtual void showMeshFittedSurfacePreview(const std::vector<osg::Vec3f>& triangleVertsWorld) = 0;
 	virtual void clearMeshFittedSurfacePreview() = 0;
 
-	virtual void showMeshSectionPlane(
-		const std::string& backendIdUtf8,
-		const double originModelMm[3],
-		const double normalModel[3]) = 0;
-	virtual void beginMeshSectionPlaneEdit(
-		const std::string& backendIdUtf8,
-		const double originModelMm[3],
-		const double normalModel[3],
-		std::function<void(const double origin[3], const double normal[3])> onChanged) = 0;
+	virtual void showMeshSectionPlane(const std::string& backendIdUtf8, const double originModelMm[3],
+									  const double normalModel[3]) = 0;
+	virtual void
+	beginMeshSectionPlaneEdit(const std::string& backendIdUtf8, const double originModelMm[3],
+							  const double normalModel[3],
+							  std::function<void(const double origin[3], const double normal[3])> onChanged) = 0;
 	virtual void updateMeshSectionPlanePose(const double originModelMm[3], const double normalModel[3]) = 0;
 	virtual void endMeshSectionPlaneEdit() = 0;
 	virtual void hideMeshSectionPlane() = 0;
 	virtual void setMeshSectionPlanePreviewVisible(bool visible) = 0;
-	virtual bool getCameraViewDirectionInBackendModel(
-		const std::string& backendIdUtf8,
-		double outDirModel[3]) const = 0;
+	virtual bool getCameraViewDirectionInBackendModel(const std::string& backendIdUtf8,
+													  double outDirModel[3]) const = 0;
 
 	virtual void setFeatureCatalogOverlay(const std::vector<RobotOsgUi::FeatureCatalogOverlayItem>& items) = 0;
 	virtual void clearFeatureCatalogOverlay() = 0;
 };
+
+#endif // ROBOTWIDGET_IROBOTOSGVIEWHOST_H

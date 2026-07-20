@@ -1,15 +1,18 @@
-#ifndef _POINTCLOUDPROCESS_WIDGET_QTKEYBOARDMAP_H_
-#define _POINTCLOUDPROCESS_WIDGET_QTKEYBOARDMAP_H_
+﻿#ifndef CLOUDSIMHOST_QTKEYBOARDMAP_H
+#define CLOUDSIMHOST_QTKEYBOARDMAP_H
+
+/// @file QtKeyboardMap.h
+/// @brief Qt 键值到 osgGA::GUIEventAdapter 键码的映射表，用于把 Qt 键盘事件交给 OSG 处理。
+
+#include <QInputEvent>
+#include <QPointer>
 
 #include <osg/DeleteHandler>
 #include <osgViewer/ViewerBase>
-#include <QInputEvent>
-#include <QPointer>
 
 /// Qt 键值到 osgGA::GUIEventAdapter 键码的映射表，用于把 Qt 键盘事件交给 OSG 处理。
 class WIDGET_EXPORT QtKeyboardMap
 {
-
 public:
 	QtKeyboardMap()
 	{
@@ -75,9 +78,7 @@ public:
 		//mKeyMap[Qt::Key_Delete        ] = osgGA::GUIEventAdapter::KEY_KP_Delete;
 	}
 
-	~QtKeyboardMap()
-	{
-	}
+	~QtKeyboardMap() {}
 
 	int remapKey(QKeyEvent* event)
 	{
@@ -97,4 +98,4 @@ private:
 
 static QtKeyboardMap s_QtKeyboardMap;
 
-#endif//_POINTCLOUDPROCESS_WIDGET_QTKEYBOARDMAP_H_
+#endif // CLOUDSIMHOST_QTKEYBOARDMAP_H

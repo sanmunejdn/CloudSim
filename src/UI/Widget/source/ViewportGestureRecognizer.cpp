@@ -1,3 +1,6 @@
+﻿/// @file ViewportGestureRecognizer.cpp
+/// @brief ViewportGestureRecognizer 实现
+
 #include "ViewportGestureRecognizer.h"
 
 #include "OsgScene.h"

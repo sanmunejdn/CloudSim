@@ -1,3 +1,6 @@
+﻿/// @file BackendPoseOsg.cpp
+/// @brief BackendPoseOsg 实现
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -12,21 +15,14 @@
 
 #include <Adapters.h>
 #include <BackendWorldPose.h>
-
 #include <osg/Matrixd>
 
 namespace backend_pose_osg
 {
-
 osg::Matrixd worldMatrixFromBackendPoseEuler(const BackendVec3& pose, const BackendVec3& eulerDeg)
 {
-	const engine::RigidTransform rt = engine::rigidTransformFromBackendPoseEuler(
-		pose.x,
-		pose.y,
-		pose.z,
-		eulerDeg.x,
-		eulerDeg.y,
-		eulerDeg.z);
+	const engine::RigidTransform rt =
+		engine::rigidTransformFromBackendPoseEuler(pose.x, pose.y, pose.z, eulerDeg.x, eulerDeg.y, eulerDeg.z);
 	return engine::osgMatrixFromRigidTransform(rt);
 }
 

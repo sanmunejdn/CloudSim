@@ -1,6 +1,11 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_MESHTRAJECTORY_H
+#define GEOMETRYALGORITHM_MESHTRAJECTORY_H
+
+/// @file MeshTrajectory.h
+/// @brief B 样条区域拟合曲面三角化预览（模型坐标 mm，每三角 9 float）
 
 #include "geometry_algorithm_global.h"
+
 #include "FeatureSpec.h"
 #include "MeshSurfaceReconstruction.h"
 
@@ -9,7 +14,6 @@
 
 namespace geoalgo
 {
-
 enum class MeshTrajectoryMethod
 {
 	CrossSection,
@@ -72,52 +76,38 @@ struct MeshTrajectoryPolyline
 	bool closed = false;
 };
 
-GEOMETRY_ALGORITHM_API bool validateMeshTrajectorySpec(
-	const MeshTrajectorySpec& spec,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool validateMeshTrajectorySpec(const MeshTrajectorySpec& spec, std::string* errMsg = nullptr);
 
-GEOMETRY_ALGORITHM_API bool filterSoupByTriangleIndices(
-	const std::vector<float>& triangleSoup,
-	const std::vector<int>& triangleIndices,
-	std::vector<float>& outSoup,
-	std::vector<int>& outOriginalTriangleIndices);
+GEOMETRY_ALGORITHM_API bool filterSoupByTriangleIndices(const std::vector<float>& triangleSoup,
+														const std::vector<int>& triangleIndices,
+														std::vector<float>& outSoup,
+														std::vector<int>& outOriginalTriangleIndices);
 
-GEOMETRY_ALGORITHM_API bool intersectPlaneWithTriangleSoup(
-	const std::vector<float>& triangleSoup,
-	const double planeOriginMm[3],
-	const double planeNormalUnit[3],
-	const std::vector<int>* triangleIndexFilter,
-	std::vector<MeshTrajectoryPolyline>& outPolylines,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool
+intersectPlaneWithTriangleSoup(const std::vector<float>& triangleSoup, const double planeOriginMm[3],
+							   const double planeNormalUnit[3], const std::vector<int>* triangleIndexFilter,
+							   std::vector<MeshTrajectoryPolyline>& outPolylines, std::string* errMsg = nullptr);
 
-GEOMETRY_ALGORITHM_API bool discretizeMeshTrajectoryPolyline(
-	MeshTrajectoryPolyline& polyline,
-	double stepMm,
-	bool outputTangent,
-	bool outputNormal,
-	const double planeNormalUnit[3]);
+GEOMETRY_ALGORITHM_API bool discretizeMeshTrajectoryPolyline(MeshTrajectoryPolyline& polyline, double stepMm,
+															 bool outputTangent, bool outputNormal,
+															 const double planeNormalUnit[3]);
 
-GEOMETRY_ALGORITHM_API bool generateMeshTrajectory(
-	const MeshTrajectorySpec& spec,
-	const std::vector<float>& triangleSoup,
-	RawPath& outPath,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool generateMeshTrajectory(const MeshTrajectorySpec& spec,
+												   const std::vector<float>& triangleSoup, RawPath& outPath,
+												   std::string* errMsg = nullptr);
 
-GEOMETRY_ALGORITHM_API bool meshTrajectorySpecFromJson(
-	const std::string& jsonUtf8,
-	MeshTrajectorySpec& out,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool meshTrajectorySpecFromJson(const std::string& jsonUtf8, MeshTrajectorySpec& out,
+													   std::string* errMsg = nullptr);
 
-GEOMETRY_ALGORITHM_API bool meshTrajectorySpecToJson(
-	const MeshTrajectorySpec& spec,
-	std::string& outJsonUtf8);
+GEOMETRY_ALGORITHM_API bool meshTrajectorySpecToJson(const MeshTrajectorySpec& spec, std::string& outJsonUtf8);
 
 /// B 样条区域拟合曲面三角化预览（模型坐标 mm，每三角 9 float）
-GEOMETRY_ALGORITHM_API bool buildBsplineRegionSurfacePreview(
-	const std::vector<float>& triangleSoup,
-	const MeshTrajectoryRegion& region,
-	const MeshTrajectoryBsplineParams& bspline,
-	std::vector<float>& outTriangleSoupModel,
-	std::string* errMsg = nullptr);
+GEOMETRY_ALGORITHM_API bool buildBsplineRegionSurfacePreview(const std::vector<float>& triangleSoup,
+															 const MeshTrajectoryRegion& region,
+															 const MeshTrajectoryBsplineParams& bspline,
+															 std::vector<float>& outTriangleSoupModel,
+															 std::string* errMsg = nullptr);
 
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_MESHTRAJECTORY_H

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef DATA_PROPERTYBAG_H
+#define DATA_PROPERTYBAG_H
+
+/// @file PropertyBag.h
+/// @brief 运行时属性袋：name+type 键，variant 值
 
 #include <array>
 #include <string>
@@ -13,12 +17,9 @@
 struct PropertyKey
 {
 	std::string name;
-	std::type_index type{ typeid(void) };
+	std::type_index type{typeid(void)};
 
-	bool operator==(const PropertyKey& other) const noexcept
-	{
-		return name == other.name && type == other.type;
-	}
+	bool operator==(const PropertyKey& other) const noexcept { return name == other.name && type == other.type; }
 };
 
 struct PropertyKeyHash
@@ -31,8 +32,8 @@ struct PropertyKeyHash
 	}
 };
 
-using PropertyValue = std::variant<std::monostate, bool, int, double, std::string, std::array<double, 3>,
-	std::array<float, 4>>;
+using PropertyValue =
+	std::variant<std::monostate, bool, int, double, std::string, std::array<double, 3>, std::array<float, 4>>;
 
 struct PropertyBagDiffItem
 {
@@ -52,14 +53,14 @@ public:
 	template <typename T>
 	void set(const std::string& name, const T& value)
 	{
-		const PropertyKey key{ name, std::type_index(typeid(T)) };
+		const PropertyKey key{name, std::type_index(typeid(T))};
 		m_values[key] = value;
 	}
 
 	template <typename T>
 	bool tryGet(const std::string& name, T& out) const
 	{
-		const PropertyKey key{ name, std::type_index(typeid(T)) };
+		const PropertyKey key{name, std::type_index(typeid(T))};
 		const auto it = m_values.find(key);
 		if (it == m_values.end())
 		{
@@ -77,7 +78,8 @@ public:
 	{
 		for (const PropertyBagDiffItem& item : diff.updates)
 		{
-			const PropertyKey key{ item.name, item.value.index() == 0 ? std::type_index(typeid(void)) : valueTypeIndex(item.value) };
+			const PropertyKey key{item.name,
+								  item.value.index() == 0 ? std::type_index(typeid(void)) : valueTypeIndex(item.value)};
 			m_values[key] = item.value;
 		}
 	}
@@ -107,11 +109,11 @@ public:
 			}
 			else if (const std::array<double, 3>* vec3 = std::get_if<std::array<double, 3>>(&v))
 			{
-				out[name] = { (*vec3)[0], (*vec3)[1], (*vec3)[2] };
+				out[name] = {(*vec3)[0], (*vec3)[1], (*vec3)[2]};
 			}
 			else if (const std::array<float, 4>* rgba = std::get_if<std::array<float, 4>>(&v))
 			{
-				out[name] = { (*rgba)[0], (*rgba)[1], (*rgba)[2], (*rgba)[3] };
+				out[name] = {(*rgba)[0], (*rgba)[1], (*rgba)[2], (*rgba)[3]};
 			}
 		}
 		return out;
@@ -149,3 +151,5 @@ private:
 
 	std::unordered_map<PropertyKey, PropertyValue, PropertyKeyHash> m_values;
 };
+
+#endif // DATA_PROPERTYBAG_H

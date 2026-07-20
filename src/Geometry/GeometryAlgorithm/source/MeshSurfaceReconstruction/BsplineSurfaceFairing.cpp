@@ -1,12 +1,14 @@
+﻿/// @file BsplineSurfaceFairing.cpp
+/// @brief BsplineSurfaceFairing 实现
+
 #include "MeshSurfaceReconstructionInternal.h"
-
 #include "detail/OccIncludes.h"
-
-#include <TColgp_Array2OfPnt.hxx>
 
 #include <algorithm>
 #include <cmath>
 #include <vector>
+
+#include <TColgp_Array2OfPnt.hxx>
 
 namespace geoalgo
 {
@@ -14,7 +16,6 @@ namespace meshrecon
 {
 namespace
 {
-
 double thirdDerivJumpU(const TColgp_Array2OfPnt& poles, const int iu, const int iv)
 {
 	if (iu < poles.LowerRow() + 1 || iu > poles.UpperRow() - 2)
@@ -48,7 +49,7 @@ double globalFairingMetric(const TColgp_Array2OfPnt& poles)
 	return sum;
 }
 
-bool fairSingleSurface(Handle(Geom_BSplineSurface)& surface, const MeshSurfaceReconstructParams& params)
+bool fairSingleSurface(Handle(Geom_BSplineSurface) & surface, const MeshSurfaceReconstructParams& params)
 {
 	if (surface.IsNull())
 	{
@@ -68,9 +69,7 @@ bool fairSingleSurface(Handle(Geom_BSplineSurface)& surface, const MeshSurfaceRe
 	}
 
 	int failCount = 0;
-	const int maxFail = std::max(
-		1,
-		(ur - lr - 2 - 2 * borderGuard) * (uc - lc - 2 - 2 * borderGuard));
+	const int maxFail = std::max(1, (ur - lr - 2 - 2 * borderGuard) * (uc - lc - 2 - 2 * borderGuard));
 	for (int iter = 0; iter < params.fairingMaxIterations; ++iter)
 	{
 		double maxJump = 0.0;
@@ -100,20 +99,15 @@ bool fairSingleSurface(Handle(Geom_BSplineSurface)& surface, const MeshSurfaceRe
 			{
 				const int ii = bi + di;
 				const int jj = bj + dj;
-				if (ii < lr + borderGuard || jj < lc + borderGuard || ii > ur - borderGuard
-					|| jj > uc - borderGuard)
+				if (ii < lr + borderGuard || jj < lc + borderGuard || ii > ur - borderGuard || jj > uc - borderGuard)
 				{
 					continue;
 				}
 				const gp_Pnt p = poles.Value(ii, jj);
 				const gp_Pnt n = poles.Value(bi, bj);
-				poles.SetValue(
-					ii,
-					jj,
-					gp_Pnt(
-						p.X() + 0.15 * (n.X() - p.X()),
-						p.Y() + 0.15 * (n.Y() - p.Y()),
-						p.Z() + 0.15 * (n.Z() - p.Z())));
+				poles.SetValue(ii, jj,
+							   gp_Pnt(p.X() + 0.15 * (n.X() - p.X()), p.Y() + 0.15 * (n.Y() - p.Y()),
+									  p.Z() + 0.15 * (n.Z() - p.Z())));
 			}
 		}
 
@@ -148,11 +142,8 @@ bool fairSingleSurface(Handle(Geom_BSplineSurface)& surface, const MeshSurfaceRe
 
 } // namespace
 
-bool fairBsplinePatches(
-	std::vector<QuadPatch>& patches,
-	const MeshSurfaceReconstructParams& params,
-	double& outGlobalMetric,
-	std::string* errMsg)
+bool fairBsplinePatches(std::vector<QuadPatch>& patches, const MeshSurfaceReconstructParams& params,
+						double& outGlobalMetric, std::string* errMsg)
 {
 	outGlobalMetric = 0.0;
 	for (QuadPatch& patch : patches)

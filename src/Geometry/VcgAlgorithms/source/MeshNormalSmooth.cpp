@@ -1,4 +1,8 @@
+﻿/// @file MeshNormalSmooth.cpp
+/// @brief MeshNormalSmooth 实现
+
 #include "MeshNormalSmooth.h"
+
 #include "VcgMeshAdapter.h"
 
 #include <cmath>
@@ -8,7 +12,6 @@ namespace vcgalgo
 {
 namespace
 {
-
 struct Vec3
 {
 	double x = 0.0;
@@ -46,10 +49,7 @@ struct FaceAdj
 
 static Vec3 cross(const Vec3& a, const Vec3& b)
 {
-	return {
-		a.y * b.z - a.z * b.y,
-		a.z * b.x - a.x * b.z,
-		a.x * b.y - a.y * b.x};
+	return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
 
 static double triangleArea(const Vec3& a, const Vec3& b, const Vec3& c)
@@ -71,10 +71,8 @@ static void writeVert(std::vector<float>& verts, const int idx, const Vec3& p)
 	verts[b + 2U] = static_cast<float>(p.z);
 }
 
-static void buildFaceAdjacency(
-	const IndexedMesh& mesh,
-	std::vector<FaceAdj>& faces,
-	std::vector<std::vector<int>>& vertexFaces)
+static void buildFaceAdjacency(const IndexedMesh& mesh, std::vector<FaceAdj>& faces,
+							   std::vector<std::vector<int>>& vertexFaces)
 {
 	const int faceCount = static_cast<int>(mesh.faces.size() / 3U);
 	const int vertCount = static_cast<int>(mesh.vertices.size() / 3U);
@@ -173,10 +171,7 @@ static double vertexVariation(const FaceAdj& face, const int cornerIdx, const st
 	return sumDev;
 }
 
-static Vec3 kuwaharaNormal(
-	const FaceAdj& face,
-	const std::vector<FaceAdj>& faces,
-	const double k)
+static Vec3 kuwaharaNormal(const FaceAdj& face, const std::vector<FaceAdj>& faces, const double k)
 {
 	const int vi = face.v0;
 	double minV = 1e30;
@@ -255,10 +250,8 @@ static Vec3 laplacianNormal(const FaceAdj& face, const std::vector<FaceAdj>& fac
 	return (face.normal + (avg - face.normal) * lambda).normalized();
 }
 
-static double approximateGapVolume(
-	const std::vector<float>& beforeVerts,
-	const std::vector<float>& afterVerts,
-	const std::vector<FaceAdj>& faces)
+static double approximateGapVolume(const std::vector<float>& beforeVerts, const std::vector<float>& afterVerts,
+								   const std::vector<FaceAdj>& faces)
 {
 	double volume = 0.0;
 	for (const FaceAdj& fa : faces)
@@ -278,12 +271,8 @@ static double approximateGapVolume(
 
 } // namespace
 
-bool smoothMeshByNormalAdjustment(
-	const std::vector<float>& soupIn,
-	std::vector<float>& soupOut,
-	const MeshNormalSmoothParams& params,
-	double* outGapVolume,
-	std::string* errMsg)
+bool smoothMeshByNormalAdjustment(const std::vector<float>& soupIn, std::vector<float>& soupOut,
+								  const MeshNormalSmoothParams& params, double* outGapVolume, std::string* errMsg)
 {
 	IndexedMesh mesh;
 	if (!triangleSoupToIndexedMesh(soupIn, mesh, errMsg))
@@ -316,9 +305,8 @@ bool smoothMeshByNormalAdjustment(
 			{
 				c += vertexVariation(fa, corner, faces);
 			}
-			Vec3 n = (c <= params.featureThresholdC0)
-				? laplacianNormal(fa, faces, params.laplacianLambda)
-				: kuwaharaNormal(fa, faces, params.bilateralK);
+			Vec3 n = (c <= params.featureThresholdC0) ? laplacianNormal(fa, faces, params.laplacianLambda)
+													  : kuwaharaNormal(fa, faces, params.bilateralK);
 			newNormals[f] = n.normalized();
 		}
 
@@ -332,10 +320,8 @@ bool smoothMeshByNormalAdjustment(
 
 		for (const FaceAdj& fa : faces)
 		{
-			const Vec3 verts[3] = {
-				readVert(mesh.vertices, fa.v0),
-				readVert(mesh.vertices, fa.v1),
-				readVert(mesh.vertices, fa.v2)};
+			const Vec3 verts[3] = {readVert(mesh.vertices, fa.v0), readVert(mesh.vertices, fa.v1),
+								   readVert(mesh.vertices, fa.v2)};
 			const int indices[3] = {fa.v0, fa.v1, fa.v2};
 			for (int i = 0; i < 3; ++i)
 			{

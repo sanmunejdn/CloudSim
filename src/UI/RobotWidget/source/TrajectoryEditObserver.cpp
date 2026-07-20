@@ -1,12 +1,12 @@
+﻿/// @file TrajectoryEditObserver.cpp
+/// @brief TrajectoryEditObserver 实现
+
 #include "TrajectoryEditObserver.h"
 
 #include "ProgramEditService.h"
 #include "TrajectoryEditSession.h"
 
-TrajectoryEditObserver::TrajectoryEditObserver(QObject* parent)
-	: QObject(parent)
-{
-}
+TrajectoryEditObserver::TrajectoryEditObserver(QObject* parent) : QObject(parent) {}
 
 void TrajectoryEditObserver::bindSession(TrajectoryEditSession* session)
 {
@@ -18,8 +18,7 @@ void TrajectoryEditObserver::bindEditService(ProgramEditService* service)
 	m_editService = service;
 }
 
-bool TrajectoryEditObserver::syncDraftOps(
-	const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops)
+bool TrajectoryEditObserver::syncDraftOps(const std::vector<RobotInstruction::TrajectoryOpDescriptor>& ops)
 {
 	m_draftOps = ops;
 	if (!m_session)
@@ -42,9 +41,8 @@ void TrajectoryEditObserver::loadPipeline(const std::vector<RobotInstruction::Tr
 	emit pipelineStructureChanged();
 }
 
-void TrajectoryEditObserver::updateNodeParams(
-	const std::size_t nodeIndex,
-	const RobotInstruction::TrajectoryOpDescriptor& descriptor)
+void TrajectoryEditObserver::updateNodeParams(const std::size_t nodeIndex,
+											  const RobotInstruction::TrajectoryOpDescriptor& descriptor)
 {
 	if (!m_session || nodeIndex >= m_draftOps.size())
 	{

@@ -1,12 +1,14 @@
+﻿/// @file BoundaryBlend.cpp
+/// @brief BoundaryBlend 实现
+
 #include "MeshSurfaceReconstructionInternal.h"
-
 #include "detail/OccIncludes.h"
-
-#include <TColgp_Array2OfPnt.hxx>
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
+
+#include <TColgp_Array2OfPnt.hxx>
 
 namespace geoalgo
 {
@@ -14,7 +16,6 @@ namespace meshrecon
 {
 namespace
 {
-
 enum class PatchBorder : int
 {
 	UMin = 0,
@@ -48,10 +49,7 @@ int mapBorderSampleIndex(const int sampleCount, const int i, const int resampleC
 	return reversed ? (sampleCount - 1 - mapped) : mapped;
 }
 
-gp_Pnt borderPole(
-	const TColgp_Array2OfPnt& poles,
-	const PatchBorder border,
-	const int sampleIndex)
+gp_Pnt borderPole(const TColgp_Array2OfPnt& poles, const PatchBorder border, const int sampleIndex)
 {
 	const int lr = poles.LowerRow();
 	const int ur = poles.UpperRow();
@@ -71,11 +69,7 @@ gp_Pnt borderPole(
 	return poles.Value(lr, lc);
 }
 
-gp_Pnt stripPole(
-	const TColgp_Array2OfPnt& poles,
-	const PatchBorder border,
-	const int sampleIndex,
-	const int depth)
+gp_Pnt stripPole(const TColgp_Array2OfPnt& poles, const PatchBorder border, const int sampleIndex, const int depth)
 {
 	const int lr = poles.LowerRow();
 	const int ur = poles.UpperRow();
@@ -95,12 +89,8 @@ gp_Pnt stripPole(
 	return poles.Value(lr, lc);
 }
 
-void setStripPole(
-	TColgp_Array2OfPnt& poles,
-	const PatchBorder border,
-	const int sampleIndex,
-	const int depth,
-	const gp_Pnt& point)
+void setStripPole(TColgp_Array2OfPnt& poles, const PatchBorder border, const int sampleIndex, const int depth,
+				  const gp_Pnt& point)
 {
 	const int lr = poles.LowerRow();
 	const int ur = poles.UpperRow();
@@ -132,13 +122,8 @@ int maxInwardDepth(const TColgp_Array2OfPnt& poles, const PatchBorder border)
 	return poles.UpperCol() - poles.LowerCol() + 1;
 }
 
-double averageBorderDistance(
-	const TColgp_Array2OfPnt& pa,
-	const PatchBorder borderA,
-	const bool reverseA,
-	const TColgp_Array2OfPnt& pb,
-	const PatchBorder borderB,
-	const bool reverseB)
+double averageBorderDistance(const TColgp_Array2OfPnt& pa, const PatchBorder borderA, const bool reverseA,
+							 const TColgp_Array2OfPnt& pb, const PatchBorder borderB, const bool reverseB)
 {
 	const int countA = borderSampleCount(pa, borderA);
 	const int countB = borderSampleCount(pb, borderB);
@@ -178,10 +163,7 @@ double borderPolylineLength(const TColgp_Array2OfPnt& poles, const PatchBorder b
 	return len;
 }
 
-bool findBestSharedBorder(
-	const TColgp_Array2OfPnt& pa,
-	const TColgp_Array2OfPnt& pb,
-	MatchedBorder& outMatch)
+bool findBestSharedBorder(const TColgp_Array2OfPnt& pa, const TColgp_Array2OfPnt& pb, MatchedBorder& outMatch)
 {
 	MatchedBorder best;
 	best.avgDistanceMm = std::numeric_limits<double>::max();
@@ -201,8 +183,7 @@ bool findBestSharedBorder(
 			{
 				for (const int revB : {0, 1})
 				{
-					const double dist = averageBorderDistance(
-						pa, borderA, revA != 0, pb, borderB, revB != 0);
+					const double dist = averageBorderDistance(pa, borderA, revA != 0, pb, borderB, revB != 0);
 					if (dist < best.avgDistanceMm)
 					{
 						best.borderA = borderA;
@@ -210,9 +191,8 @@ bool findBestSharedBorder(
 						best.reverseA = revA != 0;
 						best.reverseB = revB != 0;
 						best.avgDistanceMm = dist;
-						best.resampleCount = std::max(
-							2,
-							std::min(borderSampleCount(pa, borderA), borderSampleCount(pb, borderB)));
+						best.resampleCount =
+							std::max(2, std::min(borderSampleCount(pa, borderA), borderSampleCount(pb, borderB)));
 					}
 				}
 			}
@@ -225,9 +205,7 @@ bool findBestSharedBorder(
 	}
 
 	// 邻接边在 3D 上应足够接近，否则说明 UV 边并非真实公共边
-	const double edgeScale = std::min(
-		borderPolylineLength(pa, best.borderA),
-		borderPolylineLength(pb, best.borderB));
+	const double edgeScale = std::min(borderPolylineLength(pa, best.borderA), borderPolylineLength(pb, best.borderB));
 	const double gapThreshold = std::max(1.0, 0.25 * edgeScale);
 	if (best.avgDistanceMm > gapThreshold)
 	{
@@ -238,19 +216,13 @@ bool findBestSharedBorder(
 	return true;
 }
 
-bool blendMatchedBorderPair(
-	TColgp_Array2OfPnt& pa,
-	TColgp_Array2OfPnt& pb,
-	const MatchedBorder& match,
-	const int stripDepth,
-	int& outCtrlPtCount,
-	double& outMaxMove)
+bool blendMatchedBorderPair(TColgp_Array2OfPnt& pa, TColgp_Array2OfPnt& pb, const MatchedBorder& match,
+							const int stripDepth, int& outCtrlPtCount, double& outMaxMove)
 {
 	const int countA = borderSampleCount(pa, match.borderA);
 	const int countB = borderSampleCount(pb, match.borderB);
-	const int depthLimit = std::min(
-		stripDepth,
-		std::min(maxInwardDepth(pa, match.borderA), maxInwardDepth(pb, match.borderB)));
+	const int depthLimit =
+		std::min(stripDepth, std::min(maxInwardDepth(pa, match.borderA), maxInwardDepth(pb, match.borderB)));
 	if (depthLimit < 1 || match.resampleCount < 2)
 	{
 		return false;
@@ -266,10 +238,8 @@ bool blendMatchedBorderPair(
 			const int ib = mapBorderSampleIndex(countB, i, match.resampleCount, match.reverseB);
 			const gp_Pnt pA = stripPole(pa, match.borderA, ia, depth);
 			const gp_Pnt pB = stripPole(pb, match.borderB, ib, depth);
-			const gp_Pnt blend(
-				pA.X() * w + pB.X() * (1.0 - w),
-				pA.Y() * w + pB.Y() * (1.0 - w),
-				pA.Z() * w + pB.Z() * (1.0 - w));
+			const gp_Pnt blend(pA.X() * w + pB.X() * (1.0 - w), pA.Y() * w + pB.Y() * (1.0 - w),
+							   pA.Z() * w + pB.Z() * (1.0 - w));
 			const double dA = pA.Distance(blend);
 			const double dB = pB.Distance(blend);
 			if (dA > 1e-9 || dB > 1e-9)
@@ -289,26 +259,16 @@ bool blendMatchedBorderPair(
 				const gp_Pnt bB = borderPole(pb, match.borderB, ib);
 				const gp_Pnt innerA = stripPole(pa, match.borderA, ia, 2);
 				const gp_Pnt innerB = stripPole(pb, match.borderB, ib, 2);
-				const gp_Pnt curvA(
-					innerA.X() - 2.0 * bA.X() + pA.X(),
-					innerA.Y() - 2.0 * bA.Y() + pA.Y(),
-					innerA.Z() - 2.0 * bA.Z() + pA.Z());
-				const gp_Pnt curvB(
-					innerB.X() - 2.0 * bB.X() + pB.X(),
-					innerB.Y() - 2.0 * bB.Y() + pB.Y(),
-					innerB.Z() - 2.0 * bB.Z() + pB.Z());
-				const gp_Pnt curvBlend(
-					curvA.X() * w + curvB.X() * (1.0 - w),
-					curvA.Y() * w + curvB.Y() * (1.0 - w),
-					curvA.Z() * w + curvB.Z() * (1.0 - w));
-				const gp_Pnt innerBlendA(
-					2.0 * bA.X() - pA.X() + curvBlend.X(),
-					2.0 * bA.Y() - pA.Y() + curvBlend.Y(),
-					2.0 * bA.Z() - pA.Z() + curvBlend.Z());
-				const gp_Pnt innerBlendB(
-					2.0 * bB.X() - pB.X() + curvBlend.X(),
-					2.0 * bB.Y() - pB.Y() + curvBlend.Y(),
-					2.0 * bB.Z() - pB.Z() + curvBlend.Z());
+				const gp_Pnt curvA(innerA.X() - 2.0 * bA.X() + pA.X(), innerA.Y() - 2.0 * bA.Y() + pA.Y(),
+								   innerA.Z() - 2.0 * bA.Z() + pA.Z());
+				const gp_Pnt curvB(innerB.X() - 2.0 * bB.X() + pB.X(), innerB.Y() - 2.0 * bB.Y() + pB.Y(),
+								   innerB.Z() - 2.0 * bB.Z() + pB.Z());
+				const gp_Pnt curvBlend(curvA.X() * w + curvB.X() * (1.0 - w), curvA.Y() * w + curvB.Y() * (1.0 - w),
+									   curvA.Z() * w + curvB.Z() * (1.0 - w));
+				const gp_Pnt innerBlendA(2.0 * bA.X() - pA.X() + curvBlend.X(), 2.0 * bA.Y() - pA.Y() + curvBlend.Y(),
+										 2.0 * bA.Z() - pA.Z() + curvBlend.Z());
+				const gp_Pnt innerBlendB(2.0 * bB.X() - pB.X() + curvBlend.X(), 2.0 * bB.Y() - pB.Y() + curvBlend.Y(),
+										 2.0 * bB.Z() - pB.Z() + curvBlend.Z());
 				setStripPole(pa, match.borderA, ia, 2, innerBlendA);
 				setStripPole(pb, match.borderB, ib, 2, innerBlendB);
 				outCtrlPtCount += 2;
@@ -320,12 +280,8 @@ bool blendMatchedBorderPair(
 
 } // namespace
 
-bool applyBoundaryC2Blend(
-	std::vector<QuadPatch>& patches,
-	const MeshSurfaceReconstructParams& params,
-	bool& outBlendOk,
-	MeshSurfaceReconstructReport* report,
-	std::string* errMsg)
+bool applyBoundaryC2Blend(std::vector<QuadPatch>& patches, const MeshSurfaceReconstructParams& params, bool& outBlendOk,
+						  MeshSurfaceReconstructReport* report, std::string* errMsg)
 {
 	outBlendOk = true;
 	const int stripDepth = params.blendStripDepth > 0 ? params.blendStripDepth : 3;
@@ -358,8 +314,8 @@ bool applyBoundaryC2Blend(
 			}
 
 			bool pairHasMove = blendMatchedBorderPair(pa, pb, match, stripDepth, ctrlPtCount, maxMove);
-			if (!tryRebuildBsplineSurface(a.surface, pa, a.surface)
-				|| !tryRebuildBsplineSurface(b.surface, pb, b.surface))
+			if (!tryRebuildBsplineSurface(a.surface, pa, a.surface) ||
+				!tryRebuildBsplineSurface(b.surface, pb, b.surface))
 			{
 				outBlendOk = false;
 			}

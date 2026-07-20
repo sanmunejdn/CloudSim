@@ -1,22 +1,20 @@
+﻿/// @file RobotProgramExport.cpp
+/// @brief RobotProgramExport 实现
+
 #include "RobotProgramExport.h"
 
 #include "RobotCoordinateFrames.h"
 #include "RobotInstructionProgram.h"
 
-#include <json.hpp>
-
 #include <sstream>
+
+#include <json.hpp>
 
 namespace RobotProgramExport
 {
-
-bool buildExportResult(
-	const std::vector<const RobotInstruction::Base*>& motions,
-	const std::vector<RobotInstruction::PlanResult>& plans,
-	const std::string& robotSceneBackendId,
-	const std::string& urdfPath,
-	RobotProgramExportResult& out,
-	std::string* errMsg)
+bool buildExportResult(const std::vector<const RobotInstruction::Base*>& motions,
+					   const std::vector<RobotInstruction::PlanResult>& plans, const std::string& robotSceneBackendId,
+					   const std::string& urdfPath, RobotProgramExportResult& out, std::string* errMsg)
 {
 	out = RobotProgramExportResult{};
 	out.robotSceneBackendId = robotSceneBackendId;
@@ -87,8 +85,8 @@ bool writeExportResultToJson(const RobotProgramExportResult& result, std::string
 		nlohmann::json item = nlohmann::json::object();
 		item["pointIndex"] = pt.pointIndex;
 		item["type"] = pt.type;
-		item["positionBaseMm"] = { pt.posBaseMm[0], pt.posBaseMm[1], pt.posBaseMm[2] };
-		item["eulerBaseDeg"] = { pt.eulerBaseDeg[0], pt.eulerBaseDeg[1], pt.eulerBaseDeg[2] };
+		item["positionBaseMm"] = {pt.posBaseMm[0], pt.posBaseMm[1], pt.posBaseMm[2]};
+		item["eulerBaseDeg"] = {pt.eulerBaseDeg[0], pt.eulerBaseDeg[1], pt.eulerBaseDeg[2]};
 		if (!pt.toolFrameId.empty())
 		{
 			item["toolFrameId"] = pt.toolFrameId;
@@ -122,9 +120,8 @@ bool writeExportResultToCsv(const RobotProgramExportResult& result, std::string&
 	for (const MotionPointExport& pt : result.points)
 	{
 		oss << pt.pointIndex << ',' << pt.type << ',' << pt.posBaseMm[0] << ',' << pt.posBaseMm[1] << ','
-			<< pt.posBaseMm[2] << ',' << pt.eulerBaseDeg[0] << ',' << pt.eulerBaseDeg[1] << ','
-			<< pt.eulerBaseDeg[2] << ',' << pt.toolFrameId << ',' << pt.userFrameId << ','
-			<< (pt.ikOk ? 1 : 0) << ',';
+			<< pt.posBaseMm[2] << ',' << pt.eulerBaseDeg[0] << ',' << pt.eulerBaseDeg[1] << ',' << pt.eulerBaseDeg[2]
+			<< ',' << pt.toolFrameId << ',' << pt.userFrameId << ',' << (pt.ikOk ? 1 : 0) << ',';
 		for (size_t j = 0; j < pt.jointRad.size(); ++j)
 		{
 			if (j > 0)

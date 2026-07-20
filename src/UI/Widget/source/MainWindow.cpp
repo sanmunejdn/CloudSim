@@ -1,20 +1,45 @@
+﻿/// @file MainWindow.cpp
+/// @brief MainWindow 实现
+
 #include "MainWindow.h"
 
+#include "../RobotWidget/inc/FeatureTrajectoryPageWidget.h"
+#include "../RobotWidget/inc/IRobotOsgViewHost.h"
+#include "../RobotWidget/inc/RobotAxisControlWidget.h"
+#include "../RobotWidget/inc/RobotFrameSettingsWidget.h"
+#include "../RobotWidget/inc/RobotSimulationController.h"
+#include "../RobotWidget/inc/RobotSimulationDockWidget.h"
+#include "../RobotWidget/inc/SimulationCommandWidget.h"
+#include "../RobotWidget/inc/TrajectoryEditPageWidget.h"
+#include "../RobotWidget/inc/TrajectoryGenerationPageWidget.h"
+#include "AiAssistantDockWidget.h"
+#include "ApplicationStyle.h"
 #include "BackendFollowSolve.h"
 #include "BackendHierarchyFollow.h"
-#include "DocumentHostEvents.h"
-#include "IRenderView.h"
-#include "WidgetRenderAccess.h"
 #include "BackendSceneDocumentFacade.h"
+#include "BackendVisualSync.h"
+#include "CoreTypes.h"
+#include "DevicePageWidget.h"
+#include "DocumentHostEvents.h"
+#include "DocumentPage.h"
+#include "IDataService.h"
+#include "IRenderView.h"
+#include "IRobotBackendPoseSink.h"
 #include "JobSystem.h"
-
-#include <algorithm>
-#include <cmath>
-#include <functional>
-#include <memory>
-#include <sstream>
-#include <locale>
-#include <unordered_set>
+#include "MainWindowRobotHost.h"
+#include "MainWindowSelectionService.h"
+#include "MainWindow_p.h"
+#include "RobotCoordinateFrames.h"
+#include "RobotInstructionTransform.h"
+#include "RobotMatrixOsgBridge.h"
+#include "RobotProgramExport.h"
+#include "RobotTeachIk.h"
+#include "RunInfoPage.h"
+#include "RunLogger.h"
+#include "WidgetRenderAccess.h"
+#include "qteditorfactory.h"
+#include "qttreepropertybrowser.h"
+#include "qtvariantproperty.h"
 
 #include <QAbstractItemView>
 #include <QAction>
@@ -26,58 +51,32 @@
 #include <QFileDialog>
 #include <QHeaderView>
 #include <QList>
-#include <QMessageBox>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QRegularExpression>
 #include <QSet>
 #include <QSignalBlocker>
-#include <QStringList>
 #include <QStatusBar>
+#include <QStringList>
+#include <QTabWidget>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
-#include <QTabWidget>
-#include <QVector>
 #include <QVBoxLayout>
+#include <QVector>
 #include <QWidget>
 #include <QXmlStreamReader>
-
-#include "AiAssistantDockWidget.h"
-#include "ApplicationStyle.h"
-#include "BackendVisualSync.h"
-#include "DocumentPage.h"
-#include "CoreTypes.h"
-#include "IDataService.h"
-#include "IRenderView.h"
-#include "DevicePageWidget.h"
-#include "../RobotWidget/inc/RobotAxisControlWidget.h"
-#include "../RobotWidget/inc/RobotFrameSettingsWidget.h"
-#include "MainWindow_p.h"
-#include "MainWindowSelectionService.h"
-#include "MainWindowRobotHost.h"
-#include "../RobotWidget/inc/IRobotOsgViewHost.h"
-#include "IRobotBackendPoseSink.h"
-#include "RobotCoordinateFrames.h"
-#include "RobotInstructionTransform.h"
-#include "RobotMatrixOsgBridge.h"
-#include "RobotTeachIk.h"
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <locale>
+#include <memory>
+#include <sstream>
+#include <unordered_set>
 
 #include <Adapters.h>
 #include <RigidTransform.h>
 #include <ToolKinematics.h>
-#include "RobotProgramExport.h"
-#include "RunInfoPage.h"
-#include "RunLogger.h"
-#include "../RobotWidget/inc/RobotSimulationController.h"
-#include "../RobotWidget/inc/RobotSimulationDockWidget.h"
-#include "../RobotWidget/inc/TrajectoryGenerationPageWidget.h"
-#include "../RobotWidget/inc/FeatureTrajectoryPageWidget.h"
-#include "../RobotWidget/inc/TrajectoryEditPageWidget.h"
-#include "../RobotWidget/inc/SimulationCommandWidget.h"
-
-#include "qteditorfactory.h"
-#include "qttreepropertybrowser.h"
-#include "qtvariantproperty.h"
 
 using namespace mainwindow_detail;
 using namespace RobotSimulation;
@@ -95,17 +94,31 @@ bool MainWindow::useChinese() const
 void MainWindow::applyLanguage()
 {
 	setWindowTitle(i18n(QStringLiteral("CloudSim - MainWindow"), QStringLiteral("CloudSim - 主窗口")));
-	if (m_fileMenu) m_fileMenu->setTitle(i18n(QStringLiteral("File"), QStringLiteral("文件")));
+	if (m_fileMenu)
+		m_fileMenu->setTitle(i18n(QStringLiteral("File"), QStringLiteral("文件")));
 	if (m_newDocumentAction)
 	{
 		m_newDocumentAction->setText(i18n(QStringLiteral("New"), QStringLiteral("新建")));
 	}
-	if (m_openModelAction) m_openModelAction->setText(i18n(QStringLiteral("Open Model..."), QStringLiteral("打开模型...")));
-	if (m_openPointCloudAction) m_openPointCloudAction->setText(i18n(QStringLiteral("Open Point Cloud..."), QStringLiteral("打开点云...")));
-	if (m_openProjectAction) m_openProjectAction->setText(i18n(QStringLiteral("Open Project..."), QStringLiteral("打开工程...")));
-	if (m_saveAction) m_saveAction->setText(i18n(QStringLiteral("Save Project..."), QStringLiteral("保存工程...")));
-	if (m_exitAction) m_exitAction->setText(i18n(QStringLiteral("Exit"), QStringLiteral("退出")));
-	if (m_viewMenu) m_viewMenu->setTitle(i18n(QStringLiteral("View"), QStringLiteral("视图")));
+	if (m_openModelAction)
+		m_openModelAction->setText(i18n(QStringLiteral("Open Model..."), QStringLiteral("打开模型...")));
+	if (m_openPointCloudAction)
+		m_openPointCloudAction->setText(i18n(QStringLiteral("Open Point Cloud..."), QStringLiteral("打开点云...")));
+	if (m_openProjectAction)
+		m_openProjectAction->setText(i18n(QStringLiteral("Open Project..."), QStringLiteral("打开工程...")));
+	if (m_saveAction)
+		m_saveAction->setText(i18n(QStringLiteral("Save Project..."), QStringLiteral("保存工程...")));
+	if (m_exitAction)
+		m_exitAction->setText(i18n(QStringLiteral("Exit"), QStringLiteral("退出")));
+	if (m_viewMenu)
+		m_viewMenu->setTitle(i18n(QStringLiteral("View"), QStringLiteral("视图")));
+	if (m_insertMenu)
+		m_insertMenu->setTitle(i18n(QStringLiteral("Insert"), QStringLiteral("插入")));
+	if (m_createCoordinateFrameAction)
+	{
+		m_createCoordinateFrameAction->setText(
+			i18n(QStringLiteral("Coordinate Frame..."), QStringLiteral("坐标系...")));
+	}
 	if (m_resetLayoutAction)
 	{
 		m_resetLayoutAction->setText(i18n(QStringLiteral("Reset Layout"), QStringLiteral("重置布局")));
@@ -118,7 +131,8 @@ void MainWindow::applyLanguage()
 	{
 		m_toggleRightPanelAction->setText(i18n(QStringLiteral("Right Panel"), QStringLiteral("右侧面板")));
 	}
-	if (m_settingsMenu) m_settingsMenu->setTitle(i18n(QStringLiteral("Settings"), QStringLiteral("设置")));
+	if (m_settingsMenu)
+		m_settingsMenu->setTitle(i18n(QStringLiteral("Settings"), QStringLiteral("设置")));
 	if (m_appearanceMenu)
 	{
 		m_appearanceMenu->setTitle(i18n(QStringLiteral("Theme"), QStringLiteral("风格")));
@@ -131,21 +145,31 @@ void MainWindow::applyLanguage()
 	{
 		m_darkThemeAction->setText(i18n(QStringLiteral("Dark"), QStringLiteral("深色")));
 	}
-	if (m_languageMenu) m_languageMenu->setTitle(i18n(QStringLiteral("Language"), QStringLiteral("语言")));
-	if (m_languageEnglishAction) m_languageEnglishAction->setText(QStringLiteral("English"));
-	if (m_languageChineseAction) m_languageChineseAction->setText(QStringLiteral("中文"));
-	if (m_languageEnglishAction) m_languageEnglishAction->setChecked(!m_useChinese);
-	if (m_languageChineseAction) m_languageChineseAction->setChecked(m_useChinese);
+	if (m_languageMenu)
+		m_languageMenu->setTitle(i18n(QStringLiteral("Language"), QStringLiteral("语言")));
+	if (m_languageEnglishAction)
+		m_languageEnglishAction->setText(QStringLiteral("English"));
+	if (m_languageChineseAction)
+		m_languageChineseAction->setText(QStringLiteral("中文"));
+	if (m_languageEnglishAction)
+		m_languageEnglishAction->setChecked(!m_useChinese);
+	if (m_languageChineseAction)
+		m_languageChineseAction->setChecked(m_useChinese);
 
-	if (m_viewModeAction) m_viewModeAction->setText(i18n(QStringLiteral("View Mode"), QStringLiteral("视图模式")));
-	if (m_objectModeAction) m_objectModeAction->setText(i18n(QStringLiteral("Object Select"), QStringLiteral("对象选择")));
-	if (m_pointPickModeAction) m_pointPickModeAction->setText(i18n(QStringLiteral("Point Pick"), QStringLiteral("点选模式")));
-	if (m_meshLinePickModeAction) m_meshLinePickModeAction->setText(i18n(QStringLiteral("Line Pick"), QStringLiteral("线选择模式")));
-	if (m_meshFacePickModeAction) m_meshFacePickModeAction->setText(i18n(QStringLiteral("Face Pick"), QStringLiteral("面选择模式")));
+	if (m_viewModeAction)
+		m_viewModeAction->setText(i18n(QStringLiteral("View Mode"), QStringLiteral("视图模式")));
+	if (m_objectModeAction)
+		m_objectModeAction->setText(i18n(QStringLiteral("Object Select"), QStringLiteral("对象选择")));
+	if (m_pointPickModeAction)
+		m_pointPickModeAction->setText(i18n(QStringLiteral("Point Pick"), QStringLiteral("点选模式")));
+	if (m_meshLinePickModeAction)
+		m_meshLinePickModeAction->setText(i18n(QStringLiteral("Line Pick"), QStringLiteral("线选择模式")));
+	if (m_meshFacePickModeAction)
+		m_meshFacePickModeAction->setText(i18n(QStringLiteral("Face Pick"), QStringLiteral("面选择模式")));
 	if (m_gizmoLocalFrameAction)
 	{
-		m_gizmoLocalFrameAction->setText(i18n(QStringLiteral("Transform: Local (object axes)"),
-			QStringLiteral("变换：物体系（罗盘轴）")));
+		m_gizmoLocalFrameAction->setText(
+			i18n(QStringLiteral("Transform: Local (object axes)"), QStringLiteral("变换：物体系（罗盘轴）")));
 	}
 	if (m_gizmoWorldFrameAction)
 	{
@@ -175,9 +199,7 @@ void MainWindow::applyLanguage()
 	}
 	if (m_aiAssistantPage)
 	{
-		setPluginSidePanelTabTitle(
-			m_aiAssistantPage,
-			i18n(QStringLiteral("AI Assistant"), QStringLiteral("AI 助手")));
+		setPluginSidePanelTabTitle(m_aiAssistantPage, i18n(QStringLiteral("AI Assistant"), QStringLiteral("AI 助手")));
 	}
 	if (m_unitDockTabs && m_unitDockTabs->count() >= 3)
 	{
@@ -211,23 +233,23 @@ void MainWindow::applyLanguage()
 		if (tabs && tabs->count() >= 2)
 		{
 			tabs->setTabText(RobotSimulationDockWidget::kTabIndexInstructions,
-				i18n(QStringLiteral("Instructions"), QStringLiteral("指令")));
+							 i18n(QStringLiteral("Instructions"), QStringLiteral("指令")));
 			tabs->setTabText(RobotSimulationDockWidget::kTabIndexAxisControl,
-				i18n(QStringLiteral("Axis control"), QStringLiteral("轴控制")));
+							 i18n(QStringLiteral("Axis control"), QStringLiteral("轴控制")));
 			if (tabs->count() > RobotSimulationDockWidget::kTabIndexFrames)
 			{
 				tabs->setTabText(RobotSimulationDockWidget::kTabIndexFrames,
-					i18n(QStringLiteral("Frames"), QStringLiteral("坐标系")));
+								 i18n(QStringLiteral("Frames"), QStringLiteral("坐标系")));
 			}
 			if (tabs->count() > RobotSimulationDockWidget::kTabIndexTrajectoryGeneration)
 			{
 				tabs->setTabText(RobotSimulationDockWidget::kTabIndexTrajectoryGeneration,
-					i18n(QStringLiteral("Trajectory Generation"), QStringLiteral("轨迹生成")));
+								 i18n(QStringLiteral("Trajectory Generation"), QStringLiteral("轨迹生成")));
 			}
 			if (tabs->count() > RobotSimulationDockWidget::kTabIndexTrajectoryEdit)
 			{
 				tabs->setTabText(RobotSimulationDockWidget::kTabIndexTrajectoryEdit,
-					i18n(QStringLiteral("Trajectory Edit"), QStringLiteral("轨迹编辑")));
+								 i18n(QStringLiteral("Trajectory Edit"), QStringLiteral("轨迹编辑")));
 			}
 		}
 	}
@@ -249,18 +271,17 @@ void MainWindow::applyLanguage()
 	{
 		if (QTreeWidget* tw = m_propertyBrowser->findChild<QTreeWidget*>())
 		{
-			tw->setHeaderLabels(QStringList()
-				<< i18n(QStringLiteral("Property"), QStringLiteral("属性"))
-				<< i18n(QStringLiteral("Value"), QStringLiteral("值")));
-			tw->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::SelectedClicked
-				| QAbstractItemView::EditKeyPressed | QAbstractItemView::AnyKeyPressed);
+			tw->setHeaderLabels(QStringList() << i18n(QStringLiteral("Property"), QStringLiteral("属性"))
+											  << i18n(QStringLiteral("Value"), QStringLiteral("值")));
+			tw->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::SelectedClicked |
+								QAbstractItemView::EditKeyPressed | QAbstractItemView::AnyKeyPressed);
 		}
 	}
 	if (m_osgSceneTree)
 	{
 		m_osgSceneTree->setHeaderLabels(QStringList()
-			<< i18n(QStringLiteral("Node"), QStringLiteral("节点"))
-			<< i18n(QStringLiteral("Local transform"), QStringLiteral("本地变换矩阵")));
+										<< i18n(QStringLiteral("Node"), QStringLiteral("节点"))
+										<< i18n(QStringLiteral("Local transform"), QStringLiteral("本地变换矩阵")));
 	}
 	if (m_backendRootItem)
 	{
@@ -303,8 +324,7 @@ void MainWindow::onSelectedObjectPoseChanged(float x, float y, float z)
 	{
 		return;
 	}
-	const MainWindowSelectionService::SelectionSnapshot snapshot =
-		MainWindowSelectionService::currentSelection(*this);
+	const MainWindowSelectionService::SelectionSnapshot snapshot = MainWindowSelectionService::currentSelection(*this);
 	if (!snapshot.valid())
 	{
 		return;
@@ -347,8 +367,7 @@ void MainWindow::onSelectedObjectRotationChanged(float rx, float ry, float rz)
 	{
 		return;
 	}
-	const MainWindowSelectionService::SelectionSnapshot snapshot =
-		MainWindowSelectionService::currentSelection(*this);
+	const MainWindowSelectionService::SelectionSnapshot snapshot = MainWindowSelectionService::currentSelection(*this);
 	if (!snapshot.valid())
 	{
 		return;
@@ -391,8 +410,7 @@ void MainWindow::onSelectedObjectColorChanged(float r, float g, float b, float a
 	{
 		return;
 	}
-	const MainWindowSelectionService::SelectionSnapshot snapshot =
-		MainWindowSelectionService::currentSelection(*this);
+	const MainWindowSelectionService::SelectionSnapshot snapshot = MainWindowSelectionService::currentSelection(*this);
 	if (!snapshot.valid())
 	{
 		return;
@@ -468,8 +486,8 @@ void MainWindow::refreshFollowSolveAndPropertyPanelFromOsgWrite(const QString& b
 	if (!dragging)
 	{
 		cloudsim::core::FollowSolveContextDto ctx;
-		ctx.skipAll = rv->isTcpDragTeachActive()
-			|| (m_robotSimulation && m_robotSimulation->programExecutor().isRunning());
+		// 仅 TCP 示教互斥跟随；仿真 Run 必须解跟随，否则绑定工件/工具静止
+		ctx.skipAll = rv->isTcpDragTeachActive();
 		(void)doc->data().runFollowSolveAndSync(ctx, nullptr);
 	}
 	if (dragging || shouldDeferPropertyPanelRebuild(backendId))
@@ -552,7 +570,8 @@ void resetInteractionPickModes(IRobotOsgViewHost& view)
 void MainWindow::onViewModeTriggered()
 {
 	IRobotOsgViewHost* view = activeOsgViewHost();
-	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !view)
+	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction ||
+		!m_meshFacePickModeAction || !view)
 	{
 		return;
 	}
@@ -567,7 +586,8 @@ void MainWindow::onViewModeTriggered()
 void MainWindow::onObjectModeTriggered()
 {
 	IRobotOsgViewHost* view = activeOsgViewHost();
-	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !view)
+	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction ||
+		!m_meshFacePickModeAction || !view)
 	{
 		return;
 	}
@@ -592,7 +612,8 @@ void MainWindow::onObjectModeTriggered()
 void MainWindow::onPointPickModeTriggered()
 {
 	IRobotOsgViewHost* view = activeOsgViewHost();
-	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !view)
+	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction ||
+		!m_meshFacePickModeAction || !view)
 	{
 		return;
 	}
@@ -605,14 +626,15 @@ void MainWindow::onPointPickModeTriggered()
 	view->setPointPickMode(true);
 	view->setMeshLinePickMode(false);
 	view->setMeshFacePickMode(false);
-	MainWindowSelectionService::ensureBackendForPickMode(
-		*this, MainWindowSelectionService::SelectedBackendKind::PointCloud);
+	MainWindowSelectionService::ensureBackendForPickMode(*this,
+														 MainWindowSelectionService::SelectedBackendKind::PointCloud);
 }
 
 void MainWindow::onMeshLinePickModeTriggered()
 {
 	IRobotOsgViewHost* view = activeOsgViewHost();
-	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !view)
+	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction ||
+		!m_meshFacePickModeAction || !view)
 	{
 		return;
 	}
@@ -625,14 +647,14 @@ void MainWindow::onMeshLinePickModeTriggered()
 	view->setPointPickMode(false);
 	view->setMeshLinePickMode(true);
 	view->setMeshFacePickMode(false);
-	MainWindowSelectionService::ensureBackendForPickMode(
-		*this, MainWindowSelectionService::SelectedBackendKind::Mesh);
+	MainWindowSelectionService::ensureBackendForPickMode(*this, MainWindowSelectionService::SelectedBackendKind::Mesh);
 }
 
 void MainWindow::onMeshFacePickModeTriggered()
 {
 	IRobotOsgViewHost* view = activeOsgViewHost();
-	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !view)
+	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction ||
+		!m_meshFacePickModeAction || !view)
 	{
 		return;
 	}
@@ -645,8 +667,7 @@ void MainWindow::onMeshFacePickModeTriggered()
 	view->setPointPickMode(false);
 	view->setMeshLinePickMode(false);
 	view->setMeshFacePickMode(true);
-	MainWindowSelectionService::ensureBackendForPickMode(
-		*this, MainWindowSelectionService::SelectedBackendKind::Mesh);
+	MainWindowSelectionService::ensureBackendForPickMode(*this, MainWindowSelectionService::SelectedBackendKind::Mesh);
 }
 
 void MainWindow::onSelectionCanceledByEsc()
@@ -656,7 +677,8 @@ void MainWindow::onSelectionCanceledByEsc()
 		return;
 	}
 	IRobotOsgViewHost* view = activeOsgViewHost();
-	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction || !view)
+	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction ||
+		!m_meshFacePickModeAction || !view)
 	{
 		return;
 	}
@@ -708,7 +730,7 @@ void MainWindow::onThemeActionGroupTriggered(QAction* action)
 		}
 		setAllDocumentViewerDarkBackground(false);
 	}
-		else if (action == m_darkThemeAction)
+	else if (action == m_darkThemeAction)
 	{
 		ApplicationStyle::applyTheme(qApp, ApplicationStyle::Theme::Dark);
 		ApplicationStyle::saveTheme(ApplicationStyle::Theme::Dark);
@@ -787,7 +809,7 @@ void MainWindow::setLeftSidePanelVisible(const bool visible)
 	if (visible)
 	{
 		showSideDock(m_propertyDock, m_leftDockSavedWidth, kDefaultSideDockWidth);
-		resizeDocks({ m_propertyDock }, { m_leftDockSavedWidth }, Qt::Horizontal);
+		resizeDocks({m_propertyDock}, {m_leftDockSavedWidth}, Qt::Horizontal);
 	}
 	else
 	{
@@ -805,7 +827,7 @@ void MainWindow::setRightSidePanelVisible(const bool visible)
 	if (visible)
 	{
 		showSideDock(m_unitDock, m_rightDockSavedWidth, kDefaultRightDockWidth);
-		resizeDocks({ m_unitDock }, { m_rightDockSavedWidth }, Qt::Horizontal);
+		resizeDocks({m_unitDock}, {m_rightDockSavedWidth}, Qt::Horizontal);
 	}
 	else
 	{
@@ -886,8 +908,8 @@ void MainWindow::appendRunInfo(const QString& message)
 }
 
 void MainWindow::enqueueBackgroundJob(const QString& title,
-	std::function<void(const PluginJobProgressFn& progress)> work,
-	std::function<void(bool threw, const QString& message)> onFinished)
+									  std::function<void(const PluginJobProgressFn& progress)> work,
+									  std::function<void(bool threw, const QString& message)> onFinished)
 {
 	if (!m_jobSystem)
 	{
@@ -899,10 +921,12 @@ void MainWindow::enqueueBackgroundJob(const QString& title,
 	}
 	m_jobSystem->enqueue(
 		title,
-		[work = std::move(work)](const JobProgressSink& sink) {
+		[work = std::move(work)](const JobProgressSink& sink)
+		{
 			if (work)
 			{
-				PluginJobProgressFn pluginSink = [&sink](double fraction, const QString& msg) {
+				PluginJobProgressFn pluginSink = [&sink](double fraction, const QString& msg)
+				{
 					if (sink)
 					{
 						sink(fraction, msg);
@@ -938,8 +962,7 @@ void MainWindow::afterBackendFollowPropertyEdited(const QString& propertyKey, co
 		return;
 	}
 	cloudsim::core::FollowSolveContextDto ctx;
-	ctx.skipAll = rv->isTcpDragTeachActive()
-		|| (m_robotSimulation && m_robotSimulation->programExecutor().isRunning());
+	ctx.skipAll = rv->isTcpDragTeachActive();
 	if (rv->isTransformGizmoDragging())
 	{
 		ctx.gizmoSelectedBackendId = m_selectionState.selectedBackendId();
@@ -968,8 +991,7 @@ cloudsim::core::FollowSolveContextDto MainWindow::makeFollowSolveContextDto(Docu
 {
 	cloudsim::core::FollowSolveContextDto ctx;
 	const cloudsim::core::IRenderView& rv = page.render();
-	ctx.skipAll = rv.isTcpDragTeachActive()
-		|| (m_robotSimulation && m_robotSimulation->programExecutor().isRunning());
+	ctx.skipAll = rv.isTcpDragTeachActive();
 	if (rv.isTransformGizmoDragging() && m_selectionState.hasBackendSelection())
 	{
 		ctx.gizmoSelectedBackendId = m_selectionState.selectedBackendId();
@@ -993,31 +1015,35 @@ void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 	{
 		return;
 	}
-	page->render().setRobotObjectGizmoSyncHook([this, page]() -> bool {
-		return page && isPerLinkRobotObjectGizmoActive(page);
-	});
-	page->render().setRobotObjectGizmoFkRefreshHook([this, page]() {
-		if (page)
+	page->render().setRobotObjectGizmoSyncHook([this, page]() -> bool
+											   { return page && isPerLinkRobotObjectGizmoActive(page); });
+	page->render().setRobotObjectGizmoFkRefreshHook(
+		[this, page]()
 		{
-			refreshPerLinkRobotObjectGizmoFk(*page);
-		}
-	});
-	page->render().setPerFrameHook([this, page]() {
-		if (!page || !m_documentTabs || m_documentTabs->currentWidget() != page)
+			if (page)
+			{
+				refreshPerLinkRobotObjectGizmoFk(*page);
+			}
+		});
+	page->render().setPerFrameHook(
+		[this, page]()
 		{
-			return;
-		}
-		cloudsim::core::IRenderView& rv = page->render();
-		if (rv.isTcpDragTeachActive())
-		{
-			return;
-		}
-		if (page->followDirtyBackendIds().empty() && !page->followSolveForcedPending() && !rv.isTransformGizmoDragging())
-		{
-			return;
-		}
-		runFollowSolveAndSyncForPage(*page);
-	});
+			if (!page || !m_documentTabs || m_documentTabs->currentWidget() != page)
+			{
+				return;
+			}
+			cloudsim::core::IRenderView& rv = page->render();
+			if (rv.isTcpDragTeachActive())
+			{
+				return;
+			}
+			if (page->followDirtyBackendIds().empty() && !page->followSolveForcedPending() &&
+				!rv.isTransformGizmoDragging())
+			{
+				return;
+			}
+			runFollowSolveAndSyncForPage(*page);
+		});
 }
 
 bool MainWindow::isPerLinkRobotObjectGizmoActive(const DocumentPage* page) const
@@ -1104,7 +1130,8 @@ void MainWindow::onNewDocument()
 	m_documentTabs->setCurrentWidget(page);
 	if (m_runInfoPage)
 	{
-		m_runInfoPage->appendInfo(i18n(QStringLiteral("New document."), QStringLiteral("\u65b0\u5efa\u6587\u6863\u3002")));
+		m_runInfoPage->appendInfo(
+			i18n(QStringLiteral("New document."), QStringLiteral("\u65b0\u5efa\u6587\u6863\u3002")));
 	}
 	onDocumentTabChanged(m_documentTabs->currentIndex());
 }
@@ -1142,16 +1169,12 @@ void MainWindow::closeDocumentTab(int index)
 	if (hasContent)
 	{
 		const QString title = m_documentTabs->tabText(index);
-		const QString msg = i18n(
-			QStringLiteral("Save changes to '%1' before closing?").arg(title),
-			QStringLiteral("关闭前是否保存对 '%1' 的更改？").arg(title));
+		const QString msg = i18n(QStringLiteral("Save changes to '%1' before closing?").arg(title),
+								 QStringLiteral("关闭前是否保存对 '%1' 的更改？").arg(title));
 
-		QMessageBox::StandardButton result = QMessageBox::question(
-			this,
-			i18n(QStringLiteral("Close Document"), QStringLiteral("关闭文档")),
-			msg,
-			QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
-			QMessageBox::Save);
+		QMessageBox::StandardButton result =
+			QMessageBox::question(this, i18n(QStringLiteral("Close Document"), QStringLiteral("关闭文档")), msg,
+								  QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Save);
 
 		if (result == QMessageBox::Cancel)
 		{
@@ -1191,7 +1214,8 @@ void MainWindow::closeDocumentTab(int index)
 void MainWindow::syncViewModeActionsFromCurrentOsg()
 {
 	IRobotOsgViewHost* view = activeOsgViewHost();
-	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction || !m_meshFacePickModeAction)
+	if (!m_viewModeAction || !m_objectModeAction || !m_pointPickModeAction || !m_meshLinePickModeAction ||
+		!m_meshFacePickModeAction)
 	{
 		return;
 	}
@@ -1212,8 +1236,8 @@ void MainWindow::syncViewModeActionsFromCurrentOsg()
 		}
 		return;
 	}
-	const bool inViewMode = !view->objectSelectionMode() && !view->pointPickMode() && !view->meshLinePickMode()
-		&& !view->meshFacePickMode();
+	const bool inViewMode = !view->objectSelectionMode() && !view->pointPickMode() && !view->meshLinePickMode() &&
+							!view->meshFacePickMode();
 	m_viewModeAction->setChecked(inViewMode);
 	m_objectModeAction->setChecked(view->objectSelectionMode());
 	m_pointPickModeAction->setChecked(view->pointPickMode());
@@ -1257,4 +1281,3 @@ void MainWindow::onMeshPickFeedback(const QString& text)
 {
 	onPointPickFeedback(text);
 }
-

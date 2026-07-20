@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_SHAPEHANDLE_H
+#define GEOMETRYALGORITHM_SHAPEHANDLE_H
+
+/// @file ShapeHandle.h
+/// @brief 不透明 B-rep 共享句柄；Data/Visual 侧不暴露 OCCT 类型
 
 #include "geometry_algorithm_global.h"
 
@@ -6,7 +10,6 @@
 
 namespace geoalgo
 {
-
 /// 不透明 B-rep 共享句柄；Data/Visual 侧不暴露 OCCT 类型
 class GEOMETRY_ALGORITHM_API ShapeHandle
 {
@@ -51,3 +54,5 @@ public:
 };
 
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_SHAPEHANDLE_H

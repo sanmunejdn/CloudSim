@@ -1,13 +1,16 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_FEATURETABLEMODEL_H
+#define ROBOTWIDGET_FEATURETABLEMODEL_H
+
+/// @file FeatureTableModel.h
+/// @brief FeatureTableModel 接口
 
 #include "robotwidget_global.h"
 
-#include <FeatureListDocument.h>
-
 #include <QAbstractTableModel>
-
 #include <functional>
 #include <vector>
+
+#include <FeatureListDocument.h>
 
 class ROBOTWIDGET_EXPORT FeatureTableModel : public QAbstractTableModel
 {
@@ -60,3 +63,5 @@ private:
 	std::vector<QString> m_statusByRow;
 	std::function<QString(const std::string& strategyId)> m_strategyDisplayResolver;
 };
+
+#endif // ROBOTWIDGET_FEATURETABLEMODEL_H

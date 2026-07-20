@@ -1,3 +1,6 @@
+﻿/// @file OsgSceneSync.cpp
+/// @brief OsgSceneSync 实现
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -8,22 +11,20 @@
 #include <windows.h>
 #endif
 
-#include "OsgScene.h"
-
-#include "ObjectGizmoFrame.h"
-
-#include <algorithm>
-#include <cmath>
-
 #include "BackendDataBase.h"
 #include "BackendGeometryMetrics.h"
 #include "BackendIdUserData.h"
 #include "BackendVisualRegistry.h"
+#include "ObjectGizmoFrame.h"
+#include "OsgScene.h"
+
+#include <algorithm>
+#include <cmath>
 
 #include <osg/Group>
-#include <osg/Node>
-#include <osg/Matrixd>
 #include <osg/MatrixTransform>
+#include <osg/Matrixd>
+#include <osg/Node>
 #include <osg/Quat>
 #include <osg/Vec3d>
 
@@ -57,7 +58,8 @@ void OsgScene::detachGizmoOverlay()
 void OsgScene::attachGizmoOverlayToActiveBackend()
 {
 	detachGizmoOverlay();
-	if (!m_gizmoOverlayGroup.valid() || !m_activeBackendOuterPat.valid() || m_activeBackendOuterPat->getNumChildren() < 1)
+	if (!m_gizmoOverlayGroup.valid() || !m_activeBackendOuterPat.valid() ||
+		m_activeBackendOuterPat->getNumChildren() < 1)
 	{
 		return;
 	}
@@ -124,8 +126,7 @@ void OsgScene::syncGizmoAndPickFromBackend(const BackendDataBase& data)
 	{
 		osg::MatrixTransform* const outer = it->second.get();
 		const auto parentRel = m_backendParentIds.find(id);
-		const bool hasBackendParent =
-			parentRel != m_backendParentIds.end() && !parentRel->second.empty();
+		const bool hasBackendParent = parentRel != m_backendParentIds.end() && !parentRel->second.empty();
 		// Hierarchical children (URDF links, STEP/DXF children): backend pose() is decomposed
 		// world values; applyToOuter would treat them as root-local and jump the mesh on select.
 		if (hasBackendParent && ObjectGizmoFrame::fromOuter(outer, m_modelCenter, frame))
@@ -138,7 +139,8 @@ void OsgScene::syncGizmoAndPickFromBackend(const BackendDataBase& data)
 			const BackendVec3 p = data.pose();
 			const BackendVec3 r = data.rotation();
 			const osg::Vec3f pose(static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z));
-			const osg::Quat q = eulerDegToQuat(osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
+			const osg::Quat q =
+				eulerDegToQuat(osg::Vec3f(static_cast<float>(r.x), static_cast<float>(r.y), static_cast<float>(r.z)));
 			frame.setFromBackend(pose, q, m_modelCenter);
 			frame.applyToOuter(outer);
 			attachGizmoOverlayToActiveBackend();

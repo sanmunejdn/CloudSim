@@ -1,3 +1,6 @@
+﻿/// @file TrajectoryOpBridge.cpp
+/// @brief TrajectoryOpBridge 实现
+
 #include "TrajectoryOpBridge.h"
 
 #include "TrajectoryOpConfigRegistry.h"
@@ -8,7 +11,6 @@
 
 namespace RobotInstruction
 {
-
 trajectory_algo::TrajectoryOpRegistry& trajectoryOpRegistry()
 {
 	return trajectory_algo::TrajectoryOpRegistry::instance();
@@ -51,24 +53,20 @@ bool trajectoryOpKindFromString(const std::string& token, TrajectoryOpKind& out)
 	return trajectory_algo::TrajectoryOpRegistry::instance().kindFromString(token, out);
 }
 
-std::vector<trajectory_algo::TrajectoryOpParamField> trajectoryOpAllParamFields(
-	const trajectory_algo::ITrajectoryOp& op)
+std::vector<trajectory_algo::TrajectoryOpParamField>
+trajectoryOpAllParamFields(const trajectory_algo::ITrajectoryOp& op)
 {
 	return trajectory_algo::TrajectoryOpParamAccess::allFieldsForOp(op);
 }
 
-bool trajectoryOpParamRead(
-	const TrajectoryOpDescriptor& op,
-	const trajectory_algo::TrajectoryOpParamField& field,
-	trajectory_algo::TrajectoryParamValue& out)
+bool trajectoryOpParamRead(const TrajectoryOpDescriptor& op, const trajectory_algo::TrajectoryOpParamField& field,
+						   trajectory_algo::TrajectoryParamValue& out)
 {
 	return trajectory_algo::TrajectoryOpParamAccess::read(op, field, out);
 }
 
-bool trajectoryOpParamWrite(
-	TrajectoryOpDescriptor& op,
-	const trajectory_algo::TrajectoryOpParamField& field,
-	const trajectory_algo::TrajectoryParamValue& value)
+bool trajectoryOpParamWrite(TrajectoryOpDescriptor& op, const trajectory_algo::TrajectoryOpParamField& field,
+							const trajectory_algo::TrajectoryParamValue& value)
 {
 	return trajectory_algo::TrajectoryOpParamAccess::write(op, field, value);
 }
@@ -78,17 +76,12 @@ nlohmann::json trajectoryPipelineToJson(const std::vector<TrajectoryOpDescriptor
 	return trajectory_algo::pipelineToJson(ops);
 }
 
-bool trajectoryPipelineFromJson(
-	const nlohmann::json& j,
-	std::vector<TrajectoryOpDescriptor>& out,
-	std::string* errMsg)
+bool trajectoryPipelineFromJson(const nlohmann::json& j, std::vector<TrajectoryOpDescriptor>& out, std::string* errMsg)
 {
 	return trajectory_algo::pipelineFromJson(j, out, errMsg);
 }
 
-bool validateTrajectoryPipeline(
-	const std::vector<TrajectoryOpDescriptor>& ops,
-	std::string* errMsg)
+bool validateTrajectoryPipeline(const std::vector<TrajectoryOpDescriptor>& ops, std::string* errMsg)
 {
 	ensureTrajectoryOpBuiltinsRegistered();
 	for (const TrajectoryOpDescriptor& op : ops)
@@ -141,18 +134,28 @@ std::string trajectoryOpNonRigidTargetBackendId(const TrajectoryOpDescriptor& op
 
 void trajectoryOpSetNonRigidSourceBackendId(TrajectoryOpDescriptor& op, const std::string& backendId)
 {
-	RobotInstruction::NonRigidRegistrationParams nrr =
-		trajectory_algo::parseNonRigidRegistrationParams(op.params);
+	RobotInstruction::NonRigidRegistrationParams nrr = trajectory_algo::parseNonRigidRegistrationParams(op.params);
 	nrr.sourceBackendId = backendId;
 	trajectory_algo::writeNonRigidRegistrationParams(op.params, nrr);
 }
 
 void trajectoryOpSetNonRigidTargetBackendId(TrajectoryOpDescriptor& op, const std::string& backendId)
 {
-	RobotInstruction::NonRigidRegistrationParams nrr =
-		trajectory_algo::parseNonRigidRegistrationParams(op.params);
+	RobotInstruction::NonRigidRegistrationParams nrr = trajectory_algo::parseNonRigidRegistrationParams(op.params);
 	nrr.targetBackendId = backendId;
 	trajectory_algo::writeNonRigidRegistrationParams(op.params, nrr);
+}
+
+std::string trajectoryOpToWorkpieceExternalTcpBackendId(const TrajectoryOpDescriptor& op)
+{
+	return trajectory_algo::parseToWorkpieceInHandParams(op.params).externalTcpBackendId;
+}
+
+void trajectoryOpSetToWorkpieceExternalTcpBackendId(TrajectoryOpDescriptor& op, const std::string& backendId)
+{
+	RobotInstruction::ToWorkpieceInHandParams p = trajectory_algo::parseToWorkpieceInHandParams(op.params);
+	p.externalTcpBackendId = backendId;
+	trajectory_algo::writeToWorkpieceInHandParams(op.params, p);
 }
 
 } // namespace RobotInstruction

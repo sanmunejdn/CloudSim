@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef GEOMETRYPLUGIN_GEOMETRYPLUGIN_H
+#define GEOMETRYPLUGIN_GEOMETRYPLUGIN_H
+
+/// @file GeometryPlugin.h
+/// @brief GeometryPlugin 接口
 
 #include "ICloudSimPlugin.h"
 
@@ -27,3 +31,5 @@ private:
 	GeometryDockWidget* m_dockWidget = nullptr;
 	QMenu* m_geometryMenu = nullptr;
 };
+
+#endif // GEOMETRYPLUGIN_GEOMETRYPLUGIN_H

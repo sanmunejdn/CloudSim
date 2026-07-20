@@ -1,7 +1,11 @@
+﻿/// @file MeshBackendData_cgal_io.cpp
+/// @brief MeshBackendData_cgal_io 实现
+
 #include "pch.h"
-#include "MeshBackendData_loaders.h"
-#include "MeshBackendData.h"
+
 #include "BackendSpatial.h"
+#include "MeshBackendData.h"
+#include "MeshBackendData_loaders.h"
 #include "RunLogger.h"
 
 #include <filesystem>
@@ -83,18 +87,14 @@ bool MeshBackendData::writeTriangleMeshPly(const std::string& utf8Path, std::str
 	{
 		const std::size_t base = t * 9U;
 		const std::size_t vBase = t * 3U;
-		points.emplace_back(
-			static_cast<double>(m_triangleSoup[base]),
-			static_cast<double>(m_triangleSoup[base + 1U]),
-			static_cast<double>(m_triangleSoup[base + 2U]));
-		points.emplace_back(
-			static_cast<double>(m_triangleSoup[base + 3U]),
-			static_cast<double>(m_triangleSoup[base + 4U]),
-			static_cast<double>(m_triangleSoup[base + 5U]));
-		points.emplace_back(
-			static_cast<double>(m_triangleSoup[base + 6U]),
-			static_cast<double>(m_triangleSoup[base + 7U]),
-			static_cast<double>(m_triangleSoup[base + 8U]));
+		points.emplace_back(static_cast<double>(m_triangleSoup[base]), static_cast<double>(m_triangleSoup[base + 1U]),
+							static_cast<double>(m_triangleSoup[base + 2U]));
+		points.emplace_back(static_cast<double>(m_triangleSoup[base + 3U]),
+							static_cast<double>(m_triangleSoup[base + 4U]),
+							static_cast<double>(m_triangleSoup[base + 5U]));
+		points.emplace_back(static_cast<double>(m_triangleSoup[base + 6U]),
+							static_cast<double>(m_triangleSoup[base + 7U]),
+							static_cast<double>(m_triangleSoup[base + 8U]));
 		polygons.push_back({vBase, vBase + 1U, vBase + 2U});
 	}
 
@@ -108,7 +108,8 @@ bool MeshBackendData::writeTriangleMeshPly(const std::string& utf8Path, std::str
 	return true;
 }
 
-bool MeshBackendData::writeTriangleMeshPly(const std::string& utf8Path, const std::vector<float>& soupOverride, std::string* errMsg) const
+bool MeshBackendData::writeTriangleMeshPly(const std::string& utf8Path, const std::vector<float>& soupOverride,
+										   std::string* errMsg) const
 {
 	if (soupOverride.empty() || (soupOverride.size() % 9U) != 0U)
 	{
@@ -127,18 +128,12 @@ bool MeshBackendData::writeTriangleMeshPly(const std::string& utf8Path, const st
 	{
 		const std::size_t base = t * 9U;
 		const std::size_t vBase = t * 3U;
-		points.emplace_back(
-			static_cast<double>(soupOverride[base]),
-			static_cast<double>(soupOverride[base + 1U]),
-			static_cast<double>(soupOverride[base + 2U]));
-		points.emplace_back(
-			static_cast<double>(soupOverride[base + 3U]),
-			static_cast<double>(soupOverride[base + 4U]),
-			static_cast<double>(soupOverride[base + 5U]));
-		points.emplace_back(
-			static_cast<double>(soupOverride[base + 6U]),
-			static_cast<double>(soupOverride[base + 7U]),
-			static_cast<double>(soupOverride[base + 8U]));
+		points.emplace_back(static_cast<double>(soupOverride[base]), static_cast<double>(soupOverride[base + 1U]),
+							static_cast<double>(soupOverride[base + 2U]));
+		points.emplace_back(static_cast<double>(soupOverride[base + 3U]), static_cast<double>(soupOverride[base + 4U]),
+							static_cast<double>(soupOverride[base + 5U]));
+		points.emplace_back(static_cast<double>(soupOverride[base + 6U]), static_cast<double>(soupOverride[base + 7U]),
+							static_cast<double>(soupOverride[base + 8U]));
 		polygons.push_back({vBase, vBase + 1U, vBase + 2U});
 	}
 

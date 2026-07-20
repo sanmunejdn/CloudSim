@@ -1,3 +1,6 @@
+﻿/// @file ViewportToolBar.cpp
+/// @brief ViewportToolBar 实现
+
 #include "ViewportToolBar.h"
 
 #include "UiIconDecorators.h"
@@ -13,8 +16,8 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
-namespace {
-
+namespace
+{
 constexpr int kBtnSize = 32;
 constexpr int kIconSize = 18;
 constexpr int kBarSpacing = 6;
@@ -69,9 +72,7 @@ QColor blendOnViewport(bool dark, int fgR, int fgG, int fgB, double alpha)
 	const int bgR = dark ? 56 : 214;
 	const int bgG = dark ? 61 : 222;
 	const int bgB = dark ? 74 : 235;
-	const auto mix = [alpha](int bg, int fg) {
-		return static_cast<int>(bg + (fg - bg) * alpha + 0.5);
-	};
+	const auto mix = [alpha](int bg, int fg) { return static_cast<int>(bg + (fg - bg) * alpha + 0.5); };
 	return QColor(mix(bgR, fgR), mix(bgG, fgG), mix(bgB, fgB));
 }
 
@@ -178,10 +179,10 @@ private:
 	void applyTheme(bool dark)
 	{
 		const ViewportTipColors colors = tipColorsForTheme(dark);
-		m_titleLabel->setStyleSheet(QStringLiteral("color: %1; background: transparent; border: none;")
-			.arg(colors.title.name(QColor::HexRgb)));
+		m_titleLabel->setStyleSheet(
+			QStringLiteral("color: %1; background: transparent; border: none;").arg(colors.title.name(QColor::HexRgb)));
 		m_subtitleLabel->setStyleSheet(QStringLiteral("color: %1; background: transparent; border: none;")
-			.arg(colors.subtitle.name(QColor::HexRgb)));
+										   .arg(colors.subtitle.name(QColor::HexRgb)));
 	}
 
 	void showPendingTip()
@@ -218,8 +219,7 @@ class ViewportIconButton : public QToolButton
 {
 public:
 	explicit ViewportIconButton(ViewportActionTip* tip, QWidget* parent = nullptr)
-		: QToolButton(parent)
-		, m_actionTip(tip)
+		: QToolButton(parent), m_actionTip(tip)
 	{
 		setFixedSize(kBtnSize, kBtnSize);
 		setToolButtonStyle(Qt::ToolButtonIconOnly);
@@ -344,9 +344,7 @@ void applyChromeToButton(QToolButton* btn, bool dark)
 
 } // namespace
 
-ViewportToolBar::ViewportToolBar(QWidget* host)
-	: QObject(host)
-	, m_host(host)
+ViewportToolBar::ViewportToolBar(QWidget* host) : QObject(host), m_host(host)
 {
 	if (!m_host)
 	{
@@ -358,28 +356,30 @@ ViewportToolBar::ViewportToolBar(QWidget* host)
 
 	m_focusBtn = createToolButton(actionTip, m_host);
 	UiIconDecorators::apply(m_focusBtn, UiIconId::FocusCamera, UiIconDecorators::IconPlacement::IconOnly,
-		UiIcons::Size::Medium);
-	static_cast<ViewportIconButton*>(m_focusBtn)->setActionTipText(
-		QStringLiteral("视角自适应"), QStringLiteral("Focus Camera"));
+							UiIcons::Size::Medium);
+	static_cast<ViewportIconButton*>(m_focusBtn)
+		->setActionTipText(QStringLiteral("视角自适应"), QStringLiteral("Focus Camera"));
 
 	m_wireBtn = createToolButton(actionTip, m_host);
 	UiIconDecorators::apply(m_wireBtn, UiIconId::Wireframe, UiIconDecorators::IconPlacement::IconOnly,
-		UiIcons::Size::Medium);
-	static_cast<ViewportIconButton*>(m_wireBtn)->setActionTipText(
-		QStringLiteral("线框模式"), QStringLiteral("Wireframe"));
+							UiIcons::Size::Medium);
+	static_cast<ViewportIconButton*>(m_wireBtn)->setActionTipText(QStringLiteral("线框模式"),
+																  QStringLiteral("Wireframe"));
 	m_wireBtn->setCheckable(true);
 
 	m_captureBtn = createToolButton(actionTip, m_host);
 	UiIconDecorators::apply(m_captureBtn, UiIconId::Screenshot, UiIconDecorators::IconPlacement::IconOnly,
-		UiIcons::Size::Medium);
-	static_cast<ViewportIconButton*>(m_captureBtn)->setActionTipText(
-		QStringLiteral("截图"), QStringLiteral("Screenshot"));
+							UiIcons::Size::Medium);
+	static_cast<ViewportIconButton*>(m_captureBtn)
+		->setActionTipText(QStringLiteral("截图"), QStringLiteral("Screenshot"));
 
 	connect(m_focusBtn, &QToolButton::clicked, this, &ViewportToolBar::focusRequested);
-	connect(m_wireBtn, &QToolButton::toggled, this, [this](bool on) {
-		m_wireframeOn = on;
-		emit wireframeToggled(on);
-	});
+	connect(m_wireBtn, &QToolButton::toggled, this,
+			[this](bool on)
+			{
+				m_wireframeOn = on;
+				emit wireframeToggled(on);
+			});
 	connect(m_captureBtn, &QToolButton::clicked, this, &ViewportToolBar::screenshotRequested);
 
 	m_leftPanelBtn = createToolButton(actionTip, m_host);
@@ -394,14 +394,18 @@ ViewportToolBar::ViewportToolBar(QWidget* host)
 	static_cast<ViewportIconButton*>(m_rightPanelBtn)->setTextGlyph(QStringLiteral("\u00bb"));
 	updateRightPanelChrome(true);
 
-	connect(m_leftPanelBtn, &QToolButton::toggled, this, [this](const bool visible) {
-		updateLeftPanelChrome(visible);
-		emit leftPanelVisibilityToggled(visible);
-	});
-	connect(m_rightPanelBtn, &QToolButton::toggled, this, [this](const bool visible) {
-		updateRightPanelChrome(visible);
-		emit rightPanelVisibilityToggled(visible);
-	});
+	connect(m_leftPanelBtn, &QToolButton::toggled, this,
+			[this](const bool visible)
+			{
+				updateLeftPanelChrome(visible);
+				emit leftPanelVisibilityToggled(visible);
+			});
+	connect(m_rightPanelBtn, &QToolButton::toggled, this,
+			[this](const bool visible)
+			{
+				updateRightPanelChrome(visible);
+				emit rightPanelVisibilityToggled(visible);
+			});
 
 	updateSidePanelButtonTips();
 
@@ -440,13 +444,12 @@ void ViewportToolBar::updateLeftPanelChrome(const bool visible)
 	}
 	auto* btn = static_cast<ViewportIconButton*>(m_leftPanelBtn);
 	btn->setTextGlyph(visible ? QStringLiteral("\u00ab") : QStringLiteral("\u00bb"));
-	btn->setActionTipText(
-		visible
-			? (m_useChinese ? QStringLiteral("\u9690\u85cf\u5de6\u4fa7\u9762\u677f")
-							: QStringLiteral("Hide left panel"))
-			: (m_useChinese ? QStringLiteral("\u663e\u793a\u5de6\u4fa7\u9762\u677f")
-							: QStringLiteral("Show left panel")),
-		m_useChinese ? QStringLiteral("\u5c5e\u6027\u3001\u8bbe\u5907") : QStringLiteral("Property, Devices"));
+	btn->setActionTipText(visible ? (m_useChinese ? QStringLiteral("\u9690\u85cf\u5de6\u4fa7\u9762\u677f")
+												  : QStringLiteral("Hide left panel"))
+								  : (m_useChinese ? QStringLiteral("\u663e\u793a\u5de6\u4fa7\u9762\u677f")
+												  : QStringLiteral("Show left panel")),
+						  m_useChinese ? QStringLiteral("\u5c5e\u6027\u3001\u8bbe\u5907")
+									   : QStringLiteral("Property, Devices"));
 }
 
 void ViewportToolBar::updateRightPanelChrome(const bool visible)
@@ -457,13 +460,12 @@ void ViewportToolBar::updateRightPanelChrome(const bool visible)
 	}
 	auto* btn = static_cast<ViewportIconButton*>(m_rightPanelBtn);
 	btn->setTextGlyph(visible ? QStringLiteral("\u00bb") : QStringLiteral("\u00ab"));
-	btn->setActionTipText(
-		visible
-			? (m_useChinese ? QStringLiteral("\u9690\u85cf\u53f3\u4fa7\u9762\u677f")
-							: QStringLiteral("Hide right panel"))
-			: (m_useChinese ? QStringLiteral("\u663e\u793a\u53f3\u4fa7\u9762\u677f")
-							: QStringLiteral("Show right panel")),
-		m_useChinese ? QStringLiteral("\u5de5\u4f5c\u533a\u3001\u63d2\u4ef6") : QStringLiteral("Workspace, Plugins"));
+	btn->setActionTipText(visible ? (m_useChinese ? QStringLiteral("\u9690\u85cf\u53f3\u4fa7\u9762\u677f")
+												  : QStringLiteral("Hide right panel"))
+								  : (m_useChinese ? QStringLiteral("\u663e\u793a\u53f3\u4fa7\u9762\u677f")
+												  : QStringLiteral("Show right panel")),
+						  m_useChinese ? QStringLiteral("\u5de5\u4f5c\u533a\u3001\u63d2\u4ef6")
+									   : QStringLiteral("Workspace, Plugins"));
 }
 
 void ViewportToolBar::updateSidePanelButtonTips()

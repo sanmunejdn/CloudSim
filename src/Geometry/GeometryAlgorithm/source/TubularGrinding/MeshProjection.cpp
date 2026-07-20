@@ -1,7 +1,9 @@
+﻿/// @file MeshProjection.cpp
+/// @brief MeshProjection 实现
+
 #include "MeshProjection.h"
 
 #include "TrajectoryProjection.h"
-#include <KdTreePointSet.h>
 
 #include <algorithm>
 #include <cmath>
@@ -9,20 +11,16 @@
 #include <string>
 #include <vector>
 
+#include <KdTreePointSet.h>
+
 namespace geoalgo
 {
 namespace tg
 {
-
 namespace
 {
-
-bool rayHitTriangleSoup(
-	const std::vector<float>& soup,
-	const double origin[3],
-	const double dir[3],
-	const double maxDist,
-	double outHit[3])
+bool rayHitTriangleSoup(const std::vector<float>& soup, const double origin[3], const double dir[3],
+						const double maxDist, double outHit[3])
 {
 	bool hit = false;
 	if (!projectRayOntoTriangleSoup(origin, dir, maxDist, soup, outHit, hit))
@@ -32,9 +30,7 @@ bool rayHitTriangleSoup(
 	return hit;
 }
 
-Vec3 triangleNormalAtHit(
-	const std::vector<float>& soup,
-	const double hit[3])
+Vec3 triangleNormalAtHit(const std::vector<float>& soup, const double hit[3])
 {
 	const int faceCount = static_cast<int>(soup.size() / 9U);
 	double bestD2 = 1e30;
@@ -42,10 +38,9 @@ Vec3 triangleNormalAtHit(
 	for (int f = 0; f < faceCount; ++f)
 	{
 		const std::size_t base = static_cast<std::size_t>(f) * 9U;
-		Vec3 c{
-			(soup[base + 0] + soup[base + 3] + soup[base + 6]) / 3.0f,
-			(soup[base + 1] + soup[base + 4] + soup[base + 7]) / 3.0f,
-			(soup[base + 2] + soup[base + 5] + soup[base + 8]) / 3.0f};
+		Vec3 c{(soup[base + 0] + soup[base + 3] + soup[base + 6]) / 3.0f,
+			   (soup[base + 1] + soup[base + 4] + soup[base + 7]) / 3.0f,
+			   (soup[base + 2] + soup[base + 5] + soup[base + 8]) / 3.0f};
 		const double dx = hit[0] - c.x;
 		const double dy = hit[1] - c.y;
 		const double dz = hit[2] - c.z;
@@ -64,13 +59,9 @@ Vec3 triangleNormalAtHit(
 
 } // namespace
 
-bool runMeshProjection(
-	const IndexedMeshLite& mesh,
-	const std::vector<TubularTemplatePoint>& templatePoints,
-	const TubularGrindingParams& params,
-	std::vector<TubularProjectedPoint>& outPoints,
-	double& outHitRate,
-	std::string* errMsg)
+bool runMeshProjection(const IndexedMeshLite& mesh, const std::vector<TubularTemplatePoint>& templatePoints,
+					   const TubularGrindingParams& params, std::vector<TubularProjectedPoint>& outPoints,
+					   double& outHitRate, std::string* errMsg)
 {
 	outPoints.clear();
 	outHitRate = 0.0;
@@ -118,12 +109,12 @@ bool runMeshProjection(
 			double bestHit[3];
 			if (hasPos && hasNeg)
 			{
-				const double dPos = (hitPos[0] - origin[0]) * (hitPos[0] - origin[0])
-					+ (hitPos[1] - origin[1]) * (hitPos[1] - origin[1])
-					+ (hitPos[2] - origin[2]) * (hitPos[2] - origin[2]);
-				const double dNeg = (hitNeg[0] - origin[0]) * (hitNeg[0] - origin[0])
-					+ (hitNeg[1] - origin[1]) * (hitNeg[1] - origin[1])
-					+ (hitNeg[2] - origin[2]) * (hitNeg[2] - origin[2]);
+				const double dPos = (hitPos[0] - origin[0]) * (hitPos[0] - origin[0]) +
+									(hitPos[1] - origin[1]) * (hitPos[1] - origin[1]) +
+									(hitPos[2] - origin[2]) * (hitPos[2] - origin[2]);
+				const double dNeg = (hitNeg[0] - origin[0]) * (hitNeg[0] - origin[0]) +
+									(hitNeg[1] - origin[1]) * (hitNeg[1] - origin[1]) +
+									(hitNeg[2] - origin[2]) * (hitNeg[2] - origin[2]);
 				if (dPos <= dNeg)
 				{
 					bestHit[0] = hitPos[0];
@@ -161,13 +152,10 @@ bool runMeshProjection(
 	return !outPoints.empty();
 }
 
-bool runPointCloudProjection(
-	const std::vector<float>& pointXyz,
-	const std::vector<TubularTemplatePoint>& templatePoints,
-	const TubularGrindingParams& params,
-	std::vector<TubularProjectedPoint>& outPoints,
-	double& outHitRate,
-	std::string* errMsg)
+bool runPointCloudProjection(const std::vector<float>& pointXyz,
+							 const std::vector<TubularTemplatePoint>& templatePoints,
+							 const TubularGrindingParams& params, std::vector<TubularProjectedPoint>& outPoints,
+							 double& outHitRate, std::string* errMsg)
 {
 	outPoints.clear();
 	outHitRate = 0.0;
@@ -193,8 +181,7 @@ bool runPointCloudProjection(
 
 	const double maxDist = params.projectionMaxDistMm > 0.0 ? params.projectionMaxDistMm : 10.0;
 	const double maxDist2 = maxDist * maxDist;
-	const unsigned int queryK = static_cast<unsigned int>(std::min(
-		static_cast<std::size_t>(200), pointCount));
+	const unsigned int queryK = static_cast<unsigned int>(std::min(static_cast<std::size_t>(200), pointCount));
 	int hitCount = 0;
 
 	for (const TubularTemplatePoint& tp : templatePoints)

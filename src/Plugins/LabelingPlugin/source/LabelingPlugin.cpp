@@ -1,11 +1,14 @@
+﻿/// @file LabelingPlugin.cpp
+/// @brief LabelingPlugin 实现
+
 #include "LabelingPlugin.h"
 
-#include "LabelingAnnotWidget.h"
-#include "LabelingTrainWidget.h"
 #include "CloudSimPluginVersion.h"
 #include "IPluginDocument.h"
 #include "IPluginHostContext.h"
 #include "IPluginLabelingHost.h"
+#include "LabelingAnnotWidget.h"
+#include "LabelingTrainWidget.h"
 
 #include <QAction>
 #include <QMenu>
@@ -57,22 +60,19 @@ bool LabelingPlugin::initialize(IPluginHostContext* host)
 		return false;
 	}
 
-	QObject::connect(
-		m_annotWidget,
-		&LabelingAnnotWidget::datasetExported,
-		m_trainWidget,
-		&LabelingTrainWidget::setDatasetRoot);
+	QObject::connect(m_annotWidget, &LabelingAnnotWidget::datasetExported, m_trainWidget,
+					 &LabelingTrainWidget::setDatasetRoot);
 
-	host->onActiveDocumentChanged([this](IPluginDocument*) {
-		if (m_annotWidget)
+	host->onActiveDocumentChanged(
+		[this](IPluginDocument*)
 		{
-			m_annotWidget->refreshBackendList();
-		}
-	});
+			if (m_annotWidget)
+			{
+				m_annotWidget->refreshBackendList();
+			}
+		});
 
-	host->onLanguageChanged([this](const bool) {
-		applyLanguage();
-	});
+	host->onLanguageChanged([this](const bool) { applyLanguage(); });
 
 	registerMenus();
 	applyLanguage();
@@ -102,29 +102,27 @@ void LabelingPlugin::registerMenus()
 	{
 		return;
 	}
-	m_labelingMenu = m_host->registerMenuPath({ QStringLiteral("Tools"), QStringLiteral("Labeling") });
+	m_labelingMenu = m_host->registerMenuPath({QStringLiteral("Tools"), QStringLiteral("Labeling")});
 	if (!m_labelingMenu)
 	{
 		return;
 	}
-	m_openAnnotAction = m_host->registerAction(
-		m_labelingMenu,
-		QStringLiteral("Open Annotation Tab"),
-		[this]() {
-			if (m_tabWidget)
-			{
-				m_tabWidget->setCurrentIndex(0);
-			}
-		});
-	m_openTrainAction = m_host->registerAction(
-		m_labelingMenu,
-		QStringLiteral("Open Training Tab"),
-		[this]() {
-			if (m_tabWidget)
-			{
-				m_tabWidget->setCurrentIndex(1);
-			}
-		});
+	m_openAnnotAction = m_host->registerAction(m_labelingMenu, QStringLiteral("Open Annotation Tab"),
+											   [this]()
+											   {
+												   if (m_tabWidget)
+												   {
+													   m_tabWidget->setCurrentIndex(0);
+												   }
+											   });
+	m_openTrainAction = m_host->registerAction(m_labelingMenu, QStringLiteral("Open Training Tab"),
+											   [this]()
+											   {
+												   if (m_tabWidget)
+												   {
+													   m_tabWidget->setCurrentIndex(1);
+												   }
+											   });
 }
 
 void LabelingPlugin::applyLanguage()

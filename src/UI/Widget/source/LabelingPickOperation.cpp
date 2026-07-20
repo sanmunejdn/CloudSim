@@ -1,22 +1,22 @@
-#include "LabelingPickOperation.h"
+﻿/// @file LabelingPickOperation.cpp
+/// @brief LabelingPickOperation 实现
 
-#include <QEvent>
-#include <QMouseEvent>
+#include "LabelingPickOperation.h"
 
 #include "OsgScene.h"
 #include "OsgWidget.h"
 #include "PickTypes.h"
 
-LabelingPickOperation::LabelingPickOperation(OsgWidget* owner)
-	: SelectionOperation(owner)
-{
-}
+#include <QEvent>
+#include <QMouseEvent>
+
+LabelingPickOperation::LabelingPickOperation(OsgWidget* owner) : SelectionOperation(owner) {}
 
 bool LabelingPickOperation::canHandle(QObject* watched, QEvent* event) const
 {
 	(void)event;
-	return m_owner && watched == m_owner->m_glWidget
-		&& (m_owner->m_labelingClickPickMode || m_owner->m_labelingBrushPickMode);
+	return m_owner && watched == m_owner->m_glWidget &&
+		   (m_owner->m_labelingClickPickMode || m_owner->m_labelingBrushPickMode);
 }
 
 void LabelingPickOperation::emitClickPick(const QPoint& pos)
@@ -59,8 +59,7 @@ void LabelingPickOperation::emitBrushStroke(const QPoint& pos)
 	else
 	{
 		std::vector<int> raw;
-		m_owner->collectPointIndicesInScreenRadius(
-			pos.x(), pos.y(), m_owner->m_labelingBrushRadiusPx, raw);
+		m_owner->collectPointIndicesInScreenRadius(pos.x(), pos.y(), m_owner->m_labelingBrushRadiusPx, raw);
 		indices.reserve(static_cast<int>(raw.size()));
 		for (int idx : raw)
 		{

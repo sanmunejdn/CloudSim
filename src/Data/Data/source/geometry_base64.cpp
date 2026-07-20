@@ -1,19 +1,26 @@
+﻿/// @file geometry_base64.cpp
+/// @brief geometry_base64 实现
+
 #include "geometry_base64.h"
 
 #include <cstring>
 
-namespace {
-
-constexpr char kTable[] =
-	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+namespace
+{
+constexpr char kTable[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 inline int decodeChar(unsigned char c)
 {
-	if (c >= 'A' && c <= 'Z') return c - 'A';
-	if (c >= 'a' && c <= 'z') return c - 'a' + 26;
-	if (c >= '0' && c <= '9') return c - '0' + 52;
-	if (c == '+') return 62;
-	if (c == '/') return 63;
+	if (c >= 'A' && c <= 'Z')
+		return c - 'A';
+	if (c >= 'a' && c <= 'z')
+		return c - 'a' + 26;
+	if (c >= '0' && c <= '9')
+		return c - '0' + 52;
+	if (c == '+')
+		return 62;
+	if (c == '/')
+		return 63;
 	return -1;
 }
 
@@ -106,10 +113,9 @@ bool geometryBase64Decode(const std::string& base64, std::vector<unsigned char>&
 				return false;
 			}
 		}
-		const unsigned int triple = (static_cast<unsigned int>(a) << 18)
-			| (static_cast<unsigned int>(b) << 12)
-			| (v2 >= 0 ? (static_cast<unsigned int>(v2) << 6) : 0U)
-			| (v3 >= 0 ? static_cast<unsigned int>(v3) : 0U);
+		const unsigned int triple = (static_cast<unsigned int>(a) << 18) | (static_cast<unsigned int>(b) << 12) |
+									(v2 >= 0 ? (static_cast<unsigned int>(v2) << 6) : 0U) |
+									(v3 >= 0 ? static_cast<unsigned int>(v3) : 0U);
 		outBytes.push_back(static_cast<unsigned char>((triple >> 16) & 255U));
 		if (v2 >= 0)
 		{

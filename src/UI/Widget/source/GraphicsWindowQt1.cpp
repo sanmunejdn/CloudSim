@@ -1,12 +1,15 @@
+﻿/// @file GraphicsWindowQt1.cpp
+/// @brief GraphicsWindowQt1 实现
+
 #include "GraphicsWindowQt1.h"
 
-#include <osg/DeleteHandler>
-#include <osgViewer/ViewerBase>
-
-#include <cmath>
 #include <QInputEvent>
 #include <QOpenGLContext>
 #include <QPointer>
+#include <cmath>
+
+#include <osg/DeleteHandler>
+#include <osgViewer/ViewerBase>
 
 GraphicsWindowQt1::GraphicsWindowQt1(osg::GraphicsContext::Traits* traits, QWidget* parent, Qt::WindowFlags f)
 	: _realized(false)
@@ -16,8 +19,7 @@ GraphicsWindowQt1::GraphicsWindowQt1(osg::GraphicsContext::Traits* traits, QWidg
 	init(parent, f);
 }
 
-GraphicsWindowQt1::GraphicsWindowQt1(QWidgetViewer* widget)
-	: _realized(false)
+GraphicsWindowQt1::GraphicsWindowQt1(QWidgetViewer* widget) : _realized(false)
 {
 	_widget = widget;
 	_traits = _widget ? createTraits(_widget) : new osg::GraphicsContext::Traits;
@@ -65,7 +67,7 @@ bool GraphicsWindowQt1::init(QWidget* parent, Qt::WindowFlags f)
 		{
 			flags |= Qt::WindowTitleHint | Qt::WindowMinMaxButtonsHint | Qt::WindowSystemMenuHint
 #if (QT_VERSION_CHECK(4, 5, 0) <= QT_VERSION)
-				| Qt::WindowCloseButtonHint
+					 | Qt::WindowCloseButtonHint
 #endif
 				;
 		}
@@ -186,18 +188,14 @@ osg::GraphicsContext::Traits* GraphicsWindowQt1::createTraits(const QWidgetViewe
 		const QByteArray titleUtf8 = widget->windowTitle().toUtf8();
 		if (!titleUtf8.isEmpty())
 		{
-			traits->windowName.assign(
-				titleUtf8.constData(),
-				static_cast<size_t>(titleUtf8.size()));
+			traits->windowName.assign(titleUtf8.constData(), static_cast<size_t>(titleUtf8.size()));
 		}
 	}
 	const Qt::WindowFlags flags = widget->windowFlags();
-	traits->windowDecoration = (flags & Qt::WindowTitleHint)
-		&& (flags & Qt::WindowMinMaxButtonsHint)
-		&& (flags & Qt::WindowSystemMenuHint);
+	traits->windowDecoration =
+		(flags & Qt::WindowTitleHint) && (flags & Qt::WindowMinMaxButtonsHint) && (flags & Qt::WindowSystemMenuHint);
 	const QSizePolicy sp = widget->sizePolicy();
-	traits->supportsResize = sp.horizontalPolicy() != QSizePolicy::Fixed
-		|| sp.verticalPolicy() != QSizePolicy::Fixed;
+	traits->supportsResize = sp.horizontalPolicy() != QSizePolicy::Fixed || sp.verticalPolicy() != QSizePolicy::Fixed;
 
 	return traits;
 }
@@ -310,26 +308,68 @@ void GraphicsWindowQt1::setCursor(MouseCursor cursor)
 
 	switch (cursor)
 	{
-	case NoCursor: _currentCursor = Qt::BlankCursor; break;
-	case RightArrowCursor: case LeftArrowCursor: _currentCursor = Qt::ArrowCursor; break;
-	case InfoCursor: _currentCursor = Qt::SizeAllCursor; break;
-	case DestroyCursor: _currentCursor = Qt::ForbiddenCursor; break;
-	case HelpCursor: _currentCursor = Qt::WhatsThisCursor; break;
-	case CycleCursor: _currentCursor = Qt::ForbiddenCursor; break;
-	case SprayCursor: _currentCursor = Qt::SizeAllCursor; break;
-	case WaitCursor: _currentCursor = Qt::WaitCursor; break;
-	case TextCursor: _currentCursor = Qt::IBeamCursor; break;
-	case CrosshairCursor: _currentCursor = Qt::CrossCursor; break;
-	case HandCursor: _currentCursor = Qt::OpenHandCursor; break;
-	case UpDownCursor: _currentCursor = Qt::SizeVerCursor; break;
-	case LeftRightCursor: _currentCursor = Qt::SizeHorCursor; break;
-	case TopSideCursor: case BottomSideCursor: _currentCursor = Qt::UpArrowCursor; break;
-	case LeftSideCursor: case RightSideCursor: _currentCursor = Qt::SizeHorCursor; break;
-	case TopLeftCorner: _currentCursor = Qt::SizeBDiagCursor; break;
-	case TopRightCorner: _currentCursor = Qt::SizeFDiagCursor; break;
-	case BottomRightCorner: _currentCursor = Qt::SizeBDiagCursor; break;
-	case BottomLeftCorner: _currentCursor = Qt::SizeFDiagCursor; break;
-	default: break;
+	case NoCursor:
+		_currentCursor = Qt::BlankCursor;
+		break;
+	case RightArrowCursor:
+	case LeftArrowCursor:
+		_currentCursor = Qt::ArrowCursor;
+		break;
+	case InfoCursor:
+		_currentCursor = Qt::SizeAllCursor;
+		break;
+	case DestroyCursor:
+		_currentCursor = Qt::ForbiddenCursor;
+		break;
+	case HelpCursor:
+		_currentCursor = Qt::WhatsThisCursor;
+		break;
+	case CycleCursor:
+		_currentCursor = Qt::ForbiddenCursor;
+		break;
+	case SprayCursor:
+		_currentCursor = Qt::SizeAllCursor;
+		break;
+	case WaitCursor:
+		_currentCursor = Qt::WaitCursor;
+		break;
+	case TextCursor:
+		_currentCursor = Qt::IBeamCursor;
+		break;
+	case CrosshairCursor:
+		_currentCursor = Qt::CrossCursor;
+		break;
+	case HandCursor:
+		_currentCursor = Qt::OpenHandCursor;
+		break;
+	case UpDownCursor:
+		_currentCursor = Qt::SizeVerCursor;
+		break;
+	case LeftRightCursor:
+		_currentCursor = Qt::SizeHorCursor;
+		break;
+	case TopSideCursor:
+	case BottomSideCursor:
+		_currentCursor = Qt::UpArrowCursor;
+		break;
+	case LeftSideCursor:
+	case RightSideCursor:
+		_currentCursor = Qt::SizeHorCursor;
+		break;
+	case TopLeftCorner:
+		_currentCursor = Qt::SizeBDiagCursor;
+		break;
+	case TopRightCorner:
+		_currentCursor = Qt::SizeFDiagCursor;
+		break;
+	case BottomRightCorner:
+		_currentCursor = Qt::SizeBDiagCursor;
+		break;
+	case BottomLeftCorner:
+		_currentCursor = Qt::SizeFDiagCursor;
+		break;
+	default:
+		break;
 	}
 	if (_widget)
 	{
@@ -386,9 +426,10 @@ bool GraphicsWindowQt1::isRealizedImplementation() const
 
 void GraphicsWindowQt1::closeImplementation()
 {
+	// Viewer 析构时勿 _widget->close()：会向半析构的 OsgWidget 重入 eventFilter
 	if (_widget)
 	{
-		_widget->close();
+		_widget->_gw = nullptr;
 	}
 	_realized = false;
 }

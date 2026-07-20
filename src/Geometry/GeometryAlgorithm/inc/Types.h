@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_TYPES_H
+#define GEOMETRYALGORITHM_TYPES_H
+
+/// @file Types.h
+/// @brief Types 接口
 
 #include "geometry_algorithm_global.h"
 
@@ -8,7 +12,6 @@
 
 namespace geoalgo
 {
-
 struct Point3d
 {
 	double x = 0.0;
@@ -131,3 +134,5 @@ enum class BrepBooleanOp
 };
 
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_TYPES_H

@@ -1,10 +1,13 @@
-#include "MeshSurfaceReconstructionGmcgNative.h"
-#include "MeshSurfaceReconstructionAmrtoLoader.h"
-#include "MeshSurfaceReconstructionGmcgQuadGraph.h"
-#include "MeshSurfaceReconstructionGmcgMotorcycleTrace.h"
-#include "MeshSurfaceReconstructionGmcgChartExtract.h"
-#include "MeshSurfaceReconstructionGmcgUvPack.h"
+﻿/// @file MeshSurfaceReconstructionGmcgNative.cpp
+/// @brief MeshSurfaceReconstructionGmcgNative 实现
 
+#include "MeshSurfaceReconstructionGmcgNative.h"
+
+#include "MeshSurfaceReconstructionAmrtoLoader.h"
+#include "MeshSurfaceReconstructionGmcgChartExtract.h"
+#include "MeshSurfaceReconstructionGmcgMotorcycleTrace.h"
+#include "MeshSurfaceReconstructionGmcgQuadGraph.h"
+#include "MeshSurfaceReconstructionGmcgUvPack.h"
 #include "RunLogger.h"
 
 namespace geoalgo
@@ -13,7 +16,6 @@ namespace meshrecon
 {
 namespace
 {
-
 bool buildGmcgResultFromPipeline(const QuadMeshLite& quadMesh, GmcgResult& outResult)
 {
 	const GmcgQuadGraph graph = GmcgQuadGraph::build(quadMesh);
@@ -49,10 +51,7 @@ bool buildGmcgResultFromPipeline(const QuadMeshLite& quadMesh, GmcgResult& outRe
 
 } // namespace
 
-bool partitionQuadMeshNativeGmcg(
-	const QuadMeshLite& quadMesh,
-	GmcgResult& outResult,
-	std::string* errMsg)
+bool partitionQuadMeshNativeGmcg(const QuadMeshLite& quadMesh, GmcgResult& outResult, std::string* errMsg)
 {
 	outResult = {};
 	const int qCount = static_cast<int>(quadMesh.quadFaces.size() / 4U);
@@ -74,9 +73,8 @@ bool partitionQuadMeshNativeGmcg(
 		return false;
 	}
 
-	RunLogger::info(
-		std::string("native gmcg (motorcycle): ") + std::to_string(outResult.charts.size()) + " charts from "
-		+ std::to_string(qCount) + " quads");
+	RunLogger::info(std::string("native gmcg (motorcycle): ") + std::to_string(outResult.charts.size()) +
+					" charts from " + std::to_string(qCount) + " quads");
 	return true;
 }
 

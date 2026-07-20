@@ -1,3 +1,6 @@
+﻿/// @file AiCommandSchema.cpp
+/// @brief AiCommandSchema 实现
+
 #include "AiCommandSchema.h"
 
 #include "Ai/AiMeshDefaults.h"
@@ -12,7 +15,6 @@ namespace AiCommandSchema
 {
 namespace
 {
-
 std::string trimCopy(std::string s)
 {
 	const auto notSpace = [](unsigned char c) { return !std::isspace(c); };
@@ -62,14 +64,30 @@ int readIntClamped(const nlohmann::json& j, const char* key, int defaultVal, int
 		return defaultVal;
 	return std::max(lo, std::min(hi, j[key].get<int>()));
 }
-}
+} // namespace
 
 bool primitiveKindFromString(const std::string& s, BackendPrimitiveGeometry::PrimitiveKind& out)
 {
-	if (s == "box") { out = BackendPrimitiveGeometry::PrimitiveKind::Box; return true; }
-	if (s == "cylinder") { out = BackendPrimitiveGeometry::PrimitiveKind::Cylinder; return true; }
-	if (s == "cone") { out = BackendPrimitiveGeometry::PrimitiveKind::Cone; return true; }
-	if (s == "sphere") { out = BackendPrimitiveGeometry::PrimitiveKind::Sphere; return true; }
+	if (s == "box")
+	{
+		out = BackendPrimitiveGeometry::PrimitiveKind::Box;
+		return true;
+	}
+	if (s == "cylinder")
+	{
+		out = BackendPrimitiveGeometry::PrimitiveKind::Cylinder;
+		return true;
+	}
+	if (s == "cone")
+	{
+		out = BackendPrimitiveGeometry::PrimitiveKind::Cone;
+		return true;
+	}
+	if (s == "sphere")
+	{
+		out = BackendPrimitiveGeometry::PrimitiveKind::Sphere;
+		return true;
+	}
 	return false;
 }
 
@@ -77,10 +95,14 @@ std::string primitiveKindToString(BackendPrimitiveGeometry::PrimitiveKind kind)
 {
 	switch (kind)
 	{
-	case BackendPrimitiveGeometry::PrimitiveKind::Box: return "box";
-	case BackendPrimitiveGeometry::PrimitiveKind::Cylinder: return "cylinder";
-	case BackendPrimitiveGeometry::PrimitiveKind::Cone: return "cone";
-	case BackendPrimitiveGeometry::PrimitiveKind::Sphere: return "sphere";
+	case BackendPrimitiveGeometry::PrimitiveKind::Box:
+		return "box";
+	case BackendPrimitiveGeometry::PrimitiveKind::Cylinder:
+		return "cylinder";
+	case BackendPrimitiveGeometry::PrimitiveKind::Cone:
+		return "cone";
+	case BackendPrimitiveGeometry::PrimitiveKind::Sphere:
+		return "sphere";
 	}
 	return "box";
 }
@@ -110,27 +132,23 @@ std::string defaultDisplayNameFor(const BackendPrimitiveGeometry::PrimitiveMeshP
 	switch (p.kind)
 	{
 	case BackendPrimitiveGeometry::PrimitiveKind::Box:
-		return "Box_" + std::to_string(static_cast<int>(p.lengthMm)) + "x"
-			+ std::to_string(static_cast<int>(p.widthMm)) + "x" + std::to_string(static_cast<int>(p.heightMm));
+		return "Box_" + std::to_string(static_cast<int>(p.lengthMm)) + "x" +
+			   std::to_string(static_cast<int>(p.widthMm)) + "x" + std::to_string(static_cast<int>(p.heightMm));
 	case BackendPrimitiveGeometry::PrimitiveKind::Cylinder:
-		return "Cylinder_R" + std::to_string(static_cast<int>(p.radiusMm)) + "_H"
-			+ std::to_string(static_cast<int>(p.heightMm));
+		return "Cylinder_R" + std::to_string(static_cast<int>(p.radiusMm)) + "_H" +
+			   std::to_string(static_cast<int>(p.heightMm));
 	case BackendPrimitiveGeometry::PrimitiveKind::Cone:
-		return "Cone_R" + std::to_string(static_cast<int>(p.radiusMm)) + "_H"
-			+ std::to_string(static_cast<int>(p.heightMm));
+		return "Cone_R" + std::to_string(static_cast<int>(p.radiusMm)) + "_H" +
+			   std::to_string(static_cast<int>(p.heightMm));
 	case BackendPrimitiveGeometry::PrimitiveKind::Sphere:
 		return "Sphere_R" + std::to_string(static_cast<int>(p.radiusMm));
 	}
 	return "Mesh";
 }
 
-bool parseCreateMeshCommand(
-	const nlohmann::json& cmd,
-	BackendPrimitiveGeometry::PrimitiveMeshParams& outParams,
-	BackendPrimitiveGeometry::PrimitiveMeshQuality& outQuality,
-	std::string& outDisplayName,
-	std::string& outSourcePath,
-	std::string& errorMessage)
+bool parseCreateMeshCommand(const nlohmann::json& cmd, BackendPrimitiveGeometry::PrimitiveMeshParams& outParams,
+							BackendPrimitiveGeometry::PrimitiveMeshQuality& outQuality, std::string& outDisplayName,
+							std::string& outSourcePath, std::string& errorMessage)
 {
 	errorMessage.clear();
 	if (!cmd.is_object())
@@ -162,8 +180,8 @@ bool parseCreateMeshCommand(
 	switch (outParams.kind)
 	{
 	case BackendPrimitiveGeometry::PrimitiveKind::Box:
-		if (!readDim(dims, "length", outParams.lengthMm) || !readDim(dims, "width", outParams.widthMm)
-			|| !readDim(dims, "height", outParams.heightMm))
+		if (!readDim(dims, "length", outParams.lengthMm) || !readDim(dims, "width", outParams.widthMm) ||
+			!readDim(dims, "height", outParams.heightMm))
 		{
 			errorMessage = "box requires length, width, height (mm).";
 			return false;
@@ -238,9 +256,8 @@ std::string extractJsonObjectText(const std::string& text)
 bool isReservedComposeStepKey(const std::string& key)
 {
 	static const char* keys[] = {
-		"args", "api", "id", "version", "domain", "steps", "primitive",
-		"dimensions_mm", "name", "pose_mm", "rotation_deg", "op",
-		"target", "tool", "result_name", "hide_operands", "mesh_quality",
+		"args",	   "api",		   "id", "version", "domain", "steps",		 "primitive",	  "dimensions_mm", "name",
+		"pose_mm", "rotation_deg", "op", "target",	"tool",	  "result_name", "hide_operands", "mesh_quality",
 	};
 	for (const char* k : keys)
 	{
@@ -398,7 +415,8 @@ void canonicalizeComposeStepShape(nlohmann::json& step)
 	if (!step.is_object())
 		return;
 
-	if ((!step.contains("api") || !step["api"].is_string() || step["api"].get<std::string>().empty()) && step.contains("type"))
+	if ((!step.contains("api") || !step["api"].is_string() || step["api"].get<std::string>().empty()) &&
+		step.contains("type"))
 		step["api"] = step["type"];
 	if (step.contains("type"))
 		step.erase("type");
@@ -414,8 +432,8 @@ void canonicalizeComposeStepShape(nlohmann::json& step)
 	nlohmann::json& args = step["args"];
 
 	static const char* kFlatKeys[] = {
-		"primitive", "dimensions_mm", "pose_mm", "rotation_deg", "mesh_quality",
-		"op", "target", "tool", "result_name", "hide_operands", "path", "is_point_cloud",
+		"primitive", "dimensions_mm", "pose_mm",	 "rotation_deg",  "mesh_quality", "op",
+		"target",	 "tool",		  "result_name", "hide_operands", "path",		  "is_point_cloud",
 	};
 	for (const char* key : kFlatKeys)
 		hoistJsonField(step, args, key);
@@ -429,19 +447,19 @@ void canonicalizeComposeStepShape(nlohmann::json& step)
 
 	if (args.contains("pose_mm") && args["pose_mm"].is_array() && args["pose_mm"].size() >= 3U)
 	{
-		args["pose_mm"] = nlohmann::json::object({ { "x", args["pose_mm"][0] }, { "y", args["pose_mm"][1] },
-			{ "z", args["pose_mm"][2] } });
+		args["pose_mm"] =
+			nlohmann::json::object({{"x", args["pose_mm"][0]}, {"y", args["pose_mm"][1]}, {"z", args["pose_mm"][2]}});
 	}
 	if (args.contains("rotation_deg") && args["rotation_deg"].is_number())
 	{
 		const double z = args["rotation_deg"].get<double>();
-		args["rotation_deg"] = nlohmann::json::object({ { "x", 0.0 }, { "y", 0.0 }, { "z", z } });
+		args["rotation_deg"] = nlohmann::json::object({{"x", 0.0}, {"y", 0.0}, {"z", z}});
 	}
 
 	const std::string api = step.value("api", "");
 	if (api == "booleanMesh")
 	{
-		for (const char* refKey : { "target", "tool" })
+		for (const char* refKey : {"target", "tool"})
 		{
 			if (!args.contains(refKey) || !args[refKey].is_string())
 				continue;
@@ -459,7 +477,8 @@ void normalizeComposePlanJson(nlohmann::json& root)
 	if (!root.is_object())
 		return;
 
-	auto appendToSteps = [&](const nlohmann::json& extra) {
+	auto appendToSteps = [&](const nlohmann::json& extra)
+	{
 		if (!root.contains("steps") || !root["steps"].is_array())
 			root["steps"] = nlohmann::json::array();
 		if (extra.is_array())
@@ -559,8 +578,8 @@ void normalizeComposePlanJson(nlohmann::json& root)
 		if (!step.is_object() || !step.contains("args") || !step["args"].is_object())
 			continue;
 		nlohmann::json& args = step["args"];
-		if (args.value("primitive", "") != "cylinder" || !args.contains("dimensions_mm")
-			|| !args["dimensions_mm"].is_object())
+		if (args.value("primitive", "") != "cylinder" || !args.contains("dimensions_mm") ||
+			!args["dimensions_mm"].is_object())
 			continue;
 		nlohmann::json& cdims = args["dimensions_mm"];
 		if (cdims.contains("diameter") && cdims["diameter"].is_number())
@@ -582,7 +601,8 @@ void normalizeComposePlanJson(nlohmann::json& root)
 		const std::string api = step.value("api", "");
 		if (api == "booleanMesh")
 		{
-			const nlohmann::json& bargs = step.contains("args") && step["args"].is_object() ? step["args"] : nlohmann::json::object();
+			const nlohmann::json& bargs =
+				step.contains("args") && step["args"].is_object() ? step["args"] : nlohmann::json::object();
 			if (bargs.value("op", "difference") == "difference")
 				hasDifference = true;
 		}
@@ -610,16 +630,15 @@ void normalizeComposePlanJson(nlohmann::json& root)
 	double boxMinSideMm = 0.0;
 	for (auto& step : root["steps"])
 	{
-		if (!step.is_object() || step.value("api", "") != "createPrimitiveMesh" || !step.contains("args")
-			|| !step["args"].is_object())
+		if (!step.is_object() || step.value("api", "") != "createPrimitiveMesh" || !step.contains("args") ||
+			!step["args"].is_object())
 			continue;
 		nlohmann::json& args = step["args"];
 		const std::string stepId = step.value("id", "");
 		nlohmann::json& dims = args["dimensions_mm"];
 		if (!dims.is_object())
 			continue;
-		const bool hasBoxDims =
-			dims.contains("length") && dims.contains("width") && dims.contains("height");
+		const bool hasBoxDims = dims.contains("length") && dims.contains("width") && dims.contains("height");
 		if (hasBoxDims)
 		{
 			const double L = dims.value("length", 0.0);
@@ -639,19 +658,19 @@ void normalizeComposePlanJson(nlohmann::json& root)
 	}
 	for (auto& step : root["steps"])
 	{
-		if (!step.is_object() || step.value("api", "") != "createPrimitiveMesh" || !step.contains("args")
-			|| !step["args"].is_object())
+		if (!step.is_object() || step.value("api", "") != "createPrimitiveMesh" || !step.contains("args") ||
+			!step["args"].is_object())
 			continue;
 		nlohmann::json& args = step["args"];
-		if (args.value("primitive", "") != "cylinder" || !args.contains("dimensions_mm")
-			|| !args["dimensions_mm"].is_object())
+		if (args.value("primitive", "") != "cylinder" || !args.contains("dimensions_mm") ||
+			!args["dimensions_mm"].is_object())
 			continue;
 		const std::string stepId = step.value("id", "");
 		if (stepId != "hole_tool" && stepId != "tool")
 			continue;
 		nlohmann::json& cdims = args["dimensions_mm"];
-		if (cdims.contains("radius") && cdims["radius"].is_number() && boxMinSideMm > 0.0
-			&& !cdims.contains("diameter"))
+		if (cdims.contains("radius") && cdims["radius"].is_number() && boxMinSideMm > 0.0 &&
+			!cdims.contains("diameter"))
 		{
 			double R = cdims["radius"].get<double>();
 			// 直径 50 被写成 radius=50 时缩小一半
@@ -665,11 +684,8 @@ void normalizeComposePlanJson(nlohmann::json& root)
 	}
 }
 
-bool parseModifyObjectCommand(
-	const nlohmann::json& cmd,
-	std::string& outBackendId,
-	nlohmann::json& outPropertyPatch,
-	std::string& errorMessage)
+bool parseModifyObjectCommand(const nlohmann::json& cmd, std::string& outBackendId, nlohmann::json& outPropertyPatch,
+							  std::string& errorMessage)
 {
 	errorMessage.clear();
 	outBackendId.clear();
@@ -739,4 +755,4 @@ bool parseImportAssetCommand(const nlohmann::json& cmd, std::string& outFilePath
 	return true;
 }
 
-}
+} // namespace AiCommandSchema

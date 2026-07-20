@@ -1,6 +1,6 @@
-# CloudSim 架构总览
+﻿# CloudSim 架构总览
 
-> 目录布局见 [`docs/DIRECTORY_LAYOUT.md`](docs/DIRECTORY_LAYOUT.md)；各子模块开发文档见 [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md)；空间坐标契约见 [`docs/spatial_contract_world_pose.md`](docs/spatial_contract_world_pose.md)。
+> 目录布局见 [`docs/DIRECTORY_LAYOUT.md`](docs/DIRECTORY_LAYOUT.md)；各子模块开发文档见 [`docs/MODULE_DEVELOPER_GUIDES.md`](docs/MODULE_DEVELOPER_GUIDES.md)；源码格式约定见 [`docs/SOURCE_CONVENTIONS.md`](docs/SOURCE_CONVENTIONS.md)；文档索引见 [`docs/README.md`](docs/README.md)；空间坐标契约见 [`docs/spatial_contract_world_pose.md`](docs/spatial_contract_world_pose.md)。
 
 ---
 
@@ -389,8 +389,9 @@ flowchart TB
 
 - 统一输出：`Directory.Build.props` → `$(CloudSimBinDir)` = `bin/x64d/`（Debug）或 `bin/x64/`（Release）
 - 推荐生成顺序：`CloudSimCore` → `Data` → `CloudSimHost` → `Widget` → `CloudSim`
+- 源码格式：UTF-8 with BOM + CRLF；头卫 `工程名_文件名_H`；详见 [`docs/SOURCE_CONVENTIONS.md`](docs/SOURCE_CONVENTIONS.md)
 - VS 筛选器：两层 `inc` / `src`，按功能分子组
-- 筛选器重生成：`python scripts/generate_vcxproj_filters.py`
+- 筛选器日常补缺：`python scripts/generate_vcxproj_filters.py --only-missing`（全量重写勿默认使用）
 
 ---
 

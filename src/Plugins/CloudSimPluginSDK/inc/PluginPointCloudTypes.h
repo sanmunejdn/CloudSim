@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINSDK_PLUGINPOINTCLOUDTYPES_H
+#define CLOUDSIMPLUGINSDK_PLUGINPOINTCLOUDTYPES_H
+
+/// @file PluginPointCloudTypes.h
+/// @brief 列主序 4×4 刚体变换（mm）
 
 #include "cloudsim_plugin_sdk_global.h"
 
@@ -37,11 +41,7 @@ struct PluginPointCloudMeasure
 /// 列主序 4×4 刚体变换（mm）
 struct PluginMat4
 {
-	double v[16] = {
-		1.0, 0.0, 0.0, 0.0,
-		0.0, 1.0, 0.0, 0.0,
-		0.0, 0.0, 1.0, 0.0,
-		0.0, 0.0, 0.0, 1.0};
+	double v[16] = {1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
 };
 
 struct PluginMeshRepairReport
@@ -91,16 +91,8 @@ struct PluginPointCloudCropSphereParams
 struct PluginPointCloudCropPolylineParams
 {
 	std::vector<float> polylineScreenXy;
-	double mvpMatrix[16] = {
-		1.0, 0.0, 0.0, 0.0,
-		0.0, 1.0, 0.0, 0.0,
-		0.0, 0.0, 1.0, 0.0,
-		0.0, 0.0, 0.0, 1.0};
-	double modelToWorld[16] = {
-		1.0, 0.0, 0.0, 0.0,
-		0.0, 1.0, 0.0, 0.0,
-		0.0, 0.0, 1.0, 0.0,
-		0.0, 0.0, 0.0, 1.0};
+	double mvpMatrix[16] = {1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
+	double modelToWorld[16] = {1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
 	int viewportWidth = 0;
 	int viewportHeight = 0;
 	/// true=保留多边形内部；false=删除内部
@@ -110,19 +102,13 @@ struct PluginPointCloudCropPolylineParams
 struct PluginPointCloudPolylinePickResult
 {
 	std::vector<float> polylineScreenXy;
-	double mvpMatrix[16] = {
-		1.0, 0.0, 0.0, 0.0,
-		0.0, 1.0, 0.0, 0.0,
-		0.0, 0.0, 1.0, 0.0,
-		0.0, 0.0, 0.0, 1.0};
+	double mvpMatrix[16] = {1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
 	int viewportWidth = 0;
 	int viewportHeight = 0;
 };
 
-using PluginPointCloudPolylinePickFinishedFn = std::function<void(
-	bool ok,
-	const QString& error,
-	const PluginPointCloudPolylinePickResult& result)>;
+using PluginPointCloudPolylinePickFinishedFn =
+	std::function<void(bool ok, const QString& error, const PluginPointCloudPolylinePickResult& result)>;
 
 struct PluginPointCloudOutlierParams
 {
@@ -278,15 +264,11 @@ struct PluginPointCloudTemplateBrepUpdateResult
 	std::vector<PluginPointCloudFaceUpdateReport> perFace;
 };
 
-using PluginPointCloudTemplateBrepRegisterFinishedFn = std::function<void(
-	bool ok,
-	const QString& error,
-	const PluginPointCloudTemplateBrepRegisterResult& result)>;
+using PluginPointCloudTemplateBrepRegisterFinishedFn =
+	std::function<void(bool ok, const QString& error, const PluginPointCloudTemplateBrepRegisterResult& result)>;
 
-using PluginPointCloudTemplateBrepUpdateFinishedFn = std::function<void(
-	bool ok,
-	const QString& error,
-	const PluginPointCloudTemplateBrepUpdateResult& result)>;
+using PluginPointCloudTemplateBrepUpdateFinishedFn =
+	std::function<void(bool ok, const QString& error, const PluginPointCloudTemplateBrepUpdateResult& result)>;
 
 struct PluginPointCloudRigidTransformParams
 {
@@ -303,8 +285,8 @@ struct PluginMeshInfo
 
 struct PluginMeshSimplifyParams
 {
-	int targetFaceCount = 0;           // 目标面数，0=保留原面数一半
-	double qualityThreshold = 0.3;     // 质量阈值 0-1
+	int targetFaceCount = 0;	   // 目标面数，0=保留原面数一半
+	double qualityThreshold = 0.3; // 质量阈值 0-1
 	bool preserveBoundary = true;
 	bool preserveTopology = true;
 	PluginMeshCreateOptions resultOptions{}; // 结果对象创建选项
@@ -339,10 +321,8 @@ struct PluginMeshRemeshParams
 	PluginMeshCreateOptions resultOptions{};
 };
 
-using PluginMeshFinishedFn = std::function<void(
-	bool ok,
-	const QString& error,
-	const PluginPointCloudJobResult& result)>;
+using PluginMeshFinishedFn =
+	std::function<void(bool ok, const QString& error, const PluginPointCloudJobResult& result)>;
 
 // === 网格缺陷分析（vcglib，1.10.0+） ===
 
@@ -373,15 +353,11 @@ struct PluginMeshDefectReport
 	std::vector<PluginMeshDefectFace> defects;
 };
 
-using PluginMeshDefectFinishedFn = std::function<void(
-	bool ok,
-	const QString& error,
-	const PluginMeshDefectReport& report)>;
+using PluginMeshDefectFinishedFn =
+	std::function<void(bool ok, const QString& error, const PluginMeshDefectReport& report)>;
 
-using PluginPointCloudFinishedFn = std::function<void(
-	bool ok,
-	const QString& error,
-	const PluginPointCloudJobResult& result)>;
+using PluginPointCloudFinishedFn =
+	std::function<void(bool ok, const QString& error, const PluginPointCloudJobResult& result)>;
 
 enum class PluginMeshSurfaceNurbsFitMode : int
 {
@@ -460,8 +436,7 @@ struct PluginMeshSurfaceReconstructParams
 	double fairingEpsilon = 1e-3;
 	int fairingMaxIterations = 50;
 	double tessellateLinearDeflectionMm = 0.1;
-	PluginMeshSurfaceHarmonicBoundaryMode harmonicBoundaryMode =
-		PluginMeshSurfaceHarmonicBoundaryMode::GeodesicSquare;
+	PluginMeshSurfaceHarmonicBoundaryMode harmonicBoundaryMode = PluginMeshSurfaceHarmonicBoundaryMode::GeodesicSquare;
 	int harmonicMaxFaces = 8000;
 	double sdfSeedBlendWeight = 0.35;
 	int sdfSegmentCount = 0;
@@ -560,10 +535,8 @@ struct PluginMeshSurfaceReconstructReport
 	int geodesicSquareHarmonicCount = 0;
 };
 
-using PluginMeshSurfaceReconstructFinishedFn = std::function<void(
-	bool ok,
-	const QString& error,
-	const PluginMeshSurfaceReconstructReport& report)>;
+using PluginMeshSurfaceReconstructFinishedFn =
+	std::function<void(bool ok, const QString& error, const PluginMeshSurfaceReconstructReport& report)>;
 
 enum class PluginTubularGrindingTemplateKind : int
 {
@@ -628,8 +601,7 @@ struct PluginTubularGrindingParams
 	double laplacianAttraction = 0.2;
 	int laplacianKNeighbors = 8;
 
-	PluginTubularGrindingCenterlineMethod centerlineMethod =
-		PluginTubularGrindingCenterlineMethod::Laplacian;
+	PluginTubularGrindingCenterlineMethod centerlineMethod = PluginTubularGrindingCenterlineMethod::Laplacian;
 
 	// OTLC 中心线（点云 / 可选网格）
 	double otSampleRate = 0.10;
@@ -700,7 +672,7 @@ struct PluginTubularGrindingReport
 	std::string projectedPointsBackendId;
 };
 
-using PluginTubularGrindingFinishedFn = std::function<void(
-	bool ok,
-	const QString& error,
-	const PluginTubularGrindingReport& report)>;
+using PluginTubularGrindingFinishedFn =
+	std::function<void(bool ok, const QString& error, const PluginTubularGrindingReport& report)>;
+
+#endif // CLOUDSIMPLUGINSDK_PLUGINPOINTCLOUDTYPES_H

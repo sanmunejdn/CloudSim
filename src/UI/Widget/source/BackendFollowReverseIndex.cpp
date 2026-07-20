@@ -1,7 +1,10 @@
+﻿/// @file BackendFollowReverseIndex.cpp
+/// @brief BackendFollowReverseIndex 实现
+
 #include "BackendFollowReverseIndex.h"
 
-#include "BackendDataManager.h"
 #include "BackendDataBase.h"
+#include "BackendDataManager.h"
 #include "FollowAttachmentComponent.h"
 
 #include <algorithm>
@@ -42,7 +45,7 @@ void BackendFollowReverseIndex::rebuild(const BackendDataManager& mgr) const
 }
 
 std::vector<std::string> BackendFollowReverseIndex::followersOf(const BackendDataManager& mgr,
-	const std::string& targetBackendId) const
+																const std::string& targetBackendId) const
 {
 	if (m_dirty)
 	{

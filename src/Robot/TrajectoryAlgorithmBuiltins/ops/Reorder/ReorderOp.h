@@ -1,11 +1,14 @@
-// Reorder 原子块：按 scope 统一姿态
-#pragma once
+﻿#ifndef TRAJECTORYALGORITHMBUILTINS_REORDEROP_H
+#define TRAJECTORYALGORITHMBUILTINS_REORDEROP_H
 
+/// @file ReorderOp.h
+/// @brief ReorderOp 接口
+
+// Reorder 原子块：按 scope 统一姿态
 #include "ITrajectoryOp.h"
 
 namespace trajectory_algo
 {
-
 class ReorderOp final : public ITrajectoryOp
 {
 public:
@@ -13,16 +16,15 @@ public:
 	const char* kindToken() const override { return "Reorder"; }
 	const char* displayName(bool chinese) const override;
 	TrajectoryOpCapability capabilities() const override;
-	RobotInstruction::TrajectoryOpDescriptor makeDefaultDescriptor(
-		const RobotInstruction::OpScope& defaultScope) const override;
+	RobotInstruction::TrajectoryOpDescriptor
+	makeDefaultDescriptor(const RobotInstruction::OpScope& defaultScope) const override;
 	std::vector<TrajectoryOpParamField> paramFields() const override;
 	bool validate(const RobotInstruction::TrajectoryOpDescriptor& op, std::string* errMsg) const override;
 	std::string formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op, bool chinese) const override;
-	bool processPath(
-		const RobotInstruction::TrajectoryOpDescriptor& op,
-		RobotInstruction::UnifiedTrajectory& traj,
-		const TrajectoryOpExecutionContext& ctx,
-		std::string* errMsg) const override;
+	bool processPath(const RobotInstruction::TrajectoryOpDescriptor& op, RobotInstruction::UnifiedTrajectory& traj,
+					 const TrajectoryOpExecutionContext& ctx, std::string* errMsg) const override;
 };
 
 } // namespace trajectory_algo
+
+#endif // TRAJECTORYALGORITHMBUILTINS_REORDEROP_H

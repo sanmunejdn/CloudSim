@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef OSGWIDGETCORE_PICKSPATIALINDEX_H
+#define OSGWIDGETCORE_PICKSPATIALINDEX_H
+
+/// @file PickSpatialIndex.h
+/// @brief 点云拾取空间索引：绑定 Visual 时构建，选中切换时只读引用
 
 #include "osgwidgetcore_global.h"
 
@@ -43,3 +47,5 @@ private:
 	int m_kdRoot = -1;
 	std::uint64_t m_generation = 0;
 };
+
+#endif // OSGWIDGETCORE_PICKSPATIALINDEX_H

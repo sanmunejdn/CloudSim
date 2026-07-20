@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINSDK_PLUGINPRIMITIVETYPES_H
+#define CLOUDSIMPLUGINSDK_PLUGINPRIMITIVETYPES_H
+
+/// @file PluginPrimitiveTypes.h
+/// @brief 宿主 createPrimitiveMesh 图元类型（mm）
 
 #include "cloudsim_plugin_sdk_global.h"
 
@@ -61,3 +65,5 @@ struct PluginBooleanMeshOptions
 	bool selectInTree = true;
 	bool resetViewToHome = false;
 };
+
+#endif // CLOUDSIMPLUGINSDK_PLUGINPRIMITIVETYPES_H

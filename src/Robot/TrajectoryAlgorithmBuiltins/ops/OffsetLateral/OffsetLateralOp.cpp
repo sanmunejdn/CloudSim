@@ -1,14 +1,16 @@
+﻿/// @file OffsetLateralOp.cpp
+/// @brief OffsetLateralOp 实现
+
 // OffsetLateral 原子块：沿横向偏移路径点
 #include "OffsetLateralOp.h"
 
 #include "TrajectoryOpFormat.h"
-#include "UnifiedTrajectoryPathMath.h"
 #include "TrajectoryOpParamAccess.h"
 #include "TrajectoryOpParamsParse.h"
+#include "UnifiedTrajectoryPathMath.h"
 
 namespace trajectory_algo
 {
-
 RobotInstruction::TrajectoryOpKind OffsetLateralOp::kind() const
 {
 	return RobotInstruction::TrajectoryOpKind::OffsetLateral;
@@ -24,8 +26,8 @@ TrajectoryOpCapability OffsetLateralOp::capabilities() const
 	return TrajectoryOpCapability::None;
 }
 
-RobotInstruction::TrajectoryOpDescriptor OffsetLateralOp::makeDefaultDescriptor(
-	const RobotInstruction::OpScope& defaultScope) const
+RobotInstruction::TrajectoryOpDescriptor
+OffsetLateralOp::makeDefaultDescriptor(const RobotInstruction::OpScope& defaultScope) const
 {
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::OffsetLateral;
@@ -49,19 +51,15 @@ bool OffsetLateralOp::validate(const RobotInstruction::TrajectoryOpDescriptor& o
 	return true;
 }
 
-std::string OffsetLateralOp::formatSummary(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const bool chinese) const
+std::string OffsetLateralOp::formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op, const bool chinese) const
 {
 	(void)op;
 	return displayName(chinese);
 }
 
-bool OffsetLateralOp::processPath(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	RobotInstruction::UnifiedTrajectory& traj,
-	const TrajectoryOpExecutionContext& ctx,
-	std::string* errMsg) const
+bool OffsetLateralOp::processPath(const RobotInstruction::TrajectoryOpDescriptor& op,
+								  RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx,
+								  std::string* errMsg) const
 {
 	(void)op;
 	(void)errMsg;
@@ -69,11 +67,7 @@ bool OffsetLateralOp::processPath(
 	{
 		return false;
 	}
-	offsetLateralUnifiedInScope(
-		traj,
-		op.scope,
-		ctx.program,
-		parsePathOffsetParams(op.params).lateralMm);
+	offsetLateralUnifiedInScope(traj, op.scope, ctx.program, parsePathOffsetParams(op.params).lateralMm);
 	return true;
 }
 

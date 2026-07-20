@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef DATA_PLYIO_H
+#define DATA_PLYIO_H
+
+/// @file PlyIo.h
+/// @brief PLY 头扫描（点云/网格分流共用）
 
 #include "data_global.h"
 
@@ -28,3 +32,5 @@ DATA_EXPORT bool scanPlyHeader(std::istream& input, PlyHeaderInfo& out, std::str
 /// path：本地窄字节路径（与 QFile::encodeName / loadFromFile 一致，勿用 u8path）
 DATA_EXPORT bool scanPlyHeader(const std::string& path, PlyHeaderInfo& out, std::string* errMsg = nullptr);
 DATA_EXPORT bool plyFileHasTriangleFaces(const std::string& path);
+
+#endif // DATA_PLYIO_H

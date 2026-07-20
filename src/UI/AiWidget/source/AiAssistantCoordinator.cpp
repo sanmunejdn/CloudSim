@@ -1,3 +1,6 @@
+﻿/// @file AiAssistantCoordinator.cpp
+/// @brief AiAssistantCoordinator 实现
+
 #include "AiAssistantCoordinator.h"
 
 #include "AiAssistantDockWidget.h"
@@ -9,12 +12,11 @@
 #include "IAiAssistantHost.h"
 #include "IPluginHostContext.h"
 
-#include <json.hpp>
-
 #include <QTimer>
-
 #include <set>
 #include <vector>
+
+#include <json.hpp>
 
 namespace
 {
@@ -92,7 +94,8 @@ bool planIsAmbiguous(const QByteArray& jsonUtf8, QString* clarifyOut)
 AiFeatureAxis inferFeatureAxisLocal(const QString& userText)
 {
 	const QString t = userText.trimmed();
-	auto contains = [&](const QStringList& keys) {
+	auto contains = [&](const QStringList& keys)
+	{
 		for (const QString& k : keys)
 		{
 			if (t.contains(k))
@@ -101,15 +104,15 @@ AiFeatureAxis inferFeatureAxisLocal(const QString& userText)
 		return false;
 	};
 	if (contains({QStringLiteral("面特征"), QStringLiteral("大平面"), QStringLiteral("栅格"), QStringLiteral("打磨"),
-			QStringLiteral("grind"), QStringLiteral("UV")})
-		|| (contains({QStringLiteral("面"), QStringLiteral("surface"), QStringLiteral("face")})
-			&& !contains({QStringLiteral("面特征")})))
+				  QStringLiteral("grind"), QStringLiteral("UV")}) ||
+		(contains({QStringLiteral("面"), QStringLiteral("surface"), QStringLiteral("face")}) &&
+		 !contains({QStringLiteral("面特征")})))
 	{
 		return AiFeatureAxis::Surface;
 	}
 	if (contains({QStringLiteral("线特征"), QStringLiteral("边"), QStringLiteral("焊缝"), QStringLiteral("交线"),
-			QStringLiteral("轮廓"), QStringLiteral("涂胶"), QStringLiteral("weld"), QStringLiteral("glue"),
-			QStringLiteral("seam")}))
+				  QStringLiteral("轮廓"), QStringLiteral("涂胶"), QStringLiteral("weld"), QStringLiteral("glue"),
+				  QStringLiteral("seam")}))
 	{
 		return AiFeatureAxis::Line;
 	}
@@ -117,7 +120,7 @@ AiFeatureAxis inferFeatureAxisLocal(const QString& userText)
 }
 
 bool parseDisplayIndexSelectionLocal(const QString& userText, const QByteArray& catalogSliceUtf8,
-	std::vector<std::string>& outCandidateIds, QString* err)
+									 std::vector<std::string>& outCandidateIds, QString* err)
 {
 	outCandidateIds.clear();
 	std::set<int> indices;
@@ -169,7 +172,7 @@ bool parseDisplayIndexSelectionLocal(const QString& userText, const QByteArray& 
 }
 
 QByteArray filterCatalogSliceByCandidateIds(const QByteArray& catalogSliceUtf8,
-	const std::vector<std::string>& candidateIds)
+											const std::vector<std::string>& candidateIds)
 {
 	if (candidateIds.empty())
 	{
@@ -202,8 +205,8 @@ QByteArray filterCatalogSliceByCandidateIds(const QByteArray& catalogSliceUtf8,
 }
 
 QByteArray buildMinimalFeaturePlanFromSelection(const std::vector<std::string>& candidateIds,
-	const QByteArray& catalogFullUtf8, const QString& backendId, const QString& stepPath,
-	const QString& pipelineTemplate)
+												const QByteArray& catalogFullUtf8, const QString& backendId,
+												const QString& stepPath, const QString& pipelineTemplate)
 {
 	try
 	{
@@ -228,8 +231,8 @@ QByteArray buildMinimalFeaturePlanFromSelection(const std::vector<std::string>& 
 					{"stepPathUtf8", stepPath.toStdString()},
 				};
 				spec["refs"] = c.value("refs", nlohmann::json::object());
-				spec["discretize"] = {{"stepMm", 5.0}, {"linearDeflectionMm", 0.01}, {"outputTangent", true},
-					{"outputNormal", true}};
+				spec["discretize"] = {
+					{"stepMm", 5.0}, {"linearDeflectionMm", 0.01}, {"outputTangent", true}, {"outputNormal", true}};
 				feats.push_back(spec);
 				break;
 			}
@@ -263,17 +266,16 @@ bool isCatalogEmptyTrajectoryMessage(const QString& msg)
 	{
 		return false;
 	}
-	return t.contains(QStringLiteral("no features in catalog"))
-		|| t.contains(QStringLiteral("catalog slice invalid"))
-		|| (t.contains(QStringLiteral("catalog")) && t.contains(QStringLiteral("select")))
-		|| t.contains(QStringLiteral("未找到匹配的特征候选"));
+	return t.contains(QStringLiteral("no features in catalog")) ||
+		   t.contains(QStringLiteral("catalog slice invalid")) ||
+		   (t.contains(QStringLiteral("catalog")) && t.contains(QStringLiteral("select"))) ||
+		   t.contains(QStringLiteral("未找到匹配的特征候选"));
 }
 
-}
+} // namespace
 
 AiAssistantCoordinator::AiAssistantCoordinator(AiAssistantDockWidget* dock, QObject* parent)
-	: QObject(parent)
-	, m_dock(dock)
+	: QObject(parent), m_dock(dock)
 {
 }
 
@@ -309,7 +311,7 @@ void AiAssistantCoordinator::resetFeatureSession()
 }
 
 bool AiAssistantCoordinator::prepareTrajectoryFeatureRequest(const QString& userText, AiInferenceRequest& req,
-	QString* err)
+															 QString* err)
 {
 	if (!m_pluginHost)
 	{
@@ -328,7 +330,7 @@ bool AiAssistantCoordinator::prepareTrajectoryFeatureRequest(const QString& user
 	req.workpieceBackendId = backendId;
 	req.workpieceStepPathUtf8 = stepPath;
 	if (!m_pluginHost->buildTrajectoryFeatureCatalogSlice(backendId, stepPath, userText, req.catalogFullUtf8,
-			req.catalogSliceUtf8, err))
+														  req.catalogSliceUtf8, err))
 	{
 		return false;
 	}
@@ -345,8 +347,8 @@ bool AiAssistantCoordinator::tryHandleFeatureFollowUp(const QString& text)
 	if (m_featureSessionState == FeatureSessionState::AwaitingAxisClarify)
 	{
 		AiFeatureAxis axis = AiFeatureAxis::Ambiguous;
-		if (text.contains(QStringLiteral("线")) || text.contains(QStringLiteral("边"))
-			|| text.contains(QStringLiteral("line"), Qt::CaseInsensitive))
+		if (text.contains(QStringLiteral("线")) || text.contains(QStringLiteral("边")) ||
+			text.contains(QStringLiteral("line"), Qt::CaseInsensitive))
 		{
 			axis = AiFeatureAxis::Line;
 		}
@@ -360,7 +362,8 @@ bool AiAssistantCoordinator::tryHandleFeatureFollowUp(const QString& text)
 		}
 		m_pendingFeatureAxis = axis;
 		if (!m_pluginHost->buildTrajectoryFeatureCatalogSlice(m_pendingWorkpieceBackendId, m_pendingWorkpieceStepPath,
-				text, m_pendingCatalogFullUtf8, m_pendingCatalogSliceUtf8, nullptr))
+															  text, m_pendingCatalogFullUtf8, m_pendingCatalogSliceUtf8,
+															  nullptr))
 		{
 			return false;
 		}
@@ -388,8 +391,8 @@ bool AiAssistantCoordinator::tryHandleFeatureFollowUp(const QString& text)
 		return true;
 	}
 
-	if (m_featureSessionState == FeatureSessionState::PreviewCandidates
-		|| m_featureSessionState == FeatureSessionState::AwaitingSelection)
+	if (m_featureSessionState == FeatureSessionState::PreviewCandidates ||
+		m_featureSessionState == FeatureSessionState::AwaitingSelection)
 	{
 		if (text.contains(QStringLiteral("重新")) || text.contains(QStringLiteral("retry"), Qt::CaseInsensitive))
 		{
@@ -406,8 +409,8 @@ bool AiAssistantCoordinator::tryHandleFeatureFollowUp(const QString& text)
 		{
 			return false;
 		}
-		const QByteArray planJson = buildMinimalFeaturePlanFromSelection(selectedIds, m_pendingCatalogFullUtf8,
-			m_pendingWorkpieceBackendId, m_pendingWorkpieceStepPath,
+		const QByteArray planJson = buildMinimalFeaturePlanFromSelection(
+			selectedIds, m_pendingCatalogFullUtf8, m_pendingWorkpieceBackendId, m_pendingWorkpieceStepPath,
 			m_pendingPipelineTemplate.isEmpty() ? QStringLiteral("weld_default") : m_pendingPipelineTemplate);
 		if (planJson.isEmpty())
 		{
@@ -452,8 +455,8 @@ void AiAssistantCoordinator::handleTrajectoryParseResult(const AiParseResult& re
 		m_featureSessionState = FeatureSessionState::AwaitingAxisClarify;
 		m_pendingFeatureParserVia = result.parserVia;
 		const QString msg = clarify.isEmpty()
-			? QStringLiteral("请说明需要线特征（边/焊缝/轮廓）还是面特征（平面/打磨栅格）。")
-			: clarify;
+								? QStringLiteral("请说明需要线特征（边/焊缝/轮廓）还是面特征（平面/打磨栅格）。")
+								: clarify;
 		m_dock->appendAssistantMessage(prefixWithParser(result.parserVia, msg));
 		m_dock->hideTrajectoryFeatureConfirmButtons();
 		emit assistantFinished(msg, false, result.parserVia);
@@ -467,8 +470,8 @@ void AiAssistantCoordinator::handleTrajectoryParseResult(const AiParseResult& re
 	try
 	{
 		const nlohmann::json j = nlohmann::json::parse(result.outputJsonUtf8.constData(), nullptr, true);
-		m_pendingPipelineTemplate = QString::fromStdString(
-			j.value("suggestedPipelineTemplate", std::string("weld_default")));
+		m_pendingPipelineTemplate =
+			QString::fromStdString(j.value("suggestedPipelineTemplate", std::string("weld_default")));
 	}
 	catch (...)
 	{
@@ -501,8 +504,7 @@ void AiAssistantCoordinator::retryTrajectoryFeatureWithRules(const QString& user
 		return;
 	}
 
-	m_dock->appendSystemMessage(
-		QStringLiteral("特征目录为空或未传给 LLM，正在重新枚举并以规则解析重试…"));
+	m_dock->appendSystemMessage(QStringLiteral("特征目录为空或未传给 LLM，正在重新枚举并以规则解析重试…"));
 	m_dock->setBusy(true);
 
 	AiInferenceRequest req;
@@ -526,7 +528,8 @@ void AiAssistantCoordinator::retryTrajectoryFeatureWithRules(const QString& user
 	if (!catalogSliceHasCandidates(req.catalogSliceUtf8))
 	{
 		m_dock->setBusy(false);
-		const QString msg = QStringLiteral("当前 STEP 工件未找到匹配的线/面特征候选，请确认模型已加载且轨迹页已选工件。");
+		const QString msg =
+			QStringLiteral("当前 STEP 工件未找到匹配的线/面特征候选，请确认模型已加载且轨迹页已选工件。");
 		m_dock->appendAssistantMessage(msg);
 		emit parseFailed(msg, QStringLiteral("Rules"));
 		return;
@@ -550,10 +553,9 @@ void AiAssistantCoordinator::retryTrajectoryFeatureWithRules(const QString& user
 }
 
 bool AiAssistantCoordinator::needsViewportCapture(const QString& domainId, const QString& userText,
-	const AiConfigDto& cfg) const
+												  const AiConfigDto& cfg) const
 {
-	const QString resolved =
-		m_aiHost ? m_aiHost->resolveDomainId(domainId, userText) : domainId.trimmed();
+	const QString resolved = m_aiHost ? m_aiHost->resolveDomainId(domainId, userText) : domainId.trimmed();
 	if (resolved == AiDomainIds::geometryRecognize())
 		return true;
 	if (const AiDomainModelConfig* dm = findDomainConfig(cfg, resolved))
@@ -567,8 +569,8 @@ void AiAssistantCoordinator::onUserMessageSubmitted(const QString& text)
 		return;
 	if (!m_aiHost)
 	{
-		const QString msg = QStringLiteral(
-			"AI 宿主未就绪（插件宿主尚未初始化）。请重新编译并启动 CloudSim，或稍后重试。");
+		const QString msg =
+			QStringLiteral("AI 宿主未就绪（插件宿主尚未初始化）。请重新编译并启动 CloudSim，或稍后重试。");
 		m_dock->appendAssistantMessage(msg);
 		emit parseFailed(msg, QString());
 		return;
@@ -595,8 +597,7 @@ void AiAssistantCoordinator::onUserMessageSubmitted(const QString& text)
 	req.domainId = m_dock->selectedDomainId();
 	req.userText = text;
 
-	const QString resolvedDomain =
-		m_aiHost->resolveDomainId(req.domainId, text);
+	const QString resolvedDomain = m_aiHost->resolveDomainId(req.domainId, text);
 
 	if (resolvedDomain == AiDomainIds::trajectoryFeature())
 	{
@@ -630,9 +631,8 @@ void AiAssistantCoordinator::onUserMessageSubmitted(const QString& text)
 		if (!m_pluginHost->captureActiveViewportPng(req.imagePng, &capErr))
 		{
 			m_dock->setBusy(false);
-			const QString msg = capErr.isEmpty()
-				? QStringLiteral("无法截取当前 3D 视口，请先打开含视口的文档。")
-				: capErr;
+			const QString msg =
+				capErr.isEmpty() ? QStringLiteral("无法截取当前 3D 视口，请先打开含视口的文档。") : capErr;
 			m_dock->appendAssistantMessage(msg);
 			emit parseFailed(msg, QString());
 			return;
@@ -640,22 +640,24 @@ void AiAssistantCoordinator::onUserMessageSubmitted(const QString& text)
 	}
 
 	m_aiHost->parseUserTextAsync(
-		req,
-		cfg,
-		[this](double fraction, const QString& message) {
+		req, cfg,
+		[this](double fraction, const QString& message)
+		{
 			if (m_dock && !message.isEmpty())
-				m_dock->appendSystemMessage(QStringLiteral("%1% — %2").arg(static_cast<int>(fraction * 100)).arg(message));
+				m_dock->appendSystemMessage(
+					QStringLiteral("%1% — %2").arg(static_cast<int>(fraction * 100)).arg(message));
 		},
-		[this, resolvedDomain, text](AiParseResult result) {
+		[this, resolvedDomain, text](AiParseResult result)
+		{
 			if (!m_dock)
 				return;
 			m_dock->setBusy(false);
 			if (!result.ok)
 			{
-				if (resolvedDomain == AiDomainIds::trajectoryFeature()
-					&& (isCatalogEmptyTrajectoryMessage(result.errorMessage)
-						|| !catalogSliceHasCandidates(m_pendingCatalogSliceUtf8))
-					&& !m_trajCatalogRetryUsed && !m_lastTrajectoryUserText.isEmpty())
+				if (resolvedDomain == AiDomainIds::trajectoryFeature() &&
+					(isCatalogEmptyTrajectoryMessage(result.errorMessage) ||
+					 !catalogSliceHasCandidates(m_pendingCatalogSliceUtf8)) &&
+					!m_trajCatalogRetryUsed && !m_lastTrajectoryUserText.isEmpty())
 				{
 					scheduleTrajectoryCatalogRetry(m_lastTrajectoryUserText);
 					return;

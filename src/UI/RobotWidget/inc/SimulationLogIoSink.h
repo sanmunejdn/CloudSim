@@ -1,7 +1,12 @@
-#pragma once
+﻿#ifndef ROBOTWIDGET_SIMULATIONLOGIOSINK_H
+#define ROBOTWIDGET_SIMULATIONLOGIOSINK_H
+
+/// @file SimulationLogIoSink.h
+/// @brief 仿真数字 IO 内存态（输出变更经 RunLogger 记录）
+
+#include "robotwidget_global.h"
 
 #include "IRobotIoSink.h"
-#include "robotwidget_global.h"
 
 #include <QHash>
 
@@ -17,3 +22,5 @@ private:
 	QHash<int, bool> m_digitalOut;
 	QHash<int, double> m_analogOut;
 };
+
+#endif // ROBOTWIDGET_SIMULATIONLOGIOSINK_H

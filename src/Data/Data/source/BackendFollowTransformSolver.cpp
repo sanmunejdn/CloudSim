@@ -1,3 +1,6 @@
+﻿/// @file BackendFollowTransformSolver.cpp
+/// @brief BackendFollowTransformSolver 实现
+
 #include "BackendFollowTransformSolver.h"
 
 #include "BackendDataManager.h"
@@ -31,9 +34,9 @@ BackendVec3 modelCenterForData(const BackendDataBase& data)
 			minz = std::min(minz, z);
 			maxz = std::max(maxz, z);
 		}
-		return BackendVec3{ 0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
-			0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
-			0.5 * (static_cast<double>(minz) + static_cast<double>(maxz)) };
+		return BackendVec3{0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
+						   0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
+						   0.5 * (static_cast<double>(minz) + static_cast<double>(maxz))};
 	}
 	if (const auto* mesh = dynamic_cast<const MeshBackendData*>(&data))
 	{
@@ -53,15 +56,15 @@ BackendVec3 modelCenterForData(const BackendDataBase& data)
 			minz = std::min(minz, z);
 			maxz = std::max(maxz, z);
 		}
-		return BackendVec3{ 0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
-			0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
-			0.5 * (static_cast<double>(minz) + static_cast<double>(maxz)) };
+		return BackendVec3{0.5 * (static_cast<double>(minx) + static_cast<double>(maxx)),
+						   0.5 * (static_cast<double>(miny) + static_cast<double>(maxy)),
+						   0.5 * (static_cast<double>(minz) + static_cast<double>(maxz))};
 	}
 	return BackendVec3{};
 }
 
 bool tryWorldMatForData(const BackendDataBase& data, const BackendFollowTransformSolver::WorldMatQuery& worldQuery,
-	BackendMat4& outWorld)
+						BackendMat4& outWorld)
 {
 	if (worldQuery && worldQuery(data.id(), outWorld))
 	{
@@ -77,9 +80,9 @@ bool tryWorldMatForData(const BackendDataBase& data, const BackendFollowTransfor
 
 } // namespace
 
-void BackendFollowTransformSolver::solve(
-	BackendDataManager& mgr, const WorldMatQuery& worldQuery, const std::string& skipUpdatingFollowerId,
-	const std::unordered_set<std::string>* limitPoseUpdateToFollowerIds)
+void BackendFollowTransformSolver::solve(BackendDataManager& mgr, const WorldMatQuery& worldQuery,
+										 const std::string& skipUpdatingFollowerId,
+										 const std::unordered_set<std::string>* limitPoseUpdateToFollowerIds)
 {
 	const auto all = mgr.listData();
 	std::unordered_map<std::string, std::string> followerToTarget;
@@ -92,7 +95,8 @@ void BackendFollowTransformSolver::solve(
 		{
 			continue;
 		}
-		auto comp = std::dynamic_pointer_cast<FollowAttachmentComponent>(d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
+		auto comp = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+			d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
 		if (!comp || !comp->enabled())
 		{
 			continue;
@@ -129,7 +133,7 @@ void BackendFollowTransformSolver::solve(
 		indegree[f] = 1;
 	}
 
-	std::vector<std::string> topo;  // 拓扑序
+	std::vector<std::string> topo; // 拓扑序
 	std::vector<std::string> queue;
 	queue.reserve(nodes.size());
 	for (const std::string& n : nodes)
@@ -168,7 +172,8 @@ void BackendFollowTransformSolver::solve(
 	}
 
 	std::unordered_map<std::string, BackendMat4> worldCache;
-	auto getWorld = [&](const std::string& bid, BackendMat4& w) -> bool {
+	auto getWorld = [&](const std::string& bid, BackendMat4& w) -> bool
+	{
 		const auto itc = worldCache.find(bid);
 		if (itc != worldCache.end())
 		{
@@ -200,7 +205,7 @@ void BackendFollowTransformSolver::solve(
 		}
 		auto follower = mgr.getData(fid);
 		auto comp = follower ? std::dynamic_pointer_cast<FollowAttachmentComponent>(
-					   follower->getComponent(FollowAttachmentComponent::typeKeyStatic()))
+								   follower->getComponent(FollowAttachmentComponent::typeKeyStatic()))
 							 : nullptr;
 		if (!follower || !comp || comp->solverPaused())
 		{
@@ -214,13 +219,7 @@ void BackendFollowTransformSolver::solve(
 		}
 		const BackendVec3 lp = comp->localPosition();
 		const BackendVec3 le = comp->localEulerDeg();
-		const BackendMat4 lMat = [&]() {
-			const BackendMat4 t = BackendMat4::translate(lp.x, lp.y, lp.z);
-			const BackendMat4 r = BackendMat4::rotateEulerDeg(le.x, le.y, le.z);
-			BackendMat4 o{};
-			backend_mat4_multiply(t, r, o);
-			return o;
-		}();
+		const BackendMat4 lMat = backend_world_mat_from_pose(lp, le);
 		BackendMat4 wF{};
 		backend_mat4_multiply(wT, lMat, wF);
 		worldCache[fid] = wF;
@@ -229,8 +228,8 @@ void BackendFollowTransformSolver::solve(
 		{
 			continue;
 		}
-		if (limitPoseUpdateToFollowerIds && !limitPoseUpdateToFollowerIds->empty()
-			&& !limitPoseUpdateToFollowerIds->count(fid))
+		if (limitPoseUpdateToFollowerIds && !limitPoseUpdateToFollowerIds->empty() &&
+			!limitPoseUpdateToFollowerIds->count(fid))
 		{
 			continue;
 		}

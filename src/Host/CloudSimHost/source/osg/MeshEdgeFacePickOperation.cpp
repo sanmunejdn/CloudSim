@@ -1,23 +1,20 @@
+﻿/// @file MeshEdgeFacePickOperation.cpp
+/// @brief MeshEdgeFacePickOperation 实现
+
 #include "MeshEdgeFacePickOperation.h"
-
-#include <vector>
-
-#include <QEvent>
-#include <QMouseEvent>
 
 #include "OsgWidget.h"
 
-MeshEdgeFacePickOperation::MeshEdgeFacePickOperation(OsgWidget* owner)
-	: SelectionOperation(owner)
-{
-}
+#include <QEvent>
+#include <QMouseEvent>
+#include <vector>
+
+MeshEdgeFacePickOperation::MeshEdgeFacePickOperation(OsgWidget* owner) : SelectionOperation(owner) {}
 
 bool MeshEdgeFacePickOperation::canHandle(QObject* watched, QEvent* event) const
 {
 	(void)event;
-	return m_owner
-		&& watched == m_owner->m_glWidget
-		&& (m_owner->m_meshLinePickMode || m_owner->m_meshFacePickMode);
+	return m_owner && watched == m_owner->m_glWidget && (m_owner->m_meshLinePickMode || m_owner->m_meshFacePickMode);
 }
 
 bool MeshEdgeFacePickOperation::onMouseButtonPress(QMouseEvent* mouseEvent)
@@ -124,13 +121,15 @@ bool MeshEdgeFacePickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 				std::vector<osg::Vec3f> merged;
 				const bool hit = m_owner->pickMeshFaceByRayIntersection(mouseEvent->pos(), p, a, b, c, n, &merged);
 				// If miss immediately after click (tiny jitter), keep previous hover highlight.
-				if (hit) m_owner->showMeshFaceHighlight(merged);
+				if (hit)
+					m_owner->showMeshFaceHighlight(merged);
 			}
 			else if (m_owner->m_meshLinePickMode)
 			{
 				osg::Vec3f edgeA, edgeB, p;
 				const bool hit = m_owner->pickMeshEdgeByRayIntersection(mouseEvent->pos(), p, edgeA, edgeB);
-				if (hit) m_owner->showMeshEdgeHighlight(edgeA, edgeB);
+				if (hit)
+					m_owner->showMeshEdgeHighlight(edgeA, edgeB);
 			}
 
 			m_clickHoldTimer.restart();
@@ -146,4 +145,3 @@ bool MeshEdgeFacePickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 	}
 	return false;
 }
-

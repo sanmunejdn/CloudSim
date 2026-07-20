@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef PROPERTYCORE_PROPERTYRGBAATTRIBUTE_H
+#define PROPERTYCORE_PROPERTYRGBAATTRIBUTE_H
+
+/// @file PropertyRgbaAttribute.h
+/// @brief RGBA 颜色属性行
 
 #include "PropertyAttributeHelpers.h"
 
@@ -7,7 +11,6 @@
 
 namespace property_core
 {
-
 /// RGBA 颜色属性行
 template <typename TContext, typename TColor, typename TBase>
 class PropertyRgbaAttribute : public TBase
@@ -18,19 +21,10 @@ public:
 	using SetterFn = void (*)(TContext&, const TColor&);
 	using AppendRowFn = void (*)(nlohmann::json&, const char*, const char*, bool, const std::string&);
 
-	PropertyRgbaAttribute(
-		HasPropertyFn hasPropertyFn,
-		GetterFn getterFn,
-		SetterFn setterFn,
-		std::array<const char*, 4> keys,
-		std::array<const char*, 4> labels,
-		AppendRowFn appendRowFn)
-		: m_hasPropertyFn(hasPropertyFn)
-		, m_getterFn(getterFn)
-		, m_setterFn(setterFn)
-		, m_keys(keys)
-		, m_labels(labels)
-		, m_appendRowFn(appendRowFn)
+	PropertyRgbaAttribute(HasPropertyFn hasPropertyFn, GetterFn getterFn, SetterFn setterFn,
+						  std::array<const char*, 4> keys, std::array<const char*, 4> labels, AppendRowFn appendRowFn)
+		: m_hasPropertyFn(hasPropertyFn), m_getterFn(getterFn), m_setterFn(setterFn), m_keys(keys), m_labels(labels),
+		  m_appendRowFn(appendRowFn)
 	{
 	}
 
@@ -78,3 +72,5 @@ private:
 };
 
 } // namespace property_core
+
+#endif // PROPERTYCORE_PROPERTYRGBAATTRIBUTE_H

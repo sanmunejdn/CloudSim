@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINSDK_PLUGINBACKENDMETA_H
+#define CLOUDSIMPLUGINSDK_PLUGINBACKENDMETA_H
+
+/// @file PluginBackendMeta.h
+/// @brief 插件后端工厂（宿主适配 BackendDataBase）
 
 #include "cloudsim_plugin_sdk_global.h"
 
@@ -36,3 +40,5 @@ public:
 	virtual std::string propertyRowsJson() const = 0;
 	virtual bool applyPropertyChange(const std::string& key, const std::string& valueUtf8) = 0;
 };
+
+#endif // CLOUDSIMPLUGINSDK_PLUGINBACKENDMETA_H

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMLABELINGSDK_LABELINGSESSION_H
+#define CLOUDSIMLABELINGSDK_LABELINGSESSION_H
+
+/// @file LabelingSession.h
+/// @brief 纯逻辑标注会话（无 Qt/OSG）
 
 #include "labeling_sdk_global.h"
 
@@ -47,18 +51,11 @@ public:
 	void buildPointCloudRgba(std::vector<float>& outRgba) const;
 	void buildMeshVertexRgb(std::vector<float>& outRgb) const;
 
-	bool exportPointNetDataset(
-		const std::string& outputDirUtf8,
-		const LabelingDatasetExportOptions& options,
-		LabelingDatasetExportResult& outResult,
-		std::string* errMsg = nullptr) const;
+	bool exportPointNetDataset(const std::string& outputDirUtf8, const LabelingDatasetExportOptions& options,
+							   LabelingDatasetExportResult& outResult, std::string* errMsg = nullptr) const;
 
-	static bool sampleMeshLabelsToPointCloud(
-		const std::vector<float>& soup,
-		const std::vector<int>& triLabels,
-		int sampleCount,
-		std::vector<float>& outXyz,
-		std::vector<int>& outLabels);
+	static bool sampleMeshLabelsToPointCloud(const std::vector<float>& soup, const std::vector<int>& triLabels,
+											 int sampleCount, std::vector<float>& outXyz, std::vector<int>& outLabels);
 
 private:
 	void pushUndo(const LabelingUndoPatch& patch);
@@ -77,3 +74,5 @@ private:
 	std::vector<LabelingUndoPatch> m_undoStack;
 	std::vector<LabelingUndoPatch> m_redoStack;
 };
+
+#endif // CLOUDSIMLABELINGSDK_LABELINGSESSION_H

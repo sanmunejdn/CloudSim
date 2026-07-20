@@ -1,7 +1,7 @@
-RobotSimulationController::RobotSimulationController(QObject* parent)
-	: QObject(parent)
-{
-}
+﻿/// @file RobotSimulationController_init.cpp
+/// @brief RobotSimulationController_init 实现
+
+RobotSimulationController::RobotSimulationController(QObject* parent) : QObject(parent) {}
 
 void RobotSimulationController::setHost(IRobotMainWindowHost* host)
 {
@@ -29,18 +29,26 @@ void RobotSimulationController::wireSimulationSignals()
 	auto* frame = m_simulationDock->framePage();
 	connect(cmd, &SimulationCommandWidget::runRequested, this, &RobotSimulationController::onSimulationRunRequested);
 	connect(cmd, &SimulationCommandWidget::stopRequested, this, &RobotSimulationController::onSimulationStopRequested);
-	connect(cmd, &SimulationCommandWidget::exportProgramRequested, this, &RobotSimulationController::onSimulationExportRequested);
-	connect(cmd, &SimulationCommandWidget::addInstructionRequested, this, &RobotSimulationController::onSimulationAddInstructionRequested);
+	connect(cmd, &SimulationCommandWidget::exportProgramRequested, this,
+			&RobotSimulationController::onSimulationExportRequested);
+	connect(cmd, &SimulationCommandWidget::addInstructionRequested, this,
+			&RobotSimulationController::onSimulationAddInstructionRequested);
 	connect(cmd, &SimulationCommandWidget::instructionSelectionChanged, this,
-		&RobotSimulationController::onSimulationInstructionSelectionChanged);
-	connect(cmd, &SimulationCommandWidget::robotSelectionChanged, this, &RobotSimulationController::onSimulationRobotSelectionChanged);
-	connect(cmd, &SimulationCommandWidget::tcpDragTeachModeChanged, this, &RobotSimulationController::onSimulationTcpDragTeachModeChanged);
-	connect(axis, &RobotAxisControlWidget::allJointAnglesChanged, this, &RobotSimulationController::onRobotAxisJointAnglesChanged);
-	connect(frame, &RobotFrameSettingsWidget::framesChanged, this, &RobotSimulationController::onRobotCoordinateFramesChanged);
-	connect(frame, &RobotFrameSettingsWidget::captureToolFromTcpRequested, this, &RobotSimulationController::onCaptureToolFrameFromTcp);
+			&RobotSimulationController::onSimulationInstructionSelectionChanged);
+	connect(cmd, &SimulationCommandWidget::robotSelectionChanged, this,
+			&RobotSimulationController::onSimulationRobotSelectionChanged);
+	connect(cmd, &SimulationCommandWidget::tcpDragTeachModeChanged, this,
+			&RobotSimulationController::onSimulationTcpDragTeachModeChanged);
+	connect(axis, &RobotAxisControlWidget::allJointAnglesChanged, this,
+			&RobotSimulationController::onRobotAxisJointAnglesChanged);
+	connect(frame, &RobotFrameSettingsWidget::framesChanged, this,
+			&RobotSimulationController::onRobotCoordinateFramesChanged);
+	connect(frame, &RobotFrameSettingsWidget::captureToolFromTcpRequested, this,
+			&RobotSimulationController::onCaptureToolFrameFromTcp);
 	connect(frame, &RobotFrameSettingsWidget::captureUserFrameFromTcpRequested, this,
-		&RobotSimulationController::onCaptureUserFrameFromTcp);
-	connect(frame, &RobotFrameSettingsWidget::resetToolFrameRequested, this, &RobotSimulationController::onResetToolFrame);
+			&RobotSimulationController::onCaptureUserFrameFromTcp);
+	connect(frame, &RobotFrameSettingsWidget::resetToolFrameRequested, this,
+			&RobotSimulationController::onResetToolFrame);
 }
 
 void RobotSimulationController::attachPlaybackTimer(QTimer* externalTimer)

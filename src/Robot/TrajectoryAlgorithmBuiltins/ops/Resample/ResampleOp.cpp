@@ -1,14 +1,16 @@
+﻿/// @file ResampleOp.cpp
+/// @brief ResampleOp 实现
+
 // Resample 原子块：按步长重采样 UnifiedTrajectory 折线
 #include "ResampleOp.h"
 
 #include "TrajectoryOpFormat.h"
-#include "UnifiedTrajectoryPathMath.h"
 #include "TrajectoryOpParamAccess.h"
 #include "TrajectoryOpParamsParse.h"
+#include "UnifiedTrajectoryPathMath.h"
 
 namespace trajectory_algo
 {
-
 RobotInstruction::TrajectoryOpKind ResampleOp::kind() const
 {
 	return RobotInstruction::TrajectoryOpKind::Resample;
@@ -24,8 +26,8 @@ TrajectoryOpCapability ResampleOp::capabilities() const
 	return TrajectoryOpCapability::None;
 }
 
-RobotInstruction::TrajectoryOpDescriptor ResampleOp::makeDefaultDescriptor(
-	const RobotInstruction::OpScope& defaultScope) const
+RobotInstruction::TrajectoryOpDescriptor
+ResampleOp::makeDefaultDescriptor(const RobotInstruction::OpScope& defaultScope) const
 {
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Resample;
@@ -55,19 +57,15 @@ bool ResampleOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, st
 	return true;
 }
 
-std::string ResampleOp::formatSummary(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const bool chinese) const
+std::string ResampleOp::formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op, const bool chinese) const
 {
 	(void)op;
 	return displayName(chinese);
 }
 
-bool ResampleOp::processPath(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	RobotInstruction::UnifiedTrajectory& traj,
-	const TrajectoryOpExecutionContext& ctx,
-	std::string* errMsg) const
+bool ResampleOp::processPath(const RobotInstruction::TrajectoryOpDescriptor& op,
+							 RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx,
+							 std::string* errMsg) const
 {
 	(void)op;
 	(void)errMsg;
@@ -75,11 +73,7 @@ bool ResampleOp::processPath(
 	{
 		return false;
 	}
-	resampleUnifiedTrajectoryInScope(
-		traj,
-		op.scope,
-		ctx.program,
-		parseResampleParams(op.params).stepMm);
+	resampleUnifiedTrajectoryInScope(traj, op.scope, ctx.program, parseResampleParams(op.params).stepMm);
 	return true;
 }
 

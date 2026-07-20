@@ -1,13 +1,13 @@
+﻿/// @file TubularGrindingTrajectoryIngress.cpp
+/// @brief TubularGrindingTrajectoryIngress 实现
+
 #include "TubularGrindingTrajectoryIngress.h"
 
 namespace RobotInstruction
 {
-
-bool importTubularGrindingPointsToRawTrajectory(
-	const geoalgo::TubularGrindingProjectedPoints& points,
-	const TubularGrindingTrajectoryIngressParams& params,
-	RawTrajectory& out,
-	std::string* errMsg)
+bool importTubularGrindingPointsToRawTrajectory(const geoalgo::TubularGrindingProjectedPoints& points,
+												const TubularGrindingTrajectoryIngressParams& params,
+												RawTrajectory& out, std::string* errMsg)
 {
 	(void)points;
 	(void)params;

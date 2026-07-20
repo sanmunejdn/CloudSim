@@ -1,3 +1,6 @@
+﻿/// @file RegistrationGlobal.cpp
+/// @brief RegistrationGlobal 实现
+
 #include "RegistrationGlobal.h"
 
 #include "Downsample.h"
@@ -9,8 +12,6 @@
 #include "RegistrationRigid.h"
 #include "Transform.h"
 
-#include <Eigen/SVD>
-
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -18,12 +19,12 @@
 #include <random>
 #include <sstream>
 
+#include <Eigen/SVD>
+
 namespace pclalgo
 {
-
 namespace
 {
-
 constexpr std::size_t kFpfhDim = 33U;
 
 Eigen::Vector3d pointAt(const std::vector<float>& xyz, const std::size_t i)
@@ -55,12 +56,8 @@ double boundingBoxDiagonalMm(const std::vector<float>& xyz)
 }
 
 // 原始暴力搜索版本（保留用于小点云或 KD-tree 不可用时）
-void findKNearestBruteForce(
-	const std::vector<float>& xyz,
-	const std::size_t queryIndex,
-	const unsigned int k,
-	std::vector<std::size_t>& outIndices,
-	std::vector<double>& outDistSq)
+void findKNearestBruteForce(const std::vector<float>& xyz, const std::size_t queryIndex, const unsigned int k,
+							std::vector<std::size_t>& outIndices, std::vector<double>& outDistSq)
 {
 	const std::size_t n = pointCountFromXyz(xyz);
 	const Eigen::Vector3d query = pointAt(xyz, queryIndex);
@@ -103,10 +100,8 @@ void findKNearestBruteForce(
 	}
 }
 
-void buildFeatureCorrespondences(
-	const std::vector<float>& srcFpfh,
-	const std::vector<float>& tgtFpfh,
-	std::vector<std::size_t>& outSrcToTgt)
+void buildFeatureCorrespondences(const std::vector<float>& srcFpfh, const std::vector<float>& tgtFpfh,
+								 std::vector<std::size_t>& outSrcToTgt)
 {
 	const std::size_t nSrc = srcFpfh.size() / kFpfhDim;
 	const std::size_t nTgt = tgtFpfh.size() / kFpfhDim;
@@ -119,9 +114,7 @@ void buildFeatureCorrespondences(
 		float second = std::numeric_limits<float>::max();
 		for (std::size_t j = 0; j < nSrc; ++j)
 		{
-			const float d = fpfhL2Distance(
-				tgtFpfh.data() + i * kFpfhDim,
-				srcFpfh.data() + j * kFpfhDim);
+			const float d = fpfhL2Distance(tgtFpfh.data() + i * kFpfhDim, srcFpfh.data() + j * kFpfhDim);
 			if (d < best)
 			{
 				second = best;
@@ -144,9 +137,7 @@ void buildFeatureCorrespondences(
 		std::size_t bestTgt = static_cast<std::size_t>(-1);
 		for (std::size_t j = 0; j < nTgt; ++j)
 		{
-			const float d = fpfhL2Distance(
-				srcFpfh.data() + i * kFpfhDim,
-				tgtFpfh.data() + j * kFpfhDim);
+			const float d = fpfhL2Distance(srcFpfh.data() + i * kFpfhDim, tgtFpfh.data() + j * kFpfhDim);
 			if (d < best)
 			{
 				second = best;
@@ -171,10 +162,8 @@ void buildFeatureCorrespondences(
 	}
 }
 
-bool kabsch(
-	const std::vector<Eigen::Vector3d>& src,
-	const std::vector<Eigen::Vector3d>& tgt,
-	Eigen::Isometry3d& transform)
+bool kabsch(const std::vector<Eigen::Vector3d>& src, const std::vector<Eigen::Vector3d>& tgt,
+			Eigen::Isometry3d& transform)
 {
 	if (src.size() != tgt.size() || src.size() < 3U)
 	{
@@ -212,16 +201,11 @@ bool kabsch(
 	return true;
 }
 
-std::size_t evaluateInliers(
-	const KdTreePointSet& tgtTree,
-	const std::vector<float>& srcXyz,
-	const std::vector<float>& srcNormals,
-	const std::vector<float>& tgtXyz,
-	const std::vector<float>& tgtNormals,
-	const Eigen::Isometry3d& transform,
-	const double inlierDistMm,
-	const double minNormalDot,
-	std::vector<std::size_t>& outInlierSrcIndices)
+std::size_t evaluateInliers(const KdTreePointSet& tgtTree, const std::vector<float>& srcXyz,
+							const std::vector<float>& srcNormals, const std::vector<float>& tgtXyz,
+							const std::vector<float>& tgtNormals, const Eigen::Isometry3d& transform,
+							const double inlierDistMm, const double minNormalDot,
+							std::vector<std::size_t>& outInlierSrcIndices)
 {
 	const std::size_t nSrc = pointCountFromXyz(srcXyz);
 	const double inlierDistSq = inlierDistMm * inlierDistMm;
@@ -255,15 +239,10 @@ std::size_t evaluateInliers(
 }
 
 // 原始暴力搜索版本（保留用于小点云或 KD-tree 不可用时）
-std::size_t evaluateInliersBruteForce(
-	const std::vector<float>& srcXyz,
-	const std::vector<float>& srcNormals,
-	const std::vector<float>& tgtXyz,
-	const std::vector<float>& tgtNormals,
-	const Eigen::Isometry3d& transform,
-	const double inlierDistMm,
-	const double minNormalDot,
-	std::vector<std::size_t>& outInlierSrcIndices)
+std::size_t evaluateInliersBruteForce(const std::vector<float>& srcXyz, const std::vector<float>& srcNormals,
+									  const std::vector<float>& tgtXyz, const std::vector<float>& tgtNormals,
+									  const Eigen::Isometry3d& transform, const double inlierDistMm,
+									  const double minNormalDot, std::vector<std::size_t>& outInlierSrcIndices)
 {
 	const std::size_t nSrc = pointCountFromXyz(srcXyz);
 	const std::size_t nTgt = pointCountFromXyz(tgtXyz);
@@ -305,12 +284,8 @@ std::size_t evaluateInliersBruteForce(
 	return outInlierSrcIndices.size();
 }
 
-bool prepareFeatureCloud(
-	std::vector<float>& xyz,
-	std::vector<float>& normalsOut,
-	const double voxelMm,
-	const std::size_t maxPoints,
-	std::string* errMsg)
+bool prepareFeatureCloud(std::vector<float>& xyz, std::vector<float>& normalsOut, const double voxelMm,
+						 const std::size_t maxPoints, std::string* errMsg)
 {
 	if (!validXyzLength(xyz) || pointCountFromXyz(xyz) < 20U)
 	{
@@ -341,16 +316,12 @@ bool prepareFeatureCloud(
 	return pointCountFromXyz(xyz) >= 20U;
 }
 
-void resolveAutoParams(
-	const std::vector<float>& srcXyz,
-	const std::vector<float>& tgtXyz,
-	RigidRegisterRansacParams& params)
+void resolveAutoParams(const std::vector<float>& srcXyz, const std::vector<float>& tgtXyz,
+					   RigidRegisterRansacParams& params)
 {
 	const double srcDiag = boundingBoxDiagonalMm(srcXyz);
 	const double tgtDiag = boundingBoxDiagonalMm(tgtXyz);
-	const double modelDiag = params.modelDiagMm > 0.0
-		? params.modelDiagMm
-		: (std::max)(srcDiag, tgtDiag);
+	const double modelDiag = params.modelDiagMm > 0.0 ? params.modelDiagMm : (std::max)(srcDiag, tgtDiag);
 
 	if (params.featureVoxelMm <= 0.0)
 	{
@@ -375,15 +346,10 @@ void resolveAutoParams(
 
 } // namespace
 
-bool rigidRegisterFeatureRansac(
-	const std::vector<float>& sourceXyz,
-	const std::vector<float>& sourceNormalsNxNyNz,
-	const std::vector<float>& targetXyz,
-	const std::vector<float>& targetNormalsNxNyNz,
-	Eigen::Isometry3d& sourceToTarget,
-	double* inlierRatio,
-	RigidRegisterRansacParams params,
-	std::string* errMsg)
+bool rigidRegisterFeatureRansac(const std::vector<float>& sourceXyz, const std::vector<float>& sourceNormalsNxNyNz,
+								const std::vector<float>& targetXyz, const std::vector<float>& targetNormalsNxNyNz,
+								Eigen::Isometry3d& sourceToTarget, double* inlierRatio,
+								RigidRegisterRansacParams params, std::string* errMsg)
 {
 	sourceToTarget = Eigen::Isometry3d::Identity();
 	if (inlierRatio)
@@ -409,8 +375,8 @@ bool rigidRegisterFeatureRansac(
 	std::vector<float> srcNormals;
 	std::vector<float> tgtNormals;
 	std::string prepErr;
-	if (!prepareFeatureCloud(srcXyz, srcNormals, params.featureVoxelMm, params.maxFeaturePoints, &prepErr)
-		|| !prepareFeatureCloud(tgtXyz, tgtNormals, params.featureVoxelMm, params.maxFeaturePoints, &prepErr))
+	if (!prepareFeatureCloud(srcXyz, srcNormals, params.featureVoxelMm, params.maxFeaturePoints, &prepErr) ||
+		!prepareFeatureCloud(tgtXyz, tgtNormals, params.featureVoxelMm, params.maxFeaturePoints, &prepErr))
 	{
 		if (errMsg)
 		{
@@ -492,16 +458,8 @@ bool rigidRegisterFeatureRansac(
 
 		std::vector<std::size_t> inlierIndices;
 		// 使用 KD-tree 加速内点评估
-		const std::size_t inlierCount = evaluateInliers(
-			tgtTree,
-			srcXyz,
-			srcNormals,
-			tgtXyz,
-			tgtNormals,
-			hypothesis,
-			params.inlierDistanceMm,
-			minNormalDot,
-			inlierIndices);
+		const std::size_t inlierCount = evaluateInliers(tgtTree, srcXyz, srcNormals, tgtXyz, tgtNormals, hypothesis,
+														params.inlierDistanceMm, minNormalDot, inlierIndices);
 
 		if (inlierCount > bestInliers)
 		{
@@ -510,8 +468,8 @@ bool rigidRegisterFeatureRansac(
 			bestInlierIndices = std::move(inlierIndices);
 		}
 
-		if (bestInliers >= params.minInliers
-			&& static_cast<double>(bestInliers) / static_cast<double>(pointCountFromXyz(srcXyz)) > 0.35)
+		if (bestInliers >= params.minInliers &&
+			static_cast<double>(bestInliers) / static_cast<double>(pointCountFromXyz(srcXyz)) > 0.35)
 		{
 			break;
 		}
@@ -539,10 +497,8 @@ bool rigidRegisterFeatureRansac(
 			const Eigen::Vector3d ps = bestTransform * pointAt(srcXyz, si);
 			// 使用 KD-tree 加速最近邻搜索
 			double distSq = 0.0;
-			const std::size_t bestJ = tgtTree.findNearest(
-				ps.x(), ps.y(), ps.z(),
-				std::numeric_limits<double>::max(),
-				distSq);
+			const std::size_t bestJ =
+				tgtTree.findNearest(ps.x(), ps.y(), ps.z(), std::numeric_limits<double>::max(), distSq);
 			if (bestJ != static_cast<std::size_t>(-1))
 			{
 				srcPts.push_back(ps);
@@ -557,16 +513,9 @@ bool rigidRegisterFeatureRansac(
 				const Eigen::Isometry3d composed = refined * bestTransform;
 				std::vector<std::size_t> refinedInliers;
 				// 使用 KD-tree 加速内点评估
-				const std::size_t refinedCount = evaluateInliers(
-					tgtTree,
-					srcXyz,
-					srcNormals,
-					tgtXyz,
-					tgtNormals,
-					composed,
-					params.inlierDistanceMm,
-					minNormalDot,
-					refinedInliers);
+				const std::size_t refinedCount =
+					evaluateInliers(tgtTree, srcXyz, srcNormals, tgtXyz, tgtNormals, composed, params.inlierDistanceMm,
+									minNormalDot, refinedInliers);
 				if (refinedCount >= bestInliers)
 				{
 					bestTransform = composed;
@@ -594,33 +543,16 @@ bool rigidRegisterFeatureRansac(
 	{
 		Eigen::Isometry3d icpRefineStep = Eigen::Isometry3d::Identity();
 		double icpRefineRmse = 0.0;
-		if (rigidRegisterPointToPlaneIcp(
-				alignedSrcXyz,
-				alignedSrcNormals,
-				tgtXyz,
-				tgtNormals,
-				icpRefineStep,
-				&icpRefineRmse,
-				25,
-				0.005,
-				params.inlierDistanceMm,
-				params.maxFeaturePoints,
-				nullptr,
-				params.maxNormalAngleDeg))
+		if (rigidRegisterPointToPlaneIcp(alignedSrcXyz, alignedSrcNormals, tgtXyz, tgtNormals, icpRefineStep,
+										 &icpRefineRmse, 25, 0.005, params.inlierDistanceMm, params.maxFeaturePoints,
+										 nullptr, params.maxNormalAngleDeg))
 		{
 			sourceToTarget = icpRefineStep * sourceToTarget;
 			std::vector<std::size_t> icpInliers;
 			// 使用 KD-tree 加速内点评估
-			const std::size_t icpInliersCount = evaluateInliers(
-				tgtTree,
-				srcXyz,
-				srcNormals,
-				tgtXyz,
-				tgtNormals,
-				sourceToTarget,
-				params.inlierDistanceMm,
-				minNormalDot,
-				icpInliers);
+			const std::size_t icpInliersCount =
+				evaluateInliers(tgtTree, srcXyz, srcNormals, tgtXyz, tgtNormals, sourceToTarget,
+								params.inlierDistanceMm, minNormalDot, icpInliers);
 			if (icpInliersCount > bestInliers)
 			{
 				bestInliers = icpInliersCount;

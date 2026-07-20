@@ -1,3 +1,6 @@
+﻿/// @file TrajectoryUnifiedScope.cpp
+/// @brief TrajectoryUnifiedScope 实现
+
 // TrajectoryUnifiedScope 实现
 #include "TrajectoryUnifiedScope.h"
 
@@ -5,11 +8,9 @@
 
 namespace trajectory_algo
 {
-
-std::unordered_set<std::string> resolveScopeInstructionIds(
-	const RobotInstruction::OpScope& scope,
-	const RobotInstruction::UnifiedTrajectory& traj,
-	const RobotInstruction::RobotProgram* program)
+std::unordered_set<std::string> resolveScopeInstructionIds(const RobotInstruction::OpScope& scope,
+														   const RobotInstruction::UnifiedTrajectory& traj,
+														   const RobotInstruction::RobotProgram* program)
 {
 	std::unordered_set<std::string> ids;
 	if (program)
@@ -57,10 +58,9 @@ std::unordered_set<std::string> resolveScopeInstructionIds(
 	return ids;
 }
 
-std::vector<std::size_t> resolveScopedPointIndices(
-	const RobotInstruction::UnifiedTrajectory& traj,
-	const RobotInstruction::OpScope& scope,
-	const RobotInstruction::RobotProgram* program)
+std::vector<std::size_t> resolveScopedPointIndices(const RobotInstruction::UnifiedTrajectory& traj,
+												   const RobotInstruction::OpScope& scope,
+												   const RobotInstruction::RobotProgram* program)
 {
 	std::vector<std::size_t> indices;
 

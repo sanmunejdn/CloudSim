@@ -1,3 +1,6 @@
+﻿/// @file BackendVisualRegistry.cpp
+/// @brief BackendVisualRegistry 实现
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -9,8 +12,8 @@
 #endif
 
 #include "BackendVisualRegistry.h"
-
 #include "BrepBackendVisual.h"
+#include "FrameBackendVisual.h"
 #include "MeshBackendData.h"
 #include "MeshBackendVisual.h"
 #include "PointCloudBackendData.h"
@@ -19,8 +22,8 @@
 #include <mutex>
 #include <unordered_map>
 
-namespace {
-
+namespace
+{
 std::unordered_map<std::string, BackendVisualRegistry::Factory>& factories()
 {
 	static std::unordered_map<std::string, BackendVisualRegistry::Factory> m;
@@ -35,14 +38,18 @@ std::once_flag& builtinsOnce()
 
 void registerBuiltins()
 {
-	BackendVisualRegistry::registerType("PointCloudBackendData",
+	BackendVisualRegistry::registerType(
+		"PointCloudBackendData",
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<PointCloudBackendVisual>(); });
-	BackendVisualRegistry::registerType("Model",
-		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });
-	BackendVisualRegistry::registerType("MeshBackendData",
-		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });
-	BackendVisualRegistry::registerType("BrepModel",
-		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<BrepBackendVisual>(); });
+	BackendVisualRegistry::registerType(
+		"Model", []() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });
+	BackendVisualRegistry::registerType(
+		"MeshBackendData", []() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });
+	BackendVisualRegistry::registerType(
+		"BrepModel", []() -> std::unique_ptr<IBackendVisual> { return std::make_unique<BrepBackendVisual>(); });
+	BackendVisualRegistry::registerType(
+		"FrameBackendData",
+		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<FrameBackendVisual>(); });
 }
 
 } // namespace
@@ -69,7 +76,7 @@ std::unique_ptr<IBackendVisual> BackendVisualRegistry::createForClassName(const 
 }
 
 bool BackendVisualRegistry::buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions& meshOptions,
-	BranchBuildResult& out, std::string* errorMessage)
+											 BranchBuildResult& out, std::string* errorMessage)
 {
 	std::unique_ptr<IBackendVisual> v = createForClassName(data.className());
 	if (!v)
@@ -84,7 +91,7 @@ bool BackendVisualRegistry::buildOuterBranch(const BackendDataBase& data, const 
 }
 
 void BackendVisualRegistry::computeModelCenterAndDiagonal(const BackendDataBase& data, osg::Vec3f& outCenter,
-	float& outDiagonal)
+														  float& outDiagonal)
 {
 	std::unique_ptr<IBackendVisual> v = createForClassName(data.className());
 	if (!v)
@@ -97,14 +104,15 @@ void BackendVisualRegistry::computeModelCenterAndDiagonal(const BackendDataBase&
 }
 
 osg::ref_ptr<osg::Geode> BackendVisualRegistry::buildPointCloudGeode(const PointCloudBackendData& data,
-	std::string* errorMessage)
+																	 std::string* errorMessage)
 {
 	PointCloudBackendVisual v;
 	return v.makeStagingGeode(data, errorMessage);
 }
 
 osg::ref_ptr<osg::Node> BackendVisualRegistry::buildMeshDisplayNode(const MeshBackendData& data,
-	const MeshVisualOptions& options, std::string* errorMessage)
+																	const MeshVisualOptions& options,
+																	std::string* errorMessage)
 {
 	MeshBackendVisual v;
 	return v.makeDisplayNode(data, options, errorMessage);

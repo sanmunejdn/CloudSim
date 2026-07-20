@@ -1,5 +1,8 @@
-#include "MeshSurfaceReconstructionInternal.h"
+﻿/// @file MeshSurfaceReconstructionUtils.cpp
+/// @brief PCA 最小特征值 / 最大特征值，衡量平面性（1=完美平面，0=各向同性）
+
 #include "MeshSurfaceReconstructionAmrtoPartition.h"
+#include "MeshSurfaceReconstructionInternal.h"
 #include "MeshSurfaceReconstructionPartitionCgal.h"
 
 #include <algorithm>
@@ -13,18 +16,12 @@ namespace geoalgo
 {
 namespace meshrecon
 {
-
-bool partitionQuadDomainsHybrid(
-	const IndexedMeshLite& mesh,
-	const MeshSurfaceReconstructParams& params,
-	std::vector<QuadPatch>& patches,
-	int& outJunctionCount,
-	MeshSurfaceReconstructReport* partitionStats,
-	std::string* errMsg);
+bool partitionQuadDomainsHybrid(const IndexedMeshLite& mesh, const MeshSurfaceReconstructParams& params,
+								std::vector<QuadPatch>& patches, int& outJunctionCount,
+								MeshSurfaceReconstructReport* partitionStats, std::string* errMsg);
 
 namespace
 {
-
 struct Vec3d
 {
 	double x = 0.0;
@@ -44,10 +41,7 @@ struct Vec3d
 
 Vec3d crossv(const Vec3d& a, const Vec3d& b)
 {
-	return {
-		a.y * b.z - a.z * b.y,
-		a.z * b.x - a.x * b.z,
-		a.x * b.y - a.y * b.x};
+	return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
 
 Vec3d readV(const std::vector<float>& v, int i)
@@ -56,10 +50,8 @@ Vec3d readV(const std::vector<float>& v, int i)
 	return {v[b], v[b + 1U], v[b + 2U]};
 }
 
-void rebuildPatchAdjacency(
-	const std::vector<std::vector<int>>& adj,
-	const int faceCount,
-	std::vector<QuadPatch>& patches)
+void rebuildPatchAdjacency(const std::vector<std::vector<int>>& adj, const int faceCount,
+						   std::vector<QuadPatch>& patches)
 {
 	std::vector<int> faceToPatch(static_cast<std::size_t>(faceCount), -1);
 	for (int pi = 0; pi < static_cast<int>(patches.size()); ++pi)
@@ -98,10 +90,7 @@ int64_t edgeKey(int v0, int v1)
 	return (static_cast<int64_t>(lo) << 32) | static_cast<int64_t>(hi);
 }
 
-void collectPatchPts(
-	const IndexedMeshLite& mesh,
-	const std::vector<int>& faceIndices,
-	std::vector<Vec3d>& outPts)
+void collectPatchPts(const IndexedMeshLite& mesh, const std::vector<int>& faceIndices, std::vector<Vec3d>& outPts)
 {
 	outPts.clear();
 	outPts.reserve(faceIndices.size() * 3U);
@@ -156,8 +145,8 @@ double patchFlatness(const std::vector<Vec3d>& pts)
 		vy = ny / len;
 		vz = nz / len;
 	}
-	const double lambdaMax = cxx * vx * vx + cyy * vy * vy + czz * vz * vz
-		+ 2.0 * cxy * vx * vy + 2.0 * cxz * vx * vz + 2.0 * cyz * vy * vz;
+	const double lambdaMax =
+		cxx * vx * vx + cyy * vy * vy + czz * vz * vz + 2.0 * cxy * vx * vy + 2.0 * cxz * vx * vz + 2.0 * cyz * vy * vz;
 
 	// trace = lambda0 + lambda1 + lambda2
 	const double trace = cxx + cyy + czz;
@@ -210,20 +199,16 @@ Vec3d averageFaceNormal(const std::vector<int>& faces, const std::vector<Vec3d>&
 	return sum.normalized();
 }
 
-double normalSimilarity(
-	const std::vector<int>& facesA,
-	const std::vector<int>& facesB,
-	const std::vector<Vec3d>& faceNormals)
+double normalSimilarity(const std::vector<int>& facesA, const std::vector<int>& facesB,
+						const std::vector<Vec3d>& faceNormals)
 {
 	const Vec3d na = averageFaceNormal(facesA, faceNormals);
 	const Vec3d nb = averageFaceNormal(facesB, faceNormals);
 	return std::max(0.0, na.dot(nb));
 }
 
-void smoothFaceNormalsForPartition(
-	const std::vector<std::vector<int>>& fullAdj,
-	std::vector<Vec3d>& faceNormals,
-	const int iterations)
+void smoothFaceNormalsForPartition(const std::vector<std::vector<int>>& fullAdj, std::vector<Vec3d>& faceNormals,
+								   const int iterations)
 {
 	if (iterations <= 0)
 	{
@@ -259,9 +244,7 @@ double anglePercentile(std::vector<double> angles, const double percentile)
 	return angles[idx];
 }
 
-std::vector<int> selectFpsSeeds(
-	const std::vector<Vec3d>& faceCentroids,
-	const int targetPatches)
+std::vector<int> selectFpsSeeds(const std::vector<Vec3d>& faceCentroids, const int targetPatches)
 {
 	const int faceCount = static_cast<int>(faceCentroids.size());
 	std::vector<int> seeds;
@@ -286,8 +269,9 @@ std::vector<int> selectFpsSeeds(
 		const int lastSeed = seeds.back();
 		for (int f = 0; f < faceCount; ++f)
 		{
-			const double d = (faceCentroids[static_cast<std::size_t>(f)]
-				- faceCentroids[static_cast<std::size_t>(lastSeed)]).length();
+			const double d =
+				(faceCentroids[static_cast<std::size_t>(f)] - faceCentroids[static_cast<std::size_t>(lastSeed)])
+					.length();
 			minDist[static_cast<std::size_t>(f)] = std::min(minDist[static_cast<std::size_t>(f)], d);
 		}
 		int nextSeed = 0;
@@ -309,10 +293,8 @@ std::vector<int> selectFpsSeeds(
 	return seeds;
 }
 
-std::vector<int> multiSourceGeodesicVoronoi(
-	const std::vector<std::vector<int>>& smoothAdj,
-	const std::vector<Vec3d>& faceCentroids,
-	const std::vector<int>& seeds)
+std::vector<int> multiSourceGeodesicVoronoi(const std::vector<std::vector<int>>& smoothAdj,
+											const std::vector<Vec3d>& faceCentroids, const std::vector<int>& seeds)
 {
 	const int faceCount = static_cast<int>(faceCentroids.size());
 	std::vector<double> dist(static_cast<std::size_t>(faceCount), 1e30);
@@ -342,8 +324,8 @@ std::vector<int> multiSourceGeodesicVoronoi(
 		const int owner = chart[static_cast<std::size_t>(f)];
 		for (const int nb : smoothAdj[static_cast<std::size_t>(f)])
 		{
-			const double edgeLen = (faceCentroids[static_cast<std::size_t>(nb)]
-				- faceCentroids[static_cast<std::size_t>(f)]).length();
+			const double edgeLen =
+				(faceCentroids[static_cast<std::size_t>(nb)] - faceCentroids[static_cast<std::size_t>(f)]).length();
 			const double nd = d + edgeLen;
 			if (nd < dist[static_cast<std::size_t>(nb)] - 1e-12)
 			{
@@ -351,9 +333,8 @@ std::vector<int> multiSourceGeodesicVoronoi(
 				chart[static_cast<std::size_t>(nb)] = owner;
 				pq.push({nd, nb});
 			}
-			else if (std::abs(nd - dist[static_cast<std::size_t>(nb)]) <= 1e-12
-				&& chart[static_cast<std::size_t>(nb)] >= 0
-				&& owner < chart[static_cast<std::size_t>(nb)])
+			else if (std::abs(nd - dist[static_cast<std::size_t>(nb)]) <= 1e-12 &&
+					 chart[static_cast<std::size_t>(nb)] >= 0 && owner < chart[static_cast<std::size_t>(nb)])
 			{
 				chart[static_cast<std::size_t>(nb)] = owner;
 			}
@@ -362,9 +343,7 @@ std::vector<int> multiSourceGeodesicVoronoi(
 	return chart;
 }
 
-void assignOrphanChartFaces(
-	std::vector<int>& chart,
-	const std::vector<std::vector<int>>& fullAdj)
+void assignOrphanChartFaces(std::vector<int>& chart, const std::vector<std::vector<int>>& fullAdj)
 {
 	bool changed = true;
 	while (changed)
@@ -425,11 +404,9 @@ void chartToPatches(const std::vector<int>& chart, std::vector<QuadPatch>& patch
 	}
 }
 
-std::vector<int> multiSourceGeodesicVoronoiOnSubset(
-	const std::vector<std::vector<int>>& smoothAdj,
-	const std::vector<Vec3d>& faceCentroids,
-	const std::vector<int>& subsetFaces,
-	const std::vector<int>& seeds)
+std::vector<int> multiSourceGeodesicVoronoiOnSubset(const std::vector<std::vector<int>>& smoothAdj,
+													const std::vector<Vec3d>& faceCentroids,
+													const std::vector<int>& subsetFaces, const std::vector<int>& seeds)
 {
 	std::unordered_set<int> subsetSet(subsetFaces.begin(), subsetFaces.end());
 	std::unordered_map<int, int> faceToLocal;
@@ -486,8 +463,8 @@ std::vector<int> multiSourceGeodesicVoronoiOnSubset(
 				continue;
 			}
 			const int nli = nlit->second;
-			const double edgeLen = (faceCentroids[static_cast<std::size_t>(nb)]
-				- faceCentroids[static_cast<std::size_t>(f)]).length();
+			const double edgeLen =
+				(faceCentroids[static_cast<std::size_t>(nb)] - faceCentroids[static_cast<std::size_t>(f)]).length();
 			const double nd = d + edgeLen;
 			if (nd < dist[static_cast<std::size_t>(nli)] - 1e-12)
 			{
@@ -495,9 +472,8 @@ std::vector<int> multiSourceGeodesicVoronoiOnSubset(
 				owner[static_cast<std::size_t>(nli)] = seedOwner;
 				pq.push({nd, nb});
 			}
-			else if (std::abs(nd - dist[static_cast<std::size_t>(nli)]) <= 1e-12
-				&& owner[static_cast<std::size_t>(nli)] >= 0
-				&& seedOwner < owner[static_cast<std::size_t>(nli)])
+			else if (std::abs(nd - dist[static_cast<std::size_t>(nli)]) <= 1e-12 &&
+					 owner[static_cast<std::size_t>(nli)] >= 0 && seedOwner < owner[static_cast<std::size_t>(nli)])
 			{
 				owner[static_cast<std::size_t>(nli)] = seedOwner;
 			}
@@ -515,11 +491,8 @@ std::vector<int> multiSourceGeodesicVoronoiOnSubset(
 	return faceOwner;
 }
 
-void splitOversizedPatches(
-	std::vector<QuadPatch>& patches,
-	const std::vector<std::vector<int>>& smoothAdj,
-	const std::vector<Vec3d>& faceCentroids,
-	const int maxFacesPerPatch)
+void splitOversizedPatches(std::vector<QuadPatch>& patches, const std::vector<std::vector<int>>& smoothAdj,
+						   const std::vector<Vec3d>& faceCentroids, const int maxFacesPerPatch)
 {
 	const int splitThreshold = static_cast<int>(static_cast<double>(maxFacesPerPatch) * 1.25);
 	std::vector<QuadPatch> nextPatches;
@@ -557,11 +530,8 @@ void splitOversizedPatches(
 			continue;
 		}
 
-		const std::vector<int> faceOwner = multiSourceGeodesicVoronoiOnSubset(
-			smoothAdj,
-			faceCentroids,
-			patch.faceIndices,
-			localSeeds);
+		const std::vector<int> faceOwner =
+			multiSourceGeodesicVoronoiOnSubset(smoothAdj, faceCentroids, patch.faceIndices, localSeeds);
 
 		std::vector<std::vector<int>> splitFaces(2U);
 		for (const int f : patch.faceIndices)
@@ -585,11 +555,8 @@ void splitOversizedPatches(
 	patches = std::move(nextPatches);
 }
 
-void cleanupDisconnectedComponents(
-	std::vector<QuadPatch>& patches,
-	const std::vector<std::vector<int>>& fullAdj,
-	const std::vector<Vec3d>& faceNormals,
-	const int minFaces)
+void cleanupDisconnectedComponents(std::vector<QuadPatch>& patches, const std::vector<std::vector<int>>& fullAdj,
+								   const std::vector<Vec3d>& faceNormals, const int minFaces)
 {
 	if (patches.size() <= 1U)
 	{
@@ -703,10 +670,8 @@ void cleanupDisconnectedComponents(
 				double bestSim = -1.0;
 				for (const int ni : neighborPatches)
 				{
-					const double sim = normalSimilarity(
-						comp,
-						patches[static_cast<std::size_t>(ni)].faceIndices,
-						faceNormals);
+					const double sim =
+						normalSimilarity(comp, patches[static_cast<std::size_t>(ni)].faceIndices, faceNormals);
 					if (sim > bestSim)
 					{
 						bestSim = sim;
@@ -729,24 +694,16 @@ void cleanupDisconnectedComponents(
 	}
 
 	patches.erase(
-		std::remove_if(
-			patches.begin(),
-			patches.end(),
-			[](const QuadPatch& p) { return p.faceIndices.empty(); }),
+		std::remove_if(patches.begin(), patches.end(), [](const QuadPatch& p) { return p.faceIndices.empty(); }),
 		patches.end());
 }
 
-void mergeSmallPatches(
-	std::vector<QuadPatch>& patches,
-	const std::vector<std::vector<int>>& fullAdj,
-	const IndexedMeshLite& mesh,
-	const std::vector<Vec3d>& faceNormals,
-	const int faceCount,
-	const int targetPatches,
-	const MeshSurfaceReconstructParams& params)
+void mergeSmallPatches(std::vector<QuadPatch>& patches, const std::vector<std::vector<int>>& fullAdj,
+					   const IndexedMeshLite& mesh, const std::vector<Vec3d>& faceNormals, const int faceCount,
+					   const int targetPatches, const MeshSurfaceReconstructParams& params)
 {
-	const bool useQuadScore = params.partitionMode == MeshSurfacePartitionMode::CgalChartHybrid
-		|| params.sdfSeedBlendWeight > 1e-6;
+	const bool useQuadScore =
+		params.partitionMode == MeshSurfacePartitionMode::CgalChartHybrid || params.sdfSeedBlendWeight > 1e-6;
 	const int minFaces = std::max(100, faceCount / std::max(1, targetPatches * 2));
 	const int targetAvg = std::max(minFaces, faceCount / std::max(1, targetPatches));
 	const int forceMergeBelow = std::max(1, targetAvg / 4);
@@ -758,7 +715,8 @@ void mergeSmallPatches(
 
 	std::vector<int> faceToPatch(static_cast<std::size_t>(faceCount), -1);
 
-	auto rebuildFaceToPatch = [&]() {
+	auto rebuildFaceToPatch = [&]()
+	{
 		faceToPatch.assign(static_cast<std::size_t>(faceCount), -1);
 		for (int pi = 0; pi < static_cast<int>(patches.size()); ++pi)
 		{
@@ -769,7 +727,8 @@ void mergeSmallPatches(
 		}
 	};
 
-	auto tryMergeSmallest = [&](const int sizeThreshold) -> bool {
+	auto tryMergeSmallest = [&](const int sizeThreshold) -> bool
+	{
 		rebuildFaceToPatch();
 		int smallestIdx = -1;
 		int smallestSize = std::numeric_limits<int>::max();
@@ -811,10 +770,8 @@ void mergeSmallPatches(
 			collectPatchPts(mesh, mergedFaces, mergedPts);
 			const double flat = patchFlatness(mergedPts);
 			const double aspect = patchAspectScore(mergedPts);
-			const double normalSim = normalSimilarity(
-				smallFaces,
-				patches[static_cast<std::size_t>(ni)].faceIndices,
-				faceNormals);
+			const double normalSim =
+				normalSimilarity(smallFaces, patches[static_cast<std::size_t>(ni)].faceIndices, faceNormals);
 			double quadScore = 1.0;
 			if (useQuadScore)
 			{
@@ -823,9 +780,8 @@ void mergeSmallPatches(
 				assignPatchCornerMetadata(mesh, probe);
 				quadScore = probe.hasSquareCorners ? 1.0 : 0.35;
 			}
-			const double score = useQuadScore
-				? (0.4 * flat + 0.15 * aspect + 0.25 * normalSim + 0.2 * quadScore)
-				: (0.5 * flat + 0.2 * aspect + 0.3 * normalSim);
+			const double score = useQuadScore ? (0.4 * flat + 0.15 * aspect + 0.25 * normalSim + 0.2 * quadScore)
+											  : (0.5 * flat + 0.2 * aspect + 0.3 * normalSim);
 			if (score > bestScore)
 			{
 				bestScore = score;
@@ -856,19 +812,12 @@ void mergeSmallPatches(
 	}
 
 	patches.erase(
-		std::remove_if(
-			patches.begin(),
-			patches.end(),
-			[](const QuadPatch& p) { return p.faceIndices.empty(); }),
+		std::remove_if(patches.begin(), patches.end(), [](const QuadPatch& p) { return p.faceIndices.empty(); }),
 		patches.end());
 }
 
-void computePatchFaceStats(
-	const std::vector<QuadPatch>& patches,
-	const int minFacesThreshold,
-	int& outMin,
-	int& outMax,
-	int& outSmallCount)
+void computePatchFaceStats(const std::vector<QuadPatch>& patches, const int minFacesThreshold, int& outMin, int& outMax,
+						   int& outSmallCount)
 {
 	outMin = 0;
 	outMax = 0;
@@ -910,10 +859,7 @@ bool soupToIndexed(const std::vector<float>& soup, IndexedMeshLite& out, std::st
 	};
 	struct Hash
 	{
-		std::size_t operator()(const Key& k) const
-		{
-			return static_cast<std::size_t>(k.x ^ (k.y << 16) ^ (k.z << 32));
-		}
+		std::size_t operator()(const Key& k) const { return static_cast<std::size_t>(k.x ^ (k.y << 16) ^ (k.z << 32)); }
 	};
 	std::unordered_map<Key, int, Hash> map;
 	constexpr double scale = 1000.0;
@@ -926,10 +872,9 @@ bool soupToIndexed(const std::vector<float>& soup, IndexedMeshLite& out, std::st
 		for (int c = 0; c < 3; ++c)
 		{
 			const std::size_t b = t * 9U + static_cast<std::size_t>(c) * 3U;
-			Key key{
-				static_cast<int64_t>(std::round(soup[b] * scale)),
-				static_cast<int64_t>(std::round(soup[b + 1U] * scale)),
-				static_cast<int64_t>(std::round(soup[b + 2U] * scale))};
+			Key key{static_cast<int64_t>(std::round(soup[b] * scale)),
+					static_cast<int64_t>(std::round(soup[b + 1U] * scale)),
+					static_cast<int64_t>(std::round(soup[b + 2U] * scale))};
 			auto it = map.find(key);
 			if (it == map.end())
 			{
@@ -952,26 +897,17 @@ bool soupToIndexed(const std::vector<float>& soup, IndexedMeshLite& out, std::st
 	return true;
 }
 
-static bool partitionQuadDomainsGeodesicV3(
-	const IndexedMeshLite& mesh,
-	const MeshSurfaceReconstructParams& params,
-	std::vector<QuadPatch>& patches,
-	int& outJunctionCount,
-	MeshSurfaceReconstructReport* partitionStats,
-	std::string* errMsg);
+static bool partitionQuadDomainsGeodesicV3(const IndexedMeshLite& mesh, const MeshSurfaceReconstructParams& params,
+										   std::vector<QuadPatch>& patches, int& outJunctionCount,
+										   MeshSurfaceReconstructReport* partitionStats, std::string* errMsg);
 
-bool partitionQuadDomains(
-	const IndexedMeshLite& mesh,
-	const MeshSurfaceReconstructParams& params,
-	std::vector<QuadPatch>& patches,
-	int& outJunctionCount,
-	MeshSurfaceReconstructReport* partitionStats,
-	std::string* errMsg)
+bool partitionQuadDomains(const IndexedMeshLite& mesh, const MeshSurfaceReconstructParams& params,
+						  std::vector<QuadPatch>& patches, int& outJunctionCount,
+						  MeshSurfaceReconstructReport* partitionStats, std::string* errMsg)
 {
 	if (params.partitionMode == MeshSurfacePartitionMode::HybridNormalCvt)
 	{
-		const bool ok = partitionQuadDomainsHybrid(
-			mesh, params, patches, outJunctionCount, partitionStats, errMsg);
+		const bool ok = partitionQuadDomainsHybrid(mesh, params, patches, outJunctionCount, partitionStats, errMsg);
 		if (ok)
 		{
 			assignAllPatchCornerMetadata(mesh, patches);
@@ -980,16 +916,14 @@ bool partitionQuadDomains(
 	}
 	if (params.partitionMode == MeshSurfacePartitionMode::CgalChartHybrid)
 	{
-		return partitionQuadDomainsCgalChartHybrid(
-			mesh, params, patches, outJunctionCount, partitionStats, errMsg);
+		return partitionQuadDomainsCgalChartHybrid(mesh, params, patches, outJunctionCount, partitionStats, errMsg);
 	}
 	if (params.partitionMode == MeshSurfacePartitionMode::AmrtoImGmcg)
 	{
-		return partitionQuadDomainsAmrtoImGmcg(
-			mesh, params, patches, outJunctionCount, partitionStats, errMsg, nullptr, nullptr);
+		return partitionQuadDomainsAmrtoImGmcg(mesh, params, patches, outJunctionCount, partitionStats, errMsg, nullptr,
+											   nullptr);
 	}
-	const bool ok = partitionQuadDomainsGeodesicV3(
-		mesh, params, patches, outJunctionCount, partitionStats, errMsg);
+	const bool ok = partitionQuadDomainsGeodesicV3(mesh, params, patches, outJunctionCount, partitionStats, errMsg);
 	if (ok)
 	{
 		assignAllPatchCornerMetadata(mesh, patches);
@@ -997,13 +931,9 @@ bool partitionQuadDomains(
 	return ok;
 }
 
-static bool partitionQuadDomainsGeodesicV3(
-	const IndexedMeshLite& mesh,
-	const MeshSurfaceReconstructParams& params,
-	std::vector<QuadPatch>& patches,
-	int& outJunctionCount,
-	MeshSurfaceReconstructReport* partitionStats,
-	std::string* errMsg)
+static bool partitionQuadDomainsGeodesicV3(const IndexedMeshLite& mesh, const MeshSurfaceReconstructParams& params,
+										   std::vector<QuadPatch>& patches, int& outJunctionCount,
+										   MeshSurfaceReconstructReport* partitionStats, std::string* errMsg)
 {
 	const int faceCount = static_cast<int>(mesh.faces.size() / 3U);
 	if (faceCount < 1)
@@ -1081,9 +1011,8 @@ static bool partitionQuadDomainsGeodesicV3(
 		{
 			continue;
 		}
-		const double dotVal = std::max(-1.0, std::min(1.0,
-			faceNormals[static_cast<std::size_t>(ef.f0)].dot(
-				faceNormals[static_cast<std::size_t>(ef.f1)])));
+		const double dotVal = std::max(-1.0, std::min(1.0, faceNormals[static_cast<std::size_t>(ef.f0)].dot(
+															   faceNormals[static_cast<std::size_t>(ef.f1)])));
 		const double angle = std::acos(dotVal);
 		allAngles.push_back(angle);
 	}
@@ -1113,9 +1042,8 @@ static bool partitionQuadDomainsGeodesicV3(
 		{
 			continue;
 		}
-		const double dotVal = std::max(-1.0, std::min(1.0,
-			faceNormals[static_cast<std::size_t>(ef.f0)].dot(
-				faceNormals[static_cast<std::size_t>(ef.f1)])));
+		const double dotVal = std::max(-1.0, std::min(1.0, faceNormals[static_cast<std::size_t>(ef.f0)].dot(
+															   faceNormals[static_cast<std::size_t>(ef.f1)])));
 		const double angle = std::acos(dotVal);
 		if (angle < featureAngleThreshold)
 		{
@@ -1135,13 +1063,10 @@ static bool partitionQuadDomainsGeodesicV3(
 
 	const std::vector<int> fpsSeeds = selectFpsSeeds(faceCentroids, targetPatches);
 	std::vector<int> seeds = fpsSeeds;
-	if (params.partitionMode == MeshSurfacePartitionMode::CgalChartHybrid
-		|| params.sdfSeedBlendWeight > 1e-6)
+	if (params.partitionMode == MeshSurfacePartitionMode::CgalChartHybrid || params.sdfSeedBlendWeight > 1e-6)
 	{
 		std::vector<int> sdfSeeds;
-		const int segCount = params.sdfSegmentCount > 0
-			? params.sdfSegmentCount
-			: std::max(4, targetPatches);
+		const int segCount = params.sdfSegmentCount > 0 ? params.sdfSegmentCount : std::max(4, targetPatches);
 		if (collectSdfSegmentSeedFaces(mesh, segCount, sdfSeeds, nullptr))
 		{
 			for (const int sf : sdfSeeds)

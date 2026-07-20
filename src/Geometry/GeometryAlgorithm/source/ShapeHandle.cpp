@@ -1,6 +1,9 @@
-#include "detail/OccIncludes.h"
+﻿/// @file ShapeHandle.cpp
+/// @brief ShapeHandle 实现
 
 #include "ShapeHandle.h"
+
+#include "detail/OccIncludes.h"
 
 #include <BRepBndLib.hxx>
 #include <BRepBuilderAPI_Copy.hxx>
@@ -8,7 +11,6 @@
 
 namespace geoalgo
 {
-
 struct ShapeHandle::Impl
 {
 	TopoDS_Shape shape;
@@ -16,15 +18,9 @@ struct ShapeHandle::Impl
 
 ShapeHandle::ShapeHandle() = default;
 
-ShapeHandle::ShapeHandle(const ShapeHandle& other)
-	: m_impl(other.m_impl)
-{
-}
+ShapeHandle::ShapeHandle(const ShapeHandle& other) : m_impl(other.m_impl) {}
 
-ShapeHandle::ShapeHandle(ShapeHandle&& other) noexcept
-	: m_impl(std::move(other.m_impl))
-{
-}
+ShapeHandle::ShapeHandle(ShapeHandle&& other) noexcept : m_impl(std::move(other.m_impl)) {}
 
 ShapeHandle& ShapeHandle::operator=(const ShapeHandle& other)
 {

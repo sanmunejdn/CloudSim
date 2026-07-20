@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef POINTCLOUDPLUGIN_POINTCLOUDPLUGIN_H
+#define POINTCLOUDPLUGIN_POINTCLOUDPLUGIN_H
+
+/// @file PointCloudPlugin.h
+/// @brief PointCloudPlugin 接口
 
 #include "ICloudSimPlugin.h"
 
@@ -46,3 +50,5 @@ private:
 	QAction* m_smoothAction = nullptr;
 	QAction* m_surfaceReconstructAction = nullptr;
 };
+
+#endif // POINTCLOUDPLUGIN_POINTCLOUDPLUGIN_H

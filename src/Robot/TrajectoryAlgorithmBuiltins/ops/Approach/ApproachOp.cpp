@@ -1,12 +1,15 @@
+﻿/// @file ApproachOp.cpp
+/// @brief ApproachOp 实现
+
 // Approach 原子块：在路径首端插入进刀点
 #include "ApproachOp.h"
 
+#include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamsParse.h"
 #include "UnifiedTrajectorySemanticMath.h"
 
 #include <cmath>
 #include <cstdio>
-#include "TrajectoryOpParamAccess.h"
-#include "TrajectoryOpParamsParse.h"
 
 namespace trajectory_algo
 {
@@ -40,13 +43,8 @@ const char* segmentLabel(const int mode, const bool chinese)
 	}
 }
 
-TrajectoryOpParamField boolField(
-	const std::string& key,
-	const std::string& labelEn,
-	const std::string& labelZh,
-	const bool defaultValue,
-	const int order,
-	const std::string& group)
+TrajectoryOpParamField boolField(const std::string& key, const std::string& labelEn, const std::string& labelZh,
+								 const bool defaultValue, const int order, const std::string& group)
 {
 	TrajectoryOpParamField field{};
 	field.key = key;
@@ -93,8 +91,8 @@ TrajectoryOpCapability ApproachOp::capabilities() const
 	return TrajectoryOpCapability::None;
 }
 
-RobotInstruction::TrajectoryOpDescriptor ApproachOp::makeDefaultDescriptor(
-	const RobotInstruction::OpScope& defaultScope) const
+RobotInstruction::TrajectoryOpDescriptor
+ApproachOp::makeDefaultDescriptor(const RobotInstruction::OpScope& defaultScope) const
 {
 	RobotInstruction::TrajectoryOpDescriptor op{};
 	op.kind = RobotInstruction::TrajectoryOpKind::Approach;
@@ -116,99 +114,34 @@ RobotInstruction::TrajectoryOpDescriptor ApproachOp::makeDefaultDescriptor(
 
 std::vector<TrajectoryOpParamField> ApproachOp::paramFields() const
 {
-	TrajectoryOpParamField directionFrameField = enumParamField(
-		"approach.directionFrame",
-		"Direction Frame",
-		"方向参考系",
-		{ "0", "1" },
-		{ "世界", "体" },
-		{ "World", "Body" },
-		0,
-		3,
-		"approach");
+	TrajectoryOpParamField directionFrameField =
+		enumParamField("approach.directionFrame", "Direction Frame", "方向参考系", {"0", "1"}, {"世界", "体"},
+					   {"World", "Body"}, 0, 3, "approach");
 	directionFrameField.visibleWhenFieldKey = "approach.directionMode";
-	directionFrameField.visibleWhenIntValue =
-		static_cast<int>(RobotInstruction::ApproachDirectionMode::Custom);
-	TrajectoryOpParamField segmentFromField = intParamField(
-		"approach.segmentFrom",
-		"Segment From",
-		"段起始",
-		1,
-		100000,
-		1,
-		4,
-		"approach");
+	directionFrameField.visibleWhenIntValue = static_cast<int>(RobotInstruction::ApproachDirectionMode::Custom);
+	TrajectoryOpParamField segmentFromField =
+		intParamField("approach.segmentFrom", "Segment From", "段起始", 1, 100000, 1, 4, "approach");
 	segmentFromField.visibleWhenFieldKey = "approach.segmentSelectMode";
 	segmentFromField.visibleWhenIntValue = 1;
-	TrajectoryOpParamField segmentToField = intParamField(
-		"approach.segmentTo",
-		"Segment To",
-		"段结束",
-		1,
-		100000,
-		1,
-		5,
-		"approach");
+	TrajectoryOpParamField segmentToField =
+		intParamField("approach.segmentTo", "Segment To", "段结束", 1, 100000, 1, 5, "approach");
 	segmentToField.visibleWhenFieldKey = "approach.segmentSelectMode";
 	segmentToField.visibleWhenIntValue = 1;
 	return {
-		doubleParamField(
-			"approach.distanceMm",
-			"Distance",
-			"进刀距离",
-			"mm",
-			0.0,
-			10000.0,
-			0.1,
-			20.0,
-			0,
-			"approach"),
-		enumParamField(
-			"approach.directionMode",
-			"Direction",
-			"方向模式",
-			{ "0", "1", "2", "3" },
-			{ "切向", "法向", "工具Z", "自定义" },
-			{ "PathTangent", "SurfaceNormal", "ToolZ", "Custom" },
-			1,
-			1,
-			"approach"),
+		doubleParamField("approach.distanceMm", "Distance", "进刀距离", "mm", 0.0, 10000.0, 0.1, 20.0, 0, "approach"),
+		enumParamField("approach.directionMode", "Direction", "方向模式", {"0", "1", "2", "3"},
+					   {"切向", "法向", "工具Z", "自定义"}, {"PathTangent", "SurfaceNormal", "ToolZ", "Custom"}, 1, 1,
+					   "approach"),
 		customDirectionField(),
 		directionFrameField,
-		enumParamField(
-			"approach.insertMode",
-			"Insert Mode",
-			"插入模式",
-			{ "0", "1" },
-			{ "轨迹首", "段首" },
-			{ "TrajectoryHead", "SegmentHead" },
-			0,
-			2,
-			"approach"),
-		enumParamField(
-			"approach.segmentSelectMode",
-			"Segment Scope",
-			"段选择",
-			{ "0", "1" },
-			{ "全部段", "范围" },
-			{ "AllSegments", "IndexRange" },
-			0,
-			3,
-			"approach"),
+		enumParamField("approach.insertMode", "Insert Mode", "插入模式", {"0", "1"}, {"轨迹首", "段首"},
+					   {"TrajectoryHead", "SegmentHead"}, 0, 2, "approach"),
+		enumParamField("approach.segmentSelectMode", "Segment Scope", "段选择", {"0", "1"}, {"全部段", "范围"},
+					   {"AllSegments", "IndexRange"}, 0, 3, "approach"),
 		segmentFromField,
 		segmentToField,
 		boolField("approach.overrideSpeedEnabled", "Override Speed", "覆盖速度", false, 6, "approach"),
-		doubleParamField(
-			"approach.speedMmPerSec",
-			"Speed",
-			"速度",
-			"mm/s",
-			1.0,
-			5000.0,
-			1.0,
-			100.0,
-			7,
-			"approach"),
+		doubleParamField("approach.speedMmPerSec", "Speed", "速度", "mm/s", 1.0, 5000.0, 1.0, 100.0, 7, "approach"),
 	};
 }
 
@@ -222,7 +155,8 @@ bool ApproachOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, st
 		}
 		return false;
 	}
-	if (parseApproachParams(op.params).segmentFrom < 1 || parseApproachParams(op.params).segmentTo < parseApproachParams(op.params).segmentFrom)
+	if (parseApproachParams(op.params).segmentFrom < 1 ||
+		parseApproachParams(op.params).segmentTo < parseApproachParams(op.params).segmentFrom)
 	{
 		if (errMsg)
 		{
@@ -233,9 +167,9 @@ bool ApproachOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, st
 	if (parseApproachParams(op.params).directionMode == RobotInstruction::ApproachDirectionMode::Custom)
 	{
 		const double len = std::sqrt(
-			parseApproachParams(op.params).customDirectionX * parseApproachParams(op.params).customDirectionX
-			+ parseApproachParams(op.params).customDirectionY * parseApproachParams(op.params).customDirectionY
-			+ parseApproachParams(op.params).customDirectionZ * parseApproachParams(op.params).customDirectionZ);
+			parseApproachParams(op.params).customDirectionX * parseApproachParams(op.params).customDirectionX +
+			parseApproachParams(op.params).customDirectionY * parseApproachParams(op.params).customDirectionY +
+			parseApproachParams(op.params).customDirectionZ * parseApproachParams(op.params).customDirectionZ);
 		if (len < 1e-6)
 		{
 			if (errMsg)
@@ -248,27 +182,20 @@ bool ApproachOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, st
 	return true;
 }
 
-std::string ApproachOp::formatSummary(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	const bool chinese) const
+std::string ApproachOp::formatSummary(const RobotInstruction::TrajectoryOpDescriptor& op, const bool chinese) const
 {
 	char buffer[256];
-	std::snprintf(
-		buffer,
-		sizeof(buffer),
-		chinese ? "进刀 | 距离%.2f | %s | 段:%s"
-				: "Approach | Dist %.2f | %s | Seg:%s",
-		parseApproachParams(op.params).distanceMm,
-		directionLabel(static_cast<int>(parseApproachParams(op.params).directionMode), chinese),
-		segmentLabel(static_cast<int>(parseApproachParams(op.params).segmentSelectMode), chinese));
+	std::snprintf(buffer, sizeof(buffer),
+				  chinese ? "进刀 | 距离%.2f | %s | 段:%s" : "Approach | Dist %.2f | %s | Seg:%s",
+				  parseApproachParams(op.params).distanceMm,
+				  directionLabel(static_cast<int>(parseApproachParams(op.params).directionMode), chinese),
+				  segmentLabel(static_cast<int>(parseApproachParams(op.params).segmentSelectMode), chinese));
 	return buffer;
 }
 
-bool ApproachOp::processPath(
-	const RobotInstruction::TrajectoryOpDescriptor& op,
-	RobotInstruction::UnifiedTrajectory& traj,
-	const TrajectoryOpExecutionContext& ctx,
-	std::string* errMsg) const
+bool ApproachOp::processPath(const RobotInstruction::TrajectoryOpDescriptor& op,
+							 RobotInstruction::UnifiedTrajectory& traj, const TrajectoryOpExecutionContext& ctx,
+							 std::string* errMsg) const
 {
 	(void)errMsg;
 	insertApproachInScope(traj, parseApproachParams(op.params), op.scope, ctx.program);

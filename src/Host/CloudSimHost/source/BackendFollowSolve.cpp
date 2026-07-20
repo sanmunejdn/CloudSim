@@ -1,5 +1,10 @@
+﻿/// @file BackendFollowSolve.cpp
+/// @brief BackendFollowSolve 实现
+
 #include "BackendFollowSolve.h"
 
+#include "BackendDataBase.h"
+#include "BackendDataManager.h"
 #include "BackendFollowTransformSolver.h"
 #include "CoreTypes.h"
 #include "DocumentHost.h"
@@ -9,19 +14,14 @@
 #include "OsgWidgetSceneBridge.h"
 
 #include <QString>
-
-#include "BackendDataBase.h"
-#include "BackendDataManager.h"
+#include <unordered_set>
 
 #include <osg/Matrixd>
 
-#include <unordered_set>
-
 namespace cloudsim::host
 {
-
 void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget& osg, const FollowSolveContext* ctx,
-	const std::string* manualPoseAuthorityBackendId)
+								  const std::string* manualPoseAuthorityBackendId)
 {
 	if (osg.isTcpDragTeachActive()) // TCP 示教与 Follow 求解互斥
 	{
@@ -31,6 +31,9 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget& osg, const Foll
 	{
 		return;
 	}
+
+	// FK 与 Follow 写同一批连杆会拆散装配；先卸再解
+	page.stripKinematicsOwnedFollowAttachments();
 
 	BackendDataManager& mgr = page.backend();
 	const bool forced = page.takeFollowSolveForced();
@@ -54,7 +57,9 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget& osg, const Foll
 		skipId = gizmoDragSelectedId;
 	}
 
-	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&osg](const std::string& bid, BackendMat4& out) -> bool {
+	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&osg](const std::string& bid,
+																		  BackendMat4& out) -> bool
+	{
 		osg::Matrixd om;
 		if (!osg.getBackendRootWorldMatrix(bid, om))
 		{
@@ -81,7 +86,12 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget& osg, const Foll
 		{
 			continue;
 		}
-		auto comp = std::dynamic_pointer_cast<FollowAttachmentComponent>(d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
+		if (page.isKinematicsOwnedBackend(d->id()))
+		{
+			continue;
+		}
+		auto comp = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+			d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
 		if (!comp || !comp->enabled() || comp->targetBackendId().empty())
 		{
 			continue;
@@ -105,14 +115,26 @@ void runBackendFollowSolveAndSync(DocumentHost& page, OsgWidget& osg, const Foll
 }
 
 void afterFollowPropertyEdited(DocumentHost& host, const QString& backendId, const QString& propertyKey,
-	const QString& valueText)
+							   const QString& valueText)
 {
-	const auto data = host.backend().getData(backendId.toStdString());
+	const std::string id = backendId.toStdString();
+	const auto data = host.backend().getData(id);
 	if (!data)
 	{
 		return;
 	}
-	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&host](const std::string& bid, BackendMat4& out) -> bool {
+	if (host.isKinematicsOwnedBackend(id))
+	{
+		if (data->hasComponent(FollowAttachmentComponent::typeKeyStatic()))
+		{
+			data->removeComponent(FollowAttachmentComponent::typeKeyStatic());
+			host.invalidateFollowReverseIndex();
+		}
+		return;
+	}
+	const BackendFollowTransformSolver::WorldMatQuery worldQuery = [&host](const std::string& bid,
+																		   BackendMat4& out) -> bool
+	{
 		cloudsim::core::Mat4 mat;
 		if (!host.render().getWorldMatrix(QString::fromStdString(bid), mat))
 		{
@@ -124,14 +146,14 @@ void afterFollowPropertyEdited(DocumentHost& host, const QString& backendId, con
 		}
 		return true;
 	};
-	if (propertyKey == QStringLiteral("follow.targetId") || propertyKey == QStringLiteral("follow.targetName")
-		|| (propertyKey == QStringLiteral("follow.enabled")
-			&& (valueText == QStringLiteral("1")
-				|| valueText.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0)))
+	if (propertyKey == QStringLiteral("follow.targetId") || propertyKey == QStringLiteral("follow.targetName") ||
+		(propertyKey == QStringLiteral("follow.enabled") &&
+		 (valueText == QStringLiteral("1") || valueText.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0)))
 	{
 		(void)FollowAttachmentComponent::recomputeLocalFromCurrentWorld(host.backend(), worldQuery, *data, nullptr);
+		// 只脏本对象及下游 follower；全量 forced 会误伤其它链（旧工程连杆 Follow）
 	}
-	host.markFollowAttachmentDirtyFromBackendMove(backendId.toStdString());
+	host.markFollowAttachmentDirtyFromBackendMove(id);
 	host.invalidateFollowReverseIndex();
 }
 

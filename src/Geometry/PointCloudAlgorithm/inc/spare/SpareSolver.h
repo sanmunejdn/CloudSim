@@ -1,20 +1,23 @@
-#pragma once
+﻿#ifndef POINTCLOUDALGORITHM_SPARESOLVER_H
+#define POINTCLOUDALGORITHM_SPARESOLVER_H
+
+/// @file SpareSolver.h
+/// @brief SpareSolver 接口
 
 #include "KdTreePointSet.h"
 #include "spare/SpareInternal.h"
 #include "spare/SpareNodeSampler.h"
 
-#include <Eigen/SparseCholesky>
-
 #include <cstddef>
 #include <memory>
 #include <vector>
+
+#include <Eigen/SparseCholesky>
 
 namespace pclalgo
 {
 namespace spare
 {
-
 class SpareSolver
 {
 public:
@@ -42,10 +45,8 @@ private:
 	void initCorrespondence(std::vector<SpareCorrespondence>& corres);
 	void findClosestPoints(std::vector<SpareCorrespondence>& corres);
 	void findClosestPoints(std::vector<SpareCorrespondence>& corres, const VectorX& deformedV);
-	void findClosestPoints(
-		std::vector<SpareCorrespondence>& corres,
-		const VectorX& deformedV,
-		const std::vector<std::size_t>& sampleIndices);
+	void findClosestPoints(std::vector<SpareCorrespondence>& corres, const VectorX& deformedV,
+						   const std::vector<std::size_t>& sampleIndices);
 	void simplePruning(std::vector<SpareCorrespondence>& corres) const;
 
 	Scalar computeMeanCorrespondenceError(const std::vector<SpareCorrespondence>& corres) const;
@@ -53,10 +54,7 @@ private:
 	void buildTargetKdTree();
 
 	static void surfaceToFloatXyz(const SpareSurface& surface, std::vector<float>& xyzOut);
-	static void buildSrcKnnIndices(
-		const Matrix3X& srcPoints,
-		int knnCount,
-		Eigen::MatrixXi& outIndices);
+	static void buildSrcKnnIndices(const Matrix3X& srcPoints, int knnCount, Eigen::MatrixXi& outIndices);
 
 	SpareSurface* source_ = nullptr;
 	SpareSurface* target_ = nullptr;
@@ -125,3 +123,5 @@ private:
 
 } // namespace spare
 } // namespace pclalgo
+
+#endif // POINTCLOUDALGORITHM_SPARESOLVER_H

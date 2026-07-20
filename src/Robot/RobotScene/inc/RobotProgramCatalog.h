@@ -1,11 +1,14 @@
-#pragma once
+﻿#ifndef ROBOTSCENE_ROBOTPROGRAMCATALOG_H
+#define ROBOTSCENE_ROBOTPROGRAMCATALOG_H
 
-#include "RobotInstructionModel.h"
-#include "RawTrajectory.h"
-#include "TrajectoryPipelineTypes.h"
+/// @file RobotProgramCatalog.h
+/// @brief 路点分组元数据，不插入程序树
+
 #include "robot_scene_global.h"
 
-#include <json.hpp>
+#include "RawTrajectory.h"
+#include "RobotInstructionModel.h"
+#include "TrajectoryPipelineTypes.h"
 
 #include <memory>
 #include <string>
@@ -13,9 +16,10 @@
 #include <unordered_set>
 #include <vector>
 
+#include <json.hpp>
+
 namespace RobotInstruction
 {
-
 inline constexpr const char* kDefaultMainProgramId = "main";
 inline constexpr int kRobotProgramCatalogSchemaVersion = 1;
 
@@ -62,12 +66,9 @@ struct ROBOT_SCENE_API RobotProgram
 	std::vector<InstructionGroup> groups;
 };
 
-ROBOT_SCENE_API bool emitRawTrajectoryToProgram(
-	const RawTrajectory& trajectory,
-	RobotProgram& program,
-	std::string* errMsg = nullptr,
-	std::string* outGroupId = nullptr,
-	const std::string* pathPlanInstructionId = nullptr);
+ROBOT_SCENE_API bool emitRawTrajectoryToProgram(const RawTrajectory& trajectory, RobotProgram& program,
+												std::string* errMsg = nullptr, std::string* outGroupId = nullptr,
+												const std::string* pathPlanInstructionId = nullptr);
 
 class ROBOT_SCENE_API RobotProgramCatalog
 {
@@ -88,9 +89,8 @@ public:
 
 	std::vector<const Base*> resolveGroupMembers(const InstructionGroup& group, const RobotProgram& prog) const;
 	std::vector<std::string> resolveOpScopeInstructionIds(const OpScope& scope, const RobotProgram& prog) const;
-	std::vector<std::string> expandToMotionWaypointIds(
-		const RobotProgram& prog,
-		const std::vector<std::string>& instructionIds) const;
+	std::vector<std::string> expandToMotionWaypointIds(const RobotProgram& prog,
+													   const std::vector<std::string>& instructionIds) const;
 
 	bool addProgram(RobotProgram program, std::string* errMsg = nullptr);
 	bool removeProgram(const std::string& programId, std::string* errMsg = nullptr);
@@ -103,7 +103,8 @@ public:
 	const std::vector<std::shared_ptr<Base>>& activeSteps() const;
 
 	void pruneGroupMembers(const std::string& programId, const std::unordered_set<std::string>& removedIds);
-	void prunePathPlanReferences(const std::string& programId, const std::unordered_set<std::string>& removedPathPlanIds);
+	void prunePathPlanReferences(const std::string& programId,
+								 const std::unordered_set<std::string>& removedPathPlanIds);
 	PathPlanInstruction* findPathPlan(const std::string& programId, const std::string& pathPlanId);
 	const PathPlanInstruction* findPathPlan(const std::string& programId, const std::string& pathPlanId) const;
 	std::vector<PathPlanInstruction*> listPathPlans(const std::string& programId);
@@ -130,3 +131,5 @@ ROBOT_SCENE_API std::string makeProgramId();
 ROBOT_SCENE_API void migrateLegacyPathPlans(RobotProgramCatalog& catalog);
 
 } // namespace RobotInstruction
+
+#endif // ROBOTSCENE_ROBOTPROGRAMCATALOG_H

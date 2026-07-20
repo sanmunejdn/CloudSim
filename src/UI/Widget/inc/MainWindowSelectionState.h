@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef WIDGET_MAINWINDOWSELECTIONSTATE_H
+#define WIDGET_MAINWINDOWSELECTIONSTATE_H
+
+/// @file MainWindowSelectionState.h
+/// @brief MainWindow 层的轻量选择状态容器，避免选择字段散落在窗口成员中。
 
 #include <QString>
 
@@ -15,3 +19,5 @@ public:
 private:
 	QString m_selectedBackendId;
 };
+
+#endif // WIDGET_MAINWINDOWSELECTIONSTATE_H

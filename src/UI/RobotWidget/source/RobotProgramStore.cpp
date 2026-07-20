@@ -1,3 +1,6 @@
+﻿/// @file RobotProgramStore.cpp
+/// @brief RobotProgramStore 实现
+
 #include "RobotProgramStore.h"
 
 void RobotProgramStore::clear()
@@ -87,8 +90,7 @@ RobotInstruction::RobotProgramCatalog& RobotProgramStore::activeCatalog()
 	const QString id = activeRobotBackendId();
 	if (id.isEmpty())
 	{
-		static RobotInstruction::RobotProgramCatalog s_empty =
-			RobotInstruction::RobotProgramCatalog::withDefaultMain();
+		static RobotInstruction::RobotProgramCatalog s_empty = RobotInstruction::RobotProgramCatalog::withDefaultMain();
 		return s_empty;
 	}
 	return catalogFor(id);
@@ -114,8 +116,8 @@ std::vector<std::shared_ptr<RobotInstruction::Base>>& RobotProgramStore::program
 	return catalogFor(sceneBackendId).activeSteps();
 }
 
-const std::vector<std::shared_ptr<RobotInstruction::Base>>& RobotProgramStore::programFor(
-	const QString& sceneBackendId) const
+const std::vector<std::shared_ptr<RobotInstruction::Base>>&
+RobotProgramStore::programFor(const QString& sceneBackendId) const
 {
 	return catalogFor(sceneBackendId).activeSteps();
 }
@@ -142,9 +144,8 @@ const std::vector<std::shared_ptr<RobotInstruction::Base>>& RobotProgramStore::a
 	return catalogFor(id).activeSteps();
 }
 
-void RobotProgramStore::setProgramFor(
-	const QString& sceneBackendId,
-	std::vector<std::shared_ptr<RobotInstruction::Base>> program)
+void RobotProgramStore::setProgramFor(const QString& sceneBackendId,
+									  std::vector<std::shared_ptr<RobotInstruction::Base>> program)
 {
 	auto& catalog = catalogFor(sceneBackendId);
 	if (RobotInstruction::RobotProgram* mainProg = catalog.mainProgram())

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef POINTNETPLUGIN_POINTNETTYPES_H
+#define POINTNETPLUGIN_POINTNETTYPES_H
+
+/// @file PointNetTypes.h
+/// @brief 分类推理结果
 
 #include <QString>
 #include <QStringList>
@@ -37,3 +41,5 @@ struct PointNetPluginConfig
 	PointNetModelConfig segmentModel;
 	QString inferenceProvider = QStringLiteral("cpu");
 };
+
+#endif // POINTNETPLUGIN_POINTNETTYPES_H

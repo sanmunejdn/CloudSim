@@ -1,8 +1,12 @@
-#pragma once
+﻿#ifndef WIDGET_RUNINFOPAGE_H
+#define WIDGET_RUNINFOPAGE_H
 
-#include <QWidget>
+/// @file RunInfoPage.h
+/// @brief 运行信息页：以只读文本显示日志、警告与错误，只读展示运行输出
 
 #include "widget_global.h"
+
+#include <QWidget>
 
 class QPlainTextEdit;
 class QPushButton;
@@ -29,3 +33,5 @@ private:
 	QPlainTextEdit* m_logEdit = nullptr;
 	QPushButton* m_clearBtn = nullptr;
 };
+
+#endif // WIDGET_RUNINFOPAGE_H

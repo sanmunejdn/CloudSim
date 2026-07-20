@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINHOST_AILLMCONFIG_H
+#define CLOUDSIMPLUGINHOST_AILLMCONFIG_H
+
+/// @file AiLlmConfig.h
+/// @brief 从可执行文件旁 ai_config.json 加载
 
 #include "aibackend_global.h"
 
@@ -25,7 +29,7 @@ struct AIBACKEND_EXPORT AiLlmConfig
 AIBACKEND_EXPORT QString defaultAiConfigPath();
 AIBACKEND_EXPORT AiLlmConfig defaultAiLlmConfig();
 AIBACKEND_EXPORT std::optional<AiLlmConfig> loadAiLlmConfig(const QString& filePath = QString());
-AIBACKEND_EXPORT bool saveAiLlmConfig(
-	const AiLlmConfig& config,
-	const QString& filePath = QString(),
-	QString* errorMessage = nullptr);
+AIBACKEND_EXPORT bool saveAiLlmConfig(const AiLlmConfig& config, const QString& filePath = QString(),
+									  QString* errorMessage = nullptr);
+
+#endif // CLOUDSIMPLUGINHOST_AILLMCONFIG_H

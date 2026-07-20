@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINHOST_AIDOMAINREGISTRYIMPL_H
+#define CLOUDSIMPLUGINHOST_AIDOMAINREGISTRYIMPL_H
+
+/// @file AiDomainRegistryImpl.h
+/// @brief AiDomainRegistryImpl 接口
 
 #include "IAiDomainHandler.h"
 
@@ -21,3 +25,5 @@ private:
 	};
 	QHash<QString, Entry> m_entries;
 };
+
+#endif // CLOUDSIMPLUGINHOST_AIDOMAINREGISTRYIMPL_H

@@ -103,7 +103,7 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 ### `context.currentJointRadCsv`
 
-添加 PTP/LINE 时写入当前实例关节角（rad，逗号分隔）。**Run** 与 **预览** 均先经 `shouldUseTaughtJointCsv` 判定，再校验位置/姿态残差（≤ 1 mm / ≤ 5°）。IK/规划成功后 `persistTaughtJointsAndToolContext` 回写 CSV 与冻结工具 context。
+添加 PTP/LINE 时写入当前实例关节角（rad，逗号分隔）。**Run** 与 **预览** 均先经 `shouldUseTaughtJointCsv` 判定，再校验位置/姿态残差（≤ 1 mm / ≤ 5°）；**不因前序点曾 IK 而禁用示教 CSV**（禁用会导致「预览到、Run 不到」）。IK/规划成功后 `persistTaughtJointsAndToolContext` 回写 CSV 与冻结工具 context。
 
 | API | 模块 |
 |-----|------|
@@ -151,10 +151,10 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 | 维度 | 点击预览 | 仿真运行 |
 |------|----------|----------|
 | 种子关节 | **链式** `buildChainSeedJointRadForInstruction`（程序起点 → 前序路点 `rollingQ`；失败回退 `motionPreviewProgramStartJointsLocal`） | 程序起点 + 链式 `rollingQ` |
-| 规划范围 | **仅选中** PTP/LINE（1× IK） | **全部** 运动指令（链式） |
-| 缓存 | 不缓存 | `PlanResultCache`（key = instructionId + fingerprint） |
+| 规划范围 | **仅选中** PTP/LINE（1× IK） | 启动急算前缀 + 播放中懒补算（链式） |
+| 缓存 | 不缓存 | `PlanResultCache` + Executor 槽位（含 `lazyPending`） |
 | 运行中树 | — | `currentInstruction()` + `QSignalBlocker` 跟随选中，不触发预览 |
-| 后台预读 | — | `tickLookaheadPlanning` → `IRobotMainWindowHost::enqueueBackgroundJob` |
+| 后台预读 | — | `tickLookaheadPlanning` → `enqueueBackgroundJob` + `updateMotionPlanResult` |
 
 实现均在 `RobotSimulationController`；执行器为 `RobotProgramExecutor`（[`RobotScene/DEVELOPER_GUIDE.md`](../Robot/RobotScene/DEVELOPER_GUIDE.md)）。
 
@@ -163,7 +163,7 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 | 操作 | 调用链 |
 |------|--------|
 | 点击指令树 | `InstructionProgramTreeWidget::instructionSelected` → `SimulationCommandWidget::instructionSelectionChanged` → `onSimulationInstructionSelectionChanged` →（非 TCP 拖动）`applyRobotPoseForInstructionPreview` |
-| 点 Run | `SimulationCommandWidget::runRequested` → `onSimulationRunRequested` → `onSimulationStartTriggered` → `m_programExecutor.tryStart` + `QTimer` → `onRobotSimulationTick` → `RobotProgramExecutor::tick` |
+| 点 Run | `runRequested` → `onSimulationStartTriggered` → `tryStart` + `QTimer` → `onRobotSimulationTick` → `ensurePlaybackPlansReady` → `tick` + `tickLookaheadPlanning` |
 
 `emitSelection=false` 重建树时不发 `instructionSelected`，避免在工具扩展写入前触发预览/IK（见 `InstructionProgramTreeWidget`）。
 
@@ -172,17 +172,17 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 | 维度 | 点击预览 | 仿真运行 |
 |------|----------|----------|
 | 触发 | 选中 **PTP/LINE**（及树刷新后的选中） | Run 按钮 |
-| 规划时机 | 每次选中当场算，**不缓存** | 启动前链式规划；**命中** `PlanResultCache` 则跳过 IK |
+| 规划时机 | 每次选中当场算，**不缓存** | 启动急算前缀；其余 `lazyPending` 段前/lookahead 补算；失败则播到该点前停止 |
 | 机器人动作 | **一帧到位** | **定时器插值** |
 | 写回指令 | `backup/restoreInstructionPose`，**不改** `motion.durationSec` | 可写 `motion.durationSec`；`PlanResult` 供播放 |
 | 程序逻辑 | 不执行 WAIT / IF / WHILE / IO | `RobotProgramExecutor::advanceProgramStep` |
-| 运行中 | `m_programExecutor.isRunning()` 时预览 **直接 return** | tick 内更新指令树选中 + 并行预读 |
+| 运行中 | `m_programExecutor.isRunning()` 时预览 **直接 return**；选中路径只刷属性，跳过链式种子与路点轴重建 | tick 内更新指令树选中 +（非拖窗时）并行预读 |
 
-直观理解：**预览 = 用与 Run 相同语义的链式种子，对选中点单次 IK（或示教 CSV）并瞬间摆过去**；**运行 = 全程序链式建 `PlanResult`（带缓存）再插值播放**。屏幕上的当前关节角**不参与**预览 IK 种子（`localJointAnglesForInstance` 仅用于添加指令、TCP 拖动等其它路径）。
+直观理解：**预览 = 用与 Run 相同语义的链式种子，对选中点单次 IK（或示教 CSV）并瞬间摆过去**；**运行 = 急算前缀 `PlanResult` + 播放中懒补算，再插值播放**。屏幕上的当前关节角**不参与**预览 IK 种子（`localJointAnglesForInstance` 仅用于添加指令、TCP 拖动等其它路径）。
 
 #### `PlanResultCache` 与 fingerprint
 
-- 类：`PlanResultCache`（`RobotWidget/inc/PlanResultCache.h`），仅 UI 线程读写。
+- 类：`PlanResultCache`（`RobotWidget/inc/PlanResultCache.h`），仅 UI 线程读写；默认最多 384 条，可 `evictFarBehind`。
 - `computePlanFingerprint` 纳入：指令 id、pose、euler、speed、accel、axisConfig preset、`motion.tool.frameId`、`context.toolFrameMat4`、seed 关节、urdfPath、tcpLinkName。
 - **失效**：`invalidateFeasibleAxisConfigurationCache`、`onRobotCoordinateFramesChanged`、`onSimulationRobotSelectionChanged`、`ProgramEditService::revisionChanged`。
 
@@ -190,35 +190,55 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 **前置条件**：非 `m_skipInstructionPreviewOnce`、非 TCP 拖动示教、仿真未运行、选中类型为 PTP/LINE。
 
-**步骤**：
+与 Run **共用** `planMotionConsistentWithPreview`：
 
-1. `chainSeedQ = buildChainSeedJointRadForInstruction`（前序路点链式种子；前序 `plan` 失败则标记 `chainReliable=false` 并回退程序起点）；`seedQ = chainReliable ? chainSeedQ : programStartQ`。
-2. **示教 CSV 快速路径**：`shouldUseTaughtJointCsv` 且位置/姿态残差合格 → `resultQ = taughtQ`。
-3. 否则对**选中点**单次 `planMotionOnHost`；姿态门控 ≤ 5°；失败可回退 `programStartQ` 再试。
-4. IK 成功后 `persistTaughtJointsAndToolContext` 回写示教关节。
-5. 写入关节状态并 `refreshRobotCoordinateFrameOverlays(instruction, &resultQ)`。
+1. 示教 CSV（位置≤1mm 且姿态≤5°）
+2. 否则按种子顺序 IK：示教关节 → 链式种子 → 程序起点；每解过姿态门控≤5°
+3. 成功后 `persistTaughtJointsAndToolContext`
 
-**不**播放中间过程；**不**缓存 `PlanResult`。
+**不**播放中间过程。
 
 #### 仿真运行（`onSimulationStartTriggered`）
 
-1. `initialAngles`：优先 `m_motionPreviewProgramStartJointRad`，否则轴滑块当前角。
-2. 对每条运动指令：先查 `PlanResultCache`；未命中则示教 CSV 或 `planMotionOnHost`；成功写入缓存。
-3. 保存 `m_currentRunMotions` 供 `tickLookaheadPlanning`。
-4. `tryStart` + `m_playbackTimer`；tick 内 `currentInstruction()` 高亮指令树（`QSignalBlocker` + id 去重）。
+1. `initialAngles` / `playbackStartAngles`：优先 `m_motionPreviewProgramStartJointRad`，否则轴滑块当前角。
+2. **懒规划（万级）**：启动只急算前 `kEagerPlanCount`（**16**）段；其余 `lazyPending`；**禁止**全量 IK。
+3. 急算：`planMotionConsistentWithPreview`；写入时清空 `jointTrajectoryRad`。
+4. **部分失败**：占位并停止后续急算；成功段≥1 则 `tryStart`。
+5. 初始化 `m_playbackRollingSeedQ` / `m_playbackProgramStartQ`；tick 前 `ensurePlaybackPlansReady`。
 
-播放阶段 **不再** 调用 planner；后台 Job 仅预热后续段缓存。
+播放以 `jointTargetsRad` 为主（轨迹在接入时清空）；段结束仍对齐 `jointTargetsRad`。
+
+#### 段前补算（`ensurePlaybackPlansReady` / `syncPlanMotionAtIndex`）
+
+- 窗口 `[current, current+2]`，**仅** `lazyPending` 才 sync（已 ok 不每帧 FK）。
+- 游标前进时用上一段目标更新 **O(1) 滚动种子**（禁止从 0 扫到 N）。
+- sync：示教 CSV → 门控 Cache（**位置≤1mm 且姿态≤5°**）→ `planMotionConsistentWithPreview`（内部 LINE **lite 优先，失败升满采**）。
+- `PlanResultCache` 有界（默认 384）+ `evictFarBehind(游标, 64)`。
+- **勿**因拖窗缩小该窗口：同一次 tick 可能切入下一段，未消掉的 `lazyPending` 会被 Executor 判为规划失败。
+
+#### 运行中 UI 交互
+
+- 播放定时器 `Qt::CoarseTimer`，避免 Precise 抢占系统拖窗消息。
+- `isPlaybackUiInteractionBusy` 时只跳过叠加层刷新与 lookahead；**段前 ensure 窗宽不变**。
+- 运行中指令树选中：只刷属性面板，**不**做链式种子 / 可行轴探测 / `refreshInstructionPoseAxes`（万级点会卡死拖动）。
+- 叠加高亮 `shared_ptr` 按 activeMotion 缓存；per-link URDF root 枚举结果按 urdf 路径缓存。
 
 #### 并行预读（`tickLookaheadPlanning`）
 
-Run 期间每 tick 在 UI 线程调用；根据 `activeMotion()` 在 `m_currentRunMotions` 中定位当前段，向前最多 3 段：
+- `maxAdvanceBlocks=16`，`maxConcurrentJobs=4`；Worker 走 `planMotionLikePreviewWorker`（示教残差门控 + 多种子 + lite 升采样）；**只写成功 Cache**。
+- Payload 携带 `frames`；段前 sync 再门控后才写入 Executor。
 
-1. `trySeedJointRadForMotionIndex` 沿链从 `PlanResultCache` 恢复种子关节；
-2. 未命中且 `m_lookaheadPendingJobs < maxConcurrentJobs` → `IRobotMainWindowHost::enqueueBackgroundJob`；
-3. 工作线程用 `PlanJobPayload` 快照构造独立 `PtpInstruction`/`LineInstruction` + `Controller::plan`（**禁止** clone `Base`）；
-4. `onFinished`（UI 线程）写入 `PlanResultCache`。
+#### 点击链式种子（`buildChainSeedJointRadForInstruction`）
 
-`stopRobotSimulation` 清空 `m_currentRunMotions`、`m_lookaheadPendingJobs`、`m_lastHighlightedInstructionId`。
+- 维护 `m_chainSeedEndJointsByIndex` 前缀缓存（程序指纹变更 / revision / 工具切换时失效）。
+- 选中时 O(1) 命中或从缓存后缀增量补算；前序点 Cache 采用同样位置+姿态门控；IK 先 lite 再满采。
+
+#### 可达性（`scheduleAsyncMotionReachabilityRefresh`）
+
+- 按批 **64** 点后台 Job，结果增量合并进 `m_motionReachabilityCache` 并刷轴；批次间滚动种子衔接。
+- Worker 与 Preview 共用 `planMotionLikePreviewWorker`。
+
+`stopRobotSimulation` 清空 motions / lookahead / 游标种子。
 
 #### 可行轴 IK 后台探测（`scheduleDeferredFeasibleAxisProbe`）
 
@@ -236,13 +256,15 @@ Run 期间每 tick 在 UI 线程调用；根据 `activeMotion()` 在 `m_currentR
 
 | 符号 | 文件 | 说明 |
 |------|------|------|
-| `PlanResultCache` | `inc/PlanResultCache.h` | Run 规划结果缓存 |
+| `PlanResultCache` | `inc/PlanResultCache.h` | 有界 Run 规划缓存（FIFO + 落后游标淘汰） |
 | `computePlanFingerprint` | `RobotSimulationController` | 缓存 key 的 fingerprint |
-| `tickLookaheadPlanning` | 同上 | Run 中后台预读 |
+| `planMotionConsistentWithPreview` | 同上 | 预览/Run 共用求解（示教 CSV + 多种子 + 姿态门控） |
+| `tickLookaheadPlanning` | 同上 | 后台预热 Cache（不盲写 Executor） |
+| `ensurePlaybackPlansReady` / `syncPlanMotionAtIndex` | 同上 | 窗内 lazyPending 段前接入 |
 | `buildChainSeedJointRadForInstruction` | 同上 | 预览/可行轴：程序起点 → 前序路点链式种子 |
 | `applyRobotPoseForInstructionPreview` | 同上 | 选中预览（链式种子 + 单次 IK 或示教 CSV） |
 | `scheduleDeferredFeasibleAxisProbe` | 同上 | 可行轴 IK 后台 Job + 缓存 |
-| `scheduleAsyncMotionReachabilityRefresh` | 同上 | 全程序 reachability 后台 Job |
+| `scheduleAsyncMotionReachabilityRefresh` | 同上 | 可达性分批后台 Job（64/批，语义对齐 `planMotionLikePreviewWorker`） |
 | `onSimulationStartTriggered` | 同上 | Run 启动 + 链式缓存 |
 | `onRobotSimulationTick` | 同上 | 播放 + 树高亮 + 预读调度 |
 
@@ -423,7 +445,7 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 | **原始轨迹点列** | `pathPlanRaws` + `rawTrajectoryKey` | 同上 |
 | **算子流水线** | `pipeline[]` | 轨迹编辑页 `updatePipelineOps` → `syncPipelineToBoundPathPlan` |
 
-**轨迹生成页顶栏**（`TrajectoryGenerationPageWidget`）：路径规划下拉、`+` 新建、`开始修改`。切换 PathPlan 仅 `bindPathPlan` + 清空 CAD 特征表；**不**自动重离散、**不**预显示 raw 叠加层（`shouldShowTrajectoryGenerationPreview` ← `FeatureTrajectoryPageWidget::isFeatureEditActive()`）。
+**轨迹生成页顶栏**（`TrajectoryGenerationPageWidget`）：路径规划下拉、`+` 新建、`开始修改`、`取消修改`。切换 PathPlan 仅 `bindPathPlan` + 清空 CAD 特征表；**不**自动重离散、**不**预显示 raw 叠加层（`shouldShowTrajectoryGenerationPreview` ← `FeatureTrajectoryPageWidget::isFeatureEditActive()`）。
 
 **「开始修改」**（`beginEditBoundPathPlan`）统一恢复编辑态：
 
@@ -432,6 +454,15 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 3. `loadFeatureListFromJson(sourceFeatureJson)` — 特征表 + 离散参数面板（无特征 JSON 时仍可进入，仅加载算子）
 4. `refreshPreviewFromSession()` — 进入 `m_featureEditActive` 后显示 3D 预览
 
+**「取消修改」**（`cancelEditBoundPathPlan`）退出编辑态：
+
+1. 退出拾取、清候选预览；`m_featureEditActive = false`
+2. 清空特征表与离散参数面板；清 `m_lastLoadedSourceJson`（下次开始修改强制重载）
+3. `abandonPreview` + `reloadBoundPathPlanFromStore` + 编辑页 `syncBoundPathPlanFromSession`
+4. `clearBoundPathPlanPreview()` — 关闭轨迹生成 3D 叠加
+
+**不**回滚已写入 PathPlan 的 raw / `sourceFeatureJson` / pipeline（与切换 PathPlan 清空表一致）。若需完整快照还原，另议。
+
 拾取离散时 `normalizeEntryStrategyForGeometry` / 严格 `resolveStrategyIdForPick` 避免面特征误用 Line 策略。`m_strategyRowSyncDepth` 防止嵌套 `loadParams` 误触发策略下拉回写。
 
 | API | 说明 |
@@ -439,6 +470,7 @@ Dock **「轨迹编辑」**页（在「轨迹生成」之后）。Dock 主标签
 | `reloadBoundPathPlanFromStore()` | Session 从 store 重载 pipeline + raw |
 | `restoreBoundPathPlanForEdit()` | 轨迹编辑页恢复算子 UI |
 | `beginEditBoundPathPlan()` | CAD 页「开始修改」入口 |
+| `cancelEditBoundPathPlan()` | CAD 页「取消修改」入口 |
 | `clearBoundPathPlanPreview()` | 非编辑态清除 raw 叠加层 |
 | `refreshPathPlanPreviewForActiveTab()` | 轨迹生成 tab 且 `isFeatureEditActive` 时才 bound 预览 |
 
@@ -552,6 +584,8 @@ flowchart TD
 
 **注意**：离散后、尚未「生成程序」时，预览只看 **raw 叠加层**（分支 A），不要与指令树路点轴混读。纯 overlay（B）时 `refreshPreviewVisuals` 跳过路点轴；**混合预览（B′）** 写回 store 但 3D 仍以 overlay 为准，选中路点可在属性面板看到 blend/speed。`m_rawTrajectoryPreviewActive` 时 `refreshInstructionPoseAxes` 直接返回。
 
+**Apply 后 / Run 显示契约**：`pathPlanRaws` 持久化的是 **CAD 源 raw**（供再次编辑重放流水线），不是工件型等算子变换后的世界轨迹。`PathPlanPhase::Applied` 时 `refreshPathPlanRawOverlays` **跳过**该条 raw，3D 只画指令路点轴（`refreshInstructionPoseAxes`）。Run 启动前会 `setRawTrajectoryPreviewActive(false)` 并刷新指令轴，避免 CAD raw 盖住转换后位姿。
+
 #### Apply（统一引擎）
 
 与 raw 预览相同引擎重放，最后 `unifiedTrajectoryToProgram` / `unifiedTrajectoryMergeIntoProgram` + `ReplaceProgramContentCommand`。成功后：
@@ -640,6 +674,7 @@ Dock 页签 **「轨迹生成」** 内 **CAD** 子页（`FeatureTrajectoryPageWi
 |------|----------|
 | 选 PathPlan | 顶栏 `m_pathPlanCombo` → `TrajectoryEditSession::bindPathPlan` |
 | 开始修改 | `beginEditBoundPathPlan()` — 特征表 + 离散参数 + 算子流程 + 预览 |
+| 取消修改 | `cancelEditBoundPathPlan()` — 退出编辑态、清表/预览；已落盘 PathPlan 保留 |
 | 选 STEP 工件 | `m_backendCombo`：仅**顶层** `Model`/`BrepModel`（`BackendDataManager::parentsOf` 为空，不含装配子零件）；`Model` 需 `meshBackendStepSourcePath` 为 `.step`/`.stp`；`BrepModel` 需内存 shape；同一路径去重时优先 `BrepModel` |
 | **3D 拾取边/面** | 复用 `MeshEdgeFacePickOperation` → `OsgWidget::meshPickCommitted` → `buildFeatureEntryFromPick` / `buildFeatureEntryFromModelPick`（世界坐标经 `feature_pick_transform::worldPointToStepModelMm`） |
 | 离散策略 | 拾取前下拉（面/线 affinity 过滤）；`resolveStrategyIdForPick` 严格匹配；`normalizeEntryStrategyForGeometry` 纠正策略/几何不一致 |

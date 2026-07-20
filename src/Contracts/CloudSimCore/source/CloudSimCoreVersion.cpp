@@ -1,6 +1,9 @@
-#include "CloudSimCoreVersion.h"
+﻿/// @file CloudSimCoreVersion.cpp
+/// @brief CloudSimCoreVersion 实现
 
 #include "cloudsim_core_global.h"
+
+#include "CloudSimCoreVersion.h"
 
 unsigned int cloudsimCoreApiVersion()
 {

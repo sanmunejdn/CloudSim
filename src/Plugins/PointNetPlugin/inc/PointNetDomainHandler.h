@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef POINTNETPLUGIN_POINTNETDOMAINHANDLER_H
+#define POINTNETPLUGIN_POINTNETDOMAINHANDLER_H
+
+/// @file PointNetDomainHandler.h
+/// @brief PointNet++ 分类域处理器
 
 #include "IAiDomainHandler.h"
 
@@ -12,8 +16,8 @@ public:
 
 	QString domainId() const override;
 	bool validateOutput(const QByteArray& jsonUtf8, QString* err) const override;
-	bool execute(const QByteArray& jsonUtf8, IPluginHostContext* host, IAiAssistantHost* aiHost,
-		QString* summary, QString* err) override;
+	bool execute(const QByteArray& jsonUtf8, IPluginHostContext* host, IAiAssistantHost* aiHost, QString* summary,
+				 QString* err) override;
 
 private:
 	PointNetInference* m_inference;
@@ -27,9 +31,11 @@ public:
 
 	QString domainId() const override;
 	bool validateOutput(const QByteArray& jsonUtf8, QString* err) const override;
-	bool execute(const QByteArray& jsonUtf8, IPluginHostContext* host, IAiAssistantHost* aiHost,
-		QString* summary, QString* err) override;
+	bool execute(const QByteArray& jsonUtf8, IPluginHostContext* host, IAiAssistantHost* aiHost, QString* summary,
+				 QString* err) override;
 
 private:
 	PointNetInference* m_inference;
 };
+
+#endif // POINTNETPLUGIN_POINTNETDOMAINHANDLER_H

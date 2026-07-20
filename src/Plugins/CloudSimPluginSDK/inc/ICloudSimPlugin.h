@@ -1,9 +1,13 @@
-#pragma once
+﻿#ifndef CLOUDSIMPLUGINSDK_ICLOUDSIMPLUGIN_H
+#define CLOUDSIMPLUGINSDK_ICLOUDSIMPLUGIN_H
+
+/// @file ICloudSimPlugin.h
+/// @brief CloudSim 动态插件 DLL 契约
 
 #include "cloudsim_plugin_sdk_global.h"
 
-#include <QtPlugin>
 #include <QString>
+#include <QtPlugin>
 
 class IPluginHostContext;
 
@@ -25,3 +29,5 @@ public:
 
 #define CloudSimPlugin_iid "com.cloudsim.ICloudSimPlugin/1.0"
 Q_DECLARE_INTERFACE(ICloudSimPlugin, CloudSimPlugin_iid)
+
+#endif // CLOUDSIMPLUGINSDK_ICLOUDSIMPLUGIN_H

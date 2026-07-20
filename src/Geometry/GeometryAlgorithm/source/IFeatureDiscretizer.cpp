@@ -1,10 +1,12 @@
+﻿/// @file IFeatureDiscretizer.cpp
+/// @brief IFeatureDiscretizer 实现
+
 #include "IFeatureDiscretizer.h"
 
 #include "FeatureDiscretizerRegistry.h"
 
 namespace geoalgo
 {
-
 bool IFeatureDiscretizer::validate(const FeatureDiscretizeInput& input, std::string* errMsg) const
 {
 	if (input.strategyId != strategyId())

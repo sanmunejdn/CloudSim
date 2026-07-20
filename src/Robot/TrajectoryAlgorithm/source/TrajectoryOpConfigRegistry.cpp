@@ -1,3 +1,6 @@
+﻿/// @file TrajectoryOpConfigRegistry.cpp
+/// @brief TrajectoryOpConfigRegistry 实现
+
 // TrajectoryOpConfigRegistry 实现
 #include "TrajectoryOpConfigRegistry.h"
 
@@ -7,7 +10,6 @@
 
 namespace trajectory_algo
 {
-
 TrajectoryOpConfigRegistry& TrajectoryOpConfigRegistry::instance()
 {
 	static TrajectoryOpConfigRegistry registry;
@@ -46,8 +48,8 @@ const IOpParamConfig* TrajectoryOpConfigRegistry::configFor(const RobotInstructi
 	return nullptr;
 }
 
-std::vector<TrajectoryOpParamField> TrajectoryOpConfigRegistry::paramFieldsForOp(
-	const RobotInstruction::TrajectoryOpKind kind) const
+std::vector<TrajectoryOpParamField>
+TrajectoryOpConfigRegistry::paramFieldsForOp(const RobotInstruction::TrajectoryOpKind kind) const
 {
 	std::vector<TrajectoryOpParamField> fields = loadCommonScopeFieldsFromJson(m_resourceBaseDir);
 	const IOpParamConfig* config = configFor(kind);
@@ -66,9 +68,9 @@ std::vector<TrajectoryOpParamField> TrajectoryOpConfigRegistry::paramFieldsForOp
 	return fields;
 }
 
-RobotInstruction::TrajectoryOpDescriptor TrajectoryOpConfigRegistry::defaultUnifiedOp(
-	const RobotInstruction::TrajectoryOpKind kind,
-	const RobotInstruction::OpScope& scope) const
+RobotInstruction::TrajectoryOpDescriptor
+TrajectoryOpConfigRegistry::defaultUnifiedOp(const RobotInstruction::TrajectoryOpKind kind,
+											 const RobotInstruction::OpScope& scope) const
 {
 	const IOpParamConfig* config = configFor(kind);
 	if (config)

@@ -1,13 +1,13 @@
+﻿/// @file PluginSceneBridgeAdapter.cpp
+/// @brief PluginSceneBridgeAdapter 实现
+
 #include "PluginSceneBridgeAdapter.h"
 
 #include "BackendSceneDocumentFacade.h"
 #include "DocumentHost.h"
 #include "IBackendSceneBridge.h"
 
-PluginSceneBridgeAdapter::PluginSceneBridgeAdapter(cloudsim::host::DocumentHost* host)
-	: m_host(host)
-{
-}
+PluginSceneBridgeAdapter::PluginSceneBridgeAdapter(cloudsim::host::DocumentHost* host) : m_host(host) {}
 
 IBackendSceneBridge* PluginSceneBridgeAdapter::bridge() const
 {
@@ -19,7 +19,7 @@ IBackendSceneBridge* PluginSceneBridgeAdapter::bridge() const
 }
 
 bool PluginSceneBridgeAdapter::setBackendRootWorldMatrixColumnMajor(const std::string& backendId,
-	const std::array<double, 16>& columnMajor4x4)
+																	const std::array<double, 16>& columnMajor4x4)
 {
 	IBackendSceneBridge* b = bridge();
 	if (!b)
@@ -31,7 +31,7 @@ bool PluginSceneBridgeAdapter::setBackendRootWorldMatrixColumnMajor(const std::s
 }
 
 bool PluginSceneBridgeAdapter::getBackendRootWorldMatrixColumnMajor(const std::string& backendId,
-	std::array<double, 16>& outColumnMajor4x4) const
+																	std::array<double, 16>& outColumnMajor4x4) const
 {
 	const IBackendSceneBridge* b = bridge();
 	if (!b)

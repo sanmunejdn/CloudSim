@@ -1,25 +1,24 @@
+﻿/// @file UrdfLinkBackendManager.cpp
+/// @brief UrdfLinkBackendManager 实现
+
 #include "UrdfLinkBackendManager.h"
 
-#include "MeshBackendData.h"
 #include "BackendVisualRegistry.h"
+#include "MeshBackendData.h"
 #include "MeshBackendVisual.h"
 
 #include <QDebug>
 #include <QElapsedTimer>
+#include <algorithm>
+#include <numeric>
 
 #include <osg/Group.h>
 #include <osg/MatrixTransform.h>
 
-#include <algorithm>
-#include <numeric>
-
 // 默认开启后端加载
 bool UrdfLinkBackendManager::s_useBackendLoading = true;
 
-UrdfLinkBackendManager::UrdfLinkBackendManager()
-	: m_robotName("URDF_Robot")
-{
-}
+UrdfLinkBackendManager::UrdfLinkBackendManager() : m_robotName("URDF_Robot") {}
 
 void UrdfLinkBackendManager::clear()
 {
@@ -40,20 +39,21 @@ std::string UrdfLinkBackendManager::generateBackendId(const QString& linkName) c
 	return "URDF_" + m_robotName.toStdString() + "_" + linkName.toStdString() + "_" + std::to_string(++s_counter);
 }
 
-std::shared_ptr<MeshBackendData> UrdfLinkBackendManager::createLinkBackend(
-	const QString& linkName,
-	const QString& meshPath,
-	const std::vector<double>& visualOriginMatrix,
-	QString* errorMessage)
+std::shared_ptr<MeshBackendData>
+UrdfLinkBackendManager::createLinkBackend(const QString& linkName, const QString& meshPath,
+										  const std::vector<double>& visualOriginMatrix, QString* errorMessage)
 {
-	if (linkName.isEmpty()) {
-		if (errorMessage) *errorMessage = QStringLiteral("Link name is empty");
+	if (linkName.isEmpty())
+	{
+		if (errorMessage)
+			*errorMessage = QStringLiteral("Link name is empty");
 		return nullptr;
 	}
 
 	// 检查是否已存在
 	auto it = m_linkNameToBackend.find(linkName);
-	if (it != m_linkNameToBackend.end()) {
+	if (it != m_linkNameToBackend.end())
+	{
 		qDebug() << "[UrdfLinkBackendManager] Backend already exists for link:" << linkName;
 		return it->second;
 	}
@@ -78,10 +78,13 @@ std::shared_ptr<MeshBackendData> UrdfLinkBackendManager::createLinkBackend(
 	double elapsedMs = timer.elapsed();
 	m_loadTimes.push_back(elapsedMs);
 
-	if (!loaded) {
-		if (errorMessage) {
+	if (!loaded)
+	{
+		if (errorMessage)
+		{
 			*errorMessage = QStringLiteral("Failed to load mesh for link '%1': %2")
-				.arg(linkName).arg(QString::fromStdString(loadErr));
+								.arg(linkName)
+								.arg(QString::fromStdString(loadErr));
 		}
 		qWarning() << "[UrdfLinkBackendManager] Failed to load mesh:" << meshPath
 				   << "Error:" << QString::fromStdString(loadErr);
@@ -98,12 +101,13 @@ std::shared_ptr<MeshBackendData> UrdfLinkBackendManager::createLinkBackend(
 	backend->setColor(color);
 
 	// 如果有visual origin，转换为后端的位置/旋转
-	if (visualOriginMatrix.size() == 16) {
+	if (visualOriginMatrix.size() == 16)
+	{
 		// 提取平移部分作为位置
 		BackendVec3 pos;
-		pos.x = static_cast<float>(visualOriginMatrix[12]);  // m[3][0] in column-major
-		pos.y = static_cast<float>(visualOriginMatrix[13]);  // m[3][1]
-		pos.z = static_cast<float>(visualOriginMatrix[14]);  // m[3][2]
+		pos.x = static_cast<float>(visualOriginMatrix[12]); // m[3][0] in column-major
+		pos.y = static_cast<float>(visualOriginMatrix[13]); // m[3][1]
+		pos.z = static_cast<float>(visualOriginMatrix[14]); // m[3][2]
 		backend->setPose(pos);
 
 		// 从矩阵提取欧拉角（简化版本，实际可能需要更复杂的分解）
@@ -117,31 +121,32 @@ std::shared_ptr<MeshBackendData> UrdfLinkBackendManager::createLinkBackend(
 	m_linkNameToBackendId[linkName] = backendId;
 
 	qDebug().nospace() << "[UrdfLinkBackendManager] Created backend for link: " << linkName
-					   << " ID: " << QString::fromStdString(backendId)
-					   << " Load time: " << elapsedMs << "ms"
+					   << " ID: " << QString::fromStdString(backendId) << " Load time: " << elapsedMs << "ms"
 					   << " Triangles: " << backend->geometryElementCount();
 
 	return backend;
 }
 
-osg::ref_ptr<osg::Node> UrdfLinkBackendManager::createLinkVisualNode(
-	const QString& linkName,
-	const MeshVisualOptions& options,
-	QString* errorMessage)
+osg::ref_ptr<osg::Node> UrdfLinkBackendManager::createLinkVisualNode(const QString& linkName,
+																	 const MeshVisualOptions& options,
+																	 QString* errorMessage)
 {
 	auto backend = getLinkBackend(linkName);
-	if (!backend) {
-		if (errorMessage) *errorMessage = QStringLiteral("No backend found for link: %1").arg(linkName);
+	if (!backend)
+	{
+		if (errorMessage)
+			*errorMessage = QStringLiteral("No backend found for link: %1").arg(linkName);
 		return nullptr;
 	}
 
 	// 通过BackendVisualRegistry创建OSG节点
 	std::string err;
-	osg::ref_ptr<osg::Node> visualNode = BackendVisualRegistry::buildMeshDisplayNode(
-		*backend, options, &err);
+	osg::ref_ptr<osg::Node> visualNode = BackendVisualRegistry::buildMeshDisplayNode(*backend, options, &err);
 
-	if (!visualNode) {
-		if (errorMessage) *errorMessage = QString::fromStdString(err);
+	if (!visualNode)
+	{
+		if (errorMessage)
+			*errorMessage = QString::fromStdString(err);
 		qWarning() << "[UrdfLinkBackendManager] Failed to create visual node for link:" << linkName
 				   << "Error:" << QString::fromStdString(err);
 		return nullptr;
@@ -156,7 +161,8 @@ osg::ref_ptr<osg::Node> UrdfLinkBackendManager::createLinkVisualNode(
 std::shared_ptr<MeshBackendData> UrdfLinkBackendManager::getLinkBackend(const QString& linkName) const
 {
 	auto it = m_linkNameToBackend.find(linkName);
-	if (it != m_linkNameToBackend.end()) {
+	if (it != m_linkNameToBackend.end())
+	{
 		return it->second;
 	}
 	return nullptr;
@@ -165,7 +171,8 @@ std::shared_ptr<MeshBackendData> UrdfLinkBackendManager::getLinkBackend(const QS
 std::string UrdfLinkBackendManager::getLinkBackendId(const QString& linkName) const
 {
 	auto it = m_linkNameToBackendId.find(linkName);
-	if (it != m_linkNameToBackendId.end()) {
+	if (it != m_linkNameToBackendId.end())
+	{
 		return it->second;
 	}
 	return {};
@@ -175,32 +182,35 @@ std::vector<QString> UrdfLinkBackendManager::getAllLinkNames() const
 {
 	std::vector<QString> names;
 	names.reserve(m_linkNameToBackend.size());
-	for (const auto& kv : m_linkNameToBackend) {
+	for (const auto& kv : m_linkNameToBackend)
+	{
 		names.push_back(kv.first);
 	}
 	return names;
 }
 
-int UrdfLinkBackendManager::batchCreateLinkBackends(
-	const QHash<QString, QString>& linkMeshPaths,
-	const QString& robotName,
-	QString* errorMessage)
+int UrdfLinkBackendManager::batchCreateLinkBackends(const QHash<QString, QString>& linkMeshPaths,
+													const QString& robotName, QString* errorMessage)
 {
 	m_robotName = robotName;
 	int successCount = 0;
 
-	for (auto it = linkMeshPaths.begin(); it != linkMeshPaths.end(); ++it) {
+	for (auto it = linkMeshPaths.begin(); it != linkMeshPaths.end(); ++it)
+	{
 		const QString& linkName = it.key();
 		const QString& meshPath = it.value();
 
 		QString err;
 		auto backend = createLinkBackend(linkName, meshPath, {}, &err);
-		if (backend) {
+		if (backend)
+		{
 			++successCount;
-		} else {
-			qWarning() << "[UrdfLinkBackendManager] Failed to create backend for link:" << linkName
-					   << "Error:" << err;
-			if (errorMessage && errorMessage->isEmpty()) {
+		}
+		else
+		{
+			qWarning() << "[UrdfLinkBackendManager] Failed to create backend for link:" << linkName << "Error:" << err;
+			if (errorMessage && errorMessage->isEmpty())
+			{
 				*errorMessage = err;
 			}
 		}
@@ -210,37 +220,41 @@ int UrdfLinkBackendManager::batchCreateLinkBackends(
 	return successCount;
 }
 
-int UrdfLinkBackendManager::batchCreateVisualNodes(
-	const QHash<QString, osg::Group*>& linkContainers,
-	const MeshVisualOptions& options,
-	QString* errorMessage)
+int UrdfLinkBackendManager::batchCreateVisualNodes(const QHash<QString, osg::Group*>& linkContainers,
+												   const MeshVisualOptions& options, QString* errorMessage)
 {
 	int successCount = 0;
 
-	for (auto it = linkContainers.begin(); it != linkContainers.end(); ++it) {
+	for (auto it = linkContainers.begin(); it != linkContainers.end(); ++it)
+	{
 		const QString& linkName = it.key();
 		osg::Group* container = it.value();
 
-		if (!container) {
+		if (!container)
+		{
 			qWarning() << "[UrdfLinkBackendManager] Null container for link:" << linkName;
 			continue;
 		}
 
 		QString err;
 		osg::ref_ptr<osg::Node> visualNode = createLinkVisualNode(linkName, options, &err);
-		if (visualNode) {
+		if (visualNode)
+		{
 			container->addChild(visualNode.get());
 			++successCount;
-		} else {
-			qWarning() << "[UrdfLinkBackendManager] Failed to create visual for link:" << linkName
-					   << "Error:" << err;
-			if (errorMessage && errorMessage->isEmpty()) {
+		}
+		else
+		{
+			qWarning() << "[UrdfLinkBackendManager] Failed to create visual for link:" << linkName << "Error:" << err;
+			if (errorMessage && errorMessage->isEmpty())
+			{
 				*errorMessage = err;
 			}
 		}
 	}
 
-	qDebug() << "[UrdfLinkBackendManager] Batch created" << successCount << "/" << linkContainers.size() << "visual nodes";
+	qDebug() << "[UrdfLinkBackendManager] Batch created" << successCount << "/" << linkContainers.size()
+			 << "visual nodes";
 	return successCount;
 }
 
@@ -250,12 +264,14 @@ UrdfLinkBackendManager::Stats UrdfLinkBackendManager::getStats() const
 	stats.totalBackends = m_linkNameToBackend.size();
 
 	size_t totalTris = 0;
-	for (const auto& kv : m_linkNameToBackend) {
+	for (const auto& kv : m_linkNameToBackend)
+	{
 		totalTris += kv.second->geometryElementCount();
 	}
 	stats.totalTriangleCount = totalTris;
 
-	if (!m_loadTimes.empty()) {
+	if (!m_loadTimes.empty())
+	{
 		double sum = std::accumulate(m_loadTimes.begin(), m_loadTimes.end(), 0.0);
 		stats.avgLoadTimeMs = sum / m_loadTimes.size();
 	}

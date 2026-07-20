@@ -1,14 +1,14 @@
+﻿/// @file OsgWidgetBackendLoadController.cpp
+/// @brief OsgWidgetBackendLoadController 实现
+
 #include "OsgWidgetBackendLoadController.h"
 
-#include "OsgWidget.h"
 #include "MeshBackendData.h"
+#include "OsgWidget.h"
 #include "PointCloudBackendData.h"
 
-bool OsgWidgetBackendLoadController::loadPointCloudFromBackendData(
-	OsgWidget& self,
-	const PointCloudBackendData& data,
-	QString* errorMessage,
-	bool resetViewToHome)
+bool OsgWidgetBackendLoadController::loadPointCloudFromBackendData(OsgWidget& self, const PointCloudBackendData& data,
+																   QString* errorMessage, bool resetViewToHome)
 {
 	self.clearStagingGeometry();
 	if (!self.upsertPointCloudBranchInScene(data, errorMessage, resetViewToHome))
@@ -28,13 +28,9 @@ bool OsgWidgetBackendLoadController::loadPointCloudFromBackendData(
 	return true;
 }
 
-bool OsgWidgetBackendLoadController::loadMeshFromBackendData(
-	OsgWidget& self,
-	const MeshBackendData& data,
-	QString* errorMessage,
-	bool resetViewToHome,
-	bool showWireOutline,
-	bool useSceneLighting)
+bool OsgWidgetBackendLoadController::loadMeshFromBackendData(OsgWidget& self, const MeshBackendData& data,
+															 QString* errorMessage, bool resetViewToHome,
+															 bool showWireOutline, bool useSceneLighting)
 {
 	self.clearStagingGeometry();
 	if (!self.upsertMeshBranchInScene(data, errorMessage, resetViewToHome, showWireOutline, useSceneLighting))
@@ -53,4 +49,3 @@ bool OsgWidgetBackendLoadController::loadMeshFromBackendData(
 	self.requestRedraw();
 	return true;
 }
-

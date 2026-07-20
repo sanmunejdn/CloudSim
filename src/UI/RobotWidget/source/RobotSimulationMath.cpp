@@ -1,29 +1,35 @@
-﻿#include "RobotSimulationMath.h"
+﻿/// @file RobotSimulationMath.cpp
+/// @brief RobotSimulationMath 实现
+
+#include "RobotSimulationMath.h"
+
 #include "IRobotDocumentHost.h"
 #include "IRobotOsgViewHost.h"
-#include "RobotInstructionProgram.h"
 #include "RobotCoordinateFrames.h"
+#include "RobotInstructionProgram.h"
 #include "RobotInstructionTransform.h"
 #include "RobotMatrixOsgBridge.h"
-#include "RobotTeachIk.h"
 #include "RobotSceneKinematics.h"
+#include "RobotTeachIk.h"
 #include "UrdfRobotLoader.h"
-#include <Adapters.h>
-#include <RigidTransform.h>
-#include <ToolKinematics.h>
+
 #include <QFile>
 #include <QRegularExpression>
 #include <QSet>
 #include <QXmlStreamReader>
-#include <osg/Matrixd>
-#include <osg/Quat>
 #include <algorithm>
 #include <cmath>
 
-namespace RobotSimulationMath {
+#include <Adapters.h>
+#include <RigidTransform.h>
+#include <ToolKinematics.h>
+#include <osg/Matrixd>
+#include <osg/Quat>
+
+namespace RobotSimulationMath
+{
 namespace
 {
-
 bool matrixFromNodeWorldImpl(osg::Node* node, osg::Matrixd& outWorld)
 {
 	if (!node)
@@ -79,9 +85,11 @@ bool parseThreeDoubles(const QString& src, double& a, double& b, double& c)
 	}
 	bool ok = false;
 	a = parts[0].toDouble(&ok);
-	if (!ok) return false;
+	if (!ok)
+		return false;
 	b = parts[1].toDouble(&ok);
-	if (!ok) return false;
+	if (!ok)
+		return false;
 	c = parts[2].toDouble(&ok);
 	return ok;
 }
@@ -113,9 +121,10 @@ bool loadUrdfJointList(const QString& urdfPath, QVector<ParsedUrdfJoint>& outJoi
 		{
 			if (xml.name() == QLatin1String("origin"))
 			{
-				(void)parseThreeDoubles(xml.attributes().value(QStringLiteral("xyz")).toString(), joint.x, joint.y, joint.z);
-				(void)parseThreeDoubles(
-					xml.attributes().value(QStringLiteral("rpy")).toString(), joint.roll, joint.pitch, joint.yaw);
+				(void)parseThreeDoubles(xml.attributes().value(QStringLiteral("xyz")).toString(), joint.x, joint.y,
+										joint.z);
+				(void)parseThreeDoubles(xml.attributes().value(QStringLiteral("rpy")).toString(), joint.roll,
+										joint.pitch, joint.yaw);
 				xml.skipCurrentElement();
 			}
 			else if (xml.name() == QLatin1String("parent"))
@@ -130,8 +139,8 @@ bool loadUrdfJointList(const QString& urdfPath, QVector<ParsedUrdfJoint>& outJoi
 			}
 			else if (xml.name() == QLatin1String("axis"))
 			{
-				(void)parseThreeDoubles(
-					xml.attributes().value(QStringLiteral("xyz")).toString(), joint.ax, joint.ay, joint.az);
+				(void)parseThreeDoubles(xml.attributes().value(QStringLiteral("xyz")).toString(), joint.ax, joint.ay,
+										joint.az);
 				xml.skipCurrentElement();
 			}
 			else
@@ -163,15 +172,8 @@ bool loadUrdfJointList(const QString& urdfPath, QVector<ParsedUrdfJoint>& outJoi
 	return true;
 }
 
-bool decomposeDhFromOriginXyzRpy(
-	double txMm,
-	double tyMm,
-	double tzMm,
-	double roll,
-	double pitch,
-	double yaw,
-	robot_kinematics::DhRow& out,
-	QString* errMsg)
+bool decomposeDhFromOriginXyzRpy(double txMm, double tyMm, double tzMm, double roll, double pitch, double yaw,
+								 robot_kinematics::DhRow& out, QString* errMsg)
 {
 	const double cr = std::cos(roll);
 	const double sr = std::sin(roll);
@@ -237,10 +239,7 @@ bool decomposeDhFromOriginXyzRpy(
 	return true;
 }
 
-bool buildDhRowsFromUrdfImpl(
-	const QString& urdfPath,
-	std::vector<robot_kinematics::DhRow>& outRows,
-	QString* errMsg)
+bool buildDhRowsFromUrdfImpl(const QString& urdfPath, std::vector<robot_kinematics::DhRow>& outRows, QString* errMsg)
 {
 	outRows.clear();
 	QVector<ParsedUrdfJoint> joints;
@@ -319,8 +318,8 @@ bool buildDhRowsFromUrdfImpl(
 	{
 		robot_kinematics::DhRow row{};
 		QString rowErr;
-		if (!decomposeDhFromOriginXyzRpy(
-				j.x * 1000.0, j.y * 1000.0, j.z * 1000.0, j.roll, j.pitch, j.yaw, row, &rowErr))
+		if (!decomposeDhFromOriginXyzRpy(j.x * 1000.0, j.y * 1000.0, j.z * 1000.0, j.roll, j.pitch, j.yaw, row,
+										 &rowErr))
 		{
 			if (errMsg)
 			{
@@ -338,8 +337,7 @@ bool buildDhRowsFromUrdfImpl(
 			{
 				if (errMsg)
 				{
-					*errMsg = QStringLiteral(
-						"joint '%1' 旋转轴不是 +Z（axis=%2,%3,%4），当前DH求解链不支持。")
+					*errMsg = QStringLiteral("joint '%1' 旋转轴不是 +Z（axis=%2,%3,%4），当前DH求解链不支持。")
 								  .arg(j.name)
 								  .arg(nx, 0, 'g', 6)
 								  .arg(ny, 0, 'g', 6)
@@ -386,7 +384,8 @@ double quaternionAngularErrorDeg(const osg::Quat& qaIn, const osg::Quat& qbIn)
 {
 	osg::Quat qa = qaIn;
 	osg::Quat qb = qbIn;
-	auto normalizeQuat = [](osg::Quat& q) {
+	auto normalizeQuat = [](osg::Quat& q)
+	{
 		const double n = std::sqrt(q.x() * q.x() + q.y() * q.y() + q.z() * q.z() + q.w() * q.w());
 		if (n <= 1e-12)
 		{
@@ -525,10 +524,8 @@ ROBOTWIDGET_EXPORT bool decodeMatrix4Csv(const std::string& text, osg::Matrixd& 
 	return decodeMatrix4CsvImpl(text, out);
 }
 
-ROBOTWIDGET_EXPORT bool buildDhRowsFromUrdf(
-	const QString& urdfPath,
-	std::vector<robot_kinematics::DhRow>& outRows,
-	QString* errMsg)
+ROBOTWIDGET_EXPORT bool buildDhRowsFromUrdf(const QString& urdfPath, std::vector<robot_kinematics::DhRow>& outRows,
+											QString* errMsg)
 {
 	return buildDhRowsFromUrdfImpl(urdfPath, outRows, errMsg);
 }

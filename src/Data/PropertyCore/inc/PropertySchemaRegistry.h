@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef PROPERTYCORE_PROPERTYSCHEMAREGISTRY_H
+#define PROPERTYCORE_PROPERTYSCHEMAREGISTRY_H
+
+/// @file PropertySchemaRegistry.h
+/// @brief objectTypeId → PropertySchema 全局表
 
 #include "PropertySchema.h"
 
@@ -6,7 +10,6 @@
 
 namespace property_core
 {
-
 /// objectTypeId → PropertySchema 全局表
 class PropertySchemaRegistry
 {
@@ -36,3 +39,5 @@ private:
 };
 
 } // namespace property_core
+
+#endif // PROPERTYCORE_PROPERTYSCHEMAREGISTRY_H

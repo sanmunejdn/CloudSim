@@ -1,8 +1,13 @@
-#pragma once
+﻿#ifndef WIDGET_OSGWIDGETGIZMOCONTROLLER_H
+#define WIDGET_OSGWIDGETGIZMOCONTROLLER_H
+
+/// @file OsgWidgetGizmoController.h
+/// @brief 指南针/轴环 gizmo 的节点创建、显示/隐藏、高亮、缩放与拾取（自 OsgWidget 拆出
 
 #include <QPoint>
 
-namespace osg {
+namespace osg
+{
 class Node;
 }
 
@@ -12,7 +17,7 @@ class OsgWidget;
 class OsgWidgetGizmoController
 {
 public:
-/// 轴编号 0=None,1=X,2=Y,3=Z（同 OsgWidget::DragAxis）
+	/// 轴编号 0=None,1=X,2=Y,3=Z（同 OsgWidget::DragAxis）
 	static constexpr int kAxisNone = 0;
 	static constexpr int kAxisX = 1;
 	static constexpr int kAxisY = 2;
@@ -29,3 +34,4 @@ public:
 	static void detachCompassGraphics(OsgWidget& self);
 };
 
+#endif // WIDGET_OSGWIDGETGIZMOCONTROLLER_H

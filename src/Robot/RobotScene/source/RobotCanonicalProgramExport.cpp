@@ -1,3 +1,6 @@
+﻿/// @file RobotCanonicalProgramExport.cpp
+/// @brief RobotCanonicalProgramExport 实现
+
 #include "RobotCanonicalProgramExport.h"
 
 #include "RobotInstructionCondition.h"
@@ -135,10 +138,7 @@ struct BuildState
 	bool includePathPlan = false;
 };
 
-nlohmann::json buildRecord(
-	const Base& ins,
-	const std::vector<size_t>& path,
-	BuildState& st)
+nlohmann::json buildRecord(const Base& ins, const std::vector<size_t>& path, BuildState& st)
 {
 	nlohmann::json rec = nlohmann::json::object();
 	rec["programStepPath"] = path;
@@ -146,9 +146,15 @@ nlohmann::json buildRecord(
 	rec["type"] = typeToString(ins.type());
 	switch (ins.category())
 	{
-	case Category::Motion: rec["category"] = "Motion"; break;
-	case Category::Planning: rec["category"] = "Planning"; break;
-	default: rec["category"] = "Logic"; break;
+	case Category::Motion:
+		rec["category"] = "Motion";
+		break;
+	case Category::Planning:
+		rec["category"] = "Planning";
+		break;
+	default:
+		rec["category"] = "Logic";
+		break;
 	}
 	rec["name"] = ins.name();
 	const bool execLeaf = isExecutableLeaf(ins.type());
@@ -162,9 +168,15 @@ nlohmann::json buildRecord(
 			nlohmann::json planning = nlohmann::json::object();
 			switch (pp->phase())
 			{
-			case PathPlanPhase::RawReady: planning["phase"] = "raw_ready"; break;
-			case PathPlanPhase::Applied: planning["phase"] = "applied"; break;
-			default: planning["phase"] = "draft"; break;
+			case PathPlanPhase::RawReady:
+				planning["phase"] = "raw_ready";
+				break;
+			case PathPlanPhase::Applied:
+				planning["phase"] = "applied";
+				break;
+			default:
+				planning["phase"] = "draft";
+				break;
 			}
 			planning["pipelineOpCount"] = pp->pipeline().size();
 			planning["appliedHistoryOpCount"] = pp->appliedHistory().size();
@@ -204,11 +216,8 @@ nlohmann::json buildRecord(
 	return rec;
 }
 
-nlohmann::json buildNested(
-	const std::vector<std::shared_ptr<Base>>& steps,
-	std::vector<size_t> pathPrefix,
-	BuildState& st,
-	const bool includePathPlan)
+nlohmann::json buildNested(const std::vector<std::shared_ptr<Base>>& steps, std::vector<size_t> pathPrefix,
+						   BuildState& st, const bool includePathPlan)
 {
 	nlohmann::json arr = nlohmann::json::array();
 	for (size_t i = 0; i < steps.size(); ++i)
@@ -270,8 +279,10 @@ nlohmann::json coordinateFramesToJson(const RobotCoordinate::RobotCoordinateFram
 		tj["name"] = tf.name;
 		tj["flangeLinkName"] = tf.flangeLinkName;
 		tj["T_flange_tool"] = nlohmann::json::object();
-		tj["T_flange_tool"]["positionMm"] = {tf.T_flange_tool.positionMm[0], tf.T_flange_tool.positionMm[1], tf.T_flange_tool.positionMm[2]};
-		tj["T_flange_tool"]["eulerDeg"] = {tf.T_flange_tool.eulerDeg[0], tf.T_flange_tool.eulerDeg[1], tf.T_flange_tool.eulerDeg[2]};
+		tj["T_flange_tool"]["positionMm"] = {tf.T_flange_tool.positionMm[0], tf.T_flange_tool.positionMm[1],
+											 tf.T_flange_tool.positionMm[2]};
+		tj["T_flange_tool"]["eulerDeg"] = {tf.T_flange_tool.eulerDeg[0], tf.T_flange_tool.eulerDeg[1],
+										   tf.T_flange_tool.eulerDeg[2]};
 		tools.push_back(std::move(tj));
 	}
 	j["toolFrames"] = std::move(tools);
@@ -282,8 +293,10 @@ nlohmann::json coordinateFramesToJson(const RobotCoordinate::RobotCoordinateFram
 		uj["id"] = uf.id;
 		uj["name"] = uf.name;
 		uj["T_base_user"] = nlohmann::json::object();
-		uj["T_base_user"]["positionMm"] = {uf.T_base_user.positionMm[0], uf.T_base_user.positionMm[1], uf.T_base_user.positionMm[2]};
-		uj["T_base_user"]["eulerDeg"] = {uf.T_base_user.eulerDeg[0], uf.T_base_user.eulerDeg[1], uf.T_base_user.eulerDeg[2]};
+		uj["T_base_user"]["positionMm"] = {uf.T_base_user.positionMm[0], uf.T_base_user.positionMm[1],
+										   uf.T_base_user.positionMm[2]};
+		uj["T_base_user"]["eulerDeg"] = {uf.T_base_user.eulerDeg[0], uf.T_base_user.eulerDeg[1],
+										 uf.T_base_user.eulerDeg[2]};
 		users.push_back(std::move(uj));
 	}
 	j["userFrames"] = std::move(users);
@@ -291,14 +304,10 @@ nlohmann::json coordinateFramesToJson(const RobotCoordinate::RobotCoordinateFram
 }
 } // namespace
 
-bool buildCanonicalExportV1(
-	const RobotProgram& program,
-	const InstructionRuntimeResolveContext& ctx,
-	const CanonicalExportLayout layout,
-	const bool includePathPlanMetadata,
-	const std::vector<PlanResult>* motionPlansInDfsOrder,
-	CanonicalProgramExportV1& out,
-	std::string* errMsg)
+bool buildCanonicalExportV1(const RobotProgram& program, const InstructionRuntimeResolveContext& ctx,
+							const CanonicalExportLayout layout, const bool includePathPlanMetadata,
+							const std::vector<PlanResult>* motionPlansInDfsOrder, CanonicalProgramExportV1& out,
+							std::string* errMsg)
 {
 	(void)errMsg;
 	out = CanonicalProgramExportV1{};
@@ -367,10 +376,9 @@ bool writeCanonicalExportV1ToJson(const CanonicalProgramExportV1& doc, std::stri
 	root["exportedAt"] = doc.exportedAtUtc;
 	root["exportLayout"] = doc.layout == CanonicalExportLayout::NestedTree ? "nested_tree" : "flat_motion";
 	root["program"] = nlohmann::json{{"id", doc.programId}, {"name", doc.programName}};
-	root["robot"] = nlohmann::json{
-		{"instanceIndex", doc.robotInstanceIndex},
-		{"sceneBackendId", doc.robotSceneBackendId},
-		{"urdfPath", doc.urdfPath}};
+	root["robot"] = nlohmann::json{{"instanceIndex", doc.robotInstanceIndex},
+								   {"sceneBackendId", doc.robotSceneBackendId},
+								   {"urdfPath", doc.urdfPath}};
 	root["coordinateFrames"] = coordinateFramesToJson(doc.coordinateFrames);
 	root["instructions"] = doc.instructions;
 	nlohmann::json flatArr = nlohmann::json::array();

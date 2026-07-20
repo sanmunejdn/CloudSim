@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef WIDGET_MAINWINDOWROBOTHOST_H
+#define WIDGET_MAINWINDOWROBOTHOST_H
+
+/// @file MainWindowRobotHost.h
+/// @brief MainWindow 的 IRobotMainWindowHost + 指令属性 IRobotService 委托实现
 
 #include "../RobotWidget/inc/IRobotMainWindowHost.h"
 #include "IRobotInstructionPropertyDelegate.h"
@@ -43,9 +47,8 @@ public:
 
 	void refreshBackendTree() override;
 	void runFollowSolveAndSyncForCurrentDocument() override;
-	void refreshInstructionPropertyPanel(
-		const std::shared_ptr<RobotInstruction::Base>& instruction,
-		bool refreshFeasibleAxisOptions = true) override;
+	void refreshInstructionPropertyPanel(const std::shared_ptr<RobotInstruction::Base>& instruction,
+										 bool refreshFeasibleAxisOptions = true) override;
 	void clearInstructionPropertyPanel() override;
 	void invalidateInstructionPropertyCache() override;
 
@@ -54,26 +57,18 @@ public:
 
 	std::shared_ptr<RobotInstruction::Base> activeInstructionForProperty() const override;
 	void applySuggestedAxisPresetFromSeedIfNeeded(
-		const std::shared_ptr<RobotInstruction::Base>& instruction,
-		const QVector<double>& seedJointRad,
+		const std::shared_ptr<RobotInstruction::Base>& instruction, const QVector<double>& seedJointRad,
 		const RobotInstruction::FeasibleMotionAxisConfigurationOptions& feasible) override;
 
 	bool registerUrdfRobot(const QString& urdfPath, bool quietUi) override;
 
-	bool planRobotMotionInstruction(
-		RobotInstruction::Base& instruction,
-		const QVector<double>& seedJointRad,
-		int instanceIndex,
-		const QString& urdfPath,
-		const QString& defaultTcpLinkName,
-		const QString& sceneRootBackendId,
-		RobotInstruction::PlanResult& out,
-		std::string* outErr) override;
+	bool planRobotMotionInstruction(RobotInstruction::Base& instruction, const QVector<double>& seedJointRad,
+									int instanceIndex, const QString& urdfPath, const QString& defaultTcpLinkName,
+									const QString& sceneRootBackendId, RobotInstruction::PlanResult& out,
+									std::string* outErr) override;
 
-	void enqueueBackgroundJob(
-		const QString& title,
-		std::function<void()> work,
-		std::function<void(bool threw, const QString& msg)> onFinished) override;
+	void enqueueBackgroundJob(const QString& title, std::function<void()> work,
+							  std::function<void(bool threw, const QString& msg)> onFinished) override;
 
 	void setMeshPickCommittedHandler(std::function<void(const PickResult&, PickKind)> handler) override;
 	void clearMeshPickCommittedHandler() override;
@@ -83,20 +78,17 @@ public:
 	void clearMeshTriangleLabelingPickHandlers() override;
 	void notifyMeshTriangleLabelingClick(const PickResult& pick);
 	void notifyMeshTriangleLabelingBrush(const std::vector<int>& triangleIndices);
-	void notifyMeshTriangleLabelingPolyline(
-		const QVector<float>& polylineScreenXy,
-		const QVector<double>& mvpMatrix,
-		int viewportWidth,
-		int viewportHeight);
+	void notifyMeshTriangleLabelingPolyline(const QVector<float>& polylineScreenXy, const QVector<double>& mvpMatrix,
+											int viewportWidth, int viewportHeight);
 
 	/// 文档页 OSG Qt 信号 → MainWindow 槽（Widget 协调层不直接 include OsgWidget）
 	void wireDocumentPageSceneSignals(DocumentPage* page);
 
 	QVector<cloudsim::core::PropertyRowDto> instructionPropertyRows(const QString& instructionId) override;
 	bool applyInstructionPropertyChange(const QString& instructionId, const QString& key, const QString& value,
-		QString* outError = nullptr) override;
-	cloudsim::core::FeasibleMotionAxisOptionsDto queryFeasibleMotionAxisOptions(const QString& instructionId,
-		QVector<double>* outSeedJointRad = nullptr) override;
+										QString* outError = nullptr) override;
+	cloudsim::core::FeasibleMotionAxisOptionsDto
+	queryFeasibleMotionAxisOptions(const QString& instructionId, QVector<double>* outSeedJointRad = nullptr) override;
 	cloudsim::core::FeasibleMotionAxisOptionsDto cachedFeasibleMotionAxisOptions() override;
 
 private:
@@ -108,3 +100,5 @@ private:
 	std::function<void(const PickResult&, PickKind)> m_meshPickHandler;
 	IRobotMainWindowHost::MeshTriangleLabelingPickHandlers m_meshTriangleLabelingHandlers;
 };
+
+#endif // WIDGET_MAINWINDOWROBOTHOST_H

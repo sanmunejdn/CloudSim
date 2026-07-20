@@ -1,3 +1,6 @@
+﻿/// @file OsgSceneNavigation.cpp
+/// @brief OsgSceneNavigation 实现
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -17,7 +20,8 @@
 
 void OsgScene::resetNavigationInputQueues()
 {
-	auto resetOne = [](osgGA::EventQueue* q) {
+	auto resetOne = [](osgGA::EventQueue* q)
+	{
 		if (!q)
 		{
 			return;

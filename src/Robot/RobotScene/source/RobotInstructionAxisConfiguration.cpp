@@ -1,3 +1,6 @@
+﻿/// @file RobotInstructionAxisConfiguration.cpp
+/// @brief RobotInstructionAxisConfiguration 实现
+
 #include "RobotInstructionAxisConfiguration.h"
 
 #include <algorithm>
@@ -25,9 +28,8 @@ int findJointIndexByHint(const std::vector<std::string>& jointNames, const char*
 		for (size_t i = 0; i < jointNames.size(); ++i)
 		{
 			std::string lower = jointNames[i];
-			std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) {
-				return static_cast<char>(std::tolower(c));
-			});
+			std::transform(lower.begin(), lower.end(), lower.begin(),
+						   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 			if (lower.find(needle) != std::string::npos)
 			{
 				return static_cast<int>(i);
@@ -60,22 +62,22 @@ std::vector<std::string> motionAxisConfigPresetTokens()
 
 std::vector<std::string> elbowPostureTokens()
 {
-	return { "AUTO", "UP", "DOWN" };
+	return {"AUTO", "UP", "DOWN"};
 }
 
 std::vector<std::string> wristPostureTokens()
 {
-	return { "AUTO", "NO_FLIP", "FLIP" };
+	return {"AUTO", "NO_FLIP", "FLIP"};
 }
 
 std::vector<std::string> armPostureTokens()
 {
-	return { "AUTO", "FRONT", "BACK" };
+	return {"AUTO", "FRONT", "BACK"};
 }
 
 std::vector<std::string> motionAxisTurnTokens()
 {
-	return { "AUTO", "-2", "-1", "0", "1", "2", "3" };
+	return {"AUTO", "-2", "-1", "0", "1", "2", "3"};
 }
 
 bool jointTurnFromToken(const std::string& token, int& outTurn)
@@ -185,9 +187,12 @@ std::string elbowPostureToToken(const ElbowPosture v)
 {
 	switch (v)
 	{
-	case ElbowPosture::Up: return "UP";
-	case ElbowPosture::Down: return "DOWN";
-	default: return "AUTO";
+	case ElbowPosture::Up:
+		return "UP";
+	case ElbowPosture::Down:
+		return "DOWN";
+	default:
+		return "AUTO";
 	}
 }
 
@@ -195,9 +200,12 @@ std::string wristPostureToToken(const WristPosture v)
 {
 	switch (v)
 	{
-	case WristPosture::Flip: return "FLIP";
-	case WristPosture::NoFlip: return "NO_FLIP";
-	default: return "AUTO";
+	case WristPosture::Flip:
+		return "FLIP";
+	case WristPosture::NoFlip:
+		return "NO_FLIP";
+	default:
+		return "AUTO";
 	}
 }
 
@@ -205,9 +213,12 @@ std::string armPostureToToken(const ArmPosture v)
 {
 	switch (v)
 	{
-	case ArmPosture::Front: return "FRONT";
-	case ArmPosture::Back: return "BACK";
-	default: return "AUTO";
+	case ArmPosture::Front:
+		return "FRONT";
+	case ArmPosture::Back:
+		return "BACK";
+	default:
+		return "AUTO";
 	}
 }
 
@@ -461,7 +472,8 @@ std::string formatMotionAxisConfigurationSummary(const MotionAxisConfiguration& 
 	JointConfigurationClass eff{};
 	cfg.resolveEffective(eff);
 	std::string out;
-	auto appendPart = [&](const std::string& en, const std::string& zh) {
+	auto appendPart = [&](const std::string& en, const std::string& zh)
+	{
 		if (!out.empty())
 		{
 			out += chinese ? "/" : "/";
@@ -549,10 +561,9 @@ std::string suggestMotionAxisPresetToken(const JointConfigurationClass& c)
 	return "AUTO";
 }
 
-JointConfigurationClass classifyJointConfiguration(
-	const std::vector<double>& qRad,
-	const std::vector<std::string>& jointNames,
-	const std::vector<double>* referenceQRad)
+JointConfigurationClass classifyJointConfiguration(const std::vector<double>& qRad,
+												   const std::vector<std::string>& jointNames,
+												   const std::vector<double>* referenceQRad)
 {
 	JointConfigurationClass c;
 	if (qRad.empty())
@@ -565,14 +576,14 @@ JointConfigurationClass classifyJointConfiguration(
 	const int j4Idx = findJointIndexByHint(jointNames, "joint_4", 3);
 	const int j6Idx = findJointIndexByHint(jointNames, "joint_6", 5);
 	const double refJ1 = (referenceQRad && j1Idx >= 0 && j1Idx < static_cast<int>(referenceQRad->size()))
-		? (*referenceQRad)[static_cast<size_t>(j1Idx)]
-		: 0.0;
+							 ? (*referenceQRad)[static_cast<size_t>(j1Idx)]
+							 : 0.0;
 	const double refJ4 = (referenceQRad && j4Idx >= 0 && j4Idx < static_cast<int>(referenceQRad->size()))
-		? (*referenceQRad)[static_cast<size_t>(j4Idx)]
-		: 0.0;
+							 ? (*referenceQRad)[static_cast<size_t>(j4Idx)]
+							 : 0.0;
 	const double refJ6 = (referenceQRad && j6Idx >= 0 && j6Idx < static_cast<int>(referenceQRad->size()))
-		? (*referenceQRad)[static_cast<size_t>(j6Idx)]
-		: 0.0;
+							 ? (*referenceQRad)[static_cast<size_t>(j6Idx)]
+							 : 0.0;
 
 	if (elbowIdx >= 0 && elbowIdx < static_cast<int>(qRad.size()))
 	{

@@ -1,15 +1,15 @@
+﻿/// @file MainWindowInstructionPropertyUiHost.cpp
+/// @brief MainWindowInstructionPropertyUiHost 实现
+
 #include "MainWindowInstructionPropertyUiHost.h"
 
-#include "MainWindow.h"
-#include "MainWindowRobotHost.h"
-
 #include "../RobotWidget/inc/IRobotDocumentHost.h"
-#include "RunInfoPage.h"
-
 #include "../RobotWidget/inc/InstructionPropertyPanel.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
-
+#include "MainWindow.h"
+#include "MainWindowRobotHost.h"
+#include "RunInfoPage.h"
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
 
@@ -41,7 +41,8 @@ IRobotDocumentHost* MainWindowInstructionPropertyUiHost::currentRobotDocument()
 }
 
 bool MainWindowInstructionPropertyUiHost::applyInstructionPropertyChange(const QString& instructionId,
-	const QString& key, const QString& value, QString* outError)
+																		 const QString& key, const QString& value,
+																		 QString* outError)
 {
 	if (m_mw.m_robotHost)
 	{
@@ -75,22 +76,22 @@ QString MainWindowInstructionPropertyUiHost::i18n(const QString& en, const QStri
 	return m_mw.i18n(en, zh);
 }
 
-void MainWindowInstructionPropertyUiHost::appendPropertyBrowserRow(const QString& propertyKey,
-	const QString& displayLabel, const QString& value, const bool editable,
+void MainWindowInstructionPropertyUiHost::appendPropertyBrowserRow(
+	const QString& propertyKey, const QString& displayLabel, const QString& value, const bool editable,
 	const std::vector<std::string>* enumOptionTokens, const QStringList* enumDisplayNames, const QString& toolTip)
 {
 	m_mw.appendPropertyBrowserRow(propertyKey, displayLabel, value, editable, enumOptionTokens, enumDisplayNames,
-		toolTip);
+								  toolTip);
 }
 
 QString MainWindowInstructionPropertyUiHost::propertyDisplayLabelForKey(const QString& key,
-	const QString& labelEnFallback) const
+																		const QString& labelEnFallback) const
 {
 	return m_mw.propertyDisplayLabelForKey(key, labelEnFallback);
 }
 
 QString MainWindowInstructionPropertyUiHost::instructionEnumTokenFromProperty(QtProperty* property,
-	const QVariant& value) const
+																			  const QVariant& value) const
 {
 	return m_mw.instructionEnumTokenFromProperty(property, value);
 }
@@ -102,7 +103,8 @@ MainWindowInstructionPropertyUiHost::feasibleMotionAxisConfigurationOptionsForIn
 	return m_mw.feasibleMotionAxisConfigurationOptionsForInstruction(instruction, outSeedJointRad);
 }
 
-cloudsim::core::FeasibleMotionAxisOptionsDto MainWindowInstructionPropertyUiHost::cachedFeasibleMotionAxisOptionsDto() const
+cloudsim::core::FeasibleMotionAxisOptionsDto
+MainWindowInstructionPropertyUiHost::cachedFeasibleMotionAxisOptionsDto() const
 {
 	if (!m_mw.m_robotHost)
 	{
@@ -163,8 +165,8 @@ void MainWindowInstructionPropertyUiHost::scheduleInstructionPropertyRefresh(
 	m_mw.scheduleInstructionPropertyRefreshDebounced(instruction, refreshFeasibleAxisOptions);
 }
 
-void MainWindowInstructionPropertyUiHost::notifyPropertyPanelNumericEditStarted(
-	const QString& contextId, const QString& propertyKey)
+void MainWindowInstructionPropertyUiHost::notifyPropertyPanelNumericEditStarted(const QString& contextId,
+																				const QString& propertyKey)
 {
 	m_mw.beginPropertyPanelNumericEdit(contextId, propertyKey);
 }

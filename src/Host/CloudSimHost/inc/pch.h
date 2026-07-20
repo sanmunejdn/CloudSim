@@ -1,10 +1,8 @@
-#pragma once
+﻿#ifndef CLOUDSIMHOST_PCH_H
+#define CLOUDSIMHOST_PCH_H
 
-
-
-#ifndef WIN32_LEAN_AND_MEAN
-
-#define WIN32_LEAN_AND_MEAN
+/// @file pch.h
+/// @brief 预编译头
 
 #endif
 
@@ -12,17 +10,4 @@
 
 #define NOMINMAX
 
-#endif
-
-
-
-#include <QtCore/QtCore>
-
-#include <QtGui/QtGui>
-
-#include <QtWidgets/QtWidgets>
-
-
-
-#include "widget_global.h"
-
+#endif // CLOUDSIMHOST_PCH_H

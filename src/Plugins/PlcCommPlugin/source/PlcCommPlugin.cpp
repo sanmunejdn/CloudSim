@@ -1,3 +1,6 @@
+﻿/// @file PlcCommPlugin.cpp
+/// @brief PlcCommPlugin 实现
+
 #include "PlcCommPlugin.h"
 
 #include "IPluginHostContext.h"
@@ -39,13 +42,10 @@ bool PlcCommPlugin::initialize(IPluginHostContext* host)
 		return false;
 	}
 
-	host->onLanguageChanged([this](const bool) {
-		applyLanguage();
-	});
+	host->onLanguageChanged([this](const bool) { applyLanguage(); });
 
-	host->logInfo(host->useChinese()
-		? QStringLiteral("PLC 通讯插件已加载。")
-		: QStringLiteral("PLC comm plugin initialized."));
+	host->logInfo(host->useChinese() ? QStringLiteral("PLC 通讯插件已加载。")
+									 : QStringLiteral("PLC comm plugin initialized."));
 	return true;
 }
 

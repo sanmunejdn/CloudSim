@@ -1,3 +1,6 @@
+﻿/// @file MeshComposeDomainHandler.cpp
+/// @brief MeshComposeDomainHandler 实现
+
 #include "Ai/MeshComposeDomainHandler.h"
 
 #include "Ai/AiActionPlanExecutor.h"
@@ -5,10 +8,10 @@
 #include "IAiAssistantHost.h"
 #include "PluginHostContext.h"
 
-#include <json.hpp>
-
 #include <QSet>
 #include <QString>
+
+#include <json.hpp>
 
 namespace
 {
@@ -16,7 +19,7 @@ bool isKnownApi(const std::string& api)
 {
 	return api == "createPrimitiveMesh" || api == "booleanMesh" || api == "importFileIntoActiveDocument";
 }
-}
+} // namespace
 
 QString MeshComposeDomainHandler::domainId() const
 {
@@ -59,7 +62,8 @@ bool MeshComposeDomainHandler::validatePlanJson(const nlohmann::json& root, QStr
 				*err = QStringLiteral("Unknown api: %1").arg(QString::fromStdString(api));
 			return false;
 		}
-		const nlohmann::json args = step.contains("args") && step["args"].is_object() ? step["args"] : nlohmann::json::object();
+		const nlohmann::json args =
+			step.contains("args") && step["args"].is_object() ? step["args"] : nlohmann::json::object();
 		if (api == "booleanMesh")
 		{
 			const std::string op = args.value("op", "difference");
@@ -69,7 +73,8 @@ bool MeshComposeDomainHandler::validatePlanJson(const nlohmann::json& root, QStr
 					*err = QStringLiteral("booleanMesh op must be difference|union|intersection.");
 				return false;
 			}
-			auto checkRef = [&](const char* key) {
+			auto checkRef = [&](const char* key)
+			{
 				const std::string ref = args.value(key, "");
 				if (ref.empty())
 					return false;
@@ -119,7 +124,7 @@ bool MeshComposeDomainHandler::validateOutput(const QByteArray& jsonUtf8, QStrin
 }
 
 bool MeshComposeDomainHandler::execute(const QByteArray& jsonUtf8, IPluginHostContext* host, IAiAssistantHost* aiHost,
-	QString* summary, QString* err)
+									   QString* summary, QString* err)
 {
 	(void)aiHost;
 	auto* ph = dynamic_cast<PluginHostContext*>(host);

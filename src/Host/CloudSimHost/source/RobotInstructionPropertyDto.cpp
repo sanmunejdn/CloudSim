@@ -1,9 +1,12 @@
+﻿/// @file RobotInstructionPropertyDto.cpp
+/// @brief RobotInstructionPropertyDto 实现
+
 #include "RobotInstructionPropertyDto.h"
 
 #include <json.hpp>
 
-namespace cloudsim::host {
-
+namespace cloudsim::host
+{
 QVector<core::PropertyRowDto> propertyRowsFromInstructionSnapshotJson(const nlohmann::json& rows)
 {
 	QVector<core::PropertyRowDto> out;
@@ -45,16 +48,14 @@ QVector<core::PropertyRowDto> propertyRowsFromInstructionSnapshotJson(const nloh
 	return out;
 }
 
-core::FeasibleMotionAxisOptionsDto feasibleAxisOptionsFromEngine(
-	const std::vector<std::string>& preset,
-	const std::vector<std::string>& elbow,
-	const std::vector<std::string>& wrist,
-	const std::vector<std::string>& arm,
-	const std::vector<std::string>& turnJ1,
-	const std::vector<std::string>& turnJ4,
-	const std::vector<std::string>& turnJ6)
+core::FeasibleMotionAxisOptionsDto
+feasibleAxisOptionsFromEngine(const std::vector<std::string>& preset, const std::vector<std::string>& elbow,
+							  const std::vector<std::string>& wrist, const std::vector<std::string>& arm,
+							  const std::vector<std::string>& turnJ1, const std::vector<std::string>& turnJ4,
+							  const std::vector<std::string>& turnJ6)
 {
-	auto toList = [](const std::vector<std::string>& tokens) {
+	auto toList = [](const std::vector<std::string>& tokens)
+	{
 		QStringList list;
 		list.reserve(static_cast<int>(tokens.size()));
 		for (const std::string& t : tokens)

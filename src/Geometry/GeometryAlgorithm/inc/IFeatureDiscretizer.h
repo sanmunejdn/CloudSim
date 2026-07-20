@@ -1,15 +1,19 @@
-#pragma once
+﻿#ifndef GEOMETRYALGORITHM_IFEATUREDISCRETIZER_H
+#define GEOMETRYALGORITHM_IFEATUREDISCRETIZER_H
 
-#include "FeatureListDocument.h"
+/// @file IFeatureDiscretizer.h
+/// @brief IFeatureDiscretizer 接口
+
 #include "geometry_algorithm_global.h"
 
-#include <TopoDS_Shape.hxx>
+#include "FeatureListDocument.h"
 
 #include <string>
 
+#include <TopoDS_Shape.hxx>
+
 namespace geoalgo
 {
-
 class GEOMETRY_ALGORITHM_API IFeatureDiscretizer
 {
 public:
@@ -22,15 +26,12 @@ public:
 
 	virtual std::vector<FeatureDiscretizerParamField> paramFields() const = 0;
 
-	virtual bool discretize(
-		const TopoDS_Shape& shape,
-		const FeatureDiscretizeInput& input,
-		RawPath& out,
-		std::string* errMsg = nullptr) const = 0;
+	virtual bool discretize(const TopoDS_Shape& shape, const FeatureDiscretizeInput& input, RawPath& out,
+							std::string* errMsg = nullptr) const = 0;
 
-	virtual bool validate(
-		const FeatureDiscretizeInput& input,
-		std::string* errMsg = nullptr) const;
+	virtual bool validate(const FeatureDiscretizeInput& input, std::string* errMsg = nullptr) const;
 };
 
 } // namespace geoalgo
+
+#endif // GEOMETRYALGORITHM_IFEATUREDISCRETIZER_H

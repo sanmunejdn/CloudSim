@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef OSGWIDGETCORE_BACKENDVISUALBINDINGINDEX_H
+#define OSGWIDGETCORE_BACKENDVISUALBINDINGINDEX_H
+
+/// @file BackendVisualBindingIndex.h
+/// @brief 后端 id 与场景根节点绑定索引
 
 #include "osgwidgetcore_global.h"
 
@@ -28,3 +32,4 @@ private:
 	std::unordered_map<const osg::Node*, std::string> m_rootToBackend;
 };
 
+#endif // OSGWIDGETCORE_BACKENDVISUALBINDINGINDEX_H

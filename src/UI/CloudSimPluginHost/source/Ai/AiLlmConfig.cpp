@@ -1,12 +1,14 @@
-#include "AiLlmConfig.h"
+﻿/// @file AiLlmConfig.cpp
+/// @brief AiLlmConfig 实现
 
-#include <json.hpp>
+#include "AiLlmConfig.h"
 
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
-
 #include <algorithm>
+
+#include <json.hpp>
 
 bool AiLlmConfig::hasApiKey() const
 {

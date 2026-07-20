@@ -1,10 +1,14 @@
+﻿/// @file MeshBackendData_core.cpp
+/// @brief MeshBackendData_core 实现
+
 #include "pch.h"
-#include "MeshBackendData.h"
+
+#include "../../PropertyCore/inc/PropertyAttribute.h"
 #include "BackendObjectAttribute.h"
 #include "BackendPropertyRow.h"
+#include "MeshBackendData.h"
 #include "RunLogger.h"
 #include "geometry_base64.h"
-#include "../../PropertyCore/inc/PropertyAttribute.h"
 
 MeshBackendData::MeshBackendData()
 {
@@ -70,16 +74,16 @@ nlohmann::json MeshBackendData::snapshotPropertyRows(const BackendDataManager* m
 	nlohmann::json rows = BackendDataBase::snapshotPropertyRows(mgr);
 	property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::appendRows(m_attributes, *this, rows);
 
-	backend_property_json::appendRow(
-		rows, "mesh.triangle_count", "Triangles", false, std::to_string(geometryElementCount()));
+	backend_property_json::appendRow(rows, "mesh.triangle_count", "Triangles", false,
+									 std::to_string(geometryElementCount()));
 	return rows;
 }
 
 bool MeshBackendData::applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
-	const BackendDataManager* mgr)
+										  const BackendDataManager* mgr)
 {
-	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(
-			m_attributes, *this, key, value, errMsg))
+	if (property_core::PropertyPipeline<BackendDataBase, BackendAttributeBase>::apply(m_attributes, *this, key, value,
+																					  errMsg))
 	{
 		return true;
 	}
@@ -92,7 +96,7 @@ void MeshBackendData::setTriangleSoup(std::vector<float> xyzPerTriangleVertex)
 }
 
 void MeshBackendData::setTriangleSoupWithNormals(std::vector<float> xyzPerTriangleVertex,
-	std::vector<float> normalPerTriangleVertex)
+												 std::vector<float> normalPerTriangleVertex)
 {
 	if (xyzPerTriangleVertex.size() % 9U != 0U)
 	{
@@ -110,9 +114,8 @@ void MeshBackendData::setTriangleSoupWithNormals(std::vector<float> xyzPerTriang
 	recomputeBounds();
 }
 
-void MeshBackendData::setTriangleSoupWithVertexColors(
-	std::vector<float> xyzPerTriangleVertex,
-	std::vector<float> rgbPerTriangleVertex)
+void MeshBackendData::setTriangleSoupWithVertexColors(std::vector<float> xyzPerTriangleVertex,
+													  std::vector<float> rgbPerTriangleVertex)
 {
 	if (xyzPerTriangleVertex.size() % 9U != 0U)
 	{
@@ -181,7 +184,8 @@ void MeshBackendData::transformVerticesColumnMajorHomogeneous4x4(const double M[
 void MeshBackendData::recomputeBounds()
 {
 	m_bounds = BackendBoundingBox{};
-	auto expand = [&](const double x, const double y, const double z) {
+	auto expand = [&](const double x, const double y, const double z)
+	{
 		if (!m_bounds.valid)
 		{
 			m_bounds.min.x = x;
@@ -237,12 +241,9 @@ void MeshBackendData::saveDerivedJson(nlohmann::json& out) const
 	std::string soupB64;
 	if (writeProjectEmbeddedGeometry(soupB64))
 	{
-		out["geometry"] = nlohmann::json{
-			{ "kind", "triangles" },
-			{ "encoding", "float32_le" },
-			{ "xyzBase64", soupB64 } };
+		out["geometry"] = nlohmann::json{{"kind", "triangles"}, {"encoding", "float32_le"}, {"xyzBase64", soupB64}};
 	}
-	out["mesh"] = nlohmann::json{ { "transformPivotAtOrigin", m_transformPivotAtOrigin } };
+	out["mesh"] = nlohmann::json{{"transformPivotAtOrigin", m_transformPivotAtOrigin}};
 }
 
 bool MeshBackendData::loadDerivedJson(const nlohmann::json& in, std::string* errMsg)

@@ -1,4 +1,8 @@
-#pragma once
+﻿#ifndef PROPERTYCORE_PROPERTYDESCRIPTOR_H
+#define PROPERTYCORE_PROPERTYDESCRIPTOR_H
+
+/// @file PropertyDescriptor.h
+/// @brief 双精度滑条范围（enabled 才生效）
 
 #include "PropertyTypes.h"
 
@@ -8,7 +12,6 @@
 
 namespace property_core
 {
-
 /// 双精度滑条范围（enabled 才生效）
 struct NumericRangeDouble
 {
@@ -61,3 +64,5 @@ struct PropertyDescriptor
 };
 
 } // namespace property_core
+
+#endif // PROPERTYCORE_PROPERTYDESCRIPTOR_H

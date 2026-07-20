@@ -1,15 +1,16 @@
+﻿/// @file PluginManager.cpp
+/// @brief PluginManager 实现
+
 #include "PluginManager.h"
 
 #include "CloudSimAiVersion.h"
 #include "CloudSimPluginVersion.h"
+#include "IAiAssistantHost.h"
 #include "ICloudSimAiPlugin.h"
 #include "ICloudSimPlugin.h"
-#include "IAiAssistantHost.h"
 #include "IPluginMainWindowHost.h"
 #include "PluginHostContext.h"
 #include "RunLogger.h"
-
-#include <json.hpp>
 
 #include <QCoreApplication>
 #include <QDir>
@@ -17,10 +18,11 @@
 #include <QPluginLoader>
 #include <QStatusBar>
 
+#include <json.hpp>
+
 PluginManager::PluginManager(IPluginMainWindowHost* mainWindowHost, QObject* parent)
-	: QObject(parent)
-	, m_mainWindowHost(mainWindowHost)
-	, m_hostContext(std::make_unique<PluginHostContext>(mainWindowHost, this))
+	: QObject(parent), m_mainWindowHost(mainWindowHost),
+	  m_hostContext(std::make_unique<PluginHostContext>(mainWindowHost, this))
 {
 }
 
@@ -37,15 +39,15 @@ void PluginManager::shutdownAll()
 	}
 	for (auto& entry : m_plugins)
 	{
-	if (entry && entry->instance)
-	{
-		if (entry->loader)
+		if (entry && entry->instance)
 		{
-			if (auto* aiPlg = qobject_cast<ICloudSimAiPlugin*>(entry->loader->instance()))
-				aiPlg->shutdownAi();
+			if (entry->loader)
+			{
+				if (auto* aiPlg = qobject_cast<ICloudSimAiPlugin*>(entry->loader->instance()))
+					aiPlg->shutdownAi();
+			}
+			entry->instance->shutdown();
 		}
-		entry->instance->shutdown();
-	}
 		if (entry && entry->loader && entry->loader->isLoaded())
 		{
 			entry->loader->unload();
@@ -110,7 +112,7 @@ bool manifestHasCapability(const nlohmann::json& manifest, const char* capabilit
 	}
 	return false;
 }
-}
+} // namespace
 
 bool PluginManager::loadOnePlugin(const QString& pluginDir, const QString& manifestPath)
 {
