@@ -37,8 +37,11 @@ void PlanResultCache::store(const QString& instructionId, const QString& fingerp
 	e.fingerprint = fingerprint;
 	e.motionIndex = motionIndex;
 	e.result = result;
-	// 播放只留目标关节，避免万级点堆积笛卡尔采样轨迹
-	e.result.jointTrajectoryRad.clear();
+	// 万级 PTP 不留轨迹；ARC/LINE 插帧依赖多样本，须保留
+	if (result.plannerName != "ArcPlanner" && result.plannerName != "LinePlanner")
+	{
+		e.result.jointTrajectoryRad.clear();
+	}
 	m_entries.insert(key, std::move(e));
 	m_fifoKeys.append(key);
 	evictOverflow();

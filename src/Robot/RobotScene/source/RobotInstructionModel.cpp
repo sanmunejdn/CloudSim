@@ -28,6 +28,7 @@ Category categoryForType(const Type t)
 	{
 	case Type::PTP:
 	case Type::LINE:
+	case Type::ARC:
 		return Category::Motion;
 	case Type::PathPlan:
 		return Category::Planning;
@@ -44,6 +45,8 @@ std::string typeToString(const Type t)
 		return "ptp";
 	case Type::LINE:
 		return "line";
+	case Type::ARC:
+		return "arc";
 	case Type::WAIT:
 		return "wait";
 	case Type::IF:
@@ -71,6 +74,11 @@ bool typeFromString(const std::string& s, Type& out)
 	if (s == "line" || s == "LINE")
 	{
 		out = Type::LINE;
+		return true;
+	}
+	if (s == "arc" || s == "ARC" || s == "circ")
+	{
+		out = Type::ARC;
 		return true;
 	}
 	if (s == "wait" || s == "WAIT")
@@ -176,6 +184,11 @@ void LineInstruction::setAxisConfig(const std::string& v)
 	m_axisConfiguration = motionAxisConfigurationFromLegacyString(v);
 }
 
+void ArcInstruction::setAxisConfig(const std::string& v)
+{
+	m_axisConfiguration = motionAxisConfigurationFromLegacyString(v);
+}
+
 PtpInstruction::PtpInstruction()
 {
 	setType(Type::PTP);
@@ -196,6 +209,24 @@ LineInstruction::LineInstruction()
 	setType(Type::LINE);
 	setName("LINE");
 	m_axisConfiguration.preset = "AUTO";
+	addAttribute(std::make_shared<PoseAttribute>());
+	addAttribute(std::make_shared<EulerAttribute>());
+	addAttribute(makeSpeedAttribute());
+	addAttribute(makeAccelAttribute());
+	addAttribute(makeBlendRadiusAttribute());
+	for (const AttributePtr& attr : makeMotionAxisConfigAttributes())
+	{
+		addAttribute(attr);
+	}
+}
+
+ArcInstruction::ArcInstruction()
+{
+	setType(Type::ARC);
+	setName("ARC");
+	m_axisConfiguration.preset = "AUTO";
+	addAttribute(std::make_shared<ViaPoseAttribute>());
+	addAttribute(std::make_shared<ViaEulerAttribute>());
 	addAttribute(std::make_shared<PoseAttribute>());
 	addAttribute(std::make_shared<EulerAttribute>());
 	addAttribute(makeSpeedAttribute());

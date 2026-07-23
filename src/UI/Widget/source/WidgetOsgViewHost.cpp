@@ -48,16 +48,11 @@ cloudsim::core::Mat4 mat4FromRigid(const engine::RigidTransform& t)
 	return mat4FromOsg(engine::osgMatrixFromRigidTransform(t));
 }
 
-cloudsim::core::Vec3 vec3FromOsg(const osg::Vec3f& v)
-{
-	return {static_cast<double>(v.x()), static_cast<double>(v.y()), static_cast<double>(v.z())};
-}
-
 cloudsim::core::InstructionPoseAxisDto instructionAxisToDto(const RobotOsgUi::InstructionPoseAxis& a)
 {
 	cloudsim::core::InstructionPoseAxisDto d;
-	d.positionMm = vec3FromOsg(a.positionMm);
-	d.eulerDeg = vec3FromOsg(a.eulerDeg);
+	d.positionMm = a.positionMm;
+	d.eulerDeg = a.eulerDeg;
 	d.lineMotion = a.lineMotion;
 	d.reachable = a.reachable;
 	d.robotBackendId = QString::fromStdString(a.robotBackendId);
@@ -66,10 +61,7 @@ cloudsim::core::InstructionPoseAxisDto instructionAxisToDto(const RobotOsgUi::In
 	d.hasLocalMatrix = a.hasLocalMatrix;
 	if (a.hasLocalMatrix)
 	{
-		for (int i = 0; i < 16; ++i)
-		{
-			d.localMatrix[static_cast<size_t>(i)] = a.localMatrix[i];
-		}
+		d.localMatrix = a.localMatrix;
 	}
 	d.urdfTcpAttachLinkName = QString::fromStdString(a.urdfTcpAttachLinkName);
 	return d;
@@ -171,20 +163,10 @@ bool WidgetOsgViewHost::hasBackendObjectBranch(const std::string& backendId) con
 	return rv && rv->hasVisualBranch(QString::fromStdString(backendId));
 }
 
-bool WidgetOsgViewHost::getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const
+bool WidgetOsgViewHost::getBackendRootWorldMatrix(const std::string& backendId, cloudsim::core::Mat4& outWorld) const
 {
 	cloudsim::core::IRenderView* rv = renderView();
-	if (!rv)
-	{
-		return false;
-	}
-	cloudsim::core::Mat4 mat;
-	if (!rv->getWorldMatrix(QString::fromStdString(backendId), mat))
-	{
-		return false;
-	}
-	outWorld = osgMatFromCore(mat);
-	return true;
+	return rv && rv->getWorldMatrix(QString::fromStdString(backendId), outWorld);
 }
 
 bool WidgetOsgViewHost::tryGetBackendModelCenterMm(const std::string& backendId, double& cx, double& cy,
@@ -254,7 +236,7 @@ void WidgetOsgViewHost::setRawTrajectoryOverlay(const std::vector<RobotOsgUi::Ra
 	for (const RobotOsgUi::RawTrajectoryOverlayVertex& v : points)
 	{
 		cloudsim::core::RawTrajectoryOverlayVertexDto d;
-		d.positionMm = vec3FromOsg(v.positionMm);
+		d.positionMm = v.positionMm;
 		d.reachable = v.reachable;
 		converted.push_back(d);
 	}
@@ -289,8 +271,8 @@ void WidgetOsgViewHost::setRawTrajectoryOverlayFrames(const std::vector<RobotOsg
 	for (const RobotOsgUi::RawTrajectoryOverlayFrame& f : frames)
 	{
 		cloudsim::core::RawTrajectoryOverlayFrameDto d;
-		d.positionMm = vec3FromOsg(f.positionMm);
-		d.eulerDeg = vec3FromOsg(f.eulerDeg);
+		d.positionMm = f.positionMm;
+		d.eulerDeg = f.eulerDeg;
 		d.reachable = f.reachable;
 		converted.push_back(d);
 	}
@@ -336,7 +318,7 @@ void WidgetOsgViewHost::setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverla
 		cloudsim::core::RobotFrameOverlayUpdateDto::ToolEntryDto e;
 		e.name = QString::fromStdString(te.name);
 		e.mountBackendId = QString::fromStdString(te.mountBackendId);
-		e.localMatrix = mat4FromOsg(te.localMatrix);
+		e.localMatrix = te.localMatrix;
 		e.active = te.active;
 		dto.toolFrames.push_back(e);
 	}
@@ -345,7 +327,7 @@ void WidgetOsgViewHost::setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverla
 		cloudsim::core::RobotFrameOverlayUpdateDto::UserEntryDto e;
 		e.name = QString::fromStdString(ue.name);
 		e.mountBackendId = QString::fromStdString(ue.mountBackendId);
-		e.localMatrix = mat4FromOsg(ue.localMatrix);
+		e.localMatrix = ue.localMatrix;
 		dto.userFrames.push_back(e);
 	}
 	rv->setRobotFrameOverlays(dto);
@@ -372,11 +354,11 @@ void WidgetOsgViewHost::setFeatureCatalogOverlay(const std::vector<RobotOsgUi::F
 	{
 		cloudsim::core::FeatureCatalogOverlayItemDto d;
 		d.displayIndex = item.displayIndex;
-		d.anchorWorldMm = vec3FromOsg(item.anchorWorldMm);
-		d.labelWorldMm = vec3FromOsg(item.labelWorldMm);
+		d.anchorWorldMm = item.anchorWorldMm;
+		d.labelWorldMm = item.labelWorldMm;
 		d.hasEdgeSegment = item.hasEdgeSegment;
-		d.edgeAWorldMm = vec3FromOsg(item.edgeAWorldMm);
-		d.edgeBWorldMm = vec3FromOsg(item.edgeBWorldMm);
+		d.edgeAWorldMm = item.edgeAWorldMm;
+		d.edgeBWorldMm = item.edgeBWorldMm;
 		converted.push_back(d);
 	}
 	rv->setFeatureCatalogOverlay(converted);
@@ -406,37 +388,16 @@ void WidgetOsgViewHost::endTcpDragTeach()
 
 void WidgetOsgViewHost::beginTcpDragTeach(const std::string& mountBackendId,
 										  const engine::RigidTransform& T_base_target, const float modelDiagonalMm,
-										  std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld,
-										  const osg::Matrixd* toolLocalOnFlange)
+										  std::function<bool(cloudsim::core::Mat4& outRobotBaseWorld)> resolveRobotBaseWorld,
+										  const cloudsim::core::Mat4* toolLocalOnFlange)
 {
 	cloudsim::core::IRenderView* rv = renderView();
 	if (!rv)
 	{
 		return;
 	}
-	cloudsim::core::RobotBaseWorldResolver coreResolver;
-	if (resolveRobotBaseWorld)
-	{
-		coreResolver = [resolveRobotBaseWorld](cloudsim::core::Mat4& outMat) -> bool
-		{
-			osg::Matrixd world;
-			if (!resolveRobotBaseWorld(world))
-			{
-				return false;
-			}
-			outMat = mat4FromOsg(world);
-			return true;
-		};
-	}
-	cloudsim::core::Mat4 toolLocalMat;
-	const cloudsim::core::Mat4* toolPtr = nullptr;
-	if (toolLocalOnFlange)
-	{
-		toolLocalMat = mat4FromOsg(*toolLocalOnFlange);
-		toolPtr = &toolLocalMat;
-	}
 	rv->beginTcpDragTeach(QString::fromStdString(mountBackendId), mat4FromRigid(T_base_target), modelDiagonalMm,
-						  coreResolver, toolPtr);
+						  resolveRobotBaseWorld, toolLocalOnFlange);
 }
 
 void WidgetOsgViewHost::updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target,
@@ -448,11 +409,11 @@ void WidgetOsgViewHost::updateTcpDragTeachFromTarget(const engine::RigidTransfor
 	}
 }
 
-void WidgetOsgViewHost::updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLocalOnFlange)
+void WidgetOsgViewHost::updateTcpDragTeachToolLocalOnFlange(const cloudsim::core::Mat4& toolLocalOnFlange)
 {
 	if (cloudsim::core::IRenderView* rv = renderView())
 	{
-		rv->updateTcpDragTeachToolLocalOnFlange(mat4FromOsg(toolLocalOnFlange));
+		rv->updateTcpDragTeachToolLocalOnFlange(toolLocalOnFlange);
 	}
 }
 
@@ -555,11 +516,17 @@ bool WidgetOsgViewHost::polylinePickMode() const
 	return osg && osg->polylinePickMode();
 }
 
-void WidgetOsgViewHost::showMeshTriangleHighlight(const std::vector<osg::Vec3f>& triangleVertsWorld)
+void WidgetOsgViewHost::showMeshTriangleHighlight(const std::vector<cloudsim::core::Vec3>& triangleVertsWorld)
 {
 	if (OsgWidget* osg = osgWidget())
 	{
-		osg->showMeshFaceHighlight(triangleVertsWorld);
+		std::vector<osg::Vec3f> converted;
+		converted.reserve(triangleVertsWorld.size());
+		for (const cloudsim::core::Vec3& v : triangleVertsWorld)
+		{
+			converted.emplace_back(static_cast<float>(v.x), static_cast<float>(v.y), static_cast<float>(v.z));
+		}
+		osg->showMeshFaceHighlight(converted);
 	}
 }
 
@@ -571,11 +538,17 @@ void WidgetOsgViewHost::clearMeshTriangleHighlight()
 	}
 }
 
-void WidgetOsgViewHost::showMeshFittedSurfacePreview(const std::vector<osg::Vec3f>& triangleVertsWorld)
+void WidgetOsgViewHost::showMeshFittedSurfacePreview(const std::vector<cloudsim::core::Vec3>& triangleVertsWorld)
 {
 	if (OsgWidget* osg = osgWidget())
 	{
-		osg->showMeshFittedSurfacePreview(triangleVertsWorld);
+		std::vector<osg::Vec3f> converted;
+		converted.reserve(triangleVertsWorld.size());
+		for (const cloudsim::core::Vec3& v : triangleVertsWorld)
+		{
+			converted.emplace_back(static_cast<float>(v.x), static_cast<float>(v.y), static_cast<float>(v.z));
+		}
+		osg->showMeshFittedSurfacePreview(converted);
 	}
 }
 

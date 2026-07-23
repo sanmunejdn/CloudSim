@@ -7,12 +7,14 @@
 #include "trajectory_algorithm_global.h"
 
 #include "INonRigidTrajectoryWarp.h"
+#include "IExternalAxisSearchService.h"
 #include "TrajectoryPipelineTypes.h"
 
 #include <RigidTransform.h>
 
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace RobotInstruction
 {
@@ -45,6 +47,10 @@ struct TRAJECTORY_ALGORITHM_API TrajectoryOpExecutionContext
 	/// 外部 TCP 来自 Frame 后端世界位姿（优先于手动六参数）
 	bool hasExternalTcpFromBackend = false;
 	engine::RigidTransform externalTcpInBase{};
+	/// 机器人对象已启用的外轴；空则 ExternalAxisSearch 跳过
+	std::vector<ExternalAxisSearchConfigDto> externalAxisConfigs;
+	const IExternalAxisSearchService* externalAxisSearch = nullptr;
+	bool externalAxisAllowCoupledRefine = true;
 };
 
 } // namespace trajectory_algo

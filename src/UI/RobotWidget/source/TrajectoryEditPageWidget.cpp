@@ -961,6 +961,8 @@ void TrajectoryEditPageWidget::onRawEmitProgram()
 				m_store->activeCatalog().findPathPlan(m_store->activeCatalog().activeProgramId(), *pathPlanIdPtr))
 		{
 			pp->setOutputGroupId(emittedGroupId);
+			// 生成程序后视为已落地：禁止 CAD raw 再清掉指令轴
+			pp->setPhase(RobotInstruction::PathPlanPhase::Applied);
 		}
 	}
 	refreshProgramAndGroupCombos();

@@ -6,6 +6,7 @@
 
 #include "aiwidget_global.h"
 
+#include "AiAgentTypes.h"
 #include "AiConfigDto.h"
 #include "AiInferenceTypes.h"
 #include "AiParseTypes.h"
@@ -19,7 +20,6 @@ class AiAssistantDockWidget;
 class IAiAssistantHost;
 class IPluginHostContext;
 
-/// 经 CloudSimAiSDK 编排解析与执行
 class AIWIDGET_EXPORT AiAssistantCoordinator : public QObject
 {
 	Q_OBJECT
@@ -35,6 +35,9 @@ public slots:
 	void onCreateRecognitionConfirmed();
 	void onConfirmTrajectoryFeaturesClicked();
 	void onRetryTrajectoryFeaturesClicked();
+	void onAgentConfirmAccepted(const QString& pendingId, const QByteArray& argsJsonUtf8);
+	void onAgentConfirmRejected(const QString& pendingId);
+	void onAgentConfirmSecondary(const QString& pendingId);
 
 signals:
 	void assistantFinished(const QString& reply, bool isError, const QString& parserVia);
@@ -56,6 +59,11 @@ private:
 	void scheduleTrajectoryCatalogRetry(const QString& userText);
 	void resetFeatureSession();
 	bool tryHandleFeatureFollowUp(const QString& text);
+	bool shouldUseAgentRuntime(const QString& resolvedDomainId) const;
+	void startAgentTurn(const QString& text, const QString& domainId);
+	void beginUnifiedDomainConfirm(AiAgentConfirmKind kind, const QByteArray& payload, const QString& title,
+								   const QString& confirmLabel, const QString& secondaryLabel, const QString& parserVia);
+	void handleAgentEvent(const AiAgentEvent& ev);
 
 	AiAssistantDockWidget* m_dock = nullptr;
 	IAiAssistantHost* m_aiHost = nullptr;
@@ -77,4 +85,4 @@ private:
 	bool m_trajCatalogRetryUsed = false;
 };
 
-#endif // AIWIDGET_AIASSISTANTCOORDINATOR_H
+#endif

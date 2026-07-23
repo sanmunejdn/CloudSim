@@ -1,0 +1,34 @@
+#ifndef CLOUDSIMPLUGINHOST_AIAGENTPLANBUILDER_H
+#define CLOUDSIMPLUGINHOST_AIAGENTPLANBUILDER_H
+
+/// @file AiAgentPlanBuilder.h
+/// @brief 规则优先、LLM JSON 兜底的需求拆分
+
+#include "AiAgentTypes.h"
+#include "AiConfigDto.h"
+#include "AiLlmConfig.h"
+#include "AiProgressSink.h"
+
+#include <QByteArray>
+#include <QString>
+
+namespace AiAgentPlanBuilder
+{
+struct BuildInput
+{
+	QString userText;
+	QString domainId;
+	QByteArray catalogJsonUtf8;
+	QByteArray sceneSnapshotUtf8;
+	QByteArray sessionSummaryUtf8;
+	int maxSteps = 8;
+	bool enableLlmPlan = true;
+	AiLlmConfig llm;
+	AiProgressSink progress;
+};
+
+/// 失败 observation 非空时表示对剩余目标重规划
+AiAgentPlan buildPlan(const BuildInput& in, const QString& failureObservation = QString());
+} // namespace AiAgentPlanBuilder
+
+#endif

@@ -2,7 +2,7 @@
 #define GEOMETRYALGORITHM_SHAPEIO_H
 
 /// @file ShapeIo.h
-/// @brief STEP 读入；path 为 Qt encodeName 窄字节
+/// @brief STEP/BREP 读写与 ShapeHandle 刚体变换
 
 #include "geometry_algorithm_global.h"
 
@@ -16,16 +16,36 @@ class TopoDS_Shape;
 
 namespace geoalgo
 {
-/// STEP 读入；path 为 Qt encodeName 窄字节
+/**
+ * 读 STEP → TopoDS_Shape
+ * @param pathLocal Qt encodeName 窄字节
+ * @return false：OCCT 读/transfer 失败或空 shape
+ */
 GEOMETRY_ALGORITHM_API bool readStepShape(const std::string& pathLocal, TopoDS_Shape& outShape, std::string* errMsg);
+
+/** 读 STEP → ShapeHandle */
 GEOMETRY_ALGORITHM_API bool readStepIntoHandle(const std::string& pathLocal, ShapeHandle& outShape,
 											   std::string* errMsg);
 
+/**
+ * 读 BREP 文件
+ * @return false：OCCT BREP read 失败
+ */
 GEOMETRY_ALGORITHM_API bool readBrepFile(const std::string& pathLocal, ShapeHandle& outShape, std::string* errMsg);
+
+/**
+ * 写 BREP
+ * @return false：null shape 或 OCCT write 失败
+ */
 GEOMETRY_ALGORITHM_API bool writeBrepFile(const std::string& pathLocal, const ShapeHandle& shape, std::string* errMsg);
+
+/**
+ * 写 STEP
+ * @return false：null shape 或 OCCT transfer/write 失败
+ */
 GEOMETRY_ALGORITHM_API bool writeStepFile(const std::string& pathLocal, const ShapeHandle& shape, std::string* errMsg);
 
-/// 对 shape 应用刚体变换，返回变换后的副本
+/** 对 shape 应用刚体变换，返回变换后的 ShapeHandle 副本 */
 GEOMETRY_ALGORITHM_API ShapeHandle transformShape(const ShapeHandle& shape, const Eigen::Isometry3d& iso);
 
 } // namespace geoalgo

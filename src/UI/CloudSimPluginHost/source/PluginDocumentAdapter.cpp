@@ -150,3 +150,43 @@ bool PluginDocumentAdapter::exportMeshToPly(const std::string& backendIdUtf8, co
 	// 点云 backend 无三角网格，回退到顶点 PLY 导出
 	return document_point_cloud_ops::exportPointCloudToPly(m_host, backendIdUtf8, pathUtf8, outError);
 }
+
+bool PluginDocumentAdapter::getWorldPoseMm(const std::string& backendIdUtf8, WorldPoseMm* out) const
+{
+	if (!m_host || !out || backendIdUtf8.empty())
+		return false;
+	const cloudsim::core::PoseDto pose = m_host->data().worldPoseMm(QString::fromStdString(backendIdUtf8));
+	out->xMm = pose.positionMm.x;
+	out->yMm = pose.positionMm.y;
+	out->zMm = pose.positionMm.z;
+	out->rxDeg = pose.eulerDeg.x;
+	out->ryDeg = pose.eulerDeg.y;
+	out->rzDeg = pose.eulerDeg.z;
+	return true;
+}
+
+bool PluginDocumentAdapter::applyWorldPoseMm(const std::string& backendIdUtf8, const WorldPoseMm& pose,
+											 std::string* outError)
+{
+	if (!m_host || backendIdUtf8.empty())
+	{
+		if (outError)
+			*outError = "invalid document or backend id";
+		return false;
+	}
+	cloudsim::core::PoseDto dto;
+	dto.positionMm.x = pose.xMm;
+	dto.positionMm.y = pose.yMm;
+	dto.positionMm.z = pose.zMm;
+	dto.eulerDeg.x = pose.rxDeg;
+	dto.eulerDeg.y = pose.ryDeg;
+	dto.eulerDeg.z = pose.rzDeg;
+	QString err;
+	if (!m_host->data().applyWorldPoseMm(QString::fromStdString(backendIdUtf8), dto, &err))
+	{
+		if (outError)
+			*outError = err.toStdString();
+		return false;
+	}
+	return true;
+}

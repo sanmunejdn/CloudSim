@@ -40,6 +40,18 @@ public:
 	EulerAttribute();
 };
 
+class ROBOT_SCENE_API ViaPoseAttribute final : public property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>
+{
+public:
+	ViaPoseAttribute();
+};
+
+class ROBOT_SCENE_API ViaEulerAttribute final : public property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>
+{
+public:
+	ViaEulerAttribute();
+};
+
 using AttributePtr = std::shared_ptr<AttributeBase>;
 
 ROBOT_SCENE_API AttributePtr makeScalarDoubleAttribute(bool (*hasProperty)(const Base&), double (*getter)(const Base&),

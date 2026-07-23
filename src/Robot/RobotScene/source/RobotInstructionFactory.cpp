@@ -222,6 +222,43 @@ std::shared_ptr<Base> createFromJson(const nlohmann::json& j, std::string* errMs
 		}
 		break;
 	}
+	case Type::ARC:
+	{
+		auto p = std::make_shared<ArcInstruction>();
+		p->setPose(vec3FromJson(j.value("pose", nlohmann::json::object())));
+		p->setEulerDeg(vec3FromJson(j.value("eulerDeg", nlohmann::json::object())));
+		p->setViaPose(vec3FromJson(j.value("viaPose", nlohmann::json::object())));
+		p->setViaEulerDeg(vec3FromJson(j.value("viaEulerDeg", nlohmann::json::object())));
+		p->setSpeed(j.value("speed", 200.0));
+		p->setAccel(j.value("accel", 200.0));
+		p->setBlendRadius(j.value("blendRadius", 0.0));
+		if (j.contains("axisConfiguration"))
+		{
+			p->setMotionAxisConfiguration(motionAxisConfigurationFromJson(j["axisConfiguration"]));
+		}
+		else if (j.contains("axisConfig"))
+		{
+			p->setAxisConfig(j["axisConfig"].get<std::string>());
+		}
+		if (j.contains("pointIndex"))
+		{
+			setMotionPointIndex(*p, j["pointIndex"].get<int>());
+		}
+		ins = p;
+		{
+			engine::RigidTransform t{};
+			if (readTargetTransformFromInstruction(*p, t))
+			{
+				writeTargetTransformToInstruction(*p, t);
+			}
+			engine::RigidTransform via{};
+			if (readViaTransformFromInstruction(*p, via))
+			{
+				writeViaTransformToInstruction(*p, via);
+			}
+		}
+		break;
+	}
 	case Type::WAIT:
 	{
 		auto p = std::make_shared<WaitInstruction>();
@@ -350,6 +387,26 @@ nlohmann::json toJson(const Base& ins)
 	case Type::LINE:
 		j["pose"] = vec3ToJson(ins.pose());
 		j["eulerDeg"] = vec3ToJson(ins.eulerDeg());
+		j["speed"] = ins.speed();
+		j["accel"] = ins.accel();
+		j["blendRadius"] = ins.blendRadius();
+		if (ins.hasMotionAxisConfigurationProperty())
+		{
+			nlohmann::json axisCfg = nlohmann::json::object();
+			writeMotionAxisConfigurationToJson(ins.motionAxisConfiguration(), axisCfg);
+			j["axisConfiguration"] = axisCfg;
+			j["axisConfig"] = ins.axisConfig();
+		}
+		if (const int pointIndex = motionPointIndex(ins); pointIndex > 0)
+		{
+			j["pointIndex"] = pointIndex;
+		}
+		break;
+	case Type::ARC:
+		j["pose"] = vec3ToJson(ins.pose());
+		j["eulerDeg"] = vec3ToJson(ins.eulerDeg());
+		j["viaPose"] = vec3ToJson(ins.viaPose());
+		j["viaEulerDeg"] = vec3ToJson(ins.viaEulerDeg());
 		j["speed"] = ins.speed();
 		j["accel"] = ins.accel();
 		j["blendRadius"] = ins.blendRadius();

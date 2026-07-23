@@ -78,6 +78,7 @@
     <ClInclude Include="inc\AiConfigDefaults.h" />
     <ClInclude Include="inc\AiConfigDto.h" />
     <ClInclude Include="inc\AiDomainTypes.h" />
+    <ClInclude Include="inc\AiAgentTypes.h" />
     <ClInclude Include="inc\AiInferenceTypes.h" />
     <ClInclude Include="inc\AiTrajectoryFeatureTypes.h" />
     <ClInclude Include="inc\AiParseTypes.h" />

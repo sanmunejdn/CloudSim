@@ -123,6 +123,7 @@ public:
 	void setMeshImportQuality(int quality) { m_meshImportQuality = quality; }
 	void focusBackendInTree(const std::string& backendId) override;
 	void focusBackendInTreeAfterImport(const QString& backendId) override;
+	QString selectedBackendId() const override;
 	class SimulationCommandWidget* simulationCommandPage() const;
 	void refreshSimulationJointListFromCurrentDoc();
 	void syncRobotFrameSettingsFromDocument(int instanceIndex);

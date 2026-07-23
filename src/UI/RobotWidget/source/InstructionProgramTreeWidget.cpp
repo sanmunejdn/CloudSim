@@ -80,9 +80,12 @@ InstructionProgramTreeWidget::InstructionProgramTreeWidget(QWidget* parent) : QT
 	setDragDropMode(QAbstractItemView::DragDrop);
 	setDefaultDropAction(Qt::MoveAction);
 	setContextMenuPolicy(Qt::DefaultContextMenu);
+	// 长摘要（圆弧 Via/End）避免被裁成“看不见”
+	setTextElideMode(Qt::ElideNone);
+	setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
 
 	m_selectionDebounce.setSingleShot(true);
-	m_selectionDebounce.setInterval(50);
+	m_selectionDebounce.setInterval(0);
 	connect(&m_selectionDebounce, &QTimer::timeout, this,
 			[this]()
 			{
@@ -275,6 +278,8 @@ QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruct
 		{
 		case RobotInstruction::Type::LINE:
 			return chinese ? QStringLiteral("直线") : QStringLiteral("LINE");
+		case RobotInstruction::Type::ARC:
+			return chinese ? QStringLiteral("圆弧") : QStringLiteral("ARC");
 		case RobotInstruction::Type::WAIT:
 			return chinese ? QStringLiteral("等待") : QStringLiteral("WAIT");
 		case RobotInstruction::Type::IF:
@@ -353,6 +358,16 @@ QString InstructionProgramTreeWidget::formatInstructionLabel(const RobotInstruct
 	case RobotInstruction::Type::SET_AO:
 		summary = QStringLiteral("port %1 = %2").arg(ins.ioPort()).arg(ins.ioAnalogValue(), 0, 'f', 2);
 		break;
+	case RobotInstruction::Type::ARC:
+	{
+		const int pointIndex = RobotInstruction::motionPointIndex(ins);
+		if (pointIndex > 0)
+		{
+			const QString pointName = QString::fromStdString(RobotInstruction::formatMotionPointName(pointIndex));
+			return QStringLiteral("%1 [%2]").arg(pointName, typeLabel(ins.type()));
+		}
+		return QStringLiteral("[%1]").arg(typeLabel(ins.type()));
+	}
 	case RobotInstruction::Type::PTP:
 	case RobotInstruction::Type::LINE:
 	default:
@@ -410,9 +425,41 @@ void InstructionProgramTreeWidget::populateInstructionItem(QTreeWidgetItem* item
 		return;
 	}
 	setInstructionPtr(item, ins.get());
-	item->setText(0, formatInstructionLabel(*ins, m_useChinese));
+	const QString label = formatInstructionLabel(*ins, m_useChinese);
+	item->setText(0, label);
+	item->setToolTip(0, label);
 
-	if (ins->type() == RobotInstruction::Type::IF)
+	if (ins->type() == RobotInstruction::Type::ARC)
+	{
+		const RobotInstruction::Vec3 via = ins->viaPose();
+		const RobotInstruction::Vec3 end = ins->pose();
+		auto* viaItem = new QTreeWidgetItem(item);
+		viaItem->setData(0, kKindRole, static_cast<int>(NodeKind::WaypointDetail));
+		viaItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+		viaItem->setText(0, m_useChinese
+								? QStringLiteral("  途经  %1, %2, %3")
+									  .arg(via.x, 0, 'f', 1)
+									  .arg(via.y, 0, 'f', 1)
+									  .arg(via.z, 0, 'f', 1)
+								: QStringLiteral("  Via  %1, %2, %3")
+									  .arg(via.x, 0, 'f', 1)
+									  .arg(via.y, 0, 'f', 1)
+									  .arg(via.z, 0, 'f', 1));
+		auto* endItem = new QTreeWidgetItem(item);
+		endItem->setData(0, kKindRole, static_cast<int>(NodeKind::WaypointDetail));
+		endItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+		endItem->setText(0, m_useChinese
+								? QStringLiteral("  终点  %1, %2, %3")
+									  .arg(end.x, 0, 'f', 1)
+									  .arg(end.y, 0, 'f', 1)
+									  .arg(end.z, 0, 'f', 1)
+								: QStringLiteral("  End  %1, %2, %3")
+									  .arg(end.x, 0, 'f', 1)
+									  .arg(end.y, 0, 'f', 1)
+									  .arg(end.z, 0, 'f', 1));
+		item->setExpanded(true);
+	}
+	else if (ins->type() == RobotInstruction::Type::IF)
 	{
 		appendBranchHeader(item, NodeKind::ThenBranch, m_useChinese);
 		appendBranchHeader(item, NodeKind::ElseBranch, m_useChinese);
@@ -743,10 +790,7 @@ void InstructionProgramTreeWidget::syncGroupsFromTree()
 		{
 			group.memberInstructionIds = it->second;
 		}
-		else
-		{
-			group.memberInstructionIds.clear();
-		}
+		// 树上未出现的分组（例如仅作 PathPlanOutputRef）保留原成员，禁止清空导致输出“消失”
 	}
 }
 
@@ -774,7 +818,7 @@ std::shared_ptr<RobotInstruction::Base> InstructionProgramTreeWidget::selectedIn
 	{
 		return nullptr;
 	}
-	if (nodeKind(item) == NodeKind::PathPlanOutputRef)
+	if (nodeKind(item) == NodeKind::PathPlanOutputRef || nodeKind(item) == NodeKind::WaypointDetail)
 	{
 		if (QTreeWidgetItem* parent = item->parent())
 		{
@@ -923,6 +967,10 @@ void InstructionProgramTreeWidget::insertInstruction(const std::shared_ptr<Robot
 	}
 
 	QTreeWidgetItem* sel = currentItem();
+	if (sel && nodeKind(sel) == NodeKind::WaypointDetail && sel->parent())
+	{
+		sel = sel->parent();
+	}
 	if (!sel)
 	{
 		m_program->push_back(ins);
@@ -1041,6 +1089,10 @@ void InstructionProgramTreeWidget::removeSelected()
 		return;
 	}
 	if (nodeKind(sel) == NodeKind::PathPlanOutputRef && sel->parent())
+	{
+		sel = sel->parent();
+	}
+	if (nodeKind(sel) == NodeKind::WaypointDetail && sel->parent())
 	{
 		sel = sel->parent();
 	}
@@ -1230,7 +1282,7 @@ bool InstructionProgramTreeWidget::canAcceptDrop(QTreeWidgetItem* dragged, QTree
 	}
 
 	const NodeKind tk = nodeKind(target);
-	if (tk == NodeKind::PlanningSection || tk == NodeKind::PathPlanOutputRef)
+	if (tk == NodeKind::PlanningSection || tk == NodeKind::PathPlanOutputRef || tk == NodeKind::WaypointDetail)
 	{
 		return false;
 	}

@@ -3,6 +3,7 @@
 
 #include "Ai/AiActionPlanExecutor.h"
 
+#include "Ai/AiHostButtonApiDispatch.h"
 #include "Ai/AiMeshDefaults.h"
 #include "AiCommandSchema.h"
 #include "PluginHostContext.h"
@@ -390,37 +391,45 @@ bool executeStep(PluginHostContext& host, const nlohmann::json& step, AiPlanStep
 	{
 		const std::string path = args.value("path", "");
 
-		if (path.empty())
-
+		if (!path.empty())
 		{
-			if (outError)
+			const bool isPc = args.value("is_point_cloud", false);
 
-				*outError = QStringLiteral("importFileIntoActiveDocument: path required.");
+			std::string err;
 
-			return false;
+			const std::string id = host.importFileIntoActiveDocument(path, isPc, &err);
+
+			if (id.empty())
+
+			{
+				if (outError)
+
+					*outError = QString::fromStdString(err);
+
+				return false;
+			}
+
+			if (!stepId.empty())
+
+				ctx.stepIdToBackendId[QString::fromStdString(stepId)] = QString::fromStdString(id);
+
+			return true;
 		}
+		// 无 path：走 Agent 文件对话框
+	}
 
-		const bool isPc = args.value("is_point_cloud", false);
-
-		std::string err;
-
-		const std::string id = host.importFileIntoActiveDocument(path, isPc, &err);
-
-		if (id.empty())
-
+	{
+		QString err;
+		if (AiHostButtonApiDispatch::tryExecute(host, api, args, &err))
 		{
-			if (outError)
-
-				*outError = QString::fromStdString(err);
-
-			return false;
+			if (!err.isEmpty())
+			{
+				if (outError)
+					*outError = err;
+				return false;
+			}
+			return true;
 		}
-
-		if (!stepId.empty())
-
-			ctx.stepIdToBackendId[QString::fromStdString(stepId)] = QString::fromStdString(id);
-
-		return true;
 	}
 
 	if (outError)

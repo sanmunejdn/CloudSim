@@ -4,6 +4,9 @@
 #include "Ai/AiAssistantHostImpl.h"
 
 #include "Ai/AiActionPlanExecutor.h"
+#include "Ai/AiAgentRuntime.h"
+#include "Ai/AiApiCatalogEmbedded.h"
+#include "Ai/AiCatalogKeywordMatcher.h"
 #include "Ai/AiConfigLoader.h"
 #include "Ai/AiTrajectoryFeatureCatalog.h"
 #include "Ai/MeshComposeDomainHandler.h"
@@ -79,7 +82,10 @@ AiAssistantHostImpl::AiAssistantHostImpl(PluginHostContext* pluginHost)
 	: m_pluginHost(pluginHost), m_router(&m_registry)
 {
 	registerBuiltinDomains();
+	m_agentRuntime = std::make_unique<AiAgentRuntime>(pluginHost, this);
 }
+
+AiAssistantHostImpl::~AiAssistantHostImpl() = default;
 
 unsigned int AiAssistantHostImpl::aiSdkVersion() const
 {
@@ -98,19 +104,7 @@ bool AiAssistantHostImpl::saveConfig(const AiConfigDto& config, QString* errorMe
 
 QByteArray AiAssistantHostImpl::apiCatalogJson() const
 {
-	static const char kCatalog[] = R"json({
-  "version": 1,
-  "apis": [
-    { "id": "createPrimitiveMesh", "domains": ["mesh.create","mesh.compose"], "summary": "Create box/cylinder/cone/sphere (registers backend)" },
-    { "id": "buildPrimitiveMeshSoup", "domains": ["mesh.compose"], "summary": "Build world-space triangle soup without registering backend (host 1.4.0+)" },
-    { "id": "booleanMeshSoups", "domains": ["mesh.compose"], "summary": "Boolean two world soups; register result only (host 1.4.0+)" },
-    { "id": "booleanPrimitiveMeshes", "domains": ["mesh.compose"], "summary": "Boolean two primitives; register result only (host 1.4.0+)" },
-    { "id": "booleanMesh", "domains": ["mesh.compose"], "summary": "Boolean on two already-registered mesh backends" },
-    { "id": "importFileIntoActiveDocument", "domains": ["document.import"], "summary": "Import mesh or point cloud file" },
-    { "id": "registerTriangleMesh", "domains": ["mesh.create"], "summary": "Register triangle soup mesh" }
-  ]
-})json";
-	return QByteArray(kCatalog);
+	return aiEmbeddedApiCatalogJson();
 }
 
 IAiDomainRegistry* AiAssistantHostImpl::domainRegistry()
@@ -131,6 +125,7 @@ void AiAssistantHostImpl::registerInferenceProvider(std::shared_ptr<IAiInference
 
 void AiAssistantHostImpl::registerBuiltinDomains()
 {
+	const QByteArray catalog = apiCatalogJson();
 	{
 		AiDomainDescriptor d;
 		d.domainId = AiDomainIds::meshCreate();
@@ -168,6 +163,30 @@ void AiAssistantHostImpl::registerBuiltinDomains()
 		d.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
 		m_registry.registerDomain(d, &m_trajFeatureHandler);
 	}
+
+	m_docImportHandler.emplace(AiDomainIds::documentImport(), catalog);
+	m_pcOpsHandler.emplace(AiDomainIds::pointCloudOps(), catalog);
+	m_geomOpsHandler.emplace(AiDomainIds::geometryOps(), catalog);
+	m_featureHandler.emplace(AiDomainIds::featureBuild(), catalog);
+	m_labelHandler.emplace(AiDomainIds::labelingAnnot(), catalog);
+	m_sceneOpsHandler.emplace(AiDomainIds::sceneOps(), catalog);
+
+	auto regCatalog = [this](const QString& id, const QString& name, CatalogActionPlanDomainHandler* h)
+	{
+		AiDomainDescriptor d;
+		d.domainId = id;
+		d.displayName = name;
+		d.outputKind = AiDomainOutputKind::ActionPlan;
+		d.supportsMultimodal = false;
+		d.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local")};
+		m_registry.registerDomain(d, h);
+	};
+	regCatalog(AiDomainIds::documentImport(), QStringLiteral("Document import"), &*m_docImportHandler);
+	regCatalog(AiDomainIds::pointCloudOps(), QStringLiteral("Point cloud ops"), &*m_pcOpsHandler);
+	regCatalog(AiDomainIds::geometryOps(), QStringLiteral("Geometry ops"), &*m_geomOpsHandler);
+	regCatalog(AiDomainIds::featureBuild(), QStringLiteral("Feature build"), &*m_featureHandler);
+	regCatalog(AiDomainIds::labelingAnnot(), QStringLiteral("Labeling"), &*m_labelHandler);
+	regCatalog(AiDomainIds::sceneOps(), QStringLiteral("Scene ops"), &*m_sceneOpsHandler);
 }
 
 QString AiAssistantHostImpl::resolveDomainId(const QString& requestedDomainId, const QString& userText) const
@@ -180,8 +199,33 @@ AiParseResult AiAssistantHostImpl::parseUserTextWithRules(const QString& domainI
 	AiParseResult r;
 	QString d = domainId;
 	if (d.isEmpty() || d == AiDomainIds::autoDomain())
-		d = AiDomainIds::meshCreate();
+		d = resolveDomainId(AiDomainIds::autoDomain(), text);
 	r.domainId = d;
+
+	const bool catalogDomain = d == AiDomainIds::documentImport() || d == AiDomainIds::pointCloudOps() ||
+							   d == AiDomainIds::geometryOps() || d == AiDomainIds::featureBuild() ||
+							   d == AiDomainIds::labelingAnnot() || d == AiDomainIds::sceneOps();
+	if (catalogDomain)
+	{
+		const auto m = AiCatalogKeywordMatcher::tryMatch(apiCatalogJson(), text, d);
+		r.ok = m.ok;
+		r.outputKind = AiDomainOutputKind::ActionPlan;
+		r.parserVia = QStringLiteral("Rules");
+		if (m.ok)
+		{
+			r.outputJsonUtf8 = m.planJsonUtf8;
+			r.hintMessage = m.hintMessage;
+			if (!m.domainId.isEmpty())
+				r.domainId = m.domainId;
+		}
+		else
+		{
+			r.errorMessage = m.errorMessage;
+			r.hintMessage = m.hintMessage;
+		}
+		return r;
+	}
+
 	if (d == AiDomainIds::meshCreate())
 	{
 		const AiIntentParser::ParseResult pr = AiIntentParser::tryParseUserText(text);
@@ -475,4 +519,92 @@ bool AiAssistantHostImpl::executeDomainOutput(const QString& domainId, const QBy
 		return false;
 	}
 	return h->execute(outputJsonUtf8, m_pluginHost, this, outSummary, outError);
+}
+
+void AiAssistantHostImpl::runAgentTurnAsync(const AiInferenceRequest& request, const AiConfigDto& config,
+											const AiInferenceProgressFn& progress, const AiAgentEventFn& onEvent)
+{
+	if (!m_agentRuntime)
+	{
+		if (onEvent)
+		{
+			AiAgentEvent ev;
+			ev.kind = AiAgentEventKind::Error;
+			ev.message = QStringLiteral("Agent runtime unavailable.");
+			ev.isError = true;
+			onEvent(ev);
+		}
+		return;
+	}
+	const AiInferenceProgressFn uiProgress = wrapProgressForUi(m_pluginHost, progress);
+	const AiAgentEventFn uiEvent = [this, onEvent](const AiAgentEvent& ev)
+	{
+		if (!m_pluginHost)
+		{
+			if (onEvent)
+				onEvent(ev);
+			return;
+		}
+		m_pluginHost->invokeOnUiThread([onEvent, ev]()
+									   {
+										   if (onEvent)
+											   onEvent(ev);
+									   });
+	};
+	m_agentRuntime->runTurnAsync(request, config, uiProgress, uiEvent);
+}
+
+void AiAssistantHostImpl::submitAgentConfirm(const QString& pendingId, const QByteArray& argsJsonUtf8)
+{
+	if (m_agentRuntime)
+		m_agentRuntime->submitConfirm(pendingId, argsJsonUtf8);
+}
+
+void AiAssistantHostImpl::cancelAgentConfirm(const QString& pendingId)
+{
+	if (m_agentRuntime)
+		m_agentRuntime->cancelConfirm(pendingId);
+}
+
+void AiAssistantHostImpl::cancelAgentTurn()
+{
+	if (m_agentRuntime)
+		m_agentRuntime->cancelTurn();
+}
+
+void AiAssistantHostImpl::beginDomainConfirmAsync(const AiDomainConfirmRequest& request, const AiAgentEventFn& onEvent)
+{
+	if (!m_agentRuntime)
+	{
+		if (onEvent)
+		{
+			AiAgentEvent ev;
+			ev.kind = AiAgentEventKind::Error;
+			ev.message = QStringLiteral("Agent runtime unavailable.");
+			ev.isError = true;
+			onEvent(ev);
+		}
+		return;
+	}
+	const AiAgentEventFn uiEvent = [this, onEvent](const AiAgentEvent& ev)
+	{
+		if (!m_pluginHost)
+		{
+			if (onEvent)
+				onEvent(ev);
+			return;
+		}
+		m_pluginHost->invokeOnUiThread([onEvent, ev]()
+									   {
+										   if (onEvent)
+											   onEvent(ev);
+									   });
+	};
+	m_agentRuntime->beginDomainConfirm(request, uiEvent);
+}
+
+void AiAssistantHostImpl::secondaryAgentConfirm(const QString& pendingId)
+{
+	if (m_agentRuntime)
+		m_agentRuntime->secondaryConfirm(pendingId);
 }

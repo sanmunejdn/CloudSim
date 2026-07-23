@@ -11,6 +11,7 @@
 #include "MeshBackendData.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotMatrixOsgBridge.h"
+#include "RobotPerLinkKinematicsSliceOsg.h"
 #include "RobotSceneKinematics.h"
 #include "UrdfRobotLoader.h"
 
@@ -262,7 +263,8 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 				continue;
 			}
 			poseSink->setBackendRootWorldMatrixFromWorld(
-				bidStd, RobotMatrixOsg::matrixFromBackendColMajor(meshPtr->worldMatrix(&backend)));
+				bidStd, RobotSceneKinematics::coreMat4FromOsgMatrix(
+							RobotMatrixOsg::matrixFromBackendColMajor(meshPtr->worldMatrix(&backend))));
 		}
 	}
 
@@ -303,7 +305,17 @@ core::RobotRegistrationDto importUrdfRobot(IRobotUrdfImportContext& ctx, const Q
 		}
 	}
 
-	ctx.setRobotPerLinkKinematicsBinding(robotRootId + QStringLiteral("_ctx"), linkToBackend, fkT0, outerBind,
+	QHash<QString, cloudsim::core::Mat4> fkT0Mat4;
+	QHash<QString, cloudsim::core::Mat4> outerBindMat4;
+	for (auto it = fkT0.constBegin(); it != fkT0.constEnd(); ++it)
+	{
+		fkT0Mat4.insert(it.key(), RobotSceneKinematics::coreMat4FromOsgMatrix(it.value()));
+	}
+	for (auto it = outerBind.constBegin(); it != outerBind.constEnd(); ++it)
+	{
+		outerBindMat4.insert(it.key(), RobotSceneKinematics::coreMat4FromOsgMatrix(it.value()));
+	}
+	ctx.setRobotPerLinkKinematicsBinding(robotRootId + QStringLiteral("_ctx"), linkToBackend, fkT0Mat4, outerBindMat4,
 										 kFkMeshVerticesInLinkFrame);
 
 	if (!RobotSceneKinematics::applyJointAnglesFromDocument(robotDoc, ctx.urdfImportScenePoseSink(), q0))

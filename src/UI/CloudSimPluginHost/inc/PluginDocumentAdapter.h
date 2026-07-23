@@ -38,6 +38,18 @@ public:
 	bool exportMeshToPly(const std::string& backendIdUtf8, const std::string& pathUtf8,
 						 std::string* outError = nullptr) const override;
 
+	struct WorldPoseMm
+	{
+		double xMm = 0.0;
+		double yMm = 0.0;
+		double zMm = 0.0;
+		double rxDeg = 0.0;
+		double ryDeg = 0.0;
+		double rzDeg = 0.0;
+	};
+	bool getWorldPoseMm(const std::string& backendIdUtf8, WorldPoseMm* out) const;
+	bool applyWorldPoseMm(const std::string& backendIdUtf8, const WorldPoseMm& pose, std::string* outError = nullptr);
+
 	cloudsim::host::DocumentHost* documentHost() const { return m_host; }
 
 private:

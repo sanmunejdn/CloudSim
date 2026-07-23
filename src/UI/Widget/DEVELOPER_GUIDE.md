@@ -4,7 +4,7 @@
 
 ## 1. 模块定位
 
-`Widget` 是 **UI 编排层 DLL**：承载 `MainWindow`、文档页、属性面板、后端树、仿真协调与插件宿主。对应架构中的「UI 层」；不直接持有 OSG 场景核心（在 `OsgWidgetCore`），不直接持有后端数据模型（在 `Data`）。
+`Widget` 是 **UI 编排层 DLL**：承载 `MainWindow`、文档页、属性面板、后端树与仿真协调。对应架构中的「UI 层」；不直接持有 OSG 场景核心（在 `OsgWidgetCore`），不直接持有后端数据模型（在 `Data`）。插件宿主实现编入 `CloudSimHost`（见 `CloudSimPluginHost`）。
 
 | 属性 | 说明 |
 |------|------|
@@ -19,10 +19,14 @@
 | 层 | 模块 | 职责 |
 |----|------|------|
 | UI 编排 | **`Widget.dll`** | `MainWindow`、树/属性/仿真 Dock、工程 I/O、`DocumentPage` 机器人元数据 |
-| 文档宿主 | `CloudSimHost.dll` | 每页 `BackendDataManager` + `OsgWidget`、Core 适配器、`EventHub` 注入 |
+| 文档宿主 | `CloudSimHost.dll` | 每页 `BackendDataManager` + `OsgWidget`、Core 适配器、`EventHub`、PluginHost |
 | 契约 | `CloudSimCore.dll` | `IDataService` / `IRenderView` / `IRobotService` / `EventHub` |
 
 `DocumentPage` **继承** `cloudsim::host::DocumentHost` 并实现 `IRobotSimulationDocument`；新功能优先经 `data()` / `render()` / `events()`，避免 Widget 再直接扩散 OSG/Data 头文件。
+
+**新代码禁区**：勿新增 `#include "BackendDataManager.h"`。`DocumentPage::backend()` / `IPerLinkRobotStateAccessor::backend()` / `BackendSceneDocumentFacade` 为**存量白名单**（运动学写位姿、可见性写回、mesh 几何）；拓扑/跟随/属性优先 `doc->data()`。跟随查询走 `IDataService::followTargetId` / `sceneFacade()`。
+
+**FK 绑定存储**：`HierarchicalRobotInstance` 的 `fkMeshWorldT0` / `outerWorldAtBindByBackendId` / `basePlacementWorld` 为列主序 `core::Mat4`；关节场景句柄仍为 `osg::MatrixTransform*`（per-link 无关节节点时可为空）。
 
 ---
 
@@ -160,8 +164,9 @@ flowchart TB
 
 - URDF 路径、关节名/限位
 - per-link 后端映射（`linkNameToBackendId`）
-- FK 绑定矩阵（`fkMeshWorldT0`、`outerWorldAtBind`）
+- FK 绑定矩阵（`fkMeshWorldT0`、`outerWorldAtBind`、`basePlacementWorld` → `core::Mat4`）
 - 坐标系（`RobotCoordinateFrameSet`）
+- 关节 `MatrixTransform*`（可选；per-link 模式可为空）
 
 ### 4.3 `WidgetSceneSignalWiring`
 
@@ -269,7 +274,8 @@ onSaveProject()
   → QFileDialog::getSaveFileName()
   → buildProjectSaveRoot(*doc, languageCode, workRoot)
     → 生成 objects[] / edges[] / annotations / camera
-  → mergeRobotKinematicsIntoProjectRoot()
+  → mergeRobotKinematicsIntoProjectRoot() 已废弃：现由 `RobotProjectIo::writeRobotKinematics` 在 Widget 保存路径直接调用
+  → mergeRobotProgramsIntoProjectRoot()
   → mergeRobotProgramsIntoProjectRoot()
   → QJsonDocument → file.write()
   → [可选] project_package_zip::zipDirectoryTree() → .pcp

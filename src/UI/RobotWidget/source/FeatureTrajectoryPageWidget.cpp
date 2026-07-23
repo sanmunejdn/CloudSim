@@ -1783,12 +1783,13 @@ bool FeatureTrajectoryPageWidget::buildAndShowCandidatePreview(const QByteArray&
 		{
 			RobotOsgUi::FeatureCatalogOverlayItem o;
 			o.displayIndex = item.value("displayIndex", 0);
-			const auto readVec = [](const nlohmann::json& arr, osg::Vec3f& v)
+			const auto readVec = [](const nlohmann::json& arr, cloudsim::core::Vec3& v)
 			{
 				if (arr.is_array() && arr.size() >= 3)
 				{
-					v.set(static_cast<float>(arr[0].get<double>()), static_cast<float>(arr[1].get<double>()),
-						  static_cast<float>(arr[2].get<double>()));
+					v.x = arr[0].get<double>();
+					v.y = arr[1].get<double>();
+					v.z = arr[2].get<double>();
 				}
 			};
 			readVec(item["anchorWorldMm"], o.anchorWorldMm);

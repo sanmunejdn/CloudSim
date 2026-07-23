@@ -8,6 +8,7 @@
 
 #include "IRobotOsgViewHost.h"
 #include "RobotOsgUiTypes.h"
+#include "RobotSimulationMath.h"
 
 #include <cmath>
 #include <string>
@@ -33,7 +34,7 @@ inline bool backendWorldRotationMatrix(IRobotOsgViewHost* osg, const std::string
 		return false;
 	}
 	osg::Matrixd worldMat;
-	if (!osg->getBackendRootWorldMatrix(backendId, worldMat))
+	if (!RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, backendId, worldMat))
 	{
 		if (errMsg)
 		{

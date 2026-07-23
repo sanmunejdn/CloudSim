@@ -4,10 +4,13 @@
 #include "RobotInstructionController.h"
 
 #include "BackendDataBase.h"
+#include "CircularArcGeometry.h"
 #include "RobotCoordinateFrames.h"
+#include "RobotExternalAxes.h"
 #include "RobotInstructionAxisConfiguration.h"
 #include "RobotInstructionTransform.h"
 #include "RobotMatrixOsgBridge.h"
+#include "RobotTeachIk.h"
 #include "RunLogger.h"
 #include "UrdfRobotLoader.h"
 
@@ -17,6 +20,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <limits>
 #include <sstream>
 
 #include <Adapters.h>
@@ -28,6 +32,55 @@
 namespace
 {
 constexpr double kDegToRad = 3.14159265358979323846 / 180.0;
+
+/// 规划期间生效的外轴配置（Controller::plan 设置）
+const RobotExternal::RobotExternalAxisConfigSet* g_activeExternalAxes = nullptr;
+bool g_lastIkHasExternalAxisQ = false;
+double g_lastIkExternalAxisQ = 0.0;
+double g_lastIkSeedExternalAxisQ = 0.0;
+
+double trapezoidDuration(double distance, double vmax, double amax);
+
+struct ActiveExternalAxesGuard
+{
+	explicit ActiveExternalAxesGuard(const RobotExternal::RobotExternalAxisConfigSet* axes) { g_activeExternalAxes = axes; }
+	~ActiveExternalAxesGuard() { g_activeExternalAxes = nullptr; }
+	ActiveExternalAxesGuard(const ActiveExternalAxesGuard&) = delete;
+	ActiveExternalAxesGuard& operator=(const ActiveExternalAxesGuard&) = delete;
+};
+
+void clearLastIkExternalAxis()
+{
+	g_lastIkHasExternalAxisQ = false;
+	g_lastIkExternalAxisQ = 0.0;
+	g_lastIkSeedExternalAxisQ = 0.0;
+}
+
+void noteLastIkExternalAxis(const double qExt)
+{
+	g_lastIkHasExternalAxisQ = true;
+	g_lastIkExternalAxisQ = qExt;
+}
+
+void noteLastIkExternalAxisSeed(const double qSeed)
+{
+	g_lastIkSeedExternalAxisQ = qSeed;
+}
+
+void applyLastIkExternalAxisToPlan(RobotInstruction::PlanResult& out)
+{
+	if (g_lastIkHasExternalAxisQ)
+	{
+		out.hasExternalAxisQ = true;
+		out.externalAxisQ = g_lastIkExternalAxisQ;
+		// 臂几乎不动、地轨行程大时，仅靠关节 Δq 估时会接近 0，播放像瞬移
+		constexpr double kRailVMmPerSec = 250.0;
+		constexpr double kRailAMmPerSec2 = 600.0;
+		const double dQe = std::abs(out.externalAxisQ - g_lastIkSeedExternalAxisQ);
+		out.durationSec = std::max(out.durationSec, trapezoidDuration(dQe, kRailVMmPerSec, kRailAMmPerSec2));
+	}
+}
+
 bool solveLinearSystem(std::vector<double>& a, std::vector<double>& b, int n)
 {
 	if (n <= 0 || static_cast<int>(a.size()) != n * n || static_cast<int>(b.size()) != n)
@@ -992,6 +1045,139 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 	}
 	const engine::RigidTransform flangeToolRt = RobotCoordinate::rigidTransformFromBackendMat4(T_flange_tool);
 	(void)flangeToolRt;
+
+	clearLastIkExternalAxis();
+	if (const RobotExternal::RobotExternalAxisConfig* rail =
+			g_activeExternalAxes ? RobotExternal::firstEnabledExternalAxis(*g_activeExternalAxes) : nullptr)
+	{
+		engine::RigidTransform T_base_target{};
+		if (RobotInstruction::readTargetTransformFromInstruction(cmd, T_base_target))
+		{
+			double qeSeed = std::clamp(rail->home, rail->lower, rail->upper);
+			{
+				const auto& extProps = cmd.extensionProperties();
+				const auto itQ = extProps.find(RobotExternal::kExtContextExternalAxisQMm);
+				if (itQ != extProps.end() && !itQ->second.empty())
+				{
+					try
+					{
+						qeSeed = std::clamp(std::stod(itQ->second), rail->lower, rail->upper);
+					}
+					catch (...)
+					{
+					}
+				}
+			}
+			noteLastIkExternalAxisSeed(qeSeed);
+
+			RobotTeachIk::TeachIkContext ctx;
+			ctx.urdfPath = urdfPath;
+			ctx.ikLinkName = ikLink;
+			ctx.T_base_target = T_base_target;
+			ctx.seedJointRad = q;
+			ctx.useOrientation = useOrientation;
+			ctx.T_flange_tool = T_flange_tool;
+			ctx.externalAxis.enabled = true;
+			ctx.externalAxis.isPrismatic = rail->isPrismatic;
+			ctx.externalAxis.axis[0] = rail->axis[0];
+			ctx.externalAxis.axis[1] = rail->axis[1];
+			ctx.externalAxis.axis[2] = rail->axis[2];
+			ctx.externalAxis.lower = rail->lower;
+			ctx.externalAxis.upper = rail->upper;
+
+			double bestQe = qeSeed;
+			double bestRes = std::numeric_limits<double>::infinity();
+			std::vector<double> bestQ;
+			bool bestOk = false;
+
+			auto considerFixed = [&](const double qeTry, const int maxIters) {
+				ctx.externalAxis.qExternal = qeTry;
+				ctx.externalAxis.optimizeExternal = false;
+				ctx.maxIkIterations = maxIters;
+				ctx.seedJointRad = bestOk && !bestQ.empty() ? bestQ : q;
+				const RobotTeachIk::TeachIkResult r = RobotTeachIk::solveTeachIk(ctx);
+				if (!r.ok)
+				{
+					return;
+				}
+				if (r.residualTcpMm < bestRes)
+				{
+					bestRes = r.residualTcpMm;
+					bestQe = r.externalAxisQ;
+					bestQ = r.jointRad;
+					bestOk = true;
+				}
+			};
+
+			// 1) 优先：示教/home 种子 + 自适应联立（避免整行程密网格）
+			considerFixed(qeSeed, 48);
+			if (bestOk && bestRes < 1.5)
+			{
+				ctx.seedJointRad = bestQ;
+				ctx.externalAxis.qExternal = bestQe;
+				ctx.externalAxis.optimizeExternal = true;
+				ctx.externalAxis.adaptiveExternalDamping = true;
+				ctx.externalAxis.externalDeltaPriorWeight = 0.05;
+				ctx.maxIkIterations = 56;
+				const RobotTeachIk::TeachIkResult refined = RobotTeachIk::solveTeachIk(ctx);
+				if (refined.ok)
+				{
+					bestQe = refined.externalAxisQ;
+					bestQ = refined.jointRad;
+					bestRes = refined.residualTcpMm;
+				}
+			}
+
+			// 2) 残差仍大：稀疏扫描（最多 7 点）+ 早停
+			if (!bestOk || bestRes > 3.0)
+			{
+				const double span = std::max(0.0, rail->upper - rail->lower);
+				const int gridN = span < 1e-9 ? 1 : std::clamp(static_cast<int>(span / 200.0) + 1, 3, 7);
+				for (int i = 0; i < gridN; ++i)
+				{
+					const double t = gridN <= 1 ? 0.0 : static_cast<double>(i) / static_cast<double>(gridN - 1);
+					considerFixed(rail->lower + t * (rail->upper - rail->lower), 36);
+					if (bestOk && bestRes < 1.0)
+					{
+						break;
+					}
+				}
+				if (bestOk)
+				{
+					ctx.seedJointRad = bestQ;
+					ctx.externalAxis.qExternal = bestQe;
+					ctx.externalAxis.optimizeExternal = true;
+					ctx.externalAxis.adaptiveExternalDamping = true;
+					ctx.externalAxis.externalDeltaPriorWeight = 0.03;
+					ctx.maxIkIterations = 64;
+					const RobotTeachIk::TeachIkResult refined = RobotTeachIk::solveTeachIk(ctx);
+					if (refined.ok)
+					{
+						bestQe = refined.externalAxisQ;
+						bestQ = refined.jointRad;
+						bestRes = refined.residualTcpMm;
+					}
+				}
+			}
+
+			if (bestOk && !bestQ.empty())
+			{
+				noteLastIkExternalAxis(bestQe);
+				return bestQ;
+			}
+			if (failReason)
+			{
+				*failReason = "外轴联立未找到可行解（请检查行程/方向）";
+			}
+			return {};
+		}
+		if (failReason)
+		{
+			*failReason = "无法解析外轴联立目标位姿";
+		}
+		return {};
+	}
+
 	const double targetNormMm = std::sqrt(target[0] * target[0] + target[1] * target[1] + target[2] * target[2]);
 	if (targetNormMm > 50000.0)
 	{
@@ -1490,6 +1676,11 @@ public:
 		out.durationSec = durationSec;
 		out.jointTargetsRad = targetQ;
 		out.jointTrajectoryRad = {targetQ};
+		applyLastIkExternalAxisToPlan(out);
+		if (out.hasExternalAxisQ)
+		{
+			out.summary += " (with external axis)";
+		}
 		logIkSolveResidual(cmd, targetQ, "PtpPlanner");
 		return true;
 	}
@@ -1770,7 +1961,275 @@ public:
 										   : "LINE joint-space trajectory (no URDF cartesian path).";
 		out.durationSec = durationSec;
 		out.jointTargetsRad = qTarget;
+		applyLastIkExternalAxisToPlan(out);
+		if (out.hasExternalAxisQ)
+		{
+			out.summary += " (with external axis)";
+		}
 		logIkSolveResidual(cmd, qTarget, "LinePlanner");
+		return true;
+	}
+
+private:
+	const std::vector<robot_kinematics::DhRow>* m_dhRows = nullptr;
+};
+
+class ArcPlanner final : public RobotInstruction::PlannerBase
+{
+public:
+	explicit ArcPlanner(const std::vector<robot_kinematics::DhRow>* dhRows) : m_dhRows(dhRows) {}
+
+	bool canHandle(RobotInstruction::Type type) const override { return type == RobotInstruction::Type::ARC; }
+
+	bool validate(const RobotInstruction::Base& cmd, std::string* errMsg) const override
+	{
+		if (!cmd.hasPoseProperty() || !cmd.hasViaPoseProperty())
+		{
+			if (errMsg)
+				*errMsg = "ARC instruction requires via and end pose.";
+			return false;
+		}
+		if (!cmd.hasSpeedProperty() || cmd.speed() <= 0.0)
+		{
+			if (errMsg)
+				*errMsg = "ARC instruction requires speed > 0.";
+			return false;
+		}
+		if (!cmd.hasAccelProperty() || cmd.accel() <= 0.0)
+		{
+			if (errMsg)
+				*errMsg = "ARC instruction requires acceleration > 0.";
+			return false;
+		}
+		if (cmd.hasBlendRadiusProperty() && cmd.blendRadius() < 0.0)
+		{
+			if (errMsg)
+				*errMsg = "ARC instruction blend radius must be >= 0.";
+			return false;
+		}
+		return true;
+	}
+
+	bool plan(const RobotInstruction::Base& cmd, RobotInstruction::PlanResult& out, std::string* errMsg) const override
+	{
+		if (!validate(cmd, errMsg))
+		{
+			return false;
+		}
+
+		std::vector<double> q0 = currentJointVectorFromInstruction(cmd);
+		if (q0.empty())
+		{
+			if (errMsg)
+				*errMsg = "ARC planning failed: missing context.currentJointRadCsv.";
+			return false;
+		}
+
+		std::vector<double> qTarget;
+		std::string ikFailReason;
+		const bool preferUrdfIk = hasTcpLinkContext(cmd);
+		RobotInstruction::MotionAxisConfiguration axisCfg;
+		if (cmd.hasMotionAxisConfigurationProperty())
+		{
+			axisCfg = cmd.motionAxisConfiguration();
+		}
+		const bool constrainAxis = cmd.hasMotionAxisConfigurationProperty() &&
+								   RobotInstruction::motionAxisConfigurationRequiresConstraint(axisCfg);
+		if (preferUrdfIk)
+		{
+			if (cmd.hasMotionAxisConfigurationProperty())
+			{
+				qTarget = solveIkWithAxisConfiguration(cmd, &ikFailReason);
+			}
+			else
+			{
+				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+			}
+			if (qTarget.empty() && !constrainAxis)
+			{
+				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+			}
+		}
+		if (qTarget.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis && !cmd.hasEulerProperty())
+		{
+			qTarget = solveTargetByIkIfPossible(cmd, *m_dhRows, &ikFailReason);
+		}
+		if (qTarget.empty() && !preferUrdfIk)
+		{
+			if (cmd.hasMotionAxisConfigurationProperty())
+			{
+				qTarget = solveIkWithAxisConfiguration(cmd, &ikFailReason);
+			}
+			else if (!constrainAxis)
+			{
+				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
+			}
+		}
+		if (qTarget.empty() && !constrainAxis && !cmd.hasEulerProperty())
+		{
+			qTarget = solveTargetByLegacyJointDelta(cmd);
+		}
+		if (qTarget.empty() || qTarget.size() != q0.size())
+		{
+			if (errMsg)
+			{
+				*errMsg = qTarget.empty() ? (ikFailReason.empty() ? "IK无解" : ikFailReason) : "IK解关节数与种子不一致";
+			}
+			return false;
+		}
+
+		engine::RigidTransform T_end{};
+		engine::RigidTransform T_start{};
+		engine::RigidTransform T_via{};
+		const bool haveEnd = RobotInstruction::readTargetTransformFromInstruction(cmd, T_end);
+		const bool haveVia = RobotInstruction::readViaTransformFromInstruction(cmd, T_via);
+		const bool haveStart = toolOriginTransformFromJoints(cmd, q0, T_start);
+		const bool canCartesian = preferUrdfIk && haveStart && haveEnd && haveVia;
+
+		double durationSec = 0.0;
+		out.jointTrajectoryRad.clear();
+
+		if (!canCartesian)
+		{
+			if (errMsg)
+			{
+				if (!preferUrdfIk)
+					*errMsg = "ARC requires URDF TCP context for circular path.";
+				else if (!haveStart)
+					*errMsg = "ARC failed: cannot FK start pose from seed joints.";
+				else if (!haveVia)
+					*errMsg = "ARC failed: missing via pose/transform.";
+				else
+					*errMsg = "ARC failed: missing end pose/transform.";
+			}
+			return false;
+		}
+
+		{
+			const double p0[3] = {T_start.translationMm().x(), T_start.translationMm().y(), T_start.translationMm().z()};
+			const double p1[3] = {T_via.translationMm().x(), T_via.translationMm().y(), T_via.translationMm().z()};
+			const double p2[3] = {T_end.translationMm().x(), T_end.translationMm().y(), T_end.translationMm().z()};
+			robot_kinematics::Circle3Fit fit{};
+			if (!robot_kinematics::fitCircle3Points(p0, p1, p2, fit))
+			{
+				if (errMsg)
+					*errMsg = "ARC failed: points are colinear or radius too small.";
+				return false;
+			}
+			const double arcLen = robot_kinematics::arcLengthMm(fit);
+			durationSec = trapezoidDuration(arcLen, cmd.speed(), cmd.accel());
+
+			const int maxSamples = [&]()
+			{
+				const auto& ext = cmd.extensionProperties();
+				const auto itLite = ext.find("context.playbackPlanLite");
+				if (itLite != ext.end() && itLite->second == "1")
+				{
+					return 16;
+				}
+				return 64;
+			}();
+			std::vector<double> samplesXyz;
+			std::vector<double> sampleU;
+			if (!robot_kinematics::sampleArcByChord(fit, 8.0, 8, maxSamples, samplesXyz, &sampleU))
+			{
+				if (errMsg)
+					*errMsg = "ARC sampling failed.";
+				return false;
+			}
+			const int samples = static_cast<int>(samplesXyz.size() / 3);
+			if (samples <= 0 || static_cast<int>(sampleU.size()) != samples)
+			{
+				if (errMsg)
+					*errMsg = "ARC sampling failed.";
+				return false;
+			}
+			out.jointTrajectoryRad.reserve(static_cast<size_t>(samples));
+
+			RobotInstruction::Base& mutableCmd = const_cast<RobotInstruction::Base&>(cmd);
+			engine::RigidTransform T_backup{};
+			const bool hadBackup = RobotInstruction::readTargetTransformFromInstruction(cmd, T_backup);
+			const RobotInstruction::Vec3 poseBackup = cmd.pose();
+			const RobotInstruction::Vec3 eulerBackup = cmd.hasEulerProperty() ? cmd.eulerDeg() : RobotInstruction::Vec3{};
+			std::string quatCsvBackup;
+			std::string transCsvBackup;
+			{
+				const auto& ext = cmd.extensionProperties();
+				const auto itQ = ext.find(RobotInstruction::kExtContextTargetTransformQuatCsv);
+				const auto itT = ext.find(RobotInstruction::kExtContextTargetTransformTransMmCsv);
+				if (itQ != ext.end())
+					quatCsvBackup = itQ->second;
+				if (itT != ext.end())
+					transCsvBackup = itT->second;
+			}
+
+			std::vector<double> seedQ = q0;
+			bool sampleOk = true;
+			std::string sampleFail;
+			const Eigen::Quaterniond qStart = T_start.rotation().normalized();
+			const Eigen::Quaterniond qEnd = T_end.rotation().normalized();
+			for (int i = 0; i < samples; ++i)
+			{
+				const double u = sampleU[static_cast<size_t>(i)];
+				const Eigen::Vector3d t(samplesXyz[static_cast<size_t>(i) * 3u],
+										samplesXyz[static_cast<size_t>(i) * 3u + 1u],
+										samplesXyz[static_cast<size_t>(i) * 3u + 2u]);
+				Eigen::Quaterniond q = qStart.slerp(u, qEnd);
+				if (q.coeffs().hasNaN())
+				{
+					q = qEnd;
+				}
+				const engine::RigidTransform T_sample = engine::RigidTransform::fromTranslationQuat(t, q);
+				RobotInstruction::writeTargetTransformToInstruction(mutableCmd, T_sample);
+				std::vector<double> qSample = solveTargetByUrdfNumericalIkFromSeed(cmd, seedQ, &sampleFail);
+				if (qSample.empty() || qSample.size() != q0.size())
+				{
+					sampleOk = false;
+					break;
+				}
+				seedQ = qSample;
+				out.jointTrajectoryRad.push_back(std::move(qSample));
+			}
+
+			if (hadBackup)
+			{
+				RobotInstruction::writeTargetTransformToInstruction(mutableCmd, T_backup);
+			}
+			else
+			{
+				mutableCmd.setPose(poseBackup);
+				if (cmd.hasEulerProperty())
+				{
+					mutableCmd.setEulerDeg(eulerBackup);
+				}
+				mutableCmd.setExtensionProperty(RobotInstruction::kExtContextTargetTransformQuatCsv, quatCsvBackup);
+				mutableCmd.setExtensionProperty(RobotInstruction::kExtContextTargetTransformTransMmCsv, transCsvBackup);
+			}
+
+			if (sampleOk && !out.jointTrajectoryRad.empty())
+			{
+				qTarget = out.jointTrajectoryRad.back();
+			}
+			else
+			{
+				out.jointTrajectoryRad.clear();
+				if (errMsg)
+					*errMsg = sampleFail.empty() ? "ARC cartesian sample IK failed" : sampleFail;
+				return false;
+			}
+		}
+
+		out.ok = true;
+		out.plannerName = "ArcPlanner";
+		out.summary = "ARC cartesian samples with IK.";
+		out.durationSec = durationSec;
+		out.jointTargetsRad = qTarget;
+		applyLastIkExternalAxisToPlan(out);
+		if (out.hasExternalAxisQ)
+		{
+			out.summary += " (with external axis)";
+		}
+		logIkSolveResidual(cmd, qTarget, "ArcPlanner");
 		return true;
 	}
 
@@ -1796,6 +2255,21 @@ bool Controller::hasDhRows() const
 	return !m_dhRows.empty();
 }
 
+void Controller::setExternalAxes(const RobotExternal::RobotExternalAxisConfigSet& axes)
+{
+	m_externalAxes = axes;
+}
+
+void Controller::clearExternalAxes()
+{
+	m_externalAxes = {};
+}
+
+bool Controller::hasEnabledExternalAxes() const
+{
+	return RobotExternal::hasEnabledExternalAxes(m_externalAxes);
+}
+
 void Controller::registerPlanner(const std::shared_ptr<PlannerBase>& planner)
 {
 	if (planner)
@@ -1814,6 +2288,7 @@ void Controller::buildDefaultPlanners()
 	clearPlanners();
 	registerPlanner(std::make_shared<PtpPlanner>(&m_dhRows));
 	registerPlanner(std::make_shared<LinePlanner>(&m_dhRows));
+	registerPlanner(std::make_shared<ArcPlanner>(&m_dhRows));
 }
 
 bool Controller::validate(const Base& cmd, std::string* errMsg) const
@@ -1854,6 +2329,8 @@ bool Controller::plan(const Base& cmd, PlanResult& out, std::string* errMsg) con
 		}
 		return false;
 	}
+	const ActiveExternalAxesGuard extGuard(hasEnabledExternalAxes() ? &m_externalAxes : nullptr);
+	clearLastIkExternalAxis();
 	return planner->plan(cmd, out, errMsg);
 }
 
@@ -1899,6 +2376,7 @@ FeasibleMotionAxisConfigurationOptions allAxisConfigurationEnumOptions()
 
 FeasibleMotionAxisConfigurationOptions Controller::queryFeasibleMotionAxisConfigurationOptions(const Base& cmd) const
 {
+	const ActiveExternalAxesGuard extGuard(hasEnabledExternalAxes() ? &m_externalAxes : nullptr);
 	FeasibleMotionAxisConfigurationOptions out;
 	if (!cmd.hasMotionAxisConfigurationProperty())
 	{

@@ -4,6 +4,7 @@
 #include "RobotProjectIoAdapter.h"
 
 #include "IRobotDocumentHost.h"
+#include "RobotExternalAxes.h"
 #include "RobotInstructionFactory.h"
 #include "RobotProgramStore.h"
 
@@ -24,7 +25,7 @@ void writeRobotKinematics(QJsonObject& root, IRobotDocumentHost* doc, const QVec
 		QJsonArray robotsArr;
 		for (int ri = 0; ri < doc->robotKinematicInstanceCount(); ++ri)
 		{
-			RobotPerLinkKinematicsSlice pl;
+			cloudsim::core::RobotPerLinkKinematicsSliceDto pl;
 			if (!doc->robotPerLinkKinematicsForInstance(ri, pl))
 			{
 				continue;
@@ -55,6 +56,14 @@ void writeRobotKinematics(QJsonObject& root, IRobotDocumentHost* doc, const QVec
 			{
 				rk.insert(QStringLiteral("coordinateFrames"), cfDoc.object());
 			}
+			nlohmann::json eaJ;
+			RobotExternal::writeExternalAxisConfigSetToJson(doc->robotExternalAxesForInstance(ri), eaJ);
+			const QByteArray eaRaw = QByteArray::fromStdString(eaJ.dump());
+			const QJsonDocument eaDoc = QJsonDocument::fromJson(eaRaw);
+			if (eaDoc.isObject())
+			{
+				rk.insert(QStringLiteral("externalAxes"), eaDoc.object());
+			}
 			// 保存机器人基座放置位姿 P（列主序 16 元素）
 			{
 				QJsonArray baseArr;
@@ -62,7 +71,7 @@ void writeRobotKinematics(QJsonObject& root, IRobotDocumentHost* doc, const QVec
 				{
 					for (int r = 0; r < 4; ++r)
 					{
-						baseArr.append(pl.robotBasePlacementWorld(r, c));
+						baseArr.append(pl.robotBasePlacementWorld[static_cast<size_t>(c * 4 + r)]);
 					}
 				}
 				rk.insert(QStringLiteral("basePlacementWorld"), baseArr);

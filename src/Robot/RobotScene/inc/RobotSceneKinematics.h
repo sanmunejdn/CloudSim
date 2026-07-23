@@ -7,6 +7,7 @@
 #include "robot_scene_global.h"
 
 #include "IRobotSimulationDocument.h"
+#include "RobotPerLinkKinematicsSliceOsg.h"
 
 #include <QHash>
 #include <QString>

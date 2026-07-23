@@ -148,9 +148,11 @@
   <ItemGroup>
     <ClInclude Include="inc\robot_kinematics_global.h" />
     <ClInclude Include="inc\SerialLinkKinematics.h" />
+    <ClInclude Include="inc\CircularArcGeometry.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\SerialLinkKinematics.cpp" />
+    <ClCompile Include="source\CircularArcGeometry.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -48,6 +48,12 @@
     <ClInclude Include="inc\Reconstruction.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\ReconstructionPoisson.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ReconstructionScaleSpace.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\SelfTest.h">
       <Filter>inc</Filter>
     </ClInclude>
@@ -104,7 +110,10 @@
     <ClCompile Include="source\Preprocess.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="source\Reconstruction.cpp">
+    <ClCompile Include="source\ReconstructionPoisson.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ReconstructionScaleSpace.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\SelfTest.cpp">

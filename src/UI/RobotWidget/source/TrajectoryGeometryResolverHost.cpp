@@ -1,5 +1,5 @@
-﻿/// @file TrajectoryGeometryResolverHost.cpp
-/// @brief TrajectoryGeometryResolverHost 实现
+/// @file TrajectoryGeometryResolverHost.cpp
+/// @brief TrajectoryGeometryResolverHost ʵ��
 
 #include "TrajectoryGeometryResolverHost.h"
 
@@ -10,6 +10,7 @@
 #include "IRobotOsgViewHost.h"
 #include "MeshBackendData.h"
 #include "PointCloudBackendData.h"
+#include "RobotSimulationMath.h"
 #include "TrajectoryGeometryResolver.h"
 
 #include <osg/Matrixd>
@@ -60,7 +61,7 @@ bool fillBrepModelToWorld(IRobotOsgViewHost* osg, const std::string& backendId,
 {
 	const std::string xformId = osg->resolvePickScopeBackendId(backendId);
 	osg::Matrixd worldMat{};
-	if (!osg->getBackendRootWorldMatrix(xformId, worldMat))
+	if (!RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, xformId, worldMat))
 	{
 		if (errMsg)
 		{

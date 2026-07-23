@@ -6,6 +6,7 @@
 
 #include "robot_scene_global.h"
 
+#include "RobotExternalAxes.h"
 #include "RobotInstructionModel.h"
 #include "SerialLinkKinematics.h"
 
@@ -23,6 +24,8 @@ struct ROBOT_SCENE_API PlanResult
 	double durationSec = 0.0;
 	std::vector<double> jointTargetsRad;
 	std::vector<std::vector<double>> jointTrajectoryRad;
+	bool hasExternalAxisQ = false;
+	double externalAxisQ = 0.0;
 };
 
 /// 当前指令上下文中通过 IK+姿态约束的轴配置枚举
@@ -53,6 +56,10 @@ public:
 	void clearDhRows();
 	bool hasDhRows() const;
 
+	void setExternalAxes(const RobotExternal::RobotExternalAxisConfigSet& axes);
+	void clearExternalAxes();
+	bool hasEnabledExternalAxes() const;
+
 	void registerPlanner(const std::shared_ptr<PlannerBase>& planner);
 	void clearPlanners();
 	void buildDefaultPlanners();
@@ -68,6 +75,7 @@ private:
 
 private:
 	std::vector<robot_kinematics::DhRow> m_dhRows;
+	RobotExternal::RobotExternalAxisConfigSet m_externalAxes;
 	std::vector<std::shared_ptr<PlannerBase>> m_planners;
 };
 } // namespace RobotInstruction

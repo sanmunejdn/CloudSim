@@ -2,7 +2,7 @@
 #define POINTCLOUDALGORITHM_POINTCLOUDBUFFER_H
 
 /// @file PointCloudBuffer.h
-/// @brief PointCloudBuffer 接口
+/// @brief 点云/soup 缓冲校验与按索引紧凑拷贝
 
 #include "point_cloud_algorithm_global.h"
 
@@ -11,8 +11,12 @@
 
 namespace pclalgo
 {
+/** xyz 长度须为 3 的倍数；返回点数 */
 POINT_CLOUD_ALGORITHM_API std::size_t pointCountFromXyz(const std::vector<float>& xyz);
+
+/** triangleSoup 长度须为 9 的倍数；返回三角数 */
 POINT_CLOUD_ALGORITHM_API std::size_t triangleCountFromSoup(const std::vector<float>& triangleSoup);
+
 POINT_CLOUD_ALGORITHM_API bool validXyzLength(const std::vector<float>& xyz);
 POINT_CLOUD_ALGORITHM_API bool validRgbaLength(const std::vector<float>& rgba, std::size_t pointCount);
 

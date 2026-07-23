@@ -3,8 +3,6 @@
 
 #include "ProjectPackageIo.h"
 
-#include "../../UI/RobotWidget/inc/IRobotDocumentHost.h"
-#include "../../UI/RobotWidget/inc/RobotProjectIoAdapter.h"
 #include "AnnotationProjectIo.h"
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
@@ -267,16 +265,6 @@ void applyProjectViewportFromJson(DocumentHost& host, const QJsonObject& root)
 		return;
 	}
 	applyAnnotationsFromProjectJson(*osg, root);
-}
-
-void mergeRobotKinematicsIntoProjectRoot(::IRobotDocumentHost* robotDoc, QJsonObject& root,
-										 const QVector<double>* aggregatedJointAnglesRad)
-{
-	if (!robotDoc)
-	{
-		return;
-	}
-	RobotProjectIo::writeRobotKinematics(root, robotDoc, aggregatedJointAnglesRad);
 }
 
 void finalizeProjectLoadFollowAndViewport(DocumentHost& host, const QJsonObject& root, const bool useEdgesRelation,

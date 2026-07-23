@@ -484,4 +484,25 @@ bool DataServiceAdapter::runFollowSolveAndSync(const core::FollowSolveContextDto
 	return true;
 }
 
+core::ObjectId DataServiceAdapter::followTargetId(const core::ObjectId& followerId) const
+{
+	const auto obj = backendOf(m_host).getData(followerId.toStdString());
+	if (!obj)
+	{
+		return {};
+	}
+	const auto follow = std::dynamic_pointer_cast<FollowAttachmentComponent>(
+		obj->getComponent(FollowAttachmentComponent::typeKeyStatic()));
+	if (!follow || !follow->enabled())
+	{
+		return {};
+	}
+	const std::string& tid = follow->targetBackendId();
+	if (tid.empty())
+	{
+		return {};
+	}
+	return QString::fromStdString(tid);
+}
+
 } // namespace cloudsim::host

@@ -2,7 +2,7 @@
 #define GEOMETRYALGORITHM_TUBULARGRINDING_H
 
 /// @file TubularGrinding.h
-/// @brief 邻域搜索模式
+/// @brief 管状铸件：中心线 → 模板轨迹点 → 表面投影（网格/点云双源，会话式分阶段）
 
 #include "geometry_algorithm_global.h"
 
@@ -78,12 +78,12 @@ struct TubularGrindingParams
 	int minSectionPoints = 4;
 
 	TubularGrindingTemplateKind templateKind = TubularGrindingTemplateKind::Auto;
-	int helicalCoils = 8;
-	int circumferentialRings = 30;
-	int axialMeridians = 24;
-	int zigzagPasses = 40;
+	int helicalCoils = 8;              ///< 螺旋模板圈数
+	int circumferentialRings = 30;     ///< 环形模板截面数
+	int axialMeridians = 24;           ///< 轴向平行模板经线数
+	int zigzagPasses = 40;             ///< 锯齿模板 pass 数
 
-	double projectionMaxDistMm = 10.0;
+	double projectionMaxDistMm = 10.0; ///< 模板点沿 ±法向投影最大搜索半径（mm）
 
 	// === 广义管状分析新增参数 ===
 
@@ -93,9 +93,9 @@ struct TubularGrindingParams
 	double geodesicRadiusMm = 0.0;
 	/// 截面拟合模式
 	SectionFitMode sectionFitMode = SectionFitMode::Ellipse;
-	/// 长短轴比突变阈值，用于过渡区检测
+	/// 长短轴比突变阈值，过渡区检测
 	double transitionAspectRatioThreshold = 0.3;
-	/// 中心线曲率突变阈值（°），用于过渡区检测
+	/// 中心线曲率突变阈值（°），过渡区检测
 	double transitionCurvatureThresholdDeg = 15.0;
 	/// 中心线迭代平滑次数（Laplacian 收缩 + 拓扑塌缩迭代次数）
 	int centerlineIterations = 80;
@@ -112,24 +112,24 @@ struct TubularGrindingParams
 
 	TubularGrindingCenterlineMethod centerlineMethod = TubularGrindingCenterlineMethod::Laplacian;
 
-	double otSampleRate = 0.10;
-	double otCostBeta = 3.0;
-	int otcPreSteps = 3;
-	int otcOuterLoops = 3;
-	int otLcOuterMaxIters = 40;
-	int pointCloudKnnK = 30;
+	double otSampleRate = 0.10;        ///< OTLC 体素降采样比例；越小 sample 越少
+	double otCostBeta = 3.0;           ///< OT 代价距离指数
+	int otcPreSteps = 3;               ///< OTLC 预处理 OT+合并轮次
+	int otcOuterLoops = 3;             ///< 每轮外循环内 OT 次数
+	int otLcOuterMaxIters = 40;        ///< OTLC 外循环上限
+	int pointCloudKnnK = 30;           ///< 点云 KNN 邻域大小
 
 	/// 根点合并下限（0 = 自动：max(40, sampleCount×0.15)）
 	int minRootsBySamples = 0;
 
 	// FPFH 区域划分
-	double fpfhFeatureVoxelMm = 0.0;
-	int fpfhMaxSamplePoints = 0;
-	unsigned int fpfhNeighbors = 20U;
+	double fpfhFeatureVoxelMm = 0.0;           ///< FPFH 特征体素（mm）；0=自动
+	int fpfhMaxSamplePoints = 0;               ///< 特征计算采样上限；0=不限
+	unsigned int fpfhNeighbors = 20U;          ///< FPFH 邻域点数
 	unsigned int fpfhSaliencyNeighbors = 10U;
-	int fpfhKeypointCount = 0;
+	int fpfhKeypointCount = 0;                 ///< 关键点数；0=自动
 	double fpfhKeypointMinSeparationMm = 0.0;
-	double fpfhRegionGrowDist = 0.0;
+	double fpfhRegionGrowDist = 0.0;           ///< 区域生长距离（mm）；0=自动
 	double fpfhRegionGrowNormalAngleDeg = 45.0;
 	int fpfhMinRegionFaces = 10;
 };
@@ -336,12 +336,18 @@ private:
 
 using TubularGrindingSessionPtr = std::shared_ptr<TubularGrindingSession>;
 
+/** 从三角 soup（mm，9T）创建会话 */
 GEOMETRY_ALGORITHM_API TubularGrindingSessionPtr createTubularGrindingSession(std::vector<float> sourceSoup);
 
-/// 从点云 xyz 创建会话（双源支持）
+/** 从点云 xyz（3N mm）创建会话；Segment/Laplacian 需 mesh，点云中心线走 OtLc */
 GEOMETRY_ALGORITHM_API TubularGrindingSessionPtr
 createTubularGrindingSessionFromPointCloud(std::vector<float> pointXyz);
 
+/**
+ * 按 stage 顺序执行：Segment(可选) → Centerline → TemplatePoints → Project
+ * @param params 见 TubularGrindingParams；sectionSpacingMm 同时用于 PCA 分箱与输出采样
+ * @return false：阶段乱序、mesh 拓扑缺失、中心线提取失败（Laplacian/OTLC）或前置阶段未完成
+ */
 GEOMETRY_ALGORITHM_API bool runTubularGrindingStage(TubularGrindingSession& session, TubularGrindingStage stage,
 													const TubularGrindingParams& params, std::string* errMsg = nullptr);
 

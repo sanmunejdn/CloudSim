@@ -71,6 +71,9 @@
     <ClCompile Include="source\RobotFrameSettingsWidget.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="source\RobotExternalAxisSettingsWidget.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClCompile Include="source\InstructionProgramTreeWidget.cpp">
       <Filter>src</Filter>
     </ClCompile>
@@ -188,6 +191,9 @@
       <Filter>inc</Filter>
     </QtMoc>
     <QtMoc Include="inc\RobotFrameSettingsWidget.h">
+      <Filter>inc</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\RobotExternalAxisSettingsWidget.h">
       <Filter>inc</Filter>
     </QtMoc>
     <QtMoc Include="inc\InstructionProgramTreeWidget.h">

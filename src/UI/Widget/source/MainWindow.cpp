@@ -6,6 +6,7 @@
 #include "../RobotWidget/inc/FeatureTrajectoryPageWidget.h"
 #include "../RobotWidget/inc/IRobotOsgViewHost.h"
 #include "../RobotWidget/inc/RobotAxisControlWidget.h"
+#include "../RobotWidget/inc/RobotExternalAxisSettingsWidget.h"
 #include "../RobotWidget/inc/RobotFrameSettingsWidget.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
@@ -221,6 +222,10 @@ void MainWindow::applyLanguage()
 		{
 			frame->setUseChinese(m_useChinese);
 		}
+		if (RobotExternalAxisSettingsWidget* ext = simDock->externalAxisPage())
+		{
+			ext->setUseChinese(m_useChinese);
+		}
 		if (TrajectoryEditPageWidget* traj = simDock->trajectoryEditPage())
 		{
 			traj->setUseChinese(m_useChinese);
@@ -240,6 +245,11 @@ void MainWindow::applyLanguage()
 			{
 				tabs->setTabText(RobotSimulationDockWidget::kTabIndexFrames,
 								 i18n(QStringLiteral("Frames"), QStringLiteral("坐标系")));
+			}
+			if (tabs->count() > RobotSimulationDockWidget::kTabIndexExternalAxes)
+			{
+				tabs->setTabText(RobotSimulationDockWidget::kTabIndexExternalAxes,
+								 i18n(QStringLiteral("External Axes"), QStringLiteral("外部轴")));
 			}
 			if (tabs->count() > RobotSimulationDockWidget::kTabIndexTrajectoryGeneration)
 			{
@@ -1037,6 +1047,7 @@ void MainWindow::installBackendFollowFrameHook(DocumentPage* page)
 			{
 				return;
 			}
+			// FK 路径已在 notify 内同步求解并清空脏集；此处只处理 gizmo 拖动 / 属性 dirty / forced
 			if (page->followDirtyBackendIds().empty() && !page->followSolveForcedPending() &&
 				!rv.isTransformGizmoDragging())
 			{

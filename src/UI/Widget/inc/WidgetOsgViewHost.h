@@ -37,7 +37,7 @@ public:
 	bool pointPickMode() const override;
 
 	bool hasBackendObjectBranch(const std::string& backendId) const override;
-	bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const override;
+	bool getBackendRootWorldMatrix(const std::string& backendId, cloudsim::core::Mat4& outWorld) const override;
 	bool tryGetBackendModelCenterMm(const std::string& backendId, double& cx, double& cy, double& cz) const override;
 	std::string resolvePickScopeBackendId(const std::string& backendId) const override;
 	bool backendSkipsInnerModelCenterRebase(const std::string& backendId) const override;
@@ -62,11 +62,11 @@ public:
 	void endTcpDragTeach() override;
 	void beginTcpDragTeach(const std::string& mountBackendId, const engine::RigidTransform& T_base_target,
 						   float modelDiagonalMm,
-						   std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld,
-						   const osg::Matrixd* toolLocalOnFlange) override;
+						   std::function<bool(cloudsim::core::Mat4& outRobotBaseWorld)> resolveRobotBaseWorld,
+						   const cloudsim::core::Mat4* toolLocalOnFlange) override;
 	void updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target,
 									  bool syncTargetInBase = true) override;
-	void updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLocalOnFlange) override;
+	void updateTcpDragTeachToolLocalOnFlange(const cloudsim::core::Mat4& toolLocalOnFlange) override;
 
 	void setMeshLinePickMode(bool enabled) override;
 	void setMeshFacePickMode(bool enabled) override;
@@ -81,10 +81,10 @@ public:
 	void setPolylinePickMode(bool enabled) override;
 	bool polylinePickMode() const override;
 
-	void showMeshTriangleHighlight(const std::vector<osg::Vec3f>& triangleVertsWorld) override;
+	void showMeshTriangleHighlight(const std::vector<cloudsim::core::Vec3>& triangleVertsWorld) override;
 	void clearMeshTriangleHighlight() override;
 
-	void showMeshFittedSurfacePreview(const std::vector<osg::Vec3f>& triangleVertsWorld) override;
+	void showMeshFittedSurfacePreview(const std::vector<cloudsim::core::Vec3>& triangleVertsWorld) override;
 	void clearMeshFittedSurfacePreview() override;
 
 	void showMeshSectionPlane(const std::string& backendIdUtf8, const double originModelMm[3],

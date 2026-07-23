@@ -167,6 +167,11 @@ void persistTaughtJointsAndToolContext(RobotInstruction::Base& ins, const QVecto
 bool shouldUseTaughtJointCsv(const RobotInstruction::Base& ins,
 							 const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames)
 {
+	// ARC 必须走 ArcPlanner 出 jointTrajectoryRad；示教 CSV 短路会退化成关节 lerp
+	if (ins.type() == RobotInstruction::Type::ARC)
+	{
+		return false;
+	}
 	if (jointAnglesRadFromInstructionContext(ins).isEmpty())
 	{
 		return false;

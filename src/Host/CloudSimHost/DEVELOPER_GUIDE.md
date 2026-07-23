@@ -174,7 +174,8 @@ DocumentHost* documentHostFromScope(core::IDocumentScope* scope);  // dynamic_ca
 | API | 说明 |
 |-----|------|
 | `buildProjectSaveRoot` | 生成 v4 的 objects/edges/annotations/camera；点云保存前 `ensurePointCloudGeometryForSave`（scene→staging→sourcePath 重读），写 `objects/{id}.ply`；无坐标时 `abortMessage` |
-| `mergeRobotKinematicsIntoProjectRoot` | 保存前写入 `robotKinematics` / `robotKinematicsInstances`（委托 `RobotProjectIo::writeRobotKinematics`；参数为全局 `::IRobotDocumentHost*`） |
+| `mergeRobotProgramsIntoProjectRoot` | 保存前写入 `robotPrograms` |
+| （已移除）`mergeRobotKinematicsIntoProjectRoot` | Widget 直接调 `RobotProjectIo::writeRobotKinematics`，Host 不再依赖 RobotWidget 写 kinematics |
 | `applyProjectViewportFromJson` | 恢复标注与 `cameraFollowBackendId`（经 `AnnotationProjectIo`） |
 | `finalizeProjectLoadFollowAndViewport` | OSG 父链、edges 跟随、视口、强制 Follow 求解、末尾 `focusCameraOnAllVisibleBackends` |
 | `restoreRobotKinematicsFromProjectJson` | 工程 robotKinematics* 恢复（perLink） |
@@ -355,6 +356,10 @@ STEP 多零件优先 **B-rep 路径**（`loadStepHierarchyFromFile` → `collect
 
 **插件**：`IPluginDocument::removeBackendObject` → `unregisterSubtree`；`IPluginHostContext::importFileIntoActiveDocument` → `DocumentImportFacade`；网格注册 → `registerAdoptedMesh`。
 
+**AI ActionPlan（按钮关键词）**：`AiHostButtonApiDispatch` 经 `PluginHostContext` 调用 `pointCloudHost()` / `geometryHost()` / `labelingHost()` 与导入 API，与 PointCloud/Geometry/Labeling Dock 按钮同一套 Host 公共接口；keywords 见 [`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) §6。
+
+**AI Agent Runtime**：`AiAgentRuntime` + `AiAgentPlanBuilder`（需求拆分）+ Dock `AiConfirmPanel`；`scene.ops` 经 `removeBackendObject` / `PluginDocumentAdapter::applyWorldPoseMm`。见 [`docs/ai_agent_runtime/`](../../../docs/ai_agent_runtime/) 与 AiSDK DEVELOPER_GUIDE「Agent 运行时」。
+
 **规划**：`RobotSimulationController` 经 `IRobotMainWindowHost::planRobotMotionInstruction` → `planRobotInstruction` → `planMotionInstruction`（与 `IRobotService::planInstruction` 同 Host 路径）。Run 中并行预读经 `enqueueBackgroundJob` → Widget `JobSystem`（结果回 UI 写 `PlanResultCache`）。
 
 ### 4.4.3 API 迁移与废弃（2025 Host 收口）
@@ -482,7 +487,7 @@ STEP 多零件优先 **B-rep 路径**（`loadStepHierarchyFromFile` → `collect
 
 ### 5.1 链接依赖（`CloudSimHost.vcxproj`）
 
-`CloudSimCore`、`OsgWidgetCore`、`BackendVisual`、`Data`、`RunLogger`、`GeometryEngine`、`GeometryAlgorithm`、`RobotScene`、`RobotUrdf`、`RobotKinematics`、`RobotWidget`、`CloudSimPluginSDK`、`CloudSimAiSDK`（工程引用，保证生成顺序）。**`CloudSimPluginHost` 全部 `.cpp` 编入本 vcxproj**（非 Widget）。
+`CloudSimCore`、`OsgWidgetCore`、`BackendVisual`、`Data`、`RunLogger`、`GeometryEngine`、`GeometryAlgorithm`、`RobotScene`、`RobotUrdf`、`RobotKinematics`、`CloudSimPluginSDK`、`CloudSimAiSDK`（工程引用，保证生成顺序）。**不再链接 `RobotWidget.lib`**（`RobotProgramStore` 已在 RobotScene）。**`CloudSimPluginHost` 全部 `.cpp` 编入本 vcxproj**（非 Widget）。
 
 ### 5.2 输出与链接路径
 
@@ -558,6 +563,8 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 | [`CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) | `IDataService` / `IRenderView` / `EventHub` 与 Host 行为对照 |
 | [`Widget/DEVELOPER_GUIDE.md`](../../UI/Widget/DEVELOPER_GUIDE.md) | 主窗口与 `DocumentPage`（UI 仍描述 OsgWidget 行为，实现位于 Host） |
 | [`CloudSimPluginHost/DEVELOPER_GUIDE.md`](../../UI/CloudSimPluginHost/DEVELOPER_GUIDE.md) | 动态插件宿主（**编入 Host**）、`PluginHostContext` 与 Facade 接线 |
+| [`CloudSimAiSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimAiSDK/DEVELOPER_GUIDE.md) | AI Domain、Catalog keywords、Agent Runtime / ConfirmPanel |
+| [`docs/ai_agent_runtime/`](../../../docs/ai_agent_runtime/) | Full Agent Runtime 6A |
 | [`OsgWidgetCore/DEVELOPER_GUIDE.md`](../../UI/OsgWidgetCore/DEVELOPER_GUIDE.md) | 场景核心、gizmo、拾取索引、HiDPI 屏幕坐标约定 |
 
 ### 变更历史（2026-06）
@@ -585,9 +592,9 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 2. **`IRobotSimulationDocument`**：实例元数据仍留 `DocumentPage` / `RobotWidget`（`RobotSimulationController` 编排）。
 3. ~~**`IRenderView` 全面替代（Widget 主路径）**~~：叠加/TCP/拾取/截图经 `IRenderView`；`WidgetOsgViewHost`；Qt 信号在 `WidgetSceneSignalWiring`。阶段 3.3-3.4（`ObjectTransformOperation` 等）待定。
 4. ~~**仿真指令属性 UI**~~：`InstructionPropertyPanel` 在 `RobotWidget`；写回经 `doc->robot()`。`MainWindowPropertyPanel` 仍链 `RobotInstruction` 头（过渡白名单）。
-5. ~~**BackendDataManager 收口**~~：阶段 2.1-2.2 已完成。`MainWindowBackendTree` 改用 `doc->data().topoOrder()`/`parentsOf()`；工程 I/O 已通过 Host 集中。阶段 2.3（DocumentPage 存量清理）待定。
+5. ~~**BackendDataManager 收口**~~：阶段 2.1-2.2 已完成。`MainWindowBackendTree` 改用 `doc->data().topoOrder()`/`parentsOf()`；工程 I/O 已通过 Host 集中。阶段 2.3：`IDataService::followTargetId` + Follow 反向索引经契约重建（2026-07）；`DocumentPage::backend()` 等存量穿透仍待接口上提。
 6. **OSG 头文件解耦**：阶段 3.1-3.2 已完成（2 个文件移除 14 个 OSG include）。阶段 3.3-3.4（DocumentPage 等）待定。
-7. **Host 目录**：`source/osg/` 若存在勿加入 vcxproj；以 `Widget/source` 为唯一 OsgWidget 源码真源。
+7. ~~**Host 目录 OsgWidget 双轨**~~：已删除 `Host/inc/osg` 与 `Host/source/osg` 平行副本；唯一真源为 `Widget/source`（由 `CloudSimHost.vcxproj` 编译）。
 8. **`.pcp` zip**：仍在 Widget（`project_package_zip`），非 Host 职责。
 9. **per-link 机器人运动学收口**：通过 `IPerLinkKinematicsHost` + `IPerLinkRobotStateAccessor` 实现 `DocumentPage` 调用封装；`PerLinkKinematicsHostImpl` 位于 Host 编译单元（2026 已落地）。
 
@@ -607,7 +614,7 @@ class DocumentPage : public cloudsim::host::DocumentHost, public IRobotSimulatio
 | URDF 连杆散开 | 检查 `osgMatrixToColumnMajor16` 是否转置；是否双重烘焙 visual；**以及**连杆是否被 Follow 求解改写（应 `stripKinematicsOwnedFollowAttachments`，edges 勿对 URDF 装 Follow） |
 | DXF 导入后相机不对 | 应对 `importParent` 调 `focusCameraOnBackend`；分件须 `setBackendLogicalParent`（见 §4.4.1a） |
 | `cloudsim::host::MeshBackendData` 编译错误 | 头文件前向声明须在**全局**命名空间（见 §4.4.3） |
-| `cloudsim::host::IRobotDocumentHost` 与 `IRobotDocumentHost*` 不匹配 | `ProjectPackageIo.h` 须在**全局**前向声明 `IRobotDocumentHost`，API 使用 `::IRobotDocumentHost*` |
+| `IRobotDocumentHost*` 与 Host 耦合 | 工程保存写 kinematics 已改由 Widget 调 `RobotProjectIo::writeRobotKinematics`；Host `ProjectPackageIo` 不再依赖该类型 |
 | `IRenderView` 未定义 | 包含 `IRenderView.h`（`DocumentHostAccess.h` / `WidgetDocumentAccess.h` 已包含） |
 | C2662 `render()` 与 `const DocumentHost` | `osgWidgetFrom` 仅接受非 const `DocumentHost&` |
 | C2662 `render()` 与 `const DocumentPage` | Widget 新代码用非 const `DocumentPage*` + `render()`；插件存量 `widgetOsgFromPage` |

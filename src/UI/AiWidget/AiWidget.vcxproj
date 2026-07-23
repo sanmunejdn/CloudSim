@@ -84,11 +84,13 @@
     <ClInclude Include="inc\aiwidget_global.h" />
     <QtMoc Include="inc\AiAssistantCoordinator.h" />
     <QtMoc Include="inc\AiAssistantDockWidget.h" />
+    <QtMoc Include="inc\AiConfirmPanel.h" />
     <QtMoc Include="inc\AiLlmSettingsDialog.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\AiAssistantCoordinator.cpp" />
     <ClCompile Include="source\AiAssistantDockWidget.cpp" />
+    <ClCompile Include="source\AiConfirmPanel.cpp" />
     <ClCompile Include="source\AiLlmSettingsDialog.cpp" />
   </ItemGroup>
   <ItemGroup>

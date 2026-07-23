@@ -35,6 +35,8 @@ QString instructionTypeLabel(RobotInstruction::Type t, bool zh)
 	{
 	case RobotInstruction::Type::LINE:
 		return zh ? QStringLiteral("直线") : QStringLiteral("LINE");
+	case RobotInstruction::Type::ARC:
+		return zh ? QStringLiteral("圆弧") : QStringLiteral("ARC");
 	case RobotInstruction::Type::WAIT:
 		return zh ? QStringLiteral("等待") : QStringLiteral("WAIT");
 	case RobotInstruction::Type::IF:
@@ -102,6 +104,7 @@ QString instructionSummary(const RobotInstruction::Base& ins, bool zh)
 				  : QStringLiteral("port %1 = %2").arg(ins.ioPort()).arg(ins.ioAnalogValue(), 0, 'f', 2);
 	case RobotInstruction::Type::PTP:
 	case RobotInstruction::Type::LINE:
+	case RobotInstruction::Type::ARC:
 	{
 		const double durationSec = parseDurationSecFromExtension(ins, 0.0);
 		const QString durationText = durationSec > 1e-6 ? QString::number(durationSec, 'f', 2)
@@ -175,9 +178,9 @@ SimulationCommandWidget::SimulationCommandWidget(QWidget* parent) : QWidget(pare
 	contentLayout->addLayout(programRow);
 
 	const RobotInstruction::Type types[] = {
-		RobotInstruction::Type::PTP,	RobotInstruction::Type::LINE,	  RobotInstruction::Type::WAIT,
-		RobotInstruction::Type::IF,		RobotInstruction::Type::WHILE,	  RobotInstruction::Type::SET_DO,
-		RobotInstruction::Type::SET_AO, RobotInstruction::Type::PathPlan,
+		RobotInstruction::Type::PTP,	RobotInstruction::Type::LINE,	  RobotInstruction::Type::ARC,
+		RobotInstruction::Type::WAIT,	RobotInstruction::Type::IF,		  RobotInstruction::Type::WHILE,
+		RobotInstruction::Type::SET_DO, RobotInstruction::Type::SET_AO,	  RobotInstruction::Type::PathPlan,
 	};
 	m_instructionGroupBox = new QGroupBox(QStringLiteral("Instructions"), this);
 	auto* addRow = new QHBoxLayout(m_instructionGroupBox);
@@ -357,6 +360,7 @@ QString SimulationCommandWidget::currentRobotBackendId() const
 
 void SimulationCommandWidget::onRobotComboChanged(const int index)
 {
+	setArcTeachPending(false);
 	if (!m_programStore || index < 0)
 	{
 		return;
@@ -515,12 +519,24 @@ void SimulationCommandWidget::updateTypeButtonLabels()
 			UiIconDecorators::apply(btn, UiIconId::Line, UiIconDecorators::IconPlacement::Leading,
 									UiIcons::Size::Small);
 		}
+		else if (t == RobotInstruction::Type::ARC)
+		{
+			UiIconDecorators::apply(btn, UiIconId::Line, UiIconDecorators::IconPlacement::Leading,
+									UiIcons::Size::Small);
+		}
 		QString tip;
 		switch (t)
 		{
 		case RobotInstruction::Type::LINE:
 			tip = zh ? QStringLiteral("插入直线运动（使用当前 TCP 位姿）")
 					 : QStringLiteral("Insert LINE motion from current TCP pose");
+			break;
+		case RobotInstruction::Type::ARC:
+			tip = m_arcTeachPending
+					  ? (zh ? QStringLiteral("再点一次：确认圆弧终点（当前 TCP）")
+							: QStringLiteral("Click again: confirm ARC end (current TCP)"))
+					  : (zh ? QStringLiteral("圆弧两步示教：先捕获途经点 Via，再确认终点 End")
+							: QStringLiteral("ARC two-step teach: capture Via, then End"));
 			break;
 		case RobotInstruction::Type::WAIT:
 			tip = zh ? QStringLiteral("插入等待指令") : QStringLiteral("Insert WAIT");
@@ -550,6 +566,44 @@ void SimulationCommandWidget::updateTypeButtonLabels()
 		}
 		btn->setToolTip(tip);
 	}
+	refreshArcTeachButtonLabels();
+}
+
+void SimulationCommandWidget::refreshArcTeachButtonLabels()
+{
+	const bool zh = m_useChinese;
+	for (QPushButton* btn : m_typeButtons)
+	{
+		if (!btn)
+		{
+			continue;
+		}
+		const auto t = static_cast<RobotInstruction::Type>(btn->property("instructionType").toInt());
+		if (t != RobotInstruction::Type::ARC)
+		{
+			continue;
+		}
+		if (m_arcTeachPending)
+		{
+			btn->setText(zh ? QStringLiteral("确认终点") : QStringLiteral("Confirm End"));
+			btn->setToolTip(zh ? QStringLiteral("再点一次：确认圆弧终点（当前 TCP）")
+							   : QStringLiteral("Click again: confirm ARC end (current TCP)"));
+		}
+		else
+		{
+			btn->setText(instructionTypeLabel(t, zh));
+		}
+	}
+}
+
+void SimulationCommandWidget::setArcTeachPending(bool pending)
+{
+	if (m_arcTeachPending == pending)
+	{
+		return;
+	}
+	m_arcTeachPending = pending;
+	refreshArcTeachButtonLabels();
 }
 
 void SimulationCommandWidget::setSimulationRunning(bool running)
@@ -799,7 +853,8 @@ void SimulationCommandWidget::requestAddInstruction(const RobotInstruction::Type
 	{
 		return;
 	}
-	if (type == RobotInstruction::Type::PTP || type == RobotInstruction::Type::LINE)
+	if (type == RobotInstruction::Type::PTP || type == RobotInstruction::Type::LINE ||
+		type == RobotInstruction::Type::ARC)
 	{
 		emit addInstructionRequested(type);
 		return;
@@ -835,6 +890,7 @@ void SimulationCommandWidget::onRemoveClicked()
 
 void SimulationCommandWidget::onClearClicked()
 {
+	setArcTeachPending(false);
 	if (m_tree)
 	{
 		m_tree->clearProgram();
@@ -924,6 +980,9 @@ std::shared_ptr<RobotInstruction::Base> SimulationCommandWidget::appendInstructi
 	{
 	case RobotInstruction::Type::LINE:
 		ins = std::make_shared<RobotInstruction::LineInstruction>();
+		break;
+	case RobotInstruction::Type::ARC:
+		ins = std::make_shared<RobotInstruction::ArcInstruction>();
 		break;
 	case RobotInstruction::Type::WAIT:
 		ins = std::make_shared<RobotInstruction::WaitInstruction>();
@@ -1045,6 +1104,39 @@ std::shared_ptr<RobotInstruction::Base> SimulationCommandWidget::appendInstructi
 	{
 		ins->setControllerId(robotId.toStdString());
 	}
+	if (m_tree)
+	{
+		m_tree->insertInstruction(ins, !deferInstructionSelection);
+	}
+	else
+	{
+		m_programStore->activeProgram().push_back(ins);
+		rebuildCommandListWidget();
+	}
+	updateRunStopButtons();
+	return ins;
+}
+
+std::shared_ptr<RobotInstruction::Base> SimulationCommandWidget::appendArcInstructionFromPoses(
+	const RobotInstruction::Vec3& viaPoseMm, const RobotInstruction::Vec3& viaEulerDeg,
+	const RobotInstruction::Vec3& endPoseMm, const RobotInstruction::Vec3& endEulerDeg,
+	const bool deferInstructionSelection)
+{
+	if (!m_programStore)
+	{
+		return nullptr;
+	}
+	auto arc = std::make_shared<RobotInstruction::ArcInstruction>();
+	arc->setViaPose(viaPoseMm);
+	arc->setViaEulerDeg(viaEulerDeg);
+	arc->setPose(endPoseMm);
+	arc->setEulerDeg(endEulerDeg);
+	const QString robotId = m_programStore->activeRobotBackendId();
+	if (!robotId.isEmpty())
+	{
+		arc->setControllerId(robotId.toStdString());
+	}
+	std::shared_ptr<RobotInstruction::Base> ins = arc;
 	if (m_tree)
 	{
 		m_tree->insertInstruction(ins, !deferInstructionSelection);

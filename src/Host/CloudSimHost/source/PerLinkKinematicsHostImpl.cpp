@@ -6,6 +6,7 @@
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
 #include "IRobotBackendPoseSink.h"
+#include "RobotPerLinkKinematicsSliceOsg.h"
 #include "RobotSceneKinematics.h"
 #include "UrdfRobotLoader.h"
 
@@ -84,10 +85,12 @@ bool PerLinkKinematicsHostImpl::applyPerLinkRobotFkFromGizmoAnchor(int instanceI
 	slice.meshVerticesInLinkFrame = snap.meshVerticesInLinkFrame;
 
 	osg::Matrixd anchorWorld;
-	if (!poseSink->getBackendRootWorldMatrix(anchorLinkBackendId.toStdString(), anchorWorld))
+	cloudsim::core::Mat4 anchorWorldMat;
+	if (!poseSink->getBackendRootWorldMatrix(anchorLinkBackendId.toStdString(), anchorWorldMat))
 	{
 		return false;
 	}
+	anchorWorld = osgFromMat4(anchorWorldMat);
 
 	osg::Matrixd placement;
 	if (!RobotSceneKinematics::computeBasePlacementFromAnchorLinkWorld(slice, anchorLinkBackendId, jointAnglesRad,
@@ -160,12 +163,14 @@ void PerLinkKinematicsHostImpl::reconcilePerLinkOuterBindFromScene(int instanceI
 			continue;
 		}
 		osg::Matrixd world;
-		if (!poseSink->getBackendRootWorldMatrix(linkBackendId.toStdString(), world))
+		cloudsim::core::Mat4 worldMat;
+		if (!poseSink->getBackendRootWorldMatrix(linkBackendId.toStdString(), worldMat))
 		{
 			continue;
 		}
+		world = osgFromMat4(worldMat);
 		const osg::Matrixd Mnew = world * Pinv * tqIt.value() * osgFromMat4(t0It.value());
-		poseSink->setBackendRootWorldMatrix(linkBackendId.toStdString(), Mnew);
+		poseSink->setBackendRootWorldMatrixFromWorld(linkBackendId.toStdString(), mat4FromOsg(Mnew));
 
 		PerLinkRobotFkResult partial;
 		partial.updatedOuterWorlds.insert(linkBackendId, mat4FromOsg(Mnew));

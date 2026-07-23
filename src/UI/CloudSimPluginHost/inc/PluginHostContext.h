@@ -117,6 +117,9 @@ public:
 	IPluginLabelingHost* labelingHost() override;
 	const IPluginLabelingHost* labelingHost() const override;
 
+	/// AI ActionPlan：树选中对象 id
+	QString selectedBackendId() const;
+
 	void notifyLanguageChanged();
 
 	IPluginMainWindowHost* mainWindowHost() const { return m_mainWindowHost; }

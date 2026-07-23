@@ -19,8 +19,9 @@ flowchart TD
 | 组件 | 契约 |
 |------|------|
 | `PlanResult.ok` | false 表示该运动不可播 |
-| `jointTrajectoryRad` | ≥2 点时 Executor 优先使用 |
+| `jointTrajectoryRad` | ≥2 点时 Executor 优先使用；**Run 接入不得清空**（点云/LINE 插帧依赖） |
 | `LinePlanner` | URDF：笛卡尔插值 + 递推 IK；失败则整段 plan 失败 |
+| 外轴播放 | Widget 用 `motionSegmentProgress01` 对 `externalAxisQ` 插值；时长含 \|Δqe\| |
 
 ## 异常
 

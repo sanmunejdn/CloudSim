@@ -26,21 +26,14 @@ class ROBOTWIDGET_EXPORT InstructionProgramTreeWidget : public QTreeWidget
 
 public:
 	enum class NodeKind
-
 	{
-
 		Instruction = 0,
-
 		ThenBranch,
-
 		ElseBranch,
-
 		Group,
-
 		PlanningSection,
-
-		PathPlanOutputRef
-
+		PathPlanOutputRef,
+		WaypointDetail
 	};
 
 	explicit InstructionProgramTreeWidget(QWidget* parent = nullptr);

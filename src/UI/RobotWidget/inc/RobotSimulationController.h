@@ -109,10 +109,12 @@ public slots:
 	void onSimulationExportRequested();
 	void onSimulationRobotSelectionChanged(int instanceIndex, const QString& sceneBackendId);
 	void onRobotAxisJointAnglesChanged(const QVector<double>& jointAnglesRad);
+	void onRobotAxisExternalValuesChanged(const QVector<double>& values);
 	void onSimulationTcpDragTeachModeChanged(bool enabled);
 	void onTcpDragTeachPoseChanged(double pxMm, double pyMm, double pzMm, double exDeg, double eyDeg, double ezDeg);
 	void onTcpDragTeachEnded();
 	void onRobotCoordinateFramesChanged();
+	void onRobotExternalAxesChanged();
 	void onCaptureToolFrameFromTcp();
 	void onCaptureUserFrameFromTcp();
 	void onResetToolFrame();
@@ -136,6 +138,14 @@ public slots:
 	bool rawTrajectoryPreviewActive() const { return m_rawTrajectoryPreviewActive; }
 	void refreshSimulationJointListFromCurrentDoc();
 	void syncRobotFrameSettingsFromDocument(int instanceIndex);
+	void syncRobotExternalAxisSettingsFromDocument(int instanceIndex);
+	void syncRobotAxisControlExternalAxes(int instanceIndex);
+	void applyAxisControlExternalPose(int instanceIndex, const QVector<double>& values);
+	/// 规划/示教结果驱动地轨；无外轴量则忽略
+	/// progress01<1 时按段起点插值（播放用）；默认 1 直接落到目标
+	void applyExternalAxisFromPlan(int instanceIndex, const RobotInstruction::PlanResult& plan,
+								   const RobotInstruction::Base* instruction = nullptr, double progress01 = 1.0,
+								   double segmentStartQMm = 0.0);
 	void
 	refreshRobotCoordinateFrameOverlays(const std::shared_ptr<RobotInstruction::Base>& highlightInstruction = nullptr,
 										const QVector<double>* jointAnglesRadLocal = nullptr);
@@ -177,14 +187,18 @@ private:
 						  const QString& urdfPath, const QString& defaultTcpLinkName, const QString& sceneRootBackendId,
 						  RobotInstruction::PlanResult& plan, std::string* planErr) const;
 
-	/// 预览与 Run 共用：示教 CSV → 示教种子 IK → 链式种子 IK → 程序起点 IK；均过姿态门控
+	/// 预览与 Run 共用：示教 CSV → 示教种子 IK → 链式种子 IK → 程序起点 IK
+	/// gateTaughtResidual：Run/可达性保持 FK 门控；点击预览可关以省掉双次 FK
 	bool planMotionConsistentWithPreview(RobotInstruction::Base& instruction, const QVector<double>& chainSeedQ,
 										 const QVector<double>& programStartQ, int instanceIndex,
 										 const QString& urdfPath, const QString& defaultTcpLinkName,
 										 const QString& sceneRootBackendId,
 										 const RobotCoordinate::RobotCoordinateFrameSet& frames,
 										 RobotInstruction::PlanResult& outPlan, std::string* planErr,
-										 bool persistTaughtOnSuccess);
+										 bool persistTaughtOnSuccess, bool gateTaughtResidual = true);
+
+	void ensureInstructionControllerKinematics(IRobotDocumentHost* doc, int instanceIndex, const QString& urdfPath);
+	void scheduleInstructionPoseAxesRefresh(bool computeReachability = false);
 
 	IRobotMainWindowHost* m_host = nullptr;
 	RobotSimulationDockWidget* m_simulationDock = nullptr;
@@ -194,9 +208,15 @@ private:
 	bool m_ownsPlaybackTimer = false;
 
 	RobotInstruction::Controller m_instructionController;
+	QString m_cachedInstructionDhUrdfPath;
+	quint64 m_poseAxesRefreshToken = 0;
 	RobotProgramExecutor m_programExecutor;
 	SimulationLogIoSink m_simulationIoSink;
 	QVector<double> m_aggregatedJointAnglesRad;
+	/// 轴控制已应用到基座的外轴量（与 UI 滑条对应，用于差分更新 P）
+	QVector<double> m_axisControlExternalQApplied;
+	double m_axisControlExternalAxis[3]{1.0, 0.0, 0.0};
+	int m_axisControlExternalInstIdx = -1;
 	QVector<double> m_motionPreviewProgramStartJointRad;
 	bool m_suppressMotionPreviewStartCapture = false;
 	QString m_tcpDragTeachFlangeLink;
@@ -207,6 +227,15 @@ private:
 	bool m_lastTcpDragTargetValid = false;
 	bool m_skipInstructionPreviewOnce = false;
 	bool m_rawTrajectoryPreviewActive = false;
+
+	bool m_arcTeachPending = false;
+	RobotInstruction::Vec3 m_arcTeachViaPose{};
+	RobotInstruction::Vec3 m_arcTeachViaEuler{};
+	engine::RigidTransform m_arcTeachViaTransform{};
+	std::string m_arcTeachViaJointCsv;
+	QString m_arcTeachViaTcpLinkName;
+	void cancelArcTeach();
+
 	QSet<QString> m_hiddenInstructionGroupIds;
 	RobotInstruction::FeasibleMotionAxisConfigurationOptions m_cachedFeasibleAxisOptions;
 	QString m_cachedFeasibleAxisInstructionId;
@@ -244,6 +273,9 @@ private:
 	/// 播放游标处段起点关节（规划 current 的种子）；禁止从 0 扫到 N
 	QVector<double> m_playbackRollingSeedQ;
 	QVector<double> m_playbackProgramStartQ;
+	/// 当前运动段起点外轴位移（mm）；与 plan.externalAxisQ 插值驱动滑轨
+	double m_playbackSegmentExternalAxisStartMm = 0.0;
+	const RobotInstruction::Base* m_playbackExtInterpMotion = nullptr;
 	/// 播放叠加高亮：避免每 tick 扫 instructionList
 	std::shared_ptr<RobotInstruction::Base> m_playbackOverlayHighlight;
 	QString m_overlayCachedUrdfPath;

@@ -27,6 +27,9 @@
     <ClInclude Include="inc\IRobotSimulationDocument.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\RobotPerLinkKinematicsSliceOsg.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="inc\RobotInstructionAxisConfiguration.h">
       <Filter>inc</Filter>
     </ClInclude>
@@ -37,6 +40,12 @@
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotCoordinateFrames.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotExternalAxes.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ExternalAxisSearchService.h">
       <Filter>inc</Filter>
     </ClInclude>
     <ClInclude Include="inc\RobotInstructionController.h">
@@ -135,6 +144,12 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotCoordinateFrames.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotExternalAxes.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ExternalAxisSearchService.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\RobotInstructionController.cpp">

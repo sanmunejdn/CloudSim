@@ -67,7 +67,7 @@ VS 筛选器：`inc` 放所有 `.h`，`src` 放所有 `.cpp`（含 `ops/` 下源
 | 非刚性纠正 | NonRigidRegistration | `ops/NonRigidRegistration` | `ctx.nonRigidTrajectoryWarp`（`INonRigidTrajectoryWarp` 注入） | 否（写回 pose） |
 | 工件型转换 | ToWorkpieceInHand | `ops/ToWorkpieceInHand` | 外部 TCP 参数 + `ctx.workpieceReferenceInBase`（Session 注入当前 TCP） | 否（写回 pose/speed） |
 | 可达性 | ReachabilityFilter | `ops/ReachabilityFilter` | `reachabilityFilterUnified` | 否 |
-| 可达性 | ExternalAxisSearch | `ops/ExternalAxisSearch` | `externalAxisSearchUnified` | 否 |
+| 可达性 | ExternalAxisSearch | `ops/ExternalAxisSearch` | `externalAxisSearchUnified`（读对象外轴配置；未启用则跳过） | 否 |
 
 调色板顺序由 `TrajectoryOpRegistry::paletteKinds()` 决定（注册顺序）。
 

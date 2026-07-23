@@ -113,9 +113,10 @@
 | `ok` | 是否成功 |
 | `plannerName` | 如 `"PtpPlanner"` |
 | `summary` | 可读摘要 |
-| `durationSec` | 段时长 |
+| `durationSec` | 段时长；启用外轴时取 `max(关节梯形, 地轨梯形≈250mm/s)` |
 | `jointTargetsRad` | 段末关节角 |
-| `jointTrajectoryRad` | LINE 笛卡尔采样（URDF）或关节空间回退约 24 点；PTP 常为 `{target}` |
+| `jointTrajectoryRad` | LINE 笛卡尔采样（URDF）或关节空间回退约 24 点；PTP 常为 `{target}`；**Run 播放须保留**（≥2 点才走轨迹插帧） |
+| `hasExternalAxisQ` / `externalAxisQ` | 段末地轨位移 mm；播放时与段起点插值 |
 
 ### 5.2 `class PlannerBase`
 
@@ -125,14 +126,14 @@
 | `validate(cmd, errMsg)` | 规划前校验 |
 | `plan(cmd, out, errMsg)` | 输出 `PlanResult` |
 
-**实现类**（`.cpp`，未在头文件导出）：`PtpPlanner`, `LinePlanner`。
+**实现类**（`.cpp`，未在头文件导出）：`PtpPlanner`, `LinePlanner`, `ArcPlanner`。
 
 ### 5.3 `class Controller`
 
 | 方法 | 说明 |
 |------|------|
 | `setDhRows` / `clearDhRows` / `hasDhRows` | DH 回退 IK |
-| `registerPlanner` / `buildDefaultPlanners()` | 注册 PTP/LINE |
+| `registerPlanner` / `buildDefaultPlanners()` | 注册 PTP/LINE/ARC |
 | `validate` / `plan` | 逻辑指令 → `plannerName="logic"` |
 | `queryFeasibleMotionAxisConfigurationOptions(cmd)` | **单次**多初值 IK → 可行 preset/分项 token 列表；由 `RobotSimulationController` 缓存，UI 枚举刷新经后台 Job 调用 |
 
@@ -189,6 +190,7 @@
 | `updateMotionPlanResult` / `motionPlanResult` | Run 中回写/查询单段规划（懒规划补算） |
 | `currentInstruction()` | 当前执行指令：运动中为 `activeMotion()`，否则栈顶 frame 的 `pc-1` 步 |
 | `activeMotion()` | 当前运动段（插值中）；规划失败停机时仍指向失败指令 |
+| `motionSegmentProgress01()` | 当前运动段进度 [0,1]；非运动中为 1（供外轴插值） |
 | `lastAbortSummary()` / `abortedDueToFailedPlan()` | 规划失败停机原因 |
 | `stop()` / `isRunning()` | 控制 |
 
@@ -196,7 +198,7 @@
 
 `motionPlanResults` 由 UI 在 **Run 启动时** 急算前缀段并对其余填 `lazyPending`（或失败占位）；播放中由 Widget `ensurePlaybackPlansReady` / lookahead 经 `updateMotionPlanResult` 补齐。任一点规划失败时写入 `ok=false`，**至少一段成功则仍 `tryStart`**，播放至失败点前停止。`lazyPending` 须在进入该段前被消掉，否则视为停机。指令树选中预览在 Widget 层 **单次** `plan`、**不**经过本 executor。Run 期间 Widget 用 `currentInstruction()` 高亮指令树。预览与 Run 的差异见 [`../RobotWidget/DEVELOPER_GUIDE.md`](../RobotWidget/DEVELOPER_GUIDE.md) §指令树点击预览 vs 仿真运行。
 
-播放插值：`jointTrajectoryRad.size() >= 2` 时优先按轨迹（含段起点）插值；否则对 `jointTargetsRad` 起止 lerp。
+播放插值：`jointTrajectoryRad.size() >= 2` 时优先按轨迹（含段起点）插值；否则对 `jointTargetsRad` 起止 lerp。外轴不在 Executor 内驱动，由 Widget tick 用 `motionSegmentProgress01()` 对 `externalAxisQ` 插值后写文档 qe 再 FK。
 
 ### 7.3 `IRobotIoSink`
 
@@ -290,6 +292,17 @@ M_link = M0 · inv(T0) · Tq · P
 | `resolveToolFrameForExtension` / `toolMat4ForExtension` | 按点工具 → `context.toolFrameMat4` |
 | `resolveUserFrameForExtension` | 用户系 |
 
+### 8.3.1 外部轴（`RobotExternalAxes.h`）
+
+| 类型 | 说明 |
+|------|------|
+| `RobotExternalAxisConfig` | 启用开关、关节名、地轨/变位机 kind、行程、基座系 `axis[]` |
+| `RobotExternalAxisConfigSet` | `axes[]`；门禁 `hasEnabledExternalAxes` |
+
+持久化：`robotKinematicsInstances[].externalAxes`。联动搜索：`ExternalAxisSearchService` + `TeachIk` 外轴 DOF；未启用时 `ExternalAxisSearch` Op 为 no-op。
+
+**存储契约**：`basePlacementWorld` = P0（不烘焙轨位）；运行态 `externalAxisQMm`；FK 经 `composeBasePlacementWithExternalAxis` 得 `P_eff`。平移 Mat4 布局见 `RobotExternalAxes.cpp`（`[3,7,11]`）。专题设计：[`docs/外部轴联动求解/`](../../../docs/外部轴联动求解/)。
+
 **指令扩展键（PTP/LINE）**
 
 | 键 | 说明 |
@@ -335,7 +348,7 @@ M_link = M0 · inv(T0) · Tq · P
 | `flatMotionSequence` | DFS 运动叶索引，与仿真顺序一致 |
 | `coordinateFrames` | 完整 tool/user 帧定义 |
 
-仿真 **Export…** 写 `*.cloudsim-program.json`；品牌后处理见 `CloudSim/src/UI/RobotWidget/tools/robot_postprocess/`。
+仿真 **Export…** 写 Canonical 临时文件，再经 RobotWidget `PythonScriptCaller` 调用 `resource/Python/ExportPython/*Export.py` 生成品牌程序（用户对话框选择最终路径）。离线 stub 仍见 `CloudSim/src/UI/RobotWidget/tools/robot_postprocess/`；正式路径以 resource + pybind 为准。详见 [`docs/机器人程序品牌导出/`](../../docs/机器人程序品牌导出/)。
 
 ### 遗留（`RobotProgramExport.h`）
 
@@ -448,7 +461,7 @@ flowchart LR
 
 | `OpScope::Kind` | 解析规则 |
 |-----------------|----------|
-| `EntireProgram` | `collectMotionInstructions` 全部 PTP/LINE |
+| `EntireProgram` | `collectMotionInstructions` 全部 PTP/LINE/ARC |
 | `Group` | 匹配 `scope.groupId` 的 `memberInstructionIds`（**不**过滤运动类型；若分组不存在则返回空列表，由 UI `reconcilePipelineScopes` 协调） |
 | `PointIndexRange` | `motionPointIndex` ∈ [pointFrom, pointTo]（扩展键 `motion.pointIndex`） |
 | `InstructionIds` | 显式 id 列表 |
@@ -545,7 +558,7 @@ FeatureSpec → discretizeFeature → RawPath → importRawPathToTrajectory → 
 
 **与 `TrajectoryAlgorithm` 的关系**：全部 `TrajectoryOpKind` 由 Builtins 实现 `processPath`；Session/Builder 仅编排 Ingress、引擎重放与 Egress，不再维护 Pose 预览链或 Recipe 复合块。
 
-**Phase 占位**：`ReachabilityFilter` 当前为轻量启发式标记；完整 IK 可达性可接入 `RobotInstructionController::plan` / `queryFeasibleMotionAxisConfigurationOptions`。
+**Phase 说明**：`ReachabilityFilter` 仍为轻量启发式；`ExternalAxisSearch` 已接入对象外轴配置门禁与 `ExternalAxisSearchService`（需 UI 管道注入 URDF/种子）。
 
 ---
 

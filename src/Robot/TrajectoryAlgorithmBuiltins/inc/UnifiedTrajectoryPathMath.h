@@ -6,6 +6,7 @@
 
 // UnifiedTrajectory 路径几何原语，供原子块复用
 #include "TrajectoryPipelineTypes.h"
+#include "TrajectoryOpExecutionContext.h"
 #include "TrajectoryUnifiedScope.h"
 #include "UnifiedTrajectory.h"
 
@@ -19,7 +20,9 @@ void assignBlendUnified(RobotInstruction::UnifiedTrajectory& traj, double blendR
 void assignSpeedUnified(RobotInstruction::UnifiedTrajectory& traj, double speedMmPerSec);
 void weaveUnified(RobotInstruction::UnifiedTrajectory& traj, double amplitudeMm, double periodMm);
 void reachabilityFilterUnified(RobotInstruction::UnifiedTrajectory& traj);
-void externalAxisSearchUnified(RobotInstruction::UnifiedTrajectory& traj);
+/// 无配置时为 no-op；有配置时委托 ctx.externalAxisSearch
+void externalAxisSearchUnified(RobotInstruction::UnifiedTrajectory& traj,
+							   const TrajectoryOpExecutionContext& ctx);
 
 void resampleUnifiedTrajectoryInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,
 									  const RobotInstruction::RobotProgram* program, double stepMm);

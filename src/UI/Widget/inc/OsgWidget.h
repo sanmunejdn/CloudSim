@@ -205,10 +205,14 @@ public:
 	void applyRigidRotationAboutWorldPivot(const std::vector<std::string>& backendIds, const osg::Vec3f& pivotWorld,
 										   const osg::Quat& deltaRotation);
 	osg::Vec3f averageBackendRootPositionWorld(const std::vector<std::string>& backendIds) const;
-	/// \a backendId 外层 PAT 世界矩阵（含父链）
-	bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const override;
+	/// \a backendId 外层 PAT 世界矩阵（含父链）；OSG 形态供 OsgWidget 内部使用
+	bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const;
 	/// 设外层 PAT 世界矩阵为 \a worldMat（含父链）
-	void setBackendRootWorldMatrixFromWorld(const std::string& backendId, const osg::Matrixd& worldMat) override;
+	void setBackendRootWorldMatrixFromWorld(const std::string& backendId, const osg::Matrixd& worldMat);
+	/// IRobotBackendPoseSink：列主序 Mat4
+	bool getBackendRootWorldMatrix(const std::string& backendId, cloudsim::core::Mat4& outWorld) const override;
+	void setBackendRootWorldMatrixFromWorld(const std::string& backendId,
+											const cloudsim::core::Mat4& worldColumnMajor) override;
 	bool tryGetBackendModelCenterMm(const std::string& backendId, double& outCx, double& outCy,
 									double& outCz) const override;
 	/// 将 target 内层去心质心改为与 source 一致（两者均需 skipInnerModelCenterRebase=false）
@@ -325,6 +329,8 @@ public:
 	void syncTcpTeachCompassAttitude();
 	/// 从 \c m_tcpTeachMountPat 同步 \c m_tcpTeachWorldPat（overlay 不随机器人子树光照）
 	void syncTcpTeachWorldPatFromMount();
+	/// 拖动中按 T_base_target·P 刷新罗盘世界位姿（法兰挂载时 mount 仍跟 FK）
+	void syncTcpTeachWorldPatFromTarget();
 	bool tcpTeachResolveBaseWorld(osg::Matrixd& outBaseWorld) const;
 	bool tcpTeachToolWorldMatrix(osg::Matrixd& outToolWorld) const;
 	void tcpTeachSetTargetFromToolWorld(const osg::Matrixd& toolWorld);

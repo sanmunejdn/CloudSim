@@ -1,5 +1,5 @@
 ﻿/// @file SerialLinkKinematics.cpp
-/// @brief A_i = Rz(theta_i) * Tz(d_i) * Tx(a_i) * Rx(alpha_i)
+/// @brief 闭式 MDH FK + 解析位置雅可比 DLS IK
 
 #include "SerialLinkKinematics.h"
 
@@ -11,8 +11,6 @@ namespace robot_kinematics
 {
 namespace
 {
-constexpr double kPi = 3.14159265358979323846;
-
 void mat4Identity(double M[16])
 {
 	for (int i = 0; i < 16; ++i)
@@ -39,70 +37,82 @@ void mat4Mul(const double A[16], const double B[16], double AB[16])
 	}
 }
 
-void rotX(double alpha, double R[16])
-{
-	mat4Identity(R);
-	const double ca = std::cos(alpha);
-	const double sa = std::sin(alpha);
-	R[1 * 4 + 1] = ca;
-	R[1 * 4 + 2] = -sa;
-	R[2 * 4 + 1] = sa;
-	R[2 * 4 + 2] = ca;
-}
-
-void rotZ(double theta, double R[16])
-{
-	mat4Identity(R);
-	const double ct = std::cos(theta);
-	const double st = std::sin(theta);
-	R[0 * 4 + 0] = ct;
-	R[0 * 4 + 1] = -st;
-	R[1 * 4 + 0] = st;
-	R[1 * 4 + 1] = ct;
-}
-
-void trans(double x, double y, double z, double T[16])
-{
-	mat4Identity(T);
-	T[3 * 4 + 0] = x;
-	T[3 * 4 + 1] = y;
-	T[3 * 4 + 2] = z;
-}
-
-/// A_i = Rz(theta_i) * Tz(d_i) * Tx(a_i) * Rx(alpha_i)
+/// A_i = Rz(θ) Tz(d) Tx(a) Rx(α) 闭式展开
 void dhRowToTransform(const DhRow& row, const std::vector<double>& q, double A[16])
 {
 	double theta = row.thetaOffset;
+	double d = row.d;
 	if (row.jointIndex >= 0 && row.jointIndex < static_cast<int>(q.size()))
 	{
-		theta += q[static_cast<std::size_t>(row.jointIndex)];
+		const double qv = q[static_cast<std::size_t>(row.jointIndex)];
+		if (row.isPrismatic)
+		{
+			d += qv;
+		}
+		else
+		{
+			theta += qv;
+		}
 	}
 
-	double Rz[16], Tz[16], Tx[16], Rx[16], T1[16], T2[16], T3[16];
-	rotZ(theta, Rz);
-	trans(0.0, 0.0, row.d, Tz);
-	trans(row.a, 0.0, 0.0, Tx);
-	rotX(row.alpha, Rx);
-	mat4Mul(Rz, Tz, T1);
-	mat4Mul(T1, Tx, T2);
-	mat4Mul(T2, Rx, A);
+	const double ct = std::cos(theta);
+	const double st = std::sin(theta);
+	const double ca = std::cos(row.alpha);
+	const double sa = std::sin(row.alpha);
+
+	A[0 * 4 + 0] = ct;
+	A[0 * 4 + 1] = st;
+	A[0 * 4 + 2] = 0.0;
+	A[0 * 4 + 3] = 0.0;
+
+	A[1 * 4 + 0] = -st * ca;
+	A[1 * 4 + 1] = ct * ca;
+	A[1 * 4 + 2] = sa;
+	A[1 * 4 + 3] = 0.0;
+
+	A[2 * 4 + 0] = st * sa;
+	A[2 * 4 + 1] = -ct * sa;
+	A[2 * 4 + 2] = ca;
+	A[2 * 4 + 3] = 0.0;
+
+	A[3 * 4 + 0] = row.a * ct;
+	A[3 * 4 + 1] = row.a * st;
+	A[3 * 4 + 2] = d;
+	A[3 * 4 + 3] = 1.0;
+}
+
+bool fkAccumulateWithPartials(const std::vector<DhRow>& rows, const std::vector<double>& q, double T_world[16],
+							  std::vector<double>* T_after_each)
+{
+	mat4Identity(T_world);
+	if (T_after_each)
+	{
+		T_after_each->assign(rows.size() * 16U, 0.0);
+	}
+	for (std::size_t i = 0; i < rows.size(); ++i)
+	{
+		double A[16];
+		dhRowToTransform(rows[i], q, A);
+		double Tmp[16];
+		mat4Mul(T_world, A, Tmp);
+		for (int k = 0; k < 16; ++k)
+		{
+			T_world[k] = Tmp[k];
+		}
+		if (T_after_each)
+		{
+			for (int k = 0; k < 16; ++k)
+			{
+				(*T_after_each)[i * 16U + static_cast<std::size_t>(k)] = T_world[k];
+			}
+		}
+	}
+	return true;
 }
 
 bool fkAccumulate(const std::vector<DhRow>& rows, const std::vector<double>& q, double T_world[16])
 {
-	mat4Identity(T_world);
-	for (const DhRow& row : rows)
-	{
-		double A[16];
-		dhRowToTransform(row, q, A);
-		double Tmp[16];
-		mat4Mul(T_world, A, Tmp);
-		for (int i = 0; i < 16; ++i)
-		{
-			T_world[i] = Tmp[i];
-		}
-	}
-	return true;
+	return fkAccumulateWithPartials(rows, q, T_world, nullptr);
 }
 
 void positionFromT(const double T[16], double p[3])
@@ -114,7 +124,6 @@ void positionFromT(const double T[16], double p[3])
 
 bool solve3x3(const double M[9], double b[3])
 {
-	// Cramer / explicit inverse for 3x3
 	const double a00 = M[0], a01 = M[1], a02 = M[2];
 	const double a10 = M[3], a11 = M[4], a12 = M[5];
 	const double a20 = M[6], a21 = M[7], a22 = M[8];
@@ -138,6 +147,25 @@ bool solve3x3(const double M[9], double b[3])
 	b[1] = i10 * b0 + i11 * b1 + i12 * b2;
 	b[2] = i20 * b0 + i21 * b1 + i22 * b2;
 	return true;
+}
+
+double jointStepClamp(const DhRow* rowForJoint, const double dq)
+{
+	// 棱柱按 mm；旋转按 rad
+	const double lim = (rowForJoint && rowForJoint->isPrismatic) ? 50.0 : 0.2;
+	return std::max(-lim, std::min(lim, dq));
+}
+
+const DhRow* findRowForJoint(const std::vector<DhRow>& rows, const int jointIndex)
+{
+	for (const DhRow& r : rows)
+	{
+		if (r.jointIndex == jointIndex)
+		{
+			return &r;
+		}
+	}
+	return nullptr;
 }
 
 } // namespace
@@ -175,6 +203,63 @@ bool endEffectorPosition(const std::vector<DhRow>& rows, const std::vector<doubl
 	return true;
 }
 
+bool positionJacobianAnalytic(const std::vector<DhRow>& rows, const std::vector<double>& q, std::vector<double>& J_3xn)
+{
+	const std::size_t nJoint = jointCountFromDhRows(rows);
+	if (nJoint == 0 || q.size() < nJoint)
+	{
+		return false;
+	}
+	double T_ee[16];
+	std::vector<double> T_after;
+	if (!fkAccumulateWithPartials(rows, q, T_ee, &T_after))
+	{
+		return false;
+	}
+	double p_ee[3];
+	positionFromT(T_ee, p_ee);
+
+	J_3xn.assign(3U * nJoint, 0.0);
+	for (std::size_t i = 0; i < rows.size(); ++i)
+	{
+		const DhRow& row = rows[i];
+		if (row.jointIndex < 0 || row.jointIndex >= static_cast<int>(nJoint))
+		{
+			continue;
+		}
+		const std::size_t j = static_cast<std::size_t>(row.jointIndex);
+		// 关节 i 的 z 轴：T_{i-1} 的第三列；i=0 时为世界 Z
+		double z[3] = {0.0, 0.0, 1.0};
+		double p_j[3] = {0.0, 0.0, 0.0};
+		if (i > 0)
+		{
+			const double* T_prev = &T_after[(i - 1U) * 16U];
+			z[0] = T_prev[2 * 4 + 0];
+			z[1] = T_prev[2 * 4 + 1];
+			z[2] = T_prev[2 * 4 + 2];
+			p_j[0] = T_prev[3 * 4 + 0];
+			p_j[1] = T_prev[3 * 4 + 1];
+			p_j[2] = T_prev[3 * 4 + 2];
+		}
+		if (row.isPrismatic)
+		{
+			J_3xn[0 * nJoint + j] = z[0];
+			J_3xn[1 * nJoint + j] = z[1];
+			J_3xn[2 * nJoint + j] = z[2];
+		}
+		else
+		{
+			const double rx = p_ee[0] - p_j[0];
+			const double ry = p_ee[1] - p_j[1];
+			const double rz = p_ee[2] - p_j[2];
+			J_3xn[0 * nJoint + j] = z[1] * rz - z[2] * ry;
+			J_3xn[1 * nJoint + j] = z[2] * rx - z[0] * rz;
+			J_3xn[2 * nJoint + j] = z[0] * ry - z[1] * rx;
+		}
+	}
+	return true;
+}
+
 bool ikPositionDampedLeastSquares(const std::vector<DhRow>& rows, const double targetPos[3],
 								  std::vector<double>& qInOut, int maxIterations, double positionTolerance,
 								  double lambdaDamping, int* iterationsUsed)
@@ -186,8 +271,9 @@ bool ikPositionDampedLeastSquares(const std::vector<DhRow>& rows, const double t
 	}
 	qInOut.resize(nJoint);
 
-	const double eps = 1e-6;
-	const double lambda2 = lambdaDamping * lambdaDamping;
+	double lambda = lambdaDamping;
+	const double lambda2Min = lambdaDamping * lambdaDamping;
+	std::vector<double> J(3U * nJoint, 0.0);
 
 	for (int iter = 0; iter < maxIterations; ++iter)
 	{
@@ -209,23 +295,12 @@ bool ikPositionDampedLeastSquares(const std::vector<DhRow>& rows, const double t
 			return true;
 		}
 
-		// J: 3 x nJoint, numerical columns
-		std::vector<double> J(static_cast<std::size_t>(3 * nJoint), 0.0);
-		for (std::size_t j = 0; j < nJoint; ++j)
+		if (!positionJacobianAnalytic(rows, qInOut, J))
 		{
-			std::vector<double> qP = qInOut;
-			qP[j] += eps;
-			double pp[3];
-			if (!endEffectorPosition(rows, qP, pp))
-			{
-				return false;
-			}
-			J[0 * nJoint + j] = (pp[0] - p[0]) / eps;
-			J[1 * nJoint + j] = (pp[1] - p[1]) / eps;
-			J[2 * nJoint + j] = (pp[2] - p[2]) / eps;
+			return false;
 		}
 
-		// M = J * J^T + lambda^2 * I  (3x3)
+		const double lambda2 = std::max(lambda2Min, lambda * lambda);
 		double M[9]{};
 		for (int r = 0; r < 3; ++r)
 		{
@@ -234,8 +309,7 @@ bool ikPositionDampedLeastSquares(const std::vector<DhRow>& rows, const double t
 				double s = 0.0;
 				for (std::size_t k = 0; k < nJoint; ++k)
 				{
-					s += J[static_cast<std::size_t>(r * static_cast<int>(nJoint) + k)] *
-						 J[static_cast<std::size_t>(c * static_cast<int>(nJoint) + k)];
+					s += J[static_cast<std::size_t>(r) * nJoint + k] * J[static_cast<std::size_t>(c) * nJoint + k];
 				}
 				M[r * 3 + c] = s + (r == c ? lambda2 : 0.0);
 			}
@@ -244,19 +318,35 @@ bool ikPositionDampedLeastSquares(const std::vector<DhRow>& rows, const double t
 		double g[3] = {e0, e1, e2};
 		if (!solve3x3(M, g))
 		{
-			return false;
+			lambda *= 2.0;
+			continue;
 		}
 
-		// dq = J^T * g
+		double pAfter[3];
+		std::vector<double> qTry = qInOut;
 		for (std::size_t j = 0; j < nJoint; ++j)
 		{
 			double dq = 0.0;
 			for (int r = 0; r < 3; ++r)
 			{
-				dq += J[static_cast<std::size_t>(r * static_cast<int>(nJoint) + j)] * g[r];
+				dq += J[static_cast<std::size_t>(r) * nJoint + j] * g[r];
 			}
-			qInOut[j] += dq;
+			qTry[j] += jointStepClamp(findRowForJoint(rows, static_cast<int>(j)), dq);
 		}
+		if (!endEffectorPosition(rows, qTry, pAfter))
+		{
+			return false;
+		}
+		const double errAfter = std::sqrt((targetPos[0] - pAfter[0]) * (targetPos[0] - pAfter[0]) +
+										  (targetPos[1] - pAfter[1]) * (targetPos[1] - pAfter[1]) +
+										  (targetPos[2] - pAfter[2]) * (targetPos[2] - pAfter[2]));
+		if (errAfter > err * 1.05)
+		{
+			lambda *= 2.0;
+			continue;
+		}
+		lambda = std::max(lambdaDamping, lambda * 0.7);
+		qInOut.swap(qTry);
 	}
 
 	if (iterationsUsed)

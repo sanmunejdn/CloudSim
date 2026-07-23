@@ -7,6 +7,7 @@
 #include "robotwidget_global.h"
 
 #include "../../Robot/RobotKinematics/inc/SerialLinkKinematics.h"
+#include "CoreTypes.h"
 #include "RobotCoordinateFrames.h"
 
 #include <QHash>
@@ -31,6 +32,12 @@ namespace RobotSimulationMath
 ROBOTWIDGET_EXPORT bool matrixFromNodeWorld(osg::Node* node, osg::Matrixd& outWorld);
 ROBOTWIDGET_EXPORT std::string encodeMatrix4Csv(const osg::Matrixd& m);
 ROBOTWIDGET_EXPORT bool decodeMatrix4Csv(const std::string& text, osg::Matrixd& out);
+
+/// core::Mat4 列主序 ↔ osg::Matrixd（禁止 ptr 直拷）
+ROBOTWIDGET_EXPORT osg::Matrixd osgMatrixFromCoreMat4(const cloudsim::core::Mat4& columnMajor);
+ROBOTWIDGET_EXPORT cloudsim::core::Mat4 coreMat4FromOsgMatrix(const osg::Matrixd& m);
+ROBOTWIDGET_EXPORT bool getBackendRootWorldMatrixOsg(IRobotOsgViewHost* view, const std::string& backendId,
+													 osg::Matrixd& outWorld);
 
 ROBOTWIDGET_EXPORT bool buildDhRowsFromUrdf(const QString& urdfPath, std::vector<robot_kinematics::DhRow>& outRows,
 											QString* errMsg = nullptr);

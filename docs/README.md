@@ -17,6 +17,9 @@ Cursor 规则镜像：`.cursor/rules/cloudsim-cpp-conventions.mdc`、`cloudsim-a
 
 | 目录/文件 | 主题 |
 |-----------|------|
+| [`架构边界收口/`](架构边界收口/) | Host/契约边界收口（Sprint A/B/C 验收） |
+| [`外部轴联动求解/`](外部轴联动求解/) | 地轨配置 / P0·P_eff / 联立 IK / Run 外轴插帧 |
+| [`机器人指令执行/`](机器人指令执行/) | Run 懒规划、轨迹插帧、失败前缀播放 |
 | [`backend_persistence/`](backend_persistence/) | 工程持久化 v4 |
 | [`code_format_cleanup/`](code_format_cleanup/) | 2026-07 源码格式与筛选器整理验收 |
 | [`ui_layout_style_fix/`](ui_layout_style_fix/) | UI 布局与样式 |

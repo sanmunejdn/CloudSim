@@ -167,6 +167,11 @@ void MainWindow::focusBackendInTree(const std::string& backendId)
 	focusBackendInTreeLocal(QString::fromStdString(backendId));
 }
 
+QString MainWindow::selectedBackendId() const
+{
+	return m_selectionState.selectedBackendId();
+}
+
 JobSystem* MainWindow::jobSystem()
 {
 	return m_jobSystem;

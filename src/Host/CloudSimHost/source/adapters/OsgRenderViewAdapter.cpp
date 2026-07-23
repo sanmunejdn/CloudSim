@@ -9,7 +9,8 @@
 #include "IDataService.h"
 #include "ObjectGizmoFrame.h"
 #include "OsgWidget.h"
-#include "RobotOsgUiTypes.h"
+
+#include "../../UI/OsgWidgetCore/inc/RobotOsgUiTypes.h"
 
 #include <Adapters.h>
 #include <RigidTransform.h>
@@ -410,29 +411,11 @@ osg::Matrixd osgMatFromCore(const core::Mat4& columnMajor)
 	return m;
 }
 
-core::Mat4 coreMatFromOsg(const osg::Matrixd& m)
-{
-	core::Mat4 out;
-	for (int c = 0; c < 4; ++c)
-	{
-		for (int r = 0; r < 4; ++r)
-		{
-			out[static_cast<size_t>(c * 4 + r)] = m(r, c);
-		}
-	}
-	return out;
-}
-
-osg::Vec3f osgVecFromCore(const core::Vec3& v)
-{
-	return osg::Vec3f(static_cast<float>(v.x), static_cast<float>(v.y), static_cast<float>(v.z));
-}
-
 RobotOsgUi::InstructionPoseAxis instructionAxisToRobotOsgUi(const core::InstructionPoseAxisDto& d)
 {
 	RobotOsgUi::InstructionPoseAxis o;
-	o.positionMm = osgVecFromCore(d.positionMm);
-	o.eulerDeg = osgVecFromCore(d.eulerDeg);
+	o.positionMm = d.positionMm;
+	o.eulerDeg = d.eulerDeg;
 	o.lineMotion = d.lineMotion;
 	o.reachable = d.reachable;
 	o.robotBackendId = d.robotBackendId.toStdString();
@@ -445,10 +428,7 @@ RobotOsgUi::InstructionPoseAxis instructionAxisToRobotOsgUi(const core::Instruct
 	o.hasLocalMatrix = d.hasLocalMatrix;
 	if (d.hasLocalMatrix)
 	{
-		for (int i = 0; i < 16; ++i)
-		{
-			o.localMatrix[i] = d.localMatrix[static_cast<size_t>(i)];
-		}
+		o.localMatrix = d.localMatrix;
 	}
 	o.urdfTcpAttachLinkName = d.urdfTcpAttachLinkName.toStdString();
 	return o;
@@ -535,7 +515,7 @@ void OsgRenderViewAdapter::setRawTrajectoryOverlay(const QVector<core::RawTrajec
 	for (const core::RawTrajectoryOverlayVertexDto& v : points)
 	{
 		RobotOsgUi::RawTrajectoryOverlayVertex o;
-		o.positionMm = osgVecFromCore(v.positionMm);
+		o.positionMm = v.positionMm;
 		o.reachable = v.reachable;
 		converted.push_back(o);
 	}
@@ -554,8 +534,8 @@ void OsgRenderViewAdapter::setRawTrajectoryOverlayFrames(const QVector<core::Raw
 	for (const core::RawTrajectoryOverlayFrameDto& f : frames)
 	{
 		RobotOsgUi::RawTrajectoryOverlayFrame o;
-		o.positionMm = osgVecFromCore(f.positionMm);
-		o.eulerDeg = osgVecFromCore(f.eulerDeg);
+		o.positionMm = f.positionMm;
+		o.eulerDeg = f.eulerDeg;
 		o.reachable = f.reachable;
 		converted.push_back(o);
 	}
@@ -578,7 +558,7 @@ void OsgRenderViewAdapter::setRobotFrameOverlays(const core::RobotFrameOverlayUp
 		RobotOsgUi::RobotFrameOverlayUpdate::ToolEntry e;
 		e.name = te.name.toStdString();
 		e.mountBackendId = te.mountBackendId.toStdString();
-		e.localMatrix = osgMatFromCore(te.localMatrix);
+		e.localMatrix = te.localMatrix;
 		e.active = te.active;
 		u.toolFrames.push_back(e);
 	}
@@ -587,7 +567,7 @@ void OsgRenderViewAdapter::setRobotFrameOverlays(const core::RobotFrameOverlayUp
 		RobotOsgUi::RobotFrameOverlayUpdate::UserEntry e;
 		e.name = ue.name.toStdString();
 		e.mountBackendId = ue.mountBackendId.toStdString();
-		e.localMatrix = osgMatFromCore(ue.localMatrix);
+		e.localMatrix = ue.localMatrix;
 		u.userFrames.push_back(e);
 	}
 	m_widget.setRobotFrameOverlays(u);
@@ -606,11 +586,11 @@ void OsgRenderViewAdapter::setFeatureCatalogOverlay(const QVector<core::FeatureC
 	{
 		RobotOsgUi::FeatureCatalogOverlayItem o;
 		o.displayIndex = item.displayIndex;
-		o.anchorWorldMm = osgVecFromCore(item.anchorWorldMm);
-		o.labelWorldMm = osgVecFromCore(item.labelWorldMm);
+		o.anchorWorldMm = item.anchorWorldMm;
+		o.labelWorldMm = item.labelWorldMm;
 		o.hasEdgeSegment = item.hasEdgeSegment;
-		o.edgeAWorldMm = osgVecFromCore(item.edgeAWorldMm);
-		o.edgeBWorldMm = osgVecFromCore(item.edgeBWorldMm);
+		o.edgeAWorldMm = item.edgeAWorldMm;
+		o.edgeBWorldMm = item.edgeBWorldMm;
 		converted.push_back(o);
 	}
 	m_widget.setFeatureCatalogOverlay(converted);

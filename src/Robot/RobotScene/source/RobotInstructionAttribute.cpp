@@ -6,6 +6,7 @@
 #include "RobotInstructionAxisConfiguration.h"
 #include "RobotInstructionModel.h"
 #include "RobotInstructionPropertySchema.h"
+#include "RobotInstructionTransform.h"
 
 #include <array>
 
@@ -116,6 +117,41 @@ void setAxisConfig(RobotInstruction::Base& cmd, const std::string& value)
 {
 	cmd.setAxisConfig(value);
 }
+
+bool hasViaPosePropertyFn(const RobotInstruction::Base& cmd)
+{
+	return cmd.hasViaPoseProperty();
+}
+
+RobotInstruction::Vec3 getViaPoseFn(const RobotInstruction::Base& cmd)
+{
+	return cmd.viaPose();
+}
+
+void setViaPoseFn(RobotInstruction::Base& cmd, const RobotInstruction::Vec3& pose)
+{
+	cmd.setViaPose(pose);
+	// 面板改 Via 后丢掉旧 transform，避免规划仍用示教快照
+	cmd.eraseExtensionProperty(RobotInstruction::kExtContextViaTransformQuatCsv);
+	cmd.eraseExtensionProperty(RobotInstruction::kExtContextViaTransformTransMmCsv);
+}
+
+bool hasViaEulerPropertyFn(const RobotInstruction::Base& cmd)
+{
+	return cmd.hasViaEulerProperty();
+}
+
+RobotInstruction::Vec3 getViaEulerFn(const RobotInstruction::Base& cmd)
+{
+	return cmd.viaEulerDeg();
+}
+
+void setViaEulerFn(RobotInstruction::Base& cmd, const RobotInstruction::Vec3& value)
+{
+	cmd.setViaEulerDeg(value);
+	cmd.eraseExtensionProperty(RobotInstruction::kExtContextViaTransformQuatCsv);
+	cmd.eraseExtensionProperty(RobotInstruction::kExtContextViaTransformTransMmCsv);
+}
 } // namespace
 
 namespace RobotInstruction
@@ -141,6 +177,28 @@ EulerAttribute::EulerAttribute()
 		  std::array<const char*, 3>{labelForKey("motion.target.euler.rx", "Euler RX (deg)"),
 									 labelForKey("motion.target.euler.ry", "Euler RY (deg)"),
 									 labelForKey("motion.target.euler.rz", "Euler RZ (deg)")},
+		  appendRow)
+{
+}
+
+ViaPoseAttribute::ViaPoseAttribute()
+	: property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>(
+		  hasViaPosePropertyFn, getViaPoseFn, setViaPoseFn,
+		  std::array<const char*, 3>{"motion.via.pose.x", "motion.via.pose.y", "motion.via.pose.z"},
+		  std::array<const char*, 3>{labelForKey("motion.via.pose.x", "Via X (mm)"),
+									 labelForKey("motion.via.pose.y", "Via Y (mm)"),
+									 labelForKey("motion.via.pose.z", "Via Z (mm)")},
+		  appendRow)
+{
+}
+
+ViaEulerAttribute::ViaEulerAttribute()
+	: property_core::PropertyVec3Attribute<Base, Vec3, AttributeBase>(
+		  hasViaEulerPropertyFn, getViaEulerFn, setViaEulerFn,
+		  std::array<const char*, 3>{"motion.via.euler.rx", "motion.via.euler.ry", "motion.via.euler.rz"},
+		  std::array<const char*, 3>{labelForKey("motion.via.euler.rx", "Via Euler RX (deg)"),
+									 labelForKey("motion.via.euler.ry", "Via Euler RY (deg)"),
+									 labelForKey("motion.via.euler.rz", "Via Euler RZ (deg)")},
 		  appendRow)
 {
 }

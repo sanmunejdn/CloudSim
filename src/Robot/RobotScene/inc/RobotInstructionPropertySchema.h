@@ -231,6 +231,40 @@ inline const property_core::PropertySchema& lineInstructionPropertySchema()
 	return schema;
 }
 
+inline const property_core::PropertySchema& arcInstructionPropertySchema()
+{
+	using namespace property_core;
+	static const PropertySchema schema = []()
+	{
+		PropertySchema s;
+		s.objectTypeId = "robot_instruction.arc";
+		s.schemaVersion = 1;
+		s.descriptors = {
+			{"motion.via.pose.x", "Via X (mm)", PropertyType::Double, 0.0},
+			{"motion.via.pose.y", "Via Y (mm)", PropertyType::Double, 0.0},
+			{"motion.via.pose.z", "Via Z (mm)", PropertyType::Double, 0.0},
+			{"motion.via.euler.rx", "Via Euler RX (deg)", PropertyType::Double, 0.0},
+			{"motion.via.euler.ry", "Via Euler RY (deg)", PropertyType::Double, 0.0},
+			{"motion.via.euler.rz", "Via Euler RZ (deg)", PropertyType::Double, 0.0},
+			{"motion.target.pose.x", "Target X (mm)", PropertyType::Double, 0.0},
+			{"motion.target.pose.y", "Target Y (mm)", PropertyType::Double, 0.0},
+			{"motion.target.pose.z", "Target Z (mm)", PropertyType::Double, 0.0},
+			{"motion.target.euler.rx", "Euler RX (deg)", PropertyType::Double, 0.0},
+			{"motion.target.euler.ry", "Euler RY (deg)", PropertyType::Double, 0.0},
+			{"motion.target.euler.rz", "Euler RZ (deg)", PropertyType::Double, 0.0},
+			{"motion.speed", "Speed", PropertyType::Double, 200.0},
+			{"motion.acc", "Acceleration", PropertyType::Double, 200.0},
+			{"motion.blendRadius", "Blend Radius (mm)", PropertyType::Double, 0.0},
+		};
+		for (const PropertyDescriptor& axisDesc : motionAxisConfigPropertyDescriptors().descriptors)
+		{
+			s.descriptors.push_back(axisDesc);
+		}
+		return s;
+	}();
+	return schema;
+}
+
 inline const property_core::PropertySchema& waitInstructionPropertySchema()
 
 {
@@ -340,6 +374,10 @@ inline const property_core::PropertySchema& schemaForInstructionType(const Type 
 
 		return lineInstructionPropertySchema();
 
+	case Type::ARC:
+
+		return arcInstructionPropertySchema();
+
 	case Type::WAIT:
 
 		return waitInstructionPropertySchema();
@@ -380,6 +418,12 @@ inline const property_core::PropertyDescriptor* findInstructionPropertyDescripto
 	}
 
 	if (const auto* descriptor = lineInstructionPropertySchema().find(key))
+
+	{
+		return descriptor;
+	}
+
+	if (const auto* descriptor = arcInstructionPropertySchema().find(key))
 
 	{
 		return descriptor;

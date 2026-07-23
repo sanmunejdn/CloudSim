@@ -61,6 +61,7 @@ public:
 	void markFollowDirtyFromMove(const core::ObjectId& seedId) override;
 	void requestFollowSolveForced() override;
 	bool runFollowSolveAndSync(const core::FollowSolveContextDto& ctx, QString* outError = nullptr) override;
+	core::ObjectId followTargetId(const core::ObjectId& followerId) const override;
 
 private:
 	DocumentHost& m_host;

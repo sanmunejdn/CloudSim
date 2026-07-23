@@ -1,10 +1,11 @@
 ﻿/// @file FeaturePickTransform.cpp
-/// @brief FeaturePickTransform 实现
+/// @brief FeaturePickTransform ?��
 
 #include "FeaturePickTransform.h"
 
 #include "../../OsgWidgetCore/inc/OsgScene.h"
 #include "RobotOsgUiTypes.h"
+#include "RobotSimulationMath.h"
 
 #include <algorithm>
 #include <sstream>
@@ -83,10 +84,8 @@ bool appendPreviewFramesForIndices(const std::vector<std::size_t>& indices,
 			return false;
 		}
 		RobotOsgUi::RawTrajectoryOverlayFrame frame;
-		frame.positionMm.set(static_cast<float>(worldTp.poseMm.x), static_cast<float>(worldTp.poseMm.y),
-							 static_cast<float>(worldTp.poseMm.z));
-		frame.eulerDeg.set(static_cast<float>(worldTp.eulerDeg.x), static_cast<float>(worldTp.eulerDeg.y),
-						   static_cast<float>(worldTp.eulerDeg.z));
+		frame.positionMm = {worldTp.poseMm.x, worldTp.poseMm.y, worldTp.poseMm.z};
+		frame.eulerDeg = {worldTp.eulerDeg.x, worldTp.eulerDeg.y, worldTp.eulerDeg.z};
 		frame.reachable = worldTp.reachable;
 		outFrames.push_back(frame);
 	}
@@ -106,10 +105,8 @@ void appendPreviewFramesForIndicesWorld(const std::vector<std::size_t>& indices,
 		}
 		const RobotInstruction::TrajectoryPoint& tp = points[index];
 		RobotOsgUi::RawTrajectoryOverlayFrame frame;
-		frame.positionMm.set(static_cast<float>(tp.poseMm.x), static_cast<float>(tp.poseMm.y),
-							 static_cast<float>(tp.poseMm.z));
-		frame.eulerDeg.set(static_cast<float>(tp.eulerDeg.x), static_cast<float>(tp.eulerDeg.y),
-						   static_cast<float>(tp.eulerDeg.z));
+		frame.positionMm = {tp.poseMm.x, tp.poseMm.y, tp.poseMm.z};
+		frame.eulerDeg = {tp.eulerDeg.x, tp.eulerDeg.y, tp.eulerDeg.z};
 		frame.reachable = tp.reachable;
 		outFrames.push_back(frame);
 	}
@@ -130,7 +127,7 @@ bool worldPointToStepModelMm(IRobotOsgViewHost* osg, const std::string& backendI
 	}
 	const std::string xformId = transformBackendId(osg, backendId);
 	osg::Matrixd worldMat;
-	if (!osg->getBackendRootWorldMatrix(xformId, worldMat))
+	if (!RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, xformId, worldMat))
 	{
 		if (errMsg)
 		{
@@ -169,7 +166,7 @@ bool stepModelPointToWorldMm(IRobotOsgViewHost* osg, const std::string& backendI
 	}
 	const std::string xformId = transformBackendId(osg, backendId);
 	osg::Matrixd worldMat;
-	if (!osg->getBackendRootWorldMatrix(xformId, worldMat))
+	if (!RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, xformId, worldMat))
 	{
 		if (errMsg)
 		{
@@ -329,7 +326,8 @@ bool appendRawTrajectoryOverlayWorld(IRobotOsgViewHost* osg, const std::string& 
 			return false;
 		}
 		RobotOsgUi::RawTrajectoryOverlayVertex v;
-		v.positionMm = worldPos;
+		v.positionMm = {static_cast<double>(worldPos.x()), static_cast<double>(worldPos.y()),
+						static_cast<double>(worldPos.z())};
 		v.reachable = tp.reachable;
 		inOutOverlay.push_back(v);
 	}
@@ -496,8 +494,7 @@ void applyWorldRawTrajectoryPreviewToOsg(IRobotOsgViewHost* osg, const RobotInst
 	for (const RobotInstruction::TrajectoryPoint& tp : worldTraj.points)
 	{
 		RobotOsgUi::RawTrajectoryOverlayVertex v;
-		v.positionMm.set(static_cast<float>(tp.poseMm.x), static_cast<float>(tp.poseMm.y),
-						 static_cast<float>(tp.poseMm.z));
+		v.positionMm = {tp.poseMm.x, tp.poseMm.y, tp.poseMm.z};
 		v.reachable = tp.reachable;
 		overlay.push_back(v);
 	}

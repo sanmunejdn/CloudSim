@@ -36,7 +36,7 @@ flowchart TB
     RW[RobotWidget.dll]
     AW[AiWidget.dll]
     UA[CloudSimUiAssets.lib]
-    PH[CloudSimPluginHost<br/>编入 Widget]
+    PH[CloudSimPluginHost<br/>编入 Host]
   end
 
   subgraph Host["宿主层"]
@@ -96,8 +96,8 @@ flowchart TB
 | **应用** | `CloudSim.exe` | 入口、`main` 生命周期、DLL 搜索路径 |
 | **应用** | `CloudSimBootstrap` | 组合根 API 头文件（实现于 Host） |
 | **契约** | `CloudSimCore.dll` | 前后端解耦契约：`IDataService`、`IRenderView`、`IRobotService`、`EventHub`、DTO |
-| **宿主** | `CloudSimHost.dll` | 文档宿主、Core 适配器、组合根实现、OsgWidget 编译 |
-| **UI** | `Widget.dll` | 主窗口、文档页、属性面板、仿真协调、插件宿主（编入） |
+| **宿主** | `CloudSimHost.dll` | 文档宿主、Core 适配器、组合根、`OsgWidget` 编译、`CloudSimPluginHost` |
+| **UI** | `Widget.dll` | 主窗口、文档页、属性面板、仿真协调 |
 | **UI** | `OsgWidgetCore.dll` | OSG 场景核心、拾取、gizmo、绑定索引 |
 | **UI** | `BackendVisual.dll` | Data → OSG 分支构建策略 |
 | **UI** | `RobotWidget.dll` | 仿真/设备 Dock、轨迹编辑、CAD 轨迹生成 |
@@ -111,6 +111,7 @@ flowchart TB
 | **几何** | `VcgAlgorithms.dll` | VCG 网格简化/平滑/修复/重网格 |
 | **基础设施** | `RunLogger.dll` | 文件/控制台/UI 日志 |
 | **插件** | `CloudSimPluginSDK.dll` | 插件 ABI：`ICloudSimPlugin`、`IPluginHostContext` |
+| **宿主** | `CloudSimHost.dll` | 文档宿主、Core 适配器、组合根、`OsgWidget` 编译、`CloudSimPluginHost` |
 
 ---
 
@@ -172,7 +173,7 @@ sequenceDiagram
 | 变换 | `applyWorldPoseMm`、`worldPoseMm`、`applyColor` |
 | 几何 | `boundingBox`、`hasVisualBranch`、`geometryKind` |
 | 序列化 | `saveObjectToJson`、`loadObjectFromJson`、`importFromFile` |
-| 跟随 | `applyFollowTargetByName`、`runFollowSolveAndSync` |
+| 跟随 | `applyFollowTargetByName`、`followTargetId`、`runFollowSolveAndSync` |
 
 ### 4.2 `IRenderView`（渲染视图）
 
@@ -397,7 +398,7 @@ flowchart TB
 
 ## 10. 插件宿主
 
-`CloudSimPluginHost` 源码编入 `Widget.dll`（非独立 DLL），提供：
+`CloudSimPluginHost` 源码编入 `CloudSimHost.dll`（非独立 DLL；`CloudSimPluginHost.vcxproj` 仅作可选单独编译参考），提供：
 
 | 组件 | 说明 |
 |------|------|
@@ -429,6 +430,30 @@ PluginManager::loadPlugins()
 | Robot 运动学收口 | `IRobotDocumentHost` 委托 Host 实现 | **已完成** |
 | per-link 收口 | `IPerLinkKinematicsHost` + `IPerLinkRobotStateAccessor` | **已完成** |
 | BackendDataManager 收口 | `doc->data().topoOrder()` / `parentsOf()` | **已完成** |
-| OSG 头文件解耦 | Widget 移除 OSG include | 阶段 3.3-3.4 待定 |
+| OsgWidget 双轨清理 | 删除 `Host/inc|source/osg` 平行副本；真源=`Widget/source`（编入 Host） | **已完成** |
+| Follow 索引契约化 | `IDataService::followTargetId` + 反向索引经契约重建 | **已完成** |
+| 基座位姿 Mat4 化 | `IRobotDocumentHost` / `IRobotUrdfImportContext` 基座与 bind 写接口改 `core::Mat4` | **已完成** |
+| Host 工程 I/O 解耦 | Widget 直调 `RobotProjectIo::writeRobotKinematics`；Host 不再 include RobotWidget 写 kinematics | **已完成** |
+| 视口工具栏经 render() | `DocumentPage` / 场景接线经 `IRenderView::widget()` | **已完成** |
+| Host→RobotWidget 解耦 | `RobotProgramStore` 迁入 RobotScene；Host 不再链 `RobotWidget.lib` | **已完成** |
+| IRobotOsgViewHost Mat4 化 | `getBackendRootWorldMatrix` / TCP teach 改 `core::Mat4` | **已完成** |
+| RobotOsgUiTypes 上提 | 真源迁入 `OsgWidgetCore`；RobotWidget 保留转发头 | **已完成** |
+| RobotOsgUi 去 osg | 叠加 DTO 改 `core::Vec3`/`Mat4`；OSG 仅在 `OsgWidget` 边界转换 | **已完成** |
+| IRobotOsgViewHost mesh 高亮 | `showMeshTriangleHighlight` / 拟合面预览改 `core::Vec3` | **已完成** |
+| IRobotSimulationDocument 去 osg | 接口仅 Core Mat4/DTO；OSG 切片迁入 `RobotPerLinkKinematicsSliceOsg.h` | **已完成** |
+| IRobotBackendPoseSink Mat4 化 | get/set 世界矩阵改 `core::Mat4`；OsgWidget 保留 osg 重载 | **已完成** |
+| DocumentPage FK 绑定存储 Mat4 | `HierarchicalRobotInstance` 的 T0/outer/base 改 `core::Mat4`；关节仍可持 `MatrixTransform*` | **已完成** |
+| DocumentPage backend() 策略 | 保留存量白名单；新代码强制 `data()`；禁止再扩散 `BackendDataManager.h` | **策略闭环**（彻底去掉穿透 → 长期） |
+| OSG 头文件解耦 | Widget 主路径移除 OSG include（关节句柄等仍可含 `MatrixTransform*`） | 阶段 3.3-3.4 待定 |
 | IRenderView 全面替代 | Widget 主路径走 `render()` | 阶段 3.3-3.4 待定 |
 | RobotSimulationController 迁入 Host | 仿真编排逻辑下沉 | 长期规划 |
+
+> **本轮边界收口闭环**（Sprint A–H）：公开契约去 osg、Host 无 RobotWidget.lib、OsgWidget 单轨、DocumentPage FK 存储 Mat4。残余见 `docs/架构边界收口/TODO_架构边界收口.md`。
+
+### 11.1 新代码边界（强制）
+
+| 层 | 允许 | 禁止（新代码） |
+|----|------|----------------|
+| Widget / RobotWidget UI | `doc->data()` / `render()` / `robot()` / `events()` | 直接 `#include BackendDataManager.h`（存量白名单除外：DocumentPage 运动学、`BackendSceneDocumentFacade`） |
+| Host | 适配器内访问 `BackendDataManager` / `OsgWidget` | 在 `Host/osg/` 维护第二份 OsgWidget |
+| OsgWidget 源码 | 仅 `src/UI/Widget/source/OsgWidget*`，由 `CloudSimHost.vcxproj` 编译 | Widget.vcxproj 再编一份；Host 下平行副本 |

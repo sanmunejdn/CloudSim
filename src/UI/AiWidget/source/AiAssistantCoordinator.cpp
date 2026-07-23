@@ -3,6 +3,7 @@
 
 #include "AiAssistantCoordinator.h"
 
+#include "AiAgentTypes.h"
 #include "AiAssistantDockWidget.h"
 #include "AiConfigDefaults.h"
 #include "AiConfigDto.h"
@@ -426,6 +427,9 @@ bool AiAssistantCoordinator::tryHandleFeatureFollowUp(const QString& text)
 		if (m_dock)
 		{
 			m_dock->showTrajectoryFeatureResult(planJson, selectedSlice, QStringLiteral("Selection"));
+			beginUnifiedDomainConfirm(AiAgentConfirmKind::TrajectoryCommit, planJson, QStringLiteral("确认并离散"),
+									  QStringLiteral("确认并离散"), QStringLiteral("重新识别"),
+									  QStringLiteral("Selection"));
 		}
 		if (m_pluginHost)
 		{
@@ -484,6 +488,8 @@ void AiAssistantCoordinator::handleTrajectoryParseResult(const AiParseResult& re
 	}
 
 	m_dock->showTrajectoryFeatureResult(result.outputJsonUtf8, m_pendingCatalogSliceUtf8, result.parserVia);
+	beginUnifiedDomainConfirm(AiAgentConfirmKind::TrajectoryCommit, result.outputJsonUtf8, QStringLiteral("确认并离散"),
+							  QStringLiteral("确认并离散"), QStringLiteral("重新识别"), result.parserVia);
 	emit assistantFinished(QStringLiteral("Feature candidates ready for confirmation."), false, result.parserVia);
 }
 
@@ -584,9 +590,13 @@ void AiAssistantCoordinator::onUserMessageSubmitted(const QString& text)
 	m_trajCatalogRetryUsed = false;
 	m_lastTrajectoryUserText.clear();
 
+	if (m_aiHost)
+		m_aiHost->cancelAgentTurn();
+
 	m_dock->setBusy(true);
 	m_dock->hideCreateFromRecognitionButton();
 	m_dock->hideTrajectoryFeatureConfirmButtons();
+	m_dock->hideAgentConfirmPanel();
 	m_pendingRecognitionJson.clear();
 	m_pendingRecognitionParserVia.clear();
 
@@ -598,6 +608,12 @@ void AiAssistantCoordinator::onUserMessageSubmitted(const QString& text)
 	req.userText = text;
 
 	const QString resolvedDomain = m_aiHost->resolveDomainId(req.domainId, text);
+
+	if (shouldUseAgentRuntime(resolvedDomain))
+	{
+		startAgentTurn(text, req.domainId);
+		return;
+	}
 
 	if (resolvedDomain == AiDomainIds::trajectoryFeature())
 	{
@@ -675,6 +691,22 @@ void AiAssistantCoordinator::onUserMessageSubmitted(const QString& text)
 				m_pendingRecognitionJson = result.outputJsonUtf8;
 				m_pendingRecognitionParserVia = result.parserVia;
 				m_dock->showRecognitionResult(result.outputJsonUtf8, result.parserVia);
+				nlohmann::json j;
+				try
+				{
+					j = nlohmann::json::parse(result.outputJsonUtf8.constData(), nullptr, true);
+				}
+				catch (...)
+				{
+					j = nlohmann::json::object();
+				}
+				const std::string prim = j.value("primitive", std::string());
+				if (prim != "unknown" && !prim.empty())
+				{
+					beginUnifiedDomainConfirm(AiAgentConfirmKind::RecognizeCreate, result.outputJsonUtf8,
+											  QStringLiteral("确认创建基本体"), QStringLiteral("确认创建"), QString(),
+											  result.parserVia);
+				}
 				emit assistantFinished(QStringLiteral("Recognition complete."), false, result.parserVia);
 				return;
 			}
@@ -730,6 +762,7 @@ void AiAssistantCoordinator::onCreateRecognitionConfirmed()
 	}
 
 	m_dock->hideCreateFromRecognitionButton();
+	m_dock->hideAgentConfirmPanel();
 	m_pendingRecognitionJson.clear();
 	const QString reply = summary.isEmpty() ? QStringLiteral("基本体已创建。") : summary;
 	m_dock->appendAssistantMessage(prefixWithParser(m_pendingRecognitionParserVia, reply));
@@ -755,6 +788,7 @@ void AiAssistantCoordinator::onConfirmTrajectoryFeaturesClicked()
 		return;
 	}
 	m_dock->hideTrajectoryFeatureConfirmButtons();
+	m_dock->hideAgentConfirmPanel();
 	resetFeatureSession();
 	const QString reply = summary.isEmpty() ? QStringLiteral("轨迹特征已离散并填充默认流水线。") : summary;
 	m_dock->appendAssistantMessage(prefixWithParser(m_pendingFeatureParserVia, reply));
@@ -768,4 +802,115 @@ void AiAssistantCoordinator::onRetryTrajectoryFeaturesClicked()
 	{
 		m_dock->appendSystemMessage(QStringLiteral("已取消当前特征候选，请重新输入识别指令。"));
 	}
+}
+
+bool AiAssistantCoordinator::shouldUseAgentRuntime(const QString& resolvedDomainId) const
+{
+	return resolvedDomainId == AiDomainIds::meshCreate() || resolvedDomainId == AiDomainIds::meshCompose() ||
+		   resolvedDomainId == AiDomainIds::pointCloudOps() || resolvedDomainId == AiDomainIds::documentImport() ||
+		   resolvedDomainId == AiDomainIds::geometryOps() || resolvedDomainId == AiDomainIds::featureBuild() ||
+		   resolvedDomainId == AiDomainIds::labelingAnnot() || resolvedDomainId == AiDomainIds::sceneOps();
+}
+
+void AiAssistantCoordinator::startAgentTurn(const QString& text, const QString& domainId)
+{
+	if (!m_dock || !m_aiHost)
+		return;
+	const std::optional<AiConfigDto> cfgOpt = m_aiHost->loadConfig();
+	const AiConfigDto cfg = cfgOpt ? *cfgOpt : defaultAiConfigDto();
+	AiInferenceRequest req;
+	req.domainId = domainId;
+	req.userText = text;
+	m_dock->setBusy(true);
+	m_aiHost->runAgentTurnAsync(
+		req, cfg,
+		[this](double fraction, const QString& message)
+		{
+			if (m_dock && !message.isEmpty())
+				m_dock->appendSystemMessage(
+					QStringLiteral("%1% — %2").arg(static_cast<int>(fraction * 100)).arg(message));
+		},
+		[this](const AiAgentEvent& ev) { handleAgentEvent(ev); });
+}
+
+void AiAssistantCoordinator::beginUnifiedDomainConfirm(AiAgentConfirmKind kind, const QByteArray& payload,
+													   const QString& title, const QString& confirmLabel,
+													   const QString& secondaryLabel, const QString& parserVia)
+{
+	if (!m_dock || !m_aiHost)
+		return;
+	AiDomainConfirmRequest req;
+	req.kind = kind;
+	req.payloadUtf8 = payload;
+	req.title = title;
+	req.risk = QStringLiteral("medium");
+	req.confirmLabel = confirmLabel;
+	req.secondaryLabel = secondaryLabel;
+	req.parserVia = parserVia;
+	m_aiHost->beginDomainConfirmAsync(req, [this](const AiAgentEvent& ev) { handleAgentEvent(ev); });
+}
+
+void AiAssistantCoordinator::handleAgentEvent(const AiAgentEvent& ev)
+{
+	if (!m_dock)
+		return;
+	switch (ev.kind)
+	{
+	case AiAgentEventKind::NeedConfirm:
+		m_dock->setBusy(false);
+		m_dock->appendSystemMessage(ev.message.isEmpty() ? QStringLiteral("请确认参数后执行。") : ev.message);
+		m_dock->showAgentConfirmPanel(ev.pendingId, ev.title, ev.risk, ev.argsSchemaJson, ev.proposedArgsJson,
+									  ev.sceneSnapshotJson, ev.confirmLabel, ev.secondaryLabel);
+		break;
+	case AiAgentEventKind::StepDone:
+		m_dock->appendAssistantMessage(ev.message);
+		m_dock->setBusy(true);
+		break;
+	case AiAgentEventKind::Finished:
+		m_dock->hideAgentConfirmPanel();
+		m_dock->setBusy(false);
+		m_dock->appendAssistantMessage(ev.message.isEmpty() ? QStringLiteral("完成。") : ev.message);
+		if (ev.toolId == QStringLiteral("geometry.recognize.create") ||
+			ev.confirmKind == AiAgentConfirmKind::RecognizeCreate)
+			m_pendingRecognitionJson.clear();
+		if (ev.toolId == QStringLiteral("trajectory.feature.commit") ||
+			ev.confirmKind == AiAgentConfirmKind::TrajectoryCommit)
+			resetFeatureSession();
+		emit assistantFinished(ev.message, false, QStringLiteral("Agent"));
+		break;
+	case AiAgentEventKind::Error:
+		m_dock->hideAgentConfirmPanel();
+		m_dock->setBusy(false);
+		m_dock->appendAssistantMessage(ev.message);
+		emit parseFailed(ev.message, QStringLiteral("Agent"));
+		break;
+	case AiAgentEventKind::Secondary:
+		m_dock->hideAgentConfirmPanel();
+		m_dock->setBusy(false);
+		if (ev.toolId == QStringLiteral("trajectory.feature.commit"))
+			onRetryTrajectoryFeaturesClicked();
+		break;
+	}
+}
+
+void AiAssistantCoordinator::onAgentConfirmAccepted(const QString& pendingId, const QByteArray& argsJsonUtf8)
+{
+	if (!m_aiHost)
+		return;
+	m_dock->setBusy(true);
+	m_aiHost->submitAgentConfirm(pendingId, argsJsonUtf8);
+}
+
+void AiAssistantCoordinator::onAgentConfirmRejected(const QString& pendingId)
+{
+	if (!m_aiHost)
+		return;
+	m_aiHost->cancelAgentConfirm(pendingId);
+}
+
+void AiAssistantCoordinator::onAgentConfirmSecondary(const QString& pendingId)
+{
+	if (!m_aiHost)
+		return;
+	m_aiHost->secondaryAgentConfirm(pendingId);
 }

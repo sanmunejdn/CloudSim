@@ -9,7 +9,7 @@
 | x64 输出 | `VcgAlgorithms.dll` + `VcgAlgorithms.lib` |
 | Win32 输出 | 静态 `VcgAlgorithms.lib` |
 | 命名空间 | `vcgalgo` |
-| 依赖 | vcglib（头文件，`bin/SDK/vcglib`）、Eigen、CGAL（仅 MeshReconstruct 调用 pclalgo） |
+| 依赖 | vcglib（头文件，`bin/SDK/vcglib`）、Eigen；MeshReconstruct 仅后处理 soup（Poisson 在 pclalgo） |
 | 许可证 | GPL-3.0（vcglib） |
 
 ---
@@ -34,7 +34,7 @@
 | `MeshSmooth.h` | `smoothLaplacian` / `smoothTaubin` / `applyMeshSmooth` |
 | `MeshRepair.h` | `repairMesh` — 去重/退化/重复面/非流形/填孔 |
 | `MeshRemesh.h` | `isotropicRemesh` — 各向同性重网格；`computeMedianEdgeLengthMm` — 边长中位数 |
-| `MeshReconstruct.h` | `reconstructAndPostProcess` — CGAL Poisson + vcglib 后处理管线 |
+| `MeshReconstruct.h` | `postProcessReconstructedMesh` — 对已有 soup 做简化/修复/平滑（Poisson 在 pclalgo） |
 | `SelfTest.h` | `runSelfTest` |
 
 ### 3.1 网格简化
@@ -91,15 +91,16 @@ vcgalgo::isotropicRemesh(soup, 2.0, remeshed, 3);
 ### 3.5 重建管线增强
 
 ```cpp
-vcgalgo::reconstructAndPostProcess(
-    xyz, normals, outSoup,
+// 先 pclalgo::reconstructPoisson* 得 soup，再后处理：
+vcgalgo::postProcessReconstructedMesh(
+    soup, outSoup,
     50000,   // targetFaceCount（0=不简化）
     true,    // doRepair
     false    // doSmooth
 );
 ```
 
-**说明**：点云 Poisson/Scale-space 重建在本模块；**网格 → NURBS B-rep 曲面重构** 在 [`GeometryAlgorithm/MeshSurfaceReconstruction`](../GeometryAlgorithm/inc/MeshSurfaceReconstruction.h)（插件「曲面重构」分阶段 API）。
+**说明**：点云 Poisson/Scale-space 在 [`PointCloudAlgorithm`](../PointCloudAlgorithm/DEVELOPER_GUIDE.md)；本 API 只做 vcglib 后处理。**网格 → NURBS B-rep** 在 [`GeometryAlgorithm/MeshSurfaceReconstruction`](../GeometryAlgorithm/inc/MeshSurfaceReconstruction.h)。
 
 ---
 
@@ -113,7 +114,7 @@ VcgAlgorithms.dll
 ├─ MeshSmooth.cpp         — vcg::Smooth::VertexCoordLaplacian / ImplicitFairing
 ├─ MeshRepair.cpp         — vcg::tri::Clean + vcg::tri::Hole
 ├─ MeshRemesh.cpp         — vcg::tri::IsotropicRemeshing
-├─ MeshReconstruct.cpp    — 调用 pclalgo::reconstructPoisson + 后处理
+├─ MeshReconstruct.cpp    — postProcessReconstructedMesh（简化/修复/平滑）
 └─ SelfTest.cpp           — 立方体/球面测试用例
 ```
 

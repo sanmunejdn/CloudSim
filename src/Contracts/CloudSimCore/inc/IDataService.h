@@ -65,6 +65,9 @@ public:
 	virtual void markFollowDirtyFromMove(const ObjectId& seedId) = 0;
 	virtual void requestFollowSolveForced() = 0;
 	virtual bool runFollowSolveAndSync(const FollowSolveContextDto& ctx, QString* outError = nullptr) = 0;
+
+	/// 启用中的 Follow 目标 id；无组件或未启用返回空（vtable 末尾追加）
+	virtual ObjectId followTargetId(const ObjectId& followerId) const = 0;
 };
 
 } // namespace cloudsim::core

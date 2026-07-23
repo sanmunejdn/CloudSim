@@ -85,6 +85,16 @@ const RobotInstruction::Base* RobotProgramExecutor::currentInstruction() const
 	return nullptr;
 }
 
+double RobotProgramExecutor::motionSegmentProgress01() const
+{
+	if (!m_inMotion || !m_activeMotion || m_segDurationSec <= 1e-9)
+	{
+		return 1.0;
+	}
+	const double elapsed = m_segmentTimer.elapsed() / 1000.0;
+	return std::clamp(elapsed / m_segDurationSec, 0.0, 1.0);
+}
+
 const RobotInstruction::PlanResult* RobotProgramExecutor::planForMotion(const RobotInstruction::Base& ins) const
 {
 	const auto it = m_motionPlanIndex.find(&ins);
@@ -299,6 +309,7 @@ bool RobotProgramExecutor::advanceProgramStep(IRobotSimulationDocument* doc, IRo
 		{
 		case RobotInstruction::Type::PTP:
 		case RobotInstruction::Type::LINE:
+		case RobotInstruction::Type::ARC:
 			return startMotionSegment(*ins);
 		case RobotInstruction::Type::WAIT:
 		{

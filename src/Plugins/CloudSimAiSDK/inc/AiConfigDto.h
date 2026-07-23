@@ -39,12 +39,23 @@ struct CLOUDSIM_AI_SDK_EXPORT AiRouterConfig
 	QString baseUrl = QStringLiteral("http://127.0.0.1:11434/v1");
 };
 
+struct CLOUDSIM_AI_SDK_EXPORT AiAgentPolicyConfig
+{
+	int maxSteps = 8;
+	bool autoExecuteLowRisk = true;
+	bool enableTrace = true;
+	bool enablePlan = true;
+	int planMaxSteps = 8;
+	bool replanOnFailure = true;
+};
+
 struct CLOUDSIM_AI_SDK_EXPORT AiConfigDto
 {
 	QString hardwareProfile = QStringLiteral("vram_8gb");
 	QStringList parserPriorityDefault = {QStringLiteral("rules"), QStringLiteral("local"), QStringLiteral("remote")};
 	AiRemoteLlmConfig remoteLlm;
 	AiRouterConfig router;
+	AiAgentPolicyConfig agent;
 	std::vector<AiDomainModelConfig> domains;
 };
 

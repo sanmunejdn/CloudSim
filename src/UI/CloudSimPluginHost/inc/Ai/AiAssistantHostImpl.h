@@ -6,6 +6,7 @@
 
 #include "Ai/AiDomainRegistryImpl.h"
 #include "Ai/AiDomainRouter.h"
+#include "Ai/CatalogActionPlanDomainHandler.h"
 #include "Ai/GeometryRecognizeDomainHandler.h"
 #include "Ai/MeshComposeDomainHandler.h"
 #include "Ai/MeshCreateDomainHandler.h"
@@ -13,13 +14,16 @@
 #include "IAiAssistantHost.h"
 
 #include <memory>
+#include <optional>
 
+class AiAgentRuntime;
 class PluginHostContext;
 
 class AiAssistantHostImpl : public IAiAssistantHost
 {
 public:
 	explicit AiAssistantHostImpl(PluginHostContext* pluginHost);
+	~AiAssistantHostImpl() override;
 
 	unsigned int aiSdkVersion() const override;
 	std::optional<AiConfigDto> loadConfig() const override;
@@ -46,6 +50,14 @@ public:
 
 	QString resolveDomainId(const QString& requestedDomainId, const QString& userText) const override;
 
+	void runAgentTurnAsync(const AiInferenceRequest& request, const AiConfigDto& config,
+						   const AiInferenceProgressFn& progress, const AiAgentEventFn& onEvent) override;
+	void submitAgentConfirm(const QString& pendingId, const QByteArray& argsJsonUtf8) override;
+	void cancelAgentConfirm(const QString& pendingId) override;
+	void cancelAgentTurn() override;
+	void beginDomainConfirmAsync(const AiDomainConfirmRequest& request, const AiAgentEventFn& onEvent) override;
+	void secondaryAgentConfirm(const QString& pendingId) override;
+
 private:
 	void registerBuiltinDomains();
 	const AiDomainModelConfig* findDomainConfig(const AiConfigDto& cfg, const QString& domainId) const;
@@ -63,8 +75,15 @@ private:
 	MeshComposeDomainHandler m_composeHandler;
 	GeometryRecognizeDomainHandler m_geomHandler;
 	TrajectoryFeatureDomainHandler m_trajFeatureHandler;
+	std::optional<CatalogActionPlanDomainHandler> m_docImportHandler;
+	std::optional<CatalogActionPlanDomainHandler> m_pcOpsHandler;
+	std::optional<CatalogActionPlanDomainHandler> m_geomOpsHandler;
+	std::optional<CatalogActionPlanDomainHandler> m_featureHandler;
+	std::optional<CatalogActionPlanDomainHandler> m_labelHandler;
+	std::optional<CatalogActionPlanDomainHandler> m_sceneOpsHandler;
 	std::vector<std::shared_ptr<IAiInferenceProvider>> m_inferenceProviders;
 	QString m_lastLoadedModel;
+	std::unique_ptr<AiAgentRuntime> m_agentRuntime;
 };
 
-#endif // CLOUDSIMPLUGINHOST_AIASSISTANTHOSTIMPL_H
+#endif

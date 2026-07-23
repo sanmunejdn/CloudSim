@@ -2,7 +2,7 @@
 #define GEOMETRYALGORITHM_GEOMETRY_ALGORITHM_GLOBAL_H
 
 /// @file geometry_algorithm_global.h
-/// @brief GeometryAlgorithm 导出宏
+/// @brief GeometryAlgorithm DLL 导出宏（GEOMETRY_ALGORITHM_API）
 
 #if defined(GEOMETRY_ALGORITHM_STATIC) || defined(BUILD_STATIC)
 #define GEOMETRY_ALGORITHM_API

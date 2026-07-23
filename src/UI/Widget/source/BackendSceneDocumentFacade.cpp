@@ -8,14 +8,15 @@
 #include "BackendFollowReverseIndex.h"
 #include "BrepBackendData.h"
 #include "IBackendSceneBridge.h"
+#include "IDataService.h"
 #include "IRobotBackendPoseSink.h"
 #include "MeshBackendData.h"
 #include "OsgWidget.h"
 #include "PointCloudBackendData.h"
 
 BackendSceneEntity::BackendSceneEntity(std::string backendId, IBackendSceneBridge* bridge, BackendDataManager* mgr,
-									   BackendFollowReverseIndex* followIndex)
-	: m_id(std::move(backendId)), m_bridge(bridge), m_mgr(mgr), m_followIndex(followIndex)
+									   cloudsim::core::IDataService* data, BackendFollowReverseIndex* followIndex)
+	: m_id(std::move(backendId)), m_bridge(bridge), m_mgr(mgr), m_data(data), m_followIndex(followIndex)
 {
 }
 
@@ -122,23 +123,24 @@ std::vector<std::string> BackendSceneEntity::childBackendIds() const
 
 std::vector<std::string> BackendSceneEntity::followerBackendIds() const
 {
-	if (!m_mgr || !m_followIndex || m_id.empty())
+	if (!m_data || !m_followIndex || m_id.empty())
 	{
 		return {};
 	}
-	return m_followIndex->followersOf(*m_mgr, m_id);
+	return m_followIndex->followersOf(*m_data, m_id);
 }
 
-BackendSceneDocumentFacade::BackendSceneDocumentFacade(BackendDataManager& mgr, IBackendSceneBridge& bridge,
+BackendSceneDocumentFacade::BackendSceneDocumentFacade(cloudsim::core::IDataService& data, BackendDataManager& mgr,
+													   IBackendSceneBridge& bridge,
 													   BackendFollowReverseIndex& followIndex, OsgWidget* osgWidget)
-	: m_mgr(&mgr), m_bridge(&bridge), m_followIndex(&followIndex),
+	: m_data(&data), m_mgr(&mgr), m_bridge(&bridge), m_followIndex(&followIndex),
 	  m_poseSink(static_cast<IRobotBackendPoseSink*>(osgWidget))
 {
 }
 
 BackendSceneEntity BackendSceneDocumentFacade::entity(const std::string& backendId) const
 {
-	return BackendSceneEntity(backendId, m_bridge, m_mgr, m_followIndex);
+	return BackendSceneEntity(backendId, m_bridge, m_mgr, m_data, m_followIndex);
 }
 
 void BackendSceneDocumentFacade::setBackendsVisible(const std::vector<std::string>& backendIds, bool visible)

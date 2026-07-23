@@ -22,22 +22,14 @@ class EventHub;
 }
 #include "IRobotSimulationDocument.h"
 #include "RobotCoordinateFrames.h"
+#include "RobotExternalAxes.h"
 
 #include <string>
 #include <unordered_set>
 
-class QTabWidget;
-class MeshBackendData;
-class BackendSceneDocumentFacade;
-class IRobotBackendPoseSink;
+#include <osg/MatrixTransform>
 
-namespace osg
-{
-class Group;
-class MatrixTransform;
-template <class T>
-class ref_ptr;
-} // namespace osg
+class QTabWidget;
 
 /// 单文档页：宿主层 DocumentHost + 机器人仿真元数据（IRobotSimulationDocument）
 class WIDGET_EXPORT DocumentPage : public cloudsim::host::DocumentHost,
@@ -77,7 +69,10 @@ public:
 		const QHash<QString, osg::MatrixTransform*>& jointTransformsPrefixedKeys, const QString& robotSceneBackendId,
 		const QString& jointPrefixRootOverride = QString()) override;
 
-	osg::MatrixTransform* robotJointMatrixTransform(const QString& jointName) const override;
+	osg::MatrixTransform* robotJointMatrixTransform(const QString& jointName) const;
+	bool hasRobotJointLocalMatrix(const QString& jointName) const override;
+	bool robotJointWorldMatrix(const QString& jointName, cloudsim::core::Mat4& outWorld) const override;
+	bool applyRobotJointLocalMatrix(const QString& jointName, const cloudsim::core::Mat4& localColumnMajor) override;
 
 	int robotKinematicInstanceCount() const override;
 	int robotInstanceIndexForSceneBackendId(const QString& sceneBackendId) const override;
@@ -93,9 +88,8 @@ public:
 	int robotRevoluteJointCountForInstance(int instanceIndex) const override;
 	QString robotJointKeyPrefixForInstance(int instanceIndex) const override;
 	bool robotUsesPerLinkBackendsForInstance(int instanceIndex) const override;
-	bool robotPerLinkKinematicsForInstance(int instanceIndex, RobotPerLinkKinematicsSlice& out) const override;
-	bool robotPerLinkKinematicsDtoForInstance(int instanceIndex,
-											  cloudsim::core::RobotPerLinkKinematicsSliceDto& out) const override;
+	bool robotPerLinkKinematicsForInstance(int instanceIndex,
+										   cloudsim::core::RobotPerLinkKinematicsSliceDto& out) const override;
 
 	QString robotSceneBackendId() const { return m_robotSceneBackendId; }
 
@@ -109,12 +103,8 @@ public:
 	const QStringList& robotRevoluteJointNames() const override { return m_robotRevoluteJointNames; }
 
 	const QHash<QString, QString>& robotLinkNameToBackendId() const override;
-	const QHash<QString, osg::Matrixd>& robotFkMeshWorldT0() const override;
-	const QHash<QString, osg::Matrixd>& robotOuterWorldAtBind() const override;
-
-	/// DTO 版本（Widget 优先调用，避免 osg 依赖）
-	QHash<QString, cloudsim::core::Mat4> robotFkMeshWorldT0Dto() const override;
-	QHash<QString, cloudsim::core::Mat4> robotOuterWorldAtBindDto() const override;
+	QHash<QString, cloudsim::core::Mat4> robotFkMeshWorldT0() const override;
+	QHash<QString, cloudsim::core::Mat4> robotOuterWorldAtBind() const override;
 	bool robotUrdfMeshVerticesInLinkFrame() const override;
 
 	QString robotImportParentId() const;
@@ -133,6 +123,7 @@ public:
 	const QVector<double>& robotJointUpperRad() const { return m_robotJointUpperRad; }
 
 	BackendDataManager* robotBackendManagerForKinematics() override { return &DocumentHost::backend(); }
+	/// 存量白名单：运动学 / URDF 导入 / mesh 几何仍需 BackendDataManager；新 UI 走 DocumentHost::data()
 	BackendDataManager& backend() override { return DocumentHost::backend(); }
 
 	void notifyRobotKinematicsAppliedToScene() override;
@@ -159,18 +150,24 @@ public:
 	QMap<QString, QString>& urdfImportBackendParentId() override { return DocumentHost::backendParentId(); }
 
 	void setRobotPerLinkKinematicsBinding(const QString& importKey, const QHash<QString, QString>& linkNameToBackendId,
-										  const QHash<QString, osg::Matrixd>& fkMeshWorldT0,
-										  const QHash<QString, osg::Matrixd>& outerWorldAtBindByBackendId,
+										  const QHash<QString, cloudsim::core::Mat4>& fkMeshWorldT0,
+										  const QHash<QString, cloudsim::core::Mat4>& outerWorldAtBindByBackendId,
 										  bool meshVerticesInLinkFrame = false) override;
 
 	int robotInstanceIndexForPerLinkBackend(const QString& backendId, bool* outIsSceneRoot = nullptr) const;
 
-	void setRobotBasePlacementWorldForInstance(int instanceIndex, const osg::Matrixd& placementWorld) override;
+	void setRobotBasePlacementWorldForInstance(int instanceIndex,
+											   const cloudsim::core::Mat4& placementWorld) override;
+	void setRobotExternalAxisQMm(int instanceIndex, double qMm);
+	double robotExternalAxisQMm(int instanceIndex) const;
 
-	void updateRobotLinkOuterBindFromWorld(int instanceIndex, const QString& linkBackendId, const osg::Matrixd& world);
+	void updateRobotLinkOuterBindFromWorld(int instanceIndex, const QString& linkBackendId,
+										   const cloudsim::core::Mat4& world);
 
 	const RobotCoordinate::RobotCoordinateFrameSet& robotCoordinateFramesForInstance(int instanceIndex) const;
 	RobotCoordinate::RobotCoordinateFrameSet& robotCoordinateFramesForInstance(int instanceIndex) override;
+	const RobotExternal::RobotExternalAxisConfigSet& robotExternalAxesForInstance(int instanceIndex) const;
+	RobotExternal::RobotExternalAxisConfigSet& robotExternalAxesForInstance(int instanceIndex) override;
 	const RobotCoordinate::RobotUserFrame* robotActiveUserFrameForInstance(int instanceIndex) const;
 
 private:
@@ -186,11 +183,15 @@ private:
 		bool perLinkBackends = false;
 		QString perLinkImportKey;
 		QHash<QString, QString> linkNameToBackendId;
-		QHash<QString, osg::Matrixd> fkMeshWorldT0;
-		QHash<QString, osg::Matrixd> outerWorldAtBindByBackendId;
-		osg::Matrixd basePlacementWorld;
+		QHash<QString, cloudsim::core::Mat4> fkMeshWorldT0;
+		QHash<QString, cloudsim::core::Mat4> outerWorldAtBindByBackendId;
+		/// 默认单位阵：Mat4{} 全零会让 FK/跟随目标坍缩到原点
+		cloudsim::core::Mat4 basePlacementWorld = cloudsim::core::PlanContextDto::identityMat4();
+		/// 运行时地轨行程（mm）；不写入 basePlacement，FK 时再合成
+		double externalAxisQMm = 0.0;
 		bool meshVerticesInLinkFrame = false;
 		RobotCoordinate::RobotCoordinateFrameSet coordinateFrames;
+		RobotExternal::RobotExternalAxisConfigSet externalAxes;
 	};
 
 	void rebuildHierarchicalRobotAggregates();
@@ -198,8 +199,8 @@ private:
 
 	QString m_robotImportParentId;
 	QHash<QString, QString> m_robotLinkNameToBackendId;
-	QHash<QString, osg::Matrixd> m_robotFkMeshWorldT0;
-	QHash<QString, osg::Matrixd> m_robotOuterWorldAtBind;
+	QHash<QString, cloudsim::core::Mat4> m_robotFkMeshWorldT0;
+	QHash<QString, cloudsim::core::Mat4> m_robotOuterWorldAtBind;
 	bool m_robotUrdfMeshVerticesInLinkFrame = false;
 
 	QVector<HierarchicalRobotInstance> m_hierarchicalRobots;

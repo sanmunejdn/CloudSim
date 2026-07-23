@@ -83,6 +83,16 @@ public:
 
 		bool deferInstructionSelection = false);
 
+	std::shared_ptr<RobotInstruction::Base> appendArcInstructionFromPoses(
+
+		const RobotInstruction::Vec3& viaPoseMm, const RobotInstruction::Vec3& viaEulerDeg,
+		const RobotInstruction::Vec3& endPoseMm, const RobotInstruction::Vec3& endEulerDeg,
+		bool deferInstructionSelection = false);
+
+	void setArcTeachPending(bool pending);
+
+	bool arcTeachPending() const { return m_arcTeachPending; }
+
 	std::shared_ptr<RobotInstruction::Base> appendInstruction(RobotInstruction::Type type);
 
 	bool appendInstructionFromJson(const nlohmann::json& j, std::string* errMsg = nullptr);
@@ -154,6 +164,8 @@ private:
 
 	void updateProgramGroupUi();
 
+	void refreshArcTeachButtonLabels();
+
 	QPushButton* createTypeButton(RobotInstruction::Type type);
 
 	RobotProgramStore* m_programStore = nullptr;
@@ -201,6 +213,8 @@ private:
 	QPushButton* m_tcpDragTeachBtn = nullptr;
 
 	bool m_tcpDragTeachMode = false;
+
+	bool m_arcTeachPending = false;
 
 	QScrollArea* m_scrollArea = nullptr;
 };

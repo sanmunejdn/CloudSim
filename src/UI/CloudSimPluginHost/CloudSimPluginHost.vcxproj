@@ -80,16 +80,28 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="inc\Ai\AiActionPlanExecutor.h" />
+    <ClInclude Include="inc\Ai\AiAgentPickDialog.h" />
+    <ClInclude Include="inc\Ai\AiAgentMemory.h" />
+    <ClInclude Include="inc\Ai\AiAgentPlanBuilder.h" />
+    <ClInclude Include="inc\Ai\AiAgentRuntime.h" />
+    <ClInclude Include="inc\Ai\AiAgentTrace.h" />
+    <ClInclude Include="inc\Ai\AiArgsSchema.h" />
+    <ClInclude Include="inc\Ai\AiApiCatalogEmbedded.h" />
     <ClInclude Include="inc\Ai\AiAssistantHostImpl.h" />
+    <ClInclude Include="inc\Ai\AiCatalogKeywordMatcher.h" />
     <ClInclude Include="inc\Ai\AiCommandSchema.h" />
     <ClInclude Include="inc\Ai\AiConfigLoader.h" />
     <ClInclude Include="inc\Ai\AiDomainRegistryImpl.h" />
     <ClInclude Include="inc\Ai\AiDomainRouter.h" />
+    <ClInclude Include="inc\Ai\AiHostButtonApiDispatch.h" />
     <ClInclude Include="inc\Ai\AiHttpsPost.h" />
     <ClInclude Include="inc\Ai\AiIntentParser.h" />
     <ClInclude Include="inc\Ai\AiLlmClient.h" />
     <ClInclude Include="inc\Ai\AiLlmConfig.h" />
     <ClInclude Include="inc\Ai\AiProgressSink.h" />
+    <ClInclude Include="inc\Ai\AiSceneSnapshotBuilder.h" />
+    <ClInclude Include="inc\Ai\AiSceneOpsRules.h" />
+    <ClInclude Include="inc\Ai\CatalogActionPlanDomainHandler.h" />
     <ClInclude Include="inc\Ai\GeometryRecognizeDomainHandler.h" />
     <ClInclude Include="inc\Ai\AiTrajectoryFeatureCatalog.h" />
     <ClInclude Include="inc\Ai\TrajectoryFeatureDomainHandler.h" />
@@ -111,17 +123,29 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\Ai\AiActionPlanExecutor.cpp" />
+    <ClCompile Include="source\Ai\AiAgentPickDialog.cpp" />
+    <ClCompile Include="source\Ai\AiAgentMemory.cpp" />
+    <ClCompile Include="source\Ai\AiAgentPlanBuilder.cpp" />
+    <ClCompile Include="source\Ai\AiAgentRuntime.cpp" />
+    <ClCompile Include="source\Ai\AiAgentTrace.cpp" />
+    <ClCompile Include="source\Ai\AiApiCatalogEmbedded.cpp" />
+    <ClCompile Include="source\Ai\AiArgsSchema.cpp" />
     <ClCompile Include="source\Ai\AiAssistantHostImpl.cpp" />
+    <ClCompile Include="source\Ai\AiCatalogKeywordMatcher.cpp" />
     <ClCompile Include="source\Ai\AiCommandSchema.cpp" />
     <ClCompile Include="source\Ai\AiConfigLoader.cpp" />
     <ClCompile Include="source\Ai\AiDomainRegistryImpl.cpp" />
     <ClCompile Include="source\Ai\AiDomainRouter.cpp" />
+    <ClCompile Include="source\Ai\AiHostButtonApiDispatch.cpp" />
     <ClCompile Include="source\Ai\AiHttpsPost.cpp" />
     <ClCompile Include="source\Ai\AiIntentParser.cpp" />
     <ClCompile Include="source\Ai\AiLlmClient.cpp" />
     <ClCompile Include="source\Ai\AiLlmConfig.cpp" />
     <ClCompile Include="source\Ai\AiMeshDefaults.cpp" />
+    <ClCompile Include="source\Ai\AiSceneOpsRules.cpp" />
+    <ClCompile Include="source\Ai\AiSceneSnapshotBuilder.cpp" />
     <ClCompile Include="source\Ai\AiTrajectoryFeatureCatalog.cpp" />
+    <ClCompile Include="source\Ai\CatalogActionPlanDomainHandler.cpp" />
     <ClCompile Include="source\Ai\GeometryRecognizeDomainHandler.cpp" />
     <ClCompile Include="source\Ai\TrajectoryFeatureDomainHandler.cpp" />
     <ClCompile Include="source\Ai\MeshComposeDomainHandler.cpp" />

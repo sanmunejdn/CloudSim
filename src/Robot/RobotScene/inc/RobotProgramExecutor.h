@@ -38,6 +38,8 @@ public:
 	const QVector<double>& jointAnglesRad() const { return m_jointAnglesRad; }
 	const RobotInstruction::Base* activeMotion() const { return m_activeMotion; }
 	const RobotInstruction::Base* currentInstruction() const;
+	/// 当前运动段进度 [0,1]；非运动中为 1
+	double motionSegmentProgress01() const;
 	/// 因规划失败停机时的摘要；正常结束为空
 	const std::string& lastAbortSummary() const { return m_lastAbortSummary; }
 	bool abortedDueToFailedPlan() const { return m_abortedDueToFailedPlan; }

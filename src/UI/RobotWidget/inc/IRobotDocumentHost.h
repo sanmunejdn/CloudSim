@@ -4,17 +4,20 @@
 /// @file IRobotDocumentHost.h
 /// @brief 文档级机器人状态与变更（DocumentPage 实现）
 
+#include "robotwidget_global.h"
+
 #include "BackendFollowMath.h"
 #include "IRobotSimulationDocument.h"
 #include "RobotCoordinateFrames.h"
+#include "RobotExternalAxes.h"
 #include "RobotProgramStore.h"
+
+#include "CoreTypes.h"
 
 #include <QHash>
 #include <QString>
 #include <QStringList>
 #include <QVector>
-
-#include <osg/Matrixd>
 
 class BackendDataManager;
 class BackendDataBase;
@@ -45,11 +48,18 @@ public:
 	virtual RobotCoordinate::RobotCoordinateFrameSet& robotCoordinateFramesForInstance(int instanceIndex) = 0;
 	virtual const RobotCoordinate::RobotCoordinateFrameSet&
 	robotCoordinateFramesForInstance(int instanceIndex) const = 0;
+	virtual RobotExternal::RobotExternalAxisConfigSet& robotExternalAxesForInstance(int instanceIndex) = 0;
+	virtual const RobotExternal::RobotExternalAxisConfigSet&
+	robotExternalAxesForInstance(int instanceIndex) const = 0;
 	virtual const RobotCoordinate::RobotUserFrame* robotActiveUserFrameForInstance(int instanceIndex) const = 0;
 
-	virtual void setRobotBasePlacementWorldForInstance(int instanceIndex, const osg::Matrixd& placementWorld) = 0;
+	virtual void setRobotBasePlacementWorldForInstance(int instanceIndex,
+													   const cloudsim::core::Mat4& placementWorld) = 0;
+	/// 运行时地轨 q（mm）；P0 仍由 basePlacement 保存，FK 合成 P0*Trans(q·axis)
+	virtual void setRobotExternalAxisQMm(int instanceIndex, double qMm) = 0;
+	virtual double robotExternalAxisQMm(int instanceIndex) const = 0;
 	virtual void updateRobotLinkOuterBindFromWorld(int instanceIndex, const QString& linkBackendId,
-												   const osg::Matrixd& world) = 0;
+												   const cloudsim::core::Mat4& world) = 0;
 	virtual void reconcilePerLinkOuterBindFromScene(int instanceIndex, const QVector<double>& jointAnglesRad) = 0;
 	virtual void notifyRobotKinematicsAppliedToScene() = 0;
 	virtual void requestFollowSolveForced() = 0;
@@ -78,11 +88,14 @@ public:
 	{
 		bool ok = false;
 		QVector<double> jointRad;
+		bool hasExternalAxisQ = false;
+		double externalAxisQ = 0.0;
 		QString error;
 	};
 	virtual TcpDragIkResult solveTcpDragTeachIk(int instanceIndex, double pxMm, double pyMm, double pzMm, double exDeg,
 												double eyDeg, double ezDeg, const QVector<double>& seedJointRad,
-												const QString& ikLinkName) = 0;
+												const QString& ikLinkName, double externalAxisQSeedMm = 0.0,
+												bool hasExternalAxisQSeed = false) = 0;
 
 	/// 导出程序规划结果（不含 UI 文件对话框）
 	struct ExportPlanResult

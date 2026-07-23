@@ -2,7 +2,7 @@
 #define GEOMETRYALGORITHM_MESHSURFACERECONSTRUCTION_H
 
 /// @file MeshSurfaceReconstruction.h
-/// @brief 分块完成后按片着色三角 soup（rgb 与 soup 同布局，每顶点 3 float）
+/// @brief 三角 soup → 分块 B 样条 B-rep 曲面重构（会话式分阶段或一键全流程）
 
 #include "geometry_algorithm_global.h"
 
@@ -247,32 +247,49 @@ private:
 
 using MeshSurfaceReconstructSessionPtr = std::shared_ptr<MeshSurfaceReconstructSession>;
 
+/** 创建曲面重构会话，持有 sourceSoup 副本 */
 GEOMETRY_ALGORITHM_API MeshSurfaceReconstructSessionPtr
 createMeshSurfaceReconstructSession(std::vector<float> sourceSoup);
 
+/**
+ * 按 stage 顺序执行单步（Partition→Sample→Fit→BoundaryBlend→JunctionBlend→Fair→Assemble）
+ * @param sourceSoup 单位 mm，9T float；预处理（修复/重网格）由 Data 层在会话前完成
+ * @return false：阶段乱序、分块/拟合失败、OCCT 异常或输出校验未过
+ */
 GEOMETRY_ALGORITHM_API bool runMeshSurfaceReconstructStage(MeshSurfaceReconstructSession& session,
 														   MeshSurfaceReconstructStage stage,
 														   const MeshSurfaceReconstructParams& params,
 														   ShapeHandle* outShape, std::string* errMsg = nullptr);
 
-/// 分块完成后按片着色三角 soup（rgb 与 soup 同布局，每顶点 3 float）
+/**
+ * 分块完成后按片着色三角 soup
+ * @param outRgbPerVertex 与 soup 同布局，每顶点 3 float
+ * @return false：Partition 未完成或可视化数据无效
+ */
 GEOMETRY_ALGORITHM_API bool buildPartitionColoredMeshSoup(const MeshSurfaceReconstructSession& session,
 														  std::vector<float>& outSoup,
 														  std::vector<float>& outRgbPerVertex,
 														  std::string* errMsg = nullptr);
 
-/// 采样完成后按片着色栅格采样点（xyz 3 float / 点，rgba 4 float / 点）
+/**
+ * 采样完成后按片着色栅格采样点
+ * @return false：Sample 阶段未完成
+ */
 GEOMETRY_ALGORITHM_API bool buildSamplePointsCloud(const MeshSurfaceReconstructSession& session,
 												   std::vector<float>& outXyz, std::vector<float>& outRgba,
 												   std::string* errMsg = nullptr);
 
-/// 拟合完成后组装各 patch 面为 Compound，供场景预览
+/**
+ * 拟合完成后组装各 patch 面为 Compound 预览
+ * @return false：Fit 阶段未完成
+ */
 GEOMETRY_ALGORITHM_API bool buildFitPreviewShape(const MeshSurfaceReconstructSession& session, ShapeHandle& outShape,
 												 std::string* errMsg = nullptr);
 
 /**
- * 三角网格 soup → C² 拼接 B 样条 B-rep（单位 mm）
- * 预处理（法矢光顺/修复）由 Data 层在调用前完成
+ * 三角 soup → C² 拼接 B 样条 B-rep（单位 mm）
+ * 内部 createSession + 全流程 runStage；预处理由 Data 层在调用前完成
+ * @return false：soup 无效、任阶段失败或 tessellation 校验未过（单面 >8000 三角、bbox 比例 >3 等）
  */
 GEOMETRY_ALGORITHM_API bool reconstructBrepFromMeshSoup(const std::vector<float>& soup,
 														const MeshSurfaceReconstructParams& params,

@@ -12,6 +12,7 @@
 #include "TrajectoryPipelineTypes.h"
 #include "UnifiedTrajectory.h"
 
+#include <IExternalAxisSearchService.h>
 #include <RigidTransform.h>
 
 #include <cstddef>
@@ -53,6 +54,9 @@ public:
 		std::function<bool(const std::string& backendId, engine::RigidTransform& out, std::string* errMsg)>;
 	void setExternalTcpFrameResolver(ExternalTcpFrameResolveFn resolver);
 
+	void setExternalAxisSearchService(const trajectory_algo::IExternalAxisSearchService* service);
+	void setExternalAxisConfigs(std::vector<trajectory_algo::ExternalAxisSearchConfigDto> configs);
+
 	void setUnifiedBaseline(UnifiedTrajectory baseline);
 	void setOps(std::vector<TrajectoryOpDescriptor> ops);
 
@@ -84,6 +88,8 @@ private:
 	bool m_hasWorkpieceReferenceInBase = false;
 	engine::RigidTransform m_workpieceReferenceInBase{};
 	ExternalTcpFrameResolveFn m_externalTcpFrameResolver;
+	const trajectory_algo::IExternalAxisSearchService* m_externalAxisSearch = nullptr;
+	std::vector<trajectory_algo::ExternalAxisSearchConfigDto> m_externalAxisConfigs;
 	std::vector<TrajectoryOpDescriptor> m_ops;
 	std::vector<PipelineStep> m_steps;
 	UnifiedTrajectory m_result{};

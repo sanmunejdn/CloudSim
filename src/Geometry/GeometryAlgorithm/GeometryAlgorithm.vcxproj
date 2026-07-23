@@ -198,6 +198,7 @@
     <ClInclude Include="discretizers\FaceOffsetCurveDiscretizer.h" />
     <ClInclude Include="discretizers\SyntheticPolylineDiscretizer.h" />
     <ClInclude Include="inc\ShapeHandle.h" />
+    <ClInclude Include="inc\PrimitiveBrep.h" />
     <ClInclude Include="inc\ShapeIo.h" />
     <ClInclude Include="inc\ViewTessellate.h" />
     <ClInclude Include="inc\BrepImportArtifacts.h" />
@@ -243,6 +244,7 @@
     <ClCompile Include="source\FaceSectionDiscretize.cpp" />
     <ClCompile Include="source\ParamSurfaceDiscretize.cpp" />
     <ClCompile Include="source\ShapeHandle.cpp" />
+    <ClCompile Include="source\PrimitiveBrep.cpp" />
     <ClCompile Include="source\ViewTessellate.cpp" />
     <ClCompile Include="source\BrepImportArtifacts.cpp" />
     <ClCompile Include="source\TrajectoryProjection.cpp" />

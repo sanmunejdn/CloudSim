@@ -113,5 +113,6 @@ CloudSim/
 
 ## CloudSimPluginHost 说明
 
-- **sln 工程**：`src/UI/CloudSimPluginHost/`（可选单独编译）
-- **产品路径**：源码由 `Widget` / `CloudSimHost` 按当前工程配置编入对应 DLL，避免重复链入 exe；细节见各模块 `DEVELOPER_GUIDE.md` 与 [`ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §10
+- **sln 工程**：`src/UI/CloudSimPluginHost/`（可选单独编译参考）
+- **产品路径**：源码由 **`CloudSimHost.vcxproj` 编入 `CloudSimHost.dll`**（勿再编入 Widget）；细节见 [`ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §10–§11.1
+- **OsgWidget 真源**：`src/UI/Widget/source/OsgWidget*`（由 Host 编译）；禁止在 `Host/inc|source/osg` 维护平行副本

@@ -6,6 +6,8 @@
 
 #include "cloudsim_host_global.h"
 
+#include "CoreTypes.h"
+
 #include <QHash>
 #include <QMap>
 #include <QStringList>
@@ -19,12 +21,16 @@ class MeshBackendData;
 namespace osg
 {
 class MatrixTransform;
-class Matrixd;
 } // namespace osg
 
 namespace RobotCoordinate
 {
 struct RobotCoordinateFrameSet;
+}
+
+namespace RobotExternal
+{
+struct RobotExternalAxisConfigSet;
 }
 
 namespace cloudsim::host
@@ -57,16 +63,18 @@ public:
 
 	virtual void setRobotPerLinkKinematicsBinding(const QString& importKey,
 												  const QHash<QString, QString>& linkNameToBackendId,
-												  const QHash<QString, osg::Matrixd>& fkMeshWorldT0,
-												  const QHash<QString, osg::Matrixd>& outerWorldAtBindByBackendId,
+												  const QHash<QString, cloudsim::core::Mat4>& fkMeshWorldT0,
+												  const QHash<QString, cloudsim::core::Mat4>& outerWorldAtBindByBackendId,
 												  bool meshVerticesInLinkFrame = false) = 0;
 
 	virtual int robotKinematicInstanceCount() const = 0;
 	virtual int robotInstanceIndexForSceneBackendId(const QString& sceneBackendId) const = 0;
 	virtual RobotCoordinate::RobotCoordinateFrameSet& robotCoordinateFramesForInstance(int instanceIndex) = 0;
+	virtual RobotExternal::RobotExternalAxisConfigSet& robotExternalAxesForInstance(int instanceIndex) = 0;
 
-	/// 设置机器人基座放置位姿 P（工程恢复时从 project.json 还原）
-	virtual void setRobotBasePlacementWorldForInstance(int instanceIndex, const osg::Matrixd& placementWorld) = 0;
+	/// 设置机器人基座放置位姿 P（工程恢复时从 project.json 还原；列主序 Mat4）
+	virtual void setRobotBasePlacementWorldForInstance(int instanceIndex,
+													   const cloudsim::core::Mat4& placementWorld) = 0;
 };
 
 } // namespace cloudsim::host

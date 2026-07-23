@@ -5,6 +5,7 @@
 
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
+#include "../RobotWidget/inc/RobotExternalAxisSettingsWidget.h"
 #include "BackendSceneDocumentFacade.h"
 #include "CoreTypes.h"
 #include "DocumentPage.h"
@@ -19,6 +20,7 @@
 #include "RobotInstructionPropertyDto.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotPlanInstruction.h"
+#include "RobotExternalAxes.h"
 #include "RobotTeachIk.h"
 #include "RunInfoPage.h"
 #include "UrdfRobotLoader.h"
@@ -26,6 +28,7 @@
 #include "WidgetSceneSignalWiring.h"
 
 #include <memory>
+#include <algorithm>
 
 #include <Adapters.h>
 
@@ -53,22 +56,26 @@ public:
 	{
 		return m_page->robotLinkNameToBackendId();
 	}
-	osg::MatrixTransform* robotJointMatrixTransform(const QString& jointName) const override
+	bool hasRobotJointLocalMatrix(const QString& jointName) const override
 	{
-		return m_page->robotJointMatrixTransform(jointName);
+		return m_page->hasRobotJointLocalMatrix(jointName);
 	}
-	const QHash<QString, osg::Matrixd>& robotFkMeshWorldT0() const override { return m_page->robotFkMeshWorldT0(); }
-	const QHash<QString, osg::Matrixd>& robotOuterWorldAtBind() const override
+	bool robotJointWorldMatrix(const QString& jointName, cloudsim::core::Mat4& outWorld) const override
+	{
+		return m_page->robotJointWorldMatrix(jointName, outWorld);
+	}
+	bool applyRobotJointLocalMatrix(const QString& jointName, const cloudsim::core::Mat4& localColumnMajor) override
+	{
+		return m_page->applyRobotJointLocalMatrix(jointName, localColumnMajor);
+	}
+	void applyRobotJointLocalMatrices(const QHash<QString, cloudsim::core::Mat4>& localByPrefixedJointKey) override
+	{
+		m_page->applyRobotJointLocalMatrices(localByPrefixedJointKey);
+	}
+	QHash<QString, cloudsim::core::Mat4> robotFkMeshWorldT0() const override { return m_page->robotFkMeshWorldT0(); }
+	QHash<QString, cloudsim::core::Mat4> robotOuterWorldAtBind() const override
 	{
 		return m_page->robotOuterWorldAtBind();
-	}
-	QHash<QString, cloudsim::core::Mat4> robotFkMeshWorldT0Dto() const override
-	{
-		return m_page->robotFkMeshWorldT0Dto();
-	}
-	QHash<QString, cloudsim::core::Mat4> robotOuterWorldAtBindDto() const override
-	{
-		return m_page->robotOuterWorldAtBindDto();
 	}
 	bool robotUrdfMeshVerticesInLinkFrame() const override { return m_page->robotUrdfMeshVerticesInLinkFrame(); }
 	int robotKinematicInstanceCount() const override { return m_page->robotKinematicInstanceCount(); }
@@ -88,7 +95,8 @@ public:
 	{
 		return m_page->robotUsesPerLinkBackendsForInstance(instanceIndex);
 	}
-	bool robotPerLinkKinematicsForInstance(int instanceIndex, RobotPerLinkKinematicsSlice& out) const override
+	bool robotPerLinkKinematicsForInstance(int instanceIndex,
+										   cloudsim::core::RobotPerLinkKinematicsSliceDto& out) const override
 	{
 		return m_page->robotPerLinkKinematicsForInstance(instanceIndex, out);
 	}
@@ -133,16 +141,33 @@ public:
 	{
 		return m_page->robotCoordinateFramesForInstance(instanceIndex);
 	}
+	RobotExternal::RobotExternalAxisConfigSet& robotExternalAxesForInstance(int instanceIndex) override
+	{
+		return m_page->robotExternalAxesForInstance(instanceIndex);
+	}
+	const RobotExternal::RobotExternalAxisConfigSet& robotExternalAxesForInstance(int instanceIndex) const override
+	{
+		return m_page->robotExternalAxesForInstance(instanceIndex);
+	}
 	const RobotCoordinate::RobotUserFrame* robotActiveUserFrameForInstance(int instanceIndex) const override
 	{
 		return m_page->robotActiveUserFrameForInstance(instanceIndex);
 	}
-	void setRobotBasePlacementWorldForInstance(int instanceIndex, const osg::Matrixd& placementWorld) override
+	void setRobotBasePlacementWorldForInstance(int instanceIndex,
+											   const cloudsim::core::Mat4& placementWorld) override
 	{
 		m_page->setRobotBasePlacementWorldForInstance(instanceIndex, placementWorld);
 	}
+	void setRobotExternalAxisQMm(int instanceIndex, double qMm) override
+	{
+		m_page->setRobotExternalAxisQMm(instanceIndex, qMm);
+	}
+	double robotExternalAxisQMm(int instanceIndex) const override
+	{
+		return m_page->robotExternalAxisQMm(instanceIndex);
+	}
 	void updateRobotLinkOuterBindFromWorld(int instanceIndex, const QString& linkBackendId,
-										   const osg::Matrixd& world) override
+										   const cloudsim::core::Mat4& world) override
 	{
 		m_page->updateRobotLinkOuterBindFromWorld(instanceIndex, linkBackendId, world);
 	}
@@ -330,7 +355,8 @@ public:
 
 	TcpDragIkResult solveTcpDragTeachIk(int instanceIndex, double pxMm, double pyMm, double pzMm, double exDeg,
 										double eyDeg, double ezDeg, const QVector<double>& seedJointRad,
-										const QString& ikLinkName) override
+										const QString& ikLinkName, double externalAxisQSeedMm = 0.0,
+										bool hasExternalAxisQSeed = false) override
 	{
 		TcpDragIkResult result;
 		if (!m_page)
@@ -362,8 +388,29 @@ public:
 		}
 		ctx.useOrientation = true;
 		ctx.T_flange_tool = toolMat;
-		ctx.maxIkIterations = 20;
-		const RobotTeachIk::TeachIkResult ik = RobotTeachIk::solveTeachIk(ctx);
+		ctx.maxIkIterations = 22;
+		RobotTeachIk::TeachIkResult ik;
+		if (const RobotExternal::RobotExternalAxisConfig* rail =
+				RobotExternal::firstEnabledExternalAxis(m_page->robotExternalAxesForInstance(instanceIndex)))
+		{
+			ctx.externalAxis.enabled = true;
+			ctx.externalAxis.isPrismatic = rail->isPrismatic;
+			ctx.externalAxis.axis[0] = rail->axis[0];
+			ctx.externalAxis.axis[1] = rail->axis[1];
+			ctx.externalAxis.axis[2] = rail->axis[2];
+			ctx.externalAxis.lower = rail->lower;
+			ctx.externalAxis.upper = rail->upper;
+			ctx.externalAxis.qExternal = m_page->robotExternalAxisQMm(instanceIndex);
+			ctx.externalAxis.optimizeExternal = true;
+			ctx.externalAxis.adaptiveExternalDamping = true;
+			const double hint =
+				hasExternalAxisQSeed ? std::clamp(externalAxisQSeedMm, rail->lower, rail->upper) : ctx.externalAxis.qExternal;
+			ik = RobotTeachIk::solveTeachIkCoordinatedDrag(ctx, hint, hasExternalAxisQSeed);
+		}
+		else
+		{
+			ik = RobotTeachIk::solveTeachIk(ctx);
+		}
 		if (!ik.ok)
 		{
 			result.error = QStringLiteral("IK solve failed");
@@ -374,6 +421,11 @@ public:
 		for (double v : ik.jointRad)
 		{
 			result.jointRad.push_back(v);
+		}
+		if (ctx.externalAxis.enabled)
+		{
+			result.hasExternalAxisQ = true;
+			result.externalAxisQ = ik.externalAxisQ;
 		}
 		return result;
 	}
@@ -559,6 +611,12 @@ RobotFrameSettingsWidget* MainWindowRobotHost::robotFrameSettingsPage()
 {
 	RobotSimulationDockWidget* dock = m_mw->m_robotSimulation ? m_mw->m_robotSimulation->simulationDock() : nullptr;
 	return dock ? dock->framePage() : nullptr;
+}
+
+RobotExternalAxisSettingsWidget* MainWindowRobotHost::robotExternalAxisSettingsPage()
+{
+	RobotSimulationDockWidget* dock = m_mw->m_robotSimulation ? m_mw->m_robotSimulation->simulationDock() : nullptr;
+	return dock ? dock->externalAxisPage() : nullptr;
 }
 
 DevicePageWidget* MainWindowRobotHost::devicePage()

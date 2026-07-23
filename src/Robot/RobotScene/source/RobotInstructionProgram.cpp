@@ -40,7 +40,7 @@ void renumberMotionPointIndicesRecursive(std::vector<std::shared_ptr<Base>>& ste
 
 bool isMotionWaypointType(const Type t)
 {
-	return t == Type::PTP || t == Type::LINE;
+	return t == Type::PTP || t == Type::LINE || t == Type::ARC;
 }
 
 bool isExecutableInstructionType(const Type t)
@@ -103,6 +103,21 @@ void renumberMotionPointIndices(std::vector<std::shared_ptr<Base>>& program)
 
 std::string formatMotionWaypointSummary(const Base& ins, const bool chinese)
 {
+	if (ins.type() == Type::ARC && ins.hasViaPoseProperty())
+	{
+		const Vec3 via = ins.viaPose();
+		const Vec3 end = ins.pose();
+		char viaBuf[128];
+		char endBuf[128];
+		std::snprintf(viaBuf, sizeof(viaBuf), "%.1f, %.1f, %.1f", via.x, via.y, via.z);
+		std::snprintf(endBuf, sizeof(endBuf), "%.1f, %.1f, %.1f", end.x, end.y, end.z);
+		if (chinese)
+		{
+			return std::string("途经 ") + viaBuf + " → 终点 " + endBuf;
+		}
+		return std::string("Via ") + viaBuf + " → End " + endBuf;
+	}
+
 	const Vec3 p = ins.pose();
 	char xyzBuf[128];
 	std::snprintf(xyzBuf, sizeof(xyzBuf), "%.1f, %.1f, %.1f", p.x, p.y, p.z);

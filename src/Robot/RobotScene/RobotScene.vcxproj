@@ -186,10 +186,13 @@
     <ClInclude Include="inc\IRobotBackendPoseSink.h" />
     <ClInclude Include="inc\IRobotIoSink.h" />
     <ClInclude Include="inc\IRobotSimulationDocument.h" />
+    <ClInclude Include="inc\RobotPerLinkKinematicsSliceOsg.h" />
     <ClInclude Include="inc\RobotInstructionAxisConfiguration.h" />
     <ClInclude Include="inc\RobotInstructionAttribute.h" />
     <ClInclude Include="inc\RobotInstructionCondition.h" />
     <ClInclude Include="inc\RobotCoordinateFrames.h" />
+    <ClInclude Include="inc\RobotExternalAxes.h" />
+    <ClInclude Include="inc\ExternalAxisSearchService.h" />
     <ClInclude Include="inc\RobotInstructionController.h" />
     <ClInclude Include="inc\RobotInstructionFactory.h" />
     <ClInclude Include="inc\RobotInstructionModel.h" />
@@ -203,6 +206,7 @@
     <ClInclude Include="inc\InstructionProgramDocument.h" />
     <ClInclude Include="inc\ProgramEditCommand.h" />
     <ClInclude Include="inc\RobotProgramCatalog.h" />
+    <ClInclude Include="inc\RobotProgramStore.h" />
     <ClInclude Include="inc\RobotCanonicalProgramExport.h" />
     <ClInclude Include="inc\TrajectoryPipelineTypes.h" />
     <ClInclude Include="inc\TrajectoryOpBridge.h" />
@@ -252,6 +256,8 @@
     <ClCompile Include="source\RobotInstructionAttribute.cpp" />
     <ClCompile Include="source\RobotInstructionCondition.cpp" />
     <ClCompile Include="source\RobotCoordinateFrames.cpp" />
+    <ClCompile Include="source\RobotExternalAxes.cpp" />
+    <ClCompile Include="source\ExternalAxisSearchService.cpp" />
     <ClCompile Include="source\RobotInstructionController.cpp" />
     <ClCompile Include="source\RobotInstructionFactory.cpp" />
     <ClCompile Include="source\RobotInstructionModel.cpp" />
@@ -263,6 +269,7 @@
     <ClCompile Include="source\InstructionProgramDocument.cpp" />
     <ClCompile Include="source\ProgramEditCommand.cpp" />
     <ClCompile Include="source\RobotProgramCatalog.cpp" />
+    <ClCompile Include="source\RobotProgramStore.cpp" />
     <ClCompile Include="source\PathPlanRawStore.cpp" />
     <ClCompile Include="source\RobotCanonicalProgramExport.cpp" />
     <ClCompile Include="source\TrajectoryOpBridge.cpp" />

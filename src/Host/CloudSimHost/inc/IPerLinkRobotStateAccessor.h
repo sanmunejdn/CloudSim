@@ -25,7 +25,7 @@ struct PerLinkRobotStateSnapshot
 	QHash<QString, QString> linkNameToBackendId;
 	QHash<QString, core::Mat4> fkMeshWorldT0;
 	QHash<QString, core::Mat4> outerWorldAtBindByBackendId;
-	core::Mat4 basePlacementWorld{};
+	core::Mat4 basePlacementWorld = core::PlanContextDto::identityMat4();
 	bool meshVerticesInLinkFrame = false;
 };
 

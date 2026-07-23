@@ -146,7 +146,7 @@ void MainWindow::onSaveProject()
 			{
 				jointAngles = &anglesToSave;
 			}
-			cloudsim::host::mergeRobotKinematicsIntoProjectRoot(robotDoc, root, jointAngles);
+			RobotProjectIo::writeRobotKinematics(root, robotDoc, jointAngles);
 			cloudsim::host::mergeRobotProgramsIntoProjectRoot(*doc, root);
 		}
 	}
@@ -349,6 +349,10 @@ void MainWindow::onOpenProjectFile()
 				if (instIdx >= 0)
 				{
 					syncRobotFrameSettingsFromDocument(instIdx);
+					if (m_robotSimulation)
+					{
+						m_robotSimulation->syncRobotExternalAxisSettingsFromDocument(instIdx);
+					}
 					refreshRobotCoordinateFrameOverlays();
 				}
 			}

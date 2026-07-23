@@ -1,10 +1,11 @@
 ﻿/// @file RobotSimulationController.cpp
-/// @brief 用示教关节 URDF 正解 + 文档基座位姿算世界 TCP，不依赖当前场景关节状态
+/// @brief ??????? URDF ???? + ???????????????? TCP????????????????????
 
 #include "RobotSimulationController.h"
 
 #include "../../OsgWidgetCore/inc/ObjectGizmoFrame.h"
 #include "../../OsgWidgetCore/inc/OsgScene.h"
+#include "CoreTypes.h"
 #include "FeaturePickTransform.h"
 #include "FeatureTrajectoryPageWidget.h"
 #include "IRobotMainWindowHost.h"
@@ -16,13 +17,18 @@
 #include "RawTrajectory.h"
 #include "RobotAxisControlWidget.h"
 #include "RobotCanonicalProgramExport.h"
+#include "BrandProgramExportDialog.h"
+#include "PythonScriptCaller.h"
 #include "RobotFrameSettingsWidget.h"
+
+#include <json.hpp>
 #include "RobotInstructionPlanningHelpers.h"
 #include "RobotInstructionProgram.h"
 #include "RobotInstructionTransform.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotOsgUiTypes.h"
 #include "RobotProgramExport.h"
+#include "RobotExternalAxes.h"
 #include "RobotSceneKinematics.h"
 #include "RobotSimulationDockWidget.h"
 #include "RobotSimulationMath.h"
@@ -35,6 +41,9 @@
 #include "UrdfRobotLoader.h"
 
 #include <QApplication>
+#include <QCoreApplication>
+#include <QDialog>
+#include <QDir>
 #include <QFile>
 #include <QFileDialog>
 #include <QGuiApplication>
@@ -42,6 +51,7 @@
 #include <QPointer>
 #include <QSet>
 #include <QSignalBlocker>
+#include <QTemporaryFile>
 #include <QTimer>
 #include <algorithm>
 #include <cmath>
@@ -63,8 +73,51 @@ using namespace RobotSimulation;
 namespace
 {
 constexpr double kTaughtReuseResidualMm = 1.0;
-constexpr double kMaxPreviewOrientResidualDeg = 5.0;
+/// 示教/缓存复用姿态门限（过严会导致「预览到、Run 不到」）
+constexpr double kMaxTaughtOrientReuseDeg = 15.0;
+/// 新鲜 IK 仅拦近翻转；联立求解按位置选优，5° 会误杀可用解
+constexpr double kMaxFreshIkOrientDeg = 45.0;
+constexpr double kFreshIkPositionRejectMm = 3.0;
 constexpr double kPi = 3.14159265358979323846;
+
+bool isTaughtOrCacheReuseAcceptable(const double residualMm, const double orientDeg)
+{
+	return residualMm >= 0.0 && residualMm <= kTaughtReuseResidualMm && orientDeg >= 0.0 &&
+		   orientDeg <= kMaxTaughtOrientReuseDeg;
+}
+
+bool isFreshIkSolutionAcceptable(const double residualMm, const double orientDeg)
+{
+	if (residualMm < 0.0 || residualMm > kFreshIkPositionRejectMm)
+	{
+		return false;
+	}
+	if (orientDeg < 0.0)
+	{
+		return true;
+	}
+	return orientDeg <= kMaxFreshIkOrientDeg;
+}
+
+double externalAxisTravelDurationSec(const double deltaMm)
+{
+	constexpr double kRailVMmPerSec = 250.0;
+	constexpr double kRailAMmPerSec2 = 600.0;
+	const double d = std::abs(deltaMm);
+	if (d < 1e-9)
+	{
+		return 0.05;
+	}
+	const double v = kRailVMmPerSec;
+	const double a = kRailAMmPerSec2;
+	const double tAcc = v / a;
+	const double dAcc = 0.5 * a * tAcc * tAcc;
+	if (d <= 2.0 * dAcc)
+	{
+		return std::max(0.05, 2.0 * std::sqrt(d / a));
+	}
+	return std::max(0.05, 2.0 * tAcc + (d - 2.0 * dAcc) / v);
+}
 
 enum class CoordinateFrameChangeKind
 {
@@ -274,9 +327,66 @@ double targetResidualMmForInstruction(const QString& urdfPath, const QVector<dou
 		return -1.0;
 	}
 	const engine::RigidTransform fkTarget = RobotCoordinate::rigidTransformFromBackendMat4(fkTargetMat);
-	const Eigen::Vector3d a = target.translationMm();
-	const Eigen::Vector3d b = fkTarget.translationMm();
+	Eigen::Vector3d a = target.translationMm();
+	Eigen::Vector3d b = fkTarget.translationMm();
+	// 启用外轴时：TCP_eff = FK + q_e * axis
+	const auto& ext = ins.extensionProperties();
+	const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
+	if (itQ != ext.end() && !itQ->second.empty())
+	{
+		const double qe = QString::fromStdString(itQ->second).toDouble();
+		double axis[3] = {1.0, 0.0, 0.0};
+		const auto itDir = ext.find(RobotExternal::kExtContextExternalAxisDir);
+		if (itDir != ext.end() && !itDir->second.empty())
+		{
+			const QStringList parts = QString::fromStdString(itDir->second).split(QLatin1Char(','));
+			if (parts.size() >= 3)
+			{
+				axis[0] = parts[0].toDouble();
+				axis[1] = parts[1].toDouble();
+				axis[2] = parts[2].toDouble();
+			}
+		}
+		b += Eigen::Vector3d(qe * axis[0], qe * axis[1], qe * axis[2]);
+	}
 	return (a - b).norm();
+}
+
+void syncInstructionControllerExternalAxes(RobotInstruction::Controller& ctrl, IRobotDocumentHost* doc,
+										   const int instIdx)
+{
+	if (!doc || instIdx < 0)
+	{
+		ctrl.clearExternalAxes();
+		return;
+	}
+	ctrl.setExternalAxes(doc->robotExternalAxesForInstance(instIdx));
+}
+
+void writeExternalAxisPlanToInstruction(RobotInstruction::Base& ins, const RobotInstruction::PlanResult& plan,
+										IRobotDocumentHost* doc, const int instIdx)
+{
+	if (!plan.hasExternalAxisQ)
+	{
+		ins.eraseExtensionProperty(RobotExternal::kExtContextExternalAxisQMm);
+		ins.eraseExtensionProperty(RobotExternal::kExtContextExternalAxisDir);
+		return;
+	}
+	ins.setExtensionProperty(RobotExternal::kExtContextExternalAxisQMm,
+							 QString::number(plan.externalAxisQ, 'g', 12).toStdString());
+	if (!doc || instIdx < 0)
+	{
+		return;
+	}
+	if (const RobotExternal::RobotExternalAxisConfig* rail =
+			RobotExternal::firstEnabledExternalAxis(doc->robotExternalAxesForInstance(instIdx)))
+	{
+		const QString dir = QStringLiteral("%1,%2,%3")
+								.arg(rail->axis[0], 0, 'g', 12)
+								.arg(rail->axis[1], 0, 'g', 12)
+								.arg(rail->axis[2], 0, 'g', 12);
+		ins.setExtensionProperty(RobotExternal::kExtContextExternalAxisDir, dir.toStdString());
+	}
 }
 
 double targetOrientationResidualDegForInstruction(const QString& urdfPath, const QVector<double>& jointQ,
@@ -408,6 +518,8 @@ void RobotSimulationController::wireSimulationSignals()
 			&RobotSimulationController::onSimulationTcpDragTeachModeChanged);
 	connect(axis, &RobotAxisControlWidget::allJointAnglesChanged, this,
 			&RobotSimulationController::onRobotAxisJointAnglesChanged);
+	connect(axis, &RobotAxisControlWidget::externalAxisValuesChanged, this,
+			&RobotSimulationController::onRobotAxisExternalValuesChanged);
 	connect(frame, &RobotFrameSettingsWidget::framesChanged, this,
 			&RobotSimulationController::onRobotCoordinateFramesChanged);
 	connect(frame, &RobotFrameSettingsWidget::captureToolFromTcpRequested, this,
@@ -416,6 +528,11 @@ void RobotSimulationController::wireSimulationSignals()
 			&RobotSimulationController::onCaptureUserFrameFromTcp);
 	connect(frame, &RobotFrameSettingsWidget::resetToolFrameRequested, this,
 			&RobotSimulationController::onResetToolFrame);
+	if (RobotExternalAxisSettingsWidget* ext = m_simulationDock->externalAxisPage())
+	{
+		connect(ext, &RobotExternalAxisSettingsWidget::externalAxesChanged, this,
+				&RobotSimulationController::onRobotExternalAxesChanged);
+	}
 	connect(m_trajectoryEditSession, &TrajectoryEditSession::pathPlanBound, this,
 			[this](const std::string&) { refreshPathPlanPreviewForActiveTab(); });
 	connect(m_trajectoryEditSession, &TrajectoryEditSession::rawTrajectoryChanged, this,
@@ -441,7 +558,7 @@ void RobotSimulationController::attachPlaybackTimer(QTimer* externalTimer)
 	m_ownsPlaybackTimer = false;
 	if (m_playbackTimer)
 	{
-		// Coarse：拖窗时把时间片让给系统消息，避免 Precise 抢事件循环
+		// Coarse?????????????????????????? Precise ????????
 		m_playbackTimer->setTimerType(Qt::CoarseTimer);
 		connect(m_playbackTimer, &QTimer::timeout, this, &RobotSimulationController::onRobotSimulationTick);
 	}
@@ -505,11 +622,12 @@ void RobotSimulationController::syncRobotKinematicsAfterPoseEdit(const std::shar
 	{
 		return;
 	}
-	RobotPerLinkKinematicsSlice slice;
-	if (!doc->robotPerLinkKinematicsForInstance(instIdx, slice))
+	cloudsim::core::RobotPerLinkKinematicsSliceDto dto;
+	if (!doc->robotPerLinkKinematicsForInstance(instIdx, dto))
 	{
 		return;
 	}
+	RobotPerLinkKinematicsSlice slice = RobotSceneKinematics::robotPerLinkSliceFromDto(dto);
 	const BackendVec3 p = data->pose();
 	const BackendVec3 r = data->rotation();
 	const osg::Quat q = engine::eulerDegToQuat(r.x, r.y, r.z);
@@ -518,7 +636,7 @@ void RobotSimulationController::syncRobotKinematicsAfterPoseEdit(const std::shar
 
 	if (isSceneRoot)
 	{
-		doc->setRobotBasePlacementWorldForInstance(instIdx, placement);
+		doc->setRobotBasePlacementWorldForInstance(instIdx, RobotSimulationMath::coreMat4FromOsgMatrix(placement));
 		slice.robotBasePlacementWorld = placement;
 		const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
 		QVector<double> localAngles(nj, 0.0);
@@ -554,14 +672,15 @@ void RobotSimulationController::syncRobotKinematicsAfterPoseEdit(const std::shar
 	}
 
 	osg::Matrixd world;
-	if (osg->getBackendRootWorldMatrix(data->id(), world))
+	if (RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, data->id(), world))
 	{
-		doc->updateRobotLinkOuterBindFromWorld(instIdx, backendId, world);
+		doc->updateRobotLinkOuterBindFromWorld(instIdx, backendId, RobotSimulationMath::coreMat4FromOsgMatrix(world));
 	}
 }
 
 void RobotSimulationController::stopRobotSimulation()
 {
+	cancelArcTeach();
 	const QVector<double> lastJointAngles = m_programExecutor.jointAnglesRad();
 	m_programExecutor.stop();
 	if (m_playbackTimer)
@@ -574,6 +693,8 @@ void RobotSimulationController::stopRobotSimulation()
 	m_playbackMotionIndex = 0;
 	m_playbackRollingSeedQ.clear();
 	m_playbackProgramStartQ.clear();
+	m_playbackSegmentExternalAxisStartMm = 0.0;
+	m_playbackExtInterpMotion = nullptr;
 	m_playbackOverlayHighlight.reset();
 	if (m_host->simulationCommandPage())
 	{
@@ -669,7 +790,7 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 			labels.append(doc->robotDisplayLabelForInstance(i));
 			backendIds.append(doc->robotSceneBackendIdForInstance(i));
 		}
-		// 须在 setRobotInstances 之后再绑定指令树，否则 activeProgram 指向空 backendId 或 QHash 重分配后悬空指针
+		// ???? setRobotInstances ????????????????? activeProgram ???? backendId ?? QHash ?????????????
 		m_host->simulationCommandPage()->setRobotInstances(labels, backendIds);
 
 		const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0
@@ -712,6 +833,7 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 		{
 			m_host->robotAxisControlPage()->clearJoints();
 		}
+		syncRobotAxisControlExternalAxes(instIdx);
 
 		{
 			const int total = doc->robotRevoluteJointNames().size();
@@ -727,6 +849,7 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 		}
 		captureMotionPreviewProgramStartJoints();
 		syncRobotFrameSettingsFromDocument(instIdx);
+		syncRobotExternalAxisSettingsFromDocument(instIdx);
 		refreshRobotCoordinateFrameOverlays();
 	}
 	else
@@ -895,7 +1018,7 @@ void RobotSimulationController::applyProgramStartPoseAfterProjectLoadImpl()
 		}
 		if (hasSavedWorld)
 		{
-			// 示教时已冻结的世界矩阵；加载后重算会漂移（robotBaseWorld 与关节角参数均不可靠）
+			// ???????????????????????????????robotBaseWorld ?????????????????
 			continue;
 		}
 		if (itSavedLocal != ext.end() && !itSavedLocal->second.empty())
@@ -1163,20 +1286,18 @@ bool RobotSimulationController::buildChainSeedJointRadForInstruction(
 		const QVector<double> taughtQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(*motionIns);
 		bool useTaught =
 			taughtQ.size() == nj && RobotInstructionPlanning::shouldUseTaughtJointCsv(*motionIns, &frames);
-		if (useTaught)
+		if (useTaught && RobotExternal::hasEnabledExternalAxes(doc->robotExternalAxesForInstance(instIdx)))
 		{
-			const double taughtResidual =
-				targetResidualMmForInstruction(urdfPath, taughtQ, frames, defaultTcpLinkName, *motionIns);
-			const double taughtOrientDeg =
-				targetOrientationResidualDegForInstruction(urdfPath, taughtQ, frames, defaultTcpLinkName, *motionIns);
-			if (taughtResidual < 0.0 || taughtResidual > kTaughtReuseResidualMm || taughtOrientDeg < 0.0 ||
-				taughtOrientDeg > kMaxPreviewOrientResidualDeg)
+			const auto& ext = motionIns->extensionProperties();
+			const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
+			if (itQ == ext.end() || itQ->second.empty())
 			{
 				useTaught = false;
 			}
 		}
 		if (useTaught)
 		{
+			// 链式种子信任示教 CSV：逐点 FK 残差会让点击远端点卡顿；Run 路径仍做门控
 			rollingQ = taughtQ;
 			storeEndAt(mi, rollingQ);
 			continue;
@@ -1199,8 +1320,7 @@ bool RobotSimulationController::buildChainSeedJointRadForInstruction(
 					targetResidualMmForInstruction(urdfPath, cachedQ, frames, defaultTcpLinkName, *motionIns);
 				const double orientDeg = targetOrientationResidualDegForInstruction(urdfPath, cachedQ, frames,
 																					defaultTcpLinkName, *motionIns);
-				if (residualMm >= 0.0 && residualMm <= kTaughtReuseResidualMm && orientDeg >= 0.0 &&
-					orientDeg <= kMaxPreviewOrientResidualDeg)
+				if (isTaughtOrCacheReuseAcceptable(residualMm, orientDeg))
 				{
 					rollingQ = cachedQ;
 					gotJoints = true;
@@ -1237,9 +1357,11 @@ bool RobotSimulationController::buildChainSeedJointRadForInstruction(
 				{
 					resultQ[j] = plan.jointTargetsRad[static_cast<size_t>(j)];
 				}
+				const double residualMm =
+					targetResidualMmForInstruction(urdfPath, resultQ, frames, defaultTcpLinkName, *motionIns);
 				const double orientDeg = targetOrientationResidualDegForInstruction(urdfPath, resultQ, frames,
 																					defaultTcpLinkName, *motionIns);
-				if (orientDeg < 0.0 || orientDeg > kMaxPreviewOrientResidualDeg)
+				if (!isFreshIkSolutionAcceptable(residualMm, orientDeg))
 				{
 					return false;
 				}
@@ -1372,6 +1494,47 @@ void RobotSimulationController::syncRobotFrameSettingsFromDocument(const int ins
 	}
 }
 
+void RobotSimulationController::syncRobotExternalAxisSettingsFromDocument(const int instanceIndex)
+{
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	RobotExternalAxisSettingsWidget* page = m_host ? m_host->robotExternalAxisSettingsPage() : nullptr;
+	if (!doc || !page || instanceIndex < 0)
+	{
+		return;
+	}
+	page->setJointNameOptions(doc->robotRevoluteJointNamesForInstance(instanceIndex));
+	page->setExternalAxes(doc->robotExternalAxesForInstance(instanceIndex));
+	page->setUseChinese(m_host->useChinese());
+	syncRobotAxisControlExternalAxes(instanceIndex);
+}
+
+void RobotSimulationController::onRobotExternalAxesChanged()
+{
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	RobotExternalAxisSettingsWidget* page = m_host ? m_host->robotExternalAxisSettingsPage() : nullptr;
+	if (!doc || !m_host->simulationCommandPage() || !page)
+	{
+		return;
+	}
+	const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		return;
+	}
+	doc->robotExternalAxesForInstance(instIdx) = page->externalAxes();
+	syncInstructionControllerExternalAxes(m_instructionController, doc, instIdx);
+	if (m_axisControlExternalInstIdx == instIdx && !m_axisControlExternalQApplied.isEmpty())
+	{
+		const QVector<double> zero(m_axisControlExternalQApplied.size(), 0.0);
+		applyAxisControlExternalPose(instIdx, zero);
+	}
+	doc->setRobotExternalAxisQMm(instIdx, 0.0);
+	m_axisControlExternalQApplied.clear();
+	m_axisControlExternalInstIdx = -1;
+	syncRobotAxisControlExternalAxes(instIdx);
+	invalidateFeasibleAxisConfigurationCache();
+}
+
 void RobotSimulationController::onRobotCoordinateFramesChanged()
 {
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
@@ -1424,8 +1587,8 @@ void RobotSimulationController::onRobotCoordinateFramesChanged()
 			const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
 			if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(frames))
 			{
-				osg->updateTcpDragTeachToolLocalOnFlange(
-					RobotSimulationMath::osgMatrixFromRobotRigidFrame(tool->T_flange_tool));
+				osg->updateTcpDragTeachToolLocalOnFlange(RobotSimulationMath::coreMat4FromOsgMatrix(
+					RobotSimulationMath::osgMatrixFromRobotRigidFrame(tool->T_flange_tool)));
 			}
 			const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
 			if (!urdfPath.isEmpty())
@@ -1624,7 +1787,7 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 	bool meshVerticesInLinkFrame = true;
 	if (perLink)
 	{
-		RobotPerLinkKinematicsSlice plSlice;
+		cloudsim::core::RobotPerLinkKinematicsSliceDto plSlice;
 		if (doc->robotPerLinkKinematicsForInstance(instIdx, plSlice))
 		{
 			meshVerticesInLinkFrame = plSlice.meshVerticesInLinkFrame;
@@ -1675,9 +1838,9 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 			const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(frames, tool);
 			te.mountBackendId =
 				RobotSimulationMath::linkMeshBackendIdForInstance(doc, instIdx, flangeLink).toStdString();
-			te.localMatrix = RobotSimulationMath::linkFrameLocalOnMeshBackend(
+			te.localMatrix = RobotSimulationMath::coreMat4FromOsgMatrix(RobotSimulationMath::linkFrameLocalOnMeshBackend(
 				urdfPath, QString::fromStdString(flangeLink),
-				RobotSimulationMath::osgMatrixFromRobotRigidFrame(tool.T_flange_tool), meshVerticesInLinkFrame);
+				RobotSimulationMath::osgMatrixFromRobotRigidFrame(tool.T_flange_tool), meshVerticesInLinkFrame));
 			if (te.mountBackendId.empty())
 			{
 				continue;
@@ -1702,9 +1865,10 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 			const osg::Matrixd tcpInBase = RobotSimulationMath::osgMatrixFromBackendMat4(
 				RobotSimulationMath::toolTcpInBaseFromFk(urdfPath, jointQ, frames, tool));
 			const QString mountLink = urdfRootLinkName.isEmpty() ? QStringLiteral("base_link") : urdfRootLinkName;
-			te.localMatrix = perLink ? RobotSimulationMath::linkFrameLocalOnMeshBackend(urdfPath, mountLink, tcpInBase,
-																						meshVerticesInLinkFrame)
-									 : tcpInBase;
+			te.localMatrix =
+				perLink ? RobotSimulationMath::coreMat4FromOsgMatrix(RobotSimulationMath::linkFrameLocalOnMeshBackend(
+							  urdfPath, mountLink, tcpInBase, meshVerticesInLinkFrame))
+						: RobotSimulationMath::coreMat4FromOsgMatrix(tcpInBase);
 		}
 		upd.toolFrames.push_back(std::move(te));
 	}
@@ -1718,12 +1882,13 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlays(
 		ue.name = uf.name;
 		const QString userMountLink = urdfRootLinkName.isEmpty() ? QStringLiteral("base_link") : urdfRootLinkName;
 		const osg::Matrixd userLinkLocal = RobotSimulationMath::osgMatrixFromRobotRigidFrame(uf.T_base_user);
-		ue.localMatrix = perLink ? RobotSimulationMath::linkFrameLocalOnMeshBackend(
-									   urdfPath, userMountLink, userLinkLocal, meshVerticesInLinkFrame)
-								 : userLinkLocal;
+		ue.localMatrix =
+			perLink ? RobotSimulationMath::coreMat4FromOsgMatrix(RobotSimulationMath::linkFrameLocalOnMeshBackend(
+						  urdfPath, userMountLink, userLinkLocal, meshVerticesInLinkFrame))
+					: RobotSimulationMath::coreMat4FromOsgMatrix(userLinkLocal);
 		if (perLink)
 		{
-			// per-link 的 robot root 无 OSG 节点，须挂 URDF 根连杆（FK 下基座不动）
+			// per-link ?? robot root ?? OSG ?????? URDF ???????FK ???????????
 			if (!urdfRootLinkName.isEmpty())
 			{
 				const QString rootBackendId =
@@ -1816,6 +1981,7 @@ void RobotSimulationController::refreshRobotCoordinateFrameOverlaysForPlayback()
 void RobotSimulationController::onSimulationRobotSelectionChanged(int instanceIndex, const QString& sceneBackendId)
 {
 	(void)sceneBackendId;
+	cancelArcTeach();
 	m_planResultCache.invalidateAll();
 	invalidateChainSeedRollCache();
 	m_overlayCachedUrdfPath.clear();
@@ -1832,6 +1998,7 @@ void RobotSimulationController::onSimulationRobotSelectionChanged(int instanceIn
 		return;
 	}
 	syncRobotFrameSettingsFromDocument(instanceIndex);
+	syncRobotExternalAxisSettingsFromDocument(instanceIndex);
 	refreshRobotCoordinateFrameOverlays();
 	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instanceIndex);
 	m_host->simulationCommandPage()->setRevoluteJointNames(doc->robotRevoluteJointNamesForInstance(instanceIndex));
@@ -1866,6 +2033,7 @@ void RobotSimulationController::onSimulationRobotSelectionChanged(int instanceIn
 	{
 		m_host->robotAxisControlPage()->setJoints(jn, lower, upper);
 	}
+	syncRobotAxisControlExternalAxes(instanceIndex);
 	captureMotionPreviewProgramStartJoints();
 	m_host->invalidateInstructionPropertyCache();
 	refreshRobotCoordinateFrameOverlays();
@@ -1913,6 +2081,217 @@ void RobotSimulationController::onRobotAxisJointAnglesChanged(const QVector<doub
 	}
 }
 
+void RobotSimulationController::syncRobotAxisControlExternalAxes(const int instanceIndex)
+{
+	RobotAxisControlWidget* axis = m_host ? m_host->robotAxisControlPage() : nullptr;
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!axis || !doc || instanceIndex < 0)
+	{
+		return;
+	}
+	const RobotExternal::RobotExternalAxisConfigSet& set = doc->robotExternalAxesForInstance(instanceIndex);
+	if (!RobotExternal::hasEnabledExternalAxes(set))
+	{
+		if (std::abs(doc->robotExternalAxisQMm(instanceIndex)) > 1e-9)
+		{
+			doc->setRobotExternalAxisQMm(instanceIndex, 0.0);
+		}
+		axis->clearExternalAxes();
+		m_axisControlExternalQApplied.clear();
+		m_axisControlExternalInstIdx = -1;
+		return;
+	}
+	axis->setExternalAxes(set);
+	const double qDoc = doc->robotExternalAxisQMm(instanceIndex);
+	QVector<double> values = axis->externalAxisValues();
+	if (!values.isEmpty())
+	{
+		values[0] = qDoc;
+		axis->setExternalAxisValuesSilent(values);
+	}
+	m_axisControlExternalInstIdx = instanceIndex;
+	m_axisControlExternalQApplied = values;
+	if (const RobotExternal::RobotExternalAxisConfig* rail = RobotExternal::firstEnabledExternalAxis(set))
+	{
+		m_axisControlExternalAxis[0] = rail->axis[0];
+		m_axisControlExternalAxis[1] = rail->axis[1];
+		m_axisControlExternalAxis[2] = rail->axis[2];
+	}
+}
+
+void RobotSimulationController::applyAxisControlExternalPose(const int instanceIndex, const QVector<double>& values)
+{
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!doc || instanceIndex < 0)
+	{
+		return;
+	}
+	const double qNew = values.isEmpty() ? 0.0 : values.front();
+	doc->setRobotExternalAxisQMm(instanceIndex, qNew);
+
+	QVector<double> joints = localJointAnglesForInstance(instanceIndex);
+	if (joints.isEmpty() && m_host->robotAxisControlPage() &&
+		m_host->robotAxisControlPage()->jointCount() == doc->robotRevoluteJointCountForInstance(instanceIndex))
+	{
+		joints = m_host->robotAxisControlPage()->jointAnglesRad();
+	}
+	if (!joints.isEmpty())
+	{
+		if (m_aggregatedJointAnglesRad.size() != doc->robotRevoluteJointNames().size())
+		{
+			m_aggregatedJointAnglesRad = QVector<double>(doc->robotRevoluteJointNames().size(), 0.0);
+		}
+		(void)doc->applyJointAnglesRad(instanceIndex, joints, m_aggregatedJointAnglesRad);
+	}
+	m_axisControlExternalQApplied = values.isEmpty() ? QVector<double>{qNew} : values;
+	m_axisControlExternalInstIdx = instanceIndex;
+	if (const RobotExternal::RobotExternalAxisConfig* rail =
+			RobotExternal::firstEnabledExternalAxis(doc->robotExternalAxesForInstance(instanceIndex)))
+	{
+		m_axisControlExternalAxis[0] = rail->axis[0];
+		m_axisControlExternalAxis[1] = rail->axis[1];
+		m_axisControlExternalAxis[2] = rail->axis[2];
+	}
+	if (m_host->osgView())
+	{
+		m_host->osgView()->requestRedraw();
+	}
+	refreshRobotCoordinateFrameOverlays();
+}
+
+void RobotSimulationController::applyExternalAxisFromPlan(const int instanceIndex,
+														  const RobotInstruction::PlanResult& plan,
+														  const RobotInstruction::Base* instruction,
+														  const double progress01, const double segmentStartQMm)
+{
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!doc || instanceIndex < 0)
+	{
+		return;
+	}
+	if (!RobotExternal::hasEnabledExternalAxes(doc->robotExternalAxesForInstance(instanceIndex)))
+	{
+		return;
+	}
+	double qeTarget = 0.0;
+	bool haveQ = false;
+	if (plan.hasExternalAxisQ)
+	{
+		qeTarget = plan.externalAxisQ;
+		haveQ = true;
+	}
+	else if (instruction)
+	{
+		const auto& ext = instruction->extensionProperties();
+		const auto it = ext.find(RobotExternal::kExtContextExternalAxisQMm);
+		if (it != ext.end() && !it->second.empty())
+		{
+			qeTarget = QString::fromStdString(it->second).toDouble(&haveQ);
+		}
+	}
+	if (!haveQ)
+	{
+		return;
+	}
+	const double u = std::clamp(progress01, 0.0, 1.0);
+	const double qe = (u >= 1.0 - 1e-12) ? qeTarget : (segmentStartQMm + (qeTarget - segmentStartQMm) * u);
+	if (std::abs(doc->robotExternalAxisQMm(instanceIndex) - qe) < 1e-6)
+	{
+		return;
+	}
+	const QVector<double> values{qe};
+	if (RobotAxisControlWidget* axis = m_host->robotAxisControlPage())
+	{
+		if (axis->externalAxisCount() == values.size())
+		{
+			axis->setExternalAxisValuesSilent(values);
+		}
+	}
+	applyAxisControlExternalPose(instanceIndex, values);
+}
+
+void RobotSimulationController::onRobotAxisExternalValuesChanged(const QVector<double>& values)
+{
+	if (m_programExecutor.isRunning() || m_tcpDragApplyingIk)
+	{
+		return;
+	}
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!doc || !m_host->simulationCommandPage())
+	{
+		return;
+	}
+	const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		return;
+	}
+	applyAxisControlExternalPose(instIdx, values);
+}
+
+namespace
+{
+/// 拖动 gizmo 相对 P_eff；示教/IK 约定相对 P0：p0 = peff + qe·axis
+void tcpDragTranslatePeffToP0(IRobotDocumentHost* doc, const int instIdx, double& xMm, double& yMm, double& zMm)
+{
+	if (!doc)
+	{
+		return;
+	}
+	const RobotExternal::RobotExternalAxisConfig* rail =
+		RobotExternal::firstEnabledExternalAxis(doc->robotExternalAxesForInstance(instIdx));
+	if (!rail)
+	{
+		return;
+	}
+	const double qe = doc->robotExternalAxisQMm(instIdx);
+	xMm += qe * rail->axis[0];
+	yMm += qe * rail->axis[1];
+	zMm += qe * rail->axis[2];
+}
+
+engine::RigidTransform tcpDragRigidPeffToP0(IRobotDocumentHost* doc, const int instIdx,
+											const engine::RigidTransform& peff)
+{
+	double x = 0.0;
+	double y = 0.0;
+	double z = 0.0;
+	double ex = 0.0;
+	double ey = 0.0;
+	double ez = 0.0;
+	peff.translationMm(x, y, z);
+	peff.eulerDegForDisplay(ex, ey, ez);
+	tcpDragTranslatePeffToP0(doc, instIdx, x, y, z);
+	return engine::RigidTransform::fromTranslationEulerDeg(x, y, z, ex, ey, ez);
+}
+
+/// 回写 gizmo：peff = p0 - qe·axis
+engine::RigidTransform tcpDragRigidP0ToPeff(IRobotDocumentHost* doc, const int instIdx,
+											const engine::RigidTransform& p0)
+{
+	double x = 0.0;
+	double y = 0.0;
+	double z = 0.0;
+	double ex = 0.0;
+	double ey = 0.0;
+	double ez = 0.0;
+	p0.translationMm(x, y, z);
+	p0.eulerDegForDisplay(ex, ey, ez);
+	if (doc)
+	{
+		if (const RobotExternal::RobotExternalAxisConfig* rail =
+				RobotExternal::firstEnabledExternalAxis(doc->robotExternalAxesForInstance(instIdx)))
+		{
+			const double qe = doc->robotExternalAxisQMm(instIdx);
+			x -= qe * rail->axis[0];
+			y -= qe * rail->axis[1];
+			z -= qe * rail->axis[2];
+		}
+	}
+	return engine::RigidTransform::fromTranslationEulerDeg(x, y, z, ex, ey, ez);
+}
+} // namespace
+
 void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool enabled)
 {
 	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
@@ -1948,7 +2327,7 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 		if (m_host->runInfoPage())
 		{
 			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Stop simulation before TCP drag teach."),
-												  QStringLiteral("请先停止仿真，再使用末端拖动示教。")));
+												  QStringLiteral("?????????????????????????")));
 		}
 		return;
 	}
@@ -2069,30 +2448,43 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 			}
 		}
 	}
-	std::function<bool(osg::Matrixd&)> resolveRobotBaseWorld;
-	osg::Matrixd toolLocalOnFlange;
-	const osg::Matrixd* toolLocalPtr = nullptr;
+	std::function<bool(cloudsim::core::Mat4&)> resolveRobotBaseWorld;
+	cloudsim::core::Mat4 toolLocalOnFlange;
+	const cloudsim::core::Mat4* toolLocalPtr = nullptr;
 	if (mountOnFlange)
 	{
-		resolveRobotBaseWorld = [this, doc, osg, instIdx](osg::Matrixd& outWorld) -> bool
+		resolveRobotBaseWorld = [this, doc, osg, instIdx](cloudsim::core::Mat4& outWorld) -> bool
 		{
 			QVector<double> jointQ = localJointAnglesForInstance(instIdx);
-			return RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, osg, instIdx, outWorld,
-																		jointQ.isEmpty() ? nullptr : &jointQ);
+			osg::Matrixd world;
+			if (!RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, osg, instIdx, world,
+																	  jointQ.isEmpty() ? nullptr : &jointQ))
+			{
+				return false;
+			}
+			outWorld = RobotSimulationMath::coreMat4FromOsgMatrix(world);
+			return true;
 		};
 		if (const RobotCoordinate::RobotToolFrame* activeTool = RobotCoordinate::activeToolFrame(frames))
 		{
-			toolLocalOnFlange = RobotSimulationMath::osgMatrixFromRobotRigidFrame(activeTool->T_flange_tool);
+			toolLocalOnFlange = RobotSimulationMath::coreMat4FromOsgMatrix(
+				RobotSimulationMath::osgMatrixFromRobotRigidFrame(activeTool->T_flange_tool));
 			toolLocalPtr = &toolLocalOnFlange;
 		}
 	}
 	else if (mountBackendId != robotRootId.toStdString())
 	{
-		resolveRobotBaseWorld = [this, doc, osg, instIdx](osg::Matrixd& outWorld) -> bool
+		resolveRobotBaseWorld = [this, doc, osg, instIdx](cloudsim::core::Mat4& outWorld) -> bool
 		{
 			QVector<double> jointQ = localJointAnglesForInstance(instIdx);
-			return RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, osg, instIdx, outWorld,
-																		jointQ.isEmpty() ? nullptr : &jointQ);
+			osg::Matrixd world;
+			if (!RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, osg, instIdx, world,
+																	  jointQ.isEmpty() ? nullptr : &jointQ))
+			{
+				return false;
+			}
+			outWorld = RobotSimulationMath::coreMat4FromOsgMatrix(world);
+			return true;
 		};
 	}
 	m_tcpDragLastAppliedJointRad.clear();
@@ -2129,10 +2521,11 @@ void RobotSimulationController::onSimulationTcpDragTeachModeChanged(const bool e
 		if (m_host->runInfoPage())
 		{
 			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Failed to attach TCP drag gizmo."),
-												  QStringLiteral("无法挂载 TCP 拖动示教罗盘。")));
+												  QStringLiteral("??????? TCP ???????????")));
 		}
 	}
-	m_lastTcpDragTargetInBase = targetInBase;
+	// gizmo 用 P_eff；缓存目标用 P0（与示教/IK 一致）
+	m_lastTcpDragTargetInBase = tcpDragRigidPeffToP0(doc, instIdx, targetInBase);
 	m_lastTcpDragTargetValid = true;
 	m_tcpDragTeachIkTimer.start();
 }
@@ -2163,7 +2556,7 @@ void RobotSimulationController::syncTcpDragTeachAnchorFromCurrentJoints()
 		return;
 	}
 	osg->updateTcpDragTeachFromTarget(fkTarget, true);
-	m_lastTcpDragTargetInBase = fkTarget;
+	m_lastTcpDragTargetInBase = tcpDragRigidPeffToP0(doc, instIdx, fkTarget);
 	m_lastTcpDragTargetValid = true;
 	m_tcpDragLastAppliedJointRad = localJointAnglesForInstance(instIdx);
 }
@@ -2196,7 +2589,7 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	const int njInst = doc->robotRevoluteJointCountForInstance(instIdx);
 	const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
 
-	// 种子关节：优先聚合向量，回退轴滑块
+	// ???????????????????????????
 	QVector<double> seedQ;
 	if (njInst > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + njInst)
 	{
@@ -2211,12 +2604,16 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 		seedQ = m_host->robotAxisControlPage()->jointAnglesRad();
 	}
 
-	// 目标位姿 chase 限速
+	// 拖动回调相对 P_eff；先还原到 P0 再 chase/IK
+	double pxP0 = pxMm;
+	double pyP0 = pyMm;
+	double pzP0 = pzMm;
+	tcpDragTranslatePeffToP0(doc, instIdx, pxP0, pyP0, pzP0);
 	const engine::RigidTransform targetFromEmit =
-		engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
+		engine::RigidTransform::fromTranslationEulerDeg(pxP0, pyP0, pzP0, exDeg, eyDeg, ezDeg);
 	const bool hadPrevTarget = m_lastTcpDragTargetValid;
 	const engine::RigidTransform prevTarget = m_lastTcpDragTargetInBase;
-	double ikPx = pxMm, ikPy = pyMm, ikPz = pzMm;
+	double ikPx = pxP0, ikPy = pyP0, ikPz = pzP0;
 	static constexpr double kTcpDragMaxChaseMmPerIk = 50.0;
 	if (hadPrevTarget)
 	{
@@ -2239,9 +2636,25 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	const engine::RigidTransform targetForIkStep =
 		engine::RigidTransform::fromTranslationEulerDeg(ikPx, ikPy, ikPz, exDeg, eyDeg, ezDeg);
 
-	// 通过 Host 求解 IK
-	const auto ikResult =
-		doc->solveTcpDragTeachIk(instIdx, ikPx, ikPy, ikPz, exDeg, eyDeg, ezDeg, seedQ, m_tcpDragTeachFlangeLink);
+	// 沿轨投影仅作联立种子提示，由代价选优决定臂/轨分配
+	double qeSeed = doc->robotExternalAxisQMm(instIdx);
+	bool hasQeSeed = false;
+	if (const RobotExternal::RobotExternalAxisConfig* rail =
+			RobotExternal::firstEnabledExternalAxis(doc->robotExternalAxesForInstance(instIdx)))
+	{
+		hasQeSeed = true;
+		if (hadPrevTarget)
+		{
+			double tPrev[3]{};
+			prevTarget.translationMm(tPrev[0], tPrev[1], tPrev[2]);
+			const double dAlong = (ikPx - tPrev[0]) * rail->axis[0] + (ikPy - tPrev[1]) * rail->axis[1] +
+								  (ikPz - tPrev[2]) * rail->axis[2];
+			qeSeed = std::clamp(qeSeed + dAlong, rail->lower, rail->upper);
+		}
+	}
+
+	const auto ikResult = doc->solveTcpDragTeachIk(instIdx, ikPx, ikPy, ikPz, exDeg, eyDeg, ezDeg, seedQ,
+												   m_tcpDragTeachFlangeLink, qeSeed, hasQeSeed);
 	if (!ikResult.ok)
 	{
 		return false;
@@ -2259,12 +2672,27 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 		qClamped = clampJointStepFromPrevious(qClamped, m_tcpDragLastAppliedJointRad, kTcpDragMaxJointStepRad);
 	}
 	const double maxJointDelta = hasPrevDragQ ? maxJointDeltaRad(qClamped, m_tcpDragLastAppliedJointRad) : 1.0;
+	const double qeOld = doc->robotExternalAxisQMm(instIdx);
+	double qeNew = qeOld;
+	if (ikResult.hasExternalAxisQ)
+	{
+		qeNew = ikResult.externalAxisQ;
+		static constexpr double kTcpDragMaxExtStepMm = 40.0;
+		const double dQe = qeNew - qeOld;
+		if (std::abs(dQe) > kTcpDragMaxExtStepMm)
+		{
+			qeNew = qeOld + (dQe > 0.0 ? kTcpDragMaxExtStepMm : -kTcpDragMaxExtStepMm);
+		}
+	}
 	static constexpr double kTcpDragMinJointApplyRad = 0.002;
-	if (maxJointDelta < kTcpDragMinJointApplyRad)
+	static constexpr double kTcpDragMinExtApplyMm = 0.2;
+	if (maxJointDelta < kTcpDragMinJointApplyRad && std::abs(qeNew - qeOld) < kTcpDragMinExtApplyMm)
 	{
 		return true;
 	}
-	if (hadPrevTarget && !qClamped.isEmpty())
+	// 外轴本步有位移时跳过臂对齐拒绝，避免把轨步进整段丢掉
+	const bool skipAlignReject = ikResult.hasExternalAxisQ && std::abs(qeNew - qeOld) >= kTcpDragMinExtApplyMm;
+	if (!skipAlignReject && hadPrevTarget && !qClamped.isEmpty())
 	{
 		engine::RigidTransform fkMotion{};
 		if (RobotSimulationMath::targetRigidTransformFromUrdfFlangeFk(
@@ -2276,12 +2704,32 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 			prevTarget.translationMm(tPrev[0], tPrev[1], tPrev[2]);
 			targetForIkStep.translationMm(tTgt[0], tTgt[1], tTgt[2]);
 			fkMotion.translationMm(tFk[0], tFk[1], tFk[2]);
+			if (ikResult.hasExternalAxisQ)
+			{
+				if (const RobotExternal::RobotExternalAxisConfig* rail =
+						RobotExternal::firstEnabledExternalAxis(doc->robotExternalAxesForInstance(instIdx)))
+				{
+					tFk[0] += qeNew * rail->axis[0];
+					tFk[1] += qeNew * rail->axis[1];
+					tFk[2] += qeNew * rail->axis[2];
+				}
+			}
 			engine::RigidTransform fkSeedPose{};
 			if (RobotSimulationMath::targetRigidTransformFromUrdfFlangeFk(
 					urdfPath, seedQ, frames, m_tcpDragTeachFlangeLink, fkSeedPose, nullptr, nullptr))
 			{
 				double tSeed[3]{};
 				fkSeedPose.translationMm(tSeed[0], tSeed[1], tSeed[2]);
+				if (ikResult.hasExternalAxisQ)
+				{
+					if (const RobotExternal::RobotExternalAxisConfig* rail =
+							RobotExternal::firstEnabledExternalAxis(doc->robotExternalAxesForInstance(instIdx)))
+					{
+						tSeed[0] += qeOld * rail->axis[0];
+						tSeed[1] += qeOld * rail->axis[1];
+						tSeed[2] += qeOld * rail->axis[2];
+					}
+				}
 				const double wantDx = tTgt[0] - tPrev[0];
 				const double wantDy = tTgt[1] - tPrev[1];
 				const double wantDz = tTgt[2] - tPrev[2];
@@ -2317,6 +2765,17 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	}
 	m_tcpDragApplyingIk = true;
 	m_suppressMotionPreviewStartCapture = true;
+	if (ikResult.hasExternalAxisQ)
+	{
+		if (RobotAxisControlWidget* axisPage = m_host->robotAxisControlPage())
+		{
+			if (axisPage->externalAxisCount() >= 1)
+			{
+				axisPage->setExternalAxisValuesSilent(QVector<double>{qeNew});
+			}
+		}
+		applyAxisControlExternalPose(instIdx, QVector<double>{qeNew});
+	}
 	(void)doc->applyJointAnglesRad(instIdx, qClamped, m_aggregatedJointAnglesRad);
 	if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() == njInst)
 	{
@@ -2326,13 +2785,13 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	{
 		m_host->appendRunWarning(
 			m_host->i18n(QStringLiteral("TCP drag IK exceeded joint limits; angles were clamped to URDF range."),
-						 QStringLiteral("末端拖动 IK 超出关节限位，已按 URDF 范围钳位。")));
+						 QStringLiteral("?????? IK ??????????????? URDF ???????")));
 	}
 	m_suppressMotionPreviewStartCapture = false;
 	m_tcpDragApplyingIk = false;
 	if (RobotSimulationMath::perLinkUsesWorldBakedMeshVertices(doc, instIdx))
 	{
-		osg->updateTcpDragTeachFromTarget(m_lastTcpDragTargetInBase, false);
+		osg->updateTcpDragTeachFromTarget(tcpDragRigidP0ToPeff(doc, instIdx, m_lastTcpDragTargetInBase), false);
 	}
 	else
 	{
@@ -2407,7 +2866,7 @@ void RobotSimulationController::onSimulationStopRequested()
 	stopRobotSimulation();
 	if (m_host->runInfoPage())
 	{
-		m_host->appendRunInfo(m_host->i18n(QStringLiteral("Simulation stopped."), QStringLiteral("仿真已停止。")));
+		m_host->appendRunInfo(m_host->i18n(QStringLiteral("Simulation stopped."), QStringLiteral("??????????")));
 	}
 }
 
@@ -2425,7 +2884,7 @@ void RobotSimulationController::onSimulationExportRequested()
 		{
 			m_host->appendRunWarning(
 				m_host->i18n(QStringLiteral("Import a robot (URDF) first, then export the program."),
-							 QStringLiteral("请先导入机器人(URDF)，再导出程序。")));
+							 QStringLiteral("????????????(URDF)???????????")));
 		}
 		return;
 	}
@@ -2440,116 +2899,120 @@ void RobotSimulationController::onSimulationExportRequested()
 	{
 		return;
 	}
+
+	const auto& catalog = doc->robotProgramStore().activeCatalog();
+	const QString activeProgramId = QString::fromStdString(catalog.activeProgramId());
+	QVector<RobotWidget::BrandExportProgramItem> programItems;
+	programItems.reserve(static_cast<int>(catalog.programs().size()));
+	for (const RobotInstruction::RobotProgram& prog : catalog.programs())
 	{
-		std::vector<robot_kinematics::DhRow> dhRows;
-		QString dhErr;
-		if (RobotSimulationMath::buildDhRowsFromUrdf(urdfPath, dhRows, &dhErr))
-		{
-			m_instructionController.setDhRows(dhRows);
-		}
-		else
-		{
-			m_instructionController.clearDhRows();
-		}
+		programItems.push_back({QString::fromStdString(prog.id), QString::fromStdString(prog.name)});
 	}
-	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
-	if (nj <= 0)
-	{
-		return;
-	}
-	const std::vector<std::shared_ptr<RobotInstruction::Base>> instructions =
-		m_host->simulationCommandPage()->instructions(robotBackendId);
-	const std::vector<const RobotInstruction::Base*> motions =
-		RobotInstruction::collectMotionInstructions(instructions);
-	if (motions.empty())
-	{
-		if (m_host->runInfoPage())
-		{
-			m_host->appendRunWarning(m_host->i18n(QStringLiteral("No motion instructions to export."),
-												  QStringLiteral("没有可导出的运动指令。")));
-		}
-		return;
-	}
-	const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
-	const QString defaultTcpLinkName = RobotSimulationMath::defaultTcpLinkNameForUrdf(
-		urdfPath, m_host->simulationCommandPage() ? m_host->simulationCommandPage()->selectedTcpLink() : QString());
-	QVector<double> rollingQ = motionPreviewProgramStartJointsLocal(nj, jointOffset);
-	std::vector<RobotInstruction::PlanResult> plans;
-	plans.reserve(motions.size());
-	int failedCount = 0;
-	for (size_t mi = 0; mi < motions.size(); ++mi)
-	{
-		const RobotInstruction::Base* motionPtr = motions[mi];
-		if (!motionPtr)
-		{
-			RobotInstruction::PlanResult empty{};
-			empty.ok = false;
-			empty.summary = "Invalid instruction";
-			plans.push_back(std::move(empty));
-			++failedCount;
-			continue;
-		}
-		RobotInstruction::Base* ins = const_cast<RobotInstruction::Base*>(motionPtr);
-		const RobotInstructionPlanning::MotionPoseBackup backup = RobotInstructionPlanning::backupInstructionPose(*ins);
-		RobotInstructionPlanning::prepareMotionInstructionForPlanning(*ins, rollingQ, doc, m_host->osgView(), instIdx,
-																	  urdfPath, defaultTcpLinkName.toStdString(),
-																	  &doc->robotCoordinateFramesForInstance(instIdx));
-		std::string planErr;
-		RobotInstruction::PlanResult plan{};
-		if (!m_instructionController.validate(*ins, &planErr))
-		{
-			plan.ok = false;
-			plan.summary = planErr.empty() ? "Validation failed" : planErr;
-			++failedCount;
-		}
-		else if (!planMotionOnHost(*ins, rollingQ, instIdx, urdfPath, defaultTcpLinkName, robotBackendId, plan,
-								   &planErr))
-		{
-			plan.ok = false;
-			if (!planErr.empty())
-			{
-				plan.summary = planErr;
-			}
-			++failedCount;
-		}
-		RobotInstructionPlanning::restoreInstructionPose(*ins, backup);
-		if (plan.ok && !plan.jointTargetsRad.empty() &&
-			plan.jointTargetsRad.size() == static_cast<size_t>(rollingQ.size()))
-		{
-			for (int j = 0; j < rollingQ.size(); ++j)
-			{
-				rollingQ[j] = plan.jointTargetsRad[static_cast<size_t>(j)];
-			}
-		}
-		plans.push_back(std::move(plan));
-	}
-	RobotInstruction::RobotProgram* activeProg = nullptr;
-	if (RobotInstruction::RobotProgram* p = doc->robotProgramStore().activeCatalog().mainProgram())
-	{
-		activeProg = p;
-	}
-	if (!activeProg)
+	if (programItems.isEmpty())
 	{
 		if (m_host->runInfoPage())
 		{
 			m_host->appendRunWarning(
-				m_host->i18n(QStringLiteral("No active program to export"), QStringLiteral("无活动程序可导出")));
+				m_host->i18n(QStringLiteral("No program to export."), QStringLiteral("???????????")));
 		}
 		return;
 	}
+
+	// ???????/???/??????????????????????
+	RobotWidget::BrandProgramExportDialog brandDlg(programItems, activeProgramId);
+	if (brandDlg.exec() != QDialog::Accepted)
+	{
+		return;
+	}
+	const RobotWidget::BrandExportChoice brand = brandDlg.selectedBrand();
+	if (brand.brandId.isEmpty() || brand.scriptStem.isEmpty())
+	{
+		if (m_host->runInfoPage())
+		{
+			m_host->appendRunWarning(
+				m_host->i18n(QStringLiteral("Invalid brand selection."), QStringLiteral("???????????")));
+		}
+		return;
+	}
+
+	RobotInstruction::RobotProgram* exportProg =
+		doc->robotProgramStore().activeCatalog().findProgram(brandDlg.selectedProgramId().toStdString());
+	if (!exportProg)
+	{
+		if (m_host->runInfoPage())
+		{
+			m_host->appendRunWarning(
+				m_host->i18n(QStringLiteral("Selected program not found."), QStringLiteral("???????????")));
+		}
+		return;
+	}
+	if (RobotInstruction::collectMotionInstructions(exportProg->steps).empty())
+	{
+		if (m_host->runInfoPage())
+		{
+			m_host->appendRunWarning(m_host->i18n(QStringLiteral("No motion instructions to export."),
+												  QStringLiteral("???????????????")));
+		}
+		return;
+	}
+
+	QString defaultBase = brandDlg.selectedProgramName().trimmed();
+	if (defaultBase.isEmpty())
+	{
+		defaultBase = QStringLiteral("program_export");
+	}
+	for (QChar& ch : defaultBase)
+	{
+		if (ch == QLatin1Char('/') || ch == QLatin1Char('\\') || ch == QLatin1Char(':') || ch == QLatin1Char('*') ||
+			ch == QLatin1Char('?') || ch == QLatin1Char('"') || ch == QLatin1Char('<') || ch == QLatin1Char('>') ||
+			ch == QLatin1Char('|'))
+		{
+			ch = QLatin1Char('_');
+		}
+	}
+	const QString defaultName = defaultBase + brand.defaultExt;
+	const QString filter =
+		brand.filter + QStringLiteral(";;") +
+		m_host->i18n(QStringLiteral("All files (*.*)"), QStringLiteral("??????? (*.*)"));
+	const QString outPath = QFileDialog::getSaveFileName(
+		nullptr, m_host->i18n(QStringLiteral("Save brand robot program"), QStringLiteral("???????????????")),
+		defaultName, filter);
+	if (outPath.isEmpty())
+	{
+		return;
+	}
+
+	const QString scriptPath = QDir(QCoreApplication::applicationDirPath())
+								   .filePath(QStringLiteral("resource/Python/ExportPython/%1.py").arg(brand.scriptStem));
+	if (!QFile::exists(scriptPath))
+	{
+		if (m_host->runInfoPage())
+		{
+			m_host->appendRunWarning(
+				m_host->i18n(QStringLiteral("Brand export script not found: %1").arg(scriptPath),
+							 QStringLiteral("???????????????%1").arg(scriptPath)));
+		}
+		return;
+	}
+
+	QApplication::setOverrideCursor(Qt::WaitCursor);
+	struct CursorGuard
+	{
+		~CursorGuard() { QApplication::restoreOverrideCursor(); }
+	} cursorGuard;
+
 	RobotCanonicalExport::InstructionRuntimeResolveContext ctx;
 	ctx.robotInstanceIndex = instIdx;
 	ctx.robotSceneBackendId = robotBackendId.toStdString();
 	ctx.urdfPath = urdfPath.toStdString();
-	if (doc)
-	{
-		ctx.coordinateFrames = &doc->robotCoordinateFramesForInstance(instIdx);
-	}
+	ctx.coordinateFrames = &doc->robotCoordinateFramesForInstance(instIdx);
+
 	RobotCanonicalExport::CanonicalProgramExportV1 exportDoc;
 	std::string buildErr;
-	if (!RobotCanonicalExport::buildCanonicalExportV1(*activeProg, ctx,
+	// ??????????????????????????? IK??playback ????????
+	if (!RobotCanonicalExport::buildCanonicalExportV1(*exportProg, ctx,
 													  RobotCanonicalExport::CanonicalExportLayout::NestedTree, false,
-													  &plans, exportDoc, &buildErr))
+													  nullptr, exportDoc, &buildErr))
 	{
 		if (m_host->runInfoPage())
 		{
@@ -2557,19 +3020,10 @@ void RobotSimulationController::onSimulationExportRequested()
 		}
 		return;
 	}
-	const QString defaultName = QStringLiteral("program_export_v1.cloudsim-program.json");
-	const QString path = QFileDialog::getSaveFileName(
-		nullptr, m_host->i18n(QStringLiteral("Export robot program"), QStringLiteral("导出机器人程序")), defaultName,
-		m_host->i18n(QStringLiteral("CloudSim program export (*.cloudsim-program.json);;JSON (*.json)"),
-					 QStringLiteral("CloudSim 程序导出 (*.cloudsim-program.json);;JSON (*.json)")));
-	if (path.isEmpty())
-	{
-		return;
-	}
+
 	std::string fileBody;
 	std::string writeErr;
-	const bool okWrite = RobotCanonicalExport::writeCanonicalExportV1ToJson(exportDoc, fileBody, &writeErr);
-	if (!okWrite)
+	if (!RobotCanonicalExport::writeCanonicalExportV1ToJson(exportDoc, fileBody, &writeErr, false))
 	{
 		if (m_host->runInfoPage())
 		{
@@ -2577,29 +3031,54 @@ void RobotSimulationController::onSimulationExportRequested()
 		}
 		return;
 	}
-	QFile f(path);
-	if (!f.open(QIODevice::WriteOnly | QIODevice::Text))
+
+	QTemporaryFile canonicalTemp(QDir::temp().filePath(QStringLiteral("cloudsim_canonical_XXXXXX.json")));
+	canonicalTemp.setAutoRemove(true);
+	if (!canonicalTemp.open())
 	{
 		if (m_host->runInfoPage())
 		{
-			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Cannot write file: %1").arg(path),
-												  QStringLiteral("无法写入文件：%1").arg(path)));
+			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Cannot create temporary Canonical file."),
+												  QStringLiteral("?????????? Canonical ?????")));
 		}
 		return;
 	}
-	f.write(fileBody.c_str(), static_cast<qint64>(fileBody.size()));
-	f.close();
+	canonicalTemp.write(fileBody.c_str(), static_cast<qint64>(fileBody.size()));
+	canonicalTemp.flush();
+	const QString canonicalPath = canonicalTemp.fileName();
+
+	nlohmann::json params = nlohmann::json::object();
+	params["OutPutPath"] = outPath.toStdString();
+	params["CanonicalPath"] = canonicalPath.toStdString();
+	params["comment"] = std::string("CloudSim brand export");
+
+	std::string pyErr;
+	const std::string result =
+		RobotWidget::PythonScriptCaller::instance().callPython(scriptPath.toStdString(), "ExportScript",
+															   params.dump(), &pyErr);
+	const bool ok = (result == "true" || result == "True" || result == "1");
+	if (!ok)
+	{
+		if (m_host->runInfoPage())
+		{
+			const QString detail = pyErr.empty() ? QString::fromStdString(result) : QString::fromStdString(pyErr);
+			m_host->appendRunWarning(
+				m_host->i18n(QStringLiteral("Brand export failed: %1").arg(detail),
+							 QStringLiteral("??????????%1").arg(detail)));
+		}
+		refreshInstructionPoseAxes();
+		return;
+	}
+
 	if (m_host->runInfoPage())
 	{
 		m_host->appendRunInfo(
-			m_host->i18n(QStringLiteral("Exported canonical program to %1 (flat motion refs: %2, IK failures: %3).")
-							 .arg(path)
-							 .arg(exportDoc.flatMotionSequence.size())
-							 .arg(failedCount),
-						 QStringLiteral("已导出 Canonical 程序到 %1（扁平运动引用 %2 条，IK 失败 %3 次）。")
-							 .arg(path)
-							 .arg(exportDoc.flatMotionSequence.size())
-							 .arg(failedCount)));
+			m_host->i18n(QStringLiteral("Exported %1 program \"%2\" to %3 (flat motion refs: %4).")
+							 .arg(brand.brandId, brandDlg.selectedProgramName(), outPath)
+							 .arg(exportDoc.flatMotionSequence.size()),
+						 QStringLiteral("????? %1 ????%2???? %3???????????? %4 ??????")
+							 .arg(brand.brandId, brandDlg.selectedProgramName(), outPath)
+							 .arg(exportDoc.flatMotionSequence.size())));
 	}
 	refreshInstructionPoseAxes();
 }
@@ -2616,7 +3095,7 @@ bool RobotSimulationController::tryCaptureCurrentRobotTcpPose(RobotInstruction::
 		if (errMsg)
 		{
 			*errMsg = m_host->i18n(QStringLiteral("Robot simulation context is not ready."),
-								   QStringLiteral("机器人仿真上下文尚未就绪。"));
+								   QStringLiteral("????????????????????????"));
 		}
 		return false;
 	}
@@ -2629,7 +3108,7 @@ bool RobotSimulationController::tryCaptureCurrentRobotTcpPose(RobotInstruction::
 	{
 		if (errMsg)
 		{
-			*errMsg = m_host->i18n(QStringLiteral("URDF path is empty."), QStringLiteral("URDF 路径为空。"));
+			*errMsg = m_host->i18n(QStringLiteral("URDF path is empty."), QStringLiteral("URDF ???????"));
 		}
 		return false;
 	}
@@ -2695,7 +3174,7 @@ bool RobotSimulationController::tryCaptureCurrentRobotTcpPose(RobotInstruction::
 	bool capturedFromScene = false;
 	BackendMat4 capturedTargetInBase{};
 	bool hasCapturedTargetInBase = false;
-	// 优先 URDF 法兰 FK×工具系；per-link 场景 PAT 世界矩阵不可信，禁止先用 SceneFlangeBackend
+	// ???? URDF ???? FK?????????per-link ???? PAT ??????????????????? SceneFlangeBackend
 	if (hasLinkFk)
 	{
 		if (RobotSimulationMath::targetInBaseFromUrdfFlangeFk(urdfPath, q, frames, fallbackFlangeLink,
@@ -2711,20 +3190,18 @@ bool RobotSimulationController::tryCaptureCurrentRobotTcpPose(RobotInstruction::
 	bool hasHierarchyLocal = false;
 	if (!lastJointName.isEmpty())
 	{
-		if (osg::MatrixTransform* jointMt = doc->robotJointMatrixTransform(lastJointName))
+		cloudsim::core::Mat4 jointWorldMat;
+		if (doc->robotJointWorldMatrix(lastJointName, jointWorldMat))
 		{
-			osg::Matrixd jointWorld;
-			if (RobotSimulationMath::matrixFromNodeWorld(jointMt, jointWorld))
+			const osg::Matrixd jointWorld = RobotSimulationMath::osgMatrixFromCoreMat4(jointWorldMat);
+			osg::Matrixd invBase;
+			invBase.makeIdentity();
+			if (hasRobotBaseWorld)
 			{
-				osg::Matrixd invBase;
-				invBase.makeIdentity();
-				if (hasRobotBaseWorld)
-				{
-					invBase = osg::Matrixd::inverse(robotBaseWorld);
-				}
-				tcpLocalFromHierarchy = invBase * jointWorld;
-				hasHierarchyLocal = true;
+				invBase = osg::Matrixd::inverse(robotBaseWorld);
 			}
+			tcpLocalFromHierarchy = invBase * jointWorld;
+			hasHierarchyLocal = true;
 		}
 	}
 	if (!hasTcpLocal && RobotSimulationMath::captureTcpFromSceneFlangeBackend(
@@ -2757,10 +3234,10 @@ bool RobotSimulationController::tryCaptureCurrentRobotTcpPose(RobotInstruction::
 			{
 				const QString detail = computeErr.isEmpty()
 										   ? m_host->i18n(QStringLiteral("URDF forward kinematics failed."),
-														  QStringLiteral("URDF 正解计算失败。"))
+														  QStringLiteral("URDF ???????????"))
 										   : computeErr;
 				*errMsg = m_host->i18n(QStringLiteral("Cannot evaluate TCP: %1").arg(detail),
-									   QStringLiteral("无法求 TCP：%1").arg(detail));
+									   QStringLiteral("????? TCP??%1").arg(detail));
 			}
 			else
 			{
@@ -2777,35 +3254,35 @@ bool RobotSimulationController::tryCaptureCurrentRobotTcpPose(RobotInstruction::
 				if (flangeQ.isEmpty())
 				{
 					*errMsg = m_host->i18n(QStringLiteral("Flange link name is not configured."),
-										   QStringLiteral("未配置法兰连杆名。"));
+										   QStringLiteral("????????????????"));
 				}
 				else if (!linkWorldByName.contains(flangeQ))
 				{
 					*errMsg = m_host->i18n(
 						QStringLiteral("Link '%1' not in URDF FK result (check tool frame flange link).").arg(flangeQ),
-						QStringLiteral("连杆「%1」不在 URDF 正解结果中（请检查工具系法兰连杆）。").arg(flangeQ));
+						QStringLiteral("?????%1?????? URDF ???????????????????????????").arg(flangeQ));
 				}
-				else if (!lastJointName.isEmpty() && !doc->robotJointMatrixTransform(lastJointName))
+				else if (!lastJointName.isEmpty() && !doc->hasRobotJointLocalMatrix(lastJointName))
 				{
 					*errMsg = m_host->i18n(
 						QStringLiteral("Per-link robot has no joint scene node '%1'; use URDF FK path.")
 							.arg(lastJointName),
-						QStringLiteral("每连杆机器人无关节场景节点「%1」；请使用 URDF 正解路径。").arg(lastJointName));
+						QStringLiteral("????????????????????%1????????? URDF ?????????").arg(lastJointName));
 				}
 				else
 				{
 					*errMsg = m_host->i18n(QStringLiteral("Cannot evaluate TCP world transform."),
-										   QStringLiteral("无法获取末端世界坐标。"));
+										   QStringLiteral("?????????????????"));
 				}
 			}
 		}
 		return false;
 	}
 
-	// tcpLocal：URDF 基座系 T_base_target（工具系原点）
+	// tcpLocal??URDF ????? T_base_target??????????
 	const osg::Matrixd tcpWorld = tcpLocal;
 	const osg::Matrixd renderWorld = capturedFromScene ? tcpRenderWorld : (tcpWorld * robotBaseWorld);
-	// 钀界洏 pose/euler锛氱洿鎺ョ敱 URDF FK 脳 宸ュ叿绯诲緱鍒?RigidTransform锛堜笌 IK/娈嬪樊鍚屼竴璺緞锛夈€?
+	// ?? pose/euler???? URDF FK ? ??????RigidTransform?? IK/?????????
 	if (hasCapturedTargetInBase && hasLinkFk)
 	{
 		engine::RigidTransform target{};
@@ -2860,11 +3337,29 @@ bool RobotSimulationController::tryCaptureCurrentRobotTcpPose(RobotInstruction::
 	return true;
 }
 
+void RobotSimulationController::cancelArcTeach()
+{
+	m_arcTeachPending = false;
+	m_arcTeachViaPose = {};
+	m_arcTeachViaEuler = {};
+	m_arcTeachViaTransform = {};
+	m_arcTeachViaJointCsv.clear();
+	m_arcTeachViaTcpLinkName.clear();
+	if (m_host && m_host->simulationCommandPage())
+	{
+		m_host->simulationCommandPage()->setArcTeachPending(false);
+	}
+}
+
 void RobotSimulationController::onSimulationAddInstructionRequested(RobotInstruction::Type type)
 {
 	if (!m_host->simulationCommandPage())
 	{
 		return;
+	}
+	if (type != RobotInstruction::Type::ARC && m_arcTeachPending)
+	{
+		cancelArcTeach();
 	}
 	RobotInstruction::Vec3 pose{};
 	RobotInstruction::Vec3 euler{};
@@ -2892,7 +3387,10 @@ void RobotSimulationController::onSimulationAddInstructionRequested(RobotInstruc
 			if (RobotSimulationMath::robotBaseWorldMatrixForInstance(capDoc, capOsg, capInstIdx, robotBaseWorld,
 																	 qLocal.isEmpty() ? nullptr : &qLocal))
 			{
-				tcpRenderWorldMat = tcpLocalMat * robotBaseWorld;
+				// 位姿字段/local 为 P0；渲染基座为 P_eff，世界矩阵用 peff·P_eff
+				const osg::Matrixd tcpInPeff = engine::osgMatrixFromRigidTransform(
+					tcpDragRigidP0ToPeff(capDoc, capInstIdx, m_lastTcpDragTargetInBase));
+				tcpRenderWorldMat = tcpInPeff * robotBaseWorld;
 			}
 		}
 		usedGizmoTarget = true;
@@ -2923,15 +3421,57 @@ void RobotSimulationController::onSimulationAddInstructionRequested(RobotInstruc
 		}
 		return;
 	}
-	const std::shared_ptr<RobotInstruction::Base> ins =
-		m_host->simulationCommandPage()->appendInstructionFromCurrentPose(type, pose, euler, true);
+	const engine::RigidTransform capturedRt =
+		m_lastTcpDragTargetValid
+			? m_lastTcpDragTargetInBase
+			: engine::RigidTransform::fromTranslationEulerDeg(pose.x, pose.y, pose.z, euler.x, euler.y, euler.z);
+
+	if (type == RobotInstruction::Type::ARC && !m_arcTeachPending)
+	{
+		m_arcTeachPending = true;
+		m_arcTeachViaPose = pose;
+		m_arcTeachViaEuler = euler;
+		m_arcTeachViaTransform = capturedRt;
+		m_arcTeachViaJointCsv =
+			qLocal.isEmpty() ? std::string() : RobotInstructionPlanning::encodeJointAnglesRadCsv(qLocal);
+		m_arcTeachViaTcpLinkName = tcpLinkName;
+		m_host->simulationCommandPage()->setArcTeachPending(true);
+		if (m_host->runInfoPage())
+		{
+			m_host->appendRunInfo(QStringLiteral("ARC teach: Via captured / 已捕获途经点，请移到终点后再点圆弧"));
+		}
+		m_lastTcpDragTargetValid = false;
+		(void)usedGizmoTarget;
+		return;
+	}
+
+	std::shared_ptr<RobotInstruction::Base> ins;
+	if (type == RobotInstruction::Type::ARC)
+	{
+		ins = m_host->simulationCommandPage()->appendArcInstructionFromPoses(m_arcTeachViaPose, m_arcTeachViaEuler, pose,
+																			 euler, true);
+	}
+	else
+	{
+		ins = m_host->simulationCommandPage()->appendInstructionFromCurrentPose(type, pose, euler, true);
+	}
 	m_host->invalidateInstructionPropertyCache();
 	if (ins)
 	{
-		RobotInstruction::writeTargetTransformToInstruction(
-			*ins, m_lastTcpDragTargetValid ? m_lastTcpDragTargetInBase
-										   : engine::RigidTransform::fromTranslationEulerDeg(
-												 pose.x, pose.y, pose.z, euler.x, euler.y, euler.z));
+		if (type == RobotInstruction::Type::ARC)
+		{
+			RobotInstruction::writeViaTransformToInstruction(*ins, m_arcTeachViaTransform);
+			if (!m_arcTeachViaJointCsv.empty())
+			{
+				ins->setExtensionProperty("context.viaJointRadCsv", m_arcTeachViaJointCsv);
+			}
+			if (!m_arcTeachViaTcpLinkName.isEmpty())
+			{
+				ins->setExtensionProperty("context.viaTcpLinkName", m_arcTeachViaTcpLinkName.toStdString());
+			}
+			cancelArcTeach();
+		}
+		RobotInstruction::writeTargetTransformToInstruction(*ins, capturedRt);
 		const std::string matCsv = RobotSimulationMath::encodeMatrix4Csv(tcpLocalMat);
 		const std::string renderMatCsv = RobotSimulationMath::encodeMatrix4Csv(tcpRenderWorldMat);
 		const osg::Matrixd renderWorldToFk = tcpLocalMat * osg::Matrixd::inverse(tcpRenderWorldMat);
@@ -2947,13 +3487,13 @@ void RobotSimulationController::onSimulationAddInstructionRequested(RobotInstruc
 		ins->setExtensionProperty("context.renderToFkDeltaPosMmCsv", deltaOss.str());
 		ins->setExtensionProperty("context.poseFrame", "base_tool_origin");
 		ins->setExtensionProperty("context.capturedTcpLinkName", tcpLinkName.toStdString());
-		if (IRobotDocumentHost* capDoc = m_host->document())
+		if (IRobotDocumentHost* capDoc2 = m_host->document())
 		{
-			const int capInstIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0
-									   ? m_host->simulationCommandPage()->currentRobotInstanceIndex()
-									   : 0;
+			const int capInstIdx2 = m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0
+										? m_host->simulationCommandPage()->currentRobotInstanceIndex()
+										: 0;
 			const RobotCoordinate::RobotCoordinateFrameSet& capFrames =
-				capDoc->robotCoordinateFramesForInstance(capInstIdx);
+				capDoc2->robotCoordinateFramesForInstance(capInstIdx2);
 			if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(capFrames))
 			{
 				const BackendMat4 toolMat = RobotCoordinate::frameToMat4(tool->T_flange_tool);
@@ -2972,7 +3512,7 @@ void RobotSimulationController::onSimulationAddInstructionRequested(RobotInstruc
 				ins->setExtensionProperty(RobotCoordinate::kExtMotionUserFrameId, uf->id);
 			}
 			ins->setExtensionProperty(RobotCoordinate::kExtMotionTargetFrame, "base");
-			const QString capUrdf = capDoc->robotUrdfAbsolutePathForInstance(capInstIdx);
+			const QString capUrdf = capDoc2->robotUrdfAbsolutePathForInstance(capInstIdx2);
 			if (!capUrdf.isEmpty())
 			{
 				ins->setExtensionProperty("context.urdfPath", capUrdf.toStdString());
@@ -2996,7 +3536,7 @@ void RobotSimulationController::onSimulationAddInstructionRequested(RobotInstruc
 				ins->setExtensionProperty("context.currentJointRadCsv",
 										  RobotInstructionPlanning::encodeJointAnglesRadCsv(qLocal));
 				osg::Matrixd tcpWorldFromJoints;
-				if (instructionTcpWorldMat4FromTaughtJoints(capDoc, capInstIdx, *ins, qLocal, tcpWorldFromJoints))
+				if (instructionTcpWorldMat4FromTaughtJoints(capDoc2, capInstIdx2, *ins, qLocal, tcpWorldFromJoints))
 				{
 					BackendMat4 targetInBase = BackendMat4::identity();
 					(void)RobotSimulationMath::targetInBaseFromUrdfFlangeFk(capUrdf, qLocal, capFrames, fallbackFlange,
@@ -3007,6 +3547,19 @@ void RobotSimulationController::onSimulationAddInstructionRequested(RobotInstruc
 					ins->setExtensionProperty("render.tcpLocalMat4",
 											  RobotSimulationMath::encodeMatrix4Csv(tcpLocalFromJoints));
 				}
+			}
+			// 拖动示教落点写入外轴，规划可跳过密网格
+			if (const RobotExternal::RobotExternalAxisConfig* rail =
+					RobotExternal::firstEnabledExternalAxis(capDoc2->robotExternalAxesForInstance(capInstIdx2)))
+			{
+				const double qe = capDoc2->robotExternalAxisQMm(capInstIdx2);
+				ins->setExtensionProperty(RobotExternal::kExtContextExternalAxisQMm,
+										  QString::number(qe, 'g', 12).toStdString());
+				const QString dir = QStringLiteral("%1,%2,%3")
+										.arg(rail->axis[0], 0, 'g', 12)
+										.arg(rail->axis[1], 0, 'g', 12)
+										.arg(rail->axis[2], 0, 'g', 12);
+				ins->setExtensionProperty(RobotExternal::kExtContextExternalAxisDir, dir.toStdString());
 			}
 			if (RunLogger::isDiagnosticsEnabled() && m_host->runInfoPage() && m_host->robotAxisControlPage() &&
 				!capUrdf.isEmpty())
@@ -3138,6 +3691,7 @@ RobotSimulationController::feasibleMotionAxisConfigurationOptionsForInstruction(
 		{
 			m_instructionController.clearDhRows();
 		}
+		syncInstructionControllerExternalAxes(m_instructionController, doc, instIdx);
 	}
 	int targetMotionIndex = -1;
 	QVector<double> rollingQ;
@@ -3219,7 +3773,6 @@ void RobotSimulationController::onSimulationInstructionSelectionChanged(
 	{
 		m_host->clearBackendObjectSelection(true);
 	}
-	m_host->refreshInstructionPropertyPanel(instruction);
 	if (m_trajectoryEditSession)
 	{
 		if (instruction && instruction->type() == RobotInstruction::Type::PathPlan)
@@ -3259,9 +3812,10 @@ void RobotSimulationController::onSimulationInstructionSelectionChanged(
 			}
 		}
 	}
-	// 播放中选中只刷属性，避免链式种子/万级轴重建与拖窗抢 UI 线程
+	// 运行中只刷属性，不预览 / 不重建路点轴
 	if (m_programExecutor.isRunning())
 	{
+		m_host->refreshInstructionPropertyPanel(instruction);
 		return;
 	}
 	std::optional<PrecomputedChainSeed> chainSeed;
@@ -3274,6 +3828,13 @@ void RobotSimulationController::onSimulationInstructionSelectionChanged(
 		}
 	}
 	const PrecomputedChainSeed* chainPtr = chainSeed.has_value() ? &*chainSeed : nullptr;
+	const bool tcpDragActive = m_host->simulationCommandPage() && m_host->simulationCommandPage()->tcpDragTeachMode();
+	// 先摆姿再刷属性面板，降低「点了半天机器人才动」的体感延迟
+	if (!tcpDragActive)
+	{
+		applyRobotPoseForInstructionPreview(instruction, chainPtr);
+	}
+	m_host->refreshInstructionPropertyPanel(instruction);
 	if (instruction && instruction->hasMotionAxisConfigurationProperty())
 	{
 		const auto& ext = instruction->extensionProperties();
@@ -3283,12 +3844,49 @@ void RobotSimulationController::onSimulationInstructionSelectionChanged(
 			scheduleDeferredFeasibleAxisProbe(instruction, FeasibleAxisProbePurpose::SelectionAutoSeed);
 		}
 	}
-	const bool tcpDragActive = m_host->simulationCommandPage() && m_host->simulationCommandPage()->tcpDragTeachMode();
-	if (!tcpDragActive)
+	scheduleInstructionPoseAxesRefresh(false);
+}
+
+void RobotSimulationController::ensureInstructionControllerKinematics(IRobotDocumentHost* doc, const int instanceIndex,
+																	  const QString& urdfPath)
+{
+	if (urdfPath.isEmpty())
 	{
-		applyRobotPoseForInstructionPreview(instruction, chainPtr);
+		m_instructionController.clearDhRows();
+		m_cachedInstructionDhUrdfPath.clear();
+		m_instructionController.clearExternalAxes();
+		return;
 	}
-	refreshInstructionPoseAxes(false);
+	if (m_cachedInstructionDhUrdfPath != urdfPath)
+	{
+		std::vector<robot_kinematics::DhRow> dhRows;
+		QString dhErr;
+		if (RobotSimulationMath::buildDhRowsFromUrdf(urdfPath, dhRows, &dhErr))
+		{
+			m_instructionController.setDhRows(dhRows);
+		}
+		else
+		{
+			m_instructionController.clearDhRows();
+		}
+		m_cachedInstructionDhUrdfPath = urdfPath;
+	}
+	syncInstructionControllerExternalAxes(m_instructionController, doc, instanceIndex);
+}
+
+void RobotSimulationController::scheduleInstructionPoseAxesRefresh(const bool computeReachability)
+{
+	++m_poseAxesRefreshToken;
+	const quint64 token = m_poseAxesRefreshToken;
+	QTimer::singleShot(0, this,
+					   [this, token, computeReachability]()
+					   {
+						   if (token != m_poseAxesRefreshToken || m_programExecutor.isRunning())
+						   {
+							   return;
+						   }
+						   refreshInstructionPoseAxes(computeReachability);
+					   });
 }
 
 void RobotSimulationController::applyRobotPoseForInstructionPreview(
@@ -3330,16 +3928,7 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(
 		return;
 	}
 	{
-		std::vector<robot_kinematics::DhRow> dhRows;
-		QString dhErr;
-		if (RobotSimulationMath::buildDhRowsFromUrdf(urdfPath, dhRows, &dhErr))
-		{
-			m_instructionController.setDhRows(dhRows);
-		}
-		else
-		{
-			m_instructionController.clearDhRows();
-		}
+		ensureInstructionControllerKinematics(doc, instIdx, urdfPath);
 	}
 	const QString robotBackendId = m_host->simulationCommandPage()->currentRobotBackendId();
 	const QString defaultTcpLinkName = RobotSimulationMath::defaultTcpLinkNameForUrdf(
@@ -3368,14 +3957,15 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(
 	RobotInstruction::PlanResult plan{};
 	std::string planErr;
 	if (!planMotionConsistentWithPreview(*targetIns, seedQ, programStartQ, instIdx, urdfPath, defaultTcpLinkName,
-										 robotBackendId, framesForPlan, plan, &planErr, true))
+										 robotBackendId, framesForPlan, plan, &planErr, true,
+										 /*gateTaughtResidual=*/false))
 	{
 		if (m_host->runInfoPage())
 		{
 			const QString pointTag = QString::fromStdString(
 				RobotInstruction::formatMotionPointName(RobotInstruction::motionPointIndex(*targetIns)));
 			const QString detail =
-				planErr.empty() ? m_host->i18n(QStringLiteral("Preview IK failed."), QStringLiteral("预览 IK 失败。"))
+				planErr.empty() ? m_host->i18n(QStringLiteral("Preview IK failed."), QStringLiteral("??? IK ????"))
 								: QString::fromStdString(planErr);
 			m_host->appendRunWarning(pointTag.isEmpty() ? detail : QStringLiteral("%1: %2").arg(pointTag, detail));
 		}
@@ -3406,6 +3996,7 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(
 		m_host->robotAxisControlPage()->setJointAnglesRad(resultQ);
 		m_suppressMotionPreviewStartCapture = false;
 	}
+	applyExternalAxisFromPlan(instIdx, plan, targetIns);
 	(void)doc->applyJointAnglesRad(instIdx, resultQ, m_aggregatedJointAnglesRad);
 
 	refreshRobotCoordinateFrameOverlays(instruction, &resultQ);
@@ -3414,7 +4005,7 @@ void RobotSimulationController::applyRobotPoseForInstructionPreview(
 
 namespace
 {
-/// 用示教关节 URDF 正解 + 文档基座位姿算世界 TCP，不依赖当前场景关节状态
+/// ??????? URDF ???? + ???????????????? TCP????????????????????
 bool instructionTcpWorldMat4FromTaughtJoints(IRobotDocumentHost* doc, int instIdx, const RobotInstruction::Base& ins,
 											 const QVector<double>& taughtQ, osg::Matrixd& outTcpWorld)
 {
@@ -3447,10 +4038,10 @@ bool instructionTcpWorldMat4FromTaughtJoints(IRobotDocumentHost* doc, int instId
 	const osg::Matrixd tcpLocal = RobotMatrixOsg::matrixFromBackendColMajor(targetInBase);
 	osg::Matrixd robotBaseWorld;
 	robotBaseWorld.makeIdentity();
-	RobotPerLinkKinematicsSlice slice;
+	cloudsim::core::RobotPerLinkKinematicsSliceDto slice;
 	if (doc->robotPerLinkKinematicsForInstance(instIdx, slice))
 	{
-		robotBaseWorld = slice.robotBasePlacementWorld;
+		robotBaseWorld = RobotSimulationMath::osgMatrixFromCoreMat4(slice.robotBasePlacementWorld);
 	}
 	else if (!RobotSimulationMath::robotBaseWorldMatrixForInstance(doc, nullptr, instIdx, robotBaseWorld))
 	{
@@ -3470,14 +4061,49 @@ osg::Matrixd tcpLocalFromPoseFields(const RobotInstruction::Base& ins)
 	return osg::Matrixd();
 }
 
-/// 基座系 T_base_target：pose/euler → BackendMat4 → OSG（与 capture/IK 同一套刚体矩阵）
+/// ????? T_base_target??pose/euler ?? BackendMat4 ?? OSG???? capture/IK ??????????
 bool instructionTcpLocalMatrix(const RobotInstruction::Base& ins, osg::Matrixd& outTcpLocal)
 {
 	outTcpLocal = tcpLocalFromPoseFields(ins);
 	return true;
 }
 
-/// 指令点显示：落盘 T_base_tool（含该点冻结工具系），挂轨迹世界层，不随当前关节 FK 移动
+void assignPoseAxisWorld(RobotOsgUi::InstructionPoseAxis& axis, const osg::Matrixd& T_world, bool lineMotion,
+						 bool reachable)
+{
+	axis.lineMotion = lineMotion;
+	axis.reachable = reachable;
+	axis.hasLocalMatrix = false;
+	axis.robotBackendId.clear();
+	axis.mountTcpOnPatRoot = false;
+	axis.urdfTcpAttachLinkName.clear();
+	axis.positionMm = {T_world(3, 0), T_world(3, 1), T_world(3, 2)};
+	const osg::Vec3f euler = OsgScene::quatToEulerDeg(T_world.getRotate());
+	axis.eulerDeg = {static_cast<double>(euler.x()), static_cast<double>(euler.y()), static_cast<double>(euler.z())};
+}
+
+/// 基座系 TCP → 世界系路点轴（Via 等无示教关节 FK 的点）
+bool fillInstructionPoseAxisFromBaseTcp(IRobotDocumentHost* doc, IRobotOsgViewHost* osg, int instIdx,
+										const engine::RigidTransform& T_base_tcp, bool lineMotion, bool reachable,
+										RobotOsgUi::InstructionPoseAxis& axis,
+										const QVector<double>* jointForBase = nullptr)
+{
+	const osg::Matrixd tcpLocal = engine::osgMatrixFromRigidTransform(T_base_tcp);
+	osg::Matrixd T_world = tcpLocal;
+	if (doc && osg && instIdx >= 0)
+	{
+		osg::Matrixd baseWorld;
+		baseWorld.makeIdentity();
+		if (RobotSimulationMath::robotBaseWorldMatrixForInstance(
+				doc, osg, instIdx, baseWorld, jointForBase && !jointForBase->isEmpty() ? jointForBase : nullptr))
+		{
+			T_world = tcpLocal * baseWorld;
+		}
+	}
+	assignPoseAxisWorld(axis, T_world, lineMotion, reachable);
+	return true;
+}
+
 bool fillInstructionPoseAxisMount(IRobotDocumentHost* doc, IRobotOsgViewHost* osg, int instIdx,
 								  const RobotInstruction::Base& ins, bool lineMotion, bool reachable,
 								  RobotOsgUi::InstructionPoseAxis& axis,
@@ -3490,16 +4116,9 @@ bool fillInstructionPoseAxisMount(IRobotDocumentHost* doc, IRobotOsgViewHost* os
 	}
 	const osg::Matrixd tcpLocal = engine::osgMatrixFromRigidTransform(T_target);
 
-	axis.lineMotion = lineMotion;
-	axis.reachable = reachable;
-	axis.hasLocalMatrix = false;
-	axis.robotBackendId.clear();
-	axis.mountTcpOnPatRoot = false;
-	axis.urdfTcpAttachLinkName.clear();
-
 	osg::Matrixd T_world = tcpLocal;
 	bool positioned = false;
-	// 预览/播放传入关节角时，优先用 FK 世界位姿（与机器人实际 TCP 一致）
+	// 选中指令优先用当前关节 FK，避免仅靠缓存世界矩阵漂移
 	if (jointAnglesRadLocal && !jointAnglesRadLocal->isEmpty() && doc && instIdx >= 0)
 	{
 		osg::Matrixd fkWorld;
@@ -3534,9 +4153,7 @@ bool fillInstructionPoseAxisMount(IRobotDocumentHost* doc, IRobotOsgViewHost* os
 		}
 	}
 
-	axis.positionMm = osg::Vec3f(static_cast<float>(T_world(3, 0)), static_cast<float>(T_world(3, 1)),
-								 static_cast<float>(T_world(3, 2)));
-	axis.eulerDeg = OsgScene::quatToEulerDeg(T_world.getRotate());
+	assignPoseAxisWorld(axis, T_world, lineMotion, reachable);
 	return true;
 }
 } // namespace
@@ -3591,7 +4208,7 @@ void RobotSimulationController::syncInstructionRenderMatricesFromPose(
 	const bool hasCartesianTarget =
 		itTargetQ != ext.end() && itTargetT != ext.end() && !itTargetQ->second.empty() && !itTargetT->second.empty();
 	QVector<double> taughtQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(*instruction);
-	// 轨迹平移/旋转后 pose 已更新而关节角未重算，不能再按示教 FK 写 world 矩阵
+	// ?????/????? pose ????????????????????????? FK ? world ????
 	const bool usedTaughtFk = !hasCartesianTarget && taughtQ.size() == nj &&
 							  instructionTcpWorldMat4FromTaughtJoints(doc, instIdx, *instruction, taughtQ, tcpWorld);
 	if (usedTaughtFk)
@@ -3600,7 +4217,7 @@ void RobotSimulationController::syncInstructionRenderMatricesFromPose(
 	}
 	else
 	{
-		// 笛卡尔路点：用该点示教关节算基座世界位姿，不能用当前仿真关节（否则多点会叠在同一错误位置）
+		// ?????????????????????????????????????????????????????????????????
 		const auto itWorld = ext.find("render.tcpWorldMat4");
 		if (hasCartesianTarget && taughtQ.size() != nj && itWorld != ext.end() && !itWorld->second.empty())
 		{
@@ -3612,7 +4229,7 @@ void RobotSimulationController::syncInstructionRenderMatricesFromPose(
 		}
 		if (hasCartesianTarget && taughtQ.size() != nj)
 		{
-			// 缺少示教关节且无可用 world 缓存时，保留当前 pose 作为世界位姿，避免按当前机器人底座重复变换
+			// ??????????????? world ?????????????? pose ????????????????????????????????
 			instruction->setExtensionProperty("render.tcpWorldMat4", RobotSimulationMath::encodeMatrix4Csv(tcpLocal));
 			return;
 		}
@@ -3762,14 +4379,28 @@ void RobotSimulationController::refreshInstructionPoseAxesWithReachability(const
 		}
 		const auto itReach = reachability.constFind(QString::fromStdString(ins->id()));
 		const bool reachable = (itReach == reachability.constEnd()) ? true : itReach.value();
-		RobotOsgUi::InstructionPoseAxis a;
+		const bool lineLike =
+			ins->type() == RobotInstruction::Type::LINE || ins->type() == RobotInstruction::Type::ARC;
 		const QVector<double>* jointPtr = nullptr;
 		if (!m_programExecutor.isRunning() && selectedIns && ins->id() == selectedIns->id() && !axisJointQ.isEmpty())
 		{
 			jointPtr = &axisJointQ;
 		}
-		if (!fillInstructionPoseAxisMount(doc, osg, axisInstIdx, *ins, ins->type() == RobotInstruction::Type::LINE,
-										  reachable, a, jointPtr))
+		if (ins->type() == RobotInstruction::Type::ARC)
+		{
+			engine::RigidTransform T_via{};
+			if (RobotInstruction::readViaTransformFromInstruction(*ins, T_via))
+			{
+				RobotOsgUi::InstructionPoseAxis viaAxis;
+				if (fillInstructionPoseAxisFromBaseTcp(doc, osg, axisInstIdx, T_via, true, reachable, viaAxis,
+													   nullptr))
+				{
+					axes.push_back(viaAxis);
+				}
+			}
+		}
+		RobotOsgUi::InstructionPoseAxis a;
+		if (!fillInstructionPoseAxisMount(doc, osg, axisInstIdx, *ins, lineLike, reachable, a, jointPtr))
 		{
 			continue;
 		}
@@ -3914,7 +4545,7 @@ void RobotSimulationController::refreshPathPlanPreviewForActiveTab(const RobotIn
 	else
 	{
 		refreshPathPlanRawOverlays();
-		// Applied 跳过 raw 后需恢复指令路点轴，否则场景只剩空叠加层
+		// Applied ???? raw ????????????????????????????
 		if (!m_rawTrajectoryPreviewActive)
 		{
 			refreshInstructionPoseAxes(false);
@@ -3933,10 +4564,16 @@ void RobotSimulationController::clearBoundPathPlanPreview()
 	{
 		return;
 	}
+	// raw 预览会清掉指令路点轴；退出时必须恢复，否则轴会一直“消失”
+	const bool wasRaw = m_rawTrajectoryPreviewActive;
 	m_rawTrajectoryPreviewActive = false;
 	osg->clearRawTrajectoryOverlay();
 	osg->clearRawTrajectoryOverlayFrames();
 	osg->requestRedraw();
+	if (wasRaw)
+	{
+		refreshInstructionPoseAxes(false);
+	}
 }
 
 void RobotSimulationController::refreshBoundPathPlanPreview(const RobotInstruction::RawTrajectory* preferRaw)
@@ -3982,7 +4619,7 @@ void RobotSimulationController::refreshBoundPathPlanPreview(const RobotInstructi
 	const std::string backendId = RobotInstruction::rawTrajectoryWorkpieceBackendId(*src);
 	if (backendId.empty())
 	{
-		m_rawTrajectoryPreviewActive = false;
+		clearBoundPathPlanPreview();
 		return;
 	}
 
@@ -3997,7 +4634,9 @@ void RobotSimulationController::refreshBoundPathPlanPreview(const RobotInstructi
 	if (!err.empty())
 	{
 		m_host->appendRunWarning(QString::fromStdString(err));
-		m_rawTrajectoryPreviewActive = false;
+		// apply 已清路点轴，失败时按“曾开启 raw”恢复
+		m_rawTrajectoryPreviewActive = true;
+		clearBoundPathPlanPreview();
 		return;
 	}
 	m_rawTrajectoryPreviewActive = true;
@@ -4050,7 +4689,7 @@ void RobotSimulationController::refreshPathPlanRawOverlays()
 		{
 			continue;
 		}
-		// Apply 后指令路点已是流水线真值；pathPlanRaws 仍保留 CAD 源，再画会盖住转换后位姿
+		// Apply ??????????????????????pathPlanRaws ????? CAD ??????????????????
 		if (pp->phase() == RobotInstruction::PathPlanPhase::Applied)
 		{
 			continue;
@@ -4085,10 +4724,15 @@ void RobotSimulationController::refreshPathPlanRawOverlays()
 
 	if (mergedOverlay.empty())
 	{
+		const bool wasRaw = m_rawTrajectoryPreviewActive;
 		m_rawTrajectoryPreviewActive = false;
 		osg->clearRawTrajectoryOverlay();
 		osg->clearRawTrajectoryOverlayFrames();
 		osg->requestRedraw();
+		if (wasRaw)
+		{
+			refreshInstructionPoseAxes(false);
+		}
 		return;
 	}
 
@@ -4100,7 +4744,11 @@ void RobotSimulationController::refreshPathPlanRawOverlays()
 	if (!err.empty())
 	{
 		m_host->appendRunWarning(QString::fromStdString(err));
+		// applyMerged 已清路点轴，失败后恢复
 		m_rawTrajectoryPreviewActive = false;
+		osg->clearRawTrajectoryOverlay();
+		osg->clearRawTrajectoryOverlayFrames();
+		refreshInstructionPoseAxes(false);
 		return;
 	}
 	m_rawTrajectoryPreviewActive = true;
@@ -4108,12 +4756,17 @@ void RobotSimulationController::refreshPathPlanRawOverlays()
 
 void RobotSimulationController::setRawTrajectoryPreviewActive(const bool active)
 {
+	const bool wasActive = m_rawTrajectoryPreviewActive;
 	m_rawTrajectoryPreviewActive = active;
 	if (!active && m_host && m_host->osgView())
 	{
 		IRobotOsgViewHost* osg = m_host->osgView();
 		osg->clearRawTrajectoryOverlay();
 		osg->clearRawTrajectoryOverlayFrames();
+		if (wasActive)
+		{
+			refreshInstructionPoseAxes(false);
+		}
 	}
 }
 
@@ -4163,7 +4816,7 @@ void RobotSimulationController::refreshInstructionPoseAxes(const bool computeRea
 
 	if (computeReachability)
 	{
-		// 丢弃旧判定，避免错误红点在 Job 完成前一直显示
+		// ?????????????????????? Job ?????????
 		m_motionReachabilityCache.clear();
 		refreshInstructionPoseAxesWithReachability(QHash<QString, bool>{});
 		scheduleAsyncMotionReachabilityRefresh();
@@ -4190,7 +4843,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 		{
 			m_host->appendRunWarning(
 				m_host->i18n(QStringLiteral("Import a robot (URDF) first, then add simulation commands."),
-							 QStringLiteral("请先导入机器人(URDF)，再添加仿真指令。")));
+							 QStringLiteral("????????????(URDF)??????????????")));
 		}
 		return;
 	}
@@ -4221,6 +4874,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 												   QStringLiteral("DH rows not built: %1").arg(dhErr)));
 			}
 		}
+		syncInstructionControllerExternalAxes(m_instructionController, doc, instIdx);
 	}
 	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
 	if (nj <= 0)
@@ -4230,7 +4884,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 			m_host->appendRunWarning(m_host->i18n(
 				QStringLiteral(
 					"No revolute joints in URDF (joints need type=\"revolute\" or \"continuous\" and an axis)."),
-				QStringLiteral("URDF 中无可旋转关节（需 type=“revolute/continuous” 及 axis）。")));
+				QStringLiteral("URDF ?????????????? type=??revolute/continuous?? ?? axis????")));
 		}
 		return;
 	}
@@ -4241,7 +4895,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 		if (m_host->runInfoPage())
 		{
 			m_host->appendRunWarning(m_host->i18n(QStringLiteral("Add at least one instruction row."),
-												  QStringLiteral("请至少添加一条指令。")));
+												  QStringLiteral("????????????????")));
 		}
 		return;
 	}
@@ -4275,12 +4929,13 @@ void RobotSimulationController::onSimulationStartTriggered()
 		rollingQ[j] = initialAngles[jointOffset + j];
 	}
 	const QVector<double> programStartQ = rollingQ;
+	double rollingExternalAxisQMm = doc->robotExternalAxisQMm(instIdx);
 	int successMotionCount = 0;
 	bool planningStoppedAfterFailure = false;
 	size_t firstFailedMotionIndex = motions.size();
 	QString firstFailedMotionLabel;
 	QString firstFailedReason;
-	// 启动只急算前几段，其余 lazyPending；万级路点禁止全量 IK
+	// ??????????????????? lazyPending???????????? IK
 	constexpr size_t kEagerPlanCount = 16;
 	for (size_t mi = 0; mi < motions.size(); ++mi)
 	{
@@ -4290,12 +4945,12 @@ void RobotSimulationController::onSimulationStartTriggered()
 			if (m_host->runInfoPage())
 			{
 				m_host->appendRunWarning(
-					m_host->i18n(QStringLiteral("Instruction row is invalid."), QStringLiteral("指令行无效。")));
+					m_host->i18n(QStringLiteral("Instruction row is invalid."), QStringLiteral("??????????")));
 			}
 			return;
 		}
 
-		// 遇失败后不再解后续点，占位 ok=false 以匹配 motions 数量
+		// ???????????????? ok=false ????? motions ????
 		if (planningStoppedAfterFailure)
 		{
 			RobotInstruction::PlanResult skipped{};
@@ -4306,7 +4961,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 			continue;
 		}
 
-		// 急算窗口外：占位，播放前/中再 plan
+		// ?????????????????/???? plan
 		if (mi >= kEagerPlanCount)
 		{
 			RobotInstruction::PlanResult pending{};
@@ -4357,7 +5012,18 @@ void RobotSimulationController::onSimulationStartTriggered()
 		{
 			ins->setExtensionProperty("motion.durationSec", QString::number(plan.durationSec, 'f', 3).toStdString());
 		}
-		plan.jointTrajectoryRad.clear();
+		writeExternalAxisPlanToInstruction(*ins, plan, doc, instIdx);
+		if (plan.hasExternalAxisQ)
+		{
+			plan.durationSec =
+				std::max(plan.durationSec, externalAxisTravelDurationSec(plan.externalAxisQ - rollingExternalAxisQMm));
+			rollingExternalAxisQMm = plan.externalAxisQ;
+			if (plan.durationSec > 1e-6)
+			{
+				ins->setExtensionProperty("motion.durationSec", QString::number(plan.durationSec, 'f', 3).toStdString());
+			}
+		}
+		// 保留 jointTrajectoryRad：LINE/点云路径插帧依赖多样本轨迹
 		m_planResultCache.store(insIdQ, fp, plan, mi);
 		planResults.push_back(std::move(plan));
 		++successMotionCount;
@@ -4368,7 +5034,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 		{
 			m_host->appendRunWarning(m_host->i18n(
 				QStringLiteral("All motion instructions failed to plan; simulation not started."),
-				QStringLiteral("全部运动指令规划失败，仿真未启动。")));
+				QStringLiteral("?????????????????????????")));
 		}
 		return;
 	}
@@ -4380,7 +5046,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 				.arg(failOneBased)
 				.arg(firstFailedMotionLabel)
 				.arg(firstFailedReason),
-			QStringLiteral("部分规划失败：将播放至第 %1 个运动点（%2）前并停止。原因：%3")
+			QStringLiteral("??????????????????? %1 ???????%2????????????%3")
 				.arg(failOneBased)
 				.arg(firstFailedMotionLabel)
 				.arg(firstFailedReason)));
@@ -4391,11 +5057,11 @@ void RobotSimulationController::onSimulationStartTriggered()
 			QStringLiteral("Lazy planning: %1/%2 motions planned at start; rest on demand.")
 				.arg(successMotionCount)
 				.arg(static_cast<int>(motions.size())),
-			QStringLiteral("懒规划：启动已规划 %1/%2 段，其余播放中补算。")
+			QStringLiteral("????????????? %1/%2 ??????????????")
 				.arg(successMotionCount)
 				.arg(static_cast<int>(motions.size()))));
 	}
-	// Run 以指令路点轴为显示真值；清掉可能残留的 CAD raw 叠加（工件型转换后尤为关键）
+	// Run ??????????????????????????????? CAD raw ????????????????????????
 	setRawTrajectoryPreviewActive(false);
 	refreshInstructionPoseAxes(false);
 	if (m_host->simulationCommandPage())
@@ -4414,6 +5080,8 @@ void RobotSimulationController::onSimulationStartTriggered()
 	m_playbackMotionIndex = 0;
 	m_playbackProgramStartQ = programStartQ;
 	m_playbackRollingSeedQ = programStartQ;
+	m_playbackSegmentExternalAxisStartMm = doc ? doc->robotExternalAxisQMm(instIdx) : 0.0;
+	m_playbackExtInterpMotion = nullptr;
 	if (!poseSink || !m_programExecutor.tryStart(doc, poseSink, &m_simulationIoSink, instIdx, instructions, planResults,
 												 playbackStartAngles, &err))
 	{
@@ -4422,7 +5090,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 			if (err.contains(QLatin1String("Invalid joint index")))
 			{
 				m_host->appendRunWarning(m_host->i18n(QStringLiteral("Invalid joint index in simulation command."),
-													  QStringLiteral("仿真指令关节索引无效。")));
+													  QStringLiteral("??????????????????")));
 			}
 			else if (!err.isEmpty())
 			{
@@ -4443,7 +5111,7 @@ void RobotSimulationController::onSimulationStartTriggered()
 	m_playbackTimer->start();
 	if (m_host->runInfoPage())
 	{
-		m_host->appendRunInfo(m_host->i18n(QStringLiteral("Simulation started."), QStringLiteral("仿真已开始。")));
+		m_host->appendRunInfo(m_host->i18n(QStringLiteral("Simulation started."), QStringLiteral("??????????")));
 	}
 }
 
@@ -4502,7 +5170,7 @@ void RobotSimulationController::logPlaybackFrameComparison(const QVector<double>
 	if (!UrdfRobotLoader::computeLinkWorldMatrices(urdfPath, finalJointAnglesRad, linkWorldByName, &fkErr))
 	{
 		m_host->appendRunWarning(m_host->i18n(QStringLiteral("Forward kinematics failed: %1").arg(fkErr),
-											  QStringLiteral("正解失败：%1").arg(fkErr)));
+											  QStringLiteral("????????%1").arg(fkErr)));
 		return;
 	}
 }
@@ -4518,13 +5186,32 @@ void RobotSimulationController::onRobotSimulationTick()
 	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
 	IRobotBackendPoseSink* poseSink = doc ? doc->poseSink() : nullptr;
 	const bool uiBusy = isPlaybackUiInteractionBusy();
-	// 进入下一段前同步消掉 lazyPending，避免 Executor 当成规划失败
-	// 窗宽必须覆盖 tick 可能切入的下一段；uiBusy 只推迟叠加层/lookahead，不缩窗
+	// ????????????????? lazyPending?????? Executor ????????
+	// ?????????? tick ???????????????uiBusy ????????/lookahead????????
 	ensurePlaybackPlansReady();
 	const RobotInstructionPlaybackTickResult r = m_programExecutor.tick(doc, poseSink);
 	m_aggregatedJointAnglesRad = m_programExecutor.jointAnglesRad();
 	if (doc && osg)
 	{
+		if (const RobotInstruction::Base* activeMotion = m_programExecutor.activeMotion())
+		{
+			const int playInst = m_host->simulationCommandPage()
+									 ? m_host->simulationCommandPage()->currentRobotInstanceIndex()
+									 : -1;
+			const int instForPlay = playInst >= 0 ? playInst : 0;
+			if (const RobotInstruction::PlanResult* playPlan = m_programExecutor.motionPlanResult(activeMotion))
+			{
+				// 段切换时记下起点 qe，避免每 tick 直接落到目标造成滑轨瞬移
+				if (activeMotion != m_playbackExtInterpMotion)
+				{
+					m_playbackExtInterpMotion = activeMotion;
+					m_playbackSegmentExternalAxisStartMm = doc->robotExternalAxisQMm(instForPlay);
+				}
+				applyExternalAxisFromPlan(instForPlay, *playPlan, activeMotion,
+										  m_programExecutor.motionSegmentProgress01(),
+										  m_playbackSegmentExternalAxisStartMm);
+			}
+		}
 		if (!uiBusy)
 		{
 			refreshRobotCoordinateFrameOverlaysForPlayback();
@@ -4559,7 +5246,7 @@ void RobotSimulationController::onRobotSimulationTick()
 		stopRobotSimulation();
 		if (m_host->runInfoPage())
 		{
-			m_host->appendRunInfo(m_host->i18n(QStringLiteral("Simulation finished."), QStringLiteral("仿真已结束。")));
+			m_host->appendRunInfo(m_host->i18n(QStringLiteral("Simulation finished."), QStringLiteral("???????????")));
 		}
 		break;
 	case RobotInstructionPlaybackTickResult::Aborted:
@@ -4583,8 +5270,8 @@ void RobotSimulationController::onRobotSimulationTick()
 				QStringLiteral("Simulation stopped before failed motion%1. %2")
 					.arg(failedLabel.isEmpty() ? QString() : QStringLiteral(" (%1)").arg(failedLabel))
 					.arg(abortSummary),
-				QStringLiteral("仿真已在失败运动点前停止%1。%2")
-					.arg(failedLabel.isEmpty() ? QString() : QStringLiteral("（%1）").arg(failedLabel))
+				QStringLiteral("???????????????????%1??%2")
+					.arg(failedLabel.isEmpty() ? QString() : QStringLiteral("??%1??").arg(failedLabel))
 					.arg(abortSummary)));
 		}
 		break;
@@ -4598,19 +5285,60 @@ bool RobotSimulationController::planMotionOnHost(RobotInstruction::Base& instruc
 												 const QString& sceneRootBackendId, RobotInstruction::PlanResult& plan,
 												 std::string* planErr) const
 {
-	if (!m_host)
+	(void)seedJointRad;
+	(void)defaultTcpLinkName;
+	(void)sceneRootBackendId;
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!doc || !m_host)
 	{
+		if (planErr)
+		{
+			*planErr = "missing host/document";
+		}
 		return false;
 	}
-	return m_host->planRobotMotionInstruction(instruction, seedJointRad, instanceIndex, urdfPath, defaultTcpLinkName,
-											  sceneRootBackendId, plan, planErr);
+	// Run/Preview 直调本地 Controller，避免 Host DTO 丢掉 duration/外轴/轨迹
+	RobotSimulationController* self = const_cast<RobotSimulationController*>(this);
+	{
+		std::vector<robot_kinematics::DhRow> dhRows;
+		QString dhErr;
+		if (RobotSimulationMath::buildDhRowsFromUrdf(urdfPath, dhRows, &dhErr))
+		{
+			self->m_instructionController.setDhRows(dhRows);
+		}
+		else
+		{
+			self->m_instructionController.clearDhRows();
+		}
+		syncInstructionControllerExternalAxes(self->m_instructionController, doc, instanceIndex);
+	}
+	std::string err;
+	plan = {};
+	if (!self->m_instructionController.validate(instruction, &err))
+	{
+		if (planErr)
+		{
+			*planErr = err.empty() ? "Instruction validation failed" : err;
+		}
+		return false;
+	}
+	if (!self->m_instructionController.plan(instruction, plan, &err) || !plan.ok)
+	{
+		if (planErr)
+		{
+			*planErr = plan.summary.empty() ? (err.empty() ? "Instruction planning failed" : err) : plan.summary;
+		}
+		return false;
+	}
+	return true;
 }
 
 bool RobotSimulationController::planMotionConsistentWithPreview(
 	RobotInstruction::Base& instruction, const QVector<double>& chainSeedQ, const QVector<double>& programStartQ,
 	const int instanceIndex, const QString& urdfPath, const QString& defaultTcpLinkName,
 	const QString& sceneRootBackendId, const RobotCoordinate::RobotCoordinateFrameSet& frames,
-	RobotInstruction::PlanResult& outPlan, std::string* planErr, const bool persistTaughtOnSuccess)
+	RobotInstruction::PlanResult& outPlan, std::string* planErr, const bool persistTaughtOnSuccess,
+	const bool gateTaughtResidual)
 {
 	outPlan = {};
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
@@ -4636,16 +5364,30 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 	const QVector<double> taughtQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(instruction);
 	bool useTaughtCsv =
 		taughtQ.size() == nj && RobotInstructionPlanning::shouldUseTaughtJointCsv(instruction, &frames);
-	if (useTaughtCsv)
+	const bool extEnabled =
+		RobotExternal::hasEnabledExternalAxes(doc->robotExternalAxesForInstance(instanceIndex));
+	if (useTaughtCsv && extEnabled)
 	{
-		const double taughtResidual =
-			targetResidualMmForInstruction(urdfPath, taughtQ, frames, defaultTcpLinkName, instruction);
-		const double taughtOrientDeg =
-			targetOrientationResidualDegForInstruction(urdfPath, taughtQ, frames, defaultTcpLinkName, instruction);
-		if (taughtResidual < 0.0 || taughtResidual > kTaughtReuseResidualMm || taughtOrientDeg < 0.0 ||
-			taughtOrientDeg > kMaxPreviewOrientResidualDeg)
+		// 启用外轴时禁止仅用臂关节示教 CSV 短路，否则外轴永不参与求解
+		const auto& ext = instruction.extensionProperties();
+		const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
+		if (itQ == ext.end() || itQ->second.empty())
 		{
 			useTaughtCsv = false;
+		}
+	}
+	if (useTaughtCsv)
+	{
+		if (gateTaughtResidual)
+		{
+			const double taughtResidual =
+				targetResidualMmForInstruction(urdfPath, taughtQ, frames, defaultTcpLinkName, instruction);
+			const double taughtOrientDeg =
+				targetOrientationResidualDegForInstruction(urdfPath, taughtQ, frames, defaultTcpLinkName, instruction);
+			if (!isTaughtOrCacheReuseAcceptable(taughtResidual, taughtOrientDeg))
+			{
+				useTaughtCsv = false;
+			}
 		}
 	}
 	if (useTaughtCsv)
@@ -4655,8 +5397,19 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 		outPlan.summary = "Use context.currentJointRadCsv from teach capture";
 		outPlan.durationSec = RobotInstructionPlanning::motionDurationSecFromInstruction(instruction);
 		outPlan.jointTargetsRad.assign(taughtQ.begin(), taughtQ.end());
-		// 禁用轨迹插值，避免 LINE 多样本终点与示教姿态分叉
 		outPlan.jointTrajectoryRad.clear();
+		const auto& ext = instruction.extensionProperties();
+		const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
+		if (itQ != ext.end() && !itQ->second.empty())
+		{
+			bool ok = false;
+			const double qe = QString::fromStdString(itQ->second).toDouble(&ok);
+			if (ok)
+			{
+				outPlan.hasExternalAxisQ = true;
+				outPlan.externalAxisQ = qe;
+			}
+		}
 		return true;
 	}
 
@@ -4676,7 +5429,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 		return false;
 	};
 
-	// 示教种子优先：AUTO 多解时贴近示教分支，避免与预览法向相反
+	// ????????????AUTO ??????????????????????????????
 	QVector<QVector<double>> seedOrder;
 	auto pushSeed = [&](const QVector<double>& s)
 	{
@@ -4703,7 +5456,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 	bool planned = false;
 	QVector<double> resultQ;
 
-	// LINE：先 lite 再满采，Preview/Run 采样策略统一
+	// LINE???? lite ???????Preview/Run ??????????
 	auto trySeedPass = [&](const bool useLite) -> bool
 	{
 		for (const QVector<double>& trySeed : seedOrder)
@@ -4730,14 +5483,14 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 								  plan, &seedErr) ||
 				!plan.ok)
 			{
-				lastErr = plan.summary.empty() ? (seedErr.empty() ? "IK无解" : seedErr) : plan.summary;
+				lastErr = plan.summary.empty() ? (seedErr.empty() ? "IK???" : seedErr) : plan.summary;
 				instruction.eraseExtensionProperty("context.playbackPlanLite");
 				continue;
 			}
 			instruction.eraseExtensionProperty("context.playbackPlanLite");
 			if (plan.jointTargetsRad.empty() || plan.jointTargetsRad.size() != static_cast<size_t>(nj))
 			{
-				lastErr = seedErr.empty() ? "IK解关节数无效" : seedErr;
+				lastErr = seedErr.empty() ? "IK?????????" : seedErr;
 				continue;
 			}
 			resultQ.resize(nj);
@@ -4745,11 +5498,15 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 			{
 				resultQ[j] = plan.jointTargetsRad[static_cast<size_t>(j)];
 			}
+			const double residualMm =
+				targetResidualMmForInstruction(urdfPath, resultQ, frames, defaultTcpLinkName, instruction);
 			const double orientDeg =
 				targetOrientationResidualDegForInstruction(urdfPath, resultQ, frames, defaultTcpLinkName, instruction);
-			if (orientDeg < 0.0 || orientDeg > kMaxPreviewOrientResidualDeg)
+			if (!isFreshIkSolutionAcceptable(residualMm, orientDeg))
 			{
-				lastErr = "orientation residual exceeds gate";
+				lastErr = (residualMm < 0.0 || residualMm > kFreshIkPositionRejectMm)
+							  ? "position residual exceeds gate"
+							  : "orientation residual exceeds gate";
 				continue;
 			}
 			if (plan.jointTrajectoryRad.size() >= 2U)
@@ -4773,6 +5530,7 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 				}
 			}
 			outPlan = std::move(plan);
+			writeExternalAxisPlanToInstruction(instruction, outPlan, doc, instanceIndex);
 			return true;
 		}
 		return false;
@@ -4803,6 +5561,9 @@ struct PlanJobPayload
 	RobotInstruction::Type type = RobotInstruction::Type::PTP;
 	RobotInstruction::Vec3 pose{};
 	RobotInstruction::Vec3 eulerDeg{};
+	RobotInstruction::Vec3 viaPose{};
+	RobotInstruction::Vec3 viaEulerDeg{};
+	bool hasVia = false;
 	double speed = 0.0;
 	double accel = 0.0;
 	double blendRadius = 0.0;
@@ -4813,13 +5574,15 @@ struct PlanJobPayload
 	QString urdfPath;
 	QString tcpLinkName;
 	std::vector<robot_kinematics::DhRow> dhRows;
+	RobotExternal::RobotExternalAxisConfigSet externalAxes;
 	RobotCoordinate::RobotCoordinateFrameSet frames;
 	bool hasFrames = false;
 };
 
 PlanJobPayload makePlanJobPayload(const RobotInstruction::Base& ins, const QVector<double>& seedJointRad,
 								  const QString& urdfPath, const QString& tcpLinkName,
-								  const std::vector<robot_kinematics::DhRow>& dhRows)
+								  const std::vector<robot_kinematics::DhRow>& dhRows,
+								  const RobotExternal::RobotExternalAxisConfigSet* externalAxes = nullptr)
 {
 	PlanJobPayload payload;
 	payload.instructionId = ins.id();
@@ -4828,6 +5591,12 @@ PlanJobPayload makePlanJobPayload(const RobotInstruction::Base& ins, const QVect
 	{
 		payload.pose = ins.pose();
 		payload.eulerDeg = ins.eulerDeg();
+	}
+	if (ins.hasViaPoseProperty())
+	{
+		payload.hasVia = true;
+		payload.viaPose = ins.viaPose();
+		payload.viaEulerDeg = ins.viaEulerDeg();
 	}
 	if (ins.hasSpeedProperty())
 	{
@@ -4850,6 +5619,10 @@ PlanJobPayload makePlanJobPayload(const RobotInstruction::Base& ins, const QVect
 	payload.urdfPath = urdfPath;
 	payload.tcpLinkName = tcpLinkName;
 	payload.dhRows = dhRows;
+	if (externalAxes)
+	{
+		payload.externalAxes = *externalAxes;
+	}
 	return payload;
 }
 
@@ -4867,6 +5640,23 @@ std::shared_ptr<RobotInstruction::Base> instructionFromPlanJobPayload(const Plan
 		line->setBlendRadius(payload.blendRadius);
 		line->setMotionAxisConfiguration(payload.axisConfig);
 		ins = line;
+	}
+	else if (payload.type == RobotInstruction::Type::ARC)
+	{
+		auto arc = std::make_shared<RobotInstruction::ArcInstruction>();
+		arc->setId(payload.instructionId);
+		arc->setPose(payload.pose);
+		arc->setEulerDeg(payload.eulerDeg);
+		if (payload.hasVia)
+		{
+			arc->setViaPose(payload.viaPose);
+			arc->setViaEulerDeg(payload.viaEulerDeg);
+		}
+		arc->setSpeed(payload.speed);
+		arc->setAccel(payload.accel);
+		arc->setBlendRadius(payload.blendRadius);
+		arc->setMotionAxisConfiguration(payload.axisConfig);
+		ins = arc;
 	}
 	else if (payload.type == RobotInstruction::Type::PTP)
 	{
@@ -4906,7 +5696,7 @@ bool seedsDifferPlan(const QVector<double>& a, const QVector<double>& b)
 	return false;
 }
 
-/// Worker 侧与 Preview/Run 同门控：示教残差 → 多种子 IK → 姿态门控；LINE lite 失败再升满采
+/// Worker ???? Preview/Run ?????????? ?? ?????? IK ?? ???????LINE lite ???????????
 bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::Controller& workerCtrl,
 								 const QVector<double>& chainSeedQ, const QVector<double>& programStartQ,
 								 const QString& urdfPath, const QString& tcpLinkName,
@@ -4920,13 +5710,21 @@ bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::
 	}
 	const QVector<double> taughtQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(ins);
 	bool useTaughtCsv = frames && taughtQ.size() == nj && RobotInstructionPlanning::shouldUseTaughtJointCsv(ins, frames);
+	if (useTaughtCsv && workerCtrl.hasEnabledExternalAxes())
+	{
+		const auto& ext = ins.extensionProperties();
+		if (ext.find(RobotExternal::kExtContextExternalAxisQMm) == ext.end() ||
+			ext.find(RobotExternal::kExtContextExternalAxisQMm)->second.empty())
+		{
+			useTaughtCsv = false;
+		}
+	}
 	if (useTaughtCsv)
 	{
 		const double taughtResidual = targetResidualMmForInstruction(urdfPath, taughtQ, *frames, tcpLinkName, ins);
 		const double taughtOrientDeg =
 			targetOrientationResidualDegForInstruction(urdfPath, taughtQ, *frames, tcpLinkName, ins);
-		if (taughtResidual < 0.0 || taughtResidual > kTaughtReuseResidualMm || taughtOrientDeg < 0.0 ||
-			taughtOrientDeg > kMaxPreviewOrientResidualDeg)
+		if (!isTaughtOrCacheReuseAcceptable(taughtResidual, taughtOrientDeg))
 		{
 			useTaughtCsv = false;
 		}
@@ -4943,6 +5741,18 @@ bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::
 			outPlan->durationSec = RobotInstructionPlanning::motionDurationSecFromInstruction(ins);
 			outPlan->jointTargetsRad.assign(taughtQ.begin(), taughtQ.end());
 			outPlan->jointTrajectoryRad.clear();
+			const auto& ext = ins.extensionProperties();
+			const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
+			if (itQ != ext.end() && !itQ->second.empty())
+			{
+				bool ok = false;
+				const double qe = QString::fromStdString(itQ->second).toDouble(&ok);
+				if (ok)
+				{
+					outPlan->hasExternalAxisQ = true;
+					outPlan->externalAxisQ = qe;
+				}
+			}
 		}
 		return true;
 	}
@@ -4998,9 +5808,11 @@ bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::
 			}
 			if (frames)
 			{
+				const double residualMm =
+					targetResidualMmForInstruction(urdfPath, resultQ, *frames, tcpLinkName, ins);
 				const double orientDeg =
 					targetOrientationResidualDegForInstruction(urdfPath, resultQ, *frames, tcpLinkName, ins);
-				if (orientDeg < 0.0 || orientDeg > kMaxPreviewOrientResidualDeg)
+				if (!isFreshIkSolutionAcceptable(residualMm, orientDeg))
 				{
 					continue;
 				}
@@ -5008,7 +5820,6 @@ bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::
 			outJointQ = resultQ;
 			if (outPlan)
 			{
-				plan.jointTrajectoryRad.clear();
 				*outPlan = std::move(plan);
 			}
 			return true;
@@ -5038,6 +5849,7 @@ RobotInstruction::PlanResult planLookaheadMotion(const PlanJobPayload& payload)
 	{
 		workerCtrl.setDhRows(payload.dhRows);
 	}
+	workerCtrl.setExternalAxes(payload.externalAxes);
 	QVector<double> outQ;
 	const QVector<double> programStart =
 		!payload.programStartQ.isEmpty() ? payload.programStartQ : payload.seedJointRad;
@@ -5048,7 +5860,6 @@ RobotInstruction::PlanResult planLookaheadMotion(const PlanJobPayload& payload)
 		plan = {};
 		return plan;
 	}
-	plan.jointTrajectoryRad.clear();
 	return plan;
 }
 
@@ -5080,6 +5891,7 @@ RobotInstruction::FeasibleMotionAxisConfigurationOptions runFeasibleAxisProbeJob
 	{
 		workerCtrl.setDhRows(payload.plan.dhRows);
 	}
+	workerCtrl.setExternalAxes(payload.plan.externalAxes);
 	const RobotInstructionPlanning::MotionPoseBackup backup = RobotInstructionPlanning::backupInstructionPose(*ins);
 	RobotInstructionPlanning::prepareMotionInstructionForPlanning(
 		*ins, payload.plan.seedJointRad, nullptr, nullptr, 0, payload.plan.urdfPath,
@@ -5171,7 +5983,8 @@ void RobotSimulationController::scheduleDeferredFeasibleAxisProbe(
 	(void)RobotSimulationMath::buildDhRowsFromUrdf(urdfPath, dhRows, &dhErr);
 
 	FeasibleAxisJobPayload payload;
-	payload.plan = makePlanJobPayload(*instruction, rollingQ, urdfPath, defaultTcpLinkName, dhRows);
+	const RobotExternal::RobotExternalAxisConfigSet& extAxes = doc->robotExternalAxesForInstance(instIdx);
+	payload.plan = makePlanJobPayload(*instruction, rollingQ, urdfPath, defaultTcpLinkName, dhRows, &extAxes);
 	payload.coordinateFrames = doc->robotCoordinateFramesForInstance(instIdx);
 
 	const quint64 token = m_feasibleAxisJobToken;
@@ -5245,6 +6058,7 @@ ReachabilityJobOutput runReachabilityJob(const ReachabilityJobInput& input)
 	{
 		workerCtrl.setDhRows(input.steps.front().planPayload.dhRows);
 	}
+	workerCtrl.setExternalAxes(input.steps.front().planPayload.externalAxes);
 	for (const ReachabilityJobStep& step : input.steps)
 	{
 		const std::shared_ptr<RobotInstruction::Base> ins = instructionFromPlanJobPayload(step.planPayload);
@@ -5292,6 +6106,36 @@ QString RobotSimulationController::computePlanFingerprint(const RobotInstruction
 		fp += QLatin1Char(',');
 		fp += QString::number(e.z, 'f', 2);
 	}
+	if (instruction.hasViaPoseProperty())
+	{
+		const RobotInstruction::Vec3 vp = instruction.viaPose();
+		const RobotInstruction::Vec3 ve = instruction.viaEulerDeg();
+		fp += QStringLiteral("|vp:");
+		fp += QString::number(vp.x, 'f', 3);
+		fp += QLatin1Char(',');
+		fp += QString::number(vp.y, 'f', 3);
+		fp += QLatin1Char(',');
+		fp += QString::number(vp.z, 'f', 3);
+		fp += QStringLiteral("|ve:");
+		fp += QString::number(ve.x, 'f', 2);
+		fp += QLatin1Char(',');
+		fp += QString::number(ve.y, 'f', 2);
+		fp += QLatin1Char(',');
+		fp += QString::number(ve.z, 'f', 2);
+	}
+	const auto& extVia = instruction.extensionProperties();
+	const auto itViaQ = extVia.find(RobotInstruction::kExtContextViaTransformQuatCsv);
+	const auto itViaT = extVia.find(RobotInstruction::kExtContextViaTransformTransMmCsv);
+	if (itViaQ != extVia.end() && !itViaQ->second.empty())
+	{
+		fp += QStringLiteral("|vq:");
+		fp += QString::fromStdString(itViaQ->second);
+	}
+	if (itViaT != extVia.end() && !itViaT->second.empty())
+	{
+		fp += QStringLiteral("|vt:");
+		fp += QString::fromStdString(itViaT->second);
+	}
 	if (instruction.hasSpeedProperty())
 	{
 		fp += QStringLiteral("|s:");
@@ -5320,6 +6164,44 @@ QString RobotSimulationController::computePlanFingerprint(const RobotInstruction
 	{
 		fp += QStringLiteral("|tm:");
 		fp += QString::fromStdString(itToolMat->second);
+	}
+	const auto itExtQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
+	if (itExtQ != ext.end() && !itExtQ->second.empty())
+	{
+		fp += QStringLiteral("|eq:");
+		fp += QString::fromStdString(itExtQ->second);
+	}
+	if (m_host && m_host->document() && m_host->simulationCommandPage())
+	{
+		const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex();
+		if (instIdx >= 0)
+		{
+			const RobotExternal::RobotExternalAxisConfigSet& ea =
+				m_host->document()->robotExternalAxesForInstance(instIdx);
+			if (RobotExternal::hasEnabledExternalAxes(ea))
+			{
+				fp += QStringLiteral("|eacfg:");
+				for (const RobotExternal::RobotExternalAxisConfig& a : ea.axes)
+				{
+					if (!a.enabled)
+					{
+						continue;
+					}
+					fp += QString::number(static_cast<int>(a.kind));
+					fp += QLatin1Char(',');
+					fp += QString::number(a.lower, 'f', 2);
+					fp += QLatin1Char(',');
+					fp += QString::number(a.upper, 'f', 2);
+					fp += QLatin1Char(',');
+					fp += QString::number(a.axis[0], 'f', 3);
+					fp += QLatin1Char(',');
+					fp += QString::number(a.axis[1], 'f', 3);
+					fp += QLatin1Char(',');
+					fp += QString::number(a.axis[2], 'f', 3);
+					fp += QLatin1Char(';');
+				}
+			}
+		}
 	}
 	fp += QStringLiteral("|q:");
 	for (int i = 0; i < seedJointRad.size(); ++i)
@@ -5357,7 +6239,7 @@ bool RobotSimulationController::trySeedJointRadForMotionIndex(const size_t targe
 	{
 		return false;
 	}
-	// 从播放游标滚动，窗口 O(前瞻)，禁止从 0 扫到 N
+	// ????????????????? O(??)??????? 0 ??? N
 	if (m_playbackRollingSeedQ.size() != jointCount)
 	{
 		outSeedQ = programStartQ;
@@ -5411,7 +6293,8 @@ bool RobotSimulationController::trySeedJointRadForMotionIndex(const size_t targe
 
 void RobotSimulationController::stripPlanTrajectory(RobotInstruction::PlanResult& plan)
 {
-	plan.jointTrajectoryRad.clear();
+	// 播放依赖 jointTrajectoryRad 插帧；保留轨迹，仅作 API 兼容占位
+	(void)plan;
 }
 
 void RobotSimulationController::commitPlaybackPlan(const RobotInstruction::Base* motion, const size_t motionIndex,
@@ -5421,7 +6304,22 @@ void RobotSimulationController::commitPlaybackPlan(const RobotInstruction::Base*
 	{
 		return;
 	}
-	stripPlanTrajectory(plan);
+	if (plan.hasExternalAxisQ)
+	{
+		double qeStart = m_playbackSegmentExternalAxisStartMm;
+		if (motionIndex > 0 && motionIndex <= m_currentRunMotions.size())
+		{
+			const RobotInstruction::Base* prev = m_currentRunMotions[motionIndex - 1];
+			if (const RobotInstruction::PlanResult* prevPlan = m_programExecutor.motionPlanResult(prev))
+			{
+				if (prevPlan->ok && prevPlan->hasExternalAxisQ)
+				{
+					qeStart = prevPlan->externalAxisQ;
+				}
+			}
+		}
+		plan.durationSec = std::max(plan.durationSec, externalAxisTravelDurationSec(plan.externalAxisQ - qeStart));
+	}
 	const QString insIdQ = QString::fromStdString(motion->id());
 	QVector<double> seedForFp = m_playbackRollingSeedQ;
 	if (seedForFp.isEmpty() && !plan.jointTargetsRad.empty())
@@ -5499,7 +6397,7 @@ bool RobotSimulationController::syncPlanMotionAtIndex(const size_t motionIndex)
 			m_host->appendRunWarning(
 				m_host->i18n(QStringLiteral("Lazy plan seed unavailable for motion %1.")
 								 .arg(static_cast<int>(motionIndex) + 1),
-							 QStringLiteral("懒规划种子不可用：第 %1 个运动点。")
+							 QStringLiteral("???????????????? %1 ???????")
 								 .arg(static_cast<int>(motionIndex) + 1)));
 		}
 		return false;
@@ -5511,14 +6409,22 @@ bool RobotSimulationController::syncPlanMotionAtIndex(const size_t motionIndex)
 
 	const QVector<double> taughtQ = RobotInstructionPlanning::jointAnglesRadFromInstructionContext(*ins);
 	bool useTaught = taughtQ.size() == nj && RobotInstructionPlanning::shouldUseTaughtJointCsv(*ins, &framesForRun);
+	if (useTaught && RobotExternal::hasEnabledExternalAxes(doc->robotExternalAxesForInstance(instIdx)))
+	{
+		const auto& ext = ins->extensionProperties();
+		const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
+		if (itQ == ext.end() || itQ->second.empty())
+		{
+			useTaught = false;
+		}
+	}
 	if (useTaught)
 	{
 		const double taughtResidual =
 			targetResidualMmForInstruction(urdfPath, taughtQ, framesForRun, defaultTcpLinkName, *ins);
 		const double taughtOrientDeg =
 			targetOrientationResidualDegForInstruction(urdfPath, taughtQ, framesForRun, defaultTcpLinkName, *ins);
-		if (taughtResidual < 0.0 || taughtResidual > kTaughtReuseResidualMm || taughtOrientDeg < 0.0 ||
-			taughtOrientDeg > kMaxPreviewOrientResidualDeg)
+		if (!isTaughtOrCacheReuseAcceptable(taughtResidual, taughtOrientDeg))
 		{
 			useTaught = false;
 		}
@@ -5531,6 +6437,18 @@ bool RobotSimulationController::syncPlanMotionAtIndex(const size_t motionIndex)
 		plan.summary = "Use context.currentJointRadCsv from teach capture";
 		plan.durationSec = RobotInstructionPlanning::motionDurationSecFromInstruction(*ins);
 		plan.jointTargetsRad.assign(taughtQ.begin(), taughtQ.end());
+		const auto& ext = ins->extensionProperties();
+		const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
+		if (itQ != ext.end() && !itQ->second.empty())
+		{
+			bool ok = false;
+			const double qe = QString::fromStdString(itQ->second).toDouble(&ok);
+			if (ok)
+			{
+				plan.hasExternalAxisQ = true;
+				plan.externalAxisQ = qe;
+			}
+		}
 		if (plan.durationSec > 1e-6)
 		{
 			ins->setExtensionProperty("motion.durationSec", QString::number(plan.durationSec, 'f', 3).toStdString());
@@ -5541,7 +6459,9 @@ bool RobotSimulationController::syncPlanMotionAtIndex(const size_t motionIndex)
 
 	if (const RobotInstruction::PlanResult* cached = m_planResultCache.fetch(insIdQ, fp))
 	{
-		if (cached->ok && cached->jointTargetsRad.size() == static_cast<size_t>(nj))
+		const bool arcNeedsTraj =
+			ins->type() == RobotInstruction::Type::ARC && cached->jointTrajectoryRad.size() < 2U;
+		if (cached->ok && cached->jointTargetsRad.size() == static_cast<size_t>(nj) && !arcNeedsTraj)
 		{
 			QVector<double> cachedQ(nj);
 			for (int j = 0; j < nj; ++j)
@@ -5552,11 +6472,9 @@ bool RobotSimulationController::syncPlanMotionAtIndex(const size_t motionIndex)
 				targetResidualMmForInstruction(urdfPath, cachedQ, framesForRun, defaultTcpLinkName, *ins);
 			const double orientDeg = targetOrientationResidualDegForInstruction(urdfPath, cachedQ, framesForRun,
 																				defaultTcpLinkName, *ins);
-			if (residualMm >= 0.0 && residualMm <= kTaughtReuseResidualMm && orientDeg >= 0.0 &&
-				orientDeg <= kMaxPreviewOrientResidualDeg)
+			if (isTaughtOrCacheReuseAcceptable(residualMm, orientDeg))
 			{
 				RobotInstruction::PlanResult plan = *cached;
-				stripPlanTrajectory(plan);
 				(void)m_programExecutor.updateMotionPlanResult(motionPtr, plan);
 				return true;
 			}
@@ -5748,7 +6666,8 @@ void RobotSimulationController::tickLookaheadPlanning()
 			continue;
 		}
 
-		PlanJobPayload payload = makePlanJobPayload(*ins, seedQ, urdfPath, tcpLinkName, dhRows);
+		PlanJobPayload payload = makePlanJobPayload(*ins, seedQ, urdfPath, tcpLinkName, dhRows,
+													&doc->robotExternalAxesForInstance(instIdx));
 		payload.programStartQ = programStartQ;
 		payload.frames = frames;
 		payload.hasFrames = true;
@@ -5857,7 +6776,8 @@ void RobotSimulationController::enqueueReachabilityBatch(const int batchStart)
 		}
 		ReachabilityJobStep step;
 		step.instructionId = QString::fromStdString(motionPtr->id());
-		step.planPayload = makePlanJobPayload(*motionPtr, input.programStartQ, urdfPath, defaultTcpLinkName, dhRows);
+		step.planPayload = makePlanJobPayload(*motionPtr, input.programStartQ, urdfPath, defaultTcpLinkName, dhRows,
+											  &doc->robotExternalAxesForInstance(instIdx));
 		input.steps.push_back(std::move(step));
 	}
 	if (input.steps.isEmpty())
@@ -5923,7 +6843,7 @@ bool RobotSimulationController::showAiFeatureCandidatePreview(const QByteArray& 
 	{
 		if (err)
 		{
-			*err = QStringLiteral("轨迹生成页未就绪");
+			*err = QStringLiteral("????????????");
 		}
 		return false;
 	}
@@ -5931,7 +6851,7 @@ bool RobotSimulationController::showAiFeatureCandidatePreview(const QByteArray& 
 	{
 		if (err)
 		{
-			*err = QStringLiteral("无法显示特征预览");
+			*err = QStringLiteral("?????????????");
 		}
 		return false;
 	}
@@ -5957,7 +6877,7 @@ bool RobotSimulationController::commitAiTrajectoryFeatures(const QByteArray& fea
 	{
 		if (err)
 		{
-			*err = QStringLiteral("轨迹生成页未就绪");
+			*err = QStringLiteral("????????????");
 		}
 		return false;
 	}

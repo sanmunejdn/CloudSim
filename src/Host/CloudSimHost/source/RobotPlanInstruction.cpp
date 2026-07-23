@@ -6,13 +6,14 @@
 #include "IRobotSimulationDocument.h"
 #include "IRobotUrdfImportContext.h"
 #include "RobotCoordinateFrames.h"
+#include "RobotExternalAxes.h"
 #include "RobotInstructionController.h"
 #include "RobotInstructionFactory.h"
-#include "RobotInstructionPlanningHelpers.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QStringList>
 
 #include <json.hpp>
 
@@ -20,6 +21,41 @@ namespace cloudsim::host
 {
 namespace
 {
+/// Host 侧规划准备：不链 RobotWidget（与 prepareMotionInstructionForPlanning 同语义，doc/osg 可空）
+void prepareMotionInstructionForHostPlanning(RobotInstruction::Base& ins, const QVector<double>& rollingQ,
+											 const QString& urdfPath, const std::string& defaultTcpLinkName,
+											 const RobotCoordinate::RobotCoordinateFrameSet* coordinateFrames)
+{
+	QStringList parts;
+	parts.reserve(rollingQ.size());
+	for (double v : rollingQ)
+	{
+		parts.push_back(QString::number(v, 'g', 12));
+	}
+	ins.setExtensionProperty("context.currentJointRadCsv", parts.join(QLatin1Char(',')).toStdString());
+	ins.setExtensionProperty("context.urdfPath", urdfPath.toStdString());
+	ins.setExtensionProperty("context.tcpLinkName", defaultTcpLinkName);
+	if (!coordinateFrames)
+	{
+		return;
+	}
+	const BackendMat4 T_tool = RobotCoordinate::toolMat4ForExtension(*coordinateFrames, ins.extensionProperties());
+	ins.setExtensionProperty("context.toolFrameMat4", RobotCoordinate::encodeMat4Csv(T_tool));
+	if (const RobotCoordinate::RobotToolFrame* tool =
+			RobotCoordinate::resolveToolFrameForExtension(*coordinateFrames, ins.extensionProperties()))
+	{
+		const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(*coordinateFrames, *tool);
+		if (!flangeLink.empty())
+		{
+			ins.setExtensionProperty("context.flangeLinkName", flangeLink);
+		}
+	}
+	else if (!coordinateFrames->flangeLinkName.empty())
+	{
+		ins.setExtensionProperty("context.flangeLinkName", coordinateFrames->flangeLinkName);
+	}
+}
+
 nlohmann::json motionDtoToJson(const core::MotionInstructionDto& instruction)
 {
 	nlohmann::json j;
@@ -131,6 +167,14 @@ core::MotionInstructionDto motionDtoFromInstructionJson(const nlohmann::json& j)
 
 int resolveInstanceIndex(const core::PlanContextDto& context, IRobotUrdfImportContext& ctx)
 {
+	if (context.extensions.contains(QStringLiteral("instanceIndex")))
+	{
+		const int idx = context.extensions.value(QStringLiteral("instanceIndex")).toInt(-1);
+		if (idx >= 0 && idx < ctx.robotKinematicInstanceCount())
+		{
+			return idx;
+		}
+	}
 	const QString sceneRoot = context.extensions.value(QStringLiteral("sceneRootBackendId")).toString();
 	if (sceneRoot.isEmpty())
 	{
@@ -187,10 +231,11 @@ bool planMotionInstruction(IRobotUrdfImportContext& ctx, const core::MotionInstr
 		tcpLink = "tool0";
 	}
 	RobotCoordinate::RobotCoordinateFrameSet& frames = ctx.robotCoordinateFramesForInstance(instIdx);
-	RobotInstructionPlanning::prepareMotionInstructionForPlanning(*ins, context.seedJointRad, nullptr, nullptr, instIdx,
-																  urdfPath, tcpLink, &frames);
+	prepareMotionInstructionForHostPlanning(*ins, context.seedJointRad, urdfPath, tcpLink, &frames);
 	RobotInstruction::Controller controller;
 	controller.buildDefaultPlanners();
+	// PTP/LINE 主路径在此建 Controller；未注入则外轴联立永远不生效
+	controller.setExternalAxes(ctx.robotExternalAxesForInstance(instIdx));
 	RobotInstruction::PlanResult plan{};
 	std::string planErr;
 	if (!controller.plan(*ins, plan, &planErr))
@@ -203,6 +248,8 @@ bool planMotionInstruction(IRobotUrdfImportContext& ctx, const core::MotionInstr
 	}
 	out.ok = plan.ok;
 	out.error = QString::fromStdString(plan.summary);
+	out.hasExternalAxisQ = plan.hasExternalAxisQ;
+	out.externalAxisQ = plan.externalAxisQ;
 	out.jointTargetsRad.clear();
 	out.jointTargetsRad.reserve(static_cast<int>(plan.jointTargetsRad.size()));
 	for (double v : plan.jointTargetsRad)
@@ -224,6 +271,7 @@ bool planRobotInstruction(IRobotUrdfImportContext& ctx, RobotInstruction::Base& 
 	planCtx.seedJointRad = seedJointRad;
 	planCtx.urdfPath = urdfPath;
 	planCtx.tcpLinkName = QString::fromStdString(defaultTcpLinkName);
+	planCtx.extensions.insert(QStringLiteral("instanceIndex"), instanceIndex);
 	if (!sceneRootBackendId.isEmpty())
 	{
 		planCtx.extensions.insert(QStringLiteral("sceneRootBackendId"), sceneRootBackendId);
@@ -235,6 +283,8 @@ bool planRobotInstruction(IRobotUrdfImportContext& ctx, RobotInstruction::Base& 
 	}
 	out.ok = hostResult.ok;
 	out.summary = hostResult.error.toStdString();
+	out.hasExternalAxisQ = hostResult.hasExternalAxisQ;
+	out.externalAxisQ = hostResult.externalAxisQ;
 	out.jointTargetsRad.clear();
 	out.jointTargetsRad.reserve(static_cast<size_t>(hostResult.jointTargetsRad.size()));
 	for (double v : hostResult.jointTargetsRad)

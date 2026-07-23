@@ -164,6 +164,8 @@
     <ClInclude Include="inc\RegistrationSpare.h" />
     <ClInclude Include="inc\Preprocess.h" />
     <ClInclude Include="inc\Reconstruction.h" />
+    <ClInclude Include="inc\ReconstructionPoisson.h" />
+    <ClInclude Include="inc\ReconstructionScaleSpace.h" />
     <ClInclude Include="inc\SelfTest.h" />
     <ClInclude Include="inc\ParallelUtils.h" />
     <ClInclude Include="inc\ReconstructionConfig.h" />
@@ -186,7 +188,8 @@
     <ClCompile Include="source\RegistrationNonRigid.cpp" />
     <ClCompile Include="source\RegistrationSpare.cpp" />
     <ClCompile Include="source\Preprocess.cpp" />
-    <ClCompile Include="source\Reconstruction.cpp" />
+    <ClCompile Include="source\ReconstructionPoisson.cpp" />
+    <ClCompile Include="source\ReconstructionScaleSpace.cpp" />
     <ClCompile Include="source\SelfTest.cpp" />
     <ClCompile Include="source\ParallelUtils.cpp" />
     <ClCompile Include="source\ReconstructionConfig.cpp" />

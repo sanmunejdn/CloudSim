@@ -28,6 +28,7 @@ class Base;
 class SimulationCommandWidget;
 class RobotAxisControlWidget;
 class RobotFrameSettingsWidget;
+class RobotExternalAxisSettingsWidget;
 class DevicePageWidget;
 class QAction;
 class QtProperty;
@@ -56,6 +57,7 @@ public:
 	virtual SimulationCommandWidget* simulationCommandPage() = 0;
 	virtual RobotAxisControlWidget* robotAxisControlPage() = 0;
 	virtual RobotFrameSettingsWidget* robotFrameSettingsPage() = 0;
+	virtual RobotExternalAxisSettingsWidget* robotExternalAxisSettingsPage() = 0;
 	virtual DevicePageWidget* devicePage() = 0;
 
 	virtual QAction* simulationStartAction() = 0;

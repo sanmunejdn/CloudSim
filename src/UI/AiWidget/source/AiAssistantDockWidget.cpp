@@ -3,6 +3,7 @@
 
 #include "AiAssistantDockWidget.h"
 
+#include "AiConfirmPanel.h"
 #include "AiDomainTypes.h"
 #include "AiLlmSettingsDialog.h"
 #include "IAiAssistantHost.h"
@@ -34,6 +35,12 @@ AiAssistantDockWidget::AiAssistantDockWidget(QWidget* parent) : QWidget(parent)
 	m_domainCombo->addItem(QStringLiteral("Compose (boolean)"), AiDomainIds::meshCompose());
 	m_domainCombo->addItem(QStringLiteral("Geometry recognize"), AiDomainIds::geometryRecognize());
 	m_domainCombo->addItem(QStringLiteral("Trajectory feature"), AiDomainIds::trajectoryFeature());
+	m_domainCombo->addItem(QStringLiteral("Point cloud"), AiDomainIds::pointCloudOps());
+	m_domainCombo->addItem(QStringLiteral("Document import"), AiDomainIds::documentImport());
+	m_domainCombo->addItem(QStringLiteral("Geometry ops"), AiDomainIds::geometryOps());
+	m_domainCombo->addItem(QStringLiteral("Feature build"), AiDomainIds::featureBuild());
+	m_domainCombo->addItem(QStringLiteral("Labeling"), AiDomainIds::labelingAnnot());
+	m_domainCombo->addItem(QStringLiteral("Scene ops"), AiDomainIds::sceneOps());
 	root->addWidget(m_domainCombo, 0);
 
 	m_viewportHint = new QLabel(this);
@@ -48,21 +55,12 @@ AiAssistantDockWidget::AiAssistantDockWidget(QWidget* parent) : QWidget(parent)
 	m_history->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	root->addWidget(m_history, 1);
 
-	m_createFromRecognitionBtn = new QPushButton(this);
-	m_createFromRecognitionBtn->hide();
-	connect(m_createFromRecognitionBtn, &QPushButton::clicked, this,
-			&AiAssistantDockWidget::createFromRecognitionClicked);
-	root->addWidget(m_createFromRecognitionBtn, 0);
-
-	m_confirmTrajectoryBtn = new QPushButton(this);
-	m_retryTrajectoryBtn = new QPushButton(this);
-	m_confirmTrajectoryBtn->hide();
-	m_retryTrajectoryBtn->hide();
-	connect(m_confirmTrajectoryBtn, &QPushButton::clicked, this,
-			&AiAssistantDockWidget::confirmTrajectoryFeaturesClicked);
-	connect(m_retryTrajectoryBtn, &QPushButton::clicked, this, &AiAssistantDockWidget::retryTrajectoryFeaturesClicked);
-	root->addWidget(m_confirmTrajectoryBtn, 0);
-	root->addWidget(m_retryTrajectoryBtn, 0);
+	m_confirmPanel = new AiConfirmPanel(this);
+	m_confirmPanel->hide();
+	connect(m_confirmPanel, &AiConfirmPanel::accepted, this, &AiAssistantDockWidget::agentConfirmAccepted);
+	connect(m_confirmPanel, &AiConfirmPanel::rejected, this, &AiAssistantDockWidget::agentConfirmRejected);
+	connect(m_confirmPanel, &AiConfirmPanel::secondaryClicked, this, &AiAssistantDockWidget::agentConfirmSecondary);
+	root->addWidget(m_confirmPanel, 0);
 
 	auto* inputBar = new QWidget(this);
 	inputBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -123,6 +121,8 @@ QString AiAssistantDockWidget::selectedDomainId() const
 void AiAssistantDockWidget::setUseChinese(bool chinese)
 {
 	m_useChinese = chinese;
+	if (m_confirmPanel)
+		m_confirmPanel->setUseChinese(chinese);
 	m_settingsBtn->setText(chinese ? QStringLiteral("设置") : QStringLiteral("Settings"));
 	m_sendBtn->setText(chinese ? QStringLiteral("发送") : QStringLiteral("Send"));
 	m_domainCombo->setItemText(0, chinese ? QStringLiteral("自动") : QStringLiteral("Auto"));
@@ -130,14 +130,12 @@ void AiAssistantDockWidget::setUseChinese(bool chinese)
 	m_domainCombo->setItemText(2, chinese ? QStringLiteral("布尔组合") : QStringLiteral("Compose (boolean)"));
 	m_domainCombo->setItemText(3, chinese ? QStringLiteral("几何识别") : QStringLiteral("Geometry recognize"));
 	m_domainCombo->setItemText(4, chinese ? QStringLiteral("轨迹特征") : QStringLiteral("Trajectory feature"));
-	if (m_createFromRecognitionBtn)
-		m_createFromRecognitionBtn->setText(chinese ? QStringLiteral("创建基本体")
-													: QStringLiteral("Create primitive"));
-	if (m_confirmTrajectoryBtn)
-		m_confirmTrajectoryBtn->setText(chinese ? QStringLiteral("确认并离散")
-												: QStringLiteral("Confirm & discretize"));
-	if (m_retryTrajectoryBtn)
-		m_retryTrajectoryBtn->setText(chinese ? QStringLiteral("重新识别") : QStringLiteral("Retry"));
+	m_domainCombo->setItemText(5, chinese ? QStringLiteral("点云操作") : QStringLiteral("Point cloud"));
+	m_domainCombo->setItemText(6, chinese ? QStringLiteral("文档导入") : QStringLiteral("Document import"));
+	m_domainCombo->setItemText(7, chinese ? QStringLiteral("几何操作") : QStringLiteral("Geometry ops"));
+	m_domainCombo->setItemText(8, chinese ? QStringLiteral("特征构建") : QStringLiteral("Feature build"));
+	m_domainCombo->setItemText(9, chinese ? QStringLiteral("标注") : QStringLiteral("Labeling"));
+	m_domainCombo->setItemText(10, chinese ? QStringLiteral("场景操作") : QStringLiteral("Scene ops"));
 	onDomainChanged(m_domainCombo->currentIndex());
 }
 
@@ -191,22 +189,15 @@ void AiAssistantDockWidget::showTrajectoryFeatureResult(const QByteArray& planJs
 	catch (...)
 	{
 	}
-	body += m_useChinese ? QStringLiteral("\n可输入「选 1 和 3」调整，或点「确认并离散」。")
-						 : QStringLiteral("\nType selection or click Confirm.");
+	body += m_useChinese ? QStringLiteral("\n可输入「选 1 和 3」调整，或在下方面板「确认并离散」。")
+						 : QStringLiteral("\nType selection or confirm in the panel below.");
 	appendAssistantMessage(prefixWithParser(parserVia, body));
-	if (m_confirmTrajectoryBtn)
-		m_confirmTrajectoryBtn->show();
-	if (m_retryTrajectoryBtn)
-		m_retryTrajectoryBtn->show();
 	(void)planJsonUtf8;
 }
 
 void AiAssistantDockWidget::hideTrajectoryFeatureConfirmButtons()
 {
-	if (m_confirmTrajectoryBtn)
-		m_confirmTrajectoryBtn->hide();
-	if (m_retryTrajectoryBtn)
-		m_retryTrajectoryBtn->hide();
+	// 确认已并入 AiConfirmPanel
 }
 
 void AiAssistantDockWidget::showRecognitionResult(const QByteArray& jsonUtf8, const QString& parserVia)
@@ -247,7 +238,7 @@ void AiAssistantDockWidget::showRecognitionResult(const QByteArray& jsonUtf8, co
 		if (prim == "unknown")
 			body += QStringLiteral("\n无法确定类型，无法创建基本体。");
 		else
-			body += QStringLiteral("\n场景未变化；确认后可创建对应基本体。");
+			body += QStringLiteral("\n场景未变化；请在下方面板确认后创建对应基本体。");
 	}
 	else
 	{
@@ -268,20 +259,31 @@ void AiAssistantDockWidget::showRecognitionResult(const QByteArray& jsonUtf8, co
 		if (prim == "unknown")
 			body += QStringLiteral("\nType unknown; cannot create primitive.");
 		else
-			body += QStringLiteral("\nScene unchanged; confirm to create primitive.");
+			body += QStringLiteral("\nScene unchanged; confirm in the panel below to create.");
 	}
 
 	appendAssistantMessage(prefixWithParser(parserVia, body));
-	if (prim != "unknown" && !prim.empty())
-		m_createFromRecognitionBtn->show();
-	else
-		m_createFromRecognitionBtn->hide();
 }
 
 void AiAssistantDockWidget::hideCreateFromRecognitionButton()
 {
-	if (m_createFromRecognitionBtn)
-		m_createFromRecognitionBtn->hide();
+	// 确认已并入 AiConfirmPanel
+}
+
+void AiAssistantDockWidget::showAgentConfirmPanel(const QString& pendingId, const QString& title, const QString& risk,
+												  const QByteArray& argsSchemaJson, const QByteArray& proposedArgsJson,
+												  const QByteArray& sceneSnapshotJson, const QString& confirmLabel,
+												  const QString& secondaryLabel)
+{
+	if (m_confirmPanel)
+		m_confirmPanel->showToolConfirm(pendingId, title, risk, argsSchemaJson, proposedArgsJson, sceneSnapshotJson,
+										confirmLabel, secondaryLabel);
+}
+
+void AiAssistantDockWidget::hideAgentConfirmPanel()
+{
+	if (m_confirmPanel)
+		m_confirmPanel->hidePanel();
 }
 
 QString AiAssistantDockWidget::prefixWithParser(const QString& parserVia, const QString& text)
@@ -314,6 +316,8 @@ void AiAssistantDockWidget::setBusy(bool busy)
 	m_settingsBtn->setEnabled(!busy);
 	m_input->setEnabled(!busy);
 	m_domainCombo->setEnabled(!busy);
+	if (m_confirmPanel)
+		m_confirmPanel->setEnabled(true);
 }
 
 void AiAssistantDockWidget::onSettingsClicked()

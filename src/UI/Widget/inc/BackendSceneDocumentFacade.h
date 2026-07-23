@@ -10,6 +10,11 @@
 #include <string>
 #include <vector>
 
+namespace cloudsim::core
+{
+class IDataService;
+}
+
 class BackendDataBase;
 class BackendDataManager;
 class BackendFollowReverseIndex;
@@ -23,7 +28,7 @@ class OSG_WIDGET_API BackendSceneEntity
 public:
 	BackendSceneEntity() = default;
 	BackendSceneEntity(std::string backendId, IBackendSceneBridge* bridge, BackendDataManager* mgr,
-					   BackendFollowReverseIndex* followIndex);
+					   cloudsim::core::IDataService* data, BackendFollowReverseIndex* followIndex);
 
 	const std::string& backendId() const { return m_id; }
 	bool valid() const;
@@ -49,15 +54,16 @@ private:
 	std::string m_id;
 	IBackendSceneBridge* m_bridge = nullptr;
 	BackendDataManager* m_mgr = nullptr;
+	cloudsim::core::IDataService* m_data = nullptr;
 	BackendFollowReverseIndex* m_followIndex = nullptr;
 };
 
-/// 单文档门面：BackendDataManager + IBackendSceneBridge + 跟随反向索引
+/// 单文档门面：数据契约 + 场景桥 + 跟随反向索引
 class OSG_WIDGET_API BackendSceneDocumentFacade
 {
 public:
 	BackendSceneDocumentFacade() = default;
-	BackendSceneDocumentFacade(BackendDataManager& mgr, IBackendSceneBridge& bridge,
+	BackendSceneDocumentFacade(cloudsim::core::IDataService& data, BackendDataManager& mgr, IBackendSceneBridge& bridge,
 							   BackendFollowReverseIndex& followIndex, OsgWidget* osgWidget);
 
 	BackendSceneEntity entity(const std::string& backendId) const;
@@ -69,9 +75,11 @@ public:
 	void ensureSelectionVisualForBackend(const BackendDataBase& data, bool urdfLinkMesh = false);
 	IBackendSceneBridge& bridge() const { return *m_bridge; }
 	BackendDataManager& backendManager() const { return *m_mgr; }
+	cloudsim::core::IDataService& data() const { return *m_data; }
 	BackendFollowReverseIndex& followReverseIndex() const { return *m_followIndex; }
 
 private:
+	cloudsim::core::IDataService* m_data = nullptr;
 	BackendDataManager* m_mgr = nullptr;
 	IBackendSceneBridge* m_bridge = nullptr;
 	BackendFollowReverseIndex* m_followIndex = nullptr;

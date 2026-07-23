@@ -147,7 +147,11 @@
 | `prismatic` | `T_origin * T(axis, q_mm)`，URDF 关节变量为米，内部乘 `kUrdfOriginXyzMetersToInternalMm` 得 mm |
 | `fixed` 等 | 仅 `T_origin`；不消耗 `jointAnglesRad` 下标 |
 
-CAD 轨迹的外部轴上下文写入 [`RawTrajectory::TrajectoryContext::externalAxes`](../RobotScene/inc/RawTrajectory.h)（快照，非 `process.type` 字段）；协同搜索见 `ExternalAxisSearch` Op（Phase 3 占位）。
+CAD 轨迹的外部轴上下文写入 [`RawTrajectory::TrajectoryContext::externalAxes`](../RobotScene/inc/RawTrajectory.h)（快照，非 `process.type` 字段）。
+
+**对象配置（先配置后联动）**：机器人实例 `HierarchicalRobotInstance.externalAxes`（`RobotExternalAxes`），仿真 Dock「外部轴」Tab 编辑；工程键 `robotKinematicsInstances[].externalAxes`。
+
+**ExternalAxisSearch Op**：未启用对象外轴时为 **no-op**（不再写入假 `rail_joint`）；启用后由 `ExternalAxisSearchService`（TeachIk 网格搜索 + 可选联立微调）经 `TrajectoryOpExecutionContext` 注入执行。
 
 ## 11. 相关文档
 

@@ -165,7 +165,15 @@ OsgWidget::OsgWidget(QWidget* parent) : QWidget(parent)
 		{
 			if (m_tcpTeachActive)
 			{
-				syncTcpTeachWorldPatFromMount();
+				// 拖动中跟目标；静止跟法兰，避免 requestRedraw 把罗盘拽回旧位
+				if (m_tcpTeachDragging || m_tcpTeachRotating)
+				{
+					syncTcpTeachWorldPatFromTarget();
+				}
+				else
+				{
+					syncTcpTeachWorldPatFromMount();
+				}
 			}
 			emit sceneRedrawRequested();
 			if (m_glWidget)
@@ -551,6 +559,37 @@ void OsgWidget::setBackendRootWorldMatrixFromWorld(const std::string& backendId,
 	requestRedraw();
 }
 
+bool OsgWidget::getBackendRootWorldMatrix(const std::string& backendId, cloudsim::core::Mat4& outWorld) const
+{
+	osg::Matrixd world;
+	if (!getBackendRootWorldMatrix(backendId, world))
+	{
+		return false;
+	}
+	for (int c = 0; c < 4; ++c)
+	{
+		for (int r = 0; r < 4; ++r)
+		{
+			outWorld[static_cast<size_t>(c * 4 + r)] = world(r, c);
+		}
+	}
+	return true;
+}
+
+void OsgWidget::setBackendRootWorldMatrixFromWorld(const std::string& backendId,
+												   const cloudsim::core::Mat4& worldColumnMajor)
+{
+	osg::Matrixd world;
+	for (int c = 0; c < 4; ++c)
+	{
+		for (int r = 0; r < 4; ++r)
+		{
+			world(r, c) = worldColumnMajor[static_cast<size_t>(c * 4 + r)];
+		}
+	}
+	setBackendRootWorldMatrixFromWorld(backendId, world);
+}
+
 bool OsgWidget::tryGetBackendModelCenterMm(const std::string& backendId, double& outCx, double& outCy,
 										   double& outCz) const
 {
@@ -579,6 +618,27 @@ void OsgWidget::syncRobotMeshBackendPoseAfterKinematics(const BackendDataBase& m
 		(void)syncOuterPatFromBackend(*m);
 	}
 }
+
+namespace
+{
+osg::Vec3f osgVec3FromCore(const cloudsim::core::Vec3& v)
+{
+	return osg::Vec3f(static_cast<float>(v.x), static_cast<float>(v.y), static_cast<float>(v.z));
+}
+
+osg::Matrixd osgMat4FromCore(const cloudsim::core::Mat4& columnMajor)
+{
+	osg::Matrixd m;
+	for (int c = 0; c < 4; ++c)
+	{
+		for (int r = 0; r < 4; ++r)
+		{
+			m(r, c) = columnMajor[static_cast<size_t>(c * 4 + r)];
+		}
+	}
+	return m;
+}
+} // namespace
 
 void OsgWidget::setInstructionPoseAxes(const std::vector<RobotOsgUi::InstructionPoseAxis>& axes)
 {
@@ -628,9 +688,9 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<RobotOsgUi::Instruction
 	{
 		osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
 		mt->setName(a.lineMotion ? "LINE_TargetAxis" : "PTP_TargetAxis");
-		const osg::Vec3f p = a.positionMm;
+		const osg::Vec3f p = osgVec3FromCore(a.positionMm);
 		osg::Matrixd m;
-		const osg::Quat q = OsgScene::eulerDegToQuat(a.eulerDeg);
+		const osg::Quat q = OsgScene::eulerDegToQuat(osgVec3FromCore(a.eulerDeg));
 		m.makeRotate(q);
 		m.setTrans(static_cast<double>(p.x()), static_cast<double>(p.y()), static_cast<double>(p.z()));
 		(void)axesInRobotAssemblyLocal;
@@ -696,7 +756,7 @@ void OsgWidget::setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTraject
 		lineVerts->reserve(endExclusive - begin);
 		for (std::size_t i = begin; i < endExclusive; ++i)
 		{
-			lineVerts->push_back(points[i].positionMm);
+			lineVerts->push_back(osgVec3FromCore(points[i].positionMm));
 		}
 		osg::ref_ptr<osg::Geometry> lineGeom = new osg::Geometry;
 		lineGeom->setVertexArray(lineVerts.get());
@@ -738,7 +798,7 @@ void OsgWidget::setRawTrajectoryOverlay(const std::vector<RobotOsgUi::RawTraject
 	ptColors->reserve(points.size());
 	for (const RobotOsgUi::RawTrajectoryOverlayVertex& v : points)
 	{
-		ptVerts->push_back(v.positionMm);
+		ptVerts->push_back(osgVec3FromCore(v.positionMm));
 		ptColors->push_back(v.reachable ? osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f) : osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f));
 	}
 	osg::ref_ptr<osg::Geometry> ptGeom = new osg::Geometry;
@@ -786,11 +846,10 @@ void OsgWidget::setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawT
 	for (const RobotOsgUi::RawTrajectoryOverlayFrame& f : frames)
 	{
 		osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
-		const osg::Quat q = OsgScene::eulerDegToQuat(f.eulerDeg);
+		const osg::Quat q = OsgScene::eulerDegToQuat(osgVec3FromCore(f.eulerDeg));
 		osg::Matrixd m;
 		m.makeRotate(q);
-		m.setTrans(static_cast<double>(f.positionMm.x()), static_cast<double>(f.positionMm.y()),
-				   static_cast<double>(f.positionMm.z()));
+		m.setTrans(f.positionMm.x, f.positionMm.y, f.positionMm.z);
 		mt->setMatrix(m);
 		mt->addChild(createReachabilityOriginGeode(f.reachable).get());
 		if (m_rawTrajShowAxisX || m_rawTrajShowAxisY || m_rawTrajShowAxisZ)
@@ -892,7 +951,7 @@ void OsgWidget::setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverlayUpdate&
 		{
 			osg::ref_ptr<osg::MatrixTransform> toolMt = new osg::MatrixTransform;
 			toolMt->setName(std::string("RobotToolFrame_") + te.name);
-			toolMt->setMatrix(te.localMatrix);
+			toolMt->setMatrix(osgMat4FromCore(te.localMatrix));
 			const float axisLen = te.active ? 100.0f : 75.0f;
 			toolMt->addChild(createInstructionPoseAxisGeode(axisLen, true, true, true, true).get());
 			if (mountOnParent(te.mountBackendId, toolMt.get()))
@@ -907,7 +966,7 @@ void OsgWidget::setRobotFrameOverlays(const RobotOsgUi::RobotFrameOverlayUpdate&
 		{
 			osg::ref_ptr<osg::MatrixTransform> userMt = new osg::MatrixTransform;
 			userMt->setName(std::string("RobotUserFrame_") + ue.name);
-			userMt->setMatrix(ue.localMatrix);
+			userMt->setMatrix(osgMat4FromCore(ue.localMatrix));
 			userMt->addChild(createInstructionPoseAxisGeode(110.0f, true, true, true, true).get());
 			if (mountOnParent(ue.mountBackendId, userMt.get()))
 			{
@@ -931,11 +990,11 @@ void OsgWidget::setFeatureCatalogOverlay(const std::vector<RobotOsgUi::FeatureCa
 	{
 		FeatureCatalogOverlayItem row;
 		row.displayIndex = item.displayIndex;
-		row.anchorWorldMm = item.anchorWorldMm;
-		row.labelWorldMm = item.labelWorldMm;
+		row.anchorWorldMm = osgVec3FromCore(item.anchorWorldMm);
+		row.labelWorldMm = osgVec3FromCore(item.labelWorldMm);
 		row.hasEdgeSegment = item.hasEdgeSegment;
-		row.edgeAWorldMm = item.edgeAWorldMm;
-		row.edgeBWorldMm = item.edgeBWorldMm;
+		row.edgeAWorldMm = osgVec3FromCore(item.edgeAWorldMm);
+		row.edgeBWorldMm = osgVec3FromCore(item.edgeBWorldMm);
 		converted.push_back(row);
 	}
 	OsgScene::setFeatureCatalogOverlay(converted);

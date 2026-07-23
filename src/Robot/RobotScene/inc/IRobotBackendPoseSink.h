@@ -2,24 +2,25 @@
 #define ROBOTSCENE_IROBOTBACKENDPOSESINK_H
 
 /// @file IRobotBackendPoseSink.h
-/// @brief OSG 后端根位姿读写（Widget OsgWidget 实现）
+/// @brief 后端根位姿读写（无 osg；矩阵为列主序 Mat4）
 
 #include "robot_scene_global.h"
 
-#include <string>
+#include "CoreTypes.h"
 
-#include <osg/Matrixd>
+#include <string>
 
 class BackendDataBase;
 
-/// OSG 后端根位姿读写（Widget OsgWidget 实现）
+/// 后端根位姿读写（OsgWidget 实现；OSG 转换留在实现内）
 class ROBOT_SCENE_API IRobotBackendPoseSink
 {
 public:
 	virtual ~IRobotBackendPoseSink() = default;
 
-	virtual bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const = 0;
-	virtual void setBackendRootWorldMatrixFromWorld(const std::string& backendId, const osg::Matrixd& worldMat) = 0;
+	virtual bool getBackendRootWorldMatrix(const std::string& backendId, cloudsim::core::Mat4& outWorld) const = 0;
+	virtual void setBackendRootWorldMatrixFromWorld(const std::string& backendId,
+													const cloudsim::core::Mat4& worldColumnMajor) = 0;
 
 	/// per-link URDF：mesh 模型中心 mm，配合 backend_pose_euler_from_world_mat
 	virtual bool tryGetBackendModelCenterMm(const std::string& backendId, double& outCx, double& outCy,

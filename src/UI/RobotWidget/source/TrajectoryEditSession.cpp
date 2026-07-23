@@ -14,8 +14,10 @@
 #include "RecipeBlueprint.h"
 #include "RobotInstructionProgram.h"
 #include "RobotInstructionTransform.h"
+#include "RobotExternalAxes.h"
 #include "RobotSimulationController.h"
 #include "RobotSimulationMath.h"
+#include "SimulationCommandWidget.h"
 #include "TrajectoryGeometryResolver.h"
 #include "TrajectoryGeometryResolverHost.h"
 #include "TrajectoryOpBridge.h"
@@ -320,6 +322,8 @@ void TrajectoryEditSession::injectWorkpieceReferenceOnEngine() const
 	{
 		m_pipelineEngine.setWorkpieceReferenceInBase(nullptr);
 		m_pipelineEngine.setExternalTcpFrameResolver(nullptr);
+		m_pipelineEngine.setExternalAxisSearchService(nullptr);
+		m_pipelineEngine.setExternalAxisConfigs({});
 		return;
 	}
 	RobotInstruction::Vec3 poseMm{};
@@ -363,6 +367,73 @@ void TrajectoryEditSession::injectWorkpieceReferenceOnEngine() const
 			out = engine::rigidTransformFromColMajor(cm);
 			return true;
 		});
+	injectExternalAxisSearchOnEngine();
+}
+
+void TrajectoryEditSession::injectExternalAxisSearchOnEngine() const
+{
+	if (!m_simController || !m_simController->host())
+	{
+		m_pipelineEngine.setExternalAxisSearchService(nullptr);
+		m_pipelineEngine.setExternalAxisConfigs({});
+		return;
+	}
+	IRobotDocumentHost* doc = m_simController->host()->document();
+	SimulationCommandWidget* cmdPage = m_simController->host()->simulationCommandPage();
+	if (!doc || !cmdPage)
+	{
+		m_pipelineEngine.setExternalAxisSearchService(nullptr);
+		m_pipelineEngine.setExternalAxisConfigs({});
+		return;
+	}
+	const int instIdx = cmdPage->currentRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		m_pipelineEngine.setExternalAxisSearchService(nullptr);
+		m_pipelineEngine.setExternalAxisConfigs({});
+		return;
+	}
+	const RobotExternal::RobotExternalAxisConfigSet& set = doc->robotExternalAxesForInstance(instIdx);
+	std::vector<trajectory_algo::ExternalAxisSearchConfigDto> dtos;
+	for (const RobotExternal::RobotExternalAxisConfig& a : set.axes)
+	{
+		if (!a.enabled)
+		{
+			continue;
+		}
+		trajectory_algo::ExternalAxisSearchConfigDto d;
+		d.enabled = true;
+		d.jointName = a.jointName;
+		d.isPrismatic = a.isPrismatic;
+		d.lower = a.lower;
+		d.upper = a.upper;
+		d.home = a.home;
+		d.axis[0] = a.axis[0];
+		d.axis[1] = a.axis[1];
+		d.axis[2] = a.axis[2];
+		dtos.push_back(d);
+	}
+	m_pipelineEngine.setExternalAxisConfigs(std::move(dtos));
+	if (!RobotExternal::hasEnabledExternalAxes(set))
+	{
+		m_pipelineEngine.setExternalAxisSearchService(nullptr);
+		return;
+	}
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+	const QString comboTcp = cmdPage->selectedTcpLink();
+	const QString tcp = RobotSimulationMath::defaultTcpLinkNameForUrdf(urdfPath, comboTcp);
+	const QVector<double> agg = m_simController->aggregatedJointAnglesRad();
+	const int offset = doc->robotJointOffsetInAggregatedVector(instIdx);
+	const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+	std::vector<double> seed;
+	seed.reserve(static_cast<size_t>(nj));
+	for (int j = 0; j < nj; ++j)
+	{
+		const int idx = offset + j;
+		seed.push_back((idx >= 0 && idx < agg.size()) ? agg[idx] : 0.0);
+	}
+	m_externalAxisSearchService.setRobotContext(urdfPath, tcp, seed);
+	m_pipelineEngine.setExternalAxisSearchService(&m_externalAxisSearchService);
 }
 
 void TrajectoryEditSession::reportProjectionMissesIfAny() const

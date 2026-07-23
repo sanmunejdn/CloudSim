@@ -3,9 +3,7 @@
 
 #include "BackendFollowReverseIndex.h"
 
-#include "BackendDataBase.h"
-#include "BackendDataManager.h"
-#include "FollowAttachmentComponent.h"
+#include "IDataService.h"
 
 #include <algorithm>
 
@@ -14,27 +12,21 @@ void BackendFollowReverseIndex::invalidate()
 	m_dirty = true;
 }
 
-void BackendFollowReverseIndex::rebuild(const BackendDataManager& mgr) const
+void BackendFollowReverseIndex::rebuild(const cloudsim::core::IDataService& data) const
 {
 	m_targetToFollowersSorted.clear();
-	for (const std::shared_ptr<BackendDataBase>& d : mgr.listData())
+	for (const cloudsim::core::ObjectId& id : data.listAll())
 	{
-		if (!d)
+		if (id.isEmpty())
 		{
 			continue;
 		}
-		const auto f = std::dynamic_pointer_cast<FollowAttachmentComponent>(
-			d->getComponent(FollowAttachmentComponent::typeKeyStatic()));
-		if (!f || !f->enabled())
+		const cloudsim::core::ObjectId tid = data.followTargetId(id);
+		if (tid.isEmpty())
 		{
 			continue;
 		}
-		const std::string& tid = f->targetBackendId();
-		if (tid.empty())
-		{
-			continue;
-		}
-		m_targetToFollowersSorted[tid].push_back(d->id());
+		m_targetToFollowersSorted[tid.toStdString()].push_back(id.toStdString());
 	}
 	for (auto& kv : m_targetToFollowersSorted)
 	{
@@ -44,12 +36,12 @@ void BackendFollowReverseIndex::rebuild(const BackendDataManager& mgr) const
 	m_dirty = false;
 }
 
-std::vector<std::string> BackendFollowReverseIndex::followersOf(const BackendDataManager& mgr,
+std::vector<std::string> BackendFollowReverseIndex::followersOf(const cloudsim::core::IDataService& data,
 																const std::string& targetBackendId) const
 {
 	if (m_dirty)
 	{
-		rebuild(mgr);
+		rebuild(data);
 	}
 	const auto it = m_targetToFollowersSorted.find(targetBackendId);
 	if (it == m_targetToFollowersSorted.end())

@@ -5,6 +5,7 @@
 
 #include "IRobotBackendPoseSink.h"
 #include "IRobotSimulationDocument.h"
+#include "RobotPerLinkKinematicsSliceOsg.h"
 #include "RobotSceneKinematics.h"
 #include "RunLogger.h"
 #include "UrdfRobotLoader.h"
@@ -107,11 +108,17 @@ bool RobotInstructionPlaybackEngine::tryStart(IRobotSimulationDocument* doc, IRo
 	QString fkErr;
 	if (doc->hasRobotKinematicsBind())
 	{
-		m_fkMeshWorldT0 = doc->robotFkMeshWorldT0();
-		m_outerWorldAtStart.clear();
-		for (auto it = doc->robotOuterWorldAtBind().constBegin(); it != doc->robotOuterWorldAtBind().constEnd(); ++it)
+		m_fkMeshWorldT0.clear();
+		const QHash<QString, cloudsim::core::Mat4> t0Dto = doc->robotFkMeshWorldT0();
+		for (auto it = t0Dto.constBegin(); it != t0Dto.constEnd(); ++it)
 		{
-			m_outerWorldAtStart[it.key().toStdString()] = it.value();
+			m_fkMeshWorldT0.insert(it.key(), RobotSceneKinematics::osgMatrixFromCoreMat4(it.value()));
+		}
+		m_outerWorldAtStart.clear();
+		const QHash<QString, cloudsim::core::Mat4> m0Dto = doc->robotOuterWorldAtBind();
+		for (auto it = m0Dto.constBegin(); it != m0Dto.constEnd(); ++it)
+		{
+			m_outerWorldAtStart[it.key().toStdString()] = RobotSceneKinematics::osgMatrixFromCoreMat4(it.value());
 		}
 	}
 	else
@@ -135,10 +142,11 @@ bool RobotInstructionPlaybackEngine::tryStart(IRobotSimulationDocument* doc, IRo
 			 ++it)
 		{
 			osg::Matrixd M;
-			if (osg->getBackendRootWorldMatrix(it.value().toStdString(), M))
-			{
-				m_outerWorldAtStart[it.value().toStdString()] = M;
-			}
+		cloudsim::core::Mat4 mat;
+		if (osg->getBackendRootWorldMatrix(it.value().toStdString(), mat))
+		{
+			m_outerWorldAtStart[it.value().toStdString()] = RobotSceneKinematics::osgMatrixFromCoreMat4(mat);
+		}
 		}
 	}
 

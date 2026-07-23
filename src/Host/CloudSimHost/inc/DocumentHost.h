@@ -59,13 +59,13 @@ public:
 	OsgWidget* osgWidget() { return m_osgWidget; }
 	const OsgWidget* osgWidget() const { return m_osgWidget; }
 
-	/// 存量 backend 入口
+	/// 存量 backend 入口（新代码优先 `data()`；勿在 UI 层继续扩散 BackendDataManager 头）
 	BackendDataManager& backend();
 	const BackendDataManager& backend() const;
 	RobotProgramStore& robotProgramStore();
 	BackendHierarchyModel& hierarchyModel();
 	const BackendHierarchyModel& hierarchyModel() const;
-	/// Follow 反向索引
+	/// Follow 反向索引（经 IDataService.followTargetId 重建）
 	BackendFollowReverseIndex& followReverseIndex();
 	/// 场景桥接
 	OsgWidgetSceneBridge& sceneBridge();

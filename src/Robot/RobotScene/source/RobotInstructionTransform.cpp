@@ -143,4 +143,62 @@ bool readTargetTransformFromInstruction(const Base& cmd, engine::RigidTransform&
 	return true;
 }
 
+void writeViaTransformToInstruction(Base& cmd, const engine::RigidTransform& viaInBase)
+{
+	if (!cmd.hasViaPoseProperty())
+	{
+		return;
+	}
+	const Eigen::Quaterniond q = viaInBase.rotation().normalized();
+	const Eigen::Vector3d t = viaInBase.translationMm();
+	cmd.setExtensionProperty(kExtContextViaTransformQuatCsv, encodeQuatCsv(q));
+	cmd.setExtensionProperty(kExtContextViaTransformTransMmCsv, encodeTransCsv(t));
+	double px = 0.0;
+	double py = 0.0;
+	double pz = 0.0;
+	double ex = 0.0;
+	double ey = 0.0;
+	double ez = 0.0;
+	viaInBase.translationMm(px, py, pz);
+	viaInBase.eulerDegForDisplay(ex, ey, ez);
+	cmd.setViaPose(Vec3{px, py, pz});
+	if (cmd.hasViaEulerProperty())
+	{
+		cmd.setViaEulerDeg(Vec3{ex, ey, ez});
+	}
+}
+
+bool readViaTransformFromInstruction(const Base& cmd, engine::RigidTransform& outViaInBase)
+{
+	if (!cmd.hasViaPoseProperty())
+	{
+		return false;
+	}
+	const auto& ext = cmd.extensionProperties();
+	const auto itQ = ext.find(kExtContextViaTransformQuatCsv);
+	const auto itT = ext.find(kExtContextViaTransformTransMmCsv);
+	if (itQ != ext.end() && itT != ext.end() && !itQ->second.empty() && !itT->second.empty())
+	{
+		Eigen::Quaterniond q = Eigen::Quaterniond::Identity();
+		Eigen::Vector3d t = Eigen::Vector3d::Zero();
+		if (parseQuatCsv(itQ->second, q) && parseTransCsv(itT->second, t))
+		{
+			outViaInBase = engine::RigidTransform::fromTranslationQuat(t, q);
+			return true;
+		}
+	}
+	const Vec3 p = cmd.viaPose();
+	if (cmd.hasViaEulerProperty())
+	{
+		const Vec3 e = cmd.viaEulerDeg();
+		outViaInBase = engine::RigidTransform::fromTranslationEulerDeg(p.x, p.y, p.z, e.x, e.y, e.z);
+	}
+	else
+	{
+		outViaInBase =
+			engine::RigidTransform::fromTranslationQuat(Eigen::Vector3d(p.x, p.y, p.z), Eigen::Quaterniond::Identity());
+	}
+	return true;
+}
+
 } // namespace RobotInstruction

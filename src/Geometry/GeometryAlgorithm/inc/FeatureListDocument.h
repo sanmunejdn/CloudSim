@@ -2,7 +2,7 @@
 #define GEOMETRYALGORITHM_FEATURELISTDOCUMENT_H
 
 /// @file FeatureListDocument.h
-/// @brief 策略无关的几何索引；策略专有参数在 FeatureEntry::params
+/// @brief CAD 轨迹特征 v2 文档类型：FeatureListDocument / RawPath / 策略参数契约
 
 #include "geometry_algorithm_global.h"
 
@@ -26,24 +26,24 @@ struct Vec3d
 struct WorkpieceRef
 {
 	std::string backendIdUtf8;
-	std::string stepPathUtf8;
+	std::string stepPathUtf8;   ///< 本地窄字节 STEP 路径
 	std::string frameId = "workpiece";
 };
 
-/// 策略无关的几何索引；策略专有参数在 FeatureEntry::params
+/** 策略无关几何索引；策略专有参数在 FeatureEntry::params */
 struct FeatureGeometry
 {
-	std::vector<int> edgeIndices;
-	std::vector<int> faceIndices;
-	std::vector<float> polylineXyz;
+	std::vector<int> edgeIndices;   ///< shapeEdgeAtIndex 顺序
+	std::vector<int> faceIndices;   ///< shapeFaceAtIndex 顺序
+	std::vector<float> polylineXyz; ///< SyntheticPolyline 等：3N mm
 };
 
 struct FeatureEntry
 {
 	std::string featureId;
-	std::string strategyId = "EdgeChain";
+	std::string strategyId = "EdgeChain"; ///< EdgeChain / FaceBoundary / FaceIntersection 等
 	FeatureGeometry geometry;
-	nlohmann::json params = nlohmann::json::object();
+	nlohmann::json params = nlohmann::json::object(); ///< stepMm、linearDeflectionMm 等
 };
 
 struct FeatureListDocument
@@ -63,12 +63,12 @@ struct RawPathPoint
 	bool hasNormal = false;
 };
 
+/** 离散输出轨迹；segmentEndExclusive 标记多段分界（Mesh 截面法等多交线） */
 struct RawPath
 {
 	std::string sourceFeatureId;
 	std::vector<RawPathPoint> points;
 	bool closed = false;
-	/// 各子折线在 points 中的结束下标（不含）；空表示整条为一段
 	std::vector<std::size_t> segmentEndExclusive;
 };
 
@@ -81,9 +81,9 @@ enum class GeometryAffinity
 
 enum class MergePolicy
 {
-	None = 0,
-	LineConnectivity,
-	FaceUnion
+	None = 0,           ///< 逐行离散后拼接
+	LineConnectivity,   ///< 相连边合并 wire
+	FaceUnion           ///< 多面 fuse 后离散
 };
 
 enum class FeatureParamType
@@ -162,8 +162,8 @@ struct FeatureDiscretizeInput
 
 struct DiscretizeParams
 {
-	double stepMm = 2.0;
-	double linearDeflectionMm = 0.01;
+	double stepMm = 2.0;                  ///< 弧长重采样间距（mm）
+	double linearDeflectionMm = 0.01;   ///< BREP 边/面离散线性偏差（mm）
 	bool closedPreserveEndpoint = false;
 	bool outputTangent = true;
 	bool outputNormal = true;
@@ -191,6 +191,7 @@ GEOMETRY_ALGORITHM_API FeatureDiscretizerParamField enumFeatureParamField(
 	const std::vector<std::string>& values, const std::vector<std::string>& labelsZh,
 	const std::vector<std::string>& labelsEn, int defaultIndex, int order = 0, const std::string& group = "discretize");
 
+/** 各策略共用的 stepMm / linearDeflectionMm 等字段定义 */
 GEOMETRY_ALGORITHM_API std::vector<FeatureDiscretizerParamField> featureDiscretizerCommonParamFields();
 
 } // namespace geoalgo

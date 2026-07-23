@@ -2,7 +2,7 @@
 #define ROBOTSCENE_IROBOTSIMULATIONDOCUMENT_H
 
 /// @file IRobotSimulationDocument.h
-/// @brief 单台机器人 per-link FK 切片（每连杆一个 mesh 后端）
+/// @brief 机器人仿真文档只读视图（无 osg；矩阵用 Core Mat4）
 
 #include "robot_scene_global.h"
 
@@ -13,32 +13,9 @@
 #include <QStringList>
 #include <QVector>
 
-#include <osg/MatrixTransform>
-#include <osg/Matrixd>
-#include <osg/ref_ptr>
-
 class BackendDataManager;
 
-/// 单台机器人 per-link FK 切片（每连杆一个 mesh 后端）
-struct RobotPerLinkKinematicsSlice
-{
-	QString urdfAbsolutePath;
-	QString sceneRootBackendId;
-	QHash<QString, QString> linkNameToBackendId;
-	QHash<QString, osg::Matrixd> fkMeshWorldT0;
-	QHash<QString, osg::Matrixd> outerWorldAtBindByBackendId;
-	/// 左乘 FK 输出；来自机器人场景根位姿属性
-	osg::Matrixd robotBasePlacementWorld;
-	bool meshVerticesInLinkFrame = false;
-};
-
-/// DTO 版本（供 Core 接口使用，Widget 不依赖 osg）
-namespace cloudsim::core
-{
-struct RobotPerLinkKinematicsSliceDto;
-}
-
-/// 机器人仿真文档只读视图（Widget DocumentPage 实现）；动态层级法存关节 MT 节点
+/// 机器人仿真文档只读视图（Widget DocumentPage 实现）
 class ROBOT_SCENE_API IRobotSimulationDocument
 {
 public:
@@ -72,32 +49,46 @@ public:
 		return !robotLinkNameToBackendId().isEmpty();
 	}
 
-	/// 层级-only 实例返回 false
-	virtual bool robotPerLinkKinematicsForInstance(int instanceIndex, RobotPerLinkKinematicsSlice& out) const
+	/// per-link 实例 FK 切片（Core Mat4）；层级-only 返回 false
+	virtual bool robotPerLinkKinematicsForInstance(int instanceIndex,
+												   cloudsim::core::RobotPerLinkKinematicsSliceDto& out) const
 	{
 		(void)instanceIndex;
 		(void)out;
 		return false;
 	}
 
-	/// DTO 版本（Widget 优先调用，避免 osg 依赖）
-	virtual bool robotPerLinkKinematicsDtoForInstance(int instanceIndex,
-													  cloudsim::core::RobotPerLinkKinematicsSliceDto& out) const
+	/// 层级机器人是否持有可写关节局部矩阵
+	virtual bool hasRobotJointLocalMatrix(const QString& jointName) const
 	{
-		(void)instanceIndex;
-		(void)out;
+		(void)jointName;
 		return false;
 	}
+	/// 读取关节节点世界矩阵（列主序）
+	virtual bool robotJointWorldMatrix(const QString& jointName, cloudsim::core::Mat4& outWorld) const
+	{
+		(void)jointName;
+		(void)outWorld;
+		return false;
+	}
+	/// 写入单个关节局部矩阵（列主序）
+	virtual bool applyRobotJointLocalMatrix(const QString& jointName, const cloudsim::core::Mat4& localColumnMajor)
+	{
+		(void)jointName;
+		(void)localColumnMajor;
+		return false;
+	}
+	/// 批量写入关节局部矩阵（键为带前缀关节名）
+	virtual void applyRobotJointLocalMatrices(const QHash<QString, cloudsim::core::Mat4>& localByPrefixedJointKey)
+	{
+		for (auto it = localByPrefixedJointKey.constBegin(); it != localByPrefixedJointKey.constEnd(); ++it)
+		{
+			(void)applyRobotJointLocalMatrix(it.key(), it.value());
+		}
+	}
 
-	/// 动态层级：直接改关节角的 MatrixTransform
-	virtual osg::MatrixTransform* robotJointMatrixTransform(const QString& jointName) const = 0;
-
-	virtual const QHash<QString, osg::Matrixd>& robotFkMeshWorldT0() const = 0;
-	virtual const QHash<QString, osg::Matrixd>& robotOuterWorldAtBind() const = 0;
-
-	/// DTO 版本（Widget 优先调用，避免 osg 依赖）
-	virtual QHash<QString, cloudsim::core::Mat4> robotFkMeshWorldT0Dto() const { return {}; }
-	virtual QHash<QString, cloudsim::core::Mat4> robotOuterWorldAtBindDto() const { return {}; }
+	virtual QHash<QString, cloudsim::core::Mat4> robotFkMeshWorldT0() const = 0;
+	virtual QHash<QString, cloudsim::core::Mat4> robotOuterWorldAtBind() const = 0;
 
 	/// mesh 顶点已烘焙到连杆系，FK 须 identity visual
 	virtual bool robotUrdfMeshVerticesInLinkFrame() const { return false; }

@@ -13,8 +13,6 @@
 #include <QStringList>
 #include <QVector>
 
-class IRobotDocumentHost;
-
 namespace cloudsim::host
 {
 class DocumentHost;
@@ -37,11 +35,6 @@ struct ProjectSaveBuildResult
 /// 构建工程保存根
 CLOUDSIM_HOST_EXPORT ProjectSaveBuildResult buildProjectSaveRoot(DocumentHost& host, const QString& languageCode,
 																 const QString& assetOutputDir = QString());
-
-/// 合并运动学到根
-CLOUDSIM_HOST_EXPORT void
-mergeRobotKinematicsIntoProjectRoot(::IRobotDocumentHost* robotDoc, QJsonObject& root,
-									const QVector<double>* aggregatedJointAnglesRad = nullptr);
 
 /// 恢复标注与视口
 CLOUDSIM_HOST_EXPORT void applyProjectViewportFromJson(DocumentHost& host, const QJsonObject& root);

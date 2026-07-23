@@ -30,6 +30,7 @@ enum class ROBOT_SCENE_API Type
 {
 	PTP = 0,
 	LINE,
+	ARC,
 	WAIT,
 	IF,
 	WHILE,
@@ -112,6 +113,14 @@ public:
 	virtual bool hasBlendRadiusProperty() const { return false; }
 	virtual double blendRadius() const { return 0.0; }
 	virtual void setBlendRadius(double v) { (void)v; }
+
+	virtual bool hasViaPoseProperty() const { return false; }
+	virtual Vec3 viaPose() const { return Vec3{}; }
+	virtual void setViaPose(const Vec3& p) { (void)p; }
+
+	virtual bool hasViaEulerProperty() const { return false; }
+	virtual Vec3 viaEulerDeg() const { return Vec3{}; }
+	virtual void setViaEulerDeg(const Vec3& e) { (void)e; }
 
 	virtual bool hasDurationProperty() const { return false; }
 	virtual double durationSec() const { return 0.0; }
@@ -230,6 +239,58 @@ public:
 private:
 	Vec3 m_pose{};
 	Vec3 m_eulerDeg{};
+	double m_tcpSpeed = 200.0;
+	double m_tcpAccel = 200.0;
+	double m_blendRadius = 0.0;
+	MotionAxisConfiguration m_axisConfiguration{};
+};
+
+class ROBOT_SCENE_API ArcInstruction final : public Base
+{
+public:
+	ArcInstruction();
+
+	bool hasPoseProperty() const override { return true; }
+	Vec3 pose() const override { return m_pose; }
+	void setPose(const Vec3& p) override { m_pose = p; }
+
+	bool hasEulerProperty() const override { return true; }
+	Vec3 eulerDeg() const override { return m_eulerDeg; }
+	void setEulerDeg(const Vec3& e) override { m_eulerDeg = e; }
+
+	bool hasViaPoseProperty() const override { return true; }
+	Vec3 viaPose() const override { return m_viaPose; }
+	void setViaPose(const Vec3& p) override { m_viaPose = p; }
+
+	bool hasViaEulerProperty() const override { return true; }
+	Vec3 viaEulerDeg() const override { return m_viaEulerDeg; }
+	void setViaEulerDeg(const Vec3& e) override { m_viaEulerDeg = e; }
+
+	bool hasSpeedProperty() const override { return true; }
+	double speed() const override { return m_tcpSpeed; }
+	void setSpeed(double v) override { m_tcpSpeed = v; }
+
+	bool hasAccelProperty() const override { return true; }
+	double accel() const override { return m_tcpAccel; }
+	void setAccel(double v) override { m_tcpAccel = v; }
+
+	bool hasBlendRadiusProperty() const override { return true; }
+	double blendRadius() const override { return m_blendRadius; }
+	void setBlendRadius(double v) override { m_blendRadius = v; }
+
+	bool hasAxisConfigProperty() const override { return true; }
+	std::string axisConfig() const override { return m_axisConfiguration.preset; }
+	void setAxisConfig(const std::string& v) override;
+
+	bool hasMotionAxisConfigurationProperty() const override { return true; }
+	MotionAxisConfiguration motionAxisConfiguration() const override { return m_axisConfiguration; }
+	void setMotionAxisConfiguration(const MotionAxisConfiguration& cfg) override { m_axisConfiguration = cfg; }
+
+private:
+	Vec3 m_pose{};
+	Vec3 m_eulerDeg{};
+	Vec3 m_viaPose{};
+	Vec3 m_viaEulerDeg{};
 	double m_tcpSpeed = 200.0;
 	double m_tcpAccel = 200.0;
 	double m_blendRadius = 0.0;

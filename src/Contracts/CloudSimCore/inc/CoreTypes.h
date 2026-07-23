@@ -89,6 +89,8 @@ struct PlanResultDto
 	bool ok = false;
 	QString error;
 	QVector<double> jointTargetsRad;
+	bool hasExternalAxisQ = false;
+	double externalAxisQ = 0.0;
 };
 
 /// 运动指令
@@ -257,7 +259,7 @@ struct RobotPerLinkKinematicsSliceDto
 	QHash<QString, QString> linkNameToBackendId;
 	QHash<QString, Mat4> fkMeshWorldT0;
 	QHash<QString, Mat4> outerWorldAtBindByBackendId;
-	Mat4 robotBasePlacementWorld{};
+	Mat4 robotBasePlacementWorld = PlanContextDto::identityMat4();
 	bool meshVerticesInLinkFrame = false;
 };
 

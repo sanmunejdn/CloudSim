@@ -12,6 +12,7 @@
 #include "BackendRegistry.h"
 #include "BackendSceneDocumentFacade.h"
 #include "BrepBackendData.h"
+#include "BackendFileImport.h"
 #include "CloudSimPluginVersion.h"
 #include "CoreTypes.h"
 #include "DocumentHost.h"
@@ -23,6 +24,7 @@
 #include "IRenderView.h"
 #include "MeshBackendData.h"
 #include "MeshBoolean.h"
+#include "PrimitiveBrep.h"
 #include "PluginDelegatedBackend.h"
 #include "PluginDocumentAdapter.h"
 #include "PluginGeometryHostImpl.h"
@@ -408,8 +410,86 @@ bool PluginHostContext::createPrimitiveMesh(const PluginPrimitiveMeshParams& par
 											const PluginMeshCreateOptions& options, QString* outError,
 											QString* outBackendId)
 {
-	auto soup = BackendPrimitiveGeometry::makePrimitiveTriangleSoup(toDataParams(params), toDataQuality(quality));
-	return registerMeshFromSoup(std::move(soup), options, outError, outBackendId);
+	(void)quality;
+	if (!m_mainWindowHost)
+	{
+		if (outError)
+			*outError = QStringLiteral("MainWindow not available.");
+		return false;
+	}
+	cloudsim::host::DocumentHost* doc = m_mainWindowHost->currentDocumentHost();
+	if (!doc)
+	{
+		if (outError)
+			*outError = QStringLiteral("No active document.");
+		return false;
+	}
+
+	geoalgo::PrimitiveBrepParams bp;
+	switch (params.kind)
+	{
+	case PluginPrimitiveKind::Cylinder:
+		bp.kind = geoalgo::PrimitiveBrepKind::Cylinder;
+		break;
+	case PluginPrimitiveKind::Cone:
+		bp.kind = geoalgo::PrimitiveBrepKind::Cone;
+		break;
+	case PluginPrimitiveKind::Sphere:
+		bp.kind = geoalgo::PrimitiveBrepKind::Sphere;
+		break;
+	case PluginPrimitiveKind::Box:
+	default:
+		bp.kind = geoalgo::PrimitiveBrepKind::Box;
+		break;
+	}
+	bp.lengthMm = params.lengthMm;
+	bp.widthMm = params.widthMm;
+	bp.heightMm = params.heightMm;
+	bp.radiusMm = params.radiusMm;
+	bp.radiusTopMm = params.radiusTopMm;
+
+	// 注册 BrepModel，才能走线面特征 / 轨迹工件解析
+	geoalgo::ShapeHandle shape = geoalgo::makePrimitiveShape(bp);
+	if (shape.isNull())
+	{
+		if (outError)
+			*outError = QStringLiteral("Failed to build primitive B-rep.");
+		return false;
+	}
+
+	const QString displayName = options.displayName.isEmpty() ? QStringLiteral("PluginPrimitive") : options.displayName;
+	const QString sourcePath =
+		options.sourcePath.isEmpty() ? QStringLiteral("ai://primitive") : options.sourcePath;
+
+	auto brep = std::make_shared<BrepBackendData>();
+	brep->setName(displayName.toStdString());
+	brep->setShape(std::move(shape));
+
+	BackendVec3 pos;
+	pos.x = options.poseMm.x;
+	pos.y = options.poseMm.y;
+	pos.z = options.poseMm.z;
+	brep->setPose(pos);
+
+	BackendVec3 rot;
+	rot.x = options.rotationDeg.x;
+	rot.y = options.rotationDeg.y;
+	rot.z = options.rotationDeg.z;
+	brep->setRotation(rot);
+
+	QString regErr;
+	if (!cloudsim::host::registerAdoptedBrepAndLoadScene(*doc, brep, sourcePath, QStringLiteral("BrepModel"), QString(),
+														options.resetViewToHome, &regErr))
+	{
+		if (outError)
+			*outError = regErr.isEmpty() ? QStringLiteral("Failed to register B-rep in backend.") : regErr;
+		return false;
+	}
+	if (outBackendId)
+		*outBackendId = QString::fromStdString(brep->id());
+	if (options.selectInTree)
+		m_mainWindowHost->focusBackendInTree(brep->id());
+	return true;
 }
 
 bool PluginHostContext::buildPrimitiveMeshSoup(const PluginPrimitiveMeshParams& params,
@@ -721,6 +801,11 @@ IPluginLabelingHost* PluginHostContext::labelingHost()
 const IPluginLabelingHost* PluginHostContext::labelingHost() const
 {
 	return m_labelingHost.get();
+}
+
+QString PluginHostContext::selectedBackendId() const
+{
+	return m_mainWindowHost ? m_mainWindowHost->selectedBackendId() : QString();
 }
 
 IAiAssistantHost* PluginHostContext::aiAssistantHost()

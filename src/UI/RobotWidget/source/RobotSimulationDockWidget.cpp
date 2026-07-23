@@ -4,6 +4,7 @@
 #include "RobotSimulationDockWidget.h"
 
 #include "RobotAxisControlWidget.h"
+#include "RobotExternalAxisSettingsWidget.h"
 #include "RobotFrameSettingsWidget.h"
 #include "SimulationCommandWidget.h"
 #include "TrajectoryEditPageWidget.h"
@@ -37,11 +38,13 @@ RobotSimulationDockWidget::RobotSimulationDockWidget(QWidget* parent) : QWidget(
 	m_commandPage = new SimulationCommandWidget(m_tabs);
 	m_axisPage = new RobotAxisControlWidget(m_tabs);
 	m_framePage = new RobotFrameSettingsWidget(m_tabs);
+	m_externalAxisPage = new RobotExternalAxisSettingsWidget(m_tabs);
 	m_trajectoryPage = new TrajectoryEditPageWidget(m_tabs);
 	m_generationPage = new TrajectoryGenerationPageWidget(m_tabs);
 	m_tabs->addTab(m_commandPage, QStringLiteral("Instructions"));
 	m_tabs->addTab(m_axisPage, QStringLiteral("Axis control"));
 	m_tabs->addTab(wrapInScrollArea(m_framePage, m_tabs), QStringLiteral("Frames"));
+	m_tabs->addTab(wrapInScrollArea(m_externalAxisPage, m_tabs), QStringLiteral("外部轴"));
 	m_tabs->addTab(wrapInScrollArea(m_generationPage, m_tabs), QStringLiteral("轨迹生成"));
 	m_tabs->addTab(wrapInScrollArea(m_trajectoryPage, m_tabs), QStringLiteral("轨迹编辑"));
 }

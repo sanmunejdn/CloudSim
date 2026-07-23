@@ -10,6 +10,7 @@
 #include <QString>
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 #include <Adapters.h>
 #include <ToolKinematics.h>
@@ -414,6 +415,195 @@ std::vector<double> solveUrdfNumericalIk(const QString& urdfPath, const QString&
 	return {};
 }
 
+std::vector<double> solveUrdfNumericalIkCoupledExternal(const QString& urdfPath, const QString& ikLink,
+														const IkLinkTarget& linkTarget, std::vector<double> q,
+														double& qExtInOut, const double axis[3], const double lower,
+														const double upper, const int maxIters, std::string* failReason,
+														const double externalDeltaPriorWeight = 0.0,
+														const bool adaptiveExternalDamping = true,
+														const double qExtSeed = 0.0)
+{
+	if (urdfPath.isEmpty() || ikLink.isEmpty() || q.empty() || !axis)
+	{
+		if (failReason)
+		{
+			*failReason = "无DH上下文";
+		}
+		return {};
+	}
+	const double target[3] = {linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2]};
+	const bool useOrientation = linkTarget.hasOrientation;
+	const osg::Quat targetQuat = useOrientation ? linkTarget.quat : osg::Quat();
+	const double eps = 1e-4;
+	const double lambda = 1e-2;
+	const int taskDim = useOrientation ? 6 : 3;
+	const int iterLimit = maxIters > 0 ? maxIters : 180;
+	const double orientationWeight = useOrientation ? 300.0 : 1.0;
+	const int nArm = static_cast<int>(q.size());
+	const int n = nArm + 1;
+	qExtInOut = std::clamp(qExtInOut, lower, upper);
+	const double qeSeedClamped = std::clamp(qExtSeed, lower, upper);
+
+	std::vector<double> bestQ = q;
+	double bestQe = qExtInOut;
+	double bestPosErr = 1e30;
+
+	for (int iter = 0; iter < iterLimit; ++iter)
+	{
+		double pos[3] = {0.0, 0.0, 0.0};
+		osg::Quat curQuat;
+		if (!linkPoseFromUrdf(urdfPath, ikLink, q, pos, useOrientation ? &curQuat : nullptr))
+		{
+			if (failReason)
+			{
+				*failReason = "无DH上下文";
+			}
+			return {};
+		}
+		// p_eff = FK + q_e * axis
+		const double pEff[3] = {pos[0] + qExtInOut * axis[0], pos[1] + qExtInOut * axis[1],
+								pos[2] + qExtInOut * axis[2]};
+		std::vector<double> e(static_cast<size_t>(taskDim), 0.0);
+		e[0] = target[0] - pEff[0];
+		e[1] = target[1] - pEff[1];
+		e[2] = target[2] - pEff[2];
+		const double posErr = std::sqrt(e[0] * e[0] + e[1] * e[1] + e[2] * e[2]);
+		double rotErr = 0.0;
+		if (useOrientation)
+		{
+			double eRot[3] = {0.0, 0.0, 0.0};
+			quatErrorAxisAngle(curQuat, targetQuat, eRot);
+			e[3] = eRot[0] * orientationWeight;
+			e[4] = eRot[1] * orientationWeight;
+			e[5] = eRot[2] * orientationWeight;
+			rotErr = std::sqrt(eRot[0] * eRot[0] + eRot[1] * eRot[1] + eRot[2] * eRot[2]);
+		}
+		if (posErr < bestPosErr)
+		{
+			bestPosErr = posErr;
+			bestQ = q;
+			bestQe = qExtInOut;
+		}
+		if (posErr < 1e-2 && (!useOrientation || rotErr < 0.1 * kDegToRad))
+		{
+			qExtInOut = bestQe;
+			return bestQ;
+		}
+
+		std::vector<double> J(static_cast<size_t>(taskDim * n), 0.0);
+		for (int j = 0; j < nArm; ++j)
+		{
+			std::vector<double> qPert = q;
+			qPert[static_cast<size_t>(j)] += eps;
+			double p2[3] = {0.0, 0.0, 0.0};
+			osg::Quat q2;
+			if (!linkPoseFromUrdf(urdfPath, ikLink, qPert, p2, useOrientation ? &q2 : nullptr))
+			{
+				if (failReason)
+				{
+					*failReason = "无DH上下文";
+				}
+				return {};
+			}
+			J[0 * n + j] = (p2[0] - pos[0]) / eps;
+			J[1 * n + j] = (p2[1] - pos[1]) / eps;
+			J[2 * n + j] = (p2[2] - pos[2]) / eps;
+			if (useOrientation)
+			{
+				double dRot[3] = {0.0, 0.0, 0.0};
+				quatErrorAxisAngle(curQuat, q2, dRot);
+				J[3 * n + j] = (dRot[0] / eps) * orientationWeight;
+				J[4 * n + j] = (dRot[1] / eps) * orientationWeight;
+				J[5 * n + j] = (dRot[2] / eps) * orientationWeight;
+			}
+		}
+		// 外轴列：∂p_eff/∂q_e = axis
+		J[0 * n + nArm] = axis[0];
+		J[1 * n + nArm] = axis[1];
+		J[2 * n + nArm] = axis[2];
+
+		// 误差沿轨占比 + 臂沿轨能力 → 外轴阻尼：正交误差偏臂，沿轨且臂弱则放宽外轴
+		double lambdaExtScale = 1.0;
+		if (adaptiveExternalDamping && posErr > 1e-6)
+		{
+			const double ePar = e[0] * axis[0] + e[1] * axis[1] + e[2] * axis[2];
+			const double railShare = std::min(1.0, std::abs(ePar) / posErr);
+			double armAlong = 0.0;
+			for (int j = 0; j < nArm; ++j)
+			{
+				const double jPar = J[0 * n + j] * axis[0] + J[1 * n + j] * axis[1] + J[2 * n + j] * axis[2];
+				armAlong += jPar * jPar;
+			}
+			armAlong = std::sqrt(armAlong);
+			const double armWeak = 1.0 / (1.0 + armAlong); // 臂沿轨雅可比弱 → 接近 1
+			lambdaExtScale = 0.25 + 2.5 * (1.0 - railShare) + 1.5 * (1.0 - armWeak) * (1.0 - railShare);
+		}
+
+		std::vector<double> jtj(static_cast<size_t>(n * n), 0.0);
+		std::vector<double> jte(static_cast<size_t>(n), 0.0);
+		for (int r = 0; r < taskDim; ++r)
+		{
+			for (int c = 0; c < n; ++c)
+			{
+				jte[static_cast<size_t>(c)] += J[static_cast<size_t>(r * n + c)] * e[static_cast<size_t>(r)];
+			}
+		}
+		for (int r = 0; r < n; ++r)
+		{
+			for (int c = 0; c < n; ++c)
+			{
+				double s = 0.0;
+				for (int k = 0; k < taskDim; ++k)
+				{
+					s += J[static_cast<size_t>(k * n + r)] * J[static_cast<size_t>(k * n + c)];
+				}
+				jtj[static_cast<size_t>(r * n + c)] = s;
+			}
+		}
+		for (int i = 0; i < nArm; ++i)
+		{
+			jtj[static_cast<size_t>(i * n + i)] += lambda * lambda;
+		}
+		jtj[static_cast<size_t>(nArm * n + nArm)] += (lambda * lambdaExtScale) * (lambda * lambdaExtScale);
+		if (externalDeltaPriorWeight > 0.0)
+		{
+			jtj[static_cast<size_t>(nArm * n + nArm)] += externalDeltaPriorWeight;
+			jte[static_cast<size_t>(nArm)] -= externalDeltaPriorWeight * (qExtInOut - qeSeedClamped);
+		}
+		if (!solveLinearSystem(jtj, jte, n))
+		{
+			if (failReason)
+			{
+				*failReason = "IK未收敛/超迭代";
+			}
+			if (bestPosErr < 1e29)
+			{
+				qExtInOut = bestQe;
+				return bestQ;
+			}
+			return {};
+		}
+		for (int j = 0; j < nArm; ++j)
+		{
+			jte[static_cast<size_t>(j)] = std::max(-0.2, std::min(0.2, jte[static_cast<size_t>(j)]));
+			q[static_cast<size_t>(j)] += jte[static_cast<size_t>(j)];
+		}
+		const double dqExt = std::max(-50.0, std::min(50.0, jte[static_cast<size_t>(nArm)]));
+		qExtInOut = std::clamp(qExtInOut + dqExt, lower, upper);
+	}
+
+	if (bestPosErr < 1e29)
+	{
+		qExtInOut = bestQe;
+		return bestQ;
+	}
+	if (failReason)
+	{
+		*failReason = "IK未收敛/超迭代";
+	}
+	return {};
+}
+
 double residualToolOriginMm(const RobotTeachIk::TeachIkContext& ctx, const std::vector<double>& q)
 {
 	IkLinkTarget linkTarget{};
@@ -423,6 +613,12 @@ double residualToolOriginMm(const RobotTeachIk::TeachIkContext& ctx, const std::
 	}
 	double toolOriginPos[3]{};
 	ctx.T_base_target.translationMm(toolOriginPos[0], toolOriginPos[1], toolOriginPos[2]);
+	if (ctx.externalAxis.enabled)
+	{
+		toolOriginPos[0] -= ctx.externalAxis.qExternal * ctx.externalAxis.axis[0];
+		toolOriginPos[1] -= ctx.externalAxis.qExternal * ctx.externalAxis.axis[1];
+		toolOriginPos[2] -= ctx.externalAxis.qExternal * ctx.externalAxis.axis[2];
+	}
 
 	const engine::RigidTransform T_flange_tool = RobotCoordinate::rigidTransformFromBackendMat4(ctx.T_flange_tool);
 	QVector<double> qQt;
@@ -450,6 +646,17 @@ double residualToolOriginMm(const RobotTeachIk::TeachIkContext& ctx, const std::
 
 namespace RobotTeachIk
 {
+void applyExternalAxisToTargetPos(const double axis[3], const double qExt, double posInOut[3])
+{
+	if (!axis || !posInOut)
+	{
+		return;
+	}
+	posInOut[0] -= qExt * axis[0];
+	posInOut[1] -= qExt * axis[1];
+	posInOut[2] -= qExt * axis[2];
+}
+
 TeachIkResult solveTeachIk(const TeachIkContext& ctx)
 {
 	TeachIkResult out;
@@ -466,16 +673,126 @@ TeachIkResult solveTeachIk(const TeachIkContext& ctx)
 	}
 	std::string failReason;
 	const int maxIters = ctx.maxIkIterations > 0 ? ctx.maxIkIterations : 180;
-	std::vector<double> q =
-		solveUrdfNumericalIk(ctx.urdfPath, ctx.ikLinkName, linkTarget, ctx.seedJointRad, maxIters, &failReason);
+	std::vector<double> q;
+	double qExt = ctx.externalAxis.qExternal;
+	if (ctx.externalAxis.enabled && ctx.externalAxis.optimizeExternal)
+	{
+		qExt = std::clamp(qExt, ctx.externalAxis.lower, ctx.externalAxis.upper);
+		q = solveUrdfNumericalIkCoupledExternal(ctx.urdfPath, ctx.ikLinkName, linkTarget, ctx.seedJointRad, qExt,
+												ctx.externalAxis.axis, ctx.externalAxis.lower, ctx.externalAxis.upper,
+												maxIters, &failReason, ctx.externalAxis.externalDeltaPriorWeight,
+												ctx.externalAxis.adaptiveExternalDamping, qExt);
+	}
+	else
+	{
+		if (ctx.externalAxis.enabled)
+		{
+			qExt = std::clamp(qExt, ctx.externalAxis.lower, ctx.externalAxis.upper);
+			applyExternalAxisToTargetPos(ctx.externalAxis.axis, qExt, linkTarget.pos);
+		}
+		q = solveUrdfNumericalIk(ctx.urdfPath, ctx.ikLinkName, linkTarget, ctx.seedJointRad, maxIters, &failReason);
+	}
 	if (q.empty())
 	{
 		out.error = failReason.empty() ? std::string("IK未收敛/超迭代") : failReason;
+		out.externalAxisQ = qExt;
 		return out;
 	}
-	out.residualTcpMm = residualToolOriginMm(ctx, q);
+	TeachIkContext residualCtx = ctx;
+	residualCtx.externalAxis.qExternal = qExt;
+	out.residualTcpMm = residualToolOriginMm(residualCtx, q);
 	out.jointRad = std::move(q);
+	out.externalAxisQ = qExt;
 	out.ok = true;
 	return out;
+}
+
+TeachIkResult solveTeachIkCoordinatedDrag(const TeachIkContext& ctxIn, const double qExternalHintMm,
+										  const bool hasExternalHint)
+{
+	TeachIkResult out;
+	if (!ctxIn.externalAxis.enabled)
+	{
+		return solveTeachIk(ctxIn);
+	}
+
+	const double qCurrent = std::clamp(ctxIn.externalAxis.qExternal, ctxIn.externalAxis.lower, ctxIn.externalAxis.upper);
+	const double qHint =
+		hasExternalHint ? std::clamp(qExternalHintMm, ctxIn.externalAxis.lower, ctxIn.externalAxis.upper) : qCurrent;
+	const double hintDelta = std::abs(qHint - qCurrent);
+
+	auto scoreCandidate = [&](const TeachIkResult& r) -> double {
+		if (!r.ok || r.jointRad.size() != ctxIn.seedJointRad.size())
+		{
+			return 1e30;
+		}
+		double jointDelta = 0.0;
+		for (size_t i = 0; i < r.jointRad.size(); ++i)
+		{
+			jointDelta += std::abs(r.jointRad[i] - ctxIn.seedJointRad[i]);
+		}
+		const double dQe = std::abs(r.externalAxisQ - qCurrent);
+		return r.residualTcpMm + 12.0 * jointDelta + 0.012 * dQe;
+	};
+
+	TeachIkResult best;
+	double bestScore = 1e30;
+	auto consider = [&](TeachIkResult&& cand) {
+		const double s = scoreCandidate(cand);
+		if (s < bestScore)
+		{
+			bestScore = s;
+			best = std::move(cand);
+		}
+	};
+
+	// A：固定当前外轴（小步默认）
+	{
+		TeachIkContext a = ctxIn;
+		a.externalAxis.qExternal = qCurrent;
+		a.externalAxis.optimizeExternal = false;
+		a.maxIkIterations = 12;
+		consider(solveTeachIk(a));
+	}
+	// 臂已够好且无大沿轨提示 → 不再跑联立，拖动更跟手
+	if (best.ok && best.residualTcpMm < 2.0 && hintDelta < 8.0)
+	{
+		return best;
+	}
+
+	// B：自适应联立
+	{
+		TeachIkContext b = ctxIn;
+		b.externalAxis.qExternal = qCurrent;
+		b.externalAxis.optimizeExternal = true;
+		b.externalAxis.adaptiveExternalDamping = true;
+		b.externalAxis.externalDeltaPriorWeight = 0.08;
+		b.maxIkIterations = 16;
+		consider(solveTeachIk(b));
+	}
+	if (best.ok && best.residualTcpMm < 1.5)
+	{
+		return best;
+	}
+
+	// C：大沿轨提示时再试投影种子
+	if (hasExternalHint && hintDelta > 0.5)
+	{
+		TeachIkContext c = ctxIn;
+		c.externalAxis.qExternal = qHint;
+		c.externalAxis.optimizeExternal = true;
+		c.externalAxis.adaptiveExternalDamping = true;
+		c.externalAxis.externalDeltaPriorWeight = 0.02;
+		c.maxIkIterations = 16;
+		consider(solveTeachIk(c));
+	}
+
+	if (!best.ok)
+	{
+		out.error = "联立拖动无可行解";
+		out.externalAxisQ = qCurrent;
+		return out;
+	}
+	return best;
 }
 } // namespace RobotTeachIk

@@ -43,7 +43,9 @@
 | `RegistrationNonRigid.h` | TPS 形变 |
 | `RegistrationSpare.h` | **SPARE** 非刚性配准（对称点-面 + 变形图 + ARAP；点云/网格 soup） |
 | `Preprocess.h` | 法线、离群、平滑、重建前管线 |
-| `Reconstruction.h` | Poisson / Scale-space → triangleSoup |
+| `ReconstructionPoisson.h` | Poisson 隐式重建（定向点云）；`reconstructPoisson` / `Auto` |
+| `ReconstructionScaleSpace.h` | Scale-space 重建（仅坐标）；`reconstructScaleSpace` |
+| `Reconstruction.h` | 聚合转发（兼容旧 `#include`） |
 | `ReconstructionConfig.h` | 重建配置（质量级别、自动下采样、并行化控制） |
 | `ParallelUtils.h` | 并行化工具类（TBB检测、线程数管理） |
 | `SelfTest.h` | `runSelfTest(failures)` |
@@ -62,7 +64,7 @@
 
 ### 3.1 Poisson 与 Scale-space：流程与区别
 
-二者均基于 CGAL，输出统一为 **triangle soup**（`9*T` float，每三角 3 顶点 xyz，单位 mm）。实现见 [`Reconstruction.cpp`](source/Reconstruction.cpp)。
+二者均基于 CGAL，输出统一为 **triangle soup**（`9*T` float，每三角 3 顶点 xyz，单位 mm）。实现见 [`ReconstructionPoisson.cpp`](source/ReconstructionPoisson.cpp) / [`ReconstructionScaleSpace.cpp`](source/ReconstructionScaleSpace.cpp)；旧 [`Reconstruction.h`](inc/Reconstruction.h) 为聚合转发。
 
 #### 算法本质
 
@@ -128,7 +130,7 @@ xyz
 | 参数 | 默认值（Balanced） | 含义 |
 |------|-------------------|------|
 | `smoothIterations` | Fast=2 / Balanced=4 / Quality=6 | `increase_scale` 迭代次数；越大曲面越平滑、细节越少 |
-| `meshingRadiusMm` | 0（自动：包围盒对角线 × 0.05） | 当前实现中仅计算默认值，**未传入 CGAL**（见 `Reconstruction.cpp` 中 `(void)meshingRadiusMm`） |
+| `meshingRadiusMm` | 0（自动：包围盒对角线 × 0.05） | 当前实现中仅计算默认值，**未传入 CGAL**（见 `ReconstructionScaleSpace.cpp` 中 `(void)meshingRadiusMm`） |
 
 Scale-space **不调用** `preprocessForReconstruction`；离群剔除、法线估计、MST 定向均不在此路径内。需要时可由调用方在重建前自行 `downsampleVoxelGrid` / `removeOutliers`。
 

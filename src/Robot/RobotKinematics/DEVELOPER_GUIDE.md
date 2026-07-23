@@ -19,15 +19,18 @@
 ### 2.1 `struct DhRow`
 
 **含义**：单节修正 DH 参数，对应  
-\(A_i = R_z(\theta_i) \cdot T_z(d_i) \cdot T_x(a_i) \cdot R_x(\alpha_i)\)，其中 \(\theta_i = \text{thetaOffset} + q[\text{jointIndex}]\)（旋转关节）。
+\(A_i = R_z(\theta_i) \cdot T_z(d_i) \cdot T_x(a_i) \cdot R_x(\alpha_i)\)。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `a` | `double` | 连杆长度 |
 | `alpha` | `double` | 扭角 |
-| `d` | `double` | 偏距 |
-| `thetaOffset` | `double` | 固定偏置；`jointIndex < 0` 时 θ 恒为 `thetaOffset` |
-| `jointIndex` | `int` | 在关节向量 `q` 中的下标 |
+| `d` | `double` | 偏距（棱柱时为名义 d） |
+| `thetaOffset` | `double` | 固定偏置；旋转关节 θ = offset + q |
+| `jointIndex` | `int` | 在关节向量 `q` 中的下标；`< 0` 无变量 |
+| `isPrismatic` | `bool` | true：变量进 `d`（mm）；false：进 θ（rad） |
+
+实现为**闭式单矩阵** FK；IK 使用**解析位置雅可比**（旋转列 `z×(p_ee-p_j)`，棱柱列 `z`），并对棱柱/旋转分别限幅步进。
 
 ---
 
@@ -37,41 +40,46 @@
 |------|------|------|------|
 | `fkSerialDh` | `rows`, `q` | `T_end4x4_colMajor[16]` | 末端执行器 FK |
 | `endEffectorPosition` | `rows`, `q` | `posOut[3]` | 仅取 FK 平移列 |
-| `ikPositionDampedLeastSquares` | `rows`, `targetPos[3]`, `qInOut`, `maxIter`, `tol`, `lambda` | `bool`；可选 `iterationsUsed` | 数值 IK：`qInOut` 作种子与结果 |
-| `jointCountFromDhRows` | `rows` | `int` | `max(jointIndex)+1` |
+| `ikPositionDampedLeastSquares` | `rows`, `targetPos[3]`, `qInOut`, … | `bool` | 位置 DLS IK |
+| `positionJacobianAnalytic` | `rows`, `q` | `J_3xn` | 解析位置雅可比 |
+| `jointCountFromDhRows` | `rows` | `size_t` | `max(jointIndex)+1` |
 
 ### 3.1 IK 使用注意
 
-- **仅位置**：不约束姿态；带欧拉角的 PTP/LINE 应优先走 `RobotUrdf` + `RobotScene` 的 URDF IK。
-- **种子敏感**：`qInOut` 初值影响收敛；轴配置筛选在 `RobotScene` 层完成，不在本模块。
+- **仅位置**：不约束姿态；带欧拉角的 PTP/LINE 应优先走 URDF IK。
+- **种子敏感**：`qInOut` 初值影响收敛。
+- **外轴联动**：对象级配置与搜索在 RobotScene / 轨迹 Op；本库可对棱柱 DH 行参与联立。
 
 ---
 
 ## 4. 与上层集成
 
-```mermaid
-flowchart LR
-  Ctrl[RobotInstructionController] -->|无 URDF / 回退| RK[RobotKinematics]
-  Ctrl -->|有 context.urdfPath| URDF[RobotUrdf IK]
-```
-
 | 调用方 | 何时使用 |
 |--------|----------|
 | `Controller::setDhRows` | UI/配置注入 DH 表 |
-| `PtpPlanner` / `LinePlanner`（实现于 `.cpp`） | `context.urdfPath` 为空且 `hasDhRows()` 时 |
+| `PtpPlanner` / `LinePlanner` / `ArcPlanner` | `context.urdfPath` 为空且 `hasDhRows()` 时（ARC 优先 URDF 笛卡尔弧） |
 
-笛卡尔目标在 `RobotScene` 中已为 **基座系 TCP**；`context.toolFrameMat4` 换算法兰 link 目标后再 IK。导出关节角见 `RobotProgramExport`。
+### 3.2 圆弧几何（`CircularArcGeometry.h`）
+
+| 函数 | 作用 |
+|------|------|
+| `fitCircle3Points` | 三点定圆；共线/半径过小 → false |
+| `sampleArcByChord` | 按弦长采样（不含起点、含终点） |
+| `pointOnArc` / `arcLengthMm` | 弧参数 u∈[0,1]、弧长 mm |
 
 ---
 
 ## 5. 扩展指南
 
-- 新增 7 轴或闭链：建议新库或新命名空间，勿破坏现有 `DhRow` ABI。
-- 导出宏：新公共符号加 `ROBOT_KINEMATICS_API`；x64 构建侧定义 `ROBOT_KINEMATICS_LIB`（Win32 用 `ROBOT_KINEMATICS_STATIC`）。
+- `isPrismatic` 默认 false，保持与旧 ABI 兼容。
+- 7 轴/闭链建议新命名空间，勿破坏现有 `DhRow` 布局语义。
+- 圆弧仅几何；IK 仍在 `RobotScene::ArcPlanner`。
 
 ---
 
 ## 6. 相关文档
 
-- 指令规划与 IK 链：[`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md)
-- URDF 主路径：[`../RobotUrdf/DEVELOPER_GUIDE.md`](../RobotUrdf/DEVELOPER_GUIDE.md)
+- [`../RobotScene/DEVELOPER_GUIDE.md`](../RobotScene/DEVELOPER_GUIDE.md)
+- [`../RobotUrdf/DEVELOPER_GUIDE.md`](../RobotUrdf/DEVELOPER_GUIDE.md)
+- [`../../../docs/三点圆弧指令/CONSENSUS_三点圆弧指令.md`](../../../docs/三点圆弧指令/CONSENSUS_三点圆弧指令.md)
+- [`../../../docs/外部轴联动求解/FINAL_外部轴联动求解.md`](../../../docs/外部轴联动求解/FINAL_外部轴联动求解.md)

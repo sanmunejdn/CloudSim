@@ -34,6 +34,12 @@ nlohmann::json posesFromInstruction(const Base& ins)
 		poses["baseTcp"]["positionMm"] = vec3Json(ins.pose());
 		poses["baseTcp"]["eulerDeg"] = vec3Json(ins.eulerDeg());
 	}
+	if (ins.hasViaPoseProperty())
+	{
+		poses["viaTcp"] = nlohmann::json::object();
+		poses["viaTcp"]["positionMm"] = vec3Json(ins.viaPose());
+		poses["viaTcp"]["eulerDeg"] = vec3Json(ins.viaEulerDeg());
+	}
 	const auto& ext = ins.extensionProperties();
 	const auto itTool = ext.find(RobotCoordinate::kExtMotionToolFrameId);
 	if (itTool != ext.end())
@@ -192,12 +198,16 @@ nlohmann::json buildRecord(const Base& ins, const std::vector<size_t>& path, Bui
 	{
 		rec["motion"] = motionBlock(ins);
 		rec["poses"] = posesFromInstruction(ins);
-		const PlanResult* plan = nullptr;
-		if (st.motionPlans && st.motionPlanCursor < st.motionPlans->size())
+		// 无规划结果时跳过 kinematics，品牌导出万级点时可显著缩小 JSON
+		if (st.motionPlans)
 		{
-			plan = &(*st.motionPlans)[st.motionPlanCursor++];
+			const PlanResult* plan = nullptr;
+			if (st.motionPlanCursor < st.motionPlans->size())
+			{
+				plan = &(*st.motionPlans)[st.motionPlanCursor++];
+			}
+			rec["kinematics"] = kinematicsFromPlan(plan);
 		}
-		rec["kinematics"] = kinematicsFromPlan(plan);
 		if (st.flatOut && isMotionWaypointType(ins.type()))
 		{
 			FlatMotionRef ref;
@@ -367,7 +377,8 @@ bool buildCanonicalExportV1(const RobotProgram& program, const InstructionRuntim
 	return true;
 }
 
-bool writeCanonicalExportV1ToJson(const CanonicalProgramExportV1& doc, std::string& outJson, std::string* errMsg)
+bool writeCanonicalExportV1ToJson(const CanonicalProgramExportV1& doc, std::string& outJson, std::string* errMsg,
+								  bool prettyPrint)
 {
 	(void)errMsg;
 	nlohmann::json root = nlohmann::json::object();
@@ -392,7 +403,7 @@ bool writeCanonicalExportV1ToJson(const CanonicalProgramExportV1& doc, std::stri
 		flatArr.push_back(std::move(item));
 	}
 	root["flatMotionSequence"] = std::move(flatArr);
-	outJson = root.dump(2);
+	outJson = prettyPrint ? root.dump(2) : root.dump();
 	return true;
 }
 

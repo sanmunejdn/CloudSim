@@ -4,7 +4,9 @@
 #include "RobotAxisControlWidget.h"
 
 #include <QDebug>
+#include <QDoubleValidator>
 #include <QGridLayout>
+#include <algorithm>
 #include <cmath>
 
 static constexpr double kPi = 3.14159265358979323846;
@@ -18,7 +20,14 @@ RobotAxisControlWidget::~RobotAxisControlWidget() {}
 
 void RobotAxisControlWidget::setUseChinese(bool chinese)
 {
-	(void)chinese;
+	m_useChinese = chinese;
+	if (m_resetAllButton)
+	{
+		m_resetAllButton->setText(chinese ? QStringLiteral("重置所有关节") : QStringLiteral("Reset all joints"));
+		m_resetAllButton->setToolTip(chinese ? QStringLiteral("将所有关节重置到零位；外部轴重置到回零位")
+											 : QStringLiteral("Reset arm joints to zero; external axes to home"));
+	}
+	rebuildExternalAxisControls();
 }
 
 void RobotAxisControlWidget::setInteractionEnabled(bool enabled)
@@ -78,6 +87,83 @@ void RobotAxisControlWidget::emitAllJointAnglesNow()
 	emit allJointAnglesChanged(jointAnglesRad());
 }
 
+void RobotAxisControlWidget::clearExternalAxes()
+{
+	setExternalAxes({});
+}
+
+int RobotAxisControlWidget::externalAxisCount() const
+{
+	return m_externalControls.size();
+}
+
+QVector<double> RobotAxisControlWidget::externalAxisValues() const
+{
+	QVector<double> out;
+	out.reserve(m_externalControls.size());
+	for (const ExternalAxisControl& ec : m_externalControls)
+	{
+		out.push_back(ec.currentValue);
+	}
+	return out;
+}
+
+void RobotAxisControlWidget::setExternalAxisValues(const QVector<double>& values)
+{
+	setExternalAxisValuesSilent(values);
+	emitExternalAxisValuesNow();
+}
+
+void RobotAxisControlWidget::setExternalAxisValuesSilent(const QVector<double>& values)
+{
+	if (values.size() != m_externalControls.size())
+	{
+		return;
+	}
+	for (int i = 0; i < m_externalControls.size(); ++i)
+	{
+		setExternalAxisValueAt(i, values[i]);
+	}
+}
+
+void RobotAxisControlWidget::emitExternalAxisValuesNow()
+{
+	emit externalAxisValuesChanged(externalAxisValues());
+}
+
+void RobotAxisControlWidget::setExternalAxes(const RobotExternal::RobotExternalAxisConfigSet& axes)
+{
+	const QVector<double> prev = externalAxisValues();
+	for (ExternalAxisControl& ec : m_externalControls)
+	{
+		if (ec.groupBox)
+		{
+			m_contentLayout->removeWidget(ec.groupBox);
+			delete ec.groupBox;
+		}
+	}
+	m_externalControls.clear();
+
+	for (const RobotExternal::RobotExternalAxisConfig& cfgIn : axes.axes)
+	{
+		if (!cfgIn.enabled)
+		{
+			continue;
+		}
+		RobotExternal::RobotExternalAxisConfig cfg = cfgIn;
+		RobotExternal::normalizeExternalAxisConfig(cfg);
+		ExternalAxisControl ec;
+		ec.config = cfg;
+		ec.currentValue = std::clamp(cfg.home, cfg.lower, cfg.upper);
+		m_externalControls.push_back(std::move(ec));
+	}
+	rebuildExternalAxisControls();
+	if (prev.size() == m_externalControls.size())
+	{
+		setExternalAxisValuesSilent(prev);
+	}
+}
+
 void RobotAxisControlWidget::createUI()
 {
 	QVBoxLayout* mainLayout = new QVBoxLayout(this);
@@ -102,11 +188,29 @@ void RobotAxisControlWidget::createUI()
 	buttonLayout->addStretch();
 
 	m_resetAllButton = new QPushButton(tr("重置所有关节"), this);
-	m_resetAllButton->setToolTip(tr("将所有关节重置到零位"));
+	m_resetAllButton->setToolTip(tr("将所有关节重置到零位；外部轴重置到回零位"));
 	connect(m_resetAllButton, &QPushButton::clicked, this, &RobotAxisControlWidget::onResetAllButtonClicked);
 	buttonLayout->addWidget(m_resetAllButton);
 
 	mainLayout->addLayout(buttonLayout);
+}
+
+void RobotAxisControlWidget::clearContentExceptStretch()
+{
+	QLayoutItem* child;
+	while ((child = m_contentLayout->takeAt(0)) != nullptr)
+	{
+		if (child->spacerItem())
+		{
+			m_contentLayout->addItem(child);
+			break;
+		}
+		if (QWidget* w = child->widget())
+		{
+			delete w;
+		}
+		delete child;
+	}
 }
 
 void RobotAxisControlWidget::setupJointControls(const QStringList& jointNames, const QVector<double>& lowerLimits,
@@ -128,21 +232,28 @@ void RobotAxisControlWidget::setupJointControls(const QStringList& jointNames, c
 	m_jointControls.clear();
 	m_jointOrder.clear();
 
-	QLayoutItem* child;
-	while ((child = m_contentLayout->takeAt(0)) != nullptr)
+	// 重建关节时会清掉外轴控件指针，配置暂存后重建
+	RobotExternal::RobotExternalAxisConfigSet extSet;
+	QVector<double> extValues = externalAxisValues();
+	for (const ExternalAxisControl& ec : m_externalControls)
 	{
-		if (child->spacerItem())
-		{
-			m_contentLayout->addItem(child);
-			break;
-		}
-		delete child;
+		extSet.axes.push_back(ec.config);
 	}
+	m_externalControls.clear();
+
+	clearContentExceptStretch();
 
 	int count = jointNames.size();
 	if (count == 0 || lowerLimits.size() != count || upperLimits.size() != count)
 	{
-		qDebug() << "[RobotAxisControlWidget] Invalid joint configuration";
+		if (!extSet.axes.empty())
+		{
+			setExternalAxes(extSet);
+			if (extValues.size() == externalAxisCount())
+			{
+				setExternalAxisValuesSilent(extValues);
+			}
+		}
 		return;
 	}
 
@@ -221,6 +332,119 @@ void RobotAxisControlWidget::setupJointControls(const QStringList& jointNames, c
 
 		m_contentLayout->insertWidget(m_contentLayout->count() - 1, groupBox);
 	}
+
+	if (!extSet.axes.empty())
+	{
+		setExternalAxes(extSet);
+		if (extValues.size() == externalAxisCount())
+		{
+			setExternalAxisValuesSilent(extValues);
+		}
+	}
+}
+
+void RobotAxisControlWidget::rebuildExternalAxisControls()
+{
+	for (int i = 0; i < m_externalControls.size(); ++i)
+	{
+		ExternalAxisControl& ec = m_externalControls[i];
+		if (ec.groupBox)
+		{
+			m_contentLayout->removeWidget(ec.groupBox);
+			delete ec.groupBox;
+			ec.groupBox = nullptr;
+			ec.slider = nullptr;
+			ec.spinBox = nullptr;
+			ec.resetButton = nullptr;
+		}
+
+		const RobotExternal::RobotExternalAxisConfig& cfg = ec.config;
+		const QString title = QString::fromStdString(cfg.displayName.empty() ? cfg.jointName : cfg.displayName);
+		ec.groupBox = new QGroupBox(title, m_contentWidget);
+		ec.groupBox->setObjectName(QStringLiteral("externalAxisGroup_%1").arg(i));
+
+		QVBoxLayout* groupLayout = new QVBoxLayout(ec.groupBox);
+		groupLayout->setContentsMargins(4, 8, 4, 4);
+		groupLayout->setSpacing(4);
+
+		const bool prismatic = cfg.isPrismatic;
+		const double lo = cfg.lower;
+		const double hi = cfg.upper;
+		const QString unit = prismatic ? QStringLiteral("mm") : QStringLiteral("rad");
+
+		QHBoxLayout* sliderLayout = new QHBoxLayout();
+		QLabel* minLabel = new QLabel(QString::number(lo, 'f', 1) + unit, ec.groupBox);
+		minLabel->setStyleSheet(QStringLiteral("font-size: 15px; font-weight: 500;"));
+		ec.slider = new QSlider(Qt::Horizontal, ec.groupBox);
+		if (prismatic)
+		{
+			ec.slider->setMinimum(mmToSliderValue(lo));
+			ec.slider->setMaximum(mmToSliderValue(hi));
+			ec.slider->setValue(mmToSliderValue(ec.currentValue));
+		}
+		else
+		{
+			ec.slider->setMinimum(angleToSliderValue(lo));
+			ec.slider->setMaximum(angleToSliderValue(hi));
+			ec.slider->setValue(angleToSliderValue(ec.currentValue));
+		}
+		ec.slider->setTracking(true);
+		QLabel* maxLabel = new QLabel(QString::number(hi, 'f', 1) + unit, ec.groupBox);
+		maxLabel->setStyleSheet(QStringLiteral("font-size: 15px; font-weight: 500;"));
+		sliderLayout->addWidget(minLabel);
+		sliderLayout->addWidget(ec.slider, 1);
+		sliderLayout->addWidget(maxLabel);
+		groupLayout->addLayout(sliderLayout);
+
+		QHBoxLayout* inputLayout = new QHBoxLayout();
+		const QString valueText = m_useChinese ? (prismatic ? QStringLiteral("行程:") : QStringLiteral("角度:"))
+											   : (prismatic ? QStringLiteral("Stroke:") : QStringLiteral("Angle:"));
+		QLabel* valueLabel = new QLabel(valueText, ec.groupBox);
+		ec.spinBox = new QDoubleSpinBox(ec.groupBox);
+		ec.spinBox->setDecimals(prismatic ? 2 : 3);
+		ec.spinBox->setRange(lo, hi);
+		ec.spinBox->setValue(ec.currentValue);
+		ec.spinBox->setSuffix(QStringLiteral(" ") + unit);
+		ec.spinBox->setSingleStep(prismatic ? 1.0 : 0.01);
+		ec.resetButton = new QPushButton(m_useChinese ? QStringLiteral("回零") : QStringLiteral("Home"), ec.groupBox);
+		ec.resetButton->setFixedWidth(40);
+		ec.resetButton->setToolTip(m_useChinese ? QStringLiteral("重置到回零位") : QStringLiteral("Reset to home"));
+
+		inputLayout->addWidget(valueLabel);
+		inputLayout->addWidget(ec.spinBox);
+		inputLayout->addStretch();
+		inputLayout->addWidget(ec.resetButton);
+		groupLayout->addLayout(inputLayout);
+
+		connect(ec.slider, &QSlider::valueChanged, this, &RobotAxisControlWidget::onExternalSliderValueChanged);
+		connect(ec.spinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+				&RobotAxisControlWidget::onExternalSpinBoxValueChanged);
+		connect(ec.resetButton, &QPushButton::clicked, this, &RobotAxisControlWidget::onExternalResetButtonClicked);
+
+		m_contentLayout->insertWidget(m_contentLayout->count() - 1, ec.groupBox);
+	}
+}
+
+void RobotAxisControlWidget::setExternalAxisValueAt(int index, double value)
+{
+	if (index < 0 || index >= m_externalControls.size())
+	{
+		return;
+	}
+	ExternalAxisControl& ec = m_externalControls[index];
+	value = qBound(ec.config.lower, value, ec.config.upper);
+	ec.currentValue = value;
+	if (!ec.slider || !ec.spinBox)
+	{
+		return;
+	}
+	const bool prismatic = ec.config.isPrismatic;
+	bool blocked = ec.slider->blockSignals(true);
+	ec.slider->setValue(prismatic ? mmToSliderValue(value) : angleToSliderValue(value));
+	ec.slider->blockSignals(blocked);
+	blocked = ec.spinBox->blockSignals(true);
+	ec.spinBox->setValue(value);
+	ec.spinBox->blockSignals(blocked);
 }
 
 void RobotAxisControlWidget::setJointAngle(const QString& jointName, double angleRad)
@@ -269,6 +493,14 @@ void RobotAxisControlWidget::resetAllJoints()
 		setJointAngle(name, 0.0);
 	}
 	emitAllJointAnglesNow();
+	for (int i = 0; i < m_externalControls.size(); ++i)
+	{
+		setExternalAxisValueAt(i, m_externalControls[i].config.home);
+	}
+	if (!m_externalControls.isEmpty())
+	{
+		emitExternalAxisValuesNow();
+	}
 }
 
 void RobotAxisControlWidget::onSliderValueChanged(int value)
@@ -355,6 +587,65 @@ void RobotAxisControlWidget::onResetAllButtonClicked()
 	resetAllJoints();
 }
 
+void RobotAxisControlWidget::onExternalSliderValueChanged(int value)
+{
+	QSlider* slider = qobject_cast<QSlider*>(sender());
+	if (!slider)
+	{
+		return;
+	}
+	for (int i = 0; i < m_externalControls.size(); ++i)
+	{
+		if (m_externalControls[i].slider != slider)
+		{
+			continue;
+		}
+		const double v =
+			m_externalControls[i].config.isPrismatic ? sliderValueToMm(value) : sliderValueToAngle(value);
+		setExternalAxisValueAt(i, v);
+		emitExternalAxisValuesNow();
+		break;
+	}
+}
+
+void RobotAxisControlWidget::onExternalSpinBoxValueChanged(double value)
+{
+	QDoubleSpinBox* spinBox = qobject_cast<QDoubleSpinBox*>(sender());
+	if (!spinBox)
+	{
+		return;
+	}
+	for (int i = 0; i < m_externalControls.size(); ++i)
+	{
+		if (m_externalControls[i].spinBox != spinBox)
+		{
+			continue;
+		}
+		setExternalAxisValueAt(i, value);
+		emitExternalAxisValuesNow();
+		break;
+	}
+}
+
+void RobotAxisControlWidget::onExternalResetButtonClicked()
+{
+	QPushButton* button = qobject_cast<QPushButton*>(sender());
+	if (!button)
+	{
+		return;
+	}
+	for (int i = 0; i < m_externalControls.size(); ++i)
+	{
+		if (m_externalControls[i].resetButton != button)
+		{
+			continue;
+		}
+		setExternalAxisValueAt(i, m_externalControls[i].config.home);
+		emitExternalAxisValuesNow();
+		break;
+	}
+}
+
 void RobotAxisControlWidget::updateJointTransform(const QString& jointName, double angleRad)
 {
 	auto it = m_jointControls.find(jointName);
@@ -364,9 +655,9 @@ void RobotAxisControlWidget::updateJointTransform(const QString& jointName, doub
 	JointControl& jc = it.value();
 	if (!jc.transformNode)
 	{
-		qDebug() << "[RobotAxisControlWidget] No transform node for joint:" << jointName;
 		return;
 	}
+	(void)angleRad;
 }
 
 int RobotAxisControlWidget::angleToSliderValue(double angleRad) const
@@ -377,4 +668,14 @@ int RobotAxisControlWidget::angleToSliderValue(double angleRad) const
 double RobotAxisControlWidget::sliderValueToAngle(int value) const
 {
 	return value / SLIDER_SCALE;
+}
+
+int RobotAxisControlWidget::mmToSliderValue(double mm) const
+{
+	return static_cast<int>(std::lround(mm * SLIDER_SCALE_MM));
+}
+
+double RobotAxisControlWidget::sliderValueToMm(int value) const
+{
+	return static_cast<double>(value) / SLIDER_SCALE_MM;
 }

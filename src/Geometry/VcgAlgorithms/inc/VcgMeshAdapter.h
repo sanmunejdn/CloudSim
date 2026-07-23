@@ -2,7 +2,7 @@
 #define VCGALGORITHMS_VCGMESHADAPTER_H
 
 /// @file VcgMeshAdapter.h
-/// @brief VcgMeshAdapter 接口
+/// @brief soup ↔ 索引化 mesh 转换（不对外暴露 vcglib 类型）
 
 #include "vcg_algorithms_global.h"
 
@@ -11,18 +11,20 @@
 
 namespace vcgalgo
 {
-// 索引化 mesh 表示，vcglib 模板类型不暴露到头文件
 struct VCg_ALGORITHMS_API IndexedMesh
 {
-	std::vector<float> vertices; // 3*N，xyz
-	std::vector<int> faces;		 // 3*F，顶点索引
+	std::vector<float> vertices; ///< 3*N，xyz mm
+	std::vector<int> faces;		 ///< 3*F，顶点索引
 };
 
-// triangleSoup → IndexedMesh（去重顶点）
+/**
+ * triangleSoup（9*T）→ 焊点 IndexedMesh
+ * @return false：soup 非法（非 9 倍数或空）
+ */
 VCg_ALGORITHMS_API bool triangleSoupToIndexedMesh(const std::vector<float>& soup, IndexedMesh& out,
 												  std::string* errMsg = nullptr);
 
-// IndexedMesh → triangleSoup
+/** IndexedMesh → 展开 triangleSoup；空 mesh 得空 soup */
 VCg_ALGORITHMS_API bool indexedMeshToTriangleSoup(const IndexedMesh& mesh, std::vector<float>& outSoup);
 
 } // namespace vcgalgo

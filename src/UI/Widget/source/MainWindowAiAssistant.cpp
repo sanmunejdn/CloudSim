@@ -65,12 +65,12 @@ void MainWindow::setupAiAssistantCoordinator()
 	connect(m_aiCoordinator, &AiAssistantCoordinator::parseFailed, this, &MainWindow::onAiParseFailed);
 	connect(m_aiAssistantPage, &AiAssistantDockWidget::messageSubmitted, m_aiCoordinator,
 			&AiAssistantCoordinator::onUserMessageSubmitted);
-	connect(m_aiAssistantPage, &AiAssistantDockWidget::createFromRecognitionClicked, m_aiCoordinator,
-			&AiAssistantCoordinator::onCreateRecognitionConfirmed);
-	connect(m_aiAssistantPage, &AiAssistantDockWidget::confirmTrajectoryFeaturesClicked, m_aiCoordinator,
-			&AiAssistantCoordinator::onConfirmTrajectoryFeaturesClicked);
-	connect(m_aiAssistantPage, &AiAssistantDockWidget::retryTrajectoryFeaturesClicked, m_aiCoordinator,
-			&AiAssistantCoordinator::onRetryTrajectoryFeaturesClicked);
+	connect(m_aiAssistantPage, &AiAssistantDockWidget::agentConfirmAccepted, m_aiCoordinator,
+			&AiAssistantCoordinator::onAgentConfirmAccepted);
+	connect(m_aiAssistantPage, &AiAssistantDockWidget::agentConfirmRejected, m_aiCoordinator,
+			&AiAssistantCoordinator::onAgentConfirmRejected);
+	connect(m_aiAssistantPage, &AiAssistantDockWidget::agentConfirmSecondary, m_aiCoordinator,
+			&AiAssistantCoordinator::onAgentConfirmSecondary);
 
 	refreshAiAssistantHost();
 }

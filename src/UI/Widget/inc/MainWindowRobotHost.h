@@ -40,6 +40,7 @@ public:
 	SimulationCommandWidget* simulationCommandPage() override;
 	RobotAxisControlWidget* robotAxisControlPage() override;
 	RobotFrameSettingsWidget* robotFrameSettingsPage() override;
+	RobotExternalAxisSettingsWidget* robotExternalAxisSettingsPage() override;
 	DevicePageWidget* devicePage() override;
 
 	QAction* simulationStartAction() override;

@@ -92,7 +92,7 @@ bool RobotServiceAdapter::applyJointAnglesRad(const core::ObjectId& sceneRootBac
 	{
 		*outAggregated = aggregated;
 	}
-	doc->notifyRobotKinematicsAppliedToScene();
+	// 跟随脏标记 + 同步求解已在 applyJointAnglesFromDocument → notifyRobotKinematicsAppliedToScene
 	publishRobotKinematicsApplied(m_host, sceneRootBackendId, aggregated);
 	if (OsgWidget* osg = osgWidgetFrom(m_host))
 	{

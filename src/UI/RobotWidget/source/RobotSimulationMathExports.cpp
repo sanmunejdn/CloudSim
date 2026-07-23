@@ -1,5 +1,5 @@
-﻿/// @file RobotSimulationMathExports.cpp
-/// @brief RobotSimulationMathExports 实现
+/// @file RobotSimulationMathExports.cpp
+/// @brief RobotSimulationMathExports ???
 
 #include "IRobotDocumentHost.h"
 #include "IRobotOsgViewHost.h"
@@ -16,6 +16,47 @@
 
 namespace RobotSimulationMath
 {
+osg::Matrixd osgMatrixFromCoreMat4(const cloudsim::core::Mat4& columnMajor)
+{
+	osg::Matrixd m;
+	for (int c = 0; c < 4; ++c)
+	{
+		for (int r = 0; r < 4; ++r)
+		{
+			m(r, c) = columnMajor[static_cast<size_t>(c * 4 + r)];
+		}
+	}
+	return m;
+}
+
+cloudsim::core::Mat4 coreMat4FromOsgMatrix(const osg::Matrixd& m)
+{
+	cloudsim::core::Mat4 out{};
+	for (int c = 0; c < 4; ++c)
+	{
+		for (int r = 0; r < 4; ++r)
+		{
+			out[static_cast<size_t>(c * 4 + r)] = m(r, c);
+		}
+	}
+	return out;
+}
+
+bool getBackendRootWorldMatrixOsg(IRobotOsgViewHost* view, const std::string& backendId, osg::Matrixd& outWorld)
+{
+	if (!view)
+	{
+		return false;
+	}
+	cloudsim::core::Mat4 mat;
+	if (!view->getBackendRootWorldMatrix(backendId, mat))
+	{
+		return false;
+	}
+	outWorld = osgMatrixFromCoreMat4(mat);
+	return true;
+}
+
 BackendMat4 toolMat4ForFrames(const RobotCoordinate::RobotCoordinateFrameSet& frames,
 							  const RobotInstruction::Base* instructionWithTool)
 {
@@ -137,7 +178,7 @@ QString linkMeshBackendIdForInstance(IRobotDocumentHost* doc, int instIdx, const
 	}
 	if (doc->robotUsesPerLinkBackendsForInstance(instIdx))
 	{
-		RobotPerLinkKinematicsSlice slice;
+		cloudsim::core::RobotPerLinkKinematicsSliceDto slice;
 		if (doc->robotPerLinkKinematicsForInstance(instIdx, slice))
 		{
 			return slice.linkNameToBackendId.value(QString::fromStdString(linkName));
@@ -152,7 +193,7 @@ bool perLinkUsesWorldBakedMeshVertices(IRobotDocumentHost* doc, int instIdx)
 	{
 		return false;
 	}
-	RobotPerLinkKinematicsSlice slice;
+	cloudsim::core::RobotPerLinkKinematicsSliceDto slice;
 	if (!doc->robotPerLinkKinematicsForInstance(instIdx, slice))
 	{
 		return false;
@@ -187,18 +228,18 @@ bool robotBaseWorldMatrixForInstance(IRobotDocumentHost* doc, IRobotOsgViewHost*
 		return false;
 	}
 	outWorld.makeIdentity();
-	// per-link：基座↔世界须用 basePlacementWorld，根连杆 mesh 世界矩阵含连杆偏置
+	// per-link??????????????? basePlacementWorld???????? mesh ??????????????
 	if (doc->robotUsesPerLinkBackendsForInstance(instIdx))
 	{
-		RobotPerLinkKinematicsSlice slice;
+		cloudsim::core::RobotPerLinkKinematicsSliceDto slice;
 		if (doc->robotPerLinkKinematicsForInstance(instIdx, slice))
 		{
-			outWorld = slice.robotBasePlacementWorld;
+			outWorld = osgMatrixFromCoreMat4(slice.robotBasePlacementWorld);
 			return true;
 		}
 	}
 	const QString sceneRootId = doc->robotSceneBackendIdForInstance(instIdx);
-	if (osg && !sceneRootId.isEmpty() && osg->getBackendRootWorldMatrix(sceneRootId.toStdString(), outWorld))
+	if (osg && !sceneRootId.isEmpty() && RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, sceneRootId.toStdString(), outWorld))
 	{
 		return true;
 	}
@@ -207,14 +248,14 @@ bool robotBaseWorldMatrixForInstance(IRobotDocumentHost* doc, IRobotOsgViewHost*
 	{
 		refId = sceneRootId;
 	}
-	if (osg && !refId.isEmpty() && osg->getBackendRootWorldMatrix(refId.toStdString(), outWorld))
+	if (osg && !refId.isEmpty() && RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, refId.toStdString(), outWorld))
 	{
 		return true;
 	}
-	RobotPerLinkKinematicsSlice slice;
+	cloudsim::core::RobotPerLinkKinematicsSliceDto slice;
 	if (doc->robotPerLinkKinematicsForInstance(instIdx, slice))
 	{
-		outWorld = slice.robotBasePlacementWorld;
+		outWorld = osgMatrixFromCoreMat4(slice.robotBasePlacementWorld);
 		return true;
 	}
 	return false;
@@ -306,7 +347,7 @@ bool captureTcpFromSceneFlangeBackend(IRobotDocumentHost* doc, IRobotOsgViewHost
 		return false;
 	}
 	osg::Matrixd flangeWorld;
-	if (!osg->getBackendRootWorldMatrix(backendId.toStdString(), flangeWorld))
+	if (!RobotSimulationMath::getBackendRootWorldMatrixOsg(osg, backendId.toStdString(), flangeWorld))
 	{
 		return false;
 	}

@@ -2,7 +2,7 @@
 #define GEOMETRYALGORITHM_IFEATUREDISCRETIZERCONFIG_H
 
 /// @file IFeatureDiscretizerConfig.h
-/// @brief IFeatureDiscretizerConfig 接口
+/// @brief 外置 JSON 离散策略参数模板接口
 
 #include "geometry_algorithm_global.h"
 
@@ -21,7 +21,7 @@ public:
 	virtual ~IFeatureDiscretizerConfig() = default;
 
 	virtual std::string strategyId() const = 0;
-	virtual std::string jsonRelativePath() const = 0;
+	virtual std::string jsonRelativePath() const = 0; ///< 相对 resource/feature/discretizers/
 	virtual std::vector<FeatureDiscretizerParamField> paramFields() const = 0;
 	virtual nlohmann::json defaultParams() const = 0;
 };

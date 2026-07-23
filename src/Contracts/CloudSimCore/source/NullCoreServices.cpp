@@ -116,6 +116,7 @@ public:
 			*outError = QStringLiteral("NullDataService");
 		return false;
 	}
+	ObjectId followTargetId(const ObjectId&) const override { return {}; }
 };
 
 class NullRobotService final : public IRobotService

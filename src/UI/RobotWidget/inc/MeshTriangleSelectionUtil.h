@@ -4,12 +4,13 @@
 /// @file MeshTriangleSelectionUtil.h
 /// @brief 屏幕多边形 → 三角面索引（模型系 mesh）
 
+#include "CoreTypes.h"
+
 #include <QVector>
 #include <vector>
 
 #include <MeshBackendData.h>
 #include <PointCloudBackendOps.h>
-#include <osg/Vec3f>
 
 class IRobotDocumentHost;
 class IRobotOsgViewHost;
@@ -25,11 +26,12 @@ bool collectTrianglesByPolyline(IRobotDocumentHost* doc, IRobotOsgViewHost* osg,
 /// 选中三角索引 → 世界坐标顶点（供高亮）
 void selectedTrianglesToWorldVerts(const MeshBackendData& mesh, IRobotOsgViewHost* osg,
 								   const std::string& backendIdUtf8, const std::vector<int>& triangleIndices,
-								   std::vector<osg::Vec3f>& outVertsWorld);
+								   std::vector<cloudsim::core::Vec3>& outVertsWorld);
 
 /// 模型坐标三角 soup → 世界坐标顶点
 void triangleSoupModelToWorldVerts(IRobotOsgViewHost* osg, const std::string& backendIdUtf8,
-								   const std::vector<float>& triangleSoupModel, std::vector<osg::Vec3f>& outVertsWorld);
+								   const std::vector<float>& triangleSoupModel,
+								   std::vector<cloudsim::core::Vec3>& outVertsWorld);
 
 } // namespace mesh_triangle_selection
 

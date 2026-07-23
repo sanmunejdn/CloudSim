@@ -9,6 +9,7 @@
 #include "AiConfigDto.h"
 #include "AiInferenceTypes.h"
 #include "AiParseTypes.h"
+#include "AiAgentTypes.h"
 
 #include <functional>
 #include <memory>
@@ -47,6 +48,16 @@ public:
 									 QString* outError) = 0;
 
 	virtual QString resolveDomainId(const QString& requestedDomainId, const QString& userText) const = 0;
+
+	/// Agent 回合（vtable 末尾追加）
+	virtual void runAgentTurnAsync(const AiInferenceRequest& request, const AiConfigDto& config,
+								   const AiInferenceProgressFn& progress, const AiAgentEventFn& onEvent) = 0;
+	virtual void submitAgentConfirm(const QString& pendingId, const QByteArray& argsJsonUtf8) = 0;
+	virtual void cancelAgentConfirm(const QString& pendingId) = 0;
+	virtual void cancelAgentTurn() = 0;
+	/// 识别/轨迹等域确认并入同一 Session
+	virtual void beginDomainConfirmAsync(const AiDomainConfirmRequest& request, const AiAgentEventFn& onEvent) = 0;
+	virtual void secondaryAgentConfirm(const QString& pendingId) = 0;
 };
 
 #endif // CLOUDSIMAISDK_IAIASSISTANTHOST_H

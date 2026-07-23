@@ -531,7 +531,7 @@ void MeshTrajectoryPageWidget::syncBsplineSurfacePreview()
 		return;
 	}
 	const std::string backendId = m_meshSession->backendIdUtf8();
-	std::vector<osg::Vec3f> vertsWorld;
+	std::vector<cloudsim::core::Vec3> vertsWorld;
 	mesh_triangle_selection::triangleSoupModelToWorldVerts(osg, backendId, previewSoup, vertsWorld);
 	if (vertsWorld.empty())
 	{
@@ -562,7 +562,7 @@ void MeshTrajectoryPageWidget::syncSelectionHighlight()
 		osg->clearMeshTriangleHighlight();
 		return;
 	}
-	std::vector<osg::Vec3f> verts;
+	std::vector<cloudsim::core::Vec3> verts;
 	mesh_triangle_selection::selectedTrianglesToWorldVerts(*mesh, osg, backendId,
 														   m_meshSession->selectedTriangleIndices(), verts);
 	if (verts.empty())

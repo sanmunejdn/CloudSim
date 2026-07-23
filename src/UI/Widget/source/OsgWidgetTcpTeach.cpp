@@ -248,6 +248,23 @@ void OsgWidget::syncTcpTeachWorldPatFromMount()
 	m_tcpTeachWorldPat->setMatrix(osg::computeLocalToWorld(path));
 }
 
+void OsgWidget::syncTcpTeachWorldPatFromTarget()
+{
+	if (!m_tcpTeachActive || !m_tcpTeachWorldPat.valid())
+	{
+		return;
+	}
+	osg::Matrixd baseWorld;
+	if (!tcpTeachResolveBaseWorld(baseWorld))
+	{
+		return;
+	}
+	// 与 tcpTeachToolWorldMatrix 非法兰路径一致：toolWorld = T_base * P
+	m_tcpTeachWorldPat->setMatrix(engine::osgMatrixFromRigidTransform(m_tcpTeachTargetInBase) * baseWorld);
+	syncTcpTeachCompassAttitude();
+	updateTcpTeachCompassScale();
+}
+
 void OsgWidget::updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target, bool syncTargetInBase)
 {
 	// Per-link flange mount: scene pose follows link FK; keep dragged T_base_target for IK (DEVELOPER_GUIDE §13.1).
@@ -262,9 +279,17 @@ void OsgWidget::updateTcpDragTeachFromTarget(const engine::RigidTransform& T_bas
 	if (m_tcpTeachUseFlangeLocalPlacement)
 	{
 		m_tcpTeachMountPat->setMatrix(m_tcpTeachToolLocalOnFlange);
-		syncTcpTeachWorldPatFromMount();
-		syncTcpTeachCompassAttitude();
-		updateTcpTeachCompassScale();
+		// 拖动中 overlay 跟目标；静止跟法兰由 requestRedraw→FromMount
+		if (m_tcpTeachDragging || m_tcpTeachRotating)
+		{
+			syncTcpTeachWorldPatFromTarget();
+		}
+		else
+		{
+			syncTcpTeachWorldPatFromMount();
+			syncTcpTeachCompassAttitude();
+			updateTcpTeachCompassScale();
+		}
 		requestRedraw();
 		return;
 	}
@@ -274,8 +299,15 @@ void OsgWidget::updateTcpDragTeachFromTarget(const engine::RigidTransform& T_bas
 	{
 		return;
 	}
+	osg::Matrixd baseWorld;
+	if (!tcpTeachResolveBaseWorld(baseWorld))
+	{
+		baseWorld = sceneWorld;
+	}
 	const osg::Matrixd toolInBase = engine::osgMatrixFromRigidTransform(T_base_target);
-	const osg::Matrixd localOnRoot = toolInBase * osg::Matrixd::inverse(sceneWorld);
+	const osg::Matrixd toolWorld = toolInBase * baseWorld;
+	// local = toolWorld * inv(mountWorld)，避免把基座系 T 误当成世界系（外轴 P≠I 时罗盘脱节）
+	const osg::Matrixd localOnRoot = toolWorld * osg::Matrixd::inverse(sceneWorld);
 	m_tcpTeachMountPat->setMatrix(localOnRoot);
 	syncTcpTeachWorldPatFromMount();
 	syncTcpTeachCompassAttitude();
@@ -737,10 +769,7 @@ void OsgWidget::applyTcpTeachTranslationWorld(const int axisIndex, const double 
 	}
 	const engine::RigidTransform baseW = engine::rigidTransformFromOsg(baseWorldOsg);
 	m_tcpTeachTargetInBase = baseW.inverse().composeColumn(toolW);
-	if (!m_tcpTeachUseFlangeLocalPlacement)
-	{
-		updateTcpDragTeachFromTarget(m_tcpTeachTargetInBase, false);
-	}
+	syncTcpTeachWorldPatFromTarget();
 }
 
 void OsgWidget::applyTcpTeachTranslationBody(const int axisIndex, const double dsWorld)
@@ -762,10 +791,7 @@ void OsgWidget::applyTcpTeachTranslationBody(const int axisIndex, const double d
 	Eigen::Vector3d t = m_tcpTeachTargetInBase.translationMm();
 	t += delta;
 	m_tcpTeachTargetInBase.setTranslationMm(t);
-	if (!m_tcpTeachUseFlangeLocalPlacement)
-	{
-		updateTcpDragTeachFromTarget(m_tcpTeachTargetInBase, false);
-	}
+	syncTcpTeachWorldPatFromTarget();
 }
 
 void OsgWidget::applyTcpTeachRotationWorld(const int axisIndex, const double deltaRad)
@@ -807,10 +833,7 @@ void OsgWidget::applyTcpTeachRotationWorld(const int axisIndex, const double del
 		}
 	}
 	tcpTeachSetTargetFromToolWorld(toolWorld);
-	if (!m_tcpTeachUseFlangeLocalPlacement)
-	{
-		updateTcpDragTeachFromTarget(m_tcpTeachTargetInBase, false);
-	}
+	syncTcpTeachWorldPatFromTarget();
 }
 
 void OsgWidget::syncTcpTeachCompassAttitude()
@@ -848,8 +871,5 @@ void OsgWidget::applyTcpTeachRotationBody(const int axisIndex, const double delt
 	const Eigen::AngleAxisd aa(deltaRad, axis.normalized());
 	Eigen::Quaterniond qNew = m_tcpTeachTargetInBase.rotation() * Eigen::Quaterniond(aa);
 	m_tcpTeachTargetInBase.setRotation(qNew);
-	if (!m_tcpTeachUseFlangeLocalPlacement)
-	{
-		updateTcpDragTeachFromTarget(m_tcpTeachTargetInBase, false);
-	}
+	syncTcpTeachWorldPatFromTarget();
 }

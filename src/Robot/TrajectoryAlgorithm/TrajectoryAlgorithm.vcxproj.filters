@@ -45,7 +45,13 @@
     <ClInclude Include="inc\trajectory_algorithm_global.h">
       <Filter>inc</Filter>
     </ClInclude>
-    <ClInclude Include="inc\TrajectoryOpExecutionContext.h">
+    <ClInclude Include="inc\INonRigidTrajectoryWarp.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IExternalAxisSearchService.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ITrajectoryOp.h">
       <Filter>inc</Filter>
     </ClInclude>
   </ItemGroup>

@@ -39,11 +39,52 @@ QString AiDomainRouter::resolve(const QString& requestedDomainId, const QString&
 	{
 		return AiDomainIds::meshCompose();
 	}
-	if (t.contains(QStringLiteral("导入")) || t.contains(QStringLiteral("import"), Qt::CaseInsensitive))
+
+	if (t.contains(QStringLiteral("中心线")) || t.contains(QStringLiteral("模板点位")) ||
+		t.contains(QStringLiteral("区域划分")) || t.contains(QStringLiteral("特征构建")) ||
+		t.contains(QStringLiteral("centerline"), Qt::CaseInsensitive))
+		return AiDomainIds::featureBuild();
+
+	// 几何「点选边/面」须先于标注泛化「点选」
+	if (t.contains(QStringLiteral("离散生成网格")) || t.contains(QStringLiteral("线面求交")) ||
+		t.contains(QStringLiteral("面面求交")) || t.contains(QStringLiteral("管状网格")) ||
+		t.contains(QStringLiteral("带状网格")) || t.contains(QStringLiteral("点选边")) ||
+		t.contains(QStringLiteral("点选面")) || t.contains(QStringLiteral("点选 F")) ||
+		t.contains(QStringLiteral("Pick Edge"), Qt::CaseInsensitive) ||
+		t.contains(QStringLiteral("Pick Face"), Qt::CaseInsensitive) ||
+		t.contains(QStringLiteral("Discretize"), Qt::CaseInsensitive))
+		return AiDomainIds::geometryOps();
+
+	if (t.contains(QStringLiteral("标注")) || t.contains(QStringLiteral("刷选")) || t.contains(QStringLiteral("套索")) ||
+		t.contains(QStringLiteral("PointNet")) || t.contains(QStringLiteral("labeling"), Qt::CaseInsensitive) ||
+		(t.contains(QStringLiteral("点选")) && !t.contains(QStringLiteral("点选边")) &&
+		 !t.contains(QStringLiteral("点选面"))))
+		return AiDomainIds::labelingAnnot();
+
+	if (t.contains(QStringLiteral("导入")) || t.contains(QStringLiteral("打开模型")) ||
+		t.contains(QStringLiteral("import"), Qt::CaseInsensitive) ||
+		t.contains(QStringLiteral("Open Model"), Qt::CaseInsensitive))
 		return AiDomainIds::documentImport();
+
 	if (t.contains(QStringLiteral("点云")) || t.contains(QStringLiteral("下采样")) ||
-		t.contains(QStringLiteral("point cloud"), Qt::CaseInsensitive))
+		t.contains(QStringLiteral("配准")) || t.contains(QStringLiteral("匹配")) ||
+		t.contains(QStringLiteral("Poisson")) || t.contains(QStringLiteral("网格简化")) ||
+		t.contains(QStringLiteral("曲面重构")) || t.contains(QStringLiteral("point cloud"), Qt::CaseInsensitive) ||
+		t.contains(QStringLiteral("ICP"), Qt::CaseInsensitive) || t.contains(QStringLiteral("SPARE"), Qt::CaseInsensitive))
 		return AiDomainIds::pointCloudOps();
+
+	// 场景删/移/转须先于默认 mesh.create
+	if (t.contains(QStringLiteral("删除全部")) || t.contains(QStringLiteral("清空场景")) ||
+		t.contains(QStringLiteral("删除对象")) || t.contains(QStringLiteral("删除选中")) ||
+		t.contains(QStringLiteral("删掉")) || t.contains(QStringLiteral("Delete all"), Qt::CaseInsensitive) ||
+		t.contains(QStringLiteral("Clear scene"), Qt::CaseInsensitive) ||
+		t.contains(QStringLiteral("Delete object"), Qt::CaseInsensitive) ||
+		t.contains(QStringLiteral("Remove object"), Qt::CaseInsensitive) || t.contains(QStringLiteral("平移")) ||
+		t.contains(QStringLiteral("移动")) || t.contains(QStringLiteral("旋转")) ||
+		t.contains(QStringLiteral("位姿")) || t.contains(QStringLiteral("Move"), Qt::CaseInsensitive) ||
+		t.contains(QStringLiteral("Translate"), Qt::CaseInsensitive) ||
+		t.contains(QStringLiteral("Rotate"), Qt::CaseInsensitive))
+		return AiDomainIds::sceneOps();
 
 	return AiDomainIds::meshCreate();
 }

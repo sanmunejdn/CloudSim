@@ -2,7 +2,7 @@
 #define VCGALGORITHMS_MESHREPAIR_H
 
 /// @file MeshRepair.h
-/// @brief MeshRepair 接口
+/// @brief 网格修复：去退化/重复/非流形、可选填孔
 
 #include "vcg_algorithms_global.h"
 
@@ -17,8 +17,8 @@ struct VCg_ALGORITHMS_API RepairParams
 	bool removeDuplicate = true;
 	bool removeDuplicateFaces = true;
 	bool removeNonManifold = true;
-	bool fillHoles = false;
-	int holeMaxEdgeCount = 30;
+	bool fillHoles = false;		 ///< 填孔默认关（避免误封开口）
+	int holeMaxEdgeCount = 30; ///< 可填孔的最大边界边数
 };
 
 struct VCg_ALGORITHMS_API RepairReport
@@ -31,6 +31,10 @@ struct VCg_ALGORITHMS_API RepairReport
 	int facesAddedByFill = 0;
 };
 
+/**
+ * vcglib Clean + 可选 Hole；soup 9*T float（mm）
+ * @return false：输入非法或修复后无面
+ */
 VCg_ALGORITHMS_API bool repairMesh(const std::vector<float>& triangleSoup, std::vector<float>& outSoup,
 								   const RepairParams& params = {}, RepairReport* report = nullptr,
 								   std::string* errMsg = nullptr);

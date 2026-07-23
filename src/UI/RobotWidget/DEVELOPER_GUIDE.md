@@ -18,7 +18,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 
 | Area | Location |
 |------|----------|
-| Simulation dock (Instructions / Axis / Frames / **Trajectory Generation** / **Trajectory Edit**) | `RobotSimulationDockWidget`, page widgets |
+| Simulation dock (Instructions / Axis / Frames / **External Axes** / **Trajectory Generation** / **Trajectory Edit**) | `RobotSimulationDockWidget`, page widgets |
 | Orchestration | `RobotSimulationController` |
 | Host contracts | `IRobotMainWindowHost`, `IRobotDocumentHost`, `IRobotOsgViewHost` |
 | STEP 坐标变换 | [`inc/FeaturePickTransform.h`](inc/FeaturePickTransform.h) + `source/FeaturePickTransform.cpp`：`stepModelPointToWorldMm` / `worldPointToStepModelMm`（导出，非 header inline） |
@@ -74,7 +74,7 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 **重构进度**（详见 `ARCHITECTURE_SUMMARY.md` §迁移路线图）：
 - 阶段 1.1-1.5 已完成：运动学（6 处 `applyJointAnglesForInstance`）、坐标系管理、TCP IK 已通过 `IRobotDocumentHost` 委托
-- 阶段 1.6 待定：导出功能需 Controller 内部状态
+- 阶段 1.6 已完成：品牌导出经 Controller（Canonical + pybind）
 
 | 职责 | 入口 | 委托方式 |
 |------|------|----------|
@@ -103,7 +103,7 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 ### `context.currentJointRadCsv`
 
-添加 PTP/LINE 时写入当前实例关节角（rad，逗号分隔）。**Run** 与 **预览** 均先经 `shouldUseTaughtJointCsv` 判定，再校验位置/姿态残差（≤ 1 mm / ≤ 5°）；**不因前序点曾 IK 而禁用示教 CSV**（禁用会导致「预览到、Run 不到」）。IK/规划成功后 `persistTaughtJointsAndToolContext` 回写 CSV 与冻结工具 context。
+添加 PTP/LINE 时写入当前实例关节角（rad，逗号分隔）。**Run** 先经 `shouldUseTaughtJointCsv` 再校验位置/姿态残差（≤ 1 mm / ≤ **15°**）；**点击预览**在示教 CSV 可用时跳过残差 FK（`gateTaughtResidual=false`）以降低延迟。新鲜 IK 以位置为主（≤3 mm），姿态仅拦近翻转（≤45°）——联立求解按位置选优，旧 5° 门控会误杀可用解。**不因前序点曾 IK 而禁用示教 CSV**。IK/规划成功后 `persistTaughtJointsAndToolContext` 回写 CSV 与冻结工具 context。
 
 | API | 模块 |
 |-----|------|
@@ -140,9 +140,12 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 | 步骤 | 行为 |
 |------|------|
 | 位姿 | 若存在 `m_lastTcpDragTargetValid`，用罗盘 `T_base_target` 写 `pose/euler` 与 `writeTargetTransformToInstruction`；否则 `tryCaptureCurrentRobotTcpPose`（关节角优先 `m_aggregatedJointAnglesRad`） |
+| ARC 两步 | 首次仅缓存 Via（`m_arcTeachPending`）；再次捕获 End → `appendArcInstructionFromPoses` + `writeViaTransformToInstruction` |
 | 关节上下文 | `context.currentJointRadCsv` = `localJointAnglesForInstance` |
 | 添加后 | `captureMotionPreviewProgramStartJoints`（仅首条运动）、`m_skipInstructionPreviewOnce` → 避免立即预览把机器人拉离示教姿态 |
 | 选中 | `onSimulationInstructionSelectionChanged` 刷新属性与叠加轴 |
+
+圆弧：[`docs/三点圆弧指令/`](../../../docs/三点圆弧指令/)、`CircularArcGeometry`、`ArcPlanner`。
 
 ### 指令树点击预览 vs 仿真运行
 
@@ -151,7 +154,7 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 | 维度 | 点击预览 | 仿真运行 |
 |------|----------|----------|
 | 种子关节 | **链式** `buildChainSeedJointRadForInstruction`（程序起点 → 前序路点 `rollingQ`；失败回退 `motionPreviewProgramStartJointsLocal`） | 程序起点 + 链式 `rollingQ` |
-| 规划范围 | **仅选中** PTP/LINE（1× IK） | 启动急算前缀 + 播放中懒补算（链式） |
+| 规划范围 | **仅选中** PTP/LINE/ARC（1× IK） | 启动急算前缀 + 播放中懒补算（链式） |
 | 缓存 | 不缓存 | `PlanResultCache` + Executor 槽位（含 `lazyPending`） |
 | 运行中树 | — | `currentInstruction()` + `QSignalBlocker` 跟随选中，不触发预览 |
 | 后台预读 | — | `tickLookaheadPlanning` → `enqueueBackgroundJob` + `updateMotionPlanResult` |
@@ -183,18 +186,20 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 #### `PlanResultCache` 与 fingerprint
 
 - 类：`PlanResultCache`（`RobotWidget/inc/PlanResultCache.h`），仅 UI 线程读写；默认最多 384 条，可 `evictFarBehind`。
-- `computePlanFingerprint` 纳入：指令 id、pose、euler、speed、accel、axisConfig preset、`motion.tool.frameId`、`context.toolFrameMat4`、seed 关节、urdfPath、tcpLinkName。
+- `computePlanFingerprint` 纳入：指令 id、pose、euler、**viaPose/viaEuler/viaTransform**、speed、accel、axisConfig preset、`motion.tool.frameId`、`context.toolFrameMat4`、seed 关节、urdfPath、tcpLinkName。
 - **失效**：`invalidateFeasibleAxisConfigurationCache`、`onRobotCoordinateFramesChanged`、`onSimulationRobotSelectionChanged`、`ProgramEditService::revisionChanged`。
 
 #### 点击预览（`applyRobotPoseForInstructionPreview`）
 
-**前置条件**：非 `m_skipInstructionPreviewOnce`、非 TCP 拖动示教、仿真未运行、选中类型为 PTP/LINE。
+**前置条件**：非 `m_skipInstructionPreviewOnce`、非 TCP 拖动示教、仿真未运行、选中类型为 PTP/LINE/ARC。
 
-与 Run **共用** `planMotionConsistentWithPreview`：
+与 Run **共用** `planMotionConsistentWithPreview`（预览传 `gateTaughtResidual=false`）：
 
-1. 示教 CSV（位置≤1mm 且姿态≤5°）
-2. 否则按种子顺序 IK：示教关节 → 链式种子 → 程序起点；每解过姿态门控≤5°
+1. 示教 CSV（`shouldUseTaughtJointCsv`；预览不跑残差 FK，Run 仍 ≤1mm/≤15°）
+2. 否则按种子顺序 IK：示教关节 → 链式种子 → 程序起点；位置≤3mm，姿态≤45°（防翻转）
 3. 成功后 `persistTaughtJointsAndToolContext`
+
+DH/外轴经 `ensureInstructionControllerKinematics` 按 URDF 路径缓存，避免每次点击重解析。选中路径：**先摆姿 → 属性面板 → 延后** `scheduleInstructionPoseAxesRefresh`（路点轴下一拍刷新）。
 
 **不**播放中间过程。
 
@@ -202,17 +207,17 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 1. `initialAngles` / `playbackStartAngles`：优先 `m_motionPreviewProgramStartJointRad`，否则轴滑块当前角。
 2. **懒规划（万级）**：启动只急算前 `kEagerPlanCount`（**16**）段；其余 `lazyPending`；**禁止**全量 IK。
-3. 急算：`planMotionConsistentWithPreview`；写入时清空 `jointTrajectoryRad`。
+3. 急算：`planMotionConsistentWithPreview`；**保留** `jointTrajectoryRad`（LINE/点云插帧依赖；勿再清空）。
 4. **部分失败**：占位并停止后续急算；成功段≥1 则 `tryStart`。
-5. 初始化 `m_playbackRollingSeedQ` / `m_playbackProgramStartQ`；tick 前 `ensurePlaybackPlansReady`。
+5. 初始化 `m_playbackRollingSeedQ` / `m_playbackProgramStartQ` / 段起点外轴 qe；tick 前 `ensurePlaybackPlansReady`。
 
-播放以 `jointTargetsRad` 为主（轨迹在接入时清空）；段结束仍对齐 `jointTargetsRad`。
+播放：`jointTrajectoryRad.size() >= 2` 时 Executor 优先轨迹插帧，否则起止 lerp；段结束对齐 `jointTargetsRad`。外轴按 `motionSegmentProgress01` 在段起点与 plan 目标间插值（见 [`docs/外部轴联动求解/DESIGN_外部轴联动求解.md`](../../../docs/外部轴联动求解/DESIGN_外部轴联动求解.md)）。
 
 #### 段前补算（`ensurePlaybackPlansReady` / `syncPlanMotionAtIndex`）
 
 - 窗口 `[current, current+2]`，**仅** `lazyPending` 才 sync（已 ok 不每帧 FK）。
 - 游标前进时用上一段目标更新 **O(1) 滚动种子**（禁止从 0 扫到 N）。
-- sync：示教 CSV → 门控 Cache（**位置≤1mm 且姿态≤5°**）→ `planMotionConsistentWithPreview`（内部 LINE **lite 优先，失败升满采**）。
+- sync：示教 CSV → 门控 Cache（**位置≤1mm 且姿态≤15°**）→ `planMotionConsistentWithPreview`（内部 LINE **lite 优先，失败升满采**）。
 - `PlanResultCache` 有界（默认 384）+ `evictFarBehind(游标, 64)`。
 - **勿**因拖窗缩小该窗口：同一次 tick 可能切入下一段，未消掉的 `lazyPending` 会被 Executor 判为规划失败。
 
@@ -307,9 +312,10 @@ Executor 侧：`RobotProgramExecutor::currentInstruction()`（见 [`../Robot/Rob
 
 | 类 | 说明 |
 |----|------|
-| `SimulationCommandWidget` | 指令树、Run/Stop、TCP 拖动；**程序下拉 / 新建 / 重命名 / 删除**；**指令**分组（PTP/LINE/…）与 **功能**分组（末端拖动/删除/清空）；Ctrl 多选 + 右键创建分组；`setProgramStore`、`activeProgramChanged` / `groupsChanged` |
+| `SimulationCommandWidget` | 指令树、Run/Stop、TCP 拖动；**程序下拉 / 新建 / 重命名 / 删除**；**指令**分组（PTP/LINE/ARC/…）与 **功能**分组（末端拖动/删除/清空）；Ctrl 多选 + 右键创建分组；`setProgramStore`、`activeProgramChanged` / `groupsChanged`；**ARC 两步示教**（`setArcTeachPending`） |
 | `RobotAxisControlWidget` | 关节滑块；`setJointAngle` 内 `qBound` 限位 |
 | `RobotFrameSettingsWidget` | 工具/用户系；`framesChanged` → `onRobotCoordinateFramesChanged`（见下） |
+| `RobotExternalAxisSettingsWidget` | 地轨外轴；`externalAxesChanged` → `onRobotExternalAxesChanged`；未配置则联动求解关闭；Run 时 qe 由 `applyExternalAxisFromPlan` 按段进度插值 |
 
 #### 工具坐标系页 `framesChanged` 分级刷新
 
@@ -378,10 +384,27 @@ Dock **机器人** 页内指令编辑区自上而下：
 | 提示 | 选择机器人、插入指令、Ctrl 多选 + 右键分组、拖放排序 |
 | 机器人 / TCP | `m_robotCombo`、`m_tcpLinkCombo` |
 | 程序 | 下拉 + 新建 / 重命名 / 删除 |
-| **指令**（`m_instructionGroupBox`） | PTP、LINE、\|、WAIT、IF、WHILE、SET_DO、SET_AO |
+| **指令**（`m_instructionGroupBox`） | PTP、LINE、ARC、\|、WAIT、IF、WHILE、SET_DO、SET_AO |
 | **功能**（`m_functionGroupBox`） | 末端拖动、删除、清空 |
 | 指令树 | `InstructionProgramTreeWidget`（占剩余高度） |
-| 运行 | Run / Stop / Export |
+| 运行 | Run / Stop / Export（品牌程序） |
+
+### 品牌程序导出
+
+流程：`Export` → `BrandProgramExportDialog` 选程序（当前机器人 catalog 下全部，含 main）与品牌 → `QFileDialog` 选最终程序路径 → Canonical v1（**紧凑**临时 JSON，**不做万级全量 IK**；品牌脚本只用笛卡尔位姿）→ `PythonScriptCaller` 调用 `resource/Python/ExportPython/{Brand}Export.py`。
+
+万级点性能：跳过 per-point IK（与 playback「禁止全量 IK」一致）、省略 `kinematics`、`dump()` 无缩进、Python 大缓冲流式写出、模块不 `reload`。
+
+| 品牌 | 脚本 | 扩展名 |
+|------|------|--------|
+| ABB | ABBExport.py | .MOD |
+| AIR | AIRExport.py | .arl |
+| FANUC | FANUCExport.py | .LS |
+| 汇川 | INOVANCEExport.py | .pro |
+| 线加热 | LineHeatingExport.py | .LS |
+| 珞石 | ROKAEExport.py | .mod |
+
+源码：[`resource/Python/ExportPython/`](resource/Python/ExportPython/)；构建后复制到 `bin/x64(d)/resource/Python/ExportPython/`。调用封装：`PythonScriptCaller`。设计文档：[`docs/机器人程序品牌导出/`](../../../docs/机器人程序品牌导出/)。导入品牌程序不在本模块范围。
 
 分组创建/解散/重命名在**树右键**完成，经 `ProgramEditService` 落盘并 `emit groupsChanged()` 供轨迹编辑页刷新顶栏分组下拉。程序切换：`onProgramComboChanged` → `rebuildCommandListWidget()` 绑定当前程序 `steps` + `groups`。
 
@@ -710,7 +733,7 @@ Dock 页签 **「轨迹生成」** 内 **CAD** 子页（`FeatureTrajectoryPageWi
 
 **当前特征锁定**：`m_featureEditActive` 为 true 时（「开始修改」或拾取/离散成功后），调整离散参数自动对特征表重离散（400 ms 防抖）。
 
-**性能**：指令树选中时 `buildChainSeedJointRadForInstruction` **只算一次**，预览与可行轴探测共用 `PrecomputedChainSeed`；可行轴完整枚举经 **后台 Job**（非 UI 线程 IK）；`refreshInstructionPoseAxes(false)`（不算可达性）；链式种子 / 可达性 / Run 复用 `PlanResultCache`。切换激活工具或工具几何时 reachability 经 `enqueueBackgroundJob` 异步计算。树选择 50 ms debounce；程序步数 &gt; 100 时 `rebuildFromProgram` 不 `expandAll`。
+**性能**：指令树选中时 `buildChainSeedJointRadForInstruction` **只算一次**，预览与可行轴探测共用 `PrecomputedChainSeed`；示教 CSV 链式种子**不**逐点 FK 残差；可行轴完整枚举经 **后台 Job**；路点轴 `scheduleInstructionPoseAxesRefresh` 延后一拍；DH 按 URDF 缓存。树选择 debounce **0ms**（同事件循环内多次选中仍合并）。程序步数 &gt; 100 时 `rebuildFromProgram` 不 `expandAll`。
 
 **V1 限制**：单次拾取一条边或一个面；层级 STEP 子件共享整件 STEP 索引；索引解析容差默认 2 mm；已 emit 的 LINE 为发射时刻世界坐标，工件再移动不会自动更新程序。
 
@@ -786,7 +809,7 @@ onGenerateClicked → MeshTrajectorySpec → generateRawPath
 | 阶段 | 模块 | 说明 |
 |------|------|------|
 | 保存 · 采集关节角 | `MainWindowProjectIo` + `RobotSimulationController::aggregatedJointAnglesRad`（或轴控制页回退） | Widget 收集 `QVector<double>*`，不写入 JSON 本身 |
-| 保存 · 写 kinematics | Host [`ProjectPackageIo::mergeRobotKinematicsIntoProjectRoot`](../../Host/CloudSimHost/inc/ProjectPackageIo.h) | 内部 `RobotProjectIo::writeRobotKinematics(root, IRobotDocumentHost*, angles)` |
+| 保存 · 写 kinematics | Widget → [`RobotProjectIo::writeRobotKinematics`](inc/RobotProjectIoAdapter.h) | Host 不再经 `mergeRobotKinematicsIntoProjectRoot` 反向依赖 RobotWidget |
 | 保存 · programs | Host `mergeRobotProgramsIntoProjectRoot` | `RobotProgramStore` → `robotPrograms[]` |
 | 加载 · kinematics | Host `restoreRobotKinematicsFromProjectJson` | perLink 实例恢复；Widget 再 `applyJointAngles` / 刷新仿真 UI |
 | 加载 · programs | Host `loadRobotProgramsFromProjectJson` | 填入 `RobotProgramStore` |

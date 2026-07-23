@@ -6,12 +6,12 @@
 
 | 项 | 说明 |
 |----|------|
-| 轨迹页工件 | **轨迹生成** Dock 页 STEP combo 已选当前工件（`FeatureTrajectoryPageWidget::currentWorkpiece`） |
-| STEP 路径 | `IRobotDocumentHost::meshBackendStepSourcePath` 可解析到磁盘 STEP |
+| 轨迹页工件 | **轨迹生成** Dock 页工件 combo 已选当前对象（`FeatureTrajectoryPageWidget::currentWorkpiece`） |
+| 工件类型 | **BrepModel**（内存 Shape，含 AI `createPrimitiveMesh`）或带 `.step`/`.stp` 源路径的 Model |
 | 特征目录 | 首次识别前自动 `ensureFeatureCatalogEnumerated()`；亦可在轨迹页手动「枚举特征目录」 |
 | AI 配置 | `ai_config.json` 含 `domains[]` 项 `trajectory.feature`（出厂默认见 `ai_config.defaults.json`） |
 
-未选工件时 `AiAssistantCoordinator::prepareTrajectoryFeatureRequest` fail-fast，提示用户先在轨迹页选择 STEP。
+未选工件时 `AiAssistantCoordinator::prepareTrajectoryFeatureRequest` fail-fast，提示用户先在轨迹页选择工件。
 
 ## 端到端流程
 

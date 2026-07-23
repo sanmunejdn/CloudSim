@@ -42,6 +42,46 @@
       "model": "qwen2.5:3b",
       "multimodal": false,
       "parser_priority": ["rules", "local"]
+    },
+    {
+      "id": "pointcloud.ops",
+      "enabled": true,
+      "base_url": "http://127.0.0.1:11434/v1",
+      "model": "qwen2.5:3b",
+      "multimodal": false,
+      "parser_priority": ["rules", "local"]
+    },
+    {
+      "id": "document.import",
+      "enabled": true,
+      "base_url": "http://127.0.0.1:11434/v1",
+      "model": "qwen2.5:3b",
+      "multimodal": false,
+      "parser_priority": ["rules", "local"]
+    },
+    {
+      "id": "geometry.ops",
+      "enabled": true,
+      "base_url": "http://127.0.0.1:11434/v1",
+      "model": "qwen2.5:3b",
+      "multimodal": false,
+      "parser_priority": ["rules", "local"]
+    },
+    {
+      "id": "feature.build",
+      "enabled": true,
+      "base_url": "http://127.0.0.1:11434/v1",
+      "model": "qwen2.5:3b",
+      "multimodal": false,
+      "parser_priority": ["rules", "local"]
+    },
+    {
+      "id": "labeling.annot",
+      "enabled": true,
+      "base_url": "http://127.0.0.1:11434/v1",
+      "model": "qwen2.5:3b",
+      "multimodal": false,
+      "parser_priority": ["rules", "local"]
     }
   ]
 }

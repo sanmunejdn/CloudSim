@@ -30,6 +30,9 @@ class IPluginMainWindowHost
 public:
 	virtual ~IPluginMainWindowHost() = default;
 
+	/// Widget 树当前选中后端 id（AI/插件对齐 Dock「当前对象」）
+	virtual QString selectedBackendId() const = 0;
+
 	virtual QTabWidget* documentTabs() = 0;
 	virtual int documentTabCount() const = 0;
 	virtual cloudsim::host::DocumentHost* currentDocumentHost() = 0;

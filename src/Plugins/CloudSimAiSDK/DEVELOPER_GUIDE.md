@@ -148,6 +148,54 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 | `mesh.compose` | qwen2.5:3b | ActionPlan v2（`steps[]` + `booleanMesh`） |
 | `geometry.recognize` | qwen2.5vl:3b | StructuredJson → 可转 ActionPlan |
 | `trajectory.feature` | qwen2.5:3b（建议） | StructuredJson：`selectedCandidateIds` + `features[]` + `suggestedPipelineTemplate` |
+| `pointcloud.ops` | qwen2.5:3b | ActionPlan：点云 Dock 按钮 API（keywords=按钮名） |
+| `document.import` | qwen2.5:3b | ActionPlan：导入文件 |
+| `geometry.ops` | qwen2.5:3b | ActionPlan：几何 Dock 按钮 API |
+| `feature.build` | qwen2.5:3b | ActionPlan：特征构建 Tab |
+| `labeling.annot` | qwen2.5:3b | ActionPlan：标注工具按钮 |
+| `scene.ops` | qwen2.5:3b | ActionPlan：删除/平移/旋转场景对象 |
+
+### Host 按钮关键词（rules）
+
+- Catalog 真源：`AiAssistantHostImpl::apiCatalogJson()`（嵌入）与 [`tools/ai-training/catalog/full_api_catalog.json`](../../tools/ai-training/catalog/full_api_catalog.json) 同步
+- 每条 API 可带 `"keywords":["体素下采样","Voxel downsample"]`，**等于 Dock/菜单调用按钮中英文文案**
+- `AiCatalogKeywordMatcher`：最长关键词优先 → ActionPlan v2
+- 执行：`AiHostButtonApiDispatch` 经 `pointCloudHost` / `geometryHost` / `labelingHost` / `importFileIntoActiveDocument` / 场景位姿与删除 真调 Host；异步 API 在 UI 线程 `QEventLoop` 等待
+
+### Agent 运行时（Dock 内嵌确认）
+
+`IAiAssistantHost`（SDK `0x00010200`）：`runAgentTurnAsync` / `submitAgentConfirm` / `cancelAgentConfirm` / `cancelAgentTurn` / `beginDomainConfirmAsync`。
+
+| 组件 | 职责 |
+|------|------|
+| `AiAgentRuntime` | 状态机；可选先 `AiAgentPlan` 再逐步确认；最多 `agent.max_steps` 步 |
+| `AiAgentPlanBuilder` / `AiSceneOpsRules` | 需求拆分：场景多段规则 → 多 keyword → LLM JSON 规划 |
+| `AiSceneSnapshotBuilder` | 活动文档对象 + 选中 id |
+| `AiAgentMemory` | 全局 prefs + `prefs_by_doc`；会话步骤 |
+| `AiArgsSchema` / `chatWithTools` / `chatPlanJson` | Catalog→tools；规划 JSON；多轮观测回灌 |
+| `AiAgentTrace` | `ai_agent_trace.jsonl` |
+| `AiConfirmPanel` | 按 Catalog `args_schema` 动态表单 |
+
+流程：用户句 → **Plan（可选）** → rules 或 tool_calls → Dock 确认（标题可含「计划 i/n」）→ Dispatch → 观测；失败可 `replan_on_failure` 一次。  
+`ai_config.agent`：`max_steps` / `auto_execute_low_risk` / `enable_trace` / `enable_plan` / `plan_max_steps` / `replan_on_failure`。  
+`scene.ops` 验收口语：删除选中/全部；沿轴移动；绕轴旋转；**「先沿 X 移动 10mm 再沿 Y 移动 5mm」**（同 api 两步）。详见 [`docs/ai_agent_runtime/`](../../../docs/ai_agent_runtime/)。
+
+### Agent 缺参对话框（遗留兜底）
+
+非 Agent 路径执行缺 `backend_id` / `path` 时，仍可弹 `AiAgentPickDialog`：
+
+| 场景 | 行为 |
+|------|------|
+| 单对象操作（下采样等） | 枚举活动文档对象 → 勾选一个 |
+| ICP / SPARE / 点云匹配 | 枚举点云/网格 → 选源与目标 |
+| 粗/精匹配、面重构 | 选扫描对象与 CAD 模板 |
+| 导入 / 导出 PLY / 导出数据集 | `QFileDialog` 选路径或目录 |
+| 用户点取消 | 失败摘要「已取消…」，不崩溃 |
+
+Agent 主路径参数由 Dock 面板收集，**不再**依赖整窗模态。
+
+示例：用户输入「点云匹配」→ rules 命中 ICP → Dock 选源/目标 → 调用 `rigidRegisterPointCloudsIcp`。
+
 
 ### 外部插件 Domain
 
@@ -167,7 +215,7 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 1. AI 面板选「几何识别」→ `AiAssistantCoordinator` 经 `IPluginHostContext::captureActiveViewportPng` 截取活动文档 OSG 视口（768 边长 PNG）。
 2. `AiInferenceRequest.imagePng` 送入 `AiLlmClient`（OpenAI 兼容 vision API）。
 3. 解析成功后在对话区展示 `primitive` / `label` / `dimensions_mm` / `confidence`，**不自动改场景**。
-4. 用户点「创建基本体」→ `executeDomainOutput(geometry.recognize, …)` → `GeometryRecognizeDomainHandler` → `createPrimitiveMesh`。
+4. 用户在 Dock **`AiConfirmPanel` 确认创建** → `executeDomainOutput(geometry.recognize, …)` → `GeometryRecognizeDomainHandler` → `createPrimitiveMesh`。
 5. 无视口或 `imagePng` 为空时 fail-fast，提示打开含 3D 视口的文档。
 
 训练集生成：`python tools/ai-training/scripts/gen_geometry_recognize_dataset.py`（默认每类 15 条，共 60 PNG + `dataset.jsonl`）。校验：`python tools/ai-training/scripts/build_dataset.py geometry.recognize`。
@@ -177,9 +225,9 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 1. 用户在 AI 面板选「轨迹特征」；**须**在轨迹生成页 combo 已选 STEP 工件。
 2. `AiAssistantCoordinator::prepareTrajectoryFeatureRequest` 注入 `catalogFullUtf8` / `catalogSliceUtf8`；轨迹页自动 `ensureFeatureCatalogEnumerated`。
 3. 解析链 `["rules","local"]`（可选 `remote`）：rules 走 `parseTrajectoryFeatureRequest`；LLM user 消息含 catalog 切片 JSON。
-4. 成功 → 3D **全部**候选编号高亮（`showAiFeatureCandidatePreview`）+ Dock「确认并离散」。叠加坐标：`buildPreviewOverlayJson` → `feature_pick_transform::stepModelPointToWorldMm`（pick alias + `getBackendRootWorldMatrix`，见 [`spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md)）。
+4. 成功 → 3D **全部**候选编号高亮（`showAiFeatureCandidatePreview`）+ Dock **`AiConfirmPanel`「确认并离散」**（遗留按钮已隐藏）。叠加坐标：`buildPreviewOverlayJson` → `feature_pick_transform::stepModelPointToWorldMm`（pick alias + `getBackendRootWorldMatrix`，见 [`spatial_contract_world_pose.md`](../../../docs/spatial_contract_world_pose.md)）。
 5. 用户「选 1 和 3」→ `filterCatalogSliceByCandidateIds` → 3D **仅**选中项高亮；可多次调整编号。
-6. 「确认并离散」→ `commitAiTrajectoryFeatures` → `discretizeFeature` + 默认工艺 pipeline 写入 `TrajectoryEditSession`。
+6. 面板确认 → `commitAiTrajectoryFeatures` → `discretizeFeature` + 默认工艺 pipeline 写入 `TrajectoryEditSession`。
 7. catalog 为空或 LLM 未收到 catalog 时，Coordinator **一次** rules 自动重试。
 
 **详细架构、状态机、源文件索引：** [`docs/trajectory_feature_ai.md`](../../docs/trajectory_feature_ai.md)
@@ -200,7 +248,7 @@ AiWidget **设置** 可编辑 `remote_llm`（云端 API）。分域 `domains[]` 
 
 LLM grounding：`catalogSliceUtf8` 中 `displayIndex` / `candidateId` / `summary`。规则回退：`AiTrajectoryFeatureCatalog::tryParseTrajectoryFeatureRules`（内部 `suggestFeaturesFromCatalog`）。
 
-宿主 API：`createPrimitiveMesh`（可选返回 `backendId`）、`booleanMesh`（CGAL 差/并/交）。
+宿主 API：`createPrimitiveMesh`（注册 **BrepModel** 内存 Shape，可作轨迹线面特征工件；可选返回 `backendId`）、`booleanMesh`（CGAL 差/并/交，结果仍为三角 mesh）。
 
 ---
 

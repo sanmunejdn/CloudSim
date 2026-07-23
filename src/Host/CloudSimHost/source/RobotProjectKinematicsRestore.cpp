@@ -4,11 +4,14 @@
 #include "RobotProjectKinematicsRestore.h"
 
 #include "BackendDataManager.h"
+#include "CoreTypes.h"
 #include "IRobotBackendPoseSink.h"
 #include "IRobotUrdfImportContext.h"
 #include "MeshBackendData.h"
 #include "RobotCoordinateFrames.h"
+#include "RobotExternalAxes.h"
 #include "RobotMatrixOsgBridge.h"
+#include "RobotPerLinkKinematicsSliceOsg.h"
 #include "UrdfRobotLoader.h"
 
 #include <QFileInfo>
@@ -157,19 +160,27 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 	// 无 OSG 关节节点：perLink 模式靠 backend 位姿驱动
 	ctx.appendHierarchicalRobotSimulationContext(urdf, jn, lo, hi, QHash<QString, osg::MatrixTransform*>(), sceneRoot,
 												 jointRoot);
-	ctx.setRobotPerLinkKinematicsBinding(importKey, linkMap, fkT0, outer, false);
+	QHash<QString, cloudsim::core::Mat4> fkT0Mat4;
+	QHash<QString, cloudsim::core::Mat4> outerMat4;
+	for (auto it = fkT0.constBegin(); it != fkT0.constEnd(); ++it)
+	{
+		fkT0Mat4.insert(it.key(), RobotSceneKinematics::coreMat4FromOsgMatrix(it.value()));
+	}
+	for (auto it = outer.constBegin(); it != outer.constEnd(); ++it)
+	{
+		outerMat4.insert(it.key(), RobotSceneKinematics::coreMat4FromOsgMatrix(it.value()));
+	}
+	ctx.setRobotPerLinkKinematicsBinding(importKey, linkMap, fkT0Mat4, outerMat4, false);
 
-	// 恢复机器人基座放置位姿 P
+	// 恢复机器人基座放置位姿 P（JSON 列主序 16 元 ≡ core::Mat4）
 	const QJsonArray basePlacementArr = rk.value(QStringLiteral("basePlacementWorld")).toArray();
 	if (basePlacementArr.size() == 16)
 	{
-		osg::Matrixd basePlacement;
-		for (int c = 0; c < 4; ++c)
+		cloudsim::core::Mat4 basePlacement{};
+		for (int i = 0; i < 16; ++i)
 		{
-			for (int r = 0; r < 4; ++r)
-			{
-				basePlacement(r, c) = basePlacementArr.at(c * 4 + r).toDouble(c == r ? 1.0 : 0.0);
-			}
+			basePlacement[static_cast<size_t>(i)] =
+				basePlacementArr.at(i).toDouble((i % 5 == 0) ? 1.0 : 0.0);
 		}
 		const int instIdx = ctx.robotKinematicInstanceCount() - 1;
 		if (instIdx >= 0)
@@ -215,6 +226,29 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 				RobotCoordinate::makeDefaultFrameSet(defaultFlange.toStdString());
 		}
 	}
+
+	const QJsonObject eaObj = rk.value(QStringLiteral("externalAxes")).toObject();
+	if (!eaObj.isEmpty())
+	{
+		const QByteArray raw = QJsonDocument(eaObj).toJson(QJsonDocument::Compact);
+		try
+		{
+			const nlohmann::json eaJ = nlohmann::json::parse(raw.constData(), raw.constData() + raw.size());
+			RobotExternal::RobotExternalAxisConfigSet axes;
+			if (RobotExternal::readExternalAxisConfigSetFromJson(eaJ, axes))
+			{
+				const int instIdx = ctx.robotKinematicInstanceCount() - 1;
+				if (instIdx >= 0)
+				{
+					ctx.robotExternalAxesForInstance(instIdx) = std::move(axes);
+				}
+			}
+		}
+		catch (...)
+		{
+		}
+	}
+
 	outAllJointAnglesRad += q0; // 多机实例关节角拼接
 	return true;
 }

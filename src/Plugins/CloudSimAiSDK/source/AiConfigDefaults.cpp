@@ -35,6 +35,11 @@ AiConfigDto defaultAiConfigDto()
 	traj.model = QStringLiteral("qwen2.5:3b");
 	traj.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local")};
 
-	cfg.domains = {mesh, compose, geom, traj};
+	AiDomainModelConfig scene;
+	scene.id = AiDomainIds::sceneOps();
+	scene.model = QStringLiteral("qwen2.5:3b");
+	scene.parserPriority = QStringList{QStringLiteral("rules"), QStringLiteral("local")};
+
+	cfg.domains = {mesh, compose, geom, traj, scene};
 	return cfg;
 }

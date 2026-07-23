@@ -6,13 +6,12 @@
 
 #include "robotwidget_global.h"
 
+#include "CoreTypes.h"
 #include "RobotOsgUiTypes.h"
 
 #include <functional>
 #include <string>
 #include <vector>
-
-#include <osg/Matrixd>
 
 struct PickResult;
 enum class PickKind;
@@ -31,7 +30,7 @@ namespace engine
 class RigidTransform;
 }
 
-/// 机器人 UI 的 OSG/三维操作（OsgWidget 实现）
+/// 机器人 UI 的三维操作（经 IRenderView / OsgWidget 实现）
 class ROBOTWIDGET_EXPORT IRobotOsgViewHost
 {
 public:
@@ -51,7 +50,7 @@ public:
 	virtual bool pointPickMode() const = 0;
 
 	virtual bool hasBackendObjectBranch(const std::string& backendId) const = 0;
-	virtual bool getBackendRootWorldMatrix(const std::string& backendId, osg::Matrixd& outWorld) const = 0;
+	virtual bool getBackendRootWorldMatrix(const std::string& backendId, cloudsim::core::Mat4& outWorld) const = 0;
 	virtual bool tryGetBackendModelCenterMm(const std::string& backendId, double& cx, double& cy, double& cz) const = 0;
 	/// 装配子零件无 Geode 时映射到共享 visual；与 OsgScene::resolvePickScopeBackendId 一致
 	virtual std::string resolvePickScopeBackendId(const std::string& backendId) const = 0;
@@ -75,11 +74,11 @@ public:
 	virtual void endTcpDragTeach() = 0;
 	virtual void beginTcpDragTeach(const std::string& mountBackendId, const engine::RigidTransform& T_base_target,
 								   float modelDiagonalMm,
-								   std::function<bool(osg::Matrixd& outRobotBaseWorld)> resolveRobotBaseWorld,
-								   const osg::Matrixd* toolLocalOnFlange) = 0;
+								   std::function<bool(cloudsim::core::Mat4& outRobotBaseWorld)> resolveRobotBaseWorld,
+								   const cloudsim::core::Mat4* toolLocalOnFlange) = 0;
 	virtual void updateTcpDragTeachFromTarget(const engine::RigidTransform& T_base_target,
 											  bool syncTargetInBase = true) = 0;
-	virtual void updateTcpDragTeachToolLocalOnFlange(const osg::Matrixd& toolLocalOnFlange) = 0;
+	virtual void updateTcpDragTeachToolLocalOnFlange(const cloudsim::core::Mat4& toolLocalOnFlange) = 0;
 
 	virtual void setMeshLinePickMode(bool enabled) = 0;
 	virtual void setMeshFacePickMode(bool enabled) = 0;
@@ -95,10 +94,10 @@ public:
 	virtual void setPolylinePickMode(bool enabled) = 0;
 	virtual bool polylinePickMode() const = 0;
 
-	virtual void showMeshTriangleHighlight(const std::vector<osg::Vec3f>& triangleVertsWorld) = 0;
+	virtual void showMeshTriangleHighlight(const std::vector<cloudsim::core::Vec3>& triangleVertsWorld) = 0;
 	virtual void clearMeshTriangleHighlight() = 0;
 
-	virtual void showMeshFittedSurfacePreview(const std::vector<osg::Vec3f>& triangleVertsWorld) = 0;
+	virtual void showMeshFittedSurfacePreview(const std::vector<cloudsim::core::Vec3>& triangleVertsWorld) = 0;
 	virtual void clearMeshFittedSurfacePreview() = 0;
 
 	virtual void showMeshSectionPlane(const std::string& backendIdUtf8, const double originModelMm[3],

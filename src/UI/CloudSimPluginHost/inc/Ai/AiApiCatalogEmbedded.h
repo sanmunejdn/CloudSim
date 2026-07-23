@@ -1,0 +1,8 @@
+﻿#ifndef CLOUDSIMPLUGINHOST_AIAPICATALOGEMBEDDED_H
+#define CLOUDSIMPLUGINHOST_AIAPICATALOGEMBEDDED_H
+
+#include <QByteArray>
+
+QByteArray aiEmbeddedApiCatalogJson();
+
+#endif

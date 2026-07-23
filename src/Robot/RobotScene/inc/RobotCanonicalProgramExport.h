@@ -66,7 +66,7 @@ ROBOT_SCENE_API bool buildCanonicalExportV1(const RobotInstruction::RobotProgram
 											CanonicalProgramExportV1& out, std::string* errMsg = nullptr);
 
 ROBOT_SCENE_API bool writeCanonicalExportV1ToJson(const CanonicalProgramExportV1& doc, std::string& outJson,
-												  std::string* errMsg = nullptr);
+												  std::string* errMsg = nullptr, bool prettyPrint = true);
 
 } // namespace RobotCanonicalExport
 

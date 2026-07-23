@@ -41,6 +41,8 @@ void RobotSimulationController::wireSimulationSignals()
 			&RobotSimulationController::onSimulationTcpDragTeachModeChanged);
 	connect(axis, &RobotAxisControlWidget::allJointAnglesChanged, this,
 			&RobotSimulationController::onRobotAxisJointAnglesChanged);
+	connect(axis, &RobotAxisControlWidget::externalAxisValuesChanged, this,
+			&RobotSimulationController::onRobotAxisExternalValuesChanged);
 	connect(frame, &RobotFrameSettingsWidget::framesChanged, this,
 			&RobotSimulationController::onRobotCoordinateFramesChanged);
 	connect(frame, &RobotFrameSettingsWidget::captureToolFromTcpRequested, this,

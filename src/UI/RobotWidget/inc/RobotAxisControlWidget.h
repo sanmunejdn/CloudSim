@@ -6,6 +6,8 @@
 
 #include "robotwidget_global.h"
 
+#include "RobotExternalAxes.h"
+
 #include <QDoubleSpinBox>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -23,8 +25,7 @@
 
 #include <osg/MatrixTransform>
 
-/// 机器人关节轴控制
-/// 各轴上下限与滑块/数值输入
+/// 机器人关节轴控制（含已启用外部轴滑条）
 class ROBOTWIDGET_EXPORT RobotAxisControlWidget : public QWidget
 {
 	Q_OBJECT
@@ -42,6 +43,14 @@ public:
 	void setJointAnglesRad(const QVector<double>& jointAnglesRad);
 	/// 仅刷新 UI，不发 allJointAnglesChanged（末端 IK 回写）
 	void setJointAnglesRadSilent(const QVector<double>& jointAnglesRad);
+
+	/// 按实例外轴配置重建滑条；未启用则清空
+	void setExternalAxes(const RobotExternal::RobotExternalAxisConfigSet& axes);
+	void clearExternalAxes();
+	int externalAxisCount() const;
+	QVector<double> externalAxisValues() const;
+	void setExternalAxisValues(const QVector<double>& values);
+	void setExternalAxisValuesSilent(const QVector<double>& values);
 
 	/// 初始化关节控制界面
 	/// @param jointNames 关节名称列表（按顺序）
@@ -75,12 +84,18 @@ signals:
 	/// @param angles 各关节角度（弧度）
 	void allJointAnglesChanged(const QVector<double>& angles);
 
+	/// 外部轴数值变更（地轨 mm / 预留变位机 rad）
+	void externalAxisValuesChanged(const QVector<double>& values);
+
 private slots:
 	void onSliderValueChanged(int value);
 	void onSpinBoxValueChanged(double value);
 	void onLineEditReturnPressed();
 	void onResetButtonClicked();
 	void onResetAllButtonClicked();
+	void onExternalSliderValueChanged(int value);
+	void onExternalSpinBoxValueChanged(double value);
+	void onExternalResetButtonClicked();
 
 private:
 	struct JointControl
@@ -97,22 +112,42 @@ private:
 		QPushButton* resetButton = nullptr;
 	};
 
+	struct ExternalAxisControl
+	{
+		RobotExternal::RobotExternalAxisConfig config;
+		double currentValue = 0.0;
+		QGroupBox* groupBox = nullptr;
+		QSlider* slider = nullptr;
+		QDoubleSpinBox* spinBox = nullptr;
+		QPushButton* resetButton = nullptr;
+	};
+
 	QHash<QString, JointControl> m_jointControls;
 	QVector<QString> m_jointOrder;
+	QVector<ExternalAxisControl> m_externalControls;
 
 	QScrollArea* m_scrollArea = nullptr;
 	QWidget* m_contentWidget = nullptr;
 	QVBoxLayout* m_contentLayout = nullptr;
 	QPushButton* m_resetAllButton = nullptr;
+	bool m_useChinese = true;
 
 	/// 滑块精度：弧度×1000 映射整数
 	static constexpr double SLIDER_SCALE = 1000.0;
+	/// 地轨 mm×10 → 0.1mm 步进
+	static constexpr double SLIDER_SCALE_MM = 10.0;
 
 	void createUI();
+	void clearContentExceptStretch();
+	void rebuildExternalAxisControls();
+	void setExternalAxisValueAt(int index, double value);
+	void emitExternalAxisValuesNow();
 	void updateJointTransform(const QString& jointName, double angleRad);
 	void emitAllJointAnglesNow();
 	int angleToSliderValue(double angleRad) const;
 	double sliderValueToAngle(int value) const;
+	int mmToSliderValue(double mm) const;
+	double sliderValueToMm(int value) const;
 };
 
 #endif // ROBOTWIDGET_ROBOTAXISCONTROLWIDGET_H

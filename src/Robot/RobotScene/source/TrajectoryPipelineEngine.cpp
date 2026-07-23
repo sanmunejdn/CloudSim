@@ -56,11 +56,13 @@ void TrajectoryPipelineEngine::clear()
 	m_usingRaw = false;
 	m_sourceRaw = {};
 	m_rawWorking = {};
-	m_rawRebuild = nullptr;
+	m_rawRebuild = {};
 	m_program = nullptr;
 	m_hasWorkpieceReferenceInBase = false;
 	m_workpieceReferenceInBase = {};
-	m_externalTcpFrameResolver = nullptr;
+	m_externalTcpFrameResolver = {};
+	m_externalAxisSearch = nullptr;
+	m_externalAxisConfigs.clear();
 	m_ops.clear();
 	m_steps.clear();
 	m_result = {};
@@ -104,6 +106,16 @@ void TrajectoryPipelineEngine::setWorkpieceReferenceInBase(const engine::RigidTr
 void TrajectoryPipelineEngine::setExternalTcpFrameResolver(ExternalTcpFrameResolveFn resolver)
 {
 	m_externalTcpFrameResolver = std::move(resolver);
+}
+
+void TrajectoryPipelineEngine::setExternalAxisSearchService(const trajectory_algo::IExternalAxisSearchService* service)
+{
+	m_externalAxisSearch = service;
+}
+
+void TrajectoryPipelineEngine::setExternalAxisConfigs(std::vector<trajectory_algo::ExternalAxisSearchConfigDto> configs)
+{
+	m_externalAxisConfigs = std::move(configs);
 }
 
 void TrajectoryPipelineEngine::setUnifiedBaseline(UnifiedTrajectory baseline)
@@ -205,6 +217,8 @@ bool TrajectoryPipelineEngine::applyGeometryOp(const TrajectoryOpDescriptor& op,
 	ctx.nonRigidTrajectoryWarp = &robotSceneNonRigidTrajectoryWarp();
 	ctx.hasWorkpieceReferenceInBase = m_hasWorkpieceReferenceInBase;
 	ctx.workpieceReferenceInBase = m_workpieceReferenceInBase;
+	ctx.externalAxisConfigs = m_externalAxisConfigs;
+	ctx.externalAxisSearch = m_externalAxisSearch;
 	if (op.kind == TrajectoryOpKind::ToWorkpieceInHand && m_externalTcpFrameResolver)
 	{
 		const RobotInstruction::ToWorkpieceInHandParams params =

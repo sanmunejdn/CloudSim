@@ -153,7 +153,7 @@ OsgWidgetSceneBridge& DocumentHost::sceneBridge()
 
 BackendSceneDocumentFacade DocumentHost::sceneFacade()
 {
-	return BackendSceneDocumentFacade(backend(), sceneBridge(), followReverseIndex(), m_osgWidget);
+	return BackendSceneDocumentFacade(data(), backend(), sceneBridge(), followReverseIndex(), m_osgWidget);
 }
 
 bool DocumentHost::loadMeshFromBackendIntoScene(const MeshBackendData& data, QString* errorMessage,
@@ -394,7 +394,7 @@ void DocumentHost::ensureSelectionVisualForBackend(const std::string& backendId,
 	{
 		return;
 	}
-	BackendSceneDocumentFacade facade(*m_backend, m_sceneBridge, m_followReverseIndex, m_osgWidget);
+	BackendSceneDocumentFacade facade(data(), *m_backend, m_sceneBridge, m_followReverseIndex, m_osgWidget);
 	facade.ensureSelectionVisualForBackend(*obj, urdfLinkMesh);
 }
 
@@ -405,7 +405,7 @@ bool DocumentHost::syncOuterPatFromBackendId(const std::string& backendId)
 	{
 		return false;
 	}
-	BackendSceneDocumentFacade facade(*m_backend, m_sceneBridge, m_followReverseIndex, m_osgWidget);
+	BackendSceneDocumentFacade facade(data(), *m_backend, m_sceneBridge, m_followReverseIndex, m_osgWidget);
 	facade.entity(backendId).syncOuterPatFromBackend(*obj);
 	return true;
 }

@@ -2,7 +2,7 @@
 #define GEOMETRYALGORITHM_IFEATUREDISCRETIZER_H
 
 /// @file IFeatureDiscretizer.h
-/// @brief IFeatureDiscretizer 接口
+/// @brief 特征离散策略插件接口（strategyId / mergePolicy / discretize）
 
 #include "geometry_algorithm_global.h"
 

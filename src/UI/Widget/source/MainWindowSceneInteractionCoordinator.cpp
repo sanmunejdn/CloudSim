@@ -4,7 +4,7 @@
 #include "DocumentPage.h"
 #include "MainWindow.h"
 #include "MainWindowRobotHost.h"
-#include "OsgWidget.h"
+#include "IRenderView.h"
 #include "ViewportToolBar.h"
 
 /// 文档页场景交互接线（OSG Qt 信号在 MainWindowRobotHost 内完成）
@@ -21,9 +21,10 @@ void MainWindow::wireDocumentPageSignals(DocumentPage* page)
 	{
 		return;
 	}
-	if (OsgWidget* ow = page->osgWidget())
+	// 经 IRenderView::widget()，避免本文件直连 OsgWidget
+	if (QWidget* view = page->render().widget())
 	{
-		if (auto* toolbar = ow->findChild<ViewportToolBar*>())
+		if (auto* toolbar = view->findChild<ViewportToolBar*>())
 		{
 			connect(toolbar, &ViewportToolBar::leftPanelVisibilityToggled, this, &MainWindow::setLeftSidePanelVisible,
 					Qt::UniqueConnection);

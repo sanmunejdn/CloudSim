@@ -2,7 +2,7 @@
 #define ROBOTKINEMATICS_SERIALLINKKINEMATICS_H
 
 /// @file SerialLinkKinematics.h
-/// @brief 单节改进 DH（Craig《机器人学导论》）：\n
+/// @brief 单节改进 DH（Craig）：FK + 位置 DLS IK（支持棱柱外轴）
 
 #include "robot_kinematics_global.h"
 
@@ -12,7 +12,8 @@
 namespace robot_kinematics
 {
 /// 单节改进 DH（Craig《机器人学导论》）：\n
-/// 其中 θ_i = thetaOffset + q[jointIndex]（revolute），jointIndex < 0 表示该节无关节变量（θ 仅用 thetaOffset）
+/// 旋转：θ_i = thetaOffset + q[jointIndex]；棱柱：d_i = d + q[jointIndex]\n
+/// jointIndex < 0 表示该节无关节变量
 struct DhRow
 {
 	double a = 0.0;
@@ -20,9 +21,11 @@ struct DhRow
 	double d = 0.0;
 	double thetaOffset = 0.0;
 	int jointIndex = -1;
+	/// true：变量进 d（mm）；false：变量进 θ（rad）
+	bool isPrismatic = false;
 };
 
-/// 正运动学：末端坐标系相对基座的 4×4 齐次矩阵（列主序，与 OpenGL/OSG 一致：column * 4 + row）
+/// 正运动学：末端坐标系相对基座的 4×4 齐次矩阵（列主序）
 ROBOT_KINEMATICS_API bool fkSerialDh(const std::vector<DhRow>& rows, const std::vector<double>& q,
 									 double T_end4x4_colMajor[16]);
 
@@ -37,6 +40,10 @@ ROBOT_KINEMATICS_API bool ikPositionDampedLeastSquares(const std::vector<DhRow>&
 													   std::vector<double>& qInOut, int maxIterations,
 													   double positionTolerance, double lambdaDamping,
 													   int* iterationsUsed = nullptr);
+
+/// 解析位置雅可比 3×n（列主序按行存储：J[r*n+c]）；供单测对比有限差分
+ROBOT_KINEMATICS_API bool positionJacobianAnalytic(const std::vector<DhRow>& rows, const std::vector<double>& q,
+												   std::vector<double>& J_3xn);
 
 /// 由 DH 行推导关节数量（jointIndex 最大值 + 1）
 ROBOT_KINEMATICS_API std::size_t jointCountFromDhRows(const std::vector<DhRow>& rows);

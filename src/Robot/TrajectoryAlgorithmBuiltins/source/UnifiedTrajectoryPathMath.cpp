@@ -154,16 +154,27 @@ void reachabilityFilterUnified(RobotInstruction::UnifiedTrajectory& traj)
 	}
 }
 
-void externalAxisSearchUnified(RobotInstruction::UnifiedTrajectory& traj)
+void externalAxisSearchUnified(RobotInstruction::UnifiedTrajectory& traj,
+							   const TrajectoryOpExecutionContext& ctx)
 {
-	if (traj.ctx.externalAxes.empty())
+	bool anyEnabled = false;
+	for (const ExternalAxisSearchConfigDto& c : ctx.externalAxisConfigs)
 	{
-		RobotInstruction::ExternalAxisSnapshot rail;
-		rail.jointName = "rail_joint";
-		rail.isPrismatic = true;
-		rail.positionMmOrRad = traj.points.empty() ? 0.0 : traj.points.front().poseMm.x * 0.1;
-		traj.ctx.externalAxes.push_back(rail);
+		if (c.enabled)
+		{
+			anyEnabled = true;
+			break;
+		}
 	}
+	if (!anyEnabled)
+	{
+		return;
+	}
+	if (!ctx.externalAxisSearch)
+	{
+		return;
+	}
+	(void)ctx.externalAxisSearch->search(traj, ctx.externalAxisConfigs, ctx.externalAxisAllowCoupledRefine, nullptr);
 }
 
 void resampleUnifiedTrajectoryInScope(RobotInstruction::UnifiedTrajectory& traj, const RobotInstruction::OpScope& scope,

@@ -2,12 +2,21 @@
   "version": 1,
   "kind": "ExternalAxisSearch",
   "schema": {
-    "fields": []
+    "fields": [
+      {
+        "key": "allowCoupledRefine",
+        "type": "bool",
+        "label": { "en": "Coupled refine", "zh": "联立微调" },
+        "default": true
+      }
+    ]
   },
   "defaults": {
     "scope": {
       "kind": 1
     },
-    "params": {}
+    "params": {
+      "allowCoupledRefine": true
+    }
   }
 }

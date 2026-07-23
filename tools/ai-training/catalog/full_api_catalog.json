@@ -1,12 +1,1512 @@
 {
-  "version": 1,
+  "version": 2,
   "apis": [
-    { "id": "createPrimitiveMesh", "domains": ["mesh.create", "mesh.compose"] },
-    { "id": "buildPrimitiveMeshSoup", "domains": ["mesh.compose"] },
-    { "id": "booleanMeshSoups", "domains": ["mesh.compose"] },
-    { "id": "booleanPrimitiveMeshes", "domains": ["mesh.compose"] },
-    { "id": "booleanMesh", "domains": ["mesh.compose"] },
-    { "id": "importFileIntoActiveDocument", "domains": ["document.import"] },
-    { "id": "registerTriangleMesh", "domains": ["mesh.create"] }
+    {
+      "id": "createPrimitiveMesh",
+      "domains": [
+        "mesh.create",
+        "mesh.compose"
+      ],
+      "keywords": [
+        "创建基本体",
+        "Create primitive"
+      ],
+      "summary": "Create box/cylinder/cone/sphere",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "primitive",
+          "type": "enum",
+          "values": [
+            "box",
+            "cylinder",
+            "cone",
+            "sphere"
+          ],
+          "default": "box",
+          "label": "基本体",
+          "required": true
+        },
+        {
+          "name": "length_mm",
+          "type": "number",
+          "default": 100,
+          "label": "长(mm)",
+          "required": false,
+          "min": 0.1,
+          "max": 1000000.0
+        },
+        {
+          "name": "width_mm",
+          "type": "number",
+          "default": 100,
+          "label": "宽(mm)",
+          "required": false,
+          "min": 0.1,
+          "max": 1000000.0
+        },
+        {
+          "name": "height_mm",
+          "type": "number",
+          "default": 100,
+          "label": "高(mm)",
+          "required": false,
+          "min": 0.1,
+          "max": 1000000.0
+        },
+        {
+          "name": "radius_mm",
+          "type": "number",
+          "default": 50,
+          "label": "半径(mm)",
+          "required": false,
+          "min": 0.1,
+          "max": 1000000.0
+        }
+      ]
+    },
+    {
+      "id": "buildPrimitiveMeshSoup",
+      "domains": [
+        "mesh.compose"
+      ],
+      "summary": "Build world-space triangle soup without registering",
+      "risk": "low",
+      "args_schema": []
+    },
+    {
+      "id": "booleanMeshSoups",
+      "domains": [
+        "mesh.compose"
+      ],
+      "summary": "Boolean two world soups",
+      "risk": "medium",
+      "args_schema": []
+    },
+    {
+      "id": "booleanPrimitiveMeshes",
+      "domains": [
+        "mesh.compose"
+      ],
+      "summary": "Boolean two primitives",
+      "risk": "medium",
+      "args_schema": []
+    },
+    {
+      "id": "booleanMesh",
+      "domains": [
+        "mesh.compose"
+      ],
+      "keywords": [
+        "布尔",
+        "boolean"
+      ],
+      "summary": "Boolean on registered meshes",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "target",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "目标网格",
+          "required": true
+        },
+        {
+          "name": "tool",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "工具网格",
+          "required": true
+        },
+        {
+          "name": "op",
+          "type": "enum",
+          "values": [
+            "difference",
+            "union",
+            "intersection"
+          ],
+          "default": "difference",
+          "label": "布尔运算",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "registerTriangleMesh",
+      "domains": [
+        "mesh.create"
+      ],
+      "summary": "Register triangle soup mesh",
+      "risk": "medium",
+      "args_schema": []
+    },
+    {
+      "id": "importFileIntoActiveDocument",
+      "domains": [
+        "document.import",
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "导入 PLY/XYZ…",
+        "Import PLY/XYZ...",
+        "导入点云…",
+        "Import Point Cloud...",
+        "打开模型...",
+        "Open Model..."
+      ],
+      "summary": "Import mesh or point cloud file",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "path",
+          "type": "file",
+          "label": "文件路径",
+          "required": true
+        },
+        {
+          "name": "is_point_cloud",
+          "type": "bool",
+          "default": true,
+          "label": "作为点云导入",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "downsamplePointCloudVoxel",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "体素下采样",
+        "Voxel downsample"
+      ],
+      "summary": "Voxel downsample",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloud",
+          "label": "点云对象",
+          "required": true
+        },
+        {
+          "name": "voxel_mm",
+          "type": "number",
+          "default": 2.0,
+          "label": "体素大小(mm)",
+          "required": true,
+          "min": 0.1,
+          "max": 200
+        }
+      ]
+    },
+    {
+      "id": "downsamplePointCloudRandom",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "随机下采样",
+        "Random downsample"
+      ],
+      "summary": "Random downsample",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloud",
+          "label": "点云对象",
+          "required": true
+        },
+        {
+          "name": "ratio",
+          "type": "number",
+          "default": 0.5,
+          "label": "保留比",
+          "required": true,
+          "min": 0.01,
+          "max": 1.0
+        }
+      ]
+    },
+    {
+      "id": "cropPointCloudByBox",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "按包围盒裁剪",
+        "Crop to bbox"
+      ],
+      "summary": "Crop to bbox",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloud",
+          "label": "点云对象",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "cropPointCloudBySphere",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "球裁剪 (r=50)",
+        "Crop sphere (r=50)"
+      ],
+      "summary": "Sphere crop r=50",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloud",
+          "label": "点云对象",
+          "required": true
+        },
+        {
+          "name": "radius_mm",
+          "type": "number",
+          "default": 50.0,
+          "label": "球半径(mm)",
+          "required": true,
+          "min": 0.1,
+          "max": 1000000.0
+        }
+      ]
+    },
+    {
+      "id": "cropPointCloudByPolyline",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "多边形裁剪…",
+        "Draw polygon crop..."
+      ],
+      "summary": "Pick polygon then crop",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloud",
+          "label": "点云对象",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "removePointCloudOutliers",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "离群移除",
+        "Remove outliers"
+      ],
+      "summary": "Remove outliers",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloud",
+          "label": "点云对象",
+          "required": true
+        },
+        {
+          "name": "removal_percent",
+          "type": "number",
+          "default": 5.0,
+          "label": "移除百分比",
+          "required": true,
+          "min": 0.1,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "id": "smoothPointCloudBilateral",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "双边平滑",
+        "Bilateral smooth"
+      ],
+      "summary": "Bilateral smooth",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloud",
+          "label": "点云对象",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "estimatePointCloudNormalsPca",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "法线 PCA",
+        "Normals PCA"
+      ],
+      "summary": "Normals PCA",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloud",
+          "label": "点云对象",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "orientPointCloudNormalsMst",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "MST 定向",
+        "Orient MST"
+      ],
+      "summary": "Orient normals MST",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloud",
+          "label": "点云对象",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "rigidRegisterPointCloudsIcp",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "ICP 配准",
+        "ICP register",
+        "点云匹配",
+        "点云配准"
+      ],
+      "summary": "ICP register (agent dialog for source/target)",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_pair",
+          "type": "backend_pair",
+          "filter": "PointCloudOrMesh",
+          "label_source": "源",
+          "label_target": "目标",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "nonRigidRegisterSpare",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "SPARE 配准",
+        "SPARE register"
+      ],
+      "summary": "SPARE non-rigid register (agent dialog)",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_pair",
+          "type": "backend_pair",
+          "filter": "PointCloudOrMesh",
+          "label_source": "源",
+          "label_target": "目标",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "reconstructMeshPoissonAuto",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "Poisson Auto",
+        "Poisson Auto 重建"
+      ],
+      "summary": "Poisson Auto reconstruct",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloud",
+          "label": "点云对象",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "reconstructMeshScaleSpace",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "Scale-space"
+      ],
+      "summary": "Scale-space reconstruct",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloud",
+          "label": "点云对象",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "exportMeshToPly",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "导出 PLY…",
+        "Export PLY...",
+        "导出网格 PLY…",
+        "Export Mesh PLY..."
+      ],
+      "summary": "Export mesh PLY",
+      "risk": "high",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格对象",
+          "required": true
+        },
+        {
+          "name": "path",
+          "type": "file",
+          "label": "导出路径",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "registerScanToCadTemplateCoarse",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "粗匹配",
+        "Coarse match"
+      ],
+      "summary": "CAD template coarse match",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloudOrMesh",
+          "label": "扫描对象",
+          "required": true
+        },
+        {
+          "name": "template_backend_id",
+          "type": "backend",
+          "filter": "Brep",
+          "label": "CAD 模板",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "registerScanToCadTemplateFine",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "精匹配",
+        "Fine match"
+      ],
+      "summary": "CAD template fine match",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloudOrMesh",
+          "label": "扫描对象",
+          "required": true
+        },
+        {
+          "name": "template_backend_id",
+          "type": "backend",
+          "filter": "Brep",
+          "label": "CAD 模板",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "updateTemplateBrepFromAlignedScan",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "面重构",
+        "Refactor faces"
+      ],
+      "summary": "Refactor template faces",
+      "risk": "high",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloudOrMesh",
+          "label": "扫描对象",
+          "required": true
+        },
+        {
+          "name": "template_backend_id",
+          "type": "backend",
+          "filter": "Brep",
+          "label": "CAD 模板",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "simplifyMesh",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "网格简化",
+        "Simplify",
+        "Simplify Mesh"
+      ],
+      "summary": "Simplify mesh",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        },
+        {
+          "name": "target_face_count",
+          "type": "number",
+          "default": 0,
+          "label": "目标面数(0=一半)",
+          "required": false,
+          "min": 0,
+          "max": 10000000.0
+        }
+      ]
+    },
+    {
+      "id": "smoothMeshLaplacian",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "Laplacian 平滑",
+        "Laplacian smooth",
+        "网格平滑",
+        "Smooth Mesh"
+      ],
+      "summary": "Laplacian smooth mesh",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        },
+        {
+          "name": "iterations",
+          "type": "number",
+          "default": 3,
+          "label": "迭代次数",
+          "required": true,
+          "min": 1,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "id": "smoothMeshTaubin",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "Taubin 平滑",
+        "Taubin smooth"
+      ],
+      "summary": "Taubin smooth mesh",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        },
+        {
+          "name": "iterations",
+          "type": "number",
+          "default": 3,
+          "label": "迭代次数",
+          "required": true,
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "lambda",
+          "type": "number",
+          "default": 0.2,
+          "label": "λ",
+          "required": true,
+          "min": 0.01,
+          "max": 1.0
+        }
+      ]
+    },
+    {
+      "id": "repairMesh",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "网格修复",
+        "Repair mesh"
+      ],
+      "summary": "Repair mesh",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        },
+        {
+          "name": "fill_holes",
+          "type": "bool",
+          "default": false,
+          "label": "填孔",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "remeshMeshIsotropic",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "各向同性重网格",
+        "Isotropic remesh"
+      ],
+      "summary": "Isotropic remesh",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        },
+        {
+          "name": "target_edge_mm",
+          "type": "number",
+          "default": 2.0,
+          "label": "目标边长(mm)",
+          "required": true,
+          "min": 0.1,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "id": "runMeshSurfaceReconstructPreprocess",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "预处理",
+        "Preprocess"
+      ],
+      "summary": "Surface reconstruct preprocess",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "runMeshSurfaceReconstructPartition",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "分块",
+        "Partition"
+      ],
+      "summary": "Surface reconstruct partition",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "runMeshSurfaceReconstructSample",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "栅格采样",
+        "Sample"
+      ],
+      "summary": "Surface reconstruct sample",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "runMeshSurfaceReconstructFit",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "NURBS拟合",
+        "NURBS fit"
+      ],
+      "summary": "Surface reconstruct NURBS fit",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "runMeshSurfaceReconstructBoundaryBlend",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "边界混合",
+        "Boundary blend"
+      ],
+      "summary": "Boundary blend",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "runMeshSurfaceReconstructJunctionBlend",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "交汇混合",
+        "Junction blend"
+      ],
+      "summary": "Junction blend",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "runMeshSurfaceReconstructFair",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "光顺",
+        "Fair"
+      ],
+      "summary": "Fair",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "runMeshSurfaceReconstructAssemble",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "装配输出",
+        "Assemble"
+      ],
+      "summary": "Assemble",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "reconstructSurfaceFromMesh",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "全流程",
+        "Full pipeline",
+        "曲面重构",
+        "Surface Reconstruct"
+      ],
+      "summary": "Full surface reconstruct",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "clearMeshSurfaceReconstructSession",
+      "domains": [
+        "pointcloud.ops"
+      ],
+      "keywords": [
+        "重置曲面重构会话",
+        "Reset surface session"
+      ],
+      "summary": "Clear surface reconstruct session",
+      "risk": "low",
+      "args_schema": []
+    },
+    {
+      "id": "discretizeBackendToMesh",
+      "domains": [
+        "geometry.ops"
+      ],
+      "keywords": [
+        "离散生成网格",
+        "Discretize to Mesh"
+      ],
+      "summary": "Discretize STEP/backend to mesh",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "BrepOrMesh",
+          "label": "STEP/后端",
+          "required": false
+        },
+        {
+          "name": "step_path",
+          "type": "file",
+          "label": "STEP 路径(可选)",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "pickStepElementEdge",
+      "domains": [
+        "geometry.ops"
+      ],
+      "keywords": [
+        "点选边",
+        "Pick Edge"
+      ],
+      "summary": "Pick edge from viewport",
+      "risk": "low",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Brep",
+          "label": "后端(可选)",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "pickStepElementFace",
+      "domains": [
+        "geometry.ops"
+      ],
+      "keywords": [
+        "点选面",
+        "Pick Face",
+        "选择面…",
+        "Pick face..."
+      ],
+      "summary": "Pick face from viewport",
+      "risk": "low",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Brep",
+          "label": "后端(可选)",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "intersectEdgeFace",
+      "domains": [
+        "geometry.ops"
+      ],
+      "keywords": [
+        "执行线面求交",
+        "Run Edge-Face"
+      ],
+      "summary": "Edge-face intersect",
+      "risk": "medium",
+      "args_schema": []
+    },
+    {
+      "id": "intersectFaces",
+      "domains": [
+        "geometry.ops"
+      ],
+      "keywords": [
+        "执行面面求交",
+        "Run Face-Face"
+      ],
+      "summary": "Face-face intersect",
+      "risk": "medium",
+      "args_schema": []
+    },
+    {
+      "id": "discretizeWireToTubeMesh",
+      "domains": [
+        "geometry.ops"
+      ],
+      "keywords": [
+        "生成管状网格",
+        "Create Tube Mesh"
+      ],
+      "summary": "Tube mesh from wire",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "tube_radius_mm",
+          "type": "number",
+          "default": 1.0,
+          "label": "管半径(mm)",
+          "required": true,
+          "min": 0.01,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "id": "discretizeWireToRibbonMesh",
+      "domains": [
+        "geometry.ops"
+      ],
+      "keywords": [
+        "生成带状网格",
+        "Create Ribbon Mesh"
+      ],
+      "summary": "Ribbon mesh from wire",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "ribbon_width_mm",
+          "type": "number",
+          "default": 2.0,
+          "label": "带宽(mm)",
+          "required": true,
+          "min": 0.01,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "id": "runTubularGrindingCenterline",
+      "domains": [
+        "feature.build"
+      ],
+      "keywords": [
+        "运行中心线",
+        "Run centerline"
+      ],
+      "summary": "Tubular centerline",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "runTubularGrindingTemplatePoints",
+      "domains": [
+        "feature.build"
+      ],
+      "keywords": [
+        "模板点位",
+        "Templates"
+      ],
+      "summary": "Tubular templates",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "runTubularGrindingProject",
+      "domains": [
+        "feature.build"
+      ],
+      "keywords": [
+        "表面投影",
+        "Project"
+      ],
+      "summary": "Tubular project",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "runTubularGrindingFpfhRegionPartition",
+      "domains": [
+        "feature.build"
+      ],
+      "keywords": [
+        "运行区域划分",
+        "Run region partition"
+      ],
+      "summary": "FPFH region partition",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Mesh",
+          "label": "网格",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "clearTubularGrindingSession",
+      "domains": [
+        "feature.build"
+      ],
+      "keywords": [
+        "重置会话",
+        "Reset session",
+        "重置特征构建会话"
+      ],
+      "summary": "Clear tubular session",
+      "risk": "low",
+      "args_schema": []
+    },
+    {
+      "id": "labelingPickClick",
+      "domains": [
+        "labeling.annot"
+      ],
+      "keywords": [
+        "点选",
+        "Click"
+      ],
+      "summary": "Labeling click pick",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloudOrMesh",
+          "label": "标注对象",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "labelingPickBrush",
+      "domains": [
+        "labeling.annot"
+      ],
+      "keywords": [
+        "刷选",
+        "Brush"
+      ],
+      "summary": "Labeling brush",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloudOrMesh",
+          "label": "标注对象",
+          "required": true
+        },
+        {
+          "name": "brush_radius_px",
+          "type": "number",
+          "default": 16,
+          "label": "笔刷半径(px)",
+          "required": true,
+          "min": 1,
+          "max": 200
+        }
+      ]
+    },
+    {
+      "id": "labelingPickLasso",
+      "domains": [
+        "labeling.annot"
+      ],
+      "keywords": [
+        "套索",
+        "Lasso"
+      ],
+      "summary": "Labeling lasso",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloudOrMesh",
+          "label": "标注对象",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "labelingErase",
+      "domains": [
+        "labeling.annot"
+      ],
+      "keywords": [
+        "擦除",
+        "Erase"
+      ],
+      "summary": "Labeling erase pick",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloudOrMesh",
+          "label": "标注对象",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "cancelActiveLabelingPick",
+      "domains": [
+        "labeling.annot"
+      ],
+      "keywords": [
+        "取消选择",
+        "Cancel Pick"
+      ],
+      "summary": "Cancel labeling pick",
+      "risk": "low",
+      "args_schema": []
+    },
+    {
+      "id": "labelingUndo",
+      "domains": [
+        "labeling.annot"
+      ],
+      "keywords": [
+        "撤销",
+        "Undo"
+      ],
+      "summary": "Labeling undo",
+      "risk": "low",
+      "args_schema": []
+    },
+    {
+      "id": "labelingRedo",
+      "domains": [
+        "labeling.annot"
+      ],
+      "keywords": [
+        "重做",
+        "Redo"
+      ],
+      "summary": "Labeling redo",
+      "risk": "low",
+      "args_schema": []
+    },
+    {
+      "id": "pointNetPrelabel",
+      "domains": [
+        "labeling.annot"
+      ],
+      "keywords": [
+        "PointNet 预标注",
+        "PointNet Pre-label"
+      ],
+      "summary": "Requires Labeling panel + PointNet plugin",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "PointCloudOrMesh",
+          "label": "标注对象",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "exportPointNetDataset",
+      "domains": [
+        "labeling.annot"
+      ],
+      "keywords": [
+        "导出数据集",
+        "Export Dataset"
+      ],
+      "summary": "Export PointNet dataset",
+      "risk": "high",
+      "args_schema": [
+        {
+          "name": "path",
+          "type": "directory",
+          "label": "导出目录",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "removeSceneObject",
+      "domains": [
+        "scene.ops"
+      ],
+      "keywords": [
+        "删除对象",
+        "删除选中",
+        "删掉",
+        "Delete object",
+        "Remove object"
+      ],
+      "summary": "Remove one scene object by backend id",
+      "risk": "high",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Any",
+          "label": "对象",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "removeAllSceneObjects",
+      "domains": [
+        "scene.ops"
+      ],
+      "keywords": [
+        "删除全部",
+        "清空场景",
+        "删除所有对象",
+        "Delete all",
+        "Clear scene"
+      ],
+      "summary": "Remove all backend objects in active document",
+      "risk": "high",
+      "args_schema": []
+    },
+    {
+      "id": "translateSceneObject",
+      "domains": [
+        "scene.ops"
+      ],
+      "keywords": [
+        "平移",
+        "移动对象",
+        "沿X移动",
+        "沿Y移动",
+        "沿Z移动",
+        "Move",
+        "Translate"
+      ],
+      "summary": "Translate object by relative mm deltas",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Any",
+          "label": "对象",
+          "required": true
+        },
+        {
+          "name": "dx_mm",
+          "type": "number",
+          "default": 0,
+          "label": "ΔX(mm)",
+          "required": false
+        },
+        {
+          "name": "dy_mm",
+          "type": "number",
+          "default": 0,
+          "label": "ΔY(mm)",
+          "required": false
+        },
+        {
+          "name": "dz_mm",
+          "type": "number",
+          "default": 0,
+          "label": "ΔZ(mm)",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "rotateSceneObject",
+      "domains": [
+        "scene.ops"
+      ],
+      "keywords": [
+        "旋转",
+        "绕X旋转",
+        "绕Y旋转",
+        "绕Z旋转",
+        "Rotate"
+      ],
+      "summary": "Rotate object by relative euler deg deltas",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "backend_id",
+          "type": "backend",
+          "filter": "Any",
+          "label": "对象",
+          "required": true
+        },
+        {
+          "name": "rx_deg",
+          "type": "number",
+          "default": 0,
+          "label": "ΔRx(°)",
+          "required": false
+        },
+        {
+          "name": "ry_deg",
+          "type": "number",
+          "default": 0,
+          "label": "ΔRy(°)",
+          "required": false
+        },
+        {
+          "name": "rz_deg",
+          "type": "number",
+          "default": 0,
+          "label": "ΔRz(°)",
+          "required": false
+        }
+      ]
+    }
   ]
 }

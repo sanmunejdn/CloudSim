@@ -1,16 +1,32 @@
 ﻿/// @file ExternalAxisSearchOp.cpp
 /// @brief ExternalAxisSearchOp 实现
 
-// ExternalAxisSearch 原子块：搜索外部轴以满足可达性
 #include "ExternalAxisSearchOp.h"
 
 #include "TrajectoryOpFormat.h"
 #include "TrajectoryOpParamAccess.h"
+#include "TrajectoryOpParamSchema.h"
 #include "TrajectoryOpParamsParse.h"
 #include "UnifiedTrajectoryPathMath.h"
 
 namespace trajectory_algo
 {
+namespace
+{
+TrajectoryOpParamField boolParamField(const std::string& key, const std::string& labelEn, const std::string& labelZh,
+									  const bool defaultValue, const int order)
+{
+	TrajectoryOpParamField field{};
+	field.key = key;
+	field.type = TrajectoryParamType::Bool;
+	field.labelEn = labelEn;
+	field.labelZh = labelZh;
+	field.defaultBool = defaultValue;
+	field.order = order;
+	return field;
+}
+} // namespace
+
 RobotInstruction::TrajectoryOpKind ExternalAxisSearchOp::kind() const
 {
 	return RobotInstruction::TrajectoryOpKind::ExternalAxisSearch;
@@ -39,7 +55,9 @@ ExternalAxisSearchOp::makeDefaultDescriptor(const RobotInstruction::OpScope& def
 
 std::vector<TrajectoryOpParamField> ExternalAxisSearchOp::paramFields() const
 {
-	return {};
+	return {
+		boolParamField("allowCoupledRefine", "Coupled refine", "联立微调", true, 0),
+	};
 }
 
 bool ExternalAxisSearchOp::validate(const RobotInstruction::TrajectoryOpDescriptor& op, std::string* errMsg) const
@@ -60,14 +78,14 @@ bool ExternalAxisSearchOp::processPath(const RobotInstruction::TrajectoryOpDescr
 									   RobotInstruction::UnifiedTrajectory& traj,
 									   const TrajectoryOpExecutionContext& ctx, std::string* errMsg) const
 {
-	(void)op;
-	(void)ctx;
 	(void)errMsg;
 	if (traj.points.empty())
 	{
 		return false;
 	}
-	externalAxisSearchUnified(traj);
+	TrajectoryOpExecutionContext local = ctx;
+	local.externalAxisAllowCoupledRefine = trajectoryParamBool(op.params, "allowCoupledRefine", true);
+	externalAxisSearchUnified(traj, local);
 	return true;
 }
 

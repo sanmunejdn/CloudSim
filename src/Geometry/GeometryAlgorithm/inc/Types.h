@@ -2,7 +2,7 @@
 #define GEOMETRYALGORITHM_TYPES_H
 
 /// @file Types.h
-/// @brief Types 接口
+/// @brief 几何算法公共类型：点/折线/离散与求交参数
 
 #include "geometry_algorithm_global.h"
 
@@ -19,29 +19,31 @@ struct Point3d
 	double z = 0.0;
 };
 
+/** 有序顶点折线，xyz 为 3N float（mm） */
 struct Polyline3d
 {
 	std::vector<float> xyz;
 };
 
+/** OCCT BRepMesh 离散精度 */
 struct TessellateParams
 {
-	double linearDeflectionMm = 0.01;
+	double linearDeflectionMm = 0.01;       ///< mm；relative=true 时为相对包围盒比例
 	bool linearDeflectionRelative = true;
-	double angularDeflectionDeg = 0.5;
-	bool flipReversedFaces = true;
+	double angularDeflectionDeg = 0.5;      ///< °
+	bool flipReversedFaces = true;          ///< REVERSED 面翻转三角绕序
 };
 
 enum class MeshDiscretizeMode
 {
-	AdaptiveTriangulation,
+	AdaptiveTriangulation, ///< 默认 STEP 路径（BRepMesh_IncrementalMesh）
 	UniformRelative,
 	UVStructuredGrid,
 	WireTubeMesh,
 	WireRibbonMesh,
 	ProfileSweepMesh,
-	RemeshSoup,
-	PointCloudSurface
+	RemeshSoup,            ///< 当前构建未实现
+	PointCloudSurface      ///< 当前构建未实现
 };
 
 enum class MeshQualityPreset
@@ -52,11 +54,12 @@ enum class MeshQualityPreset
 	Custom
 };
 
+/** 与 quality 预设互斥的密度控制模式 */
 enum class MeshDensityControl
 {
 	QualityPreset,
-	TargetEdgeLength,
-	TargetTriangleCount
+	TargetEdgeLength,      ///< deflection=target×0.25；refine 至 1.5×target
+	TargetTriangleCount    ///< 相对 deflection 二分，容差 ±15%
 };
 
 struct MeshDiscretizeParams
@@ -64,7 +67,7 @@ struct MeshDiscretizeParams
 	MeshDiscretizeMode mode = MeshDiscretizeMode::AdaptiveTriangulation;
 	MeshQualityPreset quality = MeshQualityPreset::Medium;
 	MeshDensityControl densityControl = MeshDensityControl::QualityPreset;
-	double targetEdgeLengthMm = 0.0;
+	double targetEdgeLengthMm = 0.0;       ///< TargetEdgeLength 模式（mm）
 	std::size_t targetTriangleCount = 0;
 	TessellateParams tessellate;
 	int uvGridCountU = 32;
@@ -83,6 +86,7 @@ struct MeshDiscretizeReport
 	MeshDiscretizeMode modeUsed = MeshDiscretizeMode::AdaptiveTriangulation;
 };
 
+/** 装配层级零件；triangleSoup 可能为空（仅拓扑路径） */
 struct MeshHierarchyPart
 {
 	std::string partPath;

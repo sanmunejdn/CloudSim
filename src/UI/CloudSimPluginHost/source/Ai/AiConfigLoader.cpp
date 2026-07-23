@@ -124,6 +124,17 @@ std::optional<AiConfigDto> loadAiConfigDto(const QString& filePath)
 			cfg.router.baseUrl = QString::fromStdString(r["base_url"].get<std::string>());
 	}
 
+	if (j.contains("agent") && j["agent"].is_object())
+	{
+		const auto& a = j["agent"];
+		cfg.agent.maxSteps = std::max(1, a.value("max_steps", cfg.agent.maxSteps));
+		cfg.agent.autoExecuteLowRisk = a.value("auto_execute_low_risk", cfg.agent.autoExecuteLowRisk);
+		cfg.agent.enableTrace = a.value("enable_trace", cfg.agent.enableTrace);
+		cfg.agent.enablePlan = a.value("enable_plan", cfg.agent.enablePlan);
+		cfg.agent.planMaxSteps = std::max(1, a.value("plan_max_steps", cfg.agent.planMaxSteps));
+		cfg.agent.replanOnFailure = a.value("replan_on_failure", cfg.agent.replanOnFailure);
+	}
+
 	if (j.contains("domains") && j["domains"].is_array())
 	{
 		cfg.domains.clear();
@@ -168,6 +179,12 @@ bool saveAiConfigDto(const AiConfigDto& config, const QString& filePath, QString
 	j["router"] = {{"mode", config.router.mode.toStdString()},
 				   {"local_model", config.router.localModel.toStdString()},
 				   {"base_url", config.router.baseUrl.toStdString()}};
+	j["agent"] = {{"max_steps", config.agent.maxSteps},
+				  {"auto_execute_low_risk", config.agent.autoExecuteLowRisk},
+				  {"enable_trace", config.agent.enableTrace},
+				  {"enable_plan", config.agent.enablePlan},
+				  {"plan_max_steps", config.agent.planMaxSteps},
+				  {"replan_on_failure", config.agent.replanOnFailure}};
 	j["domains"] = nlohmann::json::array();
 	for (const AiDomainModelConfig& d : config.domains)
 	{
