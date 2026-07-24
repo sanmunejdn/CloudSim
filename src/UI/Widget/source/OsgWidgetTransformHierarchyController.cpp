@@ -20,6 +20,91 @@
 #include <osg/Vec3>
 #include <osg/Vec3d>
 
+namespace
+{
+void removeFromAllParents(osg::Node* node)
+{
+	if (!node)
+	{
+		return;
+	}
+	while (node->getNumParents() > 0)
+	{
+		node->getParent(0)->removeChild(node);
+	}
+}
+} // namespace
+
+std::vector<osg::ref_ptr<osg::MatrixTransform>>
+OsgWidgetTransformHierarchyController::detachChildBackendRoots(OsgWidget& self, const std::string& parentBackendId)
+{
+	std::vector<osg::ref_ptr<osg::MatrixTransform>> children;
+	if (parentBackendId.empty())
+	{
+		return children;
+	}
+	for (const auto& kv : self.m_backendParentIds)
+	{
+		if (kv.second != parentBackendId)
+		{
+			continue;
+		}
+		auto it = self.m_backendObjectRoots.find(kv.first);
+		if (it == self.m_backendObjectRoots.end() || !it->second.valid())
+		{
+			continue;
+		}
+		removeFromAllParents(it->second.get());
+		children.push_back(it->second);
+	}
+	return children;
+}
+
+void OsgWidgetTransformHierarchyController::reattachChildBackendRoots(
+	osg::MatrixTransform* newParent, const std::vector<osg::ref_ptr<osg::MatrixTransform>>& children)
+{
+	if (!newParent)
+	{
+		return;
+	}
+	for (const osg::ref_ptr<osg::MatrixTransform>& child : children)
+	{
+		if (child.valid())
+		{
+			newParent->addChild(child.get());
+		}
+	}
+}
+
+void OsgWidgetTransformHierarchyController::placeBackendOuterInScene(OsgWidget& self, const std::string& backendId,
+																	osg::MatrixTransform* outer)
+{
+	if (!outer)
+	{
+		return;
+	}
+	removeFromAllParents(outer);
+	std::string logicalParent;
+	const auto pit = self.m_backendParentIds.find(backendId);
+	if (pit != self.m_backendParentIds.end())
+	{
+		logicalParent = pit->second;
+	}
+	if (!logicalParent.empty())
+	{
+		auto parentIt = self.m_backendObjectRoots.find(logicalParent);
+		if (parentIt != self.m_backendObjectRoots.end() && parentIt->second.valid())
+		{
+			parentIt->second->addChild(outer);
+			return;
+		}
+	}
+	if (self.m_backendObjectsGroup.valid())
+	{
+		self.m_backendObjectsGroup->addChild(outer);
+	}
+}
+
 void OsgWidgetTransformHierarchyController::setBackendParent(OsgWidget& self, const std::string& backendId,
 															 const std::string& parentBackendId)
 {
@@ -28,22 +113,28 @@ void OsgWidgetTransformHierarchyController::setBackendParent(OsgWidget& self, co
 		return;
 	}
 
-	osg::Matrixd savedWorld;
-	const bool haveWorld = self.getBackendRootWorldMatrix(backendId, savedWorld);
-
 	auto childIt = self.m_backendObjectRoots.find(backendId);
 	const bool haveChildPat = (childIt != self.m_backendObjectRoots.end() && childIt->second.valid());
 
 	if (parentBackendId.empty())
 	{
+		const auto pit = self.m_backendParentIds.find(backendId);
+		if (pit == self.m_backendParentIds.end() && haveChildPat)
+		{
+			osg::MatrixTransform* childMt = childIt->second.get();
+			if (self.m_backendObjectsGroup.valid() && childMt->getNumParents() == 1 &&
+				childMt->getParent(0) == self.m_backendObjectsGroup.get())
+			{
+				return;
+			}
+		}
+		osg::Matrixd savedWorld;
+		const bool haveWorld = self.getBackendRootWorldMatrix(backendId, savedWorld);
 		self.m_backendParentIds.erase(backendId);
 		if (haveChildPat)
 		{
 			osg::MatrixTransform* childMt = childIt->second.get();
-			while (childMt->getNumParents() > 0)
-			{
-				childMt->getParent(0)->removeChild(childMt);
-			}
+			removeFromAllParents(childMt);
 			if (self.m_backendObjectsGroup.valid())
 			{
 				self.m_backendObjectsGroup->addChild(childMt);
@@ -65,6 +156,21 @@ void OsgWidgetTransformHierarchyController::setBackendParent(OsgWidget& self, co
 		return;
 	}
 
+	auto parentIt = self.m_backendObjectRoots.find(parentBackendId);
+	const auto pit = self.m_backendParentIds.find(backendId);
+	if (pit != self.m_backendParentIds.end() && pit->second == parentBackendId && haveChildPat &&
+		parentIt != self.m_backendObjectRoots.end() && parentIt->second.valid())
+	{
+		osg::MatrixTransform* childMt = childIt->second.get();
+		if (childMt->getNumParents() == 1 && childMt->getParent(0) == parentIt->second.get())
+		{
+			return;
+		}
+	}
+
+	osg::Matrixd savedWorld;
+	const bool haveWorld = self.getBackendRootWorldMatrix(backendId, savedWorld);
+
 	self.m_backendParentIds[backendId] = parentBackendId;
 
 	if (!haveChildPat)
@@ -73,7 +179,6 @@ void OsgWidgetTransformHierarchyController::setBackendParent(OsgWidget& self, co
 	}
 	osg::MatrixTransform* childMt = childIt->second.get();
 
-	auto parentIt = self.m_backendObjectRoots.find(parentBackendId);
 	if (parentIt == self.m_backendObjectRoots.end() || !parentIt->second.valid())
 	{
 		if (haveWorld)
@@ -84,10 +189,7 @@ void OsgWidgetTransformHierarchyController::setBackendParent(OsgWidget& self, co
 	}
 
 	osg::MatrixTransform* parentMt = parentIt->second.get();
-	while (childMt->getNumParents() > 0)
-	{
-		childMt->getParent(0)->removeChild(childMt);
-	}
+	removeFromAllParents(childMt);
 	parentMt->addChild(childMt);
 
 	// Do not restore pre-reparent world here: flat layout world != hierarchical local.
@@ -98,14 +200,19 @@ void OsgWidgetTransformHierarchyController::setBackendParent(OsgWidget& self, co
 
 void OsgWidgetTransformHierarchyController::removeBackendObjectVisual(OsgWidget& self, const std::string& backendId)
 {
+	// 先把仍挂在本节点下的子 backend 挂回场景根，避免随父节点一起从场景消失
+	const std::vector<osg::ref_ptr<osg::MatrixTransform>> children = detachChildBackendRoots(self, backendId);
+	for (const osg::ref_ptr<osg::MatrixTransform>& child : children)
+	{
+		if (child.valid() && self.m_backendObjectsGroup.valid())
+		{
+			self.m_backendObjectsGroup->addChild(child.get());
+		}
+	}
 	auto it = self.m_backendObjectRoots.find(backendId);
 	if (it != self.m_backendObjectRoots.end() && it->second.valid())
 	{
-		osg::Node* const pat = it->second.get();
-		if (pat->getNumParents() > 0)
-		{
-			pat->getParent(0)->removeChild(pat);
-		}
+		removeFromAllParents(it->second.get());
 	}
 	self.m_backendObjectRoots.erase(backendId);
 	self.unbindBackendVisualRoot(backendId);

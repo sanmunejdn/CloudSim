@@ -14,6 +14,8 @@
 
 #include <FeatureListDocument.h>
 
+class QShowEvent;
+
 namespace RobotInstruction
 
 {
@@ -75,6 +77,9 @@ public:
 	/// AI / 宿主：轨迹页 combo 当前 STEP 工件
 	bool currentWorkpiece(QString& backendId, QString& stepPath) const;
 
+	/// 刷新工件下拉（导入/AI 创建后或切回本页时调用）
+	void refreshWorkpieces();
+
 	/// 确保当前工件特征目录已枚举（AI 解析前调用）
 	bool ensureFeatureCatalogEnumerated(QString* err = nullptr);
 
@@ -120,6 +125,9 @@ private slots:
 	void onStrategyComboChanged();
 
 	void onPathPlanBound(const std::string& pathPlanId);
+
+protected:
+	void showEvent(QShowEvent* event) override;
 
 private:
 	enum class PickSessionKind

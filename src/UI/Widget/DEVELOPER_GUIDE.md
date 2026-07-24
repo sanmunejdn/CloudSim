@@ -251,7 +251,24 @@ OsgWidget 信号的**唯一边界**。所有 OsgWidget 的 Qt 信号（拾取、
         → updateInstructionPropertyPanel(instruction, refreshFeasibleAxis)
 ```
 
-### 5.3 后端树批量刷新抑制
+### 5.3 Units 后端对象树（显示框架）
+
+目标语义（实现以专题为准；编码前见方案审批）：
+
+| 约定 | 说明 |
+|------|------|
+| 文档根 | 每个打开的 `DocumentPage` 一个 top-level 根（标题 = Tab） |
+| 对象节点 | 1 对象 1 节点；主父投影；无 `(ref)` |
+| Annotations | 挂在对应文档根下的分组 |
+| 索引 | `(documentId, backendId) → item` |
+| 刷新 | DisplayForest + **文档作用域** rebuild/补丁；禁止跨文档全局 `takeChildren` |
+| 与 OSG 调试树 | Units = 多文档投影；OSG Scene 树 = 仅活动文档 |
+
+专题：[`../../../docs/后端对象显示树/`](../../../docs/后端对象显示树/)。**P0 已落地**：`BackendUnitsDisplayForest` + `BackendUnitsTreeBinder`；多文档根、主父投影、文档作用域 `rebuildUnitsDocument`；无 `(ref)`。
+
+选中 / 可见性 / 右键 / focus 为 **document-scoped**（非活动文档对象先激活 Tab）。可见性真源见 [`backend_visibility`](../../../docs/backend_visibility/DESIGN_backend_visibility.md)。
+
+### 5.4 后端树批量刷新抑制
 
 层级导入时抑制逐片树刷新：
 
@@ -260,7 +277,7 @@ OsgWidget 信号的**唯一边界**。所有 OsgWidget 的 Qt 信号（拾取、
     ScopedBackendTreeRefreshSuppress guard(*this);
     // 批量导入...不触发 refreshBackendTree()
 }
-// guard 析构 → 一次 refreshBackendTree()
+// guard 析构 → 对受影响文档一次文档作用域 rebuild（迁移后）；现状为一次 refreshBackendTree()
 ```
 
 ---
@@ -296,10 +313,10 @@ onOpenProjectFile()
   → restoreRobotKinematicsFromProjectJson()
   → loadRobotProgramsFromProjectJson()
   → finalizeProjectLoadFollowAndViewport()
-  → refreshBackendTree()  // 勾选态读 BackendObjectDto.visible
+  → refreshBackendTree()  // 勾选态读 BackendObjectDto.visible；迁移后为该文档 rebuildDocument
 ```
 
-**显示/隐藏**：树勾选 / 右键 → `DocumentPage::setBackendVisible` → `IDataService::setVisible`（Data 真源）+ OSG NodeMask。保存时经 `saveToJson` 写出 `objects[].visible`。
+**显示/隐藏**：树勾选 / 右键 → 按 item 的 `documentId` 解析 `DocumentPage` → `setBackendVisible` / `IDataService::setVisible`（Data 真源）+ OSG NodeMask。保存时经 `saveToJson` 写出 `objects[].visible`。详见 [`backend_visibility`](../../../docs/backend_visibility/DESIGN_backend_visibility.md)。
 ---
 
 ## 7. 插件集成

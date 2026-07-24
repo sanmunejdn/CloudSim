@@ -26,11 +26,16 @@
 #include <osg/Matrixd>
 
 class BackendDataBase;
+class IRobotMotionClient;
 
 class RobotSimulationDockWidget;
 class QtProperty;
 class ProgramEditService;
 class TrajectoryEditSession;
+namespace collision
+{
+class CollisionWorld;
+}
 namespace RobotInstruction
 {
 class Base;
@@ -53,6 +58,7 @@ class ROBOTWIDGET_EXPORT RobotSimulationController : public QObject
 
 public:
 	explicit RobotSimulationController(QObject* parent = nullptr);
+	~RobotSimulationController() override;
 
 	void setHost(IRobotMainWindowHost* host);
 	IRobotMainWindowHost* host() const { return m_host; }
@@ -115,10 +121,18 @@ public slots:
 	void onTcpDragTeachEnded();
 	void onRobotCoordinateFramesChanged();
 	void onRobotExternalAxesChanged();
+	void onRobotCollisionSettingsChanged();
 	void onCaptureToolFrameFromTcp();
 	void onCaptureUserFrameFromTcp();
 	void onResetToolFrame();
 	void onSimulationDockTabChanged(int index);
+	void onReachableWorkspaceToggled(bool enabled);
+	void onReachableWorkspaceDensityChanged(int percent);
+	void onRobotCommConnectRequested();
+	void onRobotCommDisconnectRequested();
+	void onRobotCommMirrorToggled(bool enabled);
+	void onRobotCommPollIntervalChanged(int ms);
+	void onRobotCommPollTick();
 
 	void stopRobotSimulation();
 	QVector<double> aggregatedJointAnglesRad() const { return m_aggregatedJointAnglesRad; }
@@ -141,11 +155,11 @@ public slots:
 	void syncRobotExternalAxisSettingsFromDocument(int instanceIndex);
 	void syncRobotAxisControlExternalAxes(int instanceIndex);
 	void applyAxisControlExternalPose(int instanceIndex, const QVector<double>& values);
-	/// 规划/示教结果驱动地轨；无外轴量则忽略
-	/// progress01<1 时按段起点插值（播放用）；默认 1 直接落到目标
+	/// 规划/示教结果驱动外轴；无外轴量则忽略
+	/// progress01<1 时按段起点（完整配置对齐）插值；默认 1 直接落到目标
 	void applyExternalAxisFromPlan(int instanceIndex, const RobotInstruction::PlanResult& plan,
 								   const RobotInstruction::Base* instruction = nullptr, double progress01 = 1.0,
-								   double segmentStartQMm = 0.0);
+								   const QVector<double>& segmentStartQs = {});
 	void
 	refreshRobotCoordinateFrameOverlays(const std::shared_ptr<RobotInstruction::Base>& highlightInstruction = nullptr,
 										const QVector<double>* jointAnglesRadLocal = nullptr);
@@ -207,7 +221,12 @@ private:
 	QTimer* m_playbackTimer = nullptr;
 	bool m_ownsPlaybackTimer = false;
 
+	std::unique_ptr<IRobotMotionClient> m_robotCommClient;
+	QTimer* m_robotCommPollTimer = nullptr;
+	bool m_robotCommMirror = false;
+
 	RobotInstruction::Controller m_instructionController;
+	std::unique_ptr<collision::CollisionWorld> m_collisionWorld;
 	QString m_cachedInstructionDhUrdfPath;
 	quint64 m_poseAxesRefreshToken = 0;
 	RobotProgramExecutor m_programExecutor;
@@ -247,6 +266,7 @@ private:
 	quint64 m_reachabilityJobToken = 0;
 	int m_reachabilityPendingJobs = 0;
 	quint64 m_feasibleAxisJobToken = 0;
+	quint64 m_reachableWorkspaceJobToken = 0;
 	/// 选中链式种子：前缀段末关节，避免每次从 0 同步 IK
 	QString m_chainSeedRollFingerprint;
 	QVector<QVector<double>> m_chainSeedEndJointsByIndex;
@@ -255,6 +275,8 @@ private:
 
 	void invalidateChainSeedRollCache();
 	void enqueueReachabilityBatch(int batchStart);
+	void clearReachableWorkspaceOverlayUi();
+	void startReachableWorkspaceCompute(int instanceIndex);
 
 	QString computePlanFingerprint(const RobotInstruction::Base& instruction, const QVector<double>& seedJointRad,
 								   const QString& urdfPath, const QString& tcpLinkName) const;
@@ -273,8 +295,8 @@ private:
 	/// 播放游标处段起点关节（规划 current 的种子）；禁止从 0 扫到 N
 	QVector<double> m_playbackRollingSeedQ;
 	QVector<double> m_playbackProgramStartQ;
-	/// 当前运动段起点外轴位移（mm）；与 plan.externalAxisQ 插值驱动滑轨
-	double m_playbackSegmentExternalAxisStartMm = 0.0;
+	/// 当前运动段起点外轴（完整配置对齐）；与 plan.externalAxisQs 插值
+	QVector<double> m_playbackSegmentExternalAxisStart;
 	const RobotInstruction::Base* m_playbackExtInterpMotion = nullptr;
 	/// 播放叠加高亮：避免每 tick 扫 instructionList
 	std::shared_ptr<RobotInstruction::Base> m_playbackOverlayHighlight;

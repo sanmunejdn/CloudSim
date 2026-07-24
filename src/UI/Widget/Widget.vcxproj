@@ -196,6 +196,8 @@
     <ClInclude Include="inc\ApplicationStyle.h" />
     <ClInclude Include="..\..\Host\CloudSimHost\inc\CloudSimHost.h" />
     <ClInclude Include="..\..\Host\CloudSimHost\inc\DocumentHost.h" />
+    <ClInclude Include="inc\BackendUnitsDisplayForest.h" />
+    <ClInclude Include="inc\BackendUnitsTreeBinder.h" />
     <ClInclude Include="inc\MainWindow_p.h" />
     <QtMoc Include="inc\DocumentPage.h" />
     <QtMoc Include="inc\MainWindow.h" />
@@ -235,6 +237,8 @@
     <ClCompile Include="source\MainWindowAiAssistant.cpp" />
     <ClCompile Include="source\MainWindowUiSetup.cpp" />
     <ClCompile Include="source\MainWindowPlugins.cpp" />
+    <ClCompile Include="source\BackendUnitsDisplayForest.cpp" />
+    <ClCompile Include="source\BackendUnitsTreeBinder.cpp" />
     <ClCompile Include="source\MainWindowBackendTree.cpp" />
     <ClCompile Include="source\MainWindowObjectRepository.cpp" />
     <ClCompile Include="source\MainWindowSelectionService.cpp" />

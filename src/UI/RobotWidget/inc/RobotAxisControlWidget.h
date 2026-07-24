@@ -8,6 +8,7 @@
 
 #include "RobotExternalAxes.h"
 
+#include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -19,6 +20,7 @@
 #include <QSlider>
 #include <QString>
 #include <QStringList>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QVector>
 #include <QWidget>
@@ -74,6 +76,13 @@ public:
 	/// 重置所有关节到零位
 	void resetAllJoints();
 
+	void setReachableWorkspaceChecked(bool checked);
+	bool isReachableWorkspaceChecked() const;
+	/// 计算中改文案；保持可取消勾选
+	void setReachableWorkspaceBusy(bool busy);
+	/// 可达点密度 1～100，默认 50
+	int reachableWorkspaceDensityPercent() const;
+
 signals:
 	/// 单关节角度变更
 	/// @param jointName 关节名称
@@ -84,8 +93,13 @@ signals:
 	/// @param angles 各关节角度（弧度）
 	void allJointAnglesChanged(const QVector<double>& angles);
 
-	/// 外部轴数值变更（地轨 mm / 预留变位机 rad）
+	/// 外部轴数值变更（平移 mm / 旋转 rad，UI 可显示 deg）
 	void externalAxisValuesChanged(const QVector<double>& values);
+
+	/// 显示/关闭可达域体素叠加
+	void reachableWorkspaceToggled(bool enabled);
+	/// 密度滑条变更（1～100）
+	void reachableWorkspaceDensityChanged(int percent);
 
 private slots:
 	void onSliderValueChanged(int value);
@@ -96,6 +110,8 @@ private slots:
 	void onExternalSliderValueChanged(int value);
 	void onExternalSpinBoxValueChanged(double value);
 	void onExternalResetButtonClicked();
+	void onReachableWorkspaceDensitySliderChanged(int value);
+	void emitReachableWorkspaceDensityDebounced();
 
 private:
 	struct JointControl
@@ -129,8 +145,13 @@ private:
 	QScrollArea* m_scrollArea = nullptr;
 	QWidget* m_contentWidget = nullptr;
 	QVBoxLayout* m_contentLayout = nullptr;
+	QCheckBox* m_reachableWorkspaceCheck = nullptr;
+	QLabel* m_reachableWorkspaceDensityLabel = nullptr;
+	QSlider* m_reachableWorkspaceDensitySlider = nullptr;
+	QTimer* m_reachableWorkspaceDensityDebounce = nullptr;
 	QPushButton* m_resetAllButton = nullptr;
 	bool m_useChinese = true;
+	bool m_reachableWorkspaceBusy = false;
 
 	/// 滑块精度：弧度×1000 映射整数
 	static constexpr double SLIDER_SCALE = 1000.0;
@@ -148,6 +169,11 @@ private:
 	double sliderValueToAngle(int value) const;
 	int mmToSliderValue(double mm) const;
 	double sliderValueToMm(int value) const;
+	int degToSliderValue(double deg) const;
+	double sliderValueToDeg(int value) const;
+	static bool isTranslateAxis(const RobotExternal::RobotExternalAxisConfig& cfg);
+	static double uiValueFromInternal(const RobotExternal::RobotExternalAxisConfig& cfg, double q);
+	static double internalFromUiValue(const RobotExternal::RobotExternalAxisConfig& cfg, double ui);
 };
 
 #endif // ROBOTWIDGET_ROBOTAXISCONTROLWIDGET_H

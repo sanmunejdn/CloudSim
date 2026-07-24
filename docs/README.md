@@ -17,6 +17,8 @@ Cursor 规则镜像：`.cursor/rules/cloudsim-cpp-conventions.mdc`、`cloudsim-a
 
 | 目录/文件 | 主题 |
 |-----------|------|
+| [`backend_visibility/`](backend_visibility/) | 后端对象显示/隐藏真源 |
+| [`后端对象显示树/`](后端对象显示树/) | Units 多文档显示树（C+B / DisplayForest；**D2 方案待审批后编码**） |
 | [`架构边界收口/`](架构边界收口/) | Host/契约边界收口（Sprint A/B/C 验收） |
 | [`外部轴联动求解/`](外部轴联动求解/) | 地轨配置 / P0·P_eff / 联立 IK / Run 外轴插帧 |
 | [`机器人指令执行/`](机器人指令执行/) | Run 懒规划、轨迹插帧、失败前缀播放 |
@@ -36,6 +38,9 @@ Cursor 规则镜像：`.cursor/rules/cloudsim-cpp-conventions.mdc`、`cloudsim-a
 | [`widget_bypass_audit.md`](widget_bypass_audit.md) | Widget 绕过 Host 审计 |
 | [`algorithm_optimization_summary.md`](algorithm_optimization_summary.md) | 算法优化摘要 |
 | [`template_brep_pointcloud_update.md`](template_brep_pointcloud_update.md) | 模板 B-rep / 点云更新 |
+| [`工业相机插件/`](工业相机插件/) | 海康一期工业相机 SDK + 手眼标定插件 |
+| [`工业相机插件二期/`](工业相机插件二期/) | 梅卡 Mech-Eye + OpenCV 板检测 + 官方手眼候选 |
+| [`碰撞检测/`](碰撞检测/) | 网格碰撞、Dock 开关、规划抽样 |
 
 历史任务文档中的接口描述若与现网代码冲突，**以 `src/**/DEVELOPER_GUIDE.md` 与常读文档为准**，不必回溯改写全部归档文。
 

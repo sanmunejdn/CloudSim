@@ -35,9 +35,12 @@ constexpr double kDegToRad = 3.14159265358979323846 / 180.0;
 
 /// 规划期间生效的外轴配置（Controller::plan 设置）
 const RobotExternal::RobotExternalAxisConfigSet* g_activeExternalAxes = nullptr;
+const RobotInstruction::Controller::WorkpieceIkFrameContext* g_activeWorkpieceIkFrame = nullptr;
 bool g_lastIkHasExternalAxisQ = false;
 double g_lastIkExternalAxisQ = 0.0;
 double g_lastIkSeedExternalAxisQ = 0.0;
+std::vector<double> g_lastIkExternalAxisQs;
+std::vector<double> g_lastIkSeedExternalAxisQs;
 
 double trapezoidDuration(double distance, double vmax, double amax);
 
@@ -49,35 +52,109 @@ struct ActiveExternalAxesGuard
 	ActiveExternalAxesGuard& operator=(const ActiveExternalAxesGuard&) = delete;
 };
 
+struct ActiveWorkpieceIkFrameGuard
+{
+	explicit ActiveWorkpieceIkFrameGuard(const RobotInstruction::Controller::WorkpieceIkFrameContext* ctx)
+	{
+		g_activeWorkpieceIkFrame = ctx;
+	}
+	~ActiveWorkpieceIkFrameGuard() { g_activeWorkpieceIkFrame = nullptr; }
+	ActiveWorkpieceIkFrameGuard(const ActiveWorkpieceIkFrameGuard&) = delete;
+	ActiveWorkpieceIkFrameGuard& operator=(const ActiveWorkpieceIkFrameGuard&) = delete;
+};
+
+double firstCompatExternalAxisQ(const std::vector<double>& qs, const RobotExternal::RobotExternalAxisConfigSet& set)
+{
+	const std::vector<int> idxs = RobotExternal::enabledExternalAxisIndices(set);
+	for (int idx : idxs)
+	{
+		if (idx >= 0 && idx < static_cast<int>(set.axes.size()) &&
+			set.axes[static_cast<size_t>(idx)].attachment == RobotExternal::RobotExternalAttachment::RobotBase &&
+			idx < static_cast<int>(qs.size()))
+		{
+			return qs[static_cast<size_t>(idx)];
+		}
+	}
+	for (int idx : idxs)
+	{
+		if (idx >= 0 && idx < static_cast<int>(qs.size()))
+		{
+			return qs[static_cast<size_t>(idx)];
+		}
+	}
+	return qs.empty() ? 0.0 : qs.front();
+}
+
 void clearLastIkExternalAxis()
 {
 	g_lastIkHasExternalAxisQ = false;
 	g_lastIkExternalAxisQ = 0.0;
 	g_lastIkSeedExternalAxisQ = 0.0;
+	g_lastIkExternalAxisQs.clear();
+	g_lastIkSeedExternalAxisQs.clear();
 }
 
-void noteLastIkExternalAxis(const double qExt)
+void noteLastIkExternalAxis(const std::vector<double>& qsFull)
 {
 	g_lastIkHasExternalAxisQ = true;
-	g_lastIkExternalAxisQ = qExt;
+	g_lastIkExternalAxisQs = qsFull;
+	if (g_activeExternalAxes)
+	{
+		g_lastIkExternalAxisQ = firstCompatExternalAxisQ(qsFull, *g_activeExternalAxes);
+	}
+	else
+	{
+		g_lastIkExternalAxisQ = qsFull.empty() ? 0.0 : qsFull.front();
+	}
 }
 
-void noteLastIkExternalAxisSeed(const double qSeed)
+void noteLastIkExternalAxisSeed(const std::vector<double>& qsFull)
 {
-	g_lastIkSeedExternalAxisQ = qSeed;
+	g_lastIkSeedExternalAxisQs = qsFull;
+	if (g_activeExternalAxes)
+	{
+		g_lastIkSeedExternalAxisQ = firstCompatExternalAxisQ(qsFull, *g_activeExternalAxes);
+	}
+	else
+	{
+		g_lastIkSeedExternalAxisQ = qsFull.empty() ? 0.0 : qsFull.front();
+	}
 }
 
 void applyLastIkExternalAxisToPlan(RobotInstruction::PlanResult& out)
 {
-	if (g_lastIkHasExternalAxisQ)
+	if (!g_lastIkHasExternalAxisQ)
 	{
-		out.hasExternalAxisQ = true;
-		out.externalAxisQ = g_lastIkExternalAxisQ;
-		// 臂几乎不动、地轨行程大时，仅靠关节 Δq 估时会接近 0，播放像瞬移
-		constexpr double kRailVMmPerSec = 250.0;
-		constexpr double kRailAMmPerSec2 = 600.0;
-		const double dQe = std::abs(out.externalAxisQ - g_lastIkSeedExternalAxisQ);
-		out.durationSec = std::max(out.durationSec, trapezoidDuration(dQe, kRailVMmPerSec, kRailAMmPerSec2));
+		return;
+	}
+	out.hasExternalAxisQ = true;
+	out.externalAxisQ = g_lastIkExternalAxisQ;
+	out.externalAxisQs = g_lastIkExternalAxisQs;
+	// 臂几乎不动、外轴行程大时，仅靠关节 Δq 估时会接近 0，播放像瞬移
+	constexpr double kTranslateVMmPerSec = 250.0;
+	constexpr double kTranslateAMmPerSec2 = 600.0;
+	constexpr double kRotateVRadPerSec = 1.0;
+	constexpr double kRotateARadPerSec2 = 2.0;
+	const size_t n = std::max(g_lastIkExternalAxisQs.size(), g_lastIkSeedExternalAxisQs.size());
+	for (size_t i = 0; i < n; ++i)
+	{
+		const double q = i < g_lastIkExternalAxisQs.size() ? g_lastIkExternalAxisQs[i] : 0.0;
+		const double qSeed = i < g_lastIkSeedExternalAxisQs.size() ? g_lastIkSeedExternalAxisQs[i] : 0.0;
+		const double dQ = std::abs(q - qSeed);
+		bool isTranslate = true;
+		if (g_activeExternalAxes && i < g_activeExternalAxes->axes.size())
+		{
+			isTranslate =
+				g_activeExternalAxes->axes[i].motionType == RobotExternal::RobotExternalMotionType::Translate;
+		}
+		if (isTranslate)
+		{
+			out.durationSec = std::max(out.durationSec, trapezoidDuration(dQ, kTranslateVMmPerSec, kTranslateAMmPerSec2));
+		}
+		else
+		{
+			out.durationSec = std::max(out.durationSec, trapezoidDuration(dQ, kRotateVRadPerSec, kRotateARadPerSec2));
+		}
 	}
 }
 
@@ -1047,133 +1124,381 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 	(void)flangeToolRt;
 
 	clearLastIkExternalAxis();
-	if (const RobotExternal::RobotExternalAxisConfig* rail =
-			g_activeExternalAxes ? RobotExternal::firstEnabledExternalAxis(*g_activeExternalAxes) : nullptr)
+	if (g_activeExternalAxes && RobotExternal::hasEnabledExternalAxes(*g_activeExternalAxes))
 	{
-		engine::RigidTransform T_base_target{};
-		if (RobotInstruction::readTargetTransformFromInstruction(cmd, T_base_target))
+		// 指令存的是 T_p0；REP 时再经工作架采样重建目标
+		engine::RigidTransform T_p0_stored{};
+		if (!RobotInstruction::readTargetTransformFromInstruction(cmd, T_p0_stored))
 		{
-			double qeSeed = std::clamp(rail->home, rail->lower, rail->upper);
+			if (failReason)
 			{
-				const auto& extProps = cmd.extensionProperties();
+				*failReason = "无法解析外轴联立目标位姿";
+			}
+			return {};
+		}
+
+		const RobotExternal::RobotExternalAxisConfigSet& axisSet = *g_activeExternalAxes;
+		const std::vector<int> enabledIdx = RobotExternal::enabledExternalAxisIndices(axisSet);
+		const std::vector<int> robotBaseIdx = RobotExternal::enabledExternalAxisIndicesForAttachment(
+			axisSet, RobotExternal::RobotExternalAttachment::RobotBase);
+		const std::vector<int> workpieceIdx = RobotExternal::enabledExternalAxisIndicesForAttachment(
+			axisSet, RobotExternal::RobotExternalAttachment::Workpiece);
+		const int configCount = static_cast<int>(axisSet.axes.size());
+
+		std::vector<double> qeSeedFull(static_cast<size_t>(configCount), 0.0);
+		for (size_t i = 0; i < axisSet.axes.size(); ++i)
+		{
+			qeSeedFull[i] = std::clamp(axisSet.axes[i].home, axisSet.axes[i].lower, axisSet.axes[i].upper);
+		}
+		{
+			const auto& extProps = cmd.extensionProperties();
+			const auto itCsv = extProps.find(RobotExternal::kExtContextExternalAxisQCsv);
+			if (itCsv != extProps.end() && !itCsv->second.empty())
+			{
+				const std::vector<double> parsed = RobotExternal::parseExternalAxisQCsv(itCsv->second);
+				for (size_t i = 0; i < qeSeedFull.size() && i < parsed.size(); ++i)
+				{
+					qeSeedFull[i] = std::clamp(parsed[i], axisSet.axes[i].lower, axisSet.axes[i].upper);
+				}
+			}
+			else
+			{
 				const auto itQ = extProps.find(RobotExternal::kExtContextExternalAxisQMm);
 				if (itQ != extProps.end() && !itQ->second.empty())
 				{
 					try
 					{
-						qeSeed = std::clamp(std::stod(itQ->second), rail->lower, rail->upper);
+						const double qScalar = std::stod(itQ->second);
+						for (int idx : enabledIdx)
+						{
+							if (idx >= 0 && idx < configCount &&
+								axisSet.axes[static_cast<size_t>(idx)].attachment ==
+									RobotExternal::RobotExternalAttachment::RobotBase)
+							{
+								qeSeedFull[static_cast<size_t>(idx)] = std::clamp(
+									qScalar, axisSet.axes[static_cast<size_t>(idx)].lower,
+									axisSet.axes[static_cast<size_t>(idx)].upper);
+								break;
+							}
+						}
 					}
 					catch (...)
 					{
 					}
 				}
 			}
-			noteLastIkExternalAxisSeed(qeSeed);
+		}
+		noteLastIkExternalAxisSeed(qeSeedFull);
 
-			RobotTeachIk::TeachIkContext ctx;
-			ctx.urdfPath = urdfPath;
-			ctx.ikLinkName = ikLink;
-			ctx.T_base_target = T_base_target;
-			ctx.seedJointRad = q;
-			ctx.useOrientation = useOrientation;
-			ctx.T_flange_tool = T_flange_tool;
-			ctx.externalAxis.enabled = true;
-			ctx.externalAxis.isPrismatic = rail->isPrismatic;
-			ctx.externalAxis.axis[0] = rail->axis[0];
-			ctx.externalAxis.axis[1] = rail->axis[1];
-			ctx.externalAxis.axis[2] = rail->axis[2];
-			ctx.externalAxis.lower = rail->lower;
-			ctx.externalAxis.upper = rail->upper;
-
-			double bestQe = qeSeed;
-			double bestRes = std::numeric_limits<double>::infinity();
-			std::vector<double> bestQ;
-			bool bestOk = false;
-
-			auto considerFixed = [&](const double qeTry, const int maxIters) {
-				ctx.externalAxis.qExternal = qeTry;
-				ctx.externalAxis.optimizeExternal = false;
-				ctx.maxIkIterations = maxIters;
-				ctx.seedJointRad = bestOk && !bestQ.empty() ? bestQ : q;
-				const RobotTeachIk::TeachIkResult r = RobotTeachIk::solveTeachIk(ctx);
-				if (!r.ok)
-				{
-					return;
-				}
-				if (r.residualTcpMm < bestRes)
-				{
-					bestRes = r.residualTcpMm;
-					bestQe = r.externalAxisQ;
-					bestQ = r.jointRad;
-					bestOk = true;
-				}
-			};
-
-			// 1) 优先：示教/home 种子 + 自适应联立（避免整行程密网格）
-			considerFixed(qeSeed, 48);
-			if (bestOk && bestRes < 1.5)
+		auto rigidFromColMajor16 = [](const double m[16]) -> engine::RigidTransform {
+			BackendMat4 bm{};
+			for (int i = 0; i < 16; ++i)
 			{
-				ctx.seedJointRad = bestQ;
-				ctx.externalAxis.qExternal = bestQe;
-				ctx.externalAxis.optimizeExternal = true;
-				ctx.externalAxis.adaptiveExternalDamping = true;
-				ctx.externalAxis.externalDeltaPriorWeight = 0.05;
-				ctx.maxIkIterations = 56;
-				const RobotTeachIk::TeachIkResult refined = RobotTeachIk::solveTeachIk(ctx);
-				if (refined.ok)
-				{
-					bestQe = refined.externalAxisQ;
-					bestQ = refined.jointRad;
-					bestRes = refined.residualTcpMm;
-				}
+				bm.v[i] = m[i];
 			}
+			return RobotCoordinate::rigidTransformFromBackendMat4(bm);
+		};
 
-			// 2) 残差仍大：稀疏扫描（最多 7 点）+ 早停
-			if (!bestOk || bestRes > 3.0)
+		auto buildDofFromIndices = [&](const std::vector<int>& idxs,
+									   const std::vector<double>& qeFull) -> RobotTeachIk::TeachIkExternalAxisDof {
+			RobotTeachIk::TeachIkExternalAxisDof dof;
+			dof.qExternal.reserve(idxs.size());
+			for (int idx : idxs)
 			{
-				const double span = std::max(0.0, rail->upper - rail->lower);
+				if (idx < 0 || idx >= configCount)
+				{
+					continue;
+				}
+				const RobotExternal::RobotExternalAxisConfig& cfg = axisSet.axes[static_cast<size_t>(idx)];
+				RobotTeachIk::TeachIkExternalAxisSlot slot;
+				slot.configIndex = idx;
+				slot.isPrismatic = cfg.motionType == RobotExternal::RobotExternalMotionType::Translate;
+				slot.axis[0] = cfg.axis[0];
+				slot.axis[1] = cfg.axis[1];
+				slot.axis[2] = cfg.axis[2];
+				slot.originMm[0] = cfg.originMm[0];
+				slot.originMm[1] = cfg.originMm[1];
+				slot.originMm[2] = cfg.originMm[2];
+				slot.lower = cfg.lower;
+				slot.upper = cfg.upper;
+				dof.axes.push_back(slot);
+				dof.qExternal.push_back(qeFull[static_cast<size_t>(idx)]);
+			}
+			return dof;
+		};
+
+		auto appendSparseGridSamples = [](const RobotTeachIk::TeachIkExternalAxisDof& dof,
+										  std::vector<std::vector<double>>& samples) {
+			const int dofN = static_cast<int>(dof.axes.size());
+			if (dofN <= 0)
+			{
+				return;
+			}
+			if (dofN == 1)
+			{
+				const auto& ax = dof.axes.front();
+				const double span = std::max(0.0, ax.upper - ax.lower);
 				const int gridN = span < 1e-9 ? 1 : std::clamp(static_cast<int>(span / 200.0) + 1, 3, 7);
 				for (int i = 0; i < gridN; ++i)
 				{
 					const double t = gridN <= 1 ? 0.0 : static_cast<double>(i) / static_cast<double>(gridN - 1);
-					considerFixed(rail->lower + t * (rail->upper - rail->lower), 36);
+					samples.push_back({ax.lower + t * (ax.upper - ax.lower)});
+				}
+				return;
+			}
+			std::vector<int> gridN(static_cast<size_t>(dofN), 1);
+			int total = 1;
+			for (int i = 0; i < dofN; ++i)
+			{
+				const double span =
+					std::max(0.0, dof.axes[static_cast<size_t>(i)].upper - dof.axes[static_cast<size_t>(i)].lower);
+				gridN[static_cast<size_t>(i)] =
+					span < 1e-9 ? 1 : std::clamp(static_cast<int>(span / 250.0) + 1, 2, dofN >= 3 ? 3 : 5);
+				total *= gridN[static_cast<size_t>(i)];
+			}
+			while (total > 64)
+			{
+				int maxIdx = 0;
+				for (int i = 1; i < dofN; ++i)
+				{
+					if (gridN[static_cast<size_t>(i)] > gridN[static_cast<size_t>(maxIdx)])
+					{
+						maxIdx = i;
+					}
+				}
+				if (gridN[static_cast<size_t>(maxIdx)] <= 2)
+				{
+					break;
+				}
+				total /= gridN[static_cast<size_t>(maxIdx)];
+				--gridN[static_cast<size_t>(maxIdx)];
+				total *= gridN[static_cast<size_t>(maxIdx)];
+			}
+			std::vector<int> idx(static_cast<size_t>(dofN), 0);
+			for (;;)
+			{
+				std::vector<double> sample(static_cast<size_t>(dofN), 0.0);
+				for (int i = 0; i < dofN; ++i)
+				{
+					const auto& ax = dof.axes[static_cast<size_t>(i)];
+					const int gn = gridN[static_cast<size_t>(i)];
+					const double t =
+						gn <= 1 ? 0.0
+								: static_cast<double>(idx[static_cast<size_t>(i)]) / static_cast<double>(gn - 1);
+					sample[static_cast<size_t>(i)] = ax.lower + t * (ax.upper - ax.lower);
+				}
+				samples.push_back(std::move(sample));
+				int carry = 0;
+				++idx[0];
+				while (carry < dofN && idx[static_cast<size_t>(carry)] >= gridN[static_cast<size_t>(carry)])
+				{
+					idx[static_cast<size_t>(carry)] = 0;
+					++carry;
+					if (carry < dofN)
+					{
+						++idx[static_cast<size_t>(carry)];
+					}
+				}
+				if (carry >= dofN)
+				{
+					break;
+				}
+			}
+		};
+
+		RobotTeachIk::TeachIkContext ctx;
+		ctx.urdfPath = urdfPath;
+		ctx.ikLinkName = ikLink;
+		ctx.seedJointRad = q;
+		ctx.useOrientation = useOrientation;
+		ctx.T_flange_tool = T_flange_tool;
+		ctx.externalAxisConfigCount = configCount;
+		ctx.externalAxis.enabled = false;
+
+		double bestRes = std::numeric_limits<double>::infinity();
+		std::vector<double> bestQ;
+		std::vector<double> bestQsFull = qeSeedFull;
+		bool bestOk = false;
+
+		auto considerDof = [&](RobotTeachIk::TeachIkExternalAxisDof tryDof, const bool optimize, const int maxIters,
+							   const std::vector<double>& qeTryFull) {
+			tryDof.optimizeExternal = optimize;
+			tryDof.adaptiveExternalDamping = true;
+			ctx.externalAxes = tryDof;
+			ctx.maxIkIterations = maxIters;
+			ctx.seedJointRad = bestOk && !bestQ.empty() ? bestQ : q;
+			const RobotTeachIk::TeachIkResult r = RobotTeachIk::solveTeachIk(ctx);
+			if (!r.ok)
+			{
+				return;
+			}
+			if (r.residualTcpMm < bestRes)
+			{
+				bestRes = r.residualTcpMm;
+				bestQ = r.jointRad;
+				bestOk = true;
+				// TeachIk 只填 RobotBase 槽；工件 q 保留外层采样
+				bestQsFull = qeTryFull;
+				if (static_cast<int>(r.externalAxisQs.size()) == configCount)
+				{
+					for (int idx : robotBaseIdx)
+					{
+						if (idx >= 0 && idx < configCount)
+						{
+							bestQsFull[static_cast<size_t>(idx)] = r.externalAxisQs[static_cast<size_t>(idx)];
+						}
+					}
+				}
+				else
+				{
+					for (size_t i = 0; i < tryDof.axes.size() && i < r.externalAxisQs.size(); ++i)
+					{
+						const int cidx = tryDof.axes[i].configIndex;
+						if (cidx >= 0 && cidx < configCount)
+						{
+							bestQsFull[static_cast<size_t>(cidx)] = r.externalAxisQs[i];
+						}
+					}
+					if (r.externalAxisQs.empty() && !tryDof.qExternal.empty())
+					{
+						for (size_t i = 0; i < tryDof.axes.size(); ++i)
+						{
+							const int cidx = tryDof.axes[i].configIndex;
+							if (cidx >= 0 && cidx < configCount)
+							{
+								bestQsFull[static_cast<size_t>(cidx)] = tryDof.qExternal[i];
+							}
+						}
+					}
+				}
+			}
+		};
+
+		auto runRobotBaseSearch = [&](const engine::RigidTransform& T_p0_goal, const std::vector<double>& qeTryFull) {
+			ctx.T_base_target = T_p0_goal;
+			RobotTeachIk::TeachIkExternalAxisDof dof = buildDofFromIndices(robotBaseIdx, qeTryFull);
+			const int dofN = static_cast<int>(dof.axes.size());
+			const double resAtEntry = bestRes;
+
+			considerDof(dof, false, 48, qeTryFull);
+			if (bestOk && bestRes < 1.5 && dofN <= 2)
+			{
+				RobotTeachIk::TeachIkExternalAxisDof refine = dof;
+				for (size_t i = 0; i < refine.axes.size(); ++i)
+				{
+					const int cidx = refine.axes[i].configIndex;
+					if (cidx >= 0 && cidx < configCount)
+					{
+						refine.qExternal[i] = bestQsFull[static_cast<size_t>(cidx)];
+					}
+				}
+				refine.externalDeltaPriorWeight = 0.05;
+				considerDof(refine, true, 56, qeTryFull);
+			}
+
+			// 其它工件样本的优解不能跳过本轮 RobotBase 网格
+			if (!bestOk || bestRes > 3.0 || !(bestRes < resAtEntry))
+			{
+				std::vector<std::vector<double>> samples;
+				samples.push_back(dof.qExternal);
+				appendSparseGridSamples(dof, samples);
+				for (size_t si = 1; si < samples.size(); ++si)
+				{
+					RobotTeachIk::TeachIkExternalAxisDof tryDof = dof;
+					tryDof.qExternal = samples[si];
+					considerDof(tryDof, false, 36, qeTryFull);
 					if (bestOk && bestRes < 1.0)
 					{
 						break;
 					}
 				}
-				if (bestOk)
+				if (bestOk && dofN <= 2)
 				{
-					ctx.seedJointRad = bestQ;
-					ctx.externalAxis.qExternal = bestQe;
-					ctx.externalAxis.optimizeExternal = true;
-					ctx.externalAxis.adaptiveExternalDamping = true;
-					ctx.externalAxis.externalDeltaPriorWeight = 0.03;
-					ctx.maxIkIterations = 64;
-					const RobotTeachIk::TeachIkResult refined = RobotTeachIk::solveTeachIk(ctx);
-					if (refined.ok)
+					RobotTeachIk::TeachIkExternalAxisDof refine = dof;
+					for (size_t i = 0; i < refine.axes.size(); ++i)
 					{
-						bestQe = refined.externalAxisQ;
-						bestQ = refined.jointRad;
-						bestRes = refined.residualTcpMm;
+						const int cidx = refine.axes[i].configIndex;
+						if (cidx >= 0 && cidx < configCount)
+						{
+							refine.qExternal[i] = bestQsFull[static_cast<size_t>(cidx)];
+						}
 					}
+					refine.externalDeltaPriorWeight = 0.03;
+					considerDof(refine, true, 64, qeTryFull);
 				}
 			}
+		};
 
-			if (bestOk && !bestQ.empty())
+		const bool useWorkpieceRep = RobotExternal::hasEnabledWorkpieceExternalAxes(axisSet) &&
+									 g_activeWorkpieceIkFrame && g_activeWorkpieceIkFrame->valid;
+
+		if (useWorkpieceRep)
+		{
+			engine::RigidTransform T_work{};
+			if (!RobotInstruction::readWorkingTcpFromInstruction(cmd, T_work))
 			{
-				noteLastIkExternalAxis(bestQe);
-				return bestQ;
+				double tp0WorkSeed[16];
+				if (!RobotExternal::composeWorkpieceWorkingFrameInRobotP0(
+						g_activeWorkpieceIkFrame->p0World.data(), g_activeWorkpieceIkFrame->w0World.data(), axisSet,
+						g_activeWorkpieceIkFrame->boundBackendId, qeSeedFull,
+						g_activeWorkpieceIkFrame->offsetW0Local.data(), tp0WorkSeed))
+				{
+					if (failReason)
+					{
+						*failReason = "无法合成工件工作架（检查 P0/W0/绑定）";
+					}
+					return {};
+				}
+				const engine::RigidTransform T_p0_work_seed = rigidFromColMajor16(tp0WorkSeed);
+				T_work = T_p0_work_seed.inverse().composeColumn(T_p0_stored);
 			}
-			if (failReason)
+
+			RobotTeachIk::TeachIkExternalAxisDof wpDof = buildDofFromIndices(workpieceIdx, qeSeedFull);
+			std::vector<std::vector<double>> wpSamples;
+			wpSamples.push_back(wpDof.qExternal);
+			appendSparseGridSamples(wpDof, wpSamples);
+
+			for (const std::vector<double>& qw : wpSamples)
 			{
-				*failReason = "外轴联立未找到可行解（请检查行程/方向）";
+				std::vector<double> qeTryFull = qeSeedFull;
+				for (size_t i = 0; i < workpieceIdx.size() && i < qw.size(); ++i)
+				{
+					const int cidx = workpieceIdx[i];
+					if (cidx >= 0 && cidx < configCount)
+					{
+						qeTryFull[static_cast<size_t>(cidx)] = qw[i];
+					}
+				}
+
+				double tp0Work[16];
+				if (!RobotExternal::composeWorkpieceWorkingFrameInRobotP0(
+						g_activeWorkpieceIkFrame->p0World.data(), g_activeWorkpieceIkFrame->w0World.data(), axisSet,
+						g_activeWorkpieceIkFrame->boundBackendId, qeTryFull,
+						g_activeWorkpieceIkFrame->offsetW0Local.data(), tp0Work))
+				{
+					continue;
+				}
+				const engine::RigidTransform T_p0_goal = rigidFromColMajor16(tp0Work).composeColumn(T_work);
+				runRobotBaseSearch(T_p0_goal, qeTryFull);
+				if (bestOk && bestRes < 1.0)
+				{
+					break;
+				}
 			}
-			return {};
+		}
+		else
+		{
+			runRobotBaseSearch(T_p0_stored, qeSeedFull);
+		}
+
+		if (bestOk && !bestQ.empty())
+		{
+			noteLastIkExternalAxis(bestQsFull);
+			return bestQ;
 		}
 		if (failReason)
 		{
-			*failReason = "无法解析外轴联立目标位姿";
+			*failReason = "外轴联立未找到可行解（请检查行程/方向）";
 		}
 		return {};
 	}
@@ -2270,6 +2595,16 @@ bool Controller::hasEnabledExternalAxes() const
 	return RobotExternal::hasEnabledExternalAxes(m_externalAxes);
 }
 
+void Controller::setWorkpieceIkFrameContext(const WorkpieceIkFrameContext& ctx)
+{
+	m_workpieceIkFrame = ctx;
+}
+
+void Controller::clearWorkpieceIkFrameContext()
+{
+	m_workpieceIkFrame = {};
+}
+
 void Controller::registerPlanner(const std::shared_ptr<PlannerBase>& planner)
 {
 	if (planner)
@@ -2330,6 +2665,7 @@ bool Controller::plan(const Base& cmd, PlanResult& out, std::string* errMsg) con
 		return false;
 	}
 	const ActiveExternalAxesGuard extGuard(hasEnabledExternalAxes() ? &m_externalAxes : nullptr);
+	const ActiveWorkpieceIkFrameGuard wpGuard(m_workpieceIkFrame.valid ? &m_workpieceIkFrame : nullptr);
 	clearLastIkExternalAxis();
 	return planner->plan(cmd, out, errMsg);
 }

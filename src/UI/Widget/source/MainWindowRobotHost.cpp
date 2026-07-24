@@ -20,9 +20,13 @@
 #include "RobotInstructionPropertyDto.h"
 #include "RobotMatrixOsgBridge.h"
 #include "RobotPlanInstruction.h"
+#include "RobotCoordinateFrames.h"
 #include "RobotExternalAxes.h"
 #include "RobotTeachIk.h"
 #include "RunInfoPage.h"
+
+#include <cmath>
+#include <limits>
 #include "UrdfRobotLoader.h"
 #include "WidgetOsgViewHost.h"
 #include "WidgetSceneSignalWiring.h"
@@ -149,6 +153,11 @@ public:
 	{
 		return m_page->robotExternalAxesForInstance(instanceIndex);
 	}
+	RobotCollision::Settings& robotCollisionSettings() override { return m_page->robotCollisionSettings(); }
+	const RobotCollision::Settings& robotCollisionSettings() const override
+	{
+		return m_page->robotCollisionSettings();
+	}
 	const RobotCoordinate::RobotUserFrame* robotActiveUserFrameForInstance(int instanceIndex) const override
 	{
 		return m_page->robotActiveUserFrameForInstance(instanceIndex);
@@ -158,6 +167,10 @@ public:
 	{
 		m_page->setRobotBasePlacementWorldForInstance(instanceIndex, placementWorld);
 	}
+	cloudsim::core::Mat4 robotBasePlacementWorldForInstance(int instanceIndex) const override
+	{
+		return m_page->robotBasePlacementWorldForInstance(instanceIndex);
+	}
 	void setRobotExternalAxisQMm(int instanceIndex, double qMm) override
 	{
 		m_page->setRobotExternalAxisQMm(instanceIndex, qMm);
@@ -165,6 +178,38 @@ public:
 	double robotExternalAxisQMm(int instanceIndex) const override
 	{
 		return m_page->robotExternalAxisQMm(instanceIndex);
+	}
+	void setRobotExternalAxisQ(int instanceIndex, const std::vector<double>& qValues) override
+	{
+		m_page->setRobotExternalAxisQ(instanceIndex, qValues);
+	}
+	std::vector<double> robotExternalAxisQ(int instanceIndex) const override
+	{
+		return m_page->robotExternalAxisQ(instanceIndex);
+	}
+	cloudsim::core::Mat4 workpieceExternalBasePlacement(int instanceIndex, const QString& backendId) const override
+	{
+		return m_page->workpieceExternalBasePlacement(instanceIndex, backendId);
+	}
+	void setWorkpieceExternalBasePlacement(int instanceIndex, const QString& backendId,
+										   const cloudsim::core::Mat4& w0) override
+	{
+		m_page->setWorkpieceExternalBasePlacement(instanceIndex, backendId, w0);
+	}
+	void ensureWorkpieceExternalBasePlacement(int instanceIndex, const QString& backendId,
+											  const cloudsim::core::Mat4& currentWorld) override
+	{
+		m_page->ensureWorkpieceExternalBasePlacement(instanceIndex, backendId, currentWorld);
+	}
+	cloudsim::core::Mat4 workpieceWorkingFrameOffset(int instanceIndex, const QString& boundBackendId) const override
+	{
+		return m_page->workpieceWorkingFrameOffset(instanceIndex, boundBackendId);
+	}
+	void ensureWorkpieceWorkingFrameOffset(int instanceIndex, const QString& boundBackendId,
+										   const QString& workingFrameId,
+										   const cloudsim::core::Mat4& workingWorld) override
+	{
+		m_page->ensureWorkpieceWorkingFrameOffset(instanceIndex, boundBackendId, workingFrameId, workingWorld);
 	}
 	void updateRobotLinkOuterBindFromWorld(int instanceIndex, const QString& linkBackendId,
 										   const cloudsim::core::Mat4& world) override
@@ -355,7 +400,7 @@ public:
 
 	TcpDragIkResult solveTcpDragTeachIk(int instanceIndex, double pxMm, double pyMm, double pzMm, double exDeg,
 										double eyDeg, double ezDeg, const QVector<double>& seedJointRad,
-										const QString& ikLinkName, double externalAxisQSeedMm = 0.0,
+										const QString& ikLinkName, const std::vector<double>& externalAxisQSeed = {},
 										bool hasExternalAxisQSeed = false) override
 	{
 		TcpDragIkResult result;
@@ -389,44 +434,346 @@ public:
 		ctx.useOrientation = true;
 		ctx.T_flange_tool = toolMat;
 		ctx.maxIkIterations = 22;
-		RobotTeachIk::TeachIkResult ik;
-		if (const RobotExternal::RobotExternalAxisConfig* rail =
-				RobotExternal::firstEnabledExternalAxis(m_page->robotExternalAxesForInstance(instanceIndex)))
+
+		const RobotExternal::RobotExternalAxisConfigSet& extSet =
+			m_page->robotExternalAxesForInstance(instanceIndex);
+		const std::vector<double> qDoc = m_page->robotExternalAxisQ(instanceIndex);
+		const int configCount = static_cast<int>(extSet.axes.size());
+		ctx.externalAxisConfigCount = configCount;
+
+		std::vector<double> qeFull(static_cast<size_t>(std::max(0, configCount)), 0.0);
+		for (size_t i = 0; i < extSet.axes.size(); ++i)
 		{
-			ctx.externalAxis.enabled = true;
-			ctx.externalAxis.isPrismatic = rail->isPrismatic;
-			ctx.externalAxis.axis[0] = rail->axis[0];
-			ctx.externalAxis.axis[1] = rail->axis[1];
-			ctx.externalAxis.axis[2] = rail->axis[2];
-			ctx.externalAxis.lower = rail->lower;
-			ctx.externalAxis.upper = rail->upper;
-			ctx.externalAxis.qExternal = m_page->robotExternalAxisQMm(instanceIndex);
-			ctx.externalAxis.optimizeExternal = true;
-			ctx.externalAxis.adaptiveExternalDamping = true;
-			const double hint =
-				hasExternalAxisQSeed ? std::clamp(externalAxisQSeedMm, rail->lower, rail->upper) : ctx.externalAxis.qExternal;
-			ik = RobotTeachIk::solveTeachIkCoordinatedDrag(ctx, hint, hasExternalAxisQSeed);
+			double q = (i < qDoc.size()) ? qDoc[i] : extSet.axes[i].home;
+			if (hasExternalAxisQSeed && i < externalAxisQSeed.size())
+			{
+				q = externalAxisQSeed[i];
+			}
+			qeFull[i] = std::clamp(q, extSet.axes[i].lower, extSet.axes[i].upper);
 		}
-		else
+
+		auto buildDof = [&](RobotExternal::RobotExternalAttachment att,
+							const std::vector<double>& qe) -> RobotTeachIk::TeachIkExternalAxisDof {
+			RobotTeachIk::TeachIkExternalAxisDof dof;
+			dof.optimizeExternal = true;
+			dof.adaptiveExternalDamping = true;
+			for (size_t i = 0; i < extSet.axes.size(); ++i)
+			{
+				const RobotExternal::RobotExternalAxisConfig& a = extSet.axes[i];
+				if (!a.enabled || a.attachment != att)
+				{
+					continue;
+				}
+				RobotTeachIk::TeachIkExternalAxisSlot slot;
+				slot.configIndex = static_cast<int>(i);
+				slot.isPrismatic = a.motionType == RobotExternal::RobotExternalMotionType::Translate;
+				slot.axis[0] = a.axis[0];
+				slot.axis[1] = a.axis[1];
+				slot.axis[2] = a.axis[2];
+				slot.originMm[0] = a.originMm[0];
+				slot.originMm[1] = a.originMm[1];
+				slot.originMm[2] = a.originMm[2];
+				slot.lower = a.lower;
+				slot.upper = a.upper;
+				dof.axes.push_back(slot);
+				dof.qExternal.push_back(qe[i]);
+			}
+			return dof;
+		};
+
+		auto appendSparseSamples = [](const RobotTeachIk::TeachIkExternalAxisDof& dof,
+									  std::vector<std::vector<double>>& samples) {
+			const int dofN = static_cast<int>(dof.axes.size());
+			if (dofN <= 0)
+			{
+				return;
+			}
+			if (dofN == 1)
+			{
+				const auto& ax = dof.axes.front();
+				const double span = std::max(0.0, ax.upper - ax.lower);
+				const int gridN = span < 1e-9 ? 1 : std::clamp(static_cast<int>(span / 200.0) + 1, 3, 5);
+				for (int i = 0; i < gridN; ++i)
+				{
+					const double t = gridN <= 1 ? 0.0 : static_cast<double>(i) / static_cast<double>(gridN - 1);
+					samples.push_back({ax.lower + t * (ax.upper - ax.lower)});
+				}
+				return;
+			}
+			std::vector<int> gridN(static_cast<size_t>(dofN), 1);
+			int total = 1;
+			for (int i = 0; i < dofN; ++i)
+			{
+				const double span =
+					std::max(0.0, dof.axes[static_cast<size_t>(i)].upper - dof.axes[static_cast<size_t>(i)].lower);
+				gridN[static_cast<size_t>(i)] =
+					span < 1e-9 ? 1 : std::clamp(static_cast<int>(span / 250.0) + 1, 2, dofN >= 3 ? 2 : 3);
+				total *= gridN[static_cast<size_t>(i)];
+			}
+			while (total > 32)
+			{
+				int maxIdx = 0;
+				for (int i = 1; i < dofN; ++i)
+				{
+					if (gridN[static_cast<size_t>(i)] > gridN[static_cast<size_t>(maxIdx)])
+					{
+						maxIdx = i;
+					}
+				}
+				if (gridN[static_cast<size_t>(maxIdx)] <= 2)
+				{
+					break;
+				}
+				total /= gridN[static_cast<size_t>(maxIdx)];
+				--gridN[static_cast<size_t>(maxIdx)];
+				total *= gridN[static_cast<size_t>(maxIdx)];
+			}
+			std::vector<int> idx(static_cast<size_t>(dofN), 0);
+			for (;;)
+			{
+				std::vector<double> sample(static_cast<size_t>(dofN), 0.0);
+				for (int i = 0; i < dofN; ++i)
+				{
+					const auto& ax = dof.axes[static_cast<size_t>(i)];
+					const int gn = gridN[static_cast<size_t>(i)];
+					const double t =
+						gn <= 1 ? 0.0
+								: static_cast<double>(idx[static_cast<size_t>(i)]) / static_cast<double>(gn - 1);
+					sample[static_cast<size_t>(i)] = ax.lower + t * (ax.upper - ax.lower);
+				}
+				samples.push_back(std::move(sample));
+				int carry = 0;
+				++idx[0];
+				while (carry < dofN && idx[static_cast<size_t>(carry)] >= gridN[static_cast<size_t>(carry)])
+				{
+					idx[static_cast<size_t>(carry)] = 0;
+					++carry;
+					if (carry < dofN)
+					{
+						++idx[static_cast<size_t>(carry)];
+					}
+				}
+				if (carry >= dofN)
+				{
+					break;
+				}
+			}
+		};
+
+		auto rigidFromCol16 = [](const double m[16]) -> engine::RigidTransform {
+			BackendMat4 bm{};
+			for (int i = 0; i < 16; ++i)
+			{
+				bm.v[i] = m[i];
+			}
+			return RobotCoordinate::rigidTransformFromBackendMat4(bm);
+		};
+
+		auto costOf = [&](const RobotTeachIk::TeachIkResult& r, const std::vector<double>& qeTry) {
+			double c = r.residualTcpMm;
+			const size_t nArm = std::min(r.jointRad.size(), ctx.seedJointRad.size());
+			for (size_t i = 0; i < nArm; ++i)
+			{
+				c += 8.0 * std::abs(r.jointRad[i] - ctx.seedJointRad[i]);
+			}
+			for (size_t i = 0; i < qeTry.size() && i < qeFull.size(); ++i)
+			{
+				c += 0.02 * std::abs(qeTry[i] - qeFull[i]);
+			}
+			return c;
+		};
+
+		auto fillResult = [&](const RobotTeachIk::TeachIkResult& ik, const RobotTeachIk::TeachIkExternalAxisDof& baseDof,
+							  const std::vector<double>& qeBest) {
+			result.ok = true;
+			result.jointRad.reserve(static_cast<int>(ik.jointRad.size()));
+			for (double v : ik.jointRad)
+			{
+				result.jointRad.push_back(v);
+			}
+			if (!qeBest.empty() || baseDof.active() || !ik.externalAxisQs.empty())
+			{
+				result.hasExternalAxisQ = true;
+				result.externalAxisQs = qeBest;
+				if (result.externalAxisQs.empty())
+				{
+					result.externalAxisQs.assign(static_cast<size_t>(configCount), 0.0);
+				}
+				if (static_cast<int>(ik.externalAxisQs.size()) == configCount)
+				{
+					result.externalAxisQs = ik.externalAxisQs;
+				}
+				else
+				{
+					for (size_t i = 0; i < baseDof.axes.size() && i < ik.externalAxisQs.size(); ++i)
+					{
+						const int cidx = baseDof.axes[i].configIndex;
+						if (cidx >= 0 && cidx < configCount)
+						{
+							result.externalAxisQs[static_cast<size_t>(cidx)] = ik.externalAxisQs[i];
+						}
+					}
+					if (ik.externalAxisQs.empty())
+					{
+						for (size_t i = 0; i < baseDof.axes.size() && i < baseDof.qExternal.size(); ++i)
+						{
+							const int cidx = baseDof.axes[i].configIndex;
+							if (cidx >= 0 && cidx < configCount)
+							{
+								result.externalAxisQs[static_cast<size_t>(cidx)] = baseDof.qExternal[i];
+							}
+						}
+					}
+				}
+				result.externalAxisQ = result.externalAxisQs.empty() ? ik.externalAxisQ : result.externalAxisQs.front();
+				for (size_t i = 0; i < extSet.axes.size() && i < result.externalAxisQs.size(); ++i)
+				{
+					if (extSet.axes[i].enabled &&
+						extSet.axes[i].attachment == RobotExternal::RobotExternalAttachment::RobotBase)
+					{
+						result.externalAxisQ = result.externalAxisQs[i];
+						break;
+					}
+				}
+			}
+		};
+
+		RobotTeachIk::TeachIkExternalAxisDof baseDof = buildDof(RobotExternal::RobotExternalAttachment::RobotBase, qeFull);
+		const bool useWorkpieceRep = RobotExternal::hasEnabledWorkpieceExternalAxes(extSet);
+		RobotTeachIk::TeachIkResult bestIk;
+		bestIk.ok = false;
+		double bestCost = std::numeric_limits<double>::infinity();
+		std::vector<double> bestQe = qeFull;
+		RobotTeachIk::TeachIkExternalAxisDof bestBaseDof = baseDof;
+
+		if (useWorkpieceRep)
 		{
-			ik = RobotTeachIk::solveTeachIk(ctx);
+			const std::string boundId = RobotExternal::primaryWorkpieceBackendId(extSet);
+			const QString boundQ = QString::fromStdString(boundId);
+			const QString workFrameQ = QString::fromStdString(RobotExternal::resolveWorkingFrameId(extSet));
+			if (IRobotBackendPoseSink* sink = m_page->sceneFacade().poseSink())
+			{
+				cloudsim::core::Mat4 curBound = cloudsim::core::PlanContextDto::identityMat4();
+				if (!boundId.empty() && sink->getBackendRootWorldMatrix(boundId, curBound))
+				{
+					cloudsim::core::Mat4 w0Cand = curBound;
+					RobotExternal::unbakeWorkpiecePlacementExternalAxis(curBound.data(), extSet, boundId, qeFull,
+																		w0Cand.data());
+					m_page->ensureWorkpieceExternalBasePlacement(instanceIndex, boundQ, w0Cand);
+				}
+				if (!workFrameQ.isEmpty() && workFrameQ != boundQ)
+				{
+					cloudsim::core::Mat4 workWorld = cloudsim::core::PlanContextDto::identityMat4();
+					if (sink->getBackendRootWorldMatrix(workFrameQ.toStdString(), workWorld))
+					{
+						m_page->ensureWorkpieceWorkingFrameOffset(instanceIndex, boundQ, workFrameQ, workWorld);
+					}
+				}
+				else
+				{
+					m_page->ensureWorkpieceWorkingFrameOffset(instanceIndex, boundQ, boundQ,
+															  cloudsim::core::PlanContextDto::identityMat4());
+				}
+			}
+
+			const cloudsim::core::Mat4 p0 = m_page->robotBasePlacementWorldForInstance(instanceIndex);
+			const cloudsim::core::Mat4 w0 = m_page->workpieceExternalBasePlacement(instanceIndex, boundQ);
+			const cloudsim::core::Mat4 offset = m_page->workpieceWorkingFrameOffset(instanceIndex, boundQ);
+
+			double tp0WorkCur[16];
+			if (!boundId.empty() &&
+				RobotExternal::composeWorkpieceWorkingFrameInRobotP0(p0.data(), w0.data(), extSet, boundId, qeFull,
+																	 offset.data(), tp0WorkCur))
+			{
+				const engine::RigidTransform T_p0_work_cur = rigidFromCol16(tp0WorkCur);
+				const engine::RigidTransform T_work = T_p0_work_cur.inverse().composeColumn(ctx.T_base_target);
+
+				RobotTeachIk::TeachIkExternalAxisDof wpDof =
+					buildDof(RobotExternal::RobotExternalAttachment::Workpiece, qeFull);
+				std::vector<std::vector<double>> wpSamples;
+				wpSamples.push_back(wpDof.qExternal);
+				appendSparseSamples(wpDof, wpSamples);
+
+				const std::vector<int> wpIdx = RobotExternal::enabledExternalAxisIndicesForAttachment(
+					extSet, RobotExternal::RobotExternalAttachment::Workpiece);
+
+				for (const std::vector<double>& qw : wpSamples)
+				{
+					std::vector<double> qeTry = qeFull;
+					for (size_t i = 0; i < wpIdx.size() && i < qw.size(); ++i)
+					{
+						const int cidx = wpIdx[i];
+						if (cidx >= 0 && cidx < configCount)
+						{
+							qeTry[static_cast<size_t>(cidx)] = qw[i];
+						}
+					}
+					double tp0Work[16];
+					if (!RobotExternal::composeWorkpieceWorkingFrameInRobotP0(p0.data(), w0.data(), extSet, boundId,
+																			 qeTry, offset.data(), tp0Work))
+					{
+						continue;
+					}
+					ctx.T_base_target = rigidFromCol16(tp0Work).composeColumn(T_work);
+					RobotTeachIk::TeachIkExternalAxisDof tryBase = buildDof(
+						RobotExternal::RobotExternalAttachment::RobotBase, qeTry);
+					RobotTeachIk::TeachIkResult ik;
+					if (tryBase.active())
+					{
+						ctx.externalAxes = tryBase;
+						const double hint = tryBase.qExternal.empty() ? 0.0 : tryBase.qExternal.front();
+						ik = RobotTeachIk::solveTeachIkCoordinatedDrag(ctx, hint, true);
+					}
+					else
+					{
+						ctx.externalAxes = {};
+						ik = RobotTeachIk::solveTeachIk(ctx);
+					}
+					if (!ik.ok)
+					{
+						continue;
+					}
+					const double c = costOf(ik, qeTry);
+					if (c < bestCost)
+					{
+						bestCost = c;
+						bestIk = ik;
+						bestQe = qeTry;
+						bestBaseDof = tryBase;
+					}
+					if (bestIk.ok && bestIk.residualTcpMm < 1.0 && c < 8.0)
+					{
+						break;
+					}
+				}
+			}
 		}
-		if (!ik.ok)
+
+		if (!bestIk.ok)
+		{
+			ctx.T_base_target =
+				engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
+			if (baseDof.active())
+			{
+				ctx.externalAxes = baseDof;
+				const double hint = baseDof.qExternal.empty() ? 0.0 : baseDof.qExternal.front();
+				bestIk = RobotTeachIk::solveTeachIkCoordinatedDrag(ctx, hint, hasExternalAxisQSeed);
+			}
+			else
+			{
+				ctx.externalAxes = {};
+				bestIk = RobotTeachIk::solveTeachIk(ctx);
+			}
+			bestQe = qeFull;
+			bestBaseDof = baseDof;
+		}
+
+		if (!bestIk.ok)
 		{
 			result.error = QStringLiteral("IK solve failed");
 			return result;
 		}
-		result.ok = true;
-		result.jointRad.reserve(static_cast<int>(ik.jointRad.size()));
-		for (double v : ik.jointRad)
-		{
-			result.jointRad.push_back(v);
-		}
-		if (ctx.externalAxis.enabled)
-		{
-			result.hasExternalAxisQ = true;
-			result.externalAxisQ = ik.externalAxisQ;
-		}
+		fillResult(bestIk, bestBaseDof, bestQe);
 		return result;
 	}
 

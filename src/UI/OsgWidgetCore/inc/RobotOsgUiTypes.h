@@ -58,6 +58,13 @@ struct FeatureCatalogOverlayItem
 	cloudsim::core::Vec3 edgeBWorldMm{};
 };
 
+/// 可达域体素中心（世界 mm）+ 边长
+struct ReachableWorkspaceOverlay
+{
+	std::vector<cloudsim::core::Vec3> voxelCentersMm;
+	double cellSizeMm = 60.0;
+};
+
 struct RobotFrameOverlayUpdate
 {
 	std::string robotRootBackendId;

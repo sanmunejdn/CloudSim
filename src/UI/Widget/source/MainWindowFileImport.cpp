@@ -74,7 +74,7 @@ int promptMeshImportQuality(MainWindow& mw, const QString& filePath)
 
 void MainWindow::focusBackendInTreeLocal(const QString& backendId)
 {
-	if (backendId.isEmpty() || !m_backendTree || !m_backendRootItem)
+	if (backendId.isEmpty() || !m_backendTree || !m_unitsTreeBinder)
 	{
 		return;
 	}

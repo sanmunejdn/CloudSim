@@ -42,6 +42,7 @@
 #include <QMetaObject>
 #include <QTabWidget>
 #include <QThread>
+#include <QUuid>
 
 namespace
 {
@@ -458,8 +459,10 @@ bool PluginHostContext::createPrimitiveMesh(const PluginPrimitiveMeshParams& par
 	}
 
 	const QString displayName = options.displayName.isEmpty() ? QStringLiteral("PluginPrimitive") : options.displayName;
-	const QString sourcePath =
-		options.sourcePath.isEmpty() ? QStringLiteral("ai://primitive") : options.sourcePath;
+	// 每实例唯一路径，避免轨迹页按 sourcePath 去重吞掉多个 AI 基本体
+	const QString sourcePath = options.sourcePath.isEmpty()
+								   ? QStringLiteral("ai://primitive/%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces))
+								   : options.sourcePath;
 
 	auto brep = std::make_shared<BrepBackendData>();
 	brep->setName(displayName.toStdString());

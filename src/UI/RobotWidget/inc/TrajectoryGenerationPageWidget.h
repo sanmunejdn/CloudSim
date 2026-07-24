@@ -9,6 +9,8 @@
 #include <QWidget>
 #include <functional>
 
+class QShowEvent;
+
 class QComboBox;
 
 class QHBoxLayout;
@@ -66,6 +68,12 @@ public:
 	MeshTrajectoryPageWidget* meshPage() const { return m_meshPage; }
 
 	void resetAfterTrajectoryCommit();
+
+	/// 刷新 CAD/BREP 与 Mesh 工件列表
+	void refreshWorkpieces();
+
+protected:
+	void showEvent(QShowEvent* event) override;
 
 private slots:
 

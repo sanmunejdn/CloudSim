@@ -372,6 +372,22 @@ void WidgetOsgViewHost::clearFeatureCatalogOverlay()
 	}
 }
 
+void WidgetOsgViewHost::setReachableWorkspaceOverlay(const RobotOsgUi::ReachableWorkspaceOverlay& overlay)
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->setReachableWorkspaceOverlay(overlay);
+	}
+}
+
+void WidgetOsgViewHost::clearReachableWorkspaceOverlay()
+{
+	if (OsgWidget* osg = osgWidget())
+	{
+		osg->clearReachableWorkspaceOverlay();
+	}
+}
+
 bool WidgetOsgViewHost::isTcpDragTeachActive() const
 {
 	cloudsim::core::IRenderView* rv = renderView();

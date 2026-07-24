@@ -3,9 +3,16 @@
 
 #include "RobotAxisControlWidget.h"
 
+#include <QCheckBox>
 #include <QDebug>
 #include <QDoubleValidator>
+#include <QFrame>
 #include <QGridLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QSignalBlocker>
+#include <QSlider>
+#include <QTimer>
 #include <algorithm>
 #include <cmath>
 
@@ -26,6 +33,25 @@ void RobotAxisControlWidget::setUseChinese(bool chinese)
 		m_resetAllButton->setText(chinese ? QStringLiteral("重置所有关节") : QStringLiteral("Reset all joints"));
 		m_resetAllButton->setToolTip(chinese ? QStringLiteral("将所有关节重置到零位；外部轴重置到回零位")
 											 : QStringLiteral("Reset arm joints to zero; external axes to home"));
+	}
+	if (m_reachableWorkspaceCheck)
+	{
+		setReachableWorkspaceBusy(m_reachableWorkspaceBusy);
+		m_reachableWorkspaceCheck->setToolTip(
+			chinese ? QStringLiteral("采样臂关节与 RobotBase 外轴，半透明点显示当前 TCP 可达域")
+					: QStringLiteral("Sample arm + RobotBase axes; translucent points for current TCP workspace"));
+	}
+	if (m_reachableWorkspaceDensityLabel)
+	{
+		const int pct = reachableWorkspaceDensityPercent();
+		m_reachableWorkspaceDensityLabel->setText(
+			chinese ? QStringLiteral("密度 %1%").arg(pct) : QStringLiteral("Density %1%").arg(pct));
+	}
+	if (m_reachableWorkspaceDensitySlider)
+	{
+		m_reachableWorkspaceDensitySlider->setToolTip(
+			chinese ? QStringLiteral("控制可达点采样密度（默认 50%）")
+					: QStringLiteral("Reachable-point sample density (default 50%)"));
 	}
 	rebuildExternalAxisControls();
 }
@@ -170,6 +196,30 @@ void RobotAxisControlWidget::createUI()
 	mainLayout->setContentsMargins(4, 4, 4, 4);
 	mainLayout->setSpacing(4);
 
+	m_reachableWorkspaceCheck = new QCheckBox(this);
+	m_reachableWorkspaceCheck->setText(QStringLiteral("显示可达域"));
+	m_reachableWorkspaceCheck->setToolTip(QStringLiteral("采样臂关节与 RobotBase 外轴，半透明点显示当前 TCP 可达域"));
+	connect(m_reachableWorkspaceCheck, &QCheckBox::toggled, this, &RobotAxisControlWidget::reachableWorkspaceToggled);
+	mainLayout->addWidget(m_reachableWorkspaceCheck);
+
+	auto* densityRow = new QHBoxLayout();
+	m_reachableWorkspaceDensityLabel = new QLabel(QStringLiteral("密度 50%"), this);
+	m_reachableWorkspaceDensitySlider = new QSlider(Qt::Horizontal, this);
+	m_reachableWorkspaceDensitySlider->setRange(1, 100);
+	m_reachableWorkspaceDensitySlider->setValue(50);
+	m_reachableWorkspaceDensitySlider->setToolTip(QStringLiteral("控制可达点采样密度（默认 50%）"));
+	densityRow->addWidget(m_reachableWorkspaceDensityLabel);
+	densityRow->addWidget(m_reachableWorkspaceDensitySlider, 1);
+	mainLayout->addLayout(densityRow);
+
+	m_reachableWorkspaceDensityDebounce = new QTimer(this);
+	m_reachableWorkspaceDensityDebounce->setSingleShot(true);
+	m_reachableWorkspaceDensityDebounce->setInterval(280);
+	connect(m_reachableWorkspaceDensitySlider, &QSlider::valueChanged, this,
+			&RobotAxisControlWidget::onReachableWorkspaceDensitySliderChanged);
+	connect(m_reachableWorkspaceDensityDebounce, &QTimer::timeout, this,
+			&RobotAxisControlWidget::emitReachableWorkspaceDensityDebounced);
+
 	m_scrollArea = new QScrollArea(this);
 	m_scrollArea->setWidgetResizable(true);
 	m_scrollArea->setFrameShape(QFrame::NoFrame);
@@ -193,6 +243,63 @@ void RobotAxisControlWidget::createUI()
 	buttonLayout->addWidget(m_resetAllButton);
 
 	mainLayout->addLayout(buttonLayout);
+}
+
+void RobotAxisControlWidget::setReachableWorkspaceChecked(bool checked)
+{
+	if (!m_reachableWorkspaceCheck)
+	{
+		return;
+	}
+	const QSignalBlocker blocker(m_reachableWorkspaceCheck);
+	m_reachableWorkspaceCheck->setChecked(checked);
+}
+
+bool RobotAxisControlWidget::isReachableWorkspaceChecked() const
+{
+	return m_reachableWorkspaceCheck && m_reachableWorkspaceCheck->isChecked();
+}
+
+void RobotAxisControlWidget::setReachableWorkspaceBusy(bool busy)
+{
+	m_reachableWorkspaceBusy = busy;
+	if (!m_reachableWorkspaceCheck)
+	{
+		return;
+	}
+	if (busy)
+	{
+		m_reachableWorkspaceCheck->setText(m_useChinese ? QStringLiteral("可达域计算中…")
+														: QStringLiteral("Computing workspace…"));
+	}
+	else
+	{
+		m_reachableWorkspaceCheck->setText(m_useChinese ? QStringLiteral("显示可达域")
+														: QStringLiteral("Show reachable workspace"));
+	}
+}
+
+int RobotAxisControlWidget::reachableWorkspaceDensityPercent() const
+{
+	return m_reachableWorkspaceDensitySlider ? m_reachableWorkspaceDensitySlider->value() : 50;
+}
+
+void RobotAxisControlWidget::onReachableWorkspaceDensitySliderChanged(int value)
+{
+	if (m_reachableWorkspaceDensityLabel)
+	{
+		m_reachableWorkspaceDensityLabel->setText(m_useChinese ? QStringLiteral("密度 %1%").arg(value)
+															   : QStringLiteral("Density %1%").arg(value));
+	}
+	if (m_reachableWorkspaceDensityDebounce)
+	{
+		m_reachableWorkspaceDensityDebounce->start();
+	}
+}
+
+void RobotAxisControlWidget::emitReachableWorkspaceDensityDebounced()
+{
+	emit reachableWorkspaceDensityChanged(reachableWorkspaceDensityPercent());
 }
 
 void RobotAxisControlWidget::clearContentExceptStretch()
@@ -367,29 +474,30 @@ void RobotAxisControlWidget::rebuildExternalAxisControls()
 		groupLayout->setContentsMargins(4, 8, 4, 4);
 		groupLayout->setSpacing(4);
 
-		const bool prismatic = cfg.isPrismatic;
-		const double lo = cfg.lower;
-		const double hi = cfg.upper;
-		const QString unit = prismatic ? QStringLiteral("mm") : QStringLiteral("rad");
+		const bool translate = isTranslateAxis(cfg);
+		const double loUi = uiValueFromInternal(cfg, cfg.lower);
+		const double hiUi = uiValueFromInternal(cfg, cfg.upper);
+		const double curUi = uiValueFromInternal(cfg, ec.currentValue);
+		const QString unit = translate ? QStringLiteral("mm") : QStringLiteral("°");
 
 		QHBoxLayout* sliderLayout = new QHBoxLayout();
-		QLabel* minLabel = new QLabel(QString::number(lo, 'f', 1) + unit, ec.groupBox);
+		QLabel* minLabel = new QLabel(QString::number(loUi, 'f', 1) + unit, ec.groupBox);
 		minLabel->setStyleSheet(QStringLiteral("font-size: 15px; font-weight: 500;"));
 		ec.slider = new QSlider(Qt::Horizontal, ec.groupBox);
-		if (prismatic)
+		if (translate)
 		{
-			ec.slider->setMinimum(mmToSliderValue(lo));
-			ec.slider->setMaximum(mmToSliderValue(hi));
-			ec.slider->setValue(mmToSliderValue(ec.currentValue));
+			ec.slider->setMinimum(mmToSliderValue(loUi));
+			ec.slider->setMaximum(mmToSliderValue(hiUi));
+			ec.slider->setValue(mmToSliderValue(curUi));
 		}
 		else
 		{
-			ec.slider->setMinimum(angleToSliderValue(lo));
-			ec.slider->setMaximum(angleToSliderValue(hi));
-			ec.slider->setValue(angleToSliderValue(ec.currentValue));
+			ec.slider->setMinimum(degToSliderValue(loUi));
+			ec.slider->setMaximum(degToSliderValue(hiUi));
+			ec.slider->setValue(degToSliderValue(curUi));
 		}
 		ec.slider->setTracking(true);
-		QLabel* maxLabel = new QLabel(QString::number(hi, 'f', 1) + unit, ec.groupBox);
+		QLabel* maxLabel = new QLabel(QString::number(hiUi, 'f', 1) + unit, ec.groupBox);
 		maxLabel->setStyleSheet(QStringLiteral("font-size: 15px; font-weight: 500;"));
 		sliderLayout->addWidget(minLabel);
 		sliderLayout->addWidget(ec.slider, 1);
@@ -397,15 +505,15 @@ void RobotAxisControlWidget::rebuildExternalAxisControls()
 		groupLayout->addLayout(sliderLayout);
 
 		QHBoxLayout* inputLayout = new QHBoxLayout();
-		const QString valueText = m_useChinese ? (prismatic ? QStringLiteral("行程:") : QStringLiteral("角度:"))
-											   : (prismatic ? QStringLiteral("Stroke:") : QStringLiteral("Angle:"));
+		const QString valueText = m_useChinese ? (translate ? QStringLiteral("行程:") : QStringLiteral("角度:"))
+											   : (translate ? QStringLiteral("Stroke:") : QStringLiteral("Angle:"));
 		QLabel* valueLabel = new QLabel(valueText, ec.groupBox);
 		ec.spinBox = new QDoubleSpinBox(ec.groupBox);
-		ec.spinBox->setDecimals(prismatic ? 2 : 3);
-		ec.spinBox->setRange(lo, hi);
-		ec.spinBox->setValue(ec.currentValue);
+		ec.spinBox->setDecimals(2);
+		ec.spinBox->setRange(std::min(loUi, hiUi), std::max(loUi, hiUi));
+		ec.spinBox->setValue(curUi);
 		ec.spinBox->setSuffix(QStringLiteral(" ") + unit);
-		ec.spinBox->setSingleStep(prismatic ? 1.0 : 0.01);
+		ec.spinBox->setSingleStep(translate ? 1.0 : 1.0);
 		ec.resetButton = new QPushButton(m_useChinese ? QStringLiteral("回零") : QStringLiteral("Home"), ec.groupBox);
 		ec.resetButton->setFixedWidth(40);
 		ec.resetButton->setToolTip(m_useChinese ? QStringLiteral("重置到回零位") : QStringLiteral("Reset to home"));
@@ -438,12 +546,13 @@ void RobotAxisControlWidget::setExternalAxisValueAt(int index, double value)
 	{
 		return;
 	}
-	const bool prismatic = ec.config.isPrismatic;
+	const bool translate = isTranslateAxis(ec.config);
+	const double ui = uiValueFromInternal(ec.config, value);
 	bool blocked = ec.slider->blockSignals(true);
-	ec.slider->setValue(prismatic ? mmToSliderValue(value) : angleToSliderValue(value));
+	ec.slider->setValue(translate ? mmToSliderValue(ui) : degToSliderValue(ui));
 	ec.slider->blockSignals(blocked);
 	blocked = ec.spinBox->blockSignals(true);
-	ec.spinBox->setValue(value);
+	ec.spinBox->setValue(ui);
 	ec.spinBox->blockSignals(blocked);
 }
 
@@ -600,9 +709,9 @@ void RobotAxisControlWidget::onExternalSliderValueChanged(int value)
 		{
 			continue;
 		}
-		const double v =
-			m_externalControls[i].config.isPrismatic ? sliderValueToMm(value) : sliderValueToAngle(value);
-		setExternalAxisValueAt(i, v);
+		const RobotExternal::RobotExternalAxisConfig& cfg = m_externalControls[i].config;
+		const double ui = isTranslateAxis(cfg) ? sliderValueToMm(value) : sliderValueToDeg(value);
+		setExternalAxisValueAt(i, internalFromUiValue(cfg, ui));
 		emitExternalAxisValuesNow();
 		break;
 	}
@@ -621,7 +730,7 @@ void RobotAxisControlWidget::onExternalSpinBoxValueChanged(double value)
 		{
 			continue;
 		}
-		setExternalAxisValueAt(i, value);
+		setExternalAxisValueAt(i, internalFromUiValue(m_externalControls[i].config, value));
 		emitExternalAxisValuesNow();
 		break;
 	}
@@ -678,4 +787,29 @@ int RobotAxisControlWidget::mmToSliderValue(double mm) const
 double RobotAxisControlWidget::sliderValueToMm(int value) const
 {
 	return static_cast<double>(value) / SLIDER_SCALE_MM;
+}
+
+int RobotAxisControlWidget::degToSliderValue(double deg) const
+{
+	return static_cast<int>(std::lround(deg * 10.0));
+}
+
+double RobotAxisControlWidget::sliderValueToDeg(int value) const
+{
+	return static_cast<double>(value) / 10.0;
+}
+
+bool RobotAxisControlWidget::isTranslateAxis(const RobotExternal::RobotExternalAxisConfig& cfg)
+{
+	return cfg.motionType == RobotExternal::RobotExternalMotionType::Translate;
+}
+
+double RobotAxisControlWidget::uiValueFromInternal(const RobotExternal::RobotExternalAxisConfig& cfg, double q)
+{
+	return isTranslateAxis(cfg) ? q : (q * 180.0 / kPi);
+}
+
+double RobotAxisControlWidget::internalFromUiValue(const RobotExternal::RobotExternalAxisConfig& cfg, double ui)
+{
+	return isTranslateAxis(cfg) ? ui : (ui * kPi / 180.0);
 }

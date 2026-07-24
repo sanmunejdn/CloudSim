@@ -407,6 +407,12 @@ bool AiAgentRuntime::tryReplanAfterFailure(const QString& failureObservation)
 			m_progress(f, m);
 	};
 
+	// 仅排除「一次建成」类 API；translate 等允许同 api 多段
+	for (const QString& id : m_doneTools)
+	{
+		if (id == QStringLiteral("createPrimitiveMesh"))
+			in.excludeApiIds.append(id);
+	}
 	AiAgentPlan plan = AiAgentPlanBuilder::buildPlan(in, failureObservation);
 	if (plan.steps.isEmpty())
 		return false;
@@ -428,9 +434,9 @@ bool AiAgentRuntime::tryReplanAfterFailure(const QString& failureObservation)
 bool AiAgentRuntime::userWantsMultiStep() const
 {
 	const QString t = m_request.userText;
+	// 「和/先」单独子串误伤面太大（如「生成」），多步靠 plan / keyword 串联
 	return t.contains(QStringLiteral("然后")) || t.contains(QStringLiteral("再")) ||
-		   t.contains(QStringLiteral("并且")) || t.contains(QStringLiteral("接着")) ||
-		   t.contains(QStringLiteral("和")) || t.contains(QStringLiteral("先"), Qt::CaseInsensitive);
+		   t.contains(QStringLiteral("并且")) || t.contains(QStringLiteral("接着"));
 }
 
 bool AiAgentRuntime::hasRemainingKeywordMatch() const
@@ -669,8 +675,10 @@ void AiAgentRuntime::continueAfterConfirm(const QByteArray& argsJson)
 		return;
 	}
 
-	const bool more = m_step < m_maxSteps &&
-					  (hasPlanRemaining() || hasRemainingKeywordMatch() || userWantsMultiStep() || m_usedLlm);
+	// 单次 LLM tool_calls 成功后不要因 m_usedLlm 再提案：模型常会再调一次 create，
+	// 失败后重规划又会再建实体（「生成长方体」→ 两个长方体）。
+	const bool more =
+		m_step < m_maxSteps && (hasPlanRemaining() || hasRemainingKeywordMatch() || userWantsMultiStep());
 	if (!more)
 	{
 		finishOk(observation, toolId, kind);

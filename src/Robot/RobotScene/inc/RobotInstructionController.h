@@ -10,6 +10,7 @@
 #include "RobotInstructionModel.h"
 #include "SerialLinkKinematics.h"
 
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
@@ -25,7 +26,10 @@ struct ROBOT_SCENE_API PlanResult
 	std::vector<double> jointTargetsRad;
 	std::vector<std::vector<double>> jointTrajectoryRad;
 	bool hasExternalAxisQ = false;
+	/// 首轴兼容（首个启用/RobotBase）
 	double externalAxisQ = 0.0;
+	/// 完整配置下标对齐；写计划时与 externalAxisQ 同时填充
+	std::vector<double> externalAxisQs;
 };
 
 /// 当前指令上下文中通过 IK+姿态约束的轴配置枚举
@@ -52,6 +56,16 @@ public:
 class ROBOT_SCENE_API Controller
 {
 public:
+	/// REP：规划时将工件工作架变换到机器人 P0；未设置则跳过工件采样
+	struct WorkpieceIkFrameContext
+	{
+		bool valid = false;
+		std::array<double, 16> p0World{};
+		std::string boundBackendId;
+		std::array<double, 16> w0World{};
+		std::array<double, 16> offsetW0Local{};
+	};
+
 	void setDhRows(const std::vector<robot_kinematics::DhRow>& rows);
 	void clearDhRows();
 	bool hasDhRows() const;
@@ -59,6 +73,10 @@ public:
 	void setExternalAxes(const RobotExternal::RobotExternalAxisConfigSet& axes);
 	void clearExternalAxes();
 	bool hasEnabledExternalAxes() const;
+
+	void setWorkpieceIkFrameContext(const WorkpieceIkFrameContext& ctx);
+	void clearWorkpieceIkFrameContext();
+	const WorkpieceIkFrameContext& workpieceIkFrameContext() const { return m_workpieceIkFrame; }
 
 	void registerPlanner(const std::shared_ptr<PlannerBase>& planner);
 	void clearPlanners();
@@ -76,6 +94,7 @@ private:
 private:
 	std::vector<robot_kinematics::DhRow> m_dhRows;
 	RobotExternal::RobotExternalAxisConfigSet m_externalAxes;
+	WorkpieceIkFrameContext m_workpieceIkFrame{};
 	std::vector<std::shared_ptr<PlannerBase>> m_planners;
 };
 } // namespace RobotInstruction

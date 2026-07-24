@@ -123,14 +123,13 @@ namespace AiTrajectoryFeatureCatalog
 {
 bool isLineStrategy(const std::string& strategyId)
 {
-	return strategyId == "EdgeChain" || strategyId == "FaceIntersection" || strategyId == "FaceBoundary" ||
-		   strategyId == "SyntheticPolyline";
+	return strategyId == "EdgeChain" || strategyId == "SyntheticPolyline";
 }
 
 bool isSurfaceStrategy(const std::string& strategyId)
 {
 	return strategyId == "FaceSection" || strategyId == "FaceParamSurface" || strategyId == "FaceOffsetCurve" ||
-		   strategyId == "FaceBoundary";
+		   strategyId == "FaceBoundary" || strategyId == "FaceIntersection";
 }
 
 AiFeatureAxis inferFeatureAxisFromText(const QString& userText)

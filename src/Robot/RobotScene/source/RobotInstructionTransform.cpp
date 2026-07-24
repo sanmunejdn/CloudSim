@@ -3,6 +3,8 @@
 
 #include "RobotInstructionTransform.h"
 
+#include "RobotExternalAxes.h"
+
 #include <sstream>
 
 namespace RobotInstruction
@@ -198,6 +200,33 @@ bool readViaTransformFromInstruction(const Base& cmd, engine::RigidTransform& ou
 		outViaInBase =
 			engine::RigidTransform::fromTranslationQuat(Eigen::Vector3d(p.x, p.y, p.z), Eigen::Quaterniond::Identity());
 	}
+	return true;
+}
+
+void writeWorkingTcpToInstruction(Base& cmd, const engine::RigidTransform& tcpInWorking)
+{
+	const Eigen::Quaterniond q = tcpInWorking.rotation().normalized();
+	const Eigen::Vector3d t = tcpInWorking.translationMm();
+	cmd.setExtensionProperty(RobotExternal::kExtContextWorkingTcpQuatCsv, encodeQuatCsv(q));
+	cmd.setExtensionProperty(RobotExternal::kExtContextWorkingTcpTransMmCsv, encodeTransCsv(t));
+}
+
+bool readWorkingTcpFromInstruction(const Base& cmd, engine::RigidTransform& outTcpInWorking)
+{
+	const auto& ext = cmd.extensionProperties();
+	const auto itQ = ext.find(RobotExternal::kExtContextWorkingTcpQuatCsv);
+	const auto itT = ext.find(RobotExternal::kExtContextWorkingTcpTransMmCsv);
+	if (itQ == ext.end() || itT == ext.end() || itQ->second.empty() || itT->second.empty())
+	{
+		return false;
+	}
+	Eigen::Quaterniond q = Eigen::Quaterniond::Identity();
+	Eigen::Vector3d t = Eigen::Vector3d::Zero();
+	if (!parseQuatCsv(itQ->second, q) || !parseTransCsv(itT->second, t))
+	{
+		return false;
+	}
+	outTcpInWorking = engine::RigidTransform::fromTranslationQuat(t, q);
 	return true;
 }
 

@@ -3,6 +3,7 @@
 
 #include "MainWindowSelectionService.h"
 
+#include "BackendHierarchyModel.h"
 #include "CoreEvents.h"
 #include "CoreTypes.h"
 #include "DocumentHostEvents.h"
@@ -32,6 +33,20 @@ cloudsim::core::IRenderView* activeRenderView(MainWindow& mainWindow)
 {
 	return renderViewFromPage(mainWindow.currentPage());
 }
+
+DocumentPage* pageFromTreeItem(MainWindow& mainWindow, const QTreeWidgetItem* item)
+{
+	if (!item)
+	{
+		return nullptr;
+	}
+	const QString docId = item->data(0, kRoleDocumentId).toString();
+	if (!docId.isEmpty())
+	{
+		return mainWindow.pageByDocumentId(docId);
+	}
+	return mainWindow.currentPage();
+}
 } // namespace
 
 QString MainWindowSelectionService::selectionRootBackendId(MainWindow& mainWindow, const QString& backendId)
@@ -52,6 +67,7 @@ void MainWindowSelectionService::applyBackendSelection(MainWindow& mainWindow, c
 	{
 		return;
 	}
+	(void)rowVisible; // 选中不改写可见性；可见性仅由树勾选/Data 驱动
 	const QString effectiveId = selectionRootBackendId(mainWindow, backendId);
 	mainWindow.m_selectionState.setSelectedBackendId(effectiveId);
 	DocumentPage* doc = mainWindow.currentPage();
@@ -62,14 +78,6 @@ void MainWindowSelectionService::applyBackendSelection(MainWindow& mainWindow, c
 
 	if (rv)
 	{
-		if (doc)
-		{
-			doc->setBackendVisible(effectiveId, rowVisible);
-		}
-		else
-		{
-			rv->setVisible(effectiveId, rowVisible);
-		}
 		rv->setSelectionActive(hasSelection);
 		if (source == cloudsim::core::SelectionSource::OsgPick)
 		{
@@ -161,39 +169,35 @@ MainWindowSelectionService::SelectionSnapshot MainWindowSelectionService::curren
 
 bool MainWindowSelectionService::selectBackendById(MainWindow& mainWindow, const QString& backendId, bool scrollToItem)
 {
-	if (!mainWindow.m_backendTree || backendId.isEmpty())
+	if (!mainWindow.m_backendTree || backendId.isEmpty() || !mainWindow.unitsTreeBinder())
 	{
 		return false;
 	}
-	QTreeWidgetItem* item = mainWindow.m_backendTreeItemsById.value(backendId, nullptr);
+	BackendUnitsTreeBinder* binder = mainWindow.unitsTreeBinder();
+	QTreeWidgetItem* item = nullptr;
+	QString docId;
+	if (DocumentPage* cur = mainWindow.currentPage())
+	{
+		docId = cur->documentId();
+		item = binder->findBackendItem(docId, backendId);
+	}
 	if (!item)
 	{
-		const QList<QTreeWidgetItem*> allItems =
-			mainWindow.m_backendTree->findItems(QStringLiteral("*"), Qt::MatchWildcard | Qt::MatchRecursive, 0);
-		for (QTreeWidgetItem* candidate : allItems)
+		item = binder->findBackendItemAnyDocument(backendId);
+		if (item)
 		{
-			if (!candidate || candidate->data(0, kRoleItemType).toInt() != kItemTypeBackend)
-			{
-				continue;
-			}
-			if (candidate->data(0, kRoleBackendId).toString() != backendId)
-			{
-				continue;
-			}
-			item = candidate;
-			mainWindow.m_backendTreeItemsById.insert(backendId, candidate);
-			break;
+			docId = item->data(0, kRoleDocumentId).toString();
 		}
 	}
 	if (!item)
 	{
 		return false;
 	}
-	mainWindow.m_backendTree->setCurrentItem(item);
-	if (scrollToItem)
+	if (!docId.isEmpty() && mainWindow.currentPage() && mainWindow.currentPage()->documentId() != docId)
 	{
-		mainWindow.m_backendTree->scrollToItem(item);
+		mainWindow.activateDocumentById(docId);
 	}
+	binder->setCurrentBackendItem(docId, backendId, scrollToItem);
 	return true;
 }
 
@@ -252,7 +256,7 @@ void MainWindowSelectionService::ensureBackendForPickMode(MainWindow& mainWindow
 
 void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& mainWindow)
 {
-	if (!mainWindow.m_backendTree)
+	if (!mainWindow.m_backendTree || mainWindow.isUnitsTreeStructureMuted())
 	{
 		return;
 	}
@@ -261,27 +265,39 @@ void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& m
 	{
 		mainWindow.simulationCommandPage()->clearInstructionSelection();
 	}
-	cloudsim::core::IRenderView* rv = activeRenderView(mainWindow);
-	if (rv)
-	{
-		rv->clearInstructionPoseAxes();
-	}
 
 	const QList<QTreeWidgetItem*> selected = mainWindow.m_backendTree->selectedItems();
-	if (selected.isEmpty() || selected.first() == mainWindow.m_backendRootItem)
+	if (selected.isEmpty())
 	{
 		clearSelection(mainWindow, false);
 		return;
 	}
 
 	const QTreeWidgetItem* current = selected.first();
-	if (current->data(0, kRoleItemType).toInt() != kItemTypeBackend)
+	const int itemType = current->data(0, kRoleItemType).toInt();
+	if (itemType != kItemTypeBackend)
 	{
 		clearSelection(mainWindow, false);
 		return;
 	}
+
+	// activate/rebuild 会销毁树节点，必须先拷贝
+	const QString docId = current->data(0, kRoleDocumentId).toString();
 	const QString id = current->data(0, kRoleBackendId).toString();
 	const bool rowVisible = current->checkState(0) != Qt::Unchecked;
+
+	if (!docId.isEmpty() &&
+		(!mainWindow.currentPage() || mainWindow.currentPage()->documentId() != docId))
+	{
+		mainWindow.activateDocumentById(docId);
+	}
+
+	cloudsim::core::IRenderView* rv = activeRenderView(mainWindow);
+	if (rv)
+	{
+		rv->clearInstructionPoseAxes();
+	}
+
 	applyBackendSelection(mainWindow, id, cloudsim::core::SelectionSource::Tree, rowVisible);
 	const QString effectiveId = selectionRootBackendId(mainWindow, id);
 	if (effectiveId != id)
@@ -293,56 +309,77 @@ void MainWindowSelectionService::handleBackendTreeSelectionChanged(MainWindow& m
 
 void MainWindowSelectionService::handleBackendTreeItemChanged(MainWindow& mainWindow, QTreeWidgetItem* item, int column)
 {
-	cloudsim::core::IRenderView* rv = activeRenderView(mainWindow);
-	DocumentPage* const doc = mainWindow.currentPage();
-	if (!item || column != 0 || !rv)
+	if (!item || column != 0 || mainWindow.isUnitsTreeStructureMuted())
 	{
 		return;
 	}
 
 	const int itemType = item->data(0, kRoleItemType).toInt();
-	if (itemType == kItemTypeBackend)
+	// 文档根/分组仅样式变更也会走 itemChanged，切勿因此 activate
+	if (itemType != kItemTypeBackend && itemType != kItemTypeAnnotation)
 	{
-		const QString backendId = item->data(0, kRoleBackendId).toString();
-		QStringList idsToUpdate;
-		if (doc)
-		{
-			// Fallback: treat the single node as the subtree when hierarchy model is unavailable
-			idsToUpdate.append(backendId);
-		}
-		else
-		{
-			idsToUpdate.append(backendId);
-		}
-		if (idsToUpdate.isEmpty())
+		return;
+	}
+
+	// activate/rebuild 会销毁节点，先拷贝
+	const QString documentId = item->data(0, kRoleDocumentId).toString();
+	const QString backendId = item->data(0, kRoleBackendId).toString();
+	const QString annotationId = item->data(0, kRoleAnnotationId).toString();
+	const Qt::CheckState checkState = item->checkState(0);
+
+	DocumentPage* doc = nullptr;
+	if (!documentId.isEmpty())
+	{
+		doc = mainWindow.pageByDocumentId(documentId);
+	}
+	if (!doc)
+	{
+		doc = pageFromTreeItem(mainWindow, item);
+	}
+	if (!doc)
+	{
+		return;
+	}
+	if (doc != mainWindow.currentPage())
+	{
+		mainWindow.activateDocumentById(doc->documentId());
+		doc = mainWindow.pageByDocumentId(documentId);
+		if (!doc)
 		{
 			return;
 		}
-		const bool visible = item->checkState(0) != Qt::Unchecked;
-		const QSignalBlocker guard(mainWindow.m_backendTree);
-		if (doc)
+	}
+	cloudsim::core::IRenderView* rv = renderViewFromPage(doc);
+	if (!rv)
+	{
+		return;
+	}
+
+	if (itemType == kItemTypeBackend)
+	{
+		QStringList idsToUpdate;
+		const std::vector<std::string> subtree = doc->hierarchyModel().subtreeIds(backendId.toStdString());
+		if (subtree.empty())
 		{
-			doc->setBackendsVisible(idsToUpdate, visible);
+			idsToUpdate.append(backendId);
 		}
 		else
 		{
-			for (const QString& id : idsToUpdate)
+			for (const std::string& id : subtree)
 			{
-				rv->setVisible(id, visible);
+				idsToUpdate.append(QString::fromStdString(id));
 			}
 		}
+		const bool visible = checkState != Qt::Unchecked;
+		const QSignalBlocker guard(mainWindow.m_backendTree);
+		doc->setBackendsVisible(idsToUpdate, visible);
+		BackendUnitsTreeBinder* binder = mainWindow.unitsTreeBinder();
 		for (const QString& id : idsToUpdate)
 		{
-			if (id == backendId)
+			if (binder)
 			{
-				continue;
+				binder->patchObjectVisible(documentId, id, visible);
 			}
-			QTreeWidgetItem* const childItem = mainWindow.m_backendTreeItemsById.value(id, nullptr);
-			if (!childItem)
-			{
-				continue;
-			}
-			childItem->setCheckState(0, visible ? Qt::Checked : Qt::Unchecked);
 		}
 		if (!visible && mainWindow.m_selectionState.hasBackendSelection() &&
 			idsToUpdate.contains(mainWindow.m_selectionState.selectedBackendId()))
@@ -362,8 +399,7 @@ void MainWindowSelectionService::handleBackendTreeItemChanged(MainWindow& mainWi
 	{
 		return;
 	}
-	const QString annotationId = item->data(0, kRoleAnnotationId).toString();
-	const bool visible = item->checkState(0) == Qt::Checked;
+	const bool visible = checkState == Qt::Checked;
 	rv->setAnnotationVisible(annotationId, visible);
 }
 
@@ -390,13 +426,24 @@ void MainWindowSelectionService::handleOsgBackendObjectPicked(MainWindow& mainWi
 	}
 
 	bool rowVisible = true;
-	if (mainWindow.m_backendTree)
+	if (mainWindow.unitsTreeBinder())
 	{
-		QTreeWidgetItem* item = mainWindow.m_backendTreeItemsById.value(effectiveId, nullptr);
+		QTreeWidgetItem* item = nullptr;
+		if (DocumentPage* cur = mainWindow.currentPage())
+		{
+			item = mainWindow.unitsTreeBinder()->findBackendItem(cur->documentId(), effectiveId);
+		}
+		if (!item)
+		{
+			item = mainWindow.unitsTreeBinder()->findBackendItemAnyDocument(effectiveId);
+		}
 		if (!item)
 		{
 			(void)selectBackendById(mainWindow, effectiveId, false);
-			item = mainWindow.m_backendTreeItemsById.value(effectiveId, nullptr);
+			if (DocumentPage* cur = mainWindow.currentPage())
+			{
+				item = mainWindow.unitsTreeBinder()->findBackendItem(cur->documentId(), effectiveId);
+			}
 		}
 		if (item)
 		{
@@ -404,7 +451,6 @@ void MainWindowSelectionService::handleOsgBackendObjectPicked(MainWindow& mainWi
 		}
 	}
 
-	// 同一机器人再次点连杆时 pickAndActivate 会临时激活该连杆；须始终把 gizmo 归到锚点
 	applyBackendSelection(mainWindow, backendId, cloudsim::core::SelectionSource::OsgPick, rowVisible);
 
 	if (!sameSelection && mainWindow.m_backendTree)

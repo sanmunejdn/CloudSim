@@ -18,7 +18,7 @@ Robot simulation and device UI live in this x64 DLL (`RobotWidget.dll`, `ROBOTWI
 
 | Area | Location |
 |------|----------|
-| Simulation dock (Instructions / Axis / Frames / **External Axes** / **Trajectory Generation** / **Trajectory Edit**) | `RobotSimulationDockWidget`, page widgets |
+| Simulation dock (Instructions / Axis / Frames / **External Axes** / **Trajectory Generation** / **Trajectory Edit** / **机器人通讯**) | `RobotSimulationDockWidget`, page widgets |
 | Orchestration | `RobotSimulationController` |
 | Host contracts | `IRobotMainWindowHost`, `IRobotDocumentHost`, `IRobotOsgViewHost` |
 | STEP 坐标变换 | [`inc/FeaturePickTransform.h`](inc/FeaturePickTransform.h) + `source/FeaturePickTransform.cpp`：`stepModelPointToWorldMm` / `worldPointToStepModelMm`（导出，非 header inline） |
@@ -129,12 +129,12 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 **进入示教**（`onSimulationTcpDragTeachModeChanged(true)`）：per-link 时先 `doc->reconcilePerLinkOuterBindFromScene(instIdx, jointQ)` 从场景反解 **M0**；`resolveRobotBaseWorld` 经 `robotBaseWorldMatrixForInstance` 取 **P**（勿用根连杆 mesh 世界矩阵）。详见 Widget §13.1。
 
-1. `ctx.T_base_target` 来自罗盘（`tcpDragTeachPoseChanged`），并缓存到 `m_lastTcpDragTargetInBase`。
-2. `RobotTeachIk::solveTeachIk` → 关节角按 URDF 限位 **钳位**（`clampJointAnglesToInstanceLimits`）。
-3. `setJointAnglesRad`（UI 钳位）后 `onRobotAxisJointAnglesChanged(jointAnglesRad())`，保证场景与滑块一致。
+1. 罗盘相对 `P_eff`；经 `tcpDragRigidPeffToP0` 得到 `T_p0`，缓存 `m_lastTcpDragTargetInBase`。
+2. `doc->solveTcpDragTeachIk`：有启用 Workpiece 时按 REP（`T_work = inv(T_p0_work)*T_p0`，外层采样工件轴，内层 RobotBase `solveTeachIkCoordinatedDrag`）；否则仅 RobotBase。
+3. 关节角按 URDF 限位 **钳位**（`clampJointAnglesToInstanceLimits`）；外轴经 `applyAxisControlExternalPose` 写回（含工件 backend）。
 4. `updateTcpDragTeachFromTarget` 用钳位后 FK 对齐罗盘（IK 残差时可能略有偏差）。
 5. **不**在拖动每帧更新程序起点（仅添加第一条运动指令或空程序结束拖动时可选捕获）。
-
+6. 落点写指令时同步 `externalAxisQCsv` 与 `workingTcp*`（REP）。
 ### 添加指令（`onSimulationAddInstructionRequested`）
 
 | 步骤 | 行为 |
@@ -211,7 +211,7 @@ DH/外轴经 `ensureInstructionControllerKinematics` 按 URDF 路径缓存，避
 4. **部分失败**：占位并停止后续急算；成功段≥1 则 `tryStart`。
 5. 初始化 `m_playbackRollingSeedQ` / `m_playbackProgramStartQ` / 段起点外轴 qe；tick 前 `ensurePlaybackPlansReady`。
 
-播放：`jointTrajectoryRad.size() >= 2` 时 Executor 优先轨迹插帧，否则起止 lerp；段结束对齐 `jointTargetsRad`。外轴按 `motionSegmentProgress01` 在段起点与 plan 目标间插值（见 [`docs/外部轴联动求解/DESIGN_外部轴联动求解.md`](../../../docs/外部轴联动求解/DESIGN_外部轴联动求解.md)）。
+播放：`jointTrajectoryRad.size() >= 2` 时 Executor 优先轨迹插帧，否则起止 lerp；段结束对齐 `jointTargetsRad`。外轴按 `motionSegmentProgress01` 在段起点与 `plan.externalAxisQs` 间逐分量插值（见 [`docs/外部轴类型拓宽/DESIGN_外部轴类型拓宽.md`](../../../docs/外部轴类型拓宽/DESIGN_外部轴类型拓宽.md)）。
 
 #### 段前补算（`ensurePlaybackPlansReady` / `syncPlanMotionAtIndex`）
 
@@ -313,9 +313,9 @@ Executor 侧：`RobotProgramExecutor::currentInstruction()`（见 [`../Robot/Rob
 | 类 | 说明 |
 |----|------|
 | `SimulationCommandWidget` | 指令树、Run/Stop、TCP 拖动；**程序下拉 / 新建 / 重命名 / 删除**；**指令**分组（PTP/LINE/ARC/…）与 **功能**分组（末端拖动/删除/清空）；Ctrl 多选 + 右键创建分组；`setProgramStore`、`activeProgramChanged` / `groupsChanged`；**ARC 两步示教**（`setArcTeachPending`） |
-| `RobotAxisControlWidget` | 关节滑块；`setJointAngle` 内 `qBound` 限位 |
+| `RobotAxisControlWidget` | 关节/外轴滑条；顶部「显示可达域」+ 密度滑条（默认 50%，调采样数/体素边长）；Halton 采样细点 overlay | 关节滑块（`qBound` 限位）；外轴滑条（平移 mm / 旋转 deg，内部 rad） |
 | `RobotFrameSettingsWidget` | 工具/用户系；`framesChanged` → `onRobotCoordinateFramesChanged`（见下） |
-| `RobotExternalAxisSettingsWidget` | 地轨外轴；`externalAxesChanged` → `onRobotExternalAxesChanged`；未配置则联动求解关闭；Run 时 qe 由 `applyExternalAxisFromPlan` 按段进度插值 |
+| `RobotExternalAxisSettingsWidget` | 多轴 Translate/Rotate × RobotBase/Workpiece；`workingFrameId` 工作架下拉（空=绑定根）；`setBackendIdOptions`；`externalAxesChanged` → `onRobotExternalAxesChanged`；Run 时由 `applyExternalAxisFromPlan` 按段进度插值 `externalAxisQs` |
 
 #### 工具坐标系页 `framesChanged` 分级刷新
 
@@ -698,7 +698,7 @@ Dock 页签 **「轨迹生成」** 内 **CAD** 子页（`FeatureTrajectoryPageWi
 | 选 PathPlan | 顶栏 `m_pathPlanCombo` → `TrajectoryEditSession::bindPathPlan` |
 | 开始修改 | `beginEditBoundPathPlan()` — 特征表 + 离散参数 + 算子流程 + 预览 |
 | 取消修改 | `cancelEditBoundPathPlan()` — 退出编辑态、清表/预览；已落盘 PathPlan 保留 |
-| 选 STEP 工件 | `m_backendCombo`：仅**顶层** `Model`/`BrepModel`（`BackendDataManager::parentsOf` 为空，不含装配子零件）；`Model` 需 `meshBackendStepSourcePath` 为 `.step`/`.stp`；`BrepModel` 需内存 shape；同一路径去重时优先 `BrepModel` |
+| 选 STEP 工件 | `m_backendCombo`：仅**顶层** `Model`/`BrepModel`（`parentsOf` 为空）；`Model` 需 `.step`/`.stp`；`BrepModel` 需内存 shape（含 AI `createPrimitiveMesh`）；真实 STEP 路径去重，虚拟/`BrepModel` 按 id 保留；切页/`showEvent` 会 `refreshWorkpieces` |
 | **3D 拾取边/面** | 复用 `MeshEdgeFacePickOperation` → `OsgWidget::meshPickCommitted` → `buildFeatureEntryFromPick` / `buildFeatureEntryFromModelPick`（世界坐标经 `feature_pick_transform::worldPointToStepModelMm`） |
 | 离散策略 | 拾取前下拉（面/线 affinity 过滤）；`resolveStrategyIdForPick` 严格匹配；`normalizeEntryStrategyForGeometry` 纠正策略/几何不一致 |
 | 特征表 | `FeatureTableModel` + `FeatureDiscretizerParamPanel`；`discretizeFeatureList` → `setRawTrajectory` |

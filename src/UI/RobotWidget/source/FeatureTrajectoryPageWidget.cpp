@@ -37,6 +37,8 @@
 #include <QPushButton>
 #include <QSet>
 #include <QSignalBlocker>
+#include <QFileInfo>
+#include <QShowEvent>
 #include <QSpinBox>
 #include <QStringList>
 #include <QTableView>
@@ -374,6 +376,17 @@ void FeatureTrajectoryPageWidget::bindSimulationController(RobotSimulationContro
 void FeatureTrajectoryPageWidget::setStepPathResolver(std::function<QString(const QString& backendId)> resolver)
 {
 	m_stepPathResolver = std::move(resolver);
+	refreshBackendCombo();
+}
+
+void FeatureTrajectoryPageWidget::refreshWorkpieces()
+{
+	refreshBackendCombo();
+}
+
+void FeatureTrajectoryPageWidget::showEvent(QShowEvent* event)
+{
+	QWidget::showEvent(event);
 	refreshBackendCombo();
 }
 
@@ -1274,12 +1287,24 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 		{
 			continue;
 		}
-		const QString fileName = QFileInfo(stepPath).fileName();
-		const QString label = fileName.isEmpty() ? backendId : QStringLiteral("%1 (%2)").arg(backendId, fileName);
+		const QString displayName = QString::fromStdString(data->name());
+		QString label;
+		if (isBrepModel)
+		{
+			// 内存 B-rep / AI 基本体无磁盘 STEP 名，用显示名
+			label = displayName.isEmpty() ? backendId : QStringLiteral("%1 (%2)").arg(displayName, backendId);
+		}
+		else
+		{
+			const QString fileName = QFileInfo(stepPath).fileName();
+			label = fileName.isEmpty() ? backendId : QStringLiteral("%1 (%2)").arg(backendId, fileName);
+		}
 		WorkpieceComboCandidate candidate;
 		candidate.backendId = backendId;
 		candidate.label = label;
-		candidate.dedupeKey = stepPath.isEmpty() ? backendId : stepPath.toLower();
+		// 仅对真实 STEP 路径去重；ai:// 等虚拟路径按 backendId 保留各自条目
+		candidate.dedupeKey =
+			(!isBrepModel && isStepSourcePath(stepPath)) ? stepPath.toLower() : backendId;
 		candidate.isBrepModel = isBrepModel;
 		candidates.append(candidate);
 	}
@@ -1319,7 +1344,8 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 	}
 	if (stepCount == 0)
 	{
-		setStatus(m_chinese ? QStringLiteral("请先导入 STEP 工件") : QStringLiteral("Import a STEP workpiece first"));
+		setStatus(m_chinese ? QStringLiteral("请导入 STEP 或用 AI 创建基本体（CAD/BREP 工件）")
+							: QStringLiteral("Import STEP or create an AI primitive (CAD/BREP workpiece)"));
 	}
 	else if (m_backendCombo->currentIndex() >= 0)
 	{
@@ -1672,7 +1698,7 @@ bool FeatureTrajectoryPageWidget::buildPreviewOverlayJson(const QByteArray& cata
 	{
 		if (err)
 		{
-			*err = QStringLiteral("请先在轨迹生成页选择 STEP 工件");
+			*err = QStringLiteral("请先在轨迹生成页选择工件");
 		}
 		return false;
 	}
@@ -1686,15 +1712,22 @@ bool FeatureTrajectoryPageWidget::buildPreviewOverlayJson(const QByteArray& cata
 		return false;
 	}
 
+	// 内存 BrepModel（含 AI 基本体）无磁盘 STEP，须用 ShapeHandle 算锚点
+	geoalgo::ShapeHandle shape;
+	geoalgo::WorkpieceRef wp;
+	if (!resolveWorkpieceShapeForBackend(backendId, shape, wp, err))
+	{
+		return false;
+	}
+	wp.backendIdUtf8 = backendId.toStdString();
+	wp.stepPathUtf8 = stepPath.toStdString();
+
 	try
 	{
 		const nlohmann::json slice = nlohmann::json::parse(catalogSliceUtf8.constData(), nullptr, true);
 		nlohmann::json preview;
 		preview["backendIdUtf8"] = backendId.toStdString();
 		nlohmann::json items = nlohmann::json::array();
-		geoalgo::WorkpieceRef wp;
-		wp.backendIdUtf8 = backendId.toStdString();
-		wp.stepPathUtf8 = stepPath.toStdString();
 
 		if (!slice.contains("candidates") || !slice["candidates"].is_array())
 		{
@@ -1714,7 +1747,7 @@ bool FeatureTrajectoryPageWidget::buildPreviewOverlayJson(const QByteArray& cata
 			}
 			geoalgo::FeatureAnchor anchor;
 			std::string anchorErr;
-			if (!geometry_backend_ops::computeFeatureAnchor(wp, geometry, anchor, &anchorErr))
+			if (!geometry_backend_ops::computeFeatureAnchor(wp, shape, geometry, anchor, &anchorErr))
 			{
 				continue;
 			}
@@ -1748,7 +1781,15 @@ bool FeatureTrajectoryPageWidget::buildPreviewOverlayJson(const QByteArray& cata
 		}
 		preview["items"] = items;
 		outPreviewJson = QByteArray::fromStdString(preview.dump());
-		return !items.empty();
+		if (items.empty())
+		{
+			if (err)
+			{
+				*err = QStringLiteral("无法计算特征锚点（高亮/标号为空）");
+			}
+			return false;
+		}
+		return true;
 	}
 	catch (...)
 	{
@@ -1870,28 +1911,8 @@ bool FeatureTrajectoryPageWidget::commitFeaturePlanFromAi(const QByteArray& plan
 				{
 					entry.strategyId = doc.defaultStrategyId;
 				}
-				if (item.contains("geometry"))
-				{
-					const auto& g = item["geometry"];
-					if (g.contains("edgeIndices") && g["edgeIndices"].is_array())
-					{
-						for (const auto& v : g["edgeIndices"])
-						{
-							entry.geometry.edgeIndices.push_back(v.get<int>());
-						}
-					}
-					if (g.contains("faceIndices") && g["faceIndices"].is_array())
-					{
-						for (const auto& v : g["faceIndices"])
-						{
-							entry.geometry.faceIndices.push_back(v.get<int>());
-						}
-					}
-				}
-				else if (item.contains("refs"))
-				{
-					readGeometryFromCandidateJson(item, entry.geometry);
-				}
+				(void)readGeometryFromCandidateJson(item, entry.geometry);
+				normalizeEntryStrategyForGeometry(entry);
 				if (item.contains("params") && item["params"].is_object())
 				{
 					entry.params = item["params"];
@@ -1937,6 +1958,18 @@ bool FeatureTrajectoryPageWidget::commitFeaturePlanFromAi(const QByteArray& plan
 				*err = QStringLiteral("特征计划缺少 features");
 			}
 			return false;
+		}
+		for (const geoalgo::FeatureEntry& f : doc.features)
+		{
+			if (f.geometry.edgeIndices.empty() && f.geometry.faceIndices.empty())
+			{
+				if (err)
+				{
+					*err = m_chinese ? QStringLiteral("特征缺少边/面索引（edgeIndices/faceIndices），无法离散")
+									 : QStringLiteral("Feature missing edgeIndices/faceIndices");
+				}
+				return false;
+			}
 		}
 
 		if (!applyFeatureListDocument(doc, false))

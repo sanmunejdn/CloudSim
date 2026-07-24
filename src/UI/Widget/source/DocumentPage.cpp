@@ -464,7 +464,10 @@ bool DocumentPage::robotPerLinkKinematicsForInstance(int instanceIndex,
 	out.fkMeshWorldT0 = ri.fkMeshWorldT0;
 	out.outerWorldAtBindByBackendId = ri.outerWorldAtBindByBackendId;
 	RobotExternal::composeBasePlacementWithExternalAxis(ri.basePlacementWorld.data(), ri.externalAxes,
-														ri.externalAxisQMm, out.robotBasePlacementWorld.data());
+														ri.externalAxisQ.empty()
+															? std::vector<double>{ri.externalAxisQMm}
+															: ri.externalAxisQ,
+														out.robotBasePlacementWorld.data());
 	out.meshVerticesInLinkFrame = ri.meshVerticesInLinkFrame;
 	return true;
 }
@@ -516,6 +519,15 @@ void DocumentPage::setRobotBasePlacementWorldForInstance(const int instanceIndex
 	rebuildPerLinkLegacyAggregates();
 }
 
+cloudsim::core::Mat4 DocumentPage::robotBasePlacementWorldForInstance(const int instanceIndex) const
+{
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
+	{
+		return cloudsim::core::PlanContextDto::identityMat4();
+	}
+	return m_hierarchicalRobots[instanceIndex].basePlacementWorld;
+}
+
 void DocumentPage::setRobotExternalAxisQMm(const int instanceIndex, const double qMm)
 {
 	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
@@ -523,11 +535,28 @@ void DocumentPage::setRobotExternalAxisQMm(const int instanceIndex, const double
 		return;
 	}
 	HierarchicalRobotInstance& ri = m_hierarchicalRobots[instanceIndex];
-	if (const RobotExternal::RobotExternalAxisConfig* rail = RobotExternal::firstEnabledExternalAxis(ri.externalAxes))
+	if (ri.externalAxisQ.size() != ri.externalAxes.axes.size())
 	{
-		ri.externalAxisQMm = std::clamp(qMm, rail->lower, rail->upper);
+		ri.externalAxisQ.assign(ri.externalAxes.axes.size(), 0.0);
+		for (size_t i = 0; i < ri.externalAxes.axes.size(); ++i)
+		{
+			ri.externalAxisQ[i] = ri.externalAxes.axes[i].home;
+		}
 	}
-	else
+	bool wrote = false;
+	for (size_t i = 0; i < ri.externalAxes.axes.size(); ++i)
+	{
+		const RobotExternal::RobotExternalAxisConfig& a = ri.externalAxes.axes[i];
+		if (!a.enabled || a.attachment != RobotExternal::RobotExternalAttachment::RobotBase)
+		{
+			continue;
+		}
+		ri.externalAxisQ[i] = std::clamp(qMm, a.lower, a.upper);
+		ri.externalAxisQMm = ri.externalAxisQ[i];
+		wrote = true;
+		break;
+	}
+	if (!wrote)
 	{
 		ri.externalAxisQMm = qMm;
 	}
@@ -540,7 +569,155 @@ double DocumentPage::robotExternalAxisQMm(const int instanceIndex) const
 	{
 		return 0.0;
 	}
-	return m_hierarchicalRobots[instanceIndex].externalAxisQMm;
+	const HierarchicalRobotInstance& ri = m_hierarchicalRobots[instanceIndex];
+	for (size_t i = 0; i < ri.externalAxes.axes.size() && i < ri.externalAxisQ.size(); ++i)
+	{
+		if (ri.externalAxes.axes[i].enabled &&
+			ri.externalAxes.axes[i].attachment == RobotExternal::RobotExternalAttachment::RobotBase)
+		{
+			return ri.externalAxisQ[i];
+		}
+	}
+	return ri.externalAxisQMm;
+}
+
+void DocumentPage::setRobotExternalAxisQ(const int instanceIndex, const std::vector<double>& qValues)
+{
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
+	{
+		return;
+	}
+	HierarchicalRobotInstance& ri = m_hierarchicalRobots[instanceIndex];
+	ri.externalAxisQ.assign(ri.externalAxes.axes.size(), 0.0);
+	for (size_t i = 0; i < ri.externalAxes.axes.size(); ++i)
+	{
+		double q = ri.externalAxes.axes[i].home;
+		if (i < qValues.size())
+		{
+			q = qValues[i];
+		}
+		ri.externalAxisQ[i] = std::clamp(q, ri.externalAxes.axes[i].lower, ri.externalAxes.axes[i].upper);
+	}
+	ri.externalAxisQMm = robotExternalAxisQMm(instanceIndex);
+	rebuildPerLinkLegacyAggregates();
+}
+
+std::vector<double> DocumentPage::robotExternalAxisQ(const int instanceIndex) const
+{
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size())
+	{
+		return {};
+	}
+	const HierarchicalRobotInstance& ri = m_hierarchicalRobots[instanceIndex];
+	if (ri.externalAxisQ.size() == ri.externalAxes.axes.size())
+	{
+		return ri.externalAxisQ;
+	}
+	std::vector<double> qs(ri.externalAxes.axes.size(), 0.0);
+	for (size_t i = 0; i < ri.externalAxes.axes.size(); ++i)
+	{
+		qs[i] = ri.externalAxes.axes[i].home;
+	}
+	if (!ri.externalAxes.axes.empty())
+	{
+		for (size_t i = 0; i < qs.size(); ++i)
+		{
+			if (ri.externalAxes.axes[i].enabled &&
+				ri.externalAxes.axes[i].attachment == RobotExternal::RobotExternalAttachment::RobotBase)
+			{
+				qs[i] = ri.externalAxisQMm;
+				break;
+			}
+		}
+	}
+	return qs;
+}
+
+cloudsim::core::Mat4 DocumentPage::workpieceExternalBasePlacement(const int instanceIndex,
+																  const QString& backendId) const
+{
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size() || backendId.isEmpty())
+	{
+		return cloudsim::core::PlanContextDto::identityMat4();
+	}
+	const HierarchicalRobotInstance& ri = m_hierarchicalRobots[instanceIndex];
+	const auto it = ri.workpieceBasePlacementWorld.constFind(backendId);
+	if (it == ri.workpieceBasePlacementWorld.constEnd())
+	{
+		return cloudsim::core::PlanContextDto::identityMat4();
+	}
+	return it.value();
+}
+
+void DocumentPage::setWorkpieceExternalBasePlacement(const int instanceIndex, const QString& backendId,
+													 const cloudsim::core::Mat4& w0)
+{
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size() || backendId.isEmpty())
+	{
+		return;
+	}
+	m_hierarchicalRobots[instanceIndex].workpieceBasePlacementWorld.insert(backendId, w0);
+}
+
+void DocumentPage::ensureWorkpieceExternalBasePlacement(const int instanceIndex, const QString& backendId,
+														const cloudsim::core::Mat4& currentWorld)
+{
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size() || backendId.isEmpty())
+	{
+		return;
+	}
+	HierarchicalRobotInstance& ri = m_hierarchicalRobots[instanceIndex];
+	if (ri.workpieceBasePlacementWorld.contains(backendId))
+	{
+		return;
+	}
+	ri.workpieceBasePlacementWorld.insert(backendId, currentWorld);
+}
+
+cloudsim::core::Mat4 DocumentPage::workpieceWorkingFrameOffset(const int instanceIndex,
+															  const QString& boundBackendId) const
+{
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size() || boundBackendId.isEmpty())
+	{
+		return cloudsim::core::PlanContextDto::identityMat4();
+	}
+	const HierarchicalRobotInstance& ri = m_hierarchicalRobots[instanceIndex];
+	const auto it = ri.workpieceWorkingFrameOffsetByBackend.constFind(boundBackendId);
+	if (it == ri.workpieceWorkingFrameOffsetByBackend.constEnd())
+	{
+		return cloudsim::core::PlanContextDto::identityMat4();
+	}
+	return it.value();
+}
+
+void DocumentPage::ensureWorkpieceWorkingFrameOffset(const int instanceIndex, const QString& boundBackendId,
+													 const QString& workingFrameId,
+													 const cloudsim::core::Mat4& workingWorld)
+{
+	if (instanceIndex < 0 || instanceIndex >= m_hierarchicalRobots.size() || boundBackendId.isEmpty())
+	{
+		return;
+	}
+	HierarchicalRobotInstance& ri = m_hierarchicalRobots[instanceIndex];
+	if (ri.workpieceWorkingFrameOffsetByBackend.contains(boundBackendId))
+	{
+		return;
+	}
+	if (workingFrameId.isEmpty() || workingFrameId == boundBackendId)
+	{
+		ri.workpieceWorkingFrameOffsetByBackend.insert(boundBackendId, cloudsim::core::PlanContextDto::identityMat4());
+		return;
+	}
+	const cloudsim::core::Mat4 w0 = workpieceExternalBasePlacement(instanceIndex, boundBackendId);
+	double invW0[16];
+	if (!RobotExternal::mat4InvertRigidColumnMajor(w0.data(), invW0))
+	{
+		ri.workpieceWorkingFrameOffsetByBackend.insert(boundBackendId, cloudsim::core::PlanContextDto::identityMat4());
+		return;
+	}
+	cloudsim::core::Mat4 offset = cloudsim::core::PlanContextDto::identityMat4();
+	RobotExternal::mat4MulColumnMajor16(invW0, workingWorld.data(), offset.data());
+	ri.workpieceWorkingFrameOffsetByBackend.insert(boundBackendId, offset);
 }
 
 void DocumentPage::updateRobotLinkOuterBindFromWorld(const int instanceIndex, const QString& linkBackendId,
@@ -734,9 +911,10 @@ bool DocumentPage::applyPerLinkRobotFkFromGizmoAnchor(const int instanceIndex, c
 	// reverse 解出的是含外轴的 P_eff，存盘只留 P0
 	cloudsim::core::Mat4 pEff = mat4FromOsg(placement);
 	cloudsim::core::Mat4 p0{};
-	RobotExternal::unbakeBasePlacementExternalAxis(pEff.data(), ri.externalAxes, ri.externalAxisQMm, p0.data());
+	const std::vector<double> qs = robotExternalAxisQ(instanceIndex);
+	RobotExternal::unbakeBasePlacementExternalAxis(pEff.data(), ri.externalAxes, qs, p0.data());
 	setRobotBasePlacementWorldForInstance(instanceIndex, p0);
-	RobotExternal::composeBasePlacementWithExternalAxis(p0.data(), ri.externalAxes, ri.externalAxisQMm, pEff.data());
+	RobotExternal::composeBasePlacementWithExternalAxis(p0.data(), ri.externalAxes, qs, pEff.data());
 	placement = osgFromMat4(pEff);
 	slice.robotBasePlacementWorld = placement;
 	if (!RobotSceneKinematics::applyPerLinkRobotBasePlacement(osg, backend(), slice, jointAnglesRad, placement))

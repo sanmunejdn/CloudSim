@@ -9,6 +9,7 @@
 #include "FeaturePickTransform.h"
 #include "FeatureTrajectoryPageWidget.h"
 #include "IRobotMainWindowHost.h"
+#include "IRobotMotionClient.h"
 #include "IRobotOsgViewHost.h"
 #include "InstructionProgramDocument.h"
 #include "InstructionProgramTreeWidget.h"
@@ -29,6 +30,9 @@
 #include "RobotOsgUiTypes.h"
 #include "RobotProgramExport.h"
 #include "RobotExternalAxes.h"
+#include "RobotCollisionSettingsWidget.h"
+#include "BackendCollisionSync.h"
+#include "CollisionWorld.h"
 #include "RobotSceneKinematics.h"
 #include "RobotSimulationDockWidget.h"
 #include "RobotSimulationMath.h"
@@ -65,6 +69,7 @@
 #include <Adapters.h>
 #include <BackendDataBase.h>
 #include <BackendDataManager.h>
+#include "IRobotBackendPoseSink.h"
 #include <ToolKinematics.h>
 #include <osg/Matrixd>
 
@@ -99,17 +104,15 @@ bool isFreshIkSolutionAcceptable(const double residualMm, const double orientDeg
 	return orientDeg <= kMaxFreshIkOrientDeg;
 }
 
-double externalAxisTravelDurationSec(const double deltaMm)
+double trapezoidTravelDurationSec(const double distance, const double vMax, const double accel)
 {
-	constexpr double kRailVMmPerSec = 250.0;
-	constexpr double kRailAMmPerSec2 = 600.0;
-	const double d = std::abs(deltaMm);
+	const double d = std::abs(distance);
 	if (d < 1e-9)
 	{
 		return 0.05;
 	}
-	const double v = kRailVMmPerSec;
-	const double a = kRailAMmPerSec2;
+	const double v = vMax;
+	const double a = accel;
 	const double tAcc = v / a;
 	const double dAcc = 0.5 * a * tAcc * tAcc;
 	if (d <= 2.0 * dAcc)
@@ -117,6 +120,211 @@ double externalAxisTravelDurationSec(const double deltaMm)
 		return std::max(0.05, 2.0 * std::sqrt(d / a));
 	}
 	return std::max(0.05, 2.0 * tAcc + (d - 2.0 * dAcc) / v);
+}
+
+QVector<double> enabledValuesFromFullQ(const RobotExternal::RobotExternalAxisConfigSet& set,
+									   const std::vector<double>& fullQ)
+{
+	QVector<double> out;
+	const std::vector<int> idxs = RobotExternal::enabledExternalAxisIndices(set);
+	out.reserve(static_cast<int>(idxs.size()));
+	for (const int idx : idxs)
+	{
+		double v = 0.0;
+		if (idx >= 0 && idx < static_cast<int>(fullQ.size()))
+		{
+			v = fullQ[static_cast<size_t>(idx)];
+		}
+		else if (idx >= 0 && idx < static_cast<int>(set.axes.size()))
+		{
+			v = set.axes[static_cast<size_t>(idx)].home;
+		}
+		out.push_back(v);
+	}
+	return out;
+}
+
+std::vector<double> fullQFromEnabledValues(const RobotExternal::RobotExternalAxisConfigSet& set,
+										   const QVector<double>& enabledValues)
+{
+	std::vector<double> full(set.axes.size(), 0.0);
+	for (size_t i = 0; i < set.axes.size(); ++i)
+	{
+		full[i] = set.axes[i].home;
+	}
+	const std::vector<int> idxs = RobotExternal::enabledExternalAxisIndices(set);
+	for (int e = 0; e < static_cast<int>(idxs.size()) && e < enabledValues.size(); ++e)
+	{
+		const int idx = idxs[static_cast<size_t>(e)];
+		if (idx >= 0 && idx < static_cast<int>(full.size()))
+		{
+			full[static_cast<size_t>(idx)] = enabledValues[e];
+		}
+	}
+	return full;
+}
+
+double firstRobotBaseEnabledQ(const RobotExternal::RobotExternalAxisConfigSet& set, const std::vector<double>& qs,
+							  const double fallback)
+{
+	const std::vector<int> idxs = RobotExternal::enabledExternalAxisIndices(set);
+	for (const int idx : idxs)
+	{
+		if (idx >= 0 && idx < static_cast<int>(set.axes.size()) &&
+			set.axes[static_cast<size_t>(idx)].attachment == RobotExternal::RobotExternalAttachment::RobotBase &&
+			idx < static_cast<int>(qs.size()))
+		{
+			return qs[static_cast<size_t>(idx)];
+		}
+	}
+	for (const int idx : idxs)
+	{
+		if (idx >= 0 && idx < static_cast<int>(qs.size()))
+		{
+			return qs[static_cast<size_t>(idx)];
+		}
+	}
+	return qs.empty() ? fallback : qs.front();
+}
+
+std::vector<double> expandScalarExternalAxisQ(const RobotExternal::RobotExternalAxisConfigSet& set, const double qScalar)
+{
+	std::vector<double> full(set.axes.size(), 0.0);
+	for (size_t i = 0; i < set.axes.size(); ++i)
+	{
+		full[i] = set.axes[i].home;
+	}
+	const std::vector<int> idxs = RobotExternal::enabledExternalAxisIndices(set);
+	bool wrote = false;
+	for (const int idx : idxs)
+	{
+		if (idx >= 0 && idx < static_cast<int>(set.axes.size()) &&
+			set.axes[static_cast<size_t>(idx)].attachment == RobotExternal::RobotExternalAttachment::RobotBase)
+		{
+			full[static_cast<size_t>(idx)] = qScalar;
+			wrote = true;
+			break;
+		}
+	}
+	if (!wrote && !idxs.empty())
+	{
+		const int idx = idxs.front();
+		if (idx >= 0 && idx < static_cast<int>(full.size()))
+		{
+			full[static_cast<size_t>(idx)] = qScalar;
+		}
+	}
+	return full;
+}
+
+std::vector<double> padExternalAxisQToConfig(const RobotExternal::RobotExternalAxisConfigSet& set,
+											 const std::vector<double>& qs)
+{
+	std::vector<double> full(set.axes.size(), 0.0);
+	for (size_t i = 0; i < set.axes.size(); ++i)
+	{
+		full[i] = set.axes[i].home;
+	}
+	for (size_t i = 0; i < full.size() && i < qs.size(); ++i)
+	{
+		full[i] = qs[i];
+	}
+	return full;
+}
+
+QVector<double> toQVector(const std::vector<double>& v)
+{
+	QVector<double> out;
+	out.reserve(static_cast<int>(v.size()));
+	for (double x : v)
+	{
+		out.push_back(x);
+	}
+	return out;
+}
+
+std::vector<double> toStdVector(const QVector<double>& v)
+{
+	std::vector<double> out;
+	out.reserve(static_cast<size_t>(v.size()));
+	for (double x : v)
+	{
+		out.push_back(x);
+	}
+	return out;
+}
+
+double externalAxisTravelDurationSec(const RobotExternal::RobotExternalAxisConfigSet& set,
+									 const std::vector<double>& fromQ, const std::vector<double>& toQ)
+{
+	constexpr double kTranslateVMmPerSec = 250.0;
+	constexpr double kTranslateAMmPerSec2 = 600.0;
+	constexpr double kRotateVRadPerSec = 1.0;
+	constexpr double kRotateARadPerSec2 = 2.4;
+	double maxT = 0.05;
+	for (size_t i = 0; i < set.axes.size(); ++i)
+	{
+		if (!set.axes[i].enabled)
+		{
+			continue;
+		}
+		const double from = i < fromQ.size() ? fromQ[i] : set.axes[i].home;
+		const double to = i < toQ.size() ? toQ[i] : set.axes[i].home;
+		const double d = to - from;
+		if (set.axes[i].motionType == RobotExternal::RobotExternalMotionType::Rotate)
+		{
+			maxT = std::max(maxT, trapezoidTravelDurationSec(d, kRotateVRadPerSec, kRotateARadPerSec2));
+		}
+		else
+		{
+			maxT = std::max(maxT, trapezoidTravelDurationSec(d, kTranslateVMmPerSec, kTranslateAMmPerSec2));
+		}
+	}
+	return maxT;
+}
+
+void fillPlanExternalAxisFromInstructionExt(RobotInstruction::PlanResult& plan,
+											const std::unordered_map<std::string, std::string>& ext,
+											const RobotExternal::RobotExternalAxisConfigSet* setOpt = nullptr)
+{
+	const auto itCsv = ext.find(RobotExternal::kExtContextExternalAxisQCsv);
+	if (itCsv != ext.end() && !itCsv->second.empty())
+	{
+		plan.externalAxisQs = RobotExternal::parseExternalAxisQCsv(itCsv->second);
+		if (setOpt)
+		{
+			plan.externalAxisQs = padExternalAxisQToConfig(*setOpt, plan.externalAxisQs);
+		}
+		plan.hasExternalAxisQ = !plan.externalAxisQs.empty();
+		if (plan.hasExternalAxisQ)
+		{
+			plan.externalAxisQ =
+				setOpt ? firstRobotBaseEnabledQ(*setOpt, plan.externalAxisQs, plan.externalAxisQs.front())
+					   : plan.externalAxisQs.front();
+		}
+		return;
+	}
+	const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
+	if (itQ == ext.end() || itQ->second.empty())
+	{
+		return;
+	}
+	bool ok = false;
+	const double qe = QString::fromStdString(itQ->second).toDouble(&ok);
+	if (!ok)
+	{
+		return;
+	}
+	plan.hasExternalAxisQ = true;
+	plan.externalAxisQ = qe;
+	if (setOpt && !setOpt->axes.empty())
+	{
+		plan.externalAxisQs = expandScalarExternalAxisQ(*setOpt, qe);
+	}
+	else
+	{
+		plan.externalAxisQs = {qe};
+	}
 }
 
 enum class CoordinateFrameChangeKind
@@ -352,15 +560,76 @@ double targetResidualMmForInstruction(const QString& urdfPath, const QVector<dou
 	return (a - b).norm();
 }
 
+void fillWorkpieceIkFrameContext(RobotInstruction::Controller& ctrl, IRobotDocumentHost* doc, const int instIdx)
+{
+	ctrl.clearWorkpieceIkFrameContext();
+	if (!doc || instIdx < 0)
+	{
+		return;
+	}
+	const RobotExternal::RobotExternalAxisConfigSet& set = doc->robotExternalAxesForInstance(instIdx);
+	if (!RobotExternal::hasEnabledWorkpieceExternalAxes(set))
+	{
+		return;
+	}
+	const std::string boundId = RobotExternal::primaryWorkpieceBackendId(set);
+	if (boundId.empty())
+	{
+		return;
+	}
+	const QString boundQ = QString::fromStdString(boundId);
+	const QString workFrameQ = QString::fromStdString(RobotExternal::resolveWorkingFrameId(set));
+	if (IRobotBackendPoseSink* sink = doc->poseSink())
+	{
+		cloudsim::core::Mat4 curBound = cloudsim::core::PlanContextDto::identityMat4();
+		if (sink->getBackendRootWorldMatrix(boundId, curBound))
+		{
+			const std::vector<double> qs = doc->robotExternalAxisQ(instIdx);
+			cloudsim::core::Mat4 w0Cand = curBound;
+			RobotExternal::unbakeWorkpiecePlacementExternalAxis(curBound.data(), set, boundId, qs, w0Cand.data());
+			doc->ensureWorkpieceExternalBasePlacement(instIdx, boundQ, w0Cand);
+		}
+		if (!workFrameQ.isEmpty() && workFrameQ != boundQ)
+		{
+			cloudsim::core::Mat4 workWorld = cloudsim::core::PlanContextDto::identityMat4();
+			if (sink->getBackendRootWorldMatrix(workFrameQ.toStdString(), workWorld))
+			{
+				doc->ensureWorkpieceWorkingFrameOffset(instIdx, boundQ, workFrameQ, workWorld);
+			}
+		}
+		else
+		{
+			doc->ensureWorkpieceWorkingFrameOffset(instIdx, boundQ, boundQ,
+												  cloudsim::core::PlanContextDto::identityMat4());
+		}
+	}
+
+	RobotInstruction::Controller::WorkpieceIkFrameContext ctx;
+	ctx.valid = true;
+	ctx.boundBackendId = boundId;
+	const cloudsim::core::Mat4 p0 = doc->robotBasePlacementWorldForInstance(instIdx);
+	const cloudsim::core::Mat4 w0 = doc->workpieceExternalBasePlacement(instIdx, boundQ);
+	const cloudsim::core::Mat4 offset = doc->workpieceWorkingFrameOffset(instIdx, boundQ);
+	for (int i = 0; i < 16; ++i)
+	{
+		ctx.p0World[static_cast<size_t>(i)] = p0[static_cast<size_t>(i)];
+		ctx.w0World[static_cast<size_t>(i)] = w0[static_cast<size_t>(i)];
+		ctx.offsetW0Local[static_cast<size_t>(i)] = offset[static_cast<size_t>(i)];
+	}
+	ctrl.setWorkpieceIkFrameContext(ctx);
+}
+
 void syncInstructionControllerExternalAxes(RobotInstruction::Controller& ctrl, IRobotDocumentHost* doc,
 										   const int instIdx)
 {
 	if (!doc || instIdx < 0)
 	{
 		ctrl.clearExternalAxes();
+		ctrl.clearWorkpieceIkFrameContext();
 		return;
 	}
 	ctrl.setExternalAxes(doc->robotExternalAxesForInstance(instIdx));
+	fillWorkpieceIkFrameContext(ctrl, doc, instIdx);
 }
 
 void writeExternalAxisPlanToInstruction(RobotInstruction::Base& ins, const RobotInstruction::PlanResult& plan,
@@ -369,17 +638,39 @@ void writeExternalAxisPlanToInstruction(RobotInstruction::Base& ins, const Robot
 	if (!plan.hasExternalAxisQ)
 	{
 		ins.eraseExtensionProperty(RobotExternal::kExtContextExternalAxisQMm);
+		ins.eraseExtensionProperty(RobotExternal::kExtContextExternalAxisQCsv);
 		ins.eraseExtensionProperty(RobotExternal::kExtContextExternalAxisDir);
 		return;
 	}
-	ins.setExtensionProperty(RobotExternal::kExtContextExternalAxisQMm,
-							 QString::number(plan.externalAxisQ, 'g', 12).toStdString());
-	if (!doc || instIdx < 0)
+	const RobotExternal::RobotExternalAxisConfigSet* setPtr = nullptr;
+	if (doc && instIdx >= 0)
+	{
+		setPtr = &doc->robotExternalAxesForInstance(instIdx);
+	}
+	double qScalar = plan.externalAxisQ;
+	if (!plan.externalAxisQs.empty())
+	{
+		ins.setExtensionProperty(RobotExternal::kExtContextExternalAxisQCsv,
+								 RobotExternal::encodeExternalAxisQCsv(plan.externalAxisQs));
+		if (setPtr)
+		{
+			qScalar = firstRobotBaseEnabledQ(*setPtr, plan.externalAxisQs, plan.externalAxisQ);
+		}
+		else
+		{
+			qScalar = plan.externalAxisQs.front();
+		}
+	}
+	else
+	{
+		ins.eraseExtensionProperty(RobotExternal::kExtContextExternalAxisQCsv);
+	}
+	ins.setExtensionProperty(RobotExternal::kExtContextExternalAxisQMm, QString::number(qScalar, 'g', 12).toStdString());
+	if (!setPtr)
 	{
 		return;
 	}
-	if (const RobotExternal::RobotExternalAxisConfig* rail =
-			RobotExternal::firstEnabledExternalAxis(doc->robotExternalAxesForInstance(instIdx)))
+	if (const RobotExternal::RobotExternalAxisConfig* rail = RobotExternal::firstEnabledExternalAxis(*setPtr))
 	{
 		const QString dir = QStringLiteral("%1,%2,%3")
 								.arg(rail->axis[0], 0, 'g', 12)
@@ -439,7 +730,24 @@ bool shouldLog(const std::string&)
 }
 } // namespace InstructionPoseDiagState
 
-RobotSimulationController::RobotSimulationController(QObject* parent) : QObject(parent) {}
+RobotSimulationController::RobotSimulationController(QObject* parent)
+	: QObject(parent), m_collisionWorld(std::make_unique<collision::CollisionWorld>())
+{
+}
+
+RobotSimulationController::~RobotSimulationController()
+{
+	if (m_robotCommPollTimer)
+	{
+		m_robotCommPollTimer->stop();
+	}
+	if (m_robotCommClient)
+	{
+		m_robotCommClient->disconnectRobot();
+		m_robotCommClient->disconnectBridge();
+	}
+}
+
 
 void RobotSimulationController::setHost(IRobotMainWindowHost* host)
 {
@@ -520,6 +828,10 @@ void RobotSimulationController::wireSimulationSignals()
 			&RobotSimulationController::onRobotAxisJointAnglesChanged);
 	connect(axis, &RobotAxisControlWidget::externalAxisValuesChanged, this,
 			&RobotSimulationController::onRobotAxisExternalValuesChanged);
+	connect(axis, &RobotAxisControlWidget::reachableWorkspaceToggled, this,
+			&RobotSimulationController::onReachableWorkspaceToggled);
+	connect(axis, &RobotAxisControlWidget::reachableWorkspaceDensityChanged, this,
+			&RobotSimulationController::onReachableWorkspaceDensityChanged);
 	connect(frame, &RobotFrameSettingsWidget::framesChanged, this,
 			&RobotSimulationController::onRobotCoordinateFramesChanged);
 	connect(frame, &RobotFrameSettingsWidget::captureToolFromTcpRequested, this,
@@ -532,6 +844,11 @@ void RobotSimulationController::wireSimulationSignals()
 	{
 		connect(ext, &RobotExternalAxisSettingsWidget::externalAxesChanged, this,
 				&RobotSimulationController::onRobotExternalAxesChanged);
+	}
+	if (RobotCollisionSettingsWidget* col = m_simulationDock->collisionPage())
+	{
+		connect(col, &RobotCollisionSettingsWidget::settingsChanged, this,
+				&RobotSimulationController::onRobotCollisionSettingsChanged);
 	}
 	connect(m_trajectoryEditSession, &TrajectoryEditSession::pathPlanBound, this,
 			[this](const std::string&) { refreshPathPlanPreviewForActiveTab(); });
@@ -549,6 +866,28 @@ void RobotSimulationController::wireSimulationSignals()
 					m_planResultCache.invalidateAll();
 					invalidateChainSeedRollCache();
 				});
+	}
+	if (RobotCommPageWidget* comm = m_simulationDock->robotCommPage())
+	{
+		if (m_host)
+		{
+			comm->setUseChinese(m_host->useChinese());
+		}
+		connect(comm, &RobotCommPageWidget::connectRequested, this,
+				&RobotSimulationController::onRobotCommConnectRequested);
+		connect(comm, &RobotCommPageWidget::disconnectRequested, this,
+				&RobotSimulationController::onRobotCommDisconnectRequested);
+		connect(comm, &RobotCommPageWidget::mirrorToggled, this,
+				&RobotSimulationController::onRobotCommMirrorToggled);
+		connect(comm, &RobotCommPageWidget::pollIntervalChanged, this,
+				&RobotSimulationController::onRobotCommPollIntervalChanged);
+		if (!m_robotCommPollTimer)
+		{
+			m_robotCommPollTimer = new QTimer(this);
+			m_robotCommPollTimer->setTimerType(Qt::CoarseTimer);
+			connect(m_robotCommPollTimer, &QTimer::timeout, this, &RobotSimulationController::onRobotCommPollTick);
+		}
+		m_robotCommPollTimer->setInterval(comm->pollIntervalMs());
 	}
 }
 
@@ -693,7 +1032,7 @@ void RobotSimulationController::stopRobotSimulation()
 	m_playbackMotionIndex = 0;
 	m_playbackRollingSeedQ.clear();
 	m_playbackProgramStartQ.clear();
-	m_playbackSegmentExternalAxisStartMm = 0.0;
+	m_playbackSegmentExternalAxisStart.clear();
 	m_playbackExtInterpMotion = nullptr;
 	m_playbackOverlayHighlight.reset();
 	if (m_host->simulationCommandPage())
@@ -796,28 +1135,43 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 		const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0
 								? m_host->simulationCommandPage()->currentRobotInstanceIndex()
 								: 0;
-		const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
 		m_host->simulationCommandPage()->setRevoluteJointNames(doc->robotRevoluteJointNamesForInstance(instIdx));
 
 		QStringList tcpLinks;
 		QString preferredTcp;
-		(void)UrdfRobotLoader::loadPrimaryTerminalLinkName(urdfPath, preferredTcp, nullptr);
-		QStringList childLinks;
-		(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, childLinks, nullptr);
-		QSet<QString> uniq;
-		if (!preferredTcp.isEmpty())
+		cloudsim::core::RobotPerLinkKinematicsSliceDto plSlice;
+		if (doc->robotPerLinkKinematicsForInstance(instIdx, plSlice) && !plSlice.linkNameToBackendId.isEmpty())
 		{
-			uniq.insert(preferredTcp);
-			tcpLinks.push_back(preferredTcp);
-		}
-		for (const QString& l : childLinks)
-		{
-			if (l.isEmpty() || uniq.contains(l))
+			tcpLinks = plSlice.linkNameToBackendId.keys();
+			tcpLinks.sort();
+			const RobotCoordinate::RobotCoordinateFrameSet& frames = doc->robotCoordinateFramesForInstance(instIdx);
+			preferredTcp = QString::fromStdString(frames.flangeLinkName);
+			if (preferredTcp.isEmpty() && !tcpLinks.isEmpty())
 			{
-				continue;
+				preferredTcp = tcpLinks.back();
 			}
-			uniq.insert(l);
-			tcpLinks.push_back(l);
+		}
+		else
+		{
+			const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instIdx);
+			(void)UrdfRobotLoader::loadPrimaryTerminalLinkName(urdfPath, preferredTcp, nullptr);
+			QStringList childLinks;
+			(void)UrdfRobotLoader::loadRevoluteJointChildLinksInOrder(urdfPath, childLinks, nullptr);
+			QSet<QString> uniq;
+			if (!preferredTcp.isEmpty())
+			{
+				uniq.insert(preferredTcp);
+				tcpLinks.push_back(preferredTcp);
+			}
+			for (const QString& l : childLinks)
+			{
+				if (l.isEmpty() || uniq.contains(l))
+				{
+					continue;
+				}
+				uniq.insert(l);
+				tcpLinks.push_back(l);
+			}
 		}
 		m_host->simulationCommandPage()->setTcpLinkOptions(tcpLinks, preferredTcp);
 
@@ -847,6 +1201,17 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 				}
 			}
 		}
+		// 切文档只同步轴控 UI；场景位姿由各 DocumentPage 自持，勿每次重推 FK
+		{
+			const int jointOffset = doc->robotJointOffsetInAggregatedVector(instIdx);
+			const int nj = doc->robotRevoluteJointCountForInstance(instIdx);
+			if (nj > 0 && m_aggregatedJointAnglesRad.size() >= jointOffset + nj)
+			{
+				const QVector<double> local = m_aggregatedJointAnglesRad.mid(jointOffset, nj);
+				QSignalBlocker blocker(m_host->robotAxisControlPage());
+				m_host->robotAxisControlPage()->setJointAnglesRad(local);
+			}
+		}
 		captureMotionPreviewProgramStartJoints();
 		syncRobotFrameSettingsFromDocument(instIdx);
 		syncRobotExternalAxisSettingsFromDocument(instIdx);
@@ -858,7 +1223,7 @@ void RobotSimulationController::refreshSimulationJointListFromCurrentDoc()
 		m_host->simulationCommandPage()->setRevoluteJointNames(QStringList());
 		m_host->simulationCommandPage()->setTcpLinkOptions(QStringList(), QString());
 		m_host->robotAxisControlPage()->clearJoints();
-		m_aggregatedJointAnglesRad.clear();
+		// 保留聚合关节角：切回机器人文档时轴控可对齐场景，勿清空后当 0 位姿
 		m_motionPreviewProgramStartJointRad.clear();
 		m_host->simulationCommandPage()->bindProgramTree();
 	}
@@ -1289,8 +1654,11 @@ bool RobotSimulationController::buildChainSeedJointRadForInstruction(
 		if (useTaught && RobotExternal::hasEnabledExternalAxes(doc->robotExternalAxesForInstance(instIdx)))
 		{
 			const auto& ext = motionIns->extensionProperties();
+			const auto itCsv = ext.find(RobotExternal::kExtContextExternalAxisQCsv);
 			const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
-			if (itQ == ext.end() || itQ->second.empty())
+			const bool hasCsv = itCsv != ext.end() && !itCsv->second.empty();
+			const bool hasQ = itQ != ext.end() && !itQ->second.empty();
+			if (!hasCsv && !hasQ)
 			{
 				useTaught = false;
 			}
@@ -1502,6 +1870,16 @@ void RobotSimulationController::syncRobotExternalAxisSettingsFromDocument(const 
 	{
 		return;
 	}
+	QStringList backendIds;
+	for (const std::shared_ptr<BackendDataBase>& data : doc->backend().listData())
+	{
+		if (!data)
+		{
+			continue;
+		}
+		backendIds.append(QString::fromStdString(data->id()));
+	}
+	page->setBackendIdOptions(backendIds);
 	page->setJointNameOptions(doc->robotRevoluteJointNamesForInstance(instanceIndex));
 	page->setExternalAxes(doc->robotExternalAxesForInstance(instanceIndex));
 	page->setUseChinese(m_host->useChinese());
@@ -1522,17 +1900,29 @@ void RobotSimulationController::onRobotExternalAxesChanged()
 		return;
 	}
 	doc->robotExternalAxesForInstance(instIdx) = page->externalAxes();
-	syncInstructionControllerExternalAxes(m_instructionController, doc, instIdx);
-	if (m_axisControlExternalInstIdx == instIdx && !m_axisControlExternalQApplied.isEmpty())
 	{
-		const QVector<double> zero(m_axisControlExternalQApplied.size(), 0.0);
-		applyAxisControlExternalPose(instIdx, zero);
+		const RobotExternal::RobotExternalAxisConfigSet& set = doc->robotExternalAxesForInstance(instIdx);
+		std::vector<double> homes(set.axes.size(), 0.0);
+		for (size_t i = 0; i < set.axes.size(); ++i)
+		{
+			homes[i] = set.axes[i].home;
+		}
+		doc->setRobotExternalAxisQ(instIdx, homes);
 	}
-	doc->setRobotExternalAxisQMm(instIdx, 0.0);
+	syncInstructionControllerExternalAxes(m_instructionController, doc, instIdx);
 	m_axisControlExternalQApplied.clear();
 	m_axisControlExternalInstIdx = -1;
 	syncRobotAxisControlExternalAxes(instIdx);
 	invalidateFeasibleAxisConfigurationCache();
+}
+
+void RobotSimulationController::onRobotCollisionSettingsChanged()
+{
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!doc || !m_simulationDock || !m_simulationDock->collisionPage())
+		return;
+	doc->robotCollisionSettings() = m_simulationDock->collisionPage()->settings();
+	m_planResultCache.invalidateAll();
 }
 
 void RobotSimulationController::onRobotCoordinateFramesChanged()
@@ -1987,6 +2377,12 @@ void RobotSimulationController::onSimulationRobotSelectionChanged(int instanceIn
 	m_overlayCachedUrdfPath.clear();
 	m_overlayCachedUrdfRootLink.clear();
 	m_playbackOverlayHighlight.reset();
+	clearReachableWorkspaceOverlayUi();
+	if (RobotAxisControlWidget* axis = m_host ? m_host->robotAxisControlPage() : nullptr)
+	{
+		axis->setReachableWorkspaceChecked(false);
+		axis->setReachableWorkspaceBusy(false);
+	}
 	if (m_host->simulationCommandPage() && m_host->simulationCommandPage()->tcpDragTeachMode())
 	{
 		onSimulationTcpDragTeachModeChanged(false);
@@ -1999,6 +2395,10 @@ void RobotSimulationController::onSimulationRobotSelectionChanged(int instanceIn
 	}
 	syncRobotFrameSettingsFromDocument(instanceIndex);
 	syncRobotExternalAxisSettingsFromDocument(instanceIndex);
+	if (m_simulationDock && m_simulationDock->collisionPage() && doc)
+	{
+		m_simulationDock->collisionPage()->setSettings(doc->robotCollisionSettings());
+	}
 	refreshRobotCoordinateFrameOverlays();
 	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instanceIndex);
 	m_host->simulationCommandPage()->setRevoluteJointNames(doc->robotRevoluteJointNamesForInstance(instanceIndex));
@@ -2102,13 +2502,8 @@ void RobotSimulationController::syncRobotAxisControlExternalAxes(const int insta
 		return;
 	}
 	axis->setExternalAxes(set);
-	const double qDoc = doc->robotExternalAxisQMm(instanceIndex);
-	QVector<double> values = axis->externalAxisValues();
-	if (!values.isEmpty())
-	{
-		values[0] = qDoc;
-		axis->setExternalAxisValuesSilent(values);
-	}
+	const QVector<double> values = enabledValuesFromFullQ(set, doc->robotExternalAxisQ(instanceIndex));
+	axis->setExternalAxisValuesSilent(values);
 	m_axisControlExternalInstIdx = instanceIndex;
 	m_axisControlExternalQApplied = values;
 	if (const RobotExternal::RobotExternalAxisConfig* rail = RobotExternal::firstEnabledExternalAxis(set))
@@ -2126,8 +2521,44 @@ void RobotSimulationController::applyAxisControlExternalPose(const int instanceI
 	{
 		return;
 	}
-	const double qNew = values.isEmpty() ? 0.0 : values.front();
-	doc->setRobotExternalAxisQMm(instanceIndex, qNew);
+	const RobotExternal::RobotExternalAxisConfigSet& set = doc->robotExternalAxesForInstance(instanceIndex);
+	const std::vector<double> prevQ = doc->robotExternalAxisQ(instanceIndex);
+	const std::vector<double> fullQ = fullQFromEnabledValues(set, values);
+
+	QSet<QString> workpieceBackends;
+	const std::vector<int> idxs = RobotExternal::enabledExternalAxisIndices(set);
+	for (const int idx : idxs)
+	{
+		if (idx < 0 || idx >= static_cast<int>(set.axes.size()))
+		{
+			continue;
+		}
+		const RobotExternal::RobotExternalAxisConfig& a = set.axes[static_cast<size_t>(idx)];
+		if (a.attachment != RobotExternal::RobotExternalAttachment::Workpiece || a.boundBackendId.empty())
+		{
+			continue;
+		}
+		workpieceBackends.insert(QString::fromStdString(a.boundBackendId));
+	}
+
+	if (IRobotBackendPoseSink* sink = doc->poseSink())
+	{
+		for (const QString& backendId : workpieceBackends)
+		{
+			cloudsim::core::Mat4 currentWorld = cloudsim::core::PlanContextDto::identityMat4();
+			if (!sink->getBackendRootWorldMatrix(backendId.toStdString(), currentWorld))
+			{
+				continue;
+			}
+			// 缺 W0 时：current 仍对应 prevQ，反解后再 ensure
+			cloudsim::core::Mat4 w0Candidate = currentWorld;
+			RobotExternal::unbakeWorkpiecePlacementExternalAxis(currentWorld.data(), set, backendId.toStdString(),
+																prevQ, w0Candidate.data());
+			doc->ensureWorkpieceExternalBasePlacement(instanceIndex, backendId, w0Candidate);
+		}
+	}
+
+	doc->setRobotExternalAxisQ(instanceIndex, fullQ);
 
 	QVector<double> joints = localJointAnglesForInstance(instanceIndex);
 	if (joints.isEmpty() && m_host->robotAxisControlPage() &&
@@ -2143,10 +2574,22 @@ void RobotSimulationController::applyAxisControlExternalPose(const int instanceI
 		}
 		(void)doc->applyJointAnglesRad(instanceIndex, joints, m_aggregatedJointAnglesRad);
 	}
-	m_axisControlExternalQApplied = values.isEmpty() ? QVector<double>{qNew} : values;
+
+	if (IRobotBackendPoseSink* sink = doc->poseSink())
+	{
+		for (const QString& backendId : workpieceBackends)
+		{
+			const std::string bid = backendId.toStdString();
+			const cloudsim::core::Mat4 w0 = doc->workpieceExternalBasePlacement(instanceIndex, backendId);
+			cloudsim::core::Mat4 wEff = cloudsim::core::PlanContextDto::identityMat4();
+			RobotExternal::composeWorkpiecePlacementWithExternalAxis(w0.data(), set, bid, fullQ, wEff.data());
+			sink->setBackendRootWorldMatrixFromWorld(bid, wEff);
+		}
+	}
+
+	m_axisControlExternalQApplied = values;
 	m_axisControlExternalInstIdx = instanceIndex;
-	if (const RobotExternal::RobotExternalAxisConfig* rail =
-			RobotExternal::firstEnabledExternalAxis(doc->robotExternalAxesForInstance(instanceIndex)))
+	if (const RobotExternal::RobotExternalAxisConfig* rail = RobotExternal::firstEnabledExternalAxis(set))
 	{
 		m_axisControlExternalAxis[0] = rail->axis[0];
 		m_axisControlExternalAxis[1] = rail->axis[1];
@@ -2162,44 +2605,89 @@ void RobotSimulationController::applyAxisControlExternalPose(const int instanceI
 void RobotSimulationController::applyExternalAxisFromPlan(const int instanceIndex,
 														  const RobotInstruction::PlanResult& plan,
 														  const RobotInstruction::Base* instruction,
-														  const double progress01, const double segmentStartQMm)
+														  const double progress01, const QVector<double>& segmentStartQs)
 {
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
 	if (!doc || instanceIndex < 0)
 	{
 		return;
 	}
-	if (!RobotExternal::hasEnabledExternalAxes(doc->robotExternalAxesForInstance(instanceIndex)))
+	const RobotExternal::RobotExternalAxisConfigSet& set = doc->robotExternalAxesForInstance(instanceIndex);
+	if (!RobotExternal::hasEnabledExternalAxes(set))
 	{
 		return;
 	}
-	double qeTarget = 0.0;
-	bool haveQ = false;
-	if (plan.hasExternalAxisQ)
+
+	std::vector<double> qeTarget;
+	if (!plan.externalAxisQs.empty())
 	{
-		qeTarget = plan.externalAxisQ;
-		haveQ = true;
+		qeTarget = padExternalAxisQToConfig(set, plan.externalAxisQs);
 	}
 	else if (instruction)
 	{
 		const auto& ext = instruction->extensionProperties();
-		const auto it = ext.find(RobotExternal::kExtContextExternalAxisQMm);
-		if (it != ext.end() && !it->second.empty())
+		const auto itCsv = ext.find(RobotExternal::kExtContextExternalAxisQCsv);
+		if (itCsv != ext.end() && !itCsv->second.empty())
 		{
-			qeTarget = QString::fromStdString(it->second).toDouble(&haveQ);
+			qeTarget = padExternalAxisQToConfig(set, RobotExternal::parseExternalAxisQCsv(itCsv->second));
+		}
+		else
+		{
+			const auto it = ext.find(RobotExternal::kExtContextExternalAxisQMm);
+			bool haveQ = false;
+			const double qe = (it != ext.end() && !it->second.empty())
+								  ? QString::fromStdString(it->second).toDouble(&haveQ)
+								  : 0.0;
+			if (haveQ)
+			{
+				qeTarget = expandScalarExternalAxisQ(set, qe);
+			}
 		}
 	}
-	if (!haveQ)
+	if (qeTarget.empty() && plan.hasExternalAxisQ)
+	{
+		qeTarget = expandScalarExternalAxisQ(set, plan.externalAxisQ);
+	}
+	if (qeTarget.empty())
 	{
 		return;
 	}
+
 	const double u = std::clamp(progress01, 0.0, 1.0);
-	const double qe = (u >= 1.0 - 1e-12) ? qeTarget : (segmentStartQMm + (qeTarget - segmentStartQMm) * u);
-	if (std::abs(doc->robotExternalAxisQMm(instanceIndex) - qe) < 1e-6)
+	std::vector<double> qeFull = qeTarget;
+	if (u < 1.0 - 1e-12)
+	{
+		std::vector<double> start =
+			segmentStartQs.isEmpty() ? doc->robotExternalAxisQ(instanceIndex) : toStdVector(segmentStartQs);
+		start = padExternalAxisQToConfig(set, start);
+		qeFull.resize(set.axes.size());
+		for (size_t i = 0; i < set.axes.size(); ++i)
+		{
+			const double s = i < start.size() ? start[i] : set.axes[i].home;
+			const double t = i < qeTarget.size() ? qeTarget[i] : set.axes[i].home;
+			qeFull[i] = s + (t - s) * u;
+		}
+	}
+
+	const std::vector<double> qCur = doc->robotExternalAxisQ(instanceIndex);
+	bool changed = qCur.size() != qeFull.size();
+	if (!changed)
+	{
+		for (size_t i = 0; i < qeFull.size(); ++i)
+		{
+			if (std::abs(qCur[i] - qeFull[i]) >= 1e-6)
+			{
+				changed = true;
+				break;
+			}
+		}
+	}
+	if (!changed)
 	{
 		return;
 	}
-	const QVector<double> values{qe};
+
+	const QVector<double> values = enabledValuesFromFullQ(set, qeFull);
 	if (RobotAxisControlWidget* axis = m_host->robotAxisControlPage())
 	{
 		if (axis->externalAxisCount() == values.size())
@@ -2229,66 +2717,374 @@ void RobotSimulationController::onRobotAxisExternalValuesChanged(const QVector<d
 	applyAxisControlExternalPose(instIdx, values);
 }
 
+void RobotSimulationController::clearReachableWorkspaceOverlayUi()
+{
+	++m_reachableWorkspaceJobToken;
+	if (IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr)
+	{
+		osg->clearReachableWorkspaceOverlay();
+	}
+}
+
 namespace
 {
-/// 拖动 gizmo 相对 P_eff；示教/IK 约定相对 P0：p0 = peff + qe·axis
-void tcpDragTranslatePeffToP0(IRobotDocumentHost* doc, const int instIdx, double& xMm, double& yMm, double& zMm)
+struct ReachableWorkspaceJobInput
 {
+	QString urdfPath;
+	RobotCoordinate::RobotCoordinateFrameSet frames;
+	RobotCoordinate::RobotToolFrame tool;
+	QVector<double> jointLower;
+	QVector<double> jointUpper;
+	RobotExternal::RobotExternalAxisConfigSet extSet;
+	cloudsim::core::Mat4 p0World{};
+	double cellSizeMm = 25.0;
+	int sampleCount = 28000;
+};
+
+struct ReachableWorkspaceJobOutput
+{
+	RobotOsgUi::ReachableWorkspaceOverlay overlay;
+};
+
+double radicalInverseHalton(int base, int index)
+{
+	double f = 1.0;
+	double r = 0.0;
+	int i = index;
+	while (i > 0)
+	{
+		f /= static_cast<double>(base);
+		r += f * static_cast<double>(i % base);
+		i /= base;
+	}
+	return r;
+}
+
+struct VoxelIjk
+{
+	int x = 0;
+	int y = 0;
+	int z = 0;
+	bool operator==(const VoxelIjk& o) const { return x == o.x && y == o.y && z == o.z; }
+};
+
+struct VoxelIjkHash
+{
+	size_t operator()(const VoxelIjk& v) const
+	{
+		size_t h = static_cast<size_t>(v.x) * 73856093u;
+		h ^= static_cast<size_t>(v.y) * 19349663u;
+		h ^= static_cast<size_t>(v.z) * 83492791u;
+		return h;
+	}
+};
+
+ReachableWorkspaceJobOutput computeReachableWorkspaceVoxels(const ReachableWorkspaceJobInput& in)
+{
+	ReachableWorkspaceJobOutput out;
+	out.overlay.cellSizeMm = in.cellSizeMm;
+	const int nj = in.jointLower.size();
+	if (in.urdfPath.isEmpty() || nj <= 0 || in.jointUpper.size() != nj)
+	{
+		return out;
+	}
+
+	struct DofSpec
+	{
+		double lower = 0.0;
+		double upper = 0.0;
+		int armIndex = -1;
+		int extConfigIndex = -1;
+	};
+	std::vector<DofSpec> dofs;
+	dofs.reserve(static_cast<size_t>(nj) + in.extSet.axes.size());
+	for (int j = 0; j < nj; ++j)
+	{
+		DofSpec d;
+		d.lower = std::min(in.jointLower[j], in.jointUpper[j]);
+		d.upper = std::max(in.jointLower[j], in.jointUpper[j]);
+		d.armIndex = j;
+		dofs.push_back(d);
+	}
+	for (size_t i = 0; i < in.extSet.axes.size(); ++i)
+	{
+		const RobotExternal::RobotExternalAxisConfig& a = in.extSet.axes[i];
+		if (!a.enabled || a.attachment != RobotExternal::RobotExternalAttachment::RobotBase)
+		{
+			continue;
+		}
+		DofSpec d;
+		d.lower = std::min(a.lower, a.upper);
+		d.upper = std::max(a.lower, a.upper);
+		d.extConfigIndex = static_cast<int>(i);
+		dofs.push_back(d);
+	}
+	if (dofs.empty())
+	{
+		return out;
+	}
+
+	static const int kHaltonBases[] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37};
+	const int dofN = static_cast<int>(dofs.size());
+	const int samples = std::max(1000, in.sampleCount);
+	const double cell = std::max(1.0, in.cellSizeMm);
+	const int extN = static_cast<int>(in.extSet.axes.size());
+	if (RobotCoordinate::effectiveFlangeLinkName(in.frames, in.tool).empty() && in.frames.flangeLinkName.empty())
+	{
+		return out;
+	}
+
+	std::unordered_set<VoxelIjk, VoxelIjkHash> voxels;
+	voxels.reserve(static_cast<size_t>(samples / 4));
+
+	for (int s = 0; s < samples; ++s)
+	{
+		QVector<double> qArm(nj, 0.0);
+		std::vector<double> qExt(static_cast<size_t>(std::max(0, extN)), 0.0);
+		for (size_t i = 0; i < in.extSet.axes.size(); ++i)
+		{
+			qExt[i] = std::clamp(in.extSet.axes[i].home, in.extSet.axes[i].lower, in.extSet.axes[i].upper);
+		}
+
+		// Halton 填满关节空间，避免正则网格在笛卡尔系成环
+		for (int d = 0; d < dofN; ++d)
+		{
+			const int base = kHaltonBases[d % static_cast<int>(sizeof(kHaltonBases) / sizeof(kHaltonBases[0]))];
+			const double u = radicalInverseHalton(base, s + 1);
+			const double q = dofs[static_cast<size_t>(d)].lower +
+							 u * (dofs[static_cast<size_t>(d)].upper - dofs[static_cast<size_t>(d)].lower);
+			if (dofs[static_cast<size_t>(d)].armIndex >= 0)
+			{
+				qArm[dofs[static_cast<size_t>(d)].armIndex] = q;
+			}
+			else if (dofs[static_cast<size_t>(d)].extConfigIndex >= 0 &&
+					 dofs[static_cast<size_t>(d)].extConfigIndex < extN)
+			{
+				qExt[static_cast<size_t>(dofs[static_cast<size_t>(d)].extConfigIndex)] = q;
+			}
+		}
+
+		QHash<QString, osg::Matrixd> linkWorld;
+		if (!UrdfRobotLoader::computeLinkWorldMatrices(in.urdfPath, qArm, linkWorld, nullptr))
+		{
+			continue;
+		}
+		const std::string flangeLink = RobotCoordinate::effectiveFlangeLinkName(in.frames, in.tool);
+		const QString flangeQ =
+			flangeLink.empty() ? QString::fromStdString(in.frames.flangeLinkName) : QString::fromStdString(flangeLink);
+		if (flangeQ.isEmpty() || !linkWorld.contains(flangeQ))
+		{
+			continue;
+		}
+		const BackendMat4 T_tool = RobotCoordinate::frameToMat4(in.tool.T_flange_tool);
+		const engine::RigidTransform T_base_flange = engine::rigidTransformFromOsg(linkWorld.value(flangeQ));
+		const engine::RigidTransform T_flange_tool = RobotCoordinate::rigidTransformFromBackendMat4(T_tool);
+		const engine::RigidTransform T_base_tcp = engine::toolOriginFromFlange(T_base_flange, T_flange_tool);
+
+		BackendMat4 peff = BackendMat4::identity();
+		RobotExternal::composeBasePlacementWithExternalAxis(in.p0World.data(), in.extSet, qExt, peff.v);
+		const engine::RigidTransform T_world_tcp =
+			RobotCoordinate::rigidTransformFromBackendMat4(peff).composeColumn(T_base_tcp);
+		double x = 0.0;
+		double y = 0.0;
+		double z = 0.0;
+		T_world_tcp.translationMm(x, y, z);
+		VoxelIjk key;
+		key.x = static_cast<int>(std::floor(x / cell));
+		key.y = static_cast<int>(std::floor(y / cell));
+		key.z = static_cast<int>(std::floor(z / cell));
+		voxels.insert(key);
+	}
+
+	out.overlay.voxelCentersMm.reserve(voxels.size());
+	for (const VoxelIjk& v : voxels)
+	{
+		cloudsim::core::Vec3 c;
+		c.x = (static_cast<double>(v.x) + 0.5) * cell;
+		c.y = (static_cast<double>(v.y) + 0.5) * cell;
+		c.z = (static_cast<double>(v.z) + 0.5) * cell;
+		out.overlay.voxelCentersMm.push_back(c);
+	}
+	return out;
+}
+} // namespace
+
+void RobotSimulationController::startReachableWorkspaceCompute(const int instanceIndex)
+{
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	IRobotOsgViewHost* osg = m_host ? m_host->osgView() : nullptr;
+	RobotAxisControlWidget* axis = m_host ? m_host->robotAxisControlPage() : nullptr;
+	if (!doc || !osg || !axis || instanceIndex < 0)
+	{
+		return;
+	}
+	const QString urdfPath = doc->robotUrdfAbsolutePathForInstance(instanceIndex);
+	if (urdfPath.isEmpty())
+	{
+		axis->setReachableWorkspaceChecked(false);
+		axis->setReachableWorkspaceBusy(false);
+		return;
+	}
+
+	ReachableWorkspaceJobInput input;
+	input.urdfPath = urdfPath;
+	input.frames = doc->robotCoordinateFramesForInstance(instanceIndex);
+	if (const RobotCoordinate::RobotToolFrame* tool = RobotCoordinate::activeToolFrame(input.frames))
+	{
+		input.tool = *tool;
+	}
+	else
+	{
+		input.tool.T_flange_tool = RobotCoordinate::identityRigidFrame();
+	}
+	doc->robotJointLimitsForInstance(instanceIndex, input.jointLower, input.jointUpper);
+	input.extSet = doc->robotExternalAxesForInstance(instanceIndex);
+	input.p0World = doc->robotBasePlacementWorldForInstance(instanceIndex);
+	const double density01 =
+		std::clamp(axis->reachableWorkspaceDensityPercent(), 1, 100) / 100.0;
+	// 50% → ~28k 采样 / 25mm 体素；滑条同时调采样数与体素边长
+	input.sampleCount = static_cast<int>(std::lround(6000.0 + density01 * 44000.0));
+	input.cellSizeMm = 42.0 - density01 * 28.0;
+
+	const quint64 token = ++m_reachableWorkspaceJobToken;
+	axis->setReachableWorkspaceBusy(true);
+	const auto jobOut = std::make_shared<ReachableWorkspaceJobOutput>();
+	QPointer<RobotSimulationController> guard(this);
+	m_host->enqueueBackgroundJob(
+		QStringLiteral("Reachable workspace"),
+		[input, jobOut]() { *jobOut = computeReachableWorkspaceVoxels(input); },
+		[this, guard, token, jobOut](const bool threw, const QString&)
+		{
+			if (!guard || threw || token != m_reachableWorkspaceJobToken || !m_host)
+			{
+				return;
+			}
+			if (RobotAxisControlWidget* ax = m_host->robotAxisControlPage())
+			{
+				ax->setReachableWorkspaceBusy(false);
+				if (!ax->isReachableWorkspaceChecked())
+				{
+					clearReachableWorkspaceOverlayUi();
+					return;
+				}
+			}
+			if (IRobotOsgViewHost* view = m_host->osgView())
+			{
+				view->setReachableWorkspaceOverlay(jobOut->overlay);
+			}
+		});
+}
+
+void RobotSimulationController::onReachableWorkspaceToggled(const bool enabled)
+{
+	if (!enabled)
+	{
+		clearReachableWorkspaceOverlayUi();
+		if (RobotAxisControlWidget* axis = m_host ? m_host->robotAxisControlPage() : nullptr)
+		{
+			axis->setReachableWorkspaceBusy(false);
+		}
+		return;
+	}
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!doc || !m_host->simulationCommandPage())
+	{
+		if (RobotAxisControlWidget* axis = m_host ? m_host->robotAxisControlPage() : nullptr)
+		{
+			axis->setReachableWorkspaceChecked(false);
+		}
+		return;
+	}
+	const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		if (RobotAxisControlWidget* axis = m_host->robotAxisControlPage())
+		{
+			axis->setReachableWorkspaceChecked(false);
+		}
+		return;
+	}
+	startReachableWorkspaceCompute(instIdx);
+}
+
+void RobotSimulationController::onReachableWorkspaceDensityChanged(int /*percent*/)
+{
+	RobotAxisControlWidget* axis = m_host ? m_host->robotAxisControlPage() : nullptr;
+	if (!axis || !axis->isReachableWorkspaceChecked())
+	{
+		return;
+	}
+	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
+	if (!doc || !m_host->simulationCommandPage())
+	{
+		return;
+	}
+	const int instIdx = m_host->simulationCommandPage()->currentRobotInstanceIndex();
+	if (instIdx < 0)
+	{
+		return;
+	}
+	startReachableWorkspaceCompute(instIdx);
+}
+
+namespace
+{
+/// 拖动 gizmo 相对 P_eff；示教 IK 相对 P0：T_p0 = E(q) * T_peff
+engine::RigidTransform robotBaseExternalE(IRobotDocumentHost* doc, const int instIdx)
+{
+	BackendMat4 eMat = BackendMat4::identity();
 	if (!doc)
 	{
-		return;
+		return engine::RigidTransform::identity();
 	}
-	const RobotExternal::RobotExternalAxisConfig* rail =
-		RobotExternal::firstEnabledExternalAxis(doc->robotExternalAxesForInstance(instIdx));
-	if (!rail)
-	{
-		return;
-	}
-	const double qe = doc->robotExternalAxisQMm(instIdx);
-	xMm += qe * rail->axis[0];
-	yMm += qe * rail->axis[1];
-	zMm += qe * rail->axis[2];
+	const RobotExternal::RobotExternalAxisConfigSet& set = doc->robotExternalAxesForInstance(instIdx);
+	const std::vector<double> qs = doc->robotExternalAxisQ(instIdx);
+	RobotExternal::composeBasePlacementWithExternalAxis(BackendMat4::identity().v, set, qs, eMat.v);
+	return RobotCoordinate::rigidTransformFromBackendMat4(eMat);
 }
 
 engine::RigidTransform tcpDragRigidPeffToP0(IRobotDocumentHost* doc, const int instIdx,
 											const engine::RigidTransform& peff)
 {
-	double x = 0.0;
-	double y = 0.0;
-	double z = 0.0;
-	double ex = 0.0;
-	double ey = 0.0;
-	double ez = 0.0;
-	peff.translationMm(x, y, z);
-	peff.eulerDegForDisplay(ex, ey, ez);
-	tcpDragTranslatePeffToP0(doc, instIdx, x, y, z);
-	return engine::RigidTransform::fromTranslationEulerDeg(x, y, z, ex, ey, ez);
+	if (!doc || !RobotExternal::hasEnabledExternalAxes(doc->robotExternalAxesForInstance(instIdx)))
+	{
+		return peff;
+	}
+	return robotBaseExternalE(doc, instIdx).composeColumn(peff);
 }
 
-/// 回写 gizmo：peff = p0 - qe·axis
+/// 回写 gizmo：T_peff = inv(E) * T_p0
 engine::RigidTransform tcpDragRigidP0ToPeff(IRobotDocumentHost* doc, const int instIdx,
 											const engine::RigidTransform& p0)
 {
-	double x = 0.0;
-	double y = 0.0;
-	double z = 0.0;
-	double ex = 0.0;
-	double ey = 0.0;
-	double ez = 0.0;
-	p0.translationMm(x, y, z);
-	p0.eulerDegForDisplay(ex, ey, ez);
-	if (doc)
+	if (!doc || !RobotExternal::hasEnabledExternalAxes(doc->robotExternalAxesForInstance(instIdx)))
 	{
-		if (const RobotExternal::RobotExternalAxisConfig* rail =
-				RobotExternal::firstEnabledExternalAxis(doc->robotExternalAxesForInstance(instIdx)))
-		{
-			const double qe = doc->robotExternalAxisQMm(instIdx);
-			x -= qe * rail->axis[0];
-			y -= qe * rail->axis[1];
-			z -= qe * rail->axis[2];
-		}
+		return p0;
 	}
-	return engine::RigidTransform::fromTranslationEulerDeg(x, y, z, ex, ey, ez);
+	return robotBaseExternalE(doc, instIdx).inverse().composeColumn(p0);
+}
+
+/// 沿各 RobotBase 平移轴投影位移，更新联立种子
+void tcpDragProjectExternalSeed(IRobotDocumentHost* doc, const int instIdx, const double dxMm, const double dyMm,
+								const double dzMm, std::vector<double>& qeInOut)
+{
+	if (!doc)
+	{
+		return;
+	}
+	const RobotExternal::RobotExternalAxisConfigSet& set = doc->robotExternalAxesForInstance(instIdx);
+	qeInOut.resize(set.axes.size());
+	for (size_t i = 0; i < set.axes.size(); ++i)
+	{
+		const RobotExternal::RobotExternalAxisConfig& a = set.axes[i];
+		if (!a.enabled || a.attachment != RobotExternal::RobotExternalAttachment::RobotBase ||
+			a.motionType != RobotExternal::RobotExternalMotionType::Translate)
+		{
+			continue;
+		}
+		const double dAlong = dxMm * a.axis[0] + dyMm * a.axis[1] + dzMm * a.axis[2];
+		qeInOut[i] = std::clamp(qeInOut[i] + dAlong, a.lower, a.upper);
+	}
 }
 } // namespace
 
@@ -2604,16 +3400,20 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 		seedQ = m_host->robotAxisControlPage()->jointAnglesRad();
 	}
 
-	// 拖动回调相对 P_eff；先还原到 P0 再 chase/IK
-	double pxP0 = pxMm;
-	double pyP0 = pyMm;
-	double pzP0 = pzMm;
-	tcpDragTranslatePeffToP0(doc, instIdx, pxP0, pyP0, pzP0);
-	const engine::RigidTransform targetFromEmit =
-		engine::RigidTransform::fromTranslationEulerDeg(pxP0, pyP0, pzP0, exDeg, eyDeg, ezDeg);
+	// 拖动回调相对 P_eff；先还原到 P0 再 chase/IK（含 Rotate）
+	const engine::RigidTransform targetPeff =
+		engine::RigidTransform::fromTranslationEulerDeg(pxMm, pyMm, pzMm, exDeg, eyDeg, ezDeg);
+	const engine::RigidTransform targetFromEmit = tcpDragRigidPeffToP0(doc, instIdx, targetPeff);
 	const bool hadPrevTarget = m_lastTcpDragTargetValid;
 	const engine::RigidTransform prevTarget = m_lastTcpDragTargetInBase;
-	double ikPx = pxP0, ikPy = pyP0, ikPz = pzP0;
+	double ikPx = 0.0;
+	double ikPy = 0.0;
+	double ikPz = 0.0;
+	double ikEx = 0.0;
+	double ikEy = 0.0;
+	double ikEz = 0.0;
+	targetFromEmit.translationMm(ikPx, ikPy, ikPz);
+	targetFromEmit.eulerDegForDisplay(ikEx, ikEy, ikEz);
 	static constexpr double kTcpDragMaxChaseMmPerIk = 50.0;
 	if (hadPrevTarget)
 	{
@@ -2634,26 +3434,19 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 		}
 	}
 	const engine::RigidTransform targetForIkStep =
-		engine::RigidTransform::fromTranslationEulerDeg(ikPx, ikPy, ikPz, exDeg, eyDeg, ezDeg);
+		engine::RigidTransform::fromTranslationEulerDeg(ikPx, ikPy, ikPz, ikEx, ikEy, ikEz);
 
-	// 沿轨投影仅作联立种子提示，由代价选优决定臂/轨分配
-	double qeSeed = doc->robotExternalAxisQMm(instIdx);
-	bool hasQeSeed = false;
-	if (const RobotExternal::RobotExternalAxisConfig* rail =
-			RobotExternal::firstEnabledExternalAxis(doc->robotExternalAxesForInstance(instIdx)))
+	// 多轴联立种子：沿各 RobotBase 平移轴投影本步位移
+	std::vector<double> qeSeed = doc->robotExternalAxisQ(instIdx);
+	bool hasQeSeed = RobotExternal::hasEnabledExternalAxes(doc->robotExternalAxesForInstance(instIdx));
+	if (hasQeSeed && hadPrevTarget)
 	{
-		hasQeSeed = true;
-		if (hadPrevTarget)
-		{
-			double tPrev[3]{};
-			prevTarget.translationMm(tPrev[0], tPrev[1], tPrev[2]);
-			const double dAlong = (ikPx - tPrev[0]) * rail->axis[0] + (ikPy - tPrev[1]) * rail->axis[1] +
-								  (ikPz - tPrev[2]) * rail->axis[2];
-			qeSeed = std::clamp(qeSeed + dAlong, rail->lower, rail->upper);
-		}
+		double tPrev[3]{};
+		prevTarget.translationMm(tPrev[0], tPrev[1], tPrev[2]);
+		tcpDragProjectExternalSeed(doc, instIdx, ikPx - tPrev[0], ikPy - tPrev[1], ikPz - tPrev[2], qeSeed);
 	}
 
-	const auto ikResult = doc->solveTcpDragTeachIk(instIdx, ikPx, ikPy, ikPz, exDeg, eyDeg, ezDeg, seedQ,
+	const auto ikResult = doc->solveTcpDragTeachIk(instIdx, ikPx, ikPy, ikPz, ikEx, ikEy, ikEz, seedQ,
 												   m_tcpDragTeachFlangeLink, qeSeed, hasQeSeed);
 	if (!ikResult.ok)
 	{
@@ -2672,26 +3465,73 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 		qClamped = clampJointStepFromPrevious(qClamped, m_tcpDragLastAppliedJointRad, kTcpDragMaxJointStepRad);
 	}
 	const double maxJointDelta = hasPrevDragQ ? maxJointDeltaRad(qClamped, m_tcpDragLastAppliedJointRad) : 1.0;
-	const double qeOld = doc->robotExternalAxisQMm(instIdx);
-	double qeNew = qeOld;
-	if (ikResult.hasExternalAxisQ)
+	const std::vector<double> qeOldFull = doc->robotExternalAxisQ(instIdx);
+	const RobotExternal::RobotExternalAxisConfigSet& extSet = doc->robotExternalAxesForInstance(instIdx);
+	std::vector<double> qeNewFull = qeOldFull;
+	bool haveExtUpdate = false;
+	if (!ikResult.externalAxisQs.empty())
 	{
-		qeNew = ikResult.externalAxisQ;
-		static constexpr double kTcpDragMaxExtStepMm = 40.0;
-		const double dQe = qeNew - qeOld;
-		if (std::abs(dQe) > kTcpDragMaxExtStepMm)
+		qeNewFull = padExternalAxisQToConfig(extSet, ikResult.externalAxisQs);
+		haveExtUpdate = true;
+	}
+	else if (ikResult.hasExternalAxisQ)
+	{
+		qeNewFull = expandScalarExternalAxisQ(extSet, ikResult.externalAxisQ);
+		haveExtUpdate = true;
+	}
+	static constexpr double kTcpDragMaxExtStepMm = 40.0;
+	static constexpr double kTcpDragMaxExtStepRad = 0.2;
+	if (haveExtUpdate)
+	{
+		qeNewFull.resize(extSet.axes.size());
+		for (size_t i = 0; i < extSet.axes.size(); ++i)
 		{
-			qeNew = qeOld + (dQe > 0.0 ? kTcpDragMaxExtStepMm : -kTcpDragMaxExtStepMm);
+			const double oldV = i < qeOldFull.size() ? qeOldFull[i] : extSet.axes[i].home;
+			double& newV = qeNewFull[i];
+			const double dQ = newV - oldV;
+			const double maxStep = (extSet.axes[i].motionType == RobotExternal::RobotExternalMotionType::Rotate)
+									  ? kTcpDragMaxExtStepRad
+									  : kTcpDragMaxExtStepMm;
+			if (std::abs(dQ) > maxStep)
+			{
+				newV = oldV + (dQ > 0.0 ? maxStep : -maxStep);
+			}
 		}
 	}
 	static constexpr double kTcpDragMinJointApplyRad = 0.002;
 	static constexpr double kTcpDragMinExtApplyMm = 0.2;
-	if (maxJointDelta < kTcpDragMinJointApplyRad && std::abs(qeNew - qeOld) < kTcpDragMinExtApplyMm)
+	static constexpr double kTcpDragMinExtApplyRad = 0.002;
+	auto extDeltaSignificant = [&]() -> bool
+	{
+		if (!haveExtUpdate)
+		{
+			return false;
+		}
+		for (size_t i = 0; i < extSet.axes.size(); ++i)
+		{
+			if (!extSet.axes[i].enabled)
+			{
+				continue;
+			}
+			const double oldV = i < qeOldFull.size() ? qeOldFull[i] : extSet.axes[i].home;
+			const double newV = i < qeNewFull.size() ? qeNewFull[i] : oldV;
+			const double thr = (extSet.axes[i].motionType == RobotExternal::RobotExternalMotionType::Rotate)
+								  ? kTcpDragMinExtApplyRad
+								  : kTcpDragMinExtApplyMm;
+			if (std::abs(newV - oldV) >= thr)
+			{
+				return true;
+			}
+		}
+		return false;
+	};
+	const bool extMoved = extDeltaSignificant();
+	if (maxJointDelta < kTcpDragMinJointApplyRad && !extMoved)
 	{
 		return true;
 	}
 	// 外轴本步有位移时跳过臂对齐拒绝，避免把轨步进整段丢掉
-	const bool skipAlignReject = ikResult.hasExternalAxisQ && std::abs(qeNew - qeOld) >= kTcpDragMinExtApplyMm;
+	const bool skipAlignReject = extMoved;
 	if (!skipAlignReject && hadPrevTarget && !qClamped.isEmpty())
 	{
 		engine::RigidTransform fkMotion{};
@@ -2704,14 +3544,20 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 			prevTarget.translationMm(tPrev[0], tPrev[1], tPrev[2]);
 			targetForIkStep.translationMm(tTgt[0], tTgt[1], tTgt[2]);
 			fkMotion.translationMm(tFk[0], tFk[1], tFk[2]);
-			if (ikResult.hasExternalAxisQ)
+			if (haveExtUpdate)
 			{
-				if (const RobotExternal::RobotExternalAxisConfig* rail =
-						RobotExternal::firstEnabledExternalAxis(doc->robotExternalAxesForInstance(instIdx)))
+				for (size_t i = 0; i < extSet.axes.size(); ++i)
 				{
-					tFk[0] += qeNew * rail->axis[0];
-					tFk[1] += qeNew * rail->axis[1];
-					tFk[2] += qeNew * rail->axis[2];
+					const RobotExternal::RobotExternalAxisConfig& a = extSet.axes[i];
+					if (!a.enabled || a.attachment != RobotExternal::RobotExternalAttachment::RobotBase ||
+						a.motionType != RobotExternal::RobotExternalMotionType::Translate)
+					{
+						continue;
+					}
+					const double q = i < qeNewFull.size() ? qeNewFull[i] : a.home;
+					tFk[0] += q * a.axis[0];
+					tFk[1] += q * a.axis[1];
+					tFk[2] += q * a.axis[2];
 				}
 			}
 			engine::RigidTransform fkSeedPose{};
@@ -2720,14 +3566,20 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 			{
 				double tSeed[3]{};
 				fkSeedPose.translationMm(tSeed[0], tSeed[1], tSeed[2]);
-				if (ikResult.hasExternalAxisQ)
+				if (haveExtUpdate || RobotExternal::hasEnabledExternalAxes(extSet))
 				{
-					if (const RobotExternal::RobotExternalAxisConfig* rail =
-							RobotExternal::firstEnabledExternalAxis(doc->robotExternalAxesForInstance(instIdx)))
+					for (size_t i = 0; i < extSet.axes.size(); ++i)
 					{
-						tSeed[0] += qeOld * rail->axis[0];
-						tSeed[1] += qeOld * rail->axis[1];
-						tSeed[2] += qeOld * rail->axis[2];
+						const RobotExternal::RobotExternalAxisConfig& a = extSet.axes[i];
+						if (!a.enabled || a.attachment != RobotExternal::RobotExternalAttachment::RobotBase ||
+							a.motionType != RobotExternal::RobotExternalMotionType::Translate)
+						{
+							continue;
+						}
+						const double q = i < qeOldFull.size() ? qeOldFull[i] : a.home;
+						tSeed[0] += q * a.axis[0];
+						tSeed[1] += q * a.axis[1];
+						tSeed[2] += q * a.axis[2];
 					}
 				}
 				const double wantDx = tTgt[0] - tPrev[0];
@@ -2765,16 +3617,17 @@ bool RobotSimulationController::applyTcpDragTeachIkFromPose(const double pxMm, c
 	}
 	m_tcpDragApplyingIk = true;
 	m_suppressMotionPreviewStartCapture = true;
-	if (ikResult.hasExternalAxisQ)
+	if (haveExtUpdate)
 	{
+		const QVector<double> enabledVals = enabledValuesFromFullQ(extSet, qeNewFull);
 		if (RobotAxisControlWidget* axisPage = m_host->robotAxisControlPage())
 		{
-			if (axisPage->externalAxisCount() >= 1)
+			if (axisPage->externalAxisCount() == enabledVals.size())
 			{
-				axisPage->setExternalAxisValuesSilent(QVector<double>{qeNew});
+				axisPage->setExternalAxisValuesSilent(enabledVals);
 			}
 		}
-		applyAxisControlExternalPose(instIdx, QVector<double>{qeNew});
+		applyAxisControlExternalPose(instIdx, enabledVals);
 	}
 	(void)doc->applyJointAnglesRad(instIdx, qClamped, m_aggregatedJointAnglesRad);
 	if (m_host->robotAxisControlPage() && m_host->robotAxisControlPage()->jointCount() == njInst)
@@ -3549,17 +4402,50 @@ void RobotSimulationController::onSimulationAddInstructionRequested(RobotInstruc
 				}
 			}
 			// 拖动示教落点写入外轴，规划可跳过密网格
-			if (const RobotExternal::RobotExternalAxisConfig* rail =
-					RobotExternal::firstEnabledExternalAxis(capDoc2->robotExternalAxesForInstance(capInstIdx2)))
+			if (RobotExternal::hasEnabledExternalAxes(capDoc2->robotExternalAxesForInstance(capInstIdx2)))
 			{
-				const double qe = capDoc2->robotExternalAxisQMm(capInstIdx2);
+				const RobotExternal::RobotExternalAxisConfigSet& capSet =
+					capDoc2->robotExternalAxesForInstance(capInstIdx2);
+				const std::vector<double> qs = capDoc2->robotExternalAxisQ(capInstIdx2);
+				const double qe = firstRobotBaseEnabledQ(capSet, qs, capDoc2->robotExternalAxisQMm(capInstIdx2));
 				ins->setExtensionProperty(RobotExternal::kExtContextExternalAxisQMm,
 										  QString::number(qe, 'g', 12).toStdString());
-				const QString dir = QStringLiteral("%1,%2,%3")
-										.arg(rail->axis[0], 0, 'g', 12)
-										.arg(rail->axis[1], 0, 'g', 12)
-										.arg(rail->axis[2], 0, 'g', 12);
-				ins->setExtensionProperty(RobotExternal::kExtContextExternalAxisDir, dir.toStdString());
+				ins->setExtensionProperty(RobotExternal::kExtContextExternalAxisQCsv,
+										  RobotExternal::encodeExternalAxisQCsv(padExternalAxisQToConfig(capSet, qs)));
+				if (const RobotExternal::RobotExternalAxisConfig* rail =
+						RobotExternal::firstEnabledExternalAxis(capSet))
+				{
+					const QString dir = QStringLiteral("%1,%2,%3")
+											.arg(rail->axis[0], 0, 'g', 12)
+											.arg(rail->axis[1], 0, 'g', 12)
+											.arg(rail->axis[2], 0, 'g', 12);
+					ins->setExtensionProperty(RobotExternal::kExtContextExternalAxisDir, dir.toStdString());
+				}
+				// REP：相对工作架 TCP，供规划外层采样
+				if (RobotExternal::hasEnabledWorkpieceExternalAxes(capSet) && m_lastTcpDragTargetValid)
+				{
+					const std::string boundId = RobotExternal::primaryWorkpieceBackendId(capSet);
+					const cloudsim::core::Mat4 p0 = capDoc2->robotBasePlacementWorldForInstance(capInstIdx2);
+					const cloudsim::core::Mat4 w0 =
+						capDoc2->workpieceExternalBasePlacement(capInstIdx2, QString::fromStdString(boundId));
+					const cloudsim::core::Mat4 offset =
+						capDoc2->workpieceWorkingFrameOffset(capInstIdx2, QString::fromStdString(boundId));
+					double tp0w[16];
+					if (RobotExternal::composeWorkpieceWorkingFrameInRobotP0(
+							p0.data(), w0.data(), capSet, boundId, padExternalAxisQToConfig(capSet, qs), offset.data(),
+							tp0w))
+					{
+						BackendMat4 bm = BackendMat4::identity();
+						for (int i = 0; i < 16; ++i)
+						{
+							bm.v[i] = tp0w[i];
+						}
+						const engine::RigidTransform T_p0_work = RobotCoordinate::rigidTransformFromBackendMat4(bm);
+						const engine::RigidTransform T_work =
+							T_p0_work.inverse().composeColumn(m_lastTcpDragTargetInBase);
+						RobotInstruction::writeWorkingTcpToInstruction(*ins, T_work);
+					}
+				}
 			}
 			if (RunLogger::isDiagnosticsEnabled() && m_host->runInfoPage() && m_host->robotAxisControlPage() &&
 				!capUrdf.isEmpty())
@@ -4525,6 +5411,12 @@ bool RobotSimulationController::shouldShowTrajectoryGenerationPreview() const
 void RobotSimulationController::onSimulationDockTabChanged(int index)
 {
 	(void)index;
+	if (isTrajectoryGenerationTabActive())
+	{
+		if (TrajectoryGenerationPageWidget* gen =
+				m_simulationDock ? m_simulationDock->trajectoryGenerationPage() : nullptr)
+			gen->refreshWorkpieces();
+	}
 	refreshPathPlanPreviewForActiveTab();
 }
 
@@ -4929,7 +5821,8 @@ void RobotSimulationController::onSimulationStartTriggered()
 		rollingQ[j] = initialAngles[jointOffset + j];
 	}
 	const QVector<double> programStartQ = rollingQ;
-	double rollingExternalAxisQMm = doc->robotExternalAxisQMm(instIdx);
+	std::vector<double> rollingExternalAxisQ = doc->robotExternalAxisQ(instIdx);
+	const RobotExternal::RobotExternalAxisConfigSet& extAxesForRun = doc->robotExternalAxesForInstance(instIdx);
 	int successMotionCount = 0;
 	bool planningStoppedAfterFailure = false;
 	size_t firstFailedMotionIndex = motions.size();
@@ -5015,9 +5908,12 @@ void RobotSimulationController::onSimulationStartTriggered()
 		writeExternalAxisPlanToInstruction(*ins, plan, doc, instIdx);
 		if (plan.hasExternalAxisQ)
 		{
+			std::vector<double> targetQs =
+				!plan.externalAxisQs.empty() ? padExternalAxisQToConfig(extAxesForRun, plan.externalAxisQs)
+											 : expandScalarExternalAxisQ(extAxesForRun, plan.externalAxisQ);
 			plan.durationSec =
-				std::max(plan.durationSec, externalAxisTravelDurationSec(plan.externalAxisQ - rollingExternalAxisQMm));
-			rollingExternalAxisQMm = plan.externalAxisQ;
+				std::max(plan.durationSec, externalAxisTravelDurationSec(extAxesForRun, rollingExternalAxisQ, targetQs));
+			rollingExternalAxisQ = std::move(targetQs);
 			if (plan.durationSec > 1e-6)
 			{
 				ins->setExtensionProperty("motion.durationSec", QString::number(plan.durationSec, 'f', 3).toStdString());
@@ -5080,7 +5976,8 @@ void RobotSimulationController::onSimulationStartTriggered()
 	m_playbackMotionIndex = 0;
 	m_playbackProgramStartQ = programStartQ;
 	m_playbackRollingSeedQ = programStartQ;
-	m_playbackSegmentExternalAxisStartMm = doc ? doc->robotExternalAxisQMm(instIdx) : 0.0;
+	m_playbackSegmentExternalAxisStart =
+		doc ? toQVector(doc->robotExternalAxisQ(instIdx)) : QVector<double>();
 	m_playbackExtInterpMotion = nullptr;
 	if (!poseSink || !m_programExecutor.tryStart(doc, poseSink, &m_simulationIoSink, instIdx, instructions, planResults,
 												 playbackStartAngles, &err))
@@ -5205,11 +6102,11 @@ void RobotSimulationController::onRobotSimulationTick()
 				if (activeMotion != m_playbackExtInterpMotion)
 				{
 					m_playbackExtInterpMotion = activeMotion;
-					m_playbackSegmentExternalAxisStartMm = doc->robotExternalAxisQMm(instForPlay);
+					m_playbackSegmentExternalAxisStart = toQVector(doc->robotExternalAxisQ(instForPlay));
 				}
 				applyExternalAxisFromPlan(instForPlay, *playPlan, activeMotion,
 										  m_programExecutor.motionSegmentProgress01(),
-										  m_playbackSegmentExternalAxisStartMm);
+										  m_playbackSegmentExternalAxisStart);
 			}
 		}
 		if (!uiBusy)
@@ -5285,9 +6182,6 @@ bool RobotSimulationController::planMotionOnHost(RobotInstruction::Base& instruc
 												 const QString& sceneRootBackendId, RobotInstruction::PlanResult& plan,
 												 std::string* planErr) const
 {
-	(void)seedJointRad;
-	(void)defaultTcpLinkName;
-	(void)sceneRootBackendId;
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;
 	if (!doc || !m_host)
 	{
@@ -5297,6 +6191,8 @@ bool RobotSimulationController::planMotionOnHost(RobotInstruction::Base& instruc
 		}
 		return false;
 	}
+	(void)defaultTcpLinkName;
+	(void)sceneRootBackendId;
 	// Run/Preview 直调本地 Controller，避免 Host DTO 丢掉 duration/外轴/轨迹
 	RobotSimulationController* self = const_cast<RobotSimulationController*>(this);
 	{
@@ -5329,6 +6225,22 @@ bool RobotSimulationController::planMotionOnHost(RobotInstruction::Base& instruc
 			*planErr = plan.summary.empty() ? (err.empty() ? "Instruction planning failed" : err) : plan.summary;
 		}
 		return false;
+	}
+
+	const RobotCollision::Settings& col = doc->robotCollisionSettings();
+	if (col.enabled)
+	{
+		std::string colErr;
+		const QVector<double> seedBefore = seedJointRad;
+		if (!BackendCollisionSync::validateJointTrajectory(*self->m_collisionWorld, doc, doc->backend(), instanceIndex,
+														   seedBefore, plan.jointTrajectoryRad, col, &colErr))
+		{
+			plan.ok = false;
+			plan.summary = colErr.empty() ? "Collision detected" : colErr;
+			if (planErr)
+				*planErr = plan.summary;
+			return false;
+		}
 	}
 	return true;
 }
@@ -5370,8 +6282,11 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 	{
 		// 启用外轴时禁止仅用臂关节示教 CSV 短路，否则外轴永不参与求解
 		const auto& ext = instruction.extensionProperties();
+		const auto itCsv = ext.find(RobotExternal::kExtContextExternalAxisQCsv);
 		const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
-		if (itQ == ext.end() || itQ->second.empty())
+		const bool hasCsv = itCsv != ext.end() && !itCsv->second.empty();
+		const bool hasQ = itQ != ext.end() && !itQ->second.empty();
+		if (!hasCsv && !hasQ)
 		{
 			useTaughtCsv = false;
 		}
@@ -5399,15 +6314,21 @@ bool RobotSimulationController::planMotionConsistentWithPreview(
 		outPlan.jointTargetsRad.assign(taughtQ.begin(), taughtQ.end());
 		outPlan.jointTrajectoryRad.clear();
 		const auto& ext = instruction.extensionProperties();
-		const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
-		if (itQ != ext.end() && !itQ->second.empty())
+		fillPlanExternalAxisFromInstructionExt(outPlan, ext, &doc->robotExternalAxesForInstance(instanceIndex));
+		const RobotCollision::Settings& col = doc->robotCollisionSettings();
+		if (col.enabled && m_collisionWorld)
 		{
-			bool ok = false;
-			const double qe = QString::fromStdString(itQ->second).toDouble(&ok);
-			if (ok)
+			std::string colErr;
+			std::vector<std::vector<double>> traj;
+			traj.push_back(outPlan.jointTargetsRad);
+			if (!BackendCollisionSync::validateJointTrajectory(*m_collisionWorld, doc, doc->backend(), instanceIndex,
+															   chainSeedQ, traj, col, &colErr))
 			{
-				outPlan.hasExternalAxisQ = true;
-				outPlan.externalAxisQ = qe;
+				outPlan.ok = false;
+				outPlan.summary = colErr.empty() ? "Collision detected" : colErr;
+				if (planErr)
+					*planErr = outPlan.summary;
+				return false;
 			}
 		}
 		return true;
@@ -5575,9 +6496,17 @@ struct PlanJobPayload
 	QString tcpLinkName;
 	std::vector<robot_kinematics::DhRow> dhRows;
 	RobotExternal::RobotExternalAxisConfigSet externalAxes;
+	RobotInstruction::Controller::WorkpieceIkFrameContext workpieceIkFrame{};
 	RobotCoordinate::RobotCoordinateFrameSet frames;
 	bool hasFrames = false;
 };
+
+void attachWorkpieceIkFrameToPayload(PlanJobPayload& payload, IRobotDocumentHost* doc, const int instIdx)
+{
+	RobotInstruction::Controller tmp;
+	fillWorkpieceIkFrameContext(tmp, doc, instIdx);
+	payload.workpieceIkFrame = tmp.workpieceIkFrameContext();
+}
 
 PlanJobPayload makePlanJobPayload(const RobotInstruction::Base& ins, const QVector<double>& seedJointRad,
 								  const QString& urdfPath, const QString& tcpLinkName,
@@ -5701,7 +6630,8 @@ bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::
 								 const QVector<double>& chainSeedQ, const QVector<double>& programStartQ,
 								 const QString& urdfPath, const QString& tcpLinkName,
 								 const RobotCoordinate::RobotCoordinateFrameSet* frames, QVector<double>& outJointQ,
-								 RobotInstruction::PlanResult* outPlan)
+								 RobotInstruction::PlanResult* outPlan,
+								 const RobotExternal::RobotExternalAxisConfigSet* externalAxesForPlan = nullptr)
 {
 	const int nj = chainSeedQ.size() > 0 ? chainSeedQ.size() : programStartQ.size();
 	if (nj <= 0)
@@ -5713,8 +6643,11 @@ bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::
 	if (useTaughtCsv && workerCtrl.hasEnabledExternalAxes())
 	{
 		const auto& ext = ins.extensionProperties();
-		if (ext.find(RobotExternal::kExtContextExternalAxisQMm) == ext.end() ||
-			ext.find(RobotExternal::kExtContextExternalAxisQMm)->second.empty())
+		const auto itCsv = ext.find(RobotExternal::kExtContextExternalAxisQCsv);
+		const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
+		const bool hasCsv = itCsv != ext.end() && !itCsv->second.empty();
+		const bool hasQ = itQ != ext.end() && !itQ->second.empty();
+		if (!hasCsv && !hasQ)
 		{
 			useTaughtCsv = false;
 		}
@@ -5742,17 +6675,7 @@ bool planMotionLikePreviewWorker(RobotInstruction::Base& ins, RobotInstruction::
 			outPlan->jointTargetsRad.assign(taughtQ.begin(), taughtQ.end());
 			outPlan->jointTrajectoryRad.clear();
 			const auto& ext = ins.extensionProperties();
-			const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
-			if (itQ != ext.end() && !itQ->second.empty())
-			{
-				bool ok = false;
-				const double qe = QString::fromStdString(itQ->second).toDouble(&ok);
-				if (ok)
-				{
-					outPlan->hasExternalAxisQ = true;
-					outPlan->externalAxisQ = qe;
-				}
-			}
+			fillPlanExternalAxisFromInstructionExt(*outPlan, ext, externalAxesForPlan);
 		}
 		return true;
 	}
@@ -5850,12 +6773,16 @@ RobotInstruction::PlanResult planLookaheadMotion(const PlanJobPayload& payload)
 		workerCtrl.setDhRows(payload.dhRows);
 	}
 	workerCtrl.setExternalAxes(payload.externalAxes);
+	if (payload.workpieceIkFrame.valid)
+	{
+		workerCtrl.setWorkpieceIkFrameContext(payload.workpieceIkFrame);
+	}
 	QVector<double> outQ;
 	const QVector<double> programStart =
 		!payload.programStartQ.isEmpty() ? payload.programStartQ : payload.seedJointRad;
 	const RobotCoordinate::RobotCoordinateFrameSet* framesPtr = payload.hasFrames ? &payload.frames : nullptr;
 	if (!planMotionLikePreviewWorker(*ins, workerCtrl, payload.seedJointRad, programStart, payload.urdfPath,
-									 payload.tcpLinkName, framesPtr, outQ, &plan))
+									 payload.tcpLinkName, framesPtr, outQ, &plan, &payload.externalAxes))
 	{
 		plan = {};
 		return plan;
@@ -5892,6 +6819,10 @@ RobotInstruction::FeasibleMotionAxisConfigurationOptions runFeasibleAxisProbeJob
 		workerCtrl.setDhRows(payload.plan.dhRows);
 	}
 	workerCtrl.setExternalAxes(payload.plan.externalAxes);
+	if (payload.plan.workpieceIkFrame.valid)
+	{
+		workerCtrl.setWorkpieceIkFrameContext(payload.plan.workpieceIkFrame);
+	}
 	const RobotInstructionPlanning::MotionPoseBackup backup = RobotInstructionPlanning::backupInstructionPose(*ins);
 	RobotInstructionPlanning::prepareMotionInstructionForPlanning(
 		*ins, payload.plan.seedJointRad, nullptr, nullptr, 0, payload.plan.urdfPath,
@@ -5985,6 +6916,7 @@ void RobotSimulationController::scheduleDeferredFeasibleAxisProbe(
 	FeasibleAxisJobPayload payload;
 	const RobotExternal::RobotExternalAxisConfigSet& extAxes = doc->robotExternalAxesForInstance(instIdx);
 	payload.plan = makePlanJobPayload(*instruction, rollingQ, urdfPath, defaultTcpLinkName, dhRows, &extAxes);
+	attachWorkpieceIkFrameToPayload(payload.plan, doc, instIdx);
 	payload.coordinateFrames = doc->robotCoordinateFramesForInstance(instIdx);
 
 	const quint64 token = m_feasibleAxisJobToken;
@@ -6061,6 +6993,14 @@ ReachabilityJobOutput runReachabilityJob(const ReachabilityJobInput& input)
 	workerCtrl.setExternalAxes(input.steps.front().planPayload.externalAxes);
 	for (const ReachabilityJobStep& step : input.steps)
 	{
+		if (step.planPayload.workpieceIkFrame.valid)
+		{
+			workerCtrl.setWorkpieceIkFrameContext(step.planPayload.workpieceIkFrame);
+		}
+		else
+		{
+			workerCtrl.clearWorkpieceIkFrameContext();
+		}
 		const std::shared_ptr<RobotInstruction::Base> ins = instructionFromPlanJobPayload(step.planPayload);
 		if (!ins)
 		{
@@ -6170,6 +7110,12 @@ QString RobotSimulationController::computePlanFingerprint(const RobotInstruction
 	{
 		fp += QStringLiteral("|eq:");
 		fp += QString::fromStdString(itExtQ->second);
+	}
+	const auto itExtCsv = ext.find(RobotExternal::kExtContextExternalAxisQCsv);
+	if (itExtCsv != ext.end() && !itExtCsv->second.empty())
+	{
+		fp += QStringLiteral("|eqs:");
+		fp += QString::fromStdString(itExtCsv->second);
 	}
 	if (m_host && m_host->document() && m_host->simulationCommandPage())
 	{
@@ -6306,7 +7252,17 @@ void RobotSimulationController::commitPlaybackPlan(const RobotInstruction::Base*
 	}
 	if (plan.hasExternalAxisQ)
 	{
-		double qeStart = m_playbackSegmentExternalAxisStartMm;
+		IRobotDocumentHost* docForExt = m_host ? m_host->document() : nullptr;
+		const int instForExt =
+			(m_host && m_host->simulationCommandPage() && m_host->simulationCommandPage()->currentRobotInstanceIndex() >= 0)
+				? m_host->simulationCommandPage()->currentRobotInstanceIndex()
+				: 0;
+		RobotExternal::RobotExternalAxisConfigSet extSet;
+		if (docForExt)
+		{
+			extSet = docForExt->robotExternalAxesForInstance(instForExt);
+		}
+		std::vector<double> qeStart = toStdVector(m_playbackSegmentExternalAxisStart);
 		if (motionIndex > 0 && motionIndex <= m_currentRunMotions.size())
 		{
 			const RobotInstruction::Base* prev = m_currentRunMotions[motionIndex - 1];
@@ -6314,11 +7270,21 @@ void RobotSimulationController::commitPlaybackPlan(const RobotInstruction::Base*
 			{
 				if (prevPlan->ok && prevPlan->hasExternalAxisQ)
 				{
-					qeStart = prevPlan->externalAxisQ;
+					if (!prevPlan->externalAxisQs.empty())
+					{
+						qeStart = padExternalAxisQToConfig(extSet, prevPlan->externalAxisQs);
+					}
+					else
+					{
+						qeStart = expandScalarExternalAxisQ(extSet, prevPlan->externalAxisQ);
+					}
 				}
 			}
 		}
-		plan.durationSec = std::max(plan.durationSec, externalAxisTravelDurationSec(plan.externalAxisQ - qeStart));
+		std::vector<double> qeTarget =
+			!plan.externalAxisQs.empty() ? padExternalAxisQToConfig(extSet, plan.externalAxisQs)
+										 : expandScalarExternalAxisQ(extSet, plan.externalAxisQ);
+		plan.durationSec = std::max(plan.durationSec, externalAxisTravelDurationSec(extSet, qeStart, qeTarget));
 	}
 	const QString insIdQ = QString::fromStdString(motion->id());
 	QVector<double> seedForFp = m_playbackRollingSeedQ;
@@ -6412,8 +7378,11 @@ bool RobotSimulationController::syncPlanMotionAtIndex(const size_t motionIndex)
 	if (useTaught && RobotExternal::hasEnabledExternalAxes(doc->robotExternalAxesForInstance(instIdx)))
 	{
 		const auto& ext = ins->extensionProperties();
+		const auto itCsv = ext.find(RobotExternal::kExtContextExternalAxisQCsv);
 		const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
-		if (itQ == ext.end() || itQ->second.empty())
+		const bool hasCsv = itCsv != ext.end() && !itCsv->second.empty();
+		const bool hasQ = itQ != ext.end() && !itQ->second.empty();
+		if (!hasCsv && !hasQ)
 		{
 			useTaught = false;
 		}
@@ -6438,17 +7407,7 @@ bool RobotSimulationController::syncPlanMotionAtIndex(const size_t motionIndex)
 		plan.durationSec = RobotInstructionPlanning::motionDurationSecFromInstruction(*ins);
 		plan.jointTargetsRad.assign(taughtQ.begin(), taughtQ.end());
 		const auto& ext = ins->extensionProperties();
-		const auto itQ = ext.find(RobotExternal::kExtContextExternalAxisQMm);
-		if (itQ != ext.end() && !itQ->second.empty())
-		{
-			bool ok = false;
-			const double qe = QString::fromStdString(itQ->second).toDouble(&ok);
-			if (ok)
-			{
-				plan.hasExternalAxisQ = true;
-				plan.externalAxisQ = qe;
-			}
-		}
+		fillPlanExternalAxisFromInstructionExt(plan, ext, &doc->robotExternalAxesForInstance(instIdx));
 		if (plan.durationSec > 1e-6)
 		{
 			ins->setExtensionProperty("motion.durationSec", QString::number(plan.durationSec, 'f', 3).toStdString());
@@ -6668,6 +7627,7 @@ void RobotSimulationController::tickLookaheadPlanning()
 
 		PlanJobPayload payload = makePlanJobPayload(*ins, seedQ, urdfPath, tcpLinkName, dhRows,
 													&doc->robotExternalAxesForInstance(instIdx));
+		attachWorkpieceIkFrameToPayload(payload, doc, instIdx);
 		payload.programStartQ = programStartQ;
 		payload.frames = frames;
 		payload.hasFrames = true;
@@ -6778,6 +7738,7 @@ void RobotSimulationController::enqueueReachabilityBatch(const int batchStart)
 		step.instructionId = QString::fromStdString(motionPtr->id());
 		step.planPayload = makePlanJobPayload(*motionPtr, input.programStartQ, urdfPath, defaultTcpLinkName, dhRows,
 											  &doc->robotExternalAxesForInstance(instIdx));
+		attachWorkpieceIkFrameToPayload(step.planPayload, doc, instIdx);
 		input.steps.push_back(std::move(step));
 	}
 	if (input.steps.isEmpty())

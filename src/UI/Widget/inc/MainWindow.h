@@ -7,6 +7,7 @@
 #include "widget_global.h"
 
 #include "BackendFollowSolve.h"
+#include "BackendUnitsTreeBinder.h"
 #include "CoreTypes.h"
 #include "DocumentHost.h"
 #include "IPluginMainWindowHost.h"
@@ -18,6 +19,7 @@
 #include <QElapsedTimer>
 #include <QHash>
 #include <QMainWindow>
+#include <QSet>
 #include <QTabWidget>
 #include <QTimer>
 #include <QVariant>
@@ -89,6 +91,11 @@ public:
 
 	DocumentPage* currentPage();
 	DocumentPage* currentPage() const;
+	DocumentPage* pageByDocumentId(const QString& documentId) const;
+	/// 切到指定文档 Tab（已是当前则 no-op）
+	bool activateDocumentById(const QString& documentId);
+	BackendUnitsTreeBinder* unitsTreeBinder() { return m_unitsTreeBinder.get(); }
+	const BackendUnitsTreeBinder* unitsTreeBinder() const { return m_unitsTreeBinder.get(); }
 	cloudsim::host::DocumentHost* currentDocumentHost() override;
 	cloudsim::host::DocumentHost* documentHostAt(int tabIndex) override;
 	QTabWidget* documentTabs() override { return m_documentTabs; }
@@ -161,7 +168,15 @@ private:
 	void shutdownRuntimeWorkers();
 	void notifyPluginsLanguageChanged();
 	QString i18n(const QString& en, const QString& zh) const;
+	/// 未命名文档用「未命名 N」，避免多 Tab/Units 根同名
+	QString nextUntitledDocumentTitle() const;
 	void refreshBackendTree();
+	/// 仅重建指定文档子树（P0 文档作用域）
+	void rebuildUnitsDocument(const QString& documentId);
+	/// Data.visible → OSG NodeMask（不改 Data；切 Tab 后纠偏）
+	void applyCurrentDocumentVisibilityToScene();
+	void markUnitsDocumentDirty(const QString& documentId);
+	bool isUnitsTreeStructureMuted() const { return m_unitsTreeStructureMute > 0; }
 	void beginBackendTreeEventRefreshSuppress();
 	void endBackendTreeEventRefreshSuppress();
 	void refreshOsgSceneTree();
@@ -295,12 +310,14 @@ protected:
 
 	cloudsim::core::EventHub& m_appEvents;
 	int m_backendTreeEventRefreshSuppress = 0;
+	/// >0 时忽略 Units 树 itemChanged/selection 写回（结构 sync 防误隐藏）
+	int m_unitsTreeStructureMute = 0;
+	/// 非当前文档有结构变更时置脏，切回再 sync，避免每次切 Tab 全量重建
+	QSet<QString> m_unitsTreeDirtyDocumentIds;
 	QTabWidget* m_documentTabs = nullptr;
 	QTreeWidget* m_backendTree = nullptr;
 	QTreeWidget* m_osgSceneTree = nullptr;
-	QHash<QString, QTreeWidgetItem*> m_backendTreeItemsById;
-	QTreeWidgetItem* m_backendRootItem = nullptr;
-	QTreeWidgetItem* m_annotationRootItem = nullptr;
+	std::unique_ptr<BackendUnitsTreeBinder> m_unitsTreeBinder;
 	QtTreePropertyBrowser* m_propertyBrowser = nullptr;
 	QtVariantPropertyManager* m_variantManager = nullptr;
 	QtVariantEditorFactory* m_variantFactory = nullptr;

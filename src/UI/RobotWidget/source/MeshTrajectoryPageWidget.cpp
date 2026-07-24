@@ -313,6 +313,11 @@ void MeshTrajectoryPageWidget::bindSimulationController(RobotSimulationControlle
 	m_simController = controller;
 }
 
+void MeshTrajectoryPageWidget::refreshWorkpieces()
+{
+	refreshBackendCombo();
+}
+
 void MeshTrajectoryPageWidget::wirePickHandlers()
 {
 	if (!m_host)

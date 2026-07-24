@@ -115,6 +115,9 @@ public:
 
 	virtual void setFeatureCatalogOverlay(const std::vector<RobotOsgUi::FeatureCatalogOverlayItem>& items) = 0;
 	virtual void clearFeatureCatalogOverlay() = 0;
+
+	virtual void setReachableWorkspaceOverlay(const RobotOsgUi::ReachableWorkspaceOverlay& overlay) = 0;
+	virtual void clearReachableWorkspaceOverlay() = 0;
 };
 
 #endif // ROBOTWIDGET_IROBOTOSGVIEWHOST_H

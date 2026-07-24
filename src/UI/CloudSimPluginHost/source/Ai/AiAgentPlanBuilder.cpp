@@ -137,16 +137,23 @@ AiAgentPlan tryMultiKeywordPlan(const QByteArray& catalog, const QString& userTe
 AiAgentPlan buildPlan(const BuildInput& in, const QString& failureObservation)
 {
 	const int maxSteps = std::max(1, in.maxSteps);
-	const QSet<QString> allowed = catalogApiIds(in.catalogJsonUtf8, in.domainId);
+	QSet<QString> allowed = catalogApiIds(in.catalogJsonUtf8, in.domainId);
+	for (const QString& id : in.excludeApiIds)
+		allowed.remove(id);
 
 	if (failureObservation.isEmpty())
 	{
 		if (in.domainId == AiDomainIds::sceneOps() || in.domainId == AiDomainIds::autoDomain())
 		{
+			QSet<QString> sceneAllowed = allowed;
+			if (sceneAllowed.isEmpty())
+			{
+				sceneAllowed = catalogApiIds(in.catalogJsonUtf8, AiDomainIds::sceneOps());
+				for (const QString& id : in.excludeApiIds)
+					sceneAllowed.remove(id);
+			}
 			AiAgentPlan scene = AiSceneOpsRules::tryBuildPlan(in.userText, in.sceneSnapshotUtf8);
-			scene = validateAndTrim(scene, allowed.isEmpty() ? catalogApiIds(in.catalogJsonUtf8, AiDomainIds::sceneOps())
-															 : allowed,
-									maxSteps);
+			scene = validateAndTrim(scene, sceneAllowed, maxSteps);
 			if (!scene.steps.isEmpty())
 				return scene;
 		}
@@ -164,10 +171,14 @@ AiAgentPlan buildPlan(const BuildInput& in, const QString& failureObservation)
 	if (!in.enableLlmPlan || !in.llm.enabled)
 		return {};
 
-	const QString prompt = failureObservation.isEmpty()
-							   ? in.userText
-							   : QStringLiteral("原需求：%1\n上一步失败：%2\n请只规划尚未完成的剩余步骤。")
-									 .arg(in.userText, failureObservation);
+	QString prompt = in.userText;
+	if (!failureObservation.isEmpty())
+	{
+		prompt = QStringLiteral("原需求：%1\n上一步失败：%2\n请只规划尚未完成的剩余步骤。")
+					 .arg(in.userText, failureObservation);
+		if (!in.excludeApiIds.isEmpty())
+			prompt += QStringLiteral("\n已成功完成、禁止再规划：%1").arg(in.excludeApiIds.join(QLatin1Char(',')));
+	}
 
 	const auto lr = AiLlmClient::chatPlanJson(prompt, in.llm, in.progress, in.catalogJsonUtf8, in.domainId,
 											  in.sceneSnapshotUtf8, in.sessionSummaryUtf8);

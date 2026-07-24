@@ -239,6 +239,8 @@ public:
 	void clearRobotFrameOverlays(const std::string& robotRootBackendId);
 	void setFeatureCatalogOverlay(const std::vector<RobotOsgUi::FeatureCatalogOverlayItem>& items);
 	void clearFeatureCatalogOverlay();
+	void setReachableWorkspaceOverlay(const RobotOsgUi::ReachableWorkspaceOverlay& overlay);
+	void clearReachableWorkspaceOverlay();
 
 	/// TCP 末端拖动示教：场景 overlay 罗盘，拖动发位姿信号（不写指令）
 	bool isTcpDragTeachActive() const { return m_tcpTeachActive; }
@@ -524,6 +526,7 @@ private:
 	std::vector<osg::ref_ptr<osg::MatrixTransform>> m_instructionPoseAxisNodes;
 	osg::ref_ptr<osg::Geode> m_rawTrajectoryOverlayGeode;
 	osg::ref_ptr<osg::Group> m_rawTrajectoryFramesGroup;
+	osg::ref_ptr<osg::Geode> m_reachableWorkspaceOverlayGeode;
 	bool m_rawTrajShowAxisX = true;
 	bool m_rawTrajShowAxisY = true;
 	bool m_rawTrajShowAxisZ = true;

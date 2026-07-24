@@ -1,0 +1,103 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{E1F2A3B4-C5D6-7890-EF01-23456789ABCD}</ProjectGuid>
+    <RootNamespace>IndustrialCameraSDK</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)IndustrialCameraSDK\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)IndustrialCameraSDK\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>INDUSTRIAL_CAMERA_SDK_LIB;CLOUDSIM_HAS_MECH_EYE;CLOUDSIM_HAS_OPENCV;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>inc;source;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\MechEye\API\include;$(CloudSimRepoRoot)bin\SDK\opencv\opencv\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>Ws2_32.lib;MechEyeApi.lib;opencv_world4100.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(CloudSimRepoRoot)bin\SDK\MechEye\API\lib;$(CloudSimRepoRoot)bin\SDK\opencv\opencv\build\x64\vc16\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy /Y "$(CloudSimRepoRoot)bin\SDK\MechEye\API\dll\MechEyeApi.dll" "$(OutDir)"
+copy /Y "$(CloudSimRepoRoot)bin\SDK\MechEye\API\dll\MechEyeApiWrapper.dll" "$(OutDir)"
+copy /Y "$(CloudSimRepoRoot)bin\SDK\opencv\opencv\build\x64\vc16\bin\opencv_world4100.dll" "$(OutDir)"
+if exist "$(CloudSimRepoRoot)bin\SDK\Hikrobot-Mv3dRgbd\bin\*.dll" copy /Y "$(CloudSimRepoRoot)bin\SDK\Hikrobot-Mv3dRgbd\bin\*.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>INDUSTRIAL_CAMERA_SDK_LIB;CLOUDSIM_HAS_MECH_EYE;CLOUDSIM_HAS_OPENCV;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>inc;source;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\MechEye\API\include;$(CloudSimRepoRoot)bin\SDK\opencv\opencv\build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>Ws2_32.lib;MechEyeApi.lib;opencv_world4100.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(CloudSimRepoRoot)bin\SDK\MechEye\API\lib;$(CloudSimRepoRoot)bin\SDK\opencv\opencv\build\x64\vc16\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy /Y "$(CloudSimRepoRoot)bin\SDK\MechEye\API\dll\MechEyeApi.dll" "$(OutDir)"
+copy /Y "$(CloudSimRepoRoot)bin\SDK\MechEye\API\dll\MechEyeApiWrapper.dll" "$(OutDir)"
+copy /Y "$(CloudSimRepoRoot)bin\SDK\opencv\opencv\build\x64\vc16\bin\opencv_world4100.dll" "$(OutDir)"
+if exist "$(CloudSimRepoRoot)bin\SDK\Hikrobot-Mv3dRgbd\bin\*.dll" copy /Y "$(CloudSimRepoRoot)bin\SDK\Hikrobot-Mv3dRgbd\bin\*.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\industrial_camera_sdk_global.h" />
+    <ClInclude Include="inc\CameraTypes.h" />
+    <ClInclude Include="inc\ICamera.h" />
+    <ClInclude Include="inc\IRobotPoseSource.h" />
+    <ClInclude Include="inc\HandEyeTypes.h" />
+    <ClInclude Include="inc\BoardDetector.h" />
+    <ClInclude Include="inc\MechOfficialHandEye.h" />
+    <ClInclude Include="source\SimulatedCamera.h" />
+    <ClInclude Include="source\hik\HikMvsCamera.h" />
+    <ClInclude Include="source\hik\HikMv3dCamera.h" />
+    <ClInclude Include="source\mech\MechEyeCamera.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\CameraTypes.cpp" />
+    <ClCompile Include="source\CameraFactory.cpp" />
+    <ClCompile Include="source\SimulatedCamera.cpp" />
+    <ClCompile Include="source\hik\HikMvsCamera.cpp" />
+    <ClCompile Include="source\hik\HikMv3dCamera.cpp" />
+    <ClCompile Include="source\mech\MechEyeCamera.cpp" />
+    <ClCompile Include="source\calib\HandEyeEnsemble.cpp" />
+    <ClCompile Include="source\calib\BoardDetector.cpp" />
+    <ClCompile Include="source\calib\MechOfficialHandEye.cpp" />
+    <ClCompile Include="source\pose\ManualPoseSource.cpp" />
+    <ClCompile Include="source\pose\RealRobotPoseSource.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

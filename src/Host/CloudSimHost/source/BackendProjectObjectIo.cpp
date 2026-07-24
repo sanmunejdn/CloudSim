@@ -365,15 +365,17 @@ void syncOsgBackendParentsFromBackend(DocumentHost& host)
 	{
 		return;
 	}
-	for (const auto& data : host.backend().listData())
+	// 父先于子，避免一轮 sync 里子节点因父尚未入库而挂不上
+	for (const std::string& id : host.backend().topoOrder())
 	{
+		const auto data = host.backend().getData(id);
 		if (!data)
 		{
 			continue;
 		}
-		const std::vector<std::string> parents = host.backend().parentsOf(data->id());
+		const std::vector<std::string> parents = host.backend().parentsOf(id);
 		const std::string parent = parents.empty() ? std::string() : parents.front();
-		osg->setBackendParent(data->id(), parent);
+		osg->setBackendParent(id, parent);
 	}
 }
 

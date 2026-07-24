@@ -192,6 +192,7 @@ m_stagingGroup（导入预览）
 | `beginMeshSectionPlaneEdit` | 罗盘 `applyUnlitHighlitStateSet`（不参与深度遮挡，始终可见） |
 | `showMeshFittedSurfacePreview` | `m_meshFittedSurfaceOverlayGroup` 上三角 soup，绿色半透明 |
 | `setRawTrajectoryOverlay(..., segmentEndExclusive)` | 每段独立 `LINE_STRIP` + 全点 POINTS；空 segment 列表时单条折线 |
+| `setReachableWorkspaceOverlay` / `clearReachableWorkspaceOverlay` | 半透明体素方块（可达域）；独立 Geode，勿与轨迹 overlay 混用 |
 
 UI 同步见 RobotWidget §Mesh 轨迹生成（`syncSectionPlanePreview` / `syncBsplineSurfacePreview`）。
 

@@ -11,6 +11,7 @@
 
 #include <QByteArray>
 #include <QString>
+#include <QStringList>
 
 namespace AiAgentPlanBuilder
 {
@@ -21,6 +22,8 @@ struct BuildInput
 	QByteArray catalogJsonUtf8;
 	QByteArray sceneSnapshotUtf8;
 	QByteArray sessionSummaryUtf8;
+	/// 已成功执行的 API，重规划时不得再纳入（避免「生成长方体」建成两次）
+	QStringList excludeApiIds;
 	int maxSteps = 8;
 	bool enableLlmPlan = true;
 	AiLlmConfig llm;

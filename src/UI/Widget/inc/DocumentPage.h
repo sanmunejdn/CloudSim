@@ -23,9 +23,11 @@ class EventHub;
 #include "IRobotSimulationDocument.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotExternalAxes.h"
+#include "RobotCollisionSettings.h"
 
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 #include <osg/MatrixTransform>
 
@@ -158,8 +160,21 @@ public:
 
 	void setRobotBasePlacementWorldForInstance(int instanceIndex,
 											   const cloudsim::core::Mat4& placementWorld) override;
+	cloudsim::core::Mat4 robotBasePlacementWorldForInstance(int instanceIndex) const;
 	void setRobotExternalAxisQMm(int instanceIndex, double qMm);
 	double robotExternalAxisQMm(int instanceIndex) const;
+	void setRobotExternalAxisQ(int instanceIndex, const std::vector<double>& qValues);
+	std::vector<double> robotExternalAxisQ(int instanceIndex) const;
+	/// 工件外轴零位 W0；首次绑定时从场景根矩阵捕获
+	cloudsim::core::Mat4 workpieceExternalBasePlacement(int instanceIndex, const QString& backendId) const;
+	void setWorkpieceExternalBasePlacement(int instanceIndex, const QString& backendId,
+										   const cloudsim::core::Mat4& w0);
+	void ensureWorkpieceExternalBasePlacement(int instanceIndex, const QString& backendId,
+											  const cloudsim::core::Mat4& currentWorld);
+	/// 工作架相对 W0 的固定偏置；workingFrameId 空或等于 backend 时为单位阵
+	cloudsim::core::Mat4 workpieceWorkingFrameOffset(int instanceIndex, const QString& boundBackendId) const;
+	void ensureWorkpieceWorkingFrameOffset(int instanceIndex, const QString& boundBackendId,
+										   const QString& workingFrameId, const cloudsim::core::Mat4& workingWorld);
 
 	void updateRobotLinkOuterBindFromWorld(int instanceIndex, const QString& linkBackendId,
 										   const cloudsim::core::Mat4& world);
@@ -168,6 +183,8 @@ public:
 	RobotCoordinate::RobotCoordinateFrameSet& robotCoordinateFramesForInstance(int instanceIndex) override;
 	const RobotExternal::RobotExternalAxisConfigSet& robotExternalAxesForInstance(int instanceIndex) const;
 	RobotExternal::RobotExternalAxisConfigSet& robotExternalAxesForInstance(int instanceIndex) override;
+	RobotCollision::Settings& robotCollisionSettings() { return m_robotCollisionSettings; }
+	const RobotCollision::Settings& robotCollisionSettings() const { return m_robotCollisionSettings; }
 	const RobotCoordinate::RobotUserFrame* robotActiveUserFrameForInstance(int instanceIndex) const;
 
 private:
@@ -187,8 +204,14 @@ private:
 		QHash<QString, cloudsim::core::Mat4> outerWorldAtBindByBackendId;
 		/// 默认单位阵：Mat4{} 全零会让 FK/跟随目标坍缩到原点
 		cloudsim::core::Mat4 basePlacementWorld = cloudsim::core::PlanContextDto::identityMat4();
-		/// 运行时地轨行程（mm）；不写入 basePlacement，FK 时再合成
+		/// 运行时外轴量（与 externalAxes.axes 下标对齐）；兼容旧单标量语义见 robotExternalAxisQMm
+		std::vector<double> externalAxisQ;
+		/// 兼容旧字段读写；与 externalAxisQ 首个 RobotBase 轴同步
 		double externalAxisQMm = 0.0;
+		/// 工件外轴零位 W0（backendId → 世界根）
+		QHash<QString, cloudsim::core::Mat4> workpieceBasePlacementWorld;
+		/// 工作架相对 W0 的局部偏置（key=boundBackendId）
+		QHash<QString, cloudsim::core::Mat4> workpieceWorkingFrameOffsetByBackend;
 		bool meshVerticesInLinkFrame = false;
 		RobotCoordinate::RobotCoordinateFrameSet coordinateFrames;
 		RobotExternal::RobotExternalAxisConfigSet externalAxes;
@@ -204,6 +227,8 @@ private:
 	bool m_robotUrdfMeshVerticesInLinkFrame = false;
 
 	QVector<HierarchicalRobotInstance> m_hierarchicalRobots;
+
+	RobotCollision::Settings m_robotCollisionSettings;
 
 	QString m_robotUrdfAbsolutePath;
 	QStringList m_robotRevoluteJointNames;

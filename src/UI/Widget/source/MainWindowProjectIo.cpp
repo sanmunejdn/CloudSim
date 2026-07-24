@@ -6,7 +6,11 @@
 #include "../RobotWidget/inc/RobotAxisControlWidget.h"
 #include "../RobotWidget/inc/RobotProjectIoAdapter.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
+#include "../RobotWidget/inc/RobotSimulationDockWidget.h"
 #include "../RobotWidget/inc/SimulationCommandWidget.h"
+#include "RobotCollisionSettings.h"
+
+#include <json.hpp>
 #include "BackendHierarchyFollow.h"
 #include "BackendProjectObjectIo.h"
 #include "BackendSceneDocumentFacade.h"
@@ -148,6 +152,14 @@ void MainWindow::onSaveProject()
 			}
 			RobotProjectIo::writeRobotKinematics(root, robotDoc, jointAngles);
 			cloudsim::host::mergeRobotProgramsIntoProjectRoot(*doc, root);
+			{
+				nlohmann::json colJ;
+				RobotCollision::writeSettingsToJson(robotDoc->robotCollisionSettings(), colJ);
+				const QByteArray raw = QByteArray::fromStdString(colJ.dump());
+				const QJsonDocument jd = QJsonDocument::fromJson(raw);
+				if (jd.isObject())
+					root.insert(QStringLiteral("robotCollision"), jd.object());
+			}
 		}
 	}
 
@@ -183,6 +195,7 @@ void MainWindow::onSaveProject()
 		if (idx >= 0)
 		{
 			m_documentTabs->setTabText(idx, saveFileInfo.fileName());
+			rebuildUnitsDocument(doc->documentId());
 		}
 	}
 }
@@ -373,6 +386,28 @@ void MainWindow::onOpenProjectFile()
 		}
 	}
 
+	if (const QJsonValue cv = root.value(QStringLiteral("robotCollision")); cv.isObject())
+	{
+		const QByteArray raw = QJsonDocument(cv.toObject()).toJson(QJsonDocument::Compact);
+		try
+		{
+			const nlohmann::json j = nlohmann::json::parse(raw.constData(), raw.constData() + raw.size());
+			RobotCollision::Settings s;
+			if (RobotCollision::readSettingsFromJson(j, s))
+			{
+				page->robotCollisionSettings() = s;
+				if (m_robotSimulation && m_robotSimulation->simulationDock() &&
+					m_robotSimulation->simulationDock()->collisionPage())
+				{
+					m_robotSimulation->simulationDock()->collisionPage()->setSettings(s);
+				}
+			}
+		}
+		catch (...)
+		{
+		}
+	}
+
 	if (hasRenderWidget)
 	{
 		const cloudsim::core::FollowSolveContextDto solveCtx = makeFollowSolveContextDto(*page);
@@ -412,6 +447,8 @@ void MainWindow::onOpenProjectFile()
 		if (idx >= 0)
 		{
 			m_documentTabs->setTabText(idx, QFileInfo(openPath).fileName());
+			markUnitsDocumentDirty(page->documentId());
+			rebuildUnitsDocument(page->documentId());
 		}
 	}
 }

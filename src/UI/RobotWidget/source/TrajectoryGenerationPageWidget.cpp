@@ -17,6 +17,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QShowEvent>
 #include <QTabWidget>
 #include <QVBoxLayout>
 
@@ -266,6 +267,20 @@ void TrajectoryGenerationPageWidget::setStepPathResolver(
 
 {
 	m_brepPage->setStepPathResolver(std::move(resolver));
+}
+
+void TrajectoryGenerationPageWidget::refreshWorkpieces()
+{
+	if (m_brepPage)
+		m_brepPage->refreshWorkpieces();
+	if (m_meshPage)
+		m_meshPage->refreshWorkpieces();
+}
+
+void TrajectoryGenerationPageWidget::showEvent(QShowEvent* event)
+{
+	QWidget::showEvent(event);
+	refreshWorkpieces();
 }
 
 void TrajectoryGenerationPageWidget::resetAfterTrajectoryCommit()

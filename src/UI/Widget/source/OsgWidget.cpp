@@ -821,6 +821,58 @@ void OsgWidget::clearRawTrajectoryOverlay()
 	requestRedraw();
 }
 
+void OsgWidget::setReachableWorkspaceOverlay(const RobotOsgUi::ReachableWorkspaceOverlay& overlay)
+{
+	if (!m_trajectoryOverlayGroup.valid())
+	{
+		return;
+	}
+	if (!m_reachableWorkspaceOverlayGeode.valid())
+	{
+		m_reachableWorkspaceOverlayGeode = new osg::Geode;
+		m_reachableWorkspaceOverlayGeode->setName("ReachableWorkspaceOverlay");
+		m_reachableWorkspaceOverlayGeode->setNodeMask(OsgScene::kMaskPickOverlay);
+		m_trajectoryOverlayGroup->addChild(m_reachableWorkspaceOverlayGeode.get());
+	}
+	m_reachableWorkspaceOverlayGeode->removeDrawables(0, m_reachableWorkspaceOverlayGeode->getNumDrawables());
+	if (overlay.voxelCentersMm.empty())
+	{
+		requestRedraw();
+		return;
+	}
+
+	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
+	verts->reserve(overlay.voxelCentersMm.size());
+	for (const cloudsim::core::Vec3& c : overlay.voxelCentersMm)
+	{
+		verts->push_back(osg::Vec3(static_cast<float>(c.x), static_cast<float>(c.y), static_cast<float>(c.z)));
+	}
+	osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+	geom->setVertexArray(verts.get());
+	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+	colors->push_back(osg::Vec4(0.25f, 0.7f, 1.0f, 0.45f));
+	geom->setColorArray(colors.get(), osg::Array::BIND_OVERALL);
+	geom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::POINTS, 0, static_cast<GLsizei>(verts->size())));
+	osg::StateSet* ss = geom->getOrCreateStateSet();
+	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+	ss->setMode(GL_BLEND, osg::StateAttribute::ON);
+	ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), osg::StateAttribute::ON);
+	ss->setAttributeAndModes(new osg::Depth(osg::Depth::LEQUAL, 0.0, 1.0, false), osg::StateAttribute::ON);
+	ss->setAttribute(new osg::Point(2.5f));
+	ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+	m_reachableWorkspaceOverlayGeode->addDrawable(geom.get());
+	requestRedraw();
+}
+
+void OsgWidget::clearReachableWorkspaceOverlay()
+{
+	if (m_reachableWorkspaceOverlayGeode.valid())
+	{
+		m_reachableWorkspaceOverlayGeode->removeDrawables(0, m_reachableWorkspaceOverlayGeode->getNumDrawables());
+	}
+	requestRedraw();
+}
+
 void OsgWidget::setRawTrajectoryOverlayAxisComponents(bool showX, bool showY, bool showZ)
 {
 	m_rawTrajShowAxisX = showX;
@@ -1309,6 +1361,19 @@ void OsgWidget::applyVisibilityMaskForBackend(const std::string& backendId)
 
 void OsgWidget::setBackendObjectVisible(const std::string& backendId, bool visible)
 {
+	auto it = m_backendVisibility.find(backendId);
+	if (it != m_backendVisibility.end() && it->second == visible)
+	{
+		auto rootIt = m_backendObjectRoots.find(backendId);
+		if (rootIt != m_backendObjectRoots.end() && rootIt->second.valid())
+		{
+			const unsigned mask = visible ? 0xffffffffu : 0u;
+			if (rootIt->second->getNodeMask() == mask)
+			{
+				return;
+			}
+		}
+	}
 	m_backendVisibility[backendId] = visible;
 	applyVisibilityMaskForBackend(backendId);
 	requestRedraw();
@@ -1394,17 +1459,24 @@ bool OsgWidget::upsertPointCloudBranchInScene(const PointCloudBackendData& data,
 	const std::string id = data.id();
 	const osg::Vec3f center = built.modelCenter;
 	const float diagonal = built.diagonal;
+	// 换 outer 前拆下逻辑子节点，否则 remove 父节点会把 URDF 连杆等整棵子树带出场景
+	const auto preservedChildren = OsgWidgetTransformHierarchyController::detachChildBackendRoots(*this, id);
 	auto it = m_backendObjectRoots.find(id);
-	if (it != m_backendObjectRoots.end() && it->second.valid() && m_backendObjectsGroup.valid())
+	if (it != m_backendObjectRoots.end() && it->second.valid())
 	{
-		m_backendObjectsGroup->removeChild(it->second.get());
+		while (it->second->getNumParents() > 0)
+		{
+			it->second->getParent(0)->removeChild(it->second.get());
+		}
 	}
 	unbindBackendVisualRoot(id);
 	m_backendObjectRoots.erase(id);
-	m_backendObjectsGroup->addChild(outer.get());
 	const auto inserted = m_backendObjectRoots.insert(std::make_pair(id, std::move(outer)));
 	if (inserted.second && inserted.first->second.valid())
 	{
+		OsgWidgetTransformHierarchyController::placeBackendOuterInScene(*this, id, inserted.first->second.get());
+		OsgWidgetTransformHierarchyController::reattachChildBackendRoots(inserted.first->second.get(),
+																		preservedChildren);
 		bindBackendVisualRoot(id, inserted.first->second.get(), built.brepArtifacts);
 	}
 	m_backendModelCenters[id] = center;
@@ -1473,17 +1545,24 @@ bool OsgWidget::upsertBackendBranchInScene(const BackendDataBase& data, QString*
 	}
 	const osg::Vec3f center = built.modelCenter;
 	const float diagonal = built.diagonal;
+	// 换 outer 前拆下逻辑子节点，否则 remove 父节点会把 URDF 连杆等整棵子树带出场景
+	const auto preservedChildren = OsgWidgetTransformHierarchyController::detachChildBackendRoots(*this, id);
 	auto it = m_backendObjectRoots.find(id);
-	if (it != m_backendObjectRoots.end() && it->second.valid() && m_backendObjectsGroup.valid())
+	if (it != m_backendObjectRoots.end() && it->second.valid())
 	{
-		m_backendObjectsGroup->removeChild(it->second.get());
+		while (it->second->getNumParents() > 0)
+		{
+			it->second->getParent(0)->removeChild(it->second.get());
+		}
 	}
 	unbindBackendVisualRoot(id);
 	m_backendObjectRoots.erase(id);
-	m_backendObjectsGroup->addChild(outer.get());
 	const auto inserted = m_backendObjectRoots.insert(std::make_pair(id, std::move(outer)));
 	if (inserted.second && inserted.first->second.valid())
 	{
+		OsgWidgetTransformHierarchyController::placeBackendOuterInScene(*this, id, inserted.first->second.get());
+		OsgWidgetTransformHierarchyController::reattachChildBackendRoots(inserted.first->second.get(),
+																		preservedChildren);
 		bindBackendVisualRoot(id, inserted.first->second.get(), built.brepArtifacts);
 	}
 	m_backendModelCenters[id] = center;

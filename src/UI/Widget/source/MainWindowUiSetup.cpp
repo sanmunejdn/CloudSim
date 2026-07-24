@@ -149,7 +149,7 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 
 	auto* firstPage = new DocumentPage(m_documentTabs, m_appEvents);
 	wireDocumentPageSignals(firstPage);
-	m_documentTabs->addTab(firstPage, i18n(QStringLiteral("Untitled"), QStringLiteral("\u672a\u547d\u540d")));
+	m_documentTabs->addTab(firstPage, nextUntitledDocumentTitle());
 
 	m_runInfoPage = new RunInfoPage;
 	m_runInfoPage->setMinimumHeight(56);
@@ -170,12 +170,12 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 			{
 				return;
 			}
-			DocumentPage* page = currentPage();
-			if (!page || ev.documentId != page->documentId())
+			if (!pageByDocumentId(ev.documentId))
 			{
 				return;
 			}
-			refreshBackendTree();
+			markUnitsDocumentDirty(ev.documentId);
+			rebuildUnitsDocument(ev.documentId);
 		});
 	m_appEvents.subscribe<cloudsim::core::BackendObjectRemovedEvent>(
 		[this](const cloudsim::core::BackendObjectRemovedEvent& ev)
@@ -184,12 +184,12 @@ MainWindow::MainWindow(cloudsim::core::EventHub& appEvents, QWidget* parent)
 			{
 				return;
 			}
-			DocumentPage* page = currentPage();
-			if (!page || ev.documentId != page->documentId())
+			if (!pageByDocumentId(ev.documentId))
 			{
 				return;
 			}
-			refreshBackendTree();
+			markUnitsDocumentDirty(ev.documentId);
+			rebuildUnitsDocument(ev.documentId);
 		});
 	m_appEvents.subscribe<cloudsim::core::SelectionChangedEvent>(
 		[this](const cloudsim::core::SelectionChangedEvent& ev)
@@ -467,12 +467,8 @@ void MainWindow::setupDockWidgets()
 	m_backendTree->setHeaderHidden(true);
 	m_backendTree->setIndentation(16);
 	m_backendTree->setAnimated(true);
-	m_backendRootItem = new QTreeWidgetItem(QStringList() << QStringLiteral("BackendDataManager"));
-	m_backendTree->addTopLevelItem(m_backendRootItem);
-	m_annotationRootItem = new QTreeWidgetItem(QStringList() << QStringLiteral("Annotations"));
-	m_backendRootItem->addChild(m_annotationRootItem);
-	m_backendRootItem->setExpanded(true);
-	m_annotationRootItem->setExpanded(true);
+	m_unitsTreeBinder = std::make_unique<BackendUnitsTreeBinder>(m_backendTree);
+	m_unitsTreeBinder->setAnnotationGroupLabel(QStringLiteral("Annotations"));
 	connect(m_backendTree, &QTreeWidget::itemSelectionChanged, this, &MainWindow::onBackendTreeSelectionChanged);
 	connect(m_backendTree, &QTreeWidget::itemChanged, this,
 			[this](QTreeWidgetItem* item, int column)
@@ -495,6 +491,14 @@ void MainWindow::setupDockWidgets()
 	m_osgSceneTree->setIndentation(14);
 	m_osgSceneTree->setHeaderLabels(QStringList() << QStringLiteral("Node") << QStringLiteral("Local transform"));
 	m_unitDockTabs->addTab(m_osgSceneTree, QStringLiteral("Scene"));
+	connect(m_unitDockTabs, &QTabWidget::currentChanged, this,
+			[this](int)
+			{
+				if (m_unitDockTabs && m_unitDockTabs->currentWidget() == m_osgSceneTree)
+				{
+					refreshOsgSceneTree();
+				}
+			});
 
 	m_rightPanelTabs = new QTabWidget(m_unitDock);
 	setupDockTabWidget(m_rightPanelTabs);

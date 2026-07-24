@@ -213,9 +213,14 @@ QByteArray buildMinimalFeaturePlanFromSelection(const std::vector<std::string>& 
 	{
 		const nlohmann::json full = nlohmann::json::parse(catalogFullUtf8.constData(), nullptr, true);
 		nlohmann::json plan;
-		plan["version"] = 1;
+		plan["version"] = 2;
+		plan["schemaVersion"] = 2;
 		plan["selectedCandidateIds"] = candidateIds;
 		plan["suggestedPipelineTemplate"] = pipelineTemplate.toStdString();
+		plan["workpiece"] = {
+			{"backendIdUtf8", backendId.toStdString()},
+			{"stepPathUtf8", stepPath.toStdString()},
+		};
 		nlohmann::json feats = nlohmann::json::array();
 		for (const std::string& id : candidateIds)
 		{
@@ -223,15 +228,19 @@ QByteArray buildMinimalFeaturePlanFromSelection(const std::vector<std::string>& 
 			{
 				if (c.value("candidateId", std::string()) != id)
 					continue;
+				// catalog 字段是 suggestedStrategyId + geometry；旧键 suggestedKind/refs 会导致面特征落成空 EdgeChain
+				const std::string strategyId =
+					c.value("suggestedStrategyId", c.value("suggestedKind", std::string("EdgeChain")));
 				nlohmann::json spec;
 				spec["schemaVersion"] = 1;
 				spec["featureId"] = id;
-				spec["kind"] = c.value("suggestedKind", std::string("EdgeChain"));
-				spec["workpiece"] = {
-					{"backendIdUtf8", backendId.toStdString()},
-					{"stepPathUtf8", stepPath.toStdString()},
-				};
-				spec["refs"] = c.value("refs", nlohmann::json::object());
+				spec["strategyId"] = strategyId;
+				spec["kind"] = strategyId;
+				spec["workpiece"] = plan["workpiece"];
+				if (c.contains("geometry") && c["geometry"].is_object())
+					spec["geometry"] = c["geometry"];
+				else if (c.contains("refs") && c["refs"].is_object())
+					spec["refs"] = c["refs"];
 				spec["discretize"] = {
 					{"stepMm", 5.0}, {"linearDeflectionMm", 0.01}, {"outputTangent", true}, {"outputNormal", true}};
 				feats.push_back(spec);

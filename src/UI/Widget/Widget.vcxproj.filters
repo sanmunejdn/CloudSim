@@ -21,6 +21,12 @@
     <ClInclude Include="inc\MainWindow_p.h">
       <Filter>inc</Filter>
     </ClInclude>
+    <ClInclude Include="inc\BackendUnitsDisplayForest.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendUnitsTreeBinder.h">
+      <Filter>inc</Filter>
+    </ClInclude>
     <ClInclude Include="inc\ObjectTransformOperation.h">
       <Filter>inc</Filter>
     </ClInclude>
@@ -99,6 +105,12 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\MainWindowPlugins.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendUnitsDisplayForest.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendUnitsTreeBinder.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="source\MainWindowBackendTree.cpp">

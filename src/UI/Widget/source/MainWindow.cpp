@@ -7,6 +7,7 @@
 #include "../RobotWidget/inc/IRobotOsgViewHost.h"
 #include "../RobotWidget/inc/RobotAxisControlWidget.h"
 #include "../RobotWidget/inc/RobotExternalAxisSettingsWidget.h"
+#include "../RobotWidget/inc/RobotCollisionSettingsWidget.h"
 #include "../RobotWidget/inc/RobotFrameSettingsWidget.h"
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "../RobotWidget/inc/RobotSimulationDockWidget.h"
@@ -226,6 +227,10 @@ void MainWindow::applyLanguage()
 		{
 			ext->setUseChinese(m_useChinese);
 		}
+		if (RobotCollisionSettingsWidget* col = simDock->collisionPage())
+		{
+			col->setUseChinese(m_useChinese);
+		}
 		if (TrajectoryEditPageWidget* traj = simDock->trajectoryEditPage())
 		{
 			traj->setUseChinese(m_useChinese);
@@ -250,6 +255,11 @@ void MainWindow::applyLanguage()
 			{
 				tabs->setTabText(RobotSimulationDockWidget::kTabIndexExternalAxes,
 								 i18n(QStringLiteral("External Axes"), QStringLiteral("外部轴")));
+			}
+			if (tabs->count() > RobotSimulationDockWidget::kTabIndexCollision)
+			{
+				tabs->setTabText(RobotSimulationDockWidget::kTabIndexCollision,
+								 i18n(QStringLiteral("Collision"), QStringLiteral("碰撞检测")));
 			}
 			if (tabs->count() > RobotSimulationDockWidget::kTabIndexTrajectoryGeneration)
 			{
@@ -293,13 +303,9 @@ void MainWindow::applyLanguage()
 										<< i18n(QStringLiteral("Node"), QStringLiteral("节点"))
 										<< i18n(QStringLiteral("Local transform"), QStringLiteral("本地变换矩阵")));
 	}
-	if (m_backendRootItem)
+	if (m_unitsTreeBinder)
 	{
-		m_backendRootItem->setText(0, i18n(QStringLiteral("BackendDataManager"), QStringLiteral("后端数据管理器")));
-	}
-	if (m_annotationRootItem)
-	{
-		m_annotationRootItem->setText(0, i18n(QStringLiteral("Annotations"), QStringLiteral("注释")));
+		m_unitsTreeBinder->setAnnotationGroupLabel(i18n(QStringLiteral("Annotations"), QStringLiteral("注释")));
 	}
 	refreshBackendTree();
 	notifyPluginsLanguageChanged();
@@ -895,6 +901,45 @@ DocumentPage* MainWindow::currentPage() const
 	return const_cast<MainWindow*>(this)->currentPage();
 }
 
+DocumentPage* MainWindow::pageByDocumentId(const QString& documentId) const
+{
+	if (!m_documentTabs || documentId.isEmpty())
+	{
+		return nullptr;
+	}
+	for (int i = 0; i < m_documentTabs->count(); ++i)
+	{
+		auto* page = qobject_cast<DocumentPage*>(m_documentTabs->widget(i));
+		if (page && page->documentId() == documentId)
+		{
+			return page;
+		}
+	}
+	return nullptr;
+}
+
+bool MainWindow::activateDocumentById(const QString& documentId)
+{
+	DocumentPage* page = pageByDocumentId(documentId);
+	if (!page || !m_documentTabs)
+	{
+		return false;
+	}
+	if (m_documentTabs->currentWidget() == page)
+	{
+		return true;
+	}
+	// 树选中驱动切页时勿 clearSelection，否则选中态被冲掉；并阻断 currentChanged 以免重入 rebuild
+	const QSignalBlocker guard(m_documentTabs);
+	m_documentTabs->setCurrentWidget(page);
+	stopRobotSimulation();
+	rebuildUnitsDocument(documentId);
+	refreshOsgSceneTree();
+	syncViewModeActionsFromCurrentOsg();
+	refreshSimulationJointListFromCurrentDoc();
+	return true;
+}
+
 cloudsim::host::DocumentHost* MainWindow::currentDocumentHost()
 {
 	return currentPage();
@@ -1126,6 +1171,41 @@ void MainWindow::applyHierarchyFollowBinding(DocumentPage* doc, const std::strin
 	runFollowSolveAndSyncForPage(*doc);
 }
 
+QString MainWindow::nextUntitledDocumentTitle() const
+{
+	const QString base = i18n(QStringLiteral("Untitled"), QStringLiteral("未命名"));
+	QSet<int> used;
+	if (m_documentTabs)
+	{
+		for (int i = 0; i < m_documentTabs->count(); ++i)
+		{
+			const QString text = m_documentTabs->tabText(i);
+			if (text == base)
+			{
+				used.insert(1);
+				continue;
+			}
+			const QString prefix = base + QLatin1Char(' ');
+			if (!text.startsWith(prefix))
+			{
+				continue;
+			}
+			bool ok = false;
+			const int n = text.mid(prefix.size()).toInt(&ok);
+			if (ok && n > 0)
+			{
+				used.insert(n);
+			}
+		}
+	}
+	int n = 1;
+	while (used.contains(n))
+	{
+		++n;
+	}
+	return base + QLatin1Char(' ') + QString::number(n);
+}
+
 void MainWindow::onNewDocument()
 {
 	if (!m_documentTabs)
@@ -1136,22 +1216,34 @@ void MainWindow::onNewDocument()
 	wireDocumentPageSignals(page);
 	page->render().setViewerBackgroundForDarkUi(viewerUsesDarkBackground());
 	page->setViewportToolBarDarkTheme(viewerUsesDarkBackground());
-	const QString title = i18n(QStringLiteral("Untitled"), QStringLiteral("\u672a\u547d\u540d"));
+	const QString title = nextUntitledDocumentTitle();
 	m_documentTabs->addTab(page, title);
+	// setCurrentWidget → currentChanged → onDocumentTabChanged，勿再手动 rebuild/回调
 	m_documentTabs->setCurrentWidget(page);
 	if (m_runInfoPage)
 	{
 		m_runInfoPage->appendInfo(
 			i18n(QStringLiteral("New document."), QStringLiteral("\u65b0\u5efa\u6587\u6863\u3002")));
 	}
-	onDocumentTabChanged(m_documentTabs->currentIndex());
 }
 
 void MainWindow::onDocumentTabChanged(int)
 {
-	stopRobotSimulation();
+	if (m_robotSimulation && m_robotSimulation->programExecutor().isRunning())
+	{
+		stopRobotSimulation();
+	}
+	// 先换树再清选中，避免对旧文档节点发 selection/itemChanged 写可见性
+	if (DocumentPage* cur = currentPage())
+	{
+		rebuildUnitsDocument(cur->documentId());
+	}
+	else if (m_unitsTreeBinder)
+	{
+		m_unitsTreeBinder->showOnlyDocument(QString());
+	}
 	MainWindowSelectionService::clearSelection(*this, true);
-	refreshBackendTree();
+	refreshOsgSceneTree();
 	syncViewModeActionsFromCurrentOsg();
 	refreshSimulationJointListFromCurrentDoc();
 }
@@ -1212,7 +1304,13 @@ void MainWindow::closeDocumentTab(int index)
 		MainWindowSelectionService::clearSelection(*this, true);
 	}
 
+	const QString closingDocId = page->documentId();
 	m_documentTabs->removeTab(index);
+	if (m_unitsTreeBinder)
+	{
+		m_unitsTreeBinder->removeDocument(closingDocId);
+	}
+	m_unitsTreeDirtyDocumentIds.remove(closingDocId);
 	page->deleteLater();
 
 	// 关闭后刷新当前标签的状态

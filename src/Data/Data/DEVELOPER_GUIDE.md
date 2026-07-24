@@ -400,7 +400,20 @@ UI 经 `IRobotDocumentHost::meshBackendStepSourcePath(backendId)` 解析 STEP �
 
 ### 8.4 `BackendHierarchyModel`
 
-UI 侧增量镜像：`resyncFrom(mgr)`，`subtreeIds(root)`（结构变更后缓存失效）。
+UI 侧增量镜像：`resyncFrom(mgr)`，`subtreeIds(root)`（结构变更后缓存失效）。结构变更经 `BackendHierarchyChange` 通知观察者；**禁止**在回调内再抢 manager 写锁。
+
+### 8.5 Units 显示投影（与 DAG 真源关系）
+
+Units 树是每文档 DAG 的**显示投影**，规则由 Widget DisplayForest 实现；Data 真源不变。
+
+| 真源（Data） | 显示投影（Units） |
+|--------------|-------------------|
+| 多父边可并存 | 仅主父 `parentsOf` 序首（或 DTO `parentIds.front()`）；无次父 `(ref)` 节点 |
+| `rootIds()` / 无父对象 | 挂在**文档根**下（文档根属 UI，非 manager 节点） |
+| `BackendHierarchyChange` | P1 起供 Units 文档作用域增量；P0 可用 `listObjectSnapshots` 按文档 rebuild |
+| Follow / 属性仍读全图 | 树上看不见的次父边不影响属性与求解 |
+
+专题：[`../../../docs/后端对象显示树/`](../../../docs/后端对象显示树/)。
 
 ---
 
@@ -448,5 +461,6 @@ UI 侧增量镜像：`resyncFrom(mgr)`，`subtreeIds(root)`（结构变更后缓
 
 - 可视化：[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md)（法线光照 §4.2）
 - 场景门面 / 文件导入 / 工程 I/O：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §6.1、§11；插件宿主：[`../CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md)
+- Units 显示树：[`../../../docs/后端对象显示树/`](../../../docs/后端对象显示树/)；契约：[`../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) §2
 - 总架构：[`../../ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md) §4.3、§6.5
 - 持久化设计/任务/回归：[`../../docs/backend_persistence/`](../../docs/backend_persistence/)

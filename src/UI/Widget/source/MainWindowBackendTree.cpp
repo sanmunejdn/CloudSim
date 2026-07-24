@@ -3,6 +3,8 @@
 
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "BackendHierarchyModel.h"
+#include "BackendProjectObjectIo.h"
+#include "BackendUnitsDisplayForest.h"
 #include "CoreTypes.h"
 #include "DocumentPage.h"
 #include "DocumentPointCloudOps.h"
@@ -21,6 +23,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QPoint>
+#include <QSet>
 #include <QStringList>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
@@ -212,120 +215,117 @@ void MainWindow::focusBackendInTreeAfterImport(const QString& backendId)
 	focusBackendInTreeLocal(backendId);
 }
 
-void MainWindow::refreshBackendTree()
+void MainWindow::markUnitsDocumentDirty(const QString& documentId)
 {
-	if (!m_backendTree || !m_backendRootItem)
+	if (!documentId.isEmpty())
+	{
+		m_unitsTreeDirtyDocumentIds.insert(documentId);
+	}
+}
+
+void MainWindow::rebuildUnitsDocument(const QString& documentId)
+{
+	if (!m_unitsTreeBinder || documentId.isEmpty() || !m_documentTabs)
 	{
 		return;
 	}
-
+	DocumentPage* page = pageByDocumentId(documentId);
+	if (!page)
+	{
+		m_unitsTreeBinder->removeDocument(documentId);
+		m_unitsTreeDirtyDocumentIds.remove(documentId);
+		return;
+	}
+	// 非当前文档：保留已构建子树，仅置脏，切回再 sync
+	if (page != currentPage())
+	{
+		markUnitsDocumentDirty(documentId);
+		return;
+	}
+	const int tabIndex = m_documentTabs->indexOf(page);
+	const QString title =
+		tabIndex >= 0 ? m_documentTabs->tabText(tabIndex) : i18n(QStringLiteral("Untitled"), QStringLiteral("未命名"));
+	const bool cacheHit =
+		m_unitsTreeBinder->hasDocument(documentId) && !m_unitsTreeDirtyDocumentIds.contains(documentId);
+	++m_unitsTreeStructureMute;
+	m_unitsTreeBinder->showOnlyDocument(documentId);
+	if (cacheHit)
+	{
+		if (QTreeWidgetItem* root = m_unitsTreeBinder->documentRoot(documentId))
+		{
+			root->setText(0, title);
+		}
+		--m_unitsTreeStructureMute;
+		return;
+	}
+	QVector<cloudsim::core::AnnotationSnapshotDto> anns;
+	if (cloudsim::core::IRenderView* rv = renderViewFromPage(page))
+	{
+		anns = rv->annotationSnapshots();
+	}
+	const BackendUnitsDisplayDocument displayDoc = BackendUnitsDisplayForest::buildDocument(
+		documentId, title, true, page->data().listObjectSnapshots(), anns);
 	const QString selectedBackendId = m_selectionState.selectedBackendId();
-
-	m_backendTreeItemsById.clear();
-	m_backendRootItem->takeChildren();
-	m_annotationRootItem =
-		new QTreeWidgetItem(QStringList() << i18n(QStringLiteral("Annotations"), QStringLiteral("注释")));
-	m_backendRootItem->addChild(m_annotationRootItem);
-	m_annotationRootItem->setExpanded(true);
-	DocumentPage* doc = currentPage();
-	if (!doc)
-	{
-		return;
-	}
-	const QVector<cloudsim::core::BackendObjectDto> objects = doc->data().listObjectSnapshots();
-	QHash<QString, QTreeWidgetItem*> idToItem;
-	idToItem.reserve(objects.size());
-	for (const cloudsim::core::BackendObjectDto& dto : objects)
-	{
-		const QString id = dto.id;
-		if (id.isEmpty())
-		{
-			continue;
-		}
-
-		const QString nodeText = QStringLiteral("%1 [%2]").arg(dto.name).arg(id);
-		auto* child = new QTreeWidgetItem(QStringList() << nodeText);
-		child->setFlags(child->flags() | Qt::ItemIsUserCheckable);
-		child->setData(0, kRoleItemType, kItemTypeBackend);
-		child->setData(0, kRoleBackendId, id);
-		child->setCheckState(0, dto.visible ? Qt::Checked : Qt::Unchecked);
-		idToItem.insert(id, child);
-		m_backendTreeItemsById.insert(id, child);
-	}
-	for (const cloudsim::core::BackendObjectDto& dto : objects)
-	{
-		const QString id = dto.id;
-		QTreeWidgetItem* const item = idToItem.value(id, nullptr);
-		if (!item)
-		{
-			continue;
-		}
-		const QVector<QString> parentIds = dto.parentIds;
-		const QString parentId = parentIds.isEmpty() ? QString() : parentIds.front();
-		QTreeWidgetItem* parentItem = idToItem.value(parentId, m_backendRootItem);
-		if (!parentItem)
-		{
-			parentItem = m_backendRootItem;
-		}
-		parentItem->addChild(item);
-
-		for (int index = 1; index < parentIds.size(); ++index)
-		{
-			const QString extraParentId = parentIds[index];
-			if (extraParentId.isEmpty() || extraParentId == parentId)
-			{
-				continue;
-			}
-			QTreeWidgetItem* extraParentItem = idToItem.value(extraParentId, m_backendRootItem);
-			if (!extraParentItem)
-			{
-				extraParentItem = m_backendRootItem;
-			}
-			const QString refText = item->text(0) + QStringLiteral(" (ref)");
-			auto* refItem = new QTreeWidgetItem(QStringList() << refText);
-			refItem->setFlags(refItem->flags() | Qt::ItemIsUserCheckable);
-			refItem->setData(0, kRoleItemType, kItemTypeBackend);
-			refItem->setData(0, kRoleBackendId, id);
-			refItem->setCheckState(0, item->checkState(0));
-			extraParentItem->addChild(refItem);
-		}
-	}
-
-	if (cloudsim::core::IRenderView* rv = renderViewFromPage(doc))
-	{
-		const QVector<cloudsim::core::AnnotationSnapshotDto> snaps = rv->annotationSnapshots();
-		for (const cloudsim::core::AnnotationSnapshotDto& s : snaps)
-		{
-			const QString label = s.displayText.isEmpty() ? s.id : s.displayText;
-			auto* item = new QTreeWidgetItem(QStringList() << label);
-			item->setData(0, kRoleItemType, kItemTypeAnnotation);
-			item->setData(0, kRoleAnnotationId, s.id);
-			item->setCheckState(0, s.visible ? Qt::Checked : Qt::Unchecked);
-			m_annotationRootItem->addChild(item);
-		}
-		if (!snaps.isEmpty())
-		{
-			m_annotationRootItem->setExpanded(true);
-		}
-	}
-
-	m_backendRootItem->setExpanded(true);
-
+	m_unitsTreeBinder->syncDocument(displayDoc);
 	if (!selectedBackendId.isEmpty())
 	{
-		QTreeWidgetItem* const item = m_backendTreeItemsById.value(selectedBackendId, nullptr);
-		if (item)
+		m_unitsTreeBinder->setCurrentBackendItem(documentId, selectedBackendId, false);
+	}
+	--m_unitsTreeStructureMute;
+	m_unitsTreeDirtyDocumentIds.remove(documentId);
+	// 仅在结构重建后纠偏父链/显隐；缓存命中时场景未动，跳过
+	cloudsim::host::syncOsgBackendParentsFromBackend(*page);
+	applyCurrentDocumentVisibilityToScene();
+}
+
+void MainWindow::applyCurrentDocumentVisibilityToScene()
+{
+	DocumentPage* page = currentPage();
+	if (!page)
+	{
+		return;
+	}
+	cloudsim::core::IRenderView& rv = page->render();
+	for (const cloudsim::core::BackendObjectDto& dto : page->data().listObjectSnapshots())
+	{
+		if (dto.id.isEmpty())
 		{
-			m_backendTree->setCurrentItem(item);
+			continue;
 		}
+		rv.setVisible(dto.id, dto.visible);
+	}
+	rv.requestRedraw();
+}
+
+void MainWindow::refreshBackendTree()
+{
+	if (!m_backendTree || !m_unitsTreeBinder || !m_documentTabs)
+	{
+		return;
 	}
 
+	m_unitsTreeBinder->setAnnotationGroupLabel(i18n(QStringLiteral("Annotations"), QStringLiteral("注释")));
+
+	if (DocumentPage* cur = currentPage())
+	{
+		markUnitsDocumentDirty(cur->documentId());
+		rebuildUnitsDocument(cur->documentId());
+	}
+	else
+	{
+		m_unitsTreeBinder->showOnlyDocument(QString());
+	}
 	refreshOsgSceneTree();
 }
 
 void MainWindow::refreshOsgSceneTree()
 {
 	if (!m_osgSceneTree)
+	{
+		return;
+	}
+	// Scene 调试页未显示时跳过整图快照，切 Tab 常见卡点
+	if (m_unitDockTabs && m_unitDockTabs->currentWidget() != m_osgSceneTree)
 	{
 		return;
 	}
@@ -375,58 +375,81 @@ void MainWindow::onOsgBackendObjectPicked(const QString& backendId)
 
 void MainWindow::onAnnotationCreated(const QString& annotationId, const QString& displayText)
 {
-	if (sender() != renderWidgetFromPage(currentPage()) || !m_annotationRootItem)
+	DocumentPage* doc = nullptr;
+	if (m_documentTabs)
+	{
+		for (int i = 0; i < m_documentTabs->count(); ++i)
+		{
+			auto* p = qobject_cast<DocumentPage*>(m_documentTabs->widget(i));
+			if (p && renderWidgetFromPage(p) == sender())
+			{
+				doc = p;
+				break;
+			}
+		}
+	}
+	if (!doc || !m_unitsTreeBinder)
 	{
 		return;
 	}
-	auto* item = new QTreeWidgetItem(QStringList() << displayText);
-	item->setData(0, kRoleItemType, kItemTypeAnnotation);
-	item->setData(0, kRoleAnnotationId, annotationId);
-	item->setCheckState(0, Qt::Checked);
-	m_annotationRootItem->addChild(item);
-	m_annotationRootItem->setExpanded(true);
-	refreshOsgSceneTree();
+	m_unitsTreeBinder->addAnnotationItem(doc->documentId(), annotationId, displayText, true);
+	if (doc == currentPage())
+	{
+		refreshOsgSceneTree();
+	}
 }
 
 void MainWindow::onAnnotationRemoved(const QString& annotationId)
 {
-	if (sender() != renderWidgetFromPage(currentPage()) || !m_annotationRootItem)
+	DocumentPage* doc = nullptr;
+	if (m_documentTabs)
+	{
+		for (int i = 0; i < m_documentTabs->count(); ++i)
+		{
+			auto* p = qobject_cast<DocumentPage*>(m_documentTabs->widget(i));
+			if (p && renderWidgetFromPage(p) == sender())
+			{
+				doc = p;
+				break;
+			}
+		}
+	}
+	if (!doc || !m_unitsTreeBinder)
 	{
 		return;
 	}
-	for (int i = 0; i < m_annotationRootItem->childCount(); ++i)
+	m_unitsTreeBinder->removeAnnotationItem(doc->documentId(), annotationId);
+	if (doc == currentPage())
 	{
-		QTreeWidgetItem* child = m_annotationRootItem->child(i);
-		if (child && child->data(0, kRoleAnnotationId).toString() == annotationId)
-		{
-			delete m_annotationRootItem->takeChild(i);
-			refreshOsgSceneTree();
-			return;
-		}
+		refreshOsgSceneTree();
 	}
 }
 
 void MainWindow::onAnnotationVisibilityChanged(const QString& annotationId, bool visible)
 {
-	if (sender() != renderWidgetFromPage(currentPage()) || !m_annotationRootItem)
+	DocumentPage* doc = nullptr;
+	if (m_documentTabs)
+	{
+		for (int i = 0; i < m_documentTabs->count(); ++i)
+		{
+			auto* p = qobject_cast<DocumentPage*>(m_documentTabs->widget(i));
+			if (p && renderWidgetFromPage(p) == sender())
+			{
+				doc = p;
+				break;
+			}
+		}
+	}
+	if (!doc || !m_unitsTreeBinder)
 	{
 		return;
 	}
-	for (int i = 0; i < m_annotationRootItem->childCount(); ++i)
-	{
-		QTreeWidgetItem* child = m_annotationRootItem->child(i);
-		if (child && child->data(0, kRoleAnnotationId).toString() == annotationId)
-		{
-			child->setCheckState(0, visible ? Qt::Checked : Qt::Unchecked);
-			return;
-		}
-	}
+	m_unitsTreeBinder->setAnnotationItemVisible(doc->documentId(), annotationId, visible);
 }
 
 void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 {
-	cloudsim::core::IRenderView* rv = renderViewFromPage(currentPage());
-	if (!m_backendTree || !rv)
+	if (!m_backendTree || !m_unitsTreeBinder)
 	{
 		return;
 	}
@@ -436,7 +459,24 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 		return;
 	}
 
-	if (item == m_annotationRootItem)
+	const QString documentId = item->data(0, kRoleDocumentId).toString();
+	DocumentPage* doc = pageByDocumentId(documentId);
+	if (!doc)
+	{
+		doc = currentPage();
+	}
+	if (doc && doc != currentPage())
+	{
+		activateDocumentById(doc->documentId());
+	}
+	cloudsim::core::IRenderView* rv = renderViewFromPage(doc);
+	if (!rv)
+	{
+		return;
+	}
+
+	const int itemType = item->data(0, kRoleItemType).toInt();
+	if (itemType == kItemTypeAnnotationGroup)
 	{
 		QMenu menu(this);
 		QAction* clearAll =
@@ -445,6 +485,8 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 		if (action == clearAll)
 		{
 			rv->clearAllAnnotations();
+			markUnitsDocumentDirty(doc->documentId());
+			rebuildUnitsDocument(doc->documentId());
 			refreshOsgSceneTree();
 			if (m_runInfoPage)
 			{
@@ -454,61 +496,62 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 		return;
 	}
 
-	if (item->data(0, kRoleItemType).toInt() != kItemTypeAnnotation)
+	if (itemType == kItemTypeBackend)
 	{
-		if (item->data(0, kRoleItemType).toInt() == kItemTypeBackend)
+		const bool visible = item->checkState(0) == Qt::Checked;
+		const QString backendId = item->data(0, kRoleBackendId).toString();
+		QMenu menu(this);
+		QAction* toggle = menu.addAction(visible ? i18n(QStringLiteral("Hide Object"), QStringLiteral("隐藏对象"))
+												 : i18n(QStringLiteral("Show Object"), QStringLiteral("显示对象")));
+		QAction* focusView = menu.addAction(i18n(QStringLiteral("Focus View"), QStringLiteral("聚焦显示")));
+		QAction* exportObj = nullptr;
+		if (doc && doc->data().isValid(backendId))
 		{
-			const bool visible = item->checkState(0) == Qt::Checked;
-			const QString backendId = item->data(0, kRoleBackendId).toString();
-			DocumentPage* doc = currentPage();
-			QMenu menu(this);
-			QAction* toggle = menu.addAction(visible ? i18n(QStringLiteral("Hide Object"), QStringLiteral("隐藏对象"))
-													 : i18n(QStringLiteral("Show Object"), QStringLiteral("显示对象")));
-			QAction* focusView = menu.addAction(i18n(QStringLiteral("Focus View"), QStringLiteral("聚焦显示")));
-			QAction* exportObj = nullptr;
-			if (doc && doc->data().isValid(backendId))
+			const cloudsim::core::BackendObjectDto dto = doc->data().objectSnapshot(backendId);
+			if (dto.hasGeometry)
 			{
-				const cloudsim::core::BackendObjectDto dto = doc->data().objectSnapshot(backendId);
-				if (dto.hasGeometry)
+				if (dto.className == QStringLiteral("PointCloudBackendData"))
 				{
-					if (dto.className == QStringLiteral("PointCloudBackendData"))
-					{
-						exportObj =
-							menu.addAction(i18n(QStringLiteral("Export Point Cloud…"), QStringLiteral("导出点云…")));
-					}
-					else if (dto.className == QStringLiteral("BrepModel"))
-					{
-						exportObj = menu.addAction(i18n(QStringLiteral("Export STEP…"), QStringLiteral("导出 STEP…")));
-					}
+					exportObj =
+						menu.addAction(i18n(QStringLiteral("Export Point Cloud…"), QStringLiteral("导出点云…")));
 				}
-			}
-			QAction* deleteObj = menu.addAction(i18n(QStringLiteral("Delete"), QStringLiteral("删除")));
-			QAction* action = menu.exec(m_backendTree->viewport()->mapToGlobal(pos));
-			if (action == toggle)
-			{
-				item->setCheckState(0, visible ? Qt::Unchecked : Qt::Checked);
-			}
-			else if (action == focusView)
-			{
-				rv->focusCameraOnBackend(backendId);
-			}
-			else if (action == exportObj)
-			{
-				exportBackendObjectFromTree(backendId);
-			}
-			else if (action == deleteObj)
-			{
-				const QMessageBox::StandardButton r = QMessageBox::question(
-					this, i18n(QStringLiteral("Delete object"), QStringLiteral("删除对象")),
-					i18n(QStringLiteral("Delete this object and all child parts? This cannot be undone."),
-						 QStringLiteral("删除该对象及其子部件？此操作无法撤销。")),
-					QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
-				if (r == QMessageBox::Yes)
+				else if (dto.className == QStringLiteral("BrepModel"))
 				{
-					removeBackendObjectFromDocument(backendId);
+					exportObj = menu.addAction(i18n(QStringLiteral("Export STEP…"), QStringLiteral("导出 STEP…")));
 				}
 			}
 		}
+		QAction* deleteObj = menu.addAction(i18n(QStringLiteral("Delete"), QStringLiteral("删除")));
+		QAction* action = menu.exec(m_backendTree->viewport()->mapToGlobal(pos));
+		if (action == toggle)
+		{
+			item->setCheckState(0, visible ? Qt::Unchecked : Qt::Checked);
+		}
+		else if (action == focusView)
+		{
+			rv->focusCameraOnBackend(backendId);
+		}
+		else if (action == exportObj)
+		{
+			exportBackendObjectFromTree(backendId);
+		}
+		else if (action == deleteObj)
+		{
+			const QMessageBox::StandardButton r = QMessageBox::question(
+				this, i18n(QStringLiteral("Delete object"), QStringLiteral("删除对象")),
+				i18n(QStringLiteral("Delete this object and all child parts? This cannot be undone."),
+					 QStringLiteral("删除该对象及其子部件？此操作无法撤销。")),
+				QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+			if (r == QMessageBox::Yes)
+			{
+				removeBackendObjectFromDocument(backendId);
+			}
+		}
+		return;
+	}
+
+	if (itemType != kItemTypeAnnotation)
+	{
 		return;
 	}
 	const QString annotationId = item->data(0, kRoleAnnotationId).toString();

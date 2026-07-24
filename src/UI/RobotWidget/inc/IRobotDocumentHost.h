@@ -10,6 +10,7 @@
 #include "IRobotSimulationDocument.h"
 #include "RobotCoordinateFrames.h"
 #include "RobotExternalAxes.h"
+#include "RobotCollisionSettings.h"
 #include "RobotProgramStore.h"
 
 #include "CoreTypes.h"
@@ -18,6 +19,8 @@
 #include <QString>
 #include <QStringList>
 #include <QVector>
+
+#include <vector>
 
 class BackendDataManager;
 class BackendDataBase;
@@ -51,13 +54,29 @@ public:
 	virtual RobotExternal::RobotExternalAxisConfigSet& robotExternalAxesForInstance(int instanceIndex) = 0;
 	virtual const RobotExternal::RobotExternalAxisConfigSet&
 	robotExternalAxesForInstance(int instanceIndex) const = 0;
+	virtual RobotCollision::Settings& robotCollisionSettings() = 0;
+	virtual const RobotCollision::Settings& robotCollisionSettings() const = 0;
 	virtual const RobotCoordinate::RobotUserFrame* robotActiveUserFrameForInstance(int instanceIndex) const = 0;
 
 	virtual void setRobotBasePlacementWorldForInstance(int instanceIndex,
 													   const cloudsim::core::Mat4& placementWorld) = 0;
-	/// 运行时地轨 q（mm）；P0 仍由 basePlacement 保存，FK 合成 P0*Trans(q·axis)
+	/// 存盘基座 P0（不含外轴）
+	virtual cloudsim::core::Mat4 robotBasePlacementWorldForInstance(int instanceIndex) const = 0;
+	/// 运行时外轴 q（首个 RobotBase 轴兼容）；P0 仍由 basePlacement 保存
 	virtual void setRobotExternalAxisQMm(int instanceIndex, double qMm) = 0;
 	virtual double robotExternalAxisQMm(int instanceIndex) const = 0;
+	/// 与 config.axes 下标对齐的外轴向量
+	virtual void setRobotExternalAxisQ(int instanceIndex, const std::vector<double>& qValues) = 0;
+	virtual std::vector<double> robotExternalAxisQ(int instanceIndex) const = 0;
+	virtual cloudsim::core::Mat4 workpieceExternalBasePlacement(int instanceIndex, const QString& backendId) const = 0;
+	virtual void setWorkpieceExternalBasePlacement(int instanceIndex, const QString& backendId,
+												   const cloudsim::core::Mat4& w0) = 0;
+	virtual void ensureWorkpieceExternalBasePlacement(int instanceIndex, const QString& backendId,
+													  const cloudsim::core::Mat4& currentWorld) = 0;
+	virtual cloudsim::core::Mat4 workpieceWorkingFrameOffset(int instanceIndex, const QString& boundBackendId) const = 0;
+	virtual void ensureWorkpieceWorkingFrameOffset(int instanceIndex, const QString& boundBackendId,
+												   const QString& workingFrameId,
+												   const cloudsim::core::Mat4& workingWorld) = 0;
 	virtual void updateRobotLinkOuterBindFromWorld(int instanceIndex, const QString& linkBackendId,
 												   const cloudsim::core::Mat4& world) = 0;
 	virtual void reconcilePerLinkOuterBindFromScene(int instanceIndex, const QVector<double>& jointAnglesRad) = 0;
@@ -90,11 +109,13 @@ public:
 		QVector<double> jointRad;
 		bool hasExternalAxisQ = false;
 		double externalAxisQ = 0.0;
+		std::vector<double> externalAxisQs;
 		QString error;
 	};
 	virtual TcpDragIkResult solveTcpDragTeachIk(int instanceIndex, double pxMm, double pyMm, double pzMm, double exDeg,
 												double eyDeg, double ezDeg, const QVector<double>& seedJointRad,
-												const QString& ikLinkName, double externalAxisQSeedMm = 0.0,
+												const QString& ikLinkName,
+												const std::vector<double>& externalAxisQSeed = {},
 												bool hasExternalAxisQSeed = false) = 0;
 
 	/// 导出程序规划结果（不含 UI 文件对话框）

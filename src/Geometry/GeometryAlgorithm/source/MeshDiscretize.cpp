@@ -650,6 +650,19 @@ bool refineTriangleSoupToMaxEdge(std::vector<float>& soup, double maxEdgeMm, std
 	}
 }
 
+bool discretizeShapeHandleToMesh(const ShapeHandle& handle, const MeshDiscretizeParams& params,
+								 std::vector<float>& soup, MeshDiscretizeReport& report, std::string* errMsg)
+{
+	TopoDS_Shape shape;
+	if (!ShapeHandleAccess::nativeShape(handle, &shape) || shape.IsNull())
+	{
+		if (errMsg)
+			*errMsg = "null ShapeHandle";
+		return false;
+	}
+	return discretizeShapeToMesh(shape, params, soup, report, errMsg);
+}
+
 bool discretizeWireToMesh(const TopoDS_Wire& wire, const MeshDiscretizeParams& params, std::vector<float>& soup,
 						  std::string* errMsg)
 {

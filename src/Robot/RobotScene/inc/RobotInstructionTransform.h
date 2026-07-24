@@ -29,6 +29,10 @@ ROBOT_SCENE_API void writeViaTransformToInstruction(Base& cmd, const engine::Rig
 /// 读 Via：优先扩展，否则 viaPose/viaEuler
 ROBOT_SCENE_API bool readViaTransformFromInstruction(const Base& cmd, engine::RigidTransform& outViaInBase);
 
+/// REP：相对工作架 TCP
+ROBOT_SCENE_API void writeWorkingTcpToInstruction(Base& cmd, const engine::RigidTransform& tcpInWorking);
+ROBOT_SCENE_API bool readWorkingTcpFromInstruction(const Base& cmd, engine::RigidTransform& outTcpInWorking);
+
 } // namespace RobotInstruction
 
 #endif // ROBOTSCENE_ROBOTINSTRUCTIONTRANSFORM_H

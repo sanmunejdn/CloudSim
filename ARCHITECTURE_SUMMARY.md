@@ -72,7 +72,7 @@ flowchart TB
   subgraph Plugins["插件"]
     SDK[CloudSimPluginSDK.dll]
     AISDK[CloudSimAiSDK.dll]
-    PLG[PointCloudPlugin /<br/>GeometryPlugin /<br/>PlcCommPlugin /<br/>PointNetPlugin /<br/>LabelingPlugin]
+    PLG[PointCloudPlugin /<br/>GeometryPlugin /<br/>PlcCommPlugin /<br/>PointNetPlugin /<br/>LabelingPlugin /<br/>IndustrialCameraPlugin]
   end
 
   EXE --> W & H & C
@@ -108,9 +108,11 @@ flowchart TB
 | **机器人** | `RobotKinematics.dll` | DH 串联 FK / 数值 IK |
 | **几何** | `GeometryEngine.dll` | `RigidTransform`（Eigen）、坐标适配 |
 | **几何** | `GeometryAlgorithm.dll` | OCC/CGAL 离散、求交、布尔、曲面重构 |
+| **几何** | `CollisionAlgorithm.dll` | 网格碰撞（AABB+三角；可选 coal） |
 | **几何** | `VcgAlgorithms.dll` | VCG 网格简化/平滑/修复/重网格 |
 | **基础设施** | `RunLogger.dll` | 文件/控制台/UI 日志 |
 | **插件** | `CloudSimPluginSDK.dll` | 插件 ABI：`ICloudSimPlugin`、`IPluginHostContext` |
+| **插件** | `IndustrialCameraSDK.dll` | 工业相机：`ICamera`、海康/梅卡/模拟、OpenCV 板检测、手眼 Ensemble（含 MechOfficial）、位姿源 |
 | **宿主** | `CloudSimHost.dll` | 文档宿主、Core 适配器、组合根、`OsgWidget` 编译、`CloudSimPluginHost` |
 
 ---
@@ -299,6 +301,7 @@ flowchart LR
 |------|--------|------|
 | `GeometryEngine` | Eigen | `RigidTransform`、坐标适配（OSG 行 ↔ Eigen 列） |
 | `GeometryAlgorithm` | OCC + CGAL | B-rep 离散/求交/布尔、曲面重构、特征识别 |
+| `CollisionAlgorithm` | 内置（可选 coal） | 多体 mesh 碰撞、安全余量、ACM 排除；几何取自后端 Mesh/B-rep |
 | `PointCloudAlgorithm` | CGAL | 点云下采样/裁剪/法线/ICP/重建 |
 | `VcgAlgorithms` | VCGlib | 网格简化/平滑/修复/重网格 |
 
@@ -380,6 +383,7 @@ flowchart TB
 | CloudSimHost | `CloudSimHost.dll` | `CLOUDSIM_HOST_LIB` | `CLOUDSIM_HOST_EXPORT` |
 | CloudSimCore | `CloudSimCore.dll` | `CLOUDSIM_CORE_LIB` | `CLOUDSIM_CORE_EXPORT` |
 | CloudSimPluginSDK | `CloudSimPluginSDK.dll` | `PLUGIN_SDK_LIB` | `PLUGIN_SDK_EXPORT` |
+| IndustrialCameraSDK | `IndustrialCameraSDK.dll` | `INDUSTRIAL_CAMERA_SDK_LIB` | `INDUSTRIAL_CAMERA_SDK_EXPORT` |
 | PointCloudAlgorithm | `.lib`（静态） | `POINT_CLOUD_ALGORITHM_STATIC` | — |
 | TrajectoryAlgorithm + Builtins | `.lib`（静态） | `TRAJECTORY_ALGORITHM_LIB` | — |
 | CloudSimUiAssets | `.lib`（静态） | `UIASSETS_LIB` | `UIASSETS_EXPORT` |
@@ -443,6 +447,7 @@ PluginManager::loadPlugins()
 | IRobotSimulationDocument 去 osg | 接口仅 Core Mat4/DTO；OSG 切片迁入 `RobotPerLinkKinematicsSliceOsg.h` | **已完成** |
 | IRobotBackendPoseSink Mat4 化 | get/set 世界矩阵改 `core::Mat4`；OsgWidget 保留 osg 重载 | **已完成** |
 | DocumentPage FK 绑定存储 Mat4 | `HierarchicalRobotInstance` 的 T0/outer/base 改 `core::Mat4`；关节仍可持 `MatrixTransform*` | **已完成** |
+| 碰撞检测一期 | `CollisionAlgorithm` + Dock 开关 + plan 抽样；后端 Mesh/B-rep 真源 | **已完成** |
 | DocumentPage backend() 策略 | 保留存量白名单；新代码强制 `data()`；禁止再扩散 `BackendDataManager.h` | **策略闭环**（彻底去掉穿透 → 长期） |
 | OSG 头文件解耦 | Widget 主路径移除 OSG include（关节句柄等仍可含 `MatrixTransform*`） | 阶段 3.3-3.4 待定 |
 | IRenderView 全面替代 | Widget 主路径走 `render()` | 阶段 3.3-3.4 待定 |

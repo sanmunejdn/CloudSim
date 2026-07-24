@@ -58,6 +58,9 @@ public:
 	void setFeatureCatalogOverlay(const std::vector<RobotOsgUi::FeatureCatalogOverlayItem>& items) override;
 	void clearFeatureCatalogOverlay() override;
 
+	void setReachableWorkspaceOverlay(const RobotOsgUi::ReachableWorkspaceOverlay& overlay) override;
+	void clearReachableWorkspaceOverlay() override;
+
 	bool isTcpDragTeachActive() const override;
 	void endTcpDragTeach() override;
 	void beginTcpDragTeach(const std::string& mountBackendId, const engine::RigidTransform& T_base_target,

@@ -7,6 +7,7 @@
 #include "geometry_algorithm_global.h"
 
 #include "Types.h"
+#include "ShapeHandle.h"
 
 #include <string>
 #include <vector>
@@ -25,6 +26,11 @@ namespace geoalgo
 GEOMETRY_ALGORITHM_API bool discretizeShapeToMesh(const TopoDS_Shape& shape, const MeshDiscretizeParams& params,
 												  std::vector<float>& soup, MeshDiscretizeReport& report,
 												  std::string* errMsg = nullptr);
+
+/// ShapeHandle → 三角 soup（UI 层免链 OCCT）
+GEOMETRY_ALGORITHM_API bool discretizeShapeHandleToMesh(const ShapeHandle& handle, const MeshDiscretizeParams& params,
+														std::vector<float>& soup, MeshDiscretizeReport& report,
+														std::string* errMsg = nullptr);
 
 /** 单 Face 网格离散 */
 GEOMETRY_ALGORITHM_API bool discretizeFaceToMesh(const TopoDS_Face& face, const MeshDiscretizeParams& params,

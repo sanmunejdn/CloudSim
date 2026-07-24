@@ -34,6 +34,7 @@
 | **BackendVisual** | 后端 → OSG 分支构建策略 | [BackendVisual/DEVELOPER_GUIDE.md](../src/UI/BackendVisual/DEVELOPER_GUIDE.md) |
 | **OsgWidgetCore** | 纯 OSG 场景、拾取、gizmo、绑定索引 | [OsgWidgetCore/DEVELOPER_GUIDE.md](../src/UI/OsgWidgetCore/DEVELOPER_GUIDE.md) |
 | **GeometryEngine** | `RigidTransform`、`BackendWorldPose`、坐标 FK、`OSG`/`BackendMat4` 适配 | [GeometryEngine/DEVELOPER_GUIDE.md](../src/Geometry/GeometryEngine/DEVELOPER_GUIDE.md)、[CONVENTIONS.md](../src/Geometry/GeometryEngine/CONVENTIONS.md) |
+| **CollisionAlgorithm** | 多体 mesh 碰撞（内置 AABB+三角；可选 coal） | [CollisionAlgorithm/DEVELOPER_GUIDE.md](../src/Geometry/CollisionAlgorithm/DEVELOPER_GUIDE.md) |
 | **GeometryAlgorithm** | OCC/CGAL 离散、求交、布尔；**FeatureSpec**；Mesh 轨迹；B-rep 更新与**网格曲面重构/管状特征** | [GeometryAlgorithm/DEVELOPER_GUIDE.md](../src/Geometry/GeometryAlgorithm/DEVELOPER_GUIDE.md) §3.1a–§3.5 |
 | **RobotKinematics** | DH 串联 FK / 数值 IK | [RobotKinematics/DEVELOPER_GUIDE.md](../src/Robot/RobotKinematics/DEVELOPER_GUIDE.md) |
 | **RobotUrdf** | URDF 解析、层级场景、**prismatic FK**、每连杆后端 | [RobotUrdf/DEVELOPER_GUIDE.md](../src/Robot/RobotUrdf/DEVELOPER_GUIDE.md) |
@@ -52,6 +53,7 @@
 | **CloudSimUiAssets** | UI 静态资源库 | 见工程与 DIRECTORY_LAYOUT |
 | **CloudSimLabelingSDK** / **LabelingPlugin** | 标注 ABI 与插件 | [CloudSimLabelingSDK/DEVELOPER_GUIDE.md](../src/Plugins/CloudSimLabelingSDK/DEVELOPER_GUIDE.md) |
 | **PlcCommSDK** / **PlcCommUI** / **PlcCommPlugin** | PLC 通讯 SDK、UI、侧栏插件 | [PlcCommSDK](../src/Plugins/PlcCommSDK/DEVELOPER_GUIDE.md)、[PlcCommUI](../src/Plugins/PlcCommUI/DEVELOPER_GUIDE.md)、[PlcCommPlugin](../src/Plugins/PlcCommPlugin/DEVELOPER_GUIDE.md) |
+| **IndustrialCameraSDK** / **IndustrialCameraPlugin** | 工业相机 SDK + 单侧栏（相机/手眼 Tab）；二期梅卡/OpenCV | [IndustrialCameraSDK](../src/Plugins/IndustrialCameraSDK/DEVELOPER_GUIDE.md)、[IndustrialCameraPlugin](../src/Plugins/IndustrialCameraPlugin/DEVELOPER_GUIDE.md) |
 | **PointNetPlugin** | PointNet++ 分类插件 | [PointNetPlugin/DEVELOPER_GUIDE.md](../src/Plugins/PointNetPlugin/DEVELOPER_GUIDE.md) |
 | **GeometryPlugin** / **PointCloudPlugin** | 几何/点云侧栏插件 | [GeometryPlugin](../src/Plugins/GeometryPlugin/DEVELOPER_GUIDE.md)、[PointCloudPlugin](../src/Plugins/PointCloudPlugin/DEVELOPER_GUIDE.md) |
 
