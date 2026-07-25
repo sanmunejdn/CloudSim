@@ -73,6 +73,19 @@ QString AiDomainRouter::resolve(const QString& requestedDomainId, const QString&
 		t.contains(QStringLiteral("ICP"), Qt::CaseInsensitive) || t.contains(QStringLiteral("SPARE"), Qt::CaseInsensitive))
 		return AiDomainIds::pointCloudOps();
 
+	// 工艺流程 / 产线仿真须先于默认 mesh.create
+	if (t.contains(QStringLiteral("工艺流程")) || t.contains(QStringLiteral("产线")) ||
+		t.contains(QStringLiteral("工位")) || t.contains(QStringLiteral("节拍")) ||
+		t.contains(QStringLiteral("流水线")) || t.contains(QStringLiteral("仿真产线")) ||
+		t.contains(QStringLiteral("DES")) || t.contains(QStringLiteral("JobSet"), Qt::CaseInsensitive) ||
+		t.contains(QStringLiteral("process flow"), Qt::CaseInsensitive) ||
+		t.contains(QStringLiteral("processflow"), Qt::CaseInsensitive) ||
+		(t.contains(QStringLiteral("仿真")) &&
+		 (t.contains(QStringLiteral("缓冲")) || t.contains(QStringLiteral("装配")) ||
+		  t.contains(QStringLiteral("调度")) || t.contains(QStringLiteral("LPT")) ||
+		  t.contains(QStringLiteral("FIFO")) || t.contains(QStringLiteral("SPT")))))
+		return AiDomainIds::processFlow();
+
 	// 场景删/移/转须先于默认 mesh.create
 	if (t.contains(QStringLiteral("删除全部")) || t.contains(QStringLiteral("清空场景")) ||
 		t.contains(QStringLiteral("删除对象")) || t.contains(QStringLiteral("删除选中")) ||

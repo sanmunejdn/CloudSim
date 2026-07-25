@@ -5,12 +5,17 @@
 /// @brief 工艺流程仿真插件
 
 #include "ICloudSimPlugin.h"
+#include "ProcessFlowAiBridge.h"
 #include "ProcessFlowNodeProps.h"
+#include "sim/SimStatistics.h"
 
 #include <QHash>
 #include <QObject>
 #include <QPointer>
+#include <QVector>
+#include <memory>
 
+class ProcessFlowCanvasWidget;
 class ProcessFlowPageWidget;
 class ProcessFlowPaletteWidget;
 class ProcessFlowSimController;
@@ -28,11 +33,18 @@ class ProcessFlowPlugin : public QObject, public ICloudSimPlugin
 
 public:
 	ProcessFlowPlugin() = default;
+	~ProcessFlowPlugin() override;
 
 	QString pluginId() const override;
 	QString displayName() const override;
 	bool initialize(IPluginHostContext* host) override;
 	void shutdown() override;
+
+	bool ensureProcessFlowForAi(QString* outError);
+	ProcessFlowCanvasWidget* activeCanvasForAi() const;
+	void syncJobSetPanelFromCanvas();
+	void applyAiSimStatistics(const SimStatistics& stats);
+	void applyAiCompareRows(const QVector<PolicyCompareRow>& rows);
 
 private:
 	void registerMenus();
@@ -60,6 +72,7 @@ private:
 	QPointer<ProcessFlowSimSideWidget> m_simSide;
 	QHash<QString, QPointer<ProcessFlowPageWidget>> m_pagesByDocId;
 	ProcessFlowSimController* m_sim = nullptr;
+	std::unique_ptr<ProcessFlowAiBridge> m_aiBridge;
 	bool m_inProcessFlow = false;
 };
 

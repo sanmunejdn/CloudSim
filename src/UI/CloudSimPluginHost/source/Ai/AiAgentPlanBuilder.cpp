@@ -5,6 +5,7 @@
 
 #include "Ai/AiCatalogKeywordMatcher.h"
 #include "Ai/AiSceneOpsRules.h"
+#include "Ai/AiProcessFlowRules.h"
 #include "AiDomainTypes.h"
 #include "AiLlmClient.h"
 
@@ -143,6 +144,21 @@ AiAgentPlan buildPlan(const BuildInput& in, const QString& failureObservation)
 
 	if (failureObservation.isEmpty())
 	{
+		if (in.domainId == AiDomainIds::processFlow() || in.domainId == AiDomainIds::autoDomain())
+		{
+			QSet<QString> pfAllowed = allowed;
+			if (pfAllowed.isEmpty())
+			{
+				pfAllowed = catalogApiIds(in.catalogJsonUtf8, AiDomainIds::processFlow());
+				for (const QString& id : in.excludeApiIds)
+					pfAllowed.remove(id);
+			}
+			AiAgentPlan pf = AiProcessFlowRules::tryBuildPlan(in.userText);
+			pf = validateAndTrim(pf, pfAllowed, maxSteps);
+			if (!pf.steps.isEmpty())
+				return pf;
+		}
+
 		if (in.domainId == AiDomainIds::sceneOps() || in.domainId == AiDomainIds::autoDomain())
 		{
 			QSet<QString> sceneAllowed = allowed;

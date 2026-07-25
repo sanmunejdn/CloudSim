@@ -536,6 +536,8 @@ void MainWindow::setupDockWidgets()
 MainWindow::~MainWindow()
 {
 	shutdownRuntimeWorkers();
+	// shutdownAll 会先 delete 插件侧栏；若仍 restore 会 insertTab 悬空指针
+	discardProcessFlowRightTabsForShutdown();
 	if (m_pluginManager)
 	{
 		m_pluginManager->shutdownAll();

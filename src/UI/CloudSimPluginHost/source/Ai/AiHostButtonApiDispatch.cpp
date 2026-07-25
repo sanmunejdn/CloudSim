@@ -4,6 +4,7 @@
 #include "Ai/AiAgentPickDialog.h"
 #include "Ai/AiHostButtonApiDispatch.h"
 #include "IPluginMainWindowHost.h"
+#include "IProcessFlowAiBridge.h"
 #include "PluginDocumentAdapter.h"
 #include "PluginHostContext.h"
 
@@ -16,6 +17,10 @@
 #include "PluginPointCloudTypes.h"
 
 #include <QEventLoop>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
 #include <QWidget>
 
 #include <functional>
@@ -348,7 +353,7 @@ bool runTubularStage(PluginHostContext& host, nlohmann::json& args, PluginTubula
 } // namespace
 
 bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann::json& argsIn, QString* outError,
-				bool allowModalDialogs)
+				bool allowModalDialogs, QString* outSummary)
 {
 	const bool prevModal = g_allowModalDialogs;
 	g_allowModalDialogs = allowModalDialogs;
@@ -361,6 +366,8 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 	nlohmann::json args = argsIn.is_object() ? argsIn : nlohmann::json::object();
 	if (outError)
 		outError->clear();
+	if (outSummary)
+		outSummary->clear();
 
 	auto doneFail = [&](const QString& msg) -> bool
 	{
@@ -1108,20 +1115,114 @@ bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann:
 		return doneOk();
 	}
 
+	if (api == "applyProcessFlowGraph" || api == "runProcessFlowSimulation" || api == "compareProcessFlowPolicies")
+	{
+		IProcessFlowAiBridge* bridge = host.processFlowAiBridge();
+		if (!bridge)
+			return doneFail(QStringLiteral("工艺流程插件未加载或未注册 AI 桥接。"));
+
+		if (api == "applyProcessFlowGraph")
+		{
+			QJsonObject flow;
+			if (args.contains("flow") && args["flow"].is_object())
+			{
+				flow = QJsonDocument::fromJson(QByteArray::fromStdString(args["flow"].dump())).object();
+			}
+			else
+			{
+				std::string raw = argString(args, "flow_json");
+				if (raw.empty())
+					return doneFail(QStringLiteral("缺少 flow_json。"));
+				// 规则/LLM 可能再包一层引号
+				if (!raw.empty() && raw.front() == '"' && raw.back() == '"')
+					raw = nlohmann::json::parse(raw).get<std::string>();
+				QJsonParseError pe;
+				const QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromStdString(raw), &pe);
+				if (pe.error != QJsonParseError::NoError || !doc.isObject())
+					return doneFail(QStringLiteral("flow_json 不是合法 JSON 对象。"));
+				flow = doc.object();
+			}
+			bool autoLayout = true;
+			if (args.contains("auto_layout"))
+			{
+				if (args["auto_layout"].is_boolean())
+					autoLayout = args["auto_layout"].get<bool>();
+				else if (args["auto_layout"].is_string())
+					autoLayout = QString::fromStdString(args["auto_layout"].get<std::string>()) != QStringLiteral("false");
+			}
+			QString err;
+			if (!bridge->applyFlowJson(flow, autoLayout, &err))
+				return doneFail(err.isEmpty() ? QStringLiteral("写入流程图失败。") : err);
+			if (outSummary)
+				*outSummary = QStringLiteral("已应用工艺流程图。");
+			return doneOk();
+		}
+
+		QJsonObject cfg;
+		if (args.contains("horizonSec"))
+		{
+			if (args["horizonSec"].is_number())
+				cfg.insert(QStringLiteral("horizonSec"), args["horizonSec"].get<double>());
+			else if (args["horizonSec"].is_string())
+				cfg.insert(QStringLiteral("horizonSec"), QString::fromStdString(args["horizonSec"].get<std::string>()).toDouble());
+		}
+		if (args.contains("policy") && args["policy"].is_string())
+			cfg.insert(QStringLiteral("policy"), QString::fromStdString(args["policy"].get<std::string>()));
+
+		if (api == "runProcessFlowSimulation")
+		{
+			QJsonObject stats;
+			QString err;
+			if (!bridge->runSimSync(cfg, &stats, &err))
+				return doneFail(err.isEmpty() ? QStringLiteral("仿真失败。") : err);
+			if (outSummary)
+			{
+				*outSummary = QStringLiteral("仿真完成：完成%1 报废%2 Makespan=%3s 吞吐=%4/h 瓶颈=%5")
+								  .arg(stats.value(QStringLiteral("completedJobs")).toInt())
+								  .arg(stats.value(QStringLiteral("scrappedJobs")).toInt())
+								  .arg(stats.value(QStringLiteral("makespan")).toDouble(), 0, 'f', 1)
+								  .arg(stats.value(QStringLiteral("throughputPerHour")).toDouble(), 0, 'f', 2)
+								  .arg(stats.value(QStringLiteral("bottleneckTitle")).toString());
+			}
+			return doneOk();
+		}
+
+		QJsonArray rows;
+		QString err;
+		if (!bridge->compareSync(cfg, &rows, &err))
+			return doneFail(err.isEmpty() ? QStringLiteral("策略对比失败。") : err);
+		if (outSummary)
+		{
+			QStringList lines;
+			for (const QJsonValue& v : rows)
+			{
+				const QJsonObject o = v.toObject();
+				lines << QStringLiteral("%1: 完成%2 Makespan=%3 吞吐=%4")
+							 .arg(o.value(QStringLiteral("policy")).toString())
+							 .arg(o.value(QStringLiteral("completed")).toInt())
+							 .arg(o.value(QStringLiteral("makespan")).toDouble(), 0, 'f', 1)
+							 .arg(o.value(QStringLiteral("throughput")).toDouble(), 0, 'f', 2);
+			}
+			*outSummary = QStringLiteral("策略对比：\n%1").arg(lines.join(QLatin1Char('\n')));
+		}
+		return doneOk();
+	}
+
 	return false;
 }
 
 AiToolResult execute(PluginHostContext& host, const std::string& api, const nlohmann::json& args, bool allowModalDialogs)
 {
 	QString err;
+	QString summary;
 	AiToolResult r;
-	r.handled = tryExecute(host, api, args, &err, allowModalDialogs);
+	r.handled = tryExecute(host, api, args, &err, allowModalDialogs, &summary);
 	if (!r.handled)
 		return r;
 	r.ok = err.isEmpty();
 	r.error = err;
 	if (r.ok)
-		r.summary = QStringLiteral("已执行");
+		r.summary = summary.isEmpty() ? QStringLiteral("已执行") : summary;
 	return r;
 }
 } // namespace AiHostButtonApiDispatch

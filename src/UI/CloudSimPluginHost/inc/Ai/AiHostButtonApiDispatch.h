@@ -18,9 +18,9 @@ namespace AiHostButtonApiDispatch
 AiToolResult execute(PluginHostContext& host, const std::string& api, const nlohmann::json& args,
 					 bool allowModalDialogs = true);
 
-/// 兼容旧调用：返回是否已处理；失败时写 outError
+/// 兼容旧调用：返回是否已处理；失败时写 outError；成功摘要可写 outSummary
 bool tryExecute(PluginHostContext& host, const std::string& api, const nlohmann::json& args, QString* outError,
-				bool allowModalDialogs = true);
+				bool allowModalDialogs = true, QString* outSummary = nullptr);
 } // namespace AiHostButtonApiDispatch
 
 #endif

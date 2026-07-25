@@ -1,16 +1,16 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{EB852F92-D9CD-4F6B-AD99-CE061A7F5A05}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{88D7A307-DCA9-4576-8467-F0A74D332892}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="main.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{88D7A307-DCA9-4576-8467-F0A74D332892}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{B43B767C-1FF8-4BC7-AAE0-DBA1B234292D}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

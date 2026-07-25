@@ -1,48 +1,57 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{B7D77A0D-FDCF-426E-A110-C7BBD0CA4B8E}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{116A6BCA-2F7C-4A79-A2B6-E70F101CAD1C}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\geometry_engine_global.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RigidTransform.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Adapters.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ToolKinematics.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\SelfTest.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendWorldPose.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\BackendWorldPose.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RigidTransform.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Adapters.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ToolKinematics.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\SelfTest.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{B7D77A0D-FDCF-426E-A110-C7BBD0CA4B8E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Core">
+      <UniqueIdentifier>{CDE760EA-3A9D-4A2E-ABD6-DA6FC3882343}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{570ADD61-BB2A-45C4-8F04-64DCC22D2467}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{116A6BCA-2F7C-4A79-A2B6-E70F101CAD1C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{B15738FF-5E9A-414B-817C-95B565A2A3CE}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\Adapters.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendWorldPose.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RigidTransform.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SelfTest.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ToolKinematics.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\Adapters.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendWorldPose.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\geometry_engine_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RigidTransform.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SelfTest.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ToolKinematics.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

@@ -1507,6 +1507,96 @@
           "required": false
         }
       ]
+    },
+    {
+      "id": "applyProcessFlowGraph",
+      "domains": [
+        "process.flow"
+      ],
+      "keywords": [
+        "生成工艺流程",
+        "生成产线",
+        "工艺流程图",
+        "Apply process flow",
+        "Generate process flow"
+      ],
+      "summary": "Replace active process-flow graph from JSON (validated)",
+      "risk": "high",
+      "args_schema": [
+        {
+          "name": "flow_json",
+          "type": "string",
+          "label": "流程 JSON",
+          "required": true
+        },
+        {
+          "name": "auto_layout",
+          "type": "bool",
+          "default": true,
+          "label": "自动排版",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "runProcessFlowSimulation",
+      "domains": [
+        "process.flow"
+      ],
+      "keywords": [
+        "运行仿真",
+        "DES仿真",
+        "产线仿真",
+        "Run simulation",
+        "Simulate process flow"
+      ],
+      "summary": "Run DES on active process-flow graph (sync)",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "horizonSec",
+          "type": "number",
+          "default": 3600,
+          "label": "仿真时长(s)",
+          "required": false
+        },
+        {
+          "name": "policy",
+          "type": "enum",
+          "values": [
+            "fifo",
+            "spt",
+            "lpt",
+            "edd",
+            "cr"
+          ],
+          "default": "fifo",
+          "label": "调度策略",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "compareProcessFlowPolicies",
+      "domains": [
+        "process.flow"
+      ],
+      "keywords": [
+        "对比策略",
+        "策略对比",
+        "Compare policies"
+      ],
+      "summary": "Compare FIFO/SPT/LPT/EDD/CR on active graph",
+      "risk": "medium",
+      "args_schema": [
+        {
+          "name": "horizonSec",
+          "type": "number",
+          "default": 3600,
+          "label": "仿真时长(s)",
+          "required": false
+        }
+      ]
     }
   ]
 }

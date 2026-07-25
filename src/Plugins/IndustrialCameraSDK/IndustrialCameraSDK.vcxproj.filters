@@ -1,0 +1,108 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{ABE868F8-F81A-4AD3-A2C4-DA8D5EEE8756}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\calib">
+      <UniqueIdentifier>{CE1610B0-E702-49A9-8574-8277B0FEB74E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Core">
+      <UniqueIdentifier>{9D3AD922-EEE2-428B-B350-61F5C2242E37}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{84E68E78-40EC-466D-8BED-5C89CE5732C9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\pose">
+      <UniqueIdentifier>{6B4BE03D-E4A0-4FCC-8857-50A37D4934D4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{78AE0187-9A81-4FD7-A003-9F2D1D72D01B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\calib">
+      <UniqueIdentifier>{7EA33355-B424-4F0D-A8CA-1D1AC1AC42F4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{E1FBB227-D6A2-4A94-AC04-4DDC9940B9D7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\hik">
+      <UniqueIdentifier>{FA40C18F-136B-4EF1-9F5D-46AE3A0B77E2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\mech">
+      <UniqueIdentifier>{E70D2D03-6327-4B63-9E16-21B64C1982A6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\pose">
+      <UniqueIdentifier>{E89A071A-A8C2-459F-A71C-C4E3FEB78FC5}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\calib\BoardDetector.cpp">
+      <Filter>src\calib</Filter>
+    </ClCompile>
+    <ClCompile Include="source\calib\HandEyeEnsemble.cpp">
+      <Filter>src\calib</Filter>
+    </ClCompile>
+    <ClCompile Include="source\calib\MechOfficialHandEye.cpp">
+      <Filter>src\calib</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CameraFactory.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CameraTypes.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\hik\HikMv3dCamera.cpp">
+      <Filter>src\hik</Filter>
+    </ClCompile>
+    <ClCompile Include="source\hik\HikMvsCamera.cpp">
+      <Filter>src\hik</Filter>
+    </ClCompile>
+    <ClCompile Include="source\mech\MechEyeCamera.cpp">
+      <Filter>src\mech</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pose\ManualPoseSource.cpp">
+      <Filter>src\pose</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pose\RealRobotPoseSource.cpp">
+      <Filter>src\pose</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SimulatedCamera.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\BoardDetector.h">
+      <Filter>inc\calib</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CameraTypes.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\HandEyeTypes.h">
+      <Filter>inc\calib</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ICamera.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\industrial_camera_sdk_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IRobotPoseSource.h">
+      <Filter>inc\pose</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MechOfficialHandEye.h">
+      <Filter>inc\calib</Filter>
+    </ClInclude>
+    <ClInclude Include="source\hik\HikMv3dCamera.h">
+      <Filter>src\hik</Filter>
+    </ClInclude>
+    <ClInclude Include="source\hik\HikMvsCamera.h">
+      <Filter>src\hik</Filter>
+    </ClInclude>
+    <ClInclude Include="source\mech\MechEyeCamera.h">
+      <Filter>src\mech</Filter>
+    </ClInclude>
+    <ClInclude Include="source\SimulatedCamera.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

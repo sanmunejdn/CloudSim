@@ -76,6 +76,7 @@
   <ItemGroup>
     <ClInclude Include="inc\IPluginLabelingHost.h" />
     <ClInclude Include="inc\PluginLabelingTypes.h" />
+    <ClInclude Include="inc\IProcessFlowAiBridge.h" />
     <ClInclude Include="inc\IPluginPointCloudHost.h" />
     <ClInclude Include="inc\PluginGeometryTypes.h" />
     <ClInclude Include="inc\PluginPointCloudTypes.h" />

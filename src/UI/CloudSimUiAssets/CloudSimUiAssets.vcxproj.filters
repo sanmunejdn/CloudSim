@@ -1,52 +1,59 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{7A183726-CBDE-4C13-BD09-FA2F600556B1}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\AppIcon.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\uiassets_global.h">
-      <Filter>inc\Global</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\UiIconDecorators.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\UiIconId.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\UiIcons.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\AppIcon.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\UiIconDecorators.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\UiIcons.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <QtRcc Include="resources\cloudsim_icons.qrc">
-      <Filter>inc</Filter>
-    </QtRcc>
-    <QtRcc Include="resources\cloudsim_logo.qrc">
-      <Filter>inc</Filter>
-    </QtRcc>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Core">
+      <UniqueIdentifier>{DAA7D004-4E1B-465C-8F87-5E8E3DA25714}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{7A183726-CBDE-4C13-BD09-FA2F600556B1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resource">
+      <UniqueIdentifier>{198DE2FC-E4FE-4ED8-8007-DAFCC999DAB5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{E00B5BCC-5F54-4BFE-83D1-401508FB8EC9}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\AppIcon.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\UiIconDecorators.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\UiIcons.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\AppIcon.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\uiassets_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\UiIconDecorators.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\UiIconId.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\UiIcons.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <QtRcc Include="resources\cloudsim_icons.qrc">
+      <Filter>resource</Filter>
+    </QtRcc>
+    <QtRcc Include="resources\cloudsim_logo.qrc">
+      <Filter>resource</Filter>
+    </QtRcc>
+  </ItemGroup>
+</Project>

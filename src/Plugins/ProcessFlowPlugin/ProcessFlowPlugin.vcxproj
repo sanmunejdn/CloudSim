@@ -99,6 +99,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\ProcessFlowPlugin.cpp" />
+    <ClCompile Include="source\ProcessFlowAiBridge.cpp" />
     <ClCompile Include="source\ProcessFlowCanvasWidget.cpp" />
     <ClCompile Include="source\ProcessFlowPaletteWidget.cpp" />
     <ClCompile Include="source\ProcessFlowPageWidget.cpp" />
@@ -116,6 +117,7 @@
     <ClCompile Include="source\sim\DesEngine.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="inc\ProcessFlowAiBridge.h" />
     <ClInclude Include="inc\sim\SimRunConfig.h" />
     <ClInclude Include="inc\sim\PlantGraph.h" />
     <ClInclude Include="inc\sim\JobSet.h" />

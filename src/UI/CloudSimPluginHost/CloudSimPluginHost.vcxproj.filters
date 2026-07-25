@@ -1,173 +1,314 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{0CC78FFF-A18E-4B53-9CD9-BD4A93564ED3}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{03F80AC2-5677-495B-8823-E72E88CC1846}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\Ai\AiActionPlanExecutor.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Ai\AiAssistantHostImpl.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Ai\AiCommandSchema.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Ai\AiConfigLoader.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Ai\AiDomainRegistryImpl.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Ai\AiDomainRouter.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Ai\AiHttpsPost.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Ai\AiIntentParser.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Ai\AiLlmClient.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Ai\AiLlmConfig.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Ai\AiProgressSink.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Ai\GeometryRecognizeDomainHandler.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Ai\TrajectoryFeatureDomainHandler.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Ai\MeshComposeDomainHandler.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Ai\MeshCreateDomainHandler.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\DocumentGeometryOps.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\DocumentPointCloudOps.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PluginGeometryHostImpl.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PluginPointCloudHostImpl.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\plugin_host_global.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PluginDelegatedBackend.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PluginDocumentAdapter.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Ai\AiMeshDefaults.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PluginHostContext.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PluginManager.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PluginSceneBridgeAdapter.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\Ai\AiActionPlanExecutor.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Ai\AiAssistantHostImpl.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Ai\AiCommandSchema.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Ai\AiConfigLoader.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Ai\AiDomainRegistryImpl.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Ai\AiDomainRouter.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Ai\AiHttpsPost.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Ai\AiIntentParser.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Ai\AiLlmClient.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Ai\AiLlmConfig.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Ai\AiMeshDefaults.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Ai\GeometryRecognizeDomainHandler.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Ai\TrajectoryFeatureDomainHandler.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Ai\MeshComposeDomainHandler.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Ai\MeshCreateDomainHandler.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\DocumentGeometryOps.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\DocumentPointCloudOps.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PluginDelegatedBackend.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PluginDocumentAdapter.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PluginHostContext.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PluginManager.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PluginGeometryHostImpl.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PluginPointCloudHostImpl.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PluginSceneBridgeAdapter.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <QtMoc Include="inc\PluginHostContext.h">
-      <Filter>inc</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\PluginManager.h">
-      <Filter>inc</Filter>
-    </QtMoc>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{0CC78FFF-A18E-4B53-9CD9-BD4A93564ED3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Ai">
+      <UniqueIdentifier>{84463707-E077-4A58-8F71-D5015558F174}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Ai\Agent">
+      <UniqueIdentifier>{D33BCDD4-AD11-4148-987D-2E02DB8DC60A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Ai\Catalog">
+      <UniqueIdentifier>{CAD1601C-4682-4C5C-B22C-3A30182A0943}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Ai\Core">
+      <UniqueIdentifier>{00C7FD96-EEA8-4FFA-B26D-752B4E10135A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Ai\Domains">
+      <UniqueIdentifier>{323E6122-6486-4FEB-B4AC-2119919EA56B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Ai\Llm">
+      <UniqueIdentifier>{D912FB4C-2D66-4793-BC1C-8849D767746E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Ai\Rules">
+      <UniqueIdentifier>{639FA5E0-8F6F-447F-B7E2-D53E26AA98B4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Document">
+      <UniqueIdentifier>{2A0BC533-8EC4-4AC4-BD60-B5709FD7A38E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{64E2951A-4D2F-41A5-9FA3-CADC55519780}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\PluginHost">
+      <UniqueIdentifier>{CB532413-13E1-45AA-9686-D252F1D87B3D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{03F80AC2-5677-495B-8823-E72E88CC1846}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Ai">
+      <UniqueIdentifier>{E3233C4E-F2ED-4912-B40C-588DE8AD52A8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Ai\Agent">
+      <UniqueIdentifier>{39E54BC9-438F-4AA2-8C76-28E1D261A9A8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Ai\Catalog">
+      <UniqueIdentifier>{B92859BE-5ED3-40E5-8D3F-7E67FD968198}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Ai\Core">
+      <UniqueIdentifier>{7E939E52-E426-44F7-90AC-67A4E05795BC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Ai\Domains">
+      <UniqueIdentifier>{9752C6F7-78B1-4FE3-8C25-762C7DAD9EEC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Ai\Llm">
+      <UniqueIdentifier>{857F24D1-FA46-4B5E-B896-EDE515FE2906}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Ai\Rules">
+      <UniqueIdentifier>{CCBA1174-772C-4F55-AF83-E460362345CF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Document">
+      <UniqueIdentifier>{57F1BE6F-3172-49D6-BCC8-FBEAE2BD7C72}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\PluginHost">
+      <UniqueIdentifier>{6FF62F6F-B137-4BCD-B16D-85BBD4077852}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\Ai\AiActionPlanExecutor.cpp">
+      <Filter>src\Ai\Agent</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiAgentMemory.cpp">
+      <Filter>src\Ai\Agent</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiAgentPickDialog.cpp">
+      <Filter>src\Ai\Agent</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiAgentPlanBuilder.cpp">
+      <Filter>src\Ai\Agent</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiAgentRuntime.cpp">
+      <Filter>src\Ai\Agent</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiAgentTrace.cpp">
+      <Filter>src\Ai\Agent</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiApiCatalogEmbedded.cpp">
+      <Filter>src\Ai\Catalog</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiArgsSchema.cpp">
+      <Filter>src\Ai\Llm</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiAssistantHostImpl.cpp">
+      <Filter>src\Ai\Agent</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiCatalogKeywordMatcher.cpp">
+      <Filter>src\Ai\Catalog</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiCommandSchema.cpp">
+      <Filter>src\Ai\Llm</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiConfigLoader.cpp">
+      <Filter>src\Ai\Llm</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiDomainRegistryImpl.cpp">
+      <Filter>src\Ai\Domains</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiDomainRouter.cpp">
+      <Filter>src\Ai\Domains</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiHostButtonApiDispatch.cpp">
+      <Filter>src\Ai\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiHttpsPost.cpp">
+      <Filter>src\Ai\Llm</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiIntentParser.cpp">
+      <Filter>src\Ai\Llm</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiLlmClient.cpp">
+      <Filter>src\Ai\Llm</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiLlmConfig.cpp">
+      <Filter>src\Ai\Llm</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiMeshDefaults.cpp">
+      <Filter>src\Ai\Rules</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiProcessFlowRules.cpp">
+      <Filter>src\Ai\Rules</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiSceneOpsRules.cpp">
+      <Filter>src\Ai\Rules</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiSceneSnapshotBuilder.cpp">
+      <Filter>src\Ai\Rules</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\AiTrajectoryFeatureCatalog.cpp">
+      <Filter>src\Ai\Catalog</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\CatalogActionPlanDomainHandler.cpp">
+      <Filter>src\Ai\Agent</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\GeometryRecognizeDomainHandler.cpp">
+      <Filter>src\Ai\Domains</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\MeshComposeDomainHandler.cpp">
+      <Filter>src\Ai\Domains</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\MeshCreateDomainHandler.cpp">
+      <Filter>src\Ai\Domains</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Ai\TrajectoryFeatureDomainHandler.cpp">
+      <Filter>src\Ai\Domains</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DocumentGeometryOps.cpp">
+      <Filter>src\Document</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DocumentPointCloudOps.cpp">
+      <Filter>src\Document</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PluginDelegatedBackend.cpp">
+      <Filter>src\PluginHost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PluginDocumentAdapter.cpp">
+      <Filter>src\PluginHost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PluginGeometryHostImpl.cpp">
+      <Filter>src\PluginHost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PluginHostContext.cpp">
+      <Filter>src\PluginHost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PluginManager.cpp">
+      <Filter>src\PluginHost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PluginPointCloudHostImpl.cpp">
+      <Filter>src\PluginHost</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PluginSceneBridgeAdapter.cpp">
+      <Filter>src\PluginHost</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\Ai\AiActionPlanExecutor.h">
+      <Filter>inc\Ai\Agent</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiAgentMemory.h">
+      <Filter>inc\Ai\Agent</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiAgentPickDialog.h">
+      <Filter>inc\Ai\Agent</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiAgentPlanBuilder.h">
+      <Filter>inc\Ai\Agent</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiAgentRuntime.h">
+      <Filter>inc\Ai\Agent</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiAgentTrace.h">
+      <Filter>inc\Ai\Agent</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiApiCatalogEmbedded.h">
+      <Filter>inc\Ai\Catalog</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiArgsSchema.h">
+      <Filter>inc\Ai\Llm</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiAssistantHostImpl.h">
+      <Filter>inc\Ai\Agent</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiCatalogKeywordMatcher.h">
+      <Filter>inc\Ai\Catalog</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiCommandSchema.h">
+      <Filter>inc\Ai\Llm</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiConfigLoader.h">
+      <Filter>inc\Ai\Llm</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiDomainRegistryImpl.h">
+      <Filter>inc\Ai\Domains</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiDomainRouter.h">
+      <Filter>inc\Ai\Domains</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiHostButtonApiDispatch.h">
+      <Filter>inc\Ai\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiHttpsPost.h">
+      <Filter>inc\Ai\Llm</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiIntentParser.h">
+      <Filter>inc\Ai\Llm</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiLlmClient.h">
+      <Filter>inc\Ai\Llm</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiLlmConfig.h">
+      <Filter>inc\Ai\Llm</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiMeshDefaults.h">
+      <Filter>inc\Ai\Rules</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiProcessFlowRules.h">
+      <Filter>inc\Ai\Rules</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiProgressSink.h">
+      <Filter>inc\Ai\Llm</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiSceneOpsRules.h">
+      <Filter>inc\Ai\Rules</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiSceneSnapshotBuilder.h">
+      <Filter>inc\Ai\Rules</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\AiTrajectoryFeatureCatalog.h">
+      <Filter>inc\Ai\Catalog</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\CatalogActionPlanDomainHandler.h">
+      <Filter>inc\Ai\Agent</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\GeometryRecognizeDomainHandler.h">
+      <Filter>inc\Ai\Domains</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\MeshComposeDomainHandler.h">
+      <Filter>inc\Ai\Domains</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\MeshCreateDomainHandler.h">
+      <Filter>inc\Ai\Domains</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Ai\TrajectoryFeatureDomainHandler.h">
+      <Filter>inc\Ai\Domains</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\DocumentGeometryOps.h">
+      <Filter>inc\Document</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\DocumentPointCloudOps.h">
+      <Filter>inc\Document</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\plugin_host_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginDelegatedBackend.h">
+      <Filter>inc\PluginHost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginDocumentAdapter.h">
+      <Filter>inc\PluginHost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginGeometryHostImpl.h">
+      <Filter>inc\PluginHost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginHostContext.h">
+      <Filter>inc\PluginHost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginManager.h">
+      <Filter>inc\PluginHost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginPointCloudHostImpl.h">
+      <Filter>inc\PluginHost</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginSceneBridgeAdapter.h">
+      <Filter>inc\PluginHost</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="inc\PluginHostContext.h">
+      <Filter>inc\PluginHost</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\PluginManager.h">
+      <Filter>inc\PluginHost</Filter>
+    </QtMoc>
+  </ItemGroup>
+</Project>

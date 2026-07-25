@@ -19,6 +19,7 @@
 #include <QElapsedTimer>
 #include <QHash>
 #include <QMainWindow>
+#include <QPointer>
 #include <QSet>
 #include <QTabWidget>
 #include <QTimer>
@@ -371,6 +372,16 @@ protected:
 	bool m_processFlowSideUiActive = false;
 	bool m_unitDockVisibleBeforeProcessFlow = true;
 	bool m_propertyDockVisibleBeforeProcessFlow = true;
+	struct ProcessFlowDetachedRightTab
+	{
+		QPointer<QWidget> widget;
+		QString title;
+		int index = 0;
+	};
+	QVector<ProcessFlowDetachedRightTab> m_processFlowDetachedRightTabs;
+	void detachNonAiRightTabsForProcessFlow();
+	void restoreRightTabsAfterProcessFlow();
+	void discardProcessFlowRightTabsForShutdown();
 	int m_processFlowLeftSavedWidth = 260;
 	int m_processFlowRightSavedWidth = 320;
 	std::unique_ptr<RobotSimulationController> m_robotSimulation;

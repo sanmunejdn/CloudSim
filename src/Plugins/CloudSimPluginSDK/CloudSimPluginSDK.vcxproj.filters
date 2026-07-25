@@ -1,54 +1,72 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{9A00B349-1B9A-413A-9E68-C61241C1DA9B}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{8B27FC9F-04BF-4508-BD11-193D861A8BA7}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\IPluginGeometryHost.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IPluginPointCloudHost.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PluginGeometryTypes.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PluginPointCloudTypes.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\cloudsim_plugin_sdk_global.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CloudSimPluginVersion.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ICloudSimPlugin.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IPluginDocument.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IPluginHostContext.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IPluginSceneBridge.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PluginBackendMeta.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PluginPrimitiveTypes.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\CloudSimPluginVersion.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{9A00B349-1B9A-413A-9E68-C61241C1DA9B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Core">
+      <UniqueIdentifier>{EC4EEA33-D8DD-4F47-811A-4B05888350CD}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{765CA74B-E727-4E7E-AB1D-3ED8FD65B8A1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Plugin">
+      <UniqueIdentifier>{54AC8CA1-AA0E-4F66-972F-F081043B36AE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{8B27FC9F-04BF-4508-BD11-193D861A8BA7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Plugin">
+      <UniqueIdentifier>{8D7F75D1-665F-42FF-8457-20CA8FFE6CC4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\CloudSimPluginVersion.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\cloudsim_plugin_sdk_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CloudSimPluginVersion.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ICloudSimPlugin.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IPluginDocument.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IPluginHostContext.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IPluginLabelingHost.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IPluginPointCloudHost.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IPluginSceneBridge.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IProcessFlowAiBridge.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginBackendMeta.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginGeometryTypes.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginLabelingTypes.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginPointCloudTypes.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PluginPrimitiveTypes.h">
+      <Filter>inc\Plugin</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

@@ -41,6 +41,7 @@ AiAssistantDockWidget::AiAssistantDockWidget(QWidget* parent) : QWidget(parent)
 	m_domainCombo->addItem(QStringLiteral("Feature build"), AiDomainIds::featureBuild());
 	m_domainCombo->addItem(QStringLiteral("Labeling"), AiDomainIds::labelingAnnot());
 	m_domainCombo->addItem(QStringLiteral("Scene ops"), AiDomainIds::sceneOps());
+	m_domainCombo->addItem(QStringLiteral("Process flow"), AiDomainIds::processFlow());
 	root->addWidget(m_domainCombo, 0);
 
 	m_viewportHint = new QLabel(this);

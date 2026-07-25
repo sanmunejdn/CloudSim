@@ -185,6 +185,13 @@ void MainWindow::removePluginSidePanelTab(QWidget* widget)
 	{
 		return;
 	}
+	for (int i = m_processFlowDetachedRightTabs.size() - 1; i >= 0; --i)
+	{
+		if (m_processFlowDetachedRightTabs.at(i).widget.data() == widget)
+		{
+			m_processFlowDetachedRightTabs.removeAt(i);
+		}
+	}
 	unregisterSidePanelTabToggle(widget);
 	delete widget;
 }

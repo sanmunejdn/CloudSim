@@ -1,24 +1,33 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{D95CBAAC-E79B-4FE4-A2C9-31CD062C586A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{D2C5713B-7408-4C0E-9B6D-DD427226073B}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\cloudsim_bootstrap_global.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CloudSimBootstrap.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\CloudSimApplicationContext.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{D95CBAAC-E79B-4FE4-A2C9-31CD062C586A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Core">
+      <UniqueIdentifier>{763F8932-3E7C-480B-B365-EC2D0363000C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{0B8AC1D4-A0F6-45E6-8055-7F7A4FD9172F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{D2C5713B-7408-4C0E-9B6D-DD427226073B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{9C6860F0-7A2D-4FCE-AF38-CD70A4AF728E}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\CloudSimApplicationContext.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\cloudsim_bootstrap_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CloudSimBootstrap.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

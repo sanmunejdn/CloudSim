@@ -51,6 +51,10 @@ inline QString sceneOps()
 {
 	return QStringLiteral("scene.ops");
 }
+inline QString processFlow()
+{
+	return QStringLiteral("process.flow");
+}
 inline QString geometryRecognize()
 {
 	return QStringLiteral("geometry.recognize");

@@ -62,6 +62,7 @@
 #include <QSignalBlocker>
 #include <QStatusBar>
 #include <QStringList>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
@@ -194,7 +195,9 @@ void MainWindow::applyLanguage()
 	}
 	if (m_unitDock)
 	{
-		m_unitDock->setWindowTitle(i18n(QStringLiteral("Workspace"), QStringLiteral("工作区")));
+		m_unitDock->setWindowTitle(m_processFlowSideUiActive
+									   ? i18n(QStringLiteral("AI Assistant"), QStringLiteral("AI 助手"))
+									   : i18n(QStringLiteral("Workspace"), QStringLiteral("工作区")));
 	}
 	if (m_processFlowLeftDock)
 	{
@@ -204,9 +207,13 @@ void MainWindow::applyLanguage()
 	{
 		m_processFlowRightDock->setWindowTitle(i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板")));
 	}
-	if (m_rightPanelTabs && m_rightPanelTabs->count() >= 1)
+	if (m_rightPanelTabs && m_rightPanelTabs->count() >= 1 && !m_processFlowSideUiActive && m_unitDockTabs)
 	{
-		m_rightPanelTabs->setTabText(0, i18n(QStringLiteral("Workspace"), QStringLiteral("工作区")));
+		const int wsIdx = m_rightPanelTabs->indexOf(m_unitDockTabs);
+		if (wsIdx >= 0)
+		{
+			m_rightPanelTabs->setTabText(wsIdx, i18n(QStringLiteral("Workspace"), QStringLiteral("工作区")));
+		}
 	}
 	if (m_aiAssistantPage)
 	{
@@ -866,18 +873,27 @@ void MainWindow::setRightSidePanelVisible(const bool visible)
 {
 	if (m_processFlowSideUiActive)
 	{
-		if (!m_processFlowRightDock)
+		if (!m_processFlowRightDock && !m_unitDock)
 		{
 			return;
 		}
 		if (visible)
 		{
-			showSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth, 320);
-			resizeDocks({m_processFlowRightDock}, {m_processFlowRightSavedWidth}, Qt::Horizontal);
+			if (m_processFlowRightDock)
+			{
+				showSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth, 320);
+				resizeDocks({m_processFlowRightDock}, {m_processFlowRightSavedWidth}, Qt::Horizontal);
+			}
+			// 与仿真 Dock tabify：同步露出含 AI 的 unitDock
+			if (m_unitDock)
+			{
+				showSideDock(m_unitDock, m_rightDockSavedWidth, kDefaultRightDockWidth);
+			}
 		}
 		else
 		{
 			hideSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth);
+			hideSideDock(m_unitDock, m_rightDockSavedWidth);
 		}
 		syncSidePanelToggleUi();
 		return;
@@ -1087,7 +1103,6 @@ void MainWindow::enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel)
 	m_processFlowSideUiActive = true;
 	m_unitDockVisibleBeforeProcessFlow = sideDockShown(m_unitDock);
 	m_propertyDockVisibleBeforeProcessFlow = sideDockShown(m_propertyDock);
-	hideSideDock(m_unitDock, m_rightDockSavedWidth);
 	hideSideDock(m_propertyDock, m_leftDockSavedWidth);
 
 	if (!m_processFlowLeftDock)
@@ -1155,7 +1170,116 @@ void MainWindow::enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel)
 		hideSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth);
 	}
 
+	// 仅保留 AI：去掉工作区及插件页签，Dock 标题改为 AI 助手
+	detachNonAiRightTabsForProcessFlow();
+	if (m_unitDock && m_processFlowRightDock && rightPanel)
+	{
+		showSideDock(m_unitDock, m_rightDockSavedWidth, kDefaultRightDockWidth);
+		tabifyDockWidget(m_processFlowRightDock, m_unitDock);
+		m_unitDock->raise();
+	}
+
 	syncSidePanelToggleUi();
+}
+
+void MainWindow::detachNonAiRightTabsForProcessFlow()
+{
+	if (!m_rightPanelTabs || !m_aiAssistantPage)
+	{
+		return;
+	}
+	if (!m_processFlowDetachedRightTabs.isEmpty())
+	{
+		return;
+	}
+
+	applySidePanelTabToggleVisibility(m_aiAssistantPage, true);
+
+	for (int i = 0; i < m_rightPanelTabs->count(); ++i)
+	{
+		QWidget* w = m_rightPanelTabs->widget(i);
+		if (!w || w == m_aiAssistantPage)
+		{
+			continue;
+		}
+		ProcessFlowDetachedRightTab d;
+		d.widget = w;
+		d.title = m_rightPanelTabs->tabText(i);
+		d.index = i;
+		m_processFlowDetachedRightTabs.append(d);
+	}
+	for (const ProcessFlowDetachedRightTab& d : m_processFlowDetachedRightTabs)
+	{
+		const int idx = m_rightPanelTabs->indexOf(d.widget);
+		if (idx >= 0)
+		{
+			m_rightPanelTabs->removeTab(idx);
+		}
+	}
+
+	m_rightPanelTabs->setCurrentWidget(m_aiAssistantPage);
+	if (m_rightPanelTabs->tabBar())
+	{
+		m_rightPanelTabs->tabBar()->setVisible(false);
+	}
+	if (m_unitDock)
+	{
+		m_unitDock->setWindowTitle(i18n(QStringLiteral("AI Assistant"), QStringLiteral("AI 助手")));
+	}
+}
+
+void MainWindow::restoreRightTabsAfterProcessFlow()
+{
+	if (m_unitDock)
+	{
+		m_unitDock->setWindowTitle(i18n(QStringLiteral("Workspace"), QStringLiteral("工作区")));
+	}
+	if (m_rightPanelTabs && m_rightPanelTabs->tabBar())
+	{
+		m_rightPanelTabs->tabBar()->setVisible(true);
+	}
+	if (!m_rightPanelTabs || m_processFlowDetachedRightTabs.isEmpty())
+	{
+		m_processFlowDetachedRightTabs.clear();
+		return;
+	}
+
+	std::sort(m_processFlowDetachedRightTabs.begin(), m_processFlowDetachedRightTabs.end(),
+			  [](const ProcessFlowDetachedRightTab& a, const ProcessFlowDetachedRightTab& b) { return a.index < b.index; });
+	for (const ProcessFlowDetachedRightTab& d : m_processFlowDetachedRightTabs)
+	{
+		QWidget* w = d.widget.data();
+		if (!w)
+		{
+			continue;
+		}
+		if (m_rightPanelTabs->indexOf(w) >= 0)
+		{
+			continue;
+		}
+		const int insertAt = qBound(0, d.index, m_rightPanelTabs->count());
+		m_rightPanelTabs->insertTab(insertAt, w, d.title);
+	}
+	m_processFlowDetachedRightTabs.clear();
+}
+
+void MainWindow::discardProcessFlowRightTabsForShutdown()
+{
+	m_processFlowSideUiActive = false;
+	// Host 自有「工作区」页签 removeTab 后无父对象，需挂回以免泄漏；插件页交给各自 shutdown delete
+	if (m_rightPanelTabs && m_unitDockTabs && m_rightPanelTabs->indexOf(m_unitDockTabs) < 0)
+	{
+		m_rightPanelTabs->insertTab(0, m_unitDockTabs, i18n(QStringLiteral("Workspace"), QStringLiteral("工作区")));
+	}
+	if (m_rightPanelTabs && m_rightPanelTabs->tabBar())
+	{
+		m_rightPanelTabs->tabBar()->setVisible(true);
+	}
+	if (m_unitDock)
+	{
+		m_unitDock->setWindowTitle(i18n(QStringLiteral("Workspace"), QStringLiteral("工作区")));
+	}
+	m_processFlowDetachedRightTabs.clear();
 }
 
 void MainWindow::exitProcessFlowSideUi()
@@ -1167,6 +1291,11 @@ void MainWindow::exitProcessFlowSideUi()
 	m_processFlowSideUiActive = false;
 	hideSideDock(m_processFlowLeftDock, m_processFlowLeftSavedWidth);
 	hideSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth);
+	restoreRightTabsAfterProcessFlow();
+	if (m_unitDock)
+	{
+		addDockWidget(Qt::RightDockWidgetArea, m_unitDock);
+	}
 	for (int i = 0; i < documentTabCount(); ++i)
 	{
 		if (cloudsim::host::DocumentHost* doc = documentHostAt(i))
@@ -1183,6 +1312,10 @@ void MainWindow::exitProcessFlowSideUi()
 	{
 		showSideDock(m_unitDock, m_rightDockSavedWidth, kDefaultRightDockWidth);
 		resizeDocks({m_unitDock}, {m_rightDockSavedWidth}, Qt::Horizontal);
+	}
+	else
+	{
+		hideSideDock(m_unitDock, m_rightDockSavedWidth);
 	}
 	syncSidePanelToggleUi();
 }

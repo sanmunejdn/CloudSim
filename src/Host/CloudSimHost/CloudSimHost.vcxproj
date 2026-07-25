@@ -147,6 +147,7 @@
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiLlmConfig.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiProgressSink.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiSceneOpsRules.h" />
+    <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiProcessFlowRules.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\AiSceneSnapshotBuilder.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\CatalogActionPlanDomainHandler.h" />
     <ClInclude Include="..\..\UI\CloudSimPluginHost\inc\Ai\GeometryRecognizeDomainHandler.h" />
@@ -214,6 +215,7 @@
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiLlmConfig.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiMeshDefaults.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiSceneOpsRules.cpp" />
+    <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiProcessFlowRules.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiSceneSnapshotBuilder.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\AiTrajectoryFeatureCatalog.cpp" />
     <ClCompile Include="..\..\UI\CloudSimPluginHost\source\Ai\CatalogActionPlanDomainHandler.cpp" />

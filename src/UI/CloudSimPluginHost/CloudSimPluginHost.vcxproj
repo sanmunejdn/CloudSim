@@ -101,6 +101,7 @@
     <ClInclude Include="inc\Ai\AiProgressSink.h" />
     <ClInclude Include="inc\Ai\AiSceneSnapshotBuilder.h" />
     <ClInclude Include="inc\Ai\AiSceneOpsRules.h" />
+    <ClInclude Include="inc\Ai\AiProcessFlowRules.h" />
     <ClInclude Include="inc\Ai\CatalogActionPlanDomainHandler.h" />
     <ClInclude Include="inc\Ai\GeometryRecognizeDomainHandler.h" />
     <ClInclude Include="inc\Ai\AiTrajectoryFeatureCatalog.h" />
@@ -143,6 +144,7 @@
     <ClCompile Include="source\Ai\AiLlmConfig.cpp" />
     <ClCompile Include="source\Ai\AiMeshDefaults.cpp" />
     <ClCompile Include="source\Ai\AiSceneOpsRules.cpp" />
+    <ClCompile Include="source\Ai\AiProcessFlowRules.cpp" />
     <ClCompile Include="source\Ai\AiSceneSnapshotBuilder.cpp" />
     <ClCompile Include="source\Ai\AiTrajectoryFeatureCatalog.cpp" />
     <ClCompile Include="source\Ai\CatalogActionPlanDomainHandler.cpp" />

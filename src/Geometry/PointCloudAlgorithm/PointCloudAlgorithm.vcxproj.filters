@@ -1,171 +1,210 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{F1593898-90C8-44A7-887B-55EE3F4BB7F8}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{C86CDAA3-8C72-46AA-87A5-86D90CFF3B67}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\spare">
-      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\spare">
-      <UniqueIdentifier>{B2C3D4E5-F6A7-8901-BCDE-F12345678901}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\sdf">
-      <UniqueIdentifier>{C3D4E5F6-A7B8-9012-CDEF-123456789012}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\sdf">
-      <UniqueIdentifier>{D4E5F6A7-B8C9-0123-DEF0-234567890123}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\point_cloud_algorithm_global.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PointCloudBuffer.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Measure.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Transform.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Crop.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Downsample.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RegistrationRigid.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RegistrationGlobal.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RegistrationNonRigid.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RegistrationSdf.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\sdf\DistanceField.h">
-      <Filter>inc\sdf</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\sdf\SdfNodeSampler.h">
-      <Filter>inc\sdf</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\sdf\SdfDeformSolver.h">
-      <Filter>inc\sdf</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Preprocess.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Reconstruction.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ReconstructionPoisson.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ReconstructionScaleSpace.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\SelfTest.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ParallelUtils.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PerformanceTest.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ReconstructionConfig.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\KdTreePointSet.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\spare\SpareInternal.h">
-      <Filter>inc\spare</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\spare\SpareNodeSampler.h">
-      <Filter>inc\spare</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\spare\SpareSolver.h">
-      <Filter>inc\spare</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\spare\SpareSurface.h">
-      <Filter>inc\spare</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\PointCloudBuffer.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Measure.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Transform.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Crop.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Downsample.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RegistrationRigid.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RegistrationGlobal.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RegistrationNonRigid.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Preprocess.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ReconstructionPoisson.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ReconstructionScaleSpace.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\SelfTest.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ParallelUtils.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PerformanceTest.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ReconstructionConfig.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\spare\SpareNodeSampler.cpp">
-      <Filter>src\spare</Filter>
-    </ClCompile>
-    <ClCompile Include="source\spare\SpareSolver.cpp">
-      <Filter>src\spare</Filter>
-    </ClCompile>
-    <ClCompile Include="source\spare\SpareSurfaceBuild.cpp">
-      <Filter>src\spare</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RegistrationSdf.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\sdf\DistanceField.cpp">
-      <Filter>src\sdf</Filter>
-    </ClCompile>
-    <ClCompile Include="source\sdf\SdfNodeSampler.cpp">
-      <Filter>src\sdf</Filter>
-    </ClCompile>
-    <ClCompile Include="source\sdf\SdfDeformSolver.cpp">
-      <Filter>src\sdf</Filter>
-    </ClCompile>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{F1593898-90C8-44A7-887B-55EE3F4BB7F8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Core">
+      <UniqueIdentifier>{B706C260-D0A8-4F22-8111-437A37478E55}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{1CD24129-1AB8-42DB-A458-4044E66478E8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Preprocess">
+      <UniqueIdentifier>{04557B7C-3354-4119-957A-43ACD2DEE390}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Reconstruction">
+      <UniqueIdentifier>{CACE85A7-CE12-45E6-B106-BD54A69A83E4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Registration">
+      <UniqueIdentifier>{554FAE8B-8BDB-4E94-85AC-1861C527F0F7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\sdf">
+      <UniqueIdentifier>{C3D4E5F6-A7B8-9012-CDEF-123456789012}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\spare">
+      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{C86CDAA3-8C72-46AA-87A5-86D90CFF3B67}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{CA6F5923-7028-45D4-B997-F9F703D5CBE9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Preprocess">
+      <UniqueIdentifier>{B9B06104-E903-45F5-A12C-317F22A917CF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Reconstruction">
+      <UniqueIdentifier>{7CC4505F-31B8-447D-A200-9A4DDFA923B9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Registration">
+      <UniqueIdentifier>{E0DF82A2-D32A-4260-8696-FA8E7D06987C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\sdf">
+      <UniqueIdentifier>{D4E5F6A7-B8C9-0123-DEF0-234567890123}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\spare">
+      <UniqueIdentifier>{B2C3D4E5-F6A7-8901-BCDE-F12345678901}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\Crop.cpp">
+      <Filter>src\Preprocess</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Downsample.cpp">
+      <Filter>src\Preprocess</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Measure.cpp">
+      <Filter>src\Preprocess</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ParallelUtils.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PerformanceTest.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PointCloudBuffer.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PointFeatures.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Preprocess.cpp">
+      <Filter>src\Preprocess</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ReconstructionConfig.cpp">
+      <Filter>src\Reconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ReconstructionPoisson.cpp">
+      <Filter>src\Reconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ReconstructionScaleSpace.cpp">
+      <Filter>src\Reconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RegistrationGlobal.cpp">
+      <Filter>src\Registration</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RegistrationNonRigid.cpp">
+      <Filter>src\Registration</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RegistrationRigid.cpp">
+      <Filter>src\Registration</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RegistrationSdf.cpp">
+      <Filter>src\Registration</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RegistrationSpare.cpp">
+      <Filter>src\Registration</Filter>
+    </ClCompile>
+    <ClCompile Include="source\sdf\DistanceField.cpp">
+      <Filter>src\sdf</Filter>
+    </ClCompile>
+    <ClCompile Include="source\sdf\SdfDeformSolver.cpp">
+      <Filter>src\sdf</Filter>
+    </ClCompile>
+    <ClCompile Include="source\sdf\SdfNodeSampler.cpp">
+      <Filter>src\sdf</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SelfTest.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\spare\SpareNodeSampler.cpp">
+      <Filter>src\spare</Filter>
+    </ClCompile>
+    <ClCompile Include="source\spare\SpareSolver.cpp">
+      <Filter>src\spare</Filter>
+    </ClCompile>
+    <ClCompile Include="source\spare\SpareSurfaceBuild.cpp">
+      <Filter>src\spare</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Transform.cpp">
+      <Filter>src\Preprocess</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\Crop.h">
+      <Filter>inc\Preprocess</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Downsample.h">
+      <Filter>inc\Preprocess</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\KdTreePointSet.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Measure.h">
+      <Filter>inc\Preprocess</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ParallelUtils.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PerformanceTest.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\point_cloud_algorithm_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PointCloudBuffer.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PointFeatures.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Preprocess.h">
+      <Filter>inc\Preprocess</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Reconstruction.h">
+      <Filter>inc\Reconstruction</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ReconstructionConfig.h">
+      <Filter>inc\Reconstruction</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ReconstructionPoisson.h">
+      <Filter>inc\Reconstruction</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ReconstructionScaleSpace.h">
+      <Filter>inc\Reconstruction</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RegistrationGlobal.h">
+      <Filter>inc\Registration</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RegistrationNonRigid.h">
+      <Filter>inc\Registration</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RegistrationRigid.h">
+      <Filter>inc\Registration</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RegistrationSdf.h">
+      <Filter>inc\Registration</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RegistrationSpare.h">
+      <Filter>inc\Registration</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sdf\DistanceField.h">
+      <Filter>inc\sdf</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sdf\SdfDeformSolver.h">
+      <Filter>inc\sdf</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sdf\SdfNodeSampler.h">
+      <Filter>inc\sdf</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SelfTest.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\spare\SpareInternal.h">
+      <Filter>inc\spare</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\spare\SpareNodeSampler.h">
+      <Filter>inc\spare</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\spare\SpareSolver.h">
+      <Filter>inc\spare</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\spare\SpareSurface.h">
+      <Filter>inc\spare</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Transform.h">
+      <Filter>inc\Preprocess</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

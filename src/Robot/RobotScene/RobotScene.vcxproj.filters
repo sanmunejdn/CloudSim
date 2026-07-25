@@ -1,302 +1,371 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{966525E9-94D3-4C07-9703-BD859EFA4A39}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{77E4FD0D-8C67-40A1-84FC-66E24444A2E6}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="resource">
-      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-EF0123456703}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="resource\trajectory">
-      <UniqueIdentifier>{B2C3D4E5-F6A7-8901-BCDE-F01234567014}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="resource\UI">
-      <UniqueIdentifier>{99088e03-1f89-465a-b1d2-c1de60997050}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\IRobotBackendPoseSink.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IRobotIoSink.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IRobotSimulationDocument.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotPerLinkKinematicsSliceOsg.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotInstructionAxisConfiguration.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotInstructionAttribute.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotInstructionCondition.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotCoordinateFrames.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotExternalAxes.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ExternalAxisSearchService.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotInstructionController.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotInstructionFactory.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotInstructionModel.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotInstructionProgram.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotInstructionPropertySchema.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\robot_scene_global.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotInstructionPlaybackEngine.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotProgramExecutor.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotProgramExport.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotInstructionTransform.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\InstructionProgramDocument.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ProgramEditCommand.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotProgramCatalog.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryPipelineTypes.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryOpBridge.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotMatrixOsgBridge.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotSceneKinematics.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotTeachIk.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RawTrajectory.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RawTrajectoryMath.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RecipeBlueprint.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\UnifiedTrajectory.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ProcessFlowPresetLoader.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotSceneGeometryProjection.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotCanonicalProgramExport.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryGeometryResolver.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryPathAdapters.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryPipelineEngine.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionAttribute.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionCondition.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotCoordinateFrames.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotExternalAxes.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ExternalAxisSearchService.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionController.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionFactory.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionModel.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionProgram.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionPlaybackEngine.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotProgramExecutor.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotProgramExport.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotInstructionTransform.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\InstructionProgramDocument.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ProgramEditCommand.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotProgramCatalog.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryOpBridge.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RawTrajectory.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RawTrajectoryMath.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RecipeBlueprint.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\UnifiedTrajectory.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotMatrixOsgBridge.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotSceneKinematics.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotTeachIk.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\CloudSimCoreExport.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PathPlanRawStore.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ProcessFlowPresetLoader.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotCanonicalProgramExport.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryGeometryResolver.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryPathAdapters.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryPipelineEngine.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="resource\trajectory\ProcessFlowPresets.json">
-      <Filter>resource\trajectory</Filter>
-    </None>
-    <None Include="resource\trajectory\ProcessFlowPresets.defaults.json">
-      <Filter>resource\trajectory</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\Approach.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\AssignBlend.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\AssignSpeedZone.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\CommonScope.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\Delete.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\Duplicate.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\ExternalAxisSearch.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\Mirror.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\OffsetAlongNormal.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\OffsetLateral.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\ProjectToGeometry.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\ReachabilityFilter.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\README.md">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\Reorder.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\Resample.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\Retract.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\Rotate.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\SmoothPose.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\Translate.json">
-      <Filter>resource\UI</Filter>
-    </None>
-    <None Include="resource\trajectory\ops\Weave.json">
-      <Filter>resource\UI</Filter>
-    </None>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{966525E9-94D3-4C07-9703-BD859EFA4A39}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\CollisionGeometry">
+      <UniqueIdentifier>{107A3012-AA19-4DDA-AAD8-90FB68753DE4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{2E4422B5-5B50-4705-8C66-07623525F996}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Instructions">
+      <UniqueIdentifier>{02848E6E-DC7E-400C-91A6-FA69318E22E5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Interfaces">
+      <UniqueIdentifier>{0876079D-DC98-4D45-B160-15D7EC57EC59}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\KinematicsFrames">
+      <UniqueIdentifier>{9679D019-AED6-405A-9FFB-942E0D19117C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\ProgramExport">
+      <UniqueIdentifier>{6C5F959D-5C61-45C8-A6B6-E6E38B8187B2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Trajectory">
+      <UniqueIdentifier>{2EA6B09C-87BC-4CDF-8EC5-B07CA8C0FDDF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resource">
+      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-EF0123456703}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resource\trajectory">
+      <UniqueIdentifier>{B2C3D4E5-F6A7-8901-BCDE-F01234567014}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resource\trajectory\ops">
+      <UniqueIdentifier>{27126AA0-3872-4539-8D1A-E7F3033246D8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{77E4FD0D-8C67-40A1-84FC-66E24444A2E6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\CollisionGeometry">
+      <UniqueIdentifier>{B3924ADE-1600-48CD-BCDD-457991015E3A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Global">
+      <UniqueIdentifier>{1F33FCAD-9D2F-4C2C-9484-F1E9136FB122}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Instructions">
+      <UniqueIdentifier>{80DF28ED-2E94-4C8F-814A-F8516E620C56}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\KinematicsFrames">
+      <UniqueIdentifier>{4BC7C7AB-677C-4C3C-9CC9-A83C31EFF021}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\ProgramExport">
+      <UniqueIdentifier>{407A74F5-95C0-4840-AB10-7A321A2B6EA2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Trajectory">
+      <UniqueIdentifier>{8F594546-B7D6-4ECE-A6E5-16BF32FE82BE}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\CloudSimCoreExport.cpp">
+      <Filter>src\Global</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ExternalAxisSearchService.cpp">
+      <Filter>src\KinematicsFrames</Filter>
+    </ClCompile>
+    <ClCompile Include="source\InstructionProgramDocument.cpp">
+      <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshTrajectoryIngress.cpp">
+      <Filter>src\Trajectory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PathPlanRawStore.cpp">
+      <Filter>src\Trajectory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProcessFlowPresetLoader.cpp">
+      <Filter>src\ProgramExport</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProgramEditCommand.cpp">
+      <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RawTrajectory.cpp">
+      <Filter>src\Trajectory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RawTrajectoryMath.cpp">
+      <Filter>src\Trajectory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RecipeBlueprint.cpp">
+      <Filter>src\ProgramExport</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotCanonicalProgramExport.cpp">
+      <Filter>src\ProgramExport</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotCollisionSettings.cpp">
+      <Filter>src\CollisionGeometry</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotCoordinateFrames.cpp">
+      <Filter>src\KinematicsFrames</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotExternalAxes.cpp">
+      <Filter>src\KinematicsFrames</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionAttribute.cpp">
+      <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionAxisConfiguration.cpp">
+      <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionCondition.cpp">
+      <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionController.cpp">
+      <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionFactory.cpp">
+      <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionModel.cpp">
+      <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionPlaybackEngine.cpp">
+      <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionProgram.cpp">
+      <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotInstructionTransform.cpp">
+      <Filter>src\Instructions</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotMatrixOsgBridge.cpp">
+      <Filter>src\KinematicsFrames</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotProgramCatalog.cpp">
+      <Filter>src\ProgramExport</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotProgramExecutor.cpp">
+      <Filter>src\ProgramExport</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotProgramExport.cpp">
+      <Filter>src\ProgramExport</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotProgramStore.cpp">
+      <Filter>src\ProgramExport</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotSceneKinematics.cpp">
+      <Filter>src\KinematicsFrames</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotTeachIk.cpp">
+      <Filter>src\KinematicsFrames</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryGeometryResolver.cpp">
+      <Filter>src\Trajectory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryOpBridge.cpp">
+      <Filter>src\Trajectory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryPathAdapters.cpp">
+      <Filter>src\Trajectory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryPipelineEngine.cpp">
+      <Filter>src\Trajectory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TubularGrindingTrajectoryIngress.cpp">
+      <Filter>src\Trajectory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\UnifiedTrajectory.cpp">
+      <Filter>src\Trajectory</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\ExternalAxisSearchService.h">
+      <Filter>inc\KinematicsFrames</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\InstructionProgramDocument.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IRobotBackendPoseSink.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IRobotIoSink.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IRobotSimulationDocument.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshTrajectoryIngress.h">
+      <Filter>inc\Trajectory</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ProcessFlowPresetLoader.h">
+      <Filter>inc\ProgramExport</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ProgramEditCommand.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RawTrajectory.h">
+      <Filter>inc\Trajectory</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RawTrajectoryMath.h">
+      <Filter>inc\Trajectory</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RecipeBlueprint.h">
+      <Filter>inc\ProgramExport</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\robot_scene_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotCanonicalProgramExport.h">
+      <Filter>inc\ProgramExport</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotCollisionSettings.h">
+      <Filter>inc\CollisionGeometry</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotCoordinateFrames.h">
+      <Filter>inc\KinematicsFrames</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotExternalAxes.h">
+      <Filter>inc\KinematicsFrames</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionAttribute.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionAxisConfiguration.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionCondition.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionController.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionFactory.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionModel.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionPlaybackEngine.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionProgram.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionPropertySchema.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotInstructionTransform.h">
+      <Filter>inc\Instructions</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotMatrixOsgBridge.h">
+      <Filter>inc\KinematicsFrames</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotPerLinkKinematicsSliceOsg.h">
+      <Filter>inc\KinematicsFrames</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotProgramCatalog.h">
+      <Filter>inc\ProgramExport</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotProgramExecutor.h">
+      <Filter>inc\ProgramExport</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotProgramExport.h">
+      <Filter>inc\ProgramExport</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotProgramStore.h">
+      <Filter>inc\ProgramExport</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotSceneGeometryProjection.h">
+      <Filter>inc\CollisionGeometry</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotSceneKinematics.h">
+      <Filter>inc\KinematicsFrames</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotSceneNonRigidTrajectoryWarp.h">
+      <Filter>inc\Trajectory</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotTeachIk.h">
+      <Filter>inc\KinematicsFrames</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryGeometryResolver.h">
+      <Filter>inc\Trajectory</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryOpBridge.h">
+      <Filter>inc\Trajectory</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryPathAdapters.h">
+      <Filter>inc\Trajectory</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryPipelineEngine.h">
+      <Filter>inc\Trajectory</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryPipelineTypes.h">
+      <Filter>inc\Trajectory</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TubularGrindingTrajectoryIngress.h">
+      <Filter>inc\Trajectory</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\UnifiedTrajectory.h">
+      <Filter>inc\Trajectory</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="resource\trajectory\CommonScope.json">
+      <Filter>resource\trajectory</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Approach.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\AssignBlend.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\AssignSpeedZone.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Delete.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Duplicate.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\ExternalAxisSearch.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Mirror.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\NonRigidRegistration.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\OffsetAlongNormal.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\OffsetLateral.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\ProjectToGeometry.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\ReachabilityFilter.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Reorder.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Resample.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Retract.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Rotate.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\SmoothPose.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Translate.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ops\Weave.json">
+      <Filter>resource\trajectory\ops</Filter>
+    </None>
+    <None Include="resource\trajectory\ProcessFlowPresets.defaults.json">
+      <Filter>resource\trajectory</Filter>
+    </None>
+    <None Include="resource\trajectory\ProcessFlowPresets.json">
+      <Filter>resource\trajectory</Filter>
+    </None>
+    <None Include="resource\trajectory\README.md">
+      <Filter>resource\trajectory</Filter>
+    </None>
+  </ItemGroup>
+</Project>

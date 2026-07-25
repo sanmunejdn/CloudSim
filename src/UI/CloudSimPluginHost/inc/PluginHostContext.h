@@ -129,6 +129,10 @@ public:
 	void invokeProjectAboutToSave(const QString& documentId, QJsonObject& root);
 	void invokeProjectLoaded(const QString& documentId, const QJsonObject& root);
 
+	void setProcessFlowAiBridge(IProcessFlowAiBridge* bridge) override;
+	IProcessFlowAiBridge* processFlowAiBridge() override;
+	const IProcessFlowAiBridge* processFlowAiBridge() const override;
+
 	/// AI ActionPlan：树选中对象 id
 	QString selectedBackendId() const;
 
@@ -155,6 +159,7 @@ private:
 	std::vector<QDockWidget*> m_ownedDocks;
 	std::vector<std::function<void(const QString&, QJsonObject&)>> m_projectSaveCallbacks;
 	std::vector<std::function<void(const QString&, const QJsonObject&)>> m_projectLoadCallbacks;
+	IProcessFlowAiBridge* m_processFlowAiBridge = nullptr;
 };
 
 #endif // CLOUDSIMPLUGINHOST_PLUGINHOSTCONTEXT_H

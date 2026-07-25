@@ -1,24 +1,45 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{A693988C-ABAA-43DD-999B-717A8A4E76ED}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{F968F5BF-89B7-4B56-9A3E-3330F6C4D3E1}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\robot_kinematics_global.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\SerialLinkKinematics.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\SerialLinkKinematics.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{A693988C-ABAA-43DD-999B-717A8A4E76ED}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Geometry">
+      <UniqueIdentifier>{BC28F037-11E6-44A7-AE7B-8AEB1B0B7E09}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{27983B34-709E-45F4-BDCF-1417B80DEFEF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Kinematics">
+      <UniqueIdentifier>{E391FA02-70F5-4113-9B9E-F73EB658982E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{F968F5BF-89B7-4B56-9A3E-3330F6C4D3E1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Geometry">
+      <UniqueIdentifier>{E7501CEA-25CD-4864-85EF-C9CC4E518A1C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Kinematics">
+      <UniqueIdentifier>{76D6A19E-5004-4189-A69B-69D7A0FFF997}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\CircularArcGeometry.cpp">
+      <Filter>src\Geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SerialLinkKinematics.cpp">
+      <Filter>src\Kinematics</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\CircularArcGeometry.h">
+      <Filter>inc\Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\robot_kinematics_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SerialLinkKinematics.h">
+      <Filter>inc\Kinematics</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

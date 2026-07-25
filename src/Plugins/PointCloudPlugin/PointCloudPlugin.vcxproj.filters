@@ -1,46 +1,50 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="inc\Plugin">
-      <UniqueIdentifier>{BE794399-0850-4819-A53C-FADE3EA81E65}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="src\Plugin">
-      <UniqueIdentifier>{CF338FDE-CB88-49A2-B46B-98ADED7CDF11}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\PointCloudDockWidget.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PointCloudPlugin.cpp">
-      <Filter>src\Plugin</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TubularGrindingDockWidget.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <QtMoc Include="inc\PointCloudDockWidget.h">
-      <Filter>inc</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\PointCloudPlugin.h">
-      <Filter>inc\Plugin</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\TubularGrindingDockWidget.h">
-      <Filter>inc</Filter>
-    </QtMoc>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="plugin.json">
-      <Filter>inc\Plugin</Filter>
-    </None>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Core">
+      <UniqueIdentifier>{F5D6ECFF-49F3-47B8-A612-0E9BED494142}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Plugin">
+      <UniqueIdentifier>{BE794399-0850-4819-A53C-FADE3EA81E65}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{6710453D-FFEA-40C2-AD47-BB65FE815864}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Plugin">
+      <UniqueIdentifier>{CF338FDE-CB88-49A2-B46B-98ADED7CDF11}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\PointCloudDockWidget.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PointCloudPlugin.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TubularGrindingDockWidget.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="plugin.json">
+      <Filter>src\Plugin</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="inc\PointCloudDockWidget.h">
+      <Filter>inc\Core</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\PointCloudPlugin.h">
+      <Filter>inc\Plugin</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\TubularGrindingDockWidget.h">
+      <Filter>inc\Core</Filter>
+    </QtMoc>
+  </ItemGroup>
+</Project>

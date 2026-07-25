@@ -1,87 +1,102 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{6E19DB17-114F-4732-94FD-5C613C7C6E45}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{63311DD2-D53A-425A-B170-45556AEEC27D}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\IOpParamAccess.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IOpParamConfig.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ITrajectoryOp.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryOpConfigRegistry.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryOpDescriptorCodec.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryOpParamsParse.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryOpParamAccess.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryOpParamSchema.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryOpRegistry.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryParamJsonIo.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryTransformMath.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\trajectory_algorithm_global.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\INonRigidTrajectoryWarp.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IExternalAxisSearchService.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ITrajectoryOp.h">
-      <Filter>inc</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\ITrajectoryOp.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryOpConfigRegistry.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryOpDescriptorCodec.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryOpParamsParse.cpp">
-      <Filter>source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryOpParamAccess.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryOpParamSchema.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryOpRegistry.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryParamJsonIo.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryTransformMath.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{6E19DB17-114F-4732-94FD-5C613C7C6E45}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{0327BF97-7390-487D-BDFE-3F4C59552D05}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Interfaces">
+      <UniqueIdentifier>{A34FDA55-5AC6-4D03-9621-3CA0474D2699}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Registry">
+      <UniqueIdentifier>{DBDB3228-321F-43E0-934A-F0B764FECE1D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{63311DD2-D53A-425A-B170-45556AEEC27D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Interfaces">
+      <UniqueIdentifier>{F51A4FAF-CBC1-423A-A466-3B9FAE959E68}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Registry">
+      <UniqueIdentifier>{DA5B62E2-D0EF-4627-A231-FF1CA67F5DE2}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\ITrajectoryOp.cpp">
+      <Filter>src\Interfaces</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryOpConfigRegistry.cpp">
+      <Filter>src\Registry</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryOpDescriptorCodec.cpp">
+      <Filter>src\Registry</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryOpParamAccess.cpp">
+      <Filter>src\Registry</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryOpParamSchema.cpp">
+      <Filter>src\Registry</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryOpParamsParse.cpp">
+      <Filter>src\Registry</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryOpRegistry.cpp">
+      <Filter>src\Registry</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryParamJsonIo.cpp">
+      <Filter>src\Registry</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryTransformMath.cpp">
+      <Filter>src\Registry</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\IExternalAxisSearchService.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\INonRigidTrajectoryWarp.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IOpParamAccess.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IOpParamConfig.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ITrajectoryOp.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\trajectory_algorithm_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryOpConfigRegistry.h">
+      <Filter>inc\Registry</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryOpDescriptorCodec.h">
+      <Filter>inc\Registry</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryOpExecutionContext.h">
+      <Filter>inc\Registry</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryOpParamAccess.h">
+      <Filter>inc\Registry</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryOpParamSchema.h">
+      <Filter>inc\Registry</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryOpParamsParse.h">
+      <Filter>inc\Registry</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryOpRegistry.h">
+      <Filter>inc\Registry</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryParamJsonIo.h">
+      <Filter>inc\Registry</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryTransformMath.h">
+      <Filter>inc\Registry</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

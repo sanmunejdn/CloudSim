@@ -25,6 +25,7 @@ class IPluginDocument;
 class IPluginGeometryHost;
 class IPluginLabelingHost;
 class IPluginPointCloudHost;
+class IProcessFlowAiBridge;
 class QDockWidget;
 class QMenu;
 
@@ -172,6 +173,11 @@ public:
 	/// 1.18.0+：工程保存/加载扩展钩子（插件写入 processFlow 等）
 	virtual void onProjectAboutToSave(std::function<void(const QString& documentId, QJsonObject& root)> callback) = 0;
 	virtual void onProjectLoaded(std::function<void(const QString& documentId, const QJsonObject& root)> callback) = 0;
+
+	/// 1.20.0+：工艺流程 AI 桥接（插件注册；未加载时为 null）
+	virtual void setProcessFlowAiBridge(IProcessFlowAiBridge* bridge) = 0;
+	virtual IProcessFlowAiBridge* processFlowAiBridge() = 0;
+	virtual const IProcessFlowAiBridge* processFlowAiBridge() const = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H

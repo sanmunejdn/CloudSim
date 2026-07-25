@@ -5,6 +5,8 @@
 
 #include "IPluginDocument.h"
 #include "IPluginHostContext.h"
+#include "IProcessFlowAiBridge.h"
+#include "ProcessFlowAiBridge.h"
 #include "ProcessFlowCanvasWidget.h"
 #include "ProcessFlowJobSetPanel.h"
 #include "ProcessFlowPageWidget.h"
@@ -24,6 +26,8 @@
 #include <QPointF>
 #include <QTextStream>
 
+ProcessFlowPlugin::~ProcessFlowPlugin() = default;
+
 QString ProcessFlowPlugin::pluginId() const
 {
 	return QStringLiteral("com.cloudsim.processflow");
@@ -40,9 +44,9 @@ bool ProcessFlowPlugin::initialize(IPluginHostContext* host)
 	{
 		return false;
 	}
-	if (host->hostVersion() < 0x00011300U)
+	if (host->hostVersion() < 0x00011400U)
 	{
-		host->logError(QStringLiteral("ProcessFlowPlugin requires host 1.19.0+"));
+		host->logError(QStringLiteral("ProcessFlowPlugin requires host 1.20.0+"));
 		return false;
 	}
 	m_host = host;
@@ -65,6 +69,9 @@ bool ProcessFlowPlugin::initialize(IPluginHostContext* host)
 				});
 	}
 	bindSimUi();
+
+	m_aiBridge = std::make_unique<ProcessFlowAiBridge>(this);
+	host->setProcessFlowAiBridge(m_aiBridge.get());
 
 	host->onActiveDocumentChanged(
 		[this](IPluginDocument*)
@@ -235,6 +242,11 @@ void ProcessFlowPlugin::exportSimCsv()
 
 void ProcessFlowPlugin::shutdown()
 {
+	if (m_host)
+	{
+		m_host->setProcessFlowAiBridge(nullptr);
+	}
+	m_aiBridge.reset();
 	if (m_sim)
 	{
 		m_sim->stop();
@@ -521,4 +533,69 @@ void ProcessFlowPlugin::onProjectLoaded(const QString& documentId, const QJsonOb
 		m_simSide->jobSetPanel()->setCanvas(page->canvas());
 		m_simSide->jobSetPanel()->loadFromJson(page->canvas()->jobSetJson());
 	}
+}
+
+bool ProcessFlowPlugin::ensureProcessFlowForAi(QString* outError)
+{
+	if (!m_host)
+	{
+		if (outError)
+			*outError = QStringLiteral("宿主不可用。");
+		return false;
+	}
+	if (!m_host->activeDocument())
+	{
+		if (outError)
+			*outError = QStringLiteral("无活动文档，无法进入工艺流程。");
+		return false;
+	}
+	if (!m_inProcessFlow)
+		enterProcessFlow();
+	if (!m_inProcessFlow)
+	{
+		if (outError)
+			*outError = QStringLiteral("进入工艺流程失败。");
+		return false;
+	}
+	return true;
+}
+
+ProcessFlowCanvasWidget* ProcessFlowPlugin::activeCanvasForAi() const
+{
+	if (!m_host || !m_host->activeDocument())
+		return nullptr;
+	const QString docId = QString::fromStdString(m_host->activeDocument()->documentId());
+	const auto it = m_pagesByDocId.constFind(docId);
+	if (it == m_pagesByDocId.cend() || !it.value())
+		return nullptr;
+	return it.value()->canvas();
+}
+
+void ProcessFlowPlugin::syncJobSetPanelFromCanvas()
+{
+	ProcessFlowCanvasWidget* canvas = activeCanvasForAi();
+	if (!canvas || !m_simSide || !m_simSide->jobSetPanel())
+		return;
+	m_simSide->jobSetPanel()->setCanvas(canvas);
+	m_simSide->jobSetPanel()->loadFromJson(canvas->jobSetJson());
+}
+
+void ProcessFlowPlugin::applyAiSimStatistics(const SimStatistics& stats)
+{
+	if (m_sim)
+	{
+		m_sim->clearResult();
+		// 同步结果供导出；不经异步 controller
+		m_sim->config().policy = QStringLiteral("fifo");
+	}
+	if (m_simSide && m_simSide->reportPanel())
+		m_simSide->reportPanel()->setStatistics(stats);
+	if (ProcessFlowCanvasWidget* canvas = activeCanvasForAi())
+		canvas->setPlaybackTrace(stats);
+}
+
+void ProcessFlowPlugin::applyAiCompareRows(const QVector<PolicyCompareRow>& rows)
+{
+	if (m_simSide && m_simSide->reportPanel())
+		m_simSide->reportPanel()->setCompareRows(rows);
 }

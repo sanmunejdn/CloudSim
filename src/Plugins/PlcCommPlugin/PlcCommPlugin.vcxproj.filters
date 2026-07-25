@@ -1,24 +1,32 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{91E22A87-112D-40F2-86F1-5BFC2292F4AD}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{36F9576C-1F62-4ECE-ACA8-9967D7A33383}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="plugin.json" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\PlcCommPlugin.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <QtMoc Include="inc\PlcCommPlugin.h">
-      <Filter>inc</Filter>
-    </QtMoc>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{91E22A87-112D-40F2-86F1-5BFC2292F4AD}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Plugin">
+      <UniqueIdentifier>{BEDF3B5D-574D-4EA1-A397-1333B08FA902}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{36F9576C-1F62-4ECE-ACA8-9967D7A33383}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Plugin">
+      <UniqueIdentifier>{5DC6B4DC-423D-44C7-A8ED-7E26A8F8AC8F}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\PlcCommPlugin.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="plugin.json">
+      <Filter>src\Plugin</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="inc\PlcCommPlugin.h">
+      <Filter>inc\Plugin</Filter>
+    </QtMoc>
+  </ItemGroup>
+</Project>

@@ -889,6 +889,21 @@ void PluginHostContext::invokeProjectLoaded(const QString& documentId, const QJs
 	}
 }
 
+void PluginHostContext::setProcessFlowAiBridge(IProcessFlowAiBridge* bridge)
+{
+	m_processFlowAiBridge = bridge;
+}
+
+IProcessFlowAiBridge* PluginHostContext::processFlowAiBridge()
+{
+	return m_processFlowAiBridge;
+}
+
+const IProcessFlowAiBridge* PluginHostContext::processFlowAiBridge() const
+{
+	return m_processFlowAiBridge;
+}
+
 QString PluginHostContext::selectedBackendId() const
 {
 	return m_mainWindowHost ? m_mainWindowHost->selectedBackendId() : QString();

@@ -81,6 +81,7 @@ private:
 	std::optional<CatalogActionPlanDomainHandler> m_featureHandler;
 	std::optional<CatalogActionPlanDomainHandler> m_labelHandler;
 	std::optional<CatalogActionPlanDomainHandler> m_sceneOpsHandler;
+	std::optional<CatalogActionPlanDomainHandler> m_processFlowHandler;
 	std::vector<std::shared_ptr<IAiInferenceProvider>> m_inferenceProviders;
 	QString m_lastLoadedModel;
 	std::unique_ptr<AiAgentRuntime> m_agentRuntime;
