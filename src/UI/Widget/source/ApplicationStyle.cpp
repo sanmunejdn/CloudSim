@@ -174,13 +174,31 @@ QDockWidget::title {
 }
 
 QDockWidget::close-button, QDockWidget::float-button {
-	background-color: #3a3a3c;
-	border: none;
-	padding: 4px;
+	background-color: transparent;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	padding: 5px;
+	margin: 2px;
+	width: 16px;
+	height: 16px;
 }
 
-QDockWidget::close-button:hover, QDockWidget::float-button:hover {
+QDockWidget::close-button:hover {
+	background-color: #5c3a3a;
+	border-color: #7a4a4a;
+}
+
+QDockWidget::float-button:hover {
 	background-color: #48484a;
+	border-color: #5c5c5e;
+}
+
+QDockWidget::close-button:pressed {
+	background-color: #6e4444;
+}
+
+QDockWidget::float-button:pressed {
+	background-color: #555557;
 }
 
 /* 标签页：大面板不做圆角（Qt 无法裁切子控件，圆角外会漏直角底） */
@@ -551,8 +569,9 @@ QToolTip {
 	background-color: #3a3a3c;
 	color: #f2f2f7;
 	border: 1px solid #48484a;
-	border-radius: 6px;
-	padding: 8px 12px;
+	border-radius: 3px;
+	padding: 2px 6px;
+	font-size: 11px;
 }
 )");
 	}
@@ -628,13 +647,33 @@ QDockWidget::title {
 }
 
 QDockWidget::close-button, QDockWidget::float-button {
-	background-color: #e8e9ec;
-	border: none;
-	padding: 4px;
+	background-color: transparent;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	padding: 5px;
+	margin: 2px;
+	width: 16px;
+	height: 16px;
+	subcontrol-origin: margin;
+	subcontrol-position: center right;
 }
 
-QDockWidget::close-button:hover, QDockWidget::float-button:hover {
-	background-color: #dadcde;
+QDockWidget::close-button:hover {
+	background-color: #fde8e8;
+	border-color: #f0b4b4;
+}
+
+QDockWidget::float-button:hover {
+	background-color: #e5ebf1;
+	border-color: #c9d3dd;
+}
+
+QDockWidget::close-button:pressed {
+	background-color: #f8d0d0;
+}
+
+QDockWidget::float-button:pressed {
+	background-color: #d8e0e8;
 }
 
 /* 标签页：大面板不做圆角（Qt 无法裁切子控件，圆角外会漏直角底） */
@@ -1005,9 +1044,9 @@ QToolTip {
 	background-color: #ffffff;
 	color: #1c1c1e;
 	border: 1px solid #dadcde;
-	border-radius: 6px;
-	padding: 8px 12px;
-	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+	border-radius: 3px;
+	padding: 2px 6px;
+	font-size: 11px;
 }
 )");
 	}

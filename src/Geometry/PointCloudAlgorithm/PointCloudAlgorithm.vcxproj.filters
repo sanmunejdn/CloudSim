@@ -13,6 +13,12 @@
     <Filter Include="src\spare">
       <UniqueIdentifier>{B2C3D4E5-F6A7-8901-BCDE-F12345678901}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\sdf">
+      <UniqueIdentifier>{C3D4E5F6-A7B8-9012-CDEF-123456789012}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\sdf">
+      <UniqueIdentifier>{D4E5F6A7-B8C9-0123-DEF0-234567890123}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inc\point_cloud_algorithm_global.h">
@@ -41,6 +47,18 @@
     </ClInclude>
     <ClInclude Include="inc\RegistrationNonRigid.h">
       <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RegistrationSdf.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sdf\DistanceField.h">
+      <Filter>inc\sdf</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sdf\SdfNodeSampler.h">
+      <Filter>inc\sdf</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sdf\SdfDeformSolver.h">
+      <Filter>inc\sdf</Filter>
     </ClInclude>
     <ClInclude Include="inc\Preprocess.h">
       <Filter>inc</Filter>
@@ -136,6 +154,18 @@
     </ClCompile>
     <ClCompile Include="source\spare\SpareSurfaceBuild.cpp">
       <Filter>src\spare</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RegistrationSdf.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="source\sdf\DistanceField.cpp">
+      <Filter>src\sdf</Filter>
+    </ClCompile>
+    <ClCompile Include="source\sdf\SdfNodeSampler.cpp">
+      <Filter>src\sdf</Filter>
+    </ClCompile>
+    <ClCompile Include="source\sdf\SdfDeformSolver.cpp">
+      <Filter>src\sdf</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

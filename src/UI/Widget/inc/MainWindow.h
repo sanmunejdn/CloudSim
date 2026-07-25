@@ -125,6 +125,12 @@ public:
 	QWidget* mainWindowWidget() override { return this; }
 	QObject* pluginActionParent() override { return this; }
 	QDockWidget* addPluginDockWidget(const QString& title, QWidget* widget, Qt::DockWidgetArea area) override;
+	void setCentralAlternateWidget(QWidget* widget) override;
+	void showCentralScene3D() override;
+	void showCentralAlternate() override;
+	bool isShowingCentralAlternate() const override;
+	void enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel) override;
+	void exitProcessFlowSideUi() override;
 	JobSystem* jobSystem();
 	int meshImportQuality() const { return m_meshImportQuality; }
 	void setMeshImportQuality(int quality) { m_meshImportQuality = quality; }
@@ -360,6 +366,13 @@ protected:
 	DevicePageWidget* m_devicePage = nullptr;
 	QDockWidget* m_unitDock = nullptr;
 	QTabWidget* m_unitDockTabs = nullptr;
+	QDockWidget* m_processFlowLeftDock = nullptr;
+	QDockWidget* m_processFlowRightDock = nullptr;
+	bool m_processFlowSideUiActive = false;
+	bool m_unitDockVisibleBeforeProcessFlow = true;
+	bool m_propertyDockVisibleBeforeProcessFlow = true;
+	int m_processFlowLeftSavedWidth = 260;
+	int m_processFlowRightSavedWidth = 320;
 	std::unique_ptr<RobotSimulationController> m_robotSimulation;
 	std::unique_ptr<MainWindowRobotHost> m_robotHost;
 	MainWindowInstructionPropertyUiHost m_instructionPropertyUiHost;

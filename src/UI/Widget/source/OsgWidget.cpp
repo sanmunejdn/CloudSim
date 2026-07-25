@@ -80,8 +80,6 @@
 #include <osg/PolygonOffset>
 #include <osg/PositionAttitudeTransform>
 #include <osg/PrimitiveSet>
-#include <osg/Shape>
-#include <osg/ShapeDrawable>
 #include <osg/StateAttribute>
 #include <osg/StateSet>
 #include <osg/Transform>
@@ -347,18 +345,84 @@ osg::Group* findUrdfLinkContainer(osg::Group* sceneSubtree, const std::string& u
 	return vis.found;
 }
 
-osg::ref_ptr<osg::Geode> createReachabilityOriginGeode(bool reachable)
+// 万级路点：单 Geode 批点+线，避免每点 Sphere/ShapeDrawable + MatrixTransform
+void appendWorldPoseMarker(osg::Vec3Array& pointVerts, osg::Vec4Array& pointColors, osg::Vec3Array& lineVerts,
+						   osg::Vec4Array& lineColors, const osg::Vec3f& positionMm, const osg::Vec3f& eulerDeg,
+						   bool reachable, float axisLengthMm, bool showX, bool showY, bool showZ)
 {
-	const float r = 4.0f;
-	const osg::Vec4 color = reachable ? osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f) : osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f);
-	osg::ref_ptr<osg::Sphere> sphere = new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.0f), r);
-	osg::ref_ptr<osg::ShapeDrawable> drawable = new osg::ShapeDrawable(sphere.get());
-	drawable->setColor(color);
+	const osg::Vec4 originColor =
+		reachable ? osg::Vec4(0.0f, 1.0f, 0.0f, 1.0f) : osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f);
+	pointVerts.push_back(osg::Vec3(positionMm.x(), positionMm.y(), positionMm.z()));
+	pointColors.push_back(originColor);
+
+	if (!showX && !showY && !showZ)
+	{
+		return;
+	}
+	osg::Matrixd m;
+	m.makeRotate(OsgScene::eulerDegToQuat(eulerDeg));
+	m.setTrans(static_cast<double>(positionMm.x()), static_cast<double>(positionMm.y()),
+			   static_cast<double>(positionMm.z()));
+	const osg::Vec3 origin = osg::Vec3(0.0f, 0.0f, 0.0f) * m;
+	const osg::Vec4 xColor(1.0f, 0.4f, 0.4f, 1.0f);
+	const osg::Vec4 yColor(0.4f, 1.0f, 0.4f, 1.0f);
+	const osg::Vec4 zColor(0.4f, 0.6f, 1.0f, 1.0f);
+	auto pushAxis = [&](const osg::Vec3& localEnd, const osg::Vec4& color)
+	{
+		lineVerts.push_back(origin);
+		lineVerts.push_back(localEnd * m);
+		lineColors.push_back(color);
+		lineColors.push_back(color);
+	};
+	if (showX)
+	{
+		pushAxis(osg::Vec3(axisLengthMm, 0.0f, 0.0f), xColor);
+	}
+	if (showY)
+	{
+		pushAxis(osg::Vec3(0.0f, axisLengthMm, 0.0f), yColor);
+	}
+	if (showZ)
+	{
+		pushAxis(osg::Vec3(0.0f, 0.0f, axisLengthMm), zColor);
+	}
+}
+
+osg::ref_ptr<osg::Geode> createBatchedPoseMarkersGeode(osg::ref_ptr<osg::Vec3Array> pointVerts,
+													   osg::ref_ptr<osg::Vec4Array> pointColors,
+													   osg::ref_ptr<osg::Vec3Array> lineVerts,
+													   osg::ref_ptr<osg::Vec4Array> lineColors)
+{
 	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-	geode->addDrawable(drawable.get());
 	geode->setNodeMask(OsgScene::kMaskPickOverlay);
+	if (pointVerts.valid() && !pointVerts->empty())
+	{
+		osg::ref_ptr<osg::Geometry> pts = new osg::Geometry;
+		pts->setVertexArray(pointVerts.get());
+		pts->setColorArray(pointColors.get(), osg::Array::BIND_PER_VERTEX);
+		pts->addPrimitiveSet(
+			new osg::DrawArrays(osg::PrimitiveSet::POINTS, 0, static_cast<GLsizei>(pointVerts->size())));
+		pts->setUseDisplayList(false);
+		pts->setUseVertexBufferObjects(true);
+		geode->addDrawable(pts.get());
+	}
+	if (lineVerts.valid() && !lineVerts->empty())
+	{
+		osg::ref_ptr<osg::Geometry> lines = new osg::Geometry;
+		lines->setVertexArray(lineVerts.get());
+		lines->setColorArray(lineColors.get(), osg::Array::BIND_PER_VERTEX);
+		lines->addPrimitiveSet(
+			new osg::DrawArrays(osg::PrimitiveSet::LINES, 0, static_cast<GLsizei>(lineVerts->size())));
+		lines->setUseDisplayList(false);
+		lines->setUseVertexBufferObjects(true);
+		geode->addDrawable(lines.get());
+	}
 	osg::StateSet* ss = geode->getOrCreateStateSet();
 	ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+	ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::ON);
+	ss->setMode(GL_BLEND, osg::StateAttribute::ON);
+	ss->setAttributeAndModes(new osg::Point(5.0f), osg::StateAttribute::ON);
+	ss->setAttributeAndModes(new osg::LineWidth(2.5f), osg::StateAttribute::ON);
 	return geode;
 }
 
@@ -646,18 +710,6 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<RobotOsgUi::Instruction
 	{
 		return;
 	}
-	for (const osg::ref_ptr<osg::MatrixTransform>& t : m_instructionPoseAxisNodes)
-	{
-		if (!t.valid())
-		{
-			continue;
-		}
-		while (t->getNumParents() > 0)
-		{
-			t->getParent(0)->removeChild(t.get());
-		}
-	}
-	m_instructionPoseAxisNodes.clear();
 
 	if (!m_instructionPoseAxesGroup.valid())
 	{
@@ -667,8 +719,6 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<RobotOsgUi::Instruction
 	}
 	// Waypoints are world-fixed markers on the trajectory overlay (not children of moving robot links).
 	osg::Group* parentGroup = m_trajectoryOverlayGroup.get();
-	const bool axesInRobotAssemblyLocal = false;
-	osg::Group* robotAsmRoot = nullptr;
 	while (m_instructionPoseAxesGroup->getNumParents() > 0)
 	{
 		osg::Group* p = m_instructionPoseAxesGroup->getParent(0);
@@ -684,40 +734,33 @@ void OsgWidget::setInstructionPoseAxes(const std::vector<RobotOsgUi::Instruction
 	}
 	m_instructionPoseAxesGroup->removeChildren(0, m_instructionPoseAxesGroup->getNumChildren());
 
+	if (axes.empty())
+	{
+		requestRedraw();
+		return;
+	}
+
+	osg::ref_ptr<osg::Vec3Array> pointVerts = new osg::Vec3Array;
+	osg::ref_ptr<osg::Vec4Array> pointColors = new osg::Vec4Array;
+	osg::ref_ptr<osg::Vec3Array> lineVerts = new osg::Vec3Array;
+	osg::ref_ptr<osg::Vec4Array> lineColors = new osg::Vec4Array;
+	pointVerts->reserve(axes.size());
+	pointColors->reserve(axes.size());
+	lineVerts->reserve(axes.size() * 6U);
+	lineColors->reserve(axes.size() * 6U);
+	constexpr float kAxisLenMm = 40.0f;
 	for (const RobotOsgUi::InstructionPoseAxis& a : axes)
 	{
-		osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
-		mt->setName(a.lineMotion ? "LINE_TargetAxis" : "PTP_TargetAxis");
-		const osg::Vec3f p = osgVec3FromCore(a.positionMm);
-		osg::Matrixd m;
-		const osg::Quat q = OsgScene::eulerDegToQuat(osgVec3FromCore(a.eulerDeg));
-		m.makeRotate(q);
-		m.setTrans(static_cast<double>(p.x()), static_cast<double>(p.y()), static_cast<double>(p.z()));
-		(void)axesInRobotAssemblyLocal;
-		(void)robotAsmRoot;
-		mt->setMatrix(m);
-		mt->addChild(createReachabilityOriginGeode(a.reachable).get());
-		mt->addChild(createInstructionPoseAxisGeode(40.0f, true, true, true).get());
-		m_instructionPoseAxesGroup->addChild(mt.get());
-		m_instructionPoseAxisNodes.push_back(mt);
+		appendWorldPoseMarker(*pointVerts, *pointColors, *lineVerts, *lineColors, osgVec3FromCore(a.positionMm),
+							  osgVec3FromCore(a.eulerDeg), a.reachable, kAxisLenMm, true, true, true);
 	}
+	m_instructionPoseAxesGroup->addChild(
+		createBatchedPoseMarkersGeode(pointVerts, pointColors, lineVerts, lineColors).get());
 	requestRedraw();
 }
 
 void OsgWidget::clearInstructionPoseAxes()
 {
-	for (const osg::ref_ptr<osg::MatrixTransform>& t : m_instructionPoseAxisNodes)
-	{
-		if (!t.valid())
-		{
-			continue;
-		}
-		while (t->getNumParents() > 0)
-		{
-			t->getParent(0)->removeChild(t.get());
-		}
-	}
-	m_instructionPoseAxisNodes.clear();
 	if (m_instructionPoseAxesGroup.valid())
 	{
 		m_instructionPoseAxesGroup->removeChildren(0, m_instructionPoseAxesGroup->getNumChildren());
@@ -894,24 +937,29 @@ void OsgWidget::setRawTrajectoryOverlayFrames(const std::vector<RobotOsgUi::RawT
 		m_trajectoryOverlayGroup->addChild(m_rawTrajectoryFramesGroup.get());
 	}
 	m_rawTrajectoryFramesGroup->removeChildren(0, m_rawTrajectoryFramesGroup->getNumChildren());
-	const float axisLenMm = 40.0f;
+	if (frames.empty())
+	{
+		requestRedraw();
+		return;
+	}
+
+	osg::ref_ptr<osg::Vec3Array> pointVerts = new osg::Vec3Array;
+	osg::ref_ptr<osg::Vec4Array> pointColors = new osg::Vec4Array;
+	osg::ref_ptr<osg::Vec3Array> lineVerts = new osg::Vec3Array;
+	osg::ref_ptr<osg::Vec4Array> lineColors = new osg::Vec4Array;
+	pointVerts->reserve(frames.size());
+	pointColors->reserve(frames.size());
+	lineVerts->reserve(frames.size() * 6U);
+	lineColors->reserve(frames.size() * 6U);
+	constexpr float kAxisLenMm = 40.0f;
 	for (const RobotOsgUi::RawTrajectoryOverlayFrame& f : frames)
 	{
-		osg::ref_ptr<osg::MatrixTransform> mt = new osg::MatrixTransform;
-		const osg::Quat q = OsgScene::eulerDegToQuat(osgVec3FromCore(f.eulerDeg));
-		osg::Matrixd m;
-		m.makeRotate(q);
-		m.setTrans(f.positionMm.x, f.positionMm.y, f.positionMm.z);
-		mt->setMatrix(m);
-		mt->addChild(createReachabilityOriginGeode(f.reachable).get());
-		if (m_rawTrajShowAxisX || m_rawTrajShowAxisY || m_rawTrajShowAxisZ)
-		{
-			mt->addChild(
-				createInstructionPoseAxisGeode(axisLenMm, m_rawTrajShowAxisX, m_rawTrajShowAxisY, m_rawTrajShowAxisZ)
-					.get());
-		}
-		m_rawTrajectoryFramesGroup->addChild(mt.get());
+		appendWorldPoseMarker(*pointVerts, *pointColors, *lineVerts, *lineColors, osgVec3FromCore(f.positionMm),
+							  osgVec3FromCore(f.eulerDeg), f.reachable, kAxisLenMm, m_rawTrajShowAxisX,
+							  m_rawTrajShowAxisY, m_rawTrajShowAxisZ);
 	}
+	m_rawTrajectoryFramesGroup->addChild(
+		createBatchedPoseMarkersGeode(pointVerts, pointColors, lineVerts, lineColors).get());
 	requestRedraw();
 }
 
@@ -2592,14 +2640,18 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 		if (type == QEvent::MouseMove)
 		{
 			const auto* mouseEvent = static_cast<QMouseEvent*>(event);
-			// 悬停在ViewCube上时显示手型光标
-			if (isMouseOverViewCube(static_cast<double>(mouseEvent->x()), static_cast<double>(mouseEvent->y())))
+			// 拖视图跳过 ViewCube 拾取；光标仅在形状变化时 set，避免样式表反复 polish
+			if (mouseEvent->buttons() == Qt::NoButton)
 			{
-				m_glWidget->setCursor(Qt::PointingHandCursor);
-			}
-			else
-			{
-				m_glWidget->setCursor(Qt::ArrowCursor);
+				const Qt::CursorShape want =
+					isMouseOverViewCube(static_cast<double>(mouseEvent->x()), static_cast<double>(mouseEvent->y()))
+						? Qt::PointingHandCursor
+						: Qt::ArrowCursor;
+				if (want != m_lastViewportCursor)
+				{
+					m_lastViewportCursor = want;
+					m_glWidget->setCursor(want);
+				}
 			}
 			noteViewportInteraction();
 		}

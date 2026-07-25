@@ -727,6 +727,227 @@ void PluginPointCloudHostImpl::nonRigidRegisterSpare(IPluginDocument* doc, const
 		});
 }
 
+
+namespace
+{
+point_cloud_backend_ops::PointCloudSdfParams buildSdfParams(const PluginPointCloudSdfParams& params)
+{
+	point_cloud_backend_ops::PointCloudSdfParams out;
+	out.fieldMode = params.fieldMode;
+	out.fieldVoxelMm = params.fieldVoxelMm;
+	out.fineDataTerm = params.fineDataTerm;
+	out.useCoarseReg = params.useCoarseReg;
+	out.useFineReg = params.useFineReg;
+	out.sampleRadiusRatio = params.sampleRadiusRatio;
+	out.wSmo = params.wSmo;
+	out.wRot = params.wRot;
+	out.wArapCoarse = params.wArapCoarse;
+	out.wArapFine = params.wArapFine;
+	out.normalizeScale = params.normalizeScale;
+	out.rigidPreAlign = params.rigidPreAlign;
+	out.voxelPrefilterMm = params.voxelPrefilterMm;
+	out.maxOuterIters = params.maxOuterIters;
+	return out;
+}
+} // namespace
+
+void PluginPointCloudHostImpl::nonRigidRegisterSdf(IPluginDocument* doc, const std::string& sourceBackendIdUtf8,
+												   const PluginPointCloudSdfParams& params,
+												   PluginPointCloudFinishedFn onFinished)
+{
+	if (!m_host || !onFinished)
+	{
+		return;
+	}
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	std::string resolveErr;
+
+	struct SdfWorkResult
+	{
+		point_cloud_backend_ops::PointCloudSdfResult sdf;
+		std::vector<float> newPointCloudXyz;
+		std::vector<float> newPointCloudNormals;
+		std::vector<float> newMeshSoup;
+		std::string error;
+		bool ok = false;
+	};
+	auto result = std::make_shared<SdfWorkResult>();
+	const point_cloud_backend_ops::PointCloudSdfParams coreParams = buildSdfParams(params);
+
+	const bool sourceIsMesh = params.sourceKind == PluginSdfSourceKind::Mesh;
+	const bool targetIsMesh = params.targetKind == PluginSdfTargetKind::Mesh;
+
+	std::shared_ptr<PointCloudBackendData> sourcePc;
+	std::shared_ptr<MeshBackendData> sourceMesh;
+	if (sourceIsMesh)
+	{
+		sourceMesh = document_point_cloud_ops::resolveMesh(page, sourceBackendIdUtf8, &resolveErr);
+		if (!sourceMesh)
+		{
+			onFinished(false, QString::fromStdString(resolveErr), {});
+			return;
+		}
+	}
+	else
+	{
+		sourcePc = document_point_cloud_ops::resolvePointCloud(page, sourceBackendIdUtf8, &resolveErr);
+		if (!sourcePc)
+		{
+			onFinished(false, QString::fromStdString(resolveErr), {});
+			return;
+		}
+	}
+
+	std::shared_ptr<PointCloudBackendData> targetPc;
+	std::shared_ptr<MeshBackendData> targetMesh;
+	if (targetIsMesh)
+	{
+		targetMesh = document_point_cloud_ops::resolveMesh(page, params.targetBackendIdUtf8, &resolveErr);
+		if (!targetMesh)
+		{
+			onFinished(false, QString::fromStdString(resolveErr), {});
+			return;
+		}
+	}
+	else
+	{
+		targetPc = document_point_cloud_ops::resolvePointCloud(page, params.targetBackendIdUtf8, &resolveErr);
+		if (!targetPc)
+		{
+			onFinished(false, QString::fromStdString(resolveErr), {});
+			return;
+		}
+	}
+
+	m_host->enqueueJob(
+		QStringLiteral("SDF/DDF non-rigid registration"),
+		[sourceIsMesh, targetIsMesh, sourcePc, sourceMesh, targetPc, targetMesh, coreParams,
+		 result](const PluginJobProgressFn& report)
+		{
+			report(0.15, QStringLiteral("Running SDF/DDF..."));
+			if (sourceIsMesh)
+			{
+				auto meshCopy = std::make_shared<MeshBackendData>();
+				meshCopy->setTriangleSoup(sourceMesh->triangleSoup());
+				result->ok = point_cloud_backend_ops::nonRigidRegisterMeshSdf(
+					*meshCopy, targetIsMesh ? nullptr : targetPc.get(), targetIsMesh ? targetMesh.get() : nullptr,
+					result->sdf, coreParams, &result->error);
+				if (result->ok)
+				{
+					result->newMeshSoup = meshCopy->triangleSoup();
+				}
+			}
+			else if (targetIsMesh)
+			{
+				auto pcCopy = std::make_shared<PointCloudBackendData>();
+				pcCopy->setPointBuffers(sourcePc->pointPositionsXyz(), sourcePc->pointVertexRgba(),
+										sourcePc->pointNormalsNxNyNz());
+				result->ok = point_cloud_backend_ops::nonRigidRegisterPointCloudToMeshSdf(
+					*pcCopy, *targetMesh, result->sdf, coreParams, &result->error);
+				if (result->ok)
+				{
+					result->newPointCloudXyz = pcCopy->pointPositionsXyz();
+					result->newPointCloudNormals = pcCopy->pointNormalsNxNyNz();
+				}
+			}
+			else
+			{
+				auto pcCopy = std::make_shared<PointCloudBackendData>();
+				pcCopy->setPointBuffers(sourcePc->pointPositionsXyz(), sourcePc->pointVertexRgba(),
+										sourcePc->pointNormalsNxNyNz());
+				result->ok = point_cloud_backend_ops::nonRigidRegisterPointCloudsSdf(
+					*pcCopy, *targetPc, result->sdf, coreParams, &result->error);
+				if (result->ok)
+				{
+					result->newPointCloudXyz = pcCopy->pointPositionsXyz();
+					result->newPointCloudNormals = pcCopy->pointNormalsNxNyNz();
+				}
+			}
+			report(1.0, QStringLiteral("Done"));
+		},
+		[m_host = m_host, page, sourceIsMesh, sourcePc, sourceMesh, params, result,
+		 onFinished = std::move(onFinished)](const bool threw, const QString& throwMessage)
+		{
+			PluginPointCloudJobResult jobResult;
+			if (threw)
+			{
+				onFinished(false, throwMessage, jobResult);
+				return;
+			}
+			if (!result->ok)
+			{
+				onFinished(false, QString::fromStdString(result->error), jobResult);
+				return;
+			}
+			jobResult.rmseMm = result->sdf.meanErrorMm;
+			jobResult.spareDeformationNodeCount = result->sdf.deformationNodeCount;
+
+			if (sourceIsMesh)
+			{
+				if (params.createNewObject)
+				{
+					auto meshPtr = std::make_shared<MeshBackendData>();
+					meshPtr->setTriangleSoup(result->newMeshSoup);
+					PluginMeshCreateOptions options = params.newObjectOptions;
+					if (options.displayName.isEmpty())
+					{
+						const QString base = QString::fromStdString(sourceMesh->name());
+						options.displayName =
+							base.isEmpty() ? QStringLiteral("SDF") : base + QStringLiteral("_SDF");
+					}
+					options.selectInTree = true;
+					options.sourcePath = QStringLiteral("plugin://pointcloud/sdf");
+					std::string regErr;
+					jobResult.newBackendId = document_point_cloud_ops::registerReconstructedMesh(
+						page, m_host->mainWindowHost(), meshPtr, options, &regErr);
+					if (jobResult.newBackendId.empty())
+					{
+						onFinished(false, QString::fromStdString(regErr), jobResult);
+						return;
+					}
+					jobResult.pointCountAfter = meshPtr->triangleSoup().size() / 9U;
+				}
+				else if (params.applyDeformationToSource)
+				{
+					sourceMesh->setTriangleSoup(result->newMeshSoup);
+					if (OsgWidget* osg = widgetOsgFromPage(page))
+					{
+						QString geomErr;
+						(void)osg->loadMeshFromBackendData(*sourceMesh, &geomErr, false, true, true);
+					}
+					jobResult.pointCountAfter = sourceMesh->triangleSoup().size() / 9U;
+				}
+			}
+			else if (params.createNewObject)
+			{
+				auto newPc = std::make_shared<PointCloudBackendData>();
+				newPc->setName(sourcePc->name() + "_sdf");
+				newPc->setPointBuffers(std::move(result->newPointCloudXyz), sourcePc->pointVertexRgba(),
+									   std::move(result->newPointCloudNormals));
+				cloudsim::host::AdoptPointCloudOptions adoptOpt;
+				adoptOpt.sourcePath = QStringLiteral("plugin://pointcloud/sdf");
+				QString regErr;
+				const cloudsim::host::AdoptRegistrationResult adopted =
+					cloudsim::host::registerAdoptedPointCloud(*page, newPc, adoptOpt, &regErr);
+				if (!adopted.ok)
+				{
+					onFinished(false, regErr, jobResult);
+					return;
+				}
+				jobResult.newBackendId = adopted.backendId.toStdString();
+				jobResult.pointCountAfter = newPc->geometryElementCount();
+			}
+			else if (params.applyDeformationToSource)
+			{
+				sourcePc->setPointBuffers(std::move(result->newPointCloudXyz), sourcePc->pointVertexRgba(),
+										  std::move(result->newPointCloudNormals));
+				document_point_cloud_ops::commitPointCloudVisual(page, *sourcePc);
+				jobResult.pointCountAfter = sourcePc->geometryElementCount();
+			}
+			onFinished(true, QString(), jobResult);
+		});
+}
+
 void PluginPointCloudHostImpl::deformPointCloudTpsFromControls(IPluginDocument* doc, const std::string& backendIdUtf8,
 															   const PluginPointCloudTpsControlParams& params,
 															   PluginPointCloudFinishedFn onFinished)

@@ -10,6 +10,7 @@
 #include "PluginPrimitiveTypes.h"
 
 #include <QByteArray>
+#include <QJsonObject>
 #include <QString>
 #include <QStringList>
 #include <QWidget>
@@ -156,6 +157,21 @@ public:
 	/// 1.16.0+：交互式分割标注宿主；宿主版本不足时可为 null
 	virtual IPluginLabelingHost* labelingHost() = 0;
 	virtual const IPluginLabelingHost* labelingHost() const = 0;
+
+	/// 1.17.0+：活动文档中央 alternate（流程画布等）；vtable 仅末尾追加
+	virtual void setCentralAlternateWidget(QWidget* widget) = 0;
+	virtual void showCentralScene3D() = 0;
+	virtual void showCentralAlternate() = 0;
+	virtual bool isShowingCentralAlternate() const = 0;
+
+	/// 1.17.0+：工艺流程侧栏模式（藏原属性/工作区 Dock）
+	/// 1.19.0+：左=节点库+属性，右=JobSet+仿真报表（同槽改签名，须与宿主同编）
+	virtual void enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel) = 0;
+	virtual void exitProcessFlowSideUi() = 0;
+
+	/// 1.18.0+：工程保存/加载扩展钩子（插件写入 processFlow 等）
+	virtual void onProjectAboutToSave(std::function<void(const QString& documentId, QJsonObject& root)> callback) = 0;
+	virtual void onProjectLoaded(std::function<void(const QString& documentId, const QJsonObject& root)> callback) = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H

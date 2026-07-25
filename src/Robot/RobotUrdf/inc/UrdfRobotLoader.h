@@ -64,6 +64,15 @@ ROBOT_URDF_API bool computeLinkWorldMatrices(const QString& urdfFilePath, const 
 											 QHash<QString, osg::Matrixd>& outLinkNameToLinkWorld,
 											 QString* errorMessage = nullptr);
 
+/// 一次 FK：目标连杆位姿 + 几何雅可比（行主序 taskDim×n；姿态行乘 orientationWeight）
+/// outQuatXyzw 可为 nullptr（只要位置）；与 computeLinkWorldMatrices 同坐标系
+ROBOT_URDF_API bool computeLinkPoseAndGeometricJacobian(const QString& urdfFilePath,
+														const QVector<double>& jointAnglesRad, const QString& linkName,
+														double outPosMm[3], double* outQuatXyzw,
+														std::vector<double>& outJ_rowMajor, bool includeOrientation,
+														double orientationWeight = 300.0,
+														QString* errorMessage = nullptr);
+
 /// 同上，输出 engine::RigidTransform（mm，四元数真值）
 ROBOT_URDF_API bool computeLinkWorldRigidTransforms(const QString& urdfFilePath, const QVector<double>& jointAnglesRad,
 													QHash<QString, engine::RigidTransform>& outLinkNameToLinkWorld,

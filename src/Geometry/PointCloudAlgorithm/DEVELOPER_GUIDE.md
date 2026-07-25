@@ -42,6 +42,7 @@
 | `RegistrationGlobal.h` | FPFH + 特征匹配 + RANSAC + Kabsch（`rigidRegisterFeatureRansac`） |
 | `RegistrationNonRigid.h` | TPS 形变 |
 | `RegistrationSpare.h` | **SPARE** 非刚性配准（对称点-面 + 变形图 + ARAP；点云/网格 soup） |
+| `RegistrationSdf.h` | **SDF/DDF** 混合非刚性配准（粗场残差 + 细默认点-面；独立于 SPARE） |
 | `Preprocess.h` | 法线、离群、平滑、重建前管线 |
 | `ReconstructionPoisson.h` | Poisson 隐式重建（定向点云）；`reconstructPoisson` / `Auto` |
 | `ReconstructionScaleSpace.h` | Scale-space 重建（仅坐标）；`reconstructScaleSpace` |
@@ -222,11 +223,26 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 
 **自检**：`runSelfTest` 含 `spare.ok`（合成平面点云，5 轮外迭代）。与参考实现的数值对比可用手动回归：将 `bin/SDK/spare-main-extracted/spare-main/data/test{1,2,3}` 的 PLY 导入后调用 `spareRegisterPointClouds`（test3）或 mesh 入口（test1/2），对比 `meanErrorMm` 与 `our_params.txt` 中 `init_gt_mean_errs` 同量级。
 
+### 3.6 SDF/DDF 混合非刚性配准（`RegistrationSdf.h`）
+
+自研模块（**不修改** `spare/` / `RegistrationSpare`）。粗阶段用目标表面 **DDF 有向距离**（或可选有符号 SDF）作数据项，细阶段默认 **点-面**；目标场可体素缓存。原理与调参见 [`docs/sdf_nonrigid_registration.md`](../../docs/sdf_nonrigid_registration.md)。
+
+| 入口 | 说明 |
+|------|------|
+| `sdfRegisterPointClouds` | 点云 → 点云 |
+| `sdfRegisterMeshSoupToTarget` | 网格 soup → 点云目标 |
+| `sdfRegisterMeshSoupToMeshSoup` | 网格 → 网格 |
+| `SdfRegisterParams` | `fieldMode` / `fieldVoxelMm` / `fineDataTerm`、变形图与 ARAP 权重、粗/细开关等 |
+
+内部：`source/sdf/`（`DistanceField`、`SdfNodeSampler`、`SdfDeformSolver`）。自检：`sdf.ok`。
+
+插件：点云侧栏配准方法下拉「SDF/DDF 非刚性」→ Host `nonRigidRegisterSdf`（1.17.0+）。
+
 ---
 
 ## 4. Data 薄包装
 
-[`PointCloudBackendOps.h`](../Data/inc/PointCloudBackendOps.h)（`point_cloud_backend_ops`）覆盖全部 `pclalgo` API：下采样、裁剪、度量、变换、离群/平滑、法线、预处理、ICP、TPS、**SPARE**、Poisson/Scale-space 重建。
+[`PointCloudBackendOps.h`](../Data/inc/PointCloudBackendOps.h)（`point_cloud_backend_ops`）覆盖全部 `pclalgo` API：下采样、裁剪、度量、变换、离群/平滑、法线、预处理、ICP、TPS、**SPARE**、**SDF/DDF**、Poisson/Scale-space 重建。
 
 常用入口：
 
@@ -234,6 +250,7 @@ pclalgo::reconstructPoissonAutoWithConfig(xyz, soup, config, &err);
 - `applyRigidTransformToPointCloud`
 - `rigidRegisterPointCloudsIcp`
 - `nonRigidRegisterPointCloudsSpare` / `nonRigidRegisterPointCloudToMeshSpare` / `nonRigidRegisterMeshSpare`（`PointCloudSpareParams`）
+- `nonRigidRegisterPointCloudsSdf` / `nonRigidRegisterPointCloudToMeshSdf` / `nonRigidRegisterMeshSdf`（`PointCloudSdfParams`）
 - `reconstructMeshFromPointCloudPoisson`（Poisson Auto）
 
 插件侧映射见 [`CloudSimPluginSDK/DEVELOPER_GUIDE.md`](../../Plugins/CloudSimPluginSDK/DEVELOPER_GUIDE.md) §点云 SDK。

@@ -806,6 +806,89 @@ const IPluginLabelingHost* PluginHostContext::labelingHost() const
 	return m_labelingHost.get();
 }
 
+void PluginHostContext::setCentralAlternateWidget(QWidget* widget)
+{
+	if (m_mainWindowHost)
+	{
+		m_mainWindowHost->setCentralAlternateWidget(widget);
+	}
+}
+
+void PluginHostContext::showCentralScene3D()
+{
+	if (m_mainWindowHost)
+	{
+		m_mainWindowHost->showCentralScene3D();
+	}
+}
+
+void PluginHostContext::showCentralAlternate()
+{
+	if (m_mainWindowHost)
+	{
+		m_mainWindowHost->showCentralAlternate();
+	}
+}
+
+bool PluginHostContext::isShowingCentralAlternate() const
+{
+	return m_mainWindowHost && m_mainWindowHost->isShowingCentralAlternate();
+}
+
+void PluginHostContext::enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel)
+{
+	if (m_mainWindowHost)
+	{
+		m_mainWindowHost->enterProcessFlowSideUi(leftPanel, rightPanel);
+	}
+}
+
+void PluginHostContext::exitProcessFlowSideUi()
+{
+	if (m_mainWindowHost)
+	{
+		m_mainWindowHost->exitProcessFlowSideUi();
+	}
+}
+
+void PluginHostContext::onProjectAboutToSave(std::function<void(const QString& documentId, QJsonObject& root)> callback)
+{
+	if (callback)
+	{
+		m_projectSaveCallbacks.push_back(std::move(callback));
+	}
+}
+
+void PluginHostContext::onProjectLoaded(std::function<void(const QString& documentId, const QJsonObject& root)> callback)
+{
+	if (callback)
+	{
+		m_projectLoadCallbacks.push_back(std::move(callback));
+	}
+}
+
+void PluginHostContext::invokeProjectAboutToSave(const QString& documentId, QJsonObject& root)
+{
+	for (const auto& cb : m_projectSaveCallbacks)
+	{
+		if (cb)
+		{
+			cb(documentId, root);
+		}
+	}
+}
+
+void PluginHostContext::invokeProjectLoaded(const QString& documentId, const QJsonObject& root)
+{
+	for (const auto& cb : m_projectLoadCallbacks)
+	{
+		if (cb)
+		{
+			cb(documentId, root);
+		}
+	}
+}
+
 QString PluginHostContext::selectedBackendId() const
 {
 	return m_mainWindowHost ? m_mainWindowHost->selectedBackendId() : QString();

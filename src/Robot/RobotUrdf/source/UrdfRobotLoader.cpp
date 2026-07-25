@@ -1406,6 +1406,169 @@ bool UrdfRobotLoader::computeLinkWorldMatrices(const QString& urdfFilePath, cons
 	return true;
 }
 
+bool UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(const QString& urdfFilePath,
+														  const QVector<double>& jointAnglesRad,
+														  const QString& linkName, double outPosMm[3],
+														  double* outQuatXyzw, std::vector<double>& outJ_rowMajor,
+														  const bool includeOrientation,
+														  const double orientationWeight, QString* errorMessage)
+{
+	outJ_rowMajor.clear();
+	if (!outPosMm || linkName.isEmpty())
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("Invalid link pose Jacobian arguments.");
+		}
+		return false;
+	}
+	std::shared_ptr<const UrdfFkModelData> model;
+	if (!getOrCreateUrdfModel(urdfFilePath, model, errorMessage) || !model)
+	{
+		return false;
+	}
+
+	struct JointJacCol
+	{
+		bool prismatic = false;
+		double px = 0.0;
+		double py = 0.0;
+		double pz = 0.0;
+		double zx = 0.0;
+		double zy = 0.0;
+		double zz = 1.0;
+	};
+	std::vector<JointJacCol> cols;
+	cols.reserve(static_cast<size_t>(jointAnglesRad.size()));
+
+	struct QueueItem
+	{
+		QString link;
+		Mat4 worldFromLink;
+	};
+	std::queue<QueueItem> q;
+	QueueItem start{};
+	start.link = model->rootLink;
+	start.worldFromLink = matIdentity();
+	q.push(start);
+	int qIndex = 0;
+	bool foundLink = false;
+	Mat4 targetWorldUrdf = matIdentity();
+
+	while (!q.empty())
+	{
+		const QueueItem cur = q.front();
+		q.pop();
+		if (cur.link == linkName)
+		{
+			foundLink = true;
+			targetWorldUrdf = cur.worldFromLink;
+		}
+
+		const auto jit = model->jointsByParent.find(cur.link);
+		if (jit == model->jointsByParent.end())
+		{
+			continue;
+		}
+		for (const UrdfJoint& j : jit->second)
+		{
+			if (!jointConnectsDistinctLinks(j))
+			{
+				continue;
+			}
+			const QString jt = j.type.toLower();
+			const bool isRev = jt == QLatin1String("revolute") || jt == QLatin1String("continuous");
+			const bool isPri = jt == QLatin1String("prismatic");
+			if (isRev || isPri)
+			{
+				const Mat4 T_origin = jointOriginFixedTransform(j);
+				const Mat4 worldJointUrdf = matMul(cur.worldFromLink, T_origin);
+				const Mat4 worldJointOsg = osgWorldFromUrdfMeshFrame(worldJointUrdf);
+				JointJacCol col{};
+				col.prismatic = isPri;
+				col.px = worldJointOsg.m[12];
+				col.py = worldJointOsg.m[13];
+				col.pz = worldJointOsg.m[14];
+				const double ax = j.ax;
+				const double ay = j.ay;
+				const double az = j.az;
+				col.zx = worldJointOsg.m[0] * ax + worldJointOsg.m[4] * ay + worldJointOsg.m[8] * az;
+				col.zy = worldJointOsg.m[1] * ax + worldJointOsg.m[5] * ay + worldJointOsg.m[9] * az;
+				col.zz = worldJointOsg.m[2] * ax + worldJointOsg.m[6] * ay + worldJointOsg.m[10] * az;
+				const double zn = std::sqrt(col.zx * col.zx + col.zy * col.zy + col.zz * col.zz);
+				if (zn > 1e-12)
+				{
+					col.zx /= zn;
+					col.zy /= zn;
+					col.zz /= zn;
+				}
+				cols.push_back(col);
+			}
+			const Mat4 jointFromChild = jointChildTransformForFk(j, jointAnglesRad, qIndex);
+			QueueItem nxt{};
+			nxt.link = j.child;
+			nxt.worldFromLink = matMul(cur.worldFromLink, jointFromChild);
+			q.push(nxt);
+		}
+	}
+
+	if (!foundLink)
+	{
+		if (errorMessage)
+		{
+			*errorMessage = QStringLiteral("Link '%1' not found in URDF.").arg(linkName);
+		}
+		return false;
+	}
+
+	const Mat4 targetOsg = osgWorldFromUrdfMeshFrame(targetWorldUrdf);
+	const osg::Matrixd targetMat = mat4ToOsg(targetOsg);
+	const osg::Vec3d t = targetMat.getTrans();
+	outPosMm[0] = t.x();
+	outPosMm[1] = t.y();
+	outPosMm[2] = t.z();
+	if (outQuatXyzw)
+	{
+		const osg::Quat rq = targetMat.getRotate();
+		outQuatXyzw[0] = rq.x();
+		outQuatXyzw[1] = rq.y();
+		outQuatXyzw[2] = rq.z();
+		outQuatXyzw[3] = rq.w();
+	}
+
+	const int n = static_cast<int>(cols.size());
+	const int taskDim = includeOrientation ? 6 : 3;
+	outJ_rowMajor.assign(static_cast<size_t>(taskDim * n), 0.0);
+	const double pee[3] = {outPosMm[0], outPosMm[1], outPosMm[2]};
+	for (int j = 0; j < n; ++j)
+	{
+		const JointJacCol& c = cols[static_cast<size_t>(j)];
+		if (c.prismatic)
+		{
+			// q 为米，FK 内乘 1000→mm，与有限差分量纲一致
+			outJ_rowMajor[static_cast<size_t>(0 * n + j)] = c.zx * kUrdfOriginXyzMetersToInternalMm;
+			outJ_rowMajor[static_cast<size_t>(1 * n + j)] = c.zy * kUrdfOriginXyzMetersToInternalMm;
+			outJ_rowMajor[static_cast<size_t>(2 * n + j)] = c.zz * kUrdfOriginXyzMetersToInternalMm;
+		}
+		else
+		{
+			const double rx = pee[0] - c.px;
+			const double ry = pee[1] - c.py;
+			const double rz = pee[2] - c.pz;
+			outJ_rowMajor[static_cast<size_t>(0 * n + j)] = c.zy * rz - c.zz * ry;
+			outJ_rowMajor[static_cast<size_t>(1 * n + j)] = c.zz * rx - c.zx * rz;
+			outJ_rowMajor[static_cast<size_t>(2 * n + j)] = c.zx * ry - c.zy * rx;
+			if (includeOrientation)
+			{
+				outJ_rowMajor[static_cast<size_t>(3 * n + j)] = c.zx * orientationWeight;
+				outJ_rowMajor[static_cast<size_t>(4 * n + j)] = c.zy * orientationWeight;
+				outJ_rowMajor[static_cast<size_t>(5 * n + j)] = c.zz * orientationWeight;
+			}
+		}
+	}
+	return true;
+}
+
 bool UrdfRobotLoader::computeLinkWorldRigidTransforms(const QString& urdfFilePath,
 													  const QVector<double>& jointAnglesRad,
 													  QHash<QString, engine::RigidTransform>& outLinkNameToLinkWorld,

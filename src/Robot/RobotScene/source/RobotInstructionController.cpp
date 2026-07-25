@@ -17,6 +17,7 @@
 #include <QHash>
 #include <QString>
 #include <QStringList>
+#include <QVector>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -1535,7 +1536,6 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 		return {};
 	}
 
-	const double eps = 1e-4;
 	const double lambda = 1e-2;
 	const int maxIters = 180;
 	const int taskDim = useOrientation ? 6 : 3;
@@ -1544,9 +1544,23 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 	double lastPosErr = initialErr;
 	double lastRotErr = 0.0;
 	bool linearSolveFailed = false;
+	const int n = static_cast<int>(q.size());
+	std::vector<double> J(static_cast<size_t>(taskDim * std::max(n, 1)), 0.0);
+	std::vector<double> jtj(static_cast<size_t>(std::max(n, 1) * std::max(n, 1)), 0.0);
+	std::vector<double> jte(static_cast<size_t>(std::max(n, 1)), 0.0);
+	std::vector<double> e(static_cast<size_t>(taskDim), 0.0);
+	QVector<double> qQt(n);
 	for (int iter = 0; iter < maxIters; ++iter)
 	{
-		if (!tcpPositionFromUrdf(urdfPath, ikLink, q, pos, useOrientation ? &curQuat : nullptr))
+		for (int j = 0; j < n; ++j)
+		{
+			qQt[j] = q[static_cast<size_t>(j)];
+		}
+		double quatXyZw[4] = {0.0, 0.0, 0.0, 1.0};
+		if (!UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(
+				urdfPath, qQt, ikLink, pos, useOrientation ? quatXyZw : nullptr, J, useOrientation, orientationWeight,
+				nullptr) ||
+			static_cast<int>(J.size()) < taskDim * n)
 		{
 			if (failReason)
 			{
@@ -1554,7 +1568,12 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 			}
 			return {};
 		}
-		std::vector<double> e(static_cast<size_t>(taskDim), 0.0);
+		if (useOrientation)
+		{
+			curQuat.set(quatXyZw[0], quatXyZw[1], quatXyZw[2], quatXyZw[3]);
+			normalizeQuatSafe(curQuat);
+		}
+		e.assign(static_cast<size_t>(taskDim), 0.0);
 		e[0] = target[0] - pos[0];
 		e[1] = target[1] - pos[1];
 		e[2] = target[2] - pos[2];
@@ -1586,37 +1605,8 @@ std::vector<double> solveTargetByUrdfNumericalIkFromSeed(const RobotInstruction:
 			return q;
 		}
 
-		const int n = static_cast<int>(q.size());
-		std::vector<double> J(static_cast<size_t>(taskDim * n), 0.0);
-		for (int j = 0; j < n; ++j)
-		{
-			std::vector<double> qPert = q;
-			qPert[static_cast<size_t>(j)] += eps;
-			double p2[3] = {0.0, 0.0, 0.0};
-			osg::Quat q2;
-			if (!tcpPositionFromUrdf(urdfPath, ikLink, qPert, p2, useOrientation ? &q2 : nullptr))
-			{
-				if (failReason)
-				{
-					*failReason = "正向运动学失败(雅可比扰动)";
-				}
-				return {};
-			}
-			J[0 * n + j] = (p2[0] - pos[0]) / eps;
-			J[1 * n + j] = (p2[1] - pos[1]) / eps;
-			J[2 * n + j] = (p2[2] - pos[2]) / eps;
-			if (useOrientation)
-			{
-				double dRot[3] = {0.0, 0.0, 0.0};
-				quatErrorAxisAngle(curQuat, q2, dRot);
-				J[3 * n + j] = (dRot[0] / eps) * orientationWeight;
-				J[4 * n + j] = (dRot[1] / eps) * orientationWeight;
-				J[5 * n + j] = (dRot[2] / eps) * orientationWeight;
-			}
-		}
-
-		std::vector<double> jtj(static_cast<size_t>(n * n), 0.0);
-		std::vector<double> jte(static_cast<size_t>(n), 0.0);
+		jtj.assign(static_cast<size_t>(n * n), 0.0);
+		jte.assign(static_cast<size_t>(n), 0.0);
 		for (int r = 0; r < taskDim; ++r)
 		{
 			for (int c = 0; c < n; ++c)

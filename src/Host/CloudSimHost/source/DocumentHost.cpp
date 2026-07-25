@@ -32,21 +32,94 @@ DocumentHost::DocumentHost(QWidget* parent, cloudsim::core::EventHub& events, co
 	: QWidget(parent), m_documentId(documentId), m_events(events)
 {
 	setContentsMargins(0, 0, 0, 0);
-	auto* layout = new QVBoxLayout(this);
-	layout->setContentsMargins(0, 0, 0, 0);
-	layout->setSpacing(0);
+	m_centralLayout = new QVBoxLayout(this);
+	m_centralLayout->setContentsMargins(0, 0, 0, 0);
+	m_centralLayout->setSpacing(0);
 
 	m_backend = std::make_unique<BackendDataManager>();
 	m_robotProgramStore = std::make_unique<RobotProgramStore>();
 	m_hierarchyModel = std::make_unique<BackendHierarchyModel>(*m_backend);
 
+	// OSG 直挂 layout：勿用 QStackedWidget 包 OpenGL，Windows 上会拖视图卡顿
 	m_osgWidget = new OsgWidget(this);
 	m_sceneBridge.setOsgWidget(m_osgWidget);
-	layout->addWidget(m_osgWidget);
+	m_centralLayout->addWidget(m_osgWidget);
 
 	m_dataService = std::make_unique<DataServiceAdapter>(*this);
 	m_robotService = std::make_unique<RobotServiceAdapter>(*this, *m_robotProgramStore);
 	m_renderView = std::make_unique<OsgRenderViewAdapter>(*m_osgWidget, *this);
+}
+
+void DocumentHost::setCentralAlternateWidget(QWidget* widget)
+{
+	if (m_centralAlternate == widget)
+	{
+		return;
+	}
+	const bool showingAlt = isShowingCentralAlternate();
+	if (m_centralAlternate)
+	{
+		if (m_centralLayout)
+		{
+			m_centralLayout->removeWidget(m_centralAlternate);
+		}
+		m_centralAlternate->hide();
+		m_centralAlternate->setParent(nullptr);
+		m_centralAlternate = nullptr;
+	}
+	if (!widget)
+	{
+		showCentralScene3D();
+		return;
+	}
+	m_centralAlternate = widget;
+	if (showingAlt)
+	{
+		showCentralAlternate();
+	}
+}
+
+void DocumentHost::showCentralScene3D()
+{
+	if (m_centralAlternate)
+	{
+		if (m_centralLayout)
+		{
+			m_centralLayout->removeWidget(m_centralAlternate);
+		}
+		m_centralAlternate->hide();
+	}
+	if (m_osgWidget)
+	{
+		m_osgWidget->show();
+	}
+}
+
+void DocumentHost::showCentralAlternate()
+{
+	if (!m_centralAlternate || !m_centralLayout)
+	{
+		return;
+	}
+	if (m_osgWidget)
+	{
+		m_osgWidget->hide();
+	}
+	if (m_centralLayout->indexOf(m_centralAlternate) < 0)
+	{
+		m_centralLayout->addWidget(m_centralAlternate);
+	}
+	m_centralAlternate->show();
+}
+
+bool DocumentHost::isShowingCentralAlternate() const
+{
+	return m_centralAlternate && m_centralAlternate->isVisible() && (!m_osgWidget || m_osgWidget->isHidden());
+}
+
+QWidget* DocumentHost::centralAlternateWidget() const
+{
+	return m_centralAlternate;
 }
 
 void DocumentHost::setRobotUrdfImportContext(IRobotUrdfImportContext* context)

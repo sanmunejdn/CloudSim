@@ -201,6 +201,17 @@ Central orchestration (formerly in `MainWindow.cpp`). Wired in `wireSimulationSi
 
 DH/外轴经 `ensureInstructionControllerKinematics` 按 URDF 路径缓存，避免每次点击重解析。选中路径：**先摆姿 → 属性面板 → 延后** `scheduleInstructionPoseAxesRefresh`（路点轴下一拍刷新）。
 
+#### 路点轴 OSG 绘制（万级）
+
+| 环节 | 说明 |
+|------|------|
+| 编排 | `refreshInstructionPoseAxes*` 收集可见路点 → `IRobotOsgViewHost::setInstructionPoseAxes` |
+| 实现 | `OsgWidget::setInstructionPoseAxes`（`Widget/source/OsgWidget.cpp`，编入 Host） |
+| 场景图 | **一批一个 Geode**：`POINTS`（可达绿/不可达红）+ `LINES`（XYZ）；**不是**一指令一 `MatrixTransform`/`ShapeDrawable` |
+| 增删改 | 按当前指令列表**整批重建**（无指令 id↔顶点下标映射）；删点后对应标记随重建消失 |
+| raw 帧 | `setRawTrajectoryOverlayFrames` 同批策略；折线仍 `setRawTrajectoryOverlay` |
+| 例外 | 工具/用户坐标系 overlay 仍为少量独立轴 Geode |
+
 **不**播放中间过程。
 
 #### 仿真运行（`onSimulationStartTriggered`）
@@ -607,7 +618,7 @@ flowchart TD
 
 **注意**：离散后、尚未「生成程序」时，预览只看 **raw 叠加层**（分支 A），不要与指令树路点轴混读。纯 overlay（B）时 `refreshPreviewVisuals` 跳过路点轴；**混合预览（B′）** 写回 store 但 3D 仍以 overlay 为准，选中路点可在属性面板看到 blend/speed。`m_rawTrajectoryPreviewActive` 时 `refreshInstructionPoseAxes` 直接返回。
 
-**Apply 后 / Run 显示契约**：`pathPlanRaws` 持久化的是 **CAD 源 raw**（供再次编辑重放流水线），不是工件型等算子变换后的世界轨迹。`PathPlanPhase::Applied` 时 `refreshPathPlanRawOverlays` **跳过**该条 raw，3D 只画指令路点轴（`refreshInstructionPoseAxes`）。Run 启动前会 `setRawTrajectoryPreviewActive(false)` 并刷新指令轴，避免 CAD raw 盖住转换后位姿。
+**Apply 后 / Run 显示契约**：`pathPlanRaws` 持久化的是 **CAD 源 raw**（供再次编辑重放流水线），不是工件型等算子变换后的世界轨迹。`PathPlanPhase::Applied` 时 `refreshPathPlanRawOverlays` **跳过**该条 raw，3D 只画指令路点轴（`refreshInstructionPoseAxes`）。Run 启动只 `setRawTrajectoryPreviewActive(false)`：若此前开着 raw，其内部会清叠加并恢复指令轴；**已显示指令轴时不再全量重建**（播放只需刷机器人/跟随）。
 
 #### Apply（统一引擎）
 
@@ -720,7 +731,7 @@ Dock 页签 **「轨迹生成」** 内 **CAD** 子页（`FeatureTrajectoryPageWi
 
 **坐标系约定**：`RawTrajectory.points` 与 OCCT 离散结果同在 **STEP 文件坐标**。预览与 `emitRawTrajectoryToProgram` 前经 `feature_pick_transform::stepModelPointToWorldMm` / `transformRawTrajectoryToWorld`：`resolvePickScopeBackendId` 后乘 `getBackendRootWorldMatrix`（统一世界坐标契约，**不**加减 `modelCenter`）。AI 特征编号 overlay 走同一路径。
 
-**预览叠加层**：原始轨迹用 `setRawTrajectoryOverlay`（折线 + 点）+ 可选 `setRawTrajectoryOverlayFrames`（稀疏 TCP 轴，默认 15 mm，X/Y/Z 红/绿/蓝）。
+**预览叠加层**：原始轨迹用 `setRawTrajectoryOverlay`（折线 + 点）+ 可选 `setRawTrajectoryOverlayFrames`（稀疏 TCP 轴；与指令路点轴一样走**单 Geode 批点/线**，非每帧一球）。
 
 | API | 用途 |
 |-----|------|
@@ -733,7 +744,7 @@ Dock 页签 **「轨迹生成」** 内 **CAD** 子页（`FeatureTrajectoryPageWi
 
 **当前特征锁定**：`m_featureEditActive` 为 true 时（「开始修改」或拾取/离散成功后），调整离散参数自动对特征表重离散（400 ms 防抖）。
 
-**性能**：指令树选中时 `buildChainSeedJointRadForInstruction` **只算一次**，预览与可行轴探测共用 `PrecomputedChainSeed`；示教 CSV 链式种子**不**逐点 FK 残差；可行轴完整枚举经 **后台 Job**；路点轴 `scheduleInstructionPoseAxesRefresh` 延后一拍；DH 按 URDF 缓存。树选择 debounce **0ms**（同事件循环内多次选中仍合并）。程序步数 &gt; 100 时 `rebuildFromProgram` 不 `expandAll`。
+**性能**：指令树选中时 `buildChainSeedJointRadForInstruction` **只算一次**，预览与可行轴探测共用 `PrecomputedChainSeed`；示教 CSV 链式种子**不**逐点 FK 残差；可行轴完整枚举经 **后台 Job**；路点轴 `scheduleInstructionPoseAxesRefresh` 延后一拍；OSG 侧路点轴/raw 帧为**批点+线**（见上「路点轴 OSG 绘制」），避免万级 `ShapeDrawable` 拖视图卡顿；DH 按 URDF 缓存。树选择 debounce **0ms**（同事件循环内多次选中仍合并）。程序步数 &gt; 100 时 `rebuildFromProgram` 不 `expandAll`。
 
 **V1 限制**：单次拾取一条边或一个面；层级 STEP 子件共享整件 STEP 索引；索引解析容差默认 2 mm；已 emit 的 LINE 为发射时刻世界坐标，工件再移动不会自动更新程序。
 

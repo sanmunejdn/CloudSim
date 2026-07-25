@@ -151,6 +151,9 @@ public:
 							   const PluginPointCloudSpareParams& params,
 							   PluginPointCloudFinishedFn onFinished) override;
 
+	void nonRigidRegisterSdf(IPluginDocument* doc, const std::string& sourceBackendIdUtf8,
+							 const PluginPointCloudSdfParams& params, PluginPointCloudFinishedFn onFinished) override;
+
 private:
 	struct SurfaceReconHostSession
 	{

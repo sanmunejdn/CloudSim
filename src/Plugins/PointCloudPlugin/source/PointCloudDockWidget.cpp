@@ -206,6 +206,7 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	m_regMethodCombo = new QComboBox(m_icpGroup);
 	m_regMethodCombo->addItem(QStringLiteral("ICP"), QStringLiteral("icp"));
 	m_regMethodCombo->addItem(QStringLiteral("SPARE"), QStringLiteral("spare"));
+	m_regMethodCombo->addItem(QStringLiteral("SDF/DDF"), QStringLiteral("sdf"));
 	methodRow->addWidget(m_regMethodLabel);
 	methodRow->addWidget(m_regMethodCombo, 1);
 	icpLayout->addLayout(methodRow);
@@ -251,6 +252,44 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	spareOptLayout->addWidget(m_spareRigidPreAlignCheck);
 	spareOptLayout->addWidget(m_spareCreateNewCheck);
 	icpLayout->addWidget(m_spareOptionsWidget);
+
+	m_sdfOptionsWidget = new QWidget(m_icpGroup);
+	auto* sdfOptLayout = new QVBoxLayout(m_sdfOptionsWidget);
+	sdfOptLayout->setContentsMargins(0, 0, 0, 0);
+	auto* sdfFieldRow = new QHBoxLayout;
+	auto* sdfFieldLabel = new QLabel(m_sdfOptionsWidget);
+	sdfFieldLabel->setObjectName(QStringLiteral("sdfFieldLabel"));
+	m_sdfFieldModeCombo = new QComboBox(m_sdfOptionsWidget);
+	m_sdfFieldModeCombo->addItem(QStringLiteral("DDF"), 0);
+	m_sdfFieldModeCombo->addItem(QStringLiteral("SDF"), 1);
+	sdfFieldRow->addWidget(sdfFieldLabel);
+	sdfFieldRow->addWidget(m_sdfFieldModeCombo, 1);
+	sdfOptLayout->addLayout(sdfFieldRow);
+	auto* sdfVoxelRow = new QHBoxLayout;
+	auto* sdfVoxelLabel = new QLabel(m_sdfOptionsWidget);
+	sdfVoxelLabel->setObjectName(QStringLiteral("sdfVoxelLabel"));
+	m_sdfFieldVoxelSpin = new QDoubleSpinBox(m_sdfOptionsWidget);
+	m_sdfFieldVoxelSpin->setRange(0.0, 50.0);
+	m_sdfFieldVoxelSpin->setDecimals(2);
+	m_sdfFieldVoxelSpin->setValue(0.0);
+	sdfVoxelRow->addWidget(sdfVoxelLabel);
+	sdfVoxelRow->addWidget(m_sdfFieldVoxelSpin);
+	sdfOptLayout->addLayout(sdfVoxelRow);
+	auto* sdfFineRow = new QHBoxLayout;
+	auto* sdfFineLabel = new QLabel(m_sdfOptionsWidget);
+	sdfFineLabel->setObjectName(QStringLiteral("sdfFineLabel"));
+	m_sdfFineTermCombo = new QComboBox(m_sdfOptionsWidget);
+	m_sdfFineTermCombo->addItem(QStringLiteral("Point-Plane"), 0);
+	m_sdfFineTermCombo->addItem(QStringLiteral("DDF"), 1);
+	m_sdfFineTermCombo->addItem(QStringLiteral("SDF"), 2);
+	sdfFineRow->addWidget(sdfFineLabel);
+	sdfFineRow->addWidget(m_sdfFineTermCombo, 1);
+	sdfOptLayout->addLayout(sdfFineRow);
+	m_sdfRigidPreAlignCheck = new QCheckBox(m_sdfOptionsWidget);
+	m_sdfCreateNewCheck = new QCheckBox(m_sdfOptionsWidget);
+	sdfOptLayout->addWidget(m_sdfRigidPreAlignCheck);
+	sdfOptLayout->addWidget(m_sdfCreateNewCheck);
+	icpLayout->addWidget(m_sdfOptionsWidget);
 	layout->addWidget(m_icpGroup);
 
 	m_reconGroup = new QGroupBox(m_scrollContent);
@@ -934,9 +973,15 @@ PointCloudDockWidget::PointCloudDockWidget(IPluginHostContext* host, QWidget* pa
 	connect(m_icpBtn, &QPushButton::clicked, this,
 			[this]()
 			{
-				if (m_regMethodCombo && m_regMethodCombo->currentData().toString() == QStringLiteral("spare"))
+				const QString method =
+					m_regMethodCombo ? m_regMethodCombo->currentData().toString() : QStringLiteral("icp");
+				if (method == QStringLiteral("spare"))
 				{
 					onSpareRegisterClicked();
+				}
+				else if (method == QStringLiteral("sdf"))
+				{
+					onSdfRegisterClicked();
 				}
 				else
 				{
@@ -1319,14 +1364,18 @@ void PointCloudDockWidget::applyLanguage()
 	{
 		m_regMethodCombo->setItemText(0, i18n(QStringLiteral("Rigid ICP"), QStringLiteral("刚性 ICP")));
 		m_regMethodCombo->setItemText(1, i18n(QStringLiteral("SPARE non-rigid"), QStringLiteral("SPARE 非刚性")));
+		if (m_regMethodCombo->count() > 2)
+		{
+			m_regMethodCombo->setItemText(2, i18n(QStringLiteral("SDF/DDF non-rigid"), QStringLiteral("SDF/DDF 非刚性")));
+		}
 	}
 	if (m_spareSourceLabel)
 	{
-		m_spareSourceLabel->setText(i18n(QStringLiteral("SPARE source:"), QStringLiteral("SPARE 源:")));
+		m_spareSourceLabel->setText(i18n(QStringLiteral("Non-rigid source:"), QStringLiteral("非刚性源:")));
 	}
 	if (m_spareTargetLabel)
 	{
-		m_spareTargetLabel->setText(i18n(QStringLiteral("SPARE target:"), QStringLiteral("SPARE 目标:")));
+		m_spareTargetLabel->setText(i18n(QStringLiteral("Non-rigid target:"), QStringLiteral("非刚性目标:")));
 	}
 	if (m_spareRigidPreAlignCheck)
 	{
@@ -1343,6 +1392,41 @@ void PointCloudDockWidget::applyLanguage()
 		{
 			spareVoxelLabel->setText(i18n(QStringLiteral("Voxel prefilter (mm):"), QStringLiteral("体素预滤波 (mm):")));
 		}
+	}
+	if (m_sdfRigidPreAlignCheck)
+	{
+		m_sdfRigidPreAlignCheck->setText(
+			i18n(QStringLiteral("Rigid pre-align (ICP)"), QStringLiteral("刚性预对齐 (ICP)")));
+	}
+	if (m_sdfCreateNewCheck)
+	{
+		m_sdfCreateNewCheck->setText(i18n(QStringLiteral("Create new object"), QStringLiteral("输出为新对象")));
+	}
+	if (QWidget* sdfRoot = m_sdfOptionsWidget)
+	{
+		if (QLabel* lab = sdfRoot->findChild<QLabel*>(QStringLiteral("sdfFieldLabel")))
+		{
+			lab->setText(i18n(QStringLiteral("Field mode:"), QStringLiteral("场模式:")));
+		}
+		if (QLabel* lab = sdfRoot->findChild<QLabel*>(QStringLiteral("sdfVoxelLabel")))
+		{
+			lab->setText(i18n(QStringLiteral("Field voxel (mm):"), QStringLiteral("场体素 (mm):")));
+		}
+		if (QLabel* lab = sdfRoot->findChild<QLabel*>(QStringLiteral("sdfFineLabel")))
+		{
+			lab->setText(i18n(QStringLiteral("Fine data term:"), QStringLiteral("细阶段数据项:")));
+		}
+	}
+	if (m_sdfFieldModeCombo && m_sdfFieldModeCombo->count() >= 2)
+	{
+		m_sdfFieldModeCombo->setItemText(0, i18n(QStringLiteral("DDF vector"), QStringLiteral("DDF 有向距离")));
+		m_sdfFieldModeCombo->setItemText(1, i18n(QStringLiteral("Signed SDF"), QStringLiteral("有符号 SDF")));
+	}
+	if (m_sdfFineTermCombo && m_sdfFineTermCombo->count() >= 3)
+	{
+		m_sdfFineTermCombo->setItemText(0, i18n(QStringLiteral("Point-to-plane"), QStringLiteral("点-面")));
+		m_sdfFineTermCombo->setItemText(1, i18n(QStringLiteral("DDF"), QStringLiteral("DDF")));
+		m_sdfFineTermCombo->setItemText(2, i18n(QStringLiteral("SDF"), QStringLiteral("SDF")));
 	}
 	updateRegistrationUi();
 	m_voxelBtn->setText(i18n(QStringLiteral("Voxel downsample"), QStringLiteral("体素下采样")));
@@ -2069,39 +2153,57 @@ void PointCloudDockWidget::onRegistrationMethodChanged()
 
 void PointCloudDockWidget::updateRegistrationUi()
 {
-	const bool spare = m_regMethodCombo && m_regMethodCombo->currentData().toString() == QStringLiteral("spare");
+	const QString method =
+		m_regMethodCombo ? m_regMethodCombo->currentData().toString() : QStringLiteral("icp");
+	const bool spare = method == QStringLiteral("spare");
+	const bool sdf = method == QStringLiteral("sdf");
+	const bool nonRigid = spare || sdf;
 	if (m_spareSourceLabel)
 	{
-		m_spareSourceLabel->setVisible(spare);
+		m_spareSourceLabel->setVisible(nonRigid);
 	}
 	if (m_spareSourceCombo)
 	{
-		m_spareSourceCombo->setVisible(spare);
+		m_spareSourceCombo->setVisible(nonRigid);
 	}
 	if (m_spareTargetLabel)
 	{
-		m_spareTargetLabel->setVisible(spare);
+		m_spareTargetLabel->setVisible(nonRigid);
 	}
 	if (m_spareTargetCombo)
 	{
-		m_spareTargetCombo->setVisible(spare);
+		m_spareTargetCombo->setVisible(nonRigid);
 	}
 	if (m_icpTargetLabel)
 	{
-		m_icpTargetLabel->setVisible(!spare);
+		m_icpTargetLabel->setVisible(!nonRigid);
 	}
 	if (m_icpTargetCombo)
 	{
-		m_icpTargetCombo->setVisible(!spare);
+		m_icpTargetCombo->setVisible(!nonRigid);
 	}
 	if (m_spareOptionsWidget)
 	{
 		m_spareOptionsWidget->setVisible(spare);
 	}
+	if (m_sdfOptionsWidget)
+	{
+		m_sdfOptionsWidget->setVisible(sdf);
+	}
 	if (m_icpBtn)
 	{
-		m_icpBtn->setText(spare ? i18n(QStringLiteral("SPARE register"), QStringLiteral("SPARE 配准"))
-								: i18n(QStringLiteral("ICP register"), QStringLiteral("ICP 配准")));
+		if (sdf)
+		{
+			m_icpBtn->setText(i18n(QStringLiteral("SDF/DDF register"), QStringLiteral("SDF/DDF 配准")));
+		}
+		else if (spare)
+		{
+			m_icpBtn->setText(i18n(QStringLiteral("SPARE register"), QStringLiteral("SPARE 配准")));
+		}
+		else
+		{
+			m_icpBtn->setText(i18n(QStringLiteral("ICP register"), QStringLiteral("ICP 配准")));
+		}
 	}
 }
 
@@ -2247,8 +2349,64 @@ void PointCloudDockWidget::onSpareRegisterClicked()
 									   m_host->logInfo(msg);
 									   refreshSpareObjectLists();
 								   }
-								   runFinished(ok, error, result);
+									   runFinished(ok, error, result);
 							   });
+}
+
+void PointCloudDockWidget::onSdfRegisterClicked()
+{
+	IPluginPointCloudHost* pch = pointCloudHost();
+	IPluginDocument* doc = activeDoc();
+	if (!pch || !doc || !m_spareSourceCombo || !m_spareTargetCombo)
+	{
+		return;
+	}
+	if (m_spareSourceCombo->currentIndex() < 0 || m_spareTargetCombo->currentIndex() < 0)
+	{
+		m_host->logWarn(
+			i18n(QStringLiteral("Select SDF source and target"), QStringLiteral("请选择 SDF/DDF 源与目标")));
+		return;
+	}
+
+	const std::string sourceId = m_spareSourceCombo->currentData().toString().toStdString();
+	const QString sourceKind = m_spareSourceCombo->currentData(Qt::UserRole + 1).toString();
+	const std::string targetId = m_spareTargetCombo->currentData().toString().toStdString();
+	const QString targetKind = m_spareTargetCombo->currentData(Qt::UserRole + 1).toString();
+	if (sourceId.empty() || targetId.empty() || targetId == sourceId)
+	{
+		m_host->logWarn(
+			i18n(QStringLiteral("Select a different SDF target"), QStringLiteral("请为 SDF/DDF 选择不同的目标")));
+		return;
+	}
+
+	setBusy(true);
+	PluginPointCloudSdfParams params;
+	params.sourceKind =
+		sourceKind == QStringLiteral("mesh") ? PluginSdfSourceKind::Mesh : PluginSdfSourceKind::PointCloud;
+	params.targetKind =
+		targetKind == QStringLiteral("mesh") ? PluginSdfTargetKind::Mesh : PluginSdfTargetKind::PointCloud;
+	params.targetBackendIdUtf8 = targetId;
+	params.fieldMode = m_sdfFieldModeCombo ? m_sdfFieldModeCombo->currentData().toInt() : 0;
+	params.fieldVoxelMm = m_sdfFieldVoxelSpin ? m_sdfFieldVoxelSpin->value() : 0.0;
+	params.fineDataTerm = m_sdfFineTermCombo ? m_sdfFineTermCombo->currentData().toInt() : 0;
+	params.rigidPreAlign = m_sdfRigidPreAlignCheck && m_sdfRigidPreAlignCheck->isChecked();
+	params.createNewObject = m_sdfCreateNewCheck && m_sdfCreateNewCheck->isChecked();
+	params.applyDeformationToSource = !params.createNewObject;
+	pch->nonRigidRegisterSdf(doc, sourceId, params,
+							 [this](const bool ok, const QString& error, const PluginPointCloudJobResult& result)
+							 {
+								 if (ok)
+								 {
+									 const QString msg =
+										 i18n(QStringLiteral("SDF/DDF done: mean err %1 mm, nodes %2"),
+											  QStringLiteral("SDF/DDF 完成: 平均误差 %1 mm, 变形节点 %2"))
+											 .arg(result.rmseMm, 0, 'f', 3)
+											 .arg(result.spareDeformationNodeCount);
+									 m_host->logInfo(msg);
+									 refreshSpareObjectLists();
+								 }
+								 runFinished(ok, error, result);
+							 });
 }
 
 void PointCloudDockWidget::onIcpClicked()

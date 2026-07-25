@@ -11,7 +11,7 @@ CloudSim 是面向工业机器人仿真的桌面应用，核心能力：
 | 能力域 | 说明 |
 |--------|------|
 | 三维场景 | OSG 渲染、拾取、gizmo 变换、标注 |
-| 机器人 | URDF 导入、DH FK/IK、指令编程、轨迹规划与回放 |
+| 机器人 | URDF 导入、DH FK/IK、指令编程、轨迹规划与回放、品牌程序导出 |
 | 几何引擎 | OCC B-rep、CGAL 点云、VCG 网格后处理 |
 | AI 助手 | LLM 对话、轨迹特征识别、分域专模 |
 | 插件体系 | 动态加载 DLL 插件，扩展几何/点云/PLC/标注能力 |
@@ -175,7 +175,7 @@ sequenceDiagram
 | 变换 | `applyWorldPoseMm`、`worldPoseMm`、`applyColor` |
 | 几何 | `boundingBox`、`hasVisualBranch`、`geometryKind` |
 | 序列化 | `saveObjectToJson`、`loadObjectFromJson`、`importFromFile` |
-| 跟随 | `applyFollowTargetByName`、`followTargetId`、`runFollowSolveAndSync` |
+| 跟随 | `applyFollowTargetByName`、`followTargetId`、`markFollowDirtyFromMove`、`requestFollowSolveForced`、`runFollowSolveAndSync` |
 
 ### 4.2 `IRenderView`（渲染视图）
 
@@ -187,7 +187,7 @@ sequenceDiagram
 | 相机 | `focusCameraOnBackend`、`setCameraFollowBackendId` |
 | Gizmo | `commitGizmoPoseToBackend`、`setTransformGizmoFrame` |
 | TCP 示教 | `beginTcpDragTeach`、`updateTcpDragTeachFromTarget`、`endTcpDragTeach` |
-| 叠加 | `setInstructionPoseAxes`、`setRawTrajectoryOverlay`、`setRobotFrameOverlays` |
+| 叠加 | `setInstructionPoseAxes` / `setRawTrajectoryOverlayFrames`（万级路点：单 Geode 批点+线）、`setRawTrajectoryOverlay`、`setRobotFrameOverlays` |
 | 注释 | `setAnnotationVisible`、`removeAnnotation`、`clearAllAnnotations` |
 
 ### 4.3 `IRobotService`（机器人服务）
@@ -243,14 +243,25 @@ hub.publish(SelectionChangedEvent{backendId});
 
 ```
 用户拖动关节滑块
-  → RobotAxisControlWidget::allJointAnglesChanged
-    → MainWindow::onRobotAxisJointAnglesChanged()
-      → doc->robot().applyJointAnglesRad()           [IRobotService]
+  → RobotSimulationController::onRobotAxisJointAnglesChanged
+    → IRobotDocumentHost::applyJointAnglesRad
+      → doc->robot().applyJointAnglesRad()              [IRobotService]
         → RobotSceneKinematics::applyJointAnglesForInstance()
-          → UrdfRobotLoader::computeMeshWorldMatrices()
-          → OsgWidget::setBackendRootWorldMatrix()
-        → publishRobotKinematicsApplied()            [EventHub]
+          → applyJointAnglesViaLinkBackends()           [Mat4 ↔ OSG 仅在 PoseSink/OsgWidget]
+          → IRobotSimulationDocument::notifyRobotKinematicsAppliedToScene()
+            → 脏集标记（连杆 + 场景根）
+            → data().runFollowSolveAndSync()            [同步求解并清空脏集]
+        → publishRobotKinematicsApplied()               [EventHub]
 ```
+
+**跟随求解约定（2026-07）**
+
+| 项 | 约定 |
+|----|------|
+| FK 后跟随 | 仅在 `notifyRobotKinematicsAppliedToScene` 内同步求解一次；`RobotServiceAdapter` 不再二次 `notify` |
+| per-frame hook | 仅兜底 gizmo 拖动 / 属性 dirty / `requestFollowSolveForced`；FK 路径已清空脏集则跳过 |
+| `basePlacementWorld` | 默认 `PlanContextDto::identityMat4()`；禁止 `Mat4{}` 全零（否则 FK/跟随目标坍缩） |
+| URDF 位姿所有权 | `sourceType=URDF` 连杆禁止作 Follow follower；求解前 `stripKinematicsOwnedFollowAttachments` |
 
 ### 5.3 属性编辑
 
@@ -264,6 +275,20 @@ hub.publish(SelectionChangedEvent{backendId});
           → OsgWidget::syncOuterPatFromBackend()
           → publishPoseCommittedFromBackend()         [EventHub]
 ```
+
+`follow.*` 属性变更另经 `afterFollowPropertyEdited` 反算 local 并脏标记；由属性提交或 per-frame hook 触发 `runFollowSolveAndSync`。
+
+### 5.4 品牌程序导出
+
+```
+用户点击 Export
+  → BrandProgramExportDialog（选程序 + 品牌）
+  → 选最终程序路径
+  → RobotCanonicalProgramExport（Canonical v1 紧凑 JSON，不做万级全量 IK）
+  → PythonScriptCaller → resource/Python/ExportPython/{Brand}Export.py
+```
+
+支持品牌：ABB / AIR / FANUC / INOVANCE / LineHeating / ROKAE。设计文档：[`docs/机器人程序品牌导出/`](docs/机器人程序品牌导出/)。
 
 ---
 
@@ -294,6 +319,8 @@ flowchart LR
 **轨迹流水线**：`ITrajectoryOp` → `TrajectoryPipelineEngine` 链式处理 `UnifiedTrajectory`。
 
 18 种原子块：`Translate`、`Rotate`、`Mirror`、`Delete`、`Duplicate`、`Reorder`、`Approach`、`Retract`、`Resample`、`OffsetAlongNormal`、`OffsetLateral`、`SmoothPose`、`AssignBlend`、`AssignSpeedZone`、`Weave`、`ReachabilityFilter`、`ExternalAxisSearch`、`ProjectToGeometry`。
+
+**品牌导出**：`RobotScene` 产出 Canonical v1 → `RobotWidget` 经 pybind 调用品牌脚本；编排在 `RobotSimulationController`。
 
 ### 6.2 几何子系统
 
@@ -364,6 +391,8 @@ flowchart TB
 | 几何 | `geometry` 存世界绝对坐标 |
 | 权威 API | `engine::rigidTransformFromBackendPoseEuler` / `backendPoseEulerFromRigidTransform` |
 | URDF per-link | q0 单次 Tbind 烘焙顶点；FK：`M = M0·inv(T0)·Tq·P`；禁止双重烘焙 |
+| `core::Mat4` / `BackendMat4` | 列主序 `index = c*4+r`；与 OSG 互转禁止 `osg::Matrixd::ptr()` 行主序直拷 |
+| DocumentPage FK 绑定 | `fkMeshWorldT0` / `outerWorldAtBind` / `basePlacementWorld` 存 `core::Mat4`；OSG 切片仅 `RobotPerLinkKinematicsSliceOsg.h` |
 
 ---
 
@@ -449,11 +478,15 @@ PluginManager::loadPlugins()
 | DocumentPage FK 绑定存储 Mat4 | `HierarchicalRobotInstance` 的 T0/outer/base 改 `core::Mat4`；关节仍可持 `MatrixTransform*` | **已完成** |
 | 碰撞检测一期 | `CollisionAlgorithm` + Dock 开关 + plan 抽样；后端 Mesh/B-rep 真源 | **已完成** |
 | DocumentPage backend() 策略 | 保留存量白名单；新代码强制 `data()`；禁止再扩散 `BackendDataManager.h` | **策略闭环**（彻底去掉穿透 → 长期） |
+| 跟随 FK 同步求解 | `notify` 内 `runFollowSolveAndSync`；`basePlacementWorld` 默认单位阵 | **已完成** |
+| 跟随求解去重 | Adapter 不再二次 `notify`；per-frame hook 仅兜底 gizmo/属性/forced | **已完成** |
+| 品牌程序导出 | Canonical v1 + pybind 品牌脚本（ABB/AIR/FANUC/INOVANCE/LineHeating/ROKAE） | **已完成** |
 | OSG 头文件解耦 | Widget 主路径移除 OSG include（关节句柄等仍可含 `MatrixTransform*`） | 阶段 3.3-3.4 待定 |
 | IRenderView 全面替代 | Widget 主路径走 `render()` | 阶段 3.3-3.4 待定 |
 | RobotSimulationController 迁入 Host | 仿真编排逻辑下沉 | 长期规划 |
 
-> **本轮边界收口闭环**（Sprint A–H）：公开契约去 osg、Host 无 RobotWidget.lib、OsgWidget 单轨、DocumentPage FK 存储 Mat4。残余见 `docs/架构边界收口/TODO_架构边界收口.md`。
+> **架构边界收口**（Sprint A–H）已闭环：公开契约去 osg、Host 无 `RobotWidget.lib`、OsgWidget 单轨、DocumentPage FK 存储 Mat4。  
+> **跟随路径**（2026-07 回归修复）：FK → 单次 `notify` → 同步跟随求解；残余与长期项见 [`docs/架构边界收口/TODO_架构边界收口.md`](docs/架构边界收口/TODO_架构边界收口.md)、[`docs/架构边界收口/FINAL_架构边界收口.md`](docs/架构边界收口/FINAL_架构边界收口.md)。
 
 ### 11.1 新代码边界（强制）
 
@@ -462,3 +495,4 @@ PluginManager::loadPlugins()
 | Widget / RobotWidget UI | `doc->data()` / `render()` / `robot()` / `events()` | 直接 `#include BackendDataManager.h`（存量白名单除外：DocumentPage 运动学、`BackendSceneDocumentFacade`） |
 | Host | 适配器内访问 `BackendDataManager` / `OsgWidget` | 在 `Host/osg/` 维护第二份 OsgWidget |
 | OsgWidget 源码 | 仅 `src/UI/Widget/source/OsgWidget*`，由 `CloudSimHost.vcxproj` 编译 | Widget.vcxproj 再编一份；Host 下平行副本 |
+| 矩阵 | `core::Mat4` 列主序 `c*4+r`；边界用 `osgMatrixFromCoreMat4` / `coreMat4FromOsgMatrix` | `osg::Matrixd::ptr()` 与 Mat4 逐元素直拷 |

@@ -522,14 +522,13 @@ private:
 	/// 使用场景光照加载的网格后端（如 URDF 连杆），改色时保留 Material+LIGHTING。
 	std::unordered_set<std::string> m_litMeshBackendIds;
 	osg::ref_ptr<osg::Group> m_instructionPoseAxesGroup;
-	/// 指令 TCP 轴直接挂连杆容器，重建/清空前须 detach
-	std::vector<osg::ref_ptr<osg::MatrixTransform>> m_instructionPoseAxisNodes;
 	osg::ref_ptr<osg::Geode> m_rawTrajectoryOverlayGeode;
 	osg::ref_ptr<osg::Group> m_rawTrajectoryFramesGroup;
 	osg::ref_ptr<osg::Geode> m_reachableWorkspaceOverlayGeode;
 	bool m_rawTrajShowAxisX = true;
 	bool m_rawTrajShowAxisY = true;
 	bool m_rawTrajShowAxisZ = true;
+	Qt::CursorShape m_lastViewportCursor = Qt::ArrowCursor;
 	struct RobotFrameOverlayNodes
 	{
 		std::vector<osg::ref_ptr<osg::MatrixTransform>> toolNodes;

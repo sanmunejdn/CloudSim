@@ -282,3 +282,19 @@ void PluginManager::notifyLanguageChanged()
 		m_hostContext->notifyLanguageChanged();
 	}
 }
+
+void PluginManager::invokeProjectAboutToSave(const QString& documentId, QJsonObject& root)
+{
+	if (m_hostContext)
+	{
+		m_hostContext->invokeProjectAboutToSave(documentId, root);
+	}
+}
+
+void PluginManager::invokeProjectLoaded(const QString& documentId, const QJsonObject& root)
+{
+	if (m_hostContext)
+	{
+		m_hostContext->invokeProjectLoaded(documentId, root);
+	}
+}

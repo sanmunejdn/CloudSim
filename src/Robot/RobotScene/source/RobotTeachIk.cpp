@@ -8,6 +8,7 @@
 
 #include <QHash>
 #include <QString>
+#include <QVector>
 #include <algorithm>
 #include <cmath>
 #include <utility>
@@ -233,14 +234,27 @@ std::vector<double> solveUrdfNumericalIk(const QString& urdfPath, const QString&
 		return {};
 	}
 
-	const double eps = 1e-4;
 	const double lambda = 1e-2;
 	const int taskDim = useOrientation ? 6 : 3;
 	const int iterLimit = maxIters > 0 ? maxIters : 180;
 	const double orientationWeight = useOrientation ? 300.0 : 1.0;
+	const int n = static_cast<int>(q.size());
+	std::vector<double> J(static_cast<size_t>(taskDim * std::max(n, 1)), 0.0);
+	std::vector<double> jtj(static_cast<size_t>(std::max(n, 1) * std::max(n, 1)), 0.0);
+	std::vector<double> jte(static_cast<size_t>(std::max(n, 1)), 0.0);
+	std::vector<double> e(static_cast<size_t>(taskDim), 0.0);
+	QVector<double> qQt(n);
 	for (int iter = 0; iter < iterLimit; ++iter)
 	{
-		if (!linkPoseFromUrdf(urdfPath, ikLink, q, pos, useOrientation ? &curQuat : nullptr))
+		for (int j = 0; j < n; ++j)
+		{
+			qQt[j] = q[static_cast<size_t>(j)];
+		}
+		double quatXyZw[4] = {0.0, 0.0, 0.0, 1.0};
+		if (!UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(
+				urdfPath, qQt, ikLink, pos, useOrientation ? quatXyZw : nullptr, J, useOrientation, orientationWeight,
+				nullptr) ||
+			static_cast<int>(J.size()) < taskDim * n)
 		{
 			if (failReason)
 			{
@@ -248,7 +262,12 @@ std::vector<double> solveUrdfNumericalIk(const QString& urdfPath, const QString&
 			}
 			return {};
 		}
-		std::vector<double> e(static_cast<size_t>(taskDim), 0.0);
+		if (useOrientation)
+		{
+			curQuat.set(quatXyZw[0], quatXyZw[1], quatXyZw[2], quatXyZw[3]);
+			normalizeQuatSafe(curQuat);
+		}
+		e.assign(static_cast<size_t>(taskDim), 0.0);
 		e[0] = target[0] - pos[0];
 		e[1] = target[1] - pos[1];
 		e[2] = target[2] - pos[2];
@@ -268,37 +287,8 @@ std::vector<double> solveUrdfNumericalIk(const QString& urdfPath, const QString&
 			return q;
 		}
 
-		const int n = static_cast<int>(q.size());
-		std::vector<double> J(static_cast<size_t>(taskDim * n), 0.0);
-		for (int j = 0; j < n; ++j)
-		{
-			std::vector<double> qPert = q;
-			qPert[static_cast<size_t>(j)] += eps;
-			double p2[3] = {0.0, 0.0, 0.0};
-			osg::Quat q2;
-			if (!linkPoseFromUrdf(urdfPath, ikLink, qPert, p2, useOrientation ? &q2 : nullptr))
-			{
-				if (failReason)
-				{
-					*failReason = "无DH上下文";
-				}
-				return {};
-			}
-			J[0 * n + j] = (p2[0] - pos[0]) / eps;
-			J[1 * n + j] = (p2[1] - pos[1]) / eps;
-			J[2 * n + j] = (p2[2] - pos[2]) / eps;
-			if (useOrientation)
-			{
-				double dRot[3] = {0.0, 0.0, 0.0};
-				quatErrorAxisAngle(curQuat, q2, dRot);
-				J[3 * n + j] = (dRot[0] / eps) * orientationWeight;
-				J[4 * n + j] = (dRot[1] / eps) * orientationWeight;
-				J[5 * n + j] = (dRot[2] / eps) * orientationWeight;
-			}
-		}
-
-		std::vector<double> jtj(static_cast<size_t>(n * n), 0.0);
-		std::vector<double> jte(static_cast<size_t>(n), 0.0);
+		jtj.assign(static_cast<size_t>(n * n), 0.0);
+		jte.assign(static_cast<size_t>(n), 0.0);
 		for (int r = 0; r < taskDim; ++r)
 		{
 			for (int c = 0; c < n; ++c)
@@ -341,9 +331,20 @@ std::vector<double> solveUrdfNumericalIk(const QString& urdfPath, const QString&
 	{
 		const double posTarget[3] = {linkTarget.pos[0], linkTarget.pos[1], linkTarget.pos[2]};
 		std::vector<double> qPos = q;
+		const int nPos = static_cast<int>(qPos.size());
+		std::vector<double> Jpos(static_cast<size_t>(3 * std::max(nPos, 1)), 0.0);
+		std::vector<double> jtjPos(static_cast<size_t>(std::max(nPos, 1) * std::max(nPos, 1)), 0.0);
+		std::vector<double> jtePos(static_cast<size_t>(std::max(nPos, 1)), 0.0);
+		QVector<double> qPosQt(nPos);
 		for (int iter = 0; iter < iterLimit; ++iter)
 		{
-			if (!linkPoseFromUrdf(urdfPath, ikLink, qPos, pos, nullptr))
+			for (int j = 0; j < nPos; ++j)
+			{
+				qPosQt[j] = qPos[static_cast<size_t>(j)];
+			}
+			if (!UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(urdfPath, qPosQt, ikLink, pos, nullptr, Jpos,
+																	 false, 1.0, nullptr) ||
+				static_cast<int>(Jpos.size()) < 3 * nPos)
 			{
 				break;
 			}
@@ -355,55 +356,40 @@ std::vector<double> solveUrdfNumericalIk(const QString& urdfPath, const QString&
 			{
 				return qPos;
 			}
-			const int n = static_cast<int>(qPos.size());
-			std::vector<double> J(static_cast<size_t>(3 * n), 0.0);
-			for (int j = 0; j < n; ++j)
-			{
-				std::vector<double> qPert = qPos;
-				qPert[static_cast<size_t>(j)] += eps;
-				double p2[3] = {0.0, 0.0, 0.0};
-				if (!linkPoseFromUrdf(urdfPath, ikLink, qPert, p2, nullptr))
-				{
-					break;
-				}
-				J[0 * n + j] = (p2[0] - pos[0]) / eps;
-				J[1 * n + j] = (p2[1] - pos[1]) / eps;
-				J[2 * n + j] = (p2[2] - pos[2]) / eps;
-			}
-			std::vector<double> jtj(static_cast<size_t>(n * n), 0.0);
-			std::vector<double> jte(static_cast<size_t>(n), 0.0);
-			const double e[3] = {e0, e1, e2};
+			jtjPos.assign(static_cast<size_t>(nPos * nPos), 0.0);
+			jtePos.assign(static_cast<size_t>(nPos), 0.0);
+			const double ePos[3] = {e0, e1, e2};
 			for (int r = 0; r < 3; ++r)
 			{
-				for (int c = 0; c < n; ++c)
+				for (int c = 0; c < nPos; ++c)
 				{
-					jte[static_cast<size_t>(c)] += J[static_cast<size_t>(r * n + c)] * e[r];
+					jtePos[static_cast<size_t>(c)] += Jpos[static_cast<size_t>(r * nPos + c)] * ePos[r];
 				}
 			}
-			for (int r = 0; r < n; ++r)
+			for (int r = 0; r < nPos; ++r)
 			{
-				for (int c = 0; c < n; ++c)
+				for (int c = 0; c < nPos; ++c)
 				{
 					double s = 0.0;
 					for (int k = 0; k < 3; ++k)
 					{
-						s += J[static_cast<size_t>(k * n + r)] * J[static_cast<size_t>(k * n + c)];
+						s += Jpos[static_cast<size_t>(k * nPos + r)] * Jpos[static_cast<size_t>(k * nPos + c)];
 					}
-					jtj[static_cast<size_t>(r * n + c)] = s;
+					jtjPos[static_cast<size_t>(r * nPos + c)] = s;
 				}
 			}
-			for (int i = 0; i < n; ++i)
+			for (int i = 0; i < nPos; ++i)
 			{
-				jtj[static_cast<size_t>(i * n + i)] += lambda * lambda;
+				jtjPos[static_cast<size_t>(i * nPos + i)] += lambda * lambda;
 			}
-			if (!solveLinearSystem(jtj, jte, n))
+			if (!solveLinearSystem(jtjPos, jtePos, nPos))
 			{
 				break;
 			}
-			for (int j = 0; j < n; ++j)
+			for (int j = 0; j < nPos; ++j)
 			{
-				jte[static_cast<size_t>(j)] = std::max(-0.2, std::min(0.2, jte[static_cast<size_t>(j)]));
-				qPos[static_cast<size_t>(j)] += jte[static_cast<size_t>(j)];
+				jtePos[static_cast<size_t>(j)] = std::max(-0.2, std::min(0.2, jtePos[static_cast<size_t>(j)]));
+				qPos[static_cast<size_t>(j)] += jtePos[static_cast<size_t>(j)];
 			}
 		}
 	}
@@ -575,7 +561,6 @@ std::vector<double> solveUrdfNumericalIkCoupledExternalMulti(
 	const double target[3] = {linkTargetWorld.pos[0], linkTargetWorld.pos[1], linkTargetWorld.pos[2]};
 	const bool useOrientation = linkTargetWorld.hasOrientation;
 	const osg::Quat targetQuat = useOrientation ? linkTargetWorld.quat : osg::Quat();
-	const double eps = 1e-4;
 	const double lambda = 1e-2;
 	const int taskDim = useOrientation ? 6 : 3;
 	const int iterLimit = maxIters > 0 ? maxIters : 180;
@@ -589,12 +574,22 @@ std::vector<double> solveUrdfNumericalIkCoupledExternalMulti(
 	std::vector<double> bestQ = q;
 	std::vector<double> bestQe = dofInOut.qExternal;
 	double bestPosErr = 1e30;
+	std::vector<double> Jarm;
+	QVector<double> qQt(nArm);
 
 	for (int iter = 0; iter < iterLimit; ++iter)
 	{
 		double pos[3] = {0.0, 0.0, 0.0};
 		osg::Quat curQuat;
-		if (!linkPoseFromUrdf(urdfPath, ikLink, q, pos, useOrientation ? &curQuat : nullptr))
+		for (int j = 0; j < nArm; ++j)
+		{
+			qQt[j] = q[static_cast<size_t>(j)];
+		}
+		double quatXyZw[4] = {0.0, 0.0, 0.0, 1.0};
+		if (!UrdfRobotLoader::computeLinkPoseAndGeometricJacobian(
+				urdfPath, qQt, ikLink, pos, useOrientation ? quatXyZw : nullptr, Jarm, useOrientation,
+				orientationWeight, nullptr) ||
+			static_cast<int>(Jarm.size()) < taskDim * nArm)
 		{
 			if (failReason)
 			{
@@ -602,11 +597,16 @@ std::vector<double> solveUrdfNumericalIkCoupledExternalMulti(
 			}
 			return {};
 		}
-		double pEff[3] = {pos[0], pos[1], pos[2]};
-		for (int e = 0; e < nExt; ++e)
+		if (useOrientation)
 		{
-			const auto& ax = dofInOut.axes[static_cast<size_t>(e)];
-			const double qe = dofInOut.qExternal[static_cast<size_t>(e)];
+			curQuat.set(quatXyZw[0], quatXyZw[1], quatXyZw[2], quatXyZw[3]);
+			normalizeQuatSafe(curQuat);
+		}
+		double pEff[3] = {pos[0], pos[1], pos[2]};
+		for (int eIdx = 0; eIdx < nExt; ++eIdx)
+		{
+			const auto& ax = dofInOut.axes[static_cast<size_t>(eIdx)];
+			const double qe = dofInOut.qExternal[static_cast<size_t>(eIdx)];
 			pEff[0] += qe * ax.axis[0];
 			pEff[1] += qe * ax.axis[1];
 			pEff[2] += qe * ax.axis[2];
@@ -641,28 +641,14 @@ std::vector<double> solveUrdfNumericalIkCoupledExternalMulti(
 		std::vector<double> J(static_cast<size_t>(taskDim * n), 0.0);
 		for (int j = 0; j < nArm; ++j)
 		{
-			std::vector<double> qPert = q;
-			qPert[static_cast<size_t>(j)] += eps;
-			double p2[3] = {0.0, 0.0, 0.0};
-			osg::Quat q2;
-			if (!linkPoseFromUrdf(urdfPath, ikLink, qPert, p2, useOrientation ? &q2 : nullptr))
-			{
-				if (failReason)
-				{
-					*failReason = "无DH上下文";
-				}
-				return {};
-			}
-			J[0 * n + j] = (p2[0] - pos[0]) / eps;
-			J[1 * n + j] = (p2[1] - pos[1]) / eps;
-			J[2 * n + j] = (p2[2] - pos[2]) / eps;
+			J[0 * n + j] = Jarm[static_cast<size_t>(0 * nArm + j)];
+			J[1 * n + j] = Jarm[static_cast<size_t>(1 * nArm + j)];
+			J[2 * n + j] = Jarm[static_cast<size_t>(2 * nArm + j)];
 			if (useOrientation)
 			{
-				double dRot[3] = {0.0, 0.0, 0.0};
-				quatErrorAxisAngle(curQuat, q2, dRot);
-				J[3 * n + j] = (dRot[0] / eps) * orientationWeight;
-				J[4 * n + j] = (dRot[1] / eps) * orientationWeight;
-				J[5 * n + j] = (dRot[2] / eps) * orientationWeight;
+				J[3 * n + j] = Jarm[static_cast<size_t>(3 * nArm + j)];
+				J[4 * n + j] = Jarm[static_cast<size_t>(4 * nArm + j)];
+				J[5 * n + j] = Jarm[static_cast<size_t>(5 * nArm + j)];
 			}
 		}
 		for (int ei = 0; ei < nExt; ++ei)

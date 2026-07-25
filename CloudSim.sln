@@ -184,6 +184,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "IndustrialCameraPlugin", "s
 		{E1F2A3B4-C5D6-7890-EF01-23456789ABCD} = {E1F2A3B4-C5D6-7890-EF01-23456789ABCD}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ProcessFlowPlugin", "src\Plugins\ProcessFlowPlugin\ProcessFlowPlugin.vcxproj", "{F3A4B5C6-D7E8-9012-F345-6789ABCDEF01}"
+	ProjectSection(ProjectDependencies) = postProject
+		{C3D4E5F6-A7B8-9012-CDEF-123456789ABC} = {C3D4E5F6-A7B8-9012-CDEF-123456789ABC}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -452,6 +457,12 @@ Global
 		{E2F3A4B5-C6D7-8901-EF12-3456789ABCDE}.Release|x64.ActiveCfg = Release|x64
 		{E2F3A4B5-C6D7-8901-EF12-3456789ABCDE}.Release|x64.Build.0 = Release|x64
 		{E2F3A4B5-C6D7-8901-EF12-3456789ABCDE}.Release|x86.ActiveCfg = Release|x64
+		{F3A4B5C6-D7E8-9012-F345-6789ABCDEF01}.Debug|x64.ActiveCfg = Debug|x64
+		{F3A4B5C6-D7E8-9012-F345-6789ABCDEF01}.Debug|x64.Build.0 = Debug|x64
+		{F3A4B5C6-D7E8-9012-F345-6789ABCDEF01}.Debug|x86.ActiveCfg = Debug|x64
+		{F3A4B5C6-D7E8-9012-F345-6789ABCDEF01}.Release|x64.ActiveCfg = Release|x64
+		{F3A4B5C6-D7E8-9012-F345-6789ABCDEF01}.Release|x64.Build.0 = Release|x64
+		{F3A4B5C6-D7E8-9012-F345-6789ABCDEF01}.Release|x86.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

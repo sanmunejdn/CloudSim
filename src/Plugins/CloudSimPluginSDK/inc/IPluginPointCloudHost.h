@@ -168,6 +168,11 @@ public:
 	virtual void nonRigidRegisterSpare(IPluginDocument* doc, const std::string& sourceBackendIdUtf8,
 									   const PluginPointCloudSpareParams& params,
 									   PluginPointCloudFinishedFn onFinished) = 0;
+
+	/// 1.17.0+：SDF/DDF 混合非刚性配准（粗场驱动 + 细默认点-面）
+	virtual void nonRigidRegisterSdf(IPluginDocument* doc, const std::string& sourceBackendIdUtf8,
+									 const PluginPointCloudSdfParams& params,
+									 PluginPointCloudFinishedFn onFinished) = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINPOINTCLOUDHOST_H

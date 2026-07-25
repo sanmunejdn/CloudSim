@@ -32,6 +32,7 @@
 | `computeLinkWorldMatrices(urdf, angles, out, err)` | 各 link **坐标系**世界矩阵（OSG） |
 | `computeLinkWorldRigidTransforms(urdf, angles, out, err)` | 同上，输出 `engine::RigidTransform`（推荐机器人/IK 边界） |
 | `computeMeshWorldMatrices(urdf, angles, out, err, meshVerticesAlreadyInLinkFrame)` | 各 link **网格**世界矩阵；末参 `true` 时 visual 为单位（顶点已在连杆系） |
+| `computeLinkPoseAndGeometricJacobian(...)` | 一次 FK + 几何雅可比（数值 IK 用，替代 n+1 有限差分） |
 | `linkMeshFileToLinkColumnMajor16(urdf, linkName, out16, err)` | mesh 文件系 → 连杆系 4×4（列主序），供导入烘焙顶点 |
 
 ---

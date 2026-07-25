@@ -184,5 +184,13 @@
         <file alias="light/screenshot_24.png">icons/light/screenshot_24.png</file>
         <file alias="dark/screenshot_16.png">icons/dark/screenshot_16.png</file>
         <file alias="dark/screenshot_24.png">icons/dark/screenshot_24.png</file>
+        <file alias="light/close_16.png">icons/light/close_16.png</file>
+        <file alias="light/close_24.png">icons/light/close_24.png</file>
+        <file alias="dark/close_16.png">icons/dark/close_16.png</file>
+        <file alias="dark/close_24.png">icons/dark/close_24.png</file>
+        <file alias="light/dock_float_16.png">icons/light/dock_float_16.png</file>
+        <file alias="light/dock_float_24.png">icons/light/dock_float_24.png</file>
+        <file alias="dark/dock_float_16.png">icons/dark/dock_float_16.png</file>
+        <file alias="dark/dock_float_24.png">icons/dark/dock_float_24.png</file>
     </qresource>
 </RCC>

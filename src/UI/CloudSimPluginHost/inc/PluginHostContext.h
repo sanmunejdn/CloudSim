@@ -117,6 +117,18 @@ public:
 	IPluginLabelingHost* labelingHost() override;
 	const IPluginLabelingHost* labelingHost() const override;
 
+	void setCentralAlternateWidget(QWidget* widget) override;
+	void showCentralScene3D() override;
+	void showCentralAlternate() override;
+	bool isShowingCentralAlternate() const override;
+	void enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel) override;
+	void exitProcessFlowSideUi() override;
+
+	void onProjectAboutToSave(std::function<void(const QString& documentId, QJsonObject& root)> callback) override;
+	void onProjectLoaded(std::function<void(const QString& documentId, const QJsonObject& root)> callback) override;
+	void invokeProjectAboutToSave(const QString& documentId, QJsonObject& root);
+	void invokeProjectLoaded(const QString& documentId, const QJsonObject& root);
+
 	/// AI ActionPlan：树选中对象 id
 	QString selectedBackendId() const;
 
@@ -141,6 +153,8 @@ private:
 	std::vector<std::unique_ptr<PluginDocumentAdapter>> m_documents;
 	std::vector<std::function<void(IPluginDocument*)>> m_docChangeCallbacks;
 	std::vector<QDockWidget*> m_ownedDocks;
+	std::vector<std::function<void(const QString&, QJsonObject&)>> m_projectSaveCallbacks;
+	std::vector<std::function<void(const QString&, const QJsonObject&)>> m_projectLoadCallbacks;
 };
 
 #endif // CLOUDSIMPLUGINHOST_PLUGINHOSTCONTEXT_H

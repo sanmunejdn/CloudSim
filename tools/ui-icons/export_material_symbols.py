@@ -63,6 +63,11 @@ ICON_MAP: dict[str, str] = {
     "write": "upload",
     "clear_log": "clear_all",
     "set_active": "star",
+    "focus_camera": "center_focus_strong",
+    "wireframe": "grid_on",
+    "screenshot": "photo_camera",
+    "close": "close",
+    "dock_float": "open_in_new",
 }
 
 SVG_BASE = (

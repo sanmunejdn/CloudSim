@@ -162,6 +162,7 @@
     <ClInclude Include="inc\PointFeatures.h" />
     <ClInclude Include="inc\RegistrationNonRigid.h" />
     <ClInclude Include="inc\RegistrationSpare.h" />
+    <ClInclude Include="inc\RegistrationSdf.h" />
     <ClInclude Include="inc\Preprocess.h" />
     <ClInclude Include="inc\Reconstruction.h" />
     <ClInclude Include="inc\ReconstructionPoisson.h" />
@@ -174,6 +175,9 @@
     <ClInclude Include="inc\spare\SpareNodeSampler.h" />
     <ClInclude Include="inc\spare\SpareSolver.h" />
     <ClInclude Include="inc\spare\SpareSurface.h" />
+    <ClInclude Include="inc\sdf\DistanceField.h" />
+    <ClInclude Include="inc\sdf\SdfNodeSampler.h" />
+    <ClInclude Include="inc\sdf\SdfDeformSolver.h" />
     <ClInclude Include="inc\KdTreePointSet.h" />
   </ItemGroup>
   <ItemGroup>
@@ -187,6 +191,7 @@
     <ClCompile Include="source\PointFeatures.cpp" />
     <ClCompile Include="source\RegistrationNonRigid.cpp" />
     <ClCompile Include="source\RegistrationSpare.cpp" />
+    <ClCompile Include="source\RegistrationSdf.cpp" />
     <ClCompile Include="source\Preprocess.cpp" />
     <ClCompile Include="source\ReconstructionPoisson.cpp" />
     <ClCompile Include="source\ReconstructionScaleSpace.cpp" />
@@ -197,6 +202,9 @@
     <ClCompile Include="source\spare\SpareNodeSampler.cpp" />
     <ClCompile Include="source\spare\SpareSolver.cpp" />
     <ClCompile Include="source\spare\SpareSurfaceBuild.cpp" />
+    <ClCompile Include="source\sdf\DistanceField.cpp" />
+    <ClCompile Include="source\sdf\SdfNodeSampler.cpp" />
+    <ClCompile Include="source\sdf\SdfDeformSolver.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

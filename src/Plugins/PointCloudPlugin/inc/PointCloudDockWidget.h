@@ -64,6 +64,7 @@ private slots:
 	void onNormalsOrientClicked();
 	void onIcpClicked();
 	void onSpareRegisterClicked();
+	void onSdfRegisterClicked();
 	void onRegistrationMethodChanged();
 	void onReconstructPoissonAutoClicked();
 	void onReconstructScaleSpaceClicked();
@@ -144,6 +145,12 @@ private:
 	QCheckBox* m_spareRigidPreAlignCheck = nullptr;
 	QCheckBox* m_spareCreateNewCheck = nullptr;
 	QWidget* m_spareOptionsWidget = nullptr;
+	QWidget* m_sdfOptionsWidget = nullptr;
+	QComboBox* m_sdfFieldModeCombo = nullptr;
+	QDoubleSpinBox* m_sdfFieldVoxelSpin = nullptr;
+	QComboBox* m_sdfFineTermCombo = nullptr;
+	QCheckBox* m_sdfRigidPreAlignCheck = nullptr;
+	QCheckBox* m_sdfCreateNewCheck = nullptr;
 	QComboBox* m_meshExportCombo = nullptr;
 	QPushButton* m_importBtn = nullptr;
 	QPushButton* m_refreshBtn = nullptr;

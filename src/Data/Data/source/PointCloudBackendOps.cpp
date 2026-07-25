@@ -14,6 +14,7 @@
 #include "RegistrationNonRigid.h"
 #include "RegistrationRigid.h"
 #include "RegistrationSpare.h"
+#include "RegistrationSdf.h"
 #include "Transform.h"
 #include "spare/SpareSurface.h"
 
@@ -492,6 +493,135 @@ bool nonRigidRegisterMeshSpare(MeshBackendData& sourceMeshInOut, const PointClou
 	sourceMeshInOut.setTriangleSoup(std::move(soupOut));
 	out.meanErrorMm = stats.meanErrorMm;
 	out.deformationNodeCount = stats.deformationNodeCount;
+	return true;
+}
+
+pclalgo::SdfRegisterParams toSdfRegisterParams(const PointCloudSdfParams& params)
+{
+	pclalgo::SdfRegisterParams out;
+	out.fieldMode = params.fieldMode == 1 ? pclalgo::SdfFieldMode::SignedDistance : pclalgo::SdfFieldMode::DdfVector;
+	out.fieldVoxelMm = params.fieldVoxelMm;
+	if (params.fineDataTerm == 1)
+	{
+		out.fineDataTerm = pclalgo::SdfFineDataTerm::DdfVector;
+	}
+	else if (params.fineDataTerm == 2)
+	{
+		out.fineDataTerm = pclalgo::SdfFineDataTerm::SignedDistance;
+	}
+	else
+	{
+		out.fineDataTerm = pclalgo::SdfFineDataTerm::PointToPlane;
+	}
+	out.useCoarseReg = params.useCoarseReg;
+	out.useFineReg = params.useFineReg;
+	out.sampleRadiusRatio = params.sampleRadiusRatio;
+	out.wSmo = params.wSmo;
+	out.wRot = params.wRot;
+	out.wArapCoarse = params.wArapCoarse;
+	out.wArapFine = params.wArapFine;
+	out.normalizeScale = params.normalizeScale;
+	out.rigidPreAlign = params.rigidPreAlign;
+	out.voxelPrefilterMm = params.voxelPrefilterMm;
+	out.maxOuterIters = params.maxOuterIters;
+	return out;
+}
+
+bool nonRigidRegisterPointCloudsSdf(PointCloudBackendData& sourceInOut, const PointCloudBackendData& target,
+									PointCloudSdfResult& out, const PointCloudSdfParams& params, std::string* errMsg)
+{
+	const pclalgo::SdfRegisterParams coreParams = toSdfRegisterParams(params);
+	std::vector<float> deformed;
+	std::vector<float> deformedNormals;
+	pclalgo::SdfRegisterResult stats;
+	if (!pclalgo::sdfRegisterPointClouds(sourceInOut.pointPositionsXyz(), sourceInOut.pointNormalsNxNyNz(),
+										 target.pointPositionsXyz(), target.pointNormalsNxNyNz(), deformed,
+										 deformedNormals, coreParams, &stats, errMsg))
+	{
+		return false;
+	}
+	sourceInOut.setPointBuffers(std::move(deformed), sourceInOut.pointVertexRgba(), std::move(deformedNormals));
+	out.meanErrorMm = stats.meanErrorMm;
+	out.deformationNodeCount = stats.deformationNodeCount;
+	out.fieldVoxelMmUsed = stats.fieldVoxelMmUsed;
+	return true;
+}
+
+bool nonRigidRegisterPointCloudToMeshSdf(PointCloudBackendData& sourceInOut, const MeshBackendData& targetMesh,
+										 PointCloudSdfResult& out, const PointCloudSdfParams& params,
+										 std::string* errMsg)
+{
+	const std::vector<float>& soup = targetMesh.triangleSoup();
+	std::vector<float> tgtXyz;
+	std::vector<float> tgtN;
+	tgtXyz.reserve(soup.size() / 3U);
+	tgtN.reserve(soup.size() / 3U);
+	for (std::size_t t = 0; t + 8U < soup.size(); t += 9U)
+	{
+		const float* p = soup.data() + t;
+		Eigen::Vector3d a(p[0], p[1], p[2]);
+		Eigen::Vector3d b(p[3], p[4], p[5]);
+		Eigen::Vector3d c(p[6], p[7], p[8]);
+		Eigen::Vector3d n = (b - a).cross(c - a);
+		const double nlen = n.norm();
+		if (nlen < 1e-12)
+		{
+			continue;
+		}
+		n /= nlen;
+		for (int k = 0; k < 3; ++k)
+		{
+			tgtXyz.push_back(p[k * 3]);
+			tgtXyz.push_back(p[k * 3 + 1]);
+			tgtXyz.push_back(p[k * 3 + 2]);
+			tgtN.push_back(static_cast<float>(n.x()));
+			tgtN.push_back(static_cast<float>(n.y()));
+			tgtN.push_back(static_cast<float>(n.z()));
+		}
+	}
+	if (tgtXyz.size() < 9U)
+	{
+		if (errMsg)
+		{
+			*errMsg = "SDF: target mesh has no valid triangles";
+		}
+		return false;
+	}
+	PointCloudBackendData targetTmp;
+	targetTmp.setPointBuffers(std::move(tgtXyz), {}, std::move(tgtN));
+	return nonRigidRegisterPointCloudsSdf(sourceInOut, targetTmp, out, params, errMsg);
+}
+
+bool nonRigidRegisterMeshSdf(MeshBackendData& sourceMeshInOut, const PointCloudBackendData* targetPointCloud,
+							 const MeshBackendData* targetMesh, PointCloudSdfResult& out,
+							 const PointCloudSdfParams& params, std::string* errMsg)
+{
+	if ((targetPointCloud == nullptr) == (targetMesh == nullptr))
+	{
+		if (errMsg)
+		{
+			*errMsg = "exactly one target (point cloud or mesh) required";
+		}
+		return false;
+	}
+	const pclalgo::SdfRegisterParams coreParams = toSdfRegisterParams(params);
+	std::vector<float> soupOut;
+	pclalgo::SdfRegisterResult stats;
+	const bool ok =
+		targetPointCloud != nullptr
+			? pclalgo::sdfRegisterMeshSoupToTarget(
+				  sourceMeshInOut.triangleSoup(), targetPointCloud->pointPositionsXyz(),
+				  targetPointCloud->pointNormalsNxNyNz(), soupOut, coreParams, &stats, errMsg)
+			: pclalgo::sdfRegisterMeshSoupToMeshSoup(sourceMeshInOut.triangleSoup(), targetMesh->triangleSoup(),
+													 soupOut, coreParams, &stats, errMsg);
+	if (!ok)
+	{
+		return false;
+	}
+	sourceMeshInOut.setTriangleSoup(std::move(soupOut));
+	out.meanErrorMm = stats.meanErrorMm;
+	out.deformationNodeCount = stats.deformationNodeCount;
+	out.fieldVoxelMmUsed = stats.fieldVoxelMmUsed;
 	return true;
 }
 

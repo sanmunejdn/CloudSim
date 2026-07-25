@@ -70,6 +70,9 @@ enum class UiIconId
 	Wireframe,
 	Screenshot,
 
+	Close,
+	DockFloat,
+
 	Count
 };
 

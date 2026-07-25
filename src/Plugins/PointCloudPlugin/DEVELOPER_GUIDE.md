@@ -9,11 +9,11 @@
 | 工程 | `PointCloudPlugin.vcxproj`（x64，v142，Qt 5.14.2） |
 | 链接 | **仅** `CloudSimPluginSDK.lib` |
 | 部署 | `bin/x64(d)/plugins/com.cloudsim.pointcloud/plugin.json` + `PointCloudPlugin.dll` |
-| `minHostVersion` | `"1.16.0"`（SPARE 非刚性配准 + 分割标注宿主 API） |
+| `minHostVersion` | `"1.17.0"`（SDF/DDF 非刚性配准 + SPARE + 分割标注宿主 API） |
 
 ## 运行时
 
-- 侧栏 Tab **点云** / **Point Cloud**：导入、列表、下采样、裁剪（包围盒/球/多边形）、预处理、**ICP / SPARE 配准**、重建
+- 侧栏 Tab **点云** / **Point Cloud**：导入、列表、下采样、裁剪（包围盒/球/多边形）、预处理、**ICP / SPARE / SDF·DDF 配准**、重建
 - 侧栏 Tab **特征构建** / **Feature Build**（**1.15.0+**）：管状铸件 Phase 1–4 分阶段调试（见下节）
 - 菜单 **Tools → Point Cloud**（中文下子菜单标题为 **点云**）
 - 语言：默认中文；切换 **设置 → Language → 中文/English** 时侧栏与菜单同步更新
@@ -44,23 +44,36 @@
 
 原理与调参通俗说明见 [`docs/spare_nonrigid_registration.md`](../../../docs/spare_nonrigid_registration.md)。
 
-侧栏「配准」区：**方法** 下拉可选 **刚性 ICP** 或 **SPARE 非刚性**（**1.16.0+** 宿主）。
+侧栏「配准」区：**方法** 下拉可选 **刚性 ICP**、**SPARE 非刚性**（**1.16.0+**）或 **SDF/DDF 非刚性**（**1.17.0+**）。
 
 | 控件 | 说明 |
 |------|------|
-| SPARE 源 | 独立下拉，列出点云与网格，不共用列表/网格后处理下拉 |
-| SPARE 目标 | 独立下拉，列出点云与网格 |
+| 非刚性源 / 目标 | 独立下拉，列出点云与网格（SPARE 与 SDF 共用） |
 | SPARE 选项 | 体素预滤波 (mm)、刚性预对齐、输出为新对象 |
-| 执行 | `nonRigidRegisterSpare(doc, sourceBackendId, PluginPointCloudSpareParams, onFinished)` |
+| 执行 SPARE | `nonRigidRegisterSpare(...)` |
 
 典型流程：
 
-1. 方法选 **SPARE**；在「SPARE 源 / SPARE 目标」下拉中分别选点云或网格（须为不同对象）
+1. 方法选 **SPARE**；在「非刚性源 / 目标」下拉中分别选点云或网格（须为不同对象）
 2. 可选体素预滤波、刚性 ICP 预对齐
 3. 勾选「输出为新对象」则生成 `*_SPARE` / `*_spare` 后缀对象
 4. 回调 `PluginPointCloudJobResult`：`rmseMm`（平均对称点-面误差）、`spareDeformationNodeCount`
 
 算法与参数映射见 [`PointCloudAlgorithm/DEVELOPER_GUIDE.md`](../../Geometry/PointCloudAlgorithm/DEVELOPER_GUIDE.md) §3.5。
+
+## SDF/DDF 混合非刚性配准（1.17.0+）
+
+原理见 [`docs/sdf_nonrigid_registration.md`](../../../docs/sdf_nonrigid_registration.md)。
+
+| 控件 | 说明 |
+|------|------|
+| 场模式 | DDF 有向距离 / 有符号 SDF |
+| 场体素 (mm) | 0=自动 |
+| 细阶段数据项 | 点-面（默认）/ DDF / SDF |
+| 刚性预对齐、输出为新对象 | 同 SPARE |
+| 执行 | `nonRigidRegisterSdf(doc, sourceBackendId, PluginPointCloudSdfParams, onFinished)` |
+
+须与宿主同时升级到 **1.17.0+**（vtable）。算法见 PointCloudAlgorithm §3.6。
 
 ## 网格后处理（1.9.0+，需 VcgAlgorithms.dll）
 

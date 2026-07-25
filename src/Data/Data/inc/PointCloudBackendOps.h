@@ -163,6 +163,44 @@ DATA_EXPORT bool nonRigidRegisterMeshSpare(MeshBackendData& sourceMeshInOut,
 										   const MeshBackendData* targetMesh, PointCloudSpareResult& out,
 										   const PointCloudSpareParams& params, std::string* errMsg = nullptr);
 
+struct PointCloudSdfResult
+{
+	double meanErrorMm = 0.0;
+	int deformationNodeCount = 0;
+	double fieldVoxelMmUsed = 0.0;
+};
+
+struct PointCloudSdfParams
+{
+	int fieldMode = 0;		///< 0=DdfVector 1=SignedDistance
+	double fieldVoxelMm = 0.0;
+	int fineDataTerm = 0;	///< 0=PointToPlane 1=Ddf 2=SignedDistance
+	bool useCoarseReg = true;
+	bool useFineReg = true;
+	double sampleRadiusRatio = 0.0;
+	double wSmo = 0.01;
+	double wRot = 1e-4;
+	double wArapCoarse = 500.0;
+	double wArapFine = 200.0;
+	bool normalizeScale = true;
+	bool rigidPreAlign = false;
+	double voxelPrefilterMm = 0.0;
+	int maxOuterIters = 30;
+};
+
+DATA_EXPORT bool nonRigidRegisterPointCloudsSdf(PointCloudBackendData& sourceInOut,
+												const PointCloudBackendData& target, PointCloudSdfResult& out,
+												const PointCloudSdfParams& params, std::string* errMsg = nullptr);
+
+DATA_EXPORT bool nonRigidRegisterPointCloudToMeshSdf(PointCloudBackendData& sourceInOut,
+													 const MeshBackendData& targetMesh, PointCloudSdfResult& out,
+													 const PointCloudSdfParams& params, std::string* errMsg = nullptr);
+
+DATA_EXPORT bool nonRigidRegisterMeshSdf(MeshBackendData& sourceMeshInOut,
+										 const PointCloudBackendData* targetPointCloud,
+										 const MeshBackendData* targetMesh, PointCloudSdfResult& out,
+										 const PointCloudSdfParams& params, std::string* errMsg = nullptr);
+
 DATA_EXPORT bool deformPointCloudTpsFromControls(PointCloudBackendData& data,
 												 const std::vector<std::size_t>& controlPointIndices,
 												 const std::vector<float>& controlDisplacementXyz,

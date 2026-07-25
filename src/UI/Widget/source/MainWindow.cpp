@@ -38,6 +38,7 @@
 #include "RobotTeachIk.h"
 #include "RunInfoPage.h"
 #include "RunLogger.h"
+#include "StyledDockTitleBar.h"
 #include "WidgetRenderAccess.h"
 #include "qteditorfactory.h"
 #include "qttreepropertybrowser.h"
@@ -194,6 +195,14 @@ void MainWindow::applyLanguage()
 	if (m_unitDock)
 	{
 		m_unitDock->setWindowTitle(i18n(QStringLiteral("Workspace"), QStringLiteral("工作区")));
+	}
+	if (m_processFlowLeftDock)
+	{
+		m_processFlowLeftDock->setWindowTitle(i18n(QStringLiteral("Node Library"), QStringLiteral("节点库")));
+	}
+	if (m_processFlowRightDock)
+	{
+		m_processFlowRightDock->setWindowTitle(i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板")));
 	}
 	if (m_rightPanelTabs && m_rightPanelTabs->count() >= 1)
 	{
@@ -818,6 +827,25 @@ void hideSideDock(QDockWidget* dock, int& savedWidth)
 
 void MainWindow::setLeftSidePanelVisible(const bool visible)
 {
+	if (m_processFlowSideUiActive)
+	{
+		if (!m_processFlowLeftDock)
+		{
+			return;
+		}
+		if (visible)
+		{
+			showSideDock(m_processFlowLeftDock, m_processFlowLeftSavedWidth, 260);
+			resizeDocks({m_processFlowLeftDock}, {m_processFlowLeftSavedWidth}, Qt::Horizontal);
+		}
+		else
+		{
+			hideSideDock(m_processFlowLeftDock, m_processFlowLeftSavedWidth);
+		}
+		syncSidePanelToggleUi();
+		return;
+	}
+
 	if (!m_propertyDock)
 	{
 		return;
@@ -836,6 +864,25 @@ void MainWindow::setLeftSidePanelVisible(const bool visible)
 
 void MainWindow::setRightSidePanelVisible(const bool visible)
 {
+	if (m_processFlowSideUiActive)
+	{
+		if (!m_processFlowRightDock)
+		{
+			return;
+		}
+		if (visible)
+		{
+			showSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth, 320);
+			resizeDocks({m_processFlowRightDock}, {m_processFlowRightSavedWidth}, Qt::Horizontal);
+		}
+		else
+		{
+			hideSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth);
+		}
+		syncSidePanelToggleUi();
+		return;
+	}
+
 	if (!m_unitDock)
 	{
 		return;
@@ -854,8 +901,10 @@ void MainWindow::setRightSidePanelVisible(const bool visible)
 
 void MainWindow::syncSidePanelToggleUi()
 {
-	const bool leftVisible = sideDockShown(m_propertyDock);
-	const bool rightVisible = sideDockShown(m_unitDock);
+	const bool leftVisible =
+		m_processFlowSideUiActive ? sideDockShown(m_processFlowLeftDock) : sideDockShown(m_propertyDock);
+	const bool rightVisible =
+		m_processFlowSideUiActive ? sideDockShown(m_processFlowRightDock) : sideDockShown(m_unitDock);
 
 	if (m_toggleLeftPanelAction)
 	{
@@ -1000,6 +1049,142 @@ QDockWidget* MainWindow::addPluginDockWidget(const QString& title, QWidget* widg
 	dock->setWidget(widget);
 	addDockWidget(area, dock);
 	return dock;
+}
+
+void MainWindow::setCentralAlternateWidget(QWidget* widget)
+{
+	if (cloudsim::host::DocumentHost* doc = currentDocumentHost())
+	{
+		doc->setCentralAlternateWidget(widget);
+	}
+}
+
+void MainWindow::showCentralScene3D()
+{
+	if (cloudsim::host::DocumentHost* doc = currentDocumentHost())
+	{
+		doc->showCentralScene3D();
+	}
+}
+
+void MainWindow::showCentralAlternate()
+{
+	if (cloudsim::host::DocumentHost* doc = currentDocumentHost())
+	{
+		doc->showCentralAlternate();
+	}
+}
+
+bool MainWindow::isShowingCentralAlternate() const
+{
+	const cloudsim::host::DocumentHost* doc =
+		const_cast<MainWindow*>(this)->currentDocumentHost();
+	return doc && doc->isShowingCentralAlternate();
+}
+
+void MainWindow::enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel)
+{
+	m_processFlowSideUiActive = true;
+	m_unitDockVisibleBeforeProcessFlow = sideDockShown(m_unitDock);
+	m_propertyDockVisibleBeforeProcessFlow = sideDockShown(m_propertyDock);
+	hideSideDock(m_unitDock, m_rightDockSavedWidth);
+	hideSideDock(m_propertyDock, m_leftDockSavedWidth);
+
+	if (!m_processFlowLeftDock)
+	{
+		m_processFlowLeftDock =
+			new QDockWidget(i18n(QStringLiteral("Node Library"), QStringLiteral("节点库")), this);
+		m_processFlowLeftDock->setObjectName(QStringLiteral("ProcessFlowLeftDock"));
+		m_processFlowLeftDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+		applyStyledDockTitleBar(m_processFlowLeftDock);
+		addDockWidget(Qt::LeftDockWidgetArea, m_processFlowLeftDock);
+	}
+	else
+	{
+		m_processFlowLeftDock->setWindowTitle(i18n(QStringLiteral("Node Library"), QStringLiteral("节点库")));
+		if (!qobject_cast<StyledDockTitleBar*>(m_processFlowLeftDock->titleBarWidget()))
+		{
+			applyStyledDockTitleBar(m_processFlowLeftDock);
+		}
+	}
+
+	if (!m_processFlowRightDock)
+	{
+		m_processFlowRightDock =
+			new QDockWidget(i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板")), this);
+		m_processFlowRightDock->setObjectName(QStringLiteral("ProcessFlowRightDock"));
+		m_processFlowRightDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+		applyStyledDockTitleBar(m_processFlowRightDock);
+		addDockWidget(Qt::RightDockWidgetArea, m_processFlowRightDock);
+	}
+	else
+	{
+		m_processFlowRightDock->setWindowTitle(i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板")));
+		if (!qobject_cast<StyledDockTitleBar*>(m_processFlowRightDock->titleBarWidget()))
+		{
+			applyStyledDockTitleBar(m_processFlowRightDock);
+		}
+	}
+
+	if (leftPanel && m_processFlowLeftDock->widget() != leftPanel)
+	{
+		m_processFlowLeftDock->setWidget(leftPanel);
+	}
+	if (rightPanel && m_processFlowRightDock->widget() != rightPanel)
+	{
+		m_processFlowRightDock->setWidget(rightPanel);
+	}
+
+	if (leftPanel)
+	{
+		showSideDock(m_processFlowLeftDock, m_processFlowLeftSavedWidth, 260);
+		resizeDocks({m_processFlowLeftDock}, {m_processFlowLeftSavedWidth}, Qt::Horizontal);
+	}
+	else
+	{
+		hideSideDock(m_processFlowLeftDock, m_processFlowLeftSavedWidth);
+	}
+
+	if (rightPanel)
+	{
+		showSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth, 320);
+		resizeDocks({m_processFlowRightDock}, {m_processFlowRightSavedWidth}, Qt::Horizontal);
+	}
+	else
+	{
+		hideSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth);
+	}
+
+	syncSidePanelToggleUi();
+}
+
+void MainWindow::exitProcessFlowSideUi()
+{
+	if (!m_processFlowSideUiActive)
+	{
+		return;
+	}
+	m_processFlowSideUiActive = false;
+	hideSideDock(m_processFlowLeftDock, m_processFlowLeftSavedWidth);
+	hideSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth);
+	for (int i = 0; i < documentTabCount(); ++i)
+	{
+		if (cloudsim::host::DocumentHost* doc = documentHostAt(i))
+		{
+			doc->showCentralScene3D();
+		}
+	}
+	if (m_propertyDockVisibleBeforeProcessFlow)
+	{
+		showSideDock(m_propertyDock, m_leftDockSavedWidth, kDefaultSideDockWidth);
+		resizeDocks({m_propertyDock}, {m_leftDockSavedWidth}, Qt::Horizontal);
+	}
+	if (m_unitDockVisibleBeforeProcessFlow)
+	{
+		showSideDock(m_unitDock, m_rightDockSavedWidth, kDefaultRightDockWidth);
+		resizeDocks({m_unitDock}, {m_rightDockSavedWidth}, Qt::Horizontal);
+	}
+	syncSidePanelToggleUi();
 }
 
 void MainWindow::afterBackendFollowPropertyEdited(const QString& propertyKey, const QString& valueText)

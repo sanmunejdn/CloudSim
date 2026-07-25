@@ -32,6 +32,7 @@ Cursor 规则镜像：`.cursor/rules/cloudsim-cpp-conventions.mdc`、`cloudsim-a
 | [`task_brep_refactor_optimization/`](task_brep_refactor_optimization/) | B-rep 重构 |
 | [`trajectory_feature_ai.md`](trajectory_feature_ai.md) | AI 轨迹特征 |
 | [`spare_nonrigid_registration.md`](spare_nonrigid_registration.md) | SPARE 非刚性配准 |
+| [`sdf_nonrigid_registration.md`](sdf_nonrigid_registration.md) | SDF/DDF 混合非刚性配准 |
 | [`instant_meshes_build.md`](instant_meshes_build.md) | Instant Meshes 构建 |
 | [`mesh_surface_reconstruction.md`](mesh_surface_reconstruction.md) | 网格曲面重构说明 |
 | [`UI_Redesign_Plan_CN.md`](UI_Redesign_Plan_CN.md) / [`UI_Redesign_Plan.md`](UI_Redesign_Plan.md) | UI 改版计划 |

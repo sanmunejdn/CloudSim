@@ -173,6 +173,42 @@ struct PluginPointCloudSpareParams
 	PluginMeshCreateOptions newObjectOptions{};
 };
 
+enum class PluginSdfSourceKind : int
+{
+	PointCloud = 0,
+	Mesh = 1,
+};
+
+enum class PluginSdfTargetKind : int
+{
+	PointCloud = 0,
+	Mesh = 1,
+};
+
+struct PluginPointCloudSdfParams
+{
+	PluginSdfSourceKind sourceKind = PluginSdfSourceKind::PointCloud;
+	PluginSdfTargetKind targetKind = PluginSdfTargetKind::PointCloud;
+	std::string targetBackendIdUtf8;
+	int fieldMode = 0;		 ///< 0=DDF 1=SDF
+	double fieldVoxelMm = 0.0;
+	int fineDataTerm = 0;	 ///< 0=点-面 1=DDF 2=SDF
+	double sampleRadiusRatio = 0.0;
+	double wSmo = 0.01;
+	double wRot = 1e-4;
+	double wArapCoarse = 500.0;
+	double wArapFine = 200.0;
+	bool useCoarseReg = true;
+	bool useFineReg = true;
+	bool normalizeScale = true;
+	bool rigidPreAlign = false;
+	double voxelPrefilterMm = 0.0;
+	int maxOuterIters = 30;
+	bool applyDeformationToSource = true;
+	bool createNewObject = false;
+	PluginMeshCreateOptions newObjectOptions{};
+};
+
 struct PluginPointCloudTpsControlParams
 {
 	std::vector<std::size_t> controlPointIndices;

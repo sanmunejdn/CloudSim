@@ -24,6 +24,7 @@ class EventHub;
 }
 
 class OsgWidget;
+class QVBoxLayout;
 class BackendDataManager;
 class BackendHierarchyModel;
 class BackendDataBase;
@@ -58,6 +59,13 @@ public:
 	/// 文档内 OsgWidget（构造期可用，勿经 render().widget()）
 	OsgWidget* osgWidget() { return m_osgWidget; }
 	const OsgWidget* osgWidget() const { return m_osgWidget; }
+
+	/// 中央 alternate（流程画布等）；不销毁 OsgWidget
+	void setCentralAlternateWidget(QWidget* widget);
+	void showCentralScene3D();
+	void showCentralAlternate();
+	bool isShowingCentralAlternate() const;
+	QWidget* centralAlternateWidget() const;
 
 	/// 存量 backend 入口（新代码优先 `data()`；勿在 UI 层继续扩散 BackendDataManager 头）
 	BackendDataManager& backend();
@@ -144,7 +152,9 @@ private:
 	std::unique_ptr<BackendHierarchyModel> m_hierarchyModel;
 	BackendFollowReverseIndex m_followReverseIndex;
 	OsgWidgetSceneBridge m_sceneBridge;
+	QVBoxLayout* m_centralLayout = nullptr;
 	OsgWidget* m_osgWidget = nullptr;
+	QWidget* m_centralAlternate = nullptr;
 	QMap<QString, QString> m_backendSourcePath;
 	QMap<QString, QString> m_backendSourceType;
 	QMap<QString, QString> m_backendParentId;

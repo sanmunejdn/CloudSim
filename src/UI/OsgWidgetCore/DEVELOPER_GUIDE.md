@@ -192,9 +192,10 @@ m_stagingGroup（导入预览）
 | `beginMeshSectionPlaneEdit` | 罗盘 `applyUnlitHighlitStateSet`（不参与深度遮挡，始终可见） |
 | `showMeshFittedSurfacePreview` | `m_meshFittedSurfaceOverlayGroup` 上三角 soup，绿色半透明 |
 | `setRawTrajectoryOverlay(..., segmentEndExclusive)` | 每段独立 `LINE_STRIP` + 全点 POINTS；空 segment 列表时单条折线 |
+| `setInstructionPoseAxes` / `setRawTrajectoryOverlayFrames` | 实现于 `Widget/source/OsgWidget.cpp`：可见路点**合并为 1 个 Geode**（`POINTS` 原点 + `LINES` XYZ），勿再为每点建 `MatrixTransform`+`ShapeDrawable` 球；增删指令靠编排层全量 `set*` 重建 |
 | `setReachableWorkspaceOverlay` / `clearReachableWorkspaceOverlay` | 半透明体素方块（可达域）；独立 Geode，勿与轨迹 overlay 混用 |
 
-UI 同步见 RobotWidget §Mesh 轨迹生成（`syncSectionPlanePreview` / `syncBsplineSurfacePreview`）。
+UI 同步见 RobotWidget「路点轴 OSG 绘制」与 §Mesh 轨迹生成（`syncSectionPlanePreview` / `syncBsplineSurfacePreview`）。
 
 **坐标系分工（对象 gizmo 旋转）**：
 

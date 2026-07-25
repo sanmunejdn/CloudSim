@@ -18,6 +18,7 @@ ICON_BASENAMES: list[str] = [
     "send", "settings", "robot_placeholder", "connect", "disconnect",
     "read", "write", "clear_log", "set_active",
     "focus_camera", "wireframe", "screenshot",
+    "close", "dock_float",
 ]
 
 THEMES = {"light": "#424242", "dark": "#E0E0E0"}
@@ -271,6 +272,15 @@ def draw_icon(name: str, size: int, color: str) -> Image.Image:
         draw.ellipse([cx_lens - r_lens, cy_lens - r_lens, cx_lens + r_lens, cy_lens + r_lens], outline=rgb, width=sw)
         # 闪光灯小圆
         draw.ellipse([s(16), s(9.5), s(17.5), s(11)], fill=rgb)
+    elif name == "close":
+        draw.line([(pad, pad), (size - pad, size - pad)], fill=rgb, width=sw)
+        draw.line([(size - pad, pad), (pad, size - pad)], fill=rgb, width=sw)
+    elif name == "dock_float":
+        # 窗体 + 右上角弹出箭头（open_in_new）
+        draw.rounded_rectangle([s(4), s(7), s(15), s(18)], radius=s(1.5), outline=rgb, width=sw)
+        draw.line([(s(12), s(5)), (s(19), s(5))], fill=rgb, width=sw)
+        draw.line([(s(19), s(5)), (s(19), s(12))], fill=rgb, width=sw)
+        draw.line([(s(13), s(11)), (s(19), s(5))], fill=rgb, width=sw)
     else:
         draw.ellipse(box, outline=rgb, width=sw)
 

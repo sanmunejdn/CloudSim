@@ -118,6 +118,8 @@ const QHash<UiIconId, QString>& iconBasenameMap()
 		{UiIconId::FocusCamera, QStringLiteral("focus_camera")},
 		{UiIconId::Wireframe, QStringLiteral("wireframe")},
 		{UiIconId::Screenshot, QStringLiteral("screenshot")},
+		{UiIconId::Close, QStringLiteral("close")},
+		{UiIconId::DockFloat, QStringLiteral("dock_float")},
 	};
 	return map;
 }

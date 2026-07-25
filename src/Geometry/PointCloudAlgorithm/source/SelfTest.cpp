@@ -15,6 +15,7 @@
 #include "RegistrationNonRigid.h"
 #include "RegistrationRigid.h"
 #include "RegistrationSpare.h"
+#include "RegistrationSdf.h"
 #include "Transform.h"
 
 #include <cmath>
@@ -238,6 +239,44 @@ bool runSelfTest(std::vector<std::string>& failures)
 											&spareResult, &spareErr));
 		expectTrue(failures, "spare.deformed", deformed.size() == src.size());
 		expectTrue(failures, "spare.finiteError", std::isfinite(spareResult.meanErrorMm));
+	}
+
+	{
+		std::vector<float> src = makePlanePointCloud(24, 0.0);
+		std::vector<float> tgt;
+		tgt.reserve(src.size());
+		for (std::size_t i = 0; i < src.size(); i += 3U)
+		{
+			const double x = src[i];
+			const double y = src[i + 1U];
+			tgt.push_back(static_cast<float>(x + 0.08 * std::sin(x * 0.25)));
+			tgt.push_back(static_cast<float>(y + 0.08 * std::cos(y * 0.25)));
+			tgt.push_back(src[i + 2U]);
+		}
+		std::vector<float> srcNormals;
+		std::vector<float> tgtNormals;
+		expectTrue(failures, "sdf.normals.src", estimateNormalsPca(src, srcNormals, 8U));
+		expectTrue(failures, "sdf.normals.tgt", estimateNormalsPca(tgt, tgtNormals, 8U));
+		(void)orientNormalsMst(src, srcNormals, 8U, nullptr, nullptr);
+		(void)orientNormalsMst(tgt, tgtNormals, 8U, nullptr, nullptr);
+
+		std::vector<float> deformed;
+		std::vector<float> deformedNormals;
+		SdfRegisterParams sdfParams;
+		sdfParams.maxOuterIters = 8;
+		sdfParams.useCoarseReg = true;
+		sdfParams.useFineReg = true;
+		sdfParams.normalizeScale = true;
+		sdfParams.fieldMode = SdfFieldMode::DdfVector;
+		sdfParams.fineDataTerm = SdfFineDataTerm::PointToPlane;
+		SdfRegisterResult sdfResult;
+		std::string sdfErr;
+		expectTrue(failures, "sdf.ok",
+				   sdfRegisterPointClouds(src, srcNormals, tgt, tgtNormals, deformed, deformedNormals, sdfParams,
+										  &sdfResult, &sdfErr));
+		expectTrue(failures, "sdf.deformed", deformed.size() == src.size());
+		expectTrue(failures, "sdf.finiteError", std::isfinite(sdfResult.meanErrorMm));
+		expectTrue(failures, "sdf.fieldVoxel", sdfResult.fieldVoxelMmUsed > 0.0);
 	}
 
 	return failures.empty();

@@ -16,6 +16,7 @@
 
 class IPluginMainWindowHost;
 class PluginHostContext;
+class QJsonObject;
 
 /// 启动时扫描应用目录 plugins/ 并加载启用插件（编译在 CloudSimHost.dll）
 class CLOUDSIM_HOST_EXPORT PluginManager : public QObject
@@ -34,6 +35,10 @@ public:
 
 	PluginHostContext* hostContext() { return m_hostContext.get(); }
 	const PluginHostContext* hostContext() const { return m_hostContext.get(); }
+
+	/// Widget 侧工程 IO 入口（PluginHostContext 未导出，经此转发）
+	void invokeProjectAboutToSave(const QString& documentId, QJsonObject& root);
+	void invokeProjectLoaded(const QString& documentId, const QJsonObject& root);
 
 private:
 	struct LoadedPlugin

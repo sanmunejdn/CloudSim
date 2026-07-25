@@ -23,6 +23,8 @@
 #include "IRobotService.h"
 #include "MainWindow.h"
 #include "MainWindowRobotHost.h"
+#include "PluginManager.h"
+#include "PluginHostContext.h"
 #include "ProjectPackageIo.h"
 #include "ProjectPackageZip.h"
 #include "RobotInstructionFactory.h"
@@ -126,6 +128,11 @@ void MainWindow::onSaveProject()
 	if (packageMode)
 	{
 		root.insert(QStringLiteral("bundle"), QStringLiteral("zip"));
+	}
+
+	if (m_pluginManager)
+	{
+		m_pluginManager->invokeProjectAboutToSave(doc->documentId(), root);
 	}
 
 	if (m_robotHost)
@@ -435,6 +442,10 @@ void MainWindow::onOpenProjectFile()
 
 	endBackendTreeEventRefreshSuppress();
 	refreshBackendTree();
+	if (m_pluginManager)
+	{
+		m_pluginManager->invokeProjectLoaded(page->documentId(), root);
+	}
 	cloudsim::host::publishProjectLoaded(*page, openPath);
 	if (m_runInfoPage)
 	{

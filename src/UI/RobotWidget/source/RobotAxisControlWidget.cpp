@@ -38,8 +38,8 @@ void RobotAxisControlWidget::setUseChinese(bool chinese)
 	{
 		setReachableWorkspaceBusy(m_reachableWorkspaceBusy);
 		m_reachableWorkspaceCheck->setToolTip(
-			chinese ? QStringLiteral("采样臂关节与 RobotBase 外轴，半透明点显示当前 TCP 可达域")
-					: QStringLiteral("Sample arm + RobotBase axes; translucent points for current TCP workspace"));
+			chinese ? QStringLiteral("采样臂关节；启用的 RobotBase 外轴按行程分层扫满，半透明点显示 TCP 可达域")
+					: QStringLiteral("Sample arm joints; sweep enabled RobotBase axes by travel; show TCP workspace"));
 	}
 	if (m_reachableWorkspaceDensityLabel)
 	{
@@ -198,7 +198,8 @@ void RobotAxisControlWidget::createUI()
 
 	m_reachableWorkspaceCheck = new QCheckBox(this);
 	m_reachableWorkspaceCheck->setText(QStringLiteral("显示可达域"));
-	m_reachableWorkspaceCheck->setToolTip(QStringLiteral("采样臂关节与 RobotBase 外轴，半透明点显示当前 TCP 可达域"));
+	m_reachableWorkspaceCheck->setToolTip(
+		QStringLiteral("采样臂关节；启用的 RobotBase 外轴按行程分层扫满，半透明点显示 TCP 可达域"));
 	connect(m_reachableWorkspaceCheck, &QCheckBox::toggled, this, &RobotAxisControlWidget::reachableWorkspaceToggled);
 	mainLayout->addWidget(m_reachableWorkspaceCheck);
 

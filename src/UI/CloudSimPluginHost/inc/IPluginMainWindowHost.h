@@ -58,6 +58,14 @@ public:
 	virtual QWidget* mainWindowWidget() = 0;
 	virtual QObject* pluginActionParent() = 0;
 	virtual QDockWidget* addPluginDockWidget(const QString& title, QWidget* widget, Qt::DockWidgetArea area) = 0;
+
+	/// 1.17.0+：当前文档中央 alternate / 工艺流程右侧模式
+	virtual void setCentralAlternateWidget(QWidget* widget) = 0;
+	virtual void showCentralScene3D() = 0;
+	virtual void showCentralAlternate() = 0;
+	virtual bool isShowingCentralAlternate() const = 0;
+	virtual void enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel) = 0;
+	virtual void exitProcessFlowSideUi() = 0;
 };
 
 #endif // CLOUDSIMPLUGINHOST_IPLUGINMAINWINDOWHOST_H
