@@ -1,58 +1,60 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Core">
-      <UniqueIdentifier>{2436AF5D-4115-4656-B0D2-7D8256830B81}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Plugin">
-      <UniqueIdentifier>{34745290-CBCE-486D-949D-FE3E63FB7256}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Core">
-      <UniqueIdentifier>{5663AF2E-5310-4099-B64C-E75F91BC45BE}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Plugin">
-      <UniqueIdentifier>{9802FCD7-EA42-4B0B-B5EB-04E08E6DD394}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\PointNetDomainHandler.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PointNetInference.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PointNetPlugin.cpp">
-      <Filter>src\Plugin</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\PointNetDomainHandler.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PointNetInference.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PointNetTypes.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="plugin.json">
-      <Filter>src\Plugin</Filter>
-    </None>
-    <None Include="pointnet_config.json">
-      <Filter>src\Core</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <QtMoc Include="inc\PointNetPlugin.h">
-      <Filter>inc\Plugin</Filter>
-    </QtMoc>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Inference">
+      <UniqueIdentifier>{2E6885FB-CE1B-4310-8406-64F86CE68D4E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Plugin">
+      <UniqueIdentifier>{34745290-CBCE-486D-949D-FE3E63FB7256}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Inference">
+      <UniqueIdentifier>{BFD37551-F936-42A4-9ED8-494D9388DDC2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Plugin">
+      <UniqueIdentifier>{9802FCD7-EA42-4B0B-B5EB-04E08E6DD394}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\PointNetDomainHandler.h">
+      <Filter>inc\Inference</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PointNetInference.h">
+      <Filter>inc\Inference</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PointNetTypes.h">
+      <Filter>inc\Inference</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\PointNetDomainHandler.cpp">
+      <Filter>src\Inference</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PointNetInference.cpp">
+      <Filter>src\Inference</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PointNetPlugin.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="inc\PointNetPlugin.h">
+      <Filter>inc\Plugin</Filter>
+    </QtMoc>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="plugin.json">
+      <Filter>src\Plugin</Filter>
+    </None>
+    <None Include="pointnet_config.json">
+      <Filter>src\Inference</Filter>
+    </None>
+  </ItemGroup>
+</Project>

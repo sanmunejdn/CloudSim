@@ -637,9 +637,7 @@ void writeExternalAxisPlanToInstruction(RobotInstruction::Base& ins, const Robot
 {
 	if (!plan.hasExternalAxisQ)
 	{
-		ins.eraseExtensionProperty(RobotExternal::kExtContextExternalAxisQMm);
-		ins.eraseExtensionProperty(RobotExternal::kExtContextExternalAxisQCsv);
-		ins.eraseExtensionProperty(RobotExternal::kExtContextExternalAxisDir);
+		// 计划无外轴结果时保留指令已有示教/求解值，避免静默擦除
 		return;
 	}
 	const RobotExternal::RobotExternalAxisConfigSet* setPtr = nullptr;
@@ -6004,7 +6002,10 @@ void RobotSimulationController::onSimulationStartTriggered()
 	{
 		m_simulationDock->trajectoryEditPage()->setReadOnly(true);
 	}
-	m_playbackTimer->start();
+	if (m_playbackTimer)
+	{
+		m_playbackTimer->start();
+	}
 	if (m_host->runInfoPage())
 	{
 		m_host->appendRunInfo(m_host->i18n(QStringLiteral("Simulation started."), QStringLiteral("??????????")));
@@ -6075,7 +6076,10 @@ void RobotSimulationController::onRobotSimulationTick()
 {
 	if (!m_programExecutor.isRunning())
 	{
-		m_playbackTimer->stop();
+		if (m_playbackTimer)
+		{
+			m_playbackTimer->stop();
+		}
 		return;
 	}
 	IRobotDocumentHost* doc = m_host ? m_host->document() : nullptr;

@@ -1,33 +1,35 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{92D8387F-9A0C-4F24-8300-06823BE01407}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Core">
-      <UniqueIdentifier>{21C29C24-4F15-484F-98B5-4E6EF88E3A16}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{2377032B-EEDA-4074-A12B-42EE4F39B93E}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{07B90D3B-B8D5-473A-AAA1-762FD11C28AE}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Core">
-      <UniqueIdentifier>{40081599-2ECA-4516-98C8-98D73CCF6FDF}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\RunLogger.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\run_logger_global.h">
-      <Filter>inc\Global</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RunLogger.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{92D8387F-9A0C-4F24-8300-06823BE01407}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Core">
+      <UniqueIdentifier>{21C29C24-4F15-484F-98B5-4E6EF88E3A16}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{2377032B-EEDA-4074-A12B-42EE4F39B93E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{07B90D3B-B8D5-473A-AAA1-762FD11C28AE}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{40081599-2ECA-4516-98C8-98D73CCF6FDF}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\run_logger_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RunLogger.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\RunLogger.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

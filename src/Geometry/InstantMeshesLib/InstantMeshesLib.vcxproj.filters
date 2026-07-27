@@ -1,70 +1,70 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="External">
-      <UniqueIdentifier>{9F43F8D3-776D-4798-B682-7B6E03896DCA}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\IMSdkRoot">
-      <UniqueIdentifier>{465C65C7-8E71-4432-8721-1AA9DC25131D}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\IMSdkRoot\ext">
-      <UniqueIdentifier>{FFBC2BBB-A2A9-42DD-AC55-ACF6E6FC39B4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\IMSdkRoot\ext\rply">
-      <UniqueIdentifier>{53DDDD18-666E-49B2-9340-06235EC48982}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\IMSdkRoot\src">
-      <UniqueIdentifier>{4910FE5D-9E05-4A08-9D8F-A3E85002F375}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="$(IMSdkRoot)\ext\rply\rply.c">
-      <Filter>External\IMSdkRoot\ext\rply</Filter>
-    </ClCompile>
-    <ClCompile Include="$(IMSdkRoot)\src\adjacency.cpp">
-      <Filter>External\IMSdkRoot\src</Filter>
-    </ClCompile>
-    <ClCompile Include="$(IMSdkRoot)\src\batch.cpp">
-      <Filter>External\IMSdkRoot\src</Filter>
-    </ClCompile>
-    <ClCompile Include="$(IMSdkRoot)\src\bvh.cpp">
-      <Filter>External\IMSdkRoot\src</Filter>
-    </ClCompile>
-    <ClCompile Include="$(IMSdkRoot)\src\cleanup.cpp">
-      <Filter>External\IMSdkRoot\src</Filter>
-    </ClCompile>
-    <ClCompile Include="$(IMSdkRoot)\src\dedge.cpp">
-      <Filter>External\IMSdkRoot\src</Filter>
-    </ClCompile>
-    <ClCompile Include="$(IMSdkRoot)\src\extract.cpp">
-      <Filter>External\IMSdkRoot\src</Filter>
-    </ClCompile>
-    <ClCompile Include="$(IMSdkRoot)\src\field.cpp">
-      <Filter>External\IMSdkRoot\src</Filter>
-    </ClCompile>
-    <ClCompile Include="$(IMSdkRoot)\src\hierarchy.cpp">
-      <Filter>External\IMSdkRoot\src</Filter>
-    </ClCompile>
-    <ClCompile Include="$(IMSdkRoot)\src\meshio.cpp">
-      <Filter>External\IMSdkRoot\src</Filter>
-    </ClCompile>
-    <ClCompile Include="$(IMSdkRoot)\src\meshstats.cpp">
-      <Filter>External\IMSdkRoot\src</Filter>
-    </ClCompile>
-    <ClCompile Include="$(IMSdkRoot)\src\normal.cpp">
-      <Filter>External\IMSdkRoot\src</Filter>
-    </ClCompile>
-    <ClCompile Include="$(IMSdkRoot)\src\reorder.cpp">
-      <Filter>External\IMSdkRoot\src</Filter>
-    </ClCompile>
-    <ClCompile Include="$(IMSdkRoot)\src\serializer.cpp">
-      <Filter>External\IMSdkRoot\src</Filter>
-    </ClCompile>
-    <ClCompile Include="$(IMSdkRoot)\src\smoothcurve.cpp">
-      <Filter>External\IMSdkRoot\src</Filter>
-    </ClCompile>
-    <ClCompile Include="$(IMSdkRoot)\src\subdivide.cpp">
-      <Filter>External\IMSdkRoot\src</Filter>
-    </ClCompile>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="External">
+      <UniqueIdentifier>{9F43F8D3-776D-4798-B682-7B6E03896DCA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\IMSdkRoot">
+      <UniqueIdentifier>{465C65C7-8E71-4432-8721-1AA9DC25131D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\IMSdkRoot\ext">
+      <UniqueIdentifier>{FFBC2BBB-A2A9-42DD-AC55-ACF6E6FC39B4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\IMSdkRoot\ext\rply">
+      <UniqueIdentifier>{53DDDD18-666E-49B2-9340-06235EC48982}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\IMSdkRoot\src">
+      <UniqueIdentifier>{4910FE5D-9E05-4A08-9D8F-A3E85002F375}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(IMSdkRoot)\ext\rply\rply.c">
+      <Filter>External\IMSdkRoot\ext\rply</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IMSdkRoot)\src\adjacency.cpp">
+      <Filter>External\IMSdkRoot\src</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IMSdkRoot)\src\batch.cpp">
+      <Filter>External\IMSdkRoot\src</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IMSdkRoot)\src\bvh.cpp">
+      <Filter>External\IMSdkRoot\src</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IMSdkRoot)\src\cleanup.cpp">
+      <Filter>External\IMSdkRoot\src</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IMSdkRoot)\src\dedge.cpp">
+      <Filter>External\IMSdkRoot\src</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IMSdkRoot)\src\extract.cpp">
+      <Filter>External\IMSdkRoot\src</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IMSdkRoot)\src\field.cpp">
+      <Filter>External\IMSdkRoot\src</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IMSdkRoot)\src\hierarchy.cpp">
+      <Filter>External\IMSdkRoot\src</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IMSdkRoot)\src\meshio.cpp">
+      <Filter>External\IMSdkRoot\src</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IMSdkRoot)\src\meshstats.cpp">
+      <Filter>External\IMSdkRoot\src</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IMSdkRoot)\src\normal.cpp">
+      <Filter>External\IMSdkRoot\src</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IMSdkRoot)\src\reorder.cpp">
+      <Filter>External\IMSdkRoot\src</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IMSdkRoot)\src\serializer.cpp">
+      <Filter>External\IMSdkRoot\src</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IMSdkRoot)\src\smoothcurve.cpp">
+      <Filter>External\IMSdkRoot\src</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IMSdkRoot)\src\subdivide.cpp">
+      <Filter>External\IMSdkRoot\src</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

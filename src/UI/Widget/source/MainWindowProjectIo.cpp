@@ -23,6 +23,7 @@
 #include "IRenderView.h"
 #include "IRobotService.h"
 #include "MainWindow.h"
+#include "RunLogger.h"
 #include "MainWindowRobotHost.h"
 #include "PluginManager.h"
 #include "PluginHostContext.h"
@@ -414,6 +415,7 @@ void MainWindow::onOpenProjectFile()
 		}
 		catch (...)
 		{
+			RunLogger::warn("project open: robotCollision JSON parse/apply failed; settings left default");
 		}
 	}
 

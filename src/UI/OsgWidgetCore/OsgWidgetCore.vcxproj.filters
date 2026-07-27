@@ -1,132 +1,134 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{5AE06231-8059-4341-A155-996979CD7F94}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Gizmo">
-      <UniqueIdentifier>{99EBABD1-F2DE-4E92-B990-FB161FF7862D}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{312091A5-2C75-4126-B100-6CE276B1399F}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Pick">
-      <UniqueIdentifier>{647BC8F6-44D0-4F6F-9596-89D964134DA3}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Scene">
-      <UniqueIdentifier>{339BBE31-F0E0-49E5-9434-FED20F404D31}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{EAD397F9-204B-4BF8-A4EA-2B3E113181D9}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Gizmo">
-      <UniqueIdentifier>{36CFC10A-143F-451B-9A7B-423115D746CD}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Global">
-      <UniqueIdentifier>{C8B26254-7AEF-4E75-83EE-2C529A9B868E}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Pick">
-      <UniqueIdentifier>{84B6E8C1-71B4-439B-A448-30B2962BF2A0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Scene">
-      <UniqueIdentifier>{2B3C81D3-7B6D-43C0-915F-A6EDFBAC7D35}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\BackendPickIndexRegistry.cpp">
-      <Filter>src\Pick</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendVisualBindingIndex.cpp">
-      <Filter>src\Pick</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BrepPickIndex.cpp">
-      <Filter>src\Pick</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshTopologyIndex.cpp">
-      <Filter>src\Pick</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ObjectGizmoFrame.cpp">
-      <Filter>src\Gizmo</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgCompassGeometry.cpp">
-      <Filter>src\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgScene.cpp">
-      <Filter>src\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgSceneBrepPick.cpp">
-      <Filter>src\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgSceneCamera.cpp">
-      <Filter>src\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgSceneGizmo.cpp">
-      <Filter>src\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgSceneHierarchy.cpp">
-      <Filter>src\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgSceneMath.cpp">
-      <Filter>src\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgSceneNavigation.cpp">
-      <Filter>src\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgScenePick.cpp">
-      <Filter>src\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgSceneSync.cpp">
-      <Filter>src\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgSceneViewCube.cpp">
-      <Filter>src\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="source\OsgSectionPlaneGeometry.cpp">
-      <Filter>src\Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="source\pch.cpp">
-      <Filter>src\Global</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PickSpatialIndex.cpp">
-      <Filter>src\Pick</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\BackendPickIndexRegistry.h">
-      <Filter>inc\Pick</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendVisualBindingIndex.h">
-      <Filter>inc\Pick</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BrepPickIndex.h">
-      <Filter>inc\Pick</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MeshTopologyIndex.h">
-      <Filter>inc\Pick</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ObjectGizmoFrame.h">
-      <Filter>inc\Gizmo</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\OsgCompassGeometry.h">
-      <Filter>inc\Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\OsgCompassRender.h">
-      <Filter>inc\Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\OsgScene.h">
-      <Filter>inc\Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\OsgSectionPlaneGeometry.h">
-      <Filter>inc\Scene</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\osgwidgetcore_global.h">
-      <Filter>inc\Global</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PickSpatialIndex.h">
-      <Filter>inc\Pick</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PickTypes.h">
-      <Filter>inc\Pick</Filter>
-    </ClInclude>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{5AE06231-8059-4341-A155-996979CD7F94}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Gizmo">
+      <UniqueIdentifier>{99EBABD1-F2DE-4E92-B990-FB161FF7862D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{312091A5-2C75-4126-B100-6CE276B1399F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Pick">
+      <UniqueIdentifier>{647BC8F6-44D0-4F6F-9596-89D964134DA3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Scene">
+      <UniqueIdentifier>{339BBE31-F0E0-49E5-9434-FED20F404D31}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{EAD397F9-204B-4BF8-A4EA-2B3E113181D9}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Gizmo">
+      <UniqueIdentifier>{36CFC10A-143F-451B-9A7B-423115D746CD}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Global">
+      <UniqueIdentifier>{C8B26254-7AEF-4E75-83EE-2C529A9B868E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Pick">
+      <UniqueIdentifier>{84B6E8C1-71B4-439B-A448-30B2962BF2A0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Scene">
+      <UniqueIdentifier>{2B3C81D3-7B6D-43C0-915F-A6EDFBAC7D35}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\BackendPickIndexRegistry.h">
+      <Filter>inc\Pick</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendVisualBindingIndex.h">
+      <Filter>inc\Pick</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BrepPickIndex.h">
+      <Filter>inc\Pick</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshTopologyIndex.h">
+      <Filter>inc\Pick</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ObjectGizmoFrame.h">
+      <Filter>inc\Gizmo</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgCompassGeometry.h">
+      <Filter>inc\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgCompassRender.h">
+      <Filter>inc\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgScene.h">
+      <Filter>inc\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\OsgSectionPlaneGeometry.h">
+      <Filter>inc\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\osgwidgetcore_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PickSpatialIndex.h">
+      <Filter>inc\Pick</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PickTypes.h">
+      <Filter>inc\Pick</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\BackendPickIndexRegistry.cpp">
+      <Filter>src\Pick</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendVisualBindingIndex.cpp">
+      <Filter>src\Pick</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BrepPickIndex.cpp">
+      <Filter>src\Pick</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshTopologyIndex.cpp">
+      <Filter>src\Pick</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ObjectGizmoFrame.cpp">
+      <Filter>src\Gizmo</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgCompassGeometry.cpp">
+      <Filter>src\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgScene.cpp">
+      <Filter>src\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneBrepPick.cpp">
+      <Filter>src\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneCamera.cpp">
+      <Filter>src\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneGizmo.cpp">
+      <Filter>src\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneHierarchy.cpp">
+      <Filter>src\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneMath.cpp">
+      <Filter>src\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneNavigation.cpp">
+      <Filter>src\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgScenePick.cpp">
+      <Filter>src\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneSync.cpp">
+      <Filter>src\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSceneViewCube.cpp">
+      <Filter>src\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OsgSectionPlaneGeometry.cpp">
+      <Filter>src\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pch.cpp">
+      <Filter>src\Global</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PickSpatialIndex.cpp">
+      <Filter>src\Pick</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

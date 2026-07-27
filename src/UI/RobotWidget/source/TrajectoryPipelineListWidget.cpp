@@ -14,6 +14,7 @@
 #include <QMimeData>
 #include <QSignalBlocker>
 #include <QSizePolicy>
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -63,7 +64,17 @@ std::vector<RobotInstruction::TrajectoryOpDescriptor> TrajectoryPipelineListWidg
 int TrajectoryPipelineListWidget::selectedOpIndex() const
 {
 	const QListWidgetItem* item = currentItem();
-	return item ? row(item) : -1;
+	if (!item)
+	{
+		return -1;
+	}
+	const int idx = row(item);
+	// 以 m_ops 为界，避免视觉行失步后越界
+	if (idx < 0 || idx >= static_cast<int>(m_ops.size()))
+	{
+		return -1;
+	}
+	return idx;
 }
 
 RobotInstruction::TrajectoryOpDescriptor TrajectoryPipelineListWidget::selectedOp() const
@@ -141,12 +152,13 @@ void TrajectoryPipelineListWidget::setDefaultOpFactory(DefaultOpFactory factory)
 
 void TrajectoryPipelineListWidget::dragEnterEvent(QDragEnterEvent* event)
 {
+	// 只接受自有 MIME，避免 Qt 默认列表拖放造出幽灵行
 	if (event->mimeData() && event->mimeData()->hasFormat(kMimeType))
 	{
 		event->acceptProposedAction();
 		return;
 	}
-	QListWidget::dragEnterEvent(event);
+	event->ignore();
 }
 
 void TrajectoryPipelineListWidget::dragMoveEvent(QDragMoveEvent* event)
@@ -156,79 +168,90 @@ void TrajectoryPipelineListWidget::dragMoveEvent(QDragMoveEvent* event)
 		event->acceptProposedAction();
 		return;
 	}
-	QListWidget::dragMoveEvent(event);
+	event->ignore();
 }
 
 void TrajectoryPipelineListWidget::dropEvent(QDropEvent* event)
 {
-	if (event->mimeData() && event->mimeData()->hasFormat(kMimeType))
+	if (!event->mimeData() || !event->mimeData()->hasFormat(kMimeType))
 	{
-		const QByteArray raw = event->mimeData()->data(kMimeType);
-		if (raw.size() >= static_cast<int>(sizeof(int) * 2))
-		{
-			int srcRow = -1;
-			std::memcpy(&srcRow, raw.constData() + sizeof(int), sizeof(int));
-			if (srcRow >= 0 && srcRow < static_cast<int>(m_ops.size()))
-			{
-				int insertRow = count();
-				if (QListWidgetItem* target = itemAt(event->pos()))
-				{
-					insertRow = row(target);
-				}
-				if (insertRow > srcRow)
-				{
-					--insertRow;
-				}
-				if (insertRow != srcRow)
-				{
-					RobotInstruction::TrajectoryOpDescriptor moved = m_ops[static_cast<size_t>(srcRow)];
-					m_ops.erase(m_ops.begin() + srcRow);
-					const int clamped = std::max(0, std::min(insertRow, static_cast<int>(m_ops.size())));
-					m_ops.insert(m_ops.begin() + clamped, moved);
-					{
-						QSignalBlocker blocker(this);
-						rebuildItems();
-						setCurrentRow(clamped);
-					}
-					emit selectedOpChanged(selectedOpIndex());
-					emit opsChanged();
-					event->acceptProposedAction();
-					return;
-				}
-			}
-		}
-		RobotInstruction::TrajectoryOpDescriptor op{};
-		if (raw.size() >= static_cast<int>(sizeof(int)))
-		{
-			int kindInt = 0;
-			std::memcpy(&kindInt, raw.constData(), sizeof(int));
-			const RobotInstruction::TrajectoryOpKind kind = kindFromInt(kindInt);
-			if (m_defaultOpFactory)
-			{
-				op = m_defaultOpFactory(kind);
-			}
-			else
-			{
-				op = opFromMime(event->mimeData());
-			}
-		}
-		int insertRow = count();
-		if (QListWidgetItem* target = itemAt(event->pos()))
+		event->ignore();
+		return;
+	}
+
+	const QByteArray raw = event->mimeData()->data(kMimeType);
+	const int opCount = static_cast<int>(m_ops.size());
+
+	auto dropInsertRow = [this, opCount](QDropEvent* ev) -> int {
+		int insertRow = opCount;
+		if (QListWidgetItem* target = itemAt(ev->pos()))
 		{
 			insertRow = row(target);
 		}
-		m_ops.insert(m_ops.begin() + insertRow, op);
+		return std::max(0, std::min(insertRow, opCount));
+	};
+
+	// 列表内重排：payload = kind + srcRow
+	if (raw.size() >= static_cast<int>(sizeof(int) * 2))
+	{
+		int srcRow = -1;
+		std::memcpy(&srcRow, raw.constData() + sizeof(int), sizeof(int));
+		if (srcRow >= 0 && srcRow < opCount)
 		{
-			QSignalBlocker blocker(this);
-			rebuildItems();
-			setCurrentRow(insertRow);
+			int insertRow = dropInsertRow(event);
+			if (insertRow > srcRow)
+			{
+				--insertRow;
+			}
+			if (insertRow == srcRow)
+			{
+				event->acceptProposedAction();
+				return;
+			}
+			RobotInstruction::TrajectoryOpDescriptor moved = m_ops[static_cast<size_t>(srcRow)];
+			m_ops.erase(m_ops.begin() + srcRow);
+			const int clamped = std::max(0, std::min(insertRow, static_cast<int>(m_ops.size())));
+			m_ops.insert(m_ops.begin() + clamped, moved);
+			{
+				QSignalBlocker blocker(this);
+				rebuildItems();
+				setCurrentRow(clamped);
+			}
+			emit selectedOpChanged(selectedOpIndex());
+			emit opsChanged();
+			event->acceptProposedAction();
+			return;
 		}
-		emit selectedOpChanged(selectedOpIndex());
-		emit opsChanged();
-		event->acceptProposedAction();
+	}
+
+	// 调色板插入：仅 kind，无 srcRow
+	if (raw.size() < static_cast<int>(sizeof(int)))
+	{
+		event->ignore();
 		return;
 	}
-	event->ignore();
+	RobotInstruction::TrajectoryOpDescriptor op{};
+	int kindInt = 0;
+	std::memcpy(&kindInt, raw.constData(), sizeof(int));
+	const RobotInstruction::TrajectoryOpKind kind = kindFromInt(kindInt);
+	if (m_defaultOpFactory)
+	{
+		op = m_defaultOpFactory(kind);
+	}
+	else
+	{
+		op = opFromMime(event->mimeData());
+	}
+	const int insertRow = dropInsertRow(event);
+	m_ops.insert(m_ops.begin() + insertRow, op);
+	{
+		QSignalBlocker blocker(this);
+		rebuildItems();
+		setCurrentRow(insertRow);
+	}
+	emit selectedOpChanged(selectedOpIndex());
+	emit opsChanged();
+	event->acceptProposedAction();
 }
 
 void TrajectoryPipelineListWidget::startDrag(Qt::DropActions supportedActions)

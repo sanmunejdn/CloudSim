@@ -1,166 +1,168 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{CFDEC3FE-C176-45CB-9C07-7F552C7D5296}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Plugin">
-      <UniqueIdentifier>{0DA8973F-10B9-4F25-83B9-4472BAAD9E65}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\sim">
-      <UniqueIdentifier>{138B2B9A-7B03-4AFA-8AB3-F8FF3C717F5E}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\SimController">
-      <UniqueIdentifier>{3AB0E8F3-2BB0-4718-B7B9-F568879511AF}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\UI">
-      <UniqueIdentifier>{57D1E23D-E7CA-4172-AD25-FD7830A78557}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{85D1686A-E93A-4E0A-9A01-304C567EB8D0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Plugin">
-      <UniqueIdentifier>{D4AAE69F-F99A-42E0-AE4B-41999307A5DC}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\sim">
-      <UniqueIdentifier>{BF3C96D0-B096-4D88-BCAA-A9F76536CC84}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\SimController">
-      <UniqueIdentifier>{B52A76DC-2D8E-4230-8705-411F8A873559}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\UI">
-      <UniqueIdentifier>{64C8A168-BA3C-4A64-9CFB-82DB33BF324F}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\ProcessFlowAiBridge.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ProcessFlowCanvasWidget.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ProcessFlowGanttWidget.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ProcessFlowJobSetPanel.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ProcessFlowNodeProps.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ProcessFlowPageWidget.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ProcessFlowPaletteWidget.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ProcessFlowPlugin.cpp">
-      <Filter>src\Plugin</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ProcessFlowPropertyPanel.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ProcessFlowReportPanel.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ProcessFlowResultDialog.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ProcessFlowSimController.cpp">
-      <Filter>src\SimController</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ProcessFlowSimSideWidget.cpp">
-      <Filter>src\SimController</Filter>
-    </ClCompile>
-    <ClCompile Include="source\sim\DesEngine.cpp">
-      <Filter>src\sim</Filter>
-    </ClCompile>
-    <ClCompile Include="source\sim\DispatchPolicies.cpp">
-      <Filter>src\sim</Filter>
-    </ClCompile>
-    <ClCompile Include="source\sim\SimModelBuilder.cpp">
-      <Filter>src\sim</Filter>
-    </ClCompile>
-    <ClCompile Include="source\sim\SimStatistics.cpp">
-      <Filter>src\sim</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\ProcessFlowAiBridge.h">
-      <Filter>inc\UI</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\sim\DesEngine.h">
-      <Filter>inc\sim</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\sim\DispatchPolicies.h">
-      <Filter>inc\sim</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\sim\IDispatchPolicy.h">
-      <Filter>inc\sim</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\sim\IScheduler.h">
-      <Filter>inc\sim</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\sim\IStationExecutor.h">
-      <Filter>inc\sim</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\sim\JobSet.h">
-      <Filter>inc\sim</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\sim\OperationTrace.h">
-      <Filter>inc\sim</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\sim\PlantGraph.h">
-      <Filter>inc\sim</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\sim\SimModelBuilder.h">
-      <Filter>inc\sim</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\sim\SimRunConfig.h">
-      <Filter>inc\sim</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\sim\SimStatistics.h">
-      <Filter>inc\sim</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="plugin.json">
-      <Filter>src\Plugin</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <QtMoc Include="inc\ProcessFlowCanvasWidget.h">
-      <Filter>inc\UI</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\ProcessFlowGanttWidget.h">
-      <Filter>inc\UI</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\ProcessFlowJobSetPanel.h">
-      <Filter>inc\UI</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\ProcessFlowPageWidget.h">
-      <Filter>inc\UI</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\ProcessFlowPaletteWidget.h">
-      <Filter>inc\UI</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\ProcessFlowPlugin.h">
-      <Filter>inc\Plugin</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\ProcessFlowPropertyPanel.h">
-      <Filter>inc\UI</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\ProcessFlowReportPanel.h">
-      <Filter>inc\UI</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\ProcessFlowResultDialog.h">
-      <Filter>inc\UI</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\ProcessFlowSimController.h">
-      <Filter>inc\SimController</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\ProcessFlowSimSideWidget.h">
-      <Filter>inc\SimController</Filter>
-    </QtMoc>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{CFDEC3FE-C176-45CB-9C07-7F552C7D5296}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Plugin">
+      <UniqueIdentifier>{0DA8973F-10B9-4F25-83B9-4472BAAD9E65}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\SimController">
+      <UniqueIdentifier>{3AB0E8F3-2BB0-4718-B7B9-F568879511AF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\UI">
+      <UniqueIdentifier>{57D1E23D-E7CA-4172-AD25-FD7830A78557}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\sim">
+      <UniqueIdentifier>{138B2B9A-7B03-4AFA-8AB3-F8FF3C717F5E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{85D1686A-E93A-4E0A-9A01-304C567EB8D0}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Plugin">
+      <UniqueIdentifier>{D4AAE69F-F99A-42E0-AE4B-41999307A5DC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\SimController">
+      <UniqueIdentifier>{B52A76DC-2D8E-4230-8705-411F8A873559}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\UI">
+      <UniqueIdentifier>{64C8A168-BA3C-4A64-9CFB-82DB33BF324F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\sim">
+      <UniqueIdentifier>{BF3C96D0-B096-4D88-BCAA-A9F76536CC84}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\ProcessFlowAiBridge.h">
+      <Filter>inc\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sim\DesEngine.h">
+      <Filter>inc\sim</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sim\DispatchPolicies.h">
+      <Filter>inc\sim</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sim\IDispatchPolicy.h">
+      <Filter>inc\sim</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sim\IScheduler.h">
+      <Filter>inc\sim</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sim\IStationExecutor.h">
+      <Filter>inc\sim</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sim\JobSet.h">
+      <Filter>inc\sim</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sim\OperationTrace.h">
+      <Filter>inc\sim</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sim\PlantGraph.h">
+      <Filter>inc\sim</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sim\SimModelBuilder.h">
+      <Filter>inc\sim</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sim\SimRunConfig.h">
+      <Filter>inc\sim</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\sim\SimStatistics.h">
+      <Filter>inc\sim</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\ProcessFlowAiBridge.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProcessFlowCanvasWidget.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProcessFlowGanttWidget.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProcessFlowJobSetPanel.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProcessFlowNodeProps.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProcessFlowPageWidget.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProcessFlowPaletteWidget.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProcessFlowPlugin.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProcessFlowPropertyPanel.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProcessFlowReportPanel.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProcessFlowResultDialog.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProcessFlowSimController.cpp">
+      <Filter>src\SimController</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ProcessFlowSimSideWidget.cpp">
+      <Filter>src\SimController</Filter>
+    </ClCompile>
+    <ClCompile Include="source\sim\DesEngine.cpp">
+      <Filter>src\sim</Filter>
+    </ClCompile>
+    <ClCompile Include="source\sim\DispatchPolicies.cpp">
+      <Filter>src\sim</Filter>
+    </ClCompile>
+    <ClCompile Include="source\sim\SimModelBuilder.cpp">
+      <Filter>src\sim</Filter>
+    </ClCompile>
+    <ClCompile Include="source\sim\SimStatistics.cpp">
+      <Filter>src\sim</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="inc\ProcessFlowCanvasWidget.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\ProcessFlowGanttWidget.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\ProcessFlowJobSetPanel.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\ProcessFlowPageWidget.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\ProcessFlowPaletteWidget.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\ProcessFlowPlugin.h">
+      <Filter>inc\Plugin</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\ProcessFlowPropertyPanel.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\ProcessFlowReportPanel.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\ProcessFlowResultDialog.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\ProcessFlowSimController.h">
+      <Filter>inc\SimController</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\ProcessFlowSimSideWidget.h">
+      <Filter>inc\SimController</Filter>
+    </QtMoc>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="plugin.json">
+      <Filter>src\Plugin</Filter>
+    </None>
+  </ItemGroup>
+</Project>

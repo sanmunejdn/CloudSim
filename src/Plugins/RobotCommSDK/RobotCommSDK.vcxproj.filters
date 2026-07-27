@@ -1,42 +1,44 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{62F5DE80-DA3E-4D9D-8C85-75DCA8FD61A3}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Client">
-      <UniqueIdentifier>{0C7943E8-2035-489D-9004-8DFFFD7300A7}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{1242453A-C830-4890-A64B-56BD6D5ECDDB}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{BC3D8ED9-3B6C-4762-80F0-7ED501B42164}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Client">
-      <UniqueIdentifier>{BE53B737-6C3A-4FD2-ADF8-A0CC957EDA30}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\RobotCommSdkExports.cpp">
-      <Filter>src\Client</Filter>
-    </ClCompile>
-    <ClCompile Include="source\RobotMotionClientImpl.cpp">
-      <Filter>src\Client</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\IRobotMotionClient.h">
-      <Filter>inc\Client</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\robot_comm_sdk_global.h">
-      <Filter>inc\Global</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotCommTypes.h">
-      <Filter>inc\Client</Filter>
-    </ClInclude>
-    <ClInclude Include="source\RobotMotionClientImpl.h">
-      <Filter>inc\Client</Filter>
-    </ClInclude>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{62F5DE80-DA3E-4D9D-8C85-75DCA8FD61A3}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Client">
+      <UniqueIdentifier>{0C7943E8-2035-489D-9004-8DFFFD7300A7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{1242453A-C830-4890-A64B-56BD6D5ECDDB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{BC3D8ED9-3B6C-4762-80F0-7ED501B42164}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Client">
+      <UniqueIdentifier>{BE53B737-6C3A-4FD2-ADF8-A0CC957EDA30}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\IRobotMotionClient.h">
+      <Filter>inc\Client</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\robot_comm_sdk_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\RobotCommTypes.h">
+      <Filter>inc\Client</Filter>
+    </ClInclude>
+    <ClInclude Include="source\RobotMotionClientImpl.h">
+      <Filter>inc\Client</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\RobotCommSdkExports.cpp">
+      <Filter>src\Client</Filter>
+    </ClCompile>
+    <ClCompile Include="source\RobotMotionClientImpl.cpp">
+      <Filter>src\Client</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

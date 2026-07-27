@@ -14,6 +14,8 @@
 #include "RobotPerLinkKinematicsSliceOsg.h"
 #include "UrdfRobotLoader.h"
 
+#include "RunLogger.h"
+
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -208,6 +210,7 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 		}
 		catch (...)
 		{
+			RunLogger::warn("kinematics restore: coordinateFrames JSON parse failed; frames skipped");
 		}
 	}
 	else
@@ -246,6 +249,7 @@ bool restorePerLinkRobotKinematicsFromProjectJson(IRobotUrdfImportContext& ctx, 
 		}
 		catch (...)
 		{
+			RunLogger::warn("kinematics restore: externalAxes JSON parse failed; ext-axis config skipped");
 		}
 	}
 

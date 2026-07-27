@@ -11,6 +11,6 @@ alwaysApply: true
 - **技术栈**: C++、**Qt 5.14**（`msvc2017_64`）、**OpenSceneGraph**、**CGAL**（点云/PLY 等）、**nlohmann::json**（属性与工程序列化）。
 - **目录习惯**: 各子工程内 **`inc/`** + **`source/`**；跨模块引用以 vcxproj `AdditionalIncludeDirectories` / `ProjectReference` 为准（路径相对各 `.vcxproj`，跨域示例见 `DIRECTORY_LAYOUT.md`）。
 - **源码格式**: UTF-8 **with BOM** + **CRLF**；头卫 `工程名_文件名_H`（不用 `#pragma once`）；文件头 `/// @file` / `/// @brief`；格式化用仓库根 `.clang-format`。权威说明：`docs/SOURCE_CONVENTIONS.md`。
-- **修改代码时**: 新增源文件需在对应 **`.vcxproj` / `.vcxproj.filters`** 中登记（日常可用 `scripts/generate_vcxproj_filters.py --only-missing` 补缺）；新增跨 DLL 符号需正确使用该模块的 **`*_LIB` 预处理器定义** 与导出宏（见各 `*_global.h`）。
+- **修改代码时**: 新增源文件须同时写入对应 **`.vcxproj`**，并立刻执行 `python scripts/generate_vcxproj_filters.py --sync --project <工程名>` 自动创建/补齐功能筛选器（规则见 `.cursor/rules/cloudsim-vcxproj-filters.mdc`）。新增跨 DLL 符号需正确使用该模块的 **`*_LIB` 预处理器定义** 与导出宏（见各 `*_global.h`）。
 - **机器人仿真**: 编排与 Dock UI 在 `RobotWidget`；`MainWindowRobotHost::DocumentHost` 必须转发 `robotBackendManagerForKinematics()`。运动指令 `context.currentJointRadCsv` 为预览/Run 关节真源；`prepareMotionInstructionForPlanning` 不得用 FK 覆盖指令 `pose`。详见 `RobotWidget/DEVELOPER_GUIDE.md`、`ARCHITECTURE_SUMMARY.md` §6.4。
 - **Host 收口迁移**: 新代码优先 `doc->data()` / `robot()` / `render()`；禁止新增 `BackendDataManager` 头扩散与 `Host/osg` 平行副本。Sprint A–H 边界收口已闭环（公开契约去 osg、FK 存储 Mat4、`backend()` 白名单策略）。残余：`backend()` 彻底去掉、Controller→Host、IRenderView 3.3–3.4。详见 `ARCHITECTURE_SUMMARY.md` §11、`docs/架构边界收口/TODO_架构边界收口.md`。

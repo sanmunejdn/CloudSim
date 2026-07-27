@@ -159,6 +159,11 @@ void applyLastIkExternalAxisToPlan(RobotInstruction::PlanResult& out)
 	}
 }
 
+bool coupledExternalIkRequired()
+{
+	return g_activeExternalAxes && RobotExternal::hasEnabledExternalAxes(*g_activeExternalAxes);
+}
+
 bool solveLinearSystem(std::vector<double>& a, std::vector<double>& b, int n)
 {
 	if (n <= 0 || static_cast<int>(a.size()) != n * n || static_cast<int>(b.size()) != n)
@@ -1936,7 +1941,8 @@ public:
 				}
 			}
 		}
-		if (targetQ.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis && !cmd.hasEulerProperty())
+		if (targetQ.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis && !cmd.hasEulerProperty() &&
+			!coupledExternalIkRequired())
 		{
 			targetQ = solveTargetByIkIfPossible(cmd, *m_dhRows, &ikFailReason);
 			if (!targetQ.empty())
@@ -1952,7 +1958,7 @@ public:
 				solvePath = "urdf_late";
 			}
 		}
-		if (targetQ.empty() && !constrainAxis && !cmd.hasEulerProperty())
+		if (targetQ.empty() && !constrainAxis && !cmd.hasEulerProperty() && !coupledExternalIkRequired())
 		{
 			targetQ = solveTargetByLegacyJointDelta(cmd);
 			if (!targetQ.empty())
@@ -2080,7 +2086,8 @@ public:
 				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
 			}
 		}
-		if (qTarget.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis && !cmd.hasEulerProperty())
+		if (qTarget.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis && !cmd.hasEulerProperty() &&
+			!coupledExternalIkRequired())
 		{
 			qTarget = solveTargetByIkIfPossible(cmd, *m_dhRows, &ikFailReason);
 		}
@@ -2095,7 +2102,7 @@ public:
 				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
 			}
 		}
-		if (qTarget.empty() && !constrainAxis && !cmd.hasEulerProperty())
+		if (qTarget.empty() && !constrainAxis && !cmd.hasEulerProperty() && !coupledExternalIkRequired())
 		{
 			qTarget = solveTargetByLegacyJointDelta(cmd);
 		}
@@ -2365,7 +2372,8 @@ public:
 				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
 			}
 		}
-		if (qTarget.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis && !cmd.hasEulerProperty())
+		if (qTarget.empty() && m_dhRows && !m_dhRows->empty() && !constrainAxis && !cmd.hasEulerProperty() &&
+			!coupledExternalIkRequired())
 		{
 			qTarget = solveTargetByIkIfPossible(cmd, *m_dhRows, &ikFailReason);
 		}
@@ -2380,7 +2388,7 @@ public:
 				qTarget = solveTargetByUrdfNumericalIkIfPossible(cmd, &ikFailReason);
 			}
 		}
-		if (qTarget.empty() && !constrainAxis && !cmd.hasEulerProperty())
+		if (qTarget.empty() && !constrainAxis && !cmd.hasEulerProperty() && !coupledExternalIkRequired())
 		{
 			qTarget = solveTargetByLegacyJointDelta(cmd);
 		}

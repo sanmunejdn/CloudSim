@@ -3,76 +3,90 @@
   <ItemGroup>
     <Filter Include="inc">
       <UniqueIdentifier>{FB407036-502A-4EE6-9250-11DB3E7E4A3D}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="inc\Core">
-      <UniqueIdentifier>{8EB196BB-2F1D-4937-803B-28E4E6D21A21}</UniqueIdentifier>
+    <Filter Include="inc\Events">
+      <UniqueIdentifier>{58AA079A-B69E-4401-9A96-4F69F7344F0D}</UniqueIdentifier>
     </Filter>
     <Filter Include="inc\Global">
       <UniqueIdentifier>{7B88C4CA-A089-4D44-BF34-B871E9B49505}</UniqueIdentifier>
     </Filter>
+    <Filter Include="inc\Interfaces">
+      <UniqueIdentifier>{E7D19E80-C126-4866-87D9-3481977F6746}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Types">
+      <UniqueIdentifier>{175A34DD-83E2-4D2C-9FEC-83B723641A4C}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src">
       <UniqueIdentifier>{E8224A70-039F-4F2C-8FB4-1C424E684A97}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="src\Core">
-      <UniqueIdentifier>{06F0399A-DABF-458F-BE67-CCFB5AACA2BB}</UniqueIdentifier>
+    <Filter Include="src\Events">
+      <UniqueIdentifier>{994E0B8D-9005-49DA-89BD-64534758EDC7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Interfaces">
+      <UniqueIdentifier>{AEBBF5BE-A880-428B-AF19-FD5939BFECBE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Types">
+      <UniqueIdentifier>{F1DD51FB-08E6-4FCB-A5D7-46AAB85C59E5}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\CloudSimCoreVersion.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\EventHub.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ICloudSimContext.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\IDocumentScope.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\NullCoreServices.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
+    <ClInclude Include="inc\BackendTypeIds.h">
+      <Filter>inc\Types</Filter>
+    </ClInclude>
     <ClInclude Include="inc\cloudsim_core_global.h">
       <Filter>inc\Global</Filter>
     </ClInclude>
     <ClInclude Include="inc\CloudSimCoreFactories.h">
-      <Filter>inc\Core</Filter>
+      <Filter>inc\Types</Filter>
     </ClInclude>
     <ClInclude Include="inc\CloudSimCoreVersion.h">
-      <Filter>inc\Core</Filter>
+      <Filter>inc\Types</Filter>
     </ClInclude>
     <ClInclude Include="inc\CoreEvents.h">
-      <Filter>inc\Core</Filter>
+      <Filter>inc\Events</Filter>
     </ClInclude>
     <ClInclude Include="inc\CoreTypes.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendTypeIds.h">
-      <Filter>inc\Core</Filter>
+      <Filter>inc\Events</Filter>
     </ClInclude>
     <ClInclude Include="inc\EventHub.h">
-      <Filter>inc\Core</Filter>
+      <Filter>inc\Events</Filter>
     </ClInclude>
     <ClInclude Include="inc\ICloudSimContext.h">
-      <Filter>inc\Core</Filter>
+      <Filter>inc\Interfaces</Filter>
     </ClInclude>
     <ClInclude Include="inc\IDataService.h">
-      <Filter>inc\Core</Filter>
+      <Filter>inc\Interfaces</Filter>
     </ClInclude>
     <ClInclude Include="inc\IDocumentScope.h">
-      <Filter>inc\Core</Filter>
+      <Filter>inc\Interfaces</Filter>
     </ClInclude>
     <ClInclude Include="inc\IRenderView.h">
-      <Filter>inc\Core</Filter>
+      <Filter>inc\Interfaces</Filter>
     </ClInclude>
     <ClInclude Include="inc\IRobotService.h">
-      <Filter>inc\Core</Filter>
+      <Filter>inc\Interfaces</Filter>
     </ClInclude>
     <ClInclude Include="inc\NullCoreServices.h">
-      <Filter>inc\Core</Filter>
+      <Filter>inc\Interfaces</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\CloudSimCoreVersion.cpp">
+      <Filter>src\Types</Filter>
+    </ClCompile>
+    <ClCompile Include="source\EventHub.cpp">
+      <Filter>src\Events</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ICloudSimContext.cpp">
+      <Filter>src\Interfaces</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IDocumentScope.cpp">
+      <Filter>src\Interfaces</Filter>
+    </ClCompile>
+    <ClCompile Include="source\NullCoreServices.cpp">
+      <Filter>src\Interfaces</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

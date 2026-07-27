@@ -8,12 +8,13 @@
 
 ```text
 CloudSim/
-├── CloudSim.sln                 # 约 34 个 C++ 工程（无解决方案文件夹）
+├── CloudSim.sln                 # 约 40 个产品 C++ 工程（无解决方案文件夹）
 ├── Directory.Build.props
 ├── ARCHITECTURE_SUMMARY.md
 ├── .clang-format
-├── docs/                        # 见 docs/README.md
+├── docs/                        # 常读 + CloudSim全阶段整治；历史见 docs/_archive/
 ├── scripts/                     # 格式/筛选器等维护脚本
+├── tools/                       # 验证工具、训练、维护脚本
 ├── .cursor/
 └── src/
     ├── App/
@@ -30,7 +31,7 @@ CloudSim/
     │   ├── RobotWidget/
     │   ├── AiWidget/
     │   ├── CloudSimUiAssets/      # UI 静态资源库
-    │   └── CloudSimPluginHost/    # 独立工程；产品路径编入 Widget/Host
+    │   └── CloudSimPluginHost/    # 独立工程参考；产品路径编入 Host
     ├── Robot/
     │   ├── RobotScene/
     │   ├── TrajectoryAlgorithm/
@@ -40,6 +41,7 @@ CloudSim/
     ├── Geometry/
     │   ├── GeometryEngine/
     │   ├── GeometryAlgorithm/
+    │   ├── CollisionAlgorithm/    # 网格碰撞
     │   ├── PointCloudAlgorithm/   # 静态库，链入 Data
     │   ├── VcgAlgorithms/
     │   ├── InstantMeshesCore/
@@ -54,17 +56,22 @@ CloudSim/
     │   ├── CloudSimMeshTrajectorySDK/
     │   ├── PointCloudPlugin/
     │   ├── GeometryPlugin/
+    │   ├── GeometricModelingPlugin/
     │   ├── LabelingPlugin/
     │   ├── PointNetPlugin/
+    │   ├── ProcessFlowPlugin/
+    │   ├── IndustrialCameraSDK/
+    │   ├── IndustrialCameraPlugin/
     │   ├── PlcCommSDK/
+    │   ├── RobotCommSDK/
     │   ├── PlcCommUI/
     │   ├── PlcCommPlugin/
-    │   └── HelloAiPlugin/         # 示例（可不在 sln）
+    │   └── HelloAiPlugin/         # 示例（可不在 sln；保留）
     └── Infra/
         └── RunLogger/
 ```
 
-**Visual Studio**：`CloudSim.sln` 列出产品 `.vcxproj`（约 **34** 项，含 Host / PlcComm* / InstantMeshes / 多 SDK 与插件等；**无**解决方案文件夹），避免 VS2019 将 `src` 等目录误判为「不兼容」工程。IDE 中按工程名浏览；磁盘分组见上表。
+**Visual Studio**：`CloudSim.sln` 列出产品 `.vcxproj`（约 **40** 项；**无**解决方案文件夹），避免 VS2019 将 `src` 等目录误判为「不兼容」工程。IDE 中按工程名浏览；磁盘分组见上表。
 
 ## 旧路径对照（迁移参考）
 

@@ -1,98 +1,100 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{9F1187CB-C1F3-4F5C-9E36-ACADCECBC848}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Backends">
-      <UniqueIdentifier>{D7A2B34A-8695-4F46-AC75-FDB71735AAFE}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Core">
-      <UniqueIdentifier>{E8F9631F-38E2-4DC6-BBBC-A3F99DF41716}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{9E516D30-3363-4B14-A39F-A0A15063CEFD}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{4C9C4EDD-FB92-4A94-9A48-5AF370C69B36}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Backends">
-      <UniqueIdentifier>{CC15D9CA-5E10-4BF2-B79C-13B85A011B46}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Core">
-      <UniqueIdentifier>{898CAE4D-3160-4445-BCA9-518C0EAFD9FC}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\BackendGeometryMetrics.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendIdUserData.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendPoseOsg.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendVisualMath.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendVisualRegistry.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BrepBackendVisual.cpp">
-      <Filter>src\Backends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\FrameBackendVisual.cpp">
-      <Filter>src\Backends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshBackendVisual.cpp">
-      <Filter>src\Backends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PointCloudBackendVisual.cpp">
-      <Filter>src\Backends</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\BackendGeometryMetrics.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendIdUserData.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendPickDomain.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendPoseOsg.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\backendvisual_global.h">
-      <Filter>inc\Global</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendVisualMath.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendVisualRegistry.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BrepBackendVisual.h">
-      <Filter>inc\Backends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\FrameBackendVisual.h">
-      <Filter>inc\Backends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IBackendVisual.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MeshBackendVisual.h">
-      <Filter>inc\Backends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PointCloudBackendVisual.h">
-      <Filter>inc\Backends</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="source\MeshWireGeometry.inc">
-      <Filter>src\Backends</Filter>
-    </None>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{9F1187CB-C1F3-4F5C-9E36-ACADCECBC848}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Backends">
+      <UniqueIdentifier>{D7A2B34A-8695-4F46-AC75-FDB71735AAFE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Core">
+      <UniqueIdentifier>{E8F9631F-38E2-4DC6-BBBC-A3F99DF41716}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{9E516D30-3363-4B14-A39F-A0A15063CEFD}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4C9C4EDD-FB92-4A94-9A48-5AF370C69B36}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Backends">
+      <UniqueIdentifier>{CC15D9CA-5E10-4BF2-B79C-13B85A011B46}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{898CAE4D-3160-4445-BCA9-518C0EAFD9FC}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\BackendGeometryMetrics.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendIdUserData.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendPickDomain.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendPoseOsg.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\backendvisual_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendVisualMath.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendVisualRegistry.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BrepBackendVisual.h">
+      <Filter>inc\Backends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FrameBackendVisual.h">
+      <Filter>inc\Backends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IBackendVisual.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshBackendVisual.h">
+      <Filter>inc\Backends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PointCloudBackendVisual.h">
+      <Filter>inc\Backends</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\BackendGeometryMetrics.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendIdUserData.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendPoseOsg.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendVisualMath.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendVisualRegistry.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BrepBackendVisual.cpp">
+      <Filter>src\Backends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FrameBackendVisual.cpp">
+      <Filter>src\Backends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBackendVisual.cpp">
+      <Filter>src\Backends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PointCloudBackendVisual.cpp">
+      <Filter>src\Backends</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="source\MeshWireGeometry.inc">
+      <Filter>src\Backends</Filter>
+    </None>
+  </ItemGroup>
+</Project>

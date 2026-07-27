@@ -111,10 +111,6 @@ private:
 
 	void syncScopeGroupFromTopBar();
 
-	void refreshParamPanelForKind(RobotInstruction::TrajectoryOpKind kind);
-
-	void refreshScopeFieldVisibility();
-
 	void refreshUndoButtons();
 
 	void syncUiAfterProgramRevision();

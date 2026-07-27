@@ -1,399 +1,425 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="discretizers">
-      <UniqueIdentifier>{A1E2F3B4-C5D6-7890-ABCD-EF1234567890}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc">
-      <UniqueIdentifier>{CFFEB4C6-0D7E-4F77-A36F-DCEE322AE83B}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\FeatureDiscretize">
-      <UniqueIdentifier>{1859E852-6E40-444E-B30C-85A23E29EA62}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{4AE78540-ADBD-48F3-A949-51DDEAE9FA18}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Mesh">
-      <UniqueIdentifier>{088B0847-415D-47EC-8E9A-6A21C07746C4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\SelfTest">
-      <UniqueIdentifier>{82F30568-EA00-40DF-8EDD-E0902D1230AE}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\ShapeBrep">
-      <UniqueIdentifier>{AD2E13FA-0828-47CD-BF51-08D25966AA7F}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Trajectory">
-      <UniqueIdentifier>{452A05C6-CD3F-4917-B360-AE5349C5B516}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{CF885F7D-0668-4EAB-99E3-54CC79FD21F7}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\detail">
-      <UniqueIdentifier>{CFF980A6-E060-43BB-98A1-D48D1D88DFAB}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\FeatureDiscretize">
-      <UniqueIdentifier>{D4F1E3B1-39AC-475A-9CB4-B2B0BBF8E7EC}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Mesh">
-      <UniqueIdentifier>{419590EB-2615-419C-88F1-6516A035E3EA}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\MeshSurfaceReconstruction">
-      <UniqueIdentifier>{4D225C87-DABA-4159-8EE5-A07C38A02253}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\SelfTest">
-      <UniqueIdentifier>{A00D16CF-D8BC-4A08-8BE6-68F072C337AF}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\ShapeBrep">
-      <UniqueIdentifier>{1116BE95-225E-475E-B100-1E1E1B3361B9}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Trajectory">
-      <UniqueIdentifier>{17CA84DE-7D4D-437D-9118-5C5EF262DE20}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\TubularGrinding">
-      <UniqueIdentifier>{07F8E789-EBAB-4AC7-ABDC-BFEE4EFC6708}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="discretizers\EdgeChainDiscretizer.cpp">
-      <Filter>discretizers</Filter>
-    </ClCompile>
-    <ClCompile Include="discretizers\FaceBoundaryDiscretizer.cpp">
-      <Filter>discretizers</Filter>
-    </ClCompile>
-    <ClCompile Include="discretizers\FaceIntersectionDiscretizer.cpp">
-      <Filter>discretizers</Filter>
-    </ClCompile>
-    <ClCompile Include="discretizers\FaceOffsetCurveDiscretizer.cpp">
-      <Filter>discretizers</Filter>
-    </ClCompile>
-    <ClCompile Include="discretizers\FaceParamSurfaceDiscretizer.cpp">
-      <Filter>discretizers</Filter>
-    </ClCompile>
-    <ClCompile Include="discretizers\FaceSectionDiscretizer.cpp">
-      <Filter>discretizers</Filter>
-    </ClCompile>
-    <ClCompile Include="discretizers\SyntheticPolylineDiscretizer.cpp">
-      <Filter>discretizers</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BrepBoolean.cpp">
-      <Filter>src\ShapeBrep</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BrepImportArtifacts.cpp">
-      <Filter>src\ShapeBrep</Filter>
-    </ClCompile>
-    <ClCompile Include="source\detail\FeatureDiscretizeCommon.cpp">
-      <Filter>src\detail</Filter>
-    </ClCompile>
-    <ClCompile Include="source\detail\FeatureDiscretizeFrame.cpp">
-      <Filter>src\detail</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Discretize.cpp">
-      <Filter>src\FeatureDiscretize</Filter>
-    </ClCompile>
-    <ClCompile Include="source\DiscretizeEdge.cpp">
-      <Filter>src\FeatureDiscretize</Filter>
-    </ClCompile>
-    <ClCompile Include="source\FaceSectionDiscretize.cpp">
-      <Filter>src\FeatureDiscretize</Filter>
-    </ClCompile>
-    <ClCompile Include="source\FeatureDiscretize.cpp">
-      <Filter>src\FeatureDiscretize</Filter>
-    </ClCompile>
-    <ClCompile Include="source\FeatureDiscretizeCoordinator.cpp">
-      <Filter>src\FeatureDiscretize</Filter>
-    </ClCompile>
-    <ClCompile Include="source\FeatureDiscretizeParamUtils.cpp">
-      <Filter>src\FeatureDiscretize</Filter>
-    </ClCompile>
-    <ClCompile Include="source\FeatureDiscretizerBridge.cpp">
-      <Filter>src\FeatureDiscretize</Filter>
-    </ClCompile>
-    <ClCompile Include="source\FeatureDiscretizerBuiltinsRegister.cpp">
-      <Filter>src\FeatureDiscretize</Filter>
-    </ClCompile>
-    <ClCompile Include="source\FeatureDiscretizerConfigImpl.cpp">
-      <Filter>src\FeatureDiscretize</Filter>
-    </ClCompile>
-    <ClCompile Include="source\FeatureDiscretizerConfigRegistry.cpp">
-      <Filter>src\FeatureDiscretize</Filter>
-    </ClCompile>
-    <ClCompile Include="source\FeatureDiscretizerParamJsonIo.cpp">
-      <Filter>src\FeatureDiscretize</Filter>
-    </ClCompile>
-    <ClCompile Include="source\FeatureDiscretizerRegistry.cpp">
-      <Filter>src\FeatureDiscretize</Filter>
-    </ClCompile>
-    <ClCompile Include="source\IFeatureDiscretizer.cpp">
-      <Filter>src\FeatureDiscretize</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Intersection.cpp">
-      <Filter>src\ShapeBrep</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshBoolean.cpp">
-      <Filter>src\Mesh</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshDiscretize.cpp">
-      <Filter>src\FeatureDiscretize</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction.cpp">
-      <Filter>src\Mesh</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\BoundaryBlend.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\BsplineSurfaceFairing.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\InitialBsplinePatch.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\JunctionBlend.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionAmrtoLoader.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionAmrtoPartition.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionAssemble.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionGmcgChartExtract.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionGmcgExeRunner.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionGmcgMotorcycleTrace.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionGmcgNative.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionGmcgQuadGraph.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionGmcgUvPack.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionInstantMeshes.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionMultiResolution.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionOcct.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionPartitionCgal.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionPartitionCommon.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionPartitionHybrid.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionPatchDualGraph.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionUtils.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionValidate.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\NurbsSurfaceFitting.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshSurfaceReconstruction\PatchParameterize.cpp">
-      <Filter>src\MeshSurfaceReconstruction</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshTrajectory.cpp">
-      <Filter>src\Mesh</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ParamSurfaceDiscretize.cpp">
-      <Filter>src\FeatureDiscretize</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PrimitiveBrep.cpp">
-      <Filter>src\ShapeBrep</Filter>
-    </ClCompile>
-    <ClCompile Include="source\SelfTest.cpp">
-      <Filter>src\SelfTest</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ShapeHandle.cpp">
-      <Filter>src\ShapeBrep</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ShapeIo.cpp">
-      <Filter>src\ShapeBrep</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ShapeQuery.cpp">
-      <Filter>src\ShapeBrep</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ShellOps.cpp">
-      <Filter>src\ShapeBrep</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TemplateBrepRegistration.cpp">
-      <Filter>src\ShapeBrep</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TemplateBrepUpdate.cpp">
-      <Filter>src\ShapeBrep</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryProjection.cpp">
-      <Filter>src\Trajectory</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TubularGrinding\CenterlineExtraction.cpp">
-      <Filter>src\TubularGrinding</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TubularGrinding\MeshFpfhRegionPartition.cpp">
-      <Filter>src\TubularGrinding</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TubularGrinding\MeshProjection.cpp">
-      <Filter>src\TubularGrinding</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TubularGrinding\OtLcSkeleton.cpp">
-      <Filter>src\TubularGrinding</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TubularGrinding\PipeSegmentation.cpp">
-      <Filter>src\TubularGrinding</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TubularGrinding\TrajectoryTemplates.cpp">
-      <Filter>src\TubularGrinding</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TubularGrinding\TubularGrindingCommon.cpp">
-      <Filter>src\TubularGrinding</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TubularGrinding\TubularGrindingSession.cpp">
-      <Filter>src\TubularGrinding</Filter>
-    </ClCompile>
-    <ClCompile Include="source\ViewTessellate.cpp">
-      <Filter>src\ShapeBrep</Filter>
-    </ClCompile>
-    <ClCompile Include="source\WireOps.cpp">
-      <Filter>src\ShapeBrep</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="discretizers\EdgeChainDiscretizer.h">
-      <Filter>discretizers</Filter>
-    </ClInclude>
-    <ClInclude Include="discretizers\FaceBoundaryDiscretizer.h">
-      <Filter>discretizers</Filter>
-    </ClInclude>
-    <ClInclude Include="discretizers\FaceIntersectionDiscretizer.h">
-      <Filter>discretizers</Filter>
-    </ClInclude>
-    <ClInclude Include="discretizers\FaceOffsetCurveDiscretizer.h">
-      <Filter>discretizers</Filter>
-    </ClInclude>
-    <ClInclude Include="discretizers\FaceParamSurfaceDiscretizer.h">
-      <Filter>discretizers</Filter>
-    </ClInclude>
-    <ClInclude Include="discretizers\FaceSectionDiscretizer.h">
-      <Filter>discretizers</Filter>
-    </ClInclude>
-    <ClInclude Include="discretizers\SyntheticPolylineDiscretizer.h">
-      <Filter>discretizers</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BrepBoolean.h">
-      <Filter>inc\ShapeBrep</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BrepImportArtifacts.h">
-      <Filter>inc\ShapeBrep</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Discretize.h">
-      <Filter>inc\FeatureDiscretize</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\FeatureDiscretizeParamUtils.h">
-      <Filter>inc\FeatureDiscretize</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\FeatureDiscretizerBridge.h">
-      <Filter>inc\FeatureDiscretize</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\FeatureDiscretizerConfigImpl.h">
-      <Filter>inc\FeatureDiscretize</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\FeatureDiscretizerConfigRegistry.h">
-      <Filter>inc\FeatureDiscretize</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\FeatureDiscretizerParamJsonIo.h">
-      <Filter>inc\FeatureDiscretize</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\FeatureDiscretizerRegistry.h">
-      <Filter>inc\FeatureDiscretize</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\FeatureListDocument.h">
-      <Filter>inc\FeatureDiscretize</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\FeatureSpec.h">
-      <Filter>inc\FeatureDiscretize</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\GeoMeshBoolean.h">
-      <Filter>inc\Mesh</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\geometry_algorithm_global.h">
-      <Filter>inc\Global</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IFeatureDiscretizer.h">
-      <Filter>inc\FeatureDiscretize</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IFeatureDiscretizerConfig.h">
-      <Filter>inc\FeatureDiscretize</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Intersection.h">
-      <Filter>inc\ShapeBrep</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MeshDiscretize.h">
-      <Filter>inc\FeatureDiscretize</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MeshSurfaceReconstruction.h">
-      <Filter>inc\Mesh</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MeshTrajectory.h">
-      <Filter>inc\Mesh</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PrimitiveBrep.h">
-      <Filter>inc\ShapeBrep</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\SelfTest.h">
-      <Filter>inc\SelfTest</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ShapeHandle.h">
-      <Filter>inc\ShapeBrep</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ShapeIo.h">
-      <Filter>inc\ShapeBrep</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ShapeQuery.h">
-      <Filter>inc\ShapeBrep</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ShellOps.h">
-      <Filter>inc\ShapeBrep</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TemplateBrepRegistration.h">
-      <Filter>inc\ShapeBrep</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TemplateBrepUpdate.h">
-      <Filter>inc\ShapeBrep</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryProjection.h">
-      <Filter>inc\Trajectory</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TubularGrinding.h">
-      <Filter>inc\Trajectory</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\Types.h">
-      <Filter>inc\ShapeBrep</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ViewTessellate.h">
-      <Filter>inc\ShapeBrep</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\WireOps.h">
-      <Filter>inc\ShapeBrep</Filter>
-    </ClInclude>
-    <ClInclude Include="source\TubularGrinding\OtLcSkeleton.h">
-      <Filter>src\TubularGrinding</Filter>
-    </ClInclude>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="discretizers">
+      <UniqueIdentifier>{298C2AD1-3F29-4364-A140-24631396B5EA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\FeatureDiscretize">
+      <UniqueIdentifier>{38C63843-48FF-47D3-9921-F7662DE4ECE6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{BD09099A-373E-4388-BC28-7BCB828CED61}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Mesh">
+      <UniqueIdentifier>{CADF33A5-ACB5-42BD-AB14-FB1F342855D2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\SelfTest">
+      <UniqueIdentifier>{25491B97-0721-4B96-9CFE-E7B6D8AADD8E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\ShapeBrep">
+      <UniqueIdentifier>{091CD5BB-4B10-49DD-8B66-4F188C2AF426}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Sketch">
+      <UniqueIdentifier>{8C856DC7-6089-4502-875F-812E0572DEC1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Trajectory">
+      <UniqueIdentifier>{2952274E-3424-47C0-8231-5FED84E7CDE2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\FeatureDiscretize">
+      <UniqueIdentifier>{E7A72AA6-5089-4BA5-93E8-23169A49CE3A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Mesh">
+      <UniqueIdentifier>{9EA01CB2-119F-4467-9CF1-F7A16821ACD0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\MeshSurfaceReconstruction">
+      <UniqueIdentifier>{4FB89936-F23F-4E7D-B81A-518EC1F96D35}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\SelfTest">
+      <UniqueIdentifier>{83E51BCE-3B04-469B-9F08-04F2A4A4562C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\ShapeBrep">
+      <UniqueIdentifier>{8FE340F9-B580-4B22-9911-A7A05F7EEC2D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Sketch">
+      <UniqueIdentifier>{A183C1D7-2B9D-4197-B9F7-ED701167973A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Trajectory">
+      <UniqueIdentifier>{702F83EF-265E-46F6-BE2D-0D8A4A804039}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\TubularGrinding">
+      <UniqueIdentifier>{EEF7789C-0E92-4AAD-9C7A-D2F7116843F4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\detail">
+      <UniqueIdentifier>{3F54E3BD-29D6-466D-8D32-424E60E89708}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="discretizers\EdgeChainDiscretizer.h">
+      <Filter>discretizers</Filter>
+    </ClInclude>
+    <ClInclude Include="discretizers\FaceBoundaryDiscretizer.h">
+      <Filter>discretizers</Filter>
+    </ClInclude>
+    <ClInclude Include="discretizers\FaceIntersectionDiscretizer.h">
+      <Filter>discretizers</Filter>
+    </ClInclude>
+    <ClInclude Include="discretizers\FaceOffsetCurveDiscretizer.h">
+      <Filter>discretizers</Filter>
+    </ClInclude>
+    <ClInclude Include="discretizers\FaceParamSurfaceDiscretizer.h">
+      <Filter>discretizers</Filter>
+    </ClInclude>
+    <ClInclude Include="discretizers\FaceSectionDiscretizer.h">
+      <Filter>discretizers</Filter>
+    </ClInclude>
+    <ClInclude Include="discretizers\SyntheticPolylineDiscretizer.h">
+      <Filter>discretizers</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BrepBoolean.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BrepImportArtifacts.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Discretize.h">
+      <Filter>inc\FeatureDiscretize</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FeatureDiscretizeParamUtils.h">
+      <Filter>inc\FeatureDiscretize</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FeatureDiscretizerBridge.h">
+      <Filter>inc\FeatureDiscretize</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FeatureDiscretizerConfigImpl.h">
+      <Filter>inc\FeatureDiscretize</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FeatureDiscretizerConfigRegistry.h">
+      <Filter>inc\FeatureDiscretize</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FeatureDiscretizerParamJsonIo.h">
+      <Filter>inc\FeatureDiscretize</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FeatureDiscretizerRegistry.h">
+      <Filter>inc\FeatureDiscretize</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FeatureListDocument.h">
+      <Filter>inc\FeatureDiscretize</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FeatureSpec.h">
+      <Filter>inc\FeatureDiscretize</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\GeoMeshBoolean.h">
+      <Filter>inc\Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\geometry_algorithm_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IFeatureDiscretizer.h">
+      <Filter>inc\FeatureDiscretize</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IFeatureDiscretizerConfig.h">
+      <Filter>inc\FeatureDiscretize</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Intersection.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshDiscretize.h">
+      <Filter>inc\FeatureDiscretize</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshSurfaceReconstruction.h">
+      <Filter>inc\Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshTrajectory.h">
+      <Filter>inc\Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PrimitiveBrep.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SelfTest.h">
+      <Filter>inc\SelfTest</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ShapeHandle.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ShapeIo.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ShapeQuery.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ShellOps.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SketchExtrude.h">
+      <Filter>inc\Sketch</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SketchPlane.h">
+      <Filter>inc\Sketch</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SketchSweep.h">
+      <Filter>inc\Sketch</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TemplateBrepRegistration.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TemplateBrepUpdate.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryProjection.h">
+      <Filter>inc\Trajectory</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TubularGrinding.h">
+      <Filter>inc\Trajectory</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\Types.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ViewTessellate.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\WireOps.h">
+      <Filter>inc\ShapeBrep</Filter>
+    </ClInclude>
+    <ClInclude Include="source\TubularGrinding\OtLcSkeleton.h">
+      <Filter>src\TubularGrinding</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="discretizers\EdgeChainDiscretizer.cpp">
+      <Filter>discretizers</Filter>
+    </ClCompile>
+    <ClCompile Include="discretizers\FaceBoundaryDiscretizer.cpp">
+      <Filter>discretizers</Filter>
+    </ClCompile>
+    <ClCompile Include="discretizers\FaceIntersectionDiscretizer.cpp">
+      <Filter>discretizers</Filter>
+    </ClCompile>
+    <ClCompile Include="discretizers\FaceOffsetCurveDiscretizer.cpp">
+      <Filter>discretizers</Filter>
+    </ClCompile>
+    <ClCompile Include="discretizers\FaceParamSurfaceDiscretizer.cpp">
+      <Filter>discretizers</Filter>
+    </ClCompile>
+    <ClCompile Include="discretizers\FaceSectionDiscretizer.cpp">
+      <Filter>discretizers</Filter>
+    </ClCompile>
+    <ClCompile Include="discretizers\SyntheticPolylineDiscretizer.cpp">
+      <Filter>discretizers</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BrepBoolean.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BrepImportArtifacts.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
+    <ClCompile Include="source\detail\FeatureDiscretizeCommon.cpp">
+      <Filter>src\detail</Filter>
+    </ClCompile>
+    <ClCompile Include="source\detail\FeatureDiscretizeFrame.cpp">
+      <Filter>src\detail</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Discretize.cpp">
+      <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DiscretizeEdge.cpp">
+      <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FaceSectionDiscretize.cpp">
+      <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretize.cpp">
+      <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizeCoordinator.cpp">
+      <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizeParamUtils.cpp">
+      <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizerBridge.cpp">
+      <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizerBuiltinsRegister.cpp">
+      <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizerConfigImpl.cpp">
+      <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizerConfigRegistry.cpp">
+      <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizerParamJsonIo.cpp">
+      <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FeatureDiscretizerRegistry.cpp">
+      <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IFeatureDiscretizer.cpp">
+      <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Intersection.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBoolean.cpp">
+      <Filter>src\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshDiscretize.cpp">
+      <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction.cpp">
+      <Filter>src\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\BoundaryBlend.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\BsplineSurfaceFairing.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\InitialBsplinePatch.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\JunctionBlend.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionAmrtoLoader.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionAmrtoPartition.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionAssemble.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionGmcgChartExtract.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionGmcgExeRunner.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionGmcgMotorcycleTrace.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionGmcgNative.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionGmcgQuadGraph.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionGmcgUvPack.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionInstantMeshes.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionMultiResolution.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionOcct.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionPartitionCgal.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionPartitionCommon.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionPartitionHybrid.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionPatchDualGraph.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionUtils.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\MeshSurfaceReconstructionValidate.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\NurbsSurfaceFitting.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshSurfaceReconstruction\PatchParameterize.cpp">
+      <Filter>src\MeshSurfaceReconstruction</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshTrajectory.cpp">
+      <Filter>src\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ParamSurfaceDiscretize.cpp">
+      <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PrimitiveBrep.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SelfTest.cpp">
+      <Filter>src\SelfTest</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ShapeHandle.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ShapeIo.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ShapeQuery.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ShellOps.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SketchExtrude.cpp">
+      <Filter>src\Sketch</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SketchPlane.cpp">
+      <Filter>src\Sketch</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SketchSweep.cpp">
+      <Filter>src\Sketch</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TemplateBrepRegistration.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TemplateBrepUpdate.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryProjection.cpp">
+      <Filter>src\Trajectory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TubularGrinding\CenterlineExtraction.cpp">
+      <Filter>src\TubularGrinding</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TubularGrinding\MeshFpfhRegionPartition.cpp">
+      <Filter>src\TubularGrinding</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TubularGrinding\MeshProjection.cpp">
+      <Filter>src\TubularGrinding</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TubularGrinding\OtLcSkeleton.cpp">
+      <Filter>src\TubularGrinding</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TubularGrinding\PipeSegmentation.cpp">
+      <Filter>src\TubularGrinding</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TubularGrinding\TrajectoryTemplates.cpp">
+      <Filter>src\TubularGrinding</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TubularGrinding\TubularGrindingCommon.cpp">
+      <Filter>src\TubularGrinding</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TubularGrinding\TubularGrindingSession.cpp">
+      <Filter>src\TubularGrinding</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ViewTessellate.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
+    <ClCompile Include="source\WireOps.cpp">
+      <Filter>src\ShapeBrep</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

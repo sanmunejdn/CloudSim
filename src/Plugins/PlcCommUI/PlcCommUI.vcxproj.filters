@@ -1,39 +1,41 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{3B605D4F-387E-45AF-8674-4E428C6DB040}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Core">
-      <UniqueIdentifier>{6800DE2E-7908-4DA3-BAE9-2F794B0DBEC2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{A1D16ECA-DCAC-466C-8DC0-D2EF2CE3E7C9}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Core">
-      <UniqueIdentifier>{5D9F622E-B0F9-462F-BB6A-35CE81798B1B}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\PlcCommController.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PlcCommWidget.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PlcCommWorker.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <QtMoc Include="inc\PlcCommController.h">
-      <Filter>inc\Core</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\PlcCommWidget.h">
-      <Filter>inc\Core</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\PlcCommWorker.h">
-      <Filter>inc\Core</Filter>
-    </QtMoc>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{3B605D4F-387E-45AF-8674-4E428C6DB040}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\UI">
+      <UniqueIdentifier>{5F1CE119-D94A-46FF-8048-A4EDC43A3ECE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{A1D16ECA-DCAC-466C-8DC0-D2EF2CE3E7C9}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\UI">
+      <UniqueIdentifier>{D2841FAD-5EF6-4F7E-A124-91B85EA8438F}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\PlcCommController.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PlcCommWidget.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PlcCommWorker.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="inc\PlcCommController.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\PlcCommWidget.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\PlcCommWorker.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+  </ItemGroup>
+</Project>

@@ -1,357 +1,365 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{FFC815F7-4DD5-4C57-95BE-2D8233DD46EF}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Common">
-      <UniqueIdentifier>{544459DE-26FC-4828-B584-B9ECE7BB5E4E}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops">
-      <UniqueIdentifier>{A02596C2-8B7C-4542-8A9A-CB4EA9531355}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\Approach">
-      <UniqueIdentifier>{A3593A2D-898F-4FDA-92C4-F214F4C73F20}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\AssignBlend">
-      <UniqueIdentifier>{804D13EA-DC49-4459-89E3-CFBBCC8327C5}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\AssignSpeedZone">
-      <UniqueIdentifier>{3165D250-47F2-4F9E-9962-B2522EAE1C71}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\Delete">
-      <UniqueIdentifier>{A1F6DF10-F3DC-4D94-AE40-FCF6D4C19E8E}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\Duplicate">
-      <UniqueIdentifier>{C0E7900B-E38C-4407-8ADA-86AD93EC42FC}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\ExternalAxisSearch">
-      <UniqueIdentifier>{511C0EAC-A9C2-4CD8-B73A-5FC0A7155209}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\Mirror">
-      <UniqueIdentifier>{183B7E96-B849-433B-9883-D7CA742B139A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\NonRigidRegistration">
-      <UniqueIdentifier>{AD493574-4B21-4D44-ADAF-5FB1F48E972D}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\OffsetAlongNormal">
-      <UniqueIdentifier>{ACF983AE-F3C2-4264-B7B9-7D72287EBE81}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\OffsetLateral">
-      <UniqueIdentifier>{041FE2BD-DBF7-45E2-BC9D-02D424E475EA}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\ProjectToGeometry">
-      <UniqueIdentifier>{F3C8BDA8-1CA1-4BDC-81E3-868B67BDA32C}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\ReachabilityFilter">
-      <UniqueIdentifier>{A0AC7644-C0DA-413E-8B05-A88367754289}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\Reorder">
-      <UniqueIdentifier>{C5BB0DAF-B263-4BB5-9600-BB37FDE61CEA}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\Resample">
-      <UniqueIdentifier>{4215A553-FB06-4D5C-A8FD-2CC3ED3A71F6}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\Retract">
-      <UniqueIdentifier>{16832F9B-FAB4-416E-BE82-B4D5D880EE51}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\Rotate">
-      <UniqueIdentifier>{6A7C776C-0550-4753-81A5-5C2AB75F172A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\SmoothPose">
-      <UniqueIdentifier>{4FF4CBE1-8B98-4566-8784-1D97C80B8217}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\ToWorkpieceInHand">
-      <UniqueIdentifier>{3E21F3DB-042C-4A76-B462-9196EE61220D}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\Translate">
-      <UniqueIdentifier>{04B65307-BD9C-4757-AA04-9528D3399993}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="ops\Weave">
-      <UniqueIdentifier>{CC046D7C-1DDC-43A0-9BD2-BECD6ED14D00}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{D29EF1AA-A1F1-4D5F-98B3-F8A58031525F}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Common">
-      <UniqueIdentifier>{2F26DE1F-84EE-4D62-A8BE-D14961DA3FDA}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="ops\Approach\ApproachOp.cpp">
-      <Filter>ops\Approach</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Approach\ApproachOpConfig.cpp">
-      <Filter>ops\Approach</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\AssignBlend\AssignBlendOp.cpp">
-      <Filter>ops\AssignBlend</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\AssignBlend\AssignBlendOpConfig.cpp">
-      <Filter>ops\AssignBlend</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\AssignSpeedZone\AssignSpeedZoneOp.cpp">
-      <Filter>ops\AssignSpeedZone</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\AssignSpeedZone\AssignSpeedZoneOpConfig.cpp">
-      <Filter>ops\AssignSpeedZone</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Delete\DeleteOp.cpp">
-      <Filter>ops\Delete</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Delete\DeleteOpConfig.cpp">
-      <Filter>ops\Delete</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Duplicate\DuplicateOp.cpp">
-      <Filter>ops\Duplicate</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Duplicate\DuplicateOpConfig.cpp">
-      <Filter>ops\Duplicate</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\ExternalAxisSearch\ExternalAxisSearchOp.cpp">
-      <Filter>ops\ExternalAxisSearch</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\ExternalAxisSearch\ExternalAxisSearchOpConfig.cpp">
-      <Filter>ops\ExternalAxisSearch</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Mirror\MirrorOp.cpp">
-      <Filter>ops\Mirror</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Mirror\MirrorOpConfig.cpp">
-      <Filter>ops\Mirror</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\NonRigidRegistration\NonRigidRegistrationOp.cpp">
-      <Filter>ops\NonRigidRegistration</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\NonRigidRegistration\NonRigidRegistrationOpConfig.cpp">
-      <Filter>ops\NonRigidRegistration</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\OffsetAlongNormal\OffsetAlongNormalOp.cpp">
-      <Filter>ops\OffsetAlongNormal</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\OffsetAlongNormal\OffsetAlongNormalOpConfig.cpp">
-      <Filter>ops\OffsetAlongNormal</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\OffsetLateral\OffsetLateralOp.cpp">
-      <Filter>ops\OffsetLateral</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\OffsetLateral\OffsetLateralOpConfig.cpp">
-      <Filter>ops\OffsetLateral</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\ProjectToGeometry\ProjectToGeometryOp.cpp">
-      <Filter>ops\ProjectToGeometry</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\ProjectToGeometry\ProjectToGeometryOpConfig.cpp">
-      <Filter>ops\ProjectToGeometry</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\ReachabilityFilter\ReachabilityFilterOp.cpp">
-      <Filter>ops\ReachabilityFilter</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\ReachabilityFilter\ReachabilityFilterOpConfig.cpp">
-      <Filter>ops\ReachabilityFilter</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Reorder\ReorderOp.cpp">
-      <Filter>ops\Reorder</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Reorder\ReorderOpConfig.cpp">
-      <Filter>ops\Reorder</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Resample\ResampleOp.cpp">
-      <Filter>ops\Resample</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Resample\ResampleOpConfig.cpp">
-      <Filter>ops\Resample</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Retract\RetractOp.cpp">
-      <Filter>ops\Retract</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Retract\RetractOpConfig.cpp">
-      <Filter>ops\Retract</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Rotate\RotateOp.cpp">
-      <Filter>ops\Rotate</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Rotate\RotateOpConfig.cpp">
-      <Filter>ops\Rotate</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\SmoothPose\SmoothPoseOp.cpp">
-      <Filter>ops\SmoothPose</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\SmoothPose\SmoothPoseOpConfig.cpp">
-      <Filter>ops\SmoothPose</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOp.cpp">
-      <Filter>ops\ToWorkpieceInHand</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOpConfig.cpp">
-      <Filter>ops\ToWorkpieceInHand</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Translate\TranslateOp.cpp">
-      <Filter>ops\Translate</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Translate\TranslateOpConfig.cpp">
-      <Filter>ops\Translate</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Weave\WeaveOp.cpp">
-      <Filter>ops\Weave</Filter>
-    </ClCompile>
-    <ClCompile Include="ops\Weave\WeaveOpConfig.cpp">
-      <Filter>ops\Weave</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryOpBuiltinsRegister.cpp">
-      <Filter>src\Common</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryOpConfigImpl.cpp">
-      <Filter>src\Common</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryOpFormat.cpp">
-      <Filter>src\Common</Filter>
-    </ClCompile>
-    <ClCompile Include="source\TrajectoryUnifiedScope.cpp">
-      <Filter>src\Common</Filter>
-    </ClCompile>
-    <ClCompile Include="source\UnifiedTrajectoryPathMath.cpp">
-      <Filter>src\Common</Filter>
-    </ClCompile>
-    <ClCompile Include="source\UnifiedTrajectorySemanticMath.cpp">
-      <Filter>src\Common</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\TrajectoryOpConfigImpl.h">
-      <Filter>inc\Common</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryOpFormat.h">
-      <Filter>inc\Common</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\TrajectoryUnifiedScope.h">
-      <Filter>inc\Common</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\UnifiedTrajectoryPathMath.h">
-      <Filter>inc\Common</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\UnifiedTrajectorySemanticMath.h">
-      <Filter>inc\Common</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Approach\ApproachOp.h">
-      <Filter>ops\Approach</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Approach\ApproachOpConfig.h">
-      <Filter>ops\Approach</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\AssignBlend\AssignBlendOp.h">
-      <Filter>ops\AssignBlend</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\AssignBlend\AssignBlendOpConfig.h">
-      <Filter>ops\AssignBlend</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\AssignSpeedZone\AssignSpeedZoneOp.h">
-      <Filter>ops\AssignSpeedZone</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\AssignSpeedZone\AssignSpeedZoneOpConfig.h">
-      <Filter>ops\AssignSpeedZone</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Delete\DeleteOp.h">
-      <Filter>ops\Delete</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Delete\DeleteOpConfig.h">
-      <Filter>ops\Delete</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Duplicate\DuplicateOp.h">
-      <Filter>ops\Duplicate</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Duplicate\DuplicateOpConfig.h">
-      <Filter>ops\Duplicate</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\ExternalAxisSearch\ExternalAxisSearchOp.h">
-      <Filter>ops\ExternalAxisSearch</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\ExternalAxisSearch\ExternalAxisSearchOpConfig.h">
-      <Filter>ops\ExternalAxisSearch</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Mirror\MirrorOp.h">
-      <Filter>ops\Mirror</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Mirror\MirrorOpConfig.h">
-      <Filter>ops\Mirror</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\NonRigidRegistration\NonRigidRegistrationOp.h">
-      <Filter>ops\NonRigidRegistration</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\NonRigidRegistration\NonRigidRegistrationOpConfig.h">
-      <Filter>ops\NonRigidRegistration</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\OffsetAlongNormal\OffsetAlongNormalOp.h">
-      <Filter>ops\OffsetAlongNormal</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\OffsetAlongNormal\OffsetAlongNormalOpConfig.h">
-      <Filter>ops\OffsetAlongNormal</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\OffsetLateral\OffsetLateralOp.h">
-      <Filter>ops\OffsetLateral</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\OffsetLateral\OffsetLateralOpConfig.h">
-      <Filter>ops\OffsetLateral</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\ProjectToGeometry\ProjectToGeometryOp.h">
-      <Filter>ops\ProjectToGeometry</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\ProjectToGeometry\ProjectToGeometryOpConfig.h">
-      <Filter>ops\ProjectToGeometry</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\ReachabilityFilter\ReachabilityFilterOp.h">
-      <Filter>ops\ReachabilityFilter</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\ReachabilityFilter\ReachabilityFilterOpConfig.h">
-      <Filter>ops\ReachabilityFilter</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Reorder\ReorderOp.h">
-      <Filter>ops\Reorder</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Reorder\ReorderOpConfig.h">
-      <Filter>ops\Reorder</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Resample\ResampleOp.h">
-      <Filter>ops\Resample</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Resample\ResampleOpConfig.h">
-      <Filter>ops\Resample</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Retract\RetractOp.h">
-      <Filter>ops\Retract</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Retract\RetractOpConfig.h">
-      <Filter>ops\Retract</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Rotate\RotateOp.h">
-      <Filter>ops\Rotate</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Rotate\RotateOpConfig.h">
-      <Filter>ops\Rotate</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\SmoothPose\SmoothPoseOp.h">
-      <Filter>ops\SmoothPose</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\SmoothPose\SmoothPoseOpConfig.h">
-      <Filter>ops\SmoothPose</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOp.h">
-      <Filter>ops\ToWorkpieceInHand</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOpConfig.h">
-      <Filter>ops\ToWorkpieceInHand</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Translate\TranslateOp.h">
-      <Filter>ops\Translate</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Translate\TranslateOpConfig.h">
-      <Filter>ops\Translate</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Weave\WeaveOp.h">
-      <Filter>ops\Weave</Filter>
-    </ClInclude>
-    <ClInclude Include="ops\Weave\WeaveOpConfig.h">
-      <Filter>ops\Weave</Filter>
-    </ClInclude>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{FFC815F7-4DD5-4C57-95BE-2D8233DD46EF}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Registry">
+      <UniqueIdentifier>{F26655FD-BCF7-4585-9A74-C8B782B08252}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Unified">
+      <UniqueIdentifier>{47F7478B-6EDB-45B9-A39B-7FC652BFDA62}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops">
+      <UniqueIdentifier>{A02596C2-8B7C-4542-8A9A-CB4EA9531355}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\Approach">
+      <UniqueIdentifier>{A3593A2D-898F-4FDA-92C4-F214F4C73F20}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\AssignBlend">
+      <UniqueIdentifier>{804D13EA-DC49-4459-89E3-CFBBCC8327C5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\AssignSpeedZone">
+      <UniqueIdentifier>{3165D250-47F2-4F9E-9962-B2522EAE1C71}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\Delete">
+      <UniqueIdentifier>{A1F6DF10-F3DC-4D94-AE40-FCF6D4C19E8E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\Duplicate">
+      <UniqueIdentifier>{C0E7900B-E38C-4407-8ADA-86AD93EC42FC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\ExternalAxisSearch">
+      <UniqueIdentifier>{511C0EAC-A9C2-4CD8-B73A-5FC0A7155209}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\Mirror">
+      <UniqueIdentifier>{183B7E96-B849-433B-9883-D7CA742B139A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\NonRigidRegistration">
+      <UniqueIdentifier>{AD493574-4B21-4D44-ADAF-5FB1F48E972D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\OffsetAlongNormal">
+      <UniqueIdentifier>{ACF983AE-F3C2-4264-B7B9-7D72287EBE81}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\OffsetLateral">
+      <UniqueIdentifier>{041FE2BD-DBF7-45E2-BC9D-02D424E475EA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\ProjectToGeometry">
+      <UniqueIdentifier>{F3C8BDA8-1CA1-4BDC-81E3-868B67BDA32C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\ReachabilityFilter">
+      <UniqueIdentifier>{A0AC7644-C0DA-413E-8B05-A88367754289}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\Reorder">
+      <UniqueIdentifier>{C5BB0DAF-B263-4BB5-9600-BB37FDE61CEA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\Resample">
+      <UniqueIdentifier>{4215A553-FB06-4D5C-A8FD-2CC3ED3A71F6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\Retract">
+      <UniqueIdentifier>{16832F9B-FAB4-416E-BE82-B4D5D880EE51}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\Rotate">
+      <UniqueIdentifier>{6A7C776C-0550-4753-81A5-5C2AB75F172A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\SmoothPose">
+      <UniqueIdentifier>{4FF4CBE1-8B98-4566-8784-1D97C80B8217}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\ToWorkpieceInHand">
+      <UniqueIdentifier>{3E21F3DB-042C-4A76-B462-9196EE61220D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\Translate">
+      <UniqueIdentifier>{04B65307-BD9C-4757-AA04-9528D3399993}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ops\Weave">
+      <UniqueIdentifier>{CC046D7C-1DDC-43A0-9BD2-BECD6ED14D00}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{D29EF1AA-A1F1-4D5F-98B3-F8A58031525F}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Registry">
+      <UniqueIdentifier>{63254ED5-A7AB-4864-BBF5-9789C7AB2F11}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Unified">
+      <UniqueIdentifier>{29D8EC33-2EC9-4E09-9503-275EBA603A56}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\TrajectoryOpConfigImpl.h">
+      <Filter>inc\Registry</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryOpFormat.h">
+      <Filter>inc\Registry</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\TrajectoryUnifiedScope.h">
+      <Filter>inc\Unified</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\UnifiedTrajectoryPathMath.h">
+      <Filter>inc\Unified</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\UnifiedTrajectorySemanticMath.h">
+      <Filter>inc\Unified</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Approach\ApproachOp.h">
+      <Filter>ops\Approach</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Approach\ApproachOpConfig.h">
+      <Filter>ops\Approach</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\AssignBlend\AssignBlendOp.h">
+      <Filter>ops\AssignBlend</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\AssignBlend\AssignBlendOpConfig.h">
+      <Filter>ops\AssignBlend</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\AssignSpeedZone\AssignSpeedZoneOp.h">
+      <Filter>ops\AssignSpeedZone</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\AssignSpeedZone\AssignSpeedZoneOpConfig.h">
+      <Filter>ops\AssignSpeedZone</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Delete\DeleteOp.h">
+      <Filter>ops\Delete</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Delete\DeleteOpConfig.h">
+      <Filter>ops\Delete</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Duplicate\DuplicateOp.h">
+      <Filter>ops\Duplicate</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Duplicate\DuplicateOpConfig.h">
+      <Filter>ops\Duplicate</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\ExternalAxisSearch\ExternalAxisSearchOp.h">
+      <Filter>ops\ExternalAxisSearch</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\ExternalAxisSearch\ExternalAxisSearchOpConfig.h">
+      <Filter>ops\ExternalAxisSearch</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Mirror\MirrorOp.h">
+      <Filter>ops\Mirror</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Mirror\MirrorOpConfig.h">
+      <Filter>ops\Mirror</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\NonRigidRegistration\NonRigidRegistrationOp.h">
+      <Filter>ops\NonRigidRegistration</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\NonRigidRegistration\NonRigidRegistrationOpConfig.h">
+      <Filter>ops\NonRigidRegistration</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\OffsetAlongNormal\OffsetAlongNormalOp.h">
+      <Filter>ops\OffsetAlongNormal</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\OffsetAlongNormal\OffsetAlongNormalOpConfig.h">
+      <Filter>ops\OffsetAlongNormal</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\OffsetLateral\OffsetLateralOp.h">
+      <Filter>ops\OffsetLateral</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\OffsetLateral\OffsetLateralOpConfig.h">
+      <Filter>ops\OffsetLateral</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\ProjectToGeometry\ProjectToGeometryOp.h">
+      <Filter>ops\ProjectToGeometry</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\ProjectToGeometry\ProjectToGeometryOpConfig.h">
+      <Filter>ops\ProjectToGeometry</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\ReachabilityFilter\ReachabilityFilterOp.h">
+      <Filter>ops\ReachabilityFilter</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\ReachabilityFilter\ReachabilityFilterOpConfig.h">
+      <Filter>ops\ReachabilityFilter</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Reorder\ReorderOp.h">
+      <Filter>ops\Reorder</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Reorder\ReorderOpConfig.h">
+      <Filter>ops\Reorder</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Resample\ResampleOp.h">
+      <Filter>ops\Resample</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Resample\ResampleOpConfig.h">
+      <Filter>ops\Resample</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Retract\RetractOp.h">
+      <Filter>ops\Retract</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Retract\RetractOpConfig.h">
+      <Filter>ops\Retract</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Rotate\RotateOp.h">
+      <Filter>ops\Rotate</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Rotate\RotateOpConfig.h">
+      <Filter>ops\Rotate</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\SmoothPose\SmoothPoseOp.h">
+      <Filter>ops\SmoothPose</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\SmoothPose\SmoothPoseOpConfig.h">
+      <Filter>ops\SmoothPose</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOp.h">
+      <Filter>ops\ToWorkpieceInHand</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOpConfig.h">
+      <Filter>ops\ToWorkpieceInHand</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Translate\TranslateOp.h">
+      <Filter>ops\Translate</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Translate\TranslateOpConfig.h">
+      <Filter>ops\Translate</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Weave\WeaveOp.h">
+      <Filter>ops\Weave</Filter>
+    </ClInclude>
+    <ClInclude Include="ops\Weave\WeaveOpConfig.h">
+      <Filter>ops\Weave</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="ops\Approach\ApproachOp.cpp">
+      <Filter>ops\Approach</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Approach\ApproachOpConfig.cpp">
+      <Filter>ops\Approach</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\AssignBlend\AssignBlendOp.cpp">
+      <Filter>ops\AssignBlend</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\AssignBlend\AssignBlendOpConfig.cpp">
+      <Filter>ops\AssignBlend</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\AssignSpeedZone\AssignSpeedZoneOp.cpp">
+      <Filter>ops\AssignSpeedZone</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\AssignSpeedZone\AssignSpeedZoneOpConfig.cpp">
+      <Filter>ops\AssignSpeedZone</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Delete\DeleteOp.cpp">
+      <Filter>ops\Delete</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Delete\DeleteOpConfig.cpp">
+      <Filter>ops\Delete</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Duplicate\DuplicateOp.cpp">
+      <Filter>ops\Duplicate</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Duplicate\DuplicateOpConfig.cpp">
+      <Filter>ops\Duplicate</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\ExternalAxisSearch\ExternalAxisSearchOp.cpp">
+      <Filter>ops\ExternalAxisSearch</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\ExternalAxisSearch\ExternalAxisSearchOpConfig.cpp">
+      <Filter>ops\ExternalAxisSearch</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Mirror\MirrorOp.cpp">
+      <Filter>ops\Mirror</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Mirror\MirrorOpConfig.cpp">
+      <Filter>ops\Mirror</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\NonRigidRegistration\NonRigidRegistrationOp.cpp">
+      <Filter>ops\NonRigidRegistration</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\NonRigidRegistration\NonRigidRegistrationOpConfig.cpp">
+      <Filter>ops\NonRigidRegistration</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\OffsetAlongNormal\OffsetAlongNormalOp.cpp">
+      <Filter>ops\OffsetAlongNormal</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\OffsetAlongNormal\OffsetAlongNormalOpConfig.cpp">
+      <Filter>ops\OffsetAlongNormal</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\OffsetLateral\OffsetLateralOp.cpp">
+      <Filter>ops\OffsetLateral</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\OffsetLateral\OffsetLateralOpConfig.cpp">
+      <Filter>ops\OffsetLateral</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\ProjectToGeometry\ProjectToGeometryOp.cpp">
+      <Filter>ops\ProjectToGeometry</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\ProjectToGeometry\ProjectToGeometryOpConfig.cpp">
+      <Filter>ops\ProjectToGeometry</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\ReachabilityFilter\ReachabilityFilterOp.cpp">
+      <Filter>ops\ReachabilityFilter</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\ReachabilityFilter\ReachabilityFilterOpConfig.cpp">
+      <Filter>ops\ReachabilityFilter</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Reorder\ReorderOp.cpp">
+      <Filter>ops\Reorder</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Reorder\ReorderOpConfig.cpp">
+      <Filter>ops\Reorder</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Resample\ResampleOp.cpp">
+      <Filter>ops\Resample</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Resample\ResampleOpConfig.cpp">
+      <Filter>ops\Resample</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Retract\RetractOp.cpp">
+      <Filter>ops\Retract</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Retract\RetractOpConfig.cpp">
+      <Filter>ops\Retract</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Rotate\RotateOp.cpp">
+      <Filter>ops\Rotate</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Rotate\RotateOpConfig.cpp">
+      <Filter>ops\Rotate</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\SmoothPose\SmoothPoseOp.cpp">
+      <Filter>ops\SmoothPose</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\SmoothPose\SmoothPoseOpConfig.cpp">
+      <Filter>ops\SmoothPose</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOp.cpp">
+      <Filter>ops\ToWorkpieceInHand</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\ToWorkpieceInHand\ToWorkpieceInHandOpConfig.cpp">
+      <Filter>ops\ToWorkpieceInHand</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Translate\TranslateOp.cpp">
+      <Filter>ops\Translate</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Translate\TranslateOpConfig.cpp">
+      <Filter>ops\Translate</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Weave\WeaveOp.cpp">
+      <Filter>ops\Weave</Filter>
+    </ClCompile>
+    <ClCompile Include="ops\Weave\WeaveOpConfig.cpp">
+      <Filter>ops\Weave</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryOpBuiltinsRegister.cpp">
+      <Filter>src\Registry</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryOpConfigImpl.cpp">
+      <Filter>src\Registry</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryOpFormat.cpp">
+      <Filter>src\Registry</Filter>
+    </ClCompile>
+    <ClCompile Include="source\TrajectoryUnifiedScope.cpp">
+      <Filter>src\Unified</Filter>
+    </ClCompile>
+    <ClCompile Include="source\UnifiedTrajectoryPathMath.cpp">
+      <Filter>src\Unified</Filter>
+    </ClCompile>
+    <ClCompile Include="source\UnifiedTrajectorySemanticMath.cpp">
+      <Filter>src\Unified</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

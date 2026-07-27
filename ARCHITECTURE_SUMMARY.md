@@ -288,7 +288,7 @@ hub.publish(SelectionChangedEvent{backendId});
   → PythonScriptCaller → resource/Python/ExportPython/{Brand}Export.py
 ```
 
-支持品牌：ABB / AIR / FANUC / INOVANCE / LineHeating / ROKAE。设计文档：[`docs/机器人程序品牌导出/`](docs/机器人程序品牌导出/)。
+支持品牌：ABB / AIR / FANUC / INOVANCE / LineHeating / ROKAE。设计文档：[`docs/_archive/机器人程序品牌导出/`](docs/_archive/机器人程序品牌导出/)。
 
 ---
 
@@ -475,8 +475,8 @@ $(CloudSimRepoRoot)bin\SDK\<包名>\...
 - 推荐生成顺序：`CloudSimCore` → `Data` → `CloudSimHost` → `Widget` → `CloudSim`
 - 源码格式：UTF-8 with BOM + CRLF；头卫 `工程名_文件名_H`；详见 [`docs/SOURCE_CONVENTIONS.md`](docs/SOURCE_CONVENTIONS.md)
 - VS 筛选器：两层 `inc` / `src`，按功能分子组
-- 筛选器日常补缺：`python scripts/generate_vcxproj_filters.py --only-missing`（全量重写勿默认使用）
-- 目录说明亦见 [`docs/DIRECTORY_LAYOUT.md`](docs/DIRECTORY_LAYOUT.md)；本次收口记录见 [`docs/统一VS输出目录/`](docs/统一VS输出目录/)
+- 筛选器日常同步：`python scripts/generate_vcxproj_filters.py --sync --project <工程名>`（新增源文件后必做）；全量按功能重分类用 `--full`
+- 目录说明亦见 [`docs/DIRECTORY_LAYOUT.md`](docs/DIRECTORY_LAYOUT.md)；本次收口记录见 [`docs/_archive/统一VS输出目录/`](docs/_archive/统一VS输出目录/)
 
 ---
 
@@ -537,7 +537,7 @@ PluginManager::loadPlugins()
 | RobotSimulationController 迁入 Host | 仿真编排逻辑下沉 | 长期规划 |
 
 > **架构边界收口**（Sprint A–H）已闭环：公开契约去 osg、Host 无 `RobotWidget.lib`、OsgWidget 单轨、DocumentPage FK 存储 Mat4。  
-> **跟随路径**（2026-07 回归修复）：FK → 单次 `notify` → 同步跟随求解；残余与长期项见 [`docs/架构边界收口/TODO_架构边界收口.md`](docs/架构边界收口/TODO_架构边界收口.md)、[`docs/架构边界收口/FINAL_架构边界收口.md`](docs/架构边界收口/FINAL_架构边界收口.md)。
+> **跟随路径**（2026-07 回归修复）：FK → 单次 `notify` → 同步跟随求解；残余与长期项见 [`docs/_archive/架构边界收口/TODO_架构边界收口.md`](docs/_archive/架构边界收口/TODO_架构边界收口.md)、[`docs/_archive/架构边界收口/FINAL_架构边界收口.md`](docs/_archive/架构边界收口/FINAL_架构边界收口.md)。
 
 ### 11.1 新代码边界（强制）
 

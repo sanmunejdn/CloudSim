@@ -41,7 +41,7 @@ enum class MeshDiscretizeMode
 	UVStructuredGrid,
 	WireTubeMesh,
 	WireRibbonMesh,
-	ProfileSweepMesh,
+	ProfileSweepMesh,      ///< 当前构建未实现
 	RemeshSoup,            ///< 当前构建未实现
 	PointCloudSurface      ///< 当前构建未实现
 };

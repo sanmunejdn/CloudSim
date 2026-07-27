@@ -22,6 +22,32 @@ constexpr double kTriangleCountRelTol = 0.15;
 constexpr double kDeflectionSearchLo = 1e-4;
 constexpr double kDeflectionSearchHi = 0.2;
 
+bool isMeshDiscretizeModeImplemented(const MeshDiscretizeMode mode)
+{
+	switch (mode)
+	{
+	case MeshDiscretizeMode::ProfileSweepMesh:
+	case MeshDiscretizeMode::RemeshSoup:
+	case MeshDiscretizeMode::PointCloudSurface:
+		return false;
+	default:
+		return true;
+	}
+}
+
+bool rejectUnimplementedMeshMode(const MeshDiscretizeMode mode, std::string* errMsg)
+{
+	if (isMeshDiscretizeModeImplemented(mode))
+	{
+		return false;
+	}
+	if (errMsg)
+	{
+		*errMsg = "mesh mode not implemented in this build";
+	}
+	return true;
+}
+
 bool prepareDensityControl(MeshDiscretizeParams& p, std::string* errMsg)
 {
 	if (p.densityControl == MeshDensityControl::QualityPreset)
@@ -415,6 +441,10 @@ void fillMeshReport(const std::vector<float>& soup, MeshDiscretizeReport& report
 bool discretizeFaceToMesh(const TopoDS_Face& face, const MeshDiscretizeParams& params, std::vector<float>& soup,
 						  std::string* errMsg)
 {
+	if (rejectUnimplementedMeshMode(params.mode, errMsg))
+	{
+		return false;
+	}
 	MeshDiscretizeParams p = params;
 	applyQualityPreset(p);
 	if (p.mode == MeshDiscretizeMode::UVStructuredGrid)
@@ -428,6 +458,10 @@ bool discretizeShapeToMesh(const TopoDS_Shape& shape, const MeshDiscretizeParams
 						   MeshDiscretizeReport& report, std::string* errMsg)
 {
 	soup.clear();
+	if (rejectUnimplementedMeshMode(params.mode, errMsg))
+	{
+		return false;
+	}
 	MeshDiscretizeParams p = params;
 	if (!prepareDensityControl(p, errMsg))
 	{
@@ -678,6 +712,10 @@ bool discretizePolylineToMesh(const Polyline3d& polyline, const MeshDiscretizePa
 							  std::string* errMsg)
 {
 	soup.clear();
+	if (rejectUnimplementedMeshMode(params.mode, errMsg))
+	{
+		return false;
+	}
 	MeshDiscretizeParams p = params;
 	applyQualityPreset(p);
 	switch (p.mode)
@@ -685,8 +723,14 @@ bool discretizePolylineToMesh(const Polyline3d& polyline, const MeshDiscretizePa
 	case MeshDiscretizeMode::WireRibbonMesh:
 		return buildRibbonAlongPolyline(polyline, p, soup, errMsg);
 	case MeshDiscretizeMode::WireTubeMesh:
-	default:
 		return buildTubeAlongPolyline(polyline, p, soup, errMsg);
+	default:
+		// 折线入口仅支持管/带；其它已实现模式不应静默落到管网
+		if (errMsg)
+		{
+			*errMsg = "polyline mesh requires WireTubeMesh or WireRibbonMesh";
+		}
+		return false;
 	}
 }
 

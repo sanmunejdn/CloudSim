@@ -1,32 +1,34 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Plugin">
-      <UniqueIdentifier>{B0C5EC22-82BD-4B24-87FC-9F41F4136037}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Plugin">
-      <UniqueIdentifier>{BD1D6050-D4BA-44EB-A7FC-AEFFD19FD792}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\HelloAiPlugin.cpp">
-      <Filter>src\Plugin</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="plugin.json">
-      <Filter>src\Plugin</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <QtMoc Include="inc\HelloAiPlugin.h">
-      <Filter>inc\Plugin</Filter>
-    </QtMoc>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Plugin">
+      <UniqueIdentifier>{B0C5EC22-82BD-4B24-87FC-9F41F4136037}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Plugin">
+      <UniqueIdentifier>{BD1D6050-D4BA-44EB-A7FC-AEFFD19FD792}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\HelloAiPlugin.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="inc\HelloAiPlugin.h">
+      <Filter>inc\Plugin</Filter>
+    </QtMoc>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="plugin.json">
+      <Filter>src\Plugin</Filter>
+    </None>
+  </ItemGroup>
+</Project>

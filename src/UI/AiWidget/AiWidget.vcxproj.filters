@@ -1,59 +1,61 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{55D39AAC-C482-4310-BCB6-7F9E5A2C5AC0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Assistant">
-      <UniqueIdentifier>{E179C714-E89C-4340-B2B2-777C7F2A2C1A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{74A93F16-257D-45BF-8E7A-573A99DF5B0C}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Settings">
-      <UniqueIdentifier>{4DEFD45D-5481-4ED6-89F5-40E7572ADE02}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{F5D08FD0-889E-4760-87A7-36B77F0ADA57}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Assistant">
-      <UniqueIdentifier>{35DE3569-3100-4925-A01A-D8182F3AE29B}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Settings">
-      <UniqueIdentifier>{EA6B1455-42D2-4A3E-AFE7-368A730623D1}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\AiAssistantCoordinator.cpp">
-      <Filter>src\Assistant</Filter>
-    </ClCompile>
-    <ClCompile Include="source\AiAssistantDockWidget.cpp">
-      <Filter>src\Assistant</Filter>
-    </ClCompile>
-    <ClCompile Include="source\AiConfirmPanel.cpp">
-      <Filter>src\Assistant</Filter>
-    </ClCompile>
-    <ClCompile Include="source\AiLlmSettingsDialog.cpp">
-      <Filter>src\Settings</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\aiwidget_global.h">
-      <Filter>inc\Global</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <QtMoc Include="inc\AiAssistantCoordinator.h">
-      <Filter>inc\Assistant</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\AiAssistantDockWidget.h">
-      <Filter>inc\Assistant</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\AiConfirmPanel.h">
-      <Filter>inc\Assistant</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\AiLlmSettingsDialog.h">
-      <Filter>inc\Settings</Filter>
-    </QtMoc>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{55D39AAC-C482-4310-BCB6-7F9E5A2C5AC0}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Assistant">
+      <UniqueIdentifier>{E179C714-E89C-4340-B2B2-777C7F2A2C1A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{74A93F16-257D-45BF-8E7A-573A99DF5B0C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Settings">
+      <UniqueIdentifier>{4DEFD45D-5481-4ED6-89F5-40E7572ADE02}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{F5D08FD0-889E-4760-87A7-36B77F0ADA57}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Assistant">
+      <UniqueIdentifier>{35DE3569-3100-4925-A01A-D8182F3AE29B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Settings">
+      <UniqueIdentifier>{EA6B1455-42D2-4A3E-AFE7-368A730623D1}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\aiwidget_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\AiAssistantCoordinator.cpp">
+      <Filter>src\Assistant</Filter>
+    </ClCompile>
+    <ClCompile Include="source\AiAssistantDockWidget.cpp">
+      <Filter>src\Assistant</Filter>
+    </ClCompile>
+    <ClCompile Include="source\AiConfirmPanel.cpp">
+      <Filter>src\Assistant</Filter>
+    </ClCompile>
+    <ClCompile Include="source\AiLlmSettingsDialog.cpp">
+      <Filter>src\Settings</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="inc\AiAssistantCoordinator.h">
+      <Filter>inc\Assistant</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\AiAssistantDockWidget.h">
+      <Filter>inc\Assistant</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\AiConfirmPanel.h">
+      <Filter>inc\Assistant</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\AiLlmSettingsDialog.h">
+      <Filter>inc\Settings</Filter>
+    </QtMoc>
+  </ItemGroup>
+</Project>

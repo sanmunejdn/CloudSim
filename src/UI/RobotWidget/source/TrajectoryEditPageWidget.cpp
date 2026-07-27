@@ -1403,7 +1403,7 @@ void TrajectoryEditPageWidget::flushPipelineToSession(const bool forApply)
 		return;
 	}
 	m_flushingParams = true;
-	// 拖放 bug 可能导致列表有项但 m_ops 为空，强制与数据对齐
+	// 拖放路径已以 m_ops 为真源；失步时重建投影行（不应再依赖此兜底）
 	if (m_pipeline->count() != static_cast<int>(m_pipeline->ops().size()))
 	{
 		m_pipeline->setOps(m_pipeline->ops());
@@ -1418,13 +1418,6 @@ void TrajectoryEditPageWidget::flushPipelineToSession(const bool forApply)
 		syncSessionParams(forApply);
 	}
 	m_flushingParams = false;
-}
-
-void TrajectoryEditPageWidget::refreshScopeFieldVisibility() {}
-
-void TrajectoryEditPageWidget::refreshParamPanelForKind(const RobotInstruction::TrajectoryOpKind kind)
-{
-	(void)kind;
 }
 
 void TrajectoryEditPageWidget::loadSelectedOpToParams()
@@ -1895,7 +1888,7 @@ void TrajectoryEditPageWidget::showPipelineContextMenu(const QPoint& pos)
 		return;
 	}
 	const int idx = m_pipeline->selectedOpIndex();
-	const int count = m_pipeline->count();
+	const int opCount = static_cast<int>(m_pipeline->ops().size());
 	const bool zh = m_useChinese;
 	QMenu menu(this);
 	QAction* removeAct = menu.addAction(zh ? QStringLiteral("移除块") : QStringLiteral("Remove block"));
@@ -1903,7 +1896,7 @@ void TrajectoryEditPageWidget::showPipelineContextMenu(const QPoint& pos)
 	QAction* downAct = menu.addAction(zh ? QStringLiteral("下移") : QStringLiteral("Move down"));
 	removeAct->setEnabled(idx >= 0);
 	upAct->setEnabled(idx > 0);
-	downAct->setEnabled(idx >= 0 && idx < count - 1);
+	downAct->setEnabled(idx >= 0 && idx < opCount - 1);
 	QAction* picked = menu.exec(m_pipeline->mapToGlobal(pos));
 	if (!picked)
 	{

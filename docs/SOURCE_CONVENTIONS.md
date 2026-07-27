@@ -105,17 +105,20 @@ python scripts/fix_chinese_mojibake.py
 
 结构约定（与 [`MODULE_DEVELOPER_GUIDES.md`](MODULE_DEVELOPER_GUIDES.md) 相同）：
 
-1. 顶层：`inc` / `src`（及必要时 `resource`）
-2. 子层：功能名（`MainWindow`、`OsgWidget`、`Backend`、`adapters` 等）
+1. 顶层：`inc` / `src`（及必要时 `resource`、`ops`、`External`）
+2. 子层：**按功能**划分（如 `MainWindow`、`OsgWidget`、`Instructions`、`Simulation`、`adapters` 等）
+3. 磁盘已有 `inc\Foo\` / `source\Foo\` / `ops\Name\` 时优先镜像到同名筛选器
 
 | 场景 | 命令 |
 |------|------|
-| **日常（推荐）** | `python scripts/generate_vcxproj_filters.py --only-missing` — 只为尚无 `.filters` 的工程生成，**不覆盖已有** |
-| 全量重写 | `python scripts/generate_vcxproj_filters.py` — 会重写全部产品工程 filters，改前确认 |
+| **日常（推荐）** | `python scripts/generate_vcxproj_filters.py --sync` — 保留已有分桶与 GUID，仅为 vcxproj 中**新文件**自动创建功能筛选器 |
+| 单工程同步 | `python scripts/generate_vcxproj_filters.py --sync --project RobotWidget` |
+| 全量按功能重分类 | `python scripts/generate_vcxproj_filters.py --full`（或 `tools/RegenerateProjectFilters.ps1`） |
+| 仅补缺失 filters 文件 | `python scripts/generate_vcxproj_filters.py --only-missing` |
 
-脚本仅扫描 `src/` 下产品 `*.vcxproj`（跳过 ThirdParty / vcglib / bin）。写出 **UTF-8 BOM + CRLF**。
+脚本扫描 `CloudSim.sln` 产品工程（外加 PluginHost / HelloAi），写出 **UTF-8 BOM + CRLF**；**不**修改 `.vcxproj` 本体。
 
-新增/移动源文件后：先改 `.vcxproj` 的 `ClCompile`/`ClInclude`，再视需要补 filters（已有 filters 的工程需手工改筛选器项，或接受一次全量重写）。
+**强制**：在 `.vcxproj` 中新增 `ClInclude`/`ClCompile` 后必须跑 `--sync`（Cursor 规则：`cloudsim-vcxproj-filters.mdc`）。
 
 ---
 
@@ -126,7 +129,7 @@ python scripts/fix_chinese_mojibake.py
   → normalize_header_guards / ensure_file_headers（按需）
   → run_clang_format
   → normalize_source_encoding
-  → generate_vcxproj_filters --only-missing（按需）
+  → generate_vcxproj_filters --sync（新增源文件后必做）
 ```
 
 ---

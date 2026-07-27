@@ -126,24 +126,24 @@ flowchart TB
 
 各子工程 `.vcxproj.filters` 统一为两层结构：
 
-1. 顶层：**`inc`**（头文件）、**`src`**（源文件 / Qt Moc）
-2. 子层：按功能划分（如 `inc\adapters`、`src\MainWindow`、`src\OsgWidget`、`src\Backend`、`src\ThirdParty\qtpropertybrowser` 等）
+1. 顶层：**`inc`**（头文件）、**`src`**（源文件 / Qt Moc）；必要时 `resource` / `ops` / `External`
+2. 子层：按功能划分（如 `inc\Instructions`、`src\MainWindow`、`src\OsgWidget`、`src\Simulation`、`inc\adapters` 等）
 
-跨工程引用：如 Widget 引用 `CloudSimPluginHost`、`Host` 引用 Widget OSG 源码，使用 `inc\HostRef`、`src\WidgetBorrowed`、`inc\PluginHost` 等筛选器，与本地 `inc`/`src` 并列。
+跨工程引用：如 Widget 引用 `CloudSimPluginHost`、`Host` 引用 Widget OSG 源码，使用 `External\...`、`inc\HostRef`、`src\WidgetBorrowed`、`inc\PluginHost` 等筛选器，与本地 `inc`/`src` 并列。
 
-**日常推荐**（只补缺失、不覆盖已有 filters）：
-
-```bash
-python scripts/generate_vcxproj_filters.py --only-missing
-```
-
-全量重写（会覆盖已有 `.filters`，改前确认）：
+**日常推荐**（保留已有分桶，仅为新文件自动建筛选器）：
 
 ```bash
-python scripts/generate_vcxproj_filters.py
+python scripts/generate_vcxproj_filters.py --sync --project <工程名>
 ```
 
-脚本扫描 `src/` 下产品 `*.vcxproj`，写出 UTF-8 BOM + CRLF；不修改 `.vcxproj` 本体。完整约定见 [`SOURCE_CONVENTIONS.md`](SOURCE_CONVENTIONS.md) §6。
+全量按功能重分类（会覆盖已有分桶，改前确认）：
+
+```bash
+python scripts/generate_vcxproj_filters.py --full
+```
+
+脚本按 `CloudSim.sln` 扫描产品工程，写出 UTF-8 BOM + CRLF；不修改 `.vcxproj` 本体。完整约定见 [`SOURCE_CONVENTIONS.md`](SOURCE_CONVENTIONS.md) §6；Cursor 规则：`.cursor/rules/cloudsim-vcxproj-filters.mdc`。
 
 ## 源码注释约定（code-comment）
 

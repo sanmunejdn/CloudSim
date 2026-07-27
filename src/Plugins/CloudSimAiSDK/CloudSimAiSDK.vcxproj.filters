@@ -1,72 +1,80 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{AE9213F7-50FF-4D22-989F-47024F24D551}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Core">
-      <UniqueIdentifier>{12E19F3A-662E-4649-89E0-5B3DDDE5E365}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{FE3A8189-B1DD-47EF-B838-DE5CC15D91D8}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Plugin">
-      <UniqueIdentifier>{FF0C8060-2B56-431C-A436-BDEFFC9B06F2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{1B9BD8C6-B4A9-4353-9178-2F30625342DD}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Core">
-      <UniqueIdentifier>{56F1CB01-A94A-43B4-AC62-F1BAD0F85DD2}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\AiConfigDefaults.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\CloudSimAiVersion.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\AiAgentTypes.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\AiConfigDefaults.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\AiConfigDto.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\AiDomainTypes.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\AiInferenceTypes.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\AiParseTypes.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\AiTrajectoryFeatureTypes.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\cloudsim_ai_sdk_global.h">
-      <Filter>inc\Global</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CloudSimAiVersion.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IAiAssistantHost.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IAiDomainHandler.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\IAiInferenceProvider.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\ICloudSimAiPlugin.h">
-      <Filter>inc\Plugin</Filter>
-    </ClInclude>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{AE9213F7-50FF-4D22-989F-47024F24D551}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{FE3A8189-B1DD-47EF-B838-DE5CC15D91D8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Interfaces">
+      <UniqueIdentifier>{F5E93A36-D3B2-4AC5-A090-449A0D9474D7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Types">
+      <UniqueIdentifier>{D17FCD04-A2D3-4C44-9FF4-4E5B39ADF58F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Version">
+      <UniqueIdentifier>{ED98F3A9-C1FA-48C4-8C5B-78B6CFC5E81B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{1B9BD8C6-B4A9-4353-9178-2F30625342DD}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Types">
+      <UniqueIdentifier>{C039AF0D-7F12-47E2-9115-7ED9E45CF0DE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Version">
+      <UniqueIdentifier>{3FE5E624-F050-4BCE-A831-6A4E8ADF3129}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\AiAgentTypes.h">
+      <Filter>inc\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\AiConfigDefaults.h">
+      <Filter>inc\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\AiConfigDto.h">
+      <Filter>inc\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\AiDomainTypes.h">
+      <Filter>inc\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\AiInferenceTypes.h">
+      <Filter>inc\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\AiParseTypes.h">
+      <Filter>inc\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\AiTrajectoryFeatureTypes.h">
+      <Filter>inc\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\cloudsim_ai_sdk_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\CloudSimAiVersion.h">
+      <Filter>inc\Version</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IAiAssistantHost.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IAiDomainHandler.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\IAiInferenceProvider.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ICloudSimAiPlugin.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\AiConfigDefaults.cpp">
+      <Filter>src\Types</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CloudSimAiVersion.cpp">
+      <Filter>src\Version</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

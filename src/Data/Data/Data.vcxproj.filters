@@ -4,23 +4,24 @@
     <Filter Include="External">
       <UniqueIdentifier>{66FACD12-EBD8-499E-BDA5-F4026490A43A}</UniqueIdentifier>
     </Filter>
-    <Filter Include="External\bin">
-      <UniqueIdentifier>{1252D972-7B35-4904-B4E6-B131E09D1388}</UniqueIdentifier>
+    <Filter Include="External\$(CloudSimRepoRoot)bin">
+      <UniqueIdentifier>{B7A64F0A-5633-4342-A58D-859E96085DD0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="External\bin\SDK">
-      <UniqueIdentifier>{C7BE88CD-C6F2-4E03-B46F-5B8C950A1580}</UniqueIdentifier>
+    <Filter Include="External\$(CloudSimRepoRoot)bin\SDK">
+      <UniqueIdentifier>{ED7FAC3A-ADF4-430D-ADF1-6A89DA3D65D0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="External\bin\SDK\dxfSolution">
-      <UniqueIdentifier>{EBC70B97-11B1-4AA3-9E2F-5C5854E1804D}</UniqueIdentifier>
+    <Filter Include="External\$(CloudSimRepoRoot)bin\SDK\dxfSolution">
+      <UniqueIdentifier>{EFABBB69-5A19-46F4-9F1B-E58289FA4C84}</UniqueIdentifier>
     </Filter>
-    <Filter Include="External\bin\SDK\dxfSolution\dxflib">
-      <UniqueIdentifier>{94859FE0-A96D-475E-A3F7-2BA0E1B7A795}</UniqueIdentifier>
+    <Filter Include="External\$(CloudSimRepoRoot)bin\SDK\dxfSolution\dxflib">
+      <UniqueIdentifier>{1E5E6DC4-AE02-4C3B-9A41-BBCD4C4A3F0C}</UniqueIdentifier>
     </Filter>
-    <Filter Include="External\bin\SDK\dxfSolution\dxflib\Source">
-      <UniqueIdentifier>{BC1AB470-65AA-492B-835C-7B8C1685F7A7}</UniqueIdentifier>
+    <Filter Include="External\$(CloudSimRepoRoot)bin\SDK\dxfSolution\dxflib\Source">
+      <UniqueIdentifier>{E55419C8-9238-4872-B773-4E4A3788384E}</UniqueIdentifier>
     </Filter>
     <Filter Include="inc">
       <UniqueIdentifier>{164164E9-51D1-410A-87A8-AC62F551E745}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
     <Filter Include="inc\Core">
       <UniqueIdentifier>{314FBD79-2033-4CC1-9158-9F92457CE4AF}</UniqueIdentifier>
@@ -39,6 +40,7 @@
     </Filter>
     <Filter Include="src">
       <UniqueIdentifier>{85B04651-DDD9-413D-96C9-8417D89B39A4}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
     <Filter Include="src\Core">
       <UniqueIdentifier>{1C9BF0BE-D77B-49BE-BC46-FED1777930C2}</UniqueIdentifier>
@@ -57,11 +59,85 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\..\bin\SDK\dxfSolution\dxflib\Source\dl_dxf.cpp">
-      <Filter>External\bin\SDK\dxfSolution\dxflib\Source</Filter>
+    <ClInclude Include="inc\BackendDataBase.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendDataManager.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendFollowTransformSolver.h">
+      <Filter>inc\HierarchyFollow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendHierarchyChange.h">
+      <Filter>inc\HierarchyFollow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendHierarchyModel.h">
+      <Filter>inc\HierarchyFollow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendObjectAttribute.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendPrimitiveGeometry.h">
+      <Filter>inc\SpatialPrimitive</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendPropertyRow.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendSpatial.h">
+      <Filter>inc\SpatialPrimitive</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendTypeIdentity.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BrepBackendData.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\data_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FollowAttachmentComponent.h">
+      <Filter>inc\HierarchyFollow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FrameBackendData.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\geometry_base64.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\GeometryBackendOps.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\GeometryRef.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshBackendData.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshBoolean.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ParametricBrepBackendData.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\ParametricBrepFeature.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PlyIo.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PointCloudBackendData.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PointCloudBackendOps.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(CloudSimRepoRoot)bin\SDK\dxfSolution\dxflib\Source\dl_dxf.cpp">
+      <Filter>External\$(CloudSimRepoRoot)bin\SDK\dxfSolution\dxflib\Source</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\bin\SDK\dxfSolution\dxflib\Source\dl_writer_ascii.cpp">
-      <Filter>External\bin\SDK\dxfSolution\dxflib\Source</Filter>
+    <ClCompile Include="$(CloudSimRepoRoot)bin\SDK\dxfSolution\dxflib\Source\dl_writer_ascii.cpp">
+      <Filter>External\$(CloudSimRepoRoot)bin\SDK\dxfSolution\dxflib\Source</Filter>
     </ClCompile>
     <ClCompile Include="source\BackendDataBase.cpp">
       <Filter>src\Core</Filter>
@@ -126,6 +202,12 @@
     <ClCompile Include="source\MeshBoolean.cpp">
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
+    <ClCompile Include="source\ParametricBrepBackendData.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\ParametricBrepFeature.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
     <ClCompile Include="source\pch.cpp">
       <Filter>src\Global</Filter>
     </ClCompile>
@@ -138,73 +220,5 @@
     <ClCompile Include="source\PointCloudBackendOps.cpp">
       <Filter>src\GeometryBackends</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\BackendDataBase.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendDataManager.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendFollowTransformSolver.h">
-      <Filter>inc\HierarchyFollow</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendHierarchyChange.h">
-      <Filter>inc\HierarchyFollow</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendHierarchyModel.h">
-      <Filter>inc\HierarchyFollow</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendObjectAttribute.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendPrimitiveGeometry.h">
-      <Filter>inc\SpatialPrimitive</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendPropertyRow.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendSpatial.h">
-      <Filter>inc\SpatialPrimitive</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BrepBackendData.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendTypeIdentity.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\data_global.h">
-      <Filter>inc\Global</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\FollowAttachmentComponent.h">
-      <Filter>inc\HierarchyFollow</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\FrameBackendData.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\geometry_base64.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\GeometryBackendOps.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\GeometryRef.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MeshBackendData.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MeshBoolean.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PlyIo.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PointCloudBackendData.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PointCloudBackendOps.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

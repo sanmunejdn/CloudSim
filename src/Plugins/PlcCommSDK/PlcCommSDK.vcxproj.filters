@@ -1,54 +1,59 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{5837FD24-2F27-414D-972F-B2AB33340B0A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Core">
-      <UniqueIdentifier>{F592D4B3-695D-486F-A459-AE34A2FEAFDC}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{F245A415-9F57-4935-9798-15C0E9D82E1A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{40F7E6F8-97E2-4C45-B882-0C1E62AD90DE}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Core">
-      <UniqueIdentifier>{5F7494BF-FF3E-4658-B88B-7F7B04BFC28A}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\PlcCommClientImpl.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PlcCommSdkExports.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PlcTagHandle.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PlcTagStringBuilder.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\IPlcCommClient.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\plc_comm_sdk_global.h">
-      <Filter>inc\Global</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PlcCommTypes.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PlcTagStringBuilder.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="source\PlcCommClientImpl.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="source\PlcTagHandle.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{5837FD24-2F27-414D-972F-B2AB33340B0A}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Client">
+      <UniqueIdentifier>{CD6DA5EC-AAC7-4255-AD8E-B19FC51124A1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{F245A415-9F57-4935-9798-15C0E9D82E1A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Interfaces">
+      <UniqueIdentifier>{7336F58C-A517-4A00-BEE7-DCFB45BA8EC7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{40F7E6F8-97E2-4C45-B882-0C1E62AD90DE}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Client">
+      <UniqueIdentifier>{0264EC03-7259-4BA7-BC96-E452BF57BC5C}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\IPlcCommClient.h">
+      <Filter>inc\Interfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\plc_comm_sdk_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PlcCommTypes.h">
+      <Filter>inc\Client</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PlcTagStringBuilder.h">
+      <Filter>inc\Client</Filter>
+    </ClInclude>
+    <ClInclude Include="source\PlcCommClientImpl.h">
+      <Filter>inc\Client</Filter>
+    </ClInclude>
+    <ClInclude Include="source\PlcTagHandle.h">
+      <Filter>inc\Client</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\PlcCommClientImpl.cpp">
+      <Filter>src\Client</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PlcCommSdkExports.cpp">
+      <Filter>src\Client</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PlcTagHandle.cpp">
+      <Filter>src\Client</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PlcTagStringBuilder.cpp">
+      <Filter>src\Client</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

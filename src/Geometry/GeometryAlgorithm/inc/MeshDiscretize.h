@@ -21,7 +21,7 @@ namespace geoalgo
 /**
  * Shape → 三角 soup，按 MeshDiscretizeParams.mode 分派
  * @param params densityControl=QualityPreset 时先 applyQualityPreset；TargetEdgeLength 时 deflection=target×0.25
- * @return false：null shape、模式未实现（RemeshSoup/PointCloudSurface）或离散为空
+ * @return false：null shape、模式未实现（ProfileSweepMesh/RemeshSoup/PointCloudSurface）或离散为空
  */
 GEOMETRY_ALGORITHM_API bool discretizeShapeToMesh(const TopoDS_Shape& shape, const MeshDiscretizeParams& params,
 												  std::vector<float>& soup, MeshDiscretizeReport& report,

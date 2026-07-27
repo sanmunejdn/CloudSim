@@ -1,79 +1,81 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{12F9987B-88E3-4CC6-8FA4-A60293712156}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\HandEye">
-      <UniqueIdentifier>{B6675013-3E2C-4C13-ABED-D5DB466F96F2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Plugin">
-      <UniqueIdentifier>{17D339FD-5C83-4EE9-A1FC-73AE4A417858}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\UI">
-      <UniqueIdentifier>{735C9683-896E-46FB-BB22-8EDD9395F0BD}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="resource">
-      <UniqueIdentifier>{161A99FE-177C-439D-94F6-0CF3D55460C1}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="resource\industrial_camera">
-      <UniqueIdentifier>{342658DA-F36C-414C-BB75-ACBBECC62BC4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{0CD3BC51-E7C1-4EF9-AC2D-1457A45A9FBF}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\HandEye">
-      <UniqueIdentifier>{088B8D94-8EC1-4DE8-9815-3BA14FD30BB6}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Plugin">
-      <UniqueIdentifier>{FACA3176-BFA5-4E38-8E1D-E882264BDF3E}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\UI">
-      <UniqueIdentifier>{DB906DA3-C8F1-41D3-B06D-369E463023C3}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\CameraPanelWidget.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\CameraResourceStore.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\HandEyePanelWidget.cpp">
-      <Filter>src\HandEye</Filter>
-    </ClCompile>
-    <ClCompile Include="source\IndustrialCameraDockWidget.cpp">
-      <Filter>src\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="source\IndustrialCameraPlugin.cpp">
-      <Filter>src\Plugin</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\CameraResourceStore.h">
-      <Filter>inc\UI</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="plugin.json">
-      <Filter>src\Plugin</Filter>
-    </None>
-    <None Include="resource\industrial_camera\README.md">
-      <Filter>resource\industrial_camera</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <QtMoc Include="inc\CameraPanelWidget.h">
-      <Filter>inc\UI</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\HandEyePanelWidget.h">
-      <Filter>inc\HandEye</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\IndustrialCameraDockWidget.h">
-      <Filter>inc\UI</Filter>
-    </QtMoc>
-    <QtMoc Include="inc\IndustrialCameraPlugin.h">
-      <Filter>inc\Plugin</Filter>
-    </QtMoc>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{12F9987B-88E3-4CC6-8FA4-A60293712156}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\HandEye">
+      <UniqueIdentifier>{B6675013-3E2C-4C13-ABED-D5DB466F96F2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Plugin">
+      <UniqueIdentifier>{17D339FD-5C83-4EE9-A1FC-73AE4A417858}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\UI">
+      <UniqueIdentifier>{735C9683-896E-46FB-BB22-8EDD9395F0BD}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resource">
+      <UniqueIdentifier>{161A99FE-177C-439D-94F6-0CF3D55460C1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resource\industrial_camera">
+      <UniqueIdentifier>{342658DA-F36C-414C-BB75-ACBBECC62BC4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{0CD3BC51-E7C1-4EF9-AC2D-1457A45A9FBF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\HandEye">
+      <UniqueIdentifier>{088B8D94-8EC1-4DE8-9815-3BA14FD30BB6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Plugin">
+      <UniqueIdentifier>{FACA3176-BFA5-4E38-8E1D-E882264BDF3E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\UI">
+      <UniqueIdentifier>{DB906DA3-C8F1-41D3-B06D-369E463023C3}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\CameraResourceStore.h">
+      <Filter>inc\UI</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\CameraPanelWidget.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CameraResourceStore.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\HandEyePanelWidget.cpp">
+      <Filter>src\HandEye</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IndustrialCameraDockWidget.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\IndustrialCameraPlugin.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="inc\CameraPanelWidget.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\HandEyePanelWidget.h">
+      <Filter>inc\HandEye</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\IndustrialCameraDockWidget.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\IndustrialCameraPlugin.h">
+      <Filter>inc\Plugin</Filter>
+    </QtMoc>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="plugin.json">
+      <Filter>src\Plugin</Filter>
+    </None>
+    <None Include="resource\industrial_camera\README.md">
+      <Filter>resource\industrial_camera</Filter>
+    </None>
+  </ItemGroup>
+</Project>

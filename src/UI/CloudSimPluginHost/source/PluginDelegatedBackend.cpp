@@ -3,6 +3,8 @@
 
 #include "PluginDelegatedBackend.h"
 
+#include "RunLogger.h"
+
 #include <json.hpp>
 
 PluginDelegatedBackend::PluginDelegatedBackend(std::shared_ptr<IPluginBackendObject> delegate)
@@ -54,6 +56,7 @@ nlohmann::json PluginDelegatedBackend::snapshotPropertyRows(const BackendDataMan
 	}
 	catch (...)
 	{
+		RunLogger::warn("plugin backend: propertyRowsJson parse failed; returning empty property rows");
 	}
 	return nlohmann::json::array();
 }
