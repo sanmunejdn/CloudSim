@@ -80,7 +80,7 @@ THEMES = {
     "dark": "#E0E0E0",
 }
 
-SIZES = (16, 24)
+SIZES = (16, 24, 32, 48)
 
 
 def fetch_svg(symbol: str) -> bytes:

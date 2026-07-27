@@ -14,6 +14,7 @@
 #include "BackendHierarchyFollow.h"
 #include "BackendProjectObjectIo.h"
 #include "BackendSceneDocumentFacade.h"
+#include "BackendTypeIds.h"
 #include "CoreTypes.h"
 #include "DocumentHostEvents.h"
 #include "DocumentImportFacade.h"
@@ -40,6 +41,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLatin1String>
 #include <QList>
 #include <QMessageBox>
 #include <QSet>
@@ -321,7 +323,7 @@ void MainWindow::onOpenProjectFile()
 		opt.quietUi = true;
 		opt.resetViewToHome = false;
 		opt.persistedId = persistedId;
-		opt.catalogTypeName = QStringLiteral("PointCloud");
+		opt.catalogTypeName = QLatin1String(backend_type::kCatalogPointCloud);
 		const cloudsim::host::ImportFileResult imported = cloudsim::host::importFileIntoDocument(
 			host, loadPath, cloudsim::host::ImportFileKind::PointCloud, opt, outError);
 		outImportedId = imported.rootBackendId;

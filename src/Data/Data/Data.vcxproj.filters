@@ -1,207 +1,210 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="External">
-      <UniqueIdentifier>{66FACD12-EBD8-499E-BDA5-F4026490A43A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\bin">
-      <UniqueIdentifier>{1252D972-7B35-4904-B4E6-B131E09D1388}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\bin\SDK">
-      <UniqueIdentifier>{C7BE88CD-C6F2-4E03-B46F-5B8C950A1580}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\bin\SDK\dxfSolution">
-      <UniqueIdentifier>{EBC70B97-11B1-4AA3-9E2F-5C5854E1804D}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\bin\SDK\dxfSolution\dxflib">
-      <UniqueIdentifier>{94859FE0-A96D-475E-A3F7-2BA0E1B7A795}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="External\bin\SDK\dxfSolution\dxflib\Source">
-      <UniqueIdentifier>{BC1AB470-65AA-492B-835C-7B8C1685F7A7}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc">
-      <UniqueIdentifier>{164164E9-51D1-410A-87A8-AC62F551E745}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Core">
-      <UniqueIdentifier>{314FBD79-2033-4CC1-9158-9F92457CE4AF}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\GeometryBackends">
-      <UniqueIdentifier>{3BE1E4AA-0263-4065-9327-4C629373F494}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{696E3C67-758A-4022-B50E-DFB4EA80D114}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\HierarchyFollow">
-      <UniqueIdentifier>{093AEC51-8755-4B34-A18E-EE3EE1FC5564}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\SpatialPrimitive">
-      <UniqueIdentifier>{C6A917B8-8A1F-4877-83CE-3EBF03E85A78}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{85B04651-DDD9-413D-96C9-8417D89B39A4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Core">
-      <UniqueIdentifier>{1C9BF0BE-D77B-49BE-BC46-FED1777930C2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\GeometryBackends">
-      <UniqueIdentifier>{598CC520-8F9F-446E-A1B9-83B0457AAD37}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Global">
-      <UniqueIdentifier>{206DBF8E-5D1F-470F-A1E1-52714B677BC0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\HierarchyFollow">
-      <UniqueIdentifier>{4BCB60C5-BC00-4480-B820-08315E9E3605}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\SpatialPrimitive">
-      <UniqueIdentifier>{DF2B4B9A-6A37-46E5-BEC3-CFD7BBF8AFB1}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\..\..\..\bin\SDK\dxfSolution\dxflib\Source\dl_dxf.cpp">
-      <Filter>External\bin\SDK\dxfSolution\dxflib\Source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\..\bin\SDK\dxfSolution\dxflib\Source\dl_writer_ascii.cpp">
-      <Filter>External\bin\SDK\dxfSolution\dxflib\Source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendDataBase.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendDataManager.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendFollowMath.cpp">
-      <Filter>src\HierarchyFollow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendFollowTransformSolver.cpp">
-      <Filter>src\HierarchyFollow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendHierarchyModel.cpp">
-      <Filter>src\HierarchyFollow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendObjectAttribute.cpp">
-      <Filter>src\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendPrimitiveGeometry.cpp">
-      <Filter>src\SpatialPrimitive</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BackendSpatial.cpp">
-      <Filter>src\SpatialPrimitive</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BrepBackendData_core.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\BrepBackendData_step.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\CloudSimCoreExport.cpp">
-      <Filter>src\Global</Filter>
-    </ClCompile>
-    <ClCompile Include="source\FollowAttachmentComponent.cpp">
-      <Filter>src\HierarchyFollow</Filter>
-    </ClCompile>
-    <ClCompile Include="source\FrameBackendData.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\geometry_base64.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\GeometryBackendOps.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshBackendData_cgal_io.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshBackendData_core.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshBackendData_dxf.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshBackendData_load_common.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshBackendData_step.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\MeshBoolean.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\pch.cpp">
-      <Filter>src\Global</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PlyIo.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PointCloudBackendData.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-    <ClCompile Include="source\PointCloudBackendOps.cpp">
-      <Filter>src\GeometryBackends</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\BackendDataBase.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendDataManager.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendFollowTransformSolver.h">
-      <Filter>inc\HierarchyFollow</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendHierarchyChange.h">
-      <Filter>inc\HierarchyFollow</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendHierarchyModel.h">
-      <Filter>inc\HierarchyFollow</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendObjectAttribute.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendPrimitiveGeometry.h">
-      <Filter>inc\SpatialPrimitive</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendPropertyRow.h">
-      <Filter>inc\Core</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BackendSpatial.h">
-      <Filter>inc\SpatialPrimitive</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\BrepBackendData.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\data_global.h">
-      <Filter>inc\Global</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\FollowAttachmentComponent.h">
-      <Filter>inc\HierarchyFollow</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\FrameBackendData.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\geometry_base64.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\GeometryBackendOps.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\GeometryRef.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MeshBackendData.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\MeshBoolean.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PlyIo.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PointCloudBackendData.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\PointCloudBackendOps.h">
-      <Filter>inc\GeometryBackends</Filter>
-    </ClInclude>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="External">
+      <UniqueIdentifier>{66FACD12-EBD8-499E-BDA5-F4026490A43A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\bin">
+      <UniqueIdentifier>{1252D972-7B35-4904-B4E6-B131E09D1388}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\bin\SDK">
+      <UniqueIdentifier>{C7BE88CD-C6F2-4E03-B46F-5B8C950A1580}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\bin\SDK\dxfSolution">
+      <UniqueIdentifier>{EBC70B97-11B1-4AA3-9E2F-5C5854E1804D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\bin\SDK\dxfSolution\dxflib">
+      <UniqueIdentifier>{94859FE0-A96D-475E-A3F7-2BA0E1B7A795}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\bin\SDK\dxfSolution\dxflib\Source">
+      <UniqueIdentifier>{BC1AB470-65AA-492B-835C-7B8C1685F7A7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc">
+      <UniqueIdentifier>{164164E9-51D1-410A-87A8-AC62F551E745}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Core">
+      <UniqueIdentifier>{314FBD79-2033-4CC1-9158-9F92457CE4AF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\GeometryBackends">
+      <UniqueIdentifier>{3BE1E4AA-0263-4065-9327-4C629373F494}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\Global">
+      <UniqueIdentifier>{696E3C67-758A-4022-B50E-DFB4EA80D114}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\HierarchyFollow">
+      <UniqueIdentifier>{093AEC51-8755-4B34-A18E-EE3EE1FC5564}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\SpatialPrimitive">
+      <UniqueIdentifier>{C6A917B8-8A1F-4877-83CE-3EBF03E85A78}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{85B04651-DDD9-413D-96C9-8417D89B39A4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{1C9BF0BE-D77B-49BE-BC46-FED1777930C2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\GeometryBackends">
+      <UniqueIdentifier>{598CC520-8F9F-446E-A1B9-83B0457AAD37}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Global">
+      <UniqueIdentifier>{206DBF8E-5D1F-470F-A1E1-52714B677BC0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\HierarchyFollow">
+      <UniqueIdentifier>{4BCB60C5-BC00-4480-B820-08315E9E3605}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\SpatialPrimitive">
+      <UniqueIdentifier>{DF2B4B9A-6A37-46E5-BEC3-CFD7BBF8AFB1}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\..\bin\SDK\dxfSolution\dxflib\Source\dl_dxf.cpp">
+      <Filter>External\bin\SDK\dxfSolution\dxflib\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\bin\SDK\dxfSolution\dxflib\Source\dl_writer_ascii.cpp">
+      <Filter>External\bin\SDK\dxfSolution\dxflib\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendDataBase.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendDataManager.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendFollowMath.cpp">
+      <Filter>src\HierarchyFollow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendFollowTransformSolver.cpp">
+      <Filter>src\HierarchyFollow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendHierarchyModel.cpp">
+      <Filter>src\HierarchyFollow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendObjectAttribute.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendPrimitiveGeometry.cpp">
+      <Filter>src\SpatialPrimitive</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BackendSpatial.cpp">
+      <Filter>src\SpatialPrimitive</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BrepBackendData_core.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\BrepBackendData_step.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CloudSimCoreExport.cpp">
+      <Filter>src\Global</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FollowAttachmentComponent.cpp">
+      <Filter>src\HierarchyFollow</Filter>
+    </ClCompile>
+    <ClCompile Include="source\FrameBackendData.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\geometry_base64.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\GeometryBackendOps.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBackendData_cgal_io.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBackendData_core.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBackendData_dxf.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBackendData_load_common.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBackendData_step.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\MeshBoolean.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\pch.cpp">
+      <Filter>src\Global</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PlyIo.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PointCloudBackendData.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PointCloudBackendOps.cpp">
+      <Filter>src\GeometryBackends</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\BackendDataBase.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendDataManager.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendFollowTransformSolver.h">
+      <Filter>inc\HierarchyFollow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendHierarchyChange.h">
+      <Filter>inc\HierarchyFollow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendHierarchyModel.h">
+      <Filter>inc\HierarchyFollow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendObjectAttribute.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendPrimitiveGeometry.h">
+      <Filter>inc\SpatialPrimitive</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendPropertyRow.h">
+      <Filter>inc\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendSpatial.h">
+      <Filter>inc\SpatialPrimitive</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BrepBackendData.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\BackendTypeIdentity.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\data_global.h">
+      <Filter>inc\Global</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FollowAttachmentComponent.h">
+      <Filter>inc\HierarchyFollow</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\FrameBackendData.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\geometry_base64.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\GeometryBackendOps.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\GeometryRef.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshBackendData.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\MeshBoolean.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PlyIo.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PointCloudBackendData.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\PointCloudBackendOps.h">
+      <Filter>inc\GeometryBackends</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

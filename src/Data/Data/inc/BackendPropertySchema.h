@@ -6,6 +6,7 @@
 
 #include "../../PropertyCore/inc/PropertySchema.h"
 #include "BackendDataBase.h"
+#include "BackendTypeIdentity.h"
 
 /// 后端对象属性 schema 拼装与语义位标注
 namespace backend_property_schema
@@ -103,7 +104,7 @@ inline const property_core::PropertySchema& followAttachmentBackendPropertySchem
 
 inline const property_core::PropertySchema& schemaForBackendClassName(const std::string& className)
 {
-	if (className == "PointCloudBackendData")
+	if (backend_type::isPointCloudClassName(className))
 	{
 		return pointCloudBackendSchema();
 	}

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""离线生成 CloudSim UI 单色 PNG 图标（Material Outlined 风格几何近似）。"""
+"""离线生成 CloudSim UI 单色 PNG 图标（Material Outlined 风格几何近似）。
+
+Pillow ImageDraw 无抗锯齿：先按 SUPERSAMPLE 倍绘制，再 LANCZOS 缩到目标尺寸。
+"""
 
 from __future__ import annotations
 
@@ -22,7 +25,9 @@ ICON_BASENAMES: list[str] = [
 ]
 
 THEMES = {"light": "#424242", "dark": "#E0E0E0"}
-SIZES = (16, 24)
+# 含 @2x：32=16@2x，48=24@2x；绘制时先 ×SUPERSAMPLE 再 LANCZOS 缩回
+SIZES = (16, 24, 32, 48)
+SUPERSAMPLE = 4
 STROKE = 2.0
 
 
@@ -42,13 +47,19 @@ def scale(v: float, size: int, base: int = 24) -> float:
 
 
 def stroke_w(size: int) -> int:
+    # 超采样画布上保持相对线宽，缩回后约等于逻辑 2px
     return max(1, int(round(STROKE * size / 24)))
+
+
+def hairline_w(size: int) -> int:
+    return max(1, stroke_w(size) // 2)
 
 
 def draw_icon(name: str, size: int, color: str) -> Image.Image:
     img, draw, rgb = canvas(size, color)
     s = lambda v: scale(v, size)
     sw = stroke_w(size)
+    hw = hairline_w(size)
     pad = s(3)
     box = (pad, pad, size - pad, size - pad)
 
@@ -142,7 +153,7 @@ def draw_icon(name: str, size: int, color: str) -> Image.Image:
     elif name == "discretize":
         for i in range(4):
             y = s(6 + i * 4)
-            draw.line([(s(5), y), (s(19), y)], fill=rgb, width=max(1, sw - 1))
+            draw.line([(s(5), y), (s(19), y)], fill=rgb, width=hw)
     elif name == "refresh":
         draw.arc([pad, pad, size - pad, size - pad], start=30, end=330, fill=rgb, width=sw)
         draw.polygon([(s(16), s(5)), (s(19), s(9)), (s(14), s(9))], fill=rgb)
@@ -161,15 +172,15 @@ def draw_icon(name: str, size: int, color: str) -> Image.Image:
     elif name == "point_pick":
         r = s(2)
         draw.ellipse([size / 2 - r, size / 2 - r, size / 2 + r, size / 2 + r], fill=rgb)
-        draw.line([(size / 2, pad), (size / 2, size - pad)], fill=rgb, width=1)
-        draw.line([(pad, size / 2), (size - pad, size / 2)], fill=rgb, width=1)
+        draw.line([(size / 2, pad), (size / 2, size - pad)], fill=rgb, width=hw)
+        draw.line([(pad, size / 2), (size - pad, size / 2)], fill=rgb, width=hw)
     elif name == "line_pick":
         draw.line([(s(4), s(18)), (s(20), s(6))], fill=rgb, width=sw)
         draw.rectangle([s(3), s(3), s(8), s(8)], outline=rgb, width=sw)
     elif name == "face_pick":
         draw.rectangle([s(5), s(5), s(19), s(19)], outline=rgb, width=sw)
-        draw.line([(s(5), s(10)), (s(19), s(10))], fill=rgb, width=1)
-        draw.line([(s(10), s(5)), (s(10), s(19))], fill=rgb, width=1)
+        draw.line([(s(5), s(10)), (s(19), s(10))], fill=rgb, width=hw)
+        draw.line([(s(10), s(5)), (s(10), s(19))], fill=rgb, width=hw)
     elif name == "send":
         draw.polygon([(s(4), s(6)), (s(4), s(18)), (s(18), s(12))], fill=rgb)
     elif name == "settings":
@@ -229,8 +240,8 @@ def draw_icon(name: str, size: int, color: str) -> Image.Image:
         dot = s(1.5)
         draw.ellipse([cx - dot, cy - dot, cx + dot, cy + dot], fill=rgb)
         # 十字线
-        draw.line([(cx, cy - s(4)), (cx, cy + s(4))], fill=rgb, width=1)
-        draw.line([(cx - s(4), cy), (cx + s(4), cy)], fill=rgb, width=1)
+        draw.line([(cx, cy - s(4)), (cx, cy + s(4))], fill=rgb, width=hw)
+        draw.line([(cx - s(4), cy), (cx + s(4), cy)], fill=rgb, width=hw)
         # 四角括号
         corner = s(2.5)
         gap = s(3)
@@ -287,6 +298,12 @@ def draw_icon(name: str, size: int, color: str) -> Image.Image:
     return img
 
 
+def render_icon(name: str, logical_size: int, color: str) -> Image.Image:
+    # Pillow ImageDraw 无 AA；先画大图再 LANCZOS 缩回才有半透明边缘
+    hi = draw_icon(name, logical_size * SUPERSAMPLE, color)
+    return hi.resize((logical_size, logical_size), Image.Resampling.LANCZOS)
+
+
 def write_qrc(qrc_path: Path, entries: list[tuple[str, str]]) -> None:
     lines = ["<RCC>", '    <qresource prefix="/cloudsim/icons">']
     for alias, rel in entries:
@@ -303,7 +320,7 @@ def main() -> int:
     for basename in ICON_BASENAMES:
         for theme, color in THEMES.items():
             for size in SIZES:
-                img = draw_icon(basename, size, color)
+                img = render_icon(basename, size, color)
                 rel = f"{theme}/{basename}_{size}.png"
                 out_path = out_root / rel
                 out_path.parent.mkdir(parents=True, exist_ok=True)

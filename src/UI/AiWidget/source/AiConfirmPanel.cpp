@@ -3,6 +3,8 @@
 
 #include "AiConfirmPanel.h"
 
+#include "BackendTypeIds.h"
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
@@ -10,6 +12,7 @@
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLatin1String>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSpinBox>
@@ -29,11 +32,12 @@ QStringList objectIdsMatching(const nlohmann::json& snap, const QString& filter)
 		const QString id = QString::fromStdString(o.value("id", ""));
 		const QString cls = QString::fromStdString(o.value("class", ""));
 		const QString name = QString::fromStdString(o.value("name", ""));
-		const bool pc = cls.contains(QStringLiteral("PointCloud"), Qt::CaseInsensitive);
-		const bool mesh = cls == QStringLiteral("Model");
-		const bool brep = cls.contains(QStringLiteral("Brep"), Qt::CaseInsensitive);
+		const std::string cn = cls.toStdString();
+		const bool pc = backend_type::isPointCloudClassName(cn);
+		const bool mesh = backend_type::isMeshClassName(cn);
+		const bool brep = backend_type::isBrepWorkpieceClassName(cn);
 		bool ok = true;
-		if (filter == QStringLiteral("PointCloud"))
+		if (filter == QLatin1String(backend_type::kCatalogPointCloud))
 			ok = pc;
 		else if (filter == QStringLiteral("Mesh"))
 			ok = mesh;

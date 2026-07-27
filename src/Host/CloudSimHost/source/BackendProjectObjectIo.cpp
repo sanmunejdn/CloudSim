@@ -10,6 +10,7 @@
 #include "BackendHierarchyFollow.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryBuiltins.h"
+#include "BackendTypeIdentity.h"
 #include "BrepBackendData.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
@@ -303,7 +304,8 @@ QString importProjectObjectFromFile(DocumentHost& host, const QString& loadPath,
 	opt.resetViewToHome = false;
 	opt.persistedId = persistedId;
 	opt.catalogTypeName = catalogTypeName.isEmpty()
-							  ? (isPointCloud ? QStringLiteral("PointCloud") : QStringLiteral("Model"))
+							  ? (isPointCloud ? QLatin1String(backend_type::kCatalogPointCloud)
+											  : QLatin1String(backend_type::kCatalogModel))
 							  : catalogTypeName;
 	if (isPointCloud)
 	{
@@ -459,9 +461,10 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 		}
 
 		// 坐标系无文件几何，仅靠 pose/worldMatrix；仍须走内嵌注册
+		const std::string classNameUtf8 = classNameVal.toStdString();
 		const bool isCoordinateFrame =
-			classNameVal == QStringLiteral("FrameBackendData") ||
-			sourceType.compare(QStringLiteral("CoordinateFrame"), Qt::CaseInsensitive) == 0;
+			backend_type::isCoordinateFrameClassName(classNameUtf8) ||
+			sourceType.compare(QLatin1String(backend_type::kCatalogCoordinateFrame), Qt::CaseInsensitive) == 0;
 
 		if (!hasEmb && sourcePath.isEmpty() && assetRelativePath.isEmpty() && !isCoordinateFrame)
 		{
@@ -471,12 +474,8 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 		if (hasEmb || isCoordinateFrame)
 		{
 			const QString catalogType =
-				sourceType.isEmpty()
-					? (classNameVal == QStringLiteral("PointCloudBackendData") ? QStringLiteral("PointCloud")
-					   : classNameVal == QStringLiteral("BrepModel")			   ? QStringLiteral("BrepModel")
-					   : classNameVal == QStringLiteral("FrameBackendData")	   ? QStringLiteral("CoordinateFrame")
-																			   : QStringLiteral("Model"))
-					: sourceType;
+				sourceType.isEmpty() ? QString::fromStdString(backend_type::catalogTypeFromClassName(classNameUtf8))
+									 : sourceType;
 			// edges 模式父链由 edges[] 统一写，勿用 JSON parentId
 			const QString parentId = options.useEdgesRelation ? QString() : legacyParentId;
 			QString visualErr;
@@ -522,9 +521,12 @@ void loadProjectObjectsFromJson(DocumentHost& host, const QJsonArray& objects, c
 										 .arg(sourcePath.isEmpty() ? assetRelativePath : sourcePath));
 			continue;
 		}
-		const bool isPc = sourceType.compare(QStringLiteral("PointCloud"), Qt::CaseInsensitive) == 0;
+		const bool isPc =
+			sourceType.compare(QLatin1String(backend_type::kCatalogPointCloud), Qt::CaseInsensitive) == 0;
 		const QString catalogType =
-			sourceType.isEmpty() ? (isPc ? QStringLiteral("PointCloud") : QStringLiteral("Model")) : sourceType;
+			sourceType.isEmpty()
+				? (isPc ? QLatin1String(backend_type::kCatalogPointCloud) : QLatin1String(backend_type::kCatalogModel))
+				: sourceType;
 		QString importErr;
 		QString importedId = importProjectObjectFromFile(host, loadPath, persistedId, catalogType, isPc, &importErr);
 		// las/laz 等 importPointCloudFile 失败时的 Widget 回退（与 importFileIntoDocument 一致）

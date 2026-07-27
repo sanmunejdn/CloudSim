@@ -5,6 +5,7 @@
 
 #include "../../PropertyCore/inc/PropertyAttribute.h"
 #include "BackendSpatial.h"
+#include "BackendTypeIdentity.h"
 #include "PlyIo.h"
 #include "geometry_base64.h"
 
@@ -26,7 +27,7 @@
 
 PointCloudBackendData::PointCloudBackendData()
 {
-	setName("PointCloud");
+	setName(backend_type::kCatalogPointCloud);
 	BackendColor c;
 	c.r = 0.65f;
 	c.g = 0.82f;
@@ -40,7 +41,7 @@ PointCloudBackendData::PointCloudBackendData()
 
 std::string PointCloudBackendData::className() const
 {
-	return "PointCloudBackendData";
+	return backend_type::kClassPointCloud;
 }
 
 bool PointCloudBackendData::hasGeometry() const

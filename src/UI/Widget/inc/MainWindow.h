@@ -32,6 +32,7 @@
 #include <json.hpp>
 
 class QWidget;
+class QToolBar;
 class QColor;
 class DocumentPage;
 namespace osg
@@ -132,6 +133,10 @@ public:
 	bool isShowingCentralAlternate() const override;
 	void enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel) override;
 	void exitProcessFlowSideUi() override;
+	bool embedActiveRenderWidget(QWidget* slot, QString* outError = nullptr) override;
+	void restoreActiveRenderWidget() override;
+	void setModeToolBar(QWidget* toolBar) override;
+	void refreshModeToolBarTheme();
 	JobSystem* jobSystem();
 	int meshImportQuality() const { return m_meshImportQuality; }
 	void setMeshImportQuality(int quality) { m_meshImportQuality = quality; }
@@ -322,6 +327,7 @@ protected:
 	/// 非当前文档有结构变更时置脏，切回再 sync，避免每次切 Tab 全量重建
 	QSet<QString> m_unitsTreeDirtyDocumentIds;
 	QTabWidget* m_documentTabs = nullptr;
+	QToolBar* m_modeToolBar = nullptr;
 	QTreeWidget* m_backendTree = nullptr;
 	QTreeWidget* m_osgSceneTree = nullptr;
 	std::unique_ptr<BackendUnitsTreeBinder> m_unitsTreeBinder;
@@ -370,6 +376,8 @@ protected:
 	QDockWidget* m_processFlowLeftDock = nullptr;
 	QDockWidget* m_processFlowRightDock = nullptr;
 	bool m_processFlowSideUiActive = false;
+	/// 本次 SideUi 是否挂了工艺流程右栏；几何建模为 false，避免展开 AI 时带出仿真面板
+	bool m_processFlowUsesRightDock = false;
 	bool m_unitDockVisibleBeforeProcessFlow = true;
 	bool m_propertyDockVisibleBeforeProcessFlow = true;
 	struct ProcessFlowDetachedRightTab

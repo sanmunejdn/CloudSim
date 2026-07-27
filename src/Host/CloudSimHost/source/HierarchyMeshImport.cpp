@@ -5,6 +5,7 @@
 
 #include "BackendDataBase.h"
 #include "BackendFileImport.h"
+#include "BackendTypeIds.h"
 #include "BrepBackendData.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
@@ -17,6 +18,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
+#include <QLatin1String>
 
 #include <ShapeHandle.h>
 
@@ -164,7 +166,7 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 	{
 		importParent->setShape(parts.front().shapeRef);
 	}
-	if (!registerAdoptedBackendObject(host, importParent, sourceFilePath, QStringLiteral("BrepModel"), QString(),
+	if (!registerAdoptedBackendObject(host, importParent, sourceFilePath, QLatin1String(backend_type::kCatalogBrepModel), QString(),
 									  outError))
 	{
 		return false;
@@ -201,7 +203,7 @@ bool registerBrepHierarchyPartMeshes(DocumentHost& host, const QString& sourceFi
 		const QString parentId =
 			pathToBackendId.contains(parentPartPath) ? pathToBackendId.value(parentPartPath) : importParentId;
 		QString regErr;
-		if (!registerAdoptedBrepAndLoadScene(host, partBrep, sourceFilePath, QStringLiteral("BrepModel"), parentId,
+		if (!registerAdoptedBrepAndLoadScene(host, partBrep, sourceFilePath, QLatin1String(backend_type::kCatalogBrepModel), parentId,
 											 false, &regErr, true, false))
 		{
 			if (outError)
@@ -324,7 +326,7 @@ bool importMeshFileExtended(DocumentHost& host, const QString& filePath, const Q
 		if (brep->loadFromStepFile(nativePath, &stepErr) && brep->hasGeometry())
 		{
 			QString regErr;
-			if (!registerAdoptedBrepAndLoadScene(host, brep, filePath, QStringLiteral("BrepModel"), QString(), true,
+			if (!registerAdoptedBrepAndLoadScene(host, brep, filePath, QLatin1String(backend_type::kCatalogBrepModel), QString(), true,
 												 &regErr))
 			{
 				if (outError)

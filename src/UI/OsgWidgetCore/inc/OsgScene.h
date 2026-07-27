@@ -426,7 +426,6 @@ private:
 	void applyHudSquareOrthoProjection(osg::Camera* camera, float halfExtent, int viewportWidth,
 									   int viewportHeight) const;
 	void logicalMouseToDeviceCoords(double logicalX, double logicalY, double& outDeviceX, double& outDeviceY) const;
-	void logicalMouseToPickWindowCoords(double logicalX, double logicalY, double& outWindowX, double& outWindowY) const;
 	bool isBrepPickBackend(const std::string& backendId) const;
 	bool tryQueryBrepPick(const PickQuery& query, bool pickFace, PickResult& out) const;
 	bool getWorldPickRay(double mouseX, double mouseY, osg::Vec3d& outStart, osg::Vec3d& outEnd) const;
@@ -440,6 +439,7 @@ private:
 	int nearestPointByKdTree(const osg::Vec3f& queryLocalCentered) const;
 
 protected:
+	void logicalMouseToPickWindowCoords(double logicalX, double logicalY, double& outWindowX, double& outWindowY) const;
 	std::function<void()> m_requestRedraw;
 	int m_viewportWidth = 640;
 	int m_viewportHeight = 480;

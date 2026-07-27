@@ -81,6 +81,10 @@ void DocumentHost::setCentralAlternateWidget(QWidget* widget)
 
 void DocumentHost::showCentralScene3D()
 {
+	if (m_osgEmbedded)
+	{
+		return;
+	}
 	if (m_centralAlternate)
 	{
 		if (m_centralLayout)
@@ -101,7 +105,8 @@ void DocumentHost::showCentralAlternate()
 	{
 		return;
 	}
-	if (m_osgWidget)
+	// 已 embed 到建模页时勿 hide OSG（OSG 是 alternate 子树）
+	if (m_osgWidget && !m_osgEmbedded)
 	{
 		m_osgWidget->hide();
 	}
@@ -114,12 +119,71 @@ void DocumentHost::showCentralAlternate()
 
 bool DocumentHost::isShowingCentralAlternate() const
 {
-	return m_centralAlternate && m_centralAlternate->isVisible() && (!m_osgWidget || m_osgWidget->isHidden());
+	return m_centralAlternate && m_centralAlternate->isVisible() &&
+		   (m_osgEmbedded || !m_osgWidget || m_osgWidget->isHidden());
 }
 
 QWidget* DocumentHost::centralAlternateWidget() const
 {
 	return m_centralAlternate;
+}
+
+bool DocumentHost::embedRenderWidget(QWidget* slot, QString* outError)
+{
+	if (!m_osgWidget || !slot)
+	{
+		if (outError)
+			*outError = QStringLiteral("Missing OsgWidget or slot.");
+		return false;
+	}
+	if (m_osgEmbedded && m_osgEmbedSlot == slot)
+	{
+		m_osgWidget->show();
+		return true;
+	}
+	if (m_osgEmbedded)
+	{
+		restoreRenderWidget();
+	}
+	if (m_centralLayout)
+	{
+		m_centralLayout->removeWidget(m_osgWidget);
+	}
+	QVBoxLayout* layout = qobject_cast<QVBoxLayout*>(slot->layout());
+	if (!layout)
+	{
+		layout = new QVBoxLayout(slot);
+		layout->setContentsMargins(0, 0, 0, 0);
+		layout->setSpacing(0);
+	}
+	m_osgWidget->setParent(slot);
+	layout->addWidget(m_osgWidget);
+	m_osgWidget->show();
+	m_osgEmbedSlot = slot;
+	m_osgEmbedded = true;
+	return true;
+}
+
+void DocumentHost::restoreRenderWidget()
+{
+	if (!m_osgEmbedded || !m_osgWidget)
+	{
+		m_osgEmbedded = false;
+		m_osgEmbedSlot = nullptr;
+		return;
+	}
+	if (QLayout* lay = m_osgWidget->parentWidget() ? m_osgWidget->parentWidget()->layout() : nullptr)
+	{
+		lay->removeWidget(m_osgWidget);
+	}
+	m_osgWidget->setParent(this);
+	if (m_centralLayout)
+	{
+		m_centralLayout->addWidget(m_osgWidget);
+	}
+	m_osgWidget->show();
+	m_osgEmbedded = false;
+	m_osgEmbedSlot = nullptr;
 }
 
 void DocumentHost::setRobotUrdfImportContext(IRobotUrdfImportContext* context)

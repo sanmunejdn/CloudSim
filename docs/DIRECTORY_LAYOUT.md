@@ -91,9 +91,15 @@ CloudSim/
 
 ## 构建与输出
 
-- 统一目录：[`Directory.Build.props`](../Directory.Build.props) 定义 `$(CloudSimBinDir)` → 仓库根旁 `bin/x64d/`（Debug）或 `bin/x64/`（Release），不依赖 `$(SolutionDir)`
-- 插件输出：`bin/x64(d)/plugins/<plugin.id>/`
+- 统一目录：[`Directory.Build.props`](../Directory.Build.props) 定义（**不依赖** `$(SolutionDir)`）：
+  - `$(CloudSimRepoRoot)` → 仓库根（`CloudSim\` 上一级）
+  - `$(CloudSimBinDir)` → `bin/x64d/`（Debug）或 `bin/x64/`（Release）
+  - `$(CloudSimIntRoot)` → `bin/x64dmiddle/` 或 `bin/x64middle/`
+- 普通工程：`OutDir=$(CloudSimBinDir)`，`IntDir=$(CloudSimIntRoot)<工程名>/`
+- 插件输出：`$(CloudSimBinDir)plugins/<plugin.id>/`
+- 第三方 SDK：`$(CloudSimRepoRoot)bin/SDK/...`（Include / Lib / 部署拷贝）
 - **生成顺序建议**：`CloudSimCore` → `Data` 等 → **`CloudSimHost`** → `Widget` → `CloudSim`
+- 细节见 [`ARCHITECTURE_SUMMARY.md`](../ARCHITECTURE_SUMMARY.md) §9
 
 ### x64 运行时 DLL（与 exe 同目录）
 

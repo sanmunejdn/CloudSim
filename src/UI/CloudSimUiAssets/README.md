@@ -6,7 +6,8 @@ CloudSim 全前端共享图标，嵌入 `cloudsim_icons.qrc`，由 `CloudSimUiAs
 
 - 风格：Material Outlined 几何近似（单色线框）
 - Light 前景 `#424242`，Dark 前景 `#E0E0E0`
-- 尺寸：16px / 24px 透明 PNG
+- 逻辑尺寸：16px（Small）/ 24px（Medium）
+- 位图：另含 32 / 48（`@2x`），供高分屏；绘制时 4× 超采样再 LANCZOS 缩回，保留半透明抗锯齿边
 
 ## 重新生成 PNG
 

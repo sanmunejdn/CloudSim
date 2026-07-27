@@ -10,6 +10,7 @@
 #include "BackendProjectObjectIo.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryBuiltins.h"
+#include "BackendTypeIds.h"
 #include "BackendVisualSync.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
@@ -21,6 +22,7 @@
 
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QLatin1String>
 
 namespace cloudsim::host
 {
@@ -299,7 +301,7 @@ core::ObjectId DataServiceAdapter::loadObjectFromJson(const QJsonObject& objectJ
 	const QString sourcePath = objectJson.value(QStringLiteral("sourcePath")).toString();
 	const QString sourceType = objectJson.value(QStringLiteral("sourceType")).toString();
 	const QString parentId = objectJson.value(QStringLiteral("parentId")).toString();
-	const QString catalogType = sourceType.isEmpty() ? QStringLiteral("Model") : sourceType;
+	const QString catalogType = sourceType.isEmpty() ? QLatin1String(backend_type::kCatalogModel) : sourceType;
 	if (!registerAdoptedBackendObject(m_host, obj, sourcePath, catalogType, parentId, outError))
 	{
 		return {};

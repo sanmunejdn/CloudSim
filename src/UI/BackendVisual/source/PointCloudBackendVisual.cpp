@@ -18,6 +18,7 @@
 #include "BackendVisualMath.h"
 #include "PointCloudBackendData.h"
 #include "PointCloudBackendVisual.h"
+#include "BackendTypeIds.h"
 
 #include <osg/Geode>
 #include <osg/Geometry>
@@ -87,7 +88,7 @@ osg::ref_ptr<osg::Geode> PointCloudBackendVisual::makeStagingGeode(const PointCl
 
 std::string PointCloudBackendVisual::typeKey() const
 {
-	return "PointCloudBackendData";
+	return backend_type::kClassPointCloud;
 }
 
 bool PointCloudBackendVisual::buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions&,

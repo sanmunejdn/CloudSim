@@ -11,6 +11,7 @@
 #include <windows.h>
 #endif
 
+#include "BackendTypeIdentity.h"
 #include "BackendVisualRegistry.h"
 #include "BrepBackendVisual.h"
 #include "FrameBackendVisual.h"
@@ -39,16 +40,21 @@ std::once_flag& builtinsOnce()
 void registerBuiltins()
 {
 	BackendVisualRegistry::registerType(
-		"PointCloudBackendData",
+		backend_type::kClassPointCloud,
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<PointCloudBackendVisual>(); });
 	BackendVisualRegistry::registerType(
-		"Model", []() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });
+		backend_type::kClassModel, []() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });
 	BackendVisualRegistry::registerType(
-		"MeshBackendData", []() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });
+		backend_type::kClassModelVisualAlias,
+		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<MeshBackendVisual>(); });
 	BackendVisualRegistry::registerType(
-		"BrepModel", []() -> std::unique_ptr<IBackendVisual> { return std::make_unique<BrepBackendVisual>(); });
+		backend_type::kClassBrepModel,
+		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<BrepBackendVisual>(); });
 	BackendVisualRegistry::registerType(
-		"FrameBackendData",
+		backend_type::kClassParametricBrep,
+		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<BrepBackendVisual>(); });
+	BackendVisualRegistry::registerType(
+		backend_type::kClassFrame,
 		[]() -> std::unique_ptr<IBackendVisual> { return std::make_unique<FrameBackendVisual>(); });
 }
 

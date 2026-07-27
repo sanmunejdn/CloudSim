@@ -49,12 +49,12 @@
     <Import Project="$(QtMsBuild)\Qt.props" Condition="Exists('$(QtMsBuild)\Qt.props')" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)../bin/x64d/plugins/com.cloudsim.helloai/</OutDir>
-    <IntDir>$(SolutionDir)../bin/x64dmiddle/HelloAiPlugin/</IntDir>
+    <OutDir>$(CloudSimBinDir)plugins\com.cloudsim.helloai\</OutDir>
+    <IntDir>$(CloudSimIntRoot)HelloAiPlugin\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)../bin/x64/plugins/com.cloudsim.helloai/</OutDir>
-    <IntDir>$(SolutionDir)../bin/x64middle/HelloAiPlugin/</IntDir>
+    <OutDir>$(CloudSimBinDir)plugins\com.cloudsim.helloai\</OutDir>
+    <IntDir>$(CloudSimIntRoot)HelloAiPlugin\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -64,7 +64,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>CloudSimPluginSDK.lib;CloudSimAiSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)../bin/x64d/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CloudSimBinDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(ProjectDir)plugin.json" "$(OutDir)plugin.json"</Command>
@@ -78,7 +78,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>CloudSimPluginSDK.lib;CloudSimAiSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)../bin/x64/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CloudSimBinDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(ProjectDir)plugin.json" "$(OutDir)plugin.json"</Command>

@@ -4,6 +4,7 @@
 #include "FeatureTrajectoryPageWidget.h"
 
 #include "BackendDataManager.h"
+#include "BackendTypeIds.h"
 #include "BrepBackendData.h"
 #include "FeatureDiscretizerParamPanel.h"
 #include "FeaturePickTransform.h"
@@ -1260,8 +1261,8 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 		{
 			continue;
 		}
-		const QString cn = QString::fromStdString(data->className());
-		if (cn != QStringLiteral("Model") && cn != QStringLiteral("BrepModel"))
+		const std::string cn = data->className();
+		if (!backend_type::isMeshClassName(cn) && !backend_type::isBrepWorkpieceClassName(cn))
 		{
 			continue;
 		}
@@ -1275,7 +1276,7 @@ void FeatureTrajectoryPageWidget::refreshBackendCombo()
 		{
 			stepPath = m_stepPathResolver(backendId);
 		}
-		const bool isBrepModel = cn == QStringLiteral("BrepModel");
+		const bool isBrepModel = backend_type::isBrepWorkpieceClassName(cn);
 		if (isBrepModel)
 		{
 			if (!std::dynamic_pointer_cast<BrepBackendData>(data) || !data->hasGeometry())
@@ -1680,7 +1681,7 @@ bool FeatureTrajectoryPageWidget::currentWorkpiece(QString& backendId, QString& 
 	{
 		if (const auto data = m_host->document()->backend().getData(backendId.toStdString()))
 		{
-			if (data->className() == "BrepModel" && data->hasGeometry())
+			if (isBrepWorkpieceClassName(data->className()) && data->hasGeometry())
 			{
 				return true;
 			}

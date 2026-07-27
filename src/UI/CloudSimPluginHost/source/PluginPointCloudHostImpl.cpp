@@ -5,6 +5,7 @@
 
 #include "BackendDataManager.h"
 #include "BackendFileImport.h"
+#include "BackendTypeIds.h"
 #include "BrepBackendData.h"
 #include "DocumentHost.h"
 #include "DocumentImportFacade.h"
@@ -19,6 +20,7 @@
 #include "TemplateBrepUpdate.h"
 #include "WidgetDocumentAccess.h"
 
+#include <QLatin1String>
 #include <atomic>
 #include <functional>
 #include <memory>
@@ -1661,7 +1663,7 @@ void PluginPointCloudHostImpl::updateTemplateBrepFromAlignedScan(
 			constexpr bool kResetViewToHome = false;
 			QString regErr;
 			const bool registerOk = cloudsim::host::registerAdoptedBrepAndLoadScene(
-				*page, result->brep, sourcePath, QStringLiteral("BrepModel"), QString(), kResetViewToHome, &regErr);
+				*page, result->brep, sourcePath, QLatin1String(backend_type::kCatalogBrepModel), QString(), kResetViewToHome, &regErr);
 			if (!registerOk)
 			{
 				onFinished(false, regErr.isEmpty() ? QStringLiteral("Register updated B-rep failed") : regErr,
@@ -2732,7 +2734,7 @@ bool registerReconstructedBrepFromShape(PluginHostContext* host, cloudsim::host:
 	constexpr bool kResetViewToHome = false;
 	QString regErr;
 	const bool registerOk = cloudsim::host::registerAdoptedBrepAndLoadScene(
-		*page, brep, QStringLiteral("plugin://pointcloud/surface-reconstruct"), QStringLiteral("BrepModel"), QString(),
+		*page, brep, QStringLiteral("plugin://pointcloud/surface-reconstruct"), QLatin1String(backend_type::kCatalogBrepModel), QString(),
 		kResetViewToHome, &regErr);
 	if (!registerOk)
 	{
@@ -2790,7 +2792,7 @@ bool registerFitPreviewBrepFromShape(
 	constexpr bool kResetViewToHome = false;
 	QString regErr;
 	const bool registerOk = cloudsim::host::registerAdoptedBrepAndLoadScene(
-		*page, brep, sourceUri, QStringLiteral("BrepModel"), QString(), kResetViewToHome, &regErr);
+		*page, brep, sourceUri, QLatin1String(backend_type::kCatalogBrepModel), QString(), kResetViewToHome, &regErr);
 	if (!registerOk)
 	{
 		if (errMsg)
@@ -2958,7 +2960,7 @@ void runMeshToBrepJob(PluginHostContext* host, IPluginDocument* doc, const std::
 			QString regErr;
 			const bool registerOk = cloudsim::host::registerAdoptedBrepAndLoadScene(
 				*page, result->brep, QStringLiteral("plugin://pointcloud/surface-reconstruct"),
-				QStringLiteral("BrepModel"), QString(), kResetViewToHome, &regErr);
+				QLatin1String(backend_type::kCatalogBrepModel), QString(), kResetViewToHome, &regErr);
 			if (!registerOk)
 			{
 				onFinished(false, regErr.isEmpty() ? QStringLiteral("Register reconstructed B-rep failed") : regErr,

@@ -18,6 +18,7 @@
 #include "BackendVisualMath.h"
 #include "MeshBackendData.h"
 #include "MeshBackendVisual.h"
+#include "BackendTypeIds.h"
 
 #include <array>
 #include <cmath>
@@ -258,7 +259,7 @@ osg::ref_ptr<osg::Node> buildMeshDisplayNodeImpl(const MeshBackendData& data, co
 
 std::string MeshBackendVisual::typeKey() const
 {
-	return "Model";
+	return backend_type::kClassModel;
 }
 
 osg::ref_ptr<osg::Node> MeshBackendVisual::makeDisplayNode(const MeshBackendData& data,

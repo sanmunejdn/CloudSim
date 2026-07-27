@@ -6,9 +6,11 @@
 
 #include "cloudsim_host_global.h"
 
+#include "BackendTypeIds.h"
 #include "CoreTypes.h"
 #include "HierarchyMeshImport.h"
 
+#include <QLatin1String>
 #include <QString>
 #include <functional>
 #include <memory>
@@ -49,7 +51,7 @@ CLOUDSIM_HOST_EXPORT ImportFileResult importFileIntoDocument(DocumentHost& host,
 struct AdoptMeshOptions
 {
 	QString sourcePath;
-	QString catalogTypeName = QStringLiteral("Model");
+	QString catalogTypeName = QLatin1String(backend_type::kCatalogModel);
 	QString parentId;
 	bool resetViewToHome = true;
 	bool linkOsgSceneParent = true;
@@ -58,7 +60,7 @@ struct AdoptMeshOptions
 struct AdoptPointCloudOptions
 {
 	QString sourcePath;
-	QString catalogTypeName = QStringLiteral("PointCloud");
+	QString catalogTypeName = QLatin1String(backend_type::kCatalogPointCloud);
 	bool resetViewToHome = true;
 };
 

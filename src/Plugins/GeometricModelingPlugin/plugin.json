@@ -1,0 +1,8 @@
+{
+  "id": "com.cloudsim.geomodeling",
+  "name": "Geometric Modeling",
+  "version": "1.0.0",
+	"minHostVersion": "1.32.0",
+  "library": "GeometricModelingPlugin.dll",
+  "enabled": true
+}

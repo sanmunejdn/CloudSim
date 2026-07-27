@@ -133,6 +133,14 @@ public:
 	IProcessFlowAiBridge* processFlowAiBridge() override;
 	const IProcessFlowAiBridge* processFlowAiBridge() const override;
 
+	bool embedActiveRenderWidget(QWidget* slot, QString* outError = nullptr) override;
+	void restoreActiveRenderWidget() override;
+	void setModeToolBar(QWidget* toolBar) override;
+
+	void claimWorkspaceMode(const QString& modeId) override;
+	void onWorkspaceModeClaimed(std::function<void(const QString& modeId)> callback) override;
+	QString currentWorkspaceMode() const override;
+
 	/// AI ActionPlan：树选中对象 id
 	QString selectedBackendId() const;
 
@@ -160,6 +168,8 @@ private:
 	std::vector<std::function<void(const QString&, QJsonObject&)>> m_projectSaveCallbacks;
 	std::vector<std::function<void(const QString&, const QJsonObject&)>> m_projectLoadCallbacks;
 	IProcessFlowAiBridge* m_processFlowAiBridge = nullptr;
+	QString m_workspaceMode;
+	std::vector<std::function<void(const QString&)>> m_workspaceModeCallbacks;
 };
 
 #endif // CLOUDSIMPLUGINHOST_PLUGINHOSTCONTEXT_H

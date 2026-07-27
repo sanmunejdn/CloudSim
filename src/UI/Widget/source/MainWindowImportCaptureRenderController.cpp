@@ -3,6 +3,7 @@
 
 #include "MainWindowImportCaptureRenderController.h"
 
+#include "BackendTypeIds.h"
 #include "CoreTypes.h"
 #include "DocumentImportFacade.h"
 #include "DocumentPage.h"
@@ -16,6 +17,7 @@
 #include <QByteArray>
 #include <QFile>
 #include <QFileInfo>
+#include <QLatin1String>
 #include <QMessageBox>
 #include <QPointer>
 #include <memory>
@@ -75,7 +77,7 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(MainWindow& 
 			cloudsim::core::ImportOptionsDto meshOpt;
 			meshOpt.quietUi = quietUi;
 			meshOpt.resetViewToHome = true;
-			meshOpt.catalogTypeName = QStringLiteral("Model");
+			meshOpt.catalogTypeName = QLatin1String(backend_type::kCatalogModel);
 			QString importErr;
 			const cloudsim::host::ImportFileResult imported = cloudsim::host::importFileIntoDocument(
 				*doc, filePath, cloudsim::host::ImportFileKind::Mesh, meshOpt, &importErr);
@@ -223,13 +225,13 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(MainWindow& 
 				};
 				if (threw)
 				{
-					uiFail(QStringLiteral("Model"),
+					uiFail(QLatin1String(backend_type::kCatalogModel),
 						   throwMsg.isEmpty() ? QStringLiteral("Background import failed.") : throwMsg);
 					return;
 				}
 				if (!*loadOk)
 				{
-					uiFail(QStringLiteral("Model"),
+					uiFail(QLatin1String(backend_type::kCatalogModel),
 						   loadErr->isEmpty() ? QStringLiteral("Failed to load model.") : *loadErr);
 					return;
 				}
@@ -244,7 +246,7 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(MainWindow& 
 					loadState->finishIntoDocument(docRef, importOpt, &importErr);
 				if (!imported.ok)
 				{
-					uiFail(QStringLiteral("Model"), importErr.isEmpty() ? QStringLiteral("Import failed.") : importErr);
+					uiFail(QLatin1String(backend_type::kCatalogModel), importErr.isEmpty() ? QStringLiteral("Import failed.") : importErr);
 					return;
 				}
 				mwRef.refreshBackendTree();
@@ -309,7 +311,7 @@ bool MainWindowImportCaptureRenderController::registerBackendObject(MainWindow& 
 		*doc, filePath, cloudsim::host::ImportFileKind::Mesh, importOpt, &importErr);
 	if (!imported.ok)
 	{
-		return reportFail(QStringLiteral("Model"), importErr.isEmpty() ? QStringLiteral("Import failed.") : importErr);
+		return reportFail(QLatin1String(backend_type::kCatalogModel), importErr.isEmpty() ? QStringLiteral("Import failed.") : importErr);
 	}
 
 	mw.refreshBackendTree();

@@ -756,4 +756,29 @@ bool collectShapeFaceEdgeIndices(const ShapeHandle& shapeHandle, std::vector<std
 	return true;
 }
 
+void mergeFaceOwnershipByTShape(const ShapeHandle& tip, const std::string& featureId,
+								std::unordered_map<std::uintptr_t, std::string>& tshapeOwners,
+								std::unordered_map<int, std::string>& outFaceIndexOwners)
+{
+	outFaceIndexOwners.clear();
+	if (tip.isNull() || featureId.empty())
+		return;
+	TopoDS_Shape native;
+	if (!ShapeHandleAccess::nativeShape(tip, &native) || native.IsNull())
+		return;
+	int idx = 0;
+	for (TopExp_Explorer ex(native, TopAbs_FACE); ex.More(); ex.Next(), ++idx)
+	{
+		const TopoDS_Face f = TopoDS::Face(ex.Current());
+		const auto key = reinterpret_cast<std::uintptr_t>(f.TShape().get());
+		if (key == 0)
+			continue;
+		if (tshapeOwners.find(key) == tshapeOwners.end())
+			tshapeOwners.emplace(key, featureId);
+		const auto it = tshapeOwners.find(key);
+		if (it != tshapeOwners.end())
+			outFaceIndexOwners[idx] = it->second;
+	}
+}
+
 } // namespace geoalgo

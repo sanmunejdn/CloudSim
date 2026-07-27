@@ -3,6 +3,7 @@
 
 #include "LabelingAnnotWidget.h"
 
+#include "BackendTypeIds.h"
 #include "IPluginDocument.h"
 #include "IPluginHostContext.h"
 #include "IPluginLabelingHost.h"
@@ -45,8 +46,7 @@ namespace
 {
 bool isLabelingTargetClass(const std::string& cls)
 {
-	// MeshBackendData::className() 为 "Model"，与 PointCloudPlugin 等模块一致
-	return cls == "PointCloudBackendData" || cls == "Model";
+	return backend_type::isPointCloudClassName(cls) || backend_type::isMeshClassName(cls);
 }
 
 struct PlyVertexProperty

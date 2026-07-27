@@ -3,6 +3,7 @@
 
 #include "ProcessFlowPlugin.h"
 
+#include "BackendTypeIds.h"
 #include "IPluginDocument.h"
 #include "IPluginHostContext.h"
 #include "IProcessFlowAiBridge.h"
@@ -22,6 +23,7 @@
 #include <QFileDialog>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLatin1String>
 #include <QMenu>
 #include <QPointF>
 #include <QTextStream>
@@ -80,12 +82,26 @@ bool ProcessFlowPlugin::initialize(IPluginHostContext* host)
 			{
 				return;
 			}
+			if (m_host->currentWorkspaceMode() != pluginId())
+			{
+				softExitProcessFlow();
+				return;
+			}
 			if (ProcessFlowPageWidget* page = ensurePageForActiveDocument())
 			{
 				m_host->setCentralAlternateWidget(page);
 				m_host->showCentralAlternate();
 				bindCanvasSelection(page);
 			}
+		});
+	host->onWorkspaceModeClaimed(
+		[this](const QString& modeId)
+		{
+			if (modeId == pluginId())
+			{
+				return;
+			}
+			softExitProcessFlow();
 		});
 	host->onLanguageChanged([this](bool) { applyLanguage(); });
 	host->onProjectAboutToSave([this](const QString& documentId, QJsonObject& root)
@@ -360,6 +376,7 @@ void ProcessFlowPlugin::enterProcessFlow()
 	{
 		return;
 	}
+	m_host->claimWorkspaceMode(pluginId());
 	m_host->setCentralAlternateWidget(page);
 	m_host->enterProcessFlowSideUi(m_palette, m_simSide);
 	m_host->showCentralAlternate();
@@ -372,6 +389,19 @@ void ProcessFlowPlugin::enterProcessFlow()
 	m_inProcessFlow = true;
 }
 
+void ProcessFlowPlugin::softExitProcessFlow()
+{
+	if (!m_inProcessFlow)
+	{
+		return;
+	}
+	if (m_sim && m_sim->isRunning())
+	{
+		m_sim->stop();
+	}
+	m_inProcessFlow = false;
+}
+
 void ProcessFlowPlugin::exitProcessFlow()
 {
 	if (!m_host)
@@ -382,13 +412,14 @@ void ProcessFlowPlugin::exitProcessFlow()
 	{
 		m_sim->stop();
 	}
+	m_inProcessFlow = false;
+	m_host->claimWorkspaceMode(QString());
 	m_host->showCentralScene3D();
 	m_host->exitProcessFlowSideUi();
 	if (m_palette && m_palette->propertyPanel())
 	{
 		m_palette->propertyPanel()->clearSelection();
 	}
-	m_inProcessFlow = false;
 }
 
 ProcessFlowPageWidget* ProcessFlowPlugin::ensurePageForDocument(const QString& documentId)
@@ -512,16 +543,16 @@ void ProcessFlowPlugin::onProjectAboutToSave(const QString& documentId, QJsonObj
 	{
 		return;
 	}
-	root.insert(QStringLiteral("processFlow"), canvas->toJson());
+	root.insert(QLatin1String(backend_type::kProjectKeyProcessFlow), canvas->toJson());
 }
 
 void ProcessFlowPlugin::onProjectLoaded(const QString& documentId, const QJsonObject& root)
 {
-	if (!root.contains(QStringLiteral("processFlow")))
+	if (!root.contains(QLatin1String(backend_type::kProjectKeyProcessFlow)))
 	{
 		return;
 	}
-	const QJsonObject flow = root.value(QStringLiteral("processFlow")).toObject();
+	const QJsonObject flow = root.value(QLatin1String(backend_type::kProjectKeyProcessFlow)).toObject();
 	ProcessFlowPageWidget* page = ensurePageForDocument(documentId);
 	if (!page || !page->canvas())
 	{

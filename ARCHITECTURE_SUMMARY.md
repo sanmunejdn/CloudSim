@@ -369,13 +369,28 @@ flowchart TB
 | 字段 | 说明 |
 |------|------|
 | `version` | 固定 `4` |
+| `componentsSchemaVersion` / `language` | 组件 schema、语言快照 |
 | `objects[]` | 后端对象数组（含 `id`、`className`、`pose`、`rotation`、`worldMatrix`、`propertyBag`、`components[]`、`geometry`） |
 | `edges[]` | 父子关系边 |
 | `robotKinematics` | 机器人运动学快照 |
 | `robotKinematicsInstances[]` | per-link 关节角 |
 | `robotPrograms` | 机器人程序 JSON |
+| `robotCollision` | 碰撞设置（有机器人时） |
 | `annotations[]` | 标注快照 |
 | `camera` | 相机状态 |
+| `processFlow` | 工艺流程图侧车（空图不写；插件 `com.cloudsim.processflow`） |
+| `geometricModeling` | 几何建模 UI 态侧车（如 `activeBodyId`；Body 在 `objects[]`） |
+
+侧车键登记与空写策略：[docs/后端对象与软件模式/DESIGN_后端对象与软件模式.md](docs/后端对象与软件模式/DESIGN_后端对象与软件模式.md) §3。
+
+### 6.6 工作区模式 vs 后端对象
+
+| 概念 | 含义 |
+|------|------|
+| **Workspace mode** | `IPluginHostContext::claimWorkspaceMode(modeId)`：工艺流程 / 几何建模等与默认三维 **互斥切换 UI**（中央页、侧栏、Ribbon） |
+| **Backend 对象** | `Data` 场景真源；类型由 `BackendRegistry` 的 **className** 决定，与当前 UI 模式无关 |
+
+**强制约定：** Mode ≠ Backend 类型过滤器。切模式不得卸载他模式对象；开工程须完整恢复 `objects[]` 与已登记侧车。工艺图 / DES **不**派生 `BackendDataBase`；参数化 Body 用内置 `ParametricBrepModel`。类型三键与侧车键代码真源 [BackendTypeIds.h](src/Contracts/CloudSimCore/inc/BackendTypeIds.h)；说明见 [Data/DEVELOPER_GUIDE.md](src/Data/Data/DEVELOPER_GUIDE.md) §4.0；专题 [docs/后端对象与软件模式/](docs/后端对象与软件模式/)。
 
 ---
 
@@ -421,11 +436,47 @@ flowchart TB
 
 ## 9. 构建配置
 
-- 统一输出：`Directory.Build.props` → `$(CloudSimBinDir)` = `bin/x64d/`（Debug）或 `bin/x64/`（Release）
+### 9.1 统一输出目录（x64）
+
+根目录：仓库根（`CGAL5.5.2\`，即 `CloudSim\` 的上一级），由 [`Directory.Build.props`](Directory.Build.props) 定义：
+
+| 属性 | Debug\|x64 | Release\|x64 |
+|------|------------|--------------|
+| `$(CloudSimRepoRoot)` | `$(MSBuildThisFileDirectory)..\`（仓库根） | 同左 |
+| `$(CloudSimBinDir)` | `bin\x64d\` | `bin\x64\` |
+| `$(CloudSimIntRoot)` | `bin\x64dmiddle\` | `bin\x64middle\` |
+
+工程约定：
+
+| 类型 | OutDir | IntDir |
+|------|--------|--------|
+| 普通 DLL / LIB / EXE | `$(CloudSimBinDir)` | `$(CloudSimIntRoot)<工程名>\` |
+| 插件 | `$(CloudSimBinDir)plugins\<plugin.id>\` | `$(CloudSimIntRoot)<工程名>\` |
+
+- **禁止** x64 产物路径依赖 `$(SolutionDir)../bin`（单独编 `.vcxproj` 时易落到 `src/Plugins/bin` 等错误目录）。
+- 产物直接链出到上述目录；**不**再「编到别处再拷到 bin」。
+- 保留的 PostBuild 仅用于 sidecar / 第三方运行时（如 `plugin.json`、`plctag.dll`、MechEye/OpenCV DLL），不是本工程 DLL 二次搬迁。
+- 调试工作目录：`bin\x64d\` 或 `bin\x64\`。
+
+### 9.2 第三方 SDK 路径
+
+头文件、库目录、SDK 源文件引用统一为：
+
+```text
+$(CloudSimRepoRoot)bin\SDK\<包名>\...
+```
+
+例如 OSG、OCCT、Eigen、onnxruntime、python311、`libplctag-2.6-vc14-64` 等。
+
+**属性求值顺序**：`Directory.Build.props` 经 `Microsoft.Cpp.props` 导入后才有 `CloudSimRepoRoot`。自定义宏（如 `LibPlcTagRoot`）须写在 **`Import Microsoft.Cpp.props` 之后**，不可放在文件最顶部。
+
+### 9.3 其它
+
 - 推荐生成顺序：`CloudSimCore` → `Data` → `CloudSimHost` → `Widget` → `CloudSim`
 - 源码格式：UTF-8 with BOM + CRLF；头卫 `工程名_文件名_H`；详见 [`docs/SOURCE_CONVENTIONS.md`](docs/SOURCE_CONVENTIONS.md)
 - VS 筛选器：两层 `inc` / `src`，按功能分子组
 - 筛选器日常补缺：`python scripts/generate_vcxproj_filters.py --only-missing`（全量重写勿默认使用）
+- 目录说明亦见 [`docs/DIRECTORY_LAYOUT.md`](docs/DIRECTORY_LAYOUT.md)；本次收口记录见 [`docs/统一VS输出目录/`](docs/统一VS输出目录/)
 
 ---
 

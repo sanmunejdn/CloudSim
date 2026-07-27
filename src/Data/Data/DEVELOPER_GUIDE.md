@@ -132,7 +132,23 @@
 
 ## 4. 具体后端类型
 
-### 4.0 文件路径编码约定
+### 4.0 类型身份「三键」（权威）
+
+**代码真源**：[CloudSimCore/BackendTypeIds.h](../../Contracts/CloudSimCore/inc/BackendTypeIds.h)（`namespace backend_type`）。Data 入口 [BackendTypeIdentity.h](inc/BackendTypeIdentity.h) 仅转发。新增类型先改契约头，再改 builtins / Visual。
+
+持久化 / 工厂认 **className**；导入与 Host 树分类认 **catalog / sourceType**；C++ 类型名可与 className 不同。完整规范与侧车键见 [`docs/后端对象与软件模式/`](../../../docs/后端对象与软件模式/)。
+
+| C++ 类型 | className（`kClass*`） | catalog / sourceType（`kCatalog*`） | Visual 键 |
+|----------|------------------------|-------------------------------------|-----------|
+| `PointCloudBackendData` | `PointCloudBackendData` | `PointCloud` | 同 className |
+| `MeshBackendData` | `Model` | `Model` | `Model`；读兼容 `kClassModelVisualAlias`=`MeshBackendData` |
+| `BrepBackendData` | `BrepModel` | `BrepModel` | 同 className |
+| `ParametricBrepBackendData` | `ParametricBrepModel` | `ParametricBrepModel` | 同 className（复用 Brep visual） |
+| `FrameBackendData` | `FrameBackendData` | `CoordinateFrame` | 同 className |
+
+侧车根键：`kProjectKeyProcessFlow` / `kProjectKeyGeometricModeling`。`backend_type::isBrepWorkpieceClassName` 等助手优先于手写比较。Property schema id（如 `backend.mesh`）为另一命名空间，勿与 className 混用。
+
+### 4.0.1 文件路径编码约定
 
 Data 层凡以 `std::string path` 打开磁盘文件的 API（含 `PlyIo`、`PointCloudBackendData::loadFromFile` / `readPointCloudFromPlyFile`、`MeshBackendData::loadFromFile` 传入 CGAL/OCCT 的路径）均约定为 **Qt 本地窄字节路径**，与 `QFile::encodeName(QString)` 一致。
 
@@ -153,12 +169,12 @@ Data 层凡以 `std::string path` 打开磁盘文件的 API（含 `PlyIo`、`Poi
 | `setPointBuffers(xyz, rgba)` / `setPointBuffers(xyz, rgba, normals)` | `3*N` float + 可选 `4*N` RGBA + 可选 `3*N` 法线 |
 | `pointNormalsNxNyNz()` / `hasPointNormals()` | 法线缓冲（**v1 不写入 project.json**，仅内存） |
 | `pointPositionsXyz()` / `pointVertexRgba()` | 只读缓冲 |
-| `loadFromFile` | `.ply`, `.xyz`（CGAL）；路径见 §4.0 |
-| `readPointCloudFromPlyFile` / `writePointCloudPlySidecar` | PLY 专用（**仅顶点**，忽略 `element face`）；路径见 §4.0 |
+| `loadFromFile` | `.ply`, `.xyz`（CGAL）；路径见 §4.0.1 |
+| `readPointCloudFromPlyFile` / `writePointCloudPlySidecar` | PLY 专用（**仅顶点**，忽略 `element face`）；路径见 §4.0.1 |
 | `writeProjectEmbeddedGeometry` / `readProjectEmbeddedGeometry` | 旧工程内嵌 Base64（新保存走 PLY sidecar） |
 | `writePointCloudPlySidecar` / `readPointCloudPlySidecar` | 工程 `objects/{id}.ply` 读写 |
 
-**PLY 双形态（`PlyIo.h`，路径 §4.0）**
+**PLY 双形态（`PlyIo.h`，路径 §4.0.1）**
 
 | API | 说明 |
 |-----|------|
@@ -423,9 +439,9 @@ Units 树是每文档 DAG 的**显示投影**，规则由 Widget DisplayForest �
 |------|------|
 | `registerType(BackendMeta)` | `className`, `displayName`, `factory`, 标志 |
 | `create(className)` | `shared_ptr<BackendDataBase>` |
-| `ensureBackendBuiltinsRegistered()` | `PointCloudBackendData` + `Model`（`MeshBackendData`） |
+| `ensureBackendBuiltinsRegistered()` | 见 §4.0 五类内置（含 Brep / ParametricBrep / Frame） |
 
-工程加载时：`MainWindowProjectIo` 按 JSON 中 `className` 调用 `create`，再 `loadFromJson`。
+工程加载时：按 JSON 中 `className` 调用 `create`，再 `loadFromJson`。插件扩展：优先 Host 创建内置类型；`registerBackendType`（委托适配）为半成品，无需求勿用。非场景域（工艺图等）走 `project.json` 侧车键，**不要**注册为 Backend 类型。
 
 ---
 
@@ -462,5 +478,6 @@ Units 树是每文档 DAG 的**显示投影**，规则由 Widget DisplayForest �
 - 可视化：[`../BackendVisual/DEVELOPER_GUIDE.md`](../BackendVisual/DEVELOPER_GUIDE.md)（法线光照 §4.2）
 - 场景门面 / 文件导入 / 工程 I/O：[`../Widget/DEVELOPER_GUIDE.md`](../Widget/DEVELOPER_GUIDE.md) §6.1、§11；插件宿主：[`../CloudSimPluginHost/DEVELOPER_GUIDE.md`](../CloudSimPluginHost/DEVELOPER_GUIDE.md)
 - Units 显示树：[`../../../docs/后端对象显示树/`](../../../docs/后端对象显示树/)；契约：[`../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md`](../../Contracts/CloudSimCore/DEVELOPER_GUIDE.md) §2
-- 总架构：[`../../ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md) §4.3、§6.5
+- 总架构：[`../../ARCHITECTURE_SUMMARY.md`](../../ARCHITECTURE_SUMMARY.md) §4.3、§6.5、§6.6
+- 后端类型三键 / 侧车 / 工作区模式：[`../../docs/后端对象与软件模式/`](../../docs/后端对象与软件模式/)
 - 持久化设计/任务/回归：[`../../docs/backend_persistence/`](../../docs/backend_persistence/)

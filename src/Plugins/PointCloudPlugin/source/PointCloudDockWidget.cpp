@@ -3,6 +3,7 @@
 
 #include "PointCloudDockWidget.h"
 
+#include "BackendTypeIds.h"
 #include "IPluginDocument.h"
 #include "IPluginGeometryHost.h"
 #include "IPluginHostContext.h"
@@ -1546,7 +1547,7 @@ void PointCloudDockWidget::refreshPointCloudList()
 	}
 	for (const std::string& id : doc->backendIds())
 	{
-		if (doc->backendClassName(id) != "PointCloudBackendData")
+		if (!backend_type::isPointCloudClassName(doc->backendClassName(id)))
 		{
 			continue;
 		}
@@ -1571,7 +1572,7 @@ void PointCloudDockWidget::refreshPointCloudList()
 			{
 				for (const PluginGeometryBackendEntry& entry : backends)
 				{
-					if (entry.className != "BrepModel")
+					if (entry.className != backend_type::kClassBrepModel)
 					{
 						continue;
 					}
@@ -1677,7 +1678,7 @@ void PointCloudDockWidget::refreshTemplateScanList()
 	for (const std::string& id : doc->backendIds())
 	{
 		const std::string className = doc->backendClassName(id);
-		if (className == "PointCloudBackendData")
+		if (backend_type::isPointCloudClassName(className))
 		{
 			PluginPointCloudInfo info;
 			if (!doc->queryPointCloudInfo(id, info))
@@ -1689,7 +1690,7 @@ void PointCloudDockWidget::refreshTemplateScanList()
 									  .arg(static_cast<qulonglong>(info.pointCount));
 			m_templateScanCombo->addItem(label, QString::fromStdString(id));
 		}
-		else if (className == "Model")
+		else if (backend_type::isMeshClassName(className))
 		{
 			IPluginPointCloudHost* pch = pointCloudHost();
 			PluginMeshInfo meshInfo;
@@ -1753,7 +1754,7 @@ void PointCloudDockWidget::refreshMeshExportList(const std::string& preferBacken
 	}
 	for (const std::string& id : doc->backendIds())
 	{
-		if (doc->backendClassName(id) != "Model")
+		if (!backend_type::isMeshClassName(doc->backendClassName(id)))
 		{
 			continue;
 		}
@@ -2241,7 +2242,7 @@ void PointCloudDockWidget::refreshSpareObjectLists()
 	for (const std::string& id : doc->backendIds())
 	{
 		const std::string className = doc->backendClassName(id);
-		if (className == "PointCloudBackendData")
+		if (backend_type::isPointCloudClassName(className))
 		{
 			PluginPointCloudInfo info;
 			QString label;
@@ -2259,7 +2260,7 @@ void PointCloudDockWidget::refreshSpareObjectLists()
 			addItem(m_spareSourceCombo, label, id, QStringLiteral("pointcloud"));
 			addItem(m_spareTargetCombo, label, id, QStringLiteral("pointcloud"));
 		}
-		else if (className == "Model")
+		else if (backend_type::isMeshClassName(className))
 		{
 			QString label;
 			IPluginPointCloudHost* pch = pointCloudHost();

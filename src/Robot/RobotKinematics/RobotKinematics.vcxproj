@@ -70,13 +70,13 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(SolutionDir)../bin/x64d/</OutDir>
-    <IntDir>$(SolutionDir)../bin/x64dmiddle/RobotKinematics/</IntDir>
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)RobotKinematics\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>$(SolutionDir)../bin/x64/</OutDir>
-    <IntDir>$(SolutionDir)../bin/x64middle/RobotKinematics/</IntDir>
+    <OutDir>$(CloudSimBinDir)</OutDir>
+    <IntDir>$(CloudSimIntRoot)RobotKinematics\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>$(SolutionDir)../bin/x86d/</OutDir>

@@ -90,11 +90,11 @@
       <PreprocessorDefinitions>CGAL_LINKED_WITH_TBB;POINT_CLOUD_ALGORITHM_STATIC;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>../../../../bin/SDK/opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>tbb12.lib;tbbmalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -107,11 +107,11 @@
       <PreprocessorDefinitions>CGAL_LINKED_WITH_TBB;POINT_CLOUD_ALGORITHM_STATIC;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>../../../../bin/SDK/opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>tbb12.lib;tbbmalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -125,11 +125,11 @@
       <PreprocessorDefinitions>CGAL_LINKED_WITH_TBB;POINT_CLOUD_ALGORITHM_STATIC;_LIB;_ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>../../../../bin/SDK/opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>tbb12.lib;tbbmalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -142,11 +142,11 @@
       <PreprocessorDefinitions>CGAL_LINKED_WITH_TBB;POINT_CLOUD_ALGORITHM_STATIC;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>../../../../bin/SDK/opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>tbb12.lib;tbbmalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>

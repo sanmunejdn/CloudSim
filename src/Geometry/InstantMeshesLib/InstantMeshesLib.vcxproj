@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -53,18 +53,9 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <Import Project="$(MSBuildThisFileDirectory)..\..\..\Directory.Build.props" Condition="'$(CloudSimBinDir)'=='' and Exists('$(MSBuildThisFileDirectory)..\..\..\Directory.Build.props')" />
-  <PropertyGroup Condition="'$(CloudSimBinDir)'=='' and '$(Configuration)|$(Platform)'=='Debug|x64'">
-    <CloudSimBinDir>$(ProjectDir)..\..\..\..\bin\x64d\</CloudSimBinDir>
-    <CloudSimIntRoot>$(ProjectDir)..\..\..\..\bin\x64dmiddle\</CloudSimIntRoot>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(CloudSimBinDir)'=='' and '$(Configuration)|$(Platform)'=='Release|x64'">
-    <CloudSimBinDir>$(ProjectDir)..\..\..\..\bin\x64\</CloudSimBinDir>
-    <CloudSimIntRoot>$(ProjectDir)..\..\..\..\bin\x64middle\</CloudSimIntRoot>
-  </PropertyGroup>
   <PropertyGroup>
-    <IMSdkRoot>$(ProjectDir)../../../../bin/SDK/instant-meshes</IMSdkRoot>
-    <IMIncludeDirs>$(IMSdkRoot)/src;$(IMSdkRoot)/ext/dset;$(IMSdkRoot)/ext/pss;$(IMSdkRoot)/ext/pcg32;$(IMSdkRoot)/ext/half;$(IMSdkRoot)/ext/rply;$(IMSdkRoot)/ext/tbb/include;$(ProjectDir)../../../../bin/SDK/eigen</IMIncludeDirs>
+    <IMSdkRoot>$(CloudSimRepoRoot)bin\SDK\instant-meshes</IMSdkRoot>
+    <IMIncludeDirs>$(IMSdkRoot)/src;$(IMSdkRoot)/ext/dset;$(IMSdkRoot)/ext/pss;$(IMSdkRoot)/ext/pcg32;$(IMSdkRoot)/ext/half;$(IMSdkRoot)/ext/rply;$(IMSdkRoot)/ext/tbb/include;$(CloudSimRepoRoot)bin\SDK\eigen</IMIncludeDirs>
     <IMTbbLibDir>$(IMSdkRoot)/ext/tbb/build-vs2019-x64</IMTbbLibDir>
     <IMDefines>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_USE_MATH_DEFINES;__TBB_NO_IMPLICIT_LINKAGE;__TBB_BUILD=1;USE_WINTHREAD</IMDefines>
   </PropertyGroup>

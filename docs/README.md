@@ -10,6 +10,7 @@
 | [`MODULE_DEVELOPER_GUIDES.md`](MODULE_DEVELOPER_GUIDES.md) | 各模块 `DEVELOPER_GUIDE.md` 索引 + 导出/筛选器/注释入口 |
 | [`SOURCE_CONVENTIONS.md`](SOURCE_CONVENTIONS.md) | **源码格式权威约定**：编码、头卫、文件头、clang-format、筛选器脚本 |
 | [`spatial_contract_world_pose.md`](spatial_contract_world_pose.md) | 世界坐标 / `worldMatrix` 契约（改空间相关代码前必读） |
+| [`后端对象与软件模式/`](后端对象与软件模式/) | 后端类型三键、侧车键、工作区模式 vs Data（P0 契约） |
 
 Cursor 规则镜像：`.cursor/rules/cloudsim-cpp-conventions.mdc`、`cloudsim-architecture.mdc`。
 
@@ -17,6 +18,7 @@ Cursor 规则镜像：`.cursor/rules/cloudsim-cpp-conventions.mdc`、`cloudsim-a
 
 | 目录/文件 | 主题 |
 |-----------|------|
+| [`后端对象与软件模式/`](后端对象与软件模式/) | 后端派生 / 工作区模式边界（P0 已验收文档） |
 | [`backend_visibility/`](backend_visibility/) | 后端对象显示/隐藏真源 |
 | [`后端对象显示树/`](后端对象显示树/) | Units 多文档显示树（C+B / DisplayForest；**D2 方案待审批后编码**） |
 | [`架构边界收口/`](架构边界收口/) | Host/契约边界收口（Sprint A/B/C 验收） |

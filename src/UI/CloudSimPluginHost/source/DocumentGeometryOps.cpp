@@ -3,11 +3,14 @@
 
 #include "DocumentGeometryOps.h"
 
+#include "BackendTypeIds.h"
 #include "DocumentHost.h"
 #include "DocumentImportFacade.h"
 #include "GeometryBackendOps.h"
 #include "IPluginMainWindowHost.h"
 #include "MeshBackendData.h"
+
+#include <QLatin1String>
 
 namespace document_geometry_ops
 {
@@ -174,7 +177,7 @@ std::string registerMeshSoup(cloudsim::host::DocumentHost* page, IPluginMainWind
 
 	cloudsim::host::AdoptMeshOptions adoptOpt;
 	adoptOpt.sourcePath = options.sourcePath.isEmpty() ? QStringLiteral("plugin://geometry") : options.sourcePath;
-	adoptOpt.catalogTypeName = QStringLiteral("Model");
+	adoptOpt.catalogTypeName = QLatin1String(backend_type::kCatalogModel);
 	adoptOpt.resetViewToHome = options.resetViewToHome;
 	QString regErr;
 	const cloudsim::host::AdoptRegistrationResult adopted =

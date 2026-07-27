@@ -1,36 +1,72 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
-  <ItemGroup>
-    <Filter Include="inc">
-      <UniqueIdentifier>{FFEB5136-5025-4583-9DCC-87CF45CB1FA5}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Global">
-      <UniqueIdentifier>{1EC0152E-F0DF-4D56-BABA-97678E2BB41C}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="inc\Loader">
-      <UniqueIdentifier>{1B8CE729-975F-4E5C-8799-8F9749F8FB17}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{AAC2864D-79A9-4316-B50E-FD9E86874AF7}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Loader">
-      <UniqueIdentifier>{36340E4E-2123-40E1-AF5C-9C7FBB481B36}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="source\UrdfRobotLoader.cpp">
-      <Filter>src\Loader</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="inc\robot_urdf_global.h">
-      <Filter>inc\Global</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\RobotSimulationTypes.h">
-      <Filter>inc\Loader</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\UrdfRobotLoader.h">
-      <Filter>inc\Loader</Filter>
-    </ClInclude>
-  </ItemGroup>
-</Project>
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+
+  <ItemGroup>
+
+    <Filter Include="inc">
+
+      <UniqueIdentifier>{FFEB5136-5025-4583-9DCC-87CF45CB1FA5}</UniqueIdentifier>
+
+    </Filter>
+
+    <Filter Include="inc\Global">
+
+      <UniqueIdentifier>{1EC0152E-F0DF-4D56-BABA-97678E2BB41C}</UniqueIdentifier>
+
+    </Filter>
+
+    <Filter Include="inc\Loader">
+
+      <UniqueIdentifier>{1B8CE729-975F-4E5C-8799-8F9749F8FB17}</UniqueIdentifier>
+
+    </Filter>
+
+    <Filter Include="src">
+
+      <UniqueIdentifier>{AAC2864D-79A9-4316-B50E-FD9E86874AF7}</UniqueIdentifier>
+
+    </Filter>
+
+    <Filter Include="src\Loader">
+
+      <UniqueIdentifier>{36340E4E-2123-40E1-AF5C-9C7FBB481B36}</UniqueIdentifier>
+
+    </Filter>
+
+  </ItemGroup>
+
+  <ItemGroup>
+
+    <ClCompile Include="source\UrdfRobotLoader.cpp">
+
+      <Filter>src\Loader</Filter>
+
+    </ClCompile>
+
+  </ItemGroup>
+
+  <ItemGroup>
+
+    <ClInclude Include="inc\robot_urdf_global.h">
+
+      <Filter>inc\Global</Filter>
+
+    </ClInclude>
+
+    <ClInclude Include="inc\RobotSimulationTypes.h">
+
+      <Filter>inc\Loader</Filter>
+
+    </ClInclude>
+
+    <ClInclude Include="inc\UrdfRobotLoader.h">
+
+      <Filter>inc\Loader</Filter>
+
+    </ClInclude>
+
+  </ItemGroup>
+
+</Project>
+

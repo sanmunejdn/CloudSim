@@ -5,6 +5,7 @@
 
 #include "BackendDataBase.h"
 #include "BackendDataManager.h"
+#include "BackendTypeIds.h"
 #include "BrepBackendData.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
@@ -17,6 +18,7 @@
 
 #include <QFile>
 #include <QFileInfo>
+#include <QLatin1String>
 #include <memory>
 
 namespace cloudsim::host
@@ -96,7 +98,8 @@ core::ObjectId importPointCloudLasLazFile(DocumentHost& host, const QString& fil
 		return {};
 	}
 	osg->clearStagingGeometry();
-	const QString catalog = options.catalogTypeName.isEmpty() ? QStringLiteral("PointCloud") : options.catalogTypeName;
+	const QString catalog =
+		options.catalogTypeName.isEmpty() ? QLatin1String(backend_type::kCatalogPointCloud) : options.catalogTypeName;
 	if (!registerAdoptedPointCloudAndLoadScene(host, pointCloud, filePath, catalog, options.resetViewToHome, outError))
 	{
 		return {};
@@ -164,7 +167,7 @@ core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const
 	const QString id = QString::fromStdString(mesh->id());
 	host.backendSourcePath()[id] = filePath;
 	host.backendSourceType()[id] =
-		options.catalogTypeName.isEmpty() ? QStringLiteral("Model") : options.catalogTypeName;
+		options.catalogTypeName.isEmpty() ? QLatin1String(backend_type::kCatalogModel) : options.catalogTypeName;
 	if (!options.parentId.isEmpty())
 	{
 		if (!host.backend().attachChild(options.parentId.toStdString(), mesh->id()))
@@ -204,7 +207,7 @@ core::ObjectId importMeshFile(DocumentHost& host, const QString& filePath, const
 		}
 	}
 
-	publishBackendObjectRegistered(host, id, QStringLiteral("MeshBackendData"));
+	publishBackendObjectRegistered(host, id, QLatin1String(backend_type::kClassModel));
 	// 工程恢复：稳定 id 与 JSON 一致
 	if (!options.persistedId.isEmpty() && options.persistedId != id)
 	{
@@ -233,7 +236,7 @@ core::ObjectId importPointCloudFile(DocumentHost& host, const QString& filePath,
 	if (ext == QStringLiteral("ply") && plyFileHasTriangleFaces(nativePath))
 	{
 		core::ImportOptionsDto meshOpt = options;
-		meshOpt.catalogTypeName = QStringLiteral("Model");
+		meshOpt.catalogTypeName = QLatin1String(backend_type::kCatalogModel);
 		return importMeshFile(host, filePath, meshOpt, outError);
 	}
 
@@ -255,7 +258,8 @@ core::ObjectId importPointCloudFile(DocumentHost& host, const QString& filePath,
 	}
 	pointCloud->setWorldMatrix(BackendMat4::identity());
 
-	const QString catalog = options.catalogTypeName.isEmpty() ? QStringLiteral("PointCloud") : options.catalogTypeName;
+	const QString catalog =
+		options.catalogTypeName.isEmpty() ? QLatin1String(backend_type::kCatalogPointCloud) : options.catalogTypeName;
 	if (!registerAdoptedPointCloudAndLoadScene(host, pointCloud, filePath, catalog, options.resetViewToHome, outError))
 	{
 		return {};
@@ -295,7 +299,8 @@ bool registerAdoptedBackendObject(DocumentHost& host, const std::shared_ptr<Back
 	}
 	const QString id = QString::fromStdString(object->id());
 	host.backendSourcePath()[id] = sourcePath;
-	host.backendSourceType()[id] = catalogTypeName.isEmpty() ? QStringLiteral("Model") : catalogTypeName;
+	host.backendSourceType()[id] =
+		catalogTypeName.isEmpty() ? QLatin1String(backend_type::kCatalogModel) : catalogTypeName;
 	if (!parentId.isEmpty())
 	{
 		if (!host.backend().attachChild(parentId.toStdString(), object->id()))
@@ -370,7 +375,8 @@ bool registerAdoptedBrepAndLoadScene(DocumentHost& host, const std::shared_ptr<B
 		}
 		return false;
 	}
-	const QString catalog = catalogTypeName.isEmpty() ? QStringLiteral("BrepModel") : catalogTypeName;
+	const QString catalog =
+		catalogTypeName.isEmpty() ? QLatin1String(backend_type::kCatalogBrepModel) : catalogTypeName;
 	if (!registerAdoptedBackendObject(host, brep, sourcePath, catalog, parentId, outError, linkOsgSceneParent))
 	{
 		return false;
@@ -403,7 +409,8 @@ bool registerAdoptedFrameAndLoadScene(DocumentHost& host, const std::shared_ptr<
 		}
 		return false;
 	}
-	const QString catalog = catalogTypeName.isEmpty() ? QStringLiteral("CoordinateFrame") : catalogTypeName;
+	const QString catalog =
+		catalogTypeName.isEmpty() ? QLatin1String(backend_type::kCatalogCoordinateFrame) : catalogTypeName;
 	if (!registerAdoptedBackendObject(host, frame, QString(), catalog, parentId, outError))
 	{
 		return false;

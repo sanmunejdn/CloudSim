@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -99,13 +99,13 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(SolutionDir)../bin/x64d/</OutDir>
+    <OutDir>$(CloudSimBinDir)</OutDir>
     <IntDir>$(CloudSimIntRoot)Widget\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IntDir>$(CloudSimIntRoot)Widget\</IntDir>
-    <OutDir>$(SolutionDir)../bin/x64/</OutDir>
+    <OutDir>$(CloudSimBinDir)</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -157,14 +157,14 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>inc;../CloudSimUiAssets/inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../BackendVisual/inc;../../Plugins/CloudSimAiSDK/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../../Robot/RobotScene/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Data/Data/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/qtpropertybrowser;../../../../bin/SDK/OSG3.6.5/include;../../UI/Widget/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../CloudSimUiAssets/inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../BackendVisual/inc;../../Plugins/CloudSimAiSDK/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../../Robot/RobotScene/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Data/Data/inc;../../Infra/RunLogger/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;../../UI/Widget/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /Zm300 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>$(CloudSimBinDir)CloudSimUiAssets.lib;$(CloudSimBinDir)CloudSimCore.lib;$(CloudSimBinDir)CloudSimHost.lib;$(CloudSimBinDir)Data.lib;$(CloudSimBinDir)GeometryEngine.lib;$(CloudSimBinDir)OsgWidgetCore.lib;$(CloudSimBinDir)RunLogger.lib;$(CloudSimBinDir)RobotWidget.lib;$(CloudSimBinDir)AiWidget.lib;$(CloudSimBinDir)RobotScene.lib;$(CloudSimBinDir)RobotUrdf.lib;$(CloudSimBinDir)RobotKinematics.lib;osg.lib;osgDB.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(CloudSimBinDir);$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CloudSimBinDir);$(OutDir);$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -180,7 +180,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>inc;../CloudSimUiAssets/inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../BackendVisual/inc;../../Plugins/CloudSimAiSDK/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../../Robot/RobotScene/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Data/Data/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/qtpropertybrowser;../../../../bin/SDK/OSG3.6.5/include;../../UI/Widget/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../CloudSimUiAssets/inc;../../Host/CloudSimHost/inc;../../Contracts/CloudSimCore/inc;../../Plugins/CloudSimPluginSDK/inc;../CloudSimPluginHost/inc;../BackendVisual/inc;../../Plugins/CloudSimAiSDK/inc;../AiWidget/inc;../RobotWidget/inc;../OsgWidgetCore/inc;../../Robot/RobotScene/inc;../../Robot/RobotKinematics/inc;../../Robot/RobotUrdf/inc;../../Geometry/GeometryEngine/inc;../../Geometry/GeometryAlgorithm/inc;../../Data/Data/inc;../../Infra/RunLogger/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser;$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/include;../../UI/Widget/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /Zm300 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -189,7 +189,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>$(CloudSimBinDir)CloudSimUiAssets.lib;$(CloudSimBinDir)CloudSimCore.lib;$(CloudSimBinDir)CloudSimHost.lib;$(CloudSimBinDir)Data.lib;$(CloudSimBinDir)GeometryEngine.lib;$(CloudSimBinDir)OsgWidgetCore.lib;$(CloudSimBinDir)RunLogger.lib;$(CloudSimBinDir)RobotWidget.lib;$(CloudSimBinDir)AiWidget.lib;$(CloudSimBinDir)RobotScene.lib;$(CloudSimBinDir)RobotUrdf.lib;$(CloudSimBinDir)RobotKinematics.lib;osg.lib;osgDB.lib;OpenThreads.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(CloudSimBinDir);$(OutDir);../../../../bin/SDK/OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CloudSimBinDir);$(OutDir);$(CloudSimRepoRoot)bin\SDK\OSG3.6.5/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -255,17 +255,17 @@
     <ClCompile Include="source\JobSystem.cpp" />
     <ClCompile Include="source\ProgressManager.cpp" />
     <ClCompile Include="source\RunInfoPage.cpp" />
-    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertybrowser.cpp">
+    <ClCompile Include="$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser\qtpropertybrowser.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertybrowserutils.cpp" />
-    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtpropertymanager.cpp" />
-    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qteditorfactory.cpp" />
-    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qtvariantproperty.cpp" />
-    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qttreepropertybrowser.cpp" />
-    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\qrc_qtpropertybrowser.cpp" />
-    <ClCompile Include="..\..\..\..\bin\SDK\qtpropertybrowser\moc_qtpropertybrowserutils_p.cpp" />
+    <ClCompile Include="$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser\qtpropertybrowserutils.cpp" />
+    <ClCompile Include="$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser\qtpropertymanager.cpp" />
+    <ClCompile Include="$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser\qteditorfactory.cpp" />
+    <ClCompile Include="$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser\qtvariantproperty.cpp" />
+    <ClCompile Include="$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser\qttreepropertybrowser.cpp" />
+    <ClCompile Include="$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser\qrc_qtpropertybrowser.cpp" />
+    <ClCompile Include="$(CloudSimRepoRoot)bin\SDK\qtpropertybrowser\moc_qtpropertybrowserutils_p.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Host\CloudSimHost\CloudSimHost.vcxproj">

@@ -180,17 +180,29 @@ QIcon icon(UiIconId id, Size size, Theme theme)
 	}
 
 	const int px = static_cast<int>(size);
-	const QString path =
-		QStringLiteral(":/cloudsim/icons/%1/%2_%3.png").arg(themeFolder(resolved), basename, QString::number(px));
+	const QString folder = themeFolder(resolved);
+	const QString path1x =
+		QStringLiteral(":/cloudsim/icons/%1/%2_%3.png").arg(folder, basename, QString::number(px));
+	const QString path2x =
+		QStringLiteral(":/cloudsim/icons/%1/%2_%3.png").arg(folder, basename, QString::number(px * 2));
 
-	const QPixmap pixmap(path);
-	if (pixmap.isNull())
+	QIcon result;
+	const QPixmap pm1x(path1x);
+	if (pm1x.isNull())
 	{
-		qWarning() << "[UiIcons] missing resource" << path;
+		qWarning() << "[UiIcons] missing resource" << path1x;
 		return {};
 	}
+	result.addPixmap(pm1x);
 
-	const QIcon result(pixmap);
+	// 高分屏用 @2x 位图，避免把 24px 硬拉大发糊/发锯
+	QPixmap pm2x(path2x);
+	if (!pm2x.isNull())
+	{
+		pm2x.setDevicePixelRatio(2.0);
+		result.addPixmap(pm2x);
+	}
+
 	iconCache().insert(key, result);
 	return result;
 }

@@ -49,22 +49,22 @@
     <Import Project="$(QtMsBuild)\Qt.props" Condition="Exists('$(QtMsBuild)\Qt.props')" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)../bin/x64d/plugins/com.cloudsim.pointnet/</OutDir>
-    <IntDir>$(SolutionDir)../bin/x64dmiddle/PointNetPlugin/</IntDir>
+    <OutDir>$(CloudSimBinDir)plugins\com.cloudsim.pointnet\</OutDir>
+    <IntDir>$(CloudSimIntRoot)PointNetPlugin\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)../bin/x64/plugins/com.cloudsim.pointnet/</OutDir>
-    <IntDir>$(SolutionDir)../bin/x64middle/PointNetPlugin/</IntDir>
+    <OutDir>$(CloudSimBinDir)plugins\com.cloudsim.pointnet\</OutDir>
+    <IntDir>$(CloudSimIntRoot)PointNetPlugin\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;../CloudSimAiSDK/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/onnxruntime/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;../../Contracts/CloudSimCore/inc;../CloudSimAiSDK/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\onnxruntime/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <AdditionalDependencies>CloudSimPluginSDK.lib;CloudSimAiSDK.lib;onnxruntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)../bin/x64d/;$(SolutionDir)../bin/SDK/onnxruntime/lib/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CloudSimBinDir);$(CloudSimRepoRoot)bin\SDK\onnxruntime/lib/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(ProjectDir)plugin.json" "$(OutDir)plugin.json" &amp;&amp; copy /Y "$(ProjectDir)pointnet_config.json" "$(OutDir)pointnet_config.json"</Command>
@@ -73,12 +73,12 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;../CloudSimAiSDK/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/onnxruntime/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;../CloudSimPluginSDK/inc;../../Contracts/CloudSimCore/inc;../CloudSimAiSDK/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\onnxruntime/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <AdditionalDependencies>CloudSimPluginSDK.lib;CloudSimAiSDK.lib;onnxruntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)../bin/x64/;$(SolutionDir)../bin/SDK/onnxruntime/lib/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(CloudSimBinDir);$(CloudSimRepoRoot)bin\SDK\onnxruntime/lib/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(ProjectDir)plugin.json" "$(OutDir)plugin.json" &amp;&amp; copy /Y "$(ProjectDir)pointnet_config.json" "$(OutDir)pointnet_config.json"</Command>

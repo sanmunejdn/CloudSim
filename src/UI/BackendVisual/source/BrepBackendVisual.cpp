@@ -18,6 +18,7 @@
 #include "BackendVisualMath.h"
 #include "BrepBackendData.h"
 #include "BrepBackendVisual.h"
+#include "BackendTypeIds.h"
 
 #include <cmath>
 #include <string>
@@ -300,7 +301,7 @@ osg::ref_ptr<osg::Node> buildBrepDisplayNode(const BrepBackendData& data, const 
 
 std::string BrepBackendVisual::typeKey() const
 {
-	return "BrepModel";
+	return backend_type::kClassBrepModel;
 }
 
 bool BrepBackendVisual::buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions& meshOptions,

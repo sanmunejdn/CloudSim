@@ -70,6 +70,8 @@ struct PluginGeometryStepRef
 	std::string stepPathUtf8;
 	int edgeIndex = -1;
 	int faceIndex = -1;
+	/// 1.24+：内存 B-rep / ParametricBody 无 STEP 时用 backendId 定位
+	std::string backendIdUtf8;
 };
 
 enum class PluginGeometryElementKind
@@ -132,5 +134,138 @@ using PluginGeometryFinishedFn =
 
 using PluginGeometryElementPickedFn =
 	std::function<void(bool ok, const QString& error, const PluginGeometryStepRef& ref)>;
+
+/// 草图平面（世界 mm）
+struct PluginSketchPlane
+{
+	PluginPoint3d origin{};
+	PluginPoint3d axisX{};
+	PluginPoint3d axisY{};
+	PluginPoint3d normal{};
+	bool isPlanar = false;
+};
+
+enum class PluginSketchExtrudeMode
+{
+	Pad = 0,
+	Pocket
+};
+
+enum class PluginSketchExtrudeEnd
+{
+	Blind = 0,
+	UpToFace,
+	MidPlane,
+	ThroughAll
+};
+
+struct PluginSketchExtrudeParams
+{
+	PluginSketchExtrudeMode mode = PluginSketchExtrudeMode::Pad;
+	double lengthMm = 10.0;
+	bool reversed = false;
+	PluginSketchExtrudeEnd endCondition = PluginSketchExtrudeEnd::Blind;
+	PluginSketchPlane upToFacePlane{};
+	bool hasUpToFacePlane = false;
+	/// 兼容旧路径：Pocket 时基实体；参数化 Body 模式下忽略（tip 在 Body 内）
+	std::string baseBackendIdUtf8;
+	std::string resultNameUtf8;
+	/// 1.23.0+：空=新建 ParametricBrepModel；非空=追加到该 Body
+	std::string targetParametricBackendIdUtf8;
+	/// 1.27.0+：可选完整草图文档 JSON，写入对应 Sketch 特征
+	std::string sketchDocumentJsonUtf8;
+	/// 1.29.0+：UpToFace 弱拓扑引用（rebuild 重解，失败回退烤平面）
+	std::string upToFaceBackendIdUtf8;
+	int upToFaceIndex = -1;
+	/// 1.32.0+：拔模斜度（度），默认 0
+	double draftAngleDeg = 0.0;
+};
+
+enum class PluginSketchSweepMode
+{
+	Boss = 0,
+	Cut
+};
+
+enum class PluginSketchSweepPathSegKind
+{
+	Line = 0,
+	Arc,
+	SplineThrough
+};
+
+struct PluginSketchSweepPathSegment
+{
+	PluginSketchSweepPathSegKind kind = PluginSketchSweepPathSegKind::Line;
+	float ax = 0.f;
+	float ay = 0.f;
+	float az = 0.f;
+	float bx = 0.f;
+	float by = 0.f;
+	float bz = 0.f;
+	float mx = 0.f;
+	float my = 0.f;
+	float mz = 0.f;
+};
+
+struct PluginSketchSweepParams
+{
+	PluginSketchSweepMode mode = PluginSketchSweepMode::Boss;
+	std::string resultNameUtf8;
+	/// 空=新建 Body（仅 Boss）；Cut 必须非空
+	std::string targetParametricBackendIdUtf8;
+	/// 已有 Sketch id；空则 Host 新建
+	std::string profileSketchIdUtf8;
+	std::string pathSketchIdUtf8;
+	std::string profileSketchDocumentJsonUtf8;
+	std::string pathSketchDocumentJsonUtf8;
+	PluginSketchPlane profilePlane{};
+	PluginSketchPlane pathPlane{};
+	/// 非空则优先真弧/线段建 wire；空则回退 path 折线
+	std::vector<PluginSketchSweepPathSegment> pathSegments;
+};
+
+struct PluginSketchOverlaySegment
+{
+	std::vector<float> xyzMm; ///< 折线或圆离散点
+	bool construction = false;
+	/// 1.27.0+：诊断着色（默认青）
+	float rgba[4] = {0.20f, 0.85f, 1.00f, 1.00f};
+	/// 1.27.0+：线宽像素，0=宿主默认
+	float lineWidthPx = 0.0f;
+};
+
+enum class PluginSketchInputKind
+{
+	MouseMove = 0,
+	MousePress,
+	MouseRelease,
+	KeyPress
+};
+
+struct PluginSketchInputEvent
+{
+	PluginSketchInputKind kind = PluginSketchInputKind::MouseMove;
+	int screenX = 0;
+	int screenY = 0;
+	/// Qt::LeftButton=1, RightButton=2, MiddleButton=4；键盘时为 Qt::Key
+	int buttonOrKey = 0;
+	int modifiers = 0;
+	bool hasWorldHit = false;
+	PluginPoint3d worldMm{};
+};
+
+/// 返回 true：已消费（抑制视口轨道）
+using PluginSketchInputFn = std::function<bool(const PluginSketchInputEvent& ev)>;
+
+enum class PluginOriginPlaneKind
+{
+	XY = 0,
+	XZ = 1,
+	YZ = 2
+};
+
+using PluginOriginPlanePickedFn =
+	std::function<void(bool ok, const QString& error, PluginOriginPlaneKind kind, const PluginSketchPlane& plane)>;
 
 #endif // CLOUDSIMPLUGINSDK_PLUGINGEOMETRYTYPES_H

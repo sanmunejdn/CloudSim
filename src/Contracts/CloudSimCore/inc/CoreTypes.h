@@ -4,10 +4,12 @@
 /// @file CoreTypes.h
 /// @brief 三维向量
 
+#include "BackendTypeIds.h"
 #include "cloudsim_core_global.h"
 
 #include <QHash>
 #include <QJsonObject>
+#include <QLatin1String>
 #include <QString>
 #include <QStringList>
 #include <QVector>
@@ -74,7 +76,7 @@ struct ImportOptionsDto
 	bool quietUi = false;
 	bool resetViewToHome = true;
 	/// 后端目录类型
-	QString catalogTypeName = QStringLiteral("Model");
+	QString catalogTypeName = QLatin1String(backend_type::kCatalogModel);
 	bool isPointCloud = false;
 	ObjectId parentId;
 	/// 工程稳定 id

@@ -13,6 +13,7 @@
 #include "IRobotBackendPoseSink.h"
 
 #include <QElapsedTimer>
+#include <QEvent>
 #include <QList>
 #include <QMetaType>
 #include <QPoint>
@@ -51,6 +52,7 @@ namespace osg
 class Group;
 class Node;
 class Geometry;
+class Material;
 } // namespace osg
 
 namespace osgViewer
@@ -140,6 +142,14 @@ public:
 	void clearImportedContent();
 	/// 仅清导入预览，保留已注册后端可视
 	void clearStagingGeometry();
+	/// 半透明三角网预览（xyz 交错，9 floats/三角）
+	void setStagingMeshPreview(const std::vector<float>& xyzTriangles, const osg::Vec4& rgba);
+	/// 草图折线 overlay：关深度测试，避免贴面被遮挡；rgba 按段着色
+	void setSketchLineOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
+							  const std::vector<std::size_t>& segmentEndExclusive,
+							  const std::vector<osg::Vec4>& segmentColors,
+							  const std::vector<float>& segmentWidthsPx = {});
+	void clearSketchLineOverlay();
 	void setSelectionActive(bool active);
 	void setObjectSelectionMode(bool enabled);
 	bool objectSelectionMode() const;
@@ -158,6 +168,23 @@ public:
 	bool meshLinePickMode() const;
 	void setMeshFacePickMode(bool enabled);
 	bool meshFacePickMode() const;
+
+	/// 屏幕点 → 世界射线与平面求交（逻辑像素，与拾取一致）
+	bool intersectScreenWithPlaneMm(int screenX, int screenY, const osg::Vec3d& planeOrigin,
+									const osg::Vec3d& planeNormal, osg::Vec3d& outHitWorldMm,
+									QString* outError = nullptr) const;
+
+	/// 草图编辑：消费视口鼠标/键，抑制轨道（handler 返回 true 表示已处理）
+	using SketchPlaneInputHandler = std::function<bool(QObject* watched, QEvent* event)>;
+	void setSketchPlaneInputHandler(SketchPlaneInputHandler handler);
+	void clearSketchPlaneInputHandler();
+
+	/// 新建草图：显示 XY/XZ/YZ 半透明基准面，点击回调 index（0/1/2）；取消 ok=false
+	using OriginPlanePickedFn = std::function<void(bool ok, int planeIndex)>;
+	void beginOriginPlaneSelection(OriginPlanePickedFn onFinished, float halfSizeMm = 60.f);
+	void cancelOriginPlaneSelection();
+	bool isOriginPlaneSelectionActive() const { return m_originPlanePickActive; }
+
 	void setLabelingClickPickMode(bool enabled, bool meshFace);
 	void setLabelingBrushPickMode(bool enabled, bool meshFace, float radiusPx);
 	PickResult queryPick(const PickQuery& query);
@@ -519,10 +546,28 @@ private:
 	std::unique_ptr<SelectionOperation> m_meshSectionPlaneOperation;
 	std::unique_ptr<SelectionOperation> m_meshElementPickOperation;
 	std::unique_ptr<SelectionOperation> m_labelingPickOperation;
+	SketchPlaneInputHandler m_sketchPlaneInputHandler;
+	bool m_originPlanePickActive = false;
+	float m_originPlaneHalfMm = 60.f;
+	int m_originPlaneHoverIndex = -1;
+	OriginPlanePickedFn m_originPlanePickedFn;
+	osg::ref_ptr<osg::Group> m_originPlanePickGroup;
+	osg::ref_ptr<osg::Vec4Array> m_originPlaneFillColors[3];
+	osg::ref_ptr<osg::Vec4Array> m_originPlaneEdgeColors[3];
+	osg::ref_ptr<osg::Geometry> m_originPlaneFillGeoms[3];
+	osg::ref_ptr<osg::Geometry> m_originPlaneEdgeGeoms[3];
+	osg::ref_ptr<osg::Material> m_originPlaneFillMaterials[3];
+	/// 返回命中基面 index；outDist2 为到相机距离平方
+	int hitTestOriginPlane(int screenX, int screenY, double* outDist2 = nullptr) const;
+	/// 基面与模型面更近者胜；胜出基面则返回其 index，否则 -1
+	int resolveSketchSupportOriginIndex(int screenX, int screenY) const;
+	void applyOriginPlaneHover(int hoverIndex);
+	void updateSketchSupportHover(int screenX, int screenY);
 	/// 使用场景光照加载的网格后端（如 URDF 连杆），改色时保留 Material+LIGHTING。
 	std::unordered_set<std::string> m_litMeshBackendIds;
 	osg::ref_ptr<osg::Group> m_instructionPoseAxesGroup;
 	osg::ref_ptr<osg::Geode> m_rawTrajectoryOverlayGeode;
+	osg::ref_ptr<osg::Geode> m_sketchLineOverlayGeode;
 	osg::ref_ptr<osg::Group> m_rawTrajectoryFramesGroup;
 	osg::ref_ptr<osg::Geode> m_reachableWorkspaceOverlayGeode;
 	bool m_rawTrajShowAxisX = true;

@@ -60,6 +60,8 @@
 #include <QRegularExpression>
 #include <QSet>
 #include <QSignalBlocker>
+#include <QToolBar>
+#include <QMetaObject>
 #include <QStatusBar>
 #include <QStringList>
 #include <QTabBar>
@@ -201,7 +203,12 @@ void MainWindow::applyLanguage()
 	}
 	if (m_processFlowLeftDock)
 	{
-		m_processFlowLeftDock->setWindowTitle(i18n(QStringLiteral("Node Library"), QStringLiteral("节点库")));
+		// 几何建模等会设 panel windowTitle；无则仍是工艺流程节点库
+		QWidget* leftW = m_processFlowLeftDock->widget();
+		m_processFlowLeftDock->setWindowTitle(
+			(leftW && !leftW->windowTitle().isEmpty())
+				? leftW->windowTitle()
+				: i18n(QStringLiteral("Node Library"), QStringLiteral("节点库")));
 	}
 	if (m_processFlowRightDock)
 	{
@@ -761,6 +768,7 @@ void MainWindow::onThemeActionGroupTriggered(QAction* action)
 			m_darkThemeAction->setChecked(false);
 		}
 		setAllDocumentViewerDarkBackground(false);
+		refreshModeToolBarTheme();
 	}
 	else if (action == m_darkThemeAction)
 	{
@@ -774,6 +782,7 @@ void MainWindow::onThemeActionGroupTriggered(QAction* action)
 			m_darkThemeAction->setChecked(true);
 		}
 		setAllDocumentViewerDarkBackground(true);
+		refreshModeToolBarTheme();
 	}
 }
 
@@ -879,12 +888,11 @@ void MainWindow::setRightSidePanelVisible(const bool visible)
 		}
 		if (visible)
 		{
-			if (m_processFlowRightDock)
+			if (m_processFlowUsesRightDock && m_processFlowRightDock)
 			{
 				showSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth, 320);
 				resizeDocks({m_processFlowRightDock}, {m_processFlowRightSavedWidth}, Qt::Horizontal);
 			}
-			// 与仿真 Dock tabify：同步露出含 AI 的 unitDock
 			if (m_unitDock)
 			{
 				showSideDock(m_unitDock, m_rightDockSavedWidth, kDefaultRightDockWidth);
@@ -892,7 +900,10 @@ void MainWindow::setRightSidePanelVisible(const bool visible)
 		}
 		else
 		{
-			hideSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth);
+			if (m_processFlowUsesRightDock)
+			{
+				hideSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth);
+			}
 			hideSideDock(m_unitDock, m_rightDockSavedWidth);
 		}
 		syncSidePanelToggleUi();
@@ -920,7 +931,10 @@ void MainWindow::syncSidePanelToggleUi()
 	const bool leftVisible =
 		m_processFlowSideUiActive ? sideDockShown(m_processFlowLeftDock) : sideDockShown(m_propertyDock);
 	const bool rightVisible =
-		m_processFlowSideUiActive ? sideDockShown(m_processFlowRightDock) : sideDockShown(m_unitDock);
+		m_processFlowSideUiActive
+			? (sideDockShown(m_unitDock)
+			   || (m_processFlowUsesRightDock && sideDockShown(m_processFlowRightDock)))
+			: sideDockShown(m_unitDock);
 
 	if (m_toggleLeftPanelAction)
 	{
@@ -1098,9 +1112,82 @@ bool MainWindow::isShowingCentralAlternate() const
 	return doc && doc->isShowingCentralAlternate();
 }
 
+bool MainWindow::embedActiveRenderWidget(QWidget* slot, QString* outError)
+{
+	cloudsim::host::DocumentHost* doc = currentDocumentHost();
+	if (!doc)
+	{
+		if (outError)
+			*outError = QStringLiteral("No active document.");
+		return false;
+	}
+	return doc->embedRenderWidget(slot, outError);
+}
+
+void MainWindow::restoreActiveRenderWidget()
+{
+	if (cloudsim::host::DocumentHost* doc = currentDocumentHost())
+	{
+		doc->restoreRenderWidget();
+	}
+}
+
+void MainWindow::setModeToolBar(QWidget* toolBar)
+{
+	if (!m_modeToolBar)
+	{
+		m_modeToolBar = addToolBar(QStringLiteral("Mode"));
+		m_modeToolBar->setObjectName(QStringLiteral("ModeToolBar"));
+		m_modeToolBar->setMovable(false);
+		m_modeToolBar->setFloatable(false);
+		m_modeToolBar->setAllowedAreas(Qt::TopToolBarArea);
+		m_modeToolBar->setContextMenuPolicy(Qt::PreventContextMenu);
+		m_modeToolBar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+	}
+
+	// QToolBar::addWidget 后由工具栏持有；~QWidgetAction / setDefaultWidget(nullptr) 都会删控件，故此处只显隐
+	if (!toolBar)
+	{
+		m_modeToolBar->hide();
+		return;
+	}
+
+	for (QAction* a : m_modeToolBar->actions())
+	{
+		if (m_modeToolBar->widgetForAction(a) == toolBar)
+		{
+			m_modeToolBar->show();
+			refreshModeToolBarTheme();
+			return;
+		}
+	}
+
+	toolBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+	m_modeToolBar->addWidget(toolBar);
+	m_modeToolBar->show();
+	refreshModeToolBarTheme();
+}
+
+void MainWindow::refreshModeToolBarTheme()
+{
+	if (!m_modeToolBar)
+	{
+		return;
+	}
+	const bool dark = ApplicationStyle::usesDarkTheme();
+	for (QAction* a : m_modeToolBar->actions())
+	{
+		if (QWidget* w = m_modeToolBar->widgetForAction(a))
+		{
+			QMetaObject::invokeMethod(w, "applyTheme", Qt::DirectConnection, Q_ARG(bool, dark));
+		}
+	}
+}
+
 void MainWindow::enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel)
 {
 	m_processFlowSideUiActive = true;
+	m_processFlowUsesRightDock = (rightPanel != nullptr);
 	m_unitDockVisibleBeforeProcessFlow = sideDockShown(m_unitDock);
 	m_propertyDockVisibleBeforeProcessFlow = sideDockShown(m_propertyDock);
 	hideSideDock(m_propertyDock, m_leftDockSavedWidth);
@@ -1114,40 +1201,47 @@ void MainWindow::enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel)
 		applyStyledDockTitleBar(m_processFlowLeftDock);
 		addDockWidget(Qt::LeftDockWidgetArea, m_processFlowLeftDock);
 	}
-	else
+	else if (!qobject_cast<StyledDockTitleBar*>(m_processFlowLeftDock->titleBarWidget()))
 	{
-		m_processFlowLeftDock->setWindowTitle(i18n(QStringLiteral("Node Library"), QStringLiteral("节点库")));
-		if (!qobject_cast<StyledDockTitleBar*>(m_processFlowLeftDock->titleBarWidget()))
-		{
-			applyStyledDockTitleBar(m_processFlowLeftDock);
-		}
+		applyStyledDockTitleBar(m_processFlowLeftDock);
 	}
 
-	if (!m_processFlowRightDock)
 	{
-		m_processFlowRightDock =
-			new QDockWidget(i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板")), this);
-		m_processFlowRightDock->setObjectName(QStringLiteral("ProcessFlowRightDock"));
-		m_processFlowRightDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-		applyStyledDockTitleBar(m_processFlowRightDock);
-		addDockWidget(Qt::RightDockWidgetArea, m_processFlowRightDock);
+		const QString leftTitle =
+			(leftPanel && !leftPanel->windowTitle().isEmpty())
+				? leftPanel->windowTitle()
+				: i18n(QStringLiteral("Node Library"), QStringLiteral("节点库"));
+		m_processFlowLeftDock->setWindowTitle(leftTitle);
 	}
-	else
+
+	if (rightPanel)
 	{
-		m_processFlowRightDock->setWindowTitle(i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板")));
-		if (!qobject_cast<StyledDockTitleBar*>(m_processFlowRightDock->titleBarWidget()))
+		if (!m_processFlowRightDock)
 		{
+			m_processFlowRightDock =
+				new QDockWidget(i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板")), this);
+			m_processFlowRightDock->setObjectName(QStringLiteral("ProcessFlowRightDock"));
+			m_processFlowRightDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 			applyStyledDockTitleBar(m_processFlowRightDock);
+			addDockWidget(Qt::RightDockWidgetArea, m_processFlowRightDock);
+		}
+		else
+		{
+			m_processFlowRightDock->setWindowTitle(i18n(QStringLiteral("Simulation"), QStringLiteral("仿真面板")));
+			if (!qobject_cast<StyledDockTitleBar*>(m_processFlowRightDock->titleBarWidget()))
+			{
+				applyStyledDockTitleBar(m_processFlowRightDock);
+			}
+		}
+		if (m_processFlowRightDock->widget() != rightPanel)
+		{
+			m_processFlowRightDock->setWidget(rightPanel);
 		}
 	}
 
 	if (leftPanel && m_processFlowLeftDock->widget() != leftPanel)
 	{
 		m_processFlowLeftDock->setWidget(leftPanel);
-	}
-	if (rightPanel && m_processFlowRightDock->widget() != rightPanel)
-	{
-		m_processFlowRightDock->setWidget(rightPanel);
 	}
 
 	if (leftPanel)
@@ -1160,23 +1254,31 @@ void MainWindow::enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel)
 		hideSideDock(m_processFlowLeftDock, m_processFlowLeftSavedWidth);
 	}
 
+	// 无右栏时拆掉与 AI 的 tab 组，避免底栏残留「仿真面板」
 	if (rightPanel)
 	{
 		showSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth, 320);
 		resizeDocks({m_processFlowRightDock}, {m_processFlowRightSavedWidth}, Qt::Horizontal);
 	}
-	else
+	else if (m_processFlowRightDock)
 	{
 		hideSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth);
+		removeDockWidget(m_processFlowRightDock);
+		addDockWidget(Qt::RightDockWidgetArea, m_processFlowRightDock);
+		m_processFlowRightDock->hide();
 	}
 
 	// 仅保留 AI：去掉工作区及插件页签，Dock 标题改为 AI 助手
 	detachNonAiRightTabsForProcessFlow();
-	if (m_unitDock && m_processFlowRightDock && rightPanel)
+	if (m_unitDock)
 	{
+		addDockWidget(Qt::RightDockWidgetArea, m_unitDock);
 		showSideDock(m_unitDock, m_rightDockSavedWidth, kDefaultRightDockWidth);
-		tabifyDockWidget(m_processFlowRightDock, m_unitDock);
-		m_unitDock->raise();
+		if (m_processFlowRightDock && rightPanel)
+		{
+			tabifyDockWidget(m_processFlowRightDock, m_unitDock);
+			m_unitDock->raise();
+		}
 	}
 
 	syncSidePanelToggleUi();
@@ -1266,6 +1368,7 @@ void MainWindow::restoreRightTabsAfterProcessFlow()
 void MainWindow::discardProcessFlowRightTabsForShutdown()
 {
 	m_processFlowSideUiActive = false;
+	m_processFlowUsesRightDock = false;
 	// Host 自有「工作区」页签 removeTab 后无父对象，需挂回以免泄漏；插件页交给各自 shutdown delete
 	if (m_rightPanelTabs && m_unitDockTabs && m_rightPanelTabs->indexOf(m_unitDockTabs) < 0)
 	{
@@ -1289,6 +1392,7 @@ void MainWindow::exitProcessFlowSideUi()
 		return;
 	}
 	m_processFlowSideUiActive = false;
+	m_processFlowUsesRightDock = false;
 	hideSideDock(m_processFlowLeftDock, m_processFlowLeftSavedWidth);
 	hideSideDock(m_processFlowRightDock, m_processFlowRightSavedWidth);
 	restoreRightTabsAfterProcessFlow();

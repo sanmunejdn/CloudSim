@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -53,17 +53,8 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <Import Project="$(MSBuildThisFileDirectory)..\..\..\Directory.Build.props" Condition="'$(CloudSimBinDir)'=='' and Exists('$(MSBuildThisFileDirectory)..\..\..\Directory.Build.props')" />
-  <PropertyGroup Condition="'$(CloudSimBinDir)'=='' and '$(Configuration)|$(Platform)'=='Debug|x64'">
-    <CloudSimBinDir>$(ProjectDir)..\..\..\..\bin\x64d\</CloudSimBinDir>
-    <CloudSimIntRoot>$(ProjectDir)..\..\..\..\bin\x64dmiddle\</CloudSimIntRoot>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(CloudSimBinDir)'=='' and '$(Configuration)|$(Platform)'=='Release|x64'">
-    <CloudSimBinDir>$(ProjectDir)..\..\..\..\bin\x64\</CloudSimBinDir>
-    <CloudSimIntRoot>$(ProjectDir)..\..\..\..\bin\x64middle\</CloudSimIntRoot>
-  </PropertyGroup>
   <PropertyGroup>
-    <IMTbbLibDir>$(ProjectDir)../../../../bin/SDK/instant-meshes/ext/tbb/build-vs2019-x64</IMTbbLibDir>
+    <IMTbbLibDir>$(CloudSimRepoRoot)bin\SDK\instant-meshes/ext/tbb/build-vs2019-x64</IMTbbLibDir>
   </PropertyGroup>
   <ImportGroup Label="ExtensionSettings" />
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -104,7 +95,7 @@
       <PreprocessorDefinitions>GEOMETRY_ALGORITHM_STATIC;WIN32;_DEBUG;_LIB;INSTANT_MESHES_CORE_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;source;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;source;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -117,7 +108,7 @@
       <PreprocessorDefinitions>GEOMETRY_ALGORITHM_STATIC;WIN32;NDEBUG;_LIB;INSTANT_MESHES_CORE_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>inc;source;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;source;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -132,14 +123,14 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <OpenMP>true</OpenMP>
-      <AdditionalIncludeDirectories>inc;source;discretizers;../InstantMeshesCore/inc;../PointCloudAlgorithm/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;source;discretizers;../InstantMeshesCore/inc;../PointCloudAlgorithm/inc;../../Infra/RunLogger/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>InstantMeshesCore.lib;InstantMeshesLib.lib;tbb_static.lib;PointCloudAlgorithm.lib;tbb12.lib;tbbmalloc.lib;RunLogger.lib;libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-gd-x64-1_79.lib;boost_date_time-vc142-mt-gd-x64-1_79.lib;libboost_exception-vc142-mt-gd-x64-1_79.lib;boost_filesystem-vc142-mt-gd-x64-1_79.lib;boost_graph-vc142-mt-gd-x64-1_79.lib;boost_iostreams-vc142-mt-gd-x64-1_79.lib;boost_locale-vc142-mt-gd-x64-1_79.lib;boost_math_c99-vc142-mt-gd-x64-1_79.lib;boost_math_c99f-vc142-mt-gd-x64-1_79.lib;boost_math_c99l-vc142-mt-gd-x64-1_79.lib;boost_math_tr1-vc142-mt-gd-x64-1_79.lib;boost_math_tr1f-vc142-mt-gd-x64-1_79.lib;boost_math_tr1l-vc142-mt-gd-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_random-vc142-mt-gd-x64-1_79.lib;boost_regex-vc142-mt-gd-x64-1_79.lib;boost_serialization-vc142-mt-gd-x64-1_79.lib;boost_system-vc142-mt-gd-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_thread-vc142-mt-gd-x64-1_79.lib;boost_unit_test_framework-vc142-mt-gd-x64-1_79.lib;boost_wserialization-vc142-mt-gd-x64-1_79.lib;TKernel.lib;TKMath.lib;TKG2d.lib;TKG3d.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKMesh.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKShHealing.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir);$(IMTbbLibDir)/Release;../../../../bin/SDK/opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/lib;../../../../bin/SDK/boost_1_79_0/lib64-msvc-14.2;../../../../bin/SDK/opencascade-7.9.3-vc14-64/win64/vc14/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>InstantMeshesCore.lib;InstantMeshesLib.lib;tbb_static.lib;PointCloudAlgorithm.lib;tbb12.lib;tbbmalloc.lib;RunLogger.lib;libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-gd-x64-1_79.lib;boost_date_time-vc142-mt-gd-x64-1_79.lib;libboost_exception-vc142-mt-gd-x64-1_79.lib;boost_filesystem-vc142-mt-gd-x64-1_79.lib;boost_graph-vc142-mt-gd-x64-1_79.lib;boost_iostreams-vc142-mt-gd-x64-1_79.lib;boost_locale-vc142-mt-gd-x64-1_79.lib;boost_math_c99-vc142-mt-gd-x64-1_79.lib;boost_math_c99f-vc142-mt-gd-x64-1_79.lib;boost_math_c99l-vc142-mt-gd-x64-1_79.lib;boost_math_tr1-vc142-mt-gd-x64-1_79.lib;boost_math_tr1f-vc142-mt-gd-x64-1_79.lib;boost_math_tr1l-vc142-mt-gd-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_random-vc142-mt-gd-x64-1_79.lib;boost_regex-vc142-mt-gd-x64-1_79.lib;boost_serialization-vc142-mt-gd-x64-1_79.lib;boost_system-vc142-mt-gd-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-gd-x64-1_79.lib;boost_thread-vc142-mt-gd-x64-1_79.lib;boost_unit_test_framework-vc142-mt-gd-x64-1_79.lib;boost_wserialization-vc142-mt-gd-x64-1_79.lib;TKernel.lib;TKMath.lib;TKG2d.lib;TKG3d.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKOffset.lib;TKMesh.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKShHealing.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OutDir);$(IMTbbLibDir)/Release;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/lib;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0/lib64-msvc-14.2;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/win64/vc14/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>powershell -NoProfile -ExecutionPolicy Bypass -Command "$src = Join-Path '$(ProjectDir)' 'resource/feature'; $dst = Join-Path '$(OutDir)' 'resource/feature'; New-Item -ItemType Directory -Force -Path (Join-Path $dst 'discretizers') | Out-Null; foreach ($rel in @('StrategyCatalog.json')) { $s = Join-Path $src $rel; $d = Join-Path $dst $rel; if ((Test-Path $s) -and -not (Test-Path $d)) { Copy-Item $s $d } }; $srcOps = Join-Path $src 'discretizers'; if (Test-Path $srcOps) { Get-ChildItem $srcOps -Filter *.json | ForEach-Object { $d = Join-Path (Join-Path $dst 'discretizers') $_.Name; if (-not (Test-Path $d)) { Copy-Item $_.FullName $d } } }"</Command>
@@ -155,14 +146,14 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <OpenMP>true</OpenMP>
-      <AdditionalIncludeDirectories>inc;source;discretizers;../InstantMeshesCore/inc;../PointCloudAlgorithm/inc;../../Infra/RunLogger/inc;../../../../bin/SDK/JSON;../../../../bin/SDK/eigen;../../../../bin/SDK/boost_1_79_0;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/include;../../../../bin/SDK/CGAL5.5.2/include;../../../../bin/SDK/opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>inc;source;discretizers;../InstantMeshesCore/inc;../PointCloudAlgorithm/inc;../../Infra/RunLogger/inc;$(CloudSimRepoRoot)bin\SDK\JSON;$(CloudSimRepoRoot)bin\SDK\eigen;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/include;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/include;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>InstantMeshesCore.lib;InstantMeshesLib.lib;tbb_static.lib;PointCloudAlgorithm.lib;tbb12.lib;tbbmalloc.lib;RunLogger.lib;libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-x64-1_79.lib;boost_date_time-vc142-mt-x64-1_79.lib;libboost_exception-vc142-mt-x64-1_79.lib;boost_filesystem-vc142-mt-x64-1_79.lib;boost_graph-vc142-mt-x64-1_79.lib;boost_iostreams-vc142-mt-x64-1_79.lib;boost_locale-vc142-mt-x64-1_79.lib;boost_math_c99-vc142-mt-x64-1_79.lib;boost_math_c99f-vc142-mt-x64-1_79.lib;boost_math_c99l-vc142-mt-x64-1_79.lib;boost_math_tr1-vc142-mt-x64-1_79.lib;boost_math_tr1f-vc142-mt-x64-1_79.lib;boost_math_tr1l-vc142-mt-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-x64-1_79.lib;boost_random-vc142-mt-x64-1_79.lib;boost_regex-vc142-mt-x64-1_79.lib;boost_serialization-vc142-mt-x64-1_79.lib;boost_system-vc142-mt-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-x64-1_79.lib;boost_thread-vc142-mt-x64-1_79.lib;boost_unit_test_framework-vc142-mt-x64-1_79.lib;boost_wserialization-vc142-mt-x64-1_79.lib;TKernel.lib;TKMath.lib;TKG2d.lib;TKG3d.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKMesh.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKShHealing.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir);$(IMTbbLibDir)/Release;../../../../bin/SDK/opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;../../../../bin/SDK/CGAL5.5.2/auxiliary/gmp/lib;../../../../bin/SDK/boost_1_79_0/lib64-msvc-14.2;../../../../bin/SDK/opencascade-7.9.3-vc14-64/win64/vc14/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>InstantMeshesCore.lib;InstantMeshesLib.lib;tbb_static.lib;PointCloudAlgorithm.lib;tbb12.lib;tbbmalloc.lib;RunLogger.lib;libgmp-10.lib;libmpfr-4.lib;boost_container-vc142-mt-x64-1_79.lib;boost_date_time-vc142-mt-x64-1_79.lib;libboost_exception-vc142-mt-x64-1_79.lib;boost_filesystem-vc142-mt-x64-1_79.lib;boost_graph-vc142-mt-x64-1_79.lib;boost_iostreams-vc142-mt-x64-1_79.lib;boost_locale-vc142-mt-x64-1_79.lib;boost_math_c99-vc142-mt-x64-1_79.lib;boost_math_c99f-vc142-mt-x64-1_79.lib;boost_math_c99l-vc142-mt-x64-1_79.lib;boost_math_tr1-vc142-mt-x64-1_79.lib;boost_math_tr1f-vc142-mt-x64-1_79.lib;boost_math_tr1l-vc142-mt-x64-1_79.lib;boost_prg_exec_monitor-vc142-mt-x64-1_79.lib;boost_random-vc142-mt-x64-1_79.lib;boost_regex-vc142-mt-x64-1_79.lib;boost_serialization-vc142-mt-x64-1_79.lib;boost_system-vc142-mt-x64-1_79.lib;libboost_test_exec_monitor-vc142-mt-x64-1_79.lib;boost_thread-vc142-mt-x64-1_79.lib;boost_unit_test_framework-vc142-mt-x64-1_79.lib;boost_wserialization-vc142-mt-x64-1_79.lib;TKernel.lib;TKMath.lib;TKG2d.lib;TKG3d.lib;TKGeomBase.lib;TKGeomAlgo.lib;TKTopAlgo.lib;TKBRep.lib;TKPrim.lib;TKOffset.lib;TKMesh.lib;TKService.lib;TKStd.lib;TKXSBase.lib;TKDE.lib;TKDESTEP.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKShHealing.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OutDir);$(IMTbbLibDir)/Release;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/3rdparty-vc14-64/tbb-2021.13.0-x64/lib;$(CloudSimRepoRoot)bin\SDK\CGAL5.5.2/auxiliary/gmp/lib;$(CloudSimRepoRoot)bin\SDK\boost_1_79_0/lib64-msvc-14.2;$(CloudSimRepoRoot)bin\SDK\opencascade-7.9.3-vc14-64/win64/vc14/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>powershell -NoProfile -ExecutionPolicy Bypass -Command "$src = Join-Path '$(ProjectDir)' 'resource/feature'; $dst = Join-Path '$(OutDir)' 'resource/feature'; New-Item -ItemType Directory -Force -Path (Join-Path $dst 'discretizers') | Out-Null; foreach ($rel in @('StrategyCatalog.json')) { $s = Join-Path $src $rel; $d = Join-Path $dst $rel; if ((Test-Path $s) -and -not (Test-Path $d)) { Copy-Item $s $d } }; $srcOps = Join-Path $src 'discretizers'; if (Test-Path $srcOps) { Get-ChildItem $srcOps -Filter *.json | ForEach-Object { $d = Join-Path (Join-Path $dst 'discretizers') $_.Name; if (-not (Test-Path $d)) { Copy-Item $_.FullName $d } } }"</Command>
@@ -176,6 +167,9 @@
     <ClInclude Include="inc\MeshDiscretize.h" />
     <ClInclude Include="inc\Intersection.h" />
     <ClInclude Include="inc\BrepBoolean.h" />
+    <ClInclude Include="inc\SketchExtrude.h" />
+    <ClInclude Include="inc\SketchSweep.h" />
+    <ClInclude Include="inc\SketchPlane.h" />
     <ClInclude Include="inc\WireOps.h" />
     <ClInclude Include="inc\ShellOps.h" />
     <ClInclude Include="inc\GeoMeshBoolean.h" />
@@ -218,6 +212,9 @@
     <ClCompile Include="source\MeshDiscretize.cpp" />
     <ClCompile Include="source\Intersection.cpp" />
     <ClCompile Include="source\BrepBoolean.cpp" />
+    <ClCompile Include="source\SketchExtrude.cpp" />
+    <ClCompile Include="source\SketchSweep.cpp" />
+    <ClCompile Include="source\SketchPlane.cpp" />
     <ClCompile Include="source\WireOps.cpp" />
     <ClCompile Include="source\ShellOps.cpp" />
     <ClCompile Include="source\MeshBoolean.cpp" />

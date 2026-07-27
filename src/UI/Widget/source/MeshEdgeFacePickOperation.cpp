@@ -119,6 +119,14 @@ bool MeshEdgeFacePickOperation::onMouseMove(QMouseEvent* mouseEvent)
 	{
 		return false;
 	}
+	// 草图支撑面会话：基面已胜出时不再画特征面高亮
+	if (m_owner->m_originPlanePickActive && m_owner->m_originPlaneHoverIndex >= 0)
+	{
+		m_preview.valid = false;
+		m_owner->hideMeshElementHighlight();
+		m_owner->m_feedbackTimer.restart();
+		return true;
+	}
 	const int hoverThrottleMs =
 		m_owner->m_meshFacePickMode ? OsgScene::kPickHoverThrottleMs : OsgScene::kPickHoverEdgeThrottleMs;
 	if (ViewportGestureRecognizer::shouldThrottleHover(m_owner->m_feedbackTimer, hoverThrottleMs))
@@ -165,6 +173,16 @@ bool MeshEdgeFacePickOperation::onMouseButtonRelease(QMouseEvent* mouseEvent)
 	if (!m_gesture.onLeftRelease(mouseEvent->pos(), &swallowRelease))
 	{
 		return false;
+	}
+
+	// 松手时基面更近：不提交特征面，与悬停/按下裁决一致
+	if (m_owner->m_originPlanePickActive &&
+		m_owner->resolveSketchSupportOriginIndex(mouseEvent->x(), mouseEvent->y()) >= 0)
+	{
+		m_preview.valid = false;
+		m_owner->hideMeshElementHighlight();
+		m_owner->requestRedraw();
+		return swallowRelease;
 	}
 
 	PickResult pick = (m_preview.valid && m_preview.result.hit) ? m_preview.result : PickResult{};

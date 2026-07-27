@@ -66,6 +66,13 @@ public:
 	virtual bool isShowingCentralAlternate() const = 0;
 	virtual void enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel) = 0;
 	virtual void exitProcessFlowSideUi() = 0;
+
+	/// 1.21.0+：活动文档 OsgWidget 嵌入/还原
+	virtual bool embedActiveRenderWidget(QWidget* slot, QString* outError = nullptr) = 0;
+	virtual void restoreActiveRenderWidget() = 0;
+
+	/// 1.22.0+：菜单下模式工具条（nullptr 清除）
+	virtual void setModeToolBar(QWidget* toolBar) = 0;
 };
 
 #endif // CLOUDSIMPLUGINHOST_IPLUGINMAINWINDOWHOST_H

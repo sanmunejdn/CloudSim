@@ -1,20 +1,21 @@
-/// @file FrameBackendData.cpp
+﻿// @file FrameBackendData.cpp
 /// @brief FrameBackendData 实现
 
 #include "FrameBackendData.h"
 
 #include "BackendObjectAttribute.h"
+#include "BackendTypeIdentity.h"
 
 FrameBackendData::FrameBackendData()
 {
-	setName("CoordinateFrame");
+	setName(backend_type::kCatalogCoordinateFrame);
 	m_attributes.push_back(makeBackendPoseAttribute());
 	m_attributes.push_back(makeBackendRotationAttribute());
 }
 
 std::string FrameBackendData::className() const
 {
-	return "FrameBackendData";
+	return backend_type::kClassFrame;
 }
 
 bool FrameBackendData::hasGeometry() const

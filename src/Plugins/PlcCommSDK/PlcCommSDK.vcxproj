@@ -17,10 +17,6 @@
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <Keyword>Win32Proj</Keyword>
   </PropertyGroup>
-  <PropertyGroup>
-    <LibPlcTagRoot Condition="'$(CloudSimRepoRoot)' != ''">$(CloudSimRepoRoot)bin\SDK\libplctag-2.6-vc14-64\</LibPlcTagRoot>
-    <LibPlcTagRoot Condition="'$(CloudSimRepoRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\bin\SDK\libplctag-2.6-vc14-64\</LibPlcTagRoot>
-  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -33,6 +29,10 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <!-- Directory.Build.props 经 Cpp.props 导入后才有 CloudSimRepoRoot -->
+  <PropertyGroup>
+    <LibPlcTagRoot>$(CloudSimRepoRoot)bin\SDK\libplctag-2.6-vc14-64\</LibPlcTagRoot>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(CloudSimBinDir)</OutDir>
     <IntDir>$(CloudSimIntRoot)PlcCommSDK\</IntDir>

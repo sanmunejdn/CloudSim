@@ -67,6 +67,11 @@ public:
 	bool isShowingCentralAlternate() const;
 	QWidget* centralAlternateWidget() const;
 
+	/// 1.21.0+：把 OsgWidget reparent 到外部槽（建模页中区）
+	bool embedRenderWidget(QWidget* slot, QString* outError = nullptr);
+	void restoreRenderWidget();
+	bool isRenderWidgetEmbedded() const { return m_osgEmbedded; }
+
 	/// 存量 backend 入口（新代码优先 `data()`；勿在 UI 层继续扩散 BackendDataManager 头）
 	BackendDataManager& backend();
 	const BackendDataManager& backend() const;
@@ -155,6 +160,8 @@ private:
 	QVBoxLayout* m_centralLayout = nullptr;
 	OsgWidget* m_osgWidget = nullptr;
 	QWidget* m_centralAlternate = nullptr;
+	bool m_osgEmbedded = false;
+	QWidget* m_osgEmbedSlot = nullptr;
 	QMap<QString, QString> m_backendSourcePath;
 	QMap<QString, QString> m_backendSourceType;
 	QMap<QString, QString> m_backendParentId;

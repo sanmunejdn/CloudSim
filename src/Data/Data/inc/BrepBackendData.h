@@ -5,6 +5,7 @@
 /// @brief STEP B-rep 工件：场景显示与轨迹特征共用同一 ShapeHandle
 
 #include "BackendDataBase.h"
+#include "BackendTypeIdentity.h"
 
 #include <memory>
 #include <string>
@@ -67,7 +68,7 @@ public:
 	bool applyPropertyChange(const std::string& key, const std::string& value, std::string* errMsg,
 							 const BackendDataManager* mgr = nullptr) override;
 
-private:
+protected:
 	void recomputeBounds();
 	void saveDerivedJson(nlohmann::json& out) const override;
 	bool loadDerivedJson(const nlohmann::json& in, std::string* errMsg) override;
@@ -78,5 +79,11 @@ private:
 	BackendColor m_color;
 	std::unordered_map<int, BackendColor> m_faceHighlightColors;
 };
+
+/// 导入 STEP 与参数化建模工件共用判定
+inline bool isBrepWorkpieceClassName(const std::string& className)
+{
+	return backend_type::isBrepWorkpieceClassName(className);
+}
 
 #endif // DATA_BREPBACKENDDATA_H

@@ -3,6 +3,7 @@
 
 #include "TubularGrindingDockWidget.h"
 
+#include "BackendTypeIds.h"
 #include "IPluginDocument.h"
 #include "IPluginHostContext.h"
 #include "IPluginPointCloudHost.h"
@@ -356,7 +357,7 @@ bool TubularGrindingDockWidget::selectedSourceIsPointCloud() const
 	{
 		return false;
 	}
-	return doc->backendClassName(id) == "PointCloudBackendData";
+	return backend_type::isPointCloudClassName(doc->backendClassName(id));
 }
 
 PluginTubularGrindingCenterlineMethod TubularGrindingDockWidget::selectedCenterlineMethod() const
@@ -795,11 +796,11 @@ void TubularGrindingDockWidget::refreshMeshList()
 	{
 		const std::string className = doc->backendClassName(id);
 		QString suffix;
-		if (className == "Model")
+		if (backend_type::isMeshClassName(className))
 		{
 			suffix = i18n(QStringLiteral(" [Mesh]"), QStringLiteral(" [网格]"));
 		}
-		else if (className == "PointCloudBackendData")
+		else if (backend_type::isPointCloudClassName(className))
 		{
 			suffix = i18n(QStringLiteral(" [PC]"), QStringLiteral(" [点云]"));
 		}

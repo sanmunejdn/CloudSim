@@ -11,6 +11,7 @@
 #include "BackendPoseOsg.h"
 #include "BackendSceneDocumentFacade.h"
 #include "BackendSpatial.h"
+#include "BackendTypeIds.h"
 #include "BackendVisualMath.h"
 #include "BrepBackendData.h"
 #include "DocumentHost.h"
@@ -26,6 +27,7 @@
 
 #include <QByteArray>
 #include <QFile>
+#include <QLatin1String>
 #include <QString>
 #include <cmath>
 #include <functional>
@@ -225,7 +227,7 @@ std::string registerReconstructedMesh(cloudsim::host::DocumentHost* page, IPlugi
 	cloudsim::host::AdoptMeshOptions adoptOpt;
 	adoptOpt.sourcePath =
 		options.sourcePath.isEmpty() ? QStringLiteral("plugin://pointcloud/reconstruct") : options.sourcePath;
-	adoptOpt.catalogTypeName = QStringLiteral("Model");
+	adoptOpt.catalogTypeName = QLatin1String(backend_type::kCatalogModel);
 	adoptOpt.resetViewToHome = options.resetViewToHome;
 	QString regErr;
 	const cloudsim::host::AdoptRegistrationResult adopted =

@@ -20,12 +20,59 @@ namespace
 {
 constexpr int kBtnSize = 32;
 constexpr int kIconSize = 18;
-constexpr int kBarSpacing = 6;
+constexpr int kBarSpacing = 0; // 组内无缝，靠圆角片拼接成整条工具栏
 constexpr int kGroupGap = 14;
 constexpr int kTopMargin = 8;
-constexpr int kBtnRadius = 8;
+constexpr int kBtnRadius = 10;
 constexpr int kTipShowDelayMs = 380;
 constexpr int kTipRadius = 8;
+
+enum class ViewportChromeCorner
+{
+	All,
+	Leading,
+	Middle,
+	Trailing
+};
+
+QPainterPath chromePath(const QRectF& rc, ViewportChromeCorner corner, qreal radius)
+{
+	QPainterPath path;
+	switch (corner)
+	{
+	case ViewportChromeCorner::All:
+		path.addRoundedRect(rc, radius, radius);
+		break;
+	case ViewportChromeCorner::Middle:
+		path.addRect(rc);
+		break;
+	case ViewportChromeCorner::Leading:
+	{
+		const qreal r = qMin(radius, qMin(rc.width(), rc.height()) / 2.0);
+		path.moveTo(rc.right(), rc.top());
+		path.lineTo(rc.left() + r, rc.top());
+		path.arcTo(QRectF(rc.left(), rc.top(), r * 2, r * 2), 90, 90);
+		path.lineTo(rc.left(), rc.bottom() - r);
+		path.arcTo(QRectF(rc.left(), rc.bottom() - r * 2, r * 2, r * 2), 180, 90);
+		path.lineTo(rc.right(), rc.bottom());
+		path.closeSubpath();
+		break;
+	}
+	case ViewportChromeCorner::Trailing:
+	{
+		const qreal r = qMin(radius, qMin(rc.width(), rc.height()) / 2.0);
+		path.moveTo(rc.left(), rc.top());
+		path.lineTo(rc.right() - r, rc.top());
+		path.arcTo(QRectF(rc.right() - r * 2, rc.top(), r * 2, r * 2), 90, -90);
+		path.lineTo(rc.right(), rc.bottom() - r);
+		path.arcTo(QRectF(rc.right() - r * 2, rc.bottom() - r * 2, r * 2, r * 2), 0, -90);
+		path.lineTo(rc.left(), rc.bottom());
+		path.closeSubpath();
+		break;
+	}
+	}
+	return path;
+}
 
 struct ViewportButtonColors
 {
@@ -46,6 +93,12 @@ struct ViewportTipColors
 QColor viewportBaseColor(bool dark)
 {
 	return dark ? QColor(56, 61, 74) : QColor(214, 222, 235);
+}
+
+// 与 OsgWidget clearColor 对齐，供圆角 AA 溶边
+QColor viewportClearColor(bool dark)
+{
+	return dark ? QColor(36, 36, 41) : QColor(237, 237, 240);
 }
 
 ViewportTipColors tipColorsForTheme(bool dark)
@@ -218,8 +271,8 @@ private:
 class ViewportIconButton : public QToolButton
 {
 public:
-	explicit ViewportIconButton(ViewportActionTip* tip, QWidget* parent = nullptr)
-		: QToolButton(parent), m_actionTip(tip)
+	explicit ViewportIconButton(ViewportActionTip* tip, ViewportChromeCorner corner, QWidget* parent = nullptr)
+		: QToolButton(parent), m_actionTip(tip), m_corner(corner)
 	{
 		setFixedSize(kBtnSize, kBtnSize);
 		setToolButtonStyle(Qt::ToolButtonIconOnly);
@@ -281,12 +334,14 @@ protected:
 
 		QPainter p(this);
 		p.setRenderHint(QPainter::Antialiasing, true);
+		p.setRenderHint(QPainter::SmoothPixmapTransform, true);
 		p.setPen(Qt::NoPen);
-		p.fillRect(rect(), viewportBaseColor(m_darkTheme));
 
-		QPainterPath path;
-		path.addRoundedRect(QRectF(rect()), kBtnRadius, kBtnRadius);
-		p.fillPath(path, fill);
+		// 不用 setMask（1bit 锯齿）；圆角外铺清屏色，AA 才能溶边
+		p.fillRect(rect(), viewportClearColor(m_darkTheme));
+
+		// 面与外轮廓同路径：组内邻边保持直角，避免圆角对缝露出黑三角
+		p.fillPath(chromePath(QRectF(rect()), m_corner, kBtnRadius), fill);
 
 		const QIcon icon = this->icon();
 		if (!m_textGlyph.isEmpty())
@@ -326,15 +381,16 @@ protected:
 	}
 
 	ViewportActionTip* m_actionTip = nullptr;
+	ViewportChromeCorner m_corner = ViewportChromeCorner::All;
 	QString m_tipTitle;
 	QString m_tipSubtitle;
 	QString m_textGlyph;
 	bool m_darkTheme = false;
 };
 
-ViewportIconButton* createToolButton(ViewportActionTip* tip, QWidget* host)
+ViewportIconButton* createToolButton(ViewportActionTip* tip, ViewportChromeCorner corner, QWidget* host)
 {
-	return new ViewportIconButton(tip, host);
+	return new ViewportIconButton(tip, corner, host);
 }
 
 void applyChromeToButton(QToolButton* btn, bool dark)
@@ -354,20 +410,20 @@ ViewportToolBar::ViewportToolBar(QWidget* host) : QObject(host), m_host(host)
 	auto* actionTip = new ViewportActionTip(m_host);
 	m_actionTip = actionTip;
 
-	m_focusBtn = createToolButton(actionTip, m_host);
+	m_focusBtn = createToolButton(actionTip, ViewportChromeCorner::Leading, m_host);
 	UiIconDecorators::apply(m_focusBtn, UiIconId::FocusCamera, UiIconDecorators::IconPlacement::IconOnly,
 							UiIcons::Size::Medium);
 	static_cast<ViewportIconButton*>(m_focusBtn)
 		->setActionTipText(QStringLiteral("视角自适应"), QStringLiteral("Focus Camera"));
 
-	m_wireBtn = createToolButton(actionTip, m_host);
+	m_wireBtn = createToolButton(actionTip, ViewportChromeCorner::Middle, m_host);
 	UiIconDecorators::apply(m_wireBtn, UiIconId::Wireframe, UiIconDecorators::IconPlacement::IconOnly,
 							UiIcons::Size::Medium);
 	static_cast<ViewportIconButton*>(m_wireBtn)->setActionTipText(QStringLiteral("线框模式"),
 																  QStringLiteral("Wireframe"));
 	m_wireBtn->setCheckable(true);
 
-	m_captureBtn = createToolButton(actionTip, m_host);
+	m_captureBtn = createToolButton(actionTip, ViewportChromeCorner::Trailing, m_host);
 	UiIconDecorators::apply(m_captureBtn, UiIconId::Screenshot, UiIconDecorators::IconPlacement::IconOnly,
 							UiIcons::Size::Medium);
 	static_cast<ViewportIconButton*>(m_captureBtn)
@@ -382,13 +438,13 @@ ViewportToolBar::ViewportToolBar(QWidget* host) : QObject(host), m_host(host)
 			});
 	connect(m_captureBtn, &QToolButton::clicked, this, &ViewportToolBar::screenshotRequested);
 
-	m_leftPanelBtn = createToolButton(actionTip, m_host);
+	m_leftPanelBtn = createToolButton(actionTip, ViewportChromeCorner::Leading, m_host);
 	m_leftPanelBtn->setCheckable(true);
 	m_leftPanelBtn->setChecked(true);
 	static_cast<ViewportIconButton*>(m_leftPanelBtn)->setTextGlyph(QStringLiteral("\u00ab"));
 	updateLeftPanelChrome(true);
 
-	m_rightPanelBtn = createToolButton(actionTip, m_host);
+	m_rightPanelBtn = createToolButton(actionTip, ViewportChromeCorner::Trailing, m_host);
 	m_rightPanelBtn->setCheckable(true);
 	m_rightPanelBtn->setChecked(true);
 	static_cast<ViewportIconButton*>(m_rightPanelBtn)->setTextGlyph(QStringLiteral("\u00bb"));

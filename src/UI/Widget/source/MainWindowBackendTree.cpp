@@ -4,6 +4,7 @@
 #include "../RobotWidget/inc/RobotSimulationController.h"
 #include "BackendHierarchyModel.h"
 #include "BackendProjectObjectIo.h"
+#include "BackendTypeIds.h"
 #include "BackendUnitsDisplayForest.h"
 #include "CoreTypes.h"
 #include "DocumentPage.h"
@@ -19,6 +20,7 @@
 #include <QAction>
 #include <QFileDialog>
 #include <QHash>
+#include <QLatin1String>
 #include <QList>
 #include <QMenu>
 #include <QMessageBox>
@@ -71,8 +73,8 @@ const QHash<QString, QString>& osgNodeNameZhMap()
 		{QStringLiteral("RosZUp_to_OsgYUp"), QStringLiteral("ROS Z上→OSG Y上")},
 		{QStringLiteral("LinkFrameAxes"), QStringLiteral("连杆坐标轴")},
 		{QStringLiteral("JointRotationAxis"), QStringLiteral("关节旋转轴")},
-		{QStringLiteral("PointCloud"), QStringLiteral("点云")},
-		{QStringLiteral("Model"), QStringLiteral("模型")},
+		{QLatin1String(backend_type::kCatalogPointCloud), QStringLiteral("点云")},
+		{QLatin1String(backend_type::kCatalogModel), QStringLiteral("模型")},
 	};
 	return map;
 }
@@ -510,12 +512,12 @@ void MainWindow::onBackendTreeContextMenu(const QPoint& pos)
 			const cloudsim::core::BackendObjectDto dto = doc->data().objectSnapshot(backendId);
 			if (dto.hasGeometry)
 			{
-				if (dto.className == QStringLiteral("PointCloudBackendData"))
+				if (backend_type::isPointCloudClassName(dto.className.toStdString()))
 				{
 					exportObj =
 						menu.addAction(i18n(QStringLiteral("Export Point Cloud…"), QStringLiteral("导出点云…")));
 				}
-				else if (dto.className == QStringLiteral("BrepModel"))
+				else if (backend_type::isBrepWorkpieceClassName(dto.className.toStdString()))
 				{
 					exportObj = menu.addAction(i18n(QStringLiteral("Export STEP…"), QStringLiteral("导出 STEP…")));
 				}
@@ -631,8 +633,8 @@ void MainWindow::exportBackendObjectFromTree(const QString& backendId)
 	{
 		return;
 	}
-	const bool isPointCloud = dto.className == QStringLiteral("PointCloudBackendData");
-	const bool isBrep = dto.className == QStringLiteral("BrepModel");
+	const bool isPointCloud = backend_type::isPointCloudClassName(dto.className.toStdString());
+	const bool isBrep = backend_type::isBrepWorkpieceClassName(dto.className.toStdString());
 	if (!isPointCloud && !isBrep)
 	{
 		return;

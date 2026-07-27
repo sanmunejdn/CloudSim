@@ -10,6 +10,7 @@
 #include "WidgetRenderAccess.h"
 
 #include "BackendFileImport.h"
+#include "BackendTypeIds.h"
 #include "FrameBackendData.h"
 
 #include <QComboBox>
@@ -19,6 +20,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
+#include <QLatin1String>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QStringList>
@@ -111,7 +113,7 @@ void MainWindow::onOpenModel()
 		return;
 	}
 
-	registerBackendObject(filePath, QStringLiteral("Model"), false);
+	registerBackendObject(filePath, QLatin1String(backend_type::kCatalogModel), false);
 	if (m_runInfoPage)
 	{
 		m_runInfoPage->appendInfo(QStringLiteral("Model opened: %1").arg(filePath));
@@ -133,7 +135,7 @@ void MainWindow::onOpenPointCloud()
 		return;
 	}
 
-	registerBackendObject(filePath, QStringLiteral("PointCloud"), true);
+	registerBackendObject(filePath, QLatin1String(backend_type::kCatalogPointCloud), true);
 	if (m_runInfoPage)
 	{
 		m_runInfoPage->appendInfo(QStringLiteral("Point cloud opened: %1").arg(filePath));
@@ -157,7 +159,7 @@ void MainWindow::onCreateCoordinateFrame()
 	auto* layout = new QVBoxLayout(&dialog);
 	auto* form = new QFormLayout();
 	auto* nameEdit = new QLineEdit(&dialog);
-	nameEdit->setText(i18n(QStringLiteral("CoordinateFrame"), QStringLiteral("坐标系")));
+	nameEdit->setText(i18n(QLatin1String(backend_type::kCatalogCoordinateFrame), QStringLiteral("坐标系")));
 	auto* xSpin = new QDoubleSpinBox(&dialog);
 	auto* ySpin = new QDoubleSpinBox(&dialog);
 	auto* zSpin = new QDoubleSpinBox(&dialog);
@@ -198,7 +200,7 @@ void MainWindow::onCreateCoordinateFrame()
 	QString name = nameEdit->text().trimmed();
 	if (name.isEmpty())
 	{
-		name = i18n(QStringLiteral("CoordinateFrame"), QStringLiteral("坐标系"));
+		name = i18n(QLatin1String(backend_type::kCatalogCoordinateFrame), QStringLiteral("坐标系"));
 	}
 
 	auto frame = std::make_shared<FrameBackendData>();
@@ -207,7 +209,7 @@ void MainWindow::onCreateCoordinateFrame()
 	frame->setRotation(BackendVec3{rxSpin->value(), rySpin->value(), rzSpin->value()});
 
 	QString err;
-	if (!cloudsim::host::registerAdoptedFrameAndLoadScene(*host, frame, QStringLiteral("CoordinateFrame"), QString(),
+	if (!cloudsim::host::registerAdoptedFrameAndLoadScene(*host, frame, QLatin1String(backend_type::kCatalogCoordinateFrame), QString(),
 														  false, &err))
 	{
 		QMessageBox::warning(

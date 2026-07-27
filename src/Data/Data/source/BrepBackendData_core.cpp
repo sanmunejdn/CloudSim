@@ -14,7 +14,7 @@
 
 BrepBackendData::BrepBackendData()
 {
-	setName("BrepModel");
+	setName(backend_type::kClassBrepModel);
 	BackendColor c;
 	c.r = 0.65f;
 	c.g = 0.82f;
@@ -28,7 +28,7 @@ BrepBackendData::BrepBackendData()
 
 std::string BrepBackendData::className() const
 {
-	return "BrepModel";
+	return backend_type::kClassBrepModel;
 }
 
 bool BrepBackendData::hasGeometry() const

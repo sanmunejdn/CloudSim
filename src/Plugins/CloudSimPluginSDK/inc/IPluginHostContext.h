@@ -178,6 +178,18 @@ public:
 	virtual void setProcessFlowAiBridge(IProcessFlowAiBridge* bridge) = 0;
 	virtual IProcessFlowAiBridge* processFlowAiBridge() = 0;
 	virtual const IProcessFlowAiBridge* processFlowAiBridge() const = 0;
+
+	/// 1.21.0+：把活动文档 3D 视口嵌入建模页中区槽；退出时 restore
+	virtual bool embedActiveRenderWidget(QWidget* slot, QString* outError = nullptr) = 0;
+	virtual void restoreActiveRenderWidget() = 0;
+
+	/// 1.22.0+：菜单栏下方独占模式工具条（nullptr 清除）；几何建模等插件挂 Ribbon
+	virtual void setModeToolBar(QWidget* toolBar) = 0;
+
+	/// 1.25.0+：互斥工作区模式。进入工艺流程/几何建模时 claim；其它插件在回调里只清本地状态
+	virtual void claimWorkspaceMode(const QString& modeId) = 0;
+	virtual void onWorkspaceModeClaimed(std::function<void(const QString& modeId)> callback) = 0;
+	virtual QString currentWorkspaceMode() const = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H

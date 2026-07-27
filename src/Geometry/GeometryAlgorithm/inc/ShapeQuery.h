@@ -9,7 +9,9 @@
 #include "ShapeHandle.h"
 #include "Types.h"
 
+#include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <TopoDS_Edge.hxx>
@@ -165,6 +167,14 @@ GEOMETRY_ALGORITHM_API bool validateShapeEdgeIndex(const ShapeHandle& shape, int
 GEOMETRY_ALGORITHM_API bool collectShapeFaceEdgeIndices(const ShapeHandle& shape,
 														std::vector<std::vector<int>>& outFaceEdgeIndices,
 														std::string* errMsg = nullptr);
+
+/**
+ * 按 TShape 跟踪面归属：未见过的面记到 featureId，并刷新 faceIndex→featureId
+ * Data 层勿直接碰 OCC，经此 API 维护进程内归属表
+ */
+GEOMETRY_ALGORITHM_API void mergeFaceOwnershipByTShape(const ShapeHandle& tip, const std::string& featureId,
+													   std::unordered_map<std::uintptr_t, std::string>& tshapeOwners,
+													   std::unordered_map<int, std::string>& outFaceIndexOwners);
 
 } // namespace geoalgo
 

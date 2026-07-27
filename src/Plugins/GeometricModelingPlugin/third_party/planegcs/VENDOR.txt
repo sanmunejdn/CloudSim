@@ -1,0 +1,21 @@
+PlaneGCS source:
+- Repo: https://github.com/FreeCAD/FreeCAD
+- Commit: 3f49f3f05958c4a8f4c5b470adfebbc1503b3f45
+- Path: src/Mod/Sketcher/App/planegcs
+
+Local adjustments:
+- Added stub headers to remove FreeCAD-specific dependencies:
+  - `third_party/planegcs/SketcherGlobal.h`: provides export/visibility macros expected by PlaneGCS.
+  - `third_party/planegcs/FCConfig.h`: placeholder for FreeCAD config macros (empty stub in OneCAD).
+  - `third_party/planegcs/Base/Console.h`: minimal Base::Console logging shim.
+  Rationale: PlaneGCS expects FreeCAD headers; these stubs keep the library standalone.
+  Follow-up: replace with OneCAD shared config/logging or upstream a dependency-free variant.
+- Added `third_party/planegcs/boost_graph_adjacency_list.hpp` wrapper to centralize the Boost
+  adjacency_list include (keeps include paths consistent and allows future Boost-version shims).
+- Updated includes in Geo.h, GCS.h, Constraints.h to use local SketcherGlobal.h.
+- Added System configuration setters in GCS.h/GCS.cpp for solver tuning without touching fields:
+  - `void System::setConvergence(double tol)` (default 1e-10)
+  - `void System::setMaxIterations(int maxIterIn)` (default 100)
+  - `void System::setConvergenceRedundant(double tol)` (default 1e-10)
+  - `void System::setMaxIterationsRedundant(int maxIterIn)` (default 100)
+  These are additive; use the setters in OneCAD (prefer over direct field mutation).

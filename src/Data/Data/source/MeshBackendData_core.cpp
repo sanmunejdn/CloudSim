@@ -6,13 +6,14 @@
 #include "../../PropertyCore/inc/PropertyAttribute.h"
 #include "BackendObjectAttribute.h"
 #include "BackendPropertyRow.h"
+#include "BackendTypeIdentity.h"
 #include "MeshBackendData.h"
 #include "RunLogger.h"
 #include "geometry_base64.h"
 
 MeshBackendData::MeshBackendData()
 {
-	setName("Model");
+	setName(backend_type::kCatalogModel);
 	BackendColor c;
 	c.r = 0.65f;
 	c.g = 0.82f;
@@ -28,7 +29,7 @@ MeshBackendData::MeshBackendData()
 
 std::string MeshBackendData::className() const
 {
-	return "Model";
+	return backend_type::kClassModel;
 }
 
 bool MeshBackendData::hasGeometry() const

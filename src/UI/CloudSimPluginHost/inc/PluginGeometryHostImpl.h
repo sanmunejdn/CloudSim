@@ -6,6 +6,9 @@
 
 #include "IPluginGeometryHost.h"
 
+#include <QMetaObject>
+#include <memory>
+
 class PluginHostContext;
 
 class PluginGeometryHostImpl : public IPluginGeometryHost
@@ -73,8 +76,45 @@ public:
 	void pickStepElementFromViewport(IPluginDocument* doc, const PluginGeometryElementPickRequest& request,
 									 PluginGeometryElementPickedFn onFinished) override;
 
+	bool queryFaceSketchPlane(IPluginDocument* doc, const PluginGeometryStepRef& faceRef, PluginSketchPlane& outPlane,
+							  QString* outError = nullptr) override;
+	void setSketchOverlay(IPluginDocument* doc, const std::vector<PluginSketchOverlaySegment>& segments) override;
+	void clearSketchOverlay(IPluginDocument* doc) override;
+	bool mapScreenToSketchPlane(IPluginDocument* doc, int screenX, int screenY, const PluginSketchPlane& plane,
+								PluginPoint3d& outWorldMm, QString* outError = nullptr) override;
+	void extrudeSketchProfileToBrep(IPluginDocument* doc, const std::vector<float>& closedPolylineXyzMm,
+									const PluginSketchPlane& plane, const PluginSketchExtrudeParams& params,
+									PluginGeometryFinishedFn onFinished) override;
+	bool queryParametricBodyHistoryJson(IPluginDocument* doc, const std::string& backendIdUtf8,
+										QByteArray& outJsonUtf8, QString* outError = nullptr) override;
+	void setParametricBodyHistoryJson(IPluginDocument* doc, const std::string& backendIdUtf8,
+									  const QByteArray& historyJsonUtf8, PluginGeometryFinishedFn onFinished) override;
+	bool beginSketchInput(IPluginDocument* doc, const PluginSketchPlane& plane, PluginSketchInputFn onInput,
+						  QString* outError = nullptr) override;
+	void endSketchInput(IPluginDocument* doc) override;
+	void pickOriginSketchPlane(IPluginDocument* doc, PluginOriginPlanePickedFn onFinished) override;
+	void cancelOriginSketchPlanePick(IPluginDocument* doc) override;
+	void previewSketchExtrude(IPluginDocument* doc, const std::vector<float>& closedPolylineXyzMm,
+							  const PluginSketchPlane& plane, const PluginSketchExtrudeParams& params) override;
+	void clearSketchExtrudePreview(IPluginDocument* doc) override;
+	bool listParametricBodyIds(IPluginDocument* doc, std::vector<std::string>& outIds, QString* outError = nullptr) override;
+	void pickParametricFeatureForEdit(IPluginDocument* doc, PluginParametricFeaturePickedFn onFinished) override;
+	bool previewSketchSweep(IPluginDocument* doc, const std::vector<float>& profilePolylineXyzMm,
+							const std::vector<float>& pathPolylineXyzMm, const PluginSketchSweepParams& params,
+							QString* errOut = nullptr) override;
+	void sweepSketchProfileToBrep(IPluginDocument* doc, const std::vector<float>& profilePolylineXyzMm,
+								  const std::vector<float>& pathPolylineXyzMm, const PluginSketchSweepParams& params,
+								  PluginGeometryFinishedFn onFinished) override;
+
 private:
+	void clearSketchSupportPlanePick();
+
 	PluginHostContext* m_host = nullptr;
+	PluginSketchPlane m_sketchInputPlane{};
+	IPluginDocument* m_sketchInputDoc = nullptr;
+	/// 基面+模型面联合拾取会话
+	std::shared_ptr<bool> m_supportPlanePickDone;
+	QMetaObject::Connection m_supportPlaneFaceConn;
 };
 
 #endif // CLOUDSIMPLUGINHOST_PLUGINGEOMETRYHOSTIMPL_H

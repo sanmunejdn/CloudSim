@@ -3,6 +3,8 @@
 
 #include "SelfTest.h"
 
+#include "SketchExtrude.h"
+
 #include "BrepBoolean.h"
 #include "BrepImportArtifacts.h"
 #include "Discretize.h"
@@ -34,6 +36,8 @@
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
+#include <BRepGProp.hxx>
+#include <GProp_GProps.hxx>
 #include <Eigen/Geometry>
 
 namespace geoalgo
@@ -196,6 +200,78 @@ bool runSelfTest(std::vector<std::string>& failures)
 		if (!meshBooleanRunSelfTest(&err))
 		{
 			fail("meshBoolean", err);
+		}
+	}
+
+	{
+		// 正方形轮廓 Pad（对齐 FreeCAD Extrude 简化路径）
+		const std::vector<float> square = {0, 0, 0, 40, 0, 0, 40, 40, 0, 0, 40, 0, 0, 0, 0};
+		SketchExtrudeParams padParams;
+		padParams.mode = SketchExtrudeMode::Pad;
+		padParams.lengthMm = 20.0;
+		ShapeHandle pad;
+		std::string err;
+		if (!sketchExtrudePolylineToHandle(square, padParams, nullptr, pad, &err) || pad.isNull())
+		{
+			fail("sketchExtrudePad", err.empty() ? "null shape" : err);
+		}
+		else
+		{
+			SketchExtrudeParams pocketParams;
+			pocketParams.mode = SketchExtrudeMode::Pocket;
+			pocketParams.lengthMm = 10.0;
+			const std::vector<float> inner = {10, 10, 0, 30, 10, 0, 30, 30, 0, 10, 30, 0, 10, 10, 0};
+			ShapeHandle pocketed;
+			if (!sketchExtrudePolylineToHandle(inner, pocketParams, &pad, pocketed, &err) || pocketed.isNull())
+			{
+				fail("sketchExtrudePocket", err.empty() ? "null shape" : err);
+			}
+		}
+
+		// 对称拉伸 + 拔模：Z 对称于草图面，拔模后体积应变化
+		{
+			SketchExtrudeParams mid;
+			mid.mode = SketchExtrudeMode::Pad;
+			mid.lengthMm = 20.0;
+			mid.endCondition = SketchExtrudeEndCondition::MidPlane;
+			ShapeHandle midPad;
+			if (!sketchExtrudePolylineToHandle(square, mid, nullptr, midPad, &err) || midPad.isNull())
+			{
+				fail("sketchExtrudeMidPlane", err.empty() ? "null shape" : err);
+			}
+			else
+			{
+				const auto bb = midPad.boundingBoxMm();
+				if (!bb.valid || std::abs(bb.minZ + 10.0) > 0.5 || std::abs(bb.maxZ - 10.0) > 0.5)
+					fail("sketchExtrudeMidPlane", "bbox not symmetric about Z=0");
+			}
+
+			SketchExtrudeParams midDraft = mid;
+			midDraft.draftAngleDeg = 5.0;
+			ShapeHandle midDraftPad;
+			if (!sketchExtrudePolylineToHandle(square, midDraft, nullptr, midDraftPad, &err) || midDraftPad.isNull())
+			{
+				fail("sketchExtrudeMidPlaneDraft", err.empty() ? "null shape" : err);
+			}
+			else if (!midPad.isNull())
+			{
+				const auto bb1 = midDraftPad.boundingBoxMm();
+				if (bb1.valid && std::abs(bb1.maxZ - bb1.minZ - 20.0) > 0.5)
+					fail("sketchExtrudeMidPlaneDraft", "Z span changed unexpectedly");
+				TopoDS_Shape n0;
+				TopoDS_Shape n1;
+				if (!ShapeHandleAccess::nativeShape(midPad, &n0) || !ShapeHandleAccess::nativeShape(midDraftPad, &n1))
+					fail("sketchExtrudeMidPlaneDraft", "native shape");
+				else
+				{
+					GProp_GProps p0;
+					GProp_GProps p1;
+					BRepGProp::VolumeProperties(n0, p0);
+					BRepGProp::VolumeProperties(n1, p1);
+					if (std::abs(p1.Mass() - p0.Mass()) < 1.0)
+						fail("sketchExtrudeMidPlaneDraft", "draft volume unchanged");
+				}
+			}
 		}
 	}
 

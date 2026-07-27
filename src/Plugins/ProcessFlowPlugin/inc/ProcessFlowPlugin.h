@@ -51,6 +51,7 @@ private:
 	void applyLanguage();
 	void enterProcessFlow();
 	void exitProcessFlow();
+	void softExitProcessFlow();
 	ProcessFlowPageWidget* ensurePageForDocument(const QString& documentId);
 	ProcessFlowPageWidget* ensurePageForActiveDocument();
 	void addNodeToActiveCanvas(const QString& kind, const QString& title, const QString& subtitle, const QColor& color);

@@ -3,6 +3,7 @@
 
 #include "PointNetDomainHandler.h"
 
+#include "BackendTypeIds.h"
 #include "IPluginDocument.h"
 #include "IPluginHostContext.h"
 #include "PointNetInference.h"
@@ -41,11 +42,11 @@ bool extractPointsFromSceneObject(IPluginHostContext* host, const std::string& b
 	std::string tmpPathUtf8 = tmpPath.toUtf8().constData();
 
 	bool exported = false;
-	if (className == "MeshBackendData" || className == "BrepBackendData")
+	if (backend_type::isMeshClassName(className) || backend_type::isBrepWorkpieceClassName(className))
 	{
 		exported = doc->exportMeshToPly(backendId, tmpPathUtf8, nullptr);
 	}
-	else if (className == "PointCloudBackendData")
+	else if (backend_type::isPointCloudClassName(className))
 	{
 		// 点云也可尝试导出为 PLY
 		exported = doc->exportMeshToPly(backendId, tmpPathUtf8, nullptr);

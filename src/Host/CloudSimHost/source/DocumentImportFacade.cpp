@@ -4,6 +4,7 @@
 #include "DocumentImportFacade.h"
 
 #include "BackendFileImport.h"
+#include "BackendTypeIds.h"
 #include "BrepBackendData.h"
 #include "DocumentHost.h"
 #include "DocumentHostAccess.h"
@@ -14,6 +15,7 @@
 
 #include <QFile>
 #include <QFileInfo>
+#include <QLatin1String>
 #include <chrono>
 
 #include <BrepImportArtifacts.h>
@@ -505,7 +507,7 @@ ImportFileResult ModelBackgroundLoadState::finishIntoDocument(DocumentHost& host
 	if (m_impl->kind == ModelLoadKind::SimpleBrep && m_impl->brep)
 	{
 		QString regErr;
-		if (!registerAdoptedBrepAndLoadScene(host, m_impl->brep, m_impl->filePath, QStringLiteral("BrepModel"),
+		if (!registerAdoptedBrepAndLoadScene(host, m_impl->brep, m_impl->filePath, QLatin1String(backend_type::kCatalogBrepModel),
 											 QString(), options.resetViewToHome, &regErr))
 		{
 			if (outError)

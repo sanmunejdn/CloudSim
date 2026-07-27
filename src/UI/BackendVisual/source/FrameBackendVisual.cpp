@@ -15,6 +15,7 @@
 #include "BackendPoseOsg.h"
 #include "FrameBackendData.h"
 #include "FrameBackendVisual.h"
+#include "BackendTypeIds.h"
 
 #include <osg/Geode>
 #include <osg/Geometry>
@@ -69,7 +70,7 @@ osg::ref_ptr<osg::Geode> createRgbAxisGeode(const float axisLengthMm)
 
 std::string FrameBackendVisual::typeKey() const
 {
-	return "FrameBackendData";
+	return backend_type::kClassFrame;
 }
 
 bool FrameBackendVisual::buildOuterBranch(const BackendDataBase& data, const MeshVisualOptions&,

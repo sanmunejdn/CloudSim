@@ -1,0 +1,36 @@
+---
+description: VS 工程须同时生成 Debug 与 Release，输出目录严格按 vcxproj 定义
+alwaysApply: true
+---
+
+# VS 工程生成规则
+
+修改 C++/插件等需编译验证时，**必须**对相关 `.vcxproj` **同时**构建 **Debug|x64** 与 **Release|x64**，不得只编 Debug。
+
+## 输出目录（禁止擅自改路径）
+
+以各工程 `.vcxproj` / 仓库根 `Directory.Build.props` 中的 `OutDir`、`CloudSimBinDir`、`IntDir` 为准，**不要**把产物拷到其它目录或自造路径。
+
+`Directory.Build.props` 约定：
+
+| 配置 | CloudSimBinDir | CloudSimIntRoot |
+|------|----------------|-----------------|
+| Debug\|x64 | `bin\x64d\` | `bin\x64dmiddle\` |
+| Release\|x64 | `bin\x64\` | `bin\x64middle\` |
+
+插件示例：`$(CloudSimBinDir)plugins\com.cloudsim.geomodeling\`。
+
+## 推荐 MSBuild 用法
+
+```text
+msbuild <path>.vcxproj /p:Configuration=Debug /p:Platform=x64
+msbuild <path>.vcxproj /p:Configuration=Release /p:Platform=x64
+```
+
+依赖链工程按依赖顺序 **Debug 与 Release 各编一遍**。
+
+## 禁止
+
+- 只编 Debug 就声称「编译通过」
+- 手动改 `OutDir` / 把 DLL 拷到非工程定义目录冒充生成结果
+- 用与 Configuration 不匹配的运行目录做点验（Debug → `bin\x64d`，Release → `bin\x64`）

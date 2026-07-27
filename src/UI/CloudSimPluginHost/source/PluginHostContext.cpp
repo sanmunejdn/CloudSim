@@ -11,6 +11,7 @@
 #include "BackendPrimitiveGeometry.h"
 #include "BackendRegistry.h"
 #include "BackendSceneDocumentFacade.h"
+#include "BackendTypeIds.h"
 #include "BrepBackendData.h"
 #include "BackendFileImport.h"
 #include "CloudSimPluginVersion.h"
@@ -36,6 +37,7 @@
 #include <QCoreApplication>
 #include <QDockWidget>
 #include <QFileInfo>
+#include <QLatin1String>
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
@@ -481,7 +483,7 @@ bool PluginHostContext::createPrimitiveMesh(const PluginPrimitiveMeshParams& par
 	brep->setRotation(rot);
 
 	QString regErr;
-	if (!cloudsim::host::registerAdoptedBrepAndLoadScene(*doc, brep, sourcePath, QStringLiteral("BrepModel"), QString(),
+	if (!cloudsim::host::registerAdoptedBrepAndLoadScene(*doc, brep, sourcePath, QLatin1String(backend_type::kCatalogBrepModel), QString(),
 														options.resetViewToHome, &regErr))
 	{
 		if (outError)
@@ -704,7 +706,7 @@ bool PluginHostContext::registerMeshFromSoup(std::vector<float> soup, const Plug
 
 	cloudsim::host::AdoptMeshOptions adoptOpt;
 	adoptOpt.sourcePath = sourcePath;
-	adoptOpt.catalogTypeName = QStringLiteral("Model");
+	adoptOpt.catalogTypeName = QLatin1String(backend_type::kCatalogModel);
 	adoptOpt.resetViewToHome = options.resetViewToHome;
 	QString regErr;
 	const cloudsim::host::AdoptRegistrationResult adopted =
@@ -758,7 +760,8 @@ std::string PluginHostContext::importFileIntoActiveDocument(const std::string& p
 	cloudsim::core::ImportOptionsDto opt;
 	opt.quietUi = true;
 	opt.resetViewToHome = false;
-	opt.catalogTypeName = isPointCloud ? QStringLiteral("PointCloud") : QStringLiteral("Model");
+	opt.catalogTypeName =
+		isPointCloud ? QLatin1String(backend_type::kCatalogPointCloud) : QLatin1String(backend_type::kCatalogModel);
 	opt.isPointCloud = isPointCloud;
 	QString importErr;
 	const cloudsim::host::ImportFileKind kind =
@@ -849,6 +852,67 @@ void PluginHostContext::exitProcessFlowSideUi()
 	{
 		m_mainWindowHost->exitProcessFlowSideUi();
 	}
+}
+
+bool PluginHostContext::embedActiveRenderWidget(QWidget* slot, QString* outError)
+{
+	if (!m_mainWindowHost)
+	{
+		if (outError)
+			*outError = QStringLiteral("MainWindow not available.");
+		return false;
+	}
+	return m_mainWindowHost->embedActiveRenderWidget(slot, outError);
+}
+
+void PluginHostContext::restoreActiveRenderWidget()
+{
+	if (m_mainWindowHost)
+	{
+		m_mainWindowHost->restoreActiveRenderWidget();
+	}
+}
+
+void PluginHostContext::setModeToolBar(QWidget* toolBar)
+{
+	if (m_mainWindowHost)
+	{
+		m_mainWindowHost->setModeToolBar(toolBar);
+	}
+}
+
+void PluginHostContext::claimWorkspaceMode(const QString& modeId)
+{
+	if (m_workspaceMode == modeId)
+	{
+		return;
+	}
+	m_workspaceMode = modeId;
+	// 非几何建模模式不占 Ribbon
+	if (modeId != QLatin1String("com.cloudsim.geomodeling"))
+	{
+		setModeToolBar(nullptr);
+	}
+	for (const auto& cb : m_workspaceModeCallbacks)
+	{
+		if (cb)
+		{
+			cb(modeId);
+		}
+	}
+}
+
+void PluginHostContext::onWorkspaceModeClaimed(std::function<void(const QString& modeId)> callback)
+{
+	if (callback)
+	{
+		m_workspaceModeCallbacks.push_back(std::move(callback));
+	}
+}
+
+QString PluginHostContext::currentWorkspaceMode() const
+{
+	return m_workspaceMode;
 }
 
 void PluginHostContext::onProjectAboutToSave(std::function<void(const QString& documentId, QJsonObject& root)> callback)

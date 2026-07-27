@@ -3,6 +3,7 @@
 
 #include "Ai/AiAgentPickDialog.h"
 
+#include "BackendTypeIds.h"
 #include "IPluginDocument.h"
 
 #include <QComboBox>
@@ -11,6 +12,7 @@
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QLabel>
+#include <QLatin1String>
 #include <QVBoxLayout>
 
 namespace AiAgentPickDialog
@@ -19,9 +21,10 @@ namespace
 {
 bool matchFilter(const QString& className, BackendKindFilter filter)
 {
-	const bool pc = className.contains(QStringLiteral("PointCloud"), Qt::CaseInsensitive);
-	const bool mesh = className == QStringLiteral("Model");
-	const bool brep = className.contains(QStringLiteral("Brep"), Qt::CaseInsensitive);
+	const std::string cn = className.toStdString();
+	const bool pc = backend_type::isPointCloudClassName(cn);
+	const bool mesh = backend_type::isMeshClassName(cn);
+	const bool brep = backend_type::isBrepWorkpieceClassName(cn);
 	switch (filter)
 	{
 	case BackendKindFilter::Any:

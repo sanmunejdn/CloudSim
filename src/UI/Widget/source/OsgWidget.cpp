@@ -1382,6 +1382,128 @@ void OsgWidget::clearStagingGeometry()
 	}
 }
 
+void OsgWidget::setStagingMeshPreview(const std::vector<float>& xyzTriangles, const osg::Vec4& rgba)
+{
+	clearStagingGeometry();
+	if (!m_stagingGroup.valid() || xyzTriangles.size() < 9U || (xyzTriangles.size() % 3U) != 0U)
+	{
+		requestRedraw();
+		return;
+	}
+	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
+	verts->reserve(xyzTriangles.size() / 3U);
+	for (std::size_t i = 0; i + 2 < xyzTriangles.size(); i += 3)
+		verts->push_back(osg::Vec3(xyzTriangles[i], xyzTriangles[i + 1], xyzTriangles[i + 2]));
+	osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+	geom->setVertexArray(verts.get());
+	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+	colors->push_back(rgba);
+	geom->setColorArray(colors.get(), osg::Array::BIND_OVERALL);
+	geom->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(verts->size())));
+	osg::StateSet* ss = geom->getOrCreateStateSet();
+	const auto on = osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED;
+	const auto off = osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED;
+	ss->setMode(GL_LIGHTING, off);
+	ss->setMode(GL_BLEND, on);
+	ss->setMode(GL_CULL_FACE, off);
+	ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), on);
+	osg::ref_ptr<osg::Depth> depth = new osg::Depth;
+	depth->setWriteMask(false);
+	ss->setAttributeAndModes(depth.get(), on);
+	ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+	ss->setRenderBinDetails(11, "RenderBin");
+	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+	geode->setName("SketchExtrudePreview");
+	geode->setNodeMask(kMaskPickOverlay);
+	geode->addDrawable(geom.get());
+	m_stagingGroup->addChild(geode.get());
+	requestRedraw();
+}
+
+void OsgWidget::setSketchLineOverlay(const std::vector<RobotOsgUi::RawTrajectoryOverlayVertex>& points,
+									 const std::vector<std::size_t>& segmentEndExclusive,
+									 const std::vector<osg::Vec4>& segmentColors,
+									 const std::vector<float>& segmentWidthsPx)
+{
+	if (!m_trajectoryOverlayGroup.valid())
+		return;
+	if (!m_sketchLineOverlayGeode.valid())
+	{
+		m_sketchLineOverlayGeode = new osg::Geode;
+		m_sketchLineOverlayGeode->setName("SketchLineOverlay");
+		m_sketchLineOverlayGeode->setNodeMask(kMaskPickOverlay);
+		m_trajectoryOverlayGroup->addChild(m_sketchLineOverlayGeode.get());
+	}
+	m_sketchLineOverlayGeode->removeDrawables(0, m_sketchLineOverlayGeode->getNumDrawables());
+	if (points.size() < 2U)
+	{
+		requestRedraw();
+		return;
+	}
+
+	auto addStrip = [&](std::size_t begin, std::size_t endExclusive, const osg::Vec4& color, float widthPx)
+	{
+		if (endExclusive <= begin + 1U)
+			return;
+		osg::ref_ptr<osg::Vec3Array> lineVerts = new osg::Vec3Array;
+		for (std::size_t i = begin; i < endExclusive; ++i)
+			lineVerts->push_back(osgVec3FromCore(points[i].positionMm));
+		osg::ref_ptr<osg::Geometry> lineGeom = new osg::Geometry;
+		lineGeom->setVertexArray(lineVerts.get());
+		osg::ref_ptr<osg::Vec4Array> lineColor = new osg::Vec4Array;
+		lineColor->push_back(color);
+		lineGeom->setColorArray(lineColor.get(), osg::Array::BIND_OVERALL);
+		lineGeom->addPrimitiveSet(
+			new osg::DrawArrays(osg::PrimitiveSet::LINE_STRIP, 0, static_cast<GLsizei>(lineVerts->size())));
+		osg::StateSet* ss = lineGeom->getOrCreateStateSet();
+		const auto on = osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED;
+		const auto off = osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED;
+		ss->setMode(GL_LIGHTING, off);
+		ss->setMode(GL_DEPTH_TEST, off);
+		ss->setAttribute(new osg::LineWidth(widthPx > 0.1f ? widthPx : 2.5f));
+		osg::ref_ptr<osg::Depth> depth = new osg::Depth(osg::Depth::ALWAYS, 0.0, 1.0, false);
+		ss->setAttributeAndModes(depth.get(), on);
+		ss->setRenderBinDetails(14, "RenderBin");
+		m_sketchLineOverlayGeode->addDrawable(lineGeom.get());
+	};
+
+	std::size_t segIdx = 0;
+	if (segmentEndExclusive.empty())
+	{
+		const osg::Vec4 c =
+			segmentColors.empty() ? osg::Vec4(0.2f, 0.85f, 1.0f, 1.0f) : segmentColors.front();
+		const float w = segmentWidthsPx.empty() ? 2.5f : segmentWidthsPx.front();
+		addStrip(0U, points.size(), c, w);
+	}
+	else
+	{
+		std::size_t segStart = 0U;
+		for (const std::size_t end : segmentEndExclusive)
+		{
+			if (end > segStart && end <= points.size())
+			{
+				const osg::Vec4 c = (segIdx < segmentColors.size())
+										? segmentColors[segIdx]
+										: osg::Vec4(0.2f, 0.85f, 1.0f, 1.0f);
+				const float w = (segIdx < segmentWidthsPx.size()) ? segmentWidthsPx[segIdx] : 2.5f;
+				addStrip(segStart, end, c, w);
+				segStart = end;
+				++segIdx;
+			}
+		}
+	}
+	requestRedraw();
+}
+
+void OsgWidget::clearSketchLineOverlay()
+{
+	if (m_sketchLineOverlayGeode.valid())
+	{
+		m_sketchLineOverlayGeode->removeDrawables(0, m_sketchLineOverlayGeode->getNumDrawables());
+		requestRedraw();
+	}
+}
+
 osg::Node* OsgWidget::stagingGeometryRoot() const
 {
 	if (!m_stagingGroup.valid() || m_stagingGroup->getNumChildren() < 1)
@@ -2282,6 +2404,447 @@ bool OsgWidget::meshFacePickMode() const
 	return m_meshFacePickMode;
 }
 
+bool OsgWidget::intersectScreenWithPlaneMm(int screenX, int screenY, const osg::Vec3d& planeOrigin,
+										   const osg::Vec3d& planeNormal, osg::Vec3d& outHitWorldMm,
+										   QString* outError) const
+{
+	if (!m_viewer.valid() || !m_viewer->getCamera())
+	{
+		if (outError)
+			*outError = QStringLiteral("No camera");
+		return false;
+	}
+	const osg::Vec3d n = planeNormal;
+	if (n.length2() < 1e-18)
+	{
+		if (outError)
+			*outError = QStringLiteral("Degenerate plane normal");
+		return false;
+	}
+	double windowX = 0.0;
+	double windowY = 0.0;
+	logicalMouseToPickWindowCoords(static_cast<double>(screenX), static_cast<double>(screenY), windowX, windowY);
+	osg::Camera* cam = m_viewer->getCamera();
+	const osg::Matrixd mvpw =
+		cam->getViewMatrix() * cam->getProjectionMatrix() * cam->getViewport()->computeWindowMatrix();
+	osg::Matrixd invMvpw;
+	if (!invMvpw.invert(mvpw))
+	{
+		if (outError)
+			*outError = QStringLiteral("Cannot invert camera matrix");
+		return false;
+	}
+	const osg::Vec3d pNear = osg::Vec3d(windowX, windowY, 0.0) * invMvpw;
+	const osg::Vec3d pFar = osg::Vec3d(windowX, windowY, 1.0) * invMvpw;
+	const osg::Vec3d dir = pFar - pNear;
+	const double denom = n * dir;
+	if (std::abs(denom) < 1e-12)
+	{
+		if (outError)
+			*outError = QStringLiteral("Ray parallel to sketch plane");
+		return false;
+	}
+	const double t = (n * (planeOrigin - pNear)) / denom;
+	outHitWorldMm = pNear + dir * t;
+	return true;
+}
+
+void OsgWidget::setSketchPlaneInputHandler(SketchPlaneInputHandler handler)
+{
+	m_sketchPlaneInputHandler = std::move(handler);
+	if (m_sketchPlaneInputHandler)
+	{
+		m_dragging = false;
+		m_rotating = false;
+		m_dragAxis = DragAxis::None;
+		resetNavigationInputQueues();
+	}
+}
+
+void OsgWidget::clearSketchPlaneInputHandler()
+{
+	m_sketchPlaneInputHandler = {};
+}
+
+namespace
+{
+struct OriginPlaneDef
+{
+	osg::Vec3d origin;
+	osg::Vec3d axisX;
+	osg::Vec3d axisY;
+	osg::Vec3d normal;
+	osg::Vec4 baseFill;
+	osg::Vec4 hoverFill;
+	osg::Vec4 baseEdge;
+	osg::Vec4 hoverEdge;
+};
+
+const OriginPlaneDef kOriginPlanes[3] = {
+	{{0, 0, 0},
+	 {1, 0, 0},
+	 {0, 1, 0},
+	 {0, 0, 1},
+	 {0.25f, 0.55f, 0.98f, 0.32f},
+	 {0.55f, 0.82f, 1.00f, 0.78f},
+	 {0.20f, 0.45f, 0.95f, 0.90f},
+	 {1.00f, 1.00f, 1.00f, 1.00f}}, // XY 蓝
+	{{0, 0, 0},
+	 {1, 0, 0},
+	 {0, 0, 1},
+	 {0, 1, 0},
+	 {0.20f, 0.78f, 0.42f, 0.32f},
+	 {0.40f, 0.98f, 0.60f, 0.78f},
+	 {0.12f, 0.60f, 0.32f, 0.90f},
+	 {1.00f, 1.00f, 1.00f, 1.00f}}, // XZ 绿
+	{{0, 0, 0},
+	 {0, 1, 0},
+	 {0, 0, 1},
+	 {1, 0, 0},
+	 {0.95f, 0.32f, 0.32f, 0.32f},
+	 {1.00f, 0.58f, 0.48f, 0.78f},
+	 {0.85f, 0.22f, 0.22f, 0.90f},
+	 {1.00f, 1.00f, 1.00f, 1.00f}}, // YZ 红
+};
+
+// 直接写世界坐标，避免 MatrixTransform 行列约定把基面叠成“少一面”
+void fillOriginPlaneQuadWorld(osg::Geometry* geom, const OriginPlaneDef& d, float halfMm)
+{
+	const osg::Vec3d x = d.axisX * static_cast<double>(halfMm);
+	const osg::Vec3d y = d.axisY * static_cast<double>(halfMm);
+	const osg::Vec3d o = d.origin;
+	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
+	verts->push_back(osg::Vec3f(o - x - y));
+	verts->push_back(osg::Vec3f(o + x - y));
+	verts->push_back(osg::Vec3f(o + x + y));
+	verts->push_back(osg::Vec3f(o - x + y));
+	geom->setVertexArray(verts.get());
+	osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
+	normals->push_back(osg::Vec3f(d.normal));
+	geom->setNormalArray(normals.get(), osg::Array::BIND_OVERALL);
+	osg::ref_ptr<osg::DrawElementsUInt> indices = new osg::DrawElementsUInt(GL_TRIANGLES);
+	indices->push_back(0);
+	indices->push_back(1);
+	indices->push_back(2);
+	indices->push_back(0);
+	indices->push_back(2);
+	indices->push_back(3);
+	geom->addPrimitiveSet(indices.get());
+}
+
+void fillOriginPlaneBorderWorld(osg::Geometry* geom, const OriginPlaneDef& d, float halfMm)
+{
+	const osg::Vec3d x = d.axisX * static_cast<double>(halfMm);
+	const osg::Vec3d y = d.axisY * static_cast<double>(halfMm);
+	const osg::Vec3d o = d.origin;
+	osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
+	verts->push_back(osg::Vec3f(o - x - y));
+	verts->push_back(osg::Vec3f(o + x - y));
+	verts->push_back(osg::Vec3f(o + x + y));
+	verts->push_back(osg::Vec3f(o - x + y));
+	geom->setVertexArray(verts.get());
+	geom->addPrimitiveSet(new osg::DrawArrays(GL_LINE_LOOP, 0, 4));
+}
+
+void applyOriginPlaneState(osg::StateSet* ss, bool transparentBin)
+{
+	// 挂在 backend 组时父级可能 LIGHTING ON|OVERRIDE，必须 PROTECTED 才能保住顶点色
+	const auto on = osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED;
+	const auto off = osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE | osg::StateAttribute::PROTECTED;
+	ss->setMode(GL_BLEND, on);
+	ss->setRenderingHint(transparentBin ? osg::StateSet::TRANSPARENT_BIN : osg::StateSet::OPAQUE_BIN);
+	ss->setRenderBinDetails(transparentBin ? 12 : 11, "RenderBin");
+	ss->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), on);
+	ss->setMode(GL_LIGHTING, off);
+	ss->setMode(GL_CULL_FACE, off);
+	ss->setMode(GL_COLOR_MATERIAL, off);
+	osg::ref_ptr<osg::Depth> depth = new osg::Depth;
+	depth->setFunction(osg::Depth::LEQUAL);
+	depth->setWriteMask(false);
+	ss->setAttributeAndModes(depth.get(), on);
+}
+
+void setOriginPlaneMaterialColor(osg::Material* mat, const osg::Vec4& c)
+{
+	if (!mat)
+		return;
+	mat->setColorMode(osg::Material::OFF);
+	mat->setAmbient(osg::Material::FRONT_AND_BACK, c);
+	mat->setDiffuse(osg::Material::FRONT_AND_BACK, c);
+	mat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0.f, 0.f, 0.f, c.a()));
+	mat->setEmission(osg::Material::FRONT_AND_BACK, osg::Vec4(c.r() * 0.35f, c.g() * 0.35f, c.b() * 0.35f, c.a()));
+	mat->setAlpha(osg::Material::FRONT_AND_BACK, c.a());
+}
+} // namespace
+
+int OsgWidget::hitTestOriginPlane(int screenX, int screenY, double* outDist2) const
+{
+	if (outDist2)
+		*outDist2 = 1e300;
+	osg::Vec3d eye(0, 0, 0);
+	if (m_viewer && m_viewer->getCamera())
+	{
+		const osg::Matrixd inv = osg::Matrixd::inverse(m_viewer->getCamera()->getViewMatrix());
+		eye = osg::Vec3d(0, 0, 0) * inv;
+	}
+	int best = -1;
+	double bestDist = 1e300;
+	for (int i = 0; i < 3; ++i)
+	{
+		const OriginPlaneDef& d = kOriginPlanes[i];
+		osg::Vec3d hit;
+		QString err;
+		if (!intersectScreenWithPlaneMm(screenX, screenY, d.origin, d.normal, hit, &err))
+			continue;
+		const osg::Vec3d local = hit - d.origin;
+		const double u = local * d.axisX;
+		const double v = local * d.axisY;
+		if (std::abs(u) > m_originPlaneHalfMm || std::abs(v) > m_originPlaneHalfMm)
+			continue;
+		const double dist = (hit - eye).length2();
+		if (dist < bestDist)
+		{
+			bestDist = dist;
+			best = i;
+		}
+	}
+	if (outDist2 && best >= 0)
+		*outDist2 = bestDist;
+	return best;
+}
+
+int OsgWidget::resolveSketchSupportOriginIndex(int screenX, int screenY) const
+{
+	double originDist2 = 1e300;
+	const int originIdx = hitTestOriginPlane(screenX, screenY, &originDist2);
+	if (originIdx < 0)
+		return -1;
+
+	osg::Vec3f pt, a, b, c, n;
+	if (!pickMeshFaceByRayIntersection(QPoint(screenX, screenY), pt, a, b, c, n))
+		return originIdx;
+
+	osg::Vec3d eye(0, 0, 0);
+	if (m_viewer && m_viewer->getCamera())
+	{
+		const osg::Matrixd inv = osg::Matrixd::inverse(m_viewer->getCamera()->getViewMatrix());
+		eye = osg::Vec3d(0, 0, 0) * inv;
+	}
+	const double meshDist2 = (osg::Vec3d(pt.x(), pt.y(), pt.z()) - eye).length2();
+	// 与点击一致：模型面明显更近则让出基面
+	if (meshDist2 + 1e-6 < originDist2)
+		return -1;
+	return originIdx;
+}
+
+void OsgWidget::updateSketchSupportHover(int screenX, int screenY)
+{
+	if (!m_originPlanePickActive)
+		return;
+	const int originIdx = resolveSketchSupportOriginIndex(screenX, screenY);
+	if (originIdx >= 0)
+	{
+		applyOriginPlaneHover(originIdx);
+		hideMeshElementHighlight();
+		return;
+	}
+	applyOriginPlaneHover(-1);
+}
+
+void OsgWidget::applyOriginPlaneHover(int hoverIndex)
+{
+	if (hoverIndex == m_originPlaneHoverIndex)
+		return;
+	m_originPlaneHoverIndex = hoverIndex;
+	for (int i = 0; i < 3; ++i)
+	{
+		const OriginPlaneDef& d = kOriginPlanes[i];
+		const bool hot = (i == hoverIndex);
+		const osg::Vec4 fill = hot ? d.hoverFill : d.baseFill;
+		const osg::Vec4 edge = hot ? d.hoverEdge : d.baseEdge;
+		if (m_originPlaneFillColors[i].valid() && !m_originPlaneFillColors[i]->empty())
+		{
+			(*m_originPlaneFillColors[i])[0] = fill;
+			m_originPlaneFillColors[i]->dirty();
+		}
+		if (m_originPlaneEdgeColors[i].valid() && !m_originPlaneEdgeColors[i]->empty())
+		{
+			(*m_originPlaneEdgeColors[i])[0] = edge;
+			m_originPlaneEdgeColors[i]->dirty();
+		}
+		setOriginPlaneMaterialColor(m_originPlaneFillMaterials[i].get(), fill);
+		if (m_originPlaneFillGeoms[i].valid())
+			m_originPlaneFillGeoms[i]->dirtyGLObjects();
+		if (m_originPlaneEdgeGeoms[i].valid())
+		{
+			m_originPlaneEdgeGeoms[i]->dirtyGLObjects();
+			if (osg::StateSet* ss = m_originPlaneEdgeGeoms[i]->getOrCreateStateSet())
+				ss->setAttributeAndModes(new osg::LineWidth(hot ? 4.0f : 2.0f),
+										 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+		}
+	}
+	if (m_glWidget)
+	{
+		const auto cursor = hoverIndex >= 0 ? Qt::PointingHandCursor : Qt::ArrowCursor;
+		m_lastViewportCursor = cursor;
+		m_glWidget->setCursor(cursor);
+	}
+	requestRedraw();
+}
+
+void OsgWidget::beginOriginPlaneSelection(OriginPlanePickedFn onFinished, float halfSizeMm)
+{
+	cancelOriginPlaneSelection();
+	if (!onFinished)
+		return;
+	m_originPlanePickedFn = std::move(onFinished);
+	m_originPlaneHalfMm = halfSizeMm > 1.f ? halfSizeMm : 60.f;
+	m_originPlanePickActive = true;
+	m_originPlaneHoverIndex = -1;
+
+	m_originPlanePickGroup = new osg::Group;
+	m_originPlanePickGroup->setName("OriginPlanePick");
+	// 排除 kMaskPickContent，避免网格面拾取打中基面三角形并叠黄色高亮
+	m_originPlanePickGroup->setNodeMask(kMaskPickOverlay);
+	applyOriginPlaneState(m_originPlanePickGroup->getOrCreateStateSet(), true);
+
+	for (int i = 0; i < 3; ++i)
+	{
+		const OriginPlaneDef& d = kOriginPlanes[i];
+
+		m_originPlaneFillColors[i] = new osg::Vec4Array;
+		m_originPlaneFillColors[i]->push_back(d.baseFill);
+		m_originPlaneFillGeoms[i] = new osg::Geometry;
+		fillOriginPlaneQuadWorld(m_originPlaneFillGeoms[i].get(), d, m_originPlaneHalfMm);
+		m_originPlaneFillGeoms[i]->setColorArray(m_originPlaneFillColors[i].get(), osg::Array::BIND_OVERALL);
+		m_originPlaneFillGeoms[i]->setDataVariance(osg::Object::DYNAMIC);
+		m_originPlaneFillGeoms[i]->setUseDisplayList(false);
+		m_originPlaneFillGeoms[i]->setUseVertexBufferObjects(false);
+
+		m_originPlaneFillMaterials[i] = new osg::Material;
+		setOriginPlaneMaterialColor(m_originPlaneFillMaterials[i].get(), d.baseFill);
+
+		osg::ref_ptr<osg::Geode> fillGeode = new osg::Geode;
+		fillGeode->addDrawable(m_originPlaneFillGeoms[i].get());
+		osg::StateSet* fillSs = fillGeode->getOrCreateStateSet();
+		applyOriginPlaneState(fillSs, true);
+		fillSs->setAttributeAndModes(m_originPlaneFillMaterials[i].get(),
+									 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+		m_originPlaneEdgeColors[i] = new osg::Vec4Array;
+		m_originPlaneEdgeColors[i]->push_back(d.baseEdge);
+		m_originPlaneEdgeGeoms[i] = new osg::Geometry;
+		fillOriginPlaneBorderWorld(m_originPlaneEdgeGeoms[i].get(), d, m_originPlaneHalfMm);
+		m_originPlaneEdgeGeoms[i]->setColorArray(m_originPlaneEdgeColors[i].get(), osg::Array::BIND_OVERALL);
+		m_originPlaneEdgeGeoms[i]->setDataVariance(osg::Object::DYNAMIC);
+		m_originPlaneEdgeGeoms[i]->setUseDisplayList(false);
+		m_originPlaneEdgeGeoms[i]->setUseVertexBufferObjects(false);
+		osg::ref_ptr<osg::Geode> edgeGeode = new osg::Geode;
+		edgeGeode->addDrawable(m_originPlaneEdgeGeoms[i].get());
+		osg::StateSet* edgeSs = edgeGeode->getOrCreateStateSet();
+		applyOriginPlaneState(edgeSs, false);
+		edgeSs->setAttributeAndModes(new osg::LineWidth(2.0f),
+									 osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+		m_originPlanePickGroup->addChild(fillGeode.get());
+		m_originPlanePickGroup->addChild(edgeGeode.get());
+	}
+	// overlay 后画且自带无光照策略，避免被 backend 受光网格状态污染
+	if (m_trajectoryOverlayGroup.valid())
+		m_trajectoryOverlayGroup->addChild(m_originPlanePickGroup.get());
+	else if (m_annotationGroup.valid())
+		m_annotationGroup->addChild(m_originPlanePickGroup.get());
+	else if (m_root.valid())
+		m_root->addChild(m_originPlanePickGroup.get());
+
+	setSketchPlaneInputHandler(
+		[this](QObject*, QEvent* event) -> bool
+		{
+			if (!m_originPlanePickActive)
+				return false;
+			const auto type = event->type();
+			if (type == QEvent::KeyPress)
+			{
+				const auto* ke = static_cast<QKeyEvent*>(event);
+				if (ke->key() == Qt::Key_Escape)
+				{
+					auto fn = std::move(m_originPlanePickedFn);
+					cancelOriginPlaneSelection();
+					if (fn)
+						fn(false, -1);
+					return true;
+				}
+				return false;
+			}
+			if (type == QEvent::MouseMove)
+			{
+				const auto* me = static_cast<QMouseEvent*>(event);
+				if (me->buttons() == Qt::NoButton)
+					updateSketchSupportHover(me->x(), me->y());
+				return false;
+			}
+			if (type != QEvent::MouseButtonPress)
+				return false;
+			const auto* me = static_cast<QMouseEvent*>(event);
+			if (me->button() != Qt::LeftButton)
+				return false;
+
+			// 与悬停同一裁决，避免基面/特征面高亮与点击结果不一致
+			const int originIdx = resolveSketchSupportOriginIndex(me->x(), me->y());
+			if (originIdx < 0)
+				return false;
+
+			const OriginPlaneDef& d = kOriginPlanes[originIdx];
+			setCameraViewDirection(d.normal, d.axisY);
+
+			auto fn = std::move(m_originPlanePickedFn);
+			cancelOriginPlaneSelection();
+			if (fn)
+				fn(true, originIdx);
+			return true;
+		});
+	requestRedraw();
+}
+
+void OsgWidget::cancelOriginPlaneSelection()
+{
+	const bool was = m_originPlanePickActive;
+	m_originPlanePickActive = false;
+	m_originPlaneHoverIndex = -1;
+	m_originPlanePickedFn = {};
+	for (int i = 0; i < 3; ++i)
+	{
+		m_originPlaneFillColors[i] = nullptr;
+		m_originPlaneEdgeColors[i] = nullptr;
+		m_originPlaneFillGeoms[i] = nullptr;
+		m_originPlaneEdgeGeoms[i] = nullptr;
+		m_originPlaneFillMaterials[i] = nullptr;
+	}
+	if (m_originPlanePickGroup.valid())
+	{
+		if (m_trajectoryOverlayGroup.valid())
+			m_trajectoryOverlayGroup->removeChild(m_originPlanePickGroup.get());
+		if (m_annotationGroup.valid())
+			m_annotationGroup->removeChild(m_originPlanePickGroup.get());
+		if (m_backendObjectsGroup.valid())
+			m_backendObjectsGroup->removeChild(m_originPlanePickGroup.get());
+		if (m_root.valid())
+			m_root->removeChild(m_originPlanePickGroup.get());
+		m_originPlanePickGroup = nullptr;
+	}
+	if (was)
+	{
+		clearSketchPlaneInputHandler();
+		hideMeshElementHighlight();
+		if (m_glWidget)
+		{
+			m_lastViewportCursor = Qt::ArrowCursor;
+			m_glWidget->setCursor(Qt::ArrowCursor);
+		}
+		requestRedraw();
+	}
+}
+
 void OsgWidget::setLabelingClickPickMode(const bool enabled, const bool meshFace)
 {
 	m_labelingClickPickMode = enabled;
@@ -2625,6 +3188,16 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 
 	if (watched == m_glWidget)
 	{
+		if (m_sketchPlaneInputHandler)
+		{
+			const auto type = event->type();
+			if (type == QEvent::MouseButtonPress || type == QEvent::MouseButtonRelease || type == QEvent::MouseMove ||
+				type == QEvent::KeyPress || type == QEvent::KeyRelease)
+			{
+				if (m_sketchPlaneInputHandler(watched, event))
+					return true;
+			}
+		}
 		const auto type = event->type();
 		if (type == QEvent::MouseButtonPress)
 		{
@@ -2637,7 +3210,8 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 				return true;
 			}
 		}
-		if (type == QEvent::MouseMove)
+		// 基面拾取期间光标由 applyOriginPlaneHover 维护，避免被 ViewCube 逻辑盖掉
+		if (type == QEvent::MouseMove && !m_originPlanePickActive)
 		{
 			const auto* mouseEvent = static_cast<QMouseEvent*>(event);
 			// 拖视图跳过 ViewCube 拾取；光标仅在形状变化时 set，避免样式表反复 polish
@@ -2653,6 +3227,10 @@ bool OsgWidget::eventFilter(QObject* watched, QEvent* event)
 					m_glWidget->setCursor(want);
 				}
 			}
+			noteViewportInteraction();
+		}
+		else if (type == QEvent::MouseMove)
+		{
 			noteViewportInteraction();
 		}
 		else if (type == QEvent::MouseButtonPress || type == QEvent::MouseButtonRelease || type == QEvent::Wheel ||
