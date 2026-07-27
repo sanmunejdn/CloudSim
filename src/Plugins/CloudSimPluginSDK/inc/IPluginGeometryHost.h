@@ -147,6 +147,15 @@ public:
 										  const std::vector<float>& pathPolylineXyzMm,
 										  const PluginSketchSweepParams& params,
 										  PluginGeometryFinishedFn onFinished) = 0;
+
+	/// 1.33.0+：B-rep → 第一角法三视图 HLR 折线（异步）
+	virtual void projectBrepHlrToDrawing(IPluginDocument* doc, const std::string& backendIdUtf8,
+										 PluginDrawingHlrFinishedFn onFinished) = 0;
+
+	/// 1.34.0+：三视图 + 可选轴测/剖视（第三角法可选）
+	virtual void projectBrepToEngineeringDrawing(IPluginDocument* doc, const std::string& backendIdUtf8,
+												 const PluginDrawingProjectParams& params,
+												 PluginDrawingHlrFinishedFn onFinished) = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINGEOMETRYHOST_H

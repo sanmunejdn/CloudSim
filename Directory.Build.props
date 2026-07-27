@@ -5,9 +5,8 @@
 <Project>
 
   <PropertyGroup>
-
-    <CloudSimRepoRoot>$(MSBuildThisFileDirectory)..\</CloudSimRepoRoot>
-
+    <!-- 规范化绝对路径并保留尾斜杠，避免 CL 命令行里 CloudSim\..\bin 抖动 -->
+    <CloudSimRepoRoot>$([MSBuild]::EnsureTrailingSlash($([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\'))))</CloudSimRepoRoot>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

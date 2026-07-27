@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Qt VS Tools 3.x：QtVars 的 Inputs 含 $(QtQmlStaticImportFile)（默认 qt/qmake/import.qml）。
+  无 QML/RCC 时该文件永不生成 → 每次判定过期 → NewGuid 工作目录 → include 变 → 全量重编。
+  占位文件只需存在；勿在已存在时改写时间戳。
+-->
+<Project>
+  <Target Name="CloudSimEnsureQtImportPlaceholder" BeforeTargets="QtVars"
+          Condition="'$(QtQmlStaticImportFile)' != ''">
+    <PropertyGroup>
+      <_CloudSimQtImportDir>$([System.IO.Path]::GetDirectoryName($(QtQmlStaticImportFile)))</_CloudSimQtImportDir>
+    </PropertyGroup>
+    <MakeDir Condition="'$(_CloudSimQtImportDir)' != '' AND !Exists('$(_CloudSimQtImportDir)')"
+             Directories="$(_CloudSimQtImportDir)" />
+    <WriteLinesToFile Condition="!Exists('$(QtQmlStaticImportFile)')"
+                      File="$(QtQmlStaticImportFile)"
+                      Lines="/* cloudsim: QtVars input placeholder */"
+                      Overwrite="true" />
+  </Target>
+</Project>

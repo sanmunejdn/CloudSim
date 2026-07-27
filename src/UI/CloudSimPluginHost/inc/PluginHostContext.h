@@ -123,6 +123,8 @@ public:
 	bool isShowingCentralAlternate() const override;
 	void enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel) override;
 	void exitProcessFlowSideUi() override;
+	void enterAlternateSideUi(QWidget* leftPanel, QWidget* rightPanel) override;
+	void exitAlternateSideUi() override;
 
 	void onProjectAboutToSave(std::function<void(const QString& documentId, QJsonObject& root)> callback) override;
 	void onProjectLoaded(std::function<void(const QString& documentId, const QJsonObject& root)> callback) override;
@@ -141,6 +143,20 @@ public:
 	void onWorkspaceModeClaimed(std::function<void(const QString& modeId)> callback) override;
 	QString currentWorkspaceMode() const override;
 
+	void registerWorkspaceMode(const QString& modeId, const QString& titleZh, const QString& titleEn,
+							   std::function<void()> enterFn) override;
+	void returnToMainWorkspace() override;
+	void enterWorkspaceMode(const QString& modeId) override;
+
+	struct WorkspaceModeRegistration
+	{
+		QString modeId;
+		QString titleZh;
+		QString titleEn;
+		std::function<void()> enterFn;
+	};
+	const std::vector<WorkspaceModeRegistration>& workspaceModes() const { return m_workspaceModes; }
+
 	/// AI ActionPlan：树选中对象 id
 	QString selectedBackendId() const;
 
@@ -156,6 +172,8 @@ private:
 	bool registerMeshFromSoup(std::vector<float> soup, const PluginMeshCreateOptions& options, QString* outError,
 							  QString* outBackendId = nullptr);
 
+	void ensureBuiltinMainWorkspaceMode();
+
 	IPluginMainWindowHost* m_mainWindowHost = nullptr;
 	std::unique_ptr<PluginPointCloudHostImpl> m_pointCloudHost;
 	std::unique_ptr<PluginGeometryHostImpl> m_geometryHost;
@@ -170,6 +188,7 @@ private:
 	IProcessFlowAiBridge* m_processFlowAiBridge = nullptr;
 	QString m_workspaceMode;
 	std::vector<std::function<void(const QString&)>> m_workspaceModeCallbacks;
+	std::vector<WorkspaceModeRegistration> m_workspaceModes;
 };
 
 #endif // CLOUDSIMPLUGINHOST_PLUGINHOSTCONTEXT_H

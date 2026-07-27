@@ -40,6 +40,8 @@
 #include "RunLogger.h"
 #include "StyledDockTitleBar.h"
 #include "WidgetRenderAccess.h"
+#include "PluginHostContext.h"
+#include "PluginManager.h"
 #include "qteditorfactory.h"
 #include "qttreepropertybrowser.h"
 #include "qtvariantproperty.h"
@@ -60,6 +62,7 @@
 #include <QRegularExpression>
 #include <QSet>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 #include <QToolBar>
 #include <QMetaObject>
 #include <QStatusBar>
@@ -139,6 +142,9 @@ void MainWindow::applyLanguage()
 	}
 	if (m_settingsMenu)
 		m_settingsMenu->setTitle(i18n(QStringLiteral("Settings"), QStringLiteral("设置")));
+	if (m_workspaceModeMenu)
+		m_workspaceModeMenu->setTitle(i18n(QStringLiteral("Mode Switch"), QStringLiteral("模式切换")));
+	rebuildWorkspaceModeSwitcher();
 	if (m_appearanceMenu)
 	{
 		m_appearanceMenu->setTitle(i18n(QStringLiteral("Theme"), QStringLiteral("风格")));
@@ -1145,25 +1151,42 @@ void MainWindow::setModeToolBar(QWidget* toolBar)
 		m_modeToolBar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 	}
 
-	// QToolBar::addWidget 后由工具栏持有；~QWidgetAction / setDefaultWidget(nullptr) 都会删控件，故此处只显隐
+	// addWidget 走 QWidgetAction：只改子控件 visible 无效，会两套 Ribbon 并排
+	auto setExclusive = [this](QWidget* active)
+	{
+		for (QAction* a : m_modeToolBar->actions())
+		{
+			if (QWidget* w = m_modeToolBar->widgetForAction(a))
+			{
+				const bool on = (active != nullptr && w == active);
+				a->setVisible(on);
+				w->setVisible(on);
+			}
+		}
+	};
+
 	if (!toolBar)
 	{
+		setExclusive(nullptr);
 		m_modeToolBar->hide();
 		return;
 	}
 
+	bool found = false;
 	for (QAction* a : m_modeToolBar->actions())
 	{
 		if (m_modeToolBar->widgetForAction(a) == toolBar)
 		{
-			m_modeToolBar->show();
-			refreshModeToolBarTheme();
-			return;
+			found = true;
+			break;
 		}
 	}
-
-	toolBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-	m_modeToolBar->addWidget(toolBar);
+	if (!found)
+	{
+		toolBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+		m_modeToolBar->addWidget(toolBar);
+	}
+	setExclusive(toolBar);
 	m_modeToolBar->show();
 	refreshModeToolBarTheme();
 }
@@ -1182,6 +1205,61 @@ void MainWindow::refreshModeToolBarTheme()
 			QMetaObject::invokeMethod(w, "applyTheme", Qt::DirectConnection, Q_ARG(bool, dark));
 		}
 	}
+}
+
+void MainWindow::notifyWorkspaceModesChanged()
+{
+	rebuildWorkspaceModeSwitcher();
+}
+
+void MainWindow::rebuildWorkspaceModeSwitcher()
+{
+	struct ModeItem
+	{
+		QString modeId;
+		QString titleZh;
+		QString titleEn;
+	};
+	std::vector<ModeItem> items;
+	if (m_pluginManager && m_pluginManager->hostContext())
+	{
+		for (const auto& reg : m_pluginManager->hostContext()->workspaceModes())
+		{
+			items.push_back({reg.modeId, reg.titleZh, reg.titleEn});
+		}
+	}
+	if (items.empty())
+		items.push_back({QString(), QStringLiteral("主程序"), QStringLiteral("Main")});
+	const QString cur =
+		(m_pluginManager && m_pluginManager->hostContext()) ? m_pluginManager->hostContext()->currentWorkspaceMode()
+															: QString();
+	const bool zh = useChinese();
+
+	if (!m_workspaceModeMenu || !m_workspaceModeActionGroup)
+		return;
+
+	const QList<QAction*> old = m_workspaceModeMenu->actions();
+	for (QAction* a : old)
+	{
+		m_workspaceModeActionGroup->removeAction(a);
+		m_workspaceModeMenu->removeAction(a);
+		delete a;
+	}
+	for (const auto& item : items)
+	{
+		QAction* act = m_workspaceModeMenu->addAction(zh ? item.titleZh : item.titleEn);
+		act->setCheckable(true);
+		act->setData(item.modeId);
+		act->setChecked(item.modeId == cur);
+		m_workspaceModeActionGroup->addAction(act);
+	}
+}
+
+void MainWindow::onWorkspaceModeMenuTriggered(QAction* action)
+{
+	if (!action)
+		return;
+	onWorkspaceModeRequested(action->data().toString());
 }
 
 void MainWindow::enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel)
@@ -1422,6 +1500,16 @@ void MainWindow::exitProcessFlowSideUi()
 		hideSideDock(m_unitDock, m_rightDockSavedWidth);
 	}
 	syncSidePanelToggleUi();
+}
+
+void MainWindow::enterAlternateSideUi(QWidget* leftPanel, QWidget* rightPanel)
+{
+	enterProcessFlowSideUi(leftPanel, rightPanel);
+}
+
+void MainWindow::exitAlternateSideUi()
+{
+	exitProcessFlowSideUi();
 }
 
 void MainWindow::afterBackendFollowPropertyEdited(const QString& propertyKey, const QString& valueText)

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="inc">
+      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="inc\Plugin">
+      <UniqueIdentifier>{B2C3D4E5-F6A7-8901-BCDE-F12345678901}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inc\UI">
+      <UniqueIdentifier>{C3D4E5F6-A7B8-9012-CDEF-123456789012}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{D4E5F6A7-B8C9-0123-DEF0-234567890123}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="src\Plugin">
+      <UniqueIdentifier>{E5F6A7B8-C9D0-1234-EF01-345678901234}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\UI">
+      <UniqueIdentifier>{F6A7B8C9-D0E1-2345-F012-456789012345}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="inc\DrawingExport.h">
+      <Filter>inc\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\SheetSketchAdapter.h">
+      <Filter>inc\UI</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\EngineeringDrawingPlugin.cpp">
+      <Filter>src\Plugin</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DrawingSheetCanvasWidget.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DrawingPageWidget.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DrawingRibbonBar.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DrawingSidePanel.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DrawingInfoPanel.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\DrawingExport.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SheetSketchAdapter.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\GeometricModelingPlugin\source\SketchGeom.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\GeometricModelingPlugin\source\SketchTools.cpp">
+      <Filter>src\UI</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="inc\EngineeringDrawingPlugin.h">
+      <Filter>inc\Plugin</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\DrawingSheetCanvasWidget.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\DrawingPageWidget.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\DrawingRibbonBar.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\DrawingSidePanel.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+    <QtMoc Include="inc\DrawingInfoPanel.h">
+      <Filter>inc\UI</Filter>
+    </QtMoc>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="plugin.json">
+      <Filter>src\Plugin</Filter>
+    </None>
+  </ItemGroup>
+</Project>

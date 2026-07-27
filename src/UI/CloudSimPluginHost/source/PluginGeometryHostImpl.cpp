@@ -21,6 +21,7 @@
 #include "SketchExtrude.h"
 #include "SketchSweep.h"
 #include "MeshDiscretize.h"
+#include "HlrProject.h"
 #include "SketchPlane.h"
 #include "WidgetDocumentAccess.h"
 
@@ -1774,4 +1775,126 @@ void PluginGeometryHostImpl::sweepSketchProfileToBrep(IPluginDocument* doc,
 	PluginGeometryJobResult job;
 	job.newBackendId = body->id();
 	onFinished(true, QString(), job);
+}
+
+void PluginGeometryHostImpl::projectBrepHlrToDrawing(IPluginDocument* doc, const std::string& backendIdUtf8,
+													 PluginDrawingHlrFinishedFn onFinished)
+{
+	PluginDrawingProjectParams params;
+	params.thirdAngle = false;
+	params.includeIso = false;
+	params.includeSection = false;
+	projectBrepToEngineeringDrawing(doc, backendIdUtf8, params, std::move(onFinished));
+}
+
+void PluginGeometryHostImpl::projectBrepToEngineeringDrawing(IPluginDocument* doc, const std::string& backendIdUtf8,
+															 const PluginDrawingProjectParams& params,
+															 PluginDrawingHlrFinishedFn onFinished)
+{
+	if (!m_host || !onFinished)
+	{
+		return;
+	}
+	cloudsim::host::DocumentHost* page = pageFromDoc(doc);
+	if (!page)
+	{
+		onFinished(false, QStringLiteral("No active document"), {});
+		return;
+	}
+	if (backendIdUtf8.empty())
+	{
+		onFinished(false, QStringLiteral("Empty backendId"), {});
+		return;
+	}
+
+	geoalgo::ShapeHandle shape;
+	geoalgo::WorkpieceRef shapeRef;
+	std::string resolveErr;
+	const QString stepPath = stepPathForBackend(page, backendIdUtf8);
+	if (geometry_backend_ops::resolveWorkpieceShape(backendIdUtf8, page->backend(), stepPath.toStdString(), shape,
+													shapeRef, &resolveErr) ==
+		geometry_backend_ops::WorkpieceShapeSource::Unavailable)
+	{
+		onFinished(false, QString::fromStdString(resolveErr.empty() ? "Cannot resolve B-rep shape" : resolveErr), {});
+		return;
+	}
+
+	struct HlrWorkResult
+	{
+		geoalgo::HlrDrawingBundle bundle;
+		std::string error;
+		bool ok = false;
+	};
+	auto result = std::make_shared<HlrWorkResult>();
+	const PluginDrawingProjectParams jobParams = params;
+	const geoalgo::ShapeHandle shapeCopy = shape.clone();
+	m_host->enqueueJob(
+		QStringLiteral("Engineering drawing projection"),
+		[result, shapeCopy, jobParams](const PluginJobProgressFn& report)
+		{
+			report(0.2, QStringLiteral("HLR..."));
+			geoalgo::TessellateParams tess;
+			tess.linearDeflectionMm = 0.1;
+			tess.linearDeflectionRelative = false;
+			tess.angularDeflectionDeg = 0.5;
+			const geoalgo::HlrProjectionAngle angle =
+				jobParams.thirdAngle ? geoalgo::HlrProjectionAngle::Third : geoalgo::HlrProjectionAngle::First;
+			geoalgo::DrawingSectionPlane secPlane = geoalgo::DrawingSectionPlane::FrontParallel;
+			if (jobParams.sectionPlane == 1)
+				secPlane = geoalgo::DrawingSectionPlane::TopParallel;
+			else if (jobParams.sectionPlane == 2)
+				secPlane = geoalgo::DrawingSectionPlane::RightParallel;
+			result->ok = geoalgo::projectShapeHlrDrawingBundle(shapeCopy, angle, jobParams.includeIso,
+															   jobParams.includeSection, secPlane, tess,
+															   result->bundle, &result->error);
+			report(1.0, QStringLiteral("Done"));
+		},
+		[result, onFinished = std::move(onFinished)](const bool threw, const QString& throwMessage)
+		{
+			PluginDrawingHlrResult out;
+			if (threw)
+			{
+				onFinished(false, throwMessage, out);
+				return;
+			}
+			if (!result->ok)
+			{
+				onFinished(false, QString::fromStdString(result->error), out);
+				return;
+			}
+
+			auto packView = [](const char* id, const geoalgo::HlrViewPolylines& src) {
+				PluginDrawingHlrViewResult v;
+				v.viewId = id;
+				auto toXy = [](const std::vector<geoalgo::Polyline3d>& polys) {
+					std::vector<std::vector<float>> outPolys;
+					outPolys.reserve(polys.size());
+					for (const geoalgo::Polyline3d& p : polys)
+					{
+						std::vector<float> xy;
+						xy.reserve(p.xyz.size() * 2 / 3);
+						for (std::size_t i = 0; i + 2 < p.xyz.size(); i += 3)
+						{
+							xy.push_back(p.xyz[i]);
+							xy.push_back(p.xyz[i + 1]);
+						}
+						if (xy.size() >= 4)
+							outPolys.push_back(std::move(xy));
+					}
+					return outPolys;
+				};
+				v.visibleXy = toXy(src.visible);
+				v.hiddenXy = toXy(src.hidden);
+				return v;
+			};
+
+			out.views.push_back(packView("front", result->bundle.front));
+			out.views.push_back(packView("top", result->bundle.top));
+			out.views.push_back(packView("right", result->bundle.right));
+			if (result->bundle.hasIso)
+				out.views.push_back(packView("iso", result->bundle.iso));
+			if (result->bundle.hasSection)
+				out.views.push_back(packView("section", result->bundle.section));
+			onFinished(true, QString(), out);
+		});
 }

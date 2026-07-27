@@ -33,6 +33,7 @@ inline constexpr const char* kDisplayCoordinateFrame = "CoordinateFrame";
 /// project.json 插件侧车根键
 inline constexpr const char* kProjectKeyProcessFlow = "processFlow";
 inline constexpr const char* kProjectKeyGeometricModeling = "geometricModeling";
+inline constexpr const char* kProjectKeyEngineeringDrawing = "engineeringDrawing";
 
 inline bool isBrepWorkpieceClassName(const std::string& className)
 {

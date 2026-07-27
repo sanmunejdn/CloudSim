@@ -133,10 +133,13 @@ public:
 	bool isShowingCentralAlternate() const override;
 	void enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel) override;
 	void exitProcessFlowSideUi() override;
+	void enterAlternateSideUi(QWidget* leftPanel, QWidget* rightPanel) override;
+	void exitAlternateSideUi() override;
 	bool embedActiveRenderWidget(QWidget* slot, QString* outError = nullptr) override;
 	void restoreActiveRenderWidget() override;
 	void setModeToolBar(QWidget* toolBar) override;
 	void refreshModeToolBarTheme();
+	void notifyWorkspaceModesChanged() override;
 	JobSystem* jobSystem();
 	int meshImportQuality() const { return m_meshImportQuality; }
 	void setMeshImportQuality(int quality) { m_meshImportQuality = quality; }
@@ -175,6 +178,9 @@ private:
 	friend void wireMainWindowDocumentSceneSignals(MainWindow& mw, DocumentPage* page, MainWindowRobotHost* robotHost);
 	void setupMenuBar();
 	void setupDockWidgets();
+	void rebuildWorkspaceModeSwitcher();
+	void onWorkspaceModeRequested(const QString& modeId);
+	void onWorkspaceModeMenuTriggered(QAction* action);
 	void applyLanguage();
 	/// 关窗/析构：停仿真与 JobSystem，避免子线程拖住进程
 	void shutdownRuntimeWorkers();
@@ -362,6 +368,8 @@ protected:
 	QMenu* m_viewMenu = nullptr;
 	QMenu* m_insertMenu = nullptr;
 	QMenu* m_settingsMenu = nullptr;
+	QMenu* m_workspaceModeMenu = nullptr;
+	QActionGroup* m_workspaceModeActionGroup = nullptr;
 	QMenu* m_languageMenu = nullptr;
 	QMenu* m_appearanceMenu = nullptr;
 	QAction* m_createCoordinateFrameAction = nullptr;

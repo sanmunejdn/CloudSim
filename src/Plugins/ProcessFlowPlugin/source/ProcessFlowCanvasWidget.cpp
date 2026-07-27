@@ -1141,11 +1141,18 @@ void ProcessFlowCanvasWidget::drawNode(QPainter* painter, const Node& node, bool
 						 selected ? 3 : (m_busyNodeIds.contains(node.id) ? 3 : 2)));
 	painter->setBrush(m_busyNodeIds.contains(node.id) ? QColor(QStringLiteral("#FEF2F2"))
 													  : QColor(QStringLiteral("#FFFFFF")));
-	painter->drawRoundedRect(rect, 8 * s, 8 * s);
+	const double cornerR = 8.0 * s;
+	painter->drawRoundedRect(rect, cornerR, cornerR);
+	// 色条圆角须与外框一致；独立 drawRoundedRect(4*s) 会在侧边顶出半圆
+	const double barW = 9.0 * s;
+	QPainterPath cardClip;
+	cardClip.addRoundedRect(rect, cornerR, cornerR);
+	painter->save();
+	painter->setClipPath(cardClip);
 	painter->setPen(Qt::NoPen);
 	painter->setBrush(node.color);
-	const double barW = 9.0 * s;
-	painter->drawRoundedRect(QRectF(rect.left(), rect.top(), barW, rect.height()), 4 * s, 4 * s);
+	painter->drawRect(QRectF(rect.left(), rect.top(), barW, rect.height()));
+	painter->restore();
 
 	const double textLeft = rect.left() + barW + 8.0 * s;
 	const double textWidth = std::max(8.0, rect.right() - 12.0 * s - textLeft);

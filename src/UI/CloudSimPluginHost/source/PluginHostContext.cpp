@@ -42,6 +42,8 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMetaObject>
+#include <QString>
+#include <QStringList>
 #include <QTabWidget>
 #include <QThread>
 #include <QUuid>
@@ -136,6 +138,7 @@ PluginHostContext::PluginHostContext(IPluginMainWindowHost* mainWindowHost, QObj
 	  m_labelingHost(std::make_unique<PluginLabelingHostImpl>(this)),
 	  m_aiHost(std::make_unique<AiAssistantHostImpl>(this))
 {
+	ensureBuiltinMainWorkspaceMode();
 }
 
 PluginHostContext::~PluginHostContext() = default;
@@ -840,17 +843,27 @@ bool PluginHostContext::isShowingCentralAlternate() const
 
 void PluginHostContext::enterProcessFlowSideUi(QWidget* leftPanel, QWidget* rightPanel)
 {
-	if (m_mainWindowHost)
-	{
-		m_mainWindowHost->enterProcessFlowSideUi(leftPanel, rightPanel);
-	}
+	enterAlternateSideUi(leftPanel, rightPanel);
 }
 
 void PluginHostContext::exitProcessFlowSideUi()
 {
+	exitAlternateSideUi();
+}
+
+void PluginHostContext::enterAlternateSideUi(QWidget* leftPanel, QWidget* rightPanel)
+{
 	if (m_mainWindowHost)
 	{
-		m_mainWindowHost->exitProcessFlowSideUi();
+		m_mainWindowHost->enterAlternateSideUi(leftPanel, rightPanel);
+	}
+}
+
+void PluginHostContext::exitAlternateSideUi()
+{
+	if (m_mainWindowHost)
+	{
+		m_mainWindowHost->exitAlternateSideUi();
 	}
 }
 
@@ -888,11 +901,7 @@ void PluginHostContext::claimWorkspaceMode(const QString& modeId)
 		return;
 	}
 	m_workspaceMode = modeId;
-	// 非几何建模模式不占 Ribbon
-	if (modeId != QLatin1String("com.cloudsim.geomodeling"))
-	{
-		setModeToolBar(nullptr);
-	}
+	// Ribbon 由各模式 enter/exit 或 returnToMainWorkspace 显式管理，避免工程图 claim 后无法再挂栏
 	for (const auto& cb : m_workspaceModeCallbacks)
 	{
 		if (cb)
@@ -913,6 +922,97 @@ void PluginHostContext::onWorkspaceModeClaimed(std::function<void(const QString&
 QString PluginHostContext::currentWorkspaceMode() const
 {
 	return m_workspaceMode;
+}
+
+void PluginHostContext::ensureBuiltinMainWorkspaceMode()
+{
+	for (const WorkspaceModeRegistration& m : m_workspaceModes)
+	{
+		if (m.modeId.isEmpty())
+			return;
+	}
+	WorkspaceModeRegistration main;
+	main.modeId = QString();
+	main.titleZh = QStringLiteral("主程序");
+	main.titleEn = QStringLiteral("Main");
+	main.enterFn = [this]() { returnToMainWorkspace(); };
+	m_workspaceModes.insert(m_workspaceModes.begin(), std::move(main));
+}
+
+void PluginHostContext::registerWorkspaceMode(const QString& modeId, const QString& titleZh, const QString& titleEn,
+											 std::function<void()> enterFn)
+{
+	ensureBuiltinMainWorkspaceMode();
+	if (modeId.isEmpty())
+	{
+		// 主程序已内建，忽略插件覆盖
+		return;
+	}
+	for (WorkspaceModeRegistration& m : m_workspaceModes)
+	{
+		if (m.modeId == modeId)
+		{
+			m.titleZh = titleZh;
+			m.titleEn = titleEn;
+			m.enterFn = std::move(enterFn);
+			if (m_mainWindowHost)
+				m_mainWindowHost->notifyWorkspaceModesChanged();
+			return;
+		}
+	}
+
+	// 固定顺序：主 → 几何 → 工艺 → 工程图 → 其它
+	const QStringList preferred = {QStringLiteral("com.cloudsim.geomodeling"), QStringLiteral("com.cloudsim.processflow"),
+								   QStringLiteral("com.cloudsim.drawing")};
+	WorkspaceModeRegistration entry;
+	entry.modeId = modeId;
+	entry.titleZh = titleZh;
+	entry.titleEn = titleEn;
+	entry.enterFn = std::move(enterFn);
+
+	int insertAt = static_cast<int>(m_workspaceModes.size());
+	const int prefIdx = preferred.indexOf(modeId);
+	if (prefIdx >= 0)
+	{
+		insertAt = 1;
+		for (int i = 1; i < static_cast<int>(m_workspaceModes.size()); ++i)
+		{
+			const int otherPref = preferred.indexOf(m_workspaceModes[static_cast<size_t>(i)].modeId);
+			if (otherPref < 0 || otherPref > prefIdx)
+			{
+				insertAt = i;
+				break;
+			}
+			insertAt = i + 1;
+		}
+	}
+	m_workspaceModes.insert(m_workspaceModes.begin() + insertAt, std::move(entry));
+	if (m_mainWindowHost)
+		m_mainWindowHost->notifyWorkspaceModesChanged();
+}
+
+void PluginHostContext::returnToMainWorkspace()
+{
+	claimWorkspaceMode(QString());
+	setModeToolBar(nullptr);
+	restoreActiveRenderWidget();
+	setCentralAlternateWidget(nullptr);
+	showCentralScene3D();
+	exitAlternateSideUi();
+}
+
+void PluginHostContext::enterWorkspaceMode(const QString& modeId)
+{
+	ensureBuiltinMainWorkspaceMode();
+	for (const WorkspaceModeRegistration& m : m_workspaceModes)
+	{
+		if (m.modeId == modeId)
+		{
+			if (m.enterFn)
+				m.enterFn();
+			return;
+		}
+	}
 }
 
 void PluginHostContext::onProjectAboutToSave(std::function<void(const QString& documentId, QJsonObject& root)> callback)

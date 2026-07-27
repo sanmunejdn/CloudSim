@@ -106,6 +106,13 @@ public:
 								  const std::vector<float>& pathPolylineXyzMm, const PluginSketchSweepParams& params,
 								  PluginGeometryFinishedFn onFinished) override;
 
+	void projectBrepHlrToDrawing(IPluginDocument* doc, const std::string& backendIdUtf8,
+								 PluginDrawingHlrFinishedFn onFinished) override;
+
+	void projectBrepToEngineeringDrawing(IPluginDocument* doc, const std::string& backendIdUtf8,
+										 const PluginDrawingProjectParams& params,
+										 PluginDrawingHlrFinishedFn onFinished) override;
+
 private:
 	void clearSketchSupportPlanePick();
 

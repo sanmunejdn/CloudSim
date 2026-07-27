@@ -109,7 +109,8 @@ bool ProcessFlowPlugin::initialize(IPluginHostContext* host)
 	host->onProjectLoaded([this](const QString& documentId, const QJsonObject& root)
 						  { onProjectLoaded(documentId, root); });
 
-	registerMenus();
+	host->registerWorkspaceMode(pluginId(), QStringLiteral("工艺流程"), QStringLiteral("Process Flow"),
+								[this]() { enterProcessFlow(); });
 	applyLanguage();
 	host->logInfo(host->useChinese() ? QStringLiteral("工艺流程插件已加载。")
 									 : QStringLiteral("Process Flow plugin initialized."));
@@ -292,27 +293,7 @@ void ProcessFlowPlugin::shutdown()
 
 void ProcessFlowPlugin::registerMenus()
 {
-	if (!m_host)
-	{
-		return;
-	}
-	m_menu = m_host->registerMenuPath({QStringLiteral("工艺流程")});
-	if (!m_menu)
-	{
-		return;
-	}
-	m_enterAction =
-		m_host->registerAction(m_menu, QStringLiteral("进入工艺流程"), [this]() { enterProcessFlow(); });
-	m_exitAction =
-		m_host->registerAction(m_menu, QStringLiteral("返回三维场景"), [this]() { exitProcessFlow(); });
-	m_runAction = m_host->registerAction(m_menu, QStringLiteral("运行仿真"), [this]() { runSimulation(); });
-	m_stopAction = m_host->registerAction(m_menu, QStringLiteral("停止仿真"), [this]()
-										  {
-											  if (m_sim)
-											  {
-												  m_sim->stop();
-											  }
-										  });
+	// 模式切换改由宿主顶栏分段 / 设置→模式切换；仿真启停在工艺流程侧栏
 }
 
 void ProcessFlowPlugin::applyLanguage()
@@ -322,26 +303,6 @@ void ProcessFlowPlugin::applyLanguage()
 		return;
 	}
 	const bool zh = m_host->useChinese();
-	if (m_menu)
-	{
-		m_menu->setTitle(zh ? QStringLiteral("工艺流程") : QStringLiteral("Process Flow"));
-	}
-	if (m_enterAction)
-	{
-		m_enterAction->setText(zh ? QStringLiteral("进入工艺流程") : QStringLiteral("Enter Process Flow"));
-	}
-	if (m_exitAction)
-	{
-		m_exitAction->setText(zh ? QStringLiteral("返回三维场景") : QStringLiteral("Back to 3D Scene"));
-	}
-	if (m_runAction)
-	{
-		m_runAction->setText(zh ? QStringLiteral("运行仿真") : QStringLiteral("Run Simulation"));
-	}
-	if (m_stopAction)
-	{
-		m_stopAction->setText(zh ? QStringLiteral("停止仿真") : QStringLiteral("Stop Simulation"));
-	}
 	if (m_palette)
 	{
 		m_palette->applyLanguage(zh);
@@ -377,8 +338,9 @@ void ProcessFlowPlugin::enterProcessFlow()
 		return;
 	}
 	m_host->claimWorkspaceMode(pluginId());
+	m_host->setModeToolBar(nullptr);
 	m_host->setCentralAlternateWidget(page);
-	m_host->enterProcessFlowSideUi(m_palette, m_simSide);
+	m_host->enterAlternateSideUi(m_palette, m_simSide);
 	m_host->showCentralAlternate();
 	bindCanvasSelection(page);
 	if (m_simSide && m_simSide->jobSetPanel())
@@ -400,6 +362,17 @@ void ProcessFlowPlugin::softExitProcessFlow()
 		m_sim->stop();
 	}
 	m_inProcessFlow = false;
+	if (m_palette && m_palette->propertyPanel())
+	{
+		m_palette->propertyPanel()->clearSelection();
+	}
+	if (!m_host)
+	{
+		return;
+	}
+	m_host->setModeToolBar(nullptr);
+	m_host->setCentralAlternateWidget(nullptr);
+	m_host->exitAlternateSideUi();
 }
 
 void ProcessFlowPlugin::exitProcessFlow()
@@ -413,9 +386,7 @@ void ProcessFlowPlugin::exitProcessFlow()
 		m_sim->stop();
 	}
 	m_inProcessFlow = false;
-	m_host->claimWorkspaceMode(QString());
-	m_host->showCentralScene3D();
-	m_host->exitProcessFlowSideUi();
+	m_host->returnToMainWorkspace();
 	if (m_palette && m_palette->propertyPanel())
 	{
 		m_palette->propertyPanel()->clearSelection();

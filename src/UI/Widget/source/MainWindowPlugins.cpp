@@ -2,6 +2,7 @@
 /// @brief MainWindowPlugins 实现
 
 #include "MainWindow.h"
+#include "PluginHostContext.h"
 #include "PluginManager.h"
 
 #include <QAction>
@@ -217,6 +218,25 @@ void MainWindow::loadPlugins()
 
 	m_pluginManager->loadAllFromPluginsDirectory();
 	refreshAiAssistantHost();
+	if (PluginHostContext* ctx = m_pluginManager->hostContext())
+	{
+		ctx->onWorkspaceModeClaimed(
+			[this](const QString& modeId)
+			{
+				if (!m_workspaceModeMenu)
+					return;
+				for (QAction* a : m_workspaceModeMenu->actions())
+					a->setChecked(a->data().toString() == modeId);
+			});
+	}
+	rebuildWorkspaceModeSwitcher();
+}
+
+void MainWindow::onWorkspaceModeRequested(const QString& modeId)
+{
+	if (!m_pluginManager || !m_pluginManager->hostContext())
+		return;
+	m_pluginManager->hostContext()->enterWorkspaceMode(modeId);
 }
 
 void MainWindow::notifyPluginsLanguageChanged()

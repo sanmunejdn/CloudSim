@@ -156,7 +156,7 @@ bool GeometricModelingPlugin::initialize(IPluginHostContext* host)
 				m_host->restoreActiveRenderWidget();
 				m_host->setCentralAlternateWidget(nullptr);
 				m_host->showCentralScene3D();
-				m_host->enterProcessFlowSideUi(page->featureTreePanel(), nullptr);
+				m_host->enterAlternateSideUi(page->featureTreePanel(), nullptr);
 				if (m_sketch.active())
 					page->showLegendOverlay();
 				else
@@ -174,7 +174,8 @@ bool GeometricModelingPlugin::initialize(IPluginHostContext* host)
 	host->onProjectLoaded([this](const QString& id, const QJsonObject& root) { onProjectLoaded(id, root); });
 
 	host->onLanguageChanged([this](bool) { applyLanguage(); });
-	registerMenus();
+	host->registerWorkspaceMode(pluginId(), QStringLiteral("\u51e0\u4f55\u5efa\u6a21"), QStringLiteral("Modeling"),
+								[this]() { enterGeometricModeling(); });
 	applyLanguage();
 	hostLogInfo(i18n(QStringLiteral("Geometric Modeling plugin loaded."), QStringLiteral("\u51e0\u4f55\u5efa\u6a21\u63d2\u4ef6\u5df2\u52a0\u8f7d\u3002")));
 	return true;
@@ -200,13 +201,8 @@ void GeometricModelingPlugin::shutdown()
 
 void GeometricModelingPlugin::registerMenus()
 {
-	m_menu = m_host->registerMenuPath({QStringLiteral("\u51e0\u4f55\u5efa\u6a21")});
-	m_enterAction =
-		m_host->registerAction(m_menu, QStringLiteral("\u8fdb\u5165\u51e0\u4f55\u5efa\u6a21"), [this]() { enterGeometricModeling(); });
-	m_exitAction =
-		m_host->registerAction(m_menu, QStringLiteral("\u8fd4\u56de\u4e09\u7ef4\u573a\u666f"), [this]() { exitGeometricModeling(); });
+	// 模式切换改由宿主顶栏分段 / 设置→模式切换，不再注册顶层菜单
 }
-
 
 bool GeometricModelingPlugin::useChinese() const
 {
@@ -221,12 +217,6 @@ QString GeometricModelingPlugin::i18n(const QString& en, const QString& zh) cons
 void GeometricModelingPlugin::applyLanguage()
 {
 	const bool zh = useChinese();
-	if (m_menu)
-		m_menu->setTitle(gmTr(zh, QStringLiteral("Geometric Modeling"), QStringLiteral("\u51e0\u4f55\u5efa\u6a21")));
-	if (m_enterAction)
-		m_enterAction->setText(gmTr(zh, QStringLiteral("Enter Geometric Modeling"), QStringLiteral("\u8fdb\u5165\u51e0\u4f55\u5efa\u6a21")));
-	if (m_exitAction)
-		m_exitAction->setText(gmTr(zh, QStringLiteral("Back to 3D Scene"), QStringLiteral("\u8fd4\u56de\u4e09\u7ef4\u573a\u666f")));
 	if (m_ribbon)
 		m_ribbon->applyLanguage(zh);
 	m_sketch.setUseChinese(zh);
@@ -298,7 +288,7 @@ void GeometricModelingPlugin::enterGeometricModeling()
 	m_host->restoreActiveRenderWidget();
 	m_host->setCentralAlternateWidget(nullptr);
 	m_host->showCentralScene3D();
-	m_host->enterProcessFlowSideUi(page->featureTreePanel(), nullptr);
+	m_host->enterAlternateSideUi(page->featureTreePanel(), nullptr);
 	m_inMode = true;
 	if (!page->activeBodyId().isEmpty())
 		syncFeaturesFromBody(page);
@@ -323,6 +313,12 @@ void GeometricModelingPlugin::softExitMode()
 	m_inMode = false;
 	for (GeometricModelingPage* page : m_pages)
 		page->hideLegendOverlay();
+	if (!m_host)
+		return;
+	m_host->setModeToolBar(nullptr);
+	m_host->restoreActiveRenderWidget();
+	m_host->setCentralAlternateWidget(nullptr);
+	m_host->exitAlternateSideUi();
 }
 
 void GeometricModelingPlugin::exitGeometricModeling()
@@ -339,12 +335,7 @@ void GeometricModelingPlugin::exitGeometricModeling()
 	m_inMode = false;
 	for (GeometricModelingPage* page : m_pages)
 		page->hideLegendOverlay();
-	m_host->setModeToolBar(nullptr);
-	m_host->claimWorkspaceMode(QString());
-	m_host->restoreActiveRenderWidget();
-	m_host->setCentralAlternateWidget(nullptr);
-	m_host->showCentralScene3D();
-	m_host->exitProcessFlowSideUi();
+	m_host->returnToMainWorkspace();
 	hostLogInfo(i18n(QStringLiteral("Exited Geometric Modeling."), QStringLiteral("\u5df2\u9000\u51fa\u51e0\u4f55\u5efa\u6a21\u3002")));
 }
 

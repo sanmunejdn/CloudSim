@@ -38,11 +38,13 @@
 #include <QHeaderView>
 #include <QMenu>
 #include <QMenuBar>
+#include <QSize>
 #include <QSizePolicy>
 #include <QSplitter>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QTimer>
+#include <QToolBar>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 #include <QVBoxLayout>
@@ -384,6 +386,11 @@ void MainWindow::setupMenuBar()
 		QStringLiteral("Coordinate Frame..."), this, &MainWindow::onCreateCoordinateFrame);
 
 	m_settingsMenu = menuBar()->addMenu(QStringLiteral("Settings"));
+	m_workspaceModeMenu = m_settingsMenu->addMenu(QStringLiteral("Mode Switch"));
+	m_workspaceModeActionGroup = new QActionGroup(this);
+	m_workspaceModeActionGroup->setExclusive(true);
+	connect(m_workspaceModeActionGroup, &QActionGroup::triggered, this, &MainWindow::onWorkspaceModeMenuTriggered);
+	m_settingsMenu->addSeparator();
 	m_appearanceMenu = m_settingsMenu->addMenu(QStringLiteral("Theme"));
 	m_themeActionGroup = new QActionGroup(this);
 	m_themeActionGroup->setExclusive(true);
@@ -419,6 +426,8 @@ void MainWindow::setupMenuBar()
 	UiIconDecorators::apply(m_pointPickModeAction, UiIconId::PointPick);
 	UiIconDecorators::apply(m_meshLinePickModeAction, UiIconId::LinePick);
 	UiIconDecorators::apply(m_meshFacePickModeAction, UiIconId::FacePick);
+
+	rebuildWorkspaceModeSwitcher();
 }
 
 void MainWindow::setupDockWidgets()

@@ -133,6 +133,7 @@ flowchart TB
 | 文件 | 职责 |
 |------|------|
 | `MainWindowUiSetup.cpp` | 构造函数、菜单栏、Dock 布局、语言切换初始化 |
+| 设置 → 模式切换 | 工作区模式入口（主/几何/工艺/工程图） |
 | `MainWindow.cpp` | 核心逻辑、`applyLanguage()`、选择处理、`closeDocumentTab()` |
 | `MainWindowProjectIo.cpp` | 工程保存/加载（`.pcp` / `.json`） |
 | `MainWindowFileImport.cpp` | 模型/点云导入；「插入 → 坐标系」创建 `FrameBackendData` |

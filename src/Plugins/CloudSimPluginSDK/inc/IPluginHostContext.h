@@ -190,6 +190,18 @@ public:
 	virtual void claimWorkspaceMode(const QString& modeId) = 0;
 	virtual void onWorkspaceModeClaimed(std::function<void(const QString& modeId)> callback) = 0;
 	virtual QString currentWorkspaceMode() const = 0;
+
+	/// 1.34.0+：通用 alternate 侧栏（与工艺流程槽位同一实现；新代码优先用此名）
+	virtual void enterAlternateSideUi(QWidget* leftPanel, QWidget* rightPanel) = 0;
+	virtual void exitAlternateSideUi() = 0;
+
+	/// 1.35.0+：注册工作区模式供顶栏分段；主程序 modeId 为空串由宿主内建
+	virtual void registerWorkspaceMode(const QString& modeId, const QString& titleZh, const QString& titleEn,
+									   std::function<void()> enterFn) = 0;
+	/// 1.35.0+：退回主程序（清 Ribbon、中央 3D、退出 alternate 侧栏）
+	virtual void returnToMainWorkspace() = 0;
+	/// 1.35.0+：按已注册 modeId 调用 enterFn（顶栏分段点击）
+	virtual void enterWorkspaceMode(const QString& modeId) = 0;
 };
 
 #endif // CLOUDSIMPLUGINSDK_IPLUGINHOSTCONTEXT_H

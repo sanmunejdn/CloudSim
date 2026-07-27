@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <ItemGroup>
     <Filter Include="discretizers">
@@ -91,6 +91,9 @@
     </ClInclude>
     <ClInclude Include="inc\Discretize.h">
       <Filter>inc\FeatureDiscretize</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\HlrProject.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="inc\FeatureDiscretizeParamUtils.h">
       <Filter>inc\FeatureDiscretize</Filter>
@@ -231,6 +234,9 @@
     </ClCompile>
     <ClCompile Include="source\DiscretizeEdge.cpp">
       <Filter>src\FeatureDiscretize</Filter>
+    </ClCompile>
+    <ClCompile Include="source\HlrProject.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="source\FaceSectionDiscretize.cpp">
       <Filter>src\FeatureDiscretize</Filter>

@@ -268,4 +268,30 @@ enum class PluginOriginPlaneKind
 using PluginOriginPlanePickedFn =
 	std::function<void(bool ok, const QString& error, PluginOriginPlaneKind kind, const PluginSketchPlane& plane)>;
 
+/// 1.33.0+：单视图 HLR 折线（xy 交错，无 z）
+struct PluginDrawingHlrViewResult
+{
+	std::string viewId;
+	std::vector<std::vector<float>> visibleXy;
+	std::vector<std::vector<float>> hiddenXy;
+};
+
+struct PluginDrawingHlrResult
+{
+	std::vector<PluginDrawingHlrViewResult> views;
+};
+
+using PluginDrawingHlrFinishedFn =
+	std::function<void(bool ok, const QString& error, const PluginDrawingHlrResult& result)>;
+
+/// 1.34.0+：工程图投影参数
+struct PluginDrawingProjectParams
+{
+	bool thirdAngle = false;
+	bool includeIso = true;
+	bool includeSection = false;
+	/// 0=正视平行中面 1=俯视平行 2=右视平行
+	int sectionPlane = 0;
+};
+
 #endif // CLOUDSIMPLUGINSDK_PLUGINGEOMETRYTYPES_H
